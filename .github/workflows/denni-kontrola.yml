@@ -1,0 +1,107 @@
+# Denní bezpečnostní kontrola. Nic nevydává ani nepodepisuje - jen včas řekne, že je potřeba záplata (verze 3.0.x):
+#  1) kanál aktualizací na mirocms.eu je podepsaný naším klíčem a balíček odpovídá otisku (odhalí podvržení),
+#  2) testy na všech podporovaných verzích PHP a na připravované verzi (odhalí, co rozbije příští PHP),
+#  3) statická bezpečnostní analýza s denně aktualizovanými pravidly - nálezy jdou do Security → Code scanning,
+#     kam vidí jen správci repozitáře (veřejný záznam běhu je záměrně tichý),
+#  4) web projektu a demo posílají bezpečnostní hlavičky a neukazují soubory, které ukazovat nemají.
+# Když něco selže, založí se (nebo oživí) úkol „Denní kontrola selhala“ a GitHub pošle e-mail.
+name: Denní kontrola
+on:
+  schedule:
+    - cron: '23 3 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  kanal:
+    if: false # zapnout, až poběží web projektu a kanál aktualizací (mirocms.eu – doména zatím není rozhodnutá)
+    name: Kanál aktualizací
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with: { php-version: '8.4', extensions: 'sodium, zip', coverage: none }
+      - run: php tools/over-kanal.php
+
+  testy:
+    name: Testy na PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.php == 'nightly' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.4', '8.5', 'nightly']
+    services:
+      mysql:
+        image: mysql:8.4
+        env: { MYSQL_ROOT_PASSWORD: root }
+        ports: ['3306:3306']
+        options: --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with: { php-version: '${{ matrix.php }}', extensions: 'pdo_mysql, mbstring, gd, zip, sodium, intl, exif', coverage: none }
+      - run: tools/test.sh
+        env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root }
+
+  analyza:
+    name: Statická analýza
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Semgrep (výsledky jen do Code scanning)
+        run: |
+          docker run --rm -v "$PWD:/src" semgrep/semgrep semgrep scan --quiet --metrics=off \
+            --config p/php --config p/javascript --config p/secrets --config p/owasp-top-ten --config p/security-audit \
+            --sarif --output /src/semgrep.sarif /src || true
+      - uses: github/codeql-action/upload-sarif@v3
+        with: { sarif_file: semgrep.sarif, category: semgrep-denni }
+      - name: Nové nálezy vysoké závažnosti zastaví běh (bez podrobností v záznamu)
+        run: |
+          python3 - <<'PY'
+          import json, sys
+          vysledky = [r for beh in json.load(open('semgrep.sarif')).get('runs', []) for r in beh.get('results', []) if r.get('level') == 'error' and not r.get('suppressions')]
+          print(f'Nálezů vysoké závažnosti: {len(vysledky)} - podrobnosti v Security → Code scanning.')
+          sys.exit(1 if vysledky else 0)
+          PY
+      - name: Gitleaks
+        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:latest detect --source /repo --redact --no-banner
+
+  weby:
+    if: false # zapnout, až poběží web projektu a kanál aktualizací (mirocms.eu – doména zatím není rozhodnutá)
+    name: Web projektu a demo zvenku
+    runs-on: ubuntu-latest
+    steps:
+      - name: Bezpečnostní hlavičky a zavřené cesty
+        run: |
+          set -u
+          chyb=0
+          hlavicka() { curl -sSI -m 20 "$1" | tr -d '\r' | grep -qi "^$2:" || { echo "CHYBÍ $2 na $1"; chyb=$((chyb+1)); }; }
+          kod() { k=$(curl -sS -m 20 -o /dev/null -w '%{http_code}' "$1"); case " $2 " in *" $k "*) ;; *) echo "NEČEKANÝ kód $k na $1 (čekal jsem: $2)"; chyb=$((chyb+1));; esac; }
+          for h in strict-transport-security content-security-policy x-content-type-options referrer-policy; do hlavicka https://mirocms.eu/cs/ "$h"; done
+          kod https://mirocms.eu/aktualizace.json "200"
+          kod https://mirocms.eu/.htaccess "403 404"
+          for cesta in config.php system/bootstrap.php system/soubory.json storage/log/chyby.log .git/config tools/vydani.php; do kod "https://demo.mirocms.eu/$cesta" "403 404"; done
+          hlavicka https://demo.mirocms.eu/admin.php content-security-policy
+          exit "$chyb"
+
+  hlaseni:
+    name: Úkol při selhání
+    needs: [kanal, testy, analyza, weby]
+    if: ${{ failure() }}
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          BEH: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          cislo=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search 'in:title "Denní kontrola selhala"' --json number -q '.[0].number')
+          text="Denní kontrola dnes neprošla: $BEH
+          Podrobnosti statické analýzy jsou v Security → Code scanning (vidí je jen správci). Pokud jde o zranitelnost, neřešte ji tady veřejně - založte soukromé bezpečnostní oznámení a postupujte podle docs/VYDAVANI.md (vydání 3.0.x s příznakem --bezpecnostni)."
+          if [ -n "$cislo" ]; then gh issue comment "$cislo" --repo "$GITHUB_REPOSITORY" --body "$text"; else gh issue create --repo "$GITHUB_REPOSITORY" --title "Denní kontrola selhala" --body "$text"; fi

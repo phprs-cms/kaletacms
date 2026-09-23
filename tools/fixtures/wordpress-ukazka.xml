@@ -1,0 +1,293 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Ukázkový export z WordPressu (WXR 1.2) pro testy importu MiroCMS. Obsah je od začátku do konce smyšlený; doména .example neexistuje. -->
+<rss version="2.0"
+	xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/"
+	xmlns:content="http://purl.org/rss/1.0/modules/content/"
+	xmlns:wfw="http://wellformedweb.org/CommentAPI/"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:wp="http://wordpress.org/export/1.2/"
+>
+<channel>
+	<title>Podhorský zpravodaj</title>
+	<link>https://www.podhorsky-zpravodaj.example</link>
+	<description>Zprávy z údolí, které na mapě nenajdete</description>
+	<pubDate>Mon, 21 Sep 2026 08:00:00 +0000</pubDate>
+	<language>cs</language>
+	<wp:wxr_version>1.2</wp:wxr_version>
+	<wp:base_site_url>https://www.podhorsky-zpravodaj.example</wp:base_site_url>
+	<wp:base_blog_url>https://www.podhorsky-zpravodaj.example</wp:base_blog_url>
+
+	<wp:author><wp:author_id>1</wp:author_id><wp:author_login><![CDATA[redakce]]></wp:author_login><wp:author_email><![CDATA[redakce@podhorsky-zpravodaj.example]]></wp:author_email><wp:author_display_name><![CDATA[Redakce Zpravodaje]]></wp:author_display_name><wp:author_first_name><![CDATA[]]></wp:author_first_name><wp:author_last_name><![CDATA[]]></wp:author_last_name></wp:author>
+	<wp:author><wp:author_id>2</wp:author_id><wp:author_login><![CDATA[bhorakova]]></wp:author_login><wp:author_email><![CDATA[horakova@podhorsky-zpravodaj.example]]></wp:author_email><wp:author_display_name><![CDATA[Běla Horáková]]></wp:author_display_name><wp:author_first_name><![CDATA[Běla]]></wp:author_first_name><wp:author_last_name><![CDATA[Horáková]]></wp:author_last_name></wp:author>
+
+	<wp:category><wp:term_id>2</wp:term_id><wp:category_nicename><![CDATA[zpravy]]></wp:category_nicename><wp:category_parent><![CDATA[]]></wp:category_parent><wp:cat_name><![CDATA[Zprávy]]></wp:cat_name></wp:category>
+	<wp:category><wp:term_id>3</wp:term_id><wp:category_nicename><![CDATA[z-radnice]]></wp:category_nicename><wp:category_parent><![CDATA[zpravy]]></wp:category_parent><wp:cat_name><![CDATA[Z radnice]]></wp:cat_name></wp:category>
+	<wp:tag><wp:term_id>4</wp:term_id><wp:tag_slug><![CDATA[most]]></wp:tag_slug><wp:tag_name><![CDATA[most]]></wp:tag_name></wp:tag>
+	<wp:tag><wp:term_id>5</wp:term_id><wp:tag_slug><![CDATA[doprava]]></wp:tag_slug><wp:tag_name><![CDATA[doprava]]></wp:tag_name></wp:tag>
+	<wp:tag><wp:term_id>6</wp:term_id><wp:tag_slug><![CDATA[slavnosti]]></wp:tag_slug><wp:tag_name><![CDATA[Slavnosti]]></wp:tag_name></wp:tag>
+
+	<generator>https://wordpress.org/?v=6.6</generator>
+
+	<!-- 1. vydaný, „přilepený“ příspěvek z klasického editoru: [caption], [gallery], adresa YouTube, zkratka doplňku, komentáře -->
+	<item>
+		<title><![CDATA[Lávka přes Bystřinu se po roce znovu otevřela]]></title>
+		<link>https://www.podhorsky-zpravodaj.example/2026/05/lavka-pres-bystrinu/</link>
+		<pubDate>Tue, 12 May 2026 07:30:00 +0000</pubDate>
+		<dc:creator><![CDATA[bhorakova]]></dc:creator>
+		<guid isPermaLink="false">https://www.podhorsky-zpravodaj.example/?p=101</guid>
+		<description></description>
+		<content:encoded><![CDATA[Po dvanácti měsících oprav mohou lidé z Horní Lhoty zase přejít řeku suchou nohou. <strong>Lávka unese i cyklisty.</strong>
+Otevření přihlíželo na dvě stě lidí.
+
+[caption id="attachment_201" align="aligncenter" width="300"]<a href="https://www.podhorsky-zpravodaj.example/wp-content/uploads/2026/05/lavka.jpg"><img class="size-medium wp-image-201" src="https://www.podhorsky-zpravodaj.example/wp-content/uploads/2026/05/lavka-300x200.jpg" alt="Nová lávka" width="300" height="200" /></a> Nová lávka je o metr širší než ta původní[/caption]
+
+<h2>Jak šel čas</h2>
+Stavbu zdržela jarní voda. Záznam ze slavnostního otevření:
+
+https://www.youtube.com/watch?v=dQw4w9WgXcQ
+
+[gallery ids="201,202" columns="2"]
+
+[kontaktni-formular id="7" title="Napište nám"]
+<script>document.title = 'podvrh';</script>
+<p onclick="alert(1)">Další informace najdete <a href="javascript:alert(1)">na webu obce</a>.</p>]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>101</wp:post_id>
+		<wp:post_date><![CDATA[2026-05-12 09:30:00]]></wp:post_date>
+		<wp:post_date_gmt><![CDATA[2026-05-12 07:30:00]]></wp:post_date_gmt>
+		<wp:comment_status><![CDATA[open]]></wp:comment_status>
+		<wp:post_name><![CDATA[lavka-pres-bystrinu]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_parent>0</wp:post_parent>
+		<wp:post_type><![CDATA[post]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+		<wp:is_sticky>1</wp:is_sticky>
+		<category domain="category" nicename="z-radnice"><![CDATA[Z radnice]]></category>
+		<category domain="post_tag" nicename="most"><![CDATA[most]]></category>
+		<category domain="post_tag" nicename="doprava"><![CDATA[doprava]]></category>
+		<wp:postmeta><wp:meta_key><![CDATA[_edit_last]]></wp:meta_key><wp:meta_value><![CDATA[2]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_thumbnail_id]]></wp:meta_key><wp:meta_value><![CDATA[201]]></wp:meta_value></wp:postmeta>
+		<wp:comment>
+			<wp:comment_id>11</wp:comment_id>
+			<wp:comment_author><![CDATA[Vendula z Lhoty]]></wp:comment_author>
+			<wp:comment_author_email><![CDATA[vendula@posta.example]]></wp:comment_author_email>
+			<wp:comment_author_url></wp:comment_author_url>
+			<wp:comment_author_IP><![CDATA[198.51.100.23]]></wp:comment_author_IP>
+			<wp:comment_date><![CDATA[2026-05-12 18:04:11]]></wp:comment_date>
+			<wp:comment_date_gmt><![CDATA[2026-05-12 16:04:11]]></wp:comment_date_gmt>
+			<wp:comment_content><![CDATA[Konečně! Rok jsme chodili oklikou přes jez.]]></wp:comment_content>
+			<wp:comment_approved><![CDATA[1]]></wp:comment_approved>
+			<wp:comment_type><![CDATA[comment]]></wp:comment_type>
+			<wp:comment_parent>0</wp:comment_parent>
+			<wp:comment_user_id>0</wp:comment_user_id>
+		</wp:comment>
+		<wp:comment>
+			<wp:comment_id>12</wp:comment_id>
+			<wp:comment_author><![CDATA[Běla Horáková]]></wp:comment_author>
+			<wp:comment_author_email><![CDATA[horakova@podhorsky-zpravodaj.example]]></wp:comment_author_email>
+			<wp:comment_author_url></wp:comment_author_url>
+			<wp:comment_author_IP><![CDATA[198.51.100.40]]></wp:comment_author_IP>
+			<wp:comment_date><![CDATA[2026-05-13 08:15:00]]></wp:comment_date>
+			<wp:comment_date_gmt><![CDATA[2026-05-13 06:15:00]]></wp:comment_date_gmt>
+			<wp:comment_content><![CDATA[Děkujeme za trpělivost. Jez už snad budete potřebovat jen na koupání.]]></wp:comment_content>
+			<wp:comment_approved><![CDATA[1]]></wp:comment_approved>
+			<wp:comment_type><![CDATA[comment]]></wp:comment_type>
+			<wp:comment_parent>11</wp:comment_parent>
+			<wp:comment_user_id>2</wp:comment_user_id>
+		</wp:comment>
+		<wp:comment>
+			<wp:comment_id>13</wp:comment_id>
+			<wp:comment_author><![CDATA[Výhodné půjčky]]></wp:comment_author>
+			<wp:comment_author_email><![CDATA[spam@nevyzadane.example]]></wp:comment_author_email>
+			<wp:comment_author_url>https://nevyzadane.example</wp:comment_author_url>
+			<wp:comment_author_IP><![CDATA[203.0.113.99]]></wp:comment_author_IP>
+			<wp:comment_date><![CDATA[2026-05-14 02:00:00]]></wp:comment_date>
+			<wp:comment_date_gmt><![CDATA[2026-05-14 00:00:00]]></wp:comment_date_gmt>
+			<wp:comment_content><![CDATA[Skvělý článek, navštivte náš web!]]></wp:comment_content>
+			<wp:comment_approved><![CDATA[0]]></wp:comment_approved>
+			<wp:comment_type><![CDATA[comment]]></wp:comment_type>
+			<wp:comment_parent>0</wp:comment_parent>
+			<wp:comment_user_id>0</wp:comment_user_id>
+		</wp:comment>
+	</item>
+
+	<!-- 2. vydaný příspěvek z blokového editoru (Gutenberg) s vlastním perexem -->
+	<item>
+		<title><![CDATA[Slavnosti sýra přilákaly rekordní návštěvu]]></title>
+		<link>https://www.podhorsky-zpravodaj.example/2026/06/slavnosti-syra/</link>
+		<pubDate>Sun, 07 Jun 2026 16:00:00 +0000</pubDate>
+		<dc:creator><![CDATA[redakce]]></dc:creator>
+		<guid isPermaLink="false">https://www.podhorsky-zpravodaj.example/?p=102</guid>
+		<description></description>
+		<content:encoded><![CDATA[<!-- wp:paragraph -->
+<p>Na náves dorazilo přes tři tisíce lidí, nejvíc v historii slavností.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:image {"id":203,"sizeSlug":"large","linkDestination":"none"} -->
+<figure class="wp-block-image size-large"><img src="https://www.podhorsky-zpravodaj.example/wp-content/uploads/2026/06/syr-1024x683.jpg" alt="Stánek se sýry" class="wp-image-203"/><figcaption class="wp-element-caption">Nejdelší fronta stála na uzený sýr</figcaption></figure>
+<!-- /wp:image -->
+
+<!-- wp:heading -->
+<h2 class="wp-block-heading">Soutěž vyhrála rodinná farma</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Porota ochutnala dvacet vzorků. <em>Zvítězil zrající sýr z Dolní Lhoty.</em></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:embed {"url":"https://vimeo.com/76979871","type":"video","providerNameSlug":"vimeo","responsive":true} -->
+<figure class="wp-block-embed is-type-video is-provider-vimeo wp-block-embed-vimeo"><div class="wp-block-embed__wrapper">
+https://vimeo.com/76979871
+</div></figure>
+<!-- /wp:embed -->]]></content:encoded>
+		<excerpt:encoded><![CDATA[Tři tisíce návštěvníků, dvacet soutěžních sýrů a jeden vítěz z Dolní Lhoty.]]></excerpt:encoded>
+		<wp:post_id>102</wp:post_id>
+		<wp:post_date><![CDATA[2026-06-07 18:00:00]]></wp:post_date>
+		<wp:post_date_gmt><![CDATA[2026-06-07 16:00:00]]></wp:post_date_gmt>
+		<wp:comment_status><![CDATA[open]]></wp:comment_status>
+		<wp:post_name><![CDATA[slavnosti-syra]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_parent>0</wp:post_parent>
+		<wp:post_type><![CDATA[post]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+		<wp:is_sticky>0</wp:is_sticky>
+		<category domain="category" nicename="zpravy"><![CDATA[Zprávy]]></category>
+		<category domain="post_tag" nicename="slavnosti"><![CDATA[Slavnosti]]></category>
+		<wp:postmeta><wp:meta_key><![CDATA[_thumbnail_id]]></wp:meta_key><wp:meta_value><![CDATA[203]]></wp:meta_value></wp:postmeta>
+	</item>
+
+	<!-- 3. vydaný příspěvek bez rubriky; adresa se shoduje s prvním příspěvkem, aby se ověřilo číslování adres -->
+	<item>
+		<title><![CDATA[Lávka přes Bystřinu: fotografie čtenářů]]></title>
+		<link>https://www.podhorsky-zpravodaj.example/2026/05/lavka-pres-bystrinu-2/</link>
+		<pubDate>Fri, 15 May 2026 10:00:00 +0000</pubDate>
+		<dc:creator><![CDATA[redakce]]></dc:creator>
+		<guid isPermaLink="false">https://www.podhorsky-zpravodaj.example/?p=103</guid>
+		<description></description>
+		<content:encoded><![CDATA[Poslali jste nám desítky snímků z otevření lávky. Děkujeme!
+
+Vybrali jsme ty nejlepší. [sic] Další přidáme příští týden.]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>103</wp:post_id>
+		<wp:post_date><![CDATA[2026-05-15 12:00:00]]></wp:post_date>
+		<wp:post_date_gmt><![CDATA[2026-05-15 10:00:00]]></wp:post_date_gmt>
+		<wp:comment_status><![CDATA[open]]></wp:comment_status>
+		<wp:post_name><![CDATA[lavka-pres-bystrinu]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_parent>0</wp:post_parent>
+		<wp:post_type><![CDATA[post]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+		<wp:is_sticky>0</wp:is_sticky>
+	</item>
+
+	<!-- 4. koncept -->
+	<item>
+		<title><![CDATA[Rozpočet obce na příští rok (rozpracováno)]]></title>
+		<link>https://www.podhorsky-zpravodaj.example/?p=104</link>
+		<pubDate></pubDate>
+		<dc:creator><![CDATA[bhorakova]]></dc:creator>
+		<guid isPermaLink="false">https://www.podhorsky-zpravodaj.example/?p=104</guid>
+		<description></description>
+		<content:encoded><![CDATA[Zastupitelé budou o rozpočtu jednat v prosinci. Doplnit čísla!]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>104</wp:post_id>
+		<wp:post_date><![CDATA[0000-00-00 00:00:00]]></wp:post_date>
+		<wp:post_date_gmt><![CDATA[0000-00-00 00:00:00]]></wp:post_date_gmt>
+		<wp:comment_status><![CDATA[open]]></wp:comment_status>
+		<wp:post_name><![CDATA[]]></wp:post_name>
+		<wp:status><![CDATA[draft]]></wp:status>
+		<wp:post_parent>0</wp:post_parent>
+		<wp:post_type><![CDATA[post]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+		<wp:is_sticky>0</wp:is_sticky>
+		<category domain="category" nicename="z-radnice"><![CDATA[Z radnice]]></category>
+	</item>
+
+	<!-- stránka -->
+	<item>
+		<title><![CDATA[O zpravodaji]]></title>
+		<link>https://www.podhorsky-zpravodaj.example/o-zpravodaji/</link>
+		<pubDate>Thu, 01 Jan 2026 09:00:00 +0000</pubDate>
+		<dc:creator><![CDATA[redakce]]></dc:creator>
+		<guid isPermaLink="false">https://www.podhorsky-zpravodaj.example/?page_id=50</guid>
+		<description></description>
+		<content:encoded><![CDATA[Podhorský zpravodaj vychází od roku 1998. Píšeme o všem, co se v údolí šustne.
+
+<h2>Kontakt</h2>
+Redakci najdete v prvním patře staré školy.]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>50</wp:post_id>
+		<wp:post_date><![CDATA[2026-01-01 10:00:00]]></wp:post_date>
+		<wp:post_date_gmt><![CDATA[2026-01-01 09:00:00]]></wp:post_date_gmt>
+		<wp:comment_status><![CDATA[closed]]></wp:comment_status>
+		<wp:post_name><![CDATA[o-zpravodaji]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_parent>0</wp:post_parent>
+		<wp:post_type><![CDATA[page]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+		<wp:is_sticky>0</wp:is_sticky>
+	</item>
+
+	<!-- položka nabídky: typ, který import neumí a v náhledu na něj upozorní -->
+	<item>
+		<title><![CDATA[Domů]]></title>
+		<link>https://www.podhorsky-zpravodaj.example/?p=60</link>
+		<pubDate>Thu, 01 Jan 2026 09:00:00 +0000</pubDate>
+		<dc:creator><![CDATA[redakce]]></dc:creator>
+		<content:encoded><![CDATA[]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>60</wp:post_id>
+		<wp:post_date><![CDATA[2026-01-01 10:00:00]]></wp:post_date>
+		<wp:post_name><![CDATA[domu]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_type><![CDATA[nav_menu_item]]></wp:post_type>
+	</item>
+
+	<!-- přílohy (obrázky v knihovně médií) -->
+	<item>
+		<title><![CDATA[Nová lávka]]></title>
+		<link>https://www.podhorsky-zpravodaj.example/2026/05/lavka-pres-bystrinu/lavka/</link>
+		<pubDate>Tue, 12 May 2026 07:00:00 +0000</pubDate>
+		<dc:creator><![CDATA[bhorakova]]></dc:creator>
+		<content:encoded><![CDATA[]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>201</wp:post_id>
+		<wp:post_date><![CDATA[2026-05-12 09:00:00]]></wp:post_date>
+		<wp:post_name><![CDATA[lavka]]></wp:post_name>
+		<wp:status><![CDATA[inherit]]></wp:status>
+		<wp:post_parent>101</wp:post_parent>
+		<wp:post_type><![CDATA[attachment]]></wp:post_type>
+		<wp:attachment_url><![CDATA[https://www.podhorsky-zpravodaj.example/wp-content/uploads/2026/05/lavka.jpg]]></wp:attachment_url>
+	</item>
+	<item>
+		<title><![CDATA[Pohled z lávky]]></title>
+		<link>https://www.podhorsky-zpravodaj.example/2026/05/lavka-pres-bystrinu/pohled/</link>
+		<pubDate>Tue, 12 May 2026 07:01:00 +0000</pubDate>
+		<dc:creator><![CDATA[bhorakova]]></dc:creator>
+		<content:encoded><![CDATA[]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>202</wp:post_id>
+		<wp:post_date><![CDATA[2026-05-12 09:01:00]]></wp:post_date>
+		<wp:post_name><![CDATA[pohled]]></wp:post_name>
+		<wp:status><![CDATA[inherit]]></wp:status>
+		<wp:post_parent>101</wp:post_parent>
+		<wp:post_type><![CDATA[attachment]]></wp:post_type>
+		<wp:attachment_url><![CDATA[https://www.podhorsky-zpravodaj.example/wp-content/uploads/2026/05/pohled.jpg]]></wp:attachment_url>
+	</item>
+	<item>
+		<title><![CDATA[Stánek se sýry]]></title>
+		<link>https://www.podhorsky-zpravodaj.example/2026/06/slavnosti-syra/syr/</link>
+		<pubDate>Sun, 07 Jun 2026 15:00:00 +0000</pubDate>
+		<dc:creator><![CDATA[redakce]]></dc:creator>
+		<content:encoded><![CDATA[]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>203</wp:post_id>
+		<wp:post_date><![CDATA[2026-06-07 17:00:00]]></wp:post_date>
+		<wp:post_name><![CDATA[syr]]></wp:post_name>
+		<wp:status><![CDATA[inherit]]></wp:status>
+		<wp:post_parent>102</wp:post_parent>
+		<wp:post_type><![CDATA[attachment]]></wp:post_type>
+		<wp:attachment_url><![CDATA[https://www.podhorsky-zpravodaj.example/wp-content/uploads/2026/06/syr.jpg]]></wp:attachment_url>
+	</item>
+</channel>
+</rss>

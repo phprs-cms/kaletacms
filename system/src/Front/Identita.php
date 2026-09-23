@@ -1,0 +1,59 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MiroCMS\Front;
+
+use MiroCMS\Core\Settings;
+
+/**
+ * Identita webu (Vzhled → Identita webu): hlavní barva a písma, které se propisují do šablon.
+ *
+ * Šablony s identitou počítají přes CSS proměnné --mc-akcent, --mc-pismo-titulky a --mc-pismo-text:
+ * ve svém style.css je použijí s vlastní výchozí hodnotou, např. --akcent: var(--mc-akcent, #326891).
+ * Písma jsou jen systémová (žádné stahování z cizích serverů - rychlost a GDPR).
+ */
+final class Identita
+{
+    /** klíč => [název, popis, CSS font-family] */
+    public const array PISMA_TITULKU = [
+        'vychozi' => ['Podle šablony', 'písmo, se kterým šablona přichází', ''],
+        'elegantni' => ['Elegantní patkové', 'Bodoni, Didot – noviny a móda', '"Bodoni 72", Didot, "Bodoni MT", "Playfair Display", Georgia, serif'],
+        'klasicke' => ['Klasické patkové', 'Georgia – seriózní a dobře čitelné', 'Georgia, "Times New Roman", Times, serif'],
+        'knizni' => ['Knižní', 'Charter, Cambria – klidné a literární', 'Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif'],
+        'moderni' => ['Moderní bezpatkové', 'systémové písmo zařízení – čisté a neutrální', 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'],
+        'grotesk' => ['Výrazný grotesk', 'Helvetica, Arial – magazíny a plakáty', '"Helvetica Neue", Helvetica, "Arial Nova", Arial, sans-serif'],
+        'zaoblene' => ['Zaoblené', 'přátelské, pro lifestyle a rodinné weby', 'ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN", Quicksand, Nunito, system-ui, sans-serif'],
+        'strojove' => ['Psací stroj', 'technologie, fanziny, deníky', 'ui-monospace, "SF Mono", Menlo, Consolas, "Courier New", monospace'],
+    ];
+
+    public const array PISMA_TEXTU = [
+        'vychozi' => ['Podle šablony', '', ''],
+        'patkove' => ['Patkové', 'Georgia – pohodlné pro dlouhé čtení', 'Georgia, "Times New Roman", Times, serif'],
+        'knizni' => ['Knižní', 'Charter, Cambria', 'Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif'],
+        'moderni' => ['Bezpatkové', 'systémové písmo zařízení', 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'],
+        'grotesk' => ['Grotesk', 'Helvetica, Arial', '"Helvetica Neue", Helvetica, "Arial Nova", Arial, sans-serif'],
+    ];
+
+    /** Značky do <head>: proměnné identity a ikona webu. Bez nastavení nevrací nic - šablona vypadá jako z krabice. */
+    public static function hlava(Settings $web, string $zaklad): string
+    {
+        $promenne = [];
+        if (preg_match('/^#[0-9a-f]{6}$/i', $web->get('brand_akcent'))) {
+            $promenne[] = '--mc-akcent: ' . $web->get('brand_akcent');
+        }
+        foreach (['brand_pismo_titulky' => [self::PISMA_TITULKU, '--mc-pismo-titulky'], 'brand_pismo_text' => [self::PISMA_TEXTU, '--mc-pismo-text']] as $klic => [$pisma, $promenna]) {
+            $css = $pisma[$web->get($klic)][2] ?? '';
+            if ($css !== '') {
+                $promenne[] = $promenna . ': ' . $css;
+            }
+        }
+        $html = $promenne === [] ? '' : '<style>:root { ' . implode('; ', $promenne) . "; }</style>\n";
+        $ikona = $web->get('favicon');
+        if ($ikona !== '') {
+            $html .= '<link rel="icon" href="' . e((preg_match('#^(https?:)?/#', $ikona) ? '' : $zaklad . '/') . $ikona) . "\">\n";
+        }
+
+        return $html;
+    }
+}

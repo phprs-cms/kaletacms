@@ -1,0 +1,95 @@
+/* MiroCMS.0 - instalátor */
+
+@import url("pismo.css");
+
+:root {
+	--podklad: #F6F7F9;
+	--plocha: #FFFFFF;
+	--linka: #E4E7EC;
+	--linka-pole: #CDD2DB;
+	--text: #14171F;
+	--text-slaby: #667085;
+	--akcent: #2B5BE3;
+	--akcent-tmavy: #1E44B8;
+	--akcent-svetly: #EEF2FF;
+	--chyba: #C4281C;
+	--chyba-podklad: #FEF3F2;
+	--ok: #067647;
+	--ok-podklad: #ECFDF3;
+}
+* { box-sizing: border-box; }
+body {
+	margin: 0;
+	font: 15px/1.55 "Noto Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+	color: var(--text);
+	background: var(--podklad);
+	-webkit-font-smoothing: antialiased;
+}
+.instalator { max-width: 760px; margin: 0 auto; padding: 48px 20px 80px; }
+.uvod { margin-bottom: 32px; }
+.znacka { margin-bottom: 4px; }
+.uvod h1 { margin: 18px 0 6px; font-size: 32px; line-height: 1.15; letter-spacing: -0.03em; }
+.uvod p { margin: 0; color: var(--text-slaby); }
+
+.krok { margin-bottom: 16px; padding: 24px; border: 1px solid var(--linka); border-radius: 12px; background: var(--plocha); }
+.krok h2 { display: flex; align-items: center; gap: 12px; margin: 0 0 4px; font-size: 18px; letter-spacing: -0.01em; }
+.krok h2 span { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--akcent-svetly); color: var(--akcent); font-size: 13px; font-weight: 700; }
+.krok > p { margin: 0 0 18px 40px; font-size: 14px; color: var(--text-slaby); }
+
+.kontrola { list-style: none; margin: 14px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 8px 24px; font-size: 14px; }
+.kontrola li { display: flex; gap: 10px; align-items: baseline; }
+.kontrola li::before { content: "✓"; font-weight: 700; color: var(--ok); }
+.kontrola li.spatne::before { content: "✕"; color: var(--chyba); }
+.kontrola small { color: var(--text-slaby); }
+
+.pole { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.pole .cele { grid-column: 1 / -1; }
+.pole .s-portem { display: grid; grid-template-columns: minmax(0, 1fr) 110px; gap: 12px; }
+.pole label { display: block; margin-bottom: 5px; font-size: 13px; font-weight: 600; }
+input[type="text"], input[type="email"], input[type="password"], input[type="number"] {
+	width: 100%; padding: 10px 12px; border: 1px solid var(--linka-pole); border-radius: 8px; background: var(--plocha); color: var(--text); font: inherit;
+}
+input:focus-visible, .pole select:focus-visible { outline: 0; border-color: var(--akcent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--akcent) 22%, transparent); }
+.napoveda { display: block; margin-top: 5px; font-size: 12.5px; color: var(--text-slaby); }
+.pole label.zaskrtavaci { display: flex; align-items: center; gap: 9px; margin: 0; font-size: 14px; cursor: pointer; }
+.zaskrtavaci input { width: 17px; height: 17px; margin: 0; accent-color: var(--akcent); }
+.chyba-pole { display: block; margin-top: 5px; font-size: 13px; font-weight: 600; color: var(--chyba); }
+
+.volby { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+.volba { position: relative; display: block; padding: 12px; border: 2px solid var(--linka); border-radius: 12px; cursor: pointer; transition: border-color 0.12s, background-color 0.12s; }
+.volba:hover { border-color: var(--linka-pole); }
+.volba:has(input:checked) { border-color: var(--akcent); background: var(--akcent-svetly); }
+.volba:has(input:focus-visible) { box-shadow: 0 0 0 3px color-mix(in srgb, var(--akcent) 25%, transparent); }
+.volba input { position: absolute; opacity: 0; }
+.volba svg { display: block; width: 100%; height: auto; border: 1px solid var(--linka); border-radius: 6px; background: #FFFFFF; }
+.volba strong { display: block; margin-top: 12px; font-size: 15px; }
+.volba span { display: block; font-size: 13px; line-height: 1.45; color: var(--text-slaby); }
+.volba:has(input:checked) strong::after { content: "  ✓"; color: var(--akcent); }
+
+.hlaska { margin: 0 0 16px; padding: 12px 16px; border-radius: 10px; font-weight: 500; }
+.hlaska-chyba { background: var(--chyba-podklad); color: var(--chyba); border: 1px solid color-mix(in srgb, var(--chyba) 30%, transparent); }
+.hlaska-ok { background: var(--ok-podklad); color: var(--ok); border: 1px solid color-mix(in srgb, var(--ok) 30%, transparent); }
+
+.akce { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-top: 24px; }
+.tlacitko { display: inline-block; padding: 13px 28px; border: 0; border-radius: 10px; background: var(--akcent); color: #FFFFFF; font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; }
+.tlacitko:hover { background: var(--akcent-tmavy); }
+.tlacitko.druhe { background: var(--plocha); color: var(--text); border: 1px solid var(--linka-pole); }
+.tlacitko.druhe:hover { background: var(--plocha); border-color: var(--text-slaby); }
+.tlacitko:focus-visible, .jazyky a:focus-visible { outline: 2px solid var(--akcent); outline-offset: 2px; }
+.akce small { color: var(--text-slaby); }
+.napoveda-instalace { margin: 20px 0 0; font-size: 14px; }
+
+@media (max-width: 600px) {
+	.instalator { padding-top: 28px; }
+	.uvod h1 { font-size: 26px; }
+	.krok { padding: 18px; }
+	.krok > p { margin-left: 0; }
+	.pole { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* volba jazyka instalace */
+.jazyky { display: flex; justify-content: flex-end; gap: 4px; margin-bottom: 8px; font-size: 13px; }
+.jazyky a { padding: 4px 10px; border-radius: 6px; color: var(--text-slaby); text-decoration: none; }
+.jazyky a:hover { color: var(--text); background: var(--plocha); }
+.jazyky a.aktivni { background: var(--akcent-svetly); color: var(--akcent); font-weight: 600; }
+.pole select { width: 100%; padding: 10px 12px; border: 1px solid var(--linka-pole); border-radius: 8px; background: var(--plocha); color: var(--text); font: inherit; }

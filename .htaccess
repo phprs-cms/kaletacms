@@ -1,0 +1,58 @@
+# MiroCMS
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # některé hostingy nepředávají PHP hlavičku Authorization (potřebuje ji napojení na Claude)
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # config.php a skryté soubory nejsou pro návštěvníky
+    RewriteRule ^(config(\.sample)?\.php|\..*)$ - [F,L]
+    # nástroje vydavatele, dokumentace a PHP soubory šablon se z webu nespouštějí ani nečtou
+    RewriteRule ^(tools|docs|dist)(/|$) - [F,L]
+    RewriteRule ^layout/.+\.php$ - [F,L]
+    # Složka, ve které web leží, jako část ADRESY (prázdná = kořen domény, jinak např. /magazin). Cíle přepisů níže se
+    # píší jako adresa, ne jako relativní cesta: některé hostingy mapují subdomény do složky mimo kořen webu a relativní
+    # cíl tam skončí smyčkou přesměrování a chybou 500. Adresa funguje všude - v kořeni, v podsložce i na subdoméně.
+    RewriteCond %{REQUEST_URI}::$0 ^(/.+)/(.*)::\2$
+    RewriteRule .* - [E=BASE:%1]
+
+    # obrázky z media/: prohlížeči, který umí WebP, podat menší sourozenecký soubor foto.jpg.webp
+    RewriteCond %{HTTP_ACCEPT} image/webp
+    RewriteCond %{REQUEST_FILENAME}.webp -f
+    RewriteRule ^(media/.+\.(?:jpe?g|png))$ %{ENV:BASE}/$1.webp [T=image/webp,E=webp:1,L]
+
+    # vše, co není existující soubor nebo adresář, obslouží index.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ %{ENV:BASE}/index.php [L]
+</IfModule>
+
+<IfModule mod_headers.c>
+    Header append Vary Accept env=REDIRECT_webp
+</IfModule>
+
+# statické soubory: adresy nesou verzi (?v=…), prohlížeč si je smí nechat dlouho; sw.js se musí ověřovat vždy
+<IfModule mod_mime.c>
+    AddType font/woff2 .woff2
+</IfModule>
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 1 year"
+    ExpiresByType application/javascript "access plus 1 year"
+    ExpiresByType text/javascript "access plus 1 year"
+    ExpiresByType image/svg+xml "access plus 1 month"
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType image/webp "access plus 1 month"
+    ExpiresByType image/gif "access plus 1 month"
+    ExpiresByType font/woff2 "access plus 1 year"
+</IfModule>
+<IfModule mod_headers.c>
+    <Files "sw.js">
+        Header set Cache-Control "no-cache"
+    </Files>
+</IfModule>
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css text/plain text/xml application/xml application/rss+xml application/javascript text/javascript application/json application/manifest+json image/svg+xml
+</IfModule>

@@ -1,0 +1,6 @@
+# MiroCMS nemá za běhu žádné cizí knihovny; hlídají se jen akce použité v GitHub Actions.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }

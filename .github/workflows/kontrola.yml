@@ -1,0 +1,43 @@
+# Kontrola každé změny: syntaxe a kouřový test na podporovaných verzích PHP, bezpečnostní statická analýza,
+# hlídání tajemství v repozitáři. Jednou týdně běží i bez změn - odhalí problém s novou verzí PHP nebo MySQL.
+name: Kontrola
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '17 4 * * 1'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.4', '8.5']
+    services:
+      mysql:
+        image: mysql:8.4
+        env: { MYSQL_ROOT_PASSWORD: root }
+        ports: ['3306:3306']
+        options: --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with: { php-version: '${{ matrix.php }}', extensions: 'pdo_mysql, mbstring, gd, zip, sodium, intl, exif', coverage: none }
+      - name: Kouřový test (čistá instalace a průchod stránkami)
+        run: tools/test.sh
+        env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root }
+  bezpecnost:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Semgrep - bezpečnostní pravidla pro PHP a JavaScript
+        uses: returntocorp/semgrep-action@v1
+        with: { config: 'p/php p/javascript p/secrets p/owasp-top-ten' }
+      - name: Gitleaks - v repozitáři nesmí být klíče ani hesla
+        # přímo program: hotová akce gitleaks-action chce u organizací placenou licenci
+        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:latest detect --source /repo --redact --no-banner
+      - name: Soukromý klíč vydavatele není v gitu
+        run: '! git ls-files | grep -E "tools/klice|\.key$"'

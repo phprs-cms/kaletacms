@@ -1,0 +1,2 @@
+# Veřejné klíče vydavatele MiroCMS (Ed25519, base64) - na řádek jeden; podpis platí vůči kterémukoli. Viz docs/VYDAVANI.md.
+# Klíče MiroCMS zatím nejsou vygenerované: před prvním vydáním spusťte php tools/vydani.php --novy-klic=provozni a --novy-klic=zalozni (docs/VYDAVANI.md).

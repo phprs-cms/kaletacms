@@ -1,0 +1,15 @@
+/config.php
+/storage/cache/*
+/storage/log/*
+!/storage/**/.gitkeep
+/vendor/
+.DS_Store
+/image/ukazka/
+/media/*
+!/media/.htaccess
+/dist/
+/tools/klice/
+/storage/zalohy/
+/storage/import/*
+!/storage/import/.htaccess
+!/storage/import/.gitkeep

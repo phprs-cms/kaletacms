@@ -1,0 +1,12 @@
+# Nahrané soubory se jen servírují - nikdy nespouštějí.
+<FilesMatch "\.(php\d?|phtml|phar|pl|py|cgi|sh|html?|svg|js)$">
+    Require all denied
+</FilesMatch>
+Options -Indexes -ExecCGI
+<IfModule mod_headers.c>
+    # prohlížeč nesmí hádat typ souboru; dokumenty se nabídnou ke stažení místo otevření v rámci webu
+    Header set X-Content-Type-Options "nosniff"
+    <FilesMatch "\.(docx?|xlsx?|pptx?|od[tsp]|rtf|csv|zip|epub|gpx|ics)$">
+        Header set Content-Disposition "attachment"
+    </FilesMatch>
+</IfModule>

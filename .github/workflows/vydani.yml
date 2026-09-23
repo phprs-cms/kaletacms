@@ -1,0 +1,35 @@
+# Vydání: tag vX.Y.Z spustí testy a založí KONCEPT vydání na GitHubu.
+# Balíček se tady nepodepisuje – soukromý klíč nepatří do CI (docs/VYDAVANI.md). Vydavatel pak lokálně spustí
+#   php tools/vydani.php X.Y.Z --url=https://github.com/mirocms/mirocms/releases/download/vX.Y.Z/mirocms-X.Y.Z.zip --zmena="…"
+# nahraje dist/mirocms-X.Y.Z.zip ke konceptu (gh release upload vX.Y.Z dist/mirocms-X.Y.Z.zip), koncept zveřejní
+# a dist/aktualizace.json vystaví na https://mirocms.eu/aktualizace.json.
+name: Vydání
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  koncept:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env: { MYSQL_ROOT_PASSWORD: root }
+        ports: ['3306:3306']
+        options: --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with: { php-version: '8.4', extensions: 'pdo_mysql, mbstring, gd, intl, zip, sodium', coverage: none }
+      - name: Verze v kódu odpovídá tagu
+        run: grep -q "const MIROCMS_VERSION = '${GITHUB_REF_NAME#v}';" system/bootstrap.php
+      - name: Testy
+        env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root }
+        run: tools/test.sh
+      - name: Koncept vydání
+        uses: softprops/action-gh-release@v2
+        with: { draft: true, generate_release_notes: true }

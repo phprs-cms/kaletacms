@@ -1,0 +1,95 @@
+/* MiroCMS.0 - vizuální editor bloků (ve stránce webu). Všechno ovládání má třídu .mc-ui a vlastní písmo,
+ * aby ho neovlivnil vzhled šablony webu. */
+
+@import url("pismo.css");
+
+:root {
+	--ed-linka: #CDD2DB; --ed-plocha: #FFFFFF; --ed-lista: #F2F4F7; --ed-text: #14171F; --ed-text-slaby: #667085; --ed-akcent: #1F4FE0; --ed-radius: 8px; --ed-radius-maly: 5px;
+	--mc-akcent: #1F4FE0;
+}
+html.mc-upravy { scroll-padding-top: 60px; }
+html.mc-upravy body { padding-top: 48px !important; }
+.mc-ui, .mc-ui * { box-sizing: border-box; font-family: "Noto Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif !important; letter-spacing: 0 !important; text-transform: none !important; }
+
+/* horní lišta */
+.mc-lista { position: fixed; z-index: 100000; top: 0; left: 0; right: 0; height: 48px; display: flex; align-items: center; gap: 16px; padding: 0 16px; background: #14171F; color: #FFFFFF; font-size: 14px; line-height: 1.3; }
+.mc-lista strong { font-size: 15px; }
+.mc-lista-napoveda { color: #98A2B3; font-size: 13px; flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.mc-lista-rozvrzeni { display: flex; align-items: center; gap: 4px; color: #98A2B3; font-size: 13px; }
+.mc-lista-rozvrzeni button { padding: 5px 10px; border: 1px solid #344054; border-radius: 6px; background: none; color: #FFFFFF; font-size: 13px; cursor: pointer; }
+.mc-lista-rozvrzeni button:hover { border-color: #98A2B3; }
+.mc-lista-rozvrzeni button.mc-aktivni { background: #FFFFFF; color: #14171F; border-color: #FFFFFF; font-weight: 700; }
+.mc-hotovo { padding: 7px 18px; border-radius: 6px; background: var(--mc-akcent); color: #FFFFFF !important; font-weight: 700; text-decoration: none !important; }
+
+/* zóny a bloky */
+.mc-zona { display: contents; }
+.mc-blok { position: relative; outline: 1px dashed transparent; outline-offset: 4px; border-radius: 4px; cursor: grab; transition: outline-color 0.1s; min-width: 0; }
+.mc-blok:hover, .mc-blok:focus-within { outline-color: var(--mc-akcent); }
+.mc-blok.mc-tazeny { opacity: 0.35; }
+.mc-blok.mc-novy { outline: 2px solid var(--mc-akcent); }
+html.mc-tahne .mc-zona > .mc-pridat, .mc-cil > .mc-pridat { border-color: var(--mc-akcent); background: rgb(31 79 224 / 0.08); }
+.mc-duch { margin-bottom: 16px; padding: 12px 14px; border: 1px dashed #98A2B3; border-radius: 6px; background: repeating-linear-gradient(45deg, rgb(127 127 127 / 0.06) 0 8px, transparent 8px 16px); color: #667085; font: 13px/1.4 system-ui, sans-serif; }
+.mc-nastroje { position: absolute; z-index: 1000; top: -14px; right: 4px; display: none; align-items: center; gap: 2px; padding: 3px; border-radius: 8px; background: #14171F; box-shadow: 0 4px 14px rgb(0 0 0 / 0.25); font-size: 13px; line-height: 1; cursor: default; }
+.mc-blok:hover > .mc-nastroje, .mc-blok:focus-within > .mc-nastroje { display: flex; }
+html.mc-tahne .mc-nastroje { display: none !important; }
+.mc-nazev { max-width: 140px; padding: 0 8px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #D0D5DD; font-size: 12px; }
+.mc-nastroje button { min-width: 28px; height: 26px; padding: 0 8px; border: 0; border-radius: 5px; background: none; color: #FFFFFF; font-size: 13px; cursor: pointer; }
+.mc-nastroje button:hover { background: #344054; }
+.mc-nastroje button.mc-hlavni { background: var(--mc-akcent); font-weight: 700; }
+.mc-pridat { display: block; width: 100%; min-height: 44px; margin: 6px 0 16px; padding: 10px; border: 2px dashed #B7BFCC; border-radius: 8px; background: rgb(255 255 255 / 0.6); color: #475467; font: 600 14px/1.3 system-ui, sans-serif; letter-spacing: 0; text-transform: none; cursor: pointer; }
+.mc-pridat small { display: block; font-weight: 400; font-size: 12px; opacity: 0.8; }
+.mc-pridat:hover { border-color: var(--mc-akcent); color: var(--mc-akcent); background: rgb(31 79 224 / 0.06); }
+
+/* okna */
+.mc-okno { padding: 0; border: 0; border-radius: 12px; background: #FFFFFF; color: #14171F; font-size: 14px; line-height: 1.45; box-shadow: 0 24px 80px rgb(0 0 0 / 0.35); }
+.mc-okno::backdrop { background: rgb(15 17 21 / 0.5); }
+.mc-okno-hlava { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #E4E7EC; position: sticky; top: 0; background: #FFFFFF; z-index: 2; }
+.mc-okno-hlava strong { font-size: 17px; }
+.mc-okno-hlava button { width: 32px; height: 32px; border: 0; border-radius: 6px; background: none; font-size: 15px; cursor: pointer; color: #475467; }
+.mc-okno-hlava button:hover { background: #F2F4F7; }
+.mc-okno-popis { margin: 14px 20px 0; color: #667085; font-size: 13px; }
+.mc-nabidka { width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 64px); }
+.mc-nabidka section { padding: 4px 20px 12px; }
+.mc-nabidka h3 { margin: 14px 0 8px; font-size: 12px !important; font-weight: 700; letter-spacing: 0.06em !important; text-transform: uppercase !important; color: #667085; text-align: left; }
+.mc-karty { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 10px; }
+.mc-karta { display: grid; grid-template-columns: 40px 1fr; gap: 2px 12px; align-items: start; padding: 12px; border: 1px solid #E4E7EC; border-radius: 10px; background: #FFFFFF; color: #14171F; text-align: left; cursor: pointer; font-size: 14px; }
+.mc-karta:hover, .mc-karta:focus-visible { border-color: var(--mc-akcent); box-shadow: 0 0 0 3px rgb(31 79 224 / 0.15); outline: 0; }
+.mc-karta i { grid-row: span 2; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 8px; background: #EEF2FF; color: var(--mc-akcent); font-size: 20px; font-style: normal; }
+.mc-karta i svg { width: 22px; height: 22px; }
+.mc-karta span { font-size: 12.5px; line-height: 1.35; color: #667085; }
+
+.mc-panel { width: min(520px, 100vw); height: 100vh; max-height: 100vh; margin: 0 0 0 auto; border-radius: 0; overflow-y: auto; }
+.mc-formular { padding: 18px 20px 24px; display: grid; gap: 14px; }
+.mc-pole { display: grid; gap: 5px; }
+.mc-pole > span { font-weight: 600; font-size: 13px; }
+.mc-pole small { color: #667085; font-size: 12px; }
+.mc-formular input[type="text"], .mc-formular input[type="number"], .mc-formular select, .mc-formular textarea { width: 100%; padding: 9px 11px; border: 1px solid #CDD2DB; border-radius: 7px; background: #FFFFFF; color: #14171F; font-size: 14px; }
+.mc-formular input:focus-visible, .mc-formular select:focus-visible, .mc-formular textarea:focus-visible { outline: 0; border-color: var(--mc-akcent); box-shadow: 0 0 0 3px rgb(31 79 224 / 0.18); }
+.mc-formular input[type="number"] { width: 110px; }
+.mc-zaskrtnuti { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.mc-vzhledy { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.mc-vzhledy label { cursor: pointer; }
+.mc-vzhledy input { position: absolute; opacity: 0; }
+.mc-vzhledy span { display: block; padding: 10px; border: 1px solid #CDD2DB; border-radius: 7px; text-align: center; font-size: 13px; }
+.mc-vzhledy input:checked + span { border-color: var(--mc-akcent); background: #EEF2FF; color: var(--mc-akcent); font-weight: 700; }
+.mc-vzhledy input:focus-visible + span { box-shadow: 0 0 0 3px rgb(31 79 224 / 0.18); }
+.mc-odkazy { display: grid; gap: 6px; }
+.mc-odkaz { display: grid; grid-template-columns: 1fr 1.3fr 34px; gap: 6px; }
+.mc-odkaz button, .mc-pridat-radek { border: 1px solid #CDD2DB; border-radius: 7px; background: #FFFFFF; color: #475467; cursor: pointer; font-size: 13px; }
+.mc-pridat-radek { justify-self: start; padding: 6px 12px; }
+.mc-formular details { padding-top: 12px; border-top: 1px solid #E4E7EC; }
+.mc-formular details[open] { display: grid; gap: 12px; }
+.mc-formular summary { font-weight: 600; font-size: 13px; cursor: pointer; color: #475467; }
+.mc-tlacitka { display: flex; gap: 8px; padding-top: 6px; }
+.mc-tlacitka button { padding: 10px 18px; border: 1px solid #CDD2DB; border-radius: 7px; background: #FFFFFF; color: #14171F; font-size: 14px; font-weight: 600; cursor: pointer; }
+.mc-tlacitka button.mc-hlavni { border-color: var(--mc-akcent); background: var(--mc-akcent); color: #FFFFFF; }
+.mc-potvrzeni { width: min(400px, calc(100vw - 32px)); padding: 22px; }
+.mc-potvrzeni p { margin: 0 0 16px; font-weight: 600; }
+.mc-hlaska { position: fixed; z-index: 100001; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 10px 18px; border-radius: 999px; background: #14171F; color: #FFFFFF; font: 600 13px system-ui, sans-serif; box-shadow: 0 8px 24px rgb(0 0 0 / 0.3); }
+.mc-panel .editor-plocha { min-height: 180px; font-size: 15px; }
+
+@media (max-width: 760px) {
+	.mc-lista-napoveda, .mc-lista-rozvrzeni span { display: none; }
+	.mc-lista { gap: 8px; padding: 0 8px; overflow-x: auto; }
+	.mc-nastroje { display: flex; position: static; margin-bottom: 4px; justify-content: flex-end; }
+}
