@@ -2164,4 +2164,5 @@ return [
     'Načíst tokeny' => 'Load tokens',
     'Soubor neobsahuje design tokeny, které by šly použít (čekáme JSON ve formátu DTCG).' => 'The file contains no usable design tokens (a JSON file in the DTCG format is expected).',
     'Design tokeny byly načteny.' => 'Design tokens have been loaded.',
+    'Formulář s poptávkou sbírá osobní údaje – návštěvník musí vědět, jak s nimi naložíte. Kostru stránky máte připravenou, doplňte údaje v hranatých závorkách.' => 'An enquiry form collects personal data – visitors must know how you handle it. The page skeleton is ready; fill in the details in square brackets.',
 ];

@@ -228,11 +228,16 @@ final class Installer
                 $uvod = $uvod ?: $id;
             }
 
+            // zásady ochrany osobních údajů: kostra k doplnění, mimo hlavní menu, odkaz z patičky, cookie lišty a souhlasu ve formuláři
+            $zasady = t('Zásady ochrany osobních údajů');
+            $idZasad = $db->insert('stranky', ['titulek' => $zasady, 'seo_link' => slugify($zasady), 'text' => Knihovna::textZasad(), 'v_menu' => 0, 'poradi' => 90]);
+            \Kaleta\Core\Menu::uloz($db, 'paticka', '', [['typ' => 'stranka', 'ids' => $idZasad, 'text' => '']]);
+
             \Kaleta\Core\Hledani::dopln($db);
             $nastaveni = ['nazev_webu' => $d['nazev_webu'], 'adresa_webu' => $this->request->origin(), 'email_webu' => $d['email'], 'jazyk_webu' => $this->jazyk,
                 'design_system' => (string) json_encode(\Kaleta\Stavitel\DesignSystem::predvolba($web['predvolba']), JSON_UNESCAPED_SLASHES),
                 'casove_pasmo' => $d['casove_pasmo'], 'layout' => Layouty::VYCHOZI, 'titulni_stranka' => (string) $uvod, 'verze_db' => (string) Migrace::posledni(),
-                'rozsireni' => $rozsireni === [] ? '-' : implode(',', $rozsireni)];
+                'rozsireni' => $rozsireni === [] ? '-' : implode(',', $rozsireni), 'cookies_zasady_url' => $this->request->basePath() . '/' . slugify($zasady)];
             foreach ($nastaveni as $klic => $hodnota) {
                 $db->insert('nastaveni', ['promenna' => $klic, 'hodnota' => $hodnota]);
             }

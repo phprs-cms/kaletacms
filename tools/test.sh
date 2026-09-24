@@ -62,6 +62,8 @@ for u in /rss.xml /feed.json /sitemap.xml /robots.txt /llms.txt /novinky/vitejte
 over "mapa webu obsahuje novinku" 200 /sitemap.xml "/novinky/vitejte-v-kalete"
 over "llms.txt vyjmenuje stránky" 200 /llms.txt "## Stránky"
 over "strukturovaná data novinky" 200 /novinky/vitejte-v-kalete '"BlogPosting"'
+over "zásady ochrany osobních údajů z instalace" 200 /zasady-ochrany-osobnich-udaju "Jaké údaje zpracováváme"
+over "patička odkazuje na zásady" 200 /o-nas 'zasady-ochrany-osobnich-udaju'
 over "neexistující stránka" 404 /tohle-neexistuje
 over "system/ není přístupný" 403 /system/sql/schema.sql
 over "config.php není přístupný" 403 /config.php

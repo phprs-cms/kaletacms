@@ -79,4 +79,5 @@ return [
     'Prvek Formulář ve staviteli a schránka Poptávky: odeslané dotazy se uloží, přijdou e-mailem a jdou předat kolegovi nebo do CRM.' => 'The Form element in the builder and the Enquiries inbox: submitted enquiries are stored, arrive by e-mail and can be passed to a colleague or a CRM.',
     '%s – rozšíření je vypnuté, na webu se nezobrazí.' => '%s – the extension is switched off and will not appear on the website.',
     'Novinky jsou na tomto webu vypnuté.' => 'News is switched off on this website.',
+    'Zásady ochrany osobních údajů' => 'Privacy policy',
 ];

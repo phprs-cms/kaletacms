@@ -66,6 +66,7 @@ final class Formular extends Prvek
 .ka-pole :focus-visible { outline: 2px solid var(--ka-barva-primarni); outline-offset: 1px; }
 .ka-pole-souhlas label { display: flex; gap: var(--ka-mezera-xs); align-items: flex-start; }
 .ka-pole-souhlas input { margin-block-start: 0.3em; accent-color: var(--ka-barva-primarni); }
+.ka-pole-zasady { display: inline-block; margin-inline-start: 1.6em; font-size: var(--ka-krok--1); }
 .ka-povinne { color: var(--ka-barva-primarni); }
 .ka-pole fieldset { display: grid; gap: var(--ka-mezera-2xs); margin: 0; padding: 0; border: 0; }
 .ka-pole legend { margin-block-end: var(--ka-mezera-2xs); padding: 0; font-weight: 600; }
@@ -110,7 +111,7 @@ final class Formular extends Prvek
         $html = $vysledek !== '' ? '<p class="ka-formular-chyba" role="alert">' . e(self::hlaseni($vysledek)) . '</p>' : '';
         $chybne = $vysledek === 'pole' ? $r->getInt('pole', -1) : -1;
         foreach ($o['pole'] as $i => $pole) {
-            $html .= self::pole($pole, $i, $p['id'], $i === $chybne);
+            $html .= self::pole($pole, $i, $p['id'], $i === $chybne, $k->app->settings()->get('cookies_zasady_url'));
         }
         $antispam = new Antispam($k->app->db(), $k->app->settings());
 
@@ -125,7 +126,7 @@ final class Formular extends Prvek
             . '<p class="ka-pole"><button class="ka-tlacitko ka-tlacitko--primarni" type="submit">' . e($o['tlacitko']) . '</button></p></form>';
     }
 
-    private static function pole(array $pole, int $i, string $prvek, bool $chyba = false): string
+    private static function pole(array $pole, int $i, string $prvek, bool $chyba = false, string $zasady = ''): string
     {
         $id = 'f-' . $prvek . '-' . $i;
         $jmeno = 'p' . $i;
@@ -136,7 +137,9 @@ final class Formular extends Prvek
         $oznaceni = $chyba ? ' aria-invalid="true" aria-describedby="' . $id . '-chyba" autofocus' : '';
         $hlaska = $chyba ? '<span class="ka-pole-chyba" id="' . $id . '-chyba">' . e($pole['typ'] === 'email' ? t('Zadejte platnou e-mailovou adresu.') : t('Toto pole je potřeba vyplnit správně.')) . '</span>' : '';
         if ($pole['typ'] === 'souhlas') {
-            return '<p class="ka-pole ka-pole-souhlas"><label><input type="checkbox" name="' . $jmeno . '" value="1"' . $povinne . $oznaceni . '> <span>' . $popisek . $hvezda . '</span></label>' . $hlaska . '</p>';
+            $odkaz = $zasady !== '' ? ' <a class="ka-pole-zasady" href="' . e($zasady) . '" target="_blank">' . e(t('Zásady ochrany osobních údajů')) . '</a>' : '';
+
+            return '<p class="ka-pole ka-pole-souhlas"><label><input type="checkbox" name="' . $jmeno . '" value="1"' . $povinne . $oznaceni . '> <span>' . $popisek . $hvezda . '</span></label>' . $odkaz . $hlaska . '</p>';
         }
         if ($pole['typ'] === 'volba') {
             $volby = '';
