@@ -290,13 +290,13 @@ class Asistent
             array_push($useky, ...$r['useky']);
         }
         if (mb_strlen(implode('', $useky)) < 80) {
-            throw new \RuntimeException('Článek je na překlad příliš krátký.');
+            throw new \RuntimeException('Text je na překlad příliš krátký.');
         }
         if (mb_strlen(implode('', $useky)) > 120_000) {
-            throw new \RuntimeException('Článek je na překlad asistentem příliš dlouhý.');
+            throw new \RuntimeException('Text je na překlad asistentem příliš dlouhý.');
         }
 
-        // dávky po zhruba 5 000 znacích: odpověď se vejde do limitu a jeden výpadek nezahodí celý článek
+        // dávky po zhruba 5 000 znacích: odpověď se vejde do limitu a jeden výpadek nezahodí celý text
         $davky = [[]];
         $delka = 0;
         foreach ($useky as $i => $usek) {
@@ -323,7 +323,7 @@ class Asistent
             $json = preg_match('/\{.*\}/s', $text, $m) ? json_decode($m[0], true) : null;
             $hotove = is_array($json) ? array_values((array) ($json['preklady'] ?? [])) : [];
             if (count($hotove) !== count($davka)) {
-                throw new \RuntimeException(($odpoved['stop_reason'] ?? '') === 'max_tokens' ? 'Překlad se nevešel do odpovědi asistenta. Zkuste článek rozdělit.' : 'Asistent vrátil neúplný překlad. Zkuste to prosím znovu.');
+                throw new \RuntimeException(($odpoved['stop_reason'] ?? '') === 'max_tokens' ? 'Překlad se nevešel do odpovědi asistenta. Zkuste text rozdělit.' : 'Asistent vrátil neúplný překlad. Zkuste to prosím znovu.');
             }
             foreach (array_keys($davka) as $poradi => $i) {
                 $preklady[$i] = is_scalar($hotove[$poradi]) ? (string) $hotove[$poradi] : '';

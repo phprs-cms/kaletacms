@@ -39,7 +39,7 @@ $zobrazeni = array_sum(array_column($graf, 'zobrazeni'));
 <?php if ($clanky === []): ?><p><?= e(t('Zatím žádná data.')) ?></p><?php else: ?>
 <div class="tab-obal"><table class="vypis"><tbody>
 <?php foreach ($clanky as $c): ?>
-<tr><td><a href="<?= e($app->url('admin.php?modul=clanky&akce=edit&id=' . (int) $c['idc'])) ?>"><?= e($c['titulek']) ?></a></td><td class="cislo"><?= pocet((int) $c['pocet']) ?>×</td></tr>
+<tr><td><a href="<?= e($app->url('admin.php?modul=novinky&akce=edit&id=' . (int) $c['idc'])) ?>"><?= e($c['titulek']) ?></a></td><td class="cislo"><?= pocet((int) $c['pocet']) ?>×</td></tr>
 <?php endforeach ?>
 </tbody></table></div>
 <?php endif ?>

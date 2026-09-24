@@ -27,12 +27,12 @@ final class Kernel
         Moduly\Kategorie::class,
         Moduly\Stitky::class,
         Moduly\Galerie::class,
-        Moduly\Statistika::class,
         Moduly\Vzhled::class,
         Moduly\Casti::class,
         Moduly\Menu::class,
         Moduly\Komponenty::class,
         Moduly\Autori::class,
+        Moduly\Statistika::class,
         Moduly\Presmerovani::class,
         Moduly\ProtokolZmen::class,
         Moduly\Prenos::class,
@@ -189,22 +189,51 @@ final class Kernel
         $jen = ' AND smazano IS NULL' . $this->app->auth()->articleScope();      // pro dotazy bez aliasu (novinky v koši se nepočítají)
         $jenC = ' AND c.smazano IS NULL' . $this->app->auth()->articleScope('c.');  // pro dotazy s aliasem c
 
+        $moduly = $this->moduly();
+        $upozorneni = [];
+        if (isset($moduly['presmerovani'])) {
+            $chybi = (int) $db->value('SELECT COUNT(*) FROM {nenalezeno} WHERE naposledy > NOW() - INTERVAL 7 DAY AND pocet >= 3');
+            if ($chybi > 0) {
+                $upozorneni[] = [t('Návštěvníci za poslední týden opakovaně nenašli %d adres (chyba 404). Přesměrujte je na správné stránky.', $chybi), $this->app->url('admin.php?modul=presmerovani')];
+            }
+        }
+        if ($this->app->auth()->isAdmin()) {
+            $zaloha = \MiroCMS\Core\Zaloha::seznam()[0]['cas'] ?? 0;
+            if (time() - $zaloha > 8 * 86400) {
+                $upozorneni[] = [$zaloha === 0 ? t('Web zatím nemá žádnou zálohu databáze.') : t('Poslední záloha databáze je z %s.', datum(date('Y-m-d H:i:s', $zaloha))), $this->app->url('admin.php?modul=config&zalozka=zalohy')];
+            }
+        }
+        // naposledy upravený obsah: stránky i novinky dohromady
+        $upravene = [];
+        if (isset($moduly['stranky'])) {
+            foreach ($db->all('SELECT ids, titulek, zmeneno, zobrazit, stavba_koncept IS NOT NULL AS koncept FROM {stranky} WHERE smazano IS NULL AND zmeneno IS NOT NULL ORDER BY zmeneno DESC LIMIT 6') as $r) {
+                $upravene[] = ['druh' => t('Stránka'), 'titulek' => $r['titulek'], 'kdy' => (string) $r['zmeneno'], 'url' => $this->app->url('admin.php?modul=stranky&akce=edit&id=' . (int) $r['ids']),
+                    'stav' => !$r['zobrazit'] ? t('skrytá') : ($r['koncept'] ? t('nepublikované změny') : '')];
+            }
+        }
+        if (isset($moduly['novinky'])) {
+            foreach ($db->all('SELECT c.idc, c.titulek, COALESCE(c.zmeneno, c.datum) AS kdy, c.visible, c.datum > NOW() AS plan FROM {novinky} c WHERE 1 = 1' . $jenC . ' ORDER BY COALESCE(c.zmeneno, c.datum) DESC LIMIT 6') as $r) {
+                $upravene[] = ['druh' => t('Novinka'), 'titulek' => $r['titulek'], 'kdy' => (string) $r['kdy'], 'url' => $this->app->url('admin.php?modul=novinky&akce=edit&id=' . (int) $r['idc']),
+                    'stav' => !$r['visible'] ? t('koncept') : ($r['plan'] ? t('naplánovaná') : '')];
+            }
+        }
+        usort($upravene, fn (array $a, array $b): int => strcmp($b['kdy'], $a['kdy']));
+
         return $data + [
             'pruvodce' => $this->pruvodce(),
+            'upozorneni' => $upozorneni,
             // návštěvnost za 14 dní (vlastní měření bez cookies)
-            'navstevnost' => Rozsireni::je($this->app->settings(), 'statistika') && isset($this->moduly()['stat'])
+            'navstevnost' => Rozsireni::je($this->app->settings(), 'statistika') && isset($moduly['stat'])
                 ? $db->all('SELECT den, navstevy, zobrazeni FROM {stat_dny} WHERE den > CURDATE() - INTERVAL 14 DAY ORDER BY den') : [],
-            'pocty' => (isset($this->moduly()['poptavky']) ? ['Nové poptávky' => (int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE stav = 0')] : []) + [
-                'Stránky' => (int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE zobrazit = 1'),
-                'Vydané novinky' => (int) $db->value("SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW(){$jen}"),
-                'Naplánované' => (int) $db->value("SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum > NOW(){$jen}"),
-                'Koncepty' => (int) $db->value("SELECT COUNT(*) FROM {novinky} WHERE visible = 0{$jen}"),
-            ],
-            'posledni' => $db->all(
-                "SELECT c.idc, c.titulek, c.datum, c.visible, t.nazev AS tema_jm
-                 FROM {novinky} c JOIN {kategorie} t ON t.idt = c.tema WHERE 1 = 1" . $jenC . "
-                 ORDER BY COALESCE(c.zmeneno, c.datum) DESC LIMIT 6",
-            ),
+            'pocty' => array_filter([
+                'Nové poptávky' => isset($moduly['poptavky']) ? [(int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE stav = 0'), 'admin.php?modul=poptavky'] : null,
+                'Zveřejněné stránky' => isset($moduly['stranky']) ? [(int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL'), 'admin.php?modul=stranky'] : null,
+                'Stránky s nepublikovanými změnami' => isset($moduly['stranky']) ? [(int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE stavba_koncept IS NOT NULL AND smazano IS NULL'), 'admin.php?modul=stranky'] : null,
+                'Vydané novinky' => isset($moduly['novinky']) ? [(int) $db->value("SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW(){$jen}"), 'admin.php?modul=novinky&stav=vydane'] : null,
+                'Koncepty novinek' => isset($moduly['novinky']) ? [(int) $db->value("SELECT COUNT(*) FROM {novinky} WHERE visible = 0{$jen}"), 'admin.php?modul=novinky&stav=koncepty'] : null,
+            ]),
+            'poptavky' => isset($moduly['poptavky']) ? $db->all('SELECT idp, datum, formular, email, stav FROM {poptavky} ORDER BY idp DESC LIMIT 5') : [],
+            'upravene' => array_slice($upravene, 0, 8),
         ];
     }
 
@@ -224,8 +253,9 @@ final class Kernel
         $kroky = [
             ['Dejte webu tvář', 'Logo, hlavní barva a písmo.', 'admin.php?modul=vzhled', $s->get('logo_webu') !== '' || $s->get('design_system') !== '' || $s->get('brand_akcent') !== ''],
             ['Vyplňte údaje o firmě', 'Adresa, telefon a otevírací doba se ukážou na kontaktu, v patičce i vyhledávačům.', 'admin.php?modul=config&zalozka=firma', $s->get('firma_ulice') !== '' && ($s->get('firma_telefon') !== '' || $s->get('email_webu') !== '')],
-            ['Připravte stránky', 'O nás, Služby, Kontakt – a vyberte, která bude úvodní.', 'admin.php?modul=stranky', (int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE smazano IS NULL') >= 3],
-            ['Napište první novinku', 'Ukázkovou novinku pak můžete smazat.', 'admin.php?modul=novinky&akce=novy', (int) $db->value("SELECT COUNT(*) FROM {novinky} WHERE seo_link <> 'vitejte-v-mirocms'") >= 1],
+            ['Připravte stránky', 'O nás, Služby, Kontakt – a v Nastavení vyberte, která bude úvodní.', 'admin.php?modul=stranky', (int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1') >= 3 && $s->int('titulni_stranka') > 0],
+            ['Doplňte zásady ochrany osobních údajů', 'Formulář s poptávkou sbírá osobní údaje – návštěvník musí vědět, jak s nimi naložíte.', 'admin.php?modul=stranky&akce=novy',
+                $db->value("SELECT 1 FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1 AND (seo_link LIKE '%soukromi%' OR seo_link LIKE '%osobni%' OR seo_link LIKE '%gdpr%' OR seo_link LIKE '%privacy%') LIMIT 1") !== null],
             ['Nastavte poštu', 'Odkud web odesílá e-maily (formuláře, obnova hesla).', 'admin.php?modul=config&zalozka=posta', $s->get('posta_rezim') === 'smtp' || $s->get('posta_od') !== ''],
         ];
         $vysledek = array_map(fn (array $k): array => ['nazev' => $k[0], 'popis' => $k[1], 'url' => $app->url($k[2]), 'hotovo' => (bool) $k[3]], $kroky);

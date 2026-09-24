@@ -18,6 +18,7 @@ final class Kategorie extends Modul
     public const string NAZEV = 'Kategorie';
     public const string SKUPINA = 'Obsah';
     public const string IKONA = 'rubriky';
+    public const string NADRAZENY = 'novinky';
 
     /**
      * Kategorie seřazené podle pořadí a názvu, s počtem novinek.

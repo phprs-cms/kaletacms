@@ -1,20 +1,31 @@
 <?php
 /**
  * Úvodní obrazovka administrace.
- * Přehled webu: první kroky, počty, návštěvnost, naposledy upravené novinky.
+ * Přehled webu: první kroky, upozornění, počty, návštěvnost, nové poptávky a naposledy upravený obsah.
  *
  * @var MiroCMS\Core\App $app
  * @var array<string, class-string<MiroCMS\Admin\Modul>> $moduly
- * @var array<string, int> $pocty
- * @var list<array<string, mixed>> $posledni
+ * @var array<string, array{0: int, 1: string}> $pocty  popisek => [počet, adresa]
+ * @var list<array{0: string, 1: string}> $upozorneni  [text, adresa]
+ * @var list<array<string, mixed>> $poptavky
+ * @var list<array{druh: string, titulek: string, kdy: string, url: string, stav: string}> $upravene
  */
 ?>
 <div class="prehled-hlavicka">
 	<h2><?= e(t('Přehled')) ?></h2>
-<?php if (isset($moduly['novinky'])): ?>
-	<a class="tl" href="<?= e($app->url('admin.php?modul=novinky&akce=novy')) ?>"><?= e(t('Napsat novinku')) ?></a>
+	<p class="navigace-radek">
+<?php if (isset($moduly['stranky'])): ?>
+		<a class="tl" href="<?= e($app->url('admin.php?modul=stranky&akce=novy')) ?>"><?= e(t('Nová stránka')) ?></a>
 <?php endif ?>
+<?php if (isset($moduly['novinky'])): ?>
+		<a class="navigace" href="<?= e($app->url('admin.php?modul=novinky&akce=novy')) ?>"><?= e(t('Napsat novinku')) ?></a>
+<?php endif ?>
+		<a class="navigace" href="<?= e($app->url('')) ?>" target="_blank" rel="noopener"><?= e(t('Zobrazit web')) ?></a>
+	</p>
 </div>
+<?php foreach ($upozorneni as [$text, $adresa]): ?>
+<p class="hlaska hlaska-varovani"><?= e($text) ?> <a href="<?= e($adresa) ?>"><?= e(t('Vyřešit')) ?></a></p>
+<?php endforeach ?>
 <?php if (!empty($pruvodce)): $hotovych = count(array_filter($pruvodce, fn (array $k): bool => $k['hotovo'])); ?>
 <section class="pruvodce" aria-label="<?= e(t('První kroky')) ?>">
 	<div class="pruvodce-hlava">
@@ -29,8 +40,8 @@
 </section>
 <?php endif ?>
 <div class="dlazdice">
-<?php foreach ($pocty as $popis => $pocet): ?>
-	<div class="dlazdice-polozka"><strong><?= pocet($pocet) ?></strong><span><?= e(t($popis)) ?></span></div>
+<?php foreach ($pocty as $popis => [$pocet, $adresa]): ?>
+	<a class="dlazdice-polozka" href="<?= e($app->url($adresa)) ?>"><strong><?= pocet($pocet) ?></strong><span><?= e(t($popis)) ?></span></a>
 <?php endforeach ?>
 </div>
 <?php if (count($navstevnost) >= 2):
@@ -50,18 +61,34 @@
 	<p class="smltxt"><a href="<?= e($app->url('admin.php?modul=stat')) ?>"><?= e(t('Celá statistika')) ?></a></p>
 </section>
 <?php endif ?>
-<?php if ($posledni !== [] && isset($moduly['novinky'])): ?>
-<h3><?= e(t('Naposledy upravené novinky')) ?></h3>
+<?php if ($poptavky !== []): ?>
+<h3><?= e(t('Poslední poptávky')) ?></h3>
 <div class="tab-obal">
 <table class="vypis">
-<thead><tr><th scope="col"><?= e(t('Titulek')) ?></th><th scope="col"><?= e(t('Kategorie')) ?></th><th scope="col"><?= e(t('Datum vydání')) ?></th><th scope="col"><?= e(t('Vydaná')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Formulář')) ?></th><th scope="col"><?= e(t('E-mail')) ?></th><th scope="col"><?= e(t('Přijato')) ?></th></tr></thead>
 <tbody>
-<?php foreach ($posledni as $c): ?>
-<tr<?= $c['visible'] ? '' : ' class="nevydany"' ?>>
-	<td><a href="<?= e($app->url('admin.php?modul=novinky&akce=edit&id=' . (int) $c['idc'])) ?>"><?= e($c['titulek']) ?></a></td>
-	<td><?= e($c['tema_jm']) ?></td>
-	<td class="cislo"><?= e(datum($c['datum'], true)) ?></td>
-	<td class="stred"><?= $c['visible'] ? e(t('Ano')) : '<strong>' . e(t('Ne')) . '</strong>' ?></td>
+<?php foreach ($poptavky as $p): ?>
+<tr<?= (int) $p['stav'] === 0 ? '' : ' class="nevydany"' ?>>
+	<td><a href="<?= e($app->url('admin.php?modul=poptavky&akce=detail&id=' . (int) $p['idp'])) ?>"><?= e($p['formular'] !== '' ? $p['formular'] : t('Poptávka')) ?></a><?= (int) $p['stav'] === 0 ? ' <span class="stitek stitek-koncept">' . e(t('nová')) . '</span>' : '' ?></td>
+	<td><?= e($p['email']) ?></td>
+	<td class="cislo"><?= e(datum($p['datum'], true)) ?></td>
+</tr>
+<?php endforeach ?>
+</tbody>
+</table>
+</div>
+<?php endif ?>
+<?php if ($upravene !== []): ?>
+<h3><?= e(t('Naposledy upravené')) ?></h3>
+<div class="tab-obal">
+<table class="vypis">
+<thead><tr><th scope="col"><?= e(t('Název')) ?></th><th scope="col"><?= e(t('Druh')) ?></th><th scope="col"><?= e(t('Upraveno')) ?></th></tr></thead>
+<tbody>
+<?php foreach ($upravene as $u): ?>
+<tr>
+	<td><a href="<?= e($u['url']) ?>"><?= e($u['titulek']) ?></a><?= $u['stav'] !== '' ? ' <span class="stitek stitek-koncept">' . e($u['stav']) . '</span>' : '' ?></td>
+	<td><?= e($u['druh']) ?></td>
+	<td class="cislo"><?= e(datum($u['kdy'], true)) ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>

@@ -778,6 +778,9 @@ input[type="radio"] {
 	font-size: 13px;
 	color: var(--text-slaby);
 }
+a.dlazdice-polozka { color: var(--text); text-decoration: none; transition: border-color .15s; }
+a.dlazdice-polozka:hover { border-color: var(--akcent); }
+.prehled-hlavicka .navigace-radek { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
 
 /* přihlášení */
 

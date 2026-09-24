@@ -16,7 +16,7 @@ final class Casti
     public const array TYPY = [
         'hlavicka' => ['Záhlaví', 'Logo a navigace nahoře na každé stránce.'],
         'paticka' => ['Patička', 'Kontakty, odkazy a copyright dole na každé stránce.'],
-        'novinka' => ['Detail novinky', 'Obálka kolem textu novinky – třeba výzva k akci nebo další novinky pod článkem.'],
+        'novinka' => ['Detail novinky', 'Obálka kolem textu novinky – třeba výzva k akci nebo další novinky pod textem.'],
         'vypis' => ['Výpis novinek', 'Obálka kolem výpisu novinek, kategorie, štítku a hledání.'],
         'nenalezeno' => ['Stránka nenalezena (404)', 'Obálka kolem hlášení, že stránka neexistuje – třeba s odkazy dál.'],
     ];

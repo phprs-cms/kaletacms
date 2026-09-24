@@ -13,7 +13,7 @@ use MiroCMS\Core\Response;
 /**
  * Obnova zapomenutého hesla do administrace odkazem z e-mailu (admin.php?akce=heslo).
  *
- * - Odpověď na žádost je vždy stejná, ať účet existuje nebo ne - stránka neprozradí, kdo v redakci pracuje.
+ * - Odpověď na žádost je vždy stejná, ať účet existuje nebo ne - stránka neprozradí, kdo web spravuje.
  * - V databázi je jen otisk tokenu; odkaz platí hodinu a jde použít jednou.
  * - Dvoufázové přihlášení obnova NEVYPÍNÁ: kdo získá přístup do e-mailu, bez kódu z aplikace se stejně nepřihlásí.
  * - Změna hesla ukončí všechna ostatní přihlášení účtu (otisk hesla v session přestane sedět).

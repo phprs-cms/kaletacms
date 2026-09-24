@@ -2,7 +2,7 @@
 /**
  * MiroCMS - příprava vydání (spouští vydavatel na svém počítači, na web se nenahrává).
  *
- *   php tools/vydani.php 3.0.1 --url=https://github.com/mirocms/mirocms/releases/download/v3.0.1/mirocms-3.0.1.zip \
+ *   php tools/vydani.php 1.0.1 --url=https://github.com/mirocms/mirocms/releases/download/v1.0.1/mirocms-1.0.1.zip \
  *       --zmena="Oprava ..." --zmena="Nové ..." [--bezpecnostni]
  *
  * --bezpecnostni označí vydání jako bezpečnostní opravu: instalace se na ně aktualizují samy a správce dostane e-mail.
@@ -12,7 +12,7 @@
  * Klíče: tools/klice/vydavatel.key (provozní) a tools/klice/zalozni.key (záložní, má ležet offline) jsou SOUKROMÉ - nikdy do gitu.
  * system/aktualizace.pub nese veřejné klíče (na řádek jeden), je součástí systému. Výměna a odvolání klíče: docs/VYDAVANI.md.
  *   php tools/vydani.php --novy-klic=zalozni      založí pár klíčů a veřejný připíše do system/aktualizace.pub
- *   php tools/vydani.php 3.0.1 --klic=zalozni …   podepíše vydání záložním klíčem (ztráta nebo únik provozního)
+ *   php tools/vydani.php 1.0.1 --klic=zalozni …   podepíše vydání záložním klíčem (ztráta nebo únik provozního)
  */
 
 declare(strict_types=1);

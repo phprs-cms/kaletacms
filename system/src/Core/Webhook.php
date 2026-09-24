@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace MiroCMS\Core;
 
 /**
- * Webhook po vydání článku: pošle údaje o článku na adresu z Nastavení (Make, Zapier, IFTTT, n8n...).
- * Přes takovou službu jde článek automaticky sdílet na Facebook, X, Mastodon, Bluesky, do Slacku apod.
+ * Webhook po vydání novinky: pošle údaje o novince na adresu z Nastavení (Make, Zapier, IFTTT, n8n...).
+ * Přes takovou službu jde novinku automaticky sdílet na Facebook, X, Mastodon, Bluesky, do Slacku apod.
  */
 final class Webhook
 {

@@ -12,7 +12,7 @@ use MiroCMS\Core\Response;
 /**
  * Předek modulů administrace.
  *
- * Akce z adresy (admin.php?modul=clanky&akce=edit) volá metodu akceEdit().
+ * Akce z adresy (admin.php?modul=novinky&akce=edit) volá metodu akceEdit().
  * Výchozí akce je "vypis". Nový modul = jedna třída + šablony ve views/admin/<ident>/.
  */
 abstract class Modul
@@ -34,6 +34,9 @@ abstract class Modul
 
     /** Modul vidí jen admin (autoři, konfigurace...). */
     public const bool JEN_ADMIN = false;
+
+    /** Modul patří pod jiný (ident): v menu se neukazuje samostatně, zvýrazní se nadřazený (Kategorie a Štítky pod Novinkami). */
+    public const string NADRAZENY = '';
 
     /** Modul je dostupný všem přihlášeným bez nastavování práv. */
     public const bool PRO_VSECHNY = false;

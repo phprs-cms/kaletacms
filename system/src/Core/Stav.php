@@ -88,7 +88,7 @@ final class Stav
             $pridej(t('Provoz'), t('Zálohy mimo server'), 'varovani', t('vypnuté – zálohy leží jen na stejném serveru jako web (Nastavení → Zálohy a aktualizace)'));
         }
         $smtp = $app->settings()->get('posta_rezim') === 'smtp' && $app->settings()->get('smtp_host') !== '';
-        // úlohy na pozadí (naplánované články, fronta pošty, push, newsletter) spouští návštěvy webu nebo cron
+        // úlohy na pozadí (naplánované novinky, fronta pošty, push, newsletter) spouští návštěvy webu nebo cron
         $naposledy = $web->int('oznameni_kontrola');
         $pred = $naposledy > 0 ? (int) floor((time() - $naposledy) / 60) : null;
         $pridej(t('Provoz'), t('Úlohy na pozadí'), $pred !== null && $pred <= 30 ? 'ok' : 'varovani', $pred === null

@@ -14,7 +14,7 @@ final class Statistika extends Modul
 {
     public const string IDENT = 'stat';
     public const string NAZEV = 'Statistika';
-    public const string SKUPINA = 'Obsah';
+    public const string SKUPINA = 'Správa';
     public const string IKONA = 'statistika';
     public const string ROZSIRENI = 'statistika';
 

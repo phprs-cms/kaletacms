@@ -7,7 +7,7 @@ namespace MiroCMS\Core;
 /**
  * Jazyk webu a překlady textů šablon.
  *
- * Texty v šablonách jsou česky a obalené funkcí t('Celý článek'); pro jiný jazyk se hledají ve slovníku
+ * Texty v šablonách jsou česky a obalené funkcí t('Číst dál'); pro jiný jazyk se hledají ve slovníku
  * system/jazyky/<kód>.php (česky => překlad). Co ve slovníku chybí, zůstane česky - web se nikdy nerozbije.
  * Jazyk celého webu určuje Nastavení (jazyk_webu); rozšíření "jazyky" přidává další jazykové verze
  * na adresách /en/… - každá má své stránky, kategorie a novinky. Nový jazyk = slovníky system/jazyky/<kód>.php

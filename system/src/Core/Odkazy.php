@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace MiroCMS\Core;
 
 /**
- * Kontrola nefunkčních odkazů ve vydaných článcích. Běží na pozadí po malých dávkách: jeden článek za pět minut,
- * každý článek jednou za 30 dní. Ukládají se jen odkazy, které nefungují (Články → Nefunkční odkazy).
+ * Kontrola nefunkčních odkazů ve vydaných novinkách. Běží na pozadí po malých dávkách: jednu novinku za pět minut,
+ * každou novinku jednou za 30 dní. Ukládají se jen odkazy, které nefungují (Novinky → Nefunkční odkazy).
  *
- * Server se při kontrole připojuje na adresy z článků, proto jen http(s) na veřejné adresy a standardní porty,
- * bez následování přesměrování - odkaz v článku nesmí jít zneužít k ohledávání vnitřní sítě hostingu.
+ * Server se při kontrole připojuje na adresy z novinek, proto jen http(s) na veřejné adresy a standardní porty,
+ * bez následování přesměrování - odkaz v novince nesmí jít zneužít k ohledávání vnitřní sítě hostingu.
  */
 final class Odkazy
 {

@@ -11,7 +11,7 @@ function e(string|int|float|null $value): string
     return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
-/** Překlad textu šablony do jazyka webu: t('Celý článek'), t('Strana %s z %s', 2, 5). Viz Core\Jazyk. */
+/** Překlad textu šablony do jazyka webu: t('Číst dál'), t('Strana %s z %s', 2, 5). Viz Core\Jazyk. */
 function t(string $text, string|int ...$hodnoty): string
 {
     return MiroCMS\Core\Jazyk::t($text, ...$hodnoty);

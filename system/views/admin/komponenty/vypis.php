@@ -18,7 +18,7 @@
 <tbody>
 <?php foreach ($komponenty as $k): ?>
 <tr>
-	<td><a href="<?= e($modul->url('stavitel', ['id' => $k['idm']])) ?>"><strong><?= e($k['nazev']) ?></strong></a><?= $k['stavba_koncept'] !== null && $k['stavba'] !== null ? ' <span class="stitek stitek-koncept">' . e(t('neuložené změny')) . '</span>' : '' ?></td>
+	<td><a href="<?= e($modul->url('stavitel', ['id' => $k['idm']])) ?>"><strong><?= e($k['nazev']) ?></strong></a><?= $k['stavba_koncept'] !== null && $k['stavba'] !== null ? ' <span class="stitek stitek-koncept">' . e(t('nepublikované změny')) . '</span>' : '' ?></td>
 	<td><?= $k['vlastnosti'] === [] ? '—' : implode(' ', array_map(fn (array $v): string => '<code>{{' . e($v['klic']) . '}}</code>', $k['vlastnosti'])) ?></td>
 	<td><?= e(t('%s×', (string) $k['pouziti'])) ?></td>
 	<td class="akce"><a href="<?= e($modul->url('stavitel', ['id' => $k['idm']])) ?>"><?= e(t('Stavitel')) ?></a> · <a href="<?= e($modul->url('edit', ['id' => $k['idm']])) ?>"><?= e(t('Název a vlastnosti')) ?></a> ·

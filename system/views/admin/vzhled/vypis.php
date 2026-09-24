@@ -111,7 +111,7 @@ $kontrastyHtml = function (array $kontrasty): string {
 	</select></label>
 <?php endforeach ?>
 	<label><span><?= e(t('Šířka obsahu')) ?></span><span class="vzhled-jednotka"><input type="number" name="ds[sirka]" value="<?= e($px($ds['sirka'])) ?>" min="640" max="1920" step="16"> px</span></label>
-	<label><span><?= e(t('Šířka textu článku')) ?></span><span class="vzhled-jednotka"><input type="number" name="ds[sirka_textu]" value="<?= e($px($ds['sirka_textu'])) ?>" min="448" max="960" step="16"> px</span></label>
+	<label><span><?= e(t('Šířka textu (novinky a textové stránky)')) ?></span><span class="vzhled-jednotka"><input type="number" name="ds[sirka_textu]" value="<?= e($px($ds['sirka_textu'])) ?>" min="448" max="960" step="16"> px</span></label>
 </div>
 </fieldset>
 

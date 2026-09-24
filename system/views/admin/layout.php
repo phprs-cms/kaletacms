@@ -36,6 +36,10 @@ if ($user !== null) {
     foreach (isset($moduly['config']) ? MiroCMS\Admin\Moduly\Konfigurace::ZALOZKY : [] as $klic => $nazev) {
         $prikazy[] = ['n' => t('Nastavení') . ' → ' . t($nazev), 'u' => $adm('modul=config&zalozka=' . $klic), 's' => t('Nastavení')];
     }
+    // stránky webu jdou v paletě najít podle názvu (novinky se hledají na serveru, je jich víc)
+    foreach (isset($moduly['stranky']) ? $app->db()->all('SELECT ids, titulek FROM {stranky} WHERE smazano IS NULL ORDER BY poradi, titulek LIMIT 300') : [] as $st) {
+        $prikazy[] = ['n' => $st['titulek'], 'u' => $adm('modul=stranky&akce=edit&id=' . (int) $st['ids']), 's' => t('Stránka')];
+    }
     $prikazy[] = ['n' => t('Můj účet'), 'u' => $adm('akce=ucet'), 's' => ''];
     $prikazy[] = ['n' => t('Zobrazit web'), 'u' => $app->url(''), 's' => ''];
 }
@@ -61,11 +65,12 @@ if ($user !== null) {
 	<button class="menu-prepinac" type="button" aria-expanded="false" aria-controls="menu"><?= e(t('Menu')) ?></button>
 	<ul class="menu" id="menu">
 		<li class="menu-prehled<?= $naPrehledu ? ' aktivni' : '' ?>"><a href="<?= e($app->url('admin.php')) ?>"<?= $naPrehledu ? ' aria-current="page"' : '' ?>><?= $ikona('prehled') ?><?= e(t('Přehled')) ?></a></li>
-<?php $skupina = ''; foreach ($moduly as $ident => $class): ?>
+<?php $skupina = ''; $vMenu = isset($moduly[$aktivni]) && $moduly[$aktivni]::NADRAZENY !== '' ? $moduly[$aktivni]::NADRAZENY : $aktivni; ?>
+<?php foreach ($moduly as $ident => $class): if ($class::NADRAZENY !== '' && isset($moduly[$class::NADRAZENY])) { continue; } ?>
 <?php if ($class::SKUPINA !== $skupina): $skupina = $class::SKUPINA; ?>
 		<li class="menu-skupina" aria-hidden="true"><?= e(t($skupina)) ?></li>
 <?php endif ?>
-		<li<?= $ident === $aktivni ? ' class="aktivni"' : '' ?>><a href="<?= e($app->url('admin.php?modul=' . $ident)) ?>"<?= $ident === $aktivni ? ' aria-current="page"' : '' ?>><?= $ikona($class::IKONA) ?><?= e(t($class::NAZEV)) ?></a></li>
+		<li<?= $ident === $vMenu ? ' class="aktivni"' : '' ?>><a href="<?= e($app->url('admin.php?modul=' . $ident)) ?>"<?= $ident === $vMenu ? ' aria-current="page"' : '' ?>><?= $ikona($class::IKONA) ?><?= e(t($class::NAZEV)) ?></a></li>
 <?php endforeach ?>
 		<li class="menu-web"><a href="<?= e($app->url('')) ?>" target="_blank" rel="noopener"><?= $ikona('web') ?><?= e(t('Zobrazit web')) ?></a></li>
 		<li class="menu-logout"><form method="post" action="<?= e($app->url('admin.php?akce=logout')) ?>"><?= $app->session->csrfField() ?><button type="submit"><?= $ikona('odhlasit') ?><?= e(t('Odhlásit se')) ?></button></form></li>
@@ -79,7 +84,7 @@ if ($user !== null) {
 <?php endif ?>
 <?php if ($prikazy !== []): ?>
 <dialog class="paleta" id="paleta" aria-label="<?= e(t('Rychlé hledání a příkazy')) ?>"<?= isset($moduly['novinky']) ? ' data-clanky="' . e($app->url('admin.php?modul=novinky&akce=hledej_json&uprava=1')) . '"' : '' ?>>
-	<input class="paleta-pole" type="search" autocomplete="off" spellcheck="false" placeholder="<?= e(t('Kam chcete jít? Napište název sekce, akce nebo novinky…')) ?>" aria-label="<?= e(t('Rychlé hledání a příkazy')) ?>" aria-controls="paleta-seznam">
+	<input class="paleta-pole" type="search" autocomplete="off" spellcheck="false" placeholder="<?= e(t('Kam chcete jít? Napište název sekce, akce, stránky nebo novinky…')) ?>" aria-label="<?= e(t('Rychlé hledání a příkazy')) ?>" aria-controls="paleta-seznam">
 	<ul class="paleta-seznam" id="paleta-seznam" role="listbox"></ul>
 	<p class="paleta-napoveda"><kbd>↑</kbd> <kbd>↓</kbd> <?= e(t('výběr')) ?> · <kbd>Enter</kbd> <?= e(t('otevřít')) ?> · <kbd>Esc</kbd> <?= e(t('zavřít')) ?></p>
 	<script type="application/json" id="paleta-data"><?= json_encode($prikazy, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>

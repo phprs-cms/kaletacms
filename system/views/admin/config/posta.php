@@ -37,7 +37,7 @@ $pole('smtp_uzivatel', 'Přihlašovací jméno', 'text', 'Obvykle celá e-mailov
 <details class="pokrocile"<?= $hodnoty['posta_od'] !== '' || $hodnoty['posta_odpoved'] !== '' ? ' open' : '' ?>>
 <summary><?= e(t('Odesílatel a odpovědi')) ?></summary>
 <?php
-$pole('posta_od', 'Adresa odesílatele', 'email', 'Prázdné = E-mail redakce. U SMTP musí jít o adresu, ze které smí vaše schránka odesílat.');
+$pole('posta_od', 'Adresa odesílatele', 'email', 'Prázdné = E-mail webu. U SMTP musí jít o adresu, ze které smí vaše schránka odesílat.');
 $pole('posta_odpoved', 'Odpovědi posílat na', 'email', 'Nepovinné – když mají odpovědi čtenářů chodit jinam než odesílateli.');
 ?>
 </details>

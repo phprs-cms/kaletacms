@@ -8,7 +8,7 @@ use MiroCMS\Admin\Modul;
 use MiroCMS\Core\Response;
 
 /**
- * Štítky a témata. Štítky vznikají samy při psaní článků; tady se dají přejmenovat, sloučit a smazat.
+ * Štítky a témata. Štítky vznikají samy při psaní novinek; tady se dají přejmenovat, sloučit a smazat.
  * Štítek s popisem a obrázkem se na webu chová jako stránka tématu (/stitek/<adresa>).
  */
 final class Stitky extends Modul
@@ -17,6 +17,7 @@ final class Stitky extends Modul
     public const string NAZEV = 'Štítky a témata';
     public const string SKUPINA = 'Obsah';
     public const string IKONA = 'stitky';
+    public const string NADRAZENY = 'novinky';
 
     protected function akceVypis(): Response
     {
@@ -37,7 +38,7 @@ final class Stitky extends Modul
         }
         $this->db->update('stitky', ['nazev' => $nazev, 'popis' => trim($this->request->post('popis')), 'obrazek' => mb_substr($this->request->post('obrazek'), 0, 255)], ['ids' => $stitek['ids']]);
 
-        // sloučení: články dostanou cílový štítek, tento zanikne a jeho adresa se přesměruje
+        // sloučení: novinky dostanou cílový štítek, tento zanikne a jeho adresa se přesměruje
         $cil = $this->db->one('SELECT * FROM {stitky} WHERE ids = ? AND ids <> ?', [$this->request->postInt('sloucit_do'), $stitek['ids']]);
         if ($cil !== null) {
             $this->db->run('INSERT IGNORE INTO {novinky_stitky} (idc, ids) SELECT idc, ? FROM {novinky_stitky} WHERE ids = ?', [$cil['ids'], $stitek['ids']]);

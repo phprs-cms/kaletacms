@@ -6,9 +6,13 @@
  * @var array<int, string> $uzivatele
  * @var int $kdo
  */
-$nazvy = ['stranky' => 'Stránky', 'novinky' => 'Novinky', 'kategorie' => 'Kategorie', 'stitky' => 'Štítky', 'intergal' => 'Média', 'vzhled' => 'Vzhled', 'asistent' => 'AI asistent', 'mcp' => 'Claude (MCP)', 'users' => 'Uživatelé', 'presmerovani' => 'Přesměrování', 'config' => 'Nastavení', 'prihlaseni' => 'Přihlášení', 'ucet' => 'Můj účet'];
-$akce = ['uloz' => 'uložení', 'smaz' => 'smazání', 'vydat' => 'vydání', 'hromadne' => 'hromadná akce', 'nahraj' => 'nahrání', 'login' => 'přihlášení', 'neuspech' => 'neúspěšný pokus',
-    'rozvrzeni' => 'změna rozvržení', 'zalohuj' => 'záloha', 'aktualizuj' => 'aktualizace systému', 'slozka' => 'složka', 'ads_txt' => 'ads.txt'];
+// názvy modulů z administrace (i těch, které přibudou) a několik míst mimo moduly
+$nazvy = array_map(fn (string $class): string => $class::NAZEV, array_combine(array_map(fn (string $class): string => $class::IDENT, MiroCMS\Admin\Kernel::MODULY), MiroCMS\Admin\Kernel::MODULY))
+    + ['asistent' => 'AI asistent', 'mcp' => 'Claude (MCP)', 'prihlaseni' => 'Přihlášení', 'ucet' => 'Můj účet'];
+$akce = ['uloz' => 'uložení', 'smaz' => 'smazání', 'smaz_natrvalo' => 'smazání natrvalo', 'obnov' => 'obnovení z koše', 'duplikuj' => 'kopie',
+    'vydat' => 'vydání', 'hromadne' => 'hromadná akce', 'nahraj' => 'nahrání', 'login' => 'přihlášení', 'neuspech' => 'neúspěšný pokus',
+    'zalohuj' => 'záloha', 'aktualizuj' => 'aktualizace systému', 'slozka' => 'složka', 'automaticky' => 'automatické menu',
+    'uloz_variantu' => 'uložení varianty', 'sablona' => 'návrat na šablonu', 'stav' => 'změna stavu', 'import' => 'import', 'stavba_text' => 'návrat k textu'];
 ?>
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt">
 	<input type="hidden" name="modul" value="protokol">

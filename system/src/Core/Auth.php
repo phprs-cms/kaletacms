@@ -7,8 +7,8 @@ namespace MiroCMS\Core;
 /**
  * Přihlášení do administrace a práva.
  *
- * Role: autor píše vlastní články (vydat je smí jen s "právem vydávat"), redaktor spravuje
- * a vydává články všech, administrátor navíc uživatele a nastavení. Přístup k modulům se
+ * Role: autor píše vlastní novinky (vydat je smí jen s "právem vydávat"), editor spravuje
+ * obsah a vydává novinky všech, administrátor navíc uživatele a nastavení. Přístup k modulům se
  * u autorů a redaktorů nastavuje jednotlivě; autor může mít nadřízeného editora.
  */
 final class Auth
@@ -52,7 +52,7 @@ final class Auth
         if (!$ok) {
             $this->db->insert('kontrola_ip', ['ip_adresa' => Antispam::otisk($ip), 'typ' => 'login', 'cas' => date('Y-m-d H:i:s')]);
             if ($user !== null) {
-                // po 10 chybách v řadě se účet zamkne na 15 minut - ne natrvalo, jinak by kdokoli mohl redakci vyřadit z provozu
+                // po 10 chybách v řadě se účet zamkne na 15 minut - ne natrvalo, jinak by kdokoli mohl správce webu vyřadit z provozu
                 $chyb = (int) $user['pocet_chyb'] + 1;
                 $this->db->update('uzivatele', $chyb >= self::MAX_CHYB
                     ? ['pocet_chyb' => 0, 'zamceno_do' => date('Y-m-d H:i:s', time() + 900)]

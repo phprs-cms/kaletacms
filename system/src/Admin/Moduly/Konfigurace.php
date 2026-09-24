@@ -40,7 +40,7 @@ class Konfigurace extends Modul
      */
     private const array POLE = [
         'zakladni' => [
-            'nazev_webu' => 'text', 'adresa_webu' => 'vzor:#^https?://[a-z0-9.-]+(:\d+)?$#i', 'popis_webu' => 'radky', 'klicova_slova' => 'text', 'email_webu' => 'email', 'text_paticky' => 'text',
+            'nazev_webu' => 'text', 'adresa_webu' => 'vzor:#^https?://[a-z0-9.-]+(:\d+)?$#i', 'popis_webu' => 'radky', 'email_webu' => 'email', 'text_paticky' => 'text',
             'soc_facebook' => 'url', 'soc_instagram' => 'url', 'soc_x' => 'url', 'soc_youtube' => 'url', 'soc_linkedin' => 'url',
             'titulni_stranka' => 'cislo:0:4294967295', 'pocet_clanku' => 'cislo:1:100', 'sdileni' => 'ano', 'kontrola_odkazu' => 'ano', 'osnova_clanku' => 'ano', 'souvisejici_auto' => 'ano', 'cache_stranek' => 'ano', 'udrzba' => 'ano', 'udrzba_text' => 'text', 'webhook_url' => 'url',
             'casove_pasmo' => 'pasmo', 'jazyk_webu' => 'vyber:' . \MiroCMS\Core\Jazyk::KODY, 'jazyky_dalsi' => 'seznam:' . \MiroCMS\Core\Jazyk::KODY,
@@ -311,7 +311,7 @@ class Konfigurace extends Modul
         exit;
     }
 
-    /** Zkušební e-mail na adresu redakce - ověří, že server umí odesílat poštu. */
+    /** Zkušební e-mail na e-mail webu - ověří, že server umí odesílat poštu. */
     protected function akceTestPosty(): Response
     {
         $komu = $this->app->settings()->get('email_webu');
@@ -319,7 +319,7 @@ class Konfigurace extends Modul
             return $this->zpet('Nejprve vyplňte E-mail webu v záložce Základní.', '', ['zalozka' => $this->request->post('zalozka') === 'posta' ? 'posta' : 'stav'], 'chyba');
         }
         $web = $this->app->settings()->get('nazev_webu');
-        // adresa redakce nemá účet s jazykem: zpráva jde ve výchozím jazyce webu (stejně jako ostatní pošta redakci)
+        // e-mail webu nemá účet s jazykem: zpráva jde ve výchozím jazyce webu (stejně jako ostatní pošta webu)
         [$predmet, $text] = \MiroCMS\Core\Jazyk::docasne(\MiroCMS\Core\Jazyk::vychozi($this->app->settings()), fn (): array => [
             t('Zkušební zpráva z %s', $web),
             t('Dobrý den,') . "\n\n" . t('tato zpráva potvrzuje, že web %s umí odesílat e-maily.', $web) . "\n\nMiroCMS " . MIROCMS_VERSION,

@@ -73,7 +73,7 @@ verzi podepsanou provozním klíčem.
 Automatická cesta pak neexistuje. Instalace jde aktualizovat ručně (nahrát soubory přes FTP), a první ručně nahraná verze
 přinese nový `system/aktualizace.pub`. Proto záložní klíč zálohujte na dvou nezávislých místech.
 
-## Denní kontrola a bezpečnostní záplaty (3.0.x)
+## Denní kontrola a bezpečnostní záplaty (1.0.x)
 
 Každou noc běží `.github/workflows/denni-kontrola.yml`. **Nic nevydává ani nepodepisuje** – podpisový klíč zůstává mimo GitHub –
 jen včas řekne, že je potřeba jednat:
@@ -95,11 +95,11 @@ Spustit ji jde i ručně: *Actions → Denní kontrola → Run workflow*.
 2. **Neřešit veřejně.** Založit *Security → Advisories → New draft* (soukromé); oprava vzniká v soukromé větvi, kterou k oznámení GitHub nabídne.
    Hlášení od lidí chodí stejnou cestou (*Report a vulnerability*).
 3. **Opravit a otestovat** – `tools/test.sh`, k chybě přidat test, který by ji příště chytil.
-4. **Vydat záplatu** z udržované řady: číslo `3.0.x`, a pokud jde o bezpečnost, s příznakem, který ji instalacím nainstaluje samu:
-   `php tools/vydani.php 3.0.x --url=… --zmena="Bezpečnostní oprava: …" --bezpecnostni`
+4. **Vydat záplatu** z udržované řady: číslo `1.0.x`, a pokud jde o bezpečnost, s příznakem, který ji instalacím nainstaluje samu:
+   `php tools/vydani.php 1.0.x --url=… --zmena="Bezpečnostní oprava: …" --bezpecnostni`
    Podpis je lokální; potom ZIP do GitHub Releases a `aktualizace.json` na web (viz Běžné vydání).
 5. **Ověřit** na demu, že se záplata nainstalovala sama, a ručně pustit Denní kontrolu – musí projít kanál aktualizací.
 6. **Zveřejnit oznámení** (advisory) s popisem, zasaženými verzemi a poděkováním nálezci.
 
-Po vydání 3.0.0 se opravy dělají na `main` a přenášejí do větve `3.0` (`git cherry-pick`), ze které se vydávají verze 3.0.x;
-nové funkce jdou jen do `main` a vyjdou jako 3.1.
+Po vydání 1.0.0 se opravy dělají na `main` a přenášejí do větve `1.0` (`git cherry-pick`), ze které se vydávají verze 1.0.x;
+nové funkce jdou jen do `main` a vyjdou jako 1.1.

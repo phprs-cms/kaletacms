@@ -79,7 +79,6 @@ $pole('udrzba_text', 'Text oznámení', 'text', '', 'maxlength="300"');
 <summary><?= e(t('Další možnosti')) ?></summary>
 <?php
 $pole('text_paticky', 'Text v patičce', 'text', 'Například obchodní firma a IČO.', 'maxlength="300"');
-$pole('klicova_slova', 'Klíčová slova webu', 'text');
 $pole('sdileni', 'Odkazy pro sdílení pod novinkou', 'ano', 'Facebook, X, LinkedIn, WhatsApp, e-mail a kopírování odkazu – bez cizích skriptů.');
 $pole('osnova_clanku', 'Obsah novinky z mezititulků', 'ano', 'U novinek s aspoň třemi mezititulky se nad textem zobrazí klikací osnova.');
 $pole('souvisejici_auto', 'Související novinky', 'ano', 'Pod novinkou se nabídnou podobné podle štítků a kategorie.');

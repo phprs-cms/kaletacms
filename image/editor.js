@@ -245,7 +245,7 @@
 
 	function prikaz(nazev, hodnota) { document.execCommand(nazev, false, hodnota || null); }
 
-	/* Dialog odkazu: adresa, nebo vlastní článek vyhledaný podle titulku. Systémový prompt() vestavěné prohlížeče potlačují. */
+	/* Dialog odkazu: adresa, nebo vlastní novinka vyhledaná podle titulku. Systémový prompt() vestavěné prohlížeče potlačují. */
 	var oknoOdkazu = null;
 
 	function odkaz() {
@@ -437,7 +437,7 @@
 		plocha.addEventListener('dragleave', function () { obal.classList.remove('editor-pretazeni'); });
 		plocha.addEventListener('drop', function (e) {
 			obal.classList.remove('editor-pretazeni');
-			// jiný soubor než obrázek (PDF…): nenahrává se, ale prohlížeč ho nesmí otevřít místo formuláře - rozepsaný článek by byl pryč
+			// jiný soubor než obrázek (PDF…): nenahrává se, ale prohlížeč ho nesmí otevřít místo formuláře - rozepsaný text by byl pryč
 			if (!jsouObrazky(e.dataTransfer)) { if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) { e.preventDefault(); } return; }
 			e.preventDefault();
 			nahraj(e.dataTransfer.files).then(function (nove) { plocha.focus(); nove.forEach(function (o) { prikaz('insertHTML', htmlObrazku(o)); }); doPole(); });
