@@ -424,5 +424,21 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akc
 ocekavej "úvodní stránku nejde smazat" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT smazano IS NULL FROM mc_stranky WHERE ids = $IDU")" "1"
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE mc_nastaveni SET hodnota='0' WHERE promenna='titulni_stranka'"
 
+echo "== menu"
+over "editor menu" 200 "/admin.php?modul=menu" 'data-menu-seznam'
+IDO=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM mc_stranky WHERE seo_link = 'o-nas'")
+MENU='[{"typ":"stranka","ids":'$IDO',"text":"O firmě","deti":[{"typ":"odkaz","text":"Kariéra","url":"https://example.cz/kariera","nove_okno":true}]},{"typ":"novinky"},{"typ":"odkaz","text":"Zlý","url":"javascript:alert(1)"}]'
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=menu&akce=uloz&umisteni=hlavni" -d "_csrf=$TOKEN" --data-urlencode "polozky=$MENU"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=menu&akce=uloz&umisteni=paticka" -d "_csrf=$TOKEN" --data-urlencode 'polozky=[{"typ":"odkaz","text":"Zásady ochrany soukromí","url":"/zasady"}]'
+rm -f "$PRACE"/web/storage/cache/stranky/*.html
+curl -s -o "$PRACE/odpoved" "$B/novinky"
+grep -q '<li class="podmenu"><a href="[^"]*/o-nas">O firmě</a><ul><li><a href="https://example.cz/kariera" target="_blank" rel="noopener">Kariéra</a>' "$PRACE/odpoved" && grep -q 'aria-current="page">Novinky' "$PRACE/odpoved" && ! grep -q 'javascript:' "$PRACE/odpoved" \
+  && echo "  ok     menu s podmenu na webu, nebezpečný odkaz vypadl" || { echo "  CHYBA  menu na webu"; CHYB=$((CHYB+1)); }
+mcp nacti_menu '{"umisteni":"paticka"}' > "$PRACE/odpoved"; grep -q 'Zásady ochrany soukromí' "$PRACE/odpoved" && echo "  ok     menu v patičce (MCP)" || { echo "  CHYBA  menu v patičce"; CHYB=$((CHYB+1)); }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akce=uloz" -d "_csrf=$TOKEN" -d "ids=$IDS" -d titulek=Kontakt -d seo_link=kontakty -d zobrazit=1 -d v_menu=1 -d "text=<p>Adresa.</p>"
+ocekavej "zaškrtnutá stránka se přidá na konec sestaveného menu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT polozky LIKE '%\"ids\":$IDS%' FROM mc_menu WHERE umisteni = 'hlavni'")" "1"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=menu&akce=automaticky&umisteni=hlavni" -d "_csrf=$TOKEN"
+ocekavej "návrat k automatickému menu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM mc_menu WHERE umisteni = 'hlavni'")" "0"
+
 if [ -s "$PRACE/web/storage/log/chyby.log" ]; then echo "== záznam chyb aplikace:"; cat "$PRACE/web/storage/log/chyby.log"; CHYB=$((CHYB+1)); fi
 echo; [ "$CHYB" -eq 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $CHYB"; exit 1; }

@@ -5,6 +5,8 @@
  * @var array<string, mixed> $stranka
  * @var array<string, string> $chyby
  * @var bool $uvod  je to úvodní stránka webu
+ * @var ?bool $vMenu  je stránka v sestaveném menu (null = menu se skládá automaticky podle v_menu)
+ * @var bool $vlastniMenu  web má sestavené hlavní menu
  */
 $chyba = fn (string $pole): string => isset($chyby[$pole]) ? '<span class="chyba-pole" role="alert">' . e(t($chyby[$pole])) . '</span>' : '';
 ?>
@@ -67,13 +69,16 @@ $chyba = fn (string $pole): string => isset($chyby[$pole]) ? '<span class="chyba
 	<span class="popisek"><?= e(t('Zobrazení')) ?></span>
 	<div class="volby">
 		<label><input type="checkbox" name="zobrazit" value="1"<?= $stranka['zobrazit'] ? ' checked' : '' ?>> <?= e(t('Zveřejnit stránku')) ?></label><?= $uvod ? ' <span class="stitek">' . e(t('úvodní stránka webu')) . '</span>' : '' ?><?= $chyba('zobrazit') ?><br>
-		<label><input type="checkbox" name="v_menu" value="1"<?= $stranka['v_menu'] ? ' checked' : '' ?>> <?= e(t('Zobrazit v hlavní navigaci webu')) ?></label>
+		<label><input type="checkbox" name="v_menu" value="1"<?= ($vMenu ?? (bool) $stranka['v_menu']) ? ' checked' : '' ?>> <?= e(t('Zobrazit v hlavní navigaci webu')) ?></label>
+<?php if ($vlastniMenu): ?>
+		<span class="napoveda"><?= e(t('Web má sestavené menu – stránka se přidá na jeho konec. Pořadí a podmenu upravíte ve Vzhled → Menu.')) ?></span>
+<?php endif ?>
 	</div>
 </div>
 <div class="radek">
 	<label for="poradi"><?= e(t('Pořadí v navigaci')) ?></label>
 	<div><input class="textpole" type="number" id="poradi" name="poradi" value="<?= (int) $stranka['poradi'] ?>" min="0" max="65535">
-	<span class="napoveda"><?= e(t('Menší číslo = víc vlevo (dřív) v navigaci.')) ?></span></div>
+	<span class="napoveda"><?= e(t('Menší číslo = dřív v seznamu stránek a v automatickém menu.')) ?></span></div>
 </div>
 <p class="tlacitka"><button class="tl" type="submit"><?= e(t('Uložit')) ?></button><?php if (($stranka['stavba'] ?? null) === null): ?> <button class="navigace" type="submit" name="po_ulozeni" value="stavitel"><?= e(t('Uložit a otevřít ve staviteli')) ?></button><?php endif ?></p>
 </form>

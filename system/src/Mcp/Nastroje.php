@@ -65,6 +65,10 @@ final class Nastroje
             ['nacti_stranku', 'Celá stránka včetně HTML obsahu.', $s(['id' => $cislo('ID stránky')], ['id'])],
             ['vytvor_stranku', 'Založí stránku (editor a správce). Bez "zobrazit": true zůstane skrytá.', $s($stranka, ['titulek'])],
             ['uprav_stranku', 'Změní zadaná pole stránky; ostatní ponechá.', $s(['id' => $cislo('ID stránky')] + $stranka, ['id'])],
+            ['nacti_menu', 'Menu webu (hlavní nebo v patičce) pro jazykovou verzi: položky s podmenu a jestli se hlavní menu zatím skládá automaticky ze stránek „v menu“.',
+                $s(['umisteni' => $text('hlavni (výchozí) | paticka'), 'jazyk' => $text('jazyková verze (prázdné = výchozí)')])],
+            ['uloz_menu', 'Uloží celé menu (správce). Položky: {"typ":"stranka","ids":5,"text":""} (prázdný text = název stránky) | {"typ":"odkaz","text":"…","url":"https://… nebo /cesta","nove_okno":false} | {"typ":"novinky"} | {"typ":"skupina","text":"Služby"} – každá může mít "deti" (jedna úroveň podmenu). null = hlavní menu zase automaticky.',
+                $s(['umisteni' => $text('hlavni | paticka'), 'jazyk' => $text('jazyková verze (prázdné = výchozí)'), 'polozky' => ['type' => ['array', 'null'], 'items' => ['type' => 'object'], 'description' => 'položky menu']], ['umisteni', 'polozky'])],
             ['stavba_schema', 'Jak se skládá stránka ve staviteli: typy prvků a jejich pole, vlastnosti stylu, tokeny design systému (barvy, mezery, písmo), hotové sekce knihovny a sdílené třídy webu. Načti před prvním použitím nástrojů stavba_*.', $s([])],
             ['stavba_nacti', 'Stavba stránky nebo části webu (strom prvků) – rozpracovaný koncept, jinak publikovaná verze. Stránka bez stavby vrátí stavbu z jejího textu.', $s($cil)],
             ['stavba_z_html', 'DOPORUČENÁ CESTA pro novou stránku nebo sekce: napiš sémantické HTML (section/header, h1–h3, p, ul, a, img, figure, blockquote, details) a vzhled do bloku <style> jako pravidla jedné třídy (.karta { … }) s tokeny var(--mc-…). Převede se na stavbu a třídy; vrátí hlášení, co převést nešlo. Uloží se jako koncept.',
@@ -105,7 +109,7 @@ final class Nastroje
 
     public function meni(string $nazev): bool
     {
-        return in_array($nazev, ['vytvor_kolekci', 'uloz_polozku_kolekce', 'stavba_z_html', 'stavba_uloz', 'vloz_sekci', 'publikuj_stavbu', 'uprav_design_system', 'vytvor_stranku', 'uprav_stranku', 'vytvor_novinku', 'uprav_novinku', 'vytvor_kategorii', 'vytvor_sablonu', 'uloz_soubor_sablony', 'aktivuj_sablonu'], true);
+        return in_array($nazev, ['vytvor_kolekci', 'uloz_polozku_kolekce', 'stavba_z_html', 'stavba_uloz', 'vloz_sekci', 'publikuj_stavbu', 'uprav_design_system', 'vytvor_stranku', 'uprav_stranku', 'vytvor_novinku', 'uprav_novinku', 'vytvor_kategorii', 'uloz_menu', 'vytvor_sablonu', 'uloz_soubor_sablony', 'aktivuj_sablonu'], true);
     }
 
     /** @param array<string, mixed> $a */
@@ -148,6 +152,23 @@ final class Nastroje
                 }
 
                 return $this->ulozStranku($nazev === 'uprav_stranku' ? $this->stranka((int) ($a['id'] ?? 0)) : null, $a);
+
+            case 'nacti_menu':
+            case 'uloz_menu':
+                $umisteni = isset(\MiroCMS\Core\Menu::UMISTENI[$a['umisteni'] ?? '']) ? $a['umisteni'] : 'hlavni';
+                $jazykMenu = in_array($a['jazyk'] ?? '', Jazyk::dalsi($web), true) ? $a['jazyk'] : '';
+                if ($nazev === 'uloz_menu') {
+                    if (!$auth->isAdmin()) {
+                        throw new \DomainException('Menu smí upravovat jen správce.');
+                    }
+                    \MiroCMS\Core\Menu::uloz($db, $umisteni, $jazykMenu, is_array($a['polozky'] ?? null) ? $a['polozky'] : null);
+                    \MiroCMS\Front\Cache::vymaz();
+                }
+                $ulozene = \MiroCMS\Core\Menu::nacti($db, $umisteni, $jazykMenu);
+
+                return ['umisteni' => $umisteni, 'jazyk' => $jazykMenu, 'automaticke' => $ulozene === null, 'polozky' => $ulozene ?? [],
+                    'na_webu' => \MiroCMS\Core\Menu::polozky($this->app, $umisteni, $jazykMenu, $web->int('titulni_stranka')),
+                    'stranky' => $db->all('SELECT ids, titulek, zobrazit FROM {stranky} WHERE jazyk = ? AND smazano IS NULL ORDER BY poradi, titulek', [$jazykMenu])];
 
             case 'stavba_schema':
                 return Stavba::schema($auth->isAdmin(), Jazyk::vychozi($web), $auth->isAdmin()) + [
@@ -513,6 +534,9 @@ final class Nastroje
         $data['zmeneno'] = date('Y-m-d H:i:s');
         if ($puvodni === null) {
             $id = $db->insert('stranky', $data + ['text' => '', 'zobrazit' => 0, 'v_menu' => 0]);
+            if (!empty($data['v_menu'])) {
+                \MiroCMS\Core\Menu::nastavStranku($db, $id, '', true);
+            }
         } else {
             $id = (int) $puvodni['ids'];
             $db->update('stranky', $data, ['ids' => $id]);

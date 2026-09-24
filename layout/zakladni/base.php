@@ -13,7 +13,10 @@
  * @var string $pata   cookie lišta a kódy před </body> (vždy vypsat)
  * @var string $jazyk  kód jazyka zobrazené verze webu (cs, en…) pro <html lang>
  * @var string $jazyky_html  hotový přepínač jazykových verzí; prázdný, má-li web jediný jazyk
- * @var list<array{titulek:string, seo_link:string, uvod:bool}> $stranky  stránky do hlavní navigace (úvodní má prázdnou adresu)
+ * @var list<array{titulek:string, seo_link:string, uvod:bool}> $stranky  stránky „v menu“ (úvodní má prázdnou adresu) – jen pro starší šablony
+ * @var list<array{text:string, url:string, nove_okno:bool, deti:list<array<string, mixed>>, novinky?:bool}> $menu  hlavní menu (Vzhled → Menu), položky mohou mít podmenu
+ * @var list<array<string, mixed>> $menu_paticka  menu v patičce (prázdné, dokud ho správce nesestaví)
+ * @var callable(list<array<string, mixed>>, string, string): string $menu_html  položky menu jako <li> (Core\Menu::html: položky, cesta stránky, adresa úvodu)
  * @var array{hlavicka: ?string, paticka: ?string} $casti  záhlaví a patička ze stavitele (Vzhled → Části webu); null = kreslí je layout
  */
 $nazevWebu = $web->get('nazev_webu');
@@ -57,10 +60,7 @@ $site = array_filter(['LinkedIn' => $web->get('soc_linkedin'), 'Facebook' => $we
 		<button class="menu-tl" type="button" popovertarget="navigace" aria-label="<?= e(t('Menu')) ?>"><span aria-hidden="true"></span></button>
 		<nav class="navigace" id="navigace" popover aria-label="<?= e(t('Hlavní navigace')) ?>">
 			<ul>
-<?php foreach ($stranky as $st): ?>
-				<li><a href="<?= e($url($st['seo_link'])) ?>"<?= $jeAktivni($st['seo_link']) ? ' aria-current="page"' : '' ?>><?= e($st['titulek']) ?></a></li>
-<?php endforeach ?>
-				<li><a href="<?= e($url('novinky')) ?>"<?= $jeAktivni('novinky') ? ' aria-current="page"' : '' ?>><?= e(t('Novinky')) ?></a></li>
+				<?= $menu_html($menu, $cesta, $url('')) ?>
 			</ul>
 			<?= $jazyky_html ?? '' ?>
 		</nav>
@@ -89,6 +89,8 @@ $site = array_filter(['LinkedIn' => $web->get('soc_linkedin'), 'Facebook' => $we
 		</div>
 		<nav aria-label="<?= e(t('Odkazy v patičce')) ?>">
 			<ul>
+<?php $plocha = []; foreach ($menu_paticka as $p) { $plocha[] = ['deti' => []] + $p; array_push($plocha, ...$p['deti']); } // v patičce bez rozbalování ?>
+				<?= $menu_html($plocha, $cesta, $url('')) ?>
 <?php foreach ($site as $nazevSite => $adresa): ?>
 				<li><a href="<?= e($adresa) ?>" rel="me noopener" target="_blank"><?= e($nazevSite) ?></a></li>
 <?php endforeach ?>

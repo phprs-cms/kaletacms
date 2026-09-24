@@ -541,6 +541,14 @@ over('Styl::css: tokeny, sloupce, hover a breakpoint', MiroCMS\Stavitel\Styl::cs
 over('Styl::css: obrázek pozadí z Médií od kořene instalace', str_contains(MiroCMS\Stavitel\Styl::css('#s', ['zaklad' => ['obrazek_pozadi' => 'media/2026/09/a.jpg']], '', '/web'), 'url("/web/media/2026/09/a.jpg")'), true);
 over('Kontejner jako odkaz: odkazy uvnitř se změní na span', MiroCMS\Stavitel\Prvky\Kontejner::vykresli(['znacka' => 'div', 'obsah' => ['odkaz' => '/k']], '', '<p>x</p><a class="mc-tlacitko" href="/y" target="_blank">B</a><abbr>z</abbr>', new MiroCMS\Stavitel\Kontext((new ReflectionClass(MiroCMS\Core\App::class))->newInstanceWithoutConstructor())),
     '<a class="mc-karta-odkaz" href="/k"><p>x</p><span class="mc-tlacitko">B</span><abbr>z</abbr></a>');
+over('Menu::vycisti: neznámý typ, nebezpečná adresa a třetí úroveň vypadnou', MiroCMS\Core\Menu::vycisti([
+    ['typ' => 'skript'], ['typ' => 'odkaz', 'text' => 'X', 'url' => 'javascript:alert(1)'],
+    ['typ' => 'skupina', 'text' => 'Služby', 'deti' => [['typ' => 'stranka', 'ids' => 3, 'deti' => [['typ' => 'novinky']]], ['typ' => 'odkaz', 'text' => 'Ceník', 'url' => '/cenik', 'nove_okno' => 1]]],
+]), [['typ' => 'skupina', 'text' => 'Služby', 'deti' => [['typ' => 'stranka', 'text' => '', 'ids' => 3], ['typ' => 'odkaz', 'text' => 'Ceník', 'url' => '/cenik', 'nove_okno' => true]]]]);
+over('Menu::html: podmenu, aktivní položka a větev, úvod jen přesnou shodou', MiroCMS\Core\Menu::html([
+    ['text' => 'Úvod', 'url' => '/', 'nove_okno' => false, 'deti' => []],
+    ['text' => 'Služby', 'url' => '', 'nove_okno' => false, 'deti' => [['text' => 'Kuchyně', 'url' => '/kuchyne', 'nove_okno' => false, 'deti' => []]]],
+], '/kuchyne/detail', '/'), '<li><a href="/">Úvod</a></li><li class="podmenu aktivni"><span>Služby</span><ul><li><a href="/kuchyne" aria-current="page">Kuchyně</a></li></ul></li>');
 $stZahozeno = [];
 over('Styl::vlastniCss: jen bezpečné deklarace', MiroCMS\Stavitel\Styl::vlastniCss('color:red; background:url(javascript:x); --mc-x: 1; @import url(x); width: expression(1); a{b:c}', $stZahozeno), 'color: red; --mc-x: 1;');
 over('Styl::vlastniCss: zahozené se hlásí', count($stZahozeno), 4);

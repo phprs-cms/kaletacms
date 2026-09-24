@@ -41,7 +41,7 @@ final class SablonaKontrola
     private const array METODY = ['get', 'int', 'bool'];
 
     /** Proměnné s funkcí, které šabloně předává systém. */
-    private const array PREDANE_FUNKCE = ['$url', '$strankaUrl'];
+    private const array PREDANE_FUNKCE = ['$url', '$strankaUrl', '$menu_html'];
 
     private const array ZAKAZANE_PROMENNE = ['$_GET', '$_POST', '$_COOKIE', '$_SERVER', '$_FILES', '$_ENV', '$_SESSION', '$_REQUEST', '$GLOBALS', '$this', '$app', '$db'];
 

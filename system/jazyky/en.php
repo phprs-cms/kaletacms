@@ -578,4 +578,5 @@ return [
     'Filtr' => 'Filter',
     'Vše' => 'All',
     'Stránky výpisu' => 'List pages',
+    'Menu sestavíte ve Vzhled → Menu' => 'Build the menu in Appearance → Menu',
 ];

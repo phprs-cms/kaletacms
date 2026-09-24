@@ -132,6 +132,8 @@ final class Stranky extends Modul
         } else {
             $id = $this->db->insert('stranky', $data);
         }
+        // sestavené menu (Vzhled → Menu): zaškrtávátko „v navigaci“ stránku do menu přidá nebo z něj odebere
+        \MiroCMS\Core\Menu::nastavStranku($this->db, $id, $data['jazyk'], (bool) $data['v_menu']);
         if ($r->post('po_ulozeni') === 'stavitel') {
             return \MiroCMS\Core\Response::redirect($this->url('stavitel', ['id' => $id]));
         }
@@ -286,6 +288,8 @@ final class Stranky extends Modul
         return $this->view('formular', $stranka['ids'] ? 'Úprava stránky' : 'Nová stránka', [
             'stranka' => $stranka, 'chyby' => $chyby,
             'uvod' => $stranka['ids'] > 0 && (int) $stranka['ids'] === $this->app->settings()->int('titulni_stranka'),
+            'vMenu' => $stranka['ids'] > 0 ? \MiroCMS\Core\Menu::obsahujeStranku($this->db, (int) $stranka['ids'], (string) ($stranka['jazyk'] ?? '')) : null,
+            'vlastniMenu' => \MiroCMS\Core\Menu::nacti($this->db, 'hlavni', (string) ($stranka['jazyk'] ?? '')) !== null,
         ]);
     }
 }

@@ -291,5 +291,20 @@ window.MIROCMS_PREKLAD = {
 	"Načtena novější verze": "Newer version loaded",
 	"Načíst novější": "Load newer",
 	"Přepsat mou verzí": "Overwrite with mine",
-	"Publikuji…": "Publishing…"
+	"Publikuji…": "Publishing…",
+	"Stránka": "Page",
+	"Novinky": "News",
+	"Skupina": "Group",
+	"smazaná stránka": "deleted page",
+	"Text v menu": "Menu text",
+	"Přetažením změníte pořadí": "Drag to reorder",
+	"Skrytá stránka se v menu na webu neukáže.": "A hidden page does not appear in the menu on the site.",
+	"skrytá": "hidden",
+	"Adresa odkazu": "Link address",
+	"nové okno": "new window",
+	"Do podmenu položky nad ní": "Into the submenu of the item above",
+	"Z podmenu o úroveň výš": "Out of the submenu, one level up",
+	"Odebrat z menu": "Remove from menu",
+	"Vlastní odkaz potřebuje text i adresu.": "A custom link needs both text and an address.",
+	"Skupina potřebuje text.": "A group needs text."
 };

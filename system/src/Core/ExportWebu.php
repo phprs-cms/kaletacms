@@ -118,6 +118,7 @@ final class ExportWebu
         // stavitel: sdílené třídy, části webu (záhlaví, patička, obálky) a kolekce; poptávky ne – jsou to osobní údaje návštěvníků
         self::pole($f, 'tridy', $db->all('SELECT nazev, styl, css FROM {tridy} ORDER BY nazev'));
         self::pole($f, 'casti', $db->all('SELECT typ, jazyk, stavba FROM {casti} WHERE stavba IS NOT NULL ORDER BY typ, jazyk'));
+        self::pole($f, 'menu', $db->all('SELECT umisteni, jazyk, polozky FROM {menu} ORDER BY umisteni, jazyk'));
         self::pole($f, 'kolekce', $db->all('SELECT idk, nazev, seo_link, pole, detail, stavba FROM {kolekce} ORDER BY idk'));
         self::pole($f, 'kolekce_polozky', self::postupne($db, 'SELECT idp, idk, nazev, seo_link, data, poradi, zobrazit, jazyk, datum FROM {kolekce_polozky} WHERE idp > ? ORDER BY idp LIMIT 500', 'idp'));
         self::pole($f, 'media', self::postupne($db, 'SELECT ido, nazev, popis, obr_poloha AS soubor, obr_width AS sirka, obr_height AS vyska, nahl_poloha AS nahled, datum FROM {media} WHERE ido > ? ORDER BY ido LIMIT 500', 'ido'));

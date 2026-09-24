@@ -1213,3 +1213,20 @@ body.login {
 .poptavka dt { font-weight: 600; color: var(--text-slaby); }
 .poptavka dd { margin: 0; overflow-wrap: anywhere; }
 @media (max-width: 600px) { .poptavka { grid-template-columns: minmax(0, 1fr); } .poptavka dd { margin-bottom: 8px; } }
+
+/* ---------- editor menu (Vzhled → Menu) ---------- */
+.menu-editor, .menu-podmenu { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.menu-editor { max-width: 60rem; margin-block: 16px; }
+.menu-podmenu { margin: 6px 0 0 34px; }
+.menu-radek { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); }
+.menu-radek .textpole { flex: 1 1 12rem; min-width: 0; }
+.menu-radek.menu-cil { box-shadow: 0 -3px 0 var(--akcent); }
+.menu-tazena > .menu-radek { opacity: .5; }
+.menu-uchyt { cursor: grab; color: var(--text-slaby); font-size: 18px; line-height: 1; user-select: none; }
+.menu-akce { display: flex; gap: 2px; margin-inline-start: auto; }
+.menu-tl { width: 30px; height: 30px; border: 1px solid transparent; border-radius: 6px; background: none; color: var(--text); cursor: pointer; }
+.menu-tl:hover:not(:disabled) { border-color: var(--linka); background: var(--podklad); }
+.menu-tl:disabled { opacity: .3; cursor: default; }
+.menu-okno { white-space: nowrap; font-size: 13px; }
+.menu-pridat { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; max-width: 60rem; padding: 12px; border: 1px dashed var(--linka-pole); border-radius: var(--radius); }
+.menu-pridat legend { padding: 0 4px; font-weight: 600; }

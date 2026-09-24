@@ -72,7 +72,7 @@ final class Casti
                 'paticka' => [$s($z($n('sekce', [], [
                     $s($n('mrizka', [], [
                         $n('kontejner', [], [$s($z($n('udaje', ['udaj' => 'nazev']), 'p'), ['zaklad' => ['tloustka_pisma' => '700']]), $n('udaje', ['udaj' => 'popis']), $n('udaje', ['udaj' => 'email'])]),
-                        $n('kontejner', [], [$n('udaje', ['udaj' => 'site']), $n('udaje', ['udaj' => 'rss'])]),
+                        $n('kontejner', [], [$n('navigace', ['menu' => 'paticka', 'novinky' => false, 'mobil' => false]), $n('udaje', ['udaj' => 'site']), $n('udaje', ['udaj' => 'rss'])]),
                     ]), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '2', 'mezera' => 'l'], 'mobil' => ['sloupce' => '1']]),
                     $s($n('udaje', ['udaj' => 'copyright']), ['zaklad' => ['okraj_nahore' => 'l', 'velikost_pisma' => '-1', 'barva' => 'tlumeny']]),
                 ]), 'footer'), ['zaklad' => ['odsazeni_y' => 'xl', 'pozadi' => 'plocha', 'linka_nahore' => '1px solid var(--mc-barva-linka)']])],

@@ -23,8 +23,9 @@ Všechno ostatní je kód systému a nemění se.
 
 ## Co šablona dostává
 
-- `base.php`: `$web` (nastavení, jen `->get()`, `->int()`, `->bool()`), `$titulek`, `$meta`, `$obsah` (hotové HTML), `$stranky`
-  (stránky do navigace; úvodní má prázdnou adresu), `$url`, `$kanonicka`, `$jazyk`, `$jazyky_html`,
+- `base.php`: `$web` (nastavení, jen `->get()`, `->int()`, `->bool()`), `$titulek`, `$meta`, `$obsah` (hotové HTML),
+  `$menu` a `$menu_paticka` (menu z Vzhled → Menu: položky `text`, `url`, `nove_okno`, `deti` = podmenu) a `$menu_html($menu, $cesta, $url(''))`
+  (hotové `<li>` i s podmenu a `aria-current`), `$stranky` (starší plochý seznam stránek „v menu“), `$url`, `$kanonicka`, `$jazyk`, `$jazyky_html`,
   **`$hlava` (povinně vypsat před `</head>`) a `$pata` (povinně před `</body>`)** – tudy jde SEO, měření a cookie lišta.
   `$casti['hlavicka']` a `$casti['paticka']`: záhlaví a patička ze stavitele (Vzhled → Části webu). Když nejsou `null`, vypiš je místo
   vlastního `<header>` / `<footer>` – jinak by úprava ve stavitelu na webu nebyla vidět.

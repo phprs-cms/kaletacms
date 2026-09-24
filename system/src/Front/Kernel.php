@@ -621,6 +621,15 @@ final class Kernel
         return $this->strankyMenu;
     }
 
+    /** @var array<string, list<array<string, mixed>>> umístění => položky menu (Core\Menu) */
+    private array $menu = [];
+
+    /** @return list<array<string, mixed>> */
+    private function menu(string $umisteni): array
+    {
+        return $this->menu[$umisteni] ??= \MiroCMS\Core\Menu::polozky($this->app, $umisteni, Jazyk::sloupecWebu(), $this->idUvodu());
+    }
+
     /**
      * Složí stránku: obsah obalí layoutem webu (hlavička s navigací, patička), doplní SEO a uloží do cache.
      *
@@ -649,7 +658,7 @@ final class Kernel
         $r = $this->app->request;
         $db = $this->app->db();
         $k = $this->kontext();
-        $k->menu = $this->strankyMenu();
+        $k->menu = ['hlavni' => $this->menu('hlavni'), 'paticka' => $this->menu('paticka')];
         $k->cesta = $cesta;
         $k->jazyky = $jazykyHtml;
         $nahled = isset(\MiroCMS\Stavitel\Casti::TYPY[$r->get('cast')]) && $r->get('stavba') === 'koncept' && $this->app->auth()->isAdmin() ? $r->get('cast') : '';
@@ -736,6 +745,9 @@ final class Kernel
             'hlava' => $seo->hlava($titulek, $meta + ['jazyky' => $jazyky], $novinka),
             'pata' => $seo->pata() . ($this->upravitZde !== '' ? '<a class="mc-upravit-zde" href="' . e($this->upravitZde) . '">' . e(t('Upravit zde')) . '</a>' : ''),
             'stranky' => $this->strankyMenu(),
+            'menu' => $this->menu('hlavni'),
+            'menu_paticka' => $this->menu('paticka'),
+            'menu_html' => \MiroCMS\Core\Menu::html(...),
             'jazyk' => Jazyk::kod(),
             'jazyky_html' => $jazykyHtml,
             'casti' => $casti,

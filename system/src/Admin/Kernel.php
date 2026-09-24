@@ -30,6 +30,7 @@ final class Kernel
         Moduly\Statistika::class,
         Moduly\Vzhled::class,
         Moduly\Casti::class,
+        Moduly\Menu::class,
         Moduly\Komponenty::class,
         Moduly\Autori::class,
         Moduly\Presmerovani::class,
