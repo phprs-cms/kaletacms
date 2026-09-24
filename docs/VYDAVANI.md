@@ -46,10 +46,15 @@ php tools/vydani.php --novy-klic=zalozni
 
 ## Běžné vydání
 
-1. V `system/bootstrap.php` zvyšte `KALETA_VERSION`, změnu commitněte a označte tagem `vX.Y.Z`.
-2. `php tools/vydani.php X.Y.Z --url=<adresa ZIPu v GitHub Releases> --zmena="…" [--bezpecnostni]`
-3. `dist/kaleta-X.Y.Z.zip` nahrajte do GitHub Releases, `dist/aktualizace.json` na `https://kaletacms.com/aktualizace.json`.
-4. Na zkušební instalaci ověřte, že se aktualizace nabídne a nainstaluje.
+1. V `system/bootstrap.php` zvyšte `KALETA_VERSION`, změnu commitněte, označte tagem `vX.Y.Z` a pushněte (workflow Vydání
+   spustí testy a založí koncept vydání).
+2. `php tools/vydani.php X.Y.Z --url=https://github.com/phprs-cms/kaletacms/releases/download/vX.Y.Z/kaleta-X.Y.Z.zip --zmena="…" [--bezpecnostni]`
+3. `gh release upload vX.Y.Z dist/kaleta-X.Y.Z.zip dist/aktualizace.json` a koncept zveřejněte jako **latest**
+   (`gh release edit vX.Y.Z --draft=false --latest`).
+4. Víc nic: `https://kaletacms.com/aktualizace.json` je na webu projektu přesměrování (Kaleta → Přesměrování, 302) na
+   `https://github.com/phprs-cms/kaletacms/releases/latest/download/aktualizace.json`, instalace si novou verzi najdou samy.
+   Soubor `aktualizace.json` proto ve `www` webu projektu **nesmí ležet** – server by ho podal místo přesměrování.
+5. Na kaletacms.com ověřte, že se aktualizace nabídne a nainstaluje.
 
 `--bezpecnostni` používejte jen pro skutečné bezpečnostní opravy: taková vydání se instalují sama a správci dostanou e-mail.
 
