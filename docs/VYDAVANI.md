@@ -28,7 +28,7 @@ a do `tools/klice/` dejte jen symbolický odkaz, nebo klíč předávejte promě
 - [x] Repozitář `phprs-cms/kaletacms` na GitHubu (soukromý).
 - [x] Git identita KaletaCMS <info@kaletacms.com>, historie přepsaná, první push.
 - [ ] Zveřejnění repozitáře – název organizace phprs-cms Kaletu veřejně spojí s phpRS (zvážit vlastní organizaci).
-- [ ] Provozní i záložní klíč vygenerované (níže), `system/aktualizace.pub` commitnutý.
+- [x] Provozní i záložní klíč vygenerované (24. 9. 2026, id 3c68e740 a 1b2b7bea) v `~/.kaleta-klice` mimo iCloud (`tools/klice` je na ně odkaz), `system/aktualizace.pub` commitnutý. **Záložní klíč uložit do správce hesel a z disku smazat.**
 - [ ] Web kaletacms.com běží a vystavuje `aktualizace.json`; v `.github/workflows/denni-kontrola.yml` zapnuté kontroly (`if: false` pryč).
 - [x] V `SECURITY.md` kontakt info@kaletacms.com, na GitHubu zapnuté soukromé hlášení (Security → Private vulnerability reporting).
 - [ ] V `README.md` a `README.en.md` odstraněná věta „před vydáním 1.0 … nepoužívejte na produkčních webech“.

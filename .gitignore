@@ -9,6 +9,7 @@
 !/media/.htaccess
 /dist/
 /tools/klice/
+/tools/klice
 /storage/zalohy/
 /storage/import/*
 !/storage/import/.htaccess
