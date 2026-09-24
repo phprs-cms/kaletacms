@@ -34,7 +34,7 @@
 <p class="napoveda"><?= e(t('Záloha na stejném serveru jako web nepomůže, když o hosting přijdete. Každá nová záloha databáze se proto může sama nahrát jinam. Média se tímto způsobem nekopírují – stahujte si je občas jako ZIP.')) ?></p>
 <div class="radek"><label for="zaloha_vzdalena"><?= e(t('Kam kopírovat')) ?></label><select id="zaloha_vzdalena" name="zaloha_vzdalena">
 	<option value="vypnuto"><?= e(t('nikam')) ?></option>
-	<option value="ftp"<?= $hodnoty['zaloha_vzdalena'] === 'ftp' ? ' selected' : '' ?>><?= e(t('na FTP server (jiný hosting, domácí NAS)')) ?></option>
+	<option value="ftp"<?= $hodnoty['zaloha_vzdalena'] === 'ftp' ? ' selected' : '' ?>><?= e(t('na FTP server se šifrováním FTPS (jiný hosting, domácí NAS)')) ?></option>
 	<option value="s3"<?= $hodnoty['zaloha_vzdalena'] === 's3' ? ' selected' : '' ?>><?= e(t('do úložiště S3 (Amazon S3, Backblaze B2, Wasabi, Cloudflare R2)')) ?></option>
 </select></div>
 <?php

@@ -27,9 +27,25 @@ final class Oznameni
             self::zpracuj($app);
             Posta::zpracujFrontu($s);
             Odkazy::naPozadi($app);
+            self::uklidOsobnichUdaju($app);
         } catch (\Throwable) {
             // oznámení nesmí shodit web; další pokus proběhne při příští návštěvě
         }
+    }
+
+    /**
+     * Jednou denně: poptávky po nastavené době uchování a nepotvrzené přihlášky k odběru starší 30 dní (GDPR – bez souhlasu
+     * se adresa nedrží). Běží bez ohledu na to, jestli je rozšíření zapnuté: data z doby, kdy zapnuté bylo, se mažou také.
+     */
+    public static function uklidOsobnichUdaju(App $app, bool $hned = false): void
+    {
+        $s = $app->settings();
+        if (!$hned && time() - $s->int('uklid_udaju') < 86400) {
+            return;
+        }
+        $s->set('uklid_udaju', (string) time());
+        \Kaleta\Admin\Moduly\Poptavky::promazStare($app->db(), $s);
+        $app->db()->run('DELETE FROM {odberatele} WHERE stav = 0 AND datum < NOW() - INTERVAL 30 DAY');
     }
 
     /** Oznámí všechny vydané a dosud neoznámené novinky (nejvýš 2 dny staré, aby se po výpadku nerozeslal archiv). */

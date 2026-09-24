@@ -109,7 +109,9 @@ final class ObnovaHesla
                 $app->db()->update('uzivatele', [
                     'password' => password_hash($heslo, PASSWORD_DEFAULT), 'obnova_otisk' => '', 'obnova_cas' => null, 'pocet_chyb' => 0, 'zamceno_do' => null,
                 ], ['idu' => $user['idu']]);
-                Protokol::zapis($app, 'prihlaseni', 'obnova-hesla', 'heslo změněno, účet: ' . $user['user']);
+                // kdo heslo obnovuje, mohl o účet přijít: tokeny napojení (MCP) přestanou platit
+                $app->db()->delete('api_tokeny', ['idu' => $user['idu']]);
+                Protokol::zapis($app, 'prihlaseni', 'obnova-hesla', 'heslo změněno, tokeny napojení zrušeny, účet: ' . $user['user']);
                 return Response::redirect($app->url('admin.php?heslo=zmeneno'));
             }
         }

@@ -31,6 +31,9 @@ final class Kernel
     /** Kategorie nebo stránka, kterou požadavek zobrazuje - přepínač jazyků podle ní najde protějšek v jiné verzi. */
     private ?array $protejsek = null;
 
+    /** Zobrazená stránka je úvodní: v každé jazykové verzi má adresu kořene (/, /en/), ne svou adresu (ta přesměrovává). */
+    private bool $jeUvod = false;
+
     /** Sdílený stav builderu pro celou stránku (stavba stránky, záhlaví, patička, obálka) – jedno CSS bez opakování. */
     private ?\Kaleta\Stavitel\Kontext $kontext = null;
 
@@ -174,18 +177,21 @@ final class Kernel
         if ($path === '/mcp') {
             return (new \Kaleta\Mcp\Server($this->app))->handle();
         }
-        if ($path === '/odber' && Rozsireni::je($this->app->settings(), 'newsletter')) {
+        // odber: přihlášení z prvku (jen se zapnutým Newsletterem); potvrzení a odhlášení odkazem z e-mailu fungují vždy –
+        // i po vypnutí rozšíření musí jít odhlásit z už rozeslaných e-mailů
+        $odkazOdberu = $request->get('potvrdit') !== '' || $request->get('odhlasit') !== '';
+        if ($path === '/odber' && ($odkazOdberu || Rozsireni::je($this->app->settings(), 'newsletter'))) {
             $odber = new Odber($this->app);
-            if ($request->isPost()) {
+            if ($request->isPost() && !$odkazOdberu) {
                 $zpet = $request->post('zpet');
                 $zpet = preg_match('~^/[^\s\\\\?#]*$~', $zpet) && !str_starts_with($zpet, '//') ? $zpet : $this->app->url('');
                 $kotva = preg_match('/^[a-z0-9-]{1,60}$/', $request->post('kotva')) ? '#' . $request->post('kotva') : '';
 
                 return Response::redirect($zpet . '?odber=' . $odber->prihlas() . $kotva, 303);
             }
-            [$nadpis, $text] = $odber->odkaz();
+            [$nadpis, $obsah] = $odber->odkaz();
 
-            return $this->stranka($nadpis, '<header class="vypis-hlavicka"><h1>' . e($nadpis) . '</h1></header><p>' . e($text) . '</p><p><a href="' . e($this->app->url('')) . '">' . e(t('Zpět na úvod')) . '</a></p>', ['noindex' => true]);
+            return $this->stranka($nadpis, '<header class="vypis-hlavicka"><h1>' . e($nadpis) . '</h1></header>' . $obsah . '<p><a href="' . e($this->app->url('')) . '">' . e(t('Zpět na úvod')) . '</a></p>', ['noindex' => true]);
         }
         if ($path === '/formular' && Rozsireni::je($this->app->settings(), 'poptavky')) {
             return (new Formulare($this->app))->zpracuj();
@@ -200,6 +206,8 @@ final class Kernel
             try {
                 \Kaleta\Core\Oznameni::zpracuj($this->app);
                 $hotovo[] = 'oznameni';
+                \Kaleta\Core\Oznameni::uklidOsobnichUdaju($this->app, true);
+                $hotovo[] = 'uklid';
                 \Kaleta\Core\Zaloha::automaticka($this->app->db(), $this->app->settings());
                 $hotovo[] = 'zalohy';
                 $hotovo[] = 'posta:' . \Kaleta\Core\Posta::zpracujFrontu($this->app->settings(), 30);
@@ -360,6 +368,7 @@ final class Kernel
     private function zobrazStranku(array $stranka, string $cesta, bool $uvod = false): Response
     {
         $this->protejsek = ['stranky', 'ids', $stranka, ''];
+        $this->jeUvod = $uvod;
         if (!$uvod) {
             // podstránka: v drobečcích i nadřazené stránky (podle adresy sluzby/kuchyne → sluzby)
             $urovne = [];
@@ -612,7 +621,7 @@ final class Kernel
         if ($novinka !== null) {
             $original = (int) ($novinka['preklad_z'] ?: $novinka['idc']);
             $preklady = array_map(fn (string $seo): string => 'novinky/' . $seo, $this->app->db()->pairs('SELECT jazyk, seo_link FROM {novinky} WHERE (idc = ? OR preklad_z = ?) AND visible = 1 AND datum <= NOW()', [$original, $original]));
-        } elseif ($this->protejsek !== null) {
+        } elseif ($this->protejsek !== null && !$this->jeUvod) {
             // kategorie nebo stránka: originál + jeho překlady
             [$tabulka, $klic, $radek, $cesta] = $this->protejsek;
             $original = (int) ($radek['preklad_z'] ?: $radek[$klic]);

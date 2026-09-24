@@ -62,27 +62,39 @@ final class Odber
         return 'ok';
     }
 
-    /** GET odkaz z e-mailu: potvrzení (?potvrdit=) nebo odhlášení (?odhlasit=). @return array{0: string, 1: string} titulek a text */
+    /**
+     * Odkaz z e-mailu (?potvrdit= / ?odhlasit=). Otevření odkazu (GET) jen ukáže tlačítko – poštovní skenery odkazů
+     * (Safe Links apod.) by jinak odběr samy potvrdily nebo odběratele odhlásily. Změna proběhne až odesláním (POST),
+     * odhlášení i jedním klepnutím z poštovního klienta (List-Unsubscribe-Post).
+     *
+     * @return array{0: string, 1: string} titulek a obsah stránky (HTML)
+     */
     public function odkaz(): array
     {
         $r = $this->app->request;
         $db = $this->app->db();
-        $potvrdit = $r->get('potvrdit');
-        $odhlasit = $r->get('odhlasit');
-        if (preg_match('/^[a-f0-9]{32}$/', $potvrdit) && ($o = $db->one('SELECT * FROM {odberatele} WHERE token = ?', [$potvrdit])) !== null) {
-            if ((int) $o['stav'] === 0) {
-                $db->update('odberatele', ['stav' => 1, 'potvrzeno' => date('Y-m-d H:i:s')], ['ido' => (int) $o['ido']]);
-            }
-
-            return [t('Odběr je potvrzený'), t('Děkujeme, novinky vám budeme posílat na %s. Odhlásit se můžete odkazem v každém e-mailu.', $o['email'])];
+        $akce = preg_match('/^[a-f0-9]{32}$/', $r->get('potvrdit')) ? 'potvrdit' : (preg_match('/^[a-f0-9]{32}$/', $r->get('odhlasit')) ? 'odhlasit' : '');
+        $o = $akce !== '' ? $db->one('SELECT * FROM {odberatele} WHERE token = ?', [$r->get($akce)]) : null;
+        if ($o === null) {
+            return [t('Odkaz už neplatí'), '<p>' . e(t('Odkaz je neplatný nebo už byl použitý. Pokud chcete novinky odebírat, přihlaste se prosím znovu.')) . '</p>'];
         }
-        if (preg_match('/^[a-f0-9]{32}$/', $odhlasit) && ($o = $db->one('SELECT * FROM {odberatele} WHERE token = ?', [$odhlasit])) !== null) {
+        if (!$r->isPost()) {
+            [$nadpis, $text, $tlacitko] = $akce === 'potvrdit'
+                ? [t('Potvrzení odběru'), t('Potvrďte prosím, že chcete dostávat novinky na %s.', $o['email']), t('Potvrdit odběr')]
+                : [t('Odhlášení odběru'), t('Opravdu už nechcete dostávat novinky na %s?', $o['email']), t('Odhlásit odběr')];
+
+            return [$nadpis, '<p>' . e($text) . '</p><form method="post" action="' . e($this->app->url('odber') . '?' . $akce . '=' . $o['token']) . '"><p><button class="tlacitko" type="submit">' . e($tlacitko) . '</button></p></form>'];
+        }
+        if ($akce === 'odhlasit') {
             $db->delete('odberatele', ['ido' => (int) $o['ido']]);
 
-            return [t('Odhlášeno'), t('Adresu %s jsme ze seznamu odběratelů smazali.', $o['email'])];
+            return [t('Odhlášeno'), '<p>' . e(t('Adresu %s jsme ze seznamu odběratelů smazali.', $o['email'])) . '</p>'];
+        }
+        if ((int) $o['stav'] === 0) {
+            $db->update('odberatele', ['stav' => 1, 'potvrzeno' => date('Y-m-d H:i:s')], ['ido' => (int) $o['ido']]);
         }
 
-        return [t('Odkaz už neplatí'), t('Odkaz je neplatný nebo už byl použitý. Pokud chcete novinky odebírat, přihlaste se prosím znovu.')];
+        return [t('Odběr je potvrzený'), '<p>' . e(t('Děkujeme, novinky vám budeme posílat na %s. Odhlásit se můžete odkazem v každém e-mailu.', $o['email'])) . '</p>'];
     }
 
     /** Odkaz pro odhlášení do rozesílacího nástroje (export odběratelů). */

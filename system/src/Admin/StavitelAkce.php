@@ -66,7 +66,7 @@ trait StavitelAkce
         $schema = self::prelozSchema($schema);
         Knihovna::zalozTridy($this->db, ['karta']); // vzor karty ve Výpisu kolekce
         $data = [
-            'stranka' => ['titulek' => $cil['titulek'], 'adresa' => $e['adresa'], 'zobrazena' => $e['zobrazena'], 'publikovana' => $cil['stavba'] !== null,
+            'stranka' => ['titulek' => $cil['titulek'], 'adresa' => $e['adresa'], 'zobrazena' => $e['zobrazena'], 'publikovana' => $cil['stavba'] !== null, 'smiPublikovat' => $app->auth()->smiVydavat(),
                 'nadpisy' => (bool) ($e['nadpisy'] ?? false)], // kontrola před publikováním: stránka má mít jeden h1 a nepřeskakovat úrovně
             'stavba' => Stavba::zJson($cil['koncept'] ?? $cil['stavba']),
             'zmeny' => $cil['koncept'] !== null && $cil['koncept'] !== $cil['stavba'],
@@ -124,6 +124,9 @@ trait StavitelAkce
         $cil = $this->request->isPost() ? $this->cilStavby() : null;
         if ($cil === null || ($cil['koncept'] ?? $cil['stavba']) === null) {
             return Response::json(['ok' => false, 'chyba' => t('Není co publikovat.')], 400);
+        }
+        if (!$this->app->auth()->smiVydavat()) {
+            return Response::json(['ok' => false, 'chyba' => t('Publikovat smí jen editor nebo správce. Změny zůstávají uložené jako koncept.')], 403);
         }
         // publikuje se jen to, co editor naposledy uložil – ne starší koncept, ani cizí rozpracované změny
         if (($konflikt = $this->konfliktVerze($cil)) !== null) {
@@ -208,8 +211,9 @@ trait StavitelAkce
         if ($this->request->post('pouziti') === '1') {
             return Response::json(['ok' => true, 'pouziti' => $this->pouzitiTridy($nazev)]);
         }
-        if (($this->request->post('novy_nazev') !== '' || $this->request->post('smazat') === '1') && !$this->app->auth()->isAdmin()) {
-            return Response::json(['ok' => false, 'chyba' => t('Třídu smí přejmenovat nebo smazat jen správce – mění vzhled celého webu.')], 403);
+        if (!$this->app->auth()->isAdmin()) {
+            // sdílená třída mění vzhled na všech stránkách okamžitě (bez konceptu) – proto ji upravuje, přejmenovává i maže jen správce
+            return Response::json(['ok' => false, 'chyba' => t('Sdílenou třídu upravuje jen správce – změna se hned projeví na celém webu. Vzhled jednoho prvku nastavíte v jeho stylu.')], 403);
         }
         if (($novy = $this->request->post('novy_nazev')) !== '') {
             // přejmenování: řádek třídy i všechny stavby, které ji používají (stránky, části, šablony kolekcí, komponenty, moje sekce)

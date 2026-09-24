@@ -198,3 +198,11 @@ body.st-umistovani .st-uzel { cursor: copy; }
 .st-prohlidka { position: fixed; inset: auto 0 24px; margin-inline: auto; max-width: 420px; z-index: 100; box-shadow: 0 18px 50px rgb(0 0 0 / 0.25); }
 .st-prohlidka small { color: var(--text-slaby); }
 .st-styl-schranka { margin-bottom: 8px; }
+
+/* telefon: builder potřebuje šířku aspoň tabletu – místo rozbité lišty srozumitelné upozornění */
+.st-uzky { display: none; }
+@media (max-width: 719px) {
+	.st-uzky { display: grid; gap: 12px; min-height: 100vh; min-height: 100dvh; place-content: center; padding: 24px; background: var(--podklad); color: var(--text); font: 16px/1.5 system-ui, sans-serif; text-align: center; }
+	.st-uzky a { color: inherit; }
+	.stavitel-telo .st { display: none !important; }
+}

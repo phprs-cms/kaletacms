@@ -40,9 +40,9 @@ final class Navigace extends Prvek
 .ka-nav a:hover { background: var(--ka-barva-plocha); }
 .ka-nav a[aria-current] { background: var(--ka-barva-primarni-jemna); color: var(--ka-barva-primarni); }
 .ka-nav li { position: relative; }
-.ka-nav li > span { display: block; padding: 0.5em 0.8em; font-weight: 600; cursor: default; }
-.ka-nav .podmenu > a::after, .ka-nav .podmenu > span::after { content: ""; display: inline-block; width: 0.4em; height: 0.4em; margin-inline-start: 0.45em; border: solid currentColor; border-width: 0 2px 2px 0; transform: translateY(-0.2em) rotate(45deg); }
-.ka-nav .podmenu.aktivni > a, .ka-nav .podmenu.aktivni > span { color: var(--ka-barva-primarni); }
+.ka-nav li > .menu-skupina { display: block; border: 0; background: none; color: inherit; font: inherit; text-align: start; padding: 0.5em 0.8em; font-weight: 600; cursor: default; }
+.ka-nav .podmenu > a::after, .ka-nav .podmenu > .menu-skupina::after { content: ""; display: inline-block; width: 0.4em; height: 0.4em; margin-inline-start: 0.45em; border: solid currentColor; border-width: 0 2px 2px 0; transform: translateY(-0.2em) rotate(45deg); }
+.ka-nav .podmenu.aktivni > a, .ka-nav .podmenu.aktivni > .menu-skupina { color: var(--ka-barva-primarni); }
 .ka-nav .podmenu > ul { display: none; position: absolute; top: 100%; left: 0; z-index: 60; flex-direction: column; flex-wrap: nowrap; min-width: 14rem; padding: var(--ka-mezera-2xs); border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-pozadi); color: var(--ka-barva-text); box-shadow: var(--ka-stin-m); }
 .ka-nav .podmenu > ul a { border-radius: calc(var(--ka-zaobleni) / 1.5); font-weight: 500; }
 .ka-nav .podmenu:hover > ul, .ka-nav .podmenu:focus-within > ul { display: flex; }
@@ -66,7 +66,7 @@ final class Navigace extends Prvek
 	.ka-nav-menu[popover]:not(:popover-open) { display: none; }
 	.ka-nav-menu[popover] ul { flex-direction: column; }
 	.ka-nav-menu[popover] .podmenu > ul { display: flex; position: static; min-width: 0; padding: 0 0 0 1rem; border: 0; box-shadow: none; }
-	.ka-nav-menu[popover] .podmenu > a::after, .ka-nav-menu[popover] .podmenu > span::after { display: none; }
+	.ka-nav-menu[popover] .podmenu > a::after, .ka-nav-menu[popover] .podmenu > .menu-skupina::after { display: none; }
 }';
     }
 

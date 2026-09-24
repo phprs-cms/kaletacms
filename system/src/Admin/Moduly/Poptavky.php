@@ -24,7 +24,7 @@ final class Poptavky extends Modul
 
     protected function akceVypis(): Response
     {
-        $this->promaz();
+        self::promazStare($this->db, $this->app->settings());
         $filtr = $this->request->get('stav');
         $podminky = match ($filtr) {
             'otevrene' => ['stav < 2'],
@@ -179,12 +179,13 @@ final class Poptavky extends Modul
     }
 
     /** Smaže poptávky starší než nastavený počet měsíců. */
-    private function promaz(): void
+    /** Smaže poptávky starší než nastavený počet měsíců i s přílohami (volá i úklid na pozadí, Core\Oznameni). */
+    public static function promazStare(\Kaleta\Core\Db $db, \Kaleta\Core\Settings $web): void
     {
-        $mesice = $this->app->settings()->int('poptavky_mesice');
+        $mesice = $web->int('poptavky_mesice');
         if ($mesice > 0) {
-            self::smazPrilohy($this->db->all('SELECT data FROM {poptavky} WHERE datum < NOW() - INTERVAL ? MONTH', [$mesice]));
-            $this->db->run('DELETE FROM {poptavky} WHERE datum < NOW() - INTERVAL ? MONTH', [$mesice]);
+            self::smazPrilohy($db->all('SELECT data FROM {poptavky} WHERE datum < NOW() - INTERVAL ? MONTH', [$mesice]));
+            $db->run('DELETE FROM {poptavky} WHERE datum < NOW() - INTERVAL ? MONTH', [$mesice]);
         }
     }
 }

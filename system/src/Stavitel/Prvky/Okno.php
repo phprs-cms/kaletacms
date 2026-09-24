@@ -68,7 +68,7 @@ final class Okno extends Prvek
                 . e(t('Otevře ho odkaz #%s', $kotva)) . '</small>' . $deti . '</div>';
         }
 
-        return '<div' . Text::sTridou($a, 'ka-okno') . ' popover role="dialog"'
+        return '<div' . Text::sTridou($a, 'ka-okno') . ' popover role="dialog" aria-label="' . e((string) ($p['popis'] ?? '') !== '' ? (string) $p['popis'] : t('Vyskakovací okno')) . '"'
             . ($o['samo'] !== '0' ? ' data-samo="' . e($o['samo']) . '" data-znovu="' . e($o['znovu'] ?? 'relace') . '"' : '') . '>' . $zavrit . $deti . '</div>';
     }
 }

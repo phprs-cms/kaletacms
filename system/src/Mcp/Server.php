@@ -42,6 +42,9 @@ final class Server
             return new Response(json_encode(['chyba' => 'Neplatný nebo chybějící token.']), 401, ['Content-Type' => 'application/json', 'WWW-Authenticate' => 'Bearer']);
         }
         $this->app->auth()->prihlasJako($user);
+        if ($this->app->auth()->chybiPovinne2fa($this->app->settings())) {
+            return Response::json(['chyba' => 'Web vyžaduje dvoufázové přihlášení. Zapněte si ho v administraci v Můj účet – do té doby napojení nefunguje.'], 403);
+        }
 
         $zprava = json_decode((string) file_get_contents('php://input'), true);
         if (!is_array($zprava)) {

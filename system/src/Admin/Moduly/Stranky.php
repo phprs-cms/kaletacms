@@ -103,18 +103,35 @@ final class Stranky extends Modul
     protected function akceUlozText(): Response
     {
         $r = $this->request;
-        $stranka = $r->isPost() ? $this->db->one('SELECT * FROM {stranky} WHERE ids = ?', [$r->postInt('id')]) : null;
-        if ($stranka === null) {
+        $stranka = $r->isPost() ? $this->db->one('SELECT * FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$r->postInt('id')]) : null;
+        if ($stranka === null || (!$this->app->auth()->smiVydavat() && $stranka['zobrazit'])) {
             return $this->zpetNaWeb($r->post('zpet'));
         }
         $titulek = mb_substr($r->post('titulek'), 0, 200);
         if ($titulek === '') {
             return $this->zpetNaWeb($r->post('zpet'), '?upravit=text&chyba=1');
         }
-        $this->db->update('stranky', ['titulek' => $titulek, 'text' => \Kaleta\Core\Html::proUzivatele($r->post('text'), $this->app->auth()), 'zmeneno' => date('Y-m-d H:i:s')], ['ids' => $stranka['ids']]);
+        $text = \Kaleta\Core\Html::proUzivatele($r->post('text'), $this->app->auth());
+        if ($stranka['titulek'] !== $titulek || (string) $stranka['text'] !== $text) {
+            $this->ulozRevizi((int) $stranka['ids'], $stranka['titulek'], (string) $stranka['text']); // úprava přímo na webu jde do historie jako v administraci
+        }
+        $this->db->update('stranky', ['titulek' => $titulek, 'text' => $text, 'zmeneno' => date('Y-m-d H:i:s')], ['ids' => $stranka['ids']]);
         \Kaleta\Admin\Protokol::zapis($this->app, 'stranky', 'úprava přímo na webu', mb_substr($titulek, 0, 80));
 
         return $this->zpetNaWeb($r->post('zpet'));
+    }
+
+    /**
+     * Role na úrovni autora (i vlastní role bez práva vydávat) smí stránky připravovat, ale ne zveřejnit, měnit zveřejněné ani mazat.
+     * Vrací odpověď s odmítnutím, nebo null, když smí.
+     */
+    private function jenSPravemVydavat(?array $stranka = null): ?Response
+    {
+        if ($this->app->auth()->smiVydavat() || ($stranka !== null && !$stranka['zobrazit'])) {
+            return null;
+        }
+
+        return $this->zpet('Zveřejněné stránky upravuje, zveřejňuje a maže jen editor nebo správce. Můžete připravit novou skrytou stránku.', '', [], 'chyba');
     }
 
     protected function akceUloz(): Response
@@ -124,6 +141,9 @@ final class Stranky extends Modul
         }
         $r = $this->request;
         $id = $r->postInt('ids');
+        if ($id > 0 && ($odmitnuti = $this->jenSPravemVydavat($this->db->one('SELECT zobrazit FROM {stranky} WHERE ids = ?', [$id]) ?? ['zobrazit' => 1])) !== null) {
+            return $odmitnuti;
+        }
         $jazyk = \Kaleta\Core\Jazyk::sloupec($this->app->settings(), $r->post('jazyk'));
         // nadřazená stránka: stejný jazyk, ne ona sama ani její podstránka (jinak by vznikl kruh)
         $vlastni = $id > 0 ? (string) $this->db->value('SELECT seo_link FROM {stranky} WHERE ids = ?', [$id]) : '';
@@ -153,6 +173,10 @@ final class Stranky extends Modul
         $data['zverejnit_od'] = !$data['zobrazit'] && $od !== null && $od > time() ? date('Y-m-d H:i:s', $od) : null;
         if (!$data['zobrazit'] && $od !== null && $od <= time()) {
             $data['zobrazit'] = 1;
+        }
+        if (!$this->app->auth()->smiVydavat()) {
+            $data['zobrazit'] = 0; // bez práva vydávat zůstává stránka skrytá, zveřejní ji editor
+            $data['zverejnit_od'] = null;
         }
         $data['preklad_z'] = $data['jazyk'] === '' ? null : ($this->db->value("SELECT ids FROM {stranky} WHERE ids = ? AND jazyk = '' AND ids <> ?", [$r->postInt('preklad_z'), $id]) ?: null);
         $chyby = [];
@@ -283,21 +307,32 @@ final class Stranky extends Modul
     /** Předchozí podoba textu stránky do historie (posledních 30 verzí). */
     private function ulozRevizi(int $ids, string $titulek, string $text): void
     {
-        $this->db->insert('stranky_revize', ['ids' => $ids, 'datum' => date('Y-m-d H:i:s'), 'kdo' => $this->app->auth()->id(), 'titulek' => $titulek, 'text' => $text]);
-        $this->db->run('DELETE FROM {stranky_revize} WHERE ids = ? AND idr NOT IN (SELECT idr FROM (SELECT idr FROM {stranky_revize} WHERE ids = ? ORDER BY idr DESC LIMIT 30) t)', [$ids, $ids]);
+        self::revize($this->db, $ids, $this->app->auth()->id(), $titulek, $text);
+    }
+
+    /** Totéž pro MCP a jiné vstupy mimo modul. */
+    public static function revize(\Kaleta\Core\Db $db, int $ids, int $kdo, string $titulek, string $text): void
+    {
+        $db->insert('stranky_revize', ['ids' => $ids, 'datum' => date('Y-m-d H:i:s'), 'kdo' => $kdo, 'titulek' => $titulek, 'text' => $text]);
+        $db->run('DELETE FROM {stranky_revize} WHERE ids = ? AND idr NOT IN (SELECT idr FROM (SELECT idr FROM {stranky_revize} WHERE ids = ? ORDER BY idr DESC LIMIT 30) t)', [$ids, $ids]);
     }
 
     /** Stránka změnila adresu: podstránky se posunou s ní a staré adresy zobrazených stránek se přesměrují. */
     private function presunPodstranky(string $stara, string $nova, bool $zobrazena): void
     {
+        self::presun($this->db, $stara, $nova, $zobrazena);
+    }
+
+    public static function presun(\Kaleta\Core\Db $db, string $stara, string $nova, bool $zobrazena): void
+    {
         if ($zobrazena) {
-            Presmerovani::pridej($this->db, $stara, $nova);
+            Presmerovani::pridej($db, $stara, $nova);
         }
-        foreach ($this->db->all('SELECT ids, seo_link, zobrazit FROM {stranky} WHERE seo_link LIKE ?', [addcslashes($stara, '%_\\') . '/%']) as $p) {
+        foreach ($db->all('SELECT ids, seo_link, zobrazit FROM {stranky} WHERE seo_link LIKE ?', [addcslashes($stara, '%_\\') . '/%']) as $p) {
             $cil = $nova . substr($p['seo_link'], strlen($stara));
-            $this->db->update('stranky', ['seo_link' => $cil], ['ids' => $p['ids']]);
+            $db->update('stranky', ['seo_link' => $cil], ['ids' => $p['ids']]);
             if ($p['zobrazit']) {
-                Presmerovani::pridej($this->db, $p['seo_link'], $cil);
+                Presmerovani::pridej($db, $p['seo_link'], $cil);
             }
         }
     }
@@ -309,6 +344,9 @@ final class Stranky extends Modul
         $stranka = $revize !== null ? $this->nactiStranku((int) $revize['ids']) : null;
         if ($stranka === null) {
             return $this->zpet();
+        }
+        if (($odmitnuti = $this->jenSPravemVydavat($stranka)) !== null) {
+            return $odmitnuti;
         }
         $this->ulozRevizi((int) $stranka['ids'], $stranka['titulek'], (string) $stranka['text']);
         $this->db->update('stranky', ['titulek' => $revize['titulek'], 'text' => $revize['text'], 'zmeneno' => date('Y-m-d H:i:s')], ['ids' => $stranka['ids']]);
@@ -367,6 +405,9 @@ final class Stranky extends Modul
         if (!$this->request->isPost()) {
             return $this->zpet();
         }
+        if (($odmitnuti = $this->jenSPravemVydavat()) !== null) {
+            return $odmitnuti;
+        }
         if ($ids === $this->app->settings()->int('titulni_stranka')) {
             return $this->zpet('Úvodní stránku nejde smazat. Nejdřív v Nastavení → Základní vyberte jinou úvodní stránku.', '', [], 'chyba');
         }
@@ -387,6 +428,9 @@ final class Stranky extends Modul
 
     protected function akceSmazNatrvalo(): Response
     {
+        if (($odmitnuti = $this->jenSPravemVydavat()) !== null) {
+            return $odmitnuti;
+        }
         if ($this->request->isPost()) {
             $this->db->run('DELETE FROM {stranky} WHERE ids = ? AND smazano IS NOT NULL', [$this->request->postInt('ids')]);
         }

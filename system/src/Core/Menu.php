@@ -150,7 +150,7 @@ final class Menu
         $li = function (array $p) use (&$li, $aktivni): string {
             $je = $aktivni($p['url']);
             $odkaz = $p['url'] === ''
-                ? '<span>' . e($p['text']) . '</span>'
+                ? '<button type="button" class="menu-skupina">' . e($p['text']) . '</button>' // skupina bez odkazu: tlačítko jde zaměřit klávesnicí a otevřít podmenu
                 : '<a href="' . e($p['url']) . '"' . ($je ? ' aria-current="page"' : '') . ($p['nove_okno'] ? ' target="_blank" rel="noopener"' : '') . '>' . e($p['text']) . '</a>';
             if ($p['deti'] === []) {
                 return '<li>' . $odkaz . '</li>';

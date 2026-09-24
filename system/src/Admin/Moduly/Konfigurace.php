@@ -251,7 +251,19 @@ class Konfigurace extends Modul
             $pojistna = Zaloha::vytvor($this->db, 'predobnovou');
             $prikazu = Zaloha::obnov($this->db, $this->request->post('soubor'));
         } catch (\Throwable $e) {
-            return $this->zpet(t('Obnova se nezdařila: %s', t($e->getMessage())) . (isset($pojistna) ? ' ' . t('Stav před obnovou je v záloze %s.', $pojistna) : ''), '', ['zalozka' => 'zalohy'], 'chyba');
+            $vraceno = false;
+            if (isset($pojistna)) {
+                // selhání uprostřed obnovy: databáze se sama vrátí do stavu před obnovou
+                try {
+                    Zaloha::obnov($this->db, $pojistna);
+                    $vraceno = true;
+                } catch (\Throwable) {
+                    // vrácení se nepovedlo – správce ho spustí ručně ze zálohy $pojistna
+                }
+            }
+            \Kaleta\Front\Cache::vymaz();
+
+            return $this->zpet(t('Obnova se nezdařila: %s', t($e->getMessage())) . ' ' . ($vraceno ? t('Databáze je zpět ve stavu před obnovou.') : (isset($pojistna) ? t('Stav před obnovou je v záloze %s – obnovte ji prosím.', $pojistna) : '')), '', ['zalozka' => 'zalohy'], 'chyba');
         }
         \Kaleta\Front\Cache::vymaz();
 
@@ -294,8 +306,9 @@ class Konfigurace extends Modul
         $zip = new \ZipArchive();
         $zip->open($soubor, \ZipArchive::CREATE);
         foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(KALETA_ROOT . '/media', \FilesystemIterator::SKIP_DOTS)) as $polozka) {
-            // varianty pro srcset a WebP se dají kdykoli vytvořit znovu - do zálohy jdou jen původní obrázky
-            if ($polozka->isFile() && !preg_match('/(-1200|-nahled)\.[a-z]+$|\.webp$/', $polozka->getFilename()) && !str_starts_with($polozka->getFilename(), '.')) {
+            // varianty pro srcset a sourozenci WebP/AVIF (foto.jpg.webp) se dají kdykoli vytvořit znovu - do zálohy jdou jen originály,
+            // i nahraný originál ve WebP (foto.webp, jedna přípona)
+            if ($polozka->isFile() && !preg_match('/(-1200|-nahled)\.[a-z]+$|\.[a-z0-9]+\.(webp|avif)$/i', $polozka->getFilename()) && !str_starts_with($polozka->getFilename(), '.')) {
                 $zip->addFile($polozka->getPathname(), substr($polozka->getPathname(), strlen(KALETA_ROOT) + 1));
             }
         }

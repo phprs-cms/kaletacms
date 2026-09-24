@@ -563,7 +563,7 @@ over('Menu::vycisti: neznámý typ, nebezpečná adresa a třetí úroveň vypad
 over('Menu::html: podmenu, aktivní položka a větev, úvod jen přesnou shodou', Kaleta\Core\Menu::html([
     ['text' => 'Úvod', 'url' => '/', 'nove_okno' => false, 'deti' => []],
     ['text' => 'Služby', 'url' => '', 'nove_okno' => false, 'deti' => [['text' => 'Kuchyně', 'url' => '/kuchyne', 'nove_okno' => false, 'deti' => []]]],
-], '/kuchyne/detail', '/'), '<li><a href="/">Úvod</a></li><li class="podmenu aktivni"><span>Služby</span><ul><li><a href="/kuchyne" aria-current="page">Kuchyně</a></li></ul></li>');
+], '/kuchyne/detail', '/'), '<li><a href="/">Úvod</a></li><li class="podmenu aktivni"><button type="button" class="menu-skupina">Služby</button><ul><li><a href="/kuchyne" aria-current="page">Kuchyně</a></li></ul></li>');
 over('Hledani::najdi: bez diakritiky, všechna slova, úryvek', Kaleta\Core\Hledani::najdi('zkusenosti kuchyne', [
     ['titulek' => 'O nás', 'adresa' => 'o-nas', 'text' => '<p>Máme dvacet let zkušeností s nábytkem.</p>'],
     ['titulek' => 'Kuchyně', 'adresa' => 'kuchyne', 'text' => '<p>Kuchyně na míru – bohaté zkušenosti.</p>'],

@@ -128,13 +128,32 @@
 
 	/* ---------- vyskakovací okno: odkaz #kotva ho otevře, případně samo jednou za návštěvu ---------- */
 
+	// otevřené okno dostane fokus (čtečka ho oznámí, klávesnice pokračuje uvnitř); po zavření se fokus vrátí, odkud přišel
+	var otevriOkno = function (okno) {
+		if (!okno.showPopover || okno.matches(':popover-open')) { return; }
+		var odkud = document.activeElement;
+		okno.showPopover();
+		var cil = okno.querySelector('h1, h2, h3, input, select, textarea, a[href], button:not(.ka-okno-zavrit)') || okno.querySelector('button');
+		if (cil) { if (!cil.matches('a, button, input, select, textarea')) { cil.setAttribute('tabindex', '-1'); } cil.focus(); }
+		okno.addEventListener('toggle', function vratit(e) {
+			if (e.newState !== 'closed') { return; }
+			okno.removeEventListener('toggle', vratit);
+			if (odkud && odkud.focus && document.contains(odkud)) { odkud.focus(); }
+		});
+	};
 	document.addEventListener('click', function (e) {
 		var odkaz = e.target.closest && e.target.closest('a[href^="#"]');
 		var okno = odkaz && odkaz.getAttribute('href').length > 1 && document.getElementById(odkaz.getAttribute('href').slice(1));
 		if (!okno || !okno.hasAttribute('popover') || !okno.showPopover) { return; }
 		e.preventDefault();
-		okno.showPopover();
+		otevriOkno(okno);
 	});
+	// adresa s kotvou okna nebo prvku v okně (návrat po odeslání formuláře či odběru) okno rovnou otevře, ať je potvrzení vidět
+	if (location.hash.length > 1) {
+		var kotva = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+		var vOkne = kotva && kotva.closest('[popover]');
+		if (vOkne) { otevriOkno(vOkne); }
+	}
 	// okno, které se otevře samo: po čase, po odrolování poloviny stránky nebo při odchodu (myš k liště prohlížeče);
 	// jednou za návštěvu (sessionStorage), jednou za týden nebo už nikdy (localStorage) – vždy jen v prohlížeči návštěvníka
 	document.querySelectorAll('[popover][data-samo]').forEach(function (okno) {
@@ -149,7 +168,7 @@
 		var otevri = function () {
 			if (hotovo || !okno.showPopover || document.querySelector(':popover-open')) { return; }
 			hotovo = true;
-			okno.showPopover();
+			otevriOkno(okno);
 			try { uloziste().setItem(klic, String(Date.now())); } catch (chyba) { /* soukromý režim */ }
 		};
 		var kdy = okno.getAttribute('data-samo');
@@ -245,9 +264,9 @@
 	document.addEventListener('click', function (e) {
 		var tl = e.target.closest && e.target.closest('[data-vlozit]');
 		if (!tl) { return; }
-		// jen přehrávače, které web sám vkládá (YouTube bez cookies, Vimeo) – nikdy jiná adresa ani javascript:
+		// jen služby, které web sám vkládá (YouTube bez cookies, Vimeo, mapa Google) – nikdy jiná adresa ani javascript:
 		var adresa = tl.getAttribute('data-vlozit') || '';
-		if (!/^https:\/\/(www\.youtube-nocookie\.com\/embed\/|player\.vimeo\.com\/video\/)/.test(adresa)) { return; }
+		if (!/^https:\/\/(www\.youtube-nocookie\.com\/embed\/|player\.vimeo\.com\/video\/|maps\.google\.com\/maps\?)/.test(adresa)) { return; }
 		var ram = document.createElement('iframe');
 		ram.src = adresa;
 		ram.title = tl.getAttribute('data-titulek') || '';

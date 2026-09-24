@@ -77,13 +77,25 @@ final class Zaloha
         if ($gz && !function_exists('gzopen')) {
             throw new \RuntimeException('Server neumí číst komprimované zálohy (chybí zlib).');
         }
+        // první průchod jen kontroluje (hlavička, jen tabulky této instalace, úplný poslední příkaz) – do databáze se sahá,
+        // až když je celý soubor v pořádku; poškozená nebo cizí záloha tak nenechá databázi napůl obnovenou
+        $pocet = self::projdi($cesta, $gz, $db->prefix, null);
+        @set_time_limit(300);
+        $pdo = $db->pdo();
+        self::projdi($cesta, $gz, $db->prefix, fn (string $prikaz): mixed => $pdo->exec($prikaz));
+        $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
+
+        return $pocet;
+    }
+
+    /** @param (callable(string): mixed)|null $proved null = jen kontrola */
+    private static function projdi(string $cesta, bool $gz, string $prefix, ?callable $proved): int
+    {
         $f = $gz ? gzopen($cesta, 'rb') : fopen($cesta, 'rb');
         $prvni = (string) ($gz ? gzgets($f) : fgets($f));
         if (!str_starts_with($prvni, '-- Kaleta ')) {
             throw new \RuntimeException('Soubor není záloha vytvořená systémem Kaleta.');
         }
-        @set_time_limit(300);
-        $pdo = $db->pdo();
         $prikaz = '';
         $pocet = 0;
         while (($radek = $gz ? gzgets($f) : fgets($f)) !== false) {
@@ -93,16 +105,20 @@ final class Zaloha
             $prikaz .= $radek;
             if (str_ends_with(rtrim($radek), ';')) {
                 // záloha smí obsahovat jen tabulky této instalace
-                if (preg_match('/^(DROP TABLE IF EXISTS|CREATE TABLE|INSERT INTO) `([^`]+)`/', $prikaz, $m) && !str_starts_with($m[2], $db->prefix)) {
+                if (preg_match('/^(DROP TABLE IF EXISTS|CREATE TABLE|INSERT INTO) `([^`]+)`/', $prikaz, $m) && !str_starts_with($m[2], $prefix)) {
                     throw new \RuntimeException('Záloha obsahuje cizí tabulku ' . $m[2] . ' – obnova byla zastavena.');
                 }
-                $pdo->exec($prikaz);
+                if ($proved !== null) {
+                    $proved($prikaz);
+                }
                 $prikaz = '';
                 $pocet++;
             }
         }
         $gz ? gzclose($f) : fclose($f);
-        $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
+        if (trim($prikaz) !== '' || $pocet === 0) {
+            throw new \RuntimeException('Záloha je neúplná nebo poškozená (chybí konec souboru) – obnova byla zastavena.');
+        }
 
         return $pocet;
     }

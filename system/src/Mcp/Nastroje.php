@@ -236,6 +236,9 @@ final class Nastroje
                 if (($cil['koncept'] ?? $cil['stavba']) === null) {
                     throw new \InvalidArgumentException('Není co publikovat.');
                 }
+                if (!$auth->smiVydavat()) {
+                    throw new \DomainException('Publikovat smí jen editor nebo správce; koncept zůstává uložený.');
+                }
                 $this->publikujCil($cil);
 
                 return $this->popisCile($cil) + ['stav' => 'publikováno', 'adresa' => $this->adresaCile($cil)];
@@ -368,6 +371,10 @@ final class Nastroje
 
             case 'vytvor_novinku':
             case 'uprav_novinku':
+                if (!$auth->maModul('novinky')) {
+                    throw new \DomainException('K novinkám nemáš přístup (role uživatele).');
+                }
+
                 return $this->ulozNovinku($nazev === 'uprav_novinku' ? $this->novinka((int) ($a['id'] ?? 0)) : null, $a);
 
             case 'seznam_kategorii':
@@ -563,6 +570,13 @@ final class Nastroje
         if (array_key_exists('poradi', $a)) {
             $data['poradi'] = max(0, min(65535, (int) $a['poradi']));
         }
+        if (!$this->app->auth()->smiVydavat()) {
+            // bez práva vydávat: zveřejněnou stránku neměnit, novou nechat skrytou (stejně jako v administraci)
+            if ($puvodni !== null && $puvodni['zobrazit']) {
+                throw new \DomainException('Zveřejněnou stránku smí upravit jen editor nebo správce.');
+            }
+            unset($data['zobrazit']);
+        }
         if (($data['titulek'] ?? $puvodni['titulek'] ?? '') === '') {
             throw new \InvalidArgumentException('Stránka musí mít název.');
         }
@@ -584,9 +598,12 @@ final class Nastroje
             }
         } else {
             $id = (int) $puvodni['ids'];
+            if (($data['titulek'] ?? $puvodni['titulek']) !== $puvodni['titulek'] || (string) ($data['text'] ?? $puvodni['text']) !== (string) $puvodni['text']) {
+                Stranky::revize($db, $id, $this->app->auth()->id(), $puvodni['titulek'], (string) $puvodni['text']); // předchozí podoba do historie
+            }
             $db->update('stranky', $data, ['ids' => $id]);
-            if (isset($data['seo_link']) && $data['seo_link'] !== $puvodni['seo_link'] && $puvodni['zobrazit']) {
-                \Kaleta\Admin\Moduly\Presmerovani::pridej($db, $puvodni['seo_link'], $data['seo_link']);
+            if (isset($data['seo_link']) && $data['seo_link'] !== $puvodni['seo_link']) {
+                Stranky::presun($db, $puvodni['seo_link'], $data['seo_link'], (bool) $puvodni['zobrazit']);
             }
         }
         $ulozena = $this->stranka($id);

@@ -104,9 +104,7 @@ final class Kernel
 
         $ident = $request->get('modul');
         // povinné dvoufázové přihlášení: kdo ho ještě nemá, smí jen do Můj účet (a odhlásit se), dokud ho nezapne
-        $povinne = $app->settings()->get('vynutit_2fa');
-        if (($povinne === 'vsichni' || ($povinne === 'spravci' && $app->auth()->isAdmin())) && (string) ($app->auth()->user()['totp_tajemstvi'] ?? '') === ''
-            && !in_array($akce, ['ucet', 'token'], true)) {
+        if ($app->auth()->chybiPovinne2fa($app->settings()) && !in_array($akce, ['ucet', 'token'], true)) {
             $app->session->flash('chyba', t('Web vyžaduje dvoufázové přihlášení. Zapněte si ho prosím níže – do té doby je administrace zamčená.'));
 
             return Response::redirect($app->url('admin.php?akce=ucet'));

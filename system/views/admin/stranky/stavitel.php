@@ -26,6 +26,8 @@ $jazyk = Kaleta\Core\Jazyk::kod();
 <body class="stavitel-telo">
 <?= $app->session->csrfField() ?>
 <noscript><p class="hlaska hlaska-chyba"><?= e(t('Builder potřebuje JavaScript. Obsah stránky jde upravit i bez něj ve formuláři stránky.')) ?></p></noscript>
+<div class="st-uzky" role="note"><p><strong><?= e(t('Builder potřebuje větší obrazovku.')) ?></strong> <?= e(t('Stránky skládejte na počítači nebo tabletu. Na telefonu upravíte texty tlačítkem „Upravit zde“ přímo na webu.')) ?></p>
+	<p><a href="<?= e($app->url('admin.php')) ?>"><?= e(t('Zpět do administrace')) ?></a></p></div>
 <div class="st" id="stavitel" hidden></div>
 <script type="application/json" id="stavitel-data"><?= json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 <?php if ($jazyk !== 'cs' && is_file(KALETA_ROOT . '/image/jazyky/admin-' . $jazyk . '.js')): ?>

@@ -552,7 +552,7 @@ mcp stavba_uloz "{\"id\":$IDZ,\"publikovat\":true,\"stavba\":{\"v\":1,\"deti\":[
 grep -q 'chyby\\": \[\]' "$PRACE/odpoved" && echo "  ok     nové prvky projdou validátorem" || { echo "  CHYBA  validace nových prvků"; head -c 600 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
 curl -s -o "$PRACE/odpoved" "$B/z-html"
-for vzor in 'class="ka-drobecky"' 'aria-current="page">Z HTML' 'class="ka-ikona ka-ikona--kruh" aria-hidden="true"><svg' 'class="ka-galerie"' 'alt="Dílna"' 'role="tablist"' 'aria-controls="zp-' 'data-karusel' '--ka-naraz:2' 'data-vlozit="https://maps.google.com/maps?q=Brno' 'id="nabidka"' 'popover role="dialog" data-samo="5"' 'name="faq-'; do
+for vzor in 'class="ka-drobecky"' 'aria-current="page">Z HTML' 'class="ka-ikona ka-ikona--kruh" aria-hidden="true"><svg' 'class="ka-galerie"' 'alt="Dílna"' 'role="tablist"' 'aria-controls="zp-' 'data-karusel' '--ka-naraz:2' 'data-vlozit="https://maps.google.com/maps?q=Brno' 'id="nabidka"' 'popover role="dialog" aria-label="Vyskakovací okno" data-samo="5"' 'name="faq-'; do
   grep -qF -- "$vzor" "$PRACE/odpoved" || { echo "  CHYBA  nový prvek na webu: chybí $vzor"; CHYB=$((CHYB+1)); }
 done
 grep -q '"BreadcrumbList"' "$PRACE/odpoved" && ! grep -q '"FAQPage"' "$PRACE/odpoved" && echo "  ok     nové prvky na webu, drobečky i pro vyhledávače, akordeon bez FAQPage" || { echo "  CHYBA  strukturovaná data stránky"; CHYB=$((CHYB+1)); }
@@ -585,11 +585,16 @@ sleep 5
 kod=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -X POST "$B/odber" -d "email=Odber@Example.cz" -d zpet=/z-html -d kotva=x -d "as_podpis=$PODPIS" -d "as_cas=$CAS" -d web_adresa=)
 case "$kod" in "303 "*"/z-html?odber=ok#x") echo "  ok     přihlášení k odběru";; *) echo "  CHYBA  přihlášení k odběru: $kod"; CHYB=$((CHYB+1));; esac
 TOKO=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT token FROM ka_odberatele WHERE email = 'odber@example.cz' AND stav = 0")
-over "potvrzení odběru odkazem" 200 "/odber?potvrdit=$TOKO" "Odběr je potvrzený"
+over "odkaz z e-mailu jen nabídne potvrzení" 200 "/odber?potvrdit=$TOKO" "Potvrdit odběr"
+ocekavej "otevření odkazu (skener pošty) odběr nepotvrdí" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT stav FROM ka_odberatele WHERE email = 'odber@example.cz'")" "0"
+curl -s -o "$PRACE/odpoved" -X POST "$B/odber?potvrdit=$TOKO"; grep -q "Odběr je potvrzený" "$PRACE/odpoved" && echo "  ok     potvrzení odběru tlačítkem" || { echo "  CHYBA  potvrzení odběru"; CHYB=$((CHYB+1)); }
 ocekavej "odběratel je potvrzený" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT stav FROM ka_odberatele WHERE email = 'odber@example.cz'")" "1"
 over "odběratelé v administraci" 200 "/admin.php?modul=odberatele" "odber@example.cz"
 curl -s -b "$JAR" -o "$PRACE/odpoved" "$B/admin.php?modul=odberatele&akce=csv"; grep -q "odber@example.cz;.*odber?odhlasit=$TOKO" "$PRACE/odpoved" && echo "  ok     export odběratelů s odkazem na odhlášení" || { echo "  CHYBA  export odběratelů"; head -3 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
-over "odhlášení odkazem" 200 "/odber?odhlasit=$TOKO" "Odhlášeno"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = REPLACE(hodnota, 'newsletter,', '') WHERE promenna = 'rozsireni'"
+over "odhlášení jde i s vypnutým Newsletterem" 200 "/odber?odhlasit=$TOKO" "Odhlásit odběr"
+curl -s -o "$PRACE/odpoved" -X POST "$B/odber?odhlasit=$TOKO"; grep -q "Odhlášeno" "$PRACE/odpoved" && echo "  ok     odhlášení tlačítkem" || { echo "  CHYBA  odhlášení"; CHYB=$((CHYB+1)); }
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = REPLACE(hodnota, 'poptavky,', 'poptavky,newsletter,') WHERE promenna = 'rozsireni'"
 ocekavej "odhlášený je smazaný" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_odberatele")" "0"
 
 echo "== média, tokeny DTCG, kolekce přes MCP"
@@ -606,6 +611,20 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=vzhled&akce
 ocekavej "import vlastního exportu vrátí vzhled" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.barvy.primarni')) <> '#aa3300' FROM ka_nastaveni WHERE promenna = 'design_system'")" "1"
 mcp seznam_polozek_kolekce '{"kolekce":"tym","pole":"funkce","hodnota":"Mistr truhlář"}' > "$PRACE/odpoved"
 grep -q 'Petr Svoboda' "$PRACE/odpoved" && grep -q 'celkem\\": 1' "$PRACE/odpoved" && echo "  ok     kolekce přes MCP: filtr podle pole" || { echo "  CHYBA  kolekce přes MCP s filtrem"; head -c 400 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+
+echo "== záloha a obnova databáze"
+curl -s -b "$JAR" -c "$JAR" -o "$PRACE/odpoved" "$B/admin.php?modul=config&zalozka=zalohy"; TOKEN=$(csrf)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=config&akce=zalohuj" -d "_csrf=$TOKEN"
+ZALOHA=$(ls -t "$PRACE"/web/storage/zalohy/ 2>/dev/null | grep -v predobnovou | head -1 || true)
+[ -n "$ZALOHA" ] && echo "  ok     záloha vytvořena" || { echo "  CHYBA  záloha nevznikla"; CHYB=$((CHYB+1)); }
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = 'Po zaloze' WHERE promenna = 'nazev_webu'"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=config&akce=obnov_zalohu" -d "_csrf=$TOKEN" -d "soubor=$ZALOHA"
+ocekavej "obnova vrátí stav ze zálohy" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota <> 'Po zaloze' FROM ka_nastaveni WHERE promenna = 'nazev_webu'")" "1"
+POSK="kaleta-poskozena.sql"; [[ "$ZALOHA" == *.gz ]] && POSK="kaleta-poskozena.sql.gz"
+if [[ "$ZALOHA" == *.gz ]]; then { gzip -dc "$PRACE/web/storage/zalohy/$ZALOHA" | head -c 4000 || true; } | gzip > "$PRACE/web/storage/zalohy/$POSK"; else head -c 4000 "$PRACE/web/storage/zalohy/$ZALOHA" > "$PRACE/web/storage/zalohy/$POSK"; fi
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = 'Pred poskozenou' WHERE promenna = 'nazev_webu'"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=config&akce=obnov_zalohu" -d "_csrf=$TOKEN" -d "soubor=$POSK"
+ocekavej "poškozená záloha databázi nezmění" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'nazev_webu'")" "Pred poskozenou"
 
 echo "== vypnutá rozšíření Novinky a Formuláře a poptávky"
 ROZ=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna='rozsireni'")

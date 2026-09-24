@@ -90,7 +90,7 @@ final class Galerie extends Modul
         $vse = implode(' ', $html);
         preg_match_all('/data-id="(\d+)"/', $vse, $m);
         $ids = array_map(intval(...), $m[1]);
-        preg_match_all('#media/\d{4}/\d{2}/[a-z0-9-]+\.(?:jpg|png|webp|gif)#', $vse, $cesty);
+        preg_match_all('#media/\d{4}/\d{2}/[A-Za-z0-9._-]+\.[a-z0-9]{2,5}#', $vse, $cesty); // obrázky i přílohy (PDF, dokumenty…)
         foreach (array_unique($cesty[0]) as $cesta) {
             $ido = $db->value('SELECT ido FROM {media} WHERE obr_poloha = ? OR nahl_poloha = ?', [$cesta, $cesta]);
             if ($ido !== null) {
@@ -113,7 +113,11 @@ final class Galerie extends Modul
     public static function pouzitiJinde(\Kaleta\Core\Db $db): array
     {
         $zdroje = [
-            [t('stránka'), 'SELECT titulek AS kde, CONCAT_WS(\' \', text, stavba, stavba_koncept) AS obsah FROM {stranky}'],
+            [t('stránka'), 'SELECT titulek AS kde, CONCAT_WS(\' \', text, stavba, stavba_koncept, obrazek) AS obsah FROM {stranky}'],
+            [t('štítek'), 'SELECT nazev AS kde, CONCAT_WS(\' \', popis, obrazek) AS obsah FROM {stitky}'],
+            [t('kategorie'), 'SELECT nazev AS kde, popis AS obsah FROM {kategorie}'],
+            [t('moje sekce'), 'SELECT nazev AS kde, prvek AS obsah FROM {sekce}'],
+            [t('uživatel'), 'SELECT user AS kde, foto AS obsah FROM {uzivatele}'],
             [t('část webu'), 'SELECT CONCAT(typ, IF(nazev = \'\', \'\', CONCAT(\' – \', nazev))) AS kde, CONCAT_WS(\' \', stavba, stavba_koncept) AS obsah FROM {casti}'],
             [t('kolekce'), 'SELECT nazev AS kde, CONCAT_WS(\' \', stavba, stavba_koncept) AS obsah FROM {kolekce}'],
             [t('položka kolekce'), 'SELECT nazev AS kde, data AS obsah FROM {kolekce_polozky}'],

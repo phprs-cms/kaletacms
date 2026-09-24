@@ -352,7 +352,10 @@ final class Styl
             if ($deklarace === '') {
                 continue;
             }
-            if (preg_match('/^(--ka-[a-z0-9-]{1,40}|-?[a-z][a-z-]{1,40})\s*:\s*([^;{}<>\\\\@]{1,200})$/i', $deklarace, $m) && !preg_match('/url\s*\(|expression|javascript|behavior|-moz-binding/i', $m[2])) {
+            // zakázané: načítání cizích zdrojů (url, image-set, image, src), komentáře a neuzavřené uvozovky – ty by rozbily CSS zbytku stránky
+            if (preg_match('/^(--ka-[a-z0-9-]{1,40}|-?[a-z][a-z-]{1,40})\s*:\s*([^;{}<>\\\\@]{1,200})$/i', $deklarace, $m)
+                && !preg_match('/url\s*\(|image-set|image\s*\(|src\s*\(|cross-fade|element\s*\(|expression|javascript|behavior|-moz-binding|\/\*|\*\//i', $m[2])
+                && substr_count($m[2], '"') % 2 === 0 && substr_count($m[2], "'") % 2 === 0) {
                 $vystup[] = strtolower($m[1]) . ': ' . trim($m[2]) . ';';
             } else {
                 $zahozeno[] = $deklarace;

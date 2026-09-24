@@ -153,7 +153,8 @@
 		return nalezeny;
 	}
 	function obsahuje(p, id) { return (p.deti || []).some((d) => d.id === id || obsahuje(d, id)); }
-	function sNovymiId(p) { const k = klon(p); (function projdi(x) { x.id = noveId(); (x.deti || []).forEach(projdi); })(k); return k; }
+	// kopie dostane nová id a žádné kotvy – dvě stejné kotvy by na stránce rozbily odkazy #… i okna
+	function sNovymiId(p) { const k = klon(p); (function projdi(x) { x.id = noveId(); delete x.kotva; (x.deti || []).forEach(projdi); })(k); return k; }
 
 	function novyPrvek(typ) {
 		const s = TYPY[typ];
@@ -699,7 +700,8 @@
 			el('a', { class: 'st-tl', href: D.stranka.adresa, target: '_blank', rel: 'noopener', title: T('Otevřít publikovanou stránku') }, ikona('oko')),
 			el('button', { type: 'button', class: 'st-tl', title: T('Nápověda a klávesové zkratky (?)'), 'aria-label': T('Nápověda'), onclick: napoveda }, ikona('napoveda')),
 			D.stranka.publikovana && stav.zmeny ? el('button', { type: 'button', class: 'st-tl', onclick: zahod }, T('Zahodit změny')) : null,
-			el('button', { type: 'button', class: 'st-tl st-tl-hlavni', disabled: !stav.zmeny && D.stranka.publikovana, onclick: publikujPoKontrole }, T('Publikovat')),
+			el('button', { type: 'button', class: 'st-tl st-tl-hlavni', disabled: (!stav.zmeny && D.stranka.publikovana) || D.stranka.smiPublikovat === false,
+				title: D.stranka.smiPublikovat === false ? T('Publikovat smí jen editor nebo správce. Změny zůstávají uložené jako koncept.') : null, onclick: publikujPoKontrole }, T('Publikovat')),
 		].filter(Boolean));
 	}
 
@@ -1524,15 +1526,15 @@
 
 	/* ---------- úprava sdílené třídy ---------- */
 
-	let casovacTridy = null;
+	const casovacTridy = {};
 	function panelTridy() {
 		const nazev = stav.trida;
 		const zaznam = D.tridy[nazev] || (D.tridy[nazev] = { styl: {}, css: '' });
 		if (Array.isArray(zaznam.styl)) { zaznam.styl = {}; }
 		const ulozTridu = () => {
 			nastavStav(T('Neuloženo…'));
-			clearTimeout(casovacTridy);
-			casovacTridy = setTimeout(() => dotaz(D.adresy.trida, { nazev, styl: JSON.stringify(zaznam.styl), css: zaznam.css }).then((j) => {
+			clearTimeout(casovacTridy[nazev]); // časovač pro každou třídu zvlášť – přepnutí na jinou třídu nezruší uložení té předchozí
+			casovacTridy[nazev] = setTimeout(() => dotaz(D.adresy.trida, { nazev, styl: JSON.stringify(zaznam.styl), css: zaznam.css }).then((j) => {
 				if (!j.ok) { nastavStav(j.chyba, true); return; }
 				D.tridy = j.tridy;
 				nastavStav(j.chyby ? T('Třída uložena s upozorněním') : T('Třída uložena – platí na všech stránkách'), !!j.chyby);
@@ -1543,6 +1545,11 @@
 		pravy.replaceChildren(el('div', { class: 'st-hlava-prvku' }, el('strong', {}, T('Třída') + ' .' + nazev),
 			el('div', { class: 'st-akce' }, el('button', { type: 'button', title: T('Zpět na prvek'), onclick: () => { stav.trida = null; prekresliPravy(); } }, ikona('zavrit')))), panel);
 		panel.append(el('p', { style: 'margin:0 0 10px;font-size:12px;color:var(--text-slaby)' }, T('Změny třídy se projeví u všech prvků s touto třídou na celém webu – hned po uložení, bez publikování.')));
+		if (!D.adresy.smazSekci) {
+			// sdílené třídy upravuje jen správce (server to hlídá také)
+			panel.append(el('p', { class: 'st-prazdno', style: 'text-align:left;padding:0' }, T('Sdílenou třídu upravuje jen správce – změna se hned projeví na celém webu. Vzhled jednoho prvku nastavíte v jeho stylu.')));
+			return;
+		}
 		panelStyl(panel, zaznam, 'trida:' + nazev, ulozTridu);
 		const css = el('textarea', { rows: 5, placeholder: 'transition: transform .2s;', oninput: (e) => { zaznam.css = e.target.value; ulozTridu(); } });
 		css.value = zaznam.css || '';

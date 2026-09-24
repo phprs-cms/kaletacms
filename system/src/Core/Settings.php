@@ -110,6 +110,7 @@ final class Settings
         'smtp_uzivatel' => '',
         'smtp_heslo' => '',           // typ "tajne": nikdy se nevypisuje zpět do formuláře
         'oznameni_kontrola' => '0',   // kdy naposledy proběhla kontrola nově vydaných novinek
+        'uklid_udaju' => '0',         // kdy naposledy proběhl denní úklid osobních údajů (Core\Oznameni)
         'ai_poskytovatel' => 'anthropic', // anthropic | openai | google | mistral (Core\Asistent::POSKYTOVATELE)
         'ai_klic' => '',              // klíč API AI asistenta (nikdy se nevypisuje zpět do formuláře)
         'ai_model' => 'claude-sonnet-5',

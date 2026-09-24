@@ -59,6 +59,10 @@ final class Ucet
                     if (!Rozsireni::je($app->settings(), 'claude')) {
                         break;
                     }
+                    if ($app->auth()->chybiPovinne2fa($app->settings())) {
+                        $hlaska = ['chyba', 'Web vyžaduje dvoufázové přihlášení – token vytvoříte, až si ho zapnete.'];
+                        break;
+                    }
                     $token = 'kaleta_' . bin2hex(random_bytes(24));
                     $db->insert('api_tokeny', ['idu' => $user['idu'], 'nazev' => mb_substr($r->post('nazev') ?: 'Claude', 0, 100), 'otisk' => hash('sha256', $token), 'vytvoren' => date('Y-m-d H:i:s')]);
                     Protokol::zapis($app, 'ucet', 'vytvořen token pro Claude');

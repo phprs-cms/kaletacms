@@ -287,6 +287,15 @@ final class Auth
         return (int) ($this->user()['admin'] ?? -1) === self::EDITOR;
     }
 
+    /** Web vyžaduje dvoufázové přihlášení a tento uživatel ho ještě nemá (smí jen do Můj účet si ho zapnout). */
+    public function chybiPovinne2fa(Settings $web): bool
+    {
+        $povinne = $web->get('vynutit_2fa');
+        $user = $this->user();
+
+        return $user !== null && ($povinne === 'vsichni' || ($povinne === 'spravci' && $this->isAdmin())) && (string) ($user['totp_tajemstvi'] ?? '') === '';
+    }
+
     public function smiVydavat(): bool
     {
         return $this->isAdmin() || $this->isEditor();

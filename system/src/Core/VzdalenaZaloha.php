@@ -35,9 +35,15 @@ final class VzdalenaZaloha
             throw new \RuntimeException('Na serveru chybí rozšíření PHP pro FTP.');
         }
         $host = $s->get('zaloha_host');
-        $spojeni = function_exists('ftp_ssl_connect') ? @ftp_ssl_connect($host, 21, 15) : false;
-        $spojeni = $spojeni ?: @ftp_connect($host, 21, 15); // server bez FTPS: obyčejné FTP
-        if ($spojeni === false || !@ftp_login($spojeni, $s->get('zaloha_uzivatel'), $s->get('zaloha_heslo'))) {
+        // jen šifrované FTPS: záloha obsahuje hesla a tajné klíče, po nešifrovaném FTP by šly sítí čitelně (i heslo k FTP)
+        if (!function_exists('ftp_ssl_connect')) {
+            throw new \RuntimeException('Server neumí šifrované FTP (FTPS). Zálohu posílejte do úložiště S3, nebo si ji stahujte ručně.');
+        }
+        $spojeni = @ftp_ssl_connect($host, 21, 15);
+        if ($spojeni === false) {
+            throw new \RuntimeException('FTP server ' . $host . ' nepodporuje šifrované spojení (FTPS). Nešifrované FTP Kaleta nepoužívá – zvolte úložiště S3.');
+        }
+        if (!@ftp_login($spojeni, $s->get('zaloha_uzivatel'), $s->get('zaloha_heslo'))) {
             throw new \RuntimeException('K FTP serveru ' . $host . ' se nepodařilo přihlásit.');
         }
         ftp_pasv($spojeni, true);

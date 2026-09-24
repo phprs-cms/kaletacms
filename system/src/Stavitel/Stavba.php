@@ -24,6 +24,9 @@ final class Stavba
     /** Vlastní atributy prvku: jen neškodné (žádné on…, style, href, src, ani háčky skriptů webu jako data-vlozit – ty by šly zneužít). */
     public const string VZOR_ATRIBUT = '/^(data-(?!ka-|(?:adresa|cast|formular|hotovo|karusel|konec|kopirovat|krok|obnovit|odeslano|odpocet|pocitadlo|samo|sdilet|tema|texty|titulek|vlozit|zalozky|zapnuto|zavrit|znovu)$)[a-z0-9-]{1,30}|aria-[a-z]{2,20}|title|lang|role|rel)$/i';
 
+    /** Id, která používá šablona webu (skok na obsah, navigace, cookie lišta) – kotva prvku je nesmí zopakovat. */
+    public const array VYHRAZENE_KOTVY = ['obsah', 'navigace', 'cookies-lista', 'cookies-nadpis', 'cookies-znovu'];
+
     /** Registr typů prvků (pořadí = pořadí v panelu Přidat). @var list<class-string<Prvek>> */
     public const array PRVKY = [
         Prvky\Sekce::class, Prvky\Kontejner::class, Prvky\Mrizka::class,
@@ -119,7 +122,13 @@ final class Stavba
                 $cisty['tridy'] = array_slice($tridy, 0, 8);
             }
             if (is_string($p['kotva'] ?? null) && preg_match('/^[a-z][a-z0-9-]{0,40}$/', $p['kotva'])) {
-                $cisty['kotva'] = $p['kotva'];
+                // kotva = id na stránce: musí být jedinečná a nesmí se srazit s id šablony ani stylem jiného prvku (s-…)
+                if (isset($pouzita['kotva:' . $p['kotva']]) || in_array($p['kotva'], self::VYHRAZENE_KOTVY, true) || preg_match('/^(s|ka)-/', $p['kotva'])) {
+                    $chyby[$misto . '.kotva'] = 'Kotvu „' . $p['kotva'] . '“ už na stránce používá jiný prvek nebo šablona – vynechána.';
+                } else {
+                    $cisty['kotva'] = $p['kotva'];
+                    $pouzita['kotva:' . $p['kotva']] = true;
+                }
             }
             if (is_string($p['popis'] ?? null) && trim($p['popis']) !== '') {
                 $cisty['popis'] = mb_substr(trim(strip_tags($p['popis'])), 0, 60); // jméno prvku ve stromu editoru
@@ -363,6 +372,9 @@ final class Stavba
         $maStyl = $styl !== [] || $vlastniCss !== '';
         // uvnitř Výpisu kolekce se prvek opakuje: styl přes třídu s-<id>, ne přes id (id musí být na stránce jen jednou)
         $opakuje = $k->vSmycce > 0;
+        if ($trida === Prvky\Okno::class && empty($p['kotva']) && !$opakuje) {
+            $p['kotva'] = 'okno-' . $p['id']; // okno má stálou adresu #okno-…, i když později dostane styl (tlačítka na ni odkazují)
+        }
         $id = $opakuje ? null : ($p['kotva'] ?? ($maStyl ? 's-' . $p['id'] : null));
         $tridy = array_merge($opakuje && $maStyl ? ['s-' . $p['id']] : [], $p['tridy'] ?? []);
         if ($maStyl && !isset($k->styly[$p['id']])) {
