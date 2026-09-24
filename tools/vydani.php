@@ -2,7 +2,7 @@
 /**
  * Kaleta - příprava vydání (spouští vydavatel na svém počítači, na web se nenahrává).
  *
- *   php tools/vydani.php 1.0.1 --url=https://github.com/kaleta-cms/kaleta-cms/releases/download/v1.0.1/kaleta-1.0.1.zip \
+ *   php tools/vydani.php 1.0.1 --url=https://github.com/phprs-cms/kaletacms/releases/download/v1.0.1/kaleta-1.0.1.zip \
  *       --zmena="Oprava ..." --zmena="Nové ..." [--bezpecnostni]
  *
  * --bezpecnostni označí vydání jako bezpečnostní opravu: instalace se na ně aktualizují samy a správce dostane e-mail.

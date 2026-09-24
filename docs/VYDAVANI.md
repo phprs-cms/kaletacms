@@ -25,7 +25,9 @@ a do `tools/klice/` dejte jen symbolický odkaz, nebo klíč předávejte promě
 
 ## Před prvním veřejným vydáním (1.0)
 
-- [ ] Rozhodnutý vlastník repozitáře `kaleta-cms` na GitHubu a git identita; historie přepsaná na skutečnou identitu.
+- [x] Repozitář `phprs-cms/kaletacms` na GitHubu (soukromý).
+- [ ] Git identita rozhodnutá, historie přepsaná na skutečnou identitu, první push.
+- [ ] Zveřejnění repozitáře – název organizace phprs-cms Kaletu veřejně spojí s phpRS (zvážit vlastní organizaci).
 - [ ] Provozní i záložní klíč vygenerované (níže), `system/aktualizace.pub` commitnutý.
 - [ ] Web kaletacms.com běží a vystavuje `aktualizace.json`; v `.github/workflows/denni-kontrola.yml` zapnuté kontroly (`if: false` pryč).
 - [ ] V `SECURITY.md` doplněný kontaktní e-mail pro hlášení zranitelností, na GitHubu zapnuté soukromé hlášení (Security → Private vulnerability reporting).

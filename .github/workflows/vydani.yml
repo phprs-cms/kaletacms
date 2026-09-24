@@ -1,6 +1,6 @@
 # Vydání: tag vX.Y.Z spustí testy a založí KONCEPT vydání na GitHubu.
 # Balíček se tady nepodepisuje – soukromý klíč nepatří do CI (docs/VYDAVANI.md). Vydavatel pak lokálně spustí
-#   php tools/vydani.php X.Y.Z --url=https://github.com/kaleta-cms/kaleta-cms/releases/download/vX.Y.Z/kaleta-X.Y.Z.zip --zmena="…"
+#   php tools/vydani.php X.Y.Z --url=https://github.com/phprs-cms/kaletacms/releases/download/vX.Y.Z/kaleta-X.Y.Z.zip --zmena="…"
 # nahraje dist/kaleta-X.Y.Z.zip ke konceptu (gh release upload vX.Y.Z dist/kaleta-X.Y.Z.zip), koncept zveřejní
 # a dist/aktualizace.json vystaví na https://kaletacms.com/aktualizace.json.
 name: Vydání
