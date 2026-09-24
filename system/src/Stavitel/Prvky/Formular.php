@@ -23,7 +23,8 @@ final class Formular extends Prvek
     public const array ZNACKY = ['form'];
 
     /** Typy polí formuláře. */
-    public const array TYPY_POLI = ['text' => 'text', 'email' => 'e-mail', 'tel' => 'telefon', 'textarea' => 'delší text', 'vyber' => 'výběr', 'souhlas' => 'zaškrtnutí (souhlas)'];
+    public const array TYPY_POLI = ['text' => 'text', 'email' => 'e-mail', 'tel' => 'telefon', 'textarea' => 'delší text', 'vyber' => 'výběr ze seznamu',
+        'volba' => 'volba jedné možnosti (přepínače)', 'datum' => 'datum', 'cislo' => 'číslo', 'souhlas' => 'zaškrtnutí (souhlas)'];
 
     public static function vlastnosti(): array
     {
@@ -34,6 +35,7 @@ final class Formular extends Prvek
                 'typ' => ['typ' => 'vyber', 'popisek' => 'Typ', 'vychozi' => 'text', 'moznosti' => self::TYPY_POLI],
                 'povinne' => ['typ' => 'prepinac', 'popisek' => 'Povinné', 'vychozi' => false],
                 'moznosti' => ['typ' => 'radky', 'popisek' => 'Možnosti výběru (každá na řádek)', 'vychozi' => '', 'max' => 2000, 'kdyz' => ['typ' => 'vyber']],
+                'moznosti_volby' => ['typ' => 'radky', 'popisek' => 'Možnosti (každá na řádek)', 'vychozi' => '', 'max' => 2000, 'kdyz' => ['typ' => 'volba']],
             ], 'vychozi' => [
                 ['popisek' => t('Jméno'), 'typ' => 'text', 'povinne' => true, 'moznosti' => ''],
                 ['popisek' => t('E-mail'), 'typ' => 'email', 'povinne' => true, 'moznosti' => ''],
@@ -44,6 +46,8 @@ final class Formular extends Prvek
             'tlacitko' => ['typ' => 'text', 'popisek' => 'Text tlačítka', 'vychozi' => t('Odeslat poptávku'), 'max' => 80],
             'dekujeme' => ['typ' => 'text', 'popisek' => 'Poděkování po odeslání', 'vychozi' => t('Děkujeme, zprávu jsme dostali. Ozveme se vám co nejdřív.'), 'max' => 400],
             'prijemce' => ['typ' => 'text', 'popisek' => 'E-mail pro upozornění (prázdné = e-mail webu z Nastavení)', 'vychozi' => '', 'max' => 190],
+            'dekovna' => ['typ' => 'odkaz', 'popisek' => 'Po odeslání přejít na stránku (prázdné = poděkování na místě formuláře)', 'vychozi' => ''],
+            'potvrzeni' => ['typ' => 'prepinac', 'popisek' => 'Poslat odesílateli potvrzení e-mailem (jen poděkování, bez obsahu zprávy)', 'vychozi' => false],
         ];
     }
 
@@ -58,6 +62,12 @@ final class Formular extends Prvek
 .mc-pole-souhlas label { display: flex; gap: var(--mc-mezera-xs); align-items: flex-start; }
 .mc-pole-souhlas input { margin-block-start: 0.3em; accent-color: var(--mc-barva-primarni); }
 .mc-povinne { color: var(--mc-barva-primarni); }
+.mc-pole fieldset { display: grid; gap: var(--mc-mezera-2xs); margin: 0; padding: 0; border: 0; }
+.mc-pole legend { margin-block-end: var(--mc-mezera-2xs); padding: 0; font-weight: 600; }
+.mc-pole fieldset label { display: flex; gap: var(--mc-mezera-xs); align-items: center; font-weight: 400; }
+.mc-pole fieldset input { accent-color: var(--mc-barva-primarni); }
+.mc-pole [aria-invalid="true"] { border-color: #c4281c !important; }
+.mc-pole-chyba { color: color-mix(in oklch, #c4281c 80%, var(--mc-barva-text)); font-size: var(--mc-krok--1); }
 .mc-formular-hotovo, .mc-formular-chyba { margin: 0; padding: var(--mc-mezera-m); border-radius: var(--mc-zaobleni); }
 .mc-formular-hotovo { background: var(--mc-barva-primarni-jemna); color: var(--mc-barva-text); }
 .mc-formular-chyba { background: color-mix(in oklch, #c4281c 12%, var(--mc-barva-pozadi)); color: color-mix(in oklch, #c4281c 80%, var(--mc-barva-text)); }';
@@ -73,7 +83,7 @@ final class Formular extends Prvek
     public static function hlaseni(string $kod): string
     {
         return match ($kod) {
-            'pole' => t('Zkontrolujte prosím vyplnění povinných polí a e-mailové adresy.'),
+            'pole' => t('Zkontrolujte prosím označené pole.'),
             'limit' => t('Z vaší adresy přišlo v krátké době příliš mnoho zpráv. Zkuste to prosím později.'),
             'overeni' => t('Formulář se nepodařilo ověřit. Obnovte stránku a zkuste to znovu.'),
             default => t('Zprávu se nepodařilo odeslat. Zkuste to prosím znovu.'),
@@ -87,16 +97,19 @@ final class Formular extends Prvek
         $vysledek = $r->get('formular') === $p['id'] ? $r->get('vysledek') : '';
         $id = str_contains($a, ' id="') ? '' : ' id="' . e(self::kotva($p)) . '"';
         if ($vysledek === 'ok') {
-            return '<div' . Text::sTridou($a, 'mc-formular-hotovo') . $id . ' role="status"><p>' . e($o['dekujeme']) . '</p></div>';
+            // data-odeslano: image/web.js ohlásí konverzi (událost mirocms:odeslano a dataLayer, když na webu je)
+            return '<div' . Text::sTridou($a, 'mc-formular-hotovo') . $id . ' role="status" data-odeslano="' . e($o['nazev']) . '"><p>' . e($o['dekujeme']) . '</p></div>';
         }
         $k->typy['tlacitko'] = true; // tlačítko formuláře vypadá jako prvek Tlačítko
         $html = $vysledek !== '' ? '<p class="mc-formular-chyba" role="alert">' . e(self::hlaseni($vysledek)) . '</p>' : '';
+        $chybne = $vysledek === 'pole' ? $r->getInt('pole', -1) : -1;
         foreach ($o['pole'] as $i => $pole) {
-            $html .= self::pole($pole, $i, $p['id']);
+            $html .= self::pole($pole, $i, $p['id'], $i === $chybne);
         }
         $antispam = new Antispam($k->app->db(), $k->app->settings());
 
-        return '<form' . Text::sTridou($a, 'mc-formular') . $id . ' method="post" action="' . e($k->url('formular')) . '">'
+        // data-formular: po chybě image/web.js vrátí do polí, co návštěvník vyplnil (drží to jen jeho prohlížeč)
+        return '<form' . Text::sTridou($a, 'mc-formular') . $id . ' method="post" action="' . e($k->url('formular')) . '" data-formular="' . e($p['id']) . '"' . ($vysledek !== '' ? ' data-obnovit' : '') . '>'
             . '<input type="hidden" name="zdroj" value="' . e($k->zdroj) . '"><input type="hidden" name="prvek" value="' . e($p['id']) . '">'
             . '<input type="hidden" name="zpet" value="' . e($k->app->url($r->path())) . '">'
             . $antispam->pole('formular|' . $k->zdroj . '|' . $p['id'])
@@ -104,30 +117,45 @@ final class Formular extends Prvek
             . '<p class="mc-pole"><button class="mc-tlacitko mc-tlacitko--primarni" type="submit">' . e($o['tlacitko']) . '</button></p></form>';
     }
 
-    private static function pole(array $pole, int $i, string $prvek): string
+    private static function pole(array $pole, int $i, string $prvek, bool $chyba = false): string
     {
         $id = 'f-' . $prvek . '-' . $i;
         $jmeno = 'p' . $i;
         $povinne = $pole['povinne'] ? ' required' : '';
         $hvezda = $pole['povinne'] ? ' <span class="mc-povinne" aria-hidden="true">*</span>' : '';
         $popisek = e($pole['popisek']);
+        // pole, které server odmítl: označené a s hláškou, na kterou odkazuje aria-describedby
+        $oznaceni = $chyba ? ' aria-invalid="true" aria-describedby="' . $id . '-chyba" autofocus' : '';
+        $hlaska = $chyba ? '<span class="mc-pole-chyba" id="' . $id . '-chyba">' . e($pole['typ'] === 'email' ? t('Zadejte platnou e-mailovou adresu.') : t('Toto pole je potřeba vyplnit správně.')) . '</span>' : '';
         if ($pole['typ'] === 'souhlas') {
-            return '<p class="mc-pole mc-pole-souhlas"><label><input type="checkbox" name="' . $jmeno . '" value="1"' . $povinne . '> <span>' . $popisek . $hvezda . '</span></label></p>';
+            return '<p class="mc-pole mc-pole-souhlas"><label><input type="checkbox" name="' . $jmeno . '" value="1"' . $povinne . $oznaceni . '> <span>' . $popisek . $hvezda . '</span></label>' . $hlaska . '</p>';
+        }
+        if ($pole['typ'] === 'volba') {
+            $volby = '';
+            foreach (self::moznosti($pole) as $j => $m) {
+                $volby .= '<label><input type="radio" name="' . $jmeno . '" value="' . e($m) . '"' . ($j === 0 ? $povinne . $oznaceni : '') . '> ' . e($m) . '</label>';
+            }
+
+            return '<div class="mc-pole"><fieldset><legend>' . $popisek . $hvezda . '</legend>' . $volby . '</fieldset>' . $hlaska . '</div>';
         }
         $label = '<label for="' . $id . '">' . $popisek . $hvezda . '</label>';
         $vstup = match ($pole['typ']) {
-            'textarea' => '<textarea id="' . $id . '" name="' . $jmeno . '" maxlength="5000"' . $povinne . '></textarea>',
-            'vyber' => '<select id="' . $id . '" name="' . $jmeno . '"' . $povinne . '><option value="">' . e(t('— vyberte —')) . '</option>'
+            'textarea' => '<textarea id="' . $id . '" name="' . $jmeno . '" maxlength="5000"' . $povinne . $oznaceni . '></textarea>',
+            'vyber' => '<select id="' . $id . '" name="' . $jmeno . '"' . $povinne . $oznaceni . '><option value="">' . e(t('— vyberte —')) . '</option>'
                 . implode('', array_map(fn (string $m): string => '<option>' . e($m) . '</option>', self::moznosti($pole))) . '</select>',
-            default => '<input id="' . $id . '" name="' . $jmeno . '" type="' . ($pole['typ'] === 'email' ? 'email" autocomplete="email' : ($pole['typ'] === 'tel' ? 'tel" autocomplete="tel' : 'text')) . '" maxlength="300"' . $povinne . '>',
+            'datum' => '<input id="' . $id . '" name="' . $jmeno . '" type="date"' . $povinne . $oznaceni . '>',
+            'cislo' => '<input id="' . $id . '" name="' . $jmeno . '" type="number" step="any" inputmode="decimal"' . $povinne . $oznaceni . '>',
+            default => '<input id="' . $id . '" name="' . $jmeno . '" type="' . ($pole['typ'] === 'email' ? 'email" autocomplete="email' : ($pole['typ'] === 'tel' ? 'tel" autocomplete="tel' : 'text')) . '" maxlength="300"' . $povinne . $oznaceni . '>',
         };
 
-        return '<p class="mc-pole">' . $label . $vstup . '</p>';
+        return '<p class="mc-pole">' . $label . $vstup . $hlaska . '</p>';
     }
 
-    /** @return list<string> */
+    /** @return list<string> možnosti výběru nebo přepínačů */
     public static function moznosti(array $pole): array
     {
-        return array_values(array_filter(array_map('trim', explode("\n", (string) $pole['moznosti'])), fn (string $m): bool => $m !== ''));
+        $text = ($pole['typ'] ?? '') === 'volba' ? (string) ($pole['moznosti_volby'] ?? '') : (string) $pole['moznosti'];
+
+        return array_values(array_filter(array_map('trim', explode("\n", $text)), fn (string $m): bool => $m !== ''));
     }
 }

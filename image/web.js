@@ -145,6 +145,36 @@
 		}, parseInt(okno.getAttribute('data-samo'), 10) * 1000);
 	});
 
+	/* ---------- formuláře: po chybě vrátit vyplněné hodnoty, po odeslání ohlásit konverzi ---------- */
+
+	// hodnoty drží jen prohlížeč návštěvníka (sessionStorage) a po úspěšném odeslání zmizí; do adresy se nic nepíše
+	document.querySelectorAll('form[data-formular]').forEach(function (f) {
+		var klic = 'mc-formular-' + f.getAttribute('data-formular');
+		f.addEventListener('submit', function () {
+			var hodnoty = {};
+			Array.prototype.forEach.call(f.elements, function (p) {
+				if (!/^p\d+$/.test(p.name)) { return; }
+				if (p.type === 'checkbox' || p.type === 'radio') { if (p.checked) { hodnoty[p.name] = p.value; } } else { hodnoty[p.name] = p.value; }
+			});
+			try { sessionStorage.setItem(klic, JSON.stringify(hodnoty)); } catch (chyba) { /* soukromý režim */ }
+		});
+		if (!f.hasAttribute('data-obnovit')) { return; }
+		var ulozene = null;
+		try { ulozene = JSON.parse(sessionStorage.getItem(klic) || 'null'); } catch (chyba) { /* nic */ }
+		if (!ulozene) { return; }
+		Array.prototype.forEach.call(f.elements, function (p) {
+			if (!(p.name in ulozene)) { return; }
+			if (p.type === 'checkbox' || p.type === 'radio') { p.checked = p.value === ulozene[p.name]; } else { p.value = ulozene[p.name]; }
+		});
+	});
+	var odeslano = new URLSearchParams(location.search).get('odeslano');
+	Array.prototype.map.call(document.querySelectorAll('[data-odeslano]'), function (h) { return h.getAttribute('data-odeslano'); }).concat(odeslano ? [odeslano] : []).forEach(function (nazev) {
+		try { Object.keys(sessionStorage).forEach(function (k) { if (k.indexOf('mc-formular-') === 0) { sessionStorage.removeItem(k); } }); } catch (chyba) { /* nic */ }
+		// měření konverzí: vlastní skript naslouchá události, Google Tag Manager dostane záznam do dataLayer
+		window.dispatchEvent(new CustomEvent('mirocms:odeslano', { detail: { formular: nazev } }));
+		if (Array.isArray(window.dataLayer)) { window.dataLayer.push({ event: 'mirocms_formular_odeslan', formular: nazev }); }
+	});
+
 	/* ---------- přehrávač cizí služby se vloží až po kliknutí ---------- */
 
 	document.addEventListener('click', function (e) {

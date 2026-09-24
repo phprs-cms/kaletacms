@@ -239,7 +239,9 @@ sleep 4
 kam=$(odesli -d p0=Jana --data-urlencode p1=jana@example.cz -d p2= --data-urlencode "p3=Chci kuchyň na míru." -d p4=1)
 case "$kam" in *"/kontakt?formular=$FP&vysledek=ok#"*"$FP") echo "  ok     odeslání formuláře";; *) echo "  CHYBA  odeslání formuláře: $kam"; CHYB=$((CHYB+1));; esac
 ocekavej "poptávka uložena" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(COUNT(*), '/', MAX(email), '/', MAX(stav)) FROM mc_poptavky")" "1/jana@example.cz/0"
-case "$(odesli -d p0=Jana -d p1=neni-email -d p3=x -d p4=1)" in *vysledek=pole*) echo "  ok     neplatný e-mail odmítnut";; *) echo "  CHYBA  validace e-mailu"; CHYB=$((CHYB+1));; esac
+case "$(odesli -d p0=Jana -d p1=neni-email -d p3=x -d p4=1)" in *vysledek=pole\&pole=1*) echo "  ok     neplatný e-mail odmítnut s číslem pole";; *) echo "  CHYBA  validace e-mailu"; CHYB=$((CHYB+1));; esac
+curl -s -o "$PRACE/odpoved" "$B/kontakt?formular=$FP&vysledek=pole&pole=1"
+grep -q 'aria-invalid="true" aria-describedby="f-'"$FP"'-1-chyba"' "$PRACE/odpoved" && grep -q 'data-obnovit' "$PRACE/odpoved" && echo "  ok     chybné pole je označené a vyplněné hodnoty se obnoví" || { echo "  CHYBA  označení chybného pole"; CHYB=$((CHYB+1)); }
 case "$(odesli -d p0=Jana --data-urlencode p1=jana@example.cz -d p3=x)" in *vysledek=pole*) echo "  ok     chybějící souhlas odmítnut";; *) echo "  CHYBA  povinný souhlas"; CHYB=$((CHYB+1));; esac
 odesli -d p0=Robot --data-urlencode p1=r@example.cz -d p3=spam -d p4=1 -d web_adresa=http://spam.example > /dev/null
 case "$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FZ" -d "prvek=$FP" -d zpet=/kontakt -d "as_cas=$FC" -d as_podpis=podvrh -d p0=A -d p1=a@example.cz -d p3=x -d p4=1)" in *vysledek=overeni*) echo "  ok     podvržený podpis odmítnut";; *) echo "  CHYBA  podpis formuláře"; CHYB=$((CHYB+1));; esac

@@ -84,6 +84,7 @@ $pole('osnova_clanku', 'Obsah novinky z mezititulků', 'ano', 'U novinek s aspo�
 $pole('souvisejici_auto', 'Související novinky', 'ano', 'Pod novinkou se nabídnou podobné podle štítků a kategorie.');
 ?>
 <?php
+$pole('webhook_poptavky', 'Webhook nové poptávky', 'url', 'Kam poslat každou novou poptávku z formuláře (CRM, Make, Zapier, n8n, Slack). Dostane název formuláře, vyplněná pole a e-mail odesílatele.', 'placeholder="https://"');
 $pole('webhook_url', 'Webhook po vydání novinky', 'url', 'Adresa ze služby Make, Zapier, IFTTT nebo n8n. Po vydání novinky na ni systém pošle titulek, perex, adresu a obrázek – služba je pak sama sdílí na Facebook, X, Mastodon, do Slacku apod.', 'placeholder="https://"');
 $pole('kontrola_odkazu', 'Hledat nefunkční odkazy', 'ano', 'Na pozadí, jedna novinka za pět minut. Výsledek je v Novinky → Nefunkční odkazy.');
 $pole('cache_stranek', 'Cache stránek', 'ano', 'Hotové stránky se návštěvníkům podávají z paměti – web je rychlejší a vydrží nápor. Nechte zapnuté.');

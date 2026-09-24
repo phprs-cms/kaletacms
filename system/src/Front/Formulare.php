@@ -41,7 +41,7 @@ final class Formulare
         if ($prvek === null) {
             return Response::redirect($zpet, 303);
         }
-        $navrat = fn (string $vysledek): Response => Response::redirect($zpet . '?formular=' . rawurlencode($prvek['id']) . '&vysledek=' . $vysledek . '#' . Formular::kotva($prvek), 303);
+        $navrat = fn (string $vysledek, int $pole = -1): Response => Response::redirect($zpet . '?formular=' . rawurlencode($prvek['id']) . '&vysledek=' . $vysledek . ($pole >= 0 ? '&pole=' . $pole : '') . '#' . Formular::kotva($prvek), 303);
 
         $antispam = new Antispam($this->app->db(), $this->app->settings());
         $duvod = $antispam->over($r, 'formular|' . $zdroj . '|' . $prvek['id']);
@@ -63,12 +63,14 @@ final class Formulare
                 'textarea' => mb_substr($hodnota, 0, 5000),
                 'email' => filter_var($hodnota, FILTER_VALIDATE_EMAIL) !== false ? mb_substr($hodnota, 0, 190) : ($hodnota === '' ? '' : null),
                 'tel' => $hodnota === '' || preg_match('/^[+()\d\s\/.-]{6,30}$/', $hodnota) ? $hodnota : null,
-                'vyber' => $hodnota === '' || in_array($hodnota, Formular::moznosti($pole), true) ? $hodnota : null,
+                'vyber', 'volba' => $hodnota === '' || in_array($hodnota, Formular::moznosti($pole), true) ? $hodnota : null,
+                'datum' => $hodnota === '' || (preg_match('/^\d{4}-\d{2}-\d{2}$/', $hodnota) && checkdate((int) substr($hodnota, 5, 2), (int) substr($hodnota, 8, 2), (int) substr($hodnota, 0, 4))) ? $hodnota : null,
+                'cislo' => $hodnota === '' || preg_match('/^-?\d{1,12}([.,]\d{1,6})?$/', $hodnota) ? $hodnota : null,
                 'souhlas' => $hodnota === '1' ? t('ano') : '',
                 default => mb_substr(str_replace("\n", ' ', $hodnota), 0, 300),
             };
             if ($hodnota === null || ($pole['povinne'] && $hodnota === '')) {
-                return $navrat('pole');
+                return $navrat('pole', $i);
             }
             if ($pole['typ'] === 'email' && $email === '') {
                 $email = $hodnota;
@@ -83,6 +85,21 @@ final class Formulare
             'stranka' => mb_substr($zpet, 0, 255), 'email' => $email, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'stav' => 0,
         ]);
         $this->upozorni($idp, $prvek, $data, $email);
+        \MiroCMS\Core\Webhook::poptavka($this->app, $idp, (string) $prvek['obsah']['nazev'], $data, $email, $zpet);
+        if (!empty($prvek['obsah']['potvrzeni']) && $email !== '') {
+            // potvrzení odesílateli: jen poděkování a název formuláře – obsah zprávy ne, aby formulář nešel zneužít k rozesílání cizích textů
+            $web = $this->app->settings();
+            Posta::odesli($web, $email, t('Potvrzení: %s', $web->get('nazev_webu')), $prvek['obsah']['dekujeme'] . "\n\n—\n" . $web->get('nazev_webu') . "\n" . rtrim($web->get('adresa_webu') ?: $r->origin(), '/'), '');
+        }
+        $dekovna = (string) ($prvek['obsah']['dekovna'] ?? '');
+        if ($dekovna !== '' && (str_starts_with($dekovna, '/') && !str_starts_with($dekovna, '//') || preg_match('#^https://#', $dekovna))) {
+            // adresa na webu je celá cesta (i s jazykem, /en/…), jen se doplní složka instalace
+            // ?odeslano=<název> na děkovné stránce ohlásí konverzi měření (image/web.js), stejně jako poděkování na místě
+            $dekovna = (str_starts_with($dekovna, '/') ? $r->basePath() . $dekovna : $dekovna);
+            $dekovna .= (str_contains($dekovna, '?') ? '&' : '?') . 'odeslano=' . rawurlencode((string) $prvek['obsah']['nazev']);
+
+            return Response::redirect($dekovna, 303);
+        }
 
         return $navrat('ok');
     }
