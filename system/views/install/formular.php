@@ -6,6 +6,7 @@
  * @var array<string, string> $chyby
  * @var string $jazyk  jazyk instalace (cs, en)
  * @var array<string, string> $jazyky
+ * @var list<string> $rozsireni  zaškrtnutá rozšíření
  */
 $chyba = fn (string $pole): string => isset($chyby[$pole]) ? '<span class="chyba-pole" role="alert">' . e($chyby[$pole]) . '</span>' : '';
 $splneno = !in_array(false, array_column($pozadavky, 'ok'), true);
@@ -32,7 +33,7 @@ $splneno = !in_array(false, array_column($pozadavky, 'ok'), true);
 <header class="uvod">
 	<div class="znacka"><?php $vyska = 40; $jenZnacka = false; require KALETA_SYSTEM . '/views/admin/logo.php'; ?></div>
 	<h1><?= e(t('Instalace Kalety')) ?></h1>
-	<p><?= e(t('Tři krátké kroky a váš web běží. Vše lze později změnit v administraci.')) ?></p>
+	<p><?= e(t('Pár krátkých kroků a váš web běží. Vše lze později změnit v administraci.')) ?></p>
 </header>
 
 <section class="krok">
@@ -91,6 +92,17 @@ $splneno = !in_array(false, array_column($pozadavky, 'ok'), true);
 			<option value="<?= e($pasmo) ?>"<?= $data['casove_pasmo'] === $pasmo ? ' selected' : '' ?>><?= e(str_replace('_', ' ', $pasmo)) ?></option>
 <?php endforeach ?>
 		</select><span class="napoveda"><?= e(t('Podle něj se vydávají naplánované novinky a zobrazují data.')) ?></span></div>
+	</div>
+</section>
+
+<section class="krok">
+	<h2><span>4</span> <?= e(t('Co chcete mít zapnuté')) ?></h2>
+	<p><?= e(t('Rozšíření lze kdykoli zapnout nebo vypnout v administraci (Rozšíření). Vypnutím se nic nesmaže.')) ?></p>
+	<div class="rozsireni">
+<?php foreach (Kaleta\Core\Rozsireni::SEZNAM as $klic => [$nazevRozsireni, $popisRozsireni]): ?>
+		<label class="web"><input type="checkbox" name="rozsireni[]" value="<?= e($klic) ?>"<?= in_array($klic, $rozsireni, true) ? ' checked' : '' ?>>
+			<strong><?= e(t($nazevRozsireni)) ?></strong><small><?= e(t($popisRozsireni)) ?></small></label>
+<?php endforeach ?>
 	</div>
 </section>
 

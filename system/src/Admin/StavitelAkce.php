@@ -48,7 +48,8 @@ trait StavitelAkce
         $app = $this->app;
         $e = $this->editorCile($cil);
         $kolekce = array_map(fn (array $k): array => ['seo_link' => $k['seo_link'], 'nazev' => $k['nazev'], 'pole' => $k['pole'], 'detail' => (bool) $k['detail']], Kolekce::vsechny($this->db));
-        $schema = Stavba::schema($app->auth()->isAdmin(), $cil['jazyk'], $e['casti']);
+        $rozsireni = \Kaleta\Core\Rozsireni::zapnuta($app->settings());
+        $schema = Stavba::schema($app->auth()->isAdmin(), $cil['jazyk'], $e['casti'], $rozsireni);
         $komponenty = \Kaleta\Admin\Moduly\Komponenty::proEditor($this->db);
         foreach ($schema['prvky'] as &$prvek) {
             if ($prvek['typ'] === 'komponenta') {
@@ -75,7 +76,7 @@ trait StavitelAkce
             'komponenty' => $komponenty,
             'ai' => (new \Kaleta\Core\Asistent($app->settings()))->pripraven(),
             'kolekceDetailu' => $e['kolekce'] ?? null,
-            'knihovna' => Knihovna::seznam(),
+            'knihovna' => Knihovna::seznam($rozsireni),
             'kategorieKnihovny' => array_map(fn (string $k): string => t($k), Knihovna::KATEGORIE),
             'tridy' => $this->tridyStavitele(),
             'mojeSekce' => self::mojeSekce($this->db),

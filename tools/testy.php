@@ -584,6 +584,12 @@ over('ZHtml: hlášení o @media, složitém selektoru, url(), formuláři, SVG 
 over('ZHtml: výsledek projde validátorem bez chyb', Kaleta\Stavitel\Stavba::vycisti($zh['stavba'])[1], []);
 over('Stavba::jakoText: sémantický obsah bez rozložení', Kaleta\Stavitel\Stavba::jakoText($zh['stavba']), "<h1>A <em>b</em></h1>\n<p>Jedna.</p><p>Dvě.</p>\n<p><a href=\"/k\">K</a></p>\n<p>Volný text</p>\n<h3>Otázka?</h3><p>Odpověď.</p>");
 
+// vypnutá rozšíření: prvky ani sekce s nimi stavitel nenabízí
+$typySchematu = array_column(Kaleta\Stavitel\Stavba::schema(true, 'cs', false, ['statistika'])['prvky'], 'typ');
+over('Rozšíření: bez novinek a poptávek schéma nemá jejich prvky', [in_array('novinky', $typySchematu, true), in_array('formular', $typySchematu, true), in_array('nadpis', $typySchematu, true)], [false, false, true]);
+$klicKnihovny = array_column(Kaleta\Stavitel\Knihovna::seznam(['statistika']), 'klic');
+over('Rozšíření: knihovna bez sekcí s formulářem a novinkami', [in_array('kontakt-formular', $klicKnihovny, true), in_array('novinky', $klicKnihovny, true), in_array('uvod', $klicKnihovny, true)], [false, false, true]);
+over('Rozšíření: bez omezení je knihovna celá', count(Kaleta\Stavitel\Knihovna::seznam()) > count($klicKnihovny), true);
 $knEn = Kaleta\Stavitel\Knihovna::sekci('uvod', 'en')['prvek'];
 over('Knihovna: sekce v angličtině včetně odkazů na stránky', [$knEn['deti'][0]['obsah']['text'], $knEn['deti'][2]['deti'][0]['obsah']['odkaz'], $knEn['deti'][2]['deti'][1]['obsah']['odkaz']], ['We help businesses grow – quickly and hassle-free', '/contact', '/services']);
 over('Knihovna: česky se odkazuje na české adresy', Kaleta\Stavitel\Knihovna::sekci('uvod')['prvek']['deti'][2]['deti'][0]['obsah']['odkaz'], '/kontakt');

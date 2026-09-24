@@ -14,6 +14,7 @@ use Kaleta\Core\Response;
 final class Stitky extends Modul
 {
     public const string IDENT = 'stitky';
+    public const string ROZSIRENI = 'novinky';
     public const string NAZEV = 'Štítky a témata';
     public const string SKUPINA = 'Obsah';
     public const string IKONA = 'stitky';

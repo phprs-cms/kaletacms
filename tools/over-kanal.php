@@ -15,7 +15,7 @@ require dirname(__DIR__) . '/system/bootstrap.php';
 
 use Kaleta\Core\Podpis;
 
-$adresa = $argv[1] ?? 'https://kaleta.example/aktualizace.json';
+$adresa = $argv[1] ?? 'https://kaletacms.com/aktualizace.json';
 $klice = dirname(__DIR__) . '/system/aktualizace.pub';
 $chyby = [];
 $stahni = static function (string $url): string {

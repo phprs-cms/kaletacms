@@ -128,7 +128,7 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
 
 Verze `KALETA_VERSION` v `system/bootstrap.php`; `php tools/vydani.php <verze> --url=…` sestaví a lokálně podepíše balíček (`docs/VYDAVANI.md`).
 **Klíče vydavatele Kalety zatím nejsou vygenerované** – `system/aktualizace.pub` je prázdný; vzniknou před prvním vydáním. Soukromé klíče nikdy do gitu.
-Doména projektu (`kaleta.example` v kódu je zástupná) a organizace na GitHubu (`kaleta-cms/kaleta` je zástupná) nejsou rozhodnuté; kontroly webu v CI jsou vypnuté (`if: false`).
+Web projektu: `kaletacms.com` (kanál aktualizací `https://kaletacms.com/aktualizace.json`), repozitář `kaleta-cms` na GitHubu. Dokud web neběží, jsou kontroly webu v CI vypnuté (`if: false`).
 
 ## Spuštění a testy
 

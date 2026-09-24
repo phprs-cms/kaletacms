@@ -100,6 +100,10 @@ final class Kernel
         if ($path === '/' || $path === '/index.php') {
             return $this->uvod();
         }
+        $sNovinkami = Rozsireni::je($this->app->settings(), 'novinky');
+        if (!$sNovinkami && ($path === '/novinky' || str_starts_with($path, '/novinky/') || $path === '/rss.xml' || $path === '/feed.json')) {
+            return $this->nenalezeno(); // rozšíření Novinky je vypnuté: data zůstávají, na webu nejsou
+        }
         if ($path === '/novinky') {
             return $this->vypisNovinek();
         }
@@ -170,7 +174,7 @@ final class Kernel
         if ($path === '/mcp') {
             return (new \Kaleta\Mcp\Server($this->app))->handle();
         }
-        if ($path === '/formular') {
+        if ($path === '/formular' && Rozsireni::je($this->app->settings(), 'poptavky')) {
             return (new Formulare($this->app))->zpracuj();
         }
         if ($path === '/ulohy') {
@@ -331,7 +335,12 @@ final class Kernel
     {
         $stranka = ($id = $this->idUvodu()) > 0 ? $this->app->db()->one('SELECT * FROM {stranky} WHERE ids = ? AND zobrazit = 1', [$id]) : null;
 
-        return $stranka !== null ? $this->zobrazStranku($stranka, '', true) : $this->vypisNovinek(true);
+        if ($stranka === null && !Rozsireni::je($this->app->settings(), 'novinky')) {
+            // bez úvodní stránky i bez novinek: první zveřejněná stránka webu
+            $stranka = $this->app->db()->one('SELECT * FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL AND jazyk = ? ORDER BY poradi, ids LIMIT 1', [Jazyk::sloupecWebu()]);
+        }
+
+        return $stranka !== null ? $this->zobrazStranku($stranka, '', true) : (Rozsireni::je($this->app->settings(), 'novinky') ? $this->vypisNovinek(true) : $this->nenalezeno());
     }
 
     /** @param array<string, mixed> $stranka */
@@ -491,7 +500,7 @@ final class Kernel
             $antispam->zapis($this->app->request->ip(), 'hledani', 0);
         }
         $strana = max(1, $this->app->request->getInt('strana', 1));
-        [$novinky, $celkem] = mb_strlen($q) >= 3 ? $this->novinky->hledej($q, $strana) : [[], 0];
+        [$novinky, $celkem] = mb_strlen($q) >= 3 && Rozsireni::je($this->app->settings(), 'novinky') ? $this->novinky->hledej($q, $strana) : [[], 0];
         // stránky a položky kolekcí s vlastní stránkou – bez ohledu na diakritiku, s úryvkem (novinky hledá fulltext výše)
         $stranky = [];
         if (mb_strlen($q) >= 3 && $strana === 1) {

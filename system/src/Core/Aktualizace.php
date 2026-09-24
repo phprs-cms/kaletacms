@@ -16,7 +16,7 @@ namespace Kaleta\Core;
 final class Aktualizace
 {
     /** Výchozí zdroj aktualizací; doplní se, až poběží web projektu. Lze přepsat v Nastavení. */
-    public const string VYCHOZI_URL = 'https://kaleta.example/aktualizace.json';
+    public const string VYCHOZI_URL = 'https://kaletacms.com/aktualizace.json';
 
     private const array CHRANENE = ['config.php', 'install.php', 'media/', 'storage/', 'image/ukazka/', 'tools/', '.git/'];
     private const int MAX_BAJTU = 60 * 1024 * 1024;

@@ -14,6 +14,7 @@ use Kaleta\Core\Response;
 final class Poptavky extends Modul
 {
     public const string IDENT = 'poptavky';
+    public const string ROZSIRENI = 'poptavky';
     public const string NAZEV = 'Poptávky';
     public const string SKUPINA = 'Obsah';
     public const string IKONA = 'poptavky';

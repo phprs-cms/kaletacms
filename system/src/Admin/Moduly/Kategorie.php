@@ -15,6 +15,7 @@ use Kaleta\Core\Response;
 final class Kategorie extends Modul
 {
     public const string IDENT = 'kategorie';
+    public const string ROZSIRENI = 'novinky';
     public const string NAZEV = 'Kategorie';
     public const string SKUPINA = 'Obsah';
     public const string IKONA = 'rubriky';

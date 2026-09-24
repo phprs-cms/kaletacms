@@ -24,6 +24,8 @@ abstract class Prvek
     public const array ZNACKY = ['div'];
     /** Smí vložit a měnit jen správce (vlastní HTML). */
     public const bool JEN_SPRAVCE = false;
+    /** Klíč rozšíření (Core\Rozsireni), bez kterého prvek nejde vložit a na webu se nevykreslí; prázdné = vždy. */
+    public const string ROZSIRENI = '';
     /** Nabízí se jen v částech webu (záhlaví, patička, obálky) – logo, navigace, obsah stránky. */
     public const bool JEN_CASTI = false;
 

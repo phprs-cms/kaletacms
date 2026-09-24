@@ -12,6 +12,7 @@ use Kaleta\Stavitel\Prvek;
 final class Novinky extends Prvek
 {
     public const string TYP = 'novinky';
+    public const string ROZSIRENI = 'novinky';
     public const string NAZEV = 'Novinky';
     public const string POPIS = 'Poslední novinky jako karty – aktualizují se samy.';
     public const string IKONA = 'clanek';

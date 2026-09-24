@@ -9,6 +9,7 @@ use Kaleta\Core\Db;
 use Kaleta\Core\Migrace;
 use Kaleta\Core\Request;
 use Kaleta\Core\Response;
+use Kaleta\Core\Rozsireni;
 use Kaleta\Core\View;
 use Kaleta\Front\Layouty;
 use Kaleta\Stavitel\Knihovna;
@@ -67,19 +68,22 @@ final class Installer
             'casove_pasmo' => self::PASMA[$this->jazyk], 'web' => 'firemni',
         ];
         $chyby = [];
+        // rozšíření zapnutá po instalaci: výchozí sada, po odeslání formuláře volba uživatele
+        $rozsireni = array_keys(array_filter(Rozsireni::SEZNAM, fn (array $r): bool => $r[2]));
 
         if ($this->request->isPost() && !in_array(false, array_column($pozadavky, 'ok'), true)) {
             foreach (array_keys($data) as $klic) {
                 // heslo k databázi se neořezává - může obsahovat mezery
                 $data[$klic] = $klic === 'db_password' ? (string) ($_POST[$klic] ?? '') : $this->request->post($klic);
             }
-            $chyby = $this->instaluj($data, (string) ($_POST['password'] ?? ''), (string) ($_POST['password2'] ?? ''));
+            $rozsireni = array_values(array_intersect($this->request->postList('rozsireni'), array_keys(Rozsireni::SEZNAM)));
+            $chyby = $this->instaluj($data, (string) ($_POST['password'] ?? ''), (string) ($_POST['password2'] ?? ''), $rozsireni);
             if ($chyby === []) {
                 return $this->stranka('hotovo', ['jizNainstalovano' => false, 'smazano' => $this->smazSe()]);
             }
         }
 
-        return $this->stranka('formular', ['pozadavky' => $pozadavky, 'data' => $data, 'chyby' => $chyby]);
+        return $this->stranka('formular', ['pozadavky' => $pozadavky, 'data' => $data, 'chyby' => $chyby, 'rozsireni' => $rozsireni]);
     }
 
     /**
@@ -111,9 +115,10 @@ final class Installer
 
     /**
      * @param array<string, string> $d
+     * @param list<string> $rozsireni zapnutá rozšíření
      * @return array<string, string> chyby; prázdné pole = nainstalováno
      */
-    private function instaluj(array $d, string $heslo, string $heslo2): array
+    private function instaluj(array $d, string $heslo, string $heslo2, array $rozsireni): array
     {
         $chyby = [];
         if (!preg_match('/^[a-z][a-z0-9_]{0,15}$/', $d['db_prefix'])) {
@@ -167,7 +172,7 @@ final class Installer
             foreach (Migrace::prikazy((string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql'), $d['db_prefix']) as $sql) {
                 $db->pdo()->exec($sql);
             }
-            $this->vychoziData($db, $d, $heslo);
+            $this->vychoziData($db, $d, $heslo, $rozsireni);
         } catch (\PDOException $e) {
             return ['db_name' => t('Vytvoření tabulek selhalo:') . ' ' . $e->getMessage()];
         }
@@ -180,15 +185,18 @@ final class Installer
         return [];
     }
 
-    /** @param array<string, string> $d */
-    private function vychoziData(Db $db, array $d, string $heslo): void
+    /**
+     * @param array<string, string> $d
+     * @param list<string> $rozsireni
+     */
+    private function vychoziData(Db $db, array $d, string $heslo, array $rozsireni): void
     {
         // zvolené časové pásmo platí už pro úvodní obsah: jinak by uvítací novinka mohla mít datum „v budoucnosti“ a web by ji neukázal
         $pasmo = in_array($d['casove_pasmo'], \DateTimeZone::listIdentifiers(), true) ? $d['casove_pasmo'] : self::PASMA[$this->jazyk];
         date_default_timezone_set($pasmo);
         $db->pdo()->exec("SET time_zone = '" . date('P') . "'");
         $d['casove_pasmo'] = $pasmo;
-        $db->transaction(function (Db $db) use ($d, $heslo): void {
+        $db->transaction(function (Db $db) use ($d, $heslo, $rozsireni): void {
             $admin = $db->insert('uzivatele', [
                 'user' => $d['user'],
                 'password' => password_hash($heslo, PASSWORD_DEFAULT),
@@ -211,7 +219,8 @@ final class Installer
             foreach ($stranky as $i => [$titulek, $adresa, $vMenu, $text]) {
                 $radek = ['titulek' => $titulek, 'seo_link' => $adresa, 'text' => $text, 'v_menu' => $vMenu, 'poradi' => ($i + 1) * 10];
                 if (($web['stranky'][$i] ?? []) !== []) {
-                    $stavba = Knihovna::stranka($db, $web['stranky'][$i], $titulek, $this->jazyk);
+                    // sekce s prvky vypnutých rozšíření (výpis novinek, formulář) se na úvodní stránky nedávají
+                    $stavba = Knihovna::stranka($db, $web['stranky'][$i], $titulek, $this->jazyk, Stavba::vypnuteTypy($rozsireni));
                     $radek['stavba'] = Stavba::naJson($stavba);
                     $radek['text'] = Stavba::jakoText($stavba);
                 }
@@ -222,11 +231,15 @@ final class Installer
             \Kaleta\Core\Hledani::dopln($db);
             $nastaveni = ['nazev_webu' => $d['nazev_webu'], 'adresa_webu' => $this->request->origin(), 'email_webu' => $d['email'], 'jazyk_webu' => $this->jazyk,
                 'design_system' => (string) json_encode(\Kaleta\Stavitel\DesignSystem::predvolba($web['predvolba']), JSON_UNESCAPED_SLASHES),
-                'casove_pasmo' => $d['casove_pasmo'], 'layout' => Layouty::VYCHOZI, 'titulni_stranka' => (string) $uvod, 'verze_db' => (string) Migrace::posledni()];
+                'casove_pasmo' => $d['casove_pasmo'], 'layout' => Layouty::VYCHOZI, 'titulni_stranka' => (string) $uvod, 'verze_db' => (string) Migrace::posledni(),
+                'rozsireni' => $rozsireni === [] ? '-' : implode(',', $rozsireni)];
             foreach ($nastaveni as $klic => $hodnota) {
                 $db->insert('nastaveni', ['promenna' => $klic, 'hodnota' => $hodnota]);
             }
 
+            if (!in_array('novinky', $rozsireni, true)) {
+                return; // bez novinek i bez uvítací novinky
+            }
             $kategorie = $db->insert('kategorie', ['nazev' => t('Aktuality'), 'seo_link' => slugify(t('Aktuality')), 'popis' => '']);
             $db->insert('novinky', [
                 'seo_link' => slugify(t('Vítejte v Kaletě')),

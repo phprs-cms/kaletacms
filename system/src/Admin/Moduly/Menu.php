@@ -28,7 +28,7 @@ final class Menu extends Modul
         $stranky = $this->db->all('SELECT ids, titulek, zobrazit, v_menu FROM {stranky} WHERE jazyk = ? AND smazano IS NULL ORDER BY poradi, titulek', [$jazyk]);
         // automatické hlavní menu se v editoru ukáže tak, jak ho vidí návštěvník – uložením se z něj stane vlastní
         $polozky = $ulozene ?? ($umisteni === 'hlavni'
-            ? [...array_map(fn (array $s): array => ['typ' => 'stranka', 'ids' => (int) $s['ids'], 'text' => ''], array_values(array_filter($stranky, fn (array $s): bool => $s['zobrazit'] && $s['v_menu']))), ['typ' => 'novinky', 'text' => '']]
+            ? [...array_map(fn (array $s): array => ['typ' => 'stranka', 'ids' => (int) $s['ids'], 'text' => ''], array_values(array_filter($stranky, fn (array $s): bool => $s['zobrazit'] && $s['v_menu']))), ...(\Kaleta\Core\Rozsireni::je($this->app->settings(), 'novinky') ? [['typ' => 'novinky', 'text' => '']] : [])]
             : []);
         $web = $this->app->settings();
         $jazyky = array_merge([''], Jazyk::dalsi($web));

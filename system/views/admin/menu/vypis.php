@@ -44,7 +44,9 @@ $volba = ['umisteni' => $umisteni, 'jazyk' => $jazyk];
 	</label>
 	<button class="navigace" type="button" data-menu-pridej="stranka"><?= e(t('Přidat stránku')) ?></button>
 	<button class="navigace" type="button" data-menu-pridej="odkaz"><?= e(t('Vlastní odkaz')) ?></button>
+<?php if (Kaleta\Core\Rozsireni::je($app->settings(), 'novinky')): ?>
 	<button class="navigace" type="button" data-menu-pridej="novinky"><?= e(t('Novinky')) ?></button>
+<?php endif ?>
 	<button class="navigace" type="button" data-menu-pridej="skupina" title="<?= e(t('Položka bez odkazu, která jen otevírá podmenu')) ?>"><?= e(t('Skupina')) ?></button>
 </fieldset>
 <p class="tlacitka"><button class="tl" type="submit"><?= e(t('Uložit menu')) ?></button></p>

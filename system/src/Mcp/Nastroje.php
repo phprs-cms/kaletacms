@@ -104,8 +104,15 @@ final class Nastroje
             ['aktivuj_sablonu', 'Přepne web na danou šablonu (správce). Před tím ji ukaž uživateli v náhledu: adresa webu s ?sablona=<složka> funguje přihlášenému správci.', $s(['sablona' => $text('složka šablony')], ['sablona'])],
         ];
 
-        return array_map(fn (array $n): array => ['name' => $n[0], 'description' => $n[1], 'inputSchema' => $n[2]], $nastroje);
+        if (!\Kaleta\Core\Rozsireni::je($this->app->settings(), 'novinky')) {
+            $nastroje = array_filter($nastroje, fn (array $n): bool => !in_array($n[0], self::NOVINKOVE, true));
+        }
+
+        return array_values(array_map(fn (array $n): array => ['name' => $n[0], 'description' => $n[1], 'inputSchema' => $n[2]], $nastroje));
     }
+
+    /** Nástroje rozšíření Novinky – s vypnutým rozšířením se nenabízejí ani nespustí. */
+    private const array NOVINKOVE = ['seznam_novinek', 'nacti_novinku', 'vytvor_novinku', 'uprav_novinku', 'seznam_kategorii', 'vytvor_kategorii'];
 
     public function meni(string $nazev): bool
     {
@@ -124,6 +131,9 @@ final class Nastroje
             }
         };
 
+        if (in_array($nazev, self::NOVINKOVE, true) && !\Kaleta\Core\Rozsireni::je($web, 'novinky')) {
+            throw new \DomainException('Novinky jsou na tomto webu vypnuté (Rozšíření).');
+        }
         switch ($nazev) {
             case 'info_o_webu':
                 return [
@@ -171,11 +181,11 @@ final class Nastroje
                     'stranky' => $db->all('SELECT ids, titulek, zobrazit FROM {stranky} WHERE jazyk = ? AND smazano IS NULL ORDER BY poradi, titulek', [$jazykMenu])];
 
             case 'stavba_schema':
-                return Stavba::schema($auth->isAdmin(), Jazyk::vychozi($web), $auth->isAdmin()) + [
+                return Stavba::schema($auth->isAdmin(), Jazyk::vychozi($web), $auth->isAdmin(), \Kaleta\Core\Rozsireni::zapnuta($web)) + [
                     'komponenty' => array_map(fn (array $k): array => ['id' => (string) $k['idm'], 'nazev' => $k['nazev'], 'vlastnosti' => $k['vlastnosti']], \Kaleta\Stavitel\Komponenty::vsechny($db))
                         + ['pozn' => 'Použití: {"typ":"komponenta","obsah":{"komponenta":"<id>","hodnoty":{"<klic>":"hodnota"}}}; prázdná hodnota = výchozí.'],
                     'casti_webu' => array_map(fn (array $t): string => $t[0] . ' – ' . $t[1], Casti::TYPY) + ['pozn' => 'Prvky ze skupiny „Části webu“ (logo, navigace, udaje, obsah) patří jen do částí; obálka (novinka, vypis, nenalezeno) musí obsahovat právě jeden prvek „obsah“.'],
-                    'knihovna' => Knihovna::seznam(),
+                    'knihovna' => Knihovna::seznam(\Kaleta\Core\Rozsireni::zapnuta($web)),
                     'tridy_webu' => array_column($db->all('SELECT nazev FROM {tridy} ORDER BY nazev'), 'nazev'),
                     'design_system' => DesignSystem::nacti($web) + ['predvolby' => array_map(fn (array $p): string => $p[0] . ' – ' . $p[1], DesignSystem::PREDVOLBY),
                         'pisma_titulku' => array_keys(Identita::PISMA_TITULKU), 'pisma_textu' => array_keys(Identita::PISMA_TEXTU)],

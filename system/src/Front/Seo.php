@@ -69,6 +69,9 @@ final class Seo
         foreach ($db->all('SELECT k.seo_link AS kolekce, p.seo_link, p.jazyk, COALESCE(p.zmeneno, p.datum) AS zmena FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.detail = 1 AND p.zobrazit = 1 AND p.jazyk IN (' . implode(',', array_fill(0, count($jazyky), '?')) . ') LIMIT 5000', $jazyky) as $r) {
             $xml[] = $url($r['kolekce'] . '/' . $r['seo_link'], $r['zmena'], '0.5', $r['jazyk']);
         }
+        if (!\Kaleta\Core\Rozsireni::je($this->app->settings(), 'novinky')) {
+            return '<?xml version="1.0" encoding="utf-8"?>' . "\n" . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n" . implode("\n", $xml) . "\n</urlset>\n";
+        }
         // výpis novinek, kategorie a štítky jen tam, kde nějaká vydaná novinka je
         $vydane = 'visible = 1 AND datum <= NOW() AND smazano IS NULL';
         foreach ($db->all("SELECT jazyk, MAX(COALESCE(zmeneno, datum)) AS zmena FROM {novinky} WHERE {$vydane}{$vJazyku} GROUP BY jazyk", $jazyky) as $r) {
@@ -139,6 +142,9 @@ final class Seo
         $uvod = $s->int('titulni_stranka');
         foreach ($db->all('SELECT ids, titulek, seo_link, popis FROM {stranky} WHERE zobrazit = 1 AND jazyk = ? ORDER BY poradi, titulek', [\Kaleta\Core\Jazyk::sloupecWebu()]) as $r) {
             $radky[] = '- [' . $r['titulek'] . '](' . $this->web . ((int) $r['ids'] === $uvod ? '' : $r['seo_link']) . ')' . ($r['popis'] !== '' ? ': ' . $r['popis'] : '');
+        }
+        if (!\Kaleta\Core\Rozsireni::je($s, 'novinky')) {
+            return implode("\n", $radky) . "\n";
         }
         array_push($radky, '', '## ' . t('Novinky'));
         foreach ($db->all('SELECT titulek, seo_link, uvod FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND noindex = 0 AND smazano IS NULL AND jazyk = ? ORDER BY datum DESC LIMIT 30', [\Kaleta\Core\Jazyk::sloupecWebu()]) as $c) {

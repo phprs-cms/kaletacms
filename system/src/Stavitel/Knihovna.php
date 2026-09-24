@@ -439,13 +439,14 @@ final class Knihovna
      * Stavba stránky ukázkového webu ze sekcí (v jazyce instalace); použité třídy se založí.
      *
      * @param list<string> $sekce
+     * @param list<string> $bezTypu sekce s těmito prvky se vynechají (vypnutá rozšíření)
      */
-    public static function stranka(\Kaleta\Core\Db $db, array $sekce, string $titulek, string $jazyk): array
+    public static function stranka(\Kaleta\Core\Db $db, array $sekce, string $titulek, string $jazyk, array $bezTypu = []): array
     {
         $stavba = ['v' => Stavba::VERZE, 'deti' => []];
         foreach ($sekce as $klic) {
             $s = self::sekci($klic, $jazyk);
-            if ($s === null) {
+            if ($s === null || ($bezTypu !== [] && self::obsahujeTyp($s['prvek'], $bezTypu))) {
                 continue;
             }
             if ($klic === 'nadpis-stranky') {
@@ -469,11 +470,32 @@ final class Knihovna
         'vyzva' => 'akce', 'vyzva-pruh' => 'akce', 'poptavka' => 'akce', 'kontakt' => 'akce', 'kontakt-formular' => 'akce', 'faq' => 'akce', 'faq-dva' => 'akce',
     ];
 
-    /** @return list<array{klic:string, nazev:string, popis:string, kategorie:string}> */
-    public static function seznam(): array
+    /**
+     * @param list<string>|null $rozsireni zapnutá rozšíření (null = všechna) – sekce s prvky vypnutých (novinky, formulář) se nenabízejí
+     * @return list<array{klic:string, nazev:string, popis:string, kategorie:string}>
+     */
+    public static function seznam(?array $rozsireni = null): array
     {
+        $vypnute = Stavba::vypnuteTypy($rozsireni);
+        $sekce = array_filter(self::sekce(), fn (string $klic): bool => $vypnute === [] || !self::obsahujeTyp(self::vytvor($klic)['prvek'] ?? [], $vypnute), ARRAY_FILTER_USE_KEY);
+
         return array_map(fn (string $klic, array $s): array => ['klic' => $klic, 'nazev' => $s['nazev'], 'popis' => $s['popis'], 'kategorie' => self::KATEGORIE_SEKCI[$klic] ?? 'obsah'],
-            array_keys(self::sekce()), self::sekce());
+            array_keys($sekce), $sekce);
+    }
+
+    /** @param list<string> $typy */
+    private static function obsahujeTyp(array $prvek, array $typy): bool
+    {
+        if (in_array($prvek['typ'] ?? '', $typy, true)) {
+            return true;
+        }
+        foreach ($prvek['deti'] ?? [] as $d) {
+            if (self::obsahujeTyp($d, $typy)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

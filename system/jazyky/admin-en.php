@@ -1932,4 +1932,12 @@ return [
     'Pozvánka potřebuje e-mail.' => 'An invitation needs an e-mail.',
     'Kopie novinky je uložená jako koncept.' => 'The copy of the news item is saved as a draft.',
     'Kopie položky je skrytá – upravte ji a zveřejněte.' => 'The copy of the item is hidden – edit it and publish it.',
+    'Pár krátkých kroků a váš web běží. Vše lze později změnit v administraci.' => 'A few short steps and your website is running. Everything can be changed later in the administration.',
+    'Co chcete mít zapnuté' => 'What you want switched on',
+    'Rozšíření lze kdykoli zapnout nebo vypnout v administraci (Rozšíření). Vypnutím se nic nesmaže.' => 'Extensions can be switched on or off at any time in the administration (Extensions). Switching off deletes nothing.',
+    'Aktuality a blog: výpis /novinky s kategoriemi a štítky, RSS, prvek Novinky ve staviteli a odkaz v automatickém menu.' => 'News and blog: the /novinky listing with categories and tags, RSS, the News element in the builder and a link in the automatic menu.',
+    'Formuláře a poptávky' => 'Forms and enquiries',
+    'Prvek Formulář ve staviteli a schránka Poptávky: odeslané dotazy se uloží, přijdou e-mailem a jdou předat kolegovi nebo do CRM.' => 'The Form element in the builder and the Enquiries inbox: submitted enquiries are stored, arrive by e-mail and can be passed to a colleague or a CRM.',
+    '%s – rozšíření je vypnuté, na webu se nezobrazí.' => '%s – the extension is switched off and will not appear on the website.',
+    'Novinky jsou na tomto webu vypnuté.' => 'News is switched off on this website.',
 ];

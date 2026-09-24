@@ -105,18 +105,21 @@ final class Menu
             // automaticky: stránky „v menu“ podle pořadí a na konci novinky (prvek Navigace je může vypnout)
             $auto = array_map(fn (array $s): array => ['text' => $s['titulek'], 'url' => $adresa($s), 'nove_okno' => false, 'deti' => []],
                 array_values(array_filter($stranky, fn (array $s): bool => (bool) $s['v_menu'])));
-            $auto[] = ['text' => t('Novinky'), 'url' => $app->url('novinky'), 'nove_okno' => false, 'deti' => [], 'novinky' => true, 'auto' => true];
+            if (Rozsireni::je($app->settings(), 'novinky')) {
+                $auto[] = ['text' => t('Novinky'), 'url' => $app->url('novinky'), 'nove_okno' => false, 'deti' => [], 'novinky' => true, 'auto' => true];
+            }
 
             return $auto;
         }
-        $preved = function (array $p) use (&$preved, $stranky, $adresa, $app): ?array {
+        $sNovinkami = Rozsireni::je($app->settings(), 'novinky');
+        $preved = function (array $p) use (&$preved, $stranky, $adresa, $app, $sNovinkami): ?array {
             $deti = array_values(array_filter(array_map($preved, $p['deti'] ?? [])));
 
             return match ($p['typ']) {
                 'stranka' => isset($stranky[$p['ids']])
                     ? ['text' => $p['text'] !== '' ? $p['text'] : $stranky[$p['ids']]['titulek'], 'url' => $adresa($stranky[$p['ids']]), 'nove_okno' => false, 'deti' => $deti]
                     : null,
-                'novinky' => ['text' => $p['text'] !== '' ? $p['text'] : t('Novinky'), 'url' => $app->url('novinky'), 'nove_okno' => false, 'deti' => $deti, 'novinky' => true],
+                'novinky' => !$sNovinkami ? null : ['text' => $p['text'] !== '' ? $p['text'] : t('Novinky'), 'url' => $app->url('novinky'), 'nove_okno' => false, 'deti' => $deti, 'novinky' => true],
                 'odkaz' => ['text' => $p['text'], 'url' => str_starts_with($p['url'], '/') ? $app->url($p['url']) : $p['url'], 'nove_okno' => $p['nove_okno'], 'deti' => $deti],
                 'skupina' => $deti === [] ? null : ['text' => $p['text'], 'url' => '', 'nove_okno' => false, 'deti' => $deti],
                 default => null,

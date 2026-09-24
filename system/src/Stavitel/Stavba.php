@@ -300,6 +300,11 @@ final class Stavba
         if ($trida === null) {
             return '';
         }
+        if ($trida::ROZSIRENI !== '' && !\Kaleta\Core\Rozsireni::je($k->app->settings(), $trida::ROZSIRENI)) {
+            // prvek vypnutého rozšíření (novinky, formulář): na webu nic, v editoru upozornění – stavba zůstává, po zapnutí se vrátí
+            return $k->editor ? '<div data-ka-id="' . e((string) ($p['id'] ?? '')) . '" data-ka-typ="' . e($trida::TYP) . '" style="padding:1rem;border:2px dashed currentColor;opacity:.6">'
+                . e(t('%s – rozšíření je vypnuté, na webu se nezobrazí.', t($trida::NAZEV))) . '</div>' : '';
+        }
         $k->typy[$trida::TYP] = true;
         if ($k->polozka !== null) {
             $p['obsah'] = self::dosadPolozku($trida::vlastnosti(), $p['obsah'] ?? [], $k->polozka);
@@ -452,18 +457,33 @@ final class Stavba
      *
      * @return array<string, mixed>
      */
-    public static function schema(bool $spravce = true, string $jazyk = 'cs', bool $casti = false): array
+    /** @param list<string>|null $rozsireni zapnutá rozšíření (null = všechna) – prvky vypnutých se nenabízejí */
+    public static function schema(bool $spravce = true, string $jazyk = 'cs', bool $casti = false, ?array $rozsireni = null): array
     {
         // výchozí obsah nových prvků je v jazyce stránky, popisky polí překládá editor do jazyka administrace
-        return \Kaleta\Core\Jazyk::docasne($jazyk, fn (): array => self::sestavSchema($spravce, $casti));
+        return \Kaleta\Core\Jazyk::docasne($jazyk, fn (): array => self::sestavSchema($spravce, $casti, $rozsireni));
+    }
+
+    /** @param list<string>|null $rozsireni */
+    public static function vypnuteTypy(?array $rozsireni): array
+    {
+        $typy = [];
+        foreach (self::PRVKY as $trida) {
+            if ($rozsireni !== null && $trida::ROZSIRENI !== '' && !in_array($trida::ROZSIRENI, $rozsireni, true)) {
+                $typy[] = $trida::TYP;
+            }
+        }
+
+        return $typy;
     }
 
     /** @return array<string, mixed> */
-    private static function sestavSchema(bool $spravce, bool $casti): array
+    private static function sestavSchema(bool $spravce, bool $casti, ?array $rozsireni): array
     {
         $prvky = [];
+        $vypnute = self::vypnuteTypy($rozsireni);
         foreach (self::PRVKY as $trida) {
-            if (($trida::JEN_SPRAVCE && !$spravce) || ($trida::JEN_CASTI && !$casti)) {
+            if (($trida::JEN_SPRAVCE && !$spravce) || ($trida::JEN_CASTI && !$casti) || in_array($trida::TYP, $vypnute, true)) {
                 continue;
             }
             $prvky[] = [

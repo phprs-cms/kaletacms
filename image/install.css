@@ -103,5 +103,8 @@ input:focus-visible, .pole select:focus-visible { outline: 0; border-color: var(
 .web:has(input:focus-visible) { outline: 2px solid #ff4f2e; outline-offset: 2px; }
 .web input { position: absolute; opacity: 0; }
 .web small { color: #5b5f68; line-height: 1.35; }
+.rozsireni { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+.rozsireni .web { padding-left: 40px; }
+.rozsireni .web input { opacity: 1; left: 14px; top: 15px; width: 16px; height: 16px; margin: 0; accent-color: #121212; }
 .vzorky { display: flex; height: 14px; border-radius: 4px; overflow: hidden; }
 .vzorky i { flex: 1; }

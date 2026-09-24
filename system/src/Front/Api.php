@@ -31,6 +31,9 @@ final class Api
             'kategorie' => ['nazev' => $c['tema_jm'], 'adresa' => $c['tema_seo']], 'autor' => $c['autor_jm'], 'vydano' => date('c', strtotime($c['datum'])),
         ];
 
+        if ((str_starts_with($path, '/api/novinky') || $path === '/api/kategorie') && !\Kaleta\Core\Rozsireni::je($this->app->settings(), 'novinky')) {
+            return $this->json(['chyba' => t('Novinky jsou na tomto webu vypnuté.')], 404);
+        }
         if ($path === '/api/novinky') {
             $strana = max(1, $this->app->request->getInt('strana', 1));
             $kategorie = $this->app->request->get('kategorie');

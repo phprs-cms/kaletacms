@@ -16,6 +16,7 @@ use Kaleta\Stavitel\Prvek;
 final class Formular extends Prvek
 {
     public const string TYP = 'formular';
+    public const string ROZSIRENI = 'poptavky';
     public const string NAZEV = 'Formulář';
     public const string POPIS = 'Poptávka nebo dotaz – odeslané zprávy najdete v Poptávkách a přijdou i e-mailem.';
     public const string IKONA = 'formular';

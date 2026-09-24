@@ -18,6 +18,7 @@ use Kaleta\Core\Response;
 final class Novinky extends Modul
 {
     public const string IDENT = 'novinky';
+    public const string ROZSIRENI = 'novinky';
     public const string NAZEV = 'Novinky';
     public const string SKUPINA = 'Obsah';
     public const string IKONA = 'clanek';
