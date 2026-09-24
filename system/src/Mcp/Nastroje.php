@@ -85,7 +85,12 @@ final class Nastroje
             ['vytvor_kolekci', 'Založí kolekci (správce). Pole: seznam {popisek, typ}; typ = ' . implode(' | ', array_keys(Kolekce::TYPY_POLI)) . '. Klíč pole vznikne z popisku.',
                 $s(['nazev' => $text('Název, např. Reference'), 'pole' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => '[{"popisek":"Citát","typ":"radky"},{"popisek":"Logo","typ":"obrazek"}]'],
                     'detail' => ['type' => 'boolean', 'description' => 'true = každá položka má vlastní stránku /<kolekce>/<položka>']], ['nazev'])],
-            ['seznam_polozek_kolekce', 'Položky kolekce včetně hodnot polí.', $s(['kolekce' => $text('adresa (seo_link) kolekce')], ['kolekce'])],
+            ['seznam_polozek_kolekce', 'Položky kolekce včetně hodnot polí, po 50 na stránku (celkem vrací počet). Filtr: hledaný text v názvu a hodnotách, pole=hodnota, jazyk, jen zobrazené.', $s([
+                'kolekce' => $text('adresa (seo_link) kolekce'), 'hledat' => $text('text v názvu nebo hodnotách polí (nepovinné)'),
+                'pole' => $text('klíč pole pro přesnou shodu (nepovinné)'), 'hodnota' => $text('hodnota pole pro přesnou shodu'),
+                'jazyk' => $text('jazyková verze (prázdné = výchozí; nepovinné)'), 'jen_zobrazene' => ['type' => 'boolean', 'description' => 'jen položky zobrazené na webu'],
+                'strana' => $cislo('stránka od 1'),
+            ], ['kolekce'])],
             ['uloz_polozku_kolekce', 'Přidá položku do kolekce, nebo změní existující (s id). Bez "zobrazit": true zůstane skrytá.',
                 $s(['kolekce' => $text('adresa (seo_link) kolekce'), 'id' => $cislo('ID položky – jen při úpravě'), 'nazev' => $text('Název položky'),
                     'data' => ['type' => 'object', 'description' => 'Hodnoty polí podle klíčů ze seznam_kolekci, např. {"citat":"…","logo":"media/…"}'],
@@ -272,9 +277,29 @@ final class Nastroje
             case 'seznam_polozek_kolekce':
                 $kolekce = $this->kolekce((string) ($a['kolekce'] ?? ''));
 
-                return array_map(fn (array $r): array => ['id' => (int) $r['idp'], 'nazev' => $r['nazev'], 'seo_link' => $r['seo_link'], 'poradi' => (int) $r['poradi'], 'zobrazit' => (bool) $r['zobrazit'],
-                    'jazyk' => $r['jazyk'], 'data' => json_decode((string) $r['data'], true) ?: new \stdClass()],
-                    $db->all('SELECT * FROM {kolekce_polozky} WHERE idk = ? ORDER BY poradi, nazev', [$kolekce['idk']]));
+                $kde = ['idk = ?'];
+                $par = [$kolekce['idk']];
+                if (isset($a['jazyk']) && is_string($a['jazyk'])) {
+                    $kde[] = 'jazyk = ?';
+                    $par[] = $a['jazyk'];
+                }
+                if (!empty($a['jen_zobrazene'])) {
+                    $kde[] = 'zobrazit = 1';
+                }
+                if (is_string($a['hledat'] ?? null) && trim($a['hledat']) !== '') {
+                    $kde[] = '(nazev LIKE ? OR data LIKE ?)';
+                    $vzor = '%' . addcslashes(mb_substr(trim($a['hledat']), 0, 100), '%_\\') . '%';
+                    array_push($par, $vzor, $vzor);
+                }
+                $radky = $db->all('SELECT * FROM {kolekce_polozky} WHERE ' . implode(' AND ', $kde) . ' ORDER BY poradi, nazev LIMIT 5000', $par);
+                if (is_string($a['pole'] ?? null) && $a['pole'] !== '') {
+                    // přesná shoda hodnoty pole (JSON v databázi – filtruje se tady, bez závislosti na verzi MySQL)
+                    $radky = array_values(array_filter($radky, fn (array $r): bool => (string) ((json_decode((string) $r['data'], true) ?: [])[$a['pole']] ?? '') === (string) ($a['hodnota'] ?? '')));
+                }
+                $strana = max(1, (int) ($a['strana'] ?? 1));
+
+                return ['celkem' => count($radky), 'strana' => $strana, 'stran' => max(1, (int) ceil(count($radky) / 50)), 'polozky' => array_map(fn (array $r): array => ['id' => (int) $r['idp'], 'nazev' => $r['nazev'], 'seo_link' => $r['seo_link'], 'poradi' => (int) $r['poradi'], 'zobrazit' => (bool) $r['zobrazit'],
+                    'jazyk' => $r['jazyk'], 'data' => json_decode((string) $r['data'], true) ?: new \stdClass()], array_slice($radky, ($strana - 1) * 50, 50))];
 
             case 'uloz_polozku_kolekce':
                 if (!$auth->maModul('kolekce')) {

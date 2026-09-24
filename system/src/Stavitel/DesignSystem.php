@@ -279,6 +279,86 @@ final class DesignSystem
             . "@media (prefers-color-scheme: dark) {\n\t:root[data-tmavy] {\n" . implode("\n", $tmave) . "\n\t}\n}\n}\n";
     }
 
+    /**
+     * Design tokeny ve formátu W3C Design Tokens (DTCG, https://tr.designtokens.org/format/) pro Figmu, Tokens Studio a jiné nástroje.
+     * Úplný design systém Kalety je navíc v $extensions, aby se při importu zpět nic neztratilo.
+     *
+     * @param array<string, mixed> $ds
+     * @return array<string, mixed>
+     */
+    public static function doDtcg(array $ds): array
+    {
+        $barvy = fn (array $b): array => array_map(fn (string $hex): array => ['$type' => 'color', '$value' => $hex], $b);
+        $pismo = fn (string $klic, bool $titulky): array => ['$type' => 'fontFamily', '$value' => array_map(fn (string $x): string => trim($x, " \"'"), explode(',', self::rodina($ds, $klic, $titulky)))];
+        $kroky = [];
+        foreach (self::KROKY as $n) {
+            $kroky[$n] = ['$type' => 'dimension', '$value' => ['value' => round($ds['zaklad_max'] * $ds['pomer_max'] ** (int) $n, 3), 'unit' => 'rem'], '$description' => 'monitor; na telefonu ' . round($ds['zaklad_min'] * $ds['pomer_min'] ** (int) $n, 3) . ' rem'];
+        }
+        $typografie = [];
+        foreach (self::TYPOGRAFIE as $klic => [$nazev, $krok, $tloustka, $radkovani, $titulky]) {
+            $t = ($ds['typografie'] ?? [])[$klic] ?? [];
+            $typografie[$klic] = ['$type' => 'typography', '$description' => $nazev, '$value' => [
+                'fontFamily' => '{pismo.' . ($titulky ? 'titulky' : 'text') . '}', 'fontSize' => '{velikost.' . ($t['krok'] ?? $krok) . '}',
+                'fontWeight' => $t['tloustka'] ?? $tloustka, 'lineHeight' => $radkovani, 'letterSpacing' => ['value' => $klic === 'nadtitulek' ? 0.08 : 0, 'unit' => 'rem'],
+            ]];
+        }
+
+        return [
+            'barva' => $barvy($ds['barvy']),
+            'barva-tmava' => $barvy($ds['barvy_tmave']),
+            'pismo' => ['titulky' => $pismo($ds['pismo_titulky'], true), 'text' => $pismo($ds['pismo_text'], false)],
+            'velikost' => $kroky,
+            'typografie' => $typografie,
+            'mezera' => array_map(fn (float $n): array => ['$type' => 'dimension', '$value' => ['value' => round($ds['zaklad_max'] * $n, 3), 'unit' => 'rem']], self::MEZERY),
+            'zaobleni' => ['$type' => 'dimension', '$value' => ['value' => (float) (self::ZAOBLENI[$ds['zaobleni']] === '999px' ? 999 : (float) self::ZAOBLENI[$ds['zaobleni']]), 'unit' => self::ZAOBLENI[$ds['zaobleni']] === '999px' ? 'px' : 'rem']],
+            'sirka' => ['obsah' => ['$type' => 'dimension', '$value' => ['value' => $ds['sirka'], 'unit' => 'rem']], 'text' => ['$type' => 'dimension', '$value' => ['value' => $ds['sirka_textu'], 'unit' => 'rem']]],
+            '$extensions' => ['cz.kaleta' => ['design_system' => $ds]],
+        ];
+    }
+
+    /**
+     * Design systém z tokenů DTCG: z exportu Kalety celý (rozšíření cz.kaleta), z cizího nástroje aspoň barvy – podle našich
+     * klíčů i běžných anglických názvů (primary, secondary, text, background, surface). Ostatní zůstává, jak je.
+     *
+     * @param array<string, mixed> $tokeny
+     * @param array<string, mixed> $ds stávající design systém
+     * @return array<string, mixed>|null null = soubor neobsahuje nic použitelného
+     */
+    public static function zDtcg(array $tokeny, array $ds): ?array
+    {
+        if (is_array($tokeny['$extensions']['cz.kaleta']['design_system'] ?? null)) {
+            return self::vycisti($tokeny['$extensions']['cz.kaleta']['design_system'] + $ds);
+        }
+        $nazvy = ['primarni' => ['primarni', 'primary', 'brand', 'accent'], 'sekundarni' => ['sekundarni', 'secondary'], 'text' => ['text', 'foreground', 'on-background'],
+            'pozadi' => ['pozadi', 'background', 'bg'], 'plocha' => ['plocha', 'surface', 'muted']];
+        $nalezene = [];
+        $projdi = function (array $skupina, string $cesta) use (&$projdi, &$nalezene): void {
+            foreach ($skupina as $klic => $hodnota) {
+                if (!is_array($hodnota) || str_starts_with((string) $klic, '$')) {
+                    continue;
+                }
+                if (isset($hodnota['$value']) && is_string($hodnota['$value']) && preg_match('/^#[0-9a-f]{6}$/i', $hodnota['$value'])) {
+                    $nalezene[strtolower($cesta . '.' . $klic)] = strtolower($hodnota['$value']);
+                } else {
+                    $projdi($hodnota, $cesta . '.' . $klic);
+                }
+            }
+        };
+        $projdi($tokeny, '');
+        $zmena = false;
+        foreach ($nazvy as $nas => $kandidati) {
+            foreach ($nalezene as $cesta => $hex) {
+                if (!str_contains($cesta, 'tmav') && !str_contains($cesta, 'dark') && in_array(substr($cesta, strrpos($cesta, '.') + 1), $kandidati, true)) {
+                    $ds['barvy'][$nas] = $hex;
+                    $zmena = true;
+                    break;
+                }
+            }
+        }
+
+        return $zmena ? self::vycisti($ds) : null;
+    }
+
     /** Fluidní hodnota v rem mezi VIEWPORT_MIN a VIEWPORT_MAX. */
     public static function clamp(float $min, float $max): string
     {

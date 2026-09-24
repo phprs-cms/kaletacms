@@ -243,6 +243,19 @@ final class Galerie extends Modul
         return $this->zpet('Popis obrázku byl uložen.');
     }
 
+    /** Popis (alt) jednoho obrázku přímo z mřížky – bez znovunačtení stránky (image/admin.js, data-popis-media). */
+    protected function akceUlozPopis(): Response
+    {
+        $ido = $this->request->postInt('ido');
+        if (!$this->request->isPost() || !$this->smiMenit($ido)) {
+            return Response::json(['ok' => false, 'chyba' => t('Obrázek nemůžete upravit.')], 403);
+        }
+        $this->db->update('media', ['popis' => mb_substr(trim($this->request->post('popis')), 0, 500)], ['ido' => $ido]);
+        \Kaleta\Front\Cache::vymaz();
+
+        return Response::json(['ok' => true]);
+    }
+
     /** Hromadná akce nad označenými obrázky: smazání, nebo přesun do složky. */
     protected function akceHromadne(): Response
     {
@@ -287,7 +300,7 @@ final class Galerie extends Modul
     /**
      * Filtr výpisu z adresy: sekce (číslo složky, 0 = nezařazené), clanek (idc), nepouzite=1, hledat (název, popisek nebo jméno souboru).
      *
-     * @return array{0: string, 1: list<int|string>, 2: array{sekce: ?int, clanek: int, nepouzite: bool}}
+     * @return array{0: string, 1: list<int|string>, 2: array{sekce: ?int, clanek: int, nepouzite: bool, hledat: string, razeni: string}}
      */
     private function filtr(): array
     {
@@ -320,7 +333,9 @@ final class Galerie extends Modul
             }
         }
 
-        return [implode(' AND ', $where), $params, ['sekce' => $sekce, 'clanek' => $clanek, 'nepouzite' => $nepouzite]];
+        $razeni = isset(self::RAZENI[$this->request->get('razeni')]) ? $this->request->get('razeni') : 'nove';
+
+        return [implode(' AND ', $where), $params, ['sekce' => $sekce, 'clanek' => $clanek, 'nepouzite' => $nepouzite, 'hledat' => $hledat, 'razeni' => $razeni]];
     }
 
     /** @return list<array<string, mixed>> složky s počtem obrázků */
@@ -330,8 +345,15 @@ final class Galerie extends Modul
     }
 
     /** @return list<array<string, mixed>> */
+    /** Řazení výpisu: klíč z adresy => [popisek, ORDER BY]. */
+    public const array RAZENI = [
+        'nove' => ['nejnovější', 'o.ido DESC'], 'stare' => ['nejstarší', 'o.ido ASC'], 'nazev' => ['podle názvu', 'o.nazev ASC, o.ido DESC'],
+        'velikost' => ['největší soubory', 'o.obr_vel DESC'], 'nepouzite' => ['nejméně použité', 'pouzito ASC, o.ido DESC'],
+    ];
+
     private function nacti(string $where, array $params, int $strana, int $pocet): array
     {
+        $poradi = self::RAZENI[$this->request->get('razeni')][1] ?? self::RAZENI['nove'][1];
         $jinde = self::pouzitiJinde($this->db);
 
         return array_map(function (array $o) use ($jinde): array {
@@ -342,7 +364,7 @@ final class Galerie extends Modul
             return $o;
         }, $this->db->all(
             "SELECT o.*, (SELECT COUNT(*) FROM {media_pouziti} p WHERE p.ido = o.ido) AS pouzito
-             FROM {media} o WHERE {$where} ORDER BY o.ido DESC LIMIT ? OFFSET ?",
+             FROM {media} o WHERE {$where} ORDER BY {$poradi} LIMIT ? OFFSET ?",
             [...$params, $pocet, ($strana - 1) * $pocet],
         ));
     }

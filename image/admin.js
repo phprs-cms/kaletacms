@@ -304,4 +304,21 @@
 			box.querySelector('.ohnisko-bod').style.top = y + '%';
 		});
 	});
+	// Média: popis obrázku (alt) přímo v mřížce – uloží se po opuštění pole, bez znovunačtení stránky
+	document.querySelectorAll('[data-popis-media]').forEach(function (pole) {
+		var puvodni = pole.value;
+		var token = document.querySelector('input[name="_csrf"]');
+		pole.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); pole.blur(); } });
+		pole.addEventListener('change', function () {
+			var data = new FormData();
+			data.append('_csrf', token ? token.value : '');
+			data.append('ido', pole.getAttribute('data-popis-media'));
+			data.append('popis', pole.value);
+			pole.classList.remove('ulozeno', 'chyba');
+			fetch(pole.getAttribute('data-adresa'), { method: 'POST', body: data, credentials: 'same-origin' })
+				.then(function (r) { return r.json(); })
+				.then(function (j) { if (!j.ok) { throw new Error(j.chyba); } puvodni = pole.value; pole.classList.add('ulozeno'); })
+				.catch(function () { pole.value = puvodni; pole.classList.add('chyba'); });
+		});
+	});
 })();

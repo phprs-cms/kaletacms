@@ -168,7 +168,7 @@
 
 	var klidne = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 	var cisla = new Intl.NumberFormat(document.documentElement.lang || 'cs');
-	// počítadlo: číslo je v HTML hotové, při prvním objevení na obrazovce se jednou napočítá od nuly
+	// počítadlo: číslo je v HTML hotové (do objevení zůstává vidět), při prvním objevení na obrazovce se jednou napočítá od nuly
 	document.querySelectorAll('[data-pocitadlo]').forEach(function (c) {
 		var cil = parseInt(c.getAttribute('data-pocitadlo'), 10);
 		if (klidne || !cil || !('IntersectionObserver' in window)) { return; }
@@ -183,8 +183,7 @@
 				if (podil < 1) { requestAnimationFrame(krok); }
 			};
 			requestAnimationFrame(krok);
-		}, { threshold: 0.6 });
-		c.textContent = '0';
+		}, { threshold: 0.3 });
 		pozorovatel.observe(c);
 	});
 	// odpočet: server vypsal stav v okamžiku vykreslení (stránka může být z cache), tady se dopočítává každou sekundu

@@ -195,6 +195,17 @@ $kontrastyHtml = function (array $kontrasty): string {
 <p class="tlacitka vzhled-ulozit"><input class="tl" type="submit" value="<?= e(t('Uložit vzhled')) ?>"> <span class="napoveda" data-neulozeno hidden><?= e(t('Náhled ukazuje neuložené změny.')) ?></span></p>
 </form>
 
+<details class="pokrocile">
+<summary><?= e(t('Design tokeny (Figma, Tokens Studio)')) ?></summary>
+<p class="napoveda"><?= e(t('Barvy, písma, velikosti a typografické styly ve formátu W3C Design Tokens (DTCG). Export Kalety se dá načíst zpět celý, z jiného nástroje se převezmou barvy.')) ?></p>
+<p class="navigace-radek"><a class="navigace" href="<?= e($modul->url('tokeny')) ?>"><?= e(t('Stáhnout tokeny (.tokens.json)')) ?></a></p>
+<form class="navigace-radek" method="post" action="<?= e($modul->url('tokeny_import')) ?>" enctype="multipart/form-data" data-potvrdit="<?= e(t('Načíst tokeny? Přepíší nastavení vzhledu výše.')) ?>">
+	<?= $csrf ?>
+	<input type="file" name="tokeny" accept=".json,application/json" required aria-label="<?= e(t('Soubor s tokeny')) ?>">
+	<button class="navigace" type="submit"><?= e(t('Načíst tokeny')) ?></button>
+</form>
+</details>
+
 <aside class="vzhled-nahled">
 	<div class="vzhled-nahled-lista">
 		<span><?= e(t('Náhled úvodní stránky')) ?></span>

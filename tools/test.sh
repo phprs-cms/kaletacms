@@ -586,6 +586,21 @@ curl -s -b "$JAR" -o "$PRACE/odpoved" "$B/admin.php?modul=odberatele&akce=csv"; 
 over "odhlášení odkazem" 200 "/odber?odhlasit=$TOKO" "Odhlášeno"
 ocekavej "odhlášený je smazaný" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_odberatele")" "0"
 
+echo "== média, tokeny DTCG, kolekce přes MCP"
+IDOM=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ido FROM ka_media WHERE obr_poloha LIKE '%.jpg' ORDER BY ido DESC LIMIT 1")
+over "média: hledání a řazení" 200 "/admin.php?modul=intergal&hledat=jpg&razeni=velikost" 'data-popis-media='
+odp=$(curl -s -b "$JAR" -c "$JAR" -X POST "$B/admin.php?modul=intergal&akce=uloz_popis" -d "_csrf=$TOKEN" -d "ido=$IDOM" --data-urlencode "popis=Dilna zevnitr")
+ocekavej "popis obrázku bez znovunačtení" "$odp|$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT popis FROM ka_media WHERE ido = $IDOM")" '{"ok":true}|Dilna zevnitr'
+curl -s -b "$JAR" -o "$PRACE/tokeny.json" "$B/admin.php?modul=vzhled&akce=tokeny"
+grep -q '"\$type": "color"' "$PRACE/tokeny.json" && grep -q '"cz.kaleta"' "$PRACE/tokeny.json" && echo "  ok     export tokenů DTCG" || { echo "  CHYBA  export tokenů"; CHYB=$((CHYB+1)); }
+printf '{"color":{"primary":{"$type":"color","$value":"#aa3300"}}}' > "$PRACE/cizi.tokens.json"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=vzhled&akce=tokeny_import" -F "_csrf=$TOKEN" -F "tokeny=@$PRACE/cizi.tokens.json"
+ocekavej "import barev z cizích tokenů" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.barvy.primarni')) FROM ka_nastaveni WHERE promenna = 'design_system'")" "#aa3300"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=vzhled&akce=tokeny_import" -F "_csrf=$TOKEN" -F "tokeny=@$PRACE/tokeny.json"
+ocekavej "import vlastního exportu vrátí vzhled" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.barvy.primarni')) <> '#aa3300' FROM ka_nastaveni WHERE promenna = 'design_system'")" "1"
+mcp seznam_polozek_kolekce '{"kolekce":"tym","pole":"funkce","hodnota":"Mistr truhlář"}' > "$PRACE/odpoved"
+grep -q 'Petr Svoboda' "$PRACE/odpoved" && grep -q 'celkem\\": 1' "$PRACE/odpoved" && echo "  ok     kolekce přes MCP: filtr podle pole" || { echo "  CHYBA  kolekce přes MCP s filtrem"; head -c 400 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+
 echo "== vypnutá rozšíření Novinky a Formuláře a poptávky"
 ROZ=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna='rozsireni'")
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota='statistika,presmerovani,claude' WHERE promenna='rozsireni'"

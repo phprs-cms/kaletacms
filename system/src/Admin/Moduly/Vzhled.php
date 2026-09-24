@@ -67,6 +67,31 @@ final class Vzhled extends Modul
         return $this->zpet('Vzhled webu byl uložen.');
     }
 
+    /** Design tokeny ke stažení ve formátu DTCG (Figma, Tokens Studio, Style Dictionary). */
+    protected function akceTokeny(): Response
+    {
+        $json = (string) json_encode(DesignSystem::doDtcg(DesignSystem::nacti($this->app->settings())), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        return new Response($json, 200, ['Content-Type' => 'application/json; charset=utf-8', 'Content-Disposition' => 'attachment; filename="tokeny-' . date('Y-m-d') . '.tokens.json"']);
+    }
+
+    /** Import tokenů DTCG: z exportu Kalety celý vzhled, z jiného nástroje barvy. */
+    protected function akceTokenyImport(): Response
+    {
+        $soubor = $_FILES['tokeny'] ?? null;
+        $obsah = $this->request->isPost() && is_array($soubor) && ($soubor['error'] ?? 1) === UPLOAD_ERR_OK && (int) $soubor['size'] < 1_000_000 ? (string) file_get_contents((string) $soubor['tmp_name']) : '';
+        $tokeny = json_decode($obsah, true);
+        $web = $this->app->settings();
+        $ds = is_array($tokeny) ? DesignSystem::zDtcg($tokeny, DesignSystem::nacti($web)) : null;
+        if ($ds === null) {
+            return $this->zpet('Soubor neobsahuje design tokeny, které by šly použít (čekáme JSON ve formátu DTCG).', '', [], 'chyba');
+        }
+        $web->set('design_system', (string) json_encode($ds, JSON_UNESCAPED_SLASHES));
+        \Kaleta\Front\Cache::vymaz();
+
+        return $this->zpet('Design tokeny byly načteny.');
+    }
+
     /** Živý náhled: CSS tokenů a kontrola čitelnosti pro rozpracovaný formulář (JSON). Nic neukládá. */
     protected function akceNahled(): Response
     {
