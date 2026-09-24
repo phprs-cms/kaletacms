@@ -40,7 +40,9 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../mirocms-interni/NAVRH.md`. Č
 - **Layout** = `layout/<složka>/base.php` + `style.css` + `info.php`; může přepsat kterýkoli pohled z `system/views/front/`
   (`novinka.php`, `vypis.php`, `stranka.php`…). Vestavěný je jen `zakladni` (`Front\Layouty::VYCHOZI`, `Mcp\Nastroje::VESTAVENE_SABLONY`).
   Layout musí vypsat `<?= $hlava ?>` před `</head>` a `<?= $pata ?>` před `</body>` (SEO, strukturovaná data, měření, cookie lišta – `Front\Seo`).
-  Barvy a písma přes `--mc-akcent`, `--mc-pismo-titulky`, `--mc-pismo-text` (`Front\Identita`) s vlastní výchozí hodnotou.
+  Barvy, písma, škálu a rozměry ber z tokenů design systému (`--mc-barva-*`, `--mc-krok-*`, `--mc-mezera-*`, `--mc-sirka`…) s vlastní výchozí hodnotou.
+  **Vrstvy kaskády** celého webu: `@layer tokeny, spolecne, sablona, stavitel, tridy, prvky;` (`DesignSystem::VRSTVY`) – šablona píše do `sablona`,
+  nic nevrstveného (to by přebilo vše) a bez `!important`.
 - **Tmavý režim:** `<html data-tmavy>` podle `tmavy_rezim`, v CSS `@media (prefers-color-scheme: dark) { :root[data-tmavy] { … } }`.
 - **Společné prvky** (galerie, prohlížečka fotek, video, osnova, sdílení, FAQ, úprava na webu) mají styl a skript v `image/web.css` a `image/web.js`
   (vkládá `Seo::hlava()`); pravidla v `:where()` s nulovou vahou, aby je šablona přebila. Doplňky textu novinky vkládá `Front\TextNovinky`.
@@ -57,6 +59,23 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../mirocms-interni/NAVRH.md`. Č
 - **Úprava přímo na webu** (`Kernel::upravaNaMiste()`, `views/front/upravit.php`): „Upravit zde“ pro přihlášené s právem; ukládají akce
   `uloz_text` v `Moduly\Novinky` a `Moduly\Stranky`.
 
+## Stavitel stránek a design systém
+
+- **Design systém** (`Stavitel\DesignSystem`, nastavení `design_system` JSON, admin Vzhled webu): pár rozhodnutí → tokeny v `@layer tokeny`.
+  Fluidní škály přes `clamp()`, odstíny `color-mix(in oklch)`, kontrast WCAG počítá PHP (`kontrasty()`). Starší `brand_*` se čtou jen jako záloha.
+  Živý náhled ve Vzhledu i předvolby počítá jen PHP (akce `nahled`) – výpočet tokenů nikdy neduplikuj v JS.
+- **Stavba** = `rs_stranky.stavba` (publikovaná) a `stavba_koncept` (editor, MCP): `{"v":1,"deti":[{id,typ,znacka,obsah,styl,tridy,kotva,popis,deti}]}`.
+  Jeden prvek = jedna značka. **Jediný validátor** `Stavba::vycisti()` (editor, MCP, import – nikdy neukládej stavbu bez něj) a **jediný vykreslovač**
+  `Stavba::vykresli()`; CSS stránky jen z použitých typů, tříd (`rs_tridy`) a stylů prvků. Na webu se vadný prvek vynechá, nikdy výjimka.
+- **Prvek** = třída v `Stavitel\Prvky\` (dědí `Prvek`, zapsaná v `Stavba::PRVKY`): pole obsahu (`vlastnosti()`), povolené značky, základní CSS
+  do vrstvy `stavitel` přes `:where()`. **Styl** (`Stavitel\Styl::VLASTNOSTI`) má stavy `zaklad`/`tablet` (≤1023 px)/`mobil` (≤767 px)/`hover`; hodnoty
+  jsou tokeny nebo bezpečné volné hodnoty. Vlastní CSS tříd projde `Styl::vlastniCss()` (bez `url()`, bloků, `@`).
+- **Publikování** (`Moduly\Stranky::publikuj`, i z MCP): předchozí verze do `rs_stavba_revize` (20), do `text` se uloží obsah bez rozložení
+  (`Stavba::jakoText`) – z něj čerpá hledání, llms.txt, API i návrat k textu. Náhled konceptu `?stavba=koncept` jen s právem Stránky, `&editor=1` přidá `data-mc-id`.
+- **Editor** `image/stavitel.js` + `stavitel.css` (samostatná stránka `akce=stavitel`): plátno je skutečná stránka v iframe (počítač vykreslený v 1280 px
+  a zmenšený), průběžné ukládání konceptu (`stavba_uloz`, vrací vyčištěný strom), knihovna sekcí `Stavitel\Knihovna`, verze.
+- **HTML → stavba** (`Stavitel\ZHtml`, MCP `stavba_z_html`): sémantické HTML + `<style>` s pravidly jedné třídy → prvky a třídy; co převést nejde, se nahlásí.
+
 ## Obsah a služby
 
 - **Novinky** (`Moduly\Novinky`): koncept / vydaná (i naplánovaná), koš 30 dní, revize (20 posledních) s porovnáním, rozepsaný stav na serveru,
@@ -67,7 +86,8 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../mirocms-interni/NAVRH.md`. Č
 - **Čas:** pásmo `casove_pasmo` (`App::casovePasmo()`); zapisuj přes `date()`, porovnávej s `NOW()`.
 - **AI asistent** (`Core\Asistent`): klíč `ai_klic` je typ `tajne`; odpověď modelu je nedůvěryhodný vstup. Překlad (`Asistent::preloz()`) bere od modelu
   jen text úseků, značky z originálu; výsledek je vždy koncept. Adresa API jen konstantou `MIROCMS_AI_URL` v `config.php`.
-- **MCP** (`Mcp\Server`, `Mcp\Nastroje`, `/mcp`, token z Můj účet): stránky, novinky, kategorie, média a VLASTNÍ šablony. Nová novinka je koncept,
+- **MCP** (`Mcp\Server`, `Mcp\Nastroje`, `/mcp`, token z Můj účet): stránky (i stavitel: `stavba_schema`, `stavba_z_html`, `stavba_nacti`, `stavba_uloz`,
+  `vloz_sekci`, `publikuj_stavbu`), design systém (`uprav_design_system`, správce), novinky, kategorie, média a VLASTNÍ šablony. Nová novinka je koncept,
   nová stránka skrytá; vydat/zveřejnit jen na výslovný pokyn a s právem. **Hranice (bezpečí na prvním místě):** žádný nástroj nesmí zapisovat mimo obsah
   a `layout/<vlastní>/`, spouštět kód ani dotaz; PHP šablon ukládaných přes MCP projde `Core\SablonaKontrola`. Pravidla pro Claude v souborech: `layout/CLAUDE.md`.
 - **Přihlášení:** hesla `password_hash`, TOTP, passkeys (`Core\Passkey`, jen jako náhrada kódu u účtu s TOTP), obnova hesla `Admin\ObnovaHesla`.

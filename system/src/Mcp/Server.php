@@ -74,6 +74,8 @@ final class Server
                 'capabilities' => ['tools' => new \stdClass()],
                 'serverInfo' => ['name' => 'MiroCMS – ' . $this->app->settings()->get('nazev_webu'), 'version' => MIROCMS_VERSION],
                 'instructions' => 'Firemní web na MiroCMS. Texty piš v jazyce webu, stránky a novinky jako čisté sémantické HTML (p, h2, h3, ul, ol, blockquote, a, strong, em, figure/img, table). '
+                    . 'STRÁNKY SKLÁDEJ VE STAVITELI: načti stavba_schema, pak stavba_z_html (sémantické HTML po sekcích + <style> s pravidly jedné třídy a tokeny var(--mc-…), žádné vložené styly); '
+                    . 'drobné úpravy přes stavba_nacti a stavba_uloz, hotové sekce přes vloz_sekci, vzhled celého webu přes uprav_design_system. Stavba se ukládá jako koncept – pošli uživateli odkaz na náhled a publikuj až na jeho pokyn. '
                     . 'Nová novinka vzniká jako koncept; vydat ji může jen uživatel s právem vydávat a jen na výslovný pokyn. Nová stránka je skrytá, dokud ji uživatel výslovně nechce zveřejnit. '
                     . 'Před úpravou šablony si ji nejdřív zkopíruj a změny ukaž v náhledu. '
                     . 'HRANICE: přes toto napojení se mění jen obsah (stránky, novinky, kategorie) a VLASTNÍ šablony vzhledu. Kód systému (system/, admin.php, index.php), vestavěné šablony '

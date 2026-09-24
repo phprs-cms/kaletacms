@@ -8,7 +8,12 @@ use MiroCMS\Admin\Moduly\Galerie;
 use MiroCMS\Admin\Moduly\Kategorie;
 use MiroCMS\Admin\Moduly\Stranky;
 use MiroCMS\Core\App;
+use MiroCMS\Front\Identita;
 use MiroCMS\Front\Layouty;
+use MiroCMS\Stavitel\DesignSystem;
+use MiroCMS\Stavitel\Knihovna;
+use MiroCMS\Stavitel\Stavba;
+use MiroCMS\Stavitel\ZHtml;
 
 /**
  * Nástroje, které MCP server nabízí Claudovi. Každý nástroj respektuje práva uživatele, jehož tokenem se Claude hlásí:
@@ -52,6 +57,18 @@ final class Nastroje
             ['nacti_stranku', 'Celá stránka včetně HTML obsahu.', $s(['id' => $cislo('ID stránky')], ['id'])],
             ['vytvor_stranku', 'Založí stránku (editor a správce). Bez "zobrazit": true zůstane skrytá.', $s($stranka, ['titulek'])],
             ['uprav_stranku', 'Změní zadaná pole stránky; ostatní ponechá.', $s(['id' => $cislo('ID stránky')] + $stranka, ['id'])],
+            ['stavba_schema', 'Jak se skládá stránka ve staviteli: typy prvků a jejich pole, vlastnosti stylu, tokeny design systému (barvy, mezery, písmo), hotové sekce knihovny a sdílené třídy webu. Načti před prvním použitím nástrojů stavba_*.', $s([])],
+            ['stavba_nacti', 'Stavba stránky (strom prvků) – rozpracovaný koncept, jinak publikovaná verze. Stránka bez stavby vrátí stavbu z jejího textu.', $s(['id' => $cislo('ID stránky')], ['id'])],
+            ['stavba_z_html', 'DOPORUČENÁ CESTA pro novou stránku nebo sekce: napiš sémantické HTML (section/header, h1–h3, p, ul, a, img, figure, blockquote, details) a vzhled do bloku <style> jako pravidla jedné třídy (.karta { … }) s tokeny var(--mc-…). Převede se na stavbu a třídy; vrátí hlášení, co převést nešlo. Uloží se jako koncept.',
+                $s(['html' => $text('HTML obsahu (bez <html>/<head>); <style> smí být uvnitř'), 'id' => $cislo('ID stránky; bez něj vznikne nová skrytá stránka s názvem z parametru titulek'), 'titulek' => $text('Název nové stránky (když není id)'),
+                    'rezim' => $text('nahradit (výchozí) = celá stavba z HTML | pridat = sekce na konec stávající stavby'), 'prepsat_tridy' => ['type' => 'boolean', 'description' => 'true = třídy, které už na webu jsou, se přepíšou stylem z <style>; jinak zůstanou'],
+                    'publikovat' => ['type' => 'boolean', 'description' => 'true = hned publikovat (jen na výslovný pokyn uživatele); jinak koncept k náhledu']], ['html'])],
+            ['stavba_uloz', 'Uloží celou stavbu stránky (strom z stavba_nacti s úpravami) jako koncept. Pro drobné úpravy obsahu a stylu jednotlivých prvků. Vrátí vyčištěnou stavbu a chyby.',
+                $s(['id' => $cislo('ID stránky'), 'stavba' => ['type' => 'object', 'description' => '{"v":1,"deti":[…]} podle stavba_schema'], 'publikovat' => ['type' => 'boolean', 'description' => 'true = publikovat (jen na výslovný pokyn uživatele)']], ['id', 'stavba'])],
+            ['vloz_sekci', 'Vloží hotovou sekci z knihovny (úvod, výhody, služby, čísla, reference, faq, výzva, novinky, kontakt) na konec konceptu stránky.', $s(['id' => $cislo('ID stránky'), 'sekce' => $text('klíč sekce ze stavba_schema → knihovna')], ['id', 'sekce'])],
+            ['publikuj_stavbu', 'Publikuje koncept stavby stránky (jen na výslovný pokyn uživatele). Předchozí verze zůstane v historii.', $s(['id' => $cislo('ID stránky')], ['id'])],
+            ['uprav_design_system', 'Změní vzhled celého webu (správce): barvy, písma, velikosti, šířku, zaoblení – nebo použije předvolbu. Nezadané hodnoty zůstanou. Vrátí kontrolu čitelnosti barev.',
+                $s(['predvolba' => $text('firemni | remeslo | pratelsky | elegantni | technologie (nepovinné)'), 'ds' => ['type' => 'object', 'description' => 'Změny, např. {"barvy":{"primarni":"#0f766e"},"pismo_titulky":"klasicke","zaobleni":"l"} – klíče viz stavba_schema → design_system']])],
             ['seznam_novinek', 'Seznam novinek (nejnovější první).', $s(['stav' => $text('vse | vydane | plan | koncepty'), 'kategorie' => $text('název nebo adresa kategorie'), 'hledat' => $text('text v titulku'), 'limit' => $cislo('1-50, výchozí 20')])],
             ['nacti_novinku', 'Celá novinka včetně textu a štítků.', $s(['id' => $cislo('ID novinky (idc)')], ['id'])],
             ['vytvor_novinku', 'Založí novinku. Bez "vydat": true vznikne koncept.', $s($novinka, ['titulek', 'kategorie'])],
@@ -71,7 +88,7 @@ final class Nastroje
 
     public function meni(string $nazev): bool
     {
-        return in_array($nazev, ['vytvor_stranku', 'uprav_stranku', 'vytvor_novinku', 'uprav_novinku', 'vytvor_kategorii', 'vytvor_sablonu', 'uloz_soubor_sablony', 'aktivuj_sablonu'], true);
+        return in_array($nazev, ['stavba_z_html', 'stavba_uloz', 'vloz_sekci', 'publikuj_stavbu', 'uprav_design_system', 'vytvor_stranku', 'uprav_stranku', 'vytvor_novinku', 'uprav_novinku', 'vytvor_kategorii', 'vytvor_sablonu', 'uloz_soubor_sablony', 'aktivuj_sablonu'], true);
     }
 
     /** @param array<string, mixed> $a */
@@ -114,6 +131,88 @@ final class Nastroje
                 }
 
                 return $this->ulozStranku($nazev === 'uprav_stranku' ? $this->stranka((int) ($a['id'] ?? 0)) : null, $a);
+
+            case 'stavba_schema':
+                return Stavba::schema($auth->isAdmin()) + [
+                    'knihovna' => Knihovna::seznam(),
+                    'tridy_webu' => array_column($db->all('SELECT nazev FROM {tridy} ORDER BY nazev'), 'nazev'),
+                    'design_system' => DesignSystem::nacti($web) + ['predvolby' => array_map(fn (array $p): string => $p[0] . ' – ' . $p[1], DesignSystem::PREDVOLBY),
+                        'pisma_titulku' => array_keys(Identita::PISMA_TITULKU), 'pisma_textu' => array_keys(Identita::PISMA_TEXTU)],
+                    'css_tokeny' => 'V <style> a vlastním CSS používej var(--mc-barva-primarni|sekundarni|text|tlumeny|pozadi|plocha|linka|primarni-jemna|na-primarni), var(--mc-mezera-2xs…3xl), var(--mc-krok--1…5) pro velikost písma, var(--mc-zaobleni), var(--mc-stin-s|m|l), var(--mc-sirka).',
+                ];
+
+            case 'stavba_nacti':
+                $stranka = $this->strankaSeStavbou((int) ($a['id'] ?? 0));
+                $stavba = Stavba::zJson($stranka['stavba_koncept'] ?? $stranka['stavba']) ?? Stavba::zTextu($stranka['titulek'], (string) $stranka['text']);
+
+                return ['id' => (int) $stranka['ids'], 'titulek' => $stranka['titulek'], 'publikovana' => $stranka['stavba'] !== null,
+                    'neulozene_zmeny' => $stranka['stavba_koncept'] !== null && $stranka['stavba_koncept'] !== $stranka['stavba'], 'stavba' => $stavba];
+
+            case 'stavba_z_html':
+                $this->strankaSeStavbou(-1, true);
+                $stranka = isset($a['id']) ? $this->strankaSeStavbou((int) $a['id']) : $this->strankaSeStavbou((int) $this->ulozStranku(null, ['titulek' => (string) ($a['titulek'] ?? '')])['id']);
+                $prevod = ZHtml::preved((string) ($a['html'] ?? ''), $auth->isAdmin());
+                $hlaseni = $prevod['hlaseni'];
+                $existujici = array_column($db->all('SELECT nazev FROM {tridy}'), 'nazev');
+                foreach ($prevod['tridy'] as $trida => $css) {
+                    if (in_array($trida, $existujici, true) && empty($a['prepsat_tridy'])) {
+                        $hlaseni[] = 'Třída .' . $trida . ' už na webu je – ponechána beze změny (prepsat_tridy: true ji přepíše).';
+                        continue;
+                    }
+                    $db->run('INSERT INTO {tridy} (nazev, styl, css, zmeneno) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE css = VALUES(css), zmeneno = NOW()', [$trida, '{}', $css]);
+                }
+                // třídy bez stylu (z cizího CSS frameworku) by jen zabíraly místo
+                $zname = array_merge($existujici, array_keys($prevod['tridy']));
+                $vynechane = [];
+                $stavba = $this->bezTrid($prevod['stavba'], $zname, $vynechane);
+                if ($vynechane !== []) {
+                    $hlaseni[] = 'Třídy bez stylu vynechány: ' . implode(', ', array_unique($vynechane)) . '.';
+                }
+                if (($a['rezim'] ?? '') === 'pridat') {
+                    $stavba['deti'] = array_merge((Stavba::zJson($stranka['stavba_koncept'] ?? $stranka['stavba']) ?? ['deti' => []])['deti'], $stavba['deti']);
+                }
+
+                return $this->ulozStavbu($stranka, $stavba, !empty($a['publikovat'])) + ['hlaseni' => $hlaseni];
+
+            case 'stavba_uloz':
+                if (!is_array($a['stavba'] ?? null)) {
+                    throw new \InvalidArgumentException('Parametr stavba musí být objekt {"v":1,"deti":[…]}.');
+                }
+
+                return $this->ulozStavbu($this->strankaSeStavbou((int) ($a['id'] ?? 0)), $a['stavba'], !empty($a['publikovat']));
+
+            case 'vloz_sekci':
+                $stranka = $this->strankaSeStavbou((int) ($a['id'] ?? 0));
+                $sekce = Knihovna::sekci((string) ($a['sekce'] ?? '')) ?? throw new \InvalidArgumentException('Sekce v knihovně není. Klíče: ' . implode(', ', array_column(Knihovna::seznam(), 'klic')) . '.');
+                Knihovna::zalozTridy($db, $sekce['tridy']);
+                $stavba = Stavba::zJson($stranka['stavba_koncept'] ?? $stranka['stavba']) ?? Stavba::zTextu($stranka['titulek'], (string) $stranka['text']);
+                $stavba['deti'][] = $sekce['prvek'];
+
+                return $this->ulozStavbu($stranka, $stavba, false);
+
+            case 'publikuj_stavbu':
+                $stranka = $this->strankaSeStavbou((int) ($a['id'] ?? 0));
+                if (($stranka['stavba_koncept'] ?? $stranka['stavba']) === null) {
+                    throw new \InvalidArgumentException('Stránka nemá stavbu k publikování.');
+                }
+                Stranky::publikuj($this->app, $stranka);
+
+                return ['id' => (int) $stranka['ids'], 'stav' => 'publikováno', 'adresa' => $this->adresaStranky($stranka)];
+
+            case 'uprav_design_system':
+                $jenAdmin();
+                $ds = isset($a['predvolba']) ? (DesignSystem::predvolba((string) $a['predvolba']) ?? throw new \InvalidArgumentException('Předvolba neexistuje: ' . implode(', ', array_keys(DesignSystem::PREDVOLBY)) . '.')) : DesignSystem::nacti($web);
+                $zmeny = is_array($a['ds'] ?? null) ? $a['ds'] : [];
+                foreach (['barvy', 'barvy_tmave'] as $skupina) {
+                    if (is_array($zmeny[$skupina] ?? null)) {
+                        $zmeny[$skupina] += $ds[$skupina];
+                    }
+                }
+                $ds = DesignSystem::vycisti($zmeny + $ds);
+                $web->set('design_system', (string) json_encode($ds, JSON_UNESCAPED_SLASHES));
+                \MiroCMS\Front\Cache::vymaz();
+
+                return ['design_system' => $ds, 'citelnost' => DesignSystem::kontrasty($ds), 'nahled' => $this->app->request->origin() . $this->app->url('')];
 
             case 'seznam_novinek':
                 $where = ['c.smazano IS NULL']; // koš se přes MCP nevypisuje ani needituje
@@ -374,6 +473,61 @@ final class Nastroje
         }
 
         return $stranka;
+    }
+
+    /** @return array<string, mixed> celý řádek stránky; stavbu smí měnit editor a správce */
+    private function strankaSeStavbou(int $id, bool $jenPravo = false): array
+    {
+        if (!$this->app->auth()->maModul('stranky')) {
+            throw new \DomainException('Stránky smí upravovat editor nebo správce.');
+        }
+        if ($jenPravo) {
+            return [];
+        }
+
+        return $this->app->db()->one('SELECT * FROM {stranky} WHERE ids = ?', [$id]) ?? throw new \InvalidArgumentException('Stránka neexistuje. Použij nástroj seznam_stranek.');
+    }
+
+    /** Vyčistí a uloží koncept (případně publikuje); vrací, co model potřebuje k další práci. */
+    private function ulozStavbu(array $stranka, array $vstup, bool $publikovat): array
+    {
+        $db = $this->app->db();
+        [$stavba, $chyby] = Stavba::vycisti($vstup, $this->app->auth()->isAdmin(), Stavba::zJson($stranka['stavba_koncept'] ?? $stranka['stavba']));
+        $db->update('stranky', ['stavba_koncept' => Stavba::naJson($stavba)], ['ids' => $stranka['ids']]);
+        if ($publikovat) {
+            Stranky::publikuj($this->app, $db->one('SELECT * FROM {stranky} WHERE ids = ?', [$stranka['ids']]));
+        }
+        $adresa = $this->adresaStranky($stranka);
+
+        return ['id' => (int) $stranka['ids'], 'stav' => $publikovat ? 'publikováno' : 'koncept – na webu se ukáže po publikování', 'prvku' => $this->pocetPrvku($stavba['deti']),
+            'chyby' => $chyby, 'nahled' => $publikovat ? $adresa : $adresa . '?stavba=koncept',
+            'stavitel' => $this->app->request->origin() . $this->app->url('admin.php?modul=stranky&akce=stavitel&id=' . (int) $stranka['ids'])];
+    }
+
+    private function adresaStranky(array $stranka): string
+    {
+        $uvod = $this->app->settings()->int('titulni_stranka') === (int) $stranka['ids'];
+
+        return $this->app->request->origin() . $this->app->url(($stranka['jazyk'] !== '' ? $stranka['jazyk'] . '/' : '') . ($uvod ? '' : $stranka['seo_link']));
+    }
+
+    private function pocetPrvku(array $deti): int
+    {
+        return array_sum(array_map(fn (array $p): int => 1 + $this->pocetPrvku($p['deti'] ?? []), $deti));
+    }
+
+    /** @param list<string> $zname @param list<string> $vynechane */
+    private function bezTrid(array $uzel, array $zname, array &$vynechane): array
+    {
+        foreach ($uzel['deti'] ?? [] as $i => $p) {
+            if (isset($p['tridy'])) {
+                $vynechane = array_merge($vynechane, array_diff($p['tridy'], $zname));
+                $p['tridy'] = array_values(array_intersect($p['tridy'], $zname));
+            }
+            $uzel['deti'][$i] = $this->bezTrid($p, $zname, $vynechane);
+        }
+
+        return $uzel;
     }
 
     /** @return array<string, mixed> novinka, ke které má uživatel přístup */

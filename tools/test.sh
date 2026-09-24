@@ -157,6 +157,27 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akc
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
 curl -s -o "$PRACE/odpoved" "$B/o-nas"; grep -q "<h1>Druhá verze</h1>" "$PRACE/odpoved" && grep -q 'class="obal obsah"' "$PRACE/odpoved" && echo "  ok     návrat k textu zachová obsah stavby bez rozložení" || { echo "  CHYBA  stavba_text"; CHYB=$((CHYB+1)); }
 
+echo "== Claude (MCP): stavitel"
+TOK="mirocms_$(printf 'a%.0s' $(seq 1 48))"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO rs_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'test', '$(php -r 'echo hash("sha256", $argv[1]);' "$TOK")', NOW() FROM rs_user WHERE user = 'admin'"
+mcp() { curl -s -X POST "$B/mcp" -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"$1\",\"arguments\":$2}}"; }
+mcp stavba_schema '{}' > "$PRACE/odpoved"; grep -q 'knihovna' "$PRACE/odpoved" && grep -q 'mc-mezera' "$PRACE/odpoved" && echo "  ok     MCP: schéma stavitele" || { echo "  CHYBA  MCP stavba_schema"; head -c 300 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+mcp stavba_z_html '{"titulek":"Z HTML","html":"<style>.uvod-x { padding-block: var(--mc-mezera-2xl); } .uvod-x h1 { color: red }</style><header class=\"uvod-x\"><div class=\"container\"><h1>Stránka od Clauda</h1><p>Text <b>tučně</b>.</p><a class=\"btn\" href=\"/kontakt\">Kontakt</a></div></header><form><input></form>"}' > "$PRACE/odpoved"
+grep -q 'koncept' "$PRACE/odpoved" && grep -q 'form' "$PRACE/odpoved" && grep -q 'vynech.*btn' "$PRACE/odpoved" && echo "  ok     MCP: HTML převedeno na koncept stavby s hlášením" || { echo "  CHYBA  MCP stavba_z_html"; head -c 600 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+IDZ=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM rs_stranky WHERE seo_link = 'z-html'")
+ocekavej "MCP: nová stránka zůstává skrytá a bez publikované stavby" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazit, '/', stavba IS NULL, '/', stavba_koncept LIKE '%od Clauda%') FROM rs_stranky WHERE ids = $IDZ")" "0/1/1"
+ocekavej "MCP: třída z <style> uložena" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT css FROM rs_tridy WHERE nazev = 'uvod-x'")" "padding-block: var(--mc-mezera-2xl);"
+mcp vloz_sekci "{\"id\":$IDZ,\"sekce\":\"faq\"}" > /dev/null
+mcp publikuj_stavbu "{\"id\":$IDZ}" > /dev/null
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE rs_stranky SET zobrazit = 1 WHERE ids = $IDZ"
+rm -f "$PRACE"/web/storage/cache/stranky/*.html
+curl -s -o "$PRACE/odpoved" "$B/z-html"
+grep -q '<h1>Stránka od Clauda</h1>' "$PRACE/odpoved" && grep -q 'class="uvod-x"' "$PRACE/odpoved" && ! grep -q 'container' "$PRACE/odpoved" && grep -q '"FAQPage"' "$PRACE/odpoved" && echo "  ok     MCP: publikovaná stránka od Clauda na webu" || { echo "  CHYBA  MCP publikování"; CHYB=$((CHYB+1)); }
+mcp uprav_design_system '{"ds":{"barvy":{"primarni":"#0f766e"},"zaobleni":"l"}}' > "$PRACE/odpoved"; grep -q 'citelnost' "$PRACE/odpoved" && echo "  ok     MCP: úprava design systému" || { echo "  CHYBA  MCP uprav_design_system"; CHYB=$((CHYB+1)); }
+rm -f "$PRACE"/web/storage/cache/stranky/*.html
+over "design systém z MCP je na webu" 200 / 'mc-barva-primarni: #0f766e'
+over "design systém z MCP zachoval ostatní barvy" 200 / 'mc-barva-plocha: #f5f6f8'
+
 # úprava přímo na webu: odkaz a formulář jen pro přihlášené s právem
 over "úprava na místě – odkaz" 200 /novinky/vitejte-v-mirocms "mc-upravit-zde"
 over "úprava na místě – formulář" 200 "/novinky/vitejte-v-mirocms?upravit=text" "mc-upravit-text"
