@@ -319,19 +319,26 @@ final class Seo
         $s = $this->app->settings();
         // firma z Nastavení → Firma (Organization nebo LocalBusiness s adresou, otevírací dobou a mapou)
         $vydavatel = Firma::schema($s, $this->web, $this->absolutni(...));
-        if ($clanek === null && !empty($meta['faq'])) {
-            // stránka ze stavitele s otázkami a odpověďmi
-            return ['@context' => 'https://schema.org', '@type' => 'FAQPage', 'mainEntity' => array_map(fn (array $d): array => [
-                '@type' => 'Question', 'name' => $d[0], 'acceptedAnswer' => ['@type' => 'Answer', 'text' => $d[1]],
-            ], $meta['faq'])];
-        }
         if ($clanek === null) {
-            return ['@context' => 'https://schema.org', '@graph' => [
+            $graf = [
                 ['@type' => 'WebSite', '@id' => $this->web . '#web', 'name' => $s->get('nazev_webu'), 'url' => $this->web,
                     'description' => $s->get('popis_webu'), 'inLanguage' => \MiroCMS\Core\Jazyk::kod(), 'publisher' => ['@id' => $vydavatel['@id']],
                     'potentialAction' => ['@type' => 'SearchAction', 'target' => $this->web . 'hledani?q={q}', 'query-input' => 'required name=q']],
                 $vydavatel,
-            ]];
+            ];
+            if (!empty($meta['faq'])) {
+                // stránka ze stavitele s otázkami a odpověďmi – vedle údajů o webu a firmě, ne místo nich
+                $graf[] = ['@type' => 'FAQPage', 'mainEntity' => array_map(fn (array $d): array => [
+                    '@type' => 'Question', 'name' => $d[0], 'acceptedAnswer' => ['@type' => 'Answer', 'text' => $d[1]],
+                ], $meta['faq'])];
+            }
+            if (count($meta['drobecky'] ?? []) > 1) {
+                $graf[] = ['@type' => 'BreadcrumbList', 'itemListElement' => array_map(fn (array $d, int $i): array => array_filter([
+                    '@type' => 'ListItem', 'position' => $i + 1, 'name' => $d[0], 'item' => $d[1] !== '' ? $this->app->request->origin() . $d[1] : null,
+                ]), $meta['drobecky'], array_keys($meta['drobecky']))];
+            }
+
+            return ['@context' => 'https://schema.org', '@graph' => $graf];
         }
 
         return ['@context' => 'https://schema.org', '@graph' => [

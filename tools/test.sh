@@ -449,5 +449,24 @@ ocekavej "odkaz s utm parametry jde z cache" "$(curl -s -o /dev/null -D - "$B/no
 ETAG=$(curl -s -o /dev/null -D - "$B/novinky" | grep -i '^etag:' | cut -d' ' -f2 | tr -d '\r')
 ocekavej "stránka z cache odpoví 304 na shodný ETag" "$(curl -s -o /dev/null -w '%{http_code}' -H "If-None-Match: $ETAG" "$B/novinky")" 304
 
+echo "== nové prvky stavitele"
+mcp stavba_uloz "{\"id\":$IDZ,\"publikovat\":true,\"stavba\":{\"v\":1,\"deti\":[{\"typ\":\"sekce\",\"deti\":[
+{\"typ\":\"drobecky\"},
+{\"typ\":\"ikona\",\"obsah\":{\"ikona\":\"telefon\",\"tvar\":\"kruh\"}},
+{\"typ\":\"galerie\",\"obsah\":{\"fotky\":[{\"src\":\"media/2026/01/a.jpg\",\"alt\":\"Dílna\"},{\"src\":\"media/2026/01/b.jpg\",\"alt\":\"\"}]}},
+{\"typ\":\"zalozky\",\"obsah\":{\"karty\":[{\"nazev\":\"Základ\",\"obsah\":\"<p>A</p>\"},{\"nazev\":\"Plus\",\"obsah\":\"<p>B</p>\"}]}},
+{\"typ\":\"karusel\",\"obsah\":{\"naraz\":\"2\"},\"deti\":[{\"typ\":\"text\",\"obsah\":{\"html\":\"<p>Snímek</p>\"}}]},
+{\"typ\":\"mapa\",\"obsah\":{\"adresa\":\"Brno, Náměstí Svobody\"}},
+{\"typ\":\"okno\",\"kotva\":\"nabidka\",\"obsah\":{\"samo\":\"5\"},\"deti\":[{\"typ\":\"nadpis\",\"obsah\":{\"text\":\"Akce\"}}]},
+{\"typ\":\"faq\",\"obsah\":{\"jedna\":true,\"faq\":false,\"polozky\":[{\"otazka\":\"Co?\",\"odpoved\":\"<p>To.</p>\"}]}}
+]}]}}" > "$PRACE/odpoved"
+grep -q 'chyby\\": \[\]' "$PRACE/odpoved" && echo "  ok     nové prvky projdou validátorem" || { echo "  CHYBA  validace nových prvků"; head -c 600 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+rm -f "$PRACE"/web/storage/cache/stranky/*.html
+curl -s -o "$PRACE/odpoved" "$B/z-html"
+for vzor in 'class="mc-drobecky"' 'aria-current="page">Z HTML' 'class="mc-ikona mc-ikona--kruh" aria-hidden="true"><svg' 'class="mc-galerie"' 'alt="Dílna"' 'role="tablist"' 'aria-controls="zp-' 'data-karusel' '--mc-naraz:2' 'data-vlozit="https://maps.google.com/maps?q=Brno' 'id="nabidka"' 'popover role="dialog" data-samo="5"' 'name="faq-'; do
+  grep -qF -- "$vzor" "$PRACE/odpoved" || { echo "  CHYBA  nový prvek na webu: chybí $vzor"; CHYB=$((CHYB+1)); }
+done
+grep -q '"BreadcrumbList"' "$PRACE/odpoved" && ! grep -q '"FAQPage"' "$PRACE/odpoved" && echo "  ok     nové prvky na webu, drobečky i pro vyhledávače, akordeon bez FAQPage" || { echo "  CHYBA  strukturovaná data stránky"; CHYB=$((CHYB+1)); }
+
 if [ -s "$PRACE/web/storage/log/chyby.log" ]; then echo "== záznam chyb aplikace:"; cat "$PRACE/web/storage/log/chyby.log"; CHYB=$((CHYB+1)); fi
 echo; [ "$CHYB" -eq 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $CHYB"; exit 1; }

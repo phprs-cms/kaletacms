@@ -57,8 +57,8 @@
 
 	document.addEventListener('click', function (e) {
 		var img = e.target;
-		if (img.tagName !== 'IMG' || img.closest('a') || !img.closest('.text, .perex, figure.galerie')) { return; }
-		var galerie = img.closest('figure.galerie');
+		if (img.tagName !== 'IMG' || img.closest('a') || !img.closest('.text, .perex, figure.galerie, .mc-galerie')) { return; }
+		var galerie = img.closest('figure.galerie, .mc-galerie');
 		var seznam = Array.prototype.slice.call((galerie || img.closest('.text, .perex')).querySelectorAll(galerie ? 'img' : 'figure:not(.galerie) img'));
 		if (seznam.indexOf(img) === -1) { seznam = [img]; }
 		otevri(seznam, seznam.indexOf(img));
@@ -81,6 +81,68 @@
 			tl.textContent = tl.getAttribute('data-hotovo');
 			setTimeout(function () { tl.textContent = puvodni; }, 2000);
 		});
+	});
+
+	/* ---------- záložky (ARIA tabs): bez skriptu jsou vidět všechny panely ---------- */
+
+	document.querySelectorAll('[data-zalozky]').forEach(function (z) {
+		var karty = Array.prototype.slice.call(z.querySelectorAll('[role="tab"]'));
+		function prepni(karta, fokus) {
+			karty.forEach(function (k) {
+				var vybrana = k === karta;
+				k.setAttribute('aria-selected', vybrana ? 'true' : 'false');
+				k.tabIndex = vybrana ? 0 : -1;
+				document.getElementById(k.getAttribute('aria-controls')).hidden = !vybrana;
+			});
+			if (fokus) { karta.focus(); }
+		}
+		karty.forEach(function (k, i) {
+			k.addEventListener('click', function () { prepni(k, false); });
+			k.addEventListener('keydown', function (e) {
+				var dalsi = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: karty.length - 1 }[e.key];
+				if (dalsi === undefined) { return; }
+				e.preventDefault();
+				prepni(karty[(dalsi + karty.length) % karty.length], true);
+			});
+		});
+		z.setAttribute('data-zapnuto', '');
+		if (karty.length) { prepni(karty[0], false); }
+	});
+
+	/* ---------- karusel: šipky posouvají pás o šířku viditelných snímků ---------- */
+
+	document.querySelectorAll('[data-karusel]').forEach(function (k) {
+		var pas = k.querySelector('.mc-karusel-pas');
+		var sipky = k.querySelectorAll('[data-krok]');
+		function stav() {
+			sipky[0].disabled = pas.scrollLeft <= 2;
+			sipky[1].disabled = pas.scrollLeft + pas.clientWidth >= pas.scrollWidth - 2;
+		}
+		sipky.forEach(function (b) {
+			b.addEventListener('click', function () { pas.scrollBy({ left: parseInt(b.getAttribute('data-krok'), 10) * pas.clientWidth, behavior: 'smooth' }); });
+		});
+		pas.addEventListener('scroll', stav, { passive: true });
+		k.setAttribute('data-zapnuto', '');
+		stav();
+	});
+
+	/* ---------- vyskakovací okno: odkaz #kotva ho otevře, případně samo jednou za návštěvu ---------- */
+
+	document.addEventListener('click', function (e) {
+		var odkaz = e.target.closest && e.target.closest('a[href^="#"]');
+		var okno = odkaz && odkaz.getAttribute('href').length > 1 && document.getElementById(odkaz.getAttribute('href').slice(1));
+		if (!okno || !okno.hasAttribute('popover') || !okno.showPopover) { return; }
+		e.preventDefault();
+		okno.showPopover();
+	});
+	document.querySelectorAll('[popover][data-samo]').forEach(function (okno) {
+		var klic = 'mc-okno-' + okno.id;
+		try { if (sessionStorage.getItem(klic)) { return; } } catch (chyba) { /* soukromý režim */ }
+		setTimeout(function () {
+			if (!okno.showPopover || document.querySelector(':popover-open')) { return; }
+			okno.showPopover();
+			try { sessionStorage.setItem(klic, '1'); } catch (chyba) { /* soukromý režim */ }
+		}, parseInt(okno.getAttribute('data-samo'), 10) * 1000);
 	});
 
 	/* ---------- přehrávač cizí služby se vloží až po kliknutí ---------- */

@@ -194,7 +194,7 @@ if (function_exists('imagecreatetruecolor')) {
 /* ---------- skripty: nesmí hledat prvek (data-atribut), který nikde nevzniká – tak se rozbil dialog Médií ---------- */
 $kdeVznika = [
     'image/editor.js' => ['system/views/admin'], 'image/admin.js' => ['system/views/admin', 'system/src/Admin'], 'image/pomocnik.js' => ['system/views/admin'],
-    'image/web.js' => ['system/views/front', 'system/src/Front', 'layout'],
+    'image/web.js' => ['system/views/front', 'system/src/Front', 'system/src/Stavitel/Prvky', 'layout'],
 ];
 foreach ($kdeVznika as $skript => $slozky) {
     $zdroj = (string) file_get_contents(MIROCMS_ROOT . '/' . $skript);

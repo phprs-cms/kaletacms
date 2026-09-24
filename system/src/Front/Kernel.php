@@ -290,6 +290,7 @@ final class Kernel
         }
         $stavba = \MiroCMS\Stavitel\Stavba::zJson($koncept ? ($kolekce['stavba_koncept'] ?? $kolekce['stavba']) : $kolekce['stavba'])
             ?? \MiroCMS\Stavitel\Kolekce::vychoziSablona($kolekce);
+        $this->drobecky([$kolekce['nazev'], ''], [$polozka['nazev'] ?? t('Ukázková položka'), '']);
         $k = $this->kontext();
         $k->polozka = $polozka !== null ? \MiroCMS\Stavitel\Kolekce::hodnoty($kolekce, $polozka, $this->app->url(...)) : \MiroCMS\Stavitel\Kolekce::ukazka($kolekce);
         $k->editor = $koncept && $r->get('editor') === '1';
@@ -337,6 +338,9 @@ final class Kernel
     private function zobrazStranku(array $stranka, string $cesta, bool $uvod = false): Response
     {
         $this->protejsek = ['stranky', 'ids', $stranka, ''];
+        if (!$uvod) {
+            $this->drobecky([$stranka['titulek'], '']);
+        }
         // titulek a údaje pro vyhledávače a sdílení (vlastní titulek, obrázek, noindex – jako u novinek)
         $titulek = $stranka['seo_titulek'] !== '' ? $stranka['seo_titulek'] : ($uvod ? '' : $stranka['titulek']);
         $meta = [
@@ -371,6 +375,9 @@ final class Kernel
     {
         $strana = max(1, $this->app->request->getInt('strana', 1));
         [$novinky, $celkem] = $this->novinky->vypis($strana);
+        if (!$uvod) {
+            $this->drobecky([t('Novinky'), '']);
+        }
 
         return $this->stranka($uvod ? '' : t('Novinky'), $this->view->render('vypis', ['nadpis' => t('Novinky'), 'popis' => ''] + $this->proVypis($novinky, $celkem, $strana, $uvod ? '' : 'novinky')), [
             'hlavni' => $uvod,
@@ -386,6 +393,7 @@ final class Kernel
             return $this->nenalezeno();
         }
         $this->protejsek = ['kategorie', 'idt', $kategorie, 'novinky/kategorie/'];
+        $this->drobecky([t('Novinky'), $this->app->url('novinky')], [$kategorie['nazev'], '']);
         $strana = max(1, $this->app->request->getInt('strana', 1));
         [$novinky, $celkem] = $this->novinky->zKategorie((int) $kategorie['idt'], $strana);
 
@@ -440,6 +448,7 @@ final class Kernel
             $this->app->db()->run('UPDATE {novinky} SET visit = visit + 1 WHERE idc = ?', [$novinka['idc']]);
         }
 
+        $this->drobecky([t('Novinky'), $this->app->url('novinky')], [$novinka['tema_jm'], $this->app->url('novinky/kategorie/' . $novinka['tema_seo'])], [$novinka['titulek'], '']);
         $novinka['faq_html'] = (new View([MIROCMS_SYSTEM . '/views/front']))->render('faq', ['faq' => Seo::faq($novinka['faq'])]);
         $novinka = (new TextNovinky($this->app))->dopln($novinka);
         $novinka['stitky'] = $this->app->db()->all('SELECT s.nazev, s.seo_link FROM {stitky} s JOIN {novinky_stitky} cs ON cs.ids = s.ids WHERE cs.idc = ? ORDER BY s.nazev', [$novinka['idc']]);
@@ -640,6 +649,12 @@ final class Kernel
         return $this->strankyMenu;
     }
 
+    /** Drobečková navigace zobrazené stránky (prvek Drobečky a BreadcrumbList): Úvod a zadané úrovně. */
+    private function drobecky(array ...$urovne): void
+    {
+        $this->kontext()->drobecky = [[t('Úvod'), $this->app->url('')], ...$urovne];
+    }
+
     /** @var array<string, list<array<string, mixed>>> umístění => položky menu (Core\Menu) */
     private array $menu = [];
 
@@ -752,6 +767,7 @@ final class Kernel
             // sociální sítě berou jen úplnou adresu obrázku
             $meta['obrazek'] = $this->app->request->origin() . $this->app->url(ltrim((string) preg_replace('#^' . preg_quote($this->app->request->basePath(), '#') . '/#', '', $meta['obrazek']), '/'));
         }
+        $meta['drobecky'] ??= $this->kontext()->drobecky;
         $jazyky = $this->jazyky($novinka);
         $jazykyHtml = $jazyky === [] ? '' : $this->view->render('jazyky', ['jazyky' => $jazyky]);
         // kanonická adresa: cesta bez parametrů, u stránkování s číslem strany (strana 2 není kopie strany 1)

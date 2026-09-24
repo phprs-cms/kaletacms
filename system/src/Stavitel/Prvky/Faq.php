@@ -7,12 +7,15 @@ namespace MiroCMS\Stavitel\Prvky;
 use MiroCMS\Stavitel\Kontext;
 use MiroCMS\Stavitel\Prvek;
 
-/** Otázky a odpovědi jako rozbalovací <details> – bez JavaScriptu; na stránce se z nich složí i strukturovaná data FAQPage. */
+/**
+ * Rozbalovací položky (akordeon) jako <details> – bez JavaScriptu. Volitelně otevřená vždy jen jedna (atribut name)
+ * a strukturovaná data FAQPage – ta jen ve stránce, ne v záhlaví a patičce (jinak by FAQ byla každá stránka webu).
+ */
 final class Faq extends Prvek
 {
     public const string TYP = 'faq';
-    public const string NAZEV = 'Otázky a odpovědi';
-    public const string POPIS = 'Rozbalovací otázky (FAQ) – vyhledávače je znají i jako strukturovaná data.';
+    public const string NAZEV = 'Otázky a odpovědi (akordeon)';
+    public const string POPIS = 'Rozbalovací položky – otázky (FAQ pro vyhledávače) nebo jakýkoli obsah, který nemusí být vidět hned.';
     public const string IKONA = 'faq';
     public const array ZNACKY = ['div'];
 
@@ -21,7 +24,9 @@ final class Faq extends Prvek
         return ['polozky' => ['typ' => 'polozky', 'popisek' => 'Otázky', 'max' => 30, 'pole' => [
             'otazka' => ['typ' => 'text', 'popisek' => 'Otázka', 'vychozi' => '', 'max' => 300],
             'odpoved' => ['typ' => 'html', 'popisek' => 'Odpověď', 'vychozi' => ''],
-        ], 'vychozi' => [['otazka' => t('Jak dlouho trvá realizace?'), 'odpoved' => '<p>' . t('Obvykle dva až čtyři týdny podle rozsahu.') . '</p>'], ['otazka' => t('Kolik to stojí?'), 'odpoved' => '<p>' . t('Cenu vám připravíme na míru – ozvěte se nám.') . '</p>']]]];
+        ], 'vychozi' => [['otazka' => t('Jak dlouho trvá realizace?'), 'odpoved' => '<p>' . t('Obvykle dva až čtyři týdny podle rozsahu.') . '</p>'], ['otazka' => t('Kolik to stojí?'), 'odpoved' => '<p>' . t('Cenu vám připravíme na míru – ozvěte se nám.') . '</p>']]],
+            'jedna' => ['typ' => 'prepinac', 'popisek' => 'Otevřená vždy jen jedna položka', 'vychozi' => false],
+            'faq' => ['typ' => 'prepinac', 'popisek' => 'Jsou to otázky a odpovědi (FAQ pro vyhledávače)', 'vychozi' => true]];
     }
 
     public static function zakladniCss(): string
@@ -38,12 +43,16 @@ final class Faq extends Prvek
     public static function vykresli(array $p, string $a, string $deti, Kontext $k): string
     {
         $html = '';
+        $faq = $p['obsah']['faq'] && !str_starts_with($k->zdroj, 'cast:');
+        $skupina = $p['obsah']['jedna'] ? ' name="faq-' . e($p['id']) . '"' : '';
         foreach ($p['obsah']['polozky'] as $i => $polozka) {
             if ($polozka['otazka'] === '') {
                 continue;
             }
-            $k->faq[] = [$polozka['otazka'], trim(strip_tags($polozka['odpoved']))];
-            $html .= '<details' . ($i === 0 && $k->editor ? ' open' : '') . '><summary>' . e($polozka['otazka']) . '</summary><div>' . $polozka['odpoved'] . '</div></details>';
+            if ($faq) {
+                $k->faq[] = [$polozka['otazka'], trim(strip_tags($polozka['odpoved']))];
+            }
+            $html .= '<details' . $skupina . ($i === 0 && $k->editor ? ' open' : '') . '><summary>' . e($polozka['otazka']) . '</summary><div>' . $polozka['odpoved'] . '</div></details>';
         }
 
         return '<div' . Text::sTridou($a, 'mc-faq') . '>' . $html . '</div>';

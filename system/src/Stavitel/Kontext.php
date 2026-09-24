@@ -54,6 +54,9 @@ final class Kontext
     /** Odkud právě vykreslovaná stavba je: „stranka:<id>“ nebo „cast:<typ>:<jazyk>“ (formulář podle něj najde svá pole). */
     public string $zdroj = '';
 
+    /** @var list<array{0: string, 1: string}> drobečková navigace zobrazené stránky: [text, adresa]; poslední je stránka sama (adresa '') */
+    public array $drobecky = [];
+
     /** Obsah, který systém vkládá do obálky (prvek „Obsah stránky“): novinka, výpis, stránka 404. */
     public string $obsah = '';
 
