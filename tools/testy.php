@@ -597,5 +597,28 @@ over('Kolekce::dosad: text se escapuje až prvkem, inline a html hned, html pole
 [$koStavba, $koChyby] = MiroCMS\Stavitel\Stavba::vycisti(['deti' => [['typ' => 'kolekce', 'obsah' => ['kolekce' => 'tym'], 'deti' => [['typ' => 'obrazek', 'obsah' => ['src' => '{{foto}}']], ['typ' => 'tlacitko', 'obsah' => ['odkaz' => '{{url}}']]]]]]);
 over('Stavba::vycisti: značky {{pole}} v obrázku a odkazu projdou', [$koStavba['deti'][0]['deti'][0]['obsah']['src'], $koStavba['deti'][0]['deti'][1]['obsah']['odkaz'], $koChyby], ['{{foto}}', '{{url}}', []]);
 
+/* ---------- angličtina stavitele: texty editoru (JS) a popisky schématu (PHP) ---------- */
+preg_match_all("/\bT\('((?:[^'\\\\]|\\\\.)*)'\)/", (string) file_get_contents(MIROCMS_ROOT . '/image/stavitel.js'), $enJs);
+preg_match('/window\.MIROCMS_PREKLAD = (\{.*\});/s', (string) file_get_contents(MIROCMS_ROOT . '/image/jazyky/admin-en.js'), $enJsSlovnik);
+$enJsKlice = array_keys((array) json_decode((string) preg_replace(['#^\s*//.*$#m', '/,\s*\}$/'], ['', '}'], $enJsSlovnik[1] ?? '{}'), true));
+over('Stavitel: všechny texty editoru mají anglický překlad', array_values(array_diff(array_unique(array_map('stripslashes', $enJs[1])), $enJsKlice, ['Tablet', 'Menu'])), []);
+$enAdmin = require MIROCMS_ROOT . '/system/jazyky/admin-en.php';
+$enSchema = MiroCMS\Stavitel\Stavba::schema(true, 'cs', true);
+$enTexty = array_merge(array_column($enSchema['prvky'], 'nazev'), array_column($enSchema['prvky'], 'popis'), array_column($enSchema['prvky'], 'skupina'), array_values($enSchema['skupiny_stylu']));
+$enPole = function (array $vlastnosti) use (&$enPole, &$enTexty): void {
+    foreach ($vlastnosti as $d) {
+        $enTexty[] = (string) ($d['popisek'] ?? '');
+        array_push($enTexty, ...array_values($d['moznosti'] ?? []));
+        if (isset($d['pole'])) {
+            $enPole($d['pole']);
+        }
+    }
+};
+foreach ($enSchema['prvky'] as $p) {
+    $enPole($p['vlastnosti']);
+}
+$enPole($enSchema['styl']);
+over('Stavitel: všechny popisky schématu mají anglický překlad', array_values(array_filter(array_unique($enTexty), fn (string $x): bool => $x !== '' && preg_match('/\p{L}/u', $x) === 1 && !isset($enAdmin[$x]) && !in_array($x, ['Video', 'Logo', 'HTML', 'Text', 'text'], true))), []);
+
 echo $chyb === 0 ? "  ok     jednotkové testy ({$celkem})\n" : "  NALEZENO CHYB: {$chyb} z {$celkem}\n";
 exit($chyb === 0 ? 0 : 1);

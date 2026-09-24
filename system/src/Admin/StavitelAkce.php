@@ -57,6 +57,7 @@ trait StavitelAkce
             }
         }
         unset($prvek);
+        $schema = self::prelozSchema($schema);
         Knihovna::zalozTridy($this->db, ['karta']); // vzor karty ve Výpisu kolekce
         $data = [
             'stranka' => ['titulek' => $cil['titulek'], 'adresa' => $e['adresa'], 'zobrazena' => $e['zobrazena'], 'publikovana' => $cil['stavba'] !== null],
@@ -182,6 +183,34 @@ trait StavitelAkce
         $this->ulozKoncept($cil, $stavba);
 
         return Response::json(['ok' => true, 'stavba' => Stavba::zJson($stavba)]);
+    }
+
+    /**
+     * Popisky schématu (názvy prvků, polí, vlastností stylu a jejich voleb) do jazyka administrace. Výchozí obsah prvků
+     * se nepřekládá – je v jazyce stránky (Stavba::schema).
+     */
+    private static function prelozSchema(array $schema): array
+    {
+        $pole = function (array $vlastnosti) use (&$pole): array {
+            foreach ($vlastnosti as $klic => $d) {
+                $vlastnosti[$klic]['popisek'] = t((string) ($d['popisek'] ?? ''));
+                if (isset($d['moznosti'])) {
+                    $vlastnosti[$klic]['moznosti'] = array_map(fn (string $m): string => t($m), $d['moznosti']);
+                }
+                if (isset($d['pole'])) {
+                    $vlastnosti[$klic]['pole'] = $pole($d['pole']);
+                }
+            }
+
+            return $vlastnosti;
+        };
+        foreach ($schema['prvky'] as $i => $p) {
+            $schema['prvky'][$i] = ['nazev' => t($p['nazev']), 'popis' => t($p['popis']), 'skupina' => t($p['skupina']), 'vlastnosti' => $pole($p['vlastnosti'])] + $p;
+        }
+        $schema['styl'] = $pole($schema['styl']);
+        $schema['skupiny_stylu'] = array_map(fn (string $s): string => t($s), $schema['skupiny_stylu']);
+
+        return $schema;
     }
 
     /** @return array<string, array{styl: array<string, mixed>|\stdClass, css: string}> */
