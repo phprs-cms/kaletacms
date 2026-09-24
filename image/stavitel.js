@@ -48,7 +48,7 @@
 	const stav = {
 		stavba: D.stavba && Array.isArray(D.stavba.deti) ? D.stavba : { v: 1, deti: [] },
 		vybrane: null, bp: 'zaklad', hover: false, levo: 'pridat', pravo: 'obsah', zpet: [], vpred: [], posledniKlic: null, posledniCas: 0,
-		zmeny: !!D.zmeny, uklada: false, znovuUlozit: false, casovac: null, chyby: {}, sbalene: {}, trida: null, tazeny: null, upravaNaPlatne: false,
+		zmeny: !!D.zmeny, uklada: false, znovuUlozit: false, casovac: null, chyby: {}, sbalene: {}, trida: null, tazeny: null, tazeno: null, upravaNaPlatne: false,
 	};
 
 	/* ---------- drobné pomůcky ---------- */
@@ -206,7 +206,7 @@
 			'[data-mc-id]{cursor:default} .mc-st-hover{outline:1px dashed #2b5be3!important;outline-offset:-1px} .mc-st-vybrany{outline:2px solid #2b5be3!important;outline-offset:-2px}'
 			+ '[contenteditable]{outline:2px solid #f79009!important;outline-offset:2px;cursor:text} .mc-upravit-zde,.cookies-lista,.cookies-znovu{display:none!important}' }));
 		doc.addEventListener('click', (e) => {
-			if (e.target.closest('[contenteditable]')) { return; }
+			if (e.target.closest('[contenteditable]') || e.target.id === 'mc-st-uchyt') { return; }
 			e.preventDefault();
 			const t = e.target.closest('[data-mc-id]');
 			vyber(t ? t.getAttribute('data-mc-id') : null);
@@ -218,6 +218,115 @@
 		});
 		doc.addEventListener('dblclick', (e) => { const t = e.target.closest('[data-mc-id]'); if (t) { upravNaPlatne(t); } });
 		doc.addEventListener('keydown', klavesy);
+		doc.addEventListener('dragover', (e) => {
+			if (!stav.tazeno) { return; }
+			const misto = mistoNaPlatne(doc, e);
+			ukazMisto(doc, misto);
+			if (misto) { e.preventDefault(); e.dataTransfer.dropEffect = stav.tazeno.presun ? 'move' : 'copy'; }
+		});
+		doc.addEventListener('dragleave', (e) => { if (!e.relatedTarget) { ukazMisto(doc, null); } });
+		doc.addEventListener('drop', (e) => {
+			const misto = stav.tazeno && mistoNaPlatne(doc, e);
+			ukazMisto(doc, null);
+			if (!misto) { return; }
+			e.preventDefault();
+			pustNaMisto(stav.tazeno, misto);
+			stav.tazeno = null;
+		});
+	}
+
+	/* ---------- přetahování na plátně: nový prvek, hotová sekce nebo přesun vybraného prvku ---------- */
+
+	function zacniTahnout(e, co) {
+		stav.tazeno = co;
+		e.dataTransfer.effectAllowed = co.presun ? 'move' : 'copy';
+		e.dataTransfer.setData('text/plain', 'mirocms');
+	}
+
+	function skonciTazeni() {
+		stav.tazeno = null;
+		const doc = nahled && nahled.contentDocument;
+		if (doc) { ukazMisto(doc, null); }
+	}
+
+	/**
+	 * Kam by prvek dopadl: {cil: id, kam: 'pred' | 'za' | 'dovnitr'}, nebo {koren: true} na prázdné stránce. Sekce jen mezi sekce;
+	 * do kontejneru dovnitř, když je ukazatel v jeho prostřední části (nebo je prázdný); přesun nikdy do sebe sama.
+	 */
+	function mistoNaPlatne(doc, e) {
+		const typ = stav.tazeno.novy || (stav.tazeno.sekce ? 'sekce' : (najdi(stav.tazeno.presun) || { p: {} }).p.typ);
+		let uzel = e.target.closest ? e.target.closest('[data-mc-id]') : null;
+		while (uzel && !najdi(uzel.getAttribute('data-mc-id'))) { uzel = uzel.parentElement && uzel.parentElement.closest('[data-mc-id]'); }
+		if (!uzel) { return stav.stavba.deti.length ? null : { koren: true }; }
+		let n = najdi(uzel.getAttribute('data-mc-id'));
+		if (typ === 'sekce' || typ === 'obsah') {
+			while (n.rodic) { n = najdi(n.rodic.id); }
+			uzel = doc.querySelector('[data-mc-id="' + n.p.id + '"]') || uzel;
+		}
+		const presouvany = stav.tazeno.presun && najdi(stav.tazeno.presun);
+		if (presouvany && (presouvany.p.id === n.p.id || obsahuje(presouvany.p, n.p.id))) { return null; }
+		const r = uzel.getBoundingClientRect();
+		const y = (e.clientY - r.top) / Math.max(1, r.height);
+		const dovnitr = typ !== 'sekce' && typ !== 'obsah' && TYPY[n.p.typ] && TYPY[n.p.typ].kontejner && (!n.p.deti.length || (y > 0.25 && y < 0.75));
+		return { cil: n.p.id, kam: dovnitr ? 'dovnitr' : (y < 0.5 ? 'pred' : 'za'), uzel };
+	}
+
+	/** Modrá čára (před / za) nebo rámeček (dovnitř) na plátně. */
+	function ukazMisto(doc, misto) {
+		let znacka = doc.getElementById('mc-st-misto');
+		if (!misto || !misto.uzel) { if (znacka) { znacka.hidden = true; } return; }
+		if (!znacka) {
+			znacka = Object.assign(doc.createElement('div'), { id: 'mc-st-misto' });
+			znacka.style.cssText = 'position:absolute;z-index:2147483646;pointer-events:none;border-radius:3px';
+			doc.body.append(znacka);
+		}
+		const r = misto.uzel.getBoundingClientRect();
+		const x = r.left + doc.defaultView.scrollX;
+		const y = r.top + doc.defaultView.scrollY;
+		znacka.hidden = false;
+		Object.assign(znacka.style, misto.kam === 'dovnitr'
+			? { left: x + 'px', top: y + 'px', width: r.width + 'px', height: r.height + 'px', background: 'rgb(43 91 227 / 0.08)', outline: '2px dashed #2b5be3' }
+			: { left: x + 'px', top: (misto.kam === 'pred' ? y - 2 : y + r.height - 2) + 'px', width: r.width + 'px', height: '4px', background: '#2b5be3', outline: 'none' });
+	}
+
+	function pustNaMisto(co, misto) {
+		if (co.presun) {
+			const n = najdi(co.presun);
+			const cil = !misto.koren && najdi(misto.cil);
+			if (!n || !cil) { return; }
+			if (misto.kam !== 'dovnitr' && !cil.rodic && n.p.typ !== 'sekce' && n.p.typ !== 'obsah') {
+				// prvek přesunutý mezi sekce dostane vlastní sekci
+				zmen(() => {
+					n.pole.splice(n.i, 1);
+					const c = najdi(misto.cil);
+					c.pole.splice(c.i + (misto.kam === 'za' ? 1 : 0), 0, Object.assign(novyPrvek('sekce'), { deti: [n.p] }));
+				});
+			} else {
+				presun(co.presun, misto.cil, misto.kam);
+			}
+			vyber(co.presun);
+			prekresliPanely();
+			return;
+		}
+		const vlozit = (prvek) => {
+			// samotný prvek mezi sekcemi dostane vlastní sekci (jako při vložení klepnutím)
+			const cil = misto.koren ? null : najdi(misto.cil);
+			const mezeSekce = misto.koren || (misto.kam !== 'dovnitr' && !cil.rodic);
+			const vkladany = mezeSekce && prvek.typ !== 'sekce' && prvek.typ !== 'obsah' ? Object.assign(novyPrvek('sekce'), { deti: [prvek] }) : prvek;
+			zmen(() => {
+				if (misto.koren) { stav.stavba.deti.push(vkladany); return; }
+				const c = najdi(misto.cil);
+				if (misto.kam === 'dovnitr') { c.p.deti.push(vkladany); } else { c.pole.splice(c.i + (misto.kam === 'za' ? 1 : 0), 0, vkladany); }
+			});
+			vyber(prvek.id);
+			prekresliPanely();
+		};
+		if (co.novy) { vlozit(novyPrvek(co.novy)); return; }
+		dotaz(D.adresy.sekce + '&klic=' + encodeURIComponent(co.sekce), { ok: 1 }).then((j) => {
+			if (!j.ok) { nastavStav(j.chyba, true); return; }
+			D.tridy = j.tridy;
+			vlozit(j.prvek);
+		});
 	}
 
 	function oznacVNahledu(posunout) {
@@ -225,9 +334,26 @@
 		if (!doc) { return; }
 		doc.querySelectorAll('.mc-st-vybrany').forEach((x) => x.classList.remove('mc-st-vybrany'));
 		const t = stav.vybrane && doc.querySelector('[data-mc-id="' + stav.vybrane + '"]');
+		let uchyt = doc.getElementById('mc-st-uchyt');
 		if (t) {
 			t.classList.add('mc-st-vybrany');
 			if (posunout) { t.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+			// úchyt vlevo nahoře: přetažením se vybraný prvek přesune jinam na stránce
+			if (!uchyt) {
+				uchyt = Object.assign(doc.createElement('div'), { id: 'mc-st-uchyt', draggable: true, title: T('Přetažením přesunete') });
+				uchyt.textContent = '⠿';
+				uchyt.style.cssText = 'position:absolute;z-index:2147483647;display:grid;place-items:center;width:22px;height:22px;border-radius:4px;background:#2b5be3;color:#fff;font:14px/1 system-ui;cursor:grab;user-select:none';
+				uchyt.addEventListener('dragstart', (e) => zacniTahnout(e, { presun: stav.vybrane }));
+				uchyt.addEventListener('dragend', skonciTazeni);
+				uchyt.addEventListener('click', (e) => e.stopPropagation(), true);
+				doc.body.append(uchyt);
+			}
+			const r = t.getBoundingClientRect();
+			uchyt.hidden = false;
+			uchyt.style.left = Math.max(0, r.left + doc.defaultView.scrollX) + 'px';
+			uchyt.style.top = Math.max(0, r.top + doc.defaultView.scrollY - 24) + 'px';
+		} else if (uchyt) {
+			uchyt.hidden = true;
 		}
 	}
 
@@ -421,10 +547,11 @@
 		D.schema.prvky.forEach((p) => { (skupiny[p.skupina] = skupiny[p.skupina] || []).push(p); });
 		for (const [nazev, prvky] of Object.entries(skupiny)) {
 			levyObsah.append(el('h3', {}, T(nazev)), el('div', { class: 'st-prvky' }, prvky.map((p) =>
-				el('button', { type: 'button', title: p.popis, onclick: () => vloz(novyPrvek(p.typ)) }, ikona(p.ikona), p.nazev))));
+				el('button', { type: 'button', title: p.popis, draggable: 'true', onclick: () => vloz(novyPrvek(p.typ)),
+					ondragstart: (e) => zacniTahnout(e, { novy: p.typ }), ondragend: skonciTazeni }, ikona(p.ikona), p.nazev))));
 		}
 		levyObsah.append(el('h3', {}, T('Hotové sekce')), el('div', { class: 'st-knihovna' }, D.knihovna.map((s) =>
-			el('button', { type: 'button', onclick: () => dotaz(D.adresy.sekce + '&klic=' + encodeURIComponent(s.klic), { ok: 1 }).then((j) => {
+			el('button', { type: 'button', draggable: 'true', ondragstart: (e) => zacniTahnout(e, { sekce: s.klic }), ondragend: skonciTazeni, onclick: () => dotaz(D.adresy.sekce + '&klic=' + encodeURIComponent(s.klic), { ok: 1 }).then((j) => {
 				if (!j.ok) { nastavStav(j.chyba, true); return; }
 				D.tridy = j.tridy;
 				vloz(j.prvek);
