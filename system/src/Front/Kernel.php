@@ -34,6 +34,9 @@ final class Kernel
     /** Sdílený stav stavitele pro celou stránku (stavba stránky, záhlaví, patička, obálka) – jedno CSS bez opakování. */
     private ?\MiroCMS\Stavitel\Kontext $kontext = null;
 
+    /** Složka šablony (layoutu), kterou web právě používá. */
+    private string $layout = Layouty::VYCHOZI;
+
     /** Požadovaná stránka výpisu je až za jeho koncem - odpoví se 404. */
     private bool $zaKoncem = false;
 
@@ -66,6 +69,7 @@ final class Kernel
         if (!preg_match('/^[a-z0-9_-]+$/i', $layout) || !is_file(MIROCMS_ROOT . '/layout/' . $layout . '/base.php')) {
             $layout = Layouty::VYCHOZI;
         }
+        $this->layout = $layout;
         // šablona se hledá nejdřív v layoutu webu, potom mezi systémovými - layout tak může přepsat cokoli
         $this->view = new View([MIROCMS_ROOT . '/layout/' . $layout, MIROCMS_SYSTEM . '/views/front']);
         $this->novinky = new Clanky($app->db(), $app->settings(), $app->request->basePath());
@@ -200,6 +204,9 @@ final class Kernel
 
             return $this->zobrazStranku($stranka, ltrim($path, '/'));
         }
+        if (preg_match('#^/_sekce/([a-z0-9-]{1,40})$#', $path, $m) && $this->app->auth()->maModul('stranky')) {
+            return $this->nahledSekce($m[1]);
+        }
         if (preg_match('#^/_komponenta/(\d+)$#', $path, $m) && $this->app->auth()->isAdmin()) {
             return $this->nahledKomponenty((int) $m[1]);
         }
@@ -208,6 +215,32 @@ final class Kernel
         }
 
         return $this->nenalezeno();
+    }
+
+    /**
+     * Náhled hotové sekce knihovny pro panel stavitele: jen sekce ve vzhledu webu, bez záhlaví a patičky.
+     * Třídy knihovny se jen vykreslí z jejich výchozího stylu – do webu se nic nezapisuje.
+     */
+    private function nahledSekce(string $klic): Response
+    {
+        $sekce = \MiroCMS\Stavitel\Knihovna::sekci($klic, Jazyk::kod());
+        if ($sekce === null) {
+            return $this->nenalezeno();
+        }
+        $k = new \MiroCMS\Stavitel\Kontext($this->app);
+        $html = \MiroCMS\Stavitel\Stavba::html(['deti' => [$sekce['prvek']]], $k);
+        $tridy = '';
+        foreach ($sekce['tridy'] as $t) {
+            $tridy .= \MiroCMS\Stavitel\Styl::css('.' . $t, \MiroCMS\Stavitel\Knihovna::TRIDY[$t] ?? []);
+        }
+        $k->tridy = []; // styl tříd výše z knihovny, ne z databáze webu (na webu třída ještě nemusí být)
+        $web = $this->app->settings();
+        $css = \MiroCMS\Stavitel\DesignSystem::css(\MiroCMS\Stavitel\DesignSystem::nacti($web)) . \MiroCMS\Stavitel\Stavba::css($this->app->db(), $k) . '@layer tridy {' . $tridy . '}';
+        $layout = $this->app->url('layout/' . $this->layout . '/style.css');
+
+        return new Response('<!doctype html><html lang="' . e(Jazyk::kod()) . '"><head><meta charset="utf-8"><meta name="robots" content="noindex">'
+            . '<link rel="stylesheet" href="' . e($layout) . '"><link rel="stylesheet" href="' . e($this->app->url('image/web.css')) . '"><style>' . $css . 'body{margin:0}</style></head>'
+            . '<body><main class="stavba">' . $html . '</main></body></html>', 200, ['Content-Type' => 'text/html; charset=utf-8', 'Cache-Control' => 'private, max-age=300']);
     }
 
     /** Plátno editoru komponenty (jen správce): rozpracovaná komponenta s výchozími hodnotami vlastností. */

@@ -238,6 +238,7 @@
 	/* ---------- přetahování na plátně: nový prvek, hotová sekce nebo přesun vybraného prvku ---------- */
 
 	function zacniTahnout(e, co) {
+		schovejNahledSekce();
 		stav.tazeno = co;
 		e.dataTransfer.effectAllowed = co.presun ? 'move' : 'copy';
 		e.dataTransfer.setData('text/plain', 'mirocms');
@@ -615,9 +616,32 @@
 		vykresliKnihovnu('');
 	}
 
+	/** Živý náhled hotové sekce vedle panelu (vykreslí ji server ve vzhledu webu, zmenšenou). */
+	let nahledSekce = null;
+	let casovacNahleduSekce = null;
+	function ukazNahledSekce(tlacitko, klic) {
+		clearTimeout(casovacNahleduSekce);
+		casovacNahleduSekce = setTimeout(() => {
+			if (!nahledSekce) {
+				nahledSekce = el('div', { class: 'st-nahled-sekce', 'aria-hidden': 'true' }, el('iframe', { tabindex: '-1', title: '' }));
+				document.body.append(nahledSekce);
+			}
+			const r = tlacitko.getBoundingClientRect();
+			const iframe = nahledSekce.firstChild;
+			if (iframe.dataset.klic !== klic) { iframe.dataset.klic = klic; iframe.src = D.adresy.nahledSekce + encodeURIComponent(klic); }
+			nahledSekce.style.left = Math.max(8, Math.min(r.right + 12, window.innerWidth - 392)) + 'px';
+			nahledSekce.style.top = Math.max(8, Math.min(window.innerHeight - 280, r.top - 40)) + 'px';
+			nahledSekce.hidden = false;
+		}, 250);
+	}
+	function schovejNahledSekce() {
+		clearTimeout(casovacNahleduSekce);
+		if (nahledSekce) { nahledSekce.hidden = true; }
+	}
+
 	function tlacitkoSekce(s) {
 		return (
-			el('button', { type: 'button', draggable: 'true', ondragstart: (e) => zacniTahnout(e, { sekce: s.klic }), ondragend: skonciTazeni, onclick: () => dotaz(D.adresy.sekce + '&klic=' + encodeURIComponent(s.klic), { ok: 1 }).then((j) => {
+			el('button', { onmouseenter: (e) => ukazNahledSekce(e.currentTarget, s.klic), onmouseleave: schovejNahledSekce, onfocus: (e) => ukazNahledSekce(e.currentTarget, s.klic), onblur: schovejNahledSekce, type: 'button', draggable: 'true', ondragstart: (e) => zacniTahnout(e, { sekce: s.klic }), ondragend: skonciTazeni, onclick: () => dotaz(D.adresy.sekce + '&klic=' + encodeURIComponent(s.klic), { ok: 1 }).then((j) => {
 				if (!j.ok) { nastavStav(j.chyba, true); return; }
 				D.tridy = j.tridy;
 				vloz(j.prvek);

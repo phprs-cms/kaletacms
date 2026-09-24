@@ -137,3 +137,9 @@ body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; ove
 .st-ai button:hover { border-color: var(--akcent); color: var(--akcent); }
 .st-ai button:disabled { opacity: .5; cursor: progress; }
 .st-dialog textarea { width: 100%; box-sizing: border-box; min-height: 110px; padding: 8px; border: 1px solid var(--linka-pole); border-radius: 8px; background: var(--plocha); color: var(--text); font: inherit; }
+
+/* živý náhled hotové sekce (vykreslí server v šířce 1280 px, zmenšeno) */
+.st-nahled-sekce { position: fixed; z-index: 50; width: 384px; height: 270px; overflow: hidden; border: 1px solid var(--linka); border-radius: 10px; background: #fff; box-shadow: 0 16px 40px rgb(0 0 0 / 0.18); pointer-events: none; }
+.st-nahled-sekce[hidden] { display: none; }
+.st-nahled-sekce iframe { width: 1280px; height: 900px; border: 0; transform: scale(0.3); transform-origin: 0 0; }
+@media (max-width: 640px) { .st-nahled-sekce { display: none; } }

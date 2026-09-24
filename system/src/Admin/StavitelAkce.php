@@ -83,7 +83,8 @@ trait StavitelAkce
                 'uloz' => 'stavba_uloz', 'publikuj' => 'stavba_publikuj', 'zahod' => 'stavba_zahod', 'sekce' => 'stavba_sekce', 'trida' => 'stavba_trida',
                 'revize' => 'stavba_revize', 'obnov' => 'stavba_obnov', 'aiSekce' => 'stavba_ai_sekce', 'aiText' => 'stavba_ai_text',
             ]) + ['admin' => $app->url('admin.php'), 'nastaveni' => $e['nastaveni'],
-                'komponenta' => $app->auth()->isAdmin() ? $app->url('admin.php?modul=komponenty&akce=z_prvku') : null],
+                'komponenta' => $app->auth()->isAdmin() ? $app->url('admin.php?modul=komponenty&akce=z_prvku') : null,
+                'nahledSekce' => $app->url('_sekce/')],
         ];
 
         return Response::html($app->view->render('admin/stranky/stavitel', ['app' => $app, 'data' => $data, 'titulek' => $cil['titulek']]));

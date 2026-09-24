@@ -307,6 +307,9 @@ over "komponenty ukazují počet použití" 200 "/admin.php?modul=komponenty" "1
 kod=$(curl -s -b "$JAR" -o "$PRACE/odpoved" -w '%{http_code}' -X POST "$B/admin.php?modul=komponenty&akce=z_prvku" -d "_csrf=$TOKEN" --data-urlencode "nazev=Výzva" --data-urlencode 'prvek={"typ":"sekce","deti":[{"typ":"nadpis","obsah":{"text":"Zavolejte nám"}}]}')
 [ "$kod" = 200 ] && grep -q '"ok":true' "$PRACE/odpoved" && echo "  ok     uložení prvku jako komponenty" || { echo "  CHYBA  z_prvku: $kod"; CHYB=$((CHYB+1)); }
 
+over "náhled hotové sekce pro panel stavitele" 200 /_sekce/cenik "Vyberte si balíček"
+ocekavej "náhled sekce jen pro přihlášené" "$(curl -s -o /dev/null -w '%{http_code}' "$B/_sekce/cenik")" 404
+
 echo "== varianty záhlaví"
 over "formulář varianty" 200 "/admin.php?modul=casti&akce=varianta&typ=hlavicka&jazyk=" 'Název varianty'
 TOKEN=$(csrf)
