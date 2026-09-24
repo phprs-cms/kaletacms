@@ -575,4 +575,7 @@ return [
     'Otázky ve dvou sloupcích' => 'Questions in two columns',
     'Nadpis vlevo, otázky a odpovědi vpravo.' => 'Heading on the left, questions and answers on the right.',
     'Nenašli jste odpověď? Napište nám.' => 'Didn\'t find an answer? Write to us.',
+    'Filtr' => 'Filter',
+    'Vše' => 'All',
+    'Stránky výpisu' => 'List pages',
 ];

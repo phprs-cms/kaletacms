@@ -45,6 +45,9 @@ final class Kontext
     /** @var list<int> komponenty, které se právě vykreslují (ochrana proti komponentě v sobě samé) */
     public array $zanoreni = [];
 
+    /** @var array<string, array{pred: string, za: string}> ovládání kolem prvku (filtry a stránkování výpisu kolekce) podle id */
+    public array $okoli = [];
+
     /** @var array<string, true> prvky, jejichž CSS už na stránce je */
     public array $styly = [];
 

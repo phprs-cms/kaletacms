@@ -276,6 +276,14 @@ mcp seznam_kolekci '{}' > "$PRACE/odpoved"; grep -q 'kolekce\\": \\"tym' "$PRACE
 mcp uloz_polozku_kolekce '{"kolekce":"tym","nazev":"Petr Svoboda","data":{"funkce":"Mistr truhlář"},"zobrazit":true}' > /dev/null
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
 over "MCP: nová položka je ve výpisu" 200 /z-html "Mistr truhlář"
+mcp stavba_uloz "{\"id\":$IDZ,\"publikovat\":true,\"stavba\":{\"v\":1,\"deti\":[{\"typ\":\"sekce\",\"deti\":[{\"id\":\"vyp1\",\"typ\":\"kolekce\",\"obsah\":{\"kolekce\":\"tym\",\"pocet\":1,\"razeni\":\"nazev\",\"filtr_pole\":\"funkce\",\"filtry\":true,\"strankovani\":true},\"deti\":[{\"typ\":\"nadpis\",\"znacka\":\"h3\",\"obsah\":{\"text\":\"{{nazev}}\"}}]}]}]}}" > /dev/null
+rm -f "$PRACE"/web/storage/cache/stranky/*.html
+curl -s -o "$PRACE/odpoved" "$B/z-html"
+[ "$(grep -o '<h3>[^<]*</h3>' "$PRACE/odpoved" | tr -d '\n')" = "<h3>Jana Nováková</h3>" ] && grep -q 'href="/z-html?s-vyp1=2"' "$PRACE/odpoved" && grep -q 'href="/z-html" aria-current="true">Vše' "$PRACE/odpoved" && grep -q 'f-vyp1=Mistr' "$PRACE/odpoved" \
+  && echo "  ok     výpis kolekce: řazení, stránkování a tlačítka filtru" || { echo "  CHYBA  stránkování výpisu kolekce"; CHYB=$((CHYB+1)); }
+over "výpis kolekce: druhá strana" 200 "/z-html?s-vyp1=2" "<h3>Petr Svoboda</h3>"
+curl -s -o "$PRACE/odpoved" "$B/z-html?f-vyp1=Mistr+truhl%C3%A1%C5%99"; grep -q '<h3>Petr Svoboda</h3>' "$PRACE/odpoved" && ! grep -q '<h3>Jana' "$PRACE/odpoved" && grep -q 'aria-current="true">Mistr truhlář' "$PRACE/odpoved" \
+  && echo "  ok     výpis kolekce: filtr návštěvníka" || { echo "  CHYBA  filtr výpisu kolekce"; CHYB=$((CHYB+1)); }
 
 echo "== komponenty"
 over "komponenty" 200 "/admin.php?modul=komponenty" "Komponenty"

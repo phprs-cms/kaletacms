@@ -23,6 +23,8 @@ final class Kolekce
 
     public const string VZOR_ZNACKY = '/\{\{([a-z][a-z0-9_]{0,30})\}\}/';
 
+    public const string VZOR_KLICE = '/^[a-z][a-z0-9_]{0,30}$/';
+
     /** @return list<array<string, mixed>> */
     public static function vsechny(Db $db): array
     {
@@ -114,23 +116,51 @@ final class Kolekce
     }
 
     /**
-     * Viditelné položky kolekce v jazyce webu.
+     * Viditelné položky kolekce v jazyce webu: filtr podle hodnoty pole, řazení (i podle vlastního pole) a stránkování.
      *
-     * @return list<array<string, mixed>>
+     * @param array{0: string, 1: string}|null $filtr [klíč pole, hodnota]
+     * @return array{0: list<array<string, mixed>>, 1: int} [položky, celkem]
      */
-    public static function polozky(Db $db, int $idk, string $jazyk, int $pocet, string $razeni = 'poradi'): array
+    public static function polozky(Db $db, int $idk, string $jazyk, int $pocet, string $razeni = 'poradi', ?array $filtr = null, int $strana = 1, string $razeniPole = ''): array
     {
-        $poradi = match ($razeni) {
-            'nazev' => 'nazev',
-            'nejnovejsi' => 'datum DESC, idp DESC',
+        $pole = fn (string $klic): string => "JSON_UNQUOTE(JSON_EXTRACT(data, '$." . $klic . "'))"; // klíč prošel VZOR_KLICE
+        $kde = 'idk = ? AND zobrazit = 1 AND jazyk = ?';
+        $parametry = [$idk, $jazyk];
+        if ($filtr !== null && preg_match(self::VZOR_KLICE, $filtr[0]) && $filtr[1] !== '') {
+            $kde .= ' AND ' . $pole($filtr[0]) . ' = ?';
+            $parametry[] = $filtr[1];
+        }
+        $podlePole = preg_match(self::VZOR_KLICE, $razeniPole) === 1;
+        $poradi = match (true) {
+            $razeni === 'nazev' => 'nazev',
+            $razeni === 'nejnovejsi' => 'datum DESC, idp DESC',
+            // čísla se řadí jako čísla, ostatní jako text
+            $razeni === 'pole' && $podlePole => '(' . $pole($razeniPole) . ' + 0) ASC, ' . $pole($razeniPole) . ' ASC, nazev',
+            $razeni === 'pole_sestupne' && $podlePole => '(' . $pole($razeniPole) . ' + 0) DESC, ' . $pole($razeniPole) . ' DESC, nazev',
             default => 'poradi, nazev',
         };
-
-        return array_map(function (array $r): array {
+        $pocet = max(1, min(100, $pocet));
+        $celkem = (int) $db->value('SELECT COUNT(*) FROM {kolekce_polozky} WHERE ' . $kde, $parametry);
+        $polozky = array_map(function (array $r): array {
             $r['data'] = json_decode((string) $r['data'], true) ?: [];
 
             return $r;
-        }, $db->all('SELECT * FROM {kolekce_polozky} WHERE idk = ? AND zobrazit = 1 AND jazyk = ? ORDER BY ' . $poradi . ' LIMIT ?', [$idk, $jazyk, max(1, min(100, $pocet))]));
+        }, $db->all('SELECT * FROM {kolekce_polozky} WHERE ' . $kde . ' ORDER BY ' . $poradi . ' LIMIT ? OFFSET ?', [...$parametry, $pocet, (max(1, $strana) - 1) * $pocet]));
+
+        return [$polozky, $celkem];
+    }
+
+    /** Různé hodnoty pole mezi viditelnými položkami (tlačítka filtru ve výpisu). @return list<string> */
+    public static function hodnotyPole(Db $db, int $idk, string $jazyk, string $klic): array
+    {
+        if (!preg_match(self::VZOR_KLICE, $klic)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map('strval', array_column($db->all(
+            "SELECT DISTINCT JSON_UNQUOTE(JSON_EXTRACT(data, '$." . $klic . "')) AS h FROM {kolekce_polozky} WHERE idk = ? AND zobrazit = 1 AND jazyk = ? ORDER BY h LIMIT 30",
+            [$idk, $jazyk],
+        ), 'h')), fn (string $h): bool => $h !== '' && $h !== 'null'));
     }
 
     /**

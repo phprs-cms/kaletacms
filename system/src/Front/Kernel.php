@@ -593,7 +593,13 @@ final class Kernel
      */
     private function kontext(): \MiroCMS\Stavitel\Kontext
     {
-        return $this->kontext ??= new \MiroCMS\Stavitel\Kontext($this->app);
+        if ($this->kontext === null) {
+            $this->kontext = new \MiroCMS\Stavitel\Kontext($this->app);
+            // cesta zobrazené stránky už pro obsah (odkazy filtru a stránkování výpisu kolekce, aktivní položka navigace)
+            $this->kontext->cesta = (string) parse_url($this->app->url(ltrim($this->app->request->path(), '/')), PHP_URL_PATH);
+        }
+
+        return $this->kontext;
     }
 
     /**

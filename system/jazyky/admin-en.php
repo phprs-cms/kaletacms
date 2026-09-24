@@ -2212,4 +2212,11 @@ return [
     'Varianta: %s' => 'Variant: %s',
     'Varianta musí mít název.' => 'The variant needs a name.',
     'Varianta byla smazána – vybrané stránky mají zase výchozí podobu.' => 'The variant was deleted – the selected pages have the default version again.',
+    'podle pole – vzestupně' => 'by field – ascending',
+    'podle pole – sestupně' => 'by field – descending',
+    'Pole pro řazení (klíč, např. cena)' => 'Sort field (key, e.g. price)',
+    'Filtrovat podle pole (klíč, nepovinné)' => 'Filter by field (key, optional)',
+    'Jen položky s hodnotou' => 'Only items with value',
+    'Tlačítka filtru pro návštěvníky (podle pole výše)' => 'Filter buttons for visitors (by the field above)',
+    'Stránkovat (po „Nejvýš položek“)' => 'Paginate (by “Maximum items”)',
 ];
