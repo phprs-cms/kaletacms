@@ -18,7 +18,8 @@ final class Settings
         'email_webu' => '',
         'logo_webu' => '',
         'favicon' => '',
-        'brand_akcent' => '',         // hlavní barva webu (#rrggbb); prázdné = barva šablony
+        'design_system' => '',        // barvy, písma, škála a rozměry webu (JSON, Stavitel\DesignSystem); prázdné = výchozí
+        'brand_akcent' => '',         // starší: hlavní barva webu, čte se jen dokud není uložen design_system
         'tmavy_rezim' => 'vypnuto',   // tmavý vzhled webu: vypnuto | auto (podle zařízení návštěvníka)
         'brand_pismo_titulky' => 'vychozi', // klíč z Front\Identita::PISMA_TITULKU
         'brand_pismo_text' => 'vychozi',            // obrázek místo textového názvu v záhlaví

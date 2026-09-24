@@ -55,7 +55,7 @@ final class Kernel
 
         // každá změna v administraci zneplatní cache stránek webu; průběžné požadavky editorů (rozepsaný stav, asistent,
         // koncept stavby) web nemění - kdyby cache mazaly, při práci by byla pořád studená
-        if ($request->isPost() && !in_array($request->get('akce'), ['koncept', 'asistent', 'stavba_uloz'], true)) {
+        if ($request->isPost() && !in_array($request->get('akce'), ['koncept', 'asistent', 'stavba_uloz', 'nahled'], true)) {
             \MiroCMS\Front\Cache::vymaz();
         }
         $akce = $request->get('akce');
@@ -212,7 +212,7 @@ final class Kernel
         }
         $db = $app->db();
         $kroky = [
-            ['Dejte webu tvář', 'Logo, hlavní barva a písmo.', 'admin.php?modul=vzhled', $s->get('logo_webu') !== '' || $s->get('brand_akcent') !== ''],
+            ['Dejte webu tvář', 'Logo, hlavní barva a písmo.', 'admin.php?modul=vzhled', $s->get('logo_webu') !== '' || $s->get('design_system') !== '' || $s->get('brand_akcent') !== ''],
             ['Vyplňte údaje o firmě', 'Kontakty a adresa se ukážou v patičce a vyhledávačům.', 'admin.php?modul=config', $s->get('email_webu') !== ''],
             ['Připravte stránky', 'O nás, Služby, Kontakt – a vyberte, která bude úvodní.', 'admin.php?modul=stranky', (int) $db->value('SELECT COUNT(*) FROM {stranky}') >= 3],
             ['Napište první novinku', 'Ukázkovou novinku pak můžete smazat.', 'admin.php?modul=novinky&akce=novy', (int) $db->value("SELECT COUNT(*) FROM {clanky} WHERE seo_link <> 'vitejte-v-mirocms'") >= 1],

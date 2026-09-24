@@ -185,7 +185,9 @@ final class Stranky extends Modul
                 $db->run('DELETE FROM {stavba_revize} WHERE ids = ? AND idr <= ?', [$stranka['ids'], $hranice]);
             }
         }
-        $db->update('stranky', ['stavba' => $novy, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['ids' => $stranka['ids']]);
+        // text stránky = obsah stavby bez rozložení: z něj čerpá hledání, llms.txt, .md, API i návrat k textu
+        $text = Stavba::jakoText(Stavba::zJson($novy) ?? []);
+        $db->update('stranky', ['stavba' => $novy, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')] + ($text !== '' ? ['text' => $text] : []), ['ids' => $stranka['ids']]);
         \MiroCMS\Front\Cache::vymaz();
     }
 
@@ -210,7 +212,7 @@ final class Stranky extends Modul
             $this->db->update('stranky', ['stavba' => null, 'stavba_koncept' => null], ['ids' => $stranka['ids']]);
         }
 
-        return $this->zpet('Stránka zobrazuje text z editoru. Stavbu najdete ve verzích, když otevřete stavitel.', 'edit', ['id' => (int) ($stranka['ids'] ?? 0)]);
+        return $this->zpet('Stránka zobrazuje text z editoru (obsah stavby bez rozložení). Stavbu najdete ve verzích, když otevřete stavitel.', 'edit', ['id' => (int) ($stranka['ids'] ?? 0)]);
     }
 
     /** Sekce z knihovny jako nové prvky (JSON); chybějící třídy, které používá, se založí. */

@@ -11,6 +11,8 @@ use MiroCMS\Core\Request;
 use MiroCMS\Core\Response;
 use MiroCMS\Core\View;
 use MiroCMS\Front\Layouty;
+use MiroCMS\Stavitel\Knihovna;
+use MiroCMS\Stavitel\Stavba;
 
 /**
  * Webový instalátor: ověří server, založí tabulky, prvního admina a zapíše config.php.
@@ -203,9 +205,22 @@ final class Installer
                 [t('Služby'), slugify(t('Služby')), 1, '<p>' . e(t('Co nabízíte – každou službu krátce a srozumitelně.')) . '</p>'],
                 [t('Kontakt'), slugify(t('Kontakt')), 1, '<p>' . e(t('Adresa, telefon, e-mail a otevírací doba.')) . '</p>'],
             ];
+            // úvod, služby a kontakt rovnou ze sekcí stavitele – nový web tak vypadá jako web, ne jako prázdná šablona
+            $sekce = [0 => ['uvod', 'vyhody', 'cisla', 'reference', 'novinky', 'vyzva'], 2 => ['sluzby', 'faq', 'vyzva'], 3 => ['kontakt']];
             $uvod = 0;
             foreach ($stranky as $i => [$titulek, $adresa, $vMenu, $text]) {
-                $id = $db->insert('stranky', ['titulek' => $titulek, 'seo_link' => $adresa, 'text' => $text, 'v_menu' => $vMenu, 'poradi' => ($i + 1) * 10]);
+                $radek = ['titulek' => $titulek, 'seo_link' => $adresa, 'text' => $text, 'v_menu' => $vMenu, 'poradi' => ($i + 1) * 10];
+                if (isset($sekce[$i])) {
+                    $stavba = ['v' => Stavba::VERZE, 'deti' => []];
+                    foreach ($sekce[$i] as $klic) {
+                        $s = Knihovna::sekci($klic);
+                        $stavba['deti'][] = $s['prvek'];
+                        Knihovna::zalozTridy($db, $s['tridy']);
+                    }
+                    $radek['stavba'] = Stavba::naJson($stavba);
+                    $radek['text'] = Stavba::jakoText($stavba);
+                }
+                $id = $db->insert('stranky', $radek);
                 $uvod = $uvod ?: $id;
             }
 

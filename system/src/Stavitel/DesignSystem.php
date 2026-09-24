@@ -52,6 +52,61 @@ final class DesignSystem
         'sirka' => 72, 'sirka_textu' => 44, 'zaobleni' => 'm',
     ];
 
+    /** Poměry typografické škály (krok n = základ × poměr^n): čím větší, tím víc se nadpisy liší od textu. */
+    public const array POMERY = ['1.125' => 'jemný (1,125)', '1.2' => 'klidný (1,2)', '1.25' => 'vyvážený (1,25)', '1.333' => 'výrazný (1,333)', '1.414' => 'dramatický (1,414)', '1.5' => 'plakátový (1,5)'];
+
+    /**
+     * Předvolby: celý vzhled webu jedním klikem, pak se dá doladit. Nezadané klíče mají výchozí hodnotu.
+     * klíč => [název, popis, hodnoty]
+     */
+    public const array PREDVOLBY = [
+        'firemni' => ['Firemní', 'Modrá, bezpatkové písmo, střídmé zaoblení', [
+            'barvy' => ['primarni' => '#2b5be3', 'sekundarni' => '#0f766e', 'text' => '#16181d', 'pozadi' => '#ffffff', 'plocha' => '#f5f6f8'],
+            'pismo_titulky' => 'moderni', 'pismo_text' => 'moderni', 'pomer_min' => 1.2, 'pomer_max' => 1.25, 'zaobleni' => 'm',
+        ]],
+        'remeslo' => ['Řemeslo', 'Teplé zemité barvy, patkové titulky', [
+            'barvy' => ['primarni' => '#9a3412', 'sekundarni' => '#3f6212', 'text' => '#1c1917', 'pozadi' => '#fffbf5', 'plocha' => '#f5ede1'],
+            'pismo_titulky' => 'klasicke', 'pismo_text' => 'moderni', 'pomer_min' => 1.2, 'pomer_max' => 1.333, 'zaobleni' => 's',
+        ]],
+        'pratelsky' => ['Přátelský', 'Svěží zelená, zaoblené písmo i rohy', [
+            'barvy' => ['primarni' => '#047857', 'sekundarni' => '#7c3aed', 'text' => '#132a22', 'pozadi' => '#ffffff', 'plocha' => '#effaf5'],
+            'pismo_titulky' => 'zaoblene', 'pismo_text' => 'moderni', 'pomer_min' => 1.2, 'pomer_max' => 1.25, 'zaobleni' => 'l',
+        ]],
+        'elegantni' => ['Elegantní', 'Tmavé tóny, velké patkové nadpisy, ostré hrany', [
+            'barvy' => ['primarni' => '#1e293b', 'sekundarni' => '#a16207', 'text' => '#0f172a', 'pozadi' => '#fcfcfa', 'plocha' => '#f1f0ea'],
+            'pismo_titulky' => 'elegantni', 'pismo_text' => 'knizni', 'pomer_min' => 1.25, 'pomer_max' => 1.414, 'zaobleni' => '0',
+        ]],
+        'technologie' => ['Technologie', 'Fialová, výrazný grotesk, velký kontrast', [
+            'barvy' => ['primarni' => '#6d28d9', 'sekundarni' => '#0e7490', 'text' => '#0b0b12', 'pozadi' => '#ffffff', 'plocha' => '#f4f3fb'],
+            'pismo_titulky' => 'grotesk', 'pismo_text' => 'moderni', 'pomer_min' => 1.25, 'pomer_max' => 1.414, 'zaobleni' => 'm',
+        ]],
+    ];
+
+    /** Předvolba jako kompletní design systém. @return array<string, mixed>|null */
+    public static function predvolba(string $klic): ?array
+    {
+        return isset(self::PREDVOLBY[$klic]) ? self::vycisti(self::PREDVOLBY[$klic][2] + self::VYCHOZI) : null;
+    }
+
+    /**
+     * Čitelnost dvojic barev podle WCAG 2.2 AA (text 4,5 : 1). Obecné dvojice, které se na webu opravdu potkávají.
+     *
+     * @return list<array{popis: string, pomer: float, ok: bool}>
+     */
+    public static function kontrasty(array $ds): array
+    {
+        $b = $ds['barvy'];
+        $dvojice = [
+            ['Text na pozadí', $b['text'], $b['pozadi']],
+            ['Text na ploše', $b['text'], $b['plocha']],
+            ['Odkaz (hlavní barva) na pozadí', $b['primarni'], $b['pozadi']],
+            ['Text tlačítka na hlavní barvě', self::kontrastni($b['primarni']), $b['primarni']],
+            ['Doplňková barva na pozadí', $b['sekundarni'], $b['pozadi']],
+        ];
+
+        return array_map(fn (array $d): array => ['popis' => $d[0], 'pomer' => $p = self::kontrast($d[1], $d[2]), 'ok' => $p >= 4.5], $dvojice);
+    }
+
     /** @return array<string, mixed> uložená hodnota doplněná o výchozí (a o barvu a písma ze starší Identity webu) */
     public static function nacti(Settings $web): array
     {

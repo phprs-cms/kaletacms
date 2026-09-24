@@ -6,29 +6,32 @@ namespace MiroCMS\Admin\Moduly;
 
 use MiroCMS\Admin\Modul;
 use MiroCMS\Core\Response;
-use MiroCMS\Front\Identita;
 use MiroCMS\Front\Layouty;
+use MiroCMS\Stavitel\DesignSystem;
 
 /**
- * Identita webu: šablona, logo, ikona, hlavní barva a písma. Propisuje se do všech dodávaných šablon.
+ * Vzhled webu: šablona, logo a design systém (barvy, písma, velikosti, šířka, zaoblení) s živým náhledem úvodní stránky.
+ * Z design systému berou tokeny šablona i stavitel, takže změna tady přebarví celý web.
  */
 final class Vzhled extends Modul
 {
     public const string IDENT = 'vzhled';
-    public const string NAZEV = 'Identita webu';
+    public const string NAZEV = 'Vzhled webu';
     public const string SKUPINA = 'Vzhled';
     public const string IKONA = 'identita';
     public const bool JEN_ADMIN = true;
 
-    private const array KLICE = ['layout', 'logo_webu', 'favicon', 'brand_akcent', 'brand_pismo_titulky', 'brand_pismo_text', 'nazev_webu', 'tmavy_rezim'];
-
     protected function akceVypis(): Response
     {
         $web = $this->app->settings();
+        $ds = DesignSystem::nacti($web);
 
-        return $this->view('vypis', 'Identita webu', [
+        return $this->view('vypis', 'Vzhled webu', [
             'layouty' => Layouty::seznam(),
-            'hodnoty' => array_combine(self::KLICE, array_map($web->get(...), self::KLICE)),
+            'ds' => $ds,
+            'kontrasty' => DesignSystem::kontrasty($ds),
+            'predvolby' => array_map(fn (string $k): array => ['nazev' => DesignSystem::PREDVOLBY[$k][0], 'popis' => DesignSystem::PREDVOLBY[$k][1], 'ds' => DesignSystem::predvolba($k)], array_combine(array_keys(DesignSystem::PREDVOLBY), array_keys(DesignSystem::PREDVOLBY))),
+            'hodnoty' => ['layout' => $web->get('layout'), 'logo_webu' => $web->get('logo_webu'), 'favicon' => $web->get('favicon'), 'tmavy_rezim' => $web->get('tmavy_rezim'), 'nazev_webu' => $web->get('nazev_webu')],
         ]);
     }
 
@@ -44,12 +47,36 @@ final class Vzhled extends Modul
         }
         $web->set('logo_webu', mb_substr($r->post('logo_webu'), 0, 255));
         $web->set('favicon', mb_substr($r->post('favicon'), 0, 255));
-        $vlastni = $r->post('akcent_vlastni') === '1' && preg_match('/^#[0-9a-f]{6}$/i', $r->post('brand_akcent'));
-        $web->set('brand_akcent', $vlastni ? strtolower($r->post('brand_akcent')) : '');
-        $web->set('brand_pismo_titulky', isset(Identita::PISMA_TITULKU[$r->post('brand_pismo_titulky')]) ? $r->post('brand_pismo_titulky') : 'vychozi');
         $web->set('tmavy_rezim', $r->post('tmavy_rezim') === 'auto' ? 'auto' : 'vypnuto');
-        $web->set('brand_pismo_text', isset(Identita::PISMA_TEXTU[$r->post('brand_pismo_text')]) ? $r->post('brand_pismo_text') : 'vychozi');
+        $web->set('design_system', (string) json_encode($this->zFormulare(), JSON_UNESCAPED_SLASHES));
+        // starší klíče Identity: od uložení design systému se nečtou, ať nemate export ani jiné nástroje
+        $web->set('brand_akcent', '');
+        $web->set('brand_pismo_titulky', 'vychozi');
+        $web->set('brand_pismo_text', 'vychozi');
+        \MiroCMS\Front\Cache::vymaz();
 
-        return $this->zpet('Identita webu byla uložena.');
+        return $this->zpet('Vzhled webu byl uložen.');
+    }
+
+    /** Živý náhled: CSS tokenů a kontrola čitelnosti pro rozpracovaný formulář (JSON). Nic neukládá. */
+    protected function akceNahled(): Response
+    {
+        $ds = $this->zFormulare();
+
+        return Response::json(['css' => DesignSystem::css($ds), 'kontrasty' => array_map(fn (array $k): array => ['popis' => t($k['popis'])] + $k, DesignSystem::kontrasty($ds))]);
+    }
+
+    /** @return array<string, mixed> */
+    private function zFormulare(): array
+    {
+        $ds = is_array($_POST['ds'] ?? null) ? $_POST['ds'] : [];
+        // velikosti se ve formuláři zadávají v pixelech, design systém je drží v rem
+        foreach (['zaklad_min', 'zaklad_max', 'sirka', 'sirka_textu'] as $klic) {
+            if (isset($ds[$klic]) && is_numeric($ds[$klic])) {
+                $ds[$klic] = (float) $ds[$klic] / 16;
+            }
+        }
+
+        return DesignSystem::vycisti($ds);
     }
 }

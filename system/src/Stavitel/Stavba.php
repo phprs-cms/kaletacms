@@ -313,6 +313,41 @@ final class Stavba
         return (string) json_encode($stavba, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
+    /**
+     * Obsah stavby jako prosté sémantické HTML bez rozložení a stylu (nadpisy, odstavce, seznamy, odkazy, obrázky).
+     * Při publikování se ukládá do sloupce text – z něj čerpá hledání, llms.txt, verze .md, API, MCP i export, a je to
+     * i obsah stránky, kdyby se vrátila k textu.
+     */
+    public static function jakoText(array $stavba): string
+    {
+        $html = '';
+        $projdi = function (array $deti) use (&$projdi, &$html): void {
+            foreach ($deti as $p) {
+                $o = $p['obsah'] ?? [];
+                $z = preg_match('/^h[1-6]$/', $p['znacka'] ?? '') ? $p['znacka'] : 'p';
+                $html .= match ($p['typ'] ?? '') {
+                    'nadpis' => "<{$z}>" . ($o['text'] ?? '') . "</{$z}>\n",
+                    'text' => ($o['html'] ?? '') . "\n",
+                    'obrazek' => ($o['src'] ?? '') !== '' ? '<figure><img src="' . e($o['src']) . '" alt="' . e($o['alt'] ?? '') . '">' . (($o['popisek'] ?? '') !== '' ? '<figcaption>' . e($o['popisek']) . '</figcaption>' : '') . "</figure>\n" : '',
+                    'tlacitko' => ($o['text'] ?? '') !== '' ? '<p>' . (($o['odkaz'] ?? '') !== '' ? '<a href="' . e($o['odkaz']) . '">' . e($o['text']) . '</a>' : e($o['text'])) . "</p>\n" : '',
+                    'seznam' => ($radky = array_filter(array_map('trim', explode("\n", (string) ($o['polozky'] ?? ''))))) !== []
+                        ? "<{$p['znacka']}>" . implode('', array_map(fn (string $r): string => '<li>' . e($r) . '</li>', $radky)) . "</{$p['znacka']}>\n" : '',
+                    'citat' => '<blockquote><p>' . ($o['text'] ?? '') . '</p>' . (($o['autor'] ?? '') !== '' ? '<p>– ' . e($o['autor']) . (($o['pozice'] ?? '') !== '' ? ', ' . e($o['pozice']) : '') . '</p>' : '') . "</blockquote>\n",
+                    'faq' => implode('', array_map(fn (array $f): string => '<h3>' . e($f['otazka'] ?? '') . '</h3>' . ($f['odpoved'] ?? '') . "\n", $o['polozky'] ?? [])),
+                    'video' => ($o['url'] ?? '') !== '' ? '<p><a href="' . e($o['url']) . '">' . e(($o['titulek'] ?? '') !== '' ? $o['titulek'] : $o['url']) . "</a></p>\n" : '',
+                    'oddelovac' => "<hr>\n",
+                    default => '',
+                };
+                if (is_array($p['deti'] ?? null)) {
+                    $projdi($p['deti']);
+                }
+            }
+        };
+        $projdi($stavba['deti'] ?? []);
+
+        return trim($html);
+    }
+
     /** Textová stránka převedená na stavbu: jedna úzká sekce s nadpisem a textem (zpět jde přes verze). */
     public static function zTextu(string $titulek, string $html): array
     {

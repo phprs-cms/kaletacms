@@ -1160,3 +1160,50 @@ body.login {
 	margin: 0 0 16px;
 	accent-color: var(--akcent);
 }
+
+/* Vzhled webu: formulář vlevo, živý náhled úvodní stránky vpravo */
+.vzhled { display: grid; grid-template-columns: minmax(0, 460px) minmax(0, 1fr); gap: 24px; align-items: start; }
+.obsah:has(.vzhled) { max-width: none; }
+.vzhled-formular { max-width: none; }
+.vzhled-formular .radek { grid-template-columns: 110px minmax(0, 1fr); }
+.vzhled-formular select { max-width: 100%; }
+.vzhled-nahled { position: sticky; top: 16px; display: flex; flex-direction: column; height: calc(100vh - 32px); height: calc(100dvh - 32px); border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); overflow: hidden; }
+.vzhled-nahled-lista { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--linka); font-weight: 600; }
+.vzhled-zarizeni { display: inline-flex; padding: 2px; border: 1px solid var(--linka); border-radius: 8px; background: var(--podklad); }
+.vzhled-zarizeni button { padding: 4px 10px; border: 0; border-radius: 6px; background: none; color: var(--text-slaby); font: inherit; font-size: 13px; cursor: pointer; }
+.vzhled-zarizeni button[aria-pressed="true"] { background: var(--plocha); color: var(--akcent); box-shadow: 0 1px 2px rgb(0 0 0 / 0.12); }
+.vzhled-ramec { position: relative; flex: 1; min-height: 0; overflow: hidden; background: var(--podklad); }
+.vzhled-ramec iframe { position: absolute; top: 0; left: 0; border: 0; background: #fff; transform-origin: 0 0; }
+.vzhled-predvolby { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+.vzhled-predvolba { display: grid; gap: 4px; padding: 10px; border: 1px solid var(--linka-pole); border-radius: 8px; background: var(--plocha); color: var(--text); text-align: left; font: inherit; cursor: pointer; }
+.vzhled-predvolba:hover { border-color: var(--akcent); }
+.vzhled-predvolba strong { font-size: 16px; }
+.vzhled-predvolba small { color: var(--text-slaby); font-size: 12px; line-height: 1.35; }
+.vzhled-vzorky { display: flex; height: 18px; border-radius: 4px; overflow: hidden; }
+.vzhled-vzorky i { flex: 1; }
+.vzhled-barvy { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; margin-top: 8px; }
+.vzhled-barva { display: flex; align-items: center; gap: 10px; padding: 6px; border: 1px solid var(--linka); border-radius: 8px; cursor: pointer; }
+.vzhled-barva input { flex: none; width: 36px; height: 36px; padding: 0; border: 1px solid var(--linka-pole); border-radius: 6px; background: none; cursor: pointer; }
+.vzhled-barva span { display: grid; font-weight: 600; }
+.vzhled-barva small { color: var(--text-slaby); font: 12px ui-monospace, Menlo, Consolas, monospace; text-transform: uppercase; }
+.vzhled-podnadpis { margin: 18px 0 6px; font-size: 14px; }
+.vzhled-kontrasty { margin: 0; padding: 0; list-style: none; }
+.vzhled-kontrasty li { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; border-bottom: 1px solid var(--linka); font-size: 13px; }
+.vzhled-kontrasty li::before { content: "✓"; flex: none; width: 16px; color: var(--ok); font-weight: 700; }
+.vzhled-kontrasty li.spatne::before { content: "!"; color: var(--chyba); }
+.vzhled-kontrasty li span { flex: 1; }
+.vzhled-kontrasty li.spatne strong { color: var(--chyba); }
+.vzhled-mrizka { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.vzhled-mrizka label { display: grid; gap: 4px; font-size: 13px; font-weight: 600; }
+.vzhled-mrizka select, .vzhled-mrizka input { width: 100%; min-width: 0; }
+.vzhled-jednotka { display: flex; align-items: center; gap: 6px; font-weight: 400; color: var(--text-slaby); }
+.vzhled-zaobleni { display: flex; flex-wrap: wrap; gap: 8px; }
+.vzhled-zaobleni label { position: relative; display: grid; justify-items: center; gap: 6px; padding: 8px 10px; border: 1px solid var(--linka); border-radius: 8px; font-size: 12px; cursor: pointer; }
+.vzhled-zaobleni label:has(input:checked) { border-color: var(--akcent); box-shadow: 0 0 0 1px var(--akcent); }
+.vzhled-zaobleni input { position: absolute; opacity: 0; }
+.vzhled-zaobleni i { display: block; width: 44px; height: 30px; border: 2px solid var(--text-slaby); background: var(--podklad); }
+.vzhled-ulozit { position: sticky; bottom: 0; margin: 0 -24px -24px; padding: 12px 24px; border-top: 1px solid var(--linka); background: var(--plocha); }
+@media (max-width: 1100px) {
+	.vzhled { grid-template-columns: minmax(0, 1fr); }
+	.vzhled-nahled { position: static; height: 70vh; }
+}

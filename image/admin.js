@@ -53,28 +53,87 @@
 		});
 	}
 
-	// Identita webu: živá ukázka barvy a písem, vzorník barev, kontrola čitelnosti barvy
-	var identita = document.querySelector('[data-identita]');
-	if (identita) {
-		var ukazka = identita.querySelector('[data-ukazka]'), barva = identita.brand_akcent;
-		var jas = function (hex) {
-			var k = [1, 3, 5].map(function (i) { var c = parseInt(hex.substr(i, 2), 16) / 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); });
-			return 0.2126 * k[0] + 0.7152 * k[1] + 0.0722 * k[2];
+	// Vzhled webu: předvolby a živý náhled skutečné úvodní stránky. CSS tokenů počítá server (akce nahled) – jediný výpočet v PHP.
+	var vzhled = document.querySelector('[data-vzhled]');
+	if (vzhled) {
+		var nahled = document.querySelector('[data-nahled]'), ramec = document.querySelector('[data-ramec]');
+		var zarizeni = 'pocitac', casovac = null, posledniCss = '';
+		var vlozCss = function () {
+			var doc = nahled.contentDocument;
+			if (!doc || !doc.head || posledniCss === '') { return; }
+			var styl = doc.getElementById('mc-vzhled-nahled');
+			if (!styl) { styl = doc.createElement('style'); styl.id = 'mc-vzhled-nahled'; doc.head.appendChild(styl); }
+			styl.textContent = posledniCss;
 		};
-		var prekresli = function () {
-			var vlastni = identita.akcent_vlastni.value === '1';
-			ukazka.style.setProperty('--u-akcent', vlastni ? barva.value : '');
-			ukazka.style.setProperty('--u-titulky', identita.brand_pismo_titulky.selectedOptions[0].getAttribute('data-css') || '');
-			ukazka.style.setProperty('--u-text', identita.brand_pismo_text.selectedOptions[0].getAttribute('data-css') || '');
-			identita.querySelector('[data-kontrast]').hidden = !vlastni || 1.05 / (jas(barva.value) + 0.05) >= 4.5;
+		var prepocitej = function () {
+			var data = new FormData(vzhled);
+			fetch(vzhled.getAttribute('data-nahled-url'), { method: 'POST', body: data, credentials: 'same-origin' })
+				.then(function (r) { return r.json(); })
+				.then(function (j) {
+					posledniCss = j.css;
+					vlozCss();
+					vzhled.querySelector('[data-kontrasty]').innerHTML = j.kontrasty.map(function (k) {
+						var li = document.createElement('li');
+						li.className = k.ok ? 'ok' : 'spatne';
+						li.innerHTML = '<span></span><strong></strong>';
+						li.firstChild.textContent = k.popis;
+						li.lastChild.textContent = String(k.pomer.toFixed(1)).replace('.', ',') + ' : 1';
+						return li.outerHTML;
+					}).join('');
+				})
+				.catch(function () {});
 		};
-		identita.addEventListener('input', prekresli);
-		identita.addEventListener('change', prekresli);
-		barva.addEventListener('input', function () { identita.akcent_vlastni.value = '1'; });
-		identita.querySelectorAll('[data-barva]').forEach(function (tl) {
-			tl.addEventListener('click', function () { barva.value = tl.getAttribute('data-barva'); identita.akcent_vlastni.value = '1'; prekresli(); });
+		var zmena = function (e) {
+			if (e && e.target && e.target.type === 'color') { e.target.parentNode.querySelector('[data-hex]').textContent = e.target.value; }
+			vzhled.querySelector('[data-neulozeno]').hidden = false;
+			clearTimeout(casovac);
+			casovac = setTimeout(prepocitej, 180);
+		};
+		vzhled.addEventListener('input', zmena);
+		vzhled.addEventListener('change', zmena);
+		nahled.addEventListener('load', vlozCss);
+		// předvolba vyplní formulář (velikosti jsou ve formuláři v px, v design systému v rem)
+		vzhled.querySelectorAll('[data-predvolba]').forEach(function (tl) {
+			tl.addEventListener('click', function () {
+				var ds = JSON.parse(tl.getAttribute('data-predvolba'));
+				Object.keys(ds).forEach(function (klic) {
+					if (typeof ds[klic] === 'object') {
+						Object.keys(ds[klic]).forEach(function (b) {
+							var pole = vzhled.elements['ds[' + klic + '][' + b + ']'];
+							if (pole) { pole.value = ds[klic][b]; pole.parentNode.querySelector('[data-hex]').textContent = ds[klic][b]; }
+						});
+						return;
+					}
+					var pole = vzhled.elements['ds[' + klic + ']'];
+					if (!pole) { return; }
+					var hodnota = ['zaklad_min', 'zaklad_max', 'sirka', 'sirka_textu'].indexOf(klic) !== -1 ? Math.round(ds[klic] * 16) : ds[klic];
+					if (pole instanceof RadioNodeList) { pole.value = String(hodnota); return; }
+					if (pole.tagName === 'SELECT') {
+						Array.prototype.forEach.call(pole.options, function (o) { if (Math.abs(parseFloat(o.value) - hodnota) < 0.001 || o.value === String(hodnota)) { pole.value = o.value; } });
+						return;
+					}
+					pole.value = hodnota;
+				});
+				zmena();
+			});
 		});
-		prekresli();
+		// počítač se vykresluje v šířce 1280 px a zmenší se do rámu, aby platily skutečné breakpointy webu
+		var rozmer = function () {
+			var sirka = zarizeni === 'mobil' ? 390 : 1280, dostupna = ramec.clientWidth, meritko = Math.min(1, dostupna / sirka);
+			nahled.style.width = sirka + 'px';
+			nahled.style.height = (ramec.clientHeight / meritko) + 'px';
+			nahled.style.transform = 'scale(' + meritko + ')';
+			nahled.style.left = Math.max(0, (dostupna - sirka * meritko) / 2) + 'px';
+		};
+		document.querySelectorAll('[data-zarizeni]').forEach(function (tl) {
+			tl.addEventListener('click', function () {
+				zarizeni = tl.getAttribute('data-zarizeni');
+				document.querySelectorAll('[data-zarizeni]').forEach(function (b) { b.setAttribute('aria-pressed', b === tl ? 'true' : 'false'); });
+				rozmer();
+			});
+		});
+		if (window.ResizeObserver) { new ResizeObserver(rozmer).observe(ramec); }
+		rozmer();
 	}
 
 	// Obecné: volba s data-prepni="sekce:1" ukáže (nebo :0 skryje) část formuláře označenou data-sekce="sekce"
