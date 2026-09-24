@@ -76,6 +76,7 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../mirocms-interni/NAVRH.md`. Č
 - **Části webu** (`Stavitel\Casti`, tabulka `mc_casti` typ+jazyk, admin `Moduly\Casti`, jen správce): záhlaví, patička a obálky `novinka`/`vypis`/`nenalezeno`
   (prvek `obsah` = místo pro obsah systému). Web je skládá v `Front\Kernel::castiWebu()` se stavbou stránky v jednom `Kontext` → jedno CSS.
   Layout vypisuje `$casti['hlavicka']`/`['paticka']`, když nejsou `null`. Prvky `JEN_CASTI` (logo, navigace, udaje, obsah) se nabízejí jen v částech.
+  Záhlaví a patička mohou mít varianty (`mc_casti.varianta`, `stranky` = JSON čísel stránek; `Casti::variantaStranky`), prázdná varianta část skryje.
   Akce stavitele sdílí trait `Admin\StavitelAkce` (stránky i části), publikování a verze `Stavitel\Publikace`.
 - **Firma** (`Front\Firma`, Nastavení → Firma, klíče `firma_*`): prvek `udaje` (Údaje firmy) je vypisuje na webu, `Seo` z nich skládá
   Organization/LocalBusiness (`@id` …#firma) s adresou, otevírací dobou a geo. Otevírací doba se píše lidsky po řádcích, `Firma::hodiny()` ji rozebere.

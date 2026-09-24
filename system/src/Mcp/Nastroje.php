@@ -595,7 +595,7 @@ final class Nastroje
         if ($cil['druh'] === 'stranka') {
             Publikace::stranka($this->app, (array) $db->one('SELECT * FROM {stranky} WHERE ids = ?', [$cil['radek']['ids']]));
         } else {
-            Publikace::cast($this->app, (array) Casti::radek($db, $cil['radek']['typ'], $cil['radek']['jazyk']));
+            Publikace::cast($this->app, (array) Casti::radek($db, $cil['radek']['typ'], $cil['radek']['jazyk'], (string) $cil['radek']['varianta']));
         }
     }
 
@@ -608,7 +608,7 @@ final class Nastroje
         if ($cil['druh'] === 'stranka') {
             $db->update('stranky', ['stavba_koncept' => Stavba::naJson($stavba)], ['ids' => $r['ids']]);
         } else {
-            $db->update('casti', ['stavba_koncept' => Stavba::naJson($stavba)], ['typ' => $r['typ'], 'jazyk' => $r['jazyk']]);
+            $db->update('casti', ['stavba_koncept' => Stavba::naJson($stavba)], ['typ' => $r['typ'], 'jazyk' => $r['jazyk'], 'varianta' => $r['varianta']]);
         }
         if ($publikovat) {
             $this->publikujCil($cil);

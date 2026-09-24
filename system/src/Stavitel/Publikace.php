@@ -28,8 +28,9 @@ final class Publikace
     public static function cast(App $app, array $radek): void
     {
         $novy = $radek['stavba_koncept'] ?? $radek['stavba'];
-        self::verze($app, ['cast' => Casti::klicRevize($radek['typ'], $radek['jazyk'])], $radek['stavba'], $novy, $radek['zmeneno'] ?? null);
-        $app->db()->update('casti', ['stavba' => $novy, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['typ' => $radek['typ'], 'jazyk' => $radek['jazyk']]);
+        $varianta = (string) ($radek['varianta'] ?? '');
+        self::verze($app, ['cast' => Casti::klicRevize($radek['typ'], $radek['jazyk'], $varianta)], $radek['stavba'], $novy, $radek['zmeneno'] ?? null);
+        $app->db()->update('casti', ['stavba' => $novy, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['typ' => $radek['typ'], 'jazyk' => $radek['jazyk'], 'varianta' => $varianta]);
         \MiroCMS\Front\Cache::vymaz();
     }
 

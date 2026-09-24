@@ -299,6 +299,19 @@ over "komponenty ukazují počet použití" 200 "/admin.php?modul=komponenty" "1
 kod=$(curl -s -b "$JAR" -o "$PRACE/odpoved" -w '%{http_code}' -X POST "$B/admin.php?modul=komponenty&akce=z_prvku" -d "_csrf=$TOKEN" --data-urlencode "nazev=Výzva" --data-urlencode 'prvek={"typ":"sekce","deti":[{"typ":"nadpis","obsah":{"text":"Zavolejte nám"}}]}')
 [ "$kod" = 200 ] && grep -q '"ok":true' "$PRACE/odpoved" && echo "  ok     uložení prvku jako komponenty" || { echo "  CHYBA  z_prvku: $kod"; CHYB=$((CHYB+1)); }
 
+echo "== varianty záhlaví"
+over "formulář varianty" 200 "/admin.php?modul=casti&akce=varianta&typ=hlavicka&jazyk=" 'Název varianty'
+TOKEN=$(csrf)
+kam=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?modul=casti&akce=uloz_variantu&typ=hlavicka&jazyk=" -d "_csrf=$TOKEN" --data-urlencode "nazev=Landing page" -d "stranky[]=$IDZ")
+case "$kam" in *"varianta=landing-page"*) echo "  ok     varianta založena a otevřena ve staviteli";; *) echo "  CHYBA  založení varianty: $kam"; CHYB=$((CHYB+1));; esac
+var() { curl -s -b "$JAR" -c "$JAR" -o "$PRACE/odpoved" -w '%{http_code}' -X POST "$B/admin.php?modul=casti&akce=$1&typ=hlavicka&jazyk=&varianta=landing-page" -d "_csrf=$TOKEN" "${@:2}"; }
+var stavba_uloz --data-urlencode 'stavba={"v":1,"deti":[]}' > /dev/null
+ocekavej "publikování varianty" "$(var stavba_publikuj)" 200
+rm -f "$PRACE"/web/storage/cache/stranky/*.html
+curl -s -o "$PRACE/odpoved" "$B/z-html"; ! grep -q 'header class="hlavicka"' "$PRACE/odpoved" && ! grep -q 'mc-nav' "$PRACE/odpoved" && echo "  ok     stránka s prázdnou variantou je bez záhlaví" || { echo "  CHYBA  varianta záhlaví na stránce"; CHYB=$((CHYB+1)); }
+curl -s -o "$PRACE/odpoved" "$B/kontakt"; grep -q 'header class="hlavicka"' "$PRACE/odpoved" && echo "  ok     ostatní stránky mají výchozí záhlaví" || { echo "  CHYBA  varianta se projevila i jinde"; CHYB=$((CHYB+1)); }
+over "varianta v seznamu částí" 200 "/admin.php?modul=casti" "Landing page"
+
 # úprava přímo na webu: odkaz a formulář jen pro přihlášené s právem
 over "úprava na místě – odkaz" 200 /novinky/vitejte-v-mirocms "mc-upravit-zde"
 over "úprava na místě – formulář" 200 "/novinky/vitejte-v-mirocms?upravit=text" "mc-upravit-text"

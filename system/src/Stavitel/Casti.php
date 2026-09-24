@@ -24,18 +24,38 @@ final class Casti
     /** Obálky – obsahují prvek „Obsah stránky“, kam systém vloží svůj obsah. */
     public const array OBALKY = ['novinka', 'vypis', 'nenalezeno'];
 
-    /** @return array<string, mixed>|null řádek části */
-    public static function radek(Db $db, string $typ, string $jazyk): ?array
+    /** Části, které mohou mít varianty pro vybrané stránky (landing page bez navigace, jiná patička…). */
+    public const array S_VARIANTAMI = ['hlavicka', 'paticka'];
+
+    public const string VZOR_VARIANTY = '/^[a-z0-9][a-z0-9-]{0,39}$/';
+
+    /** @return array<string, mixed>|null řádek části (varianta '' = výchozí podoba) */
+    public static function radek(Db $db, string $typ, string $jazyk, string $varianta = ''): ?array
     {
-        return $db->one('SELECT * FROM {casti} WHERE typ = ? AND jazyk = ?', [$typ, $jazyk]);
+        return $db->one('SELECT * FROM {casti} WHERE typ = ? AND jazyk = ? AND varianta = ?', [$typ, $jazyk, $varianta]);
     }
 
     /** Publikovaná stavba části (nebo rozpracovaná pro náhled v editoru); null = část ze šablony. */
-    public static function stavba(Db $db, string $typ, string $jazyk, bool $koncept = false): ?array
+    public static function stavba(Db $db, string $typ, string $jazyk, bool $koncept = false, string $varianta = ''): ?array
     {
-        $r = self::radek($db, $typ, $jazyk);
+        $r = self::radek($db, $typ, $jazyk, $varianta);
 
         return $r === null ? null : Stavba::zJson($koncept ? ($r['stavba_koncept'] ?? $r['stavba']) : $r['stavba']);
+    }
+
+    /** Varianta části pro stránku (první publikovaná, která ji má v seznamu), jinak '' = výchozí. */
+    public static function variantaStranky(Db $db, string $typ, string $jazyk, ?int $ids): string
+    {
+        if ($ids === null || !in_array($typ, self::S_VARIANTAMI, true)) {
+            return '';
+        }
+        foreach ($db->all("SELECT varianta, stranky FROM {casti} WHERE typ = ? AND jazyk = ? AND varianta <> '' AND stavba IS NOT NULL ORDER BY varianta", [$typ, $jazyk]) as $r) {
+            if (in_array($ids, array_map('intval', json_decode((string) $r['stranky'], true) ?: []), true)) {
+                return (string) $r['varianta'];
+            }
+        }
+
+        return '';
     }
 
     /** Stavba, se kterou se část poprvé otevře ve staviteli (odpovídá tomu, co dosud kreslila šablona). */
@@ -64,8 +84,8 @@ final class Casti
         });
     }
 
-    public static function klicRevize(string $typ, string $jazyk): string
+    public static function klicRevize(string $typ, string $jazyk, string $varianta = ''): string
     {
-        return $typ . ':' . $jazyk;
+        return $typ . ':' . $jazyk . ($varianta !== '' ? ':' . $varianta : '');
     }
 }

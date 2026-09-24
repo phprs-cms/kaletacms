@@ -614,9 +614,13 @@ final class Kernel
         $nahled = isset(\MiroCMS\Stavitel\Casti::TYPY[$r->get('cast')]) && $r->get('stavba') === 'koncept' && $this->app->auth()->isAdmin() ? $r->get('cast') : '';
         $editor = $r->get('editor') === '1' && ($nahled !== '' || ($r->get('stavba') === 'koncept' && $r->get('cast') === ''));
         $jazyk = Jazyk::sloupecWebu();
-        $vykresli = function (string $typ) use ($db, $k, $nahled, $editor, $jazyk, $r): ?string {
+        // stránka webu může mít vlastní variantu záhlaví a patičky; v editoru varianty rozhoduje parametr ?varianta=
+        $ids = ($this->protejsek[0] ?? '') === 'stranky' ? (int) $this->protejsek[2]['ids'] : null;
+        $nahledVarianty = preg_match(\MiroCMS\Stavitel\Casti::VZOR_VARIANTY, $r->get('varianta')) ? $r->get('varianta') : '';
+        $vykresli = function (string $typ) use ($db, $k, $nahled, $editor, $jazyk, $ids, $nahledVarianty): ?string {
             try {
-                $stavba = \MiroCMS\Stavitel\Casti::stavba($db, $typ, $jazyk, $nahled === $typ);
+                $varianta = $nahled === $typ ? $nahledVarianty : \MiroCMS\Stavitel\Casti::variantaStranky($db, $typ, $jazyk, $ids);
+                $stavba = \MiroCMS\Stavitel\Casti::stavba($db, $typ, $jazyk, $nahled === $typ, $varianta);
             } catch (\Throwable $e) {
                 error_log('Části webu: ' . $e->getMessage()); // web bez tabulky (před migrací) vykreslí části ze šablony
 
@@ -626,7 +630,7 @@ final class Kernel
                 return null;
             }
             $k->editor = $editor && $nahled === $typ;
-            $k->zdroj = 'cast:' . $typ . ':' . $jazyk;
+            $k->zdroj = 'cast:' . $typ . ':' . $jazyk . ($varianta !== '' ? ':' . $varianta : '');
             $html = \MiroCMS\Stavitel\Stavba::html($stavba, $k);
             $k->editor = false;
 

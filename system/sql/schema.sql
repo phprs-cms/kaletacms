@@ -228,17 +228,20 @@ CREATE TABLE mc_stranky (
 CREATE TABLE mc_casti (
     typ            VARCHAR(20) NOT NULL,
     jazyk          CHAR(2) NOT NULL DEFAULT '',
+    varianta       VARCHAR(40) NOT NULL DEFAULT '',   -- '' = výchozí; jinak podoba pro stránky v seznamu stranky (JSON čísel)
+    nazev          VARCHAR(100) NOT NULL DEFAULT '',
+    stranky        TEXT NULL,
     stavba         MEDIUMTEXT NULL,
     stavba_koncept MEDIUMTEXT NULL,
     zmeneno        DATETIME NULL,
-    PRIMARY KEY (typ, jazyk)
+    PRIMARY KEY (typ, jazyk, varianta)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Publikované verze staveb: stránky (ids) i částí webu (cast = "typ:jazyk").
 CREATE TABLE mc_stavba_revize (
     idr    INT UNSIGNED NOT NULL AUTO_INCREMENT,
     ids    INT UNSIGNED NULL,
-    cast   VARCHAR(30) NULL,
+    cast   VARCHAR(80) NULL,
     datum  DATETIME NOT NULL,
     kdo    INT UNSIGNED NULL,
     stavba MEDIUMTEXT NOT NULL,
