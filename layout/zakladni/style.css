@@ -1,42 +1,36 @@
-/* MiroCMS – layout „Základní“: firemní web. Barvy a písma z identity webu (--mc-akcent, --mc-pismo-*).
- * Fluidní typografie a mezery (clamp), barvy odvozené z jedné hlavní (color-mix), kaskáda ve vrstvách (@layer),
- * navigace na telefonu přes Popover API, plynulé přechody mezi stránkami (View Transitions) – bez JavaScriptu. */
+/* MiroCMS – layout „Základní“: firemní web. Barvy, písma a škály bere z design systému (tokeny --mc-*, Stavitel\DesignSystem).
+ * Celá šablona je ve vrstvě „sablona“: prvky stavitele, třídy a jejich styl (pozdější vrstvy) ji přebijí bez ohledu na specifičnost.
+ * Navigace na telefonu přes Popover API, plynulé přechody mezi stránkami (View Transitions) – bez JavaScriptu. */
 
-@layer zaklad, rozvrzeni, prvky;
+@layer tokeny, spolecne, sablona, stavitel, tridy, prvky;
+@layer sablona.zaklad, sablona.rozvrzeni, sablona.prvky;
 
 @view-transition { navigation: auto; }
 
-@layer zaklad {
+@layer sablona.zaklad {
 	:root {
 		color-scheme: light;
-		--akcent: var(--mc-akcent, #2b5be3);
-		--akcent-jemny: color-mix(in oklch, var(--akcent) 10%, var(--podklad));
-		--text: #16181d;
-		--text-tlumeny: color-mix(in oklch, var(--text) 62%, var(--podklad));
-		--podklad: #ffffff;
-		--plocha: #f5f6f8;
-		--linka: color-mix(in oklch, var(--text) 14%, var(--podklad));
-		--pismo: var(--mc-pismo-text, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
+		/* krátká jména pro šablonu; hodnoty z design systému */
+		--akcent: var(--mc-barva-primarni, #2b5be3);
+		--akcent-jemny: var(--mc-barva-primarni-jemna, #eef2fd);
+		--text: var(--mc-barva-text, #16181d);
+		--text-tlumeny: var(--mc-barva-tlumeny, #5b5f68);
+		--podklad: var(--mc-barva-pozadi, #ffffff);
+		--plocha: var(--mc-barva-plocha, #f5f6f8);
+		--linka: var(--mc-barva-linka, #dfe1e5);
+		--pismo: var(--mc-pismo-text, system-ui, sans-serif);
 		--pismo-titulky: var(--mc-pismo-titulky, var(--pismo));
-		--sirka: 72rem;
-		--sirka-textu: 44rem;
-		--mezera: clamp(1rem, 0.6rem + 1.8vw, 2rem);
-		--mezera-velka: clamp(2.5rem, 1.5rem + 4vw, 5rem);
-		--zaobleni: 0.75rem;
-		--krok-0: clamp(1rem, 0.96rem + 0.2vw, 1.125rem);
-		--krok-1: clamp(1.25rem, 1.15rem + 0.5vw, 1.5rem);
-		--krok-2: clamp(1.5rem, 1.3rem + 1vw, 2rem);
-		--krok-3: clamp(2rem, 1.6rem + 2vw, 3rem);
+		--sirka: var(--mc-sirka, 72rem);
+		--sirka-textu: var(--mc-sirka-textu, 44rem);
+		--mezera: var(--mc-mezera-l, 1.5rem);
+		--mezera-velka: var(--mc-mezera-2xl, 4rem);
+		--zaobleni: var(--mc-zaobleni, 0.75rem);
+		--krok-0: var(--mc-krok-0, 1rem);
+		--krok-1: var(--mc-krok-1, 1.25rem);
+		--krok-2: var(--mc-krok-2, 1.5rem);
+		--krok-3: var(--mc-krok-3, 2rem);
 	}
-	@media (prefers-color-scheme: dark) {
-		:root[data-tmavy] {
-			color-scheme: dark;
-			--text: #eceef2;
-			--podklad: #121418;
-			--plocha: #1b1e24;
-			--akcent: color-mix(in oklch, var(--mc-akcent, #2b5be3) 70%, white);
-		}
-	}
+	:root[data-tmavy] { color-scheme: light dark; }
 	*, *::before, *::after { box-sizing: border-box; }
 	html { -webkit-text-size-adjust: 100%; scroll-padding-top: 5rem; }
 	body { margin: 0; background: var(--podklad); color: var(--text); font: var(--krok-0) / 1.6 var(--pismo); text-rendering: optimizeLegibility; }
@@ -51,7 +45,7 @@
 	@media (prefers-reduced-motion: reduce) { @view-transition { navigation: none; } }
 }
 
-@layer rozvrzeni {
+@layer sablona.rozvrzeni {
 	.obal { width: min(100% - 2 * var(--mezera), var(--sirka)); margin-inline: auto; }
 	.preskocit { position: absolute; left: -999px; }
 	.preskocit:focus { left: var(--mezera); top: 0.5rem; z-index: 100; padding: 0.5rem 1rem; background: var(--podklad); }
@@ -83,6 +77,7 @@
 	}
 
 	.obsah { padding-block: var(--mezera-velka); min-height: 60vh; }
+	.stavba { min-height: 60vh; }
 	.paticka { padding-block: var(--mezera-velka) var(--mezera); background: var(--plocha); border-top: 1px solid var(--linka); font-size: 0.95em; }
 	.paticka-obal { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: var(--mezera); }
 	.paticka p { margin: 0.4em 0 0; color: var(--text-tlumeny); }
@@ -91,7 +86,7 @@
 	.paticka-copy { grid-column: 1 / -1; padding-top: var(--mezera); border-top: 1px solid var(--linka); font-size: 0.875em; }
 }
 
-@layer prvky {
+@layer sablona.prvky {
 	/* stránka a novinka: text v pohodlné šířce řádku */
 	.stranka, .novinka { max-width: var(--sirka-textu); margin-inline: auto; }
 	.stranka-uvod { max-width: none; }
@@ -109,19 +104,19 @@
 
 	/* výpis novinek: karty, které se přizpůsobí šířce kontejneru (container queries), ne oknu */
 	.vypis-hlavicka { max-width: var(--sirka-textu); margin-bottom: var(--mezera); }
-	.karty { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr)); gap: var(--mezera); }
-	.karta { container-type: inline-size; display: flex; flex-direction: column; padding: 0 0 1rem; border-radius: var(--zaobleni); background: var(--podklad); border: 1px solid var(--linka); overflow: hidden; }
-	.karta > :not(.karta-obrazek) { padding-inline: 1.1rem; }
-	.karta-obrazek img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
-	.karta-info { margin: 1rem 0 0.4rem; font-size: 0.85em; color: var(--text-tlumeny); }
-	.karta-info a { color: inherit; }
-	.karta h2 { font-size: var(--krok-1); }
-	.karta h2 a { color: var(--text); text-decoration: none; }
-	.karta h2 a:hover { color: var(--akcent); }
-	.karta .perex { font-size: 1em; }
-	.karta .perex p:last-child { margin-bottom: 0; }
+	.novinky-mrizka { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr)); gap: var(--mezera); }
+	.novinka-karta { container-type: inline-size; display: flex; flex-direction: column; padding: 0 0 1rem; border-radius: var(--zaobleni); background: var(--podklad); border: 1px solid var(--linka); overflow: hidden; }
+	.novinka-karta > :not(.novinka-karta-obrazek) { padding-inline: 1.1rem; }
+	.novinka-karta-obrazek img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+	.novinka-info { margin: 1rem 0 0.4rem; font-size: 0.85em; color: var(--text-tlumeny); }
+	.novinka-info a { color: inherit; }
+	.novinka-karta h2 { font-size: var(--krok-1); }
+	.novinka-karta h2 a { color: var(--text); text-decoration: none; }
+	.novinka-karta h2 a:hover { color: var(--akcent); }
+	.novinka-karta .perex { font-size: 1em; }
+	.novinka-karta .perex p:last-child { margin-bottom: 0; }
 	@container (min-width: 34rem) {
-		.karta h2 { font-size: var(--krok-2); }
+		.novinka-karta h2 { font-size: var(--krok-2); }
 	}
 	.vypis-stranky { margin-bottom: var(--mezera); }
 

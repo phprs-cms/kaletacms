@@ -107,6 +107,43 @@ kod=$(curl -s -b "$JAR2" -o "$PRACE/odpoved" -w '%{http_code}' "$B/admin.php?mod
 ocekavej "autor cizí novinku neotevře" "$(curl -s -b "$JAR2" -o /dev/null -w '%{http_code}' "$B/admin.php?modul=novinky&akce=edit&id=$NOVINKA")" 404
 ocekavej "autor nemá přístup ke stránkám" "$(curl -s -b "$JAR2" -o /dev/null -w '%{http_code}' "$B/admin.php?modul=stranky")" 403
 
+echo "== stavitel stránek"
+IDS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM rs_stranky WHERE seo_link = 'sluzby'")
+over "stavitel se otevře a převede textovou stránku" 200 "/admin.php?modul=stranky&akce=stavitel&id=$IDS" 'id="stavitel-data"'
+TOKEN=$(csrf)
+st() { curl -s -b "$JAR" -c "$JAR" -o "$PRACE/odpoved" -w '%{http_code}' -X POST "$B/admin.php?modul=stranky&akce=$1&id=$IDS" -d "_csrf=$TOKEN" "${@:2}"; }
+STAVBA='{"v":1,"deti":[{"id":"sek1","typ":"sekce","deti":[{"id":"nad1","typ":"nadpis","znacka":"h1","obsah":{"text":"Stavitel test"},"styl":{"zaklad":{"barva":"primarni"},"mobil":{"velikost_pisma":"2"}},"tridy":["karta"]},{"id":"faq1","typ":"faq","obsah":{"polozky":[{"otazka":"Kolik to stojí?","odpoved":"<p>Záleží na rozsahu.</p>"}]}},{"id":"zly1","typ":"skript"}]}]}'
+kod=$(st stavba_uloz --data-urlencode "stavba=$STAVBA")
+[ "$kod" = 200 ] && grep -q '"ok":true' "$PRACE/odpoved" && grep -q 'Neznámý typ prvku' "$PRACE/odpoved" && echo "  ok     uložení konceptu vrátí vyčištěnou stavbu a chyby" || { echo "  CHYBA  stavba_uloz: kód $kod"; CHYB=$((CHYB+1)); }
+ocekavej "neplatný JSON stavby odmítnut" "$(st stavba_uloz -d 'stavba={nesmysl')" 400
+ocekavej "stavitel bez CSRF odmítnut" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php?modul=stranky&akce=stavba_uloz&id=$IDS" --data-urlencode "stavba=$STAVBA")" 400
+ocekavej "knihovna sekcí jen přes POST" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?modul=stranky&akce=stavba_sekce&id=$IDS&klic=faq")" 404
+kod=$(st "stavba_sekce&klic=vyhody"); [ "$kod" = 200 ] && grep -q '"karta"' "$PRACE/odpoved" && echo "  ok     sekce z knihovny založí své třídy" || { echo "  CHYBA  stavba_sekce: kód $kod"; CHYB=$((CHYB+1)); }
+kod=$(st stavba_trida -d nazev=karta --data-urlencode 'styl={"zaklad":{"pozadi":"plocha","odsazeni_y":"l"}}' --data-urlencode 'css=letter-spacing: 0.01em; background: url(x)')
+[ "$kod" = 200 ] && grep -q 'Nepovolená deklarace' "$PRACE/odpoved" && echo "  ok     třída uložena, nebezpečné CSS zahozeno" || { echo "  CHYBA  stavba_trida: kód $kod"; CHYB=$((CHYB+1)); }
+ocekavej "neplatný název třídy odmítnut" "$(st stavba_trida -d 'nazev=Karta Velka')" 400
+rm -f "$PRACE"/web/storage/cache/stranky/*.html
+curl -s -o "$PRACE/odpoved" "$B/sluzby"; ! grep -q "Stavitel test" "$PRACE/odpoved" && echo "  ok     koncept není před publikováním na webu" || { echo "  CHYBA  koncept je na webu dřív, než se publikuje"; CHYB=$((CHYB+1)); }
+over "náhled konceptu pro editor" 200 "/sluzby?stavba=koncept&editor=1" 'data-mc-id="nad1"'
+over "náhled konceptu se neindexuje" 200 "/sluzby?stavba=koncept" 'noindex'
+curl -s -o "$PRACE/odpoved" "$B/sluzby?stavba=koncept&editor=1"; ! grep -q "Stavitel test" "$PRACE/odpoved" && echo "  ok     náhled konceptu nevidí návštěvník" || { echo "  CHYBA  koncept vidí nepřihlášený"; CHYB=$((CHYB+1)); }
+kod=$(st stavba_publikuj); ocekavej "publikování stavby" "$kod" 200
+rm -f "$PRACE"/web/storage/cache/stranky/*.html
+curl -s -o "$PRACE/odpoved" "$B/sluzby"
+grep -q '<h1 id="s-nad1" class="karta">Stavitel test</h1>' "$PRACE/odpoved" && echo "  ok     publikovaná stavba na webu, jedna značka na prvek" || { echo "  CHYBA  stavba na webu"; CHYB=$((CHYB+1)); }
+grep -q 'data-mc-id' "$PRACE/odpoved" && { echo "  CHYBA  značky editoru na veřejném webu"; CHYB=$((CHYB+1)); } || echo "  ok     bez značek editoru na veřejném webu"
+grep -q '@layer prvky' "$PRACE/odpoved" && grep -q '#s-nad1 { color: var(--mc-barva-primarni); }' "$PRACE/odpoved" && grep -q '.karta { background-color: var(--mc-barva-plocha)' "$PRACE/odpoved" && echo "  ok     CSS prvků a tříd ve vrstvách" || { echo "  CHYBA  CSS stavby"; CHYB=$((CHYB+1)); }
+grep -q '"FAQPage"' "$PRACE/odpoved" && echo "  ok     otázky a odpovědi jako strukturovaná data" || { echo "  CHYBA  FAQPage chybí"; CHYB=$((CHYB+1)); }
+st stavba_uloz --data-urlencode "stavba=${STAVBA/Stavitel test/Druhá verze}" > /dev/null; st stavba_publikuj > /dev/null
+ocekavej "předchozí publikovaná verze je v historii" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM rs_stavba_revize WHERE ids = $IDS")" 1
+IDR=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idr FROM rs_stavba_revize WHERE ids = $IDS")
+st stavba_obnov -d "idr=$IDR" > /dev/null; grep -q 'Stavitel test' "$PRACE/odpoved" && echo "  ok     obnovení verze do konceptu" || { echo "  CHYBA  stavba_obnov"; CHYB=$((CHYB+1)); }
+st stavba_zahod > /dev/null; grep -q 'Druhá verze' "$PRACE/odpoved" && echo "  ok     zahození změn vrátí publikovanou stavbu" || { echo "  CHYBA  stavba_zahod"; CHYB=$((CHYB+1)); }
+ocekavej "autor novinek do stavitele nesmí" "$(curl -s -b "$JAR2" -o /dev/null -w '%{http_code}' "$B/admin.php?modul=stranky&akce=stavitel&id=$IDS")" 403
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akce=stavba_text" -d "_csrf=$TOKEN" -d "ids=$IDS"
+rm -f "$PRACE"/web/storage/cache/stranky/*.html
+curl -s -o "$PRACE/odpoved" "$B/sluzby"; ! grep -q "Druhá verze" "$PRACE/odpoved" && grep -q 'class="obal obsah"' "$PRACE/odpoved" && echo "  ok     návrat stránky k textu" || { echo "  CHYBA  stavba_text"; CHYB=$((CHYB+1)); }
+
 # úprava přímo na webu: odkaz a formulář jen pro přihlášené s právem
 over "úprava na místě – odkaz" 200 /novinky/vitejte-v-mirocms "mc-upravit-zde"
 over "úprava na místě – formulář" 200 "/novinky/vitejte-v-mirocms?upravit=text" "mc-upravit-text"

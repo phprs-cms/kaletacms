@@ -184,9 +184,11 @@ final class Kernel
             return Response::json(['stav' => \MiroCMS\Core\Stav::souhrn($kontroly), 'verze' => MIROCMS_VERSION, 'cas' => date('c'), 'kontroly' => $kontroly]);
         }
 
-        $stranka = $this->app->db()->one('SELECT * FROM {stranky} WHERE seo_link = ? AND zobrazit = 1 AND jazyk = ?', [ltrim($path, '/'), Jazyk::sloupecWebu()]);
+        // skrytou stránku vidí jen náhled stavitele (kdo smí upravovat stránky)
+        $skryte = $request->get('stavba') === 'koncept' && $this->app->auth()->maModul('stranky');
+        $stranka = $this->app->db()->one('SELECT * FROM {stranky} WHERE seo_link = ? AND jazyk = ?' . ($skryte ? '' : ' AND zobrazit = 1'), [ltrim($path, '/'), Jazyk::sloupecWebu()]);
         if ($stranka !== null) {
-            if ((int) $stranka['ids'] === $this->idUvodu()) {
+            if ((int) $stranka['ids'] === $this->idUvodu() && !$skryte) {
                 return Response::redirect($this->app->url(''), 301); // úvodní stránka má jen jednu adresu – kořen webu
             }
 
@@ -218,11 +220,30 @@ final class Kernel
     private function zobrazStranku(array $stranka, string $cesta, bool $uvod = false): Response
     {
         $this->protejsek = ['stranky', 'ids', $stranka, ''];
+        // náhled rozpracované stavby pro editor: ?stavba=koncept (jen kdo smí upravovat stránky), &editor=1 přidá značky pro výběr prvků
+        $koncept = $this->app->request->get('stavba') === 'koncept' && $this->app->auth()->maModul('stranky');
+        $stavba = \MiroCMS\Stavitel\Stavba::zJson($koncept ? ($stranka['stavba_koncept'] ?? $stranka['stavba']) : $stranka['stavba']);
+        if ($stavba !== null) {
+            $editor = $koncept && $this->app->request->get('editor') === '1';
+            $vystup = \MiroCMS\Stavitel\Stavba::vykresli($this->app, $stavba, $editor);
+            if ($editor) {
+                // plátno stavitele se po každé změně načítá znovu – přechod mezi stránkami by jen blikal a v prohlížeči hlásil přerušení
+                $vystup['css'] .= '@view-transition{navigation:none}';
+            }
+            if (!$koncept && $this->app->auth()->maModul('stranky')) {
+                $this->upravitZde = $this->app->url('admin.php?modul=stranky&akce=stavitel&id=' . (int) $stranka['ids']);
+            }
+
+            return $this->stranka($uvod ? '' : $stranka['titulek'], $this->view->render('stranka', ['stranka' => $stranka, 'uvod' => $uvod, 'stavba' => $vystup['html']]), [
+                'popis' => $stranka['popis'] !== '' ? $stranka['popis'] : ($uvod ? $this->app->settings()->get('popis_webu') : ''),
+                'hlavni' => $uvod, 'stavba' => true, 'css' => $vystup['css'], 'faq' => $vystup['faq'], 'noindex' => $koncept,
+            ]);
+        }
         if (($formular = $this->upravaNaMiste('stranka', $stranka, $cesta)) !== null) {
             return $this->stranka($stranka['titulek'], $formular, ['noindex' => true]);
         }
 
-        return $this->stranka($uvod ? '' : $stranka['titulek'], $this->view->render('stranka', ['stranka' => $stranka, 'uvod' => $uvod]), [
+        return $this->stranka($uvod ? '' : $stranka['titulek'], $this->view->render('stranka', ['stranka' => $stranka, 'uvod' => $uvod, 'stavba' => null]), [
             'popis' => $stranka['popis'] !== '' ? $stranka['popis'] : ($uvod ? $this->app->settings()->get('popis_webu') : ''),
             'hlavni' => $uvod,
         ]);

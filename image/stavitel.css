@@ -1,0 +1,125 @@
+/* MiroCMS – stavitel stránek (admin.php?modul=stranky&akce=stavitel). Barvy z proměnných administrace (image/admin.css) – světlý i tmavý režim. */
+
+body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; overflow: hidden; background: var(--podklad); font: 14px/1.45 var(--pismo); color: var(--text); }
+.st { display: grid; grid-template: "lista lista lista" auto "levy platno pravy" 1fr / 272px 1fr 320px; height: 100vh; height: 100dvh; }
+.st[hidden] { display: none; }
+.st button, .st input, .st select, .st textarea { font: inherit; color: inherit; }
+
+/* horní lišta */
+.st-lista { grid-area: lista; display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 6px 12px; border-bottom: 1px solid var(--linka); background: var(--plocha); }
+.st-lista .st-nazev { display: flex; flex-direction: column; min-width: 0; margin-right: auto; line-height: 1.2; }
+.st-lista .st-nazev strong { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.st-lista .st-nazev small { color: var(--text-slaby); }
+.st-skupina { display: inline-flex; padding: 2px; border: 1px solid var(--linka); border-radius: 8px; background: var(--podklad); }
+.st-skupina button { display: grid; place-items: center; min-width: 34px; height: 30px; padding: 0 8px; border: 0; border-radius: 6px; background: none; cursor: pointer; }
+.st-skupina button[aria-pressed="true"] { background: var(--plocha); color: var(--akcent); box-shadow: 0 1px 2px rgb(0 0 0 / 0.12); }
+.st-skupina button:disabled { opacity: 0.35; cursor: default; }
+.st-stav { min-width: 150px; color: var(--text-slaby); font-size: 12px; text-align: right; }
+.st-stav.chyba { color: var(--chyba); }
+.st-ikona { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.st-tl { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border: 1px solid var(--linka-pole); border-radius: 8px; background: var(--plocha); text-decoration: none; cursor: pointer; white-space: nowrap; }
+.st-tl:hover { border-color: var(--akcent); }
+.st-tl-hlavni { border-color: var(--akcent); background: var(--akcent); color: var(--na-akcentu) !important; font-weight: 600; }
+.st-tl-hlavni:hover { background: var(--akcent-tmavy); }
+.st-tl:disabled { opacity: 0.45; cursor: default; }
+
+/* levý a pravý panel */
+.st-levy, .st-pravy { display: flex; flex-direction: column; min-height: 0; background: var(--plocha); }
+.st-levy { grid-area: levy; border-right: 1px solid var(--linka); }
+.st-pravy { grid-area: pravy; border-left: 1px solid var(--linka); }
+.st-zalozky { display: flex; gap: 2px; padding: 8px 8px 0; border-bottom: 1px solid var(--linka); }
+.st-zalozky button { flex: 1; padding: 8px 6px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--text-slaby); font-weight: 600; cursor: pointer; }
+.st-zalozky button[aria-selected="true"] { border-color: var(--akcent); color: var(--text); }
+.st-panel { flex: 1; min-height: 0; overflow: auto; padding: 12px; }
+.st-panel h3 { margin: 16px 0 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-slaby); }
+.st-panel h3:first-child { margin-top: 0; }
+.st-prazdno { padding: 24px 8px; color: var(--text-slaby); text-align: center; }
+
+/* Přidat */
+.st-prvky { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.st-prvky button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px; border: 1px solid var(--linka); border-radius: 8px; background: var(--podklad); font-size: 12px; cursor: pointer; }
+.st-prvky button:hover { border-color: var(--akcent); color: var(--akcent); }
+.st-knihovna { display: grid; gap: 6px; }
+.st-knihovna button { display: block; width: 100%; padding: 9px 10px; border: 1px solid var(--linka); border-radius: 8px; background: var(--podklad); text-align: left; cursor: pointer; }
+.st-knihovna button:hover { border-color: var(--akcent); }
+.st-knihovna small { display: block; color: var(--text-slaby); }
+.st-hledat { width: 100%; margin-bottom: 10px; padding: 7px 10px; border: 1px solid var(--linka-pole); border-radius: 8px; background: var(--plocha); }
+
+/* Struktura */
+.st-strom, .st-strom ul { margin: 0; padding: 0; list-style: none; }
+.st-strom ul { padding-left: 14px; }
+.st-uzel { display: flex; align-items: center; gap: 6px; padding: 5px 6px; border: 1px solid transparent; border-radius: 6px; cursor: pointer; user-select: none; }
+.st-uzel:hover { background: var(--podklad); }
+.st-uzel[aria-selected="true"] { background: var(--akcent-svetly); border-color: var(--akcent); color: var(--akcent-tmavy); }
+.st-uzel .st-ikona { flex: none; width: 16px; height: 16px; color: var(--text-slaby); }
+.st-uzel span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.st-uzel small { margin-left: auto; color: var(--text-slaby); font-size: 11px; }
+.st-uzel .st-sbalit { flex: none; width: 16px; padding: 0; border: 0; background: none; color: var(--text-slaby); cursor: pointer; }
+.st-uzel.cil-pred { box-shadow: inset 0 2px 0 var(--akcent); }
+.st-uzel.cil-za { box-shadow: inset 0 -2px 0 var(--akcent); }
+.st-uzel.cil-dovnitr { background: var(--akcent-svetly); border-color: var(--akcent); border-style: dashed; }
+
+/* plátno */
+.st-platno { grid-area: platno; position: relative; display: flex; justify-content: center; min-width: 0; overflow: auto; padding: 16px; background: color-mix(in srgb, var(--podklad) 70%, var(--linka)); }
+.st-ramec { position: relative; width: 100%; height: 100%; overflow: hidden; }
+/* šířku a zmenšení iframe počítá stavitel.js: počítač se vykresluje v šířce 1280 px a zmenší se, aby platily skutečné breakpointy */
+.st-ramec iframe { position: absolute; top: 0; left: 0; border: 0; border-radius: 8px; background: #fff; box-shadow: 0 1px 3px rgb(0 0 0 / 0.1), 0 8px 30px rgb(0 0 0 / 0.08); transform-origin: 0 0; }
+.st-ramec iframe.st-nacita { visibility: hidden; }
+.st-meritko { position: absolute; right: 22px; bottom: 20px; z-index: 2; padding: 2px 8px; border-radius: 999px; background: rgb(15 17 21 / 0.7); color: #fff; font-size: 11px; pointer-events: none; }
+
+/* vlastnosti */
+.st-hlava-prvku { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--linka); }
+.st-hlava-prvku strong { margin-right: auto; }
+.st-akce { display: flex; gap: 2px; }
+.st-akce button { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: none; cursor: pointer; }
+.st-akce button:hover { background: var(--podklad); }
+.st-akce button.nebezpecne:hover { color: var(--chyba); }
+.st-pole { display: grid; gap: 4px; margin-bottom: 12px; }
+.st-pole > span { font-size: 12px; font-weight: 600; color: var(--text-slaby); }
+.st-pole input:not([type=checkbox]), .st-pole select, .st-pole textarea { width: 100%; min-width: 0; padding: 6px 8px; border: 1px solid var(--linka-pole); border-radius: 6px; background: var(--plocha); }
+.st-pole textarea { min-height: 80px; resize: vertical; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+.st-pole .editor { font-size: 14px; }
+.st-pole .editor-plocha { min-height: 140px; max-height: 360px; overflow: auto; }
+.st-pole-radek { display: flex; gap: 6px; align-items: center; }
+.st-pole-radek > input { flex: 1; }
+.st-zaskrt { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.st-polozka { margin-bottom: 10px; padding: 10px; border: 1px solid var(--linka); border-radius: 8px; background: var(--podklad); }
+.st-polozka-akce { display: flex; justify-content: flex-end; gap: 4px; }
+.st-obrazek-nahled { display: block; max-width: 100%; max-height: 120px; margin-top: 4px; border-radius: 6px; }
+
+/* styl */
+.st-stav-stylu { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding: 8px 10px; border-radius: 8px; background: var(--akcent-svetly); color: var(--akcent-tmavy); font-size: 12px; }
+.st-stav-stylu button { margin-left: auto; }
+.st-styl details { border-bottom: 1px solid var(--linka); }
+.st-styl summary { padding: 9px 2px; font-weight: 600; cursor: pointer; }
+.st-styl summary small { margin-left: 6px; color: var(--akcent); font-weight: 700; }
+.st-styl details > div { padding: 4px 0 8px; }
+.st-vlastnost { display: grid; grid-template-columns: 1fr 132px; align-items: center; gap: 8px; margin-bottom: 6px; }
+.st-vlastnost label { font-size: 12px; color: var(--text-slaby); }
+.st-vlastnost.nastaveno label { color: var(--text); font-weight: 600; }
+.st-vlastnost .st-pole-radek { gap: 4px; }
+.st-vlastnost input, .st-vlastnost select { width: 100%; min-width: 0; padding: 4px 6px; border: 1px solid var(--linka-pole); border-radius: 6px; background: var(--plocha); font-size: 12px; }
+.st-vzorek { flex: none; width: 18px; height: 18px; border: 1px solid var(--linka-pole); border-radius: 4px; }
+.st-tridy { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.st-trida { display: inline-flex; align-items: center; gap: 2px; padding: 2px 4px 2px 8px; border-radius: 999px; background: var(--akcent-svetly); color: var(--akcent-tmavy); font-size: 12px; font-weight: 600; }
+.st-trida button { display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: none; color: inherit; cursor: pointer; }
+.st-trida button:hover { background: rgb(0 0 0 / 0.08); }
+.st-chyby { margin: 0 0 12px; padding: 8px 10px 8px 26px; border-radius: 8px; background: var(--chyba-podklad); color: var(--chyba); font-size: 12px; }
+
+.st-dialog { width: min(520px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--linka); border-radius: 12px; background: var(--plocha); color: var(--text); box-shadow: 0 20px 60px rgb(0 0 0 / 0.25); }
+.st-dialog::backdrop { background: rgb(15 17 21 / 0.45); }
+.st-dialog > div { padding: 16px 18px; }
+.st-dialog h2 { margin: 0 0 12px; font-size: 17px; }
+.st-dialog ul { margin: 0; padding: 0; list-style: none; max-height: 50vh; overflow: auto; }
+.st-dialog li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--linka); }
+.st-dialog footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--linka); }
+
+@media (max-width: 1100px) {
+	.st { grid-template-columns: 220px 1fr 272px; }
+	.st-lista .st-text, .st-lista .st-nazev small { display: none; }
+	.st-stav { min-width: 0; }
+}
+@media (max-width: 640px) {
+	.stavitel-telo { overflow: auto; }
+	.st { grid-template: "lista" auto "platno" 70vh "pravy" auto "levy" auto / 1fr; height: auto; }
+}

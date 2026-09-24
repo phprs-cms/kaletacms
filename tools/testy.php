@@ -504,5 +504,52 @@ over('StahovaniObrazku: limity podle zadání (15 MB, 3 přesměrování, 5 s sp
 $wpZdrojak = (string) file_get_contents(MIROCMS_ROOT . '/system/src/Core/StahovaniObrazku.php');
 over('StahovaniObrazku: přesměrování se nikdy nenásledují automaticky a nic se neposílá navíc', [substr_count($wpZdrojak, 'CURLOPT_FOLLOWLOCATION => false'), str_contains($wpZdrojak, "'follow_location' => 0"), (bool) preg_match('/CURLOPT_(COOKIE\w*|USERPWD|HTTPHEADER|HTTPAUTH)\b/', $wpZdrojak), str_contains($wpZdrojak, "'MiroCMS-import'")], [1, true, false, true]);
 
+/* ---------- stavitel: validátor, styl, design system, knihovna ---------- */
+[$stS, $stChyby] = MiroCMS\Stavitel\Stavba::vycisti(['deti' => [
+    ['typ' => 'nadpis', 'id' => 'abc', 'obsah' => ['text' => '<script>x</script>Ahoj <b>světe</b>']],
+    ['typ' => 'neznamy'],
+    ['typ' => 'html', 'obsah' => ['kod' => '<p>a</p>']],
+    ['typ' => 'tlacitko', 'obsah' => ['odkaz' => 'javascript:alert(1)']],
+    ['typ' => 'nadpis', 'id' => 'abc', 'deti' => [['typ' => 'text']]],
+]], false);
+over('Stavba::vycisti: skript z nadpisu pryč, tučné zůstane', $stS['deti'][0]['obsah']['text'], 'Ahoj <b>světe</b>');
+over('Stavba::vycisti: neznámý typ, cizí HTML a vnořené děti nadpisu vypadnou', array_map(fn (array $p): string => $p['typ'], $stS['deti']), ['nadpis', 'tlacitko', 'nadpis']);
+over('Stavba::vycisti: javascript: odkaz se zahodí a nahlásí', [$stS['deti'][1]['obsah']['odkaz'], isset($stChyby['deti[3].obsah.odkaz'])], ['', true]);
+over('Stavba::vycisti: duplicitní id dostane nové', $stS['deti'][2]['id'] !== 'abc', true);
+over('Stavba::vycisti: chyby mají cestu', array_keys($stChyby), ['deti[1]', 'deti[2]', 'deti[3].obsah.odkaz', 'deti[4].deti']);
+$stHtml = ['deti' => [['typ' => 'html', 'id' => 'h1x', 'obsah' => ['kod' => '<p onclick="x()">a</p><script>1</script><a href="javascript:x">b</a>']]]];
+[$stSpravce] = MiroCMS\Stavitel\Stavba::vycisti($stHtml, true);
+over('Stavba::vycisti: vlastní HTML správce bez skriptů a obsluh', $stSpravce['deti'][0]['obsah']['kod'], '<p>a</p><a href="#">b</a>');
+[$stEditor] = MiroCMS\Stavitel\Stavba::vycisti(['deti' => [['typ' => 'html', 'id' => 'h1x', 'obsah' => ['kod' => '<p>podvrh</p>']]]], false, $stSpravce);
+over('Stavba::vycisti: editor nezmění vlastní HTML správce, jen ho ponechá', $stEditor['deti'][0]['obsah']['kod'], '<p>a</p><a href="#">b</a>');
+$stHluboka = ['typ' => 'text'];
+for ($i = 0; $i < 20; $i++) {
+    $stHluboka = ['typ' => 'kontejner', 'deti' => [$stHluboka]];
+}
+[, $stChyby] = MiroCMS\Stavitel\Stavba::vycisti(['deti' => [$stHluboka]]);
+over('Stavba::vycisti: hloubka je omezená', count($stChyby), 1);
+[$stMnoho, $stChyby] = MiroCMS\Stavitel\Stavba::vycisti(['deti' => array_fill(0, 900, ['typ' => 'oddelovac'])]);
+over('Stavba::vycisti: počet prvků je omezený', [count($stMnoho['deti']), count($stChyby)], [MiroCMS\Stavitel\Stavba::MAX_PRVKU, 1]);
+over('Stavba::vycisti: obrázek jen z Médií nebo https', MiroCMS\Stavitel\Stavba::vycisti(['deti' => [['typ' => 'obrazek', 'obsah' => ['src' => 'http://x.cz/a.jpg']], ['typ' => 'obrazek', 'obsah' => ['src' => 'media/2026/a.jpg']]]])[0]['deti'][1]['obsah']['src'], 'media/2026/a.jpg');
+over('Stavba::zTextu: nadpis h1 a text', array_map(fn (array $p): string => $p['znacka'], MiroCMS\Stavitel\Stavba::zTextu('O nás', '<p>x</p>')['deti'][0]['deti']), ['h1', 'div']);
+$stStylChyby = [];
+over('Styl::vycisti: vloženo CSS, neznámá vlastnost a stav vypadnou', MiroCMS\Stavitel\Styl::vycisti(['zaklad' => ['barva' => 'red;}body{x:y', 'neznama' => '1', 'sirka' => '50%'], 'tisk' => []], 's', $stStylChyby), ['zaklad' => ['sirka' => '50%']]);
+over('Styl::vycisti: chyby', array_keys($stStylChyby), ['s.zaklad.barva', 's.zaklad.neznama', 's.tisk']);
+over('Styl::css: tokeny, sloupce, hover a breakpoint', MiroCMS\Stavitel\Styl::css('#s-a', ['zaklad' => ['odsazeni_y' => 'xl', 'barva' => 'primarni', 'sloupce' => '3'], 'mobil' => ['sloupce' => '1'], 'hover' => ['barva' => '#ff0000']]),
+    "#s-a { padding-block: var(--mc-mezera-xl); color: var(--mc-barva-primarni); grid-template-columns: repeat(3, minmax(0, 1fr)); }\n#s-a:hover { color: #ff0000; }\n@media (max-width: 767px) { #s-a { grid-template-columns: repeat(1, minmax(0, 1fr)); } }\n");
+$stZahozeno = [];
+over('Styl::vlastniCss: jen bezpečné deklarace', MiroCMS\Stavitel\Styl::vlastniCss('color:red; background:url(javascript:x); --mc-x: 1; @import url(x); width: expression(1); a{b:c}', $stZahozeno), 'color: red; --mc-x: 1;');
+over('Styl::vlastniCss: zahozené se hlásí', count($stZahozeno), 4);
+over('DesignSystem::kontrast: černá na bílé', round(MiroCMS\Stavitel\DesignSystem::kontrast('#ffffff', '#000000'), 1), 21.0);
+over('DesignSystem::css: pořadí vrstev na začátku', str_starts_with(MiroCMS\Stavitel\DesignSystem::css(MiroCMS\Stavitel\DesignSystem::VYCHOZI), MiroCMS\Stavitel\DesignSystem::VRSTVY), true);
+over('DesignSystem::vycisti: nesmysl nahradí výchozí', MiroCMS\Stavitel\DesignSystem::vycisti(['barvy' => ['primarni' => 'red;}']])['barvy']['primarni'], MiroCMS\Stavitel\DesignSystem::VYCHOZI['barvy']['primarni']);
+$stKnihovnaChyby = [];
+foreach (MiroCMS\Stavitel\Knihovna::seznam() as $stSekce) {
+    [, $stChyby] = MiroCMS\Stavitel\Stavba::vycisti(['deti' => [MiroCMS\Stavitel\Knihovna::sekci($stSekce['klic'])['prvek']]]);
+    $stKnihovnaChyby += array_map(fn (string $c): string => $stSekce['klic'] . ': ' . $c, $stChyby);
+}
+over('Knihovna: všechny hotové sekce projdou validátorem', $stKnihovnaChyby, []);
+over('Stavba::schema: bez vlastního HTML pro ne-správce', in_array('html', array_column(MiroCMS\Stavitel\Stavba::schema(false)['prvky'], 'typ'), true), false);
+
 echo $chyb === 0 ? "  ok     jednotkové testy ({$celkem})\n" : "  NALEZENO CHYB: {$chyb} z {$celkem}\n";
 exit($chyb === 0 ? 0 : 1);

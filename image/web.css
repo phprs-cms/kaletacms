@@ -1,5 +1,9 @@
 /* MiroCMS - společné styly webu pro všechny šablony: fotogalerie, prohlížečka fotek, video, sdílení, osnova, FAQ, úprava na webu.
- * Barvy bere z identity webu (--mc-akcent). Pravidla v :where() mají nulovou váhu – šablona je vždy přebije. */
+ * Barvy bere z identity webu (--mc-akcent). Vše je ve vrstvě „spolecne“ – šablona (vrstva „sablona“) ji přebije vždy, bez ohledu na specifičnost. */
+
+@layer tokeny, spolecne, sablona, stavitel, tridy, prvky;
+
+@layer spolecne {
 
 /* ---------- text jen pro čtečky obrazovky  ---------- */
 .mc-jen-ctecka { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
@@ -122,4 +126,5 @@ figure.galerie figcaption { grid-column: 1 / -1; }
 	:root[data-tmavy] img { filter: brightness(0.92); }
 	:root[data-tmavy] :is(.mc-sdileni a:hover, .mc-sdileni button:hover) { color: color-mix(in srgb, var(--mc-akcent, #1f4fe0) 55%, #FFFFFF); }
 	:root[data-tmavy] .mc-upravit-zde { border: 1px solid rgb(255 255 255 / 0.25); }
+}
 }

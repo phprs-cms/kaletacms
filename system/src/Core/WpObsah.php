@@ -54,6 +54,12 @@ final class WpObsah
         return self::povoleneHtml($html);
     }
 
+    /** Text pro stavitel (prvek Text, odpovědi FAQ…): stejný povolovací seznam značek jako editor, bez převodů z WordPressu. */
+    public static function bezpecneHtml(string $html): string
+    {
+        return self::povoleneHtml($html);
+    }
+
     /**
      * Perex a text článku. Perex je ruční výtah z WordPressu; když chybí, vezme se část před značkou „Číst dál“ (<!--more-->),
      * a když není ani ta, první odstavec textu – ten se pak v textu neopakuje.

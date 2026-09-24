@@ -53,9 +53,9 @@ final class Kernel
             ]), 400);
         }
 
-        // každá změna v administraci zneplatní cache stránek webu; průběžné požadavky editoru (rozepsaný stav, asistent)
-        // web nemění - kdyby cache mazaly, při psaní by byla pořád studená
-        if ($request->isPost() && !in_array($request->get('akce'), ['koncept', 'asistent'], true)) {
+        // každá změna v administraci zneplatní cache stránek webu; průběžné požadavky editorů (rozepsaný stav, asistent,
+        // koncept stavby) web nemění - kdyby cache mazaly, při práci by byla pořád studená
+        if ($request->isPost() && !in_array($request->get('akce'), ['koncept', 'asistent', 'stavba_uloz'], true)) {
             \MiroCMS\Front\Cache::vymaz();
         }
         $akce = $request->get('akce');

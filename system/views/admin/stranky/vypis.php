@@ -17,11 +17,11 @@ $uvod = $app->settings()->int('titulni_stranka');
 <tbody>
 <?php foreach ($stranky as $s): ?>
 <tr<?= $s['zobrazit'] ? '' : ' class="nevydany"' ?>>
-	<td><a href="<?= e($modul->url('edit', ['id' => $s['ids']])) ?>"><?= e($s['titulek']) ?></a><?= (int) $s['ids'] === $uvod ? ' <span class="stitek">' . e(t('úvodní')) . '</span>' : '' ?></td>
+	<td><a href="<?= e($modul->url('edit', ['id' => $s['ids']])) ?>"><?= e($s['titulek']) ?></a><?= (int) $s['ids'] === $uvod ? ' <span class="stitek">' . e(t('úvodní')) . '</span>' : '' ?><?= $s['stavba'] !== null ? ' <span class="stitek stitek-vydano">' . e(t('stavba')) . '</span>' : '' ?><?= $s['stavba_koncept'] !== null ? ' <span class="stitek stitek-koncept">' . e(t('neuložené změny')) . '</span>' : '' ?></td>
 	<td><?php $cesta = (int) $s['ids'] === $uvod ? '' : $s['seo_link']; ?><a href="<?= e($app->url($cesta)) ?>" target="_blank" rel="noopener">/<?= e($cesta) ?></a></td>
 	<td><span class="stitek stitek-<?= $s['zobrazit'] ? 'vydano' : 'koncept' ?>"><?= e(t($s['zobrazit'] ? 'zveřejněná' : 'skrytá')) ?></span></td>
 	<td><?= e(t($s['v_menu'] ? 'Ano' : 'Ne')) ?></td>
-	<td class="akce"><a href="<?= e($modul->url('edit', ['id' => $s['ids']])) ?>"><?= e(t('Upravit')) ?></a> ·
+	<td class="akce"><a href="<?= e($modul->url('stavitel', ['id' => $s['ids']])) ?>"><?= e(t('Stavitel')) ?></a> · <a href="<?= e($modul->url('edit', ['id' => $s['ids']])) ?>"><?= e(t('Nastavení')) ?></a> ·
 		<form class="vradku" method="post" action="<?= e($modul->url('smaz')) ?>" data-potvrdit="<?= e(t('Opravdu smazat stránku?')) ?>"><?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $s['ids'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form></td>
 </tr>
 <?php endforeach ?>

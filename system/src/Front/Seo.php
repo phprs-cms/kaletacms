@@ -194,6 +194,8 @@ final class Seo
         if ($s->bool('schema_org')) {
             $h[] = '<script type="application/ld+json">' . json_encode($this->strukturovanaData($titulek, $meta, $clanek), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) . '</script>';
         }
+        // design systém (tokeny a pořadí vrstev kaskády) a styl stavby stránky, pokud jde o stránku ze stavitele
+        $h[] = '<style>' . \MiroCMS\Stavitel\DesignSystem::css(\MiroCMS\Stavitel\DesignSystem::nacti($s)) . ($meta['css'] ?? '') . '</style>';
         $h[] = Identita::hlava($s, $this->app->request->basePath());
         // společné prvky webu (fotogalerie, prohlížečka fotek, video, sdílení…) pro všechny šablony
         $verze = rawurlencode(MIROCMS_VERSION);
@@ -309,6 +311,12 @@ final class Seo
             'logo' => $s->get('logo_webu') !== '' ? $this->absolutni($s->get('logo_webu')) : null,
             'sameAs' => array_values(array_filter(array_map($s->get(...), ['soc_facebook', 'soc_instagram', 'soc_x', 'soc_youtube', 'soc_linkedin']))) ?: null,
         ]);
+        if ($clanek === null && !empty($meta['faq'])) {
+            // stránka ze stavitele s otázkami a odpověďmi
+            return ['@context' => 'https://schema.org', '@type' => 'FAQPage', 'mainEntity' => array_map(fn (array $d): array => [
+                '@type' => 'Question', 'name' => $d[0], 'acceptedAnswer' => ['@type' => 'Answer', 'text' => $d[1]],
+            ], $meta['faq'])];
+        }
         if ($clanek === null) {
             return ['@context' => 'https://schema.org', '@type' => 'WebSite', 'name' => $s->get('nazev_webu'), 'url' => $this->web,
                 'description' => $s->get('popis_webu'), 'inLanguage' => \MiroCMS\Core\Jazyk::kod(), 'publisher' => $vydavatel,

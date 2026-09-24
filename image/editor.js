@@ -545,7 +545,8 @@
 		});
 	});
 
-	window.mirocmsVytvorEditor = vytvorEditor; // vizuální editor bloků si editor vytváří sám nad dynamickým polem
+	window.mirocmsVytvorEditor = vytvorEditor; // stavitel stránek si editor vytváří sám nad dynamickým polem
+	window.mirocmsVyberObrazek = vyberObrazek; // výběr obrázku z Médií pro stavitel (zpětné volání dostane {url, nazev, …})
 
 	var editory = Array.prototype.map.call(document.querySelectorAll('textarea[data-editor]'), vytvorEditor);
 	var formKoncept = document.querySelector('form[data-koncept]');

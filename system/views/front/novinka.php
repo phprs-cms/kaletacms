@@ -10,7 +10,7 @@
 ?>
 <article class="novinka">
 	<header>
-		<p class="karta-info">
+		<p class="novinka-info">
 			<time datetime="<?= e(date('c', strtotime($novinka['datum']))) ?>"><?= e(datum($novinka['datum'])) ?></time>
 			· <a href="<?= e($url('novinky/kategorie/' . $novinka['tema_seo'])) ?>"><?= e($novinka['tema_jm']) ?></a>
 <?php if ($novinka['autor_jm'] !== null): ?>

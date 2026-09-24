@@ -216,8 +216,32 @@ CREATE TABLE rs_stranky (
     zmeneno  DATETIME NULL,
     jazyk          CHAR(2) NOT NULL DEFAULT '',            -- jazyková verze; '' = výchozí jazyk webu
     preklad_z      INT UNSIGNED NULL,                      -- protějšek ve výchozím jazyce (hreflang, přepínač jazyků)
+    stavba         MEDIUMTEXT NULL,                        -- publikovaná stavba (JSON strom prvků stavitele); NULL = textová stránka
+    stavba_koncept MEDIUMTEXT NULL,                        -- rozpracovaná stavba z editoru; NULL = žádné neuložené změny
     PRIMARY KEY (ids),
     UNIQUE KEY uq_stranky_seo (seo_link)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- Publikované verze staveb (posledních 20 na stránku)
+CREATE TABLE rs_stavba_revize (
+    idr    INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    ids    INT UNSIGNED NOT NULL,
+    datum  DATETIME NOT NULL,
+    kdo    INT UNSIGNED NULL,
+    stavba MEDIUMTEXT NOT NULL,
+    PRIMARY KEY (idr),
+    KEY ix_stavba_revize (ids, idr),
+    CONSTRAINT fk_stavba_revize_stranka FOREIGN KEY (ids) REFERENCES rs_stranky (ids) ON DELETE CASCADE,
+    CONSTRAINT fk_stavba_revize_kdo FOREIGN KEY (kdo) REFERENCES rs_user (idu) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- Sdílené třídy stavitele: styl po breakpointech a stavech (JSON jako styl prvku) + volitelné vlastní CSS
+CREATE TABLE rs_tridy (
+    nazev  VARCHAR(60) NOT NULL,                          -- název třídy v HTML (malá písmena, číslice, pomlčky, __)
+    styl   TEXT NOT NULL,                                 -- {"zaklad": {...}, "tablet": {...}, "mobil": {...}, "hover": {...}}
+    css    TEXT NULL,                                     -- vlastní deklarace (jen bezpečné, viz Stavitel\Styl::vlastniCss)
+    zmeneno DATETIME NULL,
+    PRIMARY KEY (nazev)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- ---------------------------------------------------------------------------

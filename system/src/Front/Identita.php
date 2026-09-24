@@ -35,20 +35,10 @@ final class Identita
         'grotesk' => ['Grotesk', 'Helvetica, Arial', '"Helvetica Neue", Helvetica, "Arial Nova", Arial, sans-serif'],
     ];
 
-    /** Značky do <head>: proměnné identity a ikona webu. Bez nastavení nevrací nic - šablona vypadá jako z krabice. */
+    /** Ikona webu do <head>. Barvy a písma webu vypisuje design systém (Stavitel\DesignSystem). */
     public static function hlava(Settings $web, string $zaklad): string
     {
-        $promenne = [];
-        if (preg_match('/^#[0-9a-f]{6}$/i', $web->get('brand_akcent'))) {
-            $promenne[] = '--mc-akcent: ' . $web->get('brand_akcent');
-        }
-        foreach (['brand_pismo_titulky' => [self::PISMA_TITULKU, '--mc-pismo-titulky'], 'brand_pismo_text' => [self::PISMA_TEXTU, '--mc-pismo-text']] as $klic => [$pisma, $promenna]) {
-            $css = $pisma[$web->get($klic)][2] ?? '';
-            if ($css !== '') {
-                $promenne[] = $promenna . ': ' . $css;
-            }
-        }
-        $html = $promenne === [] ? '' : '<style>:root { ' . implode('; ', $promenne) . "; }</style>\n";
+        $html = '';
         $ikona = $web->get('favicon');
         if ($ikona !== '') {
             $html .= '<link rel="icon" href="' . e((preg_match('#^(https?:)?/#', $ikona) ? '' : $zaklad . '/') . $ikona) . "\">\n";

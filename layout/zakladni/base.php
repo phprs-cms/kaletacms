@@ -5,7 +5,7 @@
  *
  * @var MiroCMS\Core\Settings $web
  * @var string $titulek  prázdný na úvodní stránce
- * @var array{hlavni:bool, popis:string, klicova_slova:string, obrazek:string, typ:string, noindex:bool} $meta
+ * @var array{hlavni:bool, popis:string, klicova_slova:string, obrazek:string, typ:string, noindex:bool, stavba?:bool} $meta  stavba = stránka ze stavitele (sekce přes celou šířku)
  * @var string $obsah  hotové HTML obsahu stránky (stránka, výpis novinek, novinka…)
  * @var callable(string): string $url
  * @var string $kanonicka
@@ -61,7 +61,7 @@ $site = array_filter(['LinkedIn' => $web->get('soc_linkedin'), 'Facebook' => $we
 		</nav>
 	</div>
 </header>
-<main id="obsah" class="obal obsah">
+<main id="obsah" class="<?= empty($meta['stavba']) ? 'obal obsah' : 'stavba' ?>">
 <?= $obsah ?>
 </main>
 <footer class="paticka">

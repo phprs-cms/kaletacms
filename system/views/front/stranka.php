@@ -4,7 +4,13 @@
  *
  * @var array<string, mixed> $stranka
  * @var bool $uvod  stránka je úvodem webu
+ * @var string|null $stavba  hotové HTML stránky ze stavitele (sekce jdou přes celou šířku, bez obalu)
  */
+if ($stavba !== null) {
+    echo $stavba;
+
+    return;
+}
 ?>
 <article class="stranka<?= $uvod ? ' stranka-uvod' : '' ?>">
 <?php if (!$uvod): ?>
