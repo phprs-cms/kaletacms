@@ -139,6 +139,7 @@ final class DesignSystem
         $v = self::VYCHOZI;
         $cisty = [
             'barvy' => [], 'barvy_tmave' => [],
+            'vlastni_pisma' => self::vlastniPisma($ds['vlastni_pisma'] ?? []),
             'pismo_titulky' => isset(Identita::PISMA_TITULKU[$ds['pismo_titulky'] ?? '']) && $ds['pismo_titulky'] !== 'vychozi' ? $ds['pismo_titulky'] : $v['pismo_titulky'],
             'pismo_text' => isset(Identita::PISMA_TEXTU[$ds['pismo_text'] ?? '']) && $ds['pismo_text'] !== 'vychozi' ? $ds['pismo_text'] : $v['pismo_text'],
             'zaklad_min' => $cislo($ds['zaklad_min'] ?? null, 0.8, 1.5, $v['zaklad_min']),
@@ -149,6 +150,12 @@ final class DesignSystem
             'sirka_textu' => $cislo($ds['sirka_textu'] ?? null, 28, 60, $v['sirka_textu']),
             'zaobleni' => isset(self::ZAOBLENI[$ds['zaobleni'] ?? '']) ? $ds['zaobleni'] : $v['zaobleni'],
         ];
+        // vlastní písmo (vlastni-1…3) jde vybrat jen, když je nahrané
+        foreach (['pismo_titulky', 'pismo_text'] as $klic) {
+            if (preg_match('/^vlastni-([1-3])$/', (string) ($ds[$klic] ?? ''), $m) && isset($cisty['vlastni_pisma'][(int) $m[1] - 1])) {
+                $cisty[$klic] = $ds[$klic];
+            }
+        }
         foreach (self::BARVY as $klic => $_) {
             $cisty['barvy'][$klic] = $barva($ds['barvy'][$klic] ?? null, $v['barvy'][$klic]);
         }
@@ -159,9 +166,46 @@ final class DesignSystem
         return $cisty;
     }
 
-    /** Tokeny jako CSS proměnné v první vrstvě kaskády; šablona a stavitel je jen používají. */
-    public static function css(array $ds): string
+    /**
+     * Vlastní písma webu (soubory WOFF2 z Médií, hostované na vlastním serveru – žádné cizí servery ani souhlas).
+     *
+     * @return list<array{nazev: string, soubor: string, tucny: string}>
+     */
+    private static function vlastniPisma(mixed $pisma): array
     {
+        $soubor = fn (mixed $v): string => is_string($v) && preg_match('#^/?(media/[A-Za-z0-9/_.-]{1,200}\.woff2?)$#', trim($v), $m) && !str_contains($m[1], '..') ? $m[1] : '';
+        $vysledek = [];
+        foreach (array_slice(is_array($pisma) ? $pisma : [], 0, 3) as $p) {
+            $nazev = is_array($p) ? trim((string) preg_replace('/[^\p{L}\p{N} -]/u', '', (string) ($p['nazev'] ?? ''))) : '';
+            if ($nazev !== '' && ($s = $soubor($p['soubor'] ?? null)) !== '') {
+                $vysledek[] = ['nazev' => mb_substr($nazev, 0, 40), 'soubor' => $s, 'tucny' => $soubor($p['tucny'] ?? null)];
+            }
+        }
+
+        return $vysledek;
+    }
+
+    /** Hodnota font-family pro zvolené písmo (i vlastní); záloha je systémové písmo stejného charakteru. */
+    public static function rodina(array $ds, string $klic, bool $titulky): string
+    {
+        if (preg_match('/^vlastni-([1-3])$/', $klic, $m) && isset($ds['vlastni_pisma'][(int) $m[1] - 1])) {
+            return '"' . $ds['vlastni_pisma'][(int) $m[1] - 1]['nazev'] . '", system-ui, -apple-system, "Segoe UI", sans-serif';
+        }
+
+        return ($titulky ? Identita::PISMA_TITULKU : Identita::PISMA_TEXTU)[$klic][2] ?? 'system-ui, sans-serif';
+    }
+
+    /** Tokeny jako CSS proměnné v první vrstvě kaskády; šablona a stavitel je jen používají. $zaklad = složka instalace (pro soubory písem). */
+    public static function css(array $ds, string $zaklad = ''): string
+    {
+        $pisma = '';
+        foreach ($ds['vlastni_pisma'] ?? [] as $p) {
+            // jeden soubor = běžný řez (i variabilní písmo se všemi tloušťkami), druhý případně tučný
+            $pisma .= '@font-face { font-family: "' . $p['nazev'] . '"; src: url("' . $zaklad . '/' . $p['soubor'] . '") format("woff2"); font-weight: ' . ($p['tucny'] !== '' ? '400' : '100 900') . '; font-display: swap; }' . "\n";
+            if ($p['tucny'] !== '') {
+                $pisma .= '@font-face { font-family: "' . $p['nazev'] . '"; src: url("' . $zaklad . '/' . $p['tucny'] . '") format("woff2"); font-weight: 600 900; font-display: swap; }' . "\n";
+            }
+        }
         $b = $ds['barvy'];
         $p = [
             '--mc-barva-primarni' => $b['primarni'], '--mc-barva-sekundarni' => $b['sekundarni'], '--mc-barva-text' => $b['text'],
@@ -174,8 +218,8 @@ final class DesignSystem
             '--mc-barva-linka' => 'color-mix(in oklch, var(--mc-barva-text) 14%, var(--mc-barva-pozadi))',
             '--mc-barva-primarni-jemna' => 'color-mix(in oklch, var(--mc-barva-primarni) 12%, var(--mc-barva-pozadi))',
             '--mc-akcent' => 'var(--mc-barva-primarni)', // starší jméno z Identity webu
-            '--mc-pismo-text' => Identita::PISMA_TEXTU[$ds['pismo_text']][2],
-            '--mc-pismo-titulky' => Identita::PISMA_TITULKU[$ds['pismo_titulky']][2],
+            '--mc-pismo-text' => self::rodina($ds, $ds['pismo_text'], false),
+            '--mc-pismo-titulky' => self::rodina($ds, $ds['pismo_titulky'], true),
             '--mc-sirka' => $ds['sirka'] . 'rem', '--mc-sirka-textu' => $ds['sirka_textu'] . 'rem',
             '--mc-zaobleni' => 'var(--mc-zaobleni-' . $ds['zaobleni'] . ')',
         ];
@@ -195,7 +239,7 @@ final class DesignSystem
         $radky = array_map(fn (string $k, string $h): string => "\t{$k}: {$h};", array_keys($p), $p);
         $tmave = array_map(fn (string $k, string $h): string => "\t\t--mc-barva-{$k}: {$h};", array_keys($ds['barvy_tmave']), $ds['barvy_tmave']);
 
-        return self::VRSTVY . "\n@layer tokeny {\n:root {\n" . implode("\n", $radky) . "\n}\n"
+        return self::VRSTVY . "\n" . $pisma . "@layer tokeny {\n:root {\n" . implode("\n", $radky) . "\n}\n"
             . "@media (prefers-color-scheme: dark) {\n\t:root[data-tmavy] {\n" . implode("\n", $tmave) . "\n\t}\n}\n}\n";
     }
 

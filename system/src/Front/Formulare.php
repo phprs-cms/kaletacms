@@ -57,7 +57,24 @@ final class Formulare
 
         $data = [];
         $email = '';
+        $prilohy = [];
         foreach ($prvek['obsah']['pole'] as $i => $pole) {
+            if ($pole['typ'] === 'soubor') {
+                $soubor = $_FILES['p' . $i] ?? null;
+                $nahrany = is_array($soubor) && ($soubor['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && is_uploaded_file((string) $soubor['tmp_name']);
+                $pripona = $nahrany ? strtolower(pathinfo((string) $soubor['name'], PATHINFO_EXTENSION)) : '';
+                if ($nahrany && (!in_array($pripona, Formular::PRIPONY_PRILOH, true) || (int) $soubor['size'] > Formular::MAX_PRILOHA)) {
+                    return $navrat('pole', $i);
+                }
+                if (!$nahrany && $pole['povinne']) {
+                    return $navrat('pole', $i);
+                }
+                $data[] = [$pole['popisek'], $nahrany ? mb_substr(basename((string) $soubor['name']), 0, 120) . ' (' . \MiroCMS\Core\Soubory::velikost((int) $soubor['size']) . ')' : ''];
+                if ($nahrany) {
+                    $prilohy[count($data) - 1] = [(string) $soubor['tmp_name'], $pripona];
+                }
+                continue;
+            }
             $hodnota = trim(str_replace("\r\n", "\n", $r->post('p' . $i)));
             $hodnota = match ($pole['typ']) {
                 'textarea' => mb_substr($hodnota, 0, 5000),
@@ -78,6 +95,14 @@ final class Formulare
             $data[] = [$pole['popisek'], $hodnota];
         }
         $antispam->zapis($r->ip(), 'formular', 0);
+        // přílohy mimo veřejné složky (storage/ je z webu nepřístupné); stáhne je jen přihlášený v Poptávkách
+        foreach ($prilohy as $index => [$tmp, $pripona]) {
+            $cesta = date('Y/m') . '/' . bin2hex(random_bytes(12)) . '.' . $pripona;
+            $cil = MIROCMS_ROOT . '/storage/prilohy/' . $cesta;
+            if ((is_dir(dirname($cil)) || mkdir(dirname($cil), 0775, true)) && move_uploaded_file($tmp, $cil)) {
+                $data[$index][2] = $cesta;
+            }
+        }
 
         $db = $this->app->db();
         $idp = $db->insert('poptavky', [

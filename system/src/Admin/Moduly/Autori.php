@@ -88,7 +88,14 @@ final class Autori extends Modul
             $chyby['email'] = 'E-mail nemá platný tvar.';
         }
         $heslo = $r->post('password');
-        if ($heslo !== '' || $id === 0) {
+        $pozvat = $id === 0 && $r->postBool('pozvat');
+        if ($pozvat && $data['email'] === '') {
+            $chyby['email'] = 'Pozvánka potřebuje e-mail.';
+        }
+        if ($pozvat && $heslo === '') {
+            // pozvaný si heslo nastaví sám z odkazu v e-mailu; do té doby se nepřihlásí (náhodné heslo nikdo nezná)
+            $data['password'] = password_hash(bin2hex(random_bytes(24)), PASSWORD_DEFAULT);
+        } elseif ($heslo !== '' || $id === 0) {
             if (mb_strlen($heslo) < 10) {
                 $chyby['password'] = 'Heslo musí mít alespoň 10 znaků.';
             } else {
@@ -116,7 +123,25 @@ final class Autori extends Modul
             }
         });
 
+        if ($pozvat) {
+            (new \MiroCMS\Admin\ObnovaHesla($this->app))->posliOdkaz(['idu' => $id] + $data, 'pozvanka');
+
+            return $this->zpet(t('Uživatel je založený a pozvánka odešla na %s.', $data['email']));
+        }
+
         return $this->zpet('Uživatel byl uložen.');
+    }
+
+    /** Správce pošle uživateli odkaz na nastavení nového hesla (platí 3 dny). */
+    protected function akceOdkazHesla(): Response
+    {
+        $user = $this->request->isPost() ? $this->db->one("SELECT * FROM {uzivatele} WHERE idu = ? AND email <> '' AND blokovat = 0", [$this->request->postInt('idu')]) : null;
+        if ($user === null) {
+            return $this->zpet('Uživatel nemá e-mail nebo je zablokovaný.', '', [], 'chyba');
+        }
+        (new \MiroCMS\Admin\ObnovaHesla($this->app))->posliOdkaz($user, 'spravce');
+
+        return $this->zpet(t('Odkaz na nové heslo odešel na %s.', $user['email']));
     }
 
     /**

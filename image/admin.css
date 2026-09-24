@@ -1235,3 +1235,10 @@ body.login {
 .menu-pridat legend { padding: 0 4px; font-weight: 600; }
 .napoveda-inline { margin-inline-end: 2px; color: var(--text-slaby); font-size: 14px; }
 .odsazeni-stromu { display: inline-block; color: var(--text-slaby); }
+
+/* Média: ohnisko ořezu – klepnutí do náhledu */
+.ohnisko { position: relative; display: inline-block; max-width: 320px; margin-bottom: 8px; cursor: crosshair; }
+.ohnisko img { display: block; max-width: 100%; border-radius: 6px; }
+.ohnisko-bod { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 2px var(--akcent), 0 2px 6px rgb(0 0 0 / .4); pointer-events: none; }
+.pole-vedle { display: flex; flex-wrap: wrap; gap: 6px; }
+.pole-vedle .textpole { flex: 1 1 12rem; min-width: 0; }

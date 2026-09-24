@@ -6,6 +6,7 @@
  * @var array<string, array{navstevy:int, zobrazeni:int}> $graf
  * @var bool $zapnuto
  * @var list<array<string, mixed>> $clanky
+ * @var list<array{cesta: string, pocet: int}> $stranky
  * @var list<array<string, mixed>> $zdroje
  */
 $max = max(1, ...array_column($graf, 'zobrazeni'));
@@ -34,6 +35,16 @@ $zobrazeni = array_sum(array_column($graf, 'zobrazeni'));
 <p class="smltxt"><?= e(datum(array_key_first($graf))) ?> – <?= e(datum(array_key_last($graf))) ?> · <?= e(t('světlá část sloupce jsou zobrazení stránek, tmavá návštěvy. Měření nepoužívá cookies a neukládá IP adresy; roboty nepočítá.')) ?></p>
 
 <div class="stat-tabulky">
+<div>
+<h3><?= e(t('Nejnavštěvovanější stránky')) ?></h3>
+<?php if ($stranky === []): ?><p><?= e(t('Zatím žádná data.')) ?></p><?php else: ?>
+<div class="tab-obal"><table class="vypis"><tbody>
+<?php foreach ($stranky as $st): ?>
+<tr><td><a href="<?= e($st['cesta']) ?>" target="_blank" rel="noopener"><?= e($st['cesta']) ?></a></td><td class="cislo"><?= pocet((int) $st['pocet']) ?>×</td></tr>
+<?php endforeach ?>
+</tbody></table></div>
+<?php endif ?>
+</div>
 <div>
 <h3><?= e(t('Nejčtenější novinky')) ?></h3>
 <?php if ($clanky === []): ?><p><?= e(t('Zatím žádná data.')) ?></p><?php else: ?>

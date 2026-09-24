@@ -291,4 +291,17 @@
 			d.querySelector('summary').focus();
 		});
 	});
+	// Média: ohnisko ořezu – klepnutím do náhledu se nastaví obě pole (v procentech)
+	document.querySelectorAll('[data-ohnisko]').forEach(function (box) {
+		var formular = box.closest('form');
+		box.addEventListener('click', function (e) {
+			var r = box.getBoundingClientRect();
+			var x = Math.round((e.clientX - r.left) / r.width * 100);
+			var y = Math.round((e.clientY - r.top) / r.height * 100);
+			formular.elements.ohnisko_x.value = x;
+			formular.elements.ohnisko_y.value = y;
+			box.querySelector('.ohnisko-bod').style.left = x + '%';
+			box.querySelector('.ohnisko-bod').style.top = y + '%';
+		});
+	});
 })();

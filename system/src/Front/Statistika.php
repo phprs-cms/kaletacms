@@ -33,6 +33,9 @@ final class Statistika
         if ($idc !== null) {
             $db->run('INSERT INTO {stat_novinky} (den, idc, pocet) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE pocet = pocet + 1', [$dnes, $idc]);
         }
+        // zobrazení po adresách (i s jazykovou verzí) – nejčtenější stránky v administraci
+        $cesta = mb_substr((string) parse_url($app->url(ltrim($app->request->path(), '/')), PHP_URL_PATH), 0, 255);
+        $db->run('INSERT INTO {stat_stranky} (den, cesta, pocet) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE pocet = pocet + 1', [$dnes, $cesta]);
         $zdroj = strtolower((string) parse_url((string) ($server['HTTP_REFERER'] ?? ''), PHP_URL_HOST));
         $zdroj = preg_replace('/^www\./', '', $zdroj) ?? '';
         // vlastní web je nastavená adresa webu, ne hlavička Host – tu si může klient napsat, jak chce
@@ -42,6 +45,7 @@ final class Statistika
         }
         if (random_int(1, 200) === 1) {
             $db->run('DELETE FROM {stat_navstevnici} WHERE den < CURDATE() - INTERVAL 1 DAY');
+            $db->run('DELETE FROM {stat_stranky} WHERE den < CURDATE() - INTERVAL 400 DAY');
         }
     }
 }

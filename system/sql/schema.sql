@@ -140,6 +140,7 @@ CREATE TABLE mc_media (
     nahl_width  SMALLINT UNSIGNED NOT NULL DEFAULT 0,
     nahl_height SMALLINT UNSIGNED NOT NULL DEFAULT 0,
     barva       CHAR(7) NOT NULL DEFAULT '',               -- převládající barva (#rrggbb) jako podklad před načtením; '' = nespočítáno, '-' = nejde zjistit
+    ohnisko     VARCHAR(12) NOT NULL DEFAULT '',           -- střed ořezu (object-position), např. „50% 30%“; '' = střed
     datum       DATETIME NOT NULL,
     PRIMARY KEY (ido),
     KEY ix_imggal_datum (datum),
@@ -275,6 +276,7 @@ CREATE TABLE mc_presmerovani (
     idp       INT UNSIGNED NOT NULL AUTO_INCREMENT,
     z_adresy  VARCHAR(255) NOT NULL,                     -- cesta na webu bez úvodního lomítka: clanek/stara-adresa
     na_adresu VARCHAR(255) NOT NULL,                     -- cesta na webu, nebo celá adresa https://...
+    typ       SMALLINT UNSIGNED NOT NULL DEFAULT 301,    -- 301 trvalé, 302 dočasné
     pocet     INT UNSIGNED NOT NULL DEFAULT 0,           -- kolikrát bylo přesměrování použito
     vytvoreno DATETIME NOT NULL,
     PRIMARY KEY (idp),
@@ -312,6 +314,13 @@ CREATE TABLE mc_stat_novinky (
     KEY ix_stat_clanky_idc (idc),
     CONSTRAINT fk_stat_clanek FOREIGN KEY (idc) REFERENCES mc_novinky (idc) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+CREATE TABLE mc_stat_stranky (
+    den   DATE NOT NULL,
+    cesta VARCHAR(255) NOT NULL,
+    pocet INT UNSIGNED NOT NULL DEFAULT 0,
+    PRIMARY KEY (den, cesta)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
 CREATE TABLE mc_stat_zdroje (
     den   DATE NOT NULL,
     zdroj VARCHAR(100) NOT NULL,                          -- doména, ze které návštěvník přišel
@@ -443,6 +452,8 @@ CREATE TABLE mc_poptavky (
     email    VARCHAR(190) NOT NULL DEFAULT '',
     data     MEDIUMTEXT NOT NULL,
     stav     TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    poznamka TEXT NULL,                               -- interní poznámka (návštěvník ji nevidí)
+    prirazeno INT UNSIGNED NULL,                      -- kdo z uživatelů poptávku vyřizuje
     PRIMARY KEY (idp),
     KEY ix_poptavky_stav (stav, idp)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;

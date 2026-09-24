@@ -24,7 +24,11 @@ final class Formular extends Prvek
 
     /** Typy polí formuláře. */
     public const array TYPY_POLI = ['text' => 'text', 'email' => 'e-mail', 'tel' => 'telefon', 'textarea' => 'delší text', 'vyber' => 'výběr ze seznamu',
-        'volba' => 'volba jedné možnosti (přepínače)', 'datum' => 'datum', 'cislo' => 'číslo', 'souhlas' => 'zaškrtnutí (souhlas)'];
+        'volba' => 'volba jedné možnosti (přepínače)', 'datum' => 'datum', 'cislo' => 'číslo', 'soubor' => 'příloha (soubor)', 'souhlas' => 'zaškrtnutí (souhlas)'];
+
+    /** Přílohy formuláře: povolené typy a největší velikost jednoho souboru. */
+    public const array PRIPONY_PRILOH = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'heic', 'doc', 'docx', 'xls', 'xlsx', 'odt', 'ods', 'txt', 'zip', 'dwg', 'dxf'];
+    public const int MAX_PRILOHA = 10 * 1024 * 1024;
 
     public static function vlastnosti(): array
     {
@@ -67,6 +71,7 @@ final class Formular extends Prvek
 .mc-pole fieldset label { display: flex; gap: var(--mc-mezera-xs); align-items: center; font-weight: 400; }
 .mc-pole fieldset input { accent-color: var(--mc-barva-primarni); }
 .mc-pole [aria-invalid="true"] { border-color: #c4281c !important; }
+.mc-pole-napoveda { color: var(--mc-barva-tlumeny); font-size: var(--mc-krok--1); }
 .mc-pole-chyba { color: color-mix(in oklch, #c4281c 80%, var(--mc-barva-text)); font-size: var(--mc-krok--1); }
 .mc-formular-hotovo, .mc-formular-chyba { margin: 0; padding: var(--mc-mezera-m); border-radius: var(--mc-zaobleni); }
 .mc-formular-hotovo { background: var(--mc-barva-primarni-jemna); color: var(--mc-barva-text); }
@@ -109,7 +114,9 @@ final class Formular extends Prvek
         $antispam = new Antispam($k->app->db(), $k->app->settings());
 
         // data-formular: po chybě image/web.js vrátí do polí, co návštěvník vyplnil (drží to jen jeho prohlížeč)
-        return '<form' . Text::sTridou($a, 'mc-formular') . $id . ' method="post" action="' . e($k->url('formular')) . '" data-formular="' . e($p['id']) . '"' . ($vysledek !== '' ? ' data-obnovit' : '') . '>'
+        $soubory = in_array('soubor', array_column($o['pole'], 'typ'), true) ? ' enctype="multipart/form-data"' : '';
+
+        return '<form' . Text::sTridou($a, 'mc-formular') . $id . ' method="post" action="' . e($k->url('formular')) . '"' . $soubory . ' data-formular="' . e($p['id']) . '"' . ($vysledek !== '' ? ' data-obnovit' : '') . '>'
             . '<input type="hidden" name="zdroj" value="' . e($k->zdroj) . '"><input type="hidden" name="prvek" value="' . e($p['id']) . '">'
             . '<input type="hidden" name="zpet" value="' . e($k->app->url($r->path())) . '">'
             . $antispam->pole('formular|' . $k->zdroj . '|' . $p['id'])
@@ -145,6 +152,8 @@ final class Formular extends Prvek
                 . implode('', array_map(fn (string $m): string => '<option>' . e($m) . '</option>', self::moznosti($pole))) . '</select>',
             'datum' => '<input id="' . $id . '" name="' . $jmeno . '" type="date"' . $povinne . $oznaceni . '>',
             'cislo' => '<input id="' . $id . '" name="' . $jmeno . '" type="number" step="any" inputmode="decimal"' . $povinne . $oznaceni . '>',
+            'soubor' => '<input id="' . $id . '" name="' . $jmeno . '" type="file" accept=".' . implode(',.', self::PRIPONY_PRILOH) . '"' . $povinne . $oznaceni . '>'
+                . '<small class="mc-pole-napoveda">' . e(t('Nejvýš %d MB: PDF, obrázek, dokument nebo ZIP.', (int) (self::MAX_PRILOHA / 1048576))) . '</small>',
             default => '<input id="' . $id . '" name="' . $jmeno . '" type="' . ($pole['typ'] === 'email' ? 'email" autocomplete="email' : ($pole['typ'] === 'tel' ? 'tel" autocomplete="tel' : 'text')) . '" maxlength="300"' . $povinne . $oznaceni . '>',
         };
 

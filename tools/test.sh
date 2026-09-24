@@ -469,6 +469,35 @@ sv stavba_trida -d nazev=karta -d pouziti=1 > /dev/null; grep -q 'Služby firmy'
 ocekavej "přejmenování třídy" "$(sv stavba_trida -d nazev=karta -d novy_nazev=karta-sluzby)" 200
 ocekavej "přejmenovaná třída ve stavbách" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT stavba LIKE '%\"karta-sluzby\"%' AND stavba NOT LIKE '%\"karta\"%' FROM mc_stranky WHERE ids = $IDV")" "1"
 
+echo "== média, přesměrování, poptávky, uživatelé, písma"
+php -r '$i = imagecreatetruecolor(1600, 900); imagefill($i, 0, 0, imagecolorallocate($i, 200, 80, 40)); imagejpeg($i, "'"$PRACE"'/foto.jpg");'
+printf '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10" onload="alert(1)"><script>alert(2)</script><rect width="20" height="10" fill="red"/></svg>' > "$PRACE/logo.svg"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=intergal&akce=nahraj" -F "_csrf=$TOKEN" -F "soubory[]=@$PRACE/foto.jpg;type=image/jpeg" -F "soubory[]=@$PRACE/logo.svg;type=image/svg+xml"
+SVG=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT obr_poloha FROM mc_media WHERE obr_poloha LIKE '%.svg' ORDER BY ido DESC LIMIT 1")
+[ -n "$SVG" ] && ! grep -q 'onload\|<script' "$PRACE/web/$SVG" && grep -q '<rect' "$PRACE/web/$SVG" && echo "  ok     SVG nahrané a vyčištěné" || { echo "  CHYBA  SVG v Médiích"; CHYB=$((CHYB+1)); }
+IDO=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ido FROM mc_media WHERE obr_poloha LIKE '%.jpg' ORDER BY ido DESC LIMIT 1")
+FOTO=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT obr_poloha FROM mc_media WHERE ido = $IDO")
+php -r '$i = imagecreatetruecolor(800, 800); imagefill($i, 0, 0, imagecolorallocate($i, 20, 120, 200)); imagejpeg($i, "'"$PRACE"'/nova.jpg");'
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=intergal&akce=nahradit" -F "_csrf=$TOKEN" -F "ido=$IDO" -F "soubor=@$PRACE/nova.jpg;type=image/jpeg"
+ocekavej "náhrada souboru zachová adresu a změní rozměry" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(obr_poloha, ' ', obr_width, 'x', obr_height) FROM mc_media WHERE ido = $IDO")" "$FOTO 800x800"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=intergal&akce=uloz" -d "_csrf=$TOKEN" -d "ido=$IDO" -d nazev=Foto -d ohnisko_x=20 -d ohnisko_y=80
+ocekavej "ohnisko ořezu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ohnisko FROM mc_media WHERE ido = $IDO")" "20% 80%"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=presmerovani&akce=uloz" -d "_csrf=$TOKEN" -d z_adresy=/akce-leto -d na_adresu=/kontakty -d typ=302
+kod=$(curl -s -o /dev/null -w '%{http_code}' "$B/akce-leto"); ocekavej "dočasné přesměrování 302" "$kod" "302"
+over "hledání v přesměrováních" 200 "/admin.php?modul=presmerovani&hledat=akce-leto" "akce-leto"
+over "protokol s filtrem" 200 "/admin.php?modul=protokol&kde=stranky" "Protokol"
+IDU2=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?modul=users&akce=uloz" -d "_csrf=$TOKEN" -d idu=0 -d user=pozvany --data-urlencode email=pozvany@example.cz -d admin=2 -d pozvat=1)
+ocekavej "pozvaný uživatel má odkaz na heslo s delší platností" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT obnova_otisk <> '' AND obnova_cas > NOW() FROM mc_uzivatele WHERE user = 'pozvany'")" "1"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO mc_nastaveni (promenna, hodnota) VALUES ('vynutit_2fa', 'spravci') ON DUPLICATE KEY UPDATE hodnota = 'spravci'"
+kod=$(curl -s -b "$JAR" -o /dev/null -w '%{http_code} %{redirect_url}' "$B/admin.php?modul=stranky"); case "$kod" in "302 "*akce=ucet*) echo "  ok     povinné dvoufázové přihlášení pustí jen do Můj účet";; *) echo "  CHYBA  vynucení 2FA: $kod"; CHYB=$((CHYB+1));; esac
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE mc_nastaveni SET hodnota = '' WHERE promenna = 'vynutit_2fa'"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE mc_nastaveni SET hodnota = JSON_SET(IF(hodnota = '' OR hodnota IS NULL, '{}', hodnota), '$.vlastni_pisma', JSON_ARRAY(JSON_OBJECT('nazev', 'Znacka Sans', 'soubor', 'media/2026/01/znacka.woff2', 'tucny', '')), '$.pismo_titulky', 'vlastni-1') WHERE promenna = 'design_system'"
+rm -f "$PRACE"/web/storage/cache/stranky/*.html
+curl -s -o "$PRACE/odpoved" "$B/kontakty"
+grep -q '@font-face { font-family: "Znacka Sans"; src: url("/media/2026/01/znacka.woff2")' "$PRACE/odpoved" && grep -q -- '--mc-pismo-titulky: "Znacka Sans"' "$PRACE/odpoved" && echo "  ok     vlastní písmo z Médií" || { echo "  CHYBA  vlastní písmo"; CHYB=$((CHYB+1)); }
+ocekavej "statistika po stránkách" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) > 0 FROM mc_stat_stranky")" "1"
+curl -s -o "$PRACE/odpoved" "$B/kontakty"; grep -q 'image/web.js' "$PRACE/odpoved" && echo "  CHYBA  web.js i na stránce, která ho nepotřebuje" && CHYB=$((CHYB+1)) || echo "  ok     web.js jen tam, kde je potřeba"
+
 echo "== menu"
 over "editor menu" 200 "/admin.php?modul=menu" 'data-menu-seznam'
 IDO=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM mc_stranky WHERE seo_link = 'o-nas'")

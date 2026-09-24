@@ -39,9 +39,13 @@ $role = [
 </div>
 <div class="radek">
 	<label for="password"><?= e(t($autor['idu'] ? 'Nové heslo' : 'Heslo')) ?></label>
-	<div><input class="textpole" type="password" id="password" name="password" size="30" minlength="10" autocomplete="new-password"<?= $autor['idu'] ? '' : ' required' ?>>
+	<div><input class="textpole" type="password" id="password" name="password" size="30" minlength="10" autocomplete="new-password">
 	<label style="font-weight:normal"><input type="checkbox" data-ukaz-heslo="password"> <?= e(t('zobrazit')) ?></label><?= $chyba('password') ?>
-	<span class="napoveda"><?= e(t('Alespoň 10 znaků.')) ?> <?= e(t($autor['idu'] ? 'Nechte prázdné, pokud heslo neměníte.' : 'Uživatel si ho pak změní v nabídce Můj účet.')) ?></span></div>
+	<span class="napoveda"><?= e(t('Alespoň 10 znaků.')) ?> <?= e(t($autor['idu'] ? 'Nechte prázdné, pokud heslo neměníte.' : 'Uživatel si ho pak změní v nabídce Můj účet.')) ?></span>
+<?php if (!$autor['idu']): ?>
+	<label style="font-weight:normal"><input type="checkbox" name="pozvat" value="1"> <?= e(t('Místo hesla poslat pozvánku e-mailem – heslo si uživatel nastaví sám')) ?></label>
+<?php endif ?>
+	</div>
 </div>
 
 <fieldset>
@@ -91,3 +95,6 @@ $role = [
 </details>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t($autor['idu'] ? 'Uložit' : 'Přidat uživatele')) ?>"></p>
 </form>
+<?php if ($autor['idu'] && $autor['email'] !== '' && !$autor['blokovat']): ?>
+<form class="vradku" method="post" action="<?= e($modul->url('odkaz_hesla')) ?>" data-potvrdit="<?= e(t('Poslat uživateli e-mailem odkaz na nastavení nového hesla?')) ?>"><?= $csrf ?><input type="hidden" name="idu" value="<?= (int) $autor['idu'] ?>"><input type="hidden" name="user" value="<?= e($autor['user']) ?>"><button class="navigace" type="submit"><?= e(t('Poslat odkaz na nové heslo')) ?></button></form>
+<?php endif ?>

@@ -25,17 +25,29 @@ final class Poptavky extends Modul
     {
         $this->promaz();
         $filtr = $this->request->get('stav');
-        $kde = match ($filtr) {
-            'otevrene' => 'WHERE stav < 2',
-            'vyrizene' => 'WHERE stav = 2',
-            default => '',
+        $podminky = match ($filtr) {
+            'otevrene' => ['stav < 2'],
+            'vyrizene' => ['stav = 2'],
+            'moje' => ['prirazeno = ' . (int) $this->app->auth()->id()],
+            default => [],
         };
+        $params = [];
+        $hledat = mb_substr(trim($this->request->get('hledat')), 0, 100);
+        if ($hledat !== '') {
+            $podminky[] = '(email LIKE ? OR formular LIKE ? OR data LIKE ? OR poznamka LIKE ?)';
+            // data jsou JSON s \uXXXX místo diakritiky – hledá se i v té podobě
+            $vzor = '%' . addcslashes($hledat, '%_\\') . '%';
+            $vzorJson = '%' . addcslashes(substr((string) json_encode($hledat), 1, -1), '%_\\') . '%';
+            array_push($params, $vzor, $vzor, $vzorJson, $vzor);
+        }
+        $kde = $podminky === [] ? '' : 'WHERE ' . implode(' AND ', $podminky);
         $strana = max(1, $this->request->getInt('strana', 1));
 
         return $this->view('vypis', 'Poptávky', [
-            'poptavky' => $this->db->all('SELECT idp, datum, formular, stranka, email, stav, data FROM {poptavky} ' . $kde . ' ORDER BY idp DESC LIMIT ' . self::NA_STRANU . ' OFFSET ' . (($strana - 1) * self::NA_STRANU)),
-            'celkem' => (int) $this->db->value('SELECT COUNT(*) FROM {poptavky} ' . $kde),
-            'filtr' => $filtr, 'strana' => $strana, 'naStranu' => self::NA_STRANU,
+            'poptavky' => $this->db->all('SELECT idp, datum, formular, stranka, email, stav, data, prirazeno FROM {poptavky} ' . $kde . ' ORDER BY idp DESC LIMIT ' . self::NA_STRANU . ' OFFSET ' . (($strana - 1) * self::NA_STRANU), $params),
+            'celkem' => (int) $this->db->value('SELECT COUNT(*) FROM {poptavky} ' . $kde, $params),
+            'filtr' => $filtr, 'hledat' => $hledat, 'strana' => $strana, 'naStranu' => self::NA_STRANU,
+            'uzivatele' => $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} WHERE blokovat = 0 ORDER BY 2"),
             'mesice' => $this->app->settings()->int('poptavky_mesice'),
         ]);
     }
@@ -51,7 +63,67 @@ final class Poptavky extends Modul
             $p['stav'] = 1;
         }
 
-        return $this->view('detail', t('Poptávka') . ' #' . $p['idp'], ['p' => $p, 'data' => json_decode((string) $p['data'], true) ?: []]);
+        return $this->view('detail', t('Poptávka') . ' #' . $p['idp'], ['p' => $p, 'data' => json_decode((string) $p['data'], true) ?: [],
+            'uzivatele' => $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} WHERE blokovat = 0 ORDER BY 2")]);
+    }
+
+    /** Interní poznámka a kdo poptávku vyřizuje. */
+    protected function akcePoznamka(): Response
+    {
+        $idp = $this->request->postInt('idp');
+        if ($this->request->isPost()) {
+            $kdo = $this->request->postInt('prirazeno');
+            $this->db->update('poptavky', ['poznamka' => mb_substr(trim($this->request->post('poznamka')), 0, 5000),
+                'prirazeno' => $kdo > 0 && $this->db->value('SELECT 1 FROM {uzivatele} WHERE idu = ?', [$kdo]) !== null ? $kdo : null], ['idp' => $idp]);
+        }
+
+        return $this->zpet('Poznámka byla uložena.', 'detail', ['id' => $idp]);
+    }
+
+    /** Příloha z formuláře ke stažení (jen přihlášenému s přístupem k poptávkám). */
+    protected function akcePriloha(): Response
+    {
+        $p = $this->db->one('SELECT data FROM {poptavky} WHERE idp = ?', [$this->request->getInt('id')]);
+        $polozka = ($p !== null ? (json_decode((string) $p['data'], true) ?: []) : [])[$this->request->getInt('pole')] ?? null;
+        $cesta = is_array($polozka) && preg_match('#^\d{4}/\d{2}/[a-f0-9]{24}\.[a-z0-9]{2,5}$#', (string) ($polozka[2] ?? '')) ? MIROCMS_ROOT . '/storage/prilohy/' . $polozka[2] : null;
+        if ($cesta === null || !is_file($cesta)) {
+            return $this->chyba('Příloha už neexistuje.', 404);
+        }
+        $jmeno = preg_replace('/ \([^)]*\)$/', '', (string) $polozka[1]) ?: basename($cesta);
+
+        return new Response((string) file_get_contents($cesta), 200, ['Content-Type' => 'application/octet-stream', 'X-Content-Type-Options' => 'nosniff',
+            'Content-Disposition' => "attachment; filename*=UTF-8''" . rawurlencode($jmeno)]);
+    }
+
+    /** Hromadně: označit jako vyřízené, nebo smazat (i s přílohami). */
+    protected function akceHromadne(): Response
+    {
+        $ids = array_map('intval', $this->request->postList('oznacene'));
+        if (!$this->request->isPost() || $ids === []) {
+            return $this->zpet();
+        }
+        $v = implode(',', $ids);
+        if ($this->request->post('provest') === 'smazat') {
+            self::smazPrilohy($this->db->all('SELECT data FROM {poptavky} WHERE idp IN (' . $v . ')'));
+            $this->db->run('DELETE FROM {poptavky} WHERE idp IN (' . $v . ')');
+
+            return $this->zpet(t('Smazáno poptávek: %d.', count($ids)));
+        }
+        $this->db->run('UPDATE {poptavky} SET stav = 2 WHERE idp IN (' . $v . ')');
+
+        return $this->zpet(t('Vyřízeno poptávek: %d.', count($ids)));
+    }
+
+    /** @param list<array{data: string}> $radky */
+    private static function smazPrilohy(array $radky): void
+    {
+        foreach ($radky as $r) {
+            foreach (json_decode((string) $r['data'], true) ?: [] as $polozka) {
+                if (is_array($polozka) && preg_match('#^\d{4}/\d{2}/[a-f0-9]{24}\.[a-z0-9]{2,5}$#', (string) ($polozka[2] ?? ''))) {
+                    @unlink(MIROCMS_ROOT . '/storage/prilohy/' . $polozka[2]);
+                }
+            }
+        }
     }
 
     protected function akceStav(): Response
@@ -67,6 +139,7 @@ final class Poptavky extends Modul
     protected function akceSmaz(): Response
     {
         if ($this->request->isPost()) {
+            self::smazPrilohy($this->db->all('SELECT data FROM {poptavky} WHERE idp = ?', [$this->request->postInt('idp')]));
             $this->db->delete('poptavky', ['idp' => $this->request->postInt('idp')]);
         }
 
@@ -109,6 +182,7 @@ final class Poptavky extends Modul
     {
         $mesice = $this->app->settings()->int('poptavky_mesice');
         if ($mesice > 0) {
+            self::smazPrilohy($this->db->all('SELECT data FROM {poptavky} WHERE datum < NOW() - INTERVAL ? MONTH', [$mesice]));
             $this->db->run('DELETE FROM {poptavky} WHERE datum < NOW() - INTERVAL ? MONTH', [$mesice]);
         }
     }

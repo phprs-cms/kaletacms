@@ -84,6 +84,9 @@ $kontrastyHtml = function (array $kontrasty): string {
 <?php foreach (Identita::PISMA_TITULKU as $klic => [$nazev, $popis]): if ($klic === 'vychozi') { continue; } ?>
 		<option value="<?= e($klic) ?>"<?= $ds['pismo_titulky'] === $klic ? ' selected' : '' ?>><?= e(t($nazev) . ' – ' . t($popis)) ?></option>
 <?php endforeach ?>
+<?php foreach ($ds['vlastni_pisma'] as $i => $vp): ?>
+		<option value="vlastni-<?= $i + 1 ?>"<?= $ds['pismo_titulky'] === 'vlastni-' . ($i + 1) ? ' selected' : '' ?>><?= e($vp['nazev'] . ' – ' . t('vlastní písmo')) ?></option>
+<?php endforeach ?>
 	</select>
 </div>
 <div class="radek">
@@ -92,9 +95,26 @@ $kontrastyHtml = function (array $kontrasty): string {
 <?php foreach (Identita::PISMA_TEXTU as $klic => [$nazev, $popis]): if ($klic === 'vychozi') { continue; } ?>
 		<option value="<?= e($klic) ?>"<?= $ds['pismo_text'] === $klic ? ' selected' : '' ?>><?= e(t($nazev) . ' – ' . t($popis)) ?></option>
 <?php endforeach ?>
+<?php foreach ($ds['vlastni_pisma'] as $i => $vp): ?>
+		<option value="vlastni-<?= $i + 1 ?>"<?= $ds['pismo_text'] === 'vlastni-' . ($i + 1) ? ' selected' : '' ?>><?= e($vp['nazev'] . ' – ' . t('vlastní písmo')) ?></option>
+<?php endforeach ?>
 	</select>
-	<span class="napoveda"><?= e(t('Písma jsou systémová: nic se nestahuje z cizích serverů, web je rychlý a nepotřebuje kvůli nim souhlas návštěvníka.')) ?></span></div>
+	<span class="napoveda"><?= e(t('Systémová písma se nic nestahují. Vlastní písmo leží na vašem serveru – také nepotřebuje souhlas návštěvníka.')) ?></span></div>
 </div>
+<details class="pokrocile"<?= $ds['vlastni_pisma'] !== [] ? ' open' : '' ?>>
+<summary><?= e(t('Vlastní písma značky (WOFF2)')) ?></summary>
+<p class="napoveda"><?= e(t('Nahrajte soubory písma (.woff2) do Médií a vložte sem jejich adresu. Stačí jeden variabilní soubor, nebo běžný a tučný řez. Po uložení písmo vyberete výše.')) ?></p>
+<?php for ($i = 0; $i < 3; $i++): $vp = $ds['vlastni_pisma'][$i] ?? ['nazev' => '', 'soubor' => '', 'tucny' => '']; ?>
+<div class="radek">
+	<span class="popisek"><?= e(t('Písmo %d', $i + 1)) ?></span>
+	<div class="pole-vedle">
+		<input class="textpole" type="text" name="ds[vlastni_pisma][<?= $i ?>][nazev]" value="<?= e($vp['nazev']) ?>" maxlength="40" placeholder="<?= e(t('název, např. Bricolage Grotesque')) ?>" aria-label="<?= e(t('Název písma %d', $i + 1)) ?>">
+		<input class="textpole" type="text" name="ds[vlastni_pisma][<?= $i ?>][soubor]" value="<?= e($vp['soubor']) ?>" placeholder="media/…/pismo.woff2" aria-label="<?= e(t('Soubor písma %d', $i + 1)) ?>">
+		<input class="textpole" type="text" name="ds[vlastni_pisma][<?= $i ?>][tucny]" value="<?= e($vp['tucny']) ?>" placeholder="<?= e(t('tučný řez (nepovinné)')) ?>" aria-label="<?= e(t('Tučný řez písma %d', $i + 1)) ?>">
+	</div>
+</div>
+<?php endfor ?>
+</details>
 </fieldset>
 
 <fieldset>

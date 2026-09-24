@@ -17,7 +17,10 @@ Options -Indexes
     RewriteCond %{REQUEST_URI}::$0 ^(/.+)/(.*)::\2$
     RewriteRule .* - [E=BASE:%1]
 
-    # obrázky z media/: prohlížeči, který umí WebP, podat menší sourozenecký soubor foto.jpg.webp
+    # obrázky z media/: prohlížeči, který umí AVIF (nejmenší) nebo WebP, podat sourozenecký soubor foto.jpg.avif / .webp
+    RewriteCond %{HTTP_ACCEPT} image/avif
+    RewriteCond %{REQUEST_FILENAME}.avif -f
+    RewriteRule ^(media/.+\.(?:jpe?g|png))$ %{ENV:BASE}/$1.avif [T=image/avif,E=webp:1,L]
     RewriteCond %{HTTP_ACCEPT} image/webp
     RewriteCond %{REQUEST_FILENAME}.webp -f
     RewriteRule ^(media/.+\.(?:jpe?g|png))$ %{ENV:BASE}/$1.webp [T=image/webp,E=webp:1,L]
@@ -35,6 +38,7 @@ Options -Indexes
 # statické soubory: adresy nesou verzi (?v=…), prohlížeč si je smí nechat dlouho; sw.js se musí ověřovat vždy
 <IfModule mod_mime.c>
     AddType font/woff2 .woff2
+    AddType image/avif .avif
 </IfModule>
 <IfModule mod_expires.c>
     ExpiresActive On
@@ -45,6 +49,7 @@ Options -Indexes
     ExpiresByType image/jpeg "access plus 1 month"
     ExpiresByType image/png "access plus 1 month"
     ExpiresByType image/webp "access plus 1 month"
+    ExpiresByType image/avif "access plus 1 month"
     ExpiresByType image/gif "access plus 1 month"
     ExpiresByType font/woff2 "access plus 1 year"
 </IfModule>

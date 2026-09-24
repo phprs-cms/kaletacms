@@ -72,7 +72,7 @@ final class Vzhled extends Modul
     {
         $ds = $this->zFormulare();
 
-        return Response::json(['css' => DesignSystem::css($ds), 'kontrasty' => array_map(fn (array $k): array => ['popis' => t($k['popis'])] + $k, DesignSystem::kontrasty($ds))]);
+        return Response::json(['css' => DesignSystem::css($ds, $this->app->request->basePath()), 'kontrasty' => array_map(fn (array $k): array => ['popis' => t($k['popis'])] + $k, DesignSystem::kontrasty($ds))]);
     }
 
     /** @return array<string, mixed> */

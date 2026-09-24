@@ -1,11 +1,15 @@
 # Nahrané soubory se jen servírují - nikdy nespouštějí.
-<FilesMatch "\.(php\d?|phtml|phar|pl|py|cgi|sh|html?|svg|js)$">
+<FilesMatch "\.(php\d?|phtml|phar|pl|py|cgi|sh|html?|js)$">
     Require all denied
 </FilesMatch>
 Options -Indexes -ExecCGI
 <IfModule mod_headers.c>
     # prohlížeč nesmí hádat typ souboru; dokumenty se nabídnou ke stažení místo otevření v rámci webu
     Header set X-Content-Type-Options "nosniff"
+    # SVG z Médií je vyčištěné (Core\Svg); přísná CSP je druhá pojistka, kdyby ho někdo otevřel samostatně
+    <FilesMatch "\.svg$">
+        Header set Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox"
+    </FilesMatch>
     <FilesMatch "\.(docx?|xlsx?|pptx?|od[tsp]|rtf|csv|zip|epub|gpx|ics)$">
         Header set Content-Disposition "attachment"
     </FilesMatch>

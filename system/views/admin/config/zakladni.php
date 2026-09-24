@@ -7,6 +7,16 @@ $pole('adresa_webu', 'Adresa webu', 'url', 'Například https://www.firma.cz, be
 $pole('popis_webu', 'Popis webu', 'radky', 'Jedna až dvě věty – motto, popis pro vyhledávače a RSS.');
 $pole('email_webu', 'E-mail webu', 'email', 'Chodí na něj upozornění systému.');
 ?>
+<div class="radek">
+	<label for="vynutit_2fa"><?= e(t('Dvoufázové přihlášení')) ?></label>
+	<div><select id="vynutit_2fa" name="vynutit_2fa">
+<?php foreach (['' => 'dobrovolné', 'spravci' => 'povinné pro správce', 'vsichni' => 'povinné pro všechny uživatele'] as $k => $n): ?>
+		<option value="<?= e($k) ?>"<?= ($hodnoty['vynutit_2fa'] ?? '') === $k ? ' selected' : '' ?>><?= e(t($n)) ?></option>
+<?php endforeach ?>
+	</select><span class="napoveda"><?= e(t('Kdo ho povinně má a ještě si ho nezapnul, se po přihlášení dostane jen do Můj účet, dokud ho nenastaví.')) ?></span></div>
+</div>
+<?php
+?>
 <?php if (($jazykyDalsi = MiroCMS\Core\Jazyk::dalsi($app->settings())) !== []): ?>
 <details class="pokrocile"<?= array_filter($jazykyDalsi, fn (string $j): bool => ($hodnoty['nazev_webu_' . $j] ?? '') . ($hodnoty['popis_webu_' . $j] ?? '') !== '') !== [] ? ' open' : '' ?>>
 <summary><?= e(t('Název a popis v dalších jazykových verzích')) ?></summary>

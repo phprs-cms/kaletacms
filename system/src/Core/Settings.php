@@ -51,7 +51,8 @@ final class Settings
         'udrzba' => '0',              // režim údržby: návštěvníci vidí oznámení, přihlášení správci web
         'udrzba_text' => 'Na webu právě pracujeme. Zkuste to prosím za chvíli.',
         'webhook_url' => '',          // kam poslat údaje o právě vydané novince (Make, Zapier...)
-        'webhook_poptavky' => '',     // kam poslat novou poptávku z formuláře (CRM, Make, Zapier, n8n…)
+        'webhook_poptavky' => '',
+        'vynutit_2fa' => '',          // '' | spravci | vsichni – povinné dvoufázové přihlášení     // kam poslat novou poptávku z formuláře (CRM, Make, Zapier, n8n…)
         'cache_stranek' => '1',       // cache celých stránek pro nepřihlášené návštěvníky (5 minut)
         'kontrola_odkazu' => '1',     // na pozadí hledat v novinkách nefunkční odkazy
         'kontrola_odkazu_cas' => '0',

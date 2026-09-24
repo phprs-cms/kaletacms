@@ -36,10 +36,20 @@ final class Presmerovani extends Modul
         );
     }
 
+    private const int NA_STRANU = 50;
+
     protected function akceVypis(): Response
     {
+        $hledat = mb_substr(trim($this->request->get('hledat')), 0, 100);
+        $kde = $hledat !== '' ? 'WHERE z_adresy LIKE ? OR na_adresu LIKE ?' : '';
+        $params = $hledat !== '' ? array_fill(0, 2, '%' . addcslashes($hledat, '%_\\') . '%') : [];
+        $celkem = (int) $this->db->value('SELECT COUNT(*) FROM {presmerovani} ' . $kde, $params);
+        $strana = max(1, min((int) ceil(max(1, $celkem) / self::NA_STRANU), $this->request->getInt('strana', 1)));
+
         return $this->view('vypis', 'Přesměrování', [
-            'zaznamy' => $this->db->all('SELECT * FROM {presmerovani} ORDER BY idp DESC LIMIT 500'),
+            'zaznamy' => $this->db->all('SELECT * FROM {presmerovani} ' . $kde . ' ORDER BY idp DESC LIMIT ' . self::NA_STRANU . ' OFFSET ' . (($strana - 1) * self::NA_STRANU), $params),
+            'celkem' => $celkem, 'strana' => $strana, 'stran' => (int) ceil($celkem / self::NA_STRANU), 'hledat' => $hledat,
+            'upravit' => $this->request->getInt('upravit') > 0 ? $this->db->one('SELECT * FROM {presmerovani} WHERE idp = ?', [$this->request->getInt('upravit')]) : null,
             'nenalezeno' => $this->db->all('SELECT * FROM {nenalezeno} WHERE naposledy > NOW() - INTERVAL 60 DAY ORDER BY pocet DESC, naposledy DESC LIMIT 25'),
             'zAdresy' => mb_substr($this->request->get('z'), 0, 255),
         ]);
@@ -55,7 +65,15 @@ final class Presmerovani extends Modul
         if (trim($z, '/') === '' || $na === '' || (!preg_match('#^https?://#i', $na) && !preg_match('#^/?[^\s:]*$#', $na))) {
             return $this->zpet('Vyplňte starou adresu (cestu na tomto webu) a cíl – cestu, nebo celou adresu https://…', typ: 'chyba');
         }
-        self::pridej($this->db, $z, preg_match('#^https?://#i', $na) ? $na : trim($na, '/'));
+        $cil = preg_match('#^https?://#i', $na) ? $na : trim($na, '/');
+        $idp = $this->request->postInt('idp');
+        if ($idp > 0) {
+            // úprava existujícího záznamu
+            $this->db->update('presmerovani', ['z_adresy' => mb_substr(trim($z, '/ '), 0, 255), 'na_adresu' => mb_substr($cil, 0, 255)], ['idp' => $idp]);
+        } else {
+            self::pridej($this->db, $z, $cil);
+        }
+        $this->db->run('UPDATE {presmerovani} SET typ = ? WHERE z_adresy = ?', [$this->request->postInt('typ') === 302 ? 302 : 301, trim($z, '/ ')]);
         $this->db->delete('nenalezeno', ['cesta' => trim($z, '/')]);
 
         return $this->zpet('Přesměrování bylo uloženo.');

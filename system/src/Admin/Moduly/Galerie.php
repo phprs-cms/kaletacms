@@ -156,7 +156,11 @@ final class Galerie extends Modul
         $chyby = [];
         foreach ($this->soubory() as $file) {
             try {
-                $data = \MiroCMS\Core\Soubory::jePriloha((string) ($file['name'] ?? '')) ? \MiroCMS\Core\Soubory::uloz($file) : Obrazky::uloz($file);
+                $data = match (true) {
+                    strtolower(pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION)) === 'svg' => self::ulozSvg($file),
+                    \MiroCMS\Core\Soubory::jePriloha((string) ($file['name'] ?? '')) => \MiroCMS\Core\Soubory::uloz($file),
+                    default => Obrazky::uloz($file),
+                };
                 $data['ido'] = $this->db->insert('media', $data + ['vlastnik' => $this->app->auth()->id(), 'sekce' => $sekce, 'datum' => date('Y-m-d H:i:s')]);
                 $nahrane[] = $this->proJson($data + ['popis' => '']);
             } catch (\RuntimeException $e) {
@@ -176,14 +180,64 @@ final class Galerie extends Modul
         return $this->zpet($nahrane !== [] ? t('Nahráno souborů: %d.', count($nahrane)) : '', '', $sekce !== null ? ['sekce' => $sekce] : []);
     }
 
+    /**
+     * SVG (logo, ikona): vyčištěné na povolené značky a atributy; bez náhledu a variant, prohlížeč ho zmenší sám.
+     *
+     * @param array<string, mixed> $file
+     * @return array<string, mixed>
+     */
+    private static function ulozSvg(array $file): array
+    {
+        $tmp = (string) ($file['tmp_name'] ?? '');
+        $svg = is_uploaded_file($tmp) && filesize($tmp) < 2_000_000 ? \MiroCMS\Core\Svg::vycisti((string) file_get_contents($tmp)) : null;
+        if ($svg === null) {
+            throw new \RuntimeException('Soubor SVG se nepodařilo přečíst (nejvýš 2 MB, platné SVG).');
+        }
+        $slozka = 'media/' . date('Y/m');
+        if (!is_dir(MIROCMS_ROOT . '/' . $slozka)) {
+            mkdir(MIROCMS_ROOT . '/' . $slozka, 0775, true);
+        }
+        $nazev = pathinfo((string) ($file['name'] ?? 'obrazek'), PATHINFO_FILENAME);
+        $cesta = $slozka . '/' . slugify($nazev, 60) . '-' . bin2hex(random_bytes(3)) . '.svg';
+        file_put_contents(MIROCMS_ROOT . '/' . $cesta, $svg);
+        [$w, $h] = \MiroCMS\Core\Svg::rozmery($svg);
+
+        return ['obr_poloha' => $cesta, 'obr_width' => min(65535, $w), 'obr_height' => min(65535, $h), 'obr_vel' => strlen($svg),
+            'nahl_poloha' => $cesta, 'nahl_width' => min(65535, $w), 'nahl_height' => min(65535, $h), 'nazev' => mb_substr(str_replace(['_', '-'], ' ', $nazev), 0, 150)];
+    }
+
+    /** Nový soubor místo starého se stejnou adresou: odkazy na webu zůstanou a ukážou novou verzi. */
+    protected function akceNahradit(): Response
+    {
+        $ido = $this->request->postInt('ido');
+        $obr = $this->request->isPost() && $this->smiMenit($ido) ? $this->db->one('SELECT * FROM {media} WHERE ido = ?', [$ido]) : null;
+        $soubor = $_FILES['soubor'] ?? null;
+        if ($obr === null || !is_array($soubor)) {
+            return $this->zpet();
+        }
+        try {
+            $novy = Obrazky::nahrad($obr['obr_poloha'], $soubor);
+        } catch (\RuntimeException $e) {
+            return $this->zpet(t($e->getMessage()), 'vypis', ['uprav' => $ido], 'chyba');
+        }
+        $this->db->update('media', $novy + ['barva' => ''], ['ido' => $ido]);
+        \MiroCMS\Front\Cache::vymaz();
+
+        return $this->zpet('Soubor byl nahrazen – všude, kde je použitý, se ukazuje nová verze.', 'vypis', ['uprav' => $ido]);
+    }
+
     protected function akceUloz(): Response
     {
         if ($this->request->isPost() && $this->smiMenit($this->request->postInt('ido'))) {
+            $x = max(0, min(100, $this->request->postInt('ohnisko_x', 50)));
+            $y = max(0, min(100, $this->request->postInt('ohnisko_y', 50)));
             $this->db->update('media', [
                 'nazev' => mb_substr($this->request->post('nazev'), 0, 150),
                 'popis' => mb_substr($this->request->post('popis'), 0, 500),
                 'autor' => mb_substr(trim($this->request->post('autor')), 0, 120),
+                'ohnisko' => $x === 50 && $y === 50 ? '' : $x . '% ' . $y . '%',
             ], ['ido' => $this->request->postInt('ido')]);
+            \MiroCMS\Front\Cache::vymaz();
         }
 
         return $this->zpet('Popis obrázku byl uložen.');

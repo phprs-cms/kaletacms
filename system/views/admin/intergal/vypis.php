@@ -56,7 +56,7 @@ $jeVse = $filtr['sekce'] === null && $filtr['clanek'] === 0 && !$filtr['nepouzit
 	<?= $csrf ?>
 	<input type="hidden" name="sekce" value="<?= (int) ($aktivniSlozka['ids'] ?? 0) ?>">
 	<label for="soubory"><strong><?= e(t('Nahrát obrázky a přílohy')) ?><?= $aktivniSlozka !== null ? ' – ' . e($aktivniSlozka['nazev']) : '' ?></strong> <?= e(t('– vyberte soubory, nebo je sem přetáhněte myší')) ?></label>
-	<input type="file" id="soubory" name="soubory[]" accept="image/jpeg,image/png,image/webp,image/gif,<?= e('.' . implode(',.', MiroCMS\Core\Soubory::PRIPONY)) ?>" multiple required>
+	<input type="file" id="soubory" name="soubory[]" accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml,.svg,<?= e('.' . implode(',.', MiroCMS\Core\Soubory::PRIPONY)) ?>" multiple required>
 	<input class="tl" type="submit" value="<?= e(t('Nahrát')) ?>">
 	<span class="napoveda"><?= e(t('Obrázky JPG, PNG, WebP a GIF i přílohy ke stažení (PDF, dokumenty, tabulky, ZIP, zvuk, video), nejvýše %s na soubor. Velké fotografie se samy zmenší na %s px a odstraní se z nich údaje o poloze.', $limit, MiroCMS\Core\Obrazky::MAX_STRANA)) ?></span>
 </form>
@@ -102,8 +102,24 @@ $jeVse = $filtr['sekce'] === null && $filtr['clanek'] === 0 && !$filtr['nepouzit
 	<div class="radek"><label for="nazev"><?= e(t('Název (alternativní text)')) ?></label><div><input class="textpole siroke" type="text" id="nazev" name="nazev" value="<?= e($o['nazev']) ?>" maxlength="150"><span class="napoveda"><?= e(t('Popište, co na obrázku je - čtou ho čtečky obrazovky i vyhledávače.')) ?></span></div></div>
 	<div class="radek"><label for="popis"><?= e(t('Popisek pod obrázkem')) ?></label><input class="textpole siroke" type="text" id="popis" name="popis" value="<?= e($o['popis']) ?>" maxlength="500"></div>
 	<div class="radek"><label for="autor"><?= e(t('Autor obrázku')) ?></label><div><input class="textpole siroke" type="text" id="autor" name="autor" value="<?= e($o['autor'] ?? '') ?>" maxlength="120"><span class="napoveda"><?= e(t('Uvede se pod hlavní fotkou novinky, pokud novinka nemá vlastního autora fotky.')) ?></span></div></div>
+<?php if ($o['nahl_poloha'] !== '' && !str_ends_with($o['obr_poloha'], '.svg')): [$ox, $oy] = array_map('intval', explode(' ', str_replace('%', '', $o['ohnisko'] ?: '50% 50%'))) + [1 => 50]; ?>
+	<div class="radek"><span class="popisek"><?= e(t('Ohnisko ořezu')) ?></span><div>
+		<div class="ohnisko" data-ohnisko><img src="<?= e($app->url($o['nahl_poloha'])) ?>" alt=""><span class="ohnisko-bod" style="left:<?= $ox ?>%;top:<?= $oy ?>%"></span></div>
+		<label><?= e(t('Vodorovně')) ?> <input class="textpole" type="number" name="ohnisko_x" min="0" max="100" value="<?= $ox ?>" size="3"> %</label>
+		<label><?= e(t('Svisle')) ?> <input class="textpole" type="number" name="ohnisko_y" min="0" max="100" value="<?= $oy ?>" size="3"> %</label>
+		<span class="napoveda"><?= e(t('Klepněte do náhledu na to, co musí zůstat vidět, když se fotka ořízne do jiného tvaru (karta, pozadí sekce).')) ?></span></div></div>
+<?php endif ?>
 	<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Uložit')) ?>"></p>
 </form>
+<?php if (preg_match('/\.(jpg|png|webp)$/', $o['obr_poloha'])): ?>
+<form class="formular" method="post" action="<?= e($modul->url('nahradit')) ?>" enctype="multipart/form-data">
+	<?= $csrf ?>
+	<input type="hidden" name="ido" value="<?= (int) $o['ido'] ?>">
+	<div class="radek"><label for="soubor-nahrada"><?= e(t('Nahradit soubor')) ?></label><div><input type="file" id="soubor-nahrada" name="soubor" accept="image/jpeg,image/png,image/webp" required>
+		<span class="napoveda"><?= e(t('Nová fotka se ukáže všude, kde je stará použitá – adresa souboru se nezmění.')) ?></span></div></div>
+	<p class="tlacitka"><input class="navigace" type="submit" value="<?= e(t('Nahradit')) ?>"></p>
+</form>
+<?php endif ?>
 <?php endforeach ?>
 
 <?php if ($stran > 1): ?>

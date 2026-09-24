@@ -208,7 +208,7 @@ final class Seo
             $h[] = '<script type="application/ld+json">' . json_encode($this->strukturovanaData($titulek, $meta, $clanek), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) . '</script>';
         }
         // design systém (tokeny a pořadí vrstev kaskády) a styl stavby stránky, pokud jde o stránku ze stavitele
-        $h[] = '<style>' . \MiroCMS\Stavitel\DesignSystem::css(\MiroCMS\Stavitel\DesignSystem::nacti($s)) . ($meta['css'] ?? '') . '</style>';
+        $h[] = '<style>' . \MiroCMS\Stavitel\DesignSystem::css(\MiroCMS\Stavitel\DesignSystem::nacti($s), $this->app->request->basePath()) . ($meta['css'] ?? '') . '</style>';
         $h[] = Identita::hlava($s, $this->app->request->basePath());
         // společné prvky webu (fotogalerie, prohlížečka fotek, video, sdílení…) pro všechny šablony
         $verze = rawurlencode(MIROCMS_VERSION);

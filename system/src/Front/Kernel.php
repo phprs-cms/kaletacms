@@ -244,7 +244,7 @@ final class Kernel
         }
         $k->tridy = []; // styl tříd výše z knihovny, ne z databáze webu (na webu třída ještě nemusí být)
         $web = $this->app->settings();
-        $css = \MiroCMS\Stavitel\DesignSystem::css(\MiroCMS\Stavitel\DesignSystem::nacti($web)) . \MiroCMS\Stavitel\Stavba::css($this->app->db(), $k) . '@layer tridy {' . $tridy . '}';
+        $css = \MiroCMS\Stavitel\DesignSystem::css(\MiroCMS\Stavitel\DesignSystem::nacti($web), $this->app->request->basePath()) . \MiroCMS\Stavitel\Stavba::css($this->app->db(), $k) . '@layer tridy {' . $tridy . '}';
         $layout = $this->app->url('layout/' . $this->layout . '/style.css');
 
         return new Response('<!doctype html><html lang="' . e(Jazyk::kod()) . '"><head><meta charset="utf-8"><meta name="robots" content="noindex">'
@@ -533,7 +533,7 @@ final class Kernel
         if ($cil !== null) {
             $this->app->db()->run('UPDATE {presmerovani} SET pocet = pocet + 1 WHERE idp = ?', [$cil['idp']]);
 
-            return Response::redirect(preg_match('#^https?://#i', $cil['na_adresu']) ? $cil['na_adresu'] : $this->app->url($cil['na_adresu']), 301);
+            return Response::redirect(preg_match('#^https?://#i', $cil['na_adresu']) ? $cil['na_adresu'] : $this->app->url($cil['na_adresu']), (int) ($cil['typ'] ?? 301) === 302 ? 302 : 301);
         }
 
         // přehled nenalezených adres pro správce (Přesměrování); roboti zkoušející cizí systémy se nezapisují
@@ -801,6 +801,10 @@ final class Kernel
             'kanonicka' => $kanonicka,
         ]);
         $html = ObrazkyHtml::dopln($this->app->db(), $html); // rozměry a barva podkladu obrázků – méně poskakování stránky
+        // image/web.js jen na stránkách, které ho potřebují (galerie a fotky v textu, video, sdílení, záložky, karusel, okno, formulář)
+        if (!preg_match('/data-(vlozit|sdilet|kopirovat|zalozky|karusel|formular|odeslano)|popover role="dialog"|galerie|class="(?:text|perex)[" ][\s\S]*?<img|cookies-/', $html)) {
+            $html = (string) preg_replace('#<script src="[^"]*/image/web\.js[^"]*"[^>]*></script>\n?#', '', $html);
+        }
         if ($status === 200 && empty($meta['noindex']) && $this->app->request->get('nahled') === '') {
             Cache::uloz($this->app, $html, $novinka === null ? null : (int) $novinka['idc']);
         }

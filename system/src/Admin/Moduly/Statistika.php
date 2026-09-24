@@ -38,6 +38,7 @@ final class Statistika extends Modul
                  WHERE s.den > CURDATE() - INTERVAL ? DAY GROUP BY c.idc, c.titulek, c.seo_link ORDER BY pocet DESC LIMIT 15',
                 [$dni],
             ),
+            'stranky' => $this->db->all('SELECT cesta, SUM(pocet) AS pocet FROM {stat_stranky} WHERE den > CURDATE() - INTERVAL ? DAY GROUP BY cesta ORDER BY pocet DESC LIMIT 20', [$dni]),
             'zdroje' => $this->db->all('SELECT zdroj, SUM(pocet) AS pocet FROM {stat_zdroje} WHERE den > CURDATE() - INTERVAL ? DAY GROUP BY zdroj ORDER BY pocet DESC LIMIT 15', [$dni]),
         ]);
     }

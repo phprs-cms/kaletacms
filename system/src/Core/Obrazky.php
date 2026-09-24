@@ -119,15 +119,50 @@ final class Obrazky
         ];
     }
 
+    /**
+     * Náhrada obrázku se zachováním adresy: nový soubor projde stejným zpracováním a zapíše se na místo starého
+     * (i s variantami a WebP), ve formátu starého souboru – adresa se nemění, odkazy na webu platí dál.
+     *
+     * @param array<string, mixed> $file položka z $_FILES
+     * @return array{obr_width:int, obr_height:int, obr_vel:int, nahl_width:int, nahl_height:int}
+     */
+    public static function nahrad(string $stara, array $file): array
+    {
+        if (!preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+)\.(jpg|png|webp)$#', $stara, $m)) {
+            throw new \RuntimeException('Nahradit jde jen obrázek JPG, PNG nebo WebP.');
+        }
+        $novy = self::uloz($file); // ověří, zmenší a znovu zakóduje nahraný soubor
+        $obr = @imagecreatefromstring((string) file_get_contents(MIROCMS_ROOT . '/' . $novy['obr_poloha']));
+        self::smaz($novy['obr_poloha'], $novy['nahl_poloha']);
+        if ($obr === false) {
+            throw new \RuntimeException('Obrázek je poškozený a nelze ho zpracovat.');
+        }
+        self::smaz($stara, $m[1] . '-nahled.' . $m[2]);
+        [$zaklad, $pripona] = [$m[1], $m[2]];
+        self::zapis($obr, MIROCMS_ROOT . '/' . $stara, $pripona);
+        self::webp($obr, MIROCMS_ROOT . '/' . $stara, $pripona);
+        if (max(imagesx($obr), imagesy($obr)) > self::STREDNI_STRANA) {
+            $stredni = self::zmensi($obr, self::STREDNI_STRANA);
+            self::zapis($stredni, MIROCMS_ROOT . '/' . $zaklad . '-1200.' . $pripona, $pripona);
+            self::webp($stredni, MIROCMS_ROOT . '/' . $zaklad . '-1200.' . $pripona, $pripona);
+        }
+        $nahled = self::zmensi($obr, self::NAHLED_STRANA);
+        self::zapis($nahled, MIROCMS_ROOT . '/' . $zaklad . '-nahled.' . $pripona, $pripona);
+        self::webp($nahled, MIROCMS_ROOT . '/' . $zaklad . '-nahled.' . $pripona, $pripona);
+
+        return ['obr_width' => imagesx($obr), 'obr_height' => imagesy($obr), 'obr_vel' => (int) filesize(MIROCMS_ROOT . '/' . $stara),
+            'nahl_width' => imagesx($nahled), 'nahl_height' => imagesy($nahled)];
+    }
+
     /** Smaže soubory obrázku; cesty mimo media/ ignoruje. */
     public static function smaz(string ...$cesty): void
     {
         foreach ($cesty as $cesta) {
-            if (!preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+)\.(jpg|png|webp|gif)$#', $cesta, $m)) {
+            if (!preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+)\.(jpg|png|webp|gif|svg)$#', $cesta, $m)) {
                 continue;
             }
             // s obrázkem mizí i jeho varianty pro srcset a WebP
-            foreach ([$cesta, $cesta . '.webp', $m[1] . '-1200.' . $m[2], $m[1] . '-1200.' . $m[2] . '.webp'] as $soubor) {
+            foreach ([$cesta, $cesta . '.webp', $cesta . '.avif', $m[1] . '-1200.' . $m[2], $m[1] . '-1200.' . $m[2] . '.webp', $m[1] . '-1200.' . $m[2] . '.avif'] as $soubor) {
                 if (is_file(MIROCMS_ROOT . '/' . $soubor)) {
                     unlink(MIROCMS_ROOT . '/' . $soubor);
                 }
@@ -166,12 +201,18 @@ final class Obrazky
         }
     }
 
-    /** WebP sourozenec (foto.jpg -> foto.jpg.webp); bývá o 25-35 % menší. */
+    /**
+     * Menší sourozenci pro moderní prohlížeče: foto.jpg.webp (o 25–35 % menší) a foto.jpg.avif (o dalších ~20 %),
+     * když je PHP umí. Server podá ten, který prohlížeč přijme (.htaccess, nginx).
+     */
     private static function webp(\GdImage $obr, string $soubor, string $pripona): void
     {
+        imagepalettetotruecolor($obr);
         if ($pripona !== 'webp' && function_exists('imagewebp')) {
-            imagepalettetotruecolor($obr);
             @imagewebp($obr, $soubor . '.webp', 82);
+        }
+        if (function_exists('imageavif')) {
+            @imageavif($obr, $soubor . '.avif', 55, 8); // rychlost 8: kódování nezdrží nahrávání
         }
     }
 

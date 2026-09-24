@@ -13,7 +13,14 @@ if (preg_match('#^/(system|storage|tools|docs|dist)(/|$)|^/layout/.+\.php$|^/con
     http_response_code(403);
     exit('403');
 }
-// stejně jako .htaccess: prohlížeči s podporou WebP podat sourozenecký soubor foto.jpg.webp
+// stejně jako .htaccess: prohlížeči s podporou AVIF nebo WebP podat sourozenecký soubor foto.jpg.avif / .webp
+if (preg_match('#^/media/.+\.(jpe?g|png)$#i', $path) && is_file($root . $path . '.avif') && str_contains($_SERVER['HTTP_ACCEPT'] ?? '', 'image/avif')) {
+    header('Content-Type: image/avif');
+    header('Vary: Accept');
+    readfile($root . $path . '.avif');
+
+    return true;
+}
 if (preg_match('#^/media/.+\.(jpe?g|png)$#i', $path) && is_file($root . $path . '.webp') && str_contains($_SERVER['HTTP_ACCEPT'] ?? '', 'image/webp')) {
     header('Content-Type: image/webp');
     header('Vary: Accept');
