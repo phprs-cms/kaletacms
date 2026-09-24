@@ -409,6 +409,32 @@ final class Knihovna
         ]],
     ];
 
+    /** Šablony nové stránky (Nová stránka → Začít podle šablony): klíč => [název, sekce]. Zásady mají vlastní text. */
+    public const array SABLONY_STRANEK = [
+        'o-nas' => ['O nás', ['nadpis-stranky', 'pribeh', 'hodnoty', 'tym']],
+        'sluzby' => ['Služby', ['nadpis-stranky', 'sluzby', 'proces', 'faq', 'vyzva']],
+        'landing' => ['Prodejní stránka (landing page)', ['uvod', 'vyhody', 'reference', 'cenik', 'faq', 'vyzva']],
+        'reference' => ['Reference a realizace', ['nadpis-stranky', 'portfolio', 'reference', 'vyzva']],
+        'kariera' => ['Kariéra', ['nadpis-stranky', 'kariera', 'poptavka']],
+        'kontakt' => ['Kontakt', ['nadpis-stranky', 'kontakt-formular']],
+        'zasady' => ['Zásady ochrany osobních údajů', []],
+    ];
+
+    /** Kostra zásad ochrany osobních údajů pro poptávkový formulář (HTML v jazyce webu); hranaté závorky doplní správce. */
+    public static function textZasad(): string
+    {
+        $o = fn (string $nadpis, string $text): string => '<h2>' . e(t($nadpis)) . '</h2><p>' . e(t($text)) . '</p>';
+
+        return '<p>' . e(t('Tyto zásady vysvětlují, jak [NÁZEV FIRMY], IČO [IČO], se sídlem [ADRESA] zpracovává osobní údaje, které nám svěříte.')) . '</p>'
+            . $o('Jaké údaje zpracováváme', 'Jméno, e-mail, telefon a obsah zprávy, které vyplníte v poptávkovém formuláři.')
+            . $o('Proč a na jakém základě', 'Abychom vám mohli odpovědět a připravit nabídku – jde o opatření před uzavřením smlouvy a náš oprávněný zájem odpovědět na dotaz.')
+            . $o('Jak dlouho', 'Poptávky mažeme automaticky po [POČET] měsících, pokud z nich nevznikne smlouva.')
+            . $o('Kdo k údajům má přístup', 'Jen my a poskytovatel hostingu [NÁZEV HOSTINGU], který pro nás web provozuje.')
+            . $o('Cookies a měření návštěvnosti', 'Web měří návštěvnost bez cookies. Cookies třetích stran použije jen s vaším souhlasem.')
+            . $o('Vaše práva', 'Máte právo na přístup k údajům, opravu, výmaz, omezení zpracování a námitku. Stížnost můžete podat u Úřadu pro ochranu osobních údajů.')
+            . $o('Kontakt', 'Napište nám na [E-MAIL] nebo zavolejte na [TELEFON].');
+    }
+
     /**
      * Stavba stránky ukázkového webu ze sekcí (v jazyce instalace); použité třídy se založí.
      *

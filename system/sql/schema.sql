@@ -214,17 +214,20 @@ CREATE TABLE mc_stranky (
     noindex  BOOL NOT NULL DEFAULT 0,
     text     MEDIUMTEXT NOT NULL,
     zobrazit BOOL NOT NULL DEFAULT 1,
+    zverejnit_od DATETIME NULL,                          -- skrytá stránka se sama zveřejní v tuto chvíli
     v_menu   BOOL NOT NULL DEFAULT 1,                     -- odkaz v patičce / navigaci webu
     poradi   SMALLINT UNSIGNED NOT NULL DEFAULT 100,
     zmeneno  DATETIME NULL,
     jazyk          CHAR(2) NOT NULL DEFAULT '',            -- jazyková verze; '' = výchozí jazyk webu
     preklad_z      INT UNSIGNED NULL,                      -- protějšek ve výchozím jazyce (hreflang, přepínač jazyků)
+    nadrazena      INT UNSIGNED NULL,                      -- nadřazená stránka: adresa je /nadrazena/stranka
     stavba         MEDIUMTEXT NULL,                        -- publikovaná stavba (JSON strom prvků stavitele); NULL = textová stránka
     stavba_koncept MEDIUMTEXT NULL,                        -- rozpracovaná stavba z editoru; NULL = žádné neuložené změny
     smazano        DATETIME NULL,                          -- v koši od (po 30 dnech se smaže natrvalo); NULL = není v koši
     PRIMARY KEY (ids),
     UNIQUE KEY uq_stranky_seo (seo_link),
-    KEY ix_stranky_smazano (smazano)
+    KEY ix_stranky_smazano (smazano),
+    KEY ix_stranky_zverejnit (zverejnit_od)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Publikované verze staveb (posledních 20 na stránku)
@@ -483,6 +486,28 @@ CREATE TABLE mc_menu (
     polozky  MEDIUMTEXT NOT NULL,                     -- JSON [{typ: stranka|odkaz|novinky|skupina, ids, url, text, nove_okno, deti: […]}]
     zmeneno  DATETIME NULL,
     PRIMARY KEY (umisteni, jazyk)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+CREATE TABLE mc_stranky_revize (
+    idr     INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    ids     INT UNSIGNED NOT NULL,
+    datum   DATETIME NOT NULL,
+    kdo     INT UNSIGNED NULL,
+    titulek VARCHAR(200) NOT NULL,
+    text    MEDIUMTEXT NOT NULL,
+    PRIMARY KEY (idr),
+    KEY ix_stranky_revize (ids, idr),
+    CONSTRAINT fk_stranky_revize_stranka FOREIGN KEY (ids) REFERENCES mc_stranky (ids) ON DELETE CASCADE,
+    CONSTRAINT fk_stranky_revize_kdo FOREIGN KEY (kdo) REFERENCES mc_uzivatele (idu) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- Sekce, které si web uložil ze stavitele do vlastní knihovny (panel Přidat → Moje sekce).
+CREATE TABLE mc_sekce (
+    idx     INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    nazev   VARCHAR(100) NOT NULL,
+    prvek   MEDIUMTEXT NOT NULL,                      -- JSON jednoho prvku (obvykle sekce) i s vnitřkem
+    zmeneno DATETIME NULL,
+    PRIMARY KEY (idx)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Komponenty: znovupoužitelné bloky stavitele. vlastnosti = JSON [{klic, popisek, typ, vychozi}] – v komponentě jako {{klic}},

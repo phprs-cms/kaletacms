@@ -426,6 +426,32 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akc
 ocekavej "úvodní stránku nejde smazat" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT smazano IS NULL FROM mc_stranky WHERE ids = $IDU")" "1"
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE mc_nastaveni SET hodnota='0' WHERE promenna='titulni_stranka'"
 
+echo "== podstránky, plán, historie, šablony, export"
+ulozs() { curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?modul=stranky&akce=uloz" -d "_csrf=$TOKEN" "$@"; }
+ulozs -d ids=0 --data-urlencode "titulek=Služby firmy" -d seo_link=sluzby-firmy -d zobrazit=1 -d v_menu=0 -d "text=<p>S</p>" > /dev/null
+IDR=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM mc_stranky WHERE seo_link = 'sluzby-firmy'")
+ulozs -d ids=0 --data-urlencode "titulek=Kuchyně" -d "nadrazena=$IDR" -d zobrazit=1 -d v_menu=0 -d "text=<p>Kuchyně na míru</p>" > /dev/null
+ocekavej "podstránka má adresu pod nadřazenou" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT seo_link FROM mc_stranky WHERE nadrazena = $IDR")" "sluzby-firmy/kuchyne"
+rm -f "$PRACE"/web/storage/cache/stranky/*.html
+over "podstránka na webu" 200 /sluzby-firmy/kuchyne "Kuchyně na míru"
+ulozs -d "ids=$IDR" --data-urlencode "titulek=Služby firmy" -d seo_link=nase-sluzby -d zobrazit=1 -d v_menu=0 -d "text=<p>S2</p>" > /dev/null
+ocekavej "změna adresy nadřazené posune podstránku" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT seo_link FROM mc_stranky WHERE nadrazena = $IDR")" "nase-sluzby/kuchyne"
+kod=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/sluzby-firmy/kuchyne"); ocekavej "stará adresa podstránky přesměruje" "$kod" "301 $B/nase-sluzby/kuchyne"
+ocekavej "změna textu uloží předchozí verzi" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT text FROM mc_stranky_revize WHERE ids = $IDR ORDER BY idr DESC LIMIT 1")" "<p>S</p>"
+ulozs -d ids=0 --data-urlencode "titulek=Akce" -d v_menu=0 -d "text=<p>A</p>" -d "zverejnit_od=$(date -v+1d '+%Y-%m-%dT%H:%M' 2>/dev/null || date -d '+1 day' '+%Y-%m-%dT%H:%M')" > /dev/null
+ocekavej "naplánovaná stránka čeká skrytá" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazit, '/', zverejnit_od IS NOT NULL) FROM mc_stranky WHERE seo_link = 'akce'")" "0/1"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE mc_stranky SET zverejnit_od = NOW() - INTERVAL 1 MINUTE WHERE seo_link = 'akce'; UPDATE mc_nastaveni SET hodnota = '0' WHERE promenna = 'oznameni_kontrola'"
+curl -s -o /dev/null "$B/novinky?x=$RANDOM"; sleep 1
+ocekavej "naplánovaná stránka se v čase sama zveřejní" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT zobrazit FROM mc_stranky WHERE seo_link = 'akce'")" "1"
+kam=$(ulozs -d ids=0 --data-urlencode "titulek=Nabídka" -d sablona=landing -d zobrazit=0 -d v_menu=0 -d text=)
+case "$kam" in *akce=stavitel*) echo "  ok     nová stránka ze šablony jde rovnou do stavitele";; *) echo "  CHYBA  šablona stránky: $kam"; CHYB=$((CHYB+1));; esac
+ocekavej "šablona složí koncept ze sekcí" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT stavba_koncept LIKE '%\"typ\":\"sekce\"%' FROM mc_stranky WHERE seo_link = 'nabidka'")" "1"
+IDN=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM mc_stranky WHERE seo_link = 'nabidka'")
+curl -s -b "$JAR" -o "$PRACE/stranka.json" "$B/admin.php?modul=stranky&akce=export&id=$IDN"
+grep -q '"format": "mirocms-stranka"' "$PRACE/stranka.json" && echo "  ok     export stránky do JSON" || { echo "  CHYBA  export stránky"; CHYB=$((CHYB+1)); }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akce=import" -F "_csrf=$TOKEN" -F "soubor=@$PRACE/stranka.json;type=application/json"
+ocekavej "import stránky vytvoří skrytou kopii se stavbou" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazit, '/', stavba_koncept IS NOT NULL) FROM mc_stranky WHERE seo_link = 'nabidka-2'")" "0/1"
+
 echo "== menu"
 over "editor menu" 200 "/admin.php?modul=menu" 'data-menu-seznam'
 IDO=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM mc_stranky WHERE seo_link = 'o-nas'")

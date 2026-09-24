@@ -36,6 +36,10 @@ final class Oznameni
     public static function zpracuj(App $app): void
     {
         $db = $app->db();
+        // naplánované stránky: skrytá stránka se v zadaný čas sama zveřejní
+        if ($db->run('UPDATE {stranky} SET zobrazit = 1, zverejnit_od = NULL WHERE zverejnit_od IS NOT NULL AND zverejnit_od <= NOW() AND smazano IS NULL')->rowCount() > 0) {
+            \MiroCMS\Front\Cache::vymaz();
+        }
         $clanky = $db->all('SELECT idc, seo_link, jazyk, noindex FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND oznameno IS NULL ORDER BY datum LIMIT 5');
         foreach ($clanky as $c) {
             // nejdřív označit: kdyby oznámení spadlo, nesmí se opakovat donekonečna

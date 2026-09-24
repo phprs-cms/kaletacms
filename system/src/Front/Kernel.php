@@ -339,7 +339,16 @@ final class Kernel
     {
         $this->protejsek = ['stranky', 'ids', $stranka, ''];
         if (!$uvod) {
-            $this->drobecky([$stranka['titulek'], '']);
+            // podstránka: v drobečcích i nadřazené stránky (podle adresy sluzby/kuchyne → sluzby)
+            $urovne = [];
+            $useky = explode('/', (string) $stranka['seo_link']);
+            for ($i = 1; $i < count($useky); $i++) {
+                $nad = $this->app->db()->one('SELECT titulek, seo_link FROM {stranky} WHERE seo_link = ? AND jazyk = ? AND zobrazit = 1 AND smazano IS NULL', [implode('/', array_slice($useky, 0, $i)), $stranka['jazyk']]);
+                if ($nad !== null) {
+                    $urovne[] = [$nad['titulek'], $this->app->url($nad['seo_link'])];
+                }
+            }
+            $this->drobecky(...[...$urovne, [$stranka['titulek'], '']]);
         }
         // titulek a údaje pro vyhledávače a sdílení (vlastní titulek, obrázek, noindex – jako u novinek)
         $titulek = $stranka['seo_titulek'] !== '' ? $stranka['seo_titulek'] : ($uvod ? '' : $stranka['titulek']);

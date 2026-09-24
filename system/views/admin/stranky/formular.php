@@ -7,7 +7,16 @@
  * @var bool $uvod  je to úvodní stránka webu
  * @var ?bool $vMenu  je stránka v sestaveném menu (null = menu se skládá automaticky podle v_menu)
  * @var bool $vlastniMenu  web má sestavené hlavní menu
+ * @var list<array{ids:int, titulek:string, seo_link:string}> $rodice  možné nadřazené stránky
+ * @var list<array{idr:int, datum:string, titulek:string, kdo:?string}> $revize  starší verze textu
  */
+$segment = basename((string) $stranka['seo_link']);
+$predpona = '';
+foreach ($rodice as $r) {
+    if ((int) $r['ids'] === (int) ($stranka['nadrazena'] ?? 0)) {
+        $predpona = $r['seo_link'] . '/';
+    }
+}
 $chyba = fn (string $pole): string => isset($chyby[$pole]) ? '<span class="chyba-pole" role="alert">' . e(t($chyby[$pole])) . '</span>' : '';
 ?>
 <p class="navigace-radek"><a class="navigace" href="<?= e($modul->url()) ?>"><?= e(t('Zpět na přehled')) ?></a>
@@ -25,6 +34,17 @@ $chyba = fn (string $pole): string => isset($chyby[$pole]) ? '<span class="chyba
 	<label for="titulek"><?= e(t('Název stránky')) ?></label>
 	<input class="textpole siroke titulek-pole" type="text" id="titulek" name="titulek" value="<?= e($stranka['titulek']) ?>" maxlength="200" required><?= $chyba('titulek') ?>
 </div>
+<?php if (!$stranka['ids']): ?>
+<div class="radek">
+	<label for="sablona"><?= e(t('Začít podle šablony')) ?></label>
+	<div><select id="sablona" name="sablona">
+		<option value=""><?= e(t('prázdná stránka (text)')) ?></option>
+<?php foreach (MiroCMS\Stavitel\Knihovna::SABLONY_STRANEK as $klic => [$nazev]): ?>
+		<option value="<?= e($klic) ?>"><?= e(t($nazev)) ?></option>
+<?php endforeach ?>
+	</select><span class="napoveda"><?= e(t('Šablona poskládá stránku z hotových sekcí s ukázkovými texty a otevře ji ve staviteli.')) ?></span></div>
+</div>
+<?php endif ?>
 <?php if (($stranka['stavba'] ?? null) !== null): ?>
 <div class="radek pres-celou">
 	<p class="hlaska"><?= e(t('Obsah této stránky se skládá ve staviteli.')) ?> <a class="tl" href="<?= e($modul->url('stavitel', ['id' => (int) $stranka['ids']])) ?>"><?= e(t('Otevřít stavitel')) ?></a></p>
@@ -40,8 +60,17 @@ $chyba = fn (string $pole): string => isset($chyby[$pole]) ? '<span class="chyba
 </div>
 <?php endif ?>
 <div class="radek">
+	<label for="nadrazena"><?= e(t('Nadřazená stránka')) ?></label>
+	<div><select id="nadrazena" name="nadrazena">
+		<option value="0"><?= e(t('— žádná (hlavní úroveň) —')) ?></option>
+<?php foreach ($rodice as $r): ?>
+		<option value="<?= (int) $r['ids'] ?>"<?= (int) $r['ids'] === (int) ($stranka['nadrazena'] ?? 0) ? ' selected' : '' ?>><?= e(str_repeat('– ', substr_count($r['seo_link'], '/')) . $r['titulek']) ?></option>
+<?php endforeach ?>
+	</select><span class="napoveda"><?= e(t('Podstránka má adresu pod nadřazenou (/sluzby/kuchyne) a ukáže se v jejích drobečcích.')) ?></span></div>
+</div>
+<div class="radek">
 	<label for="seo_link"><?= e(t('Adresa')) ?></label>
-	<div><input class="textpole siroke" type="text" id="seo_link" name="seo_link" value="<?= e($stranka['seo_link']) ?>" maxlength="110" placeholder="<?= e(t('vytvoří se z názvu, např. o-nas')) ?>"><?= $chyba('seo_link') ?></div>
+	<div><span class="napoveda-inline">/<?= e($predpona) ?></span><input class="textpole" type="text" id="seo_link" name="seo_link" value="<?= e($segment) ?>" maxlength="110" placeholder="<?= e(t('vytvoří se z názvu, např. o-nas')) ?>"><?= $chyba('seo_link') ?></div>
 </div>
 <details class="pokrocile"<?= $stranka['popis'] !== '' || $stranka['seo_titulek'] !== '' || $stranka['obrazek'] !== '' || $stranka['noindex'] ? ' open' : '' ?>>
 <summary><?= e(t('Vyhledávače a sdílení')) ?></summary>
@@ -69,6 +98,7 @@ $chyba = fn (string $pole): string => isset($chyby[$pole]) ? '<span class="chyba
 	<span class="popisek"><?= e(t('Zobrazení')) ?></span>
 	<div class="volby">
 		<label><input type="checkbox" name="zobrazit" value="1"<?= $stranka['zobrazit'] ? ' checked' : '' ?>> <?= e(t('Zveřejnit stránku')) ?></label><?= $uvod ? ' <span class="stitek">' . e(t('úvodní stránka webu')) . '</span>' : '' ?><?= $chyba('zobrazit') ?><br>
+		<span class="napoveda"><label for="zverejnit_od"><?= e(t('Skrytou stránku zveřejnit automaticky:')) ?></label> <input class="textpole" type="datetime-local" id="zverejnit_od" name="zverejnit_od" value="<?= e(($stranka['zverejnit_od'] ?? null) ? date('Y-m-d\TH:i', strtotime($stranka['zverejnit_od'])) : '') ?>"></span><br>
 		<label><input type="checkbox" name="v_menu" value="1"<?= ($vMenu ?? (bool) $stranka['v_menu']) ? ' checked' : '' ?>> <?= e(t('Zobrazit v hlavní navigaci webu')) ?></label>
 <?php if ($vlastniMenu): ?>
 		<span class="napoveda"><?= e(t('Web má sestavené menu – stránka se přidá na jeho konec. Pořadí a podmenu upravíte ve Vzhled → Menu.')) ?></span>
@@ -82,7 +112,19 @@ $chyba = fn (string $pole): string => isset($chyby[$pole]) ? '<span class="chyba
 </div>
 <p class="tlacitka"><button class="tl" type="submit"><?= e(t('Uložit')) ?></button><?php if (($stranka['stavba'] ?? null) === null): ?> <button class="navigace" type="submit" name="po_ulozeni" value="stavitel"><?= e(t('Uložit a otevřít ve staviteli')) ?></button><?php endif ?></p>
 </form>
+<?php if ($revize !== []): ?>
+<details class="pokrocile">
+<summary><?= e(t('Historie textu (%s)', count($revize))) ?></summary>
+<ul class="revize">
+<?php foreach ($revize as $v): ?>
+	<li><?= e(datum($v['datum'], true)) ?><?= $v['kdo'] ? ' · ' . e($v['kdo']) : '' ?> · <?= e($v['titulek']) ?>
+		<form class="vradku" method="post" action="<?= e($modul->url('obnov_verzi')) ?>" data-potvrdit="<?= e(t('Obnovit tuto verzi textu? Současná podoba zůstane v historii.')) ?>"><?= $csrf ?><input type="hidden" name="idr" value="<?= (int) $v['idr'] ?>"><button class="navigace" type="submit"><?= e(t('Obnovit')) ?></button></form></li>
+<?php endforeach ?>
+</ul>
+</details>
+<?php endif ?>
 <?php if ($stranka['ids']): ?>
+<a class="navigace" href="<?= e($modul->url('export', ['id' => (int) $stranka['ids']])) ?>"><?= e(t('Stáhnout jako JSON')) ?></a>
 <form class="vradku" method="post" action="<?= e($modul->url('duplikuj')) ?>"><?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $stranka['ids'] ?>"><input type="hidden" name="titulek" value="<?= e($stranka['titulek']) ?>"><button class="navigace" type="submit"><?= e(t('Duplikovat stránku')) ?></button></form>
 <?php endif ?>
 <?php if (($stranka['stavba'] ?? null) !== null): ?>
