@@ -134,7 +134,7 @@ final class Prenos extends Modul
         $r = $this->request;
         $stav['volby'] = [
             'jazyk' => in_array($r->post('jazyk'), Jazyk::dalsi($this->app->settings()), true) ? $r->post('jazyk') : '',
-            'koncepty' => $r->postBool('koncepty'), 'stranky' => $r->postBool('stranky'),
+            'koncepty' => $r->postBool('koncepty'), 'stranky' => $r->postBool('stranky'), 'stavitel' => $r->postBool('stavitel'),
             'presmerovani' => $r->postBool('presmerovani'), 'rubrika' => $r->postInt('rubrika'),
         ];
         $stav['faze'] = 'import';

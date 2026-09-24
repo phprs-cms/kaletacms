@@ -178,7 +178,7 @@ final class Nastroje
                 // třídy bez stylu (z cizího CSS frameworku) by jen zabíraly místo
                 $zname = array_merge($existujici, array_keys($prevod['tridy']));
                 $vynechane = [];
-                $stavba = $this->bezTrid($prevod['stavba'], $zname, $vynechane);
+                $stavba = ZHtml::bezTrid($prevod['stavba'], $zname, $vynechane);
                 if ($vynechane !== []) {
                     $hlaseni[] = 'Třídy bez stylu vynechány: ' . implode(', ', array_unique($vynechane)) . '.';
                 }
@@ -655,19 +655,6 @@ final class Nastroje
         return array_sum(array_map(fn (array $p): int => 1 + $this->pocetPrvku($p['deti'] ?? []), $deti));
     }
 
-    /** @param list<string> $zname @param list<string> $vynechane */
-    private function bezTrid(array $uzel, array $zname, array &$vynechane): array
-    {
-        foreach ($uzel['deti'] ?? [] as $i => $p) {
-            if (isset($p['tridy'])) {
-                $vynechane = array_merge($vynechane, array_diff($p['tridy'], $zname));
-                $p['tridy'] = array_values(array_intersect($p['tridy'], $zname));
-            }
-            $uzel['deti'][$i] = $this->bezTrid($p, $zname, $vynechane);
-        }
-
-        return $uzel;
-    }
 
     /** @return array<string, mixed> */
     private function kolekce(string $seo): array

@@ -1932,4 +1932,5 @@ return [
     'číslo' => 'number',
     'datum' => 'date',
     'Výpis kolekce' => 'Collection list',
+    'stránky rovnou do stavitele – upravíte je vizuálně; původní text zůstane jako záloha' => 'pages straight into the builder – edit them visually; the original text stays as a backup',
 ];

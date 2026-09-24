@@ -29,7 +29,7 @@ final class WpImport
     public const int SEKUND = 8;
 
     /** Výchozí volby importu (krok Náhled). */
-    public const array VOLBY = ['jazyk' => '', 'koncepty' => true, 'stranky' => true, 'presmerovani' => true, 'rubrika' => 0];
+    public const array VOLBY = ['jazyk' => '', 'koncepty' => true, 'stranky' => true, 'stavitel' => true, 'presmerovani' => true, 'rubrika' => 0];
 
     /** Typy příspěvků, které umíme; ostatní (menu, vlastní typy doplňků…) náhled jen vyjmenuje. */
     private const array TYPY = ['post', 'page', 'attachment'];
@@ -343,8 +343,10 @@ final class WpImport
             fn (string $adresa): bool => in_array($adresa, Stranky::VYHRAZENE, true) || isset(Jazyk::DOSTUPNE[$adresa])
                 || $this->db->value('SELECT ids FROM {stranky} WHERE seo_link = ?', [$adresa]) !== null,
         );
+        $text = WpObsah::vycisti($p['obsah'], $stav['prilohy']);
         $ids = $this->db->insert('stranky', [
-            'seo_link' => $seo, 'titulek' => $titulek, 'text' => WpObsah::vycisti($p['obsah'], $stav['prilohy']),
+            'seo_link' => $seo, 'titulek' => $titulek, 'text' => $text,
+            'stavba' => ($stav['volby']['stavitel'] ?? false) ? $this->stavba($titulek, $text) : null,
             'popis' => mb_substr(trim(html_entity_decode(strip_tags($p['perex']), ENT_QUOTES | ENT_HTML5, 'UTF-8')), 0, 300),
             'zobrazit' => $stavClanku['visible'],
             'v_menu' => 0, // desítky starých stránek by zaplavily navigaci; do nabídky si je správce zařadí sám
@@ -530,10 +532,32 @@ final class WpImport
             $this->db->update('novinky', $nove, ['idc' => $id]);
             Galerie::zapisPouziti($this->db, $id, $nove['obrazek'], $nove['uvod'], $nove['text']);
         } elseif ($typ === 'stranka' && $nove['text'] !== $zaznam['text']) {
-            $this->db->update('stranky', ['text' => $nove['text']], ['ids' => $id]);
+            // obrázky jsou už v Médiích: stavba importované stránky se převede znovu, aby odkazovala na ně
+            $stavba = $this->db->value('SELECT stavba FROM {stranky} WHERE ids = ?', [$id]) !== null && $this->db->value('SELECT stavba_koncept FROM {stranky} WHERE ids = ?', [$id]) === null
+                ? ['stavba' => $this->stavba((string) $zaznam['titulek'], $nove['text'])] : [];
+            $this->db->update('stranky', ['text' => $nove['text']] + $stavba, ['ids' => $id]);
         }
 
         return $cely;
+    }
+
+    /**
+     * Stránka z WordPressu jako stavba (Stavitel\ZHtml): nadpis a obsah v úzké sekci, bloky Gutenbergu jako prvky, třídy
+     * WordPressu bez stylu pryč. Vlastní HTML (vložené mapy, iframe) smí vzniknout – import spouští správce.
+     */
+    private function stavba(string $titulek, string $html): ?string
+    {
+        $prevod = \MiroCMS\Stavitel\ZHtml::preved('<h1>' . e($titulek) . '</h1>' . $html, true);
+        $stavba = \MiroCMS\Stavitel\ZHtml::bezTrid($prevod['stavba'], array_column($this->db->all('SELECT nazev FROM {tridy}'), 'nazev'));
+        foreach ($stavba['deti'] as &$sekce) {
+            if ($sekce['typ'] === 'sekce' && !isset($sekce['kotva'])) {
+                $sekce['obsah']['sirka'] = 'uzka'; // text stránky se čte lépe v užším sloupci
+            }
+        }
+        unset($sekce);
+        [$cista] = \MiroCMS\Stavitel\Stavba::vycisti($stavba, true);
+
+        return $cista['deti'] === [] ? null : \MiroCMS\Stavitel\Stavba::naJson($cista);
     }
 
     /**

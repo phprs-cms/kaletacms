@@ -70,6 +70,28 @@ final class ZHtml
         return ['stavba' => ['v' => Stavba::VERZE, 'deti' => $koren], 'tridy' => $prevod->tridy, 'hlaseni' => array_values(array_unique($prevod->hlaseni))];
     }
 
+    /**
+     * Odebere třídy, které nemají styl (z cizích CSS frameworků, WordPressu…) – jen by zabíraly místo.
+     *
+     * @param list<string> $zname třídy, které styl mají
+     * @param list<string> $vynechane sem se zapíšou odebrané
+     */
+    public static function bezTrid(array $uzel, array $zname, array &$vynechane = []): array
+    {
+        foreach ($uzel['deti'] ?? [] as $i => $p) {
+            if (isset($p['tridy'])) {
+                $vynechane = array_merge($vynechane, array_diff($p['tridy'], $zname));
+                $p['tridy'] = array_values(array_intersect($p['tridy'], $zname));
+                if ($p['tridy'] === []) {
+                    unset($p['tridy']);
+                }
+            }
+            $uzel['deti'][$i] = self::bezTrid($p, $zname, $vynechane);
+        }
+
+        return $uzel;
+    }
+
     /** @return list<array<string, mixed>> */
     private function deti(Node $rodic, int $hloubka = 0): array
     {

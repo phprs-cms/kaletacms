@@ -289,7 +289,7 @@ TOKEN=$(csrf)
 wp_davka() { curl -s -b "$JAR" -c "$JAR" -o "$PRACE/odpoved" -X POST "$B/admin.php?modul=prenos&akce=prubeh&soubor=wordpress-ukazka.xml" -d "_csrf=$TOKEN"; }
 wp_import() { # náhled (čtení souboru) → volby → import; ukázkový soubor se vejde do jedné dávky
   wp_davka
-  curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=prenos&akce=spust" -d "_csrf=$TOKEN" -d soubor=wordpress-ukazka.xml -d koncepty=1 -d stranky=1 -d presmerovani=1 -d rubrika=0
+  curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=prenos&akce=spust" -d "_csrf=$TOKEN" -d soubor=wordpress-ukazka.xml -d koncepty=1 -d stranky=1 -d stavitel=1 -d presmerovani=1 -d rubrika=0
   wp_davka
 }
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=prenos&akce=nahraj" -F "_csrf=$TOKEN" -F "soubor=@$KOREN/tools/fixtures/wordpress-ukazka.xml"
@@ -300,6 +300,9 @@ grep -q "Import obsahu je hotový" "$PRACE/odpoved" && echo "  ok     import z W
 over "importovaná novinka" 200 /novinky/lavka-pres-bystrinu "Lávka přes Bystřinu"
 over "importovaná novinka – galerie a video" 200 /novinky/lavka-pres-bystrinu 'class="galerie"'
 over "importovaná stránka" 200 /o-zpravodaji "Kontakt"
+over "importovaná stránka je rovnou ve stavitelu" 200 /o-zpravodaji '<main id="obsah" class="stavba">'
+over "importovaná stránka má nadpis z WordPressu" 200 /o-zpravodaji '<h1>O zpravodaji</h1>'
+curl -s -o "$PRACE/odpoved" "$B/o-zpravodaji"; grep -q 'wp-block' "$PRACE/odpoved" && { echo "  CHYBA  třídy WordPressu ve stavbě"; CHYB=$((CHYB+1)); } || echo "  ok     třídy WordPressu bez stylu vynechány"
 curl -s -o "$PRACE/odpoved" "$B/novinky/lavka-pres-bystrinu"; grep -qE "podvrh|onclick|kontaktni-formular|posta\.example" "$PRACE/odpoved" && { echo "  CHYBA  importovaná novinka obsahuje skript, zkratku doplňku nebo e-mail komentujícího"; CHYB=$((CHYB+1)); } || echo "  ok     importovaný obsah je vyčištěný"
 kod=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/2026/05/lavka-pres-bystrinu/"); ocekavej "stará adresa WordPressu přesměruje na novinku" "$kod" "301 $B/novinky/lavka-pres-bystrinu"
 kod=$(curl -s -o /dev/null -w '%{http_code}' "$B/?p=102"); ocekavej "stará adresa /?p=102 přesměruje" "$kod" 301
@@ -315,6 +318,8 @@ EXPORT=$(grep -o 'export-[0-9]*-[0-9]*\.[a-z]*' "$PRACE/odpoved" | head -1)
 curl -s -b "$JAR" -o "$PRACE/export" "$B/admin.php?modul=prenos&akce=stahni&soubor=$EXPORT"
 if [ "${EXPORT##*.}" = zip ]; then unzip -p "$PRACE/export" obsah.json > "$PRACE/obsah.json" 2>/dev/null || true; else cp "$PRACE/export" "$PRACE/obsah.json"; fi
 grep -q '"format":"mirocms-export"' "$PRACE/obsah.json" && grep -q '"novinky"' "$PRACE/obsah.json" && ! grep -qE '"password"|smtp_heslo|tajny_klic|ai_klic' "$PRACE/obsah.json" && echo "  ok     export obsahuje data a žádná tajemství" || { echo "  CHYBA  export"; CHYB=$((CHYB+1)); }
+grep -q '"kolekce_polozky":\[' "$PRACE/obsah.json" && grep -q 'Jana Nováková' "$PRACE/obsah.json" && grep -q '"tridy":\[' "$PRACE/obsah.json" && grep -q '"casti":\[' "$PRACE/obsah.json" && ! grep -q 'Chci kuchyň' "$PRACE/obsah.json" \
+  && echo "  ok     export obsahuje stavitel a kolekce, poptávky ne" || { echo "  CHYBA  export stavitele a kolekcí"; CHYB=$((CHYB+1)); }
 curl -s -o "$PRACE/odpoved" "$B/admin.php?modul=prenos&akce=stahni&soubor=$EXPORT"; grep -q "Heslo" "$PRACE/odpoved" && echo "  ok     export jen pro přihlášeného správce" || { echo "  CHYBA  export jde stáhnout bez přihlášení"; CHYB=$((CHYB+1)); }
 
 echo "== koš novinek"

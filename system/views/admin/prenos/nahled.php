@@ -65,6 +65,7 @@ $prevede = fn (array $pocty): int => array_sum(array_intersect_key($pocty, ['pub
 <div class="radek"><span class="popisek"><?= e(t('Co importovat')) ?></span><div class="volby">
 	<label><input type="checkbox" name="koncepty" value="1"<?= $volby['koncepty'] ? ' checked' : '' ?>> <?= e(t('koncepty a příspěvky čekající na schválení (%s)', (int) (($p['clanky']['draft'] ?? 0) + ($p['clanky']['pending'] ?? 0)))) ?></label>
 	<label><input type="checkbox" name="stranky" value="1"<?= $volby['stranky'] ? ' checked' : '' ?>> <?= e(t('stránky (%s)', $prevede($p['stranky']))) ?></label>
+	<label><input type="checkbox" name="stavitel" value="1"<?= ($volby['stavitel'] ?? true) ? ' checked' : '' ?>> <?= e(t('stránky rovnou do stavitele – upravíte je vizuálně; původní text zůstane jako záloha')) ?></label>
 	<label><input type="checkbox" name="presmerovani" value="1"<?= $volby['presmerovani'] ? ' checked' : '' ?>> <?= e(t('přesměrování ze starých adres na nové')) ?></label>
 </div></div>
 <?php if (!$presmerovaniZapnuto): ?>
