@@ -507,7 +507,11 @@
 	function zahod() {
 		potvrd(T('Zahodit všechny změny od posledního publikování? Nejde to vrátit.'), T('Zahodit')).then((ano) => {
 			if (!ano) { return; }
-			dotaz(D.adresy.zahod, { ok: 1 }).then((j) => {
+			// naplánované uložení by koncept po zahození znovu vytvořilo; běžící se nechá doběhnout
+			clearTimeout(stav.casovac);
+			stav.znovuUlozit = false;
+			const pockej = () => new Promise((hotovo) => { const cekej = () => (stav.uklada ? setTimeout(cekej, 100) : hotovo()); cekej(); });
+			pockej().then(() => dotaz(D.adresy.zahod, { ok: 1 })).then((j) => {
 				if (!j.ok) { nastavStav(j.chyba, true); return; }
 				stav.stavba = j.stavba; stav.zpet = []; stav.vpred = []; stav.zmeny = false; stav.vybrane = null;
 				nastavStav(T('Změny zahozeny')); prekresli(); obnovNahled();
@@ -542,7 +546,55 @@
 		if (stav.levo === 'pridat') { panelPridat(); } else { prekresliStrom(); }
 	}
 
+	/** AI: nová sekce podle popisu – vloží se za vybranou sekci (nebo na konec) jako běžná změna, jde vrátit. */
+	function sekceSAi() {
+		const pole = el('textarea', { rows: 5, placeholder: T('Např.: Tři karty s našimi službami – kuchyně, skříně, schodiště. Ke každé krátký popis a odkaz na kontakt.') });
+		const d = el('dialog', { class: 'st-dialog' }, el('div', {}, el('h2', {}, T('Vytvořit sekci s AI')),
+			el('label', { class: 'st-pole' }, el('span', {}, T('Co má sekce obsahovat?')), pole),
+			el('p', { class: 'st-prazdno', style: 'text-align:left;padding:0' }, T('Asistent navrhne texty i rozložení ve stylu vašeho webu. Výsledek zkontrolujte – fakta (čísla, ceny, jména) doplňte sami.'))),
+		el('footer', {}, el('button', { type: 'button', class: 'st-tl', onclick: () => d.close() }, T('Zrušit')),
+			el('button', { type: 'button', class: 'st-tl st-tl-hlavni', onclick: () => {
+				const zadani = pole.value.trim();
+				if (!zadani) { pole.focus(); return; }
+				d.close();
+				nastavStav(T('Asistent navrhuje sekci…'));
+				dotaz(D.adresy.aiSekce, { zadani }).then((j) => {
+					if (!j.ok) { nastavStav(j.chyba || T('Asistent neodpověděl.'), true); return; }
+					D.tridy = j.tridy;
+					const v = stav.vybrane && najdi(stav.vybrane);
+					let horni = v; while (horni && horni.rodic) { horni = najdi(horni.rodic.id); }
+					zmen(() => { stav.stavba.deti.splice(horni ? horni.i + 1 : stav.stavba.deti.length, 0, ...j.prvky); });
+					vyber(j.prvky[0].id);
+					prekresliPanely();
+					nastavStav(j.hlaseni && j.hlaseni.length ? T('Sekce vložena. Upozornění: ') + j.hlaseni.join(' ') : T('Sekce vložena – zkontrolujte texty.'));
+				});
+			} }, T('Vytvořit'))));
+		d.addEventListener('close', () => d.remove());
+		document.body.append(d);
+		d.showModal();
+		pole.focus();
+	}
+
+	/** AI: přepis textu prvku (kratší, delší…) – výsledek je běžná změna, Zpět ji vrátí. */
+	function prepisySAi(p) {
+		const klic = { nadpis: 'text', text: 'html', tlacitko: 'text', citat: 'text' }[p.typ];
+		if (!D.ai || !klic || !(p.obsah[klic] || '').trim() || String(p.obsah[klic]).includes('{{')) { return null; }
+		const pokyny = [['kratsi', T('kratší')], ['delsi', T('delší')], ['formalne', T('formálněji')], ['pratelsky', T('přátelštěji')], ['oprava', T('opravit chyby')]];
+		return el('div', { class: 'st-ai' }, el('span', {}, '✨ ' + T('Přepsat s AI:')), el('div', {}, pokyny.map(([pokyn, nazev]) => el('button', { type: 'button', onclick: (e) => {
+			e.target.disabled = true;
+			nastavStav(T('Asistent přepisuje text…'));
+			dotaz(D.adresy.aiText, { text: p.obsah[klic], pokyn, html: klic === 'html' ? '1' : '0' }).then((j) => {
+				e.target.disabled = false;
+				if (!j.ok) { nastavStav(j.chyba || T('Asistent neodpověděl.'), true); return; }
+				zmen(() => { p.obsah[klic] = j.text; });
+				prekresliPravy();
+				nastavStav(T('Text přepsán – Ctrl+Z ho vrátí.'));
+			});
+		} }, nazev))));
+	}
+
 	function panelPridat() {
+		if (D.ai) { levyObsah.append(el('button', { type: 'button', class: 'st-tl st-ai-sekce', onclick: sekceSAi }, '✨ ' + T('Vytvořit sekci s AI'))); }
 		const skupiny = {};
 		D.schema.prvky.forEach((p) => { (skupiny[p.skupina] = skupiny[p.skupina] || []).push(p); });
 		for (const [nazev, prvky] of Object.entries(skupiny)) {
@@ -710,6 +762,8 @@
 		const kolekce = p.typ !== 'kolekce' ? kolekcePrvku(p.id) : null;
 		const napoveda = kolekce ? napovedaZnacek(kolekce) : null;
 		if (napoveda) { panel.append(napoveda); }
+		const ai = prepisySAi(p);
+		if (ai) { panel.append(ai); }
 		const vlastnosti = Object.entries(s.vlastnosti || {});
 		if (!vlastnosti.length) { panel.append(el('p', { class: 'st-prazdno' }, s.kontejner ? T('Kontejner nemá vlastní obsah – vložte do něj prvky, vzhled nastavíte v záložce Styl.') : T('Prvek nemá nastavitelný obsah.'))); return; }
 		vlastnosti.forEach(([klic, def]) => panel.append(pole(def, p.obsah[klic], (h) => zmen(() => { p.obsah[klic] = h; }, 'obsah:' + p.id + ':' + klic))));

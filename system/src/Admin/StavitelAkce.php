@@ -71,6 +71,7 @@ trait StavitelAkce
             'schema' => $schema,
             'kolekce' => $kolekce,
             'komponenty' => $komponenty,
+            'ai' => (new \MiroCMS\Core\Asistent($app->settings()))->pripraven(),
             'kolekceDetailu' => $e['kolekce'] ?? null,
             'knihovna' => Knihovna::seznam(),
             'kategorieKnihovny' => array_map(fn (string $k): string => t($k), Knihovna::KATEGORIE),
@@ -80,7 +81,7 @@ trait StavitelAkce
             'zpet' => $e['zpet'],
             'adresy' => array_map(fn (string $akce): string => $this->url($akce, $cil['parametry']), [
                 'uloz' => 'stavba_uloz', 'publikuj' => 'stavba_publikuj', 'zahod' => 'stavba_zahod', 'sekce' => 'stavba_sekce', 'trida' => 'stavba_trida',
-                'revize' => 'stavba_revize', 'obnov' => 'stavba_obnov',
+                'revize' => 'stavba_revize', 'obnov' => 'stavba_obnov', 'aiSekce' => 'stavba_ai_sekce', 'aiText' => 'stavba_ai_text',
             ]) + ['admin' => $app->url('admin.php'), 'nastaveni' => $e['nastaveni'],
                 'komponenta' => $app->auth()->isAdmin() ? $app->url('admin.php?modul=komponenty&akce=z_prvku') : null],
         ];
@@ -219,6 +220,44 @@ trait StavitelAkce
         $schema['skupiny_stylu'] = array_map(fn (string $s): string => t($s), $schema['skupiny_stylu']);
 
         return $schema;
+    }
+
+    /** AI asistent: nová sekce podle popisu (JSON s prvky k vložení). */
+    protected function akceStavbaAiSekce(): Response
+    {
+        $cil = $this->request->isPost() ? $this->cilStavby() : null;
+        $asistent = new \MiroCMS\Core\Asistent($this->app->settings());
+        if ($cil === null || !$asistent->pripraven()) {
+            return Response::json(['ok' => false, 'chyba' => t('AI asistent není zapnutý (Rozšíření).')], 400);
+        }
+        try {
+            $html = \MiroCMS\Core\Jazyk::docasne($cil['jazyk'], fn (): string => $asistent->navrhniSekci($this->request->post('zadani'), $cil['jazyk'], $cil['titulek']));
+        } catch (\RuntimeException $e) {
+            return Response::json(['ok' => false, 'chyba' => t($e->getMessage())], 502);
+        }
+        ['stavba' => $stavba, 'hlaseni' => $hlaseni] = \MiroCMS\Stavitel\ZHtml::doWebu($this->db, $html, false);
+        [$cista] = Stavba::vycisti($stavba, $this->app->auth()->isAdmin());
+        if ($cista['deti'] === []) {
+            return Response::json(['ok' => false, 'chyba' => t('Asistent nevrátil použitelnou sekci. Zkuste popis upřesnit.')], 502);
+        }
+
+        return Response::json(['ok' => true, 'prvky' => $cista['deti'], 'tridy' => $this->tridyStavitele(), 'hlaseni' => $hlaseni]);
+    }
+
+    /** AI asistent: přepis textu prvku (kratší, delší, formálněji…). Nic neukládá – editor text vloží jako běžnou změnu. */
+    protected function akceStavbaAiText(): Response
+    {
+        $asistent = new \MiroCMS\Core\Asistent($this->app->settings());
+        if (!$this->request->isPost() || !$asistent->pripraven()) {
+            return Response::json(['ok' => false, 'chyba' => t('AI asistent není zapnutý (Rozšíření).')], 400);
+        }
+        try {
+            $text = $asistent->prepis((string) ($_POST['text'] ?? ''), $this->request->post('pokyn'), $this->request->post('html') === '1');
+        } catch (\RuntimeException $e) {
+            return Response::json(['ok' => false, 'chyba' => t($e->getMessage())], 502);
+        }
+
+        return Response::json(['ok' => true, 'text' => $text]);
     }
 
     /** @return array<string, array{styl: array<string, mixed>|\stdClass, css: string}> */

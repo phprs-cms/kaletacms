@@ -61,7 +61,7 @@ class Konfigurace extends Modul
         'cookies' => ['cookies_rezim' => 'vyber:zadna|vestavena|externi', 'cookies_externi_kod' => 'kod', 'cookies_text' => 'radky', 'cookies_zasady_url' => 'text', 'kod_marketing' => 'kod', 'cookies_evidence' => 'ano'],
         'posta' => ['posta_rezim' => 'vyber:mail|smtp', 'posta_od' => 'email', 'posta_odpoved' => 'email', 'smtp_host' => 'vzor:/^[A-Za-z0-9.-]{0,120}$/', 'smtp_port' => 'cislo:1:65535',
             'smtp_sifrovani' => 'vyber:tls|ssl|zadne', 'smtp_uzivatel' => 'text', 'smtp_heslo' => 'tajne'],
-        'rozsireni' => ['ai_klic' => 'tajne', 'ai_model' => 'vyber:' . \MiroCMS\Core\Asistent::MODELY_KLICE],
+        'rozsireni' => ['ai_poskytovatel' => 'vyber:' . \MiroCMS\Core\Asistent::POSKYTOVATELE_KLICE, 'ai_klic' => 'tajne', 'ai_model' => 'vzor:#^[A-Za-z0-9._:/-]{0,80}$#'],
         'zalohy' => ['zaloha_vzdalena' => 'vyber:vypnuto|ftp|s3', 'zaloha_host' => 'vzor:#^[A-Za-z0-9.:/-]{0,150}$#', 'zaloha_uzivatel' => 'text', 'zaloha_heslo' => 'tajne',
             'zaloha_slozka' => 'vzor:#^[A-Za-z0-9._/-]{0,150}$#', 'zaloha_region' => 'vzor:/^[a-z0-9-]{0,40}$/', 'zalohy_auto' => 'ano', 'aktualizace_auto' => 'ano', 'aktualizace_url' => 'url'],
         'stav' => ['stav_token' => 'vzor:/^[A-Za-z0-9]{0,64}$/'],
@@ -155,7 +155,7 @@ class Konfigurace extends Modul
         }
         if ($zalozka === 'rozsireni') {
             Rozsireni::uloz($nastaveni, $this->request->postList('rozsireni'));
-            if ($this->request->post('ai_klic') !== '' && ($chybaKlice = (new \MiroCMS\Core\Asistent($nastaveni))->overKlic()) !== null) {
+            if (($this->request->post('ai_klic') !== '' || $this->request->post('ai_poskytovatel') !== $this->request->post('ai_poskytovatel_puvodni')) && $nastaveni->get('ai_klic') !== '' && ($chybaKlice = (new \MiroCMS\Core\Asistent($nastaveni))->overKlic()) !== null) {
                 return $this->zpet(t('Nastavení je uložené, ale klíč asistenta nefunguje: %s', t($chybaKlice)), '', static::IDENT === 'config' ? ['zalozka' => $zalozka] : [], 'chyba');
             }
         }

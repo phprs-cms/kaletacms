@@ -100,7 +100,9 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../mirocms-interni/NAVRH.md`. Č
 - **Oznámení o vydání** (webhook, IndexNow) jen přes `Core\Oznameni::zpracuj()` a sloupec `oznameno`.
 - **Pošta** vždy přes `Core\Posta::odesli()` (fronta `mc_posta`). **Nahrávání:** obrázky `Core\Obrazky`, přílohy `Core\Soubory` (whitelist přípon).
 - **Čas:** pásmo `casove_pasmo` (`App::casovePasmo()`); zapisuj přes `date()`, porovnávej s `NOW()`.
-- **AI asistent** (`Core\Asistent`): klíč `ai_klic` je typ `tajne`; odpověď modelu je nedůvěryhodný vstup. Překlad (`Asistent::preloz()`) bere od modelu
+- **AI asistent** (`Core\Asistent`): poskytovatel `ai_poskytovatel` (anthropic | openai | google | mistral, pevné adresy v `POSKYTOVATELE`),
+  uvnitř se pracuje s tvarem Claude API a `zavolej()` ho převádí (`naOpenAi`/`zOpenAi`). Ve staviteli `navrhniSekci()` (HTML → `ZHtml::doWebu`) a `prepis()`.
+  Klíč `ai_klic` je typ `tajne`; odpověď modelu je nedůvěryhodný vstup. Překlad (`Asistent::preloz()`) bere od modelu
   jen text úseků, značky z originálu; výsledek je vždy koncept. Adresa API jen konstantou `MIROCMS_AI_URL` v `config.php`.
 - **MCP** (`Mcp\Server`, `Mcp\Nastroje`, `/mcp`, token z Můj účet): stránky (i stavitel: `stavba_schema`, `stavba_z_html`, `stavba_nacti`, `stavba_uloz`,
   `vloz_sekci`, `publikuj_stavbu`), design systém (`uprav_design_system`, správce), novinky, kategorie, média a VLASTNÍ šablony. Nová novinka je koncept,

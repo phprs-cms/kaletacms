@@ -167,22 +167,9 @@ final class Nastroje
 
             case 'stavba_z_html':
                 $cil = $this->cilStavby($a, true);
-                $prevod = ZHtml::preved((string) ($a['html'] ?? ''), $auth->isAdmin());
-                $hlaseni = $prevod['hlaseni'];
-                $existujici = array_column($db->all('SELECT nazev FROM {tridy}'), 'nazev');
-                foreach ($prevod['tridy'] as $trida => $css) {
-                    if (in_array($trida, $existujici, true) && empty($a['prepsat_tridy'])) {
-                        $hlaseni[] = 'Třída .' . $trida . ' už na webu je – ponechána beze změny (prepsat_tridy: true ji přepíše).';
-                        continue;
-                    }
-                    $db->run('INSERT INTO {tridy} (nazev, styl, css, zmeneno) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE css = VALUES(css), zmeneno = NOW()', [$trida, '{}', $css]);
-                }
-                // třídy bez stylu (z cizího CSS frameworku) by jen zabíraly místo
-                $zname = array_merge($existujici, array_keys($prevod['tridy']));
-                $vynechane = [];
-                $stavba = ZHtml::bezTrid($prevod['stavba'], $zname, $vynechane);
-                if ($vynechane !== []) {
-                    $hlaseni[] = 'Třídy bez stylu vynechány: ' . implode(', ', array_unique($vynechane)) . '.';
+                ['stavba' => $stavba, 'hlaseni' => $hlaseni] = ZHtml::doWebu($db, (string) ($a['html'] ?? ''), $auth->isAdmin(), !empty($a['prepsat_tridy']));
+                if (empty($a['prepsat_tridy'])) {
+                    $hlaseni = array_map(fn (string $h): string => str_ends_with($h, 'ponechána beze změny.') ? substr($h, 0, -1) . ' (prepsat_tridy: true ji přepíše).' : $h, $hlaseni);
                 }
                 if (($a['rezim'] ?? '') === 'pridat') {
                     $stavba['deti'] = array_merge($this->stavbaCile($cil)['deti'], $stavba['deti']);

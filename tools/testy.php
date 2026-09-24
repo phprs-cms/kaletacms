@@ -10,6 +10,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/system/bootstrap.php';
 
+use MiroCMS\Core\Asistent;
 use MiroCMS\Core\Hledani;
 use MiroCMS\Core\Migrace;
 use MiroCMS\Core\Soubory;
@@ -635,6 +636,44 @@ foreach (MiroCMS\Stavitel\Knihovna::WEBY as $webKlic => $web) {
     }
 }
 over('Knihovna::WEBY: předvolby a sekce ukázkových webů existují', $webyChyby, []);
+
+/* ---------- AI asistent: poskytovatelé a stavitel ---------- */
+$aiTelo = ['model' => 'm1', 'max_tokens' => 50, 'system' => 'S', 'messages' => [['role' => 'user', 'content' => [['type' => 'image', 'source' => ['media_type' => 'image/png', 'data' => 'QQ==']], ['type' => 'text', 'text' => 'Ahoj']]]]];
+over('Asistent::naOpenAi: systém, obrázek jako data URL, limit tokenů podle poskytovatele', [Asistent::naOpenAi($aiTelo, 'openai'), array_keys(Asistent::naOpenAi($aiTelo, 'mistral'))], [
+    ['model' => 'm1', 'messages' => [['role' => 'system', 'content' => 'S'], ['role' => 'user', 'content' => [['type' => 'image_url', 'image_url' => ['url' => 'data:image/png;base64,QQ==']], ['type' => 'text', 'text' => 'Ahoj']]]], 'max_completion_tokens' => 50],
+    ['model', 'messages', 'max_tokens'],
+]);
+over('Asistent::zOpenAi: odpověď do tvaru Claude API', Asistent::zOpenAi(['choices' => [['message' => ['content' => 'Text'], 'finish_reason' => 'length']]]), ['content' => [['type' => 'text', 'text' => 'Text']], 'stop_reason' => 'max_tokens']);
+$aiNastaveni = (new ReflectionClass(MiroCMS\Core\Settings::class))->newInstanceWithoutConstructor();
+(new ReflectionProperty(MiroCMS\Core\Settings::class, 'values'))->setValue($aiNastaveni, ['nazev_webu' => 'Test', 'ai_klic' => 'x', 'ai_poskytovatel' => 'anthropic', 'ai_model' => 'claude-sonnet-5']);
+$aiFalesny = new class($aiNastaveni) extends Asistent {
+    public string $odpoved = '';
+    public array $posledni = [];
+
+    protected function zavolej(array $telo): array
+    {
+        $this->posledni = $telo;
+
+        return ['content' => [['type' => 'text', 'text' => $this->odpoved]]];
+    }
+};
+$aiFalesny->odpoved = "Tady je sekce:\n```html\n<section class=\"sluzby-ai\"><h2>Služby</h2><p>Text <script>x</script></p><a class=\"btn\" href=\"javascript:alert(1)\">Klik</a></section><style>.sluzby-ai { padding: var(--mc-mezera-l); }</style>\n```";
+$aiHtml = $aiFalesny->navrhniSekci('Tři karty se službami a odkazem na kontakt.', 'cs', 'Služby');
+$aiPrevod = MiroCMS\Stavitel\ZHtml::preved($aiHtml);
+[$aiStavba] = MiroCMS\Stavitel\Stavba::vycisti($aiPrevod['stavba'], false);
+over('Asistent::navrhniSekci: HTML z bloku ```html, zadání uvnitř <zadani>, výsledek bez skriptu a javascript: odkazu', [
+    str_starts_with($aiHtml, '<section'), str_contains((string) $aiFalesny->posledni['messages'][0]['content'], '<zadani>'), str_contains(json_encode($aiStavba), 'script'), str_contains(json_encode($aiStavba), 'javascript'), $aiPrevod['tridy'],
+], [true, true, false, false, ['sluzby-ai' => 'padding: var(--mc-mezera-l);']]);
+$aiFalesny->odpoved = '<p>Kratší <strong>text</strong> <img src=x onerror=alert(1)></p>';
+over('Asistent::prepis: HTML odpověď vyčištěná, prostý text bez značek', [$aiFalesny->prepis('<p>Dlouhý text k přepsání.</p>', 'kratsi', true), $aiFalesny->prepis('Nadpis', 'formalne', false)], ['<p>Kratší <strong>text</strong> </p>', 'Kratší text']);
+(new ReflectionProperty(MiroCMS\Core\Settings::class, 'values'))->setValue($aiNastaveni, ['nazev_webu' => 'Test', 'ai_klic' => 'x', 'ai_poskytovatel' => 'openai', 'ai_model' => 'claude-sonnet-5']);
+try {
+    $aiFalesny->prepis('Text', 'kratsi', false);
+    $aiChyba = '';
+} catch (RuntimeException $e) {
+    $aiChyba = $e->getMessage();
+}
+over('Asistent: u jiného poskytovatele než Claude je potřeba zadat jeho model', str_contains($aiChyba, 'Zadejte název modelu'), true);
 
 echo $chyb === 0 ? "  ok     jednotkové testy ({$celkem})\n" : "  NALEZENO CHYB: {$chyb} z {$celkem}\n";
 exit($chyb === 0 ? 0 : 1);

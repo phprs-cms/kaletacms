@@ -108,7 +108,8 @@ final class Settings
         'smtp_uzivatel' => '',
         'smtp_heslo' => '',           // typ "tajne": nikdy se nevypisuje zpět do formuláře
         'oznameni_kontrola' => '0',   // kdy naposledy proběhla kontrola nově vydaných novinek
-        'ai_klic' => '',              // klíč Claude API pro AI asistenta v editoru (nikdy se nevypisuje zpět do formuláře)
+        'ai_poskytovatel' => 'anthropic', // anthropic | openai | google | mistral (Core\Asistent::POSKYTOVATELE)
+        'ai_klic' => '',              // klíč API AI asistenta (nikdy se nevypisuje zpět do formuláře)
         'ai_model' => 'claude-sonnet-5',
         'pruvodce_skryt' => '0',      // administrátor skryl první kroky na přehledu
         'uklizeno_verze' => '',       // verze, po jejímž nasazení už proběhl jednorázový úklid zrušených souborů

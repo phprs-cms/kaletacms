@@ -264,5 +264,22 @@ window.MIROCMS_PREKLAD = {
 	"Komponenta nemá vlastnosti – u všech použití vypadá stejně.": "The component has no properties – it looks the same everywhere.",
 	"Vlastnosti komponenty „%s“ – vložte do textu, obrázku nebo odkazu:": "Component properties “%s” – insert into text, image or link:",
 	"Přetažením přesunete": "Drag to move",
-	"Hledat sekci…": "Search sections…"
+	"Hledat sekci…": "Search sections…",
+	"Např.: Tři karty s našimi službami – kuchyně, skříně, schodiště. Ke každé krátký popis a odkaz na kontakt.": "E.g.: Three cards with our services – kitchens, wardrobes, staircases. A short description and a contact link for each.",
+	"Vytvořit sekci s AI": "Create a section with AI",
+	"Co má sekce obsahovat?": "What should the section contain?",
+	"Asistent navrhne texty i rozložení ve stylu vašeho webu. Výsledek zkontrolujte – fakta (čísla, ceny, jména) doplňte sami.": "The assistant drafts texts and layout in your site's style. Check the result – fill in facts (numbers, prices, names) yourself.",
+	"Asistent navrhuje sekci…": "The assistant is drafting a section…",
+	"Asistent neodpověděl.": "The assistant did not respond.",
+	"Sekce vložena. Upozornění: ": "Section inserted. Notes: ",
+	"Sekce vložena – zkontrolujte texty.": "Section inserted – check the texts.",
+	"Vytvořit": "Create",
+	"kratší": "shorter",
+	"delší": "longer",
+	"formálněji": "more formal",
+	"přátelštěji": "friendlier",
+	"opravit chyby": "fix mistakes",
+	"Přepsat s AI:": "Rewrite with AI:",
+	"Asistent přepisuje text…": "The assistant is rewriting the text…",
+	"Text přepsán – Ctrl+Z ho vrátí.": "Text rewritten – Ctrl+Z undoes it."
 };

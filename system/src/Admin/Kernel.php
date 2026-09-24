@@ -59,7 +59,7 @@ final class Kernel
 
         // každá změna v administraci zneplatní cache stránek webu; průběžné požadavky editorů (rozepsaný stav, asistent,
         // koncept stavby) web nemění - kdyby cache mazaly, při práci by byla pořád studená
-        if ($request->isPost() && !in_array($request->get('akce'), ['koncept', 'asistent', 'stavba_uloz', 'nahled'], true)) {
+        if ($request->isPost() && !in_array($request->get('akce'), ['koncept', 'asistent', 'stavba_uloz', 'nahled', 'stavba_ai_text'], true)) {
             \MiroCMS\Front\Cache::vymaz();
         }
         $akce = $request->get('akce');

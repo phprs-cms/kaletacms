@@ -71,6 +71,33 @@ final class ZHtml
     }
 
     /**
+     * HTML z jazykového modelu (MCP, asistent ve staviteli) do webu: převod, uložení nových tříd z <style> (existující třída
+     * webu se přepíše jen s $prepsat) a odebrání tříd bez stylu.
+     *
+     * @return array{stavba: array<string, mixed>, hlaseni: list<string>}
+     */
+    public static function doWebu(\MiroCMS\Core\Db $db, string $html, bool $spravce, bool $prepsat = false): array
+    {
+        $prevod = self::preved($html, $spravce);
+        $hlaseni = $prevod['hlaseni'];
+        $existujici = array_column($db->all('SELECT nazev FROM {tridy}'), 'nazev');
+        foreach ($prevod['tridy'] as $trida => $css) {
+            if (in_array($trida, $existujici, true) && !$prepsat) {
+                $hlaseni[] = 'Třída .' . $trida . ' už na webu je – ponechána beze změny.';
+                continue;
+            }
+            $db->run('INSERT INTO {tridy} (nazev, styl, css, zmeneno) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE css = VALUES(css), zmeneno = NOW()', [$trida, '{}', $css]);
+        }
+        $vynechane = [];
+        $stavba = self::bezTrid($prevod['stavba'], array_merge($existujici, array_keys($prevod['tridy'])), $vynechane);
+        if ($vynechane !== []) {
+            $hlaseni[] = 'Třídy bez stylu vynechány: ' . implode(', ', array_unique($vynechane)) . '.';
+        }
+
+        return ['stavba' => $stavba, 'hlaseni' => $hlaseni];
+    }
+
+    /**
      * Odebere třídy, které nemají styl (z cizích CSS frameworků, WordPressu…) – jen by zabíraly místo.
      *
      * @param list<string> $zname třídy, které styl mají
