@@ -2,30 +2,53 @@
 
 # MiroCMS
 
-**Open-source CMS pro firemní weby** – prezentace, služby, reference, kariéra, kontakt a novinky. Vizuální stavitel
-stránek s výstupem na úrovni ručně psaného HTML, napojení na jazykové modely (Claude přes MCP i další) a import z WordPressu.
+**Open-source CMS pro firemní weby** – prezentace, služby, reference, tým, kariéra, kontakt a novinky. Vizuální stavitel
+stránek s výstupem na úrovni ručně psaného HTML, AI asistent a napojení Clauda přes MCP, import z WordPressu.
+[English](README.en.md)
 
-> **Stav: raný vývoj.** Jádro (správa, bezpečnost, média, SEO, import z WordPressu, MCP) je hotové; stavitel stránek,
-> design systém a moduly pro firemní web vznikají. Zatím nepoužívejte na produkčních webech.
+> **Stav: před vydáním 1.0.** Funkce níže jsou hotové a pokryté testy; zatím nepoužívejte na produkčních webech.
+
+## Co umí
+
+- **Stavitel stránek** – plátno je skutečná stránka webu. Prvky a hotové sekce přetáhnete na místo, styl nastavíte zvlášť
+  pro počítač, tablet, mobil i najetí myší. Koncept se ukládá průběžně, na web jde až tlačítkem Publikovat; starší verze
+  se dají obnovit.
+- **Knihovna 39 hotových sekcí** (úvody, služby, ceník, reference, tým, galerie, kontakt s formulářem…) a **tři ukázkové
+  weby** k instalaci. Texty česky i anglicky, podle jazyka stránky.
+- **Design systém** – předvolby vzhledu jedním klikem, barvy s kontrolou čitelnosti (WCAG), písma, plynulé velikosti
+  a mezery. Všechno jsou tokeny, takže změna barvy přebarví celý web.
+- **Části webu** – záhlaví, patička a obálky detailu novinky, výpisu a stránky 404 ve staviteli, včetně variant pro
+  vybrané stránky (landing page bez navigace).
+- **Komponenty** – znovupoužitelné bloky s vlastnostmi; úprava komponenty se projeví všude, kde je použitá.
+- **Kolekce** – vlastní typy obsahu (reference, tým, produkty, pobočky…) s vlastními poli, výpis ve staviteli se
+  značkami `{{pole}}`, filtry, řazením a stránkováním, stránky položek se šablonou ze stavitele.
+- **Formuláře a poptávky** – poptávkový formulář bez CAPTCHA a cookies, poptávky v administraci, upozornění e-mailem,
+  export CSV a automatické mazání osobních údajů.
+- **Firma** – adresa, IČO, otevírací doba a mapa jednou v Nastavení; web je vypíše a vyhledávače dostanou strukturovaná
+  data LocalBusiness.
+- **AI** – asistent navrhne novou sekci podle popisu, přepíše text prvku, navrhne titulky, SEO popisy, korekturu i překlad
+  (Claude, OpenAI, Google Gemini nebo Mistral). Claude navíc může web stavět přes **MCP**: HTML převede na stavbu,
+  upraví části webu, kolekce i vzhled – vždy jako koncept ke schválení.
+- **Novinky** (blog), vícejazyčné weby, SEO a llms.txt, vlastní měření návštěvnosti bez cookies, přesměrování,
+  zálohy a podepsané aktualizace, **import z WordPressu** (i rovnou do stavitele).
 
 ## Zásady
 
 - **Bez technologického dluhu:** čisté PHP 8.4+, žádný framework, Composer ani build krok; žádné cizí pluginy.
-- **Čistý výstup:** jeden prvek stavitele = jedna HTML značka, CSS jen toho, co stránka používá, nulový JavaScript,
-  pokud ho stránka nepotřebuje. Hlídají to testy.
-- **Web 2026:** fluidní typografie a mezery, container queries, barvy v OKLCH, design tokeny (W3C DTCG),
-  přechody mezi stránkami bez SPA.
-- **AI jako rovnocenný uživatel:** co jde v editoru, jde i přes MCP – stejné schéma, validace i oprávnění; změny od AI jsou návrh ke schválení.
-- **Soukromí a přístupnost jako výchozí stav:** žádné cizí skripty ani písma, kontrola WCAG 2.2 AA v editoru.
+- **Čistý výstup:** jeden prvek stavitele = jedna HTML značka, CSS jen toho, co stránka používá, ve vrstvách kaskády
+  (`@layer`); JavaScript jen tam, kde je opravdu potřeba. Hlídají to testy.
+- **Web 2026:** fluidní typografie a mezery, container queries, barvy v OKLCH (`color-mix`), Popover API, přechody mezi stránkami.
+- **AI jako rovnocenný uživatel:** co jde v editoru, jde i přes MCP – stejné schéma, validace i oprávnění.
+- **Soukromí a přístupnost jako výchozí stav:** žádné cizí skripty ani písma, kontrola kontrastu barev.
 - **Instalace přes FTP**, podepsané aktualizace.
 
-## Instalace (vývojová verze)
+## Instalace
 
 1. Nahrajte obsah repozitáře na hosting s PHP 8.4+ a MySQL 8 / MariaDB 10.6+.
 2. Založte prázdnou databázi.
-3. Otevřete `https://vas-web.cz/install.php` a vyplňte formulář.
+3. Otevřete `https://vas-web.cz/install.php`, vyplňte formulář a vyberte ukázkový web.
 
-Nginx nečte `.htaccess` – použijte ukázku `system/nginx.priklad.conf`.
+Nginx nečte `.htaccess` – použijte ukázku `system/nginx.priklad.conf`. Návod k používání je v [příručce](docs/prirucka.md).
 
 ## Vývoj
 
@@ -33,7 +56,9 @@ Nginx nečte `.htaccess` – použijte ukázku `system/nginx.priklad.conf`.
 php -S localhost:8080 system/dev-router.php
 ```
 
-Test (čistá instalace + průchod webem a administrací, potřebuje MySQL): `tools/test.sh`.
+Testy: `php tools/testy.php` (jednotkové, bez databáze) a `tools/test.sh` (čistá instalace a průchod webem, administrací,
+stavitelem i MCP; potřebuje MySQL; `WEB=remeslo tools/test.sh` otestuje jiný ukázkový web). Pravidla pro přispěvatele
+a architektura jsou v [`CLAUDE.md`](CLAUDE.md).
 
 ## Licence
 

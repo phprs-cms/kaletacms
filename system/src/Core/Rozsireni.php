@@ -18,8 +18,8 @@ final class Rozsireni
         'presmerovani' => ['Přesměrování', 'Správa přesměrování 301 ze starých adres – po přechodu z jiného webu nezbytné.', true],
         'jazyky' => ['Jazykové verze webu', 'Web ve více jazycích: každá další verze (/en/…) má své stránky, kategorie a novinky, přepínač jazyků a značky hreflang. Jazyky vyberete v Nastavení → Základní.', false],
         'api' => ['Veřejné API', 'Čtecí JSON API pro jiný web nebo aplikaci: /api/novinky, /api/novinky/<adresa>, /api/kategorie, /api/stranky.', false],
-        'asistent' => ['AI asistent v editoru', 'Návrhy titulků, perexu, SEO popisu a štítků, korektura a popisy obrázků přímo při psaní. Potřebuje vlastní klíč Claude API (níže); text se při použití posílá službě Anthropic.', false],
-        'claude' => ['Napojení na Claude', 'MCP server na adrese /mcp: Claude umí s právy vašeho účtu číst a psát novinky a stránky a tvořit šablony webu. Přístupový token si každý vytvoří v nabídce Můj účet.', false],
+        'asistent' => ['AI asistent', 'Ve staviteli nové sekce podle popisu a přepisy textů, v novinkách titulky, perex, SEO popis, štítky, korektura, popisy obrázků a překlad. Potřebuje vlastní klíč Claude, OpenAI, Google nebo Mistral (níže); text se posílá jen po kliknutí na tlačítko asistenta.', false],
+        'claude' => ['Napojení na Claude', 'MCP server na adrese /mcp: Claude s právy vašeho účtu staví stránky ve staviteli, upravuje záhlaví, patičku, kolekce a vzhled a píše novinky – vždy jako koncept ke schválení. Přístupový token si každý vytvoří v nabídce Můj účet.', false],
     ];
 
     /** @return list<string> */

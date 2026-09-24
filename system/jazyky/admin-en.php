@@ -2219,4 +2219,6 @@ return [
     'Jen položky s hodnotou' => 'Only items with value',
     'Tlačítka filtru pro návštěvníky (podle pole výše)' => 'Filter buttons for visitors (by the field above)',
     'Stránkovat (po „Nejvýš položek“)' => 'Paginate (by “Maximum items”)',
+    'Ve staviteli nové sekce podle popisu a přepisy textů, v novinkách titulky, perex, SEO popis, štítky, korektura, popisy obrázků a překlad. Potřebuje vlastní klíč Claude, OpenAI, Google nebo Mistral (níže); text se posílá jen po kliknutí na tlačítko asistenta.' => 'In the builder, new sections from a description and text rewrites; in news, headlines, intro, SEO description, tags, proofreading, image descriptions and translation. Needs your own Claude, OpenAI, Google or Mistral key (below); text is sent only when you click an assistant button.',
+    'MCP server na adrese /mcp: Claude s právy vašeho účtu staví stránky ve staviteli, upravuje záhlaví, patičku, kolekce a vzhled a píše novinky – vždy jako koncept ke schválení. Přístupový token si každý vytvoří v nabídce Můj účet.' => 'An MCP server at /mcp: with your account permissions Claude builds pages in the builder, edits the header, footer, collections and design and writes news – always as a draft to approve. Everyone creates their access token under My account.',
 ];
