@@ -81,7 +81,7 @@ kod=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/adm
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN" -d user=admin --data-urlencode "password=$HESLO"
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO mc_nastaveni VALUES ('rozsireni','statistika,presmerovani,asistent,jazyky,api,claude') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
 over "přehled" 200 /admin.php "Přehled"
-for m in stranky "stranky&akce=novy" poptavky casti kolekce "kolekce&akce=novy" novinky "novinky&akce=novy" "novinky&akce=odkazy" kategorie "kategorie&akce=novy" stitky intergal stat vzhled users "users&akce=novy" presmerovani protokol prenos rozsireni; do over "modul $m" 200 "/admin.php?modul=$m"; done
+for m in stranky "stranky&akce=novy" poptavky casti komponenty "komponenty&akce=novy" kolekce "kolekce&akce=novy" novinky "novinky&akce=novy" "novinky&akce=odkazy" kategorie "kategorie&akce=novy" stitky intergal stat vzhled users "users&akce=novy" presmerovani protokol prenos rozsireni; do over "modul $m" 200 "/admin.php?modul=$m"; done
 over "uživatelé se shrnutím oprávnění" 200 "/admin.php?modul=users" "Smí všechno"
 for z in zakladni seo mereni cookies posta zalohy stav; do over "nastavení/$z" 200 "/admin.php?modul=config&zalozka=$z"; done
 over "nastavení: volba úvodní stránky" 200 "/admin.php?modul=config&zalozka=zakladni" 'name="titulni_stranka"'
@@ -276,6 +276,28 @@ mcp seznam_kolekci '{}' > "$PRACE/odpoved"; grep -q 'kolekce\\": \\"tym' "$PRACE
 mcp uloz_polozku_kolekce '{"kolekce":"tym","nazev":"Petr Svoboda","data":{"funkce":"Mistr truhlář"},"zobrazit":true}' > /dev/null
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
 over "MCP: nová položka je ve výpisu" 200 /z-html "Mistr truhlář"
+
+echo "== komponenty"
+over "komponenty" 200 "/admin.php?modul=komponenty" "Komponenty"
+TOKEN=$(csrf)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=komponenty&akce=uloz" -d "_csrf=$TOKEN" -d idm=0 --data-urlencode "nazev=Karta služby" \
+  --data-urlencode "vlastnosti[0][popisek]=Nadpis" -d "vlastnosti[0][typ]=text" --data-urlencode "vlastnosti[0][vychozi]=Výchozí nadpis" --data-urlencode "vlastnosti[1][popisek]=Odkaz" -d "vlastnosti[1][typ]=odkaz" -d "vlastnosti[1][vychozi]=/kontakt"
+IDM=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idm FROM mc_komponenty ORDER BY idm DESC LIMIT 1")
+komp() { curl -s -b "$JAR" -c "$JAR" -o "$PRACE/odpoved" -w '%{http_code}' -X POST "$B/admin.php?modul=komponenty&akce=$1&id=$IDM" -d "_csrf=$TOKEN" "${@:2}"; }
+over "komponenta ve staviteli" 200 "/admin.php?modul=komponenty&akce=stavitel&id=$IDM" 'id="stavitel-data"'
+komp stavba_uloz --data-urlencode 'stavba={"v":1,"deti":[{"id":"kse1","typ":"sekce","deti":[{"id":"kna1","typ":"nadpis","znacka":"h3","obsah":{"text":"{{nadpis}}"},"styl":{"zaklad":{"barva":"primarni"}}},{"typ":"tlacitko","obsah":{"text":"Více","odkaz":"{{odkaz}}"}},{"typ":"komponenta","obsah":{"komponenta":"'"$IDM"'"}}]}]}' > /dev/null
+ocekavej "publikování komponenty" "$(komp stavba_publikuj)" 200
+over "náhled komponenty pro editor" 200 "/_komponenta/$IDM?stavba=koncept&editor=1" "Výchozí nadpis"
+mcp stavba_uloz "{\"id\":$IDZ,\"publikovat\":true,\"stavba\":{\"v\":1,\"deti\":[{\"typ\":\"komponenta\",\"obsah\":{\"komponenta\":\"$IDM\",\"hodnoty\":{\"nadpis\":\"První <b>karta</b>\",\"odkaz\":\"javascript:alert(1)\"}}},{\"typ\":\"komponenta\",\"obsah\":{\"komponenta\":\"$IDM\"}}]}}" > /dev/null
+rm -f "$PRACE"/web/storage/cache/stranky/*.html
+curl -s -o "$PRACE/odpoved" -w '' "$B/z-html"
+grep -q '<h3 class="s-kna1">První karta</h3>' "$PRACE/odpoved" && grep -q '<h3 class="s-kna1">Výchozí nadpis</h3>' "$PRACE/odpoved" && [ "$(grep -o 'href="/kontakt"' "$PRACE/odpoved" | wc -l | tr -d ' ')" -ge 1 ] && ! grep -q 'javascript:' "$PRACE/odpoved" \
+  && echo "  ok     komponenta na stránce: vlastní i výchozí hodnoty, bez značek, nebezpečný odkaz pryč" || { echo "  CHYBA  komponenta na stránce"; CHYB=$((CHYB+1)); }
+! grep -q 'id="s-kna1"' "$PRACE/odpoved" && ! grep -q 'data-mc-id' "$PRACE/odpoved" && [ "$(grep -o '\.s-kna1 {' "$PRACE/odpoved" | wc -l | tr -d ' ')" = 1 ] \
+  && echo "  ok     komponenta dvakrát na stránce: styl jednou, bez duplicitního id" || { echo "  CHYBA  styl komponenty"; CHYB=$((CHYB+1)); }
+over "komponenty ukazují počet použití" 200 "/admin.php?modul=komponenty" "1×"
+kod=$(curl -s -b "$JAR" -o "$PRACE/odpoved" -w '%{http_code}' -X POST "$B/admin.php?modul=komponenty&akce=z_prvku" -d "_csrf=$TOKEN" --data-urlencode "nazev=Výzva" --data-urlencode 'prvek={"typ":"sekce","deti":[{"typ":"nadpis","obsah":{"text":"Zavolejte nám"}}]}')
+[ "$kod" = 200 ] && grep -q '"ok":true' "$PRACE/odpoved" && echo "  ok     uložení prvku jako komponenty" || { echo "  CHYBA  z_prvku: $kod"; CHYB=$((CHYB+1)); }
 
 # úprava přímo na webu: odkaz a formulář jen pro přihlášené s právem
 over "úprava na místě – odkaz" 200 /novinky/vitejte-v-mirocms "mc-upravit-zde"

@@ -467,3 +467,15 @@ CREATE TABLE mc_kolekce_polozky (
     KEY ix_kolekce_polozky (idk, zobrazit, poradi),
     CONSTRAINT fk_kolekce_polozky FOREIGN KEY (idk) REFERENCES mc_kolekce (idk) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- Komponenty: znovupoužitelné bloky stavitele. vlastnosti = JSON [{klic, popisek, typ, vychozi}] – v komponentě jako {{klic}},
+-- každé použití (prvek „komponenta“) jim dává vlastní hodnoty. Změna komponenty se projeví všude, kde je použitá.
+CREATE TABLE mc_komponenty (
+    idm            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    nazev          VARCHAR(100) NOT NULL,
+    vlastnosti     TEXT NOT NULL,
+    stavba         MEDIUMTEXT NULL,
+    stavba_koncept MEDIUMTEXT NULL,
+    zmeneno        DATETIME NULL,
+    PRIMARY KEY (idm)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;

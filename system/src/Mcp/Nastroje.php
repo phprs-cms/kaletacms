@@ -149,6 +149,8 @@ final class Nastroje
 
             case 'stavba_schema':
                 return Stavba::schema($auth->isAdmin(), Jazyk::vychozi($web), $auth->isAdmin()) + [
+                    'komponenty' => array_map(fn (array $k): array => ['id' => (string) $k['idm'], 'nazev' => $k['nazev'], 'vlastnosti' => $k['vlastnosti']], \MiroCMS\Stavitel\Komponenty::vsechny($db))
+                        + ['pozn' => 'Použití: {"typ":"komponenta","obsah":{"komponenta":"<id>","hodnoty":{"<klic>":"hodnota"}}}; prázdná hodnota = výchozí.'],
                     'casti_webu' => array_map(fn (array $t): string => $t[0] . ' – ' . $t[1], Casti::TYPY) + ['pozn' => 'Prvky ze skupiny „Části webu“ (logo, navigace, udaje, obsah) patří jen do částí; obálka (novinka, vypis, nenalezeno) musí obsahovat právě jeden prvek „obsah“.'],
                     'knihovna' => Knihovna::seznam(),
                     'tridy_webu' => array_column($db->all('SELECT nazev FROM {tridy} ORDER BY nazev'), 'nazev'),

@@ -30,6 +30,7 @@
 		kolekce: '<rect x="3" y="4" width="8" height="7" rx="1.5"/><rect x="13" y="4" width="8" height="7" rx="1.5"/><rect x="3" y="13" width="8" height="7" rx="1.5"/><rect x="13" y="13" width="8" height="7" rx="1.5"/><path d="M5.5 8h3M15.5 8h3M5.5 17h3M15.5 17h3"/>',
 		logo: '<circle cx="12" cy="12" r="8"/><path d="M9 15V9l3 3 3-3v6"/>',
 		menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+		komponenta: '<path d="M12 3 4 7.5v9L12 21l8-4.5v-9z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/>',
 		formular: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8"/><rect x="8" y="15" width="5" height="3" rx="1"/>',
 		udaje: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M14 10h4M14 14h4M6 16c.8-1.5 1.8-2 3-2s2.2.5 3 2"/>',
 		clanek: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/>',
@@ -235,7 +236,7 @@
 		const n = najdi(uzel.getAttribute('data-mc-id'));
 		if (!n || !['nadpis', 'text', 'tlacitko', 'citat'].includes(n.p.typ)) { return; }
 		// v kolekci je na plátně dosazená hodnota položky – úprava by přepsala {{značku}}; text se mění v panelu Obsah
-		if (kolekcePrvku(n.p.id)) { vyber(n.p.id); nastavStav(T('Text s {{značkami}} kolekce upravte v panelu Obsah.')); return; }
+		if (kolekcePrvku(n.p.id) && JSON.stringify(n.p.obsah).includes('{{')) { vyber(n.p.id); nastavStav(T('Text s {{značkami}} kolekce upravte v panelu Obsah.')); return; }
 		const cil = n.p.typ === 'citat' ? uzel.querySelector('p') : uzel;
 		if (!cil) { return; }
 		stav.upravaNaPlatne = true;
@@ -489,6 +490,7 @@
 				el('button', { type: 'button', title: T('Dolů'), onclick: () => posun(p.id, 1) }, ikona('dolu')),
 				n.rodic ? el('button', { type: 'button', title: T('Vybrat nadřazený prvek (Esc)'), onclick: () => vyber(n.rodic.id) }, ikona('rodic')) : null,
 				el('button', { type: 'button', title: T('Duplikovat (Ctrl+D)'), onclick: () => duplikuj(p.id) }, ikona('kopie')),
+				D.adresy.komponenta && p.typ !== 'komponenta' ? el('button', { type: 'button', title: T('Uložit jako komponentu'), onclick: () => ulozJakoKomponentu(p.id) }, ikona('komponenta')) : null,
 				el('button', { type: 'button', class: 'nebezpecne', title: T('Smazat (Delete)'), onclick: () => smaz(p.id) }, ikona('smazat')))),
 			el('div', { class: 'st-zalozky', role: 'tablist' }, zal('obsah', T('Obsah')), zal('styl', T('Styl')), zal('pokrocile', T('Pokročilé'))),
 			panel,
@@ -508,8 +510,9 @@
 
 	/** Nápověda zástupných značek {{pole}} – klepnutím se značka zkopíruje. */
 	function napovedaZnacek(kolekce) {
-		const znacky = [['nazev', T('Název')], ['url', T('Adresa detailu')], ['datum', T('Datum')]].concat(kolekce.pole.map((p) => [p.klic, p.popisek]));
-		return el('div', { class: 'st-znacky' }, el('span', {}, T('Pole kolekce „%s“ – vložte do textu, obrázku nebo odkazu:').replace('%s', kolekce.nazev)),
+		const znacky = (kolekce.vestavene === false ? [] : [['nazev', T('Název')], ['url', T('Adresa detailu')], ['datum', T('Datum')]]).concat(kolekce.pole.map((p) => [p.klic, p.popisek]));
+		if (!znacky.length) { return null; }
+		return el('div', { class: 'st-znacky' }, el('span', {}, (kolekce.vestavene === false ? T('Vlastnosti komponenty „%s“ – vložte do textu, obrázku nebo odkazu:') : T('Pole kolekce „%s“ – vložte do textu, obrázku nebo odkazu:')).replace('%s', kolekce.nazev)),
 			el('div', {}, znacky.map(([klic, nazev]) => el('button', { type: 'button', title: nazev, onclick: (e) => {
 				const znacka = '{{' + klic + '}}';
 				if (navigator.clipboard) { navigator.clipboard.writeText(znacka); }
@@ -518,9 +521,54 @@
 			} }, '{{' + klic + '}}'))));
 	}
 
+	/** Vybraný prvek se uloží jako komponenta (správce) a na jeho místě zůstane její použití. */
+	function ulozJakoKomponentu(id) {
+		const n = najdi(id);
+		const nazev = n && window.prompt(T('Název komponenty (např. Karta služby):'), popisek(n.p));
+		if (!nazev) { return; }
+		dotaz(D.adresy.komponenta, { nazev, prvek: JSON.stringify(n.p) }).then((j) => {
+			if (!j.ok) { nastavStav(j.chyba || T('Uložení se nepovedlo.'), true); return; }
+			D.komponenty = j.komponenty;
+			const moznosti = { '': '—' };
+			j.komponenty.forEach((k) => { moznosti[String(k.id)] = k.nazev; });
+			if (TYPY.komponenta) { TYPY.komponenta.vlastnosti.komponenta.moznosti = moznosti; }
+			const pouziti = { id: noveId(), typ: 'komponenta', znacka: 'div', obsah: { komponenta: String(j.id), hodnoty: {} }, styl: {} };
+			zmen(() => { n.pole.splice(n.i, 1, pouziti); stav.vybrane = pouziti.id; });
+			prekresliPanely();
+			nastavStav(T('Komponenta uložena – úpravy v Komponentách se projeví všude, kde je použitá.'));
+		});
+	}
+
+	/** Hodnoty vlastností u použití komponenty: pole podle vybrané komponenty, prázdné = výchozí hodnota. */
+	function poleHodnot(p) {
+		const komponenta = (D.komponenty || []).find((k) => String(k.id) === String(p.obsah.komponenta));
+		if (!komponenta) { return null; }
+		const obal = el('div', { class: 'st-pole' }, el('span', {}, T('Vlastnosti')));
+		if (!komponenta.vlastnosti.length) {
+			obal.append(el('p', { class: 'st-prazdno' }, T('Komponenta nemá vlastnosti – u všech použití vypadá stejně.')));
+			return obal;
+		}
+		if (!p.obsah.hodnoty || Array.isArray(p.obsah.hodnoty)) { p.obsah.hodnoty = {}; }
+		komponenta.vlastnosti.forEach((v) => {
+			const def = { typ: v.typ === 'radky' || v.typ === 'html' ? 'radky' : (v.typ === 'obrazek' ? 'obrazek' : 'text'), popisek: v.popisek + ' {{' + v.klic + '}}' };
+			const vstup = pole(def, p.obsah.hodnoty[v.klic] || '', (h) => zmen(() => { p.obsah.hodnoty[v.klic] = h; }, 'hodnoty:' + p.id + ':' + v.klic));
+			const input = vstup.querySelector('input, textarea');
+			if (input && v.vychozi) { input.placeholder = v.vychozi; }
+			obal.append(vstup);
+		});
+		return obal;
+	}
+
 	function panelObsah(panel, p, s) {
+		if (p.typ === 'komponenta') {
+			panel.append(pole(s.vlastnosti.komponenta, p.obsah.komponenta, (h) => { zmen(() => { p.obsah.komponenta = h; p.obsah.hodnoty = {}; }); prekresliPravy(); }));
+			const hodnoty = poleHodnot(p);
+			if (hodnoty) { panel.append(hodnoty); }
+			return;
+		}
 		const kolekce = p.typ !== 'kolekce' ? kolekcePrvku(p.id) : null;
-		if (kolekce) { panel.append(napovedaZnacek(kolekce)); }
+		const napoveda = kolekce ? napovedaZnacek(kolekce) : null;
+		if (napoveda) { panel.append(napoveda); }
 		const vlastnosti = Object.entries(s.vlastnosti || {});
 		if (!vlastnosti.length) { panel.append(el('p', { class: 'st-prazdno' }, s.kontejner ? T('Kontejner nemá vlastní obsah – vložte do něj prvky, vzhled nastavíte v záložce Styl.') : T('Prvek nemá nastavitelný obsah.'))); return; }
 		vlastnosti.forEach(([klic, def]) => panel.append(pole(def, p.obsah[klic], (h) => zmen(() => { p.obsah[klic] = h; }, 'obsah:' + p.id + ':' + klic))));

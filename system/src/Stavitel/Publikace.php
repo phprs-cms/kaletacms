@@ -42,6 +42,15 @@ final class Publikace
         \MiroCMS\Front\Cache::vymaz();
     }
 
+    /** Komponenta (verze pod klíčem „komponenta:<idm>“) – změna se projeví na všech stránkách, kde je použitá. */
+    public static function komponenta(App $app, array $komponenta): void
+    {
+        $novy = $komponenta['stavba_koncept'] ?? $komponenta['stavba'];
+        self::verze($app, ['cast' => 'komponenta:' . (int) $komponenta['idm']], $komponenta['stavba'], $novy, $komponenta['zmeneno'] ?? null);
+        $app->db()->update('komponenty', ['stavba' => $novy, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['idm' => $komponenta['idm']]);
+        \MiroCMS\Front\Cache::vymaz();
+    }
+
     /** Uloží předchozí publikovanou verzi do historie. @param array{ids?: int|string, cast?: string} $cil */
     public static function verze(App $app, array $cil, ?string $stara, ?string $nova, ?string $datum): void
     {

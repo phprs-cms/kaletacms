@@ -39,6 +39,12 @@ final class Kontext
     /** Hloubka Výpisu kolekce: prvky uvnitř se opakují, proto mají styl přes třídu, ne přes id. */
     public int $vSmycce = 0;
 
+    /** @var array<int, array<string, mixed>|null> načtené komponenty (jedna komponenta bývá na stránce víckrát) */
+    public array $komponenty = [];
+
+    /** @var list<int> komponenty, které se právě vykreslují (ochrana proti komponentě v sobě samé) */
+    public array $zanoreni = [];
+
     /** @var array<string, true> prvky, jejichž CSS už na stránce je */
     public array $styly = [];
 

@@ -49,7 +49,12 @@ trait StavitelAkce
         $e = $this->editorCile($cil);
         $kolekce = array_map(fn (array $k): array => ['seo_link' => $k['seo_link'], 'nazev' => $k['nazev'], 'pole' => $k['pole'], 'detail' => (bool) $k['detail']], Kolekce::vsechny($this->db));
         $schema = Stavba::schema($app->auth()->isAdmin(), $cil['jazyk'], $e['casti']);
+        $komponenty = \MiroCMS\Admin\Moduly\Komponenty::proEditor($this->db);
         foreach ($schema['prvky'] as &$prvek) {
+            if ($prvek['typ'] === 'komponenta') {
+                $prvek['vlastnosti']['komponenta'] = ['typ' => 'vyber', 'popisek' => 'Komponenta', 'vychozi' => '',
+                    'moznosti' => ['' => '—'] + array_column(array_map(fn (array $k): array => ['id' => (string) $k['id'], 'nazev' => $k['nazev']], $komponenty), 'nazev', 'id')];
+            }
             if ($prvek['typ'] === 'kolekce') {
                 // v editoru výběr z kolekcí webu (validátor bere adresu kolekce jako text)
                 $prvek['vlastnosti']['kolekce'] = ['typ' => 'vyber', 'popisek' => 'Kolekce', 'vychozi' => $kolekce[0]['seo_link'] ?? '',
@@ -65,6 +70,7 @@ trait StavitelAkce
             'zmeny' => $cil['koncept'] !== null && $cil['koncept'] !== $cil['stavba'],
             'schema' => $schema,
             'kolekce' => $kolekce,
+            'komponenty' => $komponenty,
             'kolekceDetailu' => $e['kolekce'] ?? null,
             'knihovna' => Knihovna::seznam(),
             'tridy' => $this->tridyStavitele(),
@@ -74,7 +80,8 @@ trait StavitelAkce
             'adresy' => array_map(fn (string $akce): string => $this->url($akce, $cil['parametry']), [
                 'uloz' => 'stavba_uloz', 'publikuj' => 'stavba_publikuj', 'zahod' => 'stavba_zahod', 'sekce' => 'stavba_sekce', 'trida' => 'stavba_trida',
                 'revize' => 'stavba_revize', 'obnov' => 'stavba_obnov',
-            ]) + ['admin' => $app->url('admin.php'), 'nastaveni' => $e['nastaveni']],
+            ]) + ['admin' => $app->url('admin.php'), 'nastaveni' => $e['nastaveni'],
+                'komponenta' => $app->auth()->isAdmin() ? $app->url('admin.php?modul=komponenty&akce=z_prvku') : null],
         ];
 
         return Response::html($app->view->render('admin/stranky/stavitel', ['app' => $app, 'data' => $data, 'titulek' => $cil['titulek']]));

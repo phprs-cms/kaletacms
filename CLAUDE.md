@@ -83,6 +83,9 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../mirocms-interni/NAVRH.md`. Č
   `uloz_polozku_kolekce`): prvek `kolekce` (Výpis kolekce) zopakuje svůj vnitřek pro každou položku a `{{pole}}` v obsahu nahradí přes `Kolekce::dosad()`
   podle typu cílového pole (text se escapuje až prvkem, inline/html hned, odkaz se znovu ověří). Prvky uvnitř výpisu dostávají styl přes třídu `s-<id>`,
   ne přes id. Detail `/<kolekce>/<položka>` kreslí šablona ze stavitele (`mc_kolekce.stavba`, `Front\Kernel::detailKolekce`).
+- **Komponenty** (`Stavitel\Komponenty`, `mc_komponenty`, admin `Moduly\Komponenty`, v editoru „Uložit jako komponentu“): prvek `komponenta`
+  vloží publikovanou stavbu komponenty s hodnotami `{{vlastností}}` (stejné `Kolekce::dosad`); uvnitř bez značek editoru a se stylem přes třídu,
+  ochrana proti zanoření (`Kontext::$zanoreni`). Náhled pro editor `/_komponenta/<id>` (jen správce).
 - **Formuláře** (prvek `formular`, `Front\Formulare` na `POST /formular`): pole a příjemce se berou z PUBLIKOVANÉ stavby podle `zdroj` + id prvku,
   nikdy z požadavku. Ochrana `Core\Antispam` (podpis času, honeypot, limit na IP) – bez cookies, stránka zůstává v cache. Výsledek jen jako kód
   v adrese (`?formular=<id>&vysledek=ok|pole|limit|overeni`), text hlášení nikdy z adresy. Poptávky v `mc_poptavky` (admin `Moduly\Poptavky`,

@@ -26,7 +26,7 @@ final class Stavba
         Prvky\Sekce::class, Prvky\Kontejner::class, Prvky\Mrizka::class,
         Prvky\Nadpis::class, Prvky\Text::class, Prvky\Obrazek::class, Prvky\Tlacitko::class, Prvky\Seznam::class,
         Prvky\Citat::class, Prvky\Faq::class, Prvky\Video::class, Prvky\Oddelovac::class,
-        Prvky\Novinky::class, Prvky\VypisKolekce::class, Prvky\Formular::class, Prvky\Html::class,
+        Prvky\Novinky::class, Prvky\VypisKolekce::class, Prvky\Formular::class, Prvky\Komponenta::class, Prvky\Html::class,
         Prvky\Logo::class, Prvky\Navigace::class, Prvky\Udaje::class, Prvky\ObsahStranky::class,
     ];
 
@@ -153,6 +153,12 @@ final class Stavba
                 'vyber' => is_scalar($hodnota) && isset($def['moznosti'][(string) $hodnota]) ? (string) $hodnota : (string) $def['vychozi'],
                 'cislo' => is_numeric($hodnota) ? max((int) ($def['min'] ?? 0), min((int) ($def['max'] ?? 100), (int) $hodnota)) : (int) $def['vychozi'],
                 'prepinac' => (bool) $hodnota,
+                // hodnoty vlastností komponenty: jen klíč => text; podle typu vlastnosti se zkontrolují při vykreslení
+                'hodnoty' => array_slice(array_filter(
+                    array_map(fn (mixed $v): ?string => is_scalar($v) ? mb_substr((string) $v, 0, 20000) : null, is_array($hodnota) ? $hodnota : []),
+                    fn (?string $v, int|string $k): bool => $v !== null && is_string($k) && preg_match('/^[a-z][a-z0-9_]{0,30}$/', $k) === 1,
+                    ARRAY_FILTER_USE_BOTH,
+                ), 0, 30, true),
                 'polozky' => array_slice(array_values(array_map(
                     fn (mixed $polozka): array => self::vycistiObsah($def['pole'], is_array($polozka) ? $polozka : [], $cesta . '.' . $klic, $chyby),
                     is_array($hodnota) ? $hodnota : [],
@@ -268,6 +274,7 @@ final class Stavba
         }
         $deti = match (true) {
             $trida === Prvky\VypisKolekce::class => Prvky\VypisKolekce::opakuj($p, $k, fn (): string => self::vykresliDeti($p['deti'] ?? [], $k)),
+            $trida === Prvky\Komponenta::class => Prvky\Komponenta::vnitrek($p, $k, fn (array $stavba): string => self::vykresliDeti($stavba['deti'] ?? [], $k)),
             $trida::KONTEJNER => self::vykresliDeti($p['deti'] ?? [], $k),
             default => '',
         };
@@ -301,6 +308,9 @@ final class Stavba
         foreach ($vlastnosti as $klic => $def) {
             if (is_string($obsah[$klic] ?? null)) {
                 $obsah[$klic] = Kolekce::dosad($obsah[$klic], $def['typ'], $hodnoty);
+            } elseif ($def['typ'] === 'hodnoty' && is_array($obsah[$klic] ?? null)) {
+                // komponenta ve výpisu kolekce: {{pole}} položky v hodnotách vlastností (zkontrolují se až podle typu vlastnosti)
+                $obsah[$klic] = array_map(fn (mixed $v): mixed => is_string($v) ? Kolekce::dosad($v, 'text', $hodnoty) : $v, $obsah[$klic]);
             } elseif ($def['typ'] === 'polozky' && is_array($obsah[$klic] ?? null)) {
                 $obsah[$klic] = array_map(fn (array $polozka): array => self::dosadPolozku($def['pole'], $polozka, $hodnoty), $obsah[$klic]);
             }

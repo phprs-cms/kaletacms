@@ -200,6 +200,9 @@ final class Kolekce
         if ($cil === 'odkaz' && $vysledek !== '' && !WpObsah::bezpecnaAdresa($vysledek)) {
             return '';
         }
+        if ($cil === 'obrazek' && $vysledek !== '' && !preg_match('#^(https://[^\s"\'<>]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300})$#', $vysledek)) {
+            return '';
+        }
 
         return $vysledek;
     }

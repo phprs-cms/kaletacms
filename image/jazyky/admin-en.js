@@ -257,5 +257,10 @@ window.MIROCMS_PREKLAD = {
 	"např. karta": "e.g. card",
 	"při najetí myší": "on hover",
 	"rozpracovaný koncept – návštěvníci vidí publikovanou verzi": "draft in progress – visitors see the published version",
-	"zkopírováno": "copied"
+	"zkopírováno": "copied",
+	"Uložit jako komponentu": "Save as component",
+	"Název komponenty (např. Karta služby):": "Component name (e.g. Service card):",
+	"Komponenta uložena – úpravy v Komponentách se projeví všude, kde je použitá.": "Component saved – edits in Components apply everywhere it is used.",
+	"Komponenta nemá vlastnosti – u všech použití vypadá stejně.": "The component has no properties – it looks the same everywhere.",
+	"Vlastnosti komponenty „%s“ – vložte do textu, obrázku nebo odkazu:": "Component properties “%s” – insert into text, image or link:"
 };

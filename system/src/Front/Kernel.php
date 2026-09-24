@@ -200,11 +200,30 @@ final class Kernel
 
             return $this->zobrazStranku($stranka, ltrim($path, '/'));
         }
+        if (preg_match('#^/_komponenta/(\d+)$#', $path, $m) && $this->app->auth()->isAdmin()) {
+            return $this->nahledKomponenty((int) $m[1]);
+        }
         if (preg_match('#^/([a-z0-9-]{1,110})/([a-z0-9-]{1,160})$#', $path, $m) && $m[1] !== 'novinky') {
             return $this->detailKolekce($m[1], $m[2]);
         }
 
         return $this->nenalezeno();
+    }
+
+    /** Plátno editoru komponenty (jen správce): rozpracovaná komponenta s výchozími hodnotami vlastností. */
+    private function nahledKomponenty(int $idm): Response
+    {
+        $komponenta = \MiroCMS\Stavitel\Komponenty::podleId($this->app->db(), $idm);
+        if ($komponenta === null) {
+            return $this->nenalezeno();
+        }
+        $k = $this->kontext();
+        $k->polozka = \MiroCMS\Stavitel\Komponenty::hodnoty($komponenta, []);
+        $k->editor = $this->app->request->get('editor') === '1';
+        $html = \MiroCMS\Stavitel\Stavba::html(\MiroCMS\Stavitel\Stavba::zJson($komponenta['stavba_koncept'] ?? $komponenta['stavba']) ?? ['deti' => []], $k);
+        [$k->polozka, $k->editor] = [null, false];
+
+        return $this->stranka($komponenta['nazev'], $this->view->render('stranka', ['stranka' => ['titulek' => ''], 'uvod' => false, 'stavba' => $html]), ['stavba' => true, 'noindex' => true]);
     }
 
     /**
