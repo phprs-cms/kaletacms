@@ -38,6 +38,7 @@ $site = array_filter(['LinkedIn' => $web->get('soc_linkedin'), 'Facebook' => $we
 <meta property="og:type" content="<?= e($meta['typ']) ?>">
 <meta property="og:title" content="<?= e($titulek !== '' ? $titulek : $nazevWebu) ?>">
 <meta property="og:site_name" content="<?= e($nazevWebu) ?>">
+<meta property="og:url" content="<?= e($kanonicka) ?>">
 <?php if ($meta['obrazek'] !== ''): ?>
 <meta property="og:image" content="<?= e($meta['obrazek']) ?>">
 <?php endif ?>

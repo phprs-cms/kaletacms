@@ -27,19 +27,36 @@ final class Stranky extends Modul
     /** Adresy, které patří systému a stránka je mít nemůže. */
     public const array VYHRAZENE = ['novinky', 'hledani', 'mcp', 'api', 'admin', 'install', 'media', 'image', 'layout', 'system', 'storage', 'tools', 'docs', 'dist', 'rss', 'sitemap', 'robots', 'llms', 'feed', 'stav', 'ulohy', 'souhlas', 'formular'];
 
+    /** Stránky v koši vydrží tolik dní, pak se smažou natrvalo (jako novinky). */
+    public const int DNY_V_KOSI = 30;
+
     protected function akceVypis(): Response
     {
-        return $this->view('vypis', 'Stránky', ['stranky' => $this->db->all('SELECT * FROM {stranky} ORDER BY poradi, titulek')]);
+        $kos = $this->request->get('stav') === 'kos';
+        $hledat = mb_substr(trim($this->request->get('hledat')), 0, 100);
+        $where = [$kos ? 'smazano IS NOT NULL' : 'smazano IS NULL'];
+        $params = [];
+        if ($hledat !== '') {
+            $where[] = '(titulek LIKE ? OR seo_link LIKE ?)';
+            $vzor = '%' . addcslashes($hledat, '%_\\') . '%';
+            array_push($params, $vzor, $vzor);
+        }
+
+        return $this->view('vypis', 'Stránky', [
+            'stranky' => $this->db->all('SELECT * FROM {stranky} WHERE ' . implode(' AND ', $where) . ' ORDER BY ' . ($kos ? 'smazano DESC' : 'jazyk, poradi, titulek'), $params),
+            'kos' => $kos, 'hledat' => $hledat,
+            'vKosi' => (int) $this->db->value('SELECT COUNT(*) FROM {stranky} WHERE smazano IS NOT NULL'),
+        ]);
     }
 
     protected function akceNovy(): Response
     {
-        return $this->formular(['ids' => 0, 'seo_link' => '', 'titulek' => '', 'popis' => '', 'text' => '', 'zobrazit' => 1, 'v_menu' => 1, 'poradi' => 100, 'stavba' => null]);
+        return $this->formular(['ids' => 0, 'seo_link' => '', 'titulek' => '', 'popis' => '', 'seo_titulek' => '', 'obrazek' => '', 'noindex' => 0, 'text' => '', 'zobrazit' => 1, 'v_menu' => 1, 'poradi' => 100, 'stavba' => null, 'stavba_koncept' => null]);
     }
 
     protected function akceEdit(): Response
     {
-        $stranka = $this->db->one('SELECT * FROM {stranky} WHERE ids = ?', [$this->request->getInt('id')]);
+        $stranka = $this->db->one('SELECT * FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$this->request->getInt('id')]);
 
         return $stranka === null ? $this->chyba('Stránka neexistuje.', 404) : $this->formular($stranka);
     }
@@ -73,6 +90,9 @@ final class Stranky extends Modul
             'titulek' => mb_substr($r->post('titulek'), 0, 200),
             'seo_link' => slugify($r->post('seo_link') !== '' ? $r->post('seo_link') : $r->post('titulek'), 110),
             'popis' => mb_substr($r->post('popis'), 0, 300),
+            'seo_titulek' => mb_substr(trim($r->post('seo_titulek')), 0, 200),
+            'obrazek' => mb_substr(trim($r->post('obrazek')), 0, 255),
+            'noindex' => (int) $r->postBool('noindex'),
             'text' => $r->post('text'),
             'zobrazit' => (int) $r->postBool('zobrazit'),
             'v_menu' => (int) $r->postBool('v_menu'),
@@ -85,13 +105,22 @@ final class Stranky extends Modul
         if ($data['titulek'] === '') {
             $chyby['titulek'] = 'Vyplňte název stránky.';
         }
+        if ($r->post('seo_link') === '') {
+            // adresa z názvu: obsazená dostane číslo (o-nas-2), jako u novinek
+            $data['seo_link'] = $this->volnaAdresa($data['seo_link'], $id);
+        }
         if (in_array($data['seo_link'], self::VYHRAZENE, true) || isset(\MiroCMS\Core\Jazyk::DOSTUPNE[$data['seo_link']])) {
             $chyby['seo_link'] = 'Tuto adresu používá systém, zvolte jinou.';
-        } elseif ($this->db->value('SELECT ids FROM {stranky} WHERE seo_link = ? AND ids <> ?', [$data['seo_link'], $id]) !== null) {
-            $chyby['seo_link'] = 'Stránka s touto adresou už existuje.';
+        } elseif (($jina = $this->db->one('SELECT ids, smazano FROM {stranky} WHERE seo_link = ? AND ids <> ?', [$data['seo_link'], $id])) !== null) {
+            $chyby['seo_link'] = $jina['smazano'] !== null ? 'Tuto adresu má stránka v koši – obnovte ji, nebo ji smažte natrvalo.' : 'Stránka s touto adresou už existuje.';
+        }
+        if ($id > 0 && $id === $this->app->settings()->int('titulni_stranka') && !$data['zobrazit']) {
+            $chyby['zobrazit'] = 'Úvodní stránku nejde skrýt. Nejdřív v Nastavení → Základní vyberte jinou úvodní stránku.';
         }
         if ($chyby !== []) {
-            return $this->formular(['ids' => $id] + $data, $chyby);
+            $puvodni = $id > 0 ? $this->db->one('SELECT stavba, stavba_koncept FROM {stranky} WHERE ids = ?', [$id]) : null;
+
+            return $this->formular(['ids' => $id] + $data + ($puvodni ?? ['stavba' => null, 'stavba_koncept' => null]), $chyby);
         }
         if ($id > 0) {
             $puvodni = $this->db->one('SELECT seo_link, zobrazit FROM {stranky} WHERE ids = ?', [$id]);
@@ -176,16 +205,76 @@ final class Stranky extends Modul
     /** @return array<string, mixed>|null */
     private function nactiStranku(int $id): ?array
     {
-        return $this->db->one('SELECT * FROM {stranky} WHERE ids = ?', [$id]);
+        return $this->db->one('SELECT * FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$id]);
     }
 
-    protected function akceSmaz(): Response
+    /** Volná adresa odvozená z $zaklad: o-nas, o-nas-2, o-nas-3… */
+    private function volnaAdresa(string $zaklad, int $id): string
     {
-        if ($this->request->isPost()) {
-            $this->db->delete('stranky', ['ids' => $this->request->postInt('ids')]);
+        $adresa = $zaklad;
+        for ($i = 2; $this->db->value('SELECT 1 FROM {stranky} WHERE seo_link = ? AND ids <> ?', [$adresa, $id]) !== null; $i++) {
+            $adresa = mb_substr($zaklad, 0, 105) . '-' . $i;
         }
 
-        return $this->zpet('Stránka byla smazána.');
+        return $adresa;
+    }
+
+    /** Smazání = přesun do koše: stránka zmizí z webu, adresa zůstane rezervovaná a jde ji obnovit. */
+    protected function akceSmaz(): Response
+    {
+        $ids = $this->request->postInt('ids');
+        if (!$this->request->isPost()) {
+            return $this->zpet();
+        }
+        if ($ids === $this->app->settings()->int('titulni_stranka')) {
+            return $this->zpet('Úvodní stránku nejde smazat. Nejdřív v Nastavení → Základní vyberte jinou úvodní stránku.', '', [], 'chyba');
+        }
+        $this->db->run('UPDATE {stranky} SET smazano = NOW(), zobrazit = 0 WHERE ids = ? AND smazano IS NULL', [$ids]);
+
+        return $this->zpet(t('Stránka je v koši. Obnovit ji můžete %d dní.', self::DNY_V_KOSI));
+    }
+
+    /** Obnovení z koše: stránka se vrátí skrytá, zveřejní ji až uživatel. */
+    protected function akceObnov(): Response
+    {
+        if ($this->request->isPost()) {
+            $this->db->run('UPDATE {stranky} SET smazano = NULL WHERE ids = ?', [$this->request->postInt('ids')]);
+        }
+
+        return $this->zpet('Stránka je obnovená jako skrytá – zveřejníte ji v jejím nastavení.');
+    }
+
+    protected function akceSmazNatrvalo(): Response
+    {
+        if ($this->request->isPost()) {
+            $this->db->run('DELETE FROM {stranky} WHERE ids = ? AND smazano IS NOT NULL', [$this->request->postInt('ids')]);
+        }
+
+        return $this->zpet('Stránka byla smazána natrvalo.', '', ['stav' => 'kos']);
+    }
+
+    /** Stránky v koši déle než DNY_V_KOSI se smažou natrvalo (volá Admin\Kernel). */
+    public static function vysypKos(\MiroCMS\Core\Db $db): int
+    {
+        return $db->run('DELETE FROM {stranky} WHERE smazano < NOW() - INTERVAL ' . self::DNY_V_KOSI . ' DAY')->rowCount();
+    }
+
+    /** Kopie stránky i se stavbou a rozpracovaným konceptem – skrytá, s volnou adresou. */
+    protected function akceDuplikuj(): Response
+    {
+        $stranka = $this->request->isPost() ? $this->nactiStranku($this->request->postInt('ids')) : null;
+        if ($stranka === null) {
+            return $this->zpet();
+        }
+        $kopie = array_diff_key($stranka, ['ids' => 0, 'smazano' => 0]);
+        $kopie['titulek'] = mb_substr(t('%s (kopie)', $stranka['titulek']), 0, 200);
+        $kopie['seo_link'] = $this->volnaAdresa(mb_substr($stranka['seo_link'] . '-kopie', 0, 110), 0);
+        $kopie['zobrazit'] = 0;
+        $kopie['preklad_z'] = null;
+        $kopie['zmeneno'] = date('Y-m-d H:i:s');
+        $id = $this->db->insert('stranky', $kopie);
+
+        return $this->zpet('Kopie stránky je skrytá – upravte ji a zveřejněte.', 'edit', ['id' => $id]);
     }
 
     /**
@@ -194,6 +283,9 @@ final class Stranky extends Modul
      */
     private function formular(array $stranka, array $chyby = []): Response
     {
-        return $this->view('formular', $stranka['ids'] ? 'Úprava stránky' : 'Nová stránka', ['stranka' => $stranka, 'chyby' => $chyby]);
+        return $this->view('formular', $stranka['ids'] ? 'Úprava stránky' : 'Nová stránka', [
+            'stranka' => $stranka, 'chyby' => $chyby,
+            'uvod' => $stranka['ids'] > 0 && (int) $stranka['ids'] === $this->app->settings()->int('titulni_stranka'),
+        ]);
     }
 }

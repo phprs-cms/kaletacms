@@ -209,6 +209,9 @@ CREATE TABLE mc_stranky (
     seo_link VARCHAR(120) NOT NULL,
     titulek  VARCHAR(200) NOT NULL,
     popis    VARCHAR(300) NOT NULL DEFAULT '',           -- meta description
+    seo_titulek VARCHAR(200) NOT NULL DEFAULT '',        -- vlastní <title>, prázdné = titulek
+    obrazek  VARCHAR(255) NOT NULL DEFAULT '',           -- obrázek pro sdílení (og:image), prázdné = výchozí z Nastavení
+    noindex  BOOL NOT NULL DEFAULT 0,
     text     MEDIUMTEXT NOT NULL,
     zobrazit BOOL NOT NULL DEFAULT 1,
     v_menu   BOOL NOT NULL DEFAULT 1,                     -- odkaz v patičce / navigaci webu
@@ -218,8 +221,10 @@ CREATE TABLE mc_stranky (
     preklad_z      INT UNSIGNED NULL,                      -- protějšek ve výchozím jazyce (hreflang, přepínač jazyků)
     stavba         MEDIUMTEXT NULL,                        -- publikovaná stavba (JSON strom prvků stavitele); NULL = textová stránka
     stavba_koncept MEDIUMTEXT NULL,                        -- rozpracovaná stavba z editoru; NULL = žádné neuložené změny
+    smazano        DATETIME NULL,                          -- v koši od (po 30 dnech se smaže natrvalo); NULL = není v koši
     PRIMARY KEY (ids),
-    UNIQUE KEY uq_stranky_seo (seo_link)
+    UNIQUE KEY uq_stranky_seo (seo_link),
+    KEY ix_stranky_smazano (smazano)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Publikované verze staveb (posledních 20 na stránku)

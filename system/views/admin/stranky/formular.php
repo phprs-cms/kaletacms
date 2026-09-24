@@ -4,10 +4,18 @@
  * @var string $csrf
  * @var array<string, mixed> $stranka
  * @var array<string, string> $chyby
+ * @var bool $uvod  je to úvodní stránka webu
  */
 $chyba = fn (string $pole): string => isset($chyby[$pole]) ? '<span class="chyba-pole" role="alert">' . e(t($chyby[$pole])) . '</span>' : '';
 ?>
-<p class="navigace-radek"><a class="navigace" href="<?= e($modul->url()) ?>"><?= e(t('Zpět na přehled')) ?></a></p>
+<p class="navigace-radek"><a class="navigace" href="<?= e($modul->url()) ?>"><?= e(t('Zpět na přehled')) ?></a>
+<?php if ($stranka['ids']): ?>
+	<a class="navigace" href="<?= e($app->url(($stranka['jazyk'] ?? '') !== '' ? $stranka['jazyk'] . '/' . ($uvod ? '' : $stranka['seo_link']) : ($uvod ? '' : $stranka['seo_link'])) . ($stranka['zobrazit'] ? '' : '?stavba=koncept')) ?>" target="_blank" rel="noopener"><?= e(t($stranka['zobrazit'] ? 'Zobrazit na webu' : 'Náhled skryté stránky')) ?></a>
+<?php endif ?></p>
+<?php if (($stranka['stavba_koncept'] ?? null) !== null): ?>
+<p class="hlaska hlaska-varovani"><?= e(t(($stranka['stavba'] ?? null) !== null ? 'Ve staviteli jsou rozpracované změny, které ještě nejsou na webu.' : 'Stránku skládáte ve staviteli. Na webu je zatím text níže – po publikování ve staviteli ho nahradí stavba.')) ?>
+	<a href="<?= e($modul->url('stavitel', ['id' => (int) $stranka['ids']])) ?>"><?= e(t('Otevřít stavitel')) ?></a></p>
+<?php endif ?>
 <form class="formular" method="post" action="<?= e($modul->url('uloz')) ?>" data-koncept="stranka-<?= (int) $stranka['ids'] ?>">
 <?= $csrf ?>
 <input type="hidden" name="ids" value="<?= (int) $stranka['ids'] ?>">
@@ -33,24 +41,45 @@ $chyba = fn (string $pole): string => isset($chyby[$pole]) ? '<span class="chyba
 	<label for="seo_link"><?= e(t('Adresa')) ?></label>
 	<div><input class="textpole siroke" type="text" id="seo_link" name="seo_link" value="<?= e($stranka['seo_link']) ?>" maxlength="110" placeholder="<?= e(t('vytvoří se z názvu, např. o-nas')) ?>"><?= $chyba('seo_link') ?></div>
 </div>
+<details class="pokrocile"<?= $stranka['popis'] !== '' || $stranka['seo_titulek'] !== '' || $stranka['obrazek'] !== '' || $stranka['noindex'] ? ' open' : '' ?>>
+<summary><?= e(t('Vyhledávače a sdílení')) ?></summary>
+<div class="radek">
+	<label for="seo_titulek"><?= e(t('Titulek pro vyhledávače')) ?></label>
+	<input class="textpole siroke" type="text" id="seo_titulek" name="seo_titulek" value="<?= e($stranka['seo_titulek']) ?>" maxlength="200" placeholder="<?= e(t('prázdné = název stránky')) ?>">
+</div>
 <div class="radek">
 	<label for="popis"><?= e(t('Popis pro vyhledávače')) ?></label>
-	<input class="textpole siroke" type="text" id="popis" name="popis" value="<?= e($stranka['popis']) ?>" maxlength="300">
+	<div><input class="textpole siroke" type="text" id="popis" name="popis" value="<?= e($stranka['popis']) ?>" maxlength="300">
+	<span class="napoveda"><?= e(t('Jedna až dvě věty, co na stránce návštěvník najde (do 160 znaků).')) ?></span></div>
 </div>
-<?= $app->view->render('admin/jazyk_pole', ['app' => $app, 'hodnota' => (string) ($stranka['jazyk'] ?? ''), 'prekladZ' => (int) ($stranka['preklad_z'] ?? 0), 'originaly' => $app->db()->pairs("SELECT ids, titulek FROM {stranky} WHERE jazyk = '' ORDER BY titulek"), 'napoveda' => '']) ?>
+<div class="radek">
+	<label for="obrazek"><?= e(t('Obrázek pro sdílení')) ?></label>
+	<div><input class="textpole siroke" type="text" id="obrazek" name="obrazek" value="<?= e($stranka['obrazek']) ?>" maxlength="255" placeholder="<?= e(t('prázdné = výchozí obrázek z Nastavení')) ?>" data-obrazek>
+	<span class="napoveda"><?= e(t('Ukáže se při sdílení odkazu na Facebooku, LinkedInu nebo v Teams (ideálně 1200 × 630 px).')) ?></span></div>
+</div>
+<div class="radek">
+	<span class="popisek"><?= e(t('Možnosti')) ?></span>
+	<div class="volby"><label><input type="checkbox" name="noindex" value="1"<?= $stranka['noindex'] ? ' checked' : '' ?>> <?= e(t('Skrýt před vyhledávači (noindex)')) ?></label></div>
+</div>
+</details>
+<?= $app->view->render('admin/jazyk_pole', ['app' => $app, 'hodnota' => (string) ($stranka['jazyk'] ?? ''), 'prekladZ' => (int) ($stranka['preklad_z'] ?? 0), 'originaly' => $app->db()->pairs("SELECT ids, titulek FROM {stranky} WHERE jazyk = '' AND smazano IS NULL ORDER BY titulek"), 'napoveda' => '']) ?>
 <div class="radek">
 	<span class="popisek"><?= e(t('Zobrazení')) ?></span>
 	<div class="volby">
-		<label><input type="checkbox" name="zobrazit" value="1"<?= $stranka['zobrazit'] ? ' checked' : '' ?>> <?= e(t('Zveřejnit stránku')) ?></label><br>
+		<label><input type="checkbox" name="zobrazit" value="1"<?= $stranka['zobrazit'] ? ' checked' : '' ?>> <?= e(t('Zveřejnit stránku')) ?></label><?= $uvod ? ' <span class="stitek">' . e(t('úvodní stránka webu')) . '</span>' : '' ?><?= $chyba('zobrazit') ?><br>
 		<label><input type="checkbox" name="v_menu" value="1"<?= $stranka['v_menu'] ? ' checked' : '' ?>> <?= e(t('Zobrazit v hlavní navigaci webu')) ?></label>
 	</div>
 </div>
 <div class="radek">
 	<label for="poradi"><?= e(t('Pořadí v navigaci')) ?></label>
-	<input class="textpole" type="number" id="poradi" name="poradi" value="<?= (int) $stranka['poradi'] ?>" min="0" max="65535">
+	<div><input class="textpole" type="number" id="poradi" name="poradi" value="<?= (int) $stranka['poradi'] ?>" min="0" max="65535">
+	<span class="napoveda"><?= e(t('Menší číslo = víc vlevo (dřív) v navigaci.')) ?></span></div>
 </div>
 <p class="tlacitka"><button class="tl" type="submit"><?= e(t('Uložit')) ?></button><?php if (($stranka['stavba'] ?? null) === null): ?> <button class="navigace" type="submit" name="po_ulozeni" value="stavitel"><?= e(t('Uložit a otevřít ve staviteli')) ?></button><?php endif ?></p>
 </form>
+<?php if ($stranka['ids']): ?>
+<form class="vradku" method="post" action="<?= e($modul->url('duplikuj')) ?>"><?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $stranka['ids'] ?>"><input type="hidden" name="titulek" value="<?= e($stranka['titulek']) ?>"><button class="navigace" type="submit"><?= e(t('Duplikovat stránku')) ?></button></form>
+<?php endif ?>
 <?php if (($stranka['stavba'] ?? null) !== null): ?>
 <form class="vradku" method="post" action="<?= e($modul->url('stavba_text')) ?>" data-potvrdit="<?= e(t('Vrátit stránku k obyčejnému textu? Stavba zůstane ve verzích a můžete se k ní vrátit.')) ?>"><?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $stranka['ids'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Vrátit stránku k textu')) ?></button></form>
 <?php endif ?>

@@ -403,5 +403,26 @@ IDS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM mc_stranky WHERE seo_link 
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akce=uloz" -d "_csrf=$TOKEN" -d "ids=$IDS" -d titulek=Kontakt -d seo_link=kontakty -d zobrazit=1 -d v_menu=1 -d "text=<p>Adresa.</p>"
 kod=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/kontakt"); ocekavej "stará adresa stránky přesměruje na novou" "$kod" "301 $B/kontakty"
 
+echo "== stránky: SEO, koš, duplikace"
+IDS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM mc_stranky WHERE seo_link = 'kontakty'")
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akce=uloz" -d "_csrf=$TOKEN" -d "ids=$IDS" -d titulek=Kontakt -d seo_link=kontakty -d zobrazit=1 -d v_menu=1 -d "text=<p>Adresa.</p>" \
+  --data-urlencode "seo_titulek=Kontakt na truhlárnu" -d obrazek=media/2026/01/sdileni.jpg -d noindex=1
+rm -f "$PRACE"/web/storage/cache/stranky/*.html
+curl -s -o "$PRACE/odpoved" "$B/kontakty"
+grep -q '<title>Kontakt na truhlárnu' "$PRACE/odpoved" && grep -q 'og:image" content="http[^"]*/media/2026/01/sdileni.jpg"' "$PRACE/odpoved" && grep -q 'noindex, follow' "$PRACE/odpoved" \
+  && echo "  ok     stránka: vlastní titulek, úplná adresa obrázku pro sdílení, noindex" || { echo "  CHYBA  SEO stránky"; CHYB=$((CHYB+1)); }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akce=duplikuj" -d "_csrf=$TOKEN" -d "ids=$IDS"
+ocekavej "duplikát stránky je skrytý a má volnou adresu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazit, '/', seo_link) FROM mc_stranky ORDER BY ids DESC LIMIT 1")" "0/kontakty-kopie"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akce=smaz" -d "_csrf=$TOKEN" -d "ids=$IDS"
+over "stránka v koši není na webu" 404 /kontakty
+over "záložka Koš u stránek" 200 "/admin.php?modul=stranky&stav=kos" "Kontakt"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akce=obnov" -d "_csrf=$TOKEN" -d "ids=$IDS"
+ocekavej "obnovená stránka je skrytá" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazit, '/', smazano IS NULL) FROM mc_stranky WHERE ids = $IDS")" "0/1"
+IDU=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM mc_stranky WHERE seo_link = 'o-nas'")
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE mc_nastaveni SET hodnota='$IDU' WHERE promenna='titulni_stranka'"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akce=smaz" -d "_csrf=$TOKEN" -d "ids=$IDU"
+ocekavej "úvodní stránku nejde smazat" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT smazano IS NULL FROM mc_stranky WHERE ids = $IDU")" "1"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE mc_nastaveni SET hodnota='0' WHERE promenna='titulni_stranka'"
+
 if [ -s "$PRACE/web/storage/log/chyby.log" ]; then echo "== záznam chyb aplikace:"; cat "$PRACE/web/storage/log/chyby.log"; CHYB=$((CHYB+1)); fi
 echo; [ "$CHYB" -eq 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $CHYB"; exit 1; }

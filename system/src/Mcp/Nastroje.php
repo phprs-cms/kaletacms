@@ -54,6 +54,8 @@ final class Nastroje
             'adresa' => $text('Část adresy za doménou (seo_link); bez ní vznikne z názvu'), 'popis' => $text('Popis pro vyhledávače, do 160 znaků'),
             'v_menu' => ['type' => 'boolean', 'description' => 'true = odkaz v hlavní navigaci webu'], 'poradi' => $cislo('Pořadí v navigaci, menší = dřív'),
             'zobrazit' => ['type' => 'boolean', 'description' => 'true = stránka je na webu vidět (jen na výslovný pokyn uživatele), jinak skrytá'],
+            'seo_titulek' => $text('Titulek pro vyhledávače (nepovinné, jinak název)'), 'obrazek' => $text('Obrázek pro sdílení na sociálních sítích (cesta z médií)'),
+            'noindex' => ['type' => 'boolean', 'description' => 'true = skrýt stránku před vyhledávači'],
         ];
         $cil = ['id' => $cislo('ID stránky'), 'cast' => $text('Místo stránky část webu (jen správce): ' . implode(' | ', array_keys(Casti::TYPY)) . ' – záhlaví, patička, obálky detailu novinky, výpisu a 404'),
             'jazyk' => $text('Jazyk části webu u vícejazyčného webu (prázdné = výchozí)')];
@@ -123,7 +125,7 @@ final class Nastroje
                 return [
                     'web' => $web->get('nazev_webu'), 'adresa' => $this->app->request->origin() . $this->app->url(''), 'popis' => $web->get('popis_webu'),
                     'sablona' => $web->get('layout'), 'uvodni_stranka' => $web->int('titulni_stranka') ?: null, 'verze_mirocms' => MIROCMS_VERSION,
-                    'stranek' => (int) $db->value('SELECT COUNT(*) FROM {stranky}'),
+                    'stranek' => (int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE smazano IS NULL'),
                     'novinek_vydanych' => (int) $db->value('SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND smazano IS NULL'),
                     'uzivatel' => $auth->user()['user'], 'role' => \MiroCMS\Core\Auth::TYPY[(int) $auth->user()['admin']], 'smi_vydavat' => $auth->smiVydavat(),
                     'smi_upravovat_stranky' => $auth->maModul('stranky'),
@@ -134,7 +136,7 @@ final class Nastroje
 
                 return array_map(fn (array $r): array => ['id' => (int) $r['ids'], 'titulek' => $r['titulek'], 'adresa' => $this->app->request->origin() . $this->app->url((int) $r['ids'] === $uvod ? '' : $r['seo_link']),
                     'uvodni' => (int) $r['ids'] === $uvod, 'zobrazena' => (bool) $r['zobrazit'], 'v_menu' => (bool) $r['v_menu'], 'jazyk' => $r['jazyk']],
-                    $db->all('SELECT ids, titulek, seo_link, zobrazit, v_menu, jazyk FROM {stranky} ORDER BY jazyk, poradi, titulek'));
+                    $db->all('SELECT ids, titulek, seo_link, zobrazit, v_menu, jazyk FROM {stranky} WHERE smazano IS NULL ORDER BY jazyk, poradi, titulek'));
 
             case 'nacti_stranku':
                 return $this->stranka((int) ($a['id'] ?? 0));
@@ -482,12 +484,12 @@ final class Nastroje
     {
         $db = $this->app->db();
         $data = [];
-        foreach (['titulek' => 200, 'text' => 0, 'popis' => 300] as $pole => $max) {
+        foreach (['titulek' => 200, 'text' => 0, 'popis' => 300, 'seo_titulek' => 200, 'obrazek' => 255] as $pole => $max) {
             if (array_key_exists($pole, $a)) {
                 $data[$pole] = $max > 0 ? mb_substr((string) $a[$pole], 0, $max) : (string) $a[$pole];
             }
         }
-        foreach (['v_menu', 'zobrazit'] as $pole) {
+        foreach (['v_menu', 'zobrazit', 'noindex'] as $pole) {
             if (array_key_exists($pole, $a)) {
                 $data[$pole] = (int) (bool) $a[$pole];
             }
@@ -528,7 +530,7 @@ final class Nastroje
     /** @return array<string, mixed> */
     private function stranka(int $id): array
     {
-        $stranka = $this->app->db()->one('SELECT ids, titulek, seo_link, popis, text, zobrazit, v_menu, poradi, jazyk FROM {stranky} WHERE ids = ?', [$id]);
+        $stranka = $this->app->db()->one('SELECT ids, titulek, seo_link, popis, seo_titulek, obrazek, noindex, text, zobrazit, v_menu, poradi, jazyk FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$id]);
         if ($stranka === null) {
             throw new \InvalidArgumentException('Stránka neexistuje. Použij nástroj seznam_stranek.');
         }
@@ -569,7 +571,7 @@ final class Nastroje
         if (!isset($a['id']) && $zalozit) {
             $a['id'] = $this->ulozStranku(null, ['titulek' => (string) ($a['titulek'] ?? '')])['id'];
         }
-        $radek = $db->one('SELECT * FROM {stranky} WHERE ids = ?', [(int) ($a['id'] ?? 0)]) ?? throw new \InvalidArgumentException('Stránka neexistuje. Použij nástroj seznam_stranek.');
+        $radek = $db->one('SELECT * FROM {stranky} WHERE ids = ? AND smazano IS NULL', [(int) ($a['id'] ?? 0)]) ?? throw new \InvalidArgumentException('Stránka neexistuje. Použij nástroj seznam_stranek.');
 
         return ['druh' => 'stranka', 'radek' => $radek, 'stavba' => $radek['stavba'], 'koncept' => $radek['stavba_koncept'], 'jazyk' => Jazyk::obsahu($web, $radek['jazyk'])];
     }

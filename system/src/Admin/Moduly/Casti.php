@@ -44,7 +44,7 @@ final class Casti extends Modul
 
         return $this->view('vypis', 'Části webu', [
             'typy' => CastiWebu::TYPY, 'jazyky' => $jazyky, 'radky' => $radky, 'varianty' => $varianty,
-            'nazvyStranek' => $this->db->pairs('SELECT ids, titulek FROM {stranky} ORDER BY poradi, titulek'),
+            'nazvyStranek' => $this->db->pairs('SELECT ids, titulek FROM {stranky} WHERE smazano IS NULL ORDER BY poradi, titulek'),
             'nazvyJazyku' => array_combine($jazyky, array_map(fn (string $j): string => Jazyk::DOSTUPNE[Jazyk::obsahu($web, $j)][0], $jazyky)),
         ]);
     }
@@ -86,7 +86,7 @@ final class Casti extends Modul
         return $this->view('varianta', t('Varianta: %s', t(CastiWebu::TYPY[$typ][0])), [
             'typ' => $typ, 'jazyk' => $jazyk, 'varianta' => $radek['varianta'] ?? '', 'nazev' => $radek['nazev'] ?? '',
             'vybrane' => array_map('intval', json_decode((string) ($radek['stranky'] ?? '[]'), true) ?: []),
-            'stranky' => $this->db->all('SELECT ids, titulek FROM {stranky} WHERE jazyk = ? ORDER BY poradi, titulek', [$jazyk]),
+            'stranky' => $this->db->all('SELECT ids, titulek FROM {stranky} WHERE jazyk = ? AND smazano IS NULL ORDER BY poradi, titulek', [$jazyk]),
         ]);
     }
 
