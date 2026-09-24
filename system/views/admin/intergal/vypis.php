@@ -92,7 +92,7 @@ $jeVse = $filtr['sekce'] === null && $filtr['clanek'] === 0 && !$filtr['nepouzit
 			<strong title="<?= e($o['nazev']) ?>"><?= e($o['nazev'] !== '' ? $o['nazev'] : t('bez názvu')) ?></strong>
 			<span><?= $o['nahl_poloha'] === '' ? '' : (int) $o['obr_width'] . '&times;' . (int) $o['obr_height'] . ' &middot; ' ?><?= e(Kaleta\Core\Soubory::velikost((int) $o['obr_vel'])) ?> &middot; <span<?= $o['kde'] !== [] ? ' title="' . e(t('Použito: %s', implode(', ', $o['kde']))) . '"' : '' ?>><?= e((int) $o['pouzito'] > 0 ? t('použito %s×', (int) $o['pouzito']) : t('nepoužito')) ?></span></span>
 <?php if ($o['nahl_poloha'] !== ''): ?>
-			<input class="galerie-popis" type="text" value="<?= e((string) $o['popis']) ?>" maxlength="500" placeholder="<?= e(t('Popis pro nevidomé (alt)')) ?>" aria-label="<?= e(t('Popis obrázku %s', $o['nazev'])) ?>" data-popis-media="<?= (int) $o['ido'] ?>" data-adresa="<?= e($modul->url('uloz_popis')) ?>" form="">
+			<input class="galerie-popis" type="text" value="<?= e((string) $o['nazev']) ?>" maxlength="150" placeholder="<?= e(t('Popis pro nevidomé (alt)')) ?>" aria-label="<?= e(t('Popis obrázku %s', $o['nazev'])) ?>" data-popis-media="<?= (int) $o['ido'] ?>" data-adresa="<?= e($modul->url('uloz_popis')) ?>" form="">
 <?php endif ?>
 			<span><label><input type="checkbox" name="oznacene[]" value="<?= (int) $o['ido'] ?>"> <?= e(t('označit')) ?></label> &middot; <a href="<?= e($modul->url('vypis', $parametry + ['uprav' => $o['ido'], 'strana' => $strana])) ?>#uprav"><?= e(t('popis')) ?></a></span>
 		</figcaption>

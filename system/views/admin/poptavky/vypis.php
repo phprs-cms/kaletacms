@@ -72,7 +72,7 @@ $nahled = function (string $data): string {
 <p class="navigace-radek"><a class="navigace" href="<?= e($modul->url('csv')) ?>"><?= e(t('Stáhnout všechny poptávky (CSV)')) ?></a></p>
 <?php endif ?>
 <?php if ($app->auth()->isAdmin()): ?>
-<form class="formular" method="post" action="<?= e($modul->url('nastaveni')) ?>">
+<form class="formular" method="post" action="<?= e($modul->url('nastaveni')) ?>" data-potvrdit="<?= e(t('Poptávky starší než zadaný počet měsíců se hned natrvalo smažou – i s přílohami. Opravdu uložit?')) ?>">
 <?= $csrf ?>
 <div class="radek"><label for="mesice"><?= e(t('Mazat poptávky starší než')) ?></label><div><input class="textpole" type="number" id="mesice" name="mesice" value="<?= $mesice ?>" min="0" max="120" size="4"> <?= e(t('měsíců')) ?> <input class="tl" type="submit" value="<?= e(t('Uložit')) ?>">
 <span class="napoveda"><?= e(t('Poptávky obsahují osobní údaje – nemají ležet déle, než je potřeba. 0 = nemazat.')) ?></span></div></div>

@@ -827,6 +827,7 @@ final class Kernel
             'menu_html' => \Kaleta\Core\Menu::html(...),
             'jazyk' => Jazyk::kod(),
             'jazyky_html' => $jazykyHtml,
+            'sNovinkami' => Rozsireni::je($web, 'novinky'), // zapnuté rozšíření Novinky (odkazy na RSS v šabloně)
             'casti' => $casti,
             'url' => $this->app->url(...),
             'kanonicka' => $kanonicka,

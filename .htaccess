@@ -6,6 +6,8 @@ Options -Indexes
     # některé hostingy nepředávají PHP hlavičku Authorization (potřebuje ji napojení na Claude)
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
+    # /.well-known/ je pro ověření domény a certifikát HTTPS (Let's Encrypt, AutoSSL) – musí zůstat dostupné
+    RewriteRule ^\.well-known/ - [L]
     # config.php a skryté soubory nejsou pro návštěvníky
     RewriteRule ^(config(\.sample)?\.php|\..*)$ - [F,L]
     # nástroje vydavatele, dokumentace a PHP soubory šablon se z webu nespouštějí ani nečtou

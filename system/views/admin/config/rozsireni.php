@@ -11,7 +11,7 @@ use Kaleta\Core\Rozsireni;
 	</label>
 <?php endforeach ?>
 </div>
-<p class="napoveda"><?= e(t('Vždy zapnuté jádro: Stránky, Novinky, Kategorie, Média, Vzhled, Uživatelé, Nastavení.')) ?></p>
+<p class="napoveda"><?= e(t('Vždy zapnuté jádro: Stránky, Kolekce, Média, Vzhled webu, Části webu, Menu, Komponenty, Uživatelé a Nastavení.')) ?></p>
 <details class="pokrocile"<?= in_array('asistent', $zapnutaRozsireni, true) ? ' open' : '' ?>>
 <summary><?= e(t('AI asistent – poskytovatel, klíč a model')) ?></summary>
 <input type="hidden" name="ai_poskytovatel_puvodni" value="<?= e($hodnoty['ai_poskytovatel']) ?>">

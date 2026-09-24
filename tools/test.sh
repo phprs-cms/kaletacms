@@ -601,7 +601,7 @@ echo "== média, tokeny DTCG, kolekce přes MCP"
 IDOM=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ido FROM ka_media WHERE obr_poloha LIKE '%.jpg' ORDER BY ido DESC LIMIT 1")
 over "média: hledání a řazení" 200 "/admin.php?modul=intergal&hledat=jpg&razeni=velikost" 'data-popis-media='
 odp=$(curl -s -b "$JAR" -c "$JAR" -X POST "$B/admin.php?modul=intergal&akce=uloz_popis" -d "_csrf=$TOKEN" -d "ido=$IDOM" --data-urlencode "popis=Dilna zevnitr")
-ocekavej "popis obrázku bez znovunačtení" "$odp|$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT popis FROM ka_media WHERE ido = $IDOM")" '{"ok":true}|Dilna zevnitr'
+ocekavej "popis obrázku bez znovunačtení" "$odp|$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT nazev FROM ka_media WHERE ido = $IDOM")" '{"ok":true}|Dilna zevnitr'
 curl -s -b "$JAR" -o "$PRACE/tokeny.json" "$B/admin.php?modul=vzhled&akce=tokeny"
 grep -q '"\$type": "color"' "$PRACE/tokeny.json" && grep -q '"cz.kaleta"' "$PRACE/tokeny.json" && echo "  ok     export tokenů DTCG" || { echo "  CHYBA  export tokenů"; CHYB=$((CHYB+1)); }
 printf '{"color":{"primary":{"$type":"color","$value":"#aa3300"}}}' > "$PRACE/cizi.tokens.json"
@@ -634,6 +634,7 @@ over "výpis novinek je pryč" 404 /novinky
 over "novinka je pryč" 404 /novinky/vitejte-v-kalete
 over "RSS je pryč" 404 /rss.xml
 curl -s -o "$PRACE/odpoved" "$B/sitemap.xml"; ! grep -q "/novinky" "$PRACE/odpoved" && echo "  ok     mapa webu bez novinek" || { echo "  CHYBA  mapa webu s vypnutými novinkami"; CHYB=$((CHYB+1)); }
+curl -s -o "$PRACE/odpoved" "$B/o-nas"; ! grep -q 'rss.xml' "$PRACE/odpoved" && echo "  ok     bez novinek ani odkaz na RSS" || { echo "  CHYBA  odkaz na RSS při vypnutých novinkách"; CHYB=$((CHYB+1)); }
 curl -s -o "$PRACE/odpoved" "$B/o-nas"; ! grep -q 'href="[^"]*/novinky"' "$PRACE/odpoved" && echo "  ok     menu bez odkazu na novinky" || { echo "  CHYBA  menu odkazuje na vypnuté novinky"; CHYB=$((CHYB+1)); }
 ocekavej "odeslání formuláře nejde" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/formular" -d x=1)" 404
 curl -s -b "$JAR" -c "$JAR" -o "$PRACE/odpoved" "$B/admin.php"; ! grep -q 'modul=novinky"' "$PRACE/odpoved" && ! grep -q 'modul=poptavky"' "$PRACE/odpoved" && echo "  ok     administrace bez novinek a poptávek" || { echo "  CHYBA  administrace ukazuje vypnutá rozšíření"; CHYB=$((CHYB+1)); }

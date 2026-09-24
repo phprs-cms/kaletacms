@@ -21,8 +21,12 @@
 use Kaleta\Admin\Moduly\Konfigurace;
 
 /** Řádek formuláře: $pole('klic', 'Popisek', 'text|radky|kod|ano|cislo|url|email', 'nápověda', [atributy]) */
-$pole = function (string $klic, string $popisek, string $druh = 'text', string $napoveda = '', string $atributy = '') use ($hodnoty, $app): void {
+$chybnaPole ??= [];
+$pole = function (string $klic, string $popisek, string $druh = 'text', string $napoveda = '', string $atributy = '') use ($hodnoty, $app, $chybnaPole): void {
     $h = $hodnoty[$klic] ?? '';
+    if (in_array($klic, $chybnaPole, true)) {
+        $atributy .= ' aria-invalid="true"'; // neuložená hodnota k opravě (hláška nahoře říká, co je špatně)
+    }
     $popisek = t($popisek);
     $napoveda = $napoveda === '' ? '' : t($napoveda);
     // nápověda bez vlastního HTML: cesty v nabídce („Nastavení → Pošta“) se promění v odkazy
@@ -47,6 +51,8 @@ $pole = function (string $klic, string $popisek, string $druh = 'text', string $
 </nav>
 <?php endif ?>
 <form class="formular" method="post" action="<?= e($modul->url('uloz')) ?>">
+<?php /* první odesílací tlačítko ve formuláři určuje, co udělá Enter: uložit nastavení (ne zálohu, kontrolu aktualizací ani zkušební e-mail) */ ?>
+<button type="submit" class="vychozi-odeslani" tabindex="-1" aria-hidden="true"><?= e(t('Uložit nastavení')) ?></button>
 <?= $csrf ?>
 <input type="hidden" name="zalozka" value="<?= e($zalozka) ?>">
 <?php require __DIR__ . '/' . $zalozka . '.php'; ?>

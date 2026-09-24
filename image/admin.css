@@ -21,7 +21,7 @@
 	--ok: #067647;
 	--ok-podklad: #ECFDF3;
 	--varovani: #F79009;
-	--varovani-text: #B26A00;  /* text a obrys štítků – oranžová čitelná na světlém podkladu */
+	--varovani-text: #945800;  /* text a obrys štítků – oranžová s kontrastem 5,2 : 1 na Paper (WCAG AA) */
 	--predavka-text: #6B3FD0;  /* redakční předávka: ke korektuře, schváleno */
 	--radius: 10px;
 	--na-akcentu: #F6F4EE;
@@ -653,8 +653,8 @@ legend {
 	font-size: 15px;
 	font-weight: 700;
 }
-legend + * {
-	clear: both;
+legend ~ * {
+	clear: both; /* i když hned za nadpisem stojí skryté pole (pak by řádek obtékal nadpis a měl nulovou šířku) */
 }
 .textpole,
 .textbox,
@@ -1248,3 +1248,7 @@ body.login {
 .galerie-popis.ulozeno { border-color: #1a7f37; }
 .galerie-popis.chyba { border-color: #b3261e; }
 .media-hledani { flex-wrap: wrap; gap: 6px; }
+
+/* výchozí tlačítko formuláře pro Enter – neviditelné, jen určuje akci (Nastavení) */
+.vychozi-odeslani { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); border: 0; padding: 0; }
+[aria-invalid="true"] { border-color: #B3261E !important; box-shadow: 0 0 0 1px #B3261E; }

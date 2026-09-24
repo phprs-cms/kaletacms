@@ -154,16 +154,40 @@ final class Aktualizace
             }
             $soubory = $this->rozbal($zip, $pracovni);
             $puvodni = $this->souboryVydani();
+            $otiskyVydani = $this->otiskyVydani();
             touch(KALETA_ROOT . '/storage/udrzba.lock');
-            foreach ($soubory as $relativni) {
-                $cil = $this->koren . '/' . $relativni;
-                if (!is_dir(dirname($cil)) && !mkdir(dirname($cil), 0775, true)) {
-                    throw new \RuntimeException(t('Nelze vytvořit složku %s.', dirname($relativni)));
+            // každý přepisovaný soubor se nejdřív odloží: selže-li zápis uprostřed, web se vrátí do původního stavu (ne směs verzí)
+            $odlozene = $pracovni . '-puvodni';
+            $zapsane = [];
+            try {
+                foreach ($soubory as $relativni) {
+                    $cil = $this->koren . '/' . $relativni;
+                    if ($relativni === '.htaccess' && is_file($cil) && isset($otiskyVydani['.htaccess']) && !hash_equals($otiskyVydani['.htaccess'], (string) hash_file('sha256', $cil))) {
+                        // vlastní úpravy .htaccess (HTTPS, www, přesměrování) se nepřepíšou – nová verze leží vedle k porovnání
+                        copy($pracovni . '/' . $relativni, $cil . '.kaleta-nova');
+                        continue;
+                    }
+                    if (!is_dir(dirname($cil)) && !mkdir(dirname($cil), 0775, true)) {
+                        throw new \RuntimeException(t('Nelze vytvořit složku %s.', dirname($relativni)));
+                    }
+                    if (is_file($cil)) {
+                        if (!is_dir(dirname($odlozene . '/' . $relativni)) && !mkdir(dirname($odlozene . '/' . $relativni), 0775, true) || !copy($cil, $odlozene . '/' . $relativni)) {
+                            throw new \RuntimeException(t('Nelze zapsat soubor %s.', 'storage/cache'));
+                        }
+                    }
+                    if (!copy($pracovni . '/' . $relativni, $cil)) {
+                        throw new \RuntimeException(t('Nelze zapsat soubor %s.', $relativni));
+                    }
+                    $zapsane[] = $relativni;
                 }
-                if (!copy($pracovni . '/' . $relativni, $cil)) {
-                    throw new \RuntimeException(t('Nelze zapsat soubor %s.', $relativni));
+            } catch (\Throwable $e) {
+                foreach (array_reverse($zapsane) as $relativni) {
+                    is_file($odlozene . '/' . $relativni) ? @copy($odlozene . '/' . $relativni, $this->koren . '/' . $relativni) : @unlink($this->koren . '/' . $relativni);
                 }
+                self::smazSlozku($odlozene);
+                throw new \RuntimeException($e->getMessage() . ' ' . t('Soubory webu jsou vrácené do stavu před aktualizací.'), 0, $e);
             }
+            self::smazSlozku($odlozene);
             self::uklidZastarale($this->koren, $puvodni, $soubory);
         } finally {
             @unlink(KALETA_ROOT . '/storage/udrzba.lock');
@@ -293,6 +317,14 @@ final class Aktualizace
         }
 
         return $smazano;
+    }
+
+    /** @return array<string, string> otisky souborů právě nainstalovaného vydání (system/soubory.json) */
+    private function otiskyVydani(): array
+    {
+        $data = json_decode((string) @file_get_contents($this->koren . '/system/soubory.json'), true);
+
+        return is_array($data['soubory'] ?? null) ? array_map('strval', $data['soubory']) : [];
     }
 
     /** @return list<string> soubory jádra podle seznamu právě nainstalovaného vydání (system/soubory.json); bez seznamu prázdné */

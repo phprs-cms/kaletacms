@@ -49,7 +49,7 @@ final class Udaje extends Prvek
             'popis' => $obal(e($web->get('popis_webu'))),
             'text_paticky' => $obal(e($web->get('text_paticky'))),
             'email' => $obal($web->get('email_webu') !== '' ? '<a href="mailto:' . e($web->get('email_webu')) . '">' . e($web->get('email_webu')) . '</a>' : ''),
-            'rss' => $obal('<a href="' . e($k->url('rss.xml')) . '">RSS</a>'),
+            'rss' => \Kaleta\Core\Rozsireni::je($web, 'novinky') ? $obal('<a href="' . e($k->url('rss.xml')) . '">RSS</a>') : '', // bez novinek RSS není
             'adresa' => $obal(implode('<br>', array_map(e(...), \Kaleta\Front\Firma::adresa($web)))),
             'telefon' => $obal($web->get('firma_telefon') !== '' ? '<a href="tel:' . e((string) preg_replace('/[^\d+]/', '', $web->get('firma_telefon'))) . '">' . e($web->get('firma_telefon')) . '</a>' : ''),
             'mapa' => $obal($web->get('firma_mapa') !== '' ? '<a href="' . e($web->get('firma_mapa')) . '" target="_blank" rel="noopener">' . e(t('Zobrazit na mapě')) . '</a>' : ''),

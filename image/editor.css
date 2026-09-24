@@ -117,7 +117,7 @@ button.galerie-polozka:hover, button.galerie-polozka:focus-visible { border-colo
 .stitek { display: inline-block; padding: 1px 8px; border: 1px solid var(--ed-linka); border-radius: 999px; font-size: 11px; font-weight: 600; white-space: nowrap; color: var(--ed-text-slaby); }
 .stitek-vydano { border-color: var(--ed-ok, #1A7F4B); color: var(--ed-ok, #1A7F4B); }
 .stitek-plan { border-color: var(--ed-akcent); color: var(--ed-akcent); }
-.stitek-koncept { border-color: var(--ed-varovani, #B26A00); color: var(--ed-varovani, #B26A00); }
+.stitek-koncept { border-color: var(--ed-varovani, #945800); color: var(--ed-varovani, #945800); }
 .stitek-chyba { border-color: var(--ed-chyba, #C4281C); color: var(--ed-chyba, #C4281C); }
 /* redakční předávka: ke korektuře (čárkovaně) a schváleno (plně) - fialová, ať se neplete s konceptem ani s vydaným */
 .stitek-korektura, .stitek-schvaleno { border-color: var(--ed-predavka, #7A4FD6); color: var(--ed-predavka, #7A4FD6); }

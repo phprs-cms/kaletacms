@@ -110,14 +110,17 @@ final class ExportWebu
         fwrite($f, '{"format":"kaleta-export","verze_formatu":1,"kaleta":' . self::json(KALETA_VERSION) . ',"vytvoreno":' . self::json(date('c')) . ',"nastaveni":' . self::json(self::nastaveni($db)));
 
         $autori = "(SELECT NULLIF(u.jmeno, '') FROM {uzivatele} u WHERE u.idu = c.autor) AS autor_jmeno";
-        self::pole($f, 'stranky', self::postupne($db, 'SELECT * FROM {stranky} WHERE ids > ? ORDER BY ids LIMIT 200', 'ids'));
+        self::pole($f, 'stranky', self::postupne($db, 'SELECT * FROM {stranky} WHERE ids > ? AND smazano IS NULL ORDER BY ids LIMIT 200', 'ids')); // koš se nevyváží
         self::pole($f, 'kategorie', self::postupne($db, 'SELECT idt, nazev, seo_link, popis, hodnost, jazyk, preklad_z FROM {kategorie} WHERE idt > ? ORDER BY idt LIMIT 500', 'idt'));
         self::pole($f, 'stitky', self::postupne($db, 'SELECT ids, nazev, seo_link, popis, obrazek FROM {stitky} WHERE ids > ? ORDER BY ids LIMIT 500', 'ids'));
         self::pole($f, 'novinky', self::clanky($db, $autori));
         self::pole($f, 'presmerovani', self::postupne($db, 'SELECT idp, z_adresy, na_adresu FROM {presmerovani} WHERE idp > ? ORDER BY idp LIMIT 1000', 'idp'));
         // builder: sdílené třídy, části webu (záhlaví, patička, obálky) a kolekce; poptávky ne – jsou to osobní údaje návštěvníků
         self::pole($f, 'tridy', $db->all('SELECT nazev, styl, css FROM {tridy} ORDER BY nazev'));
-        self::pole($f, 'casti', $db->all('SELECT typ, jazyk, stavba FROM {casti} WHERE stavba IS NOT NULL ORDER BY typ, jazyk'));
+        self::pole($f, 'casti', $db->all('SELECT typ, jazyk, varianta, nazev, stranky, stavba FROM {casti} WHERE stavba IS NOT NULL ORDER BY typ, jazyk, varianta'));
+        // komponenty (prvky „komponenta“ na ně odkazují číslem) a vlastní sekce knihovny
+        self::pole($f, 'komponenty', $db->all('SELECT idm, nazev, vlastnosti, stavba FROM {komponenty} ORDER BY idm'));
+        self::pole($f, 'sekce', $db->all('SELECT idx, nazev, prvek FROM {sekce} ORDER BY idx'));
         self::pole($f, 'menu', $db->all('SELECT umisteni, jazyk, polozky FROM {menu} ORDER BY umisteni, jazyk'));
         self::pole($f, 'kolekce', $db->all('SELECT idk, nazev, seo_link, pole, detail, stavba FROM {kolekce} ORDER BY idk'));
         self::pole($f, 'kolekce_polozky', self::postupne($db, 'SELECT idp, idk, nazev, seo_link, data, poradi, zobrazit, jazyk, datum FROM {kolekce_polozky} WHERE idp > ? ORDER BY idp LIMIT 500', 'idp'));

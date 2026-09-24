@@ -9,7 +9,7 @@ use Kaleta\Core\Response;
 
 /**
  * Štítky a témata. Štítky vznikají samy při psaní novinek; tady se dají přejmenovat, sloučit a smazat.
- * Štítek s popisem a obrázkem se na webu chová jako stránka tématu (/stitek/<adresa>).
+ * Štítek s popisem a obrázkem se na webu chová jako stránka tématu (/novinky/stitek/<adresa>).
  */
 final class Stitky extends Modul
 {
@@ -45,7 +45,7 @@ final class Stitky extends Modul
             $this->db->run('INSERT IGNORE INTO {novinky_stitky} (idc, ids) SELECT idc, ? FROM {novinky_stitky} WHERE ids = ?', [$cil['ids'], $stitek['ids']]);
             $this->db->delete('novinky_stitky', ['ids' => $stitek['ids']]);
             $this->db->delete('stitky', ['ids' => $stitek['ids']]);
-            Presmerovani::pridej($this->db, 'stitek/' . $stitek['seo_link'], 'stitek/' . $cil['seo_link']);
+            Presmerovani::pridej($this->db, 'novinky/stitek/' . $stitek['seo_link'], 'novinky/stitek/' . $cil['seo_link']);
 
             return $this->zpet(t('Štítek „%s“ byl sloučen do „%s“.', $stitek['nazev'], $cil['nazev']));
         }

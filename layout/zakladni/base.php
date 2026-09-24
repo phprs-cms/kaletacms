@@ -13,6 +13,7 @@
  * @var string $pata   cookie lišta a kódy před </body> (vždy vypsat)
  * @var string $jazyk  kód jazyka zobrazené verze webu (cs, en…) pro <html lang>
  * @var string $jazyky_html  hotový přepínač jazykových verzí; prázdný, má-li web jediný jazyk
+ * @var bool $sNovinkami  je zapnuté rozšíření Novinky (odkazy na RSS)
  * @var list<array{titulek:string, seo_link:string, uvod:bool}> $stranky  stránky „v menu“ (úvodní má prázdnou adresu) – jen pro starší šablony
  * @var list<array{text:string, url:string, nove_okno:bool, deti:list<array<string, mixed>>, novinky?:bool}> $menu  hlavní menu (Vzhled → Menu), položky mohou mít podmenu
  * @var list<array<string, mixed>> $menu_paticka  menu v patičce (prázdné, dokud ho správce nesestaví)
@@ -45,7 +46,9 @@ $site = array_filter(['LinkedIn' => $web->get('soc_linkedin'), 'Facebook' => $we
 <?php if ($meta['obrazek'] !== ''): ?>
 <meta property="og:image" content="<?= e($meta['obrazek']) ?>">
 <?php endif ?>
+<?php if ($sNovinkami ?? true): ?>
 <link rel="alternate" type="application/rss+xml" title="<?= e($nazevWebu) ?> – <?= e(t('Novinky')) ?>" href="<?= e($url('rss.xml')) ?>">
+<?php endif ?>
 <link rel="stylesheet" href="<?= e($url('layout/zakladni/style.css')) ?>?v=<?= e(KALETA_VERSION) ?>">
 <?= $hlava ?>
 </head>
@@ -94,7 +97,9 @@ $site = array_filter(['LinkedIn' => $web->get('soc_linkedin'), 'Facebook' => $we
 <?php foreach ($site as $nazevSite => $adresa): ?>
 				<li><a href="<?= e($adresa) ?>" rel="me noopener" target="_blank"><?= e($nazevSite) ?></a></li>
 <?php endforeach ?>
+<?php if ($sNovinkami ?? true): ?>
 				<li><a href="<?= e($url('rss.xml')) ?>">RSS</a></li>
+<?php endif ?>
 			</ul>
 		</nav>
 		<p class="paticka-copy">&copy; <?= date('Y') ?> <?= e($nazevWebu) ?></p>

@@ -72,9 +72,13 @@ $chyba = fn (string $pole): string => isset($chyby[$pole]) ? '<span class="chyba
 <?php if ($novinka['visible']): ?>
 <div class="radek"><span class="popisek"></span><div class="volby"><label><input type="checkbox" name="oznacit_aktualizaci" value="1"> <?= e(t('Označit jako aktualizovanou (s dnešním datem)')) ?></label></div></div>
 <?php endif ?>
+<?php $jenCteni = $novinka['visible'] && !$smiVydavat; /* vydanou novinku upravuje jen editor – autor ji vidí, ale neuloží */ ?>
+<?php if ($jenCteni): ?>
+<p class="napoveda"><?= e(t('Novinka je vydaná – změny v ní uloží jen editor nebo správce. Požádejte je o úpravu.')) ?></p>
+<?php endif ?>
 <p class="tlacitka ulozit-lista">
-	<button class="tl" type="submit" name="po_ulozeni" value="vypis"><?= e(t('Uložit')) ?></button>
-	<button class="tl" type="submit" name="po_ulozeni" value="zustat"><?= e(t('Uložit a pokračovat')) ?></button>
+	<button class="tl" type="submit" name="po_ulozeni" value="vypis"<?= $jenCteni ? ' disabled' : '' ?>><?= e(t('Uložit')) ?></button>
+	<button class="tl" type="submit" name="po_ulozeni" value="zustat"<?= $jenCteni ? ' disabled' : '' ?>><?= e(t('Uložit a pokračovat')) ?></button>
 <?php if ($novinka['idc']): ?>
 	<a class="navigace" href="<?= e($modul->app()->url('novinky/' . $novinka['seo_link'] . '?nahled=1')) ?>" target="_blank" rel="noopener"><?= e(t('Náhled')) ?></a>
 <?php endif ?>

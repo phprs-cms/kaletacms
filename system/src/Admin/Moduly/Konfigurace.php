@@ -85,6 +85,16 @@ class Konfigurace extends Modul
         return $pole;
     }
 
+    /** Neplatné hodnoty: hláška s názvy polí, jak je vidí uživatel, a zadané hodnoty zpět do zvýrazněných polí. */
+    private function neulozeno(string $zalozka, array $chyby, array $zadane): Response
+    {
+        $sablona = (string) @file_get_contents(KALETA_SYSTEM . '/views/admin/config/' . $zalozka . '.php');
+        $nazvy = array_map(fn (string $klic): string => preg_match('/\$pole\(\s*\'' . preg_quote($klic, '/') . '\',\s*\'([^\']+)\'/', $sablona, $m) ? '„' . t($m[1]) . '“' : $klic, $chyby);
+        $this->app->session->set('konfigurace_chybne', ['zalozka' => $zalozka, 'pole' => $chyby, 'hodnoty' => $zadane]);
+
+        return $this->zpet(t('Tato pole nemají platný tvar a neuložila se: %s. Opravte je prosím (jsou zvýrazněná), ostatní nastavení je uložené.', implode(', ', $nazvy)), '', static::IDENT === 'config' ? ['zalozka' => $zalozka] : [], 'chyba');
+    }
+
     protected function akceVypis(): Response
     {
         if (static::IDENT === 'config' && $this->request->get('zalozka') === 'rozsireni') {
@@ -100,9 +110,14 @@ class Konfigurace extends Modul
             }
         }
 
+        $chybne = $this->app->session->get('konfigurace_chybne');
+        $this->app->session->set('konfigurace_chybne', null);
+        $chybne = is_array($chybne) && ($chybne['zalozka'] ?? '') === $zalozka ? $chybne : ['pole' => [], 'hodnoty' => []];
+
         return $this->view('vypis', 'Nastavení', [
             'zalozka' => $zalozka,
-            'hodnoty' => $hodnoty + ['layout' => $nastaveni->get('layout')],
+            'chybnaPole' => $chybne['pole'],
+            'hodnoty' => $chybne['hodnoty'] + $hodnoty + ['layout' => $nastaveni->get('layout')],
             'layouty' => Layouty::seznam(),
             'kontroly' => $zalozka === 'stav' ? Stav::kontroly($this->app) : [],
             'vzdalenaStav' => $nastaveni->get('zaloha_vzdalena_stav'),
@@ -126,6 +141,7 @@ class Konfigurace extends Modul
         }
         $nastaveni = $this->app->settings();
         $chyby = [];
+        $zadane = [];
         foreach ($this->pole($zalozka) as $klic => $typ) {
             // "kod" se neořezává ani jinak neupravuje - je to HTML/JS vložené administrátorem
             $hodnota = $typ === 'kod' ? (string) ($_POST[$klic] ?? '') : $this->request->post($klic);
@@ -146,6 +162,7 @@ class Konfigurace extends Modul
             $cista = self::vycisti($typ, $hodnota, $this->request->postBool($klic));
             if ($cista === null) {
                 $chyby[] = $klic;
+                $zadane[$klic] = mb_substr($hodnota, 0, 2000); // vrátí se do formuláře k opravě (tajné klíče ne)
                 continue;
             }
             $nastaveni->set($klic, $cista);
@@ -168,7 +185,7 @@ class Konfigurace extends Modul
 
         return $chyby === []
             ? $this->zpet('Nastavení bylo uloženo.', '', static::IDENT === 'config' ? ['zalozka' => $zalozka] : [])
-            : $this->zpet(t('Některé hodnoty nemají platný tvar a nebyly uloženy: %s.', implode(', ', $chyby)), '', static::IDENT === 'config' ? ['zalozka' => $zalozka] : [], 'chyba');
+            : $this->neulozeno($zalozka, $chyby, $zadane);
     }
 
     protected function akceZalohuj(): Response

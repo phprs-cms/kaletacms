@@ -247,14 +247,14 @@ final class Galerie extends Modul
         return $this->zpet('Popis obrázku byl uložen.');
     }
 
-    /** Popis (alt) jednoho obrázku přímo z mřížky – bez znovunačtení stránky (image/admin.js, data-popis-media). */
+    /** Popis pro nevidomé (alt = pole „nazev“, stejně jako v detailu a v editoru) přímo z mřížky – bez znovunačtení (image/admin.js). */
     protected function akceUlozPopis(): Response
     {
         $ido = $this->request->postInt('ido');
         if (!$this->request->isPost() || !$this->smiMenit($ido)) {
             return Response::json(['ok' => false, 'chyba' => t('Obrázek nemůžete upravit.')], 403);
         }
-        $this->db->update('media', ['popis' => mb_substr(trim($this->request->post('popis')), 0, 500)], ['ido' => $ido]);
+        $this->db->update('media', ['nazev' => mb_substr(trim($this->request->post('popis')), 0, 150)], ['ido' => $ido]);
         \Kaleta\Front\Cache::vymaz();
 
         return Response::json(['ok' => true]);

@@ -16,8 +16,12 @@ $kos = $filtr['stav'] === 'kos';
 $strankaUrl = fn (int $s): string => $modul->url('', array_filter($filtr) + ['strana' => $s]);
 ?>
 <p class="navigace-radek"><a class="tl" href="<?= e($modul->url('novy')) ?>"><?= e(t('Nová novinka')) ?></a>
+<?php if ($app->auth()->maModul('kategorie')): ?>
 	<a class="navigace" href="<?= e($app->url('admin.php?modul=kategorie')) ?>"><?= e(t('Kategorie')) ?></a>
+<?php endif ?>
+<?php if ($app->auth()->maModul('stitky')): ?>
 	<a class="navigace" href="<?= e($app->url('admin.php?modul=stitky')) ?>"><?= e(t('Štítky')) ?></a>
+<?php endif ?>
 	<a class="navigace" href="<?= e($modul->url('odkazy')) ?>"><?= e(t('Nefunkční odkazy')) ?></a></p>
 
 <nav class="zalozky" aria-label="<?= e(t('Stav novinek')) ?>">

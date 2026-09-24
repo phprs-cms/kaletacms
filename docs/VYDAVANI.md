@@ -23,6 +23,15 @@ Soukromé klíče **nikdy** nepatří do gitu (hlídá `.gitignore`), do balíč
 projektu leží v synchronizované složce (iCloud Drive, Dropbox), synchronizuje se i `tools/klice/` – přesuňte klíče jinam
 a do `tools/klice/` dejte jen symbolický odkaz, nebo klíč předávejte proměnnou prostředí `KALETA_KLIC`.
 
+## Před prvním veřejným vydáním (1.0)
+
+- [ ] Rozhodnutý vlastník repozitáře `kaleta-cms` na GitHubu a git identita; historie přepsaná na skutečnou identitu.
+- [ ] Provozní i záložní klíč vygenerované (níže), `system/aktualizace.pub` commitnutý.
+- [ ] Web kaletacms.com běží a vystavuje `aktualizace.json`; v `.github/workflows/denni-kontrola.yml` zapnuté kontroly (`if: false` pryč).
+- [ ] V `SECURITY.md` doplněný kontaktní e-mail pro hlášení zranitelností, na GitHubu zapnuté soukromé hlášení (Security → Private vulnerability reporting).
+- [ ] V `README.md` a `README.en.md` odstraněná věta „před vydáním 1.0 … nepoužívejte na produkčních webech“.
+- [ ] Kandidát `1.0.0-rc1` nainstalovaný na skutečném hostingu (Apache i nginx): pošta, cron (`/ulohy`), HTTPS certifikát, aktualizace z kanálu.
+
 ## Založení záložního klíče (jednou, před prvním veřejným vydáním)
 
 ```bash

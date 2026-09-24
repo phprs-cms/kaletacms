@@ -148,8 +148,10 @@ claude mcp add --transport http kaleta https://your-site.com/mcp --header "Autho
 ```
 
 In the Claude app, add a custom connector with the address `https://your-site.com/mcp` and the same header. Claude then,
-with your account permissions, builds pages and sections, edits the header, footer, components, collections and design,
-and writes news. Everything is created as a **draft** and published only when you say so.
+with your account permissions, builds pages and sections, edits the header, footer, collections and design, and writes
+news. Page and site-part builds and news are created as a **draft** and published only when you say so (and only with
+publishing permission). Changes to the menu, design system, themes, collection items and page text take effect on the
+site straight away – the previous page text goes to the version history.
 
 ## 11. Moving from WordPress
 

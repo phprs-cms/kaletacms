@@ -14,6 +14,9 @@ final class Migrace
 {
     private const string SLOZKA = KALETA_SYSTEM . '/sql/migrace';
 
+    /** Chyby MySQL, které znamenají „tahle změna už v databázi je“: tabulka, sloupec, index, cizí klíč existuje, rušený sloupec či index chybí. */
+    private const array UZ_PROVEDENO = [1050, 1060, 1061, 1022, 1826, 1091];
+
     /** @return array<int, string> číslo => soubor, vzestupně */
     public static function soubory(): array
     {
@@ -47,7 +50,15 @@ final class Migrace
                     continue;
                 }
                 foreach (self::prikazy((string) file_get_contents($soubor), $db->prefix) as $sql) {
-                    $db->pdo()->exec($sql);
+                    try {
+                        $db->pdo()->exec($sql);
+                    } catch (\PDOException $e) {
+                        // migrace přerušená uprostřed (výpadek, časový limit) se při dalším pokusu dokončí: změny, které už
+                        // proběhly (tabulka, sloupec, index či cizí klíč existuje / chybí), se přeskočí místo chyby 500 napořád
+                        if (!in_array((int) ($e->errorInfo[1] ?? 0), self::UZ_PROVEDENO, true)) {
+                            throw $e;
+                        }
+                    }
                 }
                 $settings->set('verze_db', (string) $cislo);
                 $provedene[] = basename($soubor, '.sql');

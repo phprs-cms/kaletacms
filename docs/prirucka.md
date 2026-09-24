@@ -147,8 +147,10 @@ claude mcp add --transport http kaleta https://vas-web.cz/mcp --header "Authoriz
 ```
 
 V aplikaci Claude přidejte vlastní konektor s adresou `https://vas-web.cz/mcp` a stejnou hlavičkou. Claude pak s právy
-vašeho účtu staví stránky a sekce, upravuje záhlaví, patičku, komponenty, kolekce a vzhled a píše novinky. Všechno
-vzniká jako **koncept** a publikuje se jen na váš pokyn.
+vašeho účtu staví stránky a sekce, upravuje záhlaví, patičku, kolekce a vzhled a píše novinky. Stavby stránek a částí
+webu i novinky vznikají jako **koncept** a publikuje je jen na váš pokyn (a jen s právem vydávat). Rovnou na webu se
+projeví: úprava menu, vzhledu (design systém), šablony, položky kolekce a textu stránky – předchozí text stránky přitom
+jde do historie verzí.
 
 ## 11. Přechod z WordPressu
 

@@ -37,7 +37,7 @@
 <tbody>
 <?php foreach ($stitky as $s): ?>
 <tr>
-	<td><a href="<?= e($app->url('stitek/' . $s['seo_link'])) ?>" target="_blank" rel="noopener">#<?= e($s['nazev']) ?></a></td>
+	<td><a href="<?= e($app->url('novinky/stitek/' . $s['seo_link'])) ?>" target="_blank" rel="noopener">#<?= e($s['nazev']) ?></a></td>
 	<td class="cislo"><?= (int) $s['pocet'] ?></td>
 	<td><?= trim((string) $s['popis']) !== '' ? '<span class="stitek stitek-vydano">' . e(t('má úvod')) . '</span>' : '' ?></td>
 	<td class="akce"><a href="<?= e($modul->url('', ['uprav' => $s['ids']])) ?>#uprav"><?= e(t('Upravit')) ?></a>
