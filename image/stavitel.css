@@ -153,3 +153,14 @@ body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; ove
 .st-kontrola li { margin: 4px 0; }
 /* textový editor v panelu: lišta se lepí k horní hraně panelu, ne pod záhlaví administrace */
 .st-pravy { --ed-lista-top: 0px; }
+/* Struktura: skrýt v editoru a zamknout */
+.st-uzel-akce { display: flex; gap: 2px; margin-inline-start: auto; opacity: 0; }
+.st-uzel:hover .st-uzel-akce, .st-uzel:focus-within .st-uzel-akce, .st-uzel-akce:has([aria-pressed="true"]) { opacity: 1; }
+.st-uzel-akce button { display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--text-slaby); cursor: pointer; }
+.st-uzel-akce button:hover { background: var(--podklad); color: var(--text); }
+.st-uzel-akce button[aria-pressed="true"] { color: var(--akcent); }
+.st-uzel-akce .st-ikona { width: 14px; height: 14px; }
+.st-skryty > span:not(.st-uzel-akce) { opacity: .45; }
+.st-moje-sekce { position: relative; display: flex; }
+.st-moje-sekce > button:first-child { flex: 1; }
+.st-moje-sekce .st-odebrat { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: var(--podklad); color: var(--text-slaby); cursor: pointer; }

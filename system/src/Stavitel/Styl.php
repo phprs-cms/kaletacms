@@ -16,7 +16,8 @@ final class Styl
         'zaklad' => '',
         'tablet' => '@media (max-width: 1023px)',
         'mobil' => '@media (max-width: 767px)',
-        'hover' => ':hover',
+        'hover' => ':hover',     // platí i pro fokus z klávesnice (:focus-visible) – kdo nepoužívá myš, uvidí totéž
+        'aktivni' => ':active',  // stisknutí (tlačítko, karta-odkaz)
     ];
 
     /**
@@ -48,6 +49,8 @@ final class Styl
         'odsazeni_x' => ['padding-inline', 'mezera', 'mezery', 'Vnitřní odsazení vlevo a vpravo', null],
         'okraj_nahore' => ['margin-block-start', 'mezera', 'mezery', 'Vnější okraj nahoře', null],
         'okraj_dole' => ['margin-block-end', 'mezera', 'mezery', 'Vnější okraj dole', null],
+        'okraj_vlevo' => ['margin-inline-start', 'mezera', 'mezery', 'Vnější okraj vlevo', null],
+        'okraj_vpravo' => ['margin-inline-end', 'mezera', 'mezery', 'Vnější okraj vpravo', null],
         // typografie
         'velikost_pisma' => ['font-size', 'krok', 'typografie', 'Velikost písma', null],
         'tloustka_pisma' => ['font-weight', 'vyber', 'typografie', 'Tloušťka písma', ['300' => 'tenké', '400' => 'normální', '500' => 'střední', '600' => 'polotučné', '700' => 'tučné', '800' => 'extra tučné']],
@@ -61,6 +64,13 @@ final class Styl
         // pozadí a rámeček
         'pozadi' => ['background-color', 'barva', 'pozadi', 'Barva pozadí', null],
         'obrazek_pozadi' => ['background-image', 'obrazek', 'pozadi', 'Obrázek pozadí', null],
+        'prechod' => ['background-image', 'vyber', 'pozadi', 'Barevný přechod', [
+            'linear-gradient(135deg, var(--mc-barva-primarni), var(--mc-barva-sekundarni))' => 'hlavní → doplňková',
+            'linear-gradient(180deg, var(--mc-barva-primarni-jemna), var(--mc-barva-pozadi))' => 'jemně shora',
+            'linear-gradient(180deg, var(--mc-barva-pozadi), var(--mc-barva-plocha))' => 'pozadí → plocha',
+            'radial-gradient(circle at 25% 15%, var(--mc-barva-primarni-jemna), transparent 60%)' => 'záře v rohu',
+            'linear-gradient(180deg, transparent, rgb(0 0 0 / 0.55))' => 'ztmavení dole (na fotku)',
+        ]],
         'prekryv' => ['--mc-prekryv', 'barva', 'pozadi', 'Překryv obrázku (barva)', null],
         'ramecek' => ['border', 'vyber', 'pozadi', 'Rámeček', ['none' => 'žádný', '1px solid var(--mc-barva-linka)' => 'tenký', '2px solid currentColor' => 'výrazný', '2px solid var(--mc-barva-primarni)' => 'v hlavní barvě']],
         'linka_nahore' => ['border-block-start', 'vyber', 'pozadi', 'Linka nahoře', ['none' => 'žádná', '1px solid var(--mc-barva-linka)' => 'tenká', '2px solid var(--mc-barva-primarni)' => 'v hlavní barvě']],
@@ -72,6 +82,8 @@ final class Styl
         'pozice' => ['position', 'vyber', 'pokrocile', 'Umístění', ['relative' => 'běžné (kotva pro vnořené)', 'sticky' => 'přilepit při posunu']],
         'odshora' => ['top', 'mezera', 'pokrocile', 'Odshora (u přilepení)', null],
         'vrstva' => ['z-index', 'cislo', 'pokrocile', 'Vrstva (nad ostatním obsahem)', null],
+        // objevení při rolování: animace řízená posunem stránky (CSS scroll-driven), bez JavaScriptu; kde to prohlížeč neumí, prvek je rovnou vidět
+        'animace' => ['animation', 'vyber', 'pokrocile', 'Objevení při rolování', ['mc-objevit' => 'prolnutí', 'mc-vyjet' => 'vyjetí zdola', 'mc-priblizit' => 'přiblížení', 'none' => 'žádné']],
     ];
 
     public const array SKUPINY = ['rozlozeni' => 'Rozložení', 'rozmery' => 'Rozměry', 'mezery' => 'Mezery', 'typografie' => 'Typografie', 'pozadi' => 'Pozadí a rámeček', 'pokrocile' => 'Pokročilé'];
@@ -165,6 +177,12 @@ final class Styl
                     continue;
                 }
                 [$vlastnost, $typ] = self::VLASTNOSTI[$klic];
+                if ($klic === 'animace') {
+                    if ($css !== 'none') {
+                        array_push($radky, 'animation: ' . $css . ' linear both', 'animation-timeline: view()', 'animation-range: entry 0% cover 28%');
+                    }
+                    continue;
+                }
                 if ($typ === 'obrazek') {
                     $obrazek = $css;
                     continue;
@@ -196,7 +214,10 @@ final class Styl
             $css .= $selektor . ' { ' . trim($zaklad) . " }\n";
         }
         if (($hover = $deklarace($styl['hover'] ?? [])) !== '') {
-            $css .= $selektor . ':hover { ' . $hover . " }\n";
+            $css .= $selektor . ':is(:hover, :focus-visible) { ' . $hover . " }\n";
+        }
+        if (($aktivni = $deklarace($styl['aktivni'] ?? [])) !== '') {
+            $css .= $selektor . ':active { ' . $aktivni . " }\n";
         }
         foreach (['tablet', 'mobil'] as $stav) {
             if (($d = $deklarace($styl[$stav] ?? [])) !== '') {

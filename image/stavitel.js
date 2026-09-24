@@ -44,18 +44,21 @@
 		okno: '<rect x="3" y="4" width="18" height="16" rx="2"/><rect x="7" y="8" width="10" height="8" rx="1"/>',
 		drobecky: '<path d="M3 12h4M10 12h4M17 12h4"/><path d="m6 9 2 3-2 3M13 9l2 3-2 3"/>',
 		nahoru: '<path d="m6 15 6-6 6 6"/>', dolu: '<path d="m6 9 6 6 6-6"/>', rodic: '<path d="M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-2"/>',
+		knihovna: '<path d="M4 5h4v14H4zM10 5h4v14h-4z"/><path d="m16 6 3.5-1 3 13.5-3.5 1z"/>',
 		kopie: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
 		smazat: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
 		zpet: '<path d="M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3"/>', vpred: '<path d="m15 14 5-5-5-5M20 9H9a5 5 0 0 0 0 10h3"/>',
 		pocitac: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>', tablet: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M11 18h2"/>',
 		mobil: '<rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/>', verze: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+		zamek: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>', odemceno: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.5-2"/>',
+		skryto: '<path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4M6.6 6.6C3.7 8.4 2 12 2 12s3.5 7 10 7a9.6 9.6 0 0 0 4.4-1"/>',
 		oko: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>', zavrit: '<path d="M6 6l12 12M18 6 6 18"/>',
 	};
 
 	const stav = {
 		stavba: D.stavba && Array.isArray(D.stavba.deti) ? D.stavba : { v: 1, deti: [] },
-		vybrane: null, bp: 'zaklad', hover: false, levo: 'pridat', pravo: 'obsah', zpet: [], vpred: [], posledniKlic: null, posledniCas: 0,
-		zmeny: !!D.zmeny, uklada: false, casovac: null, verze: D.verze || '', ulozeno: '', pokusy: 0, prihlaseni: false, konflikt: false, vycistena: null, chyby: {}, sbalene: {}, trida: null, tazeny: null, tazeno: null, upravaNaPlatne: false,
+		vybrane: null, bp: 'zaklad', stavPrvku: '', levo: 'pridat', pravo: 'obsah', zpet: [], vpred: [], posledniKlic: null, posledniCas: 0,
+		zmeny: !!D.zmeny, uklada: false, skryte: {}, casovac: null, verze: D.verze || '', ulozeno: '', pokusy: 0, prihlaseni: false, konflikt: false, vycistena: null, chyby: {}, sbalene: {}, trida: null, tazeny: null, tazeno: null, upravaNaPlatne: false,
 	};
 
 	/* ---------- drobné pomůcky ---------- */
@@ -321,15 +324,18 @@
 		doc.addEventListener('click', (e) => {
 			if (e.target.closest('[contenteditable]') || e.target.id === 'mc-st-uchyt') { return; }
 			e.preventDefault();
-			const t = e.target.closest('[data-mc-id]');
+			// zamčený prvek (Struktura → zámek) na plátně nejde vybrat: výběr dostane nejbližší nezamčený předek
+			let t = e.target.closest('[data-mc-id]');
+			while (t && t.hasAttribute('data-mc-zamek')) { t = t.parentElement && t.parentElement.closest('[data-mc-id]'); }
 			vyber(t ? t.getAttribute('data-mc-id') : null);
 		}, true);
+		skrytiNaPlatne(doc);
 		doc.addEventListener('mouseover', (e) => {
 			doc.querySelectorAll('.mc-st-hover').forEach((x) => x.classList.remove('mc-st-hover'));
 			const t = e.target.closest('[data-mc-id]');
 			if (t) { t.classList.add('mc-st-hover'); }
 		});
-		doc.addEventListener('dblclick', (e) => { const t = e.target.closest('[data-mc-id]'); if (t) { upravNaPlatne(t); } });
+		doc.addEventListener('dblclick', (e) => { const t = e.target.closest('[data-mc-id]'); if (t && !t.hasAttribute('data-mc-zamek')) { upravNaPlatne(t); } });
 		doc.addEventListener('keydown', klavesy);
 		doc.addEventListener('dragover', (e) => {
 			if (!stav.tazeno) { return; }
@@ -346,6 +352,15 @@
 			pustNaMisto(stav.tazeno, misto);
 			stav.tazeno = null;
 		});
+	}
+
+	/** Prvky skryté jen v editoru (oko ve Struktuře) – na webu zůstávají; stav se neukládá. */
+	function skrytiNaPlatne(doc) {
+		doc = doc || (nahled && nahled.contentDocument);
+		if (!doc) { return; }
+		let st = doc.getElementById('mc-st-skryte');
+		if (!st) { st = Object.assign(doc.createElement('style'), { id: 'mc-st-skryte' }); doc.head.append(st); }
+		st.textContent = Object.keys(stav.skryte).filter((id) => stav.skryte[id]).map((id) => '[data-mc-id="' + id + '"]{display:none!important}').join('');
 	}
 
 	/* ---------- přetahování na plátně: nový prvek, hotová sekce nebo přesun vybraného prvku ---------- */
@@ -436,6 +451,7 @@
 			prekresliPanely();
 		};
 		if (co.novy) { vlozit(novyPrvek(co.novy)); return; }
+		if (co.vlastni) { vlozit(sNovymiId(co.vlastni)); return; }
 		dotaz(D.adresy.sekce + '&klic=' + encodeURIComponent(co.sekce), { ok: 1 }).then((j) => {
 			if (!j.ok) { nastavStav(j.chyba, true); return; }
 			D.tridy = j.tridy;
@@ -463,6 +479,7 @@
 				doc.body.append(uchyt);
 			}
 			// komponenta bez vlastního obalu má display: contents – nemá rámeček, obrys se kreslí kolem jejího obsahu
+			uchyt.style.display = t.hasAttribute('data-mc-zamek') ? 'none' : ''; // zamčený prvek se nepřetahuje
 			let r = t.getBoundingClientRect();
 			let obrys = doc.getElementById('mc-st-obrys');
 			if (doc.defaultView.getComputedStyle(t).display === 'contents') {
@@ -785,24 +802,46 @@
 
 	function panelPridat() {
 		if (D.ai) { levyObsah.append(el('button', { type: 'button', class: 'st-tl st-ai-sekce', onclick: sekceSAi }, '✨ ' + T('Vytvořit sekci s AI'))); }
+		// jedno hledání pro prvky, moje sekce i hotové sekce
+		const hledani = el('input', { type: 'search', class: 'st-hledat', placeholder: T('Hledat prvek nebo sekci…'), 'aria-label': T('Hledat prvek nebo sekci'), oninput: (e) => vykresli(e.target.value) });
+		const obsah = el('div', {});
+		levyObsah.append(hledani, obsah);
 		const skupiny = {};
 		D.schema.prvky.forEach((p) => { (skupiny[p.skupina] = skupiny[p.skupina] || []).push(p); });
-		for (const [nazev, prvky] of Object.entries(skupiny)) {
-			levyObsah.append(el('h3', {}, T(nazev)), el('div', { class: 'st-prvky' }, prvky.map((p) =>
-				el('button', { type: 'button', title: p.popis, draggable: 'true', onclick: () => vloz(novyPrvek(p.typ)),
-					ondragstart: (e) => zacniTahnout(e, { novy: p.typ }), ondragend: skonciTazeni }, ikona(p.ikona), p.nazev))));
-		}
-		// hotové sekce po kategoriích; hledání filtruje podle názvu i popisu
-		const knihovna = el('div', {});
-		const vykresliKnihovnu = (hledat) => {
+		const vykresli = (hledat) => {
 			const q = hledat.trim().toLowerCase();
-			knihovna.replaceChildren(...Object.entries(D.kategorieKnihovny || { obsah: '' }).map(([kat, nazevKat]) => {
+			const sedi = (...texty) => !q || texty.join(' ').toLowerCase().includes(q);
+			obsah.replaceChildren();
+			for (const [nazev, prvky] of Object.entries(skupiny)) {
+				const vybrane = prvky.filter((p) => sedi(p.nazev, p.popis, T(nazev)));
+				if (!vybrane.length) { continue; }
+				obsah.append(el('h3', {}, T(nazev)), el('div', { class: 'st-prvky' }, vybrane.map((p) =>
+					el('button', { type: 'button', title: p.popis, draggable: 'true', onclick: () => vloz(novyPrvek(p.typ)),
+						ondragstart: (e) => zacniTahnout(e, { novy: p.typ }), ondragend: skonciTazeni }, ikona(p.ikona), p.nazev))));
+			}
+			const moje = (D.mojeSekce || []).filter((m) => sedi(m.nazev));
+			if (moje.length) {
+				obsah.append(el('h3', {}, T('Moje sekce')), el('div', { class: 'st-knihovna' }, moje.map((m) => el('span', { class: 'st-moje-sekce' },
+					el('button', { type: 'button', draggable: 'true', onclick: () => vloz(sNovymiId(m.prvek)), ondragstart: (e) => zacniTahnout(e, { vlastni: m.prvek }), ondragend: skonciTazeni }, el('strong', {}, m.nazev)),
+					D.adresy.smazSekci ? el('button', { type: 'button', class: 'st-odebrat', title: T('Odebrat z mých sekcí'), 'aria-label': T('Odebrat z mých sekcí') + ': ' + m.nazev, onclick: () => potvrd(T('Odebrat sekci „%s“ z mých sekcí? Na stránkách, kde už je, zůstane.').replace('%s', m.nazev), T('Odebrat')).then((ano) => {
+						if (ano) { dotaz(D.adresy.smazSekci, { idx: m.id }).then((j) => { if (j.ok) { D.mojeSekce = j.sekce; prekresliLevy(); } else { nastavStav(j.chyba, true); } }); }
+					}) }, '×') : null))));
+			}
+			knihovnaFiltr(q);
+		};
+		const knihovna = el('div', {});
+		let knihovnaFiltr = () => {};
+		// hotové sekce po kategoriích; hledání filtruje podle názvu i popisu
+		knihovnaFiltr = (q) => {
+			const bloky = Object.entries(D.kategorieKnihovny || { obsah: '' }).map(([kat, nazevKat]) => {
 				const sekce = D.knihovna.filter((s) => (s.kategorie || 'obsah') === kat && (!q || (s.nazev + ' ' + s.popis).toLowerCase().includes(q)));
 				return sekce.length ? el('div', {}, el('h3', {}, nazevKat), el('div', { class: 'st-knihovna' }, sekce.map(tlacitkoSekce))) : null;
-			}).filter(Boolean));
+			}).filter(Boolean);
+			knihovna.replaceChildren(...(bloky.length ? [el('h3', { class: 'st-nadpis-knihovny' }, T('Hotové sekce')), ...bloky] : []));
+			obsah.append(knihovna);
+			if (!obsah.querySelector('button')) { obsah.append(el('p', { class: 'st-prazdno' }, T('Nic takového tu není.'))); }
 		};
-		levyObsah.append(el('h3', {}, T('Hotové sekce')), el('input', { type: 'search', class: 'st-hledat', placeholder: T('Hledat sekci…'), oninput: (e) => vykresliKnihovnu(e.target.value) }), knihovna);
-		vykresliKnihovnu('');
+		vykresli('');
 	}
 
 	/** Živý náhled hotové sekce vedle panelu (vykreslí ji server ve vzhledu webu, zmenšenou). */
@@ -843,8 +882,9 @@
 			const s = TYPY[p.typ] || { nazev: p.typ, ikona: 'blok' };
 			const maDeti = p.deti && p.deti.length;
 			const radek = el('div', {
-				class: 'st-uzel', draggable: 'true', 'aria-selected': String(stav.vybrane === p.id), tabindex: '0',
-				onclick: () => vyber(p.id), onkeydown: (e) => { if (e.key === 'Enter') { vyber(p.id); } },
+				class: 'st-uzel' + (stav.skryte[p.id] ? ' st-skryty' : ''), draggable: p.zamek ? null : 'true', role: 'treeitem', 'aria-selected': String(stav.vybrane === p.id),
+				'aria-expanded': maDeti ? String(!stav.sbalene[p.id]) : null, tabindex: stav.vybrane === p.id || (!stav.vybrane && stav.stavba.deti[0] === p) ? '0' : '-1',
+				'data-id': p.id, onclick: () => vyber(p.id), onkeydown: (e) => klavesyStromu(e, p, maDeti),
 				onmouseenter: () => { const t = nahled && nahled.contentDocument && nahled.contentDocument.querySelector('[data-mc-id="' + p.id + '"]'); if (t) { t.classList.add('mc-st-hover'); } },
 				onmouseleave: () => { const t = nahled && nahled.contentDocument && nahled.contentDocument.querySelector('[data-mc-id="' + p.id + '"]'); if (t) { t.classList.remove('mc-st-hover'); } },
 				ondragstart: (e) => { stav.tazeny = p.id; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', p.id); },
@@ -863,12 +903,36 @@
 				ondragend: () => { stav.tazeny = null; },
 			},
 			maDeti ? el('button', { type: 'button', class: 'st-sbalit', 'aria-label': T('Sbalit / rozbalit'), onclick: (e) => { e.stopPropagation(); stav.sbalene[p.id] = !stav.sbalene[p.id]; prekresliStrom(); } }, stav.sbalene[p.id] ? '▸' : '▾') : el('span', { style: 'width:16px;flex:none' }),
-			ikona(s.ikona), el('span', {}, popisek(p)), el('small', {}, p.znacka));
-			return el('li', {}, radek, maDeti && !stav.sbalene[p.id] ? el('ul', {}, p.deti.map(uzel)) : null);
+			ikona(s.ikona), el('span', {}, popisek(p)), el('small', {}, p.znacka),
+			el('span', { class: 'st-uzel-akce' },
+				el('button', { type: 'button', title: T('Skrýt jen v editoru (na webu zůstane)'), 'aria-label': T('Skrýt jen v editoru (na webu zůstane)'), 'aria-pressed': String(!!stav.skryte[p.id]), tabindex: '-1',
+					onclick: (e) => { e.stopPropagation(); stav.skryte[p.id] = !stav.skryte[p.id]; skrytiNaPlatne(); prekresliStrom(); } }, ikona(stav.skryte[p.id] ? 'skryto' : 'oko')),
+				el('button', { type: 'button', title: T('Zamknout: na plátně nepůjde vybrat ani přesunout'), 'aria-label': T('Zamknout: na plátně nepůjde vybrat ani přesunout'), 'aria-pressed': String(!!p.zamek), tabindex: '-1',
+					onclick: (e) => { e.stopPropagation(); zmen(() => { if (p.zamek) { delete p.zamek; } else { p.zamek = true; } }); } }, ikona(p.zamek ? 'zamek' : 'odemceno'))));
+			return el('li', { role: 'none' }, radek, maDeti && !stav.sbalene[p.id] ? el('ul', { role: 'group' }, p.deti.map(uzel)) : null);
 		};
 		levyObsah.replaceChildren(stav.stavba.deti.length
 			? el('ul', { class: 'st-strom', role: 'tree' }, stav.stavba.deti.map(uzel))
 			: el('p', { class: 'st-prazdno' }, T('Stránka je prázdná. Přidejte sekci z panelu Přidat.')));
+	}
+
+	/** Strom z klávesnice (vzor ARIA tree): šipky nahoru/dolů mezi viditelnými uzly, doprava/doleva rozbalí, sbalí nebo skočí na rodiče. */
+	function klavesyStromu(e, p, maDeti) {
+		const uzly = Array.from(levyObsah.querySelectorAll('.st-uzel'));
+		const i = uzly.indexOf(e.currentTarget);
+		const fokus = (u) => { if (u) { uzly.forEach((x) => { x.tabIndex = -1; }); u.tabIndex = 0; u.focus(); } };
+		if (e.key === 'ArrowDown') { e.preventDefault(); fokus(uzly[i + 1]); }
+		else if (e.key === 'ArrowUp') { e.preventDefault(); fokus(uzly[i - 1]); }
+		else if (e.key === 'Home') { e.preventDefault(); fokus(uzly[0]); }
+		else if (e.key === 'End') { e.preventDefault(); fokus(uzly[uzly.length - 1]); }
+		else if (e.key === 'ArrowRight' && maDeti) {
+			e.preventDefault();
+			if (stav.sbalene[p.id]) { stav.sbalene[p.id] = false; prekresliStrom(); fokus(levyObsah.querySelector('[data-id="' + p.id + '"]')); } else { fokus(uzly[i + 1]); }
+		} else if (e.key === 'ArrowLeft') {
+			e.preventDefault();
+			const n = najdi(p.id);
+			if (maDeti && !stav.sbalene[p.id]) { stav.sbalene[p.id] = true; prekresliStrom(); fokus(levyObsah.querySelector('[data-id="' + p.id + '"]')); } else if (n && n.rodic) { fokus(levyObsah.querySelector('[data-id="' + n.rodic.id + '"]')); }
+		} else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); vyber(p.id); }
 	}
 
 	/* ---------- pravý panel: vlastnosti vybraného prvku, nebo úprava třídy ---------- */
@@ -904,6 +968,7 @@
 				n.rodic ? el('button', { type: 'button', title: T('Vybrat nadřazený prvek (Esc)'), onclick: () => vyber(n.rodic.id) }, ikona('rodic')) : null,
 				el('button', { type: 'button', title: T('Duplikovat (Ctrl+D)'), onclick: () => duplikuj(p.id) }, ikona('kopie')),
 				D.adresy.komponenta && p.typ !== 'komponenta' ? el('button', { type: 'button', title: T('Uložit jako komponentu'), onclick: () => ulozJakoKomponentu(p.id) }, ikona('komponenta')) : null,
+				D.adresy.ulozSekci ? el('button', { type: 'button', title: T('Uložit do mých sekcí (vložíte ji pak na jakoukoli stránku)'), onclick: () => ulozDoMychSekci(p.id) }, ikona('knihovna')) : null,
 				el('button', { type: 'button', class: 'nebezpecne', title: T('Smazat (Delete)'), onclick: () => smaz(p.id) }, ikona('smazat')))),
 			el('div', { class: 'st-zalozky', role: 'tablist' }, zal('obsah', T('Obsah')), zal('styl', T('Styl')), zal('pokrocile', T('Pokročilé'))),
 			panel,
@@ -932,6 +997,31 @@
 				e.target.textContent = T('zkopírováno');
 				setTimeout(() => { e.target.textContent = znacka; }, 1200);
 			} }, '{{' + klic + '}}'))));
+	}
+
+	/** Kopie vybraného prvku do vlastní knihovny (Moje sekce) – na rozdíl od komponenty se po vložení upravuje samostatně. */
+	function ulozDoMychSekci(id) {
+		const n = najdi(id);
+		if (!n) { return; }
+		const pole = el('input', { type: 'text', maxlength: 100, value: popisek(n.p) });
+		const d = el('dialog', { class: 'st-dialog' }, el('div', {}, el('h2', {}, T('Uložit do mých sekcí')),
+			el('label', { class: 'st-pole' }, el('span', {}, T('Název sekce')), pole),
+			el('p', { class: 'st-prazdno', style: 'text-align:left;padding:0' }, T('Sekce se objeví v panelu Přidat → Moje sekce. Každé vložení je samostatná kopie; když má být všude stejná, uložte ji jako komponentu.'))),
+		el('footer', {}, el('button', { type: 'button', class: 'st-tl', onclick: () => d.close() }, T('Zrušit')),
+			el('button', { type: 'button', class: 'st-tl st-tl-hlavni', onclick: () => {
+				if (!pole.value.trim()) { pole.focus(); return; }
+				d.close();
+				dotaz(D.adresy.ulozSekci, { nazev: pole.value.trim(), prvek: JSON.stringify(n.p) }).then((j) => {
+					if (!j.ok) { nastavStav(j.chyba || T('Uložení se nepovedlo.'), true); return; }
+					D.mojeSekce = j.sekce;
+					nastavStav(T('Sekce je v panelu Přidat → Moje sekce.'));
+					if (stav.levo === 'pridat') { prekresliLevy(); }
+				});
+			} }, T('Uložit'))));
+		d.addEventListener('close', () => d.remove());
+		document.body.append(d);
+		d.showModal();
+		pole.select();
 	}
 
 	/** Vybraný prvek se uloží jako komponenta (správce) a na jeho místě zůstane její použití. */
@@ -1094,10 +1184,10 @@
 		return mapa[h] || h;
 	}
 
-	function aktualniStav() { return stav.hover ? 'hover' : stav.bp; }
+	function aktualniStav() { return stav.stavPrvku || stav.bp; }
 	function zdedena(styl, klic) {
 		const s = aktualniStav();
-		const poradi = s === 'mobil' ? ['tablet', 'zaklad'] : s === 'tablet' || s === 'hover' ? ['zaklad'] : [];
+		const poradi = s === 'mobil' ? ['tablet', 'zaklad'] : s === 'tablet' || s === 'hover' ? ['zaklad'] : s === 'aktivni' ? ['hover', 'zaklad'] : [];
 		for (const st of poradi) { if (styl[st] && styl[st][klic] !== undefined) { return styl[st][klic]; } }
 		return '';
 	}
@@ -1107,8 +1197,9 @@
 		cil.styl = cil.styl && !Array.isArray(cil.styl) ? cil.styl : {};
 		const s = aktualniStav();
 		panel.append(el('div', { class: 'st-stav-stylu' },
-			el('span', {}, T('Upravujete: '), el('strong', {}, stav.hover ? T('při najetí myší') : BP[stav.bp])),
-			el('button', { type: 'button', class: 'st-tl', 'aria-pressed': String(stav.hover), onclick: () => { stav.hover = !stav.hover; prekresliPravy(); } }, stav.hover ? T('Běžný stav') : T('Najetí myší'))));
+			el('span', {}, T('Upravujete: '), el('strong', {}, { hover: T('najetí myší a fokus'), aktivni: T('stisknutí') }[stav.stavPrvku] || BP[stav.bp])),
+			el('span', { class: 'st-skupina', role: 'group', 'aria-label': T('Stav prvku') }, [['', T('Běžný')], ['hover', T('Najetí')], ['aktivni', T('Stisk')]].map(([k, n]) =>
+				el('button', { type: 'button', class: 'st-tl', 'aria-pressed': String(stav.stavPrvku === k), title: k === 'hover' ? T('Najetí myší – platí i pro fokus z klávesnice') : null, onclick: () => { stav.stavPrvku = k; prekresliPravy(); } }, n)))));
 		if (s !== 'zaklad') { panel.append(el('p', { class: 'napoveda', style: 'margin:0 0 8px;font-size:12px;color:var(--text-slaby)' }, T('Prázdné pole = stejná hodnota jako na větší obrazovce (šedě).'))); }
 		const skupiny = {};
 		Object.entries(STYL).forEach(([klic, def]) => { (skupiny[def.skupina] = skupiny[def.skupina] || []).push([klic, def]); });
@@ -1179,6 +1270,19 @@
 			el('span', { class: 'st-pole-radek' }, novaTrida, el('button', { type: 'button', class: 'st-tl', onclick: pridejTridu }, T('Přidat'))),
 			el('datalist', { id: 'st-dl-tridy' }, Object.keys(D.tridy).map((t) => el('option', { value: t }))),
 			el('small', { style: 'color:var(--text-slaby)' }, T('Třída sdílí vzhled mezi prvky na všech stránkách. Klepnutím na třídu ji upravíte.'))));
+		const cssPole = el('textarea', { rows: 4, placeholder: 'transition: transform .2s;\nbackdrop-filter: blur(8px);', onchange: (e) => zmen(() => { const h = e.target.value.trim(); if (h) { p.css = h; } else { delete p.css; } }) });
+		cssPole.value = p.css || '';
+		const atrPole = el('textarea', { rows: 3, placeholder: 'data-sledovat=cta\naria-label=Hlavní výzva', onchange: (e) => zmen(() => {
+			const atributy = {};
+			e.target.value.split('\n').forEach((radek) => { const i = radek.indexOf('='); if (i > 0) { atributy[radek.slice(0, i).trim()] = radek.slice(i + 1).trim(); } });
+			if (Object.keys(atributy).length) { p.atributy = atributy; } else { delete p.atributy; }
+		}) });
+		atrPole.value = Object.entries(p.atributy || {}).map(([k, v]) => k + '=' + v).join('\n');
+		panel.append(el('h3', {}, T('Vlastní CSS a atributy')),
+			el('label', { class: 'st-pole' + (stav.chyby[stav.cestaVybraneho + '.css'] ? ' st-pole-chyba' : '') }, el('span', {}, T('CSS jen pro tento prvek (vlastnost: hodnota;)')), cssPole,
+				stav.chyby[stav.cestaVybraneho + '.css'] ? el('small', { class: 'st-chyba-pole' }, stav.chyby[stav.cestaVybraneho + '.css']) : null),
+			el('label', { class: 'st-pole' + (stav.chyby[stav.cestaVybraneho + '.atributy'] ? ' st-pole-chyba' : '') }, el('span', {}, T('Atributy (název=hodnota, na řádek; data-…, aria-…, title, lang, role, rel)')), atrPole,
+				stav.chyby[stav.cestaVybraneho + '.atributy'] ? el('small', { class: 'st-chyba-pole' }, stav.chyby[stav.cestaVybraneho + '.atributy']) : null));
 		panel.append(el('h3', {}, T('Viditelnost')),
 			el('label', { class: 'st-zaskrt' }, el('input', { type: 'checkbox', checked: ((p.styl || {}).mobil || {}).zobrazeni === 'none', onchange: (e) => zmen(() => {
 				p.styl = p.styl || {};
@@ -1214,8 +1318,27 @@
 		panelStyl(panel, zaznam, 'trida:' + nazev, ulozTridu);
 		const css = el('textarea', { rows: 5, placeholder: 'transition: transform .2s;', oninput: (e) => { zaznam.css = e.target.value; ulozTridu(); } });
 		css.value = zaznam.css || '';
+		const kde = el('p', { class: 'st-prazdno', style: 'text-align:left;padding:0' }, T('Zjišťuji, kde je třída použitá…'));
+		dotaz(D.adresy.trida, { nazev, pouziti: '1' }).then((j) => {
+			kde.textContent = j.ok ? (j.pouziti.length ? T('Použito: ') + j.pouziti.join(', ') : T('Třída zatím není použitá v žádné publikované ani rozpracované stavbě.')) : '';
+		});
+		const novyNazev = el('input', { type: 'text', value: nazev, 'aria-label': T('Nový název třídy') });
 		panel.append(el('h3', {}, T('Vlastní CSS')), el('label', { class: 'st-pole' }, el('span', {}, T('Deklarace navíc (vlastnost: hodnota;)')), css),
-			el('button', { type: 'button', class: 'st-tl', onclick: () => potvrd(T('Smazat třídu .') + nazev + T('? Prvky ji ve struktuře ponechají, ale přestane mít vzhled.'), T('Smazat')).then((ano) => {
+			el('h3', {}, T('Kde je použitá')), kde);
+		if (D.adresy.smazSekci) { // přejmenovat a smazat smí správce (změna se projeví na celém webu)
+			panel.append(el('h3', {}, T('Přejmenovat')), el('span', { class: 'st-pole-radek' }, novyNazev, el('button', { type: 'button', class: 'st-tl', onclick: () => {
+				const novy = novyNazev.value.trim().toLowerCase();
+				if (!novy || novy === nazev) { return; }
+				// nejdřív uložit rozpracované změny, pak přejmenovat ve všech stavbách a načíst editor znovu
+				uloz().then((ok) => (ok ? dotaz(D.adresy.trida, { nazev, novy_nazev: novy }) : null)).then((j) => {
+					if (!j) { return; }
+					if (!j.ok) { nastavStav(j.chyba, true); return; }
+					window.location.reload();
+				});
+			} }, T('Přejmenovat'))));
+		}
+		if (!D.adresy.smazSekci) { return; }
+		panel.append(el('button', { type: 'button', class: 'st-tl', onclick: () => potvrd(T('Smazat třídu .') + nazev + T('? Prvky ji ve struktuře ponechají, ale přestane mít vzhled.'), T('Smazat')).then((ano) => {
 				if (!ano) { return; }
 				dotaz(D.adresy.trida, { nazev, smazat: '1' }).then((j) => { if (!j.ok) { nastavStav(j.chyba, true); return; } D.tridy = j.tridy; stav.trida = null; prekresliPravy(); obnovNahled(); });
 			}) }, T('Smazat třídu')));

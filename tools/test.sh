@@ -452,6 +452,23 @@ grep -q '"format": "mirocms-stranka"' "$PRACE/stranka.json" && echo "  ok     ex
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akce=import" -F "_csrf=$TOKEN" -F "soubor=@$PRACE/stranka.json;type=application/json"
 ocekavej "import stránky vytvoří skrytou kopii se stavbou" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazit, '/', stavba_koncept IS NOT NULL) FROM mc_stranky WHERE seo_link = 'nabidka-2'")" "0/1"
 
+echo "== stavitel: vlastní CSS, atributy, animace, moje sekce, přejmenování třídy"
+IDV=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM mc_stranky WHERE seo_link = 'nase-sluzby'")
+sv() { curl -s -b "$JAR" -c "$JAR" -o "$PRACE/odpoved" -w '%{http_code}' -X POST "$B/admin.php?modul=stranky&akce=$1&id=$IDV" -d "_csrf=$TOKEN" "${@:2}"; }
+sv stavba_uloz --data-urlencode 'stavba={"v":1,"deti":[{"id":"sv1","typ":"sekce","tridy":["karta"],"css":"backdrop-filter: blur(4px); background: url(x)","atributy":{"data-sledovat":"cta","onclick":"x"},"styl":{"zaklad":{"animace":"mc-vyjet","prechod":"linear-gradient(135deg, var(--mc-barva-primarni), var(--mc-barva-sekundarni))","okraj_vlevo":"auto"},"aktivni":{"pruhlednost":"0.8"}},"deti":[{"typ":"nadpis","obsah":{"text":"Test"}}]}]}' > /dev/null
+grep -q 'Nepovolená deklarace' "$PRACE/odpoved" && grep -q 'Atribut může být jen' "$PRACE/odpoved" && echo "  ok     vlastní CSS a atributy prvku se čistí" || { echo "  CHYBA  čištění CSS a atributů"; CHYB=$((CHYB+1)); }
+sv stavba_publikuj > /dev/null
+rm -f "$PRACE"/web/storage/cache/stranky/*.html
+curl -s -o "$PRACE/odpoved" "$B/nase-sluzby"
+grep -q 'data-sledovat="cta"' "$PRACE/odpoved" && ! grep -q 'onclick="x"' "$PRACE/odpoved" && grep -q 'backdrop-filter: blur(4px)' "$PRACE/odpoved" && grep -q 'animation-timeline: view()' "$PRACE/odpoved" \
+  && grep -q '@keyframes mc-vyjet' "$PRACE/odpoved" && grep -q ':active {' "$PRACE/odpoved" && grep -q 'margin-inline-start: auto' "$PRACE/odpoved" \
+  && echo "  ok     vlastní CSS, atributy, animace, stisknutí a okraj na webu" || { echo "  CHYBA  nové vlastnosti stylu na webu"; CHYB=$((CHYB+1)); }
+ocekavej "uložení do mých sekcí" "$(sv stavba_uloz_sekci --data-urlencode 'nazev=Moje karta' --data-urlencode 'prvek={"typ":"sekce","deti":[{"typ":"nadpis","obsah":{"text":"Z knihovny"}}]}')" 200
+grep -q '"nazev":"Moje karta"' "$PRACE/odpoved" && echo "  ok     moje sekce v seznamu" || { echo "  CHYBA  moje sekce"; CHYB=$((CHYB+1)); }
+sv stavba_trida -d nazev=karta -d pouziti=1 > /dev/null; grep -q 'Služby firmy' "$PRACE/odpoved" && echo "  ok     přehled použití třídy" || { echo "  CHYBA  použití třídy"; head -c 300 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+ocekavej "přejmenování třídy" "$(sv stavba_trida -d nazev=karta -d novy_nazev=karta-sluzby)" 200
+ocekavej "přejmenovaná třída ve stavbách" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT stavba LIKE '%\"karta-sluzby\"%' AND stavba NOT LIKE '%\"karta\"%' FROM mc_stranky WHERE ids = $IDV")" "1"
+
 echo "== menu"
 over "editor menu" 200 "/admin.php?modul=menu" 'data-menu-seznam'
 IDO=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM mc_stranky WHERE seo_link = 'o-nas'")

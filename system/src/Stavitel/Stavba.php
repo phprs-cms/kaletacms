@@ -21,6 +21,9 @@ final class Stavba
     public const int MAX_HLOUBKA = 12;
     public const string VZOR_TRIDA = '/^[a-z][a-z0-9-]{0,40}(__[a-z0-9-]{1,30})?(--[a-z0-9-]{1,30})?$/';
 
+    /** Vlastní atributy prvku: jen neškodné (žádné on…, style, href, src). */
+    public const string VZOR_ATRIBUT = '/^(data-(?!mc-)[a-z0-9-]{1,30}|aria-[a-z]{2,20}|title|lang|role|rel)$/i';
+
     /** Registr typů prvků (pořadí = pořadí v panelu Přidat). @var list<class-string<Prvek>> */
     public const array PRVKY = [
         Prvky\Sekce::class, Prvky\Kontejner::class, Prvky\Mrizka::class,
@@ -119,6 +122,34 @@ final class Stavba
             }
             if (is_string($p['popis'] ?? null) && trim($p['popis']) !== '') {
                 $cisty['popis'] = mb_substr(trim(strip_tags($p['popis'])), 0, 60); // jméno prvku ve stromu editoru
+            }
+            // vlastní CSS prvku: jen bezpečné deklarace (jako u tříd)
+            if (is_string($p['css'] ?? null) && trim($p['css']) !== '') {
+                $zahozeno = [];
+                $css = Styl::vlastniCss(mb_substr($p['css'], 0, 2000), $zahozeno);
+                if ($css !== '') {
+                    $cisty['css'] = $css;
+                }
+                foreach ($zahozeno as $d) {
+                    $chyby[$misto . '.css'] = 'Nepovolená deklarace: ' . mb_substr($d, 0, 60);
+                }
+            }
+            // vlastní atributy: data-*, aria-*, title, lang, role, rel – hodnoty se escapují při vykreslení
+            if (is_array($p['atributy'] ?? null)) {
+                $atributy = [];
+                foreach (array_slice($p['atributy'], 0, 10, true) as $nazev => $hodnota) {
+                    if (is_string($nazev) && is_scalar($hodnota) && preg_match(self::VZOR_ATRIBUT, $nazev)) {
+                        $atributy[strtolower($nazev)] = mb_substr((string) $hodnota, 0, 200);
+                    } else {
+                        $chyby[$misto . '.atributy'] = 'Atribut může být jen data-…, aria-…, title, lang, role nebo rel.';
+                    }
+                }
+                if ($atributy !== []) {
+                    $cisty['atributy'] = $atributy;
+                }
+            }
+            if (($p['zamek'] ?? false) === true) {
+                $cisty['zamek'] = true; // v editoru nejde na plátně vybrat ani přetáhnout
             }
             if ($trida::KONTEJNER) {
                 if ($hloubka >= self::MAX_HLOUBKA) {
@@ -280,20 +311,23 @@ final class Stavba
             default => '',
         };
         $styl = $p['styl'] ?? [];
+        $vlastniCss = (string) ($p['css'] ?? '');
+        $maStyl = $styl !== [] || $vlastniCss !== '';
         // uvnitř Výpisu kolekce se prvek opakuje: styl přes třídu s-<id>, ne přes id (id musí být na stránce jen jednou)
         $opakuje = $k->vSmycce > 0;
-        $id = $opakuje ? null : ($p['kotva'] ?? ($styl !== [] ? 's-' . $p['id'] : null));
-        $tridy = array_merge($opakuje && $styl !== [] ? ['s-' . $p['id']] : [], $p['tridy'] ?? []);
-        if ($styl !== [] && !isset($k->styly[$p['id']])) {
+        $id = $opakuje ? null : ($p['kotva'] ?? ($maStyl ? 's-' . $p['id'] : null));
+        $tridy = array_merge($opakuje && $maStyl ? ['s-' . $p['id']] : [], $p['tridy'] ?? []);
+        if ($maStyl && !isset($k->styly[$p['id']])) {
             $k->styly[$p['id']] = true;
-            $k->css .= Styl::css($opakuje ? '.s-' . $p['id'] : '#' . $id, $styl, '', $k->app->request->basePath());
+            $k->css .= Styl::css($opakuje ? '.s-' . $p['id'] : '#' . $id, $styl, $vlastniCss, $k->app->request->basePath());
         }
         foreach ($p['tridy'] ?? [] as $t) {
             $k->tridy[$t] = true;
         }
         $a = ($id !== null ? ' id="' . e($id) . '"' : '')
             . ($tridy !== [] ? ' class="' . e(implode(' ', $tridy)) . '"' : '')
-            . ($k->editor ? ' data-mc-id="' . e((string) $p['id']) . '" data-mc-typ="' . e($trida::TYP) . '"' : '');
+            . implode('', array_map(fn (string $n, string $h): string => ' ' . $n . '="' . e($h) . '"', array_keys($p['atributy'] ?? []), $p['atributy'] ?? []))
+            . ($k->editor ? ' data-mc-id="' . e((string) $p['id']) . '" data-mc-typ="' . e($trida::TYP) . '"' . (!empty($p['zamek']) ? ' data-mc-zamek' : '') : '');
 
         return $trida::vykresli($p, $a, $deti, $k);
     }
@@ -337,6 +371,13 @@ final class Stavba
             foreach ($db->all('SELECT nazev, styl, css FROM {tridy} WHERE nazev IN (' . implode(',', array_fill(0, count($nazvy), '?')) . ') ORDER BY nazev', $nazvy) as $r) {
                 $tridy .= Styl::css('.' . $r['nazev'], json_decode((string) $r['styl'], true) ?: [], Styl::vlastniCss((string) $r['css']), $k->app->request->basePath());
             }
+        }
+        if (preg_match('/animation: mc-(objevit|vyjet|priblizit)/', $k->css . $tridy)) {
+            // animace „Objevení při rolování“; kdo nechce pohyb (nastavení systému), vidí prvky rovnou
+            $zaklad .= '@keyframes mc-objevit { from { opacity: 0; } }' . "\n"
+                . '@keyframes mc-vyjet { from { opacity: 0; translate: 0 2.5rem; } }' . "\n"
+                . '@keyframes mc-priblizit { from { opacity: 0; scale: 0.92; } }' . "\n"
+                . '@media (prefers-reduced-motion: reduce) { :where(.stavba) * { animation: none !important; } }' . "\n";
         }
         $css = DesignSystem::VRSTVY . "\n";
         foreach (['stavitel' => $zaklad, 'tridy' => $tridy, 'prvky' => $k->css] as $vrstva => $obsah) {

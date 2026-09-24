@@ -78,6 +78,7 @@ trait StavitelAkce
             'knihovna' => Knihovna::seznam(),
             'kategorieKnihovny' => array_map(fn (string $k): string => t($k), Knihovna::KATEGORIE),
             'tridy' => $this->tridyStavitele(),
+            'mojeSekce' => self::mojeSekce($this->db),
             'barvy' => DesignSystem::nacti($app->settings())['barvy'],
             // nabídka pro pole odkazu: stránky webu (s jazykovou předponou) a novinky; kotvy na stránce doplní editor
             'odkazy' => [...array_map(fn (array $s): array => ['/' . ($s['jazyk'] !== '' ? $s['jazyk'] . '/' : '') . ((int) $s['ids'] === $app->settings()->int('titulni_stranka') ? '' : $s['seo_link']), $s['titulek'] . ($s['zobrazit'] ? '' : ' (' . t('skrytá') . ')')],
@@ -86,8 +87,8 @@ trait StavitelAkce
             'zpet' => $e['zpet'],
             'adresy' => array_map(fn (string $akce): string => $this->url($akce, $cil['parametry']), [
                 'uloz' => 'stavba_uloz', 'publikuj' => 'stavba_publikuj', 'zahod' => 'stavba_zahod', 'sekce' => 'stavba_sekce', 'trida' => 'stavba_trida',
-                'revize' => 'stavba_revize', 'obnov' => 'stavba_obnov', 'aiSekce' => 'stavba_ai_sekce', 'aiText' => 'stavba_ai_text',
-            ]) + ['admin' => $app->url('admin.php'), 'nastaveni' => $e['nastaveni'],
+                'revize' => 'stavba_revize', 'obnov' => 'stavba_obnov', 'aiSekce' => 'stavba_ai_sekce', 'aiText' => 'stavba_ai_text', 'ulozSekci' => 'stavba_uloz_sekci',
+            ]) + ['smazSekci' => $app->auth()->isAdmin() ? $this->url('stavba_smaz_sekci', $cil['parametry']) : null] + ['admin' => $app->url('admin.php'), 'nastaveni' => $e['nastaveni'],
                 'komponenta' => $app->auth()->isAdmin() ? $app->url('admin.php?modul=komponenty&akce=z_prvku') : null,
                 'nahledSekce' => $app->url('_sekce/')],
         ];
@@ -158,6 +159,41 @@ trait StavitelAkce
         return Response::json(['ok' => true, 'prvek' => $sekce['prvek'], 'tridy' => $this->tridyStavitele()]);
     }
 
+    /** @return list<array{id:int, nazev:string, prvek:array<string, mixed>}> vlastní sekce webu (panel Přidat → Moje sekce) */
+    public static function mojeSekce(\MiroCMS\Core\Db $db): array
+    {
+        return array_values(array_filter(array_map(fn (array $r): ?array => is_array($p = json_decode((string) $r['prvek'], true)) ? ['id' => (int) $r['idx'], 'nazev' => $r['nazev'], 'prvek' => $p] : null,
+            $db->all('SELECT idx, nazev, prvek FROM {sekce} ORDER BY nazev LIMIT 200'))));
+    }
+
+    /** Uloží vybraný prvek do vlastní knihovny sekcí (projde validátorem jako každá stavba). */
+    protected function akceStavbaUlozSekci(): Response
+    {
+        $nazev = mb_substr(trim($this->request->post('nazev')), 0, 100);
+        $prvek = json_decode((string) ($_POST['prvek'] ?? ''), true);
+        if (!$this->request->isPost() || $nazev === '' || !is_array($prvek)) {
+            return Response::json(['ok' => false, 'chyba' => t('Sekce potřebuje název.')], 400);
+        }
+        [$stavba] = Stavba::vycisti(['deti' => [$prvek]], $this->app->auth()->isAdmin());
+        if (($stavba['deti'][0] ?? null) === null) {
+            return Response::json(['ok' => false, 'chyba' => t('Prvek se nepodařilo uložit.')], 400);
+        }
+        $this->db->insert('sekce', ['nazev' => $nazev, 'prvek' => (string) json_encode($stavba['deti'][0], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'zmeneno' => date('Y-m-d H:i:s')]);
+        Protokol::zapis($this->app, static::IDENT, 'uložení sekce do knihovny', $nazev);
+
+        return Response::json(['ok' => true, 'sekce' => self::mojeSekce($this->db)]);
+    }
+
+    protected function akceStavbaSmazSekci(): Response
+    {
+        if (!$this->request->isPost() || !$this->app->auth()->isAdmin()) {
+            return Response::json(['ok' => false, 'chyba' => t('Sekce smí odebrat jen správce.')], 403);
+        }
+        $this->db->delete('sekce', ['idx' => $this->request->postInt('idx')]);
+
+        return Response::json(['ok' => true, 'sekce' => self::mojeSekce($this->db)]);
+    }
+
     /** Uložení nebo smazání sdílené třídy (JSON). */
     protected function akceStavbaTrida(): Response
     {
@@ -167,6 +203,33 @@ trait StavitelAkce
         $nazev = $this->request->post('nazev');
         if (!preg_match(Stavba::VZOR_TRIDA, $nazev)) {
             return Response::json(['ok' => false, 'chyba' => t('Název třídy: malá písmena bez diakritiky, číslice a pomlčky (např. karta, karta--zvyraznena).')], 400);
+        }
+        if ($this->request->post('pouziti') === '1') {
+            return Response::json(['ok' => true, 'pouziti' => $this->pouzitiTridy($nazev)]);
+        }
+        if (($this->request->post('novy_nazev') !== '' || $this->request->post('smazat') === '1') && !$this->app->auth()->isAdmin()) {
+            return Response::json(['ok' => false, 'chyba' => t('Třídu smí přejmenovat nebo smazat jen správce – mění vzhled celého webu.')], 403);
+        }
+        if (($novy = $this->request->post('novy_nazev')) !== '') {
+            // přejmenování: řádek třídy i všechny stavby, které ji používají (stránky, části, šablony kolekcí, komponenty, moje sekce)
+            if (!preg_match(Stavba::VZOR_TRIDA, $novy) || $this->db->value('SELECT 1 FROM {tridy} WHERE nazev = ?', [$novy]) !== null) {
+                return Response::json(['ok' => false, 'chyba' => t('Nový název musí být volný a psaný malými písmeny bez diakritiky (např. karta-velka).')], 400);
+            }
+            $this->db->update('tridy', ['nazev' => $novy, 'zmeneno' => date('Y-m-d H:i:s')], ['nazev' => $nazev]);
+            foreach (self::ZDROJE_STAVEB as $tabulka => [$klic, $sloupce]) {
+                foreach ($this->db->all('SELECT ' . $klic . ', ' . implode(', ', $sloupce) . ' FROM {' . $tabulka . '} WHERE ' . implode(' OR ', array_map(fn (string $s): string => $s . ' LIKE ?', $sloupce)), array_fill(0, count($sloupce), '%"' . $nazev . '"%')) as $r) {
+                    $zmena = [];
+                    foreach ($sloupce as $s) {
+                        if ($r[$s] !== null && str_contains($r[$s], '"' . $nazev . '"')) {
+                            $zmena[$s] = self::prejmenujTridu((string) $r[$s], $nazev, $novy);
+                        }
+                    }
+                    $this->db->update($tabulka, $zmena, [$klic => $r[$klic]]);
+                }
+            }
+            \MiroCMS\Front\Cache::vymaz();
+
+            return Response::json(['ok' => true, 'tridy' => $this->tridyStavitele(), 'nazev' => $novy]);
         }
         if ($this->request->post('smazat') === '1') {
             $this->db->delete('tridy', ['nazev' => $nazev]);
@@ -185,6 +248,55 @@ trait StavitelAkce
         \MiroCMS\Front\Cache::vymaz();
 
         return Response::json(['ok' => true, 'tridy' => $this->tridyStavitele()]);
+    }
+
+    /** Tabulky se stavbami: tabulka => [klíč, sloupce se stavbou JSON]. */
+    private const array ZDROJE_STAVEB = [
+        'stranky' => ['ids', ['stavba', 'stavba_koncept']], 'casti' => ['typ', ['stavba', 'stavba_koncept']], 'kolekce' => ['idk', ['stavba', 'stavba_koncept']],
+        'komponenty' => ['idm', ['stavba', 'stavba_koncept']], 'sekce' => ['idx', ['prvek']],
+    ];
+
+    /** Přejmenuje třídu v poli „tridy“ všech prvků stavby (JSON) – jiné výskyty textu zůstanou. */
+    private static function prejmenujTridu(string $json, string $stary, string $novy): string
+    {
+        $data = json_decode($json, true);
+        if (!is_array($data)) {
+            return $json;
+        }
+        $projdi = function (array $x) use (&$projdi, $stary, $novy): array {
+            if (isset($x['tridy']) && is_array($x['tridy'])) {
+                $x['tridy'] = array_map(fn (mixed $t): mixed => $t === $stary ? $novy : $t, $x['tridy']);
+            }
+            foreach ($x as $k => $v) {
+                if (is_array($v)) {
+                    $x[$k] = $projdi($v);
+                }
+            }
+
+            return $x;
+        };
+
+        return (string) json_encode($projdi($data), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
+    /** @return list<string> kde je třída použitá (názvy stránek, částí, kolekcí, komponent, mých sekcí) */
+    private function pouzitiTridy(string $nazev): array
+    {
+        $vzor = '%"tridy":[%"' . addcslashes($nazev, '%_\\') . '"%';
+        $kde = [];
+        foreach ($this->db->all('SELECT titulek FROM {stranky} WHERE smazano IS NULL AND (stavba LIKE ? OR stavba_koncept LIKE ?)', [$vzor, $vzor]) as $r) {
+            $kde[] = t('stránka') . ' ' . $r['titulek'];
+        }
+        foreach ($this->db->all('SELECT typ, nazev FROM {casti} WHERE stavba LIKE ? OR stavba_koncept LIKE ?', [$vzor, $vzor]) as $r) {
+            $kde[] = t('část webu') . ' ' . ($r['nazev'] !== '' ? $r['nazev'] : $r['typ']);
+        }
+        foreach ([['kolekce', 'nazev', 'kolekce'], ['komponenty', 'nazev', 'komponenta']] as [$tabulka, $sloupec, $druh]) {
+            foreach ($this->db->all('SELECT ' . $sloupec . ' AS n FROM {' . $tabulka . '} WHERE stavba LIKE ? OR stavba_koncept LIKE ?', [$vzor, $vzor]) as $r) {
+                $kde[] = t($druh) . ' ' . $r['n'];
+            }
+        }
+
+        return array_values(array_unique($kde));
     }
 
     /** Publikované verze (JSON pro dialog Verze). */
