@@ -3,7 +3,7 @@
 ## Nahlášení chyby
 
 Bezpečnostní chybu prosím **nehlaste veřejně** v Issues. Použijte soukromé hlášení na GitHubu
-(záložka *Security → Report a vulnerability*) nebo e-mail uvedený na webu projektu. Popište verzi,
+(záložka *Security → Report a vulnerability*) nebo e-mailem na **info@kaletacms.com**. Popište verzi,
 postup a dopad. Ozveme se do 3 pracovních dnů; opravu běžně vydáváme do 14 dnů, u kritických chyb co nejdříve.
 
 ## Jak se oprava dostane k uživatelům
