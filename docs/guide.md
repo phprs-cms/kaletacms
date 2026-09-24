@@ -8,11 +8,15 @@ For whoever runs the site: from installation through the page builder to connect
 1. Upload the files to hosting (PHP 8.4+, MySQL 8 / MariaDB 10.6+), create an empty database and open `/install.php`.
 2. In the form, choose a **starter site**: *Business website*, *Crafts and services* or *Consulting and agency*. Each brings
    its own look and Home, About us, Services and Contact pages built from ready-made sections with sample texts.
-3. After logging in, **First steps** on the **Dashboard** guide you through: site appearance, company details, pages,
-   your first news item and email.
+3. Choose **what you want switched on**: News, Forms and enquiries, Newsletter, Statistics, Redirects, language versions,
+   the AI assistant… Extensions can be switched on and off at any time in the admin (**Extensions**); switching off deletes nothing.
+4. The installation also creates a draft **Privacy policy** page, linked from the footer, the cookie bar and the form consent.
+5. After logging in, **First steps** on the **Dashboard** guide you through: site appearance, company details, pages,
+   the privacy policy and email.
 
 The admin is at `/admin.php`. Roles: an **administrator** can do everything, an **editor** manages content, a **news
-author** writes their own news and may publish only with the publishing permission.
+author** writes their own news and may publish only with the publishing permission. In **Users → Roles** you can create
+**custom roles** – a named set of sections (for example “Sales” with Enquiries only); changing a role updates all its members.
 
 ## 2. Page builder
 
@@ -22,19 +26,28 @@ page**, on the left the **Add / Structure** panel, on the right the properties o
 - **Adding:** click an element or a ready-made section in the Add panel, or **drag it onto the canvas** – a blue line shows
   where it will land (a frame means inside a container). Hover over a ready-made section to see its preview.
 - **Moving:** the selected element has a ⠿ handle on the canvas – drag it elsewhere. You can also drag in the Structure.
+  On tablets and phones tap **Move** (four arrows) and then the place where the element belongs.
 - **Text:** double-click a heading or text to edit it right on the canvas; longer edits in the **Content** panel.
 - **Style:** the **Style** panel – layout, size, spacing, typography, background. At the top, switch **Desktop / Tablet /
-  Mobile**: a value for a smaller screen overrides the larger one only there. The **Hover** toggle sets the hover look.
+  Mobile**: a value for a smaller screen overrides the larger one only there. The **Hover** and **Press** toggles set the look
+  on mouse hover (and keyboard focus) and when pressed – separately for tablet and mobile too. A **typography style**
+  (Section heading, Lead…) sets the font in one choice; compose a shadow or border with the pencil ✎ next to the field.
+  Grids have a **grid editor**: columns, rows and named areas. **Copy style / Paste style** moves the look to another element.
 - **Classes:** in the **Advanced** tab, give an element a class (e.g. `karta`). A class style applies to every element with
   that class across the site – ideal for a repeated look.
 - **Shortcuts:** Ctrl+Z undo, Ctrl+Shift+Z redo, Ctrl+D duplicate, Ctrl+C / Ctrl+V copy and paste (even between pages),
-  Delete removes, Esc selects the parent element.
+  Delete removes, Esc selects the parent element, **?** opens help – where you can also start the **editor tour**.
+- **Preview:** next to the device switch choose a **wide monitor (1920 px)** or zoom 50–100 %.
+- **Display conditions** (Advanced): show an element only between two dates (a promo banner) or only to visitors or signed-in users.
 - **Saving and publishing:** changes save continuously as a **draft** – visitors see the published version until you
   press **Publish**. **Discard changes** restores the published version; **Versions** lists the last 20 publications.
   If someone else edits the page meanwhile, the editor offers to load the newer version or overwrite it. Before publishing,
-  a **check** flags buttons without links, images without descriptions and a missing main heading.
+  a **check** flags buttons without links, images without descriptions, a missing main heading and low text contrast.
 - **More elements:** icon, photo gallery with a viewer, tabs, accordion, carousel, map (loads only after a click),
-  pop-up window (opened by a button linking to `#window-anchor`) and breadcrumbs.
+  pop-up window (opened by a button linking to `#window-anchor`, on its own after a delay, after scrolling or on exit),
+  breadcrumbs, **counter**, **progress bars**, star **rating**, **countdown**, **social networks**, **search**,
+  **back-to-top button** and **newsletter sign-up**. Sections support a **background video**, videos a **poster**,
+  navigation a **mega menu** and background images **parallax**.
 
 A page that used to be plain text is converted by the builder automatically. You can switch it back to text in the page settings.
 
@@ -50,6 +63,10 @@ sharing). A deleted page goes to the **trash** and can be restored for 30 days; 
   checks WCAG contrast; change any pair marked in red.
 - **Dark mode**, **fonts**, **sizes** (base font on phones and monitors, heading ratio, content width), **corner radius**,
   logo and icon.
+
+- **Typography styles** – size and weight of the named styles (Main title, Section heading, Lead…) you pick for
+  elements in the builder. A change here applies across the whole site.
+- **Design tokens** – download and load the look in the W3C Design Tokens format (DTCG) for Figma or Tokens Studio.
 
 On the right is a live preview of the home page (desktop / phone). Nothing is saved until you press Save.
 
@@ -98,6 +115,10 @@ tracking gets a `kaleta:odeslano` event (and a `dataLayer` entry).
 
 Submitted messages are in **Content → Enquiries**: status (new, read, resolved), reply by email, CSV export. Enquiries
 contain personal data, so they are deleted automatically after a set number of months (24 by default).
+
+The **Newsletter** extension adds a **Newsletter sign-up** element: visitors enter an e-mail and confirm it by a link
+(double opt-in). Confirmed addresses are in **Content → Subscribers**; export them to CSV, including the unsubscribe
+link, for your mailing tool.
 
 ## 8. Company details
 

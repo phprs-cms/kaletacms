@@ -24,6 +24,11 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
 - **Rozšíření jsou uzavřený systém** (`Core\Rozsireni::SEZNAM`): žádné cizí plug-iny ani nahrávání kódu z administrace.
 - **Role:** správce (2), editor (1 – veškerý obsah, vydává), autor novinek (0 – jen své novinky, nevydává). `Auth::smiVydavat()`,
   `Auth::spravovaniAutori()`, `Auth::articleScope()`; práva k sekcím navíc `ka_uzivatele_prava` (výchozí podle role, `Autori::vychoziModuly()`).
+  Vlastní role (`ka_role`, modul `Role`): úroveň 0/1 + sada sekcí; uložení role přepíše `ka_uzivatele_prava` a úroveň
+  všem členům (`ka_uzivatele.role`), `Auth` se tak nemění.
+- **Rozšíření modulu a prvku:** `Modul::ROZSIRENI` a `Prvek::ROZSIRENI` (novinky, poptavky, newsletter…). Vypnuté
+  rozšíření: modul zmizí, prvek se nenabízí a na webu nevykreslí, sekce knihovny s ním se nenabízejí, trasy webu vrací 404.
+  Nové rozšíření zapnuté ve výchozím stavu potřebuje migraci, která ho doplní webům s uloženým výběrem (viz 0016).
 - **Nastavení:** nová volba = klíč v `Settings::DEFAULTS` + typ v `Konfigurace::POLE` + řádek `$pole(...)` ve `views/admin/config/<zalozka>.php`.
 - **Nikdy `window.confirm()`** – v administraci atribut `data-potvrdit="text"`.
 - **Administrace má CSP `script-src 'self'`:** žádné inline skripty ani `on*=` atributy; chování do `image/admin.js` přes `data-` atributy.

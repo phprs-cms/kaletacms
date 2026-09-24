@@ -8,10 +8,14 @@ Návod pro toho, kdo web spravuje: od instalace přes stavitel stránek až po n
 1. Nahrajte soubory na hosting (PHP 8.4+, MySQL 8 / MariaDB 10.6+), založte prázdnou databázi a otevřete `/install.php`.
 2. Ve formuláři vyberte **ukázkový web**: *Firemní web*, *Řemeslo a služby*, nebo *Poradenství a agentura*. Každý
    přinese vlastní vzhled a stránky Úvod, O nás, Služby a Kontakt z hotových sekcí s ukázkovými texty.
-3. Po přihlášení vás na **Přehledu** provedou **První kroky**: vzhled webu, údaje o firmě, stránky, první novinka a pošta.
+3. Vyberte, **co chcete mít zapnuté**: Novinky, Formuláře a poptávky, Newsletter, Statistiku, Přesměrování, jazykové
+   verze, AI asistenta… Rozšíření jde kdykoli zapnout a vypnout v administraci (**Rozšíření**); vypnutím se nic nesmaže.
+4. Instalace založí i kostru **Zásad ochrany osobních údajů** s odkazem v patičce, v cookie liště a u souhlasu ve formuláři.
+5. Po přihlášení vás na **Přehledu** provedou **První kroky**: vzhled webu, údaje o firmě, stránky, zásady a pošta.
 
 Administrace je na adrese `/admin.php`. Role: **správce** smí všechno, **editor** spravuje obsah, **autor novinek** píše
-jen své novinky a vydat je smí jen s právem vydávat.
+jen své novinky a vydat je smí jen s právem vydávat. V **Uživatelé → Role** si založíte **vlastní role** – pojmenovanou
+sadu sekcí (třeba „Obchodník“ jen s Poptávkami); změna role se přenese na všechny její členy.
 
 ## 2. Stavitel stránek
 
@@ -20,20 +24,29 @@ webu**, vlevo panel **Přidat / Struktura**, vpravo vlastnosti vybraného prvku.
 
 - **Vkládání:** klepněte na prvek nebo hotovou sekci v panelu Přidat, nebo je **přetáhněte na plátno** – modrá čára
   ukáže, kam dopadnou (rámeček = dovnitř kontejneru). Po najetí na hotovou sekci uvidíte její náhled.
-- **Přesun:** vybraný prvek má na plátně úchyt ⠿ – přetáhněte ho jinam. Přetahovat jde i ve Struktuře.
+- **Přesun:** vybraný prvek má na plátně úchyt ⠿ – přetáhněte ho jinam. Přetahovat jde i ve Struktuře. Na tabletu
+  a telefonu klepněte na **Přesunout** (čtyři šipky) a pak na místo, kam prvek patří.
 - **Text:** dvojklikem upravíte nadpis nebo text přímo na plátně; delší úpravy v panelu **Obsah**.
 - **Styl:** panel **Styl** – rozložení, rozměry, mezery, typografie, pozadí. Nahoře přepínáte **Počítač / Tablet / Mobil**:
-  hodnota pro menší obrazovku přepíše tu větší jen tam. Přepínač **Najetí myší** nastaví vzhled při najetí.
+  hodnota pro menší obrazovku přepíše tu větší jen tam. Přepínače **Najetí** a **Stisk** nastaví vzhled při najetí myší
+  (i fokusu z klávesnice) a při stisknutí – i zvlášť pro tablet a mobil. **Typografický styl** (Nadpis sekce, Perex…)
+  nastaví písmo jedním výběrem; stín a rámeček poskládáte tužkou ✎ vedle pole. U mřížky je **editor mřížky**: počet
+  sloupců a řádků a pojmenované oblasti. **Kopírovat styl / Vložit styl** přenese vzhled na jiný prvek.
 - **Třídy:** v záložce **Pokročilé** dáte prvku třídu (např. `karta`). Styl třídy platí pro všechny prvky s touto třídou
   na celém webu – ideální pro opakovaný vzhled.
 - **Zkratky:** Ctrl+Z zpět, Ctrl+Shift+Z znovu, Ctrl+D duplikovat, Ctrl+C / Ctrl+V kopírovat a vložit (i mezi stránkami),
-  Delete smazat, Esc vybrat nadřazený prvek.
+  Delete smazat, Esc vybrat nadřazený prvek, **?** nápověda. V nápovědě spustíte i **prohlídku editoru**.
+- **Náhled:** vedle přepínače zařízení zvolíte **široký monitor (1920 px)** nebo přiblížení 50–100 %.
+- **Podmínky zobrazení** (Pokročilé): prvek jen od–do data (akční banner) nebo jen pro nepřihlášené či přihlášené.
 - **Ukládání a publikování:** změny se průběžně ukládají jako **koncept** – návštěvníci vidí publikovanou verzi, dokud
   nestisknete **Publikovat**. **Zahodit změny** vrátí publikovanou podobu, **Verze** nabídne posledních 20 publikací.
   Když stránku mezitím upraví někdo jiný, editor nabídne načíst novější verzi, nebo ji přepsat. Před publikováním
-  **Kontrola** upozorní na tlačítka bez odkazu, obrázky bez popisu a chybějící hlavní nadpis.
+  **Kontrola** upozorní na tlačítka bez odkazu, obrázky bez popisu, chybějící hlavní nadpis a slabý kontrast textu.
 - **Prvky navíc:** ikona, galerie s prohlížečkou fotek, záložky, akordeon, karusel, mapa (načte se až po klepnutí),
-  vyskakovací okno (otevře ho tlačítko s odkazem `#kotva-okna`) a drobečková navigace.
+  vyskakovací okno (otevře ho tlačítko s odkazem `#kotva-okna`, samo po čase, po odrolování nebo při odchodu),
+  drobečková navigace, **počítadlo**, **ukazatele průběhu**, **hodnocení** hvězdičkami, **odpočet**, **sociální sítě**,
+  **vyhledávání**, **tlačítko nahoru** a **odběr novinek**. Sekce umí **video na pozadí**, video **plakát**, navigace
+  **mega menu** a obrázek pozadí **paralaxu**.
 
 Stránku, která byla dosud jen textem, stavitel převede na stavbu sám. Zpět k textu ji vrátíte v nastavení stránky.
 
@@ -49,6 +62,10 @@ a sdílení). Smazaná stránka jde do **koše** a 30 dní ji jde obnovit; **Dup
   podle WCAG; červeně označenou dvojici barev změňte.
 - **Tmavý režim**, **písma**, **velikosti** (základní písmo na telefonu a monitoru, poměr nadpisů, šířka obsahu),
   **zaoblení rohů**, logo a ikona.
+
+- **Typografické styly** – velikost a tloušťka pojmenovaných stylů (Hlavní titulek, Nadpis sekce, Perex…), které ve
+  staviteli vyberete u prvku. Změna tady se projeví na celém webu.
+- **Design tokeny** – stažení a načtení vzhledu ve formátu W3C Design Tokens (DTCG) pro Figmu nebo Tokens Studio.
 
 Vpravo je živý náhled úvodní stránky (počítač / telefon). Nic se neukládá, dokud nestisknete Uložit vzhled.
 
@@ -97,6 +114,10 @@ konverzí dostane událost `kaleta:odeslano` (a záznam do `dataLayer`).
 
 Odeslané zprávy jsou v **Obsah → Poptávky**: stav (nová, přečtená, vyřízená), odpověď e-mailem, export do CSV.
 Poptávky obsahují osobní údaje, proto se po nastaveném počtu měsíců (výchozí 24) samy mažou.
+
+Rozšíření **Newsletter** přidá prvek **Odběr novinek**: návštěvník zadá e-mail a potvrdí ho odkazem (double opt-in).
+Potvrzené adresy najdete v **Obsah → Odběratelé** a vyexportujete je do CSV i s odkazem na odhlášení pro váš
+rozesílací nástroj.
 
 ## 8. Údaje o firmě
 
