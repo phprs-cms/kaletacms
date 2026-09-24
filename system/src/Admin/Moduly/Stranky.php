@@ -8,7 +8,7 @@ use MiroCMS\Admin\Modul;
 use MiroCMS\Core\Response;
 
 /**
- * Stránky: samostatný obsah mimo rubriky (O nás, Kontakt, Zásady ochrany soukromí...).
+ * Stránky webu: úvod, O nás, Služby, Kontakt, Zásady ochrany soukromí… Úvodní stránku určuje Nastavení → Základní.
  * Stránka má adresu /<seo_link>.
  */
 final class Stranky extends Modul
@@ -19,7 +19,7 @@ final class Stranky extends Modul
     public const string IKONA = 'stranky';
 
     /** Adresy, které patří systému a stránka je mít nemůže. */
-    public const array VYHRAZENE = ['clanek', 'rubrika', 'stitek', 'archiv', 'autor', 'mcp', 'api', 'newsletter', 'hledani', 'admin', 'install', 'media', 'image', 'layout', 'system', 'storage', 'plugins', 'rss', 'sitemap', 'robots', 'llms', 'stav', 'ulohy', 'ctenar', 'platba', 'push', 'zive', 'podcast', 'souhlas', 'komentar', 'hodnoceni', 'anketa', 'tools', 'docs', 'dist', 'r'];
+    public const array VYHRAZENE = ['novinky', 'hledani', 'mcp', 'api', 'admin', 'install', 'media', 'image', 'layout', 'system', 'storage', 'tools', 'docs', 'dist', 'rss', 'sitemap', 'robots', 'llms', 'feed', 'stav', 'ulohy', 'souhlas'];
 
     protected function akceVypis(): Response
     {

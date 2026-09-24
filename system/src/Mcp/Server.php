@@ -11,7 +11,7 @@ use MiroCMS\Core\Rozsireni;
 
 /**
  * MCP server (Model Context Protocol, přenos "Streamable HTTP") na adrese /mcp.
- * Přes něj umí Claude pracovat s webem: číst a psát články, spravovat rubriky a bloky a tvořit šablony webu.
+ * Přes něj umí Claude pracovat s webem: číst a psát stránky a novinky, spravovat kategorie a tvořit šablony webu.
  *
  * Přihlášení: hlavička "Authorization: Bearer <token>"; token si uživatel vytvoří v nabídce Můj účet.
  * Claude pak jedná s právy tohoto uživatele (autor / redaktor / administrátor). Rozšíření je ve výchozím stavu vypnuté.
@@ -73,9 +73,10 @@ final class Server
                 'protocolVersion' => is_string($z['params']['protocolVersion'] ?? null) ? $z['params']['protocolVersion'] : self::PROTOKOL,
                 'capabilities' => ['tools' => new \stdClass()],
                 'serverInfo' => ['name' => 'MiroCMS – ' . $this->app->settings()->get('nazev_webu'), 'version' => MIROCMS_VERSION],
-                'instructions' => 'Redakční systém MiroCMS. Texty piš česky, články jako čisté HTML (p, h2, h3, ul, ol, blockquote, a, strong, em, figure/img). '
-                    . 'Nový článek vzniká jako koncept; vydat ho může jen uživatel s právem vydávat a jen na výslovný pokyn. Před úpravou šablony si ji nejdřív zkopíruj a změny ukaž v náhledu. '
-                    . 'HRANICE: přes toto napojení se mění jen obsah (články, rubriky, bloky) a VLASTNÍ šablony vzhledu. Kód systému (system/, admin.php, index.php), vestavěné šablony '
+                'instructions' => 'Firemní web na MiroCMS. Texty piš v jazyce webu, stránky a novinky jako čisté sémantické HTML (p, h2, h3, ul, ol, blockquote, a, strong, em, figure/img, table). '
+                    . 'Nová novinka vzniká jako koncept; vydat ji může jen uživatel s právem vydávat a jen na výslovný pokyn. Nová stránka je skrytá, dokud ji uživatel výslovně nechce zveřejnit. '
+                    . 'Před úpravou šablony si ji nejdřív zkopíruj a změny ukaž v náhledu. '
+                    . 'HRANICE: přes toto napojení se mění jen obsah (stránky, novinky, kategorie) a VLASTNÍ šablony vzhledu. Kód systému (system/, admin.php, index.php), vestavěné šablony '
                     . 'ani databázi neupravuj a nenavrhuj obcházení – vlastní funkce CMS se nedělají, systém má být pro všechny stejný a aktualizovatelný. Šablona je jen prezentační vrstva: '
                     . 'vypisuje data, která dostane; nesmí číst soubory, volat databázi ani síť. Požaduje-li uživatel novou funkci systému, řekni mu, že ji má navrhnout autorům MiroCMS.',
             ]),

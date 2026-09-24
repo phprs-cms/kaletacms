@@ -25,9 +25,9 @@ $pole('overeni_bing', 'Bing', 'text', 'Hodnota content z meta tagu msvalidate.01
 <summary><?= e(t('Pro pokročilé')) ?></summary>
 <?php
 $pole('schema_org', 'Strukturovaná data schema.org', 'ano');
-$pole('indexnow', 'Oznamovat nové články vyhledávačům (IndexNow)', 'ano', 'Bing, Seznam a Yandex je pak zaindexují během minut.');
+$pole('indexnow', 'Oznamovat nové novinky vyhledávačům (IndexNow)', 'ano', 'Bing, Seznam a Yandex je pak zaindexují během minut.');
 $pole('llms_txt', 'Soubor llms.txt', 'ano', 'Průvodce webem pro jazykové modely.');
-$pole('markdown_clanky', 'Čistá verze článků (.md)', 'ano', 'Každý článek i jako prostý text bez navigace a reklam.');
+$pole('markdown_clanky', 'Čistá verze novinek (.md)', 'ano', 'Každá novinka i jako prostý text bez navigace – pro jazykové modely a AI vyhledávače.');
 $pole('robots_extra', 'Vlastní pravidla robots.txt', 'radky', '', 'spellcheck="false"');
 ?>
 <p class="napoveda"><?= e(t('Co systém generuje:')) ?> <a href="<?= e($adresaWebu) ?>robots.txt" target="_blank" rel="noopener"><?= e(t('robots.txt')) ?></a> · <a href="<?= e($adresaWebu) ?>sitemap.xml" target="_blank" rel="noopener"><?= e(t('sitemap.xml')) ?></a> · <a href="<?= e($adresaWebu) ?>sitemap-news.xml" target="_blank" rel="noopener"><?= e(t('sitemap-news.xml')) ?></a> · <a href="<?= e($adresaWebu) ?>llms.txt" target="_blank" rel="noopener"><?= e(t('llms.txt')) ?></a> · <a href="<?= e($adresaWebu) ?>rss.xml" target="_blank" rel="noopener"><?= e(t('rss.xml')) ?></a> · <a href="<?= e($adresaWebu) ?>feed.json" target="_blank" rel="noopener"><?= e(t('feed.json')) ?></a></p>

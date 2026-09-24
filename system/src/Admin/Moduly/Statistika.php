@@ -8,13 +8,13 @@ use MiroCMS\Admin\Modul;
 use MiroCMS\Core\Response;
 
 /**
- * Statistika: vlastní měření bez cookies (návštěvy, zobrazení, nejčtenější články, zdroje návštěv).
+ * Statistika: vlastní měření bez cookies (návštěvy, zobrazení, nejčtenější novinky, zdroje návštěv).
  */
 final class Statistika extends Modul
 {
     public const string IDENT = 'stat';
     public const string NAZEV = 'Statistika';
-    public const string SKUPINA = 'Čtenáři';
+    public const string SKUPINA = 'Obsah';
     public const string IKONA = 'statistika';
     public const string ROZSIRENI = 'statistika';
 

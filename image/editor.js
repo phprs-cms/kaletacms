@@ -1,4 +1,4 @@
-/* MiroCMS.0 - editor článků a práce s obrázky. Bez knihoven, bez build kroku.
+/* MiroCMS - editor textu (novinky, stránky) a práce s obrázky. Bez knihoven, bez build kroku.
  *
  *   <textarea data-editor>            WYSIWYG editor (data-editor="maly" = zkrácená lišta)
  *   <input data-obrazek>              pole s adresou obrázku + tlačítko "Vybrat z galerie" a náhled
@@ -107,7 +107,7 @@
 			okno.className = 'galerie-okno';
 			okno.innerHTML = '<div class="galerie-okno-hlava"><strong>' + T('Média') + '</strong>'
 				+ '<label class="tl">' + T('Nahrát nový') + '<input type="file" multiple hidden></label>'
-				// na telefonu a tabletu: vyfotit přímo do článku (tlačítko ukazuje CSS jen na dotykových zařízeních)
+				// na telefonu a tabletu: vyfotit přímo do textu (tlačítko ukazuje CSS jen na dotykových zařízeních)
 				+ '<label class="navigace galerie-vyfotit">' + T('Vyfotit') + '<input type="file" accept="image/*" capture="environment" hidden></label>'
 				+ '<button type="button" class="tl" data-vlozit hidden></button>' // „Vložit galerii (n)“ – jen při výběru více fotek
 				+ '<button type="button" class="navigace" data-zavri>' + T('Zavřít') + '</button></div>'
@@ -152,7 +152,7 @@
 			});
 			if (nahoru) { mrizka.prepend(b); } else { mrizka.appendChild(b); }
 		}
-		// filtr: "" = vše, "clanek" = obrázky tohoto článku, číslo = složka (0 = nezařazené)
+		// filtr: "" = vše, "clanek" = obrázky této novinky, číslo = složka (0 = nezařazené)
 		function nacti(filtr) {
 			var dotaz = filtr === 'clanek' ? '&clanek=' + ID_CLANKU : (filtr !== '' ? '&sekce=' + filtr : '');
 			var hledat = okno.querySelector('input[type=search]').value.trim();
@@ -161,7 +161,7 @@
 			fetch(GALERIE + '&akce=seznam' + dotaz, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
 				var vyber = okno.querySelector('select');
 				vyber.textContent = '';
-				[['', T('Všechna média')]].concat(ID_CLANKU ? [['clanek', T('V tomto článku')]] : [], [['0', T('Nezařazené')]], j.slozky.map(function (s) { return [String(s.id), T('Složka: ') + s.nazev]; })).forEach(function (v) {
+				[['', T('Všechna média')]].concat(ID_CLANKU ? [['clanek', T('V tomto textu')]] : [], [['0', T('Nezařazené')]], j.slozky.map(function (s) { return [String(s.id), T('Složka: ') + s.nazev]; })).forEach(function (v) {
 					var o = document.createElement('option');
 					o.value = v[0]; o.textContent = v[1]; o.selected = v[0] === filtr;
 					vyber.appendChild(o);
@@ -234,7 +234,7 @@
 		[T('1. seznam'), T('Číslovaný seznam'), function () { prikaz('insertOrderedList'); }, 'velky'],
 		[T('„citace“'), T('Citace'), function () { prikaz('formatBlock', 'BLOCKQUOTE'); }, 'velky'],
 		[T('obrázek'), T('Vložit obrázek z médií'), null, 'velky'],
-		[T('galerie'), T('Vložit fotogalerii - čtenář si fotky prolistuje přes celou obrazovku'), 'galerie', 'velky'],
+		[T('galerie'), T('Vložit fotogalerii - návštěvník si fotky prolistuje přes celou obrazovku'), 'galerie', 'velky'],
 		[T('tabulka'), T('Vložit tabulku 3 × 3 se záhlavím; řádky a sloupce pak přidáte tlačítky nad tabulkou'), function () {
 			var radek = function (tag) { return '<tr><' + tag + '><br></' + tag + '><' + tag + '><br></' + tag + '><' + tag + '><br></' + tag + '></tr>'; };
 			prikaz('insertHTML', '<table><thead>' + radek('th') + '</thead><tbody>' + radek('td') + radek('td') + '</tbody></table><p><br></p>');
@@ -260,7 +260,7 @@
 			oknoOdkazu.className = 'galerie-okno odkaz-okno';
 			oknoOdkazu.innerHTML = '<form method="dialog"><div class="galerie-okno-hlava"><strong>' + T('Odkaz') + '</strong></div>'
 				+ '<label>' + T('Adresa') + '<input class="textpole siroke" type="text" name="adresa" placeholder="https://… ' + T('nebo') + ' /o-nas" autocomplete="off"></label>'
-				+ '<label>' + T('…nebo najděte vlastní článek') + '<input class="textpole siroke" type="search" name="hledat" placeholder="' + T('část titulku') + '" autocomplete="off"></label>'
+				+ '<label>' + T('…nebo najděte novinku webu') + '<input class="textpole siroke" type="search" name="hledat" placeholder="' + T('část titulku') + '" autocomplete="off"></label>'
 				+ '<div class="odkaz-vysledky" aria-live="polite"></div>'
 				+ '<label class="odkaz-volba"><input type="checkbox" name="nove"> ' + T('otevřít v novém okně') + '</label>'
 				+ '<div class="odkaz-tlacitka"><button type="submit" class="tl" value="ok">' + T('Vložit odkaz') + '</button> <button type="button" class="navigace" data-zrusit>' + T('Zrušit odkaz') + '</button> <button type="button" class="navigace" data-zavri>' + T('Zavřít') + '</button></div></form>';
@@ -271,7 +271,7 @@
 				clearTimeout(casovac);
 				if (q.length < 2) { vysledky.textContent = ''; return; }
 				casovac = setTimeout(function () {
-					fetch(ADMIN + '?modul=clanky&akce=hledej_json&q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
+					fetch(ADMIN + '?modul=novinky&akce=hledej_json&q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
 						vysledky.textContent = j.clanky.length ? '' : T('Nic nenalezeno.');
 						j.clanky.forEach(function (c) {
 							var b = document.createElement('button');
@@ -450,7 +450,7 @@
 		return { obnov: zPole, stav: stav.lastChild };
 	}
 
-	/* ---------- automatické ukládání rozepsaného článku do prohlížeče ---------- */
+	/* ---------- automatické ukládání rozepsaného textu do prohlížeče ---------- */
 
 	function autoUkladani(form, editory) {
 		var klic = 'mirocms-koncept:' + form.getAttribute('data-koncept');
@@ -550,15 +550,4 @@
 	var editory = Array.prototype.map.call(document.querySelectorAll('textarea[data-editor]'), vytvorEditor);
 	var formKoncept = document.querySelector('form[data-koncept]');
 	if (formKoncept) { autoUkladani(formKoncept, editory); }
-
-	// Úprava článku přímo na webu: každou minutu prodlouží zámek proti souběžné úpravě (v administraci to dělá admin.js)
-	var formNaWebu = document.querySelector('form[data-zamek-url]');
-	if (formNaWebu) {
-		setInterval(function () {
-			var data = new FormData();
-			data.append('_csrf', formNaWebu.querySelector('input[name="_csrf"]').value);
-			data.append('idc', formNaWebu.querySelector('input[name="id"]').value);
-			fetch(formNaWebu.getAttribute('data-zamek-url'), { method: 'POST', body: data, credentials: 'same-origin' });
-		}, 60000);
-	}
 })();

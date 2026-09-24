@@ -39,11 +39,8 @@ final class Vzhled extends Modul
         }
         $r = $this->request;
         $web = $this->app->settings();
-        $layouty = Layouty::seznam();
-        if (isset($layouty[$r->post('layout')]) && $r->post('layout') !== $web->get('layout')) {
-            // nová šablona přináší i rozvržení stránky, které jí sluší; doladit ho lze v Blocích
+        if (isset(Layouty::seznam()[$r->post('layout')])) {
             $web->set('layout', $r->post('layout'));
-            Bloky::prepniRozvrzeni($this->db, $web, $layouty[$r->post('layout')]['rozvrzeni']);
         }
         $web->set('logo_webu', mb_substr($r->post('logo_webu'), 0, 255));
         $web->set('favicon', mb_substr($r->post('favicon'), 0, 255));

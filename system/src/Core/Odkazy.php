@@ -59,9 +59,9 @@ final class Odkazy
         $cesta = str_starts_with($url, '/') && !str_starts_with($url, '//') ? $url : (str_starts_with($url, $vlastni . '/') ? substr($url, strlen($vlastni)) : null);
         if ($cesta !== null) {
             $cesta = (string) parse_url(substr($cesta, strlen($app->request->basePath())), PHP_URL_PATH);
-            if (preg_match('#^/(?:[a-z]{2}/)?clanek/([a-z0-9-]+)$#', $cesta, $m)) {
+            if (preg_match('#^/(?:[a-z]{2}/)?novinky/([a-z0-9-]+)$#', $cesta, $m)) {
                 return $app->db()->value('SELECT idc FROM {clanky} WHERE seo_link = ?', [$m[1]]) === null
-                    && $app->db()->value('SELECT idp FROM {presmerovani} WHERE z_adresy = ?', ['clanek/' . $m[1]]) === null ? 404 : null;
+                    && $app->db()->value('SELECT idp FROM {presmerovani} WHERE z_adresy = ?', ['novinky/' . $m[1]]) === null ? 404 : null;
             }
 
             return null; // ostatní vlastní adresy (rubriky, soubory) se neověřují

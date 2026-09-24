@@ -9,17 +9,18 @@ use MiroCMS\Admin\Moduly\Presmerovani;
 use MiroCMS\Admin\Moduly\Stranky;
 
 /**
- * Import z WordPressu: rubriky, štítky, články, stránky, schválené komentáře, přesměrování ze starých adres a (zvlášť) obrázky.
+ * Import z WordPressu: stránky, příspěvky (→ novinky), kategorie, štítky, přesměrování ze starých adres a (zvlášť) obrázky.
+ * Komentáře se nepřenášejí – firemní web je nemá.
  *
  * Jak to drží pohromadě:
  *  - Soubor se čte proudem (Core\WpSoubor) a pracuje se PO DÁVKÁCH – nejvýš DAVKA příspěvků nebo SEKUND vteřin na jeden požadavek,
  *    aby import přežil časové limity sdíleného hostingu. Kde se skončilo (kolikátý <item>), drží stavový soubor
  *    storage/import/stav-<otisk>.json; další požadavek naváže.
  *  - Tabulka rs_import_mapa si pamatuje, který cizí záznam se stal kterým naším. Stejný soubor jde proto pustit znovu bez duplicit
- *    (už převedený článek se přeskočí a redakční úpravy se nepřepíší) a obrázky se nestahují dvakrát.
+ *    (už převedená novinka se přeskočí a pozdější úpravy se nepřepíší) a obrázky se nestahují dvakrát.
  *  - Průchody jsou tři: náhled (jen počítá, do databáze nesahá), import obsahu a – až na výslovné přání – stažení obrázků.
- *  - Účty se nezakládají: autor z WordPressu se zapíše jako jméno (externi_autor), článek patří tomu, kdo importuje.
- *  - Importované články jsou rovnou „oznámené“ – stovky starých textů nesmí spustit webhook, IndexNow, Web Push ani newsletter.
+ *  - Účty se nezakládají: novinka patří tomu, kdo importuje.
+ *  - Importované novinky jsou rovnou „oznámené“ – stovky starých textů nesmí spustit webhook ani IndexNow.
  */
 final class WpImport
 {
@@ -28,7 +29,7 @@ final class WpImport
     public const int SEKUND = 8;
 
     /** Výchozí volby importu (krok Náhled). */
-    public const array VOLBY = ['jazyk' => '', 'koncepty' => true, 'stranky' => true, 'komentare' => true, 'presmerovani' => true, 'rubrika' => 0];
+    public const array VOLBY = ['jazyk' => '', 'koncepty' => true, 'stranky' => true, 'presmerovani' => true, 'rubrika' => 0];
 
     /** Typy příspěvků, které umíme; ostatní (menu, vlastní typy doplňků…) náhled jen vyjmenuje. */
     private const array TYPY = ['post', 'page', 'attachment'];
@@ -59,9 +60,9 @@ final class WpImport
     {
         return [
             'soubor' => $soubor, 'faze' => 'analyza', 'pozice' => 0, 'celkem' => 0, 'web' => ['nazev' => '', 'adresa' => ''],
-            'prehled' => ['clanky' => [], 'stranky' => [], 'rubriky' => 0, 'stitky' => 0, 'autori' => 0, 'komentare' => 0, 'prilohy' => 0, 'obrazky' => 0, 'jine' => [], 'zkratky' => []],
+            'prehled' => ['clanky' => [], 'stranky' => [], 'rubriky' => 0, 'stitky' => 0, 'autori' => 0, 'prilohy' => 0, 'obrazky' => 0, 'jine' => [], 'zkratky' => []],
             'prilohy' => [], 'volby' => self::VOLBY, 'nahledy' => [],
-            'vysledek' => ['clanky' => 0, 'stranky' => 0, 'komentare' => 0, 'rubriky' => 0, 'presmerovani' => 0, 'preskoceno' => 0],
+            'vysledek' => ['clanky' => 0, 'stranky' => 0, 'rubriky' => 0, 'presmerovani' => 0, 'preskoceno' => 0],
             'obr' => ['typ' => 'clanek', 'id' => 0, 'hotovo' => 0, 'celkem' => 0, 'stazeno' => 0, 'chyb' => 0, 'chyby' => []],
         ];
     }
@@ -145,9 +146,6 @@ final class WpImport
             foreach (WpObsah::ciziZkratky($p['obsah']) as $zkratka) {
                 $prehled['zkratky'][$zkratka] = ($prehled['zkratky'][$zkratka] ?? 0) + 1;
             }
-            if ($p['typ'] === 'post') {
-                $prehled['komentare'] += count(array_filter($p['komentare'], self::jeKomentarKImportu(...)));
-            }
         } elseif (!in_array($p['typ'], self::TYPY, true)) {
             $prehled['jine'][$p['typ']] = ($prehled['jine'][$p['typ']] ?? 0) + 1;
         }
@@ -156,22 +154,21 @@ final class WpImport
     /* ---------- čisté převody (hlídá je tools/testy.php) ---------- */
 
     /**
-     * Stav příspěvku ve WordPressu → náš článek; null = neimportuje se (soukromé, koš, automatické koncepty, revize).
-     * Naplánovaný příspěvek je u nás vydaný článek s budoucím datem; „čeká na schválení“ je „ke korektuře“.
+     * Stav příspěvku ve WordPressu → naše novinka; null = neimportuje se (soukromé, koš, automatické koncepty, revize).
+     * Naplánovaný příspěvek je u nás vydaná novinka s budoucím datem; „čeká na schválení“ je koncept.
      *
-     * @return array{visible:int, stav_redakce:string}|null
+     * @return array{visible:int}|null
      */
     public static function stavClanku(string $stavWp, bool $chranenHeslem = false): ?array
     {
         $stav = match ($stavWp) {
-            'publish', 'future' => ['visible' => 1, 'stav_redakce' => ''],
-            'draft' => ['visible' => 0, 'stav_redakce' => ''],
-            'pending' => ['visible' => 0, 'stav_redakce' => 'korektura'],
+            'publish', 'future' => ['visible' => 1],
+            'draft', 'pending' => ['visible' => 0],
             default => null,
         };
 
         // příspěvek chráněný heslem u nás nemá obdobu – nesmí se tiše zveřejnit, zůstane jako koncept
-        return $stav !== null && $chranenHeslem ? ['visible' => 0, 'stav_redakce' => ''] : $stav;
+        return $stav !== null && $chranenHeslem ? ['visible' => 0] : $stav;
     }
 
     /**
@@ -220,12 +217,6 @@ final class WpImport
         $adresa = (string) preg_replace('/[?#].*$/', '', $adresa);
 
         return (string) preg_replace('#-\d{2,5}x\d{2,5}(?=\.(?:jpe?g|png|gif|webp)$)#i', '', $adresa);
-    }
-
-    /** @param array<string, mixed> $k komentář z WpSoubor::polozka() */
-    public static function jeKomentarKImportu(array $k): bool
-    {
-        return $k['schvalen'] && in_array($k['typ'], ['', 'comment'], true) && trim(strip_tags((string) $k['text'])) !== '';
     }
 
     /** Označení zdroje v rs_import_mapa: dva různé staré weby mají stejná čísla příspěvků, proto je v něm doména. */
@@ -278,14 +269,11 @@ final class WpImport
         }
         $idc = $this->prevedeny('clanek', (string) $p['id'], 'clanky', 'idc');
         if ($idc !== null) {
-            $stav['vysledek']['preskoceno']++; // už převedený článek zůstává, jak je – redakce ho mezitím mohla upravit
+            $stav['vysledek']['preskoceno']++; // už převedená novinka zůstává, jak je – mezitím ji mohl někdo upravit
         } else {
             $idc = $this->zalozClanek($p, $stavClanku, $stav);
         }
-        if ($stav['volby']['komentare']) {
-            $stav['vysledek']['komentare'] += $this->komentare($idc, $p['komentare']);
-        }
-        // hlavní obrázek si zatím jen poznamenáme – stahuje se až ve zvláštním kroku (i u dříve převedeného článku, který ho ještě nemá)
+        // hlavní obrázek si zatím jen poznamenáme – stahuje se až ve zvláštním kroku (i u dříve převedené novinky, která ho ještě nemá)
         $nahled = (string) ($stav['prilohy'][$p['nahled']] ?? '');
         if ($nahled !== '' && (string) $this->db->value('SELECT obrazek FROM {clanky} WHERE idc = ?', [$idc]) === '') {
             $stav['nahledy'][$idc] = $nahled;
@@ -294,16 +282,15 @@ final class WpImport
 
     /**
      * @param array<string, mixed> $p
-     * @param array{visible:int, stav_redakce:string} $stavClanku
+     * @param array{visible:int} $stavClanku
      * @param array<string, mixed> $stav
      */
     private function zalozClanek(array $p, array $stavClanku, array &$stav): int
     {
         [$uvod, $text] = WpObsah::perexAText($p['perex'], $p['obsah'], $stav['prilohy']);
         $tema = $p['rubriky'] === [] ? $this->vychoziRubrika($stav) : $this->rubrika((string) array_key_first($p['rubriky']), (string) reset($p['rubriky']), $stav);
-        $jazyk = (string) $this->db->value('SELECT jazyk FROM {topic} WHERE idt = ?', [$tema]); // článek přebírá jazyk rubriky, jako při uložení v administraci
+        $jazyk = (string) $this->db->value('SELECT jazyk FROM {topic} WHERE idt = ?', [$tema]); // novinka přebírá jazyk kategorie, jako při uložení v administraci
         $titulek = mb_substr($p['titulek'] !== '' ? $p['titulek'] : t('(bez názvu)'), 0, 255);
-        $sablona = $this->db->value("SELECT ids FROM {cla_sab} WHERE soubor_cla_sab = 'standard'");
         $ted = date('Y-m-d H:i:s');
 
         $seo = self::volnaAdresa(
@@ -313,14 +300,10 @@ final class WpImport
         $idc = $this->db->insert('clanky', [
             'seo_link' => $seo, 'titulek' => $titulek, 'uvod' => $uvod, 'text' => $text, 'tema' => $tema, 'jazyk' => $jazyk,
             'autor' => $this->autor,
-            'externi_autor' => mb_substr((string) ($this->hlavicka['autori'][$p['autor']] ?? $p['autor']), 0, 120),
             'datum' => self::datum($p),
-            'visible' => $stavClanku['visible'], 'stav_redakce' => $stavClanku['stav_redakce'],
-            'priority' => $p['pripnuty'] && $stavClanku['visible'] ? 100 : 0, // „přilepený“ příspěvek = připnutý na titulní straně
-            'typ_clanku' => $text === '' ? 2 : 1,
-            'sablona' => $sablona === null ? null : (int) $sablona,
+            'visible' => $stavClanku['visible'],
             'zmeneno' => $ted,
-            'oznameno' => $ted, // starý článek se neoznamuje (webhook, IndexNow, Web Push, newsletter)
+            'oznameno' => $ted, // stará novinka se neoznamuje (webhook, IndexNow)
         ]);
         foreach (array_slice($p['stitky'], 0, 20, true) as $adresa => $nazev) {
             $this->stitek($idc, (string) $adresa, $nazev !== '' ? $nazev : (string) ($this->hlavicka['stitky'][$adresa] ?? $adresa));
@@ -331,7 +314,7 @@ final class WpImport
         $stav['vysledek']['clanky']++;
 
         if ($stav['volby']['presmerovani']) {
-            $stav['vysledek']['presmerovani'] += $this->presmeruj($p, ($jazyk !== '' ? $jazyk . '/' : '') . 'clanek/' . $seo);
+            $stav['vysledek']['presmerovani'] += $this->presmeruj($p, ($jazyk !== '' ? $jazyk . '/' : '') . 'novinky/' . $seo);
         }
 
         return $idc;
@@ -364,7 +347,7 @@ final class WpImport
             'seo_link' => $seo, 'titulek' => $titulek, 'text' => WpObsah::vycisti($p['obsah'], $stav['prilohy']),
             'popis' => mb_substr(trim(html_entity_decode(strip_tags($p['perex']), ENT_QUOTES | ENT_HTML5, 'UTF-8')), 0, 300),
             'zobrazit' => $stavClanku['visible'],
-            'v_menu' => 0, // desítky starých stránek by zaplavily patičku; do nabídky si je redakce zařadí sama
+            'v_menu' => 0, // desítky starých stránek by zaplavily navigaci; do nabídky si je správce zařadí sám
             'zmeneno' => date('Y-m-d H:i:s'), 'jazyk' => $jazyk,
         ]);
         $this->zapisMapu('stranka', (string) $p['id'], $ids);
@@ -375,11 +358,11 @@ final class WpImport
     }
 
     /**
-     * Rubrika podle adresy kategorie ve WordPressu; založí ji i s nadřazenými, když ještě není. Zakládají se jen rubriky, které mají články.
+     * Kategorie podle adresy kategorie ve WordPressu (strom se zplošťuje); založí ji, když ještě není. Zakládají se jen kategorie s příspěvky.
      *
      * @param array<string, mixed> $stav
      */
-    private function rubrika(string $adresa, string $nazev, array &$stav, int $hloubka = 0): int
+    private function rubrika(string $adresa, string $nazev, array &$stav): int
     {
         if (isset($this->rubriky[$adresa])) {
             return $this->rubriky[$adresa];
@@ -388,14 +371,13 @@ final class WpImport
         if ($idt === null) {
             $popis = $this->hlavicka['rubriky'][$adresa] ?? ['nazev' => $nazev, 'predek' => ''];
             $nazev = mb_substr($popis['nazev'] !== '' ? $popis['nazev'] : ($nazev !== '' ? $nazev : $adresa), 0, 100);
-            $predek = $popis['predek'] !== '' && $popis['predek'] !== $adresa && $hloubka < 10 ? $this->rubrika($popis['predek'], '', $stav, $hloubka + 1) : null;
             $jazyk = Jazyk::sloupec($this->nastaveni, (string) $stav['volby']['jazyk']);
             $seo = slugify(rawurldecode($adresa), 110);
-            // stejná adresa, název i jazyk = tatáž rubrika, která na webu už je; jinak nová s volnou adresou
+            // stejná adresa, název i jazyk = tatáž kategorie, která na webu už je; jinak nová s volnou adresou
             $idt = $this->db->value('SELECT idt FROM {topic} WHERE seo_link = ? AND jazyk = ? AND LOWER(nazev) = LOWER(?)', [$seo, $jazyk, $nazev]);
             if ($idt === null) {
                 $idt = $this->db->insert('topic', [
-                    'nazev' => $nazev, 'popis' => '', 'id_predka' => $predek, 'jazyk' => $jazyk,
+                    'nazev' => $nazev, 'popis' => '', 'jazyk' => $jazyk,
                     'seo_link' => self::volnaAdresa($seo, fn (string $a): bool => $this->db->value('SELECT idt FROM {topic} WHERE seo_link = ?', [$a]) !== null),
                 ]);
                 $stav['vysledek']['rubriky']++;
@@ -407,7 +389,7 @@ final class WpImport
     }
 
     /**
-     * Rubrika pro příspěvky bez kategorie: zvolená v náhledu, jinak se založí „Nezařazené“.
+     * Kategorie pro příspěvky bez kategorie: zvolená v náhledu, jinak se založí „Nezařazené“.
      *
      * @param array<string, mixed> $stav
      */
@@ -421,7 +403,7 @@ final class WpImport
         return $stav['volby']['rubrika'] = $this->rubrika('nezarazene', t('Nezařazené'), $stav);
     }
 
-    /** Štítek se hledá podle adresy z názvu a neznámý se založí – stejně jako při uložení článku v administraci. */
+    /** Štítek se hledá podle adresy z názvu a neznámý se založí – stejně jako při uložení novinky v administraci. */
     private function stitek(int $idc, string $adresaWp, string $nazev): void
     {
         $nazev = mb_substr(trim($nazev), 0, 80);
@@ -433,40 +415,6 @@ final class WpImport
         $ids = $ids !== null ? (int) $ids : $this->db->insert('stitky', ['nazev' => $nazev, 'seo_link' => $seo]);
         $this->db->run('INSERT IGNORE INTO {clanky_stitky} (idc, ids) VALUES (?, ?)', [$idc, $ids]);
         $this->zapisMapu('stitek', $adresaWp, $ids);
-    }
-
-    /**
-     * Schválené komentáře článku včetně vláken. E-mail ani IP adresa se nepřenášejí (WpSoubor je ani nečte).
-     *
-     * @param list<array<string, mixed>> $komentare
-     * @return int kolik jich přibylo
-     */
-    private function komentare(int $idc, array $komentare): int
-    {
-        $komentare = array_values(array_filter($komentare, self::jeKomentarKImportu(...)));
-        usort($komentare, fn (array $a, array $b): int => $a['id'] <=> $b['id']); // odpověď má vždy vyšší číslo než komentář, na který reaguje
-        $nove = 0;
-        foreach ($komentare as $k) {
-            if ($this->prevedeny('komentar', (string) $k['id'], 'komentare', 'idk') !== null) {
-                continue;
-            }
-            $cas = strtotime((string) $k['datum']);
-            $idk = $this->db->insert('komentare', [
-                'clanek' => $idc,
-                'reakce_na' => $k['predek'] > 0 ? $this->prevedeny('komentar', (string) $k['predek'], 'komentare', 'idk') : null,
-                'datum' => date('Y-m-d H:i:s', $cas !== false && $cas > 0 ? $cas : time()),
-                'obsah' => trim(html_entity_decode(strip_tags((string) preg_replace('#<br\s*/?>|</p>#i', "\n", (string) $k['text'])), ENT_QUOTES | ENT_HTML5, 'UTF-8')),
-                'od' => mb_substr($k['autor'] !== '' ? $k['autor'] : t('Anonym'), 0, 60),
-                'zobrazit' => 1,
-            ]);
-            $this->zapisMapu('komentar', (string) $k['id'], $idk);
-            $nove++;
-        }
-        if ($nove > 0) {
-            $this->db->run('UPDATE {clanky} SET kom = (SELECT COUNT(*) FROM {komentare} WHERE clanek = ? AND zobrazit = 1) WHERE idc = ?', [$idc, $idc]);
-        }
-
-        return $nove;
     }
 
     /**
@@ -546,7 +494,7 @@ final class WpImport
             ? $this->db->one('SELECT idc, titulek, uvod, text, obrazek FROM {clanky} WHERE idc = ?', [$id])
             : $this->db->one("SELECT ids, titulek, '' AS uvod, text, '' AS obrazek FROM {stranky} WHERE ids = ?", [$id]);
         if ($zaznam === null) {
-            return true; // redakce záznam mezitím smazala
+            return true; // záznam mezitím někdo smazal
         }
         $cely = true;
         $nove = ['uvod' => (string) $zaznam['uvod'], 'text' => (string) $zaznam['text'], 'obrazek' => (string) $zaznam['obrazek']];

@@ -18,7 +18,7 @@ $faze = [
 ?>
 <h3><?= e(t('Import z WordPressu')) ?></h3>
 <?= $app->view->render('admin/prenos/kroky', ['krok' => 1]) ?>
-<p><?= e(t('Ve WordPressu otevřete Nástroje → Export, zvolte „Veškerý obsah“ a stáhněte soubor .xml. Ten pak nahrajte sem. Převedou se rubriky, štítky, články, stránky a schválené komentáře; na webu se nic nezmění, dokud import v dalším kroku nepotvrdíte.')) ?></p>
+<p><?= e(t('Ve WordPressu otevřete Nástroje → Export, zvolte „Veškerý obsah“ a stáhněte soubor .xml. Ten pak nahrajte sem. Převedou se stránky, příspěvky (jako novinky), kategorie a štítky a vzniknou přesměrování ze starých adres; na webu se nic nezmění, dokud import v dalším kroku nepotvrdíte.')) ?></p>
 <?php if ($chybiXml): ?>
 <p class="hlaska hlaska-chyba"><?= e(t('Na serveru chybí rozšíření PHP xmlreader nebo dom – bez nich nejde export z WordPressu přečíst.')) ?></p>
 <?php else: ?>
@@ -59,7 +59,7 @@ $faze = [
 <?php endif ?>
 
 <h3><?= e(t('Export celého webu')) ?></h3>
-<p><?= e(t('Jedním archivem dostanete všechen obsah v otevřeném formátu: rubriky, štítky, články, stránky, schválené komentáře, bloky, přesměrování a nahrané soubory. Hesla, klíče, účty ani údaje čtenářů a odběratelů v něm nejsou.')) ?></p>
+<p><?= e(t('Jedním archivem dostanete všechen obsah v otevřeném formátu: stránky, novinky, kategorie, štítky, přesměrování a nahrané soubory. Hesla, klíče ani účty v něm nejsou.')) ?></p>
 <?php if (!$umiZip): ?>
 <p class="hlaska"><?= e(t('Na serveru chybí rozšíření PHP zip, export proto obsahuje jen data (JSON). Složku media/ si stáhněte přes FTP.')) ?></p>
 <?php endif ?>

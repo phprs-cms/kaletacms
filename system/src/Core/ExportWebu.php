@@ -7,11 +7,11 @@ namespace MiroCMS\Core;
 /**
  * Export celého webu do jednoho archivu – aby obsah nikdy nezůstal v MiroCMS zamčený.
  *
- * Archiv storage/zalohy/export-RRRRMMDD-HHMMSS.zip obsahuje obsah.json (rubriky, štítky, články, stránky, schválené komentáře,
- * bloky, přesměrování, knihovnu médií a veřejná nastavení), README.txt s popisem formátu a složku media/.
+ * Archiv storage/zalohy/export-RRRRMMDD-HHMMSS.zip obsahuje obsah.json (stránky, kategorie, štítky, novinky, přesměrování,
+ * knihovnu médií a veřejná nastavení), README.txt s popisem formátu a složku media/.
  *
- * Co v exportu NIKDY není: hesla, klíče API, tokeny, údaje SMTP a FTP, účty redakce, čtenáři, odběratelé newsletteru,
- * e-maily a otisky adres komentujících. Nastavení se proto vybírají ze seznamu povolených (NASTAVENI), ne vylučováním.
+ * Co v exportu NIKDY není: hesla, klíče API, tokeny, údaje SMTP a FTP, účty uživatelů administrace.
+ * Nastavení se proto vybírají ze seznamu povolených (NASTAVENI), ne vylučováním.
  * Není to záloha pro obnovu MiroCMS (tou je záloha databáze), ale přenosný otevřený formát.
  */
 final class ExportWebu
@@ -23,10 +23,10 @@ final class ExportWebu
     /** Jediná nastavení, která se exportují: název, popis, identita a jazyky webu. */
     private const array NASTAVENI = ['nazev_webu', 'popis_webu', 'klicova_slova', 'adresa_webu', 'logo_webu', 'favicon', 'brand_akcent', 'tmavy_rezim',
         'brand_pismo_titulky', 'brand_pismo_text', 'text_paticky', 'soc_facebook', 'soc_instagram', 'soc_x', 'soc_youtube', 'soc_linkedin',
-        'casove_pasmo', 'jazyk_webu', 'jazyky_dalsi', 'layout', 'rozvrzeni'];
+        'casove_pasmo', 'jazyk_webu', 'jazyky_dalsi', 'layout', 'titulni_stranka'];
 
-    /** Sloupce článku, které jsou jen provozní (zámek editoru, index hledání…) a do exportu nepatří. */
-    private const array VYNECHAT_U_CLANKU = ['hledani', 'zamek_kdo', 'zamek_cas', 'odkazy_cas', 'autor', 'autor_jmeno'];
+    /** Sloupce novinky, které jsou jen provozní (index hledání, kontrola odkazů…) a do exportu nepatří. */
+    private const array VYNECHAT_U_CLANKU = ['hledani', 'odkazy_cas', 'oznameno', 'autor', 'autor_jmeno'];
 
     /**
      * @return array{soubor:string, media:bool, duvod:string} název vytvořeného souboru; media = false, když jsou v něm jen data (duvod říká proč)
@@ -110,14 +110,10 @@ final class ExportWebu
         fwrite($f, '{"format":"mirocms-export","verze_formatu":1,"mirocms":' . self::json(MIROCMS_VERSION) . ',"vytvoreno":' . self::json(date('c')) . ',"nastaveni":' . self::json(self::nastaveni($db)));
 
         $autori = "(SELECT NULLIF(u.jmeno, '') FROM {user} u WHERE u.idu = c.autor) AS autor_jmeno";
-        self::pole($f, 'rubriky', self::postupne($db, 'SELECT idt, nazev, seo_link, popis, obrazek, id_predka, hodnost, zobrazit, jazyk, preklad_z FROM {topic} WHERE idt > ? ORDER BY idt LIMIT 500', 'idt'));
-        self::pole($f, 'stitky', self::postupne($db, 'SELECT ids, nazev, seo_link, popis, obrazek FROM {stitky} WHERE ids > ? ORDER BY ids LIMIT 500', 'ids'));
-        self::pole($f, 'serialy', self::postupne($db, 'SELECT ids, nazev_skup AS nazev FROM {skup_cl} WHERE ids > ? ORDER BY ids LIMIT 500', 'ids'));
-        self::pole($f, 'clanky', self::clanky($db, $autori));
         self::pole($f, 'stranky', self::postupne($db, 'SELECT * FROM {stranky} WHERE ids > ? ORDER BY ids LIMIT 200', 'ids'));
-        // jen schválené komentáře a jen to, co je na webu vidět: bez e-mailu, otisku adresy a účtu čtenáře
-        self::pole($f, 'komentare', self::postupne($db, 'SELECT idk, clanek, reakce_na, datum, titulek, obsah, od FROM {komentare} WHERE zobrazit = 1 AND idk > ? ORDER BY idk LIMIT 500', 'idk'));
-        self::pole($f, 'bloky', self::postupne($db, 'SELECT * FROM {bloky} WHERE idb > ? ORDER BY idb LIMIT 200', 'idb'));
+        self::pole($f, 'kategorie', self::postupne($db, 'SELECT idt, nazev, seo_link, popis, hodnost, jazyk, preklad_z FROM {topic} WHERE idt > ? ORDER BY idt LIMIT 500', 'idt'));
+        self::pole($f, 'stitky', self::postupne($db, 'SELECT ids, nazev, seo_link, popis, obrazek FROM {stitky} WHERE ids > ? ORDER BY ids LIMIT 500', 'ids'));
+        self::pole($f, 'novinky', self::clanky($db, $autori));
         self::pole($f, 'presmerovani', self::postupne($db, 'SELECT idp, z_adresy, na_adresu FROM {presmerovani} WHERE idp > ? ORDER BY idp LIMIT 1000', 'idp'));
         self::pole($f, 'media', self::postupne($db, 'SELECT ido, nazev, popis, obr_poloha AS soubor, obr_width AS sirka, obr_height AS vyska, nahl_poloha AS nahled, datum FROM {imggal_obr} WHERE ido > ? ORDER BY ido LIMIT 500', 'ido'));
         fwrite($f, "}\n");
@@ -125,8 +121,8 @@ final class ExportWebu
     }
 
     /**
-     * Články se všemi sloupci; autor jako jméno (účty se neexportují), k tomu štítky a spoluautoři.
-     * Překlady drží sloupec preklad_z = idc článku ve výchozím jazyce, tedy číslo platné i uvnitř exportu.
+     * Novinky se všemi sloupci; autor jako jméno (účty se neexportují), k tomu štítky.
+     * Překlady drží sloupec preklad_z = idc novinky ve výchozím jazyce, tedy číslo platné i uvnitř exportu.
      *
      * @return \Generator<int, array<string, mixed>>
      */
@@ -135,7 +131,6 @@ final class ExportWebu
         foreach (self::postupne($db, "SELECT c.*, {$autori} FROM {clanky} c WHERE c.idc > ? AND c.smazano IS NULL ORDER BY c.idc LIMIT 100", 'idc') as $c) {
             $clanek = array_diff_key($c, array_flip(self::VYNECHAT_U_CLANKU));
             $clanek['autor'] = (string) ($c['autor_jmeno'] ?? '');
-            $clanek['spoluautori'] = array_column($db->all("SELECT u.jmeno FROM {clanky_autori} a JOIN {user} u ON u.idu = a.idu WHERE a.idc = ? AND u.jmeno <> ''", [$c['idc']]), 'jmeno');
             $clanek['stitky'] = array_map(intval(...), array_column($db->all('SELECT ids FROM {clanky_stitky} WHERE idc = ?', [$c['idc']]), 'ids'));
             yield $clanek;
         }
@@ -226,27 +221,23 @@ final class ExportWebu
 
     private static function readme(bool $sMedii): string
     {
-        return "Export webu z redakčního systému MiroCMS " . MIROCMS_VERSION . " (" . date('j. n. Y H:i') . ")\n"
-            . "=====================================================================\n\n"
+        return "Export webu z MiroCMS " . MIROCMS_VERSION . " (" . date('j. n. Y H:i') . ")\n"
+            . "==========================================\n\n"
             . "obsah.json  všechen obsah webu v kódování UTF-8\n"
             . ($sMedii ? "media/      nahrané obrázky a přílohy; cesty odpovídají sloupcům \"obrazek\" a poli \"media\"\n" : "media/      v archivu NENÍ (příliš velká nebo málo místa) – stáhněte si složku media/ z webu přes FTP\n")
             . "\nStruktura obsah.json\n--------------------\n"
             . "format, verze_formatu, mirocms, vytvoreno – hlavička\n"
-            . "nastaveni     název a popis webu, identita (logo, barva, písma, sítě), časové pásmo, jazyky, šablona\n"
-            . "rubriky       idt, nazev, seo_link, popis, id_predka (strom), jazyk ('' = výchozí jazyk webu), preklad_z\n"
+            . "nastaveni     název a popis webu, identita (logo, barva, písma, sítě), časové pásmo, jazyky, šablona, úvodní stránka\n"
+            . "stranky       ids, seo_link, titulek, popis, text (HTML), jazyk ('' = výchozí jazyk webu), preklad_z\n"
+            . "kategorie     idt, nazev, seo_link, popis, jazyk, preklad_z\n"
             . "stitky        ids, nazev, seo_link, popis\n"
-            . "serialy       ids, nazev – skupiny souvisejících článků (clanky.skupina_cl)\n"
-            . "clanky        všechny sloupce článku: titulek, uvod a text (HTML), datum, visible (1 = vydaný), tema (= rubriky.idt),\n"
-            . "              jazyk, preklad_z (= idc článku ve výchozím jazyce, jehož je tento překladem), autor a spoluautori (jména),\n"
-            . "              externi_autor, stitky (seznam stitky.ids) a další\n"
-            . "stranky       ids, seo_link, titulek, popis, text (HTML), jazyk, preklad_z\n"
-            . "komentare     jen schválené: idk, clanek (= clanky.idc), reakce_na (vlákno), datum, obsah, od (jméno)\n"
-            . "bloky         bloky v zónách šablony (postranní panely, patička)\n"
+            . "novinky       titulek, uvod a text (HTML), datum, visible (1 = vydaná), tema (= kategorie.idt), jazyk,\n"
+            . "              preklad_z (= idc novinky ve výchozím jazyce, jejíž je tato překladem), autor (jméno), stitky (seznam stitky.ids) a další\n"
             . "presmerovani  z_adresy → na_adresu\n"
             . "media         knihovna médií: soubor (cesta ve složce media/), nazev (alternativní text), popis, rozměry\n"
-            . "\nAdresy na webu: článek /clanek/<seo_link>, rubrika /rubrika/<seo_link>, štítek /stitek/<seo_link>, stránka /<seo_link>;\n"
-            . "další jazykové verze mají předponu /<jazyk>/.\n"
-            . "\nCo v exportu záměrně není: hesla a účty redakce, klíče a tokeny, údaje k poště a zálohám, čtenáři, odběratelé newsletteru,\n"
-            . "e-maily a adresy komentujících, statistiky návštěvnosti. Pro obnovu téhož webu použijte zálohu databáze (Nastavení → Zálohy).\n";
+            . "\nAdresy na webu: stránka /<seo_link>, novinka /novinky/<seo_link>, kategorie /novinky/kategorie/<seo_link>,\n"
+            . "štítek /novinky/stitek/<seo_link>; další jazykové verze mají předponu /<jazyk>/.\n"
+            . "\nCo v exportu záměrně není: hesla a účty uživatelů, klíče a tokeny, údaje k poště a zálohám, statistiky návštěvnosti.\n"
+            . "Pro obnovu téhož webu použijte zálohu databáze (Nastavení → Zálohy).\n";
     }
 }

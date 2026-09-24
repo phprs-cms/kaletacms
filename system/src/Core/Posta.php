@@ -9,7 +9,7 @@ namespace MiroCMS\Core;
  *
  * SMTP je spolehlivější - zprávy odcházejí z ověřené schránky (SPF, DKIM) a nekončí ve spamu. Klient je
  * záměrně malý a bez knihoven: STARTTLS nebo SSL, přihlášení AUTH LOGIN/PLAIN, jedno spojení se při
- * rozesílce newsletteru používá opakovaně.
+ * frontě pošty používá opakovaně.
  */
 final class Posta
 {
@@ -79,7 +79,7 @@ final class Posta
         self::$chyba = '';
         $od = $web->get('posta_od') !== '' ? $web->get('posta_od') : $web->get('email_webu');
         if ($od === '' || filter_var($komu, FILTER_VALIDATE_EMAIL) === false || preg_match('/[\x00-\x20\x7F"<>]/', $komu)) {
-            self::$chyba = $od === '' ? 'Není vyplněný e-mail redakce (Nastavení → Základní) ani adresa odesílatele.' : 'Adresa příjemce nemá platný tvar.';
+            self::$chyba = $od === '' ? 'Není vyplněný e-mail webu (Nastavení → Základní) ani adresa odesílatele.' : 'Adresa příjemce nemá platný tvar.';
 
             return false;
         }

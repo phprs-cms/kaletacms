@@ -35,7 +35,7 @@ $zobrazeni = array_sum(array_column($graf, 'zobrazeni'));
 
 <div class="stat-tabulky">
 <div>
-<h3><?= e(t('Nejčtenější články')) ?></h3>
+<h3><?= e(t('Nejčtenější novinky')) ?></h3>
 <?php if ($clanky === []): ?><p><?= e(t('Zatím žádná data.')) ?></p><?php else: ?>
 <div class="tab-obal"><table class="vypis"><tbody>
 <?php foreach ($clanky as $c): ?>
@@ -45,7 +45,7 @@ $zobrazeni = array_sum(array_column($graf, 'zobrazeni'));
 <?php endif ?>
 </div>
 <div>
-<h3><?= e(t('Odkud čtenáři přicházejí')) ?></h3>
+<h3><?= e(t('Odkud návštěvníci přicházejí')) ?></h3>
 <?php if ($zdroje === []): ?><p><?= e(t('Zatím žádná data.')) ?></p><?php else: ?>
 <div class="tab-obal"><table class="vypis"><tbody>
 <?php foreach ($zdroje as $z): ?>

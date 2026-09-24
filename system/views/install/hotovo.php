@@ -25,7 +25,7 @@
 	<h1><?= e(t('MiroCMS je už nainstalován')) ?></h1>
 	<p><?= e(t('Soubor config.php existuje, instalátor proto nic nemění.')) ?></p>
 <?php else: ?>
-	<h1><?= e(t('Hotovo, magazín běží')) ?></h1>
+	<h1><?= e(t('Hotovo, web běží')) ?></h1>
 	<p><?= e(t('Databáze je připravena a konfigurace zapsána.')) ?></p>
 <?php endif ?>
 </header>
@@ -38,7 +38,6 @@
 	<a class="tlacitko" href="<?= e($base) ?>/admin.php"><?= e(t('Přejít do administrace')) ?></a>
 	<a class="tlacitko druhe" href="<?= e($base) ?>/"><?= e(t('Zobrazit web')) ?></a>
 </div>
-<p class="napoveda-instalace"><a href="<?= e(MiroCMS\Core\Napoveda::url('zaciname/prvni-kroky')) ?>" target="_blank" rel="noopener"><?= e(t('Příručka: první kroky po instalaci')) ?></a></p>
 </main>
 </body>
 </html>

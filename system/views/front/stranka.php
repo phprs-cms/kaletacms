@@ -1,11 +1,14 @@
 <?php
 /**
- * Statická stránka (O nás, Kontakt...). Používá stejné třídy jako celý článek, takže ji layouty umí vysázet.
+ * Stránka webu (O nás, Služby, Kontakt…). Na úvodní stránce se nadpis nevypisuje – úvod si nese vlastní obsah.
  *
  * @var array<string, mixed> $stranka
+ * @var bool $uvod  stránka je úvodem webu
  */
 ?>
-<article class="clanek clanek-cely stranka-staticka">
-	<header class="clanek-hlavicka obal-uzky"><h1><?= e($stranka['titulek']) ?></h1></header>
-	<div class="clanek-text obal-uzky"><?= $stranka['text'] ?></div>
+<article class="stranka<?= $uvod ? ' stranka-uvod' : '' ?>">
+<?php if (!$uvod): ?>
+	<h1><?= e($stranka['titulek']) ?></h1>
+<?php endif ?>
+	<div class="text"><?= $stranka['text'] ?></div>
 </article>

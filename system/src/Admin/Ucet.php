@@ -35,7 +35,6 @@ final class Ucet
                         break;
                     }
                     $db->update('user', ['jmeno' => mb_substr($r->post('jmeno'), 0, 100), 'email' => mb_substr($r->post('email'), 0, 190), 'url' => mb_substr($r->post('url'), 0, 255), 'pozice' => mb_substr($r->post('pozice'), 0, 100), 'foto' => mb_substr($r->post('foto'), 0, 255), 'bio' => mb_substr($r->post('bio'), 0, 1200),
-                        'upozorneni' => (int) $r->postBool('upozorneni'),
                         'jazyk' => isset(\MiroCMS\Core\Jazyk::ADMINISTRACE[$r->post('jazyk')]) && $r->post('jazyk') !== 'cs' ? $r->post('jazyk') : ''], ['idu' => $user['idu']]);
                     $hlaska = ['ok', 'Údaje byly uloženy.'];
                     break;

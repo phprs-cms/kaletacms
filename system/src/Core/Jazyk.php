@@ -10,14 +10,18 @@ namespace MiroCMS\Core;
  * Texty v šablonách jsou česky a obalené funkcí t('Celý článek'); pro jiný jazyk se hledají ve slovníku
  * system/jazyky/<kód>.php (česky => překlad). Co ve slovníku chybí, zůstane česky - web se nikdy nerozbije.
  * Jazyk celého webu určuje Nastavení (jazyk_webu); rozšíření "jazyky" přidává další jazykové verze
- * na adresách /en/…, /de/… - každá má své rubriky, články a stránky.
+ * na adresách /en/… - každá má své stránky, kategorie a novinky. Nový jazyk = slovníky system/jazyky/<kód>.php
+ * (web), admin-<kód>.php a install-<kód>.php + záznam v DOSTUPNE.
  */
 final class Jazyk
 {
     /** kód => [název v daném jazyce, locale pro Open Graph] */
     public const array DOSTUPNE = [
-        'cs' => ['Čeština', 'cs_CZ'], 'sk' => ['Slovenčina', 'sk_SK'], 'en' => ['English', 'en_US'], 'de' => ['Deutsch', 'de_DE'],
+        'cs' => ['Čeština', 'cs_CZ'], 'en' => ['English', 'en_US'],
     ];
+
+    /** Kódy z DOSTUPNE pro typy polí Nastavení (vyber:… / seznam:…). */
+    public const string KODY = 'cs|en';
 
     private static string $kod = 'cs';
     private static string $sloupec = '';
@@ -26,7 +30,7 @@ final class Jazyk
     private static array $slovnik = [];
 
     /** Jazyky, do kterých je přeložená administrace (slovník system/jazyky/admin-<kód>.php). */
-    public const array ADMINISTRACE = ['cs' => 'Čeština', 'sk' => 'Slovenčina', 'en' => 'English', 'de' => 'Deutsch'];
+    public const array ADMINISTRACE = ['cs' => 'Čeština', 'en' => 'English'];
 
     /** @param string $sada "" = texty webu, "admin-" = texty administrace */
     public static function nastav(string $kod, string $sada = ''): void
@@ -47,7 +51,7 @@ final class Jazyk
 
     /**
      * Provede funkci s texty webu v jiném jazyce a vrátí jazyk zpět. Pro obsah, jehož jazyk nezávisí na tom,
-     * kdo ho zrovna vytváří – typicky e-mail čtenáři (spouští ho redaktor v administraci nebo úloha na pozadí).
+     * kdo ho zrovna vytváří – typicky e-mail návštěvníkovi (spouští ho správce v administraci nebo úloha na pozadí).
      *
      * @template T
      * @param callable(): T $funkce
@@ -56,7 +60,7 @@ final class Jazyk
     public static function docasne(string $kod, callable $funkce, string $sada = ''): mixed
     {
         [$kodPred, $slovnikPred] = [self::$kod, self::$slovnik];
-        self::nastav($kod, $sada); // sada "admin-" = e-mail členovi redakce v jazyce jeho administrace
+        self::nastav($kod, $sada); // sada "admin-" = e-mail uživateli administrace v jazyce jeho administrace
         try {
             return $funkce();
         } finally {

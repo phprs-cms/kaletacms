@@ -9,7 +9,7 @@ use MiroCMS\Core\Db;
 use MiroCMS\Core\Response;
 
 /**
- * Přesměrování 301: stará adresa -> nová. Vzniká samo při změně adresy vydaného článku,
+ * Přesměrování 301: stará adresa -> nová. Vzniká samo při změně adresy stránky, novinky nebo kategorie,
  * ručně se hodí po přechodu z jiného systému. Použije se, až když web pro adresu nic nenajde.
  */
 final class Presmerovani extends Modul

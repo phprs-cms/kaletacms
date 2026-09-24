@@ -22,9 +22,9 @@ final class Hledani
     /** Přepočítá index jednoho článku; volá se po každém uložení (administrace, Claude). */
     public static function indexuj(Db $db, int $idc): void
     {
-        $c = $db->one('SELECT titulek, uvod, text, t_slova, pristup FROM {clanky} WHERE idc = ?', [$idc]);
+        $c = $db->one('SELECT titulek, uvod, text, t_slova FROM {clanky} WHERE idc = ?', [$idc]);
         if ($c !== null) {
-            $db->update('clanky', ['hledani' => self::normalizuj($c['titulek'] . ' ' . $c['t_slova'] . ' ' . $c['uvod'] . ((int) $c['pristup'] === 0 ? ' ' . $c['text'] : ''))], ['idc' => $idc]);
+            $db->update('clanky', ['hledani' => self::normalizuj($c['titulek'] . ' ' . $c['t_slova'] . ' ' . $c['uvod'] . ' ' . $c['text'])], ['idc' => $idc]);
         }
     }
 

@@ -27,7 +27,7 @@ final class Installer
     }
 
     /** Jazyky instalace (= jazyky administrace) a výchozí časové pásmo, které k nim nabídneme. */
-    private const array PASMA = ['cs' => 'Europe/Prague', 'sk' => 'Europe/Bratislava', 'en' => 'Europe/London', 'de' => 'Europe/Berlin'];
+    private const array PASMA = ['cs' => 'Europe/Prague', 'en' => 'Europe/London'];
 
     private string $jazyk = 'cs';
 
@@ -61,9 +61,8 @@ final class Installer
         $pozadavky = $this->pozadavky();
         $data = [
             'db_host' => 'localhost', 'db_port' => '3306', 'db_name' => '', 'db_user' => '', 'db_password' => '', 'db_prefix' => 'mc_',
-            'nazev_webu' => t('Můj magazín'), 'user' => 'admin', 'jmeno' => '', 'email' => '',
-            'casove_pasmo' => self::PASMA[$this->jazyk], 'layout' => Layouty::VYCHOZI,
-            'demo' => '', // '1' = místo uvítacího článku nahrát ukázkový obsah (Core\Demo)
+            'nazev_webu' => t('Můj web'), 'user' => 'admin', 'jmeno' => '', 'email' => '',
+            'casove_pasmo' => self::PASMA[$this->jazyk],
         ];
         $chyby = [];
 
@@ -72,14 +71,13 @@ final class Installer
                 // heslo k databázi se neořezává - může obsahovat mezery
                 $data[$klic] = $klic === 'db_password' ? (string) ($_POST[$klic] ?? '') : $this->request->post($klic);
             }
-            $data['demo'] = $this->request->postBool('demo') ? '1' : '';
             $chyby = $this->instaluj($data, (string) ($_POST['password'] ?? ''), (string) ($_POST['password2'] ?? ''));
             if ($chyby === []) {
                 return $this->stranka('hotovo', ['jizNainstalovano' => false, 'smazano' => $this->smazSe()]);
             }
         }
 
-        return $this->stranka('formular', ['pozadavky' => $pozadavky, 'data' => $data, 'chyby' => $chyby, 'layouty' => Layouty::seznam()]);
+        return $this->stranka('formular', ['pozadavky' => $pozadavky, 'data' => $data, 'chyby' => $chyby]);
     }
 
     /**
@@ -133,9 +131,6 @@ final class Installer
         if ($d['email'] !== '' && filter_var($d['email'], FILTER_VALIDATE_EMAIL) === false) {
             $chyby['email'] = t('E-mail nemá platný tvar.');
         }
-        if (!isset(Layouty::seznam()[$d['layout']])) {
-            $d['layout'] = Layouty::VYCHOZI;
-        }
         if ($chyby !== []) {
             return $chyby;
         }
@@ -186,7 +181,7 @@ final class Installer
     /** @param array<string, string> $d */
     private function vychoziData(Db $db, array $d, string $heslo): void
     {
-        // zvolené časové pásmo platí už pro ukázkový obsah: jinak by uvítací článek mohl mít datum „v budoucnosti“ a web by ho neukázal
+        // zvolené časové pásmo platí už pro úvodní obsah: jinak by uvítací novinka mohla mít datum „v budoucnosti“ a web by ji neukázal
         $pasmo = in_array($d['casove_pasmo'], \DateTimeZone::listIdentifiers(), true) ? $d['casove_pasmo'] : self::PASMA[$this->jazyk];
         date_default_timezone_set($pasmo);
         $db->pdo()->exec("SET time_zone = '" . date('P') . "'");
@@ -198,44 +193,39 @@ final class Installer
                 'jmeno' => $d['jmeno'],
                 'email' => $d['email'],
                 'admin' => Auth::ADMIN,
-                'pravo_vydavat' => 1,
                 'jazyk' => $this->jazyk === 'cs' ? '' : $this->jazyk, // administrace prvního účtu v jazyce instalace
             ]);
 
+            // kostra běžného firemního webu: úvod, o nás, služby, kontakt – texty jsou jen vodítko, co na stránku patří
+            $stranky = [
+                [t('Úvod'), 'uvod', 0, '<h1>' . e($d['nazev_webu']) . '</h1><p>' . e(t('Jednou větou: co děláte a pro koho. Tuto stránku upravíte v administraci v sekci Stránky.')) . '</p>'],
+                [t('O nás'), slugify(t('O nás')), 1, '<p>' . e(t('Kdo jste, jak dlouho to děláte a proč vám zákazníci věří.')) . '</p>'],
+                [t('Služby'), slugify(t('Služby')), 1, '<p>' . e(t('Co nabízíte – každou službu krátce a srozumitelně.')) . '</p>'],
+                [t('Kontakt'), slugify(t('Kontakt')), 1, '<p>' . e(t('Adresa, telefon, e-mail a otevírací doba.')) . '</p>'],
+            ];
+            $uvod = 0;
+            foreach ($stranky as $i => [$titulek, $adresa, $vMenu, $text]) {
+                $id = $db->insert('stranky', ['titulek' => $titulek, 'seo_link' => $adresa, 'text' => $text, 'v_menu' => $vMenu, 'poradi' => ($i + 1) * 10]);
+                $uvod = $uvod ?: $id;
+            }
+
             \MiroCMS\Core\Hledani::dopln($db);
             $nastaveni = ['nazev_webu' => $d['nazev_webu'], 'adresa_webu' => $this->request->origin(), 'email_webu' => $d['email'], 'jazyk_webu' => $this->jazyk,
-                'casove_pasmo' => $d['casove_pasmo'], 'layout' => $d['layout'], 'rozvrzeni' => Layouty::seznam()[$d['layout']]['rozvrzeni'], 'verze_db' => (string) Migrace::posledni()];
+                'casove_pasmo' => $d['casove_pasmo'], 'layout' => Layouty::VYCHOZI, 'titulni_stranka' => (string) $uvod, 'verze_db' => (string) Migrace::posledni()];
             foreach ($nastaveni as $klic => $hodnota) {
                 $db->insert('config', ['promenna' => $klic, 'hodnota' => $hodnota]);
             }
-            $db->insert('levely', ['nazev_levelu' => t('Základní'), 'hodnota' => 0, 'zakladni' => 1]);
-            $sablona = $db->insert('cla_sab', ['nazev_cla_sab' => t('Standardní'), 'soubor_cla_sab' => 'standard']);
-            foreach (['dlouhe-cteni' => 'Dlouhé čtení', 'fotoreportaz' => 'Fotoreportáž', 'rozhovor' => 'Rozhovor'] as $soubor => $nazevSablony) {
-                $db->insert('cla_sab', ['nazev_cla_sab' => t($nazevSablony), 'soubor_cla_sab' => $soubor]);
-            }
 
-            $bloky = [['leva', 'Rubriky', 'rub', 200], ['leva', 'Vyhledávání', 'hle', 100], ['prava', 'Nejčtenější články', 'nej', 200]]; // Novinky a Ankety jsou rozšíření, která si web zapne sám
-            foreach ($bloky as [$zona, $nazev, $sys, $hodnost]) {
-                $db->insert('bloky', ['nazev' => t($nazev), 'obsah' => '', 'sys_funkce' => $sys, 'hodnost' => $hodnost, 'zona' => $zona]);
-            }
-
-            if ($d['demo'] === '1') {
-                // ukázkový magazín nahrazuje uvítací článek: titulní strana pak vypadá jako skutečné noviny a vše jde později smazat najednou
-                \MiroCMS\Core\Demo::nahraj($db, new \MiroCMS\Core\Settings($db), $this->jazyk, $admin);
-
-                return;
-            }
-            $rubrika = $db->insert('topic', ['nazev' => t('Aktuality'), 'seo_link' => slugify(t('Aktuality')), 'popis' => '']);
+            $kategorie = $db->insert('topic', ['nazev' => t('Aktuality'), 'seo_link' => slugify(t('Aktuality')), 'popis' => '']);
             $db->insert('clanky', [
                 'seo_link' => slugify(t('Vítejte v MiroCMS')),
                 'titulek' => t('Vítejte v MiroCMS'),
-                'uvod' => '<p>' . e(t('Redakční systém je nainstalován a připraven. Tento článek můžete v administraci upravit nebo smazat.')) . '</p>',
-                'text' => '<p>' . e(t('Do administrace se dostanete na adrese admin.php. Na přehledu vás provedou První kroky: dejte webu tvář, založte rubriky a napište první článek. Rozložení webu do sloupců a bloků upravíte přímo na stránce v sekci Bloky a rozvržení.')) . '</p>',
-                'tema' => $rubrika,
+                'uvod' => '<p>' . e(t('Web je nainstalovaný a připravený. Tuto novinku můžete v administraci upravit nebo smazat.')) . '</p>',
+                'text' => '<p>' . e(t('Do administrace se dostanete na adrese admin.php. Na přehledu vás provedou První kroky: dejte webu tvář, vyplňte údaje o firmě a připravte stránky.')) . '</p>',
+                'tema' => $kategorie,
                 'autor' => $admin,
                 'datum' => date('Y-m-d H:i:s'),
                 'visible' => 1,
-                'sablona' => $sablona,
             ]);
         });
     }

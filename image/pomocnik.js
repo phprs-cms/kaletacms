@@ -1,9 +1,9 @@
-/* MiroCMS - pomocník editoru článků: kontrola přístupnosti obsahu a AI asistent. Bez knihoven.
+/* MiroCMS - pomocník editoru: kontrola přístupnosti obsahu a AI asistent. Bez knihoven.
  *
  *   <fieldset data-kontrola>          sem se vypisuje průběžná kontrola (alt texty, nadpisy, odkazy, tabulky)
- *   <form data-asistent="adresa">     u polí článku přibydou tlačítka "✦ Navrhnout" (jen se zapnutým rozšířením)
+ *   <form data-asistent="adresa">     u polí formuláře přibydou tlačítka "✦ Navrhnout" (jen se zapnutým rozšířením)
  *
- * Asistent nic neukládá - návrh se jen vloží do pole formuláře a redaktor ho může dál upravit.
+ * Asistent nic neukládá - návrh se jen vloží do pole formuláře a člověk ho může dál upravit.
  */
 (function () {
 	'use strict';
@@ -42,7 +42,7 @@
 				var radek = prvek('div', 'kontrola-obrazek');
 				var nahled = prvek('img'); nahled.src = img.getAttribute('src'); nahled.alt = '';
 				var vstup = prvek('input', 'textpole'); vstup.type = 'text'; vstup.maxLength = 200; vstup.placeholder = T('co je na obrázku vidět');
-				vstup.setAttribute('aria-label', T('Popis obrázku pro nevidomé čtenáře'));
+				vstup.setAttribute('aria-label', T('Popis obrázku pro nevidomé návštěvníky'));
 				var uloz = function () {
 					if (vstup.value.trim() === '') { return; }
 					var k = strom(pole(id).value);
@@ -62,13 +62,13 @@
 					});
 					radek.appendChild(ai);
 				}
-				nalezy.push([T('Obrázek bez popisu – nevidomý čtenář ani vyhledávač neví, co na něm je. Popis doplňte a potvrďte Enterem:'), radek]);
+				nalezy.push([T('Obrázek bez popisu – nevidomý návštěvník ani vyhledávač neví, co na něm je. Popis doplňte a potvrďte Enterem:'), radek]);
 			});
 
 			var uroven = 1;
 			Array.prototype.forEach.call(koren.querySelectorAll('h2, h3, h4'), function (h) {
 				var u = parseInt(h.tagName.charAt(1), 10);
-				if (u > uroven + 1) { nalezy.push([T('Mezititulek „') + h.textContent.trim().slice(0, 50) + T('“ přeskakuje úroveň (H') + u + ' bez H' + (u - 1) + T(' nad sebou). Čtečky podle úrovní skládají osnovu článku.')]); }
+				if (u > uroven + 1) { nalezy.push([T('Mezititulek „') + h.textContent.trim().slice(0, 50) + T('“ přeskakuje úroveň (H') + u + ' bez H' + (u - 1) + T(' nad sebou). Čtečky podle úrovní skládají osnovu textu.')]); }
 				if (h.textContent.trim() === '') { nalezy.push([T('Prázdný mezititulek – smažte ho.')]); }
 				uroven = u;
 			});
@@ -83,7 +83,7 @@
 		});
 		if (pole('titulek').value.length > 110) { nalezy.push([T('Titulek má přes 110 znaků – ve výsledcích hledání i na sítích se ořízne.')]); }
 		if (pole('titulek').value.length > 12 && pole('titulek').value === pole('titulek').value.toUpperCase()) { nalezy.push([T('Titulek psaný VERZÁLKAMI se špatně čte a čtečky ho mohou hláskovat.')]); }
-		if (strom(pole('uvod').value).textContent.trim() === '') { nalezy.push([T('Chybí perex – výpisy článků a sdílení na sítích ho potřebují.')]); }
+		if (strom(pole('uvod').value).textContent.trim() === '') { nalezy.push([T('Chybí perex – výpis novinek a sdílení na sítích ho potřebují.')]); }
 
 		panel.classList.toggle('kontrola-ok', nalezy.length === 0);
 		panel.querySelector('legend').textContent = T('Kontrola přístupnosti') + (nalezy.length ? ' (' + nalezy.length + ')' : '');
@@ -133,7 +133,6 @@
 		titulky: ['titulek', T('Navrhnout'), T('Návrhy titulku'), function (n) { nastav('titulek', n); }],
 		perex: ['uvod', T('Navrhnout'), T('Návrhy perexu'), function (n) { nastav('uvod', '<p>' + esc(n) + '</p>'); }],
 		korektura: ['text', T('Korektura'), T('Korektura'), null],
-		shrnuti: ['shrnuti', T('Navrhnout'), T('Shrnutí „Ve zkratce“'), function (n) { nastav('shrnuti', n.replace(/^\s*[-•–]\s*/gm, '')); }],
 		seo: ['seo_popis', T('Navrhnout'), T('Popis pro vyhledávače'), function (n) { nastav('seo_popis', n); }],
 		stitky: ['stitky', T('Navrhnout'), T('Návrh štítků'), function (n) {
 			var mam = pole('stitky').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
@@ -154,7 +153,7 @@
 			radek.appendChild(b);
 			obsah.appendChild(radek);
 		});
-		obsah.appendChild(prvek('p', 'napoveda', T('Návrh se jen vloží do pole – můžete ho dál upravit. Nic se neuloží, dokud článek neuložíte.')));
+		obsah.appendChild(prvek('p', 'napoveda', T('Návrh se jen vloží do pole – můžete ho dál upravit. Nic se neuloží, dokud formulář neuložíte.')));
 	}
 
 	function ukazKorekturu(j) {
@@ -192,7 +191,7 @@
 		var stitek = form.querySelector('label[for="' + u[0] + '"]');
 		if (!stitek || !pole(u[0])) { return; }
 		var b = prvek('button', 'ai-tl', '✦ ' + u[1]); b.type = 'button';
-		b.title = ukol === 'korektura' ? T('Asistent zkontroluje pravopis, překlepy a typografii') : T('Asistent navrhne znění podle textu článku');
+		b.title = ukol === 'korektura' ? T('Asistent zkontroluje pravopis, překlepy a typografii') : T('Asistent navrhne znění podle textu');
 		b.addEventListener('click', function () {
 			b.disabled = true; b.textContent = T('✦ přemýšlím…');
 			zeptejSe(ukol).then(function (j) { if (ukol === 'korektura') { ukazKorekturu(j); } else { ukazNavrhy(ukol, j); } })

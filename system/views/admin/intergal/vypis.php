@@ -41,7 +41,7 @@ $jeVse = $filtr['sekce'] === null && $filtr['clanek'] === 0 && !$filtr['nepouzit
 
 <div class="media-obsah">
 <?php if ($clanek !== null): ?>
-<p class="hlaska"><?= e(t('Obrázky použité v článku „%s“.', $clanek)) ?> <a href="<?= e($modul->url()) ?>"><?= e(t('Zobrazit všechna média')) ?></a></p>
+<p class="hlaska"><?= e(t('Obrázky použité v novince „%s“.', $clanek)) ?> <a href="<?= e($modul->url()) ?>"><?= e(t('Zobrazit všechna média')) ?></a></p>
 <?php endif ?>
 <?php if ($aktivniSlozka !== null): ?>
 <div class="media-slozka-uprava">
@@ -62,7 +62,7 @@ $jeVse = $filtr['sekce'] === null && $filtr['clanek'] === 0 && !$filtr['nepouzit
 </form>
 
 <?php if ($obrazky === []): ?>
-<?= $app->view->render('admin/prazdno', ['ikona' => 'media', 'nadpis' => t('Žádné obrázky.'), 'text' => t('Nahrajte první fotky formulářem nahoře – nebo je přetáhněte přímo do textu článku v editoru.')]) ?>
+<?= $app->view->render('admin/prazdno', ['ikona' => 'media', 'nadpis' => t('Žádné obrázky.'), 'text' => t('Nahrajte první fotky formulářem nahoře – nebo je přetáhněte přímo do textu v editoru.')]) ?>
 <?php else: ?>
 <form method="post" action="<?= e($modul->url('hromadne')) ?>">
 <?= $csrf ?>
@@ -91,7 +91,7 @@ $jeVse = $filtr['sekce'] === null && $filtr['clanek'] === 0 && !$filtr['nepouzit
 <?php endforeach ?>
 	</select>
 	<button class="navigace" type="submit" name="provest" value="presun"><?= e(t('Přesunout do složky')) ?></button>
-	<button class="navigace nebezpecne" type="submit" name="provest" value="smaz" data-potvrdit="<?= e(t('Opravdu smazat označené obrázky? Z článků, kde jsou použité, zmizí.')) ?>"><?= e(t('Smazat')) ?></button>
+	<button class="navigace nebezpecne" type="submit" name="provest" value="smaz" data-potvrdit="<?= e(t('Opravdu smazat označené obrázky? Z textů, kde jsou použité, zmizí.')) ?>"><?= e(t('Smazat')) ?></button>
 </p>
 </form>
 
@@ -101,7 +101,7 @@ $jeVse = $filtr['sekce'] === null && $filtr['clanek'] === 0 && !$filtr['nepouzit
 	<input type="hidden" name="ido" value="<?= (int) $o['ido'] ?>">
 	<div class="radek"><label for="nazev"><?= e(t('Název (alternativní text)')) ?></label><div><input class="textpole siroke" type="text" id="nazev" name="nazev" value="<?= e($o['nazev']) ?>" maxlength="150"><span class="napoveda"><?= e(t('Popište, co na obrázku je - čtou ho čtečky obrazovky i vyhledávače.')) ?></span></div></div>
 	<div class="radek"><label for="popis"><?= e(t('Popisek pod obrázkem')) ?></label><input class="textpole siroke" type="text" id="popis" name="popis" value="<?= e($o['popis']) ?>" maxlength="500"></div>
-	<div class="radek"><label for="autor"><?= e(t('Autor fotky')) ?></label><div><input class="textpole siroke" type="text" id="autor" name="autor" value="<?= e($o['autor'] ?? '') ?>" maxlength="120"><span class="napoveda"><?= e(t('Uvede se pod hlavní fotkou článku, pokud článek nemá vlastního autora fotky.')) ?></span></div></div>
+	<div class="radek"><label for="autor"><?= e(t('Autor obrázku')) ?></label><div><input class="textpole siroke" type="text" id="autor" name="autor" value="<?= e($o['autor'] ?? '') ?>" maxlength="120"><span class="napoveda"><?= e(t('Uvede se pod hlavní fotkou článku, pokud článek nemá vlastního autora fotky.')) ?></span></div></div>
 	<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Uložit')) ?>"></p>
 </form>
 <?php endforeach ?>

@@ -21,7 +21,7 @@
 			<label><input type="checkbox" data-kategorie="analytika"> <?= e(t('Analytické – anonymní měření návštěvnosti')) ?></label>
 <?php endif ?>
 <?php if ($marketing): ?>
-			<label><input type="checkbox" data-kategorie="marketing"> <?= e(t('Marketingové – cílení reklamy')) ?></label>
+			<label><input type="checkbox" data-kategorie="marketing"> <?= e(t('Marketingové – měření kampaní a cílení reklamy')) ?></label>
 <?php endif ?>
 		</div>
 		<div class="cookies-tlacitka">

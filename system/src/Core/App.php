@@ -87,15 +87,15 @@ final class App
 
     /**
      * Absolutní cesta v rámci instalace: url('admin.php') -> "/magazin/admin.php".
-     * V jazykové verzi dostanou adresy stránek webu předponu jazyka (url('clanek/x') -> "/en/clanek/x");
-     * soubory a služby (cokoli s příponou, api/, mcp, push/, platba/) zůstávají společné.
+     * V jazykové verzi dostanou adresy stránek webu předponu jazyka (url('novinky/x') -> "/en/novinky/x");
+     * soubory a služby (cokoli s příponou, api/, mcp) zůstávají společné.
      */
     public function url(string $path = ''): string
     {
         $path = ltrim($path, '/');
         if ($this->jazykPrefix !== '') {
             $cesta = explode('?', $path, 2)[0];
-            if ((!str_contains($cesta, '.') || $cesta === 'rss.xml' || $cesta === 'feed.json') && !preg_match('#^(api/|mcp$|push/|platba/)#', $cesta)) {
+            if ((!str_contains($cesta, '.') || $cesta === 'rss.xml' || $cesta === 'feed.json') && !preg_match('#^(api/|mcp$)#', $cesta)) {
                 $path = $this->jazykPrefix . ($path === '' ? '/' : '/' . $path);
             }
         }
@@ -104,15 +104,15 @@ final class App
     }
 
     /**
-     * Adresa článku v JEHO jazykové verzi – nezávisle na tom, ze které verze přišel právě běžící požadavek
+     * Adresa novinky v JEJÍ jazykové verzi – nezávisle na tom, ze které verze přišel právě běžící požadavek
      * (oznámení o vydání se rozesílají na pozadí cizí návštěvy).
      */
-    public function urlClanku(string $seo, string $jazyk): string
+    public function urlNovinky(string $seo, string $jazyk): string
     {
         $puvodni = $this->jazykPrefix;
         $this->jazykPrefix = in_array($jazyk, Jazyk::dalsi($this->settings()), true) ? $jazyk : '';
         try {
-            return $this->url('clanek/' . $seo);
+            return $this->url('novinky/' . $seo);
         } finally {
             $this->jazykPrefix = $puvodni;
         }

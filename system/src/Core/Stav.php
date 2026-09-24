@@ -41,7 +41,7 @@ final class Stav
         $cekajici = Migrace::posledni() - max(1, $web->int('verze_db'));
         $pridej(t('Databáze'), t('Struktura databáze'), $cekajici <= 0, $cekajici <= 0 ? t('aktuální (verze %d)', $web->int('verze_db')) : t('čeká %d aktualizací - proběhnou při příštím načtení administrace', $cekajici));
         $velikost = (int) $db->value('SELECT COALESCE(SUM(data_length + index_length), 0) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE ?', [addcslashes($db->prefix, '_%') . '%']);
-        $pridej(t('Databáze'), t('Velikost'), 'ok', t('%s, článků: %d', self::velikost($velikost), (int) $db->value('SELECT COUNT(*) FROM {clanky}')));
+        $pridej(t('Databáze'), t('Velikost'), 'ok', t('%s, novinek: %d', self::velikost($velikost), (int) $db->value('SELECT COUNT(*) FROM {clanky}')));
 
         // --- soubory a bezpečnost
         foreach (['media' => t('nahrané obrázky'), 'storage/log' => t('záznam chyb'), 'storage/cache' => t('dočasná data')] as $slozka => $ucel) {

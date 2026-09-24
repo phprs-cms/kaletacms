@@ -1,5 +1,5 @@
 <?php /** Záložka Pošta: odkud a jak web odesílá e-maily. Proměnné a funkce $pole viz vypis.php. */ ?>
-<p class="hlaska"><?= e(t('Web posílá potvrzení odběru newsletteru a registrace čtenářů, nová hesla, newslettery a upozornění redakci. Přes vlastní SMTP server zprávy odcházejí z ověřené schránky a nekončí ve spamu.')) ?></p>
+<p class="hlaska"><?= e(t('Web posílá odkazy pro obnovu hesla a upozornění systému; s formuláři přibudou i poptávky. Přes vlastní SMTP server zprávy odcházejí z ověřené schránky a nekončí ve spamu.')) ?></p>
 <fieldset>
 <legend><?= e(t('Způsob odesílání')) ?></legend>
 <div class="karty-volby">
@@ -41,7 +41,7 @@ $pole('posta_od', 'Adresa odesílatele', 'email', 'Prázdné = E-mail redakce. U
 $pole('posta_odpoved', 'Odpovědi posílat na', 'email', 'Nepovinné – když mají odpovědi čtenářů chodit jinam než odesílateli.');
 ?>
 </details>
-<p><button class="navigace" type="submit" formaction="<?= e($modul->url('test_posty')) ?>"><?= e(t('Odeslat zkušební e-mail na adresu redakce')) ?></button> <span class="smltxt"><?= e(t('Nejdřív nastavení uložte – zkouška použije uložené hodnoty.')) ?></span></p>
+<p><button class="navigace" type="submit" formaction="<?= e($modul->url('test_posty')) ?>"><?= e(t('Odeslat zkušební e-mail na adresu webu')) ?></button> <span class="smltxt"><?= e(t('Nejdřív nastavení uložte – zkouška použije uložené hodnoty.')) ?></span></p>
 <?php if (!empty($posta)): ?>
 <h3><?= e(t('Poslední zprávy')) ?></h3>
 <div class="tab-obal"><table class="vypis">

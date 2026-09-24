@@ -23,7 +23,7 @@ $skupina = '';
 </div>
 <fieldset>
 <legend><?= e(t('Pošta')) ?></legend>
-<p><button class="navigace" type="submit" formaction="<?= e($modul->url('test_posty')) ?>"><?= e(t('Odeslat zkušební e-mail na adresu redakce')) ?></button></p>
+<p><button class="navigace" type="submit" formaction="<?= e($modul->url('test_posty')) ?>"><?= e(t('Odeslat zkušební e-mail na adresu webu')) ?></button></p>
 </fieldset>
 <fieldset>
 <legend><?= e(t('Záznam chyb')) ?></legend>
@@ -36,7 +36,7 @@ $skupina = '';
 </fieldset>
 <fieldset>
 <legend><?= e(t('Úlohy na pozadí (cron)')) ?></legend>
-<p><?= e(t('Naplánované články, oznámení a rozesílky se spouštějí při návštěvách webu. Web s menší návštěvností je zpřesní, když tuto adresu zavoláte každých 5 minut cronem hostingu:')) ?></p>
+<p><?= e(t('Naplánované novinky, oznámení a odeslání pošty se spouštějí při návštěvách webu. Web s menší návštěvností je zpřesní, když tuto adresu zavoláte každých 5 minut cronem hostingu:')) ?></p>
 <?php if ($ulohyToken !== ''): ?>
 <p><code>*/5 * * * * curl -s "<?= e($adresaWebu) ?>ulohy?token=<?= e($ulohyToken) ?>" &gt; /dev/null</code></p>
 <?php endif ?>

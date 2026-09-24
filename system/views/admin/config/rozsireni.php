@@ -11,7 +11,7 @@ use MiroCMS\Core\Rozsireni;
 	</label>
 <?php endforeach ?>
 </div>
-<p class="napoveda"><?= e(t('Vždy zapnuté jádro: Články, Média, Rubriky, Stránky, Bloky a rozvržení, Uživatelé, Nastavení.')) ?></p>
+<p class="napoveda"><?= e(t('Vždy zapnuté jádro: Stránky, Novinky, Kategorie, Média, Vzhled, Uživatelé, Nastavení.')) ?></p>
 <details class="pokrocile"<?= in_array('asistent', $zapnutaRozsireni, true) ? ' open' : '' ?>>
 <summary><?= e(t('AI asistent – klíč a model')) ?></summary>
 <div class="radek">
@@ -31,5 +31,5 @@ use MiroCMS\Core\Rozsireni;
 <?php endforeach ?>
 	</select>
 </div>
-<p class="napoveda"><?= e(t('Asistent jen navrhuje – o každé změně rozhoduje redaktor. Při použití se text rozepsaného článku odešle službě Anthropic (Claude); bez kliknutí na tlačítko asistenta se nikam nic neposílá.')) ?></p>
+<p class="napoveda"><?= e(t('Asistent jen navrhuje – o každé změně rozhoduje člověk. Při použití se rozepsaný text odešle službě Anthropic (Claude); bez kliknutí na tlačítko asistenta se nikam nic neposílá.')) ?></p>
 </details>

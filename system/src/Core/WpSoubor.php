@@ -183,7 +183,7 @@ final class WpSoubor
     }
 
     /**
-     * Rozebere jeden <item>. E-mail a IP adresa komentujících se záměrně vůbec nečtou.
+     * Rozebere jeden <item>. Komentáře se nečtou – firemní web je nepřebírá.
      *
      * @return array<string, mixed>
      */
@@ -192,7 +192,7 @@ final class WpSoubor
         $p = [
             'id' => 0, 'typ' => 'post', 'stav' => '', 'titulek' => '', 'odkaz' => '', 'adresa' => '', 'datum' => '', 'datum_gmt' => '', 'vydano' => '',
             'autor' => '', 'obsah' => '', 'perex' => '', 'heslo' => '', 'pripnuty' => false, 'priloha_url' => '', 'nahled' => 0,
-            'rubriky' => [], 'stitky' => [], 'komentare' => [],
+            'rubriky' => [], 'stitky' => [],
         ];
         foreach ($item->childNodes as $n) {
             if (!$n instanceof \DOMElement) {
@@ -226,14 +226,6 @@ final class WpSoubor
                     if (($meta['wp:meta_key'] ?? '') === '_thumbnail_id') {
                         $p['nahled'] = (int) ($meta['wp:meta_value'] ?? 0);
                     }
-                    break;
-                case 'wp:comment':
-                    $k = self::pole($n);
-                    $p['komentare'][] = [
-                        'id' => (int) ($k['wp:comment_id'] ?? 0), 'autor' => self::prostyText($k['wp:comment_author'] ?? ''), 'datum' => trim($k['wp:comment_date'] ?? ''),
-                        'text' => (string) ($k['wp:comment_content'] ?? ''), 'predek' => (int) ($k['wp:comment_parent'] ?? 0),
-                        'schvalen' => trim($k['wp:comment_approved'] ?? '') === '1', 'typ' => trim($k['wp:comment_type'] ?? ''),
-                    ];
                     break;
             }
         }

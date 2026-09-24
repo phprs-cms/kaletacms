@@ -1,0 +1,132 @@
+/* MiroCMS – layout „Základní“: firemní web. Barvy a písma z identity webu (--mc-akcent, --mc-pismo-*).
+ * Fluidní typografie a mezery (clamp), barvy odvozené z jedné hlavní (color-mix), kaskáda ve vrstvách (@layer),
+ * navigace na telefonu přes Popover API, plynulé přechody mezi stránkami (View Transitions) – bez JavaScriptu. */
+
+@layer zaklad, rozvrzeni, prvky;
+
+@view-transition { navigation: auto; }
+
+@layer zaklad {
+	:root {
+		color-scheme: light;
+		--akcent: var(--mc-akcent, #2b5be3);
+		--akcent-jemny: color-mix(in oklch, var(--akcent) 10%, var(--podklad));
+		--text: #16181d;
+		--text-tlumeny: color-mix(in oklch, var(--text) 62%, var(--podklad));
+		--podklad: #ffffff;
+		--plocha: #f5f6f8;
+		--linka: color-mix(in oklch, var(--text) 14%, var(--podklad));
+		--pismo: var(--mc-pismo-text, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
+		--pismo-titulky: var(--mc-pismo-titulky, var(--pismo));
+		--sirka: 72rem;
+		--sirka-textu: 44rem;
+		--mezera: clamp(1rem, 0.6rem + 1.8vw, 2rem);
+		--mezera-velka: clamp(2.5rem, 1.5rem + 4vw, 5rem);
+		--zaobleni: 0.75rem;
+		--krok-0: clamp(1rem, 0.96rem + 0.2vw, 1.125rem);
+		--krok-1: clamp(1.25rem, 1.15rem + 0.5vw, 1.5rem);
+		--krok-2: clamp(1.5rem, 1.3rem + 1vw, 2rem);
+		--krok-3: clamp(2rem, 1.6rem + 2vw, 3rem);
+	}
+	@media (prefers-color-scheme: dark) {
+		:root[data-tmavy] {
+			color-scheme: dark;
+			--text: #eceef2;
+			--podklad: #121418;
+			--plocha: #1b1e24;
+			--akcent: color-mix(in oklch, var(--mc-akcent, #2b5be3) 70%, white);
+		}
+	}
+	*, *::before, *::after { box-sizing: border-box; }
+	html { -webkit-text-size-adjust: 100%; scroll-padding-top: 5rem; }
+	body { margin: 0; background: var(--podklad); color: var(--text); font: var(--krok-0) / 1.6 var(--pismo); text-rendering: optimizeLegibility; }
+	h1, h2, h3, h4 { margin: 0 0 0.5em; font-family: var(--pismo-titulky); line-height: 1.15; letter-spacing: -0.015em; text-wrap: balance; }
+	h1 { font-size: var(--krok-3); }
+	h2 { font-size: var(--krok-2); }
+	h3 { font-size: var(--krok-1); }
+	p, ul, ol, figure, table, blockquote { margin: 0 0 1.1em; }
+	p { text-wrap: pretty; }
+	a { color: var(--akcent); text-underline-offset: 0.18em; }
+	img { max-width: 100%; height: auto; }
+	@media (prefers-reduced-motion: reduce) { @view-transition { navigation: none; } }
+}
+
+@layer rozvrzeni {
+	.obal { width: min(100% - 2 * var(--mezera), var(--sirka)); margin-inline: auto; }
+	.preskocit { position: absolute; left: -999px; }
+	.preskocit:focus { left: var(--mezera); top: 0.5rem; z-index: 100; padding: 0.5rem 1rem; background: var(--podklad); }
+
+	.hlavicka { position: sticky; top: 0; z-index: 50; background: color-mix(in oklch, var(--podklad) 88%, transparent); backdrop-filter: blur(12px); border-bottom: 1px solid var(--linka); }
+	.hlavicka-obal { display: flex; align-items: center; justify-content: space-between; gap: var(--mezera); min-height: 4.25rem; }
+	.logo { color: var(--text); font: 700 var(--krok-1) / 1 var(--pismo-titulky); text-decoration: none; }
+	.logo img { display: block; max-height: 2.75rem; width: auto; }
+	.navigace ul { display: flex; flex-wrap: wrap; gap: 0.25rem; margin: 0; padding: 0; list-style: none; }
+	.navigace a { display: block; padding: 0.5rem 0.8rem; border-radius: 999px; color: var(--text); font-weight: 600; text-decoration: none; }
+	.navigace a:hover { background: var(--plocha); }
+	.navigace a[aria-current] { background: var(--akcent-jemny); color: var(--akcent); }
+	.menu-tl { display: none; }
+
+	/* telefon: navigace je popover – otevře ji tlačítko, zavře Esc nebo klepnutí mimo; bez skriptu */
+	@media (max-width: 760px) {
+		.menu-tl { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border: 1px solid var(--linka); border-radius: 50%; background: var(--podklad); color: var(--text); cursor: pointer; }
+		.menu-tl span, .menu-tl span::before, .menu-tl span::after { display: block; width: 1.1rem; height: 2px; background: currentColor; }
+		.menu-tl span { position: relative; }
+		.menu-tl span::before, .menu-tl span::after { content: ""; position: absolute; left: 0; }
+		.menu-tl span::before { top: -6px; }
+		.menu-tl span::after { top: 6px; }
+		.navigace[popover] { inset: 4.5rem var(--mezera) auto; width: auto; margin: 0; padding: 0.75rem; border: 1px solid var(--linka); border-radius: var(--zaobleni); background: var(--podklad); color: var(--text); box-shadow: 0 20px 50px rgb(0 0 0 / 0.18); }
+		.navigace[popover] ul { flex-direction: column; }
+		.navigace[popover] a { padding: 0.8rem 1rem; border-radius: calc(var(--zaobleni) / 1.5); }
+	}
+	@media (min-width: 761px) {
+		.navigace[popover] { display: flex; position: static; align-items: center; gap: 0.5rem; margin: 0; padding: 0; border: 0; background: none; color: inherit; overflow: visible; }
+	}
+
+	.obsah { padding-block: var(--mezera-velka); min-height: 60vh; }
+	.paticka { padding-block: var(--mezera-velka) var(--mezera); background: var(--plocha); border-top: 1px solid var(--linka); font-size: 0.95em; }
+	.paticka-obal { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: var(--mezera); }
+	.paticka p { margin: 0.4em 0 0; color: var(--text-tlumeny); }
+	.paticka ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.3rem; }
+	.paticka a { color: inherit; }
+	.paticka-copy { grid-column: 1 / -1; padding-top: var(--mezera); border-top: 1px solid var(--linka); font-size: 0.875em; }
+}
+
+@layer prvky {
+	/* stránka a novinka: text v pohodlné šířce řádku */
+	.stranka, .novinka { max-width: var(--sirka-textu); margin-inline: auto; }
+	.stranka-uvod { max-width: none; }
+	.stranka-uvod .text > h1:first-child { max-width: 18ch; font-size: clamp(2.5rem, 1.6rem + 4.5vw, 4.5rem); }
+	.stranka-uvod .text > :where(p, ul) { max-width: var(--sirka-textu); font-size: var(--krok-1); color: var(--text-tlumeny); }
+	.perex { font-size: var(--krok-1); line-height: 1.5; color: var(--text-tlumeny); }
+	.text blockquote { margin-inline: 0; padding-left: 1.2em; border-left: 3px solid var(--akcent); }
+	.novinka-obrazek { margin: 0 0 1.5em; }
+	.novinka-obrazek img { width: 100%; border-radius: var(--zaobleni); }
+	.novinka-aktualizovano { font-size: 0.875em; color: var(--text-tlumeny); }
+	.novinka-stitky { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 2em; }
+	.novinka-stitky a { padding: 0.25rem 0.75rem; border-radius: 999px; background: var(--plocha); font-size: 0.875em; text-decoration: none; }
+	.souvisejici { margin-top: var(--mezera-velka); padding-top: var(--mezera); border-top: 1px solid var(--linka); }
+	.souvisejici ul { padding-left: 1.1em; }
+
+	/* výpis novinek: karty, které se přizpůsobí šířce kontejneru (container queries), ne oknu */
+	.vypis-hlavicka { max-width: var(--sirka-textu); margin-bottom: var(--mezera); }
+	.karty { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr)); gap: var(--mezera); }
+	.karta { container-type: inline-size; display: flex; flex-direction: column; padding: 0 0 1rem; border-radius: var(--zaobleni); background: var(--podklad); border: 1px solid var(--linka); overflow: hidden; }
+	.karta > :not(.karta-obrazek) { padding-inline: 1.1rem; }
+	.karta-obrazek img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+	.karta-info { margin: 1rem 0 0.4rem; font-size: 0.85em; color: var(--text-tlumeny); }
+	.karta-info a { color: inherit; }
+	.karta h2 { font-size: var(--krok-1); }
+	.karta h2 a { color: var(--text); text-decoration: none; }
+	.karta h2 a:hover { color: var(--akcent); }
+	.karta .perex { font-size: 1em; }
+	.karta .perex p:last-child { margin-bottom: 0; }
+	@container (min-width: 34rem) {
+		.karta h2 { font-size: var(--krok-2); }
+	}
+	.vypis-stranky { margin-bottom: var(--mezera); }
+
+	.hledani { display: flex; gap: 0.5rem; max-width: 30rem; margin: 1em 0; }
+	.hledani input { flex: 1; min-width: 0; padding: 0.65rem 0.9rem; border: 1px solid var(--linka); border-radius: 999px; background: var(--podklad); color: inherit; font: inherit; }
+	.hledani button { padding: 0.65rem 1.2rem; border: 0; border-radius: 999px; background: var(--akcent); color: #fff; font: 600 1em var(--pismo); cursor: pointer; }
+	.strankovani { display: flex; justify-content: center; align-items: center; gap: 1rem; margin-top: var(--mezera-velka); }
+}

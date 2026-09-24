@@ -24,7 +24,6 @@
 <p><button class="navigace" type="submit" formaction="<?= e($modul->url('zkontroluj')) ?>"><?= e(t('Zkontrolovat teď')) ?></button></p>
 <?php endif ?>
 <?php $pole('aktualizace_auto', 'Bezpečnostní aktualizace instalovat automaticky', 'ano', 'Doporučeno. Týká se jen vydání označených jako bezpečnostní; běžné verze instalujete sami. Systém se po novinkách dívá dvakrát denně, před instalací zálohuje databázi a o výsledku pošle e-mail na adresu redakce.'); ?>
-<?php $pole('odkaz_podpora', 'Odkaz „Podpořit MiroCMS“ v patičce administrace', 'ano', 'MiroCMS je zdarma a vzniká z dobrovolných příspěvků. Odkaz vidí jen přihlášení v administraci, na webu se nic nezobrazuje.'); ?>
 <?php $pole('aktualizace_url', 'Vlastní zdroj aktualizací', 'url', 'Nechte prázdné. Jinou adresu souboru aktualizace.json vyplňte jen tehdy, když si verze spravujete sami.', 'placeholder="https://"'); ?>
 </fieldset>
 
@@ -76,5 +75,5 @@ $pole('zaloha_region', 'Region (jen S3)', 'text', 'Například eu-central-1. U C
 </div>
 <?php endif ?>
 <p><button class="navigace" type="submit" formaction="<?= e($modul->url('zaloha_medii')) ?>"><?= e(t('Stáhnout zálohu médií (ZIP)')) ?></button></p>
-<p class="napoveda"><?= e(t('Záloha databáze obsahuje články, nastavení a uživatele; nahrané obrázky jsou v záloze médií. Zálohy leží ve složce storage/zalohy/, která není z webu přístupná – stahujte si je i mimo server.')) ?></p>
+<p class="napoveda"><?= e(t('Záloha databáze obsahuje stránky, novinky, nastavení a uživatele; nahrané obrázky jsou v záloze médií. Zálohy leží ve složce storage/zalohy/, která není z webu přístupná – stahujte si je i mimo server.')) ?></p>
 </fieldset>

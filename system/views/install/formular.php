@@ -4,13 +4,11 @@
  * @var list<array{nazev:string, ok:bool, info:string}> $pozadavky
  * @var array<string, string> $data
  * @var array<string, string> $chyby
- * @var array<string, array{nazev:string, popis:string}> $layouty
- * @var string $jazyk  jazyk instalace (cs, sk, en, de)
+ * @var string $jazyk  jazyk instalace (cs, en)
  * @var array<string, string> $jazyky
  */
 $chyba = fn (string $pole): string => isset($chyby[$pole]) ? '<span class="chyba-pole" role="alert">' . e($chyby[$pole]) . '</span>' : '';
 $splneno = !in_array(false, array_column($pozadavky, 'ok'), true);
-$nahledy = require __DIR__ . '/nahledy.php';
 ?>
 <!doctype html>
 <html lang="<?= e($jazyk) ?>">
@@ -33,8 +31,8 @@ $nahledy = require __DIR__ . '/nahledy.php';
 </nav>
 <header class="uvod">
 	<div class="znacka"><?php $vyska = 40; $jenZnacka = false; require MIROCMS_SYSTEM . '/views/admin/logo.php'; ?></div>
-	<h1><?= e(t('Instalace redakčního systému')) ?></h1>
-	<p><?= e(t('Čtyři krátké kroky a váš magazín běží. Vše lze později změnit v administraci.')) ?> <a href="<?= e(MiroCMS\Core\Napoveda::url('zaciname/instalace')) ?>" target="_blank" rel="noopener"><?= e(t('Podrobný návod')) ?></a></p>
+	<h1><?= e(t('Instalace MiroCMS')) ?></h1>
+	<p><?= e(t('Tři krátké kroky a váš web běží. Vše lze později změnit v administraci.')) ?></p>
 </header>
 
 <section class="krok">
@@ -75,7 +73,7 @@ $nahledy = require __DIR__ . '/nahledy.php';
 	<div class="pole">
 		<div class="cele"><label for="nazev_webu"><?= e(t('Název webu')) ?></label><input type="text" id="nazev_webu" name="nazev_webu" value="<?= e($data['nazev_webu']) ?>" required></div>
 		<div><label for="user"><?= e(t('Přihlašovací jméno')) ?></label><input type="text" id="user" name="user" value="<?= e($data['user']) ?>" required><?= $chyba('user') ?></div>
-		<div><label for="jmeno"><?= e(t('Jméno a příjmení')) ?></label><input type="text" id="jmeno" name="jmeno" value="<?= e($data['jmeno']) ?>"><span class="napoveda"><?= e(t('Zobrazuje se u článků.')) ?></span></div>
+		<div><label for="jmeno"><?= e(t('Jméno a příjmení')) ?></label><input type="text" id="jmeno" name="jmeno" value="<?= e($data['jmeno']) ?>"><span class="napoveda"><?= e(t('Zobrazuje se u novinek.')) ?></span></div>
 		<div class="cele"><label for="email"><?= e(t('E-mail')) ?></label><input type="email" id="email" name="email" value="<?= e($data['email']) ?>"><?= $chyba('email') ?></div>
 		<div><label for="password"><?= e(t('Heslo')) ?></label><input type="password" id="password" name="password" autocomplete="new-password" minlength="10" required><?= $chyba('password') ?><span class="napoveda"><?= e(t('Alespoň 10 znaků.')) ?></span></div>
 		<div><label for="password2"><?= e(t('Heslo znovu')) ?></label><input type="password" id="password2" name="password2" autocomplete="new-password" required></div>
@@ -83,23 +81,7 @@ $nahledy = require __DIR__ . '/nahledy.php';
 <?php foreach (DateTimeZone::listIdentifiers() as $pasmo): ?>
 			<option value="<?= e($pasmo) ?>"<?= $data['casove_pasmo'] === $pasmo ? ' selected' : '' ?>><?= e(str_replace('_', ' ', $pasmo)) ?></option>
 <?php endforeach ?>
-		</select><span class="napoveda"><?= e(t('Podle něj se vydávají naplánované články a zobrazují data.')) ?></span></div>
-		<div class="cele"><label class="zaskrtavaci" for="demo"><input type="checkbox" id="demo" name="demo" value="1"<?= ($data['demo'] ?? '') === '1' ? ' checked' : '' ?>> <?= e(t('Nahrát ukázkový obsah')) ?></label><span class="napoveda"><?= e(t('Rubriky, články a obrázky smyšleného magazínu, ať hned vidíte, jak web vypadá. Později ho jedním kliknutím smažete.')) ?></span></div>
-	</div>
-</section>
-
-<section class="krok">
-	<h2><span>4</span> <?= e(t('Šablona webu')) ?></h2>
-	<p><?= e(t('Jak uvidí magazín čtenáři.')) ?></p>
-	<div class="volby" role="radiogroup" aria-label="<?= e(t('Šablona webu')) ?>">
-<?php foreach ($layouty as $slozka => $l): ?>
-		<label class="volba">
-			<input type="radio" name="layout" value="<?= e($slozka) ?>"<?= $data['layout'] === $slozka ? ' checked' : '' ?>>
-			<?= $nahledy[$slozka] ?? $nahledy['vlastni'] ?>
-			<strong><?= e($l['nazev']) ?></strong>
-			<span><?= e(t($l['popis'])) ?></span>
-		</label>
-<?php endforeach ?>
+		</select><span class="napoveda"><?= e(t('Podle něj se vydávají naplánované novinky a zobrazují data.')) ?></span></div>
 	</div>
 </section>
 

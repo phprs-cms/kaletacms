@@ -32,7 +32,7 @@ $chyba = fn (string $pole): string => isset($chyby[$pole]) ? '<span class="chyba
 	<span class="popisek"><?= e(t('Zobrazení')) ?></span>
 	<div class="volby">
 		<label><input type="checkbox" name="zobrazit" value="1"<?= $stranka['zobrazit'] ? ' checked' : '' ?>> <?= e(t('Zveřejnit stránku')) ?></label><br>
-		<label><input type="checkbox" name="v_menu" value="1"<?= $stranka['v_menu'] ? ' checked' : '' ?>> <?= e(t('Odkaz v navigaci webu (patička)')) ?></label>
+		<label><input type="checkbox" name="v_menu" value="1"<?= $stranka['v_menu'] ? ' checked' : '' ?>> <?= e(t('Zobrazit v hlavní navigaci webu')) ?></label>
 	</div>
 </div>
 <div class="radek">

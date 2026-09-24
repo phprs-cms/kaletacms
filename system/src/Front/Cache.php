@@ -6,12 +6,11 @@ namespace MiroCMS\Front;
 
 use MiroCMS\Core\App;
 use MiroCMS\Core\Response;
-use MiroCMS\Core\Rozsireni;
 
 /**
- * Cache celých stránek pro nepřihlášené čtenáře (soubory ve storage/cache/stranky, platnost 5 minut).
- * Stránka z cache stojí jeden dotaz do databáze místo desítek. Jakákoli změna v administraci i nový
- * komentář cache smaže. Necachuje se nic osobního: přihlášená redakce, čtenář, který už hlasoval, náhledy.
+ * Cache celých stránek pro nepřihlášené návštěvníky (soubory ve storage/cache/stranky, platnost 5 minut).
+ * Stránka z cache stojí jeden dotaz do databáze místo desítek. Jakákoli změna v administraci cache smaže.
+ * Necachuje se nic osobního: přihlášení uživatelé administrace, náhledy.
  */
 final class Cache
 {
@@ -29,7 +28,7 @@ final class Cache
         }
         if (filemtime($soubor) < time() - self::PLATNOST) {
             // Prošlou stránku přegeneruje první, kdo přijde; ostatní, kteří dorazí ve stejné vteřině, dostanou ještě tu starou
-            // (nejdéle o minutu déle). Bez toho by po vypršení skládalo tutéž stránku z databáze najednou všech sto čtenářů.
+            // (nejdéle o minutu déle). Bez toho by po vypršení skládalo tutéž stránku z databáze najednou všech sto návštěvníků.
             $zamek = @fopen($soubor . '.zamek', 'c');
             if ($zamek === false || flock($zamek, LOCK_EX | LOCK_NB)) {
                 self::$zamek = $zamek ?: null; // drží se do uloz() nebo do konce požadavku
@@ -117,18 +116,18 @@ final class Cache
     {
         $r = $app->request;
         $s = $app->settings();
-        if (!$s->bool('cache_stranek') || $r->isPost() || Rozsireni::je($s, 'reklama')) {
-            return null; // reklamy se střídají a počítají při každém zobrazení
+        if (!$s->bool('cache_stranek') || $r->isPost()) {
+            return null;
         }
         if (array_diff(array_keys($_GET), ['strana']) !== []) {
             return null;
         }
         foreach (array_keys($_COOKIE) as $cookie) {
-            if ($cookie === 'mirocms' || str_starts_with((string) $cookie, 'mirocms_h') || str_starts_with((string) $cookie, 'mirocms_a') || $cookie === Ctenari::COOKIE) {
+            if ($cookie === 'mirocms') { // přihlášený uživatel administrace (session)
                 return null;
             }
         }
 
-        return self::SLOZKA . '/' . md5($r->origin() . '|' . \MiroCMS\Core\Jazyk::kod() . '|' . $r->path() . '|' . $r->getInt('strana', 1) . '|' . $s->get('layout') . '|' . $s->get('rozvrzeni')) . '.html';
+        return self::SLOZKA . '/' . md5($r->origin() . '|' . \MiroCMS\Core\Jazyk::kod() . '|' . $r->path() . '|' . $r->getInt('strana', 1) . '|' . $s->get('layout')) . '.html';
     }
 }

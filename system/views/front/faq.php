@@ -1,6 +1,6 @@
 <?php
 /**
- * Otázky a odpovědi pod článkem.
+ * Otázky a odpovědi pod novinkou.
  *
  * @var list<array{0:string, 1:string}> $faq
  */

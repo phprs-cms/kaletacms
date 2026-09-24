@@ -2,7 +2,7 @@
 /**
  * Přepínač jazykových verzí. Layout ho dostává hotový v proměnné $jazyky_html (prázdná, má-li web jediný jazyk).
  *
- * Popisek „Language“ je záměrně anglicky (rozumí mu i čtenář, který jazyku stránky nerozumí), proto lang="en".
+ * Popisek „Language“ je záměrně anglicky (rozumí mu i návštěvník, který jazyku stránky nerozumí), proto lang="en".
  *
  * @var array<string, array{nazev:string, url:string, aktivni:bool, preklad:bool}> $jazyky
  */

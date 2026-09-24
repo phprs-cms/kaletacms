@@ -68,7 +68,7 @@ final class Aktualizace
 
     /**
      * Údržba na pozadí: jednou za 12 hodin ověří novou verzi; bezpečnostní vydání nainstaluje samo (je-li to
-     * povoleno), jinak administrátora upozorní e-mailem. Volá se po odeslání stránky, takže čtenáře nezdržuje.
+     * povoleno), jinak administrátora upozorní e-mailem. Volá se po odeslání stránky, takže návštěvníka nezdržuje.
      */
     public static function naPozadi(App $app): void
     {
@@ -90,7 +90,7 @@ final class Aktualizace
             return;
         }
         $s->set('aktualizace_pokus', (string) $nova['verze']); // každá verze se zkouší a oznamuje jen jednou
-        // píše se redakci (adresa bez účtu): texty administrace ve výchozím jazyce webu. Úloha běží i z veřejného webu,
+        // píše se na e-mail webu (adresa bez účtu): texty administrace ve výchozím jazyce webu. Úloha běží i z veřejného webu,
         // kde slovník administrace načtený není – Jazyk::docasne() ho načte jen na tuto chvíli (i pro hlášky chyb instalace).
         [$predmet, $text] = Jazyk::docasne(Jazyk::vychozi($s), function () use ($app, $a, $s, $nova): array {
             $vysledek = t('Je k dispozici bezpečnostní aktualizace %s. Nainstalujte ji v administraci: Nastavení → Zálohy a aktualizace.', (string) $nova['verze']);
@@ -269,11 +269,7 @@ final class Aktualizace
      * všech vydaných podob. Seznam souborů jádra o nich už neví, proto se uklízejí podle tohoto výčtu.
      */
     private const array ZRUSENE = [
-        'layout/default/base.php' => ['bb9b53e94c4e6a95f3b24cb86ebbc05c41febe9c5ebb5a33b11f8cc4087d87c0'],
-        'layout/default/blok.php' => ['82ce6bcb3e9e7109a1f03ab8bf3c239af3abc17b87dcd9f51018a3b28efe1864'],
-        'layout/default/cla_standard.php' => ['0657c07a05eff6755708f9a68b5d900b7b8ae92ee3b611176d6a9af25abe1198'],
-        'layout/default/info.php' => ['b56137a8894992ab2013ac7d8eb2abd10d6ba1645c3f572c0c72adb9744f5a03'],
-        'layout/default/style.css' => ['af384a9f8dc0b8a0b429a290b9dce8608273f63310f6fc4eee0433a50fca31dc'],
+        // 'cesta/k/souboru.php' => ['sha256 vydané podoby', …] – soubory, které nová verze zrušila
     ];
 
     /**

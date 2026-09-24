@@ -27,20 +27,18 @@ $akce = e($app->url('admin.php?akce=ucet'));
 <form class="formular" method="post" action="<?= $akce ?>">
 <?= $csrf ?><input type="hidden" name="co" value="profil">
 <fieldset><legend><?= e(t('Moje údaje')) ?></legend>
-<div class="radek"><span class="popisek"><?= e(t('Přihlašovací jméno')) ?></span><div><?= e($user['user']) ?> <span class="napoveda"><?= e(t('Mění administrátor v sekci Uživatelé.')) ?></span></div></div>
-<div class="radek"><label for="jmeno"><?= e(t('Jméno')) ?></label><div><input class="textpole siroke" type="text" id="jmeno" name="jmeno" value="<?= e($user['jmeno']) ?>" maxlength="100"><span class="napoveda"><?= e(t('Zobrazuje se u článků na webu.')) ?></span></div></div>
+<div class="radek"><span class="popisek"><?= e(t('Přihlašovací jméno')) ?></span><div><?= e($user['user']) ?> <span class="napoveda"><?= e(t('Mění správce v sekci Uživatelé.')) ?></span></div></div>
+<div class="radek"><label for="jmeno"><?= e(t('Jméno')) ?></label><div><input class="textpole siroke" type="text" id="jmeno" name="jmeno" value="<?= e($user['jmeno']) ?>" maxlength="100"><span class="napoveda"><?= e(t('Zobrazuje se u novinek na webu.')) ?></span></div></div>
 <div class="radek"><label for="email"><?= e(t('E-mail')) ?></label><input class="textpole siroke" type="email" id="email" name="email" value="<?= e($user['email']) ?>" maxlength="190"></div>
 <div class="radek"><label for="url"><?= e(t('Můj web')) ?></label><input class="textpole siroke" type="url" id="url" name="url" value="<?= e($user['url']) ?>" maxlength="255" placeholder="https://"></div>
-<div class="radek"><label for="pozice"><?= e(t('Pozice v redakci')) ?></label><input class="textpole siroke" type="text" id="pozice" name="pozice" value="<?= e($user['pozice']) ?>" maxlength="100" placeholder="<?= e(t('např. redaktorka kultury')) ?>"></div>
+<div class="radek"><label for="pozice"><?= e(t('Pozice ve firmě')) ?></label><input class="textpole siroke" type="text" id="pozice" name="pozice" value="<?= e($user['pozice']) ?>" maxlength="100" placeholder="<?= e(t('např. vedoucí obchodu')) ?>"></div>
 <div class="radek"><label for="foto"><?= e(t('Moje fotka')) ?></label><div><input class="textpole siroke" type="text" id="foto" name="foto" value="<?= e($user['foto']) ?>" maxlength="255" data-obrazek><span class="napoveda"><?= e(t('Čtvercová fotka, stačí 300 × 300 px.')) ?></span></div></div>
-<div class="radek"><label for="bio"><?= e(t('Pár vět o mně')) ?></label><div><textarea class="textbox nizky" id="bio" name="bio" rows="4" maxlength="1200"><?= e((string) $user['bio']) ?></textarea><span class="napoveda"><?= e(t('Zobrazí se jako medailonek pod vašimi články a na stránce autora. Čím se zabýváte, odkud píšete, co máte za sebou.')) ?></span></div></div>
+<div class="radek"><label for="bio"><?= e(t('Pár vět o mně')) ?></label><div><textarea class="textbox nizky" id="bio" name="bio" rows="4" maxlength="1200"><?= e((string) $user['bio']) ?></textarea><span class="napoveda"><?= e(t('Zobrazí se jako medailonek pod vašimi novinkami. Čím se ve firmě zabýváte a co máte za sebou.')) ?></span></div></div>
 <div class="radek"><label for="jazyk"><?= e(t('Jazyk administrace')) ?></label><div><select id="jazyk" name="jazyk">
 <?php foreach (MiroCMS\Core\Jazyk::ADMINISTRACE as $kodJazyka => $nazevJazyka): ?>
 	<option value="<?= e($kodJazyka) ?>"<?= ($user['jazyk'] ?: 'cs') === $kodJazyka ? ' selected' : '' ?>><?= e($nazevJazyka) ?></option>
 <?php endforeach ?>
 </select><span class="napoveda">Language · Jazyk · Sprache</span></div></div>
-<div class="radek"><span class="popisek"><?= e(t('Upozornění e-mailem')) ?></span><div class="volby"><label><input type="checkbox" name="upozorneni" value="1"<?= !empty($user['upozorneni']) ? ' checked' : '' ?>> <?= e(t('psát mi, když článek čeká na korekturu, vyjde nebo se vrací k dopracování')) ?></label>
-	<span class="napoveda"><?= e(t('Upozornění chodí na e-mail uvedený výše. Bez e-mailu žádná nechodí.')) ?></span></div></div>
 </fieldset>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Uložit údaje')) ?>"></p>
 </form>
@@ -63,7 +61,7 @@ $akce = e($app->url('admin.php?akce=ucet'));
 <?= $csrf ?>
 <fieldset><legend><?= e(t('Dvoufázové přihlášení')) ?></legend>
 <?php if ($user['totp_tajemstvi'] !== ''): ?>
-<p><span class="stitek stitek-vydano"><?= e(t('zapnuté')) ?></span> <?= e(t('Při přihlášení zadáváte kromě hesla i kód z aplikace. Zbývá záložních kódů: %d.', $zbyvaKodu)) ?> <?= MiroCMS\Core\Napoveda::odkaz('provoz/bezpecnost', 'Bezpečnost') ?></p>
+<p><span class="stitek stitek-vydano"><?= e(t('zapnuté')) ?></span> <?= e(t('Při přihlášení zadáváte kromě hesla i kód z aplikace. Zbývá záložních kódů: %d.', $zbyvaKodu)) ?></p>
 <input type="hidden" name="co" value="totp_vypni">
 <div class="radek"><label for="vyp-heslo"><?= e(t('Heslo pro potvrzení')) ?></label><div><input class="textpole" type="password" id="vyp-heslo" name="soucasne" size="30" autocomplete="current-password" required></div></div>
 <p class="tlacitka"><button class="navigace" type="submit"><?= e(t('Vypnout dvoufázové přihlášení')) ?></button></p>
@@ -128,7 +126,7 @@ $akce = e($app->url('admin.php?akce=ucet'));
 	<p class="napoveda"><?= e(t('V aplikaci Claude přidejte vlastní konektor s adresou %s a stejnou hlavičkou Authorization.', $adresaMcp)) ?></p>
 </div>
 <?php endif ?>
-<p><?= e(t('Claude bude s webem pracovat')) ?> <strong><?= e(t('vaším jménem a s vašimi právy')) ?></strong>: <?= e(t((int) $user['admin'] === 2 ? 'psát a upravovat články, spravovat bloky a tvořit šablony webu.' : 'psát a upravovat články.')) ?> <?= e(t('Nové články zakládá jako koncepty. Všechny jeho zásahy najdete v Protokolu změn. Token chraňte jako heslo.')) ?></p>
+<p><?= e(t('Claude bude s webem pracovat')) ?> <strong><?= e(t('vaším jménem a s vašimi právy')) ?></strong>: <?= e(t((int) $user['admin'] === 2 ? 'psát a upravovat stránky a novinky, spravovat kategorie a tvořit šablony webu.' : 'psát a upravovat novinky.')) ?> <?= e(t('Nové novinky zakládá jako koncepty a nové stránky jako skryté. Všechny jeho zásahy najdete v Protokolu změn. Token chraňte jako heslo.')) ?></p>
 <?php foreach ($tokeny as $t): ?>
 <p><span class="stitek"><?= e($t['nazev']) ?></span> <?= e(t('vytvořen %s', datum($t['vytvoren']))) ?>, <?= e($t['pouzit'] ? t('naposledy použit %s', datum($t['pouzit'], true)) : t('zatím nepoužit')) ?>
 	<button class="navigace nebezpecne" type="submit" name="smaz_token" value="<?= (int) $t['idt'] ?>" data-potvrdit="<?= e(t('Zrušit token? Claude se jím už nepřihlásí.')) ?>"><?= e(t('Zrušit token')) ?></button></p>

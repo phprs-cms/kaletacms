@@ -14,10 +14,10 @@ namespace MiroCMS\Core;
 final class Auth
 {
     public const int AUTOR = 0;
-    public const int REDAKTOR = 1;
+    public const int EDITOR = 1;
     public const int ADMIN = 2;
 
-    public const array TYPY = [self::AUTOR => 'autor', self::REDAKTOR => 'redaktor', self::ADMIN => 'administrátor'];
+    public const array TYPY = [self::AUTOR => 'autor', self::EDITOR => 'editor', self::ADMIN => 'správce'];
 
     /** Po tolika chybných heslech nebo kódech v řadě se účet na 15 minut zamkne (sám se zase odemkne). */
     private const int MAX_CHYB = 10;
@@ -27,9 +27,6 @@ final class Auth
 
     /** @var list<string>|null */
     private ?array $moduly = null;
-
-    /** @var list<int>|null povolené rubriky přihlášeného (načtou se při prvním dotazu) */
-    private ?array $rubriky = null;
 
     public function __construct(private readonly Db $db, private readonly Session $session)
     {
@@ -285,14 +282,14 @@ final class Auth
         return (int) ($this->user()['admin'] ?? -1) === self::ADMIN;
     }
 
-    public function isRedaktor(): bool
+    public function isEditor(): bool
     {
-        return (int) ($this->user()['admin'] ?? -1) === self::REDAKTOR;
+        return (int) ($this->user()['admin'] ?? -1) === self::EDITOR;
     }
 
     public function smiVydavat(): bool
     {
-        return $this->isAdmin() || $this->isRedaktor() || !empty($this->user()['pravo_vydavat']);
+        return $this->isAdmin() || $this->isEditor();
     }
 
     /** Má přihlášený uživatel přístup k modulu? Admin vždy; ostatní podle rs_user_prava. */
@@ -313,85 +310,39 @@ final class Auth
     }
 
     /**
-     * ID autorů, jejichž články smí uživatel spravovat: on sám a jeho podřízení.
-     * Administrátor a redaktor spravují vše - pro ně vrací null (bez omezení).
-     *
-     * @return list<int>|null
-     */
-    /**
-     * Rubriky, ve kterých smí uživatel pracovat s články. Null = všechny (administrátor, nebo uživatel bez omezení).
-     *
-     * @return list<int>|null
-     */
-    public function povoleneRubriky(): ?array
-    {
-        if ($this->isAdmin() || $this->user() === null) {
-            return null;
-        }
-        if ($this->rubriky === null) {
-            $this->rubriky = array_map(intval(...), array_column($this->db->all('SELECT idt FROM {user_rubriky} WHERE idu = ?', [$this->id()]), 'idt'));
-            // povolení platí i pro podrubriky – včetně těch, které vzniknou později
-            $predci = $this->rubriky === [] ? [] : $this->db->pairs('SELECT idt, id_predka FROM {topic} WHERE id_predka IS NOT NULL');
-            do {
-                $pridano = false;
-                foreach ($predci as $idt => $predek) {
-                    if (in_array((int) $predek, $this->rubriky, true) && !in_array((int) $idt, $this->rubriky, true)) {
-                        $this->rubriky[] = (int) $idt;
-                        $pridano = true;
-                    }
-                }
-            } while ($pridano);
-        }
-
-        return $this->rubriky === [] ? null : $this->rubriky;
-    }
-
-    /**
-     * Smí přihlášený upravit tento článek? Stejná pravidla jako v administraci: modul Články, jeho autoři, jeho rubriky
-     * a vydaný článek jen ten, kdo smí vydávat.
+     * Smí přihlášený upravit tuto novinku? Stejná pravidla jako v administraci: modul Novinky, autor smí jen své
+     * a vydanou novinku jen ten, kdo smí vydávat.
      *
      * @param array<string, mixed> $clanek řádek rs_clanky
      */
     public function smiUpravitClanek(array $clanek): bool
     {
-        if (!$this->maModul('clanky')) {
+        if (!$this->maModul('novinky')) {
             return false;
         }
         $autori = $this->spravovaniAutori();
-        $rubriky = $this->povoleneRubriky();
 
-        return ($autori === null || in_array((int) $clanek['autor'], $autori, true))
-            && ($rubriky === null || in_array((int) $clanek['tema'], $rubriky, true))
-            && (empty($clanek['visible']) || $this->smiVydavat());
+        return ($autori === null || in_array((int) $clanek['autor'], $autori, true)) && (empty($clanek['visible']) || $this->smiVydavat());
     }
 
     /**
-     * Část podmínky WHERE (začíná „ AND“, nebo je prázdná), která výpis článků omezí na to, co přihlášený smí vidět:
-     * jeho autoři a jeho rubriky. Hodnoty jsou celá čísla z databáze, do dotazu jdou bezpečně.
+     * Část podmínky WHERE (začíná „ AND“, nebo je prázdná), která výpis novinek omezí na to, co přihlášený smí vidět:
+     * autor jen své novinky, editor a správce všechny.
      */
     public function articleScope(string $alias = ''): string
     {
-        $sql = '';
-        if (($autori = $this->spravovaniAutori()) !== null) {
-            $sql .= ' AND ' . $alias . 'autor IN (' . implode(',', array_map(intval(...), $autori)) . ')';
-        }
-        if (($rubriky = $this->povoleneRubriky()) !== null) {
-            $sql .= ' AND ' . $alias . 'tema IN (' . implode(',', $rubriky) . ')';
-        }
+        $autori = $this->spravovaniAutori();
 
-        return $sql;
+        return $autori === null ? '' : ' AND ' . $alias . 'autor IN (' . implode(',', array_map(intval(...), $autori)) . ')';
     }
 
+    /**
+     * ID autorů, jejichž novinky smí uživatel spravovat: autor jen sebe, editor a správce všechny (null = bez omezení).
+     *
+     * @return list<int>|null
+     */
     public function spravovaniAutori(): ?array
     {
-        if ($this->isAdmin() || $this->isRedaktor()) {
-            return null;
-        }
-        $podrizeni = array_column(
-            $this->db->all('SELECT fk_id_podrizeny FROM {vazby_prava} WHERE fk_id_nadrizeny = ?', [$this->id()]),
-            'fk_id_podrizeny',
-        );
-
-        return [$this->id(), ...array_map(intval(...), $podrizeni)];
+        return $this->isAdmin() || $this->isEditor() ? null : [$this->id()];
     }
 }

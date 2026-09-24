@@ -16,7 +16,7 @@
  * @var list<string> $chybyLog  poslední řádky záznamu chyb
  * @var string $vzdalenaStav  výsledek posledního nahrání zálohy mimo server
  * @var string $ulohyToken  tajná část adresy /ulohy pro cron
- * @var bool $demoNahrano  na webu je ukázkový obsah (Core\Demo)
+ * @var array<int, string> $stranky  stránky pro volbu úvodní stránky (záložka Základní)
  */
 use MiroCMS\Admin\Moduly\Konfigurace;
 

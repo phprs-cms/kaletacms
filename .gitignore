@@ -13,3 +13,4 @@
 /storage/import/*
 !/storage/import/.htaccess
 !/storage/import/.gitkeep
+/.claude/

@@ -2,7 +2,7 @@
 <fieldset>
 <legend><?= e(t('Návštěvnost')) ?></legend>
 <?php
-$pole('statistika', 'Vestavěná statistika', 'ano', 'Návštěvy, nejčtenější články a zdroje návštěv v sekci Statistika. Bez cookies a bez souhlasu.');
+$pole('statistika', 'Vestavěná statistika', 'ano', 'Návštěvy, nejčtenější novinky a zdroje návštěv v sekci Statistika. Bez cookies a bez souhlasu.');
 $pole('ga4_id', 'Google Analytics', 'text', 'Stačí ID měření ve tvaru G-XXXXXXXXXX. Spouští se až po souhlasu návštěvníka (záložka Soukromí a cookies).', 'placeholder="G-" maxlength="24"');
 ?>
 </fieldset>

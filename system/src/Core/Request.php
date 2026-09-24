@@ -20,7 +20,7 @@ final class Request
     ) {
     }
 
-    /** Cesta bez předpony jazykové verze ("/en/clanek/x" -> "/clanek/x"); nastavuje Front\Kernel. */
+    /** Cesta bez předpony jazykové verze ("/en/novinky/x" -> "/novinky/x"); nastavuje Front\Kernel. */
     private ?string $cesta = null;
 
     /**
@@ -135,8 +135,8 @@ final class Request
     }
 
     /**
-     * Cesta požadavku uvnitř instalace, vždy začíná lomítkem: "/clanek/muj-titulek".
-     * Bez mod_rewrite funguje i tvar index.php?cesta=/clanek/muj-titulek.
+     * Cesta požadavku uvnitř instalace, vždy začíná lomítkem: "/novinky/muj-titulek".
+     * Bez mod_rewrite funguje i tvar index.php?cesta=/novinky/muj-titulek.
      */
     public function path(): string
     {

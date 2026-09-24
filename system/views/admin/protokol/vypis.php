@@ -6,8 +6,7 @@
  * @var array<int, string> $uzivatele
  * @var int $kdo
  */
-$nazvy = ['clanky' => 'Články', 'intergal' => 'Média', 'topic' => 'Rubriky', 'stranky' => 'Stránky', 'news' => 'Novinky', 'comment' => 'Komentáře', 'ankety' => 'Ankety',
-    'reklama' => 'Reklama', 'bloky' => 'Bloky', 'users' => 'Uživatelé', 'presmerovani' => 'Přesměrování', 'config' => 'Nastavení', 'prihlaseni' => 'Přihlášení', 'ucet' => 'Můj účet'];
+$nazvy = ['stranky' => 'Stránky', 'novinky' => 'Novinky', 'kategorie' => 'Kategorie', 'stitky' => 'Štítky', 'intergal' => 'Média', 'vzhled' => 'Vzhled', 'asistent' => 'AI asistent', 'mcp' => 'Claude (MCP)', 'users' => 'Uživatelé', 'presmerovani' => 'Přesměrování', 'config' => 'Nastavení', 'prihlaseni' => 'Přihlášení', 'ucet' => 'Můj účet'];
 $akce = ['uloz' => 'uložení', 'smaz' => 'smazání', 'vydat' => 'vydání', 'hromadne' => 'hromadná akce', 'nahraj' => 'nahrání', 'login' => 'přihlášení', 'neuspech' => 'neúspěšný pokus',
     'rozvrzeni' => 'změna rozvržení', 'zalohuj' => 'záloha', 'aktualizuj' => 'aktualizace systému', 'slozka' => 'složka', 'ads_txt' => 'ads.txt'];
 ?>

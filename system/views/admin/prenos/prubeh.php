@@ -26,7 +26,7 @@ $bezi = in_array($stav['faze'], ['analyza', 'import', 'obrazky'], true);
 <p class="hlaska" role="status"><?= e(t('Importuji: %s z %s položek. Nechte stránku otevřenou, pokračuji sám.', (int) $stav['pozice'], (int) $stav['celkem'])) ?></p>
 <progress class="prenos-prubeh" max="<?= max(1, (int) $stav['celkem']) ?>" value="<?= (int) $stav['pozice'] ?>"></progress>
 <?php else: ?>
-<p class="hlaska" role="status"><?= e(t('Stahuji obrázky ze starého webu: hotovo %s z %s článků a stránek, staženo %s obrázků. Nechte stránku otevřenou, pokračuji sám.', (int) $o['hotovo'], (int) $o['celkem'], (int) $o['stazeno'])) ?></p>
+<p class="hlaska" role="status"><?= e(t('Stahuji obrázky ze starého webu: hotovo %s z %s novinek a stránek, staženo %s obrázků. Nechte stránku otevřenou, pokračuji sám.', (int) $o['hotovo'], (int) $o['celkem'], (int) $o['stazeno'])) ?></p>
 <progress class="prenos-prubeh" max="<?= max(1, (int) $o['celkem']) ?>" value="<?= (int) $o['hotovo'] ?>"></progress>
 <?php endif ?>
 <form method="post" action="<?= e($modul->url('prubeh', ['soubor' => $stav['soubor']])) ?>" data-auto-odeslat="600">
@@ -36,14 +36,13 @@ $bezi = in_array($stav['faze'], ['analyza', 'import', 'obrazky'], true);
 <?php else: ?>
 <p class="hlaska hlaska-ok"><?= e(t('Import obsahu je hotový.')) ?></p>
 <div class="dlazdice">
-	<div class="dlazdice-polozka"><strong><?= (int) $v['clanky'] ?></strong><span><?= e(t('Nové články')) ?></span></div>
+	<div class="dlazdice-polozka"><strong><?= (int) $v['clanky'] ?></strong><span><?= e(t('Nové novinky')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $v['stranky'] ?></strong><span><?= e(t('Nové stránky')) ?></span></div>
-	<div class="dlazdice-polozka"><strong><?= (int) $v['rubriky'] ?></strong><span><?= e(t('Nové rubriky')) ?></span></div>
-	<div class="dlazdice-polozka"><strong><?= (int) $v['komentare'] ?></strong><span><?= e(t('Nové komentáře')) ?></span></div>
+	<div class="dlazdice-polozka"><strong><?= (int) $v['rubriky'] ?></strong><span><?= e(t('Nové kategorie')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $v['presmerovani'] ?></strong><span><?= e(t('Přesměrování ze starých adres')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $v['preskoceno'] ?></strong><span><?= e(t('Přeskočeno (převedeno už dříve)')) ?></span></div>
 </div>
-<p class="navigace-radek"><a class="navigace" href="<?= e($app->url('admin.php?modul=clanky')) ?>"><?= e(t('Zobrazit články')) ?></a> <a class="navigace" href="<?= e($modul->url()) ?>"><?= e(t('Zpět na Import a export')) ?></a></p>
+<p class="navigace-radek"><a class="navigace" href="<?= e($app->url('admin.php?modul=novinky')) ?>"><?= e(t('Zobrazit novinky')) ?></a> <a class="navigace" href="<?= e($modul->url()) ?>"><?= e(t('Zpět na Import a export')) ?></a></p>
 
 <h3><?= e(t('Obrázky ze starého webu')) ?></h3>
 <?php if ($stav['faze'] === 'obrazky-hotovo'): ?>
@@ -61,7 +60,7 @@ $bezi = in_array($stav['faze'], ['analyza', 'import', 'obrazky'], true);
 <?php elseif ($domena === ''): ?>
 <p class="hlaska"><?= e(t('V souboru chybí adresa starého webu, obrázky proto nejde stáhnout.')) ?></p>
 <?php else: ?>
-<p><?= e(t('Články zatím ukazují obrázky ze starého webu. Stažením se hlavní obrázky článků a obrázky v textech uloží do Médií (zmenší se, vzniknou náhledy a WebP) a odkazy v textech se přepíší. Stahuje se výhradně z domény %s a starý web musí být ještě dostupný.', $domena)) ?></p>
+<p><?= e(t('Novinky a stránky zatím ukazují obrázky ze starého webu. Stažením se hlavní obrázky novinek a obrázky v textech uloží do Médií (zmenší se, vzniknou náhledy a WebP) a odkazy v textech se přepíší. Stahuje se výhradně z domény %s a starý web musí být ještě dostupný.', $domena)) ?></p>
 <form method="post" action="<?= e($modul->url('obrazky')) ?>"><?= $csrf ?><input type="hidden" name="soubor" value="<?= e($stav['soubor']) ?>">
 	<p><button class="tl" type="submit"><?= e(t($stav['faze'] === 'obrazky-hotovo' ? 'Zkusit stáhnout znovu' : 'Stáhnout obrázky ze starého webu')) ?></button></p></form>
 <?php endif ?>

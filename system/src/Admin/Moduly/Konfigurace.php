@@ -25,7 +25,7 @@ class Konfigurace extends Modul
     public const bool JEN_ADMIN = true;
 
     public const array ZALOZKY = [
-        'zakladni' => 'Základní', 'ctenari' => 'Čtenáři a platby', 'seo' => 'SEO a GEO',
+        'zakladni' => 'Základní', 'seo' => 'SEO a GEO',
         'mereni' => 'Měření', 'cookies' => 'Soukromí a cookies', 'posta' => 'Pošta', 'zalohy' => 'Zálohy a aktualizace', 'stav' => 'Stav systému',
     ];
 
@@ -39,13 +39,8 @@ class Konfigurace extends Modul
         'zakladni' => [
             'nazev_webu' => 'text', 'adresa_webu' => 'vzor:#^https?://[a-z0-9.-]+(:\d+)?$#i', 'popis_webu' => 'radky', 'klicova_slova' => 'text', 'email_webu' => 'email', 'text_paticky' => 'text',
             'soc_facebook' => 'url', 'soc_instagram' => 'url', 'soc_x' => 'url', 'soc_youtube' => 'url', 'soc_linkedin' => 'url',
-            'pocet_clanku' => 'cislo:1:100', 'pocet_novinek' => 'cislo:0:50', 'hlidat_platnost' => 'ano', 'povolit_komentare' => 'ano', 'komentare_rezim' => 'vyber:hned|schvalovat', 'povolit_hodnoceni' => 'ano', 'sdileni' => 'ano', 'kontrola_odkazu' => 'ano', 'doba_cteni' => 'ano', 'osnova_clanku' => 'ano', 'souvisejici_auto' => 'ano', 'upozorneni_komentare' => 'vyber:schvaleni|vse|nic', 'cache_stranek' => 'ano', 'udrzba' => 'ano', 'udrzba_text' => 'text', 'webhook_url' => 'url',
-            'casove_pasmo' => 'pasmo', 'jazyk_webu' => 'vyber:cs|sk|en|de', 'jazyky_dalsi' => 'seznam:cs|sk|en|de',
-        ],
-        'ctenari' => [
-            'komentare_jen_prihlaseni' => 'ano', 'ctenari_registrace' => 'ano', 'zamek_odstavcu' => 'cislo:0:10', 'paywall_zdarma' => 'cislo:0:50', 'zamek_text' => 'text', 'predplatne_url' => 'text',
-            'stripe_tajny_klic' => 'tajne:' . \MiroCMS\Core\Stripe::VZOR_KLIC, 'stripe_webhook_tajemstvi' => 'tajne:' . \MiroCMS\Core\Stripe::VZOR_WEBHOOK,
-            'stripe_cena_mesic' => 'vzor:' . \MiroCMS\Core\Stripe::VZOR_CENA, 'stripe_cena_rok' => 'vzor:' . \MiroCMS\Core\Stripe::VZOR_CENA, 'stripe_cena_mesic_text' => 'text', 'stripe_cena_rok_text' => 'text',
+            'titulni_stranka' => 'cislo:0:4294967295', 'pocet_clanku' => 'cislo:1:100', 'sdileni' => 'ano', 'kontrola_odkazu' => 'ano', 'osnova_clanku' => 'ano', 'souvisejici_auto' => 'ano', 'cache_stranek' => 'ano', 'udrzba' => 'ano', 'udrzba_text' => 'text', 'webhook_url' => 'url',
+            'casove_pasmo' => 'pasmo', 'jazyk_webu' => 'vyber:' . \MiroCMS\Core\Jazyk::KODY, 'jazyky_dalsi' => 'seznam:' . \MiroCMS\Core\Jazyk::KODY,
         ],
         'seo' => [
             'indexovani' => 'ano', 'schema_org' => 'ano', 'og_obrazek' => 'text', 'overeni_google' => 'vzor:/^[A-Za-z0-9_-]{0,100}$/',
@@ -60,7 +55,7 @@ class Konfigurace extends Modul
             'smtp_sifrovani' => 'vyber:tls|ssl|zadne', 'smtp_uzivatel' => 'text', 'smtp_heslo' => 'tajne'],
         'rozsireni' => ['ai_klic' => 'tajne', 'ai_model' => 'vyber:' . \MiroCMS\Core\Asistent::MODELY_KLICE],
         'zalohy' => ['zaloha_vzdalena' => 'vyber:vypnuto|ftp|s3', 'zaloha_host' => 'vzor:#^[A-Za-z0-9.:/-]{0,150}$#', 'zaloha_uzivatel' => 'text', 'zaloha_heslo' => 'tajne',
-            'zaloha_slozka' => 'vzor:#^[A-Za-z0-9._/-]{0,150}$#', 'zaloha_region' => 'vzor:/^[a-z0-9-]{0,40}$/', 'zalohy_auto' => 'ano', 'aktualizace_auto' => 'ano', 'aktualizace_url' => 'url', 'odkaz_podpora' => 'ano'],
+            'zaloha_slozka' => 'vzor:#^[A-Za-z0-9._/-]{0,150}$#', 'zaloha_region' => 'vzor:/^[a-z0-9-]{0,40}$/', 'zalohy_auto' => 'ano', 'aktualizace_auto' => 'ano', 'aktualizace_url' => 'url'],
         'stav' => ['stav_token' => 'vzor:/^[A-Za-z0-9]{0,64}$/'],
     ];
 
@@ -107,7 +102,7 @@ class Konfigurace extends Modul
             'chybyLog' => $zalozka === 'stav' ? self::konecSouboru(MIROCMS_ROOT . '/storage/log/chyby.log', 40) : [],
             'posta' => $zalozka === 'posta' ? $this->db->all('SELECT komu, predmet, vytvoreno, odeslano, pokusu, dalsi_pokus, chyba FROM {posta} ORDER BY idp DESC LIMIT 30') : [],
             'zapnutaRozsireni' => Rozsireni::zapnuta($nastaveni),
-            'demoNahrano' => \MiroCMS\Core\Demo::jeNahrany($nastaveni),
+            'stranky' => $zalozka === 'zakladni' ? $this->db->pairs("SELECT ids, titulek FROM {stranky} WHERE zobrazit = 1 AND jazyk = '' ORDER BY poradi, titulek") : [],
             'zalohy' => $zalozka === 'zalohy' ? Zaloha::seznam() : [],
             'aktualizace' => $zalozka === 'zalohy' ? (new Aktualizace($nastaveni))->stav() : null,
             'adresaWebu' => $this->app->request->origin() . $this->app->url(''),
@@ -166,31 +161,6 @@ class Konfigurace extends Modul
         return $chyby === []
             ? $this->zpet('Nastavení bylo uloženo.', '', static::IDENT === 'config' ? ['zalozka' => $zalozka] : [])
             : $this->zpet(t('Některé hodnoty nemají platný tvar a nebyly uloženy: %s.', implode(', ', $chyby)), '', static::IDENT === 'config' ? ['zalozka' => $zalozka] : [], 'chyba');
-    }
-
-    /** Ukázkový obsah (smyšlený magazín ze system/demo) v jazyce webu; články bez hostujícího autora připadnou přihlášenému. */
-    protected function akceDemoNahraj(): Response
-    {
-        if (!$this->request->isPost()) {
-            return $this->zpet();
-        }
-        $nastaveni = $this->app->settings();
-        try {
-            $this->db->transaction(fn () => \MiroCMS\Core\Demo::nahraj($this->db, $nastaveni, $nastaveni->get('jazyk_webu'), $this->app->auth()->id()));
-        } catch (\Throwable $e) {
-            return $this->zpet(t('Ukázkový obsah se nepodařilo nahrát: %s', t($e->getMessage())), '', ['zalozka' => 'zakladni'], 'chyba');
-        }
-
-        return $this->zpet('Ukázkový obsah je nahraný. Najdete ho v Článcích, Rubrikách a Médiích.', '', ['zalozka' => 'zakladni']);
-    }
-
-    protected function akceDemoSmaz(): Response
-    {
-        if ($this->request->isPost()) {
-            \MiroCMS\Core\Demo::smaz($this->db, $this->app->settings());
-        }
-
-        return $this->zpet('Ukázkový obsah byl smazán.', '', ['zalozka' => 'zakladni']);
     }
 
     protected function akceZalohuj(): Response
@@ -306,38 +276,6 @@ class Konfigurace extends Modul
         return $this->zpet(t('Systém byl aktualizován na verzi %s. Databáze se upraví sama při příštím načtení administrace.', $verze), '', ['zalozka' => 'zalohy']);
     }
 
-    /** Žádost o osobní údaje čtenáře (GDPR): export nebo výmaz všeho, co je k e-mailu uloženo. */
-    protected function akceOsobniUdaje(): Response
-    {
-        $email = mb_strtolower($this->request->post('gdpr_email'));
-        if (!$this->request->isPost() || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
-            return $this->zpet('Zadejte platný e-mail čtenáře.', '', ['zalozka' => 'cookies'], 'chyba');
-        }
-        $komentare = $this->db->all('SELECT k.idk, k.datum, k.od, k.od_mail, k.od_ip, k.obsah, c.titulek AS clanek FROM {komentare} k JOIN {clanky} c ON c.idc = k.clanek WHERE k.od_mail = ?', [$email]);
-        $odber = $this->db->one('SELECT email, prihlasen, potvrzen FROM {odberatele} WHERE email = ?', [$email]);
-        $ucet = $this->db->one('SELECT email, jmeno, vytvoren, naposledy, potvrzen, predplatne_do, predplatne_stav, stripe_zakaznik, stripe_predplatne FROM {ctenari} WHERE email = ?', [$email]);
-        $platby = $this->db->all('SELECT p.vytvoreno AS datum, p.castka, p.mena FROM {platby} p JOIN {ctenari} c ON c.idct = p.idct WHERE c.email = ? ORDER BY p.id', [$email]);
-        if ($this->request->post('gdpr_co') === 'smazat') {
-            $clanky = array_unique(array_column($this->db->all('SELECT clanek FROM {komentare} WHERE od_mail = ?', [$email]), 'clanek'));
-            $this->db->delete('komentare', ['od_mail' => $email]);
-            $this->db->delete('odberatele', ['email' => $email]);
-            $this->db->delete('ctenari', ['email' => $email]); // platby zůstávají kvůli účetnictví, ale bez vazby na čtenáře (idct = NULL)
-            foreach ($clanky as $idc) {
-                \MiroCMS\Front\Interakce::prepocitej($this->db, (int) $idc);
-            }
-            $bezi = $ucet !== null && \MiroCMS\Front\Ctenari::beziStripe($ucet);
-
-            return $this->zpet(t('Smazáno: komentářů %d, odběr newsletteru %s, účet čtenáře %s.', count($komentare), t($odber !== null ? 'ano' : 'ne'), t($ucet !== null ? 'ano' : 'ne'))
-                . ($platby !== [] ? ' ' . t('Plateb ponecháno bez vazby na čtenáře: %d.', count($platby)) : '')
-                . ($bezi ? ' ' . t('Čtenář má ve Stripe běžící předplatné (%s) – zrušte ho tam, jinak se mu budou dál strhávat platby.', (string) $ucet['stripe_predplatne']) : ''), '', ['zalozka' => 'cookies'], $bezi ? 'chyba' : 'ok');
-        }
-
-        return new Response((string) json_encode(['email' => $email, 'vytvoreno' => date('c'), 'komentare' => $komentare, 'newsletter' => $odber, 'ucet_ctenare' => $ucet,
-            'platby' => array_map(static fn (array $p): array => ['datum' => $p['datum'], 'castka' => \MiroCMS\Core\Stripe::castka((int) $p['castka'], $p['mena']), 'mena' => strtoupper($p['mena'])], $platby)], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), 200, [
-            'Content-Type' => 'application/json; charset=utf-8', 'Content-Disposition' => 'attachment; filename="osobni-udaje.json"',
-        ]);
-    }
-
     /** Záloha nahraných médií: ZIP složky media/ ke stažení. */
     protected function akceZalohaMedii(): Response
     {
@@ -370,7 +308,7 @@ class Konfigurace extends Modul
     {
         $komu = $this->app->settings()->get('email_webu');
         if (!$this->request->isPost() || $komu === '') {
-            return $this->zpet('Nejprve vyplňte E-mail redakce v záložce Základní.', '', ['zalozka' => $this->request->post('zalozka') === 'posta' ? 'posta' : 'stav'], 'chyba');
+            return $this->zpet('Nejprve vyplňte E-mail webu v záložce Základní.', '', ['zalozka' => $this->request->post('zalozka') === 'posta' ? 'posta' : 'stav'], 'chyba');
         }
         $web = $this->app->settings()->get('nazev_webu');
         // adresa redakce nemá účet s jazykem: zpráva jde ve výchozím jazyce webu (stejně jako ostatní pošta redakci)

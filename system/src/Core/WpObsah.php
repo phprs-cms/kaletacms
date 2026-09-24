@@ -111,7 +111,7 @@ final class WpObsah
 
             return self::galerie($obrazky[0]);
         }, $html) ?? $html;
-        // vložené video či příspěvek: adresa je v nastavení bloku; u nás stačí adresa na samostatném řádku (Front\TypyObsahu)
+        // vložené video či příspěvek: adresa je v nastavení bloku; u nás stačí adresa na samostatném řádku (Front\TextNovinky)
         $html = preg_replace_callback('#<!--\s*wp:(?:core-embed/[\w-]+|embed)\s+(\{.*?\})\s*-->.*?<!--\s*/wp:(?:core-embed/[\w-]+|embed)\s*-->#s', function (array $m): string {
             $adresa = (string) (json_decode($m[1], true)['url'] ?? '');
 

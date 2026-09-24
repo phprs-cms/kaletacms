@@ -18,13 +18,13 @@ final class Identita
     /** klíč => [název, popis, CSS font-family] */
     public const array PISMA_TITULKU = [
         'vychozi' => ['Podle šablony', 'písmo, se kterým šablona přichází', ''],
-        'elegantni' => ['Elegantní patkové', 'Bodoni, Didot – noviny a móda', '"Bodoni 72", Didot, "Bodoni MT", "Playfair Display", Georgia, serif'],
+        'elegantni' => ['Elegantní patkové', 'Bodoni, Didot – elegance a móda', '"Bodoni 72", Didot, "Bodoni MT", "Playfair Display", Georgia, serif'],
         'klasicke' => ['Klasické patkové', 'Georgia – seriózní a dobře čitelné', 'Georgia, "Times New Roman", Times, serif'],
         'knizni' => ['Knižní', 'Charter, Cambria – klidné a literární', 'Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif'],
         'moderni' => ['Moderní bezpatkové', 'systémové písmo zařízení – čisté a neutrální', 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'],
-        'grotesk' => ['Výrazný grotesk', 'Helvetica, Arial – magazíny a plakáty', '"Helvetica Neue", Helvetica, "Arial Nova", Arial, sans-serif'],
-        'zaoblene' => ['Zaoblené', 'přátelské, pro lifestyle a rodinné weby', 'ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN", Quicksand, Nunito, system-ui, sans-serif'],
-        'strojove' => ['Psací stroj', 'technologie, fanziny, deníky', 'ui-monospace, "SF Mono", Menlo, Consolas, "Courier New", monospace'],
+        'grotesk' => ['Výrazný grotesk', 'Helvetica, Arial – výrazné a sebevědomé', '"Helvetica Neue", Helvetica, "Arial Nova", Arial, sans-serif'],
+        'zaoblene' => ['Zaoblené', 'přátelské, pro služby a rodinné firmy', 'ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN", Quicksand, Nunito, system-ui, sans-serif'],
+        'strojove' => ['Psací stroj', 'technologie a vývoj', 'ui-monospace, "SF Mono", Menlo, Consolas, "Courier New", monospace'],
     ];
 
     public const array PISMA_TEXTU = [

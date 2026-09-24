@@ -10,7 +10,7 @@ use MiroCMS\Core\Auth;
 use MiroCMS\Core\Response;
 
 /**
- * Editace autorů: účty administrace, práva k modulům, právo vydávat a vazby nadřízený - podřízený.
+ * Uživatelé administrace: účty, role (správce, editor, autor novinek) a případně ruční přístup do sekcí.
  */
 final class Autori extends Modul
 {
@@ -23,19 +23,12 @@ final class Autori extends Modul
     protected function akceVypis(): Response
     {
         $autori = $this->db->all('SELECT u.*, (SELECT COUNT(*) FROM {clanky} c WHERE c.autor = u.idu AND c.smazano IS NULL) AS pocet_clanku FROM {user} u ORDER BY u.user');
-        $moduly = $rubriky = $cizi = [];
+        $moduly = [];
         foreach ($this->db->all('SELECT fk_id_user, ident_modulu FROM {user_prava}') as $r) {
             $moduly[(int) $r['fk_id_user']][] = (string) $r['ident_modulu'];
         }
-        foreach ($this->db->all('SELECT ur.idu, t.nazev FROM {user_rubriky} ur JOIN {topic} t ON t.idt = ur.idt ORDER BY t.nazev') as $r) {
-            $rubriky[(int) $r['idu']][] = (string) $r['nazev'];
-        }
-        foreach ($this->db->all('SELECT fk_id_nadrizeny, COUNT(*) AS pocet FROM {vazby_prava} GROUP BY fk_id_nadrizeny') as $r) {
-            $cizi[(int) $r['fk_id_nadrizeny']] = (int) $r['pocet'];
-        }
         foreach ($autori as &$a) {
-            $id = (int) $a['idu'];
-            $a['shrnuti'] = self::shrnuti((int) $a['admin'], (bool) $a['pravo_vydavat'], $moduly[$id] ?? [], $rubriky[$id] ?? [], $cizi[$id] ?? 0, (bool) $a['blokovat']);
+            $a['shrnuti'] = self::shrnuti((int) $a['admin'], $moduly[(int) $a['idu']] ?? [], (bool) $a['blokovat']);
         }
         unset($a);
 
@@ -44,7 +37,7 @@ final class Autori extends Modul
 
     protected function akceNovy(): Response
     {
-        return $this->formular(['idu' => 0, 'user' => '', 'jmeno' => '', 'email' => '', 'url' => '', 'admin' => Auth::AUTOR, 'pravo_vydavat' => 0, 'blokovat' => 0]);
+        return $this->formular(['idu' => 0, 'user' => '', 'jmeno' => '', 'email' => '', 'url' => '', 'admin' => Auth::AUTOR, 'blokovat' => 0]);
     }
 
     protected function akceEdit(): Response
@@ -68,7 +61,6 @@ final class Autori extends Modul
             'email' => $r->post('email'),
             'url' => $r->post('url'),
             'admin' => array_key_exists($r->postInt('admin'), Auth::TYPY) ? $r->postInt('admin') : Auth::AUTOR,
-            'pravo_vydavat' => (int) $r->postBool('pravo_vydavat'),
             'blokovat' => (int) $r->postBool('blokovat'),
         ];
         if ($sam) {
@@ -90,7 +82,7 @@ final class Autori extends Modul
         if (!preg_match('/^[a-zA-Z0-9._-]{2,40}$/', $data['user'])) {
             $chyby['user'] = 'Přihlašovací jméno: 2-40 znaků, jen písmena bez diakritiky, číslice, tečka, pomlčka a podtržítko.';
         } elseif ($this->db->value('SELECT idu FROM {user} WHERE user = ? AND idu <> ?', [$data['user'], $id]) !== null) {
-            $chyby['user'] = 'Toto přihlašovací jméno už používá jiný autor.';
+            $chyby['user'] = 'Toto přihlašovací jméno už používá jiný uživatel.';
         }
         if ($data['email'] !== '' && filter_var($data['email'], FILTER_VALIDATE_EMAIL) === false) {
             $chyby['email'] = 'E-mail nemá platný tvar.';
@@ -111,9 +103,8 @@ final class Autori extends Modul
         $moduly = $r->postBool('rucne')
             ? array_intersect($r->postList('moduly'), array_map(fn (string $c): string => $c::IDENT, Kernel::MODULY))
             : self::vychoziModuly((int) $data['admin']);
-        $podrizeni = array_filter(array_map(intval(...), $r->postList('podrizeni')), fn (int $p): bool => $p > 0 && $p !== $id);
 
-        $this->db->transaction(function () use (&$id, $data, $moduly, $podrizeni): void {
+        $this->db->transaction(function () use (&$id, $data, $moduly): void {
             if ($id > 0) {
                 $this->db->update('user', $data, ['idu' => $id]);
             } else {
@@ -123,35 +114,17 @@ final class Autori extends Modul
             foreach ($moduly as $ident) {
                 $this->db->insert('user_prava', ['fk_id_user' => $id, 'ident_modulu' => $ident]);
             }
-            // omezení na rubriky: nic nezaškrtnuto = všechny rubriky
-            $this->db->delete('user_rubriky', ['idu' => $id]);
-            foreach (array_unique(array_filter(array_map(intval(...), $this->request->postList('rubriky')))) as $idt) {
-                if ((int) $data['admin'] < \MiroCMS\Core\Auth::ADMIN && $this->db->value('SELECT idt FROM {topic} WHERE idt = ?', [$idt]) !== null) {
-                    $this->db->insert('user_rubriky', ['idu' => $id, 'idt' => $idt]);
-                }
-            }
-            $this->db->delete('vazby_prava', ['fk_id_nadrizeny' => $id]);
-            foreach ($podrizeni as $p) {
-                $this->db->insert('vazby_prava', ['fk_id_nadrizeny' => $id, 'fk_id_podrizeny' => $p]);
-            }
         });
 
         return $this->zpet('Uživatel byl uložen.');
     }
 
     /**
-     * Sekce, do kterých má role přístup, když je administrátor nenastaví ručně.
-     *
-     * @return list<string>
-     */
-    /**
-     * Oprávnění uživatele jednou větou - role, vydávání, cizí články, rubriky a moduly jsou ve formuláři na čtyřech místech
-     * a správce po uložení potřebuje vidět, co z nich dohromady vyšlo.
+     * Oprávnění uživatele jednou větou - správce po uložení potřebuje vidět, co z role a sekcí dohromady vyšlo.
      *
      * @param list<string> $moduly identifikátory modulů, ke kterým má přístup
-     * @param list<string> $rubriky názvy rubrik, na které je omezen (prázdné = všechny)
      */
-    public static function shrnuti(int $role, bool $vydava, array $moduly, array $rubriky, int $cizichAutoru, bool $blokovan = false): string
+    public static function shrnuti(int $role, array $moduly, bool $blokovan = false): string
     {
         if ($blokovan) {
             return t('Účet je zablokovaný – do administrace se nepřihlásí.');
@@ -160,20 +133,16 @@ final class Autori extends Modul
             return t('Smí všechno včetně nastavení webu a správy uživatelů.');
         }
         $casti = [];
-        if (!in_array('clanky', $moduly, true)) {
-            $casti[] = t('Nepíše články');
-        } elseif ($role >= Auth::REDAKTOR) {
-            $casti[] = t('Píše, upravuje a vydává články všech autorů');
+        if (!in_array('novinky', $moduly, true)) {
+            $casti[] = t('Nepíše novinky');
+        } elseif ($role >= Auth::EDITOR) {
+            $casti[] = t('Píše, upravuje a vydává novinky všech autorů');
         } else {
-            $casti[] = $cizichAutoru > 0 ? t('Píše vlastní články a upravuje i články dalších autorů (%d)', $cizichAutoru) : t('Píše a upravuje vlastní články');
-            $casti[] = $vydava ? t('vydává je sám') : t('nevydává – vydání schvaluje redakce');
-        }
-        if ($rubriky !== []) {
-            $casti[] = t('jen v rubrikách: %s', implode(', ', array_slice($rubriky, 0, 4)) . (count($rubriky) > 4 ? '…' : ''));
+            $casti[] = t('Píše a upravuje vlastní novinky, vydává je editor');
         }
         $nazvy = [];
         foreach (Kernel::MODULY as $class) {
-            if ($class::IDENT !== 'clanky' && !$class::JEN_ADMIN && !$class::PRO_VSECHNY && in_array($class::IDENT, $moduly, true)) {
+            if ($class::IDENT !== 'novinky' && !$class::JEN_ADMIN && !$class::PRO_VSECHNY && in_array($class::IDENT, $moduly, true)) {
                 $nazvy[] = t($class::NAZEV);
             }
         }
@@ -185,6 +154,11 @@ final class Autori extends Modul
         return $veta;
     }
 
+    /**
+     * Sekce, do kterých má role přístup, když je správce nenastaví ručně: autor jen Novinky, editor veškerý obsah.
+     *
+     * @return list<string>
+     */
     public static function vychoziModuly(int $role): array
     {
         $moduly = [];
@@ -192,7 +166,7 @@ final class Autori extends Modul
             if ($class::JEN_ADMIN || $class::PRO_VSECHNY) {
                 continue;
             }
-            if ($role >= Auth::REDAKTOR || $class::IDENT === 'clanky') {
+            if ($role >= Auth::EDITOR || $class::IDENT === 'novinky') {
                 $moduly[] = $class::IDENT;
             }
         }
@@ -211,7 +185,7 @@ final class Autori extends Modul
         }
         $this->db->delete('user', ['idu' => $id]);
 
-        return $this->zpet('Uživatel byl smazán. Jeho články zůstaly zachovány bez autora.');
+        return $this->zpet('Uživatel byl smazán. Jeho novinky zůstaly zachované bez autora.');
     }
 
     /**
@@ -230,10 +204,8 @@ final class Autori extends Modul
 
         // shrnutí platí pro uložený stav - nad formulářem říká, co uživatel smí TEĎ (u nového uživatele není co shrnovat)
         $shrnuti = $id > 0 && !$this->request->isPost() ? self::shrnuti(
-            (int) $autor['admin'], (bool) $autor['pravo_vydavat'],
+            (int) $autor['admin'],
             array_column($this->db->all('SELECT ident_modulu FROM {user_prava} WHERE fk_id_user = ?', [$id]), 'ident_modulu'),
-            array_column($this->db->all('SELECT t.nazev FROM {user_rubriky} ur JOIN {topic} t ON t.idt = ur.idt WHERE ur.idu = ? ORDER BY t.nazev', [$id]), 'nazev'),
-            (int) $this->db->value('SELECT COUNT(*) FROM {vazby_prava} WHERE fk_id_nadrizeny = ?', [$id]),
             (bool) $autor['blokovat'],
         ) : '';
 
@@ -254,10 +226,6 @@ final class Autori extends Modul
 
                 return $ma !== $vychozi;
             })()),
-            'ostatni' => $this->db->pairs('SELECT idu, IF(jmeno = \'\', user, CONCAT(jmeno, \' (\', user, \')\')) FROM {user} WHERE idu <> ? ORDER BY user', [$id]),
-            'maPodrizene' => $this->request->isPost()
-                ? array_map(intval(...), $this->request->postList('podrizeni'))
-                : array_map(intval(...), array_column($this->db->all('SELECT fk_id_podrizeny FROM {vazby_prava} WHERE fk_id_nadrizeny = ?', [$id]), 'fk_id_podrizeny')),
         ]);
     }
 }

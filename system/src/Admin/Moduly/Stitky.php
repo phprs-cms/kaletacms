@@ -58,6 +58,6 @@ final class Stitky extends Modul
             $this->db->delete('stitky', ['ids' => $this->request->postInt('ids')]);
         }
 
-        return $this->zpet('Štítek byl smazán. Články zůstaly, jen ho už nemají.');
+        return $this->zpet('Štítek byl smazán. Novinky zůstaly, jen ho už nemají.');
     }
 }

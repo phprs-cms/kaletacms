@@ -9,9 +9,9 @@ use MiroCMS\Core\Obrazky;
 use MiroCMS\Core\Response;
 
 /**
- * Média: nahrávání i přetažením a přímo z editoru článku, složky,
+ * Média: nahrávání i přetažením a přímo z editoru, složky,
  * popisky, mazání a přehled, ve kterých článcích je obrázek použitý.
- * Obrázek se do článku vkládá z editoru.
+ * Obrázek se do textu vkládá z editoru.
  */
 final class Galerie extends Modul
 {
@@ -20,7 +20,7 @@ final class Galerie extends Modul
     public const string SKUPINA = 'Obsah';
     public const string IKONA = 'media';
 
-    /** Nahrávat musí umět každý, kdo píše články; cizí obrázky ale mění a maže jen admin. */
+    /** Nahrávat musí umět každý, kdo píše novinky; cizí obrázky ale mění a maže jen správce. */
     public const bool PRO_VSECHNY = true;
 
     private const int NA_STRANKU = 40;
@@ -82,8 +82,8 @@ final class Galerie extends Modul
     }
 
     /**
-     * Přepočítá, které obrázky článek používá: hlavní obrázek, obrázky vložené editorem
-     * (data-id, adresa souboru). Volá se při uložení článku.
+     * Přepočítá, které obrázky novinka používá: hlavní obrázek, obrázky vložené editorem
+     * (data-id, adresa souboru). Volá se při uložení novinky.
      */
     public static function zapisPouziti(\MiroCMS\Core\Db $db, int $idc, string ...$html): void
     {
@@ -237,7 +237,7 @@ final class Galerie extends Modul
             'id' => (int) $o['ido'], 'nazev' => $o['nazev'], 'popis' => $o['popis'] ?? '',
             'url' => $this->app->url($o['obr_poloha']), 'nahled' => $o['nahl_poloha'] === '' ? '' : $this->app->url($o['nahl_poloha']),
             'sirka' => (int) $o['obr_width'], 'vyska' => (int) $o['obr_height'],
-            // příloha ke stažení (PDF, dokument, zvuk…): bez náhledu, do článku se vkládá jako odkaz
+            // příloha ke stažení (PDF, dokument, zvuk…): bez náhledu, do textu se vkládá jako odkaz
             'soubor' => $o['nahl_poloha'] === '', 'pripona' => strtoupper(pathinfo($o['obr_poloha'], PATHINFO_EXTENSION)), 'velikost' => \MiroCMS\Core\Soubory::velikost((int) ($o['obr_vel'] ?? 0)),
         ];
     }

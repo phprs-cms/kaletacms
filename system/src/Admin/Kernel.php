@@ -15,27 +15,18 @@ use MiroCMS\Core\Rozsireni;
 final class Kernel
 {
     /**
-     * Moduly v pořadí, v jakém jsou v menu (po skupinách Obsah, Čtenáři, Vzhled, Správa).
-     * Identifikátory odpovídají MiroCMS 2 (users, clanky, news, bloky, topic, config...).
+     * Moduly v pořadí, v jakém jsou v menu (po skupinách Obsah, Vzhled, Správa).
      *
      * @var list<class-string<Modul>>
      */
     public const array MODULY = [
-        Moduly\Clanky::class,
-        Moduly\Galerie::class,
-        Moduly\Rubriky::class,
-        Moduly\Stitky::class,
         Moduly\Stranky::class,
         Moduly\Novinky::class,
-        Moduly\Komentare::class,
-        Moduly\Ankety::class,
-        Moduly\NewsletterAdmin::class,
-        Moduly\CtenariAdmin::class,
+        Moduly\Kategorie::class,
+        Moduly\Stitky::class,
+        Moduly\Galerie::class,
         Moduly\Statistika::class,
-        Moduly\Reklama::class,
-        Moduly\Prijmy::class,
         Moduly\Vzhled::class,
-        Moduly\Bloky::class,
         Moduly\Autori::class,
         Moduly\Presmerovani::class,
         Moduly\ProtokolZmen::class,
@@ -62,9 +53,9 @@ final class Kernel
             ]), 400);
         }
 
-        // každá změna v administraci zneplatní cache stránek webu; průběžné požadavky editoru (zámek článku, rozepsaný
-        // stav, asistent) web nemění - kdyby cache mazaly, při psaní článku by byla pořád studená
-        if ($request->isPost() && !in_array($request->get('akce'), ['zamek', 'koncept', 'asistent'], true)) {
+        // každá změna v administraci zneplatní cache stránek webu; průběžné požadavky editoru (rozepsaný stav, asistent)
+        // web nemění - kdyby cache mazaly, při psaní by byla pořád studená
+        if ($request->isPost() && !in_array($request->get('akce'), ['koncept', 'asistent'], true)) {
             \MiroCMS\Front\Cache::vymaz();
         }
         $akce = $request->get('akce');
@@ -100,7 +91,7 @@ final class Kernel
             \MiroCMS\Core\Zaloha::automaticka($app->db(), $app->settings());
         }
         if ($app->auth()->user() !== null) {
-            Moduly\Clanky::vysypKos($app->db()); // koš drží články 30 dní
+            Moduly\Novinky::vysypKos($app->db()); // koš drží novinky 30 dní
         }
 
         $ident = $request->get('modul');
@@ -129,9 +120,9 @@ final class Kernel
         }
 
         $odpoved = (new $class($this))->handle($akce === '' ? 'vypis' : $akce);
-        if ($request->isPost() && $odpoved->status === 302 && $akce !== 'poradi' && $akce !== 'zamek') {
+        if ($request->isPost() && $odpoved->status === 302 && $akce !== 'poradi') {
             // každá provedená změna v administraci jde do protokolu
-            $popis = $request->post('titulek') ?: ($request->post('nazev') ?: ($request->post('user') ?: ($request->post('otazka') ?: $request->post('zalozka'))));
+            $popis = $request->post('titulek') ?: ($request->post('nazev') ?: ($request->post('user') ?: $request->post('zalozka')));
             Protokol::zapis($app, $ident, $akce, $popis);
         }
 
@@ -177,7 +168,7 @@ final class Kernel
     }
 
     /**
-     * Data úvodní obrazovky: přehled redakce.
+     * Data úvodní obrazovky: přehled webu.
      *
      * @return array<string, mixed>
      */
@@ -185,30 +176,22 @@ final class Kernel
     {
         $data = ['app' => $this->app, 'moduly' => $this->moduly()];
         $db = $this->app->db();
-        $jen = ' AND smazano IS NULL' . $this->app->auth()->articleScope();      // pro dotazy bez aliasu (články v koši se nepočítají)
+        $jen = ' AND smazano IS NULL' . $this->app->auth()->articleScope();      // pro dotazy bez aliasu (novinky v koši se nepočítají)
         $jenC = ' AND c.smazano IS NULL' . $this->app->auth()->articleScope('c.');  // pro dotazy s aliasem c
 
         return $data + [
             'pruvodce' => $this->pruvodce(),
-            // návštěvnost za 14 dní (vlastní měření bez cookies) a fronta práce redakce
+            // návštěvnost za 14 dní (vlastní měření bez cookies)
             'navstevnost' => Rozsireni::je($this->app->settings(), 'statistika') && isset($this->moduly()['stat'])
                 ? $db->all('SELECT den, navstevy, zobrazeni FROM {stat_dny} WHERE den > CURDATE() - INTERVAL 14 DAY ORDER BY den') : [],
-            'fronta' => $db->all(
-                "SELECT c.idc, c.titulek, c.datum, c.visible, c.stav_redakce, IF(u.jmeno = '' OR u.jmeno IS NULL, u.user, u.jmeno) AS autor_jm
-                 FROM {clanky} c LEFT JOIN {user} u ON u.idu = c.autor
-                 WHERE ((c.visible = 0 AND c.stav_redakce IN ('korektura', 'schvaleno')) OR (c.visible = 1 AND c.datum > NOW()))" . $jenC . "
-                 ORDER BY c.visible, c.datum LIMIT 8",
-            ),
             'pocty' => [
-                'Vydané články' => (int) $db->value("SELECT COUNT(*) FROM {clanky} WHERE visible = 1 AND datum <= NOW(){$jen}"),
+                'Stránky' => (int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE zobrazit = 1'),
+                'Vydané novinky' => (int) $db->value("SELECT COUNT(*) FROM {clanky} WHERE visible = 1 AND datum <= NOW(){$jen}"),
                 'Naplánované' => (int) $db->value("SELECT COUNT(*) FROM {clanky} WHERE visible = 1 AND datum > NOW(){$jen}"),
-                'Ke korektuře' => (int) $db->value("SELECT COUNT(*) FROM {clanky} WHERE visible = 0 AND stav_redakce = 'korektura'{$jen}"),
-                'Koncepty' => (int) $db->value("SELECT COUNT(*) FROM {clanky} WHERE visible = 0 AND stav_redakce <> 'korektura'{$jen}"),
-                ...(Rozsireni::je($this->app->settings(), 'komentare') && isset($this->moduly()['comment']) ? ['Komentáře ke schválení' => (int) $db->value('SELECT COUNT(*) FROM {komentare} WHERE zobrazit = 0')] : []),
-                'Přečtení celkem' => (int) $db->value("SELECT COALESCE(SUM(visit), 0) FROM {clanky} WHERE 1 = 1{$jen}"),
+                'Koncepty' => (int) $db->value("SELECT COUNT(*) FROM {clanky} WHERE visible = 0{$jen}"),
             ],
             'posledni' => $db->all(
-                "SELECT c.idc, c.titulek, c.datum, c.visible, c.visit, t.nazev AS tema_jm
+                "SELECT c.idc, c.titulek, c.datum, c.visible, t.nazev AS tema_jm
                  FROM {clanky} c JOIN {topic} t ON t.idt = c.tema WHERE 1 = 1" . $jenC . "
                  ORDER BY COALESCE(c.zmeneno, c.datum) DESC LIMIT 6",
             ),
@@ -229,11 +212,11 @@ final class Kernel
         }
         $db = $app->db();
         $kroky = [
-            ['Dejte webu tvář', 'Šablona, logo, hlavní barva a písmo.', 'admin.php?modul=vzhled', $s->get('logo_webu') !== '' || $s->get('brand_akcent') !== ''],
-            ['Založte rubriky', 'Třeba Zprávy, Kultura, Sport – články se do nich řadí.', 'admin.php?modul=topic', (int) $db->value('SELECT COUNT(*) FROM {topic}') >= 2],
-            ['Napište první článek', 'Uvítací článek pak můžete smazat.', 'admin.php?modul=clanky&akce=novy', (int) $db->value("SELECT COUNT(*) FROM {clanky} WHERE seo_link <> 'vitejte-v-mirocms'") >= 1],
-            ['Poskládejte si stránku', 'Bloky přidáváte a přesouváte přímo na webu.', '?upravit=1', (int) $db->value('SELECT COUNT(*) FROM {bloky}') !== 0 && (int) $db->value("SELECT COUNT(*) FROM {protokol} WHERE modul = 'bloky'") > 0],
-            ['Nastavte e-mail redakce a poštu', 'Kam chodí upozornění a odkud web odesílá e-maily.', 'admin.php?modul=config&zalozka=posta', $s->get('email_webu') !== '' && ($s->get('posta_rezim') === 'smtp' || $s->get('posta_od') !== '')],
+            ['Dejte webu tvář', 'Logo, hlavní barva a písmo.', 'admin.php?modul=vzhled', $s->get('logo_webu') !== '' || $s->get('brand_akcent') !== ''],
+            ['Vyplňte údaje o firmě', 'Kontakty a adresa se ukážou v patičce a vyhledávačům.', 'admin.php?modul=config', $s->get('email_webu') !== ''],
+            ['Připravte stránky', 'O nás, Služby, Kontakt – a vyberte, která bude úvodní.', 'admin.php?modul=stranky', (int) $db->value('SELECT COUNT(*) FROM {stranky}') >= 3],
+            ['Napište první novinku', 'Ukázkovou novinku pak můžete smazat.', 'admin.php?modul=novinky&akce=novy', (int) $db->value("SELECT COUNT(*) FROM {clanky} WHERE seo_link <> 'vitejte-v-mirocms'") >= 1],
+            ['Nastavte poštu', 'Odkud web odesílá e-maily (formuláře, obnova hesla).', 'admin.php?modul=config&zalozka=posta', $s->get('posta_rezim') === 'smtp' || $s->get('posta_od') !== ''],
         ];
         $vysledek = array_map(fn (array $k): array => ['nazev' => $k[0], 'popis' => $k[1], 'url' => $app->url($k[2]), 'hotovo' => (bool) $k[3]], $kroky);
 
