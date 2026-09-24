@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Core;
+namespace Kaleta\Core;
 
 /**
  * Aktualizace systému z administrace.
@@ -16,15 +16,15 @@ namespace MiroCMS\Core;
 final class Aktualizace
 {
     /** Výchozí zdroj aktualizací; doplní se, až poběží web projektu. Lze přepsat v Nastavení. */
-    public const string VYCHOZI_URL = 'https://mirocms.eu/aktualizace.json';
+    public const string VYCHOZI_URL = 'https://kaleta.example/aktualizace.json';
 
     private const array CHRANENE = ['config.php', 'install.php', 'media/', 'storage/', 'image/ukazka/', 'tools/', '.git/'];
     private const int MAX_BAJTU = 60 * 1024 * 1024;
 
     public function __construct(
         private readonly Settings $settings,
-        private readonly string $koren = MIROCMS_ROOT,
-        private readonly string $klicSoubor = MIROCMS_SYSTEM . '/aktualizace.pub',
+        private readonly string $koren = KALETA_ROOT,
+        private readonly string $klicSoubor = KALETA_SYSTEM . '/aktualizace.pub',
     ) {
     }
 
@@ -40,7 +40,7 @@ final class Aktualizace
      */
     public function stav(bool $vynutit = false): array
     {
-        $stav = ['nastaveno' => $this->url() !== '', 'aktualni' => MIROCMS_VERSION, 'nova' => null, 'chyba' => null, 'overeno' => 0];
+        $stav = ['nastaveno' => $this->url() !== '', 'aktualni' => KALETA_VERSION, 'nova' => null, 'chyba' => null, 'overeno' => 0];
         if (!$stav['nastaveno']) {
             return $stav;
         }
@@ -59,7 +59,7 @@ final class Aktualizace
             $stav['overeno'] = time();
             $this->settings->set('aktualizace_cache', (string) json_encode(['url' => $this->url(), 'overeno' => time(), 'manifest' => $manifest, 'chyba' => $stav['chyba']], JSON_UNESCAPED_UNICODE));
         }
-        if (is_array($manifest) && version_compare((string) $manifest['verze'], MIROCMS_VERSION, '>')) {
+        if (is_array($manifest) && version_compare((string) $manifest['verze'], KALETA_VERSION, '>')) {
             $stav['nova'] = $manifest;
         }
 
@@ -105,7 +105,7 @@ final class Aktualizace
             }
 
             return [
-                t('MiroCMS: bezpečnostní aktualizace %s', (string) $nova['verze']),
+                t('Kaleta: bezpečnostní aktualizace %s', (string) $nova['verze']),
                 $vysledek . "\n\n" . t('Změny:') . "\n- " . implode("\n- ", $nova['zmeny']) . "\n\n" . $s->get('nazev_webu'),
             ];
         }, 'admin-');
@@ -122,7 +122,7 @@ final class Aktualizace
             throw new \RuntimeException(t('Server nemá rozšíření zip nebo sodium - aktualizujte ručně nahráním souborů přes FTP.'));
         }
         $m = $this->manifest();
-        if (!version_compare((string) $m['verze'], MIROCMS_VERSION, '>')) {
+        if (!version_compare((string) $m['verze'], KALETA_VERSION, '>')) {
             throw new \RuntimeException(t('Žádná novější verze není k dispozici.'));
         }
         if (version_compare(PHP_VERSION, (string) ($m['min_php'] ?? '8.4'), '<')) {
@@ -136,11 +136,11 @@ final class Aktualizace
         }
 
         // zámek: automatická aktualizace z úloh na pozadí a klik správce (nebo dvě návštěvy naráz) nesmějí přepisovat soubory současně
-        $zamek = fopen(MIROCMS_ROOT . '/storage/cache/aktualizace.zamek', 'c');
+        $zamek = fopen(KALETA_ROOT . '/storage/cache/aktualizace.zamek', 'c');
         if ($zamek === false || !flock($zamek, LOCK_EX | LOCK_NB)) {
             throw new \RuntimeException(t('Aktualizace už právě běží. Zkuste to za chvíli.'));
         }
-        $pracovni = MIROCMS_ROOT . '/storage/cache/aktualizace-' . bin2hex(random_bytes(4));
+        $pracovni = KALETA_ROOT . '/storage/cache/aktualizace-' . bin2hex(random_bytes(4));
         $zip = $pracovni . '.zip';
         try {
             $this->stahni((string) $m['url'], $zip);
@@ -150,11 +150,11 @@ final class Aktualizace
             }
             // podpis kryje i příznak bezpečnostního vydání: kdo by ovládl jen web s manifestem, nesmí běžné vydání prohlásit za bezpečnostní
             if (!Podpis::plati(Podpis::zpravaBalicku((string) $m['verze'], $sha, !empty($m['bezpecnostni'])), (string) $m['podpis'], $this->klicSoubor)) {
-                throw new \RuntimeException(t('Podpis balíčku není platný - balíček nepochází od vydavatele MiroCMS.'));
+                throw new \RuntimeException(t('Podpis balíčku není platný - balíček nepochází od vydavatele Kalety.'));
             }
             $soubory = $this->rozbal($zip, $pracovni);
             $puvodni = $this->souboryVydani();
-            touch(MIROCMS_ROOT . '/storage/udrzba.lock');
+            touch(KALETA_ROOT . '/storage/udrzba.lock');
             foreach ($soubory as $relativni) {
                 $cil = $this->koren . '/' . $relativni;
                 if (!is_dir(dirname($cil)) && !mkdir(dirname($cil), 0775, true)) {
@@ -166,7 +166,7 @@ final class Aktualizace
             }
             self::uklidZastarale($this->koren, $puvodni, $soubory);
         } finally {
-            @unlink(MIROCMS_ROOT . '/storage/udrzba.lock');
+            @unlink(KALETA_ROOT . '/storage/udrzba.lock');
             @unlink($zip);
             self::smazSlozku($pracovni);
             flock($zamek, LOCK_UN);
@@ -205,7 +205,7 @@ final class Aktualizace
         if (!preg_match('#^https://#i', $url) && !($mistni && preg_match('#^http://#i', $url))) {
             throw new \RuntimeException(t('Zdroj aktualizací musí být na adrese https://.'));
         }
-        $data = @file_get_contents($url, false, stream_context_create(['http' => ['timeout' => $limitSekund, 'follow_location' => 1, 'max_redirects' => 5, 'header' => "User-Agent: MiroCMS/" . MIROCMS_VERSION . "\r\n"]]), 0, $maxBajtu + 1);
+        $data = @file_get_contents($url, false, stream_context_create(['http' => ['timeout' => $limitSekund, 'follow_location' => 1, 'max_redirects' => 5, 'header' => "User-Agent: Kaleta/" . KALETA_VERSION . "\r\n"]]), 0, $maxBajtu + 1);
         if ($data === false || $data === '') {
             throw new \RuntimeException(t('Zdroj aktualizací není dostupný (%s).', $host));
         }
@@ -258,7 +258,7 @@ final class Aktualizace
         }
         $zip->close();
         if (!in_array('system/bootstrap.php', $soubory, true) || !in_array('index.php', $soubory, true)) {
-            throw new \RuntimeException(t('Balíček neobsahuje MiroCMS.'));
+            throw new \RuntimeException(t('Balíček neobsahuje Kaletu.'));
         }
 
         return $soubory;

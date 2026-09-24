@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Core;
+namespace Kaleta\Core;
 
 /**
  * Přihlašovací klíče (passkeys, standard WebAuthn): otisk prstu, Face ID, Windows Hello nebo bezpečnostní klíč

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Core;
+namespace Kaleta\Core;
 
 /**
  * Čtení exportu z WordPressu (soubor WXR: Nástroje → Export → Veškerý obsah). Nic nezapisuje, jen čte.
@@ -15,7 +15,7 @@ namespace MiroCMS\Core;
  */
 final class WpSoubor
 {
-    public const string SLOZKA = MIROCMS_ROOT . '/storage/import';
+    public const string SLOZKA = KALETA_ROOT . '/storage/import';
 
     /** Horní mez velikosti souboru: větší export je lepší rozdělit (WordPress to umí podle data nebo autora). */
     public const int MAX_BAJTU = 1024 * 1024 * 1024;

@@ -3,8 +3,8 @@
  * Vzhled webu: předvolby a design systém (barvy, písma, velikosti, šířka, zaoblení) s živým náhledem skutečné úvodní stránky.
  * Náhled obstarává image/admin.js (data-vzhled): po každé změně si vyžádá CSS tokenů (akce nahled) a vloží ho do iframe.
  *
- * @var MiroCMS\Core\App $app
- * @var MiroCMS\Admin\Moduly\Vzhled $modul
+ * @var Kaleta\Core\App $app
+ * @var Kaleta\Admin\Moduly\Vzhled $modul
  * @var string $csrf
  * @var array<string, array{nazev:string, popis:string}> $layouty
  * @var array<string, mixed> $ds
@@ -12,8 +12,8 @@
  * @var array<string, array{nazev:string, popis:string, ds:array<string, mixed>}> $predvolby
  * @var array<string, string> $hodnoty
  */
-use MiroCMS\Front\Identita;
-use MiroCMS\Stavitel\DesignSystem;
+use Kaleta\Front\Identita;
+use Kaleta\Stavitel\DesignSystem;
 
 $px = fn (float $rem): string => (string) round($rem * 16);
 $kontrastyHtml = function (array $kontrasty): string {

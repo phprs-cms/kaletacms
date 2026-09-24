@@ -2,7 +2,7 @@
 /**
  * Obnova zapomenutého hesla do administrace (Admin\ObnovaHesla).
  *
- * @var MiroCMS\Core\App $app
+ * @var Kaleta\Core\App $app
  * @var string $krok zadost | heslo | neplatny
  * @var bool $odeslano
  * @var ?string $chyba
@@ -11,17 +11,17 @@
  */
 ?>
 <!doctype html>
-<html lang="<?= e(MiroCMS\Core\Jazyk::kod()) ?>">
+<html lang="<?= e(Kaleta\Core\Jazyk::kod()) ?>">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<script src="<?= e($app->url('image/tema.js')) ?>?v=<?= e(MIROCMS_VERSION) ?>"></script>
-<title><?= e(t('Zapomenuté heslo')) ?> – MiroCMS</title>
-<link rel="icon" type="image/svg+xml" href="<?= e($app->url('')) ?>image/mirocms-znacka.svg">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="<?= e($app->url('')) ?>image/mirocms-znacka-32.png">
-<link rel="apple-touch-icon" href="<?= e($app->url('')) ?>image/mirocms-znacka-180.png">
-<link rel="stylesheet" href="<?= e($app->url('image/admin.css')) ?>?v=<?= e(MIROCMS_VERSION) ?>">
+<script src="<?= e($app->url('image/tema.js')) ?>?v=<?= e(KALETA_VERSION) ?>"></script>
+<title><?= e(t('Zapomenuté heslo')) ?> – Kaleta</title>
+<link rel="icon" type="image/svg+xml" href="<?= e($app->url('')) ?>image/kaleta-znacka.svg">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="<?= e($app->url('')) ?>image/kaleta-znacka-32.png">
+<link rel="apple-touch-icon" href="<?= e($app->url('')) ?>image/kaleta-znacka-180.png">
+<link rel="stylesheet" href="<?= e($app->url('image/admin.css')) ?>?v=<?= e(KALETA_VERSION) ?>">
 </head>
 <body class="login">
 <div class="login-karta">

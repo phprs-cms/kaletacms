@@ -1,14 +1,14 @@
 <?php
 /**
- * MiroCMS - příprava vydání (spouští vydavatel na svém počítači, na web se nenahrává).
+ * Kaleta - příprava vydání (spouští vydavatel na svém počítači, na web se nenahrává).
  *
- *   php tools/vydani.php 1.0.1 --url=https://github.com/mirocms/mirocms/releases/download/v1.0.1/mirocms-1.0.1.zip \
+ *   php tools/vydani.php 1.0.1 --url=https://github.com/kaleta-cms/kaleta/releases/download/v1.0.1/kaleta-1.0.1.zip \
  *       --zmena="Oprava ..." --zmena="Nové ..." [--bezpecnostni]
  *
  * --bezpecnostni označí vydání jako bezpečnostní opravu: instalace se na ně aktualizují samy a správce dostane e-mail.
- * Soukromý klíč lze místo souboru předat proměnnou prostředí MIROCMS_KLIC (base64) - pro vydávání z GitHub Actions.
+ * Soukromý klíč lze místo souboru předat proměnnou prostředí KALETA_KLIC (base64) - pro vydávání z GitHub Actions.
  *
- * Vytvoří dist/mirocms-<verze>.zip (soubory sledované gitem) a dist/aktualizace.json podepsaný soukromým klíčem.
+ * Vytvoří dist/kaleta-<verze>.zip (soubory sledované gitem) a dist/aktualizace.json podepsaný soukromým klíčem.
  * Klíče: tools/klice/vydavatel.key (provozní) a tools/klice/zalozni.key (záložní, má ležet offline) jsou SOUKROMÉ - nikdy do gitu.
  * system/aktualizace.pub nese veřejné klíče (na řádek jeden), je součástí systému. Výměna a odvolání klíče: docs/VYDAVANI.md.
  *   php tools/vydani.php --novy-klic=zalozni      založí pár klíčů a veřejný připíše do system/aktualizace.pub
@@ -48,17 +48,17 @@ if (str_starts_with($verze, '--novy-klic=')) {
     chmod($cil, 0600);
     $pk = sodium_crypto_sign_publickey($par);
     $pub = $koren . '/system/aktualizace.pub';
-    file_put_contents($pub, rtrim((string) @file_get_contents($pub)) . "\n" . base64_encode($pk) . ' ' . $jmeno . ' ' . date('Y-m-d') . ' id=' . MiroCMS\Core\Podpis::id($pk) . "\n");
+    file_put_contents($pub, rtrim((string) @file_get_contents($pub)) . "\n" . base64_encode($pk) . ' ' . $jmeno . ' ' . date('Y-m-d') . ' id=' . Kaleta\Core\Podpis::id($pk) . "\n");
     file_put_contents($pub, ltrim((string) file_get_contents($pub)));
-    exit("Nový klíč „{$jmeno}“ (id " . MiroCMS\Core\Podpis::id($pk) . ") je v {$cil}.\n"
+    exit("Nový klíč „{$jmeno}“ (id " . Kaleta\Core\Podpis::id($pk) . ") je v {$cil}.\n"
         . "1) Soukromý soubor si HNED zazálohujte mimo tento počítač" . ($jmeno === 'zalozni' ? " a z disku ho pak smažte - záložní klíč má ležet offline" : '') . ".\n"
         . "2) system/aktualizace.pub commitněte; instalace nový klíč poznají až po vydání, které ho přinese (podepsaném klíčem, který už znají).\n");
 }
 if (!preg_match('/^\d+\.\d+\.\d+([.-][0-9A-Za-z.-]+)?$/', $verze)) {
     exit("Použití: php tools/vydani.php <verze> --url=<adresa ZIPu> [--zmena=\"...\"]\n");
 }
-if (!str_contains((string) file_get_contents($koren . '/system/bootstrap.php'), "const MIROCMS_VERSION = '{$verze}';")) {
-    exit("V system/bootstrap.php není MIROCMS_VERSION = '{$verze}'. Nejprve zvyšte verzi a změnu commitněte.\n");
+if (!str_contains((string) file_get_contents($koren . '/system/bootstrap.php'), "const KALETA_VERSION = '{$verze}';")) {
+    exit("V system/bootstrap.php není KALETA_VERSION = '{$verze}'. Nejprve zvyšte verzi a změnu commitněte.\n");
 }
 
 // --- klíče: system/aktualizace.pub nese víc veřejných klíčů (provozní + záložní), podpis platí vůči kterémukoli - viz docs/VYDAVANI.md
@@ -66,12 +66,12 @@ require_once $koren . '/system/src/Core/Podpis.php';
 $verejny = $koren . '/system/aktualizace.pub';
 $soubory_klicu = ['provozni' => $koren . '/tools/klice/vydavatel.key', 'zalozni' => $koren . '/tools/klice/zalozni.key'];
 $soukromy = $soubory_klicu[$volby['klic']] ?? exit("Neznámý klíč „{$volby['klic']}“ - použijte --klic=provozni nebo --klic=zalozni.\n");
-$sk = base64_decode(trim(getenv('MIROCMS_KLIC') !== false ? (string) getenv('MIROCMS_KLIC') : (string) @file_get_contents($soukromy)), true);
+$sk = base64_decode(trim(getenv('KALETA_KLIC') !== false ? (string) getenv('KALETA_KLIC') : (string) @file_get_contents($soukromy)), true);
 if ($sk === false || strlen($sk) !== SODIUM_CRYPTO_SIGN_SECRETKEYBYTES) {
     exit("Soukromý klíč {$soukromy} chybí nebo je poškozený. Nový pár založíte příkazem: php tools/vydani.php --novy-klic={$volby['klic']}\n");
 }
-$idKlice = MiroCMS\Core\Podpis::id(sodium_crypto_sign_publickey_from_secretkey($sk));
-if (!isset(MiroCMS\Core\Podpis::klice($verejny)[$idKlice])) {
+$idKlice = Kaleta\Core\Podpis::id(sodium_crypto_sign_publickey_from_secretkey($sk));
+if (!isset(Kaleta\Core\Podpis::klice($verejny)[$idKlice])) {
     exit("Klíč {$idKlice} není uveden v system/aktualizace.pub - instalace by jeho podpis odmítly.\n");
 }
 
@@ -79,7 +79,7 @@ if (!isset(MiroCMS\Core\Podpis::klice($verejny)[$idKlice])) {
 $soubory = array_filter(explode("\n", (string) shell_exec('cd ' . escapeshellarg($koren) . ' && git ls-files')));
 $vynechat = ['tools/', 'docs/', '.github/', '.claude/', 'CLAUDE.md', '.gitignore', '.gitleaks.toml']; // kořenový CLAUDE.md je pro vývoj; layout/CLAUDE.md (pravidla šablon) do balíčku patří
 @mkdir($koren . '/dist');
-$zipSoubor = $koren . "/dist/mirocms-{$verze}.zip";
+$zipSoubor = $koren . "/dist/kaleta-{$verze}.zip";
 @unlink($zipSoubor);
 $zip = new ZipArchive();
 $zip->open($zipSoubor, ZipArchive::CREATE);
@@ -101,17 +101,17 @@ require_once $koren . '/system/src/Core/Integrita.php';
 ksort($otisky);
 $zip->addFromString('system/soubory.json', json_encode([
     'verze' => $verze, 'soubory' => $otisky,
-    'podpis' => base64_encode(sodium_crypto_sign_detached(MiroCMS\Core\Integrita::kPodpisu($verze, $otisky), $sk)),
+    'podpis' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Integrita::kPodpisu($verze, $otisky), $sk)),
 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
 $zip->close();
 
 $sha = hash_file('sha256', $zipSoubor);
 $manifest = [
     'verze' => $verze, 'vydano' => date('Y-m-d'), 'url' => $volby['url'], 'sha256' => $sha,
-    'podpis' => base64_encode(sodium_crypto_sign_detached(MiroCMS\Core\Podpis::zpravaBalicku($verze, $sha, $volby['bezpecnostni']), $sk)),
+    'podpis' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Podpis::zpravaBalicku($verze, $sha, $volby['bezpecnostni']), $sk)),
     'klic' => $idKlice, // jen pro přehled, kterým klíčem se podepisovalo; instalace zkouší všechny klíče, které znají
     'min_php' => '8.4', 'bezpecnostni' => $volby['bezpecnostni'], 'zmeny' => $volby['zmeny'],
 ];
 file_put_contents($koren . '/dist/aktualizace.json', json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n");
-echo "Hotovo: dist/mirocms-{$verze}.zip (" . round(filesize($zipSoubor) / 1024) . " kB) a dist/aktualizace.json\n";
+echo "Hotovo: dist/kaleta-{$verze}.zip (" . round(filesize($zipSoubor) / 1024) . " kB) a dist/aktualizace.json\n";
 echo $volby['url'] === '' ? "POZOR: nezadali jste --url, doplňte adresu ZIPu do dist/aktualizace.json PŘED podpisem (spusťte znovu s --url).\n" : "1) ZIP nahrajte na {$volby['url']}\n2) aktualizace.json nahrajte na web projektu.\n";

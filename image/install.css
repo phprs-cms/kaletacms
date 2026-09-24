@@ -1,17 +1,17 @@
-/* MiroCMS.0 - instalátor */
+/* Kaleta - instalátor */
 
 @import url("pismo.css");
 
 :root {
-	--podklad: #F6F7F9;
+	--podklad: #F6F4EE;
 	--plocha: #FFFFFF;
-	--linka: #E4E7EC;
-	--linka-pole: #CDD2DB;
-	--text: #14171F;
-	--text-slaby: #667085;
-	--akcent: #2B5BE3;
-	--akcent-tmavy: #1E44B8;
-	--akcent-svetly: #EEF2FF;
+	--linka: #E4E1D8;
+	--linka-pole: #CFCBC0;
+	--text: #121212;
+	--text-slaby: #5C5A55;
+	--akcent: #121212;
+	--akcent-tmavy: #000000;
+	--akcent-svetly: #ECE8DE;
 	--chyba: #C4281C;
 	--chyba-podklad: #FEF3F2;
 	--ok: #067647;
@@ -20,7 +20,7 @@
 * { box-sizing: border-box; }
 body {
 	margin: 0;
-	font: 15px/1.55 "Noto Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+	font: 15px/1.55 "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 	color: var(--text);
 	background: var(--podklad);
 	-webkit-font-smoothing: antialiased;
@@ -99,8 +99,8 @@ input:focus-visible, .pole select:focus-visible { outline: 0; border-color: var(
 .weby legend { margin-bottom: 6px; font-weight: 600; }
 .weby .napoveda { grid-column: 1 / -1; }
 .web { position: relative; display: grid; gap: 4px; padding: 12px; border: 2px solid #dfe1e5; border-radius: 10px; cursor: pointer; }
-.web:has(input:checked) { border-color: #2b5be3; box-shadow: 0 0 0 1px #2b5be3; }
-.web:has(input:focus-visible) { outline: 2px solid #2b5be3; outline-offset: 2px; }
+.web:has(input:checked) { border-color: #121212; box-shadow: 0 0 0 1px #121212; }
+.web:has(input:focus-visible) { outline: 2px solid #ff4f2e; outline-offset: 2px; }
 .web input { position: absolute; opacity: 0; }
 .web small { color: #5b5f68; line-height: 1.35; }
 .vzorky { display: flex; height: 14px; border-radius: 4px; overflow: hidden; }

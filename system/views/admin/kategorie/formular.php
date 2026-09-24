@@ -1,7 +1,7 @@
 <?php
 /**
- * @var MiroCMS\Core\App $app
- * @var MiroCMS\Admin\Moduly\Kategorie $modul
+ * @var Kaleta\Core\App $app
+ * @var Kaleta\Admin\Moduly\Kategorie $modul
  * @var string $csrf
  * @var array<string, mixed> $kategorie
  * @var array<string, string> $chyby

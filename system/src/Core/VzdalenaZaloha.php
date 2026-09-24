@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Core;
+namespace Kaleta\Core;
 
 /**
  * Kopie zálohy databáze mimo server: FTP/FTPS (jiný hosting, NAS) nebo úložiště kompatibilní s S3

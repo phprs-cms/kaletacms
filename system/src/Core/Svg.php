@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Core;
+namespace Kaleta\Core;
 
 /**
  * Nahrané SVG (loga, ikony): vyčistí se na seznam povolených značek a atributů. Zmizí skripty, obsluhy událostí,

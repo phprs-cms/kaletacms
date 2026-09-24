@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Stavitel\Prvky;
+namespace Kaleta\Stavitel\Prvky;
 
-use MiroCMS\Stavitel\Komponenty;
-use MiroCMS\Stavitel\Kontext;
-use MiroCMS\Stavitel\Prvek;
+use Kaleta\Stavitel\Komponenty;
+use Kaleta\Stavitel\Kontext;
+use Kaleta\Stavitel\Prvek;
 
 /**
  * Použití komponenty: vloží její publikovanou stavbu a dosadí vlastní hodnoty jejích {{vlastností}}.
@@ -38,7 +38,7 @@ final class Komponenta extends Prvek
             $k->komponenty[$id] = $id > 0 ? Komponenty::podleId($k->app->db(), $id) : null;
         }
         $komponenta = $k->komponenty[$id];
-        $stavba = $komponenta === null ? null : \MiroCMS\Stavitel\Stavba::zJson($komponenta['stavba'] ?? $komponenta['stavba_koncept']);
+        $stavba = $komponenta === null ? null : \Kaleta\Stavitel\Stavba::zJson($komponenta['stavba'] ?? $komponenta['stavba_koncept']);
         if ($stavba === null) {
             return $k->editor ? '<p>' . e(t('Vyberte komponentu v panelu Obsah.')) . '</p>' : '';
         }

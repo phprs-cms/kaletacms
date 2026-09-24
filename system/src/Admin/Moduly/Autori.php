@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Admin\Moduly;
+namespace Kaleta\Admin\Moduly;
 
-use MiroCMS\Admin\Kernel;
-use MiroCMS\Admin\Modul;
-use MiroCMS\Core\Auth;
-use MiroCMS\Core\Response;
+use Kaleta\Admin\Kernel;
+use Kaleta\Admin\Modul;
+use Kaleta\Core\Auth;
+use Kaleta\Core\Response;
 
 /**
  * Uživatelé administrace: účty, role (správce, editor, autor novinek) a případně ruční přístup do sekcí.
@@ -124,7 +124,7 @@ final class Autori extends Modul
         });
 
         if ($pozvat) {
-            (new \MiroCMS\Admin\ObnovaHesla($this->app))->posliOdkaz(['idu' => $id] + $data, 'pozvanka');
+            (new \Kaleta\Admin\ObnovaHesla($this->app))->posliOdkaz(['idu' => $id] + $data, 'pozvanka');
 
             return $this->zpet(t('Uživatel je založený a pozvánka odešla na %s.', $data['email']));
         }
@@ -139,7 +139,7 @@ final class Autori extends Modul
         if ($user === null) {
             return $this->zpet('Uživatel nemá e-mail nebo je zablokovaný.', '', [], 'chyba');
         }
-        (new \MiroCMS\Admin\ObnovaHesla($this->app))->posliOdkaz($user, 'spravce');
+        (new \Kaleta\Admin\ObnovaHesla($this->app))->posliOdkaz($user, 'spravce');
 
         return $this->zpet(t('Odkaz na nové heslo odešel na %s.', $user['email']));
     }

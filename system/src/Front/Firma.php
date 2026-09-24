@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Front;
+namespace Kaleta\Front;
 
-use MiroCMS\Core\Settings;
+use Kaleta\Core\Settings;
 
 /**
  * Údaje o firmě z Nastavení → Firma: adresa, IČO, telefon, otevírací doba, mapa. Používá je prvek Údaje firmy (web)

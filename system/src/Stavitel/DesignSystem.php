@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Stavitel;
+namespace Kaleta\Stavitel;
 
-use MiroCMS\Core\Settings;
-use MiroCMS\Front\Identita;
+use Kaleta\Core\Settings;
+use Kaleta\Front\Identita;
 
 /**
  * Design systém webu: pár rozhodnutí (barvy, písma, základní velikost a poměr škály, šířka, zaoblení), ze kterých se dopočítají
@@ -208,36 +208,36 @@ final class DesignSystem
         }
         $b = $ds['barvy'];
         $p = [
-            '--mc-barva-primarni' => $b['primarni'], '--mc-barva-sekundarni' => $b['sekundarni'], '--mc-barva-text' => $b['text'],
-            '--mc-barva-pozadi' => $b['pozadi'], '--mc-barva-plocha' => $b['plocha'],
-            '--mc-barva-na-primarni' => self::kontrastni($b['primarni']),
-            '--mc-barva-bila' => '#ffffff', '--mc-barva-cerna' => '#000000',
+            '--ka-barva-primarni' => $b['primarni'], '--ka-barva-sekundarni' => $b['sekundarni'], '--ka-barva-text' => $b['text'],
+            '--ka-barva-pozadi' => $b['pozadi'], '--ka-barva-plocha' => $b['plocha'],
+            '--ka-barva-na-primarni' => self::kontrastni($b['primarni']),
+            '--ka-barva-bila' => '#ffffff', '--ka-barva-cerna' => '#000000',
             // text světlého a tmavého režimu napevno – pro plochy, které se s režimem nemění (bílé a černé pozadí)
-            '--mc-barva-text-svetle' => $b['text'], '--mc-barva-text-tmave' => $ds['barvy_tmave']['text'],
-            '--mc-barva-tlumeny' => 'color-mix(in oklch, var(--mc-barva-text) 64%, var(--mc-barva-pozadi))',
-            '--mc-barva-linka' => 'color-mix(in oklch, var(--mc-barva-text) 14%, var(--mc-barva-pozadi))',
-            '--mc-barva-primarni-jemna' => 'color-mix(in oklch, var(--mc-barva-primarni) 12%, var(--mc-barva-pozadi))',
-            '--mc-akcent' => 'var(--mc-barva-primarni)', // starší jméno z Identity webu
-            '--mc-pismo-text' => self::rodina($ds, $ds['pismo_text'], false),
-            '--mc-pismo-titulky' => self::rodina($ds, $ds['pismo_titulky'], true),
-            '--mc-sirka' => $ds['sirka'] . 'rem', '--mc-sirka-textu' => $ds['sirka_textu'] . 'rem',
-            '--mc-zaobleni' => 'var(--mc-zaobleni-' . $ds['zaobleni'] . ')',
+            '--ka-barva-text-svetle' => $b['text'], '--ka-barva-text-tmave' => $ds['barvy_tmave']['text'],
+            '--ka-barva-tlumeny' => 'color-mix(in oklch, var(--ka-barva-text) 64%, var(--ka-barva-pozadi))',
+            '--ka-barva-linka' => 'color-mix(in oklch, var(--ka-barva-text) 14%, var(--ka-barva-pozadi))',
+            '--ka-barva-primarni-jemna' => 'color-mix(in oklch, var(--ka-barva-primarni) 12%, var(--ka-barva-pozadi))',
+            '--ka-akcent' => 'var(--ka-barva-primarni)', // starší jméno z Identity webu
+            '--ka-pismo-text' => self::rodina($ds, $ds['pismo_text'], false),
+            '--ka-pismo-titulky' => self::rodina($ds, $ds['pismo_titulky'], true),
+            '--ka-sirka' => $ds['sirka'] . 'rem', '--ka-sirka-textu' => $ds['sirka_textu'] . 'rem',
+            '--ka-zaobleni' => 'var(--ka-zaobleni-' . $ds['zaobleni'] . ')',
         ];
         // typografická škála: krok n = základ × poměr^n, na telefonu menší základ i poměr, na velkém monitoru větší
         foreach (self::KROKY as $n) {
-            $p['--mc-krok-' . $n] = self::clamp($ds['zaklad_min'] * $ds['pomer_min'] ** (int) $n, $ds['zaklad_max'] * $ds['pomer_max'] ** (int) $n);
+            $p['--ka-krok-' . $n] = self::clamp($ds['zaklad_min'] * $ds['pomer_min'] ** (int) $n, $ds['zaklad_max'] * $ds['pomer_max'] ** (int) $n);
         }
         foreach (self::MEZERY as $klic => $nasobek) {
-            $p['--mc-mezera-' . $klic] = self::clamp($ds['zaklad_min'] * $nasobek, $ds['zaklad_max'] * $nasobek * ($nasobek >= 2 ? 1.25 : 1));
+            $p['--ka-mezera-' . $klic] = self::clamp($ds['zaklad_min'] * $nasobek, $ds['zaklad_max'] * $nasobek * ($nasobek >= 2 ? 1.25 : 1));
         }
         foreach (self::ZAOBLENI as $klic => $hodnota) {
-            $p['--mc-zaobleni-' . $klic] = $hodnota;
+            $p['--ka-zaobleni-' . $klic] = $hodnota;
         }
         foreach (self::STINY as $klic => $hodnota) {
-            $p['--mc-stin-' . $klic] = $hodnota;
+            $p['--ka-stin-' . $klic] = $hodnota;
         }
         $radky = array_map(fn (string $k, string $h): string => "\t{$k}: {$h};", array_keys($p), $p);
-        $tmave = array_map(fn (string $k, string $h): string => "\t\t--mc-barva-{$k}: {$h};", array_keys($ds['barvy_tmave']), $ds['barvy_tmave']);
+        $tmave = array_map(fn (string $k, string $h): string => "\t\t--ka-barva-{$k}: {$h};", array_keys($ds['barvy_tmave']), $ds['barvy_tmave']);
 
         return self::VRSTVY . "\n" . $pisma . "@layer tokeny {\n:root {\n" . implode("\n", $radky) . "\n}\n"
             . "@media (prefers-color-scheme: dark) {\n\t:root[data-tmavy] {\n" . implode("\n", $tmave) . "\n\t}\n}\n}\n";

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Core;
+namespace Kaleta\Core;
 
 /**
  * Odesílání e-mailů: buď funkcí mail() serveru, nebo přes vlastní SMTP server (Nastavení → Pošta).
@@ -93,7 +93,7 @@ final class Posta
             $h['Content-Transfer-Encoding'] = 'base64';
             $telo = chunk_split(base64_encode($text));
         } else {
-            $hranice = 'mirocms-' . bin2hex(random_bytes(8));
+            $hranice = 'kaleta-' . bin2hex(random_bytes(8));
             $h['Content-Type'] = 'multipart/alternative; boundary="' . $hranice . '"';
             $telo = "--{$hranice}\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: base64\r\n\r\n" . chunk_split(base64_encode($text))
                 . "--{$hranice}\r\nContent-Type: text/html; charset=utf-8\r\nContent-Transfer-Encoding: base64\r\n\r\n" . chunk_split(base64_encode($html)) . "--{$hranice}--\r\n";

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Admin\Moduly;
+namespace Kaleta\Admin\Moduly;
 
-use MiroCMS\Admin\Modul;
-use MiroCMS\Core\Response;
+use Kaleta\Admin\Modul;
+use Kaleta\Core\Response;
 
 /** Protokol změn - přehled akcí v administraci (jen pro administrátora). */
 final class ProtokolZmen extends Modul

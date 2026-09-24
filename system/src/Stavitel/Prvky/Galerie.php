@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Stavitel\Prvky;
+namespace Kaleta\Stavitel\Prvky;
 
-use MiroCMS\Core\Obrazky;
-use MiroCMS\Stavitel\Kontext;
-use MiroCMS\Stavitel\Prvek;
+use Kaleta\Core\Obrazky;
+use Kaleta\Stavitel\Kontext;
+use Kaleta\Stavitel\Prvek;
 
 /**
  * Fotogalerie: mřížka náhledů, klepnutím se fotka otevře přes celou obrazovku (prohlížečka z image/web.js, šipky i swipe).
@@ -35,9 +35,9 @@ final class Galerie extends Prvek
     public static function zakladniCss(): string
     {
         // mřížka sama podle šířky; Styl → Sloupce ji přepíše (vrstva prvků je až za vrstvou stavitele)
-        return '.mc-galerie { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(12rem, 45%), 1fr)); gap: var(--mc-mezera-s); margin: 0; }
-.mc-galerie img { display: block; width: 100%; height: auto; object-fit: cover; border-radius: var(--mc-zaobleni-s); cursor: zoom-in; }
-.mc-galerie figcaption { grid-column: 1 / -1; color: var(--mc-barva-tlumeny); font-size: var(--mc-krok--1); }';
+        return '.ka-galerie { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(12rem, 45%), 1fr)); gap: var(--ka-mezera-s); margin: 0; }
+.ka-galerie img { display: block; width: 100%; height: auto; object-fit: cover; border-radius: var(--ka-zaobleni-s); cursor: zoom-in; }
+.ka-galerie figcaption { grid-column: 1 / -1; color: var(--ka-barva-tlumeny); font-size: var(--ka-krok--1); }';
     }
 
     public static function vykresli(array $p, string $a, string $deti, Kontext $k): string
@@ -55,12 +55,12 @@ final class Galerie extends Prvek
                 . ' alt="' . e($f['alt']) . '" loading="lazy" style="aspect-ratio:' . e($o['pomer']) . '">';
         }
         if ($html === '') {
-            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--mc-barva-plocha)">' . e(t('Přidejte fotky v panelu Obsah.')) . '</div>' : '';
+            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-barva-plocha)">' . e(t('Přidejte fotky v panelu Obsah.')) . '</div>' : '';
         }
         if ($o['popisek'] !== '') {
             $html .= $p['znacka'] === 'figure' ? '<figcaption>' . e($o['popisek']) . '</figcaption>' : '<p>' . e($o['popisek']) . '</p>';
         }
 
-        return '<' . $p['znacka'] . Text::sTridou($a, 'mc-galerie') . '>' . $html . '</' . $p['znacka'] . '>';
+        return '<' . $p['znacka'] . Text::sTridou($a, 'ka-galerie') . '>' . $html . '</' . $p['znacka'] . '>';
     }
 }

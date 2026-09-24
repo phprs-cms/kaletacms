@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Stavitel\Prvky;
+namespace Kaleta\Stavitel\Prvky;
 
-use MiroCMS\Stavitel\Kontext;
-use MiroCMS\Stavitel\Prvek;
+use Kaleta\Stavitel\Kontext;
+use Kaleta\Stavitel\Prvek;
 
 /**
  * Mapa s místem firmy. Cizí mapa (Google) se načte až po klepnutí – do té doby web nic neposílá třetí straně
@@ -34,13 +34,13 @@ final class Mapa extends Prvek
 
     public static function zakladniCss(): string
     {
-        return '.mc-mapa { position: relative; margin: 0; min-height: 16rem; background: var(--mc-barva-plocha); }
-.mc-mapa > button, .mc-mapa > iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
-.mc-mapa > button { display: grid; place-content: center; gap: var(--mc-mezera-xs); padding: var(--mc-mezera-m); background: var(--mc-barva-plocha); color: var(--mc-barva-text); font: inherit; text-align: center; cursor: pointer; }
-.mc-mapa > button strong { font-size: var(--mc-krok-1); }
-.mc-mapa > button small { color: var(--mc-barva-tlumeny); }
-.mc-mapa > button:hover strong { color: var(--mc-barva-primarni); }
-.mc-mapa figcaption { position: absolute; inset: auto 0 0 auto; padding: 0.3em 0.7em; background: var(--mc-barva-pozadi); font-size: var(--mc-krok--1); border-radius: var(--mc-zaobleni-s) 0 0 0; }';
+        return '.ka-mapa { position: relative; margin: 0; min-height: 16rem; background: var(--ka-barva-plocha); }
+.ka-mapa > button, .ka-mapa > iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.ka-mapa > button { display: grid; place-content: center; gap: var(--ka-mezera-xs); padding: var(--ka-mezera-m); background: var(--ka-barva-plocha); color: var(--ka-barva-text); font: inherit; text-align: center; cursor: pointer; }
+.ka-mapa > button strong { font-size: var(--ka-krok-1); }
+.ka-mapa > button small { color: var(--ka-barva-tlumeny); }
+.ka-mapa > button:hover strong { color: var(--ka-barva-primarni); }
+.ka-mapa figcaption { position: absolute; inset: auto 0 0 auto; padding: 0.3em 0.7em; background: var(--ka-barva-pozadi); font-size: var(--ka-krok--1); border-radius: var(--ka-zaobleni-s) 0 0 0; }';
     }
 
     public static function vykresli(array $p, string $a, string $deti, Kontext $k): string
@@ -49,7 +49,7 @@ final class Mapa extends Prvek
         $adresa = $p['obsah']['adresa'] !== '' ? $p['obsah']['adresa']
             : ($web->get('firma_gps') !== '' ? $web->get('firma_gps') : trim(implode(', ', array_filter([$web->get('firma_ulice'), $web->get('firma_psc') . ' ' . $web->get('firma_mesto')])), ', '));
         if (trim($adresa) === '') {
-            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--mc-barva-plocha)">' . e(t('Vyplňte adresu v panelu Obsah nebo v Nastavení → Firma.')) . '</div>' : '';
+            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-barva-plocha)">' . e(t('Vyplňte adresu v panelu Obsah nebo v Nastavení → Firma.')) . '</div>' : '';
         }
         $q = rawurlencode($adresa);
         $vlozit = 'https://maps.google.com/maps?q=' . $q . '&z=' . (int) $p['obsah']['priblizeni'] . '&output=embed';
@@ -59,7 +59,7 @@ final class Mapa extends Prvek
         $popisek = '<figcaption><a href="' . e($odkaz) . '" target="_blank" rel="noopener">' . e(t('Otevřít v mapách')) . '</a></figcaption>';
 
         return $p['znacka'] === 'figure'
-            ? '<figure' . Text::sTridou($a, 'mc-mapa') . '>' . $tlacitko . $popisek . '</figure>'
-            : '<div' . Text::sTridou($a, 'mc-mapa') . '>' . $tlacitko . '</div>';
+            ? '<figure' . Text::sTridou($a, 'ka-mapa') . '>' . $tlacitko . $popisek . '</figure>'
+            : '<div' . Text::sTridou($a, 'ka-mapa') . '>' . $tlacitko . '</div>';
     }
 }

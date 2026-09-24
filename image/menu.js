@@ -1,4 +1,4 @@
-/* MiroCMS – editor menu (Vzhled → Menu). Položky: stránka, vlastní odkaz, novinky, skupina; pod položkou jedna úroveň podmenu.
+/* Kaleta – editor menu (Vzhled → Menu). Položky: stránka, vlastní odkaz, novinky, skupina; pod položkou jedna úroveň podmenu.
  * Pořadí přetažením nebo šipkami (i z klávesnice), šipka vpravo zařadí položku do podmenu té nad ní.
  * Stav je pole položek; při odeslání formuláře jde jako JSON do skrytého pole – čistí ho server (Core\Menu::vycisti).
  */

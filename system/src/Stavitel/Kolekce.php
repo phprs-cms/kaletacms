@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Stavitel;
+namespace Kaleta\Stavitel;
 
-use MiroCMS\Core\Db;
-use MiroCMS\Core\WpObsah;
+use Kaleta\Core\Db;
+use Kaleta\Core\WpObsah;
 
 /**
  * Kolekce – vlastní typy obsahu (reference, tým, produkty, pobočky…): definice polí, položky a hodnoty pro stavitel.

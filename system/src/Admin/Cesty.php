@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Admin;
+namespace Kaleta\Admin;
 
 /**
  * Cesty v nabídce jako odkazy. Hlášky, Stav systému a nápovědy u polí říkají „Nastavení → Zálohy a aktualizace“ -

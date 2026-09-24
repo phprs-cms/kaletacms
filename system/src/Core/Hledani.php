@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Core;
+namespace Kaleta\Core;
 
 /**
- * Vyhledávací index článků: sloupec mc_novinky.hledani drží text malými písmeny bez diakritiky, takže čtenář
+ * Vyhledávací index článků: sloupec ka_novinky.hledani drží text malými písmeny bez diakritiky, takže čtenář
  * najde "nábřeží" i po zadání "nabrezi". U zamčených článků se indexuje jen titulek a perex - z výsledků
  * hledání tak nejde po kouskách vyčíst zamčený text.
  */

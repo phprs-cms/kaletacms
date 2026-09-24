@@ -1,4 +1,4 @@
-/* MiroCMS - editor textu (novinky, stránky) a práce s obrázky. Bez knihoven, bez build kroku.
+/* Kaleta - editor textu (novinky, stránky) a práce s obrázky. Bez knihoven, bez build kroku.
  *
  *   <textarea data-editor>            WYSIWYG editor (data-editor="maly" = zkrácená lišta)
  *   <input data-obrazek>              pole s adresou obrázku + tlačítko "Vybrat z galerie" a náhled
@@ -445,15 +445,15 @@
 		if (pole.form) { pole.form.addEventListener('submit', function () { if (!zdroj) { pole.value = cisteHtml(plocha.innerHTML); } }); }
 		pocitej();
 		// pomocník editoru (kontrola přístupnosti, AI asistent) po zápisu do pole editor překreslí
-		window.mirocmsEditory = window.mirocmsEditory || {};
-		if (pole.id) { window.mirocmsEditory[pole.id] = { obnov: function () { zPole(); pocitej(); } }; }
+		window.kaletaEditory = window.kaletaEditory || {};
+		if (pole.id) { window.kaletaEditory[pole.id] = { obnov: function () { zPole(); pocitej(); } }; }
 		return { obnov: zPole, stav: stav.lastChild };
 	}
 
 	/* ---------- automatické ukládání rozepsaného textu do prohlížeče ---------- */
 
 	function autoUkladani(form, editory) {
-		var klic = 'mirocms-koncept:' + form.getAttribute('data-koncept');
+		var klic = 'kaleta-koncept:' + form.getAttribute('data-koncept');
 		var pole = Array.prototype.filter.call(form.elements, function (p) { return p.name && p.name !== '_csrf' && p.type !== 'password' && p.type !== 'file' && p.type !== 'submit'; });
 		var casovac = null;
 
@@ -545,8 +545,8 @@
 		});
 	});
 
-	window.mirocmsVytvorEditor = vytvorEditor; // stavitel stránek si editor vytváří sám nad dynamickým polem
-	window.mirocmsVyberObrazek = vyberObrazek; // výběr obrázku z Médií pro stavitel (zpětné volání dostane {url, nazev, …})
+	window.kaletaVytvorEditor = vytvorEditor; // stavitel stránek si editor vytváří sám nad dynamickým polem
+	window.kaletaVyberObrazek = vyberObrazek; // výběr obrázku z Médií pro stavitel (zpětné volání dostane {url, nazev, …})
 
 	var editory = Array.prototype.map.call(document.querySelectorAll('textarea[data-editor]'), vytvorEditor);
 	var formKoncept = document.querySelector('form[data-koncept]');

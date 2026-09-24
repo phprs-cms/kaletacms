@@ -1,7 +1,7 @@
 <?php
 /**
- * @var MiroCMS\Core\App $app
- * @var MiroCMS\Admin\Moduly\Novinky $modul
+ * @var Kaleta\Core\App $app
+ * @var Kaleta\Admin\Moduly\Novinky $modul
  * @var string $csrf
  * @var list<array<string, mixed>> $novinky
  * @var int $celkem
@@ -46,7 +46,7 @@ $strankaUrl = fn (int $s): string => $modul->url('', array_filter($filtr) + ['st
 		<select name="jazyk">
 			<option value=""><?= e(t('všechny')) ?></option>
 <?php foreach ($jazykyWebu as $kod): ?>
-			<option value="<?= e($kod) ?>"<?= $filtr['jazyk'] === $kod ? ' selected' : '' ?>><?= e(\MiroCMS\Core\Jazyk::DOSTUPNE[$kod][0]) ?></option>
+			<option value="<?= e($kod) ?>"<?= $filtr['jazyk'] === $kod ? ' selected' : '' ?>><?= e(\Kaleta\Core\Jazyk::DOSTUPNE[$kod][0]) ?></option>
 <?php endforeach ?>
 		</select>
 	</label>

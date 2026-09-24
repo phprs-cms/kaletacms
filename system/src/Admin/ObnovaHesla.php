@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Admin;
+namespace Kaleta\Admin;
 
-use MiroCMS\Core\Antispam;
-use MiroCMS\Core\App;
-use MiroCMS\Core\Jazyk;
-use MiroCMS\Core\Posta;
-use MiroCMS\Core\Response;
+use Kaleta\Core\Antispam;
+use Kaleta\Core\App;
+use Kaleta\Core\Jazyk;
+use Kaleta\Core\Posta;
+use Kaleta\Core\Response;
 
 /**
  * Obnova zapomenutého hesla do administrace odkazem z e-mailu (admin.php?akce=heslo).

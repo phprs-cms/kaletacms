@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Core;
+namespace Kaleta\Core;
 
 /**
  * Stav systému (health check): sada rychlých kontrol serveru, databáze, bezpečnosti a provozu.
@@ -31,7 +31,7 @@ final class Stav
             $pridej(t('Server'), t('Rozšíření %s', $ext), extension_loaded($ext) ? 'ok' : 'varovani', extension_loaded($ext) ? $ucel : t('%s - doporučeno doinstalovat', $ucel));
         }
         $pridej(t('Server'), t('Limit nahrávaných souborů'), self::bajty((string) ini_get('upload_max_filesize')) >= 8 * 1024 * 1024 ? 'ok' : 'varovani', 'upload_max_filesize = ' . ini_get('upload_max_filesize') . ', post_max_size = ' . ini_get('post_max_size'));
-        $volno = @disk_free_space(MIROCMS_ROOT);
+        $volno = @disk_free_space(KALETA_ROOT);
         if ($volno !== false) {
             $pridej(t('Server'), t('Volné místo na disku'), $volno > 200 * 1024 * 1024 ? 'ok' : 'varovani', self::velikost((int) $volno));
         }
@@ -45,10 +45,10 @@ final class Stav
 
         // --- soubory a bezpečnost
         foreach (['media' => t('nahrané obrázky'), 'storage/log' => t('záznam chyb'), 'storage/cache' => t('dočasná data')] as $slozka => $ucel) {
-            $ok = is_dir(MIROCMS_ROOT . '/' . $slozka) ? is_writable(MIROCMS_ROOT . '/' . $slozka) : is_writable(MIROCMS_ROOT);
+            $ok = is_dir(KALETA_ROOT . '/' . $slozka) ? is_writable(KALETA_ROOT . '/' . $slozka) : is_writable(KALETA_ROOT);
             $pridej(t('Soubory'), t('Zápis do %s/', $slozka), $ok, $ok ? $ucel : t('%s - nastavte práva k zápisu', $ucel));
         }
-        $pridej(t('Bezpečnost'), t('Instalátor'), !is_file(MIROCMS_ROOT . '/install.php') ? 'ok' : 'varovani', is_file(MIROCMS_ROOT . '/install.php') ? t('soubor install.php je stále na serveru - smažte ho') : t('install.php je odstraněn'));
+        $pridej(t('Bezpečnost'), t('Instalátor'), !is_file(KALETA_ROOT . '/install.php') ? 'ok' : 'varovani', is_file(KALETA_ROOT . '/install.php') ? t('soubor install.php je stále na serveru - smažte ho') : t('install.php je odstraněn'));
         $pridej(t('Bezpečnost'), 'HTTPS', $app->request->isHttps() ? 'ok' : 'varovani', $app->request->isHttps() ? t('web běží na šifrovaném spojení') : t('web neběží na HTTPS - přihlašovací údaje putují nešifrovaně'));
         $pridej(t('Bezpečnost'), t('Ladicí režim'), !$app->debug(), $app->debug() ? t('v config.php je debug = true; na ostrém webu vypněte') : t('vypnutý'));
         $pridej(t('Bezpečnost'), t('Bezpečnostní hlavičky'), 'ok', t('systém odesílá X-Content-Type-Options, Referrer-Policy a X-Frame-Options; administrace navíc Content-Security-Policy a zákaz ukládání do mezipaměti'));
@@ -61,7 +61,7 @@ final class Stav
         $pridej(t('Bezpečnost'), t('Soubory jádra'), $jadro['stav'], $jadro['info']);
 
         // --- provoz
-        $log = MIROCMS_ROOT . '/storage/log/chyby.log';
+        $log = KALETA_ROOT . '/storage/log/chyby.log';
         $chyb = 0;
         if (is_file($log)) {
             $od = date('c', time() - 86400);
@@ -75,8 +75,8 @@ final class Stav
         $pridej(t('Provoz'), t('Záloha databáze'), $stari !== null && $stari <= 8 ? 'ok' : 'varovani', $stari === null ? t('zatím žádná - vytvořte ji v záložce Zálohy a aktualizace') : ($stari === 0 ? t('dnes') : t('před %d dny', $stari)) . ', ' . ($web->bool('zalohy_auto') ? t('automatické zálohy zapnuté') : t('automatické zálohy vypnuté')));
         $pridej(t('Provoz'), t('Indexování vyhledávači'), $web->bool('indexovani') ? 'ok' : 'varovani', $web->bool('indexovani') ? t('povoleno') : t('zakázáno v záložce SEO a GEO - web se neobjeví ve vyhledávání'));
         $media = 0;
-        if (is_dir(MIROCMS_ROOT . '/media')) {
-            foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(MIROCMS_ROOT . '/media', \FilesystemIterator::SKIP_DOTS)) as $soubor) {
+        if (is_dir(KALETA_ROOT . '/media')) {
+            foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(KALETA_ROOT . '/media', \FilesystemIterator::SKIP_DOTS)) as $soubor) {
                 $media += $soubor->getSize();
             }
         }
@@ -100,7 +100,7 @@ final class Stav
             !$aktualizace['nastaveno'] => t('zdroj aktualizací není nastaven'),
             $aktualizace['chyba'] !== null => t('zdroj aktualizací neodpovídá: %s', (string) $aktualizace['chyba']),
             $aktualizace['nova'] !== null => t('je k dispozici verze %s (Nastavení → Zálohy a aktualizace)', (string) $aktualizace['nova']['verze']),
-            default => t('systém je aktuální (%s)', MIROCMS_VERSION) . ($aktualizace['overeno'] > 0 ? ', ' . t('ověřeno %s', date('j. n. Y H:i', $aktualizace['overeno'])) : ''),
+            default => t('systém je aktuální (%s)', KALETA_VERSION) . ($aktualizace['overeno'] > 0 ? ', ' . t('ověřeno %s', date('j. n. Y H:i', $aktualizace['overeno'])) : ''),
         });
         $pridej(t('Provoz'), t('Odesílání pošty'), $smtp || function_exists('mail') ? 'ok' : 'varovani', $smtp ? t('přes SMTP server %s', $app->settings()->get('smtp_host')) : (function_exists('mail') ? t('funkcí mail() serveru – spolehlivější je SMTP (Nastavení → Pošta)') : t('funkce mail() je vypnutá – nastavte SMTP (Nastavení → Pošta)')));
 

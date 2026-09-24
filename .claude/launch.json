@@ -1,6 +1,6 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "mirocms", "runtimeExecutable": "php", "runtimeArgs": ["-S", "127.0.0.1:8080", "system/dev-router.php"], "port": 8080 }
+    { "name": "kaleta", "runtimeExecutable": "php", "runtimeArgs": ["-S", "127.0.0.1:8080", "system/dev-router.php"], "port": 8080 }
   ]
 }

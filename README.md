@@ -1,6 +1,6 @@
-<p><picture><source media="(prefers-color-scheme: dark)" srcset="image/mirocms-logo-tmavy.svg"><img src="image/mirocms-logo.svg" alt="MiroCMS" height="48"></picture></p>
+<p><picture><source media="(prefers-color-scheme: dark)" srcset="image/kaleta-logo-tmavy.svg"><img src="image/kaleta-logo.svg" alt="Kaleta" height="48"></picture></p>
 
-# MiroCMS
+# Kaleta
 
 **Open-source CMS pro firemní weby** – prezentace, služby, reference, tým, kariéra, kontakt a novinky. Vizuální stavitel
 stránek s výstupem na úrovni ručně psaného HTML, AI asistent a napojení Clauda přes MCP, import z WordPressu.

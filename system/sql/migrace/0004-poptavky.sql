@@ -1,5 +1,5 @@
 -- Poptávky a zprávy z formulářů webu (prvek Formulář ve staviteli). Data = JSON [[popisek, hodnota], …].
-CREATE TABLE mc_poptavky (
+CREATE TABLE ka_poptavky (
     idp      INT UNSIGNED NOT NULL AUTO_INCREMENT,
     datum    DATETIME NOT NULL,
     formular VARCHAR(120) NOT NULL DEFAULT '',

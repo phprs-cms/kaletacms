@@ -1,4 +1,4 @@
-# MiroCMS guide
+# Kaleta guide
 
 For whoever runs the site: from installation through the page builder to connecting AI.
 [Česká verze](prirucka.md)
@@ -94,7 +94,7 @@ The **Form** element (or the *Enquiry form* section) adds an enquiry form. In th
 email, phone, list, radio buttons, date, number, consent), button text, thank-you message or thank-you page, a confirmation
 to the sender and the notification email. Hidden fields and a submission limit fight spam without CAPTCHA or cookies.
 The site can also send each new enquiry to a CRM or Make/Zapier (Settings → General → New enquiry webhook); conversion
-tracking gets a `mirocms:odeslano` event (and a `dataLayer` entry).
+tracking gets a `kaleta:odeslano` event (and a `dataLayer` entry).
 
 Submitted messages are in **Content → Enquiries**: status (new, read, resolved), reply by email, CSV export. Enquiries
 contain personal data, so they are deleted automatically after a set number of months (24 by default).
@@ -123,7 +123,7 @@ the API key and model. The assistant only suggests. Text goes to the provider on
 Enable **Claude connection (MCP)** under Extensions. Create an access token under **My account**. In Claude Code, run
 
 ```bash
-claude mcp add --transport http mirocms https://your-site.com/mcp --header "Authorization: Bearer <token>"
+claude mcp add --transport http kaleta https://your-site.com/mcp --header "Authorization: Bearer <token>"
 ```
 
 In the Claude app, add a custom connector with the address `https://your-site.com/mcp` and the same header. Claude then,

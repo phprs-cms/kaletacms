@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Core;
+namespace Kaleta\Core;
 
 /**
  * Přílohy ke stažení v Médiích: PDF, dokumenty, tabulky, zvuk a video. Obrázky řeší Core\Obrazky.
@@ -44,24 +44,24 @@ final class Soubory
             throw new \RuntimeException(filesize($tmp) > self::MAX_BAJTU ? 'Soubor je příliš velký (nejvýše 200 MB).' : 'Obsah souboru neodpovídá jeho příponě.');
         }
         $slozka = 'media/' . date('Y/m');
-        if (!is_dir(MIROCMS_ROOT . '/' . $slozka) && !mkdir(MIROCMS_ROOT . '/' . $slozka, 0775, true)) {
+        if (!is_dir(KALETA_ROOT . '/' . $slozka) && !mkdir(KALETA_ROOT . '/' . $slozka, 0775, true)) {
             throw new \RuntimeException('Nelze vytvořit složku ' . $slozka . ' - zkontrolujte práva k zápisu.');
         }
         $nazev = pathinfo((string) $file['name'], PATHINFO_FILENAME);
         $cil = $slozka . '/' . slugify($nazev, 60) . '-' . bin2hex(random_bytes(3)) . '.' . $pripona;
-        if (!move_uploaded_file($tmp, MIROCMS_ROOT . '/' . $cil)) {
+        if (!move_uploaded_file($tmp, KALETA_ROOT . '/' . $cil)) {
             throw new \RuntimeException('Soubor se nepodařilo uložit.');
         }
 
         // příloha se v tabulce médií pozná podle prázdného náhledu a nulových rozměrů
-        return ['obr_poloha' => $cil, 'obr_width' => 0, 'obr_height' => 0, 'obr_vel' => (int) filesize(MIROCMS_ROOT . '/' . $cil),
+        return ['obr_poloha' => $cil, 'obr_width' => 0, 'obr_height' => 0, 'obr_vel' => (int) filesize(KALETA_ROOT . '/' . $cil),
             'nahl_poloha' => '', 'nahl_width' => 0, 'nahl_height' => 0, 'nazev' => mb_substr($nazev, 0, 150)];
     }
 
     public static function smaz(string $cesta): void
     {
-        if (preg_match('#^media/\d{4}/\d{2}/[a-z0-9-]+\.(' . implode('|', self::PRIPONY) . ')$#', $cesta) && is_file(MIROCMS_ROOT . '/' . $cesta)) {
-            unlink(MIROCMS_ROOT . '/' . $cesta);
+        if (preg_match('#^media/\d{4}/\d{2}/[a-z0-9-]+\.(' . implode('|', self::PRIPONY) . ')$#', $cesta) && is_file(KALETA_ROOT . '/' . $cesta)) {
+            unlink(KALETA_ROOT . '/' . $cesta);
         }
     }
 

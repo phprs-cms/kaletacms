@@ -1,6 +1,6 @@
 <?php
 /**
- * @var MiroCMS\Admin\Moduly\Stranky $modul
+ * @var Kaleta\Admin\Moduly\Stranky $modul
  * @var string $csrf
  * @var array<string, mixed> $stranka
  * @var array<string, string> $chyby
@@ -39,7 +39,7 @@ $chyba = fn (string $pole): string => isset($chyby[$pole]) ? '<span class="chyba
 	<label for="sablona"><?= e(t('Začít podle šablony')) ?></label>
 	<div><select id="sablona" name="sablona">
 		<option value=""><?= e(t('prázdná stránka (text)')) ?></option>
-<?php foreach (MiroCMS\Stavitel\Knihovna::SABLONY_STRANEK as $klic => [$nazev]): ?>
+<?php foreach (Kaleta\Stavitel\Knihovna::SABLONY_STRANEK as $klic => [$nazev]): ?>
 		<option value="<?= e($klic) ?>"><?= e(t($nazev)) ?></option>
 <?php endforeach ?>
 	</select><span class="napoveda"><?= e(t('Šablona poskládá stránku z hotových sekcí s ukázkovými texty a otevře ji ve staviteli.')) ?></span></div>

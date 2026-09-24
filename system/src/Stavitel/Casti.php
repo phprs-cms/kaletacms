@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Stavitel;
+namespace Kaleta\Stavitel;
 
-use MiroCMS\Core\Db;
+use Kaleta\Core\Db;
 
 /**
- * Části webu ze stavitele (tabulka mc_casti): záhlaví a patička na všech stránkách a obálky kolem obsahu, který skládá
+ * Části webu ze stavitele (tabulka ka_casti): záhlaví a patička na všech stránkách a obálky kolem obsahu, který skládá
  * systém (detail novinky, výpis novinek, stránka 404). Část bez publikované stavby = část ze šablony (layout).
  */
 final class Casti
@@ -61,22 +61,22 @@ final class Casti
     /** Stavba, se kterou se část poprvé otevře ve staviteli (odpovídá tomu, co dosud kreslila šablona). */
     public static function vychozi(string $typ, string $jazyk): array
     {
-        return \MiroCMS\Core\Jazyk::docasne($jazyk, function () use ($typ): array {
+        return \Kaleta\Core\Jazyk::docasne($jazyk, function () use ($typ): array {
             $n = Stavba::novy(...);
             $s = fn (array $p, array $styl): array => ['styl' => $styl] + $p;
             $z = fn (array $p, string $znacka): array => ['znacka' => $znacka] + $p;
             $deti = match ($typ) {
                 'hlavicka' => [$s($z($n('sekce', [], [
                     $s($n('kontejner', [], [$n('logo'), $n('navigace')]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'row', 'rozmisteni' => 'space-between', 'zarovnani' => 'center', 'mezera' => 'm']]),
-                ]), 'header'), ['zaklad' => ['odsazeni_y' => 's', 'pozadi' => 'pozadi', 'linka_dole' => '1px solid var(--mc-barva-linka)', 'pozice' => 'sticky', 'odshora' => '0', 'vrstva' => '10']])],
+                ]), 'header'), ['zaklad' => ['odsazeni_y' => 's', 'pozadi' => 'pozadi', 'linka_dole' => '1px solid var(--ka-barva-linka)', 'pozice' => 'sticky', 'odshora' => '0', 'vrstva' => '10']])],
                 'paticka' => [$s($z($n('sekce', [], [
                     $s($n('mrizka', [], [
                         $n('kontejner', [], [$s($z($n('udaje', ['udaj' => 'nazev']), 'p'), ['zaklad' => ['tloustka_pisma' => '700']]), $n('udaje', ['udaj' => 'popis']), $n('udaje', ['udaj' => 'email'])]),
                         $n('kontejner', [], [$n('navigace', ['menu' => 'paticka', 'novinky' => false, 'mobil' => false]), $n('udaje', ['udaj' => 'site']), $n('udaje', ['udaj' => 'rss'])]),
                     ]), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '2', 'mezera' => 'l'], 'mobil' => ['sloupce' => '1']]),
                     $s($n('udaje', ['udaj' => 'copyright']), ['zaklad' => ['okraj_nahore' => 'l', 'velikost_pisma' => '-1', 'barva' => 'tlumeny']]),
-                ]), 'footer'), ['zaklad' => ['odsazeni_y' => 'xl', 'pozadi' => 'plocha', 'linka_nahore' => '1px solid var(--mc-barva-linka)']])],
-                'novinka' => [$n('obsah', [], []), Knihovna::sekci('vyzva', \MiroCMS\Core\Jazyk::kod())['prvek']],
+                ]), 'footer'), ['zaklad' => ['odsazeni_y' => 'xl', 'pozadi' => 'plocha', 'linka_nahore' => '1px solid var(--ka-barva-linka)']])],
+                'novinka' => [$n('obsah', [], []), Knihovna::sekci('vyzva', \Kaleta\Core\Jazyk::kod())['prvek']],
                 default => [$n('obsah', [], [])],
             };
 

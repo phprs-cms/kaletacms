@@ -2,8 +2,8 @@
 /**
  * Komponenty webu.
  *
- * @var MiroCMS\Core\App $app
- * @var MiroCMS\Admin\Moduly\Komponenty $modul
+ * @var Kaleta\Core\App $app
+ * @var Kaleta\Admin\Moduly\Komponenty $modul
  * @var string $csrf
  * @var list<array<string, mixed>> $komponenty
  */

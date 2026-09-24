@@ -2,7 +2,7 @@
 /**
  * Porovnání uložené verze novinky se současným zněním.
  *
- * @var MiroCMS\Admin\Moduly\Novinky $modul
+ * @var Kaleta\Admin\Moduly\Novinky $modul
  * @var array<string, mixed> $novinka
  * @var array<string, mixed> $revize
  * @var array{html:string, pridano:int, smazano:int} $titulek

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Stavitel\Prvky;
+namespace Kaleta\Stavitel\Prvky;
 
-use MiroCMS\Stavitel\Kontext;
-use MiroCMS\Stavitel\Prvek;
+use Kaleta\Stavitel\Kontext;
+use Kaleta\Stavitel\Prvek;
 
 /** Pás stránky přes celou šířku; obsah drží vnitřní obal v šířce webu (nebo úzký pro text, nebo žádný). */
 final class Sekce extends Prvek
@@ -30,15 +30,15 @@ final class Sekce extends Prvek
 
     public static function zakladniCss(): string
     {
-        return '.mc-obal { width: min(100% - 2 * var(--mc-mezera-m), var(--mc-sirka)); margin-inline: auto; }
-.mc-obal--uzka { width: min(100% - 2 * var(--mc-mezera-m), var(--mc-sirka-textu)); }
-.mc-obal > * + * { margin-block-start: var(--mc-mezera-m); }';
+        return '.ka-obal { width: min(100% - 2 * var(--ka-mezera-m), var(--ka-sirka)); margin-inline: auto; }
+.ka-obal--uzka { width: min(100% - 2 * var(--ka-mezera-m), var(--ka-sirka-textu)); }
+.ka-obal > * + * { margin-block-start: var(--ka-mezera-m); }';
     }
 
     public static function vykresli(array $p, string $a, string $deti, Kontext $k): string
     {
         $sirka = $p['obsah']['sirka'] ?? 'obsah';
-        $obsah = $sirka === 'plna' ? $deti : '<div class="mc-obal' . ($sirka === 'uzka' ? ' mc-obal--uzka' : '') . '">' . $deti . '</div>';
+        $obsah = $sirka === 'plna' ? $deti : '<div class="ka-obal' . ($sirka === 'uzka' ? ' ka-obal--uzka' : '') . '">' . $deti . '</div>';
 
         return '<' . $p['znacka'] . $a . '>' . $obsah . '</' . $p['znacka'] . '>';
     }

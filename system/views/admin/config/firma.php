@@ -1,6 +1,6 @@
 <?php
 /** Záložka Firma: údaje pro web (prvek Údaje firmy) a pro vyhledávače (schema.org Organization / LocalBusiness). */
-use MiroCMS\Front\Firma;
+use Kaleta\Front\Firma;
 
 ?>
 <p class="hlaska"><?= e(t('Údaje vyplníte jednou a web je použije všude: v patičce a na kontaktu (prvek Údaje firmy ve staviteli) i pro Google, Mapy a AI asistenty – ti tak správně odpoví na otázku, kdy máte otevřeno nebo kde vás najít.')) ?></p>

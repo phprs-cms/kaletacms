@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Core;
+namespace Kaleta\Core;
 
 /**
  * Porovnání dvou verzí textu: po odstavcích, ve změněných odstavcích po slovech.

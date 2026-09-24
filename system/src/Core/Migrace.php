@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Core;
+namespace Kaleta\Core;
 
 /**
  * Aktualizace struktury databáze.
  *
  * Soubory system/sql/migrace/NNNN-popis.sql se provedou vzestupně, číslo poslední provedené
- * je v mc_nastaveni (verze_db). Nová instalace dostane rovnou úplné schema.sql a nejvyšší číslo.
+ * je v ka_nastaveni (verze_db). Nová instalace dostane rovnou úplné schema.sql a nejvyšší číslo.
  */
 final class Migrace
 {
-    private const string SLOZKA = MIROCMS_SYSTEM . '/sql/migrace';
+    private const string SLOZKA = KALETA_SYSTEM . '/sql/migrace';
 
     /** @return array<int, string> číslo => soubor, vzestupně */
     public static function soubory(): array
@@ -35,7 +35,7 @@ final class Migrace
     public static function proved(Db $db, Settings $settings): array
     {
         // zámek: migrace spouští administrace i web, dva souběžné požadavky nesmí tutéž změnu provést dvakrát
-        $zamek = 'mirocms_migrace_' . $db->prefix;
+        $zamek = 'kaleta_migrace_' . $db->prefix;
         if ((int) $db->value('SELECT GET_LOCK(?, 15)', [$zamek]) !== 1) {
             return [];
         }
@@ -60,7 +60,7 @@ final class Migrace
     }
 
     /**
-     * Rozdělí SQL skript na příkazy a nahradí předponu "mc_" předponou instalace.
+     * Rozdělí SQL skript na příkazy a nahradí předponu "ka_" předponou instalace.
      *
      * @return list<string>
      */
@@ -68,7 +68,7 @@ final class Migrace
     {
         // názvy omezení musí být v databázi jedinečné - dostanou předponu také
         $sql = preg_replace('/\b((?:CONSTRAINT|DROP FOREIGN KEY)\s+)fk_/', '$1' . $prefix . 'fk_', $sql) ?? $sql;
-        $sql = preg_replace('/\bmc_(?=[a-z])/', $prefix, $sql) ?? $sql;
+        $sql = preg_replace('/\bka_(?=[a-z])/', $prefix, $sql) ?? $sql;
         // příkaz končí středníkem na konci řádku; za středníkem smí být už jen komentář
         $prikazy = preg_split('/;[ \t]*(--[^\n]*)?(\r?\n|$)/', $sql) ?: [];
 

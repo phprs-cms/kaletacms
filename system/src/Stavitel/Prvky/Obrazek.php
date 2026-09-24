@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Stavitel\Prvky;
+namespace Kaleta\Stavitel\Prvky;
 
-use MiroCMS\Core\Obrazky;
-use MiroCMS\Stavitel\Kontext;
-use MiroCMS\Stavitel\Prvek;
+use Kaleta\Core\Obrazky;
+use Kaleta\Stavitel\Kontext;
+use Kaleta\Stavitel\Prvek;
 
 /** Obrázek z Médií: srcset z připravených variant, líné načítání (kromě hlavního obrázku stránky), volitelně popisek a odkaz. */
 final class Obrazek extends Prvek
@@ -37,7 +37,7 @@ final class Obrazek extends Prvek
     {
         $o = $p['obsah'];
         if ($o['src'] === '') {
-            return $k->editor ? '<div' . $a . ' style="display:grid;place-items:center;min-height:10rem;background:var(--mc-barva-plocha);color:var(--mc-barva-tlumeny)">' . e(t('Vyberte obrázek')) . '</div>' : '';
+            return $k->editor ? '<div' . $a . ' style="display:grid;place-items:center;min-height:10rem;background:var(--ka-barva-plocha);color:var(--ka-barva-tlumeny)">' . e(t('Vyberte obrázek')) . '</div>' : '';
         }
         $src = $k->obrazek($o['src']);
         $srcset = Obrazky::srcset(ltrim(preg_replace('#^' . preg_quote($k->app->request->basePath(), '#') . '/#', '', $src) ?? $src, '/'), $k->app->request->basePath());
@@ -48,13 +48,13 @@ final class Obrazek extends Prvek
             $img = '<a' . ($popisek ? '' : $a) . ' href="' . e($o['odkaz']) . '">' . $img . '</a>';
         }
 
-        return $popisek ? '<figure' . Text::sTridou($a, 'mc-figura') . '>' . $img . '<figcaption>' . e($o['popisek']) . '</figcaption></figure>' : $img;
+        return $popisek ? '<figure' . Text::sTridou($a, 'ka-figura') . '>' . $img . '<figcaption>' . e($o['popisek']) . '</figcaption></figure>' : $img;
     }
 
     public static function zakladniCss(): string
     {
-        return '.mc-figura { margin: 0; }
-.mc-figura img { display: block; width: 100%; height: auto; border-radius: inherit; }
-.mc-figura figcaption { margin-block-start: var(--mc-mezera-xs); font-size: var(--mc-krok--1); color: var(--mc-barva-tlumeny); }';
+        return '.ka-figura { margin: 0; }
+.ka-figura img { display: block; width: 100%; height: auto; border-radius: inherit; }
+.ka-figura figcaption { margin-block-start: var(--ka-mezera-xs); font-size: var(--ka-krok--1); color: var(--ka-barva-tlumeny); }';
     }
 }

@@ -1,6 +1,6 @@
 <?php
 /**
- * @var MiroCMS\Admin\Moduly\Presmerovani $modul
+ * @var Kaleta\Admin\Moduly\Presmerovani $modul
  * @var string $csrf
  * @var list<array<string, mixed>> $zaznamy
  * @var list<array<string, mixed>> $nenalezeno  adresy, které v posledních 60 dnech skončily chybou 404

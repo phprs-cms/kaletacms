@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Stavitel\Prvky;
+namespace Kaleta\Stavitel\Prvky;
 
-use MiroCMS\Front\Clanky;
-use MiroCMS\Stavitel\Kontext;
-use MiroCMS\Stavitel\Prvek;
+use Kaleta\Front\Clanky;
+use Kaleta\Stavitel\Kontext;
+use Kaleta\Stavitel\Prvek;
 
 /** Výpis posledních novinek (dynamický – mění se sám, jak přibývají novinky). */
 final class Novinky extends Prvek
@@ -34,13 +34,13 @@ final class Novinky extends Prvek
 
     public static function zakladniCss(): string
     {
-        return '.mc-novinka { display: flex; flex-direction: column; gap: var(--mc-mezera-xs); }
-.mc-novinka img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: var(--mc-zaobleni); margin-block-end: var(--mc-mezera-xs); }
-.mc-novinka time { font-size: var(--mc-krok--1); color: var(--mc-barva-tlumeny); }
-.mc-novinka h3 { margin: 0; font-size: var(--mc-krok-1); }
-.mc-novinka h3 a { color: inherit; text-decoration: none; }
-.mc-novinka h3 a:hover { color: var(--mc-barva-primarni); }
-.mc-novinka p { margin: 0; color: var(--mc-barva-tlumeny); }';
+        return '.ka-novinka { display: flex; flex-direction: column; gap: var(--ka-mezera-xs); }
+.ka-novinka img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: var(--ka-zaobleni); margin-block-end: var(--ka-mezera-xs); }
+.ka-novinka time { font-size: var(--ka-krok--1); color: var(--ka-barva-tlumeny); }
+.ka-novinka h3 { margin: 0; font-size: var(--ka-krok-1); }
+.ka-novinka h3 a { color: inherit; text-decoration: none; }
+.ka-novinka h3 a:hover { color: var(--ka-barva-primarni); }
+.ka-novinka p { margin: 0; color: var(--ka-barva-tlumeny); }';
     }
 
     public static function vykresli(array $p, string $a, string $deti, Kontext $k): string
@@ -52,7 +52,7 @@ final class Novinky extends Prvek
         $html = '';
         foreach ($novinky as $n) {
             $adresa = $k->url('novinky/' . $n['seo_link']);
-            $html .= '<article class="mc-novinka">'
+            $html .= '<article class="ka-novinka">'
                 . ($o['obrazky'] && $n['obrazek'] !== '' ? '<img src="' . e($n['obrazek']) . '" alt="" loading="lazy">' : '')
                 . '<time datetime="' . e(date('c', strtotime($n['datum']))) . '">' . e(datum($n['datum'])) . '</time>'
                 . '<h3><a href="' . e($adresa) . '">' . e($n['titulek']) . '</a></h3>'

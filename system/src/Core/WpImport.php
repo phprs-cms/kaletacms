@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Core;
+namespace Kaleta\Core;
 
-use MiroCMS\Admin\Moduly\Galerie;
-use MiroCMS\Admin\Moduly\Presmerovani;
-use MiroCMS\Admin\Moduly\Stranky;
+use Kaleta\Admin\Moduly\Galerie;
+use Kaleta\Admin\Moduly\Presmerovani;
+use Kaleta\Admin\Moduly\Stranky;
 
 /**
  * Import z WordPressu: stránky, příspěvky (→ novinky), kategorie, štítky, přesměrování ze starých adres a (zvlášť) obrázky.
@@ -16,7 +16,7 @@ use MiroCMS\Admin\Moduly\Stranky;
  *  - Soubor se čte proudem (Core\WpSoubor) a pracuje se PO DÁVKÁCH – nejvýš DAVKA příspěvků nebo SEKUND vteřin na jeden požadavek,
  *    aby import přežil časové limity sdíleného hostingu. Kde se skončilo (kolikátý <item>), drží stavový soubor
  *    storage/import/stav-<otisk>.json; další požadavek naváže.
- *  - Tabulka mc_import_mapa si pamatuje, který cizí záznam se stal kterým naším. Stejný soubor jde proto pustit znovu bez duplicit
+ *  - Tabulka ka_import_mapa si pamatuje, který cizí záznam se stal kterým naším. Stejný soubor jde proto pustit znovu bez duplicit
  *    (už převedená novinka se přeskočí a pozdější úpravy se nepřepíší) a obrázky se nestahují dvakrát.
  *  - Průchody jsou tři: náhled (jen počítá, do databáze nesahá), import obsahu a – až na výslovné přání – stažení obrázků.
  *  - Účty se nezakládají: novinka patří tomu, kdo importuje.
@@ -219,7 +219,7 @@ final class WpImport
         return (string) preg_replace('#-\d{2,5}x\d{2,5}(?=\.(?:jpe?g|png|gif|webp)$)#i', '', $adresa);
     }
 
-    /** Označení zdroje v mc_import_mapa: dva různé staré weby mají stejná čísla příspěvků, proto je v něm doména. */
+    /** Označení zdroje v ka_import_mapa: dva různé staré weby mají stejná čísla příspěvků, proto je v něm doména. */
     public static function zdroj(string $adresaWebu): string
     {
         $domena = StahovaniObrazku::domenaZAdresy($adresaWebu);
@@ -547,24 +547,24 @@ final class WpImport
      */
     private function stavba(string $titulek, string $html): ?string
     {
-        $prevod = \MiroCMS\Stavitel\ZHtml::preved('<h1>' . e($titulek) . '</h1>' . $html, true);
-        $stavba = \MiroCMS\Stavitel\ZHtml::bezTrid($prevod['stavba'], array_column($this->db->all('SELECT nazev FROM {tridy}'), 'nazev'));
+        $prevod = \Kaleta\Stavitel\ZHtml::preved('<h1>' . e($titulek) . '</h1>' . $html, true);
+        $stavba = \Kaleta\Stavitel\ZHtml::bezTrid($prevod['stavba'], array_column($this->db->all('SELECT nazev FROM {tridy}'), 'nazev'));
         foreach ($stavba['deti'] as &$sekce) {
             if ($sekce['typ'] === 'sekce' && !isset($sekce['kotva'])) {
                 $sekce['obsah']['sirka'] = 'uzka'; // text stránky se čte lépe v užším sloupci
             }
         }
         unset($sekce);
-        [$cista] = \MiroCMS\Stavitel\Stavba::vycisti($stavba, true);
+        [$cista] = \Kaleta\Stavitel\Stavba::vycisti($stavba, true);
 
-        return $cista['deti'] === [] ? null : \MiroCMS\Stavitel\Stavba::naJson($cista);
+        return $cista['deti'] === [] ? null : \Kaleta\Stavitel\Stavba::naJson($cista);
     }
 
     /**
      * Jeden obrázek: z mapy (už stažený), nebo ze starého webu přes Core\Obrazky do Médií.
      *
      * @param array<string, mixed> $stav
-     * @return array<string, mixed>|null|false řádek mc_media; null = nejde stáhnout; false = dávka je vyčerpaná
+     * @return array<string, mixed>|null|false řádek ka_media; null = nejde stáhnout; false = dávka je vyčerpaná
      */
     private function obrazek(string $adresa, string $nazev, array &$stav, StahovaniObrazku $stahovani): array|null|false
     {

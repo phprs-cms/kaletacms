@@ -2,7 +2,7 @@
 /**
  * Editor novinky: vlevo text, vpravo nastavení (na úzké obrazovce pod sebou).
  *
- * @var MiroCMS\Admin\Moduly\Novinky $modul
+ * @var Kaleta\Admin\Moduly\Novinky $modul
  * @var string $csrf
  * @var array<string, mixed> $novinka
  * @var array<string, string> $chyby
@@ -139,7 +139,7 @@ $chyba = fn (string $pole): string => isset($chyby[$pole]) ? '<span class="chyba
 <div class="radek pres-celou">
 	<span class="popisek"><?= e(t('Jazykové verze')) ?></span>
 	<div class="volby">
-<?php foreach ($jazykyPrekladu as $kodJazyka): $nazevJazyka = MiroCMS\Core\Jazyk::DOSTUPNE[$kodJazyka][0]; ?>
+<?php foreach ($jazykyPrekladu as $kodJazyka): $nazevJazyka = Kaleta\Core\Jazyk::DOSTUPNE[$kodJazyka][0]; ?>
 <?php if (isset($preklady[$kodJazyka])): ?>
 		<a class="navigace" href="<?= e($modul->url('edit', ['id' => $preklady[$kodJazyka]])) ?>"><?= e($nazevJazyka) ?>: <?= e(t('otevřít překlad')) ?></a>
 <?php elseif ($asistent): ?>
@@ -207,4 +207,4 @@ $chyba = fn (string $pole): string => isset($chyby[$pole]) ? '<span class="chyba
 <?php endif ?>
 </aside>
 </form>
-<script src="<?= e($modul->app()->url('image/pomocnik.js')) ?>?v=<?= e(MIROCMS_VERSION) ?>" defer></script>
+<script src="<?= e($modul->app()->url('image/pomocnik.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>

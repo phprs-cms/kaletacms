@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Stavitel;
+namespace Kaleta\Stavitel;
 
-use MiroCMS\Core\App;
-use MiroCMS\Core\Db;
-use MiroCMS\Core\WpObsah;
+use Kaleta\Core\App;
+use Kaleta\Core\Db;
+use Kaleta\Core\WpObsah;
 
 /**
  * Stavba stránky: strom prvků {"v": 1, "deti": [{"id", "typ", "znacka", "obsah", "styl", "tridy", "kotva", "deti"}]}.
@@ -22,7 +22,7 @@ final class Stavba
     public const string VZOR_TRIDA = '/^[a-z][a-z0-9-]{0,40}(__[a-z0-9-]{1,30})?(--[a-z0-9-]{1,30})?$/';
 
     /** Vlastní atributy prvku: jen neškodné (žádné on…, style, href, src). */
-    public const string VZOR_ATRIBUT = '/^(data-(?!mc-)[a-z0-9-]{1,30}|aria-[a-z]{2,20}|title|lang|role|rel)$/i';
+    public const string VZOR_ATRIBUT = '/^(data-(?!ka-)[a-z0-9-]{1,30}|aria-[a-z]{2,20}|title|lang|role|rel)$/i';
 
     /** Registr typů prvků (pořadí = pořadí v panelu Přidat). @var list<class-string<Prvek>> */
     public const array PRVKY = [
@@ -260,7 +260,7 @@ final class Stavba
 
     /**
      * Vykreslí stavbu: HTML a CSS jen toho, co stránka používá (základ typů, použité třídy, styl prvků) ve vrstvách kaskády.
-     * V režimu editoru dostane každý prvek data-mc-id, aby šel na plátně vybrat.
+     * V režimu editoru dostane každý prvek data-ka-id, aby šel na plátně vybrat.
      *
      * @return array{html:string, css:string, faq:list<array{0:string, 1:string}>}
      */
@@ -287,7 +287,7 @@ final class Stavba
             } catch (\Throwable $e) {
                 // „doktor“: vadný prvek se na webu vynechá, v editoru se ukáže hláška
                 error_log('Stavitel: prvek ' . ($p['id'] ?? '?') . ' – ' . $e->getMessage());
-                $html .= $k->editor ? '<div data-mc-id="' . e((string) ($p['id'] ?? '')) . '" style="padding:1rem;border:2px dashed #b3261e;color:#b3261e">' . e(t('Prvek se nepodařilo vykreslit.')) . '</div>' : '';
+                $html .= $k->editor ? '<div data-ka-id="' . e((string) ($p['id'] ?? '')) . '" style="padding:1rem;border:2px dashed #b3261e;color:#b3261e">' . e(t('Prvek se nepodařilo vykreslit.')) . '</div>' : '';
             }
         }
 
@@ -327,7 +327,7 @@ final class Stavba
         $a = ($id !== null ? ' id="' . e($id) . '"' : '')
             . ($tridy !== [] ? ' class="' . e(implode(' ', $tridy)) . '"' : '')
             . implode('', array_map(fn (string $n, string $h): string => ' ' . $n . '="' . e($h) . '"', array_keys($p['atributy'] ?? []), $p['atributy'] ?? []))
-            . ($k->editor ? ' data-mc-id="' . e((string) $p['id']) . '" data-mc-typ="' . e($trida::TYP) . '"' . (!empty($p['zamek']) ? ' data-mc-zamek' : '') : '');
+            . ($k->editor ? ' data-ka-id="' . e((string) $p['id']) . '" data-ka-typ="' . e($trida::TYP) . '"' . (!empty($p['zamek']) ? ' data-ka-zamek' : '') : '');
 
         return $trida::vykresli($p, $a, $deti, $k);
     }
@@ -354,12 +354,12 @@ final class Stavba
         return $obsah;
     }
 
-    /** CSS stránky: základ použitých typů, použité třídy (z mc_tridy) a styl jednotlivých prvků – každé ve své vrstvě. */
+    /** CSS stránky: základ použitých typů, použité třídy (z ka_tridy) a styl jednotlivých prvků – každé ve své vrstvě. */
     public static function css(Db $db, Kontext $k): string
     {
         // ve stavbě řídí rozestupy mezery kontejnerů (gap), ne okraje nadpisů a odstavců ze šablony; text uvnitř prvku Text je má
         $zaklad = ':where(.stavba) :where(h1, h2, h3, h4, h5, h6, p, ul, ol, blockquote, figure, hr) { margin-block: 0; }' . "\n"
-            . ':where(.stavba) :where(.mc-text) > * + * { margin-block-start: 1em; }' . "\n";
+            . ':where(.stavba) :where(.ka-text) > * + * { margin-block-start: 1em; }' . "\n";
         foreach (self::PRVKY as $trida) {
             if (isset($k->typy[$trida::TYP]) && $trida::zakladniCss() !== '') {
                 $zaklad .= $trida::zakladniCss() . "\n";
@@ -372,11 +372,11 @@ final class Stavba
                 $tridy .= Styl::css('.' . $r['nazev'], json_decode((string) $r['styl'], true) ?: [], Styl::vlastniCss((string) $r['css']), $k->app->request->basePath());
             }
         }
-        if (preg_match('/animation: mc-(objevit|vyjet|priblizit)/', $k->css . $tridy)) {
+        if (preg_match('/animation: ka-(objevit|vyjet|priblizit)/', $k->css . $tridy)) {
             // animace „Objevení při rolování“; kdo nechce pohyb (nastavení systému), vidí prvky rovnou
-            $zaklad .= '@keyframes mc-objevit { from { opacity: 0; } }' . "\n"
-                . '@keyframes mc-vyjet { from { opacity: 0; translate: 0 2.5rem; } }' . "\n"
-                . '@keyframes mc-priblizit { from { opacity: 0; scale: 0.92; } }' . "\n"
+            $zaklad .= '@keyframes ka-objevit { from { opacity: 0; } }' . "\n"
+                . '@keyframes ka-vyjet { from { opacity: 0; translate: 0 2.5rem; } }' . "\n"
+                . '@keyframes ka-priblizit { from { opacity: 0; scale: 0.92; } }' . "\n"
                 . '@media (prefers-reduced-motion: reduce) { :where(.stavba) * { animation: none !important; } }' . "\n";
         }
         $css = DesignSystem::VRSTVY . "\n";
@@ -455,7 +455,7 @@ final class Stavba
     public static function schema(bool $spravce = true, string $jazyk = 'cs', bool $casti = false): array
     {
         // výchozí obsah nových prvků je v jazyce stránky, popisky polí překládá editor do jazyka administrace
-        return \MiroCMS\Core\Jazyk::docasne($jazyk, fn (): array => self::sestavSchema($spravce, $casti));
+        return \Kaleta\Core\Jazyk::docasne($jazyk, fn (): array => self::sestavSchema($spravce, $casti));
     }
 
     /** @return array<string, mixed> */

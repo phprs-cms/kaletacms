@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Stavitel\Prvky;
+namespace Kaleta\Stavitel\Prvky;
 
-use MiroCMS\Stavitel\Kontext;
-use MiroCMS\Stavitel\Prvek;
+use Kaleta\Stavitel\Kontext;
+use Kaleta\Stavitel\Prvek;
 
 /**
  * Rozbalovací položky (akordeon) jako <details> – bez JavaScriptu. Volitelně otevřená vždy jen jedna (atribut name)
@@ -31,13 +31,13 @@ final class Faq extends Prvek
 
     public static function zakladniCss(): string
     {
-        return '.mc-faq details { border-block-end: 1px solid var(--mc-barva-linka); }
-.mc-faq summary { display: flex; justify-content: space-between; gap: 1em; padding-block: var(--mc-mezera-s); font-weight: 600; cursor: pointer; list-style: none; }
-.mc-faq summary::-webkit-details-marker { display: none; }
-.mc-faq summary::after { content: "+"; font-size: 1.4em; line-height: 1; color: var(--mc-barva-primarni); transition: rotate 0.2s; }
-.mc-faq details[open] summary::after { rotate: 45deg; }
-.mc-faq details > div { padding-block-end: var(--mc-mezera-s); color: var(--mc-barva-tlumeny); }
-.mc-faq details > div > :last-child { margin-block-end: 0; }';
+        return '.ka-faq details { border-block-end: 1px solid var(--ka-barva-linka); }
+.ka-faq summary { display: flex; justify-content: space-between; gap: 1em; padding-block: var(--ka-mezera-s); font-weight: 600; cursor: pointer; list-style: none; }
+.ka-faq summary::-webkit-details-marker { display: none; }
+.ka-faq summary::after { content: "+"; font-size: 1.4em; line-height: 1; color: var(--ka-barva-primarni); transition: rotate 0.2s; }
+.ka-faq details[open] summary::after { rotate: 45deg; }
+.ka-faq details > div { padding-block-end: var(--ka-mezera-s); color: var(--ka-barva-tlumeny); }
+.ka-faq details > div > :last-child { margin-block-end: 0; }';
     }
 
     public static function vykresli(array $p, string $a, string $deti, Kontext $k): string
@@ -55,6 +55,6 @@ final class Faq extends Prvek
             $html .= '<details' . $skupina . ($i === 0 && $k->editor ? ' open' : '') . '><summary>' . e($polozka['otazka']) . '</summary><div>' . $polozka['odpoved'] . '</div></details>';
         }
 
-        return '<div' . Text::sTridou($a, 'mc-faq') . '>' . $html . '</div>';
+        return '<div' . Text::sTridou($a, 'ka-faq') . '>' . $html . '</div>';
     }
 }

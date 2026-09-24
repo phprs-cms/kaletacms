@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Stavitel\Prvky;
+namespace Kaleta\Stavitel\Prvky;
 
-use MiroCMS\Stavitel\Kontext;
-use MiroCMS\Stavitel\Prvek;
+use Kaleta\Stavitel\Kontext;
+use Kaleta\Stavitel\Prvek;
 
 /** Formátovaný text z editoru: odstavce, seznamy, podnadpisy, odkazy, tabulky. */
 final class Text extends Prvek
@@ -23,14 +23,14 @@ final class Text extends Prvek
 
     public static function zakladniCss(): string
     {
-        return '.mc-text > :first-child { margin-block-start: 0; }
-.mc-text > :last-child { margin-block-end: 0; }
-.mc-text img { max-width: 100%; height: auto; }';
+        return '.ka-text > :first-child { margin-block-start: 0; }
+.ka-text > :last-child { margin-block-end: 0; }
+.ka-text img { max-width: 100%; height: auto; }';
     }
 
     public static function vykresli(array $p, string $a, string $deti, Kontext $k): string
     {
-        return '<div' . self::sTridou($a, 'mc-text') . '>' . $p['obsah']['html'] . '</div>';
+        return '<div' . self::sTridou($a, 'ka-text') . '>' . $p['obsah']['html'] . '</div>';
     }
 
     /** Doplní základní třídu typu do hotových atributů (před třídy uživatele). */

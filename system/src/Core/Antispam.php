@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Core;
+namespace Kaleta\Core;
 
 /**
  * Ochrana formulářů čtenářů bez cookies a bez CAPTCHA:
@@ -78,6 +78,6 @@ final class Antispam
     /** Do tabulky se neukládá IP adresa, jen její otisk. */
     public static function otisk(string $ip): string
     {
-        return substr(hash('sha256', 'mirocms|' . $ip), 0, 40);
+        return substr(hash('sha256', 'kaleta|' . $ip), 0, 40);
     }
 }

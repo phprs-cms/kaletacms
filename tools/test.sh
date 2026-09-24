@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# MiroCMS - kouřový test: čistá instalace do dočasné kopie a průchod hlavními stránkami.
+# Kaleta - kouřový test: čistá instalace do dočasné kopie a průchod hlavními stránkami.
 # Spouští se lokálně i v GitHub Actions. Databázi bere z proměnných prostředí:
-#   DB_HOST (127.0.0.1) DB_PORT (3306) DB_NAME (mirocms_test) DB_USER (root) DB_PASS (prázdné) PORT (8099) WEB (firemni | remeslo | poradenstvi)
+#   DB_HOST (127.0.0.1) DB_PORT (3306) DB_NAME (kaleta_test) DB_USER (root) DB_PASS (prázdné) PORT (8099) WEB (firemni | remeslo | poradenstvi)
 # Databáze DB_NAME se při testu SMAŽE a vytvoří znovu.
 set -euo pipefail
 
 KOREN="$(cd "$(dirname "$0")/.." && pwd)"
-DB_HOST="${DB_HOST:-127.0.0.1}"; DB_PORT="${DB_PORT:-3306}"; DB_NAME="${DB_NAME:-mirocms_test}"; DB_USER="${DB_USER:-root}"; DB_PASS="${DB_PASS:-}"; PORT="${PORT:-8099}"
+DB_HOST="${DB_HOST:-127.0.0.1}"; DB_PORT="${DB_PORT:-3306}"; DB_NAME="${DB_NAME:-kaleta_test}"; DB_USER="${DB_USER:-root}"; DB_PASS="${DB_PASS:-}"; PORT="${PORT:-8099}"
 PRACE="$(mktemp -d)"; JAR="$PRACE/cookies.txt"; B="http://127.0.0.1:$PORT"; CHYB=0
 uklid() { [ -n "${SERVER_PID:-}" ] && kill "$SERVER_PID" 2>/dev/null || true; rm -rf "$PRACE"; }
 trap uklid EXIT
@@ -30,7 +30,7 @@ over() { # over <popis> <očekávaný kód> <adresa> [hledaný text]
 }
 
 POSLEDNI=$(ls "$KOREN"/system/sql/migrace/*.sql | sed 's/.*\/\([0-9]*\)-.*/\1/' | sort -n | tail -1 | sed 's/^0*//')
-grep -q "const MIROCMS_VERZE_DB = $POSLEDNI;" "$KOREN/system/bootstrap.php" && echo "  ok     MIROCMS_VERZE_DB odpovídá poslední migraci ($POSLEDNI)" || { echo "  CHYBA  MIROCMS_VERZE_DB v system/bootstrap.php neodpovídá poslední migraci ($POSLEDNI)"; CHYB=$((CHYB+1)); }
+grep -q "const KALETA_VERZE_DB = $POSLEDNI;" "$KOREN/system/bootstrap.php" && echo "  ok     KALETA_VERZE_DB odpovídá poslední migraci ($POSLEDNI)" || { echo "  CHYBA  KALETA_VERZE_DB v system/bootstrap.php neodpovídá poslední migraci ($POSLEDNI)"; CHYB=$((CHYB+1)); }
 
 echo "== jednotkové testy"
 php "$KOREN/tools/testy.php" || CHYB=$((CHYB+1))
@@ -40,7 +40,7 @@ ocekavej() { [ "$2" = "$3" ] && echo "  ok     $1" || { echo "  CHYBA  $1: dosta
 
 echo "== instalace"
 HESLO="Test-$(date +%s)-heslo"
-curl -s -o "$PRACE/odpoved" -X POST "$B/install.php" --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB_NAME" -d "db_user=$DB_USER" --data-urlencode "db_password=$DB_PASS" -d db_prefix=mc_ \
+curl -s -o "$PRACE/odpoved" -X POST "$B/install.php" --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB_NAME" -d "db_user=$DB_USER" --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ \
   --data-urlencode "nazev_webu=Testovací firma" -d "web=${WEB:-firemni}" -d user=admin -d jmeno=Tester -d email= --data-urlencode "password=$HESLO" --data-urlencode "password2=$HESLO"
 grep -q "Hotovo, web běží" "$PRACE/odpoved" || { echo "  CHYBA  instalace selhala"; sed 's/<[^>]*>//g' "$PRACE/odpoved" | grep -v '^\s*$' | head -20; exit 1; }
 echo "  ok     instalace"
@@ -53,23 +53,23 @@ kod=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/uvod"); ocekave
 over "stránka" 200 /sluzby "Služby"
 over "úvodní stránka je ze sekcí stavitele" 200 / 'class="stavba"'
 over "služby mají otázky a odpovědi i pro vyhledávače" 200 /sluzby '"FAQPage"'
-over "výpis novinek" 200 /novinky "Vítejte v MiroCMS"
-over "novinka" 200 /novinky/vitejte-v-mirocms "Vítejte"
+over "výpis novinek" 200 /novinky "Vítejte v Kaletě"
+over "novinka" 200 /novinky/vitejte-v-kalete "Vítejte"
 over "kategorie" 200 /novinky/kategorie/aktuality
 over "hledání najde novinku i stránku" 200 "/hledani?q=Kontakt" 'href="/kontakt"'
-for u in /rss.xml /feed.json /sitemap.xml /robots.txt /llms.txt /novinky/vitejte-v-mirocms.md; do over "$u" 200 "$u"; done
-over "mapa webu obsahuje novinku" 200 /sitemap.xml "/novinky/vitejte-v-mirocms"
+for u in /rss.xml /feed.json /sitemap.xml /robots.txt /llms.txt /novinky/vitejte-v-kalete.md; do over "$u" 200 "$u"; done
+over "mapa webu obsahuje novinku" 200 /sitemap.xml "/novinky/vitejte-v-kalete"
 over "llms.txt vyjmenuje stránky" 200 /llms.txt "## Stránky"
-over "strukturovaná data novinky" 200 /novinky/vitejte-v-mirocms '"BlogPosting"'
+over "strukturovaná data novinky" 200 /novinky/vitejte-v-kalete '"BlogPosting"'
 over "neexistující stránka" 404 /tohle-neexistuje
 over "system/ není přístupný" 403 /system/sql/schema.sql
 over "config.php není přístupný" 403 /config.php
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE mc_nastaveni SET hodnota='neexistuje' WHERE promenna='layout'"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota='neexistuje' WHERE promenna='layout'"
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
 over "chybějící šablona – web běží na výchozí" 200 / "layout/zakladni/style.css"
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE mc_nastaveni SET hodnota='0' WHERE promenna='titulni_stranka'"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota='0' WHERE promenna='titulni_stranka'"
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
-over "bez úvodní stránky je úvodem výpis novinek" 200 / "Vítejte v MiroCMS"
+over "bez úvodní stránky je úvodem výpis novinek" 200 / "Vítejte v Kaletě"
 
 echo "== administrace"
 over "zapomenuté heslo – formulář" 200 "/admin.php?akce=heslo" "Poslat odkaz"
@@ -79,7 +79,7 @@ TOKEN=$(csrf)
 kod=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$TOKEN" -d user=admin -d password=spatne-heslo-123); ocekavej "špatné heslo odmítnuto" "$kod" 401
 kod=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d user=admin --data-urlencode "password=$HESLO"); ocekavej "POST bez CSRF odmítnut" "$kod" 400
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN" -d user=admin --data-urlencode "password=$HESLO"
-"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO mc_nastaveni VALUES ('rozsireni','statistika,presmerovani,asistent,jazyky,api,claude') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('rozsireni','statistika,presmerovani,asistent,jazyky,api,claude') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
 over "přehled" 200 /admin.php "Přehled"
 for m in stranky "stranky&akce=novy" poptavky casti komponenty "komponenty&akce=novy" kolekce "kolekce&akce=novy" novinky "novinky&akce=novy" "novinky&akce=odkazy" kategorie "kategorie&akce=novy" stitky intergal stat vzhled users "users&akce=novy" presmerovani protokol prenos rozsireni; do over "modul $m" 200 "/admin.php?modul=$m"; done
 over "uživatelé se shrnutím oprávnění" 200 "/admin.php?modul=users" "Smí všechno"
@@ -88,9 +88,9 @@ over "nastavení: volba úvodní stránky" 200 "/admin.php?modul=config&zalozka=
 over "neznámý modul" 403 "/admin.php?modul=neexistuje"
 over "API: novinky" 200 /api/novinky '"novinky"'
 over "API: stránky" 200 /api/stranky '/kontakt"'
-"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO mc_nastaveni VALUES ('jazyky_dalsi','en') ON DUPLICATE KEY UPDATE hodnota='en'"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('jazyky_dalsi','en') ON DUPLICATE KEY UPDATE hodnota='en'"
 over "anglická verze webu" 200 /en/ 'lang="en"'
-kod=$(curl -s -o /dev/null -w '%{http_code}' "$B/en/novinky/vitejte-v-mirocms"); ocekavej "novinka jiné jazykové verze přesměruje" "$kod" 301
+kod=$(curl -s -o /dev/null -w '%{http_code}' "$B/en/novinky/vitejte-v-kalete"); ocekavej "novinka jiné jazykové verze přesměruje" "$kod" 301
 
 # neúspěšná validace novinky musí vrátit formulář s hláškou, ne chybu 500
 curl -s -b "$JAR" -c "$JAR" -o "$PRACE/odpoved" "$B/admin.php?modul=novinky&akce=novy"
@@ -99,7 +99,7 @@ kod=$(curl -s -b "$JAR" -c "$JAR" -o "$PRACE/odpoved" -w '%{http_code}' -X POST 
 [ "$kod" = 200 ] && grep -q 'name="titulek"' "$PRACE/odpoved" && echo "  ok     chyba ve formuláři novinky vrátí formulář" || { echo "  CHYBA  validace novinky: kód $kod"; CHYB=$((CHYB+1)); }
 
 # autor novinek: vidí jen své novinky a nevydává
-NOVINKA=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idc FROM mc_novinky ORDER BY idc LIMIT 1")
+NOVINKA=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idc FROM ka_novinky ORDER BY idc LIMIT 1")
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=users&akce=uloz" -d "_csrf=$TOKEN" -d idu=0 -d jmeno=Autor -d user=autor --data-urlencode "password=$HESLO" -d admin=0
 JAR2="$PRACE/jar2"
 TOKEN2=$(curl -s -c "$JAR2" "$B/admin.php" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//')
@@ -116,9 +116,9 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=config&akce
   -d firma_ico=12345678 -d firma_dic=CZ12345678 --data-urlencode "firma_ulice=Dlouhá 12" --data-urlencode "firma_mesto=Praha" --data-urlencode "firma_psc=110 00" -d firma_zeme=CZ \
   --data-urlencode "firma_telefon=+420 123 456 789" --data-urlencode "firma_hodiny=Po–Pá 8:00–17:00
 So 9–12" --data-urlencode "firma_mapa=https://mapy.cz/s/abc" --data-urlencode "firma_gps=50.0875, 14.4213"
-ocekavej "údaje firmy uloženy" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM mc_nastaveni WHERE promenna = 'firma_ico'")" 12345678
+ocekavej "údaje firmy uloženy" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'firma_ico'")" 12345678
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=config&akce=uloz" -d "_csrf=$TOKEN" -d zalozka=firma -d firma_typ=LocalBusiness -d firma_zeme=CZ --data-urlencode "firma_hodiny=kdykoli"
-ocekavej "nesrozumitelná otevírací doba odmítnuta" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota LIKE '%8:00%' AND hodnota NOT LIKE '%kdykoli%' FROM mc_nastaveni WHERE promenna = 'firma_hodiny'")" 1
+ocekavej "nesrozumitelná otevírací doba odmítnuta" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota LIKE '%8:00%' AND hodnota NOT LIKE '%kdykoli%' FROM ka_nastaveni WHERE promenna = 'firma_hodiny'")" 1
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=config&akce=uloz" -d "_csrf=$TOKEN" -d zalozka=firma --data-urlencode "firma_nazev=Testovací firma s.r.o." -d firma_typ=HomeAndConstructionBusiness \
   -d firma_ico=12345678 -d firma_dic=CZ12345678 --data-urlencode "firma_ulice=Dlouhá 12" --data-urlencode "firma_mesto=Praha" --data-urlencode "firma_psc=110 00" -d firma_zeme=CZ \
   --data-urlencode "firma_telefon=+420 123 456 789" --data-urlencode "firma_hodiny=Po–Pá 8:00–17:00" --data-urlencode "firma_mapa=https://mapy.cz/s/abc" --data-urlencode "firma_gps=50.0875, 14.4213"
@@ -134,14 +134,14 @@ echo "== vzhled webu (design systém)"
 over "vzhled s předvolbami a náhledem" 200 "/admin.php?modul=vzhled" 'data-predvolba'
 TOKEN=$(csrf)
 curl -s -b "$JAR" -o "$PRACE/odpoved" -X POST "$B/admin.php?modul=vzhled&akce=nahled" -d "_csrf=$TOKEN" --data-urlencode 'ds[barvy][primarni]=#ff00aa' -d 'ds[zaklad_min]=18'
-grep -q 'mc-barva-primarni: #ff00aa' "$PRACE/odpoved" && grep -q '"kontrasty"' "$PRACE/odpoved" && echo "  ok     živý náhled vrátí tokeny a kontrasty" || { echo "  CHYBA  náhled vzhledu"; CHYB=$((CHYB+1)); }
+grep -q 'ka-barva-primarni: #ff00aa' "$PRACE/odpoved" && grep -q '"kontrasty"' "$PRACE/odpoved" && echo "  ok     živý náhled vrátí tokeny a kontrasty" || { echo "  CHYBA  náhled vzhledu"; CHYB=$((CHYB+1)); }
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=vzhled&akce=uloz" -d "_csrf=$TOKEN" -d layout=zakladni -d tmavy_rezim=vypnuto --data-urlencode 'ds[barvy][primarni]=#9a3412' --data-urlencode 'ds[barvy][text]=red;}body{' -d 'ds[pismo_titulky]=klasicke' -d 'ds[sirka]=1280'
 curl -s -o "$PRACE/odpoved" "$B/"
-grep -q 'mc-barva-primarni: #9a3412' "$PRACE/odpoved" && grep -q 'mc-sirka: 80rem' "$PRACE/odpoved" && grep -q 'mc-pismo-titulky: Georgia' "$PRACE/odpoved" && echo "  ok     uložený vzhled je hned na webu" || { echo "  CHYBA  uložení vzhledu"; CHYB=$((CHYB+1)); }
+grep -q 'ka-barva-primarni: #9a3412' "$PRACE/odpoved" && grep -q 'ka-sirka: 80rem' "$PRACE/odpoved" && grep -q 'ka-pismo-titulky: Georgia' "$PRACE/odpoved" && echo "  ok     uložený vzhled je hned na webu" || { echo "  CHYBA  uložení vzhledu"; CHYB=$((CHYB+1)); }
 grep -q 'body{' "$PRACE/odpoved" && { echo "  CHYBA  do CSS proniklo neplatné zadání barvy"; CHYB=$((CHYB+1)); } || echo "  ok     neplatná barva se nahradí výchozí"
 
 echo "== stavitel stránek"
-IDS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM mc_stranky WHERE seo_link = 'o-nas'")
+IDS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'o-nas'")
 over "stavitel se otevře a převede textovou stránku" 200 "/admin.php?modul=stranky&akce=stavitel&id=$IDS" 'id="stavitel-data"'
 TOKEN=$(csrf)
 st() { curl -s -b "$JAR" -c "$JAR" -o "$PRACE/odpoved" -w '%{http_code}' -X POST "$B/admin.php?modul=stranky&akce=$1&id=$IDS" -d "_csrf=$TOKEN" "${@:2}"; }
@@ -161,20 +161,20 @@ kod=$(st stavba_trida -d nazev=karta --data-urlencode 'styl={"zaklad":{"pozadi":
 ocekavej "neplatný název třídy odmítnut" "$(st stavba_trida -d 'nazev=Karta Velka')" 400
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
 curl -s -o "$PRACE/odpoved" "$B/o-nas"; ! grep -q "Stavitel test" "$PRACE/odpoved" && echo "  ok     koncept není před publikováním na webu" || { echo "  CHYBA  koncept je na webu dřív, než se publikuje"; CHYB=$((CHYB+1)); }
-over "náhled konceptu pro editor" 200 "/o-nas?stavba=koncept&editor=1" 'data-mc-id="nad1"'
+over "náhled konceptu pro editor" 200 "/o-nas?stavba=koncept&editor=1" 'data-ka-id="nad1"'
 over "náhled konceptu se neindexuje" 200 "/o-nas?stavba=koncept" 'noindex'
 curl -s -o "$PRACE/odpoved" "$B/o-nas?stavba=koncept&editor=1"; ! grep -q "Stavitel test" "$PRACE/odpoved" && echo "  ok     náhled konceptu nevidí návštěvník" || { echo "  CHYBA  koncept vidí nepřihlášený"; CHYB=$((CHYB+1)); }
 kod=$(st stavba_publikuj); ocekavej "publikování stavby" "$kod" 200
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
 curl -s -o "$PRACE/odpoved" "$B/o-nas"
 grep -q '<h1 id="s-nad1" class="karta">Stavitel test</h1>' "$PRACE/odpoved" && echo "  ok     publikovaná stavba na webu, jedna značka na prvek" || { echo "  CHYBA  stavba na webu"; CHYB=$((CHYB+1)); }
-grep -q 'data-mc-id' "$PRACE/odpoved" && { echo "  CHYBA  značky editoru na veřejném webu"; CHYB=$((CHYB+1)); } || echo "  ok     bez značek editoru na veřejném webu"
-grep -q '@layer prvky' "$PRACE/odpoved" && grep -q '#s-nad1 { color: var(--mc-barva-primarni); }' "$PRACE/odpoved" && grep -q '.karta { background-color: var(--mc-barva-plocha)' "$PRACE/odpoved" && echo "  ok     CSS prvků a tříd ve vrstvách" || { echo "  CHYBA  CSS stavby"; CHYB=$((CHYB+1)); }
+grep -q 'data-ka-id' "$PRACE/odpoved" && { echo "  CHYBA  značky editoru na veřejném webu"; CHYB=$((CHYB+1)); } || echo "  ok     bez značek editoru na veřejném webu"
+grep -q '@layer prvky' "$PRACE/odpoved" && grep -q '#s-nad1 { color: var(--ka-barva-primarni); }' "$PRACE/odpoved" && grep -q '.karta { background-color: var(--ka-barva-plocha)' "$PRACE/odpoved" && echo "  ok     CSS prvků a tříd ve vrstvách" || { echo "  CHYBA  CSS stavby"; CHYB=$((CHYB+1)); }
 grep -q '"FAQPage"' "$PRACE/odpoved" && echo "  ok     otázky a odpovědi jako strukturovaná data" || { echo "  CHYBA  FAQPage chybí"; CHYB=$((CHYB+1)); }
 over "hledání najde obsah stavby" 200 "/hledani?q=Stavitel+test" 'Nalezeno: 1'
 st stavba_uloz --data-urlencode "stavba=${STAVBA/Stavitel test/Druhá verze}" > /dev/null; st stavba_publikuj > /dev/null
-ocekavej "předchozí publikovaná verze je v historii" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM mc_stavba_revize WHERE ids = $IDS AND stavba LIKE '%Stavitel test%'")" 1
-IDR=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idr FROM mc_stavba_revize WHERE ids = $IDS AND stavba LIKE '%Stavitel test%'")
+ocekavej "předchozí publikovaná verze je v historii" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_stavba_revize WHERE ids = $IDS AND stavba LIKE '%Stavitel test%'")" 1
+IDR=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idr FROM ka_stavba_revize WHERE ids = $IDS AND stavba LIKE '%Stavitel test%'")
 st stavba_obnov -d "idr=$IDR" > /dev/null; grep -q 'Stavitel test' "$PRACE/odpoved" && echo "  ok     obnovení verze do konceptu" || { echo "  CHYBA  stavba_obnov"; CHYB=$((CHYB+1)); }
 st stavba_zahod > /dev/null; grep -q 'Druhá verze' "$PRACE/odpoved" && echo "  ok     zahození změn vrátí publikovanou stavbu" || { echo "  CHYBA  stavba_zahod"; CHYB=$((CHYB+1)); }
 ocekavej "autor novinek do stavitele nesmí" "$(curl -s -b "$JAR2" -o /dev/null -w '%{http_code}' "$B/admin.php?modul=stranky&akce=stavitel&id=$IDS")" 403
@@ -183,25 +183,25 @@ rm -f "$PRACE"/web/storage/cache/stranky/*.html
 curl -s -o "$PRACE/odpoved" "$B/o-nas"; grep -q "<h1>Druhá verze</h1>" "$PRACE/odpoved" && grep -q 'class="obal obsah"' "$PRACE/odpoved" && echo "  ok     návrat k textu zachová obsah stavby bez rozložení" || { echo "  CHYBA  stavba_text"; CHYB=$((CHYB+1)); }
 
 echo "== Claude (MCP): stavitel"
-TOK="mirocms_$(printf 'a%.0s' $(seq 1 48))"
-"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO mc_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'test', '$(php -r 'echo hash("sha256", $argv[1]);' "$TOK")', NOW() FROM mc_uzivatele WHERE user = 'admin'"
+TOK="kaleta_$(printf 'a%.0s' $(seq 1 48))"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'test', '$(php -r 'echo hash("sha256", $argv[1]);' "$TOK")', NOW() FROM ka_uzivatele WHERE user = 'admin'"
 mcp() { curl -s -X POST "$B/mcp" -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"$1\",\"arguments\":$2}}"; }
-mcp stavba_schema '{}' > "$PRACE/odpoved"; grep -q 'knihovna' "$PRACE/odpoved" && grep -q 'mc-mezera' "$PRACE/odpoved" && echo "  ok     MCP: schéma stavitele" || { echo "  CHYBA  MCP stavba_schema"; head -c 300 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
-mcp stavba_z_html '{"titulek":"Z HTML","html":"<style>.uvod-x { padding-block: var(--mc-mezera-2xl); } .uvod-x h1 { color: red }</style><header class=\"uvod-x\"><div class=\"container\"><h1>Stránka od Clauda</h1><p>Text <b>tučně</b>.</p><a class=\"btn\" href=\"/kontakt\">Kontakt</a></div></header><form><input></form>"}' > "$PRACE/odpoved"
+mcp stavba_schema '{}' > "$PRACE/odpoved"; grep -q 'knihovna' "$PRACE/odpoved" && grep -q 'ka-mezera' "$PRACE/odpoved" && echo "  ok     MCP: schéma stavitele" || { echo "  CHYBA  MCP stavba_schema"; head -c 300 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+mcp stavba_z_html '{"titulek":"Z HTML","html":"<style>.uvod-x { padding-block: var(--ka-mezera-2xl); } .uvod-x h1 { color: red }</style><header class=\"uvod-x\"><div class=\"container\"><h1>Stránka od Clauda</h1><p>Text <b>tučně</b>.</p><a class=\"btn\" href=\"/kontakt\">Kontakt</a></div></header><form><input></form>"}' > "$PRACE/odpoved"
 grep -q 'koncept' "$PRACE/odpoved" && grep -q 'Formul' "$PRACE/odpoved" && grep -q 'vynech.*btn' "$PRACE/odpoved" && echo "  ok     MCP: HTML převedeno na koncept stavby s hlášením (i formulář)" || { echo "  CHYBA  MCP stavba_z_html"; head -c 600 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
-IDZ=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM mc_stranky WHERE seo_link = 'z-html'")
-ocekavej "MCP: nová stránka zůstává skrytá a bez publikované stavby" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazit, '/', stavba IS NULL, '/', stavba_koncept LIKE '%od Clauda%') FROM mc_stranky WHERE ids = $IDZ")" "0/1/1"
-ocekavej "MCP: třída z <style> uložena" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT css FROM mc_tridy WHERE nazev = 'uvod-x'")" "padding-block: var(--mc-mezera-2xl);"
+IDZ=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'z-html'")
+ocekavej "MCP: nová stránka zůstává skrytá a bez publikované stavby" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazit, '/', stavba IS NULL, '/', stavba_koncept LIKE '%od Clauda%') FROM ka_stranky WHERE ids = $IDZ")" "0/1/1"
+ocekavej "MCP: třída z <style> uložena" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT css FROM ka_tridy WHERE nazev = 'uvod-x'")" "padding-block: var(--ka-mezera-2xl);"
 mcp vloz_sekci "{\"id\":$IDZ,\"sekce\":\"faq\"}" > /dev/null
 mcp publikuj_stavbu "{\"id\":$IDZ}" > /dev/null
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE mc_stranky SET zobrazit = 1 WHERE ids = $IDZ"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_stranky SET zobrazit = 1 WHERE ids = $IDZ"
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
 curl -s -o "$PRACE/odpoved" "$B/z-html"
 grep -q '<h1>Stránka od Clauda</h1>' "$PRACE/odpoved" && grep -q 'class="uvod-x"' "$PRACE/odpoved" && ! grep -q 'container' "$PRACE/odpoved" && grep -q '"FAQPage"' "$PRACE/odpoved" && echo "  ok     MCP: publikovaná stránka od Clauda na webu" || { echo "  CHYBA  MCP publikování"; CHYB=$((CHYB+1)); }
 mcp uprav_design_system '{"ds":{"barvy":{"primarni":"#0f766e"},"zaobleni":"l"}}' > "$PRACE/odpoved"; grep -q 'citelnost' "$PRACE/odpoved" && echo "  ok     MCP: úprava design systému" || { echo "  CHYBA  MCP uprav_design_system"; CHYB=$((CHYB+1)); }
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
-over "design systém z MCP je na webu" 200 / 'mc-barva-primarni: #0f766e'
-over "design systém z MCP zachoval ostatní barvy" 200 / 'mc-barva-plocha: #f5f6f8'
+over "design systém z MCP je na webu" 200 / 'ka-barva-primarni: #0f766e'
+over "design systém z MCP zachoval ostatní barvy" 200 / 'ka-barva-plocha: #f5f6f8'
 
 echo "== části webu ve staviteli"
 over "části webu" 200 "/admin.php?modul=casti" "Záhlaví"
@@ -209,36 +209,36 @@ over "záhlaví se otevře ve staviteli s koncept podle šablony" 200 "/admin.ph
 TOKEN=$(csrf)
 cast() { curl -s -b "$JAR" -c "$JAR" -o "$PRACE/odpoved" -w '%{http_code}' -X POST "$B/admin.php?modul=casti&akce=$1&typ=$2&jazyk=" -d "_csrf=$TOKEN" "${@:3}"; }
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
-curl -s -o "$PRACE/odpoved" "$B/o-nas"; grep -q 'header class="hlavicka"' "$PRACE/odpoved" && ! grep -q 'mc-nav' "$PRACE/odpoved" && echo "  ok     nepublikované záhlaví kreslí šablona" || { echo "  CHYBA  nepublikované záhlaví je na webu"; CHYB=$((CHYB+1)); }
-over "náhled konceptu záhlaví pro editor" 200 "/o-nas?cast=hlavicka&stavba=koncept&editor=1" 'data-mc-typ="navigace"'
-curl -s -o "$PRACE/odpoved" "$B/o-nas?cast=hlavicka&stavba=koncept&editor=1"; ! grep -q 'data-mc-typ' "$PRACE/odpoved" && echo "  ok     náhled části nevidí návštěvník" || { echo "  CHYBA  koncept části vidí nepřihlášený"; CHYB=$((CHYB+1)); }
+curl -s -o "$PRACE/odpoved" "$B/o-nas"; grep -q 'header class="hlavicka"' "$PRACE/odpoved" && ! grep -q 'ka-nav' "$PRACE/odpoved" && echo "  ok     nepublikované záhlaví kreslí šablona" || { echo "  CHYBA  nepublikované záhlaví je na webu"; CHYB=$((CHYB+1)); }
+over "náhled konceptu záhlaví pro editor" 200 "/o-nas?cast=hlavicka&stavba=koncept&editor=1" 'data-ka-typ="navigace"'
+curl -s -o "$PRACE/odpoved" "$B/o-nas?cast=hlavicka&stavba=koncept&editor=1"; ! grep -q 'data-ka-typ' "$PRACE/odpoved" && echo "  ok     náhled části nevidí návštěvník" || { echo "  CHYBA  koncept části vidí nepřihlášený"; CHYB=$((CHYB+1)); }
 ocekavej "publikování záhlaví" "$(cast stavba_publikuj hlavicka)" 200
 curl -s -o "$PRACE/odpoved" "$B/o-nas"
-grep -q 'class="mc-nav"' "$PRACE/odpoved" && ! grep -q 'header class="hlavicka"' "$PRACE/odpoved" && grep -q 'href="/o-nas" aria-current="page"' "$PRACE/odpoved" && echo "  ok     záhlaví ze stavitele na webu s aktivní položkou menu" || { echo "  CHYBA  záhlaví ze stavitele"; CHYB=$((CHYB+1)); }
+grep -q 'class="ka-nav"' "$PRACE/odpoved" && ! grep -q 'header class="hlavicka"' "$PRACE/odpoved" && grep -q 'href="/o-nas" aria-current="page"' "$PRACE/odpoved" && echo "  ok     záhlaví ze stavitele na webu s aktivní položkou menu" || { echo "  CHYBA  záhlaví ze stavitele"; CHYB=$((CHYB+1)); }
 [ "$(grep -o '<style>' "$PRACE/odpoved" | wc -l | tr -d ' ')" = 1 ] && [ "$(grep -o '@layer stavitel {' "$PRACE/odpoved" | wc -l | tr -d ' ')" = 1 ] && echo "  ok     stránka a části webu mají jedno CSS" || { echo "  CHYBA  CSS částí webu se opakuje"; CHYB=$((CHYB+1)); }
 OBALKA='{"v":1,"deti":[{"id":"obs1","typ":"obsah"},{"id":"sek9","typ":"sekce","deti":[{"id":"nad9","typ":"nadpis","obsah":{"text":"Pod článkem"}}]}]}'
 over "obálka novinky ve staviteli" 200 "/admin.php?modul=casti&akce=stavitel&typ=novinka&jazyk=" 'id="stavitel-data"'
 cast stavba_uloz novinka --data-urlencode "stavba=$OBALKA" > /dev/null; cast stavba_publikuj novinka > /dev/null
-curl -s -o "$PRACE/odpoved" "$B/novinky/vitejte-v-mirocms"; grep -q 'Pod článkem' "$PRACE/odpoved" && grep -q '<main id="obsah" class="stavba">' "$PRACE/odpoved" && grep -q 'class="obal obsah"' "$PRACE/odpoved" && grep -q 'Vítejte' "$PRACE/odpoved" && echo "  ok     obálka kolem novinky" || { echo "  CHYBA  obálka novinky"; CHYB=$((CHYB+1)); }
+curl -s -o "$PRACE/odpoved" "$B/novinky/vitejte-v-kalete"; grep -q 'Pod článkem' "$PRACE/odpoved" && grep -q '<main id="obsah" class="stavba">' "$PRACE/odpoved" && grep -q 'class="obal obsah"' "$PRACE/odpoved" && grep -q 'Vítejte' "$PRACE/odpoved" && echo "  ok     obálka kolem novinky" || { echo "  CHYBA  obálka novinky"; CHYB=$((CHYB+1)); }
 cast stavba_uloz hlavicka --data-urlencode 'stavba={"v":1,"deti":[{"typ":"sekce","znacka":"header","deti":[{"typ":"logo"}]}]}' > /dev/null; cast stavba_publikuj hlavicka > /dev/null
-ocekavej "předchozí záhlaví je ve verzích" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM mc_stavba_revize WHERE cast = 'hlavicka:'")" 1
+ocekavej "předchozí záhlaví je ve verzích" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_stavba_revize WHERE cast = 'hlavicka:'")" 1
 cast sablona hlavicka > /dev/null
 curl -s -o "$PRACE/odpoved" "$B/o-nas"; grep -q 'header class="hlavicka"' "$PRACE/odpoved" && echo "  ok     vrácení záhlaví na šablonu" || { echo "  CHYBA  vrácení na šablonu"; CHYB=$((CHYB+1)); }
 mcp stavba_uloz '{"cast":"paticka","stavba":{"v":1,"deti":[{"typ":"sekce","znacka":"footer","deti":[{"typ":"udaje","obsah":{"udaj":"copyright"}}]}]},"publikovat":true}' > "$PRACE/odpoved"
 grep -q 'publikováno' "$PRACE/odpoved" && echo "  ok     MCP: patička ze stavby" || { echo "  CHYBA  MCP patička"; head -c 400 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
-curl -s -o "$PRACE/odpoved" "$B/o-nas"; grep -q "<p class=\"mc-udaj\">&copy; $(date +%Y) Testovací firma</p>" "$PRACE/odpoved" && ! grep -q 'footer class="paticka"' "$PRACE/odpoved" && echo "  ok     patička z MCP na webu" || { echo "  CHYBA  patička z MCP na webu"; CHYB=$((CHYB+1)); }
+curl -s -o "$PRACE/odpoved" "$B/o-nas"; grep -q "<p class=\"ka-udaj\">&copy; $(date +%Y) Testovací firma</p>" "$PRACE/odpoved" && ! grep -q 'footer class="paticka"' "$PRACE/odpoved" && echo "  ok     patička z MCP na webu" || { echo "  CHYBA  patička z MCP na webu"; CHYB=$((CHYB+1)); }
 ocekavej "autor novinek k částem webu nesmí" "$(curl -s -b "$JAR2" -o /dev/null -w '%{http_code}' "$B/admin.php?modul=casti")" 403
 
 echo "== formuláře a poptávky"
 curl -s -o "$PRACE/formular.html" "$B/kontakt"
-grep -q 'class="mc-formular"' "$PRACE/formular.html" && grep -q 'name="as_podpis"' "$PRACE/formular.html" && echo "  ok     kontakt má poptávkový formulář" || { echo "  CHYBA  formulář na kontaktu"; CHYB=$((CHYB+1)); }
+grep -q 'class="ka-formular"' "$PRACE/formular.html" && grep -q 'name="as_podpis"' "$PRACE/formular.html" && echo "  ok     kontakt má poptávkový formulář" || { echo "  CHYBA  formulář na kontaktu"; CHYB=$((CHYB+1)); }
 hodnota() { grep -o "name=\"$1\" value=\"[^\"]*\"" "$PRACE/formular.html" | head -1 | sed 's/.*value="//;s/"$//'; }
 FZ=$(hodnota zdroj); FP=$(hodnota prvek); FC=$(hodnota as_cas); FS=$(hodnota as_podpis)
 odesli() { curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FZ" -d "prvek=$FP" -d zpet=/kontakt -d "as_cas=$FC" -d "as_podpis=$FS" "$@"; }
 sleep 4
 kam=$(odesli -d p0=Jana --data-urlencode p1=jana@example.cz -d p2= --data-urlencode "p3=Chci kuchyň na míru." -d p4=1)
 case "$kam" in *"/kontakt?formular=$FP&vysledek=ok#"*"$FP") echo "  ok     odeslání formuláře";; *) echo "  CHYBA  odeslání formuláře: $kam"; CHYB=$((CHYB+1));; esac
-ocekavej "poptávka uložena" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(COUNT(*), '/', MAX(email), '/', MAX(stav)) FROM mc_poptavky")" "1/jana@example.cz/0"
+ocekavej "poptávka uložena" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(COUNT(*), '/', MAX(email), '/', MAX(stav)) FROM ka_poptavky")" "1/jana@example.cz/0"
 case "$(odesli -d p0=Jana -d p1=neni-email -d p3=x -d p4=1)" in *vysledek=pole\&pole=1*) echo "  ok     neplatný e-mail odmítnut s číslem pole";; *) echo "  CHYBA  validace e-mailu"; CHYB=$((CHYB+1));; esac
 curl -s -o "$PRACE/odpoved" "$B/kontakt?formular=$FP&vysledek=pole&pole=1"
 grep -q 'aria-invalid="true" aria-describedby="f-'"$FP"'-1-chyba"' "$PRACE/odpoved" && grep -q 'data-obnovit' "$PRACE/odpoved" && echo "  ok     chybné pole je označené a vyplněné hodnoty se obnoví" || { echo "  CHYBA  označení chybného pole"; CHYB=$((CHYB+1)); }
@@ -246,21 +246,21 @@ case "$(odesli -d p0=Jana --data-urlencode p1=jana@example.cz -d p3=x)" in *vysl
 odesli -d p0=Robot --data-urlencode p1=r@example.cz -d p3=spam -d p4=1 -d web_adresa=http://spam.example > /dev/null
 case "$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FZ" -d "prvek=$FP" -d zpet=/kontakt -d "as_cas=$FC" -d as_podpis=podvrh -d p0=A -d p1=a@example.cz -d p3=x -d p4=1)" in *vysledek=overeni*) echo "  ok     podvržený podpis odmítnut";; *) echo "  CHYBA  podpis formuláře"; CHYB=$((CHYB+1));; esac
 case "$(odesli -d zdroj=stranka:999 -d p0=A)" in *formular=*) echo "  CHYBA  neexistující formulář přijat"; CHYB=$((CHYB+1));; *) echo "  ok     neexistující formulář nic neuloží";; esac
-ocekavej "robot ani chyby poptávku nepřidaly" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM mc_poptavky")" 1
-IDP=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idp FROM mc_poptavky")
+ocekavej "robot ani chyby poptávku nepřidaly" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_poptavky")" 1
+IDP=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idp FROM ka_poptavky")
 over "poptávky v administraci" 200 "/admin.php?modul=poptavky" "jana@example.cz"
 over "detail poptávky" 200 "/admin.php?modul=poptavky&akce=detail&id=$IDP" "Chci kuchyň na míru."
-ocekavej "otevřená poptávka je přečtená" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT stav FROM mc_poptavky")" 1
+ocekavej "otevřená poptávka je přečtená" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT stav FROM ka_poptavky")" 1
 curl -s -b "$JAR" -o "$PRACE/odpoved" "$B/admin.php?modul=poptavky&akce=csv"; grep -q 'Chci kuchyň na míru.' "$PRACE/odpoved" && echo "  ok     export poptávek do CSV" || { echo "  CHYBA  CSV poptávek"; CHYB=$((CHYB+1)); }
-over "poděkování po odeslání (na místě formuláře)" 200 "/kontakt?formular=$FP&vysledek=ok" 'class="mc-formular-hotovo"'
+over "poděkování po odeslání (na místě formuláře)" 200 "/kontakt?formular=$FP&vysledek=ok" 'class="ka-formular-hotovo"'
 
 echo "== kolekce"
 over "kolekce" 200 "/admin.php?modul=kolekce" "Kolekce"
 TOKEN=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=kolekce&akce=uloz" -d "_csrf=$TOKEN" -d idk=0 --data-urlencode "nazev=Tým" -d detail=1 \
   --data-urlencode "pole[0][popisek]=Funkce" -d "pole[0][typ]=text" --data-urlencode "pole[1][popisek]=Foto" -d "pole[1][typ]=obrazek" --data-urlencode "pole[2][popisek]=Medailonek" -d "pole[2][typ]=html"
-IDK=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idk FROM mc_kolekce WHERE seo_link = 'tym'")
-ocekavej "kolekce založena s poli" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT pole LIKE '%\"funkce\"%' AND pole LIKE '%\"medailonek\"%' FROM mc_kolekce WHERE idk = $IDK")" 1
+IDK=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idk FROM ka_kolekce WHERE seo_link = 'tym'")
+ocekavej "kolekce založena s poli" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT pole LIKE '%\"funkce\"%' AND pole LIKE '%\"medailonek\"%' FROM ka_kolekce WHERE idk = $IDK")" 1
 polozka() { curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=kolekce&akce=uloz_polozku" -d "_csrf=$TOKEN" -d "idk=$IDK" -d idp=0 "$@"; }
 polozka --data-urlencode "nazev=Jana Nováková" --data-urlencode "data[funkce]=Jednatelka" --data-urlencode "data[medailonek]=<p>Dvacet let <b>v oboru</b>.</p><script>x</script>" -d poradi=1 -d zobrazit=1
 polozka --data-urlencode "nazev=Skrytý Člen" --data-urlencode "data[funkce]=Tajný" -d poradi=2
@@ -296,7 +296,7 @@ over "komponenty" 200 "/admin.php?modul=komponenty" "Komponenty"
 TOKEN=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=komponenty&akce=uloz" -d "_csrf=$TOKEN" -d idm=0 --data-urlencode "nazev=Karta služby" \
   --data-urlencode "vlastnosti[0][popisek]=Nadpis" -d "vlastnosti[0][typ]=text" --data-urlencode "vlastnosti[0][vychozi]=Výchozí nadpis" --data-urlencode "vlastnosti[1][popisek]=Odkaz" -d "vlastnosti[1][typ]=odkaz" -d "vlastnosti[1][vychozi]=/kontakt"
-IDM=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idm FROM mc_komponenty ORDER BY idm DESC LIMIT 1")
+IDM=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idm FROM ka_komponenty ORDER BY idm DESC LIMIT 1")
 komp() { curl -s -b "$JAR" -c "$JAR" -o "$PRACE/odpoved" -w '%{http_code}' -X POST "$B/admin.php?modul=komponenty&akce=$1&id=$IDM" -d "_csrf=$TOKEN" "${@:2}"; }
 over "komponenta ve staviteli" 200 "/admin.php?modul=komponenty&akce=stavitel&id=$IDM" 'id="stavitel-data"'
 komp stavba_uloz --data-urlencode 'stavba={"v":1,"deti":[{"id":"kse1","typ":"sekce","deti":[{"id":"kna1","typ":"nadpis","znacka":"h3","obsah":{"text":"{{nadpis}}"},"styl":{"zaklad":{"barva":"primarni"}}},{"typ":"tlacitko","obsah":{"text":"Více","odkaz":"{{odkaz}}"}},{"typ":"komponenta","obsah":{"komponenta":"'"$IDM"'"}}]}]}' > /dev/null
@@ -307,7 +307,7 @@ rm -f "$PRACE"/web/storage/cache/stranky/*.html
 curl -s -o "$PRACE/odpoved" -w '' "$B/z-html"
 grep -q '<h3 class="s-kna1">První karta</h3>' "$PRACE/odpoved" && grep -q '<h3 class="s-kna1">Výchozí nadpis</h3>' "$PRACE/odpoved" && [ "$(grep -o 'href="/kontakt"' "$PRACE/odpoved" | wc -l | tr -d ' ')" -ge 1 ] && ! grep -q 'javascript:' "$PRACE/odpoved" \
   && echo "  ok     komponenta na stránce: vlastní i výchozí hodnoty, bez značek, nebezpečný odkaz pryč" || { echo "  CHYBA  komponenta na stránce"; CHYB=$((CHYB+1)); }
-! grep -q 'id="s-kna1"' "$PRACE/odpoved" && ! grep -q 'data-mc-id' "$PRACE/odpoved" && [ "$(grep -o '\.s-kna1 {' "$PRACE/odpoved" | wc -l | tr -d ' ')" = 1 ] \
+! grep -q 'id="s-kna1"' "$PRACE/odpoved" && ! grep -q 'data-ka-id' "$PRACE/odpoved" && [ "$(grep -o '\.s-kna1 {' "$PRACE/odpoved" | wc -l | tr -d ' ')" = 1 ] \
   && echo "  ok     komponenta dvakrát na stránce: styl jednou, bez duplicitního id" || { echo "  CHYBA  styl komponenty"; CHYB=$((CHYB+1)); }
 over "komponenty ukazují počet použití" 200 "/admin.php?modul=komponenty" "1×"
 # formulář uvnitř komponenty: odeslání ho musí najít (dřív se hledal jen ve stavbě stránky)
@@ -331,15 +331,15 @@ var() { curl -s -b "$JAR" -c "$JAR" -o "$PRACE/odpoved" -w '%{http_code}' -X POS
 var stavba_uloz --data-urlencode 'stavba={"v":1,"deti":[]}' > /dev/null
 ocekavej "publikování varianty" "$(var stavba_publikuj)" 200
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
-curl -s -o "$PRACE/odpoved" "$B/z-html"; ! grep -q 'header class="hlavicka"' "$PRACE/odpoved" && ! grep -q 'mc-nav' "$PRACE/odpoved" && echo "  ok     stránka s prázdnou variantou je bez záhlaví" || { echo "  CHYBA  varianta záhlaví na stránce"; CHYB=$((CHYB+1)); }
+curl -s -o "$PRACE/odpoved" "$B/z-html"; ! grep -q 'header class="hlavicka"' "$PRACE/odpoved" && ! grep -q 'ka-nav' "$PRACE/odpoved" && echo "  ok     stránka s prázdnou variantou je bez záhlaví" || { echo "  CHYBA  varianta záhlaví na stránce"; CHYB=$((CHYB+1)); }
 curl -s -o "$PRACE/odpoved" "$B/kontakt"; grep -q 'header class="hlavicka"' "$PRACE/odpoved" && echo "  ok     ostatní stránky mají výchozí záhlaví" || { echo "  CHYBA  varianta se projevila i jinde"; CHYB=$((CHYB+1)); }
 over "varianta v seznamu částí" 200 "/admin.php?modul=casti" "Landing page"
 
 # úprava přímo na webu: odkaz a formulář jen pro přihlášené s právem
-over "úprava na místě – odkaz" 200 /novinky/vitejte-v-mirocms "mc-upravit-zde"
-over "úprava na místě – formulář" 200 "/novinky/vitejte-v-mirocms?upravit=text" "mc-upravit-text"
-over "úprava stránky na místě" 200 "/o-nas?upravit=text" "mc-upravit-text"
-curl -s -o "$PRACE/odpoved" "$B/novinky/vitejte-v-mirocms?upravit=text"; grep -q "mc-upravit" "$PRACE/odpoved" && { echo "  CHYBA  úprava na místě je vidět bez přihlášení"; CHYB=$((CHYB+1)); } || echo "  ok     úprava na místě bez přihlášení není"
+over "úprava na místě – odkaz" 200 /novinky/vitejte-v-kalete "ka-upravit-zde"
+over "úprava na místě – formulář" 200 "/novinky/vitejte-v-kalete?upravit=text" "ka-upravit-text"
+over "úprava stránky na místě" 200 "/o-nas?upravit=text" "ka-upravit-text"
+curl -s -o "$PRACE/odpoved" "$B/novinky/vitejte-v-kalete?upravit=text"; grep -q "ka-upravit" "$PRACE/odpoved" && { echo "  CHYBA  úprava na místě je vidět bez přihlášení"; CHYB=$((CHYB+1)); } || echo "  ok     úprava na místě bez přihlášení není"
 
 echo "== import z WordPressu a export"
 over "import a export" 200 "/admin.php?modul=prenos" "WordPress"
@@ -367,7 +367,7 @@ kod=$(curl -s -o /dev/null -w '%{http_code}' "$B/?p=102"); ocekavej "stará adre
 # druhý import téhož souboru nesmí nic zdvojit
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=prenos&akce=vyber" -d "_csrf=$TOKEN" -d soubor=wordpress-ukazka.xml
 wp_import
-POCTY=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT((SELECT COUNT(*) FROM mc_novinky WHERE seo_link LIKE 'lavka-pres-bystrinu%' OR seo_link LIKE 'slavnosti-syra%' OR seo_link LIKE 'rozpocet-obce%'), '/', (SELECT COUNT(*) FROM mc_stranky WHERE seo_link LIKE 'o-zpravodaji%'))")
+POCTY=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT((SELECT COUNT(*) FROM ka_novinky WHERE seo_link LIKE 'lavka-pres-bystrinu%' OR seo_link LIKE 'slavnosti-syra%' OR seo_link LIKE 'rozpocet-obce%'), '/', (SELECT COUNT(*) FROM ka_stranky WHERE seo_link LIKE 'o-zpravodaji%'))")
 ocekavej "opakovaný import nic nezdvojil (novinky/stránky)" "$POCTY" "4/1"
 over "složka importu není přístupná z webu" 403 /storage/import/wordpress-ukazka.xml
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=prenos&akce=export" -d "_csrf=$TOKEN"
@@ -375,38 +375,38 @@ over "export webu je v seznamu" 200 "/admin.php?modul=prenos" "akce=stahni"
 EXPORT=$(grep -o 'export-[0-9]*-[0-9]*\.[a-z]*' "$PRACE/odpoved" | head -1)
 curl -s -b "$JAR" -o "$PRACE/export" "$B/admin.php?modul=prenos&akce=stahni&soubor=$EXPORT"
 if [ "${EXPORT##*.}" = zip ]; then unzip -p "$PRACE/export" obsah.json > "$PRACE/obsah.json" 2>/dev/null || true; else cp "$PRACE/export" "$PRACE/obsah.json"; fi
-grep -q '"format":"mirocms-export"' "$PRACE/obsah.json" && grep -q '"novinky"' "$PRACE/obsah.json" && ! grep -qE '"password"|smtp_heslo|tajny_klic|ai_klic' "$PRACE/obsah.json" && echo "  ok     export obsahuje data a žádná tajemství" || { echo "  CHYBA  export"; CHYB=$((CHYB+1)); }
+grep -q '"format":"kaleta-export"' "$PRACE/obsah.json" && grep -q '"novinky"' "$PRACE/obsah.json" && ! grep -qE '"password"|smtp_heslo|tajny_klic|ai_klic' "$PRACE/obsah.json" && echo "  ok     export obsahuje data a žádná tajemství" || { echo "  CHYBA  export"; CHYB=$((CHYB+1)); }
 grep -q '"kolekce_polozky":\[' "$PRACE/obsah.json" && grep -q 'Jana Nováková' "$PRACE/obsah.json" && grep -q '"tridy":\[' "$PRACE/obsah.json" && grep -q '"casti":\[' "$PRACE/obsah.json" && ! grep -q 'Chci kuchyň' "$PRACE/obsah.json" \
   && echo "  ok     export obsahuje stavitel a kolekce, poptávky ne" || { echo "  CHYBA  export stavitele a kolekcí"; CHYB=$((CHYB+1)); }
 curl -s -o "$PRACE/odpoved" "$B/admin.php?modul=prenos&akce=stahni&soubor=$EXPORT"; grep -q "Heslo" "$PRACE/odpoved" && echo "  ok     export jen pro přihlášeného správce" || { echo "  CHYBA  export jde stáhnout bez přihlášení"; CHYB=$((CHYB+1)); }
 
 echo "== koš novinek"
-IDC=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idc FROM mc_novinky WHERE seo_link = 'vitejte-v-mirocms'")
+IDC=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idc FROM ka_novinky WHERE seo_link = 'vitejte-v-kalete'")
 over "výpis novinek" 200 "/admin.php?modul=novinky" "Smazat označené"
 TOKEN=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=novinky&akce=smaz" -d "_csrf=$TOKEN" -d "smaz[]=$IDC"
-over "novinka v koši není na webu" 404 /novinky/vitejte-v-mirocms
-over "novinka v koši není ani v náhledu" 404 "/novinky/vitejte-v-mirocms?nahled=1"
+over "novinka v koši není na webu" 404 /novinky/vitejte-v-kalete
+over "novinka v koši není ani v náhledu" 404 "/novinky/vitejte-v-kalete?nahled=1"
 over "záložka Koš" 200 "/admin.php?modul=novinky&stav=kos" "Vítejte"
 over "novinka v koši nejde upravit" 404 "/admin.php?modul=novinky&akce=edit&id=$IDC"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=novinky&akce=obnov" -d "_csrf=$TOKEN" -d "smaz[]=$IDC"
-ocekavej "obnovená novinka se vrátí jako koncept" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(visible, '/', smazano IS NULL) FROM mc_novinky WHERE idc = $IDC")" "0/1"
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE mc_novinky SET visible = 1, smazano = NOW() - INTERVAL 31 DAY WHERE idc = $IDC"
+ocekavej "obnovená novinka se vrátí jako koncept" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(visible, '/', smazano IS NULL) FROM ka_novinky WHERE idc = $IDC")" "0/1"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_novinky SET visible = 1, smazano = NOW() - INTERVAL 31 DAY WHERE idc = $IDC"
 over "vstup do administrace vysype starý koš" 200 /admin.php "Přehled"
-ocekavej "novinka starší 30 dní v koši je smazaná natrvalo" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM mc_novinky WHERE idc = $IDC")" "0"
+ocekavej "novinka starší 30 dní v koši je smazaná natrvalo" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_novinky WHERE idc = $IDC")" "0"
 
 echo "== přesměrování po změně adresy kategorie a stránky"
 over "formulář kategorie" 200 "/admin.php?modul=kategorie" "Kategorie"
 TOKEN=$(csrf)
-IDT=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idt FROM mc_kategorie WHERE seo_link = 'aktuality'")
+IDT=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idt FROM ka_kategorie WHERE seo_link = 'aktuality'")
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=kategorie&akce=uloz" -d "_csrf=$TOKEN" -d "idt=$IDT" -d nazev=Aktuality -d seo_link=aktuality-firmy -d hodnost=100
 kod=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/novinky/kategorie/aktuality"); ocekavej "stará adresa kategorie přesměruje na novou" "$kod" "301 $B/novinky/kategorie/aktuality-firmy"
-IDS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM mc_stranky WHERE seo_link = 'kontakt'")
+IDS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'kontakt'")
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akce=uloz" -d "_csrf=$TOKEN" -d "ids=$IDS" -d titulek=Kontakt -d seo_link=kontakty -d zobrazit=1 -d v_menu=1 -d "text=<p>Adresa.</p>"
 kod=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/kontakt"); ocekavej "stará adresa stránky přesměruje na novou" "$kod" "301 $B/kontakty"
 
 echo "== stránky: SEO, koš, duplikace"
-IDS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM mc_stranky WHERE seo_link = 'kontakty'")
+IDS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'kontakty'")
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akce=uloz" -d "_csrf=$TOKEN" -d "ids=$IDS" -d titulek=Kontakt -d seo_link=kontakty -d zobrazit=1 -d v_menu=1 -d "text=<p>Adresa.</p>" \
   --data-urlencode "seo_titulek=Kontakt na truhlárnu" -d obrazek=media/2026/01/sdileni.jpg -d noindex=1
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
@@ -414,93 +414,93 @@ curl -s -o "$PRACE/odpoved" "$B/kontakty"
 grep -q '<title>Kontakt na truhlárnu' "$PRACE/odpoved" && grep -q 'og:image" content="http[^"]*/media/2026/01/sdileni.jpg"' "$PRACE/odpoved" && grep -q 'noindex, follow' "$PRACE/odpoved" \
   && echo "  ok     stránka: vlastní titulek, úplná adresa obrázku pro sdílení, noindex" || { echo "  CHYBA  SEO stránky"; CHYB=$((CHYB+1)); }
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akce=duplikuj" -d "_csrf=$TOKEN" -d "ids=$IDS"
-ocekavej "duplikát stránky je skrytý a má volnou adresu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazit, '/', seo_link) FROM mc_stranky ORDER BY ids DESC LIMIT 1")" "0/kontakty-kopie"
+ocekavej "duplikát stránky je skrytý a má volnou adresu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazit, '/', seo_link) FROM ka_stranky ORDER BY ids DESC LIMIT 1")" "0/kontakty-kopie"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akce=smaz" -d "_csrf=$TOKEN" -d "ids=$IDS"
 over "stránka v koši není na webu" 404 /kontakty
 over "záložka Koš u stránek" 200 "/admin.php?modul=stranky&stav=kos" "Kontakt"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akce=obnov" -d "_csrf=$TOKEN" -d "ids=$IDS"
-ocekavej "obnovená stránka je skrytá" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazit, '/', smazano IS NULL) FROM mc_stranky WHERE ids = $IDS")" "0/1"
-IDU=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM mc_stranky WHERE seo_link = 'o-nas'")
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE mc_nastaveni SET hodnota='$IDU' WHERE promenna='titulni_stranka'"
+ocekavej "obnovená stránka je skrytá" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazit, '/', smazano IS NULL) FROM ka_stranky WHERE ids = $IDS")" "0/1"
+IDU=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'o-nas'")
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota='$IDU' WHERE promenna='titulni_stranka'"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akce=smaz" -d "_csrf=$TOKEN" -d "ids=$IDU"
-ocekavej "úvodní stránku nejde smazat" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT smazano IS NULL FROM mc_stranky WHERE ids = $IDU")" "1"
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE mc_nastaveni SET hodnota='0' WHERE promenna='titulni_stranka'"
+ocekavej "úvodní stránku nejde smazat" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT smazano IS NULL FROM ka_stranky WHERE ids = $IDU")" "1"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota='0' WHERE promenna='titulni_stranka'"
 
 echo "== podstránky, plán, historie, šablony, export"
 ulozs() { curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?modul=stranky&akce=uloz" -d "_csrf=$TOKEN" "$@"; }
 ulozs -d ids=0 --data-urlencode "titulek=Služby firmy" -d seo_link=sluzby-firmy -d zobrazit=1 -d v_menu=0 -d "text=<p>S</p>" > /dev/null
-IDR=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM mc_stranky WHERE seo_link = 'sluzby-firmy'")
+IDR=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'sluzby-firmy'")
 ulozs -d ids=0 --data-urlencode "titulek=Kuchyně" -d "nadrazena=$IDR" -d zobrazit=1 -d v_menu=0 -d "text=<p>Kuchyně na míru</p>" > /dev/null
-ocekavej "podstránka má adresu pod nadřazenou" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT seo_link FROM mc_stranky WHERE nadrazena = $IDR")" "sluzby-firmy/kuchyne"
+ocekavej "podstránka má adresu pod nadřazenou" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT seo_link FROM ka_stranky WHERE nadrazena = $IDR")" "sluzby-firmy/kuchyne"
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
 over "podstránka na webu" 200 /sluzby-firmy/kuchyne "Kuchyně na míru"
 ulozs -d "ids=$IDR" --data-urlencode "titulek=Služby firmy" -d seo_link=nase-sluzby -d zobrazit=1 -d v_menu=0 -d "text=<p>S2</p>" > /dev/null
-ocekavej "změna adresy nadřazené posune podstránku" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT seo_link FROM mc_stranky WHERE nadrazena = $IDR")" "nase-sluzby/kuchyne"
+ocekavej "změna adresy nadřazené posune podstránku" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT seo_link FROM ka_stranky WHERE nadrazena = $IDR")" "nase-sluzby/kuchyne"
 kod=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/sluzby-firmy/kuchyne"); ocekavej "stará adresa podstránky přesměruje" "$kod" "301 $B/nase-sluzby/kuchyne"
-ocekavej "změna textu uloží předchozí verzi" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT text FROM mc_stranky_revize WHERE ids = $IDR ORDER BY idr DESC LIMIT 1")" "<p>S</p>"
+ocekavej "změna textu uloží předchozí verzi" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT text FROM ka_stranky_revize WHERE ids = $IDR ORDER BY idr DESC LIMIT 1")" "<p>S</p>"
 ulozs -d ids=0 --data-urlencode "titulek=Akce" -d v_menu=0 -d "text=<p>A</p>" -d "zverejnit_od=$(date -v+1d '+%Y-%m-%dT%H:%M' 2>/dev/null || date -d '+1 day' '+%Y-%m-%dT%H:%M')" > /dev/null
-ocekavej "naplánovaná stránka čeká skrytá" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazit, '/', zverejnit_od IS NOT NULL) FROM mc_stranky WHERE seo_link = 'akce'")" "0/1"
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE mc_stranky SET zverejnit_od = NOW() - INTERVAL 1 MINUTE WHERE seo_link = 'akce'; UPDATE mc_nastaveni SET hodnota = '0' WHERE promenna = 'oznameni_kontrola'"
+ocekavej "naplánovaná stránka čeká skrytá" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazit, '/', zverejnit_od IS NOT NULL) FROM ka_stranky WHERE seo_link = 'akce'")" "0/1"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_stranky SET zverejnit_od = NOW() - INTERVAL 1 MINUTE WHERE seo_link = 'akce'; UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'oznameni_kontrola'"
 curl -s -o /dev/null "$B/novinky?x=$RANDOM"; sleep 1
-ocekavej "naplánovaná stránka se v čase sama zveřejní" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT zobrazit FROM mc_stranky WHERE seo_link = 'akce'")" "1"
+ocekavej "naplánovaná stránka se v čase sama zveřejní" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT zobrazit FROM ka_stranky WHERE seo_link = 'akce'")" "1"
 kam=$(ulozs -d ids=0 --data-urlencode "titulek=Nabídka" -d sablona=landing -d zobrazit=0 -d v_menu=0 -d text=)
 case "$kam" in *akce=stavitel*) echo "  ok     nová stránka ze šablony jde rovnou do stavitele";; *) echo "  CHYBA  šablona stránky: $kam"; CHYB=$((CHYB+1));; esac
-ocekavej "šablona složí koncept ze sekcí" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT stavba_koncept LIKE '%\"typ\":\"sekce\"%' FROM mc_stranky WHERE seo_link = 'nabidka'")" "1"
-IDN=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM mc_stranky WHERE seo_link = 'nabidka'")
+ocekavej "šablona složí koncept ze sekcí" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT stavba_koncept LIKE '%\"typ\":\"sekce\"%' FROM ka_stranky WHERE seo_link = 'nabidka'")" "1"
+IDN=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'nabidka'")
 curl -s -b "$JAR" -o "$PRACE/stranka.json" "$B/admin.php?modul=stranky&akce=export&id=$IDN"
-grep -q '"format": "mirocms-stranka"' "$PRACE/stranka.json" && echo "  ok     export stránky do JSON" || { echo "  CHYBA  export stránky"; CHYB=$((CHYB+1)); }
+grep -q '"format": "kaleta-stranka"' "$PRACE/stranka.json" && echo "  ok     export stránky do JSON" || { echo "  CHYBA  export stránky"; CHYB=$((CHYB+1)); }
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akce=import" -F "_csrf=$TOKEN" -F "soubor=@$PRACE/stranka.json;type=application/json"
-ocekavej "import stránky vytvoří skrytou kopii se stavbou" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazit, '/', stavba_koncept IS NOT NULL) FROM mc_stranky WHERE seo_link = 'nabidka-2'")" "0/1"
+ocekavej "import stránky vytvoří skrytou kopii se stavbou" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazit, '/', stavba_koncept IS NOT NULL) FROM ka_stranky WHERE seo_link = 'nabidka-2'")" "0/1"
 
 echo "== stavitel: vlastní CSS, atributy, animace, moje sekce, přejmenování třídy"
-IDV=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM mc_stranky WHERE seo_link = 'nase-sluzby'")
+IDV=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'nase-sluzby'")
 sv() { curl -s -b "$JAR" -c "$JAR" -o "$PRACE/odpoved" -w '%{http_code}' -X POST "$B/admin.php?modul=stranky&akce=$1&id=$IDV" -d "_csrf=$TOKEN" "${@:2}"; }
-sv stavba_uloz --data-urlencode 'stavba={"v":1,"deti":[{"id":"sv1","typ":"sekce","tridy":["karta"],"css":"backdrop-filter: blur(4px); background: url(x)","atributy":{"data-sledovat":"cta","onclick":"x"},"styl":{"zaklad":{"animace":"mc-vyjet","prechod":"linear-gradient(135deg, var(--mc-barva-primarni), var(--mc-barva-sekundarni))","okraj_vlevo":"auto"},"aktivni":{"pruhlednost":"0.8"}},"deti":[{"typ":"nadpis","obsah":{"text":"Test"}}]}]}' > /dev/null
+sv stavba_uloz --data-urlencode 'stavba={"v":1,"deti":[{"id":"sv1","typ":"sekce","tridy":["karta"],"css":"backdrop-filter: blur(4px); background: url(x)","atributy":{"data-sledovat":"cta","onclick":"x"},"styl":{"zaklad":{"animace":"ka-vyjet","prechod":"linear-gradient(135deg, var(--ka-barva-primarni), var(--ka-barva-sekundarni))","okraj_vlevo":"auto"},"aktivni":{"pruhlednost":"0.8"}},"deti":[{"typ":"nadpis","obsah":{"text":"Test"}}]}]}' > /dev/null
 grep -q 'Nepovolená deklarace' "$PRACE/odpoved" && grep -q 'Atribut může být jen' "$PRACE/odpoved" && echo "  ok     vlastní CSS a atributy prvku se čistí" || { echo "  CHYBA  čištění CSS a atributů"; CHYB=$((CHYB+1)); }
 sv stavba_publikuj > /dev/null
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
 curl -s -o "$PRACE/odpoved" "$B/nase-sluzby"
 grep -q 'data-sledovat="cta"' "$PRACE/odpoved" && ! grep -q 'onclick="x"' "$PRACE/odpoved" && grep -q 'backdrop-filter: blur(4px)' "$PRACE/odpoved" && grep -q 'animation-timeline: view()' "$PRACE/odpoved" \
-  && grep -q '@keyframes mc-vyjet' "$PRACE/odpoved" && grep -q ':active {' "$PRACE/odpoved" && grep -q 'margin-inline-start: auto' "$PRACE/odpoved" \
+  && grep -q '@keyframes ka-vyjet' "$PRACE/odpoved" && grep -q ':active {' "$PRACE/odpoved" && grep -q 'margin-inline-start: auto' "$PRACE/odpoved" \
   && echo "  ok     vlastní CSS, atributy, animace, stisknutí a okraj na webu" || { echo "  CHYBA  nové vlastnosti stylu na webu"; CHYB=$((CHYB+1)); }
 ocekavej "uložení do mých sekcí" "$(sv stavba_uloz_sekci --data-urlencode 'nazev=Moje karta' --data-urlencode 'prvek={"typ":"sekce","deti":[{"typ":"nadpis","obsah":{"text":"Z knihovny"}}]}')" 200
 grep -q '"nazev":"Moje karta"' "$PRACE/odpoved" && echo "  ok     moje sekce v seznamu" || { echo "  CHYBA  moje sekce"; CHYB=$((CHYB+1)); }
 sv stavba_trida -d nazev=karta -d pouziti=1 > /dev/null; grep -q 'Služby firmy' "$PRACE/odpoved" && echo "  ok     přehled použití třídy" || { echo "  CHYBA  použití třídy"; head -c 300 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
 ocekavej "přejmenování třídy" "$(sv stavba_trida -d nazev=karta -d novy_nazev=karta-sluzby)" 200
-ocekavej "přejmenovaná třída ve stavbách" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT stavba LIKE '%\"karta-sluzby\"%' AND stavba NOT LIKE '%\"karta\"%' FROM mc_stranky WHERE ids = $IDV")" "1"
+ocekavej "přejmenovaná třída ve stavbách" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT stavba LIKE '%\"karta-sluzby\"%' AND stavba NOT LIKE '%\"karta\"%' FROM ka_stranky WHERE ids = $IDV")" "1"
 
 echo "== média, přesměrování, poptávky, uživatelé, písma"
 php -r '$i = imagecreatetruecolor(1600, 900); imagefill($i, 0, 0, imagecolorallocate($i, 200, 80, 40)); imagejpeg($i, "'"$PRACE"'/foto.jpg");'
 printf '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10" onload="alert(1)"><script>alert(2)</script><rect width="20" height="10" fill="red"/></svg>' > "$PRACE/logo.svg"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=intergal&akce=nahraj" -F "_csrf=$TOKEN" -F "soubory[]=@$PRACE/foto.jpg;type=image/jpeg" -F "soubory[]=@$PRACE/logo.svg;type=image/svg+xml"
-SVG=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT obr_poloha FROM mc_media WHERE obr_poloha LIKE '%.svg' ORDER BY ido DESC LIMIT 1")
+SVG=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT obr_poloha FROM ka_media WHERE obr_poloha LIKE '%.svg' ORDER BY ido DESC LIMIT 1")
 [ -n "$SVG" ] && ! grep -q 'onload\|<script' "$PRACE/web/$SVG" && grep -q '<rect' "$PRACE/web/$SVG" && echo "  ok     SVG nahrané a vyčištěné" || { echo "  CHYBA  SVG v Médiích"; CHYB=$((CHYB+1)); }
-IDO=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ido FROM mc_media WHERE obr_poloha LIKE '%.jpg' ORDER BY ido DESC LIMIT 1")
-FOTO=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT obr_poloha FROM mc_media WHERE ido = $IDO")
+IDO=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ido FROM ka_media WHERE obr_poloha LIKE '%.jpg' ORDER BY ido DESC LIMIT 1")
+FOTO=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT obr_poloha FROM ka_media WHERE ido = $IDO")
 php -r '$i = imagecreatetruecolor(800, 800); imagefill($i, 0, 0, imagecolorallocate($i, 20, 120, 200)); imagejpeg($i, "'"$PRACE"'/nova.jpg");'
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=intergal&akce=nahradit" -F "_csrf=$TOKEN" -F "ido=$IDO" -F "soubor=@$PRACE/nova.jpg;type=image/jpeg"
-ocekavej "náhrada souboru zachová adresu a změní rozměry" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(obr_poloha, ' ', obr_width, 'x', obr_height) FROM mc_media WHERE ido = $IDO")" "$FOTO 800x800"
+ocekavej "náhrada souboru zachová adresu a změní rozměry" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(obr_poloha, ' ', obr_width, 'x', obr_height) FROM ka_media WHERE ido = $IDO")" "$FOTO 800x800"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=intergal&akce=uloz" -d "_csrf=$TOKEN" -d "ido=$IDO" -d nazev=Foto -d ohnisko_x=20 -d ohnisko_y=80
-ocekavej "ohnisko ořezu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ohnisko FROM mc_media WHERE ido = $IDO")" "20% 80%"
+ocekavej "ohnisko ořezu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ohnisko FROM ka_media WHERE ido = $IDO")" "20% 80%"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=presmerovani&akce=uloz" -d "_csrf=$TOKEN" -d z_adresy=/akce-leto -d na_adresu=/kontakty -d typ=302
 kod=$(curl -s -o /dev/null -w '%{http_code}' "$B/akce-leto"); ocekavej "dočasné přesměrování 302" "$kod" "302"
 over "hledání v přesměrováních" 200 "/admin.php?modul=presmerovani&hledat=akce-leto" "akce-leto"
 over "protokol s filtrem" 200 "/admin.php?modul=protokol&kde=stranky" "Protokol"
 IDU2=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?modul=users&akce=uloz" -d "_csrf=$TOKEN" -d idu=0 -d user=pozvany --data-urlencode email=pozvany@example.cz -d admin=2 -d pozvat=1)
-ocekavej "pozvaný uživatel má odkaz na heslo s delší platností" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT obnova_otisk <> '' AND obnova_cas > NOW() FROM mc_uzivatele WHERE user = 'pozvany'")" "1"
-"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO mc_nastaveni (promenna, hodnota) VALUES ('vynutit_2fa', 'spravci') ON DUPLICATE KEY UPDATE hodnota = 'spravci'"
+ocekavej "pozvaný uživatel má odkaz na heslo s delší platností" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT obnova_otisk <> '' AND obnova_cas > NOW() FROM ka_uzivatele WHERE user = 'pozvany'")" "1"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('vynutit_2fa', 'spravci') ON DUPLICATE KEY UPDATE hodnota = 'spravci'"
 kod=$(curl -s -b "$JAR" -o /dev/null -w '%{http_code} %{redirect_url}' "$B/admin.php?modul=stranky"); case "$kod" in "302 "*akce=ucet*) echo "  ok     povinné dvoufázové přihlášení pustí jen do Můj účet";; *) echo "  CHYBA  vynucení 2FA: $kod"; CHYB=$((CHYB+1));; esac
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE mc_nastaveni SET hodnota = '' WHERE promenna = 'vynutit_2fa'"
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE mc_nastaveni SET hodnota = JSON_SET(IF(hodnota = '' OR hodnota IS NULL, '{}', hodnota), '$.vlastni_pisma', JSON_ARRAY(JSON_OBJECT('nazev', 'Znacka Sans', 'soubor', 'media/2026/01/znacka.woff2', 'tucny', '')), '$.pismo_titulky', 'vlastni-1') WHERE promenna = 'design_system'"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'vynutit_2fa'"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = JSON_SET(IF(hodnota = '' OR hodnota IS NULL, '{}', hodnota), '$.vlastni_pisma', JSON_ARRAY(JSON_OBJECT('nazev', 'Znacka Sans', 'soubor', 'media/2026/01/znacka.woff2', 'tucny', '')), '$.pismo_titulky', 'vlastni-1') WHERE promenna = 'design_system'"
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
 curl -s -o "$PRACE/odpoved" "$B/kontakty"
-grep -q '@font-face { font-family: "Znacka Sans"; src: url("/media/2026/01/znacka.woff2")' "$PRACE/odpoved" && grep -q -- '--mc-pismo-titulky: "Znacka Sans"' "$PRACE/odpoved" && echo "  ok     vlastní písmo z Médií" || { echo "  CHYBA  vlastní písmo"; CHYB=$((CHYB+1)); }
-ocekavej "statistika po stránkách" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) > 0 FROM mc_stat_stranky")" "1"
+grep -q '@font-face { font-family: "Znacka Sans"; src: url("/media/2026/01/znacka.woff2")' "$PRACE/odpoved" && grep -q -- '--ka-pismo-titulky: "Znacka Sans"' "$PRACE/odpoved" && echo "  ok     vlastní písmo z Médií" || { echo "  CHYBA  vlastní písmo"; CHYB=$((CHYB+1)); }
+ocekavej "statistika po stránkách" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) > 0 FROM ka_stat_stranky")" "1"
 curl -s -o "$PRACE/odpoved" "$B/kontakty"; grep -q 'image/web.js' "$PRACE/odpoved" && echo "  CHYBA  web.js i na stránce, která ho nepotřebuje" && CHYB=$((CHYB+1)) || echo "  ok     web.js jen tam, kde je potřeba"
 
 echo "== menu"
 over "editor menu" 200 "/admin.php?modul=menu" 'data-menu-seznam'
-IDO=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM mc_stranky WHERE seo_link = 'o-nas'")
+IDO=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'o-nas'")
 MENU='[{"typ":"stranka","ids":'$IDO',"text":"O firmě","deti":[{"typ":"odkaz","text":"Kariéra","url":"https://example.cz/kariera","nove_okno":true}]},{"typ":"novinky"},{"typ":"odkaz","text":"Zlý","url":"javascript:alert(1)"}]'
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=menu&akce=uloz&umisteni=hlavni" -d "_csrf=$TOKEN" --data-urlencode "polozky=$MENU"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=menu&akce=uloz&umisteni=paticka" -d "_csrf=$TOKEN" --data-urlencode 'polozky=[{"typ":"odkaz","text":"Zásady ochrany soukromí","url":"/zasady"}]'
@@ -510,16 +510,16 @@ grep -q '<li class="podmenu"><a href="[^"]*/o-nas">O firmě</a><ul><li><a href="
   && echo "  ok     menu s podmenu na webu, nebezpečný odkaz vypadl" || { echo "  CHYBA  menu na webu"; CHYB=$((CHYB+1)); }
 mcp nacti_menu '{"umisteni":"paticka"}' > "$PRACE/odpoved"; grep -q 'Zásady ochrany soukromí' "$PRACE/odpoved" && echo "  ok     menu v patičce (MCP)" || { echo "  CHYBA  menu v patičce"; CHYB=$((CHYB+1)); }
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akce=uloz" -d "_csrf=$TOKEN" -d "ids=$IDS" -d titulek=Kontakt -d seo_link=kontakty -d zobrazit=1 -d v_menu=1 -d "text=<p>Adresa.</p>"
-ocekavej "zaškrtnutá stránka se přidá na konec sestaveného menu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT polozky LIKE '%\"ids\":$IDS%' FROM mc_menu WHERE umisteni = 'hlavni'")" "1"
+ocekavej "zaškrtnutá stránka se přidá na konec sestaveného menu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT polozky LIKE '%\"ids\":$IDS%' FROM ka_menu WHERE umisteni = 'hlavni'")" "1"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=menu&akce=automaticky&umisteni=hlavni" -d "_csrf=$TOKEN"
-ocekavej "návrat k automatickému menu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM mc_menu WHERE umisteni = 'hlavni'")" "0"
+ocekavej "návrat k automatickému menu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_menu WHERE umisteni = 'hlavni'")" "0"
 
 echo "== ikony, manifest, cache"
 ocekavej "favicon.ico bez ikony nevygeneruje stránku 404" "$(curl -s -o /dev/null -w '%{http_code}' "$B/favicon.ico")" 204
 curl -s -o "$PRACE/odpoved" "$B/manifest.webmanifest"; grep -q '"start_url"' "$PRACE/odpoved" && echo "  ok     manifest webu" || { echo "  CHYBA  manifest"; CHYB=$((CHYB+1)); }
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
 curl -s -o /dev/null "$B/novinky"
-ocekavej "odkaz s utm parametry jde z cache" "$(curl -s -o /dev/null -D - "$B/novinky?utm_source=newsletter&fbclid=x" | grep -ci '^x-cache: mirocms')" 1
+ocekavej "odkaz s utm parametry jde z cache" "$(curl -s -o /dev/null -D - "$B/novinky?utm_source=newsletter&fbclid=x" | grep -ci '^x-cache: kaleta')" 1
 ETAG=$(curl -s -o /dev/null -D - "$B/novinky" | grep -i '^etag:' | cut -d' ' -f2 | tr -d '\r')
 ocekavej "stránka z cache odpoví 304 na shodný ETag" "$(curl -s -o /dev/null -w '%{http_code}' -H "If-None-Match: $ETAG" "$B/novinky")" 304
 
@@ -537,7 +537,7 @@ mcp stavba_uloz "{\"id\":$IDZ,\"publikovat\":true,\"stavba\":{\"v\":1,\"deti\":[
 grep -q 'chyby\\": \[\]' "$PRACE/odpoved" && echo "  ok     nové prvky projdou validátorem" || { echo "  CHYBA  validace nových prvků"; head -c 600 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
 curl -s -o "$PRACE/odpoved" "$B/z-html"
-for vzor in 'class="mc-drobecky"' 'aria-current="page">Z HTML' 'class="mc-ikona mc-ikona--kruh" aria-hidden="true"><svg' 'class="mc-galerie"' 'alt="Dílna"' 'role="tablist"' 'aria-controls="zp-' 'data-karusel' '--mc-naraz:2' 'data-vlozit="https://maps.google.com/maps?q=Brno' 'id="nabidka"' 'popover role="dialog" data-samo="5"' 'name="faq-'; do
+for vzor in 'class="ka-drobecky"' 'aria-current="page">Z HTML' 'class="ka-ikona ka-ikona--kruh" aria-hidden="true"><svg' 'class="ka-galerie"' 'alt="Dílna"' 'role="tablist"' 'aria-controls="zp-' 'data-karusel' '--ka-naraz:2' 'data-vlozit="https://maps.google.com/maps?q=Brno' 'id="nabidka"' 'popover role="dialog" data-samo="5"' 'name="faq-'; do
   grep -qF -- "$vzor" "$PRACE/odpoved" || { echo "  CHYBA  nový prvek na webu: chybí $vzor"; CHYB=$((CHYB+1)); }
 done
 grep -q '"BreadcrumbList"' "$PRACE/odpoved" && ! grep -q '"FAQPage"' "$PRACE/odpoved" && echo "  ok     nové prvky na webu, drobečky i pro vyhledávače, akordeon bez FAQPage" || { echo "  CHYBA  strukturovaná data stránky"; CHYB=$((CHYB+1)); }

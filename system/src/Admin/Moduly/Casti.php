@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Admin\Moduly;
+namespace Kaleta\Admin\Moduly;
 
-use MiroCMS\Admin\Modul;
-use MiroCMS\Admin\StavitelAkce;
-use MiroCMS\Core\Jazyk;
-use MiroCMS\Core\Response;
-use MiroCMS\Stavitel\Casti as CastiWebu;
-use MiroCMS\Stavitel\Publikace;
-use MiroCMS\Stavitel\Stavba;
+use Kaleta\Admin\Modul;
+use Kaleta\Admin\StavitelAkce;
+use Kaleta\Core\Jazyk;
+use Kaleta\Core\Response;
+use Kaleta\Stavitel\Casti as CastiWebu;
+use Kaleta\Stavitel\Publikace;
+use Kaleta\Stavitel\Stavba;
 
 /**
  * Části webu ve staviteli: záhlaví, patička a obálky detailu novinky, výpisu a stránky 404. Bez publikované stavby
@@ -68,7 +68,7 @@ final class Casti extends Modul
         if ($radek !== null) {
             Publikace::verze($this->app, ['cast' => CastiWebu::klicRevize($typ, $jazyk, $varianta)], $radek['stavba'], null, $radek['zmeneno']);
             $this->db->delete('casti', ['typ' => $typ, 'jazyk' => $jazyk, 'varianta' => $varianta]);
-            \MiroCMS\Front\Cache::vymaz();
+            \Kaleta\Front\Cache::vymaz();
         }
 
         return $this->zpet($varianta !== '' ? 'Varianta byla smazána – vybrané stránky mají zase výchozí podobu.' : 'Část webu se vrátila na šablonu. Předchozí podobu najdete ve verzích, když ji znovu otevřete ve staviteli.');
@@ -114,9 +114,9 @@ final class Casti extends Modul
             $this->db->insert('casti', ['typ' => $typ, 'jazyk' => $jazyk, 'varianta' => $varianta, 'nazev' => $nazev, 'stranky' => $stranky, 'zmeneno' => date('Y-m-d H:i:s'),
                 'stavba_koncept' => $vychozi['stavba'] ?? Stavba::naJson(CastiWebu::vychozi($typ, $this->jazykObsahu($jazyk)))]);
         }
-        \MiroCMS\Front\Cache::vymaz();
+        \Kaleta\Front\Cache::vymaz();
 
-        return \MiroCMS\Core\Response::redirect($this->url('stavitel', ['typ' => $typ, 'jazyk' => $jazyk, 'varianta' => $varianta]));
+        return \Kaleta\Core\Response::redirect($this->url('stavitel', ['typ' => $typ, 'jazyk' => $jazyk, 'varianta' => $varianta]));
     }
 
     protected function cilStavby(): ?array

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Core;
+namespace Kaleta\Core;
 
 /**
  * Jednoduchý kontejner sdílených služeb. Žádná magie - co aplikace umí, je vidět tady.
@@ -22,13 +22,13 @@ final class App
     {
         $this->request = $request ?? Request::fromGlobals();
         $this->session = new Session($this->request->isHttps(), $this->request->basePath() . '/');
-        $this->view = new View([MIROCMS_SYSTEM . '/views']);
+        $this->view = new View([KALETA_SYSTEM . '/views']);
     }
 
     /** Načte config.php; když chybí, web ještě není nainstalovaný. */
     public static function boot(): self
     {
-        $file = MIROCMS_ROOT . '/config.php';
+        $file = KALETA_ROOT . '/config.php';
         if (!is_file($file)) {
             $base = rtrim(str_replace('\\', '/', dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/'))), '/');
             header('Location: ' . $base . '/install.php');
@@ -36,7 +36,7 @@ final class App
         }
         // během aktualizace souborů web krátce odpovídá 503 (zámek starší než 10 minut je pozůstatek a ignoruje se);
         // slovník tu ještě není načtený, proto je pod českým textem krátká anglická věta
-        $zamek = MIROCMS_ROOT . '/storage/udrzba.lock';
+        $zamek = KALETA_ROOT . '/storage/udrzba.lock';
         if (is_file($zamek) && time() - (int) filemtime($zamek) < 600 && basename((string) ($_SERVER['SCRIPT_NAME'] ?? '')) !== 'admin.php') {
             http_response_code(503);
             header('Retry-After: 60');
@@ -130,7 +130,7 @@ final class App
         });
         set_exception_handler(function (\Throwable $e): void {
             $line = sprintf("[%s] %s: %s in %s:%d\n", date('c'), $e::class, $e->getMessage(), $e->getFile(), $e->getLine());
-            @file_put_contents(MIROCMS_ROOT . '/storage/log/chyby.log', $line, FILE_APPEND | LOCK_EX);
+            @file_put_contents(KALETA_ROOT . '/storage/log/chyby.log', $line, FILE_APPEND | LOCK_EX);
             if (!headers_sent()) {
                 http_response_code(500);
                 header('Content-Type: text/html; charset=utf-8');

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Core;
+namespace Kaleta\Core;
 
 /**
  * Jazyk webu a překlady textů šablon.
@@ -36,7 +36,7 @@ final class Jazyk
     public static function nastav(string $kod, string $sada = ''): void
     {
         self::$kod = isset(self::DOSTUPNE[$kod]) ? $kod : 'cs';
-        $soubor = MIROCMS_SYSTEM . '/jazyky/' . $sada . self::$kod . '.php';
+        $soubor = KALETA_SYSTEM . '/jazyky/' . $sada . self::$kod . '.php';
         self::$slovnik = self::$kod !== 'cs' && is_file($soubor) ? require $soubor : [];
     }
 

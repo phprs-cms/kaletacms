@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Stavitel\Prvky;
+namespace Kaleta\Stavitel\Prvky;
 
-use MiroCMS\Stavitel\Kontext;
-use MiroCMS\Stavitel\Prvek;
+use Kaleta\Stavitel\Kontext;
+use Kaleta\Stavitel\Prvek;
 
 /** Reference zákazníka nebo citát: text, jméno a pozice / firma. */
 final class Citat extends Prvek
@@ -27,10 +27,10 @@ final class Citat extends Prvek
 
     public static function zakladniCss(): string
     {
-        return '.mc-citat { margin: 0; }
-.mc-citat p { margin: 0; font-size: var(--mc-krok-1); line-height: 1.5; }
-.mc-citat footer { margin-block-start: var(--mc-mezera-s); font-size: var(--mc-krok--1); color: var(--mc-barva-tlumeny); }
-.mc-citat footer strong { color: var(--mc-barva-text); }';
+        return '.ka-citat { margin: 0; }
+.ka-citat p { margin: 0; font-size: var(--ka-krok-1); line-height: 1.5; }
+.ka-citat footer { margin-block-start: var(--ka-mezera-s); font-size: var(--ka-krok--1); color: var(--ka-barva-tlumeny); }
+.ka-citat footer strong { color: var(--ka-barva-text); }';
     }
 
     public static function vykresli(array $p, string $a, string $deti, Kontext $k): string
@@ -38,6 +38,6 @@ final class Citat extends Prvek
         $o = $p['obsah'];
         $kdo = $o['autor'] !== '' ? '<strong>' . e($o['autor']) . '</strong>' . ($o['pozice'] !== '' ? ', ' . e($o['pozice']) : '') : e($o['pozice']);
 
-        return '<blockquote' . Text::sTridou($a, 'mc-citat') . '><p>' . $o['text'] . '</p>' . ($kdo !== '' ? '<footer>' . $kdo . '</footer>' : '') . '</blockquote>';
+        return '<blockquote' . Text::sTridou($a, 'ka-citat') . '><p>' . $o['text'] . '</p>' . ($kdo !== '' ? '<footer>' . $kdo . '</footer>' : '') . '</blockquote>';
     }
 }

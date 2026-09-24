@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Front;
+namespace Kaleta\Front;
 
-use MiroCMS\Core\App;
-use MiroCMS\Core\Jazyk;
-use MiroCMS\Core\Response;
-use MiroCMS\Core\Rozsireni;
-use MiroCMS\Core\View;
+use Kaleta\Core\App;
+use Kaleta\Core\Jazyk;
+use Kaleta\Core\Response;
+use Kaleta\Core\Rozsireni;
+use Kaleta\Core\View;
 
 /**
  * Veřejná část webu.
@@ -32,7 +32,7 @@ final class Kernel
     private ?array $protejsek = null;
 
     /** Sdílený stav stavitele pro celou stránku (stavba stránky, záhlaví, patička, obálka) – jedno CSS bez opakování. */
-    private ?\MiroCMS\Stavitel\Kontext $kontext = null;
+    private ?\Kaleta\Stavitel\Kontext $kontext = null;
 
     /** Složka šablony (layoutu), kterou web právě používá. */
     private string $layout = Layouty::VYCHOZI;
@@ -48,8 +48,8 @@ final class Kernel
         $app->request->setOrigin($app->settings()->get('adresa_webu'));
         $app->casovePasmo();
         // po aktualizaci systému (i automatické) se databáze upraví hned při první návštěvě, ne až po přihlášení administrátora
-        if ($app->settings()->int('verze_db') < MIROCMS_VERZE_DB) {
-            \MiroCMS\Core\Migrace::proved($app->db(), $app->settings());
+        if ($app->settings()->int('verze_db') < KALETA_VERZE_DB) {
+            \Kaleta\Core\Migrace::proved($app->db(), $app->settings());
         }
         // jazyková verze: /en/novinky/x -> jazyk "en", cesta "/novinky/x"; adresy z $app->url() pak dostávají předponu samy
         $jazyk = Jazyk::vychozi($app->settings());
@@ -62,16 +62,16 @@ final class Kernel
         $layout = $app->settings()->get('layout');
         // náhled jiné šablony (?sablona=slozka) - jen přihlášenému administrátorovi, např. při tvorbě šablony přes Claude
         $nahled = $app->request->get('sablona');
-        if ($nahled !== '' && preg_match('/^[a-z0-9_-]+$/i', $nahled) && is_file(MIROCMS_ROOT . '/layout/' . $nahled . '/base.php') && $app->auth()->isAdmin()) {
+        if ($nahled !== '' && preg_match('/^[a-z0-9_-]+$/i', $nahled) && is_file(KALETA_ROOT . '/layout/' . $nahled . '/base.php') && $app->auth()->isAdmin()) {
             $layout = $nahled;
         }
         // nastavená šablona chybí (smazaná složka) - web se vykreslí výchozí
-        if (!preg_match('/^[a-z0-9_-]+$/i', $layout) || !is_file(MIROCMS_ROOT . '/layout/' . $layout . '/base.php')) {
+        if (!preg_match('/^[a-z0-9_-]+$/i', $layout) || !is_file(KALETA_ROOT . '/layout/' . $layout . '/base.php')) {
             $layout = Layouty::VYCHOZI;
         }
         $this->layout = $layout;
         // šablona se hledá nejdřív v layoutu webu, potom mezi systémovými - layout tak může přepsat cokoli
-        $this->view = new View([MIROCMS_ROOT . '/layout/' . $layout, MIROCMS_SYSTEM . '/views/front']);
+        $this->view = new View([KALETA_ROOT . '/layout/' . $layout, KALETA_SYSTEM . '/views/front']);
         $this->novinky = new Clanky($app->db(), $app->settings(), $app->request->basePath());
     }
 
@@ -131,7 +131,7 @@ final class Kernel
         }
         if ($path === '/favicon.ico') {
             // prohlížeče se ptají samy; místo celé stránky 404 odkaz na ikonu webu, nebo prázdná odpověď
-            $ikona = is_file(MIROCMS_ROOT . '/media/ikona-32.png') ? $this->app->url('media/ikona-32.png') : null;
+            $ikona = is_file(KALETA_ROOT . '/media/ikona-32.png') ? $this->app->url('media/ikona-32.png') : null;
 
             return $ikona !== null ? Response::redirect($ikona, 301) : new Response('', 204, ['Cache-Control' => 'public, max-age=86400']);
         }
@@ -156,7 +156,7 @@ final class Kernel
         if ($path === '/souhlas' && $request->isPost()) {
             // evidence souhlasu s cookies: bez IP adresy, jen náhodný identifikátor z cookie návštěvníka
             $kategorie = implode(',', array_intersect(explode(',', $request->post('kategorie')), ['analytika', 'marketing'])) ?: 'nic';
-            $antispam = new \MiroCMS\Core\Antispam($this->app->db(), $this->app->settings());
+            $antispam = new \Kaleta\Core\Antispam($this->app->db(), $this->app->settings());
             if ($this->app->settings()->bool('cookies_evidence') && preg_match('/^[a-f0-9]{32}$/', $request->post('id')) && $antispam->pocet($request->ip(), 'souhlas', 0, 60) < 20) {
                 $antispam->zapis($request->ip(), 'souhlas', 0);
                 $this->app->db()->insert('souhlasy', ['id_souhlasu' => $request->post('id'), 'cas' => date('Y-m-d H:i:s'), 'kategorie' => $kategorie]);
@@ -168,7 +168,7 @@ final class Kernel
             return (new Api($this->app, $this->novinky))->handle($path);
         }
         if ($path === '/mcp') {
-            return (new \MiroCMS\Mcp\Server($this->app))->handle();
+            return (new \Kaleta\Mcp\Server($this->app))->handle();
         }
         if ($path === '/formular') {
             return (new Formulare($this->app))->zpracuj();
@@ -181,11 +181,11 @@ final class Kernel
             }
             $hotovo = [];
             try {
-                \MiroCMS\Core\Oznameni::zpracuj($this->app);
+                \Kaleta\Core\Oznameni::zpracuj($this->app);
                 $hotovo[] = 'oznameni';
-                \MiroCMS\Core\Zaloha::automaticka($this->app->db(), $this->app->settings());
+                \Kaleta\Core\Zaloha::automaticka($this->app->db(), $this->app->settings());
                 $hotovo[] = 'zalohy';
-                $hotovo[] = 'posta:' . \MiroCMS\Core\Posta::zpracujFrontu($this->app->settings(), 30);
+                $hotovo[] = 'posta:' . \Kaleta\Core\Posta::zpracujFrontu($this->app->settings(), 30);
             } catch (\Throwable $e) {
                 $hotovo[] = 'chyba: ' . $e->getMessage();
             }
@@ -198,9 +198,9 @@ final class Kernel
                 return Response::json(['chyba' => 'Neplatný token.'], 403);
             }
             // monitoring dostává texty vždy česky - nesmí se měnit podle jazyka zobrazené verze webu
-            $kontroly = Jazyk::docasne('cs', fn (): array => \MiroCMS\Core\Stav::kontroly($this->app));
+            $kontroly = Jazyk::docasne('cs', fn (): array => \Kaleta\Core\Stav::kontroly($this->app));
 
-            return Response::json(['stav' => \MiroCMS\Core\Stav::souhrn($kontroly), 'verze' => MIROCMS_VERSION, 'cas' => date('c'), 'kontroly' => $kontroly]);
+            return Response::json(['stav' => \Kaleta\Core\Stav::souhrn($kontroly), 'verze' => KALETA_VERSION, 'cas' => date('c'), 'kontroly' => $kontroly]);
         }
 
         // skrytou stránku vidí jen náhled stavitele (kdo smí upravovat stránky)
@@ -232,19 +232,19 @@ final class Kernel
      */
     private function nahledSekce(string $klic): Response
     {
-        $sekce = \MiroCMS\Stavitel\Knihovna::sekci($klic, Jazyk::kod());
+        $sekce = \Kaleta\Stavitel\Knihovna::sekci($klic, Jazyk::kod());
         if ($sekce === null) {
             return $this->nenalezeno();
         }
-        $k = new \MiroCMS\Stavitel\Kontext($this->app);
-        $html = \MiroCMS\Stavitel\Stavba::html(['deti' => [$sekce['prvek']]], $k);
+        $k = new \Kaleta\Stavitel\Kontext($this->app);
+        $html = \Kaleta\Stavitel\Stavba::html(['deti' => [$sekce['prvek']]], $k);
         $tridy = '';
         foreach ($sekce['tridy'] as $t) {
-            $tridy .= \MiroCMS\Stavitel\Styl::css('.' . $t, \MiroCMS\Stavitel\Knihovna::TRIDY[$t] ?? []);
+            $tridy .= \Kaleta\Stavitel\Styl::css('.' . $t, \Kaleta\Stavitel\Knihovna::TRIDY[$t] ?? []);
         }
         $k->tridy = []; // styl tříd výše z knihovny, ne z databáze webu (na webu třída ještě nemusí být)
         $web = $this->app->settings();
-        $css = \MiroCMS\Stavitel\DesignSystem::css(\MiroCMS\Stavitel\DesignSystem::nacti($web), $this->app->request->basePath()) . \MiroCMS\Stavitel\Stavba::css($this->app->db(), $k) . '@layer tridy {' . $tridy . '}';
+        $css = \Kaleta\Stavitel\DesignSystem::css(\Kaleta\Stavitel\DesignSystem::nacti($web), $this->app->request->basePath()) . \Kaleta\Stavitel\Stavba::css($this->app->db(), $k) . '@layer tridy {' . $tridy . '}';
         $layout = $this->app->url('layout/' . $this->layout . '/style.css');
 
         return new Response('<!doctype html><html lang="' . e(Jazyk::kod()) . '"><head><meta charset="utf-8"><meta name="robots" content="noindex">'
@@ -255,14 +255,14 @@ final class Kernel
     /** Plátno editoru komponenty (jen správce): rozpracovaná komponenta s výchozími hodnotami vlastností. */
     private function nahledKomponenty(int $idm): Response
     {
-        $komponenta = \MiroCMS\Stavitel\Komponenty::podleId($this->app->db(), $idm);
+        $komponenta = \Kaleta\Stavitel\Komponenty::podleId($this->app->db(), $idm);
         if ($komponenta === null) {
             return $this->nenalezeno();
         }
         $k = $this->kontext();
-        $k->polozka = \MiroCMS\Stavitel\Komponenty::hodnoty($komponenta, []);
+        $k->polozka = \Kaleta\Stavitel\Komponenty::hodnoty($komponenta, []);
         $k->editor = $this->app->request->get('editor') === '1';
-        $html = \MiroCMS\Stavitel\Stavba::html(\MiroCMS\Stavitel\Stavba::zJson($komponenta['stavba_koncept'] ?? $komponenta['stavba']) ?? ['deti' => []], $k);
+        $html = \Kaleta\Stavitel\Stavba::html(\Kaleta\Stavitel\Stavba::zJson($komponenta['stavba_koncept'] ?? $komponenta['stavba']) ?? ['deti' => []], $k);
         [$k->polozka, $k->editor] = [null, false];
 
         return $this->stranka($komponenta['nazev'], $this->view->render('stranka', ['stranka' => ['titulek' => ''], 'uvod' => false, 'stavba' => $html]), ['stavba' => true, 'noindex' => true]);
@@ -276,7 +276,7 @@ final class Kernel
     {
         $db = $this->app->db();
         $r = $this->app->request;
-        $kolekce = \MiroCMS\Stavitel\Kolekce::podleSeo($db, $seoKolekce);
+        $kolekce = \Kaleta\Stavitel\Kolekce::podleSeo($db, $seoKolekce);
         $koncept = $r->get('stavba') === 'koncept' && $this->app->auth()->isAdmin();
         if ($kolekce === null || (!$kolekce['detail'] && !$koncept)) {
             return $this->nenalezeno();
@@ -288,14 +288,14 @@ final class Kernel
         if ($polozka !== null) {
             $polozka['data'] = json_decode((string) $polozka['data'], true) ?: [];
         }
-        $stavba = \MiroCMS\Stavitel\Stavba::zJson($koncept ? ($kolekce['stavba_koncept'] ?? $kolekce['stavba']) : $kolekce['stavba'])
-            ?? \MiroCMS\Stavitel\Kolekce::vychoziSablona($kolekce);
+        $stavba = \Kaleta\Stavitel\Stavba::zJson($koncept ? ($kolekce['stavba_koncept'] ?? $kolekce['stavba']) : $kolekce['stavba'])
+            ?? \Kaleta\Stavitel\Kolekce::vychoziSablona($kolekce);
         $this->drobecky([$kolekce['nazev'], ''], [$polozka['nazev'] ?? t('Ukázková položka'), '']);
         $k = $this->kontext();
-        $k->polozka = $polozka !== null ? \MiroCMS\Stavitel\Kolekce::hodnoty($kolekce, $polozka, $this->app->url(...)) : \MiroCMS\Stavitel\Kolekce::ukazka($kolekce);
+        $k->polozka = $polozka !== null ? \Kaleta\Stavitel\Kolekce::hodnoty($kolekce, $polozka, $this->app->url(...)) : \Kaleta\Stavitel\Kolekce::ukazka($kolekce);
         $k->editor = $koncept && $r->get('editor') === '1';
         $k->zdroj = 'kolekce:' . (int) $kolekce['idk'];
-        $html = \MiroCMS\Stavitel\Stavba::html($stavba, $k);
+        $html = \Kaleta\Stavitel\Stavba::html($stavba, $k);
         [$k->polozka, $k->editor] = [null, false];
 
         // popis a obrázek pro vyhledávače a sdílení: první delší text a první obrázek položky
@@ -358,12 +358,12 @@ final class Kernel
         ];
         // náhled rozpracované stavby pro editor: ?stavba=koncept (jen kdo smí upravovat stránky), &editor=1 přidá značky pro výběr prvků
         $koncept = $this->app->request->get('stavba') === 'koncept' && $this->app->auth()->maModul('stranky');
-        $stavba = \MiroCMS\Stavitel\Stavba::zJson($koncept ? ($stranka['stavba_koncept'] ?? $stranka['stavba']) : $stranka['stavba']);
+        $stavba = \Kaleta\Stavitel\Stavba::zJson($koncept ? ($stranka['stavba_koncept'] ?? $stranka['stavba']) : $stranka['stavba']);
         if ($stavba !== null) {
             $k = $this->kontext();
             $k->editor = $koncept && $this->app->request->get('editor') === '1' && $this->app->request->get('cast') === '';
             $k->zdroj = 'stranka:' . (int) $stranka['ids'];
-            $html = \MiroCMS\Stavitel\Stavba::html($stavba, $k);
+            $html = \Kaleta\Stavitel\Stavba::html($stavba, $k);
             $k->editor = false;
             if (!$koncept && $this->app->auth()->maModul('stranky')) {
                 $this->upravitZde = $this->app->url('admin.php?modul=stranky&akce=stavitel&id=' . (int) $stranka['ids']);
@@ -458,7 +458,7 @@ final class Kernel
         }
 
         $this->drobecky([t('Novinky'), $this->app->url('novinky')], [$novinka['tema_jm'], $this->app->url('novinky/kategorie/' . $novinka['tema_seo'])], [$novinka['titulek'], '']);
-        $novinka['faq_html'] = (new View([MIROCMS_SYSTEM . '/views/front']))->render('faq', ['faq' => Seo::faq($novinka['faq'])]);
+        $novinka['faq_html'] = (new View([KALETA_SYSTEM . '/views/front']))->render('faq', ['faq' => Seo::faq($novinka['faq'])]);
         $novinka = (new TextNovinky($this->app))->dopln($novinka);
         $novinka['stitky'] = $this->app->db()->all('SELECT s.nazev, s.seo_link FROM {stitky} s JOIN {novinky_stitky} cs ON cs.ids = s.ids WHERE cs.idc = ? ORDER BY s.nazev', [$novinka['idc']]);
 
@@ -483,7 +483,7 @@ final class Kernel
     {
         $q = mb_substr($this->app->request->get('q'), 0, 100);
         // hledání je nejdražší dotaz webu a necachuje se: nejvýš 30 hledání za minutu z jedné adresy
-        $antispam = new \MiroCMS\Core\Antispam($this->app->db(), $this->app->settings());
+        $antispam = new \Kaleta\Core\Antispam($this->app->db(), $this->app->settings());
         if (mb_strlen($q) >= 3) {
             if ($antispam->pocet($this->app->request->ip(), 'hledani', 0, 1) >= 30) {
                 return new Response(t('Příliš mnoho hledání za sebou. Zkuste to prosím za chvíli.'), 429, ['Content-Type' => 'text/plain; charset=utf-8', 'Retry-After' => '60']);
@@ -503,7 +503,7 @@ final class Kernel
                 $data = json_decode((string) $p['data'], true);
                 $kandidati[] = ['titulek' => $p['nazev'], 'adresa' => $p['kolekce'] . '/' . $p['seo_link'], 'text' => implode(' ', array_filter(is_array($data) ? $data : [], 'is_string'))];
             }
-            $stranky = array_map(fn (array $v): array => ['titulek' => $v['titulek'], 'seo_link' => $v['adresa'], 'uryvek' => $v['uryvek']], \MiroCMS\Core\Hledani::najdi($q, $kandidati));
+            $stranky = array_map(fn (array $v): array => ['titulek' => $v['titulek'], 'seo_link' => $v['adresa'], 'uryvek' => $v['uryvek']], \Kaleta\Core\Hledani::najdi($q, $kandidati));
         }
 
         return $this->stranka(
@@ -617,7 +617,7 @@ final class Kernel
      * Úprava stránky nebo novinky přímo na webu. Bez práva nedělá nic; s právem připraví odkaz „Upravit zde“
      * a při ?upravit=text vrátí formulář s editorem místo obsahu. Ukládá administrace (akce uloz_text).
      *
-     * @param array<string, mixed> $zaznam řádek mc_stranky nebo mc_novinky
+     * @param array<string, mixed> $zaznam řádek ka_stranky nebo ka_novinky
      */
     private function upravaNaMiste(string $typ, array $zaznam, string $cesta): ?string
     {
@@ -670,7 +670,7 @@ final class Kernel
     /** @return list<array<string, mixed>> */
     private function menu(string $umisteni): array
     {
-        return $this->menu[$umisteni] ??= \MiroCMS\Core\Menu::polozky($this->app, $umisteni, Jazyk::sloupecWebu(), $this->idUvodu());
+        return $this->menu[$umisteni] ??= \Kaleta\Core\Menu::polozky($this->app, $umisteni, Jazyk::sloupecWebu(), $this->idUvodu());
     }
 
     /**
@@ -678,10 +678,10 @@ final class Kernel
      *
      * @param array<string, mixed> $meta
      */
-    private function kontext(): \MiroCMS\Stavitel\Kontext
+    private function kontext(): \Kaleta\Stavitel\Kontext
     {
         if ($this->kontext === null) {
-            $this->kontext = new \MiroCMS\Stavitel\Kontext($this->app);
+            $this->kontext = new \Kaleta\Stavitel\Kontext($this->app);
             // cesta zobrazené stránky už pro obsah (odkazy filtru a stránkování výpisu kolekce, aktivní položka navigace)
             $this->kontext->cesta = (string) parse_url($this->app->url(ltrim($this->app->request->path(), '/')), PHP_URL_PATH);
         }
@@ -704,16 +704,16 @@ final class Kernel
         $k->menu = ['hlavni' => $this->menu('hlavni'), 'paticka' => $this->menu('paticka')];
         $k->cesta = $cesta;
         $k->jazyky = $jazykyHtml;
-        $nahled = isset(\MiroCMS\Stavitel\Casti::TYPY[$r->get('cast')]) && $r->get('stavba') === 'koncept' && $this->app->auth()->isAdmin() ? $r->get('cast') : '';
+        $nahled = isset(\Kaleta\Stavitel\Casti::TYPY[$r->get('cast')]) && $r->get('stavba') === 'koncept' && $this->app->auth()->isAdmin() ? $r->get('cast') : '';
         $editor = $r->get('editor') === '1' && ($nahled !== '' || ($r->get('stavba') === 'koncept' && $r->get('cast') === ''));
         $jazyk = Jazyk::sloupecWebu();
         // stránka webu může mít vlastní variantu záhlaví a patičky; v editoru varianty rozhoduje parametr ?varianta=
         $ids = ($this->protejsek[0] ?? '') === 'stranky' ? (int) $this->protejsek[2]['ids'] : null;
-        $nahledVarianty = preg_match(\MiroCMS\Stavitel\Casti::VZOR_VARIANTY, $r->get('varianta')) ? $r->get('varianta') : '';
+        $nahledVarianty = preg_match(\Kaleta\Stavitel\Casti::VZOR_VARIANTY, $r->get('varianta')) ? $r->get('varianta') : '';
         $vykresli = function (string $typ) use ($db, $k, $nahled, $editor, $jazyk, $ids, $nahledVarianty): ?string {
             try {
-                $varianta = $nahled === $typ ? $nahledVarianty : \MiroCMS\Stavitel\Casti::variantaStranky($db, $typ, $jazyk, $ids);
-                $stavba = \MiroCMS\Stavitel\Casti::stavba($db, $typ, $jazyk, $nahled === $typ, $varianta);
+                $varianta = $nahled === $typ ? $nahledVarianty : \Kaleta\Stavitel\Casti::variantaStranky($db, $typ, $jazyk, $ids);
+                $stavba = \Kaleta\Stavitel\Casti::stavba($db, $typ, $jazyk, $nahled === $typ, $varianta);
             } catch (\Throwable $e) {
                 error_log('Části webu: ' . $e->getMessage()); // web bez tabulky (před migrací) vykreslí části ze šablony
 
@@ -724,7 +724,7 @@ final class Kernel
             }
             $k->editor = $editor && $nahled === $typ;
             $k->zdroj = 'cast:' . $typ . ':' . $jazyk . ($varianta !== '' ? ':' . $varianta : '');
-            $html = \MiroCMS\Stavitel\Stavba::html($stavba, $k);
+            $html = \Kaleta\Stavitel\Stavba::html($stavba, $k);
             $k->editor = false;
 
             return $html;
@@ -743,7 +743,7 @@ final class Kernel
         $casti = ['hlavicka' => $vykresli('hlavicka'), 'paticka' => $vykresli('paticka')];
 
         if ($k->typy !== []) {
-            $meta['css'] = \MiroCMS\Stavitel\Stavba::css($db, $k)
+            $meta['css'] = \Kaleta\Stavitel\Stavba::css($db, $k)
                 // plátno stavitele se po každé změně načítá znovu – přechod mezi stránkami by jen blikal a v prohlížeči hlásil přerušení
                 . ($editor ? '@view-transition{navigation:none}' : '');
             if ($k->faq !== [] && !isset($meta['faq'])) {
@@ -789,11 +789,11 @@ final class Kernel
             'meta' => $meta + ['hlavni' => false, 'popis' => '', 'klicova_slova' => $web->get('klicova_slova'), 'obrazek' => '', 'typ' => 'website', 'noindex' => false],
             'obsah' => $obsah,
             'hlava' => $seo->hlava($titulek, $meta + ['jazyky' => $jazyky], $novinka),
-            'pata' => $seo->pata() . ($this->upravitZde !== '' ? '<a class="mc-upravit-zde" href="' . e($this->upravitZde) . '">' . e(t('Upravit zde')) . '</a>' : ''),
+            'pata' => $seo->pata() . ($this->upravitZde !== '' ? '<a class="ka-upravit-zde" href="' . e($this->upravitZde) . '">' . e(t('Upravit zde')) . '</a>' : ''),
             'stranky' => $this->strankyMenu(),
             'menu' => $this->menu('hlavni'),
             'menu_paticka' => $this->menu('paticka'),
-            'menu_html' => \MiroCMS\Core\Menu::html(...),
+            'menu_html' => \Kaleta\Core\Menu::html(...),
             'jazyk' => Jazyk::kod(),
             'jazyky_html' => $jazykyHtml,
             'casti' => $casti,

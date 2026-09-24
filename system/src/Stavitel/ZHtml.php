@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Stavitel;
+namespace Kaleta\Stavitel;
 
 use Dom\Element;
 use Dom\HTMLDocument;
@@ -76,7 +76,7 @@ final class ZHtml
      *
      * @return array{stavba: array<string, mixed>, hlaseni: list<string>}
      */
-    public static function doWebu(\MiroCMS\Core\Db $db, string $html, bool $spravce, bool $prepsat = false): array
+    public static function doWebu(\Kaleta\Core\Db $db, string $html, bool $spravce, bool $prepsat = false): array
     {
         $prevod = self::preved($html, $spravce);
         $hlaseni = $prevod['hlaseni'];

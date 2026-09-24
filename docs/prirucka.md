@@ -1,4 +1,4 @@
-# Příručka MiroCMS
+# Příručka Kalety
 
 Návod pro toho, kdo web spravuje: od instalace přes stavitel stránek až po napojení na AI.
 [English version](guide.md)
@@ -93,7 +93,7 @@ Prvek **Formulář** (nebo hotová sekce *Poptávkový formulář*) vloží popt
 (text, e-mail, telefon, výběr, přepínače, datum, číslo, souhlas), text tlačítka, poděkování nebo děkovnou stránku,
 potvrzení odesílateli a e-mail pro upozornění. Proti spamu chrání skrytá pole a limit odeslání bez CAPTCHA a cookies.
 Novou poptávku umí web poslat i do CRM nebo Make/Zapier (Nastavení → Základní → Webhook nové poptávky); měření
-konverzí dostane událost `mirocms:odeslano` (a záznam do `dataLayer`).
+konverzí dostane událost `kaleta:odeslano` (a záznam do `dataLayer`).
 
 Odeslané zprávy jsou v **Obsah → Poptávky**: stav (nová, přečtená, vyřízená), odpověď e-mailem, export do CSV.
 Poptávky obsahují osobní údaje, proto se po nastaveném počtu měsíců (výchozí 24) samy mažou.
@@ -122,7 +122,7 @@ klíč API a model. Asistent jen navrhuje. Text odchází k poskytovateli, jen k
 **Napojení na Claude (MCP)** zapnete v Rozšířeních. V **Můj účet** si vytvořte přístupový token. V Claude Code pak spusťte
 
 ```bash
-claude mcp add --transport http mirocms https://vas-web.cz/mcp --header "Authorization: Bearer <token>"
+claude mcp add --transport http kaleta https://vas-web.cz/mcp --header "Authorization: Bearer <token>"
 ```
 
 V aplikaci Claude přidejte vlastní konektor s adresou `https://vas-web.cz/mcp` a stejnou hlavičkou. Claude pak s právy

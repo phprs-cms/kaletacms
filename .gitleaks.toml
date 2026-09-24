@@ -1,6 +1,6 @@
 # Gitleaks: výchozí pravidla + výjimka pro smyšlené klíče, kterými testy krmí falešný server Stripe (tools/test.sh, tools/fixtures/).
 # Skutečný klíč sem nikdy nepatří – výjimka je úmyslně jen na tento jeden vymyšlený řetězec.
-title = "MiroCMS"
+title = "Kaleta"
 
 [extend]
 useDefault = true

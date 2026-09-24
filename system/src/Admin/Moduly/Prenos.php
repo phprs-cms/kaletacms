@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Admin\Moduly;
+namespace Kaleta\Admin\Moduly;
 
-use MiroCMS\Admin\Modul;
-use MiroCMS\Core\ExportWebu;
-use MiroCMS\Core\Jazyk;
-use MiroCMS\Core\Response;
-use MiroCMS\Core\StahovaniObrazku;
-use MiroCMS\Core\WpImport;
-use MiroCMS\Core\WpSoubor;
+use Kaleta\Admin\Modul;
+use Kaleta\Core\ExportWebu;
+use Kaleta\Core\Jazyk;
+use Kaleta\Core\Response;
+use Kaleta\Core\StahovaniObrazku;
+use Kaleta\Core\WpImport;
+use Kaleta\Core\WpSoubor;
 
 /**
  * Import a export: přechod z WordPressu (soubor WXR) a export celého webu do otevřeného formátu.
@@ -120,7 +120,7 @@ final class Prenos extends Modul
             'stav' => $stav,
             'jazyky' => array_merge([Jazyk::vychozi($nastaveni)], Jazyk::dalsi($nastaveni)),
             'rubriky' => $this->db->all('SELECT idt, nazev, jazyk FROM {kategorie} ORDER BY jazyk, nazev'),
-            'presmerovaniZapnuto' => \MiroCMS\Core\Rozsireni::je($nastaveni, 'presmerovani'),
+            'presmerovaniZapnuto' => \Kaleta\Core\Rozsireni::je($nastaveni, 'presmerovani'),
         ]);
     }
 

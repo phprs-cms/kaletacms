@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Admin\Moduly;
+namespace Kaleta\Admin\Moduly;
 
-use MiroCMS\Admin\Modul;
-use MiroCMS\Core\Jazyk;
-use MiroCMS\Core\Menu as MenuWebu;
-use MiroCMS\Core\Response;
+use Kaleta\Admin\Modul;
+use Kaleta\Core\Jazyk;
+use Kaleta\Core\Menu as MenuWebu;
+use Kaleta\Core\Response;
 
 /**
  * Vzhled → Menu: hlavní menu a menu v patičce pro každou jazykovou verzi. Položky jsou stránky, vlastní odkazy,

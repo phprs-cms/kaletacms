@@ -2,22 +2,22 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Mcp;
+namespace Kaleta\Mcp;
 
-use MiroCMS\Admin\Moduly\Galerie;
-use MiroCMS\Admin\Moduly\Kategorie;
-use MiroCMS\Admin\Moduly\Stranky;
-use MiroCMS\Core\App;
-use MiroCMS\Core\Jazyk;
-use MiroCMS\Front\Identita;
-use MiroCMS\Front\Layouty;
-use MiroCMS\Stavitel\Casti;
-use MiroCMS\Stavitel\DesignSystem;
-use MiroCMS\Stavitel\Knihovna;
-use MiroCMS\Stavitel\Kolekce;
-use MiroCMS\Stavitel\Publikace;
-use MiroCMS\Stavitel\Stavba;
-use MiroCMS\Stavitel\ZHtml;
+use Kaleta\Admin\Moduly\Galerie;
+use Kaleta\Admin\Moduly\Kategorie;
+use Kaleta\Admin\Moduly\Stranky;
+use Kaleta\Core\App;
+use Kaleta\Core\Jazyk;
+use Kaleta\Front\Identita;
+use Kaleta\Front\Layouty;
+use Kaleta\Stavitel\Casti;
+use Kaleta\Stavitel\DesignSystem;
+use Kaleta\Stavitel\Knihovna;
+use Kaleta\Stavitel\Kolekce;
+use Kaleta\Stavitel\Publikace;
+use Kaleta\Stavitel\Stavba;
+use Kaleta\Stavitel\ZHtml;
 
 /**
  * Nástroje, které MCP server nabízí Claudovi. Každý nástroj respektuje práva uživatele, jehož tokenem se Claude hlásí:
@@ -71,7 +71,7 @@ final class Nastroje
                 $s(['umisteni' => $text('hlavni | paticka'), 'jazyk' => $text('jazyková verze (prázdné = výchozí)'), 'polozky' => ['type' => ['array', 'null'], 'items' => ['type' => 'object'], 'description' => 'položky menu']], ['umisteni', 'polozky'])],
             ['stavba_schema', 'Jak se skládá stránka ve staviteli: typy prvků a jejich pole, vlastnosti stylu, tokeny design systému (barvy, mezery, písmo), hotové sekce knihovny a sdílené třídy webu. Načti před prvním použitím nástrojů stavba_*.', $s([])],
             ['stavba_nacti', 'Stavba stránky nebo části webu (strom prvků) – rozpracovaný koncept, jinak publikovaná verze. Stránka bez stavby vrátí stavbu z jejího textu.', $s($cil)],
-            ['stavba_z_html', 'DOPORUČENÁ CESTA pro novou stránku nebo sekce: napiš sémantické HTML (section/header, h1–h3, p, ul, a, img, figure, blockquote, details) a vzhled do bloku <style> jako pravidla jedné třídy (.karta { … }) s tokeny var(--mc-…). Převede se na stavbu a třídy; vrátí hlášení, co převést nešlo. Uloží se jako koncept.',
+            ['stavba_z_html', 'DOPORUČENÁ CESTA pro novou stránku nebo sekce: napiš sémantické HTML (section/header, h1–h3, p, ul, a, img, figure, blockquote, details) a vzhled do bloku <style> jako pravidla jedné třídy (.karta { … }) s tokeny var(--ka-…). Převede se na stavbu a třídy; vrátí hlášení, co převést nešlo. Uloží se jako koncept.',
                 $s(['html' => $text('HTML obsahu (bez <html>/<head>); <style> smí být uvnitř. Záhlaví a patičku skládej z prvků logo, navigace a udaje přes stavba_uloz – HTML je nepřevede.'), 'id' => $cislo('ID stránky; bez něj (a bez cast) vznikne nová skrytá stránka s názvem z parametru titulek'), 'cast' => $cil['cast'], 'jazyk' => $cil['jazyk'], 'titulek' => $text('Název nové stránky (když není id)'),
                     'rezim' => $text('nahradit (výchozí) = celá stavba z HTML | pridat = sekce na konec stávající stavby'), 'prepsat_tridy' => ['type' => 'boolean', 'description' => 'true = třídy, které už na webu jsou, se přepíšou stylem z <style>; jinak zůstanou'],
                     'publikovat' => ['type' => 'boolean', 'description' => 'true = hned publikovat (jen na výslovný pokyn uživatele); jinak koncept k náhledu']], ['html'])],
@@ -128,10 +128,10 @@ final class Nastroje
             case 'info_o_webu':
                 return [
                     'web' => $web->get('nazev_webu'), 'adresa' => $this->app->request->origin() . $this->app->url(''), 'popis' => $web->get('popis_webu'),
-                    'sablona' => $web->get('layout'), 'uvodni_stranka' => $web->int('titulni_stranka') ?: null, 'verze_mirocms' => MIROCMS_VERSION,
+                    'sablona' => $web->get('layout'), 'uvodni_stranka' => $web->int('titulni_stranka') ?: null, 'verze_kaleta' => KALETA_VERSION,
                     'stranek' => (int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE smazano IS NULL'),
                     'novinek_vydanych' => (int) $db->value('SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND smazano IS NULL'),
-                    'uzivatel' => $auth->user()['user'], 'role' => \MiroCMS\Core\Auth::TYPY[(int) $auth->user()['admin']], 'smi_vydavat' => $auth->smiVydavat(),
+                    'uzivatel' => $auth->user()['user'], 'role' => \Kaleta\Core\Auth::TYPY[(int) $auth->user()['admin']], 'smi_vydavat' => $auth->smiVydavat(),
                     'smi_upravovat_stranky' => $auth->maModul('stranky'),
                 ];
 
@@ -155,31 +155,31 @@ final class Nastroje
 
             case 'nacti_menu':
             case 'uloz_menu':
-                $umisteni = isset(\MiroCMS\Core\Menu::UMISTENI[$a['umisteni'] ?? '']) ? $a['umisteni'] : 'hlavni';
+                $umisteni = isset(\Kaleta\Core\Menu::UMISTENI[$a['umisteni'] ?? '']) ? $a['umisteni'] : 'hlavni';
                 $jazykMenu = in_array($a['jazyk'] ?? '', Jazyk::dalsi($web), true) ? $a['jazyk'] : '';
                 if ($nazev === 'uloz_menu') {
                     if (!$auth->isAdmin()) {
                         throw new \DomainException('Menu smí upravovat jen správce.');
                     }
-                    \MiroCMS\Core\Menu::uloz($db, $umisteni, $jazykMenu, is_array($a['polozky'] ?? null) ? $a['polozky'] : null);
-                    \MiroCMS\Front\Cache::vymaz();
+                    \Kaleta\Core\Menu::uloz($db, $umisteni, $jazykMenu, is_array($a['polozky'] ?? null) ? $a['polozky'] : null);
+                    \Kaleta\Front\Cache::vymaz();
                 }
-                $ulozene = \MiroCMS\Core\Menu::nacti($db, $umisteni, $jazykMenu);
+                $ulozene = \Kaleta\Core\Menu::nacti($db, $umisteni, $jazykMenu);
 
                 return ['umisteni' => $umisteni, 'jazyk' => $jazykMenu, 'automaticke' => $ulozene === null, 'polozky' => $ulozene ?? [],
-                    'na_webu' => \MiroCMS\Core\Menu::polozky($this->app, $umisteni, $jazykMenu, $web->int('titulni_stranka')),
+                    'na_webu' => \Kaleta\Core\Menu::polozky($this->app, $umisteni, $jazykMenu, $web->int('titulni_stranka')),
                     'stranky' => $db->all('SELECT ids, titulek, zobrazit FROM {stranky} WHERE jazyk = ? AND smazano IS NULL ORDER BY poradi, titulek', [$jazykMenu])];
 
             case 'stavba_schema':
                 return Stavba::schema($auth->isAdmin(), Jazyk::vychozi($web), $auth->isAdmin()) + [
-                    'komponenty' => array_map(fn (array $k): array => ['id' => (string) $k['idm'], 'nazev' => $k['nazev'], 'vlastnosti' => $k['vlastnosti']], \MiroCMS\Stavitel\Komponenty::vsechny($db))
+                    'komponenty' => array_map(fn (array $k): array => ['id' => (string) $k['idm'], 'nazev' => $k['nazev'], 'vlastnosti' => $k['vlastnosti']], \Kaleta\Stavitel\Komponenty::vsechny($db))
                         + ['pozn' => 'Použití: {"typ":"komponenta","obsah":{"komponenta":"<id>","hodnoty":{"<klic>":"hodnota"}}}; prázdná hodnota = výchozí.'],
                     'casti_webu' => array_map(fn (array $t): string => $t[0] . ' – ' . $t[1], Casti::TYPY) + ['pozn' => 'Prvky ze skupiny „Části webu“ (logo, navigace, udaje, obsah) patří jen do částí; obálka (novinka, vypis, nenalezeno) musí obsahovat právě jeden prvek „obsah“.'],
                     'knihovna' => Knihovna::seznam(),
                     'tridy_webu' => array_column($db->all('SELECT nazev FROM {tridy} ORDER BY nazev'), 'nazev'),
                     'design_system' => DesignSystem::nacti($web) + ['predvolby' => array_map(fn (array $p): string => $p[0] . ' – ' . $p[1], DesignSystem::PREDVOLBY),
                         'pisma_titulku' => array_keys(Identita::PISMA_TITULKU), 'pisma_textu' => array_keys(Identita::PISMA_TEXTU)],
-                    'css_tokeny' => 'V <style> a vlastním CSS používej var(--mc-barva-primarni|sekundarni|text|tlumeny|pozadi|plocha|linka|primarni-jemna|na-primarni), var(--mc-mezera-2xs…3xl), var(--mc-krok--1…5) pro velikost písma, var(--mc-zaobleni), var(--mc-stin-s|m|l), var(--mc-sirka).',
+                    'css_tokeny' => 'V <style> a vlastním CSS používej var(--ka-barva-primarni|sekundarni|text|tlumeny|pozadi|plocha|linka|primarni-jemna|na-primarni), var(--ka-mezera-2xs…3xl), var(--ka-krok--1…5) pro velikost písma, var(--ka-zaobleni), var(--ka-stin-s|m|l), var(--ka-sirka).',
                 ];
 
             case 'stavba_nacti':
@@ -236,7 +236,7 @@ final class Nastroje
                 }
                 $ds = DesignSystem::vycisti($zmeny + $ds);
                 $web->set('design_system', (string) json_encode($ds, JSON_UNESCAPED_SLASHES));
-                \MiroCMS\Front\Cache::vymaz();
+                \Kaleta\Front\Cache::vymaz();
 
                 return ['design_system' => $ds, 'citelnost' => DesignSystem::kontrasty($ds), 'nahled' => $this->app->request->origin() . $this->app->url('')];
 
@@ -364,19 +364,19 @@ final class Nastroje
                 $jenAdmin();
                 $nova = (string) ($a['nazev'] ?? '');
                 $podle = (string) ($a['podle'] ?? Layouty::VYCHOZI);
-                if (!preg_match('/^[a-z][a-z0-9-]{2,40}$/', $nova) || is_dir(MIROCMS_ROOT . '/layout/' . $nova)) {
+                if (!preg_match('/^[a-z][a-z0-9-]{2,40}$/', $nova) || is_dir(KALETA_ROOT . '/layout/' . $nova)) {
                     throw new \InvalidArgumentException('Název šablony: 3-40 znaků, malá písmena, číslice a pomlčky; složka ještě nesmí existovat.');
                 }
                 if (!isset(Layouty::seznam()[$podle])) {
                     throw new \InvalidArgumentException('Zdrojová šablona neexistuje.');
                 }
-                mkdir(MIROCMS_ROOT . '/layout/' . $nova, 0775);
-                foreach (glob(MIROCMS_ROOT . '/layout/' . $podle . '/*.{php,css}', GLOB_BRACE) ?: [] as $soubor) {
+                mkdir(KALETA_ROOT . '/layout/' . $nova, 0775);
+                foreach (glob(KALETA_ROOT . '/layout/' . $podle . '/*.{php,css}', GLOB_BRACE) ?: [] as $soubor) {
                     $obsah = (string) file_get_contents($soubor);
                     // zkopírovaná šablona musí odkazovat na vlastní style.css
-                    file_put_contents(MIROCMS_ROOT . '/layout/' . $nova . '/' . basename($soubor), str_replace("layout/{$podle}/", "layout/{$nova}/", $obsah));
+                    file_put_contents(KALETA_ROOT . '/layout/' . $nova . '/' . basename($soubor), str_replace("layout/{$podle}/", "layout/{$nova}/", $obsah));
                 }
-                file_put_contents(MIROCMS_ROOT . '/layout/' . $nova . '/info.php', "<?php\n\nreturn " . var_export([
+                file_put_contents(KALETA_ROOT . '/layout/' . $nova . '/info.php', "<?php\n\nreturn " . var_export([
                     'nazev' => mb_substr((string) ($a['popisny_nazev'] ?? $nova), 0, 60), 'popis' => 'Vlastní šablona (vychází z ' . $podle . ').',
                 ], true) . ";\n");
 
@@ -404,7 +404,7 @@ final class Nastroje
                 }
                 if (str_ends_with($cesta, '.php')) {
                     // šablona je jen prezentační vrstva: nesmí na soubory, databázi, síť ani na kód systému (Core\SablonaKontrola)
-                    $vady = \MiroCMS\Core\SablonaKontrola::over($obsah);
+                    $vady = \Kaleta\Core\SablonaKontrola::over($obsah);
                     if ($vady !== []) {
                         throw new \InvalidArgumentException("Soubor se neuložil – šablona smí jen vypisovat data, která dostává:\n- " . implode("\n- ", array_slice($vady, 0, 12))
                             . "\nPovolené: výpis, if/foreach/match, uzávěry, \$web->get(), \$url(), e(), t(), datum() a běžné funkce pro text, čísla a pole. Pravidla: layout/CLAUDE.md.");
@@ -479,7 +479,7 @@ final class Nastroje
             $db->insert('novinky_revize', ['idc' => $id, 'datum' => $puvodni['zmeneno'] ?? $puvodni['datum'], 'kdo' => $auth->id(), 'titulek' => $puvodni['titulek'], 'uvod' => $puvodni['uvod'], 'text' => $puvodni['text']]);
             $db->update('novinky', $data, ['idc' => $id]);
         }
-        \MiroCMS\Core\Hledani::indexuj($db, $id);
+        \Kaleta\Core\Hledani::indexuj($db, $id);
         if (array_key_exists('stitky', $a)) {
             $db->delete('novinky_stitky', ['idc' => $id]);
             foreach (array_slice(array_unique(array_filter(array_map(trim(...), explode(',', (string) $a['stitky'])))), 0, 20) as $stitek) {
@@ -523,7 +523,7 @@ final class Nastroje
         }
         if (array_key_exists('adresa', $a) || $puvodni === null) {
             $seo = slugify((string) (($a['adresa'] ?? '') !== '' ? $a['adresa'] : $data['titulek']), 110);
-            if (in_array($seo, Stranky::VYHRAZENE, true) || isset(\MiroCMS\Core\Jazyk::DOSTUPNE[$seo])) {
+            if (in_array($seo, Stranky::VYHRAZENE, true) || isset(\Kaleta\Core\Jazyk::DOSTUPNE[$seo])) {
                 throw new \InvalidArgumentException('Adresu „' . $seo . '“ používá systém, zvol jinou.');
             }
             if ($db->value('SELECT ids FROM {stranky} WHERE seo_link = ? AND ids <> ?', [$seo, (int) ($puvodni['ids'] ?? 0)]) !== null) {
@@ -535,13 +535,13 @@ final class Nastroje
         if ($puvodni === null) {
             $id = $db->insert('stranky', $data + ['text' => '', 'zobrazit' => 0, 'v_menu' => 0]);
             if (!empty($data['v_menu'])) {
-                \MiroCMS\Core\Menu::nastavStranku($db, $id, '', true);
+                \Kaleta\Core\Menu::nastavStranku($db, $id, '', true);
             }
         } else {
             $id = (int) $puvodni['ids'];
             $db->update('stranky', $data, ['ids' => $id]);
             if (isset($data['seo_link']) && $data['seo_link'] !== $puvodni['seo_link'] && $puvodni['zobrazit']) {
-                \MiroCMS\Admin\Moduly\Presmerovani::pridej($db, $puvodni['seo_link'], $data['seo_link']);
+                \Kaleta\Admin\Moduly\Presmerovani::pridej($db, $puvodni['seo_link'], $data['seo_link']);
             }
         }
         $ulozena = $this->stranka($id);
@@ -721,7 +721,7 @@ final class Nastroje
     /** @return list<string> */
     private function souborySablony(string $slozka): array
     {
-        return array_map(basename(...), glob(MIROCMS_ROOT . '/layout/' . $slozka . '/*.{php,css}', GLOB_BRACE) ?: []);
+        return array_map(basename(...), glob(KALETA_ROOT . '/layout/' . $slozka . '/*.{php,css}', GLOB_BRACE) ?: []);
     }
 
     private function souborSablony(string $slozka, string $soubor, bool $musiExistovat): string
@@ -729,7 +729,7 @@ final class Nastroje
         if (!preg_match('/^[a-z][a-z0-9_-]{0,40}\.(php|css)$/', $soubor)) {
             throw new \InvalidArgumentException('Název souboru: malá písmena, číslice, pomlčky a podtržítka, přípona .php nebo .css.');
         }
-        $cesta = MIROCMS_ROOT . '/layout/' . $slozka . '/' . $soubor;
+        $cesta = KALETA_ROOT . '/layout/' . $slozka . '/' . $soubor;
         if ($musiExistovat && !is_file($cesta)) {
             throw new \InvalidArgumentException('Soubor v šabloně není. Dostupné: ' . implode(', ', $this->souborySablony($slozka)));
         }

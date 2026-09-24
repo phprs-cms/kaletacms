@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Core;
+namespace Kaleta\Core;
 
 /**
- * Export celého webu do jednoho archivu – aby obsah nikdy nezůstal v MiroCMS zamčený.
+ * Export celého webu do jednoho archivu – aby obsah nikdy nezůstal v Kaletě zamčený.
  *
  * Archiv storage/zalohy/export-RRRRMMDD-HHMMSS.zip obsahuje obsah.json (stránky, kategorie, štítky, novinky, přesměrování,
  * knihovnu médií a veřejná nastavení), README.txt s popisem formátu a složku media/.
  *
  * Co v exportu NIKDY není: hesla, klíče API, tokeny, údaje SMTP a FTP, účty uživatelů administrace.
  * Nastavení se proto vybírají ze seznamu povolených (NASTAVENI), ne vylučováním.
- * Není to záloha pro obnovu MiroCMS (tou je záloha databáze), ale přenosný otevřený formát.
+ * Není to záloha pro obnovu Kalety (tou je záloha databáze), ale přenosný otevřený formát.
  */
 final class ExportWebu
 {
@@ -64,7 +64,7 @@ final class ExportWebu
         if ($duvod === '') {
             // soubor po souboru; obrázky už komprimované jsou, proto se jen ukládají (CM_STORE) – archiv je pak hotový rychle
             foreach (array_keys($soubory) as $cesta) {
-                $zip->addFile(MIROCMS_ROOT . '/' . $cesta, $cesta);
+                $zip->addFile(KALETA_ROOT . '/' . $cesta, $cesta);
                 $zip->setCompressionName($cesta, \ZipArchive::CM_STORE);
             }
         }
@@ -107,7 +107,7 @@ final class ExportWebu
         if ($f === false) {
             throw new \RuntimeException('Nelze zapisovat do storage/zalohy - zkontrolujte práva k zápisu.');
         }
-        fwrite($f, '{"format":"mirocms-export","verze_formatu":1,"mirocms":' . self::json(MIROCMS_VERSION) . ',"vytvoreno":' . self::json(date('c')) . ',"nastaveni":' . self::json(self::nastaveni($db)));
+        fwrite($f, '{"format":"kaleta-export","verze_formatu":1,"kaleta":' . self::json(KALETA_VERSION) . ',"vytvoreno":' . self::json(date('c')) . ',"nastaveni":' . self::json(self::nastaveni($db)));
 
         $autori = "(SELECT NULLIF(u.jmeno, '') FROM {uzivatele} u WHERE u.idu = c.autor) AS autor_jmeno";
         self::pole($f, 'stranky', self::postupne($db, 'SELECT * FROM {stranky} WHERE ids > ? ORDER BY ids LIMIT 200', 'ids'));
@@ -202,12 +202,12 @@ final class ExportWebu
     private static function media(): array
     {
         $soubory = [];
-        if (!is_dir(MIROCMS_ROOT . '/media')) {
+        if (!is_dir(KALETA_ROOT . '/media')) {
             return $soubory;
         }
-        $pruchod = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(MIROCMS_ROOT . '/media', \FilesystemIterator::SKIP_DOTS));
+        $pruchod = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(KALETA_ROOT . '/media', \FilesystemIterator::SKIP_DOTS));
         foreach ($pruchod as $soubor) {
-            $cesta = 'media/' . ltrim(str_replace('\\', '/', substr($soubor->getPathname(), strlen(MIROCMS_ROOT . '/media'))), '/');
+            $cesta = 'media/' . ltrim(str_replace('\\', '/', substr($soubor->getPathname(), strlen(KALETA_ROOT . '/media'))), '/');
             if ($soubor->isFile() && !$soubor->isLink() && !preg_match('#(^|/)\.|\.php\d?$#i', $cesta)) {
                 $soubory[$cesta] = (int) $soubor->getSize();
             }
@@ -227,12 +227,12 @@ final class ExportWebu
 
     private static function readme(bool $sMedii): string
     {
-        return "Export webu z MiroCMS " . MIROCMS_VERSION . " (" . date('j. n. Y H:i') . ")\n"
+        return "Export webu z Kalety " . KALETA_VERSION . " (" . date('j. n. Y H:i') . ")\n"
             . "==========================================\n\n"
             . "obsah.json  všechen obsah webu v kódování UTF-8\n"
             . ($sMedii ? "media/      nahrané obrázky a přílohy; cesty odpovídají sloupcům \"obrazek\" a poli \"media\"\n" : "media/      v archivu NENÍ (příliš velká nebo málo místa) – stáhněte si složku media/ z webu přes FTP\n")
             . "\nStruktura obsah.json\n--------------------\n"
-            . "format, verze_formatu, mirocms, vytvoreno – hlavička\n"
+            . "format, verze_formatu, kaleta, vytvoreno – hlavička\n"
             . "nastaveni     název a popis webu, identita (logo, barva, písma, sítě), časové pásmo, jazyky, šablona, úvodní stránka\n"
             . "stranky       ids, seo_link, titulek, popis, text (HTML), jazyk ('' = výchozí jazyk webu), preklad_z\n"
             . "kategorie     idt, nazev, seo_link, popis, jazyk, preklad_z\n"

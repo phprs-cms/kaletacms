@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Front;
+namespace Kaleta\Front;
 
-use MiroCMS\Core\Db;
-use MiroCMS\Core\Obrazky;
-use MiroCMS\Core\Settings;
+use Kaleta\Core\Db;
+use Kaleta\Core\Obrazky;
+use Kaleta\Core\Settings;
 
 /**
- * Čtení novinek pro web (tabulka mc_novinky). Na webu je vidět jen novinka vydaná (visible = 1), jejíž datum vydání už nastalo.
+ * Čtení novinek pro web (tabulka ka_novinky). Na webu je vidět jen novinka vydaná (visible = 1), jejíž datum vydání už nastalo.
  */
 final class Clanky
 {
@@ -23,7 +23,7 @@ final class Clanky
 
     /**
      * Sloupce pro výpisy: bez dlouhých textů (text, FAQ), které výpis netiskne. Klíče v poli zůstávají (prázdné),
-     * aby šablony nepadaly. Nový sloupec mc_novinky, který má být vidět ve výpisech, je potřeba doplnit i sem.
+     * aby šablony nepadaly. Nový sloupec ka_novinky, který má být vidět ve výpisech, je potřeba doplnit i sem.
      */
     private const string SLOUPCE_VYPISU = "c.idc, c.seo_link, c.titulek, c.uvod, '' AS text, c.obrazek, c.tema, c.autor, c.datum, c.visible, c.t_slova, c.noindex, '' AS faq, c.visit,
         c.zmeneno, c.aktualizovano, c.jazyk, c.preklad_z";
@@ -36,7 +36,7 @@ final class Clanky
     /** @param string $zaklad cesta k instalaci ("" nebo "/web") - doplňuje se před adresy obrázků z media/ */
     public function __construct(private readonly Db $db, private readonly Settings $settings, private readonly string $zaklad = '')
     {
-        $this->vydane = self::VYDANE . " AND c.jazyk = '" . \MiroCMS\Core\Jazyk::sloupecWebu() . "'";
+        $this->vydane = self::VYDANE . " AND c.jazyk = '" . \Kaleta\Core\Jazyk::sloupecWebu() . "'";
     }
 
     /**
@@ -96,9 +96,9 @@ final class Clanky
     public function hledej(string $q, int $strana): array
     {
         // index bez diakritiky (Core\Hledani): "nabrezi" najde "nábřeží"; krátká slova a části slov se hledají v titulku
-        \MiroCMS\Core\Hledani::dopln($this->db); // novinky z doby před indexem se doplní samy
+        \Kaleta\Core\Hledani::dopln($this->db); // novinky z doby před indexem se doplní samy
         $like = '%' . addcslashes($q, '%_\\') . '%';
-        $dotaz = \MiroCMS\Core\Hledani::dotaz($q);
+        $dotaz = \Kaleta\Core\Hledani::dotaz($q);
         if ($dotaz === '') {
             return $this->dotaz($this->vydane . ' AND c.titulek LIKE ?', [$like], 'c.datum DESC, c.idc DESC', $strana);
         }

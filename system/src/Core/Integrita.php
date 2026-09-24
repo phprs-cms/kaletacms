@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Core;
+namespace Kaleta\Core;
 
 /**
  * Neporušenost jádra: balíček vydání nese podepsaný seznam souborů s otisky (system/soubory.json).
@@ -12,10 +12,10 @@ namespace MiroCMS\Core;
  */
 final class Integrita
 {
-    private const string SEZNAM = MIROCMS_SYSTEM . '/soubory.json';
+    private const string SEZNAM = KALETA_SYSTEM . '/soubory.json';
 
     /** @return array{stav:string, info:string, zmenene:list<string>, chybi:list<string>, navic:list<string>} */
-    public static function kontrola(string $klicSoubor = MIROCMS_SYSTEM . '/aktualizace.pub'): array
+    public static function kontrola(string $klicSoubor = KALETA_SYSTEM . '/aktualizace.pub'): array
     {
         $prazdne = ['zmenene' => [], 'chybi' => [], 'navic' => []];
         if (!is_file(self::SEZNAM)) {
@@ -28,7 +28,7 @@ final class Integrita
         }
         $zmenene = $chybi = [];
         foreach ($soubory as $cesta => $otisk) {
-            $soubor = MIROCMS_ROOT . '/' . $cesta;
+            $soubor = KALETA_ROOT . '/' . $cesta;
             if (!is_file($soubor)) {
                 $chybi[] = $cesta;
             } elseif (!hash_equals((string) $otisk, hash_file('sha256', $soubor))) {
@@ -37,15 +37,15 @@ final class Integrita
         }
         // soubory PHP, které do jádra nepatří (kořen webu a system/) - typická stopa po napadení webu
         $navic = [];
-        $kandidati = glob(MIROCMS_ROOT . '/*.php') ?: [];
-        $strom = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(MIROCMS_SYSTEM, \FilesystemIterator::SKIP_DOTS));
+        $kandidati = glob(KALETA_ROOT . '/*.php') ?: [];
+        $strom = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(KALETA_SYSTEM, \FilesystemIterator::SKIP_DOTS));
         foreach ($strom as $f) {
             if ($f->isFile() && preg_match('/\.(php\d?|phtml|phar)$/i', $f->getFilename())) {
                 $kandidati[] = $f->getPathname();
             }
         }
         foreach ($kandidati as $soubor) {
-            $cesta = ltrim(str_replace('\\', '/', substr($soubor, strlen(MIROCMS_ROOT))), '/');
+            $cesta = ltrim(str_replace('\\', '/', substr($soubor, strlen(KALETA_ROOT))), '/');
             if (!isset($soubory[$cesta]) && !in_array($cesta, ['config.php', 'install.php'], true)) {
                 $navic[] = $cesta;
             }
@@ -70,6 +70,6 @@ final class Integrita
     {
         ksort($soubory);
 
-        return 'mirocms-soubory|' . $verze . '|' . hash('sha256', (string) json_encode($soubory, JSON_UNESCAPED_SLASHES));
+        return 'kaleta-soubory|' . $verze . '|' . hash('sha256', (string) json_encode($soubory, JSON_UNESCAPED_SLASHES));
     }
 }

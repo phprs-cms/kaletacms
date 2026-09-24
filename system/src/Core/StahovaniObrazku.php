@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Core;
+namespace Kaleta\Core;
 
 /**
  * Stahování obrázků ze starého webu při importu z WordPressu.
@@ -15,7 +15,7 @@ namespace MiroCMS\Core;
  *  3. přesměrování nejvýš 3, nikdy automaticky – každý krok projde znovu body 1 a 2;
  *  4. spojení do 5 s, celé stažení do 20 s, nejvýš 15 MB (hlídá se už při čtení);
  *  5. přijme se jen JPEG, PNG, GIF a WebP – podle hlavičky odpovědi I podle skutečného obsahu. SVG nikdy;
- *  6. neposílají se cookies, přihlašovací údaje ani hlavičky z importu; prohlížeč se hlásí jako „MiroCMS-import“.
+ *  6. neposílají se cookies, přihlašovací údaje ani hlavičky z importu; prohlížeč se hlásí jako „Kaleta-import“.
  * Stažená data jdou dál jen přes Core\Obrazky, který obrázek znovu zakóduje.
  */
 final class StahovaniObrazku
@@ -24,7 +24,7 @@ final class StahovaniObrazku
     public const int MAX_PRESMEROVANI = 3;
     public const int CAS_SPOJENI = 5;
     public const int CAS_CELKEM = 20;
-    private const string PROHLIZEC = 'MiroCMS-import';
+    private const string PROHLIZEC = 'Kaleta-import';
     private const array TYPY = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
     /**

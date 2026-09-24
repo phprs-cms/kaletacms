@@ -1,6 +1,6 @@
--- MiroCMS - struktura databáze
+-- Kaleta - struktura databáze
 --
--- Názvy tabulek a sloupců jsou česky. Předpona "mc_" se při instalaci nahradí předponou z config.php.
+-- Názvy tabulek a sloupců jsou česky. Předpona "ka_" se při instalaci nahradí předponou z config.php.
 -- Starší názvy sloupců zůstaly: idc = id novinky, tema/idt = kategorie, ido = médium, idu = uživatel.
 -- InnoDB s cizími klíči, utf8mb4, hesla přes password_hash().
 --
@@ -12,7 +12,7 @@ SET NAMES utf8mb4;
 -- ---------------------------------------------------------------------------
 -- Uživatelé administrace
 -- ---------------------------------------------------------------------------
-CREATE TABLE mc_uzivatele (
+CREATE TABLE ka_uzivatele (
     idu            INT UNSIGNED NOT NULL AUTO_INCREMENT,
     user           VARCHAR(40)  NOT NULL,                 -- přihlašovací jméno
     password       VARCHAR(255) NOT NULL,                 -- password_hash()
@@ -37,18 +37,18 @@ CREATE TABLE mc_uzivatele (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Přístup uživatele k modulu administrace
-CREATE TABLE mc_uzivatele_prava (
+CREATE TABLE ka_uzivatele_prava (
     fk_id_user   INT UNSIGNED NOT NULL,
     ident_modulu VARCHAR(30)  NOT NULL,
     PRIMARY KEY (fk_id_user, ident_modulu),
-    CONSTRAINT fk_prava_user FOREIGN KEY (fk_id_user) REFERENCES mc_uzivatele (idu) ON DELETE CASCADE
+    CONSTRAINT fk_prava_user FOREIGN KEY (fk_id_user) REFERENCES ka_uzivatele (idu) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 
 -- ---------------------------------------------------------------------------
 -- Konfigurace
 -- ---------------------------------------------------------------------------
-CREATE TABLE mc_nastaveni (
+CREATE TABLE ka_nastaveni (
     promenna VARCHAR(60) NOT NULL,
     hodnota  TEXT NOT NULL,
     PRIMARY KEY (promenna)
@@ -59,7 +59,7 @@ CREATE TABLE mc_nastaveni (
 -- ---------------------------------------------------------------------------
 -- Kategorie a novinky
 -- ---------------------------------------------------------------------------
-CREATE TABLE mc_kategorie (
+CREATE TABLE ka_kategorie (
     idt       INT UNSIGNED NOT NULL AUTO_INCREMENT,
     nazev     VARCHAR(100) NOT NULL,
     seo_link  VARCHAR(120) NOT NULL,
@@ -74,7 +74,7 @@ CREATE TABLE mc_kategorie (
 
 
 
-CREATE TABLE mc_novinky (
+CREATE TABLE ka_novinky (
     idc            INT UNSIGNED NOT NULL AUTO_INCREMENT,
     seo_link       VARCHAR(160) NOT NULL,
     titulek        VARCHAR(255) NOT NULL,
@@ -111,21 +111,21 @@ CREATE TABLE mc_novinky (
     KEY ix_clanky_autor (autor),
     FULLTEXT KEY ft_clanky (titulek, uvod, text, t_slova),
     FULLTEXT KEY ft_clanky_hledani (hledani),
-    CONSTRAINT fk_clanky_tema  FOREIGN KEY (tema)  REFERENCES mc_kategorie (idt),
-    CONSTRAINT fk_clanky_autor FOREIGN KEY (autor) REFERENCES mc_uzivatele (idu) ON DELETE SET NULL
+    CONSTRAINT fk_clanky_tema  FOREIGN KEY (tema)  REFERENCES ka_kategorie (idt),
+    CONSTRAINT fk_clanky_autor FOREIGN KEY (autor) REFERENCES ka_uzivatele (idu) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 
 -- ---------------------------------------------------------------------------
 -- Galerie obrázků
 -- ---------------------------------------------------------------------------
-CREATE TABLE mc_media_slozky (
+CREATE TABLE ka_media_slozky (
     ids   INT UNSIGNED NOT NULL AUTO_INCREMENT,
     nazev VARCHAR(100) NOT NULL,
     PRIMARY KEY (ids)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
-CREATE TABLE mc_media (
+CREATE TABLE ka_media (
     ido         INT UNSIGNED NOT NULL AUTO_INCREMENT,
     vlastnik    INT UNSIGNED NULL,
     sekce       INT UNSIGNED NULL,                         -- složka
@@ -146,14 +146,14 @@ CREATE TABLE mc_media (
     KEY ix_imggal_datum (datum),
     KEY ix_imggal_poloha (obr_poloha),
     KEY ix_imggal_sekce (sekce),
-    CONSTRAINT fk_imggal_sekce FOREIGN KEY (sekce) REFERENCES mc_media_slozky (ids) ON DELETE SET NULL,
-    CONSTRAINT fk_imggal_vlastnik FOREIGN KEY (vlastnik) REFERENCES mc_uzivatele (idu) ON DELETE SET NULL
+    CONSTRAINT fk_imggal_sekce FOREIGN KEY (sekce) REFERENCES ka_media_slozky (ids) ON DELETE SET NULL,
+    CONSTRAINT fk_imggal_vlastnik FOREIGN KEY (vlastnik) REFERENCES ka_uzivatele (idu) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 
 
 -- Ochrana proti opakování akce ze stejné IP (přihlášení, hledání, formuláře)
-CREATE TABLE mc_kontrola_ip (
+CREATE TABLE ka_kontrola_ip (
     idk       INT UNSIGNED NOT NULL AUTO_INCREMENT,
     ip_adresa VARCHAR(45) NOT NULL,
     typ       VARCHAR(20) NOT NULL,
@@ -164,18 +164,18 @@ CREATE TABLE mc_kontrola_ip (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Ve kterých novinkách je obrázek použitý (přepočítá se při uložení)
-CREATE TABLE mc_media_pouziti (
+CREATE TABLE ka_media_pouziti (
     ido INT UNSIGNED NOT NULL,
     idc INT UNSIGNED NOT NULL,
     PRIMARY KEY (ido, idc),
     KEY ix_pouziti_clanek (idc),
-    CONSTRAINT fk_pouziti_obr FOREIGN KEY (ido) REFERENCES mc_media (ido) ON DELETE CASCADE,
-    CONSTRAINT fk_pouziti_clanek FOREIGN KEY (idc) REFERENCES mc_novinky (idc) ON DELETE CASCADE
+    CONSTRAINT fk_pouziti_obr FOREIGN KEY (ido) REFERENCES ka_media (ido) ON DELETE CASCADE,
+    CONSTRAINT fk_pouziti_clanek FOREIGN KEY (idc) REFERENCES ka_novinky (idc) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- ---------------------------------------------------------------------------
 -- Štítky novinek, historie verzí novinky a stránky webu.
-CREATE TABLE mc_stitky (
+CREATE TABLE ka_stitky (
     ids      INT UNSIGNED NOT NULL AUTO_INCREMENT,
     nazev    VARCHAR(80) NOT NULL,
     seo_link VARCHAR(100) NOT NULL,
@@ -184,15 +184,15 @@ CREATE TABLE mc_stitky (
     PRIMARY KEY (ids),
     UNIQUE KEY uq_stitky_seo (seo_link)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
-CREATE TABLE mc_novinky_stitky (
+CREATE TABLE ka_novinky_stitky (
     idc INT UNSIGNED NOT NULL,
     ids INT UNSIGNED NOT NULL,
     PRIMARY KEY (idc, ids),
     KEY ix_clanky_stitky_stitek (ids),
-    CONSTRAINT fk_cs_clanek FOREIGN KEY (idc) REFERENCES mc_novinky (idc) ON DELETE CASCADE,
-    CONSTRAINT fk_cs_stitek FOREIGN KEY (ids) REFERENCES mc_stitky (ids) ON DELETE CASCADE
+    CONSTRAINT fk_cs_clanek FOREIGN KEY (idc) REFERENCES ka_novinky (idc) ON DELETE CASCADE,
+    CONSTRAINT fk_cs_stitek FOREIGN KEY (ids) REFERENCES ka_stitky (ids) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
-CREATE TABLE mc_novinky_revize (
+CREATE TABLE ka_novinky_revize (
     idr     INT UNSIGNED NOT NULL AUTO_INCREMENT,
     idc     INT UNSIGNED NOT NULL,
     datum   DATETIME NOT NULL,
@@ -202,10 +202,10 @@ CREATE TABLE mc_novinky_revize (
     text    MEDIUMTEXT NOT NULL,
     PRIMARY KEY (idr),
     KEY ix_revize_clanek (idc, datum),
-    CONSTRAINT fk_revize_clanek FOREIGN KEY (idc) REFERENCES mc_novinky (idc) ON DELETE CASCADE,
-    CONSTRAINT fk_revize_kdo FOREIGN KEY (kdo) REFERENCES mc_uzivatele (idu) ON DELETE SET NULL
+    CONSTRAINT fk_revize_clanek FOREIGN KEY (idc) REFERENCES ka_novinky (idc) ON DELETE CASCADE,
+    CONSTRAINT fk_revize_kdo FOREIGN KEY (kdo) REFERENCES ka_uzivatele (idu) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
-CREATE TABLE mc_stranky (
+CREATE TABLE ka_stranky (
     ids      INT UNSIGNED NOT NULL AUTO_INCREMENT,
     seo_link VARCHAR(120) NOT NULL,
     titulek  VARCHAR(200) NOT NULL,
@@ -234,7 +234,7 @@ CREATE TABLE mc_stranky (
 -- Publikované verze staveb (posledních 20 na stránku)
 -- Části webu ze stavitele: záhlaví a patička na všech stránkách, obálka detailu novinky, výpisu a stránky 404.
 -- Bez řádku (nebo bez publikované stavby) platí část ze šablony (layout). Jazyk '' = výchozí jazyk webu.
-CREATE TABLE mc_casti (
+CREATE TABLE ka_casti (
     typ            VARCHAR(20) NOT NULL,
     jazyk          CHAR(2) NOT NULL DEFAULT '',
     varianta       VARCHAR(40) NOT NULL DEFAULT '',   -- '' = výchozí; jinak podoba pro stránky v seznamu stranky (JSON čísel)
@@ -247,7 +247,7 @@ CREATE TABLE mc_casti (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Publikované verze staveb: stránky (ids) i částí webu (cast = "typ:jazyk").
-CREATE TABLE mc_stavba_revize (
+CREATE TABLE ka_stavba_revize (
     idr    INT UNSIGNED NOT NULL AUTO_INCREMENT,
     ids    INT UNSIGNED NULL,
     cast   VARCHAR(80) NULL,
@@ -257,12 +257,12 @@ CREATE TABLE mc_stavba_revize (
     PRIMARY KEY (idr),
     KEY ix_stavba_revize (ids, idr),
     KEY ix_stavba_revize_cast (cast, idr),
-    CONSTRAINT fk_stavba_revize_stranka FOREIGN KEY (ids) REFERENCES mc_stranky (ids) ON DELETE CASCADE,
-    CONSTRAINT fk_stavba_revize_kdo FOREIGN KEY (kdo) REFERENCES mc_uzivatele (idu) ON DELETE SET NULL
+    CONSTRAINT fk_stavba_revize_stranka FOREIGN KEY (ids) REFERENCES ka_stranky (ids) ON DELETE CASCADE,
+    CONSTRAINT fk_stavba_revize_kdo FOREIGN KEY (kdo) REFERENCES ka_uzivatele (idu) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Sdílené třídy stavitele: styl po breakpointech a stavech (JSON jako styl prvku) + volitelné vlastní CSS
-CREATE TABLE mc_tridy (
+CREATE TABLE ka_tridy (
     nazev  VARCHAR(60) NOT NULL,                          -- název třídy v HTML (malá písmena, číslice, pomlčky, __)
     styl   TEXT NOT NULL,                                 -- {"zaklad": {...}, "tablet": {...}, "mobil": {...}, "hover": {...}}
     css    TEXT NULL,                                     -- vlastní deklarace (jen bezpečné, viz Stavitel\Styl::vlastniCss)
@@ -272,7 +272,7 @@ CREATE TABLE mc_tridy (
 
 -- ---------------------------------------------------------------------------
 -- Přesměrování a evidence souhlasů
-CREATE TABLE mc_presmerovani (
+CREATE TABLE ka_presmerovani (
     idp       INT UNSIGNED NOT NULL AUTO_INCREMENT,
     z_adresy  VARCHAR(255) NOT NULL,                     -- cesta na webu bez úvodního lomítka: clanek/stara-adresa
     na_adresu VARCHAR(255) NOT NULL,                     -- cesta na webu, nebo celá adresa https://...
@@ -282,7 +282,7 @@ CREATE TABLE mc_presmerovani (
     PRIMARY KEY (idp),
     UNIQUE KEY uq_presmerovani (z_adresy)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
-CREATE TABLE mc_souhlasy (
+CREATE TABLE ka_souhlasy (
     ids         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     id_souhlasu CHAR(32) NOT NULL,                       -- náhodný identifikátor uložený v cookie návštěvníka
     cas         DATETIME NOT NULL,
@@ -294,34 +294,34 @@ CREATE TABLE mc_souhlasy (
 
 -- ---------------------------------------------------------------------------
 -- Statistika bez cookies
-CREATE TABLE mc_stat_dny (
+CREATE TABLE ka_stat_dny (
     den       DATE NOT NULL,
     navstevy  INT UNSIGNED NOT NULL DEFAULT 0,            -- unikátní návštěvníci dne
     zobrazeni INT UNSIGNED NOT NULL DEFAULT 0,            -- zobrazené stránky
     PRIMARY KEY (den)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 -- Otisk návštěvníka = hash(IP + prohlížeč + denní sůl). Druhý den už nejde spojit s předchozím; starší řádky se mažou.
-CREATE TABLE mc_stat_navstevnici (
+CREATE TABLE ka_stat_navstevnici (
     den   DATE NOT NULL,
     otisk CHAR(32) NOT NULL,
     PRIMARY KEY (den, otisk)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
-CREATE TABLE mc_stat_novinky (
+CREATE TABLE ka_stat_novinky (
     den   DATE NOT NULL,
     idc   INT UNSIGNED NOT NULL,
     pocet INT UNSIGNED NOT NULL DEFAULT 0,
     PRIMARY KEY (den, idc),
     KEY ix_stat_clanky_idc (idc),
-    CONSTRAINT fk_stat_clanek FOREIGN KEY (idc) REFERENCES mc_novinky (idc) ON DELETE CASCADE
+    CONSTRAINT fk_stat_clanek FOREIGN KEY (idc) REFERENCES ka_novinky (idc) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
-CREATE TABLE mc_stat_stranky (
+CREATE TABLE ka_stat_stranky (
     den   DATE NOT NULL,
     cesta VARCHAR(255) NOT NULL,
     pocet INT UNSIGNED NOT NULL DEFAULT 0,
     PRIMARY KEY (den, cesta)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
-CREATE TABLE mc_stat_zdroje (
+CREATE TABLE ka_stat_zdroje (
     den   DATE NOT NULL,
     zdroj VARCHAR(100) NOT NULL,                          -- doména, ze které návštěvník přišel
     pocet INT UNSIGNED NOT NULL DEFAULT 0,
@@ -331,7 +331,7 @@ CREATE TABLE mc_stat_zdroje (
 
 -- ---------------------------------------------------------------------------
 -- Protokol změn v administraci
-CREATE TABLE mc_protokol (
+CREATE TABLE ka_protokol (
     idp   BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     cas   DATETIME NOT NULL,
     kdo   INT UNSIGNED NULL,
@@ -346,7 +346,7 @@ CREATE TABLE mc_protokol (
 
 -- ---------------------------------------------------------------------------
 -- Přístupové tokeny pro napojení na Claude (MCP). Ukládá se jen otisk tokenu.
-CREATE TABLE mc_api_tokeny (
+CREATE TABLE ka_api_tokeny (
     idt       INT UNSIGNED NOT NULL AUTO_INCREMENT,
     idu       INT UNSIGNED NOT NULL,
     nazev     VARCHAR(100) NOT NULL,
@@ -355,11 +355,11 @@ CREATE TABLE mc_api_tokeny (
     pouzit    DATETIME NULL,
     PRIMARY KEY (idt),
     UNIQUE KEY uq_tokeny_otisk (otisk),
-    CONSTRAINT fk_tokeny_user FOREIGN KEY (idu) REFERENCES mc_uzivatele (idu) ON DELETE CASCADE
+    CONSTRAINT fk_tokeny_user FOREIGN KEY (idu) REFERENCES ka_uzivatele (idu) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Přihlašovací klíče (passkeys / WebAuthn) jako druhý krok přihlášení. Ukládá se jen veřejný klíč zařízení.
-CREATE TABLE mc_uzivatele_klice (
+CREATE TABLE ka_uzivatele_klice (
     idk        INT UNSIGNED NOT NULL AUTO_INCREMENT,
     idu        INT UNSIGNED NOT NULL,
     nazev      VARCHAR(80)  NOT NULL DEFAULT '',          -- pojmenování zařízení uživatelem („MacBook“, „telefon“)
@@ -373,7 +373,7 @@ CREATE TABLE mc_uzivatele_klice (
     PRIMARY KEY (idk),
     UNIQUE KEY uq_klice_otisk (otisk_id),
     KEY ix_klice_user (idu),
-    CONSTRAINT fk_klice_user FOREIGN KEY (idu) REFERENCES mc_uzivatele (idu) ON DELETE CASCADE
+    CONSTRAINT fk_klice_user FOREIGN KEY (idu) REFERENCES ka_uzivatele (idu) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 
@@ -384,7 +384,7 @@ CREATE TABLE mc_uzivatele_klice (
 -- ---------------------------------------------------------------------------
 -- Fronta a protokol e-mailů (Core\Posta)
 -- ---------------------------------------------------------------------------
-CREATE TABLE mc_posta (
+CREATE TABLE ka_posta (
     idp         INT UNSIGNED NOT NULL AUTO_INCREMENT,
     komu        VARCHAR(190) NOT NULL,
     predmet     VARCHAR(255) NOT NULL,
@@ -399,7 +399,7 @@ CREATE TABLE mc_posta (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Adresy, které skončily chybou 404 (podklad pro přesměrování)
-CREATE TABLE mc_nenalezeno (
+CREATE TABLE ka_nenalezeno (
     cesta     VARCHAR(255) NOT NULL,
     pocet     INT UNSIGNED NOT NULL DEFAULT 1,
     naposledy DATETIME NOT NULL,
@@ -407,7 +407,7 @@ CREATE TABLE mc_nenalezeno (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Rozepsané novinky uložené na serveru (pokračování z jiného zařízení)
-CREATE TABLE mc_novinky_koncepty (
+CREATE TABLE ka_novinky_koncepty (
     kdo  INT UNSIGNED NOT NULL,
     idc  INT UNSIGNED NOT NULL DEFAULT 0,
     cas  DATETIME NOT NULL,
@@ -417,7 +417,7 @@ CREATE TABLE mc_novinky_koncepty (
 
 
 -- Nefunkční odkazy nalezené v novinkách (Core\Odkazy)
-CREATE TABLE mc_odkazy_vadne (
+CREATE TABLE ka_odkazy_vadne (
     ido  INT UNSIGNED NOT NULL AUTO_INCREMENT,
     idc  INT UNSIGNED NOT NULL,
     url  VARCHAR(500) NOT NULL,
@@ -425,13 +425,13 @@ CREATE TABLE mc_odkazy_vadne (
     cas  DATETIME NOT NULL,
     PRIMARY KEY (ido),
     KEY ix_odkazy_clanek (idc),
-    CONSTRAINT fk_odkazy_clanek FOREIGN KEY (idc) REFERENCES mc_novinky (idc) ON DELETE CASCADE
+    CONSTRAINT fk_odkazy_clanek FOREIGN KEY (idc) REFERENCES ka_novinky (idc) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 
 
 -- Import z jiných systémů (WordPress): co z cizího webu už bylo převedeno a na který náš záznam
-CREATE TABLE mc_import_mapa (
+CREATE TABLE ka_import_mapa (
     zdroj   VARCHAR(40) NOT NULL,                        -- odkud záznam pochází: wp:<doména starého webu>
     typ     VARCHAR(20) NOT NULL,                        -- clanek | stranka | rubrika | stitek | obrazek | komentar
     cizi_id VARCHAR(190) NOT NULL,                       -- identifikátor ve zdroji (číslo příspěvku, adresa rubriky, otisk adresy obrázku)
@@ -442,7 +442,7 @@ CREATE TABLE mc_import_mapa (
 
 -- stav: 0 = nová, 1 = přečtená, 2 = vyřízená
 -- Poptávky a zprávy z formulářů webu (prvek Formulář ve staviteli). Data = JSON [[popisek, hodnota], …].
-CREATE TABLE mc_poptavky (
+CREATE TABLE ka_poptavky (
     idp      INT UNSIGNED NOT NULL AUTO_INCREMENT,
     datum    DATETIME NOT NULL,
     formular VARCHAR(120) NOT NULL DEFAULT '',
@@ -460,7 +460,7 @@ CREATE TABLE mc_poptavky (
 
 -- Kolekce: vlastní typy obsahu (reference, tým, produkty, pobočky…). pole = JSON [{klic, popisek, typ}], typ: text | radky | html | obrazek | odkaz | cislo | datum.
 -- detail = položky mají vlastní stránku /<seo_link>/<seo položky> se šablonou ze stavitele (stavba, stavba_koncept).
-CREATE TABLE mc_kolekce (
+CREATE TABLE ka_kolekce (
     idk            INT UNSIGNED NOT NULL AUTO_INCREMENT,
     nazev          VARCHAR(100) NOT NULL,
     seo_link       VARCHAR(110) NOT NULL,
@@ -473,7 +473,7 @@ CREATE TABLE mc_kolekce (
     UNIQUE KEY ux_kolekce_seo (seo_link)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
-CREATE TABLE mc_kolekce_polozky (
+CREATE TABLE ka_kolekce_polozky (
     idp      INT UNSIGNED NOT NULL AUTO_INCREMENT,
     idk      INT UNSIGNED NOT NULL,
     nazev    VARCHAR(200) NOT NULL,
@@ -487,11 +487,11 @@ CREATE TABLE mc_kolekce_polozky (
     PRIMARY KEY (idp),
     UNIQUE KEY ux_kolekce_polozky_seo (idk, seo_link),
     KEY ix_kolekce_polozky (idk, zobrazit, poradi),
-    CONSTRAINT fk_kolekce_polozky FOREIGN KEY (idk) REFERENCES mc_kolekce (idk) ON DELETE CASCADE
+    CONSTRAINT fk_kolekce_polozky FOREIGN KEY (idk) REFERENCES ka_kolekce (idk) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Menu webu (Vzhled → Menu): hlavní a v patičce, pro každou jazykovou verzi. Bez řádku se hlavní menu skládá ze stránek „v menu“.
-CREATE TABLE mc_menu (
+CREATE TABLE ka_menu (
     umisteni VARCHAR(20) NOT NULL,                    -- hlavni | paticka
     jazyk    CHAR(2) NOT NULL DEFAULT '',             -- '' = výchozí jazyk webu
     polozky  MEDIUMTEXT NOT NULL,                     -- JSON [{typ: stranka|odkaz|novinky|skupina, ids, url, text, nove_okno, deti: […]}]
@@ -499,7 +499,7 @@ CREATE TABLE mc_menu (
     PRIMARY KEY (umisteni, jazyk)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
-CREATE TABLE mc_stranky_revize (
+CREATE TABLE ka_stranky_revize (
     idr     INT UNSIGNED NOT NULL AUTO_INCREMENT,
     ids     INT UNSIGNED NOT NULL,
     datum   DATETIME NOT NULL,
@@ -508,12 +508,12 @@ CREATE TABLE mc_stranky_revize (
     text    MEDIUMTEXT NOT NULL,
     PRIMARY KEY (idr),
     KEY ix_stranky_revize (ids, idr),
-    CONSTRAINT fk_stranky_revize_stranka FOREIGN KEY (ids) REFERENCES mc_stranky (ids) ON DELETE CASCADE,
-    CONSTRAINT fk_stranky_revize_kdo FOREIGN KEY (kdo) REFERENCES mc_uzivatele (idu) ON DELETE SET NULL
+    CONSTRAINT fk_stranky_revize_stranka FOREIGN KEY (ids) REFERENCES ka_stranky (ids) ON DELETE CASCADE,
+    CONSTRAINT fk_stranky_revize_kdo FOREIGN KEY (kdo) REFERENCES ka_uzivatele (idu) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Sekce, které si web uložil ze stavitele do vlastní knihovny (panel Přidat → Moje sekce).
-CREATE TABLE mc_sekce (
+CREATE TABLE ka_sekce (
     idx     INT UNSIGNED NOT NULL AUTO_INCREMENT,
     nazev   VARCHAR(100) NOT NULL,
     prvek   MEDIUMTEXT NOT NULL,                      -- JSON jednoho prvku (obvykle sekce) i s vnitřkem
@@ -523,7 +523,7 @@ CREATE TABLE mc_sekce (
 
 -- Komponenty: znovupoužitelné bloky stavitele. vlastnosti = JSON [{klic, popisek, typ, vychozi}] – v komponentě jako {{klic}},
 -- každé použití (prvek „komponenta“) jim dává vlastní hodnoty. Změna komponenty se projeví všude, kde je použitá.
-CREATE TABLE mc_komponenty (
+CREATE TABLE ka_komponenty (
     idm            INT UNSIGNED NOT NULL AUTO_INCREMENT,
     nazev          VARCHAR(100) NOT NULL,
     vlastnosti     TEXT NOT NULL,

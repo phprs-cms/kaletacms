@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Core;
+namespace Kaleta\Core;
 
 /**
  * Přihlášení do administrace a práva.
@@ -93,7 +93,7 @@ final class Auth
      */
     public static function otiskHesla(string $hash): string
     {
-        return substr(hash('sha256', 'mirocms-session|' . $hash), 0, 24);
+        return substr(hash('sha256', 'kaleta-session|' . $hash), 0, 24);
     }
 
     /** Po změně vlastního hesla: tohle přihlášení zůstává platné, ostatní ne. */
@@ -244,7 +244,7 @@ final class Auth
     {
         if ($this->user === false) {
             // bez cookie session není kdo by byl přihlášený - a session se kvůli dotazu nezakládá (web zůstává cachovatelný)
-            if (!isset($_COOKIE['mirocms'])) {
+            if (!isset($_COOKIE['kaleta'])) {
                 return $this->user = null;
             }
             $id = $this->session->get('idu');
@@ -292,7 +292,7 @@ final class Auth
         return $this->isAdmin() || $this->isEditor();
     }
 
-    /** Má přihlášený uživatel přístup k modulu? Admin vždy; ostatní podle mc_uzivatele_prava. */
+    /** Má přihlášený uživatel přístup k modulu? Admin vždy; ostatní podle ka_uzivatele_prava. */
     public function maModul(string $ident, bool $proVsechny = false): bool
     {
         if ($this->user() === null) {
@@ -313,7 +313,7 @@ final class Auth
      * Smí přihlášený upravit tuto novinku? Stejná pravidla jako v administraci: modul Novinky, autor smí jen své
      * a vydanou novinku jen ten, kdo smí vydávat.
      *
-     * @param array<string, mixed> $clanek řádek mc_novinky
+     * @param array<string, mixed> $clanek řádek ka_novinky
      */
     public function smiUpravitClanek(array $clanek): bool
     {

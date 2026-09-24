@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Core;
+namespace Kaleta\Core;
 
 /**
  * Rozšíření - volitelné části systému, které administrátor zapíná a vypíná v Nastavení.
  *
- * Systém je záměrně uzavřený: všechna rozšíření jsou součástí balíčku a vznikají v projektu MiroCMS.
+ * Systém je záměrně uzavřený: všechna rozšíření jsou součástí balíčku a vznikají v projektu Kaleta.
  * Cizí plug-iny se neinstalují. Vypnuté rozšíření zmizí z menu administrace i z webu, data zůstávají.
  */
 final class Rozsireni

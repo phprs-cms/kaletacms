@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Admin\Moduly;
+namespace Kaleta\Admin\Moduly;
 
-use MiroCMS\Admin\Modul;
-use MiroCMS\Admin\StavitelAkce;
-use MiroCMS\Core\Jazyk;
-use MiroCMS\Core\Response;
-use MiroCMS\Stavitel\Kolekce as KolekceObsahu;
-use MiroCMS\Stavitel\Publikace;
-use MiroCMS\Stavitel\Stavba;
+use Kaleta\Admin\Modul;
+use Kaleta\Admin\StavitelAkce;
+use Kaleta\Core\Jazyk;
+use Kaleta\Core\Response;
+use Kaleta\Stavitel\Kolekce as KolekceObsahu;
+use Kaleta\Stavitel\Publikace;
+use Kaleta\Stavitel\Stavba;
 
 /**
  * Kolekce – vlastní typy obsahu (reference, tým, produkty, pobočky…). Definici polí a šablonu detailu mění správce,
@@ -74,7 +74,7 @@ final class Kolekce extends Modul
         } else {
             $id = $this->db->insert('kolekce', $data);
         }
-        \MiroCMS\Front\Cache::vymaz();
+        \Kaleta\Front\Cache::vymaz();
 
         return $this->zpet('Kolekce byla uložena.', 'polozky', ['id' => $id]);
     }
@@ -147,7 +147,7 @@ final class Kolekce extends Modul
         } else {
             $idp = $this->db->insert('kolekce_polozky', $radek + ['datum' => date('Y-m-d H:i:s')]);
         }
-        \MiroCMS\Front\Cache::vymaz();
+        \Kaleta\Front\Cache::vymaz();
         if ($chyby !== []) {
             return $this->zpet(t('Položka je uložená, ale tato pole měla neplatnou hodnotu a zůstala prázdná: %s', implode(', ', $chyby)), 'polozka', ['id' => $k['idk'], 'polozka' => $idp], 'chyba');
         }
@@ -178,7 +178,7 @@ final class Kolekce extends Modul
         $idk = $this->request->postInt('idk');
         if ($this->request->isPost()) {
             $this->db->run('DELETE FROM {kolekce_polozky} WHERE idp = ? AND idk = ?', [$this->request->postInt('idp'), $idk]);
-            \MiroCMS\Front\Cache::vymaz();
+            \Kaleta\Front\Cache::vymaz();
         }
 
         return $this->zpet('Položka byla smazána.', 'polozky', ['id' => $idk]);

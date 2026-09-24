@@ -2,7 +2,7 @@
 /**
  * Nefunkční odkazy v novinkách.
  *
- * @var MiroCMS\Admin\Moduly\Novinky $modul
+ * @var Kaleta\Admin\Moduly\Novinky $modul
  * @var string $csrf
  * @var list<array<string, mixed>> $odkazy
  * @var int $zkontrolovano

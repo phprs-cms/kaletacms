@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Front;
+namespace Kaleta\Front;
 
 /**
  * Přehled layoutů (šablon vzhledu webu) ve složce layout/.
@@ -17,7 +17,7 @@ final class Layouty
     public static function seznam(): array
     {
         $layouty = [];
-        foreach (glob(MIROCMS_ROOT . '/layout/*', GLOB_ONLYDIR) ?: [] as $dir) {
+        foreach (glob(KALETA_ROOT . '/layout/*', GLOB_ONLYDIR) ?: [] as $dir) {
             $slozka = basename($dir);
             if (!preg_match('/^[a-z0-9_-]+$/i', $slozka) || !is_file($dir . '/base.php')) {
                 continue;

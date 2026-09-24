@@ -17,7 +17,7 @@ $pole('email_webu', 'E-mail webu', 'email', 'Chodí na něj upozornění systém
 </div>
 <?php
 ?>
-<?php if (($jazykyDalsi = MiroCMS\Core\Jazyk::dalsi($app->settings())) !== []): ?>
+<?php if (($jazykyDalsi = Kaleta\Core\Jazyk::dalsi($app->settings())) !== []): ?>
 <details class="pokrocile"<?= array_filter($jazykyDalsi, fn (string $j): bool => ($hodnoty['nazev_webu_' . $j] ?? '') . ($hodnoty['popis_webu_' . $j] ?? '') !== '') !== [] ? ' open' : '' ?>>
 <summary><?= e(t('Název a popis v dalších jazykových verzích')) ?></summary>
 <p class="napoveda"><?= e(t('Prázdné pole znamená stejný text jako ve výchozím jazyce.')) ?></p>
@@ -39,17 +39,17 @@ $pole('email_webu', 'E-mail webu', 'email', 'Chodí na něj upozornění systém
 <div class="radek">
 	<label for="jazyk_webu"><?= e(t('Jazyk webu')) ?></label>
 	<div><select id="jazyk_webu" name="jazyk_webu">
-<?php foreach (MiroCMS\Core\Jazyk::DOSTUPNE as $kod => [$nazevJazyka]): ?>
+<?php foreach (Kaleta\Core\Jazyk::DOSTUPNE as $kod => [$nazevJazyka]): ?>
 		<option value="<?= e($kod) ?>"<?= $hodnoty['jazyk_webu'] === $kod ? ' selected' : '' ?>><?= e($nazevJazyka) ?></option>
 <?php endforeach ?>
 	</select>
 	<span class="napoveda"><?= e(t('V tomto jazyce jsou texty šablony (Hledat, Novinky, Číst dál…) a web se tak hlásí vyhledávačům.')) ?></span></div>
 </div>
-<?php if (MiroCMS\Core\Rozsireni::je($app->settings(), 'jazyky')): ?>
+<?php if (Kaleta\Core\Rozsireni::je($app->settings(), 'jazyky')): ?>
 <div class="radek">
 	<span class="popisek"><?= e(t('Další jazykové verze')) ?></span>
 	<div class="volby">
-<?php foreach (MiroCMS\Core\Jazyk::DOSTUPNE as $kod => [$nazevJazyka]): if ($kod === $hodnoty['jazyk_webu']) { continue; } ?>
+<?php foreach (Kaleta\Core\Jazyk::DOSTUPNE as $kod => [$nazevJazyka]): if ($kod === $hodnoty['jazyk_webu']) { continue; } ?>
 		<label><input type="checkbox" name="jazyky_dalsi[]" value="<?= e($kod) ?>"<?= in_array($kod, explode(',', $hodnoty['jazyky_dalsi']), true) ? ' checked' : '' ?>> <?= e($nazevJazyka) ?> <small>(/<?= e($kod) ?>/)</small></label><br>
 <?php endforeach ?>
 		<span class="napoveda"><?= e(t('Každá verze má své stránky, kategorie a novinky. Jazyk novinky určuje její kategorie. Překlad propojíte v editoru.')) ?></span>
@@ -82,7 +82,7 @@ $pole('udrzba_text', 'Text oznámení', 'text', '', 'maxlength="300"');
 </details>
 <details class="pokrocile">
 <summary><?= e(t('Sociální sítě')) ?></summary>
-<?php foreach (MiroCMS\Admin\Moduly\Konfigurace::SITE as $klic => $nazev) { $pole($klic, $nazev, 'url', '', 'placeholder="https://"'); } ?>
+<?php foreach (Kaleta\Admin\Moduly\Konfigurace::SITE as $klic => $nazev) { $pole($klic, $nazev, 'url', '', 'placeholder="https://"'); } ?>
 <p class="napoveda"><?= e(t('Vyplněné profily se zobrazí v patičce webu a předají se vyhledávačům.')) ?></p>
 </details>
 <details class="pokrocile">

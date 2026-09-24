@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Admin\Moduly;
+namespace Kaleta\Admin\Moduly;
 
-use MiroCMS\Admin\Modul;
-use MiroCMS\Core\Obrazky;
-use MiroCMS\Core\Response;
+use Kaleta\Admin\Modul;
+use Kaleta\Core\Obrazky;
+use Kaleta\Core\Response;
 
 /**
  * Média: nahrávání i přetažením a přímo z editoru, složky,
@@ -85,7 +85,7 @@ final class Galerie extends Modul
      * Přepočítá, které obrázky novinka používá: hlavní obrázek, obrázky vložené editorem
      * (data-id, adresa souboru). Volá se při uložení novinky.
      */
-    public static function zapisPouziti(\MiroCMS\Core\Db $db, int $idc, string ...$html): void
+    public static function zapisPouziti(\Kaleta\Core\Db $db, int $idc, string ...$html): void
     {
         $vse = implode(' ', $html);
         preg_match_all('/data-id="(\d+)"/', $vse, $m);
@@ -110,7 +110,7 @@ final class Galerie extends Modul
      *
      * @return array<int, list<string>> ido => popisy míst
      */
-    public static function pouzitiJinde(\MiroCMS\Core\Db $db): array
+    public static function pouzitiJinde(\Kaleta\Core\Db $db): array
     {
         $zdroje = [
             [t('stránka'), 'SELECT titulek AS kde, CONCAT_WS(\' \', text, stavba, stavba_koncept) AS obsah FROM {stranky}'],
@@ -158,7 +158,7 @@ final class Galerie extends Modul
             try {
                 $data = match (true) {
                     strtolower(pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION)) === 'svg' => self::ulozSvg($file),
-                    \MiroCMS\Core\Soubory::jePriloha((string) ($file['name'] ?? '')) => \MiroCMS\Core\Soubory::uloz($file),
+                    \Kaleta\Core\Soubory::jePriloha((string) ($file['name'] ?? '')) => \Kaleta\Core\Soubory::uloz($file),
                     default => Obrazky::uloz($file),
                 };
                 $data['ido'] = $this->db->insert('media', $data + ['vlastnik' => $this->app->auth()->id(), 'sekce' => $sekce, 'datum' => date('Y-m-d H:i:s')]);
@@ -189,18 +189,18 @@ final class Galerie extends Modul
     private static function ulozSvg(array $file): array
     {
         $tmp = (string) ($file['tmp_name'] ?? '');
-        $svg = is_uploaded_file($tmp) && filesize($tmp) < 2_000_000 ? \MiroCMS\Core\Svg::vycisti((string) file_get_contents($tmp)) : null;
+        $svg = is_uploaded_file($tmp) && filesize($tmp) < 2_000_000 ? \Kaleta\Core\Svg::vycisti((string) file_get_contents($tmp)) : null;
         if ($svg === null) {
             throw new \RuntimeException('Soubor SVG se nepodařilo přečíst (nejvýš 2 MB, platné SVG).');
         }
         $slozka = 'media/' . date('Y/m');
-        if (!is_dir(MIROCMS_ROOT . '/' . $slozka)) {
-            mkdir(MIROCMS_ROOT . '/' . $slozka, 0775, true);
+        if (!is_dir(KALETA_ROOT . '/' . $slozka)) {
+            mkdir(KALETA_ROOT . '/' . $slozka, 0775, true);
         }
         $nazev = pathinfo((string) ($file['name'] ?? 'obrazek'), PATHINFO_FILENAME);
         $cesta = $slozka . '/' . slugify($nazev, 60) . '-' . bin2hex(random_bytes(3)) . '.svg';
-        file_put_contents(MIROCMS_ROOT . '/' . $cesta, $svg);
-        [$w, $h] = \MiroCMS\Core\Svg::rozmery($svg);
+        file_put_contents(KALETA_ROOT . '/' . $cesta, $svg);
+        [$w, $h] = \Kaleta\Core\Svg::rozmery($svg);
 
         return ['obr_poloha' => $cesta, 'obr_width' => min(65535, $w), 'obr_height' => min(65535, $h), 'obr_vel' => strlen($svg),
             'nahl_poloha' => $cesta, 'nahl_width' => min(65535, $w), 'nahl_height' => min(65535, $h), 'nazev' => mb_substr(str_replace(['_', '-'], ' ', $nazev), 0, 150)];
@@ -221,7 +221,7 @@ final class Galerie extends Modul
             return $this->zpet(t($e->getMessage()), 'vypis', ['uprav' => $ido], 'chyba');
         }
         $this->db->update('media', $novy + ['barva' => ''], ['ido' => $ido]);
-        \MiroCMS\Front\Cache::vymaz();
+        \Kaleta\Front\Cache::vymaz();
 
         return $this->zpet('Soubor byl nahrazen – všude, kde je použitý, se ukazuje nová verze.', 'vypis', ['uprav' => $ido]);
     }
@@ -237,7 +237,7 @@ final class Galerie extends Modul
                 'autor' => mb_substr(trim($this->request->post('autor')), 0, 120),
                 'ohnisko' => $x === 50 && $y === 50 ? '' : $x . '% ' . $y . '%',
             ], ['ido' => $this->request->postInt('ido')]);
-            \MiroCMS\Front\Cache::vymaz();
+            \Kaleta\Front\Cache::vymaz();
         }
 
         return $this->zpet('Popis obrázku byl uložen.');
@@ -265,7 +265,7 @@ final class Galerie extends Modul
                 $vynechano++; // použitý soubor by na webu zmizel – smaže se, až nebude nikde použitý
             } else {
                 Obrazky::smaz($obr['obr_poloha'], $obr['nahl_poloha']);
-                \MiroCMS\Core\Soubory::smaz($obr['obr_poloha']);
+                \Kaleta\Core\Soubory::smaz($obr['obr_poloha']);
                 $pocet += $this->db->delete('media', ['ido' => $obr['ido']]);
             }
         }
@@ -355,7 +355,7 @@ final class Galerie extends Modul
             'url' => $this->app->url($o['obr_poloha']), 'nahled' => $o['nahl_poloha'] === '' ? '' : $this->app->url($o['nahl_poloha']),
             'sirka' => (int) $o['obr_width'], 'vyska' => (int) $o['obr_height'],
             // příloha ke stažení (PDF, dokument, zvuk…): bez náhledu, do textu se vkládá jako odkaz
-            'soubor' => $o['nahl_poloha'] === '', 'pripona' => strtoupper(pathinfo($o['obr_poloha'], PATHINFO_EXTENSION)), 'velikost' => \MiroCMS\Core\Soubory::velikost((int) ($o['obr_vel'] ?? 0)),
+            'soubor' => $o['nahl_poloha'] === '', 'pripona' => strtoupper(pathinfo($o['obr_poloha'], PATHINFO_EXTENSION)), 'velikost' => \Kaleta\Core\Soubory::velikost((int) ($o['obr_vel'] ?? 0)),
         ];
     }
 

@@ -1,4 +1,4 @@
-/* MiroCMS – layout „Základní“: firemní web. Barvy, písma a škály bere z design systému (tokeny --mc-*, Stavitel\DesignSystem).
+/* Kaleta – layout „Základní“: firemní web. Barvy, písma a škály bere z design systému (tokeny --ka-*, Stavitel\DesignSystem).
  * Celá šablona je ve vrstvě „sablona“: prvky stavitele, třídy a jejich styl (pozdější vrstvy) ji přebijí bez ohledu na specifičnost.
  * Navigace na telefonu přes Popover API, plynulé přechody mezi stránkami (View Transitions) – bez JavaScriptu. */
 
@@ -11,24 +11,24 @@
 	:root {
 		color-scheme: light;
 		/* krátká jména pro šablonu; hodnoty z design systému */
-		--akcent: var(--mc-barva-primarni, #2b5be3);
-		--akcent-jemny: var(--mc-barva-primarni-jemna, #eef2fd);
-		--text: var(--mc-barva-text, #16181d);
-		--text-tlumeny: var(--mc-barva-tlumeny, #5b5f68);
-		--podklad: var(--mc-barva-pozadi, #ffffff);
-		--plocha: var(--mc-barva-plocha, #f5f6f8);
-		--linka: var(--mc-barva-linka, #dfe1e5);
-		--pismo: var(--mc-pismo-text, system-ui, sans-serif);
-		--pismo-titulky: var(--mc-pismo-titulky, var(--pismo));
-		--sirka: var(--mc-sirka, 72rem);
-		--sirka-textu: var(--mc-sirka-textu, 44rem);
-		--mezera: var(--mc-mezera-l, 1.5rem);
-		--mezera-velka: var(--mc-mezera-2xl, 4rem);
-		--zaobleni: var(--mc-zaobleni, 0.75rem);
-		--krok-0: var(--mc-krok-0, 1rem);
-		--krok-1: var(--mc-krok-1, 1.25rem);
-		--krok-2: var(--mc-krok-2, 1.5rem);
-		--krok-3: var(--mc-krok-3, 2rem);
+		--akcent: var(--ka-barva-primarni, #2b5be3);
+		--akcent-jemny: var(--ka-barva-primarni-jemna, #eef2fd);
+		--text: var(--ka-barva-text, #16181d);
+		--text-tlumeny: var(--ka-barva-tlumeny, #5b5f68);
+		--podklad: var(--ka-barva-pozadi, #ffffff);
+		--plocha: var(--ka-barva-plocha, #f5f6f8);
+		--linka: var(--ka-barva-linka, #dfe1e5);
+		--pismo: var(--ka-pismo-text, system-ui, sans-serif);
+		--pismo-titulky: var(--ka-pismo-titulky, var(--pismo));
+		--sirka: var(--ka-sirka, 72rem);
+		--sirka-textu: var(--ka-sirka-textu, 44rem);
+		--mezera: var(--ka-mezera-l, 1.5rem);
+		--mezera-velka: var(--ka-mezera-2xl, 4rem);
+		--zaobleni: var(--ka-zaobleni, 0.75rem);
+		--krok-0: var(--ka-krok-0, 1rem);
+		--krok-1: var(--ka-krok-1, 1.25rem);
+		--krok-2: var(--ka-krok-2, 1.5rem);
+		--krok-3: var(--ka-krok-3, 2rem);
 	}
 	:root[data-tmavy] { color-scheme: light dark; }
 	*, *::before, *::after { box-sizing: border-box; }

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Core;
+namespace Kaleta\Core;
 
 /**
  * Bezpečný dialekt šablon: co smí obsahovat PHP soubor šablony ukládaný přes napojení na Claude.

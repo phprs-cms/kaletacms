@@ -1,4 +1,4 @@
-# Bezpečnost MiroCMS
+# Bezpečnost Kalety
 
 ## Nahlášení chyby
 

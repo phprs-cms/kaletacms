@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Admin\Moduly;
+namespace Kaleta\Admin\Moduly;
 
-use MiroCMS\Admin\Modul;
-use MiroCMS\Admin\StavitelAkce;
-use MiroCMS\Core\Jazyk;
-use MiroCMS\Core\Response;
-use MiroCMS\Stavitel\Komponenty as KomponentyStavby;
-use MiroCMS\Stavitel\Publikace;
-use MiroCMS\Stavitel\Stavba;
+use Kaleta\Admin\Modul;
+use Kaleta\Admin\StavitelAkce;
+use Kaleta\Core\Jazyk;
+use Kaleta\Core\Response;
+use Kaleta\Stavitel\Komponenty as KomponentyStavby;
+use Kaleta\Stavitel\Publikace;
+use Kaleta\Stavitel\Stavba;
 
 /**
  * Komponenty – znovupoužitelné bloky (karta služby, blok s kontaktem, výzva…). Vznikají ve staviteli tlačítkem
@@ -67,7 +67,7 @@ final class Komponenty extends Modul
         } else {
             $id = $this->db->insert('komponenty', $data + ['stavba_koncept' => Stavba::naJson(['v' => Stavba::VERZE, 'deti' => [Stavba::novy('sekce')]])]);
         }
-        \MiroCMS\Front\Cache::vymaz();
+        \Kaleta\Front\Cache::vymaz();
 
         return $this->zpet('Komponenta byla uložena.');
     }
@@ -76,7 +76,7 @@ final class Komponenty extends Modul
     {
         if ($this->request->isPost()) {
             $this->db->delete('komponenty', ['idm' => $this->request->postInt('idm')]);
-            \MiroCMS\Front\Cache::vymaz();
+            \Kaleta\Front\Cache::vymaz();
         }
 
         return $this->zpet('Komponenta byla smazána. Místa, kde byla použitá, zůstanou prázdná.');
@@ -100,7 +100,7 @@ final class Komponenty extends Modul
     }
 
     /** @return list<array{id: int, nazev: string, vlastnosti: list<array<string, string>>}> */
-    public static function proEditor(\MiroCMS\Core\Db $db): array
+    public static function proEditor(\Kaleta\Core\Db $db): array
     {
         return array_map(fn (array $k): array => ['id' => (int) $k['idm'], 'nazev' => $k['nazev'], 'vlastnosti' => $k['vlastnosti']], KomponentyStavby::vsechny($db));
     }

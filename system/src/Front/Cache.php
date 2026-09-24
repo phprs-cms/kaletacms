@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Front;
+namespace Kaleta\Front;
 
-use MiroCMS\Core\App;
-use MiroCMS\Core\Response;
+use Kaleta\Core\App;
+use Kaleta\Core\Response;
 
 /**
  * Cache celých stránek pro nepřihlášené návštěvníky (soubory ve storage/cache/stranky, platnost 5 minut).
@@ -14,11 +14,11 @@ use MiroCMS\Core\Response;
  */
 final class Cache
 {
-    private const string SLOZKA = MIROCMS_ROOT . '/storage/cache/stranky';
+    private const string SLOZKA = KALETA_ROOT . '/storage/cache/stranky';
     private const int PLATNOST = 300;
 
     /** Parametry reklam a sledování kampaní: stránku nemění, cache se kvůli nim obcházet nemá. */
-    private const string SLEDOVACI = '/^(utm_[a-z]+|fbclid|gclid|gbraid|wbraid|msclkid|dclid|mc_[a-z]+|_ga|_gl|yclid|igshid|ref)$/';
+    private const string SLEDOVACI = '/^(utm_[a-z]+|fbclid|gclid|gbraid|wbraid|msclkid|dclid|ka_[a-z]+|_ga|_gl|yclid|igshid|ref)$/';
 
     /** @var resource|null zámek stránky, kterou tenhle požadavek právě přegenerovává */
     private static $zamek = null;
@@ -54,7 +54,7 @@ final class Cache
         }
         // prohlížeč si stránku může nechat a jen se zeptat, jestli se změnila (304 bez těla)
         $etag = '"' . substr(md5($soubor . filemtime($soubor)), 0, 16) . '"';
-        $hlavicky = ['Content-Type' => 'text/html; charset=utf-8', 'X-Cache' => 'mirocms', 'ETag' => $etag, 'Cache-Control' => 'no-cache'];
+        $hlavicky = ['Content-Type' => 'text/html; charset=utf-8', 'X-Cache' => 'kaleta', 'ETag' => $etag, 'Cache-Control' => 'no-cache'];
         if (trim((string) ($_SERVER['HTTP_IF_NONE_MATCH'] ?? '')) === $etag) {
             return new Response('', 304, $hlavicky);
         }
@@ -133,11 +133,11 @@ final class Cache
             return null;
         }
         foreach (array_keys($_COOKIE) as $cookie) {
-            if ($cookie === 'mirocms') { // přihlášený uživatel administrace (session)
+            if ($cookie === 'kaleta') { // přihlášený uživatel administrace (session)
                 return null;
             }
         }
 
-        return self::SLOZKA . '/' . md5($r->origin() . '|' . \MiroCMS\Core\Jazyk::kod() . '|' . $r->path() . '|' . $r->getInt('strana', 1) . '|' . $s->get('layout')) . '.html';
+        return self::SLOZKA . '/' . md5($r->origin() . '|' . \Kaleta\Core\Jazyk::kod() . '|' . $r->path() . '|' . $r->getInt('strana', 1) . '|' . $s->get('layout')) . '.html';
     }
 }

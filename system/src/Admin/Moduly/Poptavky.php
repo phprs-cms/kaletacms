@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Admin\Moduly;
+namespace Kaleta\Admin\Moduly;
 
-use MiroCMS\Admin\Modul;
-use MiroCMS\Core\Response;
+use Kaleta\Admin\Modul;
+use Kaleta\Core\Response;
 
 /**
  * Poptávky a zprávy z formulářů webu (prvek Formulář ve staviteli, Front\Formulare). Stav: 0 nová, 1 přečtená, 2 vyřízená.
@@ -85,7 +85,7 @@ final class Poptavky extends Modul
     {
         $p = $this->db->one('SELECT data FROM {poptavky} WHERE idp = ?', [$this->request->getInt('id')]);
         $polozka = ($p !== null ? (json_decode((string) $p['data'], true) ?: []) : [])[$this->request->getInt('pole')] ?? null;
-        $cesta = is_array($polozka) && preg_match('#^\d{4}/\d{2}/[a-f0-9]{24}\.[a-z0-9]{2,5}$#', (string) ($polozka[2] ?? '')) ? MIROCMS_ROOT . '/storage/prilohy/' . $polozka[2] : null;
+        $cesta = is_array($polozka) && preg_match('#^\d{4}/\d{2}/[a-f0-9]{24}\.[a-z0-9]{2,5}$#', (string) ($polozka[2] ?? '')) ? KALETA_ROOT . '/storage/prilohy/' . $polozka[2] : null;
         if ($cesta === null || !is_file($cesta)) {
             return $this->chyba('Příloha už neexistuje.', 404);
         }
@@ -120,7 +120,7 @@ final class Poptavky extends Modul
         foreach ($radky as $r) {
             foreach (json_decode((string) $r['data'], true) ?: [] as $polozka) {
                 if (is_array($polozka) && preg_match('#^\d{4}/\d{2}/[a-f0-9]{24}\.[a-z0-9]{2,5}$#', (string) ($polozka[2] ?? ''))) {
-                    @unlink(MIROCMS_ROOT . '/storage/prilohy/' . $polozka[2]);
+                    @unlink(KALETA_ROOT . '/storage/prilohy/' . $polozka[2]);
                 }
             }
         }
@@ -172,7 +172,7 @@ final class Poptavky extends Modul
         rewind($f);
         $csv = (string) stream_get_contents($f);
         fclose($f);
-        \MiroCMS\Admin\Protokol::zapis($this->app, 'poptavky', 'export CSV', '');
+        \Kaleta\Admin\Protokol::zapis($this->app, 'poptavky', 'export CSV', '');
 
         return new Response($csv, 200, ['Content-Type' => 'text/csv; charset=utf-8', 'Content-Disposition' => 'attachment; filename="poptavky-' . date('Y-m-d') . '.csv"']);
     }

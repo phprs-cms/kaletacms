@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Core;
+namespace Kaleta\Core;
 
 /**
  * Webhooky: po vydání novinky a po nové poptávce pošle údaje na adresy z Nastavení (Make, Zapier, IFTTT, n8n, CRM…).
@@ -29,7 +29,7 @@ final class Webhook
     {
         @file_get_contents($adresa, false, stream_context_create(['http' => [
             'method' => 'POST', 'timeout' => 4, 'ignore_errors' => true,
-            'header' => "Content-Type: application/json; charset=utf-8\r\nUser-Agent: MiroCMS/" . MIROCMS_VERSION . "\r\n",
+            'header' => "Content-Type: application/json; charset=utf-8\r\nUser-Agent: Kaleta/" . KALETA_VERSION . "\r\n",
             'content' => json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ]]));
     }

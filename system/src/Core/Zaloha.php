@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Core;
+namespace Kaleta\Core;
 
 /**
  * Zálohy databáze do storage/zalohy/ (z webu nepřístupné). Bez mysqldump - funguje i na sdíleném hostingu.
  */
 final class Zaloha
 {
-    public const string SLOZKA = MIROCMS_ROOT . '/storage/zalohy';
+    public const string SLOZKA = KALETA_ROOT . '/storage/zalohy';
     private const int PONECHAT = 10;
 
     /** @return string název vytvořeného souboru */
@@ -19,13 +19,13 @@ final class Zaloha
             throw new \RuntimeException('Nelze vytvořit složku storage/zalohy - zkontrolujte práva k zápisu.');
         }
         $gz = function_exists('gzopen');
-        $soubor = 'mirocms-' . date('Ymd-His') . '-' . preg_replace('/[^a-z0-9]/', '', $duvod) . '-' . bin2hex(random_bytes(4)) . '.sql' . ($gz ? '.gz' : '');
+        $soubor = 'kaleta-' . date('Ymd-His') . '-' . preg_replace('/[^a-z0-9]/', '', $duvod) . '-' . bin2hex(random_bytes(4)) . '.sql' . ($gz ? '.gz' : '');
         $cesta = self::SLOZKA . '/' . $soubor;
         $f = $gz ? gzopen($cesta, 'wb6') : fopen($cesta, 'wb');
         $zapis = fn (string $s) => $gz ? gzwrite($f, $s) : fwrite($f, $s);
 
         $pdo = $db->pdo();
-        $zapis("-- MiroCMS " . MIROCMS_VERSION . " - záloha databáze " . date('c') . "\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS = 0;\n\n");
+        $zapis("-- Kaleta " . KALETA_VERSION . " - záloha databáze " . date('c') . "\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS = 0;\n\n");
         $tabulky = $db->run('SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE ? ORDER BY table_name', [addcslashes($db->prefix, '_%') . '%'])->fetchAll(\PDO::FETCH_COLUMN);
         foreach ($tabulky as $tabulka) {
             // dočasná data se nezálohují
@@ -79,8 +79,8 @@ final class Zaloha
         }
         $f = $gz ? gzopen($cesta, 'rb') : fopen($cesta, 'rb');
         $prvni = (string) ($gz ? gzgets($f) : fgets($f));
-        if (!str_starts_with($prvni, '-- MiroCMS ')) {
-            throw new \RuntimeException('Soubor není záloha vytvořená systémem MiroCMS.');
+        if (!str_starts_with($prvni, '-- Kaleta ')) {
+            throw new \RuntimeException('Soubor není záloha vytvořená systémem Kaleta.');
         }
         @set_time_limit(300);
         $pdo = $db->pdo();
@@ -111,7 +111,7 @@ final class Zaloha
     public static function seznam(): array
     {
         $zalohy = [];
-        foreach (glob(self::SLOZKA . '/mirocms-*.sql*') ?: [] as $cesta) {
+        foreach (glob(self::SLOZKA . '/kaleta-*.sql*') ?: [] as $cesta) {
             $zalohy[] = ['soubor' => basename($cesta), 'velikost' => (int) filesize($cesta), 'cas' => (int) filemtime($cesta)];
         }
         usort($zalohy, fn (array $a, array $b): int => $b['cas'] <=> $a['cas']);
@@ -122,7 +122,7 @@ final class Zaloha
     /** Cesta k existující záloze podle názvu z adresy; null = neplatný název. */
     public static function cesta(string $soubor): ?string
     {
-        return preg_match('/^mirocms-[0-9a-z-]+\.sql(\.gz)?$/', $soubor) && is_file(self::SLOZKA . '/' . $soubor) ? self::SLOZKA . '/' . $soubor : null;
+        return preg_match('/^kaleta-[0-9a-z-]+\.sql(\.gz)?$/', $soubor) && is_file(self::SLOZKA . '/' . $soubor) ? self::SLOZKA . '/' . $soubor : null;
     }
 
     /** Automatická týdenní záloha - volá se při vstupu administrátora do administrace. */

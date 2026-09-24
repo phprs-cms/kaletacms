@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Stavitel;
+namespace Kaleta\Stavitel;
 
 /**
  * Knihovna sekcí pro firemní web: hotové stavby z tokenů design systému a pár sdílených tříd, takže po vložení hned sedí
@@ -13,8 +13,8 @@ final class Knihovna
     /** Sdílené třídy knihovny (název => styl). Založí se při prvním vložení sekce, která je používá; pak patří webu. */
     public const array TRIDY = [
         'karta' => ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 's', 'odsazeni_y' => 'l', 'odsazeni_x' => 'l', 'pozadi' => 'plocha', 'zaobleni' => 'm']],
-        'nadpis-sekce' => ['zaklad' => ['max_radek' => 'var(--mc-sirka-textu)', 'okraj_dole' => 'l']],
-        'podtitul' => ['zaklad' => ['velikost_pisma' => '1', 'barva' => 'tlumeny', 'max_radek' => 'var(--mc-sirka-textu)']],
+        'nadpis-sekce' => ['zaklad' => ['max_radek' => 'var(--ka-sirka-textu)', 'okraj_dole' => 'l']],
+        'podtitul' => ['zaklad' => ['velikost_pisma' => '1', 'barva' => 'tlumeny', 'max_radek' => 'var(--ka-sirka-textu)']],
     ];
 
     /** @return array<string, array{nazev:string, popis:string, stavba:callable(): array}> */
@@ -137,7 +137,7 @@ final class Knihovna
 
             'uvod-tmavy' => ['nazev' => t('Úvod na tmavém pozadí'), 'popis' => t('Výrazný úvod s tmavým pozadím – obrázek pozadí nastavíte ve stylu sekce.'), 'stavba' => fn (): array => $s($n('sekce', [], [
                 $s($z($n('nadpis', ['text' => t('Kvalita, která vydrží desítky let')]), 'h1'), ['zaklad' => ['velikost_pisma' => '5', 'max_radek' => '20ch', 'barva' => 'pozadi']]),
-                $s($n('text', ['html' => '<p>' . t('Pracujeme s poctivými materiály a na každou zakázku dáváme záruku.') . '</p>']), ['zaklad' => ['velikost_pisma' => '1', 'max_radek' => 'var(--mc-sirka-textu)', 'barva' => 'pozadi']]),
+                $s($n('text', ['html' => '<p>' . t('Pracujeme s poctivými materiály a na každou zakázku dáváme záruku.') . '</p>']), ['zaklad' => ['velikost_pisma' => '1', 'max_radek' => 'var(--ka-sirka-textu)', 'barva' => 'pozadi']]),
                 $radaTlacitek($n('tlacitko', ['text' => t('Nezávazná poptávka'), 'odkaz' => $adresa('Kontakt')])),
             ]), ['zaklad' => ['odsazeni_y' => '3xl', 'pozadi' => 'text', 'zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'm'], 'mobil' => ['odsazeni_y' => '2xl']])],
 
@@ -185,7 +185,7 @@ final class Knihovna
                     $s($z($n('nadpis', ['text' => $d[0]]), 'p'), ['zaklad' => ['velikost_pisma' => '3', 'tloustka_pisma' => '800', 'barva' => 'primarni']]),
                     $z($n('nadpis', ['text' => $d[1]]), 'h3'),
                     $n('text', ['html' => '<p>' . $d[2] . '</p>']),
-                ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'xs', 'linka_nahore' => '2px solid var(--mc-barva-primarni)', 'odsazeni_y' => 's']]), [
+                ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'xs', 'linka_nahore' => '2px solid var(--ka-barva-primarni)', 'odsazeni_y' => 's']]), [
                     ['01', t('Poptávka'), t('Napíšete nám, co potřebujete.')], ['02', t('Návrh a cena'), t('Do týdne dostanete návrh a pevnou cenu.')],
                     ['03', t('Realizace'), t('Pracujeme v domluveném termínu.')], ['04', t('Předání'), t('Vše projdeme společně a předáme.')],
                 ])), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '4', 'mezera' => 'l'], 'tablet' => ['sloupce' => '2']]),
@@ -196,7 +196,7 @@ final class Knihovna
                 $s($n('kontejner', [], array_map(fn (array $d): array => $s($n('kontejner', [], [
                     $s($n('kontejner', [], [$z($n('nadpis', ['text' => $d[0]]), 'h3'), $t($n('text', ['html' => '<p>' . $d[1] . '</p>']), 'podtitul')]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => '2xs']]),
                     $s($z($n('nadpis', ['text' => $d[2]]), 'p'), ['zaklad' => ['tloustka_pisma' => '700', 'velikost_pisma' => '1']]),
-                ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'row', 'rozmisteni' => 'space-between', 'zarovnani' => 'baseline', 'mezera' => 'm', 'odsazeni_y' => 'm', 'linka_dole' => '1px solid var(--mc-barva-linka)'], 'mobil' => ['smer' => 'column', 'mezera' => 'xs']]), [
+                ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'row', 'rozmisteni' => 'space-between', 'zarovnani' => 'baseline', 'mezera' => 'm', 'odsazeni_y' => 'm', 'linka_dole' => '1px solid var(--ka-barva-linka)'], 'mobil' => ['smer' => 'column', 'mezera' => 'xs']]), [
                     [t('Konzultace'), t('Hodina s odborníkem u vás nebo online.'), t('od 900 Kč')],
                     [t('Návrh na míru'), t('Návrh včetně vizualizace a rozpočtu.'), t('od 4 500 Kč')],
                     [t('Realizace'), t('Kompletní provedení podle návrhu.'), t('dle rozsahu')],
@@ -210,7 +210,7 @@ final class Knihovna
                     $s($z($n('nadpis', ['text' => $d[1]]), 'p'), ['zaklad' => ['velikost_pisma' => '3', 'tloustka_pisma' => '800']]),
                     $n('seznam', ['polozky' => $d[2], 'styl' => 'fajfky']),
                     $n('tlacitko', ['text' => t('Mám zájem'), 'odkaz' => $adresa('Kontakt'), 'varianta' => $d[3] ? 'primarni' : 'obrys']),
-                ]), 'karta'), $d[3] ? ['zaklad' => ['ramecek' => '2px solid var(--mc-barva-primarni)', 'stin' => 'm']] : []), [
+                ]), 'karta'), $d[3] ? ['zaklad' => ['ramecek' => '2px solid var(--ka-barva-primarni)', 'stin' => 'm']] : []), [
                     [t('Základ'), t('2 900 Kč'), t('Konzultace') . "\n" . t('Návrh řešení'), false],
                     [t('Standard'), t('6 900 Kč'), t('Konzultace') . "\n" . t('Návrh řešení') . "\n" . t('Realizace') . "\n" . t('Rok servisu zdarma'), true],
                     [t('Na míru'), t('dle dohody'), t('Vše ze Standardu') . "\n" . t('Vlastní termíny') . "\n" . t('Osobní správce zakázky'), false],
@@ -322,7 +322,7 @@ final class Knihovna
             'hodnoty' => ['nazev' => t('Naše hodnoty'), 'popis' => t('Tři až čtyři zásady, podle kterých pracujete.'), 'stavba' => fn (): array => $n('sekce', [], [
                 $t($n('nadpis', ['text' => t('Na čem si zakládáme')]), 'nadpis-sekce'),
                 $s($n('mrizka', [], array_map(fn (array $d): array => $s($n('kontejner', [], [$z($n('nadpis', ['text' => $d[0]]), 'h3'), $n('text', ['html' => '<p>' . $d[1] . '</p>'])]),
-                    ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'xs', 'linka_nahore' => '1px solid var(--mc-barva-linka)', 'odsazeni_y' => 's']]), [
+                    ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'xs', 'linka_nahore' => '1px solid var(--ka-barva-linka)', 'odsazeni_y' => 's']]), [
                     [t('Poctivost'), t('Říkáme, co uděláme, a děláme, co říkáme.')], [t('Řemeslo'), t('Každý detail děláme tak, jako by byl pro nás.')], [t('Ohleduplnost'), t('K zákazníkům, sousedům i přírodě.')],
                 ])), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '3', 'mezera' => 'l'], 'tablet' => ['sloupce' => '1']]),
             ])],
@@ -332,7 +332,7 @@ final class Knihovna
                 $s($n('kontejner', [], array_map(fn (array $d): array => $s($n('kontejner', [], [
                     $s($z($n('nadpis', ['text' => $d[0]]), 'p'), ['zaklad' => ['tloustka_pisma' => '800', 'barva' => 'primarni', 'velikost_pisma' => '1']]),
                     $n('text', ['html' => '<p>' . $d[1] . '</p>']),
-                ]), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '6rem 1fr', 'mezera' => 'm', 'odsazeni_y' => 's', 'linka_dole' => '1px solid var(--mc-barva-linka)'], 'mobil' => ['sloupce' => '1', 'mezera' => '2xs']]), [
+                ]), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '6rem 1fr', 'mezera' => 'm', 'odsazeni_y' => 's', 'linka_dole' => '1px solid var(--ka-barva-linka)'], 'mobil' => ['sloupce' => '1', 'mezera' => '2xs']]), [
                     ['2005', t('Založení firmy v garáži rodinného domu.')], ['2012', t('Nová dílna a první zaměstnanci.')], ['2020', t('Pětistá dokončená zakázka.')], ['2026', t('Otevření showroomu.')],
                 ])), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column']]),
             ])],
@@ -440,7 +440,7 @@ final class Knihovna
      *
      * @param list<string> $sekce
      */
-    public static function stranka(\MiroCMS\Core\Db $db, array $sekce, string $titulek, string $jazyk): array
+    public static function stranka(\Kaleta\Core\Db $db, array $sekce, string $titulek, string $jazyk): array
     {
         $stavba = ['v' => Stavba::VERZE, 'deti' => []];
         foreach ($sekce as $klic) {
@@ -484,7 +484,7 @@ final class Knihovna
      */
     public static function sekci(string $klic, string $jazyk = 'cs'): ?array
     {
-        return \MiroCMS\Core\Jazyk::docasne($jazyk, fn (): ?array => self::vytvor($klic));
+        return \Kaleta\Core\Jazyk::docasne($jazyk, fn (): ?array => self::vytvor($klic));
     }
 
     /** @return array{prvek: array<string, mixed>, tridy: list<string>}|null */
@@ -512,7 +512,7 @@ final class Knihovna
     }
 
     /** Založí chybějící třídy knihovny (existující třídu webu nikdy nepřepíše). */
-    public static function zalozTridy(\MiroCMS\Core\Db $db, array $nazvy): void
+    public static function zalozTridy(\Kaleta\Core\Db $db, array $nazvy): void
     {
         foreach ($nazvy as $nazev) {
             if (isset(self::TRIDY[$nazev])) {

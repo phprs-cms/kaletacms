@@ -1,10 +1,10 @@
-/* MiroCMS.0 - drobnosti administrace. Bez knihoven, bez build kroku. */
+/* Kaleta - drobnosti administrace. Bez knihoven, bez build kroku. */
 
 (function () {
 	'use strict';
 
-	// překlad textů skriptů administrace: slovník window.MIROCMS_PREKLAD dodá image/jazyky/admin-<kód>.js, čeština ho nemá
-	window.T = function (s) { return (window.MIROCMS_PREKLAD || {})[s] || s; };
+	// překlad textů skriptů administrace: slovník window.KALETA_PREKLAD dodá image/jazyky/admin-<kód>.js, čeština ho nemá
+	window.T = function (s) { return (window.KALETA_PREKLAD || {})[s] || s; };
 	var T = window.T;
 
 	// Potvrzení nevratných akcí: data-potvrdit="text" na formuláři nebo tlačítku.
@@ -40,7 +40,7 @@
 			var koren = document.documentElement;
 			var tmavy = koren.getAttribute('data-tema') ? koren.getAttribute('data-tema') === 'tmavy' : window.matchMedia('(prefers-color-scheme: dark)').matches;
 			koren.setAttribute('data-tema', tmavy ? 'svetly' : 'tmavy');
-			try { localStorage.setItem('mirocms-tema', tmavy ? 'svetly' : 'tmavy'); } catch (e) { /* nic */ }
+			try { localStorage.setItem('kaleta-tema', tmavy ? 'svetly' : 'tmavy'); } catch (e) { /* nic */ }
 		});
 	}
 
@@ -61,8 +61,8 @@
 		var vlozCss = function () {
 			var doc = nahled.contentDocument;
 			if (!doc || !doc.head || posledniCss === '') { return; }
-			var styl = doc.getElementById('mc-vzhled-nahled');
-			if (!styl) { styl = doc.createElement('style'); styl.id = 'mc-vzhled-nahled'; doc.head.appendChild(styl); }
+			var styl = doc.getElementById('ka-vzhled-nahled');
+			if (!styl) { styl = doc.createElement('style'); styl.id = 'ka-vzhled-nahled'; doc.head.appendChild(styl); }
 			styl.textContent = posledniCss;
 		};
 		var prepocitej = function () {

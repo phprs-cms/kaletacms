@@ -1,4 +1,4 @@
-/* MiroCMS.0 - editor článků, galerie a nahrávání.
+/* Kaleta - editor článků, galerie a nahrávání.
  * Barvy a zaoblení bere z proměnných --ed-*, které definuje image/admin.css (na webu při úpravě na místě image/vizual.css).
  * Stavové barvy (--ed-ok, --ed-varovani, --ed-chyba, --ed-na-akcentu) mají zálohu pro případ, že je hostitelský styl nedefinuje.
  */

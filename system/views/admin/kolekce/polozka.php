@@ -2,13 +2,13 @@
 /**
  * Formulář položky kolekce – pole podle definice kolekce.
  *
- * @var MiroCMS\Core\App $app
- * @var MiroCMS\Admin\Moduly\Kolekce $modul
+ * @var Kaleta\Core\App $app
+ * @var Kaleta\Admin\Moduly\Kolekce $modul
  * @var string $csrf
  * @var array<string, mixed> $k
  * @var array<string, mixed> $p
  */
-use MiroCMS\Core\Jazyk;
+use Kaleta\Core\Jazyk;
 
 $jazyky = Jazyk::dalsi($app->settings());
 ?>

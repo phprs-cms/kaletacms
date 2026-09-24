@@ -1,4 +1,4 @@
-/* MiroCMS – stavitel stránek. Bez knihoven a bez build kroku.
+/* Kaleta – stavitel stránek. Bez knihoven a bez build kroku.
  *
  * Stav je strom prvků (stejný tvar, jaký čistí a vykresluje PHP: Stavitel\Stavba). Každá změna jde do historie (zpět/znovu),
  * za chvíli se uloží jako koncept (akce stavba_uloz) a plátno – skutečná stránka webu v iframe – se překreslí.
@@ -319,23 +319,23 @@
 		const doc = frame.contentDocument;
 		if (!doc) { return; }
 		doc.head.append(Object.assign(doc.createElement('style'), { textContent:
-			'[data-mc-id]{cursor:default} .mc-st-hover{outline:1px dashed #2b5be3!important;outline-offset:-1px} .mc-st-vybrany{outline:2px solid #2b5be3!important;outline-offset:-2px}'
-			+ '[contenteditable]{outline:2px solid #f79009!important;outline-offset:2px;cursor:text} .mc-upravit-zde,.cookies-lista,.cookies-znovu{display:none!important}' }));
+			'[data-ka-id]{cursor:default} .ka-st-hover{outline:1px dashed #ff4f2e!important;outline-offset:-1px} .ka-st-vybrany{outline:2px solid #ff4f2e!important;outline-offset:-2px}'
+			+ '[contenteditable]{outline:2px solid #f79009!important;outline-offset:2px;cursor:text} .ka-upravit-zde,.cookies-lista,.cookies-znovu{display:none!important}' }));
 		doc.addEventListener('click', (e) => {
-			if (e.target.closest('[contenteditable]') || e.target.id === 'mc-st-uchyt') { return; }
+			if (e.target.closest('[contenteditable]') || e.target.id === 'ka-st-uchyt') { return; }
 			e.preventDefault();
 			// zamčený prvek (Struktura → zámek) na plátně nejde vybrat: výběr dostane nejbližší nezamčený předek
-			let t = e.target.closest('[data-mc-id]');
-			while (t && t.hasAttribute('data-mc-zamek')) { t = t.parentElement && t.parentElement.closest('[data-mc-id]'); }
-			vyber(t ? t.getAttribute('data-mc-id') : null);
+			let t = e.target.closest('[data-ka-id]');
+			while (t && t.hasAttribute('data-ka-zamek')) { t = t.parentElement && t.parentElement.closest('[data-ka-id]'); }
+			vyber(t ? t.getAttribute('data-ka-id') : null);
 		}, true);
 		skrytiNaPlatne(doc);
 		doc.addEventListener('mouseover', (e) => {
-			doc.querySelectorAll('.mc-st-hover').forEach((x) => x.classList.remove('mc-st-hover'));
-			const t = e.target.closest('[data-mc-id]');
-			if (t) { t.classList.add('mc-st-hover'); }
+			doc.querySelectorAll('.ka-st-hover').forEach((x) => x.classList.remove('ka-st-hover'));
+			const t = e.target.closest('[data-ka-id]');
+			if (t) { t.classList.add('ka-st-hover'); }
 		});
-		doc.addEventListener('dblclick', (e) => { const t = e.target.closest('[data-mc-id]'); if (t && !t.hasAttribute('data-mc-zamek')) { upravNaPlatne(t); } });
+		doc.addEventListener('dblclick', (e) => { const t = e.target.closest('[data-ka-id]'); if (t && !t.hasAttribute('data-ka-zamek')) { upravNaPlatne(t); } });
 		doc.addEventListener('keydown', klavesy);
 		doc.addEventListener('dragover', (e) => {
 			if (!stav.tazeno) { return; }
@@ -358,9 +358,9 @@
 	function skrytiNaPlatne(doc) {
 		doc = doc || (nahled && nahled.contentDocument);
 		if (!doc) { return; }
-		let st = doc.getElementById('mc-st-skryte');
-		if (!st) { st = Object.assign(doc.createElement('style'), { id: 'mc-st-skryte' }); doc.head.append(st); }
-		st.textContent = Object.keys(stav.skryte).filter((id) => stav.skryte[id]).map((id) => '[data-mc-id="' + id + '"]{display:none!important}').join('');
+		let st = doc.getElementById('ka-st-skryte');
+		if (!st) { st = Object.assign(doc.createElement('style'), { id: 'ka-st-skryte' }); doc.head.append(st); }
+		st.textContent = Object.keys(stav.skryte).filter((id) => stav.skryte[id]).map((id) => '[data-ka-id="' + id + '"]{display:none!important}').join('');
 	}
 
 	/* ---------- přetahování na plátně: nový prvek, hotová sekce nebo přesun vybraného prvku ---------- */
@@ -369,7 +369,7 @@
 		schovejNahledSekce();
 		stav.tazeno = co;
 		e.dataTransfer.effectAllowed = co.presun ? 'move' : 'copy';
-		e.dataTransfer.setData('text/plain', 'mirocms');
+		e.dataTransfer.setData('text/plain', 'kaleta');
 	}
 
 	function skonciTazeni() {
@@ -384,13 +384,13 @@
 	 */
 	function mistoNaPlatne(doc, e) {
 		const typ = stav.tazeno.novy || (stav.tazeno.sekce ? 'sekce' : (najdi(stav.tazeno.presun) || { p: {} }).p.typ);
-		let uzel = e.target.closest ? e.target.closest('[data-mc-id]') : null;
-		while (uzel && !najdi(uzel.getAttribute('data-mc-id'))) { uzel = uzel.parentElement && uzel.parentElement.closest('[data-mc-id]'); }
+		let uzel = e.target.closest ? e.target.closest('[data-ka-id]') : null;
+		while (uzel && !najdi(uzel.getAttribute('data-ka-id'))) { uzel = uzel.parentElement && uzel.parentElement.closest('[data-ka-id]'); }
 		if (!uzel) { return stav.stavba.deti.length ? null : { koren: true }; }
-		let n = najdi(uzel.getAttribute('data-mc-id'));
+		let n = najdi(uzel.getAttribute('data-ka-id'));
 		if (typ === 'sekce' || typ === 'obsah') {
 			while (n.rodic) { n = najdi(n.rodic.id); }
-			uzel = doc.querySelector('[data-mc-id="' + n.p.id + '"]') || uzel;
+			uzel = doc.querySelector('[data-ka-id="' + n.p.id + '"]') || uzel;
 		}
 		const presouvany = stav.tazeno.presun && najdi(stav.tazeno.presun);
 		if (presouvany && (presouvany.p.id === n.p.id || obsahuje(presouvany.p, n.p.id))) { return null; }
@@ -402,10 +402,10 @@
 
 	/** Modrá čára (před / za) nebo rámeček (dovnitř) na plátně. */
 	function ukazMisto(doc, misto) {
-		let znacka = doc.getElementById('mc-st-misto');
+		let znacka = doc.getElementById('ka-st-misto');
 		if (!misto || !misto.uzel) { if (znacka) { znacka.hidden = true; } return; }
 		if (!znacka) {
-			znacka = Object.assign(doc.createElement('div'), { id: 'mc-st-misto' });
+			znacka = Object.assign(doc.createElement('div'), { id: 'ka-st-misto' });
 			znacka.style.cssText = 'position:absolute;z-index:2147483646;pointer-events:none;border-radius:3px';
 			doc.body.append(znacka);
 		}
@@ -414,8 +414,8 @@
 		const y = r.top + doc.defaultView.scrollY;
 		znacka.hidden = false;
 		Object.assign(znacka.style, misto.kam === 'dovnitr'
-			? { left: x + 'px', top: y + 'px', width: r.width + 'px', height: r.height + 'px', background: 'rgb(43 91 227 / 0.08)', outline: '2px dashed #2b5be3' }
-			: { left: x + 'px', top: (misto.kam === 'pred' ? y - 2 : y + r.height - 2) + 'px', width: r.width + 'px', height: '4px', background: '#2b5be3', outline: 'none' });
+			? { left: x + 'px', top: y + 'px', width: r.width + 'px', height: r.height + 'px', background: 'rgb(255 79 46 / 0.08)', outline: '2px dashed #ff4f2e' }
+			: { left: x + 'px', top: (misto.kam === 'pred' ? y - 2 : y + r.height - 2) + 'px', width: r.width + 'px', height: '4px', background: '#ff4f2e', outline: 'none' });
 	}
 
 	function pustNaMisto(co, misto) {
@@ -462,33 +462,33 @@
 	function oznacVNahledu(posunout) {
 		const doc = nahled && nahled.contentDocument;
 		if (!doc) { return; }
-		doc.querySelectorAll('.mc-st-vybrany').forEach((x) => x.classList.remove('mc-st-vybrany'));
-		const t = stav.vybrane && doc.querySelector('[data-mc-id="' + stav.vybrane + '"]');
-		let uchyt = doc.getElementById('mc-st-uchyt');
+		doc.querySelectorAll('.ka-st-vybrany').forEach((x) => x.classList.remove('ka-st-vybrany'));
+		const t = stav.vybrane && doc.querySelector('[data-ka-id="' + stav.vybrane + '"]');
+		let uchyt = doc.getElementById('ka-st-uchyt');
 		if (t) {
-			t.classList.add('mc-st-vybrany');
+			t.classList.add('ka-st-vybrany');
 			if (posunout) { t.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
 			// úchyt vlevo nahoře: přetažením se vybraný prvek přesune jinam na stránce
 			if (!uchyt) {
-				uchyt = Object.assign(doc.createElement('div'), { id: 'mc-st-uchyt', draggable: true, title: T('Přetažením přesunete') });
+				uchyt = Object.assign(doc.createElement('div'), { id: 'ka-st-uchyt', draggable: true, title: T('Přetažením přesunete') });
 				uchyt.textContent = '⠿';
-				uchyt.style.cssText = 'position:absolute;z-index:2147483647;display:grid;place-items:center;width:22px;height:22px;border-radius:4px;background:#2b5be3;color:#fff;font:14px/1 system-ui;cursor:grab;user-select:none';
+				uchyt.style.cssText = 'position:absolute;z-index:2147483647;display:grid;place-items:center;width:22px;height:22px;border-radius:4px;background:#ff4f2e;color:#fff;font:14px/1 system-ui;cursor:grab;user-select:none';
 				uchyt.addEventListener('dragstart', (e) => zacniTahnout(e, { presun: stav.vybrane }));
 				uchyt.addEventListener('dragend', skonciTazeni);
 				uchyt.addEventListener('click', (e) => e.stopPropagation(), true);
 				doc.body.append(uchyt);
 			}
 			// komponenta bez vlastního obalu má display: contents – nemá rámeček, obrys se kreslí kolem jejího obsahu
-			uchyt.style.display = t.hasAttribute('data-mc-zamek') ? 'none' : ''; // zamčený prvek se nepřetahuje
+			uchyt.style.display = t.hasAttribute('data-ka-zamek') ? 'none' : ''; // zamčený prvek se nepřetahuje
 			let r = t.getBoundingClientRect();
-			let obrys = doc.getElementById('mc-st-obrys');
+			let obrys = doc.getElementById('ka-st-obrys');
 			if (doc.defaultView.getComputedStyle(t).display === 'contents') {
 				const rozsah = doc.createRange();
 				rozsah.selectNodeContents(t);
 				r = rozsah.getBoundingClientRect();
 				if (!obrys) {
-					obrys = Object.assign(doc.createElement('div'), { id: 'mc-st-obrys' });
-					obrys.style.cssText = 'position:absolute;z-index:2147483646;pointer-events:none;outline:2px solid #2b5be3;outline-offset:2px';
+					obrys = Object.assign(doc.createElement('div'), { id: 'ka-st-obrys' });
+					obrys.style.cssText = 'position:absolute;z-index:2147483646;pointer-events:none;outline:2px solid #ff4f2e;outline-offset:2px';
 					doc.body.append(obrys);
 				}
 				Object.assign(obrys.style, { left: r.left + doc.defaultView.scrollX + 'px', top: r.top + doc.defaultView.scrollY + 'px', width: r.width + 'px', height: r.height + 'px' });
@@ -501,14 +501,14 @@
 			uchyt.style.top = Math.max(0, r.top + doc.defaultView.scrollY - 24) + 'px';
 		} else if (uchyt) {
 			uchyt.hidden = true;
-			const obrys = doc.getElementById('mc-st-obrys');
+			const obrys = doc.getElementById('ka-st-obrys');
 			if (obrys) { obrys.hidden = true; }
 		}
 	}
 
 	/** Dvojklik na nadpis, text, tlačítko nebo referenci: psaní přímo na plátně. */
 	function upravNaPlatne(uzel) {
-		const n = najdi(uzel.getAttribute('data-mc-id'));
+		const n = najdi(uzel.getAttribute('data-ka-id'));
 		if (!n || !['nadpis', 'text', 'tlacitko', 'citat'].includes(n.p.typ)) { return; }
 		// v kolekci je na plátně dosazená hodnota položky – úprava by přepsala {{značku}}; text se mění v panelu Obsah
 		if (kolekcePrvku(n.p.id) && JSON.stringify(n.p.obsah).includes('{{')) { vyber(n.p.id); nastavStav(T('Text s {{značkami}} kolekce upravte v panelu Obsah.')); return; }
@@ -591,10 +591,10 @@
 
 	/* ---------- schránka (i mezi stránkami) ---------- */
 
-	function kopiruj() { const n = stav.vybrane && najdi(stav.vybrane); if (n) { try { localStorage.setItem('mc-stavitel-schranka', JSON.stringify(n.p)); nastavStav(T('Zkopírováno')); } catch (e) { /* nic */ } } }
+	function kopiruj() { const n = stav.vybrane && najdi(stav.vybrane); if (n) { try { localStorage.setItem('ka-stavitel-schranka', JSON.stringify(n.p)); nastavStav(T('Zkopírováno')); } catch (e) { /* nic */ } } }
 	function vlozZeSchranky() {
 		let p = null;
-		try { p = JSON.parse(localStorage.getItem('mc-stavitel-schranka') || 'null'); } catch (e) { p = null; }
+		try { p = JSON.parse(localStorage.getItem('ka-stavitel-schranka') || 'null'); } catch (e) { p = null; }
 		if (p && TYPY[p.typ]) { vloz(sNovymiId(p)); }
 	}
 
@@ -885,8 +885,8 @@
 				class: 'st-uzel' + (stav.skryte[p.id] ? ' st-skryty' : ''), draggable: p.zamek ? null : 'true', role: 'treeitem', 'aria-selected': String(stav.vybrane === p.id),
 				'aria-expanded': maDeti ? String(!stav.sbalene[p.id]) : null, tabindex: stav.vybrane === p.id || (!stav.vybrane && stav.stavba.deti[0] === p) ? '0' : '-1',
 				'data-id': p.id, onclick: () => vyber(p.id), onkeydown: (e) => klavesyStromu(e, p, maDeti),
-				onmouseenter: () => { const t = nahled && nahled.contentDocument && nahled.contentDocument.querySelector('[data-mc-id="' + p.id + '"]'); if (t) { t.classList.add('mc-st-hover'); } },
-				onmouseleave: () => { const t = nahled && nahled.contentDocument && nahled.contentDocument.querySelector('[data-mc-id="' + p.id + '"]'); if (t) { t.classList.remove('mc-st-hover'); } },
+				onmouseenter: () => { const t = nahled && nahled.contentDocument && nahled.contentDocument.querySelector('[data-ka-id="' + p.id + '"]'); if (t) { t.classList.add('ka-st-hover'); } },
+				onmouseleave: () => { const t = nahled && nahled.contentDocument && nahled.contentDocument.querySelector('[data-ka-id="' + p.id + '"]'); if (t) { t.classList.remove('ka-st-hover'); } },
 				ondragstart: (e) => { stav.tazeny = p.id; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', p.id); },
 				ondragover: (e) => {
 					if (!stav.tazeny || stav.tazeny === p.id) { return; }
@@ -1103,13 +1103,13 @@
 				const ta = el('textarea', { 'data-editor': 'maly', oninput: (e) => zmena(e.target.value) });
 				ta.value = hodnota || '';
 				obal.append(ta);
-				if (window.mirocmsVytvorEditor) { setTimeout(() => window.mirocmsVytvorEditor(ta), 0); }
+				if (window.kaletaVytvorEditor) { setTimeout(() => window.kaletaVytvorEditor(ta), 0); }
 				return obal;
 			}
 			case 'obrazek': {
 				const nahledObr = el('img', { class: 'st-obrazek-nahled', alt: '', src: hodnota || null, hidden: !hodnota });
 				vstup = el('input', { type: 'text', value: hodnota || '', placeholder: 'media/…', oninput: (e) => { zmena(e.target.value); nahledObr.src = e.target.value; nahledObr.hidden = !e.target.value; } });
-				const tl = el('button', { type: 'button', class: 'st-tl', onclick: () => window.mirocmsVyberObrazek && window.mirocmsVyberObrazek((o) => {
+				const tl = el('button', { type: 'button', class: 'st-tl', onclick: () => window.kaletaVyberObrazek && window.kaletaVyberObrazek((o) => {
 					vstup.value = o.url; nahledObr.src = o.url; nahledObr.hidden = false; zmena(o.url);
 					// popis pro nevidomé z knihovny Médií, když ho prvek ještě nemá (dá se přepsat)
 					const p = moznosti && moznosti.prvek;
@@ -1163,7 +1163,7 @@
 
 	const NAPOVEDY = {
 		mezera: ['2xs', 'xs', 's', 'm', 'l', 'xl', '2xl', '3xl', '0'], krok: ['-1', '0', '1', '2', '3', '4', '5'], zaobleni: ['0', 's', 'm', 'l', 'plne'], stin: ['s', 'm', 'l', 'none'],
-		barva: Object.keys(D.schema.tokeny.barvy).concat(['transparent']), delka: ['auto', '100%', '50%', 'var(--mc-sirka-textu)', 'var(--mc-sirka)', '20rem', '30rem', '60vh', 'fit-content'],
+		barva: Object.keys(D.schema.tokeny.barvy).concat(['transparent']), delka: ['auto', '100%', '50%', 'var(--ka-sirka-textu)', 'var(--ka-sirka)', '20rem', '30rem', '60vh', 'fit-content'],
 		sloupce: ['1', '2', '3', '4', 'auto:14rem', 'auto:16rem', 'auto:20rem', '2fr 1fr', '1fr 2fr'], cislo: ['-1', '0', '1', '2'],
 	};
 	const datalisty = el('div', { hidden: true }, Object.entries(NAPOVEDY).map(([typ, hodnoty]) => el('datalist', { id: 'st-dl-' + typ }, hodnoty.map((h) => el('option', { value: h })))),
@@ -1237,7 +1237,7 @@
 				el('input', { type: 'color', 'aria-label': T('Vybrat vlastní barvu'), value: /^#[0-9a-f]{6}$/i.test(hodnota) ? hodnota : '#000000',
 					oninput: (e) => { vzorek.style.background = e.target.value; }, onchange: (e) => { pole.value = e.target.value; zmena(e.target.value); } })) : null;
 			vstup = el('span', { class: 'st-pole-radek' }, vzorek, pole,
-				def.typ === 'obrazek' ? el('button', { type: 'button', class: 'st-tl', title: T('Média'), onclick: () => window.mirocmsVyberObrazek && window.mirocmsVyberObrazek((o) => { pole.value = o.url; zmena(o.url); }) }, '…') : null);
+				def.typ === 'obrazek' ? el('button', { type: 'button', class: 'st-tl', title: T('Média'), onclick: () => window.kaletaVyberObrazek && window.kaletaVyberObrazek((o) => { pole.value = o.url; zmena(o.url); }) }, '…') : null);
 		}
 		const id = 'st-v-' + klic;
 		(vstup.matches('select') ? vstup : vstup.querySelector('input[type="text"]')).id = id;

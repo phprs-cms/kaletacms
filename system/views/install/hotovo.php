@@ -11,18 +11,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title><?= e(t('Instalace MiroCMS')) ?></title>
-<link rel="icon" type="image/svg+xml" href="<?= e($base) ?>/image/mirocms-znacka.svg">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="<?= e($base) ?>/image/mirocms-znacka-32.png">
-<link rel="apple-touch-icon" href="<?= e($base) ?>/image/mirocms-znacka-180.png">
-<link rel="stylesheet" href="<?= e($base) ?>/image/install.css?v=<?= e(MIROCMS_VERSION) ?>">
+<title><?= e(t('Instalace Kalety')) ?></title>
+<link rel="icon" type="image/svg+xml" href="<?= e($base) ?>/image/kaleta-znacka.svg">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="<?= e($base) ?>/image/kaleta-znacka-32.png">
+<link rel="apple-touch-icon" href="<?= e($base) ?>/image/kaleta-znacka-180.png">
+<link rel="stylesheet" href="<?= e($base) ?>/image/install.css?v=<?= e(KALETA_VERSION) ?>">
 </head>
 <body>
 <main class="instalator">
 <header class="uvod">
-	<div class="znacka"><?php $vyska = 40; $jenZnacka = false; require MIROCMS_SYSTEM . '/views/admin/logo.php'; ?></div>
+	<div class="znacka"><?php $vyska = 40; $jenZnacka = false; require KALETA_SYSTEM . '/views/admin/logo.php'; ?></div>
 <?php if ($jizNainstalovano): ?>
-	<h1><?= e(t('MiroCMS je už nainstalován')) ?></h1>
+	<h1><?= e(t('Kaleta je už nainstalovaná')) ?></h1>
 	<p><?= e(t('Soubor config.php existuje, instalátor proto nic nemění.')) ?></p>
 <?php else: ?>
 	<h1><?= e(t('Hotovo, web běží')) ?></h1>

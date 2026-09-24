@@ -1,4 +1,4 @@
-/* MiroCMS - skript webu pro návštěvníky. Bez knihoven; vše je volitelné vylepšení, web funguje i bez JavaScriptu.
+/* Kaleta - skript webu pro návštěvníky. Bez knihoven; vše je volitelné vylepšení, web funguje i bez JavaScriptu.
  * Menu na telefonu, dialogy a rozbalování řeší HTML a CSS (popover, <details>), ne tento skript. */
 (function () {
 	'use strict';
@@ -30,7 +30,7 @@
 	function otevri(seznam, index) {
 		if (!okno) {
 			okno = document.createElement('dialog');
-			okno.className = 'mc-prohlizecka';
+			okno.className = 'ka-prohlizecka';
 			okno.innerHTML = '<img alt=""><p aria-live="polite"></p><button type="button" data-krok="-1" aria-label="' + A('Předchozí fotka') + '">‹</button>'
 				+ '<button type="button" data-krok="1" aria-label="' + A('Další fotka') + '">›</button><button type="button" data-zavrit aria-label="' + A('Zavřít') + '">×</button>';
 			document.body.appendChild(okno);
@@ -57,8 +57,8 @@
 
 	document.addEventListener('click', function (e) {
 		var img = e.target;
-		if (img.tagName !== 'IMG' || img.closest('a') || !img.closest('.text, .perex, figure.galerie, .mc-galerie')) { return; }
-		var galerie = img.closest('figure.galerie, .mc-galerie');
+		if (img.tagName !== 'IMG' || img.closest('a') || !img.closest('.text, .perex, figure.galerie, .ka-galerie')) { return; }
+		var galerie = img.closest('figure.galerie, .ka-galerie');
 		var seznam = Array.prototype.slice.call((galerie || img.closest('.text, .perex')).querySelectorAll(galerie ? 'img' : 'figure:not(.galerie) img'));
 		if (seznam.indexOf(img) === -1) { seznam = [img]; }
 		otevri(seznam, seznam.indexOf(img));
@@ -112,7 +112,7 @@
 	/* ---------- karusel: šipky posouvají pás o šířku viditelných snímků ---------- */
 
 	document.querySelectorAll('[data-karusel]').forEach(function (k) {
-		var pas = k.querySelector('.mc-karusel-pas');
+		var pas = k.querySelector('.ka-karusel-pas');
 		var sipky = k.querySelectorAll('[data-krok]');
 		function stav() {
 			sipky[0].disabled = pas.scrollLeft <= 2;
@@ -136,7 +136,7 @@
 		okno.showPopover();
 	});
 	document.querySelectorAll('[popover][data-samo]').forEach(function (okno) {
-		var klic = 'mc-okno-' + okno.id;
+		var klic = 'ka-okno-' + okno.id;
 		try { if (sessionStorage.getItem(klic)) { return; } } catch (chyba) { /* soukromý režim */ }
 		setTimeout(function () {
 			if (!okno.showPopover || document.querySelector(':popover-open')) { return; }
@@ -149,7 +149,7 @@
 
 	// hodnoty drží jen prohlížeč návštěvníka (sessionStorage) a po úspěšném odeslání zmizí; do adresy se nic nepíše
 	document.querySelectorAll('form[data-formular]').forEach(function (f) {
-		var klic = 'mc-formular-' + f.getAttribute('data-formular');
+		var klic = 'ka-formular-' + f.getAttribute('data-formular');
 		f.addEventListener('submit', function () {
 			var hodnoty = {};
 			Array.prototype.forEach.call(f.elements, function (p) {
@@ -169,10 +169,10 @@
 	});
 	var odeslano = new URLSearchParams(location.search).get('odeslano');
 	Array.prototype.map.call(document.querySelectorAll('[data-odeslano]'), function (h) { return h.getAttribute('data-odeslano'); }).concat(odeslano ? [odeslano] : []).forEach(function (nazev) {
-		try { Object.keys(sessionStorage).forEach(function (k) { if (k.indexOf('mc-formular-') === 0) { sessionStorage.removeItem(k); } }); } catch (chyba) { /* nic */ }
+		try { Object.keys(sessionStorage).forEach(function (k) { if (k.indexOf('ka-formular-') === 0) { sessionStorage.removeItem(k); } }); } catch (chyba) { /* nic */ }
 		// měření konverzí: vlastní skript naslouchá události, Google Tag Manager dostane záznam do dataLayer
-		window.dispatchEvent(new CustomEvent('mirocms:odeslano', { detail: { formular: nazev } }));
-		if (Array.isArray(window.dataLayer)) { window.dataLayer.push({ event: 'mirocms_formular_odeslan', formular: nazev }); }
+		window.dispatchEvent(new CustomEvent('kaleta:odeslano', { detail: { formular: nazev } }));
+		if (Array.isArray(window.dataLayer)) { window.dataLayer.push({ event: 'kaleta_formular_odeslan', formular: nazev }); }
 	});
 
 	/* ---------- přehrávač cizí služby se vloží až po kliknutí ---------- */

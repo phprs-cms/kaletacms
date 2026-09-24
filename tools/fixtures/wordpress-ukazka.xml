@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<!-- Ukázkový export z WordPressu (WXR 1.2) pro testy importu MiroCMS. Obsah je od začátku do konce smyšlený; doména .example neexistuje. -->
+<!-- Ukázkový export z WordPressu (WXR 1.2) pro testy importu Kalety. Obsah je od začátku do konce smyšlený; doména .example neexistuje. -->
 <rss version="2.0"
 	xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/"
 	xmlns:content="http://purl.org/rss/1.0/modules/content/"

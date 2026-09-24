@@ -1,4 +1,4 @@
-/* MiroCMS – stavitel stránek (admin.php?modul=stranky&akce=stavitel). Barvy z proměnných administrace (image/admin.css) – světlý i tmavý režim. */
+/* Kaleta – stavitel stránek (admin.php?modul=stranky&akce=stavitel). Barvy z proměnných administrace (image/admin.css) – světlý i tmavý režim. */
 
 body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; overflow: hidden; background: var(--podklad); font: 14px/1.45 var(--pismo); color: var(--text); }
 .st { display: grid; grid-template: "lista lista lista" auto "levy platno pravy" 1fr / 272px 1fr 320px; height: 100vh; height: 100dvh; }

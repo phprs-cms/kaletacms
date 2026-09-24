@@ -2,13 +2,13 @@
 /**
  * Řádek formuláře "Jazyková verze" - jen když má web další jazyky (rozšíření Jazykové verze).
  *
- * @var MiroCMS\Core\App $app
+ * @var Kaleta\Core\App $app
  * @var string $hodnota  aktuální hodnota sloupce jazyk ('' = výchozí jazyk)
  * @var string $napoveda
  * @var array<int, string> $originaly  položky ve výchozím jazyce, ze kterých jde vybrat originál překladu
  * @var int $prekladZ
  */
-use MiroCMS\Core\Jazyk;
+use Kaleta\Core\Jazyk;
 
 $dalsi = Jazyk::dalsi($app->settings());
 if ($dalsi === []) {

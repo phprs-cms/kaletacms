@@ -1,8 +1,8 @@
 # Vydání: tag vX.Y.Z spustí testy a založí KONCEPT vydání na GitHubu.
 # Balíček se tady nepodepisuje – soukromý klíč nepatří do CI (docs/VYDAVANI.md). Vydavatel pak lokálně spustí
-#   php tools/vydani.php X.Y.Z --url=https://github.com/mirocms/mirocms/releases/download/vX.Y.Z/mirocms-X.Y.Z.zip --zmena="…"
-# nahraje dist/mirocms-X.Y.Z.zip ke konceptu (gh release upload vX.Y.Z dist/mirocms-X.Y.Z.zip), koncept zveřejní
-# a dist/aktualizace.json vystaví na https://mirocms.eu/aktualizace.json.
+#   php tools/vydani.php X.Y.Z --url=https://github.com/kaleta-cms/kaleta/releases/download/vX.Y.Z/kaleta-X.Y.Z.zip --zmena="…"
+# nahraje dist/kaleta-X.Y.Z.zip ke konceptu (gh release upload vX.Y.Z dist/kaleta-X.Y.Z.zip), koncept zveřejní
+# a dist/aktualizace.json vystaví na https://kaleta.example/aktualizace.json.
 name: Vydání
 
 on:
@@ -26,7 +26,7 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with: { php-version: '8.4', extensions: 'pdo_mysql, mbstring, gd, intl, zip, sodium', coverage: none }
       - name: Verze v kódu odpovídá tagu
-        run: grep -q "const MIROCMS_VERSION = '${GITHUB_REF_NAME#v}';" system/bootstrap.php
+        run: grep -q "const KALETA_VERSION = '${GITHUB_REF_NAME#v}';" system/bootstrap.php
       - name: Testy
         env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root }
         run: tools/test.sh

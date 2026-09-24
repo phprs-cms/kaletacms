@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Front;
+namespace Kaleta\Front;
 
-use MiroCMS\Core\Settings;
+use Kaleta\Core\Settings;
 
 /**
  * Identita webu (Vzhled → Identita webu): hlavní barva a písma, které se propisují do šablon.
  *
- * Šablony s identitou počítají přes CSS proměnné --mc-akcent, --mc-pismo-titulky a --mc-pismo-text:
- * ve svém style.css je použijí s vlastní výchozí hodnotou, např. --akcent: var(--mc-akcent, #326891).
+ * Šablony s identitou počítají přes CSS proměnné --ka-akcent, --ka-pismo-titulky a --ka-pismo-text:
+ * ve svém style.css je použijí s vlastní výchozí hodnotou, např. --akcent: var(--ka-akcent, #326891).
  * Písma jsou jen systémová (žádné stahování z cizích serverů - rychlost a GDPR).
  */
 final class Identita
@@ -46,14 +46,14 @@ final class Identita
         if ($ikona !== '') {
             $html .= '<link rel="icon" href="' . e((preg_match('#^(https?:)?/#', $ikona) ? '' : $zaklad . '/') . $ikona) . "\">\n";
         }
-        $png = MIROCMS_ROOT . '/media/ikona-180.png';
+        $png = KALETA_ROOT . '/media/ikona-180.png';
         if (is_file($png)) {
             $v = '?v=' . filemtime($png);
             $html .= '<link rel="icon" type="image/png" sizes="32x32" href="' . e($zaklad . '/media/ikona-32.png' . $v) . "\">\n"
                 . '<link rel="apple-touch-icon" href="' . e($zaklad . '/media/ikona-180.png' . $v) . "\">\n";
         }
         $html .= '<link rel="manifest" href="' . e($zaklad . '/manifest.webmanifest') . "\">\n";
-        $barvy = \MiroCMS\Stavitel\DesignSystem::nacti($web)['barvy'];
+        $barvy = \Kaleta\Stavitel\DesignSystem::nacti($web)['barvy'];
         $html .= '<meta name="theme-color" content="' . e($barvy['pozadi']) . '">' . "\n";
 
         return $html;
@@ -62,11 +62,11 @@ final class Identita
     /** Manifest webu: název, barvy a ikony – telefon pak web připne na plochu s vlastní ikonou a názvem. */
     public static function manifest(Settings $web, string $zaklad): string
     {
-        $barvy = \MiroCMS\Stavitel\DesignSystem::nacti($web)['barvy'];
+        $barvy = \Kaleta\Stavitel\DesignSystem::nacti($web)['barvy'];
         $nazev = $web->get('nazev_webu') ?: 'Web';
         $ikony = [];
         foreach ([192, 512] as $n) {
-            if (is_file(MIROCMS_ROOT . '/media/ikona-' . $n . '.png')) {
+            if (is_file(KALETA_ROOT . '/media/ikona-' . $n . '.png')) {
                 $ikony[] = ['src' => $zaklad . '/media/ikona-' . $n . '.png', 'sizes' => $n . 'x' . $n, 'type' => 'image/png', 'purpose' => 'any'];
             }
         }

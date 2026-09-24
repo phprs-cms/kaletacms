@@ -1,5 +1,5 @@
 # Denní bezpečnostní kontrola. Nic nevydává ani nepodepisuje - jen včas řekne, že je potřeba záplata (verze 3.0.x):
-#  1) kanál aktualizací na mirocms.eu je podepsaný naším klíčem a balíček odpovídá otisku (odhalí podvržení),
+#  1) kanál aktualizací na kaleta.example je podepsaný naším klíčem a balíček odpovídá otisku (odhalí podvržení),
 #  2) testy na všech podporovaných verzích PHP a na připravované verzi (odhalí, co rozbije příští PHP),
 #  3) statická bezpečnostní analýza s denně aktualizovanými pravidly - nálezy jdou do Security → Code scanning,
 #     kam vidí jen správci repozitáře (veřejný záznam běhu je záměrně tichý),
@@ -14,7 +14,7 @@ permissions:
   contents: read
 jobs:
   kanal:
-    if: false # zapnout, až poběží web projektu a kanál aktualizací (mirocms.eu – doména zatím není rozhodnutá)
+    if: false # zapnout, až poběží web projektu a kanál aktualizací (kaleta.example – doména zatím není rozhodnutá)
     name: Kanál aktualizací
     runs-on: ubuntu-latest
     steps:
@@ -72,7 +72,7 @@ jobs:
         run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:latest detect --source /repo --redact --no-banner
 
   weby:
-    if: false # zapnout, až poběží web projektu a kanál aktualizací (mirocms.eu – doména zatím není rozhodnutá)
+    if: false # zapnout, až poběží web projektu a kanál aktualizací (kaleta.example – doména zatím není rozhodnutá)
     name: Web projektu a demo zvenku
     runs-on: ubuntu-latest
     steps:
@@ -82,11 +82,11 @@ jobs:
           chyb=0
           hlavicka() { curl -sSI -m 20 "$1" | tr -d '\r' | grep -qi "^$2:" || { echo "CHYBÍ $2 na $1"; chyb=$((chyb+1)); }; }
           kod() { k=$(curl -sS -m 20 -o /dev/null -w '%{http_code}' "$1"); case " $2 " in *" $k "*) ;; *) echo "NEČEKANÝ kód $k na $1 (čekal jsem: $2)"; chyb=$((chyb+1));; esac; }
-          for h in strict-transport-security content-security-policy x-content-type-options referrer-policy; do hlavicka https://mirocms.eu/cs/ "$h"; done
-          kod https://mirocms.eu/aktualizace.json "200"
-          kod https://mirocms.eu/.htaccess "403 404"
-          for cesta in config.php system/bootstrap.php system/soubory.json storage/log/chyby.log .git/config tools/vydani.php; do kod "https://demo.mirocms.eu/$cesta" "403 404"; done
-          hlavicka https://demo.mirocms.eu/admin.php content-security-policy
+          for h in strict-transport-security content-security-policy x-content-type-options referrer-policy; do hlavicka https://kaleta.example/cs/ "$h"; done
+          kod https://kaleta.example/aktualizace.json "200"
+          kod https://kaleta.example/.htaccess "403 404"
+          for cesta in config.php system/bootstrap.php system/soubory.json storage/log/chyby.log .git/config tools/vydani.php; do kod "https://demo.kaleta.example/$cesta" "403 404"; done
+          hlavicka https://demo.kaleta.example/admin.php content-security-policy
           exit "$chyb"
 
   hlaseni:

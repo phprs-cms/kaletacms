@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Admin\Moduly;
+namespace Kaleta\Admin\Moduly;
 
-use MiroCMS\Admin\Modul;
-use MiroCMS\Core\Db;
-use MiroCMS\Core\Response;
+use Kaleta\Admin\Modul;
+use Kaleta\Core\Db;
+use Kaleta\Core\Response;
 
 /**
- * Kategorie novinek (tabulka mc_kategorie). Plochý seznam – firemní blog stromové rubriky nepotřebuje.
+ * Kategorie novinek (tabulka ka_kategorie). Plochý seznam – firemní blog stromové rubriky nepotřebuje.
  * Kategorie určuje i jazykovou verzi novinky.
  */
 final class Kategorie extends Modul
@@ -64,7 +64,7 @@ final class Kategorie extends Modul
             'seo_link' => slugify($r->post('seo_link') !== '' ? $r->post('seo_link') : $r->post('nazev'), 110),
             'popis' => $r->post('popis'),
             'hodnost' => max(0, min(65535, $r->postInt('hodnost', 100))),
-            'jazyk' => \MiroCMS\Core\Jazyk::sloupec($this->app->settings(), $r->post('jazyk')),
+            'jazyk' => \Kaleta\Core\Jazyk::sloupec($this->app->settings(), $r->post('jazyk')),
         ];
         $data['preklad_z'] = $data['jazyk'] === '' ? null : ($this->db->value("SELECT idt FROM {kategorie} WHERE idt = ? AND jazyk = '' AND idt <> ?", [$r->postInt('preklad_z'), $id]) ?: null);
         if ($data['nazev'] === '') {

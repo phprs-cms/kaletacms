@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Stavitel;
+namespace Kaleta\Stavitel;
 
-use MiroCMS\Core\Db;
+use Kaleta\Core\Db;
 
 /**
- * Komponenty – znovupoužitelné bloky stavitele (tabulka mc_komponenty). Uvnitř komponenty jsou {{vlastnosti}} – stejné
+ * Komponenty – znovupoužitelné bloky stavitele (tabulka ka_komponenty). Uvnitř komponenty jsou {{vlastnosti}} – stejné
  * značky jako u kolekcí (Kolekce::dosad) – a každé použití na stránce (prvek „komponenta“) jim dá vlastní hodnoty.
  */
 final class Komponenty

@@ -2,8 +2,8 @@
 /**
  * Import z WordPressu, krok 2: náhled – co v souboru je, co se nepřevede, a volby importu. Do databáze se zatím nic nezapsalo.
  *
- * @var MiroCMS\Admin\Moduly\Prenos $modul
- * @var MiroCMS\Core\App $app
+ * @var Kaleta\Admin\Moduly\Prenos $modul
+ * @var Kaleta\Core\App $app
  * @var string $csrf
  * @var array<string, mixed> $stav  stav importu (Core\WpImport::novyStav)
  * @var list<string> $jazyky  jazykové verze webu, první je výchozí
@@ -58,7 +58,7 @@ $prevede = fn (array $pocty): int => array_sum(array_intersect_key($pocty, ['pub
 <?php if (count($jazyky) > 1): ?>
 <div class="radek"><label for="jazyk"><?= e(t('Jazyková verze')) ?></label><div><select id="jazyk" name="jazyk">
 <?php foreach ($jazyky as $i => $kod): ?>
-	<option value="<?= $i === 0 ? '' : e($kod) ?>"<?= ($i === 0 ? '' : $kod) === $volby['jazyk'] ? ' selected' : '' ?>><?= e(MiroCMS\Core\Jazyk::DOSTUPNE[$kod][0] ?? $kod) ?><?= $i === 0 ? ' – ' . e(t('výchozí jazyk webu')) : '' ?></option>
+	<option value="<?= $i === 0 ? '' : e($kod) ?>"<?= ($i === 0 ? '' : $kod) === $volby['jazyk'] ? ' selected' : '' ?>><?= e(Kaleta\Core\Jazyk::DOSTUPNE[$kod][0] ?? $kod) ?><?= $i === 0 ? ' – ' . e(t('výchozí jazyk webu')) : '' ?></option>
 <?php endforeach ?>
 </select><span class="napoveda"><?= e(t('Do které jazykové verze webu nové kategorie a stránky patří.')) ?></span></div></div>
 <?php endif ?>

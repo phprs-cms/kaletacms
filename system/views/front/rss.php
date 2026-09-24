@@ -1,6 +1,6 @@
 <?php
 /**
- * @var MiroCMS\Core\Settings $web
+ * @var Kaleta\Core\Settings $web
  * @var list<array<string, mixed>> $novinky
  * @var string $adresa  absolutní adresa webu s koncovým lomítkem
  */
@@ -11,8 +11,8 @@ echo '<?xml version="1.0" encoding="utf-8"?>' . "\n";
 	<title><?= e($web->get('nazev_webu')) ?></title>
 	<link><?= e($adresa) ?></link>
 	<description><?= e($web->get('popis_webu')) ?></description>
-	<language><?= e(\MiroCMS\Core\Jazyk::kod()) ?></language>
-	<generator>MiroCMS <?= e(MIROCMS_VERSION) ?></generator>
+	<language><?= e(\Kaleta\Core\Jazyk::kod()) ?></language>
+	<generator>Kaleta <?= e(KALETA_VERSION) ?></generator>
 <?php foreach ($novinky as $c): ?>
 	<item>
 		<title><?= e($c['titulek']) ?></title>

@@ -1,6 +1,6 @@
-# Šablony webu MiroCMS – pravidla pro Claude
+# Šablony webu v Kaletě – pravidla pro Claude
 
-Pracuješ ve složce šablon systému MiroCMS. **Upravovat smíš jen vlastní šablonu** – složku `layout/<vlastní-název>/`.
+Pracuješ ve složce šablon systému Kaleta. **Upravovat smíš jen vlastní šablonu** – složku `layout/<vlastní-název>/`.
 Všechno ostatní je kód systému a nemění se.
 
 ## Co se nedělá
@@ -8,7 +8,7 @@ Všechno ostatní je kód systému a nemění se.
 - Neupravuj `system/`, `admin.php`, `index.php`, `install.php`, `image/` ani vestavěnou šablonu `zakladni`. Aktualizace systému je
   přepíše a Stav systému takový zásah hlásí jako porušené jádro.
 - Nepřidávej do CMS vlastní funkce, moduly, tabulky ani úpravy databáze. Systém má být pro všechny stejný a aktualizovatelný.
-  Chybí-li funkce, patří jako námět autorům MiroCMS – ne do kódu jedné instalace.
+  Chybí-li funkce, patří jako námět autorům Kalety – ne do kódu jedné instalace.
 - Šablona je **jen prezentační vrstva**: vypisuje data, která dostane. Nesmí číst ani zapisovat soubory, volat databázi, síť ani cizí
   služby, vkládat jiné PHP soubory, vytvářet objekty nebo volat třídy systému.
 
@@ -41,7 +41,7 @@ pomocné funkce `e()`, `t()`, `datum()`, `datum_slovy()`, `slugify()` a běžné
 `system/src/Core/SablonaKontrola.php` – soubor ukládaný přes napojení na Claude, který pravidla poruší, se neuloží.
 
 Každý text pro návštěvníka obal `e()` (ochrana před XSS) a `t()` (překlad do jazyka webu). Barvy a písma ber z proměnných
-`--mc-akcent`, `--mc-pismo-titulky`, `--mc-pismo-text`; tmavý režim patří do bloku
+`--ka-akcent`, `--ka-pismo-titulky`, `--ka-pismo-text`; tmavý režim patří do bloku
 `@media (prefers-color-scheme: dark) { :root[data-tmavy] { … } }`. Žádná externí písma ani skripty z CDN.
 
 Piš moderní CSS (vrstvy `@layer`, `clamp()`, container queries, `color-mix()`) a interaktivitu bez JavaScriptu (Popover API,

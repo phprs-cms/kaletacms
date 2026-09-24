@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Stavitel\Prvky;
+namespace Kaleta\Stavitel\Prvky;
 
-use MiroCMS\Core\Antispam;
-use MiroCMS\Stavitel\Kontext;
-use MiroCMS\Stavitel\Prvek;
+use Kaleta\Core\Antispam;
+use Kaleta\Stavitel\Kontext;
+use Kaleta\Stavitel\Prvek;
 
 /**
  * Poptávkový / kontaktní formulář. Odesílá se na /formular (Front\Formulare): server vezme pole z publikované stavby
@@ -57,25 +57,25 @@ final class Formular extends Prvek
 
     public static function zakladniCss(): string
     {
-        return '.mc-formular { display: grid; gap: var(--mc-mezera-s); }
-.mc-pole { display: grid; gap: var(--mc-mezera-2xs); margin: 0; }
-.mc-pole > label { font-weight: 600; }
-.mc-pole input:not([type="checkbox"]), .mc-pole select, .mc-pole textarea { box-sizing: border-box; width: 100%; padding: 0.7em 0.9em; border: 1px solid var(--mc-barva-linka); border-radius: var(--mc-zaobleni); background: var(--mc-barva-pozadi); color: var(--mc-barva-text); font: inherit; }
-.mc-pole textarea { min-height: 8em; resize: vertical; }
-.mc-pole :focus-visible { outline: 2px solid var(--mc-barva-primarni); outline-offset: 1px; }
-.mc-pole-souhlas label { display: flex; gap: var(--mc-mezera-xs); align-items: flex-start; }
-.mc-pole-souhlas input { margin-block-start: 0.3em; accent-color: var(--mc-barva-primarni); }
-.mc-povinne { color: var(--mc-barva-primarni); }
-.mc-pole fieldset { display: grid; gap: var(--mc-mezera-2xs); margin: 0; padding: 0; border: 0; }
-.mc-pole legend { margin-block-end: var(--mc-mezera-2xs); padding: 0; font-weight: 600; }
-.mc-pole fieldset label { display: flex; gap: var(--mc-mezera-xs); align-items: center; font-weight: 400; }
-.mc-pole fieldset input { accent-color: var(--mc-barva-primarni); }
-.mc-pole [aria-invalid="true"] { border-color: #c4281c !important; }
-.mc-pole-napoveda { color: var(--mc-barva-tlumeny); font-size: var(--mc-krok--1); }
-.mc-pole-chyba { color: color-mix(in oklch, #c4281c 80%, var(--mc-barva-text)); font-size: var(--mc-krok--1); }
-.mc-formular-hotovo, .mc-formular-chyba { margin: 0; padding: var(--mc-mezera-m); border-radius: var(--mc-zaobleni); }
-.mc-formular-hotovo { background: var(--mc-barva-primarni-jemna); color: var(--mc-barva-text); }
-.mc-formular-chyba { background: color-mix(in oklch, #c4281c 12%, var(--mc-barva-pozadi)); color: color-mix(in oklch, #c4281c 80%, var(--mc-barva-text)); }';
+        return '.ka-formular { display: grid; gap: var(--ka-mezera-s); }
+.ka-pole { display: grid; gap: var(--ka-mezera-2xs); margin: 0; }
+.ka-pole > label { font-weight: 600; }
+.ka-pole input:not([type="checkbox"]), .ka-pole select, .ka-pole textarea { box-sizing: border-box; width: 100%; padding: 0.7em 0.9em; border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-pozadi); color: var(--ka-barva-text); font: inherit; }
+.ka-pole textarea { min-height: 8em; resize: vertical; }
+.ka-pole :focus-visible { outline: 2px solid var(--ka-barva-primarni); outline-offset: 1px; }
+.ka-pole-souhlas label { display: flex; gap: var(--ka-mezera-xs); align-items: flex-start; }
+.ka-pole-souhlas input { margin-block-start: 0.3em; accent-color: var(--ka-barva-primarni); }
+.ka-povinne { color: var(--ka-barva-primarni); }
+.ka-pole fieldset { display: grid; gap: var(--ka-mezera-2xs); margin: 0; padding: 0; border: 0; }
+.ka-pole legend { margin-block-end: var(--ka-mezera-2xs); padding: 0; font-weight: 600; }
+.ka-pole fieldset label { display: flex; gap: var(--ka-mezera-xs); align-items: center; font-weight: 400; }
+.ka-pole fieldset input { accent-color: var(--ka-barva-primarni); }
+.ka-pole [aria-invalid="true"] { border-color: #c4281c !important; }
+.ka-pole-napoveda { color: var(--ka-barva-tlumeny); font-size: var(--ka-krok--1); }
+.ka-pole-chyba { color: color-mix(in oklch, #c4281c 80%, var(--ka-barva-text)); font-size: var(--ka-krok--1); }
+.ka-formular-hotovo, .ka-formular-chyba { margin: 0; padding: var(--ka-mezera-m); border-radius: var(--ka-zaobleni); }
+.ka-formular-hotovo { background: var(--ka-barva-primarni-jemna); color: var(--ka-barva-text); }
+.ka-formular-chyba { background: color-mix(in oklch, #c4281c 12%, var(--ka-barva-pozadi)); color: color-mix(in oklch, #c4281c 80%, var(--ka-barva-text)); }';
     }
 
     /** Kotva formuláře (kam se po odeslání vrátí stránka): stejná jako id, které formulář dostane při vykreslení. */
@@ -102,11 +102,11 @@ final class Formular extends Prvek
         $vysledek = $r->get('formular') === $p['id'] ? $r->get('vysledek') : '';
         $id = str_contains($a, ' id="') ? '' : ' id="' . e(self::kotva($p)) . '"';
         if ($vysledek === 'ok') {
-            // data-odeslano: image/web.js ohlásí konverzi (událost mirocms:odeslano a dataLayer, když na webu je)
-            return '<div' . Text::sTridou($a, 'mc-formular-hotovo') . $id . ' role="status" data-odeslano="' . e($o['nazev']) . '"><p>' . e($o['dekujeme']) . '</p></div>';
+            // data-odeslano: image/web.js ohlásí konverzi (událost kaleta:odeslano a dataLayer, když na webu je)
+            return '<div' . Text::sTridou($a, 'ka-formular-hotovo') . $id . ' role="status" data-odeslano="' . e($o['nazev']) . '"><p>' . e($o['dekujeme']) . '</p></div>';
         }
         $k->typy['tlacitko'] = true; // tlačítko formuláře vypadá jako prvek Tlačítko
-        $html = $vysledek !== '' ? '<p class="mc-formular-chyba" role="alert">' . e(self::hlaseni($vysledek)) . '</p>' : '';
+        $html = $vysledek !== '' ? '<p class="ka-formular-chyba" role="alert">' . e(self::hlaseni($vysledek)) . '</p>' : '';
         $chybne = $vysledek === 'pole' ? $r->getInt('pole', -1) : -1;
         foreach ($o['pole'] as $i => $pole) {
             $html .= self::pole($pole, $i, $p['id'], $i === $chybne);
@@ -116,12 +116,12 @@ final class Formular extends Prvek
         // data-formular: po chybě image/web.js vrátí do polí, co návštěvník vyplnil (drží to jen jeho prohlížeč)
         $soubory = in_array('soubor', array_column($o['pole'], 'typ'), true) ? ' enctype="multipart/form-data"' : '';
 
-        return '<form' . Text::sTridou($a, 'mc-formular') . $id . ' method="post" action="' . e($k->url('formular')) . '"' . $soubory . ' data-formular="' . e($p['id']) . '"' . ($vysledek !== '' ? ' data-obnovit' : '') . '>'
+        return '<form' . Text::sTridou($a, 'ka-formular') . $id . ' method="post" action="' . e($k->url('formular')) . '"' . $soubory . ' data-formular="' . e($p['id']) . '"' . ($vysledek !== '' ? ' data-obnovit' : '') . '>'
             . '<input type="hidden" name="zdroj" value="' . e($k->zdroj) . '"><input type="hidden" name="prvek" value="' . e($p['id']) . '">'
             . '<input type="hidden" name="zpet" value="' . e($k->app->url($r->path())) . '">'
             . $antispam->pole('formular|' . $k->zdroj . '|' . $p['id'])
             . $html
-            . '<p class="mc-pole"><button class="mc-tlacitko mc-tlacitko--primarni" type="submit">' . e($o['tlacitko']) . '</button></p></form>';
+            . '<p class="ka-pole"><button class="ka-tlacitko ka-tlacitko--primarni" type="submit">' . e($o['tlacitko']) . '</button></p></form>';
     }
 
     private static function pole(array $pole, int $i, string $prvek, bool $chyba = false): string
@@ -129,13 +129,13 @@ final class Formular extends Prvek
         $id = 'f-' . $prvek . '-' . $i;
         $jmeno = 'p' . $i;
         $povinne = $pole['povinne'] ? ' required' : '';
-        $hvezda = $pole['povinne'] ? ' <span class="mc-povinne" aria-hidden="true">*</span>' : '';
+        $hvezda = $pole['povinne'] ? ' <span class="ka-povinne" aria-hidden="true">*</span>' : '';
         $popisek = e($pole['popisek']);
         // pole, které server odmítl: označené a s hláškou, na kterou odkazuje aria-describedby
         $oznaceni = $chyba ? ' aria-invalid="true" aria-describedby="' . $id . '-chyba" autofocus' : '';
-        $hlaska = $chyba ? '<span class="mc-pole-chyba" id="' . $id . '-chyba">' . e($pole['typ'] === 'email' ? t('Zadejte platnou e-mailovou adresu.') : t('Toto pole je potřeba vyplnit správně.')) . '</span>' : '';
+        $hlaska = $chyba ? '<span class="ka-pole-chyba" id="' . $id . '-chyba">' . e($pole['typ'] === 'email' ? t('Zadejte platnou e-mailovou adresu.') : t('Toto pole je potřeba vyplnit správně.')) . '</span>' : '';
         if ($pole['typ'] === 'souhlas') {
-            return '<p class="mc-pole mc-pole-souhlas"><label><input type="checkbox" name="' . $jmeno . '" value="1"' . $povinne . $oznaceni . '> <span>' . $popisek . $hvezda . '</span></label>' . $hlaska . '</p>';
+            return '<p class="ka-pole ka-pole-souhlas"><label><input type="checkbox" name="' . $jmeno . '" value="1"' . $povinne . $oznaceni . '> <span>' . $popisek . $hvezda . '</span></label>' . $hlaska . '</p>';
         }
         if ($pole['typ'] === 'volba') {
             $volby = '';
@@ -143,7 +143,7 @@ final class Formular extends Prvek
                 $volby .= '<label><input type="radio" name="' . $jmeno . '" value="' . e($m) . '"' . ($j === 0 ? $povinne . $oznaceni : '') . '> ' . e($m) . '</label>';
             }
 
-            return '<div class="mc-pole"><fieldset><legend>' . $popisek . $hvezda . '</legend>' . $volby . '</fieldset>' . $hlaska . '</div>';
+            return '<div class="ka-pole"><fieldset><legend>' . $popisek . $hvezda . '</legend>' . $volby . '</fieldset>' . $hlaska . '</div>';
         }
         $label = '<label for="' . $id . '">' . $popisek . $hvezda . '</label>';
         $vstup = match ($pole['typ']) {
@@ -153,11 +153,11 @@ final class Formular extends Prvek
             'datum' => '<input id="' . $id . '" name="' . $jmeno . '" type="date"' . $povinne . $oznaceni . '>',
             'cislo' => '<input id="' . $id . '" name="' . $jmeno . '" type="number" step="any" inputmode="decimal"' . $povinne . $oznaceni . '>',
             'soubor' => '<input id="' . $id . '" name="' . $jmeno . '" type="file" accept=".' . implode(',.', self::PRIPONY_PRILOH) . '"' . $povinne . $oznaceni . '>'
-                . '<small class="mc-pole-napoveda">' . e(t('Nejvýš %d MB: PDF, obrázek, dokument nebo ZIP.', (int) (self::MAX_PRILOHA / 1048576))) . '</small>',
+                . '<small class="ka-pole-napoveda">' . e(t('Nejvýš %d MB: PDF, obrázek, dokument nebo ZIP.', (int) (self::MAX_PRILOHA / 1048576))) . '</small>',
             default => '<input id="' . $id . '" name="' . $jmeno . '" type="' . ($pole['typ'] === 'email' ? 'email" autocomplete="email' : ($pole['typ'] === 'tel' ? 'tel" autocomplete="tel' : 'text')) . '" maxlength="300"' . $povinne . $oznaceni . '>',
         };
 
-        return '<p class="mc-pole">' . $label . $vstup . $hlaska . '</p>';
+        return '<p class="ka-pole">' . $label . $vstup . $hlaska . '</p>';
     }
 
     /** @return list<string> možnosti výběru nebo přepínačů */

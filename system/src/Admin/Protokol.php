@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Admin;
+namespace Kaleta\Admin;
 
-use MiroCMS\Core\App;
+use Kaleta\Core\App;
 
 /**
  * Protokol změn: kdo, kdy a co v administraci udělal. Záznamy starší než půl roku se mažou.

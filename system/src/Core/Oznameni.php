@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Core;
+namespace Kaleta\Core;
 
 /**
  * Oznámení o vydání novinky: webhook a IndexNow. Volá se hned po vydání v administraci a také po návštěvách
@@ -38,7 +38,7 @@ final class Oznameni
         $db = $app->db();
         // naplánované stránky: skrytá stránka se v zadaný čas sama zveřejní
         if ($db->run('UPDATE {stranky} SET zobrazit = 1, zverejnit_od = NULL WHERE zverejnit_od IS NOT NULL AND zverejnit_od <= NOW() AND smazano IS NULL')->rowCount() > 0) {
-            \MiroCMS\Front\Cache::vymaz();
+            \Kaleta\Front\Cache::vymaz();
         }
         $clanky = $db->all('SELECT idc, seo_link, jazyk, noindex FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND oznameno IS NULL ORDER BY datum LIMIT 5');
         foreach ($clanky as $c) {
@@ -46,12 +46,12 @@ final class Oznameni
             if ($db->run('UPDATE {novinky} SET oznameno = NOW() WHERE idc = ? AND oznameno IS NULL', [$c['idc']])->rowCount() === 0) {
                 continue;
             }
-            \MiroCMS\Front\Cache::vymaz(); // naplánovaná novinka právě vyšla - výpis z cache ji ještě nezná
+            \Kaleta\Front\Cache::vymaz(); // naplánovaná novinka právě vyšla - výpis z cache ji ještě nezná
             if ($c['noindex'] || (int) $db->value('SELECT datum < NOW() - INTERVAL 2 DAY FROM {novinky} WHERE idc = ?', [$c['idc']]) === 1) {
                 continue;
             }
             Webhook::clanekVydan($app, (int) $c['idc']);
-            (new \MiroCMS\Front\Seo($app))->indexNow($app->urlNovinky($c['seo_link'], $c['jazyk']));
+            (new \Kaleta\Front\Seo($app))->indexNow($app->urlNovinky($c['seo_link'], $c['jazyk']));
         }
     }
 }

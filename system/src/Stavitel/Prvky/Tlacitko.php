@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Stavitel\Prvky;
+namespace Kaleta\Stavitel\Prvky;
 
-use MiroCMS\Stavitel\Kontext;
-use MiroCMS\Stavitel\Prvek;
+use Kaleta\Stavitel\Kontext;
+use Kaleta\Stavitel\Prvek;
 
 /** Tlačítko = odkaz vzhledu tlačítka. Varianty z design systému: hlavní, doplňkové, obrys, textový odkaz. */
 final class Tlacitko extends Prvek
@@ -29,21 +29,21 @@ final class Tlacitko extends Prvek
 
     public static function zakladniCss(): string
     {
-        return '.mc-tlacitko { display: inline-flex; align-items: center; justify-content: center; gap: 0.5em; padding: 0.75em 1.35em; border: 2px solid transparent; border-radius: var(--mc-zaobleni); font: 600 var(--mc-krok-0) / 1.2 var(--mc-pismo-text); text-decoration: none; cursor: pointer; transition: background-color 0.15s, color 0.15s, border-color 0.15s; }
-.mc-tlacitko--primarni { background: var(--mc-barva-primarni); color: var(--mc-barva-na-primarni); }
-.mc-tlacitko--primarni:hover { background: color-mix(in oklch, var(--mc-barva-primarni) 85%, black); }
-.mc-tlacitko--sekundarni { background: var(--mc-barva-primarni-jemna); color: var(--mc-barva-primarni); }
-.mc-tlacitko--sekundarni:hover { background: color-mix(in oklch, var(--mc-barva-primarni) 20%, var(--mc-barva-pozadi)); }
-.mc-tlacitko--obrys { border-color: currentColor; color: inherit; background: transparent; }
-.mc-tlacitko--obrys:hover { background: color-mix(in oklch, currentColor 8%, transparent); }
-.mc-tlacitko--odkaz { padding-inline: 0; color: var(--mc-barva-primarni); text-decoration: underline; text-underline-offset: 0.2em; }';
+        return '.ka-tlacitko { display: inline-flex; align-items: center; justify-content: center; gap: 0.5em; padding: 0.75em 1.35em; border: 2px solid transparent; border-radius: var(--ka-zaobleni); font: 600 var(--ka-krok-0) / 1.2 var(--ka-pismo-text); text-decoration: none; cursor: pointer; transition: background-color 0.15s, color 0.15s, border-color 0.15s; }
+.ka-tlacitko--primarni { background: var(--ka-barva-primarni); color: var(--ka-barva-na-primarni); }
+.ka-tlacitko--primarni:hover { background: color-mix(in oklch, var(--ka-barva-primarni) 85%, black); }
+.ka-tlacitko--sekundarni { background: var(--ka-barva-primarni-jemna); color: var(--ka-barva-primarni); }
+.ka-tlacitko--sekundarni:hover { background: color-mix(in oklch, var(--ka-barva-primarni) 20%, var(--ka-barva-pozadi)); }
+.ka-tlacitko--obrys { border-color: currentColor; color: inherit; background: transparent; }
+.ka-tlacitko--obrys:hover { background: color-mix(in oklch, currentColor 8%, transparent); }
+.ka-tlacitko--odkaz { padding-inline: 0; color: var(--ka-barva-primarni); text-decoration: underline; text-underline-offset: 0.2em; }';
     }
 
     public static function vykresli(array $p, string $a, string $deti, Kontext $k): string
     {
         $o = $p['obsah'];
 
-        return '<a' . Text::sTridou($a, 'mc-tlacitko mc-tlacitko--' . $o['varianta']) . ' href="' . e($o['odkaz'] !== '' ? $o['odkaz'] : '#') . '"'
+        return '<a' . Text::sTridou($a, 'ka-tlacitko ka-tlacitko--' . $o['varianta']) . ' href="' . e($o['odkaz'] !== '' ? $o['odkaz'] : '#') . '"'
             . ($o['nove_okno'] ? ' target="_blank" rel="noopener"' : '') . '>' . e($o['text']) . '</a>';
     }
 }

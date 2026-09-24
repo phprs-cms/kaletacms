@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Stavitel\Prvky;
+namespace Kaleta\Stavitel\Prvky;
 
-use MiroCMS\Stavitel\Kontext;
-use MiroCMS\Stavitel\Prvek;
-use MiroCMS\Stavitel\Stavba;
+use Kaleta\Stavitel\Kontext;
+use Kaleta\Stavitel\Prvek;
+use Kaleta\Stavitel\Stavba;
 
 /**
  * Karusel: vodorovný pás snímků (vnořené prvky) s přichycením při posunu – na telefonu prstem, na počítači šipkami
@@ -42,15 +42,15 @@ final class Karusel extends Prvek
 
     public static function zakladniCss(): string
     {
-        return '.mc-karusel { position: relative; }
-.mc-karusel-pas { display: flex; gap: var(--mc-mezera-m); overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-behavior: smooth; scrollbar-width: thin; padding-block-end: var(--mc-mezera-2xs); }
-.mc-karusel-pas > * { flex: 0 0 calc((100% - (var(--mc-naraz) - 1) * var(--mc-mezera-m)) / var(--mc-naraz)); scroll-snap-align: start; min-width: 0; }
-@media (max-width: 767px) { .mc-karusel-pas > * { flex-basis: 85%; } }
-.mc-karusel-sipky { display: flex; justify-content: flex-end; gap: var(--mc-mezera-2xs); margin-block-start: var(--mc-mezera-xs); }
-.mc-karusel-sipky button { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border: 1px solid var(--mc-barva-linka); border-radius: 50%; background: var(--mc-barva-pozadi); color: var(--mc-barva-text); font-size: 1.2em; cursor: pointer; }
-.mc-karusel-sipky button:disabled { opacity: 0.35; cursor: default; }
-.mc-karusel:not([data-zapnuto]) .mc-karusel-sipky { display: none; }
-@media (prefers-reduced-motion: reduce) { .mc-karusel-pas { scroll-behavior: auto; } }';
+        return '.ka-karusel { position: relative; }
+.ka-karusel-pas { display: flex; gap: var(--ka-mezera-m); overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-behavior: smooth; scrollbar-width: thin; padding-block-end: var(--ka-mezera-2xs); }
+.ka-karusel-pas > * { flex: 0 0 calc((100% - (var(--ka-naraz) - 1) * var(--ka-mezera-m)) / var(--ka-naraz)); scroll-snap-align: start; min-width: 0; }
+@media (max-width: 767px) { .ka-karusel-pas > * { flex-basis: 85%; } }
+.ka-karusel-sipky { display: flex; justify-content: flex-end; gap: var(--ka-mezera-2xs); margin-block-start: var(--ka-mezera-xs); }
+.ka-karusel-sipky button { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border: 1px solid var(--ka-barva-linka); border-radius: 50%; background: var(--ka-barva-pozadi); color: var(--ka-barva-text); font-size: 1.2em; cursor: pointer; }
+.ka-karusel-sipky button:disabled { opacity: 0.35; cursor: default; }
+.ka-karusel:not([data-zapnuto]) .ka-karusel-sipky { display: none; }
+@media (prefers-reduced-motion: reduce) { .ka-karusel-pas { scroll-behavior: auto; } }';
     }
 
     public static function vykresli(array $p, string $a, string $deti, Kontext $k): string
@@ -58,9 +58,9 @@ final class Karusel extends Prvek
         $o = $p['obsah'];
         $popis = $o['popis'] !== '' ? ' aria-label="' . e($o['popis']) . '"' : '';
 
-        return '<' . $p['znacka'] . Text::sTridou($a, 'mc-karusel') . ' data-karusel aria-roledescription="' . e(t('karusel')) . '"' . $popis . ' style="--mc-naraz:' . (int) $o['naraz'] . '">'
-            . '<div class="mc-karusel-pas" tabindex="0">' . $deti . '</div>'
-            . '<div class="mc-karusel-sipky"><button type="button" data-krok="-1" aria-label="' . e(t('Předchozí')) . '">‹</button><button type="button" data-krok="1" aria-label="' . e(t('Další')) . '">›</button></div>'
+        return '<' . $p['znacka'] . Text::sTridou($a, 'ka-karusel') . ' data-karusel aria-roledescription="' . e(t('karusel')) . '"' . $popis . ' style="--ka-naraz:' . (int) $o['naraz'] . '">'
+            . '<div class="ka-karusel-pas" tabindex="0">' . $deti . '</div>'
+            . '<div class="ka-karusel-sipky"><button type="button" data-krok="-1" aria-label="' . e(t('Předchozí')) . '">‹</button><button type="button" data-krok="1" aria-label="' . e(t('Další')) . '">›</button></div>'
             . '</' . $p['znacka'] . '>';
     }
 }

@@ -3,7 +3,7 @@
 // Instalátor anglicky. Klíčem je český text z views/install a Install\Installer.
 
 return [
-    'Instalace MiroCMS' => 'MiroCMS installation',
+    'Instalace Kalety' => 'Kaleta installation',
     'Tři krátké kroky a váš web běží. Vše lze později změnit v administraci.' => 'Three short steps and your website is running. Everything can be changed later in the administration.',
     'Kontrola serveru' => 'Server check',
     'Server nesplňuje požadavky. Opravte položky označené křížkem a obnovte stránku.' => 'The server does not meet the requirements. Fix the items marked with a cross and reload the page.',
@@ -24,9 +24,9 @@ return [
     'Heslo znovu' => 'Password again',
     'Časové pásmo' => 'Time zone',
     'Podle něj se vydávají naplánované novinky a zobrazují data.' => 'Scheduled news posts are published and dates are shown according to it.',
-    'Nainstalovat MiroCMS' => 'Install MiroCMS',
+    'Nainstalovat Kaletu' => 'Install Kaleta',
     'Vytvoří tabulky v databázi a soubor config.php.' => 'Creates the database tables and the config.php file.',
-    'MiroCMS je už nainstalován' => 'MiroCMS is already installed',
+    'Kaleta je už nainstalovaná' => 'Kaleta is already installed',
     'Soubor config.php existuje, instalátor proto nic nemění.' => 'The config.php file exists, so the installer changes nothing.',
     'Hotovo, web běží' => 'Done, your website is running',
     'Databáze je připravena a konfigurace zapsána.' => 'The database is ready and the configuration has been written.',
@@ -40,7 +40,7 @@ return [
     'práce s češtinou' => 'working with accented text (UTF-8)',
     'kvůli vytvoření config.php' => 'needed to create config.php',
     'logy a cache' => 'logs and cache',
-    'Předpona: malá písmena, číslice a podtržítko, nejvýše 16 znaků (např. mc_).' => 'Prefix: lowercase letters, digits and underscore, at most 16 characters (e.g. mc_).',
+    'Předpona: malá písmena, číslice a podtržítko, nejvýše 16 znaků (např. ka_).' => 'Prefix: lowercase letters, digits and underscore, at most 16 characters (e.g. ka_).',
     'Vyplňte název databáze a uživatele.' => 'Fill in the database name and user.',
     'Přihlašovací jméno: 2-40 znaků, písmena bez diakritiky, číslice, tečka, pomlčka, podtržítko.' => 'Username: 2–40 characters, letters without accents, digits, dot, hyphen, underscore.',
     'Heslo musí mít alespoň 10 znaků.' => 'The password must be at least 10 characters long.',
@@ -59,7 +59,7 @@ return [
     'Kontakt' => 'Contact',
     'Adresa, telefon, e-mail a otevírací doba.' => 'Address, phone, e-mail and opening hours.',
     'Aktuality' => 'News',
-    'Vítejte v MiroCMS' => 'Welcome to MiroCMS',
+    'Vítejte v Kaletě' => 'Welcome to Kaleta',
     'Web je nainstalovaný a připravený. Tuto novinku můžete v administraci upravit nebo smazat.' => 'The website is installed and ready. You can edit or delete this news post in the administration.',
     'Do administrace se dostanete na adrese admin.php. Na přehledu vás provedou První kroky: dejte webu tvář, vyplňte údaje o firmě a připravte stránky.' => 'The administration is at admin.php. On the dashboard, First steps will guide you: give the website its look, fill in your company details and prepare the pages.',
     'Začít s webem' => 'Start with a website',

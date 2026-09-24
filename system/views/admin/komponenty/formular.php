@@ -2,12 +2,12 @@
 /**
  * Název a vlastnosti komponenty.
  *
- * @var MiroCMS\Core\App $app
- * @var MiroCMS\Admin\Moduly\Komponenty $modul
+ * @var Kaleta\Core\App $app
+ * @var Kaleta\Admin\Moduly\Komponenty $modul
  * @var string $csrf
  * @var array<string, mixed> $k
  */
-use MiroCMS\Stavitel\Komponenty;
+use Kaleta\Stavitel\Komponenty;
 
 $vlastnosti = array_merge($k['vlastnosti'], array_fill(0, 3, ['klic' => '', 'popisek' => '', 'typ' => 'text', 'vychozi' => '']));
 ?>

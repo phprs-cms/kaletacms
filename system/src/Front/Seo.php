@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Front;
+namespace Kaleta\Front;
 
-use MiroCMS\Core\App;
+use Kaleta\Core\App;
 
 /**
  * SEO, GEO, měření a souhlasy: robots.txt, sitemap.xml, llms.txt, Markdown verze novinky,
@@ -56,7 +56,7 @@ final class Seo
             . ($zmena !== null ? '<lastmod>' . date('c', strtotime($zmena)) . '</lastmod>' : '') . '<priority>' . $priorita . '</priority></url>';
 
         // jen zapnuté jazykové verze; obsah vypnutého jazyka na webu není
-        $jazyky = ['', ...\MiroCMS\Core\Jazyk::dalsi($this->app->settings())];
+        $jazyky = ['', ...\Kaleta\Core\Jazyk::dalsi($this->app->settings())];
         $vJazyku = ' AND jazyk IN (' . implode(',', array_fill(0, count($jazyky), '?')) . ')';
         $xml = [$url('', null, '1.0')];
         foreach (array_slice($jazyky, 1) as $jazyk) {
@@ -96,7 +96,7 @@ final class Seo
 
         return [
             'version' => 'https://jsonfeed.org/version/1.1', 'title' => $s->get('nazev_webu'), 'description' => $s->get('popis_webu'),
-            'home_page_url' => $this->web, 'feed_url' => $this->web . 'feed.json', 'language' => \MiroCMS\Core\Jazyk::kod(),
+            'home_page_url' => $this->web, 'feed_url' => $this->web . 'feed.json', 'language' => \Kaleta\Core\Jazyk::kod(),
             'items' => array_map(fn (array $c): array => array_filter([
                 'id' => 'novinka-' . $c['idc'], 'url' => $this->web . 'novinky/' . $c['seo_link'], 'title' => $c['titulek'],
                 'summary' => trim(strip_tags($c['uvod'])), 'content_html' => $c['uvod'] . $c['text'],
@@ -137,11 +137,11 @@ final class Seo
         }
         $radky[] = '## ' . t('Stránky');
         $uvod = $s->int('titulni_stranka');
-        foreach ($db->all('SELECT ids, titulek, seo_link, popis FROM {stranky} WHERE zobrazit = 1 AND jazyk = ? ORDER BY poradi, titulek', [\MiroCMS\Core\Jazyk::sloupecWebu()]) as $r) {
+        foreach ($db->all('SELECT ids, titulek, seo_link, popis FROM {stranky} WHERE zobrazit = 1 AND jazyk = ? ORDER BY poradi, titulek', [\Kaleta\Core\Jazyk::sloupecWebu()]) as $r) {
             $radky[] = '- [' . $r['titulek'] . '](' . $this->web . ((int) $r['ids'] === $uvod ? '' : $r['seo_link']) . ')' . ($r['popis'] !== '' ? ': ' . $r['popis'] : '');
         }
         array_push($radky, '', '## ' . t('Novinky'));
-        foreach ($db->all('SELECT titulek, seo_link, uvod FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND noindex = 0 AND smazano IS NULL AND jazyk = ? ORDER BY datum DESC LIMIT 30', [\MiroCMS\Core\Jazyk::sloupecWebu()]) as $c) {
+        foreach ($db->all('SELECT titulek, seo_link, uvod FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND noindex = 0 AND smazano IS NULL AND jazyk = ? ORDER BY datum DESC LIMIT 30', [\Kaleta\Core\Jazyk::sloupecWebu()]) as $c) {
             $radky[] = '- [' . $c['titulek'] . '](' . $this->web . 'novinky/' . $c['seo_link'] . $md . '): ' . mb_strimwidth(trim(strip_tags($c['uvod'])), 0, 200, '…');
         }
 
@@ -186,7 +186,7 @@ final class Seo
             $h[] = '<meta property="og:image" content="' . e($this->absolutni($s->get('og_obrazek'))) . '">';
         }
         // jazykové verze: hreflang jen na existující překlady (novinka, stránka, kategorie), na úvodu na úvod každé verze
-        $vychozi = \MiroCMS\Core\Jazyk::vychozi($s);
+        $vychozi = \Kaleta\Core\Jazyk::vychozi($s);
         foreach ($meta['jazyky'] ?? [] as $kod => $j) {
             if ($j['preklad'] || ($meta['hlavni'] ?? false)) {
                 $h[] = '<link rel="alternate" hreflang="' . e($kod) . '" href="' . e($this->app->request->origin() . $j['url']) . '">';
@@ -196,7 +196,7 @@ final class Seo
                 }
             }
         }
-        $h[] = '<meta property="og:locale" content="' . \MiroCMS\Core\Jazyk::DOSTUPNE[\MiroCMS\Core\Jazyk::kod()][1] . '">';
+        $h[] = '<meta property="og:locale" content="' . \Kaleta\Core\Jazyk::DOSTUPNE[\Kaleta\Core\Jazyk::kod()][1] . '">';
         if (($meta['popis'] ?? '') !== '') {
             $h[] = '<meta property="og:description" content="' . e($meta['popis']) . '">';
         }
@@ -208,10 +208,10 @@ final class Seo
             $h[] = '<script type="application/ld+json">' . json_encode($this->strukturovanaData($titulek, $meta, $clanek), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) . '</script>';
         }
         // design systém (tokeny a pořadí vrstev kaskády) a styl stavby stránky, pokud jde o stránku ze stavitele
-        $h[] = '<style>' . \MiroCMS\Stavitel\DesignSystem::css(\MiroCMS\Stavitel\DesignSystem::nacti($s), $this->app->request->basePath()) . ($meta['css'] ?? '') . '</style>';
+        $h[] = '<style>' . \Kaleta\Stavitel\DesignSystem::css(\Kaleta\Stavitel\DesignSystem::nacti($s), $this->app->request->basePath()) . ($meta['css'] ?? '') . '</style>';
         $h[] = Identita::hlava($s, $this->app->request->basePath());
         // společné prvky webu (fotogalerie, prohlížečka fotek, video, sdílení…) pro všechny šablony
-        $verze = rawurlencode(MIROCMS_VERSION);
+        $verze = rawurlencode(KALETA_VERSION);
         $h[] = '<link rel="stylesheet" href="' . e($this->app->url('image/web.css')) . '?v=' . $verze . '">';
         $h[] = '<script src="' . e($this->app->url('image/web.js')) . '?v=' . $verze . '" defer' . self::textySkriptu() . '></script>';
         $h[] = $this->mereni();
@@ -252,7 +252,7 @@ final class Seo
         if ($rezim !== 'vestavena' || (!$this->meriSCookies() && !$maMarketing)) {
             return $html;
         }
-        $view = new \MiroCMS\Core\View([MIROCMS_SYSTEM . '/views/front']);
+        $view = new \Kaleta\Core\View([KALETA_SYSTEM . '/views/front']);
 
         return $html . $view->render('cookies', [
             'text' => $s->get('cookies_text'),
@@ -322,7 +322,7 @@ final class Seo
         if ($clanek === null) {
             $graf = [
                 ['@type' => 'WebSite', '@id' => $this->web . '#web', 'name' => $s->get('nazev_webu'), 'url' => $this->web,
-                    'description' => $s->get('popis_webu'), 'inLanguage' => \MiroCMS\Core\Jazyk::kod(), 'publisher' => ['@id' => $vydavatel['@id']],
+                    'description' => $s->get('popis_webu'), 'inLanguage' => \Kaleta\Core\Jazyk::kod(), 'publisher' => ['@id' => $vydavatel['@id']],
                     'potentialAction' => ['@type' => 'SearchAction', 'target' => $this->web . 'hledani?q={q}', 'query-input' => 'required name=q']],
                 $vydavatel,
             ];
@@ -356,7 +356,7 @@ final class Seo
                 'articleSection' => $clanek['tema_jm'],
                 'keywords' => implode(', ', array_column($clanek['stitky'] ?? [], 'nazev')) ?: null,
                 'mainEntityOfPage' => $this->web . 'novinky/' . $clanek['seo_link'],
-                'inLanguage' => \MiroCMS\Core\Jazyk::kod(),
+                'inLanguage' => \Kaleta\Core\Jazyk::kod(),
             ]),
             ...($this->faqData($clanek)),
             ['@type' => 'BreadcrumbList', 'itemListElement' => [

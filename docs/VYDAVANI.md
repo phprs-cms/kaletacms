@@ -1,6 +1,6 @@
-# Vydávání MiroCMS a podpisové klíče
+# Vydávání Kalety a podpisové klíče
 
-Instalace MiroCMS přijmou aktualizaci jen tehdy, když ji podepsal vydavatel. Bezpečnostní vydání se při výchozím nastavení
+Instalace Kalety přijmou aktualizaci jen tehdy, když ji podepsal vydavatel. Bezpečnostní vydání se při výchozím nastavení
 instalují **sama, bez kliknutí správce** – podpisový klíč je proto nejcitlivější věc v celém projektu. Tenhle dokument říká,
 kde klíče leží, jak se vydává a co dělat, když se klíč ztratí nebo unikne.
 
@@ -21,7 +21,7 @@ za bezpečnostní a vynutit jeho automatickou instalaci.
 
 Soukromé klíče **nikdy** nepatří do gitu (hlídá `.gitignore`), do balíčku ani do cloudové synchronizace. Pozor: pokud složka
 projektu leží v synchronizované složce (iCloud Drive, Dropbox), synchronizuje se i `tools/klice/` – přesuňte klíče jinam
-a do `tools/klice/` dejte jen symbolický odkaz, nebo klíč předávejte proměnnou prostředí `MIROCMS_KLIC`.
+a do `tools/klice/` dejte jen symbolický odkaz, nebo klíč předávejte proměnnou prostředí `KALETA_KLIC`.
 
 ## Založení záložního klíče (jednou, před prvním veřejným vydáním)
 
@@ -35,9 +35,9 @@ php tools/vydani.php --novy-klic=zalozni
 
 ## Běžné vydání
 
-1. V `system/bootstrap.php` zvyšte `MIROCMS_VERSION`, změnu commitněte a označte tagem `vX.Y.Z`.
+1. V `system/bootstrap.php` zvyšte `KALETA_VERSION`, změnu commitněte a označte tagem `vX.Y.Z`.
 2. `php tools/vydani.php X.Y.Z --url=<adresa ZIPu v GitHub Releases> --zmena="…" [--bezpecnostni]`
-3. `dist/mirocms-X.Y.Z.zip` nahrajte do GitHub Releases, `dist/aktualizace.json` na `https://mirocms.eu/aktualizace.json`.
+3. `dist/kaleta-X.Y.Z.zip` nahrajte do GitHub Releases, `dist/aktualizace.json` na `https://kaleta.example/aktualizace.json`.
 4. Na zkušební instalaci ověřte, že se aktualizace nabídne a nainstaluje.
 
 `--bezpecnostni` používejte jen pro skutečné bezpečnostní opravy: taková vydání se instalují sama a správci dostanou e-mail.
@@ -49,7 +49,7 @@ všech instalací by stála na zabezpečení jednoho účtu. CI sestavuje a test
 
 1. Starý `tools/klice/vydavatel.key` přesuňte do archivu (nemažte ho, dokud výměna neproběhne).
 2. `php tools/vydani.php --novy-klic=provozni` – do `system/aktualizace.pub` přibude nový řádek. Starý řádek zatím ponechte.
-3. Vydejte verzi podepsanou **starým** klíčem (dočasně ho vraťte na místo, nebo použijte `MIROCMS_KLIC`). Přinese instalacím nový klíč.
+3. Vydejte verzi podepsanou **starým** klíčem (dočasně ho vraťte na místo, nebo použijte `KALETA_KLIC`). Přinese instalacím nový klíč.
 4. V dalším vydání, už podepsaném novým klíčem, starý řádek z `system/aktualizace.pub` odstraňte.
 
 ## Ztráta provozního klíče
@@ -62,7 +62,7 @@ všech instalací by stála na zabezpečení jednoho účtu. CI sestavuje a test
 ## Únik provozního klíče (nebo jen podezření)
 
 Postup je stejný jako při ztrátě, jen **hned** a vydání označte `--bezpecnostni`, aby se instalovalo samo. Dokud instalace
-aktualizaci nepřijmou, kompromitovanému klíči věří – útočník ale k útoku potřebuje ještě ovládnout `mirocms.eu/aktualizace.json`.
+aktualizaci nepřijmou, kompromitovanému klíči věří – útočník ale k útoku potřebuje ještě ovládnout `kaleta.example/aktualizace.json`.
 Proto zároveň změňte přístupy k hostingu webu a ke GitHubu a uživatele informujte.
 
 Unikne-li **záložní** klíč, založte nový (`--novy-klic=zalozni` po přesunutí starého souboru), starý řádek odstraňte a vydejte
@@ -80,7 +80,7 @@ jen včas řekne, že je potřeba jednat:
 
 | kontrola | co odhalí |
 | --- | --- |
-| **Kanál aktualizací** (`tools/over-kanal.php`) | `aktualizace.json` na mirocms.eu není podepsaný naším klíčem, balíček neodpovídá otisku nebo nese cizí veřejný klíč – tedy podvržení nebo poškození toho, co si instalace stahují |
+| **Kanál aktualizací** (`tools/over-kanal.php`) | `aktualizace.json` na kaleta.example není podepsaný naším klíčem, balíček neodpovídá otisku nebo nese cizí veřejný klíč – tedy podvržení nebo poškození toho, co si instalace stahují |
 | **Testy** na podporovaných verzích PHP a na připravované (`nightly`, smí selhat) | změnu v PHP, která systém rozbije, dřív než dorazí na hostingy |
 | **Statická analýza** (Semgrep s denně čerstvými pravidly, Gitleaks) | nově popsané zranitelné vzory v našem kódu; nálezy jdou do *Security → Code scanning*, kam vidí jen správci – záznam běhu je záměrně tichý, protože je u veřejného repozitáře veřejný |
 | **Web a demo zvenku** | chybějící bezpečnostní hlavičky, otevřený `config.php`, `system/`, `storage/`, `.git/` |

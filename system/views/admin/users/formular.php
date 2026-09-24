@@ -2,7 +2,7 @@
 /**
  * Uživatel: jméno, přihlášení a role. Oprávnění plynou z role; ruční nastavení je schované v „Podrobném nastavení“.
  *
- * @var MiroCMS\Admin\Moduly\Autori $modul
+ * @var Kaleta\Admin\Moduly\Autori $modul
  * @var string $csrf
  * @var array<string, mixed> $autor
  * @var array<string, string> $chyby

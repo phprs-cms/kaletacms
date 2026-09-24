@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Stavitel\Prvky;
+namespace Kaleta\Stavitel\Prvky;
 
-use MiroCMS\Stavitel\Kontext;
-use MiroCMS\Stavitel\Prvek;
+use Kaleta\Stavitel\Kontext;
+use Kaleta\Stavitel\Prvek;
 
 /** Logo webu z Vzhledu (bez něj název webu) jako odkaz na úvodní stránku. Výšku mění styl „Výška“. */
 final class Logo extends Prvek
@@ -25,8 +25,8 @@ final class Logo extends Prvek
 
     public static function zakladniCss(): string
     {
-        return '.mc-logo { display: inline-flex; align-items: center; gap: var(--mc-mezera-xs); height: 2.75rem; color: inherit; font-family: var(--mc-pismo-titulky); font-size: var(--mc-krok-1); font-weight: 800; line-height: 1.1; text-decoration: none; }
-.mc-logo img { display: block; width: auto; height: 100%; max-width: none; }';
+        return '.ka-logo { display: inline-flex; align-items: center; gap: var(--ka-mezera-xs); height: 2.75rem; color: inherit; font-family: var(--ka-pismo-titulky); font-size: var(--ka-krok-1); font-weight: 800; line-height: 1.1; text-decoration: none; }
+.ka-logo img { display: block; width: auto; height: 100%; max-width: none; }';
     }
 
     public static function vykresli(array $p, string $a, string $deti, Kontext $k): string
@@ -39,6 +39,6 @@ final class Logo extends Prvek
             ? '<img src="' . e($k->obrazek($logo)) . '" alt="' . e($p['obsah']['nazev'] ? '' : $nazev) . '">' . ($p['obsah']['nazev'] ? '<span>' . e($nazev) . '</span>' : '')
             : e($nazev);
 
-        return '<a' . Text::sTridou($a, 'mc-logo') . ' href="' . e($uvod) . '"' . ($k->cesta === $uvod ? ' aria-current="page"' : '') . '>' . $obsah . '</a>';
+        return '<a' . Text::sTridou($a, 'ka-logo') . ' href="' . e($uvod) . '"' . ($k->cesta === $uvod ? ' aria-current="page"' : '') . '>' . $obsah . '</a>';
     }
 }

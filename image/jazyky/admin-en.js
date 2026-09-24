@@ -1,5 +1,5 @@
-/* MiroCMS - překlad textů skriptů administrace (en). Klíčem je český text ze skriptů (funkce T()). */
-window.MIROCMS_PREKLAD = {
+/* Kaleta - překlad textů skriptů administrace (en). Klíčem je český text ze skriptů (funkce T()). */
+window.KALETA_PREKLAD = {
 	"rozepsaný text uložen i na serveru ": "draft also saved on the server at ",
 	"Na serveru je neuložená rozepsaná verze z ": "The server holds an unsaved draft from ",
 

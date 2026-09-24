@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Front;
+namespace Kaleta\Front;
 
-use MiroCMS\Core\App;
+use Kaleta\Core\App;
 
 /**
  * Doplňky textu novinky: video vložené adresou, osnova z mezititulků, medailonek autora a odkazy pro sdílení.
@@ -70,7 +70,7 @@ final class TextNovinky
         }, $html) ?? $html;
 
         return count($polozky) < 3 ? $html
-            : '<nav class="mc-osnova" aria-label="' . e(t('Obsah')) . '"><strong>' . e(t('Obsah')) . '</strong><ol>' . implode('', $polozky) . '</ol></nav>' . $html;
+            : '<nav class="ka-osnova" aria-label="' . e(t('Obsah')) . '"><strong>' . e(t('Obsah')) . '</strong><ol>' . implode('', $polozky) . '</ol></nav>' . $html;
     }
 
     /**
@@ -93,7 +93,7 @@ final class TextNovinky
             'WhatsApp' => 'https://wa.me/?text=' . $t . '%20' . $u,
             'E-mail' => 'mailto:?subject=' . $t . '&body=' . $u,
         ];
-        $html = '<aside class="mc-sdileni" aria-label="' . e(t('Sdílet')) . '"><span>' . e(t('Sdílet')) . '</span>'
+        $html = '<aside class="ka-sdileni" aria-label="' . e(t('Sdílet')) . '"><span>' . e(t('Sdílet')) . '</span>'
             . '<button type="button" data-sdilet data-adresa="' . e($adresa) . '" data-titulek="' . e((string) $clanek['titulek']) . '" hidden>' . e(t('Sdílet…')) . '</button>';
         foreach ($site as $nazev => $odkaz) {
             $html .= '<a href="' . e($odkaz) . '"' . ($nazev === 'E-mail' ? '' : ' target="_blank" rel="noopener nofollow"') . '>' . e($nazev) . '</a>';
@@ -115,9 +115,9 @@ final class TextNovinky
         $foto = (string) $clanek['autor_foto'];
         $foto = $foto === '' ? '' : (preg_match('#^(https?:)?/#i', $foto) ? $foto : $this->app->request->basePath() . '/' . $foto);
 
-        return '<aside class="mc-autor" aria-label="' . e(t('O autorovi')) . '">'
+        return '<aside class="ka-autor" aria-label="' . e(t('O autorovi')) . '">'
             . ($foto !== '' ? '<img src="' . e($foto) . '" alt="" width="72" height="72" loading="lazy">' : '')
-            . '<div><strong class="mc-autor-jmeno">' . e($clanek['autor_jm']) . '</strong>'
+            . '<div><strong class="ka-autor-jmeno">' . e($clanek['autor_jm']) . '</strong>'
             . ($clanek['autor_pozice'] !== '' ? '<span>' . e($clanek['autor_pozice']) . '</span>' : '')
             . '<p>' . nl2br(e(trim((string) $clanek['autor_bio']))) . '</p></div></aside>';
     }
@@ -131,10 +131,10 @@ final class TextNovinky
         $adresa = preg_match('#^(https?:)?/#i', $url) ? $url : $zaklad . '/' . $url;
         $pripona = strtolower(pathinfo((string) parse_url($url, PHP_URL_PATH), PATHINFO_EXTENSION));
         if (in_array($pripona, ['mp3', 'm4a', 'ogg', 'oga', 'wav', 'aac'], true)) {
-            return '<figure class="mc-medium mc-medium-zvuk"><audio controls preload="none" src="' . e($adresa) . '"></audio></figure>';
+            return '<figure class="ka-medium ka-medium-zvuk"><audio controls preload="none" src="' . e($adresa) . '"></audio></figure>';
         }
         if (in_array($pripona, ['mp4', 'webm', 'm4v'], true)) {
-            return '<figure class="mc-medium"><video controls preload="metadata" playsinline src="' . e($adresa) . '"></video></figure>';
+            return '<figure class="ka-medium"><video controls preload="metadata" playsinline src="' . e($adresa) . '"></video></figure>';
         }
         $vlozit = match (true) {
             (bool) preg_match('#(?:youtube\.com/(?:watch\?(?:.*&)?v=|shorts/|live/|embed/)|youtu\.be/)([A-Za-z0-9_-]{11})#', $url, $m) => 'https://www.youtube-nocookie.com/embed/' . $m[1] . '?autoplay=1',
@@ -145,10 +145,10 @@ final class TextNovinky
             return '';
         }
         if ($vlozit === '') {
-            return '<div class="mc-medium-odkaz"><a class="mc-tl" href="' . e($adresa) . '" rel="noopener">▶ ' . e(t('Přehrát')) . '</a></div>';
+            return '<div class="ka-medium-odkaz"><a class="ka-tl" href="' . e($adresa) . '" rel="noopener">▶ ' . e(t('Přehrát')) . '</a></div>';
         }
         // přehrávač cizí služby se vloží až po kliknutí: do té doby se k ní nic neposílá (soukromí, rychlost)
-        return '<figure class="mc-medium"><button type="button" class="mc-medium-spustit" data-vlozit="' . e($vlozit) . '" data-titulek="' . e($titulek) . '">'
+        return '<figure class="ka-medium"><button type="button" class="ka-medium-spustit" data-vlozit="' . e($vlozit) . '" data-titulek="' . e($titulek) . '">'
             . '<span aria-hidden="true">▶</span> ' . e(t('Přehrát video')) . '<small>' . e(t('Obsah se načte ze služby')) . ' ' . e((string) parse_url($vlozit, PHP_URL_HOST)) . '</small></button></figure>';
     }
 }

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Stavitel\Prvky;
+namespace Kaleta\Stavitel\Prvky;
 
-use MiroCMS\Stavitel\Kontext;
-use MiroCMS\Stavitel\Prvek;
+use Kaleta\Stavitel\Kontext;
+use Kaleta\Stavitel\Prvek;
 
 /**
  * Drobečková navigace: Úvod › Novinky › Kategorie › Novinka. Cestu skládá web podle zobrazené stránky (Kontext::$drobecky),
@@ -21,10 +21,10 @@ final class Drobecky extends Prvek
 
     public static function zakladniCss(): string
     {
-        return '.mc-drobecky ol { display: flex; flex-wrap: wrap; gap: 0.35em; margin: 0; padding: 0; list-style: none; color: var(--mc-barva-tlumeny); font-size: var(--mc-krok--1); }
-.mc-drobecky li + li::before { content: "›"; margin-inline-end: 0.35em; }
-.mc-drobecky a { color: inherit; }
-.mc-drobecky [aria-current] { color: var(--mc-barva-text); }';
+        return '.ka-drobecky ol { display: flex; flex-wrap: wrap; gap: 0.35em; margin: 0; padding: 0; list-style: none; color: var(--ka-barva-tlumeny); font-size: var(--ka-krok--1); }
+.ka-drobecky li + li::before { content: "›"; margin-inline-end: 0.35em; }
+.ka-drobecky a { color: inherit; }
+.ka-drobecky [aria-current] { color: var(--ka-barva-text); }';
     }
 
     public static function vykresli(array $p, string $a, string $deti, Kontext $k): string
@@ -40,6 +40,6 @@ final class Drobecky extends Prvek
                 : '<li><a href="' . e($adresa) . '">' . e($text) . '</a></li>';
         }
 
-        return '<nav' . Text::sTridou($a, 'mc-drobecky') . ' aria-label="' . e(t('Drobečková navigace')) . '"><ol>' . $html . '</ol></nav>';
+        return '<nav' . Text::sTridou($a, 'ka-drobecky') . ' aria-label="' . e(t('Drobečková navigace')) . '"><ol>' . $html . '</ol></nav>';
     }
 }

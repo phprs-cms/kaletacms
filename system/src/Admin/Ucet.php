@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Admin;
+namespace Kaleta\Admin;
 
-use MiroCMS\Core\Passkey;
-use MiroCMS\Core\Response;
-use MiroCMS\Core\Rozsireni;
-use MiroCMS\Core\Totp;
+use Kaleta\Core\Passkey;
+use Kaleta\Core\Response;
+use Kaleta\Core\Rozsireni;
+use Kaleta\Core\Totp;
 
 /**
  * Můj účet: vlastní jméno a e-mail, změna hesla, dvoufázové přihlášení. Dostupné každému přihlášenému.
@@ -35,7 +35,7 @@ final class Ucet
                         break;
                     }
                     $db->update('uzivatele', ['jmeno' => mb_substr($r->post('jmeno'), 0, 100), 'email' => mb_substr($r->post('email'), 0, 190), 'url' => mb_substr($r->post('url'), 0, 255), 'pozice' => mb_substr($r->post('pozice'), 0, 100), 'foto' => mb_substr($r->post('foto'), 0, 255), 'bio' => mb_substr($r->post('bio'), 0, 1200),
-                        'jazyk' => isset(\MiroCMS\Core\Jazyk::ADMINISTRACE[$r->post('jazyk')]) && $r->post('jazyk') !== 'cs' ? $r->post('jazyk') : ''], ['idu' => $user['idu']]);
+                        'jazyk' => isset(\Kaleta\Core\Jazyk::ADMINISTRACE[$r->post('jazyk')]) && $r->post('jazyk') !== 'cs' ? $r->post('jazyk') : ''], ['idu' => $user['idu']]);
                     $hlaska = ['ok', 'Údaje byly uloženy.'];
                     break;
                 case 'heslo':
@@ -59,7 +59,7 @@ final class Ucet
                     if (!Rozsireni::je($app->settings(), 'claude')) {
                         break;
                     }
-                    $token = 'mirocms_' . bin2hex(random_bytes(24));
+                    $token = 'kaleta_' . bin2hex(random_bytes(24));
                     $db->insert('api_tokeny', ['idu' => $user['idu'], 'nazev' => mb_substr($r->post('nazev') ?: 'Claude', 0, 100), 'otisk' => hash('sha256', $token), 'vytvoren' => date('Y-m-d H:i:s')]);
                     Protokol::zapis($app, 'ucet', 'vytvořen token pro Claude');
                     // token se ukazuje jen teď - proto bez přesměrování
@@ -131,7 +131,7 @@ final class Ucet
 
             return Response::json(Passkey::moznostiRegistrace(
                 $vyzva, Passkey::rpId($adresa), $app->settings()->get('nazev_webu'),
-                Passkey::b64(substr(hash('sha256', 'mirocms-klic|' . $adresa . '|' . $user['idu'], true), 0, 16)),
+                Passkey::b64(substr(hash('sha256', 'kaleta-klic|' . $adresa . '|' . $user['idu'], true), 0, 16)),
                 (string) $user['user'], (string) $user['jmeno'],
                 array_map(static fn (array $k): string => (string) $k['id_klice'], $app->auth()->kliceUctu((int) $user['idu'])),
             ));

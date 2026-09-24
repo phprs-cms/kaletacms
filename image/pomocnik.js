@@ -1,4 +1,4 @@
-/* MiroCMS - pomocník editoru: kontrola přístupnosti obsahu a AI asistent. Bez knihoven.
+/* Kaleta - pomocník editoru: kontrola přístupnosti obsahu a AI asistent. Bez knihoven.
  *
  *   <fieldset data-kontrola>          sem se vypisuje průběžná kontrola (alt texty, nadpisy, odkazy, tabulky)
  *   <form data-asistent="adresa">     u polí formuláře přibydou tlačítka "✦ Navrhnout" (jen se zapnutým rozšířením)
@@ -17,7 +17,7 @@
 	function nastav(id, hodnota) {
 		var p = pole(id);
 		p.value = hodnota;
-		if (window.mirocmsEditory && window.mirocmsEditory[id]) { window.mirocmsEditory[id].obnov(); }
+		if (window.kaletaEditory && window.kaletaEditory[id]) { window.kaletaEditory[id].obnov(); }
 		p.dispatchEvent(new Event('input', { bubbles: true }));
 	}
 	function strom(html) { return new DOMParser().parseFromString('<div>' + html + '</div>', 'text/html').body.firstChild; }

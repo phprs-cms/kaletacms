@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Admin;
+namespace Kaleta\Admin;
 
-use MiroCMS\Core\App;
-use MiroCMS\Core\Migrace;
-use MiroCMS\Core\Response;
-use MiroCMS\Core\Rozsireni;
+use Kaleta\Core\App;
+use Kaleta\Core\Migrace;
+use Kaleta\Core\Response;
+use Kaleta\Core\Rozsireni;
 
 /**
  * Administrace. Adresy: admin.php?modul=<ident>&akce=<akce>
@@ -50,8 +50,8 @@ final class Kernel
         $request = $app->request;
 
         // jazyk administrace: volba uživatele (Můj účet); přihlašovací stránka se řídí jazykem webu. Nastavuje se jako první, aby i hláška o vypršelém formuláři byla přeložená
-        $jazyk = (string) ($app->auth()->user()['jazyk'] ?? '') ?: \MiroCMS\Core\Jazyk::vychozi($app->settings());
-        \MiroCMS\Core\Jazyk::nastav(isset(\MiroCMS\Core\Jazyk::ADMINISTRACE[$jazyk]) ? $jazyk : 'cs', 'admin-');
+        $jazyk = (string) ($app->auth()->user()['jazyk'] ?? '') ?: \Kaleta\Core\Jazyk::vychozi($app->settings());
+        \Kaleta\Core\Jazyk::nastav(isset(\Kaleta\Core\Jazyk::ADMINISTRACE[$jazyk]) ? $jazyk : 'cs', 'admin-');
         if ($request->isPost() && !$app->session->csrfValid($request)) {
             return $this->page('Neplatný požadavek', $app->view->render('admin/chyba', [
                 'text' => 'Platnost formuláře vypršela. Vraťte se zpět, obnovte stránku a odešlete jej znovu.',
@@ -61,7 +61,7 @@ final class Kernel
         // každá změna v administraci zneplatní cache stránek webu; průběžné požadavky editorů (rozepsaný stav, asistent,
         // koncept stavby) web nemění - kdyby cache mazaly, při práci by byla pořád studená
         if ($request->isPost() && !in_array($request->get('akce'), ['koncept', 'asistent', 'stavba_uloz', 'nahled', 'stavba_ai_text'], true)) {
-            \MiroCMS\Front\Cache::vymaz();
+            \Kaleta\Front\Cache::vymaz();
         }
         $akce = $request->get('akce');
         // adresa webu: starší instalace ji ještě nemá - zapíše se podle adresy, na které pracuje přihlášený administrátor
@@ -80,9 +80,9 @@ final class Kernel
         }
 
         // po přechodu na novou verzi jednorázově uklidit známé zrušené soubory (viz Aktualizace::ZRUSENE)
-        if ($app->auth()->isAdmin() && $app->settings()->get('uklizeno_verze') !== MIROCMS_VERSION) {
-            \MiroCMS\Core\Aktualizace::uklidZrusene(MIROCMS_ROOT, $app->settings()->get('layout'));
-            $app->settings()->set('uklizeno_verze', MIROCMS_VERSION);
+        if ($app->auth()->isAdmin() && $app->settings()->get('uklizeno_verze') !== KALETA_VERSION) {
+            \Kaleta\Core\Aktualizace::uklidZrusene(KALETA_ROOT, $app->settings()->get('layout'));
+            $app->settings()->set('uklizeno_verze', KALETA_VERSION);
         }
 
         // aktualizace struktury databáze po nahrání nové verze systému
@@ -93,7 +93,7 @@ final class Kernel
         }
 
         if ($app->auth()->isAdmin()) {
-            \MiroCMS\Core\Zaloha::automaticka($app->db(), $app->settings());
+            \Kaleta\Core\Zaloha::automaticka($app->db(), $app->settings());
         }
         if ($app->auth()->user() !== null) {
             Moduly\Novinky::vysypKos($app->db()); // koš drží novinky i stránky 30 dní
@@ -122,7 +122,7 @@ final class Kernel
             return Response::redirect($app->url('admin.php'));
         }
         if ($ident === '') {
-            $nova = $app->auth()->isAdmin() ? (new \MiroCMS\Core\Aktualizace($app->settings()))->stav()['nova'] : null;
+            $nova = $app->auth()->isAdmin() ? (new \Kaleta\Core\Aktualizace($app->settings()))->stav()['nova'] : null;
             if ($nova !== null) {
                 // text se překládá tady (s číslem verze); cestu v nabídce promění v odkaz až vykreslení hlášky (Admin\Cesty)
                 $app->session->flash(!empty($nova['bezpecnostni']) ? 'chyba' : 'info', !empty($nova['bezpecnostni'])
@@ -206,7 +206,7 @@ final class Kernel
             }
         }
         if ($this->app->auth()->isAdmin()) {
-            $zaloha = \MiroCMS\Core\Zaloha::seznam()[0]['cas'] ?? 0;
+            $zaloha = \Kaleta\Core\Zaloha::seznam()[0]['cas'] ?? 0;
             if (time() - $zaloha > 8 * 86400) {
                 $upozorneni[] = [$zaloha === 0 ? t('Web zatím nemá žádnou zálohu databáze.') : t('Poslední záloha databáze je z %s.', datum(date('Y-m-d H:i:s', $zaloha))), $this->app->url('admin.php?modul=config&zalozka=zalohy')];
             }

@@ -2,7 +2,7 @@
 /**
  * Nastavení: záložky + formulář zvolené záložky (config/<zalozka>.php).
  *
- * @var MiroCMS\Admin\Moduly\Konfigurace $modul
+ * @var Kaleta\Admin\Moduly\Konfigurace $modul
  * @var string $csrf
  * @var string $zalozka
  * @var array<string, string> $hodnoty
@@ -18,7 +18,7 @@
  * @var string $ulohyToken  tajná část adresy /ulohy pro cron
  * @var array<int, string> $stranky  stránky pro volbu úvodní stránky (záložka Základní)
  */
-use MiroCMS\Admin\Moduly\Konfigurace;
+use Kaleta\Admin\Moduly\Konfigurace;
 
 /** Řádek formuláře: $pole('klic', 'Popisek', 'text|radky|kod|ano|cislo|url|email', 'nápověda', [atributy]) */
 $pole = function (string $klic, string $popisek, string $druh = 'text', string $napoveda = '', string $atributy = '') use ($hodnoty, $app): void {
@@ -26,7 +26,7 @@ $pole = function (string $klic, string $popisek, string $druh = 'text', string $
     $popisek = t($popisek);
     $napoveda = $napoveda === '' ? '' : t($napoveda);
     // nápověda bez vlastního HTML: cesty v nabídce („Nastavení → Pošta“) se promění v odkazy
-    $nap = $napoveda !== '' ? '<span class="napoveda">' . (str_contains($napoveda, '<') ? $napoveda : MiroCMS\Admin\Cesty::odkazy($app->url('admin.php'), $napoveda, ['config', 'vzhled', 'bloky'])) . '</span>' : '';
+    $nap = $napoveda !== '' ? '<span class="napoveda">' . (str_contains($napoveda, '<') ? $napoveda : Kaleta\Admin\Cesty::odkazy($app->url('admin.php'), $napoveda, ['config', 'vzhled', 'bloky'])) . '</span>' : '';
     echo '<div class="radek">';
     if ($druh === 'ano') {
         echo '<span class="popisek">' . e($popisek) . '</span><div class="volby"><label><input type="checkbox" name="' . e($klic) . '" value="1"' . ($h === '1' ? ' checked' : '') . '> ' . e(t('Ano')) . '</label>' . $nap . '</div>';
@@ -54,4 +54,4 @@ $pole = function (string $klic, string $popisek, string $druh = 'text', string $
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Uložit nastavení')) ?>"></p>
 <?php endif ?>
 </form>
-<p class="verze">MiroCMS <?= e(MIROCMS_VERSION) ?> · PHP <?= e(PHP_VERSION) ?></p>
+<p class="verze">Kaleta <?= e(KALETA_VERSION) ?> · PHP <?= e(PHP_VERSION) ?></p>

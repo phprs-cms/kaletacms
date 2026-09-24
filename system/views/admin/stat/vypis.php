@@ -1,7 +1,7 @@
 <?php
 /**
- * @var MiroCMS\Core\App $app
- * @var MiroCMS\Admin\Moduly\Statistika $modul
+ * @var Kaleta\Core\App $app
+ * @var Kaleta\Admin\Moduly\Statistika $modul
  * @var int $dni
  * @var array<string, array{navstevy:int, zobrazeni:int}> $graf
  * @var bool $zapnuto

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Core;
+namespace Kaleta\Core;
 
 /**
  * Menu webu (Vzhled → Menu): hlavní navigace a menu v patičce, zvlášť pro každou jazykovou verzi.

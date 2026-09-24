@@ -2,8 +2,8 @@
 /**
  * Položky kolekce.
  *
- * @var MiroCMS\Core\App $app
- * @var MiroCMS\Admin\Moduly\Kolekce $modul
+ * @var Kaleta\Core\App $app
+ * @var Kaleta\Admin\Moduly\Kolekce $modul
  * @var string $csrf
  * @var array<string, mixed> $k
  * @var list<array<string, mixed>> $polozky

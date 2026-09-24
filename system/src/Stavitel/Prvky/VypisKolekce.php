@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Stavitel\Prvky;
+namespace Kaleta\Stavitel\Prvky;
 
-use MiroCMS\Core\Jazyk;
-use MiroCMS\Stavitel\Kolekce;
-use MiroCMS\Stavitel\Kontext;
-use MiroCMS\Stavitel\Prvek;
+use Kaleta\Core\Jazyk;
+use Kaleta\Stavitel\Kolekce;
+use Kaleta\Stavitel\Kontext;
+use Kaleta\Stavitel\Prvek;
 
 /**
  * Výpis kolekce: vnitřek prvku je vzor jedné položky a zopakuje se pro každou položku kolekce (reference, tým, produkty…).
@@ -41,11 +41,11 @@ final class VypisKolekce extends Prvek
 
     public static function zakladniCss(): string
     {
-        return '.mc-kolekce-filtry, .mc-kolekce-strany { display: flex; flex-wrap: wrap; gap: var(--mc-mezera-xs); margin: 0 0 var(--mc-mezera-m); padding: 0; list-style: none; }
-.mc-kolekce-strany { justify-content: center; margin: var(--mc-mezera-l) 0 0; }
-.mc-kolekce-filtry a, .mc-kolekce-strany a { display: block; padding: 0.4em 0.9em; border: 1px solid var(--mc-barva-linka); border-radius: var(--mc-zaobleni-plne); color: inherit; text-decoration: none; }
-.mc-kolekce-filtry a:hover, .mc-kolekce-strany a:hover { border-color: var(--mc-barva-primarni); }
-.mc-kolekce-filtry a[aria-current], .mc-kolekce-strany a[aria-current] { background: var(--mc-barva-primarni); border-color: var(--mc-barva-primarni); color: var(--mc-barva-na-primarni); }';
+        return '.ka-kolekce-filtry, .ka-kolekce-strany { display: flex; flex-wrap: wrap; gap: var(--ka-mezera-xs); margin: 0 0 var(--ka-mezera-m); padding: 0; list-style: none; }
+.ka-kolekce-strany { justify-content: center; margin: var(--ka-mezera-l) 0 0; }
+.ka-kolekce-filtry a, .ka-kolekce-strany a { display: block; padding: 0.4em 0.9em; border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni-plne); color: inherit; text-decoration: none; }
+.ka-kolekce-filtry a:hover, .ka-kolekce-strany a:hover { border-color: var(--ka-barva-primarni); }
+.ka-kolekce-filtry a[aria-current], .ka-kolekce-strany a[aria-current] { background: var(--ka-barva-primarni); border-color: var(--ka-barva-primarni); color: var(--ka-barva-na-primarni); }';
     }
 
     public static function vychoziStyl(): array
@@ -56,9 +56,9 @@ final class VypisKolekce extends Prvek
     public static function vychoziDeti(): array
     {
         // třída karta z knihovny sekcí (editor ji při vložení založí, pokud na webu ještě není)
-        return [['tridy' => ['karta']] + \MiroCMS\Stavitel\Stavba::novy('kontejner', [], [
-            ['znacka' => 'h3'] + \MiroCMS\Stavitel\Stavba::novy('nadpis', ['text' => '{{nazev}}']),
-            \MiroCMS\Stavitel\Stavba::novy('tlacitko', ['text' => t('Více informací'), 'odkaz' => '{{url}}', 'varianta' => 'odkaz']),
+        return [['tridy' => ['karta']] + \Kaleta\Stavitel\Stavba::novy('kontejner', [], [
+            ['znacka' => 'h3'] + \Kaleta\Stavitel\Stavba::novy('nadpis', ['text' => '{{nazev}}']),
+            \Kaleta\Stavitel\Stavba::novy('tlacitko', ['text' => t('Více informací'), 'odkaz' => '{{url}}', 'varianta' => 'odkaz']),
         ])];
     }
 
@@ -110,7 +110,7 @@ final class VypisKolekce extends Prvek
         $odkaz = fn (string $hodnota, string $text): string => '<li><a href="' . e($k->cesta . ($hodnota !== '' ? '?' . http_build_query([$parametr => $hodnota]) : '')) . '"'
             . ($hodnota === $zvoleny ? ' aria-current="true"' : '') . '>' . e($text) . '</a></li>';
 
-        return '<ul class="mc-kolekce-filtry" aria-label="' . e(t('Filtr')) . '">' . $odkaz('', t('Vše')) . implode('', array_map(fn (string $h): string => $odkaz($h, $h), $hodnoty)) . '</ul>';
+        return '<ul class="ka-kolekce-filtry" aria-label="' . e(t('Filtr')) . '">' . $odkaz('', t('Vše')) . implode('', array_map(fn (string $h): string => $odkaz($h, $h), $hodnoty)) . '</ul>';
     }
 
     /** @param array<string, string> $zachovat další parametry adresy (zvolený filtr) */
@@ -126,7 +126,7 @@ final class VypisKolekce extends Prvek
             $html .= '<li><a href="' . e($k->cesta . ($dotaz !== '' ? '?' . $dotaz : '')) . '"' . ($i === $strana ? ' aria-current="page"' : '') . '>' . $i . '</a></li>';
         }
 
-        return '<ul class="mc-kolekce-strany" aria-label="' . e(t('Stránky výpisu')) . '">' . $html . '</ul>';
+        return '<ul class="ka-kolekce-strany" aria-label="' . e(t('Stránky výpisu')) . '">' . $html . '</ul>';
     }
 
     public static function vykresli(array $p, string $a, string $deti, Kontext $k): string
@@ -136,6 +136,6 @@ final class VypisKolekce extends Prvek
         $vypis = $deti === '' ? '' : '<' . $p['znacka'] . $a . '>' . $deti . '</' . $p['znacka'] . '>';
 
         // filtry a stránkování jsou kolem mřížky (ne v ní, jinak by byly jako další karta)
-        return $okoli['pred'] === '' && $okoli['za'] === '' ? $vypis : '<div class="mc-kolekce">' . $okoli['pred'] . $vypis . $okoli['za'] . '</div>';
+        return $okoli['pred'] === '' && $okoli['za'] === '' ? $vypis : '<div class="ka-kolekce">' . $okoli['pred'] . $vypis . $okoli['za'] . '</div>';
     }
 }

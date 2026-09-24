@@ -1,6 +1,6 @@
 <?php
 /**
- * Jednotkové testy jádra MiroCMS - bez frameworku a bez databáze: php tools/testy.php
+ * Jednotkové testy jádra Kalety - bez frameworku a bez databáze: php tools/testy.php
  *
  * Hlídají to, co kouřový test (tools/test.sh) nepozná: kryptografii, parsování a převody textu.
  * Nový test = další volání over('popis', $skutecne, $ocekavane).
@@ -10,13 +10,13 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/system/bootstrap.php';
 
-use MiroCMS\Core\Asistent;
-use MiroCMS\Core\Hledani;
-use MiroCMS\Core\Migrace;
-use MiroCMS\Core\Soubory;
-use MiroCMS\Core\Totp;
-use MiroCMS\Front\Seo;
-use MiroCMS\Front\TextNovinky;
+use Kaleta\Core\Asistent;
+use Kaleta\Core\Hledani;
+use Kaleta\Core\Migrace;
+use Kaleta\Core\Soubory;
+use Kaleta\Core\Totp;
+use Kaleta\Front\Seo;
+use Kaleta\Front\TextNovinky;
 
 $chyb = 0;
 $celkem = 0;
@@ -57,13 +57,13 @@ over('TOTP: nesmysl neprojde', Totp::over($tajemstvi, 'abcdef', 59), false);
 over('TOTP: nové tajemství má 160 bitů', strlen(Totp::noveTajemstvi()), 32);
 
 /* ---------- migrace: dělení SQL na příkazy ---------- */
-$sql = "-- komentář\nALTER TABLE mc_novinky ADD COLUMN x INT;   -- poznámka za příkazem\nCREATE TABLE mc_nova (\n  a VARCHAR(10) DEFAULT ';'\n);\nALTER TABLE mc_a ADD CONSTRAINT fk_a FOREIGN KEY (b) REFERENCES mc_b (id);\n";
+$sql = "-- komentář\nALTER TABLE ka_novinky ADD COLUMN x INT;   -- poznámka za příkazem\nCREATE TABLE ka_nova (\n  a VARCHAR(10) DEFAULT ';'\n);\nALTER TABLE ka_a ADD CONSTRAINT fk_a FOREIGN KEY (b) REFERENCES ka_b (id);\n";
 $prikazy = Migrace::prikazy($sql, 'web_');
 over('Migrace::prikazy: počet', count($prikazy), 3);
 over('Migrace::prikazy: předpona tabulek', str_contains($prikazy[1], 'CREATE TABLE web_nova'), true);
 over('Migrace::prikazy: středník v hodnotě příkaz nerozdělí', str_contains($prikazy[1], "DEFAULT ';'"), true);
 over('Migrace::prikazy: předpona omezení', str_contains($prikazy[2], 'CONSTRAINT web_fk_a') && str_contains($prikazy[2], 'REFERENCES web_b'), true);
-over('Migrace: MIROCMS_VERZE_DB odpovídá souborům', MIROCMS_VERZE_DB, Migrace::posledni());
+over('Migrace: KALETA_VERZE_DB odpovídá souborům', KALETA_VERZE_DB, Migrace::posledni());
 
 /* ---------- přílohy ---------- */
 over('Soubory: PDF je příloha', Soubory::jePriloha('Zpráva.PDF'), true);
@@ -84,7 +84,7 @@ $html = $typy->vlozeneAdresy('<p>Úvod</p><p>https://youtu.be/dQw4w9WgXcQ</p><p>
 over('vlozeneAdresy: jen samostatný řádek', [substr_count($html, 'data-vlozit'), substr_count($html, 'Viz https://youtu.be')], [1, 1]);
 
 /* ---------- bezpečný dialekt šablon (ukládání přes napojení na Claude) ---------- */
-use MiroCMS\Core\SablonaKontrola;
+use Kaleta\Core\SablonaKontrola;
 
 $vadne = [];
 foreach (glob(dirname(__DIR__) . '/layout/*/*.php') as $soubor) {
@@ -93,15 +93,15 @@ foreach (glob(dirname(__DIR__) . '/layout/*/*.php') as $soubor) {
     }
 }
 over('SablonaKontrola: vestavěné šablony dialektem projdou', $vadne, []);
-over('Šablony: výchozí šablona existuje a je i výchozí hodnotou nastavení', [is_file(dirname(__DIR__) . '/layout/' . \MiroCMS\Front\Layouty::VYCHOZI . '/base.php'), \MiroCMS\Core\Settings::DEFAULTS['layout']], [true, \MiroCMS\Front\Layouty::VYCHOZI]);
+over('Šablony: výchozí šablona existuje a je i výchozí hodnotou nastavení', [is_file(dirname(__DIR__) . '/layout/' . \Kaleta\Front\Layouty::VYCHOZI . '/base.php'), \Kaleta\Core\Settings::DEFAULTS['layout']], [true, \Kaleta\Front\Layouty::VYCHOZI]);
 over('Šablony: zrušená šablona „default“ se nevrátila', is_dir(dirname(__DIR__) . '/layout/default'), false);
 $utoky = [
-    '<?php file_put_contents(MIROCMS_ROOT . "/system/x.php", "x");', '<?= file_get_contents("../config.php") ?>', '<?php eval($_GET["c"]);', '<?php include "../config.php";',
+    '<?php file_put_contents(KALETA_ROOT . "/system/x.php", "x");', '<?= file_get_contents("../config.php") ?>', '<?php eval($_GET["c"]);', '<?php include "../config.php";',
     '<?php system("id");', '<?php echo `id`;', '<?php $f = "sys" . "tem"; $f("id");', '<?php array_map("system", ["id"]);', '<?php array_map("sys" . "tem", ["id"]);',
-    '<?php $x = "system"; usort($a, $x);', '<?php call_user_func("system", "id");', '<?php $d = new PDO("mysql:host=x");', '<?php \\MiroCMS\\Core\\App::boot();',
-    '<?php $web->db()->run("DROP TABLE mc_novinky");', '<?php $web->set("ai_klic", "x");', '<?= $_COOKIE["mirocms"] ?>', '<?php $a = "_GET"; echo $$a["x"];',
+    '<?php $x = "system"; usort($a, $x);', '<?php call_user_func("system", "id");', '<?php $d = new PDO("mysql:host=x");', '<?php \\Kaleta\\Core\\App::boot();',
+    '<?php $web->db()->run("DROP TABLE ka_novinky");', '<?php $web->set("ai_klic", "x");', '<?= $_COOKIE["kaleta"] ?>', '<?php $a = "_GET"; echo $$a["x"];',
     '<?php echo "{$web->db()->run(1)}";', '<?php (fn () => 1)()("x");', '<?php [$web, "set"]("a", "b");', '<?php function system2() {}', '<?php ($web->x)("id");', '<?php exit;',
-    '<?php use MiroCMS\\Core\\Db as e;', '<?php echo constant("MIROCMS_ROOT");', '<?php preg_replace_callback("/x/", "system", "x");', '<?php highlight_file("../config.php");',
+    '<?php use Kaleta\\Core\\Db as e;', '<?php echo constant("KALETA_ROOT");', '<?php preg_replace_callback("/x/", "system", "x");', '<?php highlight_file("../config.php");',
     '<?php $m = "db"; $web->$m();', '<?php array_map(system(...), ["id"]);', '<?php $web?->db();', '<?php echo $app->settings()->get("ai_klic");', '<?php mail("a@b.cz", "x", "y");',
     '<?php curl_init("https://example.com");', '<?php fopen("php://input", "r");', '<?php unlink("index.php");', '<?php putenv("A=B");', '<?php extract($_POST);',
 ];
@@ -110,42 +110,42 @@ over('SablonaKontrola: žádný z ' . count($utoky) . ' útoků neprojde', $pros
 over('SablonaKontrola: běžná šablona projde', SablonaKontrola::over('<?php $x = fn (array $c): string => e($c["titulek"]); ?><h1><?= $x($clanek) ?></h1><?php foreach (array_map(trim(...), explode(",", "a,b")) as $s): ?><?= e(t("Štítek")) ?> <?= e($url("stitek/" . $s)) ?><?php endforeach; usort($a, fn ($p, $q) => $p <=> $q); if ($web->get("logo_webu") !== "") { echo e(datum($clanek["datum"], true)); }'), []);
 
 /* ---------- porovnání verzí ---------- */
-$r = MiroCMS\Core\Rozdil::html('<p>Radnice schválila plán.</p><p>Druhý odstavec.</p>', '<p>Radnice včera schválila nový plán.</p><p>Druhý odstavec.</p><p>Třetí.</p>');
+$r = Kaleta\Core\Rozdil::html('<p>Radnice schválila plán.</p><p>Druhý odstavec.</p>', '<p>Radnice včera schválila nový plán.</p><p>Druhý odstavec.</p><p>Třetí.</p>');
 over('Rozdil: slova ve změněném odstavci', str_contains($r['html'], '<ins>včera </ins>') && str_contains($r['html'], '<ins>nový </ins>'), true);
 over('Rozdil: nezměněný odstavec bez značek', str_contains($r['html'], '<p>Druhý odstavec.</p>'), true);
 over('Rozdil: nový odstavec', str_contains($r['html'], '<p><ins>Třetí.</ins></p>'), true);
-over('Rozdil: HTML ve vstupu se escapuje', str_contains(MiroCMS\Core\Rozdil::html('', '<p>a &lt;script&gt; b</p>')['html'], '<script>'), false);
-over('Rozdil: shodné texty', MiroCMS\Core\Rozdil::html('<p>Stejné</p>', '<p>Stejné</p>')['pridano'], 0);
+over('Rozdil: HTML ve vstupu se escapuje', str_contains(Kaleta\Core\Rozdil::html('', '<p>a &lt;script&gt; b</p>')['html'], '<script>'), false);
+over('Rozdil: shodné texty', Kaleta\Core\Rozdil::html('<p>Stejné</p>', '<p>Stejné</p>')['pridano'], 0);
 
 /* ---------- FAQ ---------- */
 over('Seo::faq', Seo::faq("Kdy to začne?\nV pondělí.\n\nKolik to stojí?\nNic."), [['Kdy to začne?', 'V pondělí.'], ['Kolik to stojí?', 'Nic.']]);
 over('Seo::faq: prázdný vstup', Seo::faq(null), []);
 
 /* ---------- zálohy do S3: podpis AWS Signature V4 (hodnota ověřená nezávislým výpočtem) ---------- */
-$h = MiroCMS\Core\VzdalenaZaloha::podpisS3('PUT', 's3.eu-central-1.amazonaws.com', '/muj-bucket/mirocms-zaloha.sql.gz', hash('sha256', 'obsah'), 'eu-central-1', 'AKIDEXAMPLE', 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY', 1789900000);
+$h = Kaleta\Core\VzdalenaZaloha::podpisS3('PUT', 's3.eu-central-1.amazonaws.com', '/muj-bucket/kaleta-zaloha.sql.gz', hash('sha256', 'obsah'), 'eu-central-1', 'AKIDEXAMPLE', 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY', 1789900000);
 over('S3: rozsah a podepsané hlavičky', str_contains($h['Authorization'], 'Credential=AKIDEXAMPLE/20260920/eu-central-1/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature='), true);
 over('S3: podpis má 64 šestnáctkových znaků', (bool) preg_match('/Signature=[0-9a-f]{64}$/', $h['Authorization']), true);
 
 /* ---------- kontrola odkazů: jen veřejné adresy (ochrana před ohledáváním vnitřní sítě) ---------- */
-over('Odkazy: výběr odkazů z HTML', MiroCMS\Core\Odkazy::odkazy('<p><a href="https://example.com/a?x=1&amp;y=2">a</a> <a href="mailto:a@b.cz">m</a> <a href="#kotva">k</a> <a class="x" href="/clanek/muj">c</a> <a href="https://example.com/a?x=1&amp;y=2">znovu</a></p>'), ['https://example.com/a?x=1&y=2', '/clanek/muj']);
+over('Odkazy: výběr odkazů z HTML', Kaleta\Core\Odkazy::odkazy('<p><a href="https://example.com/a?x=1&amp;y=2">a</a> <a href="mailto:a@b.cz">m</a> <a href="#kotva">k</a> <a class="x" href="/clanek/muj">c</a> <a href="https://example.com/a?x=1&amp;y=2">znovu</a></p>'), ['https://example.com/a?x=1&y=2', '/clanek/muj']);
 foreach (['http://127.0.0.1/', 'http://localhost/', 'http://10.0.0.5/admin', 'http://192.168.1.1/', 'http://169.254.169.254/latest/meta-data/', 'http://[::1]/', 'ftp://example.com/', 'https://example.com:8443/', 'file:///etc/passwd', 'gopher://x/'] as $vnitrni) {
-    over('Odkazy: nekontroluje se ' . $vnitrni, MiroCMS\Core\Odkazy::jeVerejna($vnitrni), false);
+    over('Odkazy: nekontroluje se ' . $vnitrni, Kaleta\Core\Odkazy::jeVerejna($vnitrni), false);
 }
-over('Odkazy: veřejná adresa se kontroluje', MiroCMS\Core\Odkazy::jeVerejna('https://93.184.216.34/stranka'), true);
+over('Odkazy: veřejná adresa se kontroluje', Kaleta\Core\Odkazy::jeVerejna('https://93.184.216.34/stranka'), true);
 
 /* ---------- asistent: překlad článku (kostra HTML z originálu, texty od modelu) ---------- */
 $clanekHtml = '<h2>Nadpis oddílu</h2><p>První <strong>tučný</strong> a <a href="/x?a=1&amp;b=2">odkaz</a>.</p><figure><img src="a.jpg" alt="x"><figcaption>Popisek fotky</figcaption></figure><script>alert("nepřekládat")</script><p>2024</p>';
-$r = MiroCMS\Core\Asistent::rozloz($clanekHtml);
+$r = Kaleta\Core\Asistent::rozloz($clanekHtml);
 over('Asistent::rozloz: úseky k překladu', $r['useky'], ['Nadpis oddílu', 'První [[0]]tučný[[1]] a [[2]]odkaz[[3]].', 'Popisek fotky']);
-over('Asistent::sloz: beze změny textu vrátí původní HTML', MiroCMS\Core\Asistent::sloz($r['kostra'], $r['useky']), $clanekHtml);
-over('Asistent::sloz: HTML od modelu se vypíše jako text', str_contains(MiroCMS\Core\Asistent::sloz($r['kostra'], ['<script>alert(1)</script>', 'x', '<img src=x onerror=alert(1)>']), '<script>alert(1)') || str_contains(MiroCMS\Core\Asistent::sloz($r['kostra'], ['a', 'b', '<img src=x onerror=alert(1)>']), '<img src=x'), false);
-over('Asistent::sloz: chybějící symbol = úsek bez formátování', MiroCMS\Core\Asistent::sloz($r['kostra'], ['N', 'First [[0]]bold[[1]] and link.', 'P']), '<h2>N</h2><p>First bold and link.</p><figure><img src="a.jpg" alt="x"><figcaption>P</figcaption></figure><script>alert("nepřekládat")</script><p>2024</p>');
-over('Asistent::sloz: špatně vnořené symboly = úsek bez formátování', str_contains(MiroCMS\Core\Asistent::sloz($r['kostra'], ['N', '[[1]]bold[[0]] [[2]]link[[3]]', 'P']), '<strong>'), false);
-over('Asistent::sloz: přeházené pořadí slov formátování zachová', str_contains(MiroCMS\Core\Asistent::sloz($r['kostra'], ['N', 'A [[2]]link[[3]] and [[0]]bold[[1]] first.', 'P']), '<p>A <a href="/x?a=1&amp;b=2">link</a> and <strong>bold</strong> first.</p>'), true);
+over('Asistent::sloz: beze změny textu vrátí původní HTML', Kaleta\Core\Asistent::sloz($r['kostra'], $r['useky']), $clanekHtml);
+over('Asistent::sloz: HTML od modelu se vypíše jako text', str_contains(Kaleta\Core\Asistent::sloz($r['kostra'], ['<script>alert(1)</script>', 'x', '<img src=x onerror=alert(1)>']), '<script>alert(1)') || str_contains(Kaleta\Core\Asistent::sloz($r['kostra'], ['a', 'b', '<img src=x onerror=alert(1)>']), '<img src=x'), false);
+over('Asistent::sloz: chybějící symbol = úsek bez formátování', Kaleta\Core\Asistent::sloz($r['kostra'], ['N', 'First [[0]]bold[[1]] and link.', 'P']), '<h2>N</h2><p>First bold and link.</p><figure><img src="a.jpg" alt="x"><figcaption>P</figcaption></figure><script>alert("nepřekládat")</script><p>2024</p>');
+over('Asistent::sloz: špatně vnořené symboly = úsek bez formátování', str_contains(Kaleta\Core\Asistent::sloz($r['kostra'], ['N', '[[1]]bold[[0]] [[2]]link[[3]]', 'P']), '<strong>'), false);
+over('Asistent::sloz: přeházené pořadí slov formátování zachová', str_contains(Kaleta\Core\Asistent::sloz($r['kostra'], ['N', 'A [[2]]link[[3]] and [[0]]bold[[1]] first.', 'P']), '<p>A <a href="/x?a=1&amp;b=2">link</a> and <strong>bold</strong> first.</p>'), true);
 
-$nastaveni = (new ReflectionClass(MiroCMS\Core\Settings::class))->newInstanceWithoutConstructor();
-(new ReflectionProperty(MiroCMS\Core\Settings::class, 'values'))->setValue($nastaveni, ['nazev_webu' => 'Test', 'ai_klic' => 'x']);
-$falesny = new class($nastaveni) extends MiroCMS\Core\Asistent {
+$nastaveni = (new ReflectionClass(Kaleta\Core\Settings::class))->newInstanceWithoutConstructor();
+(new ReflectionProperty(Kaleta\Core\Settings::class, 'values'))->setValue($nastaveni, ['nazev_webu' => 'Test', 'ai_klic' => 'x']);
+$falesny = new class($nastaveni) extends Kaleta\Core\Asistent {
     public int $volani = 0;
 
     protected function zavolej(array $telo): array
@@ -171,14 +171,14 @@ try {
 }
 
 /* ---------- dočasné přepnutí jazyka (e-maily v jazyce příjemce) ---------- */
-MiroCMS\Core\Jazyk::nastav('cs');
-over('Jazyk::docasne: uvnitř platí cizí jazyk', MiroCMS\Core\Jazyk::docasne('en', fn (): string => MiroCMS\Core\Jazyk::kod() . '|' . t('Číst článek →')), 'en|Read article →');
-over('Jazyk::docasne: potom se jazyk vrátí', MiroCMS\Core\Jazyk::kod() . '|' . t('Číst článek →'), 'cs|Číst článek →');
+Kaleta\Core\Jazyk::nastav('cs');
+over('Jazyk::docasne: uvnitř platí cizí jazyk', Kaleta\Core\Jazyk::docasne('en', fn (): string => Kaleta\Core\Jazyk::kod() . '|' . t('Číst článek →')), 'en|Read article →');
+over('Jazyk::docasne: potom se jazyk vrátí', Kaleta\Core\Jazyk::kod() . '|' . t('Číst článek →'), 'cs|Číst článek →');
 try {
-    MiroCMS\Core\Jazyk::docasne('en', function (): never { throw new RuntimeException('x'); });
+    Kaleta\Core\Jazyk::docasne('en', function (): never { throw new RuntimeException('x'); });
 } catch (RuntimeException) {
 }
-over('Jazyk::docasne: jazyk se vrátí i po výjimce', MiroCMS\Core\Jazyk::kod(), 'cs');
+over('Jazyk::docasne: jazyk se vrátí i po výjimce', Kaleta\Core\Jazyk::kod(), 'cs');
 
 /* ---------- převládající barva obrázku ---------- */
 if (function_exists('imagecreatetruecolor')) {
@@ -186,9 +186,9 @@ if (function_exists('imagecreatetruecolor')) {
     $platno = imagecreatetruecolor(40, 20);
     imagefill($platno, 0, 0, imagecolorallocate($platno, 200, 30, 60));
     imagepng($platno, $docasny);
-    over('Obrazky::barva: jednobarevný obrázek', MiroCMS\Core\Obrazky::barva($docasny), '#c81e3c');
+    over('Obrazky::barva: jednobarevný obrázek', Kaleta\Core\Obrazky::barva($docasny), '#c81e3c');
     unlink($docasny);
-    over('Obrazky::barva: chybějící soubor', MiroCMS\Core\Obrazky::barva($docasny), null);
+    over('Obrazky::barva: chybějící soubor', Kaleta\Core\Obrazky::barva($docasny), null);
 }
 
 /* ---------- skripty: nesmí hledat prvek (data-atribut), který nikde nevzniká – tak se rozbil dialog Médií ---------- */
@@ -197,14 +197,14 @@ $kdeVznika = [
     'image/web.js' => ['system/views/front', 'system/src/Front', 'system/src/Stavitel/Prvky', 'layout'],
 ];
 foreach ($kdeVznika as $skript => $slozky) {
-    $zdroj = (string) file_get_contents(MIROCMS_ROOT . '/' . $skript);
+    $zdroj = (string) file_get_contents(KALETA_ROOT . '/' . $skript);
     preg_match_all('/querySelector(?:All)?\(\'\[(data-[a-z0-9-]+)\]\'\)/', $zdroj, $odkazy);
     $bezHledani = (string) preg_replace('/(querySelector(All)?|closest|matches)\([^)]*\)/', '', $zdroj);
     $chybi = [];
     foreach (array_unique($odkazy[1]) as $atribut) {
         $vSablonach = false;
         foreach ($slozky as $slozka) {
-            foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(MIROCMS_ROOT . '/' . $slozka, FilesystemIterator::SKIP_DOTS)) as $soubor) {
+            foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(KALETA_ROOT . '/' . $slozka, FilesystemIterator::SKIP_DOTS)) as $soubor) {
                 $vSablonach = $vSablonach || str_contains((string) file_get_contents($soubor->getPathname()), $atribut);
             }
         }
@@ -217,10 +217,10 @@ foreach ($kdeVznika as $skript => $slozky) {
 
 /* ---------- administrace má Content-Security-Policy bez 'unsafe-inline': žádné inline skripty ani obsluhy událostí ---------- */
 $inline = [];
-foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(MIROCMS_ROOT . '/system/views/admin', FilesystemIterator::SKIP_DOTS)) as $soubor) {
+foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(KALETA_ROOT . '/system/views/admin', FilesystemIterator::SKIP_DOTS)) as $soubor) {
     $zdroj = (string) file_get_contents($soubor->getPathname());
     if (preg_match('#<script(?![^>]*\bsrc=)(?![^>]*type="application/json")[^>]*>|\son(?:click|change|input|submit|load|error|key\w+|mouse\w+)="#i', $zdroj)) {
-        $inline[] = substr($soubor->getPathname(), strlen(MIROCMS_ROOT) + 1);
+        $inline[] = substr($soubor->getPathname(), strlen(KALETA_ROOT) + 1);
     }
 }
 over('šablony administrace neobsahují inline skripty (CSP)', $inline, []);
@@ -232,59 +232,59 @@ if (function_exists('sodium_crypto_sign_keypair')) {
     $podepis = fn (string $zprava, string $sk): string => base64_encode(sodium_crypto_sign_detached($zprava, $sk));
     $pub = tempnam(sys_get_temp_dir(), 'rs');
     file_put_contents($pub, "# poznámka\n" . base64_encode($pkProvozni) . " provozni\n\nnesmysl-ktery-neni-klic\n" . base64_encode($pkZalozni) . " zalozni 2026-09-20\n");
-    $zprava = MiroCMS\Core\Podpis::zpravaBalicku('3.0.1', str_repeat('A', 64), false);
-    over('Podpis::klice: dva platné klíče, poznámky a nesmysly se přeskočí', count(MiroCMS\Core\Podpis::klice($pub)), 2);
-    over('Podpis: provozní klíč platí', MiroCMS\Core\Podpis::plati($zprava, $podepis($zprava, $skProvozni), $pub), true);
-    over('Podpis: záložní klíč platí také', MiroCMS\Core\Podpis::plati($zprava, $podepis($zprava, $skZalozni), $pub), true);
-    over('Podpis: cizí klíč neplatí', MiroCMS\Core\Podpis::plati($zprava, $podepis($zprava, $skCizi), $pub), false);
-    over('Podpis: poškozený podpis neplatí', MiroCMS\Core\Podpis::plati($zprava, 'AAAA', $pub), false);
-    over('Podpis: běžné vydání nejde prohlásit za bezpečnostní', MiroCMS\Core\Podpis::plati(MiroCMS\Core\Podpis::zpravaBalicku('3.0.1', str_repeat('A', 64), true), $podepis($zprava, $skProvozni), $pub), false);
-    over('Podpis: otisk balíčku se porovnává bez ohledu na velikost písmen', MiroCMS\Core\Podpis::zpravaBalicku('3.0.1', 'ABC', false), '3.0.1|abc|bezne');
+    $zprava = Kaleta\Core\Podpis::zpravaBalicku('3.0.1', str_repeat('A', 64), false);
+    over('Podpis::klice: dva platné klíče, poznámky a nesmysly se přeskočí', count(Kaleta\Core\Podpis::klice($pub)), 2);
+    over('Podpis: provozní klíč platí', Kaleta\Core\Podpis::plati($zprava, $podepis($zprava, $skProvozni), $pub), true);
+    over('Podpis: záložní klíč platí také', Kaleta\Core\Podpis::plati($zprava, $podepis($zprava, $skZalozni), $pub), true);
+    over('Podpis: cizí klíč neplatí', Kaleta\Core\Podpis::plati($zprava, $podepis($zprava, $skCizi), $pub), false);
+    over('Podpis: poškozený podpis neplatí', Kaleta\Core\Podpis::plati($zprava, 'AAAA', $pub), false);
+    over('Podpis: běžné vydání nejde prohlásit za bezpečnostní', Kaleta\Core\Podpis::plati(Kaleta\Core\Podpis::zpravaBalicku('3.0.1', str_repeat('A', 64), true), $podepis($zprava, $skProvozni), $pub), false);
+    over('Podpis: otisk balíčku se porovnává bez ohledu na velikost písmen', Kaleta\Core\Podpis::zpravaBalicku('3.0.1', 'ABC', false), '3.0.1|abc|bezne');
     // únik provozního klíče: vydání podepsané záložním přinese soubor bez něj a s novým provozním
     file_put_contents($pub, base64_encode($pkNovy) . " provozni\n" . base64_encode($pkZalozni) . " zalozni\n");
-    over('výměna klíče: odvolaný klíč už neplatí', MiroCMS\Core\Podpis::plati($zprava, $podepis($zprava, $skProvozni), $pub), false);
-    over('výměna klíče: nový provozní klíč platí', MiroCMS\Core\Podpis::plati($zprava, $podepis($zprava, $skNovy), $pub), true);
+    over('výměna klíče: odvolaný klíč už neplatí', Kaleta\Core\Podpis::plati($zprava, $podepis($zprava, $skProvozni), $pub), false);
+    over('výměna klíče: nový provozní klíč platí', Kaleta\Core\Podpis::plati($zprava, $podepis($zprava, $skNovy), $pub), true);
     file_put_contents($pub, '');
-    over('Podpis: bez klíčů neplatí nic', MiroCMS\Core\Podpis::plati($zprava, $podepis($zprava, $skNovy), $pub), false);
+    over('Podpis: bez klíčů neplatí nic', Kaleta\Core\Podpis::plati($zprava, $podepis($zprava, $skNovy), $pub), false);
     unlink($pub);
 }
-// Klíče vydavatele MiroCMS vzniknou až před prvním vydáním (docs/VYDAVANI.md); do té doby smí být soubor bez klíče, ale musí jít přečíst.
-over('system/aktualizace.pub jde přečíst', is_array(MiroCMS\Core\Podpis::klice(MIROCMS_ROOT . '/system/aktualizace.pub')), true);
+// Klíče vydavatele Kalety vzniknou až před prvním vydáním (docs/VYDAVANI.md); do té doby smí být soubor bez klíče, ale musí jít přečíst.
+over('system/aktualizace.pub jde přečíst', is_array(Kaleta\Core\Podpis::klice(KALETA_ROOT . '/system/aktualizace.pub')), true);
 
 /* ---------- instalátor: každý text má překlad ve všech jazycích ---------- */
 $klice = [];
 foreach (['system/views/install/formular.php', 'system/views/install/hotovo.php', 'system/src/Install/Installer.php'] as $soubor) {
-    preg_match_all("/\\bt\\('((?:[^'\\\\]|\\\\.)*)'/", (string) file_get_contents(MIROCMS_ROOT . '/' . $soubor), $nalezene);
+    preg_match_all("/\\bt\\('((?:[^'\\\\]|\\\\.)*)'/", (string) file_get_contents(KALETA_ROOT . '/' . $soubor), $nalezene);
     foreach ($nalezene[1] as $text) {
         $klice[stripslashes($text)] = true;
     }
 }
 foreach (['en'] as $kod) {
-    $slovnik = require MIROCMS_ROOT . '/system/jazyky/install-' . $kod . '.php';
+    $slovnik = require KALETA_ROOT . '/system/jazyky/install-' . $kod . '.php';
     // mezinárodní slova se nepřekládají (nástroj na slovníky shodné položky nezapisuje)
     $chybi = array_values(array_diff(array_keys($klice), array_keys($slovnik), ['Server', 'Port', 'E-mail']));
     over('instalátor: úplný slovník ' . $kod, $chybi, []);
 }
 
 /* ---------- čísla podle jazyka ---------- */
-over('pocet: česky mezera jako oddělovač tisíců', MiroCMS\Core\Jazyk::docasne('cs', fn () => pocet(1234567)), "1\u{00A0}234\u{00A0}567");
-over('pocet: anglicky čárka a desetinná tečka', MiroCMS\Core\Jazyk::docasne('en', fn () => pocet(12345.678, 2)), '12,345.68');
-over('Soubory::velikost: anglicky desetinná tečka', MiroCMS\Core\Jazyk::docasne('en', fn () => MiroCMS\Core\Soubory::velikost(3 * 1048576 + 524288)), '3.5 MB');
+over('pocet: česky mezera jako oddělovač tisíců', Kaleta\Core\Jazyk::docasne('cs', fn () => pocet(1234567)), "1\u{00A0}234\u{00A0}567");
+over('pocet: anglicky čárka a desetinná tečka', Kaleta\Core\Jazyk::docasne('en', fn () => pocet(12345.678, 2)), '12,345.68');
+over('Soubory::velikost: anglicky desetinná tečka', Kaleta\Core\Jazyk::docasne('en', fn () => Kaleta\Core\Soubory::velikost(3 * 1048576 + 524288)), '3.5 MB');
 
 /* ---------- marketingové kódy a souhlas ---------- */
-over('Seo::cekaNaSouhlas: bez lišty beze změny', MiroCMS\Front\Seo::cekaNaSouhlas('<script src="x.js"></script>', 'zadna'), '<script src="x.js"></script>');
-over('Seo::cekaNaSouhlas: vestavěná lišta balí do <template>', MiroCMS\Front\Seo::cekaNaSouhlas('<ins></ins><script>a()</script>', 'vestavena'), '<template data-souhlas="marketing"><ins></ins><script>a()</script></template>');
-over('Seo::cekaNaSouhlas: externí služba dostane značené skripty', MiroCMS\Front\Seo::cekaNaSouhlas('<ins></ins><SCRIPT async src="x.js"></script><script type="application/json">{}</script>', 'externi'),
+over('Seo::cekaNaSouhlas: bez lišty beze změny', Kaleta\Front\Seo::cekaNaSouhlas('<script src="x.js"></script>', 'zadna'), '<script src="x.js"></script>');
+over('Seo::cekaNaSouhlas: vestavěná lišta balí do <template>', Kaleta\Front\Seo::cekaNaSouhlas('<ins></ins><script>a()</script>', 'vestavena'), '<template data-souhlas="marketing"><ins></ins><script>a()</script></template>');
+over('Seo::cekaNaSouhlas: externí služba dostane značené skripty', Kaleta\Front\Seo::cekaNaSouhlas('<ins></ins><SCRIPT async src="x.js"></script><script type="application/json">{}</script>', 'externi'),
     '<ins></ins><script type="text/plain" data-cookieconsent="marketing" async src="x.js"></script><script type="application/json">{}</script>');
 
 /* ---------- aktualizace: úklid souborů, které nové vydání už neobsahuje ---------- */
-$uklid = sys_get_temp_dir() . '/mirocms-uklid-' . bin2hex(random_bytes(4));
+$uklid = sys_get_temp_dir() . '/kaleta-uklid-' . bin2hex(random_bytes(4));
 mkdir($uklid . '/system/stare', 0775, true);
 mkdir($uklid . '/media', 0775, true);
 foreach (['index.php', 'system/stare/zrusene.php', 'system/zustava.php', 'media/foto.jpg', 'config.php', 'vlastni.php'] as $f) {
     file_put_contents($uklid . '/' . $f, 'x');
 }
-$smazano = MiroCMS\Core\Aktualizace::uklidZastarale($uklid, ['index.php', 'system/stare/zrusene.php', 'system/zustava.php', 'media/foto.jpg', 'config.php', '../mimo.php'], ['index.php', 'system/zustava.php']);
+$smazano = Kaleta\Core\Aktualizace::uklidZastarale($uklid, ['index.php', 'system/stare/zrusene.php', 'system/zustava.php', 'media/foto.jpg', 'config.php', '../mimo.php'], ['index.php', 'system/zustava.php']);
 over('Aktualizace: smaže jen soubor zrušený novým vydáním', $smazano, 1);
 over('Aktualizace: zrušený soubor i jeho prázdná složka jsou pryč', is_dir($uklid . '/system/stare'), false);
 over('Aktualizace: chráněné cesty a vlastní soubory zůstávají', [is_file($uklid . '/media/foto.jpg'), is_file($uklid . '/config.php'), is_file($uklid . '/vlastni.php'), is_file($uklid . '/system/zustava.php')], [true, true, true, true]);
@@ -298,66 +298,66 @@ $pkDer = base64_decode(preg_replace('/-----[^-]+-----|\s/', '', $pkPopis['key'])
 $pkX = str_pad($pkPopis['ec']['x'], 32, "\0", STR_PAD_LEFT); $pkY = str_pad($pkPopis['ec']['y'], 32, "\0", STR_PAD_LEFT);
 $pkCose = "\xA5\x01\x02\x03\x26\x20\x01\x21\x58\x20" . $pkX . "\x22\x58\x20" . $pkY;
 $pkId = random_bytes(20);
-$pkKlient = static fn (string $typ, string $vyzva, string $puvod): string => MiroCMS\Core\Passkey::b64((string) json_encode(['type' => $typ, 'challenge' => $vyzva, 'origin' => $puvod, 'crossOrigin' => false], JSON_UNESCAPED_SLASHES));
+$pkKlient = static fn (string $typ, string $vyzva, string $puvod): string => Kaleta\Core\Passkey::b64((string) json_encode(['type' => $typ, 'challenge' => $vyzva, 'origin' => $puvod, 'crossOrigin' => false], JSON_UNESCAPED_SLASHES));
 $pkRegData = static fn (string $rp, int $priznaky = 0x45): string => hash('sha256', $rp, true) . chr($priznaky) . pack('N', 0) . str_repeat("\0", 16) . pack('n', strlen($pkId)) . $pkId . $pkCose;
-$pkVyzva = MiroCMS\Core\Passkey::vyzva();
-$pkReg = ['clientDataJSON' => $pkKlient('webauthn.create', $pkVyzva, $pkPuvod), 'authenticatorData' => MiroCMS\Core\Passkey::b64($pkRegData($pkRp)), 'publicKey' => MiroCMS\Core\Passkey::b64($pkDer), 'publicKeyAlgorithm' => -7];
-$pkUlozeno = MiroCMS\Core\Passkey::overRegistraci($pkReg, $pkVyzva, $pkPuvod, $pkRp);
-over('Passkey: registrace vrátí id klíče', $pkUlozeno['id'], MiroCMS\Core\Passkey::b64($pkId));
+$pkVyzva = Kaleta\Core\Passkey::vyzva();
+$pkReg = ['clientDataJSON' => $pkKlient('webauthn.create', $pkVyzva, $pkPuvod), 'authenticatorData' => Kaleta\Core\Passkey::b64($pkRegData($pkRp)), 'publicKey' => Kaleta\Core\Passkey::b64($pkDer), 'publicKeyAlgorithm' => -7];
+$pkUlozeno = Kaleta\Core\Passkey::overRegistraci($pkReg, $pkVyzva, $pkPuvod, $pkRp);
+over('Passkey: registrace vrátí id klíče', $pkUlozeno['id'], Kaleta\Core\Passkey::b64($pkId));
 over('Passkey: registrace vrátí veřejný klíč v PEM', str_contains($pkUlozeno['klic'], 'BEGIN PUBLIC KEY'), true);
 $pkOdmitne = static function (callable $f): bool { try { $f(); return false; } catch (RuntimeException) { return true; } };
-over('Passkey: registrace s cizí výzvou neprojde', $pkOdmitne(fn () => MiroCMS\Core\Passkey::overRegistraci($pkReg, MiroCMS\Core\Passkey::vyzva(), $pkPuvod, $pkRp)), true);
-over('Passkey: registrace z jiného původu neprojde', $pkOdmitne(fn () => MiroCMS\Core\Passkey::overRegistraci($pkReg, $pkVyzva, 'https://podvrh.example', $pkRp)), true);
-over('Passkey: registrace pro jinou doménu neprojde', $pkOdmitne(fn () => MiroCMS\Core\Passkey::overRegistraci($pkReg, $pkVyzva, $pkPuvod, 'jina.example')), true);
+over('Passkey: registrace s cizí výzvou neprojde', $pkOdmitne(fn () => Kaleta\Core\Passkey::overRegistraci($pkReg, Kaleta\Core\Passkey::vyzva(), $pkPuvod, $pkRp)), true);
+over('Passkey: registrace z jiného původu neprojde', $pkOdmitne(fn () => Kaleta\Core\Passkey::overRegistraci($pkReg, $pkVyzva, 'https://podvrh.example', $pkRp)), true);
+over('Passkey: registrace pro jinou doménu neprojde', $pkOdmitne(fn () => Kaleta\Core\Passkey::overRegistraci($pkReg, $pkVyzva, $pkPuvod, 'jina.example')), true);
 $pkCizi = openssl_pkey_get_details(openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_EC, 'curve_name' => 'prime256v1']));
-over('Passkey: podstrčený veřejný klíč neprojde', $pkOdmitne(fn () => MiroCMS\Core\Passkey::overRegistraci(['publicKey' => MiroCMS\Core\Passkey::b64(base64_decode(preg_replace('/-----[^-]+-----|\s/', '', $pkCizi['key'])))] + $pkReg, $pkVyzva, $pkPuvod, $pkRp)), true);
-over('Passkey: odpověď z přihlášení nejde použít k registraci', $pkOdmitne(fn () => MiroCMS\Core\Passkey::overRegistraci(['clientDataJSON' => $pkKlient('webauthn.get', $pkVyzva, $pkPuvod)] + $pkReg, $pkVyzva, $pkPuvod, $pkRp)), true);
+over('Passkey: podstrčený veřejný klíč neprojde', $pkOdmitne(fn () => Kaleta\Core\Passkey::overRegistraci(['publicKey' => Kaleta\Core\Passkey::b64(base64_decode(preg_replace('/-----[^-]+-----|\s/', '', $pkCizi['key'])))] + $pkReg, $pkVyzva, $pkPuvod, $pkRp)), true);
+over('Passkey: odpověď z přihlášení nejde použít k registraci', $pkOdmitne(fn () => Kaleta\Core\Passkey::overRegistraci(['clientDataJSON' => $pkKlient('webauthn.get', $pkVyzva, $pkPuvod)] + $pkReg, $pkVyzva, $pkPuvod, $pkRp)), true);
 $pkPrihlas = static function (string $vyzva, int $pocitadlo, string $rp = 'redakce.example', string $puvod = 'https://redakce.example', int $priznaky = 0x05) use ($pkKlic, $pkKlient): array {
     $data = hash('sha256', $rp, true) . chr($priznaky) . pack('N', $pocitadlo);
     $klient = $pkKlient('webauthn.get', $vyzva, $puvod);
-    openssl_sign($data . hash('sha256', MiroCMS\Core\Passkey::zB64($klient), true), $podpis, $pkKlic, OPENSSL_ALGO_SHA256);
+    openssl_sign($data . hash('sha256', Kaleta\Core\Passkey::zB64($klient), true), $podpis, $pkKlic, OPENSSL_ALGO_SHA256);
 
-    return ['clientDataJSON' => $klient, 'authenticatorData' => MiroCMS\Core\Passkey::b64($data), 'signature' => MiroCMS\Core\Passkey::b64($podpis)];
+    return ['clientDataJSON' => $klient, 'authenticatorData' => Kaleta\Core\Passkey::b64($data), 'signature' => Kaleta\Core\Passkey::b64($podpis)];
 };
-$pkV2 = MiroCMS\Core\Passkey::vyzva();
-over('Passkey: platné přihlášení vrátí nové počitadlo', MiroCMS\Core\Passkey::overPrihlaseni($pkPrihlas($pkV2, 5), $pkV2, $pkPuvod, $pkRp, $pkUlozeno['klic'], 4), 5);
-over('Passkey: synchronizovaný klíč s nulovým počitadlem projde', MiroCMS\Core\Passkey::overPrihlaseni($pkPrihlas($pkV2, 0), $pkV2, $pkPuvod, $pkRp, $pkUlozeno['klic'], 0), 0);
-over('Passkey: přehraná odpověď (jiná výzva) neprojde', $pkOdmitne(fn () => MiroCMS\Core\Passkey::overPrihlaseni($pkPrihlas($pkV2, 6), MiroCMS\Core\Passkey::vyzva(), $pkPuvod, $pkRp, $pkUlozeno['klic'], 5)), true);
-over('Passkey: počitadlo, které neroste, neprojde', $pkOdmitne(fn () => MiroCMS\Core\Passkey::overPrihlaseni($pkPrihlas($pkV2, 5), $pkV2, $pkPuvod, $pkRp, $pkUlozeno['klic'], 5)), true);
-over('Passkey: podpis jiným klíčem neprojde', $pkOdmitne(fn () => MiroCMS\Core\Passkey::overPrihlaseni($pkPrihlas($pkV2, 6), $pkV2, $pkPuvod, $pkRp, $pkCizi['key'], 5)), true);
-over('Passkey: odpověď z podvržené domény neprojde', $pkOdmitne(fn () => MiroCMS\Core\Passkey::overPrihlaseni($pkPrihlas($pkV2, 6, 'redakce.example', 'https://redakce.example.podvrh.cz'), $pkV2, $pkPuvod, $pkRp, $pkUlozeno['klic'], 5)), true);
-over('Passkey: klíč jiné domény neprojde', $pkOdmitne(fn () => MiroCMS\Core\Passkey::overPrihlaseni($pkPrihlas($pkV2, 6, 'jina.example'), $pkV2, $pkPuvod, $pkRp, $pkUlozeno['klic'], 5)), true);
-over('Passkey: bez potvrzení přítomnosti uživatele neprojde', $pkOdmitne(fn () => MiroCMS\Core\Passkey::overPrihlaseni($pkPrihlas($pkV2, 6, 'redakce.example', 'https://redakce.example', 0x00), $pkV2, $pkPuvod, $pkRp, $pkUlozeno['klic'], 5)), true);
-$pkZmeneno = $pkPrihlas($pkV2, 6); $pkZmeneno['authenticatorData'] = MiroCMS\Core\Passkey::b64(MiroCMS\Core\Passkey::zB64($pkZmeneno['authenticatorData']) . 'x');
-over('Passkey: pozměněná data zařízení neprojdou', $pkOdmitne(fn () => MiroCMS\Core\Passkey::overPrihlaseni($pkZmeneno, $pkV2, $pkPuvod, $pkRp, $pkUlozeno['klic'], 5)), true);
-over('Passkey: původ a doména z adresy webu', [MiroCMS\Core\Passkey::puvod('https://WWW.Web.cz/'), MiroCMS\Core\Passkey::puvod('http://localhost:8080'), MiroCMS\Core\Passkey::rpId('https://www.web.cz:8443/x')], ['https://www.web.cz', 'http://localhost:8080', 'www.web.cz']);
+$pkV2 = Kaleta\Core\Passkey::vyzva();
+over('Passkey: platné přihlášení vrátí nové počitadlo', Kaleta\Core\Passkey::overPrihlaseni($pkPrihlas($pkV2, 5), $pkV2, $pkPuvod, $pkRp, $pkUlozeno['klic'], 4), 5);
+over('Passkey: synchronizovaný klíč s nulovým počitadlem projde', Kaleta\Core\Passkey::overPrihlaseni($pkPrihlas($pkV2, 0), $pkV2, $pkPuvod, $pkRp, $pkUlozeno['klic'], 0), 0);
+over('Passkey: přehraná odpověď (jiná výzva) neprojde', $pkOdmitne(fn () => Kaleta\Core\Passkey::overPrihlaseni($pkPrihlas($pkV2, 6), Kaleta\Core\Passkey::vyzva(), $pkPuvod, $pkRp, $pkUlozeno['klic'], 5)), true);
+over('Passkey: počitadlo, které neroste, neprojde', $pkOdmitne(fn () => Kaleta\Core\Passkey::overPrihlaseni($pkPrihlas($pkV2, 5), $pkV2, $pkPuvod, $pkRp, $pkUlozeno['klic'], 5)), true);
+over('Passkey: podpis jiným klíčem neprojde', $pkOdmitne(fn () => Kaleta\Core\Passkey::overPrihlaseni($pkPrihlas($pkV2, 6), $pkV2, $pkPuvod, $pkRp, $pkCizi['key'], 5)), true);
+over('Passkey: odpověď z podvržené domény neprojde', $pkOdmitne(fn () => Kaleta\Core\Passkey::overPrihlaseni($pkPrihlas($pkV2, 6, 'redakce.example', 'https://redakce.example.podvrh.cz'), $pkV2, $pkPuvod, $pkRp, $pkUlozeno['klic'], 5)), true);
+over('Passkey: klíč jiné domény neprojde', $pkOdmitne(fn () => Kaleta\Core\Passkey::overPrihlaseni($pkPrihlas($pkV2, 6, 'jina.example'), $pkV2, $pkPuvod, $pkRp, $pkUlozeno['klic'], 5)), true);
+over('Passkey: bez potvrzení přítomnosti uživatele neprojde', $pkOdmitne(fn () => Kaleta\Core\Passkey::overPrihlaseni($pkPrihlas($pkV2, 6, 'redakce.example', 'https://redakce.example', 0x00), $pkV2, $pkPuvod, $pkRp, $pkUlozeno['klic'], 5)), true);
+$pkZmeneno = $pkPrihlas($pkV2, 6); $pkZmeneno['authenticatorData'] = Kaleta\Core\Passkey::b64(Kaleta\Core\Passkey::zB64($pkZmeneno['authenticatorData']) . 'x');
+over('Passkey: pozměněná data zařízení neprojdou', $pkOdmitne(fn () => Kaleta\Core\Passkey::overPrihlaseni($pkZmeneno, $pkV2, $pkPuvod, $pkRp, $pkUlozeno['klic'], 5)), true);
+over('Passkey: původ a doména z adresy webu', [Kaleta\Core\Passkey::puvod('https://WWW.Web.cz/'), Kaleta\Core\Passkey::puvod('http://localhost:8080'), Kaleta\Core\Passkey::rpId('https://www.web.cz:8443/x')], ['https://www.web.cz', 'http://localhost:8080', 'www.web.cz']);
 
 /* ---------- .htaccess: cíle přepisů jsou adresy, ne relativní cesty ---------- */
 // Relativní cíl (RewriteRule ^ index.php) skončí na hostinzích, které mapují subdomény do složky mimo kořen webu, smyčkou a chybou 500.
-$htaccess = (string) file_get_contents(MIROCMS_ROOT . '/.htaccess');
+$htaccess = (string) file_get_contents(KALETA_ROOT . '/.htaccess');
 preg_match_all('/^\s*RewriteRule\s+\S+\s+(\S+)/m', $htaccess, $cile);
 over('.htaccess: žádný přepis nemá relativní cíl', array_values(array_filter($cile[1], static fn (string $c): bool => $c !== '-' && !str_starts_with($c, '%{ENV:BASE}/'))), []);
 over('.htaccess: složka webu se počítá z adresy požadavku', str_contains($htaccess, 'E=BASE:%1'), true);
 
 /* ---------- cesty v nabídce jako odkazy (hlášky, Stav systému, nápovědy) ---------- */
-MiroCMS\Core\Jazyk::nastav('cs', 'admin-');
-$cestyHtml = MiroCMS\Admin\Cesty::odkazy('/admin.php', 'Je k dispozici nová verze 3.0.1 – nainstalujete ji v Nastavení → Zálohy a aktualizace. <b>', ['config']);
+Kaleta\Core\Jazyk::nastav('cs', 'admin-');
+$cestyHtml = Kaleta\Admin\Cesty::odkazy('/admin.php', 'Je k dispozici nová verze 3.0.1 – nainstalujete ji v Nastavení → Zálohy a aktualizace. <b>', ['config']);
 over('Cesty: známá cesta je odkaz', str_contains($cestyHtml, '<a href="/admin.php?modul=config&amp;zalozka=zalohy">Nastavení → Zálohy a aktualizace</a>'), true);
 over('Cesty: zbytek textu zůstává escapovaný', str_contains($cestyHtml, '&lt;b&gt;'), true);
 over('Cesty: delší cesta má přednost a odkaz se nevnořuje', substr_count($cestyHtml, '<a '), 1);
-over('Cesty: bez práva k modulu žádný odkaz', str_contains(MiroCMS\Admin\Cesty::odkazy('/admin.php', 'Nastavení → Pošta', []), '<a '), false);
-MiroCMS\Core\Jazyk::nastav('en', 'admin-');
-over('Cesty: v angličtině se odkazuje přeložená cesta', str_contains(MiroCMS\Admin\Cesty::odkazy('/admin.php', t('Je k dispozici nová verze %s – nainstalujete ji v Nastavení → Zálohy a aktualizace.', '3.0.1'), ['config']), '>Settings → Backups and updates</a>'), true);
-MiroCMS\Core\Jazyk::nastav('cs', 'admin-');
+over('Cesty: bez práva k modulu žádný odkaz', str_contains(Kaleta\Admin\Cesty::odkazy('/admin.php', 'Nastavení → Pošta', []), '<a '), false);
+Kaleta\Core\Jazyk::nastav('en', 'admin-');
+over('Cesty: v angličtině se odkazuje přeložená cesta', str_contains(Kaleta\Admin\Cesty::odkazy('/admin.php', t('Je k dispozici nová verze %s – nainstalujete ji v Nastavení → Zálohy a aktualizace.', '3.0.1'), ['config']), '>Settings → Backups and updates</a>'), true);
+Kaleta\Core\Jazyk::nastav('cs', 'admin-');
 
 /* ---------- antispam: otisk IP ---------- */
-over('Antispam::otisk: není to IP adresa', str_contains(MiroCMS\Core\Antispam::otisk('203.0.113.7'), '203'), false);
-over('Antispam::otisk: stejná adresa = stejný otisk', MiroCMS\Core\Antispam::otisk('203.0.113.7'), MiroCMS\Core\Antispam::otisk('203.0.113.7'));
+over('Antispam::otisk: není to IP adresa', str_contains(Kaleta\Core\Antispam::otisk('203.0.113.7'), '203'), false);
+over('Antispam::otisk: stejná adresa = stejný otisk', Kaleta\Core\Antispam::otisk('203.0.113.7'), Kaleta\Core\Antispam::otisk('203.0.113.7'));
 
 /* ---------- import z WordPressu: čtení exportu (tools/fixtures/wordpress-ukazka.xml), náhled, bezpečné XML ---------- */
-$wpCesta = MIROCMS_ROOT . '/tools/fixtures/wordpress-ukazka.xml';
+$wpCesta = KALETA_ROOT . '/tools/fixtures/wordpress-ukazka.xml';
 $wpOdmitne = static function (callable $f): bool { try { $f(); return false; } catch (RuntimeException) { return true; } };
-$wp = new MiroCMS\Core\WpSoubor($wpCesta);
+$wp = new Kaleta\Core\WpSoubor($wpCesta);
 over('WpSoubor: ukázkový export projde ověřením', $wpOdmitne(fn () => $wp->over()), false);
 $wpHlavicka = $wp->hlavicka();
 over('WpSoubor: starý web z <channel><link>', [$wpHlavicka['nazev'], $wpHlavicka['adresa']], ['Podhorský zpravodaj', 'https://www.podhorsky-zpravodaj.example']);
@@ -370,15 +370,15 @@ over('WpSoubor: přeskočení už zpracovaných položek drží pořadí', array
 over('WpSoubor: první příspěvek', [$wpPolozky[0]['id'], $wpPolozky[0]['stav'], $wpPolozky[0]['pripnuty'], $wpPolozky[0]['nahled'], $wpPolozky[0]['rubriky'], array_keys($wpPolozky[0]['stitky'])], [101, 'publish', true, 201, ['z-radnice' => 'Z radnice'], ['most', 'doprava']]);
 over('WpSoubor: komentáře se nečtou', array_key_exists('komentare', $wpPolozky[0]), false);
 over('WpSoubor: e-mail ani IP se z exportu nikam nedostanou', (bool) preg_match('/posta\.example|198\.51\.100|203\.0\.113/', (string) json_encode($wpPolozky)), false);
-$wpStav = MiroCMS\Core\WpImport::novyStav('wordpress-ukazka.xml');
-MiroCMS\Core\WpImport::analyzuj($wpStav, 30, $wpCesta);
+$wpStav = Kaleta\Core\WpImport::novyStav('wordpress-ukazka.xml');
+Kaleta\Core\WpImport::analyzuj($wpStav, 30, $wpCesta);
 over('WpImport náhled: fáze a počet položek', [$wpStav['faze'], $wpStav['celkem'], $wpStav['pozice']], ['nahled', 9, 0]);
 over('WpImport náhled: příspěvky podle stavu a stránky', [$wpStav['prehled']['clanky'], $wpStav['prehled']['stranky']], [['publish' => 3, 'draft' => 1], ['publish' => 1]]);
 over('WpImport náhled: kategorie, štítky, autoři, přílohy', [$wpStav['prehled']['rubriky'], $wpStav['prehled']['stitky'], $wpStav['prehled']['autori'], $wpStav['prehled']['prilohy']], [2, 3, 2, 3]);
 over('WpImport náhled: upozorní na cizí typ obsahu a zkratku doplňku', [$wpStav['prehled']['jine'], $wpStav['prehled']['zkratky']], [['nav_menu_item' => 1], ['kontaktni-formular' => 1]]);
 over('WpImport náhled: adresy příloh pro galerie a hlavní obrázky', $wpStav['prilohy'][202] ?? '', 'https://www.podhorsky-zpravodaj.example/wp-content/uploads/2026/05/pohled.jpg');
 
-$wpTmp = sys_get_temp_dir() . '/mirocms-wp-' . bin2hex(random_bytes(4));
+$wpTmp = sys_get_temp_dir() . '/kaleta-wp-' . bin2hex(random_bytes(4));
 mkdir($wpTmp);
 $wpHlava = '<rss version="2.0" xmlns:wp="http://wordpress.org/export/1.2/" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>T</title><link>https://stary.example</link>';
 file_put_contents($wpTmp . '/tajne.txt', 'TAJNY-OBSAH-SERVERU');
@@ -395,22 +395,22 @@ foreach ($wpSkodlive as $popis => $xml) {
     file_put_contents($wpTmp . '/zly.xml', $xml);
     $precteno = '';
     $odmitnuto = $wpOdmitne(function () use ($wpTmp, &$precteno): void {
-        $zly = new MiroCMS\Core\WpSoubor($wpTmp . '/zly.xml');
+        $zly = new Kaleta\Core\WpSoubor($wpTmp . '/zly.xml');
         $zly->over();
         $precteno = (string) json_encode([$zly->hlavicka(), iterator_to_array($zly->polozky())]);
     });
     over('WpSoubor odmítne: ' . $popis, [$odmitnuto, str_contains($precteno, 'TAJNY-OBSAH') || str_contains($precteno, 'hahahaha')], [true, false]);
 }
 file_put_contents($wpTmp . '/dobry.xml', '<?xml version="1.0"?>' . $wpHlava . '<item><title>A &amp; B</title></item></channel></rss>');
-over('WpSoubor: běžné entity (&amp;) jsou v pořádku', iterator_to_array((new MiroCMS\Core\WpSoubor($wpTmp . '/dobry.xml'))->polozky())[0]['titulek'], 'A & B');
+over('WpSoubor: běžné entity (&amp;) jsou v pořádku', iterator_to_array((new Kaleta\Core\WpSoubor($wpTmp . '/dobry.xml'))->polozky())[0]['titulek'], 'A & B');
 exec('rm -rf ' . escapeshellarg($wpTmp));
 foreach (['export.xml' => true, 'Můj web.WordPress.2026-09-21.XML' => true, '../config.xml' => false, 'slozka/export.xml' => false, '.skryty.xml' => false, 'export.php' => false, 'export.xml.php' => false, "export\0.xml" => false, '' => false] as $nazev => $ocekavano) {
-    over('WpSoubor::platnyNazev ' . json_encode((string) $nazev), MiroCMS\Core\WpSoubor::platnyNazev((string) $nazev), $ocekavano);
+    over('WpSoubor::platnyNazev ' . json_encode((string) $nazev), Kaleta\Core\WpSoubor::platnyNazev((string) $nazev), $ocekavano);
 }
-over('WpSoubor: název nahraného souboru bez diakritiky a vždy .xml', MiroCMS\Core\WpSoubor::nazevProNahrani('Můj web.WordPress.2026-09-21.xml'), 'muj-web-wordpress-2026-09-21.xml');
+over('WpSoubor: název nahraného souboru bez diakritiky a vždy .xml', Kaleta\Core\WpSoubor::nazevProNahrani('Můj web.WordPress.2026-09-21.xml'), 'muj-web-wordpress-2026-09-21.xml');
 
 /* ---------- import z WordPressu: čištění obsahu ---------- */
-$wpCisti = MiroCMS\Core\WpObsah::vycisti(...);
+$wpCisti = Kaleta\Core\WpObsah::vycisti(...);
 over('WpObsah: klasický editor – odstavce z prázdných řádků, <br> z konců řádků', $wpCisti("První řádek\ndruhý řádek\n\nDruhý odstavec"), "<p>První řádek<br>\ndruhý řádek</p>\n<p>Druhý odstavec</p>");
 over('WpObsah: blokové značky se do <p> nebalí', $wpCisti("Úvod\n\n<h2>Titulek</h2>\n<ul>\n<li>a</li>\n<li>b</li>\n</ul>"), "<p>Úvod</p>\n<h2>Titulek</h2>\n<ul>\n<li>a</li>\n<li>b</li>\n</ul>");
 over('WpObsah: komentáře Gutenbergu mizí, odstavce zůstávají', $wpCisti("<!-- wp:paragraph -->\n<p>Text</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:heading {\"level\":1} -->\n<h1 class=\"wp-block-heading\">Nadpis</h1>\n<!-- /wp:heading -->"), "<p>Text</p>\n<h2>Nadpis</h2>");
@@ -426,34 +426,34 @@ over('WpObsah: v ukázce kódu se závorky nemění', $wpCisti("<pre>pole[muj_kl
 $wpNebezpecne = $wpCisti('<p onclick="x()" style="color:red">Klik <a href="java&#9;script:alert(1)" onmouseover="x()">odkaz</a> <a href="https://dobry.example/" target="_blank">ven</a></p><script>alert(1)</script><style>p{}</style><img src="data:image/svg+xml;base64,AAAA"><img src="https://stary.example/a.jpg" onerror="alert(1)" srcset="x 2x"><svg onload="alert(1)"><circle/></svg><form action="/x"><input name="a"></form><object data="x"></object><div class="obal"><span>Text v divu</span></div>');
 over('WpObsah: skripty, styly, obsluhy událostí, javascript: a data: adresy neprojdou', $wpNebezpecne, "<p>Klik odkaz <a href=\"https://dobry.example/\" target=\"_blank\" rel=\"noopener\">ven</a></p>\n<figure><img src=\"https://stary.example/a.jpg\" alt=\"\" loading=\"lazy\"></figure>\n<p>Text v divu</p>");
 over('WpObsah: po čištění nezbyde nic nebezpečného', (bool) preg_match('/<script|<style|<svg|<form|<iframe|<object|\son[a-z]+=|javascript:|data:|style=|srcset=/i', $wpNebezpecne), false);
-over('WpObsah::bezpecnaAdresa', array_map(MiroCMS\Core\WpObsah::bezpecnaAdresa(...), ['https://a.cz/', '/clanek/x', '#kotva', 'mailto:a@b.cz', "java\nscript:alert(1)", ' JAVASCRIPT:alert(1)', 'data:text/html,x', 'vbscript:x', '']), [true, true, true, true, false, false, false, false, false]);
-over('WpObsah: perex z výtahu WordPressu, text celý', MiroCMS\Core\WpObsah::perexAText('Ruční <b>výtah</b> &amp; spol.', "Odstavec jedna\n\nOdstavec dva"), ['<p>Ruční výtah &amp; spol.</p>', "<p>Odstavec jedna</p>\n<p>Odstavec dva</p>"]);
-over('WpObsah: bez výtahu je perexem první odstavec a v textu se neopakuje', MiroCMS\Core\WpObsah::perexAText('', "[caption]<img src=\"https://stary.example/a.jpg\" alt=\"\"> Popisek[/caption]\n\nOdstavec jedna\n\nOdstavec dva"), ['<p>Odstavec jedna</p>', "<figure><img src=\"https://stary.example/a.jpg\" alt=\"\" loading=\"lazy\"><figcaption>Popisek</figcaption></figure>\n<p>Odstavec dva</p>"]);
-over('WpObsah: značka „Číst dál“ dělí perex a text', MiroCMS\Core\WpObsah::perexAText('', "Před značkou\n<!--more-->\nZa značkou"), ['<p>Před značkou</p>', '<p>Za značkou</p>']);
-over('WpObsah: cizí zkratky pro varování v náhledu', MiroCMS\Core\WpObsah::ciziZkratky('[gallery ids="1"] [caption]x[/caption] [et_pb_section]a[/et_pb_section] [sic] <code>[muj_klic]</code>'), ['et_pb_section']);
-[$wpUvod, $wpText] = MiroCMS\Core\WpObsah::perexAText($wpPolozky[0]['perex'], $wpPolozky[0]['obsah'], $wpStav['prilohy']);
+over('WpObsah::bezpecnaAdresa', array_map(Kaleta\Core\WpObsah::bezpecnaAdresa(...), ['https://a.cz/', '/clanek/x', '#kotva', 'mailto:a@b.cz', "java\nscript:alert(1)", ' JAVASCRIPT:alert(1)', 'data:text/html,x', 'vbscript:x', '']), [true, true, true, true, false, false, false, false, false]);
+over('WpObsah: perex z výtahu WordPressu, text celý', Kaleta\Core\WpObsah::perexAText('Ruční <b>výtah</b> &amp; spol.', "Odstavec jedna\n\nOdstavec dva"), ['<p>Ruční výtah &amp; spol.</p>', "<p>Odstavec jedna</p>\n<p>Odstavec dva</p>"]);
+over('WpObsah: bez výtahu je perexem první odstavec a v textu se neopakuje', Kaleta\Core\WpObsah::perexAText('', "[caption]<img src=\"https://stary.example/a.jpg\" alt=\"\"> Popisek[/caption]\n\nOdstavec jedna\n\nOdstavec dva"), ['<p>Odstavec jedna</p>', "<figure><img src=\"https://stary.example/a.jpg\" alt=\"\" loading=\"lazy\"><figcaption>Popisek</figcaption></figure>\n<p>Odstavec dva</p>"]);
+over('WpObsah: značka „Číst dál“ dělí perex a text', Kaleta\Core\WpObsah::perexAText('', "Před značkou\n<!--more-->\nZa značkou"), ['<p>Před značkou</p>', '<p>Za značkou</p>']);
+over('WpObsah: cizí zkratky pro varování v náhledu', Kaleta\Core\WpObsah::ciziZkratky('[gallery ids="1"] [caption]x[/caption] [et_pb_section]a[/et_pb_section] [sic] <code>[muj_klic]</code>'), ['et_pb_section']);
+[$wpUvod, $wpText] = Kaleta\Core\WpObsah::perexAText($wpPolozky[0]['perex'], $wpPolozky[0]['obsah'], $wpStav['prilohy']);
 over('WpObsah: ukázkový příspěvek – perex, obrázek s popiskem, video, galerie, bez skriptu a zkratky', [str_starts_with($wpUvod, '<p>Po dvanácti měsících'), substr_count($wpText, '<figcaption>'), str_contains($wpText, '<p>https://www.youtube.com/watch?v=dQw4w9WgXcQ</p>'), substr_count($wpText, 'class="galerie"'), (bool) preg_match('/script|onclick|kontaktni-formular|javascript/i', $wpText)], [true, 1, true, 1, false]);
 
 /* ---------- import z WordPressu: stav, datum, adresy ---------- */
 $wpStavy = [];
 foreach (['publish', 'future', 'draft', 'pending', 'private', 'trash', 'auto-draft', 'inherit', 'nesmysl'] as $wpS) {
-    $wpM = MiroCMS\Core\WpImport::stavClanku($wpS);
+    $wpM = Kaleta\Core\WpImport::stavClanku($wpS);
     $wpStavy[$wpS] = $wpM === null ? 'vynechat' : ($wpM['visible'] ? 'vydany' : 'koncept');
 }
 over('WpImport::stavClanku', $wpStavy, ['publish' => 'vydany', 'future' => 'vydany', 'draft' => 'koncept', 'pending' => 'koncept', 'private' => 'vynechat', 'trash' => 'vynechat', 'auto-draft' => 'vynechat', 'inherit' => 'vynechat', 'nesmysl' => 'vynechat']);
-over('WpImport::stavClanku: příspěvek chráněný heslem se nezveřejní', MiroCMS\Core\WpImport::stavClanku('publish', true), ['visible' => 0]);
-over('WpImport::datum: místní čas starého webu', MiroCMS\Core\WpImport::datum(['datum' => '2026-05-12 09:30:00', 'datum_gmt' => '2026-05-12 07:30:00']), '2026-05-12 09:30:00');
-over('WpImport::datum: koncept s nulovým datem dostane dnešek', MiroCMS\Core\WpImport::datum(['datum' => '0000-00-00 00:00:00', 'datum_gmt' => '0000-00-00 00:00:00', 'vydano' => ''], 1789000000), date('Y-m-d H:i:s', 1789000000));
+over('WpImport::stavClanku: příspěvek chráněný heslem se nezveřejní', Kaleta\Core\WpImport::stavClanku('publish', true), ['visible' => 0]);
+over('WpImport::datum: místní čas starého webu', Kaleta\Core\WpImport::datum(['datum' => '2026-05-12 09:30:00', 'datum_gmt' => '2026-05-12 07:30:00']), '2026-05-12 09:30:00');
+over('WpImport::datum: koncept s nulovým datem dostane dnešek', Kaleta\Core\WpImport::datum(['datum' => '0000-00-00 00:00:00', 'datum_gmt' => '0000-00-00 00:00:00', 'vydano' => ''], 1789000000), date('Y-m-d H:i:s', 1789000000));
 $wpObsazene = ['lavka', 'lavka-2'];
-over('WpImport::volnaAdresa: obsazená adresa dostane číslo', MiroCMS\Core\WpImport::volnaAdresa('lavka', fn (string $a): bool => in_array($a, $wpObsazene, true)), 'lavka-3');
-over('WpImport::volnaAdresa: volná zůstává', MiroCMS\Core\WpImport::volnaAdresa('most', fn (string $a): bool => in_array($a, $wpObsazene, true)), 'most');
-over('WpImport::staraCesta', array_map(MiroCMS\Core\WpImport::staraCesta(...), ['https://stary.example/2026/05/lavka/', 'https://stary.example/?p=104', 'https://stary.example/blog/p%C5%99%C3%ADklad/', 'https://stary.example/' . str_repeat('x', 300)]), ['2026/05/lavka', '', 'blog/příklad', '']);
-over('WpImport::bezRozmeru', array_map(MiroCMS\Core\WpImport::bezRozmeru(...), ['https://s.example/u/foto-300x200.jpg', 'https://s.example/u/foto-1024x683.JPG?ver=2', 'https://s.example/u/foto.png', 'https://s.example/u/plan-2x4.pdf']), ['https://s.example/u/foto.jpg', 'https://s.example/u/foto.JPG', 'https://s.example/u/foto.png', 'https://s.example/u/plan-2x4.pdf']);
-over('WpImport::zdroj: doména starého webu, nejvýš 40 znaků', [MiroCMS\Core\WpImport::zdroj('https://WWW.Stary.example/blog'), MiroCMS\Core\WpImport::zdroj(''), strlen(MiroCMS\Core\WpImport::zdroj('https://' . str_repeat('a', 60) . '.example'))], ['wp:stary.example', 'wp', 40]);
-over('ExportWebu::cesta: jen názvy exportů, nic mimo složku', [MiroCMS\Core\ExportWebu::cesta('../config.php'), MiroCMS\Core\ExportWebu::cesta('export-20260921-101500.zip/../../config.php'), MiroCMS\Core\ExportWebu::cesta('mirocms-20260918-130917-rucni-7d777965.sql.gz')], [null, null, null]);
+over('WpImport::volnaAdresa: obsazená adresa dostane číslo', Kaleta\Core\WpImport::volnaAdresa('lavka', fn (string $a): bool => in_array($a, $wpObsazene, true)), 'lavka-3');
+over('WpImport::volnaAdresa: volná zůstává', Kaleta\Core\WpImport::volnaAdresa('most', fn (string $a): bool => in_array($a, $wpObsazene, true)), 'most');
+over('WpImport::staraCesta', array_map(Kaleta\Core\WpImport::staraCesta(...), ['https://stary.example/2026/05/lavka/', 'https://stary.example/?p=104', 'https://stary.example/blog/p%C5%99%C3%ADklad/', 'https://stary.example/' . str_repeat('x', 300)]), ['2026/05/lavka', '', 'blog/příklad', '']);
+over('WpImport::bezRozmeru', array_map(Kaleta\Core\WpImport::bezRozmeru(...), ['https://s.example/u/foto-300x200.jpg', 'https://s.example/u/foto-1024x683.JPG?ver=2', 'https://s.example/u/foto.png', 'https://s.example/u/plan-2x4.pdf']), ['https://s.example/u/foto.jpg', 'https://s.example/u/foto.JPG', 'https://s.example/u/foto.png', 'https://s.example/u/plan-2x4.pdf']);
+over('WpImport::zdroj: doména starého webu, nejvýš 40 znaků', [Kaleta\Core\WpImport::zdroj('https://WWW.Stary.example/blog'), Kaleta\Core\WpImport::zdroj(''), strlen(Kaleta\Core\WpImport::zdroj('https://' . str_repeat('a', 60) . '.example'))], ['wp:stary.example', 'wp', 40]);
+over('ExportWebu::cesta: jen názvy exportů, nic mimo složku', [Kaleta\Core\ExportWebu::cesta('../config.php'), Kaleta\Core\ExportWebu::cesta('export-20260921-101500.zip/../../config.php'), Kaleta\Core\ExportWebu::cesta('kaleta-20260918-130917-rucni-7d777965.sql.gz')], [null, null, null]);
 
 /* ---------- import z WordPressu: stahování obrázků jen ze starého webu a jen z veřejných adres (ochrana před SSRF) ---------- */
-$wpStahovani = new MiroCMS\Core\StahovaniObrazku('https://www.stary-web.example/blog/');
+$wpStahovani = new Kaleta\Core\StahovaniObrazku('https://www.stary-web.example/blog/');
 over('StahovaniObrazku: doména starého webu bez www', $wpStahovani->domena(), 'stary-web.example');
 foreach ([
     'https://www.stary-web.example/wp-content/uploads/a.jpg' => true,
@@ -479,7 +479,7 @@ foreach ([
 ] as $wpUrl => $ocekavano) {
     over('StahovaniObrazku::povolenaAdresa ' . json_encode((string) $wpUrl), $wpStahovani->povolenaAdresa((string) $wpUrl), $ocekavano);
 }
-over('StahovaniObrazku: bez adresy starého webu se nestahuje nic', (new MiroCMS\Core\StahovaniObrazku(''))->povolenaAdresa('https://cokoli.example/a.png'), false);
+over('StahovaniObrazku: bez adresy starého webu se nestahuje nic', (new Kaleta\Core\StahovaniObrazku(''))->povolenaAdresa('https://cokoli.example/a.png'), false);
 foreach ([
     '93.184.216.34' => true, '8.8.8.8' => true, '172.32.0.1' => true, '100.128.0.1' => true, '2606:4700:4700::1111' => true, '::ffff:93.184.216.34' => true,
     '10.0.0.5' => false, '172.16.0.1' => false, '172.31.255.255' => false, '192.168.1.1' => false, '127.0.0.1' => false, '127.255.255.254' => false,
@@ -488,25 +488,25 @@ foreach ([
     '::ffff:10.0.0.1' => false, '::ffff:127.0.0.1' => false, '64:ff9b::a00:1' => false, '::10.0.0.1' => false, '2002:a00:1::1' => false, '2001:0:4136:e378:8000:63bf:3fff:fdd2' => false,
     '2001:4860:4860::8888' => true, '[::1]' => false, 'neni-ip' => false, '' => false,
 ] as $wpIp => $ocekavano) {
-    over('StahovaniObrazku::verejnaIp ' . $wpIp, MiroCMS\Core\StahovaniObrazku::verejnaIp((string) $wpIp), $ocekavano);
+    over('StahovaniObrazku::verejnaIp ' . $wpIp, Kaleta\Core\StahovaniObrazku::verejnaIp((string) $wpIp), $ocekavano);
 }
 over('StahovaniObrazku: IP adresa místo domény se posuzuje stejně', [$wpStahovani->overenaIp('127.0.0.1'), $wpStahovani->overenaIp('[::1]'), $wpStahovani->overenaIp('93.184.216.34')], [null, null, '93.184.216.34']);
-over('StahovaniObrazku: přesměrování na jinou doménu neprojde dalším kolem kontroly', $wpStahovani->povolenaAdresa(MiroCMS\Core\StahovaniObrazku::cilPresmerovani('https://stary-web.example/a.png', 'https://utocnik.example/a.png')), false);
-over('StahovaniObrazku: přesměrování //jinam a do vnitřní sítě neprojde', [$wpStahovani->povolenaAdresa(MiroCMS\Core\StahovaniObrazku::cilPresmerovani('https://stary-web.example/a.png', '//utocnik.example/a.png')), $wpStahovani->povolenaAdresa(MiroCMS\Core\StahovaniObrazku::cilPresmerovani('https://stary-web.example/a.png', 'http://169.254.169.254/'))], [false, false]);
-over('StahovaniObrazku: relativní přesměrování zůstává na starém webu', [MiroCMS\Core\StahovaniObrazku::cilPresmerovani('https://stary-web.example/u/a.png', '/jinde/b.png'), MiroCMS\Core\StahovaniObrazku::cilPresmerovani('https://stary-web.example/u/a.png', 'b.png')], ['https://stary-web.example/jinde/b.png', 'https://stary-web.example/u/b.png']);
+over('StahovaniObrazku: přesměrování na jinou doménu neprojde dalším kolem kontroly', $wpStahovani->povolenaAdresa(Kaleta\Core\StahovaniObrazku::cilPresmerovani('https://stary-web.example/a.png', 'https://utocnik.example/a.png')), false);
+over('StahovaniObrazku: přesměrování //jinam a do vnitřní sítě neprojde', [$wpStahovani->povolenaAdresa(Kaleta\Core\StahovaniObrazku::cilPresmerovani('https://stary-web.example/a.png', '//utocnik.example/a.png')), $wpStahovani->povolenaAdresa(Kaleta\Core\StahovaniObrazku::cilPresmerovani('https://stary-web.example/a.png', 'http://169.254.169.254/'))], [false, false]);
+over('StahovaniObrazku: relativní přesměrování zůstává na starém webu', [Kaleta\Core\StahovaniObrazku::cilPresmerovani('https://stary-web.example/u/a.png', '/jinde/b.png'), Kaleta\Core\StahovaniObrazku::cilPresmerovani('https://stary-web.example/u/a.png', 'b.png')], ['https://stary-web.example/jinde/b.png', 'https://stary-web.example/u/b.png']);
 $wpPng = (string) base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
 $wpSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"><script>alert(1)</script></svg>';
-over('StahovaniObrazku::typObrazku: PNG podle hlavičky i obsahu', MiroCMS\Core\StahovaniObrazku::typObrazku('image/png; charset=binary', $wpPng), 'image/png');
-over('StahovaniObrazku::typObrazku: hlavička tvrdí obrázek, obsah je HTML', MiroCMS\Core\StahovaniObrazku::typObrazku('image/jpeg', '<html><body>přihlášení</body></html>'), null);
-over('StahovaniObrazku::typObrazku: obsah je obrázek, hlavička ne', MiroCMS\Core\StahovaniObrazku::typObrazku('text/html', $wpPng), null);
-over('StahovaniObrazku::typObrazku: SVG se odmítá vždy', [MiroCMS\Core\StahovaniObrazku::typObrazku('image/svg+xml', $wpSvg), MiroCMS\Core\StahovaniObrazku::typObrazku('image/png', $wpSvg)], [null, null]);
-over('StahovaniObrazku::typObrazku: prázdná odpověď', MiroCMS\Core\StahovaniObrazku::typObrazku('image/png', ''), null);
-over('StahovaniObrazku: limity podle zadání (15 MB, 3 přesměrování, 5 s spojení, 20 s celkem)', [MiroCMS\Core\StahovaniObrazku::MAX_BAJTU, MiroCMS\Core\StahovaniObrazku::MAX_PRESMEROVANI, MiroCMS\Core\StahovaniObrazku::CAS_SPOJENI, MiroCMS\Core\StahovaniObrazku::CAS_CELKEM], [15 * 1024 * 1024, 3, 5, 20]);
-$wpZdrojak = (string) file_get_contents(MIROCMS_ROOT . '/system/src/Core/StahovaniObrazku.php');
-over('StahovaniObrazku: přesměrování se nikdy nenásledují automaticky a nic se neposílá navíc', [substr_count($wpZdrojak, 'CURLOPT_FOLLOWLOCATION => false'), str_contains($wpZdrojak, "'follow_location' => 0"), (bool) preg_match('/CURLOPT_(COOKIE\w*|USERPWD|HTTPHEADER|HTTPAUTH)\b/', $wpZdrojak), str_contains($wpZdrojak, "'MiroCMS-import'")], [1, true, false, true]);
+over('StahovaniObrazku::typObrazku: PNG podle hlavičky i obsahu', Kaleta\Core\StahovaniObrazku::typObrazku('image/png; charset=binary', $wpPng), 'image/png');
+over('StahovaniObrazku::typObrazku: hlavička tvrdí obrázek, obsah je HTML', Kaleta\Core\StahovaniObrazku::typObrazku('image/jpeg', '<html><body>přihlášení</body></html>'), null);
+over('StahovaniObrazku::typObrazku: obsah je obrázek, hlavička ne', Kaleta\Core\StahovaniObrazku::typObrazku('text/html', $wpPng), null);
+over('StahovaniObrazku::typObrazku: SVG se odmítá vždy', [Kaleta\Core\StahovaniObrazku::typObrazku('image/svg+xml', $wpSvg), Kaleta\Core\StahovaniObrazku::typObrazku('image/png', $wpSvg)], [null, null]);
+over('StahovaniObrazku::typObrazku: prázdná odpověď', Kaleta\Core\StahovaniObrazku::typObrazku('image/png', ''), null);
+over('StahovaniObrazku: limity podle zadání (15 MB, 3 přesměrování, 5 s spojení, 20 s celkem)', [Kaleta\Core\StahovaniObrazku::MAX_BAJTU, Kaleta\Core\StahovaniObrazku::MAX_PRESMEROVANI, Kaleta\Core\StahovaniObrazku::CAS_SPOJENI, Kaleta\Core\StahovaniObrazku::CAS_CELKEM], [15 * 1024 * 1024, 3, 5, 20]);
+$wpZdrojak = (string) file_get_contents(KALETA_ROOT . '/system/src/Core/StahovaniObrazku.php');
+over('StahovaniObrazku: přesměrování se nikdy nenásledují automaticky a nic se neposílá navíc', [substr_count($wpZdrojak, 'CURLOPT_FOLLOWLOCATION => false'), str_contains($wpZdrojak, "'follow_location' => 0"), (bool) preg_match('/CURLOPT_(COOKIE\w*|USERPWD|HTTPHEADER|HTTPAUTH)\b/', $wpZdrojak), str_contains($wpZdrojak, "'Kaleta-import'")], [1, true, false, true]);
 
 /* ---------- stavitel: validátor, styl, design system, knihovna ---------- */
-[$stS, $stChyby] = MiroCMS\Stavitel\Stavba::vycisti(['deti' => [
+[$stS, $stChyby] = Kaleta\Stavitel\Stavba::vycisti(['deti' => [
     ['typ' => 'nadpis', 'id' => 'abc', 'obsah' => ['text' => '<script>x</script>Ahoj <b>světe</b>']],
     ['typ' => 'neznamy'],
     ['typ' => 'html', 'obsah' => ['kod' => '<p>a</p>']],
@@ -519,59 +519,59 @@ over('Stavba::vycisti: javascript: odkaz se zahodí a nahlásí', [$stS['deti'][
 over('Stavba::vycisti: duplicitní id dostane nové', $stS['deti'][2]['id'] !== 'abc', true);
 over('Stavba::vycisti: chyby mají cestu', array_keys($stChyby), ['deti[1]', 'deti[2]', 'deti[3].obsah.odkaz', 'deti[4].deti']);
 $stHtml = ['deti' => [['typ' => 'html', 'id' => 'h1x', 'obsah' => ['kod' => '<p onclick="x()">a</p><script>1</script><a href="javascript:x">b</a>']]]];
-[$stSpravce] = MiroCMS\Stavitel\Stavba::vycisti($stHtml, true);
+[$stSpravce] = Kaleta\Stavitel\Stavba::vycisti($stHtml, true);
 over('Stavba::vycisti: vlastní HTML správce bez skriptů a obsluh', $stSpravce['deti'][0]['obsah']['kod'], '<p>a</p><a href="#">b</a>');
-[$stEditor] = MiroCMS\Stavitel\Stavba::vycisti(['deti' => [['typ' => 'html', 'id' => 'h1x', 'obsah' => ['kod' => '<p>podvrh</p>']]]], false, $stSpravce);
+[$stEditor] = Kaleta\Stavitel\Stavba::vycisti(['deti' => [['typ' => 'html', 'id' => 'h1x', 'obsah' => ['kod' => '<p>podvrh</p>']]]], false, $stSpravce);
 over('Stavba::vycisti: editor nezmění vlastní HTML správce, jen ho ponechá', $stEditor['deti'][0]['obsah']['kod'], '<p>a</p><a href="#">b</a>');
 $stHluboka = ['typ' => 'text'];
 for ($i = 0; $i < 20; $i++) {
     $stHluboka = ['typ' => 'kontejner', 'deti' => [$stHluboka]];
 }
-[, $stChyby] = MiroCMS\Stavitel\Stavba::vycisti(['deti' => [$stHluboka]]);
+[, $stChyby] = Kaleta\Stavitel\Stavba::vycisti(['deti' => [$stHluboka]]);
 over('Stavba::vycisti: hloubka je omezená', count($stChyby), 1);
-[$stMnoho, $stChyby] = MiroCMS\Stavitel\Stavba::vycisti(['deti' => array_fill(0, 900, ['typ' => 'oddelovac'])]);
-over('Stavba::vycisti: počet prvků je omezený', [count($stMnoho['deti']), count($stChyby)], [MiroCMS\Stavitel\Stavba::MAX_PRVKU, 1]);
-over('Stavba::vycisti: obrázek jen z Médií nebo https', MiroCMS\Stavitel\Stavba::vycisti(['deti' => [['typ' => 'obrazek', 'obsah' => ['src' => 'http://x.cz/a.jpg']], ['typ' => 'obrazek', 'obsah' => ['src' => 'media/2026/a.jpg']]]])[0]['deti'][1]['obsah']['src'], 'media/2026/a.jpg');
-over('Stavba::zTextu: nadpis h1 a text', array_map(fn (array $p): string => $p['znacka'], MiroCMS\Stavitel\Stavba::zTextu('O nás', '<p>x</p>')['deti'][0]['deti']), ['h1', 'div']);
+[$stMnoho, $stChyby] = Kaleta\Stavitel\Stavba::vycisti(['deti' => array_fill(0, 900, ['typ' => 'oddelovac'])]);
+over('Stavba::vycisti: počet prvků je omezený', [count($stMnoho['deti']), count($stChyby)], [Kaleta\Stavitel\Stavba::MAX_PRVKU, 1]);
+over('Stavba::vycisti: obrázek jen z Médií nebo https', Kaleta\Stavitel\Stavba::vycisti(['deti' => [['typ' => 'obrazek', 'obsah' => ['src' => 'http://x.cz/a.jpg']], ['typ' => 'obrazek', 'obsah' => ['src' => 'media/2026/a.jpg']]]])[0]['deti'][1]['obsah']['src'], 'media/2026/a.jpg');
+over('Stavba::zTextu: nadpis h1 a text', array_map(fn (array $p): string => $p['znacka'], Kaleta\Stavitel\Stavba::zTextu('O nás', '<p>x</p>')['deti'][0]['deti']), ['h1', 'div']);
 $stStylChyby = [];
-over('Styl::vycisti: vloženo CSS, neznámá vlastnost a stav vypadnou', MiroCMS\Stavitel\Styl::vycisti(['zaklad' => ['barva' => 'red;}body{x:y', 'neznama' => '1', 'sirka' => '50%'], 'tisk' => []], 's', $stStylChyby), ['zaklad' => ['sirka' => '50%']]);
+over('Styl::vycisti: vloženo CSS, neznámá vlastnost a stav vypadnou', Kaleta\Stavitel\Styl::vycisti(['zaklad' => ['barva' => 'red;}body{x:y', 'neznama' => '1', 'sirka' => '50%'], 'tisk' => []], 's', $stStylChyby), ['zaklad' => ['sirka' => '50%']]);
 over('Styl::vycisti: chyby', array_keys($stStylChyby), ['s.zaklad.barva', 's.zaklad.neznama', 's.tisk']);
-over('Styl::css: tokeny, sloupce, hover a breakpoint', MiroCMS\Stavitel\Styl::css('#s-a', ['zaklad' => ['odsazeni_y' => 'xl', 'barva' => 'primarni', 'sloupce' => '3'], 'mobil' => ['sloupce' => '1'], 'hover' => ['barva' => '#ff0000']]),
-    "#s-a { padding-block: var(--mc-mezera-xl); color: var(--mc-barva-primarni); grid-template-columns: repeat(3, minmax(0, 1fr)); }\n#s-a:is(:hover, :focus-visible) { color: #ff0000; }\n@media (max-width: 767px) { #s-a { grid-template-columns: repeat(1, minmax(0, 1fr)); } }\n");
-over('Styl::css: obrázek pozadí z Médií od kořene instalace', str_contains(MiroCMS\Stavitel\Styl::css('#s', ['zaklad' => ['obrazek_pozadi' => 'media/2026/09/a.jpg']], '', '/web'), 'url("/web/media/2026/09/a.jpg")'), true);
-over('Kontejner jako odkaz: odkazy uvnitř se změní na span', MiroCMS\Stavitel\Prvky\Kontejner::vykresli(['znacka' => 'div', 'obsah' => ['odkaz' => '/k']], '', '<p>x</p><a class="mc-tlacitko" href="/y" target="_blank">B</a><abbr>z</abbr>', new MiroCMS\Stavitel\Kontext((new ReflectionClass(MiroCMS\Core\App::class))->newInstanceWithoutConstructor())),
-    '<a class="mc-karta-odkaz" href="/k"><p>x</p><span class="mc-tlacitko">B</span><abbr>z</abbr></a>');
-over('Menu::vycisti: neznámý typ, nebezpečná adresa a třetí úroveň vypadnou', MiroCMS\Core\Menu::vycisti([
+over('Styl::css: tokeny, sloupce, hover a breakpoint', Kaleta\Stavitel\Styl::css('#s-a', ['zaklad' => ['odsazeni_y' => 'xl', 'barva' => 'primarni', 'sloupce' => '3'], 'mobil' => ['sloupce' => '1'], 'hover' => ['barva' => '#ff0000']]),
+    "#s-a { padding-block: var(--ka-mezera-xl); color: var(--ka-barva-primarni); grid-template-columns: repeat(3, minmax(0, 1fr)); }\n#s-a:is(:hover, :focus-visible) { color: #ff0000; }\n@media (max-width: 767px) { #s-a { grid-template-columns: repeat(1, minmax(0, 1fr)); } }\n");
+over('Styl::css: obrázek pozadí z Médií od kořene instalace', str_contains(Kaleta\Stavitel\Styl::css('#s', ['zaklad' => ['obrazek_pozadi' => 'media/2026/09/a.jpg']], '', '/web'), 'url("/web/media/2026/09/a.jpg")'), true);
+over('Kontejner jako odkaz: odkazy uvnitř se změní na span', Kaleta\Stavitel\Prvky\Kontejner::vykresli(['znacka' => 'div', 'obsah' => ['odkaz' => '/k']], '', '<p>x</p><a class="ka-tlacitko" href="/y" target="_blank">B</a><abbr>z</abbr>', new Kaleta\Stavitel\Kontext((new ReflectionClass(Kaleta\Core\App::class))->newInstanceWithoutConstructor())),
+    '<a class="ka-karta-odkaz" href="/k"><p>x</p><span class="ka-tlacitko">B</span><abbr>z</abbr></a>');
+over('Menu::vycisti: neznámý typ, nebezpečná adresa a třetí úroveň vypadnou', Kaleta\Core\Menu::vycisti([
     ['typ' => 'skript'], ['typ' => 'odkaz', 'text' => 'X', 'url' => 'javascript:alert(1)'],
     ['typ' => 'skupina', 'text' => 'Služby', 'deti' => [['typ' => 'stranka', 'ids' => 3, 'deti' => [['typ' => 'novinky']]], ['typ' => 'odkaz', 'text' => 'Ceník', 'url' => '/cenik', 'nove_okno' => 1]]],
 ]), [['typ' => 'skupina', 'text' => 'Služby', 'deti' => [['typ' => 'stranka', 'text' => '', 'ids' => 3], ['typ' => 'odkaz', 'text' => 'Ceník', 'url' => '/cenik', 'nove_okno' => true]]]]);
-over('Menu::html: podmenu, aktivní položka a větev, úvod jen přesnou shodou', MiroCMS\Core\Menu::html([
+over('Menu::html: podmenu, aktivní položka a větev, úvod jen přesnou shodou', Kaleta\Core\Menu::html([
     ['text' => 'Úvod', 'url' => '/', 'nove_okno' => false, 'deti' => []],
     ['text' => 'Služby', 'url' => '', 'nove_okno' => false, 'deti' => [['text' => 'Kuchyně', 'url' => '/kuchyne', 'nove_okno' => false, 'deti' => []]]],
 ], '/kuchyne/detail', '/'), '<li><a href="/">Úvod</a></li><li class="podmenu aktivni"><span>Služby</span><ul><li><a href="/kuchyne" aria-current="page">Kuchyně</a></li></ul></li>');
-over('Hledani::najdi: bez diakritiky, všechna slova, úryvek', MiroCMS\Core\Hledani::najdi('zkusenosti kuchyne', [
+over('Hledani::najdi: bez diakritiky, všechna slova, úryvek', Kaleta\Core\Hledani::najdi('zkusenosti kuchyne', [
     ['titulek' => 'O nás', 'adresa' => 'o-nas', 'text' => '<p>Máme dvacet let zkušeností s nábytkem.</p>'],
     ['titulek' => 'Kuchyně', 'adresa' => 'kuchyne', 'text' => '<p>Kuchyně na míru – bohaté zkušenosti.</p>'],
 ]), [['titulek' => 'Kuchyně', 'adresa' => 'kuchyne', 'uryvek' => 'Kuchyně na míru – bohaté zkušenosti.']]);
-over('Styl::css: bílé pozadí si nese tmavý text i v tmavém režimu', str_contains(MiroCMS\Stavitel\Styl::css('#s', ['zaklad' => ['pozadi' => 'bila']]), '--mc-barva-text: var(--mc-barva-text-svetle); color: var(--mc-barva-text-svetle)'), true);
-over('Styl::css: vlastní barva textu na bílém pozadí se nepřepíše', str_contains(MiroCMS\Stavitel\Styl::css('#s', ['zaklad' => ['pozadi' => 'bila', 'barva' => 'primarni']]), 'text-svetle'), false);
+over('Styl::css: bílé pozadí si nese tmavý text i v tmavém režimu', str_contains(Kaleta\Stavitel\Styl::css('#s', ['zaklad' => ['pozadi' => 'bila']]), '--ka-barva-text: var(--ka-barva-text-svetle); color: var(--ka-barva-text-svetle)'), true);
+over('Styl::css: vlastní barva textu na bílém pozadí se nepřepíše', str_contains(Kaleta\Stavitel\Styl::css('#s', ['zaklad' => ['pozadi' => 'bila', 'barva' => 'primarni']]), 'text-svetle'), false);
 $stZahozeno = [];
-over('Styl::vlastniCss: jen bezpečné deklarace', MiroCMS\Stavitel\Styl::vlastniCss('color:red; background:url(javascript:x); --mc-x: 1; @import url(x); width: expression(1); a{b:c}', $stZahozeno), 'color: red; --mc-x: 1;');
+over('Styl::vlastniCss: jen bezpečné deklarace', Kaleta\Stavitel\Styl::vlastniCss('color:red; background:url(javascript:x); --ka-x: 1; @import url(x); width: expression(1); a{b:c}', $stZahozeno), 'color: red; --ka-x: 1;');
 over('Styl::vlastniCss: zahozené se hlásí', count($stZahozeno), 4);
-over('DesignSystem::kontrast: černá na bílé', round(MiroCMS\Stavitel\DesignSystem::kontrast('#ffffff', '#000000'), 1), 21.0);
-over('DesignSystem::css: pořadí vrstev na začátku', str_starts_with(MiroCMS\Stavitel\DesignSystem::css(MiroCMS\Stavitel\DesignSystem::VYCHOZI), MiroCMS\Stavitel\DesignSystem::VRSTVY), true);
-over('DesignSystem::vycisti: nesmysl nahradí výchozí', MiroCMS\Stavitel\DesignSystem::vycisti(['barvy' => ['primarni' => 'red;}']])['barvy']['primarni'], MiroCMS\Stavitel\DesignSystem::VYCHOZI['barvy']['primarni']);
+over('DesignSystem::kontrast: černá na bílé', round(Kaleta\Stavitel\DesignSystem::kontrast('#ffffff', '#000000'), 1), 21.0);
+over('DesignSystem::css: pořadí vrstev na začátku', str_starts_with(Kaleta\Stavitel\DesignSystem::css(Kaleta\Stavitel\DesignSystem::VYCHOZI), Kaleta\Stavitel\DesignSystem::VRSTVY), true);
+over('DesignSystem::vycisti: nesmysl nahradí výchozí', Kaleta\Stavitel\DesignSystem::vycisti(['barvy' => ['primarni' => 'red;}']])['barvy']['primarni'], Kaleta\Stavitel\DesignSystem::VYCHOZI['barvy']['primarni']);
 $stKnihovnaChyby = [];
 // surové stavby (sekci() už čistí, neplatná hodnota by tak zmizela potichu)
-foreach ((new ReflectionMethod(MiroCMS\Stavitel\Knihovna::class, 'sekce'))->invoke(null) as $stKlic => $stSekce) {
+foreach ((new ReflectionMethod(Kaleta\Stavitel\Knihovna::class, 'sekce'))->invoke(null) as $stKlic => $stSekce) {
     $stSekce['klic'] = $stKlic;
-    [, $stChyby] = MiroCMS\Stavitel\Stavba::vycisti(['deti' => [($stSekce['stavba'])()]]);
+    [, $stChyby] = Kaleta\Stavitel\Stavba::vycisti(['deti' => [($stSekce['stavba'])()]]);
     $stKnihovnaChyby += array_map(fn (string $c): string => $stSekce['klic'] . ': ' . $c, $stChyby);
 }
 over('Knihovna: všechny hotové sekce projdou validátorem', $stKnihovnaChyby, []);
-over('Stavba::schema: bez vlastního HTML pro ne-správce', in_array('html', array_column(MiroCMS\Stavitel\Stavba::schema(false)['prvky'], 'typ'), true), false);
+over('Stavba::schema: bez vlastního HTML pro ne-správce', in_array('html', array_column(Kaleta\Stavitel\Stavba::schema(false)['prvky'], 'typ'), true), false);
 
-$zh = MiroCMS\Stavitel\ZHtml::preved('<style>.hero { padding: 2rem; background: url(x) } .hero h1 { color: red } @media (max-width: 9px) { .hero { padding: 0 } }</style>'
+$zh = Kaleta\Stavitel\ZHtml::preved('<style>.hero { padding: 2rem; background: url(x) } .hero h1 { color: red } @media (max-width: 9px) { .hero { padding: 0 } }</style>'
     . '<header class="hero container-x"><div class="wrap"><h1>A <em>b</em></h1><p>Jedna.</p><p>Dvě.</p><a class="btn btn-outline" href="/k">K</a></div></header>'
     . '<p>Volný text</p><details><summary>Otázka?</summary><p>Odpověď.</p></details><form></form><svg></svg><script>x</script>');
 $zhTypy = fn (array $deti): array => array_map(fn (array $p): string => $p['typ'] . '<' . $p['znacka'] . '>', $deti);
@@ -581,49 +581,49 @@ over('ZHtml: tlačítko s variantou podle třídy', [$zh['stavba']['deti'][0]['d
 over('ZHtml: volné prvky na konci se zabalí do sekce, details → FAQ, form → Formulář', $zhTypy($zh['stavba']['deti'][1]['deti']), ['text<div>', 'faq<div>', 'formular<form>']);
 over('ZHtml: třída z <style> jen s bezpečnými deklaracemi', $zh['tridy'], ['hero' => 'padding: 2rem;']);
 over('ZHtml: hlášení o @media, složitém selektoru, url(), formuláři, SVG a skriptu', count($zh['hlaseni']), 6);
-over('ZHtml: výsledek projde validátorem bez chyb', MiroCMS\Stavitel\Stavba::vycisti($zh['stavba'])[1], []);
-over('Stavba::jakoText: sémantický obsah bez rozložení', MiroCMS\Stavitel\Stavba::jakoText($zh['stavba']), "<h1>A <em>b</em></h1>\n<p>Jedna.</p><p>Dvě.</p>\n<p><a href=\"/k\">K</a></p>\n<p>Volný text</p>\n<h3>Otázka?</h3><p>Odpověď.</p>");
+over('ZHtml: výsledek projde validátorem bez chyb', Kaleta\Stavitel\Stavba::vycisti($zh['stavba'])[1], []);
+over('Stavba::jakoText: sémantický obsah bez rozložení', Kaleta\Stavitel\Stavba::jakoText($zh['stavba']), "<h1>A <em>b</em></h1>\n<p>Jedna.</p><p>Dvě.</p>\n<p><a href=\"/k\">K</a></p>\n<p>Volný text</p>\n<h3>Otázka?</h3><p>Odpověď.</p>");
 
-$knEn = MiroCMS\Stavitel\Knihovna::sekci('uvod', 'en')['prvek'];
+$knEn = Kaleta\Stavitel\Knihovna::sekci('uvod', 'en')['prvek'];
 over('Knihovna: sekce v angličtině včetně odkazů na stránky', [$knEn['deti'][0]['obsah']['text'], $knEn['deti'][2]['deti'][0]['obsah']['odkaz'], $knEn['deti'][2]['deti'][1]['obsah']['odkaz']], ['We help businesses grow – quickly and hassle-free', '/contact', '/services']);
-over('Knihovna: česky se odkazuje na české adresy', MiroCMS\Stavitel\Knihovna::sekci('uvod')['prvek']['deti'][2]['deti'][0]['obsah']['odkaz'], '/kontakt');
-over('Knihovna: jazyk se po sestavení sekce vrátí', MiroCMS\Core\Jazyk::kod(), 'cs');
-$knSchema = array_column(MiroCMS\Stavitel\Stavba::schema(true, 'en')['prvky'], 'vlastnosti', 'typ');
+over('Knihovna: česky se odkazuje na české adresy', Kaleta\Stavitel\Knihovna::sekci('uvod')['prvek']['deti'][2]['deti'][0]['obsah']['odkaz'], '/kontakt');
+over('Knihovna: jazyk se po sestavení sekce vrátí', Kaleta\Core\Jazyk::kod(), 'cs');
+$knSchema = array_column(Kaleta\Stavitel\Stavba::schema(true, 'en')['prvky'], 'vlastnosti', 'typ');
 over('Stavba::schema: výchozí obsah prvků v jazyce stránky', [$knSchema['nadpis']['text']['vychozi'], $knSchema['tlacitko']['text']['vychozi']], ['Heading', 'Contact us']);
-$knEnSlovnik = require MIROCMS_ROOT . '/system/jazyky/en.php';
-preg_match_all("/\bt\('((?:[^'\\\\]|\\\\.)*)'\)/", file_get_contents(MIROCMS_ROOT . '/system/src/Stavitel/Knihovna.php') . implode('', array_map('file_get_contents', glob(MIROCMS_ROOT . '/system/src/Stavitel/Prvky/*.php'))), $knTexty);
+$knEnSlovnik = require KALETA_ROOT . '/system/jazyky/en.php';
+preg_match_all("/\bt\('((?:[^'\\\\]|\\\\.)*)'\)/", file_get_contents(KALETA_ROOT . '/system/src/Stavitel/Knihovna.php') . implode('', array_map('file_get_contents', glob(KALETA_ROOT . '/system/src/Stavitel/Prvky/*.php'))), $knTexty);
 over('Knihovna a prvky: všechny ukázkové texty mají anglický překlad', array_values(array_diff(array_unique($knTexty[1]), array_keys($knEnSlovnik), ['Menu', 'Standard', 'Video', 'Brno, 2026', 'Olomouc, 2025'])), []);
 
-over('Firma::hodiny: rozsah dnů, víc úseků, zavřeno', MiroCMS\Front\Firma::hodiny("Po–Pá 8:00–17:00\nÚt 8-12, 13-17\nNe zavřeno"), [
+over('Firma::hodiny: rozsah dnů, víc úseků, zavřeno', Kaleta\Front\Firma::hodiny("Po–Pá 8:00–17:00\nÚt 8-12, 13-17\nNe zavřeno"), [
     ['dny' => ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'], 'od' => '08:00', 'do' => '17:00'],
     ['dny' => ['Tuesday'], 'od' => '08:00', 'do' => '12:00'], ['dny' => ['Tuesday'], 'od' => '13:00', 'do' => '17:00'],
 ]);
-over('Firma::hodiny: nesrozumitelný řádek se odmítne', [MiroCMS\Front\Firma::hodiny('každý den 8-17'), MiroCMS\Front\Firma::hodiny('Po 8-25')], [null, null]);
-over('Firma: typy v Nastavení odpovídají Firma::TYPY', (new ReflectionClassConstant(MiroCMS\Admin\Moduly\Konfigurace::class, 'TYPY_FIRMY'))->getValue(), implode('|', array_keys(MiroCMS\Front\Firma::TYPY)));
+over('Firma::hodiny: nesrozumitelný řádek se odmítne', [Kaleta\Front\Firma::hodiny('každý den 8-17'), Kaleta\Front\Firma::hodiny('Po 8-25')], [null, null]);
+over('Firma: typy v Nastavení odpovídají Firma::TYPY', (new ReflectionClassConstant(Kaleta\Admin\Moduly\Konfigurace::class, 'TYPY_FIRMY'))->getValue(), implode('|', array_keys(Kaleta\Front\Firma::TYPY)));
 
 /* ---------- kolekce ---------- */
-$koPole = MiroCMS\Stavitel\Kolekce::vycistiPole([['popisek' => 'Citát zákazníka', 'typ' => 'radky'], ['popisek' => 'Název', 'typ' => 'text'], ['popisek' => 'Logo', 'typ' => 'nesmysl'], ['popisek' => '']]);
+$koPole = Kaleta\Stavitel\Kolekce::vycistiPole([['popisek' => 'Citát zákazníka', 'typ' => 'radky'], ['popisek' => 'Název', 'typ' => 'text'], ['popisek' => 'Logo', 'typ' => 'nesmysl'], ['popisek' => '']]);
 over('Kolekce::vycistiPole: klíč z popisku, vestavěný název se nepřepíše, neznámý typ = text', array_map(fn (array $p): string => $p['klic'] . ':' . $p['typ'], $koPole), ['citat_zakaznika:radky', 'nazev_2:text', 'logo:text']);
 $koChyby = [];
-$koData = MiroCMS\Stavitel\Kolekce::vycistiData([['klic' => 'web', 'popisek' => 'Web', 'typ' => 'odkaz'], ['klic' => 'foto', 'popisek' => 'Foto', 'typ' => 'obrazek'], ['klic' => 'cena', 'popisek' => 'Cena', 'typ' => 'cislo'], ['klic' => 'bio', 'popisek' => 'Bio', 'typ' => 'html']],
+$koData = Kaleta\Stavitel\Kolekce::vycistiData([['klic' => 'web', 'popisek' => 'Web', 'typ' => 'odkaz'], ['klic' => 'foto', 'popisek' => 'Foto', 'typ' => 'obrazek'], ['klic' => 'cena', 'popisek' => 'Cena', 'typ' => 'cislo'], ['klic' => 'bio', 'popisek' => 'Bio', 'typ' => 'html']],
     ['web' => 'javascript:alert(1)', 'foto' => 'media/2026/a.jpg', 'cena' => '1 200', 'bio' => '<p onclick="x">Ahoj</p><script>1</script>'], $koChyby);
 over('Kolekce::vycistiData: nebezpečný odkaz pryč, obrázek z médií, číslo bez mezer, HTML vyčištěné', [$koData['web'], $koData['foto'], $koData['cena'], $koData['bio'], array_keys($koChyby)], ['', 'media/2026/a.jpg', '1200', '<p>Ahoj</p>', ['web']]);
 $koHodnoty = ['nazev' => ['Jan <b>Novák</b>', 'text'], 'bio' => ['<p>Truhlář</p>', 'html'], 'poznamka' => ["řádek 1\nřádek 2", 'radky'], 'url' => ['/tym/jan', 'odkaz'], 'zly' => ['javascript:x', 'odkaz']];
 over('Kolekce::dosad: text se escapuje až prvkem, inline a html hned, html pole zůstane HTML', [
-    MiroCMS\Stavitel\Kolekce::dosad('{{nazev}}', 'text', $koHodnoty), MiroCMS\Stavitel\Kolekce::dosad('Tým: {{nazev}}', 'inline', $koHodnoty),
-    MiroCMS\Stavitel\Kolekce::dosad('{{bio}}', 'html', $koHodnoty), MiroCMS\Stavitel\Kolekce::dosad('<p>{{poznamka}}</p>', 'html', $koHodnoty),
-    MiroCMS\Stavitel\Kolekce::dosad('{{url}}', 'odkaz', $koHodnoty), MiroCMS\Stavitel\Kolekce::dosad('{{zly}}', 'odkaz', $koHodnoty), MiroCMS\Stavitel\Kolekce::dosad('{{neni}}', 'inline', $koHodnoty),
+    Kaleta\Stavitel\Kolekce::dosad('{{nazev}}', 'text', $koHodnoty), Kaleta\Stavitel\Kolekce::dosad('Tým: {{nazev}}', 'inline', $koHodnoty),
+    Kaleta\Stavitel\Kolekce::dosad('{{bio}}', 'html', $koHodnoty), Kaleta\Stavitel\Kolekce::dosad('<p>{{poznamka}}</p>', 'html', $koHodnoty),
+    Kaleta\Stavitel\Kolekce::dosad('{{url}}', 'odkaz', $koHodnoty), Kaleta\Stavitel\Kolekce::dosad('{{zly}}', 'odkaz', $koHodnoty), Kaleta\Stavitel\Kolekce::dosad('{{neni}}', 'inline', $koHodnoty),
 ], ['Jan <b>Novák</b>', 'Tým: Jan &lt;b&gt;Novák&lt;/b&gt;', '<p>Truhlář</p>', '<p>řádek 1<br>' . "\n" . 'řádek 2</p>', '/tym/jan', '', '']);
-[$koStavba, $koChyby] = MiroCMS\Stavitel\Stavba::vycisti(['deti' => [['typ' => 'kolekce', 'obsah' => ['kolekce' => 'tym'], 'deti' => [['typ' => 'obrazek', 'obsah' => ['src' => '{{foto}}']], ['typ' => 'tlacitko', 'obsah' => ['odkaz' => '{{url}}']]]]]]);
+[$koStavba, $koChyby] = Kaleta\Stavitel\Stavba::vycisti(['deti' => [['typ' => 'kolekce', 'obsah' => ['kolekce' => 'tym'], 'deti' => [['typ' => 'obrazek', 'obsah' => ['src' => '{{foto}}']], ['typ' => 'tlacitko', 'obsah' => ['odkaz' => '{{url}}']]]]]]);
 over('Stavba::vycisti: značky {{pole}} v obrázku a odkazu projdou', [$koStavba['deti'][0]['deti'][0]['obsah']['src'], $koStavba['deti'][0]['deti'][1]['obsah']['odkaz'], $koChyby], ['{{foto}}', '{{url}}', []]);
 
 /* ---------- angličtina stavitele: texty editoru (JS) a popisky schématu (PHP) ---------- */
-preg_match_all("/\bT\('((?:[^'\\\\]|\\\\.)*)'\)/", (string) file_get_contents(MIROCMS_ROOT . '/image/stavitel.js'), $enJs);
-preg_match('/window\.MIROCMS_PREKLAD = (\{.*\});/s', (string) file_get_contents(MIROCMS_ROOT . '/image/jazyky/admin-en.js'), $enJsSlovnik);
+preg_match_all("/\bT\('((?:[^'\\\\]|\\\\.)*)'\)/", (string) file_get_contents(KALETA_ROOT . '/image/stavitel.js'), $enJs);
+preg_match('/window\.KALETA_PREKLAD = (\{.*\});/s', (string) file_get_contents(KALETA_ROOT . '/image/jazyky/admin-en.js'), $enJsSlovnik);
 $enJsKlice = array_keys((array) json_decode((string) preg_replace(['#^\s*//.*$#m', '/,\s*\}$/'], ['', '}'], $enJsSlovnik[1] ?? '{}'), true));
 over('Stavitel: všechny texty editoru mají anglický překlad', array_values(array_diff(array_unique(array_map('stripslashes', $enJs[1])), $enJsKlice, ['Tablet', 'Menu'])), []);
-$enAdmin = require MIROCMS_ROOT . '/system/jazyky/admin-en.php';
-$enSchema = MiroCMS\Stavitel\Stavba::schema(true, 'cs', true);
+$enAdmin = require KALETA_ROOT . '/system/jazyky/admin-en.php';
+$enSchema = Kaleta\Stavitel\Stavba::schema(true, 'cs', true);
 $enTexty = array_merge(array_column($enSchema['prvky'], 'nazev'), array_column($enSchema['prvky'], 'popis'), array_column($enSchema['prvky'], 'skupina'), array_values($enSchema['skupiny_stylu']));
 $enPole = function (array $vlastnosti) use (&$enPole, &$enTexty): void {
     foreach ($vlastnosti as $d) {
@@ -641,9 +641,9 @@ $enPole($enSchema['styl']);
 over('Stavitel: všechny popisky schématu mají anglický překlad', array_values(array_filter(array_unique($enTexty), fn (string $x): bool => $x !== '' && preg_match('/\p{L}/u', $x) === 1 && !isset($enAdmin[$x]) && !in_array($x, ['Video', 'Logo', 'HTML', 'Text', 'text'], true))), []);
 
 $webyChyby = [];
-$webySekce = array_column(MiroCMS\Stavitel\Knihovna::seznam(), 'klic');
-foreach (MiroCMS\Stavitel\Knihovna::WEBY as $webKlic => $web) {
-    if (!isset(MiroCMS\Stavitel\DesignSystem::PREDVOLBY[$web['predvolba']])) {
+$webySekce = array_column(Kaleta\Stavitel\Knihovna::seznam(), 'klic');
+foreach (Kaleta\Stavitel\Knihovna::WEBY as $webKlic => $web) {
+    if (!isset(Kaleta\Stavitel\DesignSystem::PREDVOLBY[$web['predvolba']])) {
         $webyChyby[] = $webKlic . ': předvolba ' . $web['predvolba'];
     }
     foreach ($web['stranky'] as $sekceStranky) {
@@ -661,8 +661,8 @@ over('Asistent::naOpenAi: systém, obrázek jako data URL, limit tokenů podle p
     ['model', 'messages', 'max_tokens'],
 ]);
 over('Asistent::zOpenAi: odpověď do tvaru Claude API', Asistent::zOpenAi(['choices' => [['message' => ['content' => 'Text'], 'finish_reason' => 'length']]]), ['content' => [['type' => 'text', 'text' => 'Text']], 'stop_reason' => 'max_tokens']);
-$aiNastaveni = (new ReflectionClass(MiroCMS\Core\Settings::class))->newInstanceWithoutConstructor();
-(new ReflectionProperty(MiroCMS\Core\Settings::class, 'values'))->setValue($aiNastaveni, ['nazev_webu' => 'Test', 'ai_klic' => 'x', 'ai_poskytovatel' => 'anthropic', 'ai_model' => 'claude-sonnet-5']);
+$aiNastaveni = (new ReflectionClass(Kaleta\Core\Settings::class))->newInstanceWithoutConstructor();
+(new ReflectionProperty(Kaleta\Core\Settings::class, 'values'))->setValue($aiNastaveni, ['nazev_webu' => 'Test', 'ai_klic' => 'x', 'ai_poskytovatel' => 'anthropic', 'ai_model' => 'claude-sonnet-5']);
 $aiFalesny = new class($aiNastaveni) extends Asistent {
     public string $odpoved = '';
     public array $posledni = [];
@@ -674,16 +674,16 @@ $aiFalesny = new class($aiNastaveni) extends Asistent {
         return ['content' => [['type' => 'text', 'text' => $this->odpoved]]];
     }
 };
-$aiFalesny->odpoved = "Tady je sekce:\n```html\n<section class=\"sluzby-ai\"><h2>Služby</h2><p>Text <script>x</script></p><a class=\"btn\" href=\"javascript:alert(1)\">Klik</a></section><style>.sluzby-ai { padding: var(--mc-mezera-l); }</style>\n```";
+$aiFalesny->odpoved = "Tady je sekce:\n```html\n<section class=\"sluzby-ai\"><h2>Služby</h2><p>Text <script>x</script></p><a class=\"btn\" href=\"javascript:alert(1)\">Klik</a></section><style>.sluzby-ai { padding: var(--ka-mezera-l); }</style>\n```";
 $aiHtml = $aiFalesny->navrhniSekci('Tři karty se službami a odkazem na kontakt.', 'cs', 'Služby');
-$aiPrevod = MiroCMS\Stavitel\ZHtml::preved($aiHtml);
-[$aiStavba] = MiroCMS\Stavitel\Stavba::vycisti($aiPrevod['stavba'], false);
+$aiPrevod = Kaleta\Stavitel\ZHtml::preved($aiHtml);
+[$aiStavba] = Kaleta\Stavitel\Stavba::vycisti($aiPrevod['stavba'], false);
 over('Asistent::navrhniSekci: HTML z bloku ```html, zadání uvnitř <zadani>, výsledek bez skriptu a javascript: odkazu', [
     str_starts_with($aiHtml, '<section'), str_contains((string) $aiFalesny->posledni['messages'][0]['content'], '<zadani>'), str_contains(json_encode($aiStavba), 'script'), str_contains(json_encode($aiStavba), 'javascript'), $aiPrevod['tridy'],
-], [true, true, false, false, ['sluzby-ai' => 'padding: var(--mc-mezera-l);']]);
+], [true, true, false, false, ['sluzby-ai' => 'padding: var(--ka-mezera-l);']]);
 $aiFalesny->odpoved = '<p>Kratší <strong>text</strong> <img src=x onerror=alert(1)></p>';
 over('Asistent::prepis: HTML odpověď vyčištěná, prostý text bez značek', [$aiFalesny->prepis('<p>Dlouhý text k přepsání.</p>', 'kratsi', true), $aiFalesny->prepis('Nadpis', 'formalne', false)], ['<p>Kratší <strong>text</strong> </p>', 'Kratší text']);
-(new ReflectionProperty(MiroCMS\Core\Settings::class, 'values'))->setValue($aiNastaveni, ['nazev_webu' => 'Test', 'ai_klic' => 'x', 'ai_poskytovatel' => 'openai', 'ai_model' => 'claude-sonnet-5']);
+(new ReflectionProperty(Kaleta\Core\Settings::class, 'values'))->setValue($aiNastaveni, ['nazev_webu' => 'Test', 'ai_klic' => 'x', 'ai_poskytovatel' => 'openai', 'ai_model' => 'claude-sonnet-5']);
 try {
     $aiFalesny->prepis('Text', 'kratsi', false);
     $aiChyba = '';

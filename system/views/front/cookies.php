@@ -1,6 +1,6 @@
 <?php
 /**
- * Vestavěná cookie lišta. Souhlas se ukládá do cookie "mirocms_souhlas" na 6 měsíců.
+ * Vestavěná cookie lišta. Souhlas se ukládá do cookie "kaleta_souhlas" na 6 měsíců.
  * Skripty čekající na souhlas mají type="text/plain" data-souhlas="analytika", marketingové kódy jsou v <template data-souhlas="marketing">.
  * Vzhled je záměrně neutrální a nezávislý na layoutu; layout ho může přepsat třídami .cookies-*.
  *
@@ -48,7 +48,7 @@
 (function () {
 	var lista = document.getElementById('cookies-lista'), znovu = document.getElementById('cookies-znovu');
 	var volby = lista.querySelector('.cookies-volby');
-	function precti() { var m = document.cookie.match(/(?:^|; )mirocms_souhlas=([^;]*)/); return m ? decodeURIComponent(m[1]).split(',') : null; }
+	function precti() { var m = document.cookie.match(/(?:^|; )kaleta_souhlas=([^;]*)/); return m ? decodeURIComponent(m[1]).split(',') : null; }
 	function povol(kategorie) {
 		document.querySelectorAll('script[type="text/plain"][data-souhlas="' + kategorie + '"]').forEach(function (s) {
 			var n = document.createElement('script');
@@ -67,12 +67,12 @@
 	}
 	function uloz(kategorie) {
 		var bylo = precti() || [];
-		document.cookie = 'mirocms_souhlas=' + encodeURIComponent(kategorie.join(',') || 'nic') + '; path=/; max-age=' + (180 * 86400) + '; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : '');
+		document.cookie = 'kaleta_souhlas=' + encodeURIComponent(kategorie.join(',') || 'nic') + '; path=/; max-age=' + (180 * 86400) + '; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : '');
 		lista.hidden = true; znovu.hidden = false;
 		var evidence = <?= json_encode($evidence) ?>;
 		if (evidence) {
-			var id = (document.cookie.match(/(?:^|; )mirocms_souhlas_id=([a-f0-9]{32})/) || [])[1];
-			if (!id) { id = Array.prototype.map.call(crypto.getRandomValues(new Uint8Array(16)), function (b) { return ('0' + b.toString(16)).slice(-2); }).join(''); document.cookie = 'mirocms_souhlas_id=' + id + '; path=/; max-age=' + (180 * 86400) + '; SameSite=Lax'; }
+			var id = (document.cookie.match(/(?:^|; )kaleta_souhlas_id=([a-f0-9]{32})/) || [])[1];
+			if (!id) { id = Array.prototype.map.call(crypto.getRandomValues(new Uint8Array(16)), function (b) { return ('0' + b.toString(16)).slice(-2); }).join(''); document.cookie = 'kaleta_souhlas_id=' + id + '; path=/; max-age=' + (180 * 86400) + '; SameSite=Lax'; }
 			var data = new FormData(); data.append('id', id); data.append('kategorie', kategorie.join(',') || 'nic');
 			if (navigator.sendBeacon) { navigator.sendBeacon(evidence, data); } else { fetch(evidence, { method: 'POST', body: data }); }
 		}

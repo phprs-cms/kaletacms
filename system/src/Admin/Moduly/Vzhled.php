@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Admin\Moduly;
+namespace Kaleta\Admin\Moduly;
 
-use MiroCMS\Admin\Modul;
-use MiroCMS\Core\Obrazky;
-use MiroCMS\Core\Response;
-use MiroCMS\Front\Layouty;
-use MiroCMS\Stavitel\DesignSystem;
+use Kaleta\Admin\Modul;
+use Kaleta\Core\Obrazky;
+use Kaleta\Core\Response;
+use Kaleta\Front\Layouty;
+use Kaleta\Stavitel\DesignSystem;
 
 /**
  * Vzhled webu: šablona, logo a design systém (barvy, písma, velikosti, šířka, zaoblení) s živým náhledem úvodní stránky.
@@ -48,11 +48,11 @@ final class Vzhled extends Modul
         }
         $web->set('logo_webu', mb_substr($r->post('logo_webu'), 0, 255));
         $ikona = mb_substr($r->post('favicon'), 0, 255);
-        if ($ikona !== $web->get('favicon') || ($ikona !== '' && !is_file(MIROCMS_ROOT . '/media/ikona-180.png'))) {
+        if ($ikona !== $web->get('favicon') || ($ikona !== '' && !is_file(KALETA_ROOT . '/media/ikona-180.png'))) {
             // ikony pro telefony a instalaci webu se připraví z ikony jednou při uložení
-            $ok = $ikona !== '' && preg_match('#^/?(?:[A-Za-z0-9_.-]+/){0,3}(media/[A-Za-z0-9/_.-]+)$#', $ikona, $m) && !str_contains($m[1], '..') && Obrazky::ikony(MIROCMS_ROOT . '/' . $m[1]);
+            $ok = $ikona !== '' && preg_match('#^/?(?:[A-Za-z0-9_.-]+/){0,3}(media/[A-Za-z0-9/_.-]+)$#', $ikona, $m) && !str_contains($m[1], '..') && Obrazky::ikony(KALETA_ROOT . '/' . $m[1]);
             if (!$ok) {
-                array_map(fn (int $n): bool => @unlink(MIROCMS_ROOT . '/media/ikona-' . $n . '.png'), Obrazky::IKONY);
+                array_map(fn (int $n): bool => @unlink(KALETA_ROOT . '/media/ikona-' . $n . '.png'), Obrazky::IKONY);
             }
         }
         $web->set('favicon', $ikona);
@@ -62,7 +62,7 @@ final class Vzhled extends Modul
         $web->set('brand_akcent', '');
         $web->set('brand_pismo_titulky', 'vychozi');
         $web->set('brand_pismo_text', 'vychozi');
-        \MiroCMS\Front\Cache::vymaz();
+        \Kaleta\Front\Cache::vymaz();
 
         return $this->zpet('Vzhled webu byl uložen.');
     }

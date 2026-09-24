@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Stavitel;
+namespace Kaleta\Stavitel;
 
 /**
  * Sada čárových ikon pro prvek Ikona: 24×24, tah currentColor – barvu a velikost řídí styl prvku.
- * Kreslené pro MiroCMS jednoduchými tvary, bez cizí knihovny a bez načítání písma s ikonami.
+ * Kreslené pro Kaletu jednoduchými tvary, bez cizí knihovny a bez načítání písma s ikonami.
  */
 final class Ikony
 {

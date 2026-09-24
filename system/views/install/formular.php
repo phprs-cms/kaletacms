@@ -16,11 +16,11 @@ $splneno = !in_array(false, array_column($pozadavky, 'ok'), true);
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title><?= e(t('Instalace MiroCMS')) ?></title>
-<link rel="icon" type="image/svg+xml" href="<?= e($base) ?>/image/mirocms-znacka.svg">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="<?= e($base) ?>/image/mirocms-znacka-32.png">
-<link rel="apple-touch-icon" href="<?= e($base) ?>/image/mirocms-znacka-180.png">
-<link rel="stylesheet" href="<?= e($base) ?>/image/install.css?v=<?= e(MIROCMS_VERSION) ?>">
+<title><?= e(t('Instalace Kalety')) ?></title>
+<link rel="icon" type="image/svg+xml" href="<?= e($base) ?>/image/kaleta-znacka.svg">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="<?= e($base) ?>/image/kaleta-znacka-32.png">
+<link rel="apple-touch-icon" href="<?= e($base) ?>/image/kaleta-znacka-180.png">
+<link rel="stylesheet" href="<?= e($base) ?>/image/install.css?v=<?= e(KALETA_VERSION) ?>">
 </head>
 <body>
 <main class="instalator">
@@ -30,8 +30,8 @@ $splneno = !in_array(false, array_column($pozadavky, 'ok'), true);
 <?php endforeach ?>
 </nav>
 <header class="uvod">
-	<div class="znacka"><?php $vyska = 40; $jenZnacka = false; require MIROCMS_SYSTEM . '/views/admin/logo.php'; ?></div>
-	<h1><?= e(t('Instalace MiroCMS')) ?></h1>
+	<div class="znacka"><?php $vyska = 40; $jenZnacka = false; require KALETA_SYSTEM . '/views/admin/logo.php'; ?></div>
+	<h1><?= e(t('Instalace Kalety')) ?></h1>
 	<p><?= e(t('Tři krátké kroky a váš web běží. Vše lze později změnit v administraci.')) ?></p>
 </header>
 
@@ -74,7 +74,7 @@ $splneno = !in_array(false, array_column($pozadavky, 'ok'), true);
 		<div class="cele"><label for="nazev_webu"><?= e(t('Název webu')) ?></label><input type="text" id="nazev_webu" name="nazev_webu" value="<?= e($data['nazev_webu']) ?>" required></div>
 		<fieldset class="cele weby">
 			<legend><?= e(t('Začít s webem')) ?></legend>
-<?php foreach (MiroCMS\Stavitel\Knihovna::WEBY as $klic => $w): $barvy = MiroCMS\Stavitel\DesignSystem::PREDVOLBY[$w['predvolba']][2]['barvy']; ?>
+<?php foreach (Kaleta\Stavitel\Knihovna::WEBY as $klic => $w): $barvy = Kaleta\Stavitel\DesignSystem::PREDVOLBY[$w['predvolba']][2]['barvy']; ?>
 			<label class="web"><input type="radio" name="web" value="<?= e($klic) ?>"<?= ($data['web'] ?: 'firemni') === $klic ? ' checked' : '' ?>>
 				<span class="vzorky"><i style="background:<?= e($barvy['primarni']) ?>"></i><i style="background:<?= e($barvy['sekundarni']) ?>"></i><i style="background:<?= e($barvy['plocha']) ?>"></i></span>
 				<strong><?= e(t($w['nazev'])) ?></strong><small><?= e(t($w['popis'])) ?></small></label>
@@ -95,7 +95,7 @@ $splneno = !in_array(false, array_column($pozadavky, 'ok'), true);
 </section>
 
 <div class="akce">
-	<button class="tlacitko" type="submit"><?= e(t('Nainstalovat MiroCMS')) ?></button>
+	<button class="tlacitko" type="submit"><?= e(t('Nainstalovat Kaletu')) ?></button>
 	<small><?= e(t('Vytvoří tabulky v databázi a soubor config.php.')) ?></small>
 </div>
 </form>

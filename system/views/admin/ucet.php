@@ -2,7 +2,7 @@
 /**
  * Můj účet.
  *
- * @var MiroCMS\Core\App $app
+ * @var Kaleta\Core\App $app
  * @var array<string, mixed> $user
  * @var string $csrf
  * @var list<array<string, mixed>> $klice přihlašovací klíče účtu (passkeys)
@@ -35,7 +35,7 @@ $akce = e($app->url('admin.php?akce=ucet'));
 <div class="radek"><label for="foto"><?= e(t('Moje fotka')) ?></label><div><input class="textpole siroke" type="text" id="foto" name="foto" value="<?= e($user['foto']) ?>" maxlength="255" data-obrazek><span class="napoveda"><?= e(t('Čtvercová fotka, stačí 300 × 300 px.')) ?></span></div></div>
 <div class="radek"><label for="bio"><?= e(t('Pár vět o mně')) ?></label><div><textarea class="textbox nizky" id="bio" name="bio" rows="4" maxlength="1200"><?= e((string) $user['bio']) ?></textarea><span class="napoveda"><?= e(t('Zobrazí se jako medailonek pod vašimi novinkami. Čím se ve firmě zabýváte a co máte za sebou.')) ?></span></div></div>
 <div class="radek"><label for="jazyk"><?= e(t('Jazyk administrace')) ?></label><div><select id="jazyk" name="jazyk">
-<?php foreach (MiroCMS\Core\Jazyk::ADMINISTRACE as $kodJazyka => $nazevJazyka): ?>
+<?php foreach (Kaleta\Core\Jazyk::ADMINISTRACE as $kodJazyka => $nazevJazyka): ?>
 	<option value="<?= e($kodJazyka) ?>"<?= ($user['jazyk'] ?: 'cs') === $kodJazyka ? ' selected' : '' ?>><?= e($nazevJazyka) ?></option>
 <?php endforeach ?>
 </select><span class="napoveda">Language · Jazyk · Sprache</span></div></div>
@@ -110,7 +110,7 @@ $akce = e($app->url('admin.php?akce=ucet'));
 <p class="napoveda" data-klic-nepodporuje hidden><?= e(t('Tento prohlížeč přihlašovací klíče nepodporuje, nebo web neběží na HTTPS.')) ?></p>
 </fieldset>
 </form>
-<script src="<?= e($app->url('image/klice.js')) ?>?v=<?= e(MIROCMS_VERSION) ?>" defer></script>
+<script src="<?= e($app->url('image/klice.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>
 <?php endif ?>
 
 <?php if ($claude): ?>
@@ -122,7 +122,7 @@ $akce = e($app->url('admin.php?akce=ucet'));
 	<p><strong><?= e(t('Token je vytvořený.')) ?></strong> <?= e(t('Zkopírujte si ho teď – už se nezobrazí.')) ?></p>
 	<p><code class="totp-klic"><?= e($novyToken) ?></code></p>
 	<p><?= e(t('V Claude Code spusťte:')) ?></p>
-	<p><code class="totp-klic" style="font-size:12px">claude mcp add --transport http mirocms <?= e($adresaMcp) ?> --header "Authorization: Bearer <?= e($novyToken) ?>"</code></p>
+	<p><code class="totp-klic" style="font-size:12px">claude mcp add --transport http kaleta <?= e($adresaMcp) ?> --header "Authorization: Bearer <?= e($novyToken) ?>"</code></p>
 	<p class="napoveda"><?= e(t('V aplikaci Claude přidejte vlastní konektor s adresou %s a stejnou hlavičkou Authorization.', $adresaMcp)) ?></p>
 </div>
 <?php endif ?>

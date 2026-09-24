@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Core;
+namespace Kaleta\Core;
 
 /**
  * Jednorázové kódy pro dvoufázové přihlášení (TOTP, RFC 6238) - kompatibilní s Google Authenticatorem,

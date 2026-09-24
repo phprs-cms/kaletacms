@@ -14,7 +14,7 @@ function e(string|int|float|null $value): string
 /** Překlad textu šablony do jazyka webu: t('Číst dál'), t('Strana %s z %s', 2, 5). Viz Core\Jazyk. */
 function t(string $text, string|int ...$hodnoty): string
 {
-    return MiroCMS\Core\Jazyk::t($text, ...$hodnoty);
+    return Kaleta\Core\Jazyk::t($text, ...$hodnoty);
 }
 
 /** Text bez háčků a čárek (pro adresy a hledání): "Příliš žluťoučký" -> "Prilis zlutoucky". */
@@ -44,13 +44,13 @@ function slugify(string $text, int $maxLength = 120): string
 /** Desetinné číslo v jazyce webu: 4,5 česky, slovensky a německy, 4.5 anglicky. */
 function cislo(float|int $cislo, int $desetinna = 1): string
 {
-    return number_format((float) $cislo, $desetinna, MiroCMS\Core\Jazyk::kod() === 'en' ? '.' : ',', '');
+    return number_format((float) $cislo, $desetinna, Kaleta\Core\Jazyk::kod() === 'en' ? '.' : ',', '');
 }
 
 /** Počet s oddělovačem tisíců v jazyce webu: 12 345 česky a slovensky, 12,345 anglicky, 12.345 německy. */
 function pocet(float|int $cislo, int $desetinna = 0): string
 {
-    [$carka, $tisice] = match (MiroCMS\Core\Jazyk::kod()) {
+    [$carka, $tisice] = match (Kaleta\Core\Jazyk::kod()) {
         'en' => ['.', ','],
         'de' => [',', '.'],
         default => [',', "\u{00A0}"],

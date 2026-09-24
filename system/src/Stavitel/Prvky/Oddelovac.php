@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Stavitel\Prvky;
+namespace Kaleta\Stavitel\Prvky;
 
-use MiroCMS\Stavitel\Kontext;
-use MiroCMS\Stavitel\Prvek;
+use Kaleta\Stavitel\Kontext;
+use Kaleta\Stavitel\Prvek;
 
 final class Oddelovac extends Prvek
 {
@@ -17,11 +17,11 @@ final class Oddelovac extends Prvek
 
     public static function zakladniCss(): string
     {
-        return 'hr.mc-oddelovac { border: 0; border-top: 1px solid var(--mc-barva-linka); margin-block: var(--mc-mezera-l); }';
+        return 'hr.ka-oddelovac { border: 0; border-top: 1px solid var(--ka-barva-linka); margin-block: var(--ka-mezera-l); }';
     }
 
     public static function vykresli(array $p, string $a, string $deti, Kontext $k): string
     {
-        return '<hr' . Text::sTridou($a, 'mc-oddelovac') . '>';
+        return '<hr' . Text::sTridou($a, 'ka-oddelovac') . '>';
     }
 }

@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Install;
+namespace Kaleta\Install;
 
-use MiroCMS\Core\Auth;
-use MiroCMS\Core\Db;
-use MiroCMS\Core\Migrace;
-use MiroCMS\Core\Request;
-use MiroCMS\Core\Response;
-use MiroCMS\Core\View;
-use MiroCMS\Front\Layouty;
-use MiroCMS\Stavitel\Knihovna;
-use MiroCMS\Stavitel\Stavba;
+use Kaleta\Core\Auth;
+use Kaleta\Core\Db;
+use Kaleta\Core\Migrace;
+use Kaleta\Core\Request;
+use Kaleta\Core\Response;
+use Kaleta\Core\View;
+use Kaleta\Front\Layouty;
+use Kaleta\Stavitel\Knihovna;
+use Kaleta\Stavitel\Stavba;
 
 /**
  * Webový instalátor: ověří server, založí tabulky, prvního admina a zapíše config.php.
@@ -25,7 +25,7 @@ final class Installer
     public function __construct()
     {
         $this->request = Request::fromGlobals();
-        $this->view = new View([MIROCMS_SYSTEM . '/views']);
+        $this->view = new View([KALETA_SYSTEM . '/views']);
     }
 
     /** Jazyky instalace (= jazyky administrace) a výchozí časové pásmo, které k nim nabídneme. */
@@ -52,17 +52,17 @@ final class Installer
 
     public function handle(): Response
     {
-        if (is_file(MIROCMS_ROOT . '/config.php')) {
-            \MiroCMS\Core\Jazyk::nastav($this->zvolJazyk(), 'install-');
+        if (is_file(KALETA_ROOT . '/config.php')) {
+            \Kaleta\Core\Jazyk::nastav($this->zvolJazyk(), 'install-');
 
             return $this->stranka('hotovo', ['jizNainstalovano' => true, 'smazano' => $this->smazSe()]);
         }
 
         $this->jazyk = $this->zvolJazyk();
-        \MiroCMS\Core\Jazyk::nastav($this->jazyk, 'install-');
+        \Kaleta\Core\Jazyk::nastav($this->jazyk, 'install-');
         $pozadavky = $this->pozadavky();
         $data = [
-            'db_host' => 'localhost', 'db_port' => '3306', 'db_name' => '', 'db_user' => '', 'db_password' => '', 'db_prefix' => 'mc_',
+            'db_host' => 'localhost', 'db_port' => '3306', 'db_name' => '', 'db_user' => '', 'db_password' => '', 'db_prefix' => 'ka_',
             'nazev_webu' => t('Můj web'), 'user' => 'admin', 'jmeno' => '', 'email' => '',
             'casove_pasmo' => self::PASMA[$this->jazyk], 'web' => 'firemni',
         ];
@@ -88,17 +88,17 @@ final class Installer
      */
     private function smazSe(): bool
     {
-        if (is_dir(MIROCMS_ROOT . '/.git')) {
+        if (is_dir(KALETA_ROOT . '/.git')) {
             return false;
         }
 
-        return !is_file(MIROCMS_ROOT . '/install.php') || @unlink(MIROCMS_ROOT . '/install.php');
+        return !is_file(KALETA_ROOT . '/install.php') || @unlink(KALETA_ROOT . '/install.php');
     }
 
     /** @return list<array{nazev:string, ok:bool, info:string}> */
     private function pozadavky(): array
     {
-        $zapis = fn (string $cesta): bool => is_writable(MIROCMS_ROOT . $cesta);
+        $zapis = fn (string $cesta): bool => is_writable(KALETA_ROOT . $cesta);
 
         return [
             ['nazev' => 'PHP 8.4 nebo novější', 'ok' => PHP_VERSION_ID >= 80400, 'info' => t('běží') . ' ' . PHP_VERSION],
@@ -117,7 +117,7 @@ final class Installer
     {
         $chyby = [];
         if (!preg_match('/^[a-z][a-z0-9_]{0,15}$/', $d['db_prefix'])) {
-            $chyby['db_prefix'] = t('Předpona: malá písmena, číslice a podtržítko, nejvýše 16 znaků (např. mc_).');
+            $chyby['db_prefix'] = t('Předpona: malá písmena, číslice a podtržítko, nejvýše 16 znaků (např. ka_).');
         }
         if ($d['db_name'] === '' || $d['db_user'] === '') {
             $chyby['db_name'] = t('Vyplňte název databáze a uživatele.');
@@ -164,7 +164,7 @@ final class Installer
         }
 
         try {
-            foreach (Migrace::prikazy((string) file_get_contents(MIROCMS_SYSTEM . '/sql/schema.sql'), $d['db_prefix']) as $sql) {
+            foreach (Migrace::prikazy((string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql'), $d['db_prefix']) as $sql) {
                 $db->pdo()->exec($sql);
             }
             $this->vychoziData($db, $d, $heslo);
@@ -172,8 +172,8 @@ final class Installer
             return ['db_name' => t('Vytvoření tabulek selhalo:') . ' ' . $e->getMessage()];
         }
 
-        $obsah = "<?php\n/**\n * MiroCMS - konfigurace vytvořená instalátorem " . date('j. n. Y') . ".\n */\n\nreturn " . var_export($config, true) . ";\n";
-        if (file_put_contents(MIROCMS_ROOT . '/config.php', $obsah, LOCK_EX) === false) {
+        $obsah = "<?php\n/**\n * Kaleta - konfigurace vytvořená instalátorem " . date('j. n. Y') . ".\n */\n\nreturn " . var_export($config, true) . ";\n";
+        if (file_put_contents(KALETA_ROOT . '/config.php', $obsah, LOCK_EX) === false) {
             return ['db_name' => t('Tabulky jsou vytvořeny, ale nepodařilo se zapsat config.php. Zkontrolujte práva k zápisu.')];
         }
 
@@ -219,9 +219,9 @@ final class Installer
                 $uvod = $uvod ?: $id;
             }
 
-            \MiroCMS\Core\Hledani::dopln($db);
+            \Kaleta\Core\Hledani::dopln($db);
             $nastaveni = ['nazev_webu' => $d['nazev_webu'], 'adresa_webu' => $this->request->origin(), 'email_webu' => $d['email'], 'jazyk_webu' => $this->jazyk,
-                'design_system' => (string) json_encode(\MiroCMS\Stavitel\DesignSystem::predvolba($web['predvolba']), JSON_UNESCAPED_SLASHES),
+                'design_system' => (string) json_encode(\Kaleta\Stavitel\DesignSystem::predvolba($web['predvolba']), JSON_UNESCAPED_SLASHES),
                 'casove_pasmo' => $d['casove_pasmo'], 'layout' => Layouty::VYCHOZI, 'titulni_stranka' => (string) $uvod, 'verze_db' => (string) Migrace::posledni()];
             foreach ($nastaveni as $klic => $hodnota) {
                 $db->insert('nastaveni', ['promenna' => $klic, 'hodnota' => $hodnota]);
@@ -229,8 +229,8 @@ final class Installer
 
             $kategorie = $db->insert('kategorie', ['nazev' => t('Aktuality'), 'seo_link' => slugify(t('Aktuality')), 'popis' => '']);
             $db->insert('novinky', [
-                'seo_link' => slugify(t('Vítejte v MiroCMS')),
-                'titulek' => t('Vítejte v MiroCMS'),
+                'seo_link' => slugify(t('Vítejte v Kaletě')),
+                'titulek' => t('Vítejte v Kaletě'),
                 'uvod' => '<p>' . e(t('Web je nainstalovaný a připravený. Tuto novinku můžete v administraci upravit nebo smazat.')) . '</p>',
                 'text' => '<p>' . e(t('Do administrace se dostanete na adrese admin.php. Na přehledu vás provedou První kroky: dejte webu tvář, vyplňte údaje o firmě a připravte stránky.')) . '</p>',
                 'tema' => $kategorie,
@@ -245,8 +245,8 @@ final class Installer
     private function stranka(string $sablona, array $data): Response
     {
         return Response::html($this->view->render('install/' . $sablona, $data + [
-            'base' => $this->request->basePath(), 'jazyk' => \MiroCMS\Core\Jazyk::kod(),
-            'jazyky' => array_intersect_key(\MiroCMS\Core\Jazyk::ADMINISTRACE, self::PASMA),
+            'base' => $this->request->basePath(), 'jazyk' => \Kaleta\Core\Jazyk::kod(),
+            'jazyky' => array_intersect_key(\Kaleta\Core\Jazyk::ADMINISTRACE, self::PASMA),
         ]));
     }
 }

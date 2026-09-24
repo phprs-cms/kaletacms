@@ -2,8 +2,8 @@
 /**
  * Poptávky z formulářů webu.
  *
- * @var MiroCMS\Core\App $app
- * @var MiroCMS\Admin\Moduly\Poptavky $modul
+ * @var Kaleta\Core\App $app
+ * @var Kaleta\Admin\Moduly\Poptavky $modul
  * @var string $csrf
  * @var list<array<string, mixed>> $poptavky
  * @var int $celkem
@@ -14,7 +14,7 @@
  * @var string $hledat
  * @var array<int, string> $uzivatele
  */
-use MiroCMS\Admin\Moduly\Poptavky;
+use Kaleta\Admin\Moduly\Poptavky;
 
 $stran = (int) ceil($celkem / $naStranu);
 $nahled = function (string $data): string {

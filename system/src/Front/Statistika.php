@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Front;
+namespace Kaleta\Front;
 
-use MiroCMS\Core\Antispam;
-use MiroCMS\Core\App;
+use Kaleta\Core\Antispam;
+use Kaleta\Core\App;
 
 /**
  * Vlastní měření návštěvnosti bez cookies.
@@ -20,7 +20,7 @@ final class Statistika
     {
         $server = $_SERVER;
         $ua = (string) ($server['HTTP_USER_AGENT'] ?? '');
-        if (!\MiroCMS\Core\Rozsireni::je($app->settings(), 'statistika') || !$app->settings()->bool('statistika') || $ua === '' || preg_match(self::ROBOTI, $ua) || $app->request->get('nahled') !== '') {
+        if (!\Kaleta\Core\Rozsireni::je($app->settings(), 'statistika') || !$app->settings()->bool('statistika') || $ua === '' || preg_match(self::ROBOTI, $ua) || $app->request->get('nahled') !== '') {
             return;
         }
         $db = $app->db();

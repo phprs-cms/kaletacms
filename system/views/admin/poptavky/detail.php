@@ -2,14 +2,14 @@
 /**
  * Detail poptávky.
  *
- * @var MiroCMS\Core\App $app
- * @var MiroCMS\Admin\Moduly\Poptavky $modul
+ * @var Kaleta\Core\App $app
+ * @var Kaleta\Admin\Moduly\Poptavky $modul
  * @var string $csrf
  * @var array<string, mixed> $p
  * @var list<array{0:string, 1:string, 2?:string}> $data  [popisek, hodnota, cesta přílohy]
  * @var array<int, string> $uzivatele
  */
-use MiroCMS\Admin\Moduly\Poptavky;
+use Kaleta\Admin\Moduly\Poptavky;
 
 ?>
 <p class="navigace-radek"><a class="navigace" href="<?= e($modul->url()) ?>">← <?= e(t('Všechny poptávky')) ?></a></p>

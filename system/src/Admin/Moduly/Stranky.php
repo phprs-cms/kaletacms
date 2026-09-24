@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Admin\Moduly;
+namespace Kaleta\Admin\Moduly;
 
-use MiroCMS\Admin\Modul;
-use MiroCMS\Core\Response;
-use MiroCMS\Stavitel\Publikace;
-use MiroCMS\Stavitel\Stavba;
+use Kaleta\Admin\Modul;
+use Kaleta\Core\Response;
+use Kaleta\Stavitel\Publikace;
+use Kaleta\Stavitel\Stavba;
 
 /**
  * Stránky webu: úvod, O nás, Služby, Kontakt, Zásady ochrany soukromí… Úvodní stránku určuje Nastavení → Základní.
@@ -15,7 +15,7 @@ use MiroCMS\Stavitel\Stavba;
  */
 final class Stranky extends Modul
 {
-    use \MiroCMS\Admin\StavitelAkce {
+    use \Kaleta\Admin\StavitelAkce {
         akceStavitel as protected editorStavby;
     }
 
@@ -112,7 +112,7 @@ final class Stranky extends Modul
             return $this->zpetNaWeb($r->post('zpet'), '?upravit=text&chyba=1');
         }
         $this->db->update('stranky', ['titulek' => $titulek, 'text' => $r->post('text'), 'zmeneno' => date('Y-m-d H:i:s')], ['ids' => $stranka['ids']]);
-        \MiroCMS\Admin\Protokol::zapis($this->app, 'stranky', 'úprava přímo na webu', mb_substr($titulek, 0, 80));
+        \Kaleta\Admin\Protokol::zapis($this->app, 'stranky', 'úprava přímo na webu', mb_substr($titulek, 0, 80));
 
         return $this->zpetNaWeb($r->post('zpet'));
     }
@@ -124,7 +124,7 @@ final class Stranky extends Modul
         }
         $r = $this->request;
         $id = $r->postInt('ids');
-        $jazyk = \MiroCMS\Core\Jazyk::sloupec($this->app->settings(), $r->post('jazyk'));
+        $jazyk = \Kaleta\Core\Jazyk::sloupec($this->app->settings(), $r->post('jazyk'));
         // nadřazená stránka: stejný jazyk, ne ona sama ani její podstránka (jinak by vznikl kruh)
         $vlastni = $id > 0 ? (string) $this->db->value('SELECT seo_link FROM {stranky} WHERE ids = ?', [$id]) : '';
         $rodic = $r->postInt('nadrazena') > 0 ? $this->db->one('SELECT ids, seo_link FROM {stranky} WHERE ids = ? AND ids <> ? AND jazyk = ? AND smazano IS NULL', [$r->postInt('nadrazena'), $id, $jazyk]) : null;
@@ -163,7 +163,7 @@ final class Stranky extends Modul
             // adresa z názvu: obsazená dostane číslo (o-nas-2), jako u novinek
             $data['seo_link'] = $this->volnaAdresa($data['seo_link'], $id);
         }
-        if ($rodic === null && (in_array($data['seo_link'], self::VYHRAZENE, true) || isset(\MiroCMS\Core\Jazyk::DOSTUPNE[$data['seo_link']]))) {
+        if ($rodic === null && (in_array($data['seo_link'], self::VYHRAZENE, true) || isset(\Kaleta\Core\Jazyk::DOSTUPNE[$data['seo_link']]))) {
             $chyby['seo_link'] = 'Tuto adresu používá systém, zvolte jinou.';
         } elseif (($jina = $this->db->one('SELECT ids, smazano FROM {stranky} WHERE seo_link = ? AND ids <> ?', [$data['seo_link'], $id])) !== null) {
             $chyby['seo_link'] = $jina['smazano'] !== null ? 'Tuto adresu má stránka v koši – obnovte ji, nebo ji smažte natrvalo.' : 'Stránka s touto adresou už existuje.';
@@ -187,25 +187,25 @@ final class Stranky extends Modul
             }
         } else {
             $id = $this->db->insert('stranky', $data);
-            $sablona = \MiroCMS\Stavitel\Knihovna::SABLONY_STRANEK[$r->post('sablona')] ?? null;
+            $sablona = \Kaleta\Stavitel\Knihovna::SABLONY_STRANEK[$r->post('sablona')] ?? null;
             if ($sablona !== null && $sablona[1] !== []) {
                 // nová stránka podle šablony: sekce z knihovny jako koncept a rovnou do stavitele
-                $stavba = \MiroCMS\Stavitel\Knihovna::stranka($this->db, $sablona[1], $data['titulek'], $this->jazykObsahu($jazyk));
+                $stavba = \Kaleta\Stavitel\Knihovna::stranka($this->db, $sablona[1], $data['titulek'], $this->jazykObsahu($jazyk));
                 $this->db->update('stranky', ['stavba_koncept' => Stavba::naJson($stavba)], ['ids' => $id]);
-                \MiroCMS\Core\Menu::nastavStranku($this->db, $id, $jazyk, (bool) $data['v_menu']);
+                \Kaleta\Core\Menu::nastavStranku($this->db, $id, $jazyk, (bool) $data['v_menu']);
 
-                return \MiroCMS\Core\Response::redirect($this->url('stavitel', ['id' => $id]));
+                return \Kaleta\Core\Response::redirect($this->url('stavitel', ['id' => $id]));
             }
             if ($sablona !== null && $data['text'] === '') {
-                $this->db->update('stranky', ['text' => \MiroCMS\Stavitel\Knihovna::textZasad()], ['ids' => $id]);
+                $this->db->update('stranky', ['text' => \Kaleta\Stavitel\Knihovna::textZasad()], ['ids' => $id]);
 
                 return $this->zpet('Stránka je založená s kostrou zásad – doplňte údaje v hranatých závorkách.', 'edit', ['id' => $id]);
             }
         }
         // sestavené menu (Vzhled → Menu): zaškrtávátko „v navigaci“ stránku do menu přidá nebo z něj odebere
-        \MiroCMS\Core\Menu::nastavStranku($this->db, $id, $data['jazyk'], (bool) $data['v_menu']);
+        \Kaleta\Core\Menu::nastavStranku($this->db, $id, $data['jazyk'], (bool) $data['v_menu']);
         if ($r->post('po_ulozeni') === 'stavitel') {
-            return \MiroCMS\Core\Response::redirect($this->url('stavitel', ['id' => $id]));
+            return \Kaleta\Core\Response::redirect($this->url('stavitel', ['id' => $id]));
         }
 
         return $this->zpet('Stránka byla uložena.');
@@ -257,7 +257,7 @@ final class Stranky extends Modul
     }
 
     /** Publikuje koncept stránky (i z MCP). */
-    public static function publikuj(\MiroCMS\Core\App $app, array $stranka): void
+    public static function publikuj(\Kaleta\Core\App $app, array $stranka): void
     {
         Publikace::stranka($app, $stranka);
     }
@@ -316,14 +316,14 @@ final class Stranky extends Modul
         return $this->zpet(t('Obnovena verze z %s.', datum($revize['datum'], true)), 'edit', ['id' => (int) $stranka['ids']]);
     }
 
-    /** Stránka jako soubor JSON (název, popis a stavba) – pro přenos na jiný web s MiroCMS. */
+    /** Stránka jako soubor JSON (název, popis a stavba) – pro přenos na jiný web s Kaletou. */
     protected function akceExport(): Response
     {
         $s = $this->nactiStranku($this->request->getInt('id'));
         if ($s === null) {
             return $this->chyba('Stránka neexistuje.', 404);
         }
-        $json = (string) json_encode(['format' => 'mirocms-stranka', 'verze' => 1, 'titulek' => $s['titulek'], 'popis' => $s['popis'], 'text' => $s['text'],
+        $json = (string) json_encode(['format' => 'kaleta-stranka', 'verze' => 1, 'titulek' => $s['titulek'], 'popis' => $s['popis'], 'text' => $s['text'],
             'stavba' => Stavba::zJson($s['stavba_koncept'] ?? $s['stavba'])], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
 
         return new Response($json, 200, ['Content-Type' => 'application/json; charset=utf-8', 'Content-Disposition' => 'attachment; filename="stranka-' . basename(str_replace('/', '-', $s['seo_link'])) . '.json"']);
@@ -334,12 +334,12 @@ final class Stranky extends Modul
     {
         $soubor = $_FILES['soubor']['tmp_name'] ?? '';
         $data = $this->request->isPost() && is_uploaded_file($soubor) && filesize($soubor) < 5_000_000 ? json_decode((string) file_get_contents($soubor), true) : null;
-        if (!is_array($data) || ($data['format'] ?? '') !== 'mirocms-stranka' || trim((string) ($data['titulek'] ?? '')) === '') {
+        if (!is_array($data) || ($data['format'] ?? '') !== 'kaleta-stranka' || trim((string) ($data['titulek'] ?? '')) === '') {
             return $this->zpet('Soubor není export stránky.', '', [], 'chyba');
         }
         $titulek = mb_substr(trim((string) $data['titulek']), 0, 200);
         $zaznam = ['titulek' => $titulek, 'seo_link' => $this->volnaAdresa(slugify($titulek, 110), 0), 'popis' => mb_substr((string) ($data['popis'] ?? ''), 0, 300),
-            'text' => \MiroCMS\Core\WpObsah::bezpecneHtml((string) ($data['text'] ?? '')), 'zobrazit' => 0, 'v_menu' => 0, 'zmeneno' => date('Y-m-d H:i:s')];
+            'text' => \Kaleta\Core\WpObsah::bezpecneHtml((string) ($data['text'] ?? '')), 'zobrazit' => 0, 'v_menu' => 0, 'zmeneno' => date('Y-m-d H:i:s')];
         if (is_array($data['stavba'] ?? null)) {
             [$stavba, $chyby] = Stavba::vycisti($data['stavba'], $this->app->auth()->isAdmin());
             $zaznam['stavba_koncept'] = Stavba::naJson($stavba);
@@ -395,7 +395,7 @@ final class Stranky extends Modul
     }
 
     /** Stránky v koši déle než DNY_V_KOSI se smažou natrvalo (volá Admin\Kernel). */
-    public static function vysypKos(\MiroCMS\Core\Db $db): int
+    public static function vysypKos(\Kaleta\Core\Db $db): int
     {
         return $db->run('DELETE FROM {stranky} WHERE smazano < NOW() - INTERVAL ' . self::DNY_V_KOSI . ' DAY')->rowCount();
     }
@@ -435,8 +435,8 @@ final class Stranky extends Modul
                 fn (array $s): bool => $vlastni === '' || !str_starts_with($s['seo_link'] . '/', $vlastni . '/'))),
             'revize' => $stranka['ids'] ? $this->db->all('SELECT r.idr, r.datum, r.titulek, IF(u.jmeno = \'\', u.user, u.jmeno) AS kdo FROM {stranky_revize} r LEFT JOIN {uzivatele} u ON u.idu = r.kdo WHERE r.ids = ? ORDER BY r.idr DESC LIMIT 30', [(int) $stranka['ids']]) : [],
             'uvod' => $stranka['ids'] > 0 && (int) $stranka['ids'] === $this->app->settings()->int('titulni_stranka'),
-            'vMenu' => $stranka['ids'] > 0 ? \MiroCMS\Core\Menu::obsahujeStranku($this->db, (int) $stranka['ids'], (string) ($stranka['jazyk'] ?? '')) : null,
-            'vlastniMenu' => \MiroCMS\Core\Menu::nacti($this->db, 'hlavni', (string) ($stranka['jazyk'] ?? '')) !== null,
+            'vMenu' => $stranka['ids'] > 0 ? \Kaleta\Core\Menu::obsahujeStranku($this->db, (int) $stranka['ids'], (string) ($stranka['jazyk'] ?? '')) : null,
+            'vlastniMenu' => \Kaleta\Core\Menu::nacti($this->db, 'hlavni', (string) ($stranka['jazyk'] ?? '')) !== null,
         ]);
     }
 }

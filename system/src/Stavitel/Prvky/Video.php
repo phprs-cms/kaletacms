@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Stavitel\Prvky;
+namespace Kaleta\Stavitel\Prvky;
 
-use MiroCMS\Front\TextNovinky;
-use MiroCMS\Stavitel\Kontext;
-use MiroCMS\Stavitel\Prvek;
+use Kaleta\Front\TextNovinky;
+use Kaleta\Stavitel\Kontext;
+use Kaleta\Stavitel\Prvek;
 
 /** Video z YouTube či Vimea nebo soubor z Médií. Cizí přehrávač se načte až po kliknutí (soukromí, rychlost). */
 final class Video extends Prvek
@@ -29,7 +29,7 @@ final class Video extends Prvek
     {
         $html = TextNovinky::prehravac($p['obsah']['url'], $k->app->request->basePath(), $p['obsah']['titulek']);
         if ($html === '') {
-            return $k->editor ? '<figure' . $a . ' class="mc-medium"></figure>' : '';
+            return $k->editor ? '<figure' . $a . ' class="ka-medium"></figure>' : '';
         }
 
         // atributy prvku (id, třídy) se přidají do první značky přehrávače

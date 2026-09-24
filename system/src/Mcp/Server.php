@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Mcp;
+namespace Kaleta\Mcp;
 
-use MiroCMS\Admin\Protokol;
-use MiroCMS\Core\App;
-use MiroCMS\Core\Response;
-use MiroCMS\Core\Rozsireni;
+use Kaleta\Admin\Protokol;
+use Kaleta\Core\App;
+use Kaleta\Core\Response;
+use Kaleta\Core\Rozsireni;
 
 /**
  * MCP server (Model Context Protocol, přenos "Streamable HTTP") na adrese /mcp.
@@ -72,15 +72,15 @@ final class Server
             'initialize' => $ok([
                 'protocolVersion' => is_string($z['params']['protocolVersion'] ?? null) ? $z['params']['protocolVersion'] : self::PROTOKOL,
                 'capabilities' => ['tools' => new \stdClass()],
-                'serverInfo' => ['name' => 'MiroCMS – ' . $this->app->settings()->get('nazev_webu'), 'version' => MIROCMS_VERSION],
-                'instructions' => 'Firemní web na MiroCMS. Texty piš v jazyce webu, stránky a novinky jako čisté sémantické HTML (p, h2, h3, ul, ol, blockquote, a, strong, em, figure/img, table). '
-                    . 'STRÁNKY SKLÁDEJ VE STAVITELI: načti stavba_schema, pak stavba_z_html (sémantické HTML po sekcích + <style> s pravidly jedné třídy a tokeny var(--mc-…), žádné vložené styly); '
+                'serverInfo' => ['name' => 'Kaleta – ' . $this->app->settings()->get('nazev_webu'), 'version' => KALETA_VERSION],
+                'instructions' => 'Firemní web na Kaletě. Texty piš v jazyce webu, stránky a novinky jako čisté sémantické HTML (p, h2, h3, ul, ol, blockquote, a, strong, em, figure/img, table). '
+                    . 'STRÁNKY SKLÁDEJ VE STAVITELI: načti stavba_schema, pak stavba_z_html (sémantické HTML po sekcích + <style> s pravidly jedné třídy a tokeny var(--ka-…), žádné vložené styly); '
                     . 'drobné úpravy přes stavba_nacti a stavba_uloz, hotové sekce přes vloz_sekci, vzhled celého webu přes uprav_design_system. Stavba se ukládá jako koncept – pošli uživateli odkaz na náhled a publikuj až na jeho pokyn. '
                     . 'Nová novinka vzniká jako koncept; vydat ji může jen uživatel s právem vydávat a jen na výslovný pokyn. Nová stránka je skrytá, dokud ji uživatel výslovně nechce zveřejnit. '
                     . 'Před úpravou šablony si ji nejdřív zkopíruj a změny ukaž v náhledu. '
                     . 'HRANICE: přes toto napojení se mění jen obsah (stránky, novinky, kategorie) a VLASTNÍ šablony vzhledu. Kód systému (system/, admin.php, index.php), vestavěné šablony '
                     . 'ani databázi neupravuj a nenavrhuj obcházení – vlastní funkce CMS se nedělají, systém má být pro všechny stejný a aktualizovatelný. Šablona je jen prezentační vrstva: '
-                    . 'vypisuje data, která dostane; nesmí číst soubory, volat databázi ani síť. Požaduje-li uživatel novou funkci systému, řekni mu, že ji má navrhnout autorům MiroCMS.',
+                    . 'vypisuje data, která dostane; nesmí číst soubory, volat databázi ani síť. Požaduje-li uživatel novou funkci systému, řekni mu, že ji má navrhnout autorům Kalety.',
             ]),
             'ping' => $ok([]),
             'tools/list' => $ok(['tools' => $nastroje->seznam()]),
@@ -96,7 +96,7 @@ final class Server
             $vysledek = $nastroje->zavolej($nazev, $argumenty);
             if ($nastroje->meni($nazev)) {
                 Protokol::zapis($this->app, 'claude', $nazev, mb_substr((string) ($argumenty['titulek'] ?? $argumenty['nazev'] ?? $argumenty['sablona'] ?? $argumenty['id'] ?? ''), 0, 200));
-                \MiroCMS\Front\Cache::vymaz();
+                \Kaleta\Front\Cache::vymaz();
             }
 
             return ['content' => [['type' => 'text', 'text' => is_string($vysledek) ? $vysledek : json_encode($vysledek, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT)]]];
@@ -110,11 +110,11 @@ final class Server
     {
         $hlavicka = (string) ($_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '');
         $db = $this->app->db();
-        $ip = substr(hash('sha256', 'mirocms|' . $this->app->request->ip()), 0, 40);
+        $ip = substr(hash('sha256', 'kaleta|' . $this->app->request->ip()), 0, 40);
         if ((int) $db->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'mcp' AND ip_adresa = ? AND cas > NOW() - INTERVAL 15 MINUTE", [$ip]) >= 20) {
             return null;
         }
-        if (!preg_match('/^Bearer\s+(mirocms_[a-f0-9]{48})$/', $hlavicka, $m)) {
+        if (!preg_match('/^Bearer\s+(kaleta_[a-f0-9]{48})$/', $hlavicka, $m)) {
             return null;
         }
         $token = $db->one('SELECT t.idt, u.* FROM {api_tokeny} t JOIN {uzivatele} u ON u.idu = t.idu WHERE t.otisk = ? AND u.blokovat = 0', [hash('sha256', $m[1])]);

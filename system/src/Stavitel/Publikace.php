@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Stavitel;
+namespace Kaleta\Stavitel;
 
-use MiroCMS\Core\App;
-use MiroCMS\Core\Db;
+use Kaleta\Core\App;
+use Kaleta\Core\Db;
 
 /**
  * Publikování konceptu stavby (stránka nebo část webu) – z editoru i z MCP. Předchozí publikovaná verze jde do historie
- * (mc_stavba_revize, 20 posledních pro každý cíl), cache webu se vymaže.
+ * (ka_stavba_revize, 20 posledních pro každý cíl), cache webu se vymaže.
  */
 final class Publikace
 {
@@ -22,7 +22,7 @@ final class Publikace
         self::verze($app, ['ids' => $stranka['ids']], $stranka['stavba'], $novy, $stranka['zmeneno'] ?? null);
         $text = Stavba::jakoText(Stavba::zJson($novy) ?? []);
         $app->db()->update('stranky', ['stavba' => $novy, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')] + ($text !== '' ? ['text' => $text] : []), ['ids' => $stranka['ids']]);
-        \MiroCMS\Front\Cache::vymaz();
+        \Kaleta\Front\Cache::vymaz();
     }
 
     public static function cast(App $app, array $radek): void
@@ -31,7 +31,7 @@ final class Publikace
         $varianta = (string) ($radek['varianta'] ?? '');
         self::verze($app, ['cast' => Casti::klicRevize($radek['typ'], $radek['jazyk'], $varianta)], $radek['stavba'], $novy, $radek['zmeneno'] ?? null);
         $app->db()->update('casti', ['stavba' => $novy, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['typ' => $radek['typ'], 'jazyk' => $radek['jazyk'], 'varianta' => $varianta]);
-        \MiroCMS\Front\Cache::vymaz();
+        \Kaleta\Front\Cache::vymaz();
     }
 
     /** Šablona detailu položek kolekce (verze pod klíčem „kolekce:<idk>“). */
@@ -40,7 +40,7 @@ final class Publikace
         $novy = $kolekce['stavba_koncept'] ?? $kolekce['stavba'];
         self::verze($app, ['cast' => 'kolekce:' . (int) $kolekce['idk']], $kolekce['stavba'], $novy, $kolekce['zmeneno'] ?? null);
         $app->db()->update('kolekce', ['stavba' => $novy, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['idk' => $kolekce['idk']]);
-        \MiroCMS\Front\Cache::vymaz();
+        \Kaleta\Front\Cache::vymaz();
     }
 
     /** Komponenta (verze pod klíčem „komponenta:<idm>“) – změna se projeví na všech stránkách, kde je použitá. */
@@ -49,7 +49,7 @@ final class Publikace
         $novy = $komponenta['stavba_koncept'] ?? $komponenta['stavba'];
         self::verze($app, ['cast' => 'komponenta:' . (int) $komponenta['idm']], $komponenta['stavba'], $novy, $komponenta['zmeneno'] ?? null);
         $app->db()->update('komponenty', ['stavba' => $novy, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['idm' => $komponenta['idm']]);
-        \MiroCMS\Front\Cache::vymaz();
+        \Kaleta\Front\Cache::vymaz();
     }
 
     /** Uloží předchozí publikovanou verzi do historie. @param array{ids?: int|string, cast?: string} $cil */

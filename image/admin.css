@@ -1,4 +1,4 @@
-/* MiroCMS - vzhled administrace: postranní menu, světlý i tmavý režim, responzivní.
+/* Kaleta - vzhled administrace: postranní menu, světlý i tmavý režim, responzivní.
  * Třídy: .tl = hlavní tlačítko, .navigace = vedlejší tlačítko, table.vypis = výpis, .formular > .radek = řádek formuláře.
  * Barvy jen přes proměnné z :root – každá má i tmavou hodnotu (oba bloky níže musí zůstat shodné).
  */
@@ -6,15 +6,16 @@
 @import url("pismo.css");
 
 :root {
-	--podklad: #F7F7F8;
+	--podklad: #F6F4EE;        /* Paper – barvy značky Kaleta (manuál, 06 Colour palette) */
 	--plocha: #FFFFFF;
-	--linka: #E4E7EC;
-	--linka-pole: #CDD2DB;
-	--text: #14171F;
-	--text-slaby: #667085;
-	--akcent: #2B5BE3;        /* modrá loga MiroCMS */
-	--akcent-tmavy: #1E44B8;
-	--akcent-svetly: #EEF2FF;
+	--linka: #E4E1D8;
+	--linka-pole: #CFCBC0;
+	--text: #121212;           /* Ink */
+	--text-slaby: #5C5A55;
+	--akcent: #121212;         /* hlavní tlačítka a odkazy: Ink */
+	--akcent-tmavy: #000000;
+	--akcent-svetly: #ECE8DE;
+	--signal: #FF4F2E;         /* Signal: jen tečka loga a drobné akcenty (fokus, aktivní položka) – nikdy malý text */
 	--chyba: #C4281C;
 	--chyba-podklad: #FEF3F2;
 	--ok: #067647;
@@ -23,7 +24,7 @@
 	--varovani-text: #B26A00;  /* text a obrys štítků – oranžová čitelná na světlém podkladu */
 	--predavka-text: #6B3FD0;  /* redakční předávka: ke korektuře, schváleno */
 	--radius: 10px;
-	--na-akcentu: #FFFFFF;
+	--na-akcentu: #F6F4EE;
 
 	/* editor a galerie (image/editor.css) */
 	--ed-linka: var(--linka-pole);
@@ -40,51 +41,47 @@
 	--ed-radius: 8px;
 	--ed-radius-maly: 5px;
 	--ed-lista-top: 64px;
-	--pismo: "Noto Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+	--pismo: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 	color-scheme: light dark;
 }
 /* tmavý režim: podle systému, nebo ručně přepínačem v horní liště (data-tema na <html>) */
 @media (prefers-color-scheme: dark) {
 	:root:not([data-tema="svetly"]) {
-		--podklad: #0F1115;
-		--plocha: #181B22;
-		--linka: #2A2F3A;
-		--linka-pole: #3A4150;
-		--text: #ECEEF2;
-		--text-slaby: #98A2B3;
-		--akcent: #6C8CFF;
-		--akcent-tmavy: #8FA7FF;
-		--logo-nazev: #FFFFFF;
-		--logo-cms: #8FA8F5;
-		--akcent-svetly: #1E2740;
+		--podklad: #121212;
+		--plocha: #1C1C1B;
+		--linka: #33322F;
+		--linka-pole: #4A4843;
+		--text: #F6F4EE;
+		--text-slaby: #B8B5AD;
+		--akcent: #F6F4EE;
+		--akcent-tmavy: #FFFFFF;
+		--akcent-svetly: #2A2926;
 		--chyba: #FF8A80;
 		--chyba-podklad: #3A1B19;
 		--ok: #6CE9A6;
 		--ok-podklad: #10291D;
 		--varovani-text: #FDB022;
 		--predavka-text: #B69CFF;
-		--na-akcentu: #0F1115;
+		--na-akcentu: #121212;
 	}
 }
 :root[data-tema="tmavy"] {
-	--podklad: #0F1115;
-	--plocha: #181B22;
-	--linka: #2A2F3A;
-	--linka-pole: #3A4150;
-	--text: #ECEEF2;
-	--text-slaby: #98A2B3;
-	--akcent: #6C8CFF;
-	--akcent-tmavy: #8FA7FF;
-	--logo-nazev: #FFFFFF;
-	--logo-cms: #8FA8F5;
-	--akcent-svetly: #1E2740;
+	--podklad: #121212;
+	--plocha: #1C1C1B;
+	--linka: #33322F;
+	--linka-pole: #4A4843;
+	--text: #F6F4EE;
+	--text-slaby: #B8B5AD;
+	--akcent: #F6F4EE;
+	--akcent-tmavy: #FFFFFF;
+	--akcent-svetly: #2A2926;
 	--chyba: #FF8A80;
 	--chyba-podklad: #3A1B19;
 	--ok: #6CE9A6;
 	--ok-podklad: #10291D;
 	--varovani-text: #FDB022;
 	--predavka-text: #B69CFF;
-	--na-akcentu: #0F1115;
+	--na-akcentu: #121212;
 }
 
 * {
@@ -99,14 +96,16 @@ body {
 }
 a {
 	color: var(--akcent);
-	text-decoration: none;
+	text-decoration: underline;
+	text-decoration-color: color-mix(in oklch, currentColor 30%, transparent);
+	text-underline-offset: 2px;
 }
 a:hover {
 	color: var(--akcent-tmavy);
 	text-decoration: underline;
 }
 :focus-visible {
-	outline: 2px solid var(--akcent);
+	outline: 2px solid var(--signal, var(--akcent));
 	outline-offset: 2px;
 	border-radius: 4px;
 }
@@ -135,8 +134,9 @@ body:not(.login) {
 	align-items: center;
 	height: 64px;
 	padding: 0 8px;
+	color: var(--text); /* písmena loga mají barvu textu, tečka je vždy Signal */
 }
-.mirocms-logo { display: block; }
+.kaleta-logo { display: block; }
 .menu-prepinac {
 	display: none;
 }
@@ -799,7 +799,7 @@ body.login {
 	background: var(--plocha);
 	box-shadow: 0 8px 30px rgb(16 24 40 / 0.06);
 }
-.login-karta .mirocms-logo { margin-bottom: 6px; }
+.login-karta .kaleta-logo { margin-bottom: 6px; }
 .login-odkaz { margin: 14px 0 0; font-size: 13px; text-align: center; }
 .login-nebo { margin: 14px 0 10px; font-size: 12px; text-align: center; color: var(--text-slaby); }
 .login-karta button.tl { width: 100%; }

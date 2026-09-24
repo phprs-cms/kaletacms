@@ -1,4 +1,4 @@
-// MiroCMS - přihlašovací klíče (passkeys / WebAuthn): registrace v Můj účet a druhý krok přihlášení.
+// Kaleta - přihlašovací klíče (passkeys / WebAuthn): registrace v Můj účet a druhý krok přihlášení.
 // Formulář s atributem data-klice nese adresu, kam se posílá; výzvu i ověření dělá server (Core\Passkey).
 (function () {
 	'use strict';

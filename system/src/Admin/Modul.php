@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Admin;
+namespace Kaleta\Admin;
 
-use MiroCMS\Core\App;
-use MiroCMS\Core\Db;
-use MiroCMS\Core\Request;
-use MiroCMS\Core\Response;
+use Kaleta\Core\App;
+use Kaleta\Core\Db;
+use Kaleta\Core\Request;
+use Kaleta\Core\Response;
 
 /**
  * Předek modulů administrace.

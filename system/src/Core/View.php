@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Core;
+namespace Kaleta\Core;
 
 /**
  * Šablony jsou obyčejné PHP soubory. Proměnné z $data jsou v šabloně dostupné přímo,

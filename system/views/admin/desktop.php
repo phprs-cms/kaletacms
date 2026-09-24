@@ -3,8 +3,8 @@
  * Úvodní obrazovka administrace.
  * Přehled webu: první kroky, upozornění, počty, návštěvnost, nové poptávky a naposledy upravený obsah.
  *
- * @var MiroCMS\Core\App $app
- * @var array<string, class-string<MiroCMS\Admin\Modul>> $moduly
+ * @var Kaleta\Core\App $app
+ * @var array<string, class-string<Kaleta\Admin\Modul>> $moduly
  * @var array<string, array{0: int, 1: string}> $pocty  popisek => [počet, adresa]
  * @var list<array{0: string, 1: string}> $upozorneni  [text, adresa]
  * @var list<array<string, mixed>> $poptavky

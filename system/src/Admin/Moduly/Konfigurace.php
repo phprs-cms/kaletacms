@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Admin\Moduly;
+namespace Kaleta\Admin\Moduly;
 
-use MiroCMS\Admin\Modul;
-use MiroCMS\Core\Aktualizace;
-use MiroCMS\Core\Response;
-use MiroCMS\Core\Rozsireni;
-use MiroCMS\Core\Stav;
-use MiroCMS\Core\Zaloha;
-use MiroCMS\Front\Layouty;
+use Kaleta\Admin\Modul;
+use Kaleta\Core\Aktualizace;
+use Kaleta\Core\Response;
+use Kaleta\Core\Rozsireni;
+use Kaleta\Core\Stav;
+use Kaleta\Core\Zaloha;
+use Kaleta\Front\Layouty;
 
 /**
- * Nastavení webu (tabulka mc_nastaveni) rozdělené do záložek.
+ * Nastavení webu (tabulka ka_nastaveni) rozdělené do záložek.
  * Každá záložka má šablonu views/admin/config/<zalozka>.php a seznam polí s typem - podle něj se hodnoty čistí.
  */
 class Konfigurace extends Modul
@@ -35,7 +35,7 @@ class Konfigurace extends Modul
     public const array SITE = ['soc_facebook' => 'Facebook', 'soc_instagram' => 'Instagram', 'soc_x' => 'X (Twitter)', 'soc_youtube' => 'YouTube', 'soc_linkedin' => 'LinkedIn'];
 
     /**
-     * Pole jednotlivých záložek: klíč v mc_nastaveni => typ.
+     * Pole jednotlivých záložek: klíč v ka_nastaveni => typ.
      * text | tajne (klíč: nevypisuje se zpět, prázdné pole = beze změny; tajne:/regex/ navíc hlídá tvar) | radky (víceřádkový text) | kod (HTML/JS - zadává jen administrátor) | url | email | ano | cislo:min:max | vyber:a|b | seznam:a|b (zaškrtávací pole, ukládá se "a,b") | vzor:/regex/
      */
     private const array POLE = [
@@ -43,7 +43,7 @@ class Konfigurace extends Modul
             'nazev_webu' => 'text', 'adresa_webu' => 'vzor:#^https?://[a-z0-9.-]+(:\d+)?$#i', 'popis_webu' => 'radky', 'email_webu' => 'email', 'text_paticky' => 'text',
             'soc_facebook' => 'url', 'soc_instagram' => 'url', 'soc_x' => 'url', 'soc_youtube' => 'url', 'soc_linkedin' => 'url',
             'titulni_stranka' => 'cislo:0:4294967295', 'pocet_clanku' => 'cislo:1:100', 'sdileni' => 'ano', 'kontrola_odkazu' => 'ano', 'osnova_clanku' => 'ano', 'souvisejici_auto' => 'ano', 'cache_stranek' => 'ano', 'udrzba' => 'ano', 'udrzba_text' => 'text', 'webhook_url' => 'url', 'webhook_poptavky' => 'url', 'vynutit_2fa' => 'vyber:|spravci|vsichni',
-            'casove_pasmo' => 'pasmo', 'jazyk_webu' => 'vyber:' . \MiroCMS\Core\Jazyk::KODY, 'jazyky_dalsi' => 'seznam:' . \MiroCMS\Core\Jazyk::KODY,
+            'casove_pasmo' => 'pasmo', 'jazyk_webu' => 'vyber:' . \Kaleta\Core\Jazyk::KODY, 'jazyky_dalsi' => 'seznam:' . \Kaleta\Core\Jazyk::KODY,
         ],
         'firma' => [
             'firma_nazev' => 'text', 'firma_typ' => 'vyber:' . self::TYPY_FIRMY, 'firma_ico' => 'vzor:/^(\d{6,10})?$/', 'firma_dic' => 'vzor:/^([A-Z]{2}[A-Z0-9]{6,12})?$/',
@@ -61,7 +61,7 @@ class Konfigurace extends Modul
         'cookies' => ['cookies_rezim' => 'vyber:zadna|vestavena|externi', 'cookies_externi_kod' => 'kod', 'cookies_text' => 'radky', 'cookies_zasady_url' => 'text', 'kod_marketing' => 'kod', 'cookies_evidence' => 'ano'],
         'posta' => ['posta_rezim' => 'vyber:mail|smtp', 'posta_od' => 'email', 'posta_odpoved' => 'email', 'smtp_host' => 'vzor:/^[A-Za-z0-9.-]{0,120}$/', 'smtp_port' => 'cislo:1:65535',
             'smtp_sifrovani' => 'vyber:tls|ssl|zadne', 'smtp_uzivatel' => 'text', 'smtp_heslo' => 'tajne'],
-        'rozsireni' => ['ai_poskytovatel' => 'vyber:' . \MiroCMS\Core\Asistent::POSKYTOVATELE_KLICE, 'ai_klic' => 'tajne', 'ai_model' => 'vzor:#^[A-Za-z0-9._:/-]{0,80}$#'],
+        'rozsireni' => ['ai_poskytovatel' => 'vyber:' . \Kaleta\Core\Asistent::POSKYTOVATELE_KLICE, 'ai_klic' => 'tajne', 'ai_model' => 'vzor:#^[A-Za-z0-9._:/-]{0,80}$#'],
         'zalohy' => ['zaloha_vzdalena' => 'vyber:vypnuto|ftp|s3', 'zaloha_host' => 'vzor:#^[A-Za-z0-9.:/-]{0,150}$#', 'zaloha_uzivatel' => 'text', 'zaloha_heslo' => 'tajne',
             'zaloha_slozka' => 'vzor:#^[A-Za-z0-9._/-]{0,150}$#', 'zaloha_region' => 'vzor:/^[a-z0-9-]{0,40}$/', 'zalohy_auto' => 'ano', 'aktualizace_auto' => 'ano', 'aktualizace_url' => 'url'],
         'stav' => ['stav_token' => 'vzor:/^[A-Za-z0-9]{0,64}$/'],
@@ -77,7 +77,7 @@ class Konfigurace extends Modul
     {
         $pole = self::POLE[$zalozka];
         if ($zalozka === 'zakladni') {
-            foreach (\MiroCMS\Core\Jazyk::dalsi($this->app->settings()) as $jazyk) {
+            foreach (\Kaleta\Core\Jazyk::dalsi($this->app->settings()) as $jazyk) {
                 $pole += ['nazev_webu_' . $jazyk => 'text', 'popis_webu_' . $jazyk => 'radky'];
             }
         }
@@ -107,7 +107,7 @@ class Konfigurace extends Modul
             'kontroly' => $zalozka === 'stav' ? Stav::kontroly($this->app) : [],
             'vzdalenaStav' => $nastaveni->get('zaloha_vzdalena_stav'),
             'ulohyToken' => $nastaveni->get('ulohy_token'),
-            'chybyLog' => $zalozka === 'stav' ? self::konecSouboru(MIROCMS_ROOT . '/storage/log/chyby.log', 40) : [],
+            'chybyLog' => $zalozka === 'stav' ? self::konecSouboru(KALETA_ROOT . '/storage/log/chyby.log', 40) : [],
             'posta' => $zalozka === 'posta' ? $this->db->all('SELECT komu, predmet, vytvoreno, odeslano, pokusu, dalsi_pokus, chyba FROM {posta} ORDER BY idp DESC LIMIT 30') : [],
             'zapnutaRozsireni' => Rozsireni::zapnuta($nastaveni),
             'stranky' => $zalozka === 'zakladni' ? $this->db->pairs("SELECT ids, titulek FROM {stranky} WHERE zobrazit = 1 AND jazyk = '' ORDER BY poradi, titulek") : [],
@@ -155,7 +155,7 @@ class Konfigurace extends Modul
         }
         if ($zalozka === 'rozsireni') {
             Rozsireni::uloz($nastaveni, $this->request->postList('rozsireni'));
-            if (($this->request->post('ai_klic') !== '' || $this->request->post('ai_poskytovatel') !== $this->request->post('ai_poskytovatel_puvodni')) && $nastaveni->get('ai_klic') !== '' && ($chybaKlice = (new \MiroCMS\Core\Asistent($nastaveni))->overKlic()) !== null) {
+            if (($this->request->post('ai_klic') !== '' || $this->request->post('ai_poskytovatel') !== $this->request->post('ai_poskytovatel_puvodni')) && $nastaveni->get('ai_klic') !== '' && ($chybaKlice = (new \Kaleta\Core\Asistent($nastaveni))->overKlic()) !== null) {
                 return $this->zpet(t('Nastavení je uložené, ale klíč asistenta nefunguje: %s', t($chybaKlice)), '', static::IDENT === 'config' ? ['zalozka' => $zalozka] : [], 'chyba');
             }
         }
@@ -181,7 +181,7 @@ class Konfigurace extends Modul
         } catch (\Throwable $e) {
             return $this->zpet(t('Zálohu se nepodařilo vytvořit: %s', t($e->getMessage())), '', ['zalozka' => 'zalohy'], 'chyba');
         }
-        $vzdalena = \MiroCMS\Core\VzdalenaZaloha::nahraj($this->app->settings(), (string) Zaloha::cesta($soubor));
+        $vzdalena = \Kaleta\Core\VzdalenaZaloha::nahraj($this->app->settings(), (string) Zaloha::cesta($soubor));
         if ($vzdalena !== null) {
             return $this->zpet(t('Záloha %s je hotová, ale kopii mimo server se nepodařilo nahrát: %s', $soubor, t($vzdalena)), '', ['zalozka' => 'zalohy'], 'chyba');
         }
@@ -216,8 +216,8 @@ class Konfigurace extends Modul
     /** Vyprázdní záznam chyb aplikace. */
     protected function akceSmazLog(): Response
     {
-        if ($this->request->isPost() && is_file(MIROCMS_ROOT . '/storage/log/chyby.log')) {
-            file_put_contents(MIROCMS_ROOT . '/storage/log/chyby.log', '');
+        if ($this->request->isPost() && is_file(KALETA_ROOT . '/storage/log/chyby.log')) {
+            file_put_contents(KALETA_ROOT . '/storage/log/chyby.log', '');
         }
 
         return $this->zpet('Záznam chyb je prázdný.', '', ['zalozka' => 'stav']);
@@ -253,7 +253,7 @@ class Konfigurace extends Modul
         } catch (\Throwable $e) {
             return $this->zpet(t('Obnova se nezdařila: %s', t($e->getMessage())) . (isset($pojistna) ? ' ' . t('Stav před obnovou je v záloze %s.', $pojistna) : ''), '', ['zalozka' => 'zalohy'], 'chyba');
         }
-        \MiroCMS\Front\Cache::vymaz();
+        \Kaleta\Front\Cache::vymaz();
 
         return $this->zpet(t('Databáze byla obnovena ze zálohy (příkazů: %d). Stav před obnovou je uložený v záloze %s.', $prikazu, $pojistna), '', ['zalozka' => 'zalohy']);
     }
@@ -287,16 +287,16 @@ class Konfigurace extends Modul
     /** Záloha nahraných médií: ZIP složky media/ ke stažení. */
     protected function akceZalohaMedii(): Response
     {
-        if (!class_exists(\ZipArchive::class) || !is_dir(MIROCMS_ROOT . '/media')) {
+        if (!class_exists(\ZipArchive::class) || !is_dir(KALETA_ROOT . '/media')) {
             return $this->zpet('Na serveru chybí rozšíření zip – média si stáhněte přes FTP.', '', ['zalozka' => 'zalohy'], 'chyba');
         }
-        $soubor = MIROCMS_ROOT . '/storage/cache/media-' . bin2hex(random_bytes(6)) . '.zip';
+        $soubor = KALETA_ROOT . '/storage/cache/media-' . bin2hex(random_bytes(6)) . '.zip';
         $zip = new \ZipArchive();
         $zip->open($soubor, \ZipArchive::CREATE);
-        foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(MIROCMS_ROOT . '/media', \FilesystemIterator::SKIP_DOTS)) as $polozka) {
+        foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(KALETA_ROOT . '/media', \FilesystemIterator::SKIP_DOTS)) as $polozka) {
             // varianty pro srcset a WebP se dají kdykoli vytvořit znovu - do zálohy jdou jen původní obrázky
             if ($polozka->isFile() && !preg_match('/(-1200|-nahled)\.[a-z]+$|\.webp$/', $polozka->getFilename()) && !str_starts_with($polozka->getFilename(), '.')) {
-                $zip->addFile($polozka->getPathname(), substr($polozka->getPathname(), strlen(MIROCMS_ROOT) + 1));
+                $zip->addFile($polozka->getPathname(), substr($polozka->getPathname(), strlen(KALETA_ROOT) + 1));
             }
         }
         $zip->close();
@@ -320,16 +320,16 @@ class Konfigurace extends Modul
         }
         $web = $this->app->settings()->get('nazev_webu');
         // e-mail webu nemá účet s jazykem: zpráva jde ve výchozím jazyce webu (stejně jako ostatní pošta webu)
-        [$predmet, $text] = \MiroCMS\Core\Jazyk::docasne(\MiroCMS\Core\Jazyk::vychozi($this->app->settings()), fn (): array => [
+        [$predmet, $text] = \Kaleta\Core\Jazyk::docasne(\Kaleta\Core\Jazyk::vychozi($this->app->settings()), fn (): array => [
             t('Zkušební zpráva z %s', $web),
-            t('Dobrý den,') . "\n\n" . t('tato zpráva potvrzuje, že web %s umí odesílat e-maily.', $web) . "\n\nMiroCMS " . MIROCMS_VERSION,
+            t('Dobrý den,') . "\n\n" . t('tato zpráva potvrzuje, že web %s umí odesílat e-maily.', $web) . "\n\nKaleta " . KALETA_VERSION,
         ], 'admin-');
-        $ok = \MiroCMS\Core\Posta::odesli($this->app->settings(), $komu, $predmet, $text, doFronty: false);
+        $ok = \Kaleta\Core\Posta::odesli($this->app->settings(), $komu, $predmet, $text, doFronty: false);
         $zpet = $this->request->post('zalozka') === 'posta' ? 'posta' : 'stav';
 
         return $this->zpet(
             match (true) {
-                !$ok => t('Odeslání selhalo: %s', t(\MiroCMS\Core\Posta::$chyba)),
+                !$ok => t('Odeslání selhalo: %s', t(\Kaleta\Core\Posta::$chyba)),
                 $this->app->settings()->get('posta_rezim') === 'smtp' => t('Zpráva byla předána k odeslání na %s. Pokud nedorazí, zkontrolujte spam.', $komu),
                 default => t('Zpráva byla předána k odeslání na %s. Pokud nedorazí, zkontrolujte spam – nebo nastavte odesílání přes SMTP (Nastavení → Pošta).', $komu),
             },
@@ -364,7 +364,7 @@ class Konfigurace extends Modul
             'vyber' => in_array($hodnota, explode('|', $parametr), true) ? $hodnota : null,
             'pasmo' => in_array($hodnota, \DateTimeZone::listIdentifiers(), true) ? $hodnota : null,
             'vzor' => preg_match($parametr, $hodnota) ? $hodnota : null,
-            'hodiny' => \MiroCMS\Front\Firma::hodiny($hodnota) !== null ? mb_substr(trim($hodnota), 0, 1000) : null,
+            'hodiny' => \Kaleta\Front\Firma::hodiny($hodnota) !== null ? mb_substr(trim($hodnota), 0, 1000) : null,
             default => null,
         };
     }

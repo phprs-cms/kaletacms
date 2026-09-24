@@ -1,7 +1,7 @@
 <?php
 /**
- * @var MiroCMS\Core\App $app
- * @var MiroCMS\Admin\Moduly\ProtokolZmen $modul
+ * @var Kaleta\Core\App $app
+ * @var Kaleta\Admin\Moduly\ProtokolZmen $modul
  * @var list<array<string, mixed>> $zaznamy
  * @var array<int, string> $uzivatele
  * @var int $kdo
@@ -13,7 +13,7 @@
  * @var int $celkem
  */
 // názvy modulů z administrace (i těch, které přibudou) a několik míst mimo moduly
-$nazvy = array_map(fn (string $class): string => $class::NAZEV, array_combine(array_map(fn (string $class): string => $class::IDENT, MiroCMS\Admin\Kernel::MODULY), MiroCMS\Admin\Kernel::MODULY))
+$nazvy = array_map(fn (string $class): string => $class::NAZEV, array_combine(array_map(fn (string $class): string => $class::IDENT, Kaleta\Admin\Kernel::MODULY), Kaleta\Admin\Kernel::MODULY))
     + ['asistent' => 'AI asistent', 'mcp' => 'Claude (MCP)', 'prihlaseni' => 'Přihlášení', 'ucet' => 'Můj účet'];
 $akce = ['uloz' => 'uložení', 'smaz' => 'smazání', 'smaz_natrvalo' => 'smazání natrvalo', 'obnov' => 'obnovení z koše', 'duplikuj' => 'kopie',
     'vydat' => 'vydání', 'hromadne' => 'hromadná akce', 'nahraj' => 'nahrání', 'login' => 'přihlášení', 'neuspech' => 'neúspěšný pokus',

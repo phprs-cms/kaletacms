@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Core;
+namespace Kaleta\Core;
 
 /**
- * Nastavení webu z tabulky mc_nastaveni (promenna => hodnota).
+ * Nastavení webu z tabulky ka_nastaveni (promenna => hodnota).
  */
 final class Settings
 {
@@ -46,7 +46,7 @@ final class Settings
         'jazyk_webu' => 'cs',         // jazyk webu: texty šablon, <html lang>, strukturovaná data (Core\Jazyk)
         'jazyky_dalsi' => '',         // další jazykové verze na /en/, /de/… (rozšíření Jazykové verze), kódy oddělené čárkou
         'layout' => 'zakladni',       // = Front\Layouty::VYCHOZI
-        'titulni_stranka' => '0',     // stránka (mc_stranky.ids) jako úvod webu; 0 = výpis novinek
+        'titulni_stranka' => '0',     // stránka (ka_stranky.ids) jako úvod webu; 0 = výpis novinek
         'pocet_clanku' => '9',        // novinek na jednu stránku výpisu
         'udrzba' => '0',              // režim údržby: návštěvníci vidí oznámení, přihlášení správci web
         'udrzba_text' => 'Na webu právě pracujeme. Zkuste to prosím za chvíli.',

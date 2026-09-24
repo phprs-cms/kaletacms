@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Front;
+namespace Kaleta\Front;
 
-use MiroCMS\Core\App;
-use MiroCMS\Core\Jazyk;
-use MiroCMS\Core\Response;
+use Kaleta\Core\App;
+use Kaleta\Core\Jazyk;
+use Kaleta\Core\Response;
 
 /**
  * Veřejné čtecí API (JSON). Vrací jen to, co je vidět i na webu: vydané novinky, kategorie a zobrazené stránky.
@@ -53,7 +53,7 @@ final class Api
         if ($path === '/api/kategorie') {
             return $this->json(array_map(
                 fn (array $r): array => ['nazev' => $r['nazev'], 'adresa' => $r['seo_link'], 'novinek' => (int) $r['pocet_clanku']],
-                \MiroCMS\Admin\Moduly\Kategorie::seznam($this->app->db(), Jazyk::sloupecWebu()),
+                \Kaleta\Admin\Moduly\Kategorie::seznam($this->app->db(), Jazyk::sloupecWebu()),
             ));
         }
         if ($path === '/api/stranky') {

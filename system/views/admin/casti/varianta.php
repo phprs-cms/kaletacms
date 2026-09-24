@@ -2,8 +2,8 @@
 /**
  * Varianta záhlaví nebo patičky: název a stránky, na kterých platí místo výchozí podoby.
  *
- * @var MiroCMS\Core\App $app
- * @var MiroCMS\Admin\Moduly\Casti $modul
+ * @var Kaleta\Core\App $app
+ * @var Kaleta\Admin\Moduly\Casti $modul
  * @var string $csrf
  * @var string $typ
  * @var string $jazyk

@@ -1,7 +1,7 @@
 <?php
 /**
- * @var MiroCMS\Core\App $app
- * @var MiroCMS\Admin\Moduly\Stranky $modul
+ * @var Kaleta\Core\App $app
+ * @var Kaleta\Admin\Moduly\Stranky $modul
  * @var string $csrf
  * @var list<array<string, mixed>> $stranky
  * @var bool $kos     zobrazen koš

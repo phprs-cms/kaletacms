@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Stavitel;
+namespace Kaleta\Stavitel;
 
 /**
  * Typ prvku stavitele. Každý typ = jedna třída v Stavitel\Prvky se schématem obsahu (VLASTNOSTI), povolenými HTML značkami,
@@ -53,7 +53,7 @@ abstract class Prvek
 
     /**
      * @param array<string, mixed> $p       vyčištěný prvek (typ, znacka, obsah, …)
-     * @param string               $a       hotové atributy (id, class, data-mc-id) začínající mezerou
+     * @param string               $a       hotové atributy (id, class, data-ka-id) začínající mezerou
      * @param string               $deti    vykreslené vnořené prvky
      */
     abstract public static function vykresli(array $p, string $a, string $deti, Kontext $k): string;

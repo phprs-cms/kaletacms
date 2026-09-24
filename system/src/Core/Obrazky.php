@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Core;
+namespace Kaleta\Core;
 
 /**
  * Příjem nahraných obrázků: ověření, zmenšení na rozumnou velikost, náhled, uložení do media/RRRR/MM/.
@@ -74,7 +74,7 @@ final class Obrazky
         $pripona = self::TYPY[$info[2]];
         $nazev = pathinfo($jmenoSouboru, PATHINFO_FILENAME);
         $slozka = 'media/' . date('Y/m');
-        if (!is_dir(MIROCMS_ROOT . '/' . $slozka) && !mkdir(MIROCMS_ROOT . '/' . $slozka, 0775, true)) {
+        if (!is_dir(KALETA_ROOT . '/' . $slozka) && !mkdir(KALETA_ROOT . '/' . $slozka, 0775, true)) {
             throw new \RuntimeException('Nelze vytvořit složku ' . $slozka . ' - zkontrolujte práva k zápisu.');
         }
         $zaklad = $slozka . '/' . slugify($nazev, 60) . '-' . bin2hex(random_bytes(3));
@@ -82,10 +82,10 @@ final class Obrazky
         if ($pripona === 'gif') {
             // GIF může být animovaný - ukládá se beze změny, náhled je první snímek
             $cil = $zaklad . '.gif';
-            if (!($nahrany ? move_uploaded_file($tmp, MIROCMS_ROOT . '/' . $cil) : copy($tmp, MIROCMS_ROOT . '/' . $cil))) {
+            if (!($nahrany ? move_uploaded_file($tmp, KALETA_ROOT . '/' . $cil) : copy($tmp, KALETA_ROOT . '/' . $cil))) {
                 throw new \RuntimeException('Soubor se nepodařilo uložit.');
             }
-            $obr = imagecreatefromgif(MIROCMS_ROOT . '/' . $cil);
+            $obr = imagecreatefromgif(KALETA_ROOT . '/' . $cil);
             [$w, $h] = [$info[0], $info[1]];
         } else {
             $obr = @imagecreatefromstring((string) file_get_contents($tmp));
@@ -96,11 +96,11 @@ final class Obrazky
             $obr = self::zmensi($obr, self::MAX_STRANA);
             [$w, $h] = [imagesx($obr), imagesy($obr)];
             $cil = $zaklad . '.' . $pripona;
-            self::zapis($obr, MIROCMS_ROOT . '/' . $cil, $pripona);
-            self::webp($obr, MIROCMS_ROOT . '/' . $cil, $pripona);
+            self::zapis($obr, KALETA_ROOT . '/' . $cil, $pripona);
+            self::webp($obr, KALETA_ROOT . '/' . $cil, $pripona);
             if (max($w, $h) > self::STREDNI_STRANA) {
                 $stredni = self::zmensi($obr, self::STREDNI_STRANA);
-                $stredniCil = MIROCMS_ROOT . '/' . $zaklad . '-1200.' . $pripona;
+                $stredniCil = KALETA_ROOT . '/' . $zaklad . '-1200.' . $pripona;
                 self::zapis($stredni, $stredniCil, $pripona);
                 self::webp($stredni, $stredniCil, $pripona);
             }
@@ -109,11 +109,11 @@ final class Obrazky
         $nahled = self::zmensi($obr, self::NAHLED_STRANA);
         $nahledPripona = $pripona === 'gif' ? 'png' : $pripona;
         $nahledCil = $zaklad . '-nahled.' . $nahledPripona;
-        self::zapis($nahled, MIROCMS_ROOT . '/' . $nahledCil, $nahledPripona);
-        self::webp($nahled, MIROCMS_ROOT . '/' . $nahledCil, $nahledPripona);
+        self::zapis($nahled, KALETA_ROOT . '/' . $nahledCil, $nahledPripona);
+        self::webp($nahled, KALETA_ROOT . '/' . $nahledCil, $nahledPripona);
 
         return [
-            'obr_poloha' => $cil, 'obr_width' => $w, 'obr_height' => $h, 'obr_vel' => (int) filesize(MIROCMS_ROOT . '/' . $cil),
+            'obr_poloha' => $cil, 'obr_width' => $w, 'obr_height' => $h, 'obr_vel' => (int) filesize(KALETA_ROOT . '/' . $cil),
             'nahl_poloha' => $nahledCil, 'nahl_width' => imagesx($nahled), 'nahl_height' => imagesy($nahled),
             'nazev' => mb_substr(trim(str_replace(['_', '-'], ' ', $nazev)), 0, 150),
         ];
@@ -132,25 +132,25 @@ final class Obrazky
             throw new \RuntimeException('Nahradit jde jen obrázek JPG, PNG nebo WebP.');
         }
         $novy = self::uloz($file); // ověří, zmenší a znovu zakóduje nahraný soubor
-        $obr = @imagecreatefromstring((string) file_get_contents(MIROCMS_ROOT . '/' . $novy['obr_poloha']));
+        $obr = @imagecreatefromstring((string) file_get_contents(KALETA_ROOT . '/' . $novy['obr_poloha']));
         self::smaz($novy['obr_poloha'], $novy['nahl_poloha']);
         if ($obr === false) {
             throw new \RuntimeException('Obrázek je poškozený a nelze ho zpracovat.');
         }
         self::smaz($stara, $m[1] . '-nahled.' . $m[2]);
         [$zaklad, $pripona] = [$m[1], $m[2]];
-        self::zapis($obr, MIROCMS_ROOT . '/' . $stara, $pripona);
-        self::webp($obr, MIROCMS_ROOT . '/' . $stara, $pripona);
+        self::zapis($obr, KALETA_ROOT . '/' . $stara, $pripona);
+        self::webp($obr, KALETA_ROOT . '/' . $stara, $pripona);
         if (max(imagesx($obr), imagesy($obr)) > self::STREDNI_STRANA) {
             $stredni = self::zmensi($obr, self::STREDNI_STRANA);
-            self::zapis($stredni, MIROCMS_ROOT . '/' . $zaklad . '-1200.' . $pripona, $pripona);
-            self::webp($stredni, MIROCMS_ROOT . '/' . $zaklad . '-1200.' . $pripona, $pripona);
+            self::zapis($stredni, KALETA_ROOT . '/' . $zaklad . '-1200.' . $pripona, $pripona);
+            self::webp($stredni, KALETA_ROOT . '/' . $zaklad . '-1200.' . $pripona, $pripona);
         }
         $nahled = self::zmensi($obr, self::NAHLED_STRANA);
-        self::zapis($nahled, MIROCMS_ROOT . '/' . $zaklad . '-nahled.' . $pripona, $pripona);
-        self::webp($nahled, MIROCMS_ROOT . '/' . $zaklad . '-nahled.' . $pripona, $pripona);
+        self::zapis($nahled, KALETA_ROOT . '/' . $zaklad . '-nahled.' . $pripona, $pripona);
+        self::webp($nahled, KALETA_ROOT . '/' . $zaklad . '-nahled.' . $pripona, $pripona);
 
-        return ['obr_width' => imagesx($obr), 'obr_height' => imagesy($obr), 'obr_vel' => (int) filesize(MIROCMS_ROOT . '/' . $stara),
+        return ['obr_width' => imagesx($obr), 'obr_height' => imagesy($obr), 'obr_vel' => (int) filesize(KALETA_ROOT . '/' . $stara),
             'nahl_width' => imagesx($nahled), 'nahl_height' => imagesy($nahled)];
     }
 
@@ -163,8 +163,8 @@ final class Obrazky
             }
             // s obrázkem mizí i jeho varianty pro srcset a WebP
             foreach ([$cesta, $cesta . '.webp', $cesta . '.avif', $m[1] . '-1200.' . $m[2], $m[1] . '-1200.' . $m[2] . '.webp', $m[1] . '-1200.' . $m[2] . '.avif'] as $soubor) {
-                if (is_file(MIROCMS_ROOT . '/' . $soubor)) {
-                    unlink(MIROCMS_ROOT . '/' . $soubor);
+                if (is_file(KALETA_ROOT . '/' . $soubor)) {
+                    unlink(KALETA_ROOT . '/' . $soubor);
                 }
             }
         }
@@ -269,7 +269,7 @@ final class Obrazky
             imagesavealpha($ikona, true);
             imagefill($ikona, 0, 0, imagecolorallocatealpha($ikona, 0, 0, 0, 127));
             imagecopyresampled($ikona, $obr, 0, 0, $x, $y, $n, $n, $strana, $strana);
-            imagepng($ikona, MIROCMS_ROOT . '/media/ikona-' . $n . '.png', 9);
+            imagepng($ikona, KALETA_ROOT . '/media/ikona-' . $n . '.png', 9);
         }
 
         return true;
@@ -288,8 +288,8 @@ final class Obrazky
         $varianty = [];
         foreach (['-nahled' => self::NAHLED_STRANA, '-1200' => self::STREDNI_STRANA, '' => self::MAX_STRANA] as $pripona => $sirka) {
             $soubor = $m[1] . $pripona . '.' . $m[3];
-            if (is_file(MIROCMS_ROOT . '/' . $soubor)) {
-                $info = $pripona === '' ? @getimagesize(MIROCMS_ROOT . '/' . $soubor) : null;
+            if (is_file(KALETA_ROOT . '/' . $soubor)) {
+                $info = $pripona === '' ? @getimagesize(KALETA_ROOT . '/' . $soubor) : null;
                 $varianty[] = $zaklad . '/' . $soubor . ' ' . ($info ? $info[0] : $sirka) . 'w';
             }
         }

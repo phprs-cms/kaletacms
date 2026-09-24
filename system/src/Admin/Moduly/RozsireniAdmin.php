@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Admin\Moduly;
+namespace Kaleta\Admin\Moduly;
 
-use MiroCMS\Core\Response;
+use Kaleta\Core\Response;
 
 /**
  * Rozšíření jako samostatná položka hlavní nabídky (dřív záložka Nastavení).

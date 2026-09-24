@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Admin\Moduly;
+namespace Kaleta\Admin\Moduly;
 
-use MiroCMS\Admin\Modul;
-use MiroCMS\Core\Response;
+use Kaleta\Admin\Modul;
+use Kaleta\Core\Response;
 
 /**
- * Novinky a blog firmy (v databázi tabulka mc_novinky, kategorie = mc_kategorie).
+ * Novinky a blog firmy (v databázi tabulka ka_novinky, kategorie = ka_kategorie).
  *
  * Pravidla:
  *  - autor vidí a upravuje jen své novinky a nesmí vydávat,
@@ -38,11 +38,11 @@ final class Novinky extends Modul
         }
         // jazyková verze: výchozí jazyk webu je v sloupci uložený jako ''
         $s = $this->app->settings();
-        $jazykyWebu = ($dalsi = \MiroCMS\Core\Jazyk::dalsi($s)) === [] ? [] : [\MiroCMS\Core\Jazyk::vychozi($s), ...$dalsi];
+        $jazykyWebu = ($dalsi = \Kaleta\Core\Jazyk::dalsi($s)) === [] ? [] : [\Kaleta\Core\Jazyk::vychozi($s), ...$dalsi];
         $jazyk = in_array($this->request->get('jazyk'), $jazykyWebu, true) ? $this->request->get('jazyk') : '';
         if ($jazyk !== '') {
             $where[] = 'c.jazyk = ?';
-            $params[] = \MiroCMS\Core\Jazyk::sloupec($s, $jazyk);
+            $params[] = \Kaleta\Core\Jazyk::sloupec($s, $jazyk);
         }
         if (($hledat = $this->request->get('hledat')) !== '') {
             $where[] = 'c.titulek LIKE ?';
@@ -121,7 +121,7 @@ final class Novinky extends Modul
         $id = $this->db->insert('novinky', $kopie + ['titulek' => mb_substr(t('%s (kopie)', $novinka['titulek']), 0, 255), 'seo_link' => $seo, 'visible' => 0,
             'datum' => date('Y-m-d H:i:s'), 'autor' => $this->app->auth()->id(), 'zmeneno' => date('Y-m-d H:i:s')]);
         $this->db->run('INSERT INTO {novinky_stitky} (idc, ids) SELECT ?, ids FROM {novinky_stitky} WHERE idc = ?', [$id, $novinka['idc']]);
-        \MiroCMS\Core\Hledani::indexuj($this->db, $id);
+        \Kaleta\Core\Hledani::indexuj($this->db, $id);
 
         return $this->zpet('Kopie novinky je uložená jako koncept.', 'edit', ['id' => $id]);
     }
@@ -214,14 +214,14 @@ final class Novinky extends Modul
         }
 
         Galerie::zapisPouziti($this->db, $id, $data['obrazek'], $data['uvod'], $data['text']);
-        \MiroCMS\Core\Hledani::indexuj($this->db, $id);
+        \Kaleta\Core\Hledani::indexuj($this->db, $id);
         // uložená novinka ruší rozepsaný stav na serveru (u nové je veden pod číslem 0)
         $this->db->run('DELETE FROM {novinky_koncepty} WHERE kdo = ? AND idc IN (0, ?)', [$auth->id(), $id]);
         $this->ulozStitky($id, $r->post('stitky'));
         // nově vydaná novinka se oznámí (webhook, IndexNow); naplánovaná počká na svůj čas - viz Core\Oznameni
-        \MiroCMS\Core\Oznameni::zpracuj($this->app);
+        \Kaleta\Core\Oznameni::zpracuj($this->app);
         if ($data['visible'] && !empty($puvodni['visible']) && !$data['noindex'] && strtotime($data['datum']) <= time()) {
-            (new \MiroCMS\Front\Seo($this->app))->indexNow($this->app->urlNovinky($data['seo_link'], $data['jazyk']));
+            (new \Kaleta\Front\Seo($this->app))->indexNow($this->app->urlNovinky($data['seo_link'], $data['jazyk']));
         }
 
         $hlaska = $auth->smiVydavat() ? 'Novinka byla uložena.' : 'Novinka byla uložena. Na webu se objeví, až ji vydá editor.';
@@ -251,10 +251,10 @@ final class Novinky extends Modul
         }
         $this->db->update('novinky', $data + ['zmeneno' => date('Y-m-d H:i:s')], ['idc' => $novinka['idc']]);
         Galerie::zapisPouziti($this->db, (int) $novinka['idc'], (string) $novinka['obrazek'], $data['uvod'], $data['text']);
-        \MiroCMS\Core\Hledani::indexuj($this->db, (int) $novinka['idc']);
-        \MiroCMS\Admin\Protokol::zapis($this->app, 'novinky', 'úprava přímo na webu', mb_substr($data['titulek'], 0, 80));
+        \Kaleta\Core\Hledani::indexuj($this->db, (int) $novinka['idc']);
+        \Kaleta\Admin\Protokol::zapis($this->app, 'novinky', 'úprava přímo na webu', mb_substr($data['titulek'], 0, 80));
         if ($novinka['visible'] && !$novinka['noindex'] && strtotime((string) $novinka['datum']) <= time()) {
-            (new \MiroCMS\Front\Seo($this->app))->indexNow($this->app->urlNovinky($novinka['seo_link'], $novinka['jazyk']));
+            (new \Kaleta\Front\Seo($this->app))->indexNow($this->app->urlNovinky($novinka['seo_link'], $novinka['jazyk']));
         }
 
         return $this->zpetNaWeb($r->post('zpet'), $nahled !== '' ? '?' . $nahled : '');
@@ -314,7 +314,7 @@ final class Novinky extends Modul
      */
     protected function akceAsistent(): Response
     {
-        $asistent = new \MiroCMS\Core\Asistent($this->app->settings());
+        $asistent = new \Kaleta\Core\Asistent($this->app->settings());
         if (!$this->request->isPost() || !$asistent->pripraven()) {
             return Response::json(['chyba' => t('AI asistent není zapnutý nebo chybí klíč (nabídka Rozšíření).')], 400);
         }
@@ -326,7 +326,7 @@ final class Novinky extends Modul
         $obrazek = null;
         if ($ukol === 'alt') {
             // jen soubory z media/: cesta se skládá z ověřených částí adresy
-            $obrazek = preg_match('#media/(\d{4}/\d{2}/[A-Za-z0-9._-]+\.(?:jpe?g|png|webp|gif))$#', (string) parse_url($this->request->post('obrazek'), PHP_URL_PATH), $m) ? MIROCMS_ROOT . '/media/' . $m[1] : null;
+            $obrazek = preg_match('#media/(\d{4}/\d{2}/[A-Za-z0-9._-]+\.(?:jpe?g|png|webp|gif))$#', (string) parse_url($this->request->post('obrazek'), PHP_URL_PATH), $m) ? KALETA_ROOT . '/media/' . $m[1] : null;
             $mensi = $obrazek === null ? null : preg_replace('/\.(\w+)$/', '-1200.$1', $obrazek);
             $obrazek = $mensi !== null && is_file($mensi) ? $mensi : $obrazek;
         }
@@ -340,7 +340,7 @@ final class Novinky extends Modul
         } catch (\RuntimeException $e) {
             return Response::json(['chyba' => t($e->getMessage())], 502);
         }
-        \MiroCMS\Admin\Protokol::zapis($this->app, 'asistent', $ukol, mb_substr($this->request->post('titulek'), 0, 80));
+        \Kaleta\Admin\Protokol::zapis($this->app, 'asistent', $ukol, mb_substr($this->request->post('titulek'), 0, 80));
 
         return Response::json($vysledek);
     }
@@ -357,11 +357,11 @@ final class Novinky extends Modul
         }
         $zpetNaNovinku = fn (string $hlaska): Response => $this->zpet($hlaska, 'edit', ['id' => $novinka['idc']], typ: 'chyba');
         $jazyk = $this->request->post('prelozit_do');
-        $asistent = new \MiroCMS\Core\Asistent($this->app->settings());
+        $asistent = new \Kaleta\Core\Asistent($this->app->settings());
         if (!$asistent->pripraven()) {
             return $zpetNaNovinku('AI asistent není zapnutý nebo chybí klíč (nabídka Rozšíření).');
         }
-        if ($novinka['jazyk'] !== '' || !in_array($jazyk, \MiroCMS\Core\Jazyk::dalsi($this->app->settings()), true)) {
+        if ($novinka['jazyk'] !== '' || !in_array($jazyk, \Kaleta\Core\Jazyk::dalsi($this->app->settings()), true)) {
             return $zpetNaNovinku('Přeložit jde jen novinka ve výchozím jazyce, a to do některé z dalších jazykových verzí webu.');
         }
         if (($hotova = $this->db->value('SELECT idc FROM {novinky} WHERE preklad_z = ? AND jazyk = ?', [$novinka['idc'], $jazyk])) !== null) {
@@ -383,7 +383,7 @@ final class Novinky extends Modul
         } catch (\RuntimeException $e) {
             return $zpetNaNovinku(t($e->getMessage()));
         }
-        \MiroCMS\Admin\Protokol::zapis($this->app, 'asistent', 'preklad-' . $jazyk, mb_substr($novinka['titulek'], 0, 80));
+        \Kaleta\Admin\Protokol::zapis($this->app, 'asistent', 'preklad-' . $jazyk, mb_substr($novinka['titulek'], 0, 80));
 
         // koncept přebírá z originálu vše, co se nepřekládá (obrázek, autora…); počitadla ne
         $data = array_intersect_key($novinka, array_flip(['obrazek', 'autor', 'noindex'])) + [
@@ -396,7 +396,7 @@ final class Novinky extends Modul
         $id = $this->db->insert('novinky', $data);
         Galerie::zapisPouziti($this->db, $id, (string) $data['obrazek'], $data['uvod'], $data['text']);
         $this->db->run('INSERT INTO {novinky_stitky} (idc, ids) SELECT ?, ids FROM {novinky_stitky} WHERE idc = ?', [$id, $novinka['idc']]);
-        \MiroCMS\Core\Hledani::indexuj($this->db, $id);
+        \Kaleta\Core\Hledani::indexuj($this->db, $id);
 
         return $this->zpet('Překlad je založený jako koncept. Než ho vydáte, přečtěte ho – asistent může chybovat ve jménech, číslech a odborných výrazech.', 'edit', ['id' => $id]);
     }
@@ -434,9 +434,9 @@ final class Novinky extends Modul
         return $this->view('porovnani', 'Porovnání verzí', [
             'novinka' => $novinka,
             'revize' => $revize,
-            'titulek' => \MiroCMS\Core\Rozdil::html((string) $revize['titulek'], (string) $novinka['titulek']),
-            'uvod' => \MiroCMS\Core\Rozdil::html((string) $revize['uvod'], (string) $novinka['uvod']),
-            'text' => \MiroCMS\Core\Rozdil::html((string) $revize['text'], (string) $novinka['text']),
+            'titulek' => \Kaleta\Core\Rozdil::html((string) $revize['titulek'], (string) $novinka['titulek']),
+            'uvod' => \Kaleta\Core\Rozdil::html((string) $revize['uvod'], (string) $novinka['uvod']),
+            'text' => \Kaleta\Core\Rozdil::html((string) $revize['text'], (string) $novinka['text']),
         ]);
     }
 
@@ -472,7 +472,7 @@ final class Novinky extends Modul
             }
             // koš: novinka zmizí z webu i z výpisů, ale 30 dní ji jde obnovit; vrátí se jako koncept, nikdy sama nevyjde
             $presunuto += $this->db->update('novinky', ['smazano' => date('Y-m-d H:i:s'), 'visible' => 0], ['idc' => $novinka['idc']]);
-            \MiroCMS\Admin\Protokol::zapis($this->app, 'novinky', 'do koše', mb_substr($novinka['titulek'], 0, 80));
+            \Kaleta\Admin\Protokol::zapis($this->app, 'novinky', 'do koše', mb_substr($novinka['titulek'], 0, 80));
         }
 
         return $this->zpet(t('Do koše přesunuto novinek: %d. Obnovit je jde 30 dní (Novinky → Koš).', $presunuto), typ: $presunuto > 0 ? 'ok' : 'chyba');
@@ -491,7 +491,7 @@ final class Novinky extends Modul
                 continue;
             }
             $obnoveno += $this->db->update('novinky', ['smazano' => null], ['idc' => $novinka['idc']]);
-            \MiroCMS\Admin\Protokol::zapis($this->app, 'novinky', 'obnovení z koše', mb_substr($novinka['titulek'], 0, 80));
+            \Kaleta\Admin\Protokol::zapis($this->app, 'novinky', 'obnovení z koše', mb_substr($novinka['titulek'], 0, 80));
         }
 
         return $this->zpet(t('Obnoveno novinek: %d. Vrátily se jako koncepty.', $obnoveno), '', ['stav' => 'kos'], $obnoveno > 0 ? 'ok' : 'chyba');
@@ -508,7 +508,7 @@ final class Novinky extends Modul
             $novinka = $this->nacti((int) $id, true);
             if ($novinka !== null) {
                 $smazano += $this->db->delete('novinky', ['idc' => $novinka['idc']]);
-                \MiroCMS\Admin\Protokol::zapis($this->app, 'novinky', 'smazání natrvalo', mb_substr($novinka['titulek'], 0, 80));
+                \Kaleta\Admin\Protokol::zapis($this->app, 'novinky', 'smazání natrvalo', mb_substr($novinka['titulek'], 0, 80));
             }
         }
 
@@ -516,7 +516,7 @@ final class Novinky extends Modul
     }
 
     /** Koš se vysypává sám: novinky starší 30 dní se smažou natrvalo (volá Admin\Kernel při vstupu do administrace). */
-    public static function vysypKos(\MiroCMS\Core\Db $db): int
+    public static function vysypKos(\Kaleta\Core\Db $db): int
     {
         return $db->run('DELETE FROM {novinky} WHERE smazano < NOW() - INTERVAL 30 DAY')->rowCount();
     }
@@ -540,12 +540,12 @@ final class Novinky extends Modul
             'autori' => $autori,
             'smiVydavat' => $auth->smiVydavat(),
             'konceptServer' => $this->request->isPost() ? null : $this->db->one('SELECT cas, data FROM {novinky_koncepty} WHERE kdo = ? AND idc = ?', [$auth->id(), (int) $novinka['idc']]),
-            'jazykyWebu' => \MiroCMS\Core\Jazyk::dalsi($this->app->settings()) !== [],
+            'jazykyWebu' => \Kaleta\Core\Jazyk::dalsi($this->app->settings()) !== [],
             // u novinky ve výchozím jazyce: do kterých jazyků jde přeložit a které překlady už existují (jazyk => číslo)
-            'jazykyPrekladu' => $novinka['idc'] && ($novinka['jazyk'] ?? '') === '' ? \MiroCMS\Core\Jazyk::dalsi($this->app->settings()) : [],
+            'jazykyPrekladu' => $novinka['idc'] && ($novinka['jazyk'] ?? '') === '' ? \Kaleta\Core\Jazyk::dalsi($this->app->settings()) : [],
             'preklady' => $novinka['idc'] ? array_map(intval(...), $this->db->pairs("SELECT jazyk, idc FROM {novinky} WHERE preklad_z = ? AND jazyk <> ''", [(int) $novinka['idc']])) : [],
             'original' => empty($novinka['preklad_z']) ? '' : (string) $this->db->value('SELECT seo_link FROM {novinky} WHERE idc = ?', [$novinka['preklad_z']]),
-            'asistent' => (new \MiroCMS\Core\Asistent($this->app->settings()))->pripraven(),
+            'asistent' => (new \Kaleta\Core\Asistent($this->app->settings()))->pripraven(),
             'stitky' => $this->request->isPost() ? $this->request->post('stitky') : implode(', ', array_column(
                 $this->db->all('SELECT s.nazev FROM {stitky} s JOIN {novinky_stitky} cs ON cs.ids = s.ids WHERE cs.idc = ? ORDER BY s.nazev', [(int) $novinka['idc']]),
                 'nazev',

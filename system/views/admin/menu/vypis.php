@@ -1,7 +1,7 @@
 <?php
 /**
- * @var MiroCMS\Core\App $app
- * @var MiroCMS\Admin\Moduly\Menu $modul
+ * @var Kaleta\Core\App $app
+ * @var Kaleta\Admin\Moduly\Menu $modul
  * @var string $csrf
  * @var string $umisteni  hlavni | paticka
  * @var string $jazyk     sloupec jazyka ('' = výchozí)
@@ -13,7 +13,7 @@
 $volba = ['umisteni' => $umisteni, 'jazyk' => $jazyk];
 ?>
 <nav class="zalozky" aria-label="<?= e(t('Menu')) ?>">
-<?php foreach (MiroCMS\Core\Menu::UMISTENI as $klic => $nazev): ?>
+<?php foreach (Kaleta\Core\Menu::UMISTENI as $klic => $nazev): ?>
 	<a href="<?= e($modul->url('', ['umisteni' => $klic, 'jazyk' => $jazyk])) ?>"<?= $klic === $umisteni ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t($nazev)) ?></a>
 <?php endforeach ?>
 </nav>
@@ -52,4 +52,4 @@ $volba = ['umisteni' => $umisteni, 'jazyk' => $jazyk];
 <?php if (!$automaticke || $umisteni !== 'hlavni'): ?>
 <form class="vradku" method="post" action="<?= e($modul->url('automaticky', $volba)) ?>" data-potvrdit="<?= e(t($umisteni === 'hlavni' ? 'Vrátit menu k automatickému skládání ze stránek? Vaše úpravy se zahodí.' : 'Vyprázdnit menu v patičce?')) ?>"><?= $csrf ?><button class="navigace nebezpecne" type="submit"><?= e(t($umisteni === 'hlavni' ? 'Vrátit na automatické menu' : 'Vyprázdnit menu')) ?></button></form>
 <?php endif ?>
-<script src="<?= e($app->url('image/menu.js')) ?>?v=<?= e(MIROCMS_VERSION) ?>" defer></script>
+<script src="<?= e($app->url('image/menu.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>

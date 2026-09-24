@@ -2,21 +2,21 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Front;
+namespace Kaleta\Front;
 
-use MiroCMS\Core\Antispam;
-use MiroCMS\Core\App;
-use MiroCMS\Core\Posta;
-use MiroCMS\Core\Response;
-use MiroCMS\Stavitel\Casti;
-use MiroCMS\Stavitel\Komponenty;
-use MiroCMS\Stavitel\Prvky;
-use MiroCMS\Stavitel\Prvky\Formular;
-use MiroCMS\Stavitel\Stavba;
+use Kaleta\Core\Antispam;
+use Kaleta\Core\App;
+use Kaleta\Core\Posta;
+use Kaleta\Core\Response;
+use Kaleta\Stavitel\Casti;
+use Kaleta\Stavitel\Komponenty;
+use Kaleta\Stavitel\Prvky;
+use Kaleta\Stavitel\Prvky\Formular;
+use Kaleta\Stavitel\Stavba;
 
 /**
  * Odeslání formuláře ze stavitele (POST /formular). Pole a příjemce bere z PUBLIKOVANÉ stavby podle zdroje a id prvku –
- * návštěvník nemůže přidat pole ani změnit adresáta. Výsledek: poptávka v mc_poptavky, upozornění e-mailem a návrat
+ * návštěvník nemůže přidat pole ani změnit adresáta. Výsledek: poptávka v ka_poptavky, upozornění e-mailem a návrat
  * na stránku s kódem výsledku (?formular=<id>&vysledek=ok|pole|limit|overeni).
  */
 final class Formulare
@@ -69,7 +69,7 @@ final class Formulare
                 if (!$nahrany && $pole['povinne']) {
                     return $navrat('pole', $i);
                 }
-                $data[] = [$pole['popisek'], $nahrany ? mb_substr(basename((string) $soubor['name']), 0, 120) . ' (' . \MiroCMS\Core\Soubory::velikost((int) $soubor['size']) . ')' : ''];
+                $data[] = [$pole['popisek'], $nahrany ? mb_substr(basename((string) $soubor['name']), 0, 120) . ' (' . \Kaleta\Core\Soubory::velikost((int) $soubor['size']) . ')' : ''];
                 if ($nahrany) {
                     $prilohy[count($data) - 1] = [(string) $soubor['tmp_name'], $pripona];
                 }
@@ -98,7 +98,7 @@ final class Formulare
         // přílohy mimo veřejné složky (storage/ je z webu nepřístupné); stáhne je jen přihlášený v Poptávkách
         foreach ($prilohy as $index => [$tmp, $pripona]) {
             $cesta = date('Y/m') . '/' . bin2hex(random_bytes(12)) . '.' . $pripona;
-            $cil = MIROCMS_ROOT . '/storage/prilohy/' . $cesta;
+            $cil = KALETA_ROOT . '/storage/prilohy/' . $cesta;
             if ((is_dir(dirname($cil)) || mkdir(dirname($cil), 0775, true)) && move_uploaded_file($tmp, $cil)) {
                 $data[$index][2] = $cesta;
             }
@@ -110,7 +110,7 @@ final class Formulare
             'stranka' => mb_substr($zpet, 0, 255), 'email' => $email, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'stav' => 0,
         ]);
         $this->upozorni($idp, $prvek, $data, $email);
-        \MiroCMS\Core\Webhook::poptavka($this->app, $idp, (string) $prvek['obsah']['nazev'], $data, $email, $zpet);
+        \Kaleta\Core\Webhook::poptavka($this->app, $idp, (string) $prvek['obsah']['nazev'], $data, $email, $zpet);
         if (!empty($prvek['obsah']['potvrzeni']) && $email !== '') {
             // potvrzení odesílateli: jen poděkování a název formuláře – obsah zprávy ne, aby formulář nešel zneužít k rozesílání cizích textů
             $web = $this->app->settings();

@@ -1,7 +1,7 @@
 <?php
 /** Záložka Stav systému. */
 $ikony = ['ok' => '✓', 'varovani' => '!', 'chyba' => '✕'];
-$souhrn = MiroCMS\Core\Stav::souhrn($kontroly);
+$souhrn = Kaleta\Core\Stav::souhrn($kontroly);
 $skupina = '';
 ?>
 <p class="hlaska hlaska-<?= ['ok' => 'ok', 'varovani' => 'varovani', 'chyba' => 'chyba'][$souhrn] ?>"><?= e(t(['ok' => 'Vše v pořádku.', 'varovani' => 'Systém běží, některé položky si zaslouží pozornost.', 'chyba' => 'Nalezeny chyby, které brání správnému provozu.'][$souhrn])) ?></p>
@@ -15,7 +15,7 @@ $skupina = '';
 <tr>
 	<td class="stred"><span class="stitek stitek-<?= ['ok' => 'vydano', 'varovani' => 'koncept', 'chyba' => 'chyba'][$k['stav']] ?>" title="<?= e(t(['ok' => 'v pořádku', 'varovani' => 'varování', 'chyba' => 'chyba'][$k['stav']])) ?>"><?= $ikony[$k['stav']] ?></span></td>
 	<td><strong><?= e($k['nazev']) ?></strong></td>
-	<td><?= MiroCMS\Admin\Cesty::odkazy($app->url('admin.php'), (string) $k['info'], ['config', 'vzhled', 'bloky']) ?></td>
+	<td><?= Kaleta\Admin\Cesty::odkazy($app->url('admin.php'), (string) $k['info'], ['config', 'vzhled', 'bloky']) ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>
@@ -30,7 +30,7 @@ $skupina = '';
 <?php if ($chybyLog === []): ?>
 <p><?= e(t('Žádné chyby – záznam je prázdný.')) ?></p>
 <?php else: ?>
-<pre class="log-chyb"><?php foreach (array_reverse($chybyLog) as $radek): ?><?= e(mb_strimwidth(str_replace(MIROCMS_ROOT, '', $radek), 0, 400, '…')) . "\n" ?><?php endforeach ?></pre>
+<pre class="log-chyb"><?php foreach (array_reverse($chybyLog) as $radek): ?><?= e(mb_strimwidth(str_replace(KALETA_ROOT, '', $radek), 0, 400, '…')) . "\n" ?><?php endforeach ?></pre>
 <p><button class="navigace nebezpecne" type="submit" formaction="<?= e($modul->url('smaz_log')) ?>" data-potvrdit="<?= e(t('Vyprázdnit záznam chyb?')) ?>"><?= e(t('Vyprázdnit záznam')) ?></button> <span class="smltxt"><?= e(t('Nejnovější nahoře, posledních 40 záznamů ze souboru storage/log/chyby.log.')) ?></span></p>
 <?php endif ?>
 </fieldset>

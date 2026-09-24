@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Core;
+namespace Kaleta\Core;
 
 /**
- * Převod obsahu příspěvku z WordPressu na HTML, jaké píše editor článků MiroCMS. Jen převádí text – nic nečte ani nezapisuje.
+ * Převod obsahu příspěvku z WordPressu na HTML, jaké píše editor novinek Kalety. Jen převádí text – nic nečte ani nezapisuje.
  *
  * Pořadí kroků: bloky Gutenbergu → zkratky v hranatých závorkách ([caption], [gallery]…) → vložená videa → odstavce
  * (starý „klasický“ editor je odděluje jen prázdným řádkem) → propuštění jen povolených značek a atributů.

@@ -1,7 +1,7 @@
 <?php
 /**
- * @var MiroCMS\Admin\Moduly\Stitky $modul
- * @var MiroCMS\Core\App $app
+ * @var Kaleta\Admin\Moduly\Stitky $modul
+ * @var Kaleta\Core\App $app
  * @var string $csrf
  * @var list<array<string, mixed>> $stitky
  * @var array<string, mixed>|null $uprav

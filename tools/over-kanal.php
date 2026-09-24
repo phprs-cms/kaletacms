@@ -1,6 +1,6 @@
 <?php
 /**
- * Ověří kanál aktualizací tak, jak ho vidí instalace MiroCMS: co právě visí na webu projektu, musí být podepsané
+ * Ověří kanál aktualizací tak, jak ho vidí instalace Kalety: co právě visí na webu projektu, musí být podepsané
  * klíčem z repozitáře a balíček ke stažení musí odpovídat podepsanému otisku. Běží denně v GitHub Actions
  * (.github/workflows/denni-kontrola.yml) - odhalí podvržený nebo poškozený soubor dřív, než ho potkají weby uživatelů.
  *
@@ -13,13 +13,13 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/system/bootstrap.php';
 
-use MiroCMS\Core\Podpis;
+use Kaleta\Core\Podpis;
 
-$adresa = $argv[1] ?? 'https://mirocms.eu/aktualizace.json';
+$adresa = $argv[1] ?? 'https://kaleta.example/aktualizace.json';
 $klice = dirname(__DIR__) . '/system/aktualizace.pub';
 $chyby = [];
 $stahni = static function (string $url): string {
-    $data = @file_get_contents($url, false, stream_context_create(['http' => ['timeout' => 60, 'follow_location' => 1, 'max_redirects' => 5, 'header' => "User-Agent: MiroCMS-kontrola\r\n"]]));
+    $data = @file_get_contents($url, false, stream_context_create(['http' => ['timeout' => 60, 'follow_location' => 1, 'max_redirects' => 5, 'header' => "User-Agent: Kaleta-kontrola\r\n"]]));
     if ($data === false) {
         throw new RuntimeException("nelze stáhnout $url");
     }
@@ -41,7 +41,7 @@ try {
     if (!Podpis::plati(Podpis::zpravaBalicku($m['verze'], strtolower($m['sha256']), !empty($m['bezpecnostni'])), $m['podpis'], $klice)) {
         $chyby[] = 'podpis souboru aktualizace.json NEPLATÍ pro žádný klíč v system/aktualizace.pub';
     }
-    $zip = tempnam(sys_get_temp_dir(), 'mirocms');
+    $zip = tempnam(sys_get_temp_dir(), 'kaleta');
     file_put_contents($zip, $stahni($m['url']));
     if (!hash_equals(strtolower($m['sha256']), hash_file('sha256', $zip))) {
         $chyby[] = 'otisk staženého balíčku neodpovídá podepsanému otisku';

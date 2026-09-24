@@ -2,12 +2,12 @@
 /**
  * Definice kolekce: název, adresa, stránky položek a pole.
  *
- * @var MiroCMS\Core\App $app
- * @var MiroCMS\Admin\Moduly\Kolekce $modul
+ * @var Kaleta\Core\App $app
+ * @var Kaleta\Admin\Moduly\Kolekce $modul
  * @var string $csrf
  * @var array<string, mixed> $k
  */
-use MiroCMS\Stavitel\Kolekce;
+use Kaleta\Stavitel\Kolekce;
 
 $pole = array_merge($k['pole'], array_fill(0, 3, ['klic' => '', 'popisek' => '', 'typ' => 'text']));
 ?>

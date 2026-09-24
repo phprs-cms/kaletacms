@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Admin;
+namespace Kaleta\Admin;
 
-use MiroCMS\Core\Jazyk;
-use MiroCMS\Core\Response;
-use MiroCMS\Stavitel\DesignSystem;
-use MiroCMS\Stavitel\Knihovna;
-use MiroCMS\Stavitel\Kolekce;
-use MiroCMS\Stavitel\Publikace;
-use MiroCMS\Stavitel\Stavba;
-use MiroCMS\Stavitel\Styl;
+use Kaleta\Core\Jazyk;
+use Kaleta\Core\Response;
+use Kaleta\Stavitel\DesignSystem;
+use Kaleta\Stavitel\Knihovna;
+use Kaleta\Stavitel\Kolekce;
+use Kaleta\Stavitel\Publikace;
+use Kaleta\Stavitel\Stavba;
+use Kaleta\Stavitel\Styl;
 
 /**
  * Akce stavitele společné pro stránky (Moduly\Stranky) a části webu (Moduly\Casti): editor, průběžné ukládání konceptu,
@@ -49,7 +49,7 @@ trait StavitelAkce
         $e = $this->editorCile($cil);
         $kolekce = array_map(fn (array $k): array => ['seo_link' => $k['seo_link'], 'nazev' => $k['nazev'], 'pole' => $k['pole'], 'detail' => (bool) $k['detail']], Kolekce::vsechny($this->db));
         $schema = Stavba::schema($app->auth()->isAdmin(), $cil['jazyk'], $e['casti']);
-        $komponenty = \MiroCMS\Admin\Moduly\Komponenty::proEditor($this->db);
+        $komponenty = \Kaleta\Admin\Moduly\Komponenty::proEditor($this->db);
         foreach ($schema['prvky'] as &$prvek) {
             if ($prvek['typ'] === 'komponenta') {
                 $prvek['vlastnosti']['komponenta'] = ['typ' => 'vyber', 'popisek' => 'Komponenta', 'vychozi' => '',
@@ -73,7 +73,7 @@ trait StavitelAkce
             'schema' => $schema,
             'kolekce' => $kolekce,
             'komponenty' => $komponenty,
-            'ai' => (new \MiroCMS\Core\Asistent($app->settings()))->pripraven(),
+            'ai' => (new \Kaleta\Core\Asistent($app->settings()))->pripraven(),
             'kolekceDetailu' => $e['kolekce'] ?? null,
             'knihovna' => Knihovna::seznam(),
             'kategorieKnihovny' => array_map(fn (string $k): string => t($k), Knihovna::KATEGORIE),
@@ -160,7 +160,7 @@ trait StavitelAkce
     }
 
     /** @return list<array{id:int, nazev:string, prvek:array<string, mixed>}> vlastní sekce webu (panel Přidat → Moje sekce) */
-    public static function mojeSekce(\MiroCMS\Core\Db $db): array
+    public static function mojeSekce(\Kaleta\Core\Db $db): array
     {
         return array_values(array_filter(array_map(fn (array $r): ?array => is_array($p = json_decode((string) $r['prvek'], true)) ? ['id' => (int) $r['idx'], 'nazev' => $r['nazev'], 'prvek' => $p] : null,
             $db->all('SELECT idx, nazev, prvek FROM {sekce} ORDER BY nazev LIMIT 200'))));
@@ -227,7 +227,7 @@ trait StavitelAkce
                     $this->db->update($tabulka, $zmena, [$klic => $r[$klic]]);
                 }
             }
-            \MiroCMS\Front\Cache::vymaz();
+            \Kaleta\Front\Cache::vymaz();
 
             return Response::json(['ok' => true, 'tridy' => $this->tridyStavitele(), 'nazev' => $novy]);
         }
@@ -241,11 +241,11 @@ trait StavitelAkce
             $this->db->run('INSERT INTO {tridy} (nazev, styl, css, zmeneno) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE styl = VALUES(styl), css = VALUES(css), zmeneno = NOW()',
                 [$nazev, (string) json_encode($styl ?: new \stdClass(), JSON_UNESCAPED_UNICODE), $css]);
             if ($chyby !== [] || $zahozeno !== []) {
-                \MiroCMS\Front\Cache::vymaz(); // platná část třídy se uložila – web ji musí vidět
+                \Kaleta\Front\Cache::vymaz(); // platná část třídy se uložila – web ji musí vidět
                 return Response::json(['ok' => true, 'tridy' => $this->tridyStavitele(), 'chyby' => $chyby + array_map(fn (string $d): string => t('Nepovolená deklarace: %s', $d), $zahozeno)]);
             }
         }
-        \MiroCMS\Front\Cache::vymaz();
+        \Kaleta\Front\Cache::vymaz();
 
         return Response::json(['ok' => true, 'tridy' => $this->tridyStavitele()]);
     }
@@ -374,16 +374,16 @@ trait StavitelAkce
     protected function akceStavbaAiSekce(): Response
     {
         $cil = $this->request->isPost() ? $this->cilStavby() : null;
-        $asistent = new \MiroCMS\Core\Asistent($this->app->settings());
+        $asistent = new \Kaleta\Core\Asistent($this->app->settings());
         if ($cil === null || !$asistent->pripraven()) {
             return Response::json(['ok' => false, 'chyba' => t('AI asistent není zapnutý (Rozšíření).')], 400);
         }
         try {
-            $html = \MiroCMS\Core\Jazyk::docasne($cil['jazyk'], fn (): string => $asistent->navrhniSekci($this->request->post('zadani'), $cil['jazyk'], $cil['titulek']));
+            $html = \Kaleta\Core\Jazyk::docasne($cil['jazyk'], fn (): string => $asistent->navrhniSekci($this->request->post('zadani'), $cil['jazyk'], $cil['titulek']));
         } catch (\RuntimeException $e) {
             return Response::json(['ok' => false, 'chyba' => t($e->getMessage())], 502);
         }
-        ['stavba' => $stavba, 'hlaseni' => $hlaseni] = \MiroCMS\Stavitel\ZHtml::doWebu($this->db, $html, false);
+        ['stavba' => $stavba, 'hlaseni' => $hlaseni] = \Kaleta\Stavitel\ZHtml::doWebu($this->db, $html, false);
         [$cista] = Stavba::vycisti($stavba, $this->app->auth()->isAdmin());
         if ($cista['deti'] === []) {
             return Response::json(['ok' => false, 'chyba' => t('Asistent nevrátil použitelnou sekci. Zkuste popis upřesnit.')], 502);
@@ -395,7 +395,7 @@ trait StavitelAkce
     /** AI asistent: přepis textu prvku (kratší, delší, formálněji…). Nic neukládá – editor text vloží jako běžnou změnu. */
     protected function akceStavbaAiText(): Response
     {
-        $asistent = new \MiroCMS\Core\Asistent($this->app->settings());
+        $asistent = new \Kaleta\Core\Asistent($this->app->settings());
         if (!$this->request->isPost() || !$asistent->pripraven()) {
             return Response::json(['ok' => false, 'chyba' => t('AI asistent není zapnutý (Rozšíření).')], 400);
         }

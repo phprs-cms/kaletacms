@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Stavitel\Prvky;
+namespace Kaleta\Stavitel\Prvky;
 
-use MiroCMS\Stavitel\Kontext;
-use MiroCMS\Stavitel\Prvek;
+use Kaleta\Stavitel\Kontext;
+use Kaleta\Stavitel\Prvek;
 
 /**
  * Navigace: menu z Vzhled → Menu (hlavní nebo v patičce, i s podmenu) a přepínač jazyků. Na telefonu se schová
@@ -24,7 +24,7 @@ final class Navigace extends Prvek
     public static function vlastnosti(): array
     {
         return [
-            'menu' => ['typ' => 'vyber', 'popisek' => 'Které menu', 'vychozi' => 'hlavni', 'moznosti' => \MiroCMS\Core\Menu::UMISTENI],
+            'menu' => ['typ' => 'vyber', 'popisek' => 'Které menu', 'vychozi' => 'hlavni', 'moznosti' => \Kaleta\Core\Menu::UMISTENI],
             'novinky' => ['typ' => 'prepinac', 'popisek' => 'Odkaz na novinky (u automatického menu)', 'vychozi' => true],
             'mobil' => ['typ' => 'prepinac', 'popisek' => 'Na telefonu schovat za tlačítko', 'vychozi' => true],
         ];
@@ -32,33 +32,33 @@ final class Navigace extends Prvek
 
     public static function zakladniCss(): string
     {
-        return '.mc-nav { display: flex; align-items: center; }
-.mc-nav-menu { display: flex; align-items: center; gap: var(--mc-mezera-xs); }
-.mc-nav ul { display: flex; flex-wrap: wrap; gap: var(--mc-mezera-2xs); margin: 0; padding: 0; list-style: none; }
-.mc-nav a { display: block; padding: 0.5em 0.8em; border-radius: var(--mc-zaobleni-plne); color: inherit; font-weight: 600; text-decoration: none; }
-.mc-nav a:hover { background: var(--mc-barva-plocha); }
-.mc-nav a[aria-current] { background: var(--mc-barva-primarni-jemna); color: var(--mc-barva-primarni); }
-.mc-nav li { position: relative; }
-.mc-nav li > span { display: block; padding: 0.5em 0.8em; font-weight: 600; cursor: default; }
-.mc-nav .podmenu > a::after, .mc-nav .podmenu > span::after { content: ""; display: inline-block; width: 0.4em; height: 0.4em; margin-inline-start: 0.45em; border: solid currentColor; border-width: 0 2px 2px 0; transform: translateY(-0.2em) rotate(45deg); }
-.mc-nav .podmenu.aktivni > a, .mc-nav .podmenu.aktivni > span { color: var(--mc-barva-primarni); }
-.mc-nav .podmenu > ul { display: none; position: absolute; top: 100%; left: 0; z-index: 60; flex-direction: column; flex-wrap: nowrap; min-width: 14rem; padding: var(--mc-mezera-2xs); border: 1px solid var(--mc-barva-linka); border-radius: var(--mc-zaobleni); background: var(--mc-barva-pozadi); color: var(--mc-barva-text); box-shadow: var(--mc-stin-m); }
-.mc-nav .podmenu > ul a { border-radius: calc(var(--mc-zaobleni) / 1.5); font-weight: 500; }
-.mc-nav .podmenu:hover > ul, .mc-nav .podmenu:focus-within > ul { display: flex; }
-.mc-nav-tl { display: none; }
-.mc-nav-menu[popover] { position: static; inset: auto; width: auto; margin: 0; padding: 0; border: 0; background: none; color: inherit; overflow: visible; }
+        return '.ka-nav { display: flex; align-items: center; }
+.ka-nav-menu { display: flex; align-items: center; gap: var(--ka-mezera-xs); }
+.ka-nav ul { display: flex; flex-wrap: wrap; gap: var(--ka-mezera-2xs); margin: 0; padding: 0; list-style: none; }
+.ka-nav a { display: block; padding: 0.5em 0.8em; border-radius: var(--ka-zaobleni-plne); color: inherit; font-weight: 600; text-decoration: none; }
+.ka-nav a:hover { background: var(--ka-barva-plocha); }
+.ka-nav a[aria-current] { background: var(--ka-barva-primarni-jemna); color: var(--ka-barva-primarni); }
+.ka-nav li { position: relative; }
+.ka-nav li > span { display: block; padding: 0.5em 0.8em; font-weight: 600; cursor: default; }
+.ka-nav .podmenu > a::after, .ka-nav .podmenu > span::after { content: ""; display: inline-block; width: 0.4em; height: 0.4em; margin-inline-start: 0.45em; border: solid currentColor; border-width: 0 2px 2px 0; transform: translateY(-0.2em) rotate(45deg); }
+.ka-nav .podmenu.aktivni > a, .ka-nav .podmenu.aktivni > span { color: var(--ka-barva-primarni); }
+.ka-nav .podmenu > ul { display: none; position: absolute; top: 100%; left: 0; z-index: 60; flex-direction: column; flex-wrap: nowrap; min-width: 14rem; padding: var(--ka-mezera-2xs); border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-pozadi); color: var(--ka-barva-text); box-shadow: var(--ka-stin-m); }
+.ka-nav .podmenu > ul a { border-radius: calc(var(--ka-zaobleni) / 1.5); font-weight: 500; }
+.ka-nav .podmenu:hover > ul, .ka-nav .podmenu:focus-within > ul { display: flex; }
+.ka-nav-tl { display: none; }
+.ka-nav-menu[popover] { position: static; inset: auto; width: auto; margin: 0; padding: 0; border: 0; background: none; color: inherit; overflow: visible; }
 @media (max-width: 767px) {
-	.mc-nav-tl { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border: 1px solid var(--mc-barva-linka); border-radius: 50%; background: var(--mc-barva-pozadi); color: var(--mc-barva-text); cursor: pointer; }
-	.mc-nav-tl span, .mc-nav-tl span::before, .mc-nav-tl span::after { display: block; width: 1.1rem; height: 2px; background: currentColor; }
-	.mc-nav-tl span { position: relative; }
-	.mc-nav-tl span::before, .mc-nav-tl span::after { content: ""; position: absolute; left: 0; }
-	.mc-nav-tl span::before { top: -6px; }
-	.mc-nav-tl span::after { top: 6px; }
-	.mc-nav-menu[popover] { position: fixed; inset: 4.5rem var(--mc-mezera-m) auto; flex-direction: column; align-items: stretch; padding: var(--mc-mezera-s); border: 1px solid var(--mc-barva-linka); border-radius: var(--mc-zaobleni); background: var(--mc-barva-pozadi); color: var(--mc-barva-text); box-shadow: var(--mc-stin-l); }
-	.mc-nav-menu[popover]:not(:popover-open) { display: none; }
-	.mc-nav-menu[popover] ul { flex-direction: column; }
-	.mc-nav-menu[popover] .podmenu > ul { display: flex; position: static; min-width: 0; padding: 0 0 0 1rem; border: 0; box-shadow: none; }
-	.mc-nav-menu[popover] .podmenu > a::after, .mc-nav-menu[popover] .podmenu > span::after { display: none; }
+	.ka-nav-tl { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border: 1px solid var(--ka-barva-linka); border-radius: 50%; background: var(--ka-barva-pozadi); color: var(--ka-barva-text); cursor: pointer; }
+	.ka-nav-tl span, .ka-nav-tl span::before, .ka-nav-tl span::after { display: block; width: 1.1rem; height: 2px; background: currentColor; }
+	.ka-nav-tl span { position: relative; }
+	.ka-nav-tl span::before, .ka-nav-tl span::after { content: ""; position: absolute; left: 0; }
+	.ka-nav-tl span::before { top: -6px; }
+	.ka-nav-tl span::after { top: 6px; }
+	.ka-nav-menu[popover] { position: fixed; inset: 4.5rem var(--ka-mezera-m) auto; flex-direction: column; align-items: stretch; padding: var(--ka-mezera-s); border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-pozadi); color: var(--ka-barva-text); box-shadow: var(--ka-stin-l); }
+	.ka-nav-menu[popover]:not(:popover-open) { display: none; }
+	.ka-nav-menu[popover] ul { flex-direction: column; }
+	.ka-nav-menu[popover] .podmenu > ul { display: flex; position: static; min-width: 0; padding: 0 0 0 1rem; border: 0; box-shadow: none; }
+	.ka-nav-menu[popover] .podmenu > a::after, .ka-nav-menu[popover] .podmenu > span::after { display: none; }
 }';
     }
 
@@ -68,18 +68,18 @@ final class Navigace extends Prvek
         if (!$p['obsah']['novinky']) {
             $menu = array_values(array_filter($menu, fn (array $x): bool => empty($x['auto'])));
         }
-        $polozky = \MiroCMS\Core\Menu::html($menu, $k->cesta, $k->url(''));
+        $polozky = \Kaleta\Core\Menu::html($menu, $k->cesta, $k->url(''));
         if ($polozky === '' && $k->editor) {
             $polozky = '<li><span>' . e(t('Menu sestavíte ve Vzhled → Menu')) . '</span></li>';
         }
         $menu = '<ul>' . $polozky . '</ul>' . $k->jazyky;
         if (!$p['obsah']['mobil']) {
-            return '<nav' . Text::sTridou($a, 'mc-nav') . ' aria-label="' . e(t('Hlavní navigace')) . '"><div class="mc-nav-menu">' . $menu . '</div></nav>';
+            return '<nav' . Text::sTridou($a, 'ka-nav') . ' aria-label="' . e(t('Hlavní navigace')) . '"><div class="ka-nav-menu">' . $menu . '</div></nav>';
         }
-        $id = 'mc-nav-' . $p['id'];
+        $id = 'ka-nav-' . $p['id'];
 
-        return '<nav' . Text::sTridou($a, 'mc-nav') . ' aria-label="' . e(t('Hlavní navigace')) . '">'
-            . '<button class="mc-nav-tl" type="button" popovertarget="' . e($id) . '" aria-label="' . e(t('Menu')) . '"><span aria-hidden="true"></span></button>'
-            . '<div class="mc-nav-menu" id="' . e($id) . '" popover>' . $menu . '</div></nav>';
+        return '<nav' . Text::sTridou($a, 'ka-nav') . ' aria-label="' . e(t('Hlavní navigace')) . '">'
+            . '<button class="ka-nav-tl" type="button" popovertarget="' . e($id) . '" aria-label="' . e(t('Menu')) . '"><span aria-hidden="true"></span></button>'
+            . '<div class="ka-nav-menu" id="' . e($id) . '" popover>' . $menu . '</div></nav>';
     }
 }

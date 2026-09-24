@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Core;
+namespace Kaleta\Core;
 
 /**
  * Ověřování podpisů vydavatele (Ed25519). Soubor system/aktualizace.pub smí nést VÍC veřejných klíčů - na každém řádku jeden

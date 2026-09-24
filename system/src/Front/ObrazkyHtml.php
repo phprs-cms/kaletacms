@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace MiroCMS\Front;
+namespace Kaleta\Front;
 
-use MiroCMS\Core\Db;
-use MiroCMS\Core\Obrazky;
+use Kaleta\Core\Db;
+use Kaleta\Core\Obrazky;
 
 /**
  * Méně poskakování stránky při načítání (CLS): obrázkům z Médií doplní do hotového HTML rozměry a převládající barvu
@@ -31,7 +31,7 @@ final class ObrazkyHtml
         foreach ($zname as $cesta => $o) {
             if ($o['barva'] === '' && $pocitano < self::NAJEDNOU) {
                 $pocitano++;
-                $zname[$cesta]['barva'] = Obrazky::barva(MIROCMS_ROOT . '/' . ($o['nahl_poloha'] !== '' ? $o['nahl_poloha'] : $cesta)) ?: '-';
+                $zname[$cesta]['barva'] = Obrazky::barva(KALETA_ROOT . '/' . ($o['nahl_poloha'] !== '' ? $o['nahl_poloha'] : $cesta)) ?: '-';
                 $db->update('media', ['barva' => $zname[$cesta]['barva']], ['ido' => $o['ido']]); // „-“ = nejde zjistit, znovu nezkoušet
             }
         }

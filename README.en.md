@@ -1,6 +1,6 @@
-<p><picture><source media="(prefers-color-scheme: dark)" srcset="image/mirocms-logo-tmavy.svg"><img src="image/mirocms-logo.svg" alt="MiroCMS" height="48"></picture></p>
+<p><picture><source media="(prefers-color-scheme: dark)" srcset="image/kaleta-logo-tmavy.svg"><img src="image/kaleta-logo.svg" alt="Kaleta" height="48"></picture></p>
 
-# MiroCMS
+# Kaleta
 
 **An open-source CMS for business websites** – services, testimonials, team, careers, contact and news. A visual page builder
 whose output reads like hand-written HTML, an AI assistant, Claude over MCP, and a WordPress importer.

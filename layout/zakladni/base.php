@@ -3,7 +3,7 @@
  * Layout "zakladni" - šablona firemního webu: hlavička s logem a navigací, obsah, patička s kontakty.
  * Na telefonu se navigace otevírá přes Popover API (bez JavaScriptu). Vlastní layout = kopie této složky pod jiným názvem.
  *
- * @var MiroCMS\Core\Settings $web
+ * @var Kaleta\Core\Settings $web
  * @var string $titulek  prázdný na úvodní stránce
  * @var array{hlavni:bool, popis:string, klicova_slova:string, obrazek:string, typ:string, noindex:bool, stavba?:bool} $meta  stavba = stránka ze stavitele (sekce přes celou šířku)
  * @var string $obsah  hotové HTML obsahu stránky (stránka, výpis novinek, novinka…)
@@ -46,7 +46,7 @@ $site = array_filter(['LinkedIn' => $web->get('soc_linkedin'), 'Facebook' => $we
 <meta property="og:image" content="<?= e($meta['obrazek']) ?>">
 <?php endif ?>
 <link rel="alternate" type="application/rss+xml" title="<?= e($nazevWebu) ?> – <?= e(t('Novinky')) ?>" href="<?= e($url('rss.xml')) ?>">
-<link rel="stylesheet" href="<?= e($url('layout/zakladni/style.css')) ?>?v=<?= e(MIROCMS_VERSION) ?>">
+<link rel="stylesheet" href="<?= e($url('layout/zakladni/style.css')) ?>?v=<?= e(KALETA_VERSION) ?>">
 <?= $hlava ?>
 </head>
 <body>
