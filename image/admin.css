@@ -1207,3 +1207,9 @@ body.login {
 	.vzhled { grid-template-columns: minmax(0, 1fr); }
 	.vzhled-nahled { position: static; height: 70vh; }
 }
+
+/* Poptávky: detail */
+.poptavka { display: grid; grid-template-columns: minmax(8rem, 14rem) minmax(0, 1fr); gap: 10px 20px; margin: 0 0 20px; }
+.poptavka dt { font-weight: 600; color: var(--text-slaby); }
+.poptavka dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .poptavka { grid-template-columns: minmax(0, 1fr); } .poptavka dd { margin-bottom: 8px; } }

@@ -157,6 +157,9 @@ final class Kernel
         if ($path === '/mcp') {
             return (new \MiroCMS\Mcp\Server($this->app))->handle();
         }
+        if ($path === '/formular') {
+            return (new Formulare($this->app))->zpracuj();
+        }
         if ($path === '/ulohy') {
             // úlohy na pozadí pro cron: weby s malou návštěvností tak vydají naplánovanou novinku a odešlou poštu včas
             $token = $this->app->settings()->get('ulohy_token');
@@ -229,6 +232,7 @@ final class Kernel
         if ($stavba !== null) {
             $k = $this->kontext();
             $k->editor = $koncept && $this->app->request->get('editor') === '1' && $this->app->request->get('cast') === '';
+            $k->zdroj = 'stranka:' . (int) $stranka['ids'];
             $html = \MiroCMS\Stavitel\Stavba::html($stavba, $k);
             $k->editor = false;
             if (!$koncept && $this->app->auth()->maModul('stranky')) {
@@ -553,6 +557,7 @@ final class Kernel
                 return null;
             }
             $k->editor = $editor && $nahled === $typ;
+            $k->zdroj = 'cast:' . $typ . ':' . $jazyk;
             $html = \MiroCMS\Stavitel\Stavba::html($stavba, $k);
             $k->editor = false;
 

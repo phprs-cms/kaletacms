@@ -558,7 +558,7 @@ $zhTypy = fn (array $deti): array => array_map(fn (array $p): string => $p['typ'
 over('ZHtml: sekce z <header>, vnitřní obal bez stylu odpadne', $zhTypy($zh['stavba']['deti'][0]['deti']), ['nadpis<h1>', 'text<div>', 'tlacitko<a>']);
 over('ZHtml: souvislé odstavce v jednom prvku Text', $zh['stavba']['deti'][0]['deti'][1]['obsah']['html'], '<p>Jedna.</p><p>Dvě.</p>');
 over('ZHtml: tlačítko s variantou podle třídy', [$zh['stavba']['deti'][0]['deti'][2]['obsah']['varianta'], $zh['stavba']['deti'][0]['deti'][2]['tridy']], ['obrys', ['btn', 'btn-outline']]);
-over('ZHtml: volné prvky na konci se zabalí do sekce, details → FAQ', $zhTypy($zh['stavba']['deti'][1]['deti']), ['text<div>', 'faq<div>']);
+over('ZHtml: volné prvky na konci se zabalí do sekce, details → FAQ, form → Formulář', $zhTypy($zh['stavba']['deti'][1]['deti']), ['text<div>', 'faq<div>', 'formular<form>']);
 over('ZHtml: třída z <style> jen s bezpečnými deklaracemi', $zh['tridy'], ['hero' => 'padding: 2rem;']);
 over('ZHtml: hlášení o @media, složitém selektoru, url(), formuláři, SVG a skriptu', count($zh['hlaseni']), 6);
 over('ZHtml: výsledek projde validátorem bez chyb', MiroCMS\Stavitel\Stavba::vycisti($zh['stavba'])[1], []);

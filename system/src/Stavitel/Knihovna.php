@@ -100,6 +100,12 @@ final class Knihovna
                 $n('novinky'),
             ])],
 
+            'poptavka' => ['nazev' => t('Poptávkový formulář'), 'popis' => t('Nadpis, věta a formulář – zprávy chodí do Poptávek a e-mailem.'), 'stavba' => fn (): array => $n('sekce', ['sirka' => 'uzka'], [
+                $z($n('nadpis', ['text' => t('Napište nám')]), 'h2'),
+                $t($n('text', ['html' => '<p>' . t('Popište, co potřebujete – ozveme se vám do jednoho pracovního dne.') . '</p>']), 'podtitul'),
+                $s($n('formular'), ['zaklad' => ['okraj_nahore' => 'm']]),
+            ])],
+
             'kontakt' => ['nazev' => t('Kontakt'), 'popis' => t('Adresa a kontakty vlevo, otevírací doba vpravo.'), 'stavba' => fn (): array => $n('sekce', [], [
                 $s($n('mrizka', [], [
                     $n('kontejner', [], [

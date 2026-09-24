@@ -18,6 +18,7 @@ final class Settings
         'email_webu' => '',
         'logo_webu' => '',
         'favicon' => '',
+        'poptavky_mesice' => '24',    // poptávky z formulářů starší než tolik měsíců se mažou (osobní údaje nemají ležet věčně); 0 = nemazat
         'design_system' => '',        // barvy, písma, škála a rozměry webu (JSON, Stavitel\DesignSystem); prázdné = výchozí
         'brand_akcent' => '',         // starší: hlavní barva webu, čte se jen dokud není uložen design_system
         'tmavy_rezim' => 'vypnuto',   // tmavý vzhled webu: vypnuto | auto (podle zařízení návštěvníka)

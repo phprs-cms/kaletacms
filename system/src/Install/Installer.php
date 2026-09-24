@@ -206,7 +206,7 @@ final class Installer
                 [t('Kontakt'), slugify(t('Kontakt')), 1, '<p>' . e(t('Adresa, telefon, e-mail a otevírací doba.')) . '</p>'],
             ];
             // úvod, služby a kontakt rovnou ze sekcí stavitele – nový web tak vypadá jako web, ne jako prázdná šablona
-            $sekce = [0 => ['uvod', 'vyhody', 'cisla', 'reference', 'novinky', 'vyzva'], 2 => ['sluzby', 'faq', 'vyzva'], 3 => ['kontakt']];
+            $sekce = [0 => ['uvod', 'vyhody', 'cisla', 'reference', 'novinky', 'vyzva'], 2 => ['sluzby', 'faq', 'vyzva'], 3 => ['kontakt', 'poptavka']];
             $uvod = 0;
             foreach ($stranky as $i => [$titulek, $adresa, $vMenu, $text]) {
                 $radek = ['titulek' => $titulek, 'seo_link' => $adresa, 'text' => $text, 'v_menu' => $vMenu, 'poradi' => ($i + 1) * 10];

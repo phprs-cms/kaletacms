@@ -29,6 +29,7 @@
 		oddelovac: '<path d="M3 12h18"/>',
 		logo: '<circle cx="12" cy="12" r="8"/><path d="M9 15V9l3 3 3-3v6"/>',
 		menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+		formular: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8"/><rect x="8" y="15" width="5" height="3" rx="1"/>',
 		udaje: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M14 10h4M14 14h4M6 16c.8-1.5 1.8-2 3-2s2.2.5 3 2"/>',
 		clanek: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/>',
 		kod: '<path d="m8 8-4 4 4 4M16 8l4 4-4 4M13 6l-2 12"/>',
@@ -418,7 +419,7 @@
 				el('button', { type: 'button', title: p.popis, onclick: () => vloz(novyPrvek(p.typ)) }, ikona(p.ikona), p.nazev))));
 		}
 		levyObsah.append(el('h3', {}, T('Hotové sekce')), el('div', { class: 'st-knihovna' }, D.knihovna.map((s) =>
-			el('button', { type: 'button', onclick: () => dotaz(D.adresy.sekce + '&klic=' + encodeURIComponent(s.klic)).then((j) => {
+			el('button', { type: 'button', onclick: () => dotaz(D.adresy.sekce + '&klic=' + encodeURIComponent(s.klic), { ok: 1 }).then((j) => {
 				if (!j.ok) { nastavStav(j.chyba, true); return; }
 				D.tridy = j.tridy;
 				vloz(j.prvek);
@@ -543,7 +544,16 @@
 		const uloz = () => zmena(klon(polozky));
 		polozky.forEach((polozka, i) => {
 			const box = el('div', { class: 'st-polozka' });
-			Object.entries(def.pole).forEach(([k, d]) => box.append(pole(d, polozka[k], (h) => { polozka[k] = h; uloz(); })));
+			// pole s podmínkou „kdyz“ ({pole: hodnota}) se ukáže, jen když má jiné pole položky danou hodnotu (možnosti jen u výběru)
+			const viditelne = (d) => !d.kdyz || Object.entries(d.kdyz).every(([pk, pv]) => polozka[pk] === pv);
+			Object.entries(def.pole).forEach(([k, d]) => {
+				if (!viditelne(d)) { return; }
+				box.append(pole(d, polozka[k], (h) => {
+					polozka[k] = h;
+					uloz();
+					if (Object.values(def.pole).some((jine) => jine.kdyz && k in jine.kdyz)) { prekresliPravy(); }
+				}));
+			});
 			box.append(el('div', { class: 'st-polozka-akce st-akce' },
 				el('button', { type: 'button', title: T('Nahoru'), onclick: () => { if (i > 0) { polozky.splice(i - 1, 0, polozky.splice(i, 1)[0]); zmena(klon(polozky)); prekresliPravy(); } } }, ikona('nahoru')),
 				el('button', { type: 'button', class: 'nebezpecne', title: T('Odebrat'), onclick: () => { polozky.splice(i, 1); zmena(klon(polozky)); prekresliPravy(); } }, ikona('smazat'))));

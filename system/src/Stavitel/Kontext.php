@@ -33,6 +33,9 @@ final class Kontext
     /** Hotový přepínač jazykových verzí webu (prázdný u jednojazyčného webu). */
     public string $jazyky = '';
 
+    /** Odkud právě vykreslovaná stavba je: „stranka:<id>“ nebo „cast:<typ>:<jazyk>“ (formulář podle něj najde svá pole). */
+    public string $zdroj = '';
+
     /** Obsah, který systém vkládá do obálky (prvek „Obsah stránky“): novinka, výpis, stránka 404. */
     public string $obsah = '';
 

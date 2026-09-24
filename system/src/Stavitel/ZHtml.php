@@ -10,8 +10,8 @@ use Dom\Node;
 
 /**
  * Převod HTML na stavbu: jazykový model (nebo import) napíše běžné sémantické HTML s blokem <style> a z něj vznikne
- * čistá stavba – jeden prvek za jednu značku, vzhled ve sdílených třídách. Co převést nejde (formuláře, skripty,
- * vložené styly, složité selektory), se vynechá a nahlásí, aby autor věděl, co doplnit ve staviteli.
+ * čistá stavba – jeden prvek za jednu značku, vzhled ve sdílených třídách; <form> se stane prvkem Formulář. Co převést
+ * nejde (skripty, vložené styly, složité selektory), se vynechá a nahlásí, aby autor věděl, co doplnit ve staviteli.
  *
  * Třída je čistá (bez databáze): vrací stavbu, třídy z <style> a hlášení. Ukládání a kontrolu práv dělá volající.
  */
@@ -24,7 +24,7 @@ final class ZHtml
     private const array ROZBALIT = ['html', 'body', 'main'];
 
     /** Značky, které nemají ve stavbě obdobu a vynechají se vždy. */
-    private const array VYNECHAT = ['script', 'noscript', 'style', 'link', 'meta', 'template', 'form', 'input', 'select', 'textarea', 'button', 'label', 'canvas', 'object', 'embed'];
+    private const array VYNECHAT = ['script', 'noscript', 'style', 'link', 'meta', 'template', 'input', 'select', 'textarea', 'button', 'label', 'canvas', 'object', 'embed'];
 
     /** @var list<string> */
     private array $hlaseni = [];
@@ -135,7 +135,7 @@ final class ZHtml
         }
         if (in_array($znacka, self::VYNECHAT, true)) {
             if ($znacka !== 'style') {
-                $this->hlaseni[] = 'Značka <' . $znacka . '> nemá ve stavbě obdobu – vynechána' . ($znacka === 'form' ? ' (formuláře přijdou jako vlastní prvek).' : '.');
+                $this->hlaseni[] = 'Značka <' . $znacka . '> mimo formulář nemá ve stavbě obdobu – vynechána.';
             }
 
             return [];
@@ -158,6 +158,7 @@ final class ZHtml
             $znacka === 'a' => $this->odkaz($el, $hloubka),
             $znacka === 'blockquote' => $this->citat($el),
             $znacka === 'hr' => Stavba::novy('oddelovac'),
+            $znacka === 'form' => $this->formular($el),
             in_array($znacka, ['iframe', 'video'], true) && ($video = $this->video($el)) !== null => $video,
             in_array($znacka, ['svg', 'iframe', 'video', 'picture', 'audio'], true) => $this->vlastniHtml($el),
             default => Stavba::novy('text', ['html' => '<p>' . trim($el->innerHTML) . '</p>']),
@@ -239,6 +240,68 @@ final class ZHtml
         };
 
         return Stavba::novy('tlacitko', ['text' => trim($el->textContent), 'odkaz' => $adresa, 'varianta' => $varianta, 'nove_okno' => $el->getAttribute('target') === '_blank']);
+    }
+
+    /** Formulář → prvek Formulář: pole podle ovládacích prvků a jejich popisků; odesílá se vždy do Poptávek webu. */
+    private function formular(Element $el): array
+    {
+        $pole = [];
+        $prepinace = []; // skupiny <input type="radio"> podle name → jedno pole výběru
+        foreach ($el->querySelectorAll('input, select, textarea') as $vstup) {
+            $typ = strtolower((string) ($vstup->getAttribute('type') ?? 'text'));
+            if (in_array($typ, ['hidden', 'submit', 'button', 'reset', 'image', 'file', 'password'], true)) {
+                if (in_array($typ, ['file', 'password'], true)) {
+                    $this->hlaseni[] = 'Pole typu ' . $typ . ' formulář nepodporuje – vynecháno.';
+                }
+                continue;
+            }
+            $popisek = $this->popisekPole($el, $vstup);
+            $povinne = $vstup->hasAttribute('required');
+            if ($typ === 'radio') {
+                $jmeno = (string) $vstup->getAttribute('name');
+                if (!isset($prepinace[$jmeno])) {
+                    $prepinace[$jmeno] = count($pole);
+                    $skupina = $vstup->closest('fieldset')?->querySelector('legend')?->textContent;
+                    $pole[] = ['popisek' => trim($skupina ?? $jmeno), 'typ' => 'vyber', 'povinne' => $povinne, 'moznosti' => ''];
+                }
+                $pole[$prepinace[$jmeno]]['moznosti'] = ltrim($pole[$prepinace[$jmeno]]['moznosti'] . "\n" . $popisek);
+                continue;
+            }
+            $pole[] = match (true) {
+                strtolower($vstup->localName) === 'textarea' => ['popisek' => $popisek, 'typ' => 'textarea', 'povinne' => $povinne, 'moznosti' => ''],
+                strtolower($vstup->localName) === 'select' => ['popisek' => $popisek, 'typ' => 'vyber', 'povinne' => $povinne, 'moznosti' => implode("\n", array_filter(array_map(
+                    fn (Element $o): string => ($o->getAttribute('value') ?? 'x') === '' ? '' : trim($o->textContent), iterator_to_array($vstup->querySelectorAll('option')),
+                )))],
+                $typ === 'checkbox' => ['popisek' => $popisek, 'typ' => 'souhlas', 'povinne' => $povinne, 'moznosti' => ''],
+                default => ['popisek' => $popisek, 'typ' => in_array($typ, ['email', 'tel'], true) ? $typ : 'text', 'povinne' => $povinne, 'moznosti' => ''],
+            };
+        }
+        $tlacitko = $el->querySelector('button:not([type="button"]):not([type="reset"]), input[type="submit"]');
+        $text = trim($tlacitko === null ? '' : ($tlacitko->localName === 'input' ? (string) $tlacitko->getAttribute('value') : $tlacitko->textContent));
+        $this->hlaseni[] = 'Formulář převeden na prvek Formulář: odesílá se do Poptávek webu a e-mailem (adresa v action se nepoužije).';
+
+        return Stavba::novy('formular', array_filter(['pole' => array_slice($pole, 0, 20), 'tlacitko' => $text], fn (mixed $v): bool => $v !== '' && $v !== []));
+    }
+
+    private function popisekPole(Element $formular, Element $vstup): string
+    {
+        $id = $vstup->getAttribute('id');
+        $label = $id !== null && $id !== '' ? $formular->querySelector('label[for="' . addcslashes($id, '"\\') . '"]') : null;
+        $label ??= $vstup->closest('label');
+        if ($label !== null) {
+            $kopie = $label->cloneNode(true);
+            foreach ($kopie->querySelectorAll('input, select, textarea') as $v) {
+                $v->remove();
+            }
+            $text = trim((string) preg_replace('/\s+/', ' ', $kopie->textContent));
+            if ($text !== '') {
+                return rtrim($text, ' *:');
+            }
+        }
+
+        $prvniVolba = strtolower($vstup->localName) === 'select' ? $vstup->querySelector('option[value=""]')?->textContent : null;
+
+        return trim((string) ($vstup->getAttribute('placeholder') ?? $vstup->getAttribute('aria-label') ?? $prvniVolba ?? $vstup->getAttribute('name') ?? ''));
     }
 
     private function citat(Element $el): array

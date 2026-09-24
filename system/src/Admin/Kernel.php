@@ -22,6 +22,7 @@ final class Kernel
     public const array MODULY = [
         Moduly\Stranky::class,
         Moduly\Novinky::class,
+        Moduly\Poptavky::class,
         Moduly\Kategorie::class,
         Moduly\Stitky::class,
         Moduly\Galerie::class,
@@ -185,7 +186,7 @@ final class Kernel
             // návštěvnost za 14 dní (vlastní měření bez cookies)
             'navstevnost' => Rozsireni::je($this->app->settings(), 'statistika') && isset($this->moduly()['stat'])
                 ? $db->all('SELECT den, navstevy, zobrazeni FROM {stat_dny} WHERE den > CURDATE() - INTERVAL 14 DAY ORDER BY den') : [],
-            'pocty' => [
+            'pocty' => (isset($this->moduly()['poptavky']) ? ['Nové poptávky' => (int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE stav = 0')] : []) + [
                 'Stránky' => (int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE zobrazit = 1'),
                 'Vydané novinky' => (int) $db->value("SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW(){$jen}"),
                 'Naplánované' => (int) $db->value("SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum > NOW(){$jen}"),

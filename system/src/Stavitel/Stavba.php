@@ -26,7 +26,7 @@ final class Stavba
         Prvky\Sekce::class, Prvky\Kontejner::class, Prvky\Mrizka::class,
         Prvky\Nadpis::class, Prvky\Text::class, Prvky\Obrazek::class, Prvky\Tlacitko::class, Prvky\Seznam::class,
         Prvky\Citat::class, Prvky\Faq::class, Prvky\Video::class, Prvky\Oddelovac::class,
-        Prvky\Novinky::class, Prvky\Html::class,
+        Prvky\Novinky::class, Prvky\Formular::class, Prvky\Html::class,
         Prvky\Logo::class, Prvky\Navigace::class, Prvky\Udaje::class, Prvky\ObsahStranky::class,
     ];
 
