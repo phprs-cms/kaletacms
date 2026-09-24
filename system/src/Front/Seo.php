@@ -304,13 +304,8 @@ final class Seo
     private function strukturovanaData(string $titulek, array $meta, ?array $clanek): array
     {
         $s = $this->app->settings();
-        $vydavatel = array_filter([
-            '@type' => 'Organization',
-            'name' => $s->get('nazev_webu'),
-            'url' => $this->web,
-            'logo' => $s->get('logo_webu') !== '' ? $this->absolutni($s->get('logo_webu')) : null,
-            'sameAs' => array_values(array_filter(array_map($s->get(...), ['soc_facebook', 'soc_instagram', 'soc_x', 'soc_youtube', 'soc_linkedin']))) ?: null,
-        ]);
+        // firma z Nastavení → Firma (Organization nebo LocalBusiness s adresou, otevírací dobou a mapou)
+        $vydavatel = Firma::schema($s, $this->web, $this->absolutni(...));
         if ($clanek === null && !empty($meta['faq'])) {
             // stránka ze stavitele s otázkami a odpověďmi
             return ['@context' => 'https://schema.org', '@type' => 'FAQPage', 'mainEntity' => array_map(fn (array $d): array => [
@@ -318,9 +313,12 @@ final class Seo
             ], $meta['faq'])];
         }
         if ($clanek === null) {
-            return ['@context' => 'https://schema.org', '@type' => 'WebSite', 'name' => $s->get('nazev_webu'), 'url' => $this->web,
-                'description' => $s->get('popis_webu'), 'inLanguage' => \MiroCMS\Core\Jazyk::kod(), 'publisher' => $vydavatel,
-                'potentialAction' => ['@type' => 'SearchAction', 'target' => $this->web . 'hledani?q={q}', 'query-input' => 'required name=q']];
+            return ['@context' => 'https://schema.org', '@graph' => [
+                ['@type' => 'WebSite', '@id' => $this->web . '#web', 'name' => $s->get('nazev_webu'), 'url' => $this->web,
+                    'description' => $s->get('popis_webu'), 'inLanguage' => \MiroCMS\Core\Jazyk::kod(), 'publisher' => ['@id' => $vydavatel['@id']],
+                    'potentialAction' => ['@type' => 'SearchAction', 'target' => $this->web . 'hledani?q={q}', 'query-input' => 'required name=q']],
+                $vydavatel,
+            ]];
         }
 
         return ['@context' => 'https://schema.org', '@graph' => [

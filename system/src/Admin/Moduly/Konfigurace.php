@@ -25,9 +25,12 @@ class Konfigurace extends Modul
     public const bool JEN_ADMIN = true;
 
     public const array ZALOZKY = [
-        'zakladni' => 'Základní', 'seo' => 'SEO a GEO',
+        'zakladni' => 'Základní', 'firma' => 'Firma', 'seo' => 'SEO a GEO',
         'mereni' => 'Měření', 'cookies' => 'Soukromí a cookies', 'posta' => 'Pošta', 'zalohy' => 'Zálohy a aktualizace', 'stav' => 'Stav systému',
     ];
+
+    /** Typy firmy pro pole firma_typ (vyber:…). */
+    private const string TYPY_FIRMY = 'Organization|LocalBusiness|HomeAndConstructionBusiness|ProfessionalService|LegalService|AccountingService|MedicalBusiness|AutomotiveBusiness|Store|FoodEstablishment|LodgingBusiness|SportsActivityLocation|EducationalOrganization';
 
     public const array SITE = ['soc_facebook' => 'Facebook', 'soc_instagram' => 'Instagram', 'soc_x' => 'X (Twitter)', 'soc_youtube' => 'YouTube', 'soc_linkedin' => 'LinkedIn'];
 
@@ -41,6 +44,11 @@ class Konfigurace extends Modul
             'soc_facebook' => 'url', 'soc_instagram' => 'url', 'soc_x' => 'url', 'soc_youtube' => 'url', 'soc_linkedin' => 'url',
             'titulni_stranka' => 'cislo:0:4294967295', 'pocet_clanku' => 'cislo:1:100', 'sdileni' => 'ano', 'kontrola_odkazu' => 'ano', 'osnova_clanku' => 'ano', 'souvisejici_auto' => 'ano', 'cache_stranek' => 'ano', 'udrzba' => 'ano', 'udrzba_text' => 'text', 'webhook_url' => 'url',
             'casove_pasmo' => 'pasmo', 'jazyk_webu' => 'vyber:' . \MiroCMS\Core\Jazyk::KODY, 'jazyky_dalsi' => 'seznam:' . \MiroCMS\Core\Jazyk::KODY,
+        ],
+        'firma' => [
+            'firma_nazev' => 'text', 'firma_typ' => 'vyber:' . self::TYPY_FIRMY, 'firma_ico' => 'vzor:/^(\d{6,10})?$/', 'firma_dic' => 'vzor:/^([A-Z]{2}[A-Z0-9]{6,12})?$/',
+            'firma_ulice' => 'text', 'firma_mesto' => 'text', 'firma_psc' => 'vzor:/^[A-Z0-9 -]{0,10}$/i', 'firma_zeme' => 'vzor:/^[A-Z]{2}$/',
+            'firma_telefon' => 'vzor:/^[+()\d\s\/.-]{0,30}$/', 'firma_hodiny' => 'hodiny', 'firma_mapa' => 'url', 'firma_gps' => 'vzor:/^(-?\d{1,2}(\.\d+)?,\s*-?\d{1,3}(\.\d+)?)?$/',
         ],
         'seo' => [
             'indexovani' => 'ano', 'schema_org' => 'ano', 'og_obrazek' => 'text', 'overeni_google' => 'vzor:/^[A-Za-z0-9_-]{0,100}$/',
@@ -356,6 +364,7 @@ class Konfigurace extends Modul
             'vyber' => in_array($hodnota, explode('|', $parametr), true) ? $hodnota : null,
             'pasmo' => in_array($hodnota, \DateTimeZone::listIdentifiers(), true) ? $hodnota : null,
             'vzor' => preg_match($parametr, $hodnota) ? $hodnota : null,
+            'hodiny' => \MiroCMS\Front\Firma::hodiny($hodnota) !== null ? mb_substr(trim($hodnota), 0, 1000) : null,
             default => null,
         };
     }

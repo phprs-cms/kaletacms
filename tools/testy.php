@@ -574,5 +574,12 @@ $knEnSlovnik = require MIROCMS_ROOT . '/system/jazyky/en.php';
 preg_match_all("/\bt\('((?:[^'\\\\]|\\\\.)*)'\)/", file_get_contents(MIROCMS_ROOT . '/system/src/Stavitel/Knihovna.php') . implode('', array_map('file_get_contents', glob(MIROCMS_ROOT . '/system/src/Stavitel/Prvky/*.php'))), $knTexty);
 over('Knihovna a prvky: všechny ukázkové texty mají anglický překlad', array_values(array_diff(array_unique($knTexty[1]), array_keys($knEnSlovnik), ['Menu'])), []);
 
+over('Firma::hodiny: rozsah dnů, víc úseků, zavřeno', MiroCMS\Front\Firma::hodiny("Po–Pá 8:00–17:00\nÚt 8-12, 13-17\nNe zavřeno"), [
+    ['dny' => ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'], 'od' => '08:00', 'do' => '17:00'],
+    ['dny' => ['Tuesday'], 'od' => '08:00', 'do' => '12:00'], ['dny' => ['Tuesday'], 'od' => '13:00', 'do' => '17:00'],
+]);
+over('Firma::hodiny: nesrozumitelný řádek se odmítne', [MiroCMS\Front\Firma::hodiny('každý den 8-17'), MiroCMS\Front\Firma::hodiny('Po 8-25')], [null, null]);
+over('Firma: typy v Nastavení odpovídají Firma::TYPY', (new ReflectionClassConstant(MiroCMS\Admin\Moduly\Konfigurace::class, 'TYPY_FIRMY'))->getValue(), implode('|', array_keys(MiroCMS\Front\Firma::TYPY)));
+
 echo $chyb === 0 ? "  ok     jednotkové testy ({$celkem})\n" : "  NALEZENO CHYB: {$chyb} z {$celkem}\n";
 exit($chyb === 0 ? 0 : 1);

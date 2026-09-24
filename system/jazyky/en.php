@@ -392,4 +392,8 @@ return [
     '— vyberte —' => '— choose —',
     'ano' => 'yes',
     'Poptávka v administraci: %s' => 'Enquiry in the administration: %s',
+    'Zobrazit na mapě' => 'Show on map',
+    'IČO' => 'Company ID',
+    'DIČ' => 'VAT ID',
+    '(doplňte v Nastavení → Firma)' => '(fill in under Settings → Company)',
 ];

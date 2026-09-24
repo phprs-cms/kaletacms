@@ -108,13 +108,18 @@ final class Knihovna
 
             'kontakt' => ['nazev' => t('Kontakt'), 'popis' => t('Adresa a kontakty vlevo, otevírací doba vpravo.'), 'stavba' => fn (): array => $n('sekce', [], [
                 $s($n('mrizka', [], [
-                    $n('kontejner', [], [
+                    // údaje z Nastavení → Firma: vyplní se jednou a platí i pro patičku a vyhledávače
+                    $s($n('kontejner', [], [
                         $z($n('nadpis', ['text' => t('Kontakt')]), 'h2'),
-                        $n('text', ['html' => '<p><strong>' . t('Název firmy s.r.o.') . '</strong><br>' . t('Ulice 123, 110 00 Praha') . '</p><p>' . t('Telefon') . ': <a href="tel:+420123456789">+420 123 456 789</a><br>E-mail: <a href="mailto:info@example.cz">info@example.cz</a></p>']),
-                    ]),
+                        $n('udaje', ['udaj' => 'firma']),
+                        $z($n('udaje', ['udaj' => 'adresa']), 'address'),
+                        $n('udaje', ['udaj' => 'telefon']),
+                        $n('udaje', ['udaj' => 'email']),
+                        $n('udaje', ['udaj' => 'mapa']),
+                    ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'xs']]),
                     $t($n('kontejner', [], [
                         $z($n('nadpis', ['text' => t('Otevírací doba')]), 'h3'),
-                        $n('seznam', ['polozky' => t('Po–Pá 8:00–17:00') . "\n" . t('So po domluvě'), 'styl' => 'bez']),
+                        $n('udaje', ['udaj' => 'hodiny']),
                     ]), 'karta'),
                 ]), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '2', 'mezera' => 'xl'], 'tablet' => ['sloupce' => '1']]),
             ])],

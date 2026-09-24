@@ -21,7 +21,7 @@ final class ExportWebu
     private const int PONECHAT = 3;
 
     /** Jediná nastavení, která se exportují: název, popis, identita a jazyky webu. */
-    private const array NASTAVENI = ['nazev_webu', 'popis_webu', 'klicova_slova', 'adresa_webu', 'logo_webu', 'favicon', 'design_system', 'brand_akcent', 'tmavy_rezim',
+    private const array NASTAVENI = ['nazev_webu', 'popis_webu', 'klicova_slova', 'adresa_webu', 'logo_webu', 'favicon', 'design_system', 'firma_nazev', 'firma_typ', 'firma_ico', 'firma_dic', 'firma_ulice', 'firma_mesto', 'firma_psc', 'firma_zeme', 'firma_telefon', 'firma_hodiny', 'firma_mapa', 'firma_gps', 'brand_akcent', 'tmavy_rezim',
         'brand_pismo_titulky', 'brand_pismo_text', 'text_paticky', 'soc_facebook', 'soc_instagram', 'soc_x', 'soc_youtube', 'soc_linkedin',
         'casove_pasmo', 'jazyk_webu', 'jazyky_dalsi', 'layout', 'titulni_stranka'];
 

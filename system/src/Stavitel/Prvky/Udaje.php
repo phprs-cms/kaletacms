@@ -7,28 +7,33 @@ namespace MiroCMS\Stavitel\Prvky;
 use MiroCMS\Stavitel\Kontext;
 use MiroCMS\Stavitel\Prvek;
 
-/** Údaj z nastavení webu (copyright, e-mail, popis, sociální sítě…) – změní se všude, když se změní v Nastavení. */
+/**
+ * Údaj z Nastavení (adresa, telefon, IČO, otevírací doba, copyright, sociální sítě…) – vyplní se jednou a změní se všude.
+ * Firma v Nastavení → Firma, web v Nastavení → Základní.
+ */
 final class Udaje extends Prvek
 {
     public const string TYP = 'udaje';
-    public const string NAZEV = 'Údaje webu';
-    public const string POPIS = 'Copyright, e-mail, popis webu, text patičky nebo odkazy na sociální sítě z Nastavení.';
+    public const string NAZEV = 'Údaje firmy';
+    public const string POPIS = 'Adresa, telefon, e-mail, IČO, otevírací doba, mapa, copyright nebo sociální sítě z Nastavení.';
     public const string IKONA = 'udaje';
-    public const string SKUPINA = 'Části webu';
-    public const array ZNACKY = ['p', 'div', 'span'];
-    public const bool JEN_CASTI = true;
+    public const string SKUPINA = 'Dynamické';
+    public const array ZNACKY = ['p', 'div', 'span', 'address'];
 
     public static function vlastnosti(): array
     {
         return ['udaj' => ['typ' => 'vyber', 'popisek' => 'Údaj', 'vychozi' => 'copyright', 'moznosti' => [
-            'copyright' => '© rok a název webu', 'nazev' => 'Název webu', 'popis' => 'Popis webu', 'text_paticky' => 'Text patičky',
-            'email' => 'E-mail webu', 'site' => 'Sociální sítě', 'rss' => 'Odkaz na RSS',
+            'adresa' => 'Adresa', 'telefon' => 'Telefon', 'email' => 'E-mail', 'hodiny' => 'Otevírací doba', 'mapa' => 'Odkaz na mapu',
+            'firma' => 'Obchodní firma a IČO', 'copyright' => '© rok a název webu', 'nazev' => 'Název webu', 'popis' => 'Popis webu',
+            'text_paticky' => 'Text patičky', 'site' => 'Sociální sítě', 'rss' => 'Odkaz na RSS',
         ]]];
     }
 
     public static function zakladniCss(): string
     {
-        return '.mc-site { display: flex; flex-wrap: wrap; gap: var(--mc-mezera-xs) var(--mc-mezera-s); margin: 0; padding: 0; list-style: none; }
+        return '.mc-hodiny { margin: 0; padding: 0; list-style: none; }
+.mc-udaj:is(address) { font-style: normal; }
+.mc-site { display: flex; flex-wrap: wrap; gap: var(--mc-mezera-xs) var(--mc-mezera-s); margin: 0; padding: 0; list-style: none; }
 .mc-site a, .mc-udaj a { color: inherit; }';
     }
 
@@ -36,7 +41,7 @@ final class Udaje extends Prvek
     {
         $web = $k->app->settings();
         $z = $p['znacka'];
-        $obal = fn (string $html): string => $html === '' && !$k->editor ? '' : '<' . $z . Text::sTridou($a, 'mc-udaj') . '>' . ($html !== '' ? $html : e(t('(údaj není vyplněný v Nastavení)'))) . '</' . $z . '>';
+        $obal = fn (string $html): string => $html === '' && !$k->editor ? '' : '<' . $z . Text::sTridou($a, 'mc-udaj') . '>' . ($html !== '' ? $html : e(t('(doplňte v Nastavení → Firma)'))) . '</' . $z . '>';
 
         return match ($p['obsah']['udaj']) {
             'copyright' => $obal('&copy; ' . date('Y') . ' ' . e($web->get('nazev_webu'))),
@@ -45,6 +50,16 @@ final class Udaje extends Prvek
             'text_paticky' => $obal(e($web->get('text_paticky'))),
             'email' => $obal($web->get('email_webu') !== '' ? '<a href="mailto:' . e($web->get('email_webu')) . '">' . e($web->get('email_webu')) . '</a>' : ''),
             'rss' => $obal('<a href="' . e($k->url('rss.xml')) . '">RSS</a>'),
+            'adresa' => $obal(implode('<br>', array_map(e(...), \MiroCMS\Front\Firma::adresa($web)))),
+            'telefon' => $obal($web->get('firma_telefon') !== '' ? '<a href="tel:' . e((string) preg_replace('/[^\d+]/', '', $web->get('firma_telefon'))) . '">' . e($web->get('firma_telefon')) . '</a>' : ''),
+            'mapa' => $obal($web->get('firma_mapa') !== '' ? '<a href="' . e($web->get('firma_mapa')) . '" target="_blank" rel="noopener">' . e(t('Zobrazit na mapě')) . '</a>' : ''),
+            'firma' => $obal(implode('<br>', array_map(e(...), array_filter([
+                $web->get('firma_nazev'),
+                trim(($web->get('firma_ico') !== '' ? t('IČO') . ' ' . $web->get('firma_ico') : '') . ($web->get('firma_dic') !== '' ? ', ' . t('DIČ') . ' ' . $web->get('firma_dic') : ''), ', '),
+            ])))),
+            'hodiny' => ($radky = \MiroCMS\Front\Firma::radkyHodin($web)) !== []
+                ? '<ul' . Text::sTridou($a, 'mc-hodiny') . '>' . implode('', array_map(fn (string $r): string => '<li>' . e($r) . '</li>', $radky)) . '</ul>'
+                : $obal(''),
             'site' => self::site($web, $a, $k),
             default => '',
         };
