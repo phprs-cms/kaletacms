@@ -162,7 +162,7 @@ final class ZHtml
                 if ($otazky !== []) {
                     $dokonciTok();
                 }
-                $tok .= $uzel->outerHTML;
+                $tok .= self::html($uzel);
                 continue;
             }
             $dokonciTok();
@@ -195,7 +195,7 @@ final class ZHtml
         if ($hloubka >= Stavba::MAX_HLOUBKA - 1) {
             $this->hlaseni[] = 'Příliš hluboké vnoření – nejhlubší část převedena jako text.';
 
-            return [Stavba::novy('text', ['html' => $el->outerHTML])];
+            return [Stavba::novy('text', ['html' => self::html($el)])];
         }
 
         $p = match (true) {
@@ -261,7 +261,7 @@ final class ZHtml
             ));
         }
 
-        return Stavba::novy('text', ['html' => $el->outerHTML]);
+        return Stavba::novy('text', ['html' => self::html($el)]);
     }
 
     private function figura(Element $el, int $hloubka): ?array
@@ -384,7 +384,7 @@ final class ZHtml
             return null;
         }
 
-        return Stavba::novy('html', ['kod' => $el->outerHTML]);
+        return Stavba::novy('html', ['kod' => self::html($el)]);
     }
 
     /** Obsahuje prvek blokové značky (pak nejde o prostý text, ale o strukturu)? */
@@ -431,5 +431,11 @@ final class ZHtml
         if ($jine !== []) {
             $this->hlaseni[] = 'Převádějí se jen selektory jedné třídy (.karta); vynecháno: ' . mb_substr(implode(', ', array_unique($jine)), 0, 200) . '.';
         }
+    }
+
+    /** Celé HTML prvku včetně značky. Vlastnost outerHTML má Dom\Element až od PHP 8.5 – Kaleta běží i na 8.4. */
+    private static function html(\Dom\Element $el): string
+    {
+        return $el->ownerDocument->saveHtml($el);
     }
 }
