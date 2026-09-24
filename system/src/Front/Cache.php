@@ -17,6 +17,9 @@ final class Cache
     private const string SLOZKA = MIROCMS_ROOT . '/storage/cache/stranky';
     private const int PLATNOST = 300;
 
+    /** Parametry reklam a sledování kampaní: stránku nemění, cache se kvůli nim obcházet nemá. */
+    private const string SLEDOVACI = '/^(utm_[a-z]+|fbclid|gclid|gbraid|wbraid|msclkid|dclid|mc_[a-z]+|_ga|_gl|yclid|igshid|ref)$/';
+
     /** @var resource|null zámek stránky, kterou tenhle požadavek právě přegenerovává */
     private static $zamek = null;
 
@@ -49,8 +52,14 @@ final class Cache
         if (!empty($meta['idc'])) {
             $app->db()->run('UPDATE {novinky} SET visit = visit + 1 WHERE idc = ?', [(int) $meta['idc']]);
         }
+        // prohlížeč si stránku může nechat a jen se zeptat, jestli se změnila (304 bez těla)
+        $etag = '"' . substr(md5($soubor . filemtime($soubor)), 0, 16) . '"';
+        $hlavicky = ['Content-Type' => 'text/html; charset=utf-8', 'X-Cache' => 'mirocms', 'ETag' => $etag, 'Cache-Control' => 'no-cache'];
+        if (trim((string) ($_SERVER['HTTP_IF_NONE_MATCH'] ?? '')) === $etag) {
+            return new Response('', 304, $hlavicky);
+        }
 
-        return new Response($html, 200, ['Content-Type' => 'text/html; charset=utf-8', 'X-Cache' => 'mirocms']);
+        return new Response($html, 200, $hlavicky);
     }
 
     public static function uloz(App $app, string $html, ?int $idc): void
@@ -119,7 +128,8 @@ final class Cache
         if (!$s->bool('cache_stranek') || $r->isPost()) {
             return null;
         }
-        if (array_diff(array_keys($_GET), ['strana']) !== []) {
+        $parametry = array_filter(array_keys($_GET), fn (int|string $k): bool => !preg_match(self::SLEDOVACI, (string) $k));
+        if (array_diff($parametry, ['strana']) !== []) {
             return null;
         }
         foreach (array_keys($_COOKIE) as $cookie) {

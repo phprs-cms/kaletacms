@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MiroCMS\Admin\Moduly;
 
 use MiroCMS\Admin\Modul;
+use MiroCMS\Core\Obrazky;
 use MiroCMS\Core\Response;
 use MiroCMS\Front\Layouty;
 use MiroCMS\Stavitel\DesignSystem;
@@ -46,7 +47,15 @@ final class Vzhled extends Modul
             $web->set('layout', $r->post('layout'));
         }
         $web->set('logo_webu', mb_substr($r->post('logo_webu'), 0, 255));
-        $web->set('favicon', mb_substr($r->post('favicon'), 0, 255));
+        $ikona = mb_substr($r->post('favicon'), 0, 255);
+        if ($ikona !== $web->get('favicon') || ($ikona !== '' && !is_file(MIROCMS_ROOT . '/media/ikona-180.png'))) {
+            // ikony pro telefony a instalaci webu se připraví z ikony jednou při uložení
+            $ok = $ikona !== '' && preg_match('#^/?(?:[A-Za-z0-9_.-]+/){0,3}(media/[A-Za-z0-9/_.-]+)$#', $ikona, $m) && !str_contains($m[1], '..') && Obrazky::ikony(MIROCMS_ROOT . '/' . $m[1]);
+            if (!$ok) {
+                array_map(fn (int $n): bool => @unlink(MIROCMS_ROOT . '/media/ikona-' . $n . '.png'), Obrazky::IKONY);
+            }
+        }
+        $web->set('favicon', $ikona);
         $web->set('tmavy_rezim', $r->post('tmavy_rezim') === 'auto' ? 'auto' : 'vypnuto');
         $web->set('design_system', (string) json_encode($this->zFormulare(), JSON_UNESCAPED_SLASHES));
         // starší klíče Identity: od uložení design systému se nečtou, ať nemate export ani jiné nástroje

@@ -170,6 +170,13 @@ final class Styl
                     continue;
                 }
                 $radky[] = $vlastnost . ': ' . $css;
+                if ($klic === 'pozadi' && ($hodnota === 'bila' || $hodnota === 'cerna') && !isset($vlastnosti['barva'])) {
+                    // bílá a černá se v tmavém režimu nemění: text a odvozené odstíny uvnitř se jim přizpůsobí (jinak světlý text na bílé)
+                    $text = $hodnota === 'bila' ? 'var(--mc-barva-text-svetle)' : 'var(--mc-barva-text-tmave)';
+                    $plocha = $hodnota === 'bila' ? '#ffffff' : '#000000';
+                    array_push($radky, '--mc-barva-text: ' . $text, 'color: ' . $text,
+                        '--mc-barva-tlumeny: color-mix(in oklch, ' . $text . ' 64%, ' . $plocha . ')', '--mc-barva-linka: color-mix(in oklch, ' . $text . ' 14%, ' . $plocha . ')');
+                }
             }
             if ($obrazek !== null) {
                 // médium webu vždy od kořene instalace – relativní url() by se na /en/… nebo /kolekce/polozka hledalo jinde

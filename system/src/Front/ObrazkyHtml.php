@@ -46,7 +46,8 @@ final class ObrazkyHtml
             if ((int) $o['obr_width'] > 0 && (int) $o['obr_height'] > 0 && !preg_match('#\b(width|height)=#i', $atributy)) {
                 $pridat .= ' width="' . (int) $o['obr_width'] . '" height="' . (int) $o['obr_height'] . '"';
             }
-            if (preg_match('/^#[0-9a-f]{6}$/', (string) $o['barva']) && !preg_match('#\bstyle=#i', $atributy)) {
+            // podkladová barva jen u fotek: PNG bývá logo nebo ilustrace s průhledností a barevný obdélník by za ní prosvítal
+            if (strtolower($m[4]) !== 'png' && preg_match('/^#[0-9a-f]{6}$/', (string) $o['barva']) && !preg_match('#\bstyle=#i', $atributy)) {
                 $pridat .= ' style="background-color:' . $o['barva'] . '"';
             }
 

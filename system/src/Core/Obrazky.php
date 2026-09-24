@@ -201,6 +201,39 @@ final class Obrazky
         return sprintf('#%02x%02x%02x', ($rgb >> 16) & 0xFF, ($rgb >> 8) & 0xFF, $rgb & 0xFF);
     }
 
+    /** Velikosti ikony webu: karta prohlížeče, plocha iPhonu, Android a instalace webu. */
+    public const array IKONY = [32, 180, 192, 512];
+
+    /**
+     * Čtvercové PNG ikony webu (media/ikona-<n>.png) z obrázku z Médií: ořízne střed na čtverec a zmenší.
+     * Vrací false, když zdroj není rastrový obrázek (SVG ikona se pak použije jen jako rel=icon).
+     */
+    public static function ikony(string $zdroj): bool
+    {
+        $typ = is_file($zdroj) ? @getimagesize($zdroj) : false;
+        $obr = match ($typ[2] ?? 0) {
+            IMAGETYPE_JPEG => @imagecreatefromjpeg($zdroj),
+            IMAGETYPE_PNG => @imagecreatefrompng($zdroj),
+            IMAGETYPE_WEBP => function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($zdroj) : false,
+            default => false,
+        };
+        if ($obr === false) {
+            return false;
+        }
+        $strana = min(imagesx($obr), imagesy($obr));
+        [$x, $y] = [intdiv(imagesx($obr) - $strana, 2), intdiv(imagesy($obr) - $strana, 2)];
+        foreach (self::IKONY as $n) {
+            $ikona = imagecreatetruecolor($n, $n);
+            imagealphablending($ikona, false);
+            imagesavealpha($ikona, true);
+            imagefill($ikona, 0, 0, imagecolorallocatealpha($ikona, 0, 0, 0, 127));
+            imagecopyresampled($ikona, $obr, 0, 0, $x, $y, $n, $n, $strana, $strana);
+            imagepng($ikona, MIROCMS_ROOT . '/media/ikona-' . $n . '.png', 9);
+        }
+
+        return true;
+    }
+
     public static function srcset(string $cesta, string $zaklad): string
     {
         // tentýž obrázek bývá na stránce víckrát (otvírák, výpis, blok): dotazy na disk stačí jednou za požadavek

@@ -35,7 +35,10 @@ final class Identita
         'grotesk' => ['Grotesk', 'Helvetica, Arial', '"Helvetica Neue", Helvetica, "Arial Nova", Arial, sans-serif'],
     ];
 
-    /** Ikona webu do <head>. Barvy a písma webu vypisuje design systém (Stavitel\DesignSystem). */
+    /**
+     * Ikony webu, manifest a barva lišty prohlížeče do <head>. Barvy a písma webu vypisuje design systém (Stavitel\DesignSystem).
+     * PNG velikosti (media/ikona-<n>.png) připraví Vzhled při uložení ikony.
+     */
     public static function hlava(Settings $web, string $zaklad): string
     {
         $html = '';
@@ -43,7 +46,34 @@ final class Identita
         if ($ikona !== '') {
             $html .= '<link rel="icon" href="' . e((preg_match('#^(https?:)?/#', $ikona) ? '' : $zaklad . '/') . $ikona) . "\">\n";
         }
+        $png = MIROCMS_ROOT . '/media/ikona-180.png';
+        if (is_file($png)) {
+            $v = '?v=' . filemtime($png);
+            $html .= '<link rel="icon" type="image/png" sizes="32x32" href="' . e($zaklad . '/media/ikona-32.png' . $v) . "\">\n"
+                . '<link rel="apple-touch-icon" href="' . e($zaklad . '/media/ikona-180.png' . $v) . "\">\n";
+        }
+        $html .= '<link rel="manifest" href="' . e($zaklad . '/manifest.webmanifest') . "\">\n";
+        $barvy = \MiroCMS\Stavitel\DesignSystem::nacti($web)['barvy'];
+        $html .= '<meta name="theme-color" content="' . e($barvy['pozadi']) . '">' . "\n";
 
         return $html;
+    }
+
+    /** Manifest webu: název, barvy a ikony – telefon pak web připne na plochu s vlastní ikonou a názvem. */
+    public static function manifest(Settings $web, string $zaklad): string
+    {
+        $barvy = \MiroCMS\Stavitel\DesignSystem::nacti($web)['barvy'];
+        $nazev = $web->get('nazev_webu') ?: 'Web';
+        $ikony = [];
+        foreach ([192, 512] as $n) {
+            if (is_file(MIROCMS_ROOT . '/media/ikona-' . $n . '.png')) {
+                $ikony[] = ['src' => $zaklad . '/media/ikona-' . $n . '.png', 'sizes' => $n . 'x' . $n, 'type' => 'image/png', 'purpose' => 'any'];
+            }
+        }
+
+        return (string) json_encode(array_filter([
+            'name' => $nazev, 'short_name' => mb_strimwidth($nazev, 0, 12, ''), 'start_url' => $zaklad . '/', 'scope' => $zaklad . '/',
+            'display' => 'browser', 'background_color' => $barvy['pozadi'], 'theme_color' => $barvy['pozadi'], 'icons' => $ikony,
+        ]), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
     }
 }

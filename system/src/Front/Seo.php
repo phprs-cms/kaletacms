@@ -55,22 +55,29 @@ final class Seo
         $url = fn (string $cesta, ?string $zmena = null, string $priorita = '0.5', string $jazyk = ''): string => '<url><loc>' . e($this->koren . ($jazyk !== '' ? $jazyk . '/' : '') . $cesta) . '</loc>'
             . ($zmena !== null ? '<lastmod>' . date('c', strtotime($zmena)) . '</lastmod>' : '') . '<priority>' . $priorita . '</priority></url>';
 
+        // jen zapnuté jazykové verze; obsah vypnutého jazyka na webu není
+        $jazyky = ['', ...\MiroCMS\Core\Jazyk::dalsi($this->app->settings())];
+        $vJazyku = ' AND jazyk IN (' . implode(',', array_fill(0, count($jazyky), '?')) . ')';
         $xml = [$url('', null, '1.0')];
-        foreach (\MiroCMS\Core\Jazyk::dalsi($this->app->settings()) as $jazyk) {
+        foreach (array_slice($jazyky, 1) as $jazyk) {
             $xml[] = $url('', null, '0.9', $jazyk);
         }
         $uvod = $this->app->settings()->int('titulni_stranka');
-        foreach ($db->all('SELECT seo_link, zmeneno, jazyk FROM {stranky} WHERE zobrazit = 1 AND ids <> ? AND (preklad_z IS NULL OR preklad_z <> ?)', [$uvod, $uvod]) as $r) {
+        foreach ($db->all('SELECT seo_link, zmeneno, jazyk FROM {stranky} WHERE zobrazit = 1 AND noindex = 0 AND smazano IS NULL AND ids <> ? AND (preklad_z IS NULL OR preklad_z <> ?)' . $vJazyku, [$uvod, $uvod, ...$jazyky]) as $r) {
             $xml[] = $url($r['seo_link'], $r['zmeneno'], '0.8', $r['jazyk']);
         }
-        foreach ($db->all('SELECT k.seo_link AS kolekce, p.seo_link, p.jazyk, COALESCE(p.zmeneno, p.datum) AS zmena FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.detail = 1 AND p.zobrazit = 1 LIMIT 5000') as $r) {
+        foreach ($db->all('SELECT k.seo_link AS kolekce, p.seo_link, p.jazyk, COALESCE(p.zmeneno, p.datum) AS zmena FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.detail = 1 AND p.zobrazit = 1 AND p.jazyk IN (' . implode(',', array_fill(0, count($jazyky), '?')) . ') LIMIT 5000', $jazyky) as $r) {
             $xml[] = $url($r['kolekce'] . '/' . $r['seo_link'], $r['zmena'], '0.5', $r['jazyk']);
         }
-        $xml[] = $url('novinky', (string) $db->value('SELECT MAX(COALESCE(zmeneno, datum)) FROM {novinky} WHERE visible = 1 AND datum <= NOW()') ?: null, '0.6');
-        foreach ($db->all('SELECT seo_link, jazyk FROM {kategorie}') as $r) {
+        // výpis novinek, kategorie a štítky jen tam, kde nějaká vydaná novinka je
+        $vydane = 'visible = 1 AND datum <= NOW() AND smazano IS NULL';
+        foreach ($db->all("SELECT jazyk, MAX(COALESCE(zmeneno, datum)) AS zmena FROM {novinky} WHERE {$vydane}{$vJazyku} GROUP BY jazyk", $jazyky) as $r) {
+            $xml[] = $url('novinky', $r['zmena'], '0.6', $r['jazyk']);
+        }
+        foreach ($db->all("SELECT k.seo_link, k.jazyk FROM {kategorie} k WHERE EXISTS (SELECT 1 FROM {novinky} n WHERE n.tema = k.idt AND n.{$vydane}) AND k.jazyk IN (" . implode(',', array_fill(0, count($jazyky), '?')) . ')', $jazyky) as $r) {
             $xml[] = $url('novinky/kategorie/' . $r['seo_link'], null, '0.4', $r['jazyk']);
         }
-        foreach ($db->all('SELECT seo_link, jazyk, COALESCE(zmeneno, datum) AS zmena FROM {novinky} WHERE visible = 1 AND noindex = 0 AND datum <= NOW() AND smazano IS NULL ORDER BY datum DESC LIMIT 45000') as $r) {
+        foreach ($db->all("SELECT seo_link, jazyk, COALESCE(zmeneno, datum) AS zmena FROM {novinky} WHERE {$vydane} AND noindex = 0{$vJazyku} ORDER BY datum DESC LIMIT 45000", $jazyky) as $r) {
             $xml[] = $url('novinky/' . $r['seo_link'], $r['zmena'], '0.5', $r['jazyk']);
         }
 
@@ -168,9 +175,7 @@ final class Seo
         }
         if (!$s->bool('indexovani')) {
             $h[] = '<meta name="robots" content="noindex, nofollow">';
-        } elseif ($clanek !== null && $clanek['noindex']) {
-            $h[] = '<meta name="robots" content="noindex, follow">';
-        }
+        } // noindex jednotlivé stránky nebo novinky vypíše šablona podle $meta['noindex'] (a vynechá kanonickou adresu)
         if ($s->get('overeni_google') !== '') {
             $h[] = '<meta name="google-site-verification" content="' . e($s->get('overeni_google')) . '">';
         }
@@ -181,9 +186,14 @@ final class Seo
             $h[] = '<meta property="og:image" content="' . e($this->absolutni($s->get('og_obrazek'))) . '">';
         }
         // jazykové verze: hreflang jen na existující překlady (novinka, stránka, kategorie), na úvodu na úvod každé verze
+        $vychozi = \MiroCMS\Core\Jazyk::vychozi($s);
         foreach ($meta['jazyky'] ?? [] as $kod => $j) {
             if ($j['preklad'] || ($meta['hlavni'] ?? false)) {
                 $h[] = '<link rel="alternate" hreflang="' . e($kod) . '" href="' . e($this->app->request->origin() . $j['url']) . '">';
+                if ($kod === $vychozi) {
+                    // návštěvník v jazyce, který web nemá, dostane výchozí verzi
+                    $h[] = '<link rel="alternate" hreflang="x-default" href="' . e($this->app->request->origin() . $j['url']) . '">';
+                }
             }
         }
         $h[] = '<meta property="og:locale" content="' . \MiroCMS\Core\Jazyk::DOSTUPNE[\MiroCMS\Core\Jazyk::kod()][1] . '">';

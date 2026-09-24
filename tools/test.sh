@@ -440,5 +440,14 @@ ocekavej "zaškrtnutá stránka se přidá na konec sestaveného menu" "$("${MYS
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=menu&akce=automaticky&umisteni=hlavni" -d "_csrf=$TOKEN"
 ocekavej "návrat k automatickému menu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM mc_menu WHERE umisteni = 'hlavni'")" "0"
 
+echo "== ikony, manifest, cache"
+ocekavej "favicon.ico bez ikony nevygeneruje stránku 404" "$(curl -s -o /dev/null -w '%{http_code}' "$B/favicon.ico")" 204
+curl -s -o "$PRACE/odpoved" "$B/manifest.webmanifest"; grep -q '"start_url"' "$PRACE/odpoved" && echo "  ok     manifest webu" || { echo "  CHYBA  manifest"; CHYB=$((CHYB+1)); }
+rm -f "$PRACE"/web/storage/cache/stranky/*.html
+curl -s -o /dev/null "$B/novinky"
+ocekavej "odkaz s utm parametry jde z cache" "$(curl -s -o /dev/null -D - "$B/novinky?utm_source=newsletter&fbclid=x" | grep -ci '^x-cache: mirocms')" 1
+ETAG=$(curl -s -o /dev/null -D - "$B/novinky" | grep -i '^etag:' | cut -d' ' -f2 | tr -d '\r')
+ocekavej "stránka z cache odpoví 304 na shodný ETag" "$(curl -s -o /dev/null -w '%{http_code}' -H "If-None-Match: $ETAG" "$B/novinky")" 304
+
 if [ -s "$PRACE/web/storage/log/chyby.log" ]; then echo "== záznam chyb aplikace:"; cat "$PRACE/web/storage/log/chyby.log"; CHYB=$((CHYB+1)); fi
 echo; [ "$CHYB" -eq 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $CHYB"; exit 1; }

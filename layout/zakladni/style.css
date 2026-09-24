@@ -129,6 +129,7 @@
 		.novinka-karta h2 { font-size: var(--krok-2); }
 	}
 	.vypis-stranky { margin-bottom: var(--mezera); }
+	.vypis-stranky p { margin: 0.2em 0 0.9em; color: var(--text-tlumeny); font-size: 0.92em; }
 
 	.hledani { display: flex; gap: 0.5rem; max-width: 30rem; margin: 1em 0; }
 	.hledani input { flex: 1; min-width: 0; padding: 0.65rem 0.9rem; border: 1px solid var(--linka); border-radius: 999px; background: var(--podklad); color: inherit; font: inherit; }

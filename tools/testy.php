@@ -549,6 +549,12 @@ over('Menu::html: podmenu, aktivní položka a větev, úvod jen přesnou shodou
     ['text' => 'Úvod', 'url' => '/', 'nove_okno' => false, 'deti' => []],
     ['text' => 'Služby', 'url' => '', 'nove_okno' => false, 'deti' => [['text' => 'Kuchyně', 'url' => '/kuchyne', 'nove_okno' => false, 'deti' => []]]],
 ], '/kuchyne/detail', '/'), '<li><a href="/">Úvod</a></li><li class="podmenu aktivni"><span>Služby</span><ul><li><a href="/kuchyne" aria-current="page">Kuchyně</a></li></ul></li>');
+over('Hledani::najdi: bez diakritiky, všechna slova, úryvek', MiroCMS\Core\Hledani::najdi('zkusenosti kuchyne', [
+    ['titulek' => 'O nás', 'adresa' => 'o-nas', 'text' => '<p>Máme dvacet let zkušeností s nábytkem.</p>'],
+    ['titulek' => 'Kuchyně', 'adresa' => 'kuchyne', 'text' => '<p>Kuchyně na míru – bohaté zkušenosti.</p>'],
+]), [['titulek' => 'Kuchyně', 'adresa' => 'kuchyne', 'uryvek' => 'Kuchyně na míru – bohaté zkušenosti.']]);
+over('Styl::css: bílé pozadí si nese tmavý text i v tmavém režimu', str_contains(MiroCMS\Stavitel\Styl::css('#s', ['zaklad' => ['pozadi' => 'bila']]), '--mc-barva-text: var(--mc-barva-text-svetle); color: var(--mc-barva-text-svetle)'), true);
+over('Styl::css: vlastní barva textu na bílém pozadí se nepřepíše', str_contains(MiroCMS\Stavitel\Styl::css('#s', ['zaklad' => ['pozadi' => 'bila', 'barva' => 'primarni']]), 'text-svetle'), false);
 $stZahozeno = [];
 over('Styl::vlastniCss: jen bezpečné deklarace', MiroCMS\Stavitel\Styl::vlastniCss('color:red; background:url(javascript:x); --mc-x: 1; @import url(x); width: expression(1); a{b:c}', $stZahozeno), 'color: red; --mc-x: 1;');
 over('Styl::vlastniCss: zahozené se hlásí', count($stZahozeno), 4);

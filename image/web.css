@@ -123,7 +123,7 @@ figure.galerie figcaption { grid-column: 1 / -1; }
 @media (prefers-color-scheme: dark) {
 	:root[data-tmavy] .cookies-lista { background: #1D1D1D; color: #ECECEC; border-color: #3A3A3A; }
 	:root[data-tmavy] .cookies-lista a, :root[data-tmavy] .cookies-tlacitka .cookies-odkaz { color: #ECECEC; }
-	:root[data-tmavy] img { filter: brightness(0.92); }
+	:root[data-tmavy] img:not(:is(.logo, .mc-logo) img) { filter: brightness(0.92); } /* fotky ztlumit, logo ne */
 	:root[data-tmavy] :is(.mc-sdileni a:hover, .mc-sdileni button:hover) { color: color-mix(in srgb, var(--mc-akcent, #1f4fe0) 55%, #FFFFFF); }
 	:root[data-tmavy] .mc-upravit-zde { border: 1px solid rgb(255 255 255 / 0.25); }
 }

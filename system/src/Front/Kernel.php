@@ -126,6 +126,15 @@ final class Kernel
             return $this->rss();
         }
         $seo = new Seo($this->app);
+        if ($path === '/manifest.webmanifest') {
+            return new Response(Identita::manifest($this->app->settings(), $this->app->request->basePath()), 200, ['Content-Type' => 'application/manifest+json; charset=utf-8']);
+        }
+        if ($path === '/favicon.ico') {
+            // prohlížeče se ptají samy; místo celé stránky 404 odkaz na ikonu webu, nebo prázdná odpověď
+            $ikona = is_file(MIROCMS_ROOT . '/media/ikona-32.png') ? $this->app->url('media/ikona-32.png') : null;
+
+            return $ikona !== null ? Response::redirect($ikona, 301) : new Response('', 204, ['Cache-Control' => 'public, max-age=86400']);
+        }
         if ($path === '/robots.txt') {
             return new Response($seo->robotsTxt(), 200, ['Content-Type' => 'text/plain; charset=utf-8']);
         }
@@ -446,6 +455,7 @@ final class Kernel
             'popis' => $novinka['seo_popis'] !== '' ? $novinka['seo_popis'] : mb_strimwidth(trim(strip_tags($novinka['uvod'])), 0, 300, '…'),
             'klicova_slova' => $novinka['t_slova'],
             'obrazek' => $novinka['obrazek'],
+            'noindex' => (bool) $novinka['noindex'],
             'typ' => 'article',
             'cast' => 'novinka',
         ]);
@@ -464,10 +474,19 @@ final class Kernel
         }
         $strana = max(1, $this->app->request->getInt('strana', 1));
         [$novinky, $celkem] = mb_strlen($q) >= 3 ? $this->novinky->hledej($q, $strana) : [[], 0];
-        $stranky = mb_strlen($q) >= 3 && $strana === 1 ? $this->app->db()->all(
-            'SELECT titulek, seo_link FROM {stranky} WHERE zobrazit = 1 AND jazyk = ? AND (titulek LIKE ? OR text LIKE ?) ORDER BY poradi LIMIT 10',
-            [Jazyk::sloupecWebu(), '%' . addcslashes($q, '%_\\') . '%', '%' . addcslashes($q, '%_\\') . '%'],
-        ) : [];
+        // stránky a položky kolekcí s vlastní stránkou – bez ohledu na diakritiku, s úryvkem (novinky hledá fulltext výše)
+        $stranky = [];
+        if (mb_strlen($q) >= 3 && $strana === 1) {
+            $db = $this->app->db();
+            $uvod = $this->idUvodu();
+            $kandidati = array_map(fn (array $s): array => ['titulek' => $s['titulek'], 'adresa' => (int) $s['ids'] === $uvod ? '' : $s['seo_link'], 'text' => (string) $s['text']],
+                $db->all('SELECT ids, titulek, seo_link, text FROM {stranky} WHERE zobrazit = 1 AND noindex = 0 AND smazano IS NULL AND jazyk = ? ORDER BY poradi LIMIT 500', [Jazyk::sloupecWebu()]));
+            foreach ($db->all('SELECT p.nazev, p.seo_link, p.data, k.seo_link AS kolekce FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.detail = 1 AND p.zobrazit = 1 AND p.jazyk = ? ORDER BY p.poradi LIMIT 2000', [Jazyk::sloupecWebu()]) as $p) {
+                $data = json_decode((string) $p['data'], true);
+                $kandidati[] = ['titulek' => $p['nazev'], 'adresa' => $p['kolekce'] . '/' . $p['seo_link'], 'text' => implode(' ', array_filter(is_array($data) ? $data : [], 'is_string'))];
+            }
+            $stranky = array_map(fn (array $v): array => ['titulek' => $v['titulek'], 'seo_link' => $v['adresa'], 'uryvek' => $v['uryvek']], \MiroCMS\Core\Hledani::najdi($q, $kandidati));
+        }
 
         return $this->stranka(
             t('Vyhledávání'),
@@ -735,7 +754,9 @@ final class Kernel
         }
         $jazyky = $this->jazyky($novinka);
         $jazykyHtml = $jazyky === [] ? '' : $this->view->render('jazyky', ['jazyky' => $jazyky]);
-        $kanonicka = $this->app->request->origin() . $this->app->url(ltrim($this->app->request->path(), '/'));
+        // kanonická adresa: cesta bez parametrů, u stránkování s číslem strany (strana 2 není kopie strany 1)
+        $stranaVypisu = $this->app->request->getInt('strana', 1);
+        $kanonicka = $this->app->request->origin() . $this->app->url(ltrim($this->app->request->path(), '/')) . ($stranaVypisu > 1 ? '?strana=' . $stranaVypisu : '');
         [$obsah, $casti, $meta] = $this->castiWebu($obsah, $meta, $jazykyHtml, (string) parse_url($kanonicka, PHP_URL_PATH));
         $html = $this->view->render('base', [
             'web' => $web,

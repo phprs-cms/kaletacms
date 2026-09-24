@@ -10,7 +10,7 @@
  * @var int $stran
  * @var callable(int): string $strankaUrl
  * @var string|null $hledano  hledaný text; null = nejde o hledání
- * @var list<array{titulek:string, seo_link:string}> $nalezeneStranky  stránky webu odpovídající hledání
+ * @var list<array{titulek:string, seo_link:string, uryvek?:string}> $nalezeneStranky  stránky a položky kolekcí odpovídající hledání
  * @var callable(string): string $url
  */
 ?>
@@ -33,7 +33,7 @@
 <?php if ($nalezeneStranky !== []): ?>
 <ul class="vypis-stranky">
 <?php foreach ($nalezeneStranky as $s): ?>
-	<li><a href="<?= e($url($s['seo_link'])) ?>"><?= e($s['titulek']) ?></a></li>
+	<li><a href="<?= e($url($s['seo_link'])) ?>"><?= e($s['titulek']) ?></a><?php if (($s['uryvek'] ?? '') !== ''): ?><p><?= e($s['uryvek']) ?></p><?php endif ?></li>
 <?php endforeach ?>
 </ul>
 <?php endif ?>

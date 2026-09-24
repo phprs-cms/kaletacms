@@ -39,6 +39,41 @@ final class Hledani
         return count($ids);
     }
 
+    /**
+     * Hledání ve stránkách a položkách kolekcí bez indexu (je jich na firemním webu stovky, ne tisíce): všechna slova
+     * dotazu bez ohledu na diakritiku a velikost písmen. Vrací shody s úryvkem textu kolem prvního nalezeného slova.
+     *
+     * @param list<array{titulek: string, adresa: string, text: string}> $kandidati
+     * @return list<array{titulek: string, adresa: string, uryvek: string}>
+     */
+    public static function najdi(string $q, array $kandidati, int $limit = 20): array
+    {
+        $slova = array_values(array_filter(explode(' ', self::normalizuj($q)), fn (string $s): bool => strlen($s) >= 2));
+        if ($slova === []) {
+            return [];
+        }
+        $vysledky = [];
+        foreach ($kandidati as $k) {
+            $prosty = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags(str_replace(['<', '>'], [' <', '> '], $k['text'])), ENT_QUOTES | ENT_HTML5)));
+            $hledat = self::normalizuj($k['titulek'] . ' ' . $prosty);
+            foreach ($slova as $slovo) {
+                if (!str_contains($hledat, $slovo)) {
+                    continue 2;
+                }
+            }
+            // úryvek: české znaky se bez diakritiky mapují 1:1, pozice v textu bez diakritiky tedy sedí i v originále
+            $pozice = mb_strpos(bez_diakritiky(mb_strtolower($prosty)), $slova[0]);
+            $od = $pozice === false ? 0 : max(0, $pozice - 60);
+            $uryvek = mb_substr($prosty, $od, 180);
+            $vysledky[] = ['titulek' => $k['titulek'], 'adresa' => $k['adresa'], 'uryvek' => ($od > 0 ? '…' : '') . $uryvek . (mb_strlen($prosty) > $od + 180 ? '…' : '')];
+            if (count($vysledky) >= $limit) {
+                break;
+            }
+        }
+
+        return $vysledky;
+    }
+
     /** Dotaz pro MATCH … AGAINST v režimu BOOLEAN: všechna slova od 3 znaků s libovolnou koncovkou. */
     public static function dotaz(string $q): string
     {

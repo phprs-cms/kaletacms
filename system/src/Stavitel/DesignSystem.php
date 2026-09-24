@@ -168,6 +168,8 @@ final class DesignSystem
             '--mc-barva-pozadi' => $b['pozadi'], '--mc-barva-plocha' => $b['plocha'],
             '--mc-barva-na-primarni' => self::kontrastni($b['primarni']),
             '--mc-barva-bila' => '#ffffff', '--mc-barva-cerna' => '#000000',
+            // text světlého a tmavého režimu napevno – pro plochy, které se s režimem nemění (bílé a černé pozadí)
+            '--mc-barva-text-svetle' => $b['text'], '--mc-barva-text-tmave' => $ds['barvy_tmave']['text'],
             '--mc-barva-tlumeny' => 'color-mix(in oklch, var(--mc-barva-text) 64%, var(--mc-barva-pozadi))',
             '--mc-barva-linka' => 'color-mix(in oklch, var(--mc-barva-text) 14%, var(--mc-barva-pozadi))',
             '--mc-barva-primarni-jemna' => 'color-mix(in oklch, var(--mc-barva-primarni) 12%, var(--mc-barva-pozadi))',
