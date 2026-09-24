@@ -272,6 +272,7 @@ final class Stranky extends Modul
         $kopie['titulek'] = mb_substr(t('%s (kopie)', $stranka['titulek']), 0, 200);
         $kopie['seo_link'] = $this->volnaAdresa(mb_substr($stranka['seo_link'] . '-kopie', 0, 110), 0);
         $kopie['zobrazit'] = 0;
+        $kopie['v_menu'] = 0; // kopie se do navigace nedostane, dokud ji tam někdo nezařadí
         $kopie['preklad_z'] = null;
         $kopie['zmeneno'] = date('Y-m-d H:i:s');
         $id = $this->db->insert('stranky', $kopie);

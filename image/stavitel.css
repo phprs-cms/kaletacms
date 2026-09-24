@@ -151,3 +151,5 @@ body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; ove
 .st-vlastnost .st-chyba-pole { grid-column: 1 / -1; margin-top: -4px; }
 .st-kontrola { margin: 8px 0 0; padding-left: 18px; }
 .st-kontrola li { margin: 4px 0; }
+/* textový editor v panelu: lišta se lepí k horní hraně panelu, ne pod záhlaví administrace */
+.st-pravy { --ed-lista-top: 0px; }

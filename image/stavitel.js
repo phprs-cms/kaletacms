@@ -202,7 +202,10 @@
 	function ulozTed() {
 		if (stav.konflikt) { return Promise.resolve(false); }
 		const odeslano = JSON.stringify(stav.stavba);
-		if (odeslano === stav.ulozeno) { return Promise.resolve(true); }
+		if (odeslano === stav.ulozeno) {
+			if (!stav.pokusy) { nastavStav(T('Koncept uložen')); } // změna, která nic nezměnila (např. opuštění pole)
+			return Promise.resolve(true);
+		}
 		stav.uklada = true;
 		nastavStav(T('Ukládám…'));
 		return dotaz(D.adresy.uloz, { stavba: odeslano, verze: stav.verze }).then((j) => {
@@ -613,7 +616,12 @@
 		koren.append(lista);
 		prekresliListu();
 	}
+	let podobaListy = '';
 	function prekresliListu() {
+		// lišta se staví znovu jen při změně toho, co ukazuje – překreslení pod kurzorem by „spolklo“ rozpracované klepnutí
+		const podoba = [stav.zmeny, stav.bp, stav.zpet.length > 0, stav.vpred.length > 0, D.stranka.publikovana].join();
+		if (podoba === podobaListy && lista.childElementCount) { return; }
+		podobaListy = podoba;
 		const bpTl = Object.entries({ zaklad: 'pocitac', tablet: 'tablet', mobil: 'mobil' }).map(([bp, ik]) =>
 			el('button', { type: 'button', title: BP[bp], 'aria-label': BP[bp], 'aria-pressed': String(stav.bp === bp), onclick: () => { stav.bp = bp; ramec.dataset.bp = bp; rozmerNahledu(nahled); prekresliListu(); prekresliPanely(); } }, ikona(ik)));
 		lista.replaceChildren(...[
@@ -978,7 +986,7 @@
 		if (ai) { panel.append(ai); }
 		const vlastnosti = Object.entries(s.vlastnosti || {});
 		if (!vlastnosti.length) { panel.append(el('p', { class: 'st-prazdno' }, s.kontejner ? T('Kontejner nemá vlastní obsah – vložte do něj prvky, vzhled nastavíte v záložce Styl.') : T('Prvek nemá nastavitelný obsah.'))); return; }
-		vlastnosti.forEach(([klic, def]) => panel.append(pole(def, p.obsah[klic], (h) => zmen(() => { p.obsah[klic] = h; }, 'obsah:' + p.id + ':' + klic),
+		vlastnosti.forEach(([klic, def]) => panel.append(pole(def, p.obsah[klic], (h) => { if (JSON.stringify(p.obsah[klic]) !== JSON.stringify(h)) { zmen(() => { p.obsah[klic] = h; }, 'obsah:' + p.id + ':' + klic); } },
 			{ chyba: stav.chyby[stav.cestaVybraneho + '.obsah.' + klic], prvek: p })));
 	}
 
