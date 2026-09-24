@@ -111,7 +111,7 @@ final class Stranky extends Modul
         if ($titulek === '') {
             return $this->zpetNaWeb($r->post('zpet'), '?upravit=text&chyba=1');
         }
-        $this->db->update('stranky', ['titulek' => $titulek, 'text' => $r->post('text'), 'zmeneno' => date('Y-m-d H:i:s')], ['ids' => $stranka['ids']]);
+        $this->db->update('stranky', ['titulek' => $titulek, 'text' => \Kaleta\Core\Html::proUzivatele($r->post('text'), $this->app->auth()), 'zmeneno' => date('Y-m-d H:i:s')], ['ids' => $stranka['ids']]);
         \Kaleta\Admin\Protokol::zapis($this->app, 'stranky', 'úprava přímo na webu', mb_substr($titulek, 0, 80));
 
         return $this->zpetNaWeb($r->post('zpet'));
@@ -141,7 +141,7 @@ final class Stranky extends Modul
             'seo_titulek' => mb_substr(trim($r->post('seo_titulek')), 0, 200),
             'obrazek' => mb_substr(trim($r->post('obrazek')), 0, 255),
             'noindex' => (int) $r->postBool('noindex'),
-            'text' => $r->post('text'),
+            'text' => \Kaleta\Core\Html::proUzivatele($r->post('text'), $this->app->auth()),
             'zobrazit' => (int) $r->postBool('zobrazit'),
             'v_menu' => (int) $r->postBool('v_menu'),
             'poradi' => max(0, min(65535, $r->postInt('poradi', 100))),

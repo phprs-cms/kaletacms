@@ -321,4 +321,19 @@
 				.catch(function () { pole.value = puvodni; pole.classList.add('chyba'); });
 		});
 	});
+	// přihlášení se při otevřené administraci udržuje (jinak by po nečinnosti odeslání formuláře selhalo a rozepsaný text by se ztratil)
+	if (document.querySelector('form[method="post"]')) {
+		setInterval(function () {
+			if (document.visibilityState === 'visible') { fetch('admin.php?akce=token', { credentials: 'same-origin' }).catch(function () { /* bez spojení nic */ }); }
+		}, 10 * 60 * 1000);
+	}
+	// uložení potvrdila hláška o úspěchu: rozepsané kopie odeslaných formulářů (image/editor.js) už nejsou potřeba
+	if (document.querySelector('.hlaska-ok')) {
+		try {
+			Object.keys(localStorage).filter(function (k) { return k.indexOf('kaleta-koncept:') === 0; }).forEach(function (k) {
+				var d = JSON.parse(localStorage.getItem(k) || 'null');
+				if (d && d.odeslano && Date.now() - d.odeslano < 15 * 60 * 1000) { localStorage.removeItem(k); }
+			});
+		} catch (e) { /* úložiště nedostupné */ }
+	}
 })();

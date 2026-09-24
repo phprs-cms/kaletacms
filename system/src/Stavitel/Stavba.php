@@ -21,8 +21,8 @@ final class Stavba
     public const int MAX_HLOUBKA = 12;
     public const string VZOR_TRIDA = '/^[a-z][a-z0-9-]{0,40}(__[a-z0-9-]{1,30})?(--[a-z0-9-]{1,30})?$/';
 
-    /** Vlastní atributy prvku: jen neškodné (žádné on…, style, href, src). */
-    public const string VZOR_ATRIBUT = '/^(data-(?!ka-)[a-z0-9-]{1,30}|aria-[a-z]{2,20}|title|lang|role|rel)$/i';
+    /** Vlastní atributy prvku: jen neškodné (žádné on…, style, href, src, ani háčky skriptů webu jako data-vlozit – ty by šly zneužít). */
+    public const string VZOR_ATRIBUT = '/^(data-(?!ka-|(?:adresa|cast|formular|hotovo|karusel|konec|kopirovat|krok|obnovit|odeslano|odpocet|pocitadlo|samo|sdilet|tema|texty|titulek|vlozit|zalozky|zapnuto|zavrit|znovu)$)[a-z0-9-]{1,30}|aria-[a-z]{2,20}|title|lang|role|rel)$/i';
 
     /** Registr typů prvků (pořadí = pořadí v panelu Přidat). @var list<class-string<Prvek>> */
     public const array PRVKY = [
@@ -346,6 +346,8 @@ final class Stavba
             return $k->editor ? '<div data-ka-id="' . e((string) ($p['id'] ?? '')) . '" data-ka-typ="' . e($trida::TYP) . '" style="padding:1rem;border:2px dashed currentColor;opacity:.6">'
                 . e(t('%s – rozšíření je vypnuté, na webu se nezobrazí.', t($trida::NAZEV))) . '</div>' : '';
         }
+        // stavba uložená starší verzí nemusí mít vlastnosti, které prvek dostal později – doplní se výchozí hodnotou
+        $p['obsah'] = (is_array($p['obsah'] ?? null) ? $p['obsah'] : []) + array_map(fn (array $pole): mixed => $pole['vychozi'] ?? '', $trida::vlastnosti());
         $k->typy[$trida::TYP] = true;
         if ($k->polozka !== null) {
             $p['obsah'] = self::dosadPolozku($trida::vlastnosti(), $p['obsah'] ?? [], $k->polozka);

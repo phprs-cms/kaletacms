@@ -479,6 +479,11 @@ final class Nastroje
                 $data[$pole] = $max > 0 ? mb_substr((string) $a[$pole], 0, $max) : (string) $a[$pole];
             }
         }
+        foreach (['uvod', 'text'] as $pole) {
+            if (isset($data[$pole])) {
+                $data[$pole] = \Kaleta\Core\Html::proUzivatele($data[$pole], $this->app->auth());
+            }
+        }
         if (array_key_exists('kategorie', $a)) {
             $data['tema'] = $this->kategorie((string) $a['kategorie']);
             // novinka přebírá jazykovou verzi kategorie – stejně jako při uložení v administraci
@@ -543,6 +548,11 @@ final class Nastroje
         foreach (['titulek' => 200, 'text' => 0, 'popis' => 300, 'seo_titulek' => 200, 'obrazek' => 255] as $pole => $max) {
             if (array_key_exists($pole, $a)) {
                 $data[$pole] = $max > 0 ? mb_substr((string) $a[$pole], 0, $max) : (string) $a[$pole];
+            }
+        }
+        foreach (['uvod', 'text'] as $pole) {
+            if (isset($data[$pole])) {
+                $data[$pole] = \Kaleta\Core\Html::proUzivatele($data[$pole], $this->app->auth());
             }
         }
         foreach (['v_menu', 'zobrazit', 'noindex'] as $pole) {

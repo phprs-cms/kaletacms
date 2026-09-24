@@ -486,7 +486,9 @@
 			fetch(urlKonceptu, { method: 'POST', body: fd, credentials: 'same-origin' }).catch(function () { /* nic */ });
 		}
 		form.addEventListener('input', function () { clearTimeout(casovac); casovac = setTimeout(uloz, 1500); });
-		form.addEventListener('submit', function () { clearTimeout(casovac); try { localStorage.removeItem(klic); } catch (e) { /* nic */ } });
+		// při odeslání se kopie nemaže, jen označí: když uložení selže (vypršelé přihlášení, výpadek spojení), text zůstane k obnovení.
+		// Smaže se až po potvrzeném uložení (hláška o úspěchu, image/admin.js), nebo když se shoduje s uloženým obsahem.
+		form.addEventListener('submit', function () { clearTimeout(casovac); uloz(); try { var d = JSON.parse(localStorage.getItem(klic) || 'null'); if (d) { d.odeslano = Date.now(); localStorage.setItem(klic, JSON.stringify(d)); } } catch (e) { /* nic */ } });
 
 		var ulozene = null;
 		try { ulozene = JSON.parse(localStorage.getItem(klic) || 'null'); } catch (e) { /* nic */ }
@@ -497,7 +499,7 @@
 		if (jeZeServeru) { ulozene = zeServeru; }
 		if (!ulozene || !ulozene.pole || Date.now() - ulozene.cas > 14 * 86400000) { return; }
 		var lisiSe = pole.some(function (p) { return (p.tagName === 'TEXTAREA' || p.type === 'text') && ulozene.pole[p.name] !== undefined && ulozene.pole[p.name] !== p.value; });
-		if (!lisiSe) { return; }
+		if (!lisiSe) { if (!jeZeServeru) { try { localStorage.removeItem(klic); } catch (e) { /* nic */ } } return; }
 		var lista = document.createElement('p');
 		lista.className = 'hlaska';
 		lista.innerHTML = T(jeZeServeru ? 'Na serveru je neuložená rozepsaná verze z ' : 'V prohlížeči je neuložená rozepsaná verze z ') + new Date(ulozene.cas).toLocaleString(JAZYK) + '. <button type="button" class="navigace">' + T('Obnovit ji') + '</button> <button type="button" class="navigace">' + T('Zahodit') + '</button>';

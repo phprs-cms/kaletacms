@@ -245,8 +245,11 @@
 	document.addEventListener('click', function (e) {
 		var tl = e.target.closest && e.target.closest('[data-vlozit]');
 		if (!tl) { return; }
+		// jen přehrávače, které web sám vkládá (YouTube bez cookies, Vimeo) – nikdy jiná adresa ani javascript:
+		var adresa = tl.getAttribute('data-vlozit') || '';
+		if (!/^https:\/\/(www\.youtube-nocookie\.com\/embed\/|player\.vimeo\.com\/video\/)/.test(adresa)) { return; }
 		var ram = document.createElement('iframe');
-		ram.src = tl.getAttribute('data-vlozit');
+		ram.src = adresa;
 		ram.title = tl.getAttribute('data-titulek') || '';
 		ram.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
 		ram.allowFullscreen = true;

@@ -28,6 +28,8 @@ final class Session
             'samesite' => 'Lax',
         ]);
         ini_set('session.use_strict_mode', '1');
+        // přihlášení vydrží 8 hodin nečinnosti (administrace ho navíc při otevřené stránce udržuje, image/admin.js)
+        ini_set('session.gc_maxlifetime', '28800');
         session_start();
         $this->started = true;
     }

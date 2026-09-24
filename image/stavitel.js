@@ -336,6 +336,7 @@
 		doc.addEventListener('click', (e) => {
 			if (e.target.closest('[contenteditable]') || e.target.id === 'ka-st-uchyt') { return; }
 			e.preventDefault();
+			e.stopPropagation(); // na plátně se nespouští skripty stránky (přehrávač, okna, sdílení) – klepnutí jen vybírá
 			if (stav.umistovani) {
 				// přesun klepnutím (dotyk i myš): prvek dopadne před, za nebo dovnitř klepnutého prvku podle místa klepnutí
 				stav.tazeno = stav.umistovani;
@@ -1262,8 +1263,10 @@
 		return obal;
 	}
 
-	function polePolozky(def, polozky, zmena) {
+	function polePolozky(def, puvodni, zmena) {
 		const obal = el('div', { class: 'st-pole' }, el('span', {}, T(def.popisek)));
+		// pracuje se s kopií: každá změna (i přidání, odebrání a přesun) pak projde přes zmena → historie, uložení, překreslení plátna
+		const polozky = klon(Array.isArray(puvodni) ? puvodni : []);
 		const uloz = () => zmena(klon(polozky));
 		polozky.forEach((polozka, i) => {
 			const box = el('div', { class: 'st-polozka' });
@@ -1273,8 +1276,7 @@
 				if (!viditelne(d)) { return; }
 				box.append(pole(d, polozka[k], (h) => {
 					polozka[k] = h;
-					stav.zmeny = true;
-					naplanujUlozeni();
+					uloz();
 					if (Object.values(def.pole).some((jine) => jine.kdyz && k in jine.kdyz)) { prekresliPravy(); }
 				}));
 			});

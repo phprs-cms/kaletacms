@@ -157,8 +157,8 @@ final class Novinky extends Modul
         $data = [
             'titulek' => $r->post('titulek'),
             'seo_link' => slugify($r->post('seo_link') !== '' ? $r->post('seo_link') : $r->post('titulek'), 150),
-            'uvod' => $r->post('uvod'),
-            'text' => $r->post('text'),
+            'uvod' => \Kaleta\Core\Html::proUzivatele($r->post('uvod'), $this->app->auth()),
+            'text' => \Kaleta\Core\Html::proUzivatele($r->post('text'), $this->app->auth()),
             'obrazek' => $r->post('obrazek'),
             'obrazek_popis' => mb_substr(trim($r->post('obrazek_popis')), 0, 300),
             'obrazek_autor' => mb_substr(trim($r->post('obrazek_autor')), 0, 120),
@@ -241,7 +241,7 @@ final class Novinky extends Modul
         if ($novinka === null || ($novinka['visible'] && !$this->app->auth()->smiVydavat())) {
             return $this->zpetNaWeb($r->post('zpet'));
         }
-        $data = ['titulek' => mb_substr($r->post('titulek'), 0, 255), 'uvod' => $r->post('uvod'), 'text' => $r->post('text')];
+        $data = ['titulek' => mb_substr($r->post('titulek'), 0, 255), 'uvod' => \Kaleta\Core\Html::proUzivatele($r->post('uvod'), $this->app->auth()), 'text' => \Kaleta\Core\Html::proUzivatele($r->post('text'), $this->app->auth())];
         // nevydaná novinka je na webu vidět jen v náhledu
         $nahled = $novinka['visible'] && strtotime((string) $novinka['datum']) <= time() ? '' : 'nahled=1';
         if ($data['titulek'] === '') {

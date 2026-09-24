@@ -111,6 +111,10 @@ kod=$(curl -s -b "$JAR2" -o "$PRACE/odpoved" -w '%{http_code}' "$B/admin.php?mod
 [ "$kod" = 200 ] && ! grep -q "akce=edit&amp;id=$NOVINKA\"" "$PRACE/odpoved" && echo "  ok     autor nevidí cizí novinky" || { echo "  CHYBA  autor – výpis: kód $kod"; CHYB=$((CHYB+1)); }
 ocekavej "autor cizí novinku neotevře" "$(curl -s -b "$JAR2" -o /dev/null -w '%{http_code}' "$B/admin.php?modul=novinky&akce=edit&id=$NOVINKA")" 404
 ocekavej "autor nemá přístup ke stránkám" "$(curl -s -b "$JAR2" -o /dev/null -w '%{http_code}' "$B/admin.php?modul=stranky")" 403
+TOKEN2=$(curl -s -b "$JAR2" "$B/admin.php?modul=novinky&akce=novy" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//')
+curl -s -b "$JAR2" -c "$JAR2" -o /dev/null -X POST "$B/admin.php?modul=novinky&akce=uloz" -d "_csrf=$TOKEN2" -d idc=0 -d titulek=XSS-test -d tema=1 \
+  --data-urlencode 'uvod=<p onmouseover="alert(1)">Perex</p><script>alert(2)</script>' --data-urlencode 'text=<p><img src=x onerror=alert(3)><a href="javascript:alert(4)">odkaz</a></p>'
+ocekavej "autor nevloží do novinky skript" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(uvod, text) REGEXP 'script|onerror|onmouseover|javascript' FROM ka_novinky WHERE titulek = 'XSS-test'")" "0"
 
 echo "== firma"
 over "nastavení/firma" 200 "/admin.php?modul=config&zalozka=firma" 'name="firma_hodiny"'
