@@ -93,6 +93,7 @@ final class Styl
             'radial-gradient(circle at 25% 15%, var(--ka-barva-primarni-jemna), transparent 60%)' => 'záře v rohu',
             'linear-gradient(180deg, transparent, rgb(0 0 0 / 0.55))' => 'ztmavení dole (na fotku)',
         ]],
+        'paralaxa' => ['background-attachment', 'vyber', 'pozadi', 'Obrázek pozadí při posunu', ['fixed' => 'stojí (paralaxa)', 'scroll' => 'posouvá se s obsahem']],
         'prekryv' => ['--ka-prekryv', 'barva', 'pozadi', 'Překryv obrázku (barva)', null],
         'ramecek' => ['border', 'ramecek', 'pozadi', 'Rámeček', ['none' => 'žádný', '1px solid var(--ka-barva-linka)' => 'tenký', '2px solid currentColor' => 'výrazný', '2px solid var(--ka-barva-primarni)' => 'v hlavní barvě']],
         'linka_nahore' => ['border-block-start', 'vyber', 'pozadi', 'Linka nahoře', ['none' => 'žádná', '1px solid var(--ka-barva-linka)' => 'tenká', '2px solid var(--ka-barva-primarni)' => 'v hlavní barvě']],

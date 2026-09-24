@@ -30,7 +30,8 @@ final class Stavba
         Prvky\Nadpis::class, Prvky\Text::class, Prvky\Obrazek::class, Prvky\Tlacitko::class, Prvky\Seznam::class,
         Prvky\Citat::class, Prvky\Faq::class, Prvky\Video::class, Prvky\Oddelovac::class,
         Prvky\Ikona::class, Prvky\Galerie::class, Prvky\Zalozky::class, Prvky\Karusel::class, Prvky\Mapa::class, Prvky\Okno::class, Prvky\Drobecky::class,
-        Prvky\Novinky::class, Prvky\VypisKolekce::class, Prvky\Formular::class, Prvky\Komponenta::class, Prvky\Html::class,
+        Prvky\Pocitadlo::class, Prvky\Prubeh::class, Prvky\Hodnoceni::class, Prvky\Odpocet::class, Prvky\Socialni::class, Prvky\Hledani::class,
+        Prvky\Novinky::class, Prvky\VypisKolekce::class, Prvky\Formular::class, Prvky\Newsletter::class, Prvky\Komponenta::class, Prvky\Html::class, Prvky\Nahoru::class,
         Prvky\Logo::class, Prvky\Navigace::class, Prvky\Udaje::class, Prvky\ObsahStranky::class,
     ];
 
@@ -146,6 +147,24 @@ final class Stavba
                 }
                 if ($atributy !== []) {
                     $cisty['atributy'] = $atributy;
+                }
+            }
+            // podmínky zobrazení: jen pro přihlášené / nepřihlášené, od a do data (včetně)
+            if (is_array($p['podminky'] ?? null)) {
+                $podminky = [];
+                if (in_array($p['podminky']['prihlaseni'] ?? '', ['ano', 'ne'], true)) {
+                    $podminky['prihlaseni'] = $p['podminky']['prihlaseni'];
+                }
+                foreach (['od', 'do'] as $mez) {
+                    $datum = (string) ($p['podminky'][$mez] ?? '');
+                    if ($datum !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $datum) && strtotime($datum) !== false) {
+                        $podminky[$mez] = $datum;
+                    } elseif ($datum !== '') {
+                        $chyby[$misto . '.podminky'] = 'Datum podmínky zobrazení musí být ve tvaru RRRR-MM-DD.';
+                    }
+                }
+                if ($podminky !== []) {
+                    $cisty['podminky'] = $podminky;
                 }
             }
             if (($p['zamek'] ?? false) === true) {
@@ -294,11 +313,33 @@ final class Stavba
         return $html;
     }
 
+    /** @param array{prihlaseni?: string, od?: string, do?: string} $podminky */
+    public static function splnuje(array $podminky, Kontext $k): bool
+    {
+        $dnes = date('Y-m-d');
+        if (isset($podminky['od']) && $dnes < $podminky['od'] || isset($podminky['do']) && $dnes > $podminky['do']) {
+            return false;
+        }
+        if (isset($podminky['prihlaseni'])) {
+            $prihlaseny = $k->app->auth()->user() !== null;
+
+            return $podminky['prihlaseni'] === 'ano' ? $prihlaseny : !$prihlaseny;
+        }
+
+        return true;
+    }
+
     private static function vykresliPrvek(array $p, Kontext $k): string
     {
         $trida = self::trida((string) $p['typ']);
         if ($trida === null) {
             return '';
+        }
+        if (($p['podminky'] ?? []) !== [] && !$k->editor) {
+            $k->bezCache = true;
+            if (!self::splnuje($p['podminky'], $k)) {
+                return '';
+            }
         }
         if ($trida::ROZSIRENI !== '' && !\Kaleta\Core\Rozsireni::je($k->app->settings(), $trida::ROZSIRENI)) {
             // prvek vypnutého rozšíření (novinky, formulář): na webu nic, v editoru upozornění – stavba zůstává, po zapnutí se vrátí

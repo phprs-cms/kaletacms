@@ -24,6 +24,7 @@ final class Kernel
         Moduly\Novinky::class,
         Moduly\Kolekce::class,
         Moduly\Poptavky::class,
+        Moduly\Odberatele::class,
         Moduly\Kategorie::class,
         Moduly\Stitky::class,
         Moduly\Galerie::class,

@@ -135,14 +135,80 @@
 		e.preventDefault();
 		okno.showPopover();
 	});
+	// okno, které se otevře samo: po čase, po odrolování poloviny stránky nebo při odchodu (myš k liště prohlížeče);
+	// jednou za návštěvu (sessionStorage), jednou za týden nebo už nikdy (localStorage) – vždy jen v prohlížeči návštěvníka
 	document.querySelectorAll('[popover][data-samo]').forEach(function (okno) {
 		var klic = 'ka-okno-' + okno.id;
-		try { if (sessionStorage.getItem(klic)) { return; } } catch (chyba) { /* soukromý režim */ }
-		setTimeout(function () {
-			if (!okno.showPopover || document.querySelector(':popover-open')) { return; }
+		var znovu = okno.getAttribute('data-znovu') || 'relace';
+		var uloziste = function () { try { return znovu === 'relace' ? sessionStorage : localStorage; } catch (chyba) { return null; } };
+		try {
+			var bylo = uloziste() && uloziste().getItem(klic);
+			if (bylo && (znovu !== 'tyden' || Date.now() - parseInt(bylo, 10) < 7 * 864e5)) { return; }
+		} catch (chyba) { /* soukromý režim */ }
+		var hotovo = false;
+		var otevri = function () {
+			if (hotovo || !okno.showPopover || document.querySelector(':popover-open')) { return; }
+			hotovo = true;
 			okno.showPopover();
-			try { sessionStorage.setItem(klic, '1'); } catch (chyba) { /* soukromý režim */ }
-		}, parseInt(okno.getAttribute('data-samo'), 10) * 1000);
+			try { uloziste().setItem(klic, String(Date.now())); } catch (chyba) { /* soukromý režim */ }
+		};
+		var kdy = okno.getAttribute('data-samo');
+		if (kdy === 'posun') {
+			window.addEventListener('scroll', function () {
+				if (window.scrollY + window.innerHeight >= document.documentElement.scrollHeight / 2) { otevri(); }
+			}, { passive: true });
+		} else if (kdy === 'odchod') {
+			document.addEventListener('mouseout', function (e) { if (!e.relatedTarget && e.clientY <= 0) { otevri(); } });
+		} else {
+			setTimeout(otevri, parseInt(kdy, 10) * 1000);
+		}
+	});
+
+	/* ---------- počítadlo a odpočet ---------- */
+
+	var klidne = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+	var cisla = new Intl.NumberFormat(document.documentElement.lang || 'cs');
+	// počítadlo: číslo je v HTML hotové, při prvním objevení na obrazovce se jednou napočítá od nuly
+	document.querySelectorAll('[data-pocitadlo]').forEach(function (c) {
+		var cil = parseInt(c.getAttribute('data-pocitadlo'), 10);
+		if (klidne || !cil || !('IntersectionObserver' in window)) { return; }
+		var pozorovatel = new IntersectionObserver(function (zaznamy) {
+			if (!zaznamy[0].isIntersecting) { return; }
+			pozorovatel.disconnect();
+			var start = null;
+			var krok = function (t) {
+				start = start || t;
+				var podil = Math.min(1, (t - start) / 1400);
+				c.textContent = cisla.format(Math.round(cil * (1 - Math.pow(1 - podil, 3))));
+				if (podil < 1) { requestAnimationFrame(krok); }
+			};
+			requestAnimationFrame(krok);
+		}, { threshold: 0.6 });
+		c.textContent = '0';
+		pozorovatel.observe(c);
+	});
+	// odpočet: server vypsal stav v okamžiku vykreslení (stránka může být z cache), tady se dopočítává každou sekundu
+	document.querySelectorAll('[data-odpocet]').forEach(function (o) {
+		var cil = Date.parse(o.getAttribute('data-odpocet'));
+		var casti = {};
+		o.querySelectorAll('[data-cast]').forEach(function (d) { casti[d.getAttribute('data-cast')] = d; });
+		var dva = function (n) { return (n < 10 ? '0' : '') + n; };
+		var tik = function () {
+			var zbyva = Math.floor((cil - Date.now()) / 1000);
+			if (zbyva <= 0) {
+				var konec = document.createElement('p');
+				konec.className = 'ka-odpocet-konec';
+				konec.textContent = o.getAttribute('data-konec');
+				o.replaceWith(konec);
+				return;
+			}
+			casti.d.textContent = Math.floor(zbyva / 86400);
+			casti.h.textContent = dva(Math.floor(zbyva % 86400 / 3600));
+			casti.m.textContent = dva(Math.floor(zbyva % 3600 / 60));
+			casti.s.textContent = dva(zbyva % 60);
+			setTimeout(tik, 1000 - Date.now() % 1000);
+		};
+		if (!isNaN(cil) && casti.s) { tik(); }
 	});
 
 	/* ---------- formuláře: po chybě vrátit vyplněné hodnoty, po odeslání ohlásit konverzi ---------- */

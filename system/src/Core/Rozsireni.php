@@ -16,6 +16,7 @@ final class Rozsireni
     public const array SEZNAM = [
         'novinky' => ['Novinky', 'Aktuality a blog: výpis /novinky s kategoriemi a štítky, RSS, prvek Novinky ve staviteli a odkaz v automatickém menu.', true],
         'poptavky' => ['Formuláře a poptávky', 'Prvek Formulář ve staviteli a schránka Poptávky: odeslané dotazy se uloží, přijdou e-mailem a jdou předat kolegovi nebo do CRM.', true],
+        'newsletter' => ['Newsletter', 'Prvek Odběr novinek ve staviteli: návštěvník zadá e-mail a potvrdí ho odkazem (double opt-in). Seznam odběratelů vyexportujete do rozesílacího nástroje.', false],
         'statistika' => ['Statistika', 'Vlastní měření návštěvnosti bez cookies.', true],
         'presmerovani' => ['Přesměrování', 'Správa přesměrování 301 ze starých adres – po přechodu z jiného webu nezbytné.', true],
         'jazyky' => ['Jazykové verze webu', 'Web ve více jazycích: každá další verze (/en/…) má své stránky, kategorie a novinky, přepínač jazyků a značky hreflang. Jazyky vyberete v Nastavení → Základní.', false],

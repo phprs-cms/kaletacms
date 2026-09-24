@@ -43,6 +43,15 @@
 		mapa: '<path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20z"/><path d="M9 4v13.5M15 6.5V20"/>',
 		okno: '<rect x="3" y="4" width="18" height="16" rx="2"/><rect x="7" y="8" width="10" height="8" rx="1"/>',
 		drobecky: '<path d="M3 12h4M10 12h4M17 12h4"/><path d="m6 9 2 3-2 3M13 9l2 3-2 3"/>',
+		pocitadlo: '<path d="M4 17V7l3 3M11 7h4l-4 10h4M18 7v10"/>',
+		prubeh: '<rect x="3" y="6" width="18" height="4" rx="2"/><rect x="3" y="14" width="18" height="4" rx="2"/><path d="M5 8h10M5 16h6"/>',
+		hvezda: '<path d="m12 3.5 2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8l-5.2 2.8 1-5.8-4.3-4.1 5.9-.8z"/>',
+		odpocet: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2.5h6"/>',
+		socialni: '<circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="m8.2 10.8 7.6-3.6M8.2 13.2l7.6 3.6"/>',
+		hledat: '<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.4-4.4"/>',
+		'nahoru-prvek': '<circle cx="12" cy="12" r="9"/><path d="M12 16V8M8.5 11.5 12 8l3.5 3.5"/>',
+		newsletter: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/><path d="M16 15h3"/>',
+		napoveda: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01"/>',
 		presun: '<path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>',
 		nahoru: '<path d="m6 15 6-6 6 6"/>', dolu: '<path d="m6 9 6 6 6-6"/>', rodic: '<path d="M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-2"/>',
 		knihovna: '<path d="M4 5h4v14H4zM10 5h4v14h-4z"/><path d="m16 6 3.5-1 3 13.5-3.5 1z"/>',
@@ -59,7 +68,7 @@
 	const stav = {
 		stavba: D.stavba && Array.isArray(D.stavba.deti) ? D.stavba : { v: 1, deti: [] },
 		vybrane: null, bp: 'zaklad', stavPrvku: '', levo: 'pridat', pravo: 'obsah', zpet: [], vpred: [], posledniKlic: null, posledniCas: 0,
-		zmeny: !!D.zmeny, uklada: false, skryte: {}, casovac: null, verze: D.verze || '', ulozeno: '', pokusy: 0, prihlaseni: false, konflikt: false, vycistena: null, chyby: {}, sbalene: {}, trida: null, tazeny: null, tazeno: null, upravaNaPlatne: false, umistovani: null,
+		zmeny: !!D.zmeny, uklada: false, skryte: {}, casovac: null, verze: D.verze || '', ulozeno: '', pokusy: 0, prihlaseni: false, konflikt: false, vycistena: null, chyby: {}, sbalene: {}, trida: null, tazeny: null, tazeno: null, upravaNaPlatne: false, umistovani: null, lupa: '',
 	};
 
 	/* ---------- drobné pomůcky ---------- */
@@ -287,8 +296,10 @@
 		if (!frame || !ramec) { return; }
 		const w = ramec.clientWidth;
 		const h = ramec.clientHeight;
-		const sirka = stav.bp === 'zaklad' ? Math.max(w, SIRKY.zaklad) : SIRKY[stav.bp];
-		const m = Math.min(1, w / sirka);
+		// náhled: široký monitor (1920 px) jen u počítače; přiblížení pevně, jinak se plátno vejde do okna
+		const sirka = stav.bp === 'zaklad' ? (stav.lupa === '1920' ? 1920 : Math.max(w, SIRKY.zaklad)) : SIRKY[stav.bp];
+		const m = /^\d+$/.test(stav.lupa) && stav.lupa !== '1920' ? Number(stav.lupa) / 100 : Math.min(1, w / sirka);
+		ramec.classList.toggle('st-ramec-posun', m * sirka > w + 1);
 		frame.style.width = sirka + 'px';
 		frame.style.height = Math.round(h / m) + 'px';
 		frame.style.left = Math.max(0, Math.round((w - sirka * m) / 2)) + 'px';
@@ -645,6 +656,7 @@
 		else if (mod && e.key.toLowerCase() === 'c' && stav.vybrane) { kopiruj(); }
 		else if (mod && e.key.toLowerCase() === 'v') { vlozZeSchranky(); }
 		else if ((e.key === 'Delete' || e.key === 'Backspace') && stav.vybrane) { e.preventDefault(); smaz(stav.vybrane); }
+		else if (e.key === '?' && !mod) { e.preventDefault(); napoveda(); }
 		else if (e.key === 'Escape' && stav.umistovani) { const doc = nahled && nahled.contentDocument; if (doc) { ukazMisto(doc, null); } ukonciUmistovani(); }
 		else if (e.key === 'Escape' && stav.vybrane) { const n = najdi(stav.vybrane); vyber(n && n.rodic ? n.rodic.id : null); }
 	}
@@ -667,7 +679,7 @@
 	let podobaListy = '';
 	function prekresliListu() {
 		// lišta se staví znovu jen při změně toho, co ukazuje – překreslení pod kurzorem by „spolklo“ rozpracované klepnutí
-		const podoba = [stav.zmeny, stav.bp, stav.zpet.length > 0, stav.vpred.length > 0, D.stranka.publikovana].join();
+		const podoba = [stav.zmeny, stav.bp, stav.lupa, stav.zpet.length > 0, stav.vpred.length > 0, D.stranka.publikovana].join();
 		if (podoba === podobaListy && lista.childElementCount) { return; }
 		podobaListy = podoba;
 		const bpTl = Object.entries({ zaklad: 'pocitac', tablet: 'tablet', mobil: 'mobil' }).map(([bp, ik]) =>
@@ -676,12 +688,15 @@
 			el('a', { class: 'st-tl', href: D.zpet.adresa, title: D.zpet.text }, ikona('rodic'), el('span', { class: 'st-text' }, D.zpet.text)),
 			el('div', { class: 'st-nazev' }, el('strong', {}, D.stranka.titulek), el('small', {}, stav.zmeny ? T('rozpracovaný koncept – návštěvníci vidí publikovanou verzi') : T('beze změn proti webu'))),
 			el('div', { class: 'st-skupina', role: 'group', 'aria-label': T('Zařízení') }, bpTl),
+			el('select', { class: 'st-lupa', 'aria-label': T('Velikost náhledu'), title: T('Velikost náhledu'), onchange: (e) => { stav.lupa = e.target.value; rozmerNahledu(nahled); } },
+				[['', T('Vejít se')], ['1920', T('Široký monitor (1920 px)')], ['100', '100 %'], ['75', '75 %'], ['50', '50 %']].map(([k, n]) => el('option', { value: k, selected: stav.lupa === k }, n))),
 			el('div', { class: 'st-skupina', role: 'group', 'aria-label': T('Historie') },
 				el('button', { type: 'button', title: T('Zpět (Ctrl+Z)'), disabled: !stav.zpet.length, onclick: zpet }, ikona('zpet')),
 				el('button', { type: 'button', title: T('Znovu (Ctrl+Shift+Z)'), disabled: !stav.vpred.length, onclick: vpred }, ikona('vpred'))),
 			stavText,
 			el('button', { type: 'button', class: 'st-tl', title: T('Publikované verze'), onclick: dialogVerze }, ikona('verze'), el('span', { class: 'st-text' }, T('Verze'))),
 			el('a', { class: 'st-tl', href: D.stranka.adresa, target: '_blank', rel: 'noopener', title: T('Otevřít publikovanou stránku') }, ikona('oko')),
+			el('button', { type: 'button', class: 'st-tl', title: T('Nápověda a klávesové zkratky (?)'), 'aria-label': T('Nápověda'), onclick: napoveda }, ikona('napoveda')),
 			D.stranka.publikovana && stav.zmeny ? el('button', { type: 'button', class: 'st-tl', onclick: zahod }, T('Zahodit změny')) : null,
 			el('button', { type: 'button', class: 'st-tl st-tl-hlavni', disabled: !stav.zmeny && D.stranka.publikovana, onclick: publikujPoKontrole }, T('Publikovat')),
 		].filter(Boolean));
@@ -702,6 +717,7 @@
 				if (p.deti) { projdi(p.deti, vKomponente); }
 			});
 		})(stav.stavba.deti);
+		nalezy.push(...kontrolaKontrastu());
 		if (D.stranka.nadpisy) {
 			const h1 = nadpisy.filter((n) => n[1] === 1);
 			if (!h1.length) { nalezy.push([nadpisy[0] ? nadpisy[0][0] : null, T('Stránka nemá hlavní nadpis (h1) – vyhledávače i čtečky podle něj poznají, o čem je.')]); }
@@ -710,6 +726,83 @@
 		}
 		return nalezy;
 	}
+	/**
+	 * Kontrast textu na plátně (WCAG AA: 4,5 : 1, velký text 3 : 1): barva textu proti první neprůhledné ploše pod ním.
+	 * Barvy převádí prohlížeč (i oklch a color-mix) přes kreslicí plátno; prvek na obrázku pozadí se nehodnotí.
+	 */
+	function kontrolaKontrastu() {
+		const doc = nahled && nahled.contentDocument;
+		if (!doc) { return []; }
+		const c = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+		const rgb = (barva) => { c.clearRect(0, 0, 1, 1); c.fillStyle = '#000'; c.fillStyle = barva; c.fillRect(0, 0, 1, 1); return Array.from(c.getImageData(0, 0, 1, 1).data); };
+		const jas = ([r, g, b]) => [r, g, b].map((x) => { x /= 255; return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; }).reduce((s, x, i) => s + x * [0.2126, 0.7152, 0.0722][i], 0);
+		const nalezy = [];
+		const videne = new Set();
+		Array.from(doc.querySelectorAll('[data-ka-id]')).slice(0, 400).forEach((uzel) => {
+			const text = Array.from(uzel.childNodes).some((n) => n.nodeType === 3 && n.textContent.trim()) ? uzel : uzel.querySelector('h1,h2,h3,h4,p,li,a,span,strong');
+			if (!text || !text.textContent.trim()) { return; }
+			const id = uzel.getAttribute('data-ka-id');
+			if (videne.has(id)) { return; }
+			const styl = doc.defaultView.getComputedStyle(text);
+			let pod = text;
+			let pozadi = null;
+			while (pod && pod.nodeType === 1) {
+				const ps = doc.defaultView.getComputedStyle(pod);
+				if (ps.backgroundImage !== 'none') { return; }
+				const b = rgb(ps.backgroundColor);
+				if (ps.backgroundColor !== 'transparent' && ps.backgroundColor !== 'rgba(0, 0, 0, 0)') { pozadi = b; break; }
+				pod = pod.parentElement;
+			}
+			pozadi = pozadi || rgb(doc.defaultView.getComputedStyle(doc.body).backgroundColor);
+			const [l1, l2] = [jas(rgb(styl.color)), jas(pozadi)].sort((x, y) => y - x);
+			const pomer = (l1 + 0.05) / (l2 + 0.05);
+			const velky = parseFloat(styl.fontSize) >= 24 || (parseFloat(styl.fontSize) >= 18.66 && Number(styl.fontWeight) >= 700);
+			if (pomer < (velky ? 3 : 4.5)) {
+				videne.add(id);
+				nalezy.push([id, T('Text „%s“ má na svém pozadí slabý kontrast (%d : 1) – špatně se čte.').replace('%s', text.textContent.trim().slice(0, 30)).replace('%d', pomer.toFixed(1))]);
+			}
+		});
+		return nalezy.slice(0, 6);
+	}
+
+	/** Nápověda: klávesové zkratky a spuštění prohlídky editoru. */
+	function napoveda() {
+		const mod = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl';
+		const zkratky = [[mod + '+S', T('Uložit koncept')], [mod + '+Z / ' + mod + '+Shift+Z', T('Zpět / znovu')], [mod + '+D', T('Duplikovat vybraný prvek')],
+			[mod + '+C / ' + mod + '+V', T('Kopírovat a vložit prvek (i mezi stránkami)')], ['Delete', T('Smazat vybraný prvek')], ['Esc', T('Vybrat nadřazený prvek / zrušit přesun')],
+			[T('dvojklik'), T('Upravit text přímo na plátně')], ['↑ ↓ ← →', T('Pohyb ve Struktuře')], ['?', T('Tato nápověda')]];
+		const d = el('dialog', { class: 'st-dialog' },
+			el('div', {}, el('h2', {}, T('Klávesové zkratky')),
+				el('dl', { class: 'st-zkratky' }, zkratky.flatMap(([k, t]) => [el('dt', {}, el('kbd', {}, k)), el('dd', {}, t)]))),
+			el('footer', {}, el('button', { type: 'button', class: 'st-tl', onclick: () => { d.close(); prohlidka(0); } }, T('Prohlídka editoru')),
+				el('button', { type: 'button', class: 'st-tl st-tl-hlavni', onclick: () => d.close() }, T('Zavřít'))));
+		d.addEventListener('close', () => d.remove());
+		document.body.append(d);
+		d.showModal();
+	}
+
+	/** Úvodní prohlídka: čtyři zastávky se zvýrazněním části editoru. Poprvé se spustí sama, pak z nápovědy. */
+	function prohlidka(krok) {
+		const zastavky = [
+			[levy, T('Prvky a hotové sekce'), T('Vlevo vyberete prvek nebo celou hotovou sekci. Klepnutím ho vložíte za vybraný prvek, přetažením kamkoli na stránku. Záložka Struktura ukáže stavbu stránky jako strom.')],
+			[ramec, T('Stránka, jak ji uvidí návštěvník'), T('Klepnutím prvek vyberete, dvojklikem upravíte text. Nahoře přepnete náhled pro tablet a mobil – styl se pak mění jen pro danou šířku.')],
+			[pravy, T('Obsah, styl a pokročilé'), T('Vpravo měníte text, odkazy, barvy, rozestupy i chování vybraného prvku. Barvy a velikosti berte z nabídky – drží jednotný vzhled webu.')],
+			[lista, T('Ukládání a publikování'), T('Změny se ukládají samy jako koncept. Návštěvníci je uvidí až po Publikovat – předtím vás upozorníme na chybějící odkazy, popisky a slabý kontrast.')],
+		];
+		document.querySelectorAll('.st-zvyraznene').forEach((x) => x.classList.remove('st-zvyraznene'));
+		try { localStorage.setItem('ka-st-prohlidka', '1'); } catch (e) { /* soukromý režim */ }
+		if (krok >= zastavky.length) { return; }
+		const [cil, nadpis, text] = zastavky[krok];
+		cil.classList.add('st-zvyraznene');
+		const d = el('dialog', { class: 'st-dialog st-prohlidka' },
+			el('div', {}, el('small', {}, (krok + 1) + ' / ' + zastavky.length), el('h2', {}, nadpis), el('p', {}, text)),
+			el('footer', {}, el('button', { type: 'button', class: 'st-tl', onclick: () => { d.close(); prohlidka(zastavky.length); } }, T('Přeskočit')),
+				el('button', { type: 'button', class: 'st-tl st-tl-hlavni', onclick: () => { d.close(); prohlidka(krok + 1); } }, krok + 1 < zastavky.length ? T('Další') : T('Hotovo'))));
+		d.addEventListener('close', () => d.remove());
+		document.body.append(d);
+		d.show();
+	}
+
 	/** Před publikováním ukáže nálezy kontroly; publikovat jde i tak (jen upozornění). */
 	function publikujPoKontrole() {
 		const nalezy = kontrola();
@@ -1245,6 +1338,16 @@
 			el('span', {}, T('Upravujete: '), el('strong', {}, [{ hover: T('najetí myší a fokus'), aktivni: T('stisknutí') }[stav.stavPrvku], stav.stavPrvku && stav.bp === 'zaklad' ? '' : BP[stav.bp]].filter(Boolean).join(' · '))),
 			el('span', { class: 'st-skupina', role: 'group', 'aria-label': T('Stav prvku') }, [['', T('Běžný')], ['hover', T('Najetí')], ['aktivni', T('Stisk')]].map(([k, n]) =>
 				el('button', { type: 'button', class: 'st-tl', 'aria-pressed': String(stav.stavPrvku === k), title: k === 'hover' ? T('Najetí myší – platí i pro fokus z klávesnice') : null, onclick: () => { stav.stavPrvku = k; prekresliPravy(); } }, n)))));
+		// kopírování jen stylu (bez obsahu) mezi prvky i stránkami – drží ho prohlížeč
+		const schranka = () => { try { return JSON.parse(localStorage.getItem('ka-st-styl') || 'null'); } catch (e) { return null; } };
+		panel.append(el('div', { class: 'st-pole-radek st-styl-schranka' },
+			el('button', { type: 'button', class: 'st-tl', onclick: () => { try { localStorage.setItem('ka-st-styl', JSON.stringify({ styl: cil.styl, tridy: cil.tridy || [] })); nastavStav(T('Styl zkopírován.')); prekresliPravy(); } catch (e) { /* soukromý režim */ } } }, T('Kopírovat styl')),
+			el('button', { type: 'button', class: 'st-tl', disabled: !schranka() || ulozit, onclick: () => {
+				const v = schranka();
+				if (!v) { return; }
+				zmen(() => { cil.styl = JSON.parse(JSON.stringify(v.styl || {})); if (v.tridy && v.tridy.length) { cil.tridy = v.tridy.slice(); } else { delete cil.tridy; } });
+				prekresliPravy();
+			} }, T('Vložit styl'))));
 		if (s !== 'zaklad') { panel.append(el('p', { class: 'napoveda', style: 'margin:0 0 8px;font-size:12px;color:var(--text-slaby)' }, T('Prázdné pole = stejná hodnota jako na větší obrazovce (šedě).'))); }
 		const skupiny = {};
 		Object.entries(STYL).forEach(([klic, def]) => { (skupiny[def.skupina] = skupiny[def.skupina] || []).push([klic, def]); });
@@ -1397,6 +1500,15 @@
 				stav.chyby[stav.cestaVybraneho + '.css'] ? el('small', { class: 'st-chyba-pole' }, stav.chyby[stav.cestaVybraneho + '.css']) : null),
 			el('label', { class: 'st-pole' + (stav.chyby[stav.cestaVybraneho + '.atributy'] ? ' st-pole-chyba' : '') }, el('span', {}, T('Atributy (název=hodnota, na řádek; data-…, aria-…, title, lang, role, rel)')), atrPole,
 				stav.chyby[stav.cestaVybraneho + '.atributy'] ? el('small', { class: 'st-chyba-pole' }, stav.chyby[stav.cestaVybraneho + '.atributy']) : null));
+		const podm = p.podminky || {};
+		const nastavPodminku = (klic, h) => zmen(() => { p.podminky = Object.assign({}, p.podminky || {}); if (h) { p.podminky[klic] = h; } else { delete p.podminky[klic]; } if (!Object.keys(p.podminky).length) { delete p.podminky; } });
+		panel.append(el('h3', {}, T('Podmínky zobrazení')),
+			pole({ typ: 'vyber', popisek: 'Komu', moznosti: { '': 'všem', ne: 'jen návštěvníkům (nepřihlášeným)', ano: 'jen přihlášeným do administrace' } }, podm.prihlaseni || '', (h) => nastavPodminku('prihlaseni', h)),
+			el('div', { class: 'st-pole-radek' },
+				el('label', { class: 'st-pole' }, el('span', {}, T('Zobrazit od')), el('input', { type: 'date', value: podm.od || '', onchange: (e) => nastavPodminku('od', e.target.value) })),
+				el('label', { class: 'st-pole' }, el('span', {}, T('Zobrazit do (včetně)')), el('input', { type: 'date', value: podm.do || '', onchange: (e) => nastavPodminku('do', e.target.value) }))),
+			stav.chyby[stav.cestaVybraneho + '.podminky'] ? el('small', { class: 'st-chyba-pole' }, stav.chyby[stav.cestaVybraneho + '.podminky']) : null,
+			el('small', { style: 'color:var(--text-slaby)' }, T('Na plátně je prvek vidět vždy. Na webu se ukáže jen při splnění podmínek – třeba akční banner na týden.')));
 		panel.append(el('h3', {}, T('Viditelnost')),
 			el('label', { class: 'st-zaskrt' }, el('input', { type: 'checkbox', checked: ((p.styl || {}).mobil || {}).zobrazeni === 'none', onchange: (e) => zmen(() => {
 				p.styl = p.styl || {};
@@ -1471,6 +1583,7 @@
 	prekresli();
 	obnovNahled();
 	document.addEventListener('keydown', klavesy);
+	try { if (!localStorage.getItem('ka-st-prohlidka')) { setTimeout(() => prohlidka(0), 800); } } catch (e) { /* soukromý režim */ }
 	stav.ulozeno = JSON.stringify(stav.stavba);
 	koren.addEventListener('focusout', () => setTimeout(prevezmiVycistenou, 0));
 	window.addEventListener('focus', () => { if (stav.pokusy && neulozeno()) { (stav.prihlaseni ? obnovToken() : Promise.resolve()).then(uloz); } });

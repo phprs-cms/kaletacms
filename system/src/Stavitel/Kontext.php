@@ -12,6 +12,9 @@ use Kaleta\Core\App;
  */
 final class Kontext
 {
+    /** Stránka má prvek s podmínkou zobrazení – nesmí do cache stránek. */
+    public bool $bezCache = false;
+
     /** @var array<string, true> typy prvků na stránce */
     public array $typy = [];
 

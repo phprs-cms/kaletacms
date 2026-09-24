@@ -26,7 +26,8 @@ final class Okno extends Prvek
     public static function vlastnosti(): array
     {
         return [
-            'samo' => ['typ' => 'vyber', 'popisek' => 'Otevřít samo', 'vychozi' => '0', 'moznosti' => ['0' => 'ne, jen odkazem', '5' => 'po 5 s', '15' => 'po 15 s', '30' => 'po 30 s']],
+            'samo' => ['typ' => 'vyber', 'popisek' => 'Otevřít samo', 'vychozi' => '0', 'moznosti' => ['0' => 'ne, jen odkazem', '5' => 'po 5 s', '15' => 'po 15 s', '30' => 'po 30 s', 'posun' => 'po odrolování poloviny stránky', 'odchod' => 'když se návštěvník chystá odejít']],
+            'znovu' => ['typ' => 'vyber', 'popisek' => 'Samo znovu', 'vychozi' => 'relace', 'moznosti' => ['relace' => 'jednou za návštěvu', 'tyden' => 'jednou za týden', 'nikdy' => 'už nikdy (po zavření)']],
         ];
     }
 
@@ -68,6 +69,6 @@ final class Okno extends Prvek
         }
 
         return '<div' . Text::sTridou($a, 'ka-okno') . ' popover role="dialog"'
-            . ((int) $o['samo'] > 0 ? ' data-samo="' . (int) $o['samo'] . '"' : '') . '>' . $zavrit . $deti . '</div>';
+            . ($o['samo'] !== '0' ? ' data-samo="' . e($o['samo']) . '" data-znovu="' . e($o['znovu'] ?? 'relace') . '"' : '') . '>' . $zavrit . $deti . '</div>';
     }
 }

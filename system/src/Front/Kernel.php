@@ -174,6 +174,19 @@ final class Kernel
         if ($path === '/mcp') {
             return (new \Kaleta\Mcp\Server($this->app))->handle();
         }
+        if ($path === '/odber' && Rozsireni::je($this->app->settings(), 'newsletter')) {
+            $odber = new Odber($this->app);
+            if ($request->isPost()) {
+                $zpet = $request->post('zpet');
+                $zpet = preg_match('~^/[^\s\\\\?#]*$~', $zpet) && !str_starts_with($zpet, '//') ? $zpet : $this->app->url('');
+                $kotva = preg_match('/^[a-z0-9-]{1,60}$/', $request->post('kotva')) ? '#' . $request->post('kotva') : '';
+
+                return Response::redirect($zpet . '?odber=' . $odber->prihlas() . $kotva, 303);
+            }
+            [$nadpis, $text] = $odber->odkaz();
+
+            return $this->stranka($nadpis, '<header class="vypis-hlavicka"><h1>' . e($nadpis) . '</h1></header><p>' . e($text) . '</p><p><a href="' . e($this->app->url('')) . '">' . e(t('Zpět na úvod')) . '</a></p>', ['noindex' => true]);
+        }
         if ($path === '/formular' && Rozsireni::je($this->app->settings(), 'poptavky')) {
             return (new Formulare($this->app))->zpracuj();
         }
@@ -557,7 +570,7 @@ final class Kernel
             }
         }
 
-        return $this->stranka(t('Stránka nenalezena'), $this->view->render('nenalezeno', ['url' => $this->app->url(...), 'stranky' => $this->strankyMenu()]), ['noindex' => true, 'cast' => 'nenalezeno'], 404);
+        return $this->stranka(t('Stránka nenalezena'), $this->view->render('nenalezeno', ['url' => $this->app->url(...), 'stranky' => $this->strankyMenu(), 'novinky' => Rozsireni::je($this->app->settings(), 'novinky')]), ['noindex' => true, 'cast' => 'nenalezeno'], 404);
     }
 
     /**
@@ -810,11 +823,12 @@ final class Kernel
             'kanonicka' => $kanonicka,
         ]);
         $html = ObrazkyHtml::dopln($this->app->db(), $html); // rozměry a barva podkladu obrázků – méně poskakování stránky
-        // image/web.js jen na stránkách, které ho potřebují (galerie a fotky v textu, video, sdílení, záložky, karusel, okno, formulář)
-        if (!preg_match('/data-(vlozit|sdilet|kopirovat|zalozky|karusel|formular|odeslano)|popover role="dialog"|galerie|class="(?:text|perex)[" ][\s\S]*?<img|cookies-/', $html)) {
+        // image/web.js jen na stránkách, které ho potřebují (galerie a fotky v textu, video, sdílení, záložky, karusel, okno, formulář, počítadlo, odpočet)
+        if (!preg_match('/data-(vlozit|sdilet|kopirovat|zalozky|karusel|formular|odeslano|pocitadlo|odpocet)|popover role="dialog"|galerie|class="(?:text|perex)[" ][\s\S]*?<img|cookies-/', $html)) {
             $html = (string) preg_replace('#<script src="[^"]*/image/web\.js[^"]*"[^>]*></script>\n?#', '', $html);
         }
-        if ($status === 200 && empty($meta['noindex']) && $this->app->request->get('nahled') === '') {
+        // prvky s podmínkou zobrazení (datum, přihlášení) se skládají pokaždé znovu – cache by je ukazovala podle stavu v okamžiku uložení
+        if ($status === 200 && empty($meta['noindex']) && $this->app->request->get('nahled') === '' && !($this->kontext?->bezCache ?? false)) {
             Cache::uloz($this->app, $html, $novinka === null ? null : (int) $novinka['idc']);
         }
 

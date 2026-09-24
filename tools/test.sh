@@ -80,7 +80,7 @@ TOKEN=$(csrf)
 kod=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$TOKEN" -d user=admin -d password=spatne-heslo-123); ocekavej "špatné heslo odmítnuto" "$kod" 401
 kod=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d user=admin --data-urlencode "password=$HESLO"); ocekavej "POST bez CSRF odmítnut" "$kod" 400
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN" -d user=admin --data-urlencode "password=$HESLO"
-"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('rozsireni','novinky,poptavky,statistika,presmerovani,asistent,jazyky,api,claude') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('rozsireni','novinky,poptavky,newsletter,statistika,presmerovani,asistent,jazyky,api,claude') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
 over "přehled" 200 /admin.php "Přehled"
 for m in stranky "stranky&akce=novy" poptavky casti komponenty "komponenty&akce=novy" kolekce "kolekce&akce=novy" novinky "novinky&akce=novy" "novinky&akce=odkazy" kategorie "kategorie&akce=novy" stitky intergal stat vzhled users "users&akce=novy" presmerovani protokol prenos rozsireni; do over "modul $m" 200 "/admin.php?modul=$m"; done
 over "uživatelé se shrnutím oprávnění" 200 "/admin.php?modul=users" "Smí všechno"
@@ -550,6 +550,41 @@ for vzor in 'class="ka-drobecky"' 'aria-current="page">Z HTML' 'class="ka-ikona 
   grep -qF -- "$vzor" "$PRACE/odpoved" || { echo "  CHYBA  nový prvek na webu: chybí $vzor"; CHYB=$((CHYB+1)); }
 done
 grep -q '"BreadcrumbList"' "$PRACE/odpoved" && ! grep -q '"FAQPage"' "$PRACE/odpoved" && echo "  ok     nové prvky na webu, drobečky i pro vyhledávače, akordeon bez FAQPage" || { echo "  CHYBA  strukturovaná data stránky"; CHYB=$((CHYB+1)); }
+
+echo "== další prvky: počítadlo, průběh, hodnocení, odpočet, sítě, hledání, nahoru, odběr, podmínky"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('soc_instagram','https://instagram.com/firma') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
+mcp stavba_uloz "{\"id\":$IDZ,\"publikovat\":true,\"stavba\":{\"v\":1,\"deti\":[{\"typ\":\"sekce\",\"obsah\":{\"video\":\"media/2026/01/pozadi.mp4\"},\"deti\":[
+{\"typ\":\"pocitadlo\",\"obsah\":{\"cislo\":1200,\"za\":\"+\"}},
+{\"typ\":\"prubeh\",\"obsah\":{\"polozky\":[{\"nazev\":\"Termíny\",\"hodnota\":96}]}},
+{\"typ\":\"hodnoceni\",\"obsah\":{\"hodnota\":\"4,5\"}},
+{\"typ\":\"odpocet\",\"obsah\":{\"cil\":\"2099-01-01 09:00\"}},
+{\"typ\":\"socialni\"},{\"typ\":\"hledani\"},{\"typ\":\"nahoru\"},{\"typ\":\"newsletter\"},
+{\"typ\":\"nadpis\",\"obsah\":{\"text\":\"Jen pro redakci\"},\"podminky\":{\"prihlaseni\":\"ano\"}},
+{\"typ\":\"nadpis\",\"obsah\":{\"text\":\"Stará akce\"},\"podminky\":{\"do\":\"2000-01-01\"}},
+{\"typ\":\"video\",\"obsah\":{\"url\":\"media/2026/01/film.mp4\",\"plakat\":\"media/2026/01/plakat.jpg\"}}
+]}]}}" > "$PRACE/odpoved"
+grep -q 'chyby\\": \[\]' "$PRACE/odpoved" && echo "  ok     další prvky projdou validátorem" || { echo "  CHYBA  validace dalších prvků"; head -c 600 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+rm -f "$PRACE"/web/storage/cache/stranky/*.html
+curl -s -o "$PRACE/odpoved" "$B/z-html"
+for vzor in 'data-pocitadlo="1200">1' '<meter min="0" max="100"' 'aria-label="Hodnocení 4,5 z 5' 'data-odpocet="2099-01-01T09:00' 'class="ka-socialni"' 'aria-label="Instagram"' 'role="search"' 'class="ka-nahoru"' 'class="ka-newsletter"' 'name="as_podpis"' 'class="ka-video-pozadi"' 'poster="/media/2026/01/plakat.jpg"' 'image/web.js'; do
+  grep -qF -- "$vzor" "$PRACE/odpoved" || { echo "  CHYBA  další prvek na webu: chybí $vzor"; CHYB=$((CHYB+1)); }
+done
+! grep -q 'Jen pro redakci\|Stará akce' "$PRACE/odpoved" && echo "  ok     podmínky zobrazení skryjí prvek nepřihlášenému i po datu" || { echo "  CHYBA  podmínky zobrazení"; CHYB=$((CHYB+1)); }
+curl -s -o /dev/null "$B/z-html"; ls "$PRACE"/web/storage/cache/stranky/*.html >/dev/null 2>&1 && { echo "  CHYBA  stránka s podmínkou zobrazení šla do cache"; CHYB=$((CHYB+1)); } || echo "  ok     stránka s podmínkou zobrazení se necachuje"
+curl -s -b "$JAR" -o "$PRACE/odpoved" "$B/z-html"; grep -q 'Jen pro redakci' "$PRACE/odpoved" && echo "  ok     přihlášený vidí prvek jen pro redakci" || { echo "  CHYBA  prvek pro přihlášené"; CHYB=$((CHYB+1)); }
+curl -s -o "$PRACE/odpoved" "$B/z-html"
+NL=$(tr '\n' ' ' < "$PRACE/odpoved" | grep -o 'class="ka-newsletter".*' | sed 's#</form>.*##')
+PODPIS=$(echo "$NL" | grep -o 'name="as_podpis" value="[^"]*"' | head -1 | sed 's/.*value="//;s/"//'); CAS=$(echo "$NL" | grep -o 'name="as_cas" value="[^"]*"' | head -1 | sed 's/.*value="//;s/"//')
+sleep 5
+kod=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -X POST "$B/odber" -d "email=Odber@Example.cz" -d zpet=/z-html -d kotva=x -d "as_podpis=$PODPIS" -d "as_cas=$CAS" -d web_adresa=)
+case "$kod" in "303 "*"/z-html?odber=ok#x") echo "  ok     přihlášení k odběru";; *) echo "  CHYBA  přihlášení k odběru: $kod"; CHYB=$((CHYB+1));; esac
+TOKO=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT token FROM ka_odberatele WHERE email = 'odber@example.cz' AND stav = 0")
+over "potvrzení odběru odkazem" 200 "/odber?potvrdit=$TOKO" "Odběr je potvrzený"
+ocekavej "odběratel je potvrzený" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT stav FROM ka_odberatele WHERE email = 'odber@example.cz'")" "1"
+over "odběratelé v administraci" 200 "/admin.php?modul=odberatele" "odber@example.cz"
+curl -s -b "$JAR" -o "$PRACE/odpoved" "$B/admin.php?modul=odberatele&akce=csv"; grep -q "odber@example.cz;.*odber?odhlasit=$TOKO" "$PRACE/odpoved" && echo "  ok     export odběratelů s odkazem na odhlášení" || { echo "  CHYBA  export odběratelů"; head -3 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+over "odhlášení odkazem" 200 "/odber?odhlasit=$TOKO" "Odhlášeno"
+ocekavej "odhlášený je smazaný" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_odberatele")" "0"
 
 echo "== vypnutá rozšíření Novinky a Formuláře a poptávky"
 ROZ=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna='rozsireni'")
