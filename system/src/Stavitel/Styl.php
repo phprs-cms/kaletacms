@@ -180,6 +180,88 @@ final class Styl
         };
     }
 
+    /**
+     * CSS deklarace jako vlastnosti stylu (převod <style> z HTML na stavy třídy – breakpointy a najetí). Tokeny se vrátí
+     * jako klíče („var(--ka-mezera-l)“ → „l“), zkratky padding/margin se rozloží. Co ve stylu obdobu nemá, vrátí null.
+     *
+     * @return array<string, string>|null klíč stylu => hodnota
+     */
+    public static function zCss(string $vlastnost, string $hodnota): ?array
+    {
+        $vlastnost = strtolower(trim($vlastnost));
+        $hodnota = trim((string) preg_replace('/\s*!important$/i', '', trim($hodnota)));
+        $token = static fn (string $h): string => (string) preg_replace_callback('/var\(--ka-(mezera|krok|zaobleni|stin|barva)-([a-z0-9-]{1,20})\)/',
+            static fn (array $m): string => match ($m[1]) {
+                'mezera' => isset(DesignSystem::MEZERY[$m[2]]) ? $m[2] : $m[0],
+                'krok' => in_array($m[2], DesignSystem::KROKY, true) ? $m[2] : $m[0],
+                'zaobleni' => isset(DesignSystem::ZAOBLENI[$m[2]]) ? (string) $m[2] : $m[0],
+                'stin' => isset(DesignSystem::STINY[$m[2]]) ? $m[2] : $m[0],
+                default => isset(DesignSystem::TOKENY_BAREV[$m[2]]) ? $m[2] : $m[0],
+            }, $h);
+        $dvojice = static function (string $h): ?array {
+            $casti = preg_split('/\s+/', trim($h)) ?: [];
+
+            return match (count($casti)) {
+                1 => [$casti[0], $casti[0]],
+                2 => [$casti[0], $casti[1]],
+                3 => $casti[0] === $casti[2] ? [$casti[0], $casti[1]] : null,
+                4 => $casti[0] === $casti[2] && $casti[1] === $casti[3] ? [$casti[0], $casti[1]] : null,
+                default => null,
+            };
+        };
+        if (in_array($vlastnost, ['padding', 'margin'], true)) {
+            $par = $dvojice($token($hodnota));
+            if ($par === null) {
+                return null;
+            }
+            $klice = $vlastnost === 'padding' ? ['odsazeni_y', 'odsazeni_x'] : null;
+            if ($klice === null) {
+                $vysledek = [];
+                foreach (['okraj_nahore' => $par[0], 'okraj_dole' => $par[0], 'okraj_vlevo' => $par[1], 'okraj_vpravo' => $par[1]] as $k => $h) {
+                    if ($h === 'auto' && str_starts_with($k, 'okraj_v')) {
+                        $vysledek['na_stred'] = 'auto';
+                        continue;
+                    }
+                    if (self::hodnota($k, $h) === null) {
+                        return null;
+                    }
+                    $vysledek[$k] = $h;
+                }
+
+                return $vysledek;
+            }
+
+            return self::hodnota($klice[0], $par[0]) !== null && self::hodnota($klice[1], $par[1]) !== null ? [$klice[0] => $par[0], $klice[1] => $par[1]] : null;
+        }
+        $hodnota = $token($hodnota);
+        if ($vlastnost === 'transform') {
+            // posun a zvětšení (efekt najetí) mají ve stylu vlastní vlastnosti translate a scale
+            $hodnota = match (true) {
+                (bool) preg_match('/^translateY\(([^()]+)\)$/', $hodnota, $m) => '0 ' . trim($m[1]),
+                (bool) preg_match('/^translate\(([^(),]+),\s*([^(),]+)\)$/', $hodnota, $m) => trim($m[1]) . ' ' . trim($m[2]),
+                (bool) preg_match('/^scale\(([\d.]+)\)$/', $hodnota, $m) => $m[1],
+                default => '',
+            };
+            $vlastnost = str_contains($hodnota, ' ') ? 'translate' : 'scale';
+        }
+        if ($vlastnost === 'grid-template-columns') {
+            if (preg_match('/^repeat\(\s*([1-9]|1[0-2])\s*,\s*(minmax\(0,\s*1fr\)|1fr)\s*\)$/', $hodnota, $m)) {
+                $hodnota = $m[1];
+            } elseif (preg_match('/^repeat\(\s*auto-(fit|fill)\s*,\s*minmax\(\s*(?:min\(100%,\s*)?(\d{1,3}(?:\.\d{1,2})?(?:rem|px|ch))\)?\s*,\s*1fr\s*\)\s*\)$/', $hodnota, $m)) {
+                $hodnota = 'auto:' . $m[2];
+            } elseif (preg_match('/^1fr$/', $hodnota)) {
+                $hodnota = '1';
+            }
+        }
+        foreach (self::VLASTNOSTI as $klic => [$css]) {
+            if ($css === $vlastnost && self::hodnota($klic, $hodnota) !== null) {
+                return [$klic => $hodnota];
+            }
+        }
+
+        return null;
+    }
+
     /** Barva: token design systému, nebo bezpečně zapsaná vlastní barva. */
     public static function barva(string $hodnota): ?string
     {

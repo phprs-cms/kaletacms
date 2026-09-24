@@ -98,7 +98,9 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   nikdy z požadavku. Ochrana `Core\Antispam` (podpis času, honeypot, limit na IP) – bez cookies, stránka zůstává v cache. Výsledek jen jako kód
   v adrese (`?formular=<id>&vysledek=ok|pole|limit|overeni`), text hlášení nikdy z adresy. Poptávky v `ka_poptavky` (admin `Moduly\Poptavky`,
   CSV, samy se mažou po `poptavky_mesice`), upozornění přes `Posta::odesli` s Reply-To návštěvníka.
-- **HTML → stavba** (`Stavitel\ZHtml`, MCP `stavba_z_html`): sémantické HTML + `<style>` s pravidly jedné třídy → prvky a třídy; co převést nejde, se nahlásí.
+- **HTML → stavba** (`Stavitel\ZHtml`, MCP `stavba_z_html`): sémantické HTML + `<style>` s pravidly jedné třídy → prvky a třídy; `.trida:hover` a `@media (max-width: 1023px|767px)`
+  se převedou na stavy třídy (`Styl::zCss` – deklarace s obdobou ve stylu builderu). Prvek se stylovanou třídou nedostane výchozí styl typu (vrstva `prvky` je
+  v kaskádě za `tridy` a přebila by ji). Co převést nejde (mobile-first `min-width`, složité selektory), se nahlásí.
 
 ## Obsah a služby
 
@@ -112,9 +114,13 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   uvnitř se pracuje s tvarem Claude API a `zavolej()` ho převádí (`naOpenAi`/`zOpenAi`). V builderu `navrhniSekci()` (HTML → `ZHtml::doWebu`) a `prepis()`.
   Klíč `ai_klic` je typ `tajne`; odpověď modelu je nedůvěryhodný vstup. Překlad (`Asistent::preloz()`) bere od modelu
   jen text úseků, značky z originálu; výsledek je vždy koncept. Adresa API jen konstantou `KALETA_AI_URL` v `config.php`.
-- **MCP** (`Mcp\Server`, `Mcp\Nastroje`, `/mcp`, token z Můj účet): stránky (i builder: `stavba_schema`, `stavba_z_html`, `stavba_nacti`, `stavba_uloz`,
-  `vloz_sekci`, `publikuj_stavbu`), design systém (`uprav_design_system`, správce), novinky, kategorie, média a VLASTNÍ šablony. Nová novinka je koncept,
-  nová stránka skrytá; vydat/zveřejnit jen na výslovný pokyn a s právem. **Hranice (bezpečí na prvním místě):** žádný nástroj nesmí zapisovat mimo obsah
+- **MCP** (`Mcp\Server`, `Mcp\Nastroje`, `/mcp`, OAuth nebo token z Můj účet) je hlavní cesta, jak se na Kaletě stavějí weby – co jde v editoru, musí jít i tady:
+  stránky (i builder: `stavba_schema` – stručný přehled `Stavba::prehled`, `stavba_z_html`, `stavba_nacti` – `Stavba::kompaktni`, `stavba_uloz`, `stavba_uprav` –
+  dílčí operace `Stavitel\Upravy`, `vloz_sekci`, `publikuj_stavbu`, `nahled_odkaz`), třídy (`seznam_trid`, `uloz_tridy`), design systém, média
+  (`nahraj_soubor` přes `Obrazky::ulozSoubor` / `Soubory::ulozSoubor` / `Galerie::ulozSvgObsah`), nastavení (`uprav_nastaveni` – jen klíče z `NASTAVENI_MCP`,
+  validace `Konfigurace::overHodnotu`), přesměrování, koš stránek, novinky, kategorie a VLASTNÍ šablony. Výstup je kompaktní JSON bez výchozích hodnot.
+  Zápis stavby vrací podepsaný náhled (`Core\Nahled`, `?stavba=koncept&nahled_klic=`, HMAC `tajny_klic`, jen jeden cíl, omezená platnost). Nová novinka
+  je koncept, nová stránka skrytá; vydat/zveřejnit jen na výslovný pokyn a s právem. **Hranice (bezpečí na prvním místě):** žádný nástroj nesmí zapisovat mimo obsah
   a `layout/<vlastní>/`, spouštět kód ani dotaz; PHP šablon ukládaných přes MCP projde `Core\SablonaKontrola`. Pravidla pro Claude v souborech: `layout/CLAUDE.md`.
 - **Přihlášení:** hesla `password_hash`, TOTP, passkeys (`Core\Passkey`, jen jako náhrada kódu u účtu s TOTP), obnova hesla `Admin\ObnovaHesla`.
 

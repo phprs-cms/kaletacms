@@ -27,6 +27,12 @@ use Kaleta\Stavitel\ZHtml;
  */
 final class Nastroje
 {
+    /** Největší soubor nahraný přes MCP (base64 v jednom volání nástroje). */
+    private const int MAX_NAHRANI = 12 * 1024 * 1024;
+
+    /** Nastavení, která smí MCP měnit (ostatní – e-mail, webhooky, 2FA, pošta, zálohy – jen v administraci). */
+    private const string NASTAVENI_MCP = '/^(nazev_webu|popis_webu|text_paticky|titulni_stranka|soc_(facebook|instagram|x|youtube|linkedin)|pocet_clanku|sdileni|osnova_clanku|souvisejici_auto|firma_[a-z]+|(nazev|popis)_webu_[a-z]{2})$/';
+
     /** Šablony dodávané se systémem - přepsala by je aktualizace, proto se upravují jen jejich kopie. */
     private const array VESTAVENE_SABLONY = ['zakladni'];
 
@@ -67,11 +73,23 @@ final class Nastroje
             ['uprav_stranku', 'Změní zadaná pole stránky; ostatní ponechá.', $s(['id' => $cislo('ID stránky')] + $stranka, ['id'])],
             ['nacti_menu', 'Menu webu (hlavní nebo v patičce) pro jazykovou verzi: položky s podmenu a jestli se hlavní menu zatím skládá automaticky ze stránek „v menu“.',
                 $s(['umisteni' => $text('hlavni (výchozí) | paticka'), 'jazyk' => $text('jazyková verze (prázdné = výchozí)')])],
-            ['uloz_menu', 'Uloží celé menu (správce). Položky: {"typ":"stranka","ids":5,"text":""} (prázdný text = název stránky) | {"typ":"odkaz","text":"…","url":"https://… nebo /cesta","nove_okno":false} | {"typ":"novinky"} | {"typ":"skupina","text":"Služby"} – každá může mít "deti" (jedna úroveň podmenu). null = hlavní menu zase automaticky.',
+            ['uloz_menu', 'Uloží celé menu (správce). Položky: {"typ":"stranka","ids":5,"text":""} (prázdný text = název stránky) | {"typ":"odkaz","text":"…","url":"https://… nebo /cesta","nove_okno":false} | {"typ":"novinky"} | {"typ":"skupina","text":"Služby"} – každá může mít "deti" (jedna úroveň podmenu). null = hlavní menu zase automaticky. Menu nemá koncept – projeví se na webu hned; skrytá stránka se v něm ukáže až po zveřejnění.',
                 $s(['umisteni' => $text('hlavni | paticka'), 'jazyk' => $text('jazyková verze (prázdné = výchozí)'), 'polozky' => ['type' => ['array', 'null'], 'items' => ['type' => 'object'], 'description' => 'položky menu']], ['umisteni', 'polozky'])],
-            ['stavba_schema', 'Jak se skládá stránka v builderu: typy prvků a jejich pole, vlastnosti stylu, tokeny design systému (barvy, mezery, písmo), hotové sekce knihovny a sdílené třídy webu. Načti před prvním použitím nástrojů stavba_*.', $s([])],
-            ['stavba_nacti', 'Stavba stránky nebo části webu (strom prvků) – rozpracovaný koncept, jinak publikovaná verze. Stránka bez stavby vrátí stavbu z jejího textu.', $s($cil)],
-            ['stavba_z_html', 'DOPORUČENÁ CESTA pro novou stránku nebo sekce: napiš sémantické HTML (section/header, h1–h3, p, ul, a, img, figure, blockquote, details) a vzhled do bloku <style> jako pravidla jedné třídy (.karta { … }) s tokeny var(--ka-…). Převede se na stavbu a třídy; vrátí hlášení, co převést nešlo. Uloží se jako koncept.',
+            ['stavba_schema', 'Jak se skládá stránka v builderu: typy prvků a jejich pole, vlastnosti stylu, tokeny design systému (barvy, mezery, písmo), hotové sekce knihovny a sdílené třídy webu. Načti před prvním použitím nástrojů stavba_*. Vrací stručný přehled (prvek na řádek); úplné definice vybraných prvků přes parametr prvky.',
+                $s(['prvky' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'typy prvků, pro které chceš úplnou definici (popisky polí, výchozí děti), např. ["formular","karusel"]'],
+                    'uplne' => ['type' => 'boolean', 'description' => 'true = celé schéma se všemi popisky (velké)']])],
+            ['stavba_nacti', 'Stavba stránky nebo části webu (strom prvků s id) – rozpracovaný koncept, jinak publikovaná verze. Vynechává výchozí hodnoty. Stránka bez stavby vrátí stavbu z jejího textu.', $s($cil)],
+            ['stavba_uprav', 'Dílčí úpravy konceptu podle id prvků (id ze stavba_nacti) – oprava textu, odkazu nebo stylu bez posílání celé stavby. Operace: '
+                . '{"op":"uprav","id":"…","obsah":{…},"styl":{"mobil":{"mezera":"s"}},"tridy":[…]} (obsah a styl se slučují, null hodnotu odebere) | {"op":"nahrad","id":"…","prvek":{…}} | {"op":"smaz","id":"…"} | '
+                . '{"op":"vloz","prvky":[…],"do":"id rodiče nebo null = kořen","pozice":0 | "za":"id" | "pred":"id"} | {"op":"presun","id":"…","do":…,"za":…}.',
+                $s($cil + ['operace' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => 'seznam operací, provedou se postupně'],
+                    'publikovat' => ['type' => 'boolean', 'description' => 'true = publikovat (jen na výslovný pokyn uživatele)']], ['operace'])],
+            ['seznam_trid', 'Sdílené třídy webu (karta, tmava…) s jejich stylem po stavech a vlastním CSS. Třídu dostane prvek v poli "tridy".', $s(['nazev' => $text('jen tahle třída (nepovinné)')])],
+            ['uloz_tridy', 'Založí nebo změní sdílené třídy (správce) – změna se hned projeví na celém webu. Zadej CSS jako v bloku <style>: pravidla jedné třídy (.karta { … }), '
+                . '.karta:hover { … } a @media (max-width: 1023px) = tablet, (max-width: 767px) = mobil. Tokeny var(--ka-…), i přepis tokenů v třídě (--ka-barva-text: #fff) pro tmavé pásy.',
+                $s(['css' => $text('pravidla tříd'), 'smazat' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'názvy tříd ke smazání']])],
+            ['stavba_z_html', 'DOPORUČENÁ CESTA pro novou stránku nebo sekce: napiš sémantické HTML (section/header, h1–h3, p, ul, a, img, figure, blockquote, details) a vzhled do bloku <style> jako pravidla jedné třídy (.karta { … }, .karta:hover { … }) s tokeny var(--ka-…); '
+                . 'breakpointy od desktopu dolů: @media (max-width: 1023px) = tablet, @media (max-width: 767px) = mobil. Prvek s třídou z <style> nedostane výchozí styl – rozložení (display:grid, gap) patří do třídy. Převede se na stavbu a třídy; vrátí hlášení, co převést nešlo. Uloží se jako koncept.',
                 $s(['html' => $text('HTML obsahu (bez <html>/<head>); <style> smí být uvnitř. Záhlaví a patičku skládej z prvků logo, navigace a udaje přes stavba_uloz – HTML je nepřevede.'), 'id' => $cislo('ID stránky; bez něj (a bez cast) vznikne nová skrytá stránka s názvem z parametru titulek'), 'cast' => $cil['cast'], 'jazyk' => $cil['jazyk'], 'titulek' => $text('Název nové stránky (když není id)'),
                     'rezim' => $text('nahradit (výchozí) = celá stavba z HTML | pridat = sekce na konec stávající stavby'), 'prepsat_tridy' => ['type' => 'boolean', 'description' => 'true = třídy, které už na webu jsou, se přepíšou stylem z <style>; jinak zůstanou'],
                     'publikovat' => ['type' => 'boolean', 'description' => 'true = hned publikovat (jen na výslovný pokyn uživatele); jinak koncept k náhledu']], ['html'])],
@@ -101,7 +119,20 @@ final class Nastroje
             ['uprav_novinku', 'Změní zadaná pole novinky; ostatní ponechá. Předchozí verze se uloží do historie.', $s(['id' => $cislo('ID novinky')] + $novinka, ['id'])],
             ['seznam_kategorii', 'Kategorie novinek s počty.', $s([])],
             ['vytvor_kategorii', 'Založí kategorii novinek (editor a správce).', $s(['nazev' => $text('Název'), 'popis' => $text('Popis (HTML)')], ['nazev'])],
-            ['seznam_medii', 'Naposledy nahrané obrázky s adresami a rozměry.', $s(['limit' => $cislo('1-50, výchozí 20')])],
+            ['seznam_medii', 'Naposledy nahrané obrázky a soubory s adresami a rozměry.', $s(['limit' => $cislo('1-50, výchozí 20'), 'hledat' => $text('text v názvu (nepovinné)')])],
+            ['nahraj_soubor', 'Nahraje soubor do Médií: obrázek (JPG, PNG, WebP, GIF – zmenší se a dostane WebP/AVIF varianty), SVG (vyčistí se), písmo WOFF2 pro design system nebo přílohu (PDF…). '
+                . 'Zadej data v base64 (nejvýš ' . (self::MAX_NAHRANI >> 20) . ' MB), nebo url veřejného obrázku. Vrátí adresu pro prvek obrázek, obrazek_pozadi nebo vlastni_pisma.',
+                $s(['nazev' => $text('název souboru s příponou, např. tym-praha.jpg'), 'data' => $text('obsah souboru v base64'), 'url' => $text('https adresa obrázku ke stažení (místo data)'),
+                    'popis' => $text('popis obrázku pro nevidomé (alt); jinak z názvu')], ['nazev'])],
+            ['nahled_odkaz', 'Podepsaný odkaz na náhled konceptu stránky nebo části webu – otevře ho kdokoli i bez přihlášení (uživatel, kolega, prohlížeč), platí jen pro tenhle cíl a jen omezenou dobu. Vyhledávače ho neindexují.',
+                $s($cil + ['minut' => $cislo('platnost v minutách, výchozí 60, nejvýš ' . \Kaleta\Core\Nahled::MAX_MINUT)])],
+            ['uprav_nastaveni', 'Změní nastavení webu (správce) – hned se projeví na webu. Klíče: nazev_webu, popis_webu, text_paticky, titulni_stranka (ID úvodní stránky), soc_facebook|instagram|x|youtube|linkedin (URL), '
+                . 'pocet_clanku, sdileni, osnova_clanku, souvisejici_auto (1/0), údaje firmy firma_nazev, firma_typ, firma_ico, firma_dic, firma_ulice, firma_mesto, firma_psc, firma_zeme (CZ), firma_telefon, firma_hodiny (den na řádek), firma_mapa, firma_gps; nazev_webu_en… pro jazykové verze. Bez parametru vrátí současné hodnoty.',
+                $s(['nastaveni' => ['type' => 'object', 'description' => '{"klic":"hodnota"}']])],
+            ['seznam_presmerovani', 'Přesměrování starých adres (rozšíření Přesměrování) a nejčastější adresy, které skončily chybou 404.', $s([])],
+            ['uloz_presmerovani', 'Přidá nebo změní přesměrování (správce): ze staré cesty na webu na novou cestu nebo https adresu. Typ 301 = natrvalo (výchozí), 302 = dočasně.',
+                $s(['z' => $text('stará cesta, např. /docs nebo /o-nas'), 'na' => $text('nová cesta (/guide) nebo https://…'), 'typ' => $cislo('301 nebo 302'), 'smazat' => ['type' => 'boolean', 'description' => 'true = přesměrování ze staré cesty smazat']], ['z'])],
+            ['smaz_stranku', 'Přesune stránku do koše (jen na výslovný pokyn uživatele; editor nebo správce). Z koše jde 30 dní obnovit v administraci. Úvodní stránku smazat nejde.', $s(['id' => $cislo('ID stránky')], ['id'])],
             ['seznam_sablon', 'Šablony webu (layouty), která je aktivní a které jdou upravovat (správce).', $s([])],
             ['vytvor_sablonu', 'Zkopíruje existující šablonu pod novým názvem, aby se dala upravovat (správce).', $s(['nazev' => $text('složka nové šablony: malá písmena, číslice, pomlčky'), 'podle' => $text('zdrojová šablona, výchozí ' . Layouty::VYCHOZI), 'popisny_nazev' => $text('název pro výběr ve Vzhledu')], ['nazev'])],
             ['nacti_soubor_sablony', 'Přečte soubor šablony (base.php, novinka.php, vypis.php, stranka.php, style.css, info.php…).', $s(['sablona' => $text('složka šablony'), 'soubor' => $text('název souboru; bez něj vrátí seznam souborů')], ['sablona'])],
@@ -121,7 +152,7 @@ final class Nastroje
 
     public function meni(string $nazev): bool
     {
-        return in_array($nazev, ['vytvor_kolekci', 'uloz_polozku_kolekce', 'stavba_z_html', 'stavba_uloz', 'vloz_sekci', 'publikuj_stavbu', 'uprav_design_system', 'vytvor_stranku', 'uprav_stranku', 'vytvor_novinku', 'uprav_novinku', 'vytvor_kategorii', 'uloz_menu', 'vytvor_sablonu', 'uloz_soubor_sablony', 'aktivuj_sablonu'], true);
+        return in_array($nazev, ['vytvor_kolekci', 'uloz_polozku_kolekce', 'stavba_z_html', 'stavba_uloz', 'stavba_uprav', 'uloz_tridy', 'nahraj_soubor', 'uprav_nastaveni', 'uloz_presmerovani', 'smaz_stranku', 'vloz_sekci', 'publikuj_stavbu', 'uprav_design_system', 'vytvor_stranku', 'uprav_stranku', 'vytvor_novinku', 'uprav_novinku', 'vytvor_kategorii', 'uloz_menu', 'vytvor_sablonu', 'uloz_soubor_sablony', 'aktivuj_sablonu'], true);
     }
 
     /** @param array<string, mixed> $a */
@@ -186,11 +217,18 @@ final class Nastroje
                     'stranky' => $db->all('SELECT ids, titulek, zobrazit FROM {stranky} WHERE jazyk = ? AND smazano IS NULL ORDER BY poradi, titulek', [$jazykMenu])];
 
             case 'stavba_schema':
-                return Stavba::schema($auth->isAdmin(), Jazyk::vychozi($web), $auth->isAdmin(), \Kaleta\Core\Rozsireni::zapnuta($web)) + [
+                $schema = Stavba::schema($auth->isAdmin(), Jazyk::vychozi($web), $auth->isAdmin(), \Kaleta\Core\Rozsireni::zapnuta($web));
+                $vybrane = is_array($a['prvky'] ?? null) ? array_values(array_filter($schema['prvky'], fn (array $p): bool => in_array($p['typ'], $a['prvky'], true))) : [];
+                if ($vybrane !== [] && empty($a['uplne'])) {
+                    return ['prvky' => $vybrane];
+                }
+
+                return (empty($a['uplne']) ? Stavba::prehled($schema) : $schema) + [
                     'komponenty' => array_map(fn (array $k): array => ['id' => (string) $k['idm'], 'nazev' => $k['nazev'], 'vlastnosti' => $k['vlastnosti']], \Kaleta\Stavitel\Komponenty::vsechny($db))
                         + ['pozn' => 'Použití: {"typ":"komponenta","obsah":{"komponenta":"<id>","hodnoty":{"<klic>":"hodnota"}}}; prázdná hodnota = výchozí.'],
                     'casti_webu' => array_map(fn (array $t): string => $t[0] . ' – ' . $t[1], Casti::TYPY) + ['pozn' => 'Prvky ze skupiny „Části webu“ (logo, navigace, udaje, obsah) patří jen do částí; obálka (novinka, vypis, nenalezeno) musí obsahovat právě jeden prvek „obsah“.'],
-                    'knihovna' => Knihovna::seznam(\Kaleta\Core\Rozsireni::zapnuta($web)),
+                    'knihovna' => empty($a['uplne']) ? array_column(array_map(fn (array $k): array => ['klic' => $k['klic'], 'popis' => $k['nazev'] . ' – ' . $k['popis']], Knihovna::seznam(\Kaleta\Core\Rozsireni::zapnuta($web))), 'popis', 'klic')
+                        : Knihovna::seznam(\Kaleta\Core\Rozsireni::zapnuta($web)),
                     'tridy_webu' => array_column($db->all('SELECT nazev FROM {tridy} ORDER BY nazev'), 'nazev'),
                     'design_system' => DesignSystem::nacti($web) + ['predvolby' => array_map(fn (array $p): string => $p[0] . ' – ' . $p[1], DesignSystem::PREDVOLBY),
                         'pisma_titulku' => array_keys(Identita::PISMA_TITULKU), 'pisma_textu' => array_keys(Identita::PISMA_TEXTU)],
@@ -201,7 +239,38 @@ final class Nastroje
                 $cil = $this->cilStavby($a);
 
                 return $this->popisCile($cil) + ['publikovana' => $cil['stavba'] !== null,
-                    'neulozene_zmeny' => $cil['koncept'] !== null && $cil['koncept'] !== $cil['stavba'], 'stavba' => $this->stavbaCile($cil)];
+                    'neulozene_zmeny' => $cil['koncept'] !== null && $cil['koncept'] !== $cil['stavba'], 'stavba' => Stavba::kompaktni($this->stavbaCile($cil))];
+
+            case 'stavba_uprav':
+                $cil = $this->cilStavby($a);
+                $chybyOperaci = [];
+                $stavba = \Kaleta\Stavitel\Upravy::proved($this->stavbaCile($cil), is_array($a['operace'] ?? null) ? $a['operace'] : [], $chybyOperaci);
+
+                return $this->ulozStavbu($cil, $stavba, !empty($a['publikovat'])) + ['chyby_operaci' => $chybyOperaci];
+
+            case 'seznam_trid':
+                $radky = isset($a['nazev']) ? $db->all('SELECT nazev, styl, css FROM {tridy} WHERE nazev = ?', [(string) $a['nazev']]) : $db->all('SELECT nazev, styl, css FROM {tridy} ORDER BY nazev');
+
+                return array_map(fn (array $r): array => ['nazev' => $r['nazev'], 'styl' => json_decode((string) $r['styl'], true) ?: new \stdClass(), 'css' => (string) $r['css']], $radky);
+
+            case 'uloz_tridy':
+                $jenAdmin();
+                $prevod = ZHtml::preved('<style>' . str_ireplace('</style', '', (string) ($a['css'] ?? '')) . '</style>', true);
+                $ulozeno = [];
+                foreach (array_unique(array_merge(array_keys($prevod['tridy']), array_keys($prevod['tridy_styl']))) as $trida) {
+                    $db->run('INSERT INTO {tridy} (nazev, styl, css, zmeneno) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE styl = VALUES(styl), css = VALUES(css), zmeneno = NOW()',
+                        [$trida, (string) json_encode($prevod['tridy_styl'][$trida] ?? new \stdClass(), JSON_UNESCAPED_UNICODE), $prevod['tridy'][$trida] ?? '']);
+                    $ulozeno[] = $trida;
+                }
+                $smazano = [];
+                foreach (is_array($a['smazat'] ?? null) ? $a['smazat'] : [] as $trida) {
+                    if (is_string($trida) && $db->delete('tridy', ['nazev' => $trida]) > 0) {
+                        $smazano[] = $trida;
+                    }
+                }
+                \Kaleta\Front\Cache::vymaz();
+
+                return ['ulozeno' => $ulozeno, 'smazano' => $smazano, 'hlaseni' => $prevod['hlaseni']];
 
             case 'stavba_z_html':
                 $cil = $this->cilStavby($a, true);
@@ -393,8 +462,96 @@ final class Nastroje
                 return ['id' => $db->insert('kategorie', ['nazev' => $jmeno, 'seo_link' => $seo, 'popis' => (string) ($a['popis'] ?? '')]), 'adresa' => $seo];
 
             case 'seznam_medii':
-                return array_map(fn (array $o): array => ['id' => (int) $o['ido'], 'nazev' => $o['nazev'], 'adresa' => $this->app->url($o['obr_poloha']), 'rozmery' => $o['obr_width'] . '×' . $o['obr_height']],
-                    $db->all('SELECT * FROM {media} ORDER BY ido DESC LIMIT ?', [max(1, min(50, (int) ($a['limit'] ?? 20)))]));
+                $hledat = is_string($a['hledat'] ?? null) && trim($a['hledat']) !== '' ? '%' . addcslashes(trim($a['hledat']), '%_\\') . '%' : null;
+
+                return array_map(fn (array $o): array => $this->medium($o),
+                    $db->all('SELECT * FROM {media}' . ($hledat !== null ? ' WHERE nazev LIKE ? OR obr_poloha LIKE ?' : '') . ' ORDER BY ido DESC LIMIT ?',
+                        [...($hledat !== null ? [$hledat, $hledat] : []), max(1, min(50, (int) ($a['limit'] ?? 20)))]));
+
+            case 'nahraj_soubor':
+                return $this->nahrajSoubor($a);
+
+            case 'nahled_odkaz':
+                $cil = $this->cilStavby($a);
+                $podpis = $cil['druh'] === 'stranka' ? 'stranka:' . (int) $cil['radek']['ids'] : 'cast:' . $cil['radek']['typ'] . ':' . $cil['radek']['jazyk'];
+                $klic = \Kaleta\Core\Nahled::klic($db, $web, $podpis, (int) ($a['minut'] ?? 60));
+                $adresa = $this->adresaCile($cil);
+
+                return $this->popisCile($cil) + ['nahled' => $adresa . '?' . ($cil['druh'] === 'cast' ? 'cast=' . $cil['radek']['typ'] . '&' : '') . 'stavba=koncept&nahled_klic=' . $klic,
+                    'plati_do' => date('Y-m-d H:i', (int) explode('.', $klic)[0])];
+
+            case 'uprav_nastaveni':
+                $jenAdmin();
+                $zmeny = is_array($a['nastaveni'] ?? null) ? $a['nastaveni'] : [];
+                $ulozeno = [];
+                $chyby = [];
+                foreach ($zmeny as $klic => $hodnota) {
+                    $klic = (string) $klic;
+                    $cista = preg_match(self::NASTAVENI_MCP, $klic) && is_scalar($hodnota) ? \Kaleta\Admin\Moduly\Konfigurace::overHodnotu($klic, is_bool($hodnota) ? ($hodnota ? '1' : '0') : (string) $hodnota) : null;
+                    if ($cista !== null && $klic === 'titulni_stranka' && (int) $cista > 0
+                        && $db->value('SELECT ids FROM {stranky} WHERE ids = ? AND zobrazit = 1 AND smazano IS NULL', [(int) $cista]) === null) {
+                        $chyby[$klic] = 'Úvodní stránkou může být jen zveřejněná stránka.';
+                        continue;
+                    }
+                    if ($cista === null) {
+                        $chyby[$klic] = preg_match(self::NASTAVENI_MCP, $klic) ? 'Neplatná hodnota.' : 'Tohle nastavení přes MCP měnit nejde (jen v administraci).';
+                        continue;
+                    }
+                    $web->set($klic, $cista);
+                    $ulozeno[$klic] = $cista;
+                }
+                if ($ulozeno !== []) {
+                    \Kaleta\Front\Cache::vymaz();
+                }
+                $aktualni = [];
+                foreach (['nazev_webu', 'popis_webu', 'text_paticky', 'titulni_stranka', 'soc_facebook', 'soc_instagram', 'soc_x', 'soc_youtube', 'soc_linkedin', 'pocet_clanku',
+                    'firma_nazev', 'firma_typ', 'firma_ico', 'firma_dic', 'firma_ulice', 'firma_mesto', 'firma_psc', 'firma_zeme', 'firma_telefon', 'firma_hodiny', 'firma_mapa', 'firma_gps'] as $klic) {
+                    $aktualni[$klic] = $web->get($klic);
+                }
+
+                return ['ulozeno' => $ulozeno ?: new \stdClass(), 'chyby' => $chyby ?: new \stdClass(), 'nastaveni' => $aktualni];
+
+            case 'seznam_presmerovani':
+            case 'uloz_presmerovani':
+                if (!\Kaleta\Core\Rozsireni::je($web, 'presmerovani')) {
+                    throw new \DomainException('Rozšíření Přesměrování je vypnuté (Rozšíření v administraci).');
+                }
+                if ($nazev === 'uloz_presmerovani') {
+                    $jenAdmin();
+                    $z = trim((string) parse_url((string) ($a['z'] ?? ''), PHP_URL_PATH), '/ ');
+                    $na = trim((string) ($a['na'] ?? ''));
+                    if ($z === '' || !preg_match('#^[A-Za-z0-9/._~%-]{1,250}$#', $z)) {
+                        throw new \InvalidArgumentException('Stará cesta musí být cesta na tomto webu, např. /stara-stranka.');
+                    }
+                    if (!empty($a['smazat'])) {
+                        $db->delete('presmerovani', ['z_adresy' => $z]);
+                    } else {
+                        if (!preg_match('#^https?://[^\s]{3,240}$#i', $na) && !preg_match('#^/?[^\s:]{0,250}$#', $na)) {
+                            throw new \InvalidArgumentException('Nová adresa musí být cesta (/nova) nebo https://… adresa.');
+                        }
+                        $na = preg_match('#^https?://#i', $na) ? $na : trim($na, '/');
+                        \Kaleta\Admin\Moduly\Presmerovani::pridej($db, $z, $na);
+                        $db->run('UPDATE {presmerovani} SET typ = ? WHERE z_adresy = ?', [(int) ($a['typ'] ?? 301) === 302 ? 302 : 301, $z]);
+                        $db->delete('nenalezeno', ['cesta' => $z]);
+                    }
+                    \Kaleta\Front\Cache::vymaz();
+                }
+
+                return ['presmerovani' => $db->all('SELECT z_adresy AS z, na_adresu AS na, typ, pocet FROM {presmerovani} ORDER BY z_adresy LIMIT 500'),
+                    'nenalezeno' => $db->all('SELECT cesta, pocet, naposledy FROM {nenalezeno} ORDER BY pocet DESC LIMIT 30')];
+
+            case 'smaz_stranku':
+                if (!$auth->smiVydavat()) {
+                    throw new \DomainException('Stránku smí smazat editor nebo správce.');
+                }
+                $stranka = $this->stranka((int) ($a['id'] ?? 0));
+                if ((int) $stranka['ids'] === $web->int('titulni_stranka')) {
+                    throw new \DomainException('Úvodní stránku smazat nejde – nejdřív nastav jinou (uprav_nastaveni → titulni_stranka).');
+                }
+                $db->run('UPDATE {stranky} SET smazano = NOW(), zobrazit = 0 WHERE ids = ? AND smazano IS NULL', [(int) $stranka['ids']]);
+                \Kaleta\Front\Cache::vymaz();
+
+                return ['id' => (int) $stranka['ids'], 'stav' => 'v koši – obnovit jde 30 dní v administraci (Stránky → Koš)'];
 
             case 'seznam_sablon':
                 $jenAdmin();
@@ -705,7 +862,8 @@ final class Nastroje
         $parametry = $cil['druh'] === 'stranka' ? 'modul=stranky&akce=stavitel&id=' . (int) $r['ids'] : 'modul=casti&akce=stavitel&typ=' . $r['typ'] . '&jazyk=' . $r['jazyk'];
 
         return $this->popisCile($cil) + ['stav' => $publikovat ? 'publikováno' : 'koncept – na webu se ukáže po publikování', 'prvku' => $this->pocetPrvku($stavba['deti']),
-            'chyby' => $chyby, 'nahled' => $publikovat ? $adresa : $adresa . ($cil['druh'] === 'stranka' ? '?stavba=koncept' : '?cast=' . $r['typ'] . '&stavba=koncept'),
+            'chyby' => $chyby, 'nahled' => $publikovat ? $adresa : $adresa . ($cil['druh'] === 'stranka' ? '?stavba=koncept' : '?cast=' . $r['typ'] . '&stavba=koncept')
+                . '&nahled_klic=' . \Kaleta\Core\Nahled::klic($db, $this->app->settings(), $cil['druh'] === 'stranka' ? 'stranka:' . (int) $r['ids'] : 'cast:' . $r['typ'] . ':' . $r['jazyk'], 60),
             'stavitel' => $this->app->request->origin() . $this->app->url('admin.php?' . $parametry)];
     }
 
@@ -732,6 +890,65 @@ final class Nastroje
         return array_sum(array_map(fn (array $p): int => 1 + $this->pocetPrvku($p['deti'] ?? []), $deti));
     }
 
+
+    /** Médium pro výstup MCP: adresa pro stavbu (media/…), rozměry a jestli jde o obrázek. */
+    private function medium(array $o): array
+    {
+        return ['id' => (int) $o['ido'], 'nazev' => $o['nazev'], 'adresa' => $o['obr_poloha'], 'url' => $this->app->request->origin() . $this->app->url($o['obr_poloha']),
+            'obrazek' => $o['nahl_poloha'] !== '', 'rozmery' => $o['nahl_poloha'] !== '' ? $o['obr_width'] . '×' . $o['obr_height'] : null];
+    }
+
+    /** @return array<string, mixed> */
+    private function nahrajSoubor(array $a): array
+    {
+        $jmeno = basename(str_replace('\\', '/', trim((string) ($a['nazev'] ?? ''))));
+        $pripona = strtolower(pathinfo($jmeno, PATHINFO_EXTENSION));
+        if ($pripona === '') {
+            throw new \InvalidArgumentException('Název souboru musí mít příponu (např. foto.jpg, logo.svg, pismo.woff2).');
+        }
+        if (is_string($a['url'] ?? null) && $a['url'] !== '') {
+            $url = trim($a['url']);
+            if (!str_starts_with(strtolower($url), 'https://')) {
+                throw new \InvalidArgumentException('Stahovat jde jen z https adresy.');
+            }
+            try {
+                $obsah = (new \Kaleta\Core\StahovaniObrazku($url))->stahni($url);
+            } catch (\RuntimeException $e) {
+                throw new \InvalidArgumentException('Obrázek se nepodařilo stáhnout: ' . $e->getMessage());
+            }
+        } else {
+            $obsah = base64_decode(preg_replace('#^data:[^,]*,#', '', (string) ($a['data'] ?? '')) ?? '', true);
+            if ($obsah === false || $obsah === '') {
+                throw new \InvalidArgumentException('Chybí data souboru v base64 (parametr data), nebo url.');
+            }
+        }
+        if (strlen($obsah) > self::MAX_NAHRANI) {
+            throw new \InvalidArgumentException('Soubor je větší než ' . (self::MAX_NAHRANI >> 20) . ' MB.');
+        }
+        $docasny = tempnam(sys_get_temp_dir(), 'kaleta-mcp-');
+        file_put_contents($docasny, $obsah);
+        try {
+            $data = match (true) {
+                $pripona === 'svg' => Galerie::ulozSvgObsah($obsah, $jmeno),
+                \Kaleta\Core\Soubory::jePriloha($jmeno) => \Kaleta\Core\Soubory::ulozSoubor($docasny, $jmeno),
+                default => \Kaleta\Core\Obrazky::ulozSoubor($docasny, $jmeno),
+            };
+        } catch (\RuntimeException $e) {
+            throw new \InvalidArgumentException($e->getMessage());
+        } finally {
+            @unlink($docasny);
+        }
+        if (is_string($a['popis'] ?? null) && trim($a['popis']) !== '') {
+            $data['nazev'] = mb_substr(trim($a['popis']), 0, 150);
+        }
+        $data['ido'] = $this->app->db()->insert('media', $data + ['vlastnik' => $this->app->auth()->id(), 'sekce' => null, 'datum' => date('Y-m-d H:i:s')]);
+
+        return $this->medium($data) + ['pouziti' => match (true) {
+            $pripona === 'woff2' || $pripona === 'woff' => 'uprav_design_system {"ds":{"vlastni_pisma":[{"nazev":"…","soubor":"' . $data['obr_poloha'] . '"}],"pismo_titulky":"vlastni-1"}}',
+            $data['nahl_poloha'] !== '' => 'prvek obrazek {"src":"' . $data['obr_poloha'] . '"} nebo styl obrazek_pozadi',
+            default => 'odkaz na soubor: /' . $data['obr_poloha'],
+        }];
+    }
 
     /** @return array<string, mixed> */
     private function kolekce(string $seo): array

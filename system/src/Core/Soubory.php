@@ -34,8 +34,28 @@ final class Soubory
                 default => 'Soubor se nepodařilo nahrát.',
             });
         }
-        $tmp = (string) $file['tmp_name'];
-        $pripona = strtolower(pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION));
+
+        return self::zpracuj((string) $file['tmp_name'], (string) ($file['name'] ?? ''), true);
+    }
+
+    /**
+     * Příloha ze souboru, který už je na disku (MCP, import) – zdroj zůstane, uloží se kopie.
+     *
+     * @return array{obr_poloha:string, obr_width:int, obr_height:int, obr_vel:int, nahl_poloha:string, nahl_width:int, nahl_height:int, nazev:string}
+     */
+    public static function ulozSoubor(string $cesta, string $jmeno): array
+    {
+        if (!is_file($cesta)) {
+            throw new \RuntimeException('Soubor se nepodařilo nahrát.');
+        }
+
+        return self::zpracuj($cesta, $jmeno, false);
+    }
+
+    /** @return array{obr_poloha:string, obr_width:int, obr_height:int, obr_vel:int, nahl_poloha:string, nahl_width:int, nahl_height:int, nazev:string} */
+    private static function zpracuj(string $tmp, string $jmeno, bool $nahrany): array
+    {
+        $pripona = strtolower(pathinfo($jmeno, PATHINFO_EXTENSION));
         if (!in_array($pripona, self::PRIPONY, true)) {
             throw new \RuntimeException('Tento typ souboru nahrát nejde. Povolené jsou obrázky a přílohy: ' . implode(', ', self::PRIPONY) . '.');
         }
@@ -47,9 +67,9 @@ final class Soubory
         if (!is_dir(KALETA_ROOT . '/' . $slozka) && !mkdir(KALETA_ROOT . '/' . $slozka, 0775, true)) {
             throw new \RuntimeException('Nelze vytvořit složku ' . $slozka . ' - zkontrolujte práva k zápisu.');
         }
-        $nazev = pathinfo((string) $file['name'], PATHINFO_FILENAME);
+        $nazev = pathinfo($jmeno, PATHINFO_FILENAME);
         $cil = $slozka . '/' . slugify($nazev, 60) . '-' . bin2hex(random_bytes(3)) . '.' . $pripona;
-        if (!move_uploaded_file($tmp, KALETA_ROOT . '/' . $cil)) {
+        if (!($nahrany ? move_uploaded_file($tmp, KALETA_ROOT . '/' . $cil) : copy($tmp, KALETA_ROOT . '/' . $cil))) {
             throw new \RuntimeException('Soubor se nepodařilo uložit.');
         }
 

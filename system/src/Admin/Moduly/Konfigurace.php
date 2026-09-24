@@ -375,6 +375,26 @@ class Konfigurace extends Modul
     }
 
     /** @return string|null vyčištěná hodnota, null = neplatná */
+    /**
+     * Hodnota nastavení ověřená stejně jako ve formuláři administrace (pro MCP). null = neznámý klíč nebo neplatná hodnota.
+     * Přepínače (typ ano) berou 1/0, true/false.
+     */
+    public static function overHodnotu(string $klic, string $hodnota): ?string
+    {
+        $typ = null;
+        foreach (self::POLE as $pole) {
+            $typ ??= $pole[$klic] ?? null;
+        }
+        if ($typ === null && preg_match('/^(nazev|popis)_webu_([a-z]{2})$/', $klic, $m)) {
+            $typ = $m[1] === 'nazev' ? 'text' : 'radky';
+        }
+        if ($typ === null || str_starts_with($typ, 'tajne') || str_starts_with($typ, 'seznam')) {
+            return null;
+        }
+
+        return self::vycisti($typ, trim($hodnota), in_array(strtolower(trim($hodnota)), ['1', 'true', 'ano'], true));
+    }
+
     private static function vycisti(string $typ, string $hodnota, bool $zaskrtnuto): ?string
     {
         [$druh, $parametr] = explode(':', $typ, 2) + [1 => ''];

@@ -519,6 +519,97 @@ final class Stavba
         return \Kaleta\Core\Jazyk::docasne($jazyk, fn (): array => self::sestavSchema($spravce, $casti, $rozsireni));
     }
 
+    /**
+     * Schéma ve zkratce pro jazykový model (MCP): prvek i vlastnost stylu na jednom řádku. Výčty mají výchozí hodnotu
+     * označenou hvězdičkou, položky (polozky) vypíšou svá pole v hranatých závorkách. Úplné definice vybraných prvků
+     * (popisky, výchozí děti) vrací schéma s parametrem prvky.
+     *
+     * @param array<string, mixed> $schema výstup schema()
+     * @return array<string, mixed>
+     */
+    public static function prehled(array $schema): array
+    {
+        $pole = function (array $vlastnosti) use (&$pole): string {
+            $casti = [];
+            foreach ($vlastnosti as $klic => $v) {
+                $popis = $klic . ':' . $v['typ'];
+                if (isset($v['moznosti']) && is_array($v['moznosti'])) {
+                    $popis .= '(' . implode('|', array_map(fn (string|int $m): string => (string) $m . ((string) $m === (string) ($v['vychozi'] ?? '') ? '*' : ''), array_keys($v['moznosti']))) . ')';
+                } elseif (isset($v['pole']) && is_array($v['pole'])) {
+                    $popis .= '[' . $pole($v['pole']) . ']';
+                } elseif (in_array($v['typ'], ['prepinac', 'cislo'], true) && isset($v['vychozi'])) {
+                    $popis .= '=' . var_export($v['vychozi'], true);
+                }
+                $casti[] = $popis;
+            }
+
+            return implode('; ', $casti);
+        };
+        $prvky = [];
+        foreach ($schema['prvky'] as $p) {
+            $styl = [];
+            foreach ((array) $p['vychozi_styl'] as $stav => $vlastnosti) {
+                foreach ((array) $vlastnosti as $k => $h) {
+                    $styl[] = ($stav === 'zaklad' ? '' : $stav . '.') . $k . '=' . $h;
+                }
+            }
+            $prvky[$p['typ']] = $p['nazev'] . ' – ' . $p['popis'] . ($p['kontejner'] ? ' [KONTEJNER]' : '') . ' | značky: ' . implode(',', $p['znacky'])
+                . (is_array($p['vlastnosti']) && $p['vlastnosti'] !== [] ? ' | obsah: ' . $pole($p['vlastnosti']) : '')
+                . ($styl !== [] ? ' | styl nového prvku v builderu: ' . implode(', ', $styl) . ' (v JSON ho uveď sám, jinak ho prvek nemá)' : '');
+        }
+        $styl = [];
+        foreach ($schema['styl'] as $klic => $v) {
+            $styl[$klic] = $v['css'] . ': ' . (isset($v['moznosti']) ? implode('|', array_keys($v['moznosti'])) : $v['typ']);
+        }
+
+        return ['verze' => $schema['verze'], 'prvky' => $prvky, 'styl' => $styl, 'stavy' => $schema['stavy'], 'tokeny' => $schema['tokeny'],
+            'typy_hodnot' => [
+                'mezera' => 'token ' . implode('|', $schema['tokeny']['mezery']) . ' nebo délka (1.5rem)', 'krok' => 'velikost písma: token ' . implode('|', $schema['tokeny']['kroky']) . ' nebo délka',
+                'barva' => 'token (' . implode('|', array_keys($schema['tokeny']['barvy'])) . ') nebo #hex', 'zaobleni' => 'token ' . implode('|', array_map('strval', $schema['tokeny']['zaobleni'])) . ' nebo délka',
+                'stin' => 'token s|m|l, none nebo „x y rozostření barva“', 'ramecek' => 'výčet nebo „2px solid barva“', 'delka' => 'px, rem, %, vw, fr, auto, min()/max()/clamp()/calc()',
+                'sloupce' => 'číslo 1–12, „auto:16rem“ (kolik se vejde) nebo „2fr 1fr“', 'radky' => 'číslo nebo „auto 1fr“', 'oblasti' => 'řádky oddělené /, např. „a a / b c“',
+            ],
+            'uzel' => '{"id":"(nepovinné, zachovej při úpravách)","typ":"…","znacka":"(jedna ze značek; výchozí první)","obsah":{…},"styl":{"zaklad":{…},"tablet":{…},"mobil":{…},"hover":{…}},"tridy":["…"],"kotva":"id-pro-odkaz","deti":[…]}; prázdná pole a výchozí hodnoty vynech',
+            'pravidla' => $schema['pravidla']];
+    }
+
+    /**
+     * Stavba bez toho, co doplní vycisti(): výchozí obsah, výchozí značka, prázdný styl, třídy a děti. Styl zůstává celý –
+     * výchozí styl typu (flex kontejneru) dostane jen nový prvek z builderu, uložený prvek bez stylu by ho ztratil. Pro výstup do MCP –
+     * model čte i posílá jen to, co je nastavené (stejná stavba má zhruba třetinovou délku).
+     *
+     * @param array<string, mixed> $stavba
+     * @return array<string, mixed>
+     */
+    public static function kompaktni(array $stavba): array
+    {
+        $uzel = function (array $p) use (&$uzel): array {
+            $trida = self::trida((string) ($p['typ'] ?? ''));
+            if ($trida !== null) {
+                foreach ($trida::vlastnosti() as $klic => $v) {
+                    if (array_key_exists($klic, $p['obsah'] ?? []) && $p['obsah'][$klic] === ($v['vychozi'] ?? null)) {
+                        unset($p['obsah'][$klic]);
+                    }
+                }
+                if (($p['znacka'] ?? null) === $trida::ZNACKY[0]) {
+                    unset($p['znacka']);
+                }
+            }
+            foreach (['obsah', 'styl', 'tridy', 'deti', 'podminky', 'atributy'] as $klic) {
+                if (array_key_exists($klic, $p) && ($p[$klic] === [] || $p[$klic] === null || $p[$klic] === '')) {
+                    unset($p[$klic]);
+                }
+            }
+            if (isset($p['deti'])) {
+                $p['deti'] = array_map($uzel, $p['deti']);
+            }
+
+            return $p;
+        };
+
+        return ['v' => $stavba['v'] ?? self::VERZE, 'deti' => array_map($uzel, $stavba['deti'] ?? [])];
+    }
+
     /** @param list<string>|null $rozsireni */
     public static function vypnuteTypy(?array $rozsireni): array
     {

@@ -141,20 +141,27 @@ the API key and model. The assistant only suggests. Text goes to the provider on
   (shorter, longer, more formal, friendlier, fix mistakes). Check the result and fill in facts yourself. Ctrl+Z undoes the change.
 - In news: headlines, intro, SEO description, tags, proofreading, image descriptions and translation into another site language.
 
-Enable **Claude connection (MCP)** under Extensions. Create an access token under **My account**. In Claude Code, run
+Enable **Claude connection (MCP)** under Extensions. Then:
+
+- **Connector in the Claude app (recommended):** in Settings → Connectors add a custom connector with the address
+  `https://your-site.com/mcp`. Claude sends you to the website to sign in and confirm access (OAuth), nothing to copy.
+  Connected apps are listed (and can be disconnected) in **My account**. This needs the site on HTTPS in the domain root.
+- **Claude Code:** run the command below and confirm access in the browser. Alternatively, create an access token under
+  **My account** and add `--header "Authorization: Bearer <token>"`.
 
 ```bash
-claude mcp add --transport http kaleta https://your-site.com/mcp --header "Authorization: Bearer <token>"
+claude mcp add --transport http kaleta https://your-site.com/mcp
 ```
 
-In the Claude app, the easiest way is **Settings → Connectors → Add custom connector** with the address
-`https://your-site.com/mcp`: Claude sends you to the website to sign in and confirm access (OAuth), nothing to copy.
-Connected apps are listed (and can be disconnected) in **My account**. This needs the site on HTTPS in the domain root.
-Claude Code can use OAuth too – run the command above without the header and confirm access in the browser. Claude then,
-with your account permissions, builds pages and sections, edits the header, footer, collections and design, and writes
-news. Page and site-part builds and news are created as a **draft** and published only when you say so (and only with
-publishing permission). Changes to the menu, design system, themes, collection items and page text take effect on the
-site straight away – the previous page text goes to the version history.
+Claude then builds the whole site with your account permissions: it sets the look (colours, fonts, shared classes),
+uploads images and fonts to Media, assembles pages, the header and the footer, fixes single elements by id, sets the site
+name, company details and redirects from old addresses, and writes news. After every build change it gets a **signed
+preview link** to the draft (valid for 60 minutes, opens without signing in) – it checks the result and can pass the
+link to you. Page and site-part builds and news are created as a **draft** and published only when you say so (and only
+with publishing permission). The menu, design system, shared classes, site settings, redirects, themes, collection items
+and page text take effect straight away – the previous page text goes to the version history. Claude can move a page to
+the trash (restorable for 30 days in the admin); the site e-mail, webhooks, mail, backups and security settings cannot
+be changed over the connection.
 
 ## 11. Moving from WordPress
 
@@ -164,6 +171,6 @@ from old addresses. You can run the import again – whatever it already convert
 
 ## 12. Backups, updates, export
 
-**Settings → Backups and updates:** automatic backups (also off-server via FTP or S3) and signed updates. **Import and
+**Settings → Backups and updates:** automatic backups (also off-server via FTPS or S3) and signed updates. **Import and
 export → Site export** creates a package with the content (pages, news, collections, site parts, classes) and media for
 moving elsewhere. Enquiries and accounts are not exported.

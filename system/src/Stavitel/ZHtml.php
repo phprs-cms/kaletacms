@@ -32,13 +32,16 @@ final class ZHtml
     /** @var array<string, string> třída => bezpečné deklarace */
     private array $tridy = [];
 
+    /** @var array<string, array<string, array<string, string>>> třída => stav (tablet, mobil, hover…) => vlastnosti stylu */
+    private array $tridyStyl = [];
+
     private function __construct(private readonly bool $spravce)
     {
     }
 
     /**
      * @param bool $spravce smí vzniknout prvek Vlastní HTML (pro SVG a vložené mapy)
-     * @return array{stavba: array<string, mixed>, tridy: array<string, string>, hlaseni: list<string>}
+     * @return array{stavba: array<string, mixed>, tridy: array<string, string>, tridy_styl: array<string, array<string, array<string, string>>>, hlaseni: list<string>}
      */
     public static function preved(string $html, bool $spravce = false): array
     {
@@ -67,7 +70,8 @@ final class ZHtml
             $koren[] = Stavba::novy('sekce', [], $rada);
         }
 
-        return ['stavba' => ['v' => Stavba::VERZE, 'deti' => $koren], 'tridy' => $prevod->tridy, 'hlaseni' => array_values(array_unique($prevod->hlaseni))];
+        return ['stavba' => ['v' => Stavba::VERZE, 'deti' => $koren], 'tridy' => $prevod->tridy, 'tridy_styl' => $prevod->tridyStyl,
+            'hlaseni' => array_values(array_unique($prevod->hlaseni))];
     }
 
     /**
@@ -81,15 +85,17 @@ final class ZHtml
         $prevod = self::preved($html, $spravce);
         $hlaseni = $prevod['hlaseni'];
         $existujici = array_column($db->all('SELECT nazev FROM {tridy}'), 'nazev');
-        foreach ($prevod['tridy'] as $trida => $css) {
+        foreach (array_unique(array_merge(array_keys($prevod['tridy']), array_keys($prevod['tridy_styl']))) as $trida) {
             if (in_array($trida, $existujici, true) && !$prepsat) {
                 $hlaseni[] = 'Třída .' . $trida . ' už na webu je – ponechána beze změny.';
                 continue;
             }
-            $db->run('INSERT INTO {tridy} (nazev, styl, css, zmeneno) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE css = VALUES(css), zmeneno = NOW()', [$trida, '{}', $css]);
+            $styl = (string) json_encode($prevod['tridy_styl'][$trida] ?? new \stdClass(), JSON_UNESCAPED_UNICODE);
+            $db->run('INSERT INTO {tridy} (nazev, styl, css, zmeneno) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE styl = VALUES(styl), css = VALUES(css), zmeneno = NOW()',
+                [$trida, $styl, $prevod['tridy'][$trida] ?? '']);
         }
         $vynechane = [];
-        $stavba = self::bezTrid($prevod['stavba'], array_merge($existujici, array_keys($prevod['tridy'])), $vynechane);
+        $stavba = self::bezTrid($prevod['stavba'], array_merge($existujici, array_keys($prevod['tridy']), array_keys($prevod['tridy_styl'])), $vynechane);
         if ($vynechane !== []) {
             $hlaseni[] = 'Třídy bez stylu vynechány: ' . implode(', ', array_unique($vynechane)) . '.';
         }
@@ -217,6 +223,10 @@ final class ZHtml
         }
         if (($tridy = $this->tridyZ($el)) !== []) {
             $p['tridy'] = $tridy;
+            if (array_intersect($tridy, array_keys($this->tridy + $this->tridyStyl)) !== []) {
+                // vzhled dává třída z <style>: výchozí styl prvku (flex kontejneru, odsazení sekce) by ji přebil – vrstva prvků je v kaskádě až za třídami
+                $p['styl'] = [];
+            }
         }
         if (($id = $el->getAttribute('id')) !== null && preg_match('/^[a-z][a-z0-9-]{0,40}$/', $id)) {
             $p['kotva'] = $id;
@@ -401,12 +411,36 @@ final class ZHtml
         return array_values(array_filter($tridy, fn (string $t): bool => preg_match(Stavba::VZOR_TRIDA, $t) === 1));
     }
 
-    /** Pravidla „.trida { … }“ z <style> se stanou sdílenými třídami; ostatní selektory a @media se nahlásí. */
+    /**
+     * Pravidla „.trida { … }“ z <style> se stanou sdílenými třídami. „.trida:hover“ a @media (max-width: …) se převedou na stavy
+     * třídy (najetí, tablet do 1023 px, mobil do 767 px) – deklarace, které mají ve stylu builderu obdobu. Ostatní se nahlásí.
+     */
     private function styly(string $css): void
     {
         $css = (string) preg_replace('#/\*.*?\*/#s', '', $css);
+        // @media s max-width = breakpoint builderu; blok se zpracuje a z CSS odstraní
+        $css = (string) preg_replace_callback('/@media\s*([^{]*)\{((?:[^{}]*\{[^{}]*\})*[^{}]*)\}/i', function (array $m): string {
+            $stav = $this->stavZMedia($m[1]);
+            if ($stav === null) {
+                $this->hlaseni[] = 'Pravidlo @media ' . trim(mb_substr($m[1], 0, 60)) . ' se nepřevádí – builder má breakpointy @media (max-width: 1023px) = tablet a (max-width: 767px) = mobil; stylujte od desktopu dolů.';
+
+                return '';
+            }
+            preg_match_all('/([^{}]+)\{([^{}]*)\}/', $m[2], $pravidla, PREG_SET_ORDER);
+            foreach ($pravidla as [, $selektory, $deklarace]) {
+                foreach (array_map('trim', explode(',', $selektory)) as $selektor) {
+                    if (preg_match('/^\.([a-z][a-z0-9_-]*)(:hover|:focus-visible)?$/', $selektor, $t) && preg_match(Stavba::VZOR_TRIDA, $t[1])) {
+                        $this->stavTridy($t[1], isset($t[2]) ? 'hover_' . $stav : $stav, $deklarace);
+                    } elseif ($selektor !== '') {
+                        $this->hlaseni[] = 'V @media se převádějí jen selektory jedné třídy; vynecháno: ' . mb_substr($selektor, 0, 60) . '.';
+                    }
+                }
+            }
+
+            return '';
+        }, $css);
         if (preg_match_all('/@(media|supports|container|keyframes|font-face|import|layer)\b/i', $css, $m)) {
-            $this->hlaseni[] = 'Pravidla @' . implode(', @', array_unique(array_map('strtolower', $m[1]))) . ' se nepřevádějí – breakpointy a stavy nastavte ve stylu prvku nebo třídy v builderu.';
+            $this->hlaseni[] = 'Pravidla @' . implode(', @', array_unique(array_map('strtolower', $m[1]))) . ' se nepřevádějí – nastavte je ve stylu prvku nebo třídy v builderu.';
             // vnořené bloky se odstraní, aby nepřevzaly deklarace do nesprávných tříd
             do {
                 $css = (string) preg_replace('/@[a-z-]+[^{;]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}|@[a-z-]+[^{;]*;/i', '', $css, -1, $pocet);
@@ -423,13 +457,50 @@ final class ZHtml
                     foreach ($zahozeno as $d) {
                         $this->hlaseni[] = 'Třída .' . $t[1] . ': nepovolená deklarace „' . mb_substr($d, 0, 60) . '“ vynechána.';
                     }
+                } elseif (preg_match('/^\.([a-z][a-z0-9_-]*)(:hover|:focus-visible|:active)$/', $selektor, $t) && preg_match(Stavba::VZOR_TRIDA, $t[1])) {
+                    $this->stavTridy($t[1], $t[2] === ':active' ? 'aktivni' : 'hover', $deklarace);
                 } elseif ($selektor !== '') {
                     $jine[] = $selektor;
                 }
             }
         }
         if ($jine !== []) {
-            $this->hlaseni[] = 'Převádějí se jen selektory jedné třídy (.karta); vynecháno: ' . mb_substr(implode(', ', array_unique($jine)), 0, 200) . '.';
+            $this->hlaseni[] = 'Převádějí se jen selektory jedné třídy (.karta, .karta:hover); vynecháno: ' . mb_substr(implode(', ', array_unique($jine)), 0, 200) . '.';
+        }
+    }
+
+    /** Breakpoint builderu podle podmínky @media: max-width do 767 px = mobil, do 1023 px = tablet; jiná podmínka = null. */
+    private function stavZMedia(string $podminka): ?string
+    {
+        if (!preg_match('/^\s*(?:screen\s+and\s+)?\(\s*max-width\s*:\s*(\d+(?:\.\d+)?)(px|rem|em)\s*\)\s*$/i', $podminka, $m)) {
+            return null;
+        }
+        $px = (float) $m[1] * (strtolower($m[2]) === 'px' ? 1 : 16);
+
+        return match (true) {
+            $px >= 600 && $px < 900 => 'mobil',
+            $px >= 900 && $px <= 1280 => 'tablet',
+            default => null,
+        };
+    }
+
+    /** Deklarace do stavu třídy (hover, tablet…) jako vlastnosti stylu; co převést nejde, se nahlásí. */
+    private function stavTridy(string $trida, string $stav, string $deklarace): void
+    {
+        if (!isset(Styl::STAVY[$stav])) {
+            return;
+        }
+        foreach (preg_split('/;(?![^(]*\))/', $deklarace) ?: [] as $d) {
+            if (!str_contains($d, ':')) {
+                continue;
+            }
+            [$vlastnost, $hodnota] = array_map('trim', explode(':', $d, 2));
+            $vlastnosti = Styl::zCss($vlastnost, $hodnota);
+            if ($vlastnosti === null) {
+                $this->hlaseni[] = 'Třída .' . $trida . ' (' . $stav . '): deklaraci „' . mb_substr(trim($d), 0, 60) . '“ builder ve stavu neumí – vynechána.';
+                continue;
+            }
+            $this->tridyStyl[$trida][$stav] = array_merge($this->tridyStyl[$trida][$stav] ?? [], $vlastnosti);
         }
     }
 

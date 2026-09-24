@@ -80,8 +80,12 @@ final class Server
                 'capabilities' => ['tools' => new \stdClass()],
                 'serverInfo' => ['name' => 'Kaleta – ' . $this->app->settings()->get('nazev_webu'), 'version' => KALETA_VERSION],
                 'instructions' => 'Firemní web na Kaletě. Texty piš v jazyce webu, stránky a novinky jako čisté sémantické HTML (p, h2, h3, ul, ol, blockquote, a, strong, em, figure/img, table). '
-                    . 'STRÁNKY SKLÁDEJ VE BUILDERU: načti stavba_schema, pak stavba_z_html (sémantické HTML po sekcích + <style> s pravidly jedné třídy a tokeny var(--ka-…), žádné vložené styly); '
-                    . 'drobné úpravy přes stavba_nacti a stavba_uloz, hotové sekce přes vloz_sekci, vzhled celého webu přes uprav_design_system. Stavba se ukládá jako koncept – pošli uživateli odkaz na náhled a publikuj až na jeho pokyn. '
+                    . 'POSTUP STAVBY WEBU: (1) info_o_webu a stavba_schema (stručný přehled; úplné definice prvků přes parametr prvky). '
+                    . '(2) Vzhled celého webu: uprav_design_system (barvy, písma, velikosti); vlastní písmo nahraj přes nahraj_soubor (.woff2) a zapiš do vlastni_pisma. Opakovaný vzhled (karty, štítky, tmavý pás) patří do sdílených tříd – uloz_tridy nebo <style> ve stavba_z_html; tmavý pás = třída, která přepíše tokeny (--ka-barva-text, --ka-barva-pozadi, --ka-barva-primarni…), aby odkazy a tlačítka zůstala čitelná. '
+                    . '(3) Stránky: vytvor_stranku (zůstane skrytá) a stavba_z_html – sémantické HTML po sekcích + <style> s pravidly jedné třídy a tokeny var(--ka-…), breakpointy @media (max-width: 1023px) a (max-width: 767px), žádné vložené styly; nebo stavba_uloz s JSON podle schématu. Obrázky nahraj přes nahraj_soubor. Záhlaví a patičku skládej přes stavba_uloz s parametrem cast. '
+                    . '(4) Kontrola: každý zápis stavby vrátí nahled – podepsaný odkaz na koncept platný 60 minut; otevři ho a zkontroluj výsledek, uživateli dej delší odkaz z nahled_odkaz. '
+                    . '(5) Opravy: stavba_uprav podle id prvků (id ze stavba_nacti) – neposílej kvůli jednomu textu celou stavbu. (6) Nastavení webu uprav_nastaveni, staré adresy uloz_presmerovani. Menu (uloz_menu), design system, třídy a nastavení se projeví na webu hned; skryté stránky se v menu ukážou až po zveřejnění. '
+                    . 'Stavba se ukládá jako koncept – publikuj (publikuj_stavbu) a zveřejňuj stránky až na výslovný pokyn uživatele. '
                     . 'Nová novinka vzniká jako koncept; vydat ji může jen uživatel s právem vydávat a jen na výslovný pokyn. Nová stránka je skrytá, dokud ji uživatel výslovně nechce zveřejnit. '
                     . 'Před úpravou šablony si ji nejdřív zkopíruj a změny ukaž v náhledu. '
                     . 'HRANICE: přes toto napojení se mění jen obsah (stránky, novinky, kategorie) a VLASTNÍ šablony vzhledu. Kód systému (system/, admin.php, index.php), vestavěné šablony '
@@ -105,7 +109,7 @@ final class Server
                 \Kaleta\Front\Cache::vymaz();
             }
 
-            return ['content' => [['type' => 'text', 'text' => is_string($vysledek) ? $vysledek : json_encode($vysledek, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT)]]];
+            return ['content' => [['type' => 'text', 'text' => is_string($vysledek) ? $vysledek : json_encode($vysledek, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]]];
         } catch (\InvalidArgumentException | \DomainException $e) {
             return ['content' => [['type' => 'text', 'text' => $e->getMessage()]], 'isError' => true];
         }

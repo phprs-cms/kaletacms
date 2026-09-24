@@ -232,9 +232,12 @@ final class Kernel
             return Response::json(['stav' => \Kaleta\Core\Stav::souhrn($kontroly), 'verze' => KALETA_VERSION, 'cas' => date('c'), 'kontroly' => $kontroly]);
         }
 
-        // skrytou stránku vidí jen náhled builderu (kdo smí upravovat stránky)
-        $skryte = $request->get('stavba') === 'koncept' && $this->app->auth()->maModul('stranky');
+        // skrytou stránku vidí jen náhled builderu (kdo smí upravovat stránky) a podepsaný odkaz na náhled (?nahled_klic=…, Core\Nahled)
+        $skryte = $request->get('stavba') === 'koncept' && ($this->app->auth()->maModul('stranky') || $request->get('nahled_klic') !== '');
         $stranka = $this->app->db()->one('SELECT * FROM {stranky} WHERE seo_link = ? AND jazyk = ? AND smazano IS NULL' . ($skryte ? '' : ' AND zobrazit = 1'), [ltrim($path, '/'), Jazyk::sloupecWebu()]);
+        if ($stranka !== null && !$stranka['zobrazit'] && !$this->smiKoncept('stranka:' . (int) $stranka['ids'])) {
+            $stranka = null;
+        }
         if ($stranka !== null) {
             if ((int) $stranka['ids'] === $this->idUvodu() && !$skryte) {
                 return Response::redirect($this->app->url(''), 301); // úvodní stránka má jen jednu adresu – kořen webu
@@ -392,7 +395,7 @@ final class Kernel
             'hlavni' => $uvod, 'obrazek' => $stranka['obrazek'], 'noindex' => (bool) $stranka['noindex'],
         ];
         // náhled rozpracované stavby pro editor: ?stavba=koncept (jen kdo smí upravovat stránky), &editor=1 přidá značky pro výběr prvků
-        $koncept = $this->app->request->get('stavba') === 'koncept' && $this->app->auth()->maModul('stranky');
+        $koncept = $this->app->request->get('stavba') === 'koncept' && $this->smiKoncept('stranka:' . (int) $stranka['ids']);
         $stavba = \Kaleta\Stavitel\Stavba::zJson($koncept ? ($stranka['stavba_koncept'] ?? $stranka['stavba']) : $stranka['stavba']);
         if ($stavba !== null) {
             $k = $this->kontext();
@@ -731,6 +734,18 @@ final class Kernel
      * @param array<string, mixed> $meta
      * @return array{0: string, 1: array{hlavicka: ?string, paticka: ?string}, 2: array<string, mixed>}
      */
+    /** Smí návštěvník vidět koncept: kdo upravuje stránky (u částí webu správce), nebo platný podepsaný odkaz na náhled cíle. */
+    private function smiKoncept(string $cil): bool
+    {
+        $auth = $this->app->auth();
+        if (str_starts_with($cil, 'cast:') ? $auth->isAdmin() : $auth->maModul('stranky')) {
+            return true;
+        }
+        $klic = $this->app->request->get('nahled_klic');
+
+        return $klic !== '' && \Kaleta\Core\Nahled::over($this->app->db(), $this->app->settings(), $cil, $klic);
+    }
+
     private function castiWebu(string $obsah, array $meta, string $jazykyHtml, string $cesta): array
     {
         $r = $this->app->request;
@@ -739,7 +754,8 @@ final class Kernel
         $k->menu = ['hlavni' => $this->menu('hlavni'), 'paticka' => $this->menu('paticka')];
         $k->cesta = $cesta;
         $k->jazyky = $jazykyHtml;
-        $nahled = isset(\Kaleta\Stavitel\Casti::TYPY[$r->get('cast')]) && $r->get('stavba') === 'koncept' && $this->app->auth()->isAdmin() ? $r->get('cast') : '';
+        $nahled = isset(\Kaleta\Stavitel\Casti::TYPY[$r->get('cast')]) && $r->get('stavba') === 'koncept'
+            && ($this->app->auth()->isAdmin() || $this->smiKoncept('cast:' . $r->get('cast') . ':' . Jazyk::sloupecWebu())) ? $r->get('cast') : '';
         $editor = $r->get('editor') === '1' && ($nahled !== '' || ($r->get('stavba') === 'koncept' && $r->get('cast') === ''));
         $jazyk = Jazyk::sloupecWebu();
         // stránka webu může mít vlastní variantu záhlaví a patičky; v editoru varianty rozhoduje parametr ?varianta=

@@ -596,6 +596,42 @@ over('ZHtml: tlačítko s variantou podle třídy', [$zh['stavba']['deti'][0]['d
 over('ZHtml: volné prvky na konci se zabalí do sekce, details → FAQ, form → Formulář', $zhTypy($zh['stavba']['deti'][1]['deti']), ['text<div>', 'faq<div>', 'formular<form>']);
 over('ZHtml: třída z <style> jen s bezpečnými deklaracemi', $zh['tridy'], ['hero' => 'padding: 2rem;']);
 over('ZHtml: hlášení o @media, složitém selektoru, url(), formuláři, SVG a skriptu', count($zh['hlaseni']), 6);
+$zh2 = Kaleta\Stavitel\ZHtml::preved('<style>.mriz { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--ka-mezera-l) } .karta:hover { box-shadow: var(--ka-stin-m); transform: translateY(-4px) }'
+    . ' @media (max-width: 1023px) { .mriz { grid-template-columns: repeat(2, 1fr) } } @media (max-width: 767px) { .mriz { grid-template-columns: 1fr; gap: var(--ka-mezera-m) } .karta { padding: var(--ka-mezera-m) var(--ka-mezera-s) } }'
+    . ' @media (min-width: 768px) { .mriz { gap: 0 } }</style><section><div class="mriz"><div class="karta"><h3>A</h3></div><div>B</div></div></section>');
+over('ZHtml: @media (max-width) a :hover jako stavy třídy', $zh2['tridy_styl'], ['mriz' => ['tablet' => ['sloupce' => '2'], 'mobil' => ['sloupce' => '1', 'mezera' => 'm']],
+    'karta' => ['mobil' => ['odsazeni_y' => 'm', 'odsazeni_x' => 's'], 'hover' => ['stin' => 'm', 'posun' => '0 -4px']]]);
+over('ZHtml: prvek se stylovanou třídou nemá výchozí styl (přebil by třídu), bez třídy ho má', [$zh2['stavba']['deti'][0]['deti'][0]['styl'], $zh2['stavba']['deti'][0]['deti'][0]['deti'][1]['styl']['zaklad']['zobrazeni'] ?? null], [[], 'flex']);
+over('ZHtml: mobile-first @media (min-width) se nahlásí', count(array_filter($zh2['hlaseni'], fn (string $h): bool => str_contains($h, 'min-width'))), 1);
+over('Styl::zCss: tokeny, zkratky a mřížka', [Kaleta\Stavitel\Styl::zCss('padding', 'var(--ka-mezera-l) 2rem'), Kaleta\Stavitel\Styl::zCss('margin', '0 auto'), Kaleta\Stavitel\Styl::zCss('grid-template-columns', 'repeat(auto-fit, minmax(16rem, 1fr))'),
+    Kaleta\Stavitel\Styl::zCss('color', 'var(--ka-barva-tlumeny)'), Kaleta\Stavitel\Styl::zCss('font-size', 'var(--ka-krok--1)'), Kaleta\Stavitel\Styl::zCss('color', 'expression(1)'), Kaleta\Stavitel\Styl::zCss('filter', 'blur(2px)')],
+    [['odsazeni_y' => 'l', 'odsazeni_x' => '2rem'], ['okraj_nahore' => '0', 'okraj_dole' => '0', 'na_stred' => 'auto'], ['sloupce' => 'auto:16rem'], ['barva' => 'tlumeny'], ['velikost_pisma' => '-1'], null, null]);
+
+$upStavba = ['v' => 1, 'deti' => [['id' => 'sek1', 'typ' => 'sekce', 'deti' => [['id' => 'nad1', 'typ' => 'nadpis', 'obsah' => ['text' => 'A'], 'styl' => ['zaklad' => ['barva' => 'primarni']]], ['id' => 'tl1', 'typ' => 'tlacitko', 'obsah' => ['text' => 'B', 'odkaz' => '/docs']]]], ['id' => 'sek2', 'typ' => 'sekce']]];
+$upChyby = [];
+$up = Kaleta\Stavitel\Upravy::proved($upStavba, [
+    ['op' => 'uprav', 'id' => 'tl1', 'obsah' => ['odkaz' => '/guide']],
+    ['op' => 'uprav', 'id' => 'nad1', 'styl' => ['zaklad' => ['barva' => null], 'mobil' => ['zarovnani_textu' => 'center']], 'tridy' => ['nadpis-sekce']],
+    ['op' => 'vloz', 'do' => 'sek2', 'prvky' => [['id' => 'txt1', 'typ' => 'text']]],
+    ['op' => 'presun', 'id' => 'tl1', 'za' => 'txt1'],
+    ['op' => 'vloz', 'pozice' => 0, 'prvek' => ['id' => 'sek0', 'typ' => 'sekce']],
+    ['op' => 'smaz', 'id' => 'neni'],
+    ['op' => 'presun', 'id' => 'sek2', 'do' => 'txt1'],
+    ['op' => 'kouzlo'],
+], $upChyby);
+over('Upravy: úprava obsahu a stylu (null odebere), vložení, přesun, vložení na začátek', [array_column($up['deti'], 'id'), $up['deti'][1]['deti'][0]['styl'], $up['deti'][1]['deti'][0]['tridy'], array_column($up['deti'][2]['deti'], 'id'), $up['deti'][2]['deti'][1]['obsah']['odkaz']],
+    [['sek0', 'sek1', 'sek2'], ['mobil' => ['zarovnani_textu' => 'center']], ['nadpis-sekce'], ['txt1', 'tl1'], '/guide']);
+over('Upravy: chybné operace se nahlásí a přeskočí (i přesun do potomka)', array_keys($upChyby), ['op[5]', 'op[6]', 'op[7]']);
+$upChyby2 = [];
+over('Upravy: přesun prvku do jeho potomka nejde', Kaleta\Stavitel\Upravy::proved($upStavba, [['op' => 'presun', 'id' => 'sek1', 'do' => 'nad1']], $upChyby2) === $upStavba && isset($upChyby2['op[0]']), true);
+
+[$kmStavba] = Kaleta\Stavitel\Stavba::vycisti(['v' => 1, 'deti' => [['typ' => 'sekce', 'id' => 'abc', 'deti' => [['typ' => 'tlacitko', 'id' => 'def', 'obsah' => ['text' => 'Jdi']], ['typ' => 'kontejner', 'id' => 'ghi', 'styl' => ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'm']]]]]]]);
+$km = Kaleta\Stavitel\Stavba::kompaktni($kmStavba);
+over('Stavba::kompaktni: bez výchozích hodnot, styl zůstane', $km, ['v' => 1, 'deti' => [['id' => 'abc', 'typ' => 'sekce', 'deti' => [['id' => 'def', 'typ' => 'tlacitko', 'obsah' => ['text' => 'Jdi']], ['id' => 'ghi', 'typ' => 'kontejner', 'styl' => ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'm']]]]]]]);
+over('Stavba::kompaktni: po vyčištění stejná stavba', Kaleta\Stavitel\Stavba::vycisti($km)[0], $kmStavba);
+$prehled = Kaleta\Stavitel\Stavba::prehled(Kaleta\Stavitel\Stavba::schema());
+over('Stavba::prehled: prvek na řádek, výchozí možnost s hvězdičkou, schéma výrazně menší', [str_contains($prehled['prvky']['tlacitko'], 'varianta:vyber(primarni*|'), strlen((string) json_encode($prehled)) < strlen((string) json_encode(Kaleta\Stavitel\Stavba::schema())) / 2],
+    [true, true]);
 over('ZHtml: výsledek projde validátorem bez chyb', Kaleta\Stavitel\Stavba::vycisti($zh['stavba'])[1], []);
 over('Stavba::jakoText: sémantický obsah bez rozložení', Kaleta\Stavitel\Stavba::jakoText($zh['stavba']), "<h1>A <em>b</em></h1>\n<p>Jedna.</p><p>Dvě.</p>\n<p><a href=\"/k\">K</a></p>\n<p>Volný text</p>\n<h3>Otázka?</h3><p>Odpověď.</p>");
 

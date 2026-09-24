@@ -210,6 +210,40 @@ rm -f "$PRACE"/web/storage/cache/stranky/*.html
 over "design systém z MCP je na webu" 200 / 'ka-barva-primarni: #0f766e'
 over "design systém z MCP zachoval ostatní barvy" 200 / 'ka-barva-plocha: #f5f6f8'
 
+echo "== Claude (MCP): stavba webu bez administrace"
+mcp stavba_z_html '{"titulek":"Mrizka","html":"<style>.mriz-t { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--ka-mezera-l) } .kar-t:hover { box-shadow: var(--ka-stin-m) } @media (max-width: 767px) { .mriz-t { grid-template-columns: 1fr } }</style><section><div class=\"mriz-t\"><div class=\"kar-t\"><h3>Jedna</h3></div><div class=\"kar-t\"><h3>Dva</h3></div></div></section>"}' > "$PRACE/odpoved"
+IDM2=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'mrizka'")
+ocekavej "MCP: @media a :hover z <style> jako stavy třídy" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT((SELECT styl FROM ka_tridy WHERE nazev = 'mriz-t'), (SELECT styl FROM ka_tridy WHERE nazev = 'kar-t'))")" '{"mobil":{"sloupce":"1"}}{"hover":{"stin":"m"}}'
+mcp stavba_nacti "{\"id\":$IDM2}" > "$PRACE/odpoved"
+grep -q 'mriz-t' "$PRACE/odpoved" && ! grep -q 'zobrazeni' "$PRACE/odpoved" && ! grep -q '\\"odkaz\\":\\"\\"' "$PRACE/odpoved" && echo "  ok     MCP: stavba_nacti bez výchozích hodnot, prvek s třídou bez výchozího stylu" || { echo "  CHYBA  MCP stavba_nacti kompaktní"; head -c 600 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+IDH3=$(php -r '$j = json_decode(json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"], true); echo $j["stavba"]["deti"][0]["deti"][0]["deti"][0]["deti"][0]["id"];' "$PRACE/odpoved")
+mcp stavba_uprav "{\"id\":$IDM2,\"operace\":[{\"op\":\"uprav\",\"id\":\"$IDH3\",\"obsah\":{\"text\":\"Opraveno\"}},{\"op\":\"smaz\",\"id\":\"neni\"}]}" > "$PRACE/odpoved"
+grep -q 'chyby_operaci\\":{\\"op\[1\]' "$PRACE/odpoved" && [ "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT stavba_koncept LIKE '%Opraveno%' FROM ka_stranky WHERE ids = $IDM2")" = 1 ] \
+    && echo "  ok     MCP: dílčí úprava prvku podle id (chybná operace nahlášena)" || { echo "  CHYBA  MCP stavba_uprav"; head -c 600 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+NAHLED=$(php -r '$j = json_decode(json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"], true); echo $j["nahled"];' "$PRACE/odpoved")
+curl -s -o "$PRACE/odpoved" -w '%{http_code}' "$NAHLED" > "$PRACE/kod"; grep -q 'Opraveno' "$PRACE/odpoved" && grep -q 'noindex' "$PRACE/odpoved" && [ "$(cat "$PRACE/kod")" = 200 ] \
+    && echo "  ok     podepsaný náhled konceptu skryté stránky bez přihlášení" || { echo "  CHYBA  podepsaný náhled ($(cat "$PRACE/kod"))"; CHYB=$((CHYB+1)); }
+ocekavej "náhled s cizím nebo pozměněným klíčem nejde" "$(curl -s -o /dev/null -w '%{http_code}' "${NAHLED%?}x")" 404
+ocekavej "klíč náhledu jedné stránky neotevře jinou" "$(curl -s -o /dev/null -w '%{http_code}' "$B/z-html?stavba=koncept&nahled_klic=${NAHLED##*nahled_klic=}" | tr -d '\n'; curl -s "$B/z-html?stavba=koncept&nahled_klic=${NAHLED##*nahled_klic=}" | grep -c 'Opraveno')" "2000"
+mcp nahled_odkaz '{"cast":"paticka"}' > "$PRACE/odpoved"; grep -q 'cast=paticka&stavba=koncept&nahled_klic=' "$PRACE/odpoved" && echo "  ok     MCP: odkaz na náhled části webu" || { echo "  CHYBA  MCP nahled_odkaz"; CHYB=$((CHYB+1)); }
+mcp uloz_tridy '{"css":".stitek-t { padding: var(--ka-mezera-2xs) var(--ka-mezera-s); border-radius: var(--ka-zaobleni) } @media (max-width: 1023px) { .stitek-t { font-size: var(--ka-krok--1) } }"}' > "$PRACE/odpoved"
+mcp seznam_trid '{"nazev":"stitek-t"}' > "$PRACE/odpoved"; grep -q 'velikost_pisma\\":\\"-1' "$PRACE/odpoved" && grep -q 'border-radius' "$PRACE/odpoved" && echo "  ok     MCP: sdílená třída z CSS i se stavem tablet" || { echo "  CHYBA  MCP uloz_tridy"; head -c 400 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+PNG=$(php -r '$i = imagecreatetruecolor(40, 30); imagefill($i, 0, 0, imagecolorallocate($i, 255, 79, 46)); ob_start(); imagepng($i); echo base64_encode(ob_get_clean());')
+mcp nahraj_soubor "{\"nazev\":\"tym-foto.png\",\"data\":\"$PNG\",\"popis\":\"Tym v dilne\"}" > "$PRACE/odpoved"
+MEDIUM=$(php -r '$j = json_decode(json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"], true); echo $j["adresa"] ?? "";' "$PRACE/odpoved")
+[ -n "$MEDIUM" ] && [ -f "$PRACE/web/$MEDIUM" ] && [ "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT nazev FROM ka_media WHERE obr_poloha = '$MEDIUM'")" = "Tym v dilne" ] \
+    && echo "  ok     MCP: obrázek nahraný v base64 je v Médiích" || { echo "  CHYBA  MCP nahraj_soubor (obrázek)"; head -c 400 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+mcp nahraj_soubor "{\"nazev\":\"pismo.woff2\",\"data\":\"$(base64 < image/pisma/bricolage-grotesque-latin.woff2 | tr -d '\n')\"}" > "$PRACE/odpoved"
+grep -q 'vlastni_pisma' "$PRACE/odpoved" && grep -q 'pismo-[a-f0-9]*\.woff2' "$PRACE/odpoved" && echo "  ok     MCP: písmo WOFF2 do Médií s návodem pro design system" || { echo "  CHYBA  MCP nahraj_soubor (písmo)"; head -c 400 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+mcp nahraj_soubor '{"nazev":"skript.php","data":"PD9waHAgZWNobyAxOw=="}' > "$PRACE/odpoved"; grep -q 'isError' "$PRACE/odpoved" && ! ls "$PRACE"/web/media/*/*/skript* > /dev/null 2>&1 && echo "  ok     MCP: PHP ani jiný spustitelný soubor nahrát nejde" || { echo "  CHYBA  MCP nahraj_soubor pustil PHP"; CHYB=$((CHYB+1)); }
+mcp uprav_nastaveni '{"nastaveni":{"text_paticky":"Paticka od Clauda","email_webu":"utocnik@example.com","firma_ico":"abc"}}' > "$PRACE/odpoved"
+ocekavej "MCP: nastavení webu – povolené se uloží, e-mail a neplatné IČO ne" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'text_paticky'), '|', COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'email_webu'), '') <> 'utocnik@example.com', '|', COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'firma_ico'), '') <> 'abc')")" "Paticka od Clauda|1|1"
+mcp uloz_presmerovani '{"z":"/stary-web/sluzby","na":"/z-html"}' > /dev/null
+ocekavej "MCP: přesměrování staré adresy" "$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/stary-web/sluzby")" "301 $B/z-html"
+mcp smaz_stranku "{\"id\":$IDM2}" > /dev/null
+ocekavej "MCP: stránka do koše" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT smazano IS NOT NULL FROM ka_stranky WHERE ids = $IDM2")" 1
+mcp smaz_stranku "{\"id\":$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'titulni_stranka'")}" | grep -q 'isError' && echo "  ok     MCP: úvodní stránku smazat nejde" || { echo "  CHYBA  MCP smazal úvodní stránku"; CHYB=$((CHYB+1)); }
+
 echo "== části webu v builderu"
 over "části webu" 200 "/admin.php?modul=casti" "Záhlaví"
 over "záhlaví se otevře v builderu s koncept podle šablony" 200 "/admin.php?modul=casti&akce=stavitel&typ=hlavicka&jazyk=" 'id="stavitel-data"'
@@ -285,7 +319,7 @@ over "detail má nadpis položky" 200 /tym/jana-novakova "<h1>Jana Nováková</h
 kod=$(curl -s -o /dev/null -w '%{http_code}' "$B/tym/skryty-clen"); ocekavej "skrytá položka nemá detail" "$kod" 404
 over "mapa webu obsahuje detail položky" 200 /sitemap.xml "/tym/jana-novakova"
 over "šablona detailu v builderu" 200 "/admin.php?modul=kolekce&akce=stavitel&id=$IDK" 'id="stavitel-data"'
-mcp seznam_kolekci '{}' > "$PRACE/odpoved"; grep -q 'kolekce\\": \\"tym' "$PRACE/odpoved" && grep -q 'medailonek' "$PRACE/odpoved" && echo "  ok     MCP: seznam kolekcí s poli" || { echo "  CHYBA  MCP seznam_kolekci"; CHYB=$((CHYB+1)); }
+mcp seznam_kolekci '{}' > "$PRACE/odpoved"; grep -q 'kolekce\\":\\"tym' "$PRACE/odpoved" && grep -q 'medailonek' "$PRACE/odpoved" && echo "  ok     MCP: seznam kolekcí s poli" || { echo "  CHYBA  MCP seznam_kolekci"; CHYB=$((CHYB+1)); }
 mcp uloz_polozku_kolekce '{"kolekce":"tym","nazev":"Petr Svoboda","data":{"funkce":"Mistr truhlář"},"zobrazit":true}' > /dev/null
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
 over "MCP: nová položka je ve výpisu" 200 /z-html "Mistr truhlář"
@@ -549,7 +583,7 @@ mcp stavba_uloz "{\"id\":$IDZ,\"publikovat\":true,\"stavba\":{\"v\":1,\"deti\":[
 {\"typ\":\"okno\",\"kotva\":\"nabidka\",\"obsah\":{\"samo\":\"5\"},\"deti\":[{\"typ\":\"nadpis\",\"obsah\":{\"text\":\"Akce\"}}]},
 {\"typ\":\"faq\",\"obsah\":{\"jedna\":true,\"faq\":false,\"polozky\":[{\"otazka\":\"Co?\",\"odpoved\":\"<p>To.</p>\"}]}}
 ]}]}}" > "$PRACE/odpoved"
-grep -q 'chyby\\": \[\]' "$PRACE/odpoved" && echo "  ok     nové prvky projdou validátorem" || { echo "  CHYBA  validace nových prvků"; head -c 600 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+grep -q 'chyby\\":\[\]' "$PRACE/odpoved" && echo "  ok     nové prvky projdou validátorem" || { echo "  CHYBA  validace nových prvků"; head -c 600 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
 curl -s -o "$PRACE/odpoved" "$B/z-html"
 for vzor in 'class="ka-drobecky"' 'aria-current="page">Z HTML' 'class="ka-ikona ka-ikona--kruh" aria-hidden="true"><svg' 'class="ka-galerie"' 'alt="Dílna"' 'role="tablist"' 'aria-controls="zp-' 'data-karusel' '--ka-naraz:2' 'data-vlozit="https://maps.google.com/maps?q=Brno' 'id="nabidka"' 'popover role="dialog" aria-label="Vyskakovací okno" data-samo="5"' 'name="faq-'; do
@@ -569,7 +603,7 @@ mcp stavba_uloz "{\"id\":$IDZ,\"publikovat\":true,\"stavba\":{\"v\":1,\"deti\":[
 {\"typ\":\"nadpis\",\"obsah\":{\"text\":\"Stará akce\"},\"podminky\":{\"do\":\"2000-01-01\"}},
 {\"typ\":\"video\",\"obsah\":{\"url\":\"media/2026/01/film.mp4\",\"plakat\":\"media/2026/01/plakat.jpg\"}}
 ]}]}}" > "$PRACE/odpoved"
-grep -q 'chyby\\": \[\]' "$PRACE/odpoved" && echo "  ok     další prvky projdou validátorem" || { echo "  CHYBA  validace dalších prvků"; head -c 600 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+grep -q 'chyby\\":\[\]' "$PRACE/odpoved" && echo "  ok     další prvky projdou validátorem" || { echo "  CHYBA  validace dalších prvků"; head -c 600 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
 curl -s -o "$PRACE/odpoved" "$B/z-html"
 for vzor in 'data-pocitadlo="1200">1' '<meter min="0" max="100"' 'aria-label="Hodnocení 4,5 z 5' 'data-odpocet="2099-01-01T09:00' 'class="ka-socialni"' 'aria-label="Instagram"' 'role="search"' 'class="ka-nahoru"' 'class="ka-newsletter"' 'name="as_podpis"' 'class="ka-video-pozadi"' 'poster="/media/2026/01/plakat.jpg"' 'image/web.js'; do
@@ -610,7 +644,7 @@ ocekavej "import barev z cizích tokenů" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SEL
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=vzhled&akce=tokeny_import" -F "_csrf=$TOKEN" -F "tokeny=@$PRACE/tokeny.json"
 ocekavej "import vlastního exportu vrátí vzhled" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.barvy.primarni')) <> '#aa3300' FROM ka_nastaveni WHERE promenna = 'design_system'")" "1"
 mcp seznam_polozek_kolekce '{"kolekce":"tym","pole":"funkce","hodnota":"Mistr truhlář"}' > "$PRACE/odpoved"
-grep -q 'Petr Svoboda' "$PRACE/odpoved" && grep -q 'celkem\\": 1' "$PRACE/odpoved" && echo "  ok     kolekce přes MCP: filtr podle pole" || { echo "  CHYBA  kolekce přes MCP s filtrem"; head -c 400 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+grep -q 'Petr Svoboda' "$PRACE/odpoved" && grep -q 'celkem\\":1' "$PRACE/odpoved" && echo "  ok     kolekce přes MCP: filtr podle pole" || { echo "  CHYBA  kolekce přes MCP s filtrem"; head -c 400 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
 
 echo "== záloha a obnova databáze"
 curl -s -b "$JAR" -c "$JAR" -o "$PRACE/odpoved" "$B/admin.php?modul=config&zalozka=zalohy"; TOKEN=$(csrf)
@@ -714,7 +748,7 @@ curl -s -o "$PRACE/odpoved" "$B/o-nas"; ! grep -q 'rss.xml' "$PRACE/odpoved" && 
 curl -s -o "$PRACE/odpoved" "$B/o-nas"; ! grep -q 'href="[^"]*/novinky"' "$PRACE/odpoved" && echo "  ok     menu bez odkazu na novinky" || { echo "  CHYBA  menu odkazuje na vypnuté novinky"; CHYB=$((CHYB+1)); }
 ocekavej "odeslání formuláře nejde" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/formular" -d x=1)" 404
 curl -s -b "$JAR" -c "$JAR" -o "$PRACE/odpoved" "$B/admin.php"; ! grep -q 'modul=novinky"' "$PRACE/odpoved" && ! grep -q 'modul=poptavky"' "$PRACE/odpoved" && echo "  ok     administrace bez novinek a poptávek" || { echo "  CHYBA  administrace ukazuje vypnutá rozšíření"; CHYB=$((CHYB+1)); }
-mcp stavba_schema '{}' > "$PRACE/odpoved"; ! grep -q '\\"typ\\": \\"formular\\"' "$PRACE/odpoved" && ! grep -q 'seznam_novinek' <(curl -s -X POST "$B/mcp" -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}') \
+mcp stavba_schema '{}' > "$PRACE/odpoved"; ! grep -q '\\"formular\\":' "$PRACE/odpoved" && ! grep -q 'seznam_novinek' <(curl -s -X POST "$B/mcp" -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}') \
   && echo "  ok     builder a MCP nenabízejí prvky ani nástroje vypnutých rozšíření" || { echo "  CHYBA  schéma nebo MCP s vypnutými rozšířeními"; CHYB=$((CHYB+1)); }
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota='$ROZ' WHERE promenna='rozsireni'"
 rm -f "$PRACE"/web/storage/cache/stranky/*.html

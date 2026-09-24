@@ -152,11 +152,16 @@ claude mcp add --transport http kaleta https://vas-web.cz/mcp --header "Authoriz
 ```
 
 Claude Code umí i přihlášení přes OAuth: stačí `claude mcp add --transport http kaleta https://vas-web.cz/mcp` bez
-hlavičky a při prvním použití potvrdit přístup v prohlížeči. Claude pak s právy
-vašeho účtu staví stránky a sekce, upravuje záhlaví, patičku, kolekce a vzhled a píše novinky. Stavby stránek a částí
-webu i novinky vznikají jako **koncept** a publikuje je jen na váš pokyn (a jen s právem vydávat). Rovnou na webu se
-projeví: úprava menu, vzhledu (design systém), šablony, položky kolekce a textu stránky – předchozí text stránky přitom
-jde do historie verzí.
+hlavičky a při prvním použití potvrdit přístup v prohlížeči.
+
+Claude pak s právy vašeho účtu postaví celý web: nastaví vzhled (barvy, písma, sdílené třídy), nahraje obrázky a písma
+do Médií, poskládá stránky, záhlaví a patičku, opraví jednotlivé prvky podle id, nastaví název webu, údaje firmy
+a přesměrování starých adres a píše novinky. Po každé úpravě stavby dostane **podepsaný odkaz na náhled** konceptu
+(platí 60 minut, otevře ho i bez přihlášení) – zkontroluje si výsledek a odkaz může poslat i vám. Stavby stránek
+a částí webu i novinky vznikají jako **koncept** a publikuje je jen na váš pokyn (a jen s právem vydávat). Rovnou
+na webu se projeví: menu, vzhled (design systém), sdílené třídy, nastavení webu, přesměrování, šablony, položky
+kolekce a text stránky – předchozí text stránky přitom jde do historie verzí. Stránku umí Claude přesunout do koše
+(obnovíte ji 30 dní v administraci); e-mail webu, webhooky, poštu, zálohy ani zabezpečení přes napojení nezmění.
 
 ## 11. Přechod z WordPressu
 
@@ -166,6 +171,6 @@ adres. Import jde spustit znovu – co už převedl, přeskočí.
 
 ## 12. Zálohy, aktualizace, export
 
-**Nastavení → Zálohy a aktualizace:** automatické zálohy (i mimo server přes FTP nebo S3) a podepsané aktualizace.
+**Nastavení → Zálohy a aktualizace:** automatické zálohy (i mimo server přes FTPS nebo S3) a podepsané aktualizace.
 **Import a export → Export webu** vytvoří balík s obsahem (stránky, novinky, kolekce, části webu, třídy) a médii pro
 přenos jinam. Poptávky a účty se neexportují.

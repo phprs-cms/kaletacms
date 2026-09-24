@@ -193,7 +193,21 @@ final class Galerie extends Modul
     private static function ulozSvg(array $file): array
     {
         $tmp = (string) ($file['tmp_name'] ?? '');
-        $svg = is_uploaded_file($tmp) && filesize($tmp) < 2_000_000 ? \Kaleta\Core\Svg::vycisti((string) file_get_contents($tmp)) : null;
+        if (!is_uploaded_file($tmp)) {
+            throw new \RuntimeException('Soubor SVG se nepodařilo přečíst (nejvýš 2 MB, platné SVG).');
+        }
+
+        return self::ulozSvgObsah((string) file_get_contents($tmp), (string) ($file['name'] ?? 'obrazek'));
+    }
+
+    /**
+     * SVG z textu (nahrání i MCP): vyčistí se od skriptů a odkazů ven (Core\Svg) a uloží pod novým jménem.
+     *
+     * @return array<string, mixed> řádek pro tabulku médií
+     */
+    public static function ulozSvgObsah(string $obsah, string $jmeno): array
+    {
+        $svg = strlen($obsah) < 2_000_000 ? \Kaleta\Core\Svg::vycisti($obsah) : null;
         if ($svg === null) {
             throw new \RuntimeException('Soubor SVG se nepodařilo přečíst (nejvýš 2 MB, platné SVG).');
         }
@@ -201,7 +215,7 @@ final class Galerie extends Modul
         if (!is_dir(KALETA_ROOT . '/' . $slozka)) {
             mkdir(KALETA_ROOT . '/' . $slozka, 0775, true);
         }
-        $nazev = pathinfo((string) ($file['name'] ?? 'obrazek'), PATHINFO_FILENAME);
+        $nazev = pathinfo($jmeno, PATHINFO_FILENAME);
         $cesta = $slozka . '/' . slugify($nazev, 60) . '-' . bin2hex(random_bytes(3)) . '.svg';
         file_put_contents(KALETA_ROOT . '/' . $cesta, $svg);
         [$w, $h] = \Kaleta\Core\Svg::rozmery($svg);
