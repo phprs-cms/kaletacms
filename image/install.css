@@ -93,3 +93,15 @@ input:focus-visible, .pole select:focus-visible { outline: 0; border-color: var(
 .jazyky a:hover { color: var(--text); background: var(--plocha); }
 .jazyky a.aktivni { background: var(--akcent-svetly); color: var(--akcent); font-weight: 600; }
 .pole select { width: 100%; padding: 10px 12px; border: 1px solid var(--linka-pole); border-radius: 8px; background: var(--plocha); color: var(--text); font: inherit; }
+
+/* volba ukázkového webu */
+.weby { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 4px 0 0; padding: 0; border: 0; }
+.weby legend { margin-bottom: 6px; font-weight: 600; }
+.weby .napoveda { grid-column: 1 / -1; }
+.web { position: relative; display: grid; gap: 4px; padding: 12px; border: 2px solid #dfe1e5; border-radius: 10px; cursor: pointer; }
+.web:has(input:checked) { border-color: #2b5be3; box-shadow: 0 0 0 1px #2b5be3; }
+.web:has(input:focus-visible) { outline: 2px solid #2b5be3; outline-offset: 2px; }
+.web input { position: absolute; opacity: 0; }
+.web small { color: #5b5f68; line-height: 1.35; }
+.vzorky { display: flex; height: 14px; border-radius: 4px; overflow: hidden; }
+.vzorky i { flex: 1; }

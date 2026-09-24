@@ -544,8 +544,10 @@ over('DesignSystem::kontrast: černá na bílé', round(MiroCMS\Stavitel\DesignS
 over('DesignSystem::css: pořadí vrstev na začátku', str_starts_with(MiroCMS\Stavitel\DesignSystem::css(MiroCMS\Stavitel\DesignSystem::VYCHOZI), MiroCMS\Stavitel\DesignSystem::VRSTVY), true);
 over('DesignSystem::vycisti: nesmysl nahradí výchozí', MiroCMS\Stavitel\DesignSystem::vycisti(['barvy' => ['primarni' => 'red;}']])['barvy']['primarni'], MiroCMS\Stavitel\DesignSystem::VYCHOZI['barvy']['primarni']);
 $stKnihovnaChyby = [];
-foreach (MiroCMS\Stavitel\Knihovna::seznam() as $stSekce) {
-    [, $stChyby] = MiroCMS\Stavitel\Stavba::vycisti(['deti' => [MiroCMS\Stavitel\Knihovna::sekci($stSekce['klic'])['prvek']]]);
+// surové stavby (sekci() už čistí, neplatná hodnota by tak zmizela potichu)
+foreach ((new ReflectionMethod(MiroCMS\Stavitel\Knihovna::class, 'sekce'))->invoke(null) as $stKlic => $stSekce) {
+    $stSekce['klic'] = $stKlic;
+    [, $stChyby] = MiroCMS\Stavitel\Stavba::vycisti(['deti' => [($stSekce['stavba'])()]]);
     $stKnihovnaChyby += array_map(fn (string $c): string => $stSekce['klic'] . ': ' . $c, $stChyby);
 }
 over('Knihovna: všechny hotové sekce projdou validátorem', $stKnihovnaChyby, []);
@@ -572,7 +574,7 @@ $knSchema = array_column(MiroCMS\Stavitel\Stavba::schema(true, 'en')['prvky'], '
 over('Stavba::schema: výchozí obsah prvků v jazyce stránky', [$knSchema['nadpis']['text']['vychozi'], $knSchema['tlacitko']['text']['vychozi']], ['Heading', 'Contact us']);
 $knEnSlovnik = require MIROCMS_ROOT . '/system/jazyky/en.php';
 preg_match_all("/\bt\('((?:[^'\\\\]|\\\\.)*)'\)/", file_get_contents(MIROCMS_ROOT . '/system/src/Stavitel/Knihovna.php') . implode('', array_map('file_get_contents', glob(MIROCMS_ROOT . '/system/src/Stavitel/Prvky/*.php'))), $knTexty);
-over('Knihovna a prvky: všechny ukázkové texty mají anglický překlad', array_values(array_diff(array_unique($knTexty[1]), array_keys($knEnSlovnik), ['Menu'])), []);
+over('Knihovna a prvky: všechny ukázkové texty mají anglický překlad', array_values(array_diff(array_unique($knTexty[1]), array_keys($knEnSlovnik), ['Menu', 'Standard', 'Video', 'Brno, 2026', 'Olomouc, 2025'])), []);
 
 over('Firma::hodiny: rozsah dnů, víc úseků, zavřeno', MiroCMS\Front\Firma::hodiny("Po–Pá 8:00–17:00\nÚt 8-12, 13-17\nNe zavřeno"), [
     ['dny' => ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'], 'od' => '08:00', 'do' => '17:00'],
@@ -619,6 +621,20 @@ foreach ($enSchema['prvky'] as $p) {
 }
 $enPole($enSchema['styl']);
 over('Stavitel: všechny popisky schématu mají anglický překlad', array_values(array_filter(array_unique($enTexty), fn (string $x): bool => $x !== '' && preg_match('/\p{L}/u', $x) === 1 && !isset($enAdmin[$x]) && !in_array($x, ['Video', 'Logo', 'HTML', 'Text', 'text'], true))), []);
+
+$webyChyby = [];
+$webySekce = array_column(MiroCMS\Stavitel\Knihovna::seznam(), 'klic');
+foreach (MiroCMS\Stavitel\Knihovna::WEBY as $webKlic => $web) {
+    if (!isset(MiroCMS\Stavitel\DesignSystem::PREDVOLBY[$web['predvolba']])) {
+        $webyChyby[] = $webKlic . ': předvolba ' . $web['predvolba'];
+    }
+    foreach ($web['stranky'] as $sekceStranky) {
+        foreach (array_diff($sekceStranky, $webySekce) as $chybi) {
+            $webyChyby[] = $webKlic . ': sekce ' . $chybi;
+        }
+    }
+}
+over('Knihovna::WEBY: předvolby a sekce ukázkových webů existují', $webyChyby, []);
 
 echo $chyb === 0 ? "  ok     jednotkové testy ({$celkem})\n" : "  NALEZENO CHYB: {$chyb} z {$celkem}\n";
 exit($chyb === 0 ? 0 : 1);

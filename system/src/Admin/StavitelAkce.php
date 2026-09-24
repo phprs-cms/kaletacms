@@ -73,6 +73,7 @@ trait StavitelAkce
             'komponenty' => $komponenty,
             'kolekceDetailu' => $e['kolekce'] ?? null,
             'knihovna' => Knihovna::seznam(),
+            'kategorieKnihovny' => array_map(fn (string $k): string => t($k), Knihovna::KATEGORIE),
             'tridy' => $this->tridyStavitele(),
             'barvy' => DesignSystem::nacti($app->settings())['barvy'],
             'nahled' => $e['nahled'],

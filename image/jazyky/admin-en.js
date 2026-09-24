@@ -263,5 +263,6 @@ window.MIROCMS_PREKLAD = {
 	"Komponenta uložena – úpravy v Komponentách se projeví všude, kde je použitá.": "Component saved – edits in Components apply everywhere it is used.",
 	"Komponenta nemá vlastnosti – u všech použití vypadá stejně.": "The component has no properties – it looks the same everywhere.",
 	"Vlastnosti komponenty „%s“ – vložte do textu, obrázku nebo odkazu:": "Component properties “%s” – insert into text, image or link:",
-	"Přetažením přesunete": "Drag to move"
+	"Přetažením přesunete": "Drag to move",
+	"Hledat sekci…": "Search sections…"
 };

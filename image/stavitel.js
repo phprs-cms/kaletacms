@@ -550,12 +550,26 @@
 				el('button', { type: 'button', title: p.popis, draggable: 'true', onclick: () => vloz(novyPrvek(p.typ)),
 					ondragstart: (e) => zacniTahnout(e, { novy: p.typ }), ondragend: skonciTazeni }, ikona(p.ikona), p.nazev))));
 		}
-		levyObsah.append(el('h3', {}, T('Hotové sekce')), el('div', { class: 'st-knihovna' }, D.knihovna.map((s) =>
+		// hotové sekce po kategoriích; hledání filtruje podle názvu i popisu
+		const knihovna = el('div', {});
+		const vykresliKnihovnu = (hledat) => {
+			const q = hledat.trim().toLowerCase();
+			knihovna.replaceChildren(...Object.entries(D.kategorieKnihovny || { obsah: '' }).map(([kat, nazevKat]) => {
+				const sekce = D.knihovna.filter((s) => (s.kategorie || 'obsah') === kat && (!q || (s.nazev + ' ' + s.popis).toLowerCase().includes(q)));
+				return sekce.length ? el('div', {}, el('h3', {}, nazevKat), el('div', { class: 'st-knihovna' }, sekce.map(tlacitkoSekce))) : null;
+			}).filter(Boolean));
+		};
+		levyObsah.append(el('h3', {}, T('Hotové sekce')), el('input', { type: 'search', class: 'st-hledat', placeholder: T('Hledat sekci…'), oninput: (e) => vykresliKnihovnu(e.target.value) }), knihovna);
+		vykresliKnihovnu('');
+	}
+
+	function tlacitkoSekce(s) {
+		return (
 			el('button', { type: 'button', draggable: 'true', ondragstart: (e) => zacniTahnout(e, { sekce: s.klic }), ondragend: skonciTazeni, onclick: () => dotaz(D.adresy.sekce + '&klic=' + encodeURIComponent(s.klic), { ok: 1 }).then((j) => {
 				if (!j.ok) { nastavStav(j.chyba, true); return; }
 				D.tridy = j.tridy;
 				vloz(j.prvek);
-			}) }, el('strong', {}, s.nazev), el('small', {}, s.popis)))));
+			}) }, el('strong', {}, s.nazev), el('small', {}, s.popis)));
 	}
 
 	function prekresliStrom() {

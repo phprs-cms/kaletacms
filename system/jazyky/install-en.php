@@ -62,4 +62,12 @@ return [
     'Vítejte v MiroCMS' => 'Welcome to MiroCMS',
     'Web je nainstalovaný a připravený. Tuto novinku můžete v administraci upravit nebo smazat.' => 'The website is installed and ready. You can edit or delete this news post in the administration.',
     'Do administrace se dostanete na adrese admin.php. Na přehledu vás provedou První kroky: dejte webu tvář, vyplňte údaje o firmě a připravte stránky.' => 'The administration is at admin.php. On the dashboard, First steps will guide you: give the website its look, fill in your company details and prepare the pages.',
+    'Začít s webem' => 'Start with a website',
+    'Firemní web' => 'Business website',
+    'Univerzální web služeb: výhody, čísla, reference, novinky.' => 'A versatile services website: benefits, numbers, testimonials, news.',
+    'Řemeslo a služby' => 'Crafts and services',
+    'Teplé barvy, postup práce, realizace a záruky.' => 'Warm colours, how you work, projects and guarantees.',
+    'Poradenství a agentura' => 'Consulting and agency',
+    'Elegantní vzhled, klienti, balíčky služeb a tým.' => 'An elegant look, clients, service packages and the team.',
+    'Úvod, O nás, Služby a Kontakt s ukázkovými texty – vše pak upravíte ve staviteli, vzhled ve Vzhledu webu.' => 'Home, About us, Services and Contact with sample texts – edit everything in the builder and the look in Site appearance.',
 ];

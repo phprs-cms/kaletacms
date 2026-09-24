@@ -64,7 +64,7 @@ final class Installer
         $data = [
             'db_host' => 'localhost', 'db_port' => '3306', 'db_name' => '', 'db_user' => '', 'db_password' => '', 'db_prefix' => 'mc_',
             'nazev_webu' => t('Můj web'), 'user' => 'admin', 'jmeno' => '', 'email' => '',
-            'casove_pasmo' => self::PASMA[$this->jazyk],
+            'casove_pasmo' => self::PASMA[$this->jazyk], 'web' => 'firemni',
         ];
         $chyby = [];
 
@@ -205,18 +205,13 @@ final class Installer
                 [t('Služby'), slugify(t('Služby')), 1, '<p>' . e(t('Co nabízíte – každou službu krátce a srozumitelně.')) . '</p>'],
                 [t('Kontakt'), slugify(t('Kontakt')), 1, '<p>' . e(t('Adresa, telefon, e-mail a otevírací doba.')) . '</p>'],
             ];
-            // úvod, služby a kontakt rovnou ze sekcí stavitele – nový web tak vypadá jako web, ne jako prázdná šablona
-            $sekce = [0 => ['uvod', 'vyhody', 'cisla', 'reference', 'novinky', 'vyzva'], 2 => ['sluzby', 'faq', 'vyzva'], 3 => ['kontakt', 'poptavka']];
+            // stránky rovnou ze sekcí stavitele podle zvoleného ukázkového webu – nový web vypadá jako web, ne jako prázdná šablona
+            $web = Knihovna::WEBY[$d['web']] ?? Knihovna::WEBY['firemni'];
             $uvod = 0;
             foreach ($stranky as $i => [$titulek, $adresa, $vMenu, $text]) {
                 $radek = ['titulek' => $titulek, 'seo_link' => $adresa, 'text' => $text, 'v_menu' => $vMenu, 'poradi' => ($i + 1) * 10];
-                if (isset($sekce[$i])) {
-                    $stavba = ['v' => Stavba::VERZE, 'deti' => []];
-                    foreach ($sekce[$i] as $klic) {
-                        $s = Knihovna::sekci($klic, $this->jazyk);
-                        $stavba['deti'][] = $s['prvek'];
-                        Knihovna::zalozTridy($db, $s['tridy']);
-                    }
+                if (($web['stranky'][$i] ?? []) !== []) {
+                    $stavba = Knihovna::stranka($db, $web['stranky'][$i], $titulek, $this->jazyk);
                     $radek['stavba'] = Stavba::naJson($stavba);
                     $radek['text'] = Stavba::jakoText($stavba);
                 }
@@ -226,6 +221,7 @@ final class Installer
 
             \MiroCMS\Core\Hledani::dopln($db);
             $nastaveni = ['nazev_webu' => $d['nazev_webu'], 'adresa_webu' => $this->request->origin(), 'email_webu' => $d['email'], 'jazyk_webu' => $this->jazyk,
+                'design_system' => (string) json_encode(\MiroCMS\Stavitel\DesignSystem::predvolba($web['predvolba']), JSON_UNESCAPED_SLASHES),
                 'casove_pasmo' => $d['casove_pasmo'], 'layout' => Layouty::VYCHOZI, 'titulni_stranka' => (string) $uvod, 'verze_db' => (string) Migrace::posledni()];
             foreach ($nastaveni as $klic => $hodnota) {
                 $db->insert('nastaveni', ['promenna' => $klic, 'hodnota' => $hodnota]);

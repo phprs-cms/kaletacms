@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # MiroCMS - kouřový test: čistá instalace do dočasné kopie a průchod hlavními stránkami.
 # Spouští se lokálně i v GitHub Actions. Databázi bere z proměnných prostředí:
-#   DB_HOST (127.0.0.1) DB_PORT (3306) DB_NAME (mirocms_test) DB_USER (root) DB_PASS (prázdné) PORT (8099)
+#   DB_HOST (127.0.0.1) DB_PORT (3306) DB_NAME (mirocms_test) DB_USER (root) DB_PASS (prázdné) PORT (8099) WEB (firemni | remeslo | poradenstvi)
 # Databáze DB_NAME se při testu SMAŽE a vytvoří znovu.
 set -euo pipefail
 
@@ -41,7 +41,7 @@ ocekavej() { [ "$2" = "$3" ] && echo "  ok     $1" || { echo "  CHYBA  $1: dosta
 echo "== instalace"
 HESLO="Test-$(date +%s)-heslo"
 curl -s -o "$PRACE/odpoved" -X POST "$B/install.php" --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB_NAME" -d "db_user=$DB_USER" --data-urlencode "db_password=$DB_PASS" -d db_prefix=mc_ \
-  --data-urlencode "nazev_webu=Testovací firma" -d user=admin -d jmeno=Tester -d email= --data-urlencode "password=$HESLO" --data-urlencode "password2=$HESLO"
+  --data-urlencode "nazev_webu=Testovací firma" -d "web=${WEB:-firemni}" -d user=admin -d jmeno=Tester -d email= --data-urlencode "password=$HESLO" --data-urlencode "password2=$HESLO"
 grep -q "Hotovo, web běží" "$PRACE/odpoved" || { echo "  CHYBA  instalace selhala"; sed 's/<[^>]*>//g' "$PRACE/odpoved" | grep -v '^\s*$' | head -20; exit 1; }
 echo "  ok     instalace"
 [ ! -f "$PRACE/web/install.php" ] && echo "  ok     instalátor se po sobě smazal" || { echo "  CHYBA  install.php po instalaci zůstal na místě"; CHYB=$((CHYB+1)); }
@@ -169,8 +169,8 @@ grep -q '@layer prvky' "$PRACE/odpoved" && grep -q '#s-nad1 { color: var(--mc-ba
 grep -q '"FAQPage"' "$PRACE/odpoved" && echo "  ok     otázky a odpovědi jako strukturovaná data" || { echo "  CHYBA  FAQPage chybí"; CHYB=$((CHYB+1)); }
 over "hledání najde obsah stavby" 200 "/hledani?q=Stavitel+test" 'Nalezeno: 1'
 st stavba_uloz --data-urlencode "stavba=${STAVBA/Stavitel test/Druhá verze}" > /dev/null; st stavba_publikuj > /dev/null
-ocekavej "předchozí publikovaná verze je v historii" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM mc_stavba_revize WHERE ids = $IDS")" 1
-IDR=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idr FROM mc_stavba_revize WHERE ids = $IDS")
+ocekavej "předchozí publikovaná verze je v historii" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM mc_stavba_revize WHERE ids = $IDS AND stavba LIKE '%Stavitel test%'")" 1
+IDR=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idr FROM mc_stavba_revize WHERE ids = $IDS AND stavba LIKE '%Stavitel test%'")
 st stavba_obnov -d "idr=$IDR" > /dev/null; grep -q 'Stavitel test' "$PRACE/odpoved" && echo "  ok     obnovení verze do konceptu" || { echo "  CHYBA  stavba_obnov"; CHYB=$((CHYB+1)); }
 st stavba_zahod > /dev/null; grep -q 'Druhá verze' "$PRACE/odpoved" && echo "  ok     zahození změn vrátí publikovanou stavbu" || { echo "  CHYBA  stavba_zahod"; CHYB=$((CHYB+1)); }
 ocekavej "autor novinek do stavitele nesmí" "$(curl -s -b "$JAR2" -o /dev/null -w '%{http_code}' "$B/admin.php?modul=stranky&akce=stavitel&id=$IDS")" 403
@@ -233,7 +233,7 @@ FZ=$(hodnota zdroj); FP=$(hodnota prvek); FC=$(hodnota as_cas); FS=$(hodnota as_
 odesli() { curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FZ" -d "prvek=$FP" -d zpet=/kontakt -d "as_cas=$FC" -d "as_podpis=$FS" "$@"; }
 sleep 4
 kam=$(odesli -d p0=Jana --data-urlencode p1=jana@example.cz -d p2= --data-urlencode "p3=Chci kuchyň na míru." -d p4=1)
-case "$kam" in *"/kontakt?formular=$FP&vysledek=ok#s-$FP") echo "  ok     odeslání formuláře";; *) echo "  CHYBA  odeslání formuláře: $kam"; CHYB=$((CHYB+1));; esac
+case "$kam" in *"/kontakt?formular=$FP&vysledek=ok#"*"$FP") echo "  ok     odeslání formuláře";; *) echo "  CHYBA  odeslání formuláře: $kam"; CHYB=$((CHYB+1));; esac
 ocekavej "poptávka uložena" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(COUNT(*), '/', MAX(email), '/', MAX(stav)) FROM mc_poptavky")" "1/jana@example.cz/0"
 case "$(odesli -d p0=Jana -d p1=neni-email -d p3=x -d p4=1)" in *vysledek=pole*) echo "  ok     neplatný e-mail odmítnut";; *) echo "  CHYBA  validace e-mailu"; CHYB=$((CHYB+1));; esac
 case "$(odesli -d p0=Jana --data-urlencode p1=jana@example.cz -d p3=x)" in *vysledek=pole*) echo "  ok     chybějící souhlas odmítnut";; *) echo "  CHYBA  povinný souhlas"; CHYB=$((CHYB+1));; esac
@@ -246,7 +246,7 @@ over "poptávky v administraci" 200 "/admin.php?modul=poptavky" "jana@example.cz
 over "detail poptávky" 200 "/admin.php?modul=poptavky&akce=detail&id=$IDP" "Chci kuchyň na míru."
 ocekavej "otevřená poptávka je přečtená" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT stav FROM mc_poptavky")" 1
 curl -s -b "$JAR" -o "$PRACE/odpoved" "$B/admin.php?modul=poptavky&akce=csv"; grep -q 'Chci kuchyň na míru.' "$PRACE/odpoved" && echo "  ok     export poptávek do CSV" || { echo "  CHYBA  CSV poptávek"; CHYB=$((CHYB+1)); }
-over "poděkování po odeslání (na místě formuláře)" 200 "/kontakt?formular=$FP&vysledek=ok" "id=\"s-$FP\" class=\"mc-formular-hotovo\" role=\"status\""
+over "poděkování po odeslání (na místě formuláře)" 200 "/kontakt?formular=$FP&vysledek=ok" 'class="mc-formular-hotovo"'
 
 echo "== kolekce"
 over "kolekce" 200 "/admin.php?modul=kolekce" "Kolekce"

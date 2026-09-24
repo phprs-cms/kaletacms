@@ -72,6 +72,15 @@ $splneno = !in_array(false, array_column($pozadavky, 'ok'), true);
 	<p><?= e(t('Účet, kterým se poprvé přihlásíte do administrace.')) ?></p>
 	<div class="pole">
 		<div class="cele"><label for="nazev_webu"><?= e(t('Název webu')) ?></label><input type="text" id="nazev_webu" name="nazev_webu" value="<?= e($data['nazev_webu']) ?>" required></div>
+		<fieldset class="cele weby">
+			<legend><?= e(t('Začít s webem')) ?></legend>
+<?php foreach (MiroCMS\Stavitel\Knihovna::WEBY as $klic => $w): $barvy = MiroCMS\Stavitel\DesignSystem::PREDVOLBY[$w['predvolba']][2]['barvy']; ?>
+			<label class="web"><input type="radio" name="web" value="<?= e($klic) ?>"<?= ($data['web'] ?: 'firemni') === $klic ? ' checked' : '' ?>>
+				<span class="vzorky"><i style="background:<?= e($barvy['primarni']) ?>"></i><i style="background:<?= e($barvy['sekundarni']) ?>"></i><i style="background:<?= e($barvy['plocha']) ?>"></i></span>
+				<strong><?= e(t($w['nazev'])) ?></strong><small><?= e(t($w['popis'])) ?></small></label>
+<?php endforeach ?>
+			<span class="napoveda"><?= e(t('Úvod, O nás, Služby a Kontakt s ukázkovými texty – vše pak upravíte ve staviteli, vzhled ve Vzhledu webu.')) ?></span>
+		</fieldset>
 		<div><label for="user"><?= e(t('Přihlašovací jméno')) ?></label><input type="text" id="user" name="user" value="<?= e($data['user']) ?>" required><?= $chyba('user') ?></div>
 		<div><label for="jmeno"><?= e(t('Jméno a příjmení')) ?></label><input type="text" id="jmeno" name="jmeno" value="<?= e($data['jmeno']) ?>"><span class="napoveda"><?= e(t('Zobrazuje se u novinek.')) ?></span></div>
 		<div class="cele"><label for="email"><?= e(t('E-mail')) ?></label><input type="email" id="email" name="email" value="<?= e($data['email']) ?>"><?= $chyba('email') ?></div>
