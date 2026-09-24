@@ -10,6 +10,7 @@
  * @var array<string, string> $moduly  ident => název (sekce, ke kterým se přístup nastavuje)
  * @var list<string> $maModuly
  * @var bool $rucne  přístup do sekcí je nastavený ručně (liší se od výchozího pro roli)
+ * @var list<array<string, mixed>> $vlastniRole  role z Uživatelé → Role
  */
 $chyba = fn (string $pole): string => isset($chyby[$pole]) ? '<span class="chyba-pole" role="alert">' . e(t($chyby[$pole])) . '</span>' : '';
 $role = [
@@ -53,12 +54,20 @@ $role = [
 <div class="karty-volby karty-volby-text">
 <?php foreach ($role as $hodnota => [$nazev, $popis]): ?>
 	<label class="karta-volba">
-		<input type="radio" name="admin" value="<?= $hodnota ?>"<?= (int) $autor['admin'] === $hodnota ? ' checked' : '' ?><?= $sam ? ' disabled' : '' ?>>
+		<input type="radio" name="admin" value="<?= $hodnota ?>"<?= (int) $autor['admin'] === $hodnota && empty($autor['role']) ? ' checked' : '' ?><?= $sam ? ' disabled' : '' ?>>
 		<strong><?= e(t($nazev)) ?></strong>
 		<span><?= e(t($popis)) ?></span>
 	</label>
 <?php endforeach ?>
+<?php foreach ($vlastniRole as $vr): ?>
+	<label class="karta-volba">
+		<input type="radio" name="admin" value="r<?= (int) $vr['idr'] ?>"<?= (int) ($autor['role'] ?? 0) === (int) $vr['idr'] ? ' checked' : '' ?><?= $sam ? ' disabled' : '' ?>>
+		<strong><?= e($vr['nazev']) ?></strong>
+		<span><?= e($vr['popis'] !== '' ? $vr['popis'] : t('Vlastní role')) ?></span>
+	</label>
+<?php endforeach ?>
 </div>
+<p class="napoveda"><a href="<?= e($app->url('admin.php?modul=role')) ?>"><?= e(t('Vlastní role')) ?></a> – <?= e(t('pojmenovaná sada sekcí, třeba jen Poptávky pro obchodníka.')) ?></p>
 <?php if ($sam): ?>
 <p class="napoveda"><?= e(t('Vlastní účet nemůžete zbavit práv správce.')) ?></p>
 <?php endif ?>
@@ -77,7 +86,7 @@ $role = [
 <?php foreach ($moduly as $ident => $nazev): ?>
 		<label style="margin-left:22px"><input type="checkbox" name="moduly[]" value="<?= e($ident) ?>"<?= in_array($ident, $maModuly, true) ? ' checked' : '' ?>> <?= e(t($nazev)) ?></label><br>
 <?php endforeach ?>
-		<span class="napoveda"><?= e(t('Autor má běžně jen Novinky, editor všechny obsahové sekce, správce vše.')) ?></span>
+		<span class="napoveda"><?= e(t('Autor má běžně jen Novinky, editor všechny obsahové sekce, správce vše. U vlastní role platí sekce z role.')) ?></span>
 	</div>
 </div>
 <?php if (!empty($autor['totp_tajemstvi'])): ?>

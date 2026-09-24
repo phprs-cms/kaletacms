@@ -22,7 +22,7 @@ final class Autori extends Modul
 
     protected function akceVypis(): Response
     {
-        $autori = $this->db->all('SELECT u.*, (SELECT COUNT(*) FROM {novinky} c WHERE c.autor = u.idu AND c.smazano IS NULL) AS pocet_clanku FROM {uzivatele} u ORDER BY u.user');
+        $autori = $this->db->all('SELECT u.*, r.nazev AS nazev_role, (SELECT COUNT(*) FROM {novinky} c WHERE c.autor = u.idu AND c.smazano IS NULL) AS pocet_clanku FROM {uzivatele} u LEFT JOIN {role} r ON r.idr = u.role ORDER BY u.user');
         $moduly = [];
         foreach ($this->db->all('SELECT fk_id_user, ident_modulu FROM {uzivatele_prava}') as $r) {
             $moduly[(int) $r['fk_id_user']][] = (string) $r['ident_modulu'];
@@ -37,7 +37,7 @@ final class Autori extends Modul
 
     protected function akceNovy(): Response
     {
-        return $this->formular(['idu' => 0, 'user' => '', 'jmeno' => '', 'email' => '', 'url' => '', 'admin' => Auth::AUTOR, 'blokovat' => 0]);
+        return $this->formular(['idu' => 0, 'user' => '', 'jmeno' => '', 'email' => '', 'url' => '', 'admin' => Auth::AUTOR, 'role' => null, 'blokovat' => 0]);
     }
 
     protected function akceEdit(): Response
@@ -61,11 +61,19 @@ final class Autori extends Modul
             'email' => $r->post('email'),
             'url' => $r->post('url'),
             'admin' => array_key_exists($r->postInt('admin'), Auth::TYPY) ? $r->postInt('admin') : Auth::AUTOR,
+            'role' => null,
             'blokovat' => (int) $r->postBool('blokovat'),
         ];
+        // vlastní role (hodnota „r<id>“): úroveň i sekce určuje role
+        $vlastni = preg_match('/^r(\d+)$/', $r->post('admin'), $m) ? $this->db->one('SELECT * FROM {role} WHERE idr = ?', [(int) $m[1]]) : null;
+        if ($vlastni !== null) {
+            $data['admin'] = (int) $vlastni['uroven'];
+            $data['role'] = (int) $vlastni['idr'];
+        }
         if ($sam) {
             // admin si nesmí sám sobě vzít práva ani se zablokovat - zamkl by si administraci
             $data['admin'] = Auth::ADMIN;
+            $data['role'] = null;
             $data['blokovat'] = 0;
         }
         if (!$data['blokovat']) {
@@ -107,9 +115,11 @@ final class Autori extends Modul
         }
 
         // přístup do sekcí plyne z role; ruční výběr jen když o něj administrátor výslovně stojí
-        $moduly = $r->postBool('rucne')
-            ? array_intersect($r->postList('moduly'), array_map(fn (string $c): string => $c::IDENT, Kernel::MODULY))
-            : self::vychoziModuly((int) $data['admin']);
+        $moduly = match (true) {
+            $data['role'] !== null => array_filter(explode(',', (string) $vlastni['moduly'])),
+            $r->postBool('rucne') => array_intersect($r->postList('moduly'), array_map(fn (string $c): string => $c::IDENT, Kernel::MODULY)),
+            default => self::vychoziModuly((int) $data['admin']),
+        };
 
         $this->db->transaction(function () use (&$id, $data, $moduly): void {
             if ($id > 0) {
@@ -236,6 +246,7 @@ final class Autori extends Modul
 
         return $this->view('formular', $id ? 'Úprava uživatele' : 'Nový uživatel', [
             'autor' => $autor,
+            'vlastniRole' => $this->db->all('SELECT idr, nazev, popis FROM {role} ORDER BY nazev'),
             'shrnuti' => $shrnuti,
             'chyby' => $chyby,
             'sam' => $id === $this->app->auth()->id(),

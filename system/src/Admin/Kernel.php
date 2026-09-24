@@ -32,6 +32,7 @@ final class Kernel
         Moduly\Menu::class,
         Moduly\Komponenty::class,
         Moduly\Autori::class,
+        Moduly\Role::class,
         Moduly\Statistika::class,
         Moduly\Presmerovani::class,
         Moduly\ProtokolZmen::class,
