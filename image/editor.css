@@ -154,7 +154,10 @@ button.galerie-polozka:hover, button.galerie-polozka:focus-visible { border-colo
 
 /* nastavení: rozšíření */
 .rozsireni-seznam { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-bottom: 14px; }
-.rozsireni-karta { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border: 1px solid var(--ed-linka); border-radius: var(--ed-radius); background: var(--ed-plocha); cursor: pointer; font-size: 13px; color: var(--ed-text-slaby); }
+.rozsireni-karta { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border: 1px solid var(--ed-linka); border-radius: var(--ed-radius); background: var(--ed-plocha); font-size: 13px; color: var(--ed-text-slaby); }
+.rozsireni-karta label { display: block; cursor: pointer; }
+.rozsireni-odkazy { display: block; margin-top: 8px; font-weight: 600; }
+.navod { margin: 0 0 10px; padding-left: 1.3em; display: grid; gap: 6px; }
 .rozsireni-karta strong { font-size: 14px; color: var(--ed-text); }
 .rozsireni-karta:has(input:checked) { border-color: var(--ed-akcent); }
 .rozsireni-karta input { margin-top: 3px; }

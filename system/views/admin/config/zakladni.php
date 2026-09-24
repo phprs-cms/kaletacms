@@ -46,7 +46,7 @@ $pole('email_webu', 'E-mail webu', 'email', 'Chodí na něj upozornění systém
 	<span class="napoveda"><?= e(t('V tomto jazyce jsou texty šablony (Hledat, Novinky, Číst dál…) a web se tak hlásí vyhledávačům.')) ?></span></div>
 </div>
 <?php if (Kaleta\Core\Rozsireni::je($app->settings(), 'jazyky')): ?>
-<div class="radek">
+<div class="radek" id="jazyky_dalsi">
 	<span class="popisek"><?= e(t('Další jazykové verze')) ?></span>
 	<div class="volby">
 <?php foreach (Kaleta\Core\Jazyk::DOSTUPNE as $kod => [$nazevJazyka]): if ($kod === $hodnoty['jazyk_webu']) { continue; } ?>

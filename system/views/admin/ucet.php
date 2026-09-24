@@ -117,7 +117,7 @@ $akce = e($app->url('admin.php?akce=ucet'));
 <?php if ($claude): ?>
 <form class="formular" method="post" action="<?= $akce ?>">
 <?= $csrf ?>
-<fieldset><legend><?= e(t('Napojení na Claude')) ?></legend>
+<fieldset id="claude"><legend><?= e(t('Napojení na Claude')) ?></legend>
 <?php if ($novyToken !== ''): ?>
 <div class="hlaska hlaska-ok">
 	<p><strong><?= e(t('Token je vytvořený.')) ?></strong> <?= e(t('Zkopírujte si ho teď – už se nezobrazí.')) ?></p>
