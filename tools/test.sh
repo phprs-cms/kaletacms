@@ -686,6 +686,21 @@ TOKENO=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?akce=ucet" -d "_csrf=$TOKENO" -d "odpojit_klient=$KLIENT"
 ocekavej "odpojení aplikace smaže její tokeny" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_api_tokeny WHERE klient = '$KLIENT'")" "0"
 
+echo "== dvoufázové přihlášení (TOTP a záložní kódy)"
+"${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_kontrola_ip WHERE typ = 'login'; UPDATE ka_uzivatele SET totp_tajemstvi = 'JBSWY3DPEHPK3PXP', totp_zalozni = '[\"$(php -r 'echo hash("sha256", "abcde-12345");')\"]' WHERE user = 'autor'"
+prihlas2fa() { # prihlas2fa <jar> → vrátí kód odpovědi na zadání druhého kroku <kod>
+  local jar="$1" t; t=$(curl -s -c "$jar" -b "$jar" "$B/admin.php" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//' || true)
+  curl -s -b "$jar" -c "$jar" -o "$PRACE/odpoved" -X POST "$B/admin.php" -d "_csrf=$t" -d user=autor --data-urlencode "password=$HESLO"
+  grep -q 'name="kod"' "$PRACE/odpoved" || echo "bez-druheho-kroku"
+  curl -s -b "$jar" -c "$jar" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$t" -d krok=kod -d "kod=$2"
+}
+ocekavej "špatný kód z aplikace neprojde" "$(prihlas2fa "$PRACE/jar6" 000000)" "401"
+KODT=$(php -r 'require $argv[1] . "/system/src/Core/Totp.php"; echo Kaleta\Core\Totp::kod("JBSWY3DPEHPK3PXP", intdiv(time(), 30));' "$KOREN")
+ocekavej "přihlášení s kódem z aplikace (TOTP)" "$(prihlas2fa "$PRACE/jar7" "$KODT")" "302"
+ocekavej "záložní kód projde" "$(prihlas2fa "$PRACE/jar8" abcde-12345)" "302"
+ocekavej "záložní kód jde použít jen jednou" "$(prihlas2fa "$PRACE/jar9" abcde-12345)" "401"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET totp_tajemstvi = '', totp_zalozni = NULL WHERE user = 'autor'; DELETE FROM ka_kontrola_ip WHERE typ = 'login'"
+
 echo "== vypnutá rozšíření Novinky a Formuláře a poptávky"
 ROZ=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna='rozsireni'")
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota='statistika,presmerovani,claude' WHERE promenna='rozsireni'"
@@ -702,6 +717,47 @@ mcp stavba_schema '{}' > "$PRACE/odpoved"; ! grep -q '\\"typ\\": \\"formular\\"'
   && echo "  ok     builder a MCP nenabízejí prvky ani nástroje vypnutých rozšíření" || { echo "  CHYBA  schéma nebo MCP s vypnutými rozšířeními"; CHYB=$((CHYB+1)); }
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota='$ROZ' WHERE promenna='rozsireni'"
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
+
+echo "== instalace aktualizace (testovací klíč a kanál)"
+cat > "$PRACE/vydani-test.php" <<'PHP'
+<?php
+[$web, $port] = [$argv[1], $argv[2]];
+require $web . '/system/src/Core/Podpis.php';
+$par = sodium_crypto_sign_keypair();
+$sk = sodium_crypto_sign_secretkey($par);
+file_put_contents($web . '/system/aktualizace.pub', base64_encode(sodium_crypto_sign_publickey($par)) . " test\n");
+// seznam souborů „nainstalované verze“: podle otisku .htaccess aktualizace pozná, že ho správce upravil
+file_put_contents($web . '/system/soubory.json', json_encode(['verze' => '1.0.0-dev', 'soubory' => ['.htaccess' => hash_file('sha256', $web . '/.htaccess')]]));
+@mkdir(dirname($web) . '/kanal');
+$zip = new ZipArchive();
+$zip->open(dirname($web) . '/kanal/k.zip', ZipArchive::CREATE | ZipArchive::OVERWRITE);
+$zip->addFromString('layout/zakladni/test-aktualizace.txt', "nova verze\n");
+$zip->addFromString('.htaccess', "# htaccess nove verze\n");
+$zip->addFromString('system/bootstrap.php', (string) file_get_contents($web . '/system/bootstrap.php')); // balíček musí nést jádro
+$zip->addFromString('index.php', (string) file_get_contents($web . '/index.php'));
+$zip->close();
+$sha = hash_file('sha256', dirname($web) . '/kanal/k.zip');
+$m = ['verze' => '9.9.9', 'url' => "http://127.0.0.1:$port/k.zip", 'sha256' => $sha, 'min_php' => '8.4', 'zmeny' => ['test'],
+    'podpis' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Podpis::zpravaBalicku('9.9.9', $sha, false), $sk))];
+file_put_contents(dirname($web) . '/kanal/ok.json', json_encode($m));
+file_put_contents(dirname($web) . '/kanal/zly.json', json_encode(['podpis' => base64_encode(random_bytes(64))] + $m));
+PHP
+# kanál na vlastním serveru: vestavěný server PHP obsluhuje jen jeden požadavek, sám od sebe by stahovat nemohl
+KPORT=$((PORT + 1))
+php "$PRACE/vydani-test.php" "$PRACE/web" "$KPORT"
+(cd "$PRACE/kanal" && exec php -S "127.0.0.1:$KPORT" > /dev/null 2>&1) & KANAL_PID=$!
+for i in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$KPORT/ok.json" && break; sleep 0.2; done
+echo "# vlastni uprava spravce" >> "$PRACE/web/.htaccess"
+curl -s -b "$JAR" -c "$JAR" -o "$PRACE/odpoved" "$B/admin.php?modul=config&zalozka=zalohy"; TOKEN=$(csrf)
+aktualizuj() { "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('aktualizace_url','http://127.0.0.1:$KPORT/$1') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'aktualizace_cache'"
+  curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=config&akce=aktualizuj" -d "_csrf=$TOKEN"; }
+aktualizuj zly.json
+[ ! -f "$PRACE/web/layout/zakladni/test-aktualizace.txt" ] && echo "  ok     balíček s cizím podpisem se nenainstaluje" || { echo "  CHYBA  nainstalován balíček s neplatným podpisem"; CHYB=$((CHYB+1)); }
+aktualizuj ok.json
+[ -f "$PRACE/web/layout/zakladni/test-aktualizace.txt" ] && echo "  ok     podepsaná aktualizace se nainstaluje" || { echo "  CHYBA  aktualizace se nenainstalovala"; CHYB=$((CHYB+1)); }
+grep -q "vlastni uprava spravce" "$PRACE/web/.htaccess" && [ -f "$PRACE/web/.htaccess.kaleta-nova" ] && echo "  ok     vlastní .htaccess zůstal, nová verze leží vedle" || { echo "  CHYBA  aktualizace přepsala vlastní .htaccess"; CHYB=$((CHYB+1)); }
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('aktualizace_url', 'aktualizace_cache')"
+kill "$KANAL_PID" 2>/dev/null || true
 
 if [ -s "$PRACE/web/storage/log/chyby.log" ]; then echo "== záznam chyb aplikace:"; cat "$PRACE/web/storage/log/chyby.log"; CHYB=$((CHYB+1)); fi
 echo; [ "$CHYB" -eq 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $CHYB"; exit 1; }
