@@ -25,14 +25,14 @@ a do `tools/klice/` dejte jen symbolický odkaz, nebo klíč předávejte promě
 
 ## Před prvním veřejným vydáním (1.0)
 
-- [x] Repozitář `phprs-cms/kaletacms` na GitHubu (soukromý).
+- [x] Repozitář `phprs-cms/kaletacms` na GitHubu, veřejný od vydání 1.0 (rozhodnutí vlastníka).
 - [x] Git identita KaletaCMS <info@kaletacms.com>, historie přepsaná, první push.
-- [ ] Zveřejnění repozitáře – název organizace phprs-cms Kaletu veřejně spojí s phpRS (zvážit vlastní organizaci).
 - [x] Provozní i záložní klíč vygenerované (24. 9. 2026, id 3c68e740 a 1b2b7bea) v `~/.kaleta-klice` mimo iCloud (`tools/klice` je na ně odkaz), `system/aktualizace.pub` commitnutý. **Záložní klíč uložit do správce hesel a z disku smazat.**
 - [ ] Web kaletacms.com běží a vystavuje `aktualizace.json`; v `.github/workflows/denni-kontrola.yml` zapnuté kontroly (`if: false` pryč).
 - [x] V `SECURITY.md` kontakt info@kaletacms.com, na GitHubu zapnuté soukromé hlášení (Security → Private vulnerability reporting).
-- [ ] V `README.md` a `README.en.md` odstraněná věta „před vydáním 1.0 … nepoužívejte na produkčních webech“.
-- [ ] Kandidát `1.0.0-rc1` nainstalovaný na skutečném hostingu (Apache i nginx): pošta, cron (`/ulohy`), HTTPS certifikát, aktualizace z kanálu.
+- [x] V `README.md` a `README.en.md` odstraněná věta „před vydáním 1.0 … nepoužívejte na produkčních webech“.
+- [x] Kandidát `1.0.0-rc1` nainstalovaný na kaletacms.com (Blueboard, Apache, PHP 8.4): instalace, HTTPS, 2FA a přihlašovací klíče ověřené.
+- [ ] Ověřit na nginx a cron (`/ulohy`) na skutečném hostingu.
 
 ## Založení záložního klíče (jednou, před prvním veřejným vydáním)
 

@@ -6,7 +6,7 @@
 whose output reads like hand-written HTML, an AI assistant, Claude over MCP, and a WordPress importer.
 [Česky](README.md)
 
-> **Status: before the 1.0 release.** The features below are done and covered by tests; do not use it on production sites yet.
+> **Version 1.0.** Project website: [kaletacms.com](https://kaletacms.com) · download: [GitHub Releases](https://github.com/phprs-cms/kaletacms/releases/latest)
 
 ## Features
 
@@ -43,10 +43,12 @@ whose output reads like hand-written HTML, an AI assistant, Claude over MCP, and
 
 ## Installation
 
-1. Upload the repository to hosting with PHP 8.4+ and MySQL 8 / MariaDB 10.6+.
+1. Download `kaleta-X.Y.Z.zip` from [Releases](https://github.com/phprs-cms/kaletacms/releases/latest) and upload its contents
+   (including the hidden `.htaccess` files) to hosting with PHP 8.4+ and MySQL 8 / MariaDB 10.6+.
 2. Create an empty database.
 3. Open `https://your-site.com/install.php`, fill in the form and choose a starter site.
 
+Later versions are downloaded and installed by the site itself (Settings → Backups and updates); packages are signed by the publisher.
 Nginx does not read `.htaccess` – use the example in `system/nginx.priklad.conf`. The user guide is in [docs/guide.md](docs/guide.md).
 
 ## Development

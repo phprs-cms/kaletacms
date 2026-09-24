@@ -6,7 +6,7 @@
 stránek s výstupem na úrovni ručně psaného HTML, AI asistent a napojení Clauda přes MCP, import z WordPressu.
 [English](README.en.md)
 
-> **Stav: před vydáním 1.0.** Funkce níže jsou hotové a pokryté testy; zatím nepoužívejte na produkčních webech.
+> **Verze 1.0.** Web projektu: [kaletacms.com](https://kaletacms.com) · stažení: [GitHub Releases](https://github.com/phprs-cms/kaletacms/releases/latest)
 
 ## Co umí
 
@@ -44,10 +44,12 @@ stránek s výstupem na úrovni ručně psaného HTML, AI asistent a napojení C
 
 ## Instalace
 
-1. Nahrajte obsah repozitáře na hosting s PHP 8.4+ a MySQL 8 / MariaDB 10.6+.
+1. Stáhněte balíček `kaleta-X.Y.Z.zip` z [Releases](https://github.com/phprs-cms/kaletacms/releases/latest) a nahrajte jeho obsah
+   (i skryté soubory `.htaccess`) na hosting s PHP 8.4+ a MySQL 8 / MariaDB 10.6+.
 2. Založte prázdnou databázi.
 3. Otevřete `https://vas-web.cz/install.php`, vyplňte formulář a vyberte ukázkový web.
 
+Další verze si web stáhne a nainstaluje sám (Nastavení → Zálohy a aktualizace); balíčky jsou podepsané vydavatelem.
 Nginx nečte `.htaccess` – použijte ukázku `system/nginx.priklad.conf`. Návod k používání je v [příručce](docs/prirucka.md).
 
 ## Vývoj
