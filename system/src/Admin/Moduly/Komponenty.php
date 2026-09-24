@@ -13,8 +13,8 @@ use Kaleta\Stavitel\Publikace;
 use Kaleta\Stavitel\Stavba;
 
 /**
- * Komponenty – znovupoužitelné bloky (karta služby, blok s kontaktem, výzva…). Vznikají ve staviteli tlačítkem
- * „Uložit jako komponentu“ nebo tady; upravují se ve staviteli a změna se projeví všude, kde jsou použité.
+ * Komponenty – znovupoužitelné bloky (karta služby, blok s kontaktem, výzva…). Vznikají v builderu tlačítkem
+ * „Uložit jako komponentu“ nebo tady; upravují se v builderu a změna se projeví všude, kde jsou použité.
  */
 final class Komponenty extends Modul
 {
@@ -82,7 +82,7 @@ final class Komponenty extends Modul
         return $this->zpet('Komponenta byla smazána. Místa, kde byla použitá, zůstanou prázdná.');
     }
 
-    /** Ze stavitele: vybraný prvek se stane komponentou (JSON). Editor ho pak nahradí jejím použitím. */
+    /** Z builderu: vybraný prvek se stane komponentou (JSON). Editor ho pak nahradí jejím použitím. */
     protected function akceZPrvku(): Response
     {
         $prvek = $this->request->isPost() ? json_decode((string) ($_POST['prvek'] ?? ''), true) : null;
@@ -105,7 +105,7 @@ final class Komponenty extends Modul
         return array_map(fn (array $k): array => ['id' => (int) $k['idm'], 'nazev' => $k['nazev'], 'vlastnosti' => $k['vlastnosti']], KomponentyStavby::vsechny($db));
     }
 
-    /* ---------- úprava ve staviteli ---------- */
+    /* ---------- úprava v builderu ---------- */
 
     protected function akceStavitel(): Response
     {

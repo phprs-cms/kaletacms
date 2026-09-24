@@ -44,7 +44,7 @@ $prevede = fn (array $pocty): int => array_sum(array_intersect_key($pocty, ['pub
 	<li><?= e(t('Vlastní typy obsahu:')) ?> <?= e(implode(', ', array_map(fn (string $typ, int $pocet): string => $typ . ' (' . $pocet . ')', array_keys($p['jine']), $p['jine']))) ?></li>
 <?php endif ?>
 <?php if ($p['zkratky'] !== []): ?>
-	<li><?= e(t('Zkratky doplňků (formuláře, stavitelé stránek…) – značka zmizí, text uvnitř zůstane:')) ?> <?= e(implode(', ', array_map(fn (string $z, int $pocet): string => '[' . $z . '] ' . $pocet . '×', array_keys($p['zkratky']), $p['zkratky']))) ?></li>
+	<li><?= e(t('Zkratky doplňků (formuláře, buildery stránek…) – značka zmizí, text uvnitř zůstane:')) ?> <?= e(implode(', ', array_map(fn (string $z, int $pocet): string => '[' . $z . '] ' . $pocet . '×', array_keys($p['zkratky']), $p['zkratky']))) ?></li>
 <?php endif ?>
 	<li><?= e(t('Obrázky zatím zůstanou na starém webu; po importu je můžete jedním tlačítkem stáhnout k sobě.')) ?></li>
 </ul>
@@ -65,7 +65,7 @@ $prevede = fn (array $pocty): int => array_sum(array_intersect_key($pocty, ['pub
 <div class="radek"><span class="popisek"><?= e(t('Co importovat')) ?></span><div class="volby">
 	<label><input type="checkbox" name="koncepty" value="1"<?= $volby['koncepty'] ? ' checked' : '' ?>> <?= e(t('koncepty a příspěvky čekající na schválení (%s)', (int) (($p['clanky']['draft'] ?? 0) + ($p['clanky']['pending'] ?? 0)))) ?></label>
 	<label><input type="checkbox" name="stranky" value="1"<?= $volby['stranky'] ? ' checked' : '' ?>> <?= e(t('stránky (%s)', $prevede($p['stranky']))) ?></label>
-	<label><input type="checkbox" name="stavitel" value="1"<?= ($volby['stavitel'] ?? true) ? ' checked' : '' ?>> <?= e(t('stránky rovnou do stavitele – upravíte je vizuálně; původní text zůstane jako záloha')) ?></label>
+	<label><input type="checkbox" name="stavitel" value="1"<?= ($volby['stavitel'] ?? true) ? ' checked' : '' ?>> <?= e(t('stránky rovnou do builderu – upravíte je vizuálně; původní text zůstane jako záloha')) ?></label>
 	<label><input type="checkbox" name="presmerovani" value="1"<?= $volby['presmerovani'] ? ' checked' : '' ?>> <?= e(t('přesměrování ze starých adres na nové')) ?></label>
 </div></div>
 <?php if (!$presmerovaniZapnuto): ?>

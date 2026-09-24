@@ -137,7 +137,7 @@ $kontrastyHtml = function (array $kontrasty): string {
 
 <fieldset>
 <legend><?= e(t('Typografické styly')) ?></legend>
-<p class="napoveda"><?= e(t('Pojmenované styly textu, které ve staviteli vyberete u prvku (Styl → Typografie). Změna tady se projeví všude, kde styl je.')) ?></p>
+<p class="napoveda"><?= e(t('Pojmenované styly textu, které v builderu vyberete u prvku (Styl → Typografie). Změna tady se projeví všude, kde styl je.')) ?></p>
 <div class="tab-obal"><table class="vypis vzhled-typografie">
 <thead><tr><th scope="col"><?= e(t('Styl')) ?></th><th scope="col"><?= e(t('Velikost (krok škály)')) ?></th><th scope="col"><?= e(t('Tloušťka')) ?></th></tr></thead>
 <tbody>

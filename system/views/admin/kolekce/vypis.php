@@ -13,7 +13,7 @@ $spravce = $app->auth()->isAdmin();
 <p class="navigace-radek"><a class="tl" href="<?= e($modul->url('novy')) ?>"><?= e(t('Nová kolekce')) ?></a></p>
 <?php endif ?>
 <?php if ($kolekce === []): ?>
-<?= $app->view->render('admin/prazdno', ['ikona' => 'kolekce', 'nadpis' => t('Zatím žádné kolekce.'), 'text' => t('Kolekce je seznam podobných věcí s vlastními poli – reference, členové týmu, produkty, pobočky, ceník. Na web je dostanete prvkem Výpis kolekce ve staviteli, každá položka může mít i vlastní stránku.'), 'akce' => $spravce ? [$modul->url('novy'), t('Založit kolekci')] : null]) ?>
+<?= $app->view->render('admin/prazdno', ['ikona' => 'kolekce', 'nadpis' => t('Zatím žádné kolekce.'), 'text' => t('Kolekce je seznam podobných věcí s vlastními poli – reference, členové týmu, produkty, pobočky, ceník. Na web je dostanete prvkem Výpis kolekce v builderu, každá položka může mít i vlastní stránku.'), 'akce' => $spravce ? [$modul->url('novy'), t('Založit kolekci')] : null]) ?>
 <?php else: ?>
 <div class="tab-obal">
 <table class="vypis">

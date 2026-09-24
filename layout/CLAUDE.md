@@ -27,8 +27,8 @@ Všechno ostatní je kód systému a nemění se.
   `$menu` a `$menu_paticka` (menu z Vzhled → Menu: položky `text`, `url`, `nove_okno`, `deti` = podmenu) a `$menu_html($menu, $cesta, $url(''))`
   (hotové `<li>` i s podmenu a `aria-current`), `$stranky` (starší plochý seznam stránek „v menu“), `$url`, `$kanonicka`, `$jazyk`, `$jazyky_html`,
   **`$hlava` (povinně vypsat před `</head>`) a `$pata` (povinně před `</body>`)** – tudy jde SEO, měření a cookie lišta.
-  `$casti['hlavicka']` a `$casti['paticka']`: záhlaví a patička ze stavitele (Vzhled → Části webu). Když nejsou `null`, vypiš je místo
-  vlastního `<header>` / `<footer>` – jinak by úprava ve stavitelu na webu nebyla vidět.
+  `$casti['hlavicka']` a `$casti['paticka']`: záhlaví a patička z builderu (Vzhled → Části webu). Když nejsou `null`, vypiš je místo
+  vlastního `<header>` / `<footer>` – jinak by úprava v builderu na webu nebyla vidět.
 - `novinka.php`: `$novinka` (titulek, uvod, text, datum, obrazek, tema_jm, tema_seo, autor_jm, stitky, faq_html…), `$url`, `$souvisejici`.
 - `vypis.php`: `$nadpis`, `$popis`, `$novinky`, `$strana`, `$stran`, `$strankaUrl`, `$hledano`, `$nalezeneStranky`, `$url`.
 - `stranka.php`: `$stranka` (titulek, text…), `$uvod` (jde o úvodní stránku webu).

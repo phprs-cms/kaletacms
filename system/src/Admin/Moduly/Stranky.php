@@ -11,7 +11,7 @@ use Kaleta\Stavitel\Stavba;
 
 /**
  * Stránky webu: úvod, O nás, Služby, Kontakt, Zásady ochrany soukromí… Úvodní stránku určuje Nastavení → Základní.
- * Stránka má adresu /<seo_link>. Obsah je buď text z editoru, nebo stavba ze stavitele (sloupec stavba, rozpracovaná stavba_koncept).
+ * Stránka má adresu /<seo_link>. Obsah je buď text z editoru, nebo stavba z builderu (sloupec stavba, rozpracovaná stavba_koncept).
  */
 final class Stranky extends Modul
 {
@@ -189,7 +189,7 @@ final class Stranky extends Modul
             $id = $this->db->insert('stranky', $data);
             $sablona = \Kaleta\Stavitel\Knihovna::SABLONY_STRANEK[$r->post('sablona')] ?? null;
             if ($sablona !== null && $sablona[1] !== []) {
-                // nová stránka podle šablony: sekce z knihovny jako koncept a rovnou do stavitele
+                // nová stránka podle šablony: sekce z knihovny jako koncept a rovnou do builderu
                 $stavba = \Kaleta\Stavitel\Knihovna::stranka($this->db, $sablona[1], $data['titulek'], $this->jazykObsahu($jazyk));
                 $this->db->update('stranky', ['stavba_koncept' => Stavba::naJson($stavba)], ['ids' => $id]);
                 \Kaleta\Core\Menu::nastavStranku($this->db, $id, $jazyk, (bool) $data['v_menu']);
@@ -211,7 +211,7 @@ final class Stranky extends Modul
         return $this->zpet('Stránka byla uložena.');
     }
 
-    /* ---------- stavitel (akce v Admin\StavitelAkce) ---------- */
+    /* ---------- builder (akce v Admin\StavitelAkce) ---------- */
 
     /** Editor; textová stránka se při prvním otevření převede na stavbu (úzká sekce s nadpisem a textem, text zůstane). */
     protected function akceStavitel(): Response
@@ -271,7 +271,7 @@ final class Stranky extends Modul
             $this->db->update('stranky', ['stavba' => null, 'stavba_koncept' => null], ['ids' => $stranka['ids']]);
         }
 
-        return $this->zpet('Stránka zobrazuje text z editoru (obsah stavby bez rozložení). Stavbu najdete ve verzích, když otevřete stavitel.', 'edit', ['id' => (int) ($stranka['ids'] ?? 0)]);
+        return $this->zpet('Stránka zobrazuje text z editoru (obsah stavby bez rozložení). Stavbu najdete ve verzích, když otevřete builder.', 'edit', ['id' => (int) ($stranka['ids'] ?? 0)]);
     }
 
     /** @return array<string, mixed>|null */

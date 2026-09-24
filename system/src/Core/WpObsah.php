@@ -54,7 +54,7 @@ final class WpObsah
         return self::povoleneHtml($html);
     }
 
-    /** Text pro stavitel (prvek Text, odpovědi FAQ…): stejný povolovací seznam značek jako editor, bez převodů z WordPressu. */
+    /** Text pro builder (prvek Text, odpovědi FAQ…): stejný povolovací seznam značek jako editor, bez převodů z WordPressu. */
     public static function bezpecneHtml(string $html): string
     {
         return self::povoleneHtml($html);

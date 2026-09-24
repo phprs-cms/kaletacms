@@ -15,7 +15,7 @@ use Kaleta\Stavitel\Prvky\Formular;
 use Kaleta\Stavitel\Stavba;
 
 /**
- * Odeslání formuláře ze stavitele (POST /formular). Pole a příjemce bere z PUBLIKOVANÉ stavby podle zdroje a id prvku –
+ * Odeslání formuláře z builderu (POST /formular). Pole a příjemce bere z PUBLIKOVANÉ stavby podle zdroje a id prvku –
  * návštěvník nemůže přidat pole ani změnit adresáta. Výsledek: poptávka v ka_poptavky, upozornění e-mailem a návrat
  * na stránku s kódem výsledku (?formular=<id>&vysledek=ok|pole|limit|overeni).
  */

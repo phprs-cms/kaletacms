@@ -213,7 +213,7 @@ final class Seo
         if ($s->bool('schema_org')) {
             $h[] = '<script type="application/ld+json">' . json_encode($this->strukturovanaData($titulek, $meta, $clanek), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) . '</script>';
         }
-        // design systém (tokeny a pořadí vrstev kaskády) a styl stavby stránky, pokud jde o stránku ze stavitele
+        // design systém (tokeny a pořadí vrstev kaskády) a styl stavby stránky, pokud jde o stránku z builderu
         $h[] = '<style>' . \Kaleta\Stavitel\DesignSystem::css(\Kaleta\Stavitel\DesignSystem::nacti($s), $this->app->request->basePath()) . ($meta['css'] ?? '') . '</style>';
         $h[] = Identita::hlava($s, $this->app->request->basePath());
         // společné prvky webu (fotogalerie, prohlížečka fotek, video, sdílení…) pro všechny šablony
@@ -333,7 +333,7 @@ final class Seo
                 $vydavatel,
             ];
             if (!empty($meta['faq'])) {
-                // stránka ze stavitele s otázkami a odpověďmi – vedle údajů o webu a firmě, ne místo nich
+                // stránka z builderu s otázkami a odpověďmi – vedle údajů o webu a firmě, ne místo nich
                 $graf[] = ['@type' => 'FAQPage', 'mainEntity' => array_map(fn (array $d): array => [
                     '@type' => 'Question', 'name' => $d[0], 'acceptedAnswer' => ['@type' => 'Answer', 'text' => $d[1]],
                 ], $meta['faq'])];

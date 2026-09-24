@@ -1,6 +1,6 @@
 # Příručka Kalety
 
-Návod pro toho, kdo web spravuje: od instalace přes stavitel stránek až po napojení na AI.
+Návod pro toho, kdo web spravuje: od instalace přes builder stránek až po napojení na AI.
 [English version](guide.md)
 
 ## 1. Instalace a první kroky
@@ -17,9 +17,9 @@ Administrace je na adrese `/admin.php`. Role: **správce** smí všechno, **edit
 jen své novinky a vydat je smí jen s právem vydávat. V **Uživatelé → Role** si založíte **vlastní role** – pojmenovanou
 sadu sekcí (třeba „Obchodník“ jen s Poptávkami); změna role se přenese na všechny její členy.
 
-## 2. Stavitel stránek
+## 2. Builder stránek
 
-Stavitel otevřete v **Stránky → Stavitel** (nebo odkazem „Upravit zde“ na webu). Uprostřed je **plátno – skutečná stránka
+Builder otevřete v **Stránky → Builder** (nebo odkazem „Upravit zde“ na webu). Uprostřed je **plátno – skutečná stránka
 webu**, vlevo panel **Přidat / Struktura**, vpravo vlastnosti vybraného prvku.
 
 - **Vkládání:** klepněte na prvek nebo hotovou sekci v panelu Přidat, nebo je **přetáhněte na plátno** – modrá čára
@@ -48,7 +48,7 @@ webu**, vlevo panel **Přidat / Struktura**, vpravo vlastnosti vybraného prvku.
   **vyhledávání**, **tlačítko nahoru** a **odběr novinek**. Sekce umí **video na pozadí**, video **plakát**, navigace
   **mega menu** a obrázek pozadí **paralaxu**.
 
-Stránku, která byla dosud jen textem, stavitel převede na stavbu sám. Zpět k textu ji vrátíte v nastavení stránky.
+Stránku, která byla dosud jen textem, builder převede na stavbu sám. Zpět k textu ji vrátíte v nastavení stránky.
 
 **Stránky** mají vlastní titulek a obrázek pro vyhledávače a sdílení i volbu noindex (Nastavení stránky → Vyhledávače
 a sdílení). Smazaná stránka jde do **koše** a 30 dní ji jde obnovit; **Duplikovat** vytvoří skrytou kopii i se stavbou.
@@ -64,14 +64,14 @@ a sdílení). Smazaná stránka jde do **koše** a 30 dní ji jde obnovit; **Dup
   **zaoblení rohů**, logo a ikona.
 
 - **Typografické styly** – velikost a tloušťka pojmenovaných stylů (Hlavní titulek, Nadpis sekce, Perex…), které ve
-  staviteli vyberete u prvku. Změna tady se projeví na celém webu.
+  builderu vyberete u prvku. Změna tady se projeví na celém webu.
 - **Design tokeny** – stažení a načtení vzhledu ve formátu W3C Design Tokens (DTCG) pro Figmu nebo Tokens Studio.
 
 Vpravo je živý náhled úvodní stránky (počítač / telefon). Nic se neukládá, dokud nestisknete Uložit vzhled.
 
 ## 4. Části webu: záhlaví, patička, obálky
 
-**Vzhled → Části webu.** Dokud část nepublikujete ze stavitele, kreslí ji šablona.
+**Vzhled → Části webu.** Dokud část nepublikujete z builderu, kreslí ji šablona.
 
 - **Záhlaví a patička** jsou na každé stránce. Prvky **Logo**, **Navigace** (na telefonu se schová za tlačítko) a
   **Údaje firmy** se plní samy.
@@ -85,7 +85,7 @@ jedno podmenu. Pořadí měníte přetažením nebo šipkami. Dokud menu neulož
 
 ## 5. Komponenty
 
-Blok, který používáte na víc místech (karta služby, kontaktní pruh), uložte jako **komponentu**: vyberte ho ve staviteli
+Blok, který používáte na víc místech (karta služby, kontaktní pruh), uložte jako **komponentu**: vyberte ho v builderu
 a v hlavičce panelu klepněte na ikonu „Uložit jako komponentu“. Úpravy ve **Vzhled → Komponenty** se projeví všude.
 
 Co se má u každého použití lišit, nastavte jako **vlastnosti** (např. Nadpis, Odkaz) a v komponentě je vložte značkou
@@ -97,12 +97,12 @@ Co se má u každého použití lišit, nastavte jako **vlastnosti** (např. Nad
 
 1. Založte kolekci a pole (krátký text, delší text, formátovaný text, obrázek, odkaz, číslo, datum).
 2. Přidejte položky.
-3. Ve staviteli vložte prvek **Výpis kolekce**. Jeho vnitřek je vzor jedné karty – do textů, obrázků a odkazů vložte
+3. V builderu vložte prvek **Výpis kolekce**. Jeho vnitřek je vzor jedné karty – do textů, obrázků a odkazů vložte
    značky `{{nazev}}`, `{{url}}` (stránka položky) nebo vlastní pole. Nápověda se značkami se ukáže v panelu Obsah.
 
 Výpis umí **řazení** (i podle pole, např. ceny), **pevný filtr**, **tlačítka filtru** pro návštěvníky a **stránkování**.
 Když u kolekce zapnete **stránky položek**, každá položka má adresu `/kolekce/polozka`. Vzhled té stránky navrhnete
-ve staviteli přes **Šablona detailu**.
+v builderu přes **Šablona detailu**.
 
 ## 7. Formuláře a poptávky
 
@@ -136,7 +136,7 @@ kanonické adresy, strukturovaná data, `llms.txt` pro AI vyhledávače). Dalš�
 **Asistent** zapnete v **Rozšíření**. Vyberte poskytovatele (Anthropic Claude, OpenAI, Google Gemini, Mistral), vložte
 klíč API a model. Asistent jen navrhuje. Text odchází k poskytovateli, jen když klepnete na jeho tlačítko.
 
-- Ve staviteli: **✨ Vytvořit sekci s AI** (popište, co má sekce obsahovat) a **Přepsat s AI** u textu prvku (kratší,
+- V builderu: **✨ Vytvořit sekci s AI** (popište, co má sekce obsahovat) a **Přepsat s AI** u textu prvku (kratší,
   delší, formálněji, přátelštěji, opravit chyby). Výsledek zkontrolujte, fakta doplňte sami. Ctrl+Z změnu vrátí.
 - V novinkách: titulky, perex, SEO popis, štítky, korektura, popisy obrázků a překlad do jiného jazyka webu.
 
@@ -153,7 +153,7 @@ vzniká jako **koncept** a publikuje se jen na váš pokyn.
 ## 11. Přechod z WordPressu
 
 **Správa → Import a export → WordPress:** nahrajte export z WordPressu (Nástroje → Export, soubor XML). Import převede
-příspěvky na novinky, stránky volitelně **rovnou do stavitele**, stáhne obrázky do Médií a založí přesměrování ze starých
+příspěvky na novinky, stránky volitelně **rovnou do builderu**, stáhne obrázky do Médií a založí přesměrování ze starých
 adres. Import jde spustit znovu – co už převedl, přeskočí.
 
 ## 12. Zálohy, aktualizace, export

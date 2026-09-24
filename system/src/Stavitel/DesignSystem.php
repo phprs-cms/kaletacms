@@ -9,7 +9,7 @@ use Kaleta\Front\Identita;
 
 /**
  * Design systém webu: pár rozhodnutí (barvy, písma, základní velikost a poměr škály, šířka, zaoblení), ze kterých se dopočítají
- * CSS proměnné (tokeny) pro šablonu i stavitel. Typografie a mezery jsou fluidní (clamp mezi šířkou telefonu a velkého monitoru),
+ * CSS proměnné (tokeny) pro šablonu i builder. Typografie a mezery jsou fluidní (clamp mezi šířkou telefonu a velkého monitoru),
  * odstíny barev se míchají v prohlížeči (color-mix v OKLCH) – web tak potřebuje jen hrstku čísel a nic se neduplikuje.
  *
  * Uloženo v nastavení „design_system“ (JSON). Chybějící klíč = výchozí hodnota; hlavní barva a písma se berou i ze starší Identity webu.
@@ -19,7 +19,7 @@ final class DesignSystem
     /** Barvy, které si web volí; ostatní odstíny se z nich dopočítají. */
     public const array BARVY = ['primarni' => 'Hlavní', 'sekundarni' => 'Doplňková', 'text' => 'Text', 'pozadi' => 'Pozadí', 'plocha' => 'Plocha (karty, patička)'];
 
-    /** Barevné tokeny, ze kterých se vybírá ve stavitelu (klíč => popis). */
+    /** Barevné tokeny, ze kterých se vybírá v builderu (klíč => popis). */
     public const array TOKENY_BAREV = [
         'primarni' => 'Hlavní', 'primarni-jemna' => 'Hlavní – jemná', 'na-primarni' => 'Text na hlavní', 'sekundarni' => 'Doplňková',
         'text' => 'Text', 'tlumeny' => 'Tlumený text', 'pozadi' => 'Pozadí', 'plocha' => 'Plocha', 'linka' => 'Linka', 'bila' => 'Bílá', 'cerna' => 'Černá',
@@ -52,7 +52,7 @@ final class DesignSystem
     public const array TLOUSTKY = [300 => 'tenké', 400 => 'normální', 500 => 'střední', 600 => 'polotučné', 700 => 'tučné', 800 => 'extra tučné'];
 
     /**
-     * Pořadí vrstev kaskády pro celý web: tokeny, společné prvky (image/web.css), šablona, základ prvků stavitele, třídy, styl prvků.
+     * Pořadí vrstev kaskády pro celý web: tokeny, společné prvky (image/web.css), šablona, základ prvků builderu, třídy, styl prvků.
      * Pozdější vrstva vyhrává bez ohledu na specifičnost – nic se nemusí přebíjet selektory ani !important.
      */
     public const string VRSTVY = '@layer tokeny, spolecne, sablona, stavitel, tridy, prvky;';
@@ -227,7 +227,7 @@ final class DesignSystem
         return ($titulky ? Identita::PISMA_TITULKU : Identita::PISMA_TEXTU)[$klic][2] ?? 'system-ui, sans-serif';
     }
 
-    /** Tokeny jako CSS proměnné v první vrstvě kaskády; šablona a stavitel je jen používají. $zaklad = složka instalace (pro soubory písem). */
+    /** Tokeny jako CSS proměnné v první vrstvě kaskády; šablona a builder je jen používají. $zaklad = složka instalace (pro soubory písem). */
     public static function css(array $ds, string $zaklad = ''): string
     {
         $pisma = '';

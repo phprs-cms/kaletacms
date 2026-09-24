@@ -5,7 +5,7 @@
  *
  * @var Kaleta\Core\Settings $web
  * @var string $titulek  prázdný na úvodní stránce
- * @var array{hlavni:bool, popis:string, klicova_slova:string, obrazek:string, typ:string, noindex:bool, stavba?:bool} $meta  stavba = stránka ze stavitele (sekce přes celou šířku)
+ * @var array{hlavni:bool, popis:string, klicova_slova:string, obrazek:string, typ:string, noindex:bool, stavba?:bool} $meta  stavba = stránka z builderu (sekce přes celou šířku)
  * @var string $obsah  hotové HTML obsahu stránky (stránka, výpis novinek, novinka…)
  * @var callable(string): string $url
  * @var string $kanonicka
@@ -17,7 +17,7 @@
  * @var list<array{text:string, url:string, nove_okno:bool, deti:list<array<string, mixed>>, novinky?:bool}> $menu  hlavní menu (Vzhled → Menu), položky mohou mít podmenu
  * @var list<array<string, mixed>> $menu_paticka  menu v patičce (prázdné, dokud ho správce nesestaví)
  * @var callable(list<array<string, mixed>>, string, string): string $menu_html  položky menu jako <li> (Core\Menu::html: položky, cesta stránky, adresa úvodu)
- * @var array{hlavicka: ?string, paticka: ?string} $casti  záhlaví a patička ze stavitele (Vzhled → Části webu); null = kreslí je layout
+ * @var array{hlavicka: ?string, paticka: ?string} $casti  záhlaví a patička z builderu (Vzhled → Části webu); null = kreslí je layout
  */
 $nazevWebu = $web->get('nazev_webu');
 $cesta = (string) parse_url($kanonicka, PHP_URL_PATH);

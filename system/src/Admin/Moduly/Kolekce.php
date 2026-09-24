@@ -14,7 +14,7 @@ use Kaleta\Stavitel\Stavba;
 
 /**
  * Kolekce – vlastní typy obsahu (reference, tým, produkty, pobočky…). Definici polí a šablonu detailu mění správce,
- * položky každý, kdo má k modulu přístup. Na web je dostane prvek Výpis kolekce ve staviteli.
+ * položky každý, kdo má k modulu přístup. Na web je dostane prvek Výpis kolekce v builderu.
  */
 final class Kolekce extends Modul
 {
@@ -184,7 +184,7 @@ final class Kolekce extends Modul
         return $this->zpet('Položka byla smazána.', 'polozky', ['id' => $idk]);
     }
 
-    /* ---------- šablona detailu ve staviteli (správce) ---------- */
+    /* ---------- šablona detailu v builderu (správce) ---------- */
 
     protected function akceStavitel(): Response
     {

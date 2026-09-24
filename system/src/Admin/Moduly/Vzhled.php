@@ -12,7 +12,7 @@ use Kaleta\Stavitel\DesignSystem;
 
 /**
  * Vzhled webu: šablona, logo a design systém (barvy, písma, velikosti, šířka, zaoblení) s živým náhledem úvodní stránky.
- * Z design systému berou tokeny šablona i stavitel, takže změna tady přebarví celý web.
+ * Z design systému berou tokeny šablona i builder, takže změna tady přebarví celý web.
  */
 final class Vzhled extends Modul
 {

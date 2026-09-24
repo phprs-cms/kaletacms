@@ -13,7 +13,7 @@ use Kaleta\Stavitel\Publikace;
 use Kaleta\Stavitel\Stavba;
 
 /**
- * Části webu ve staviteli: záhlaví, patička a obálky detailu novinky, výpisu a stránky 404. Bez publikované stavby
+ * Části webu v builderu: záhlaví, patička a obálky detailu novinky, výpisu a stránky 404. Bez publikované stavby
  * kreslí část šablona; „Vrátit na šablonu“ stavbu vypne (zůstane ve verzích).
  */
 final class Casti extends Modul
@@ -71,7 +71,7 @@ final class Casti extends Modul
             \Kaleta\Front\Cache::vymaz();
         }
 
-        return $this->zpet($varianta !== '' ? 'Varianta byla smazána – vybrané stránky mají zase výchozí podobu.' : 'Část webu se vrátila na šablonu. Předchozí podobu najdete ve verzích, když ji znovu otevřete ve staviteli.');
+        return $this->zpet($varianta !== '' ? 'Varianta byla smazána – vybrané stránky mají zase výchozí podobu.' : 'Část webu se vrátila na šablonu. Předchozí podobu najdete ve verzích, když ji znovu otevřete v builderu.');
     }
 
     /** Formulář varianty záhlaví nebo patičky: název a stránky, na kterých platí. */

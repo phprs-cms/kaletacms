@@ -1,4 +1,4 @@
-/* Kaleta – stavitel stránek. Bez knihoven a bez build kroku.
+/* Kaleta – builder stránek. Bez knihoven a bez build kroku.
  *
  * Stav je strom prvků (stejný tvar, jaký čistí a vykresluje PHP: Stavitel\Stavba). Každá změna jde do historie (zpět/znovu),
  * za chvíli se uloží jako koncept (akce stavba_uloz) a plátno – skutečná stránka webu v iframe – se překreslí.

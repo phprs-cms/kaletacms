@@ -505,7 +505,7 @@ over('StahovaniObrazku: limity podle zadání (15 MB, 3 přesměrování, 5 s sp
 $wpZdrojak = (string) file_get_contents(KALETA_ROOT . '/system/src/Core/StahovaniObrazku.php');
 over('StahovaniObrazku: přesměrování se nikdy nenásledují automaticky a nic se neposílá navíc', [substr_count($wpZdrojak, 'CURLOPT_FOLLOWLOCATION => false'), str_contains($wpZdrojak, "'follow_location' => 0"), (bool) preg_match('/CURLOPT_(COOKIE\w*|USERPWD|HTTPHEADER|HTTPAUTH)\b/', $wpZdrojak), str_contains($wpZdrojak, "'Kaleta-import'")], [1, true, false, true]);
 
-/* ---------- stavitel: validátor, styl, design system, knihovna ---------- */
+/* ---------- builder: validátor, styl, design system, knihovna ---------- */
 [$stS, $stChyby] = Kaleta\Stavitel\Stavba::vycisti(['deti' => [
     ['typ' => 'nadpis', 'id' => 'abc', 'obsah' => ['text' => '<script>x</script>Ahoj <b>světe</b>']],
     ['typ' => 'neznamy'],
@@ -596,7 +596,7 @@ over('ZHtml: hlášení o @media, složitém selektoru, url(), formuláři, SVG 
 over('ZHtml: výsledek projde validátorem bez chyb', Kaleta\Stavitel\Stavba::vycisti($zh['stavba'])[1], []);
 over('Stavba::jakoText: sémantický obsah bez rozložení', Kaleta\Stavitel\Stavba::jakoText($zh['stavba']), "<h1>A <em>b</em></h1>\n<p>Jedna.</p><p>Dvě.</p>\n<p><a href=\"/k\">K</a></p>\n<p>Volný text</p>\n<h3>Otázka?</h3><p>Odpověď.</p>");
 
-// vypnutá rozšíření: prvky ani sekce s nimi stavitel nenabízí
+// vypnutá rozšíření: prvky ani sekce s nimi builder nenabízí
 $typySchematu = array_column(Kaleta\Stavitel\Stavba::schema(true, 'cs', false, ['statistika'])['prvky'], 'typ');
 over('Rozšíření: bez novinek a poptávek schéma nemá jejich prvky', [in_array('novinky', $typySchematu, true), in_array('formular', $typySchematu, true), in_array('nadpis', $typySchematu, true)], [false, false, true]);
 $klicKnihovny = array_column(Kaleta\Stavitel\Knihovna::seznam(['statistika']), 'klic');
@@ -635,11 +635,11 @@ over('Kolekce::dosad: text se escapuje až prvkem, inline a html hned, html pole
 [$koStavba, $koChyby] = Kaleta\Stavitel\Stavba::vycisti(['deti' => [['typ' => 'kolekce', 'obsah' => ['kolekce' => 'tym'], 'deti' => [['typ' => 'obrazek', 'obsah' => ['src' => '{{foto}}']], ['typ' => 'tlacitko', 'obsah' => ['odkaz' => '{{url}}']]]]]]);
 over('Stavba::vycisti: značky {{pole}} v obrázku a odkazu projdou', [$koStavba['deti'][0]['deti'][0]['obsah']['src'], $koStavba['deti'][0]['deti'][1]['obsah']['odkaz'], $koChyby], ['{{foto}}', '{{url}}', []]);
 
-/* ---------- angličtina stavitele: texty editoru (JS) a popisky schématu (PHP) ---------- */
+/* ---------- angličtina builderu: texty editoru (JS) a popisky schématu (PHP) ---------- */
 preg_match_all("/\bT\('((?:[^'\\\\]|\\\\.)*)'\)/", (string) file_get_contents(KALETA_ROOT . '/image/stavitel.js'), $enJs);
 preg_match('/window\.KALETA_PREKLAD = (\{.*\});/s', (string) file_get_contents(KALETA_ROOT . '/image/jazyky/admin-en.js'), $enJsSlovnik);
 $enJsKlice = array_keys((array) json_decode((string) preg_replace(['#^\s*//.*$#m', '/,\s*\}$/'], ['', '}'], $enJsSlovnik[1] ?? '{}'), true));
-over('Stavitel: všechny texty editoru mají anglický překlad', array_values(array_diff(array_unique(array_map('stripslashes', $enJs[1])), $enJsKlice, ['Tablet', 'Menu'])), []);
+over('Builder: všechny texty editoru mají anglický překlad', array_values(array_diff(array_unique(array_map('stripslashes', $enJs[1])), $enJsKlice, ['Tablet', 'Menu'])), []);
 $enAdmin = require KALETA_ROOT . '/system/jazyky/admin-en.php';
 $enSchema = Kaleta\Stavitel\Stavba::schema(true, 'cs', true);
 $enTexty = array_merge(array_column($enSchema['prvky'], 'nazev'), array_column($enSchema['prvky'], 'popis'), array_column($enSchema['prvky'], 'skupina'), array_values($enSchema['skupiny_stylu']));
@@ -656,7 +656,7 @@ foreach ($enSchema['prvky'] as $p) {
     $enPole($p['vlastnosti']);
 }
 $enPole($enSchema['styl']);
-over('Stavitel: všechny popisky schématu mají anglický překlad', array_values(array_filter(array_unique($enTexty), fn (string $x): bool => $x !== '' && preg_match('/\p{L}/u', $x) === 1 && !isset($enAdmin[$x]) && !in_array($x, ['Video', 'Logo', 'HTML', 'Text', 'text'], true))), []);
+over('Builder: všechny popisky schématu mají anglický překlad', array_values(array_filter(array_unique($enTexty), fn (string $x): bool => $x !== '' && preg_match('/\p{L}/u', $x) === 1 && !isset($enAdmin[$x]) && !in_array($x, ['Video', 'Logo', 'HTML', 'Text', 'text'], true))), []);
 
 $webyChyby = [];
 $webySekce = array_column(Kaleta\Stavitel\Knihovna::seznam(), 'klic');
@@ -672,7 +672,7 @@ foreach (Kaleta\Stavitel\Knihovna::WEBY as $webKlic => $web) {
 }
 over('Knihovna::WEBY: předvolby a sekce ukázkových webů existují', $webyChyby, []);
 
-/* ---------- AI asistent: poskytovatelé a stavitel ---------- */
+/* ---------- AI asistent: poskytovatelé a builder ---------- */
 $aiTelo = ['model' => 'm1', 'max_tokens' => 50, 'system' => 'S', 'messages' => [['role' => 'user', 'content' => [['type' => 'image', 'source' => ['media_type' => 'image/png', 'data' => 'QQ==']], ['type' => 'text', 'text' => 'Ahoj']]]]];
 over('Asistent::naOpenAi: systém, obrázek jako data URL, limit tokenů podle poskytovatele', [Asistent::naOpenAi($aiTelo, 'openai'), array_keys(Asistent::naOpenAi($aiTelo, 'mistral'))], [
     ['model' => 'm1', 'messages' => [['role' => 'system', 'content' => 'S'], ['role' => 'user', 'content' => [['type' => 'image_url', 'image_url' => ['url' => 'data:image/png;base64,QQ==']], ['type' => 'text', 'text' => 'Ahoj']]]], 'max_completion_tokens' => 50],

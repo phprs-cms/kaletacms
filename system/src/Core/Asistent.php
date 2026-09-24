@@ -6,7 +6,7 @@ namespace Kaleta\Core;
 
 /**
  * AI asistent (rozšíření "asistent"): návrhy titulků, perexu, SEO popisu a štítků, korektura, popisy obrázků, překlad
- * a ve staviteli nové sekce podle popisu a úpravy textů. Poskytovatele (Anthropic, OpenAI, Google, Mistral) a klíč volí
+ * a v builderu nové sekce podle popisu a úpravy textů. Poskytovatele (Anthropic, OpenAI, Google, Mistral) a klíč volí
  * administrátor v Rozšířeních. Uvnitř se pracuje s tvarem požadavku Claude API; zavolej() ho převede pro zvoleného poskytovatele.
  *
  * Asistent jen navrhuje – nic sám neukládá ani nevydává. Text se posílá jen po kliknutí na tlačítko asistenta.
@@ -118,7 +118,7 @@ class Asistent
         return ['navrhy' => array_values(array_filter(array_map($retezec, array_slice((array) ($json['navrhy'] ?? []), 0, 6))))];
     }
 
-    /** Pokyny pro přepis textu ve staviteli (klíč => zadání). */
+    /** Pokyny pro přepis textu v builderu (klíč => zadání). */
     public const array PREPISY = [
         'kratsi' => 'Zkrať text zhruba na polovinu, zachovej hlavní sdělení.',
         'delsi' => 'Rozveď text o jednu až dvě věty s konkrétními přínosy pro zákazníka. Nic si nevymýšlej (čísla, reference, ceny).',
@@ -163,7 +163,7 @@ class Asistent
     }
 
     /**
-     * Přepis textu prvku ve staviteli (nadpis, text, tlačítko, citát). Formátování zůstane jen v bezpečné podobě – výsledek
+     * Přepis textu prvku v builderu (nadpis, text, tlačítko, citát). Formátování zůstane jen v bezpečné podobě – výsledek
      * ještě projde validátorem stavby.
      *
      * @throws \RuntimeException s českou zprávou pro uživatele

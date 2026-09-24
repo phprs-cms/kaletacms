@@ -17,7 +17,7 @@ $vlastnosti = array_merge($k['vlastnosti'], array_fill(0, 3, ['klic' => '', 'pop
 <div class="radek"><label for="nazev"><?= e(t('Název komponenty')) ?></label><div><input class="textpole siroke" id="nazev" name="nazev" value="<?= e($k['nazev']) ?>" maxlength="100" required placeholder="<?= e(t('např. Karta služby')) ?>"></div></div>
 <fieldset>
 <legend><?= e(t('Vlastnosti')) ?></legend>
-<p class="napoveda"><?= e(t('Co se u každého použití komponenty může lišit – nadpis, text, obrázek, odkaz. Ve staviteli je do komponenty vložíte značkou {{klíč}}, u použití pak vyplníte hodnotu (prázdná = výchozí).')) ?></p>
+<p class="napoveda"><?= e(t('Co se u každého použití komponenty může lišit – nadpis, text, obrázek, odkaz. V builderu je do komponenty vložíte značkou {{klíč}}, u použití pak vyplníte hodnotu (prázdná = výchozí).')) ?></p>
 <div class="tab-obal">
 <table class="vypis">
 <thead><tr><th scope="col"><?= e(t('Popisek')) ?></th><th scope="col"><?= e(t('Typ')) ?></th><th scope="col"><?= e(t('Výchozí hodnota')) ?></th><th scope="col"><?= e(t('Značka')) ?></th></tr></thead>

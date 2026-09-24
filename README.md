@@ -2,7 +2,7 @@
 
 # Kaleta
 
-**Open-source CMS pro firemní weby** – prezentace, služby, reference, tým, kariéra, kontakt a novinky. Vizuální stavitel
+**Open-source CMS pro firemní weby** – prezentace, služby, reference, tým, kariéra, kontakt a novinky. Vizuální builder
 stránek s výstupem na úrovni ručně psaného HTML, AI asistent a napojení Clauda přes MCP, import z WordPressu.
 [English](README.en.md)
 
@@ -10,18 +10,18 @@ stránek s výstupem na úrovni ručně psaného HTML, AI asistent a napojení C
 
 ## Co umí
 
-- **Stavitel stránek** – plátno je skutečná stránka webu. Prvky a hotové sekce přetáhnete na místo, styl nastavíte zvlášť
+- **Builder stránek** – plátno je skutečná stránka webu. Prvky a hotové sekce přetáhnete na místo, styl nastavíte zvlášť
   pro počítač, tablet, mobil i najetí myší. Koncept se ukládá průběžně, na web jde až tlačítkem Publikovat; starší verze
   se dají obnovit.
 - **Knihovna 39 hotových sekcí** (úvody, služby, ceník, reference, tým, galerie, kontakt s formulářem…) a **tři ukázkové
   weby** k instalaci. Texty česky i anglicky, podle jazyka stránky.
 - **Design systém** – předvolby vzhledu jedním klikem, barvy s kontrolou čitelnosti (WCAG), písma, plynulé velikosti
   a mezery. Všechno jsou tokeny, takže změna barvy přebarví celý web.
-- **Části webu** – záhlaví, patička a obálky detailu novinky, výpisu a stránky 404 ve staviteli, včetně variant pro
+- **Části webu** – záhlaví, patička a obálky detailu novinky, výpisu a stránky 404 v builderu, včetně variant pro
   vybrané stránky (landing page bez navigace).
 - **Komponenty** – znovupoužitelné bloky s vlastnostmi; úprava komponenty se projeví všude, kde je použitá.
-- **Kolekce** – vlastní typy obsahu (reference, tým, produkty, pobočky…) s vlastními poli, výpis ve staviteli se
-  značkami `{{pole}}`, filtry, řazením a stránkováním, stránky položek se šablonou ze stavitele.
+- **Kolekce** – vlastní typy obsahu (reference, tým, produkty, pobočky…) s vlastními poli, výpis v builderu se
+  značkami `{{pole}}`, filtry, řazením a stránkováním, stránky položek se šablonou z builderu.
 - **Formuláře a poptávky** – poptávkový formulář bez CAPTCHA a cookies, poptávky v administraci, upozornění e-mailem,
   export CSV a automatické mazání osobních údajů.
 - **Firma** – adresa, IČO, otevírací doba a mapa jednou v Nastavení; web je vypíše a vyhledávače dostanou strukturovaná
@@ -30,12 +30,12 @@ stránek s výstupem na úrovni ručně psaného HTML, AI asistent a napojení C
   (Claude, OpenAI, Google Gemini nebo Mistral). Claude navíc může web stavět přes **MCP**: HTML převede na stavbu,
   upraví části webu, kolekce i vzhled – vždy jako koncept ke schválení.
 - **Novinky** (blog), vícejazyčné weby, SEO a llms.txt, vlastní měření návštěvnosti bez cookies, přesměrování,
-  zálohy a podepsané aktualizace, **import z WordPressu** (i rovnou do stavitele).
+  zálohy a podepsané aktualizace, **import z WordPressu** (i rovnou do builderu).
 
 ## Zásady
 
 - **Bez technologického dluhu:** čisté PHP 8.4+, žádný framework, Composer ani build krok; žádné cizí pluginy.
-- **Čistý výstup:** jeden prvek stavitele = jedna HTML značka, CSS jen toho, co stránka používá, ve vrstvách kaskády
+- **Čistý výstup:** jeden prvek builderu = jedna HTML značka, CSS jen toho, co stránka používá, ve vrstvách kaskády
   (`@layer`); JavaScript jen tam, kde je opravdu potřeba. Hlídají to testy.
 - **Web 2026:** fluidní typografie a mezery, container queries, barvy v OKLCH (`color-mix`), Popover API, přechody mezi stránkami.
 - **AI jako rovnocenný uživatel:** co jde v editoru, jde i přes MCP – stejné schéma, validace i oprávnění.
@@ -57,7 +57,7 @@ php -S localhost:8080 system/dev-router.php
 ```
 
 Testy: `php tools/testy.php` (jednotkové, bez databáze) a `tools/test.sh` (čistá instalace a průchod webem, administrací,
-stavitelem i MCP; potřebuje MySQL; `WEB=remeslo tools/test.sh` otestuje jiný ukázkový web). Pravidla pro přispěvatele
+builderem i MCP; potřebuje MySQL; `WEB=remeslo tools/test.sh` otestuje jiný ukázkový web). Pravidla pro přispěvatele
 a architektura jsou v [`CLAUDE.md`](CLAUDE.md).
 
 ## Licence

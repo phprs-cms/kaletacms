@@ -38,7 +38,7 @@ $nahled = function (string $data): string {
 <?php if ($poptavky === [] && ($hledat !== '' || $filtr !== '')): ?>
 <?= $app->view->render('admin/prazdno', ['ikona' => 'poptavky', 'nadpis' => t('Filtru neodpovídá žádná poptávka.'), 'text' => t('Zkuste jiné slovo nebo stav.'), 'akce' => [$modul->url(), t('Zrušit filtr')]]) ?>
 <?php elseif ($poptavky === []): ?>
-<?= $app->view->render('admin/prazdno', ['ikona' => 'poptavky', 'nadpis' => t('Zatím žádné poptávky.'), 'text' => t('Přidejte na web prvek Formulář ve staviteli stránek (nebo hotovou sekci Poptávkový formulář) – odeslané zprávy se objeví tady a přijdou i e-mailem.'), 'akce' => [$app->url('admin.php?modul=stranky'), t('Otevřít stránky')]]) ?>
+<?= $app->view->render('admin/prazdno', ['ikona' => 'poptavky', 'nadpis' => t('Zatím žádné poptávky.'), 'text' => t('Přidejte na web prvek Formulář v builderu stránek (nebo hotovou sekci Poptávkový formulář) – odeslané zprávy se objeví tady a přijdou i e-mailem.'), 'akce' => [$app->url('admin.php?modul=stranky'), t('Otevřít stránky')]]) ?>
 <?php else: ?>
 <form method="post" action="<?= e($modul->url('hromadne')) ?>">
 <?= $csrf ?>

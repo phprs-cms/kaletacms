@@ -1,4 +1,4 @@
--- Komponenty: znovupoužitelné bloky stavitele. vlastnosti = JSON [{klic, popisek, typ, vychozi}] – v komponentě jako {{klic}},
+-- Komponenty: znovupoužitelné bloky builderu. vlastnosti = JSON [{klic, popisek, typ, vychozi}] – v komponentě jako {{klic}},
 -- každé použití (prvek „komponenta“) jim dává vlastní hodnoty. Změna komponenty se projeví všude, kde je použitá.
 CREATE TABLE ka_komponenty (
     idm            INT UNSIGNED NOT NULL AUTO_INCREMENT,

@@ -1,4 +1,4 @@
--- Poptávky a zprávy z formulářů webu (prvek Formulář ve staviteli). Data = JSON [[popisek, hodnota], …].
+-- Poptávky a zprávy z formulářů webu (prvek Formulář v builderu). Data = JSON [[popisek, hodnota], …].
 CREATE TABLE ka_poptavky (
     idp      INT UNSIGNED NOT NULL AUTO_INCREMENT,
     datum    DATETIME NOT NULL,

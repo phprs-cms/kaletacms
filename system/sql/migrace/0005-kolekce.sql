@@ -1,5 +1,5 @@
 -- Kolekce: vlastní typy obsahu (reference, tým, produkty, pobočky…). pole = JSON [{klic, popisek, typ}], typ: text | radky | html | obrazek | odkaz | cislo | datum.
--- detail = položky mají vlastní stránku /<seo_link>/<seo položky> se šablonou ze stavitele (stavba, stavba_koncept).
+-- detail = položky mají vlastní stránku /<seo_link>/<seo položky> se šablonou z builderu (stavba, stavba_koncept).
 CREATE TABLE ka_kolekce (
     idk            INT UNSIGNED NOT NULL AUTO_INCREMENT,
     nazev          VARCHAR(100) NOT NULL,

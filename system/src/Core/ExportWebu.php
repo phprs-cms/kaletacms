@@ -115,7 +115,7 @@ final class ExportWebu
         self::pole($f, 'stitky', self::postupne($db, 'SELECT ids, nazev, seo_link, popis, obrazek FROM {stitky} WHERE ids > ? ORDER BY ids LIMIT 500', 'ids'));
         self::pole($f, 'novinky', self::clanky($db, $autori));
         self::pole($f, 'presmerovani', self::postupne($db, 'SELECT idp, z_adresy, na_adresu FROM {presmerovani} WHERE idp > ? ORDER BY idp LIMIT 1000', 'idp'));
-        // stavitel: sdílené třídy, části webu (záhlaví, patička, obálky) a kolekce; poptávky ne – jsou to osobní údaje návštěvníků
+        // builder: sdílené třídy, části webu (záhlaví, patička, obálky) a kolekce; poptávky ne – jsou to osobní údaje návštěvníků
         self::pole($f, 'tridy', $db->all('SELECT nazev, styl, css FROM {tridy} ORDER BY nazev'));
         self::pole($f, 'casti', $db->all('SELECT typ, jazyk, stavba FROM {casti} WHERE stavba IS NOT NULL ORDER BY typ, jazyk'));
         self::pole($f, 'menu', $db->all('SELECT umisteni, jazyk, polozky FROM {menu} ORDER BY umisteni, jazyk'));

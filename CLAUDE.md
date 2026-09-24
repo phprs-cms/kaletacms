@@ -1,6 +1,6 @@
 # Kaleta
 
-Open-source CMS pro **firemní weby** (stránky, novinky/blog, později stavitel stránek, kolekce a formuláře) s napojením na
+Open-source CMS pro **firemní weby** (stránky, novinky/blog, později builder stránek, kolekce a formuláře) s napojením na
 jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Čisté PHP 8.4+ bez frameworku a bez Composeru
 (vlastní PSR-4 autoloader v `system/bootstrap.php`), MySQL přes PDO, serverové HTML + trocha vanilla JS.
 
@@ -11,7 +11,7 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
 - **Jednoduchost nad abstrakcí.** Kód má přečíst i poučený laik. Žádné DI kontejnery, ORM, build kroky ani npm. Nová závislost = silný důvod.
 - **Firemní web, ne magazín.** Žádné redakční workflow (korektura, zámky, předávka), rubriky, komentáře, čtenáři, předplatné, reklama,
   newsletter ani push – fáze 0 je odstranila, nevracej je. Co firmy potřebují navíc (formuláře a poptávky, údaje o firmě, kolekce,
-  stavitel), přibývá podle `NAVRH.md`.
+  builder), přibývá podle `NAVRH.md`.
 - **Standardy webu 2026/2027 bez ohledu na staré prohlížeče:** CSS vrstvy, `clamp()`, container queries, `color-mix()`/OKLCH, `:has()`,
   Popover API, `<dialog>`, `<details>`, View Transitions. Interaktivita přednostně bez JavaScriptu. Žádné polyfilly, CDN ani cizí písma.
 - **Co se nevypisuje, nemá styl ani skript.** Do `image/web.css` ani `style.css` šablony nepatří selektor, který nikde nevzniká; skript nesmí
@@ -65,7 +65,7 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
 - **Úprava přímo na webu** (`Kernel::upravaNaMiste()`, `views/front/upravit.php`): „Upravit zde“ pro přihlášené s právem; ukládají akce
   `uloz_text` v `Moduly\Novinky` a `Moduly\Stranky`.
 
-## Stavitel stránek a design systém
+## Builder stránek a design systém
 
 - **Design systém** (`Stavitel\DesignSystem`, nastavení `design_system` JSON, admin Vzhled webu): pár rozhodnutí → tokeny v `@layer tokeny`.
   Fluidní škály přes `clamp()`, odstíny `color-mix(in oklch)`, kontrast WCAG počítá PHP (`kontrasty()`). Starší `brand_*` se čtou jen jako záloha.
@@ -84,13 +84,13 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   (prvek `obsah` = místo pro obsah systému). Web je skládá v `Front\Kernel::castiWebu()` se stavbou stránky v jednom `Kontext` → jedno CSS.
   Layout vypisuje `$casti['hlavicka']`/`['paticka']`, když nejsou `null`. Prvky `JEN_CASTI` (logo, navigace, udaje, obsah) se nabízejí jen v částech.
   Záhlaví a patička mohou mít varianty (`ka_casti.varianta`, `stranky` = JSON čísel stránek; `Casti::variantaStranky`), prázdná varianta část skryje.
-  Akce stavitele sdílí trait `Admin\StavitelAkce` (stránky i části), publikování a verze `Stavitel\Publikace`.
+  Akce builderu sdílí trait `Admin\StavitelAkce` (stránky i části), publikování a verze `Stavitel\Publikace`.
 - **Firma** (`Front\Firma`, Nastavení → Firma, klíče `firma_*`): prvek `udaje` (Údaje firmy) je vypisuje na webu, `Seo` z nich skládá
   Organization/LocalBusiness (`@id` …#firma) s adresou, otevírací dobou a geo. Otevírací doba se píše lidsky po řádcích, `Firma::hodiny()` ji rozebere.
 - **Kolekce** (`Stavitel\Kolekce`, tabulky `ka_kolekce` + `ka_kolekce_polozky`, admin `Moduly\Kolekce`, MCP `seznam_kolekci`, `vytvor_kolekci`,
   `uloz_polozku_kolekce`): prvek `kolekce` (Výpis kolekce) zopakuje svůj vnitřek pro každou položku a `{{pole}}` v obsahu nahradí přes `Kolekce::dosad()`
   podle typu cílového pole (text se escapuje až prvkem, inline/html hned, odkaz se znovu ověří). Prvky uvnitř výpisu dostávají styl přes třídu `s-<id>`,
-  ne přes id. Detail `/<kolekce>/<položka>` kreslí šablona ze stavitele (`ka_kolekce.stavba`, `Front\Kernel::detailKolekce`).
+  ne přes id. Detail `/<kolekce>/<položka>` kreslí šablona z builderu (`ka_kolekce.stavba`, `Front\Kernel::detailKolekce`).
 - **Komponenty** (`Stavitel\Komponenty`, `ka_komponenty`, admin `Moduly\Komponenty`, v editoru „Uložit jako komponentu“): prvek `komponenta`
   vloží publikovanou stavbu komponenty s hodnotami `{{vlastností}}` (stejné `Kolekce::dosad`); uvnitř bez značek editoru a se stylem přes třídu,
   ochrana proti zanoření (`Kontext::$zanoreni`). Náhled pro editor `/_komponenta/<id>` (jen správce).
@@ -109,10 +109,10 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
 - **Pošta** vždy přes `Core\Posta::odesli()` (fronta `ka_posta`). **Nahrávání:** obrázky `Core\Obrazky`, přílohy `Core\Soubory` (whitelist přípon).
 - **Čas:** pásmo `casove_pasmo` (`App::casovePasmo()`); zapisuj přes `date()`, porovnávej s `NOW()`.
 - **AI asistent** (`Core\Asistent`): poskytovatel `ai_poskytovatel` (anthropic | openai | google | mistral, pevné adresy v `POSKYTOVATELE`),
-  uvnitř se pracuje s tvarem Claude API a `zavolej()` ho převádí (`naOpenAi`/`zOpenAi`). Ve staviteli `navrhniSekci()` (HTML → `ZHtml::doWebu`) a `prepis()`.
+  uvnitř se pracuje s tvarem Claude API a `zavolej()` ho převádí (`naOpenAi`/`zOpenAi`). V builderu `navrhniSekci()` (HTML → `ZHtml::doWebu`) a `prepis()`.
   Klíč `ai_klic` je typ `tajne`; odpověď modelu je nedůvěryhodný vstup. Překlad (`Asistent::preloz()`) bere od modelu
   jen text úseků, značky z originálu; výsledek je vždy koncept. Adresa API jen konstantou `KALETA_AI_URL` v `config.php`.
-- **MCP** (`Mcp\Server`, `Mcp\Nastroje`, `/mcp`, token z Můj účet): stránky (i stavitel: `stavba_schema`, `stavba_z_html`, `stavba_nacti`, `stavba_uloz`,
+- **MCP** (`Mcp\Server`, `Mcp\Nastroje`, `/mcp`, token z Můj účet): stránky (i builder: `stavba_schema`, `stavba_z_html`, `stavba_nacti`, `stavba_uloz`,
   `vloz_sekci`, `publikuj_stavbu`), design systém (`uprav_design_system`, správce), novinky, kategorie, média a VLASTNÍ šablony. Nová novinka je koncept,
   nová stránka skrytá; vydat/zveřejnit jen na výslovný pokyn a s právem. **Hranice (bezpečí na prvním místě):** žádný nástroj nesmí zapisovat mimo obsah
   a `layout/<vlastní>/`, spouštět kód ani dotaz; PHP šablon ukládaných přes MCP projde `Core\SablonaKontrola`. Pravidla pro Claude v souborech: `layout/CLAUDE.md`.

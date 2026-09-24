@@ -24,8 +24,8 @@ $chyba = fn (string $pole): string => isset($chyby[$pole]) ? '<span class="chyba
 	<a class="navigace" href="<?= e($app->url(($stranka['jazyk'] ?? '') !== '' ? $stranka['jazyk'] . '/' . ($uvod ? '' : $stranka['seo_link']) : ($uvod ? '' : $stranka['seo_link'])) . ($stranka['zobrazit'] ? '' : '?stavba=koncept')) ?>" target="_blank" rel="noopener"><?= e(t($stranka['zobrazit'] ? 'Zobrazit na webu' : 'Náhled skryté stránky')) ?></a>
 <?php endif ?></p>
 <?php if (($stranka['stavba_koncept'] ?? null) !== null): ?>
-<p class="hlaska hlaska-varovani"><?= e(t(($stranka['stavba'] ?? null) !== null ? 'Ve staviteli jsou rozpracované změny, které ještě nejsou na webu.' : 'Stránku skládáte ve staviteli. Na webu je zatím text níže – po publikování ve staviteli ho nahradí stavba.')) ?>
-	<a href="<?= e($modul->url('stavitel', ['id' => (int) $stranka['ids']])) ?>"><?= e(t('Otevřít stavitel')) ?></a></p>
+<p class="hlaska hlaska-varovani"><?= e(t(($stranka['stavba'] ?? null) !== null ? 'V builderu jsou rozpracované změny, které ještě nejsou na webu.' : 'Stránku skládáte v builderu. Na webu je zatím text níže – po publikování v builderu ho nahradí stavba.')) ?>
+	<a href="<?= e($modul->url('stavitel', ['id' => (int) $stranka['ids']])) ?>"><?= e(t('Otevřít builder')) ?></a></p>
 <?php endif ?>
 <form class="formular" method="post" action="<?= e($modul->url('uloz')) ?>" data-koncept="stranka-<?= (int) $stranka['ids'] ?>">
 <?= $csrf ?>
@@ -42,12 +42,12 @@ $chyba = fn (string $pole): string => isset($chyby[$pole]) ? '<span class="chyba
 <?php foreach (Kaleta\Stavitel\Knihovna::SABLONY_STRANEK as $klic => [$nazev]): ?>
 		<option value="<?= e($klic) ?>"><?= e(t($nazev)) ?></option>
 <?php endforeach ?>
-	</select><span class="napoveda"><?= e(t('Šablona poskládá stránku z hotových sekcí s ukázkovými texty a otevře ji ve staviteli.')) ?></span></div>
+	</select><span class="napoveda"><?= e(t('Šablona poskládá stránku z hotových sekcí s ukázkovými texty a otevře ji v builderu.')) ?></span></div>
 </div>
 <?php endif ?>
 <?php if (($stranka['stavba'] ?? null) !== null): ?>
 <div class="radek pres-celou">
-	<p class="hlaska"><?= e(t('Obsah této stránky se skládá ve staviteli.')) ?> <a class="tl" href="<?= e($modul->url('stavitel', ['id' => (int) $stranka['ids']])) ?>"><?= e(t('Otevřít stavitel')) ?></a></p>
+	<p class="hlaska"><?= e(t('Obsah této stránky se skládá v builderu.')) ?> <a class="tl" href="<?= e($modul->url('stavitel', ['id' => (int) $stranka['ids']])) ?>"><?= e(t('Otevřít builder')) ?></a></p>
 	<input type="hidden" name="text" value="<?= e($stranka['text']) ?>">
 </div>
 <?php else: ?>
@@ -55,7 +55,7 @@ $chyba = fn (string $pole): string => isset($chyby[$pole]) ? '<span class="chyba
 	<label for="text"><?= e(t('Obsah')) ?></label>
 	<textarea class="textbox vysoky" id="text" name="text" rows="18" data-editor><?= e($stranka['text']) ?></textarea>
 <?php if ($stranka['ids']): ?>
-	<span class="napoveda"><?= e(t('Chcete stránku poskládat ze sekcí, sloupců a tlačítek?')) ?> <a href="<?= e($modul->url('stavitel', ['id' => (int) $stranka['ids']])) ?>"><?= e(t('Otevřít ve staviteli')) ?></a></span>
+	<span class="napoveda"><?= e(t('Chcete stránku poskládat ze sekcí, sloupců a tlačítek?')) ?> <a href="<?= e($modul->url('stavitel', ['id' => (int) $stranka['ids']])) ?>"><?= e(t('Otevřít v builderu')) ?></a></span>
 <?php endif ?>
 </div>
 <?php endif ?>
@@ -110,7 +110,7 @@ $chyba = fn (string $pole): string => isset($chyby[$pole]) ? '<span class="chyba
 	<div><input class="textpole" type="number" id="poradi" name="poradi" value="<?= (int) $stranka['poradi'] ?>" min="0" max="65535">
 	<span class="napoveda"><?= e(t('Menší číslo = dřív v seznamu stránek a v automatickém menu.')) ?></span></div>
 </div>
-<p class="tlacitka"><button class="tl" type="submit"><?= e(t('Uložit')) ?></button><?php if (($stranka['stavba'] ?? null) === null): ?> <button class="navigace" type="submit" name="po_ulozeni" value="stavitel"><?= e(t('Uložit a otevřít ve staviteli')) ?></button><?php endif ?></p>
+<p class="tlacitka"><button class="tl" type="submit"><?= e(t('Uložit')) ?></button><?php if (($stranka['stavba'] ?? null) === null): ?> <button class="navigace" type="submit" name="po_ulozeni" value="stavitel"><?= e(t('Uložit a otevřít v builderu')) ?></button><?php endif ?></p>
 </form>
 <?php if ($revize !== []): ?>
 <details class="pokrocile">

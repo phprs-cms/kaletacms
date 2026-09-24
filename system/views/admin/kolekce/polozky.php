@@ -18,7 +18,7 @@
 <?php endif ?>
 <?php endif ?></p>
 <?php if ($polozky === []): ?>
-<?= $app->view->render('admin/prazdno', ['ikona' => 'kolekce', 'nadpis' => t('Kolekce je zatím prázdná.'), 'text' => t('Přidejte první položku – na web ji pak dostanete prvkem Výpis kolekce ve staviteli.'), 'akce' => [$modul->url('polozka', ['id' => $k['idk']]), t('Přidat položku')]]) ?>
+<?= $app->view->render('admin/prazdno', ['ikona' => 'kolekce', 'nadpis' => t('Kolekce je zatím prázdná.'), 'text' => t('Přidejte první položku – na web ji pak dostanete prvkem Výpis kolekce v builderu.'), 'akce' => [$modul->url('polozka', ['id' => $k['idk']]), t('Přidat položku')]]) ?>
 <?php else: ?>
 <div class="tab-obal">
 <table class="vypis">

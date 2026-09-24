@@ -7,7 +7,7 @@ namespace Kaleta\Stavitel;
 use Kaleta\Core\Db;
 
 /**
- * Části webu ze stavitele (tabulka ka_casti): záhlaví a patička na všech stránkách a obálky kolem obsahu, který skládá
+ * Části webu z builderu (tabulka ka_casti): záhlaví a patička na všech stránkách a obálky kolem obsahu, který skládá
  * systém (detail novinky, výpis novinek, stránka 404). Část bez publikované stavby = část ze šablony (layout).
  */
 final class Casti
@@ -58,7 +58,7 @@ final class Casti
         return '';
     }
 
-    /** Stavba, se kterou se část poprvé otevře ve staviteli (odpovídá tomu, co dosud kreslila šablona). */
+    /** Stavba, se kterou se část poprvé otevře v builderu (odpovídá tomu, co dosud kreslila šablona). */
     public static function vychozi(string $typ, string $jazyk): array
     {
         return \Kaleta\Core\Jazyk::docasne($jazyk, function () use ($typ): array {

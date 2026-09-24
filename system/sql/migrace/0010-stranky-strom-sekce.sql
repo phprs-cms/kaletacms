@@ -17,7 +17,7 @@ CREATE TABLE ka_stranky_revize (
     CONSTRAINT fk_stranky_revize_kdo FOREIGN KEY (kdo) REFERENCES ka_uzivatele (idu) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
--- Sekce, které si web uložil ze stavitele do vlastní knihovny (panel Přidat → Moje sekce).
+-- Sekce, které si web uložil z builderu do vlastní knihovny (panel Přidat → Moje sekce).
 CREATE TABLE ka_sekce (
     idx     INT UNSIGNED NOT NULL AUTO_INCREMENT,
     nazev   VARCHAR(100) NOT NULL,

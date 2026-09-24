@@ -4,7 +4,7 @@
  *
  * @var array<string, mixed> $stranka
  * @var bool $uvod  stránka je úvodem webu
- * @var string|null $stavba  hotové HTML stránky ze stavitele (sekce jdou přes celou šířku, bez obalu)
+ * @var string|null $stavba  hotové HTML stránky z builderu (sekce jdou přes celou šířku, bez obalu)
  */
 if ($stavba !== null) {
     echo $stavba;

@@ -8,7 +8,7 @@ use Kaleta\Admin\Modul;
 use Kaleta\Core\Response;
 
 /**
- * Poptávky a zprávy z formulářů webu (prvek Formulář ve staviteli, Front\Formulare). Stav: 0 nová, 1 přečtená, 2 vyřízená.
+ * Poptávky a zprávy z formulářů webu (prvek Formulář v builderu, Front\Formulare). Stav: 0 nová, 1 přečtená, 2 vyřízená.
  * Obsahují osobní údaje – po nastaveném počtu měsíců se samy mažou a jdou vyvézt do CSV.
  */
 final class Poptavky extends Modul

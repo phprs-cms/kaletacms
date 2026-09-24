@@ -80,7 +80,7 @@ $splneno = !in_array(false, array_column($pozadavky, 'ok'), true);
 				<span class="vzorky"><i style="background:<?= e($barvy['primarni']) ?>"></i><i style="background:<?= e($barvy['sekundarni']) ?>"></i><i style="background:<?= e($barvy['plocha']) ?>"></i></span>
 				<strong><?= e(t($w['nazev'])) ?></strong><small><?= e(t($w['popis'])) ?></small></label>
 <?php endforeach ?>
-			<span class="napoveda"><?= e(t('Úvod, O nás, Služby a Kontakt s ukázkovými texty – vše pak upravíte ve staviteli, vzhled ve Vzhledu webu.')) ?></span>
+			<span class="napoveda"><?= e(t('Úvod, O nás, Služby a Kontakt s ukázkovými texty – vše pak upravíte v builderu, vzhled ve Vzhledu webu.')) ?></span>
 		</fieldset>
 		<div><label for="user"><?= e(t('Přihlašovací jméno')) ?></label><input type="text" id="user" name="user" value="<?= e($data['user']) ?>" required><?= $chyba('user') ?></div>
 		<div><label for="jmeno"><?= e(t('Jméno a příjmení')) ?></label><input type="text" id="jmeno" name="jmeno" value="<?= e($data['jmeno']) ?>"><span class="napoveda"><?= e(t('Zobrazuje se u novinek.')) ?></span></div>

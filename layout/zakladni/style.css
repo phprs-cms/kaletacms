@@ -1,5 +1,5 @@
 /* Kaleta – layout „Základní“: firemní web. Barvy, písma a škály bere z design systému (tokeny --ka-*, Stavitel\DesignSystem).
- * Celá šablona je ve vrstvě „sablona“: prvky stavitele, třídy a jejich styl (pozdější vrstvy) ji přebijí bez ohledu na specifičnost.
+ * Celá šablona je ve vrstvě „sablona“: prvky builderu, třídy a jejich styl (pozdější vrstvy) ji přebijí bez ohledu na specifičnost.
  * Navigace na telefonu přes Popover API, plynulé přechody mezi stránkami (View Transitions) – bez JavaScriptu. */
 
 @layer tokeny, spolecne, sablona, stavitel, tridy, prvky;

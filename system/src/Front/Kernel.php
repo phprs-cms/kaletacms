@@ -31,7 +31,7 @@ final class Kernel
     /** Kategorie nebo stránka, kterou požadavek zobrazuje - přepínač jazyků podle ní najde protějšek v jiné verzi. */
     private ?array $protejsek = null;
 
-    /** Sdílený stav stavitele pro celou stránku (stavba stránky, záhlaví, patička, obálka) – jedno CSS bez opakování. */
+    /** Sdílený stav builderu pro celou stránku (stavba stránky, záhlaví, patička, obálka) – jedno CSS bez opakování. */
     private ?\Kaleta\Stavitel\Kontext $kontext = null;
 
     /** Složka šablony (layoutu), kterou web právě používá. */
@@ -220,7 +220,7 @@ final class Kernel
             return Response::json(['stav' => \Kaleta\Core\Stav::souhrn($kontroly), 'verze' => KALETA_VERSION, 'cas' => date('c'), 'kontroly' => $kontroly]);
         }
 
-        // skrytou stránku vidí jen náhled stavitele (kdo smí upravovat stránky)
+        // skrytou stránku vidí jen náhled builderu (kdo smí upravovat stránky)
         $skryte = $request->get('stavba') === 'koncept' && $this->app->auth()->maModul('stranky');
         $stranka = $this->app->db()->one('SELECT * FROM {stranky} WHERE seo_link = ? AND jazyk = ? AND smazano IS NULL' . ($skryte ? '' : ' AND zobrazit = 1'), [ltrim($path, '/'), Jazyk::sloupecWebu()]);
         if ($stranka !== null) {
@@ -244,7 +244,7 @@ final class Kernel
     }
 
     /**
-     * Náhled hotové sekce knihovny pro panel stavitele: jen sekce ve vzhledu webu, bez záhlaví a patičky.
+     * Náhled hotové sekce knihovny pro panel builderu: jen sekce ve vzhledu webu, bez záhlaví a patičky.
      * Třídy knihovny se jen vykreslí z jejich výchozího stylu – do webu se nic nezapisuje.
      */
     private function nahledSekce(string $klic): Response
@@ -286,7 +286,7 @@ final class Kernel
     }
 
     /**
-     * Stránka položky kolekce (/<kolekce>/<položka>) podle šablony detailu ze stavitele. Správce vidí v editoru koncept
+     * Stránka položky kolekce (/<kolekce>/<položka>) podle šablony detailu z builderu. Správce vidí v editoru koncept
      * šablony (?stavba=koncept&editor=1), a když kolekce ještě nemá položky, ukázku s popisky polí (/<kolekce>/_ukazka).
      */
     private function detailKolekce(string $seoKolekce, string $seo): Response
@@ -712,7 +712,7 @@ final class Kernel
     }
 
     /**
-     * Části webu ze stavitele: obálka kolem obsahu (novinka, výpis, 404), záhlaví a patička. Část bez publikované stavby
+     * Části webu z builderu: obálka kolem obsahu (novinka, výpis, 404), záhlaví a patička. Část bez publikované stavby
      * vrátí null a layout vykreslí svou. Správce vidí v editoru koncept části (?cast=<typ>&stavba=koncept&editor=1).
      *
      * @param array<string, mixed> $meta
@@ -766,7 +766,7 @@ final class Kernel
 
         if ($k->typy !== []) {
             $meta['css'] = \Kaleta\Stavitel\Stavba::css($db, $k)
-                // plátno stavitele se po každé změně načítá znovu – přechod mezi stránkami by jen blikal a v prohlížeči hlásil přerušení
+                // plátno builderu se po každé změně načítá znovu – přechod mezi stránkami by jen blikal a v prohlížeči hlásil přerušení
                 . ($editor ? '@view-transition{navigation:none}' : '');
             if ($k->faq !== [] && !isset($meta['faq'])) {
                 $meta['faq'] = $k->faq;

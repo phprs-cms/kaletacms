@@ -1,4 +1,4 @@
--- Stavitel stránek: stavba stránky (publikovaná a koncept), verze staveb a sdílené třídy.
+-- Builder stránek: stavba stránky (publikovaná a koncept), verze staveb a sdílené třídy.
 ALTER TABLE ka_stranky ADD COLUMN stavba MEDIUMTEXT NULL, ADD COLUMN stavba_koncept MEDIUMTEXT NULL;
 
 CREATE TABLE ka_stavba_revize (

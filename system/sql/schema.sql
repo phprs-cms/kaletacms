@@ -234,7 +234,7 @@ CREATE TABLE ka_stranky (
     jazyk          CHAR(2) NOT NULL DEFAULT '',            -- jazyková verze; '' = výchozí jazyk webu
     preklad_z      INT UNSIGNED NULL,                      -- protějšek ve výchozím jazyce (hreflang, přepínač jazyků)
     nadrazena      INT UNSIGNED NULL,                      -- nadřazená stránka: adresa je /nadrazena/stranka
-    stavba         MEDIUMTEXT NULL,                        -- publikovaná stavba (JSON strom prvků stavitele); NULL = textová stránka
+    stavba         MEDIUMTEXT NULL,                        -- publikovaná stavba (JSON strom prvků builderu); NULL = textová stránka
     stavba_koncept MEDIUMTEXT NULL,                        -- rozpracovaná stavba z editoru; NULL = žádné neuložené změny
     smazano        DATETIME NULL,                          -- v koši od (po 30 dnech se smaže natrvalo); NULL = není v koši
     PRIMARY KEY (ids),
@@ -244,7 +244,7 @@ CREATE TABLE ka_stranky (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Publikované verze staveb (posledních 20 na stránku)
--- Části webu ze stavitele: záhlaví a patička na všech stránkách, obálka detailu novinky, výpisu a stránky 404.
+-- Části webu z builderu: záhlaví a patička na všech stránkách, obálka detailu novinky, výpisu a stránky 404.
 -- Bez řádku (nebo bez publikované stavby) platí část ze šablony (layout). Jazyk '' = výchozí jazyk webu.
 CREATE TABLE ka_casti (
     typ            VARCHAR(20) NOT NULL,
@@ -273,7 +273,7 @@ CREATE TABLE ka_stavba_revize (
     CONSTRAINT fk_stavba_revize_kdo FOREIGN KEY (kdo) REFERENCES ka_uzivatele (idu) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
--- Sdílené třídy stavitele: styl po breakpointech a stavech (JSON jako styl prvku) + volitelné vlastní CSS
+-- Sdílené třídy builderu: styl po breakpointech a stavech (JSON jako styl prvku) + volitelné vlastní CSS
 CREATE TABLE ka_tridy (
     nazev  VARCHAR(60) NOT NULL,                          -- název třídy v HTML (malá písmena, číslice, pomlčky, __)
     styl   TEXT NOT NULL,                                 -- {"zaklad": {...}, "tablet": {...}, "mobil": {...}, "hover": {...}}
@@ -453,7 +453,7 @@ CREATE TABLE ka_import_mapa (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- stav: 0 = nová, 1 = přečtená, 2 = vyřízená
--- Poptávky a zprávy z formulářů webu (prvek Formulář ve staviteli). Data = JSON [[popisek, hodnota], …].
+-- Poptávky a zprávy z formulářů webu (prvek Formulář v builderu). Data = JSON [[popisek, hodnota], …].
 CREATE TABLE ka_poptavky (
     idp      INT UNSIGNED NOT NULL AUTO_INCREMENT,
     datum    DATETIME NOT NULL,
@@ -471,7 +471,7 @@ CREATE TABLE ka_poptavky (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Kolekce: vlastní typy obsahu (reference, tým, produkty, pobočky…). pole = JSON [{klic, popisek, typ}], typ: text | radky | html | obrazek | odkaz | cislo | datum.
--- detail = položky mají vlastní stránku /<seo_link>/<seo položky> se šablonou ze stavitele (stavba, stavba_koncept).
+-- detail = položky mají vlastní stránku /<seo_link>/<seo položky> se šablonou z builderu (stavba, stavba_koncept).
 CREATE TABLE ka_kolekce (
     idk            INT UNSIGNED NOT NULL AUTO_INCREMENT,
     nazev          VARCHAR(100) NOT NULL,
@@ -524,7 +524,7 @@ CREATE TABLE ka_stranky_revize (
     CONSTRAINT fk_stranky_revize_kdo FOREIGN KEY (kdo) REFERENCES ka_uzivatele (idu) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
--- Sekce, které si web uložil ze stavitele do vlastní knihovny (panel Přidat → Moje sekce).
+-- Sekce, které si web uložil z builderu do vlastní knihovny (panel Přidat → Moje sekce).
 CREATE TABLE ka_sekce (
     idx     INT UNSIGNED NOT NULL AUTO_INCREMENT,
     nazev   VARCHAR(100) NOT NULL,
@@ -533,7 +533,7 @@ CREATE TABLE ka_sekce (
     PRIMARY KEY (idx)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
--- Komponenty: znovupoužitelné bloky stavitele. vlastnosti = JSON [{klic, popisek, typ, vychozi}] – v komponentě jako {{klic}},
+-- Komponenty: znovupoužitelné bloky builderu. vlastnosti = JSON [{klic, popisek, typ, vychozi}] – v komponentě jako {{klic}},
 -- každé použití (prvek „komponenta“) jim dává vlastní hodnoty. Změna komponenty se projeví všude, kde je použitá.
 CREATE TABLE ka_komponenty (
     idm            INT UNSIGNED NOT NULL AUTO_INCREMENT,

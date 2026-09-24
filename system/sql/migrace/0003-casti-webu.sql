@@ -1,4 +1,4 @@
--- Části webu ze stavitele (záhlaví, patička, obálky novinky, výpisu a 404) a jejich verze.
+-- Části webu z builderu (záhlaví, patička, obálky novinky, výpisu a 404) a jejich verze.
 CREATE TABLE ka_casti (
     typ            VARCHAR(20) NOT NULL,
     jazyk          CHAR(2) NOT NULL DEFAULT '',

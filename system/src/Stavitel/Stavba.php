@@ -305,7 +305,7 @@ final class Stavba
                 $html .= self::vykresliPrvek($p, $k);
             } catch (\Throwable $e) {
                 // „doktor“: vadný prvek se na webu vynechá, v editoru se ukáže hláška
-                error_log('Stavitel: prvek ' . ($p['id'] ?? '?') . ' – ' . $e->getMessage());
+                error_log('Builder: prvek ' . ($p['id'] ?? '?') . ' – ' . $e->getMessage());
                 $html .= $k->editor ? '<div data-ka-id="' . e((string) ($p['id'] ?? '')) . '" style="padding:1rem;border:2px dashed #b3261e;color:#b3261e">' . e(t('Prvek se nepodařilo vykreslit.')) . '</div>' : '';
             }
         }

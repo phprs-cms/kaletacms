@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kaleta\Stavitel;
 
 /**
- * Typ prvku stavitele. Každý typ = jedna třída v Stavitel\Prvky se schématem obsahu (VLASTNOSTI), povolenými HTML značkami,
+ * Typ prvku builderu. Každý typ = jedna třída v Stavitel\Prvky se schématem obsahu (VLASTNOSTI), povolenými HTML značkami,
  * výchozím stylem a vykreslením. Výstup je vždy jedna značka na prvek (výjimky jsou jen složené prvky jako FAQ nebo výpis novinek).
  *
  * Pole obsahu – typy: text (řádek), inline (krátký text s tučným/kurzívou/odkazem), html (formátovaný text), radky (víc řádků),

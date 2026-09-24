@@ -8,9 +8,9 @@ use Kaleta\Core\Db;
 use Kaleta\Core\WpObsah;
 
 /**
- * Kolekce – vlastní typy obsahu (reference, tým, produkty, pobočky…): definice polí, položky a hodnoty pro stavitel.
+ * Kolekce – vlastní typy obsahu (reference, tým, produkty, pobočky…): definice polí, položky a hodnoty pro builder.
  *
- * Ve staviteli je vypisuje prvek Výpis kolekce: jeho vnitřek se zopakuje pro každou položku a zástupné značky {{pole}}
+ * V builderu je vypisuje prvek Výpis kolekce: jeho vnitřek se zopakuje pro každou položku a zástupné značky {{pole}}
  * v textech, obrázcích a odkazech se nahradí hodnotami položky. Vždy jsou k dispozici {{nazev}}, {{url}} (detail) a {{datum}}.
  */
 final class Kolekce
@@ -237,7 +237,7 @@ final class Kolekce
         return $vysledek;
     }
 
-    /** Šablona detailu položky, dokud ji správce neupraví ve staviteli: nadpis, obrázek a všechna pole pod sebou. */
+    /** Šablona detailu položky, dokud ji správce neupraví v builderu: nadpis, obrázek a všechna pole pod sebou. */
     public static function vychoziSablona(array $kolekce): array
     {
         $n = Stavba::novy(...);

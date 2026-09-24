@@ -213,7 +213,7 @@ final class Installer
                 [t('Služby'), slugify(t('Služby')), 1, '<p>' . e(t('Co nabízíte – každou službu krátce a srozumitelně.')) . '</p>'],
                 [t('Kontakt'), slugify(t('Kontakt')), 1, '<p>' . e(t('Adresa, telefon, e-mail a otevírací doba.')) . '</p>'],
             ];
-            // stránky rovnou ze sekcí stavitele podle zvoleného ukázkového webu – nový web vypadá jako web, ne jako prázdná šablona
+            // stránky rovnou ze sekcí builderu podle zvoleného ukázkového webu – nový web vypadá jako web, ne jako prázdná šablona
             $web = Knihovna::WEBY[$d['web']] ?? Knihovna::WEBY['firemni'];
             $uvod = 0;
             foreach ($stranky as $i => [$titulek, $adresa, $vMenu, $text]) {

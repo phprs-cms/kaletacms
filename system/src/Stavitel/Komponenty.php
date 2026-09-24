@@ -7,7 +7,7 @@ namespace Kaleta\Stavitel;
 use Kaleta\Core\Db;
 
 /**
- * Komponenty – znovupoužitelné bloky stavitele (tabulka ka_komponenty). Uvnitř komponenty jsou {{vlastnosti}} – stejné
+ * Komponenty – znovupoužitelné bloky builderu (tabulka ka_komponenty). Uvnitř komponenty jsou {{vlastnosti}} – stejné
  * značky jako u kolekcí (Kolekce::dosad) – a každé použití na stránce (prvek „komponenta“) jim dá vlastní hodnoty.
  */
 final class Komponenty

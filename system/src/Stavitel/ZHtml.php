@@ -11,7 +11,7 @@ use Dom\Node;
 /**
  * Převod HTML na stavbu: jazykový model (nebo import) napíše běžné sémantické HTML s blokem <style> a z něj vznikne
  * čistá stavba – jeden prvek za jednu značku, vzhled ve sdílených třídách; <form> se stane prvkem Formulář. Co převést
- * nejde (skripty, vložené styly, složité selektory), se vynechá a nahlásí, aby autor věděl, co doplnit ve staviteli.
+ * nejde (skripty, vložené styly, složité selektory), se vynechá a nahlásí, aby autor věděl, co doplnit v builderu.
  *
  * Třída je čistá (bez databáze): vrací stavbu, třídy z <style> a hlášení. Ukládání a kontrolu práv dělá volající.
  */
@@ -71,7 +71,7 @@ final class ZHtml
     }
 
     /**
-     * HTML z jazykového modelu (MCP, asistent ve staviteli) do webu: převod, uložení nových tříd z <style> (existující třída
+     * HTML z jazykového modelu (MCP, asistent v builderu) do webu: převod, uložení nových tříd z <style> (existující třída
      * webu se přepíše jen s $prepsat) a odebrání tříd bez stylu.
      *
      * @return array{stavba: array<string, mixed>, hlaseni: list<string>}
@@ -406,7 +406,7 @@ final class ZHtml
     {
         $css = (string) preg_replace('#/\*.*?\*/#s', '', $css);
         if (preg_match_all('/@(media|supports|container|keyframes|font-face|import|layer)\b/i', $css, $m)) {
-            $this->hlaseni[] = 'Pravidla @' . implode(', @', array_unique(array_map('strtolower', $m[1]))) . ' se nepřevádějí – breakpointy a stavy nastavte ve stylu prvku nebo třídy ve staviteli.';
+            $this->hlaseni[] = 'Pravidla @' . implode(', @', array_unique(array_map('strtolower', $m[1]))) . ' se nepřevádějí – breakpointy a stavy nastavte ve stylu prvku nebo třídy v builderu.';
             // vnořené bloky se odstraní, aby nepřevzaly deklarace do nesprávných tříd
             do {
                 $css = (string) preg_replace('/@[a-z-]+[^{;]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}|@[a-z-]+[^{;]*;/i', '', $css, -1, $pocet);

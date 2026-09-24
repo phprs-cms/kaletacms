@@ -545,8 +545,8 @@
 		});
 	});
 
-	window.kaletaVytvorEditor = vytvorEditor; // stavitel stránek si editor vytváří sám nad dynamickým polem
-	window.kaletaVyberObrazek = vyberObrazek; // výběr obrázku z Médií pro stavitel (zpětné volání dostane {url, nazev, …})
+	window.kaletaVytvorEditor = vytvorEditor; // builder stránek si editor vytváří sám nad dynamickým polem
+	window.kaletaVyberObrazek = vyberObrazek; // výběr obrázku z Médií pro builder (zpětné volání dostane {url, nazev, …})
 
 	var editory = Array.prototype.map.call(document.querySelectorAll('textarea[data-editor]'), vytvorEditor);
 	var formKoncept = document.querySelector('form[data-koncept]');

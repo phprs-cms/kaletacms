@@ -14,7 +14,7 @@ use Kaleta\Stavitel\Stavba;
 use Kaleta\Stavitel\Styl;
 
 /**
- * Akce stavitele společné pro stránky (Moduly\Stranky) a části webu (Moduly\Casti): editor, průběžné ukládání konceptu,
+ * Akce builderu společné pro stránky (Moduly\Stranky) a části webu (Moduly\Casti): editor, průběžné ukládání konceptu,
  * publikování, zahození změn, verze, sekce z knihovny a sdílené třídy. Modul dodá, co je „cíl“ stavby a jak ho uložit.
  *
  * Cíl: ['radek' => řádek z databáze, 'stavba' => ?string, 'koncept' => ?string, 'jazyk' => kód obsahu, 'titulek' => string,

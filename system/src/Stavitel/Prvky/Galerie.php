@@ -34,7 +34,7 @@ final class Galerie extends Prvek
 
     public static function zakladniCss(): string
     {
-        // mřížka sama podle šířky; Styl → Sloupce ji přepíše (vrstva prvků je až za vrstvou stavitele)
+        // mřížka sama podle šířky; Styl → Sloupce ji přepíše (vrstva prvků je až za vrstvou builderu)
         return '.ka-galerie { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(12rem, 45%), 1fr)); gap: var(--ka-mezera-s); margin: 0; }
 .ka-galerie img { display: block; width: 100%; height: auto; object-fit: cover; border-radius: var(--ka-zaobleni-s); cursor: zoom-in; }
 .ka-galerie figcaption { grid-column: 1 / -1; color: var(--ka-barva-tlumeny); font-size: var(--ka-krok--1); }';
