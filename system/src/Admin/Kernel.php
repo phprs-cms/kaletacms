@@ -22,6 +22,7 @@ final class Kernel
     public const array MODULY = [
         Moduly\Stranky::class,
         Moduly\Novinky::class,
+        Moduly\Kolekce::class,
         Moduly\Poptavky::class,
         Moduly\Kategorie::class,
         Moduly\Stitky::class,

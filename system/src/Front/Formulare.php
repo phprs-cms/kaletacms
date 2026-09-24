@@ -92,6 +92,7 @@ final class Formulare
         $stavba = match (true) {
             (bool) preg_match('/^stranka:(\d+)$/', $zdroj, $m) => Stavba::zJson($db->value('SELECT stavba FROM {stranky} WHERE ids = ? AND zobrazit = 1', [(int) $m[1]])),
             (bool) preg_match('/^cast:([a-z]+):([a-z]{0,2})$/', $zdroj, $m) && isset(Casti::TYPY[$m[1]]) => Casti::stavba($db, $m[1], $m[2]),
+            (bool) preg_match('/^kolekce:(\d+)$/', $zdroj, $m) => Stavba::zJson($db->value('SELECT stavba FROM {kolekce} WHERE idk = ? AND detail = 1', [(int) $m[1]])),
             default => null,
         };
         $najdi = function (array $deti) use (&$najdi, $id): ?array {

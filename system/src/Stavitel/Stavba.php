@@ -26,7 +26,7 @@ final class Stavba
         Prvky\Sekce::class, Prvky\Kontejner::class, Prvky\Mrizka::class,
         Prvky\Nadpis::class, Prvky\Text::class, Prvky\Obrazek::class, Prvky\Tlacitko::class, Prvky\Seznam::class,
         Prvky\Citat::class, Prvky\Faq::class, Prvky\Video::class, Prvky\Oddelovac::class,
-        Prvky\Novinky::class, Prvky\Formular::class, Prvky\Html::class,
+        Prvky\Novinky::class, Prvky\VypisKolekce::class, Prvky\Formular::class, Prvky\Html::class,
         Prvky\Logo::class, Prvky\Navigace::class, Prvky\Udaje::class, Prvky\ObsahStranky::class,
     ];
 
@@ -149,7 +149,7 @@ final class Stavba
                 'html' => WpObsah::bezpecneHtml(is_scalar($hodnota) ? mb_substr((string) $hodnota, 0, 200000) : ''),
                 'kod' => self::kod(is_scalar($hodnota) ? mb_substr((string) $hodnota, 0, $max) : ''),
                 'odkaz' => self::odkaz(is_scalar($hodnota) ? (string) $hodnota : '', $cesta . '.' . $klic, $chyby),
-                'obrazek' => is_string($hodnota) && preg_match('#^(https://[^\s"\'<>]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300})$#', $hodnota) ? $hodnota : '',
+                'obrazek' => is_string($hodnota) && preg_match('#^(https://[^\s"\'<>]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300}|\{\{[a-z][a-z0-9_]{0,30}\}\})$#', $hodnota) ? $hodnota : '',
                 'vyber' => is_scalar($hodnota) && isset($def['moznosti'][(string) $hodnota]) ? (string) $hodnota : (string) $def['vychozi'],
                 'cislo' => is_numeric($hodnota) ? max((int) ($def['min'] ?? 0), min((int) ($def['max'] ?? 100), (int) $hodnota)) : (int) $def['vychozi'],
                 'prepinac' => (bool) $hodnota,
@@ -189,8 +189,8 @@ final class Stavba
     private static function odkaz(string $adresa, string $cesta, array &$chyby): string
     {
         $adresa = trim($adresa);
-        if ($adresa === '' || $adresa === '#') {
-            return $adresa;
+        if ($adresa === '' || $adresa === '#' || preg_match('/^\{\{[a-z][a-z0-9_]{0,30}\}\}$/', $adresa)) {
+            return $adresa; // {{url}} a další pole kolekce: dosadí se a zkontrolují při vykreslení
         }
         if (WpObsah::bezpecnaAdresa($adresa) && !preg_match('/[\s"<>]/', $adresa)) {
             return mb_substr($adresa, 0, 500);
@@ -263,20 +263,50 @@ final class Stavba
             return '';
         }
         $k->typy[$trida::TYP] = true;
-        $deti = $trida::KONTEJNER ? self::vykresliDeti($p['deti'] ?? [], $k) : '';
+        if ($k->polozka !== null) {
+            $p['obsah'] = self::dosadPolozku($trida::vlastnosti(), $p['obsah'] ?? [], $k->polozka);
+        }
+        $deti = match (true) {
+            $trida === Prvky\VypisKolekce::class => Prvky\VypisKolekce::opakuj($p, $k, fn (): string => self::vykresliDeti($p['deti'] ?? [], $k)),
+            $trida::KONTEJNER => self::vykresliDeti($p['deti'] ?? [], $k),
+            default => '',
+        };
         $styl = $p['styl'] ?? [];
-        $id = $p['kotva'] ?? ($styl !== [] ? 's-' . $p['id'] : null);
-        if ($styl !== []) {
-            $k->css .= Styl::css('#' . $id, $styl);
+        // uvnitř Výpisu kolekce se prvek opakuje: styl přes třídu s-<id>, ne přes id (id musí být na stránce jen jednou)
+        $opakuje = $k->vSmycce > 0;
+        $id = $opakuje ? null : ($p['kotva'] ?? ($styl !== [] ? 's-' . $p['id'] : null));
+        $tridy = array_merge($opakuje && $styl !== [] ? ['s-' . $p['id']] : [], $p['tridy'] ?? []);
+        if ($styl !== [] && !isset($k->styly[$p['id']])) {
+            $k->styly[$p['id']] = true;
+            $k->css .= Styl::css($opakuje ? '.s-' . $p['id'] : '#' . $id, $styl);
         }
         foreach ($p['tridy'] ?? [] as $t) {
             $k->tridy[$t] = true;
         }
         $a = ($id !== null ? ' id="' . e($id) . '"' : '')
-            . (!empty($p['tridy']) ? ' class="' . e(implode(' ', $p['tridy'])) . '"' : '')
+            . ($tridy !== [] ? ' class="' . e(implode(' ', $tridy)) . '"' : '')
             . ($k->editor ? ' data-mc-id="' . e((string) $p['id']) . '" data-mc-typ="' . e($trida::TYP) . '"' : '');
 
         return $trida::vykresli($p, $a, $deti, $k);
+    }
+
+    /**
+     * Hodnoty položky kolekce do polí obsahu podle jejich typu ({{nazev}} v nadpisu, {{foto}} v obrázku, {{url}} v odkazu…).
+     *
+     * @param array<string, array<string, mixed>> $vlastnosti
+     * @param array<string, array{0: string, 1: string}> $hodnoty
+     */
+    private static function dosadPolozku(array $vlastnosti, array $obsah, array $hodnoty): array
+    {
+        foreach ($vlastnosti as $klic => $def) {
+            if (is_string($obsah[$klic] ?? null)) {
+                $obsah[$klic] = Kolekce::dosad($obsah[$klic], $def['typ'], $hodnoty);
+            } elseif ($def['typ'] === 'polozky' && is_array($obsah[$klic] ?? null)) {
+                $obsah[$klic] = array_map(fn (array $polozka): array => self::dosadPolozku($def['pole'], $polozka, $hodnoty), $obsah[$klic]);
+            }
+        }
+
+        return $obsah;
     }
 
     /** CSS stránky: základ použitých typů, použité třídy (z mc_tridy) a styl jednotlivých prvků – každé ve své vrstvě. */
@@ -345,7 +375,8 @@ final class Stavba
                     'oddelovac' => "<hr>\n",
                     default => '',
                 };
-                if (is_array($p['deti'] ?? null)) {
+                // vnitřek Výpisu kolekce je vzor se {{značkami}}, ne obsah stránky
+                if (is_array($p['deti'] ?? null) && ($p['typ'] ?? '') !== 'kolekce') {
                     $projdi($p['deti']);
                 }
             }
@@ -386,6 +417,7 @@ final class Stavba
             $prvky[] = [
                 'typ' => $trida::TYP, 'nazev' => $trida::NAZEV, 'popis' => $trida::POPIS, 'ikona' => $trida::IKONA, 'skupina' => $trida::SKUPINA,
                 'kontejner' => $trida::KONTEJNER, 'znacky' => $trida::ZNACKY, 'vlastnosti' => $trida::vlastnosti(), 'vychozi_styl' => $trida::vychoziStyl() ?: new \stdClass(),
+                'vychozi_deti' => $trida::vychoziDeti(),
             ];
         }
         $styl = [];

@@ -8,6 +8,7 @@ use MiroCMS\Core\Jazyk;
 use MiroCMS\Core\Response;
 use MiroCMS\Stavitel\DesignSystem;
 use MiroCMS\Stavitel\Knihovna;
+use MiroCMS\Stavitel\Kolekce;
 use MiroCMS\Stavitel\Publikace;
 use MiroCMS\Stavitel\Stavba;
 use MiroCMS\Stavitel\Styl;
@@ -46,11 +47,24 @@ trait StavitelAkce
         }
         $app = $this->app;
         $e = $this->editorCile($cil);
+        $kolekce = array_map(fn (array $k): array => ['seo_link' => $k['seo_link'], 'nazev' => $k['nazev'], 'pole' => $k['pole'], 'detail' => (bool) $k['detail']], Kolekce::vsechny($this->db));
+        $schema = Stavba::schema($app->auth()->isAdmin(), $cil['jazyk'], $e['casti']);
+        foreach ($schema['prvky'] as &$prvek) {
+            if ($prvek['typ'] === 'kolekce') {
+                // v editoru výběr z kolekcí webu (validátor bere adresu kolekce jako text)
+                $prvek['vlastnosti']['kolekce'] = ['typ' => 'vyber', 'popisek' => 'Kolekce', 'vychozi' => $kolekce[0]['seo_link'] ?? '',
+                    'moznosti' => ['' => '—'] + array_column($kolekce, 'nazev', 'seo_link')];
+            }
+        }
+        unset($prvek);
+        Knihovna::zalozTridy($this->db, ['karta']); // vzor karty ve Výpisu kolekce
         $data = [
             'stranka' => ['titulek' => $cil['titulek'], 'adresa' => $e['adresa'], 'zobrazena' => $e['zobrazena'], 'publikovana' => $cil['stavba'] !== null],
             'stavba' => Stavba::zJson($cil['koncept'] ?? $cil['stavba']),
             'zmeny' => $cil['koncept'] !== null && $cil['koncept'] !== $cil['stavba'],
-            'schema' => Stavba::schema($app->auth()->isAdmin(), $cil['jazyk'], $e['casti']),
+            'schema' => $schema,
+            'kolekce' => $kolekce,
+            'kolekceDetailu' => $e['kolekce'] ?? null,
             'knihovna' => Knihovna::seznam(),
             'tridy' => $this->tridyStavitele(),
             'barvy' => DesignSystem::nacti($app->settings())['barvy'],

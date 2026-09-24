@@ -581,5 +581,21 @@ over('Firma::hodiny: rozsah dnů, víc úseků, zavřeno', MiroCMS\Front\Firma::
 over('Firma::hodiny: nesrozumitelný řádek se odmítne', [MiroCMS\Front\Firma::hodiny('každý den 8-17'), MiroCMS\Front\Firma::hodiny('Po 8-25')], [null, null]);
 over('Firma: typy v Nastavení odpovídají Firma::TYPY', (new ReflectionClassConstant(MiroCMS\Admin\Moduly\Konfigurace::class, 'TYPY_FIRMY'))->getValue(), implode('|', array_keys(MiroCMS\Front\Firma::TYPY)));
 
+/* ---------- kolekce ---------- */
+$koPole = MiroCMS\Stavitel\Kolekce::vycistiPole([['popisek' => 'Citát zákazníka', 'typ' => 'radky'], ['popisek' => 'Název', 'typ' => 'text'], ['popisek' => 'Logo', 'typ' => 'nesmysl'], ['popisek' => '']]);
+over('Kolekce::vycistiPole: klíč z popisku, vestavěný název se nepřepíše, neznámý typ = text', array_map(fn (array $p): string => $p['klic'] . ':' . $p['typ'], $koPole), ['citat_zakaznika:radky', 'nazev_2:text', 'logo:text']);
+$koChyby = [];
+$koData = MiroCMS\Stavitel\Kolekce::vycistiData([['klic' => 'web', 'popisek' => 'Web', 'typ' => 'odkaz'], ['klic' => 'foto', 'popisek' => 'Foto', 'typ' => 'obrazek'], ['klic' => 'cena', 'popisek' => 'Cena', 'typ' => 'cislo'], ['klic' => 'bio', 'popisek' => 'Bio', 'typ' => 'html']],
+    ['web' => 'javascript:alert(1)', 'foto' => 'media/2026/a.jpg', 'cena' => '1 200', 'bio' => '<p onclick="x">Ahoj</p><script>1</script>'], $koChyby);
+over('Kolekce::vycistiData: nebezpečný odkaz pryč, obrázek z médií, číslo bez mezer, HTML vyčištěné', [$koData['web'], $koData['foto'], $koData['cena'], $koData['bio'], array_keys($koChyby)], ['', 'media/2026/a.jpg', '1200', '<p>Ahoj</p>', ['web']]);
+$koHodnoty = ['nazev' => ['Jan <b>Novák</b>', 'text'], 'bio' => ['<p>Truhlář</p>', 'html'], 'poznamka' => ["řádek 1\nřádek 2", 'radky'], 'url' => ['/tym/jan', 'odkaz'], 'zly' => ['javascript:x', 'odkaz']];
+over('Kolekce::dosad: text se escapuje až prvkem, inline a html hned, html pole zůstane HTML', [
+    MiroCMS\Stavitel\Kolekce::dosad('{{nazev}}', 'text', $koHodnoty), MiroCMS\Stavitel\Kolekce::dosad('Tým: {{nazev}}', 'inline', $koHodnoty),
+    MiroCMS\Stavitel\Kolekce::dosad('{{bio}}', 'html', $koHodnoty), MiroCMS\Stavitel\Kolekce::dosad('<p>{{poznamka}}</p>', 'html', $koHodnoty),
+    MiroCMS\Stavitel\Kolekce::dosad('{{url}}', 'odkaz', $koHodnoty), MiroCMS\Stavitel\Kolekce::dosad('{{zly}}', 'odkaz', $koHodnoty), MiroCMS\Stavitel\Kolekce::dosad('{{neni}}', 'inline', $koHodnoty),
+], ['Jan <b>Novák</b>', 'Tým: Jan &lt;b&gt;Novák&lt;/b&gt;', '<p>Truhlář</p>', '<p>řádek 1<br>' . "\n" . 'řádek 2</p>', '/tym/jan', '', '']);
+[$koStavba, $koChyby] = MiroCMS\Stavitel\Stavba::vycisti(['deti' => [['typ' => 'kolekce', 'obsah' => ['kolekce' => 'tym'], 'deti' => [['typ' => 'obrazek', 'obsah' => ['src' => '{{foto}}']], ['typ' => 'tlacitko', 'obsah' => ['odkaz' => '{{url}}']]]]]]);
+over('Stavba::vycisti: značky {{pole}} v obrázku a odkazu projdou', [$koStavba['deti'][0]['deti'][0]['obsah']['src'], $koStavba['deti'][0]['deti'][1]['obsah']['odkaz'], $koChyby], ['{{foto}}', '{{url}}', []]);
+
 echo $chyb === 0 ? "  ok     jednotkové testy ({$celkem})\n" : "  NALEZENO CHYB: {$chyb} z {$celkem}\n";
 exit($chyb === 0 ? 0 : 1);

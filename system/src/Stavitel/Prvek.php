@@ -33,6 +33,12 @@ abstract class Prvek
         return [];
     }
 
+    /** @return list<array<string, mixed>> výchozí vnitřek nově vloženého kontejneru (editor mu dá nová id) */
+    public static function vychoziDeti(): array
+    {
+        return [];
+    }
+
     /** @return array<string, array<string, string>> výchozí styl nově vloženého prvku */
     public static function vychoziStyl(): array
     {

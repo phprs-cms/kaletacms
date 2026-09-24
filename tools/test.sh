@@ -81,7 +81,7 @@ kod=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/adm
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN" -d user=admin --data-urlencode "password=$HESLO"
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO mc_nastaveni VALUES ('rozsireni','statistika,presmerovani,asistent,jazyky,api,claude') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
 over "přehled" 200 /admin.php "Přehled"
-for m in stranky "stranky&akce=novy" poptavky casti novinky "novinky&akce=novy" "novinky&akce=odkazy" kategorie "kategorie&akce=novy" stitky intergal stat vzhled users "users&akce=novy" presmerovani protokol prenos rozsireni; do over "modul $m" 200 "/admin.php?modul=$m"; done
+for m in stranky "stranky&akce=novy" poptavky casti kolekce "kolekce&akce=novy" novinky "novinky&akce=novy" "novinky&akce=odkazy" kategorie "kategorie&akce=novy" stitky intergal stat vzhled users "users&akce=novy" presmerovani protokol prenos rozsireni; do over "modul $m" 200 "/admin.php?modul=$m"; done
 over "uživatelé se shrnutím oprávnění" 200 "/admin.php?modul=users" "Smí všechno"
 for z in zakladni seo mereni cookies posta zalohy stav; do over "nastavení/$z" 200 "/admin.php?modul=config&zalozka=$z"; done
 over "nastavení: volba úvodní stránky" 200 "/admin.php?modul=config&zalozka=zakladni" 'name="titulni_stranka"'
@@ -247,6 +247,35 @@ over "detail poptávky" 200 "/admin.php?modul=poptavky&akce=detail&id=$IDP" "Chc
 ocekavej "otevřená poptávka je přečtená" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT stav FROM mc_poptavky")" 1
 curl -s -b "$JAR" -o "$PRACE/odpoved" "$B/admin.php?modul=poptavky&akce=csv"; grep -q 'Chci kuchyň na míru.' "$PRACE/odpoved" && echo "  ok     export poptávek do CSV" || { echo "  CHYBA  CSV poptávek"; CHYB=$((CHYB+1)); }
 over "poděkování po odeslání (na místě formuláře)" 200 "/kontakt?formular=$FP&vysledek=ok" "id=\"s-$FP\" class=\"mc-formular-hotovo\" role=\"status\""
+
+echo "== kolekce"
+over "kolekce" 200 "/admin.php?modul=kolekce" "Kolekce"
+TOKEN=$(csrf)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=kolekce&akce=uloz" -d "_csrf=$TOKEN" -d idk=0 --data-urlencode "nazev=Tým" -d detail=1 \
+  --data-urlencode "pole[0][popisek]=Funkce" -d "pole[0][typ]=text" --data-urlencode "pole[1][popisek]=Foto" -d "pole[1][typ]=obrazek" --data-urlencode "pole[2][popisek]=Medailonek" -d "pole[2][typ]=html"
+IDK=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idk FROM mc_kolekce WHERE seo_link = 'tym'")
+ocekavej "kolekce založena s poli" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT pole LIKE '%\"funkce\"%' AND pole LIKE '%\"medailonek\"%' FROM mc_kolekce WHERE idk = $IDK")" 1
+polozka() { curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=kolekce&akce=uloz_polozku" -d "_csrf=$TOKEN" -d "idk=$IDK" -d idp=0 "$@"; }
+polozka --data-urlencode "nazev=Jana Nováková" --data-urlencode "data[funkce]=Jednatelka" --data-urlencode "data[medailonek]=<p>Dvacet let <b>v oboru</b>.</p><script>x</script>" -d poradi=1 -d zobrazit=1
+polozka --data-urlencode "nazev=Skrytý Člen" --data-urlencode "data[funkce]=Tajný" -d poradi=2
+over "položky kolekce" 200 "/admin.php?modul=kolekce&akce=polozky&id=$IDK" "Jana Nováková"
+mcp stavba_uloz "{\"id\":$IDZ,\"publikovat\":true,\"stavba\":{\"v\":1,\"deti\":[{\"typ\":\"sekce\",\"deti\":[{\"id\":\"smy1\",\"typ\":\"kolekce\",\"obsah\":{\"kolekce\":\"tym\"},\"deti\":[{\"id\":\"kar1\",\"typ\":\"kontejner\",\"styl\":{\"zaklad\":{\"pozadi\":\"plocha\"}},\"deti\":[{\"typ\":\"nadpis\",\"znacka\":\"h3\",\"obsah\":{\"text\":\"{{nazev}}\"}},{\"typ\":\"text\",\"obsah\":{\"html\":\"<p>{{funkce}}</p>{{medailonek}}\"}},{\"typ\":\"tlacitko\",\"obsah\":{\"text\":\"Profil\",\"odkaz\":\"{{url}}\"}}]}]}]}]}}" > "$PRACE/odpoved"
+grep -q 'publikováno' "$PRACE/odpoved" || { echo "  CHYBA  MCP stránka s výpisem kolekce"; head -c 400 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+rm -f "$PRACE"/web/storage/cache/stranky/*.html
+curl -s -o "$PRACE/odpoved" "$B/z-html"
+grep -q '<h3>Jana Nováková</h3>' "$PRACE/odpoved" && grep -q '<p>Jednatelka</p>' "$PRACE/odpoved" && grep -q '^<p>Dvacet let <b>v oboru</b>.</p>' "$PRACE/odpoved" && grep -q 'href="/tym/jana-novakova"' "$PRACE/odpoved" && ! grep -q 'Skrytý' "$PRACE/odpoved" \
+  && echo "  ok     výpis kolekce na stránce (jen zveřejněné položky, hodnoty dosazené)" || { echo "  CHYBA  výpis kolekce"; CHYB=$((CHYB+1)); }
+grep -q 'class="s-kar1"' "$PRACE/odpoved" && ! grep -q 'id="s-kar1"' "$PRACE/odpoved" && grep -q '\.s-kar1 { background-color' "$PRACE/odpoved" && ! grep -q '<script>x' "$PRACE/odpoved" \
+  && echo "  ok     opakované prvky mají styl přes třídu, ne duplicitní id" || { echo "  CHYBA  styl ve výpisu kolekce"; CHYB=$((CHYB+1)); }
+over "detail položky kolekce" 200 /tym/jana-novakova "Jednatelka"
+over "detail má nadpis položky" 200 /tym/jana-novakova "<h1>Jana Nováková</h1>"
+kod=$(curl -s -o /dev/null -w '%{http_code}' "$B/tym/skryty-clen"); ocekavej "skrytá položka nemá detail" "$kod" 404
+over "mapa webu obsahuje detail položky" 200 /sitemap.xml "/tym/jana-novakova"
+over "šablona detailu ve staviteli" 200 "/admin.php?modul=kolekce&akce=stavitel&id=$IDK" 'id="stavitel-data"'
+mcp seznam_kolekci '{}' > "$PRACE/odpoved"; grep -q 'kolekce\\": \\"tym' "$PRACE/odpoved" && grep -q 'medailonek' "$PRACE/odpoved" && echo "  ok     MCP: seznam kolekcí s poli" || { echo "  CHYBA  MCP seznam_kolekci"; CHYB=$((CHYB+1)); }
+mcp uloz_polozku_kolekce '{"kolekce":"tym","nazev":"Petr Svoboda","data":{"funkce":"Mistr truhlář"},"zobrazit":true}' > /dev/null
+rm -f "$PRACE"/web/storage/cache/stranky/*.html
+over "MCP: nová položka je ve výpisu" 200 /z-html "Mistr truhlář"
 
 # úprava přímo na webu: odkaz a formulář jen pro přihlášené s právem
 over "úprava na místě – odkaz" 200 /novinky/vitejte-v-mirocms "mc-upravit-zde"

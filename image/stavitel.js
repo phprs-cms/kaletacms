@@ -27,6 +27,7 @@
 		faq: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01"/>',
 		video: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/>',
 		oddelovac: '<path d="M3 12h18"/>',
+		kolekce: '<rect x="3" y="4" width="8" height="7" rx="1.5"/><rect x="13" y="4" width="8" height="7" rx="1.5"/><rect x="3" y="13" width="8" height="7" rx="1.5"/><rect x="13" y="13" width="8" height="7" rx="1.5"/><path d="M5.5 8h3M15.5 8h3M5.5 17h3M15.5 17h3"/>',
 		logo: '<circle cx="12" cy="12" r="8"/><path d="M9 15V9l3 3 3-3v6"/>',
 		menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
 		formular: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8"/><rect x="8" y="15" width="5" height="3" rx="1"/>',
@@ -102,7 +103,8 @@
 		const obsah = {};
 		for (const [k, def] of Object.entries(s.vlastnosti || {})) { obsah[k] = klon(def.vychozi ?? ''); }
 		const styl = s.vychozi_styl && Object.keys(s.vychozi_styl).length ? klon(s.vychozi_styl) : {};
-		return Object.assign({ id: noveId(), typ, znacka: s.znacky[0], obsah, styl }, s.kontejner ? { deti: [] } : {});
+		// kontejner může mít výchozí vnitřek (Výpis kolekce: vzor karty s {{nazev}} a {{url}})
+		return Object.assign({ id: noveId(), typ, znacka: s.znacky[0], obsah, styl }, s.kontejner ? { deti: (s.vychozi_deti || []).map(sNovymiId) } : {});
 	}
 
 	function popisek(p) {
@@ -232,6 +234,8 @@
 	function upravNaPlatne(uzel) {
 		const n = najdi(uzel.getAttribute('data-mc-id'));
 		if (!n || !['nadpis', 'text', 'tlacitko', 'citat'].includes(n.p.typ)) { return; }
+		// v kolekci je na plátně dosazená hodnota položky – úprava by přepsala {{značku}}; text se mění v panelu Obsah
+		if (kolekcePrvku(n.p.id)) { vyber(n.p.id); nastavStav(T('Text s {{značkami}} kolekce upravte v panelu Obsah.')); return; }
 		const cil = n.p.typ === 'citat' ? uzel.querySelector('p') : uzel;
 		if (!cil) { return; }
 		stav.upravaNaPlatne = true;
@@ -492,7 +496,31 @@
 		if (stav.pravo === 'obsah') { panelObsah(panel, p, s); } else if (stav.pravo === 'styl') { panelStyl(panel, p, 'prvek:' + p.id); } else { panelPokrocile(panel, p, s); }
 	}
 
+	/** Kolekce, jejíž položky prvek dostává: nejbližší nadřazený Výpis kolekce, jinak kolekce šablony detailu. */
+	function kolekcePrvku(id) {
+		let n = najdi(id);
+		while (n) {
+			if (n.p.typ === 'kolekce' && n.p.id !== id) { return (D.kolekce || []).find((k) => k.seo_link === n.p.obsah.kolekce) || null; }
+			n = n.rodic ? najdi(n.rodic.id) : null;
+		}
+		return D.kolekceDetailu || null;
+	}
+
+	/** Nápověda zástupných značek {{pole}} – klepnutím se značka zkopíruje. */
+	function napovedaZnacek(kolekce) {
+		const znacky = [['nazev', T('Název')], ['url', T('Adresa detailu')], ['datum', T('Datum')]].concat(kolekce.pole.map((p) => [p.klic, p.popisek]));
+		return el('div', { class: 'st-znacky' }, el('span', {}, T('Pole kolekce „%s“ – vložte do textu, obrázku nebo odkazu:').replace('%s', kolekce.nazev)),
+			el('div', {}, znacky.map(([klic, nazev]) => el('button', { type: 'button', title: nazev, onclick: (e) => {
+				const znacka = '{{' + klic + '}}';
+				if (navigator.clipboard) { navigator.clipboard.writeText(znacka); }
+				e.target.textContent = T('zkopírováno');
+				setTimeout(() => { e.target.textContent = znacka; }, 1200);
+			} }, '{{' + klic + '}}'))));
+	}
+
 	function panelObsah(panel, p, s) {
+		const kolekce = p.typ !== 'kolekce' ? kolekcePrvku(p.id) : null;
+		if (kolekce) { panel.append(napovedaZnacek(kolekce)); }
 		const vlastnosti = Object.entries(s.vlastnosti || {});
 		if (!vlastnosti.length) { panel.append(el('p', { class: 'st-prazdno' }, s.kontejner ? T('Kontejner nemá vlastní obsah – vložte do něj prvky, vzhled nastavíte v záložce Styl.') : T('Prvek nemá nastavitelný obsah.'))); return; }
 		vlastnosti.forEach(([klic, def]) => panel.append(pole(def, p.obsah[klic], (h) => zmen(() => { p.obsah[klic] = h; }, 'obsah:' + p.id + ':' + klic))));

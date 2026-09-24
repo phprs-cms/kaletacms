@@ -14,6 +14,7 @@ use MiroCMS\Front\Layouty;
 use MiroCMS\Stavitel\Casti;
 use MiroCMS\Stavitel\DesignSystem;
 use MiroCMS\Stavitel\Knihovna;
+use MiroCMS\Stavitel\Kolekce;
 use MiroCMS\Stavitel\Publikace;
 use MiroCMS\Stavitel\Stavba;
 use MiroCMS\Stavitel\ZHtml;
@@ -74,6 +75,15 @@ final class Nastroje
             ['publikuj_stavbu', 'Publikuje koncept stavby stránky nebo části webu (jen na výslovný pokyn uživatele). Předchozí verze zůstane v historii.', $s($cil)],
             ['uprav_design_system', 'Změní vzhled celého webu (správce): barvy, písma, velikosti, šířku, zaoblení – nebo použije předvolbu. Nezadané hodnoty zůstanou. Vrátí kontrolu čitelnosti barev.',
                 $s(['predvolba' => $text('firemni | remeslo | pratelsky | elegantni | technologie (nepovinné)'), 'ds' => ['type' => 'object', 'description' => 'Změny, např. {"barvy":{"primarni":"#0f766e"},"pismo_titulky":"klasicke","zaobleni":"l"} – klíče viz stavba_schema → design_system']])],
+            ['seznam_kolekci', 'Kolekce webu (reference, tým, produkty…) s poli a počty položek. Na web je dostane prvek „kolekce“ (Výpis kolekce) ve stavbě; uvnitř se {{klic}} nahradí hodnotou položky ({{nazev}}, {{url}} = detail, {{datum}} a vlastní pole).', $s([])],
+            ['vytvor_kolekci', 'Založí kolekci (správce). Pole: seznam {popisek, typ}; typ = ' . implode(' | ', array_keys(Kolekce::TYPY_POLI)) . '. Klíč pole vznikne z popisku.',
+                $s(['nazev' => $text('Název, např. Reference'), 'pole' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => '[{"popisek":"Citát","typ":"radky"},{"popisek":"Logo","typ":"obrazek"}]'],
+                    'detail' => ['type' => 'boolean', 'description' => 'true = každá položka má vlastní stránku /<kolekce>/<položka>']], ['nazev'])],
+            ['seznam_polozek_kolekce', 'Položky kolekce včetně hodnot polí.', $s(['kolekce' => $text('adresa (seo_link) kolekce')], ['kolekce'])],
+            ['uloz_polozku_kolekce', 'Přidá položku do kolekce, nebo změní existující (s id). Bez "zobrazit": true zůstane skrytá.',
+                $s(['kolekce' => $text('adresa (seo_link) kolekce'), 'id' => $cislo('ID položky – jen při úpravě'), 'nazev' => $text('Název položky'),
+                    'data' => ['type' => 'object', 'description' => 'Hodnoty polí podle klíčů ze seznam_kolekci, např. {"citat":"…","logo":"media/…"}'],
+                    'poradi' => $cislo('Pořadí, menší = dřív'), 'zobrazit' => ['type' => 'boolean', 'description' => 'true = položka je na webu (jen na pokyn uživatele)']], ['kolekce', 'nazev'])],
             ['seznam_novinek', 'Seznam novinek (nejnovější první).', $s(['stav' => $text('vse | vydane | plan | koncepty'), 'kategorie' => $text('název nebo adresa kategorie'), 'hledat' => $text('text v titulku'), 'limit' => $cislo('1-50, výchozí 20')])],
             ['nacti_novinku', 'Celá novinka včetně textu a štítků.', $s(['id' => $cislo('ID novinky (idc)')], ['id'])],
             ['vytvor_novinku', 'Založí novinku. Bez "vydat": true vznikne koncept.', $s($novinka, ['titulek', 'kategorie'])],
@@ -93,7 +103,7 @@ final class Nastroje
 
     public function meni(string $nazev): bool
     {
-        return in_array($nazev, ['stavba_z_html', 'stavba_uloz', 'vloz_sekci', 'publikuj_stavbu', 'uprav_design_system', 'vytvor_stranku', 'uprav_stranku', 'vytvor_novinku', 'uprav_novinku', 'vytvor_kategorii', 'vytvor_sablonu', 'uloz_soubor_sablony', 'aktivuj_sablonu'], true);
+        return in_array($nazev, ['vytvor_kolekci', 'uloz_polozku_kolekce', 'stavba_z_html', 'stavba_uloz', 'vloz_sekci', 'publikuj_stavbu', 'uprav_design_system', 'vytvor_stranku', 'uprav_stranku', 'vytvor_novinku', 'uprav_novinku', 'vytvor_kategorii', 'vytvor_sablonu', 'uloz_soubor_sablony', 'aktivuj_sablonu'], true);
     }
 
     /** @param array<string, mixed> $a */
@@ -217,6 +227,64 @@ final class Nastroje
                 \MiroCMS\Front\Cache::vymaz();
 
                 return ['design_system' => $ds, 'citelnost' => DesignSystem::kontrasty($ds), 'nahled' => $this->app->request->origin() . $this->app->url('')];
+
+            case 'seznam_kolekci':
+                return array_map(fn (array $k): array => ['kolekce' => $k['seo_link'], 'nazev' => $k['nazev'], 'detail' => (bool) $k['detail'], 'pole' => $k['pole'],
+                    'polozek' => (int) $db->value('SELECT COUNT(*) FROM {kolekce_polozky} WHERE idk = ?', [$k['idk']])], Kolekce::vsechny($db));
+
+            case 'vytvor_kolekci':
+                $jenAdmin();
+                $nazevKolekce = mb_substr(trim((string) ($a['nazev'] ?? '')), 0, 100);
+                if ($nazevKolekce === '') {
+                    throw new \InvalidArgumentException('Chybí název kolekce.');
+                }
+                $seo = slugify($nazevKolekce, 110);
+                if (in_array($seo, Stranky::VYHRAZENE, true) || Kolekce::podleSeo($db, $seo) !== null) {
+                    throw new \InvalidArgumentException('Adresu „' . $seo . '“ už používá systém nebo jiná kolekce.');
+                }
+                $pole = Kolekce::vycistiPole($a['pole'] ?? []);
+                $db->insert('kolekce', ['nazev' => $nazevKolekce, 'seo_link' => $seo, 'detail' => empty($a['detail']) ? 0 : 1, 'pole' => (string) json_encode($pole, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s')]);
+
+                return ['kolekce' => $seo, 'pole' => $pole];
+
+            case 'seznam_polozek_kolekce':
+                $kolekce = $this->kolekce((string) ($a['kolekce'] ?? ''));
+
+                return array_map(fn (array $r): array => ['id' => (int) $r['idp'], 'nazev' => $r['nazev'], 'seo_link' => $r['seo_link'], 'poradi' => (int) $r['poradi'], 'zobrazit' => (bool) $r['zobrazit'],
+                    'jazyk' => $r['jazyk'], 'data' => json_decode((string) $r['data'], true) ?: new \stdClass()],
+                    $db->all('SELECT * FROM {kolekce_polozky} WHERE idk = ? ORDER BY poradi, nazev', [$kolekce['idk']]));
+
+            case 'uloz_polozku_kolekce':
+                if (!$auth->maModul('kolekce')) {
+                    throw new \DomainException('Kolekce smí upravovat editor nebo správce.');
+                }
+                $kolekce = $this->kolekce((string) ($a['kolekce'] ?? ''));
+                $nazevPolozky = mb_substr(trim((string) ($a['nazev'] ?? '')), 0, 200);
+                if ($nazevPolozky === '') {
+                    throw new \InvalidArgumentException('Položka musí mít název.');
+                }
+                $puvodni = isset($a['id']) ? $db->one('SELECT * FROM {kolekce_polozky} WHERE idp = ? AND idk = ?', [(int) $a['id'], $kolekce['idk']]) : null;
+                if (isset($a['id']) && $puvodni === null) {
+                    throw new \InvalidArgumentException('Položka v kolekci není. Použij seznam_polozek_kolekce.');
+                }
+                $chyby = [];
+                $data = Kolekce::vycistiData($kolekce['pole'], (is_array($a['data'] ?? null) ? $a['data'] : []) + (json_decode((string) ($puvodni['data'] ?? '{}'), true) ?: []), $chyby);
+                $seo = $puvodni['seo_link'] ?? slugify($nazevPolozky, 150);
+                for ($i = 2, $zaklad = $seo; $puvodni === null && $db->value('SELECT idp FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ?', [$kolekce['idk'], $seo]) !== null; $i++) {
+                    $seo = $zaklad . '-' . $i;
+                }
+                $radek = ['nazev' => $nazevPolozky, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s')]
+                    + (array_key_exists('poradi', $a) ? ['poradi' => max(-9999, min(9999, (int) $a['poradi']))] : [])
+                    + (array_key_exists('zobrazit', $a) ? ['zobrazit' => (int) (bool) $a['zobrazit']] : []);
+                if ($puvodni !== null) {
+                    $db->update('kolekce_polozky', $radek, ['idp' => $puvodni['idp']]);
+                    $idp = (int) $puvodni['idp'];
+                } else {
+                    $idp = $db->insert('kolekce_polozky', $radek + ['idk' => $kolekce['idk'], 'seo_link' => $seo, 'datum' => date('Y-m-d H:i:s'), 'zobrazit' => 0]);
+                }
+
+                return ['id' => $idp, 'kolekce' => $kolekce['seo_link'], 'neplatna_pole' => array_keys($chyby),
+                    'adresa' => $kolekce['detail'] ? $this->app->request->origin() . $this->app->url($kolekce['seo_link'] . '/' . $seo) : null];
 
             case 'seznam_novinek':
                 $where = ['c.smazano IS NULL']; // koš se přes MCP nevypisuje ani needituje
@@ -599,6 +667,12 @@ final class Nastroje
         }
 
         return $uzel;
+    }
+
+    /** @return array<string, mixed> */
+    private function kolekce(string $seo): array
+    {
+        return Kolekce::podleSeo($this->app->db(), $seo) ?? throw new \InvalidArgumentException('Kolekce neexistuje. Použij seznam_kolekci.');
     }
 
     /** @return array<string, mixed> novinka, ke které má uživatel přístup */

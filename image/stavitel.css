@@ -123,3 +123,8 @@ body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; ove
 	.stavitel-telo { overflow: auto; }
 	.st { grid-template: "lista" auto "platno" 70vh "pravy" auto "levy" auto / 1fr; height: auto; }
 }
+
+/* nápověda zástupných značek kolekce */
+.st-znacky { display: grid; gap: 6px; margin-bottom: 12px; padding: 8px 10px; border-radius: 8px; background: var(--akcent-svetly); color: var(--akcent-tmavy); font-size: 12px; }
+.st-znacky div { display: flex; flex-wrap: wrap; gap: 4px; }
+.st-znacky button { padding: 2px 6px; border: 1px solid currentColor; border-radius: 6px; background: var(--plocha); color: inherit; font: 12px ui-monospace, Menlo, Consolas, monospace; cursor: pointer; }

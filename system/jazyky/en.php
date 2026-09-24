@@ -396,4 +396,5 @@ return [
     'IČO' => 'Company ID',
     'DIČ' => 'VAT ID',
     '(doplňte v Nastavení → Firma)' => '(fill in under Settings → Company)',
+    'Vyberte kolekci v panelu Obsah.' => 'Choose a collection in the Content panel.',
 ];

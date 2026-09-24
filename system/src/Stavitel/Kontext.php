@@ -33,6 +33,15 @@ final class Kontext
     /** Hotový přepínač jazykových verzí webu (prázdný u jednojazyčného webu). */
     public string $jazyky = '';
 
+    /** @var array<string, array{0: string, 1: string}>|null hodnoty položky kolekce pro {{značky}} (uvnitř Výpisu kolekce a na detailu) */
+    public ?array $polozka = null;
+
+    /** Hloubka Výpisu kolekce: prvky uvnitř se opakují, proto mají styl přes třídu, ne přes id. */
+    public int $vSmycce = 0;
+
+    /** @var array<string, true> prvky, jejichž CSS už na stránce je */
+    public array $styly = [];
+
     /** Odkud právě vykreslovaná stavba je: „stranka:<id>“ nebo „cast:<typ>:<jazyk>“ (formulář podle něj najde svá pole). */
     public string $zdroj = '';
 

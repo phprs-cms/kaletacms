@@ -63,6 +63,9 @@ final class Seo
         foreach ($db->all('SELECT seo_link, zmeneno, jazyk FROM {stranky} WHERE zobrazit = 1 AND ids <> ? AND (preklad_z IS NULL OR preklad_z <> ?)', [$uvod, $uvod]) as $r) {
             $xml[] = $url($r['seo_link'], $r['zmeneno'], '0.8', $r['jazyk']);
         }
+        foreach ($db->all('SELECT k.seo_link AS kolekce, p.seo_link, p.jazyk, COALESCE(p.zmeneno, p.datum) AS zmena FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.detail = 1 AND p.zobrazit = 1 LIMIT 5000') as $r) {
+            $xml[] = $url($r['kolekce'] . '/' . $r['seo_link'], $r['zmena'], '0.5', $r['jazyk']);
+        }
         $xml[] = $url('novinky', (string) $db->value('SELECT MAX(COALESCE(zmeneno, datum)) FROM {novinky} WHERE visible = 1 AND datum <= NOW()') ?: null, '0.6');
         foreach ($db->all('SELECT seo_link, jazyk FROM {kategorie}') as $r) {
             $xml[] = $url('novinky/kategorie/' . $r['seo_link'], null, '0.4', $r['jazyk']);

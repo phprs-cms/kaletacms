@@ -33,6 +33,15 @@ final class Publikace
         \MiroCMS\Front\Cache::vymaz();
     }
 
+    /** Šablona detailu položek kolekce (verze pod klíčem „kolekce:<idk>“). */
+    public static function kolekce(App $app, array $kolekce): void
+    {
+        $novy = $kolekce['stavba_koncept'] ?? $kolekce['stavba'];
+        self::verze($app, ['cast' => 'kolekce:' . (int) $kolekce['idk']], $kolekce['stavba'], $novy, $kolekce['zmeneno'] ?? null);
+        $app->db()->update('kolekce', ['stavba' => $novy, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['idk' => $kolekce['idk']]);
+        \MiroCMS\Front\Cache::vymaz();
+    }
+
     /** Uloží předchozí publikovanou verzi do historie. @param array{ids?: int|string, cast?: string} $cil */
     public static function verze(App $app, array $cil, ?string $stara, ?string $nova, ?string $datum): void
     {

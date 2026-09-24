@@ -200,8 +200,58 @@ final class Kernel
 
             return $this->zobrazStranku($stranka, ltrim($path, '/'));
         }
+        if (preg_match('#^/([a-z0-9-]{1,110})/([a-z0-9-]{1,160})$#', $path, $m) && $m[1] !== 'novinky') {
+            return $this->detailKolekce($m[1], $m[2]);
+        }
 
         return $this->nenalezeno();
+    }
+
+    /**
+     * Stránka položky kolekce (/<kolekce>/<položka>) podle šablony detailu ze stavitele. Správce vidí v editoru koncept
+     * šablony (?stavba=koncept&editor=1), a když kolekce ještě nemá položky, ukázku s popisky polí (/<kolekce>/_ukazka).
+     */
+    private function detailKolekce(string $seoKolekce, string $seo): Response
+    {
+        $db = $this->app->db();
+        $r = $this->app->request;
+        $kolekce = \MiroCMS\Stavitel\Kolekce::podleSeo($db, $seoKolekce);
+        $koncept = $r->get('stavba') === 'koncept' && $this->app->auth()->isAdmin();
+        if ($kolekce === null || (!$kolekce['detail'] && !$koncept)) {
+            return $this->nenalezeno();
+        }
+        $polozka = $db->one('SELECT * FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND jazyk = ?' . ($koncept ? '' : ' AND zobrazit = 1'), [$kolekce['idk'], $seo, Jazyk::sloupecWebu()]);
+        if ($polozka === null && !($koncept && $seo === '_ukazka')) {
+            return $this->nenalezeno();
+        }
+        if ($polozka !== null) {
+            $polozka['data'] = json_decode((string) $polozka['data'], true) ?: [];
+        }
+        $stavba = \MiroCMS\Stavitel\Stavba::zJson($koncept ? ($kolekce['stavba_koncept'] ?? $kolekce['stavba']) : $kolekce['stavba'])
+            ?? \MiroCMS\Stavitel\Kolekce::vychoziSablona($kolekce);
+        $k = $this->kontext();
+        $k->polozka = $polozka !== null ? \MiroCMS\Stavitel\Kolekce::hodnoty($kolekce, $polozka, $this->app->url(...)) : \MiroCMS\Stavitel\Kolekce::ukazka($kolekce);
+        $k->editor = $koncept && $r->get('editor') === '1';
+        $k->zdroj = 'kolekce:' . (int) $kolekce['idk'];
+        $html = \MiroCMS\Stavitel\Stavba::html($stavba, $k);
+        [$k->polozka, $k->editor] = [null, false];
+
+        // popis a obrázek pro vyhledávače a sdílení: první delší text a první obrázek položky
+        $popis = '';
+        $obrazek = '';
+        foreach ($kolekce['pole'] as $pole) {
+            $h = (string) ($polozka['data'][$pole['klic']] ?? '');
+            if ($popis === '' && in_array($pole['typ'], ['radky', 'html'], true) && $h !== '') {
+                $popis = mb_strimwidth(trim(html_entity_decode(strip_tags($h), ENT_QUOTES | ENT_HTML5)), 0, 300, '…');
+            }
+            if ($obrazek === '' && $pole['typ'] === 'obrazek' && $h !== '') {
+                $obrazek = preg_match('#^https?://#', $h) ? $h : $this->app->request->origin() . $this->app->url(ltrim($h, '/'));
+            }
+        }
+
+        return $this->stranka((string) ($polozka['nazev'] ?? $kolekce['nazev']), $this->view->render('stranka', ['stranka' => ['titulek' => ''], 'uvod' => false, 'stavba' => $html]), [
+            'popis' => $popis, 'obrazek' => $obrazek, 'stavba' => true, 'noindex' => $koncept,
+        ]);
     }
 
     /** Číslo úvodní stránky v jazyce zobrazené verze webu (protějšek stránky z Nastavení); 0 = úvodem je výpis novinek. */
