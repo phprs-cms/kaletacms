@@ -6,7 +6,10 @@ namespace MiroCMS\Stavitel;
 
 use MiroCMS\Core\App;
 
-/** Stav jednoho vykreslení stavby: web, režim editoru a co se na stránce použilo (kvůli CSS jen toho potřebného). */
+/**
+ * Stav vykreslení jedné stránky webu: co se použilo (kvůli CSS jen toho potřebného) napříč stavbou stránky i částmi webu
+ * (záhlaví, patička, obálka), aby stránka dostala jediný blok CSS. Režim editoru se přepíná podle právě vykreslované stavby.
+ */
 final class Kontext
 {
     /** @var array<string, true> typy prvků na stránce */
@@ -21,7 +24,19 @@ final class Kontext
     /** @var list<array{0:string, 1:string}> otázky a odpovědi z prvků FAQ – pro strukturovaná data stránky */
     public array $faq = [];
 
-    public function __construct(public readonly App $app, public readonly bool $editor = false)
+    /** @var list<array{titulek:string, seo_link:string}> stránky hlavní navigace (dodává web) */
+    public array $menu = [];
+
+    /** Cesta zobrazené stránky (kvůli aria-current v navigaci). */
+    public string $cesta = '';
+
+    /** Hotový přepínač jazykových verzí webu (prázdný u jednojazyčného webu). */
+    public string $jazyky = '';
+
+    /** Obsah, který systém vkládá do obálky (prvek „Obsah stránky“): novinka, výpis, stránka 404. */
+    public string $obsah = '';
+
+    public function __construct(public readonly App $app, public bool $editor = false)
     {
     }
 

@@ -27,6 +27,7 @@ final class Stavba
         Prvky\Nadpis::class, Prvky\Text::class, Prvky\Obrazek::class, Prvky\Tlacitko::class, Prvky\Seznam::class,
         Prvky\Citat::class, Prvky\Faq::class, Prvky\Video::class, Prvky\Oddelovac::class,
         Prvky\Novinky::class, Prvky\Html::class,
+        Prvky\Logo::class, Prvky\Navigace::class, Prvky\Udaje::class, Prvky\ObsahStranky::class,
     ];
 
     /** @return class-string<Prvek>|null */
@@ -228,9 +229,15 @@ final class Stavba
     public static function vykresli(App $app, array $stavba, bool $editor = false): array
     {
         $k = new Kontext($app, $editor);
-        $html = self::vykresliDeti($stavba['deti'] ?? [], $k);
+        $html = self::html($stavba, $k);
 
         return ['html' => $html, 'css' => self::css($app->db(), $k), 'faq' => $k->faq];
+    }
+
+    /** HTML stavby ve sdíleném kontextu stránky (web tak skládá stránku, záhlaví a patičku a CSS vypíše jednou přes css()). */
+    public static function html(array $stavba, Kontext $k): string
+    {
+        return self::vykresliDeti($stavba['deti'] ?? [], $k);
     }
 
     private static function vykresliDeti(array $deti, Kontext $k): string
@@ -273,7 +280,7 @@ final class Stavba
     }
 
     /** CSS stránky: základ použitých typů, použité třídy (z mc_tridy) a styl jednotlivých prvků – každé ve své vrstvě. */
-    private static function css(Db $db, Kontext $k): string
+    public static function css(Db $db, Kontext $k): string
     {
         // ve stavbě řídí rozestupy mezery kontejnerů (gap), ne okraje nadpisů a odstavců ze šablony; text uvnitř prvku Text je má
         $zaklad = ':where(.stavba) :where(h1, h2, h3, h4, h5, h6, p, ul, ol, blockquote, figure, hr) { margin-block: 0; }' . "\n"
@@ -362,18 +369,18 @@ final class Stavba
      *
      * @return array<string, mixed>
      */
-    public static function schema(bool $spravce = true, string $jazyk = 'cs'): array
+    public static function schema(bool $spravce = true, string $jazyk = 'cs', bool $casti = false): array
     {
         // výchozí obsah nových prvků je v jazyce stránky, popisky polí překládá editor do jazyka administrace
-        return \MiroCMS\Core\Jazyk::docasne($jazyk, fn (): array => self::sestavSchema($spravce));
+        return \MiroCMS\Core\Jazyk::docasne($jazyk, fn (): array => self::sestavSchema($spravce, $casti));
     }
 
     /** @return array<string, mixed> */
-    private static function sestavSchema(bool $spravce): array
+    private static function sestavSchema(bool $spravce, bool $casti): array
     {
         $prvky = [];
         foreach (self::PRVKY as $trida) {
-            if ($trida::JEN_SPRAVCE && !$spravce) {
+            if (($trida::JEN_SPRAVCE && !$spravce) || ($trida::JEN_CASTI && !$casti)) {
                 continue;
             }
             $prvky[] = [

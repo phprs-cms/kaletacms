@@ -9,7 +9,7 @@ declare(strict_types=1);
 const MIROCMS_VERSION = '3.0.0';
 
 /** Číslo poslední migrace v system/sql/migrace - web podle něj pozná, že má po aktualizaci upravit databázi (hlídá tools/test.sh). */
-const MIROCMS_VERZE_DB = 2;
+const MIROCMS_VERZE_DB = 3;
 
 define('MIROCMS_ROOT', dirname(__DIR__));
 define('MIROCMS_SYSTEM', __DIR__);

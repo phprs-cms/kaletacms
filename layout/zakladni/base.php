@@ -14,6 +14,7 @@
  * @var string $jazyk  kód jazyka zobrazené verze webu (cs, en…) pro <html lang>
  * @var string $jazyky_html  hotový přepínač jazykových verzí; prázdný, má-li web jediný jazyk
  * @var list<array{titulek:string, seo_link:string, uvod:bool}> $stranky  stránky do hlavní navigace (úvodní má prázdnou adresu)
+ * @var array{hlavicka: ?string, paticka: ?string} $casti  záhlaví a patička ze stavitele (Vzhled → Části webu); null = kreslí je layout
  */
 $nazevWebu = $web->get('nazev_webu');
 $cesta = (string) parse_url($kanonicka, PHP_URL_PATH);
@@ -46,6 +47,9 @@ $site = array_filter(['LinkedIn' => $web->get('soc_linkedin'), 'Facebook' => $we
 </head>
 <body>
 <a class="preskocit" href="#obsah"><?= e(t('Přeskočit na obsah')) ?></a>
+<?php if (($casti['hlavicka'] ?? null) !== null): ?>
+<?= $casti['hlavicka'] ?>
+<?php else: ?>
 <header class="hlavicka">
 	<div class="obal hlavicka-obal">
 		<a class="logo" href="<?= e($url('')) ?>"<?= $jeAktivni('') ? ' aria-current="page"' : '' ?>><?php if ($web->get('logo_webu') !== ''): ?><img src="<?= e((preg_match('#^(https?:)?/#', $web->get('logo_webu')) ? '' : $url('')) . $web->get('logo_webu')) ?>" alt="<?= e($nazevWebu) ?>"><?php else: ?><?= e($nazevWebu) ?><?php endif ?></a>
@@ -61,9 +65,13 @@ $site = array_filter(['LinkedIn' => $web->get('soc_linkedin'), 'Facebook' => $we
 		</nav>
 	</div>
 </header>
+<?php endif ?>
 <main id="obsah" class="<?= empty($meta['stavba']) ? 'obal obsah' : 'stavba' ?>">
 <?= $obsah ?>
 </main>
+<?php if (($casti['paticka'] ?? null) !== null): ?>
+<?= $casti['paticka'] ?>
+<?php else: ?>
 <footer class="paticka">
 	<div class="obal paticka-obal">
 		<div>
@@ -89,6 +97,7 @@ $site = array_filter(['LinkedIn' => $web->get('soc_linkedin'), 'Facebook' => $we
 		<p class="paticka-copy">&copy; <?= date('Y') ?> <?= e($nazevWebu) ?></p>
 	</div>
 </footer>
+<?php endif ?>
 <?= $pata ?>
 </body>
 </html>

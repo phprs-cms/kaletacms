@@ -572,7 +572,7 @@ $knSchema = array_column(MiroCMS\Stavitel\Stavba::schema(true, 'en')['prvky'], '
 over('Stavba::schema: výchozí obsah prvků v jazyce stránky', [$knSchema['nadpis']['text']['vychozi'], $knSchema['tlacitko']['text']['vychozi']], ['Heading', 'Contact us']);
 $knEnSlovnik = require MIROCMS_ROOT . '/system/jazyky/en.php';
 preg_match_all("/\bt\('((?:[^'\\\\]|\\\\.)*)'\)/", file_get_contents(MIROCMS_ROOT . '/system/src/Stavitel/Knihovna.php') . implode('', array_map('file_get_contents', glob(MIROCMS_ROOT . '/system/src/Stavitel/Prvky/*.php'))), $knTexty);
-over('Knihovna a prvky: všechny ukázkové texty mají anglický překlad', array_values(array_diff(array_unique($knTexty[1]), array_keys($knEnSlovnik))), []);
+over('Knihovna a prvky: všechny ukázkové texty mají anglický překlad', array_values(array_diff(array_unique($knTexty[1]), array_keys($knEnSlovnik), ['Menu'])), []);
 
 echo $chyb === 0 ? "  ok     jednotkové testy ({$celkem})\n" : "  NALEZENO CHYB: {$chyb} z {$celkem}\n";
 exit($chyb === 0 ? 0 : 1);

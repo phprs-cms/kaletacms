@@ -69,10 +69,14 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../mirocms-interni/NAVRH.md`. Č
 - **Prvek** = třída v `Stavitel\Prvky\` (dědí `Prvek`, zapsaná v `Stavba::PRVKY`): pole obsahu (`vlastnosti()`), povolené značky, základní CSS
   do vrstvy `stavitel` přes `:where()`. **Styl** (`Stavitel\Styl::VLASTNOSTI`) má stavy `zaklad`/`tablet` (≤1023 px)/`mobil` (≤767 px)/`hover`; hodnoty
   jsou tokeny nebo bezpečné volné hodnoty. Vlastní CSS tříd projde `Styl::vlastniCss()` (bez `url()`, bloků, `@`).
-- **Publikování** (`Moduly\Stranky::publikuj`, i z MCP): předchozí verze do `mc_stavba_revize` (20), do `text` se uloží obsah bez rozložení
+- **Publikování** (`Stavitel\Publikace`, i z MCP): předchozí verze do `mc_stavba_revize` (20, `ids` stránky nebo `cast` = "typ:jazyk"), do `text` se uloží obsah bez rozložení
   (`Stavba::jakoText`) – z něj čerpá hledání, llms.txt, API i návrat k textu. Náhled konceptu `?stavba=koncept` jen s právem Stránky, `&editor=1` přidá `data-mc-id`.
 - **Editor** `image/stavitel.js` + `stavitel.css` (samostatná stránka `akce=stavitel`): plátno je skutečná stránka v iframe (počítač vykreslený v 1280 px
   a zmenšený), průběžné ukládání konceptu (`stavba_uloz`, vrací vyčištěný strom), knihovna sekcí `Stavitel\Knihovna`, verze.
+- **Části webu** (`Stavitel\Casti`, tabulka `mc_casti` typ+jazyk, admin `Moduly\Casti`, jen správce): záhlaví, patička a obálky `novinka`/`vypis`/`nenalezeno`
+  (prvek `obsah` = místo pro obsah systému). Web je skládá v `Front\Kernel::castiWebu()` se stavbou stránky v jednom `Kontext` → jedno CSS.
+  Layout vypisuje `$casti['hlavicka']`/`['paticka']`, když nejsou `null`. Prvky `JEN_CASTI` (logo, navigace, udaje, obsah) se nabízejí jen v částech.
+  Akce stavitele sdílí trait `Admin\StavitelAkce` (stránky i části), publikování a verze `Stavitel\Publikace`.
 - **HTML → stavba** (`Stavitel\ZHtml`, MCP `stavba_z_html`): sémantické HTML + `<style>` s pravidly jedné třídy → prvky a třídy; co převést nejde, se nahlásí.
 
 ## Obsah a služby

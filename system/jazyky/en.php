@@ -372,4 +372,9 @@ return [
     'Služby' => 'Services',
     'O nás' => 'About us',
     'Úvod' => 'Home',
+    'Stránky zařazené do menu' => 'Pages included in the menu',
+    'Hlavní navigace' => 'Main navigation',
+    'Sem se vloží obsah stránky (novinka, výpis novinek, hlášení 404).' => 'The page content goes here (news item, news list, 404 message).',
+    '(údaj není vyplněný v Nastavení)' => '(not filled in under Settings)',
+    'Sociální sítě doplníte v Nastavení.' => 'Add social networks under Settings.',
 ];

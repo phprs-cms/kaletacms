@@ -27,6 +27,7 @@ final class Kernel
         Moduly\Galerie::class,
         Moduly\Statistika::class,
         Moduly\Vzhled::class,
+        Moduly\Casti::class,
         Moduly\Autori::class,
         Moduly\Presmerovani::class,
         Moduly\ProtokolZmen::class,

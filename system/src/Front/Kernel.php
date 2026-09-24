@@ -31,6 +31,9 @@ final class Kernel
     /** Kategorie nebo stránka, kterou požadavek zobrazuje - přepínač jazyků podle ní najde protějšek v jiné verzi. */
     private ?array $protejsek = null;
 
+    /** Sdílený stav stavitele pro celou stránku (stavba stránky, záhlaví, patička, obálka) – jedno CSS bez opakování. */
+    private ?\MiroCMS\Stavitel\Kontext $kontext = null;
+
     /** Požadovaná stránka výpisu je až za jeho koncem - odpoví se 404. */
     private bool $zaKoncem = false;
 
@@ -224,19 +227,17 @@ final class Kernel
         $koncept = $this->app->request->get('stavba') === 'koncept' && $this->app->auth()->maModul('stranky');
         $stavba = \MiroCMS\Stavitel\Stavba::zJson($koncept ? ($stranka['stavba_koncept'] ?? $stranka['stavba']) : $stranka['stavba']);
         if ($stavba !== null) {
-            $editor = $koncept && $this->app->request->get('editor') === '1';
-            $vystup = \MiroCMS\Stavitel\Stavba::vykresli($this->app, $stavba, $editor);
-            if ($editor) {
-                // plátno stavitele se po každé změně načítá znovu – přechod mezi stránkami by jen blikal a v prohlížeči hlásil přerušení
-                $vystup['css'] .= '@view-transition{navigation:none}';
-            }
+            $k = $this->kontext();
+            $k->editor = $koncept && $this->app->request->get('editor') === '1' && $this->app->request->get('cast') === '';
+            $html = \MiroCMS\Stavitel\Stavba::html($stavba, $k);
+            $k->editor = false;
             if (!$koncept && $this->app->auth()->maModul('stranky')) {
                 $this->upravitZde = $this->app->url('admin.php?modul=stranky&akce=stavitel&id=' . (int) $stranka['ids']);
             }
 
-            return $this->stranka($uvod ? '' : $stranka['titulek'], $this->view->render('stranka', ['stranka' => $stranka, 'uvod' => $uvod, 'stavba' => $vystup['html']]), [
+            return $this->stranka($uvod ? '' : $stranka['titulek'], $this->view->render('stranka', ['stranka' => $stranka, 'uvod' => $uvod, 'stavba' => $html]), [
                 'popis' => $stranka['popis'] !== '' ? $stranka['popis'] : ($uvod ? $this->app->settings()->get('popis_webu') : ''),
-                'hlavni' => $uvod, 'stavba' => true, 'css' => $vystup['css'], 'faq' => $vystup['faq'], 'noindex' => $koncept,
+                'hlavni' => $uvod, 'stavba' => true, 'noindex' => $koncept,
             ]);
         }
         if (($formular = $this->upravaNaMiste('stranka', $stranka, $cesta)) !== null) {
@@ -257,6 +258,7 @@ final class Kernel
         return $this->stranka($uvod ? '' : t('Novinky'), $this->view->render('vypis', ['nadpis' => t('Novinky'), 'popis' => ''] + $this->proVypis($novinky, $celkem, $strana, $uvod ? '' : 'novinky')), [
             'hlavni' => $uvod,
             'popis' => $this->app->settings()->get('popis_webu'),
+            'cast' => 'vypis',
         ]);
     }
 
@@ -273,7 +275,7 @@ final class Kernel
         return $this->stranka(
             $kategorie['nazev'],
             $this->view->render('vypis', ['nadpis' => $kategorie['nazev'], 'popis' => $kategorie['popis']] + $this->proVypis($novinky, $celkem, $strana, 'novinky/kategorie/' . $seo)),
-            ['popis' => strip_tags($kategorie['popis'])],
+            ['popis' => strip_tags($kategorie['popis']), 'cast' => 'vypis'],
         );
     }
 
@@ -292,6 +294,7 @@ final class Kernel
             'nadpis' => ($tema ? '' : '#') . $stitek['nazev'], 'popis' => $tema ? (string) $stitek['popis'] : '',
         ] + $this->proVypis($novinky, $celkem, $strana, 'novinky/stitek/' . $seo)), [
             'popis' => $tema ? mb_strimwidth(trim(strip_tags((string) $stitek['popis'])), 0, 300, '…') : '',
+            'cast' => 'vypis',
         ]);
     }
 
@@ -336,6 +339,7 @@ final class Kernel
             'klicova_slova' => $novinka['t_slova'],
             'obrazek' => $novinka['obrazek'],
             'typ' => 'article',
+            'cast' => 'novinka',
         ]);
     }
 
@@ -389,7 +393,7 @@ final class Kernel
 
         // přehled nenalezených adres pro správce (Přesměrování); roboti zkoušející cizí systémy se nezapisují
         $cesta = mb_substr(trim($this->app->request->path(), '/'), 0, 255);
-        if ($cesta !== '' && !preg_match('#\.(php|asp|aspx|env|git|sql|bak|ini|xml|txt|js|css|map|png|jpe?g|gif|ico|webp)$|^(wp-|\.|cgi-bin|vendor/|admin/)#i', $cesta) && mb_check_encoding($cesta, 'UTF-8')) {
+        if ($cesta !== '' && $this->app->request->get('cast') === '' && !preg_match('#\.(php|asp|aspx|env|git|sql|bak|ini|xml|txt|js|css|map|png|jpe?g|gif|ico|webp)$|^(wp-|\.|cgi-bin|vendor/|admin/)#i', $cesta) && mb_check_encoding($cesta, 'UTF-8')) {
             try {
                 if ((int) $this->app->db()->value('SELECT COUNT(*) FROM {nenalezeno}') < 2000 || $this->app->db()->value('SELECT 1 FROM {nenalezeno} WHERE cesta = ?', [$cesta]) !== null) {
                     $this->app->db()->run('INSERT INTO {nenalezeno} (cesta, pocet, naposledy) VALUES (?, 1, NOW()) ON DUPLICATE KEY UPDATE pocet = pocet + 1, naposledy = NOW()', [$cesta]);
@@ -399,7 +403,7 @@ final class Kernel
             }
         }
 
-        return $this->stranka(t('Stránka nenalezena'), $this->view->render('nenalezeno', ['url' => $this->app->url(...), 'stranky' => $this->strankyMenu()]), ['noindex' => true], 404);
+        return $this->stranka(t('Stránka nenalezena'), $this->view->render('nenalezeno', ['url' => $this->app->url(...), 'stranky' => $this->strankyMenu()]), ['noindex' => true, 'cast' => 'nenalezeno'], 404);
     }
 
     /**
@@ -514,6 +518,74 @@ final class Kernel
      *
      * @param array<string, mixed> $meta
      */
+    private function kontext(): \MiroCMS\Stavitel\Kontext
+    {
+        return $this->kontext ??= new \MiroCMS\Stavitel\Kontext($this->app);
+    }
+
+    /**
+     * Části webu ze stavitele: obálka kolem obsahu (novinka, výpis, 404), záhlaví a patička. Část bez publikované stavby
+     * vrátí null a layout vykreslí svou. Správce vidí v editoru koncept části (?cast=<typ>&stavba=koncept&editor=1).
+     *
+     * @param array<string, mixed> $meta
+     * @return array{0: string, 1: array{hlavicka: ?string, paticka: ?string}, 2: array<string, mixed>}
+     */
+    private function castiWebu(string $obsah, array $meta, string $jazykyHtml, string $cesta): array
+    {
+        $r = $this->app->request;
+        $db = $this->app->db();
+        $k = $this->kontext();
+        $k->menu = $this->strankyMenu();
+        $k->cesta = $cesta;
+        $k->jazyky = $jazykyHtml;
+        $nahled = isset(\MiroCMS\Stavitel\Casti::TYPY[$r->get('cast')]) && $r->get('stavba') === 'koncept' && $this->app->auth()->isAdmin() ? $r->get('cast') : '';
+        $editor = $r->get('editor') === '1' && ($nahled !== '' || ($r->get('stavba') === 'koncept' && $r->get('cast') === ''));
+        $jazyk = Jazyk::sloupecWebu();
+        $vykresli = function (string $typ) use ($db, $k, $nahled, $editor, $jazyk, $r): ?string {
+            try {
+                $stavba = \MiroCMS\Stavitel\Casti::stavba($db, $typ, $jazyk, $nahled === $typ);
+            } catch (\Throwable $e) {
+                error_log('Části webu: ' . $e->getMessage()); // web bez tabulky (před migrací) vykreslí části ze šablony
+
+                return null;
+            }
+            if ($stavba === null) {
+                return null;
+            }
+            $k->editor = $editor && $nahled === $typ;
+            $html = \MiroCMS\Stavitel\Stavba::html($stavba, $k);
+            $k->editor = false;
+
+            return $html;
+        };
+
+        $obalka = $meta['cast'] ?? null;
+        unset($meta['cast']);
+        if ($obalka !== null) {
+            $k->obsah = $obsah;
+            if (($html = $vykresli($obalka)) !== null) {
+                $obsah = $html;
+                $meta['stavba'] = true;
+            }
+            $k->obsah = '';
+        }
+        $casti = ['hlavicka' => $vykresli('hlavicka'), 'paticka' => $vykresli('paticka')];
+
+        if ($k->typy !== []) {
+            $meta['css'] = \MiroCMS\Stavitel\Stavba::css($db, $k)
+                // plátno stavitele se po každé změně načítá znovu – přechod mezi stránkami by jen blikal a v prohlížeči hlásil přerušení
+                . ($editor ? '@view-transition{navigation:none}' : '');
+            if ($k->faq !== [] && !isset($meta['faq'])) {
+                $meta['faq'] = $k->faq;
+            }
+        }
+        if ($nahled !== '') {
+            $meta['noindex'] = true;
+        }
+
+        return [$obsah, $casti, $meta];
+    }
+
     private function stranka(string $titulek, string $obsah, array $meta = [], int $status = 200): Response
     {
         if ($this->zaKoncem) {
@@ -530,6 +602,9 @@ final class Kernel
         }
 
         $jazyky = $this->jazyky($novinka);
+        $jazykyHtml = $jazyky === [] ? '' : $this->view->render('jazyky', ['jazyky' => $jazyky]);
+        $kanonicka = $this->app->request->origin() . $this->app->url(ltrim($this->app->request->path(), '/'));
+        [$obsah, $casti, $meta] = $this->castiWebu($obsah, $meta, $jazykyHtml, (string) parse_url($kanonicka, PHP_URL_PATH));
         $html = $this->view->render('base', [
             'web' => $web,
             'titulek' => $titulek,
@@ -539,9 +614,10 @@ final class Kernel
             'pata' => $seo->pata() . ($this->upravitZde !== '' ? '<a class="mc-upravit-zde" href="' . e($this->upravitZde) . '">' . e(t('Upravit zde')) . '</a>' : ''),
             'stranky' => $this->strankyMenu(),
             'jazyk' => Jazyk::kod(),
-            'jazyky_html' => $jazyky === [] ? '' : $this->view->render('jazyky', ['jazyky' => $jazyky]),
+            'jazyky_html' => $jazykyHtml,
+            'casti' => $casti,
             'url' => $this->app->url(...),
-            'kanonicka' => $this->app->request->origin() . $this->app->url(ltrim($this->app->request->path(), '/')),
+            'kanonicka' => $kanonicka,
         ]);
         $html = ObrazkyHtml::dopln($this->app->db(), $html); // rozměry a barva podkladu obrázků – méně poskakování stránky
         if ($status === 200 && empty($meta['noindex']) && $this->app->request->get('nahled') === '') {

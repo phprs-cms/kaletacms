@@ -27,6 +27,9 @@
 		faq: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01"/>',
 		video: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/>',
 		oddelovac: '<path d="M3 12h18"/>',
+		logo: '<circle cx="12" cy="12" r="8"/><path d="M9 15V9l3 3 3-3v6"/>',
+		menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+		udaje: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M14 10h4M14 14h4M6 16c.8-1.5 1.8-2 3-2s2.2.5 3 2"/>',
 		clanek: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/>',
 		kod: '<path d="m8 8-4 4 4 4M16 8l4 4-4 4M13 6l-2 12"/>',
 		blok: '<rect x="4" y="4" width="16" height="16" rx="2"/>',
@@ -258,15 +261,15 @@
 	function vloz(prvek) {
 		const v = stav.vybrane && najdi(stav.vybrane);
 		zmen(() => {
-			if (!v && prvek.typ !== 'sekce') {
-				// na nejvyšší úrovni jsou sekce: samotný prvek dostane vlastní sekci
+			if (!v && prvek.typ !== 'sekce' && prvek.typ !== 'obsah') {
+				// na nejvyšší úrovni jsou sekce: samotný prvek dostane vlastní sekci (obsah stránky v obálce má vlastní obal)
 				const sekce = novyPrvek('sekce');
 				sekce.deti.push(prvek);
 				stav.stavba.deti.push(sekce);
 			} else if (v && TYPY[v.p.typ].kontejner && prvek.typ !== 'sekce') {
 				v.p.deti.push(prvek);
 			} else if (v) {
-				if (prvek.typ === 'sekce') {
+				if (prvek.typ === 'sekce' || prvek.typ === 'obsah') {
 					// sekce patří na nejvyšší úroveň – za sekci, ve které je vybraný prvek
 					let horni = v; while (horni.rodic) { horni = najdi(horni.rodic.id); }
 					horni.pole.splice(horni.i + 1, 0, prvek);
@@ -346,7 +349,7 @@
 		const bpTl = Object.entries({ zaklad: 'pocitac', tablet: 'tablet', mobil: 'mobil' }).map(([bp, ik]) =>
 			el('button', { type: 'button', title: BP[bp], 'aria-label': BP[bp], 'aria-pressed': String(stav.bp === bp), onclick: () => { stav.bp = bp; ramec.dataset.bp = bp; rozmerNahledu(nahled); prekresliListu(); prekresliPanely(); } }, ikona(ik)));
 		lista.replaceChildren(...[
-			el('a', { class: 'st-tl', href: D.adresy.stranky, title: T('Zpět na stránky') }, ikona('rodic'), el('span', { class: 'st-text' }, T('Stránky'))),
+			el('a', { class: 'st-tl', href: D.zpet.adresa, title: D.zpet.text }, ikona('rodic'), el('span', { class: 'st-text' }, D.zpet.text)),
 			el('div', { class: 'st-nazev' }, el('strong', {}, D.stranka.titulek), el('small', {}, stav.zmeny ? T('rozpracovaný koncept – návštěvníci vidí publikovanou verzi') : T('beze změn proti webu'))),
 			el('div', { class: 'st-skupina', role: 'group', 'aria-label': T('Zařízení') }, bpTl),
 			el('div', { class: 'st-skupina', role: 'group', 'aria-label': T('Historie') },
@@ -466,7 +469,7 @@
 		const n = stav.vybrane && najdi(stav.vybrane);
 		if (!n) {
 			pravy.replaceChildren(el('div', { class: 'st-panel' }, el('p', { class: 'st-prazdno' }, T('Vyberte prvek na plátně nebo ve struktuře. Dvojklikem na text ho upravíte přímo na stránce.')),
-				el('p', { class: 'st-prazdno' }, el('a', { href: D.adresy.nastaveni }, T('Nastavení stránky (název, adresa, SEO)')))));
+				D.adresy.nastaveni ? el('p', { class: 'st-prazdno' }, el('a', { href: D.adresy.nastaveni }, T('Nastavení stránky (název, adresa, SEO)'))) : null));
 			return;
 		}
 		const p = n.p;

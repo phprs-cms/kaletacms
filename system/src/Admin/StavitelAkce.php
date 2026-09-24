@@ -1,0 +1,188 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MiroCMS\Admin;
+
+use MiroCMS\Core\Jazyk;
+use MiroCMS\Core\Response;
+use MiroCMS\Stavitel\DesignSystem;
+use MiroCMS\Stavitel\Knihovna;
+use MiroCMS\Stavitel\Publikace;
+use MiroCMS\Stavitel\Stavba;
+use MiroCMS\Stavitel\Styl;
+
+/**
+ * Akce stavitele společné pro stránky (Moduly\Stranky) a části webu (Moduly\Casti): editor, průběžné ukládání konceptu,
+ * publikování, zahození změn, verze, sekce z knihovny a sdílené třídy. Modul dodá, co je „cíl“ stavby a jak ho uložit.
+ *
+ * Cíl: ['radek' => řádek z databáze, 'stavba' => ?string, 'koncept' => ?string, 'jazyk' => kód obsahu, 'titulek' => string,
+ *       'revize' => ['ids' => …] | ['cast' => …], 'parametry' => parametry adres akcí (id nebo typ a jazyk)]
+ */
+trait StavitelAkce
+{
+    /** @return array<string, mixed>|null cíl z parametrů požadavku */
+    abstract protected function cilStavby(): ?array;
+
+    /** Uloží rozpracovaný koncept (null = zahodit). */
+    abstract protected function ulozKoncept(array $cil, ?string $koncept): void;
+
+    abstract protected function publikujCil(array $cil): void;
+
+    /**
+     * Údaje pro editor: titulek, adresa (veřejná), nahled (plátno), zobrazena, casti (nabízet prvky částí), zpet [adresa, text],
+     * nastaveni (adresa nastavení cíle, nebo null).
+     *
+     * @return array<string, mixed>
+     */
+    abstract protected function editorCile(array $cil): array;
+
+    /** Editor stavby na celou obrazovku: plátno se skutečnou stránkou webu, strom, vlastnosti. */
+    protected function akceStavitel(): Response
+    {
+        $cil = $this->cilStavby();
+        if ($cil === null) {
+            return $this->chyba('Stránka neexistuje.', 404);
+        }
+        $app = $this->app;
+        $e = $this->editorCile($cil);
+        $data = [
+            'stranka' => ['titulek' => $cil['titulek'], 'adresa' => $e['adresa'], 'zobrazena' => $e['zobrazena'], 'publikovana' => $cil['stavba'] !== null],
+            'stavba' => Stavba::zJson($cil['koncept'] ?? $cil['stavba']),
+            'zmeny' => $cil['koncept'] !== null && $cil['koncept'] !== $cil['stavba'],
+            'schema' => Stavba::schema($app->auth()->isAdmin(), $cil['jazyk'], $e['casti']),
+            'knihovna' => Knihovna::seznam(),
+            'tridy' => $this->tridyStavitele(),
+            'barvy' => DesignSystem::nacti($app->settings())['barvy'],
+            'nahled' => $e['nahled'],
+            'zpet' => $e['zpet'],
+            'adresy' => array_map(fn (string $akce): string => $this->url($akce, $cil['parametry']), [
+                'uloz' => 'stavba_uloz', 'publikuj' => 'stavba_publikuj', 'zahod' => 'stavba_zahod', 'sekce' => 'stavba_sekce', 'trida' => 'stavba_trida',
+                'revize' => 'stavba_revize', 'obnov' => 'stavba_obnov',
+            ]) + ['admin' => $app->url('admin.php'), 'nastaveni' => $e['nastaveni']],
+        ];
+
+        return Response::html($app->view->render('admin/stranky/stavitel', ['app' => $app, 'data' => $data, 'titulek' => $cil['titulek']]));
+    }
+
+    /** Průběžné ukládání konceptu z editoru (JSON). Vrací vyčištěnou stavbu a chyby, které editor ukáže. */
+    protected function akceStavbaUloz(): Response
+    {
+        $cil = $this->request->isPost() ? $this->cilStavby() : null;
+        if ($cil === null) {
+            return Response::json(['ok' => false, 'chyba' => t('Stránka neexistuje.')], 404);
+        }
+        $vstup = json_decode((string) ($_POST['stavba'] ?? ''), true);
+        if (!is_array($vstup)) {
+            return Response::json(['ok' => false, 'chyba' => t('Stavba nemá platný tvar JSON.')], 400);
+        }
+        [$stavba, $chyby] = Stavba::vycisti($vstup, $this->app->auth()->isAdmin(), Stavba::zJson($cil['koncept'] ?? $cil['stavba']));
+        $json = Stavba::naJson($stavba);
+        $this->ulozKoncept($cil, $json);
+
+        return Response::json(['ok' => true, 'stavba' => $stavba, 'chyby' => $chyby, 'zmeny' => $json !== $cil['stavba']]);
+    }
+
+    /** Publikování: koncept se stane stavbou; předchozí publikovaná verze jde do historie. */
+    protected function akceStavbaPublikuj(): Response
+    {
+        $cil = $this->request->isPost() ? $this->cilStavby() : null;
+        if ($cil === null || ($cil['koncept'] ?? $cil['stavba']) === null) {
+            return Response::json(['ok' => false, 'chyba' => t('Není co publikovat.')], 400);
+        }
+        $this->publikujCil($cil);
+        Protokol::zapis($this->app, static::IDENT, 'publikování stavby', mb_substr($cil['titulek'], 0, 80));
+
+        return Response::json(['ok' => true]);
+    }
+
+    /** Zahodí rozpracované změny: editor se vrátí k publikované stavbě. */
+    protected function akceStavbaZahod(): Response
+    {
+        $cil = $this->request->isPost() ? $this->cilStavby() : null;
+        if ($cil === null || $cil['stavba'] === null) {
+            return Response::json(['ok' => false, 'chyba' => t('Zatím není publikovaná verze – není k čemu se vrátit.')], 400);
+        }
+        $this->ulozKoncept($cil, null);
+
+        return Response::json(['ok' => true, 'stavba' => Stavba::zJson($cil['stavba'])]);
+    }
+
+    /** Sekce z knihovny jako nové prvky (JSON) v jazyce cíle; chybějící třídy, které používá, se založí. */
+    protected function akceStavbaSekce(): Response
+    {
+        $cil = $this->request->isPost() ? $this->cilStavby() : null;
+        $sekce = $cil !== null ? Knihovna::sekci($this->request->get('klic'), $cil['jazyk']) : null;
+        if ($sekce === null) {
+            return Response::json(['ok' => false, 'chyba' => t('Sekce v knihovně není.')], 404);
+        }
+        Knihovna::zalozTridy($this->db, $sekce['tridy']);
+
+        return Response::json(['ok' => true, 'prvek' => $sekce['prvek'], 'tridy' => $this->tridyStavitele()]);
+    }
+
+    /** Uložení nebo smazání sdílené třídy (JSON). */
+    protected function akceStavbaTrida(): Response
+    {
+        if (!$this->request->isPost()) {
+            return Response::json(['ok' => false], 405);
+        }
+        $nazev = $this->request->post('nazev');
+        if (!preg_match(Stavba::VZOR_TRIDA, $nazev)) {
+            return Response::json(['ok' => false, 'chyba' => t('Název třídy: malá písmena bez diakritiky, číslice a pomlčky (např. karta, karta--zvyraznena).')], 400);
+        }
+        if ($this->request->post('smazat') === '1') {
+            $this->db->delete('tridy', ['nazev' => $nazev]);
+        } else {
+            $chyby = [];
+            $zahozeno = [];
+            $styl = Styl::vycisti(json_decode((string) ($_POST['styl'] ?? ''), true), $nazev, $chyby);
+            $css = Styl::vlastniCss($this->request->post('css'), $zahozeno);
+            $this->db->run('INSERT INTO {tridy} (nazev, styl, css, zmeneno) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE styl = VALUES(styl), css = VALUES(css), zmeneno = NOW()',
+                [$nazev, (string) json_encode($styl ?: new \stdClass(), JSON_UNESCAPED_UNICODE), $css]);
+            if ($chyby !== [] || $zahozeno !== []) {
+                return Response::json(['ok' => true, 'tridy' => $this->tridyStavitele(), 'chyby' => $chyby + array_map(fn (string $d): string => t('Nepovolená deklarace: %s', $d), $zahozeno)]);
+            }
+        }
+        \MiroCMS\Front\Cache::vymaz();
+
+        return Response::json(['ok' => true, 'tridy' => $this->tridyStavitele()]);
+    }
+
+    /** Publikované verze (JSON pro dialog Verze). */
+    protected function akceStavbaRevize(): Response
+    {
+        $cil = $this->cilStavby();
+
+        return Response::json(['revize' => $cil === null ? [] : Publikace::seznam($this->db, $cil['revize'])]);
+    }
+
+    /** Starší verze se načte do konceptu; publikuje se až tlačítkem Publikovat. */
+    protected function akceStavbaObnov(): Response
+    {
+        $cil = $this->request->isPost() ? $this->cilStavby() : null;
+        $stavba = $cil !== null ? Publikace::nacti($this->db, $cil['revize'], $this->request->postInt('idr')) : null;
+        if ($stavba === null) {
+            return Response::json(['ok' => false, 'chyba' => t('Verze neexistuje.')], 404);
+        }
+        $this->ulozKoncept($cil, $stavba);
+
+        return Response::json(['ok' => true, 'stavba' => Stavba::zJson($stavba)]);
+    }
+
+    /** @return array<string, array{styl: array<string, mixed>|\stdClass, css: string}> */
+    protected function tridyStavitele(): array
+    {
+        $tridy = [];
+        foreach ($this->db->all('SELECT nazev, styl, css FROM {tridy} ORDER BY nazev') as $r) {
+            $tridy[$r['nazev']] = ['styl' => json_decode((string) $r['styl'], true) ?: new \stdClass(), 'css' => (string) $r['css']];
+        }
+
+        return $tridy;
+    }
+
+    protected function jazykObsahu(string $sloupec): string
+    {
+        return Jazyk::obsahu($this->app->settings(), $sloupec);
+    }
+}

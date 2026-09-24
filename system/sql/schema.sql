@@ -223,14 +223,28 @@ CREATE TABLE mc_stranky (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Publikované verze staveb (posledních 20 na stránku)
+-- Části webu ze stavitele: záhlaví a patička na všech stránkách, obálka detailu novinky, výpisu a stránky 404.
+-- Bez řádku (nebo bez publikované stavby) platí část ze šablony (layout). Jazyk '' = výchozí jazyk webu.
+CREATE TABLE mc_casti (
+    typ            VARCHAR(20) NOT NULL,
+    jazyk          CHAR(2) NOT NULL DEFAULT '',
+    stavba         MEDIUMTEXT NULL,
+    stavba_koncept MEDIUMTEXT NULL,
+    zmeneno        DATETIME NULL,
+    PRIMARY KEY (typ, jazyk)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- Publikované verze staveb: stránky (ids) i částí webu (cast = "typ:jazyk").
 CREATE TABLE mc_stavba_revize (
     idr    INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    ids    INT UNSIGNED NOT NULL,
+    ids    INT UNSIGNED NULL,
+    cast   VARCHAR(30) NULL,
     datum  DATETIME NOT NULL,
     kdo    INT UNSIGNED NULL,
     stavba MEDIUMTEXT NOT NULL,
     PRIMARY KEY (idr),
     KEY ix_stavba_revize (ids, idr),
+    KEY ix_stavba_revize_cast (cast, idr),
     CONSTRAINT fk_stavba_revize_stranka FOREIGN KEY (ids) REFERENCES mc_stranky (ids) ON DELETE CASCADE,
     CONSTRAINT fk_stavba_revize_kdo FOREIGN KEY (kdo) REFERENCES mc_uzivatele (idu) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;

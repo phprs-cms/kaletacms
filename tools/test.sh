@@ -178,6 +178,32 @@ rm -f "$PRACE"/web/storage/cache/stranky/*.html
 over "design systém z MCP je na webu" 200 / 'mc-barva-primarni: #0f766e'
 over "design systém z MCP zachoval ostatní barvy" 200 / 'mc-barva-plocha: #f5f6f8'
 
+echo "== části webu ve staviteli"
+over "části webu" 200 "/admin.php?modul=casti" "Záhlaví"
+over "záhlaví se otevře ve staviteli s koncept podle šablony" 200 "/admin.php?modul=casti&akce=stavitel&typ=hlavicka&jazyk=" 'id="stavitel-data"'
+TOKEN=$(csrf)
+cast() { curl -s -b "$JAR" -c "$JAR" -o "$PRACE/odpoved" -w '%{http_code}' -X POST "$B/admin.php?modul=casti&akce=$1&typ=$2&jazyk=" -d "_csrf=$TOKEN" "${@:3}"; }
+rm -f "$PRACE"/web/storage/cache/stranky/*.html
+curl -s -o "$PRACE/odpoved" "$B/o-nas"; grep -q 'header class="hlavicka"' "$PRACE/odpoved" && ! grep -q 'mc-nav' "$PRACE/odpoved" && echo "  ok     nepublikované záhlaví kreslí šablona" || { echo "  CHYBA  nepublikované záhlaví je na webu"; CHYB=$((CHYB+1)); }
+over "náhled konceptu záhlaví pro editor" 200 "/o-nas?cast=hlavicka&stavba=koncept&editor=1" 'data-mc-typ="navigace"'
+curl -s -o "$PRACE/odpoved" "$B/o-nas?cast=hlavicka&stavba=koncept&editor=1"; ! grep -q 'data-mc-typ' "$PRACE/odpoved" && echo "  ok     náhled části nevidí návštěvník" || { echo "  CHYBA  koncept části vidí nepřihlášený"; CHYB=$((CHYB+1)); }
+ocekavej "publikování záhlaví" "$(cast stavba_publikuj hlavicka)" 200
+curl -s -o "$PRACE/odpoved" "$B/o-nas"
+grep -q 'class="mc-nav"' "$PRACE/odpoved" && ! grep -q 'header class="hlavicka"' "$PRACE/odpoved" && grep -q 'href="/o-nas" aria-current="page"' "$PRACE/odpoved" && echo "  ok     záhlaví ze stavitele na webu s aktivní položkou menu" || { echo "  CHYBA  záhlaví ze stavitele"; CHYB=$((CHYB+1)); }
+[ "$(grep -o '<style>' "$PRACE/odpoved" | wc -l | tr -d ' ')" = 1 ] && [ "$(grep -o '@layer stavitel {' "$PRACE/odpoved" | wc -l | tr -d ' ')" = 1 ] && echo "  ok     stránka a části webu mají jedno CSS" || { echo "  CHYBA  CSS částí webu se opakuje"; CHYB=$((CHYB+1)); }
+OBALKA='{"v":1,"deti":[{"id":"obs1","typ":"obsah"},{"id":"sek9","typ":"sekce","deti":[{"id":"nad9","typ":"nadpis","obsah":{"text":"Pod článkem"}}]}]}'
+over "obálka novinky ve staviteli" 200 "/admin.php?modul=casti&akce=stavitel&typ=novinka&jazyk=" 'id="stavitel-data"'
+cast stavba_uloz novinka --data-urlencode "stavba=$OBALKA" > /dev/null; cast stavba_publikuj novinka > /dev/null
+curl -s -o "$PRACE/odpoved" "$B/novinky/vitejte-v-mirocms"; grep -q 'Pod článkem' "$PRACE/odpoved" && grep -q '<main id="obsah" class="stavba">' "$PRACE/odpoved" && grep -q 'class="obal obsah"' "$PRACE/odpoved" && grep -q 'Vítejte' "$PRACE/odpoved" && echo "  ok     obálka kolem novinky" || { echo "  CHYBA  obálka novinky"; CHYB=$((CHYB+1)); }
+cast stavba_uloz hlavicka --data-urlencode 'stavba={"v":1,"deti":[{"typ":"sekce","znacka":"header","deti":[{"typ":"logo"}]}]}' > /dev/null; cast stavba_publikuj hlavicka > /dev/null
+ocekavej "předchozí záhlaví je ve verzích" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM mc_stavba_revize WHERE cast = 'hlavicka:'")" 1
+cast sablona hlavicka > /dev/null
+curl -s -o "$PRACE/odpoved" "$B/o-nas"; grep -q 'header class="hlavicka"' "$PRACE/odpoved" && echo "  ok     vrácení záhlaví na šablonu" || { echo "  CHYBA  vrácení na šablonu"; CHYB=$((CHYB+1)); }
+mcp stavba_uloz '{"cast":"paticka","stavba":{"v":1,"deti":[{"typ":"sekce","znacka":"footer","deti":[{"typ":"udaje","obsah":{"udaj":"copyright"}}]}]},"publikovat":true}' > "$PRACE/odpoved"
+grep -q 'publikováno' "$PRACE/odpoved" && echo "  ok     MCP: patička ze stavby" || { echo "  CHYBA  MCP patička"; head -c 400 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+curl -s -o "$PRACE/odpoved" "$B/o-nas"; grep -q "<p class=\"mc-udaj\">&copy; $(date +%Y) Testovací firma</p>" "$PRACE/odpoved" && ! grep -q 'footer class="paticka"' "$PRACE/odpoved" && echo "  ok     patička z MCP na webu" || { echo "  CHYBA  patička z MCP na webu"; CHYB=$((CHYB+1)); }
+ocekavej "autor novinek k částem webu nesmí" "$(curl -s -b "$JAR2" -o /dev/null -w '%{http_code}' "$B/admin.php?modul=casti")" 403
+
 # úprava přímo na webu: odkaz a formulář jen pro přihlášené s právem
 over "úprava na místě – odkaz" 200 /novinky/vitejte-v-mirocms "mc-upravit-zde"
 over "úprava na místě – formulář" 200 "/novinky/vitejte-v-mirocms?upravit=text" "mc-upravit-text"

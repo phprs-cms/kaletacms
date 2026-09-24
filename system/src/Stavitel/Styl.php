@@ -38,6 +38,7 @@ final class Styl
         // rozměry
         'sirka' => ['width', 'delka', 'rozmery', 'Šířka', null],
         'max_sirka' => ['max-width', 'delka', 'rozmery', 'Max. šířka', null],
+        'vyska' => ['height', 'delka', 'rozmery', 'Výška', null],
         'min_vyska' => ['min-height', 'delka', 'rozmery', 'Min. výška', null],
         'pomer_stran' => ['aspect-ratio', 'vyber', 'rozmery', 'Poměr stran', ['1' => '1 : 1', '4/3' => '4 : 3', '3/2' => '3 : 2', '16/9' => '16 : 9', '21/9' => '21 : 9', '3/4' => '3 : 4']],
         'prizpusobeni' => ['object-fit', 'vyber', 'rozmery', 'Přizpůsobení obrázku', ['cover' => 'vyplnit (oříznout)', 'contain' => 'celý obrázek']],
@@ -62,12 +63,15 @@ final class Styl
         'obrazek_pozadi' => ['background-image', 'obrazek', 'pozadi', 'Obrázek pozadí', null],
         'prekryv' => ['--mc-prekryv', 'barva', 'pozadi', 'Překryv obrázku (barva)', null],
         'ramecek' => ['border', 'vyber', 'pozadi', 'Rámeček', ['none' => 'žádný', '1px solid var(--mc-barva-linka)' => 'tenký', '2px solid currentColor' => 'výrazný', '2px solid var(--mc-barva-primarni)' => 'v hlavní barvě']],
+        'linka_nahore' => ['border-block-start', 'vyber', 'pozadi', 'Linka nahoře', ['none' => 'žádná', '1px solid var(--mc-barva-linka)' => 'tenká', '2px solid var(--mc-barva-primarni)' => 'v hlavní barvě']],
+        'linka_dole' => ['border-block-end', 'vyber', 'pozadi', 'Linka dole', ['none' => 'žádná', '1px solid var(--mc-barva-linka)' => 'tenká', '2px solid var(--mc-barva-primarni)' => 'v hlavní barvě']],
         'zaobleni' => ['border-radius', 'zaobleni', 'pozadi', 'Zaoblení rohů', null],
         'stin' => ['box-shadow', 'stin', 'pozadi', 'Stín', null],
         'pruhlednost' => ['opacity', 'vyber', 'pozadi', 'Průhlednost', ['1' => 'žádná', '0.8' => '80 %', '0.6' => '60 %', '0.4' => '40 %']],
         'orez' => ['overflow', 'vyber', 'pozadi', 'Přesah obsahu', ['hidden' => 'oříznout', 'visible' => 'nechat']],
         'pozice' => ['position', 'vyber', 'pokrocile', 'Umístění', ['relative' => 'běžné (kotva pro vnořené)', 'sticky' => 'přilepit při posunu']],
         'odshora' => ['top', 'mezera', 'pokrocile', 'Odshora (u přilepení)', null],
+        'vrstva' => ['z-index', 'cislo', 'pokrocile', 'Vrstva (nad ostatním obsahem)', null],
     ];
 
     public const array SKUPINY = ['rozlozeni' => 'Rozložení', 'rozmery' => 'Rozměry', 'mezery' => 'Mezery', 'typografie' => 'Typografie', 'pozadi' => 'Pozadí a rámeček', 'pokrocile' => 'Pokročilé'];

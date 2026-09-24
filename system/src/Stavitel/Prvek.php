@@ -24,6 +24,8 @@ abstract class Prvek
     public const array ZNACKY = ['div'];
     /** Smí vložit a měnit jen správce (vlastní HTML). */
     public const bool JEN_SPRAVCE = false;
+    /** Nabízí se jen v částech webu (záhlaví, patička, obálky) – logo, navigace, obsah stránky. */
+    public const bool JEN_CASTI = false;
 
     /** @return array<string, array<string, mixed>> pole obsahu: klíč => [typ, popisek, vychozi, moznosti, pole, max] */
     public static function vlastnosti(): array
