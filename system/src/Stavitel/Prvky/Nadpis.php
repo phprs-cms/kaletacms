@@ -17,7 +17,7 @@ final class Nadpis extends Prvek
 
     public static function vlastnosti(): array
     {
-        return ['text' => ['typ' => 'inline', 'popisek' => 'Text', 'vychozi' => 'Nadpis', 'max' => 400]];
+        return ['text' => ['typ' => 'inline', 'popisek' => 'Text', 'vychozi' => t('Nadpis'), 'max' => 400]];
     }
 
     public static function vykresli(array $p, string $a, string $deti, Kontext $k): string

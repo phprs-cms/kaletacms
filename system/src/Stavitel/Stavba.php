@@ -362,7 +362,14 @@ final class Stavba
      *
      * @return array<string, mixed>
      */
-    public static function schema(bool $spravce = true): array
+    public static function schema(bool $spravce = true, string $jazyk = 'cs'): array
+    {
+        // výchozí obsah nových prvků je v jazyce stránky, popisky polí překládá editor do jazyka administrace
+        return \MiroCMS\Core\Jazyk::docasne($jazyk, fn (): array => self::sestavSchema($spravce));
+    }
+
+    /** @return array<string, mixed> */
+    private static function sestavSchema(bool $spravce): array
     {
         $prvky = [];
         foreach (self::PRVKY as $trida) {

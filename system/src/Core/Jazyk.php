@@ -106,6 +106,12 @@ final class Jazyk
         return array_values(array_diff(array_intersect(explode(',', $s->get('jazyky_dalsi')), array_keys(self::DOSTUPNE)), [self::vychozi($s)]));
     }
 
+    /** Jazyk obsahu podle sloupce "jazyk" (stránka, kategorie, novinka): prázdný = výchozí jazyk webu. */
+    public static function obsahu(Settings $s, string $sloupec): string
+    {
+        return isset(self::DOSTUPNE[$sloupec]) ? $sloupec : self::vychozi($s);
+    }
+
     /** Hodnota sloupce "jazyk" pro daný jazyk: výchozí jazyk webu se ukládá jako prázdný řetězec. */
     public static function sloupec(Settings $s, string $kod): string
     {

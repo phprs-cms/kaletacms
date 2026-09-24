@@ -24,90 +24,91 @@ final class Knihovna
         $s = fn (array $p, array $styl): array => ['styl' => $styl] + $p;       // prvek s vlastním stylem
         $t = fn (array $p, string ...$tridy): array => ['tridy' => $tridy] + $p; // prvek s třídami
         $z = fn (array $p, string $znacka): array => ['znacka' => $znacka] + $p;
+        $adresa = fn (string $stranka): string => '/' . slugify(t($stranka)); // stránky zakládá instalátor pod přeloženým názvem
         $radaTlacitek = fn (array ...$tlacitka): array => $s($n('kontejner', [], $tlacitka), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'row', 'zalamovani' => 'wrap', 'mezera' => 's']]);
 
         return [
-            'uvod' => ['nazev' => 'Úvodní pás', 'popis' => 'Velký nadpis, podtitul a dvě tlačítka.', 'stavba' => fn (): array => $s($n('sekce', [], [
-                $s($z($n('nadpis', ['text' => 'Pomáháme firmám růst – rychle a bez starostí']), 'h1'), ['zaklad' => ['velikost_pisma' => '5', 'max_radek' => '20ch']]),
-                $t($n('text', ['html' => '<p>Jednou nebo dvěma větami řekněte, co děláte, pro koho a proč právě vy.</p>']), 'podtitul'),
-                $radaTlacitek($n('tlacitko', ['text' => 'Nezávazná poptávka', 'odkaz' => '/kontakt']), $n('tlacitko', ['text' => 'Naše služby', 'odkaz' => '/sluzby', 'varianta' => 'obrys'])),
+            'uvod' => ['nazev' => t('Úvodní pás'), 'popis' => t('Velký nadpis, podtitul a dvě tlačítka.'), 'stavba' => fn (): array => $s($n('sekce', [], [
+                $s($z($n('nadpis', ['text' => t('Pomáháme firmám růst – rychle a bez starostí')]), 'h1'), ['zaklad' => ['velikost_pisma' => '5', 'max_radek' => '20ch']]),
+                $t($n('text', ['html' => '<p>' . t('Jednou nebo dvěma větami řekněte, co děláte, pro koho a proč právě vy.') . '</p>']), 'podtitul'),
+                $radaTlacitek($n('tlacitko', ['text' => t('Nezávazná poptávka'), 'odkaz' => $adresa('Kontakt')]), $n('tlacitko', ['text' => t('Naše služby'), 'odkaz' => $adresa('Služby'), 'varianta' => 'obrys'])),
             ]), ['zaklad' => ['odsazeni_y' => '3xl'], 'mobil' => ['odsazeni_y' => '2xl']])],
 
-            'uvod-obrazek' => ['nazev' => 'Úvod s obrázkem', 'popis' => 'Text a tlačítka vlevo, obrázek vpravo; na telefonu pod sebou.', 'stavba' => fn (): array => $s($n('sekce', [], [
+            'uvod-obrazek' => ['nazev' => t('Úvod s obrázkem'), 'popis' => t('Text a tlačítka vlevo, obrázek vpravo; na telefonu pod sebou.'), 'stavba' => fn (): array => $s($n('sekce', [], [
                 $s($n('mrizka', [], [
                     $n('kontejner', [], [
-                        $s($z($n('nadpis', ['text' => 'Řemeslo, na které se můžete spolehnout']), 'h1'), ['zaklad' => ['velikost_pisma' => '4']]),
-                        $t($n('text', ['html' => '<p>Popište hlavní přínos pro zákazníka. Krátce, konkrétně a jeho slovy.</p>']), 'podtitul'),
-                        $radaTlacitek($n('tlacitko', ['text' => 'Kontaktujte nás', 'odkaz' => '/kontakt'])),
+                        $s($z($n('nadpis', ['text' => t('Řemeslo, na které se můžete spolehnout')]), 'h1'), ['zaklad' => ['velikost_pisma' => '4']]),
+                        $t($n('text', ['html' => '<p>' . t('Popište hlavní přínos pro zákazníka. Krátce, konkrétně a jeho slovy.') . '</p>']), 'podtitul'),
+                        $radaTlacitek($n('tlacitko', ['text' => t('Kontaktujte nás'), 'odkaz' => $adresa('Kontakt')])),
                     ]),
                     $s($n('obrazek', ['alt' => '', 'priorita' => true]), ['zaklad' => ['sirka' => '100%', 'zaobleni' => 'l', 'pomer_stran' => '4/3', 'prizpusobeni' => 'cover']]),
                 ]), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '2', 'mezera' => '2xl', 'zarovnani' => 'center'], 'tablet' => ['sloupce' => '1', 'mezera' => 'xl']]),
             ]), ['zaklad' => ['odsazeni_y' => '2xl']])],
 
-            'vyhody' => ['nazev' => 'Výhody', 'popis' => 'Nadpis a tři karty s hlavními důvody, proč si vybrat vás.', 'stavba' => fn (): array => $n('sekce', [], [
-                $t($n('nadpis', ['text' => 'Proč právě my']), 'nadpis-sekce'),
+            'vyhody' => ['nazev' => t('Výhody'), 'popis' => t('Nadpis a tři karty s hlavními důvody, proč si vybrat vás.'), 'stavba' => fn (): array => $n('sekce', [], [
+                $t($n('nadpis', ['text' => t('Proč právě my')]), 'nadpis-sekce'),
                 $n('mrizka', [], array_map(fn (array $d): array => $t($n('kontejner', [], [$z($n('nadpis', ['text' => $d[0]]), 'h3'), $n('text', ['html' => '<p>' . $d[1] . '</p>'])]), 'karta'), [
-                    ['Zkušenosti', 'Za patnáct let jsme dokončili stovky zakázek po celé republice.'],
-                    ['Férová cena', 'Cenu znáte předem a platíte jen za to, co je opravdu hotové.'],
-                    ['Rychlost', 'Na poptávku odpovídáme do jednoho pracovního dne.'],
+                    [t('Zkušenosti'), t('Za patnáct let jsme dokončili stovky zakázek po celé republice.')],
+                    [t('Férová cena'), t('Cenu znáte předem a platíte jen za to, co je opravdu hotové.')],
+                    [t('Rychlost'), t('Na poptávku odpovídáme do jednoho pracovního dne.')],
                 ])),
             ])],
 
-            'sluzby' => ['nazev' => 'Služby s obrázky', 'popis' => 'Karty služeb s obrázkem, popisem a odkazem.', 'stavba' => fn (): array => $n('sekce', [], [
-                $t($n('nadpis', ['text' => 'Co pro vás uděláme']), 'nadpis-sekce'),
+            'sluzby' => ['nazev' => t('Služby s obrázky'), 'popis' => t('Karty služeb s obrázkem, popisem a odkazem.'), 'stavba' => fn (): array => $n('sekce', [], [
+                $t($n('nadpis', ['text' => t('Co pro vás uděláme')]), 'nadpis-sekce'),
                 $n('mrizka', [], array_map(fn (string $nazev): array => $t($n('kontejner', [], [
                     $s($n('obrazek', ['alt' => $nazev]), ['zaklad' => ['sirka' => '100%', 'pomer_stran' => '3/2', 'prizpusobeni' => 'cover', 'zaobleni' => 's']]),
                     $z($n('nadpis', ['text' => $nazev]), 'h3'),
-                    $n('text', ['html' => '<p>Krátký popis služby a pro koho je.</p>']),
-                    $n('tlacitko', ['text' => 'Více informací', 'varianta' => 'odkaz', 'odkaz' => '/sluzby']),
-                ]), 'karta'), ['Návrh', 'Realizace', 'Servis'])),
+                    $n('text', ['html' => '<p>' . t('Krátký popis služby a pro koho je.') . '</p>']),
+                    $n('tlacitko', ['text' => t('Více informací'), 'varianta' => 'odkaz', 'odkaz' => $adresa('Služby')]),
+                ]), 'karta'), [t('Návrh'), t('Realizace'), t('Servis')])),
             ])],
 
-            'cisla' => ['nazev' => 'Čísla', 'popis' => 'Pás se čtyřmi výraznými čísly v hlavní barvě.', 'stavba' => fn (): array => $s($n('sekce', [], [
+            'cisla' => ['nazev' => t('Čísla'), 'popis' => t('Pás se čtyřmi výraznými čísly v hlavní barvě.'), 'stavba' => fn (): array => $s($n('sekce', [], [
                 $s($n('mrizka', [], array_map(fn (array $d): array => $s($n('kontejner', [], [
                     $s($z($n('nadpis', ['text' => $d[0]]), 'p'), ['zaklad' => ['velikost_pisma' => '4', 'tloustka_pisma' => '800']]),
                     $n('text', ['html' => '<p>' . $d[1] . '</p>']),
-                ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => '2xs', 'zarovnani_textu' => 'center']]), [['15+', 'let na trhu'], ['1 200', 'hotových zakázek'], ['98 %', 'spokojených zákazníků'], ['24 h', 'na odpověď']])),
+                ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => '2xs', 'zarovnani_textu' => 'center']]), [['15+', t('let na trhu')], ['1 200', t('hotových zakázek')], ['98 %', t('spokojených zákazníků')], ['24 h', t('na odpověď')]])),
                     ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '4', 'mezera' => 'l'], 'tablet' => ['sloupce' => '2']]),
             ]), ['zaklad' => ['odsazeni_y' => 'xl', 'pozadi' => 'primarni', 'barva' => 'na-primarni']])],
 
-            'reference' => ['nazev' => 'Reference', 'popis' => 'Co o vás říkají zákazníci – citáty se jménem.', 'stavba' => fn (): array => $n('sekce', [], [
-                $t($n('nadpis', ['text' => 'Co říkají naši zákazníci']), 'nadpis-sekce'),
+            'reference' => ['nazev' => t('Reference'), 'popis' => t('Co o vás říkají zákazníci – citáty se jménem.'), 'stavba' => fn (): array => $n('sekce', [], [
+                $t($n('nadpis', ['text' => t('Co říkají naši zákazníci')]), 'nadpis-sekce'),
                 $s($n('mrizka', [], [
-                    $t($n('citat', ['text' => 'Vše proběhlo přesně podle domluvy, včas a v rozpočtu. Rádi se vrátíme.', 'autor' => 'Petr Svoboda', 'pozice' => 'jednatel, Svoboda s.r.o.']), 'karta'),
-                    $t($n('citat', ['text' => 'Oceňujeme rychlou komunikaci a to, že nám vždy poradili to nejlepší řešení.', 'autor' => 'Lucie Dvořáková', 'pozice' => 'provozní ředitelka']), 'karta'),
+                    $t($n('citat', ['text' => t('Vše proběhlo přesně podle domluvy, včas a v rozpočtu. Rádi se vrátíme.'), 'autor' => t('Petr Svoboda'), 'pozice' => t('jednatel, Svoboda s.r.o.')]), 'karta'),
+                    $t($n('citat', ['text' => t('Oceňujeme rychlou komunikaci a to, že nám vždy poradili to nejlepší řešení.'), 'autor' => t('Lucie Dvořáková'), 'pozice' => t('provozní ředitelka')]), 'karta'),
                 ]), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => 'auto:20rem', 'mezera' => 'l']]),
             ])],
 
-            'faq' => ['nazev' => 'Otázky a odpovědi', 'popis' => 'Nejčastější dotazy zákazníků – i jako strukturovaná data pro vyhledávače.', 'stavba' => fn (): array => $n('sekce', ['sirka' => 'uzka'], [
-                $n('nadpis', ['text' => 'Časté otázky']),
+            'faq' => ['nazev' => t('Otázky a odpovědi'), 'popis' => t('Nejčastější dotazy zákazníků – i jako strukturovaná data pro vyhledávače.'), 'stavba' => fn (): array => $n('sekce', ['sirka' => 'uzka'], [
+                $n('nadpis', ['text' => t('Časté otázky')]),
                 $n('faq'),
             ])],
 
-            'vyzva' => ['nazev' => 'Výzva k akci', 'popis' => 'Barevný box s nadpisem, větou a tlačítkem.', 'stavba' => fn (): array => $n('sekce', [], [
+            'vyzva' => ['nazev' => t('Výzva k akci'), 'popis' => t('Barevný box s nadpisem, větou a tlačítkem.'), 'stavba' => fn (): array => $n('sekce', [], [
                 $s($n('kontejner', [], [
-                    $z($n('nadpis', ['text' => 'Máte projekt? Pojďme ho probrat.']), 'h2'),
-                    $n('text', ['html' => '<p>Ozvěte se nám – do 24 hodin se vám ozveme s návrhem dalšího postupu.</p>']),
-                    $n('tlacitko', ['text' => 'Napište nám', 'odkaz' => '/kontakt', 'varianta' => 'sekundarni']),
+                    $z($n('nadpis', ['text' => t('Máte projekt? Pojďme ho probrat.')]), 'h2'),
+                    $n('text', ['html' => '<p>' . t('Ozvěte se nám – do 24 hodin se vám ozveme s návrhem dalšího postupu.') . '</p>']),
+                    $n('tlacitko', ['text' => t('Napište nám'), 'odkaz' => $adresa('Kontakt'), 'varianta' => 'sekundarni']),
                 ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'zarovnani' => 'center', 'mezera' => 's', 'zarovnani_textu' => 'center',
                     'odsazeni_y' => '2xl', 'odsazeni_x' => 'l', 'pozadi' => 'primarni', 'barva' => 'na-primarni', 'zaobleni' => 'l']]),
             ])],
 
-            'novinky' => ['nazev' => 'Poslední novinky', 'popis' => 'Tři nejnovější novinky a odkaz na všechny.', 'stavba' => fn (): array => $n('sekce', [], [
-                $s($n('kontejner', [], [$z($n('nadpis', ['text' => 'Novinky']), 'h2'), $n('tlacitko', ['text' => 'Všechny novinky', 'odkaz' => '/novinky', 'varianta' => 'odkaz'])]),
+            'novinky' => ['nazev' => t('Poslední novinky'), 'popis' => t('Tři nejnovější novinky a odkaz na všechny.'), 'stavba' => fn (): array => $n('sekce', [], [
+                $s($n('kontejner', [], [$z($n('nadpis', ['text' => t('Novinky')]), 'h2'), $n('tlacitko', ['text' => t('Všechny novinky'), 'odkaz' => '/novinky', 'varianta' => 'odkaz'])]),
                     ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'row', 'rozmisteni' => 'space-between', 'zarovnani' => 'baseline', 'zalamovani' => 'wrap', 'mezera' => 's']]),
                 $n('novinky'),
             ])],
 
-            'kontakt' => ['nazev' => 'Kontakt', 'popis' => 'Adresa a kontakty vlevo, otevírací doba vpravo.', 'stavba' => fn (): array => $n('sekce', [], [
+            'kontakt' => ['nazev' => t('Kontakt'), 'popis' => t('Adresa a kontakty vlevo, otevírací doba vpravo.'), 'stavba' => fn (): array => $n('sekce', [], [
                 $s($n('mrizka', [], [
                     $n('kontejner', [], [
-                        $z($n('nadpis', ['text' => 'Kontakt']), 'h2'),
-                        $n('text', ['html' => '<p><strong>Název firmy s.r.o.</strong><br>Ulice 123, 110 00 Praha</p><p>Telefon: <a href="tel:+420123456789">+420 123 456 789</a><br>E-mail: <a href="mailto:info@example.cz">info@example.cz</a></p>']),
+                        $z($n('nadpis', ['text' => t('Kontakt')]), 'h2'),
+                        $n('text', ['html' => '<p><strong>' . t('Název firmy s.r.o.') . '</strong><br>' . t('Ulice 123, 110 00 Praha') . '</p><p>' . t('Telefon') . ': <a href="tel:+420123456789">+420 123 456 789</a><br>E-mail: <a href="mailto:info@example.cz">info@example.cz</a></p>']),
                     ]),
                     $t($n('kontejner', [], [
-                        $z($n('nadpis', ['text' => 'Otevírací doba']), 'h3'),
-                        $n('seznam', ['polozky' => "Po–Pá 8:00–17:00\nSo po domluvě", 'styl' => 'bez']),
+                        $z($n('nadpis', ['text' => t('Otevírací doba')]), 'h3'),
+                        $n('seznam', ['polozky' => t('Po–Pá 8:00–17:00') . "\n" . t('So po domluvě'), 'styl' => 'bez']),
                     ]), 'karta'),
                 ]), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '2', 'mezera' => 'xl'], 'tablet' => ['sloupce' => '1']]),
             ])],
@@ -121,11 +122,18 @@ final class Knihovna
     }
 
     /**
-     * Nová kopie sekce (nová id) a názvy tříd, které používá.
+     * Nová kopie sekce (nová id) a názvy tříd, které používá. Ukázkové texty jsou v jazyce stránky, do které sekce přijde
+     * (ne v jazyce administrace) – překlady ve slovníku webu system/jazyky/<kód>.php.
      *
      * @return array{prvek: array<string, mixed>, tridy: list<string>}|null
      */
-    public static function sekci(string $klic): ?array
+    public static function sekci(string $klic, string $jazyk = 'cs'): ?array
+    {
+        return \MiroCMS\Core\Jazyk::docasne($jazyk, fn (): ?array => self::vytvor($klic));
+    }
+
+    /** @return array{prvek: array<string, mixed>, tridy: list<string>}|null */
+    private static function vytvor(string $klic): ?array
     {
         $sekce = self::sekce()[$klic] ?? null;
         if ($sekce === null) {

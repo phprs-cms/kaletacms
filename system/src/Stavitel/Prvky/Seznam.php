@@ -18,7 +18,7 @@ final class Seznam extends Prvek
     public static function vlastnosti(): array
     {
         return [
-            'polozky' => ['typ' => 'radky', 'popisek' => 'Položky (každá na řádek)', 'vychozi' => "První výhoda\nDruhá výhoda\nTřetí výhoda", 'max' => 4000],
+            'polozky' => ['typ' => 'radky', 'popisek' => 'Položky (každá na řádek)', 'vychozi' => t('První výhoda') . "\n" . t('Druhá výhoda') . "\n" . t('Třetí výhoda'), 'max' => 4000],
             'styl' => ['typ' => 'vyber', 'popisek' => 'Odrážky', 'vychozi' => 'odrazky', 'moznosti' => ['odrazky' => 'běžné', 'fajfky' => 'fajfky', 'bez' => 'bez odrážek']],
         ];
     }

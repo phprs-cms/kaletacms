@@ -564,5 +564,15 @@ over('ZHtml: hlášení o @media, složitém selektoru, url(), formuláři, SVG 
 over('ZHtml: výsledek projde validátorem bez chyb', MiroCMS\Stavitel\Stavba::vycisti($zh['stavba'])[1], []);
 over('Stavba::jakoText: sémantický obsah bez rozložení', MiroCMS\Stavitel\Stavba::jakoText($zh['stavba']), "<h1>A <em>b</em></h1>\n<p>Jedna.</p><p>Dvě.</p>\n<p><a href=\"/k\">K</a></p>\n<p>Volný text</p>\n<h3>Otázka?</h3><p>Odpověď.</p>");
 
+$knEn = MiroCMS\Stavitel\Knihovna::sekci('uvod', 'en')['prvek'];
+over('Knihovna: sekce v angličtině včetně odkazů na stránky', [$knEn['deti'][0]['obsah']['text'], $knEn['deti'][2]['deti'][0]['obsah']['odkaz'], $knEn['deti'][2]['deti'][1]['obsah']['odkaz']], ['We help businesses grow – quickly and hassle-free', '/contact', '/services']);
+over('Knihovna: česky se odkazuje na české adresy', MiroCMS\Stavitel\Knihovna::sekci('uvod')['prvek']['deti'][2]['deti'][0]['obsah']['odkaz'], '/kontakt');
+over('Knihovna: jazyk se po sestavení sekce vrátí', MiroCMS\Core\Jazyk::kod(), 'cs');
+$knSchema = array_column(MiroCMS\Stavitel\Stavba::schema(true, 'en')['prvky'], 'vlastnosti', 'typ');
+over('Stavba::schema: výchozí obsah prvků v jazyce stránky', [$knSchema['nadpis']['text']['vychozi'], $knSchema['tlacitko']['text']['vychozi']], ['Heading', 'Contact us']);
+$knEnSlovnik = require MIROCMS_ROOT . '/system/jazyky/en.php';
+preg_match_all("/\bt\('((?:[^'\\\\]|\\\\.)*)'\)/", file_get_contents(MIROCMS_ROOT . '/system/src/Stavitel/Knihovna.php') . implode('', array_map('file_get_contents', glob(MIROCMS_ROOT . '/system/src/Stavitel/Prvky/*.php'))), $knTexty);
+over('Knihovna a prvky: všechny ukázkové texty mají anglický překlad', array_values(array_diff(array_unique($knTexty[1]), array_keys($knEnSlovnik))), []);
+
 echo $chyb === 0 ? "  ok     jednotkové testy ({$celkem})\n" : "  NALEZENO CHYB: {$chyb} z {$celkem}\n";
 exit($chyb === 0 ? 0 : 1);

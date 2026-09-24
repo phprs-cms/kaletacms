@@ -18,7 +18,7 @@ final class Text extends Prvek
 
     public static function vlastnosti(): array
     {
-        return ['html' => ['typ' => 'html', 'popisek' => 'Text', 'vychozi' => '<p>Sem napište text. Stačí pár vět, které návštěvníkovi řeknou, co ho tu čeká.</p>']];
+        return ['html' => ['typ' => 'html', 'popisek' => 'Text', 'vychozi' => '<p>' . t('Sem napište text. Stačí pár vět, které návštěvníkovi řeknou, co ho tu čeká.') . '</p>']];
     }
 
     public static function zakladniCss(): string

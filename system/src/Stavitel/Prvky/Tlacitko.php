@@ -20,7 +20,7 @@ final class Tlacitko extends Prvek
     public static function vlastnosti(): array
     {
         return [
-            'text' => ['typ' => 'text', 'popisek' => 'Text', 'vychozi' => 'Kontaktujte nás', 'max' => 120],
+            'text' => ['typ' => 'text', 'popisek' => 'Text', 'vychozi' => t('Kontaktujte nás'), 'max' => 120],
             'odkaz' => ['typ' => 'odkaz', 'popisek' => 'Odkaz', 'vychozi' => '#'],
             'varianta' => ['typ' => 'vyber', 'popisek' => 'Vzhled', 'vychozi' => 'primarni', 'moznosti' => self::VARIANTY],
             'nove_okno' => ['typ' => 'prepinac', 'popisek' => 'Otevřít v novém okně', 'vychozi' => false],

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MiroCMS\Admin\Moduly;
 
 use MiroCMS\Admin\Modul;
+use MiroCMS\Core\Jazyk;
 use MiroCMS\Core\Response;
 use MiroCMS\Stavitel\DesignSystem;
 use MiroCMS\Stavitel\Knihovna;
@@ -129,7 +130,7 @@ final class Stranky extends Modul
             'stranka' => ['id' => (int) $stranka['ids'], 'titulek' => $stranka['titulek'], 'adresa' => $adresa, 'zobrazena' => (bool) $stranka['zobrazit'], 'publikovana' => $stranka['stavba'] !== null],
             'stavba' => Stavba::zJson($stranka['stavba_koncept'] ?? $stranka['stavba']),
             'zmeny' => $stranka['stavba_koncept'] !== null && $stranka['stavba_koncept'] !== $stranka['stavba'],
-            'schema' => Stavba::schema($app->auth()->isAdmin()),
+            'schema' => Stavba::schema($app->auth()->isAdmin(), Jazyk::obsahu($app->settings(), $stranka['jazyk'])),
             'knihovna' => Knihovna::seznam(),
             'tridy' => $this->tridy(),
             'barvy' => DesignSystem::nacti($app->settings())['barvy'],
@@ -218,7 +219,8 @@ final class Stranky extends Modul
     /** Sekce z knihovny jako nové prvky (JSON); chybějící třídy, které používá, se založí. */
     protected function akceStavbaSekce(): Response
     {
-        $sekce = $this->request->isPost() ? Knihovna::sekci($this->request->get('klic')) : null;
+        $stranka = $this->request->isPost() ? $this->nactiStranku($this->request->getInt('id')) : null;
+        $sekce = $stranka !== null ? Knihovna::sekci($this->request->get('klic'), Jazyk::obsahu($this->app->settings(), $stranka['jazyk'])) : null;
         if ($sekce === null) {
             return Response::json(['ok' => false, 'chyba' => t('Sekce v knihovně není.')], 404);
         }

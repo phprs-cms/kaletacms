@@ -19,8 +19,8 @@ final class Citat extends Prvek
     public static function vlastnosti(): array
     {
         return [
-            'text' => ['typ' => 'inline', 'popisek' => 'Text', 'vychozi' => 'Spolupráce byla rychlá a bez starostí. Doporučujeme.', 'max' => 1500],
-            'autor' => ['typ' => 'text', 'popisek' => 'Jméno', 'vychozi' => 'Jana Nováková', 'max' => 120],
+            'text' => ['typ' => 'inline', 'popisek' => 'Text', 'vychozi' => t('Spolupráce byla rychlá a bez starostí. Doporučujeme.'), 'max' => 1500],
+            'autor' => ['typ' => 'text', 'popisek' => 'Jméno', 'vychozi' => t('Jana Nováková'), 'max' => 120],
             'pozice' => ['typ' => 'text', 'popisek' => 'Pozice nebo firma', 'vychozi' => '', 'max' => 160],
         ];
     }

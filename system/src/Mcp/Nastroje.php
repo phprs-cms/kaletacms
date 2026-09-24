@@ -133,7 +133,7 @@ final class Nastroje
                 return $this->ulozStranku($nazev === 'uprav_stranku' ? $this->stranka((int) ($a['id'] ?? 0)) : null, $a);
 
             case 'stavba_schema':
-                return Stavba::schema($auth->isAdmin()) + [
+                return Stavba::schema($auth->isAdmin(), \MiroCMS\Core\Jazyk::vychozi($web)) + [
                     'knihovna' => Knihovna::seznam(),
                     'tridy_webu' => array_column($db->all('SELECT nazev FROM {tridy} ORDER BY nazev'), 'nazev'),
                     'design_system' => DesignSystem::nacti($web) + ['predvolby' => array_map(fn (array $p): string => $p[0] . ' – ' . $p[1], DesignSystem::PREDVOLBY),
@@ -183,7 +183,7 @@ final class Nastroje
 
             case 'vloz_sekci':
                 $stranka = $this->strankaSeStavbou((int) ($a['id'] ?? 0));
-                $sekce = Knihovna::sekci((string) ($a['sekce'] ?? '')) ?? throw new \InvalidArgumentException('Sekce v knihovně není. Klíče: ' . implode(', ', array_column(Knihovna::seznam(), 'klic')) . '.');
+                $sekce = Knihovna::sekci((string) ($a['sekce'] ?? ''), \MiroCMS\Core\Jazyk::obsahu($web, $stranka['jazyk'])) ?? throw new \InvalidArgumentException('Sekce v knihovně není. Klíče: ' . implode(', ', array_column(Knihovna::seznam(), 'klic')) . '.');
                 Knihovna::zalozTridy($db, $sekce['tridy']);
                 $stavba = Stavba::zJson($stranka['stavba_koncept'] ?? $stranka['stavba']) ?? Stavba::zTextu($stranka['titulek'], (string) $stranka['text']);
                 $stavba['deti'][] = $sekce['prvek'];

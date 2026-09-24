@@ -21,7 +21,7 @@ final class Faq extends Prvek
         return ['polozky' => ['typ' => 'polozky', 'popisek' => 'Otázky', 'max' => 30, 'pole' => [
             'otazka' => ['typ' => 'text', 'popisek' => 'Otázka', 'vychozi' => '', 'max' => 300],
             'odpoved' => ['typ' => 'html', 'popisek' => 'Odpověď', 'vychozi' => ''],
-        ], 'vychozi' => [['otazka' => 'Jak dlouho trvá realizace?', 'odpoved' => '<p>Obvykle dva až čtyři týdny podle rozsahu.</p>'], ['otazka' => 'Kolik to stojí?', 'odpoved' => '<p>Cenu vám připravíme na míru – ozvěte se nám.</p>']]]];
+        ], 'vychozi' => [['otazka' => t('Jak dlouho trvá realizace?'), 'odpoved' => '<p>' . t('Obvykle dva až čtyři týdny podle rozsahu.') . '</p>'], ['otazka' => t('Kolik to stojí?'), 'odpoved' => '<p>' . t('Cenu vám připravíme na míru – ozvěte se nám.') . '</p>']]]];
     }
 
     public static function zakladniCss(): string

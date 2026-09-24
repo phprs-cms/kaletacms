@@ -213,7 +213,7 @@ final class Installer
                 if (isset($sekce[$i])) {
                     $stavba = ['v' => Stavba::VERZE, 'deti' => []];
                     foreach ($sekce[$i] as $klic) {
-                        $s = Knihovna::sekci($klic);
+                        $s = Knihovna::sekci($klic, $this->jazyk);
                         $stavba['deti'][] = $s['prvek'];
                         Knihovna::zalozTridy($db, $s['tridy']);
                     }
