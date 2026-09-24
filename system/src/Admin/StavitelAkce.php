@@ -65,7 +65,8 @@ trait StavitelAkce
         $schema = self::prelozSchema($schema);
         Knihovna::zalozTridy($this->db, ['karta']); // vzor karty ve Výpisu kolekce
         $data = [
-            'stranka' => ['titulek' => $cil['titulek'], 'adresa' => $e['adresa'], 'zobrazena' => $e['zobrazena'], 'publikovana' => $cil['stavba'] !== null],
+            'stranka' => ['titulek' => $cil['titulek'], 'adresa' => $e['adresa'], 'zobrazena' => $e['zobrazena'], 'publikovana' => $cil['stavba'] !== null,
+                'nadpisy' => (bool) ($e['nadpisy'] ?? false)], // kontrola před publikováním: stránka má mít jeden h1 a nepřeskakovat úrovně
             'stavba' => Stavba::zJson($cil['koncept'] ?? $cil['stavba']),
             'zmeny' => $cil['koncept'] !== null && $cil['koncept'] !== $cil['stavba'],
             'verze' => self::verzeStavby($cil['koncept'] ?? $cil['stavba']),
@@ -78,6 +79,9 @@ trait StavitelAkce
             'kategorieKnihovny' => array_map(fn (string $k): string => t($k), Knihovna::KATEGORIE),
             'tridy' => $this->tridyStavitele(),
             'barvy' => DesignSystem::nacti($app->settings())['barvy'],
+            // nabídka pro pole odkazu: stránky webu (s jazykovou předponou) a novinky; kotvy na stránce doplní editor
+            'odkazy' => [...array_map(fn (array $s): array => ['/' . ($s['jazyk'] !== '' ? $s['jazyk'] . '/' : '') . ((int) $s['ids'] === $app->settings()->int('titulni_stranka') ? '' : $s['seo_link']), $s['titulek'] . ($s['zobrazit'] ? '' : ' (' . t('skrytá') . ')')],
+                $this->db->all('SELECT ids, titulek, seo_link, jazyk, zobrazit FROM {stranky} WHERE smazano IS NULL ORDER BY jazyk, poradi, titulek LIMIT 300')), ['/novinky', t('Novinky')]],
             'nahled' => $e['nahled'],
             'zpet' => $e['zpet'],
             'adresy' => array_map(fn (string $akce): string => $this->url($akce, $cil['parametry']), [

@@ -111,6 +111,27 @@
 		}
 		return null;
 	}
+	/** Pozice prvku ve stromu tak, jak ji píše validátor v klíčích chyb: deti[0].deti[2]. */
+	function cestaPrvku(id, deti = stav.stavba.deti, cesta = 'deti') {
+		for (let i = 0; i < deti.length; i++) {
+			const c = cesta + '[' + i + ']';
+			if (deti[i].id === id) { return c; }
+			if (deti[i].deti) { const n = cestaPrvku(id, deti[i].deti, c + '.deti'); if (n) { return n; } }
+		}
+		return null;
+	}
+	/** Prvek podle pozice z klíče chyby (nejhlubší prvek, který v cestě je). */
+	function prvekPodleCesty(klic) {
+		let deti = stav.stavba.deti;
+		let nalezeny = null;
+		for (const m of klic.matchAll(/deti\[(\d+)\]/g)) {
+			const p = deti && deti[Number(m[1])];
+			if (!p) { break; }
+			nalezeny = p;
+			deti = p.deti;
+		}
+		return nalezeny;
+	}
 	function obsahuje(p, id) { return (p.deti || []).some((d) => d.id === id || obsahuje(d, id)); }
 	function sNovymiId(p) { const k = klon(p); (function projdi(x) { x.id = noveId(); (x.deti || []).forEach(projdi); })(k); return k; }
 
@@ -557,7 +578,10 @@
 		const pise = v.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(v.tagName);
 		const mod = e.ctrlKey || e.metaKey;
 		if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); uloz(); return; }
-		if (pise) { return; }
+		if (pise || document.querySelector('dialog[open]')) { return; } // v otevřeném dialogu patří klávesy (Esc) jemu
+		// označený text se kopíruje jako text, ne jako prvek
+		const oznaceno = String(window.getSelection() || '') || (nahled && nahled.contentWindow ? String(nahled.contentWindow.getSelection() || '') : '');
+		if (mod && e.key.toLowerCase() === 'c' && oznaceno) { return; }
 		if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) { vpred(); } else { zpet(); } }
 		else if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); vpred(); }
 		else if (mod && e.key.toLowerCase() === 'd' && stav.vybrane) { e.preventDefault(); duplikuj(stav.vybrane); }
@@ -596,10 +620,46 @@
 			el('button', { type: 'button', class: 'st-tl', title: T('Publikované verze'), onclick: dialogVerze }, ikona('verze'), el('span', { class: 'st-text' }, T('Verze'))),
 			el('a', { class: 'st-tl', href: D.stranka.adresa, target: '_blank', rel: 'noopener', title: T('Otevřít publikovanou stránku') }, ikona('oko')),
 			D.stranka.publikovana && stav.zmeny ? el('button', { type: 'button', class: 'st-tl', onclick: zahod }, T('Zahodit změny')) : null,
-			el('button', { type: 'button', class: 'st-tl st-tl-hlavni', disabled: !stav.zmeny && D.stranka.publikovana, onclick: publikuj }, T('Publikovat')),
+			el('button', { type: 'button', class: 'st-tl st-tl-hlavni', disabled: !stav.zmeny && D.stranka.publikovana, onclick: publikujPoKontrole }, T('Publikovat')),
 		].filter(Boolean));
 	}
 
+	/** Co návštěvníkovi nebo vyhledávači na stránce chybí: tlačítka bez odkazu, obrázky bez souboru či popisu, osnova nadpisů. */
+	function kontrola() {
+		const nalezy = [];
+		const nadpisy = [];
+		const znacky = (x) => typeof x === 'string' && x.includes('{{');
+		(function projdi(deti, vKomponente) {
+			deti.forEach((p) => {
+				const o = p.obsah || {};
+				if (p.typ === 'tlacitko' && (!o.odkaz || o.odkaz === '#')) { nalezy.push([p.id, T('Tlačítko „%s“ nikam nevede – doplňte odkaz.').replace('%s', o.text || '')]); }
+				if (p.typ === 'obrazek' && !o.src) { nalezy.push([p.id, T('Obrázek není vybraný – na webu se nezobrazí.')]); }
+				if (p.typ === 'obrazek' && o.src && !o.alt && !znacky(o.src)) { nalezy.push([p.id, T('Obrázek nemá popis pro nevidomé (alt).')]); }
+				if (p.typ === 'nadpis') { nadpisy.push([p.id, Number(String(p.znacka).slice(1)) || 2, text(o.text)]); }
+				if (p.deti) { projdi(p.deti, vKomponente); }
+			});
+		})(stav.stavba.deti);
+		if (D.stranka.nadpisy) {
+			const h1 = nadpisy.filter((n) => n[1] === 1);
+			if (!h1.length) { nalezy.push([nadpisy[0] ? nadpisy[0][0] : null, T('Stránka nemá hlavní nadpis (h1) – vyhledávače i čtečky podle něj poznají, o čem je.')]); }
+			if (h1.length > 1) { nalezy.push([h1[1][0], T('Stránka má víc hlavních nadpisů (h1) – nechte jen jeden.')]); }
+			nadpisy.forEach((n, i) => { if (i > 0 && n[1] > nadpisy[i - 1][1] + 1) { nalezy.push([n[0], T('Nadpis „%s“ přeskakuje úroveň (h%d → h%d).').replace('%s', n[2].slice(0, 40)).replace('%d', nadpisy[i - 1][1]).replace('%d', n[1])]); } });
+		}
+		return nalezy;
+	}
+	/** Před publikováním ukáže nálezy kontroly; publikovat jde i tak (jen upozornění). */
+	function publikujPoKontrole() {
+		const nalezy = kontrola();
+		if (!nalezy.length) { publikuj(); return; }
+		const d = el('dialog', { class: 'st-dialog' },
+			el('div', {}, el('h2', {}, T('Kontrola před publikováním')), el('p', {}, T('Na stránce jsme našli věci, které stojí za opravu:')),
+				el('ul', { class: 'st-kontrola' }, nalezy.slice(0, 12).map(([id, zprava]) => el('li', {}, id ? el('button', { type: 'button', class: 'st-odkaz', onclick: () => { d.close(); vyber(id); } }, zprava) : zprava)))),
+			el('footer', {}, el('button', { type: 'button', class: 'st-tl', onclick: () => d.close() }, T('Zpět k úpravám')),
+				el('button', { type: 'button', class: 'st-tl st-tl-hlavni', onclick: () => { d.close(); publikuj(); } }, T('Publikovat i tak'))));
+		d.addEventListener('close', () => d.remove());
+		document.body.append(d);
+		d.showModal();
+	}
 	function publikuj() {
 		uloz().then((ok) => {
 			if (!ok) { return null; } // hlášku už ukázalo ukládání; nepublikuje se nic staršího
@@ -813,8 +873,15 @@
 		const s = TYPY[p.typ];
 		const zal = (klic, nazev) => el('button', { type: 'button', role: 'tab', 'aria-selected': String(stav.pravo === klic), onclick: () => { stav.pravo = klic; prekresliPravy(); } }, nazev);
 		const panel = el('div', { class: 'st-panel' });
-		const chyby = Object.entries(stav.chyby);
-		if (chyby.length) { panel.append(el('ul', { class: 'st-chyby' }, chyby.slice(0, 6).map(([, t]) => el('li', {}, t)))); }
+		// chyby ze serveru: u vybraného prvku (i u konkrétního pole), u ostatních jen počet s odkazem
+		const cesta = stav.cestaVybraneho = cestaPrvku(p.id);
+		const vsechny = Object.entries(stav.chyby);
+		const vlastni = vsechny.filter(([k]) => k === cesta || k.startsWith(cesta + '.obsah') || k.startsWith(cesta + '.styl'));
+		const jinde = vsechny.filter(([k]) => !vlastni.some(([v]) => v === k));
+		if (vlastni.length || jinde.length) {
+			panel.append(el('ul', { class: 'st-chyby' }, vlastni.slice(0, 6).map(([, t]) => el('li', {}, t)),
+				jinde.length ? el('li', {}, T('Upozornění u jiných prvků: ') + jinde.length + ' ', el('button', { type: 'button', class: 'st-odkaz', onclick: () => { const x = prvekPodleCesty(jinde[0][0]); if (x) { vyber(x.id); } } }, T('ukázat'))) : null));
+		}
 		pravy.replaceChildren(
 			el('div', { class: 'st-hlava-prvku' }, ikona(s.ikona), el('strong', {}, s.nazev), el('div', { class: 'st-akce' },
 				el('button', { type: 'button', title: T('Nahoru'), onclick: () => posun(p.id, -1) }, ikona('nahoru')),
@@ -904,13 +971,15 @@
 		if (ai) { panel.append(ai); }
 		const vlastnosti = Object.entries(s.vlastnosti || {});
 		if (!vlastnosti.length) { panel.append(el('p', { class: 'st-prazdno' }, s.kontejner ? T('Kontejner nemá vlastní obsah – vložte do něj prvky, vzhled nastavíte v záložce Styl.') : T('Prvek nemá nastavitelný obsah.'))); return; }
-		vlastnosti.forEach(([klic, def]) => panel.append(pole(def, p.obsah[klic], (h) => zmen(() => { p.obsah[klic] = h; }, 'obsah:' + p.id + ':' + klic))));
+		vlastnosti.forEach(([klic, def]) => panel.append(pole(def, p.obsah[klic], (h) => zmen(() => { p.obsah[klic] = h; }, 'obsah:' + p.id + ':' + klic),
+			{ chyba: stav.chyby[stav.cestaVybraneho + '.obsah.' + klic], prvek: p })));
 	}
 
 	/** Ovládací prvek pro pole obsahu podle typu ze schématu. */
-	function pole(def, hodnota, zmena) {
+	function pole(def, hodnota, zmena, moznosti) {
 		const popis = T(def.popisek || '');
-		const obal = el('label', { class: 'st-pole' }, el('span', {}, popis));
+		const chyba = moznosti && moznosti.chyba;
+		const obal = el('label', { class: 'st-pole' + (chyba ? ' st-pole-chyba' : '') }, el('span', {}, popis), chyba ? el('small', { class: 'st-chyba-pole', role: 'alert' }, chyba) : null);
 		let vstup;
 		switch (def.typ) {
 			case 'prepinac':
@@ -935,14 +1004,20 @@
 			case 'obrazek': {
 				const nahledObr = el('img', { class: 'st-obrazek-nahled', alt: '', src: hodnota || null, hidden: !hodnota });
 				vstup = el('input', { type: 'text', value: hodnota || '', placeholder: 'media/…', oninput: (e) => { zmena(e.target.value); nahledObr.src = e.target.value; nahledObr.hidden = !e.target.value; } });
-				const tl = el('button', { type: 'button', class: 'st-tl', onclick: () => window.mirocmsVyberObrazek && window.mirocmsVyberObrazek((o) => { vstup.value = o.url; nahledObr.src = o.url; nahledObr.hidden = false; zmena(o.url); }) }, T('Média'));
+				const tl = el('button', { type: 'button', class: 'st-tl', onclick: () => window.mirocmsVyberObrazek && window.mirocmsVyberObrazek((o) => {
+					vstup.value = o.url; nahledObr.src = o.url; nahledObr.hidden = false; zmena(o.url);
+					// popis pro nevidomé z knihovny Médií, když ho prvek ještě nemá (dá se přepsat)
+					const p = moznosti && moznosti.prvek;
+					if (p && 'alt' in p.obsah && !p.obsah.alt && o.nazev) { zmen(() => { p.obsah.alt = o.nazev; }); prekresliPravy(); }
+				}) }, T('Média'));
 				obal.append(el('span', { class: 'st-pole-radek' }, vstup, tl), nahledObr);
 				return obal;
 			}
 			case 'polozky':
 				return polePolozky(def, Array.isArray(hodnota) ? hodnota : [], zmena);
 			default:
-				vstup = el('input', { type: 'text', value: hodnota ?? '', placeholder: def.typ === 'odkaz' ? 'https://…, /kontakt, #kotva, mailto:, tel:' : null, oninput: (e) => zmena(e.target.value) });
+				vstup = el('input', { type: 'text', value: hodnota ?? '', placeholder: def.typ === 'odkaz' ? T('stránka webu, https://…, #kotva, mailto:, tel:') : null,
+					list: def.typ === 'odkaz' ? 'st-dl-odkazy' : null, onfocus: def.typ === 'odkaz' ? obnovOdkazy : null, oninput: (e) => zmena(e.target.value) });
 		}
 		obal.append(vstup);
 		return obal;
@@ -986,7 +1061,14 @@
 		barva: Object.keys(D.schema.tokeny.barvy).concat(['transparent']), delka: ['auto', '100%', '50%', 'var(--mc-sirka-textu)', 'var(--mc-sirka)', '20rem', '30rem', '60vh', 'fit-content'],
 		sloupce: ['1', '2', '3', '4', 'auto:14rem', 'auto:16rem', 'auto:20rem', '2fr 1fr', '1fr 2fr'], cislo: ['-1', '0', '1', '2'],
 	};
-	const datalisty = el('div', { hidden: true }, Object.entries(NAPOVEDY).map(([typ, hodnoty]) => el('datalist', { id: 'st-dl-' + typ }, hodnoty.map((h) => el('option', { value: h })))));
+	const datalisty = el('div', { hidden: true }, Object.entries(NAPOVEDY).map(([typ, hodnoty]) => el('datalist', { id: 'st-dl-' + typ }, hodnoty.map((h) => el('option', { value: h })))),
+		el('datalist', { id: 'st-dl-odkazy' }));
+	/** Nabídka pole odkazu: stránky webu, novinky a kotvy prvků na této stránce (aktuální při každém otevření). */
+	function obnovOdkazy() {
+		const kotvy = [];
+		(function projdi(deti) { deti.forEach((p) => { if (p.kotva) { kotvy.push(['#' + p.kotva, popisek(p)]); } if (p.deti) { projdi(p.deti); } }); })(stav.stavba.deti);
+		datalisty.querySelector('#st-dl-odkazy').replaceChildren(...(D.odkazy || []).concat(kotvy).map(([url, nazev]) => el('option', { value: url, label: nazev })));
+	}
 
 	/** Barva tokenu přibližně (pro vzorek v panelu) – odvozené odstíny se míchají stejně jako na webu. */
 	function barvaTokenu(h) {
@@ -1042,15 +1124,20 @@
 			vstup = el('select', { onchange: (e) => zmena(e.target.value) }, el('option', { value: '' }, zdedeno ? '↳ ' + T(def.moznosti[zdedeno] || zdedeno) : '—'),
 				Object.entries(def.moznosti).map(([k, v]) => el('option', { value: k, selected: k === hodnota }, T(v))));
 		} else {
-			const vzorek = def.typ === 'barva' ? el('span', { class: 'st-vzorek', style: 'background:' + barvaTokenu(hodnota || zdedeno || 'transparent') }) : null;
 			const pole = el('input', { type: 'text', value: hodnota, placeholder: zdedeno, list: NAPOVEDY[def.typ] ? 'st-dl-' + def.typ : null,
 				onchange: (e) => zmena(e.target.value.trim()), oninput: (e) => { if (vzorek) { vzorek.style.background = barvaTokenu(e.target.value || zdedeno || 'transparent'); } } });
+			// barva: vzorek je zároveň výběr barvy (vlastní odstín jako #hex); tokeny webu nabízí seznam v poli
+			const vzorek = def.typ === 'barva' ? el('label', { class: 'st-vzorek', title: T('Vybrat vlastní barvu'), style: 'background:' + barvaTokenu(hodnota || zdedeno || 'transparent') },
+				el('input', { type: 'color', 'aria-label': T('Vybrat vlastní barvu'), value: /^#[0-9a-f]{6}$/i.test(hodnota) ? hodnota : '#000000',
+					oninput: (e) => { vzorek.style.background = e.target.value; }, onchange: (e) => { pole.value = e.target.value; zmena(e.target.value); } })) : null;
 			vstup = el('span', { class: 'st-pole-radek' }, vzorek, pole,
 				def.typ === 'obrazek' ? el('button', { type: 'button', class: 'st-tl', title: T('Média'), onclick: () => window.mirocmsVyberObrazek && window.mirocmsVyberObrazek((o) => { pole.value = o.url; zmena(o.url); }) }, '…') : null);
 		}
 		const id = 'st-v-' + klic;
-		vstup.id = id;
-		return el('div', { class: 'st-vlastnost' + (hodnota !== '' ? ' nastaveno' : '') }, el('label', { for: id, title: def.css }, T(def.popisek)), vstup);
+		(vstup.matches('select') ? vstup : vstup.querySelector('input[type="text"]')).id = id;
+		const chyba = cil.id && stav.chyby[stav.cestaVybraneho + '.styl.' + s + '.' + klic];
+		return el('div', { class: 'st-vlastnost' + (hodnota !== '' ? ' nastaveno' : '') + (chyba ? ' st-pole-chyba' : '') }, el('label', { for: id, title: def.css }, T(def.popisek)), vstup,
+			chyba ? el('small', { class: 'st-chyba-pole', role: 'alert' }, chyba) : null);
 	}
 
 	/* ---------- pokročilé: značka, třídy, kotva ---------- */

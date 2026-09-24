@@ -99,7 +99,12 @@ body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; ove
 .st-vlastnost.nastaveno label { color: var(--text); font-weight: 600; }
 .st-vlastnost .st-pole-radek { gap: 4px; }
 .st-vlastnost input, .st-vlastnost select { width: 100%; min-width: 0; padding: 4px 6px; border: 1px solid var(--linka-pole); border-radius: 6px; background: var(--plocha); font-size: 12px; }
-.st-vzorek { flex: none; width: 18px; height: 18px; border: 1px solid var(--linka-pole); border-radius: 4px; }
+.st-vzorek { position: relative; flex: none; width: 22px; height: 22px; border: 1px solid var(--linka-pole); border-radius: 4px; cursor: pointer; overflow: hidden; }
+.st-vzorek input[type="color"] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
+.st-vzorek:focus-within { outline: 2px solid var(--akcent); outline-offset: 1px; }
+.st-pole-chyba input, .st-pole-chyba select, .st-pole-chyba textarea { border-color: var(--chyba) !important; }
+.st-chyba-pole { display: block; margin-top: 2px; color: var(--chyba); font-size: 11px; }
+.st-odkaz { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; }
 .st-tridy { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .st-trida { display: inline-flex; align-items: center; gap: 2px; padding: 2px 4px 2px 8px; border-radius: 999px; background: var(--akcent-svetly); color: var(--akcent-tmavy); font-size: 12px; font-weight: 600; }
 .st-trida button { display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: none; color: inherit; cursor: pointer; }
@@ -143,3 +148,6 @@ body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; ove
 .st-nahled-sekce[hidden] { display: none; }
 .st-nahled-sekce iframe { width: 1280px; height: 900px; border: 0; transform: scale(0.3); transform-origin: 0 0; }
 @media (max-width: 640px) { .st-nahled-sekce { display: none; } }
+.st-vlastnost .st-chyba-pole { grid-column: 1 / -1; margin-top: -4px; }
+.st-kontrola { margin: 8px 0 0; padding-left: 18px; }
+.st-kontrola li { margin: 4px 0; }

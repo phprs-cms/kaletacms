@@ -181,7 +181,7 @@ final class Stranky extends Modul
         $adresa = $this->app->url(($stranka['jazyk'] !== '' ? $stranka['jazyk'] . '/' : '') . ($uvod ? '' : $stranka['seo_link']));
 
         return [
-            'adresa' => $adresa, 'nahled' => $adresa . '?stavba=koncept&editor=1', 'zobrazena' => (bool) $stranka['zobrazit'], 'casti' => false,
+            'adresa' => $adresa, 'nahled' => $adresa . '?stavba=koncept&editor=1', 'zobrazena' => (bool) $stranka['zobrazit'], 'casti' => false, 'nadpisy' => true,
             'zpet' => ['adresa' => $this->url(), 'text' => t('Stránky')], 'nastaveni' => $this->url('edit', ['id' => (int) $stranka['ids']]),
         ];
     }

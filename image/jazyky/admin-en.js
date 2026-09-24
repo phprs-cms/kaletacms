@@ -263,5 +263,19 @@ window.MIROCMS_PREKLAD = {
 	" nad sebou). Čtečky podle úrovní skládají osnovu textu.": " above it). Screen readers build the outline of the text from the levels.",
 	"Chybí perex – výpis novinek a sdílení na sítích ho potřebují.": "The intro is missing – the news list and social sharing need it.",
 	"Návrh se jen vloží do pole – můžete ho dál upravit. Nic se neuloží, dokud formulář neuložíte.": "The suggestion is only inserted into the field – you can keep editing it. Nothing is saved until you save the form.",
-	"Asistent navrhne znění podle textu": "The assistant suggests wording based on the text"
+	"Asistent navrhne znění podle textu": "The assistant suggests wording based on the text",
+	"Tlačítko „%s“ nikam nevede – doplňte odkaz.": "The button “%s” leads nowhere – add a link.",
+	"Obrázek není vybraný – na webu se nezobrazí.": "No image selected – it will not appear on the site.",
+	"Obrázek nemá popis pro nevidomé (alt).": "The image has no description for blind visitors (alt).",
+	"Stránka nemá hlavní nadpis (h1) – vyhledávače i čtečky podle něj poznají, o čem je.": "The page has no main heading (h1) – search engines and screen readers use it to tell what the page is about.",
+	"Stránka má víc hlavních nadpisů (h1) – nechte jen jeden.": "The page has more than one main heading (h1) – keep just one.",
+	"Nadpis „%s“ přeskakuje úroveň (h%d → h%d).": "The heading “%s” skips a level (h%d → h%d).",
+	"Kontrola před publikováním": "Pre-publish check",
+	"Na stránce jsme našli věci, které stojí za opravu:": "We found a few things on the page worth fixing:",
+	"Zpět k úpravám": "Back to editing",
+	"Publikovat i tak": "Publish anyway",
+	"Upozornění u jiných prvků: ": "Warnings on other elements: ",
+	"ukázat": "show",
+	"stránka webu, https://…, #kotva, mailto:, tel:": "site page, https://…, #anchor, mailto:, tel:",
+	"Vybrat vlastní barvu": "Pick a custom colour"
 };

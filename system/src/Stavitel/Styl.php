@@ -125,7 +125,7 @@ final class Styl
             'delka' => preg_match(self::VZOR_DELKA, $hodnota) ? $hodnota : null,
             'krok' => in_array($hodnota, DesignSystem::KROKY, true) ? 'var(--mc-krok-' . $hodnota . ')' : (preg_match(self::VZOR_DELKA, $hodnota) ? $hodnota : null),
             'barva' => isset(DesignSystem::TOKENY_BAREV[$hodnota]) ? 'var(--mc-barva-' . $hodnota . ')'
-                : (preg_match('/^(#[0-9a-f]{3,8}|transparent|currentColor|rgb\(\d{1,3} \d{1,3} \d{1,3}( \/ (0|1|0?\.\d{1,3}))?\))$/i', $hodnota) ? $hodnota : null),
+                : (preg_match('/^(#[0-9a-f]{3,8}|transparent|currentColor|(rgba?|hsla?|oklch|oklab|lab|lch|hwb)\([0-9., %\/+-]{3,60}\))$/i', $hodnota) ? $hodnota : null),
             'zaobleni' => isset(DesignSystem::ZAOBLENI[$hodnota]) ? 'var(--mc-zaobleni-' . $hodnota . ')' : (preg_match(self::VZOR_DELKA, $hodnota) ? $hodnota : null),
             'stin' => isset(DesignSystem::STINY[$hodnota]) ? 'var(--mc-stin-' . $hodnota . ')' : ($hodnota === 'none' ? 'none' : null),
             'cislo' => preg_match('/^-?\d{1,3}$/', $hodnota) ? $hodnota : null,
