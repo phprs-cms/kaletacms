@@ -1930,4 +1930,6 @@ return [
     'Soubor SVG se nepodařilo přečíst (nejvýš 2 MB, platné SVG).' => 'The SVG file could not be read (max. 2 MB, valid SVG).',
     'Nahradit jde jen obrázek JPG, PNG nebo WebP.' => 'Only a JPG, PNG or WebP image can be replaced.',
     'Pozvánka potřebuje e-mail.' => 'An invitation needs an e-mail.',
+    'Kopie novinky je uložená jako koncept.' => 'The copy of the news item is saved as a draft.',
+    'Kopie položky je skrytá – upravte ji a zveřejněte.' => 'The copy of the item is hidden – edit it and publish it.',
 ];

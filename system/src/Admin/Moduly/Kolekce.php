@@ -155,6 +155,24 @@ final class Kolekce extends Modul
         return $this->zpet('Položka byla uložena.', 'polozky', ['id' => $k['idk']]);
     }
 
+    /** Kopie položky (skrytá, s volnou adresou) – rychlý začátek podobné reference, člena týmu, produktu. */
+    protected function akceDuplikujPolozku(): Response
+    {
+        $idk = $this->request->postInt('idk');
+        $p = $this->request->isPost() ? $this->db->one('SELECT * FROM {kolekce_polozky} WHERE idp = ? AND idk = ?', [$this->request->postInt('idp'), $idk]) : null;
+        if ($p === null) {
+            return $this->zpet('', 'polozky', ['id' => $idk]);
+        }
+        $seo = mb_substr($p['seo_link'] . '-kopie', 0, 150);
+        for ($i = 2, $zaklad = $seo; $this->db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ?', [$idk, $seo]) !== null; $i++) {
+            $seo = $zaklad . '-' . $i;
+        }
+        $id = $this->db->insert('kolekce_polozky', ['idk' => $idk, 'nazev' => mb_substr(t('%s (kopie)', $p['nazev']), 0, 200), 'seo_link' => $seo, 'data' => $p['data'],
+            'poradi' => $p['poradi'], 'zobrazit' => 0, 'jazyk' => $p['jazyk'], 'datum' => date('Y-m-d H:i:s')]);
+
+        return $this->zpet('Kopie položky je skrytá – upravte ji a zveřejněte.', 'polozka', ['id' => $idk, 'polozka' => $id]);
+    }
+
     protected function akceSmazPolozku(): Response
     {
         $idk = $this->request->postInt('idk');

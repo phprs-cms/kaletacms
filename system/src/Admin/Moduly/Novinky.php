@@ -106,6 +106,26 @@ final class Novinky extends Modul
         ];
     }
 
+    /** Kopie novinky jako koncept (i se štítky) – rychlý začátek podobné novinky. */
+    protected function akceDuplikuj(): Response
+    {
+        $novinka = $this->request->isPost() ? $this->nacti($this->request->postInt('idc')) : null;
+        if ($novinka === null) {
+            return $this->zpet();
+        }
+        $kopie = array_intersect_key($novinka, array_flip(['uvod', 'text', 'obrazek', 'obrazek_popis', 'obrazek_autor', 'tema', 't_slova', 'seo_popis', 'noindex', 'faq', 'jazyk']));
+        $seo = mb_substr($novinka['seo_link'] . '-kopie', 0, 150);
+        for ($i = 2, $zaklad = $seo; $this->db->value('SELECT 1 FROM {novinky} WHERE seo_link = ?', [$seo]) !== null; $i++) {
+            $seo = $zaklad . '-' . $i;
+        }
+        $id = $this->db->insert('novinky', $kopie + ['titulek' => mb_substr(t('%s (kopie)', $novinka['titulek']), 0, 255), 'seo_link' => $seo, 'visible' => 0,
+            'datum' => date('Y-m-d H:i:s'), 'autor' => $this->app->auth()->id(), 'zmeneno' => date('Y-m-d H:i:s')]);
+        $this->db->run('INSERT INTO {novinky_stitky} (idc, ids) SELECT ?, ids FROM {novinky_stitky} WHERE idc = ?', [$id, $novinka['idc']]);
+        \MiroCMS\Core\Hledani::indexuj($this->db, $id);
+
+        return $this->zpet('Kopie novinky je uložená jako koncept.', 'edit', ['id' => $id]);
+    }
+
     protected function akceEdit(): Response
     {
         $novinka = $this->nacti($this->request->getInt('id'));
