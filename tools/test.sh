@@ -632,13 +632,13 @@ TOKO2="kaleta_$(printf 'b%.0s' $(seq 1 48))"
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $TOKO2" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"vytvor_novinku","arguments":{"titulek":"Od obchodnika","kategorie":"aktuality"}}}' > "$PRACE/odpoved"
 grep -q 'nemáš přístup' "$PRACE/odpoved" && ocekavej "vlastní role bez Novinek nezaloží novinku ani přes MCP" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_novinky WHERE titulek = 'Od obchodnika'")" "0" || { echo "  CHYBA  MCP bez kontroly sekce Novinky"; head -c 300 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
 OBN="$(printf 'c%.0s' $(seq 1 64))"
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET obnova_otisk = '$(php -r 'echo hash("sha256", $argv[1]);' "$OBN")', obnova_cas = NOW() WHERE user = 'obchodnik'"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET obnova_otisk = '$(php -r 'echo hash("sha256", $argv[1]);' "$OBN")', obnova_cas = NOW() + INTERVAL 1 DAY WHERE user = 'obchodnik'"
 JAR3="$PRACE/jar3"
-TOKEN3=$(curl -s -c "$JAR3" "$B/admin.php?akce=heslo&token=$OBN" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//')
+TOKEN3=$(curl -s -c "$JAR3" "$B/admin.php?akce=heslo&token=$OBN" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//' || true)
 curl -s -b "$JAR3" -c "$JAR3" -o /dev/null -X POST "$B/admin.php?akce=heslo" -d "_csrf=$TOKEN3" -d "token=$OBN" --data-urlencode "password=Nove-heslo-123" --data-urlencode "password2=Nove-heslo-123"
 ocekavej "obnova hesla zruší tokeny napojení" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_api_tokeny t JOIN ka_uzivatele u ON u.idu = t.idu WHERE u.user = 'obchodnik'")" "0"
 JAR4="$PRACE/jar4"
-TOKEN4=$(curl -s -c "$JAR4" "$B/admin.php" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//')
+TOKEN4=$(curl -s -c "$JAR4" "$B/admin.php" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//' || true)
 for i in $(seq 1 10); do curl -s -b "$JAR4" -c "$JAR4" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN4" -d user=obchodnik -d password=spatne-heslo-xyz; done
 kod=$(curl -s -b "$JAR4" -c "$JAR4" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$TOKEN4" -d user=obchodnik --data-urlencode "password=Nove-heslo-123")
 ocekavej "po 10 chybách je účet dočasně zamčený i pro správné heslo" "$kod|$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT zamceno_do > NOW() FROM ka_uzivatele WHERE user = 'obchodnik'")" "401|1"
