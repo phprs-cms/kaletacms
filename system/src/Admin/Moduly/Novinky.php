@@ -8,7 +8,7 @@ use MiroCMS\Admin\Modul;
 use MiroCMS\Core\Response;
 
 /**
- * Novinky a blog firmy (v databázi tabulka rs_clanky, kategorie = rs_topic).
+ * Novinky a blog firmy (v databázi tabulka mc_novinky, kategorie = mc_kategorie).
  *
  * Pravidla:
  *  - autor vidí a upravuje jen své novinky a nesmí vydávat,
@@ -61,14 +61,14 @@ final class Novinky extends Modul
         }
         $cond = implode(' AND ', $where);
 
-        $celkem = (int) $this->db->value("SELECT COUNT(*) FROM {clanky} c WHERE {$cond}", $params);
+        $celkem = (int) $this->db->value("SELECT COUNT(*) FROM {novinky} c WHERE {$cond}", $params);
         $strana = max(1, $this->request->getInt('strana', 1));
         $novinky = $this->db->all(
             "SELECT c.idc, c.seo_link, c.titulek, c.datum, c.visible, c.visit, c.smazano,
                     t.nazev AS tema_jm, u.jmeno AS autor_jm, u.user AS autor_login
-             FROM {clanky} c
-             JOIN {topic} t ON t.idt = c.tema
-             LEFT JOIN {user} u ON u.idu = c.autor
+             FROM {novinky} c
+             JOIN {kategorie} t ON t.idt = c.tema
+             LEFT JOIN {uzivatele} u ON u.idu = c.autor
              WHERE {$cond}
              ORDER BY " . ($vKosi ? 'c.smazano DESC' : 'c.datum DESC') . ", c.idc DESC
              LIMIT ? OFFSET ?",
@@ -82,7 +82,7 @@ final class Novinky extends Modul
             'stran' => max(1, (int) ceil($celkem / self::NA_STRANKU)),
             'kategorie' => Kategorie::seznam($this->db),
             'filtr' => ['tema' => $tema, 'jazyk' => $jazyk, 'hledat' => $hledat, 'stav' => isset($podminkyStavu[$stav]) || $vKosi ? $stav : ''],
-            'vKosi' => (int) $this->db->value('SELECT COUNT(*) FROM {clanky} c WHERE c.smazano IS NOT NULL' . $auth->articleScope('c.')),
+            'vKosi' => (int) $this->db->value('SELECT COUNT(*) FROM {novinky} c WHERE c.smazano IS NOT NULL' . $auth->articleScope('c.')),
             'jazykyWebu' => $jazykyWebu,
         ]);
     }
@@ -157,24 +157,24 @@ final class Novinky extends Modul
         if ($data['titulek'] === '') {
             $chyby['titulek'] = 'Vyplňte titulek.';
         }
-        if ($this->db->value('SELECT idt FROM {topic} WHERE idt = ?', [$data['tema']]) === null) {
+        if ($this->db->value('SELECT idt FROM {kategorie} WHERE idt = ?', [$data['tema']]) === null) {
             $chyby['tema'] = 'Vyberte kategorii.';
         }
         $povoleniAutori = $auth->spravovaniAutori();
         if ($povoleniAutori !== null && !in_array($data['autor'], $povoleniAutori, true)) {
             $data['autor'] = $auth->id();
         }
-        if ($this->db->value('SELECT idu FROM {user} WHERE idu = ?', [$data['autor']]) === null) {
+        if ($this->db->value('SELECT idu FROM {uzivatele} WHERE idu = ?', [$data['autor']]) === null) {
             $chyby['autor'] = 'Vyberte autora.';
         }
         if ($chyby !== []) {
             return $this->formular(['idc' => $id] + $data + ($puvodni ?? $this->vychozi()), $chyby);
         }
         // jazyková verze se přebírá z kategorie; překlad se propojuje s novinkou ve výchozím jazyce (adresa nebo číslo)
-        $data['jazyk'] = (string) $this->db->value('SELECT jazyk FROM {topic} WHERE idt = ?', [$data['tema']]);
+        $data['jazyk'] = (string) $this->db->value('SELECT jazyk FROM {kategorie} WHERE idt = ?', [$data['tema']]);
         $original = trim($r->post('preklad_z'));
         $data['preklad_z'] = $original === '' || $data['jazyk'] === '' ? null
-            : ($this->db->value("SELECT idc FROM {clanky} WHERE (idc = ? OR seo_link = ?) AND jazyk = '' AND idc <> ?", [(int) $original, basename((string) parse_url($original, PHP_URL_PATH)), $id]) ?: null);
+            : ($this->db->value("SELECT idc FROM {novinky} WHERE (idc = ? OR seo_link = ?) AND jazyk = '' AND idc <> ?", [(int) $original, basename((string) parse_url($original, PHP_URL_PATH)), $id]) ?: null);
 
         if ($r->postBool('oznacit_aktualizaci') && $data['visible']) {
             $data['aktualizovano'] = date('Y-m-d H:i:s');
@@ -184,19 +184,19 @@ final class Novinky extends Modul
             if ([$puvodni['titulek'], $puvodni['uvod'], $puvodni['text']] !== [$data['titulek'], $data['uvod'], $data['text']]) {
                 $this->ulozRevizi($puvodni);
             }
-            $this->db->update('clanky', $data, ['idc' => $id]);
+            $this->db->update('novinky', $data, ['idc' => $id]);
             if ($puvodni['seo_link'] !== $data['seo_link'] && $puvodni['visible']) {
                 // vydaná novinka změnila adresu: stará se přesměruje, aby odkazy a vyhledávače nepřišly o stránku
                 Presmerovani::pridej($this->db, 'novinky/' . $puvodni['seo_link'], 'novinky/' . $data['seo_link']);
             }
         } else {
-            $id = $this->db->insert('clanky', $data);
+            $id = $this->db->insert('novinky', $data);
         }
 
         Galerie::zapisPouziti($this->db, $id, $data['obrazek'], $data['uvod'], $data['text']);
         \MiroCMS\Core\Hledani::indexuj($this->db, $id);
         // uložená novinka ruší rozepsaný stav na serveru (u nové je veden pod číslem 0)
-        $this->db->run('DELETE FROM {clanky_koncepty} WHERE kdo = ? AND idc IN (0, ?)', [$auth->id(), $id]);
+        $this->db->run('DELETE FROM {novinky_koncepty} WHERE kdo = ? AND idc IN (0, ?)', [$auth->id(), $id]);
         $this->ulozStitky($id, $r->post('stitky'));
         // nově vydaná novinka se oznámí (webhook, IndexNow); naplánovaná počká na svůj čas - viz Core\Oznameni
         \MiroCMS\Core\Oznameni::zpracuj($this->app);
@@ -229,7 +229,7 @@ final class Novinky extends Modul
         if ([$novinka['titulek'], $novinka['uvod'], $novinka['text']] !== array_values($data)) {
             $this->ulozRevizi($novinka);
         }
-        $this->db->update('clanky', $data + ['zmeneno' => date('Y-m-d H:i:s')], ['idc' => $novinka['idc']]);
+        $this->db->update('novinky', $data + ['zmeneno' => date('Y-m-d H:i:s')], ['idc' => $novinka['idc']]);
         Galerie::zapisPouziti($this->db, (int) $novinka['idc'], (string) $novinka['obrazek'], $data['uvod'], $data['text']);
         \MiroCMS\Core\Hledani::indexuj($this->db, (int) $novinka['idc']);
         \MiroCMS\Admin\Protokol::zapis($this->app, 'novinky', 'úprava přímo na webu', mb_substr($data['titulek'], 0, 80));
@@ -256,13 +256,13 @@ final class Novinky extends Modul
         $ja = $this->app->auth()->id();
         $data = (string) ($_POST['pole'] ?? '');
         if ($data === '' || strlen($data) > 3_000_000 || !is_array(json_decode($data, true))) {
-            $this->db->delete('clanky_koncepty', ['kdo' => $ja, 'idc' => $idc]);
+            $this->db->delete('novinky_koncepty', ['kdo' => $ja, 'idc' => $idc]);
 
             return Response::json(['ok' => true, 'smazano' => true]);
         }
-        $this->db->run('INSERT INTO {clanky_koncepty} (kdo, idc, cas, data) VALUES (?, ?, NOW(), ?) ON DUPLICATE KEY UPDATE cas = NOW(), data = VALUES(data)', [$ja, $idc, $data]);
+        $this->db->run('INSERT INTO {novinky_koncepty} (kdo, idc, cas, data) VALUES (?, ?, NOW(), ?) ON DUPLICATE KEY UPDATE cas = NOW(), data = VALUES(data)', [$ja, $idc, $data]);
         if (random_int(1, 40) === 1) {
-            $this->db->run('DELETE FROM {clanky_koncepty} WHERE cas < NOW() - INTERVAL 30 DAY');
+            $this->db->run('DELETE FROM {novinky_koncepty} WHERE cas < NOW() - INTERVAL 30 DAY');
         }
 
         return Response::json(['ok' => true]);
@@ -277,7 +277,7 @@ final class Novinky extends Modul
         }
         $uprava = $this->request->get('uprava') === '1';
         $novinky = $this->db->all(
-            'SELECT idc, titulek, seo_link, jazyk, visible AND datum <= NOW() AS vydany FROM {clanky} WHERE smazano IS NULL AND titulek LIKE ?'
+            'SELECT idc, titulek, seo_link, jazyk, visible AND datum <= NOW() AS vydany FROM {novinky} WHERE smazano IS NULL AND titulek LIKE ?'
                 . ($uprava ? $this->app->auth()->articleScope() : '') . ' ORDER BY datum DESC LIMIT 8',
             ['%' . addcslashes($q, '%_\\') . '%'],
         );
@@ -344,11 +344,11 @@ final class Novinky extends Modul
         if ($novinka['jazyk'] !== '' || !in_array($jazyk, \MiroCMS\Core\Jazyk::dalsi($this->app->settings()), true)) {
             return $zpetNaNovinku('Přeložit jde jen novinka ve výchozím jazyce, a to do některé z dalších jazykových verzí webu.');
         }
-        if (($hotova = $this->db->value('SELECT idc FROM {clanky} WHERE preklad_z = ? AND jazyk = ?', [$novinka['idc'], $jazyk])) !== null) {
+        if (($hotova = $this->db->value('SELECT idc FROM {novinky} WHERE preklad_z = ? AND jazyk = ?', [$novinka['idc'], $jazyk])) !== null) {
             return $this->zpet('Překlad do tohoto jazyka už existuje – tady je.', 'edit', ['id' => (int) $hotova]);
         }
         // cílová kategorie: protějšek kategorie originálu, jinak první kategorie daného jazyka
-        $kategorie = $this->db->value('SELECT idt FROM {topic} WHERE jazyk = ? ORDER BY (preklad_z <=> ?) DESC, hodnost DESC, idt LIMIT 1', [$jazyk, $novinka['tema']]);
+        $kategorie = $this->db->value('SELECT idt FROM {kategorie} WHERE jazyk = ? ORDER BY (preklad_z <=> ?) DESC, hodnost DESC, idt LIMIT 1', [$jazyk, $novinka['tema']]);
         if ($kategorie === null) {
             return $zpetNaNovinku('V cílovém jazyce zatím není žádná kategorie. Založte ji v Novinky → Kategorie (pole Jazyková verze).');
         }
@@ -373,9 +373,9 @@ final class Novinky extends Modul
             $data[$pole] = $pole === 'titulek' ? mb_substr($hodnota, 0, 255) : $hodnota;
         }
         $data['seo_link'] = $this->volnySeoLink(slugify($data['titulek'], 100), 0);
-        $id = $this->db->insert('clanky', $data);
+        $id = $this->db->insert('novinky', $data);
         Galerie::zapisPouziti($this->db, $id, (string) $data['obrazek'], $data['uvod'], $data['text']);
-        $this->db->run('INSERT INTO {clanky_stitky} (idc, ids) SELECT ?, ids FROM {clanky_stitky} WHERE idc = ?', [$id, $novinka['idc']]);
+        $this->db->run('INSERT INTO {novinky_stitky} (idc, ids) SELECT ?, ids FROM {novinky_stitky} WHERE idc = ?', [$id, $novinka['idc']]);
         \MiroCMS\Core\Hledani::indexuj($this->db, $id);
 
         return $this->zpet('Překlad je založený jako koncept. Než ho vydáte, přečtěte ho – asistent může chybovat ve jménech, číslech a odborných výrazech.', 'edit', ['id' => $id]);
@@ -390,7 +390,7 @@ final class Novinky extends Modul
     protected function akceRevize(): Response
     {
         $novinka = $this->nacti($this->request->getInt('id'));
-        $revize = $novinka === null ? null : $this->db->one('SELECT * FROM {clanky_revize} WHERE idr = ? AND idc = ?', [$this->request->getInt('idr'), $novinka['idc']]);
+        $revize = $novinka === null ? null : $this->db->one('SELECT * FROM {novinky_revize} WHERE idr = ? AND idc = ?', [$this->request->getInt('idr'), $novinka['idc']]);
         if ($revize === null) {
             return $this->chyba('Verze novinky neexistuje.', 404);
         }
@@ -404,7 +404,7 @@ final class Novinky extends Modul
     {
         $novinka = $this->nacti($this->request->getInt('id'));
         $revize = $novinka === null ? null : $this->db->one(
-            "SELECT r.*, IF(u.jmeno = '' OR u.jmeno IS NULL, u.user, u.jmeno) AS kdo_jm FROM {clanky_revize} r LEFT JOIN {user} u ON u.idu = r.kdo WHERE r.idr = ? AND r.idc = ?",
+            "SELECT r.*, IF(u.jmeno = '' OR u.jmeno IS NULL, u.user, u.jmeno) AS kdo_jm FROM {novinky_revize} r LEFT JOIN {uzivatele} u ON u.idu = r.kdo WHERE r.idr = ? AND r.idc = ?",
             [$this->request->getInt('idr'), $novinka['idc'] ?? 0],
         );
         if ($revize === null) {
@@ -425,16 +425,16 @@ final class Novinky extends Modul
     {
         if ($this->request->isPost()) {
             // "zkontrolovat znovu": novinka se zařadí na začátek fronty
-            $this->db->update('clanky', ['odkazy_cas' => null], ['idc' => $this->request->postInt('idc')]);
+            $this->db->update('novinky', ['odkazy_cas' => null], ['idc' => $this->request->postInt('idc')]);
             $this->db->delete('odkazy_vadne', ['idc' => $this->request->postInt('idc')]);
 
             return $this->zpet('Novinka se zkontroluje znovu během několika minut.', 'odkazy');
         }
 
         return $this->view('odkazy', 'Nefunkční odkazy', [
-            'odkazy' => $this->db->all('SELECT o.*, c.titulek FROM {odkazy_vadne} o JOIN {clanky} c ON c.idc = o.idc WHERE 1 = 1' . $this->app->auth()->articleScope('c.') . ' ORDER BY o.cas DESC LIMIT 300'),
-            'zkontrolovano' => (int) $this->db->value('SELECT COUNT(*) FROM {clanky} WHERE odkazy_cas IS NOT NULL'),
-            'celkem' => (int) $this->db->value('SELECT COUNT(*) FROM {clanky} WHERE visible = 1 AND datum <= NOW()'),
+            'odkazy' => $this->db->all('SELECT o.*, c.titulek FROM {odkazy_vadne} o JOIN {novinky} c ON c.idc = o.idc WHERE 1 = 1' . $this->app->auth()->articleScope('c.') . ' ORDER BY o.cas DESC LIMIT 300'),
+            'zkontrolovano' => (int) $this->db->value('SELECT COUNT(*) FROM {novinky} WHERE odkazy_cas IS NOT NULL'),
+            'celkem' => (int) $this->db->value('SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW()'),
             'zapnuto' => $this->app->settings()->bool('kontrola_odkazu'),
         ]);
     }
@@ -451,7 +451,7 @@ final class Novinky extends Modul
                 continue;
             }
             // koš: novinka zmizí z webu i z výpisů, ale 30 dní ji jde obnovit; vrátí se jako koncept, nikdy sama nevyjde
-            $presunuto += $this->db->update('clanky', ['smazano' => date('Y-m-d H:i:s'), 'visible' => 0], ['idc' => $novinka['idc']]);
+            $presunuto += $this->db->update('novinky', ['smazano' => date('Y-m-d H:i:s'), 'visible' => 0], ['idc' => $novinka['idc']]);
             \MiroCMS\Admin\Protokol::zapis($this->app, 'novinky', 'do koše', mb_substr($novinka['titulek'], 0, 80));
         }
 
@@ -470,7 +470,7 @@ final class Novinky extends Modul
             if ($novinka === null) {
                 continue;
             }
-            $obnoveno += $this->db->update('clanky', ['smazano' => null], ['idc' => $novinka['idc']]);
+            $obnoveno += $this->db->update('novinky', ['smazano' => null], ['idc' => $novinka['idc']]);
             \MiroCMS\Admin\Protokol::zapis($this->app, 'novinky', 'obnovení z koše', mb_substr($novinka['titulek'], 0, 80));
         }
 
@@ -487,7 +487,7 @@ final class Novinky extends Modul
         foreach ($this->request->postList('smaz') as $id) {
             $novinka = $this->nacti((int) $id, true);
             if ($novinka !== null) {
-                $smazano += $this->db->delete('clanky', ['idc' => $novinka['idc']]);
+                $smazano += $this->db->delete('novinky', ['idc' => $novinka['idc']]);
                 \MiroCMS\Admin\Protokol::zapis($this->app, 'novinky', 'smazání natrvalo', mb_substr($novinka['titulek'], 0, 80));
             }
         }
@@ -498,7 +498,7 @@ final class Novinky extends Modul
     /** Koš se vysypává sám: novinky starší 30 dní se smažou natrvalo (volá Admin\Kernel při vstupu do administrace). */
     public static function vysypKos(\MiroCMS\Core\Db $db): int
     {
-        return $db->run('DELETE FROM {clanky} WHERE smazano < NOW() - INTERVAL 30 DAY')->rowCount();
+        return $db->run('DELETE FROM {novinky} WHERE smazano < NOW() - INTERVAL 30 DAY')->rowCount();
     }
 
     /**
@@ -510,8 +510,8 @@ final class Novinky extends Modul
         $auth = $this->app->auth();
         $povoleni = $auth->spravovaniAutori();
         $autori = $povoleni === null
-            ? $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {user} WHERE blokovat = 0 ORDER BY 2")
-            : $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {user} WHERE idu IN (" . implode(',', $povoleni) . ') ORDER BY 2');
+            ? $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} WHERE blokovat = 0 ORDER BY 2")
+            : $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} WHERE idu IN (" . implode(',', $povoleni) . ') ORDER BY 2');
 
         return $this->view('formular', $novinka['idc'] ? 'Úprava novinky' : 'Nová novinka', [
             'novinka' => $novinka,
@@ -519,21 +519,21 @@ final class Novinky extends Modul
             'kategorie' => Kategorie::seznam($this->db),
             'autori' => $autori,
             'smiVydavat' => $auth->smiVydavat(),
-            'konceptServer' => $this->request->isPost() ? null : $this->db->one('SELECT cas, data FROM {clanky_koncepty} WHERE kdo = ? AND idc = ?', [$auth->id(), (int) $novinka['idc']]),
+            'konceptServer' => $this->request->isPost() ? null : $this->db->one('SELECT cas, data FROM {novinky_koncepty} WHERE kdo = ? AND idc = ?', [$auth->id(), (int) $novinka['idc']]),
             'jazykyWebu' => \MiroCMS\Core\Jazyk::dalsi($this->app->settings()) !== [],
             // u novinky ve výchozím jazyce: do kterých jazyků jde přeložit a které překlady už existují (jazyk => číslo)
             'jazykyPrekladu' => $novinka['idc'] && ($novinka['jazyk'] ?? '') === '' ? \MiroCMS\Core\Jazyk::dalsi($this->app->settings()) : [],
-            'preklady' => $novinka['idc'] ? array_map(intval(...), $this->db->pairs("SELECT jazyk, idc FROM {clanky} WHERE preklad_z = ? AND jazyk <> ''", [(int) $novinka['idc']])) : [],
-            'original' => empty($novinka['preklad_z']) ? '' : (string) $this->db->value('SELECT seo_link FROM {clanky} WHERE idc = ?', [$novinka['preklad_z']]),
+            'preklady' => $novinka['idc'] ? array_map(intval(...), $this->db->pairs("SELECT jazyk, idc FROM {novinky} WHERE preklad_z = ? AND jazyk <> ''", [(int) $novinka['idc']])) : [],
+            'original' => empty($novinka['preklad_z']) ? '' : (string) $this->db->value('SELECT seo_link FROM {novinky} WHERE idc = ?', [$novinka['preklad_z']]),
             'asistent' => (new \MiroCMS\Core\Asistent($this->app->settings()))->pripraven(),
             'stitky' => $this->request->isPost() ? $this->request->post('stitky') : implode(', ', array_column(
-                $this->db->all('SELECT s.nazev FROM {stitky} s JOIN {clanky_stitky} cs ON cs.ids = s.ids WHERE cs.idc = ? ORDER BY s.nazev', [(int) $novinka['idc']]),
+                $this->db->all('SELECT s.nazev FROM {stitky} s JOIN {novinky_stitky} cs ON cs.ids = s.ids WHERE cs.idc = ? ORDER BY s.nazev', [(int) $novinka['idc']]),
                 'nazev',
             )),
             'vsechnyStitky' => array_column($this->db->all('SELECT nazev FROM {stitky} ORDER BY nazev LIMIT 500'), 'nazev'),
             'revize' => $this->db->all(
                 "SELECT r.idr, r.datum, r.titulek, IF(u.jmeno = '' OR u.jmeno IS NULL, u.user, u.jmeno) AS kdo_jm
-                 FROM {clanky_revize} r LEFT JOIN {user} u ON u.idu = r.kdo WHERE r.idc = ? ORDER BY r.idr DESC",
+                 FROM {novinky_revize} r LEFT JOIN {uzivatele} u ON u.idu = r.kdo WHERE r.idc = ? ORDER BY r.idr DESC",
                 [(int) $novinka['idc']],
             ),
         ]);
@@ -542,33 +542,33 @@ final class Novinky extends Modul
     /** Uloží předchozí podobu novinky; drží se posledních 20 verzí. */
     private function ulozRevizi(array $puvodni): void
     {
-        $this->db->insert('clanky_revize', [
+        $this->db->insert('novinky_revize', [
             'idc' => $puvodni['idc'], 'datum' => $puvodni['zmeneno'] ?? $puvodni['datum'], 'kdo' => $this->app->auth()->id(),
             'titulek' => $puvodni['titulek'], 'uvod' => $puvodni['uvod'], 'text' => $puvodni['text'],
         ]);
-        $hranice = $this->db->value('SELECT idr FROM {clanky_revize} WHERE idc = ? ORDER BY idr DESC LIMIT 1 OFFSET 20', [$puvodni['idc']]);
+        $hranice = $this->db->value('SELECT idr FROM {novinky_revize} WHERE idc = ? ORDER BY idr DESC LIMIT 1 OFFSET 20', [$puvodni['idc']]);
         if ($hranice !== null) {
-            $this->db->run('DELETE FROM {clanky_revize} WHERE idc = ? AND idr <= ?', [$puvodni['idc'], $hranice]);
+            $this->db->run('DELETE FROM {novinky_revize} WHERE idc = ? AND idr <= ?', [$puvodni['idc'], $hranice]);
         }
     }
 
     /** Štítky zapsané čárkami; neznámé se založí. */
     private function ulozStitky(int $idc, string $vstup): void
     {
-        $this->db->delete('clanky_stitky', ['idc' => $idc]);
+        $this->db->delete('novinky_stitky', ['idc' => $idc]);
         $nazvy = array_unique(array_filter(array_map(fn (string $n): string => mb_substr(trim($n), 0, 80), explode(',', $vstup))));
         foreach (array_slice($nazvy, 0, 20) as $nazev) {
             $seo = slugify($nazev, 90);
             $ids = $this->db->value('SELECT ids FROM {stitky} WHERE seo_link = ?', [$seo]);
             $ids = $ids !== null ? (int) $ids : $this->db->insert('stitky', ['nazev' => $nazev, 'seo_link' => $seo]);
-            $this->db->run('INSERT IGNORE INTO {clanky_stitky} (idc, ids) VALUES (?, ?)', [$idc, $ids]);
+            $this->db->run('INSERT IGNORE INTO {novinky_stitky} (idc, ids) VALUES (?, ?)', [$idc, $ids]);
         }
     }
 
     /** Načte novinku, jen pokud ji přihlášený smí spravovat. Novinku v koši jen s $zKose (obnovení, smazání natrvalo). */
     private function nacti(int $id, bool $zKose = false): ?array
     {
-        $novinka = $this->db->one('SELECT * FROM {clanky} WHERE idc = ? AND smazano IS ' . ($zKose ? 'NOT NULL' : 'NULL'), [$id]);
+        $novinka = $this->db->one('SELECT * FROM {novinky} WHERE idc = ? AND smazano IS ' . ($zKose ? 'NOT NULL' : 'NULL'), [$id]);
         $autori = $this->app->auth()->spravovaniAutori();
 
         return $novinka === null || ($autori !== null && !in_array((int) $novinka['autor'], $autori, true)) ? null : $novinka;
@@ -577,7 +577,7 @@ final class Novinky extends Modul
     private function volnySeoLink(string $seo, int $idc): string
     {
         $kandidat = $seo;
-        for ($i = 2; $this->db->value('SELECT idc FROM {clanky} WHERE seo_link = ? AND idc <> ?', [$kandidat, $idc]) !== null; $i++) {
+        for ($i = 2; $this->db->value('SELECT idc FROM {novinky} WHERE seo_link = ? AND idc <> ?', [$kandidat, $idc]) !== null; $i++) {
             $kandidat = $seo . '-' . $i;
         }
 

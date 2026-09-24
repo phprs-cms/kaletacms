@@ -24,11 +24,11 @@ final class Odkazy
         }
         $s->set('kontrola_odkazu_cas', (string) time());
         $db = $app->db();
-        $clanek = $db->one('SELECT idc, uvod, text FROM {clanky} WHERE visible = 1 AND datum <= NOW() AND (odkazy_cas IS NULL OR odkazy_cas < NOW() - INTERVAL 30 DAY) ORDER BY odkazy_cas IS NOT NULL, odkazy_cas, datum DESC LIMIT 1');
+        $clanek = $db->one('SELECT idc, uvod, text FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND (odkazy_cas IS NULL OR odkazy_cas < NOW() - INTERVAL 30 DAY) ORDER BY odkazy_cas IS NOT NULL, odkazy_cas, datum DESC LIMIT 1');
         if ($clanek === null) {
             return;
         }
-        $db->update('clanky', ['odkazy_cas' => date('Y-m-d H:i:s')], ['idc' => $clanek['idc']]);
+        $db->update('novinky', ['odkazy_cas' => date('Y-m-d H:i:s')], ['idc' => $clanek['idc']]);
         $db->delete('odkazy_vadne', ['idc' => $clanek['idc']]);
         $konec = microtime(true) + 12; // na jeden běh nejvýš 12 vteřin
         foreach (self::odkazy($clanek['uvod'] . $clanek['text']) as $url) {
@@ -60,7 +60,7 @@ final class Odkazy
         if ($cesta !== null) {
             $cesta = (string) parse_url(substr($cesta, strlen($app->request->basePath())), PHP_URL_PATH);
             if (preg_match('#^/(?:[a-z]{2}/)?novinky/([a-z0-9-]+)$#', $cesta, $m)) {
-                return $app->db()->value('SELECT idc FROM {clanky} WHERE seo_link = ?', [$m[1]]) === null
+                return $app->db()->value('SELECT idc FROM {novinky} WHERE seo_link = ?', [$m[1]]) === null
                     && $app->db()->value('SELECT idp FROM {presmerovani} WHERE z_adresy = ?', ['novinky/' . $m[1]]) === null ? 404 : null;
             }
 

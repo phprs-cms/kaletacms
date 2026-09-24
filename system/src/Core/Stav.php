@@ -41,7 +41,7 @@ final class Stav
         $cekajici = Migrace::posledni() - max(1, $web->int('verze_db'));
         $pridej(t('Databáze'), t('Struktura databáze'), $cekajici <= 0, $cekajici <= 0 ? t('aktuální (verze %d)', $web->int('verze_db')) : t('čeká %d aktualizací - proběhnou při příštím načtení administrace', $cekajici));
         $velikost = (int) $db->value('SELECT COALESCE(SUM(data_length + index_length), 0) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE ?', [addcslashes($db->prefix, '_%') . '%']);
-        $pridej(t('Databáze'), t('Velikost'), 'ok', t('%s, novinek: %d', self::velikost($velikost), (int) $db->value('SELECT COUNT(*) FROM {clanky}')));
+        $pridej(t('Databáze'), t('Velikost'), 'ok', t('%s, novinek: %d', self::velikost($velikost), (int) $db->value('SELECT COUNT(*) FROM {novinky}')));
 
         // --- soubory a bezpečnost
         foreach (['media' => t('nahrané obrázky'), 'storage/log' => t('záznam chyb'), 'storage/cache' => t('dočasná data')] as $slozka => $ucel) {
@@ -52,9 +52,9 @@ final class Stav
         $pridej(t('Bezpečnost'), 'HTTPS', $app->request->isHttps() ? 'ok' : 'varovani', $app->request->isHttps() ? t('web běží na šifrovaném spojení') : t('web neběží na HTTPS - přihlašovací údaje putují nešifrovaně'));
         $pridej(t('Bezpečnost'), t('Ladicí režim'), !$app->debug(), $app->debug() ? t('v config.php je debug = true; na ostrém webu vypněte') : t('vypnutý'));
         $pridej(t('Bezpečnost'), t('Bezpečnostní hlavičky'), 'ok', t('systém odesílá X-Content-Type-Options, Referrer-Policy a X-Frame-Options; administrace navíc Content-Security-Policy a zákaz ukládání do mezipaměti'));
-        $bez2fa = (int) $db->value("SELECT COUNT(*) FROM {user} WHERE admin = 2 AND blokovat = 0 AND totp_tajemstvi = ''");
+        $bez2fa = (int) $db->value("SELECT COUNT(*) FROM {uzivatele} WHERE admin = 2 AND blokovat = 0 AND totp_tajemstvi = ''");
         $pridej(t('Bezpečnost'), t('Dvoufázové přihlášení administrátorů'), $bez2fa === 0 ? 'ok' : 'varovani', $bez2fa === 0 ? t('mají ho všichni administrátoři') : t('%d administrátor(ů) ho nemá - zapíná se v nabídce Můj účet (avatar vpravo nahoře)', $bez2fa));
-        $slabi = (int) $db->value('SELECT COUNT(*) FROM {user} WHERE blokovat = 1');
+        $slabi = (int) $db->value('SELECT COUNT(*) FROM {uzivatele} WHERE blokovat = 1');
         $pridej(t('Bezpečnost'), t('Zablokované účty'), $slabi === 0 ? 'ok' : 'varovani', $slabi === 0 ? t('žádné') : t('%d - zablokoval je správce; odblokujete je v Uživatelích', $slabi));
 
         $jadro = Integrita::kontrola();

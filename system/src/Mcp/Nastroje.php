@@ -109,7 +109,7 @@ final class Nastroje
                     'web' => $web->get('nazev_webu'), 'adresa' => $this->app->request->origin() . $this->app->url(''), 'popis' => $web->get('popis_webu'),
                     'sablona' => $web->get('layout'), 'uvodni_stranka' => $web->int('titulni_stranka') ?: null, 'verze_mirocms' => MIROCMS_VERSION,
                     'stranek' => (int) $db->value('SELECT COUNT(*) FROM {stranky}'),
-                    'novinek_vydanych' => (int) $db->value('SELECT COUNT(*) FROM {clanky} WHERE visible = 1 AND datum <= NOW() AND smazano IS NULL'),
+                    'novinek_vydanych' => (int) $db->value('SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND smazano IS NULL'),
                     'uzivatel' => $auth->user()['user'], 'role' => \MiroCMS\Core\Auth::TYPY[(int) $auth->user()['admin']], 'smi_vydavat' => $auth->smiVydavat(),
                     'smi_upravovat_stranky' => $auth->maModul('stranky'),
                 ];
@@ -235,7 +235,7 @@ final class Nastroje
 
                 return $db->all(
                     'SELECT c.idc AS id, c.titulek, c.seo_link, t.nazev AS kategorie, c.datum, c.visible AS vydana
-                     FROM {clanky} c JOIN {topic} t ON t.idt = c.tema WHERE ' . implode(' AND ', $where) . ' ORDER BY c.datum DESC LIMIT ?',
+                     FROM {novinky} c JOIN {kategorie} t ON t.idt = c.tema WHERE ' . implode(' AND ', $where) . ' ORDER BY c.datum DESC LIMIT ?',
                     [...$p, max(1, min(50, (int) ($a['limit'] ?? 20)))],
                 );
 
@@ -243,8 +243,8 @@ final class Nastroje
                 $c = $this->novinka((int) ($a['id'] ?? 0));
 
                 return array_intersect_key($c, array_flip(['idc', 'titulek', 'seo_link', 'uvod', 'text', 'obrazek', 'obrazek_popis', 'datum', 'visible', 'faq', 'seo_titulek', 'seo_popis']))
-                    + ['kategorie' => $db->value('SELECT nazev FROM {topic} WHERE idt = ?', [$c['tema']]),
-                        'stitky' => array_column($db->all('SELECT s.nazev FROM {stitky} s JOIN {clanky_stitky} cs ON cs.ids = s.ids WHERE cs.idc = ?', [$c['idc']]), 'nazev'),
+                    + ['kategorie' => $db->value('SELECT nazev FROM {kategorie} WHERE idt = ?', [$c['tema']]),
+                        'stitky' => array_column($db->all('SELECT s.nazev FROM {stitky} s JOIN {novinky_stitky} cs ON cs.ids = s.ids WHERE cs.idc = ?', [$c['idc']]), 'nazev'),
                         'adresa' => $this->app->request->origin() . $this->app->url('novinky/' . $c['seo_link'])];
 
             case 'vytvor_novinku':
@@ -262,13 +262,13 @@ final class Nastroje
                 if ($jmeno === '') {
                     throw new \InvalidArgumentException('Chybí název kategorie.');
                 }
-                $seo = $this->volnaAdresa('topic', 'idt', slugify($jmeno, 110));
+                $seo = $this->volnaAdresa('kategorie', 'idt', slugify($jmeno, 110));
 
-                return ['id' => $db->insert('topic', ['nazev' => $jmeno, 'seo_link' => $seo, 'popis' => (string) ($a['popis'] ?? '')]), 'adresa' => $seo];
+                return ['id' => $db->insert('kategorie', ['nazev' => $jmeno, 'seo_link' => $seo, 'popis' => (string) ($a['popis'] ?? '')]), 'adresa' => $seo];
 
             case 'seznam_medii':
                 return array_map(fn (array $o): array => ['id' => (int) $o['ido'], 'nazev' => $o['nazev'], 'adresa' => $this->app->url($o['obr_poloha']), 'rozmery' => $o['obr_width'] . '×' . $o['obr_height']],
-                    $db->all('SELECT * FROM {imggal_obr} ORDER BY ido DESC LIMIT ?', [max(1, min(50, (int) ($a['limit'] ?? 20)))]));
+                    $db->all('SELECT * FROM {media} ORDER BY ido DESC LIMIT ?', [max(1, min(50, (int) ($a['limit'] ?? 20)))]));
 
             case 'seznam_sablon':
                 $jenAdmin();
@@ -363,7 +363,7 @@ final class Nastroje
         if (array_key_exists('kategorie', $a)) {
             $data['tema'] = $this->kategorie((string) $a['kategorie']);
             // novinka přebírá jazykovou verzi kategorie – stejně jako při uložení v administraci
-            $data['jazyk'] = (string) $db->value('SELECT jazyk FROM {topic} WHERE idt = ?', [$data['tema']]);
+            $data['jazyk'] = (string) $db->value('SELECT jazyk FROM {kategorie} WHERE idt = ?', [$data['tema']]);
         }
         if (!empty($a['datum'])) {
             $ts = strtotime((string) $a['datum']);
@@ -388,23 +388,23 @@ final class Nastroje
                 throw new \InvalidArgumentException('Chybí kategorie.');
             }
             $data += ['uvod' => '', 'text' => '', 'autor' => $auth->id(), 'datum' => date('Y-m-d H:i:s'), 'visible' => 0,
-                'seo_link' => $this->volnaAdresa('clanky', 'idc', slugify($data['titulek'], 150))];
-            $id = $db->insert('clanky', $data);
+                'seo_link' => $this->volnaAdresa('novinky', 'idc', slugify($data['titulek'], 150))];
+            $id = $db->insert('novinky', $data);
         } else {
             $id = (int) $puvodni['idc'];
-            $db->insert('clanky_revize', ['idc' => $id, 'datum' => $puvodni['zmeneno'] ?? $puvodni['datum'], 'kdo' => $auth->id(), 'titulek' => $puvodni['titulek'], 'uvod' => $puvodni['uvod'], 'text' => $puvodni['text']]);
-            $db->update('clanky', $data, ['idc' => $id]);
+            $db->insert('novinky_revize', ['idc' => $id, 'datum' => $puvodni['zmeneno'] ?? $puvodni['datum'], 'kdo' => $auth->id(), 'titulek' => $puvodni['titulek'], 'uvod' => $puvodni['uvod'], 'text' => $puvodni['text']]);
+            $db->update('novinky', $data, ['idc' => $id]);
         }
         \MiroCMS\Core\Hledani::indexuj($db, $id);
         if (array_key_exists('stitky', $a)) {
-            $db->delete('clanky_stitky', ['idc' => $id]);
+            $db->delete('novinky_stitky', ['idc' => $id]);
             foreach (array_slice(array_unique(array_filter(array_map(trim(...), explode(',', (string) $a['stitky'])))), 0, 20) as $stitek) {
                 $seo = slugify($stitek, 90);
                 $ids = $db->value('SELECT ids FROM {stitky} WHERE seo_link = ?', [$seo]) ?? $db->insert('stitky', ['nazev' => mb_substr($stitek, 0, 80), 'seo_link' => $seo]);
-                $db->run('INSERT IGNORE INTO {clanky_stitky} (idc, ids) VALUES (?, ?)', [$id, (int) $ids]);
+                $db->run('INSERT IGNORE INTO {novinky_stitky} (idc, ids) VALUES (?, ?)', [$id, (int) $ids]);
             }
         }
-        $ulozena = $db->one('SELECT * FROM {clanky} WHERE idc = ?', [$id]);
+        $ulozena = $db->one('SELECT * FROM {novinky} WHERE idc = ?', [$id]);
         Galerie::zapisPouziti($db, $id, $ulozena['obrazek'], $ulozena['uvod'], $ulozena['text']);
 
         return ['id' => $id, 'stav' => !$ulozena['visible'] ? 'koncept' : (strtotime($ulozena['datum']) > time() ? 'naplánováno' : 'vydáno'),
@@ -533,7 +533,7 @@ final class Nastroje
     /** @return array<string, mixed> novinka, ke které má uživatel přístup */
     private function novinka(int $id): array
     {
-        $novinka = $this->app->db()->one('SELECT * FROM {clanky} WHERE idc = ? AND smazano IS NULL', [$id]);
+        $novinka = $this->app->db()->one('SELECT * FROM {novinky} WHERE idc = ? AND smazano IS NULL', [$id]);
         $autori = $this->app->auth()->spravovaniAutori();
         if ($novinka === null || ($autori !== null && !in_array((int) $novinka['autor'], $autori, true))) {
             throw new \InvalidArgumentException('Novinka neexistuje nebo k ní uživatel nemá přístup.');
@@ -544,7 +544,7 @@ final class Nastroje
 
     private function kategorie(string $nazevNeboAdresa): int
     {
-        $idt = $this->app->db()->value('SELECT idt FROM {topic} WHERE seo_link = ? OR nazev = ? LIMIT 1', [$nazevNeboAdresa, $nazevNeboAdresa]);
+        $idt = $this->app->db()->value('SELECT idt FROM {kategorie} WHERE seo_link = ? OR nazev = ? LIMIT 1', [$nazevNeboAdresa, $nazevNeboAdresa]);
         if ($idt === null) {
             throw new \InvalidArgumentException('Kategorie „' . $nazevNeboAdresa . '“ neexistuje. Použij nástroj seznam_kategorii.');
         }

@@ -47,7 +47,7 @@ final class Novinky extends Prvek
     {
         $o = $p['obsah'];
         $ctecka = new Clanky($k->app->db(), $k->app->settings(), $k->app->request->basePath());
-        $idt = $o['kategorie'] === '' ? null : $k->app->db()->value('SELECT idt FROM {topic} WHERE seo_link = ?', [$o['kategorie']]);
+        $idt = $o['kategorie'] === '' ? null : $k->app->db()->value('SELECT idt FROM {kategorie} WHERE seo_link = ?', [$o['kategorie']]);
         [$novinky] = $idt === null ? $ctecka->vypis(1, (int) $o['pocet']) : $ctecka->zKategorie((int) $idt, 1, (int) $o['pocet']);
         $html = '';
         foreach ($novinky as $n) {

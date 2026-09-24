@@ -36,14 +36,14 @@ final class Oznameni
     public static function zpracuj(App $app): void
     {
         $db = $app->db();
-        $clanky = $db->all('SELECT idc, seo_link, jazyk, noindex FROM {clanky} WHERE visible = 1 AND datum <= NOW() AND oznameno IS NULL ORDER BY datum LIMIT 5');
+        $clanky = $db->all('SELECT idc, seo_link, jazyk, noindex FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND oznameno IS NULL ORDER BY datum LIMIT 5');
         foreach ($clanky as $c) {
             // nejdřív označit: kdyby oznámení spadlo, nesmí se opakovat donekonečna
-            if ($db->run('UPDATE {clanky} SET oznameno = NOW() WHERE idc = ? AND oznameno IS NULL', [$c['idc']])->rowCount() === 0) {
+            if ($db->run('UPDATE {novinky} SET oznameno = NOW() WHERE idc = ? AND oznameno IS NULL', [$c['idc']])->rowCount() === 0) {
                 continue;
             }
             \MiroCMS\Front\Cache::vymaz(); // naplánovaná novinka právě vyšla - výpis z cache ji ještě nezná
-            if ($c['noindex'] || (int) $db->value('SELECT datum < NOW() - INTERVAL 2 DAY FROM {clanky} WHERE idc = ?', [$c['idc']]) === 1) {
+            if ($c['noindex'] || (int) $db->value('SELECT datum < NOW() - INTERVAL 2 DAY FROM {novinky} WHERE idc = ?', [$c['idc']]) === 1) {
                 continue;
             }
             Webhook::clanekVydan($app, (int) $c['idc']);

@@ -16,15 +16,14 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../mirocms-interni/NAVRH.md`. Č
   Popover API, `<dialog>`, `<details>`, View Transitions. Interaktivita přednostně bez JavaScriptu. Žádné polyfilly, CDN ani cizí písma.
 - **Co se nevypisuje, nemá styl ani skript.** Do `image/web.css` ani `style.css` šablony nepatří selektor, který nikde nevzniká; skript nesmí
   hledat `[data-…]` prvek, který nikde nevzniká (hlídá `tools/testy.php`).
-- **Interní názvy tabulek zůstaly česky z původního jádra:** `rs_clanky` = novinky (sloupec `tema` = kategorie), `rs_topic` = kategorie,
-  `rs_user` = uživatelé, `rs_imggal_*` = média. V UI a nových identifikátorech vždy Novinky / Kategorie. Přejmenování tabulek je otevřená
-  otázka v `NAVRH.md` – nedělej ho mimochodem.
+- **Tabulky** mají významové názvy (`mc_novinky`, `mc_kategorie`, `mc_uzivatele`, `mc_media`, `mc_nastaveni`…); v kódu vždy přes `{novinky}`.
+  Starší názvy sloupců zůstaly: `idc` = novinka, `tema`/`idt` = kategorie, `ido` = médium, `idu` = uživatel.
 - Identifikátory v kódu česky bez diakritiky; komentáře a texty česky s diakritikou.
 - **Změna databáze = dva zápisy:** úplné schéma `system/sql/schema.sql` a migrace `system/sql/migrace/NNNN-popis.sql` + zvýšit
   `MIROCMS_VERZE_DB` v `system/bootstrap.php` (hlídá `tools/test.sh`). Výchozí stav je migrace 0001.
 - **Rozšíření jsou uzavřený systém** (`Core\Rozsireni::SEZNAM`): žádné cizí plug-iny ani nahrávání kódu z administrace.
 - **Role:** správce (2), editor (1 – veškerý obsah, vydává), autor novinek (0 – jen své novinky, nevydává). `Auth::smiVydavat()`,
-  `Auth::spravovaniAutori()`, `Auth::articleScope()`; práva k sekcím navíc `rs_user_prava` (výchozí podle role, `Autori::vychoziModuly()`).
+  `Auth::spravovaniAutori()`, `Auth::articleScope()`; práva k sekcím navíc `mc_uzivatele_prava` (výchozí podle role, `Autori::vychoziModuly()`).
 - **Nastavení:** nová volba = klíč v `Settings::DEFAULTS` + typ v `Konfigurace::POLE` + řádek `$pole(...)` ve `views/admin/config/<zalozka>.php`.
 - **Nikdy `window.confirm()`** – v administraci atribut `data-potvrdit="text"`.
 - **Administrace má CSP `script-src 'self'`:** žádné inline skripty ani `on*=` atributy; chování do `image/admin.js` přes `data-` atributy.
@@ -64,13 +63,13 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../mirocms-interni/NAVRH.md`. Č
 - **Design systém** (`Stavitel\DesignSystem`, nastavení `design_system` JSON, admin Vzhled webu): pár rozhodnutí → tokeny v `@layer tokeny`.
   Fluidní škály přes `clamp()`, odstíny `color-mix(in oklch)`, kontrast WCAG počítá PHP (`kontrasty()`). Starší `brand_*` se čtou jen jako záloha.
   Živý náhled ve Vzhledu i předvolby počítá jen PHP (akce `nahled`) – výpočet tokenů nikdy neduplikuj v JS.
-- **Stavba** = `rs_stranky.stavba` (publikovaná) a `stavba_koncept` (editor, MCP): `{"v":1,"deti":[{id,typ,znacka,obsah,styl,tridy,kotva,popis,deti}]}`.
+- **Stavba** = `mc_stranky.stavba` (publikovaná) a `stavba_koncept` (editor, MCP): `{"v":1,"deti":[{id,typ,znacka,obsah,styl,tridy,kotva,popis,deti}]}`.
   Jeden prvek = jedna značka. **Jediný validátor** `Stavba::vycisti()` (editor, MCP, import – nikdy neukládej stavbu bez něj) a **jediný vykreslovač**
-  `Stavba::vykresli()`; CSS stránky jen z použitých typů, tříd (`rs_tridy`) a stylů prvků. Na webu se vadný prvek vynechá, nikdy výjimka.
+  `Stavba::vykresli()`; CSS stránky jen z použitých typů, tříd (`mc_tridy`) a stylů prvků. Na webu se vadný prvek vynechá, nikdy výjimka.
 - **Prvek** = třída v `Stavitel\Prvky\` (dědí `Prvek`, zapsaná v `Stavba::PRVKY`): pole obsahu (`vlastnosti()`), povolené značky, základní CSS
   do vrstvy `stavitel` přes `:where()`. **Styl** (`Stavitel\Styl::VLASTNOSTI`) má stavy `zaklad`/`tablet` (≤1023 px)/`mobil` (≤767 px)/`hover`; hodnoty
   jsou tokeny nebo bezpečné volné hodnoty. Vlastní CSS tříd projde `Styl::vlastniCss()` (bez `url()`, bloků, `@`).
-- **Publikování** (`Moduly\Stranky::publikuj`, i z MCP): předchozí verze do `rs_stavba_revize` (20), do `text` se uloží obsah bez rozložení
+- **Publikování** (`Moduly\Stranky::publikuj`, i z MCP): předchozí verze do `mc_stavba_revize` (20), do `text` se uloží obsah bez rozložení
   (`Stavba::jakoText`) – z něj čerpá hledání, llms.txt, API i návrat k textu. Náhled konceptu `?stavba=koncept` jen s právem Stránky, `&editor=1` přidá `data-mc-id`.
 - **Editor** `image/stavitel.js` + `stavitel.css` (samostatná stránka `akce=stavitel`): plátno je skutečná stránka v iframe (počítač vykreslený v 1280 px
   a zmenšený), průběžné ukládání konceptu (`stavba_uloz`, vrací vyčištěný strom), knihovna sekcí `Stavitel\Knihovna`, verze.
@@ -80,9 +79,9 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../mirocms-interni/NAVRH.md`. Č
 
 - **Novinky** (`Moduly\Novinky`): koncept / vydaná (i naplánovaná), koš 30 dní, revize (20 posledních) s porovnáním, rozepsaný stav na serveru,
   kontrola nefunkčních odkazů, AI asistent a překlad. Změna adresy vydané novinky, stránky nebo kategorie zapíše přesměrování (`Presmerovani::pridej`).
-- **Hledání** přes `rs_clanky.hledani` (`Core\Hledani`): kdo ukládá novinku jinudy než administrací nebo MCP, volá `Hledani::indexuj()`.
+- **Hledání** přes `mc_novinky.hledani` (`Core\Hledani`): kdo ukládá novinku jinudy než administrací nebo MCP, volá `Hledani::indexuj()`.
 - **Oznámení o vydání** (webhook, IndexNow) jen přes `Core\Oznameni::zpracuj()` a sloupec `oznameno`.
-- **Pošta** vždy přes `Core\Posta::odesli()` (fronta `rs_posta`). **Nahrávání:** obrázky `Core\Obrazky`, přílohy `Core\Soubory` (whitelist přípon).
+- **Pošta** vždy přes `Core\Posta::odesli()` (fronta `mc_posta`). **Nahrávání:** obrázky `Core\Obrazky`, přílohy `Core\Soubory` (whitelist přípon).
 - **Čas:** pásmo `casove_pasmo` (`App::casovePasmo()`); zapisuj přes `date()`, porovnávej s `NOW()`.
 - **AI asistent** (`Core\Asistent`): klíč `ai_klic` je typ `tajne`; odpověď modelu je nedůvěryhodný vstup. Překlad (`Asistent::preloz()`) bere od modelu
   jen text úseků, značky z originálu; výsledek je vždy koncept. Adresa API jen konstantou `MIROCMS_AI_URL` v `config.php`.
@@ -98,7 +97,7 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../mirocms-interni/NAVRH.md`. Č
 `Core\WpImport` (zápis) a `Core\StahovaniObrazku`; `Core\ExportWebu` dělá otevřený archiv obsahu.
 - Příspěvky → novinky, stránky → stránky (skryté v navigaci), kategorie → kategorie (strom se zplošťuje), štítky → štítky, **přesměrování všech starých adres**
   (hezké i `/?p=123`). Komentáře se nepřenášejí. Účty se nezakládají – novinky patří tomu, kdo importuje.
-- Dávky (`WpImport::DAVKA`, `SEKUND`) se stavem v `storage/import/`, idempotence přes `rs_import_mapa` (převedené se nepřepisuje).
+- Dávky (`WpImport::DAVKA`, `SEKUND`) se stavem v `storage/import/`, idempotence přes `mc_import_mapa` (převedené se nepřepisuje).
 - **Bezpečnost, která se nesmí rozvolnit** (hlídá `tools/testy.php`): XML s DOCTYPE/entitou se odmítá, `LIBXML_NONET`; obsah projde jen povolovacím seznamem
   značek; `StahovaniObrazku` jen z domény starého webu, jen veřejné IP, připnuté spojení, limity velikosti a času, SVG nikdy.
 - Export vybírá nastavení z povolovacího seznamu `ExportWebu::NASTAVENI`; účty, hesla ani klíče do něj nikdy nepatří.

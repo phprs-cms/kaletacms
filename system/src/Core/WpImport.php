@@ -16,7 +16,7 @@ use MiroCMS\Admin\Moduly\Stranky;
  *  - Soubor se čte proudem (Core\WpSoubor) a pracuje se PO DÁVKÁCH – nejvýš DAVKA příspěvků nebo SEKUND vteřin na jeden požadavek,
  *    aby import přežil časové limity sdíleného hostingu. Kde se skončilo (kolikátý <item>), drží stavový soubor
  *    storage/import/stav-<otisk>.json; další požadavek naváže.
- *  - Tabulka rs_import_mapa si pamatuje, který cizí záznam se stal kterým naším. Stejný soubor jde proto pustit znovu bez duplicit
+ *  - Tabulka mc_import_mapa si pamatuje, který cizí záznam se stal kterým naším. Stejný soubor jde proto pustit znovu bez duplicit
  *    (už převedená novinka se přeskočí a pozdější úpravy se nepřepíší) a obrázky se nestahují dvakrát.
  *  - Průchody jsou tři: náhled (jen počítá, do databáze nesahá), import obsahu a – až na výslovné přání – stažení obrázků.
  *  - Účty se nezakládají: novinka patří tomu, kdo importuje.
@@ -219,7 +219,7 @@ final class WpImport
         return (string) preg_replace('#-\d{2,5}x\d{2,5}(?=\.(?:jpe?g|png|gif|webp)$)#i', '', $adresa);
     }
 
-    /** Označení zdroje v rs_import_mapa: dva různé staré weby mají stejná čísla příspěvků, proto je v něm doména. */
+    /** Označení zdroje v mc_import_mapa: dva různé staré weby mají stejná čísla příspěvků, proto je v něm doména. */
     public static function zdroj(string $adresaWebu): string
     {
         $domena = StahovaniObrazku::domenaZAdresy($adresaWebu);
@@ -267,7 +267,7 @@ final class WpImport
         if ($stavClanku === null || (!$stavClanku['visible'] && !$stav['volby']['koncepty'])) {
             return;
         }
-        $idc = $this->prevedeny('clanek', (string) $p['id'], 'clanky', 'idc');
+        $idc = $this->prevedeny('clanek', (string) $p['id'], 'novinky', 'idc');
         if ($idc !== null) {
             $stav['vysledek']['preskoceno']++; // už převedená novinka zůstává, jak je – mezitím ji mohl někdo upravit
         } else {
@@ -275,7 +275,7 @@ final class WpImport
         }
         // hlavní obrázek si zatím jen poznamenáme – stahuje se až ve zvláštním kroku (i u dříve převedené novinky, která ho ještě nemá)
         $nahled = (string) ($stav['prilohy'][$p['nahled']] ?? '');
-        if ($nahled !== '' && (string) $this->db->value('SELECT obrazek FROM {clanky} WHERE idc = ?', [$idc]) === '') {
+        if ($nahled !== '' && (string) $this->db->value('SELECT obrazek FROM {novinky} WHERE idc = ?', [$idc]) === '') {
             $stav['nahledy'][$idc] = $nahled;
         }
     }
@@ -289,15 +289,15 @@ final class WpImport
     {
         [$uvod, $text] = WpObsah::perexAText($p['perex'], $p['obsah'], $stav['prilohy']);
         $tema = $p['rubriky'] === [] ? $this->vychoziRubrika($stav) : $this->rubrika((string) array_key_first($p['rubriky']), (string) reset($p['rubriky']), $stav);
-        $jazyk = (string) $this->db->value('SELECT jazyk FROM {topic} WHERE idt = ?', [$tema]); // novinka přebírá jazyk kategorie, jako při uložení v administraci
+        $jazyk = (string) $this->db->value('SELECT jazyk FROM {kategorie} WHERE idt = ?', [$tema]); // novinka přebírá jazyk kategorie, jako při uložení v administraci
         $titulek = mb_substr($p['titulek'] !== '' ? $p['titulek'] : t('(bez názvu)'), 0, 255);
         $ted = date('Y-m-d H:i:s');
 
         $seo = self::volnaAdresa(
             slugify(rawurldecode($p['adresa']) !== '' ? rawurldecode($p['adresa']) : $titulek, 150),
-            fn (string $adresa): bool => $this->db->value('SELECT idc FROM {clanky} WHERE seo_link = ?', [$adresa]) !== null,
+            fn (string $adresa): bool => $this->db->value('SELECT idc FROM {novinky} WHERE seo_link = ?', [$adresa]) !== null,
         );
-        $idc = $this->db->insert('clanky', [
+        $idc = $this->db->insert('novinky', [
             'seo_link' => $seo, 'titulek' => $titulek, 'uvod' => $uvod, 'text' => $text, 'tema' => $tema, 'jazyk' => $jazyk,
             'autor' => $this->autor,
             'datum' => self::datum($p),
@@ -367,18 +367,18 @@ final class WpImport
         if (isset($this->rubriky[$adresa])) {
             return $this->rubriky[$adresa];
         }
-        $idt = $this->prevedeny('rubrika', $adresa, 'topic', 'idt');
+        $idt = $this->prevedeny('rubrika', $adresa, 'kategorie', 'idt');
         if ($idt === null) {
             $popis = $this->hlavicka['rubriky'][$adresa] ?? ['nazev' => $nazev, 'predek' => ''];
             $nazev = mb_substr($popis['nazev'] !== '' ? $popis['nazev'] : ($nazev !== '' ? $nazev : $adresa), 0, 100);
             $jazyk = Jazyk::sloupec($this->nastaveni, (string) $stav['volby']['jazyk']);
             $seo = slugify(rawurldecode($adresa), 110);
             // stejná adresa, název i jazyk = tatáž kategorie, která na webu už je; jinak nová s volnou adresou
-            $idt = $this->db->value('SELECT idt FROM {topic} WHERE seo_link = ? AND jazyk = ? AND LOWER(nazev) = LOWER(?)', [$seo, $jazyk, $nazev]);
+            $idt = $this->db->value('SELECT idt FROM {kategorie} WHERE seo_link = ? AND jazyk = ? AND LOWER(nazev) = LOWER(?)', [$seo, $jazyk, $nazev]);
             if ($idt === null) {
-                $idt = $this->db->insert('topic', [
+                $idt = $this->db->insert('kategorie', [
                     'nazev' => $nazev, 'popis' => '', 'jazyk' => $jazyk,
-                    'seo_link' => self::volnaAdresa($seo, fn (string $a): bool => $this->db->value('SELECT idt FROM {topic} WHERE seo_link = ?', [$a]) !== null),
+                    'seo_link' => self::volnaAdresa($seo, fn (string $a): bool => $this->db->value('SELECT idt FROM {kategorie} WHERE seo_link = ?', [$a]) !== null),
                 ]);
                 $stav['vysledek']['rubriky']++;
             }
@@ -396,7 +396,7 @@ final class WpImport
     private function vychoziRubrika(array &$stav): int
     {
         $idt = (int) $stav['volby']['rubrika'];
-        if ($idt > 0 && $this->db->value('SELECT idt FROM {topic} WHERE idt = ?', [$idt]) !== null) {
+        if ($idt > 0 && $this->db->value('SELECT idt FROM {kategorie} WHERE idt = ?', [$idt]) !== null) {
             return $idt;
         }
 
@@ -413,7 +413,7 @@ final class WpImport
         $seo = slugify($nazev, 90);
         $ids = $this->db->value('SELECT ids FROM {stitky} WHERE seo_link = ?', [$seo]);
         $ids = $ids !== null ? (int) $ids : $this->db->insert('stitky', ['nazev' => $nazev, 'seo_link' => $seo]);
-        $this->db->run('INSERT IGNORE INTO {clanky_stitky} (idc, ids) VALUES (?, ?)', [$idc, $ids]);
+        $this->db->run('INSERT IGNORE INTO {novinky_stitky} (idc, ids) VALUES (?, ?)', [$idc, $ids]);
         $this->zapisMapu('stitek', $adresaWp, $ids);
     }
 
@@ -491,7 +491,7 @@ final class WpImport
     private function obrazkyZaznamu(string $typ, int $id, array &$stav, StahovaniObrazku $stahovani): bool
     {
         $zaznam = $typ === 'clanek'
-            ? $this->db->one('SELECT idc, titulek, uvod, text, obrazek FROM {clanky} WHERE idc = ?', [$id])
+            ? $this->db->one('SELECT idc, titulek, uvod, text, obrazek FROM {novinky} WHERE idc = ?', [$id])
             : $this->db->one("SELECT ids, titulek, '' AS uvod, text, '' AS obrazek FROM {stranky} WHERE ids = ?", [$id]);
         if ($zaznam === null) {
             return true; // záznam mezitím někdo smazal
@@ -527,7 +527,7 @@ final class WpImport
             }
         }
         if ($typ === 'clanek' && $nove !== ['uvod' => $zaznam['uvod'], 'text' => $zaznam['text'], 'obrazek' => $zaznam['obrazek']]) {
-            $this->db->update('clanky', $nove, ['idc' => $id]);
+            $this->db->update('novinky', $nove, ['idc' => $id]);
             Galerie::zapisPouziti($this->db, $id, $nove['obrazek'], $nove['uvod'], $nove['text']);
         } elseif ($typ === 'stranka' && $nove['text'] !== $zaznam['text']) {
             $this->db->update('stranky', ['text' => $nove['text']], ['ids' => $id]);
@@ -540,14 +540,14 @@ final class WpImport
      * Jeden obrázek: z mapy (už stažený), nebo ze starého webu přes Core\Obrazky do Médií.
      *
      * @param array<string, mixed> $stav
-     * @return array<string, mixed>|null|false řádek rs_imggal_obr; null = nejde stáhnout; false = dávka je vyčerpaná
+     * @return array<string, mixed>|null|false řádek mc_media; null = nejde stáhnout; false = dávka je vyčerpaná
      */
     private function obrazek(string $adresa, string $nazev, array &$stav, StahovaniObrazku $stahovani): array|null|false
     {
         $original = self::bezRozmeru($adresa);
         $klic = sha1($original);
         $ido = $this->db->value("SELECT nase_id FROM {import_mapa} WHERE zdroj = ? AND typ = 'obrazek' AND cizi_id = ?", [$this->zdroj, $klic]);
-        $radek = $ido === null ? null : $this->db->one('SELECT * FROM {imggal_obr} WHERE ido = ?', [(int) $ido]);
+        $radek = $ido === null ? null : $this->db->one('SELECT * FROM {media} WHERE ido = ?', [(int) $ido]);
         if ($radek !== null || ($ido !== null && (int) $ido === 0)) {
             return $radek; // hotovo dřív, nebo už jednou selhalo (null)
         }
@@ -568,7 +568,7 @@ final class WpImport
             file_put_contents($docasny, $data);
             $ulozeny = Obrazky::ulozSoubor($docasny, basename((string) parse_url($original, PHP_URL_PATH)));
             $ulozeny['nazev'] = mb_substr($nazev !== '' ? $nazev : $ulozeny['nazev'], 0, 150);
-            $ulozeny['ido'] = $this->db->insert('imggal_obr', $ulozeny + ['vlastnik' => $this->autor, 'datum' => date('Y-m-d H:i:s')]);
+            $ulozeny['ido'] = $this->db->insert('media', $ulozeny + ['vlastnik' => $this->autor, 'datum' => date('Y-m-d H:i:s')]);
             $this->zapisMapu('obrazek', $klic, (int) $ulozeny['ido']);
             $stav['obr']['stazeno']++;
 

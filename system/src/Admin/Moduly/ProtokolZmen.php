@@ -22,7 +22,7 @@ final class ProtokolZmen extends Modul
 
         return $this->view('vypis', 'Protokol změn', [
             'zaznamy' => $this->db->all('SELECT * FROM {protokol}' . ($kdo > 0 ? ' WHERE kdo = ?' : '') . ' ORDER BY idp DESC LIMIT 300', $kdo > 0 ? [$kdo] : []),
-            'uzivatele' => $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {user} ORDER BY 2"),
+            'uzivatele' => $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} ORDER BY 2"),
             'kdo' => $kdo,
         ]);
     }

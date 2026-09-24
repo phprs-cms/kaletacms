@@ -29,7 +29,7 @@ final class Galerie extends Modul
     {
         $strana = max(1, $this->request->getInt('strana', 1));
         [$where, $params, $filtr] = $this->filtr();
-        $celkem = (int) $this->db->value("SELECT COUNT(*) FROM {imggal_obr} o WHERE {$where}", $params);
+        $celkem = (int) $this->db->value("SELECT COUNT(*) FROM {media} o WHERE {$where}", $params);
 
         return $this->view('vypis', 'Média', [
             'obrazky' => $this->nacti($where, $params, $strana, self::NA_STRANKU),
@@ -39,7 +39,7 @@ final class Galerie extends Modul
             'limit' => ini_get('upload_max_filesize'),
             'filtr' => $filtr,
             'slozky' => $this->slozky(),
-            'clanek' => $filtr['clanek'] > 0 ? $this->db->value('SELECT titulek FROM {clanky} WHERE idc = ?', [$filtr['clanek']]) : null,
+            'clanek' => $filtr['clanek'] > 0 ? $this->db->value('SELECT titulek FROM {novinky} WHERE idc = ?', [$filtr['clanek']]) : null,
         ]);
     }
 
@@ -63,9 +63,9 @@ final class Galerie extends Modul
         }
         $ids = $this->request->postInt('ids');
         if ($ids > 0) {
-            $this->db->update('imggal_sekce', ['nazev' => $nazev], ['ids' => $ids]);
+            $this->db->update('media_slozky', ['nazev' => $nazev], ['ids' => $ids]);
         } else {
-            $ids = $this->db->insert('imggal_sekce', ['nazev' => $nazev]);
+            $ids = $this->db->insert('media_slozky', ['nazev' => $nazev]);
         }
 
         return $this->zpet('Složka byla uložena.', '', ['sekce' => $ids]);
@@ -75,7 +75,7 @@ final class Galerie extends Modul
     protected function akceSlozkaSmaz(): Response
     {
         if ($this->request->isPost() && $this->app->auth()->isAdmin()) {
-            $this->db->delete('imggal_sekce', ['ids' => $this->request->postInt('ids')]);
+            $this->db->delete('media_slozky', ['ids' => $this->request->postInt('ids')]);
         }
 
         return $this->zpet('Složka byla smazána, její obrázky jsou mezi nezařazenými.');
@@ -92,14 +92,14 @@ final class Galerie extends Modul
         $ids = array_map(intval(...), $m[1]);
         preg_match_all('#media/\d{4}/\d{2}/[a-z0-9-]+\.(?:jpg|png|webp|gif)#', $vse, $cesty);
         foreach (array_unique($cesty[0]) as $cesta) {
-            $ido = $db->value('SELECT ido FROM {imggal_obr} WHERE obr_poloha = ? OR nahl_poloha = ?', [$cesta, $cesta]);
+            $ido = $db->value('SELECT ido FROM {media} WHERE obr_poloha = ? OR nahl_poloha = ?', [$cesta, $cesta]);
             if ($ido !== null) {
                 $ids[] = (int) $ido;
             }
         }
-        $db->delete('imggal_pouziti', ['idc' => $idc]);
+        $db->delete('media_pouziti', ['idc' => $idc]);
         foreach (array_unique($ids) as $ido) {
-            $db->run('INSERT IGNORE INTO {imggal_pouziti} (ido, idc) SELECT ido, ? FROM {imggal_obr} WHERE ido = ?', [$idc, $ido]);
+            $db->run('INSERT IGNORE INTO {media_pouziti} (ido, idc) SELECT ido, ? FROM {media} WHERE ido = ?', [$idc, $ido]);
         }
     }
 
@@ -107,14 +107,14 @@ final class Galerie extends Modul
     protected function akceNahraj(): Response
     {
         $json = $this->request->get('format') === 'json';
-        $sekce = $this->db->value('SELECT ids FROM {imggal_sekce} WHERE ids = ?', [$this->request->postInt('sekce')]);
+        $sekce = $this->db->value('SELECT ids FROM {media_slozky} WHERE ids = ?', [$this->request->postInt('sekce')]);
         $sekce = $sekce === null ? null : (int) $sekce;
         $nahrane = [];
         $chyby = [];
         foreach ($this->soubory() as $file) {
             try {
                 $data = \MiroCMS\Core\Soubory::jePriloha((string) ($file['name'] ?? '')) ? \MiroCMS\Core\Soubory::uloz($file) : Obrazky::uloz($file);
-                $data['ido'] = $this->db->insert('imggal_obr', $data + ['vlastnik' => $this->app->auth()->id(), 'sekce' => $sekce, 'datum' => date('Y-m-d H:i:s')]);
+                $data['ido'] = $this->db->insert('media', $data + ['vlastnik' => $this->app->auth()->id(), 'sekce' => $sekce, 'datum' => date('Y-m-d H:i:s')]);
                 $nahrane[] = $this->proJson($data + ['popis' => '']);
             } catch (\RuntimeException $e) {
                 $chyby[] = ($file['name'] ?? t('soubor')) . ': ' . t($e->getMessage());
@@ -136,7 +136,7 @@ final class Galerie extends Modul
     protected function akceUloz(): Response
     {
         if ($this->request->isPost() && $this->smiMenit($this->request->postInt('ido'))) {
-            $this->db->update('imggal_obr', [
+            $this->db->update('media', [
                 'nazev' => mb_substr($this->request->post('nazev'), 0, 150),
                 'popis' => mb_substr($this->request->post('popis'), 0, 500),
                 'autor' => mb_substr(trim($this->request->post('autor')), 0, 120),
@@ -156,16 +156,16 @@ final class Galerie extends Modul
         $cil = $this->request->postInt('do_sekce') ?: null;
         $pocet = 0;
         foreach ($this->request->postList('oznacene') as $id) {
-            $obr = $this->db->one('SELECT * FROM {imggal_obr} WHERE ido = ?', [(int) $id]);
+            $obr = $this->db->one('SELECT * FROM {media} WHERE ido = ?', [(int) $id]);
             if ($obr === null || !$this->smiMenit((int) $obr['ido'])) {
                 continue;
             }
             if ($presun) {
-                $pocet += $this->db->update('imggal_obr', ['sekce' => $cil], ['ido' => $obr['ido']]) >= 0 ? 1 : 0;
+                $pocet += $this->db->update('media', ['sekce' => $cil], ['ido' => $obr['ido']]) >= 0 ? 1 : 0;
             } else {
                 Obrazky::smaz($obr['obr_poloha'], $obr['nahl_poloha']);
                 \MiroCMS\Core\Soubory::smaz($obr['obr_poloha']);
-                $pocet += $this->db->delete('imggal_obr', ['ido' => $obr['ido']]);
+                $pocet += $this->db->delete('media', ['ido' => $obr['ido']]);
             }
         }
 
@@ -174,7 +174,7 @@ final class Galerie extends Modul
 
     private function smiMenit(int $ido): bool
     {
-        $vlastnik = $this->db->value('SELECT vlastnik FROM {imggal_obr} WHERE ido = ?', [$ido]);
+        $vlastnik = $this->db->value('SELECT vlastnik FROM {media} WHERE ido = ?', [$ido]);
 
         return $this->app->auth()->isAdmin() || (int) $vlastnik === $this->app->auth()->id();
     }
@@ -197,7 +197,7 @@ final class Galerie extends Modul
         }
         $clanek = $this->request->getInt('clanek');
         if ($clanek > 0) {
-            $where[] = 'EXISTS (SELECT 1 FROM {imggal_pouziti} p WHERE p.ido = o.ido AND p.idc = ?)';
+            $where[] = 'EXISTS (SELECT 1 FROM {media_pouziti} p WHERE p.ido = o.ido AND p.idc = ?)';
             $params[] = $clanek;
         }
         $hledat = mb_substr(trim($this->request->get('hledat')), 0, 100);
@@ -208,7 +208,7 @@ final class Galerie extends Modul
         }
         $nepouzite = $this->request->get('nepouzite') === '1';
         if ($nepouzite) {
-            $where[] = 'NOT EXISTS (SELECT 1 FROM {imggal_pouziti} p WHERE p.ido = o.ido)';
+            $where[] = 'NOT EXISTS (SELECT 1 FROM {media_pouziti} p WHERE p.ido = o.ido)';
         }
 
         return [implode(' AND ', $where), $params, ['sekce' => $sekce, 'clanek' => $clanek, 'nepouzite' => $nepouzite]];
@@ -217,15 +217,15 @@ final class Galerie extends Modul
     /** @return list<array<string, mixed>> složky s počtem obrázků */
     private function slozky(): array
     {
-        return $this->db->all('SELECT s.*, (SELECT COUNT(*) FROM {imggal_obr} o WHERE o.sekce = s.ids) AS pocet FROM {imggal_sekce} s ORDER BY s.nazev');
+        return $this->db->all('SELECT s.*, (SELECT COUNT(*) FROM {media} o WHERE o.sekce = s.ids) AS pocet FROM {media_slozky} s ORDER BY s.nazev');
     }
 
     /** @return list<array<string, mixed>> */
     private function nacti(string $where, array $params, int $strana, int $pocet): array
     {
         return $this->db->all(
-            "SELECT o.*, (SELECT COUNT(*) FROM {imggal_pouziti} p WHERE p.ido = o.ido) AS pouzito
-             FROM {imggal_obr} o WHERE {$where} ORDER BY o.ido DESC LIMIT ? OFFSET ?",
+            "SELECT o.*, (SELECT COUNT(*) FROM {media_pouziti} p WHERE p.ido = o.ido) AS pouzito
+             FROM {media} o WHERE {$where} ORDER BY o.ido DESC LIMIT ? OFFSET ?",
             [...$params, $pocet, ($strana - 1) * $pocet],
         );
     }

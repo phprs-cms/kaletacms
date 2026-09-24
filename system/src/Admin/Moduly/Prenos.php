@@ -119,7 +119,7 @@ final class Prenos extends Modul
         return $this->view('nahled', 'Import z WordPressu', [
             'stav' => $stav,
             'jazyky' => array_merge([Jazyk::vychozi($nastaveni)], Jazyk::dalsi($nastaveni)),
-            'rubriky' => $this->db->all('SELECT idt, nazev, jazyk FROM {topic} ORDER BY jazyk, nazev'),
+            'rubriky' => $this->db->all('SELECT idt, nazev, jazyk FROM {kategorie} ORDER BY jazyk, nazev'),
             'presmerovaniZapnuto' => \MiroCMS\Core\Rozsireni::je($nastaveni, 'presmerovani'),
         ]);
     }

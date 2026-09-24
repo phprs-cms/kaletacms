@@ -22,9 +22,9 @@ final class Autori extends Modul
 
     protected function akceVypis(): Response
     {
-        $autori = $this->db->all('SELECT u.*, (SELECT COUNT(*) FROM {clanky} c WHERE c.autor = u.idu AND c.smazano IS NULL) AS pocet_clanku FROM {user} u ORDER BY u.user');
+        $autori = $this->db->all('SELECT u.*, (SELECT COUNT(*) FROM {novinky} c WHERE c.autor = u.idu AND c.smazano IS NULL) AS pocet_clanku FROM {uzivatele} u ORDER BY u.user');
         $moduly = [];
-        foreach ($this->db->all('SELECT fk_id_user, ident_modulu FROM {user_prava}') as $r) {
+        foreach ($this->db->all('SELECT fk_id_user, ident_modulu FROM {uzivatele_prava}') as $r) {
             $moduly[(int) $r['fk_id_user']][] = (string) $r['ident_modulu'];
         }
         foreach ($autori as &$a) {
@@ -42,7 +42,7 @@ final class Autori extends Modul
 
     protected function akceEdit(): Response
     {
-        $autor = $this->db->one('SELECT * FROM {user} WHERE idu = ?', [$this->request->getInt('id')]);
+        $autor = $this->db->one('SELECT * FROM {uzivatele} WHERE idu = ?', [$this->request->getInt('id')]);
 
         return $autor === null ? $this->chyba('Uživatel neexistuje.', 404) : $this->formular($autor);
     }
@@ -75,13 +75,13 @@ final class Autori extends Modul
             // uživatel ztratil telefon i záložní kódy: administrátor mu dvoufázové přihlášení vypne
             $data['totp_tajemstvi'] = '';
             $data['totp_zalozni'] = null;
-            $this->app->db()->run('DELETE FROM {user_klice} WHERE idu = ?', [$id]); // přihlašovací klíče stojí na dvoufázovém přihlášení
+            $this->app->db()->run('DELETE FROM {uzivatele_klice} WHERE idu = ?', [$id]); // přihlašovací klíče stojí na dvoufázovém přihlášení
         }
 
         $chyby = [];
         if (!preg_match('/^[a-zA-Z0-9._-]{2,40}$/', $data['user'])) {
             $chyby['user'] = 'Přihlašovací jméno: 2-40 znaků, jen písmena bez diakritiky, číslice, tečka, pomlčka a podtržítko.';
-        } elseif ($this->db->value('SELECT idu FROM {user} WHERE user = ? AND idu <> ?', [$data['user'], $id]) !== null) {
+        } elseif ($this->db->value('SELECT idu FROM {uzivatele} WHERE user = ? AND idu <> ?', [$data['user'], $id]) !== null) {
             $chyby['user'] = 'Toto přihlašovací jméno už používá jiný uživatel.';
         }
         if ($data['email'] !== '' && filter_var($data['email'], FILTER_VALIDATE_EMAIL) === false) {
@@ -106,13 +106,13 @@ final class Autori extends Modul
 
         $this->db->transaction(function () use (&$id, $data, $moduly): void {
             if ($id > 0) {
-                $this->db->update('user', $data, ['idu' => $id]);
+                $this->db->update('uzivatele', $data, ['idu' => $id]);
             } else {
-                $id = $this->db->insert('user', $data);
+                $id = $this->db->insert('uzivatele', $data);
             }
-            $this->db->delete('user_prava', ['fk_id_user' => $id]);
+            $this->db->delete('uzivatele_prava', ['fk_id_user' => $id]);
             foreach ($moduly as $ident) {
-                $this->db->insert('user_prava', ['fk_id_user' => $id, 'ident_modulu' => $ident]);
+                $this->db->insert('uzivatele_prava', ['fk_id_user' => $id, 'ident_modulu' => $ident]);
             }
         });
 
@@ -183,7 +183,7 @@ final class Autori extends Modul
         if ($id === $this->app->auth()->id()) {
             return $this->zpet('Nemůžete smazat sám sebe.', typ: 'chyba');
         }
-        $this->db->delete('user', ['idu' => $id]);
+        $this->db->delete('uzivatele', ['idu' => $id]);
 
         return $this->zpet('Uživatel byl smazán. Jeho novinky zůstaly zachované bez autora.');
     }
@@ -205,7 +205,7 @@ final class Autori extends Modul
         // shrnutí platí pro uložený stav - nad formulářem říká, co uživatel smí TEĎ (u nového uživatele není co shrnovat)
         $shrnuti = $id > 0 && !$this->request->isPost() ? self::shrnuti(
             (int) $autor['admin'],
-            array_column($this->db->all('SELECT ident_modulu FROM {user_prava} WHERE fk_id_user = ?', [$id]), 'ident_modulu'),
+            array_column($this->db->all('SELECT ident_modulu FROM {uzivatele_prava} WHERE fk_id_user = ?', [$id]), 'ident_modulu'),
             (bool) $autor['blokovat'],
         ) : '';
 
@@ -217,9 +217,9 @@ final class Autori extends Modul
             'moduly' => $nastavitelne,
             'maModuly' => $this->request->isPost()
                 ? $this->request->postList('moduly')
-                : array_column($this->db->all('SELECT ident_modulu FROM {user_prava} WHERE fk_id_user = ?', [$id]), 'ident_modulu'),
+                : array_column($this->db->all('SELECT ident_modulu FROM {uzivatele_prava} WHERE fk_id_user = ?', [$id]), 'ident_modulu'),
             'rucne' => $this->request->isPost() ? $this->request->postBool('rucne') : ($id > 0 && (int) $autor['admin'] !== Auth::ADMIN && (function () use ($id, $autor): bool {
-                $ma = array_column($this->db->all('SELECT ident_modulu FROM {user_prava} WHERE fk_id_user = ?', [$id]), 'ident_modulu');
+                $ma = array_column($this->db->all('SELECT ident_modulu FROM {uzivatele_prava} WHERE fk_id_user = ?', [$id]), 'ident_modulu');
                 $vychozi = self::vychoziModuly((int) $autor['admin']);
                 sort($ma);
                 sort($vychozi);

@@ -34,7 +34,7 @@ final class Statistika extends Modul
             'graf' => $graf,
             'zapnuto' => $this->app->settings()->bool('statistika'),
             'clanky' => $this->db->all(
-                'SELECT c.idc, c.titulek, c.seo_link, SUM(s.pocet) AS pocet FROM {stat_clanky} s JOIN {clanky} c ON c.idc = s.idc
+                'SELECT c.idc, c.titulek, c.seo_link, SUM(s.pocet) AS pocet FROM {stat_novinky} s JOIN {novinky} c ON c.idc = s.idc
                  WHERE s.den > CURDATE() - INTERVAL ? DAY GROUP BY c.idc, c.titulek, c.seo_link ORDER BY pocet DESC LIMIT 15',
                 [$dni],
             ),

@@ -17,7 +17,7 @@ final class Webhook
             return;
         }
         $c = $app->db()->one(
-            'SELECT c.*, t.nazev AS kategorie FROM {clanky} c JOIN {topic} t ON t.idt = c.tema WHERE c.idc = ? AND c.visible = 1 AND c.datum <= NOW() AND c.noindex = 0',
+            'SELECT c.*, t.nazev AS kategorie FROM {novinky} c JOIN {kategorie} t ON t.idt = c.tema WHERE c.idc = ? AND c.visible = 1 AND c.datum <= NOW() AND c.noindex = 0',
             [$idc],
         );
         if ($c === null) {
@@ -28,7 +28,7 @@ final class Webhook
             'udalost' => 'novinka_vydana', 'web' => $app->settings()->get('nazev_webu'), 'titulek' => $c['titulek'],
             'adresa' => $app->request->origin() . $app->urlNovinky($c['seo_link'], $c['jazyk']), 'perex' => trim(strip_tags($c['uvod'])), 'kategorie' => $c['kategorie'],
             'obrazek' => $c['obrazek'] === '' ? '' : (preg_match('#^https?://#i', $c['obrazek']) ? $c['obrazek'] : rtrim($koren, '/') . '/' . ltrim($c['obrazek'], '/')),
-            'stitky' => array_column($app->db()->all('SELECT s.nazev FROM {stitky} s JOIN {clanky_stitky} cs ON cs.ids = s.ids WHERE cs.idc = ?', [$idc]), 'nazev'),
+            'stitky' => array_column($app->db()->all('SELECT s.nazev FROM {stitky} s JOIN {novinky_stitky} cs ON cs.ids = s.ids WHERE cs.idc = ?', [$idc]), 'nazev'),
             'vydano' => date('c', strtotime($c['datum'])),
         ];
         @file_get_contents($adresa, false, stream_context_create(['http' => [

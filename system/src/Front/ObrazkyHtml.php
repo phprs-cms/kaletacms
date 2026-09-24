@@ -24,7 +24,7 @@ final class ObrazkyHtml
         }
         $cesty = array_values(array_unique(array_map(fn (array $m): string => $m[1] . '.' . strtolower($m[2]), $nalezene)));
         $zname = [];
-        foreach ($db->all('SELECT ido, obr_poloha, obr_width, obr_height, nahl_poloha, barva FROM {imggal_obr} WHERE obr_poloha IN (' . implode(',', array_fill(0, count($cesty), '?')) . ')', $cesty) as $o) {
+        foreach ($db->all('SELECT ido, obr_poloha, obr_width, obr_height, nahl_poloha, barva FROM {media} WHERE obr_poloha IN (' . implode(',', array_fill(0, count($cesty), '?')) . ')', $cesty) as $o) {
             $zname[$o['obr_poloha']] = $o;
         }
         $pocitano = 0;
@@ -32,7 +32,7 @@ final class ObrazkyHtml
             if ($o['barva'] === '' && $pocitano < self::NAJEDNOU) {
                 $pocitano++;
                 $zname[$cesta]['barva'] = Obrazky::barva(MIROCMS_ROOT . '/' . ($o['nahl_poloha'] !== '' ? $o['nahl_poloha'] : $cesta)) ?: '-';
-                $db->update('imggal_obr', ['barva' => $zname[$cesta]['barva']], ['ido' => $o['ido']]); // „-“ = nejde zjistit, znovu nezkoušet
+                $db->update('media', ['barva' => $zname[$cesta]['barva']], ['ido' => $o['ido']]); // „-“ = nejde zjistit, znovu nezkoušet
             }
         }
 

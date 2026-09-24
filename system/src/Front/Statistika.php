@@ -31,7 +31,7 @@ final class Statistika
         $novy = $db->run('INSERT IGNORE INTO {stat_navstevnici} (den, otisk) VALUES (?, ?)', [$dnes, $otisk])->rowCount() === 1;
         $db->run('INSERT INTO {stat_dny} (den, navstevy, zobrazeni) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE navstevy = navstevy + VALUES(navstevy), zobrazeni = zobrazeni + 1', [$dnes, (int) $novy]);
         if ($idc !== null) {
-            $db->run('INSERT INTO {stat_clanky} (den, idc, pocet) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE pocet = pocet + 1', [$dnes, $idc]);
+            $db->run('INSERT INTO {stat_novinky} (den, idc, pocet) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE pocet = pocet + 1', [$dnes, $idc]);
         }
         $zdroj = strtolower((string) parse_url((string) ($server['HTTP_REFERER'] ?? ''), PHP_URL_HOST));
         $zdroj = preg_replace('/^www\./', '', $zdroj) ?? '';

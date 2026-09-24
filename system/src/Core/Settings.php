@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MiroCMS\Core;
 
 /**
- * Nastavení webu z tabulky rs_config (promenna => hodnota), stejně jako v MiroCMS 2.
+ * Nastavení webu z tabulky mc_nastaveni (promenna => hodnota).
  */
 final class Settings
 {
@@ -33,7 +33,7 @@ final class Settings
         'jazyk_webu' => 'cs',         // jazyk webu: texty šablon, <html lang>, strukturovaná data (Core\Jazyk)
         'jazyky_dalsi' => '',         // další jazykové verze na /en/, /de/… (rozšíření Jazykové verze), kódy oddělené čárkou
         'layout' => 'zakladni',       // = Front\Layouty::VYCHOZI
-        'titulni_stranka' => '0',     // stránka (rs_stranky.ids) jako úvod webu; 0 = výpis novinek
+        'titulni_stranka' => '0',     // stránka (mc_stranky.ids) jako úvod webu; 0 = výpis novinek
         'pocet_clanku' => '9',        // novinek na jednu stránku výpisu
         'udrzba' => '0',              // režim údržby: návštěvníci vidí oznámení, přihlášení správci web
         'udrzba_text' => 'Na webu právě pracujeme. Zkuste to prosím za chvíli.',
@@ -120,7 +120,7 @@ final class Settings
 
     public function get(string $key): string
     {
-        $this->values ??= $this->db->pairs('SELECT promenna, hodnota FROM {config}');
+        $this->values ??= $this->db->pairs('SELECT promenna, hodnota FROM {nastaveni}');
         // název a popis webu může mít jazyková verze (/en/, /de/…) vlastní; prázdné = jako ve výchozím jazyce
         if (in_array($key, self::PODLE_JAZYKA, true) && ($jazyk = Jazyk::sloupecWebu()) !== '' && ($this->values[$key . '_' . $jazyk] ?? '') !== '') {
             return $this->values[$key . '_' . $jazyk];
@@ -132,7 +132,7 @@ final class Settings
     /** Hodnota pro danou jazykovou verzi ('' = výchozí jazyk) bez ohledu na to, ve které verzi běží požadavek. */
     public function proJazyk(string $key, string $jazyk): string
     {
-        $this->values ??= $this->db->pairs('SELECT promenna, hodnota FROM {config}');
+        $this->values ??= $this->db->pairs('SELECT promenna, hodnota FROM {nastaveni}');
         $vlastni = $jazyk === '' ? '' : ($this->values[$key . '_' . $jazyk] ?? '');
 
         return $vlastni !== '' ? $vlastni : ($this->values[$key] ?? self::DEFAULTS[$key] ?? '');
@@ -151,7 +151,7 @@ final class Settings
     public function set(string $key, string $value): void
     {
         $this->db->run(
-            'INSERT INTO {config} (promenna, hodnota) VALUES (?, ?) ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)',
+            'INSERT INTO {nastaveni} (promenna, hodnota) VALUES (?, ?) ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)',
             [$key, $value],
         );
         if ($this->values !== null) {

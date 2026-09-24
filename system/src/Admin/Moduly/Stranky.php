@@ -259,7 +259,7 @@ final class Stranky extends Modul
     protected function akceStavbaRevize(): Response
     {
         return Response::json(['revize' => $this->db->all(
-            "SELECT r.idr, r.datum, IF(u.jmeno = '' OR u.jmeno IS NULL, u.user, u.jmeno) AS kdo FROM {stavba_revize} r LEFT JOIN {user} u ON u.idu = r.kdo WHERE r.ids = ? ORDER BY r.idr DESC",
+            "SELECT r.idr, r.datum, IF(u.jmeno = '' OR u.jmeno IS NULL, u.user, u.jmeno) AS kdo FROM {stavba_revize} r LEFT JOIN {uzivatele} u ON u.idu = r.kdo WHERE r.ids = ? ORDER BY r.idr DESC",
             [$this->request->getInt('id')],
         )]);
     }

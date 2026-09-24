@@ -189,7 +189,7 @@ final class Installer
         $db->pdo()->exec("SET time_zone = '" . date('P') . "'");
         $d['casove_pasmo'] = $pasmo;
         $db->transaction(function (Db $db) use ($d, $heslo): void {
-            $admin = $db->insert('user', [
+            $admin = $db->insert('uzivatele', [
                 'user' => $d['user'],
                 'password' => password_hash($heslo, PASSWORD_DEFAULT),
                 'jmeno' => $d['jmeno'],
@@ -228,11 +228,11 @@ final class Installer
             $nastaveni = ['nazev_webu' => $d['nazev_webu'], 'adresa_webu' => $this->request->origin(), 'email_webu' => $d['email'], 'jazyk_webu' => $this->jazyk,
                 'casove_pasmo' => $d['casove_pasmo'], 'layout' => Layouty::VYCHOZI, 'titulni_stranka' => (string) $uvod, 'verze_db' => (string) Migrace::posledni()];
             foreach ($nastaveni as $klic => $hodnota) {
-                $db->insert('config', ['promenna' => $klic, 'hodnota' => $hodnota]);
+                $db->insert('nastaveni', ['promenna' => $klic, 'hodnota' => $hodnota]);
             }
 
-            $kategorie = $db->insert('topic', ['nazev' => t('Aktuality'), 'seo_link' => slugify(t('Aktuality')), 'popis' => '']);
-            $db->insert('clanky', [
+            $kategorie = $db->insert('kategorie', ['nazev' => t('Aktuality'), 'seo_link' => slugify(t('Aktuality')), 'popis' => '']);
+            $db->insert('novinky', [
                 'seo_link' => slugify(t('Vítejte v MiroCMS')),
                 'titulek' => t('Vítejte v MiroCMS'),
                 'uvod' => '<p>' . e(t('Web je nainstalovaný a připravený. Tuto novinku můžete v administraci upravit nebo smazat.')) . '</p>',

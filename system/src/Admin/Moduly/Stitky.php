@@ -23,7 +23,7 @@ final class Stitky extends Modul
         $uprav = $this->db->one('SELECT * FROM {stitky} WHERE ids = ?', [$this->request->getInt('uprav')]);
 
         return $this->view('vypis', 'Štítky a témata', [
-            'stitky' => $this->db->all('SELECT s.*, (SELECT COUNT(*) FROM {clanky_stitky} cs WHERE cs.ids = s.ids) AS pocet FROM {stitky} s ORDER BY (s.popis IS NOT NULL AND s.popis <> \'\') DESC, pocet DESC, s.nazev LIMIT 500'),
+            'stitky' => $this->db->all('SELECT s.*, (SELECT COUNT(*) FROM {novinky_stitky} cs WHERE cs.ids = s.ids) AS pocet FROM {stitky} s ORDER BY (s.popis IS NOT NULL AND s.popis <> \'\') DESC, pocet DESC, s.nazev LIMIT 500'),
             'uprav' => $uprav,
         ]);
     }
@@ -40,8 +40,8 @@ final class Stitky extends Modul
         // sloučení: články dostanou cílový štítek, tento zanikne a jeho adresa se přesměruje
         $cil = $this->db->one('SELECT * FROM {stitky} WHERE ids = ? AND ids <> ?', [$this->request->postInt('sloucit_do'), $stitek['ids']]);
         if ($cil !== null) {
-            $this->db->run('INSERT IGNORE INTO {clanky_stitky} (idc, ids) SELECT idc, ? FROM {clanky_stitky} WHERE ids = ?', [$cil['ids'], $stitek['ids']]);
-            $this->db->delete('clanky_stitky', ['ids' => $stitek['ids']]);
+            $this->db->run('INSERT IGNORE INTO {novinky_stitky} (idc, ids) SELECT idc, ? FROM {novinky_stitky} WHERE ids = ?', [$cil['ids'], $stitek['ids']]);
+            $this->db->delete('novinky_stitky', ['ids' => $stitek['ids']]);
             $this->db->delete('stitky', ['ids' => $stitek['ids']]);
             Presmerovani::pridej($this->db, 'stitek/' . $stitek['seo_link'], 'stitek/' . $cil['seo_link']);
 
@@ -54,7 +54,7 @@ final class Stitky extends Modul
     protected function akceSmaz(): Response
     {
         if ($this->request->isPost()) {
-            $this->db->delete('clanky_stitky', ['ids' => $this->request->postInt('ids')]);
+            $this->db->delete('novinky_stitky', ['ids' => $this->request->postInt('ids')]);
             $this->db->delete('stitky', ['ids' => $this->request->postInt('ids')]);
         }
 

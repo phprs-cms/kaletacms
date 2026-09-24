@@ -109,13 +109,13 @@ final class ExportWebu
         }
         fwrite($f, '{"format":"mirocms-export","verze_formatu":1,"mirocms":' . self::json(MIROCMS_VERSION) . ',"vytvoreno":' . self::json(date('c')) . ',"nastaveni":' . self::json(self::nastaveni($db)));
 
-        $autori = "(SELECT NULLIF(u.jmeno, '') FROM {user} u WHERE u.idu = c.autor) AS autor_jmeno";
+        $autori = "(SELECT NULLIF(u.jmeno, '') FROM {uzivatele} u WHERE u.idu = c.autor) AS autor_jmeno";
         self::pole($f, 'stranky', self::postupne($db, 'SELECT * FROM {stranky} WHERE ids > ? ORDER BY ids LIMIT 200', 'ids'));
-        self::pole($f, 'kategorie', self::postupne($db, 'SELECT idt, nazev, seo_link, popis, hodnost, jazyk, preklad_z FROM {topic} WHERE idt > ? ORDER BY idt LIMIT 500', 'idt'));
+        self::pole($f, 'kategorie', self::postupne($db, 'SELECT idt, nazev, seo_link, popis, hodnost, jazyk, preklad_z FROM {kategorie} WHERE idt > ? ORDER BY idt LIMIT 500', 'idt'));
         self::pole($f, 'stitky', self::postupne($db, 'SELECT ids, nazev, seo_link, popis, obrazek FROM {stitky} WHERE ids > ? ORDER BY ids LIMIT 500', 'ids'));
         self::pole($f, 'novinky', self::clanky($db, $autori));
         self::pole($f, 'presmerovani', self::postupne($db, 'SELECT idp, z_adresy, na_adresu FROM {presmerovani} WHERE idp > ? ORDER BY idp LIMIT 1000', 'idp'));
-        self::pole($f, 'media', self::postupne($db, 'SELECT ido, nazev, popis, obr_poloha AS soubor, obr_width AS sirka, obr_height AS vyska, nahl_poloha AS nahled, datum FROM {imggal_obr} WHERE ido > ? ORDER BY ido LIMIT 500', 'ido'));
+        self::pole($f, 'media', self::postupne($db, 'SELECT ido, nazev, popis, obr_poloha AS soubor, obr_width AS sirka, obr_height AS vyska, nahl_poloha AS nahled, datum FROM {media} WHERE ido > ? ORDER BY ido LIMIT 500', 'ido'));
         fwrite($f, "}\n");
         fclose($f);
     }
@@ -128,10 +128,10 @@ final class ExportWebu
      */
     private static function clanky(Db $db, string $autori): \Generator
     {
-        foreach (self::postupne($db, "SELECT c.*, {$autori} FROM {clanky} c WHERE c.idc > ? AND c.smazano IS NULL ORDER BY c.idc LIMIT 100", 'idc') as $c) {
+        foreach (self::postupne($db, "SELECT c.*, {$autori} FROM {novinky} c WHERE c.idc > ? AND c.smazano IS NULL ORDER BY c.idc LIMIT 100", 'idc') as $c) {
             $clanek = array_diff_key($c, array_flip(self::VYNECHAT_U_CLANKU));
             $clanek['autor'] = (string) ($c['autor_jmeno'] ?? '');
-            $clanek['stitky'] = array_map(intval(...), array_column($db->all('SELECT ids FROM {clanky_stitky} WHERE idc = ?', [$c['idc']]), 'ids'));
+            $clanek['stitky'] = array_map(intval(...), array_column($db->all('SELECT ids FROM {novinky_stitky} WHERE idc = ?', [$c['idc']]), 'ids'));
             yield $clanek;
         }
     }
@@ -171,7 +171,7 @@ final class ExportWebu
     /** @return array<string, string> */
     private static function nastaveni(Db $db): array
     {
-        $vse = $db->pairs('SELECT promenna, hodnota FROM {config}');
+        $vse = $db->pairs('SELECT promenna, hodnota FROM {nastaveni}');
         $vyber = [];
         foreach ($vse as $klic => $hodnota) {
             // název a popis webu mohou mít variantu pro další jazyk (nazev_webu_en)

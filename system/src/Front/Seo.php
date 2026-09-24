@@ -63,11 +63,11 @@ final class Seo
         foreach ($db->all('SELECT seo_link, zmeneno, jazyk FROM {stranky} WHERE zobrazit = 1 AND ids <> ? AND (preklad_z IS NULL OR preklad_z <> ?)', [$uvod, $uvod]) as $r) {
             $xml[] = $url($r['seo_link'], $r['zmeneno'], '0.8', $r['jazyk']);
         }
-        $xml[] = $url('novinky', (string) $db->value('SELECT MAX(COALESCE(zmeneno, datum)) FROM {clanky} WHERE visible = 1 AND datum <= NOW()') ?: null, '0.6');
-        foreach ($db->all('SELECT seo_link, jazyk FROM {topic}') as $r) {
+        $xml[] = $url('novinky', (string) $db->value('SELECT MAX(COALESCE(zmeneno, datum)) FROM {novinky} WHERE visible = 1 AND datum <= NOW()') ?: null, '0.6');
+        foreach ($db->all('SELECT seo_link, jazyk FROM {kategorie}') as $r) {
             $xml[] = $url('novinky/kategorie/' . $r['seo_link'], null, '0.4', $r['jazyk']);
         }
-        foreach ($db->all('SELECT seo_link, jazyk, COALESCE(zmeneno, datum) AS zmena FROM {clanky} WHERE visible = 1 AND noindex = 0 AND datum <= NOW() AND smazano IS NULL ORDER BY datum DESC LIMIT 45000') as $r) {
+        foreach ($db->all('SELECT seo_link, jazyk, COALESCE(zmeneno, datum) AS zmena FROM {novinky} WHERE visible = 1 AND noindex = 0 AND datum <= NOW() AND smazano IS NULL ORDER BY datum DESC LIMIT 45000') as $r) {
             $xml[] = $url('novinky/' . $r['seo_link'], $r['zmena'], '0.5', $r['jazyk']);
         }
 
@@ -131,7 +131,7 @@ final class Seo
             $radky[] = '- [' . $r['titulek'] . '](' . $this->web . ((int) $r['ids'] === $uvod ? '' : $r['seo_link']) . ')' . ($r['popis'] !== '' ? ': ' . $r['popis'] : '');
         }
         array_push($radky, '', '## ' . t('Novinky'));
-        foreach ($db->all('SELECT titulek, seo_link, uvod FROM {clanky} WHERE visible = 1 AND datum <= NOW() AND noindex = 0 AND smazano IS NULL AND jazyk = ? ORDER BY datum DESC LIMIT 30', [\MiroCMS\Core\Jazyk::sloupecWebu()]) as $c) {
+        foreach ($db->all('SELECT titulek, seo_link, uvod FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND noindex = 0 AND smazano IS NULL AND jazyk = ? ORDER BY datum DESC LIMIT 30', [\MiroCMS\Core\Jazyk::sloupecWebu()]) as $c) {
             $radky[] = '- [' . $c['titulek'] . '](' . $this->web . 'novinky/' . $c['seo_link'] . $md . '): ' . mb_strimwidth(trim(strip_tags($c['uvod'])), 0, 200, '…');
         }
 

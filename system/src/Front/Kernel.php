@@ -262,11 +262,11 @@ final class Kernel
 
     private function kategorie(string $seo): Response
     {
-        $kategorie = $this->app->db()->one('SELECT * FROM {topic} WHERE seo_link = ? AND jazyk = ?', [$seo, Jazyk::sloupecWebu()]);
+        $kategorie = $this->app->db()->one('SELECT * FROM {kategorie} WHERE seo_link = ? AND jazyk = ?', [$seo, Jazyk::sloupecWebu()]);
         if ($kategorie === null) {
             return $this->nenalezeno();
         }
-        $this->protejsek = ['topic', 'idt', $kategorie, 'novinky/kategorie/'];
+        $this->protejsek = ['kategorie', 'idt', $kategorie, 'novinky/kategorie/'];
         $strana = max(1, $this->app->request->getInt('strana', 1));
         [$novinky, $celkem] = $this->novinky->zKategorie((int) $kategorie['idt'], $strana);
 
@@ -312,17 +312,17 @@ final class Kernel
             return Response::redirect($this->app->url('novinky/' . $novinka['seo_link']) . ($nahled ? '?nahled=1' : ''), 301);
         }
         // úprava přímo na webu pracuje se surovým textem z databáze (bez osnovy a vložených přehrávačů)
-        $surova = $this->app->auth()->user() === null ? null : $this->app->db()->one('SELECT * FROM {clanky} WHERE idc = ?', [$novinka['idc']]);
+        $surova = $this->app->auth()->user() === null ? null : $this->app->db()->one('SELECT * FROM {novinky} WHERE idc = ?', [$novinka['idc']]);
         if ($surova !== null && ($formular = $this->upravaNaMiste('novinka', $surova, 'novinky/' . $novinka['seo_link'])) !== null) {
             return $this->stranka($novinka['titulek'], $formular, ['noindex' => true]);
         }
         if (!$nahled) {
-            $this->app->db()->run('UPDATE {clanky} SET visit = visit + 1 WHERE idc = ?', [$novinka['idc']]);
+            $this->app->db()->run('UPDATE {novinky} SET visit = visit + 1 WHERE idc = ?', [$novinka['idc']]);
         }
 
         $novinka['faq_html'] = (new View([MIROCMS_SYSTEM . '/views/front']))->render('faq', ['faq' => Seo::faq($novinka['faq'])]);
         $novinka = (new TextNovinky($this->app))->dopln($novinka);
-        $novinka['stitky'] = $this->app->db()->all('SELECT s.nazev, s.seo_link FROM {stitky} s JOIN {clanky_stitky} cs ON cs.ids = s.ids WHERE cs.idc = ? ORDER BY s.nazev', [$novinka['idc']]);
+        $novinka['stitky'] = $this->app->db()->all('SELECT s.nazev, s.seo_link FROM {stitky} s JOIN {novinky_stitky} cs ON cs.ids = s.ids WHERE cs.idc = ? ORDER BY s.nazev', [$novinka['idc']]);
 
         $obsah = $this->view->render('novinka', [
             'novinka' => $novinka,
@@ -440,7 +440,7 @@ final class Kernel
         $preklady = [];
         if ($novinka !== null) {
             $original = (int) ($novinka['preklad_z'] ?: $novinka['idc']);
-            $preklady = array_map(fn (string $seo): string => 'novinky/' . $seo, $this->app->db()->pairs('SELECT jazyk, seo_link FROM {clanky} WHERE (idc = ? OR preklad_z = ?) AND visible = 1 AND datum <= NOW()', [$original, $original]));
+            $preklady = array_map(fn (string $seo): string => 'novinky/' . $seo, $this->app->db()->pairs('SELECT jazyk, seo_link FROM {novinky} WHERE (idc = ? OR preklad_z = ?) AND visible = 1 AND datum <= NOW()', [$original, $original]));
         } elseif ($this->protejsek !== null) {
             // kategorie nebo stránka: originál + jeho překlady
             [$tabulka, $klic, $radek, $cesta] = $this->protejsek;
@@ -468,7 +468,7 @@ final class Kernel
      * Úprava stránky nebo novinky přímo na webu. Bez práva nedělá nic; s právem připraví odkaz „Upravit zde“
      * a při ?upravit=text vrátí formulář s editorem místo obsahu. Ukládá administrace (akce uloz_text).
      *
-     * @param array<string, mixed> $zaznam řádek rs_stranky nebo rs_clanky
+     * @param array<string, mixed> $zaznam řádek mc_stranky nebo mc_novinky
      */
     private function upravaNaMiste(string $typ, array $zaznam, string $cesta): ?string
     {

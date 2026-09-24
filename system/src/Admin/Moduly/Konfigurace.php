@@ -13,7 +13,7 @@ use MiroCMS\Core\Zaloha;
 use MiroCMS\Front\Layouty;
 
 /**
- * Nastavení webu (tabulka rs_config) rozdělené do záložek.
+ * Nastavení webu (tabulka mc_nastaveni) rozdělené do záložek.
  * Každá záložka má šablonu views/admin/config/<zalozka>.php a seznam polí s typem - podle něj se hodnoty čistí.
  */
 class Konfigurace extends Modul
@@ -32,7 +32,7 @@ class Konfigurace extends Modul
     public const array SITE = ['soc_facebook' => 'Facebook', 'soc_instagram' => 'Instagram', 'soc_x' => 'X (Twitter)', 'soc_youtube' => 'YouTube', 'soc_linkedin' => 'LinkedIn'];
 
     /**
-     * Pole jednotlivých záložek: klíč v rs_config => typ.
+     * Pole jednotlivých záložek: klíč v mc_nastaveni => typ.
      * text | tajne (klíč: nevypisuje se zpět, prázdné pole = beze změny; tajne:/regex/ navíc hlídá tvar) | radky (víceřádkový text) | kod (HTML/JS - zadává jen administrátor) | url | email | ano | cislo:min:max | vyber:a|b | seznam:a|b (zaškrtávací pole, ukládá se "a,b") | vzor:/regex/
      */
     private const array POLE = [

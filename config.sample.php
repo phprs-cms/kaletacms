@@ -11,7 +11,7 @@ return [
         'name' => 'mirocms',
         'user' => 'mirocms',
         'password' => '',
-        'prefix' => 'rs_',
+        'prefix' => 'mc_',
     ],
     // true = chyby se vypisují do stránky; na ostrém webu vždy false
     'debug' => false,

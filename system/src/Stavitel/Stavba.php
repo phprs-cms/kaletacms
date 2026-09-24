@@ -272,7 +272,7 @@ final class Stavba
         return $trida::vykresli($p, $a, $deti, $k);
     }
 
-    /** CSS stránky: základ použitých typů, použité třídy (z rs_tridy) a styl jednotlivých prvků – každé ve své vrstvě. */
+    /** CSS stránky: základ použitých typů, použité třídy (z mc_tridy) a styl jednotlivých prvků – každé ve své vrstvě. */
     private static function css(Db $db, Kontext $k): string
     {
         // ve stavbě řídí rozestupy mezery kontejnerů (gap), ne okraje nadpisů a odstavců ze šablony; text uvnitř prvku Text je má

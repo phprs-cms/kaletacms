@@ -9,7 +9,7 @@ use MiroCMS\Core\Db;
 use MiroCMS\Core\Response;
 
 /**
- * Kategorie novinek (tabulka rs_topic). Plochý seznam – firemní blog stromové rubriky nepotřebuje.
+ * Kategorie novinek (tabulka mc_kategorie). Plochý seznam – firemní blog stromové rubriky nepotřebuje.
  * Kategorie určuje i jazykovou verzi novinky.
  */
 final class Kategorie extends Modul
@@ -29,8 +29,8 @@ final class Kategorie extends Modul
         $kde = $jazyk !== null && preg_match('/^([a-z]{2})?$/', $jazyk) ? " WHERE t.jazyk = '{$jazyk}'" : '';
 
         return $db->all(
-            'SELECT t.*, (SELECT COUNT(*) FROM {clanky} c WHERE c.tema = t.idt AND c.smazano IS NULL) AS pocet_clanku
-             FROM {topic} t' . $kde . ' ORDER BY t.hodnost DESC, t.nazev',
+            'SELECT t.*, (SELECT COUNT(*) FROM {novinky} c WHERE c.tema = t.idt AND c.smazano IS NULL) AS pocet_clanku
+             FROM {kategorie} t' . $kde . ' ORDER BY t.hodnost DESC, t.nazev',
         );
     }
 
@@ -46,7 +46,7 @@ final class Kategorie extends Modul
 
     protected function akceEdit(): Response
     {
-        $kategorie = $this->db->one('SELECT * FROM {topic} WHERE idt = ?', [$this->request->getInt('id')]);
+        $kategorie = $this->db->one('SELECT * FROM {kategorie} WHERE idt = ?', [$this->request->getInt('id')]);
 
         return $kategorie === null ? $this->chyba('Kategorie neexistuje.', 404) : $this->formular($kategorie);
     }
@@ -65,26 +65,26 @@ final class Kategorie extends Modul
             'hodnost' => max(0, min(65535, $r->postInt('hodnost', 100))),
             'jazyk' => \MiroCMS\Core\Jazyk::sloupec($this->app->settings(), $r->post('jazyk')),
         ];
-        $data['preklad_z'] = $data['jazyk'] === '' ? null : ($this->db->value("SELECT idt FROM {topic} WHERE idt = ? AND jazyk = '' AND idt <> ?", [$r->postInt('preklad_z'), $id]) ?: null);
+        $data['preklad_z'] = $data['jazyk'] === '' ? null : ($this->db->value("SELECT idt FROM {kategorie} WHERE idt = ? AND jazyk = '' AND idt <> ?", [$r->postInt('preklad_z'), $id]) ?: null);
         if ($data['nazev'] === '') {
             return $this->formular(['idt' => $id] + $data, ['nazev' => 'Vyplňte název kategorie.']);
         }
 
         $zaklad = $data['seo_link'];
-        for ($i = 2; $this->db->value('SELECT idt FROM {topic} WHERE seo_link = ? AND idt <> ?', [$data['seo_link'], $id]) !== null; $i++) {
+        for ($i = 2; $this->db->value('SELECT idt FROM {kategorie} WHERE seo_link = ? AND idt <> ?', [$data['seo_link'], $id]) !== null; $i++) {
             $data['seo_link'] = $zaklad . '-' . $i;
         }
 
         if ($id > 0) {
-            $puvodni = $this->db->value('SELECT seo_link FROM {topic} WHERE idt = ?', [$id]);
-            $this->db->update('topic', $data, ['idt' => $id]);
+            $puvodni = $this->db->value('SELECT seo_link FROM {kategorie} WHERE idt = ?', [$id]);
+            $this->db->update('kategorie', $data, ['idt' => $id]);
             if ($puvodni !== null && $puvodni !== $data['seo_link']) {
                 // kategorie změnila adresu: stará se přesměruje, odkazy ani vyhledávače o stránku nepřijdou
                 Presmerovani::pridej($this->db, 'novinky/kategorie/' . $puvodni, 'novinky/kategorie/' . $data['seo_link']);
             }
-            $this->db->run('UPDATE {clanky} SET jazyk = ? WHERE tema = ?', [$data['jazyk'], $id]); // novinky mají jazyk své kategorie
+            $this->db->run('UPDATE {novinky} SET jazyk = ? WHERE tema = ?', [$data['jazyk'], $id]); // novinky mají jazyk své kategorie
         } else {
-            $this->db->insert('topic', $data);
+            $this->db->insert('kategorie', $data);
         }
 
         return $this->zpet('Kategorie byla uložena.');
@@ -96,10 +96,10 @@ final class Kategorie extends Modul
             return $this->zpet();
         }
         $id = $this->request->postInt('idt');
-        if ((int) $this->db->value('SELECT COUNT(*) FROM {clanky} WHERE tema = ?', [$id]) > 0) {
+        if ((int) $this->db->value('SELECT COUNT(*) FROM {novinky} WHERE tema = ?', [$id]) > 0) {
             return $this->zpet('Kategorii nelze smazat, dokud v ní jsou novinky (i v koši). Nejprve je přesuňte jinam.', typ: 'chyba');
         }
-        $this->db->delete('topic', ['idt' => $id]);
+        $this->db->delete('kategorie', ['idt' => $id]);
 
         return $this->zpet('Kategorie byla smazána.');
     }

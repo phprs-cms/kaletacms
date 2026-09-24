@@ -40,7 +40,7 @@ ocekavej() { [ "$2" = "$3" ] && echo "  ok     $1" || { echo "  CHYBA  $1: dosta
 
 echo "== instalace"
 HESLO="Test-$(date +%s)-heslo"
-curl -s -o "$PRACE/odpoved" -X POST "$B/install.php" --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB_NAME" -d "db_user=$DB_USER" --data-urlencode "db_password=$DB_PASS" -d db_prefix=rs_ \
+curl -s -o "$PRACE/odpoved" -X POST "$B/install.php" --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB_NAME" -d "db_user=$DB_USER" --data-urlencode "db_password=$DB_PASS" -d db_prefix=mc_ \
   --data-urlencode "nazev_webu=Testovací firma" -d user=admin -d jmeno=Tester -d email= --data-urlencode "password=$HESLO" --data-urlencode "password2=$HESLO"
 grep -q "Hotovo, web běží" "$PRACE/odpoved" || { echo "  CHYBA  instalace selhala"; sed 's/<[^>]*>//g' "$PRACE/odpoved" | grep -v '^\s*$' | head -20; exit 1; }
 echo "  ok     instalace"
@@ -64,10 +64,10 @@ over "strukturovaná data novinky" 200 /novinky/vitejte-v-mirocms '"BlogPosting"
 over "neexistující stránka" 404 /tohle-neexistuje
 over "system/ není přístupný" 403 /system/sql/schema.sql
 over "config.php není přístupný" 403 /config.php
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE rs_config SET hodnota='neexistuje' WHERE promenna='layout'"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE mc_nastaveni SET hodnota='neexistuje' WHERE promenna='layout'"
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
 over "chybějící šablona – web běží na výchozí" 200 / "layout/zakladni/style.css"
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE rs_config SET hodnota='0' WHERE promenna='titulni_stranka'"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE mc_nastaveni SET hodnota='0' WHERE promenna='titulni_stranka'"
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
 over "bez úvodní stránky je úvodem výpis novinek" 200 / "Vítejte v MiroCMS"
 
@@ -79,7 +79,7 @@ TOKEN=$(csrf)
 kod=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$TOKEN" -d user=admin -d password=spatne-heslo-123); ocekavej "špatné heslo odmítnuto" "$kod" 401
 kod=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d user=admin --data-urlencode "password=$HESLO"); ocekavej "POST bez CSRF odmítnut" "$kod" 400
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN" -d user=admin --data-urlencode "password=$HESLO"
-"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO rs_config VALUES ('rozsireni','statistika,presmerovani,asistent,jazyky,api,claude') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO mc_nastaveni VALUES ('rozsireni','statistika,presmerovani,asistent,jazyky,api,claude') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
 over "přehled" 200 /admin.php "Přehled"
 for m in stranky "stranky&akce=novy" novinky "novinky&akce=novy" "novinky&akce=odkazy" kategorie "kategorie&akce=novy" stitky intergal stat vzhled users "users&akce=novy" presmerovani protokol prenos rozsireni; do over "modul $m" 200 "/admin.php?modul=$m"; done
 over "uživatelé se shrnutím oprávnění" 200 "/admin.php?modul=users" "Smí všechno"
@@ -88,7 +88,7 @@ over "nastavení: volba úvodní stránky" 200 "/admin.php?modul=config&zalozka=
 over "neznámý modul" 403 "/admin.php?modul=neexistuje"
 over "API: novinky" 200 /api/novinky '"novinky"'
 over "API: stránky" 200 /api/stranky '/kontakt"'
-"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO rs_config VALUES ('jazyky_dalsi','en') ON DUPLICATE KEY UPDATE hodnota='en'"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO mc_nastaveni VALUES ('jazyky_dalsi','en') ON DUPLICATE KEY UPDATE hodnota='en'"
 over "anglická verze webu" 200 /en/ 'lang="en"'
 kod=$(curl -s -o /dev/null -w '%{http_code}' "$B/en/novinky/vitejte-v-mirocms"); ocekavej "novinka jiné jazykové verze přesměruje" "$kod" 301
 
@@ -99,7 +99,7 @@ kod=$(curl -s -b "$JAR" -c "$JAR" -o "$PRACE/odpoved" -w '%{http_code}' -X POST 
 [ "$kod" = 200 ] && grep -q 'name="titulek"' "$PRACE/odpoved" && echo "  ok     chyba ve formuláři novinky vrátí formulář" || { echo "  CHYBA  validace novinky: kód $kod"; CHYB=$((CHYB+1)); }
 
 # autor novinek: vidí jen své novinky a nevydává
-NOVINKA=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idc FROM rs_clanky ORDER BY idc LIMIT 1")
+NOVINKA=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idc FROM mc_novinky ORDER BY idc LIMIT 1")
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=users&akce=uloz" -d "_csrf=$TOKEN" -d idu=0 -d jmeno=Autor -d user=autor --data-urlencode "password=$HESLO" -d admin=0
 JAR2="$PRACE/jar2"
 TOKEN2=$(curl -s -c "$JAR2" "$B/admin.php" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//')
@@ -120,7 +120,7 @@ grep -q 'mc-barva-primarni: #9a3412' "$PRACE/odpoved" && grep -q 'mc-sirka: 80re
 grep -q 'body{' "$PRACE/odpoved" && { echo "  CHYBA  do CSS proniklo neplatné zadání barvy"; CHYB=$((CHYB+1)); } || echo "  ok     neplatná barva se nahradí výchozí"
 
 echo "== stavitel stránek"
-IDS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM rs_stranky WHERE seo_link = 'o-nas'")
+IDS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM mc_stranky WHERE seo_link = 'o-nas'")
 over "stavitel se otevře a převede textovou stránku" 200 "/admin.php?modul=stranky&akce=stavitel&id=$IDS" 'id="stavitel-data"'
 TOKEN=$(csrf)
 st() { curl -s -b "$JAR" -c "$JAR" -o "$PRACE/odpoved" -w '%{http_code}' -X POST "$B/admin.php?modul=stranky&akce=$1&id=$IDS" -d "_csrf=$TOKEN" "${@:2}"; }
@@ -148,8 +148,8 @@ grep -q '@layer prvky' "$PRACE/odpoved" && grep -q '#s-nad1 { color: var(--mc-ba
 grep -q '"FAQPage"' "$PRACE/odpoved" && echo "  ok     otázky a odpovědi jako strukturovaná data" || { echo "  CHYBA  FAQPage chybí"; CHYB=$((CHYB+1)); }
 over "hledání najde obsah stavby" 200 "/hledani?q=Stavitel+test" 'Nalezeno: 1'
 st stavba_uloz --data-urlencode "stavba=${STAVBA/Stavitel test/Druhá verze}" > /dev/null; st stavba_publikuj > /dev/null
-ocekavej "předchozí publikovaná verze je v historii" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM rs_stavba_revize WHERE ids = $IDS")" 1
-IDR=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idr FROM rs_stavba_revize WHERE ids = $IDS")
+ocekavej "předchozí publikovaná verze je v historii" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM mc_stavba_revize WHERE ids = $IDS")" 1
+IDR=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idr FROM mc_stavba_revize WHERE ids = $IDS")
 st stavba_obnov -d "idr=$IDR" > /dev/null; grep -q 'Stavitel test' "$PRACE/odpoved" && echo "  ok     obnovení verze do konceptu" || { echo "  CHYBA  stavba_obnov"; CHYB=$((CHYB+1)); }
 st stavba_zahod > /dev/null; grep -q 'Druhá verze' "$PRACE/odpoved" && echo "  ok     zahození změn vrátí publikovanou stavbu" || { echo "  CHYBA  stavba_zahod"; CHYB=$((CHYB+1)); }
 ocekavej "autor novinek do stavitele nesmí" "$(curl -s -b "$JAR2" -o /dev/null -w '%{http_code}' "$B/admin.php?modul=stranky&akce=stavitel&id=$IDS")" 403
@@ -159,17 +159,17 @@ curl -s -o "$PRACE/odpoved" "$B/o-nas"; grep -q "<h1>Druhá verze</h1>" "$PRACE/
 
 echo "== Claude (MCP): stavitel"
 TOK="mirocms_$(printf 'a%.0s' $(seq 1 48))"
-"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO rs_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'test', '$(php -r 'echo hash("sha256", $argv[1]);' "$TOK")', NOW() FROM rs_user WHERE user = 'admin'"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO mc_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'test', '$(php -r 'echo hash("sha256", $argv[1]);' "$TOK")', NOW() FROM mc_uzivatele WHERE user = 'admin'"
 mcp() { curl -s -X POST "$B/mcp" -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"$1\",\"arguments\":$2}}"; }
 mcp stavba_schema '{}' > "$PRACE/odpoved"; grep -q 'knihovna' "$PRACE/odpoved" && grep -q 'mc-mezera' "$PRACE/odpoved" && echo "  ok     MCP: schéma stavitele" || { echo "  CHYBA  MCP stavba_schema"; head -c 300 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
 mcp stavba_z_html '{"titulek":"Z HTML","html":"<style>.uvod-x { padding-block: var(--mc-mezera-2xl); } .uvod-x h1 { color: red }</style><header class=\"uvod-x\"><div class=\"container\"><h1>Stránka od Clauda</h1><p>Text <b>tučně</b>.</p><a class=\"btn\" href=\"/kontakt\">Kontakt</a></div></header><form><input></form>"}' > "$PRACE/odpoved"
 grep -q 'koncept' "$PRACE/odpoved" && grep -q 'form' "$PRACE/odpoved" && grep -q 'vynech.*btn' "$PRACE/odpoved" && echo "  ok     MCP: HTML převedeno na koncept stavby s hlášením" || { echo "  CHYBA  MCP stavba_z_html"; head -c 600 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
-IDZ=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM rs_stranky WHERE seo_link = 'z-html'")
-ocekavej "MCP: nová stránka zůstává skrytá a bez publikované stavby" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazit, '/', stavba IS NULL, '/', stavba_koncept LIKE '%od Clauda%') FROM rs_stranky WHERE ids = $IDZ")" "0/1/1"
-ocekavej "MCP: třída z <style> uložena" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT css FROM rs_tridy WHERE nazev = 'uvod-x'")" "padding-block: var(--mc-mezera-2xl);"
+IDZ=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM mc_stranky WHERE seo_link = 'z-html'")
+ocekavej "MCP: nová stránka zůstává skrytá a bez publikované stavby" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazit, '/', stavba IS NULL, '/', stavba_koncept LIKE '%od Clauda%') FROM mc_stranky WHERE ids = $IDZ")" "0/1/1"
+ocekavej "MCP: třída z <style> uložena" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT css FROM mc_tridy WHERE nazev = 'uvod-x'")" "padding-block: var(--mc-mezera-2xl);"
 mcp vloz_sekci "{\"id\":$IDZ,\"sekce\":\"faq\"}" > /dev/null
 mcp publikuj_stavbu "{\"id\":$IDZ}" > /dev/null
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE rs_stranky SET zobrazit = 1 WHERE ids = $IDZ"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE mc_stranky SET zobrazit = 1 WHERE ids = $IDZ"
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
 curl -s -o "$PRACE/odpoved" "$B/z-html"
 grep -q '<h1>Stránka od Clauda</h1>' "$PRACE/odpoved" && grep -q 'class="uvod-x"' "$PRACE/odpoved" && ! grep -q 'container' "$PRACE/odpoved" && grep -q '"FAQPage"' "$PRACE/odpoved" && echo "  ok     MCP: publikovaná stránka od Clauda na webu" || { echo "  CHYBA  MCP publikování"; CHYB=$((CHYB+1)); }
@@ -207,7 +207,7 @@ kod=$(curl -s -o /dev/null -w '%{http_code}' "$B/?p=102"); ocekavej "stará adre
 # druhý import téhož souboru nesmí nic zdvojit
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=prenos&akce=vyber" -d "_csrf=$TOKEN" -d soubor=wordpress-ukazka.xml
 wp_import
-POCTY=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT((SELECT COUNT(*) FROM rs_clanky WHERE seo_link LIKE 'lavka-pres-bystrinu%' OR seo_link LIKE 'slavnosti-syra%' OR seo_link LIKE 'rozpocet-obce%'), '/', (SELECT COUNT(*) FROM rs_stranky WHERE seo_link LIKE 'o-zpravodaji%'))")
+POCTY=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT((SELECT COUNT(*) FROM mc_novinky WHERE seo_link LIKE 'lavka-pres-bystrinu%' OR seo_link LIKE 'slavnosti-syra%' OR seo_link LIKE 'rozpocet-obce%'), '/', (SELECT COUNT(*) FROM mc_stranky WHERE seo_link LIKE 'o-zpravodaji%'))")
 ocekavej "opakovaný import nic nezdvojil (novinky/stránky)" "$POCTY" "4/1"
 over "složka importu není přístupná z webu" 403 /storage/import/wordpress-ukazka.xml
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=prenos&akce=export" -d "_csrf=$TOKEN"
@@ -219,7 +219,7 @@ grep -q '"format":"mirocms-export"' "$PRACE/obsah.json" && grep -q '"novinky"' "
 curl -s -o "$PRACE/odpoved" "$B/admin.php?modul=prenos&akce=stahni&soubor=$EXPORT"; grep -q "Heslo" "$PRACE/odpoved" && echo "  ok     export jen pro přihlášeného správce" || { echo "  CHYBA  export jde stáhnout bez přihlášení"; CHYB=$((CHYB+1)); }
 
 echo "== koš novinek"
-IDC=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idc FROM rs_clanky WHERE seo_link = 'vitejte-v-mirocms'")
+IDC=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idc FROM mc_novinky WHERE seo_link = 'vitejte-v-mirocms'")
 over "výpis novinek" 200 "/admin.php?modul=novinky" "Smazat označené"
 TOKEN=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=novinky&akce=smaz" -d "_csrf=$TOKEN" -d "smaz[]=$IDC"
@@ -228,18 +228,18 @@ over "novinka v koši není ani v náhledu" 404 "/novinky/vitejte-v-mirocms?nahl
 over "záložka Koš" 200 "/admin.php?modul=novinky&stav=kos" "Vítejte"
 over "novinka v koši nejde upravit" 404 "/admin.php?modul=novinky&akce=edit&id=$IDC"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=novinky&akce=obnov" -d "_csrf=$TOKEN" -d "smaz[]=$IDC"
-ocekavej "obnovená novinka se vrátí jako koncept" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(visible, '/', smazano IS NULL) FROM rs_clanky WHERE idc = $IDC")" "0/1"
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE rs_clanky SET visible = 1, smazano = NOW() - INTERVAL 31 DAY WHERE idc = $IDC"
+ocekavej "obnovená novinka se vrátí jako koncept" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(visible, '/', smazano IS NULL) FROM mc_novinky WHERE idc = $IDC")" "0/1"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE mc_novinky SET visible = 1, smazano = NOW() - INTERVAL 31 DAY WHERE idc = $IDC"
 over "vstup do administrace vysype starý koš" 200 /admin.php "Přehled"
-ocekavej "novinka starší 30 dní v koši je smazaná natrvalo" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM rs_clanky WHERE idc = $IDC")" "0"
+ocekavej "novinka starší 30 dní v koši je smazaná natrvalo" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM mc_novinky WHERE idc = $IDC")" "0"
 
 echo "== přesměrování po změně adresy kategorie a stránky"
 over "formulář kategorie" 200 "/admin.php?modul=kategorie" "Kategorie"
 TOKEN=$(csrf)
-IDT=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idt FROM rs_topic WHERE seo_link = 'aktuality'")
+IDT=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idt FROM mc_kategorie WHERE seo_link = 'aktuality'")
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=kategorie&akce=uloz" -d "_csrf=$TOKEN" -d "idt=$IDT" -d nazev=Aktuality -d seo_link=aktuality-firmy -d hodnost=100
 kod=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/novinky/kategorie/aktuality"); ocekavej "stará adresa kategorie přesměruje na novou" "$kod" "301 $B/novinky/kategorie/aktuality-firmy"
-IDS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM rs_stranky WHERE seo_link = 'kontakt'")
+IDS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM mc_stranky WHERE seo_link = 'kontakt'")
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akce=uloz" -d "_csrf=$TOKEN" -d "ids=$IDS" -d titulek=Kontakt -d seo_link=kontakty -d zobrazit=1 -d v_menu=1 -d "text=<p>Adresa.</p>"
 kod=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/kontakt"); ocekavej "stará adresa stránky přesměruje na novou" "$kod" "301 $B/kontakty"
 

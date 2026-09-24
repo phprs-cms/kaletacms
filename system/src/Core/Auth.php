@@ -9,7 +9,7 @@ namespace MiroCMS\Core;
  *
  * Role: autor píše vlastní články (vydat je smí jen s "právem vydávat"), redaktor spravuje
  * a vydává články všech, administrátor navíc uživatele a nastavení. Přístup k modulům se
- * u autorů a redaktorů nastavuje jednotlivě; vazby nadřízený - podřízený zůstaly z MiroCMS 2.
+ * u autorů a redaktorů nastavuje jednotlivě; autor může mít nadřízeného editora.
  */
 final class Auth
 {
@@ -44,7 +44,7 @@ final class Auth
             return t('Příliš mnoho pokusů o přihlášení. Zkuste to znovu za 15 minut.');
         }
 
-        $user = $this->db->one('SELECT * FROM {user} WHERE user = ?', [$login]);
+        $user = $this->db->one('SELECT * FROM {uzivatele} WHERE user = ?', [$login]);
         // Hash se ověřuje i pro neexistujícího uživatele, aby se z doby odezvy nedalo poznat, že účet neexistuje
         $hash = $user['password'] ?? '$2y$12$6C4TPEcYRJ/rRw6iWsrlxu0aH1i91pzK/8KiwqEW3Pa6sTj89Q3Zu';
         $ok = password_verify($password, $hash) && $user !== null;
@@ -54,7 +54,7 @@ final class Auth
             if ($user !== null) {
                 // po 10 chybách v řadě se účet zamkne na 15 minut - ne natrvalo, jinak by kdokoli mohl redakci vyřadit z provozu
                 $chyb = (int) $user['pocet_chyb'] + 1;
-                $this->db->update('user', $chyb >= self::MAX_CHYB
+                $this->db->update('uzivatele', $chyb >= self::MAX_CHYB
                     ? ['pocet_chyb' => 0, 'zamceno_do' => date('Y-m-d H:i:s', time() + 900)]
                     : ['pocet_chyb' => $chyb], ['idu' => $user['idu']]);
             }
@@ -69,9 +69,9 @@ final class Auth
         }
 
         if (password_needs_rehash($user['password'], PASSWORD_DEFAULT)) {
-            $this->db->update('user', ['password' => password_hash($password, PASSWORD_DEFAULT)], ['idu' => $user['idu']]);
+            $this->db->update('uzivatele', ['password' => password_hash($password, PASSWORD_DEFAULT)], ['idu' => $user['idu']]);
         }
-        $this->db->update('user', ['pocet_chyb' => 0, 'posledni_login' => date('Y-m-d H:i:s')], ['idu' => $user['idu']]);
+        $this->db->update('uzivatele', ['pocet_chyb' => 0, 'posledni_login' => date('Y-m-d H:i:s')], ['idu' => $user['idu']]);
 
         $this->session->regenerate();
         if ($user['totp_tajemstvi'] !== '') {
@@ -81,7 +81,7 @@ final class Auth
             return null;
         }
         $this->session->set('idu', (int) $user['idu']);
-        $this->session->set('otisk', self::otiskHesla((string) $this->db->value('SELECT password FROM {user} WHERE idu = ?', [$user['idu']])));
+        $this->session->set('otisk', self::otiskHesla((string) $this->db->value('SELECT password FROM {uzivatele} WHERE idu = ?', [$user['idu']])));
         $this->user = false;
 
         return null;
@@ -122,7 +122,7 @@ final class Auth
         if ($pokusu >= 10) {
             return t('Příliš mnoho pokusů. Zkuste to znovu za 15 minut.');
         }
-        $user = $this->db->one('SELECT * FROM {user} WHERE idu = ? AND blokovat = 0', [(int) $this->session->get('idu_ceka')['idu']]);
+        $user = $this->db->one('SELECT * FROM {uzivatele} WHERE idu = ? AND blokovat = 0', [(int) $this->session->get('idu_ceka')['idu']]);
         if ($user !== null && $user['zamceno_do'] !== null && strtotime($user['zamceno_do']) > time()) {
             $this->session->remove('idu_ceka');
 
@@ -134,16 +134,16 @@ final class Auth
             if ($user !== null) {
                 // chybné kódy se počítají na účet, ne jen na IP adresu: kdo zná heslo, nesmí kódy zkoušet z mnoha adres
                 $chyb = (int) $user['pocet_chyb'] + 1;
-                $this->db->update('user', $chyb >= self::MAX_CHYB
+                $this->db->update('uzivatele', $chyb >= self::MAX_CHYB
                     ? ['pocet_chyb' => 0, 'zamceno_do' => date('Y-m-d H:i:s', time() + 900)]
                     : ['pocet_chyb' => $chyb], ['idu' => $user['idu']]);
             }
 
             return t('Kód není správný.');
         }
-        $this->db->update('user', ['pocet_chyb' => 0], ['idu' => $user['idu']]);
+        $this->db->update('uzivatele', ['pocet_chyb' => 0], ['idu' => $user['idu']]);
         if ($zalozni !== null) {
-            $this->db->update('user', ['totp_zalozni' => $zalozni], ['idu' => $user['idu']]);
+            $this->db->update('uzivatele', ['totp_zalozni' => $zalozni], ['idu' => $user['idu']]);
         }
         $this->session->remove('idu_ceka');
         $this->session->regenerate();
@@ -163,7 +163,7 @@ final class Auth
     /** @return list<array<string, mixed>> přihlašovací klíče účtu */
     public function kliceUctu(int $idu): array
     {
-        return $this->db->all('SELECT * FROM {user_klice} WHERE idu = ? ORDER BY idk', [$idu]);
+        return $this->db->all('SELECT * FROM {uzivatele_klice} WHERE idu = ? ORDER BY idk', [$idu]);
     }
 
     /**
@@ -199,13 +199,13 @@ final class Auth
         }
         $vyzva = (string) $this->session->get('klic_vyzva', '');
         $this->session->remove('klic_vyzva'); // výzva platí na jeden pokus
-        $user = $this->db->one('SELECT * FROM {user} WHERE idu = ? AND blokovat = 0', [(int) $this->session->get('idu_ceka')['idu']]);
+        $user = $this->db->one('SELECT * FROM {uzivatele} WHERE idu = ? AND blokovat = 0', [(int) $this->session->get('idu_ceka')['idu']]);
         if ($user !== null && $user['zamceno_do'] !== null && strtotime($user['zamceno_do']) > time()) {
             $this->session->remove('idu_ceka');
 
             return t('Účet je po řadě chybných pokusů dočasně zamčený. Zkuste to znovu za 15 minut.');
         }
-        $klic = $user === null ? null : $this->db->one('SELECT * FROM {user_klice} WHERE idu = ? AND otisk_id = ?', [$user['idu'], hash('sha256', Passkey::zB64((string) ($odpoved['id'] ?? '')))]);
+        $klic = $user === null ? null : $this->db->one('SELECT * FROM {uzivatele_klice} WHERE idu = ? AND otisk_id = ?', [$user['idu'], hash('sha256', Passkey::zB64((string) ($odpoved['id'] ?? '')))]);
         try {
             if ($klic === null) {
                 throw new \RuntimeException('Tenhle klíč k účtu nepatří.');
@@ -215,15 +215,15 @@ final class Auth
             $this->db->insert('kontrola_ip', ['ip_adresa' => Antispam::otisk($ip), 'typ' => 'login', 'cas' => date('Y-m-d H:i:s')]);
             if ($user !== null) {
                 $chyb = (int) $user['pocet_chyb'] + 1;
-                $this->db->update('user', $chyb >= self::MAX_CHYB
+                $this->db->update('uzivatele', $chyb >= self::MAX_CHYB
                     ? ['pocet_chyb' => 0, 'zamceno_do' => date('Y-m-d H:i:s', time() + 900)]
                     : ['pocet_chyb' => $chyb], ['idu' => $user['idu']]);
             }
 
             return t($e->getMessage());
         }
-        $this->db->update('user_klice', ['pocitadlo' => $pocitadlo, 'pouzito' => date('Y-m-d H:i:s')], ['idk' => $klic['idk']]);
-        $this->db->update('user', ['pocet_chyb' => 0], ['idu' => $user['idu']]);
+        $this->db->update('uzivatele_klice', ['pocitadlo' => $pocitadlo, 'pouzito' => date('Y-m-d H:i:s')], ['idk' => $klic['idk']]);
+        $this->db->update('uzivatele', ['pocet_chyb' => 0], ['idu' => $user['idu']]);
         $this->session->remove('idu_ceka');
         $this->session->regenerate();
         $this->session->set('idu', (int) $user['idu']);
@@ -249,7 +249,7 @@ final class Auth
             }
             $id = $this->session->get('idu');
             $this->user = is_int($id)
-                ? $this->db->one('SELECT * FROM {user} WHERE idu = ? AND blokovat = 0', [$id])
+                ? $this->db->one('SELECT * FROM {uzivatele} WHERE idu = ? AND blokovat = 0', [$id])
                 : null;
             if ($this->user !== null) {
                 $otisk = $this->session->get('otisk');
@@ -292,7 +292,7 @@ final class Auth
         return $this->isAdmin() || $this->isEditor();
     }
 
-    /** Má přihlášený uživatel přístup k modulu? Admin vždy; ostatní podle rs_user_prava. */
+    /** Má přihlášený uživatel přístup k modulu? Admin vždy; ostatní podle mc_uzivatele_prava. */
     public function maModul(string $ident, bool $proVsechny = false): bool
     {
         if ($this->user() === null) {
@@ -302,7 +302,7 @@ final class Auth
             return true;
         }
         $this->moduly ??= array_column(
-            $this->db->all('SELECT ident_modulu FROM {user_prava} WHERE fk_id_user = ?', [$this->id()]),
+            $this->db->all('SELECT ident_modulu FROM {uzivatele_prava} WHERE fk_id_user = ?', [$this->id()]),
             'ident_modulu',
         );
 
@@ -313,7 +313,7 @@ final class Auth
      * Smí přihlášený upravit tuto novinku? Stejná pravidla jako v administraci: modul Novinky, autor smí jen své
      * a vydanou novinku jen ten, kdo smí vydávat.
      *
-     * @param array<string, mixed> $clanek řádek rs_clanky
+     * @param array<string, mixed> $clanek řádek mc_novinky
      */
     public function smiUpravitClanek(array $clanek): bool
     {

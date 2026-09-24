@@ -34,7 +34,7 @@ final class Api
         if ($path === '/api/novinky') {
             $strana = max(1, $this->app->request->getInt('strana', 1));
             $kategorie = $this->app->request->get('kategorie');
-            $idt = $kategorie === '' ? null : $this->app->db()->value('SELECT idt FROM {topic} WHERE seo_link = ?', [$kategorie]);
+            $idt = $kategorie === '' ? null : $this->app->db()->value('SELECT idt FROM {kategorie} WHERE seo_link = ?', [$kategorie]);
             if ($kategorie !== '' && $idt === null) {
                 return $this->json(['chyba' => t('Kategorie neexistuje.')], 404);
             }
@@ -47,7 +47,7 @@ final class Api
 
             return $c === null ? $this->json(['chyba' => t('Novinka neexistuje.')], 404) : $this->json($strucne($c) + [
                 'uvod_html' => $c['uvod'], 'text_html' => $c['text'], 'aktualizovano' => $c['aktualizovano'] ? date('c', strtotime($c['aktualizovano'])) : null,
-                'stitky' => array_column($this->app->db()->all('SELECT s.nazev FROM {stitky} s JOIN {clanky_stitky} cs ON cs.ids = s.ids WHERE cs.idc = ?', [$c['idc']]), 'nazev'),
+                'stitky' => array_column($this->app->db()->all('SELECT s.nazev FROM {stitky} s JOIN {novinky_stitky} cs ON cs.ids = s.ids WHERE cs.idc = ?', [$c['idc']]), 'nazev'),
             ]);
         }
         if ($path === '/api/kategorie') {

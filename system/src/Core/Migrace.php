@@ -8,7 +8,7 @@ namespace MiroCMS\Core;
  * Aktualizace struktury databáze.
  *
  * Soubory system/sql/migrace/NNNN-popis.sql se provedou vzestupně, číslo poslední provedené
- * je v rs_config (verze_db). Nová instalace dostane rovnou úplné schema.sql a nejvyšší číslo.
+ * je v mc_nastaveni (verze_db). Nová instalace dostane rovnou úplné schema.sql a nejvyšší číslo.
  */
 final class Migrace
 {
@@ -41,7 +41,7 @@ final class Migrace
         }
         $provedene = [];
         try {
-            $verze = max(1, (int) $db->value("SELECT hodnota FROM {config} WHERE promenna = 'verze_db'"));
+            $verze = max(1, (int) $db->value("SELECT hodnota FROM {nastaveni} WHERE promenna = 'verze_db'"));
             foreach (self::soubory() as $cislo => $soubor) {
                 if ($cislo <= $verze) {
                     continue;
@@ -60,7 +60,7 @@ final class Migrace
     }
 
     /**
-     * Rozdělí SQL skript na příkazy a nahradí předponu "rs_" předponou instalace.
+     * Rozdělí SQL skript na příkazy a nahradí předponu "mc_" předponou instalace.
      *
      * @return list<string>
      */
@@ -68,7 +68,7 @@ final class Migrace
     {
         // názvy omezení musí být v databázi jedinečné - dostanou předponu také
         $sql = preg_replace('/\b((?:CONSTRAINT|DROP FOREIGN KEY)\s+)fk_/', '$1' . $prefix . 'fk_', $sql) ?? $sql;
-        $sql = preg_replace('/\brs_(?=[a-z])/', $prefix, $sql) ?? $sql;
+        $sql = preg_replace('/\bmc_(?=[a-z])/', $prefix, $sql) ?? $sql;
         // příkaz končí středníkem na konci řádku; za středníkem smí být už jen komentář
         $prikazy = preg_split('/;[ \t]*(--[^\n]*)?(\r?\n|$)/', $sql) ?: [];
 

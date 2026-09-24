@@ -117,7 +117,7 @@ final class Server
         if (!preg_match('/^Bearer\s+(mirocms_[a-f0-9]{48})$/', $hlavicka, $m)) {
             return null;
         }
-        $token = $db->one('SELECT t.idt, u.* FROM {api_tokeny} t JOIN {user} u ON u.idu = t.idu WHERE t.otisk = ? AND u.blokovat = 0', [hash('sha256', $m[1])]);
+        $token = $db->one('SELECT t.idt, u.* FROM {api_tokeny} t JOIN {uzivatele} u ON u.idu = t.idu WHERE t.otisk = ? AND u.blokovat = 0', [hash('sha256', $m[1])]);
         if ($token === null) {
             $db->insert('kontrola_ip', ['ip_adresa' => $ip, 'typ' => 'mcp', 'cas' => date('Y-m-d H:i:s')]);
 

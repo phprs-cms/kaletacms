@@ -34,7 +34,7 @@ final class Ucet
                         $hlaska = ['chyba', 'E-mail nemá platný tvar.'];
                         break;
                     }
-                    $db->update('user', ['jmeno' => mb_substr($r->post('jmeno'), 0, 100), 'email' => mb_substr($r->post('email'), 0, 190), 'url' => mb_substr($r->post('url'), 0, 255), 'pozice' => mb_substr($r->post('pozice'), 0, 100), 'foto' => mb_substr($r->post('foto'), 0, 255), 'bio' => mb_substr($r->post('bio'), 0, 1200),
+                    $db->update('uzivatele', ['jmeno' => mb_substr($r->post('jmeno'), 0, 100), 'email' => mb_substr($r->post('email'), 0, 190), 'url' => mb_substr($r->post('url'), 0, 255), 'pozice' => mb_substr($r->post('pozice'), 0, 100), 'foto' => mb_substr($r->post('foto'), 0, 255), 'bio' => mb_substr($r->post('bio'), 0, 1200),
                         'jazyk' => isset(\MiroCMS\Core\Jazyk::ADMINISTRACE[$r->post('jazyk')]) && $r->post('jazyk') !== 'cs' ? $r->post('jazyk') : ''], ['idu' => $user['idu']]);
                     $hlaska = ['ok', 'Údaje byly uloženy.'];
                     break;
@@ -48,7 +48,7 @@ final class Ucet
                     };
                     if ($hlaska === null) {
                         $novyHash = password_hash($nove, PASSWORD_DEFAULT);
-                        $db->update('user', ['password' => $novyHash], ['idu' => $user['idu']]);
+                        $db->update('uzivatele', ['password' => $novyHash], ['idu' => $user['idu']]);
                         $app->auth()->obnovPoZmeneHesla($novyHash); // ostatní přihlášení tohoto účtu tím končí
                         $zruseno = $r->postBool('zrusit_tokeny') ? $db->delete('api_tokeny', ['idu' => $user['idu']]) : 0;
                         Protokol::zapis($app, 'ucet', 'změna hesla' . ($zruseno > 0 ? ', zrušeny tokeny napojení (' . $zruseno . ')' : ''));
@@ -78,7 +78,7 @@ final class Ucet
                         break;
                     }
                     [$kody, $json] = Totp::zalozniKody();
-                    $db->update('user', ['totp_tajemstvi' => $tajemstvi, 'totp_zalozni' => $json], ['idu' => $user['idu']]);
+                    $db->update('uzivatele', ['totp_tajemstvi' => $tajemstvi, 'totp_zalozni' => $json], ['idu' => $user['idu']]);
                     $app->session->remove('totp_nove');
                     Protokol::zapis($app, 'ucet', 'zapnuto dvoufázové přihlášení');
                     // záložní kódy se ukazují jen teď - proto bez přesměrování
@@ -87,7 +87,7 @@ final class Ucet
                 case 'klic_uloz':
                     return $this->klic($r->post('co') === 'klic_uloz');
                 case 'klic_smaz':
-                    $db->run('DELETE FROM {user_klice} WHERE idk = ? AND idu = ?', [$r->postInt('idk'), $user['idu']]);
+                    $db->run('DELETE FROM {uzivatele_klice} WHERE idk = ? AND idu = ?', [$r->postInt('idk'), $user['idu']]);
                     Protokol::zapis($app, 'ucet', 'odebrán přihlašovací klíč');
                     $hlaska = ['ok', 'Přihlašovací klíč je odebrán.'];
                     break;
@@ -96,8 +96,8 @@ final class Ucet
                         $hlaska = ['chyba', 'Pro vypnutí zadejte správné heslo.'];
                         break;
                     }
-                    $db->update('user', ['totp_tajemstvi' => '', 'totp_zalozni' => null], ['idu' => $user['idu']]);
-                    $db->run('DELETE FROM {user_klice} WHERE idu = ?', [$user['idu']]); // klíče jsou náhrada kódu z aplikace - bez něj nemají smysl
+                    $db->update('uzivatele', ['totp_tajemstvi' => '', 'totp_zalozni' => null], ['idu' => $user['idu']]);
+                    $db->run('DELETE FROM {uzivatele_klice} WHERE idu = ?', [$user['idu']]); // klíče jsou náhrada kódu z aplikace - bez něj nemají smysl
                     Protokol::zapis($app, 'ucet', 'vypnuto dvoufázové přihlášení');
                     $hlaska = ['ok', 'Dvoufázové přihlášení je vypnuté.'];
                     break;
@@ -144,11 +144,11 @@ final class Ucet
             return Response::json(['chyba' => t($e->getMessage())], 400);
         }
         $otisk = hash('sha256', Passkey::zB64($novy['id']));
-        if ($app->db()->value('SELECT idk FROM {user_klice} WHERE otisk_id = ?', [$otisk]) !== null) {
+        if ($app->db()->value('SELECT idk FROM {uzivatele_klice} WHERE otisk_id = ?', [$otisk]) !== null) {
             return Response::json(['chyba' => t('Tenhle klíč už je zaregistrovaný.')], 400);
         }
         $nazev = mb_substr(trim($app->request->post('nazev')), 0, 80);
-        $app->db()->insert('user_klice', [
+        $app->db()->insert('uzivatele_klice', [
             'idu' => $user['idu'], 'nazev' => $nazev !== '' ? $nazev : t('Přihlašovací klíč'), 'otisk_id' => $otisk, 'id_klice' => $novy['id'],
             'verejny' => $novy['klic'], 'alg' => $novy['alg'], 'pocitadlo' => $novy['pocitadlo'], 'vytvoreno' => date('Y-m-d H:i:s'),
         ]);
@@ -162,7 +162,7 @@ final class Ucet
     private function stranka(array $data): Response
     {
         $app = $this->kernel->app;
-        $user = $app->db()->one('SELECT * FROM {user} WHERE idu = ?', [$app->auth()->id()]);
+        $user = $app->db()->one('SELECT * FROM {uzivatele} WHERE idu = ?', [$app->auth()->id()]);
 
         return $this->kernel->page('Můj účet', $app->view->render('admin/ucet', $data + [
             'app' => $app, 'user' => $user, 'csrf' => $app->session->csrfField(),

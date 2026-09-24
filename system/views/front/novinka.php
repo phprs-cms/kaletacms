@@ -2,7 +2,7 @@
 /**
  * Celá novinka. Layout ji může přepsat vlastním souborem novinka.php.
  *
- * @var array<string, mixed> $novinka  sloupce rs_clanky + tema_jm, tema_seo, autor_jm, stitky (nazev, seo_link),
+ * @var array<string, mixed> $novinka  sloupce mc_novinky + tema_jm, tema_seo, autor_jm, stitky (nazev, seo_link),
  *                                     obrazek_srcset, obrazek_alt, obrazek_popisek_html, faq_html - hotové HTML, stačí vypsat
  * @var callable(string): string $url
  * @var list<array<string, mixed>> $souvisejici

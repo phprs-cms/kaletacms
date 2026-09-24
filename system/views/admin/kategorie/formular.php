@@ -31,6 +31,6 @@ $chyba = fn (string $pole): string => isset($chyby[$pole]) ? '<span class="chyba
 	<div><input class="textpole" type="number" id="hodnost" name="hodnost" value="<?= (int) $kategorie['hodnost'] ?>" min="0" max="65535">
 	<span class="napoveda"><?= e(t('Vyšší číslo = výš v seznamu.')) ?></span></div>
 </div>
-<?= $app->view->render('admin/jazyk_pole', ['app' => $app, 'hodnota' => (string) ($kategorie['jazyk'] ?? ''), 'prekladZ' => (int) ($kategorie['preklad_z'] ?? 0), 'originaly' => $app->db()->pairs("SELECT idt, nazev FROM {topic} WHERE jazyk = '' ORDER BY nazev"), 'napoveda' => t('Novinky v kategorii patří do této jazykové verze webu.')]) ?>
+<?= $app->view->render('admin/jazyk_pole', ['app' => $app, 'hodnota' => (string) ($kategorie['jazyk'] ?? ''), 'prekladZ' => (int) ($kategorie['preklad_z'] ?? 0), 'originaly' => $app->db()->pairs("SELECT idt, nazev FROM {kategorie} WHERE jazyk = '' ORDER BY nazev"), 'napoveda' => t('Novinky v kategorii patří do této jazykové verze webu.')]) ?>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t($kategorie['idt'] ? 'Uložit' : 'Přidat')) ?>"></p>
 </form>

@@ -56,7 +56,7 @@ over('TOTP: nesmysl neprojde', Totp::over($tajemstvi, 'abcdef', 59), false);
 over('TOTP: nové tajemství má 160 bitů', strlen(Totp::noveTajemstvi()), 32);
 
 /* ---------- migrace: dělení SQL na příkazy ---------- */
-$sql = "-- komentář\nALTER TABLE rs_clanky ADD COLUMN x INT;   -- poznámka za příkazem\nCREATE TABLE rs_nova (\n  a VARCHAR(10) DEFAULT ';'\n);\nALTER TABLE rs_a ADD CONSTRAINT fk_a FOREIGN KEY (b) REFERENCES rs_b (id);\n";
+$sql = "-- komentář\nALTER TABLE mc_novinky ADD COLUMN x INT;   -- poznámka za příkazem\nCREATE TABLE mc_nova (\n  a VARCHAR(10) DEFAULT ';'\n);\nALTER TABLE mc_a ADD CONSTRAINT fk_a FOREIGN KEY (b) REFERENCES mc_b (id);\n";
 $prikazy = Migrace::prikazy($sql, 'web_');
 over('Migrace::prikazy: počet', count($prikazy), 3);
 over('Migrace::prikazy: předpona tabulek', str_contains($prikazy[1], 'CREATE TABLE web_nova'), true);
@@ -98,7 +98,7 @@ $utoky = [
     '<?php file_put_contents(MIROCMS_ROOT . "/system/x.php", "x");', '<?= file_get_contents("../config.php") ?>', '<?php eval($_GET["c"]);', '<?php include "../config.php";',
     '<?php system("id");', '<?php echo `id`;', '<?php $f = "sys" . "tem"; $f("id");', '<?php array_map("system", ["id"]);', '<?php array_map("sys" . "tem", ["id"]);',
     '<?php $x = "system"; usort($a, $x);', '<?php call_user_func("system", "id");', '<?php $d = new PDO("mysql:host=x");', '<?php \\MiroCMS\\Core\\App::boot();',
-    '<?php $web->db()->run("DROP TABLE rs_clanky");', '<?php $web->set("ai_klic", "x");', '<?= $_COOKIE["mirocms"] ?>', '<?php $a = "_GET"; echo $$a["x"];',
+    '<?php $web->db()->run("DROP TABLE mc_novinky");', '<?php $web->set("ai_klic", "x");', '<?= $_COOKIE["mirocms"] ?>', '<?php $a = "_GET"; echo $$a["x"];',
     '<?php echo "{$web->db()->run(1)}";', '<?php (fn () => 1)()("x");', '<?php [$web, "set"]("a", "b");', '<?php function system2() {}', '<?php ($web->x)("id");', '<?php exit;',
     '<?php use MiroCMS\\Core\\Db as e;', '<?php echo constant("MIROCMS_ROOT");', '<?php preg_replace_callback("/x/", "system", "x");', '<?php highlight_file("../config.php");',
     '<?php $m = "db"; $web->$m();', '<?php array_map(system(...), ["id"]);', '<?php $web?->db();', '<?php echo $app->settings()->get("ai_klic");', '<?php mail("a@b.cz", "x", "y");',

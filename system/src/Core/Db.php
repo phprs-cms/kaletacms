@@ -11,8 +11,8 @@ use PDOStatement;
  * Tenká vrstva nad PDO.
  *
  * Názvy tabulek se v SQL píší ve složených závorkách bez předpony:
- *   SELECT * FROM {clanky} WHERE id = ?
- * a při spuštění se doplní předpona z konfigurace (výchozí "rs_", stejně jako v MiroCMS 2).
+ *   SELECT * FROM {novinky} WHERE id = ?
+ * a při spuštění se doplní předpona z konfigurace (výchozí "mc_").
  */
 final class Db
 {
@@ -24,7 +24,7 @@ final class Db
         private readonly string $dsn,
         private readonly string $user,
         private readonly string $password,
-        public readonly string $prefix = 'rs_',
+        public readonly string $prefix = 'mc_',
     ) {
     }
 
@@ -35,7 +35,7 @@ final class Db
             ? sprintf('mysql:unix_socket=%s;dbname=%s;charset=utf8mb4', $c['socket'], $c['name'])
             : sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4', $c['host'] ?? 'localhost', $c['port'] ?? 3306, $c['name']);
 
-        return new self($dsn, $c['user'], $c['password'], $c['prefix'] ?? 'rs_');
+        return new self($dsn, $c['user'], $c['password'], $c['prefix'] ?? 'mc_');
     }
 
     public function pdo(): PDO
@@ -55,7 +55,7 @@ final class Db
         return $this->pdo;
     }
 
-    /** Doplní předponu tabulek: {clanky} -> `rs_clanky`. */
+    /** Doplní předponu tabulek: {novinky} -> `mc_novinky`. */
     public function sql(string $sql): string
     {
         return preg_replace_callback(

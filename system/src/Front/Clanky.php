@@ -9,7 +9,7 @@ use MiroCMS\Core\Obrazky;
 use MiroCMS\Core\Settings;
 
 /**
- * Čtení novinek pro web (tabulka rs_clanky). Na webu je vidět jen novinka vydaná (visible = 1), jejíž datum vydání už nastalo.
+ * Čtení novinek pro web (tabulka mc_novinky). Na webu je vidět jen novinka vydaná (visible = 1), jejíž datum vydání už nastalo.
  */
 final class Clanky
 {
@@ -17,13 +17,13 @@ final class Clanky
         SELECT c.*, t.nazev AS tema_jm, t.seo_link AS tema_seo,
                NULLIF(u.jmeno, '') AS autor_jm, -- přihlašovací jméno se na webu neukazuje; bez vyplněného jména se autor nevypisuje
                u.pozice AS autor_pozice, u.foto AS autor_foto, u.bio AS autor_bio, u.url AS autor_url
-        FROM {clanky} c
-        JOIN {topic} t ON t.idt = c.tema
-        LEFT JOIN {user} u ON u.idu = c.autor";
+        FROM {novinky} c
+        JOIN {kategorie} t ON t.idt = c.tema
+        LEFT JOIN {uzivatele} u ON u.idu = c.autor";
 
     /**
      * Sloupce pro výpisy: bez dlouhých textů (text, FAQ), které výpis netiskne. Klíče v poli zůstávají (prázdné),
-     * aby šablony nepadaly. Nový sloupec rs_clanky, který má být vidět ve výpisech, je potřeba doplnit i sem.
+     * aby šablony nepadaly. Nový sloupec mc_novinky, který má být vidět ve výpisech, je potřeba doplnit i sem.
      */
     private const string SLOUPCE_VYPISU = "c.idc, c.seo_link, c.titulek, c.uvod, '' AS text, c.obrazek, c.tema, c.autor, c.datum, c.visible, c.t_slova, c.noindex, '' AS faq, c.visit,
         c.zmeneno, c.aktualizovano, c.jazyk, c.preklad_z";
@@ -89,7 +89,7 @@ final class Clanky
     /** @return array{0: list<array<string, mixed>>, 1: int} */
     public function seStitkem(int $ids, int $strana): array
     {
-        return $this->dotaz($this->vydane . ' AND EXISTS (SELECT 1 FROM {clanky_stitky} cs WHERE cs.idc = c.idc AND cs.ids = ?)', [$ids], 'c.datum DESC, c.idc DESC', $strana);
+        return $this->dotaz($this->vydane . ' AND EXISTS (SELECT 1 FROM {novinky_stitky} cs WHERE cs.idc = c.idc AND cs.ids = ?)', [$ids], 'c.datum DESC, c.idc DESC', $strana);
     }
 
     /** @return array{0: list<array<string, mixed>>, 1: int} */
@@ -120,7 +120,7 @@ final class Clanky
         }
         // popisek, autor a alt hlavního obrázku: z novinky, jinak z knihovny médií
         $knihovna = $clanek['obrazek'] !== '' && !preg_match('#^(https?:)?//#', $clanek['obrazek'])
-            ? $this->db->one('SELECT nazev, popis, autor FROM {imggal_obr} WHERE obr_poloha = ? LIMIT 1', [ltrim($clanek['obrazek'], '/')]) : null;
+            ? $this->db->one('SELECT nazev, popis, autor FROM {media} WHERE obr_poloha = ? LIMIT 1', [ltrim($clanek['obrazek'], '/')]) : null;
         $popis = $clanek['obrazek_popis'] !== '' ? $clanek['obrazek_popis'] : (string) ($knihovna['popis'] ?? '');
         $autor = $clanek['obrazek_autor'] !== '' ? $clanek['obrazek_autor'] : (string) ($knihovna['autor'] ?? '');
         $clanek['obrazek_alt'] = (string) ($knihovna['nazev'] ?? '') !== '' ? (string) $knihovna['nazev'] : $popis;
@@ -140,7 +140,7 @@ final class Clanky
     {
         return $this->db->all(
             'SELECT c.titulek, c.seo_link, c.datum, COUNT(cs.ids) AS shoda
-             FROM {clanky} c LEFT JOIN {clanky_stitky} cs ON cs.idc = c.idc AND cs.ids IN (SELECT ids FROM {clanky_stitky} WHERE idc = ?)
+             FROM {novinky} c LEFT JOIN {novinky_stitky} cs ON cs.idc = c.idc AND cs.ids IN (SELECT ids FROM {novinky_stitky} WHERE idc = ?)
              WHERE ' . $this->vydane . ' AND c.idc <> ? AND (c.tema = ? OR cs.ids IS NOT NULL) AND c.datum > NOW() - INTERVAL 2 YEAR
              GROUP BY c.idc, c.titulek, c.seo_link, c.datum ORDER BY shoda DESC, c.datum DESC LIMIT ?',
             [$clanek['idc'], $clanek['idc'], $clanek['tema'], $pocet],
@@ -151,7 +151,7 @@ final class Clanky
     private function dotaz(string $where, array $params, string $order, int $strana, ?int $limit = null, bool $sTextem = false): array
     {
         // pevný počet (RSS, kanály, API) = nikdo nestránkuje, celkový počet se nepočítá
-        $celkem = $limit !== null ? 0 : (int) $this->db->value("SELECT COUNT(*) FROM {clanky} c WHERE {$where}", $params);
+        $celkem = $limit !== null ? 0 : (int) $this->db->value("SELECT COUNT(*) FROM {novinky} c WHERE {$where}", $params);
         $limit ??= $this->naStranku();
         $strana = max(1, min($strana, 100000));
         $clanky = $this->db->all(

@@ -47,7 +47,7 @@ final class Cache
         }
         Statistika::zaznamenej($app, $meta['idc'] ?? null);
         if (!empty($meta['idc'])) {
-            $app->db()->run('UPDATE {clanky} SET visit = visit + 1 WHERE idc = ?', [(int) $meta['idc']]);
+            $app->db()->run('UPDATE {novinky} SET visit = visit + 1 WHERE idc = ?', [(int) $meta['idc']]);
         }
 
         return new Response($html, 200, ['Content-Type' => 'text/html; charset=utf-8', 'X-Cache' => 'mirocms']);

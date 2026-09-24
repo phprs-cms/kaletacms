@@ -47,7 +47,7 @@ final class ObnovaHesla
             } else {
                 $app->db()->insert('kontrola_ip', ['ip_adresa' => $ip, 'typ' => 'obnova', 'cas' => date('Y-m-d H:i:s')]);
                 $kdo = trim($app->request->post('kdo'));
-                $user = $kdo === '' ? null : $app->db()->one("SELECT * FROM {user} WHERE (user = ? OR email = ?) AND blokovat = 0 AND email <> '' LIMIT 1", [$kdo, $kdo]);
+                $user = $kdo === '' ? null : $app->db()->one("SELECT * FROM {uzivatele} WHERE (user = ? OR email = ?) AND blokovat = 0 AND email <> '' LIMIT 1", [$kdo, $kdo]);
                 if ($user !== null) {
                     $this->posliOdkaz($user);
                 }
@@ -63,7 +63,7 @@ final class ObnovaHesla
     {
         $app = $this->app;
         $token = bin2hex(random_bytes(32));
-        $app->db()->update('user', ['obnova_otisk' => hash('sha256', $token), 'obnova_cas' => date('Y-m-d H:i:s')], ['idu' => $user['idu']]);
+        $app->db()->update('uzivatele', ['obnova_otisk' => hash('sha256', $token), 'obnova_cas' => date('Y-m-d H:i:s')], ['idu' => $user['idu']]);
         $odkaz = rtrim($app->settings()->get('adresa_webu') ?: $app->request->origin(), '/') . $app->url('admin.php?akce=heslo&token=' . $token);
         $jazyk = (string) $user['jazyk'] !== '' ? (string) $user['jazyk'] : Jazyk::vychozi($app->settings());
         [$predmet, $text] = Jazyk::docasne($jazyk, fn (): array => [
@@ -80,7 +80,7 @@ final class ObnovaHesla
     {
         $app = $this->app;
         $user = preg_match('/^[a-f0-9]{64}$/', $token) === 1
-            ? $app->db()->one('SELECT * FROM {user} WHERE obnova_otisk = ? AND blokovat = 0 AND obnova_cas > ?', [hash('sha256', $token), date('Y-m-d H:i:s', time() - self::PLATNOST)])
+            ? $app->db()->one('SELECT * FROM {uzivatele} WHERE obnova_otisk = ? AND blokovat = 0 AND obnova_cas > ?', [hash('sha256', $token), date('Y-m-d H:i:s', time() - self::PLATNOST)])
             : null;
         if ($user === null) {
             return $this->stranka(['krok' => 'neplatny', 'odeslano' => false, 'chyba' => t('Odkaz už neplatí nebo byl použit. Požádejte o nový.')], 400);
@@ -93,7 +93,7 @@ final class ObnovaHesla
             } elseif ($heslo !== (string) ($_POST['password2'] ?? '')) {
                 $chyba = t('Hesla se neshodují.');
             } else {
-                $app->db()->update('user', [
+                $app->db()->update('uzivatele', [
                     'password' => password_hash($heslo, PASSWORD_DEFAULT), 'obnova_otisk' => '', 'obnova_cas' => null, 'pocet_chyb' => 0, 'zamceno_do' => null,
                 ], ['idu' => $user['idu']]);
                 Protokol::zapis($app, 'prihlaseni', 'obnova-hesla', 'heslo změněno, účet: ' . $user['user']);

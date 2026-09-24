@@ -186,13 +186,13 @@ final class Kernel
                 ? $db->all('SELECT den, navstevy, zobrazeni FROM {stat_dny} WHERE den > CURDATE() - INTERVAL 14 DAY ORDER BY den') : [],
             'pocty' => [
                 'Stránky' => (int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE zobrazit = 1'),
-                'Vydané novinky' => (int) $db->value("SELECT COUNT(*) FROM {clanky} WHERE visible = 1 AND datum <= NOW(){$jen}"),
-                'Naplánované' => (int) $db->value("SELECT COUNT(*) FROM {clanky} WHERE visible = 1 AND datum > NOW(){$jen}"),
-                'Koncepty' => (int) $db->value("SELECT COUNT(*) FROM {clanky} WHERE visible = 0{$jen}"),
+                'Vydané novinky' => (int) $db->value("SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW(){$jen}"),
+                'Naplánované' => (int) $db->value("SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum > NOW(){$jen}"),
+                'Koncepty' => (int) $db->value("SELECT COUNT(*) FROM {novinky} WHERE visible = 0{$jen}"),
             ],
             'posledni' => $db->all(
                 "SELECT c.idc, c.titulek, c.datum, c.visible, t.nazev AS tema_jm
-                 FROM {clanky} c JOIN {topic} t ON t.idt = c.tema WHERE 1 = 1" . $jenC . "
+                 FROM {novinky} c JOIN {kategorie} t ON t.idt = c.tema WHERE 1 = 1" . $jenC . "
                  ORDER BY COALESCE(c.zmeneno, c.datum) DESC LIMIT 6",
             ),
         ];
@@ -215,7 +215,7 @@ final class Kernel
             ['Dejte webu tvář', 'Logo, hlavní barva a písmo.', 'admin.php?modul=vzhled', $s->get('logo_webu') !== '' || $s->get('design_system') !== '' || $s->get('brand_akcent') !== ''],
             ['Vyplňte údaje o firmě', 'Kontakty a adresa se ukážou v patičce a vyhledávačům.', 'admin.php?modul=config', $s->get('email_webu') !== ''],
             ['Připravte stránky', 'O nás, Služby, Kontakt – a vyberte, která bude úvodní.', 'admin.php?modul=stranky', (int) $db->value('SELECT COUNT(*) FROM {stranky}') >= 3],
-            ['Napište první novinku', 'Ukázkovou novinku pak můžete smazat.', 'admin.php?modul=novinky&akce=novy', (int) $db->value("SELECT COUNT(*) FROM {clanky} WHERE seo_link <> 'vitejte-v-mirocms'") >= 1],
+            ['Napište první novinku', 'Ukázkovou novinku pak můžete smazat.', 'admin.php?modul=novinky&akce=novy', (int) $db->value("SELECT COUNT(*) FROM {novinky} WHERE seo_link <> 'vitejte-v-mirocms'") >= 1],
             ['Nastavte poštu', 'Odkud web odesílá e-maily (formuláře, obnova hesla).', 'admin.php?modul=config&zalozka=posta', $s->get('posta_rezim') === 'smtp' || $s->get('posta_od') !== ''],
         ];
         $vysledek = array_map(fn (array $k): array => ['nazev' => $k[0], 'popis' => $k[1], 'url' => $app->url($k[2]), 'hotovo' => (bool) $k[3]], $kroky);

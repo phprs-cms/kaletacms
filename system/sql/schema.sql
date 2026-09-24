@@ -1,7 +1,7 @@
 -- MiroCMS - struktura databáze
 --
--- Názvy tabulek a sloupců jsou česky. Interní názvy: rs_clanky = novinky, rs_topic = kategorie novinek, rs_user = uživatelé
--- administrace, rs_imggal_* = média. Předpona "rs_" se při instalaci nahradí předponou z config.php.
+-- Názvy tabulek a sloupců jsou česky. Předpona "mc_" se při instalaci nahradí předponou z config.php.
+-- Starší názvy sloupců zůstaly: idc = id novinky, tema/idt = kategorie, ido = médium, idu = uživatel.
 -- InnoDB s cizími klíči, utf8mb4, hesla přes password_hash().
 --
 -- Tento soubor je vždy úplné aktuální schéma pro novou instalaci. Každá změna se zároveň zapisuje
@@ -12,7 +12,7 @@ SET NAMES utf8mb4;
 -- ---------------------------------------------------------------------------
 -- Uživatelé administrace
 -- ---------------------------------------------------------------------------
-CREATE TABLE rs_user (
+CREATE TABLE mc_uzivatele (
     idu            INT UNSIGNED NOT NULL AUTO_INCREMENT,
     user           VARCHAR(40)  NOT NULL,                 -- přihlašovací jméno
     password       VARCHAR(255) NOT NULL,                 -- password_hash()
@@ -37,18 +37,18 @@ CREATE TABLE rs_user (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Přístup uživatele k modulu administrace
-CREATE TABLE rs_user_prava (
+CREATE TABLE mc_uzivatele_prava (
     fk_id_user   INT UNSIGNED NOT NULL,
     ident_modulu VARCHAR(30)  NOT NULL,
     PRIMARY KEY (fk_id_user, ident_modulu),
-    CONSTRAINT fk_prava_user FOREIGN KEY (fk_id_user) REFERENCES rs_user (idu) ON DELETE CASCADE
+    CONSTRAINT fk_prava_user FOREIGN KEY (fk_id_user) REFERENCES mc_uzivatele (idu) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 
 -- ---------------------------------------------------------------------------
 -- Konfigurace
 -- ---------------------------------------------------------------------------
-CREATE TABLE rs_config (
+CREATE TABLE mc_nastaveni (
     promenna VARCHAR(60) NOT NULL,
     hodnota  TEXT NOT NULL,
     PRIMARY KEY (promenna)
@@ -59,7 +59,7 @@ CREATE TABLE rs_config (
 -- ---------------------------------------------------------------------------
 -- Kategorie a novinky
 -- ---------------------------------------------------------------------------
-CREATE TABLE rs_topic (
+CREATE TABLE mc_kategorie (
     idt       INT UNSIGNED NOT NULL AUTO_INCREMENT,
     nazev     VARCHAR(100) NOT NULL,
     seo_link  VARCHAR(120) NOT NULL,
@@ -74,7 +74,7 @@ CREATE TABLE rs_topic (
 
 
 
-CREATE TABLE rs_clanky (
+CREATE TABLE mc_novinky (
     idc            INT UNSIGNED NOT NULL AUTO_INCREMENT,
     seo_link       VARCHAR(160) NOT NULL,
     titulek        VARCHAR(255) NOT NULL,
@@ -111,21 +111,21 @@ CREATE TABLE rs_clanky (
     KEY ix_clanky_autor (autor),
     FULLTEXT KEY ft_clanky (titulek, uvod, text, t_slova),
     FULLTEXT KEY ft_clanky_hledani (hledani),
-    CONSTRAINT fk_clanky_tema  FOREIGN KEY (tema)  REFERENCES rs_topic (idt),
-    CONSTRAINT fk_clanky_autor FOREIGN KEY (autor) REFERENCES rs_user (idu) ON DELETE SET NULL
+    CONSTRAINT fk_clanky_tema  FOREIGN KEY (tema)  REFERENCES mc_kategorie (idt),
+    CONSTRAINT fk_clanky_autor FOREIGN KEY (autor) REFERENCES mc_uzivatele (idu) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 
 -- ---------------------------------------------------------------------------
 -- Galerie obrázků
 -- ---------------------------------------------------------------------------
-CREATE TABLE rs_imggal_sekce (
+CREATE TABLE mc_media_slozky (
     ids   INT UNSIGNED NOT NULL AUTO_INCREMENT,
     nazev VARCHAR(100) NOT NULL,
     PRIMARY KEY (ids)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
-CREATE TABLE rs_imggal_obr (
+CREATE TABLE mc_media (
     ido         INT UNSIGNED NOT NULL AUTO_INCREMENT,
     vlastnik    INT UNSIGNED NULL,
     sekce       INT UNSIGNED NULL,                         -- složka
@@ -145,14 +145,14 @@ CREATE TABLE rs_imggal_obr (
     KEY ix_imggal_datum (datum),
     KEY ix_imggal_poloha (obr_poloha),
     KEY ix_imggal_sekce (sekce),
-    CONSTRAINT fk_imggal_sekce FOREIGN KEY (sekce) REFERENCES rs_imggal_sekce (ids) ON DELETE SET NULL,
-    CONSTRAINT fk_imggal_vlastnik FOREIGN KEY (vlastnik) REFERENCES rs_user (idu) ON DELETE SET NULL
+    CONSTRAINT fk_imggal_sekce FOREIGN KEY (sekce) REFERENCES mc_media_slozky (ids) ON DELETE SET NULL,
+    CONSTRAINT fk_imggal_vlastnik FOREIGN KEY (vlastnik) REFERENCES mc_uzivatele (idu) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 
 
 -- Ochrana proti opakování akce ze stejné IP (přihlášení, hledání, formuláře)
-CREATE TABLE rs_kontrola_ip (
+CREATE TABLE mc_kontrola_ip (
     idk       INT UNSIGNED NOT NULL AUTO_INCREMENT,
     ip_adresa VARCHAR(45) NOT NULL,
     typ       VARCHAR(20) NOT NULL,
@@ -163,18 +163,18 @@ CREATE TABLE rs_kontrola_ip (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Ve kterých novinkách je obrázek použitý (přepočítá se při uložení)
-CREATE TABLE rs_imggal_pouziti (
+CREATE TABLE mc_media_pouziti (
     ido INT UNSIGNED NOT NULL,
     idc INT UNSIGNED NOT NULL,
     PRIMARY KEY (ido, idc),
     KEY ix_pouziti_clanek (idc),
-    CONSTRAINT fk_pouziti_obr FOREIGN KEY (ido) REFERENCES rs_imggal_obr (ido) ON DELETE CASCADE,
-    CONSTRAINT fk_pouziti_clanek FOREIGN KEY (idc) REFERENCES rs_clanky (idc) ON DELETE CASCADE
+    CONSTRAINT fk_pouziti_obr FOREIGN KEY (ido) REFERENCES mc_media (ido) ON DELETE CASCADE,
+    CONSTRAINT fk_pouziti_clanek FOREIGN KEY (idc) REFERENCES mc_novinky (idc) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- ---------------------------------------------------------------------------
 -- Štítky novinek, historie verzí novinky a stránky webu.
-CREATE TABLE rs_stitky (
+CREATE TABLE mc_stitky (
     ids      INT UNSIGNED NOT NULL AUTO_INCREMENT,
     nazev    VARCHAR(80) NOT NULL,
     seo_link VARCHAR(100) NOT NULL,
@@ -183,15 +183,15 @@ CREATE TABLE rs_stitky (
     PRIMARY KEY (ids),
     UNIQUE KEY uq_stitky_seo (seo_link)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
-CREATE TABLE rs_clanky_stitky (
+CREATE TABLE mc_novinky_stitky (
     idc INT UNSIGNED NOT NULL,
     ids INT UNSIGNED NOT NULL,
     PRIMARY KEY (idc, ids),
     KEY ix_clanky_stitky_stitek (ids),
-    CONSTRAINT fk_cs_clanek FOREIGN KEY (idc) REFERENCES rs_clanky (idc) ON DELETE CASCADE,
-    CONSTRAINT fk_cs_stitek FOREIGN KEY (ids) REFERENCES rs_stitky (ids) ON DELETE CASCADE
+    CONSTRAINT fk_cs_clanek FOREIGN KEY (idc) REFERENCES mc_novinky (idc) ON DELETE CASCADE,
+    CONSTRAINT fk_cs_stitek FOREIGN KEY (ids) REFERENCES mc_stitky (ids) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
-CREATE TABLE rs_clanky_revize (
+CREATE TABLE mc_novinky_revize (
     idr     INT UNSIGNED NOT NULL AUTO_INCREMENT,
     idc     INT UNSIGNED NOT NULL,
     datum   DATETIME NOT NULL,
@@ -201,10 +201,10 @@ CREATE TABLE rs_clanky_revize (
     text    MEDIUMTEXT NOT NULL,
     PRIMARY KEY (idr),
     KEY ix_revize_clanek (idc, datum),
-    CONSTRAINT fk_revize_clanek FOREIGN KEY (idc) REFERENCES rs_clanky (idc) ON DELETE CASCADE,
-    CONSTRAINT fk_revize_kdo FOREIGN KEY (kdo) REFERENCES rs_user (idu) ON DELETE SET NULL
+    CONSTRAINT fk_revize_clanek FOREIGN KEY (idc) REFERENCES mc_novinky (idc) ON DELETE CASCADE,
+    CONSTRAINT fk_revize_kdo FOREIGN KEY (kdo) REFERENCES mc_uzivatele (idu) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
-CREATE TABLE rs_stranky (
+CREATE TABLE mc_stranky (
     ids      INT UNSIGNED NOT NULL AUTO_INCREMENT,
     seo_link VARCHAR(120) NOT NULL,
     titulek  VARCHAR(200) NOT NULL,
@@ -223,7 +223,7 @@ CREATE TABLE rs_stranky (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Publikované verze staveb (posledních 20 na stránku)
-CREATE TABLE rs_stavba_revize (
+CREATE TABLE mc_stavba_revize (
     idr    INT UNSIGNED NOT NULL AUTO_INCREMENT,
     ids    INT UNSIGNED NOT NULL,
     datum  DATETIME NOT NULL,
@@ -231,12 +231,12 @@ CREATE TABLE rs_stavba_revize (
     stavba MEDIUMTEXT NOT NULL,
     PRIMARY KEY (idr),
     KEY ix_stavba_revize (ids, idr),
-    CONSTRAINT fk_stavba_revize_stranka FOREIGN KEY (ids) REFERENCES rs_stranky (ids) ON DELETE CASCADE,
-    CONSTRAINT fk_stavba_revize_kdo FOREIGN KEY (kdo) REFERENCES rs_user (idu) ON DELETE SET NULL
+    CONSTRAINT fk_stavba_revize_stranka FOREIGN KEY (ids) REFERENCES mc_stranky (ids) ON DELETE CASCADE,
+    CONSTRAINT fk_stavba_revize_kdo FOREIGN KEY (kdo) REFERENCES mc_uzivatele (idu) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Sdílené třídy stavitele: styl po breakpointech a stavech (JSON jako styl prvku) + volitelné vlastní CSS
-CREATE TABLE rs_tridy (
+CREATE TABLE mc_tridy (
     nazev  VARCHAR(60) NOT NULL,                          -- název třídy v HTML (malá písmena, číslice, pomlčky, __)
     styl   TEXT NOT NULL,                                 -- {"zaklad": {...}, "tablet": {...}, "mobil": {...}, "hover": {...}}
     css    TEXT NULL,                                     -- vlastní deklarace (jen bezpečné, viz Stavitel\Styl::vlastniCss)
@@ -246,7 +246,7 @@ CREATE TABLE rs_tridy (
 
 -- ---------------------------------------------------------------------------
 -- Přesměrování a evidence souhlasů
-CREATE TABLE rs_presmerovani (
+CREATE TABLE mc_presmerovani (
     idp       INT UNSIGNED NOT NULL AUTO_INCREMENT,
     z_adresy  VARCHAR(255) NOT NULL,                     -- cesta na webu bez úvodního lomítka: clanek/stara-adresa
     na_adresu VARCHAR(255) NOT NULL,                     -- cesta na webu, nebo celá adresa https://...
@@ -255,7 +255,7 @@ CREATE TABLE rs_presmerovani (
     PRIMARY KEY (idp),
     UNIQUE KEY uq_presmerovani (z_adresy)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
-CREATE TABLE rs_souhlasy (
+CREATE TABLE mc_souhlasy (
     ids         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     id_souhlasu CHAR(32) NOT NULL,                       -- náhodný identifikátor uložený v cookie návštěvníka
     cas         DATETIME NOT NULL,
@@ -267,27 +267,27 @@ CREATE TABLE rs_souhlasy (
 
 -- ---------------------------------------------------------------------------
 -- Statistika bez cookies
-CREATE TABLE rs_stat_dny (
+CREATE TABLE mc_stat_dny (
     den       DATE NOT NULL,
     navstevy  INT UNSIGNED NOT NULL DEFAULT 0,            -- unikátní návštěvníci dne
     zobrazeni INT UNSIGNED NOT NULL DEFAULT 0,            -- zobrazené stránky
     PRIMARY KEY (den)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 -- Otisk návštěvníka = hash(IP + prohlížeč + denní sůl). Druhý den už nejde spojit s předchozím; starší řádky se mažou.
-CREATE TABLE rs_stat_navstevnici (
+CREATE TABLE mc_stat_navstevnici (
     den   DATE NOT NULL,
     otisk CHAR(32) NOT NULL,
     PRIMARY KEY (den, otisk)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
-CREATE TABLE rs_stat_clanky (
+CREATE TABLE mc_stat_novinky (
     den   DATE NOT NULL,
     idc   INT UNSIGNED NOT NULL,
     pocet INT UNSIGNED NOT NULL DEFAULT 0,
     PRIMARY KEY (den, idc),
     KEY ix_stat_clanky_idc (idc),
-    CONSTRAINT fk_stat_clanek FOREIGN KEY (idc) REFERENCES rs_clanky (idc) ON DELETE CASCADE
+    CONSTRAINT fk_stat_clanek FOREIGN KEY (idc) REFERENCES mc_novinky (idc) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
-CREATE TABLE rs_stat_zdroje (
+CREATE TABLE mc_stat_zdroje (
     den   DATE NOT NULL,
     zdroj VARCHAR(100) NOT NULL,                          -- doména, ze které návštěvník přišel
     pocet INT UNSIGNED NOT NULL DEFAULT 0,
@@ -297,7 +297,7 @@ CREATE TABLE rs_stat_zdroje (
 
 -- ---------------------------------------------------------------------------
 -- Protokol změn v administraci
-CREATE TABLE rs_protokol (
+CREATE TABLE mc_protokol (
     idp   BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     cas   DATETIME NOT NULL,
     kdo   INT UNSIGNED NULL,
@@ -312,7 +312,7 @@ CREATE TABLE rs_protokol (
 
 -- ---------------------------------------------------------------------------
 -- Přístupové tokeny pro napojení na Claude (MCP). Ukládá se jen otisk tokenu.
-CREATE TABLE rs_api_tokeny (
+CREATE TABLE mc_api_tokeny (
     idt       INT UNSIGNED NOT NULL AUTO_INCREMENT,
     idu       INT UNSIGNED NOT NULL,
     nazev     VARCHAR(100) NOT NULL,
@@ -321,11 +321,11 @@ CREATE TABLE rs_api_tokeny (
     pouzit    DATETIME NULL,
     PRIMARY KEY (idt),
     UNIQUE KEY uq_tokeny_otisk (otisk),
-    CONSTRAINT fk_tokeny_user FOREIGN KEY (idu) REFERENCES rs_user (idu) ON DELETE CASCADE
+    CONSTRAINT fk_tokeny_user FOREIGN KEY (idu) REFERENCES mc_uzivatele (idu) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Přihlašovací klíče (passkeys / WebAuthn) jako druhý krok přihlášení. Ukládá se jen veřejný klíč zařízení.
-CREATE TABLE rs_user_klice (
+CREATE TABLE mc_uzivatele_klice (
     idk        INT UNSIGNED NOT NULL AUTO_INCREMENT,
     idu        INT UNSIGNED NOT NULL,
     nazev      VARCHAR(80)  NOT NULL DEFAULT '',          -- pojmenování zařízení uživatelem („MacBook“, „telefon“)
@@ -339,7 +339,7 @@ CREATE TABLE rs_user_klice (
     PRIMARY KEY (idk),
     UNIQUE KEY uq_klice_otisk (otisk_id),
     KEY ix_klice_user (idu),
-    CONSTRAINT fk_klice_user FOREIGN KEY (idu) REFERENCES rs_user (idu) ON DELETE CASCADE
+    CONSTRAINT fk_klice_user FOREIGN KEY (idu) REFERENCES mc_uzivatele (idu) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 
@@ -350,7 +350,7 @@ CREATE TABLE rs_user_klice (
 -- ---------------------------------------------------------------------------
 -- Fronta a protokol e-mailů (Core\Posta)
 -- ---------------------------------------------------------------------------
-CREATE TABLE rs_posta (
+CREATE TABLE mc_posta (
     idp         INT UNSIGNED NOT NULL AUTO_INCREMENT,
     komu        VARCHAR(190) NOT NULL,
     predmet     VARCHAR(255) NOT NULL,
@@ -365,7 +365,7 @@ CREATE TABLE rs_posta (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Adresy, které skončily chybou 404 (podklad pro přesměrování)
-CREATE TABLE rs_nenalezeno (
+CREATE TABLE mc_nenalezeno (
     cesta     VARCHAR(255) NOT NULL,
     pocet     INT UNSIGNED NOT NULL DEFAULT 1,
     naposledy DATETIME NOT NULL,
@@ -373,7 +373,7 @@ CREATE TABLE rs_nenalezeno (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Rozepsané novinky uložené na serveru (pokračování z jiného zařízení)
-CREATE TABLE rs_clanky_koncepty (
+CREATE TABLE mc_novinky_koncepty (
     kdo  INT UNSIGNED NOT NULL,
     idc  INT UNSIGNED NOT NULL DEFAULT 0,
     cas  DATETIME NOT NULL,
@@ -383,7 +383,7 @@ CREATE TABLE rs_clanky_koncepty (
 
 
 -- Nefunkční odkazy nalezené v novinkách (Core\Odkazy)
-CREATE TABLE rs_odkazy_vadne (
+CREATE TABLE mc_odkazy_vadne (
     ido  INT UNSIGNED NOT NULL AUTO_INCREMENT,
     idc  INT UNSIGNED NOT NULL,
     url  VARCHAR(500) NOT NULL,
@@ -391,13 +391,13 @@ CREATE TABLE rs_odkazy_vadne (
     cas  DATETIME NOT NULL,
     PRIMARY KEY (ido),
     KEY ix_odkazy_clanek (idc),
-    CONSTRAINT fk_odkazy_clanek FOREIGN KEY (idc) REFERENCES rs_clanky (idc) ON DELETE CASCADE
+    CONSTRAINT fk_odkazy_clanek FOREIGN KEY (idc) REFERENCES mc_novinky (idc) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 
 
 -- Import z jiných systémů (WordPress): co z cizího webu už bylo převedeno a na který náš záznam
-CREATE TABLE rs_import_mapa (
+CREATE TABLE mc_import_mapa (
     zdroj   VARCHAR(40) NOT NULL,                        -- odkud záznam pochází: wp:<doména starého webu>
     typ     VARCHAR(20) NOT NULL,                        -- clanek | stranka | rubrika | stitek | obrazek | komentar
     cizi_id VARCHAR(190) NOT NULL,                       -- identifikátor ve zdroji (číslo příspěvku, adresa rubriky, otisk adresy obrázku)
