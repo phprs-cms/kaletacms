@@ -31,8 +31,15 @@ page**, on the left the **Add / Structure** panel, on the right the properties o
   Delete removes, Esc selects the parent element.
 - **Saving and publishing:** changes save continuously as a **draft** – visitors see the published version until you
   press **Publish**. **Discard changes** restores the published version; **Versions** lists the last 20 publications.
+  If someone else edits the page meanwhile, the editor offers to load the newer version or overwrite it. Before publishing,
+  a **check** flags buttons without links, images without descriptions and a missing main heading.
+- **More elements:** icon, photo gallery with a viewer, tabs, accordion, carousel, map (loads only after a click),
+  pop-up window (opened by a button linking to `#window-anchor`) and breadcrumbs.
 
 A page that used to be plain text is converted by the builder automatically. You can switch it back to text in the page settings.
+
+**Pages** have their own search-engine title, sharing image and a noindex option (page settings → Search engines and
+sharing). A deleted page goes to the **trash** and can be restored for 30 days; **Duplicate** creates a hidden copy including the build.
 
 ## 3. Site appearance
 
@@ -57,6 +64,9 @@ On the right is a live preview of the home page (desktop / phone). Nothing is sa
 - **Variants:** for the header and footer, choose **Add variant**, name it and tick the pages. The variant applies only
   there. An empty variant hides the part – handy for a landing page.
 
+**Appearance → Menu** builds the main menu and the footer menu: pages, custom links, news and groups, with one submenu
+level under each item. Reorder by dragging or with the arrows. Until you save it, the menu is built from pages “in navigation”.
+
 ## 5. Components
 
 Save a block you use in several places (a service card, a contact strip) as a **component**: select it in the builder and
@@ -80,8 +90,11 @@ page in the builder via **Detail template**.
 
 ## 7. Forms and enquiries
 
-The **Form** element (or the *Enquiry form* section) adds an enquiry form. In the Content panel you set the fields, button
-text, thank-you message and notification email. Hidden fields and a submission limit fight spam without CAPTCHA or cookies.
+The **Form** element (or the *Enquiry form* section) adds an enquiry form. In the Content panel you set the fields (text,
+email, phone, list, radio buttons, date, number, consent), button text, thank-you message or thank-you page, a confirmation
+to the sender and the notification email. Hidden fields and a submission limit fight spam without CAPTCHA or cookies.
+The site can also send each new enquiry to a CRM or Make/Zapier (Settings → General → New enquiry webhook); conversion
+tracking gets a `mirocms:odeslano` event (and a `dataLayer` entry).
 
 Submitted messages are in **Content → Enquiries**: status (new, read, resolved), reply by email, CSV export. Enquiries
 contain personal data, so they are deleted automatically after a set number of months (24 by default).
