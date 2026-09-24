@@ -28,7 +28,7 @@ final class Ucet
 
         if ($r->isPost()) {
             $hlaska = null;
-            switch ($r->postInt('smaz_token') > 0 ? 'token_smaz' : $r->post('co')) {
+            switch ($r->postInt('smaz_token') > 0 ? 'token_smaz' : ($r->post('odpojit_klient') !== '' ? 'aplikace_odpojit' : $r->post('co'))) {
                 case 'profil':
                     if ($r->post('email') !== '' && filter_var($r->post('email'), FILTER_VALIDATE_EMAIL) === false) {
                         $hlaska = ['chyba', 'E-mail nemá platný tvar.'];
@@ -71,6 +71,11 @@ final class Ucet
                 case 'token_smaz':
                     $db->delete('api_tokeny', ['idt' => $r->postInt('smaz_token'), 'idu' => $user['idu']]);
                     $hlaska = ['ok', 'Token byl zrušen.'];
+                    break;
+                case 'aplikace_odpojit':
+                    $db->delete('api_tokeny', ['klient' => $r->post('odpojit_klient'), 'idu' => $user['idu']]);
+                    Protokol::zapis($app, 'ucet', 'odpojena aplikace');
+                    $hlaska = ['ok', 'Aplikace je odpojená – do webu se už nedostane, dokud ji znovu nepovolíte.'];
                     break;
                 case 'totp_start':
                     $app->session->set('totp_nove', Totp::noveTajemstvi());
@@ -174,7 +179,10 @@ final class Ucet
             'zbyvaKodu' => count((array) json_decode((string) $user['totp_zalozni'], true)),
             'claude' => Rozsireni::je($app->settings(), 'claude'),
             'klice' => $app->auth()->kliceUctu((int) $user['idu']),
-            'tokeny' => $app->db()->all('SELECT * FROM {api_tokeny} WHERE idu = ? ORDER BY idt DESC', [$user['idu']]),
+            'tokeny' => $app->db()->all("SELECT * FROM {api_tokeny} WHERE idu = ? AND druh = 'token' ORDER BY idt DESC", [$user['idu']]),
+            // aplikace připojené přes OAuth (konektor Claude): jedna položka na klienta, platí dokud má obnovovací token
+            'aplikace' => $app->db()->all("SELECT klient, MAX(nazev) AS nazev, MIN(vytvoren) AS vytvoren, MAX(pouzit) AS pouzit FROM {api_tokeny} WHERE idu = ? AND klient IS NOT NULL AND expirace > ? GROUP BY klient ORDER BY MIN(vytvoren) DESC",
+                [$user['idu'], date('Y-m-d H:i:s')]),
             'adresaMcp' => $app->request->origin() . $app->url('mcp'),
         ]));
     }

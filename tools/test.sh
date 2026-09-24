@@ -643,6 +643,49 @@ for i in $(seq 1 10); do curl -s -b "$JAR4" -c "$JAR4" -o /dev/null -X POST "$B/
 kod=$(curl -s -b "$JAR4" -c "$JAR4" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$TOKEN4" -d user=obchodnik --data-urlencode "password=Nove-heslo-123")
 ocekavej "po 10 chybách je účet dočasně zamčený i pro správné heslo" "$kod|$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT zamceno_do > NOW() FROM ka_uzivatele WHERE user = 'obchodnik'")" "401|1"
 
+echo "== OAuth pro konektor Claude"
+curl -s -o "$PRACE/odpoved" -D "$PRACE/hlavicky" -X POST "$B/mcp" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize"}'
+grep -qi 'www-authenticate: Bearer resource_metadata="http://127.0.0.1:[0-9]*/.well-known/oauth-protected-resource"' "$PRACE/hlavicky" && echo "  ok     MCP bez tokenu odkáže na metadata OAuth" || { echo "  CHYBA  WWW-Authenticate u MCP"; CHYB=$((CHYB+1)); }
+over "metadata chráněného zdroje" 200 "/.well-known/oauth-protected-resource" '"authorization_servers"'
+over "metadata autorizačního serveru" 200 "/.well-known/oauth-authorization-server" '"code_challenge_methods_supported":\["S256"\]'
+NAVRAT="https://claude.ai/api/mcp/auth_callback"
+curl -s -o "$PRACE/odpoved" -X POST "$B/oauth/register" -H 'Content-Type: application/json' -d "{\"client_name\":\"Claude\",\"redirect_uris\":[\"$NAVRAT\"],\"token_endpoint_auth_method\":\"none\"}"
+KLIENT=$(grep -o '"client_id":"[a-f0-9]*"' "$PRACE/odpoved" | sed 's/.*:"//;s/"//' || true)
+[ -n "$KLIENT" ] && echo "  ok     dynamická registrace klienta" || { echo "  CHYBA  registrace klienta"; cat "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+ocekavej "registrace odmítne http adresu návratu" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/oauth/register" -H 'Content-Type: application/json' -d '{"redirect_uris":["http://zly.example/cb"]}')" 400
+VER="$(printf 'v%.0s' $(seq 1 50))"; CH=$(printf %s "$VER" | openssl dgst -binary -sha256 | openssl base64 | tr '+/' '-_' | tr -d '=')
+ocekavej "cizí adresa návratu se nepřesměruje" "$(curl -s -o /dev/null -w '%{http_code}' "$B/oauth/authorize?response_type=code&client_id=$KLIENT&redirect_uri=https://zly.example/&code_challenge=$CH&code_challenge_method=S256")" 400
+kod=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code} %{redirect_url}' "$B/oauth/authorize?response_type=code&client_id=$KLIENT&redirect_uri=$NAVRAT&code_challenge=$CH&code_challenge_method=S256&state=xyz&scope=mcp")
+case "$kod" in "302 "*akce=oauth) echo "  ok     přihlášení vede na souhlas v administraci";; *) echo "  CHYBA  authorize: $kod"; CHYB=$((CHYB+1));; esac
+curl -s -b "$JAR" -c "$JAR" -o "$PRACE/odpoved" "$B/admin.php?akce=oauth"; grep -q 'Povolit přístup' "$PRACE/odpoved" && echo "  ok     stránka souhlasu" || { echo "  CHYBA  stránka souhlasu"; CHYB=$((CHYB+1)); }
+TOKENO=$(csrf)
+ZPET=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?akce=oauth" -d "_csrf=$TOKENO" -d povolit=1)
+KOD=$(printf %s "$ZPET" | grep -o 'code=[a-f0-9]*' | sed 's/code=//' || true)
+case "$ZPET" in "$NAVRAT?code="*"state=xyz"*) echo "  ok     souhlas vrátí kód a state do aplikace";; *) echo "  CHYBA  návrat po souhlasu: $ZPET"; CHYB=$((CHYB+1));; esac
+ocekavej "špatný code_verifier (PKCE) neprojde" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/oauth/token" -d grant_type=authorization_code -d "code=$KOD" -d "redirect_uri=$NAVRAT" -d "client_id=$KLIENT" -d code_verifier=spatny-overovac-spatny-overovac-spatny-overovac)" 400
+ZPET=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' "$B/oauth/authorize?response_type=code&client_id=$KLIENT&redirect_uri=$NAVRAT&code_challenge=$CH&code_challenge_method=S256&state=abc" && curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?akce=oauth" -d "_csrf=$TOKENO" -d povolit=1)
+KOD=$(printf %s "$ZPET" | grep -o 'code=[a-f0-9]*' | sed 's/code=//' || true)
+curl -s -o "$PRACE/odpoved" -X POST "$B/oauth/token" -d grant_type=authorization_code -d "code=$KOD" -d "redirect_uri=$NAVRAT" -d "client_id=$KLIENT" -d "code_verifier=$VER"
+PRISTUP=$(grep -o '"access_token":"[a-z0-9_]*"' "$PRACE/odpoved" | sed 's/.*:"//;s/"//' || true); OBNOVA=$(grep -o '"refresh_token":"[a-z0-9_]*"' "$PRACE/odpoved" | sed 's/.*:"//;s/"//' || true)
+[ -n "$PRISTUP" ] && [ -n "$OBNOVA" ] && echo "  ok     výměna kódu za tokeny (PKCE)" || { echo "  CHYBA  token endpoint"; cat "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+ocekavej "kód jde použít jen jednou" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/oauth/token" -d grant_type=authorization_code -d "code=$KOD" -d "redirect_uri=$NAVRAT" -d "client_id=$KLIENT" -d "code_verifier=$VER")" 400
+curl -s -X POST "$B/mcp" -H "Authorization: Bearer $PRISTUP" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' > "$PRACE/odpoved"
+grep -q 'stavba_schema' "$PRACE/odpoved" && echo "  ok     MCP s přístupovým tokenem z OAuth" || { echo "  CHYBA  MCP s tokenem OAuth"; head -c 300 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+ocekavej "obnovovací token nejde použít k MCP" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/mcp" -H "Authorization: Bearer $OBNOVA" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}')" 401
+curl -s -o "$PRACE/odpoved" -X POST "$B/oauth/token" -d grant_type=refresh_token -d "refresh_token=$OBNOVA" -d "client_id=$KLIENT"
+grep -q '"access_token"' "$PRACE/odpoved" && echo "  ok     obnova tokenu" || { echo "  CHYBA  obnova tokenu"; cat "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+ocekavej "obnovovací token se po použití vymění" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/oauth/token" -d grant_type=refresh_token -d "refresh_token=$OBNOVA" -d "client_id=$KLIENT")" 400
+"${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_kontrola_ip WHERE typ = 'login'" # limit přihlášení z IP vyčerpal test zámku účtu
+JAR5="$PRACE/jar5"
+curl -s -c "$JAR5" -b "$JAR5" -o /dev/null "$B/oauth/authorize?response_type=code&client_id=$KLIENT&redirect_uri=$NAVRAT&code_challenge=$CH&code_challenge_method=S256&state=nove"
+TOKEN5=$(curl -s -b "$JAR5" -c "$JAR5" "$B/admin.php?akce=oauth" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//' || true)
+kod=$(curl -s -b "$JAR5" -c "$JAR5" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php" -d "_csrf=$TOKEN5" -d user=admin --data-urlencode "password=$HESLO")
+case "$kod" in *akce=oauth) echo "  ok     nepřihlášený se po přihlášení vrátí na souhlas";; *) echo "  CHYBA  návrat na souhlas po přihlášení: $kod"; CHYB=$((CHYB+1));; esac
+curl -s -b "$JAR" -c "$JAR" -o "$PRACE/odpoved" "$B/admin.php?akce=ucet"; grep -q 'Připojené aplikace' "$PRACE/odpoved" && echo "  ok     připojená aplikace v Můj účet" || { echo "  CHYBA  připojené aplikace"; CHYB=$((CHYB+1)); }
+TOKENO=$(csrf)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?akce=ucet" -d "_csrf=$TOKENO" -d "odpojit_klient=$KLIENT"
+ocekavej "odpojení aplikace smaže její tokeny" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_api_tokeny WHERE klient = '$KLIENT'")" "0"
+
 echo "== vypnutá rozšíření Novinky a Formuláře a poptávky"
 ROZ=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna='rozsireni'")
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota='statistika,presmerovani,claude' WHERE promenna='rozsireni'"

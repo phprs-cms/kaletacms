@@ -6,10 +6,12 @@ Options -Indexes
     # některé hostingy nepředávají PHP hlavičku Authorization (potřebuje ji napojení na Claude)
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
-    # /.well-known/ je pro ověření domény a certifikát HTTPS (Let's Encrypt, AutoSSL) – musí zůstat dostupné
+    # /.well-known/: soubory (ověření domény, certifikát HTTPS od Let's Encrypt či AutoSSL) se podají přímo,
+    # metadata OAuth pro konektor Claude (oauth-…) sestaví Kaleta přes index.php níže
+    RewriteCond %{REQUEST_FILENAME} -f
     RewriteRule ^\.well-known/ - [L]
     # config.php a skryté soubory nejsou pro návštěvníky
-    RewriteRule ^(config(\.sample)?\.php|\..*)$ - [F,L]
+    RewriteRule ^(config(\.sample)?\.php|\.(?!well-known/).*)$ - [F,L]
     # nástroje vydavatele, dokumentace a PHP soubory šablon se z webu nespouštějí ani nečtou
     RewriteRule ^(tools|docs|dist)(/|$) - [F,L]
     RewriteRule ^layout/.+\.php$ - [F,L]

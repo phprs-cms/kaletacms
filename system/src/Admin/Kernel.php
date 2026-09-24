@@ -116,6 +116,9 @@ final class Kernel
         if ($akce === 'ucet') {
             return (new Ucet($this))->handle();
         }
+        if ($akce === 'oauth') {
+            return $this->souhlasOAuth();
+        }
         if ($akce === 'pruvodce_skryt' && $request->isPost() && $app->auth()->isAdmin()) {
             $app->settings()->set('pruvodce_skryt', '1');
 
@@ -272,6 +275,12 @@ final class Kernel
         return array_filter($vysledek, fn (array $k): bool => !$k['hotovo']) === [] ? [] : $vysledek;
     }
 
+    /** Kam po přihlášení: čeká-li připojení aplikace přes OAuth (konektor Claude), rovnou na souhlas, jinak na přehled. */
+    private function poPrihlaseni(): string
+    {
+        return $this->app->url(is_array($this->app->session->get('oauth_ceka')) ? 'admin.php?akce=oauth' : 'admin.php');
+    }
+
     private function login(): Response
     {
         $app = $this->app;
@@ -289,7 +298,7 @@ final class Kernel
                 Protokol::zapis($app, 'prihlaseni', 'login', 'přihlašovacím klíčem');
             }
 
-            return Response::json($chyba === null ? ['ok' => true, 'kam' => $app->url('admin.php')] : ['chyba' => $chyba], $chyba === null ? 200 : 401);
+            return Response::json($chyba === null ? ['ok' => true, 'kam' => $this->poPrihlaseni()] : ['chyba' => $chyba], $chyba === null ? 200 : 401);
         }
         if ($app->request->isPost()) {
             $druhyKrok = $app->request->post('kod') !== '' || $app->request->post('krok') === 'kod';
@@ -299,7 +308,7 @@ final class Kernel
             if ($chyba === null && $app->auth()->user() !== null) {
                 Protokol::zapis($app, 'prihlaseni', 'login', $druhyKrok ? 'dvoufázově' : '');
 
-                return Response::redirect($app->url('admin.php'));
+                return Response::redirect($this->poPrihlaseni());
             }
             if ($chyba !== null && !$druhyKrok) {
                 Protokol::zapis($app, 'prihlaseni', 'neuspech', 'účet: ' . mb_substr($app->request->post('user'), 0, 40));
@@ -313,5 +322,35 @@ final class Kernel
             'kod' => $app->auth()->cekaNaKod(),
             'klice' => $app->auth()->cekaSKlici(),
         ]), $chyba === null ? 200 : 401);
+    }
+
+    /**
+     * Souhlas s připojením aplikace přes OAuth (konektor Claude): ukáže, kdo žádá a s jakými právy, a po potvrzení vrátí
+     * aplikaci jednorázový kód. Žádost čeká v relaci (Front\OAuth::autorizace) nejvýš 15 minut.
+     */
+    private function souhlasOAuth(): Response
+    {
+        $app = $this->app;
+        $ceka = $app->session->get('oauth_ceka');
+        if (!is_array($ceka) || time() - (int) ($ceka['cas'] ?? 0) > 900) {
+            $app->session->set('oauth_ceka', null);
+
+            return $this->page('Připojení aplikace', $app->view->render('admin/chyba', ['text' => 'Žádost o připojení aplikace vypršela nebo neexistuje. Spusťte připojení v aplikaci znovu.']), 400);
+        }
+        $oauth = new \Kaleta\Front\OAuth($app);
+        if ($app->request->isPost()) {
+            $app->session->set('oauth_ceka', null);
+            if (!$app->request->postBool('povolit')) {
+                return Response::redirect($oauth->odmitnuti($ceka));
+            }
+            Protokol::zapis($app, 'claude', 'připojení aplikace', mb_substr((string) $ceka['nazev'], 0, 100));
+
+            return Response::redirect($oauth->vydejKod($ceka, $app->auth()->id()));
+        }
+
+        return $this->page('Připojení aplikace', $app->view->render('admin/oauth', [
+            'app' => $app, 'csrf' => $app->session->csrfField(), 'ceka' => $ceka, 'user' => $app->auth()->user(),
+            'adresa' => (string) parse_url((string) $ceka['redirect_uri'], PHP_URL_HOST),
+        ]));
     }
 }

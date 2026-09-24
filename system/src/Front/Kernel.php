@@ -81,6 +81,10 @@ final class Kernel
     public function handle(): Response
     {
         $request = $this->app->request;
+        // OAuth pro konektor Claude (metadata, registrace, tokeny) – běží i v režimu údržby, stejně jako /mcp
+        if (($oauth = (new OAuth($this->app))->handle($request->path())) !== null) {
+            return $oauth;
+        }
         if ($this->app->settings()->bool('udrzba') && $request->path() !== '/mcp' && $this->app->auth()->user() === null) {
             return new Response('<!doctype html><html lang="' . e(Jazyk::kod()) . '"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' . e($this->app->settings()->get('nazev_webu')) . '</title>'
                 . '<body style="font:18px/1.5 system-ui,sans-serif;display:grid;place-items:center;min-height:90vh;margin:0;padding:24px;text-align:center"><div><h1 style="font-size:28px">' . e($this->app->settings()->get('nazev_webu'))

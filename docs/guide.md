@@ -147,7 +147,10 @@ Enable **Claude connection (MCP)** under Extensions. Create an access token unde
 claude mcp add --transport http kaleta https://your-site.com/mcp --header "Authorization: Bearer <token>"
 ```
 
-In the Claude app, add a custom connector with the address `https://your-site.com/mcp` and the same header. Claude then,
+In the Claude app, the easiest way is **Settings → Connectors → Add custom connector** with the address
+`https://your-site.com/mcp`: Claude sends you to the website to sign in and confirm access (OAuth), nothing to copy.
+Connected apps are listed (and can be disconnected) in **My account**. This needs the site on HTTPS in the domain root.
+Claude Code can use OAuth too – run the command above without the header and confirm access in the browser. Claude then,
 with your account permissions, builds pages and sections, edits the header, footer, collections and design, and writes
 news. Page and site-part builds and news are created as a **draft** and published only when you say so (and only with
 publishing permission). Changes to the menu, design system, themes, collection items and page text take effect on the

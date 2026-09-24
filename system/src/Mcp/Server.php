@@ -13,7 +13,8 @@ use Kaleta\Core\Rozsireni;
  * MCP server (Model Context Protocol, přenos "Streamable HTTP") na adrese /mcp.
  * Přes něj umí Claude pracovat s webem: číst a psát stránky a novinky, spravovat kategorie a tvořit šablony webu.
  *
- * Přihlášení: hlavička "Authorization: Bearer <token>"; token si uživatel vytvoří v nabídce Můj účet.
+ * Přihlášení: hlavička "Authorization: Bearer <token>" – osobní token z nabídky Můj účet, nebo token aplikace připojené
+ * přes OAuth (konektor v Claudu, Front\OAuth).
  * Claude pak jedná s právy tohoto uživatele (autor / redaktor / administrátor). Rozšíření je ve výchozím stavu vypnuté.
  */
 final class Server
@@ -39,7 +40,9 @@ final class Server
         }
         $user = $this->uzivatel();
         if ($user === null) {
-            return new Response(json_encode(['chyba' => 'Neplatný nebo chybějící token.']), 401, ['Content-Type' => 'application/json', 'WWW-Authenticate' => 'Bearer']);
+            // odkaz na metadata OAuth: podle nich se konektor Claude sám zaregistruje a požádá uživatele o souhlas
+            return new Response(json_encode(['chyba' => 'Neplatný nebo chybějící token.']), 401, ['Content-Type' => 'application/json',
+                'WWW-Authenticate' => 'Bearer resource_metadata="' . (new \Kaleta\Front\OAuth($this->app))->adresaMetadat() . '"']);
         }
         $this->app->auth()->prihlasJako($user);
         if ($this->app->auth()->chybiPovinne2fa($this->app->settings())) {
@@ -117,10 +120,12 @@ final class Server
         if ((int) $db->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'mcp' AND ip_adresa = ? AND cas > NOW() - INTERVAL 15 MINUTE", [$ip]) >= 20) {
             return null;
         }
-        if (!preg_match('/^Bearer\s+(kaleta_[a-f0-9]{48})$/', $hlavicka, $m)) {
+        // osobní token z Můj účet (kaleta_…) nebo přístupový token aplikace připojené přes OAuth (kaleta_oa_…, platí hodinu)
+        if (!preg_match('/^Bearer\s+(kaleta_(?:oa_)?[a-f0-9]{48})$/', $hlavicka, $m)) {
             return null;
         }
-        $token = $db->one('SELECT t.idt, u.* FROM {api_tokeny} t JOIN {uzivatele} u ON u.idu = t.idu WHERE t.otisk = ? AND u.blokovat = 0', [hash('sha256', $m[1])]);
+        $token = $db->one("SELECT t.idt, u.* FROM {api_tokeny} t JOIN {uzivatele} u ON u.idu = t.idu WHERE t.otisk = ? AND u.blokovat = 0 AND t.druh <> 'obnova' AND (t.expirace IS NULL OR t.expirace > ?)",
+            [hash('sha256', $m[1]), date('Y-m-d H:i:s')]);
         if ($token === null) {
             $db->insert('kontrola_ip', ['ip_adresa' => $ip, 'typ' => 'mcp', 'cas' => date('Y-m-d H:i:s')]);
 

@@ -11,7 +11,8 @@
  * @var string $uri
  * @var int $zbyvaKodu
  * @var bool $claude  je zapnuté rozšíření Napojení na Claude
- * @var list<array<string, mixed>> $tokeny
+ * @var list<array<string, mixed>> $tokeny  osobní tokeny
+ * @var list<array<string, mixed>> $aplikace  aplikace připojené přes OAuth (konektor Claude)
  * @var string $novyToken  právě vytvořený token (zobrazí se jen jednou)
  * @var string $adresaMcp
  */
@@ -123,8 +124,16 @@ $akce = e($app->url('admin.php?akce=ucet'));
 	<p><code class="totp-klic"><?= e($novyToken) ?></code></p>
 	<p><?= e(t('V Claude Code spusťte:')) ?></p>
 	<p><code class="totp-klic" style="font-size:12px">claude mcp add --transport http kaleta <?= e($adresaMcp) ?> --header "Authorization: Bearer <?= e($novyToken) ?>"</code></p>
-	<p class="napoveda"><?= e(t('V aplikaci Claude přidejte vlastní konektor s adresou %s a stejnou hlavičkou Authorization.', $adresaMcp)) ?></p>
+	<p class="napoveda"><?= e(t('V aplikaci Claude token nepotřebujete: přidejte vlastní konektor s adresou %s a přístup potvrďte přihlášením.', $adresaMcp)) ?></p>
 </div>
+<?php endif ?>
+<p><?= e(t('Nejjednodušší je přidat v aplikaci Claude vlastní konektor s adresou %s – Claude vás pošle sem přihlásit a potvrdit přístup, žádný token nekopírujete. Token níže je pro Claude Code a jiné nástroje bez přihlášení.', $adresaMcp)) ?></p>
+<?php if ($aplikace !== []): ?>
+<h3><?= e(t('Připojené aplikace')) ?></h3>
+<?php foreach ($aplikace as $a): ?>
+<p><span class="stitek"><?= e($a['nazev']) ?></span> <?= e(t('připojena %s', datum($a['vytvoren']))) ?>, <?= e($a['pouzit'] ? t('naposledy použita %s', datum($a['pouzit'], true)) : t('zatím nepoužita')) ?>
+	<button class="navigace nebezpecne" type="submit" name="odpojit_klient" value="<?= e($a['klient']) ?>" data-potvrdit="<?= e(t('Odpojit aplikaci? Do webu se už nedostane, dokud ji znovu nepovolíte.')) ?>"><?= e(t('Odpojit')) ?></button></p>
+<?php endforeach ?>
 <?php endif ?>
 <p><?= e(t('Claude bude s webem pracovat')) ?> <strong><?= e(t('vaším jménem a s vašimi právy')) ?></strong>: <?= e(t((int) $user['admin'] === 2 ? 'psát a upravovat stránky a novinky, spravovat kategorie a tvořit šablony webu.' : 'psát a upravovat novinky.')) ?> <?= e(t('Nové novinky zakládá jako koncepty a nové stránky jako skryté. Všechny jeho zásahy najdete v Protokolu změn. Token chraňte jako heslo.')) ?></p>
 <?php foreach ($tokeny as $t): ?>

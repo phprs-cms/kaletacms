@@ -9,7 +9,7 @@ declare(strict_types=1);
 $root = dirname(__DIR__);
 $path = rawurldecode((string) parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH));
 
-if (preg_match('#^/(system|storage|tools|docs|dist)(/|$)|^/layout/.+\.php$|^/config(\.sample)?\.php$|/\.|^/media/.*\.php#i', $path)) {
+if (preg_match('#^/(system|storage|tools|docs|dist)(/|$)|^/layout/.+\.php$|^/config(\.sample)?\.php$|/\.(?!well-known/oauth-)|^/media/.*\.php#i', $path)) {
     http_response_code(403);
     exit('403');
 }

@@ -140,13 +140,19 @@ klíč API a model. Asistent jen navrhuje. Text odchází k poskytovateli, jen k
   delší, formálněji, přátelštěji, opravit chyby). Výsledek zkontrolujte, fakta doplňte sami. Ctrl+Z změnu vrátí.
 - V novinkách: titulky, perex, SEO popis, štítky, korektura, popisy obrázků a překlad do jiného jazyka webu.
 
-**Napojení na Claude (MCP)** zapnete v Rozšířeních. V **Můj účet** si vytvořte přístupový token. V Claude Code pak spusťte
+**Napojení na Claude (MCP)** zapnete v Rozšířeních. Pak máte dvě možnosti:
+
+- **Konektor v aplikaci Claude (doporučeno):** v Nastavení → Konektory přidejte vlastní konektor s adresou
+  `https://vas-web.cz/mcp`. Claude vás pošle na web přihlásit a potvrdit přístup (OAuth), nic nekopírujete. Připojené
+  aplikace uvidíte a odpojíte v **Můj účet**. Funguje, když web běží přes HTTPS v kořeni domény.
+- **Přístupový token** (Claude Code, jiné nástroje): v **Můj účet** si vytvořte token a spusťte
 
 ```bash
 claude mcp add --transport http kaleta https://vas-web.cz/mcp --header "Authorization: Bearer <token>"
 ```
 
-V aplikaci Claude přidejte vlastní konektor s adresou `https://vas-web.cz/mcp` a stejnou hlavičkou. Claude pak s právy
+Claude Code umí i přihlášení přes OAuth: stačí `claude mcp add --transport http kaleta https://vas-web.cz/mcp` bez
+hlavičky a při prvním použití potvrdit přístup v prohlížeči. Claude pak s právy
 vašeho účtu staví stránky a sekce, upravuje záhlaví, patičku, kolekce a vzhled a píše novinky. Stavby stránek a částí
 webu i novinky vznikají jako **koncept** a publikuje je jen na váš pokyn (a jen s právem vydávat). Rovnou na webu se
 projeví: úprava menu, vzhledu (design systém), šablony, položky kolekce a textu stránky – předchozí text stránky přitom
