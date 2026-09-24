@@ -153,10 +153,10 @@ final class Styl
      *
      * @param array<string, array<string, string>> $styl
      */
-    public static function css(string $selektor, array $styl, string $vlastniCss = ''): string
+    public static function css(string $selektor, array $styl, string $vlastniCss = '', string $zaklad = ''): string
     {
         $css = '';
-        $deklarace = function (array $vlastnosti): string {
+        $deklarace = function (array $vlastnosti) use ($zaklad): string {
             $radky = [];
             $obrazek = null;
             foreach ($vlastnosti as $klic => $hodnota) {
@@ -172,6 +172,10 @@ final class Styl
                 $radky[] = $vlastnost . ': ' . $css;
             }
             if ($obrazek !== null) {
+                // médium webu vždy od kořene instalace – relativní url() by se na /en/… nebo /kolekce/polozka hledalo jinde
+                if (!str_starts_with($obrazek, 'https://') && !str_starts_with($obrazek, '/')) {
+                    $obrazek = $zaklad . '/' . $obrazek;
+                }
                 // obrázek pozadí vždy pokrývá plochu; volitelný překryv (--mc-prekryv) jde přes něj kvůli čitelnosti textu
                 $radky[] = 'background-image: linear-gradient(var(--mc-prekryv, transparent), var(--mc-prekryv, transparent)), url("' . $obrazek . '")';
                 $radky[] = 'background-size: cover';

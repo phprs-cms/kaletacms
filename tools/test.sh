@@ -149,6 +149,10 @@ STAVBA='{"v":1,"deti":[{"id":"sek1","typ":"sekce","deti":[{"id":"nad1","typ":"na
 kod=$(st stavba_uloz --data-urlencode "stavba=$STAVBA")
 [ "$kod" = 200 ] && grep -q '"ok":true' "$PRACE/odpoved" && grep -q 'Neznámý typ prvku' "$PRACE/odpoved" && echo "  ok     uložení konceptu vrátí vyčištěnou stavbu a chyby" || { echo "  CHYBA  stavba_uloz: kód $kod"; CHYB=$((CHYB+1)); }
 ocekavej "neplatný JSON stavby odmítnut" "$(st stavba_uloz -d 'stavba={nesmysl')" 400
+ocekavej "uložení z cizí verze odmítnuto (souběžná úprava)" "$(st stavba_uloz -d verze=0000000000000000 --data-urlencode "stavba=$STAVBA")" 409
+grep -q '"konflikt":true' "$PRACE/odpoved" && grep -q 'Stavitel test' "$PRACE/odpoved" && echo "  ok     konflikt vrátí novější verzi ze serveru" || { echo "  CHYBA  odpověď konfliktu"; CHYB=$((CHYB+1)); }
+ocekavej "publikování z cizí verze odmítnuto" "$(st stavba_publikuj -d verze=0000000000000000)" 409
+ocekavej "přepsání cizí verze na přání" "$(st stavba_uloz -d verze=0000000000000000 -d prepsat=1 --data-urlencode "stavba=$STAVBA")" 200
 ocekavej "stavitel bez CSRF odmítnut" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php?modul=stranky&akce=stavba_uloz&id=$IDS" --data-urlencode "stavba=$STAVBA")" 400
 ocekavej "knihovna sekcí jen přes POST" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?modul=stranky&akce=stavba_sekce&id=$IDS&klic=faq")" 404
 kod=$(st "stavba_sekce&klic=vyhody"); [ "$kod" = 200 ] && grep -q '"karta"' "$PRACE/odpoved" && echo "  ok     sekce z knihovny založí své třídy" || { echo "  CHYBA  stavba_sekce: kód $kod"; CHYB=$((CHYB+1)); }
@@ -304,6 +308,12 @@ grep -q '<h3 class="s-kna1">První karta</h3>' "$PRACE/odpoved" && grep -q '<h3 
 ! grep -q 'id="s-kna1"' "$PRACE/odpoved" && ! grep -q 'data-mc-id' "$PRACE/odpoved" && [ "$(grep -o '\.s-kna1 {' "$PRACE/odpoved" | wc -l | tr -d ' ')" = 1 ] \
   && echo "  ok     komponenta dvakrát na stránce: styl jednou, bez duplicitního id" || { echo "  CHYBA  styl komponenty"; CHYB=$((CHYB+1)); }
 over "komponenty ukazují počet použití" 200 "/admin.php?modul=komponenty" "1×"
+# formulář uvnitř komponenty: odeslání ho musí najít (dřív se hledal jen ve stavbě stránky)
+komp stavba_uloz --data-urlencode 'stavba={"v":1,"deti":[{"id":"kse1","typ":"sekce","deti":[{"id":"kfo1","typ":"formular","obsah":{"nazev":"Poptávka z komponenty"}}]}]}' > /dev/null; komp stavba_publikuj > /dev/null
+rm -f "$PRACE"/web/storage/cache/stranky/*.html
+curl -s -o "$PRACE/formular.html" "$B/z-html"
+kam=$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$(hodnota zdroj)" -d prvek=kfo1 -d zpet=/z-html -d "as_cas=$(hodnota as_cas)" -d "as_podpis=$(hodnota as_podpis)")
+case "$kam" in *"formular=kfo1"*) echo "  ok     formulář v komponentě se odešle";; *) echo "  CHYBA  formulář v komponentě: $kam"; CHYB=$((CHYB+1));; esac
 kod=$(curl -s -b "$JAR" -o "$PRACE/odpoved" -w '%{http_code}' -X POST "$B/admin.php?modul=komponenty&akce=z_prvku" -d "_csrf=$TOKEN" --data-urlencode "nazev=Výzva" --data-urlencode 'prvek={"typ":"sekce","deti":[{"typ":"nadpis","obsah":{"text":"Zavolejte nám"}}]}')
 [ "$kod" = 200 ] && grep -q '"ok":true' "$PRACE/odpoved" && echo "  ok     uložení prvku jako komponenty" || { echo "  CHYBA  z_prvku: $kod"; CHYB=$((CHYB+1)); }
 

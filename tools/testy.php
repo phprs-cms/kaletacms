@@ -538,6 +538,9 @@ over('Styl::vycisti: vloženo CSS, neznámá vlastnost a stav vypadnou', MiroCMS
 over('Styl::vycisti: chyby', array_keys($stStylChyby), ['s.zaklad.barva', 's.zaklad.neznama', 's.tisk']);
 over('Styl::css: tokeny, sloupce, hover a breakpoint', MiroCMS\Stavitel\Styl::css('#s-a', ['zaklad' => ['odsazeni_y' => 'xl', 'barva' => 'primarni', 'sloupce' => '3'], 'mobil' => ['sloupce' => '1'], 'hover' => ['barva' => '#ff0000']]),
     "#s-a { padding-block: var(--mc-mezera-xl); color: var(--mc-barva-primarni); grid-template-columns: repeat(3, minmax(0, 1fr)); }\n#s-a:hover { color: #ff0000; }\n@media (max-width: 767px) { #s-a { grid-template-columns: repeat(1, minmax(0, 1fr)); } }\n");
+over('Styl::css: obrázek pozadí z Médií od kořene instalace', str_contains(MiroCMS\Stavitel\Styl::css('#s', ['zaklad' => ['obrazek_pozadi' => 'media/2026/09/a.jpg']], '', '/web'), 'url("/web/media/2026/09/a.jpg")'), true);
+over('Kontejner jako odkaz: odkazy uvnitř se změní na span', MiroCMS\Stavitel\Prvky\Kontejner::vykresli(['znacka' => 'div', 'obsah' => ['odkaz' => '/k']], '', '<p>x</p><a class="mc-tlacitko" href="/y" target="_blank">B</a><abbr>z</abbr>', new MiroCMS\Stavitel\Kontext((new ReflectionClass(MiroCMS\Core\App::class))->newInstanceWithoutConstructor())),
+    '<a class="mc-karta-odkaz" href="/k"><p>x</p><span class="mc-tlacitko">B</span><abbr>z</abbr></a>');
 $stZahozeno = [];
 over('Styl::vlastniCss: jen bezpečné deklarace', MiroCMS\Stavitel\Styl::vlastniCss('color:red; background:url(javascript:x); --mc-x: 1; @import url(x); width: expression(1); a{b:c}', $stZahozeno), 'color: red; --mc-x: 1;');
 over('Styl::vlastniCss: zahozené se hlásí', count($stZahozeno), 4);

@@ -98,7 +98,7 @@ final class Formular extends Prvek
 
         return '<form' . Text::sTridou($a, 'mc-formular') . $id . ' method="post" action="' . e($k->url('formular')) . '">'
             . '<input type="hidden" name="zdroj" value="' . e($k->zdroj) . '"><input type="hidden" name="prvek" value="' . e($p['id']) . '">'
-            . '<input type="hidden" name="zpet" value="' . e($r->path()) . '">'
+            . '<input type="hidden" name="zpet" value="' . e($k->app->url($r->path())) . '">'
             . $antispam->pole('formular|' . $k->zdroj . '|' . $p['id'])
             . $html
             . '<p class="mc-pole"><button class="mc-tlacitko mc-tlacitko--primarni" type="submit">' . e($o['tlacitko']) . '</button></p></form>';

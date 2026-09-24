@@ -9,6 +9,8 @@ use MiroCMS\Core\App;
 use MiroCMS\Core\Posta;
 use MiroCMS\Core\Response;
 use MiroCMS\Stavitel\Casti;
+use MiroCMS\Stavitel\Komponenty;
+use MiroCMS\Stavitel\Prvky;
 use MiroCMS\Stavitel\Prvky\Formular;
 use MiroCMS\Stavitel\Stavba;
 
@@ -95,13 +97,22 @@ final class Formulare
             (bool) preg_match('/^kolekce:(\d+)$/', $zdroj, $m) => Stavba::zJson($db->value('SELECT stavba FROM {kolekce} WHERE idk = ? AND detail = 1', [(int) $m[1]])),
             default => null,
         };
-        $najdi = function (array $deti) use (&$najdi, $id): ?array {
+        // formulář může být i uvnitř komponenty (její publikovaná stavba); hloubka jako při vykreslení
+        $najdi = function (array $deti, array $zanoreni = []) use (&$najdi, $id, $db): ?array {
             foreach ($deti as $p) {
                 if (($p['id'] ?? '') === $id) {
                     return ($p['typ'] ?? '') === Formular::TYP ? $p : null;
                 }
-                if (($nalezeny = $najdi($p['deti'] ?? [])) !== null) {
+                if (($nalezeny = $najdi($p['deti'] ?? [], $zanoreni)) !== null) {
                     return $nalezeny;
+                }
+                $idm = ($p['typ'] ?? '') === Prvky\Komponenta::TYP ? (int) ($p['obsah']['komponenta'] ?? 0) : 0;
+                if ($idm > 0 && !in_array($idm, $zanoreni, true) && count($zanoreni) < Komponenty::MAX_ZANORENI) {
+                    $komponenta = Komponenty::podleId($db, $idm);
+                    $vnitrek = $komponenta === null ? null : Stavba::zJson($komponenta['stavba'] ?? $komponenta['stavba_koncept']);
+                    if ($vnitrek !== null && ($nalezeny = $najdi($vnitrek['deti'] ?? [], [...$zanoreni, $idm])) !== null) {
+                        return $nalezeny;
+                    }
                 }
             }
 

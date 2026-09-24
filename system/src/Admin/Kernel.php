@@ -99,6 +99,10 @@ final class Kernel
         }
 
         $ident = $request->get('modul');
+        if ($akce === 'token') {
+            // editor po novém přihlášení v jiné záložce si tu vezme platný token formulářů a pokračuje v ukládání
+            return Response::json(['csrf' => $app->session->csrfToken()]);
+        }
         if ($akce === 'ucet') {
             return (new Ucet($this))->handle();
         }

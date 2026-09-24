@@ -10,7 +10,7 @@
 	const T = window.T || ((s) => s);
 	const koren = document.getElementById('stavitel');
 	const D = JSON.parse(document.getElementById('stavitel-data').textContent);
-	const CSRF = (document.querySelector('input[name="_csrf"]') || {}).value || '';
+	let csrf = (document.querySelector('input[name="_csrf"]') || {}).value || '';
 	const TYPY = Object.fromEntries(D.schema.prvky.map((p) => [p.typ, p]));
 	const STYL = D.schema.styl;
 	const BP = { zaklad: T('Počítač'), tablet: T('Tablet'), mobil: T('Mobil') };
@@ -48,7 +48,7 @@
 	const stav = {
 		stavba: D.stavba && Array.isArray(D.stavba.deti) ? D.stavba : { v: 1, deti: [] },
 		vybrane: null, bp: 'zaklad', hover: false, levo: 'pridat', pravo: 'obsah', zpet: [], vpred: [], posledniKlic: null, posledniCas: 0,
-		zmeny: !!D.zmeny, uklada: false, znovuUlozit: false, casovac: null, chyby: {}, sbalene: {}, trida: null, tazeny: null, tazeno: null, upravaNaPlatne: false,
+		zmeny: !!D.zmeny, uklada: false, casovac: null, verze: D.verze || '', ulozeno: '', pokusy: 0, prihlaseni: false, konflikt: false, vycistena: null, chyby: {}, sbalene: {}, trida: null, tazeny: null, tazeno: null, upravaNaPlatne: false,
 	};
 
 	/* ---------- drobné pomůcky ---------- */
@@ -67,12 +67,27 @@
 	const noveId = () => Math.random().toString(16).slice(2, 9).padEnd(7, '0');
 	const text = (html) => { const d = document.createElement('div'); d.innerHTML = html || ''; return d.textContent.trim(); };
 
+	/**
+	 * Požadavek na administraci. Nikdy neskončí výjimkou: vrací JSON odpovědi, nebo {ok: false, chyba, …} –
+	 * sit (spojení selhalo), prihlaseni (místo JSON přišla přihlašovací stránka nebo vypršel token formulářů).
+	 */
 	function dotaz(adresa, data) {
 		const f = new FormData();
-		f.append('_csrf', CSRF);
+		f.append('_csrf', csrf);
 		for (const [k, v] of Object.entries(data || {})) { f.append(k, v); }
 		return fetch(adresa, { method: data ? 'POST' : 'GET', body: data ? f : undefined, credentials: 'same-origin' })
-			.then((r) => r.json().catch(() => ({ ok: false, chyba: T('Server vrátil neočekávanou odpověď.') })));
+			.then((r) => r.text().then((telo) => {
+				try { const j = JSON.parse(telo); if (j && typeof j === 'object') { j.status = r.status; return j; } } catch (e) { /* není JSON */ }
+				if (r.status < 500 && /<form/i.test(telo)) {
+					return { ok: false, prihlaseni: true, status: r.status, chyba: T('Přihlášení vypršelo. Přihlaste se znovu v nové záložce – rozpracované změny zůstávají tady a uloží se samy.') };
+				}
+				return { ok: false, status: r.status, chyba: T('Server vrátil neočekávanou odpověď.') + ' (' + r.status + ')' };
+			}))
+			.catch(() => ({ ok: false, sit: true, chyba: T('Spojení se serverem selhalo.') }));
+	}
+	/** Po novém přihlášení (jiná záložka) má relace nový token formulářů – editor si ho vyzvedne. */
+	function obnovToken() {
+		return fetch(D.adresy.admin + '?akce=token', { credentials: 'same-origin' }).then((r) => r.json()).then((j) => { if (j.csrf) { csrf = j.csrf; return true; } return false; }).catch(() => false);
 	}
 
 	function potvrd(zprava, tlacitko) {
@@ -135,29 +150,96 @@
 	function zpet() { if (!stav.zpet.length) { return; } stav.vpred.push(JSON.stringify(stav.stavba)); stav.stavba = JSON.parse(stav.zpet.pop()); stav.posledniKlic = null; stav.zmeny = true; naplanujUlozeni(); prekresli(); }
 	function vpred() { if (!stav.vpred.length) { return; } stav.zpet.push(JSON.stringify(stav.stavba)); stav.stavba = JSON.parse(stav.vpred.pop()); stav.posledniKlic = null; stav.zmeny = true; naplanujUlozeni(); prekresli(); }
 
-	function naplanujUlozeni() {
+	function naplanujUlozeni(za) {
 		clearTimeout(stav.casovac);
-		nastavStav(T('Neuloženo…'));
-		stav.casovac = setTimeout(uloz, 600);
+		if (!stav.pokusy) { nastavStav(T('Neuloženo…')); }
+		stav.casovac = setTimeout(uloz, za || 600);
 	}
+	const neulozeno = () => JSON.stringify(stav.stavba) !== stav.ulozeno;
+
+	/*
+	 * Ukládání jde přes frontu: nikdy neběží dvě naráz a každé volání uloz() vrátí slib, který se splní, až je uložený
+	 * stav stavby z okamžiku volání (true), nebo uložení selhalo (false). Na tom stojí Publikovat – publikuje jen to,
+	 * co server opravdu má. Neúspěšné uložení se samo zkouší znovu; konflikt s cizí změnou řeší dialog.
+	 */
+	let fronta = Promise.resolve(true), cekajici = null;
 	function uloz() {
 		clearTimeout(stav.casovac);
-		if (stav.uklada) { stav.znovuUlozit = true; return Promise.resolve(); }
+		stav.casovac = null;
+		if (cekajici) { return cekajici; } // ve frontě už je uložení, které vezme aktuální stav
+		cekajici = fronta.then(() => { cekajici = null; return ulozTed(); });
+		fronta = cekajici;
+		return cekajici;
+	}
+	function ulozTed() {
+		if (stav.konflikt) { return Promise.resolve(false); }
+		const odeslano = JSON.stringify(stav.stavba);
+		if (odeslano === stav.ulozeno) { return Promise.resolve(true); }
 		stav.uklada = true;
 		nastavStav(T('Ukládám…'));
-		const odeslano = JSON.stringify(stav.stavba);
-		return dotaz(D.adresy.uloz, { stavba: odeslano }).then((j) => {
+		return dotaz(D.adresy.uloz, { stavba: odeslano, verze: stav.verze }).then((j) => {
 			stav.uklada = false;
-			if (!j.ok) { nastavStav(j.chyba || T('Uložení se nepovedlo.'), true); return; }
+			if (!j.ok) { return chybaUlozeni(j); }
+			stav.pokusy = 0;
+			stav.prihlaseni = false;
+			stav.ulozeno = odeslano;
+			stav.verze = j.verze || stav.verze;
 			stav.chyby = j.chyby || {};
-			// server strom vyčistil (neplatné hodnoty zahodil) – převezme se, jen když se mezitím nic dalšího nezměnilo
-			if (JSON.stringify(stav.stavba) === odeslano && JSON.stringify(j.stavba) !== odeslano) { stav.stavba = j.stavba; prekresliPanely(); }
+			// server strom vyčistil (neplatné hodnoty zahodil) – převezme se, jen když se mezitím nic nezměnilo a uživatel zrovna nepíše
+			stav.vycistena = JSON.stringify(j.stavba) !== odeslano ? { odeslano, stavba: j.stavba } : null;
+			prevezmiVycistenou();
 			stav.zmeny = j.zmeny;
 			const pocet = Object.keys(stav.chyby).length;
-			nastavStav(pocet ? T('Uloženo, ale s upozorněními: ') + pocet : T('Koncept uložen'), pocet > 0);
+			if (!neulozeno()) { nastavStav(pocet ? T('Uloženo, ale s upozorněními: ') + pocet : T('Koncept uložen'), pocet > 0); }
 			prekresliListu();
-			if (stav.znovuUlozit) { stav.znovuUlozit = false; uloz(); } else { obnovNahled(); }
-		}).catch(() => { stav.uklada = false; nastavStav(T('Spojení se serverem selhalo – změny zatím nejsou uložené.'), true); });
+			if (neulozeno()) { naplanujUlozeni(300); } else { obnovNahled(); }
+			return true;
+		});
+	}
+	function chybaUlozeni(j) {
+		if (j.konflikt) { stav.konflikt = true; dialogKonflikt(j); return false; }
+		if (j.status === 400 || j.status === 403 || j.status === 404) { nastavStav(j.chyba || T('Uložení se nepovedlo.'), true); return false; }
+		// síť, vypršené přihlášení, chyba serveru: změny zůstávají v editoru a uložení se zkusí znovu
+		stav.pokusy++;
+		stav.prihlaseni = !!j.prihlaseni;
+		const za = Math.min(30, 3 * stav.pokusy);
+		nastavStav(j.chyba + ' ' + T('Změny zatím nejsou uložené, zkusím to znovu za %s s.').replace('%s', za), true, j.prihlaseni ? { adresa: D.adresy.admin, text: T('Přihlásit se') } : null);
+		clearTimeout(stav.casovac);
+		stav.casovac = setTimeout(() => (stav.prihlaseni ? obnovToken() : Promise.resolve()).then(uloz), za * 1000);
+		return false;
+	}
+	function prevezmiVycistenou() {
+		const v = stav.vycistena;
+		if (!v || stav.upravaNaPlatne) { return; }
+		const a = document.activeElement;
+		if (a && koren.contains(a) && a.matches('input, textarea, select, [contenteditable]')) { return; } // až po opuštění pole (focusout)
+		stav.vycistena = null;
+		if (JSON.stringify(stav.stavba) !== v.odeslano) { return; }
+		stav.stavba = v.stavba;
+		stav.ulozeno = JSON.stringify(v.stavba);
+		prekresliPanely();
+	}
+	function dialogKonflikt(j) {
+		nastavStav(j.chyba, true);
+		const d = el('dialog', { class: 'st-dialog' },
+			el('div', {}, el('h2', {}, T('Souběžná úprava')), el('p', {}, j.chyba),
+				el('p', {}, T('Načtěte novější verzi (vaše změny od posledního uložení se ztratí – zůstanou ve Zpět), nebo ji přepište svou.'))),
+			el('footer', {},
+				el('button', { type: 'button', class: 'st-tl', onclick: () => {
+					d.close();
+					stav.zpet.push(JSON.stringify(stav.stavba));
+					stav.stavba = j.stavba; stav.ulozeno = JSON.stringify(j.stavba); stav.verze = j.verze; stav.konflikt = false; stav.vybrane = null; stav.zmeny = true;
+					nastavStav(T('Načtena novější verze')); prekresli(); obnovNahled();
+				} }, T('Načíst novější')),
+				el('button', { type: 'button', class: 'st-tl st-tl-hlavni', onclick: () => {
+					d.close();
+					stav.konflikt = false; stav.verze = j.verze; // další uložení vychází z verze na serveru, tedy ji přepíše
+					uloz();
+				} }, T('Přepsat mou verzí'))));
+		d.addEventListener('cancel', (e) => e.preventDefault());
+		d.addEventListener('close', () => d.remove());
+		document.body.append(d);
+		d.showModal();
 	}
 
 	/* ---------- plátno: skutečná stránka v iframe, přepínaná bez blikání ---------- */
@@ -349,12 +431,30 @@
 				uchyt.addEventListener('click', (e) => e.stopPropagation(), true);
 				doc.body.append(uchyt);
 			}
-			const r = t.getBoundingClientRect();
+			// komponenta bez vlastního obalu má display: contents – nemá rámeček, obrys se kreslí kolem jejího obsahu
+			let r = t.getBoundingClientRect();
+			let obrys = doc.getElementById('mc-st-obrys');
+			if (doc.defaultView.getComputedStyle(t).display === 'contents') {
+				const rozsah = doc.createRange();
+				rozsah.selectNodeContents(t);
+				r = rozsah.getBoundingClientRect();
+				if (!obrys) {
+					obrys = Object.assign(doc.createElement('div'), { id: 'mc-st-obrys' });
+					obrys.style.cssText = 'position:absolute;z-index:2147483646;pointer-events:none;outline:2px solid #2b5be3;outline-offset:2px';
+					doc.body.append(obrys);
+				}
+				Object.assign(obrys.style, { left: r.left + doc.defaultView.scrollX + 'px', top: r.top + doc.defaultView.scrollY + 'px', width: r.width + 'px', height: r.height + 'px' });
+				obrys.hidden = false;
+			} else if (obrys) {
+				obrys.hidden = true;
+			}
 			uchyt.hidden = false;
 			uchyt.style.left = Math.max(0, r.left + doc.defaultView.scrollX) + 'px';
 			uchyt.style.top = Math.max(0, r.top + doc.defaultView.scrollY - 24) + 'px';
 		} else if (uchyt) {
 			uchyt.hidden = true;
+			const obrys = doc.getElementById('mc-st-obrys');
+			if (obrys) { obrys.hidden = true; }
 		}
 	}
 
@@ -470,7 +570,11 @@
 	/* ---------- horní lišta ---------- */
 
 	let lista, stavText;
-	function nastavStav(zprava, chyba) { if (stavText) { stavText.textContent = zprava; stavText.classList.toggle('chyba', !!chyba); } }
+	function nastavStav(zprava, chyba, odkaz) {
+		if (!stavText) { return; }
+		stavText.replaceChildren(zprava, odkaz ? el('a', { href: odkaz.adresa, target: '_blank', rel: 'noopener' }, ' ' + odkaz.text) : '');
+		stavText.classList.toggle('chyba', !!chyba);
+	}
 
 	function vytvorListu() {
 		stavText = el('span', { class: 'st-stav', role: 'status' }, stav.zmeny ? T('Rozpracovaný koncept') : T('Publikováno'));
@@ -497,9 +601,14 @@
 	}
 
 	function publikuj() {
-		uloz().then(() => dotaz(D.adresy.publikuj, { ok: 1 })).then((j) => {
-			if (!j || !j.ok) { nastavStav((j && j.chyba) || T('Publikování se nepovedlo.'), true); return; }
-			stav.zmeny = false;
+		uloz().then((ok) => {
+			if (!ok) { return null; } // hlášku už ukázalo ukládání; nepublikuje se nic staršího
+			nastavStav(T('Publikuji…'));
+			return dotaz(D.adresy.publikuj, { ok: 1, verze: stav.verze });
+		}).then((j) => {
+			if (!j) { return; }
+			if (!j.ok) { if (j.konflikt) { stav.konflikt = true; dialogKonflikt(j); } else { nastavStav(j.chyba || T('Publikování se nepovedlo.'), true); } return; }
+			stav.zmeny = neulozeno();
 			D.stranka.publikovana = true;
 			nastavStav(D.stranka.zobrazena ? T('Publikováno – změny jsou na webu') : T('Publikováno (stránka je zatím skrytá – zveřejníte ji v nastavení stránky)'));
 			prekresliListu();
@@ -509,26 +618,31 @@
 		potvrd(T('Zahodit všechny změny od posledního publikování? Nejde to vrátit.'), T('Zahodit')).then((ano) => {
 			if (!ano) { return; }
 			// naplánované uložení by koncept po zahození znovu vytvořilo; běžící se nechá doběhnout
-			clearTimeout(stav.casovac);
-			stav.znovuUlozit = false;
-			const pockej = () => new Promise((hotovo) => { const cekej = () => (stav.uklada ? setTimeout(cekej, 100) : hotovo()); cekej(); });
-			pockej().then(() => dotaz(D.adresy.zahod, { ok: 1 })).then((j) => {
+			zastavUkladani().then(() => dotaz(D.adresy.zahod, { ok: 1 })).then((j) => {
 				if (!j.ok) { nastavStav(j.chyba, true); return; }
-				stav.stavba = j.stavba; stav.zpet = []; stav.vpred = []; stav.zmeny = false; stav.vybrane = null;
+				stav.stavba = j.stavba; stav.ulozeno = JSON.stringify(j.stavba); stav.verze = j.verze; stav.konflikt = false;
+				stav.zpet = []; stav.vpred = []; stav.zmeny = false; stav.vybrane = null;
 				nastavStav(T('Změny zahozeny')); prekresli(); obnovNahled();
 			});
 		});
 	}
+	/** Zruší naplánované uložení a počká, až doběhne to, které už běží (vrací slib). */
+	function zastavUkladani() {
+		clearTimeout(stav.casovac);
+		stav.casovac = null;
+		return fronta;
+	}
 	function dialogVerze() {
 		dotaz(D.adresy.revize).then((j) => {
+			if (j.ok === false) { nastavStav(j.chyba, true); return; }
 			const seznam = el('ul');
 			(j.revize || []).forEach((r) => seznam.append(el('li', {}, el('span', {}, new Date(r.datum.replace(' ', 'T')).toLocaleString(document.documentElement.lang), r.kdo ? ' · ' + r.kdo : ''),
-				el('button', { type: 'button', class: 'st-tl', onclick: () => dotaz(D.adresy.obnov, { idr: r.idr }).then((o) => {
-					d.close();
+				el('button', { type: 'button', class: 'st-tl', onclick: () => { d.close(); zastavUkladani().then(() => dotaz(D.adresy.obnov, { idr: r.idr })).then((o) => {
 					if (!o.ok) { nastavStav(o.chyba, true); return; }
-					stav.zpet.push(JSON.stringify(stav.stavba)); stav.stavba = o.stavba; stav.zmeny = true; stav.vybrane = null;
+					stav.zpet.push(JSON.stringify(stav.stavba)); stav.stavba = o.stavba; stav.ulozeno = JSON.stringify(o.stavba); stav.verze = o.verze; stav.konflikt = false;
+					stav.zmeny = true; stav.vybrane = null;
 					nastavStav(T('Starší verze je v konceptu – publikujte ji, až bude hotová')); prekresli(); obnovNahled();
-				}) }, T('Načíst do konceptu')))));
+				}); } }, T('Načíst do konceptu')))));
 			const d = el('dialog', { class: 'st-dialog' }, el('div', {}, el('h2', {}, T('Publikované verze')), j.revize && j.revize.length ? seznam : el('p', { class: 'st-prazdno' }, T('Zatím žádné starší verze.'))),
 				el('footer', {}, el('button', { type: 'button', class: 'st-tl', onclick: () => d.close() }, T('Zavřít'))));
 			d.addEventListener('close', () => d.remove());
@@ -845,7 +959,8 @@
 				if (!viditelne(d)) { return; }
 				box.append(pole(d, polozka[k], (h) => {
 					polozka[k] = h;
-					uloz();
+					stav.zmeny = true;
+					naplanujUlozeni();
 					if (Object.values(def.pole).some((jine) => jine.kdyz && k in jine.kdyz)) { prekresliPravy(); }
 				}));
 			});
@@ -1000,7 +1115,7 @@
 		panel.append(el('h3', {}, T('Vlastní CSS')), el('label', { class: 'st-pole' }, el('span', {}, T('Deklarace navíc (vlastnost: hodnota;)')), css),
 			el('button', { type: 'button', class: 'st-tl', onclick: () => potvrd(T('Smazat třídu .') + nazev + T('? Prvky ji ve struktuře ponechají, ale přestane mít vzhled.'), T('Smazat')).then((ano) => {
 				if (!ano) { return; }
-				dotaz(D.adresy.trida, { nazev, smazat: '1' }).then((j) => { D.tridy = j.tridy || D.tridy; stav.trida = null; prekresliPravy(); obnovNahled(); });
+				dotaz(D.adresy.trida, { nazev, smazat: '1' }).then((j) => { if (!j.ok) { nastavStav(j.chyba, true); return; } D.tridy = j.tridy; stav.trida = null; prekresliPravy(); obnovNahled(); });
 			}) }, T('Smazat třídu')));
 	}
 
@@ -1017,5 +1132,15 @@
 	prekresli();
 	obnovNahled();
 	document.addEventListener('keydown', klavesy);
-	window.addEventListener('beforeunload', (e) => { if (stav.casovac && !stav.uklada) { uloz(); } if (stav.uklada || cekaNahled === 'ulozit') { e.preventDefault(); e.returnValue = ''; } });
+	stav.ulozeno = JSON.stringify(stav.stavba);
+	koren.addEventListener('focusout', () => setTimeout(prevezmiVycistenou, 0));
+	window.addEventListener('focus', () => { if (stav.pokusy && neulozeno()) { (stav.prihlaseni ? obnovToken() : Promise.resolve()).then(uloz); } });
+	// neuložené změny: prohlížeč se zeptá, jestli stránku opravdu opustit; když ano, pošlou se ještě jednou na pozadí (keepalive)
+	window.addEventListener('beforeunload', (e) => { if (neulozeno() || stav.uklada) { uloz(); e.preventDefault(); e.returnValue = ''; } });
+	window.addEventListener('pagehide', () => {
+		if (!neulozeno() || stav.konflikt) { return; }
+		const f = new FormData();
+		f.append('_csrf', csrf); f.append('stavba', JSON.stringify(stav.stavba)); f.append('verze', stav.verze);
+		try { fetch(D.adresy.uloz, { method: 'POST', body: f, credentials: 'same-origin', keepalive: true }); } catch (e) { /* nad limit keepalive – varování už padlo */ }
+	});
 })();

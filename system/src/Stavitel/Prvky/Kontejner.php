@@ -41,6 +41,10 @@ final class Kontejner extends Prvek
     {
         $odkaz = (string) ($p['obsah']['odkaz'] ?? '');
         if ($odkaz !== '') {
+            // odkaz v odkazu HTML nedovoluje (prohlížeč by kartu rozlomil): tlačítka a odkazy uvnitř zůstanou jen vzhledem
+            $deti = (string) preg_replace_callback('#<a\b([^>]*)>#', fn (array $m): string => '<span' . preg_replace('#\s(?:href|target|rel|download|hreflang|aria-current)="[^"]*"#', '', $m[1]) . '>', $deti);
+            $deti = str_replace('</a>', '</span>', $deti);
+
             return '<a' . Text::sTridou($a, 'mc-karta-odkaz') . ' href="' . e($odkaz) . '">' . $deti . '</a>';
         }
 

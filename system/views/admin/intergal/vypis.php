@@ -27,7 +27,7 @@ $jeVse = $filtr['sekce'] === null && $filtr['clanek'] === 0 && !$filtr['nepouzit
 <nav class="media-slozky" aria-label="<?= e(t('Složky')) ?>">
 	<a href="<?= e($modul->url()) ?>"<?= $jeVse ? ' class="aktivni"' : '' ?>><?= e(t('Všechna média')) ?></a>
 	<a href="<?= e($modul->url('', ['sekce' => 0])) ?>"<?= $filtr['sekce'] === 0 ? ' class="aktivni"' : '' ?>><?= e(t('Nezařazené')) ?></a>
-	<a href="<?= e($modul->url('', ['nepouzite' => 1])) ?>"<?= $filtr['nepouzite'] ? ' class="aktivni"' : '' ?>><?= e(t('Nepoužité v článcích')) ?></a>
+	<a href="<?= e($modul->url('', ['nepouzite' => 1])) ?>"<?= $filtr['nepouzite'] ? ' class="aktivni"' : '' ?>><?= e(t('Nepoužité')) ?></a>
 	<strong><?= e(t('Složky')) ?></strong>
 <?php foreach ($slozky as $s): ?>
 	<a href="<?= e($modul->url('', ['sekce' => $s['ids']])) ?>"<?= $aktivniSlozka === $s ? ' class="aktivni"' : '' ?>><?= e($s['nazev']) ?> <small>(<?= (int) $s['pocet'] ?>)</small></a>
@@ -76,7 +76,7 @@ $jeVse = $filtr['sekce'] === null && $filtr['clanek'] === 0 && !$filtr['nepouzit
 <?php endif ?>
 		<figcaption>
 			<strong title="<?= e($o['nazev']) ?>"><?= e($o['nazev'] !== '' ? $o['nazev'] : t('bez názvu')) ?></strong>
-			<span><?= $o['nahl_poloha'] === '' ? '' : (int) $o['obr_width'] . '&times;' . (int) $o['obr_height'] . ' &middot; ' ?><?= e(MiroCMS\Core\Soubory::velikost((int) $o['obr_vel'])) ?> &middot; <?= e((int) $o['pouzito'] > 0 ? t('použito %s×', (int) $o['pouzito']) : t('nepoužito')) ?></span>
+			<span><?= $o['nahl_poloha'] === '' ? '' : (int) $o['obr_width'] . '&times;' . (int) $o['obr_height'] . ' &middot; ' ?><?= e(MiroCMS\Core\Soubory::velikost((int) $o['obr_vel'])) ?> &middot; <span<?= $o['kde'] !== [] ? ' title="' . e(t('Použito: %s', implode(', ', $o['kde']))) . '"' : '' ?>><?= e((int) $o['pouzito'] > 0 ? t('použito %s×', (int) $o['pouzito']) : t('nepoužito')) ?></span></span>
 			<span><label><input type="checkbox" name="oznacene[]" value="<?= (int) $o['ido'] ?>"> <?= e(t('označit')) ?></label> &middot; <a href="<?= e($modul->url('vypis', $parametry + ['uprav' => $o['ido'], 'strana' => $strana])) ?>#uprav"><?= e(t('popis')) ?></a></span>
 		</figcaption>
 	</figure>
@@ -101,7 +101,7 @@ $jeVse = $filtr['sekce'] === null && $filtr['clanek'] === 0 && !$filtr['nepouzit
 	<input type="hidden" name="ido" value="<?= (int) $o['ido'] ?>">
 	<div class="radek"><label for="nazev"><?= e(t('Název (alternativní text)')) ?></label><div><input class="textpole siroke" type="text" id="nazev" name="nazev" value="<?= e($o['nazev']) ?>" maxlength="150"><span class="napoveda"><?= e(t('Popište, co na obrázku je - čtou ho čtečky obrazovky i vyhledávače.')) ?></span></div></div>
 	<div class="radek"><label for="popis"><?= e(t('Popisek pod obrázkem')) ?></label><input class="textpole siroke" type="text" id="popis" name="popis" value="<?= e($o['popis']) ?>" maxlength="500"></div>
-	<div class="radek"><label for="autor"><?= e(t('Autor obrázku')) ?></label><div><input class="textpole siroke" type="text" id="autor" name="autor" value="<?= e($o['autor'] ?? '') ?>" maxlength="120"><span class="napoveda"><?= e(t('Uvede se pod hlavní fotkou článku, pokud článek nemá vlastního autora fotky.')) ?></span></div></div>
+	<div class="radek"><label for="autor"><?= e(t('Autor obrázku')) ?></label><div><input class="textpole siroke" type="text" id="autor" name="autor" value="<?= e($o['autor'] ?? '') ?>" maxlength="120"><span class="napoveda"><?= e(t('Uvede se pod hlavní fotkou novinky, pokud novinka nemá vlastního autora fotky.')) ?></span></div></div>
 	<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Uložit')) ?>"></p>
 </form>
 <?php endforeach ?>

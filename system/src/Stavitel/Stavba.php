@@ -285,7 +285,7 @@ final class Stavba
         $tridy = array_merge($opakuje && $styl !== [] ? ['s-' . $p['id']] : [], $p['tridy'] ?? []);
         if ($styl !== [] && !isset($k->styly[$p['id']])) {
             $k->styly[$p['id']] = true;
-            $k->css .= Styl::css($opakuje ? '.s-' . $p['id'] : '#' . $id, $styl);
+            $k->css .= Styl::css($opakuje ? '.s-' . $p['id'] : '#' . $id, $styl, '', $k->app->request->basePath());
         }
         foreach ($p['tridy'] ?? [] as $t) {
             $k->tridy[$t] = true;
@@ -334,7 +334,7 @@ final class Stavba
         if ($k->tridy !== []) {
             $nazvy = array_keys($k->tridy);
             foreach ($db->all('SELECT nazev, styl, css FROM {tridy} WHERE nazev IN (' . implode(',', array_fill(0, count($nazvy), '?')) . ') ORDER BY nazev', $nazvy) as $r) {
-                $tridy .= Styl::css('.' . $r['nazev'], json_decode((string) $r['styl'], true) ?: [], Styl::vlastniCss((string) $r['css']));
+                $tridy .= Styl::css('.' . $r['nazev'], json_decode((string) $r['styl'], true) ?: [], Styl::vlastniCss((string) $r['css']), $k->app->request->basePath());
             }
         }
         $css = DesignSystem::VRSTVY . "\n";

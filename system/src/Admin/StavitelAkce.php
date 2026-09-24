@@ -68,6 +68,7 @@ trait StavitelAkce
             'stranka' => ['titulek' => $cil['titulek'], 'adresa' => $e['adresa'], 'zobrazena' => $e['zobrazena'], 'publikovana' => $cil['stavba'] !== null],
             'stavba' => Stavba::zJson($cil['koncept'] ?? $cil['stavba']),
             'zmeny' => $cil['koncept'] !== null && $cil['koncept'] !== $cil['stavba'],
+            'verze' => self::verzeStavby($cil['koncept'] ?? $cil['stavba']),
             'schema' => $schema,
             'kolekce' => $kolekce,
             'komponenty' => $komponenty,
@@ -101,11 +102,14 @@ trait StavitelAkce
         if (!is_array($vstup)) {
             return Response::json(['ok' => false, 'chyba' => t('Stavba nemá platný tvar JSON.')], 400);
         }
+        if (($konflikt = $this->konfliktVerze($cil)) !== null) {
+            return $konflikt;
+        }
         [$stavba, $chyby] = Stavba::vycisti($vstup, $this->app->auth()->isAdmin(), Stavba::zJson($cil['koncept'] ?? $cil['stavba']));
         $json = Stavba::naJson($stavba);
         $this->ulozKoncept($cil, $json);
 
-        return Response::json(['ok' => true, 'stavba' => $stavba, 'chyby' => $chyby, 'zmeny' => $json !== $cil['stavba']]);
+        return Response::json(['ok' => true, 'stavba' => $stavba, 'chyby' => $chyby, 'zmeny' => $json !== $cil['stavba'], 'verze' => self::verzeStavby($json)]);
     }
 
     /** Publikování: koncept se stane stavbou; předchozí publikovaná verze jde do historie. */
@@ -114,6 +118,10 @@ trait StavitelAkce
         $cil = $this->request->isPost() ? $this->cilStavby() : null;
         if ($cil === null || ($cil['koncept'] ?? $cil['stavba']) === null) {
             return Response::json(['ok' => false, 'chyba' => t('Není co publikovat.')], 400);
+        }
+        // publikuje se jen to, co editor naposledy uložil – ne starší koncept, ani cizí rozpracované změny
+        if (($konflikt = $this->konfliktVerze($cil)) !== null) {
+            return $konflikt;
         }
         $this->publikujCil($cil);
         Protokol::zapis($this->app, static::IDENT, 'publikování stavby', mb_substr($cil['titulek'], 0, 80));
@@ -130,7 +138,7 @@ trait StavitelAkce
         }
         $this->ulozKoncept($cil, null);
 
-        return Response::json(['ok' => true, 'stavba' => Stavba::zJson($cil['stavba'])]);
+        return Response::json(['ok' => true, 'stavba' => Stavba::zJson($cil['stavba']), 'verze' => self::verzeStavby($cil['stavba'])]);
     }
 
     /** Sekce z knihovny jako nové prvky (JSON) v jazyce cíle; chybějící třídy, které používá, se založí. */
@@ -166,6 +174,7 @@ trait StavitelAkce
             $this->db->run('INSERT INTO {tridy} (nazev, styl, css, zmeneno) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE styl = VALUES(styl), css = VALUES(css), zmeneno = NOW()',
                 [$nazev, (string) json_encode($styl ?: new \stdClass(), JSON_UNESCAPED_UNICODE), $css]);
             if ($chyby !== [] || $zahozeno !== []) {
+                \MiroCMS\Front\Cache::vymaz(); // platná část třídy se uložila – web ji musí vidět
                 return Response::json(['ok' => true, 'tridy' => $this->tridyStavitele(), 'chyby' => $chyby + array_map(fn (string $d): string => t('Nepovolená deklarace: %s', $d), $zahozeno)]);
             }
         }
@@ -192,7 +201,29 @@ trait StavitelAkce
         }
         $this->ulozKoncept($cil, $stavba);
 
-        return Response::json(['ok' => true, 'stavba' => Stavba::zJson($stavba)]);
+        return Response::json(['ok' => true, 'stavba' => Stavba::zJson($stavba), 'verze' => self::verzeStavby($stavba)]);
+    }
+
+    /** Otisk obsahu, který editor naposledy viděl na serveru (koncept, jinak publikovaná stavba). */
+    private static function verzeStavby(?string $json): string
+    {
+        return substr(md5((string) $json), 0, 16);
+    }
+
+    /**
+     * Ochrana před přepsáním cizích změn: editor posílá otisk verze, ze které vychází. Když se koncept mezitím změnil
+     * (jiný editor, Claude přes MCP, druhá záložka), odmítne se a editor nabídne načíst novější, nebo přepsat.
+     */
+    private function konfliktVerze(array $cil): ?Response
+    {
+        $verze = $this->request->post('verze');
+        $aktualni = self::verzeStavby($cil['koncept'] ?? $cil['stavba']);
+        if ($verze === '' || $this->request->post('prepsat') === '1' || hash_equals($aktualni, $verze)) {
+            return null;
+        }
+
+        return Response::json(['ok' => false, 'konflikt' => true, 'verze' => $aktualni, 'stavba' => Stavba::zJson($cil['koncept'] ?? $cil['stavba']),
+            'chyba' => t('Stránku mezitím upravil někdo jiný (nebo jste ji otevřeli v jiném okně).')], 409);
     }
 
     /**

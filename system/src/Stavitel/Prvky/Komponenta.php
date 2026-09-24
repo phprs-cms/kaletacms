@@ -10,7 +10,8 @@ use MiroCMS\Stavitel\Prvek;
 
 /**
  * Použití komponenty: vloží její publikovanou stavbu a dosadí vlastní hodnoty jejích {{vlastností}}.
- * Na webu nemá vlastní značku (vypíše rovnou obsah komponenty); v editoru ji obalí prvek, aby šla vybrat jako celek.
+ * Na webu nemá vlastní značku (vypíše rovnou obsah komponenty), pokud použití nemá vlastní styl, třídu nebo kotvu;
+ * v editoru ji obalí prvek, aby šla vybrat jako celek.
  */
 final class Komponenta extends Prvek
 {
@@ -61,6 +62,12 @@ final class Komponenta extends Prvek
 
     public static function vykresli(array $p, string $a, string $deti, Kontext $k): string
     {
+        // obal jen tam, kde má použití vlastní styl, třídu nebo kotvu (jinak by přidal zbytečnou úroveň do mřížek a flexu)
+        $maObal = str_contains($a, ' id="') || str_contains($a, ' class="');
+        if ($maObal) {
+            return '<div' . $a . '>' . $deti . '</div>';
+        }
+
         return $k->editor ? '<div' . $a . ' style="display:contents">' . $deti . '</div>' : $deti;
     }
 }

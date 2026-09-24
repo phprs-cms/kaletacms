@@ -10,7 +10,7 @@ use MiroCMS\Core\Response;
 
 /**
  * Média: nahrávání i přetažením a přímo z editoru, složky,
- * popisky, mazání a přehled, ve kterých článcích je obrázek použitý.
+ * popisky, mazání a přehled, kde je obrázek použitý (novinky, stavby, kolekce, logo…).
  * Obrázek se do textu vkládá z editoru.
  */
 final class Galerie extends Modul
@@ -103,6 +103,49 @@ final class Galerie extends Modul
         }
     }
 
+    /**
+     * Média použitá mimo tabulku použití novinek: stavby stránek, částí webu, šablon kolekcí a komponent (i rozpracované),
+     * textové stránky, položky kolekcí, třídy (obrázek pozadí) a nastavení (logo, ikona, obrázek pro sdílení).
+     * Počítá se při zobrazení – přehled je tak vždy aktuální bez evidence při každém uložení.
+     *
+     * @return array<int, list<string>> ido => popisy míst
+     */
+    public static function pouzitiJinde(\MiroCMS\Core\Db $db): array
+    {
+        $zdroje = [
+            [t('stránka'), 'SELECT titulek AS kde, CONCAT_WS(\' \', text, stavba, stavba_koncept) AS obsah FROM {stranky}'],
+            [t('část webu'), 'SELECT CONCAT(typ, IF(nazev = \'\', \'\', CONCAT(\' – \', nazev))) AS kde, CONCAT_WS(\' \', stavba, stavba_koncept) AS obsah FROM {casti}'],
+            [t('kolekce'), 'SELECT nazev AS kde, CONCAT_WS(\' \', stavba, stavba_koncept) AS obsah FROM {kolekce}'],
+            [t('položka kolekce'), 'SELECT nazev AS kde, data AS obsah FROM {kolekce_polozky}'],
+            [t('komponenta'), 'SELECT nazev AS kde, CONCAT_WS(\' \', stavba, stavba_koncept) AS obsah FROM {komponenty}'],
+            [t('třída'), 'SELECT nazev AS kde, CONCAT_WS(\' \', styl, css) AS obsah FROM {tridy}'],
+            [t('nastavení'), 'SELECT promenna AS kde, hodnota AS obsah FROM {nastaveni} WHERE hodnota LIKE \'%media%\''],
+        ];
+        $mista = [];
+        foreach ($zdroje as [$druh, $sql]) {
+            foreach ($db->all($sql) as $r) {
+                // cesty i v JSON (media\/2026\/…), s adresou webu i bez ní
+                preg_match_all('#media(?:\\\\?/)\d{4}(?:\\\\?/)\d{2}(?:\\\\?/)[A-Za-z0-9._-]+#', (string) $r['obsah'], $m);
+                foreach ($m[0] as $cesta) {
+                    $mista[str_replace('\\/', '/', $cesta)][$druh . ' ' . $r['kde']] = true;
+                }
+            }
+        }
+        if ($mista === []) {
+            return [];
+        }
+        $pouzite = [];
+        foreach ($db->all('SELECT ido, obr_poloha, nahl_poloha FROM {media}') as $o) {
+            foreach ([$o['obr_poloha'], $o['nahl_poloha']] as $cesta) {
+                if ($cesta !== '' && isset($mista[$cesta])) {
+                    $pouzite[(int) $o['ido']] = array_keys(($pouzite[(int) $o['ido']] ?? []) + $mista[$cesta]);
+                }
+            }
+        }
+
+        return $pouzite;
+    }
+
     /** Nahrání jednoho či více souborů; s parametrem format=json odpovídá editoru JSONem. */
     protected function akceNahraj(): Response
     {
@@ -155,6 +198,8 @@ final class Galerie extends Modul
         $presun = $this->request->post('provest') === 'presun';
         $cil = $this->request->postInt('do_sekce') ?: null;
         $pocet = 0;
+        $vynechano = 0;
+        $jinde = $presun ? [] : self::pouzitiJinde($this->db);
         foreach ($this->request->postList('oznacene') as $id) {
             $obr = $this->db->one('SELECT * FROM {media} WHERE ido = ?', [(int) $id]);
             if ($obr === null || !$this->smiMenit((int) $obr['ido'])) {
@@ -162,11 +207,17 @@ final class Galerie extends Modul
             }
             if ($presun) {
                 $pocet += $this->db->update('media', ['sekce' => $cil], ['ido' => $obr['ido']]) >= 0 ? 1 : 0;
+            } elseif (isset($jinde[(int) $obr['ido']]) || $this->db->value('SELECT 1 FROM {media_pouziti} WHERE ido = ? LIMIT 1', [$obr['ido']]) !== null) {
+                $vynechano++; // použitý soubor by na webu zmizel – smaže se, až nebude nikde použitý
             } else {
                 Obrazky::smaz($obr['obr_poloha'], $obr['nahl_poloha']);
                 \MiroCMS\Core\Soubory::smaz($obr['obr_poloha']);
                 $pocet += $this->db->delete('media', ['ido' => $obr['ido']]);
             }
+        }
+
+        if ($vynechano > 0) {
+            $this->app->session->flash('chyba', t('Nesmazáno %d použitých souborů – nejdřív je odeberte z webu (kde jsou použité, ukáže výpis).', $vynechano));
         }
 
         return $this->zpet($presun ? t('Přesunuto obrázků: %d.', $pocet) : t('Smazáno obrázků: %d.', $pocet), '', $presun && $cil ? ['sekce' => $cil] : []);
@@ -209,6 +260,10 @@ final class Galerie extends Modul
         $nepouzite = $this->request->get('nepouzite') === '1';
         if ($nepouzite) {
             $where[] = 'NOT EXISTS (SELECT 1 FROM {media_pouziti} p WHERE p.ido = o.ido)';
+            $jinde = array_keys(self::pouzitiJinde($this->db));
+            if ($jinde !== []) {
+                $where[] = 'o.ido NOT IN (' . implode(',', array_map(intval(...), $jinde)) . ')';
+            }
         }
 
         return [implode(' AND ', $where), $params, ['sekce' => $sekce, 'clanek' => $clanek, 'nepouzite' => $nepouzite]];
@@ -223,11 +278,19 @@ final class Galerie extends Modul
     /** @return list<array<string, mixed>> */
     private function nacti(string $where, array $params, int $strana, int $pocet): array
     {
-        return $this->db->all(
+        $jinde = self::pouzitiJinde($this->db);
+
+        return array_map(function (array $o) use ($jinde): array {
+            // kde: novinky podle tabulky použití + místa mimo novinky
+            $o['kde'] = $jinde[(int) $o['ido']] ?? [];
+            $o['pouzito'] = (int) $o['pouzito'] + count($o['kde']);
+
+            return $o;
+        }, $this->db->all(
             "SELECT o.*, (SELECT COUNT(*) FROM {media_pouziti} p WHERE p.ido = o.ido) AS pouzito
              FROM {media} o WHERE {$where} ORDER BY o.ido DESC LIMIT ? OFFSET ?",
             [...$params, $pocet, ($strana - 1) * $pocet],
-        );
+        ));
     }
 
     /** @param array<string, mixed> $o */

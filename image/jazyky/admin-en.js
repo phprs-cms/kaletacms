@@ -281,5 +281,15 @@ window.MIROCMS_PREKLAD = {
 	"opravit chyby": "fix mistakes",
 	"Přepsat s AI:": "Rewrite with AI:",
 	"Asistent přepisuje text…": "The assistant is rewriting the text…",
-	"Text přepsán – Ctrl+Z ho vrátí.": "Text rewritten – Ctrl+Z undoes it."
+	"Text přepsán – Ctrl+Z ho vrátí.": "Text rewritten – Ctrl+Z undoes it.",
+	"Přihlášení vypršelo. Přihlaste se znovu v nové záložce – rozpracované změny zůstávají tady a uloží se samy.": "Your session has expired. Sign in again in a new tab – your unsaved changes stay here and will save automatically.",
+	"Spojení se serverem selhalo.": "Could not connect to the server.",
+	"Změny zatím nejsou uložené, zkusím to znovu za %s s.": "Changes are not saved yet, retrying in %s s.",
+	"Přihlásit se": "Sign in",
+	"Souběžná úprava": "Concurrent edit",
+	"Načtěte novější verzi (vaše změny od posledního uložení se ztratí – zůstanou ve Zpět), nebo ji přepište svou.": "Load the newer version (your changes since the last save will be lost – they stay in Undo), or overwrite it with yours.",
+	"Načtena novější verze": "Newer version loaded",
+	"Načíst novější": "Load newer",
+	"Přepsat mou verzí": "Overwrite with mine",
+	"Publikuji…": "Publishing…"
 };
