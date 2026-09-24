@@ -657,7 +657,8 @@ VER="$(printf 'v%.0s' $(seq 1 50))"; CH=$(printf %s "$VER" | openssl dgst -binar
 ocekavej "cizí adresa návratu se nepřesměruje" "$(curl -s -o /dev/null -w '%{http_code}' "$B/oauth/authorize?response_type=code&client_id=$KLIENT&redirect_uri=https://zly.example/&code_challenge=$CH&code_challenge_method=S256")" 400
 kod=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code} %{redirect_url}' "$B/oauth/authorize?response_type=code&client_id=$KLIENT&redirect_uri=$NAVRAT&code_challenge=$CH&code_challenge_method=S256&state=xyz&scope=mcp")
 case "$kod" in "302 "*akce=oauth) echo "  ok     přihlášení vede na souhlas v administraci";; *) echo "  CHYBA  authorize: $kod"; CHYB=$((CHYB+1));; esac
-curl -s -b "$JAR" -c "$JAR" -o "$PRACE/odpoved" "$B/admin.php?akce=oauth"; grep -q 'Povolit přístup' "$PRACE/odpoved" && echo "  ok     stránka souhlasu" || { echo "  CHYBA  stránka souhlasu"; CHYB=$((CHYB+1)); }
+curl -s -b "$JAR" -c "$JAR" -o "$PRACE/odpoved" -D "$PRACE/hlavicky" "$B/admin.php?akce=oauth"; grep -q 'Povolit přístup' "$PRACE/odpoved" && echo "  ok     stránka souhlasu" || { echo "  CHYBA  stránka souhlasu"; CHYB=$((CHYB+1)); }
+grep -qi "form-action 'self' https://claude.ai;" "$PRACE/hlavicky" && ! grep -qi "x-kaleta-form-action" "$PRACE/hlavicky" && echo "  ok     CSP souhlasu povolí návrat do aplikace (form-action)" || { echo "  CHYBA  CSP form-action na stránce souhlasu"; grep -i "content-security" "$PRACE/hlavicky"; CHYB=$((CHYB+1)); }
 TOKENO=$(csrf)
 ZPET=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?akce=oauth" -d "_csrf=$TOKENO" -d povolit=1)
 KOD=$(printf %s "$ZPET" | grep -o 'code=[a-f0-9]*' | sed 's/code=//' || true)

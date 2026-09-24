@@ -348,9 +348,14 @@ final class Kernel
             return Response::redirect($oauth->vydejKod($ceka, $app->auth()->id()));
         }
 
-        return $this->page('Připojení aplikace', $app->view->render('admin/oauth', [
+        $stranka = $this->page('Připojení aplikace', $app->view->render('admin/oauth', [
             'app' => $app, 'csrf' => $app->session->csrfField(), 'ceka' => $ceka, 'user' => $app->auth()->user(),
             'adresa' => (string) parse_url((string) $ceka['redirect_uri'], PHP_URL_HOST),
         ]));
+        // odeslání souhlasu končí přesměrováním do aplikace – CSP form-action ho musí povolit (admin.php)
+        $cil = parse_url((string) $ceka['redirect_uri']);
+        $puvod = ($cil['scheme'] ?? '') . '://' . ($cil['host'] ?? '') . (isset($cil['port']) ? ':' . $cil['port'] : '');
+
+        return new Response($stranka->body, $stranka->status, $stranka->headers + ['X-Kaleta-Form-Action' => $puvod]);
     }
 }
