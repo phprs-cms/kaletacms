@@ -35,6 +35,23 @@ final class DesignSystem
     ];
 
     /**
+     * Typografické styly: pojmenovaná kombinace velikosti, tloušťky, řádkování a písma. Prvek dostane styl jedním výběrem
+     * („Nadpis sekce“, „Perex“) a změna ve Vzhledu se projeví na celém webu. klíč => [název, krok, tloušťka, řádkování, písmo titulků]
+     */
+    public const array TYPOGRAFIE = [
+        'titulek' => ['Hlavní titulek', '5', 800, 1.1, true],
+        'nadpis-sekce' => ['Nadpis sekce', '4', 700, 1.15, true],
+        'podnadpis' => ['Podnadpis', '2', 600, 1.3, true],
+        'perex' => ['Perex', '1', 400, 1.55, false],
+        'text' => ['Běžný text', '0', 400, 1.6, false],
+        'drobny' => ['Drobný text', '-1', 400, 1.5, false],
+        'nadtitulek' => ['Nadtitulek', '-1', 600, 1.3, false],
+    ];
+
+    /** Tloušťky písma nabízené u typografických stylů. */
+    public const array TLOUSTKY = [300 => 'tenké', 400 => 'normální', 500 => 'střední', 600 => 'polotučné', 700 => 'tučné', 800 => 'extra tučné'];
+
+    /**
      * Pořadí vrstev kaskády pro celý web: tokeny, společné prvky (image/web.css), šablona, základ prvků stavitele, třídy, styl prvků.
      * Pozdější vrstva vyhrává bez ohledu na specifičnost – nic se nemusí přebíjet selektory ani !important.
      */
@@ -149,7 +166,22 @@ final class DesignSystem
             'sirka' => $cislo($ds['sirka'] ?? null, 40, 120, $v['sirka']),
             'sirka_textu' => $cislo($ds['sirka_textu'] ?? null, 28, 60, $v['sirka_textu']),
             'zaobleni' => isset(self::ZAOBLENI[$ds['zaobleni'] ?? '']) ? $ds['zaobleni'] : $v['zaobleni'],
+            'typografie' => [],
         ];
+        // typografické styly: uloží se jen to, co se liší od výchozího (krok a tloušťka)
+        foreach (self::TYPOGRAFIE as $klic => [, $krok, $tloustka]) {
+            $t = is_array($ds['typografie'][$klic] ?? null) ? $ds['typografie'][$klic] : [];
+            $zmena = [];
+            if (in_array((string) ($t['krok'] ?? ''), self::KROKY, true) && (string) $t['krok'] !== $krok) {
+                $zmena['krok'] = (string) $t['krok'];
+            }
+            if (isset(self::TLOUSTKY[(int) ($t['tloustka'] ?? 0)]) && (int) $t['tloustka'] !== $tloustka) {
+                $zmena['tloustka'] = (int) $t['tloustka'];
+            }
+            if ($zmena !== []) {
+                $cisty['typografie'][$klic] = $zmena;
+            }
+        }
         // vlastní písmo (vlastni-1…3) jde vybrat jen, když je nahrané
         foreach (['pismo_titulky', 'pismo_text'] as $klic) {
             if (preg_match('/^vlastni-([1-3])$/', (string) ($ds[$klic] ?? ''), $m) && isset($cisty['vlastni_pisma'][(int) $m[1] - 1])) {
@@ -235,6 +267,10 @@ final class DesignSystem
         }
         foreach (self::STINY as $klic => $hodnota) {
             $p['--ka-stin-' . $klic] = $hodnota;
+        }
+        foreach (self::TYPOGRAFIE as $klic => [, $krok, $tloustka, $radkovani, $titulky]) {
+            $t = ($ds['typografie'] ?? [])[$klic] ?? [];
+            $p['--ka-typ-' . $klic] = ($t['tloustka'] ?? $tloustka) . ' var(--ka-krok-' . ($t['krok'] ?? $krok) . ')/' . $radkovani . ' var(--ka-pismo-' . ($titulky ? 'titulky' : 'text') . ')';
         }
         $radky = array_map(fn (string $k, string $h): string => "\t{$k}: {$h};", array_keys($p), $p);
         $tmave = array_map(fn (string $k, string $h): string => "\t\t--ka-barva-{$k}: {$h};", array_keys($ds['barvy_tmave']), $ds['barvy_tmave']);

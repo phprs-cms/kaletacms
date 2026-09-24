@@ -136,6 +136,31 @@ $kontrastyHtml = function (array $kontrasty): string {
 </fieldset>
 
 <fieldset>
+<legend><?= e(t('Typografické styly')) ?></legend>
+<p class="napoveda"><?= e(t('Pojmenované styly textu, které ve staviteli vyberete u prvku (Styl → Typografie). Změna tady se projeví všude, kde styl je.')) ?></p>
+<div class="tab-obal"><table class="vypis vzhled-typografie">
+<thead><tr><th scope="col"><?= e(t('Styl')) ?></th><th scope="col"><?= e(t('Velikost (krok škály)')) ?></th><th scope="col"><?= e(t('Tloušťka')) ?></th></tr></thead>
+<tbody>
+<?php foreach (DesignSystem::TYPOGRAFIE as $klic => [$nazev, $krok, $tloustka, $radkovani, $titulky]): $vlastni = $ds['typografie'][$klic] ?? []; ?>
+<tr>
+	<th scope="row"><span style="font: var(--ka-typ-<?= e($klic) ?>, inherit)<?= $klic === 'nadtitulek' ? ';text-transform:uppercase;letter-spacing:.08em' : '' ?>"><?= e(t($nazev)) ?></span></th>
+	<td><select name="ds[typografie][<?= e($klic) ?>][krok]" aria-label="<?= e(t('Velikost: %s', t($nazev))) ?>">
+<?php foreach (DesignSystem::KROKY as $k): ?>
+		<option value="<?= e($k) ?>"<?= ($vlastni['krok'] ?? $krok) === $k ? ' selected' : '' ?>><?= e($k === '0' ? t('0 – základní písmo') : $k) ?></option>
+<?php endforeach ?>
+	</select></td>
+	<td><select name="ds[typografie][<?= e($klic) ?>][tloustka]" aria-label="<?= e(t('Tloušťka: %s', t($nazev))) ?>">
+<?php foreach (DesignSystem::TLOUSTKY as $w => $nazevTloustky): ?>
+		<option value="<?= $w ?>"<?= (int) ($vlastni['tloustka'] ?? $tloustka) === $w ? ' selected' : '' ?>><?= e(t($nazevTloustky)) ?></option>
+<?php endforeach ?>
+	</select></td>
+</tr>
+<?php endforeach ?>
+</tbody>
+</table></div>
+</fieldset>
+
+<fieldset>
 <legend><?= e(t('Zaoblení rohů')) ?></legend>
 <div class="vzhled-zaobleni">
 <?php foreach (['0' => 'ostré', 's' => 'jemné', 'm' => 'střední', 'l' => 'velké', 'plne' => 'kulaté'] as $klic => $nazev): ?>

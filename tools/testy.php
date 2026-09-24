@@ -538,6 +538,18 @@ over('Styl::vycisti: vloženo CSS, neznámá vlastnost a stav vypadnou', Kaleta\
 over('Styl::vycisti: chyby', array_keys($stStylChyby), ['s.zaklad.barva', 's.zaklad.neznama', 's.tisk']);
 over('Styl::css: tokeny, sloupce, hover a breakpoint', Kaleta\Stavitel\Styl::css('#s-a', ['zaklad' => ['odsazeni_y' => 'xl', 'barva' => 'primarni', 'sloupce' => '3'], 'mobil' => ['sloupce' => '1'], 'hover' => ['barva' => '#ff0000']]),
     "#s-a { padding-block: var(--ka-mezera-xl); color: var(--ka-barva-primarni); grid-template-columns: repeat(3, minmax(0, 1fr)); }\n#s-a:is(:hover, :focus-visible) { color: #ff0000; }\n@media (max-width: 767px) { #s-a { grid-template-columns: repeat(1, minmax(0, 1fr)); } }\n");
+over('Styl::css: najetí a stisk zvlášť pro tablet a mobil', Kaleta\Stavitel\Styl::css('#x', ['mobil' => ['mezera' => 's'], 'hover_mobil' => ['barva' => 'primarni'], 'aktivni_tablet' => ['meritko' => '0.95']]),
+    "@media (max-width: 1023px) { #x:active { scale: 0.95; } }\n@media (max-width: 767px) { #x { gap: var(--ka-mezera-s); } #x:is(:hover, :focus-visible) { color: var(--ka-barva-primarni); } }\n");
+over('Styl::css: typografický styl první, jednotlivé vlastnosti ho doladí', Kaleta\Stavitel\Styl::css('#x', ['zaklad' => ['velikost_pisma' => '3', 'typ_styl' => 'nadtitulek']]),
+    "#x { font: var(--ka-typ-nadtitulek); text-transform: uppercase; letter-spacing: 0.08em; font-size: var(--ka-krok-3); }\n");
+over('Styl: vlastní stín a rámeček s tokeny barev', [Kaleta\Stavitel\Styl::hodnota('stin', '0 8px 24px 0 primarni'), Kaleta\Stavitel\Styl::hodnota('stin', 'inset 0 1px 0 #ffffff33, 0 4px 12px rgb(0 0 0 / 0.1)'), Kaleta\Stavitel\Styl::hodnota('ramecek', '2px dashed primarni')],
+    ['0 8px 24px 0 var(--ka-barva-primarni)', 'inset 0 1px 0 #ffffff33, 0 4px 12px rgb(0 0 0 / 0.1)', '2px dashed var(--ka-barva-primarni)']);
+over('Styl: stín a rámeček nepustí nic nebezpečného', [Kaleta\Stavitel\Styl::hodnota('stin', '0 0 1px url(x)'), Kaleta\Stavitel\Styl::hodnota('stin', '0 0 red; color: red'), Kaleta\Stavitel\Styl::hodnota('ramecek', '1px solid red}')], [null, null, null]);
+over('Styl: mřížka – řádky, oblasti a oblast prvku', [Kaleta\Stavitel\Styl::hodnota('radky', '3'), Kaleta\Stavitel\Styl::hodnota('oblasti', 'hlava hlava / bok obsah'), Kaleta\Stavitel\Styl::hodnota('oblasti', 'a b / c'), Kaleta\Stavitel\Styl::hodnota('oblast', 'bok'), Kaleta\Stavitel\Styl::hodnota('oblast', 'x"y')],
+    ['repeat(3, auto)', '"hlava hlava" "bok obsah"', null, 'bok', null]);
+over('DesignSystem: typografické styly jako tokeny, úprava ve Vzhledu', [str_contains(Kaleta\Stavitel\DesignSystem::css(Kaleta\Stavitel\DesignSystem::vycisti([])), '--ka-typ-perex: 400 var(--ka-krok-1)/1.55 var(--ka-pismo-text);'),
+    str_contains(Kaleta\Stavitel\DesignSystem::css(Kaleta\Stavitel\DesignSystem::vycisti(['typografie' => ['perex' => ['krok' => '2', 'tloustka' => '500'], 'titulek' => ['krok' => '99']]])), '--ka-typ-perex: 500 var(--ka-krok-2)/1.55'),
+    Kaleta\Stavitel\DesignSystem::vycisti(['typografie' => ['titulek' => ['krok' => '99']]])['typografie']], [true, true, []]);
 over('Styl::css: obrázek pozadí z Médií od kořene instalace', str_contains(Kaleta\Stavitel\Styl::css('#s', ['zaklad' => ['obrazek_pozadi' => 'media/2026/09/a.jpg']], '', '/web'), 'url("/web/media/2026/09/a.jpg")'), true);
 over('Kontejner jako odkaz: odkazy uvnitř se změní na span', Kaleta\Stavitel\Prvky\Kontejner::vykresli(['znacka' => 'div', 'obsah' => ['odkaz' => '/k']], '', '<p>x</p><a class="ka-tlacitko" href="/y" target="_blank">B</a><abbr>z</abbr>', new Kaleta\Stavitel\Kontext((new ReflectionClass(Kaleta\Core\App::class))->newInstanceWithoutConstructor())),
     '<a class="ka-karta-odkaz" href="/k"><p>x</p><span class="ka-tlacitko">B</span><abbr>z</abbr></a>');

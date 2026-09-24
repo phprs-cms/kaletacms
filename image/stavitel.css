@@ -164,3 +164,25 @@ body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; ove
 .st-moje-sekce { position: relative; display: flex; }
 .st-moje-sekce > button:first-child { flex: 1; }
 .st-moje-sekce .st-odebrat { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: var(--podklad); color: var(--text-slaby); cursor: pointer; }
+
+/* skladač stínu a rámečku */
+.st-sklad { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 10px; margin-top: 6px; padding: 8px; border: 1px solid var(--linka); border-radius: 6px; background: var(--podklad); }
+.st-sklad label { display: grid; gap: 2px; font-size: 12px; color: var(--text-slaby); }
+.st-sklad input[type="number"], .st-sklad input[type="text"], .st-sklad select { width: 100%; min-width: 0; }
+.st-sklad .st-zaskrt { display: flex; align-items: center; gap: 6px; }
+
+/* editor mřížky */
+.st-mrizka { display: grid; gap: 8px; margin-bottom: 10px; padding: 8px; border: 1px dashed var(--linka); border-radius: 6px; }
+.st-mrizka-predvolby { display: flex; flex-wrap: wrap; gap: 4px; }
+.st-mrizka-radky { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.st-mrizka-nahled { display: grid; gap: 3px; }
+.st-mrizka-nahled input { min-width: 0; height: 30px; padding: 0 4px; border: 1px solid var(--linka); border-radius: 4px; background: color-mix(in oklch, #ff4f2e 8%, transparent); font: 11px/1 ui-monospace, monospace; text-align: center; }
+.st-mrizka small { font-size: 11px; color: var(--text-slaby); }
+
+/* přesun klepnutím a dotykové ovládání */
+body.st-umistovani .st-uzel { cursor: copy; }
+@media (pointer: coarse) {
+	.st-akce button, .st-lista button, .st-zalozky button { min-width: 40px; min-height: 40px; }
+	.st-uzel { min-height: 40px; }
+	.st-vlastnost select, .st-vlastnost input { min-height: 36px; }
+}

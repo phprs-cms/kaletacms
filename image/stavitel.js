@@ -43,6 +43,7 @@
 		mapa: '<path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20z"/><path d="M9 4v13.5M15 6.5V20"/>',
 		okno: '<rect x="3" y="4" width="18" height="16" rx="2"/><rect x="7" y="8" width="10" height="8" rx="1"/>',
 		drobecky: '<path d="M3 12h4M10 12h4M17 12h4"/><path d="m6 9 2 3-2 3M13 9l2 3-2 3"/>',
+		presun: '<path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>',
 		nahoru: '<path d="m6 15 6-6 6 6"/>', dolu: '<path d="m6 9 6 6 6-6"/>', rodic: '<path d="M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-2"/>',
 		knihovna: '<path d="M4 5h4v14H4zM10 5h4v14h-4z"/><path d="m16 6 3.5-1 3 13.5-3.5 1z"/>',
 		kopie: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
@@ -58,7 +59,7 @@
 	const stav = {
 		stavba: D.stavba && Array.isArray(D.stavba.deti) ? D.stavba : { v: 1, deti: [] },
 		vybrane: null, bp: 'zaklad', stavPrvku: '', levo: 'pridat', pravo: 'obsah', zpet: [], vpred: [], posledniKlic: null, posledniCas: 0,
-		zmeny: !!D.zmeny, uklada: false, skryte: {}, casovac: null, verze: D.verze || '', ulozeno: '', pokusy: 0, prihlaseni: false, konflikt: false, vycistena: null, chyby: {}, sbalene: {}, trida: null, tazeny: null, tazeno: null, upravaNaPlatne: false,
+		zmeny: !!D.zmeny, uklada: false, skryte: {}, casovac: null, verze: D.verze || '', ulozeno: '', pokusy: 0, prihlaseni: false, konflikt: false, vycistena: null, chyby: {}, sbalene: {}, trida: null, tazeny: null, tazeno: null, upravaNaPlatne: false, umistovani: null,
 	};
 
 	/* ---------- drobné pomůcky ---------- */
@@ -324,12 +325,27 @@
 		doc.addEventListener('click', (e) => {
 			if (e.target.closest('[contenteditable]') || e.target.id === 'ka-st-uchyt') { return; }
 			e.preventDefault();
+			if (stav.umistovani) {
+				// přesun klepnutím (dotyk i myš): prvek dopadne před, za nebo dovnitř klepnutého prvku podle místa klepnutí
+				stav.tazeno = stav.umistovani;
+				const misto = mistoNaPlatne(doc, e);
+				stav.tazeno = null;
+				ukazMisto(doc, null);
+				if (misto) { const co = stav.umistovani; ukonciUmistovani(); pustNaMisto(co, misto); }
+				return;
+			}
 			// zamčený prvek (Struktura → zámek) na plátně nejde vybrat: výběr dostane nejbližší nezamčený předek
 			let t = e.target.closest('[data-ka-id]');
 			while (t && t.hasAttribute('data-ka-zamek')) { t = t.parentElement && t.parentElement.closest('[data-ka-id]'); }
 			vyber(t ? t.getAttribute('data-ka-id') : null);
 		}, true);
 		skrytiNaPlatne(doc);
+		doc.addEventListener('pointermove', (e) => {
+			if (!stav.umistovani) { return; }
+			stav.tazeno = stav.umistovani;
+			ukazMisto(doc, mistoNaPlatne(doc, e));
+			stav.tazeno = null;
+		});
 		doc.addEventListener('mouseover', (e) => {
 			doc.querySelectorAll('.ka-st-hover').forEach((x) => x.classList.remove('ka-st-hover'));
 			const t = e.target.closest('[data-ka-id]');
@@ -370,6 +386,20 @@
 		stav.tazeno = co;
 		e.dataTransfer.effectAllowed = co.presun ? 'move' : 'copy';
 		e.dataTransfer.setData('text/plain', 'kaleta');
+	}
+
+	/** Přesun klepnutím – náhrada přetahování na dotykových zařízeních: vyberete prvek, klepnete na „Přesunout“ a pak na místo. */
+	function zacniUmistovani(id) {
+		if (!id) { return; }
+		stav.umistovani = { presun: id };
+		document.body.classList.add('st-umistovani');
+		nastavStav(T('Klepněte na místo na stránce, kam prvek přesunout (horní nebo dolní část prvku = před nebo za, střed kontejneru = dovnitř). Esc zruší.'));
+	}
+
+	function ukonciUmistovani() {
+		stav.umistovani = null;
+		document.body.classList.remove('st-umistovani');
+		nastavStav('');
 	}
 
 	function skonciTazeni() {
@@ -470,12 +500,12 @@
 			if (posunout) { t.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
 			// úchyt vlevo nahoře: přetažením se vybraný prvek přesune jinam na stránce
 			if (!uchyt) {
-				uchyt = Object.assign(doc.createElement('div'), { id: 'ka-st-uchyt', draggable: true, title: T('Přetažením přesunete') });
+				uchyt = Object.assign(doc.createElement('div'), { id: 'ka-st-uchyt', draggable: true, title: T('Přetažením nebo klepnutím přesunete') });
 				uchyt.textContent = '⠿';
 				uchyt.style.cssText = 'position:absolute;z-index:2147483647;display:grid;place-items:center;width:22px;height:22px;border-radius:4px;background:#ff4f2e;color:#fff;font:14px/1 system-ui;cursor:grab;user-select:none';
 				uchyt.addEventListener('dragstart', (e) => zacniTahnout(e, { presun: stav.vybrane }));
 				uchyt.addEventListener('dragend', skonciTazeni);
-				uchyt.addEventListener('click', (e) => e.stopPropagation(), true);
+				uchyt.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); zacniUmistovani(stav.vybrane); }, true);
 				doc.body.append(uchyt);
 			}
 			// komponenta bez vlastního obalu má display: contents – nemá rámeček, obrys se kreslí kolem jejího obsahu
@@ -615,6 +645,7 @@
 		else if (mod && e.key.toLowerCase() === 'c' && stav.vybrane) { kopiruj(); }
 		else if (mod && e.key.toLowerCase() === 'v') { vlozZeSchranky(); }
 		else if ((e.key === 'Delete' || e.key === 'Backspace') && stav.vybrane) { e.preventDefault(); smaz(stav.vybrane); }
+		else if (e.key === 'Escape' && stav.umistovani) { const doc = nahled && nahled.contentDocument; if (doc) { ukazMisto(doc, null); } ukonciUmistovani(); }
 		else if (e.key === 'Escape' && stav.vybrane) { const n = najdi(stav.vybrane); vyber(n && n.rodic ? n.rodic.id : null); }
 	}
 
@@ -884,7 +915,16 @@
 			const radek = el('div', {
 				class: 'st-uzel' + (stav.skryte[p.id] ? ' st-skryty' : ''), draggable: p.zamek ? null : 'true', role: 'treeitem', 'aria-selected': String(stav.vybrane === p.id),
 				'aria-expanded': maDeti ? String(!stav.sbalene[p.id]) : null, tabindex: stav.vybrane === p.id || (!stav.vybrane && stav.stavba.deti[0] === p) ? '0' : '-1',
-				'data-id': p.id, onclick: () => vyber(p.id), onkeydown: (e) => klavesyStromu(e, p, maDeti),
+				'data-id': p.id, onkeydown: (e) => klavesyStromu(e, p, maDeti),
+				onclick: () => {
+					const u = stav.umistovani && najdi(stav.umistovani.presun);
+					if (!u) { vyber(p.id); return; }
+					// přesun klepnutím ve Struktuře: do prázdného kontejneru dovnitř, jinak za klepnutý prvek
+					if (u.p.id === p.id || obsahuje(u.p, p.id)) { return; }
+					const co = stav.umistovani;
+					ukonciUmistovani();
+					pustNaMisto(co, { cil: p.id, kam: TYPY[p.typ] && TYPY[p.typ].kontejner && !maDeti ? 'dovnitr' : 'za' });
+				},
 				onmouseenter: () => { const t = nahled && nahled.contentDocument && nahled.contentDocument.querySelector('[data-ka-id="' + p.id + '"]'); if (t) { t.classList.add('ka-st-hover'); } },
 				onmouseleave: () => { const t = nahled && nahled.contentDocument && nahled.contentDocument.querySelector('[data-ka-id="' + p.id + '"]'); if (t) { t.classList.remove('ka-st-hover'); } },
 				ondragstart: (e) => { stav.tazeny = p.id; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', p.id); },
@@ -965,6 +1005,7 @@
 			el('div', { class: 'st-hlava-prvku' }, ikona(s.ikona), el('strong', {}, s.nazev), el('div', { class: 'st-akce' },
 				el('button', { type: 'button', title: T('Nahoru'), onclick: () => posun(p.id, -1) }, ikona('nahoru')),
 				el('button', { type: 'button', title: T('Dolů'), onclick: () => posun(p.id, 1) }, ikona('dolu')),
+				p.zamek ? null : el('button', { type: 'button', title: T('Přesunout klepnutím na místo (i na dotykové obrazovce)'), 'aria-pressed': String(!!stav.umistovani), onclick: () => (stav.umistovani ? ukonciUmistovani() : zacniUmistovani(p.id)) }, ikona('presun')),
 				n.rodic ? el('button', { type: 'button', title: T('Vybrat nadřazený prvek (Esc)'), onclick: () => vyber(n.rodic.id) }, ikona('rodic')) : null,
 				el('button', { type: 'button', title: T('Duplikovat (Ctrl+D)'), onclick: () => duplikuj(p.id) }, ikona('kopie')),
 				D.adresy.komponenta && p.typ !== 'komponenta' ? el('button', { type: 'button', title: T('Uložit jako komponentu'), onclick: () => ulozJakoKomponentu(p.id) }, ikona('komponenta')) : null,
@@ -1165,6 +1206,8 @@
 		mezera: ['2xs', 'xs', 's', 'm', 'l', 'xl', '2xl', '3xl', '0'], krok: ['-1', '0', '1', '2', '3', '4', '5'], zaobleni: ['0', 's', 'm', 'l', 'plne'], stin: ['s', 'm', 'l', 'none'],
 		barva: Object.keys(D.schema.tokeny.barvy).concat(['transparent']), delka: ['auto', '100%', '50%', 'var(--ka-sirka-textu)', 'var(--ka-sirka)', '20rem', '30rem', '60vh', 'fit-content'],
 		sloupce: ['1', '2', '3', '4', 'auto:14rem', 'auto:16rem', 'auto:20rem', '2fr 1fr', '1fr 2fr'], cislo: ['-1', '0', '1', '2'],
+		radky: ['1', '2', '3', 'auto 1fr auto'], ramecek: Object.keys((D.schema.styl.ramecek || {}).moznosti || {}).concat(['1px solid linka', '2px dashed primarni']),
+		oblast: [],
 	};
 	const datalisty = el('div', { hidden: true }, Object.entries(NAPOVEDY).map(([typ, hodnoty]) => el('datalist', { id: 'st-dl-' + typ }, hodnoty.map((h) => el('option', { value: h })))),
 		el('datalist', { id: 'st-dl-odkazy' }));
@@ -1184,11 +1227,13 @@
 		return mapa[h] || h;
 	}
 
-	function aktualniStav() { return stav.stavPrvku || stav.bp; }
+	/** Upravovaný stav stylu: breakpoint, nebo najetí/stisk – na tabletu a mobilu zvlášť (hover_tablet…). */
+	function aktualniStav() { return stav.stavPrvku ? stav.stavPrvku + (stav.bp === 'zaklad' ? '' : '_' + stav.bp) : stav.bp; }
+	const DEDENI = { zaklad: [], tablet: ['zaklad'], mobil: ['tablet', 'zaklad'], hover: ['zaklad'], hover_tablet: ['hover', 'tablet', 'zaklad'],
+		hover_mobil: ['hover_tablet', 'hover', 'mobil', 'tablet', 'zaklad'], aktivni: ['hover', 'zaklad'], aktivni_tablet: ['aktivni', 'hover_tablet', 'hover', 'tablet', 'zaklad'],
+		aktivni_mobil: ['aktivni_tablet', 'aktivni', 'hover_mobil', 'hover_tablet', 'hover', 'mobil', 'tablet', 'zaklad'] };
 	function zdedena(styl, klic) {
-		const s = aktualniStav();
-		const poradi = s === 'mobil' ? ['tablet', 'zaklad'] : s === 'tablet' || s === 'hover' ? ['zaklad'] : s === 'aktivni' ? ['hover', 'zaklad'] : [];
-		for (const st of poradi) { if (styl[st] && styl[st][klic] !== undefined) { return styl[st][klic]; } }
+		for (const st of DEDENI[aktualniStav()] || []) { if (styl[st] && styl[st][klic] !== undefined) { return styl[st][klic]; } }
 		return '';
 	}
 
@@ -1197,7 +1242,7 @@
 		cil.styl = cil.styl && !Array.isArray(cil.styl) ? cil.styl : {};
 		const s = aktualniStav();
 		panel.append(el('div', { class: 'st-stav-stylu' },
-			el('span', {}, T('Upravujete: '), el('strong', {}, { hover: T('najetí myší a fokus'), aktivni: T('stisknutí') }[stav.stavPrvku] || BP[stav.bp])),
+			el('span', {}, T('Upravujete: '), el('strong', {}, [{ hover: T('najetí myší a fokus'), aktivni: T('stisknutí') }[stav.stavPrvku], stav.stavPrvku && stav.bp === 'zaklad' ? '' : BP[stav.bp]].filter(Boolean).join(' · '))),
 			el('span', { class: 'st-skupina', role: 'group', 'aria-label': T('Stav prvku') }, [['', T('Běžný')], ['hover', T('Najetí')], ['aktivni', T('Stisk')]].map(([k, n]) =>
 				el('button', { type: 'button', class: 'st-tl', 'aria-pressed': String(stav.stavPrvku === k), title: k === 'hover' ? T('Najetí myší – platí i pro fokus z klávesnice') : null, onclick: () => { stav.stavPrvku = k; prekresliPravy(); } }, n)))));
 		if (s !== 'zaklad') { panel.append(el('p', { class: 'napoveda', style: 'margin:0 0 8px;font-size:12px;color:var(--text-slaby)' }, T('Prázdné pole = stejná hodnota jako na větší obrazovce (šedě).'))); }
@@ -1208,13 +1253,15 @@
 			const nastaveno = vlastnosti.filter(([k]) => cil.styl[s] && cil.styl[s][k] !== undefined).length;
 			const det = el('details', { open: nastaveno > 0 || poradi === 0 }, el('summary', {}, T(D.schema.skupiny_stylu[skupina]), nastaveno ? el('small', {}, nastaveno) : null));
 			const obsah = el('div');
-			vlastnosti.forEach(([klic, def]) => obsah.append(ovladacStylu(cil, klic, def, (hodnota) => {
+			const nastav = (klic, hodnota) => {
 				const provest = () => {
 					cil.styl[s] = cil.styl[s] || {};
 					if (hodnota === '') { delete cil.styl[s][klic]; if (!Object.keys(cil.styl[s]).length) { delete cil.styl[s]; } } else { cil.styl[s][klic] = hodnota; }
 				};
 				if (ulozit) { provest(); ulozit(); } else { zmen(provest, klicZmen + ':' + s + ':' + klic); }
-			})));
+			};
+			if (skupina === 'rozlozeni' && ((cil.styl[s] || {}).zobrazeni || zdedena(cil.styl, 'zobrazeni')) === 'grid') { obsah.append(editorMrizky(cil, s, nastav)); }
+			vlastnosti.forEach(([klic, def]) => obsah.append(ovladacStylu(cil, klic, def, (hodnota) => nastav(klic, hodnota))));
 			det.append(obsah);
 			box.append(det);
 		});
@@ -1237,13 +1284,80 @@
 				el('input', { type: 'color', 'aria-label': T('Vybrat vlastní barvu'), value: /^#[0-9a-f]{6}$/i.test(hodnota) ? hodnota : '#000000',
 					oninput: (e) => { vzorek.style.background = e.target.value; }, onchange: (e) => { pole.value = e.target.value; zmena(e.target.value); } })) : null;
 			vstup = el('span', { class: 'st-pole-radek' }, vzorek, pole,
-				def.typ === 'obrazek' ? el('button', { type: 'button', class: 'st-tl', title: T('Média'), onclick: () => window.kaletaVyberObrazek && window.kaletaVyberObrazek((o) => { pole.value = o.url; zmena(o.url); }) }, '…') : null);
+				def.typ === 'obrazek' ? el('button', { type: 'button', class: 'st-tl', title: T('Média'), onclick: () => window.kaletaVyberObrazek && window.kaletaVyberObrazek((o) => { pole.value = o.url; zmena(o.url); }) }, '…') : null,
+				def.typ === 'stin' || def.typ === 'ramecek' ? el('button', { type: 'button', class: 'st-tl', title: T('Poskládat vlastní'), 'aria-expanded': 'false', onclick: (e) => {
+					const otevreno = e.currentTarget.getAttribute('aria-expanded') === 'true';
+					e.currentTarget.setAttribute('aria-expanded', String(!otevreno));
+					const box = e.currentTarget.closest('.st-vlastnost').querySelector('.st-sklad');
+					if (box) { box.remove(); return; }
+					e.currentTarget.closest('.st-vlastnost').append((def.typ === 'stin' ? skladStinu : skladRamecku)(hodnota || zdedeno, (h) => { pole.value = h; zmena(h); }));
+				} }, '✎') : null);
+			if (def.typ === 'ramecek') { pole.setAttribute('list', 'st-dl-ramecek'); }
 		}
 		const id = 'st-v-' + klic;
 		(vstup.matches('select') ? vstup : vstup.querySelector('input[type="text"]')).id = id;
 		const chyba = cil.id && stav.chyby[stav.cestaVybraneho + '.styl.' + s + '.' + klic];
 		return el('div', { class: 'st-vlastnost' + (hodnota !== '' ? ' nastaveno' : '') + (chyba ? ' st-pole-chyba' : '') }, el('label', { for: id, title: def.css }, T(def.popisek)), vstup,
 			chyba ? el('small', { class: 'st-chyba-pole', role: 'alert' }, chyba) : null);
+	}
+
+	/** Skladač stínu: posun, rozostření, roztažení, barva a průhlednost → „0 8px 24px color-mix(…)“; tokeny barev fungují. */
+	function skladStinu(hodnota, zmena) {
+		const m = /^(inset\s+)?(-?[\d.]+)(?:px)?\s+(-?[\d.]+)(?:px)?\s+(-?[\d.]+)?(?:px)?\s*(-?[\d.]+)?(?:px)?\s*(\S+)?/.exec(/^[slm]$|^none$/.test(hodnota) ? '' : hodnota) || [];
+		const v = { inset: !!m[1], x: m[2] || '0', y: m[3] || '8', blur: m[4] || '24', spread: m[5] || '0', barva: m[6] && m[6][0] === '#' ? m[6].slice(0, 7) : '#000000', sila: 15 };
+		const slozit = () => zmena((v.inset ? 'inset ' : '') + v.x + 'px ' + v.y + 'px ' + v.blur + 'px ' + v.spread + 'px ' + v.barva + Math.round(v.sila * 2.55).toString(16).padStart(2, '0'));
+		const cislo = (klic, popisek, min, max) => el('label', {}, el('span', {}, T(popisek)), el('input', { type: 'number', min, max, value: v[klic], oninput: (e) => { v[klic] = e.target.value || '0'; slozit(); } }));
+		return el('div', { class: 'st-sklad' }, cislo('x', 'Vodorovně', -60, 60), cislo('y', 'Svisle', -60, 60), cislo('blur', 'Rozostření', 0, 120), cislo('spread', 'Roztažení', -40, 40),
+			el('label', {}, el('span', {}, T('Barva')), el('input', { type: 'color', value: v.barva, oninput: (e) => { v.barva = e.target.value; slozit(); } })),
+			el('label', {}, el('span', {}, T('Síla')), el('input', { type: 'range', min: 3, max: 60, value: v.sila, oninput: (e) => { v.sila = +e.target.value; slozit(); } })),
+			el('label', { class: 'st-zaskrt' }, el('input', { type: 'checkbox', checked: v.inset, onchange: (e) => { v.inset = e.target.checked; slozit(); } }), T('Dovnitř')));
+	}
+
+	/** Skladač rámečku: šířka, čára a barva (token nebo vlastní) → „2px dashed primarni“. */
+	function skladRamecku(hodnota, zmena) {
+		const m = /^(\d+(?:\.\d)?)px\s+(solid|dashed|dotted|double)\s+(\S+)$/.exec(hodnota) || [];
+		const v = { sirka: m[1] || '1', cara: m[2] || 'solid', barva: m[3] || 'linka' };
+		const slozit = () => zmena(v.sirka + 'px ' + v.cara + ' ' + v.barva);
+		return el('div', { class: 'st-sklad' },
+			el('label', {}, el('span', {}, T('Šířka')), el('input', { type: 'number', min: 1, max: 20, value: v.sirka, oninput: (e) => { v.sirka = e.target.value || '1'; slozit(); } })),
+			el('label', {}, el('span', {}, T('Čára')), el('select', { onchange: (e) => { v.cara = e.target.value; slozit(); } },
+				[['solid', 'plná'], ['dashed', 'čárkovaná'], ['dotted', 'tečkovaná'], ['double', 'dvojitá']].map(([k, n]) => el('option', { value: k, selected: k === v.cara }, T(n))))),
+			el('label', {}, el('span', {}, T('Barva')), el('input', { type: 'text', list: 'st-dl-barva', value: v.barva, onchange: (e) => { v.barva = e.target.value.trim() || 'linka'; slozit(); } })));
+	}
+
+	/**
+	 * Editor mřížky: náhled sloupců a řádků, rychlé předvolby a pojmenování oblastí klepnutím do buněk
+	 * (vnořené prvky pak dostanou „Oblast v mřížce“). Zapisuje do vlastností sloupce, radky a oblasti.
+	 */
+	function editorMrizky(cil, s, nastav) {
+		const hodnota = (k) => (cil.styl[s] || {})[k] || zdedena(cil.styl, k);
+		const sloupce = hodnota('sloupce') || '1';
+		const pocetSloupcu = /^\d+$/.test(sloupce) ? +sloupce : /^auto:/.test(sloupce) ? 3 : sloupce.trim().split(/\s+/).length;
+		const oblasti = hodnota('oblasti') ? hodnota('oblasti').split('/').map((r) => r.trim().split(/\s+/)) : [];
+		const radky = hodnota('radky');
+		const pocetRadku = Math.max(oblasti.length, /^\d+$/.test(radky) ? +radky : radky ? radky.trim().split(/\s+/).length : 0, 1);
+		const sirky = /^\d+$/.test(sloupce) || /^auto:/.test(sloupce) ? Array(pocetSloupcu).fill('1fr') : sloupce.trim().split(/\s+/);
+		const mrizka = el('div', { class: 'st-mrizka-nahled', style: 'grid-template-columns:' + sirky.map((w) => /fr$/.test(w) ? w : 'auto').join(' ') });
+		for (let r = 0; r < pocetRadku; r++) {
+			for (let c = 0; c < Math.min(pocetSloupcu, 12); c++) {
+				const nazev = (oblasti[r] || [])[c] || '.';
+				mrizka.append(el('input', { type: 'text', value: nazev === '.' ? '' : nazev, 'aria-label': T('Oblast') + ' ' + (r + 1) + '/' + (c + 1), placeholder: '·',
+					onchange: (e) => {
+						const tabulka = Array.from({ length: pocetRadku }, (_, ri) => Array.from({ length: Math.min(pocetSloupcu, 12) }, (_, ci) => (oblasti[ri] || [])[ci] || '.'));
+						tabulka[r][c] = (e.target.value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '') || '.').replace(/^(\d)/, 'o$1');
+						nastav('oblasti', tabulka.every((ra) => ra.every((x) => x === '.')) ? '' : tabulka.map((ra) => ra.join(' ')).join(' / '));
+					} }));
+			}
+		}
+		const predvolba = (text, h) => el('button', { type: 'button', class: 'st-tl', 'aria-pressed': String(sloupce === h), onclick: () => nastav('sloupce', h) }, text);
+		return el('div', { class: 'st-mrizka' },
+			el('div', { class: 'st-mrizka-predvolby' }, predvolba('1', '1'), predvolba('2', '2'), predvolba('3', '3'), predvolba('4', '4'), predvolba('2 : 1', '2fr 1fr'), predvolba('1 : 2', '1fr 2fr'), predvolba(T('podle místa'), 'auto:16rem')),
+			el('div', { class: 'st-mrizka-radky' }, el('span', {}, T('Řádků')),
+				el('button', { type: 'button', class: 'st-tl', 'aria-label': T('Ubrat řádek'), onclick: () => nastav('radky', pocetRadku > 1 ? String(pocetRadku - 1) : '') }, '−'),
+				el('strong', {}, String(pocetRadku)),
+				el('button', { type: 'button', class: 'st-tl', 'aria-label': T('Přidat řádek'), onclick: () => nastav('radky', String(Math.min(12, pocetRadku + 1))) }, '+')),
+			mrizka,
+			el('small', {}, T('Do buněk napište názvy oblastí (stejný název přes víc buněk = prvek se roztáhne). Vnořenému prvku pak zadejte „Oblast v mřížce“.')));
 	}
 
 	/* ---------- pokročilé: značka, třídy, kotva ---------- */

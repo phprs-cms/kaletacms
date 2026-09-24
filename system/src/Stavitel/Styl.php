@@ -18,11 +18,24 @@ final class Styl
         'mobil' => '@media (max-width: 767px)',
         'hover' => ':hover',     // platí i pro fokus z klávesnice (:focus-visible) – kdo nepoužívá myš, uvidí totéž
         'aktivni' => ':active',  // stisknutí (tlačítko, karta-odkaz)
+        // stav na menší obrazovce: najetí a stisk se dají doladit zvlášť pro tablet a mobil
+        'hover_tablet' => '@media (max-width: 1023px)',
+        'hover_mobil' => '@media (max-width: 767px)',
+        'aktivni_tablet' => '@media (max-width: 1023px)',
+        'aktivni_mobil' => '@media (max-width: 767px)',
+    ];
+
+    /** Odkud stav dědí hodnotu, kterou sám nemá (editor ji ukáže šedě): nejbližší nejdřív. */
+    public const array DEDENI = [
+        'zaklad' => [], 'tablet' => ['zaklad'], 'mobil' => ['tablet', 'zaklad'],
+        'hover' => ['zaklad'], 'hover_tablet' => ['hover', 'tablet', 'zaklad'], 'hover_mobil' => ['hover_tablet', 'hover', 'mobil', 'tablet', 'zaklad'],
+        'aktivni' => ['hover', 'zaklad'], 'aktivni_tablet' => ['aktivni', 'hover_tablet', 'hover', 'tablet', 'zaklad'],
+        'aktivni_mobil' => ['aktivni_tablet', 'aktivni', 'hover_mobil', 'hover_tablet', 'hover', 'mobil', 'tablet', 'zaklad'],
     ];
 
     /**
      * klíč => [CSS vlastnost, typ, skupina, popisek, možnosti výčtu]
-     * Typy: mezera | delka | barva | krok | zaobleni | stin | vyber | cislo | obrazek | sloupce | text
+     * Typy: mezera | delka | barva | krok | zaobleni | stin | ramecek | vyber | cislo | obrazek | sloupce | radky | oblasti | oblast | text
      */
     public const array VLASTNOSTI = [
         // rozložení
@@ -30,6 +43,11 @@ final class Styl
         'smer' => ['flex-direction', 'vyber', 'rozlozeni', 'Směr', ['row' => 'vedle sebe', 'column' => 'pod sebou', 'row-reverse' => 'vedle sebe obráceně', 'column-reverse' => 'pod sebou obráceně']],
         'zalamovani' => ['flex-wrap', 'vyber', 'rozlozeni', 'Zalamování', ['wrap' => 'zalamovat', 'nowrap' => 'nezalamovat']],
         'sloupce' => ['grid-template-columns', 'sloupce', 'rozlozeni', 'Sloupce mřížky', null],
+        'radky' => ['grid-template-rows', 'radky', 'rozlozeni', 'Řádky mřížky', null],
+        'oblasti' => ['grid-template-areas', 'oblasti', 'rozlozeni', 'Oblasti mřížky', null],
+        'oblast' => ['grid-area', 'oblast', 'rozlozeni', 'Oblast v mřížce (název)', null],
+        'rozpeti_sloupcu' => ['grid-column', 'vyber', 'rozlozeni', 'Přes sloupce (v mřížce)', ['span 2' => '2 sloupce', 'span 3' => '3 sloupce', 'span 4' => '4 sloupce', '1 / -1' => 'celá šířka']],
+        'rozpeti_radku' => ['grid-row', 'vyber', 'rozlozeni', 'Přes řádky (v mřížce)', ['span 2' => '2 řádky', 'span 3' => '3 řádky', 'span 4' => '4 řádky']],
         'mezera' => ['gap', 'mezera', 'rozlozeni', 'Mezera mezi prvky', null],
         'zarovnani' => ['align-items', 'vyber', 'rozlozeni', 'Zarovnání (příčně)', ['start' => 'začátek', 'center' => 'střed', 'end' => 'konec', 'stretch' => 'roztáhnout', 'baseline' => 'účaří']],
         'rozmisteni' => ['justify-content', 'vyber', 'rozlozeni', 'Rozmístění (hlavní osa)', ['start' => 'začátek', 'center' => 'střed', 'end' => 'konec', 'space-between' => 'do krajů', 'space-around' => 'rovnoměrně']],
@@ -51,7 +69,11 @@ final class Styl
         'okraj_dole' => ['margin-block-end', 'mezera', 'mezery', 'Vnější okraj dole', null],
         'okraj_vlevo' => ['margin-inline-start', 'mezera', 'mezery', 'Vnější okraj vlevo', null],
         'okraj_vpravo' => ['margin-inline-end', 'mezera', 'mezery', 'Vnější okraj vpravo', null],
-        // typografie
+        // typografie: nejdřív pojmenovaný styl z Vzhledu, jednotlivé vlastnosti pod ním ho doladí
+        'typ_styl' => ['font', 'vyber', 'typografie', 'Typografický styl', [
+            'titulek' => 'Hlavní titulek', 'nadpis-sekce' => 'Nadpis sekce', 'podnadpis' => 'Podnadpis', 'perex' => 'Perex',
+            'text' => 'Běžný text', 'drobny' => 'Drobný text', 'nadtitulek' => 'Nadtitulek',
+        ]],
         'velikost_pisma' => ['font-size', 'krok', 'typografie', 'Velikost písma', null],
         'tloustka_pisma' => ['font-weight', 'vyber', 'typografie', 'Tloušťka písma', ['300' => 'tenké', '400' => 'normální', '500' => 'střední', '600' => 'polotučné', '700' => 'tučné', '800' => 'extra tučné']],
         'pismo' => ['font-family', 'vyber', 'typografie', 'Písmo', ['var(--ka-pismo-text)' => 'textové', 'var(--ka-pismo-titulky)' => 'titulkové']],
@@ -72,15 +94,22 @@ final class Styl
             'linear-gradient(180deg, transparent, rgb(0 0 0 / 0.55))' => 'ztmavení dole (na fotku)',
         ]],
         'prekryv' => ['--ka-prekryv', 'barva', 'pozadi', 'Překryv obrázku (barva)', null],
-        'ramecek' => ['border', 'vyber', 'pozadi', 'Rámeček', ['none' => 'žádný', '1px solid var(--ka-barva-linka)' => 'tenký', '2px solid currentColor' => 'výrazný', '2px solid var(--ka-barva-primarni)' => 'v hlavní barvě']],
+        'ramecek' => ['border', 'ramecek', 'pozadi', 'Rámeček', ['none' => 'žádný', '1px solid var(--ka-barva-linka)' => 'tenký', '2px solid currentColor' => 'výrazný', '2px solid var(--ka-barva-primarni)' => 'v hlavní barvě']],
         'linka_nahore' => ['border-block-start', 'vyber', 'pozadi', 'Linka nahoře', ['none' => 'žádná', '1px solid var(--ka-barva-linka)' => 'tenká', '2px solid var(--ka-barva-primarni)' => 'v hlavní barvě']],
         'linka_dole' => ['border-block-end', 'vyber', 'pozadi', 'Linka dole', ['none' => 'žádná', '1px solid var(--ka-barva-linka)' => 'tenká', '2px solid var(--ka-barva-primarni)' => 'v hlavní barvě']],
         'zaobleni' => ['border-radius', 'zaobleni', 'pozadi', 'Zaoblení rohů', null],
         'stin' => ['box-shadow', 'stin', 'pozadi', 'Stín', null],
         'pruhlednost' => ['opacity', 'vyber', 'pozadi', 'Průhlednost', ['1' => 'žádná', '0.8' => '80 %', '0.6' => '60 %', '0.4' => '40 %']],
         'orez' => ['overflow', 'vyber', 'pozadi', 'Přesah obsahu', ['hidden' => 'oříznout', 'visible' => 'nechat']],
-        'pozice' => ['position', 'vyber', 'pokrocile', 'Umístění', ['relative' => 'běžné (kotva pro vnořené)', 'sticky' => 'přilepit při posunu']],
-        'odshora' => ['top', 'mezera', 'pokrocile', 'Odshora (u přilepení)', null],
+        'pozice' => ['position', 'vyber', 'pokrocile', 'Umístění', ['relative' => 'běžné (kotva pro vnořené)', 'sticky' => 'přilepit při posunu', 'absolute' => 'volně v nadřazeném', 'fixed' => 'pevně v okně']],
+        'odshora' => ['top', 'mezera', 'pokrocile', 'Odshora', null],
+        'zdola' => ['bottom', 'mezera', 'pokrocile', 'Zdola', null],
+        'zleva' => ['left', 'mezera', 'pokrocile', 'Zleva', null],
+        'zprava' => ['right', 'mezera', 'pokrocile', 'Zprava', null],
+        'posun' => ['translate', 'vyber', 'pokrocile', 'Posun', ['0 -4px' => 'nadzvednout', '0 -0.5rem' => 'nadzvednout víc', '0 4px' => 'snížit', '-50% -50%' => 'vycentrovat (u volného umístění)']],
+        'meritko' => ['scale', 'vyber', 'pokrocile', 'Měřítko', ['0.95' => '95 %', '1' => '100 %', '1.03' => '103 %', '1.05' => '105 %', '1.1' => '110 %']],
+        'otoceni' => ['rotate', 'vyber', 'pokrocile', 'Otočení', ['-3deg' => '−3°', '3deg' => '3°', '-90deg' => '−90°', '90deg' => '90°', '180deg' => '180°']],
+        'plynule' => ['transition', 'vyber', 'pokrocile', 'Plynulá změna (u najetí)', ['all 0.2s ease' => 'rychlá', 'all 0.4s ease' => 'pomalejší', 'none' => 'žádná']],
         'vrstva' => ['z-index', 'cislo', 'pokrocile', 'Vrstva (nad ostatním obsahem)', null],
         // objevení při rolování: animace řízená posunem stránky (CSS scroll-driven), bez JavaScriptu; kde to prohlížeč neumí, prvek je rovnou vidět
         'animace' => ['animation', 'vyber', 'pokrocile', 'Objevení při rolování', ['ka-objevit' => 'prolnutí', 'ka-vyjet' => 'vyjetí zdola', 'ka-priblizit' => 'přiblížení', 'none' => 'žádné']],
@@ -136,15 +165,76 @@ final class Styl
             'mezera' => isset(DesignSystem::MEZERY[$hodnota]) ? 'var(--ka-mezera-' . $hodnota . ')' : (preg_match(self::VZOR_DELKA, $hodnota) ? $hodnota : null),
             'delka' => preg_match(self::VZOR_DELKA, $hodnota) ? $hodnota : null,
             'krok' => in_array($hodnota, DesignSystem::KROKY, true) ? 'var(--ka-krok-' . $hodnota . ')' : (preg_match(self::VZOR_DELKA, $hodnota) ? $hodnota : null),
-            'barva' => isset(DesignSystem::TOKENY_BAREV[$hodnota]) ? 'var(--ka-barva-' . $hodnota . ')'
-                : (preg_match('/^(#[0-9a-f]{3,8}|transparent|currentColor|(rgba?|hsla?|oklch|oklab|lab|lch|hwb)\([0-9., %\/+-]{3,60}\))$/i', $hodnota) ? $hodnota : null),
+            'barva' => self::barva($hodnota),
             'zaobleni' => isset(DesignSystem::ZAOBLENI[$hodnota]) ? 'var(--ka-zaobleni-' . $hodnota . ')' : (preg_match(self::VZOR_DELKA, $hodnota) ? $hodnota : null),
-            'stin' => isset(DesignSystem::STINY[$hodnota]) ? 'var(--ka-stin-' . $hodnota . ')' : ($hodnota === 'none' ? 'none' : null),
+            'stin' => isset(DesignSystem::STINY[$hodnota]) ? 'var(--ka-stin-' . $hodnota . ')' : ($hodnota === 'none' ? 'none' : self::stin($hodnota)),
+            'ramecek' => isset($moznosti[$hodnota]) ? $hodnota : self::ramecek($hodnota),
+            'radky' => preg_match('/^([1-9]|1[0-2])$/', $hodnota) ? 'repeat(' . $hodnota . ', auto)' : (preg_match('/^((\d{1,2}(\.\d)?fr|auto|min-content|max-content|\d{1,4}(px|rem))\s?){1,8}$/', $hodnota) ? trim($hodnota) : null),
+            'oblasti' => self::oblasti($hodnota),
+            'oblast' => preg_match('/^[a-z][a-z0-9-]{0,20}$/', $hodnota) ? $hodnota : null,
             'cislo' => preg_match('/^-?\d{1,3}$/', $hodnota) ? $hodnota : null,
             'sloupce' => self::sloupce($hodnota),
             'obrazek' => preg_match('#^(https://[^\s"\'()<>\\\\]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300})$#', $hodnota) ? $hodnota : null,
             default => preg_match(self::VZOR_VOLNA, $hodnota) ? $hodnota : null,
         };
+    }
+
+    /** Barva: token design systému, nebo bezpečně zapsaná vlastní barva. */
+    public static function barva(string $hodnota): ?string
+    {
+        if (isset(DesignSystem::TOKENY_BAREV[$hodnota])) {
+            return 'var(--ka-barva-' . $hodnota . ')';
+        }
+
+        return preg_match('/^(#[0-9a-f]{3,8}|transparent|currentColor|(rgba?|hsla?|oklch|oklab|lab|lch|hwb)\([0-9., %\/+-]{3,60}\)|var\(--ka-barva-[a-z-]{1,30}\))$/i', $hodnota) ? $hodnota : null;
+    }
+
+    /**
+     * Vlastní stín z editoru stínu: až tři vrstvy „[inset] x y [rozostření] [roztažení] barva“ (barva i jako token, např. „0 8px 24px primarni“).
+     */
+    private static function stin(string $hodnota): ?string
+    {
+        $vrstvy = preg_split('/,(?![^(]*\))/', $hodnota) ?: [];
+        if (count($vrstvy) > 3) {
+            return null;
+        }
+        $css = [];
+        foreach ($vrstvy as $vrstva) {
+            if (!preg_match('/^\s*(inset\s+)?((?:-?\d{1,3}(?:\.\d{1,2})?(?:px|rem|em)?\s+){2,4})(\S.*?)\s*$/i', $vrstva, $m) || ($barva = self::barva($m[3])) === null) {
+                return null;
+            }
+            $css[] = $m[1] . trim($m[2]) . ' ' . $barva;
+        }
+
+        return $css === [] ? null : implode(', ', $css);
+    }
+
+    /** Vlastní rámeček: „2px dashed primarni“ – šířka, styl čáry a barva (token nebo vlastní). */
+    private static function ramecek(string $hodnota): ?string
+    {
+        if (!preg_match('/^(\d{1,2}(?:\.\d)?px)\s+(solid|dashed|dotted|double)\s+(\S+)$/', $hodnota, $m) || ($barva = self::barva($m[3])) === null) {
+            return null;
+        }
+
+        return $m[1] . ' ' . $m[2] . ' ' . $barva;
+    }
+
+    /** Oblasti mřížky: řádky oddělené „/“, v řádku názvy oblastí (tečka = prázdná buňka); všechny řádky stejně dlouhé. */
+    private static function oblasti(string $hodnota): ?string
+    {
+        $radky = array_map(fn (string $r): array => preg_split('/\s+/', trim($r)) ?: [], explode('/', $hodnota));
+        if (count($radky) > 8 || count(array_unique(array_map('count', $radky))) !== 1 || count($radky[0]) > 12) {
+            return null;
+        }
+        foreach ($radky as $radek) {
+            foreach ($radek as $nazev) {
+                if (!preg_match('/^([a-z][a-z0-9-]{0,20}|\.)$/', $nazev)) {
+                    return null;
+                }
+            }
+        }
+
+        return implode(' ', array_map(fn (array $r): string => '"' . implode(' ', $r) . '"', $radky));
     }
 
     /** Sloupce mřížky: „3“ = tři stejné, „auto:16rem“ = kolik se vejde po min. 16rem, „2fr 1fr“ = vlastní poměr. */
@@ -171,12 +261,23 @@ final class Styl
         $deklarace = function (array $vlastnosti) use ($zaklad): string {
             $radky = [];
             $obrazek = null;
+            if (isset($vlastnosti['typ_styl'])) {
+                // typografický styl jako první: velikost nebo tloušťka nastavené zvlášť ho doladí (pozdější deklarace vyhrává)
+                $vlastnosti = ['typ_styl' => $vlastnosti['typ_styl']] + $vlastnosti;
+            }
             foreach ($vlastnosti as $klic => $hodnota) {
                 $css = self::hodnota($klic, (string) $hodnota);
                 if ($css === null) {
                     continue;
                 }
                 [$vlastnost, $typ] = self::VLASTNOSTI[$klic];
+                if ($klic === 'typ_styl') {
+                    $radky[] = 'font: var(--ka-typ-' . $css . ')';
+                    if ($css === 'nadtitulek') {
+                        array_push($radky, 'text-transform: uppercase', 'letter-spacing: 0.08em');
+                    }
+                    continue;
+                }
                 if ($klic === 'animace') {
                     if ($css !== 'none') {
                         array_push($radky, 'animation: ' . $css . ' linear both', 'animation-timeline: view()', 'animation-range: entry 0% cover 28%');
@@ -220,8 +321,18 @@ final class Styl
             $css .= $selektor . ':active { ' . $aktivni . " }\n";
         }
         foreach (['tablet', 'mobil'] as $stav) {
+            $blok = '';
             if (($d = $deklarace($styl[$stav] ?? [])) !== '') {
-                $css .= self::STAVY[$stav] . ' { ' . $selektor . ' { ' . $d . " } }\n";
+                $blok .= $selektor . ' { ' . $d . ' } ';
+            }
+            if (($d = $deklarace($styl['hover_' . $stav] ?? [])) !== '') {
+                $blok .= $selektor . ':is(:hover, :focus-visible) { ' . $d . ' } ';
+            }
+            if (($d = $deklarace($styl['aktivni_' . $stav] ?? [])) !== '') {
+                $blok .= $selektor . ':active { ' . $d . ' } ';
+            }
+            if ($blok !== '') {
+                $css .= self::STAVY[$stav] . ' { ' . trim($blok) . " }\n";
             }
         }
 
