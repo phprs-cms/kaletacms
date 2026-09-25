@@ -58,6 +58,7 @@ final class Vzhled extends Modul
         $web->set('favicon', $ikona);
         $web->set('tmavy_rezim', $r->post('tmavy_rezim') === 'auto' ? 'auto' : 'vypnuto');
         $web->set('design_system', (string) json_encode($this->zFormulare(), JSON_UNESCAPED_SLASHES));
+        $web->set('vzhled_ulozen', '1'); // první kroky: vzhled zvolil správce, ne startovací web
         // starší klíče Identity: od uložení design systému se nečtou, ať nemate export ani jiné nástroje
         $web->set('brand_akcent', '');
         $web->set('brand_pismo_titulky', 'vychozi');
@@ -87,6 +88,7 @@ final class Vzhled extends Modul
             return $this->zpet('Soubor neobsahuje design tokeny, které by šly použít (čekáme JSON ve formátu DTCG).', '', [], 'chyba');
         }
         $web->set('design_system', (string) json_encode($ds, JSON_UNESCAPED_SLASHES));
+        $web->set('vzhled_ulozen', '1');
         \Kaleta\Front\Cache::vymaz();
 
         return $this->zpet('Design tokeny byly načteny.');
