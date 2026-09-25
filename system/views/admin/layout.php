@@ -45,7 +45,7 @@ if ($user !== null) {
 }
 ?>
 <!doctype html>
-<html lang="<?= e(Kaleta\Core\Jazyk::kod()) ?>">
+<html lang="<?= e(Kaleta\Core\Jazyk::kod()) ?>" data-pasmo="<?= e(date_default_timezone_get()) ?>">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">

@@ -7,6 +7,20 @@
 	window.T = function (s) { return (window.KALETA_PREKLAD || {})[s] || s; };
 	var T = window.T;
 
+	// datum a čas jako datum() v PHP, v časovém pásmu webu (<html data-pasmo>): česky 25. 9. 2026 09:31, anglicky 25 Sep 2026 09:31
+	window.kaletaCas = function (cas, jenCas) {
+		var c = {};
+		var format = function (pasmo) {
+			new Intl.DateTimeFormat('en-GB', { timeZone: pasmo, year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+				.formatToParts(new Date(cas)).forEach(function (p) { c[p.type] = p.value; });
+		};
+		try { format(document.documentElement.getAttribute('data-pasmo') || undefined); } catch (e) { format(undefined); }
+		var hodiny = c.hour + ':' + c.minute;
+		if (jenCas) { return hodiny; }
+		var mesice = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+		return (document.documentElement.lang === 'en' ? c.day + ' ' + mesice[c.month - 1] + ' ' + c.year : c.day + '. ' + c.month + '. ' + c.year) + ' ' + hodiny;
+	};
+
 	// Potvrzení nevratných akcí: data-potvrdit="text" na formuláři nebo tlačítku.
 	// Vlastní dialog místo window.confirm(), který vestavěné prohlížeče (např. v aplikacích) potichu potlačují.
 	var dialogPotvrzeni = null;
@@ -77,7 +91,7 @@
 						li.className = k.ok ? 'ok' : 'spatne';
 						li.innerHTML = '<span></span><strong></strong>';
 						li.firstChild.textContent = k.popis;
-						li.lastChild.textContent = String(k.pomer.toFixed(1)).replace('.', ',') + ' : 1';
+						li.lastChild.textContent = T('%s : 1').replace('%s', k.pomer.toLocaleString(document.documentElement.lang || 'cs', { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
 						return li.outerHTML;
 					}).join('');
 				})

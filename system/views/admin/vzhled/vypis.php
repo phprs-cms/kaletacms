@@ -19,7 +19,7 @@ $px = fn (float $rem): string => (string) round($rem * 16);
 $kontrastyHtml = function (array $kontrasty): string {
     $html = '';
     foreach ($kontrasty as $k) {
-        $html .= '<li class="' . ($k['ok'] ? 'ok' : 'spatne') . '"><span>' . e(t($k['popis'])) . '</span><strong>' . e(number_format($k['pomer'], 1, ',', '')) . ' : 1</strong></li>';
+        $html .= '<li class="' . ($k['ok'] ? 'ok' : 'spatne') . '"><span>' . e(t($k['popis'])) . '</span><strong>' . e(t('%s : 1', cislo($k['pomer']))) . '</strong></li>';
     }
 
     return $html;

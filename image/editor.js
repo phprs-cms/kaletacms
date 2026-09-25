@@ -17,6 +17,7 @@
 	var GALERIE = ADMIN + '?modul=intergal';
 	var ID_CLANKU = parseInt((document.querySelector('form[data-koncept] input[name="idc"]') || {}).value || '0', 10);
 	var JAZYK = document.documentElement.lang || 'cs'; // formát data a času podle jazyka stránky
+	var cas = function (t, jenCas) { return window.kaletaCas ? window.kaletaCas(t, jenCas) : new Date(t).toLocaleString(JAZYK); }; // image/admin.js
 
 	function esc(t) { return String(t).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
 
@@ -461,7 +462,7 @@
 			var data = { cas: Date.now(), pole: {} };
 			pole.forEach(function (p) { if (p.type === 'checkbox' || p.type === 'radio') { if (p.checked) { data.pole[p.name] = p.value; } else if (p.type === 'checkbox') { data.pole[p.name] = null; } } else { data.pole[p.name] = p.value; } });
 			try { localStorage.setItem(klic, JSON.stringify(data)); } catch (e) { /* prohlížeč úložiště nedovolil - zbývá server */ }
-			editory.forEach(function (ed) { ed.stav.textContent = T('rozepsaný text uložen v prohlížeči ') + new Date().toLocaleTimeString(JAZYK, { hour: '2-digit', minute: '2-digit' }); });
+			editory.forEach(function (ed) { ed.stav.textContent = T('rozepsaný text uložen v prohlížeči ') + cas(Date.now(), true); });
 			posledniData = data;
 			if (!casovacServer) { casovacServer = setTimeout(ulozNaServer, 15000); }
 		}
@@ -475,7 +476,7 @@
 			fd.append('idc', String(ID_CLANKU || 0));
 			fd.append('pole', JSON.stringify(posledniData.pole));
 			fetch(urlKonceptu, { method: 'POST', body: fd, credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
-				if (j.ok) { editory.forEach(function (ed) { ed.stav.textContent = T('rozepsaný text uložen i na serveru ') + new Date().toLocaleTimeString(JAZYK, { hour: '2-digit', minute: '2-digit' }); }); }
+				if (j.ok) { editory.forEach(function (ed) { ed.stav.textContent = T('rozepsaný text uložen i na serveru ') + cas(Date.now(), true); }); }
 			}).catch(function () { /* bez spojení zůstává kopie v prohlížeči */ });
 		}
 		function zahodNaServeru() {
@@ -502,7 +503,7 @@
 		if (!lisiSe) { if (!jeZeServeru) { try { localStorage.removeItem(klic); } catch (e) { /* nic */ } } return; }
 		var lista = document.createElement('p');
 		lista.className = 'hlaska';
-		lista.innerHTML = T(jeZeServeru ? 'Na serveru je neuložená rozepsaná verze z ' : 'V prohlížeči je neuložená rozepsaná verze z ') + new Date(ulozene.cas).toLocaleString(JAZYK) + '. <button type="button" class="navigace">' + T('Obnovit ji') + '</button> <button type="button" class="navigace">' + T('Zahodit') + '</button>';
+		lista.innerHTML = T(jeZeServeru ? 'Na serveru je neuložená rozepsaná verze z ' : 'V prohlížeči je neuložená rozepsaná verze z ') + cas(ulozene.cas) + '. <button type="button" class="navigace">' + T('Obnovit ji') + '</button> <button type="button" class="navigace">' + T('Zahodit') + '</button>';
 		form.parentNode.insertBefore(lista, form);
 		lista.children[0].addEventListener('click', function () {
 			pole.forEach(function (p) {

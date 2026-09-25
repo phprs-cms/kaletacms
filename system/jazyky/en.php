@@ -5,7 +5,7 @@
  */
 
 return [
-    'datum_slovy' => 'l, F j, Y',
+    'datum_slovy' => 'l j F Y',
     '(nepovinné)' => '(optional)',
     'Aktualizováno' => 'Updated',
     'Analytické – anonymní měření návštěvnosti' => 'Analytics – anonymous traffic measurement',

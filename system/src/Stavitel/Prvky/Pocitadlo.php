@@ -40,7 +40,7 @@ final class Pocitadlo extends Prvek
     {
         $o = $p['obsah'];
         $cislo = (int) $o['cislo'];
-        $format = number_format($cislo, 0, ',', "\u{00a0}");
+        $format = pocet($cislo); // 1 200 česky, 1,200 anglicky (jako Intl.NumberFormat v image/web.js)
 
         return '<div' . Text::sTridou($a, 'ka-pocitadlo') . '><span class="ka-pocitadlo-cislo">' . e($o['pred'])
             . '<span data-pocitadlo="' . $cislo . '">' . $format . '</span>' . e($o['za']) . '</span>'

@@ -309,7 +309,8 @@ trait StavitelAkce
     {
         $cil = $this->cilStavby();
 
-        return Response::json(['revize' => $cil === null ? [] : Publikace::seznam($this->db, $cil['revize'])]);
+        // datum ve formátu administrace (datum()), ne prohlížeče – anglicky jinak vycházelo americké 9/25/2026, 9:43:45 AM
+        return Response::json(['revize' => $cil === null ? [] : array_map(fn (array $r): array => $r + ['kdy' => datum($r['datum'], true)], Publikace::seznam($this->db, $cil['revize']))]);
     }
 
     /** Starší verze se načte do konceptu; publikuje se až tlačítkem Publikovat. */
