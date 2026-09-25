@@ -26,6 +26,7 @@ final class Text extends Prvek
         return '.ka-text > :first-child { margin-block-start: 0; }
 .ka-text > :last-child { margin-block-end: 0; }
 .ka-text img { max-width: 100%; height: auto; }
+.ka-text pre { max-width: 100%; overflow-x: auto; }
 :where(.stavba) mark { background: none; color: var(--ka-barva-sekundarni); }';
     }
 
