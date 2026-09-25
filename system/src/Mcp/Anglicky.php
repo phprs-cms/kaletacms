@@ -20,6 +20,7 @@ final class Anglicky
         'language' => ['jazyk', 'Language version of the site part on a multilingual site (empty = default)'],
         'variant' => ['varianta', 'Header or footer variant (key from list_site_parts; empty = the default)'],
         'collection' => ['kolekce', 'Instead of a page, the item page template of a collection (collection slug from list_collections, administrators only)'],
+        'popup' => ['popup', 'Instead of a page, the content of a pop-up window (ID from list_popups, administrators only)'],
     ];
 
     private const array STRANKA = [
@@ -98,6 +99,16 @@ final class Anglicky
         'restore_build_version' => ['obnov_verzi', 'Loads an older published version (version_id from list_build_versions) into the draft – it appears on the site only after publishing.',
             ['*cil', 'version_id' => ['idr', 'version ID from list_build_versions']]],
         'discard_draft' => ['zahod_koncept', 'Discards the draft build – the published version applies again (only when the user explicitly asks; cannot be undone).', ['*cil']],
+        'list_popups' => ['seznam_popupu', 'Pop-up windows of the site (administrators): type, trigger, frequency, rules, active, published and counts of views, closes and conversions. Build the content with the *_build tools and the popup parameter.', []],
+        'save_popup' => ['uloz_popup', 'Creates a pop-up window (without id; template = ready-made content) or changes its settings (with id) – administrators. A new window is inactive; it can be activated (active: true) only after its build is published, and only when the user explicitly asks.',
+            ['id' => ['id', 'window ID – only when changing it'], 'name' => ['nazev', 'Name (screen readers announce it)'],
+                'template' => ['vzor', 'Only for a new window: newsletter | lead_magnet | announcement_bar | discount | event | blank'],
+                'slug' => ['adresa', 'Address for the link #popup-<slug>'], 'type' => ['typ', 'window | slide_in | top_bar | bottom_bar | fullscreen'],
+                'trigger' => ['spoustec', 'time | scroll | exit | idle | pages | click – click = only a link to #popup-<slug> opens it'],
+                'value' => ['hodnota', 'Seconds (time, idle), percent of the page (scroll), number of pages in the visit (pages)'],
+                'frequency' => ['cetnost', 'session | days | until_closed | until_submitted | always'], 'days' => ['dni', 'Number of days for the days frequency'],
+                'rules' => ['pravidla', '{"where":"all|selected","pages":[id],"collections":["slug"],"news":true,"language":"en","from":"YYYY-MM-DD","to":"YYYY-MM-DD","device":"all|desktop|phone","campaign":"text in utm_*","referrer":"part of the address the visitor came from"} – keys you leave out stay'],
+                'active' => ['aktivni', 'true = the window shows on the site (published only, only when the user explicitly asks)'], 'order' => ['poradi', 'Order, lower = first']]],
         'list_site_parts' => ['seznam_casti', 'Site parts from the builder (header, footer, wrappers of a news item, the news list and the 404 page) and header and footer variants: key, name, pages they apply to and state (administrators).', []],
         'save_part_variant' => ['uloz_variantu', 'Creates or changes a header or footer variant for selected pages (administrators) – for example a header without the menu for a campaign page. A new one starts as a copy of the default as a draft; '
             . 'then edit it with the *_build tools and the variant parameter and publish it. delete = true removes the variant (the selected pages get the default).',
@@ -152,7 +163,15 @@ final class Anglicky
         'cast' => ['header' => 'hlavicka', 'footer' => 'paticka', 'news_item' => 'novinka', 'news_list' => 'vypis', 'not_found' => 'nenalezeno'],
         'umisteni' => ['main' => 'hlavni', 'footer' => 'paticka'],
         'rezim' => ['replace' => 'nahradit', 'append' => 'pridat'],
+        'typ' => ['window' => 'okno', 'slide_in' => 'panel', 'top_bar' => 'lista-nahore', 'bottom_bar' => 'lista-dole', 'fullscreen' => 'cela'],
+        'spoustec' => ['time' => 'cas', 'scroll' => 'posun', 'exit' => 'odchod', 'idle' => 'necinnost', 'pages' => 'stranky', 'click' => 'klik'],
+        'cetnost' => ['session' => 'relace', 'days' => 'dni', 'until_closed' => 'zavreni', 'until_submitted' => 'odeslani', 'always' => 'vzdy'],
+        'vzor' => ['newsletter' => 'newsletter', 'lead_magnet' => 'magnet', 'announcement_bar' => 'lista', 'discount' => 'sleva', 'event' => 'udalost', 'blank' => 'prazdny'],
     ];
+    /** Pravidla pop-up okna: anglický klíč => český, a výčtové hodnoty. */
+    private const array PRAVIDLA = ['where' => 'kde', 'pages' => 'stranky', 'collections' => 'kolekce', 'news' => 'novinky', 'language' => 'jazyk', 'from' => 'od', 'to' => 'do',
+        'device' => 'zarizeni', 'campaign' => 'utm', 'referrer' => 'odkud'];
+    private const array HODNOTY_PRAVIDEL = ['kde' => ['all' => 'vse', 'selected' => 'vybrane'], 'zarizeni' => ['all' => 'vse', 'desktop' => 'pocitac', 'phone' => 'telefon']];
     private const array STAV_NOVINEK = ['all' => 'vse', 'published' => 'vydane', 'scheduled' => 'plan', 'drafts' => 'koncepty'];
     private const array STAV_POPTAVEK = ['all' => 'vse', 'new' => 'nove', 'read' => 'prectene', 'resolved' => 'vyrizene'];
     private const array TYPY_POLI = ['text' => 'text', 'lines' => 'radky', 'html' => 'html', 'image' => 'obrazek', 'link' => 'odkaz', 'number' => 'cislo', 'date' => 'datum'];
@@ -189,7 +208,7 @@ final class Anglicky
         'zverejnit_od' => 'publish_at', 'uvod' => 'intro', 'kategorie' => 'category', 'stitky' => 'tags', 'visible' => 'published', 'vydana' => 'published', 'formular' => 'form',
         'email' => 'email', 'kampan' => 'campaign', 'url' => 'url', 'rozmery' => 'size', 'velikost' => 'size', 'soubory' => 'files', 'sablona' => 'theme', 'presmerovani' => 'redirects', 'nenalezeno' => 'not_found', 'z' => 'from', 'na' => 'to', 'pocet' => 'count', 'naposledy' => 'last_seen',
         'cesta' => 'path', 'neplatna_pole' => 'invalid_fields', 'chyby_operaci' => 'operation_errors', 'nastaveni' => 'settings', 'faq' => 'faq', 'data' => 'values', 'stavba' => 'build',
-        'vlastnosti' => 'properties', 'deti' => 'children', 'nove_okno' => 'new_window',
+        'vlastnosti' => 'properties', 'deti' => 'children', 'nove_okno' => 'new_window', 'popup' => 'popup', 'aktivni' => 'active',
     ];
 
     /** Klíče, jejichž hodnoty se nepřekládají: JSON stavby, hodnoty polí položek, design system, hlášení převodu a kontrol. */
@@ -240,6 +259,11 @@ final class Anglicky
         'Nová adresa musí být cesta (/nova) nebo https://… adresa.' => 'The new address must be a path (/new) or an https://… address.',
         'Název souboru musí mít příponu (např. foto.jpg, logo.svg, pismo.woff2).' => 'The file name needs an extension (e.g. photo.jpg, logo.svg, font.woff2).',
         'Parametr stavba musí být objekt {"v":1,"deti":[…]}.' => 'The build parameter must be an object {"v":1,"deti":[…]}.',
+        'Pop-up okna smí měnit jen správce webu.' => 'Only the site administrator can change pop-up windows.',
+        'Pop-up okno neexistuje. Použij nástroj seznam_popupu.' => 'The pop-up window does not exist. Use list_popups.',
+        'Tuto adresu už používá jiné okno.' => 'Another window already uses this address.',
+        'Parametr pravidla musí být objekt.' => 'The rules parameter must be an object.',
+        'Okno nejdřív publikuj (publikuj_stavbu s parametrem popup) – teprve pak ho jde zapnout.' => 'Publish the window first (publish_build with the popup parameter) – then it can be activated.',
         'Parametr polozky musí být seznam položek menu, nebo null pro automatické menu.' => 'The items parameter must be a list of menu items, or null for the automatic menu.',
         'Parametr data musí být objekt {"klic":"hodnota"} podle polí kolekce.' => 'The data parameter must be an object {"key":"value"} with the collection fields.',
         'Položka musí mít název.' => 'The item needs a name.',
@@ -276,6 +300,10 @@ final class Anglicky
         '/^Kategorie „(.*)“ neexistuje\. Použij nástroj seznam_kategorii\.$/su' => 'The category “$1” does not exist. Use list_categories.',
         '/^Neznámá část webu\. Typy: .*$/su' => 'Unknown site part. Parts: header, footer, news_item, news_list, not_found.',
         '/^Neznámý nástroj: (.*)$/su' => 'Unknown tool: $1',
+        '/^Neznámý vzor okna\. .*$/su' => 'Unknown pop-up template. Templates: newsletter, lead_magnet, announcement_bar, discount, event, blank.',
+        '/^Neplatná hodnota „typ“\. .*$/su' => 'Invalid type. Allowed: window, slide_in, top_bar, bottom_bar, fullscreen.',
+        '/^Neplatná hodnota „spoustec“\. .*$/su' => 'Invalid trigger. Allowed: time, scroll, exit, idle, pages, click.',
+        '/^Neplatná hodnota „cetnost“\. .*$/su' => 'Invalid frequency. Allowed: session, days, until_closed, until_submitted, always.',
         '/^Předvolba neexistuje: (.*)$/su' => 'The preset does not exist: $1',
         '/^Sekce v knihovně není\. Klíče: (.*)$/su' => 'The section is not in the library. Keys: $1',
         '/^Soubor je větší než (\d+) MB\.$/su' => 'The file is larger than $1 MB.',
@@ -415,6 +443,7 @@ final class Anglicky
                 $cs === 'polozky' && is_array($hodnota) => array_map(self::polozkaMenu(...), $hodnota),
                 $cs === 'operace' && is_array($hodnota) => array_map(self::operace(...), $hodnota),
                 $cs === 'nastaveni' && is_array($hodnota) => self::klicNastaveni($hodnota, true),
+                $cs === 'pravidla' && is_array($hodnota) => self::pravidla($hodnota, true),
                 default => $hodnota,
             };
         }
@@ -465,6 +494,40 @@ final class Anglicky
         return $vysledek;
     }
 
+    /** Pravidla pop-up okna mezi angličtinou a češtinou (klíče i výčtové hodnoty). @param array<string, mixed> $p */
+    private static function pravidla(array $p, bool $naCesky): array
+    {
+        $klice = $naCesky ? self::PRAVIDLA : array_flip(self::PRAVIDLA);
+        $vysledek = [];
+        foreach ($p as $k => $h) {
+            $cs = $naCesky ? ($klice[$k] ?? $k) : $k;
+            if (is_string($h) && isset(self::HODNOTY_PRAVIDEL[$cs])) {
+                $h = $naCesky ? (self::HODNOTY_PRAVIDEL[$cs][$h] ?? $h) : (array_search($h, self::HODNOTY_PRAVIDEL[$cs], true) ?: $h);
+            }
+            $vysledek[$naCesky ? $cs : ($klice[$k] ?? $k)] = $h;
+        }
+
+        return $vysledek;
+    }
+
+    /** Pop-up okno z výsledku seznam_popupu a uloz_popup anglicky. */
+    private static function popupZpet(array $p): array
+    {
+        $vysledek = [];
+        foreach ($p as $k => $h) {
+            $vysledek[self::POPUP_KLICE[$k] ?? self::KLICE[$k] ?? $k] = match (true) {
+                $k === 'pravidla' && is_array($h) => self::pravidla($h, false),
+                isset(self::HODNOTY_VSTUPU[$k]) && is_string($h) => array_search($h, self::HODNOTY_VSTUPU[$k], true) ?: $h,
+                default => $h,
+            };
+        }
+
+        return $vysledek;
+    }
+
+    private const array POPUP_KLICE = ['adresa' => 'slug', 'odkaz' => 'link', 'spoustec' => 'trigger', 'cetnost' => 'frequency', 'dni' => 'days', 'pravidla' => 'rules',
+        'aktivni' => 'active', 'publikovano' => 'published', 'zmeny' => 'unpublished_changes', 'zobrazeni' => 'views', 'zavreni' => 'closes', 'konverze' => 'conversions', 'nahled' => 'preview'];
+
     /** @param array<string, mixed> $nastaveni @return array<string, mixed> */
     private static function klicNastaveni(array $nastaveni, bool $naCesky): array
     {
@@ -487,6 +550,12 @@ final class Anglicky
     {
         if ($nazev === 'builder_schema' || !is_array($v)) {
             return $v; // schéma popisuje datový model builderu – zůstává, jak je
+        }
+        if ($nazev === 'list_popups') {
+            return array_map(fn (mixed $p): mixed => is_array($p) ? self::popupZpet($p) : $p, $v);
+        }
+        if ($nazev === 'save_popup') {
+            return self::popupZpet($v);
         }
         if (in_array($nazev, ['get_menu', 'save_menu'], true)) {
             $menu = fn (mixed $seznam): array => array_map(fn (mixed $p): mixed => is_array($p) ? self::menuZpet($p) : $p, is_array($seznam) ? $seznam : []);
@@ -584,6 +653,7 @@ final class Anglicky
             . '(4) Checking: every build write returns preview – a signed link to the draft valid for 60 minutes; open it and check the result, give the user a longer link from preview_link. The check field (when present) lists what the builder would flag before publishing – buttons without links, images without descriptions, the heading outline; fix them before you offer to publish. '
             . '(5) Fixes: edit_build by element id (ids from get_build) – do not send the whole build for one text. (6) Site settings with update_settings, old addresses with save_redirect. The menu (save_menu), design system, classes and settings apply to the site straight away; hidden pages appear in the menu only once they are visible. '
             . '(7) A header or footer only for some pages (a campaign without the menu): save_part_variant, then the *_build tools with the variant parameter; overview with list_site_parts. list_build_versions and restore_build_version bring back an older published version (into the draft). '
+            . '(8) Pop-ups (a newsletter sign-up, a download, an announcement bar): save_popup with a template creates one (inactive), build its content with the *_build tools and the popup parameter, set type, trigger, frequency and rules with save_popup; activate it (active: true) only after publishing and only when the user asks. list_popups shows views, closes and conversions. '
             . 'Builds are saved as drafts – publish (publish_build) and make pages visible only when the user explicitly asks. '
             . 'A new news item is a draft; only a user with the publishing permission can publish it, and only when explicitly asked. A new page is hidden until the user explicitly wants it visible. '
             . 'BOUNDARIES: this connection changes only content (pages, news, categories, collections, site parts) and the look (design system, classes). Do not change the system code, themes '

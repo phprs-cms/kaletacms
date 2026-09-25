@@ -187,6 +187,26 @@ over('MCP: objekt a pole poslané jako text JSON se rozbalí podle schématu, te
 over('MCP: neplatný JSON nebo pole místo objektu se nerozbalí', Kaleta\Mcp\Server::rozbalJson($mcpSeznam, 'save_collection_item', ['data' => '{nic', 'fields' => '{"a":1}']), ['data' => '{nic', 'fields' => '{"a":1}']);
 over('MCP: text JSON u parametru typu [array, null] se rozbalí', Kaleta\Mcp\Server::rozbalJson([['name' => 'save_menu', 'inputSchema' => ['properties' => ['items' => ['type' => ['array', 'null']]]]]], 'save_menu', ['items' => '[{"type":"page"}]']), ['items' => [['type' => 'page']]]);
 over('MCP: neznámé parametry se vyjmenují', Kaleta\Mcp\Server::nezname($mcpSeznam, 'save_collection_item', ['data' => '{}', 'classes' => [], 'name' => 'x']), ['classes']);
+// pop-up okna: pravidla serveru (místa, jazyk, období) a anglické parametry MCP
+$ppKde = fn (array $x): array => $x + ['ids' => null, 'kolekce' => null, 'novinky' => false, 'jazyk' => 'cs', 'dnes' => '2026-09-25'];
+$ppVybrane = Kaleta\Stavitel\Popupy::vycistiPravidla(['kde' => 'vybrane', 'stranky' => ['4', 'x', 4], 'kolekce' => ['tym', 'Ne platna'], 'novinky' => 1, 'od' => '2026-02-30', 'utm' => 'jaro<b>']);
+over('Pop-up: vyčištěná pravidla', [$ppVybrane['stranky'], $ppVybrane['kolekce'], $ppVybrane['novinky'], $ppVybrane['od'], $ppVybrane['utm'], $ppVybrane['zarizeni']], [[4], ['tym'], true, '', 'jarob', 'vse']);
+over('Pop-up: vybraná místa – stránka, kolekce, novinky, jinde ne', [
+    Kaleta\Stavitel\Popupy::odpovida($ppVybrane, $ppKde(['ids' => 4])), Kaleta\Stavitel\Popupy::odpovida($ppVybrane, $ppKde(['kolekce' => 'tym'])),
+    Kaleta\Stavitel\Popupy::odpovida($ppVybrane, $ppKde(['novinky' => true])), Kaleta\Stavitel\Popupy::odpovida($ppVybrane, $ppKde(['ids' => 5])),
+], [true, true, true, false]);
+$ppObdobi = Kaleta\Stavitel\Popupy::vycistiPravidla(['od' => '2026-10-01', 'do' => '2026-10-31', 'jazyk' => 'en']);
+over('Pop-up: období a jazyk platí i pro celý web', [
+    Kaleta\Stavitel\Popupy::odpovida($ppObdobi, $ppKde(['jazyk' => 'en'])), Kaleta\Stavitel\Popupy::odpovida($ppObdobi, $ppKde(['jazyk' => 'en', 'dnes' => '2026-10-15'])),
+    Kaleta\Stavitel\Popupy::odpovida($ppObdobi, $ppKde(['jazyk' => 'cs', 'dnes' => '2026-10-15'])), Kaleta\Stavitel\Popupy::odpovida($ppObdobi, $ppKde(['jazyk' => 'en', 'dnes' => '2026-11-01'])),
+], [false, true, false, false]);
+over('MCP anglicky: pop-up okno – hodnoty a pravidla', Kaleta\Mcp\Anglicky::argumenty('save_popup', ['type' => 'slide_in', 'trigger' => 'exit', 'frequency' => 'until_closed', 'template' => 'lead_magnet',
+    'rules' => ['where' => 'selected', 'pages' => [2], 'device' => 'phone', 'campaign' => 'jaro']]),
+    ['typ' => 'panel', 'spoustec' => 'odchod', 'cetnost' => 'zavreni', 'vzor' => 'magnet', 'pravidla' => ['kde' => 'vybrane', 'stranky' => [2], 'zarizeni' => 'telefon', 'utm' => 'jaro']]);
+over('MCP anglicky: výsledek pop-up okna', Kaleta\Mcp\Anglicky::vysledek('save_popup', ['id' => 3, 'nazev' => 'X', 'adresa' => 'x', 'typ' => 'lista-dole', 'spoustec' => 'stranky', 'cetnost' => 'dni',
+    'pravidla' => ['kde' => 'vse', 'zarizeni' => 'pocitac', 'od' => ''], 'aktivni' => true, 'zobrazeni' => 5]),
+    ['id' => 3, 'name' => 'X', 'slug' => 'x', 'type' => 'bottom_bar', 'trigger' => 'pages', 'frequency' => 'days', 'rules' => ['where' => 'all', 'device' => 'desktop', 'from' => ''], 'active' => true, 'views' => 5]);
+over('Pop-up: každý vzor z knihovny se sestaví', array_map(fn (string $k): bool => count(Kaleta\Stavitel\Popupy::stavbaZKnihovny($k, 'en')['deti']) === 1, array_keys(Kaleta\Stavitel\Popupy::KNIHOVNA)), array_fill(0, count(Kaleta\Stavitel\Popupy::KNIHOVNA), true));
 over('MCP anglicky: hlášení s proměnnou částí', Kaleta\Mcp\Anglicky::zprava('Kategorie „Akce“ neexistuje. Použij nástroj seznam_kategorii.'), 'The category “Akce” does not exist. Use list_categories.');
 use Kaleta\Core\Cesty;
 over('Cesty: systémové adresy v jazyce verze', [Cesty::verejna('novinky/kategorie/akce', 'en', null), Cesty::verejna('novinky/stitek/x', 'de', null), Cesty::verejna('hledani?q=a', 'fr', null),

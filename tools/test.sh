@@ -487,6 +487,41 @@ ocekavej "MCP: podstránka s plánovaným zveřejněním" "$("${MYSQL[@]}" "$DB_
 mcp seznam_poptavek '{"stav":"vse"}' > "$PRACE/odpoved"
 ocekavej "MCP: poptávky s kampaní" "$(mcpv 0 email)|$(mcpv 0 kampan)" "jana@example.cz|newsletter / email / jaro"
 
+echo "== pop-up okna"
+over "pop-up okna v administraci" 200 "/admin.php?modul=popupy" "Zatím žádná pop-up okna"
+over "nové okno ze vzoru" 200 "/admin.php?modul=popupy&akce=novy" 'name="vzor" value="newsletter"'
+mcp uloz_popup '{"vzor":"prazdny","nazev":"Akce okno"}' > "$PRACE/odpoved"; IDPP=$(mcpv id)
+ocekavej "MCP: okno založené vypnuté a nepublikované" "$(mcpv adresa)|$(mcpv aktivni)|$(mcpv publikovano)|$(mcpv spoustec)" "akce-okno|||klik"
+mcp uloz_popup "{\"id\":$IDPP,\"aktivni\":true}" | grep -q 'nejdřív publikuj' && echo "  ok     MCP: nepublikované okno nejde zapnout" || { echo "  CHYBA  zapnutí nepublikovaného okna"; CHYB=$((CHYB+1)); }
+mcp stavba_uloz "{\"popup\":$IDPP,\"publikovat\":true,\"stavba\":{\"v\":1,\"deti\":[{\"typ\":\"nadpis\",\"znacka\":\"h2\",\"obsah\":{\"text\":\"Okno akce\"}},{\"id\":\"ab12cd3\",\"typ\":\"formular\",\"obsah\":{\"nazev\":\"Z okna\",\"pole\":[{\"popisek\":\"E-mail\",\"typ\":\"email\",\"povinne\":true}]}}]}}" > "$PRACE/odpoved"
+mcp save_popup "{\"id\":$IDPP,\"type\":\"slide_in\",\"trigger\":\"time\",\"value\":3,\"frequency\":\"until_closed\",\"rules\":{\"device\":\"phone\"},\"active\":true}" > "$PRACE/odpoved"
+ocekavej "MCP anglicky: typ, spouštěč, četnost a pravidla" "$(mcpv type)|$(mcpv trigger)|$(mcpv frequency)|$(mcpv rules device)|$(mcpv active)" "slide_in|time|until_closed|phone|1"
+rm -f "$PRACE"/web/storage/cache/stranky/*.html
+curl -s -o "$PRACE/odpoved" "$B/"
+grep -q "data-popup=\"$IDPP\"" "$PRACE/odpoved" && grep -q 'class="ka-popup ka-popup--panel" popover="manual" role="region"' "$PRACE/odpoved" && grep -q 'data-spoustec="cas" data-hodnota="3" data-cetnost="zavreni"' "$PRACE/odpoved" \
+  && grep -q 'data-zarizeni="telefon"' "$PRACE/odpoved" && grep -q 'Okno akce' "$PRACE/odpoved" && grep -q 'image/web\.js' "$PRACE/odpoved" \
+  && echo "  ok     zapnuté okno na webu se spouštěčem, pravidly prohlížeče a skriptem" || { echo "  CHYBA  pop-up okno na webu"; CHYB=$((CHYB+1)); }
+mcp uloz_popup "{\"id\":$IDPP,\"pravidla\":{\"kde\":\"vybrane\",\"stranky\":[$IDS]}}" > /dev/null; rm -f "$PRACE"/web/storage/cache/stranky/*.html
+! curl -s "$B/" | grep -q "data-popup=\"$IDPP\"" && curl -s "$B/o-nas" | grep -q "data-popup=\"$IDPP\"" && echo "  ok     okno jen na vybrané stránce" || { echo "  CHYBA  pravidlo vybraných stránek"; CHYB=$((CHYB+1)); }
+mcp uloz_popup "{\"id\":$IDPP,\"pravidla\":{\"od\":\"2099-01-01\"}}" > /dev/null; rm -f "$PRACE"/web/storage/cache/stranky/*.html
+! curl -s "$B/o-nas" | grep -q "data-popup=\"$IDPP\"" && echo "  ok     okno mimo období se do stránky nevloží" || { echo "  CHYBA  období okna"; CHYB=$((CHYB+1)); }
+mcp uloz_popup "{\"id\":$IDPP,\"pravidla\":{\"od\":\"\",\"kde\":\"vse\"}}" > "$PRACE/odpoved"; NAHLEDP=$(mcpv nahled); rm -f "$PRACE"/web/storage/cache/stranky/*.html
+curl -s -o /dev/null -X POST "$B/popup" -d "id=$IDPP" -d udalost=zobrazeni; curl -s -o /dev/null -X POST "$B/popup" -d "id=$IDPP" -d udalost=konverze; curl -s -o /dev/null -X POST "$B/popup" -d "id=$IDPP" -d udalost=nic
+ocekavej "počitadla okna bez cookies" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazeni, '/', zavreni, '/', konverze) FROM ka_popupy WHERE idpp = $IDPP")" "1/0/1"
+kod=$(curl -s -o /dev/null -w '%{http_code}' "$B/_popup/$IDPP?stavba=koncept"); ocekavej "koncept okna bez přihlášení není" "$kod" 404
+curl -s -o "$PRACE/odpoved" "$NAHLEDP"; grep -q 'data-otevrit="1"' "$PRACE/odpoved" && grep -q 'noindex' "$PRACE/odpoved" && echo "  ok     podepsaný náhled okno rovnou otevře" || { echo "  CHYBA  náhled okna: $NAHLEDP"; CHYB=$((CHYB+1)); }
+over "okno v builderu" 200 "/admin.php?modul=popupy&akce=stavitel&id=$IDPP" 'id="stavitel-data"'
+over "plátno okna v builderu" 200 "/_popup/$IDPP?stavba=koncept&editor=1" 'ka-popup--editor'
+curl -s "$B/" | sed -n '/data-popup=/,$p' > "$PRACE/formular.html" # jen okno – stránka může mít vlastní formulář
+FZ=$(hodnota zdroj); FP=$(hodnota prvek); FC=$(hodnota as_cas); FS=$(hodnota as_podpis)
+ocekavej "formulář v okně má zdroj okna" "$FZ|$FP" "popup:$IDPP|ab12cd3"
+sleep 4
+kam=$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FZ" -d "prvek=$FP" -d zpet=/ -d "as_cas=$FC" -d "as_podpis=$FS" --data-urlencode p0=okno@example.cz)
+case "$kam" in *"vysledek=ok"*) echo "  ok     formulář v okně odeslán";; *) echo "  CHYBA  formulář v okně: $kam"; CHYB=$((CHYB+1));; esac
+ocekavej "poptávka z okna uložena" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(formular, '|', zdroj) FROM ka_poptavky WHERE email = 'okno@example.cz'")" "Z okna|popup:$IDPP"
+mcp seznam_popupu '{}' > "$PRACE/odpoved"; ocekavej "MCP: seznam oken s počitadly" "$(mcpv 0 nazev)|$(mcpv 0 zobrazeni)|$(mcpv 0 konverze)" "Akce okno|1|1"
+mcp uloz_popup "{\"id\":$IDPP,\"aktivni\":false}" > /dev/null; rm -f "$PRACE"/web/storage/cache/stranky/*.html # další testy počítají se stránkami bez okna
+
 # úprava přímo na webu: odkaz a formulář jen pro přihlášené s právem
 over "úprava na místě – odkaz" 200 /novinky/vitejte-v-kalete "ka-upravit-zde"
 over "úprava na místě – formulář" 200 "/novinky/vitejte-v-kalete?upravit=text" "ka-upravit-text"

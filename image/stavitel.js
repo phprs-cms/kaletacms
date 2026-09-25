@@ -1116,7 +1116,7 @@
 		const n = stav.vybrane && najdi(stav.vybrane);
 		if (!n) {
 			pravy.replaceChildren(el('div', { class: 'st-panel' }, el('p', { class: 'st-prazdno' }, T('Vyberte prvek na plátně nebo ve struktuře. Dvojklikem na text ho upravíte přímo na stránce.')),
-				D.adresy.nastaveni ? el('p', { class: 'st-prazdno' }, el('a', { href: D.adresy.nastaveni }, T('Nastavení stránky (název, adresa, SEO)'))) : null));
+				D.adresy.nastaveni ? el('p', { class: 'st-prazdno' }, el('a', { href: D.adresy.nastaveni }, D.textNastaveni || T('Nastavení stránky (název, adresa, SEO)'))) : null));
 			return;
 		}
 		const p = n.p;

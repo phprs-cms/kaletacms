@@ -25,7 +25,7 @@ final class Stranky extends Modul
     public const string IKONA = 'stranky';
 
     /** Adresy, které patří systému a stránka je mít nemůže. */
-    public const array VYHRAZENE = ['novinky', 'hledani', 'news', 'search', 'mcp', 'api', 'admin', 'install', 'media', 'image', 'layout', 'system', 'storage', 'tools', 'docs', 'dist', 'rss', 'sitemap', 'robots', 'llms', 'feed', 'stav', 'ulohy', 'souhlas', 'formular'];
+    public const array VYHRAZENE = ['novinky', 'hledani', 'news', 'search', 'mcp', 'api', 'admin', 'install', 'media', 'image', 'layout', 'system', 'storage', 'tools', 'docs', 'dist', 'rss', 'sitemap', 'robots', 'llms', 'feed', 'stav', 'ulohy', 'souhlas', 'formular', 'popup'];
 
     /** Stránky v koši vydrží tolik dní, pak se smažou natrvalo (jako novinky). */
     public const int DNY_V_KOSI = 30;

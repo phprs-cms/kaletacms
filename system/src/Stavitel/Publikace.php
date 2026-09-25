@@ -8,7 +8,7 @@ use Kaleta\Core\App;
 use Kaleta\Core\Db;
 
 /**
- * Publikování konceptu stavby (stránka nebo část webu) – z editoru i z MCP. Předchozí publikovaná verze jde do historie
+ * Publikování konceptu stavby (stránka, část webu, kolekce, komponenta nebo pop-up) – z editoru i z MCP. Předchozí publikovaná verze jde do historie
  * (ka_stavba_revize, 20 posledních pro každý cíl), cache webu se vymaže.
  */
 final class Publikace
@@ -40,6 +40,15 @@ final class Publikace
         $novy = $kolekce['stavba_koncept'] ?? $kolekce['stavba'];
         self::verze($app, ['cast' => 'kolekce:' . (int) $kolekce['idk']], $kolekce['stavba'], $novy, $kolekce['zmeneno'] ?? null);
         $app->db()->update('kolekce', ['stavba' => $novy, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['idk' => $kolekce['idk']]);
+        \Kaleta\Front\Cache::vymaz();
+    }
+
+    /** Pop-up okno (verze pod klíčem „popup:<idpp>“). */
+    public static function popup(App $app, array $popup): void
+    {
+        $novy = $popup['stavba_koncept'] ?? $popup['stavba'];
+        self::verze($app, ['cast' => 'popup:' . (int) $popup['idpp']], $popup['stavba'], $novy, $popup['zmeneno'] ?? null);
+        $app->db()->update('popupy', ['stavba' => $novy, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['idpp' => $popup['idpp']]);
         \Kaleta\Front\Cache::vymaz();
     }
 

@@ -9,7 +9,7 @@ declare(strict_types=1);
 const KALETA_VERSION = '1.2.4';
 
 /** Číslo poslední migrace v system/sql/migrace - web podle něj pozná, že má po aktualizaci upravit databázi (hlídá tools/test.sh). */
-const KALETA_VERZE_DB = 21;
+const KALETA_VERZE_DB = 22;
 
 define('KALETA_ROOT', dirname(__DIR__));
 define('KALETA_SYSTEM', __DIR__);

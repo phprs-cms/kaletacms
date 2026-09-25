@@ -169,3 +169,41 @@ figure.galerie figcaption { grid-column: 1 / -1; }
 		:is(.ka-nav-menu, .navigace) .ka-tema { margin-inline-start: 0; }
 	}
 }
+
+/* ---------- pop-up okna (Stavitel\Popupy, spouštěče v image/web.js): barvy a tvary z design systému webu ---------- */
+@layer stavitel {
+	.ka-popup { box-sizing: border-box; max-height: calc(100dvh - 2rem); overflow: auto; margin: auto; padding: var(--ka-mezera-xl, 2.5rem) var(--ka-mezera-l, 2rem) var(--ka-mezera-l, 2rem); border: 0; border-radius: var(--ka-zaobleni, 12px); background: var(--ka-barva-pozadi, #fff); color: var(--ka-barva-text, #111); box-shadow: var(--ka-stin-l, 0 24px 60px rgb(0 0 0 / 0.25)); }
+	.ka-popup:popover-open, .ka-popup--editor { display: block; }
+	.ka-popup::backdrop { background: rgb(0 0 0 / 0.45); }
+	.ka-popup-obsah.stavba { min-height: 0; } /* .stavba má ve stránce minimální výšku obsahu – v okně ne */
+	.ka-popup-obsah > * + * { margin-block-start: var(--ka-mezera-m, 1rem); }
+	.ka-popup--okno { inset: 0; width: min(36rem, calc(100vw - 2rem)); }
+	.ka-popup--cela { inset: 0; width: 100vw; max-width: none; height: 100dvh; max-height: none; border-radius: 0; display: none; }
+	.ka-popup--cela:popover-open { display: grid; place-items: center; }
+	.ka-popup--cela > .ka-popup-obsah { width: min(48rem, 100%); }
+	.ka-popup--panel { inset: auto 1rem 1rem auto; width: min(24rem, calc(100vw - 2rem)); margin: 0; padding: var(--ka-mezera-l, 2rem) var(--ka-mezera-m, 1.25rem) var(--ka-mezera-m, 1.25rem); }
+	.ka-popup--panel::backdrop, .ka-popup--lista-nahore::backdrop, .ka-popup--lista-dole::backdrop { background: none; }
+	.ka-popup--lista-nahore, .ka-popup--lista-dole { inset: 0 0 auto; width: 100vw; max-width: none; margin: 0; padding: 0.75rem 3.5rem; border-radius: 0; box-shadow: var(--ka-stin-m, 0 8px 24px rgb(0 0 0 / 0.15)); background: var(--ka-barva-primarni, #111); color: var(--ka-barva-na-primarni, #fff); text-align: center; }
+	.ka-popup--lista-dole { inset: auto 0 0; }
+	.ka-popup--lista-nahore .ka-popup-obsah, .ka-popup--lista-dole .ka-popup-obsah { --ka-barva-text: var(--ka-barva-na-primarni, #fff); --ka-barva-primarni: var(--ka-barva-na-primarni, #fff); }
+	.ka-popup-zavrit { position: absolute; top: 0.5rem; right: 0.5rem; display: grid; place-items: center; width: 2.5rem; height: 2.5rem; padding: 0; border: 0; border-radius: 50%; background: none; color: inherit; font: 1.5rem/1 system-ui, sans-serif; cursor: pointer; }
+	.ka-popup-zavrit:hover { background: color-mix(in oklch, currentColor 10%, transparent); }
+	.ka-popup-zavrit:focus-visible { outline: 3px solid var(--ka-barva-sekundarni, currentColor); outline-offset: 2px; }
+	/* nadpis, na který skript po otevření přesune fokus kvůli čtečkám (tabindex="-1"), rámeček nemá – ovládat se nedá */
+	:is(.ka-popup, .ka-okno) [tabindex="-1"]:focus { outline: none; }
+	.ka-popup--lista-nahore .ka-popup-zavrit, .ka-popup--lista-dole .ka-popup-zavrit { top: 50%; translate: 0 -50%; }
+	@media (prefers-reduced-motion: no-preference) {
+		.ka-popup:popover-open { animation: ka-popup-objevit 0.2s ease-out; }
+		.ka-popup--panel:popover-open { animation-name: ka-popup-vyjet; }
+		.ka-popup--lista-nahore:popover-open { animation-name: ka-popup-shora; }
+		.ka-popup--lista-dole:popover-open { animation-name: ka-popup-zdola; }
+	}
+	@keyframes ka-popup-objevit { from { opacity: 0; scale: 0.96; } }
+	@keyframes ka-popup-vyjet { from { opacity: 0; translate: 0 1.5rem; } }
+	@keyframes ka-popup-shora { from { translate: 0 -100%; } }
+	@keyframes ka-popup-zdola { from { translate: 0 100%; } }
+	/* plátno builderu: okno stojí na stránce, aby šlo upravovat */
+	.ka-popup-platno { display: grid; place-items: center; min-height: 60vh; padding: var(--ka-mezera-xl, 2.5rem) var(--ka-mezera-m, 1rem); background: color-mix(in oklch, var(--ka-barva-text, #111) 6%, transparent); }
+	.ka-popup--editor { position: relative; inset: auto; margin: 0 auto; outline: 2px dashed var(--ka-barva-linka, #ccc); outline-offset: 4px; }
+	.ka-popup--editor.ka-popup--cela { width: 100%; height: auto; min-height: 60vh; }
+}

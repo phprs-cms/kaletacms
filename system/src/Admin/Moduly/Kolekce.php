@@ -230,7 +230,7 @@ final class Kolekce extends Modul
 
         return [
             'adresa' => $adresa, 'nahled' => $adresa . '?stavba=koncept&editor=1', 'zobrazena' => (bool) $k['detail'], 'casti' => false,
-            'zpet' => ['adresa' => $this->url('polozky', ['id' => (int) $k['idk']]), 'text' => $k['nazev']], 'nastaveni' => $this->url('edit', ['id' => (int) $k['idk']]),
+            'zpet' => ['adresa' => $this->url('polozky', ['id' => (int) $k['idk']]), 'text' => $k['nazev']], 'nastaveni' => $this->url('edit', ['id' => (int) $k['idk']]), 'textNastaveni' => t('Pole a nastavení kolekce'),
             'kolekce' => ['seo_link' => $k['seo_link'], 'nazev' => $k['nazev'], 'pole' => $k['pole'], 'detail' => (bool) $k['detail']],
             'podpis' => 'kolekce:' . (int) $k['idk'],
         ];

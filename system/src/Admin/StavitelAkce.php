@@ -86,6 +86,7 @@ trait StavitelAkce
             'odkazy' => [...array_map(fn (array $s): array => ['/' . ($s['jazyk'] !== '' ? $s['jazyk'] . '/' : '') . ((int) $s['ids'] === $app->settings()->int('titulni_stranka') ? '' : $s['seo_link']), $s['titulek'] . ($s['zobrazit'] ? '' : ' (' . t('skrytá') . ')')],
                 $this->db->all('SELECT ids, titulek, seo_link, jazyk, zobrazit FROM {stranky} WHERE smazano IS NULL ORDER BY jazyk, poradi, titulek LIMIT 300')), ['/' . \Kaleta\Core\Cesty::verejna('novinky', \Kaleta\Core\Jazyk::vychozi($app->settings()), $this->db), t('Novinky')]],
             'nahled' => $e['nahled'],
+            'textNastaveni' => $e['textNastaveni'] ?? null, // popisek odkazu na nastavení cíle (jinak „Nastavení stránky“)
             'zpet' => $e['zpet'],
             'adresy' => array_map(fn (string $akce): string => $this->url($akce, $cil['parametry']), [
                 'uloz' => 'stavba_uloz', 'publikuj' => 'stavba_publikuj', 'zahod' => 'stavba_zahod', 'sekce' => 'stavba_sekce', 'trida' => 'stavba_trida',

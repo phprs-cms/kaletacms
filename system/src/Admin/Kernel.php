@@ -32,6 +32,7 @@ final class Kernel
         Moduly\Casti::class,
         Moduly\Menu::class,
         Moduly\Komponenty::class,
+        Moduly\Popupy::class,
         Moduly\Autori::class,
         Moduly\Role::class,
         Moduly\Statistika::class,

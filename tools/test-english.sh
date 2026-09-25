@@ -115,7 +115,8 @@ for u in "" "modul=stranky" "modul=stranky&akce=novy" "modul=stranky&akce=stavit
   "modul=komponenty" "modul=kolekce" "modul=kolekce&akce=novy" "modul=novinky" "modul=novinky&akce=novy" "modul=novinky&akce=edit&id=$NEWS" "modul=kategorie" "modul=kategorie&akce=novy" \
   "modul=stitky" "modul=intergal" "modul=stat" "modul=vzhled" "modul=menu" "modul=users" "modul=users&akce=novy" "modul=role" "modul=role&akce=novy" "modul=presmerovani" \
   "modul=protokol" "modul=prenos" "modul=rozsireni" "modul=odberatele" "akce=ucet" "modul=config&zalozka=zakladni" "modul=config&zalozka=firma" "modul=config&zalozka=seo" \
-  "modul=config&zalozka=mereni" "modul=config&zalozka=cookies" "modul=config&zalozka=posta" "modul=config&zalozka=zalohy" "modul=config&zalozka=stav"; do
+  "modul=config&zalozka=mereni" "modul=config&zalozka=cookies" "modul=config&zalozka=posta" "modul=config&zalozka=zalohy" "modul=config&zalozka=stav" \
+  "modul=popupy" "modul=popupy&akce=novy"; do
   page "admin.php?$u" "/admin.php?$u" 200 "$JAR"
 done
 
@@ -134,6 +135,17 @@ curl -s -b "$WORK/jar-tom" -o "$WORK/page.html" "$B/admin.php?modul=novinky&akce
 check "author: new news item" "$WORK/page.html"
 curl -s -L -b "$WORK/jar-tom" -c "$WORK/jar-tom" -o "$WORK/page.html" -X POST "$B/admin.php?modul=novinky&akce=uloz" -d "_csrf=$(token "$WORK/page.html")" -d idc=0 -d titulek=Draft -d tema=1 -d 'uvod=<p>Lead</p>'
 check "author: message after saving a news item" "$WORK/page.html"
+
+# pop-ups: a new one from a template (content in the site language), its settings, the list and the message after turning it on
+curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?modul=popupy&akce=novy"; TOKEN=$(token "$WORK/page.html")
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=popupy&akce=zaloz" -d "_csrf=$TOKEN" -d vzor=magnet -d nazev=
+PP=$(sql "SELECT idpp FROM ka_popupy ORDER BY idpp DESC LIMIT 1")
+page "pop-up settings" "/admin.php?modul=popupy&akce=edit&id=$PP" 200 "$JAR"
+page "pop-up in the builder" "/admin.php?modul=popupy&akce=stavitel&id=$PP" 200 "$JAR"
+page "pop-up template on the builder canvas" "/_popup/$PP?stavba=koncept&editor=1" 200 "$JAR"
+curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/page.html" -X POST "$B/admin.php?modul=popupy&akce=prepni" -d "_csrf=$TOKEN" -d "idpp=$PP"
+check "message: an unpublished pop-up cannot be turned on" "$WORK/page.html"
+page "pop-up list" "/admin.php?modul=popupy" 200 "$JAR"
 
 # a site without news: the empty list
 sql "UPDATE ka_novinky SET visible = 0"; rm -rf "$WORK/web/storage/cache/stranky"

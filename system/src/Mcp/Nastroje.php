@@ -66,7 +66,8 @@ final class Nastroje
         $cil = ['id' => $cislo('ID stránky'), 'cast' => $text('Místo stránky část webu (jen správce): ' . implode(' | ', array_keys(Casti::TYPY)) . ' – záhlaví, patička, obálky detailu novinky, výpisu a 404'),
             'jazyk' => $text('Jazyk části webu u vícejazyčného webu (prázdné = výchozí)'),
             'varianta' => $text('Varianta záhlaví nebo patičky (klíč ze seznam_casti; prázdné = výchozí podoba)'),
-            'kolekce' => $text('Místo stránky šablona detailu položek kolekce (adresa kolekce z seznam_kolekci, jen správce)')];
+            'kolekce' => $text('Místo stránky šablona detailu položek kolekce (adresa kolekce z seznam_kolekci, jen správce)'),
+            'popup' => $cislo('Místo stránky obsah pop-up okna (ID ze seznam_popupu, jen správce)')];
         $nastroje = [
             ['info_o_webu', 'Název webu, úvodní stránka, šablona, počty stránek a novinek, role přihlášeného uživatele a jeho oprávnění.', $s([])],
             ['seznam_stranek', 'Stránky webu (Úvod, O nás, Služby, Kontakt…) s adresami.', $s([])],
@@ -112,6 +113,16 @@ final class Nastroje
                     'smazat' => ['type' => 'boolean', 'description' => 'true = variantu smazat (jen na výslovný pokyn uživatele)']], ['cast'])],
             ['uprav_design_system', 'Změní vzhled celého webu (správce): barvy, písma, velikosti, šířku, zaoblení – nebo použije předvolbu. Nezadané hodnoty zůstanou. Vrátí kontrolu čitelnosti barev.',
                 $s(['predvolba' => $text('firemni | remeslo | pratelsky | elegantni | technologie (nepovinné)'), 'ds' => ['type' => 'object', 'description' => 'Změny, např. {"barvy":{"primarni":"#0f766e"},"pismo_titulky":"klasicke","zaobleni":"l"} – klíče viz stavba_schema → design_system']])],
+            ['seznam_popupu', 'Pop-up okna webu (jen správce): typ, spouštěč, četnost, pravidla, zapnuté, publikované a počitadla zobrazení, zavření a konverzí. Obsah okna se staví nástroji stavba_* s parametrem popup.', $s([])],
+            ['uloz_popup', 'Založí pop-up okno (bez id; vzor = hotový obsah) nebo změní jeho nastavení (s id) – jen správce. Nové okno je vypnuté; zapnout (aktivni: true) jde až po publikování jeho stavby, a jen na výslovný pokyn uživatele.',
+                $s(['id' => $cislo('ID okna – jen při úpravě'), 'nazev' => $text('Název (vidí ho čtečky obrazovky)'), 'vzor' => $text('Jen u nového: ' . implode(' | ', array_keys(\Kaleta\Stavitel\Popupy::KNIHOVNA))),
+                    'adresa' => $text('Adresa pro odkaz #popup-<adresa>'), 'typ' => $text(implode(' | ', array_keys(\Kaleta\Stavitel\Popupy::TYPY))),
+                    'spoustec' => $text(implode(' | ', array_keys(\Kaleta\Stavitel\Popupy::SPOUSTECE)) . ' – klik = jen odkazem #popup-<adresa>'),
+                    'hodnota' => $cislo('Sekundy (cas, necinnost), procenta stránky (posun), počet stránek v návštěvě (stranky)'),
+                    'cetnost' => $text(implode(' | ', array_keys(\Kaleta\Stavitel\Popupy::CETNOSTI))), 'dni' => $cislo('Počet dní u četnosti dni'),
+                    'pravidla' => ['type' => 'object', 'description' => '{"kde":"vse|vybrane","stranky":[id],"kolekce":["adresa"],"novinky":true,"jazyk":"en","od":"RRRR-MM-DD","do":"RRRR-MM-DD","zarizeni":"vse|pocitac|telefon","utm":"text z utm_*","odkud":"část adresy webu, odkud návštěvník přišel"} – vynechané klíče zůstanou'],
+                    'aktivni' => ['type' => 'boolean', 'description' => 'true = okno se ukazuje na webu (jen publikované, jen na výslovný pokyn uživatele)'],
+                    'poradi' => $cislo('Pořadí, menší = přednost')])],
             ['seznam_kolekci', 'Kolekce webu (reference, tým, produkty…) s poli a počty položek. Na web je dostane prvek „kolekce“ (Výpis kolekce) ve stavbě; uvnitř se {{klic}} nahradí hodnotou položky ({{nazev}}, {{url}} = detail, {{datum}} a vlastní pole).', $s([])],
             ['vytvor_kolekci', 'Založí kolekci (správce). Pole: seznam {popisek, typ}; typ = ' . implode(' | ', array_keys(Kolekce::TYPY_POLI)) . '. Klíč pole vznikne z popisku.',
                 $s(['nazev' => $text('Název, např. Reference'), 'adresa' => $text('Adresa kolekce v URL (nepovinné, jinak z názvu), např. guide'),
@@ -174,7 +185,7 @@ final class Nastroje
 
     public function meni(string $nazev): bool
     {
-        return in_array($nazev, ['obnov_verzi', 'zahod_koncept', 'uloz_variantu', 'vytvor_kolekci', 'uprav_kolekci', 'uloz_polozku_kolekce', 'stavba_z_html', 'stavba_uloz', 'stavba_uprav', 'uloz_tridy', 'nahraj_soubor', 'uprav_nastaveni', 'uloz_presmerovani', 'smaz_stranku', 'vloz_sekci', 'publikuj_stavbu', 'uprav_design_system', 'vytvor_stranku', 'uprav_stranku', 'vytvor_novinku', 'uprav_novinku', 'vytvor_kategorii', 'uloz_menu'], true);
+        return in_array($nazev, ['obnov_verzi', 'zahod_koncept', 'uloz_variantu', 'vytvor_kolekci', 'uprav_kolekci', 'uloz_polozku_kolekce', 'uloz_popup', 'stavba_z_html', 'stavba_uloz', 'stavba_uprav', 'uloz_tridy', 'nahraj_soubor', 'uprav_nastaveni', 'uloz_presmerovani', 'smaz_stranku', 'vloz_sekci', 'publikuj_stavbu', 'uprav_design_system', 'vytvor_stranku', 'uprav_stranku', 'vytvor_novinku', 'uprav_novinku', 'vytvor_kategorii', 'uloz_menu'], true);
     }
 
     /** @param array<string, mixed> $a */
@@ -364,6 +375,7 @@ final class Nastroje
                 match ($cil['druh']) {
                     'stranka' => $db->update('stranky', ['stavba_koncept' => null], ['ids' => $r['ids']]),
                     'kolekce' => $db->update('kolekce', ['stavba_koncept' => null], ['idk' => $r['idk']]),
+                    'popup' => $db->update('popupy', ['stavba_koncept' => null], ['idpp' => $r['idpp']]),
                     default => $db->update('casti', ['stavba_koncept' => null], ['typ' => $r['typ'], 'jazyk' => $r['jazyk'], 'varianta' => $r['varianta']]),
                 };
 
@@ -446,6 +458,16 @@ final class Nastroje
                 \Kaleta\Front\Cache::vymaz();
 
                 return ['design_system' => $ds, 'citelnost' => DesignSystem::kontrasty($ds), 'nahled' => $this->app->request->origin() . $this->app->url('')];
+
+            case 'seznam_popupu':
+                $jenAdmin();
+
+                return array_map($this->popup(...), \Kaleta\Stavitel\Popupy::vsechny($db));
+
+            case 'uloz_popup':
+                $jenAdmin();
+
+                return $this->popup($this->ulozPopup($a), true);
 
             case 'seznam_kolekci':
                 return array_map(fn (array $k): array => ['kolekce' => $k['seo_link'], 'nazev' => $k['nazev'], 'detail' => (bool) $k['detail'], 'pole' => $k['pole'],
@@ -916,6 +938,81 @@ final class Nastroje
         return $stranka;
     }
 
+    /** Pop-up okno pro výstup MCP. */
+    private function popup(array $p, bool $sNahledem = false): array
+    {
+        $vystup = ['id' => $p['idpp'], 'nazev' => $p['nazev'], 'adresa' => $p['adresa'], 'odkaz' => '#popup-' . $p['adresa'], 'typ' => $p['typ'], 'spoustec' => $p['spoustec'],
+            'hodnota' => $p['hodnota'], 'cetnost' => $p['cetnost'], 'dni' => $p['dni'], 'pravidla' => $p['pravidla'], 'aktivni' => (bool) $p['aktivni'],
+            'publikovano' => $p['stavba'] !== null, 'zmeny' => $p['stavba_koncept'] !== null && $p['stavba_koncept'] !== $p['stavba'], 'poradi' => $p['poradi'],
+            'zobrazeni' => $p['zobrazeni'], 'zavreni' => $p['zavreni'], 'konverze' => $p['konverze'],
+            'stavitel' => $this->app->request->origin() . $this->app->url('admin.php?modul=popupy&akce=stavitel&id=' . $p['idpp'])];
+        if ($sNahledem) {
+            $vystup['nahled'] = $this->nahledCile(['druh' => 'popup', 'radek' => $p], 60);
+        }
+
+        return $vystup;
+    }
+
+    /** Založí okno ze vzoru nebo změní nastavení; zapnout jde jen publikované. */
+    private function ulozPopup(array $a): array
+    {
+        $db = $this->app->db();
+        $okna = \Kaleta\Stavitel\Popupy::class;
+        if (isset($a['id'])) {
+            $p = $okna::podleId($db, (int) $a['id']) ?? throw new \InvalidArgumentException('Pop-up okno neexistuje. Použij nástroj seznam_popupu.');
+        } else {
+            $klic = (string) ($a['vzor'] ?? 'prazdny');
+            $vzor = $okna::KNIHOVNA[$klic] ?? throw new \InvalidArgumentException('Neznámý vzor okna. Vzory: ' . implode(', ', array_keys($okna::KNIHOVNA)) . '.');
+            $nazev = mb_substr(trim((string) ($a['nazev'] ?? '')), 0, 100) ?: t($vzor[0]);
+            $id = $db->insert('popupy', ['nazev' => $nazev, 'adresa' => $okna::adresa($db, $nazev), 'typ' => $vzor[2], 'spoustec' => $vzor[3], 'hodnota' => $vzor[4],
+                'pravidla' => (string) json_encode($okna::vychoziPravidla()), 'cetnost' => 'relace', 'dni' => 7, 'aktivni' => 0,
+                'stavba_koncept' => Stavba::naJson($okna::stavbaZKnihovny($klic, Jazyk::vychozi($this->app->settings()))), 'zmeneno' => date('Y-m-d H:i:s')]);
+            $p = (array) $okna::podleId($db, $id);
+        }
+        $zmeny = [];
+        if (isset($a['nazev']) && trim((string) $a['nazev']) !== '') {
+            $zmeny['nazev'] = mb_substr(trim((string) $a['nazev']), 0, 100);
+        }
+        if (isset($a['adresa']) && trim((string) $a['adresa']) !== '') {
+            $adresa = slugify((string) $a['adresa'], 60);
+            if (!preg_match($okna::VZOR_ADRESY, $adresa) || $db->value('SELECT idpp FROM {popupy} WHERE adresa = ? AND idpp <> ?', [$adresa, $p['idpp']]) !== null) {
+                throw new \InvalidArgumentException('Tuto adresu už používá jiné okno.');
+            }
+            $zmeny['adresa'] = $adresa;
+        }
+        foreach (['typ' => $okna::TYPY, 'spoustec' => $okna::SPOUSTECE, 'cetnost' => $okna::CETNOSTI] as $pole => $povolene) {
+            if (isset($a[$pole])) {
+                $zmeny[$pole] = isset($povolene[$a[$pole]]) ? (string) $a[$pole] : throw new \InvalidArgumentException('Neplatná hodnota „' . $pole . '“. Povolené: ' . implode(', ', array_keys($povolene)) . '.');
+            }
+        }
+        if (isset($a['hodnota'])) {
+            $zmeny['hodnota'] = max(0, min(3600, (int) $a['hodnota']));
+        }
+        if (isset($a['dni'])) {
+            $zmeny['dni'] = max(1, min(365, (int) $a['dni']));
+        }
+        if (isset($a['poradi'])) {
+            $zmeny['poradi'] = max(-9999, min(9999, (int) $a['poradi']));
+        }
+        if (isset($a['pravidla'])) {
+            if (!is_array($a['pravidla'])) {
+                throw new \InvalidArgumentException('Parametr pravidla musí být objekt.');
+            }
+            $zmeny['pravidla'] = (string) json_encode($okna::vycistiPravidla($a['pravidla'] + $p['pravidla']), JSON_UNESCAPED_UNICODE);
+        }
+        if (array_key_exists('aktivni', $a)) {
+            if (!empty($a['aktivni']) && $p['stavba'] === null) {
+                throw new \InvalidArgumentException('Okno nejdřív publikuj (publikuj_stavbu s parametrem popup) – teprve pak ho jde zapnout.');
+            }
+            $zmeny['aktivni'] = empty($a['aktivni']) ? 0 : 1;
+        }
+        if ($zmeny !== []) {
+            $db->update('popupy', $zmeny + ['zmeneno' => date('Y-m-d H:i:s')], ['idpp' => $p['idpp']]);
+        }
+
+        return (array) $okna::podleId($db, $p['idpp']);
+    }
+
     /**
      * Cíl stavby: stránka (id; bez id a se $zalozit nová skrytá stránka s názvem z „titulek“) nebo část webu (cast = typ, jazyk),
      * kterou smí měnit jen správce. Část, která ještě není, se založí s konceptem podle šablony.
@@ -927,6 +1024,15 @@ final class Nastroje
         $auth = $this->app->auth();
         $db = $this->app->db();
         $web = $this->app->settings();
+        if (isset($a['popup']) && (int) $a['popup'] > 0) {
+            if (!$auth->isAdmin()) {
+                throw new \DomainException('Pop-up okna smí měnit jen správce webu.');
+            }
+            $radek = \Kaleta\Stavitel\Popupy::podleId($db, (int) $a['popup']) ?? throw new \InvalidArgumentException('Pop-up okno neexistuje. Použij nástroj seznam_popupu.');
+
+            return ['druh' => 'popup', 'radek' => $radek, 'stavba' => $radek['stavba'], 'koncept' => $radek['stavba_koncept'], 'jazyk' => Jazyk::obsahu($web, ''),
+                'revize' => ['cast' => 'popup:' . $radek['idpp']]];
+        }
         if (isset($a['kolekce']) && $a['kolekce'] !== '') {
             if (!$auth->isAdmin()) {
                 throw new \DomainException('Šablonu detailu kolekce smí měnit jen správce webu.');
@@ -990,6 +1096,7 @@ final class Nastroje
         return match ($cil['druh']) {
             'stranka' => ['id' => (int) $cil['radek']['ids'], 'titulek' => $cil['radek']['titulek']],
             'kolekce' => ['kolekce' => $cil['radek']['seo_link'], 'titulek' => 'Detail: ' . $cil['radek']['nazev'], 'detail_zapnuty' => (bool) $cil['radek']['detail']],
+            'popup' => ['popup' => $cil['radek']['idpp'], 'titulek' => 'Pop-up: ' . $cil['radek']['nazev'], 'aktivni' => (bool) $cil['radek']['aktivni']],
             default => ['cast' => $cil['radek']['typ'], 'jazyk' => $cil['radek']['jazyk'], 'titulek' => Casti::TYPY[$cil['radek']['typ']][0]]
                 + ($cil['radek']['varianta'] !== '' ? ['varianta' => $cil['radek']['varianta']] : []),
         };
@@ -1005,6 +1112,8 @@ final class Nastroje
             // výchozí šablona, kterou nikdo neuložil, se publikuje taky (jinak by nebylo co publikovat)
             $radek['stavba_koncept'] ??= $cil['koncept'];
             Publikace::kolekce($this->app, $radek);
+        } elseif ($cil['druh'] === 'popup') {
+            Publikace::popup($this->app, (array) \Kaleta\Stavitel\Popupy::podleId($db, $cil['radek']['idpp']));
         } else {
             Publikace::cast($this->app, (array) Casti::radek($db, $cil['radek']['typ'], $cil['radek']['jazyk'], (string) $cil['radek']['varianta']));
         }
@@ -1021,6 +1130,8 @@ final class Nastroje
         } elseif ($cil['druh'] === 'kolekce') {
             $db->update('kolekce', ['stavba_koncept' => Stavba::naJson($stavba)], ['idk' => $r['idk']]);
             $cil['koncept'] = Stavba::naJson($stavba);
+        } elseif ($cil['druh'] === 'popup') {
+            $db->update('popupy', ['stavba_koncept' => Stavba::naJson($stavba)], ['idpp' => $r['idpp']]);
         } else {
             $db->update('casti', ['stavba_koncept' => Stavba::naJson($stavba)], ['typ' => $r['typ'], 'jazyk' => $r['jazyk'], 'varianta' => $r['varianta']]);
         }
@@ -1030,6 +1141,7 @@ final class Nastroje
         $parametry = match ($cil['druh']) {
             'stranka' => 'modul=stranky&akce=stavitel&id=' . (int) $r['ids'],
             'kolekce' => 'modul=kolekce&akce=stavitel&id=' . (int) $r['idk'],
+            'popup' => 'modul=popupy&akce=stavitel&id=' . (int) $r['idpp'],
             default => 'modul=casti&akce=stavitel&typ=' . $r['typ'] . '&jazyk=' . $r['jazyk'],
         };
 
@@ -1053,9 +1165,13 @@ final class Nastroje
         $podpis = match ($cil['druh']) {
             'stranka' => 'stranka:' . (int) $r['ids'],
             'kolekce' => 'kolekce:' . (int) $r['idk'],
+            'popup' => 'popup:' . (int) $r['idpp'],
             default => 'cast:' . $r['typ'] . ':' . $r['jazyk'],
         };
         $klic = \Kaleta\Core\Nahled::klic($this->app->db(), $this->app->settings(), $podpis, $minut);
+        if ($cil['druh'] === 'popup') {
+            return $this->adresaCile($cil) . '?stavba=koncept&nahled_klic=' . $klic;
+        }
 
         $varianta = $cil['druh'] === 'cast' && $r['varianta'] !== '' ? 'varianta=' . rawurlencode($r['varianta']) . '&' : '';
 
@@ -1066,6 +1182,9 @@ final class Nastroje
     private function adresaCile(array $cil): string
     {
         $r = $cil['radek'];
+        if ($cil['druh'] === 'popup') {
+            return $this->app->request->origin() . $this->app->url('_popup/' . (int) $r['idpp']); // koncept okna přes prázdnou stránku webu
+        }
         if ($cil['druh'] === 'kolekce') {
             $polozka = $this->app->db()->value('SELECT seo_link FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? ORDER BY zobrazit DESC, poradi, idp LIMIT 1', [$r['idk'], Jazyk::sloupecWebu()]);
 

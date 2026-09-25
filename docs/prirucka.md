@@ -72,7 +72,7 @@ a sdílení). Smazaná stránka jde do **koše** a 30 dní ji jde obnovit; **Dup
 
 Vpravo je živý náhled úvodní stránky (počítač / telefon). Nic se neukládá, dokud nestisknete Uložit vzhled.
 
-## 4. Části webu: záhlaví, patička, obálky
+## 4. Části webu: záhlaví, patička, obálky, pop-up okna
 
 **Vzhled → Části webu.** Dokud část nepublikujete z builderu, kreslí ji šablona.
 
@@ -85,6 +85,23 @@ Vpravo je živý náhled úvodní stránky (počítač / telefon). Nic se neukl�
 
 **Vzhled → Menu** sestaví hlavní menu a menu v patičce: stránky, vlastní odkazy, novinky a skupiny, pod každou položkou
 jedno podmenu. Pořadí měníte přetažením nebo šipkami. Dokud menu neuložíte, skládá se samo ze stránek „v navigaci“.
+
+**Vzhled → Pop-up okna** jsou okna přes stránku – přihlášení k newsletteru, materiál ke stažení za e-mail, oznamovací
+lišta, sleva nebo pozvánka na akci. Začněte od hotového vzoru, obsah poskládejte v builderu a publikujte; v **Nastavení**
+pak určete, kdy a kde se okno ukáže, a zapněte ho.
+
+- **Typ:** okno uprostřed, vysouvací panel v rohu, lišta nahoře nebo dole, nebo celá obrazovka.
+- **Spouštěč:** po zadaném počtu sekund, po odrolování části stránky, když se návštěvník chystá odejít, po nečinnosti,
+  po zadaném počtu stránek v návštěvě – nebo jen odkazem či tlačítkem na `#popup-<adresa>` (ten okno otevře kdykoli).
+- **Kde:** celý web, nebo vybrané stránky, stránky položek kolekcí a novinky; jazyková verze, období, jen telefon nebo
+  počítač, návštěvníci z kampaně (`utm_*`) nebo z určitého webu.
+- **Četnost:** jednou za návštěvu, jednou za N dní, dokud okno návštěvník nezavře nebo neodešle formulář v něm, nebo
+  pokaždé. Pamatuje si to prohlížeč návštěvníka – bez cookies.
+- **Výsledky:** zobrazení, zavření a konverze (odeslaný formulář nebo přihlášení k odběru v okně), počítané bez cookies.
+  Formulář v okně jde do Poptávek jako každý jiný.
+
+Každé okno zavře Esc i křížek, fokus se přesune do okna a po zavření se vrátí, animace respektují omezený pohyb a okno
+počká, až návštěvník vyřídí lištu cookies.
 
 ## 5. Komponenty
 

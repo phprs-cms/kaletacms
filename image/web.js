@@ -162,7 +162,7 @@
 		if (!okno.showPopover || okno.matches(':popover-open')) { return; }
 		var odkud = document.activeElement;
 		okno.showPopover();
-		var cil = okno.querySelector('h1, h2, h3, input, select, textarea, a[href], button:not(.ka-okno-zavrit)') || okno.querySelector('button');
+		var cil = okno.querySelector('h1, h2, h3, input, select, textarea, a[href], button:not(.ka-okno-zavrit):not(.ka-popup-zavrit)') || okno.querySelector('button');
 		if (cil) { if (!cil.matches('a, button, input, select, textarea')) { cil.setAttribute('tabindex', '-1'); } cil.focus(); }
 		okno.addEventListener('toggle', function vratit(e) {
 			if (e.newState !== 'closed') { return; }
@@ -211,6 +211,128 @@
 			setTimeout(otevri, parseInt(kdy, 10) * 1000);
 		}
 	});
+
+	/* ---------- pop-up okna (Stavitel\Popupy): spouštěč, pravidla prohlížeče, četnost a počitadla – bez cookies ---------- */
+
+	var popupy = document.querySelectorAll('.ka-popup[data-popup]');
+	if (popupy.length) {
+		var relace = function () { try { return sessionStorage; } catch (chyba) { return null; } };
+		var trvale = function () { try { return localStorage; } catch (chyba) { return null; } };
+		var cti = function (u, k) { try { return u ? u.getItem(k) : null; } catch (chyba) { return null; } };
+		var zapis = function (u, k, v) { try { if (u) { u.setItem(k, v); } } catch (chyba) { /* soukromý režim */ } };
+		// návštěva: počet stránek, kampaň a odkud přišla (první stránka návštěvy) – jen v sessionStorage návštěvníka
+		var stranek = (parseInt(cti(relace(), 'ka-stranek'), 10) || 0) + 1;
+		zapis(relace(), 'ka-stranek', String(stranek));
+		if (cti(relace(), 'ka-kampan') === null) {
+			var utm = [];
+			new URLSearchParams(location.search).forEach(function (v, k) { if (k.indexOf('utm_') === 0) { utm.push(v); } });
+			zapis(relace(), 'ka-kampan', utm.join(' ').toLowerCase());
+			var odkud = '';
+			try { odkud = document.referrer && new URL(document.referrer).host !== location.host ? new URL(document.referrer).host : ''; } catch (chyba) { /* neplatná adresa */ }
+			zapis(relace(), 'ka-odkud', odkud.toLowerCase());
+		}
+		var telefon = window.matchMedia('(max-width: 767px)').matches;
+		var ohlas = function (okno, udalost) {
+			var data = new FormData();
+			data.append('id', okno.getAttribute('data-popup'));
+			data.append('udalost', udalost);
+			try { navigator.sendBeacon(okno.getAttribute('data-pocitadlo'), data); } catch (chyba) { /* bez počitadla */ }
+		};
+		var cookiesVidet = function () { var l = document.getElementById('cookies-lista'); return l && !l.hidden; };
+
+		popupy.forEach(function (okno) {
+			var id = okno.getAttribute('data-popup');
+			var klic = 'ka-popup-' + id;
+			var cetnost = okno.getAttribute('data-cetnost');
+			var dialog = okno.classList.contains('ka-popup--okno') || okno.classList.contains('ka-popup--cela');
+			var konverze = false;
+			var otevrene = false;
+
+			// konverze: návrat po odeslání formuláře nebo přihlášení k odběru v okně (kotva v adrese míří dovnitř okna)
+			var cil = location.hash.length > 1 && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+			if (cil && okno.contains(cil) && (okno.querySelector('[data-odeslano]') || new URLSearchParams(location.search).get('odber') === 'ok')) {
+				konverze = true;
+				ohlas(okno, 'konverze');
+				zapis(trvale(), klic + '-odeslano', '1');
+			}
+			okno.addEventListener('toggle', function (e) {
+				if (e.newState === 'open') {
+					otevrene = true;
+					if (!konverze) { ohlas(okno, 'zobrazeni'); } // okno otevřené kvůli poděkování po odeslání se nepočítá znovu
+					if (cetnost === 'relace' || cetnost === 'odeslani') { zapis(relace(), klic, '1'); }
+					if (cetnost === 'dni') { zapis(trvale(), klic, String(Date.now())); }
+				} else if (otevrene) {
+					otevrene = false;
+					if (!konverze) { ohlas(okno, 'zavreni'); }
+					if (cetnost === 'zavreni') { zapis(trvale(), klic, 'zavreno'); }
+				}
+			});
+			var otevri = function () {
+				// přes otevřené okno se nic dalšího neotvírá; lišta nebo panel okno nezablokují
+				if (!okno.showPopover || okno.matches(':popover-open') || document.querySelector('.ka-popup--okno:popover-open, .ka-popup--cela:popover-open, .ka-okno:popover-open, dialog[open]')) { return false; }
+				if (dialog) { otevriOkno(okno); } else { okno.showPopover(); }
+				return true;
+			};
+			if (okno.hasAttribute('data-otevrit')) { otevri(); return; } // náhled konceptu
+
+			// pravidla prohlížeče: zařízení, kampaň, odkud návštěvník přišel
+			var zarizeni = okno.getAttribute('data-zarizeni');
+			if ((zarizeni === 'telefon' && !telefon) || (zarizeni === 'pocitac' && telefon)) { return; }
+			var hledej = function (atribut, klicRelace) {
+				var chci = (okno.getAttribute(atribut) || '').toLowerCase();
+				return chci === '' || (cti(relace(), klicRelace) || '').indexOf(chci) !== -1;
+			};
+			if (!hledej('data-utm', 'ka-kampan') || !hledej('data-odkud', 'ka-odkud')) { return; }
+			// četnost: kdy se okno samo znovu neukáže
+			var bylo = cti(trvale(), klic);
+			if ((cetnost === 'relace' && cti(relace(), klic)) || (cetnost === 'odeslani' && (cti(relace(), klic) || cti(trvale(), klic + '-odeslano')))
+				|| (cetnost === 'zavreni' && bylo === 'zavreno')
+				|| (cetnost === 'dni' && bylo && Date.now() - parseInt(bylo, 10) < (parseInt(okno.getAttribute('data-dni'), 10) || 1) * 864e5)) { return; }
+
+			var hotovo = false;
+			var spust = function () {
+				if (hotovo) { return; }
+				// okno nepřekryje lištu cookies: počká, až ji návštěvník vyřídí
+				if (cookiesVidet()) {
+					var l = document.getElementById('cookies-lista');
+					new MutationObserver(function (z, pozorovatel) { if (l.hidden) { pozorovatel.disconnect(); spust(); } }).observe(l, { attributes: true, attributeFilter: ['hidden'] });
+					return;
+				}
+				hotovo = otevri();
+			};
+			var hodnota = parseInt(okno.getAttribute('data-hodnota'), 10) || 0;
+			switch (okno.getAttribute('data-spoustec')) {
+			case 'cas':
+				setTimeout(spust, hodnota * 1000);
+				break;
+			case 'posun':
+				var posun = function () {
+					var cesta = document.documentElement.scrollHeight - window.innerHeight;
+					if (cesta <= 0 || window.scrollY / cesta * 100 >= hodnota) { window.removeEventListener('scroll', posun); spust(); }
+				};
+				window.addEventListener('scroll', posun, { passive: true });
+				break;
+			case 'odchod':
+				document.addEventListener('mouseout', function (e) { if (!e.relatedTarget && e.clientY <= 0) { spust(); } });
+				break;
+			case 'necinnost':
+				var casovac;
+				var znovu = function () { clearTimeout(casovac); casovac = setTimeout(spust, Math.max(1, hodnota) * 1000); };
+				['mousemove', 'keydown', 'scroll', 'touchstart'].forEach(function (u) { window.addEventListener(u, znovu, { passive: true }); });
+				znovu();
+				break;
+			case 'stranky':
+				if (stranek >= Math.max(1, hodnota)) { setTimeout(spust, 1500); }
+				break;
+			default: // klik – otevře ho odkaz #popup-<adresa> (obsluha odkazů na okna výše)
+			}
+		});
+		// Esc zavře i panel a lištu (popover="manual" se sám nezavírá)
+		document.addEventListener('keydown', function (e) {
+			if (e.key !== 'Escape') { return; }
+			document.querySelectorAll('.ka-popup[popover="manual"]:popover-open').forEach(function (o) { o.hidePopover(); });
+		});
+	}
 
 	/* ---------- počítadlo a odpočet ---------- */
 

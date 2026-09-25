@@ -73,7 +73,7 @@ sharing). A deleted page goes to the **trash** and can be restored for 30 days; 
 
 On the right is a live preview of the home page (desktop / phone). Nothing is saved until you press Save.
 
-## 4. Site parts: header, footer, wrappers
+## 4. Site parts: header, footer, wrappers, pop-ups
 
 **Appearance → Site parts.** Until you publish a part from the builder, the theme draws it.
 
@@ -86,6 +86,24 @@ On the right is a live preview of the home page (desktop / phone). Nothing is sa
 
 **Appearance → Menu** builds the main menu and the footer menu: pages, custom links, news and groups, with one submenu
 level under each item. Reorder by dragging or with the arrows. Until you save it, the menu is built from pages “in navigation”.
+
+**Appearance → Pop-ups** are windows over the page – a newsletter sign-up, a download for an e-mail, an announcement
+bar, a discount or an event. Start from a ready-made template, build the content in the builder and publish it; then set
+in **Settings** when and where it shows and turn it on.
+
+- **Type:** a window in the middle, a slide-in panel in the corner, a bar at the top or bottom, or full screen.
+- **Trigger:** after a number of seconds, after scrolling part of the page, when the visitor is about to leave, after
+  seconds without activity, after a number of pages in the visit – or only by a link or button to `#popup-<address>`
+  (that link opens the pop-up at any time).
+- **Where:** the whole site, or selected pages, collection item pages and news; a language version, a period, phones
+  or computers only, visitors from a campaign (`utm_*`) or from a given site.
+- **Frequency:** once per visit, once every N days, until the visitor closes it or sends the form in it, or every time.
+  The visitor’s browser remembers it – no cookies.
+- **Results:** views, closes and conversions (a form sent or a newsletter sign-up in the pop-up), counted without
+  cookies. A form in a pop-up lands in Enquiries like any other.
+
+Escape and the × button close every pop-up, focus moves into a window and returns afterwards, animations respect
+reduced motion, and a pop-up waits until the visitor has dealt with the cookie bar.
 
 ## 5. Components
 

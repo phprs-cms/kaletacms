@@ -49,6 +49,12 @@ final class Kernel
     /** Odkaz „Upravit zde“ pro právě zobrazenou stránku nebo novinku; vypíše ho stranka() přihlášenému, který na to má právo. */
     private string $upravitZde = '';
 
+    /** Kolekce zobrazené stránky položky (pravidla pop-up oken „jen v kolekci“). */
+    private ?string $kolekceStranky = null;
+
+    /** Pop-up okno, jehož koncept ukazuje podepsaný náhled /_popup/<id> (otevře se hned). */
+    private int $nahledPopupu = 0;
+
     public function __construct(private readonly App $app)
     {
         $app->request->setOrigin($app->settings()->get('adresa_webu'));
@@ -190,6 +196,17 @@ final class Kernel
 
             return new Response('', 204);
         }
+        if ($path === '/popup' && $request->isPost()) {
+            // počitadla pop-up oken: zobrazení, zavření, konverze – bez cookies a bez údajů o návštěvníkovi
+            $sloupec = ['zobrazeni' => 'zobrazeni', 'zavreni' => 'zavreni', 'konverze' => 'konverze'][$request->post('udalost')] ?? null;
+            $antispam = new \Kaleta\Core\Antispam($this->app->db(), $this->app->settings());
+            if ($sloupec !== null && $request->postInt('id') > 0 && $antispam->pocet($request->ip(), 'popup', 0, 60) < 60) {
+                $antispam->zapis($request->ip(), 'popup', 0);
+                $this->app->db()->run('UPDATE {popupy} SET ' . $sloupec . ' = ' . $sloupec . ' + 1 WHERE idpp = ? AND aktivni = 1', [$request->postInt('id')]);
+            }
+
+            return new Response('', 204);
+        }
         if (str_starts_with($path, '/api/') && Rozsireni::je($this->app->settings(), 'api')) {
             return (new Api($this->app, $this->novinky))->handle($path);
         }
@@ -262,6 +279,9 @@ final class Kernel
         }
         if (preg_match('#^/_sekce/([a-z0-9-]{1,40})$#', $path, $m) && $this->app->auth()->maModul('stranky')) {
             return $this->nahledSekce($m[1]);
+        }
+        if (preg_match('#^/_popup/(\d+)$#', $path, $m)) {
+            return $this->nahledPopupu((int) $m[1]);
         }
         if (preg_match('#^/_komponenta/(\d+)$#', $path, $m) && $this->app->auth()->isAdmin()) {
             return $this->nahledKomponenty((int) $m[1]);
@@ -345,6 +365,7 @@ final class Kernel
         $k->polozka = $polozka !== null ? \Kaleta\Stavitel\Kolekce::hodnoty($kolekce, $polozka, $this->app->url(...)) : \Kaleta\Stavitel\Kolekce::ukazka($kolekce);
         $k->editor = $koncept && $r->get('editor') === '1';
         $k->zdroj = 'kolekce:' . (int) $kolekce['idk'];
+        $this->kolekceStranky = (string) $kolekce['seo_link'];
         $html = \Kaleta\Stavitel\Stavba::html($stavba, $k);
         [$k->polozka, $k->editor] = [null, false];
 
@@ -759,7 +780,7 @@ final class Kernel
     private function smiKoncept(string $cil): bool
     {
         $auth = $this->app->auth();
-        if (str_starts_with($cil, 'cast:') || str_starts_with($cil, 'kolekce:') ? $auth->isAdmin() : $auth->maModul('stranky')) {
+        if (str_starts_with($cil, 'cast:') || str_starts_with($cil, 'kolekce:') || str_starts_with($cil, 'popup:') ? $auth->isAdmin() : $auth->maModul('stranky')) {
             return true;
         }
         $klic = $this->app->request->get('nahled_klic');
@@ -813,6 +834,10 @@ final class Kernel
             $k->obsah = '';
         }
         $casti = ['hlavicka' => $vykresli('hlavicka'), 'paticka' => $vykresli('paticka')];
+        $meta['popupy'] = $this->popupy($k, in_array($obalka, ['novinka', 'vypis'], true));
+        if ($r->get('popup') !== '' || $this->nahledPopupu > 0) {
+            $meta['noindex'] = true; // náhled konceptu pop-up okna
+        }
 
         if ($k->typy !== []) {
             $meta['css'] = \Kaleta\Stavitel\Stavba::css($db, $k)
@@ -827,6 +852,74 @@ final class Kernel
         }
 
         return [$obsah, $casti, $meta];
+    }
+
+    /**
+     * Pop-up okna pro zobrazenou stránku (Stavitel\Popupy): zapnutá a publikovaná, podle pravidel serveru. Náhled konceptu
+     * (?popup=<id>&stavba=koncept nebo /_popup/<id>) přidá dané okno i vypnuté a otevře ho hned.
+     */
+    private function popupy(\Kaleta\Stavitel\Kontext $k, bool $novinky): string
+    {
+        $r = $this->app->request;
+        $db = $this->app->db();
+        $nahled = $this->nahledPopupu ?: ($r->get('stavba') === 'koncept' && preg_match('/^\d{1,9}$/', $r->get('popup')) && $this->smiKoncept('popup:' . $r->get('popup')) ? (int) $r->get('popup') : 0);
+        try {
+            $okna = \Kaleta\Stavitel\Popupy::proStranku($db, ['ids' => ($this->protejsek[0] ?? '') === 'stranky' ? (int) $this->protejsek[2]['ids'] : null,
+                'kolekce' => $this->kolekceStranky, 'novinky' => $novinky, 'jazyk' => Jazyk::kod(), 'dnes' => date('Y-m-d')]);
+            $koncept = $nahled > 0 ? \Kaleta\Stavitel\Popupy::podleId($db, $nahled) : null;
+        } catch (\Throwable $e) {
+            error_log('Pop-up okna: ' . $e->getMessage()); // web před migrací
+
+            return '';
+        }
+        if ($koncept !== null) {
+            $okna = [...array_filter($okna, fn (array $p): bool => $p['idpp'] !== $nahled), ['stavba' => $koncept['stavba_koncept'] ?? $koncept['stavba'], 'nahled' => true] + $koncept];
+            $k->bezCache = true;
+        }
+        $html = '';
+        foreach ($okna as $p) {
+            $stavba = \Kaleta\Stavitel\Stavba::zJson($p['stavba']);
+            if ($stavba === null) {
+                continue;
+            }
+            if ($p['pravidla']['od'] !== '' || $p['pravidla']['do'] !== '') {
+                $k->bezCache = true; // okno s obdobím se nesmí dostat do cache stránky po jeho konci
+            }
+            $k->zdroj = 'popup:' . $p['idpp'];
+            $html .= \Kaleta\Stavitel\Popupy::obal($p, \Kaleta\Stavitel\Stavba::html($stavba, $k), $this->app->url('popup'), !empty($p['nahled']));
+        }
+
+        return $html;
+    }
+
+    /**
+     * Pop-up okno pro builder a sdílený náhled: s editor=1 (správce) okno stojí na plátně k úpravám, jinak se koncept
+     * otevře přes prázdnou stránku webu. Bez práva správce nebo platného podepsaného odkazu 404.
+     */
+    private function nahledPopupu(int $idpp): Response
+    {
+        $p = null;
+        try {
+            $p = \Kaleta\Stavitel\Popupy::podleId($this->app->db(), $idpp);
+        } catch (\Throwable) {
+            // web před migrací
+        }
+        if ($p === null || $this->app->request->get('stavba') !== 'koncept' || !$this->smiKoncept('popup:' . $idpp)) {
+            return $this->nenalezeno();
+        }
+        if ($this->app->request->get('editor') === '1' && $this->app->auth()->isAdmin()) {
+            $k = $this->kontext();
+            $k->editor = true;
+            $k->zdroj = 'popup:' . $idpp;
+            $html = \Kaleta\Stavitel\Stavba::html(\Kaleta\Stavitel\Stavba::zJson($p['stavba_koncept'] ?? $p['stavba']) ?? ['deti' => []], $k);
+            $k->editor = false;
+            $obsah = '<div class="ka-popup-platno">' . \Kaleta\Stavitel\Popupy::obalEditoru($p, $html) . '</div>';
+        } else {
+            $this->nahledPopupu = $idpp;
+            $obsah = '<div class="ka-popup-platno"></div>';
+        }
+
+        return $this->stranka($p['nazev'], $this->view->render('stranka', ['stranka' => ['titulek' => ''], 'uvod' => false, 'stavba' => $obsah]), ['stavba' => true, 'noindex' => true]);
     }
 
     private function stranka(string $titulek, string $obsah, array $meta = [], int $status = 200): Response
@@ -859,13 +952,15 @@ final class Kernel
         $stranaVypisu = $this->app->request->getInt('strana', 1);
         $kanonicka = $this->app->request->origin() . $this->app->url(ltrim($this->app->request->path(), '/')) . ($stranaVypisu > 1 ? '?strana=' . $stranaVypisu : '');
         [$obsah, $casti, $meta] = $this->castiWebu($obsah, $meta, $jazykyHtml, (string) parse_url($kanonicka, PHP_URL_PATH));
+        $popupy = (string) ($meta['popupy'] ?? '');
+        unset($meta['popupy']);
         $html = $this->view->render('base', [
             'web' => $web,
             'titulek' => $titulek,
             'meta' => $meta + ['hlavni' => false, 'popis' => '', 'klicova_slova' => $web->get('klicova_slova'), 'obrazek' => '', 'typ' => 'website', 'noindex' => false],
             'obsah' => $obsah,
             'hlava' => $seo->hlava($titulek, $meta + ['jazyky' => $jazyky], $novinka),
-            'pata' => $seo->pata() . ($this->upravitZde !== '' ? '<a class="ka-upravit-zde" href="' . e($this->upravitZde) . '">' . e(t('Upravit zde')) . '</a>' : ''),
+            'pata' => $seo->pata() . $popupy . ($this->upravitZde !== '' ? '<a class="ka-upravit-zde" href="' . e($this->upravitZde) . '">' . e(t('Upravit zde')) . '</a>' : ''),
             'stranky' => $this->strankyMenu(),
             'menu' => $this->menu('hlavni'),
             'menu_paticka' => $this->menu('paticka'),
@@ -880,8 +975,8 @@ final class Kernel
         $html = ObrazkyHtml::dopln($this->app->db(), $html); // rozměry a barva podkladu obrázků – méně poskakování stránky
         $html = $this->systemoveOdkazy($html);
         // image/web.js jen na stránkách, které ho potřebují (galerie a fotky v textu, video, sdílení, záložky, karusel, okno, formulář,
-        // počítadlo, odpočet, podmenu – Esc ho zavře)
-        if (!preg_match('/data-(vlozit|sdilet|kopirovat|zalozky|karusel|formular|odeslano|pocitadlo|odpocet|tema-volba)|popover role="dialog"|galerie|class="(?:text|perex)[" ][\s\S]*?<img|cookies-|<li class="podmenu/', $html)) {
+        // počítadlo, odpočet, podmenu – Esc ho zavře, pop-up okna)
+        if (!preg_match('/data-(vlozit|sdilet|kopirovat|zalozky|karusel|formular|odeslano|pocitadlo|odpocet|tema-volba)|popover role="dialog"|galerie|class="(?:text|perex)[" ][\s\S]*?<img|cookies-|<li class="podmenu|data-popup=/', $html)) {
             $html = (string) preg_replace('#<script src="[^"]*/image/web\.js[^"]*"[^>]*></script>\n?#', '', $html);
         }
         // prvky s podmínkou zobrazení (datum, přihlášení) se skládají pokaždé znovu – cache by je ukazovala podle stavu v okamžiku uložení

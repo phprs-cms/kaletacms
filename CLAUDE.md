@@ -85,6 +85,11 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   Layout vypisuje `$casti['hlavicka']`/`['paticka']`, když nejsou `null`. Prvky `JEN_CASTI` (logo, navigace, udaje, obsah) se nabízejí jen v částech.
   Záhlaví a patička mohou mít varianty (`ka_casti.varianta`, `stranky` = JSON čísel stránek; `Casti::variantaStranky`), prázdná varianta část skryje.
   Akce builderu sdílí trait `Admin\StavitelAkce` (stránky i části), publikování a verze `Stavitel\Publikace`.
+- **Pop-up okna** (`Stavitel\Popupy`, tabulka `ka_popupy`, admin `Moduly\Popupy` pod Vzhledem, jen správce, MCP `seznam_popupu`, `uloz_popup`
+  a stavba_* s parametrem `popup`): obsah je stavba (verze pod `popup:<id>`, podepsaný náhled `popup:<id>`), plátno builderu `/_popup/<id>?stavba=koncept&editor=1`.
+  `Kernel::popupy()` vloží zapnutá publikovaná okna podle pravidel serveru (`Popupy::odpovida` – místa, jazyk, období; okno s obdobím vypne cache stránky)
+  na konec `<body>`; spouštěč, zařízení, kampaň, odkud, počet stránek a četnost řeší `image/web.js` (sessionStorage/localStorage, bez cookies).
+  Počitadla `POST /popup` (zobrazeni|zavreni|konverze), formulář v okně má zdroj `popup:<id>`. Starý prvek `okno` (okno uvnitř jedné stránky) zůstává.
 - **Firma** (`Front\Firma`, Nastavení → Firma, klíče `firma_*`): prvek `udaje` (Údaje firmy) je vypisuje na webu, `Seo` z nich skládá
   Organization/LocalBusiness (`@id` …#firma) s adresou, otevírací dobou a geo. Otevírací doba se píše lidsky po řádcích, `Firma::hodiny()` ji rozebere.
 - **Kolekce** (`Stavitel\Kolekce`, tabulky `ka_kolekce` + `ka_kolekce_polozky`, admin `Moduly\Kolekce`, MCP `seznam_kolekci`, `vytvor_kolekci`,
