@@ -40,7 +40,7 @@ $splneno = !in_array(false, array_column($pozadavky, 'ok'), true);
 	<h2><span>1</span> <?= e(t('Kontrola serveru')) ?></h2>
 	<ul class="kontrola">
 <?php foreach ($pozadavky as $p): ?>
-		<li<?= $p['ok'] ? '' : ' class="spatne"' ?>><div><?= e(t($p['nazev'])) ?> <small>– <?= e($p['info']) ?></small></div></li>
+		<li<?= $p['ok'] ? '' : ' class="spatne"' ?>><div><?= e($p['nazev']) ?> <small>– <?= e($p['info']) ?></small></div></li>
 <?php endforeach ?>
 	</ul>
 </section>
@@ -58,12 +58,12 @@ $splneno = !in_array(false, array_column($pozadavky, 'ok'), true);
 	<p><?= e(t('MySQL nebo MariaDB. Prázdnou databázi založte předem – na hostingu v jeho administraci.')) ?></p>
 	<div class="pole">
 		<div class="cele s-portem">
-			<div><label for="db_host"><?= e(t('Server')) ?></label><input type="text" id="db_host" name="db_host" value="<?= e($data['db_host']) ?>"></div>
+			<div><label for="db_host"><?= e(t('Server')) ?></label><input type="text" id="db_host" name="db_host" value="<?= e($data['db_host']) ?>"><?= $chyba('db_host') ?></div>
 			<div><label for="db_port"><?= e(t('Port')) ?></label><input type="number" id="db_port" name="db_port" value="<?= e($data['db_port']) ?>"></div>
 		</div>
 		<div><label for="db_name"><?= e(t('Název databáze')) ?></label><input type="text" id="db_name" name="db_name" value="<?= e($data['db_name']) ?>" required><?= $chyba('db_name') ?></div>
 		<div><label for="db_prefix"><?= e(t('Předpona tabulek')) ?></label><input type="text" id="db_prefix" name="db_prefix" value="<?= e($data['db_prefix']) ?>" required><?= $chyba('db_prefix') ?></div>
-		<div><label for="db_user"><?= e(t('Uživatel')) ?></label><input type="text" id="db_user" name="db_user" value="<?= e($data['db_user']) ?>" required></div>
+		<div><label for="db_user"><?= e(t('Uživatel')) ?></label><input type="text" id="db_user" name="db_user" value="<?= e($data['db_user']) ?>" required><?= $chyba('db_user') ?></div>
 		<div><label for="db_password"><?= e(t('Heslo')) ?></label><input type="password" id="db_password" name="db_password" autocomplete="off"></div>
 	</div>
 </section>

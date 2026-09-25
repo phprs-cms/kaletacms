@@ -280,10 +280,15 @@ foreach (['system/views/install/formular.php', 'system/views/install/hotovo.php'
         $klice[stripslashes($text)] = true;
     }
 }
+// karty rozšíření a ukázkových webů vypisuje instalátor přes t() z konstant
+foreach ([...array_values(Kaleta\Core\Rozsireni::SEZNAM), ...array_values(Kaleta\Stavitel\Knihovna::WEBY)] as $karta) {
+    $klice[$karta['nazev'] ?? $karta[0]] = true;
+    $klice[$karta['popis'] ?? $karta[1]] = true;
+}
 foreach (['en'] as $kod) {
     $slovnik = require KALETA_ROOT . '/system/jazyky/install-' . $kod . '.php';
     // mezinárodní slova se nepřekládají (nástroj na slovníky shodné položky nezapisuje)
-    $chybi = array_values(array_diff(array_keys($klice), array_keys($slovnik), ['Server', 'Port', 'E-mail']));
+    $chybi = array_values(array_diff(array_keys($klice), array_keys($slovnik), ['Server', 'Port', 'E-mail', 'Newsletter']));
     over('instalátor: úplný slovník ' . $kod, $chybi, []);
 }
 
