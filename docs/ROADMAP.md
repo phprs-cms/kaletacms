@@ -14,6 +14,7 @@ What is planned next. Dates are not promised; releases ship when they are tested
 - 1.2.2: MCP accepts objects and arrays sent as JSON text (item values and builds were dropped or refused); breadcrumbs
   mark only the current page.
 - 1.2.3: MCP reports unknown parameters and never resets the menu on unreadable items; Escape closes submenus.
+- 1.2.4: tidy submenus and a centred mega menu panel; Escape works on every page with a submenu.
 
 ## 1.3 – pop-ups, newsletter services and a clearer Site appearance
 
