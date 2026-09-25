@@ -309,7 +309,8 @@ final class Kernel
         $db = $this->app->db();
         $r = $this->app->request;
         $kolekce = \Kaleta\Stavitel\Kolekce::podleSeo($db, $seoKolekce);
-        $koncept = $r->get('stavba') === 'koncept' && $this->app->auth()->isAdmin();
+        // koncept šablony: správce, nebo podepsaný náhled právě této kolekce (Core\Nahled, cíl kolekce:<idk>)
+        $koncept = $kolekce !== null && $r->get('stavba') === 'koncept' && ($this->app->auth()->isAdmin() || $this->smiKoncept('kolekce:' . (int) $kolekce['idk']));
         if ($kolekce === null || (!$kolekce['detail'] && !$koncept)) {
             return $this->nenalezeno();
         }
@@ -738,7 +739,7 @@ final class Kernel
     private function smiKoncept(string $cil): bool
     {
         $auth = $this->app->auth();
-        if (str_starts_with($cil, 'cast:') ? $auth->isAdmin() : $auth->maModul('stranky')) {
+        if (str_starts_with($cil, 'cast:') || str_starts_with($cil, 'kolekce:') ? $auth->isAdmin() : $auth->maModul('stranky')) {
             return true;
         }
         $klic = $this->app->request->get('nahled_klic');

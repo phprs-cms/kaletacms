@@ -697,6 +697,8 @@ $koData = Kaleta\Stavitel\Kolekce::vycistiData([['klic' => 'web', 'popisek' => '
     ['web' => 'javascript:alert(1)', 'foto' => 'media/2026/a.jpg', 'cena' => '1 200', 'bio' => '<p onclick="x">Ahoj</p><script>1</script>'], $koChyby);
 over('Kolekce::vycistiData: nebezpečný odkaz pryč, obrázek z médií, číslo bez mezer, HTML vyčištěné', [$koData['web'], $koData['foto'], $koData['cena'], $koData['bio'], array_keys($koChyby)], ['', 'media/2026/a.jpg', '1200', '<p>Ahoj</p>', ['web']]);
 $koHodnoty = ['nazev' => ['Jan <b>Novák</b>', 'text'], 'bio' => ['<p>Truhlář</p>', 'html'], 'poznamka' => ["řádek 1\nřádek 2", 'radky'], 'url' => ['/tym/jan', 'odkaz'], 'zly' => ['javascript:x', 'odkaz']];
+over('Kolekce::dosad: značky v dosazené hodnotě se znovu nedosazují', Kaleta\Stavitel\Kolekce::dosad('<p>{{text}}</p><p>{{nazev}}</p>', 'html', ['text' => ['<p>Napište {{nazev}} nebo {{url}}.</p>', 'html'], 'nazev' => ['Návod', 'text'], 'url' => ['/navod', 'text']]), '<p>Napište {{nazev}} nebo {{url}}.</p><p>Návod</p>');
+over('Kolekce::dosad: jeden průchod i v řádkovém textu', Kaleta\Stavitel\Kolekce::dosad('{{popis}} – {{nazev}}', 'inline', ['popis' => ['Viz {{nazev}}', 'radky'], 'nazev' => ['X', 'text']]), 'Viz {{nazev}} – X');
 over('Kolekce::dosad: text se escapuje až prvkem, inline a html hned, html pole zůstane HTML', [
     Kaleta\Stavitel\Kolekce::dosad('{{nazev}}', 'text', $koHodnoty), Kaleta\Stavitel\Kolekce::dosad('Tým: {{nazev}}', 'inline', $koHodnoty),
     Kaleta\Stavitel\Kolekce::dosad('{{bio}}', 'html', $koHodnoty), Kaleta\Stavitel\Kolekce::dosad('<p>{{poznamka}}</p>', 'html', $koHodnoty),

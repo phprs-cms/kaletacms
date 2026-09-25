@@ -154,7 +154,7 @@ claude mcp add --transport http kaleta https://your-site.com/mcp
 ```
 
 Claude then builds the whole site with your account permissions: it sets the look (colours, fonts, shared classes),
-uploads images and fonts to Media, assembles pages, the header and the footer, fixes single elements by id, sets the site
+uploads images and fonts to Media, assembles pages, the header, the footer and the item page of collections, fixes single elements by id, sets the site
 name, company details and redirects from old addresses, and writes news. After every build change it gets a **signed
 preview link** to the draft (valid for 60 minutes, opens without signing in) – it checks the result and can pass the
 link to you. Page and site-part builds and news are created as a **draft** and published only when you say so (and only

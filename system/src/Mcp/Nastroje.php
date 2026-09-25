@@ -64,7 +64,8 @@ final class Nastroje
             'noindex' => ['type' => 'boolean', 'description' => 'true = skrýt stránku před vyhledávači'],
         ];
         $cil = ['id' => $cislo('ID stránky'), 'cast' => $text('Místo stránky část webu (jen správce): ' . implode(' | ', array_keys(Casti::TYPY)) . ' – záhlaví, patička, obálky detailu novinky, výpisu a 404'),
-            'jazyk' => $text('Jazyk části webu u vícejazyčného webu (prázdné = výchozí)')];
+            'jazyk' => $text('Jazyk části webu u vícejazyčného webu (prázdné = výchozí)'),
+            'kolekce' => $text('Místo stránky šablona detailu položek kolekce (adresa kolekce z seznam_kolekci, jen správce)')];
         $nastroje = [
             ['info_o_webu', 'Název webu, úvodní stránka, šablona, počty stránek a novinek, role přihlášeného uživatele a jeho oprávnění.', $s([])],
             ['seznam_stranek', 'Stránky webu (Úvod, O nás, Služby, Kontakt…) s adresami.', $s([])],
@@ -103,8 +104,13 @@ final class Nastroje
                 $s(['predvolba' => $text('firemni | remeslo | pratelsky | elegantni | technologie (nepovinné)'), 'ds' => ['type' => 'object', 'description' => 'Změny, např. {"barvy":{"primarni":"#0f766e"},"pismo_titulky":"klasicke","zaobleni":"l"} – klíče viz stavba_schema → design_system']])],
             ['seznam_kolekci', 'Kolekce webu (reference, tým, produkty…) s poli a počty položek. Na web je dostane prvek „kolekce“ (Výpis kolekce) ve stavbě; uvnitř se {{klic}} nahradí hodnotou položky ({{nazev}}, {{url}} = detail, {{datum}} a vlastní pole).', $s([])],
             ['vytvor_kolekci', 'Založí kolekci (správce). Pole: seznam {popisek, typ}; typ = ' . implode(' | ', array_keys(Kolekce::TYPY_POLI)) . '. Klíč pole vznikne z popisku.',
-                $s(['nazev' => $text('Název, např. Reference'), 'pole' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => '[{"popisek":"Citát","typ":"radky"},{"popisek":"Logo","typ":"obrazek"}]'],
+                $s(['nazev' => $text('Název, např. Reference'), 'adresa' => $text('Adresa kolekce v URL (nepovinné, jinak z názvu), např. guide'),
+                    'pole' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => '[{"popisek":"Citát","typ":"radky"},{"popisek":"Logo","typ":"obrazek"}]'],
                     'detail' => ['type' => 'boolean', 'description' => 'true = každá položka má vlastní stránku /<kolekce>/<položka>']], ['nazev'])],
+            ['uprav_kolekci', 'Změní název, adresu, stránky položek nebo pole kolekce (správce). Pole = celý nový seznam; u stávajících pošli i "klic" (hodnoty položek zůstanou), pole bez klíče je nové, vynechané pole zmizí z formuláře.',
+                $s(['kolekce' => $text('současná adresa (seo_link) kolekce'), 'nazev' => $text('nový název (nepovinné)'), 'adresa' => $text('nová adresa v URL (nepovinné)'),
+                    'detail' => ['type' => 'boolean', 'description' => 'stránky položek zapnuté / vypnuté (nepovinné)'],
+                    'pole' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => '[{"klic":"citat","popisek":"Citát","typ":"radky"},{"popisek":"Nové pole","typ":"text"}] (nepovinné)']], ['kolekce'])],
             ['seznam_polozek_kolekce', 'Položky kolekce včetně hodnot polí, po 50 na stránku (celkem vrací počet). Filtr: hledaný text v názvu a hodnotách, pole=hodnota, jazyk, jen zobrazené.', $s([
                 'kolekce' => $text('adresa (seo_link) kolekce'), 'hledat' => $text('text v názvu nebo hodnotách polí (nepovinné)'),
                 'pole' => $text('klíč pole pro přesnou shodu (nepovinné)'), 'hodnota' => $text('hodnota pole pro přesnou shodu'),
@@ -113,6 +119,7 @@ final class Nastroje
             ], ['kolekce'])],
             ['uloz_polozku_kolekce', 'Přidá položku do kolekce, nebo změní existující (s id). Bez "zobrazit": true zůstane skrytá.',
                 $s(['kolekce' => $text('adresa (seo_link) kolekce'), 'id' => $cislo('ID položky – jen při úpravě'), 'nazev' => $text('Název položky'),
+                    'adresa' => $text('Adresa položky v URL (nepovinné, jinak z názvu), např. install'), 'jazyk' => $text('jazyková verze položky u vícejazyčného webu (prázdné = výchozí)'),
                     'data' => ['type' => 'object', 'description' => 'Hodnoty polí podle klíčů ze seznam_kolekci, např. {"citat":"…","logo":"media/…"}'],
                     'poradi' => $cislo('Pořadí, menší = dřív'), 'zobrazit' => ['type' => 'boolean', 'description' => 'true = položka je na webu (jen na pokyn uživatele)']], ['kolekce', 'nazev'])],
             ['seznam_novinek', 'Seznam novinek (nejnovější první).', $s(['stav' => $text('vse | vydane | plan | koncepty'), 'kategorie' => $text('název nebo adresa kategorie'), 'hledat' => $text('text v titulku'), 'limit' => $cislo('1-50, výchozí 20')])],
@@ -154,7 +161,7 @@ final class Nastroje
 
     public function meni(string $nazev): bool
     {
-        return in_array($nazev, ['vytvor_kolekci', 'uloz_polozku_kolekce', 'stavba_z_html', 'stavba_uloz', 'stavba_uprav', 'uloz_tridy', 'nahraj_soubor', 'uprav_nastaveni', 'uloz_presmerovani', 'smaz_stranku', 'vloz_sekci', 'publikuj_stavbu', 'uprav_design_system', 'vytvor_stranku', 'uprav_stranku', 'vytvor_novinku', 'uprav_novinku', 'vytvor_kategorii', 'uloz_menu', 'vytvor_sablonu', 'uloz_soubor_sablony', 'aktivuj_sablonu'], true);
+        return in_array($nazev, ['vytvor_kolekci', 'uprav_kolekci', 'uloz_polozku_kolekce', 'stavba_z_html', 'stavba_uloz', 'stavba_uprav', 'uloz_tridy', 'nahraj_soubor', 'uprav_nastaveni', 'uloz_presmerovani', 'smaz_stranku', 'vloz_sekci', 'publikuj_stavbu', 'uprav_design_system', 'vytvor_stranku', 'uprav_stranku', 'vytvor_novinku', 'uprav_novinku', 'vytvor_kategorii', 'uloz_menu', 'vytvor_sablonu', 'uloz_soubor_sablony', 'aktivuj_sablonu'], true);
     }
 
     /** @param array<string, mixed> $a */
@@ -343,14 +350,33 @@ final class Nastroje
                 if ($nazevKolekce === '') {
                     throw new \InvalidArgumentException('Chybí název kolekce.');
                 }
-                $seo = slugify($nazevKolekce, 110);
-                if (in_array($seo, Stranky::VYHRAZENE, true) || Kolekce::podleSeo($db, $seo) !== null) {
-                    throw new \InvalidArgumentException('Adresu „' . $seo . '“ už používá systém nebo jiná kolekce.');
-                }
+                $seo = $this->adresaKolekce((string) ($a['adresa'] ?? '') !== '' ? (string) $a['adresa'] : $nazevKolekce, 0);
                 $pole = Kolekce::vycistiPole($a['pole'] ?? []);
                 $db->insert('kolekce', ['nazev' => $nazevKolekce, 'seo_link' => $seo, 'detail' => empty($a['detail']) ? 0 : 1, 'pole' => (string) json_encode($pole, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s')]);
 
                 return ['kolekce' => $seo, 'pole' => $pole];
+
+            case 'uprav_kolekci':
+                $jenAdmin();
+                $kolekce = $this->kolekce((string) ($a['kolekce'] ?? ''));
+                $zmeny = ['zmeneno' => date('Y-m-d H:i:s')];
+                if (isset($a['nazev']) && trim((string) $a['nazev']) !== '') {
+                    $zmeny['nazev'] = mb_substr(trim((string) $a['nazev']), 0, 100);
+                }
+                if (isset($a['adresa']) && trim((string) $a['adresa']) !== '') {
+                    $zmeny['seo_link'] = $this->adresaKolekce((string) $a['adresa'], (int) $kolekce['idk']);
+                }
+                if (array_key_exists('detail', $a)) {
+                    $zmeny['detail'] = empty($a['detail']) ? 0 : 1;
+                }
+                if (is_array($a['pole'] ?? null)) {
+                    $zmeny['pole'] = (string) json_encode(Kolekce::vycistiPole($a['pole']), JSON_UNESCAPED_UNICODE);
+                }
+                $db->update('kolekce', $zmeny, ['idk' => $kolekce['idk']]);
+                \Kaleta\Front\Cache::vymaz();
+                $nova = (array) $db->one('SELECT * FROM {kolekce} WHERE idk = ?', [$kolekce['idk']]);
+
+                return ['kolekce' => $nova['seo_link'], 'nazev' => $nova['nazev'], 'detail' => (bool) $nova['detail'], 'pole' => json_decode((string) $nova['pole'], true) ?: []];
 
             case 'seznam_polozek_kolekce':
                 $kolekce = $this->kolekce((string) ($a['kolekce'] ?? ''));
@@ -394,18 +420,23 @@ final class Nastroje
                 }
                 $chyby = [];
                 $data = Kolekce::vycistiData($kolekce['pole'], (is_array($a['data'] ?? null) ? $a['data'] : []) + (json_decode((string) ($puvodni['data'] ?? '{}'), true) ?: []), $chyby);
-                $seo = $puvodni['seo_link'] ?? slugify($nazevPolozky, 150);
-                for ($i = 2, $zaklad = $seo; $puvodni === null && $db->value('SELECT idp FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ?', [$kolekce['idk'], $seo]) !== null; $i++) {
+                $adresa = trim((string) ($a['adresa'] ?? ''));
+                $seo = $adresa !== '' ? slugify($adresa, 150) : ($puvodni['seo_link'] ?? slugify($nazevPolozky, 150));
+                if ($seo === '' || $seo === '_ukazka') {
+                    throw new \InvalidArgumentException('Neplatná adresa položky.');
+                }
+                for ($i = 2, $zaklad = $seo; $db->value('SELECT idp FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND idp <> ?', [$kolekce['idk'], $seo, (int) ($puvodni['idp'] ?? 0)]) !== null; $i++) {
                     $seo = $zaklad . '-' . $i;
                 }
-                $radek = ['nazev' => $nazevPolozky, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s')]
+                $radek = ['nazev' => $nazevPolozky, 'seo_link' => $seo, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s')]
+                    + (array_key_exists('jazyk', $a) ? ['jazyk' => Jazyk::sloupec($web, (string) $a['jazyk'])] : [])
                     + (array_key_exists('poradi', $a) ? ['poradi' => max(-9999, min(9999, (int) $a['poradi']))] : [])
                     + (array_key_exists('zobrazit', $a) ? ['zobrazit' => (int) (bool) $a['zobrazit']] : []);
                 if ($puvodni !== null) {
                     $db->update('kolekce_polozky', $radek, ['idp' => $puvodni['idp']]);
                     $idp = (int) $puvodni['idp'];
                 } else {
-                    $idp = $db->insert('kolekce_polozky', $radek + ['idk' => $kolekce['idk'], 'seo_link' => $seo, 'datum' => date('Y-m-d H:i:s'), 'zobrazit' => 0]);
+                    $idp = $db->insert('kolekce_polozky', $radek + ['idk' => $kolekce['idk'], 'datum' => date('Y-m-d H:i:s'), 'zobrazit' => 0]);
                 }
 
                 return ['id' => $idp, 'kolekce' => $kolekce['seo_link'], 'neplatna_pole' => array_keys($chyby),
@@ -479,12 +510,9 @@ final class Nastroje
 
             case 'nahled_odkaz':
                 $cil = $this->cilStavby($a);
-                $podpis = $cil['druh'] === 'stranka' ? 'stranka:' . (int) $cil['radek']['ids'] : 'cast:' . $cil['radek']['typ'] . ':' . $cil['radek']['jazyk'];
-                $klic = \Kaleta\Core\Nahled::klic($db, $web, $podpis, (int) ($a['minut'] ?? 60));
-                $adresa = $this->adresaCile($cil);
+                $minut = max(1, min(10080, (int) ($a['minut'] ?? 60)));
 
-                return $this->popisCile($cil) + ['nahled' => $adresa . '?' . ($cil['druh'] === 'cast' ? 'cast=' . $cil['radek']['typ'] . '&' : '') . 'stavba=koncept&nahled_klic=' . $klic,
-                    'plati_do' => date('Y-m-d H:i', (int) explode('.', $klic)[0])];
+                return $this->popisCile($cil) + ['nahled' => $this->nahledCile($cil, $minut), 'plati_do' => date('Y-m-d H:i', time() + $minut * 60)];
 
             case 'uprav_nastaveni':
                 $jenAdmin();
@@ -813,6 +841,18 @@ final class Nastroje
         $auth = $this->app->auth();
         $db = $this->app->db();
         $web = $this->app->settings();
+        if (isset($a['kolekce']) && $a['kolekce'] !== '') {
+            if (!$auth->isAdmin()) {
+                throw new \DomainException('Šablonu detailu kolekce smí měnit jen správce webu.');
+            }
+            $radek = \Kaleta\Stavitel\Kolekce::podleSeo($db, (string) $a['kolekce']) ?? throw new \InvalidArgumentException('Kolekce neexistuje. Použij nástroj seznam_kolekci.');
+            if ($radek['stavba'] === null && $radek['stavba_koncept'] === null) {
+                // šablona, kterou by ukázal builder, dokud ji nikdo neupravil
+                $radek['stavba_koncept'] = Stavba::naJson(\Kaleta\Stavitel\Kolekce::vychoziSablona($radek));
+            }
+
+            return ['druh' => 'kolekce', 'radek' => $radek, 'stavba' => $radek['stavba'], 'koncept' => $radek['stavba_koncept'], 'jazyk' => Jazyk::obsahu($web, '')];
+        }
         if (isset($a['cast']) && $a['cast'] !== '') {
             if (!$auth->isAdmin()) {
                 throw new \DomainException('Části webu (záhlaví, patičku, obálky) smí měnit jen správce webu.');
@@ -850,9 +890,11 @@ final class Nastroje
     /** @return array<string, mixed> */
     private function popisCile(array $cil): array
     {
-        return $cil['druh'] === 'stranka'
-            ? ['id' => (int) $cil['radek']['ids'], 'titulek' => $cil['radek']['titulek']]
-            : ['cast' => $cil['radek']['typ'], 'jazyk' => $cil['radek']['jazyk'], 'titulek' => Casti::TYPY[$cil['radek']['typ']][0]];
+        return match ($cil['druh']) {
+            'stranka' => ['id' => (int) $cil['radek']['ids'], 'titulek' => $cil['radek']['titulek']],
+            'kolekce' => ['kolekce' => $cil['radek']['seo_link'], 'titulek' => 'Detail: ' . $cil['radek']['nazev'], 'detail_zapnuty' => (bool) $cil['radek']['detail']],
+            default => ['cast' => $cil['radek']['typ'], 'jazyk' => $cil['radek']['jazyk'], 'titulek' => Casti::TYPY[$cil['radek']['typ']][0]],
+        };
     }
 
     private function publikujCil(array $cil): void
@@ -860,6 +902,11 @@ final class Nastroje
         $db = $this->app->db();
         if ($cil['druh'] === 'stranka') {
             Publikace::stranka($this->app, (array) $db->one('SELECT * FROM {stranky} WHERE ids = ?', [$cil['radek']['ids']]));
+        } elseif ($cil['druh'] === 'kolekce') {
+            $radek = (array) $db->one('SELECT * FROM {kolekce} WHERE idk = ?', [$cil['radek']['idk']]);
+            // výchozí šablona, kterou nikdo neuložil, se publikuje taky (jinak by nebylo co publikovat)
+            $radek['stavba_koncept'] ??= $cil['koncept'];
+            Publikace::kolekce($this->app, $radek);
         } else {
             Publikace::cast($this->app, (array) Casti::radek($db, $cil['radek']['typ'], $cil['radek']['jazyk'], (string) $cil['radek']['varianta']));
         }
@@ -873,25 +920,49 @@ final class Nastroje
         $r = $cil['radek'];
         if ($cil['druh'] === 'stranka') {
             $db->update('stranky', ['stavba_koncept' => Stavba::naJson($stavba)], ['ids' => $r['ids']]);
+        } elseif ($cil['druh'] === 'kolekce') {
+            $db->update('kolekce', ['stavba_koncept' => Stavba::naJson($stavba)], ['idk' => $r['idk']]);
+            $cil['koncept'] = Stavba::naJson($stavba);
         } else {
             $db->update('casti', ['stavba_koncept' => Stavba::naJson($stavba)], ['typ' => $r['typ'], 'jazyk' => $r['jazyk'], 'varianta' => $r['varianta']]);
         }
         if ($publikovat) {
             $this->publikujCil($cil);
         }
-        $adresa = $this->adresaCile($cil);
-        $parametry = $cil['druh'] === 'stranka' ? 'modul=stranky&akce=stavitel&id=' . (int) $r['ids'] : 'modul=casti&akce=stavitel&typ=' . $r['typ'] . '&jazyk=' . $r['jazyk'];
+        $parametry = match ($cil['druh']) {
+            'stranka' => 'modul=stranky&akce=stavitel&id=' . (int) $r['ids'],
+            'kolekce' => 'modul=kolekce&akce=stavitel&id=' . (int) $r['idk'],
+            default => 'modul=casti&akce=stavitel&typ=' . $r['typ'] . '&jazyk=' . $r['jazyk'],
+        };
 
         return $this->popisCile($cil) + ['stav' => $publikovat ? 'publikováno' : 'koncept – na webu se ukáže po publikování', 'prvku' => $this->pocetPrvku($stavba['deti']),
-            'chyby' => $chyby, 'nahled' => $publikovat ? $adresa : $adresa . ($cil['druh'] === 'stranka' ? '?stavba=koncept' : '?cast=' . $r['typ'] . '&stavba=koncept')
-                . '&nahled_klic=' . \Kaleta\Core\Nahled::klic($db, $this->app->settings(), $cil['druh'] === 'stranka' ? 'stranka:' . (int) $r['ids'] : 'cast:' . $r['typ'] . ':' . $r['jazyk'], 60),
+            'chyby' => $chyby, 'nahled' => $publikovat ? $this->adresaCile($cil) : $this->nahledCile($cil, 60),
             'stavitel' => $this->app->request->origin() . $this->app->url('admin.php?' . $parametry)];
     }
 
-    /** Veřejná adresa, na které je cíl vidět (u části webu úvodní stránka, detail novinky, výpis, 404). */
+    /** Podepsaný odkaz na koncept cíle (platí jen pro tenhle cíl a omezenou dobu). */
+    private function nahledCile(array $cil, int $minut): string
+    {
+        $r = $cil['radek'];
+        $podpis = match ($cil['druh']) {
+            'stranka' => 'stranka:' . (int) $r['ids'],
+            'kolekce' => 'kolekce:' . (int) $r['idk'],
+            default => 'cast:' . $r['typ'] . ':' . $r['jazyk'],
+        };
+        $klic = \Kaleta\Core\Nahled::klic($this->app->db(), $this->app->settings(), $podpis, $minut);
+
+        return $this->adresaCile($cil) . '?' . ($cil['druh'] === 'cast' ? 'cast=' . $r['typ'] . '&' : '') . 'stavba=koncept&nahled_klic=' . $klic;
+    }
+
+    /** Veřejná adresa, na které je cíl vidět (u části webu úvodní stránka, detail novinky, výpis, 404; u kolekce první položka). */
     private function adresaCile(array $cil): string
     {
         $r = $cil['radek'];
+        if ($cil['druh'] === 'kolekce') {
+            $polozka = $this->app->db()->value('SELECT seo_link FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? ORDER BY zobrazit DESC, poradi, idp LIMIT 1', [$r['idk'], Jazyk::sloupecWebu()]);
+
+            return $this->app->request->origin() . $this->app->url($r['seo_link'] . '/' . ($polozka ?? '_ukazka'));
+        }
         if ($cil['druh'] === 'stranka') {
             $uvod = $this->app->settings()->int('titulni_stranka') === (int) $r['ids'];
             $cesta = $uvod ? '' : $r['seo_link'];
@@ -972,6 +1043,18 @@ final class Nastroje
     }
 
     /** @return array<string, mixed> */
+    /** Volná adresa kolekce: ne systémová cesta, kód jazyka ani adresa jiné kolekce. */
+    private function adresaKolekce(string $zadano, int $idk): string
+    {
+        $seo = slugify($zadano, 110);
+        if ($seo === '' || in_array($seo, Stranky::VYHRAZENE, true) || isset(Jazyk::DOSTUPNE[$seo])
+            || $this->app->db()->value('SELECT idk FROM {kolekce} WHERE seo_link = ? AND idk <> ?', [$seo, $idk]) !== null) {
+            throw new \InvalidArgumentException('Adresu „' . $seo . '“ už používá systém nebo jiná kolekce.');
+        }
+
+        return $seo;
+    }
+
     private function kolekce(string $seo): array
     {
         return Kolekce::podleSeo($this->app->db(), $seo) ?? throw new \InvalidArgumentException('Kolekce neexistuje. Použij seznam_kolekci.');

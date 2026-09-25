@@ -155,7 +155,7 @@ Claude Code umí i přihlášení přes OAuth: stačí `claude mcp add --transpo
 hlavičky a při prvním použití potvrdit přístup v prohlížeči.
 
 Claude pak s právy vašeho účtu postaví celý web: nastaví vzhled (barvy, písma, sdílené třídy), nahraje obrázky a písma
-do Médií, poskládá stránky, záhlaví a patičku, opraví jednotlivé prvky podle id, nastaví název webu, údaje firmy
+do Médií, poskládá stránky, záhlaví, patičku a stránku položky kolekce, opraví jednotlivé prvky podle id, nastaví název webu, údaje firmy
 a přesměrování starých adres a píše novinky. Po každé úpravě stavby dostane **podepsaný odkaz na náhled** konceptu
 (platí 60 minut, otevře ho i bez přihlášení) – zkontroluje si výsledek a odkaz může poslat i vám. Stavby stránek
 a částí webu i novinky vznikají jako **koncept** a publikuje je jen na váš pokyn (a jen s právem vydávat). Rovnou

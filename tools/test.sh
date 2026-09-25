@@ -338,6 +338,16 @@ over "mapa webu obsahuje detail položky" 200 /sitemap.xml "/tym/jana-novakova"
 over "šablona detailu v builderu" 200 "/admin.php?modul=kolekce&akce=stavitel&id=$IDK" 'id="stavitel-data"'
 mcp seznam_kolekci '{}' > "$PRACE/odpoved"; grep -q 'kolekce\\":\\"tym' "$PRACE/odpoved" && grep -q 'medailonek' "$PRACE/odpoved" && echo "  ok     MCP: seznam kolekcí s poli" || { echo "  CHYBA  MCP seznam_kolekci"; CHYB=$((CHYB+1)); }
 mcp uloz_polozku_kolekce '{"kolekce":"tym","nazev":"Petr Svoboda","data":{"funkce":"Mistr truhlář"},"zobrazit":true}' > /dev/null
+mcp uloz_polozku_kolekce '{"kolekce":"tym","nazev":"Zdenek Zeman","adresa":"zdenek","zobrazit":true}' > "$PRACE/odpoved"
+grep -q 'tym\\/zdenek' "$PRACE/odpoved" && echo "  ok     MCP: vlastní adresa položky" || { echo "  CHYBA  MCP adresa položky"; head -c 300 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+mcp stavba_uloz '{"kolekce":"tym","stavba":{"v":1,"deti":[{"typ":"sekce","deti":[{"typ":"nadpis","znacka":"h1","obsah":{"text":"Profil: {{nazev}}"}}]}]}}' > "$PRACE/odpoved"
+NAHLED=$(php -r '$o = json_decode(file_get_contents($argv[1]), true); echo json_decode($o["result"]["content"][0]["text"] ?? "{}", true)["nahled"] ?? "";' "$PRACE/odpoved")
+[ -n "$NAHLED" ] && curl -s "$NAHLED" | grep -q 'Profil: ' && echo "  ok     MCP: šablona detailu kolekce jako koncept s podepsaným náhledem" || { echo "  CHYBA  MCP šablona detailu kolekce"; head -c 400 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+curl -s "$B/tym/zdenek" | grep -q 'Profil: ' && { echo "  CHYBA  koncept šablony kolekce je vidět bez publikování"; CHYB=$((CHYB+1)); } || echo "  ok     koncept šablony kolekce návštěvník nevidí"
+mcp publikuj_stavbu '{"kolekce":"tym"}' > /dev/null; rm -f "$PRACE"/web/storage/cache/stranky/*.html
+over "MCP: publikovaná šablona detailu kolekce" 200 /tym/zdenek "Profil: Zdenek Zeman"
+mcp uprav_kolekci '{"kolekce":"tym","nazev":"Nas tym"}' > "$PRACE/odpoved"
+grep -q 'Nas tym' "$PRACE/odpoved" && grep -q 'medailonek' "$PRACE/odpoved" && echo "  ok     MCP: úprava kolekce ponechá pole" || { echo "  CHYBA  MCP uprav_kolekci"; head -c 300 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
 over "MCP: nová položka je ve výpisu" 200 /z-html "Mistr truhlář"
 mcp stavba_uloz "{\"id\":$IDZ,\"publikovat\":true,\"stavba\":{\"v\":1,\"deti\":[{\"typ\":\"sekce\",\"deti\":[{\"id\":\"vyp1\",\"typ\":\"kolekce\",\"obsah\":{\"kolekce\":\"tym\",\"pocet\":1,\"razeni\":\"nazev\",\"filtr_pole\":\"funkce\",\"filtry\":true,\"strankovani\":true},\"deti\":[{\"typ\":\"nadpis\",\"znacka\":\"h3\",\"obsah\":{\"text\":\"{{nazev}}\"}}]}]}]}}" > /dev/null

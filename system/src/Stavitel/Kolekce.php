@@ -205,20 +205,20 @@ final class Kolekce
         if (!str_contains($text, '{{')) {
             return $text;
         }
-        if ($cil === 'html') {
-            // odstavec jen se značkou formátovaného nebo delšího textu se nahradí celý (jinak by vzniklo <p><p>…</p></p>)
-            $text = (string) preg_replace_callback('#<p>\s*\{\{([a-z][a-z0-9_]{0,30})\}\}\s*</p>#', function (array $m) use ($hodnoty): string {
-                [$h, $typ] = $hodnoty[$m[1]] ?? ['', 'text'];
-
+        // jeden průchod: dosazená hodnota se už znovu neprochází (značky {{…}} napsané v textu pole zůstanou textem)
+        $znacka = substr(self::VZOR_ZNACKY, 1, -1);
+        $vzor = $cil === 'html' ? '#<p>\s*' . $znacka . '\s*</p>|' . $znacka . '#' : self::VZOR_ZNACKY;
+        $vysledek = (string) preg_replace_callback($vzor, function (array $m) use ($cil, $hodnoty): string {
+            $klic = ($m[1] ?? '') !== '' ? $m[1] : $m[2];
+            [$h, $typ] = $hodnoty[$klic] ?? ['', 'text'];
+            if ($cil === 'html' && ($m[1] ?? '') !== '') {
+                // odstavec jen se značkou formátovaného nebo delšího textu se nahradí celý (jinak by vzniklo <p><p>…</p></p>)
                 return match ($typ) {
                     'html' => $h,
                     'radky' => $h === '' ? '' : '<p>' . nl2br(e($h), false) . '</p>',
                     default => $h === '' ? '' : '<p>' . e($h) . '</p>',
                 };
-            }, $text);
-        }
-        $vysledek = (string) preg_replace_callback(self::VZOR_ZNACKY, function (array $m) use ($cil, $hodnoty): string {
-            [$h, $typ] = $hodnoty[$m[1]] ?? ['', 'text'];
+            }
             $prosty = $typ === 'html' ? trim(html_entity_decode(strip_tags($h), ENT_QUOTES | ENT_HTML5)) : $h;
 
             return match ($cil) {
