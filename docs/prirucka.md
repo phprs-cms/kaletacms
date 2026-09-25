@@ -6,8 +6,8 @@ Návod pro toho, kdo web spravuje: od instalace přes builder stránek až po na
 ## 1. Instalace a první kroky
 
 1. Nahrajte soubory na hosting (PHP 8.4+, MySQL 8 / MariaDB 10.6+), založte prázdnou databázi a otevřete `/install.php`.
-2. Ve formuláři vyberte **ukázkový web**: *Firemní web*, *Řemeslo a služby*, nebo *Poradenství a agentura*. Každý
-   přinese vlastní vzhled a stránky Úvod, O nás, Služby a Kontakt z hotových sekcí s ukázkovými texty.
+2. Ve formuláři vyberte **startovací web**: *Firemní web*, *Řemeslo a služby*, nebo *Poradenství a agentura*. Každý
+   přinese vlastní styl a stránky Úvod, O nás, Služby a Kontakt z hotových sekcí s ukázkovými texty.
 3. Vyberte, **co chcete mít zapnuté**: Novinky, Formuláře a poptávky, Newsletter, Statistiku, Přesměrování, jazykové
    verze, AI asistenta… Rozšíření jde kdykoli zapnout a vypnout v administraci (**Rozšíření**); vypnutím se nic nesmaže.
 4. Instalace založí i skrytou kostru **Zásad ochrany osobních údajů** v jazyce webu s odkazem v patičce, v cookie liště a u souhlasu ve formuláři. Doplňte údaje v hranatých závorkách a stránku zveřejněte.
@@ -56,19 +56,24 @@ a sdílení). Smazaná stránka jde do **koše** a 30 dní ji jde obnovit; **Dup
 
 ## 3. Vzhled webu
 
-**Vzhled → Vzhled webu** mění celý web najednou:
+**Vzhled → Vzhled webu** mění celý web najednou. Tři pojmy, všude ve stejném smyslu: **startovací web** je ukázkový
+obsah se stylem (vybíráte ho při instalaci), **styl** je hotová sada barev, písem, velikostí a zaoblení a **šablona** je
+jen stará vlastní PHP šablona, kterou mají některé weby z dřívějška.
 
-- **Předvolby** – hotový vzhled jedním klikem (barvy, písma, velikosti), pak ho dolaďte.
+Stránka má záložky:
+
+- **Styl** – styl vyberete jedním klikem a v dalších záložkách ho dolaďte. Styl, ze kterého web vychází, je označený
+  jako *aktuální*. Vzhled podle vaší značky nechte navrhnout Clauda – barvy a písma uloží do design systému.
 - **Barvy** – hlavní, doplňková, text, pozadí, plocha. Odstíny se dopočítají samy. Blok **Čitelnost** hlídá kontrast
   podle WCAG; červeně označenou dvojici barev změňte.
 - **Tmavý režim** – vypnutý (vždy světlý), podle zařízení návštěvníka, nebo vždy tmavý – s vlastní barvou textu, pozadí
   a plochy. **Přepínač pro návštěvníky** přidá do záhlaví vedle jazyků volbu světlý / tmavý / podle zařízení; volba se
   pamatuje v prohlížeči návštěvníka.
-- **Písma**, **velikosti** (základní písmo na telefonu a monitoru, poměr nadpisů, šířka obsahu), **zaoblení rohů**, logo a ikona.
-
-- **Typografické styly** – velikost a tloušťka pojmenovaných stylů (Hlavní titulek, Nadpis sekce, Perex…), které ve
-  builderu vyberete u prvku. Změna tady se projeví na celém webu.
-- **Design tokeny** – stažení a načtení vzhledu ve formátu W3C Design Tokens (DTCG) pro Figmu nebo Tokens Studio.
+- **Písmo a velikosti** – písmo titulků a textu (i vlastní soubory WOFF2), základní písmo na telefonu a monitoru, poměr
+  nadpisů, šířka obsahu a **typografické styly** (Hlavní titulek, Nadpis sekce, Perex…), které v builderu vyberete u prvku.
+- **Tvary** – zaoblení tlačítek, karet, obrázků a polí formulářů.
+- **Logo a ikona**.
+- **Import a export** – stažení a načtení vzhledu ve formátu W3C Design Tokens (DTCG) pro Figmu nebo Tokens Studio.
 
 Vpravo je živý náhled úvodní stránky (počítač / telefon). Nic se neukládá, dokud nestisknete Uložit vzhled.
 

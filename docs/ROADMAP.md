@@ -35,7 +35,7 @@ header and footer:
 - **Results:** views, closes and conversions (form sent) per pop-up, counted cookie-free like the site statistics.
 - Claude can create and change pop-ups over MCP like other site parts.
 
-### Site appearance, clearer
+### Site appearance, clearer (done, in main)
 
 - One set of words everywhere: a **starter site** is content plus a style (chosen at installation), a **style** is a
   ready set of colours, fonts and corner radius, a **theme** is only the legacy custom PHP theme.

@@ -67,6 +67,41 @@
 		});
 	}
 
+	// Záložky uvnitř jedné stránky (Vzhled webu): šipky, Home a End; po uložení se vrátí poslední záložka; pole, které
+	// neprojde kontrolou prohlížeče, ukáže svou záložku. Bez skriptu jsou vidět všechny panely pod sebou.
+	document.querySelectorAll('[data-zalozky]').forEach(function (obal) {
+		var tlacitka = Array.prototype.slice.call(obal.querySelectorAll('[role="tab"]'));
+		var panely = tlacitka.map(function (t) { return document.getElementById(t.getAttribute('aria-controls')); });
+		var ulozit = obal.querySelector('.vzhled-ulozit');
+		var klic = 'ka-zalozka' + location.search;
+		var ukaz = function (i, fokus) {
+			tlacitka.forEach(function (t, j) {
+				t.setAttribute('aria-selected', i === j ? 'true' : 'false');
+				t.tabIndex = i === j ? 0 : -1;
+				if (panely[j]) { panely[j].hidden = i !== j; }
+			});
+			if (ulozit) { ulozit.hidden = !obal.querySelector('.vzhled-formular').contains(panely[i]); } // import a export mají vlastní tlačítka
+			if (fokus) { tlacitka[i].focus(); }
+			try { sessionStorage.setItem(klic, tlacitka[i].id); } catch (chyba) { /* soukromý režim */ }
+		};
+		tlacitka.forEach(function (t, i) {
+			t.addEventListener('click', function () { ukaz(i, false); });
+			t.addEventListener('keydown', function (e) {
+				var cil = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tlacitka.length - 1 }[e.key];
+				if (cil === undefined) { return; }
+				e.preventDefault();
+				ukaz((cil + tlacitka.length) % tlacitka.length, true);
+			});
+		});
+		obal.addEventListener('invalid', function (e) {
+			var i = panely.indexOf(e.target.closest('[role="tabpanel"]'));
+			if (i >= 0) { ukaz(i, false); }
+		}, true);
+		var ulozena = null;
+		try { ulozena = sessionStorage.getItem(klic); } catch (chyba) { /* soukromý režim */ }
+		ukaz(Math.max(0, tlacitka.findIndex(function (t) { return t.id === ulozena; })), false);
+	});
+
 	// Vzhled webu: předvolby a živý náhled skutečné úvodní stránky. CSS tokenů počítá server (akce nahled) – jediný výpočet v PHP.
 	var vzhled = document.querySelector('[data-vzhled]');
 	if (vzhled) {

@@ -69,7 +69,6 @@ return [
     'Teplé barvy, postup práce, realizace a záruky.' => 'Warm colours, how you work, projects and guarantees.',
     'Poradenství a agentura' => 'Consulting and agency',
     'Elegantní vzhled, klienti, balíčky služeb a tým.' => 'An elegant look, clients, service packages and the team.',
-    'Úvod, O nás, Služby a Kontakt s ukázkovými texty – vše pak upravíte v builderu, vzhled ve Vzhledu webu.' => 'Home, About us, Services and Contact with sample texts – edit everything in the builder and the look in Site appearance.',
     'Pár krátkých kroků a váš web běží. Vše lze později změnit v administraci.' => 'A few short steps and your website is running. Everything can be changed later in the administration.',
     'Co chcete mít zapnuté' => 'What you want switched on',
     'Rozšíření lze kdykoli zapnout nebo vypnout v administraci (Rozšíření). Vypnutím se nic nesmaže.' => 'Extensions can be switched on or off at any time in the administration (Extensions). Switching off deletes nothing.',
@@ -104,4 +103,5 @@ return [
     'K databázovému serveru se nepodařilo připojit. Zkontrolujte server a port.' => 'Could not connect to the database server. Check the server and port.',
     'Jazyk webu' => 'Website language',
     'V tomto jazyce vzniknou ukázkové stránky a texty pro návštěvníky. Administrace zůstane v jazyce instalace.' => 'The sample pages and the texts for visitors are created in this language. The administration stays in the language of the installation.',
+    'Startovací web přinese stránky Úvod, O nás, Služby a Kontakt s ukázkovými texty a svůj styl – obsah pak upravíte v builderu, styl ve Vzhledu webu.' => 'A starter site brings Home, About us, Services and Contact pages with sample texts and its own style – edit the content in the builder and the style in Site appearance.',
 ];

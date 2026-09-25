@@ -233,6 +233,7 @@
 		}
 		var telefon = window.matchMedia('(max-width: 767px)').matches;
 		var ohlas = function (okno, udalost) {
+			if (!okno.getAttribute('data-pocitadlo')) { return; } // přihlášený správce – nepočítá se
 			var data = new FormData();
 			data.append('id', okno.getAttribute('data-popup'));
 			data.append('udalost', udalost);

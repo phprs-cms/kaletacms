@@ -1,6 +1,8 @@
 <?php
 /**
- * Vzhled webu: předvolby a design systém (barvy, písma, velikosti, šířka, zaoblení) s živým náhledem skutečné úvodní stránky.
+ * Vzhled webu: styly (hotové sady barev, písem a zaoblení – DesignSystem::PREDVOLBY) a design systém v záložkách
+ * (barvy, tmavý režim, písmo a velikosti, tvary, značka, import a export) s živým náhledem skutečné úvodní stránky.
+ * Záložky přepíná image/admin.js (data-zalozky); bez skriptu je vidět celý formulář najednou.
  * Náhled obstarává image/admin.js (data-vzhled): po každé změně si vyžádá CSS tokenů (akce nahled) a vloží ho do iframe.
  *
  * @var Kaleta\Core\App $app
@@ -24,25 +26,45 @@ $kontrastyHtml = function (array $kontrasty): string {
 
     return $html;
 };
+// styl, ze kterého současný vzhled vychází (barvy a písmo titulků jako u stylu)
+$aktualni = null;
+foreach ($predvolby as $klic => $p) {
+    if ($p['ds']['barvy']['primarni'] === $ds['barvy']['primarni'] && $p['ds']['barvy']['sekundarni'] === $ds['barvy']['sekundarni'] && $p['ds']['pismo_titulky'] === $ds['pismo_titulky']) {
+        $aktualni = $klic;
+        break;
+    }
+}
+$zalozky = ['styl' => 'Styl', 'barvy' => 'Barvy', 'tmavy' => 'Tmavý režim', 'pismo' => 'Písmo a velikosti', 'tvary' => 'Tvary', 'znacka' => 'Logo a ikona', 'export' => 'Import a export'];
 ?>
-<div class="vzhled">
+<div class="vzhled" data-zalozky>
+<div class="zalozky" role="tablist" aria-label="<?= e(t('Části vzhledu')) ?>">
+<?php foreach ($zalozky as $klic => $nazev): ?>
+	<button type="button" role="tab" id="zalozka-<?= $klic ?>" aria-controls="panel-<?= $klic ?>" aria-selected="<?= $klic === 'styl' ? 'true' : 'false' ?>"<?= $klic === 'styl' ? '' : ' tabindex="-1"' ?>><?= e(t($nazev)) ?></button>
+<?php endforeach ?>
+</div>
 <form class="formular vzhled-formular" method="post" action="<?= e($modul->url('uloz')) ?>" data-vzhled data-nahled-url="<?= e($modul->url('nahled')) ?>">
 <?= $csrf ?>
 
+<div role="tabpanel" id="panel-styl" aria-labelledby="zalozka-styl">
 <fieldset>
-<legend><?= e(t('Předvolby')) ?></legend>
-<p class="napoveda"><?= e(t('Celý vzhled jedním klikem – barvy, písma i velikosti. Pak ho můžete doladit níže.')) ?></p>
+<legend><?= e(t('Styly')) ?></legend>
+<p class="napoveda"><?= e(t('Styl je hotová sada barev, písem, velikostí a zaoblení. Vyberte ho jedním klikem a v dalších záložkách dolaďte – obsah webu se nemění.')) ?></p>
 <div class="vzhled-predvolby">
 <?php foreach ($predvolby as $klic => $p): ?>
 	<button type="button" class="vzhled-predvolba" data-predvolba="<?= e((string) json_encode($p['ds'], JSON_UNESCAPED_SLASHES)) ?>">
 		<span class="vzhled-vzorky"><?php foreach (['primarni', 'sekundarni', 'text', 'plocha'] as $b): ?><i style="background:<?= e($p['ds']['barvy'][$b]) ?>"></i><?php endforeach ?></span>
 		<strong style="font-family:<?= e(Identita::PISMA_TITULKU[$p['ds']['pismo_titulky']][2]) ?>"><?= e(t($p['nazev'])) ?></strong>
 		<small><?= e(t($p['popis'])) ?></small>
+<?php if ($klic === $aktualni): ?>		<span class="stitek stitek-vydano"><?= e(t('aktuální')) ?></span>
+<?php endif ?>
 	</button>
 <?php endforeach ?>
 </div>
+<p class="napoveda"><?= e(t('Vzhled podle vaší značky nemusíte skládat ručně: připojte Clauda a napište mu třeba „Nastav vzhled webu podle naší značky – hlavní barva #0E6E6E, titulky patkovým písmem, jemné zaoblení“. Barvy a písma uloží do design systému, výsledek uvidíte tady.')) ?> <a href="<?= e($app->url('admin.php?modul=rozsireni#claude')) ?>"><?= e(t('Jak připojit Clauda')) ?></a></p>
 </fieldset>
+</div>
 
+<div role="tabpanel" id="panel-barvy" aria-labelledby="zalozka-barvy">
 <fieldset>
 <legend><?= e(t('Barvy')) ?></legend>
 <div class="vzhled-barvy">
@@ -58,7 +80,9 @@ $kontrastyHtml = function (array $kontrasty): string {
 <ul class="vzhled-kontrasty" data-kontrasty><?= $kontrastyHtml($kontrasty) ?></ul>
 <p class="napoveda"><?= e(t('Text by měl mít kontrast aspoň 4,5 : 1 (WCAG AA). Červeně označené dvojice budou pro část návštěvníků špatně čitelné.')) ?></p>
 </fieldset>
+</div>
 
+<div role="tabpanel" id="panel-tmavy" aria-labelledby="zalozka-tmavy">
 <fieldset>
 <legend><?= e(t('Tmavý režim')) ?></legend>
 <div class="volby">
@@ -77,7 +101,9 @@ $kontrastyHtml = function (array $kontrasty): string {
 </div>
 <label class="vzhled-prepinac" data-sekce="tmave"<?= !in_array($hodnoty['tmavy_rezim'], ['auto', 'tmavy'], true) ? ' hidden' : '' ?>><input type="checkbox" name="tmavy_prepinac" value="1"<?= $hodnoty['tmavy_prepinac'] === '1' ? ' checked' : '' ?>> <?= e(t('Přepínač pro návštěvníky – v záhlaví si zvolí světlý, tmavý nebo vzhled podle zařízení (volba se pamatuje v jejich prohlížeči)')) ?></label>
 </fieldset>
+</div>
 
+<div role="tabpanel" id="panel-pismo" aria-labelledby="zalozka-pismo">
 <fieldset>
 <legend><?= e(t('Písmo')) ?></legend>
 <div class="radek">
@@ -161,7 +187,9 @@ $kontrastyHtml = function (array $kontrasty): string {
 </tbody>
 </table></div>
 </fieldset>
+</div>
 
+<div role="tabpanel" id="panel-tvary" aria-labelledby="zalozka-tvary">
 <fieldset>
 <legend><?= e(t('Zaoblení rohů')) ?></legend>
 <div class="vzhled-zaobleni">
@@ -169,8 +197,11 @@ $kontrastyHtml = function (array $kontrasty): string {
 	<label><input type="radio" name="ds[zaobleni]" value="<?= e($klic) ?>"<?= $ds['zaobleni'] === $klic ? ' checked' : '' ?>><i style="border-radius:<?= e($klic === 'plne' ? '999px' : DesignSystem::ZAOBLENI[$klic]) ?>"></i><?= e(t($nazev)) ?></label>
 <?php endforeach ?>
 </div>
+<p class="napoveda"><?= e(t('Zaoblení dostanou tlačítka, karty, obrázky a pole formulářů na celém webu.')) ?></p>
 </fieldset>
+</div>
 
+<div role="tabpanel" id="panel-znacka" aria-labelledby="zalozka-znacka">
 <fieldset>
 <legend><?= e(t('Logo a ikona')) ?></legend>
 <div class="radek"><label for="logo_webu"><?= e(t('Logo')) ?></label><div><input class="textpole siroke" type="text" id="logo_webu" name="logo_webu" value="<?= e($hodnoty['logo_webu']) ?>" maxlength="255" placeholder="<?= e(t('bez loga se v záhlaví zobrazí název webu')) ?>" data-obrazek><span class="napoveda"><?= e(t('Nejlépe PNG s průhledným pozadím, výška aspoň 120 px.')) ?></span></div></div>
@@ -194,12 +225,14 @@ $kontrastyHtml = function (array $kontrasty): string {
 <?php else: ?>
 <input type="hidden" name="layout" value="<?= e((string) array_key_first($layouty)) ?>">
 <?php endif ?>
+</div>
 
 <p class="tlacitka vzhled-ulozit"><input class="tl" type="submit" value="<?= e(t('Uložit vzhled')) ?>"> <span class="napoveda" data-neulozeno hidden><?= e(t('Náhled ukazuje neuložené změny.')) ?></span></p>
 </form>
 
-<details class="pokrocile">
-<summary><?= e(t('Design tokeny (Figma, Tokens Studio)')) ?></summary>
+<div role="tabpanel" id="panel-export" aria-labelledby="zalozka-export" class="vzhled-export">
+<fieldset>
+<legend><?= e(t('Design tokeny (Figma, Tokens Studio)')) ?></legend>
 <p class="napoveda"><?= e(t('Barvy, písma, velikosti a typografické styly ve formátu W3C Design Tokens (DTCG). Export Kalety se dá načíst zpět celý, z jiného nástroje se převezmou barvy.')) ?></p>
 <p class="navigace-radek"><a class="navigace" href="<?= e($modul->url('tokeny')) ?>"><?= e(t('Stáhnout tokeny (.tokens.json)')) ?></a></p>
 <form class="navigace-radek" method="post" action="<?= e($modul->url('tokeny_import')) ?>" enctype="multipart/form-data" data-potvrdit="<?= e(t('Načíst tokeny? Přepíší nastavení vzhledu výše.')) ?>">
@@ -207,7 +240,8 @@ $kontrastyHtml = function (array $kontrasty): string {
 	<input type="file" name="tokeny" accept=".json,application/json" required aria-label="<?= e(t('Soubor s tokeny')) ?>">
 	<button class="navigace" type="submit"><?= e(t('Načíst tokeny')) ?></button>
 </form>
-</details>
+</fieldset>
+</div>
 
 <aside class="vzhled-nahled">
 	<div class="vzhled-nahled-lista">
@@ -217,6 +251,6 @@ $kontrastyHtml = function (array $kontrasty): string {
 			<button type="button" data-zarizeni="mobil" aria-pressed="false"><?= e(t('Telefon')) ?></button>
 		</span>
 	</div>
-	<div class="vzhled-ramec" data-ramec><iframe src="<?= e($app->url('')) ?>" title="<?= e(t('Náhled úvodní stránky')) ?>" data-nahled></iframe></div>
+	<div class="vzhled-ramec" data-ramec><iframe src="<?= e($app->url('') . '?nahled=vzhled') ?>" title="<?= e(t('Náhled úvodní stránky')) ?>" data-nahled></iframe></div>
 </aside>
 </div>

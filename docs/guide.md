@@ -7,7 +7,7 @@ For whoever runs the site: from installation through the page builder to connect
 
 1. Upload the files to hosting (PHP 8.4+, MySQL 8 / MariaDB 10.6+), create an empty database and open `/install.php`.
 2. In the form, choose a **starter site**: *Business website*, *Crafts and services* or *Consulting and agency*. Each brings
-   its own look and Home, About us, Services and Contact pages built from ready-made sections with sample texts.
+   its own style and Home, About us, Services and Contact pages built from ready-made sections with sample texts.
 3. Choose **what you want switched on**: News, Forms and enquiries, Newsletter, Statistics, Redirects, language versions,
    the AI assistant… Extensions can be switched on and off at any time in the admin (**Extensions**); switching off deletes nothing.
 4. The installation also creates a hidden draft **Privacy policy** page in the site language, linked from the footer, the cookie bar and the form consent. Fill in the details in square brackets and publish it.
@@ -57,19 +57,24 @@ sharing). A deleted page goes to the **trash** and can be restored for 30 days; 
 
 ## 3. Site appearance
 
-**Appearance → Site appearance** changes the whole site at once:
+**Appearance → Site appearance** changes the whole site at once. Three words, used the same way everywhere:
+a **starter site** is sample content plus a style (you choose it at installation), a **style** is a ready set of colours,
+fonts, sizes and corner radius, and a **theme** is only the old custom PHP theme some sites still have.
 
-- **Presets** – a finished look in one click (colours, fonts, sizes), then fine-tune it.
+The page has tabs:
+
+- **Style** – pick a style in one click, then fine-tune it in the other tabs. The style your site is using is marked
+  *current*. For a look built from your brand, ask Claude – it saves colours and fonts to the design system.
 - **Colours** – primary, secondary, text, background, surface. Shades are derived automatically. The **Readability** block
   checks WCAG contrast; change any pair marked in red.
 - **Dark mode** – off (always light), matching the visitor's device, or always dark – with its own text, background and surface
   colours. A **switcher for visitors** adds a light / dark / match-device choice to the header next to the languages; the
   choice is remembered in the visitor's browser.
-- **Fonts**, **sizes** (base font on phones and monitors, heading ratio, content width), **corner radius**, logo and icon.
-
-- **Typography styles** – size and weight of the named styles (Main title, Section heading, Lead…) you pick for
-  elements in the builder. A change here applies across the whole site.
-- **Design tokens** – download and load the look in the W3C Design Tokens format (DTCG) for Figma or Tokens Studio.
+- **Fonts and sizes** – heading and text fonts (also your own WOFF2 files), base font on phones and monitors, heading ratio,
+  content width, and the **typography styles** (Main title, Section heading, Lead…) you pick for elements in the builder.
+- **Shapes** – corner radius for buttons, cards, images and form fields.
+- **Logo and icon**.
+- **Import and export** – download and load the look in the W3C Design Tokens format (DTCG) for Figma or Tokens Studio.
 
 On the right is a live preview of the home page (desktop / phone). Nothing is saved until you press Save.
 

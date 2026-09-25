@@ -861,6 +861,9 @@ final class Kernel
     private function popupy(\Kaleta\Stavitel\Kontext $k, bool $novinky): string
     {
         $r = $this->app->request;
+        if ($r->get('nahled') === 'vzhled') {
+            return ''; // náhled ve Vzhledu webu ukazuje stránku bez oken
+        }
         $db = $this->app->db();
         $nahled = $this->nahledPopupu ?: ($r->get('stavba') === 'koncept' && preg_match('/^\d{1,9}$/', $r->get('popup')) && $this->smiKoncept('popup:' . $r->get('popup')) ? (int) $r->get('popup') : 0);
         try {
@@ -886,7 +889,8 @@ final class Kernel
                 $k->bezCache = true; // okno s obdobím se nesmí dostat do cache stránky po jeho konci
             }
             $k->zdroj = 'popup:' . $p['idpp'];
-            $html .= \Kaleta\Stavitel\Popupy::obal($p, \Kaleta\Stavitel\Stavba::html($stavba, $k), $this->app->url('popup'), !empty($p['nahled']));
+            // přihlášení (správci, redaktoři) si okna prohlížejí, ale do počitadel se nepočítají
+            $html .= \Kaleta\Stavitel\Popupy::obal($p, \Kaleta\Stavitel\Stavba::html($stavba, $k), $this->app->auth()->user() === null ? $this->app->url('popup') : '', !empty($p['nahled']));
         }
 
         return $html;

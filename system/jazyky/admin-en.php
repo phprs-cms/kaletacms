@@ -2485,4 +2485,12 @@ return [
     'Jen u volby „Jiná služba přes webhook“: web pošle JSON s událostí novy_odberatel nebo odhlaseni_odberu a e-mailem.' => 'Only for “Another service via a webhook”: the site sends JSON with the event novy_odberatel or odhlaseni_odberu and the e-mail.',
     'Jiná služba přes webhook (Make, Zapier, n8n)' => 'Another service via a webhook (Make, Zapier, n8n)',
     'Prvek Odběr novinek v builderu: návštěvník zadá e-mail a potvrdí ho odkazem (double opt-in). Potvrzené odběratele web pošle do vaší mailingové služby (Brevo, MailerLite, Mailchimp, Ecomail, SmartEmailing, webhook), nebo je vyexportujete do CSV.' => 'The Newsletter sign-up element in the builder: visitors enter an e-mail and confirm it by a link (double opt-in). The site sends confirmed subscribers to your mailing service (Brevo, MailerLite, Mailchimp, Ecomail, SmartEmailing, webhook), or you export them to CSV.',
+    'Části vzhledu' => 'Parts of the appearance',
+    'Styly' => 'Styles',
+    'Styl je hotová sada barev, písem, velikostí a zaoblení. Vyberte ho jedním klikem a v dalších záložkách dolaďte – obsah webu se nemění.' => 'A style is a ready set of colours, fonts, sizes and corner radius. Pick one with a click and fine-tune it in the other tabs – the content of the site does not change.',
+    'aktuální' => 'current',
+    'Vzhled podle vaší značky nemusíte skládat ručně: připojte Clauda a napište mu třeba „Nastav vzhled webu podle naší značky – hlavní barva #0E6E6E, titulky patkovým písmem, jemné zaoblení“. Barvy a písma uloží do design systému, výsledek uvidíte tady.' => 'You do not have to put a look for your brand together by hand: connect Claude and write, for example, “Set the look of the site to our brand – primary colour #0E6E6E, serif headings, subtle rounding”. It saves the colours and fonts to the design system, and you see the result here.',
+    'Zaoblení dostanou tlačítka, karty, obrázky a pole formulářů na celém webu.' => 'Buttons, cards, images and form fields across the site get this radius.',
+    'Písmo a velikosti' => 'Fonts and sizes',
+    'Tvary' => 'Shapes',
 ];

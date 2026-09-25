@@ -1194,9 +1194,10 @@ body.login {
 .vzhled-formular { max-width: none; }
 .vzhled-formular .radek { grid-template-columns: 110px minmax(0, 1fr); }
 .vzhled-formular select { max-width: 100%; }
-/* náhled vpravo vedle celého formuláře (i pod ním ležících tokenů), přilepený pod horní lištou – po kliknutí na předvolbu je pořád vidět */
-.vzhled > .pokrocile { grid-column: 1; }
-.vzhled-nahled { grid-column: 2; grid-row: 1 / span 2; position: sticky; top: 80px; display: flex; flex-direction: column; height: calc(100vh - 96px); height: calc(100dvh - 96px); border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); overflow: hidden; }
+/* záložky, formulář a panel tokenů vlevo pod sebou, náhled vpravo přes celou výšku, přilepený pod horní lištou – po kliknutí na styl je pořád vidět */
+.vzhled > .zalozky, .vzhled > .vzhled-formular, .vzhled > .vzhled-export { grid-column: 1; margin: 0; }
+.vzhled > .zalozky { grid-row: 1; }
+.vzhled-nahled { grid-column: 2; grid-row: 1 / span 3; position: sticky; top: 80px; display: flex; flex-direction: column; height: calc(100vh - 96px); height: calc(100dvh - 96px); border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); overflow: hidden; }
 .vzhled-nahled-lista { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--linka); font-weight: 600; }
 .vzhled-zarizeni { display: inline-flex; padding: 2px; border: 1px solid var(--linka); border-radius: 8px; background: var(--podklad); }
 .vzhled-zarizeni button { padding: 4px 10px; border: 0; border-radius: 6px; background: none; color: var(--text-slaby); font: inherit; font-size: 13px; cursor: pointer; }
@@ -1208,6 +1209,8 @@ body.login {
 .vzhled-predvolba:hover { border-color: var(--akcent); }
 .vzhled-predvolba strong { font-size: 16px; }
 .vzhled-predvolba small { color: var(--text-slaby); font-size: 12px; line-height: 1.35; }
+.vzhled-predvolba .stitek { justify-self: start; }
+.vzhled-export { padding: 24px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); }
 .vzhled-vzorky { display: flex; height: 18px; border-radius: 4px; overflow: hidden; }
 .vzhled-vzorky i { flex: 1; }
 .vzhled-barvy { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; margin-top: 8px; }
@@ -1235,7 +1238,7 @@ body.login {
 /* užší obrazovka: náhled nad formulářem, přilepený nahoře a nižší, aby pod ním zbylo místo na ovládání */
 @media (max-width: 1100px) {
 	.vzhled { grid-template-columns: minmax(0, 1fr); }
-	.vzhled > .pokrocile { grid-row: 3; }
+	.vzhled > .zalozky { grid-row: 2; }
 	.vzhled-nahled { grid-column: 1; grid-row: 1; z-index: 4; top: 72px; height: 38vh; height: 38dvh; box-shadow: 0 8px 20px rgb(0 0 0 / 0.08); }
 }
 

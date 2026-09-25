@@ -130,6 +130,11 @@ button.galerie-polozka:hover, button.galerie-polozka:focus-visible { border-colo
 .zalozky a { padding: 7px 14px; border: 1px solid transparent; border-bottom: 0; border-radius: var(--ed-radius-maly) var(--ed-radius-maly) 0 0; text-decoration: none; color: var(--ed-text-slaby); font-weight: 600; margin-bottom: -1px; }
 .zalozky a:hover { color: var(--ed-text); }
 .zalozky a.aktivni { border-color: var(--ed-linka); background: var(--ed-plocha); color: var(--ed-akcent); }
+/* záložky uvnitř jedné stránky (role="tab", image/admin.js data-zalozky) vypadají stejně jako záložky-odkazy */
+.zalozky [role="tab"] { padding: 7px 14px; border: 1px solid transparent; border-bottom: 0; border-radius: var(--ed-radius-maly) var(--ed-radius-maly) 0 0; background: none; color: var(--ed-text-slaby); font: inherit; font-weight: 600; margin-bottom: -1px; cursor: pointer; }
+.zalozky [role="tab"]:hover { color: var(--ed-text); }
+.zalozky [role="tab"][aria-selected="true"] { border-color: var(--ed-linka); background: var(--ed-plocha); color: var(--ed-akcent); }
+.zalozky [role="tab"]:focus-visible { outline: 3px solid var(--ed-akcent); outline-offset: -3px; }
 .revize { margin: 0 0 8px; padding-left: 18px; font-size: 13px; }
 
 /* redakční kalendář */
