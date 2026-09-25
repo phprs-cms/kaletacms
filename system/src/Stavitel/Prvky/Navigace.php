@@ -36,13 +36,14 @@ final class Navigace extends Prvek
     {
         return '.ka-nav { display: flex; align-items: center; }
 .ka-nav-menu { display: flex; align-items: center; gap: var(--ka-mezera-xs); }
-.ka-nav ul { display: flex; flex-wrap: wrap; gap: var(--ka-mezera-2xs); margin: 0; padding: 0; list-style: none; }
-.ka-nav a { display: block; padding: 0.5em 0.8em; border-radius: var(--ka-zaobleni-plne); color: inherit; font-weight: var(--ka-nav-tloustka, 600); text-decoration: none; }
+.ka-nav ul { display: flex; flex-wrap: wrap; gap: var(--ka-nav-mezera, var(--ka-mezera-2xs)); margin: 0; padding: 0; list-style: none; }
+.ka-nav a { display: block; padding: var(--ka-nav-odsazeni, 0.5em 0.8em); border-radius: var(--ka-zaobleni-plne); color: inherit; font-weight: var(--ka-nav-tloustka, 600); text-decoration: none; }
 .ka-nav a:focus-visible { outline: 3px solid var(--ka-barva-sekundarni); outline-offset: 2px; }
-.ka-nav--podtrzeni a:hover, .ka-nav--podtrzeni a[aria-current] { background: none; color: inherit; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 6px; }
-.ka-nav--podtrzeni a[aria-current] { text-decoration-color: var(--ka-barva-sekundarni); }
 .ka-nav a:hover { background: var(--ka-barva-plocha); }
 .ka-nav a[aria-current] { background: var(--ka-barva-primarni-jemna); color: var(--ka-barva-primarni); }
+.ka-nav--podtrzeni a:hover, .ka-nav--podtrzeni a[aria-current] { background: none; }
+.ka-nav--podtrzeni a:hover { color: var(--ka-nav-hover, var(--ka-barva-sekundarni)); }
+.ka-nav--podtrzeni a[aria-current] { color: inherit; text-decoration: underline; text-decoration-color: var(--ka-barva-sekundarni); text-decoration-thickness: 2px; text-underline-offset: 6px; }
 .ka-nav li { position: relative; }
 .ka-nav li > .menu-skupina { display: block; border: 0; background: none; color: inherit; font: inherit; text-align: start; padding: 0.5em 0.8em; font-weight: 600; cursor: default; }
 .ka-nav .podmenu > a::after, .ka-nav .podmenu > .menu-skupina::after { content: ""; display: inline-block; width: 0.4em; height: 0.4em; margin-inline-start: 0.45em; border: solid currentColor; border-width: 0 2px 2px 0; transform: translateY(-0.2em) rotate(45deg); }
@@ -60,7 +61,7 @@ final class Navigace extends Prvek
 	.ka-nav--mega .podmenu > ul a { padding: 0.8em 1em; }
 }
 @media (max-width: 767px) {
-	.ka-nav-tl { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border: 1px solid var(--ka-barva-linka); border-radius: 50%; background: var(--ka-barva-pozadi); color: var(--ka-barva-text); cursor: pointer; }
+	.ka-nav-tl { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border: var(--ka-nav-tlacitko-okraj, 1px solid var(--ka-barva-linka)); border-radius: 50%; background: var(--ka-barva-pozadi); color: var(--ka-barva-text); cursor: pointer; }
 	.ka-nav-tl span, .ka-nav-tl span::before, .ka-nav-tl span::after { display: block; width: 1.1rem; height: 2px; background: currentColor; }
 	.ka-nav-tl span { position: relative; }
 	.ka-nav-tl span::before, .ka-nav-tl span::after { content: ""; position: absolute; left: 0; }

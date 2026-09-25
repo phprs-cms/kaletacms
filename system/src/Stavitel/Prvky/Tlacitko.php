@@ -39,7 +39,7 @@ final class Tlacitko extends Prvek
 .ka-tlacitko--obrys { border-color: currentColor; color: inherit; background: transparent; }
 .ka-tlacitko--obrys:hover { background: color-mix(in oklch, currentColor 8%, transparent); }
 .ka-tlacitko--odkaz { padding-inline: 0; color: var(--ka-barva-primarni); text-decoration: underline; text-underline-offset: 0.2em; }
-.ka-tlacitko svg { flex: none; width: 1.15em; height: 1.15em; }
+.ka-tlacitko svg { flex: none; width: var(--ka-tlacitko-ikona, 1.15em); height: var(--ka-tlacitko-ikona, 1.15em); }
 .ka-tlacitko:focus-visible { outline: 3px solid var(--ka-barva-sekundarni); outline-offset: 2px; }';
     }
 
