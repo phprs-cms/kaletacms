@@ -163,6 +163,9 @@ button.galerie-polozka:hover, button.galerie-polozka:focus-visible { border-colo
 .rozsireni-karta input { margin-top: 3px; }
 
 /* můj účet */
+/* QR kód 2FA: vždy černá na bílé (i v tmavém režimu – tak ho čtou aplikace), na úzkém displeji se zmenší */
+.totp-qr { display: inline-block; margin: 8px 0; line-height: 0; }
+.totp-qr svg { max-width: min(100%, 260px); height: auto; border-radius: 6px; }
 .totp-klic, .zalozni-kody { display: inline-block; margin: 6px 0; padding: 6px 10px; border: 1px solid var(--ed-linka); background: var(--ed-lista); font: 15px/1.6 ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.06em; user-select: all; }
 a.prihlasen { color: inherit; text-decoration: none; display: inline-flex; align-items: center; }
 

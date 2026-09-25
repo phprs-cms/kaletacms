@@ -2332,4 +2332,7 @@ return [
     'čeká na vydání' => 'awaiting publication',
     'Autor novinek sám nevydává – novinku zkontrolujte a vydejte.' => 'News authors cannot publish – review this news item and publish it.',
     'Novinky od autorů čekají na vydání' => 'News from authors awaiting publication',
+    'V ověřovací aplikaci (Google Authenticator, Microsoft Authenticator, 1Password, Aegis…) přidejte nový účet naskenováním QR kódu:' => 'In your authenticator app (Google Authenticator, Microsoft Authenticator, 1Password, Aegis…) add a new account by scanning the QR code:',
+    'QR kód pro ověřovací aplikaci' => 'QR code for the authenticator app',
+    'Nejde to naskenovat? Přidejte účet ručním zadáním klíče:' => 'Cannot scan it? Add the account by typing the key:',
 ];

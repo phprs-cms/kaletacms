@@ -575,6 +575,9 @@ over "uživatelé ukazují vlastní roli" 200 "/admin.php?modul=users" "Obchodn�
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('vynutit_2fa', 'spravci') ON DUPLICATE KEY UPDATE hodnota = 'spravci'"
 kod=$(curl -s -b "$JAR" -o /dev/null -w '%{http_code} %{redirect_url}' "$B/admin.php?modul=stranky"); case "$kod" in "302 "*akce=ucet*) echo "  ok     povinné dvoufázové přihlášení pustí jen do Můj účet";; *) echo "  CHYBA  vynucení 2FA: $kod"; CHYB=$((CHYB+1));; esac
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'vynutit_2fa'"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?akce=ucet" -d "_csrf=$TOKEN" -d co=totp_start
+curl -s -b "$JAR" -c "$JAR" -o "$PRACE/odpoved" "$B/admin.php?akce=ucet"
+grep -q '<svg class="qr"' "$PRACE/odpoved" && grep -q 'class="totp-klic"' "$PRACE/odpoved" && echo "  ok     zapnutí 2FA ukáže QR kód i klíč k ručnímu zadání" || { echo "  CHYBA  QR kód při zapínání 2FA"; CHYB=$((CHYB+1)); }
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = JSON_SET(IF(hodnota = '' OR hodnota IS NULL, '{}', hodnota), '$.vlastni_pisma', JSON_ARRAY(JSON_OBJECT('nazev', 'Znacka Sans', 'soubor', 'media/2026/01/znacka.woff2', 'tucny', '')), '$.pismo_titulky', 'vlastni-1') WHERE promenna = 'design_system'"
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
 curl -s -o "$PRACE/odpoved" "$B/kontakty"

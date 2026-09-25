@@ -69,7 +69,9 @@ $akce = e($app->url('admin.php?akce=ucet'));
 <?php elseif ($noveTajemstvi !== ''): ?>
 <input type="hidden" name="co" value="totp_potvrd">
 <ol>
-	<li><?= e(t('V ověřovací aplikaci (Google Authenticator, Microsoft Authenticator, 1Password, Aegis…) přidejte nový účet ručním zadáním klíče:')) ?><br><code class="totp-klic"><?= e(trim(chunk_split($noveTajemstvi, 4, ' '))) ?></code><br><small><a href="<?= e($uri) ?>"><?= e(t('Na mobilu můžete klepnout sem – odkaz otevře ověřovací aplikaci.')) ?></a></small></li>
+	<li><?= e(t('V ověřovací aplikaci (Google Authenticator, Microsoft Authenticator, 1Password, Aegis…) přidejte nový účet naskenováním QR kódu:')) ?><br>
+		<span class="totp-qr"><?= Kaleta\Core\Qr::svg($uri, t('QR kód pro ověřovací aplikaci')) ?></span><br>
+		<?= e(t('Nejde to naskenovat? Přidejte účet ručním zadáním klíče:')) ?><br><code class="totp-klic"><?= e(trim(chunk_split($noveTajemstvi, 4, ' '))) ?></code><br><small><a href="<?= e($uri) ?>"><?= e(t('Na mobilu můžete klepnout sem – odkaz otevře ověřovací aplikaci.')) ?></a></small></li>
 	<li><?= e(t('Opište šestimístný kód, který aplikace ukazuje:')) ?></li>
 </ol>
 <div class="radek"><label for="kod"><?= e(t('Kód z aplikace')) ?></label><div><input class="textpole" type="text" id="kod" name="kod" size="12" maxlength="7" inputmode="numeric" autocomplete="one-time-code" required autofocus></div></div>

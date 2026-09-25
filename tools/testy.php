@@ -140,6 +140,25 @@ foreach (glob(dirname(__DIR__) . '/image/*.js') ?: [] as $soubor) {
 }
 over('Skripty bez window.alert/prompt/confirm', $nativniDialogy, []);
 
+/* ---------- QR kód (dvoufázové přihlášení): vlastní kodér bez knihovny ---------- */
+// Reed–Solomon: známý vektor „HELLO WORLD“ verze 1-M z návodu k normě (thonky.com, QR Code Tutorial)
+over('Qr: opravné kódy Reed–Solomon (známý vektor)', Kaleta\Core\Qr::opravneKody([32, 91, 11, 120, 209, 114, 220, 77, 67, 64, 236, 17, 236, 17, 236, 17], 10), [196, 35, 39, 119, 235, 215, 231, 226, 93, 23]);
+$qrRadky = fn (array $m): array => array_map(fn (array $r): string => implode('', array_map(fn (bool $b): string => $b ? '#' : '.', $r)), $m);
+$qr = $qrRadky(Kaleta\Core\Qr::matice('Kaleta', 2));
+// formátové bity čtené z matice (sloupec 8 a řádek 8 u levého horního rohu) = tabulka normy pro úroveň M, masku 2: 101111001111100
+$qrFormat = '';
+foreach ([[0, 8], [1, 8], [2, 8], [3, 8], [4, 8], [5, 8], [7, 8], [8, 8], [8, 7], [8, 5], [8, 4], [8, 3], [8, 2], [8, 1], [8, 0]] as [$y, $x]) {
+    $qrFormat = ($qr[$y][$x] === '#' ? '1' : '0') . $qrFormat;
+}
+over('Qr: formátové bity M/maska 2 podle tabulky normy', $qrFormat, '101111001111100');
+over('Qr: verze 1 = 21 × 21 s hledacím vzorem', [count($qr), $qr[0], $qr[6]], [21, '#######..##.#.#######', '#######.#.#.#.#######']);
+// matice ověřené nezávislou čtečkou (Chrome BarcodeDetector) – hlídá, že se kodér nerozbije
+$qrOtisk = fn (string $text): string => sha1(implode("\n", array_map(fn (array $r): string => implode('', array_map('intval', $r)), Kaleta\Core\Qr::matice($text))));
+over('Qr: adresa otpauth (verze 6) odpovídá ověřené matici', $qrOtisk('otpauth://totp/Acme%3Aadmin?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&issuer=Acme&digits=6&period=30'), '21b4e92a0dd7dfcfe3d26161ea6baf9459312669');
+over('Qr: verze 12 (verzní bity, víc bloků) odpovídá ověřené matici', $qrOtisk(str_repeat('Kaleta QR 0123456789 ', 12)), '12f9c4c80e2de66f316614d576e6dde5464482c8');
+$qrSvg = Kaleta\Core\Qr::svg('otpauth://totp/x?secret=AB', 'QR <kód>');
+over('Qr: SVG s popisem, bez skriptu', str_contains($qrSvg, 'role="img" aria-label="QR &lt;kód&gt;"') && !str_contains($qrSvg, '<script'), true);
+
 /* ---------- porovnání verzí ---------- */
 $r = Kaleta\Core\Rozdil::html('<p>Radnice schválila plán.</p><p>Druhý odstavec.</p>', '<p>Radnice včera schválila nový plán.</p><p>Druhý odstavec.</p><p>Třetí.</p>');
 over('Rozdil: slova ve změněném odstavci', str_contains($r['html'], '<ins>včera </ins>') && str_contains($r['html'], '<ins>nový </ins>'), true);
