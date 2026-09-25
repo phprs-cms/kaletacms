@@ -8,7 +8,7 @@ stránek s výstupem na úrovni ručně psaného HTML, AI asistent a napojení C
 
 ![Builder Kalety: plátno je skutečná stránka, prvky vlevo, vlastnosti vpravo](docs/screenshots/admin-builder.png)
 
-> **Verze 1.0.** Web projektu: [kaletacms.com](https://kaletacms.com) · stažení: [GitHub Releases](https://github.com/phprs-cms/kaletacms/releases/latest)
+> Web projektu: [kaletacms.com](https://kaletacms.com) · poslední verze: [GitHub Releases](https://github.com/phprs-cms/kaletacms/releases/latest) · co bude dál: [roadmap](docs/ROADMAP.md)
 
 ## Co umí
 
