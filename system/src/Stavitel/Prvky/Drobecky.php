@@ -35,9 +35,12 @@ final class Drobecky extends Prvek
         }
         $html = '';
         foreach ($cesta as $i => [$text, $adresa]) {
-            $html .= $i === array_key_last($cesta) || $adresa === ''
-                ? '<li><span aria-current="page">' . e($text) . '</span></li>'
-                : '<li><a href="' . e($adresa) . '">' . e($text) . '</a></li>';
+            // aktuální je jen poslední článek; úroveň bez vlastní stránky (kolekce bez rozcestníku) je prostý text
+            $html .= match (true) {
+                $i === array_key_last($cesta) => '<li><span aria-current="page">' . e($text) . '</span></li>',
+                $adresa === '' => '<li><span>' . e($text) . '</span></li>',
+                default => '<li><a href="' . e($adresa) . '">' . e($text) . '</a></li>',
+            };
         }
 
         return '<nav' . Text::sTridou($a, 'ka-drobecky') . ' aria-label="' . e(t('Drobečková navigace')) . '"><ol>' . $html . '</ol></nav>';

@@ -240,6 +240,7 @@ final class Anglicky
         'Nová adresa musí být cesta (/nova) nebo https://… adresa.' => 'The new address must be a path (/new) or an https://… address.',
         'Název souboru musí mít příponu (např. foto.jpg, logo.svg, pismo.woff2).' => 'The file name needs an extension (e.g. photo.jpg, logo.svg, font.woff2).',
         'Parametr stavba musí být objekt {"v":1,"deti":[…]}.' => 'The build parameter must be an object {"v":1,"deti":[…]}.',
+        'Parametr data musí být objekt {"klic":"hodnota"} podle polí kolekce.' => 'The data parameter must be an object {"key":"value"} with the collection fields.',
         'Položka musí mít název.' => 'The item needs a name.',
         'Položka v kolekci není. Použij seznam_polozek_kolekce.' => 'The item is not in the collection. Use list_collection_items.',
         'Poptávky smí číst jen uživatel s právem k Poptávkám (rozšíření Formuláře a poptávky musí být zapnuté).' => 'Only users with access to Enquiries can read them (the Forms and enquiries extension must be on).',

@@ -181,6 +181,10 @@ over('MCP anglicky: typy polí kolekce a nastavení', [Kaleta\Mcp\Anglicky::argu
     [['pole' => [['popisek' => 'Foto', 'typ' => 'obrazek']]], ['nastaveni' => ['nazev_webu_de' => 'X', 'firma_email' => 'a@b.c', 'nazev_webu' => 'Y']]]);
 over('MCP anglicky: výsledek s anglickými klíči, stavba beze změny', Kaleta\Mcp\Anglicky::vysledek('save_build', ['id' => 3, 'stav' => 'publikováno', 'stavba' => ['v' => 1, 'deti' => [['typ' => 'nadpis', 'stav' => 'x']]], 'kontrola' => [['id' => 'a', 'zprava' => 'z']]]),
     ['id' => 3, 'status' => 'published', 'build' => ['v' => 1, 'deti' => [['typ' => 'nadpis', 'stav' => 'x']]], 'check' => [['id' => 'a', 'message' => 'z']]]);
+$mcpSeznam = [['name' => 'save_collection_item', 'inputSchema' => ['properties' => ['data' => ['type' => 'object'], 'name' => ['type' => 'string'], 'fields' => ['type' => 'array']]]]];
+over('MCP: objekt a pole poslané jako text JSON se rozbalí podle schématu, text zůstane textem', Kaleta\Mcp\Server::rozbalJson($mcpSeznam, 'save_collection_item', ['data' => '{"a":"b"}', 'name' => '{"x":1}', 'fields' => '[1,2]']),
+    ['data' => ['a' => 'b'], 'name' => '{"x":1}', 'fields' => [1, 2]]);
+over('MCP: neplatný JSON nebo pole místo objektu se nerozbalí', Kaleta\Mcp\Server::rozbalJson($mcpSeznam, 'save_collection_item', ['data' => '{nic', 'fields' => '{"a":1}']), ['data' => '{nic', 'fields' => '{"a":1}']);
 over('MCP anglicky: hlášení s proměnnou částí', Kaleta\Mcp\Anglicky::zprava('Kategorie „Akce“ neexistuje. Použij nástroj seznam_kategorii.'), 'The category “Akce” does not exist. Use list_categories.');
 use Kaleta\Core\Cesty;
 over('Cesty: systémové adresy v jazyce verze', [Cesty::verejna('novinky/kategorie/akce', 'en', null), Cesty::verejna('novinky/stitek/x', 'de', null), Cesty::verejna('hledani?q=a', 'fr', null),

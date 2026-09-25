@@ -522,6 +522,9 @@ final class Nastroje
                 if ($nazevPolozky === '') {
                     throw new \InvalidArgumentException('Položka musí mít název.');
                 }
+                if (isset($a['data']) && !is_array($a['data'])) {
+                    throw new \InvalidArgumentException('Parametr data musí být objekt {"klic":"hodnota"} podle polí kolekce.');
+                }
                 $chyby = [];
                 $data = Kolekce::vycistiData($kolekce['pole'], (is_array($a['data'] ?? null) ? $a['data'] : []) + (json_decode((string) ($puvodni['data'] ?? '{}'), true) ?: []), $chyby);
                 $adresa = trim((string) ($a['adresa'] ?? ''));

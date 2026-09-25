@@ -100,6 +100,7 @@ final class Server
         $cesky = Anglicky::cesky($nazev);
         $anglicky = $cesky !== null || !in_array($nazev, $nastroje->nazvy(), true);
         try {
+            $argumenty = self::rozbalJson($cesky !== null ? Anglicky::seznam($nastroje->seznam()) : $nastroje->seznam(), $nazev, $argumenty);
             if ($cesky !== null) {
                 $argumenty = Anglicky::argumenty($nazev, $argumenty);
             }
@@ -116,6 +117,36 @@ final class Server
         } catch (\InvalidArgumentException | \DomainException $e) {
             return ['content' => [['type' => 'text', 'text' => $anglicky ? Anglicky::zprava($e->getMessage()) : $e->getMessage()]], 'isError' => true];
         }
+    }
+
+    /**
+     * Objekt nebo pole poslané jako text JSON (klient bez schématu nástroje, některé proxy) se rozbalí podle typu
+     * parametru ve schématu – jinak by ho nástroj nepoznal a hodnoty potichu vynechal.
+     *
+     * @param list<array<string, mixed>> $seznam definice nástrojů (tools/list)
+     * @param array<string, mixed> $argumenty
+     * @return array<string, mixed>
+     */
+    public static function rozbalJson(array $seznam, string $nazev, array $argumenty): array
+    {
+        foreach ($seznam as $nastroj) {
+            if (($nastroj['name'] ?? '') !== $nazev) {
+                continue;
+            }
+            $vlastnosti = (array) ($nastroj['inputSchema']['properties'] ?? []);
+            foreach ($argumenty as $klic => $hodnota) {
+                $typ = $vlastnosti[$klic]['type'] ?? '';
+                if (is_string($hodnota) && in_array($typ, ['object', 'array'], true) && preg_match('/^\s*[\[{]/', $hodnota)) {
+                    $rozbaleno = json_decode($hodnota, true);
+                    if (is_array($rozbaleno) && ($typ === 'array') === array_is_list($rozbaleno)) {
+                        $argumenty[$klic] = $rozbaleno;
+                    }
+                }
+            }
+            break;
+        }
+
+        return $argumenty;
     }
 
     /** @return array<string, mixed>|null uživatel podle tokenu */
