@@ -87,7 +87,9 @@ final class Nastroje
             ['seznam_trid', 'Sdílené třídy webu (karta, tmava…) s jejich stylem po stavech a vlastním CSS. Třídu dostane prvek v poli "tridy".', $s(['nazev' => $text('jen tahle třída (nepovinné)')])],
             ['uloz_tridy', 'Založí nebo změní sdílené třídy (správce) – změna se hned projeví na celém webu. Zadej CSS jako v bloku <style>: pravidla jedné třídy (.karta { … }), '
                 . '.karta:hover { … } a @media (max-width: 1023px) = tablet, (max-width: 767px) = mobil. Tokeny var(--ka-…), i přepis tokenů v třídě (--ka-barva-text: #fff) pro tmavé pásy.',
-                $s(['css' => $text('pravidla tříd'), 'smazat' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'názvy tříd ke smazání']])],
+                $s(['css' => $text('pravidla tříd; slučují se se stávajícími – samotné .karta:hover nebo @media nechá základ třídy beze změny'),
+                    'nahradit' => ['type' => 'boolean', 'description' => 'true = třídy z css nahradit celé (základ i všechny stavy)'],
+                    'smazat' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'názvy tříd ke smazání']])],
             ['stavba_z_html', 'DOPORUČENÁ CESTA pro novou stránku nebo sekce: napiš sémantické HTML (section/header, h1–h3, p, ul, a, img, figure, blockquote, details) a vzhled do bloku <style> jako pravidla jedné třídy (.karta { … }, .karta:hover { … }) s tokeny var(--ka-…); '
                 . 'breakpointy od desktopu dolů: @media (max-width: 1023px) = tablet, @media (max-width: 767px) = mobil. Prvek s třídou z <style> nedostane výchozí styl – rozložení (display:grid, gap) patří do třídy. Převede se na stavbu a třídy; vrátí hlášení, co převést nešlo. Uloží se jako koncept.',
                 $s(['html' => $text('HTML obsahu (bez <html>/<head>); <style> smí být uvnitř. Záhlaví a patičku skládej z prvků logo, navigace a udaje přes stavba_uloz – HTML je nepřevede.'), 'id' => $cislo('ID stránky; bez něj (a bez cast) vznikne nová skrytá stránka s názvem z parametru titulek'), 'cast' => $cil['cast'], 'jazyk' => $cil['jazyk'], 'titulek' => $text('Název nové stránky (když není id)'),
@@ -258,8 +260,12 @@ final class Nastroje
                 $prevod = ZHtml::preved('<style>' . str_ireplace('</style', '', (string) ($a['css'] ?? '')) . '</style>', true);
                 $ulozeno = [];
                 foreach (array_unique(array_merge(array_keys($prevod['tridy']), array_keys($prevod['tridy_styl']))) as $trida) {
+                    // slučuje se: pravidlo jen pro :hover nebo @media nechá základ třídy a ostatní stavy (nahradit: true = celá třída znovu)
+                    $puvodni = empty($a['nahradit']) ? $db->one('SELECT styl, css FROM {tridy} WHERE nazev = ?', [$trida]) : null;
+                    $styl = ($prevod['tridy_styl'][$trida] ?? []) + (json_decode((string) ($puvodni['styl'] ?? ''), true) ?: []);
+                    $css = $prevod['tridy'][$trida] ?? (string) ($puvodni['css'] ?? '');
                     $db->run('INSERT INTO {tridy} (nazev, styl, css, zmeneno) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE styl = VALUES(styl), css = VALUES(css), zmeneno = NOW()',
-                        [$trida, (string) json_encode($prevod['tridy_styl'][$trida] ?? new \stdClass(), JSON_UNESCAPED_UNICODE), $prevod['tridy'][$trida] ?? '']);
+                        [$trida, (string) json_encode($styl ?: new \stdClass(), JSON_UNESCAPED_UNICODE), $css]);
                     $ulozeno[] = $trida;
                 }
                 $smazano = [];
