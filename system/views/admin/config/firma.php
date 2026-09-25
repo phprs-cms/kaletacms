@@ -31,7 +31,7 @@ $pole('firma_psc', 'PSČ', 'text', '', 'maxlength="10" autocomplete="postal-code
 $pole('firma_mesto', 'Město', 'text', '', 'maxlength="120" autocomplete="address-level2"');
 $pole('firma_zeme', 'Země (kód)', 'text', 'Dvoupísmenný kód: CZ, SK, DE…', 'maxlength="2" size="3"');
 $pole('firma_telefon', 'Telefon', 'text', 'S předvolbou, např. +420 123 456 789.', 'maxlength="30" autocomplete="tel"');
-$pole('firma_email', 'Veřejný e-mail', 'email', 'Kontakt pro návštěvníky a vyhledávače. Prázdné = e-mail webu ze záložky Základní (na ten chodí poptávky).', 'maxlength="190" autocomplete="email"');
+$pole('firma_email', 'Veřejný e-mail', 'email', 'Kontakt pro návštěvníky a vyhledávače. E-mail webu ze záložky Základní (na ten chodí poptávky) se na webu neukazuje.', 'maxlength="190" autocomplete="email"');
 ?>
 </fieldset>
 <fieldset>

@@ -130,6 +130,9 @@ $chybiPreklad = static function (string $slovnik, array $vzory): array {
 over('Slovník en.php: texty webu mají anglický překlad', $chybiPreklad('en.php', ['system/views/front/*.php', 'layout/*/*.php', 'system/src/Front/*.php', 'system/src/Stavitel/*.php', 'system/src/Stavitel/Prvky/*.php']), []);
 over('Slovník admin-en.php: E-mail webu', isset((require dirname(__DIR__) . '/system/jazyky/admin-en.php')['E-mail webu']), true);
 
+over('Stavba::kod: vnořený skript se nesloží znovu', [str_contains(Kaleta\Stavitel\Stavba::kod('<scr<script>x</script>ipt>alert(1)</scr<script>y</script>ipt>'), '<script'), Kaleta\Stavitel\Stavba::kod('<iframe src="https://mapy.cz/x"></iframe>')], [false, '<iframe src="https://mapy.cz/x"></iframe>']);
+over('Stavba::kod: obsluhy událostí a javascript: zmizí', Kaleta\Stavitel\Stavba::kod('<a href="javascript:alert(1)" onclick="x()">A</a><iframe srcdoc="data:text/html,x"></iframe>'), '<a href="#">A</a><iframe srcdoc="#"></iframe>');
+
 /* ---------- porovnání verzí ---------- */
 $r = Kaleta\Core\Rozdil::html('<p>Radnice schválila plán.</p><p>Druhý odstavec.</p>', '<p>Radnice včera schválila nový plán.</p><p>Druhý odstavec.</p><p>Třetí.</p>');
 over('Rozdil: slova ve změněném odstavci', str_contains($r['html'], '<ins>včera </ins>') && str_contains($r['html'], '<ins>nový </ins>'), true);

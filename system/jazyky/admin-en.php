@@ -2324,5 +2324,5 @@ return [
     'E-mail webu' => 'Site email',
     'Veřejný e-mail' => 'Public email',
     'S předvolbou, např. +420 123 456 789.' => 'With country code, e.g. +420 123 456 789.',
-    'Kontakt pro návštěvníky a vyhledávače. Prázdné = e-mail webu ze záložky Základní (na ten chodí poptávky).' => 'Contact for visitors and search engines. Empty = the site email from the Basic tab (where enquiries are sent).',
+    'Kontakt pro návštěvníky a vyhledávače. E-mail webu ze záložky Základní (na ten chodí poptávky) se na webu neukazuje.' => 'Contact for visitors and search engines. The site email from the Basic tab (where enquiries are sent) is not shown on the site.',
 ];

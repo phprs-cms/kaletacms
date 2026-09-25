@@ -86,8 +86,8 @@ $site = array_filter(['LinkedIn' => $web->get('soc_linkedin'), 'Facebook' => $we
 <?php if ($web->get('text_paticky') !== ''): ?>
 			<p><?= e($web->get('text_paticky')) ?></p>
 <?php endif ?>
-<?php if ($web->get('email_webu') !== ''): ?>
-			<p><a href="mailto:<?= e($web->get('email_webu')) ?>"><?= e($web->get('email_webu')) ?></a></p>
+<?php if ($web->get('firma_email') !== ''): ?>
+			<p><a href="mailto:<?= e($web->get('firma_email')) ?>"><?= e($web->get('firma_email')) ?></a></p>
 <?php endif ?>
 		</div>
 		<nav aria-label="<?= e(t('Odkazy v patičce')) ?>">

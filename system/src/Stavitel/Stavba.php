@@ -243,13 +243,21 @@ final class Stavba
         return trim(str_replace(['</p>', '<p>'], ['<br>', ''], $cisty));
     }
 
-    /** Vlastní HTML správce: bez skriptů a obsluh událostí (vložené mapy a formuláře služeb jsou <iframe>). */
-    private static function kod(string $html): string
+    /**
+     * Vlastní HTML správce (prvek jen pro správce): bez skriptů, obsluh událostí a odkazů javascript:. Vložené mapy a formuláře
+     * služeb jsou <iframe>, ty zůstávají – není to čistič pro obsah od jiných rolí (na ten je Core\Html::bezpecne).
+     */
+    public static function kod(string $html): string
     {
-        $html = (string) preg_replace('#<script\b[^>]*>.*?</script>#is', '', $html);
-        $html = (string) preg_replace('#\son[a-z]+\s*=\s*("[^"]*"|\'[^\']*\'|[^\s>]+)#i', '', $html);
+        // opakovat, dokud se něco mění: vnořené <scr<script></script>ipt> by se po jednom průchodu složilo znovu
+        do {
+            $pred = $html;
+            $html = (string) preg_replace(['#<script\b[^>]*>.*?</script\s*>#is', '#<script\b[^>]*>#i', '#</script\s*>#i'], '', $html);
+            $html = (string) preg_replace('#\son[a-z]+\s*=\s*("[^"]*"|\'[^\']*\'|[^\s>]+)#i', '', $html);
+            $html = (string) preg_replace('#(href|src|action|formaction|srcdoc)\s*=\s*(["\'])\s*(javascript|vbscript|data:text/html)[^"\']*\2#i', '$1="#"', $html);
+        } while ($html !== $pred);
 
-        return (string) preg_replace('#(href|src)\s*=\s*(["\'])\s*javascript:[^"\']*\2#i', '$1="#"', $html);
+        return $html;
     }
 
     private static function odkaz(string $adresa, string $cesta, array &$chyby): string
