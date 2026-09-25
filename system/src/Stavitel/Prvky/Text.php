@@ -25,7 +25,8 @@ final class Text extends Prvek
     {
         return '.ka-text > :first-child { margin-block-start: 0; }
 .ka-text > :last-child { margin-block-end: 0; }
-.ka-text img { max-width: 100%; height: auto; }';
+.ka-text img { max-width: 100%; height: auto; }
+:where(.stavba) mark { background: none; color: var(--ka-barva-sekundarni); }';
     }
 
     public static function vykresli(array $p, string $a, string $deti, Kontext $k): string

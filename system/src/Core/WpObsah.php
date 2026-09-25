@@ -15,7 +15,7 @@ final class WpObsah
 {
     /** Stejná podmnožina HTML, jakou propouští editor článků při vkládání (image/editor.js, POVOLENE) – jen bez IFRAME. */
     private const array POVOLENE = [
-        'p' => [], 'h2' => [], 'h3' => [], 'h4' => [], 'strong' => [], 'em' => [], 'b' => [], 'i' => [], 'u' => [], 's' => [], 'sub' => [], 'sup' => [], 'br' => [], 'hr' => [],
+        'p' => [], 'h2' => [], 'h3' => [], 'h4' => [], 'strong' => [], 'em' => [], 'b' => [], 'i' => [], 'u' => [], 's' => [], 'sub' => [], 'sup' => [], 'mark' => [], 'br' => [], 'hr' => [],
         'a' => ['href', 'title', 'target'], 'ul' => [], 'ol' => [], 'li' => [], 'blockquote' => [], 'code' => [], 'pre' => [],
         'figure' => ['class'], 'figcaption' => [], 'img' => ['src', 'alt', 'width', 'height'],
         'table' => [], 'thead' => [], 'tbody' => [], 'tr' => [], 'th' => ['colspan', 'rowspan'], 'td' => ['colspan', 'rowspan'],

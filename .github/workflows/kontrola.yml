@@ -28,6 +28,9 @@ jobs:
       - name: Kouřový test (čistá instalace a průchod stránkami)
         run: tools/test.sh
         env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root }
+      - name: Anglická administrace bez češtiny
+        run: tools/test-english.sh
+        env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root }
   bezpecnost:
     runs-on: ubuntu-latest
     steps:

@@ -628,6 +628,7 @@ over('Upravy: přesun prvku do jeho potomka nejde', Kaleta\Stavitel\Upravy::prov
 [$kmStavba] = Kaleta\Stavitel\Stavba::vycisti(['v' => 1, 'deti' => [['typ' => 'sekce', 'id' => 'abc', 'deti' => [['typ' => 'tlacitko', 'id' => 'def', 'obsah' => ['text' => 'Jdi']], ['typ' => 'kontejner', 'id' => 'ghi', 'styl' => ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'm']]]]]]]);
 $km = Kaleta\Stavitel\Stavba::kompaktni($kmStavba);
 over('Stavba::kompaktni: bez výchozích hodnot, styl zůstane', $km, ['v' => 1, 'deti' => [['id' => 'abc', 'typ' => 'sekce', 'deti' => [['id' => 'def', 'typ' => 'tlacitko', 'obsah' => ['text' => 'Jdi']], ['id' => 'ghi', 'typ' => 'kontejner', 'styl' => ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'm']]]]]]]);
+over('Stavba: zvýraznění <mark> v nadpisu zůstane, třídy a styly ne', Kaleta\Stavitel\Stavba::vycisti(['v' => 1, 'deti' => [['typ' => 'nadpis', 'id' => 'mk1', 'obsah' => ['text' => 'Publish<mark class="x" style="color:red">.</mark>']]]])[0]['deti'][0]['obsah']['text'], 'Publish<mark>.</mark>');
 over('Stavba::kompaktni: po vyčištění stejná stavba', Kaleta\Stavitel\Stavba::vycisti($km)[0], $kmStavba);
 $prehled = Kaleta\Stavitel\Stavba::prehled(Kaleta\Stavitel\Stavba::schema());
 over('Stavba::prehled: prvek na řádek, výchozí možnost s hvězdičkou, schéma výrazně menší', [str_contains($prehled['prvky']['tlacitko'], 'varianta:vyber(primarni*|'), strlen((string) json_encode($prehled)) < strlen((string) json_encode(Kaleta\Stavitel\Stavba::schema())) / 2],

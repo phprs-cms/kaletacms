@@ -146,3 +146,12 @@ Web projektu: `kaletacms.com` (kanál aktualizací `https://kaletacms.com/aktual
 `php -S 127.0.0.1:8095 system/dev-router.php` (preview `kaleta`), vývojová databáze `kaleta_dev`, `config.php` není v gitu.
 Po změně: `tools/test.sh` (lint, jednotkové testy `tools/testy.php`, čistá instalace a průchod webem i administrací; potřebuje MySQL,
 databázi `kaleta_test` smaže a vytvoří), případně jen `php tools/testy.php`, a projít dotčené stránky v prohlížeči.
+
+## Screenshoty a angličtina
+
+- `tools/screenshots.sh` (+ `tools/screenshots.mjs`, Playwright a Chrome): čistá anglická instalace každého startovacího webu
+  s ukázkovými daty a snímky do `docs/screenshots/` (web projektu, README, dokumentace). Po změně vzhledu administrace pusť znovu.
+- `tools/test-english.sh` (i v CI): anglická administrace nesmí ukázat češtinu. Nový text vždy přes `t()` a překlad přes
+  `tools/slovnik.py`; výchozí texty pro návštěvníky v `Settings::PREKLADANE_VYCHOZI`.
+- Zvýraznění `<mark>` v textu nadpisu = doplňková barva bez podbarvení (tečka za titulkem v barvě Signal).
+

@@ -135,6 +135,9 @@ final class Settings
         return $this->db;
     }
 
+    /** Výchozí hodnoty, které jsou text pro návštěvníky – překládají se do jazyka webu, dokud je správce nezmění. */
+    private const array PREKLADANE_VYCHOZI = ['udrzba_text', 'cookies_text'];
+
     public function get(string $key): string
     {
         $this->values ??= $this->db->pairs('SELECT promenna, hodnota FROM {nastaveni}');
@@ -143,7 +146,12 @@ final class Settings
             return $this->values[$key . '_' . $jazyk];
         }
 
-        return $this->values[$key] ?? self::DEFAULTS[$key] ?? '';
+        if (isset($this->values[$key])) {
+            return $this->values[$key];
+        }
+
+        // výchozí texty, které vidí návštěvník, v jazyce webu (anglický web nesmí ukázat českou údržbu ani cookie lištu)
+        return in_array($key, self::PREKLADANE_VYCHOZI, true) ? t(self::DEFAULTS[$key]) : (self::DEFAULTS[$key] ?? '');
     }
 
     /** Hodnota pro danou jazykovou verzi ('' = výchozí jazyk) bez ohledu na to, ve které verzi běží požadavek. */

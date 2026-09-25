@@ -20,6 +20,12 @@ final class Nadpis extends Prvek
         return ['text' => ['typ' => 'inline', 'popisek' => 'Text', 'vychozi' => t('Nadpis'), 'max' => 400]];
     }
 
+    /** Zvýraznění části nadpisu (<mark>): doplňková barva bez podbarvení – tečka za titulkem, klíčové slovo. */
+    public static function zakladniCss(): string
+    {
+        return ':where(.stavba) mark { background: none; color: var(--ka-barva-sekundarni); }';
+    }
+
     public static function vykresli(array $p, string $a, string $deti, Kontext $k): string
     {
         return '<' . $p['znacka'] . $a . '>' . $p['obsah']['text'] . '</' . $p['znacka'] . '>';

@@ -6,6 +6,8 @@
 whose output reads like hand-written HTML, an AI assistant, Claude over MCP, and a WordPress importer.
 [Česky](README.md)
 
+![The Kaleta builder: the canvas is the real page, elements on the left, properties on the right](docs/screenshots/admin-builder.png)
+
 > **Version 1.0.** Project website: [kaletacms.com](https://kaletacms.com) · download: [GitHub Releases](https://github.com/phprs-cms/kaletacms/releases/latest)
 
 ## Features

@@ -794,4 +794,6 @@ return [
     'Odpojit aplikaci? Do webu se už nedostane, dokud ji znovu nepovolíte.' => 'Disconnect the application? It will not get into the website until you allow it again.',
     'Odpojit' => 'Disconnect',
     'Aplikace je odpojená – do webu se už nedostane, dokud ji znovu nepovolíte.' => 'The application is disconnected – it will not get into the website until you allow it again.',
+    'Na webu právě pracujeme. Zkuste to prosím za chvíli.' => 'We are working on the site right now. Please try again in a moment.',
+    'Používáme cookies k měření návštěvnosti. Pomáhají nám zlepšovat web.' => 'We use cookies to measure traffic. They help us improve the site.',
 ];

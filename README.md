@@ -6,6 +6,8 @@
 stránek s výstupem na úrovni ručně psaného HTML, AI asistent a napojení Clauda přes MCP, import z WordPressu.
 [English](README.en.md)
 
+![Builder Kalety: plátno je skutečná stránka, prvky vlevo, vlastnosti vpravo](docs/screenshots/admin-builder.png)
+
 > **Verze 1.0.** Web projektu: [kaletacms.com](https://kaletacms.com) · stažení: [GitHub Releases](https://github.com/phprs-cms/kaletacms/releases/latest)
 
 ## Co umí

@@ -233,12 +233,12 @@ final class Stavba
         return $cisty;
     }
 
-    /** Krátký text s tučným písmem, kurzívou, zalomením a odkazem – nic dalšího. */
+    /** Krátký text s tučným písmem, kurzívou, zvýrazněním (mark = doplňková barva, např. tečka za titulkem), zalomením a odkazem – nic dalšího. */
     private static function inline(string $html, int $max): string
     {
         $cisty = WpObsah::bezpecneHtml('<p>' . mb_substr($html, 0, $max * 2) . '</p>');
         $cisty = (string) preg_replace('#^<p>|</p>$#', '', trim($cisty));
-        $cisty = strip_tags($cisty, '<strong><b><em><i><br><a><s><sub><sup>');
+        $cisty = strip_tags($cisty, '<strong><b><em><i><mark><br><a><s><sub><sup>');
 
         return trim(str_replace(['</p>', '<p>'], ['<br>', ''], $cisty));
     }

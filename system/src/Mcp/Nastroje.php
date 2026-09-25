@@ -126,7 +126,7 @@ final class Nastroje
                     'popis' => $text('popis obrázku pro nevidomé (alt); jinak z názvu')], ['nazev'])],
             ['nahled_odkaz', 'Podepsaný odkaz na náhled konceptu stránky nebo části webu – otevře ho kdokoli i bez přihlášení (uživatel, kolega, prohlížeč), platí jen pro tenhle cíl a jen omezenou dobu. Vyhledávače ho neindexují.',
                 $s($cil + ['minut' => $cislo('platnost v minutách, výchozí 60, nejvýš ' . \Kaleta\Core\Nahled::MAX_MINUT)])],
-            ['uprav_nastaveni', 'Změní nastavení webu (správce) – hned se projeví na webu. Klíče: nazev_webu, popis_webu, text_paticky, titulni_stranka (ID úvodní stránky), soc_facebook|instagram|x|youtube|linkedin (URL), '
+            ['uprav_nastaveni', 'Změní nastavení webu (správce) – hned se projeví na webu. Klíče: nazev_webu, popis_webu, text_paticky, logo_webu a favicon (cesta media/… z nahraj_soubor nebo image/…), titulni_stranka (ID úvodní stránky), soc_facebook|instagram|x|youtube|linkedin (URL), '
                 . 'pocet_clanku, sdileni, osnova_clanku, souvisejici_auto (1/0), údaje firmy firma_nazev, firma_typ, firma_ico, firma_dic, firma_ulice, firma_mesto, firma_psc, firma_zeme (CZ), firma_telefon, firma_hodiny (den na řádek), firma_mapa, firma_gps; nazev_webu_en… pro jazykové verze. Bez parametru vrátí současné hodnoty.',
                 $s(['nastaveni' => ['type' => 'object', 'description' => '{"klic":"hodnota"}']])],
             ['seznam_presmerovani', 'Přesměrování starých adres (rozšíření Přesměrování) a nejčastější adresy, které skončily chybou 404.', $s([])],
@@ -487,6 +487,24 @@ final class Nastroje
                 $chyby = [];
                 foreach ($zmeny as $klic => $hodnota) {
                     $klic = (string) $klic;
+                    if (in_array($klic, ['logo_webu', 'favicon'], true)) {
+                        // logo a ikona: soubor z Médií (nahraj_soubor) nebo ze systému (image/…); prázdné = bez loga / ikony
+                        $cesta = ltrim(trim((string) $hodnota), '/');
+                        $ok = $cesta === '' || (preg_match('#^(media|image)/[A-Za-z0-9/_.-]{1,200}\.(svg|png|webp|jpe?g|avif)$#', $cesta) && !str_contains($cesta, '..') && is_file(KALETA_ROOT . '/' . $cesta));
+                        if ($ok && $klic === 'favicon' && $cesta !== '') {
+                            // ikony pro telefony a instalaci webu (media/ikona-<n>.png) se připraví hned, jako ve Vzhledu
+                            $ok = \Kaleta\Core\Obrazky::ikony(KALETA_ROOT . '/' . $cesta);
+                        } elseif ($klic === 'favicon') {
+                            array_map(fn (int $n): bool => @unlink(KALETA_ROOT . '/media/ikona-' . $n . '.png'), \Kaleta\Core\Obrazky::IKONY);
+                        }
+                        if (!$ok) {
+                            $chyby[$klic] = 'Cesta k souboru z Médií (media/…) nebo ze systému (image/…); ikona musí jít převést na PNG.';
+                            continue;
+                        }
+                        $web->set($klic, $cesta);
+                        $ulozeno[$klic] = $cesta;
+                        continue;
+                    }
                     $cista = preg_match(self::NASTAVENI_MCP, $klic) && is_scalar($hodnota) ? \Kaleta\Admin\Moduly\Konfigurace::overHodnotu($klic, is_bool($hodnota) ? ($hodnota ? '1' : '0') : (string) $hodnota) : null;
                     if ($cista !== null && $klic === 'titulni_stranka' && (int) $cista > 0
                         && $db->value('SELECT ids FROM {stranky} WHERE ids = ? AND zobrazit = 1 AND smazano IS NULL', [(int) $cista]) === null) {
@@ -504,7 +522,7 @@ final class Nastroje
                     \Kaleta\Front\Cache::vymaz();
                 }
                 $aktualni = [];
-                foreach (['nazev_webu', 'popis_webu', 'text_paticky', 'titulni_stranka', 'soc_facebook', 'soc_instagram', 'soc_x', 'soc_youtube', 'soc_linkedin', 'pocet_clanku',
+                foreach (['nazev_webu', 'popis_webu', 'text_paticky', 'logo_webu', 'favicon', 'titulni_stranka', 'soc_facebook', 'soc_instagram', 'soc_x', 'soc_youtube', 'soc_linkedin', 'pocet_clanku',
                     'firma_nazev', 'firma_typ', 'firma_ico', 'firma_dic', 'firma_ulice', 'firma_mesto', 'firma_psc', 'firma_zeme', 'firma_telefon', 'firma_hodiny', 'firma_mapa', 'firma_gps'] as $klic) {
                     $aktualni[$klic] = $web->get($klic);
                 }
