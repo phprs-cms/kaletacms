@@ -195,6 +195,9 @@ final class Styl
         if (in_array($vlastnost, ['align-items', 'align-self', 'justify-content'], true)) {
             $hodnota = ['flex-start' => 'start', 'flex-end' => 'end'][$hodnota] ?? $hodnota;
         }
+        if ($vlastnost === 'text-align') {
+            $hodnota = ['left' => 'start', 'right' => 'end'][$hodnota] ?? $hodnota;
+        }
         $token = static fn (string $h): string => (string) preg_replace_callback('/var\(--ka-(mezera|krok|zaobleni|stin|barva)-([a-z0-9-]{1,20})\)/',
             static fn (array $m): string => match ($m[1]) {
                 'mezera' => isset(DesignSystem::MEZERY[$m[2]]) ? $m[2] : $m[0],

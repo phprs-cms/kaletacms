@@ -631,6 +631,7 @@ over('Stavba::kompaktni: bez výchozích hodnot, styl zůstane', $km, ['v' => 1,
 over('Stavba: zvýraznění <mark> v nadpisu zůstane, třídy a styly ne', Kaleta\Stavitel\Stavba::vycisti(['v' => 1, 'deti' => [['typ' => 'nadpis', 'id' => 'mk1', 'obsah' => ['text' => 'Publish<mark class="x" style="color:red">.</mark>']]]])[0]['deti'][0]['obsah']['text'], 'Publish<mark>.</mark>');
 $tlKontext = null;
 over('Styl::zCss: aliasy margin-top a flex-start', [Kaleta\Stavitel\Styl::zCss('margin-bottom', '24px'), Kaleta\Stavitel\Styl::zCss('align-items', 'flex-start')], [['okraj_dole' => '24px'], ['zarovnani' => 'start']]);
+over('Styl::zCss: text-align left/right', [Kaleta\Stavitel\Styl::zCss('text-align', 'left'), Kaleta\Stavitel\Styl::zCss('text-align', 'right')], [['zarovnani_textu' => 'start'], ['zarovnani_textu' => 'end']]);
 over('Ikony: GitHub v sadě', str_contains(Kaleta\Stavitel\Ikony::svg('github'), 'M9 19c-4'), true);
 over('Tlačítko: ikona za textem a vlevo od textu', [
     (bool) preg_match('#>Start<svg#', Kaleta\Stavitel\Prvky\Tlacitko::vykresli(['obsah' => ['text' => 'Start', 'odkaz' => '/x', 'varianta' => 'primarni', 'nove_okno' => false, 'ikona' => 'sipka', 'ikona_vlevo' => false]], '', '', (new ReflectionClass(Kaleta\Stavitel\Kontext::class))->newInstanceWithoutConstructor())),
