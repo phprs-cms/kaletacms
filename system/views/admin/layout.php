@@ -63,6 +63,7 @@ if ($user !== null) {
 <header class="hlavicka">
 	<a class="znacka" href="<?= e($app->url('admin.php')) ?>" aria-label="Kaleta – <?= e(t('Přehled')) ?>"><?= $app->view->render('admin/logo', ['vyska' => 28]) ?></a>
 	<button class="menu-prepinac" type="button" aria-expanded="false" aria-controls="menu"><?= e(t('Menu')) ?></button>
+	<nav class="menu-obal" aria-label="<?= e(t('Hlavní menu')) ?>">
 	<ul class="menu" id="menu">
 		<li class="menu-prehled<?= $naPrehledu ? ' aktivni' : '' ?>"><a href="<?= e($app->url('admin.php')) ?>"<?= $naPrehledu ? ' aria-current="page"' : '' ?>><?= $ikona('prehled') ?><?= e(t('Přehled')) ?></a></li>
 <?php $skupina = ''; $vMenu = isset($moduly[$aktivni]) && $moduly[$aktivni]::NADRAZENY !== '' ? $moduly[$aktivni]::NADRAZENY : $aktivni; ?>
@@ -75,12 +76,13 @@ if ($user !== null) {
 		<li class="menu-web"><a href="<?= e($app->url('')) ?>" target="_blank" rel="noopener"><?= $ikona('web') ?><?= e(t('Zobrazit web')) ?></a></li>
 		<li class="menu-logout"><form method="post" action="<?= e($app->url('admin.php?akce=logout')) ?>"><?= $app->session->csrfField() ?><button type="submit"><?= $ikona('odhlasit') ?><?= e(t('Odhlásit se')) ?></button></form></li>
 	</ul>
+	</nav>
 </header>
-<div class="loginprouzek">
+<section class="loginprouzek" aria-label="<?= e(t('Účet a nástroje')) ?>">
 	<button class="paleta-spustit" type="button" data-paleta title="<?= e(t('Rychlé hledání a příkazy')) ?>"><span><?= e(t('Hledat…')) ?></span> <kbd>Ctrl K</kbd></button>
 	<button class="tema-prepinac" type="button" data-tema-prepinac title="<?= e(t('Světlý / tmavý režim')) ?>" aria-label="<?= e(t('Přepnout světlý a tmavý režim')) ?>"><?= $ikona('tema') ?></button>
 	<a class="prihlasen" href="<?= e($app->url('admin.php?akce=ucet')) ?>" title="<?= e(t('Můj účet')) ?>" aria-label="<?= e(t('Můj účet') . ' – ' . ($user['jmeno'] ?: $user['user'])) ?>"><span class="avatar" title="<?= e(($user['jmeno'] ?: $user['user']) . ' – ' . t(Kaleta\Core\Auth::TYPY[(int) $user['admin']] ?? '')) ?>" aria-hidden="true"><?= e(mb_strtoupper(mb_substr($user['jmeno'] ?: $user['user'], 0, 1))) ?></span></a>
-</div>
+</section>
 <?php endif ?>
 <?php if ($prikazy !== []): ?>
 <dialog class="paleta" id="paleta" aria-label="<?= e(t('Rychlé hledání a příkazy')) ?>"<?= isset($moduly['novinky']) ? ' data-clanky="' . e($app->url('admin.php?modul=novinky&akce=hledej_json&uprava=1')) . '"' : '' ?>>
@@ -93,7 +95,7 @@ if ($user !== null) {
 <main class="obsah">
 <?php if ($nadpis !== ''): ?>
 <div class="zahlavi-stranky">
-<h2><?= e($nadpis) ?></h2>
+<h1><?= e($nadpis) ?></h1>
 </div>
 <?php endif ?>
 <?php foreach ($hlasky as $hlaska): ?>

@@ -129,7 +129,7 @@ $akce = e($app->url('admin.php?akce=ucet'));
 <?php endif ?>
 <p><?= e(t('Nejjednodušší je přidat v aplikaci Claude vlastní konektor s adresou %s – Claude vás pošle sem přihlásit a potvrdit přístup, žádný token nekopírujete. Token níže je pro Claude Code a jiné nástroje bez přihlášení.', $adresaMcp)) ?></p>
 <?php if ($aplikace !== []): ?>
-<h3><?= e(t('Připojené aplikace')) ?></h3>
+<h2><?= e(t('Připojené aplikace')) ?></h2>
 <?php foreach ($aplikace as $a): ?>
 <p><span class="stitek"><?= e($a['nazev']) ?></span> <?= e(t('připojena %s', datum($a['vytvoren']))) ?>, <?= e($a['pouzit'] ? t('naposledy použita %s', datum($a['pouzit'], true)) : t('zatím nepoužita')) ?>
 	<button class="navigace nebezpecne" type="submit" name="odpojit_klient" value="<?= e($a['klient']) ?>" data-potvrdit="<?= e(t('Odpojit aplikaci? Do webu se už nedostane, dokud ji znovu nepovolíte.')) ?>"><?= e(t('Odpojit')) ?></button></p>

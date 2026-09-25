@@ -26,7 +26,7 @@ $zobrazeni = array_sum(array_column($graf, 'zobrazeni'));
 	<div class="dlazdice-polozka"><strong><?= pocet($zobrazeni) ?></strong><span><?= e(t('Zobrazené stránky')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= $navstev > 0 ? pocet($zobrazeni / $navstev, 1) : '0' ?></strong><span><?= e(t('Stránek na návštěvu')) ?></span></div>
 </div>
-<h3><?= e(t('Zobrazení a návštěvy po dnech')) ?></h3>
+<h2><?= e(t('Zobrazení a návštěvy po dnech')) ?></h2>
 <div class="graf" role="img" aria-label="<?= e(t('Sloupcový graf zobrazení stránek po dnech')) ?>">
 <?php foreach ($graf as $den => $h): ?>
 	<div class="graf-sloupec" title="<?= e(t('%s: %s zobrazení, %s návštěv', datum($den), $h['zobrazeni'], $h['navstevy'])) ?>"><i style="height:<?= round($h['zobrazeni'] / $max * 100, 1) ?>%"><b style="height:<?= $h['zobrazeni'] > 0 ? round($h['navstevy'] / $h['zobrazeni'] * 100, 1) : 0 ?>%"></b></i></div>
@@ -36,7 +36,7 @@ $zobrazeni = array_sum(array_column($graf, 'zobrazeni'));
 
 <div class="stat-tabulky">
 <div>
-<h3><?= e(t('Nejnavštěvovanější stránky')) ?></h3>
+<h2><?= e(t('Nejnavštěvovanější stránky')) ?></h2>
 <?php if ($stranky === []): ?><p><?= e(t('Zatím žádná data.')) ?></p><?php else: ?>
 <div class="tab-obal"><table class="vypis"><tbody>
 <?php foreach ($stranky as $st): ?>
@@ -46,7 +46,7 @@ $zobrazeni = array_sum(array_column($graf, 'zobrazeni'));
 <?php endif ?>
 </div>
 <div>
-<h3><?= e(t('Nejčtenější novinky')) ?></h3>
+<h2><?= e(t('Nejčtenější novinky')) ?></h2>
 <?php if ($clanky === []): ?><p><?= e(t('Zatím žádná data.')) ?></p><?php else: ?>
 <div class="tab-obal"><table class="vypis"><tbody>
 <?php foreach ($clanky as $c): ?>
@@ -56,7 +56,7 @@ $zobrazeni = array_sum(array_column($graf, 'zobrazeni'));
 <?php endif ?>
 </div>
 <div>
-<h3><?= e(t('Odkud návštěvníci přicházejí')) ?></h3>
+<h2><?= e(t('Odkud návštěvníci přicházejí')) ?></h2>
 <?php if ($zdroje === []): ?><p><?= e(t('Zatím žádná data.')) ?></p><?php else: ?>
 <div class="tab-obal"><table class="vypis"><tbody>
 <?php foreach ($zdroje as $z): ?>

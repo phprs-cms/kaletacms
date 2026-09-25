@@ -16,7 +16,7 @@ $faze = [
     'obrazky' => 'stahují se obrázky', 'obrazky-hotovo' => 'převeden včetně obrázků',
 ];
 ?>
-<h3><?= e(t('Import z WordPressu')) ?></h3>
+<h2><?= e(t('Import z WordPressu')) ?></h2>
 <?= $app->view->render('admin/prenos/kroky', ['krok' => 1]) ?>
 <p><?= e(t('Ve WordPressu otevřete Nástroje → Export, zvolte „Veškerý obsah“ a stáhněte soubor .xml. Ten pak nahrajte sem. Převedou se stránky, příspěvky (jako novinky), kategorie a štítky a vzniknou přesměrování ze starých adres; na webu se nic nezmění, dokud import v dalším kroku nepotvrdíte.')) ?></p>
 <?php if ($chybiXml): ?>
@@ -58,7 +58,7 @@ $faze = [
 <p class="smltxt"><?= e(t('Stejný soubor můžete importovat opakovaně – co už bylo převedeno, se přeskočí. Po dokončení importu soubor smažte, obsahuje e-maily autorů a komentujících ze starého webu.')) ?></p>
 <?php endif ?>
 
-<h3><?= e(t('Export celého webu')) ?></h3>
+<h2><?= e(t('Export celého webu')) ?></h2>
 <p><?= e(t('Jedním archivem dostanete všechen obsah v otevřeném formátu: stránky, novinky, kategorie, štítky, přesměrování a nahrané soubory. Hesla, klíče ani účty v něm nejsou.')) ?></p>
 <?php if (!$umiZip): ?>
 <p class="hlaska"><?= e(t('Na serveru chybí rozšíření PHP zip, export proto obsahuje jen data (JSON). Složku media/ si stáhněte přes FTP.')) ?></p>

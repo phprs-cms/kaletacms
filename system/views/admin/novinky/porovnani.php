@@ -22,10 +22,10 @@ $smazano = $titulek['smazano'] + $uvod['smazano'] + $text['smazano'];
 <p class="hlaska"><?= e(t('Text se od této verze nezměnil (změny formátování a obrázků se neporovnávají).')) ?></p>
 <?php endif ?>
 <div class="porovnani">
-	<h3><?= e(t('Titulek')) ?></h3>
+	<h2><?= e(t('Titulek')) ?></h2>
 	<div class="porovnani-titulek"><?= $titulek['html'] ?></div>
-	<h3><?= e(t('Perex (úvod)')) ?></h3>
+	<h2><?= e(t('Perex (úvod)')) ?></h2>
 	<?= $uvod['html'] ?>
-	<h3><?= e(t('Text')) ?></h3>
+	<h2><?= e(t('Text')) ?></h2>
 	<?= $text['html'] ?>
 </div>

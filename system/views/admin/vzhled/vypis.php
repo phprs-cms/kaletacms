@@ -54,7 +54,7 @@ $kontrastyHtml = function (array $kontrasty): string {
 <?php endforeach ?>
 </div>
 <p class="napoveda"><?= e(t('Odstíny (tlumený text, linky, jemná hlavní barva) a barva textu na tlačítkách se dopočítají samy.')) ?></p>
-<h3 class="vzhled-podnadpis"><?= e(t('Čitelnost')) ?></h3>
+<h2 class="vzhled-podnadpis"><?= e(t('Čitelnost')) ?></h2>
 <ul class="vzhled-kontrasty" data-kontrasty><?= $kontrastyHtml($kontrasty) ?></ul>
 <p class="napoveda"><?= e(t('Text by měl mít kontrast aspoň 4,5 : 1 (WCAG AA). Červeně označené dvojice budou pro část návštěvníků špatně čitelné.')) ?></p>
 </fieldset>

@@ -24,7 +24,7 @@
 <body class="login">
 <div class="login-karta">
 <?= $app->view->render('admin/logo', ['vyska' => 36]) ?>
-<h3><?= e(t('Přihlášení do administrace')) ?></h3>
+<h1><?= e(t('Přihlášení do administrace')) ?></h1>
 <?php if ($chyba !== null): ?>
 <p class="hlaska hlaska-chyba" role="alert"><?= e($chyba) ?></p>
 <?php elseif ($app->request->get('heslo') === 'zmeneno'): ?>

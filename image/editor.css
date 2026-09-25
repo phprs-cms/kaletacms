@@ -251,7 +251,7 @@ button.galerie-polozka.vybrana { border-color: var(--ed-akcent); box-shadow: 0 0
 
 /* porovnání verzí článku */
 .porovnani { max-width: 760px; font-size: 15px; line-height: 1.6; }
-.porovnani h3 { margin: 22px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ed-text-slaby); }
+.porovnani h2 { margin: 22px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ed-text-slaby); }
 .porovnani-titulek p { font-size: 20px; font-weight: 700; }
 ins { background: rgb(21 128 61 / 0.18); color: inherit; text-decoration: none; border-radius: 2px; }
 del { background: rgb(179 38 30 / 0.16); color: inherit; border-radius: 2px; }

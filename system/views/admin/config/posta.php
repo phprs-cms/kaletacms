@@ -43,7 +43,7 @@ $pole('posta_odpoved', 'Odpovědi posílat na', 'email', 'Nepovinné – když m
 </details>
 <p><button class="navigace" type="submit" formaction="<?= e($modul->url('test_posty')) ?>"><?= e(t('Odeslat zkušební e-mail na adresu webu')) ?></button> <span class="smltxt"><?= e(t('Nejdřív nastavení uložte – zkouška použije uložené hodnoty.')) ?></span></p>
 <?php if (!empty($posta)): ?>
-<h3><?= e(t('Poslední zprávy')) ?></h3>
+<h2><?= e(t('Poslední zprávy')) ?></h2>
 <div class="tab-obal"><table class="vypis">
 <thead><tr><th scope="col"><?= e(t('Čas')) ?></th><th scope="col"><?= e(t('Komu')) ?></th><th scope="col"><?= e(t('Předmět')) ?></th><th scope="col"><?= e(t('Stav')) ?></th></tr></thead>
 <tbody>
