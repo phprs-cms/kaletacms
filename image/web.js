@@ -3,6 +3,15 @@
 (function () {
 	'use strict';
 
+	/* ---------- přechod mezi stránkami (View Transitions řídí jen CSS šablony): když ho prohlížeč přeruší nebo vynechá
+	   (rychlé proklikání, nová stránka přechod nepovolí), je to v pořádku – bez neošetřené chyby v konzoli ---------- */
+
+	window.addEventListener('pagereveal', function (e) {
+		if (!e.viewTransition) { return; }
+		e.viewTransition.ready.catch(function () { /* přechod vynechán */ });
+		e.viewTransition.finished.catch(function () { /* přechod vynechán */ });
+	});
+
 	/* ---------- texty: česky v kódu, překlad jazykové verze posílá Front\Seo::hlava() v atributu data-texty značky <script> ---------- */
 
 	var texty = {};

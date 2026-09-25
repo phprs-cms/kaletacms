@@ -219,7 +219,10 @@ final class Seo
         // společné prvky webu (fotogalerie, prohlížečka fotek, video, sdílení…) pro všechny šablony
         $verze = rawurlencode(KALETA_VERSION);
         $h[] = '<link rel="stylesheet" href="' . e($this->app->url('image/web.css')) . '?v=' . $verze . '">';
-        $h[] = '<script src="' . e($this->app->url('image/web.js')) . '?v=' . $verze . '" defer' . self::textySkriptu() . '></script>';
+        // blocking="render": stránka se poprvé vykreslí až s načteným skriptem (načítá se souběžně se styly, které vykreslení
+        // blokují stejně). Bez toho Chrome přeruší přechod mezi stránkami (View Transitions), dokud se odložený skript stahuje,
+        // a do konzole vypíše neošetřenou chybu „Transition was aborted because of invalid state“.
+        $h[] = '<script src="' . e($this->app->url('image/web.js')) . '?v=' . $verze . '" defer blocking="render"' . self::textySkriptu() . '></script>';
         $h[] = $this->mereni();
         if (trim($s->get('kod_hlava')) !== '') {
             $h[] = $s->get('kod_hlava');
