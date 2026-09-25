@@ -88,7 +88,8 @@ figure.galerie figcaption { grid-column: 1 / -1; }
 /* ---------- tabulky v textu (stránky z textu i prvek Text v builderu) ---------- */
 .text table, .ka-text table { width: 100%; margin: 1.6em 0; border-collapse: collapse; font: 15px/1.45 system-ui, sans-serif; display: block; overflow-x: auto; }
 .text th, .text td, .ka-text th, .ka-text td { padding: 8px 12px; border-bottom: 1px solid rgb(128 128 128 / 0.35); text-align: left; vertical-align: top; }
-.text th, .ka-text th { border-bottom: 2px solid currentColor; font-weight: 700; white-space: nowrap; }
+.text thead th, .ka-text thead th { border-bottom: 2px solid currentColor; font-weight: 700; }
+.text tbody th, .ka-text tbody th { font-weight: 600; min-width: 8em; }
 
 /* ---------- ukázky kódu a vložený obsah v textu (:where = nulová váha, šablona je může přebít) ---------- */
 :where(.text, .ka-text) pre { overflow-x: auto; padding: 14px 16px; background: rgb(128 128 128 / 0.12); font: 14px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
