@@ -716,7 +716,8 @@
 				if (p.typ === 'tlacitko' && (!o.odkaz || o.odkaz === '#')) { nalezy.push([p.id, T('Tlačítko „%s“ nikam nevede – doplňte odkaz.').replace('%s', o.text || '')]); }
 				if (p.typ === 'obrazek' && !o.src) { nalezy.push([p.id, T('Obrázek není vybraný – na webu se nezobrazí.')]); }
 				if (p.typ === 'obrazek' && o.src && !o.alt && !znacky(o.src)) { nalezy.push([p.id, T('Obrázek nemá popis pro nevidomé (alt).')]); }
-				if (p.typ === 'nadpis') { nadpisy.push([p.id, Number(String(p.znacka).slice(1)) || 2, text(o.text)]); }
+				const uroven = p.typ === 'nadpis' && /^h([1-6])$/.exec(p.znacka || 'h2'); // nadpis se značkou p (velké číslo, štítek) není v osnově
+				if (uroven) { nadpisy.push([p.id, Number(uroven[1]), text(o.text)]); }
 				if (p.deti) { projdi(p.deti, vKomponente); }
 			});
 		})(stav.stavba.deti);
@@ -855,7 +856,7 @@
 		dotaz(D.adresy.revize).then((j) => {
 			if (j.ok === false) { nastavStav(j.chyba, true); return; }
 			const seznam = el('ul');
-			(j.revize || []).forEach((r) => seznam.append(el('li', {}, el('span', {}, new Date(r.datum.replace(' ', 'T')).toLocaleString(document.documentElement.lang), r.kdo ? ' · ' + r.kdo : ''),
+			(j.revize || []).forEach((r) => seznam.append(el('li', {}, el('span', {}, r.kdy, r.kdo ? ' · ' + r.kdo : ''),
 				el('button', { type: 'button', class: 'st-tl', onclick: () => { d.close(); zastavUkladani().then(() => dotaz(D.adresy.obnov, { idr: r.idr })).then((o) => {
 					if (!o.ok) { nastavStav(o.chyba, true); return; }
 					stav.zpet.push(JSON.stringify(stav.stavba)); stav.stavba = o.stavba; stav.ulozeno = JSON.stringify(o.stavba); stav.verze = o.verze; stav.konflikt = false;
@@ -1493,7 +1494,7 @@
 			el('small', { style: 'color:var(--text-slaby)' }, T('Třída sdílí vzhled mezi prvky na všech stránkách. Klepnutím na třídu ji upravíte.'))));
 		const cssPole = el('textarea', { rows: 4, placeholder: 'transition: transform .2s;\nbackdrop-filter: blur(8px);', onchange: (e) => zmen(() => { const h = e.target.value.trim(); if (h) { p.css = h; } else { delete p.css; } }) });
 		cssPole.value = p.css || '';
-		const atrPole = el('textarea', { rows: 3, placeholder: 'data-sledovat=cta\naria-label=Hlavní výzva', onchange: (e) => zmen(() => {
+		const atrPole = el('textarea', { rows: 3, placeholder: 'data-sledovat=cta\naria-label=' + T('Hlavní výzva'), onchange: (e) => zmen(() => {
 			const atributy = {};
 			e.target.value.split('\n').forEach((radek) => { const i = radek.indexOf('='); if (i > 0) { atributy[radek.slice(0, i).trim()] = radek.slice(i + 1).trim(); } });
 			if (Object.keys(atributy).length) { p.atributy = atributy; } else { delete p.atributy; }

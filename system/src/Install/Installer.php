@@ -105,11 +105,11 @@ final class Installer
         $zapis = fn (string $cesta): bool => is_writable(KALETA_ROOT . $cesta);
 
         return [
-            ['nazev' => 'PHP 8.4 nebo novější', 'ok' => PHP_VERSION_ID >= 80400, 'info' => t('běží') . ' ' . PHP_VERSION],
-            ['nazev' => 'Rozšíření pdo_mysql', 'ok' => extension_loaded('pdo_mysql'), 'info' => t('připojení k databázi MySQL / MariaDB')],
-            ['nazev' => 'Rozšíření mbstring', 'ok' => extension_loaded('mbstring'), 'info' => t('práce s češtinou')],
-            ['nazev' => 'Zápis do kořenové složky', 'ok' => $zapis(''), 'info' => t('kvůli vytvoření config.php')],
-            ['nazev' => 'Zápis do složky storage/', 'ok' => $zapis('/storage/log') && $zapis('/storage/cache'), 'info' => t('logy a cache')],
+            ['nazev' => t('PHP 8.4 nebo novější'), 'ok' => PHP_VERSION_ID >= 80400, 'info' => t('běží') . ' ' . PHP_VERSION],
+            ['nazev' => t('Rozšíření pdo_mysql'), 'ok' => extension_loaded('pdo_mysql'), 'info' => t('připojení k databázi MySQL / MariaDB')],
+            ['nazev' => t('Rozšíření mbstring'), 'ok' => extension_loaded('mbstring'), 'info' => t('práce s češtinou')],
+            ['nazev' => t('Zápis do kořenové složky'), 'ok' => $zapis(''), 'info' => t('kvůli vytvoření config.php')],
+            ['nazev' => t('Zápis do složky storage/'), 'ok' => $zapis('/storage/log') && $zapis('/storage/cache'), 'info' => t('logy a cache')],
         ];
     }
 
@@ -158,7 +158,7 @@ final class Installer
             $db = Db::fromConfig($config['db']);
             $db->pdo();
         } catch (\PDOException $e) {
-            return ['db_name' => t('K databázi se nepodařilo připojit:') . ' ' . $e->getMessage()];
+            return self::chybaPripojeni($e);
         }
         $existuje = $db->value(
             'SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?',
@@ -183,6 +183,22 @@ final class Installer
         }
 
         return [];
+    }
+
+    /**
+     * Chyba připojení k databázi lidsky a u pole, které je potřeba opravit (kód chyby MySQL/MariaDB); neznámá chyba s textem ovladače.
+     *
+     * @return array<string, string>
+     */
+    private static function chybaPripojeni(\PDOException $e): array
+    {
+        return match ((int) ($e->errorInfo[1] ?? $e->getCode())) {
+            1045 => ['db_user' => t('Uživatelské jméno nebo heslo k databázi nesedí. Zkontrolujte je v administraci hostingu.')],
+            1044 => ['db_name' => t('Uživatel k této databázi nemá přístup. Přidělte mu ji v administraci hostingu.')],
+            1049 => ['db_name' => t('Databáze s tímto názvem na serveru není. Založte ji v administraci hostingu, nebo opravte název.')],
+            2002, 2005, 2006 => ['db_host' => t('K databázovému serveru se nepodařilo připojit. Zkontrolujte server a port.')],
+            default => ['db_name' => t('K databázi se nepodařilo připojit:') . ' ' . $e->getMessage()],
+        };
     }
 
     /**
@@ -219,8 +235,8 @@ final class Installer
             foreach ($stranky as $i => [$titulek, $adresa, $vMenu, $text]) {
                 $radek = ['titulek' => $titulek, 'seo_link' => $adresa, 'text' => $text, 'v_menu' => $vMenu, 'poradi' => ($i + 1) * 10];
                 if (($web['stranky'][$i] ?? []) !== []) {
-                    // sekce s prvky vypnutých rozšíření (výpis novinek, formulář) se na úvodní stránky nedávají
-                    $stavba = Knihovna::stranka($db, $web['stranky'][$i], $titulek, $this->jazyk, Stavba::vypnuteTypy($rozsireni));
+                    // sekce s prvky vypnutých rozšíření (výpis novinek, formulář) se na úvodní stránky nedávají, prázdné obrázky také
+                    $stavba = Knihovna::stranka($db, $web['stranky'][$i], $titulek, $this->jazyk, Stavba::vypnuteTypy($rozsireni), true);
                     $radek['stavba'] = Stavba::naJson($stavba);
                     $radek['text'] = Stavba::jakoText($stavba);
                 }

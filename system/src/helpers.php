@@ -80,7 +80,7 @@ function datum_slovy(string|\DateTimeInterface|null $value = null): string
     $dny = ['neděle', 'pondělí', 'úterý', 'středa', 'čtvrtek', 'pátek', 'sobota'];
     $mesice = [1 => 'ledna', 'února', 'března', 'dubna', 'května', 'června', 'července', 'srpna', 'září', 'října', 'listopadu', 'prosince'];
     $dt = $value instanceof \DateTimeInterface ? $value : new \DateTimeImmutable($value ?? 'now');
-    // slovník jazyka může dát vlastní tvar data: klíč "datum_slovy" = formát pro date(), např. "l, F j, Y"
+    // slovník jazyka může dát vlastní tvar data: klíč "datum_slovy" = formát pro date(), např. "l j F Y"
     $format = t('datum_slovy');
     if ($format !== 'datum_slovy') {
         return preg_replace_callback('/[A-Za-zÀ-ž]{3,}/u', fn (array $m): string => t($m[0]), $dt->format($format)) ?? $dt->format($format);

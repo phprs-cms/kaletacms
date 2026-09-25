@@ -100,7 +100,7 @@ final class Stav
             !$aktualizace['nastaveno'] => t('zdroj aktualizací není nastaven'),
             $aktualizace['chyba'] !== null => t('zdroj aktualizací neodpovídá: %s', (string) $aktualizace['chyba']),
             $aktualizace['nova'] !== null => t('je k dispozici verze %s (Nastavení → Zálohy a aktualizace)', (string) $aktualizace['nova']['verze']),
-            default => t('systém je aktuální (%s)', KALETA_VERSION) . ($aktualizace['overeno'] > 0 ? ', ' . t('ověřeno %s', date('j. n. Y H:i', $aktualizace['overeno'])) : ''),
+            default => t('systém je aktuální (%s)', KALETA_VERSION) . ($aktualizace['overeno'] > 0 ? ', ' . t('ověřeno %s', datum((new \DateTimeImmutable())->setTimestamp((int) $aktualizace['overeno']), true)) : ''),
         });
         $pridej(t('Provoz'), t('Odesílání pošty'), $smtp || function_exists('mail') ? 'ok' : 'varovani', $smtp ? t('přes SMTP server %s', $app->settings()->get('smtp_host')) : (function_exists('mail') ? t('funkcí mail() serveru – spolehlivější je SMTP (Nastavení → Pošta)') : t('funkce mail() je vypnutá – nastavte SMTP (Nastavení → Pošta)')));
 

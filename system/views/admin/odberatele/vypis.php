@@ -14,8 +14,12 @@
 <form class="navigace-radek" method="get" action="<?= e($app->url('admin.php')) ?>" role="search">
 	<input type="hidden" name="modul" value="odberatele">
 	<input class="textpole" type="search" name="hledat" value="<?= e($hledat) ?>" placeholder="<?= e(t('Hledat e-mail')) ?>" aria-label="<?= e(t('Hledat e-mail')) ?>">
-	<button class="navigace" type="submit"><?= e(t('Hledat')) ?></button>
+	<button class="navigace" type="submit"><?= e(t('Filtrovat')) ?></button>
+<?php if ($potvrzenych > 0): ?>
 	<a class="tl" href="<?= e($modul->url('csv')) ?>"><?= e(t('Export potvrzených (CSV)')) ?> · <?= $potvrzenych ?></a>
+<?php else: ?>
+	<button class="tl" type="button" disabled><?= e(t('Export potvrzených (CSV)')) ?> · 0</button>
+<?php endif ?>
 </form>
 <?php if ($odberatele === []): ?>
 <?= $app->view->render('admin/prazdno', ['ikona' => 'poptavky', 'nadpis' => t($hledat !== '' ? 'Nic nenalezeno.' : 'Zatím žádní odběratelé.'), 'text' => t('Vložte na web prvek Odběr novinek – třeba do patičky.')]) ?>

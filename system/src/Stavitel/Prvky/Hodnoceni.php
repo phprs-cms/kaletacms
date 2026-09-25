@@ -47,7 +47,7 @@ final class Hodnoceni extends Prvek
             $hvezdy .= '<path d="M' . ($x + 12) . ' 1.5l3.1 6.6 7.2.9-5.3 5 1.4 7.1-6.4-3.4-6.4 3.4 1.4-7.1-5.3-5 7.2-.9z"/>';
         }
         $sirka = round($hodnota / 5 * 128, 2);
-        $cislo = rtrim(rtrim(number_format($hodnota, 1, ',', ''), '0'), ',');
+        $cislo = rtrim(rtrim(cislo($hodnota), '0'), ',.');
         $svg = '<svg viewBox="0 0 128 24" aria-hidden="true" focusable="false"><defs><clipPath id="hv-' . e($p['id']) . '"><rect width="' . $sirka . '" height="24"/></clipPath></defs>'
             . '<g class="ka-hodnoceni-prazdne">' . $hvezdy . '</g><g class="ka-hodnoceni-plne" clip-path="url(#hv-' . e($p['id']) . ')">' . $hvezdy . '</g></svg>';
 

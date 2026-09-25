@@ -5,7 +5,8 @@
  *
  * Asistent nic neukládá - návrh se jen vloží do pole formuláře a člověk ho může dál upravit.
  */
-(function () {
+// skript je v obsahu stránky, tedy před admin.js se slovníkem překladů (window.T) – začne až po načtení všech skriptů
+document.addEventListener('DOMContentLoaded', function () {
 	'use strict';
 
 	var T = window.T || function (s) { return s; }; // překlad textů administrace (image/jazyky/admin-*.js)
@@ -200,4 +201,4 @@
 		stitek.appendChild(document.createTextNode(' '));
 		stitek.appendChild(b);
 	});
-})();
+});

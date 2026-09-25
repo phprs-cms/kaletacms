@@ -32,7 +32,7 @@ $nahled = function (string $data): string {
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt">
 	<input type="hidden" name="modul" value="poptavky"><input type="hidden" name="stav" value="<?= e($filtr) ?>">
 	<label><?= e(t('Hledat (jméno, e-mail, text):')) ?> <input class="textpole" type="search" name="hledat" value="<?= e($hledat) ?>" size="24"></label>
-	<input class="tl" type="submit" value="<?= e(t('Hledat')) ?>">
+	<input class="tl" type="submit" value="<?= e(t('Filtrovat')) ?>">
 </form>
 <br>
 <?php if ($poptavky === [] && ($hledat !== '' || $filtr !== '')): ?>

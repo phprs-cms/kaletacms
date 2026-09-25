@@ -558,5 +558,10 @@ window.KALETA_PREKLAD = {
 	"Ikona vlevo od textu": "Icon left of the text",
 	"Zvýraznění aktivní položky": "Current item highlight",
 	"podbarvení": "background",
-	"podtržení doplňkovou barvou": "underline in the secondary colour"
+	"podtržení doplňkovou barvou": "underline in the secondary colour",
+	"HTML značka": "HTML tag",
+	"Název ve struktuře": "Name in Structure",
+	"Kotva (id pro odkaz #…)": "Anchor (id for a #… link)",
+	"Hlavní výzva": "Main call to action",
+	"%s : 1": "%s:1"
 };

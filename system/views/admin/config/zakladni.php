@@ -34,7 +34,7 @@ $pole('email_webu', 'E-mail webu', 'email', 'Chodí na něj upozornění systém
 		<option value="<?= e($pasmo) ?>"<?= $hodnoty['casove_pasmo'] === $pasmo ? ' selected' : '' ?>><?= e(str_replace('_', ' ', $pasmo)) ?></option>
 <?php endforeach ?>
 	</select>
-	<span class="napoveda"><?= e(t('Podle něj se vydávají naplánované novinky a zobrazují data. Teď je %s.', date('j. n. Y H:i'))) ?></span></div>
+	<span class="napoveda"><?= e(t('Podle něj se vydávají naplánované novinky a zobrazují data. Teď je %s.', datum(new DateTimeImmutable(), true))) ?></span></div>
 </div>
 <div class="radek">
 	<label for="jazyk_webu"><?= e(t('Jazyk webu')) ?></label>

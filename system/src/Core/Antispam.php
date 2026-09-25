@@ -37,7 +37,7 @@ final class Antispam
         $cas = (string) time();
 
         return '<input type="hidden" name="as_cas" value="' . $cas . '"><input type="hidden" name="as_podpis" value="' . hash_hmac('sha256', $ucel . '|' . $cas, $this->klic()) . '">'
-            . '<div style="position:absolute;left:-9999px" aria-hidden="true"><label>Toto pole nevyplňujte <input type="text" name="web_adresa" tabindex="-1" autocomplete="off"></label></div>';
+            . '<div style="position:absolute;left:-9999px" aria-hidden="true"><label>' . e(t('Toto pole nevyplňujte')) . ' <input type="text" name="web_adresa" tabindex="-1" autocomplete="off"></label></div>';
     }
 
     /** @return string|null důvod odmítnutí (už přeložený do jazyka webu; 'robot' je značka, ne text), null = v pořádku */

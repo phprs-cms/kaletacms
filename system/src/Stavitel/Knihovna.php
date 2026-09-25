@@ -68,7 +68,7 @@ final class Knihovna
                 $s($n('mrizka', [], array_map(fn (array $d): array => $s($n('kontejner', [], [
                     $s($z($n('nadpis', ['text' => $d[0]]), 'p'), ['zaklad' => ['velikost_pisma' => '4', 'tloustka_pisma' => '800']]),
                     $n('text', ['html' => '<p>' . $d[1] . '</p>']),
-                ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => '2xs', 'zarovnani_textu' => 'center']]), [['15+', t('let na trhu')], ['1 200', t('hotových zakázek')], ['98 %', t('spokojených zákazníků')], ['24 h', t('na odpověď')]])),
+                ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => '2xs', 'zarovnani_textu' => 'center']]), [['15+', t('let na trhu')], [t('1 200'), t('hotových zakázek')], [t('98 %'), t('spokojených zákazníků')], ['24 h', t('na odpověď')]])),
                     ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '4', 'mezera' => 'l'], 'tablet' => ['sloupce' => '2']]),
             ]), ['zaklad' => ['odsazeni_y' => 'xl', 'pozadi' => 'primarni', 'barva' => 'na-primarni']])],
 
@@ -110,7 +110,7 @@ final class Knihovna
                 $s($n('mrizka', [], [
                     // údaje z Nastavení → Firma: vyplní se jednou a platí i pro patičku a vyhledávače
                     $s($n('kontejner', [], [
-                        $z($n('nadpis', ['text' => t('Kontakt')]), 'h2'),
+                        $z($n('nadpis', ['text' => t('Kontaktní údaje')]), 'h2'),
                         $n('udaje', ['udaj' => 'firma']),
                         $z($n('udaje', ['udaj' => 'adresa']), 'address'),
                         $n('udaje', ['udaj' => 'telefon']),
@@ -285,13 +285,13 @@ final class Knihovna
                     $s($z($n('nadpis', ['text' => $d[0]]), 'p'), ['zaklad' => ['velikost_pisma' => '5', 'tloustka_pisma' => '800', 'barva' => 'primarni']]),
                     $t($n('text', ['html' => '<p>' . $d[1] . '</p>']), 'podtitul'),
                 ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => '2xs']]), [
-                    ['20+', t('let zkušeností')], ['500+', t('spokojených zákazníků')], ['5 let', t('záruka na práci')],
+                    ['20+', t('let zkušeností')], ['500+', t('spokojených zákazníků')], [t('5 let'), t('záruka na práci')],
                 ])), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '3', 'mezera' => 'l'], 'mobil' => ['sloupce' => '1']]),
             ])],
 
             'zaruky' => ['nazev' => t('Záruky'), 'popis' => t('Pruh se čtyřmi krátkými sliby – doprava, záruka, termín, platba.'), 'stavba' => fn (): array => $s($n('sekce', [], [
                 $s($n('mrizka', [], array_map(fn (array $d): array => $s($n('kontejner', [], [
-                    $z($n('nadpis', ['text' => $d[0]]), 'h3'), $t($n('text', ['html' => '<p>' . $d[1] . '</p>']), 'podtitul'),
+                    $s($z($n('nadpis', ['text' => $d[0]]), 'p'), ['zaklad' => ['velikost_pisma' => '1', 'tloustka_pisma' => '700']]), $t($n('text', ['html' => '<p>' . $d[1] . '</p>']), 'podtitul'),
                 ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => '2xs']]), [
                     [t('Doprava zdarma'), t('V okruhu 50 km.')], [t('Záruka 5 let'), t('Na veškerou práci.')], [t('Pevný termín'), t('Nebo sleva za každý den.')], [t('Platba po předání'), t('Žádné velké zálohy.')],
                 ])), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '4', 'mezera' => 'l'], 'tablet' => ['sloupce' => '2']]),
@@ -357,7 +357,7 @@ final class Knihovna
                     $z($n('nadpis', ['text' => $d[0]]), 'h3'),
                     $n('text', ['html' => '<p>' . $d[1] . '<br>' . $d[2] . '</p><p>' . $d[3] . '</p>']),
                 ]), 'karta'), [
-                    [t('Praha'), t('Dlouhá 12'), '110 00 Praha', t('Po–Pá 8–17')], [t('Brno'), t('Masarykova 5'), '602 00 Brno', t('Po–Pá 9–17')], [t('Ostrava'), t('Nádražní 20'), '702 00 Ostrava', t('Po–Čt 8–16')],
+                    [t('Praha'), t('Dlouhá 12'), t('110 00 Praha'), t('Po–Pá 8–17')], [t('Brno'), t('Masarykova 5'), t('602 00 Brno'), t('Po–Pá 9–17')], [t('Ostrava'), t('Nádražní 20'), t('702 00 Ostrava'), t('Po–Čt 8–16')],
                 ])), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => 'auto:16rem', 'mezera' => 'l']]),
             ])],
 
@@ -373,7 +373,7 @@ final class Knihovna
             'kontakt-formular' => ['nazev' => t('Kontakt s formulářem'), 'popis' => t('Údaje firmy z Nastavení vlevo, poptávkový formulář vpravo.'), 'stavba' => fn (): array => $n('sekce', [], [
                 $s($n('mrizka', [], [
                     $s($n('kontejner', [], [
-                        $z($n('nadpis', ['text' => t('Kontakt')]), 'h2'),
+                        $z($n('nadpis', ['text' => t('Kontaktní údaje')]), 'h2'),
                         $n('udaje', ['udaj' => 'firma']), $z($n('udaje', ['udaj' => 'adresa']), 'address'),
                         $n('udaje', ['udaj' => 'telefon']), $n('udaje', ['udaj' => 'email']), $n('udaje', ['udaj' => 'hodiny']), $n('udaje', ['udaj' => 'mapa']),
                     ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'xs']]),
@@ -397,7 +397,7 @@ final class Knihovna
      */
     public const array WEBY = [
         'firemni' => ['nazev' => 'Firemní web', 'popis' => 'Univerzální web služeb: výhody, čísla, reference, novinky.', 'predvolba' => 'firemni', 'stranky' => [
-            ['uvod', 'vyhody', 'cisla', 'reference', 'novinky', 'vyzva'], [], ['sluzby', 'faq', 'vyzva'], ['kontakt', 'poptavka'],
+            ['uvod', 'vyhody', 'cisla', 'reference', 'novinky', 'vyzva'], [], ['nadpis-stranky', 'sluzby', 'faq', 'vyzva'], ['nadpis-stranky', 'kontakt', 'poptavka'],
         ]],
         'remeslo' => ['nazev' => 'Řemeslo a služby', 'popis' => 'Teplé barvy, postup práce, realizace a záruky.', 'predvolba' => 'remeslo', 'stranky' => [
             ['uvod-obrazek', 'zaruky', 'proces', 'portfolio', 'reference', 'vyzva'], ['nadpis-stranky', 'pribeh', 'hodnoty', 'tym'],
@@ -435,28 +435,78 @@ final class Knihovna
             . $o('Kontakt', 'Napište nám na [E-MAIL] nebo zavolejte na [TELEFON].');
     }
 
+    /** Náhrada sekce s prvkem vypnutého rozšíření: kontakt bez formuláře má aspoň údaje firmy a otevírací dobu. */
+    private const array NAHRADY = ['kontakt-formular' => 'kontakt'];
+
     /**
      * Stavba stránky ukázkového webu ze sekcí (v jazyce instalace); použité třídy se založí.
      *
      * @param list<string> $sekce
-     * @param list<string> $bezTypu sekce s těmito prvky se vynechají (vypnutá rozšíření)
+     * @param list<string> $bezTypu sekce s těmito prvky se vynechají nebo nahradí (vypnutá rozšíření)
+     * @param bool $bezObrazku vynechat prázdné obrázky (ukázkový web z instalace fotky nemá, na webu by po nich zůstalo prázdné místo)
      */
-    public static function stranka(\Kaleta\Core\Db $db, array $sekce, string $titulek, string $jazyk, array $bezTypu = []): array
+    public static function stranka(\Kaleta\Core\Db $db, array $sekce, string $titulek, string $jazyk, array $bezTypu = [], bool $bezObrazku = false): array
+    {
+        [$stavba, $tridy] = self::sestav($sekce, $titulek, $jazyk, $bezTypu, $bezObrazku);
+        self::zalozTridy($db, $tridy);
+
+        return $stavba;
+    }
+
+    /**
+     * Stavba stránky ze sekcí a třídy, které používá (bez zápisu do databáze – viz stranka()).
+     *
+     * @param list<string> $sekce
+     * @param list<string> $bezTypu
+     * @return array{0: array<string, mixed>, 1: list<string>}
+     */
+    public static function sestav(array $sekce, string $titulek, string $jazyk, array $bezTypu = [], bool $bezObrazku = false): array
     {
         $stavba = ['v' => Stavba::VERZE, 'deti' => []];
+        $tridy = [];
         foreach ($sekce as $klic) {
             $s = self::sekci($klic, $jazyk);
-            if ($s === null || ($bezTypu !== [] && self::obsahujeTyp($s['prvek'], $bezTypu))) {
+            if ($s !== null && $bezTypu !== [] && self::obsahujeTyp($s['prvek'], $bezTypu)) {
+                $s = isset(self::NAHRADY[$klic]) && !in_array(self::NAHRADY[$klic], $sekce, true) ? self::sekci(self::NAHRADY[$klic], $jazyk) : null;
+            }
+            $prvek = $s === null ? null : ($bezObrazku ? self::bezObrazku($s['prvek']) : $s['prvek']);
+            if ($prvek === null) {
                 continue;
             }
             if ($klic === 'nadpis-stranky') {
-                $s['prvek']['deti'][0]['obsah']['text'] = e($titulek);
+                $prvek['deti'][0]['obsah']['text'] = e($titulek);
             }
-            $stavba['deti'][] = $s['prvek'];
-            self::zalozTridy($db, $s['tridy']);
+            $stavba['deti'][] = $prvek;
+            array_push($tridy, ...$s['tridy']);
         }
 
-        return $stavba;
+        return [$stavba, array_values(array_unique($tridy))];
+    }
+
+    /**
+     * Prvek bez prázdných obrázků: mřížka, ve které zbude jediný prvek (text vedle obrázku), se nahradí tímto prvkem;
+     * prvek, ve kterém zbudou jen nadpisy (loga klientů), se vynechá celý – null.
+     */
+    private static function bezObrazku(array $p): ?array
+    {
+        if ($p['typ'] === 'obrazek' && ($p['obsah']['src'] ?? '') === '') {
+            return null;
+        }
+        if (!isset($p['deti'])) {
+            return $p;
+        }
+        $deti = array_values(array_filter(array_map(self::bezObrazku(...), $p['deti'])));
+        if (count($deti) < count($p['deti'])) {
+            if ($p['typ'] === 'mrizka' && count($deti) === 1) {
+                return $deti[0];
+            }
+            if (array_filter($deti, fn (array $d): bool => $d['typ'] !== 'nadpis') === []) {
+                return null;
+            }
+        }
+        $p['deti'] = $deti;
+
+        return $p;
     }
 
     /** Kategorie v panelu Hotové sekce (klíč => název). */

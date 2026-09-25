@@ -24,7 +24,7 @@ $adresa = fn (array $s): string => ($s['jazyk'] !== '' ? $s['jazyk'] . '/' : '')
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt">
 	<input type="hidden" name="modul" value="stranky">
 	<label><?= e(t('Název nebo adresa obsahuje:')) ?> <input class="textpole" type="search" name="hledat" value="<?= e($hledat) ?>" size="20"></label>
-	<input class="tl" type="submit" value="<?= e(t('Hledat')) ?>">
+	<input class="tl" type="submit" value="<?= e(t('Filtrovat')) ?>">
 </form>
 <br>
 <?php endif ?>
