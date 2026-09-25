@@ -377,7 +377,7 @@ final class Knihovna
                         $n('udaje', ['udaj' => 'firma']), $z($n('udaje', ['udaj' => 'adresa']), 'address'),
                         $n('udaje', ['udaj' => 'telefon']), $n('udaje', ['udaj' => 'email']), $n('udaje', ['udaj' => 'hodiny']), $n('udaje', ['udaj' => 'mapa']),
                     ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'xs']]),
-                    $t($n('kontejner', [], [$z($n('nadpis', ['text' => t('Napište nám')]), 'h3'), $n('formular')]), 'karta'),
+                    $t($n('kontejner', [], [$z($n('nadpis', ['text' => t('Napište nám')]), 'h2'), $n('formular')]), 'karta'),
                 ]), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '2fr 3fr', 'mezera' => '2xl'], 'tablet' => ['sloupce' => '1', 'mezera' => 'l']]),
             ])],
 
