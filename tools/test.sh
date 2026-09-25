@@ -679,6 +679,7 @@ rm -f "$PRACE"/web/storage/cache/stranky/*.html
 curl -s -o "$PRACE/odpoved" "$B/novinky"
 grep -q '<li class="podmenu"><a href="[^"]*/o-nas">O firmě</a><ul><li><a href="https://example.cz/kariera" target="_blank" rel="noopener">Kariéra</a>' "$PRACE/odpoved" && grep -q 'aria-current="page">Novinky' "$PRACE/odpoved" && ! grep -q 'javascript:' "$PRACE/odpoved" \
   && echo "  ok     menu s podmenu na webu, nebezpečný odkaz vypadl" || { echo "  CHYBA  menu na webu"; CHYB=$((CHYB+1)); }
+grep -q 'image/web\.js' "$PRACE/odpoved" && echo "  ok     stránka s podmenu načte web.js (Esc podmenu zavře)" || { echo "  CHYBA  stránka s podmenu bez web.js"; CHYB=$((CHYB+1)); }
 mcp nacti_menu '{"umisteni":"paticka"}' > "$PRACE/odpoved"; grep -q 'Zásady ochrany soukromí' "$PRACE/odpoved" && echo "  ok     menu v patičce (MCP)" || { echo "  CHYBA  menu v patičce"; CHYB=$((CHYB+1)); }
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akce=uloz" -d "_csrf=$TOKEN" -d "ids=$IDS" -d titulek=Kontakt -d seo_link=kontakty -d zobrazit=1 -d v_menu=1 -d "text=<p>Adresa.</p>"
 ocekavej "zaškrtnutá stránka se přidá na konec sestaveného menu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT polozky LIKE '%\"ids\":$IDS%' FROM ka_menu WHERE umisteni = 'hlavni'")" "1"

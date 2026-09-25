@@ -879,8 +879,9 @@ final class Kernel
         ]);
         $html = ObrazkyHtml::dopln($this->app->db(), $html); // rozměry a barva podkladu obrázků – méně poskakování stránky
         $html = $this->systemoveOdkazy($html);
-        // image/web.js jen na stránkách, které ho potřebují (galerie a fotky v textu, video, sdílení, záložky, karusel, okno, formulář, počítadlo, odpočet)
-        if (!preg_match('/data-(vlozit|sdilet|kopirovat|zalozky|karusel|formular|odeslano|pocitadlo|odpocet|tema-volba)|popover role="dialog"|galerie|class="(?:text|perex)[" ][\s\S]*?<img|cookies-/', $html)) {
+        // image/web.js jen na stránkách, které ho potřebují (galerie a fotky v textu, video, sdílení, záložky, karusel, okno, formulář,
+        // počítadlo, odpočet, podmenu – Esc ho zavře)
+        if (!preg_match('/data-(vlozit|sdilet|kopirovat|zalozky|karusel|formular|odeslano|pocitadlo|odpocet|tema-volba)|popover role="dialog"|galerie|class="(?:text|perex)[" ][\s\S]*?<img|cookies-|<li class="podmenu/', $html)) {
             $html = (string) preg_replace('#<script src="[^"]*/image/web\.js[^"]*"[^>]*></script>\n?#', '', $html);
         }
         // prvky s podmínkou zobrazení (datum, přihlášení) se skládají pokaždé znovu – cache by je ukazovala podle stavu v okamžiku uložení
