@@ -32,7 +32,8 @@ final class VypisKolekce extends Prvek
                 'pole' => 'podle pole – vzestupně', 'pole_sestupne' => 'podle pole – sestupně']],
             'razeni_pole' => ['typ' => 'text', 'popisek' => 'Pole pro řazení (klíč, např. cena)', 'vychozi' => '', 'max' => 31],
             'filtr_pole' => ['typ' => 'text', 'popisek' => 'Filtrovat podle pole (klíč, nepovinné)', 'vychozi' => '', 'max' => 31],
-            'filtr_hodnota' => ['typ' => 'text', 'popisek' => 'Jen položky s hodnotou', 'vychozi' => '', 'max' => 200],
+            'filtr_hodnota' => ['typ' => 'text', 'popisek' => 'Jen položky s hodnotou (na stránce položky i {{pole}} – související obsah)', 'vychozi' => '', 'max' => 200],
+            'bez_aktualni' => ['typ' => 'prepinac', 'popisek' => 'Vynechat zobrazenou položku (související obsah na stránce položky)', 'vychozi' => false],
             'filtry' => ['typ' => 'prepinac', 'popisek' => 'Tlačítka filtru pro návštěvníky (podle pole výše)', 'vychozi' => false],
             'strankovani' => ['typ' => 'prepinac', 'popisek' => 'Stránkovat (po „Nejvýš položek“)', 'vychozi' => false],
             'prazdne' => ['typ' => 'text', 'popisek' => 'Text, když kolekce nemá položky', 'vychozi' => '', 'max' => 300],
@@ -78,11 +79,21 @@ final class VypisKolekce extends Prvek
         $filtrPole = preg_match(Kolekce::VZOR_KLICE, (string) $o['filtr_pole']) ? (string) $o['filtr_pole'] : '';
         $hodnotyFiltru = $filtrPole !== '' && $o['filtry'] ? Kolekce::hodnotyPole($db, (int) $kolekce['idk'], Jazyk::sloupecWebu(), $filtrPole) : [];
         $zvoleny = in_array($r->get($parFiltr), $hodnotyFiltru, true) ? $r->get($parFiltr) : '';
-        $filtr = $filtrPole === '' ? null : [$filtrPole, $zvoleny !== '' ? $zvoleny : (string) $o['filtr_hodnota']];
+        // související obsah: hodnota filtru ze zobrazené položky ({{skupina}} na stránce položky); jinde se nefiltruje
+        $vlastni = $k->polozka;
+        $filtrHodnota = (string) $o['filtr_hodnota'];
+        if (str_contains($filtrHodnota, '{{')) {
+            $filtrHodnota = $vlastni !== null ? Kolekce::dosad($filtrHodnota, 'text', $vlastni) : '';
+        }
+        $filtr = $filtrPole === '' ? null : [$filtrPole, $zvoleny !== '' ? $zvoleny : $filtrHodnota];
         $strana = $o['strankovani'] ? max(1, $r->getInt($parStrana, 1)) : 1;
-        [$polozky, $celkem] = Kolekce::polozky($db, (int) $kolekce['idk'], Jazyk::sloupecWebu(), (int) $o['pocet'], (string) $o['razeni'], $filtr, $strana, (string) $o['razeni_pole']);
+        $bezAktualni = !empty($o['bez_aktualni']) && ($vlastni['url'][0] ?? '') !== '';
+        [$polozky, $celkem] = Kolekce::polozky($db, (int) $kolekce['idk'], Jazyk::sloupecWebu(), (int) $o['pocet'] + ($bezAktualni ? 1 : 0), (string) $o['razeni'], $filtr, $strana, (string) $o['razeni_pole']);
         $k->okoli[$p['id']] = ['pred' => self::filtry($hodnotyFiltru, $zvoleny, $parFiltr, $k), 'za' => $o['strankovani'] ? self::strany($celkem, (int) $o['pocet'], $strana, $parStrana, $zvoleny !== '' ? [$parFiltr => $zvoleny] : [], $k) : ''];
         $hodnoty = array_map(fn (array $polozka): array => Kolekce::hodnoty($kolekce, $polozka, $k->url(...)), $polozky);
+        if ($bezAktualni) {
+            $hodnoty = array_slice(array_values(array_filter($hodnoty, fn (array $h): bool => $h['url'][0] !== $vlastni['url'][0])), 0, (int) $o['pocet']);
+        }
         if ($hodnoty === []) {
             if (!$k->editor) {
                 return $o['prazdne'] !== '' ? '<p>' . e($o['prazdne']) . '</p>' : '';

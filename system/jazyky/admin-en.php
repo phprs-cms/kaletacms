@@ -1413,7 +1413,6 @@ return [
     'podle pole – sestupně' => 'by field – descending',
     'Pole pro řazení (klíč, např. cena)' => 'Sort field (key, e.g. price)',
     'Filtrovat podle pole (klíč, nepovinné)' => 'Filter by field (key, optional)',
-    'Jen položky s hodnotou' => 'Only items with value',
     'Tlačítka filtru pro návštěvníky (podle pole výše)' => 'Filter buttons for visitors (by the field above)',
     'Stránkovat (po „Nejvýš položek“)' => 'Paginate (by “Maximum items”)',
     'V builderu nové sekce podle popisu a přepisy textů, v novinkách titulky, perex, SEO popis, štítky, korektura, popisy obrázků a překlad. Potřebuje vlastní klíč Claude, OpenAI, Google nebo Mistral (níže); text se posílá jen po kliknutí na tlačítko asistenta.' => 'In the builder, new sections from a description and text rewrites; in news, headlines, intro, SEO description, tags, proofreading, image descriptions and translation. Needs your own Claude, OpenAI, Google or Mistral key (below); text is sent only when you click an assistant button.',
@@ -2371,4 +2370,6 @@ return [
     '%s: %s návštěv' => '%s: %s visits',
     'vždy tmavý' => 'always dark',
     'Přepínač pro návštěvníky – v záhlaví si zvolí světlý, tmavý nebo vzhled podle zařízení (volba se pamatuje v jejich prohlížeči)' => 'Switcher for visitors – in the header they choose light, dark or matching their device (the choice is remembered in their browser)',
+    'Jen položky s hodnotou (na stránce položky i {{pole}} – související obsah)' => 'Only items with the value (on an item page also {{field}} – related content)',
+    'Vynechat zobrazenou položku (související obsah na stránce položky)' => 'Leave out the item being shown (related content on an item page)',
 ];
