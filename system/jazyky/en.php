@@ -822,4 +822,5 @@ return [
     'Stránka nemá hlavní nadpis (h1) – vyhledávače i čtečky podle něj poznají, o čem je.' => 'The page has no main heading (h1) – search engines and screen readers use it to tell what the page is about.',
     'Stránka má víc hlavních nadpisů (h1) – nechte jen jeden.' => 'The page has more than one main heading (h1) – keep just one.',
     'Nadpis „%s“ přeskakuje úroveň (h%d → h%d).' => 'The heading “%s” skips a level (h%d → h%d).',
+    'Kampaň' => 'Campaign',
 ];

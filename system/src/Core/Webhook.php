@@ -11,7 +11,7 @@ namespace Kaleta\Core;
 final class Webhook
 {
     /** Nová poptávka z formuláře webu → adresa z Nastavení (CRM, Make, Zapier, n8n, Slack…). */
-    public static function poptavka(App $app, int $idp, string $formular, array $data, string $email, string $stranka): void
+    public static function poptavka(App $app, int $idp, string $formular, array $data, string $email, string $stranka, string $kampan = ''): void
     {
         $adresa = $app->settings()->get('webhook_poptavky');
         if (!preg_match('#^https://#i', $adresa)) {
@@ -21,7 +21,21 @@ final class Webhook
             'udalost' => 'nova_poptavka', 'web' => $app->settings()->get('nazev_webu'), 'id' => $idp, 'formular' => $formular, 'email' => $email,
             'stranka' => $app->request->origin() . $stranka, 'prijato' => date('c'),
             'pole' => array_map(fn (array $d): array => ['popisek' => $d[0], 'hodnota' => $d[1]], $data),
-        ]);
+        ] + ($kampan !== '' ? ['utm' => self::utm($kampan)] : []));
+    }
+
+    /** @return array<string, string> parametry utm_* bez předpony: source, medium, campaign, term, content */
+    private static function utm(string $kampan): array
+    {
+        parse_str($kampan, $utm);
+        $vysledek = [];
+        foreach ($utm as $k => $h) {
+            if (is_string($k) && is_string($h) && str_starts_with($k, 'utm_')) {
+                $vysledek[substr($k, 4)] = $h;
+            }
+        }
+
+        return $vysledek;
     }
 
     /** @param array<string, mixed> $data */

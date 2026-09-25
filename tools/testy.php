@@ -188,6 +188,9 @@ $kontrola = Kaleta\Stavitel\Kontrola::stavby(['v' => 1, 'deti' => [['id' => 's',
 ]]]], true);
 over('Kontrola stavby: tlačítko bez odkazu, obrázek bez popisu, chybějící h1 a přeskočená úroveň', array_column($kontrola, 'id'), ['c', 'd', 'a', 'b']);
 over('Kontrola stavby: části webu osnovu nadpisů nehlídají', Kaleta\Stavitel\Kontrola::stavby(['v' => 1, 'deti' => [['id' => 'a', 'typ' => 'nadpis', 'znacka' => 'h3', 'obsah' => ['text' => 'Kontakt']]]], false), []);
+over('Poptávka: kampaň z utm_* adresy stránky s formulářem', Kaleta\Front\Formulare::kampan('https://example.com/akce?utm_source=google&utm_medium=cpc&utm_campaign=jaro&gclid=x&utm_term[]=a', 'https://example.com'), 'utm_source=google&utm_medium=cpc&utm_campaign=jaro');
+over('Poptávka: kampaň jen z vlastního webu', Kaleta\Front\Formulare::kampan('https://jiny.cz/?utm_source=x', 'https://example.com'), '');
+over('Poptávka: kampaň pro člověka', Kaleta\Front\Formulare::kampanText('utm_source=google&utm_medium=cpc&utm_campaign=jaro'), 'google / cpc / jaro');
 
 /* ---------- porovnání verzí ---------- */
 $r = Kaleta\Core\Rozdil::html('<p>Radnice schválila plán.</p><p>Druhý odstavec.</p>', '<p>Radnice včera schválila nový plán.</p><p>Druhý odstavec.</p><p>Třetí.</p>');

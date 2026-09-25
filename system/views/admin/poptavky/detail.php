@@ -16,6 +16,9 @@ use Kaleta\Admin\Moduly\Poptavky;
 <div class="formular">
 <dl class="poptavka">
 	<dt><?= e(t('Přijato')) ?></dt><dd><?= e(datum($p['datum'], true)) ?> · <?= e($p['formular']) ?><?php if ($p['stranka'] !== ''): ?> · <a href="<?= e($p['stranka']) ?>" target="_blank" rel="noopener"><?= e($p['stranka']) ?></a><?php endif ?></dd>
+<?php if (($p['kampan'] ?? '') !== ''): ?>
+	<dt><?= e(t('Kampaň')) ?></dt><dd><?= e(Kaleta\Front\Formulare::kampanText($p['kampan'])) ?></dd>
+<?php endif ?>
 	<dt><?= e(t('Stav')) ?></dt><dd><?= e(t(Poptavky::STAVY[(int) $p['stav']])) ?></dd>
 <?php foreach ($data as $i => $d): [$popisek, $hodnota] = $d; ?>
 	<dt><?= e($popisek) ?></dt><dd><?= $hodnota === '' ? '<span class="napoveda">—</span>' : (isset($d[2]) ? '<a href="' . e($modul->url('priloha', ['id' => (int) $p['idp'], 'pole' => $i])) . '">' . e($hodnota) . '</a>' : nl2br(e($hodnota))) ?></dd>

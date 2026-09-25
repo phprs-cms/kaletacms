@@ -2354,4 +2354,5 @@ return [
     'Aktualizace databáze se nepovedla: %s. Web běží dál; nainstalujte opravu v Nastavení → Zálohy a aktualizace, nebo napište na info@kaletacms.com.' => 'The database update failed: %s. The site keeps running; install the fix in Settings → Backups and updates, or write to info@kaletacms.com.',
     'Barva rámečku' => 'Border colour',
     'sdílení náhledu' => 'preview shared',
+    'Kampaň' => 'Campaign',
 ];

@@ -465,6 +465,7 @@ CREATE TABLE ka_poptavky (
     zdroj    VARCHAR(40) NOT NULL DEFAULT '',
     prvek    VARCHAR(16) NOT NULL DEFAULT '',
     stranka  VARCHAR(255) NOT NULL DEFAULT '',
+    kampan   VARCHAR(255) NOT NULL DEFAULT '',          -- parametry utm_* stránky s formulářem
     email    VARCHAR(190) NOT NULL DEFAULT '',
     data     MEDIUMTEXT NOT NULL,
     stav     TINYINT UNSIGNED NOT NULL DEFAULT 0,

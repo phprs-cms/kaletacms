@@ -176,12 +176,12 @@ final class Poptavky extends Modul
     {
         $f = fopen('php://temp', 'w+');
         fwrite($f, "\xEF\xBB\xBF");
-        fputcsv($f, [t('Číslo'), t('Datum'), t('Formulář'), t('Stav'), t('E-mail'), t('Stránka'), t('Obsah')], ';', '"', '');
+        fputcsv($f, [t('Číslo'), t('Datum'), t('Formulář'), t('Stav'), t('E-mail'), t('Stránka'), t('Kampaň'), t('Obsah')], ';', '"', '');
         foreach ($this->db->all('SELECT * FROM {poptavky} ORDER BY idp') as $p) {
             $obsah = implode("\n", array_map(fn (array $d): string => $d[0] . ': ' . $d[1], json_decode((string) $p['data'], true) ?: []));
             // buňka začínající = + - @ by se v tabulkovém procesoru spustila jako vzorec
             $radek = array_map(fn (string $v): string => preg_match('/^[=+\-@\t\r]/', $v) ? "'" . $v : $v,
-                [(string) $p['idp'], (string) $p['datum'], (string) $p['formular'], t(self::STAVY[(int) $p['stav']] ?? ''), (string) $p['email'], (string) $p['stranka'], $obsah]);
+                [(string) $p['idp'], (string) $p['datum'], (string) $p['formular'], t(self::STAVY[(int) $p['stav']] ?? ''), (string) $p['email'], (string) $p['stranka'], \Kaleta\Front\Formulare::kampanText((string) ($p['kampan'] ?? '')), $obsah]);
             fputcsv($f, $radek, ';', '"', '');
         }
         rewind($f);

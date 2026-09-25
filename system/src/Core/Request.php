@@ -106,6 +106,12 @@ final class Request
         return (string) ($this->server['REMOTE_ADDR'] ?? '');
     }
 
+    /** Adresa stránky, ze které požadavek přišel (hlavička Referer; prohlížeč ji může vynechat). */
+    public function referer(): string
+    {
+        return (string) ($this->server['HTTP_REFERER'] ?? '');
+    }
+
     public function isHttps(): bool
     {
         return (!empty($this->server['HTTPS']) && $this->server['HTTPS'] !== 'off')

@@ -113,7 +113,9 @@ potvrzení odesílateli a e-mail pro upozornění. Proti spamu chrání skrytá 
 Novou poptávku umí web poslat i do CRM nebo Make/Zapier (Nastavení → Základní → Webhook nové poptávky); měření
 konverzí dostane událost `kaleta:odeslano` (a záznam do `dataLayer`).
 
-Odeslané zprávy jsou v **Obsah → Poptávky**: stav (nová, přečtená, vyřízená), odpověď e-mailem, export do CSV.
+Odeslané zprávy jsou v **Obsah → Poptávky**: stav (nová, přečtená, vyřízená), odpověď e-mailem, export do CSV. Je-li formulář na
+stránce, na kterou vede reklama nebo newsletter, poptávka ukáže i **kampaň** z adresy (`utm_source`, `utm_medium`, `utm_campaign`…) –
+v administraci, v e-mailu s upozorněním, v CSV i ve webhooku, bez cookies.
 Poptávky obsahují osobní údaje, proto se po nastaveném počtu měsíců (výchozí 24) samy mažou.
 
 Rozšíření **Newsletter** přidá prvek **Odběr novinek**: návštěvník zadá e-mail a potvrdí ho odkazem (double opt-in).

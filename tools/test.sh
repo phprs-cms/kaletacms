@@ -320,9 +320,10 @@ over "hlášení po příliš rychlém odeslání radí počkat" 200 "/kontakt?f
 grep -q 'type="text" autocomplete="name"' "$PRACE/formular.html" && grep -q 'type="tel" autocomplete="tel" maxlength="30" pattern="' "$PRACE/formular.html" && echo "  ok     jméno s automatickým vyplněním, telefon s kontrolou v prohlížeči" || { echo "  CHYBA  autocomplete jména nebo vzor telefonu"; CHYB=$((CHYB+1)); }
 grep -q 'name="as_cas" value="[0-9]*" data-cekat="4"' "$PRACE/formular.html" && echo "  ok     formulář nese minimální dobu pro odložené odeslání" || { echo "  CHYBA  data-cekat u formuláře"; CHYB=$((CHYB+1)); }
 sleep 4
-kam=$(odesli -d p0=Jana --data-urlencode p1=jana@example.cz -d p2= --data-urlencode "p3=Chci kuchyň na míru." -d p4=1)
+kam=$(odesli -H "Referer: $B/kontakt?utm_source=newsletter&utm_medium=email&utm_campaign=jaro" -d p0=Jana --data-urlencode p1=jana@example.cz -d p2= --data-urlencode "p3=Chci kuchyň na míru." -d p4=1)
 case "$kam" in *"/kontakt?formular=$FP&vysledek=ok#"*"$FP") echo "  ok     odeslání formuláře";; *) echo "  CHYBA  odeslání formuláře: $kam"; CHYB=$((CHYB+1));; esac
 ocekavej "poptávka uložena" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(COUNT(*), '/', MAX(email), '/', MAX(stav)) FROM ka_poptavky")" "1/jana@example.cz/0"
+ocekavej "poptávka nese kampaň z utm_* stránky s formulářem" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT kampan FROM ka_poptavky")" "utm_source=newsletter&utm_medium=email&utm_campaign=jaro"
 case "$(odesli -d p0=Jana -d p1=neni-email -d p3=x -d p4=1)" in *vysledek=pole\&pole=1*) echo "  ok     neplatný e-mail odmítnut s číslem pole";; *) echo "  CHYBA  validace e-mailu"; CHYB=$((CHYB+1));; esac
 curl -s -o "$PRACE/odpoved" "$B/kontakt?formular=$FP&vysledek=pole&pole=1"
 grep -q 'aria-invalid="true" aria-describedby="f-'"$FP"'-1-chyba"' "$PRACE/odpoved" && grep -q 'data-obnovit' "$PRACE/odpoved" && echo "  ok     chybné pole je označené a vyplněné hodnoty se obnoví" || { echo "  CHYBA  označení chybného pole"; CHYB=$((CHYB+1)); }
@@ -383,7 +384,7 @@ over "nepovedená migrace neshodí web" 200 /
 grep -q 'Migrace databáze se nepovedla' "$PRACE/web/storage/log/chyby.log" && echo "  ok     nepovedená migrace je v protokolu chyb" || { echo "  CHYBA  nepovedená migrace chybí v protokolu"; CHYB=$((CHYB+1)); }
 over "nepovedená migrace nezamkne administraci" 200 "/admin.php" "Aktualizace databáze se nepovedla"
 rm -f "$PRACE/web/system/sql/migrace/0099-rozbita.sql"; sed -i.bak "/Migrace databáze se nepovedla/d" "$PRACE/web/storage/log/chyby.log"; rm -f "$PRACE/web/storage/log/chyby.log.bak"
-ocekavej "migrace, které prošly, zůstanou provedené" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'verze_db'")" 20
+ocekavej "migrace, které prošly, zůstanou provedené" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'verze_db'")" "$POSLEDNI"
 mcp uprav_kolekci '{"kolekce":"tym","nazev":"Nas tym"}' > "$PRACE/odpoved"
 grep -q 'Nas tym' "$PRACE/odpoved" && grep -q 'medailonek' "$PRACE/odpoved" && echo "  ok     MCP: úprava kolekce ponechá pole" || { echo "  CHYBA  MCP uprav_kolekci"; head -c 300 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
 rm -f "$PRACE"/web/storage/cache/stranky/*.html

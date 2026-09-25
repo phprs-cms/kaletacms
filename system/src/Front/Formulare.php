@@ -106,12 +106,13 @@ final class Formulare
         }
 
         $db = $this->app->db();
+        $kampan = self::kampan($r->referer(), $r->origin());
         $idp = $db->insert('poptavky', [
             'datum' => date('Y-m-d H:i:s'), 'formular' => mb_substr((string) $prvek['obsah']['nazev'], 0, 120), 'zdroj' => $zdroj, 'prvek' => $prvek['id'],
-            'stranka' => mb_substr($zpet, 0, 255), 'email' => $email, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'stav' => 0,
+            'stranka' => mb_substr($zpet, 0, 255), 'kampan' => $kampan, 'email' => $email, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'stav' => 0,
         ]);
-        $this->upozorni($idp, $prvek, $data, $email);
-        \Kaleta\Core\Webhook::poptavka($this->app, $idp, (string) $prvek['obsah']['nazev'], $data, $email, $zpet);
+        $this->upozorni($idp, $prvek, $data, $email, $kampan);
+        \Kaleta\Core\Webhook::poptavka($this->app, $idp, (string) $prvek['obsah']['nazev'], $data, $email, $zpet, $kampan);
         if (!empty($prvek['obsah']['potvrzeni']) && $email !== '') {
             // potvrzení odesílateli: jen poděkování a název formuláře – obsah zprávy ne, aby formulář nešel zneužít k rozesílání cizích textů
             $web = $this->app->settings();
@@ -166,7 +167,40 @@ final class Formulare
     }
 
     /** @param list<array{0:string, 1:string}> $data */
-    private function upozorni(int $idp, array $prvek, array $data, string $email): void
+    public const array UTM = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'];
+
+    /**
+     * Kampaň z adresy stránky s formulářem (hlavička Referer odeslání): jen parametry utm_*, jen z vlastního webu.
+     * Bez cookies a bez ukládání v prohlížeči – kampaň se zapíše, když je formulář přímo na stránce, na kterou reklama vede.
+     */
+    public static function kampan(string $referer, string $origin): string
+    {
+        $host = strtolower((string) parse_url($referer, PHP_URL_HOST));
+        if ($host === '' || $host !== strtolower((string) parse_url($origin, PHP_URL_HOST))) {
+            return '';
+        }
+        parse_str((string) parse_url($referer, PHP_URL_QUERY), $dotaz);
+        $utm = [];
+        foreach (self::UTM as $klic) {
+            $hodnota = is_string($dotaz[$klic] ?? null) ? trim((string) preg_replace('/[\x00-\x1F\x7F]+/u', ' ', $dotaz[$klic])) : '';
+            if ($hodnota !== '') {
+                $utm[$klic] = mb_substr($hodnota, 0, 80);
+            }
+        }
+        $kampan = http_build_query($utm);
+
+        return strlen($kampan) <= 255 ? $kampan : '';
+    }
+
+    /** Kampaň pro člověka: „google / cpc / jarni-akce“ (zdroj / médium / kampaň, případně klíčové slovo a obsah). */
+    public static function kampanText(string $kampan): string
+    {
+        parse_str($kampan, $utm);
+
+        return implode(' / ', array_filter(array_map(fn (string $k): string => is_string($utm[$k] ?? null) ? $utm[$k] : '', self::UTM), fn (string $h): bool => $h !== ''));
+    }
+
+    private function upozorni(int $idp, array $prvek, array $data, string $email, string $kampan): void
     {
         $web = $this->app->settings();
         $komu = filter_var($prvek['obsah']['prijemce'], FILTER_VALIDATE_EMAIL) !== false ? $prvek['obsah']['prijemce'] : $web->get('email_webu');
@@ -175,6 +209,7 @@ final class Formulare
         }
         $adresa = rtrim($web->get('adresa_webu') !== '' ? $web->get('adresa_webu') : $this->app->request->origin(), '/');
         $text = implode("\n\n", array_map(fn (array $d): string => $d[0] . ":\n" . $d[1], $data))
+            . ($kampan !== '' ? "\n\n" . t('Kampaň') . ":\n" . self::kampanText($kampan) : '')
             . "\n\n—\n" . t('Poptávka v administraci: %s', $adresa . $this->app->url('admin.php?modul=poptavky&akce=detail&id=' . $idp));
         Posta::odesli($web, $komu, t('%s: %s', $prvek['obsah']['nazev'], $web->get('nazev_webu')), $text, '', $email !== '' ? ['Reply-To' => $email] : []);
     }

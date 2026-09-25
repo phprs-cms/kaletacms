@@ -114,7 +114,9 @@ to the sender and the notification email. Hidden fields and a submission limit f
 The site can also send each new enquiry to a CRM or Make/Zapier (Settings → General → New enquiry webhook); conversion
 tracking gets a `kaleta:odeslano` event (and a `dataLayer` entry).
 
-Submitted messages are in **Content → Enquiries**: status (new, read, resolved), reply by email, CSV export. Enquiries
+Submitted messages are in **Content → Enquiries**: status (new, read, resolved), reply by email, CSV export. When the form is on the
+page an ad or a newsletter links to, the enquiry also shows the **campaign** from the address (`utm_source`, `utm_medium`, `utm_campaign`…) –
+in the admin, the notification email, the CSV and the webhook, without cookies. Enquiries
 contain personal data, so they are deleted automatically after a set number of months (24 by default).
 
 The **Newsletter** extension adds a **Newsletter sign-up** element: visitors enter an e-mail and confirm it by a link
