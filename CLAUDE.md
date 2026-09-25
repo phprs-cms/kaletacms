@@ -118,10 +118,14 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   stránky (i builder: `stavba_schema` – stručný přehled `Stavba::prehled`, `stavba_z_html`, `stavba_nacti` – `Stavba::kompaktni`, `stavba_uloz`, `stavba_uprav` –
   dílčí operace `Stavitel\Upravy`, `vloz_sekci`, `publikuj_stavbu`, `nahled_odkaz`), třídy (`seznam_trid`, `uloz_tridy`), design systém, média
   (`nahraj_soubor` přes `Obrazky::ulozSoubor` / `Soubory::ulozSoubor` / `Galerie::ulozSvgObsah`), nastavení (`uprav_nastaveni` – jen klíče z `NASTAVENI_MCP`,
-  validace `Konfigurace::overHodnotu`), přesměrování, koš stránek, novinky, kategorie a VLASTNÍ šablony. Výstup je kompaktní JSON bez výchozích hodnot.
+  validace `Konfigurace::overHodnotu`), přesměrování, koš stránek, novinky a kategorie. Vlastní PHP šablony přes MCP nevznikají ani se nemění (od 1.1). Výstup je kompaktní JSON bez výchozích hodnot.
+  **Rozhraní je anglické** (od 1.1, `Mcp\Anglicky`): tools/list, parametry, klíče výsledků, stavy, hlášení a pokyny serveru anglicky (`create_page`,
+  `build_from_html`, `save_build`…); `Nastroje` dál implementuje nástroje česky a `Anglicky` překládá vstup i výstup. České názvy jsou skryté aliasy
+  a chovají se jako dřív – existující napojení se nerozbijí. Datový model builderu (JSON stavby, `stavba_schema`, klíče design systému) se nepřekládá.
+  Nový nástroj nebo parametr = záznam v `Anglicky::NASTROJE`, nové hlášení = `ZPRAVY`/`VZORY`; hlídá to `tools/testy.php`.
   Zápis stavby vrací podepsaný náhled (`Core\Nahled`, `?stavba=koncept&nahled_klic=`, HMAC `tajny_klic`, jen jeden cíl, omezená platnost). Nová novinka
   je koncept, nová stránka skrytá; vydat/zveřejnit jen na výslovný pokyn a s právem. **Hranice (bezpečí na prvním místě):** žádný nástroj nesmí zapisovat mimo obsah
-  a `layout/<vlastní>/`, spouštět kód ani dotaz; přes MCP jde u vlastní šablony uložit jen CSS, PHP soubory šablon ne (statickou kontrolu PHP nejde udělat neprůstřelnou). Pravidla pro Claude v souborech: `layout/CLAUDE.md`.
+  spouštět kód ani dotaz (statickou kontrolu PHP nejde udělat neprůstřelnou, proto MCP šablony vůbec nemění). Pravidla pro Claude v souborech: `layout/CLAUDE.md`.
 - **Přihlášení:** hesla `password_hash`, TOTP, passkeys (`Core\Passkey`, jen jako náhrada kódu u účtu s TOTP), obnova hesla `Admin\ObnovaHesla`.
 
 ## Import z WordPressu a export

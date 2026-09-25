@@ -165,7 +165,7 @@ nadřazenou stránku, jazykovou verzi a plánované zveřejnění, vrátit do ko
 (platí 60 minut, otevře ho i bez přihlášení) – zkontroluje si výsledek a odkaz může poslat i vám. S každým uložením dostane i **kontrolu před publikováním** (tlačítka bez odkazu, obrázky bez popisu,
 osnova nadpisů), aby je mohl rovnou opravit. Stavby stránek
 a částí webu i novinky vznikají jako **koncept** a publikuje je jen na váš pokyn (a jen s právem vydávat). Rovnou
-na webu se projeví: menu, vzhled (design systém), sdílené třídy, nastavení webu, přesměrování, šablony, položky
+na webu se projeví: menu, vzhled (design systém), sdílené třídy, nastavení webu, přesměrování, položky
 kolekce a text stránky – předchozí text stránky přitom jde do historie verzí. Stránku umí Claude přesunout do koše
 (obnovíte ji 30 dní v administraci); e-mail webu, webhooky, poštu, zálohy ani zabezpečení přes napojení nezmění.
 

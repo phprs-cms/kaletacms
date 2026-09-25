@@ -2355,4 +2355,5 @@ return [
     'Barva rámečku' => 'Border colour',
     'sdílení náhledu' => 'preview shared',
     'Kampaň' => 'Campaign',
+    'Vlastní PHP šablony se už nevyvíjejí – vzhled webu nastavíte tady ve Vzhledu webu a v builderu. Stávající vlastní šablona dál funguje, doporučujeme ale přejít na výchozí.' => 'Custom PHP themes are no longer developed – set the look of the site here in Site appearance and in the builder. An existing custom theme keeps working, but we recommend switching to the default one.',
 ];

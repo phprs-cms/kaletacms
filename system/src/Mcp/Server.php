@@ -79,40 +79,42 @@ final class Server
                 'protocolVersion' => is_string($z['params']['protocolVersion'] ?? null) ? $z['params']['protocolVersion'] : self::PROTOKOL,
                 'capabilities' => ['tools' => new \stdClass()],
                 'serverInfo' => ['name' => 'Kaleta – ' . $this->app->settings()->get('nazev_webu'), 'version' => KALETA_VERSION],
-                'instructions' => 'Firemní web na Kaletě. Texty piš v jazyce webu, stránky a novinky jako čisté sémantické HTML (p, h2, h3, ul, ol, blockquote, a, strong, em, figure/img, table). '
-                    . 'POSTUP STAVBY WEBU: (1) info_o_webu a stavba_schema (stručný přehled; úplné definice prvků přes parametr prvky). '
-                    . '(2) Vzhled celého webu: uprav_design_system (barvy, písma, velikosti); vlastní písmo nahraj přes nahraj_soubor (.woff2) a zapiš do vlastni_pisma. Opakovaný vzhled (karty, štítky, tmavý pás) patří do sdílených tříd – uloz_tridy nebo <style> ve stavba_z_html; tmavý pás = třída, která přepíše tokeny (--ka-barva-text, --ka-barva-pozadi, --ka-barva-primarni…), aby odkazy a tlačítka zůstala čitelná. '
-                    . '(3) Stránky: vytvor_stranku (zůstane skrytá) a stavba_z_html – sémantické HTML po sekcích + <style> s pravidly jedné třídy a tokeny var(--ka-…), breakpointy @media (max-width: 1023px) a (max-width: 767px), žádné vložené styly; nebo stavba_uloz s JSON podle schématu. Obrázky nahraj přes nahraj_soubor. Záhlaví a patičku skládej přes stavba_uloz s parametrem cast. '
-                    . '(4) Kontrola: každý zápis stavby vrátí nahled – podepsaný odkaz na koncept platný 60 minut; otevři ho a zkontroluj výsledek, uživateli dej delší odkaz z nahled_odkaz. Pole kontrola (je-li v odpovědi) jsou nálezy jako při publikování v builderu – tlačítka bez odkazu, obrázky bez popisu, osnova nadpisů; oprav je, než nabídneš publikování. '
-                    . '(5) Opravy: stavba_uprav podle id prvků (id ze stavba_nacti) – neposílej kvůli jednomu textu celou stavbu. (6) Nastavení webu uprav_nastaveni, staré adresy uloz_presmerovani. Menu (uloz_menu), design system, třídy a nastavení se projeví na webu hned; skryté stránky se v menu ukážou až po zveřejnění. '
-                    . '(7) Záhlaví nebo patička jen pro některé stránky (kampaň bez menu): uloz_variantu, pak stavba_* s parametrem varianta; přehled seznam_casti. Starší publikovanou podobu vrátí stavba_verze a obnov_verzi (do konceptu). '
-                    . 'Stavba se ukládá jako koncept – publikuj (publikuj_stavbu) a zveřejňuj stránky až na výslovný pokyn uživatele. '
-                    . 'Nová novinka vzniká jako koncept; vydat ji může jen uživatel s právem vydávat a jen na výslovný pokyn. Nová stránka je skrytá, dokud ji uživatel výslovně nechce zveřejnit. '
-                    . 'Před úpravou šablony si ji nejdřív zkopíruj a změny ukaž v náhledu. '
-                    . 'HRANICE: přes toto napojení se mění jen obsah (stránky, novinky, kategorie) a VLASTNÍ šablony vzhledu. Kód systému (system/, admin.php, index.php), vestavěné šablony '
-                    . 'ani databázi neupravuj a nenavrhuj obcházení – vlastní funkce CMS se nedělají, systém má být pro všechny stejný a aktualizovatelný. Šablona je jen prezentační vrstva: '
-                    . 'vypisuje data, která dostane; nesmí číst soubory, volat databázi ani síť. Požaduje-li uživatel novou funkci systému, řekni mu, že ji má navrhnout autorům Kalety.',
+                'instructions' => Anglicky::pokyny(),
             ]),
             'ping' => $ok([]),
-            'tools/list' => $ok(['tools' => $nastroje->seznam()]),
+            'tools/list' => $ok(['tools' => Anglicky::seznam($nastroje->seznam())]), // české názvy zůstávají skrytými aliasy
             'tools/call' => $ok($this->zavolej($nastroje, (string) ($z['params']['name'] ?? ''), (array) ($z['params']['arguments'] ?? []))),
             default => ['jsonrpc' => '2.0', 'id' => $id, 'error' => ['code' => -32601, 'message' => 'Neznámá metoda: ' . $metoda]],
         };
     }
 
-    /** @param array<string, mixed> $argumenty @return array<string, mixed> */
+    /**
+     * Volání nástroje. Anglický název (tools/list) se přeloží na český nástroj a zpět (Anglicky); český název je skrytý
+     * alias pro napojení z doby před 1.1 a chová se jako dřív.
+     *
+     * @param array<string, mixed> $argumenty
+     * @return array<string, mixed>
+     */
     private function zavolej(Nastroje $nastroje, string $nazev, array $argumenty): array
     {
+        $cesky = Anglicky::cesky($nazev);
+        $anglicky = $cesky !== null || !in_array($nazev, $nastroje->nazvy(), true);
         try {
-            $vysledek = $nastroje->zavolej($nazev, $argumenty);
-            if ($nastroje->meni($nazev)) {
-                Protokol::zapis($this->app, 'claude', $nazev, mb_substr((string) ($argumenty['titulek'] ?? $argumenty['nazev'] ?? $argumenty['sablona'] ?? $argumenty['id'] ?? ''), 0, 200));
+            if ($cesky !== null) {
+                $argumenty = Anglicky::argumenty($nazev, $argumenty);
+            }
+            $vysledek = $nastroje->zavolej($cesky ?? $nazev, $argumenty);
+            if ($nastroje->meni($cesky ?? $nazev)) {
+                Protokol::zapis($this->app, 'claude', $cesky ?? $nazev, mb_substr((string) ($argumenty['titulek'] ?? $argumenty['nazev'] ?? $argumenty['sablona'] ?? $argumenty['id'] ?? ''), 0, 200));
                 \Kaleta\Front\Cache::vymaz();
+            }
+            if ($cesky !== null) {
+                $vysledek = Anglicky::vysledek($nazev, $vysledek);
             }
 
             return ['content' => [['type' => 'text', 'text' => is_string($vysledek) ? $vysledek : json_encode($vysledek, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]]];
         } catch (\InvalidArgumentException | \DomainException $e) {
-            return ['content' => [['type' => 'text', 'text' => $e->getMessage()]], 'isError' => true];
+            return ['content' => [['type' => 'text', 'text' => $anglicky ? Anglicky::zprava($e->getMessage()) : $e->getMessage()]], 'isError' => true];
         }
     }
 

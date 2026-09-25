@@ -210,6 +210,12 @@ echo "== Claude (MCP): builder"
 TOK="kaleta_$(printf 'a%.0s' $(seq 1 48))"
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'test', '$(php -r 'echo hash("sha256", $argv[1]);' "$TOK")', NOW() FROM ka_uzivatele WHERE user = 'admin'"
 mcp() { curl -s -X POST "$B/mcp" -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"$1\",\"arguments\":$2}}"; }
+curl -s -X POST "$B/mcp" -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' > "$PRACE/odpoved"
+grep -q '"name":"create_page"' "$PRACE/odpoved" && ! grep -q '"name":"vytvor_stranku"' "$PRACE/odpoved" && grep -q '"title":{' "$PRACE/odpoved" && echo "  ok     MCP: nástroje s anglickými názvy a parametry" || { echo "  CHYBA  MCP tools/list anglicky"; CHYB=$((CHYB+1)); }
+mcp list_pages '{}' > "$PRACE/odpoved"; grep -q 'title\\":' "$PRACE/odpoved" && grep -q 'in_menu\\":' "$PRACE/odpoved" && echo "  ok     MCP: anglický nástroj vrací anglické klíče" || { echo "  CHYBA  MCP list_pages"; head -c 300 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+mcp seznam_stranek '{}' > "$PRACE/odpoved"; grep -q 'titulek\\":' "$PRACE/odpoved" && echo "  ok     MCP: český název funguje dál jako skrytý alias" || { echo "  CHYBA  MCP český alias"; CHYB=$((CHYB+1)); }
+mcp get_page '{"id":99999}' > "$PRACE/odpoved"; grep -q 'The page does not exist. Use list_pages.' "$PRACE/odpoved" && echo "  ok     MCP: chyba anglického nástroje anglicky" || { echo "  CHYBA  MCP anglická chyba"; head -c 300 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+curl -s -X POST "$B/mcp" -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | grep -q 'build_from_html' && echo "  ok     MCP: pokyny serveru s anglickými názvy" || { echo "  CHYBA  MCP pokyny"; CHYB=$((CHYB+1)); }
 mcp stavba_schema '{}' > "$PRACE/odpoved"; grep -q 'knihovna' "$PRACE/odpoved" && grep -q 'ka-mezera' "$PRACE/odpoved" && echo "  ok     MCP: schéma builderu" || { echo "  CHYBA  MCP stavba_schema"; head -c 300 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
 mcp stavba_z_html '{"titulek":"Z HTML","html":"<style>.uvod-x { padding-block: var(--ka-mezera-2xl); } .uvod-x h1 { color: red }</style><header class=\"uvod-x\"><div class=\"container\"><h1>Stránka od Clauda</h1><p>Text <b>tučně</b>.</p><a class=\"btn\" href=\"/kontakt\">Kontakt</a></div></header><form><input></form>"}' > "$PRACE/odpoved"
 grep -q 'koncept' "$PRACE/odpoved" && grep -q 'Formul' "$PRACE/odpoved" && grep -q 'vynech.*btn' "$PRACE/odpoved" && echo "  ok     MCP: HTML převedeno na koncept stavby s hlášením (i formulář)" || { echo "  CHYBA  MCP stavba_z_html"; head -c 600 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
@@ -269,12 +275,8 @@ ocekavej "MCP: přesměrování staré adresy" "$(curl -s -o /dev/null -w '%{htt
 mcp smaz_stranku "{\"id\":$IDM2}" > /dev/null
 ocekavej "MCP: stránka do koše" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT smazano IS NOT NULL FROM ka_stranky WHERE ids = $IDM2")" 1
 mcp smaz_stranku "{\"id\":$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'titulni_stranka'")}" | grep -q 'isError' && echo "  ok     MCP: úvodní stránku smazat nejde" || { echo "  CHYBA  MCP smazal úvodní stránku"; CHYB=$((CHYB+1)); }
-mcp vytvor_sablonu '{"nazev":"test-kopie"}' > /dev/null
-mcp uloz_soubor_sablony '{"sablona":"test-kopie","soubor":"base.php","obsah":"<?php $url = \"system\"; echo $url(\"id\");"}' > "$PRACE/odpoved"
-grep -q 'isError' "$PRACE/odpoved" && ! grep -q 'system' "$PRACE/web/layout/test-kopie/base.php" && echo "  ok     MCP: PHP soubor šablony uložit nejde" || { echo "  CHYBA  MCP uložil PHP šablonu"; CHYB=$((CHYB+1)); }
-mcp uloz_soubor_sablony '{"sablona":"test-kopie","soubor":"style.css","obsah":"body { color: #111 }"}' > "$PRACE/odpoved"
-grep -q 'ulozeno' "$PRACE/odpoved" && echo "  ok     MCP: style.css vlastní šablony uložit jde" || { echo "  CHYBA  MCP neuložil style.css"; head -c 300 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
-rm -rf "$PRACE/web/layout/test-kopie"
+mcp vytvor_sablonu '{"nazev":"test-kopie"}' > "$PRACE/odpoved"; mcp copy_theme '{"name":"test-kopie2"}' >> "$PRACE/odpoved"
+[ "$(grep -o 'isError' "$PRACE/odpoved" | wc -l | tr -d ' ')" = 2 ] && [ ! -d "$PRACE/web/layout/test-kopie" ] && [ ! -d "$PRACE/web/layout/test-kopie2" ] && echo "  ok     MCP: vlastní šablony už přes napojení nevznikají" || { echo "  CHYBA  MCP šablony"; CHYB=$((CHYB+1)); }
 mcp vytvor_kategorii '{"nazev":"Kategorie XSS","popis":"<p>Úvod</p><script>alert(1)</script><img src=x onerror=alert(2)>"}' > /dev/null
 over "MCP: popis kategorie se vyčistí" 200 "/novinky/kategorie/kategorie-xss" "Úvod"
 ! grep -qE '<script>alert|onerror' "$PRACE/odpoved" && echo "  ok     MCP: v popisu kategorie nezůstal skript" || { echo "  CHYBA  popis kategorie pustil skript"; CHYB=$((CHYB+1)); }
@@ -750,6 +752,9 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=vzhled&akce
 ocekavej "import vlastního exportu vrátí vzhled" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.barvy.primarni')) <> '#aa3300' FROM ka_nastaveni WHERE promenna = 'design_system'")" "1"
 mcp seznam_polozek_kolekce '{"kolekce":"tym","pole":"funkce","hodnota":"Mistr truhlář"}' > "$PRACE/odpoved"
 grep -q 'Petr Svoboda' "$PRACE/odpoved" && grep -q 'celkem\\":1' "$PRACE/odpoved" && echo "  ok     kolekce přes MCP: filtr podle pole" || { echo "  CHYBA  kolekce přes MCP s filtrem"; head -c 400 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+IDPS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idp FROM ka_kolekce_polozky WHERE nazev = 'Petr Svoboda'")
+mcp uloz_polozku_kolekce "{\"kolekce\":\"tym\",\"id\":$IDPS,\"data\":{\"funkce\":\"Vedouci dilny\"}}" > /dev/null
+ocekavej "kolekce přes MCP: úprava položky bez názvu název zachová" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(nazev, '|', data LIKE '%Vedouci dilny%') FROM ka_kolekce_polozky WHERE idp = $IDPS")" "Petr Svoboda|1"
 
 echo "== záloha a obnova databáze"
 curl -s -b "$JAR" -c "$JAR" -o "$PRACE/odpoved" "$B/admin.php?modul=config&zalozka=zalohy"; TOKEN=$(csrf)
@@ -810,7 +815,7 @@ PRISTUP=$(grep -o '"access_token":"[a-z0-9_]*"' "$PRACE/odpoved" | sed 's/.*:"//
 [ -n "$PRISTUP" ] && [ -n "$OBNOVA" ] && echo "  ok     výměna kódu za tokeny (PKCE)" || { echo "  CHYBA  token endpoint"; cat "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
 ocekavej "kód jde použít jen jednou" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/oauth/token" -d grant_type=authorization_code -d "code=$KOD" -d "redirect_uri=$NAVRAT" -d "client_id=$KLIENT" -d "code_verifier=$VER")" 400
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $PRISTUP" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' > "$PRACE/odpoved"
-grep -q 'stavba_schema' "$PRACE/odpoved" && echo "  ok     MCP s přístupovým tokenem z OAuth" || { echo "  CHYBA  MCP s tokenem OAuth"; head -c 300 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+grep -q 'builder_schema' "$PRACE/odpoved" && echo "  ok     MCP s přístupovým tokenem z OAuth" || { echo "  CHYBA  MCP s tokenem OAuth"; head -c 300 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
 ocekavej "obnovovací token nejde použít k MCP" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/mcp" -H "Authorization: Bearer $OBNOVA" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}')" 401
 curl -s -o "$PRACE/odpoved" -X POST "$B/oauth/token" -d grant_type=refresh_token -d "refresh_token=$OBNOVA" -d "client_id=$KLIENT"
 grep -q '"access_token"' "$PRACE/odpoved" && echo "  ok     obnova tokenu" || { echo "  CHYBA  obnova tokenu"; cat "$PRACE/odpoved"; CHYB=$((CHYB+1)); }

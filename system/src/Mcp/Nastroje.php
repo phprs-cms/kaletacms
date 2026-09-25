@@ -10,7 +10,6 @@ use Kaleta\Admin\Moduly\Stranky;
 use Kaleta\Core\App;
 use Kaleta\Core\Jazyk;
 use Kaleta\Front\Identita;
-use Kaleta\Front\Layouty;
 use Kaleta\Stavitel\Casti;
 use Kaleta\Stavitel\DesignSystem;
 use Kaleta\Stavitel\Knihovna;
@@ -32,9 +31,6 @@ final class Nastroje
 
     /** Nastavení, která smí MCP měnit (ostatní – e-mail, webhooky, 2FA, pošta, zálohy – jen v administraci). */
     private const string NASTAVENI_MCP = '/^(nazev_webu|popis_webu|text_paticky|titulni_stranka|soc_(facebook|instagram|x|youtube|linkedin)|pocet_clanku|sdileni|osnova_clanku|souvisejici_auto|firma_[a-z]+|(nazev|popis)_webu_[a-z]{2})$/';
-
-    /** Šablony dodávané se systémem - přepsala by je aktualizace, proto se upravují jen jejich kopie. */
-    private const array VESTAVENE_SABLONY = ['zakladni'];
 
     public function __construct(private readonly App $app)
     {
@@ -132,10 +128,10 @@ final class Nastroje
                 'strana' => $cislo('stránka od 1'),
             ], ['kolekce'])],
             ['uloz_polozku_kolekce', 'Přidá položku do kolekce, nebo změní existující (s id). Bez "zobrazit": true zůstane skrytá.',
-                $s(['kolekce' => $text('adresa (seo_link) kolekce'), 'id' => $cislo('ID položky – jen při úpravě'), 'nazev' => $text('Název položky'),
+                $s(['kolekce' => $text('adresa (seo_link) kolekce'), 'id' => $cislo('ID položky – jen při úpravě'), 'nazev' => $text('Název položky (u nové povinný, při úpravě jen když se mění)'),
                     'adresa' => $text('Adresa položky v URL (nepovinné, jinak z názvu), např. install'), 'jazyk' => $text('jazyková verze položky u vícejazyčného webu (prázdné = výchozí)'),
                     'data' => ['type' => 'object', 'description' => 'Hodnoty polí podle klíčů ze seznam_kolekci, např. {"citat":"…","logo":"media/…"}'],
-                    'poradi' => $cislo('Pořadí, menší = dřív'), 'zobrazit' => ['type' => 'boolean', 'description' => 'true = položka je na webu (jen na pokyn uživatele)']], ['kolekce', 'nazev'])],
+                    'poradi' => $cislo('Pořadí, menší = dřív'), 'zobrazit' => ['type' => 'boolean', 'description' => 'true = položka je na webu (jen na pokyn uživatele)']], ['kolekce'])],
             ['seznam_novinek', 'Seznam novinek (nejnovější první).', $s(['stav' => $text('vse | vydane | plan | koncepty'), 'kategorie' => $text('název nebo adresa kategorie'), 'hledat' => $text('text v titulku'), 'limit' => $cislo('1-50, výchozí 20')])],
             ['nacti_novinku', 'Celá novinka včetně textu a štítků.', $s(['id' => $cislo('ID novinky (idc)')], ['id'])],
             ['vytvor_novinku', 'Založí novinku. Bez "vydat": true vznikne koncept.', $s($novinka, ['titulek', 'kategorie'])],
@@ -158,11 +154,6 @@ final class Nastroje
             ['uloz_presmerovani', 'Přidá nebo změní přesměrování (správce): ze staré cesty na webu na novou cestu nebo https adresu. Typ 301 = natrvalo (výchozí), 302 = dočasně.',
                 $s(['z' => $text('stará cesta, např. /docs nebo /o-nas'), 'na' => $text('nová cesta (/guide) nebo https://…'), 'typ' => $cislo('301 nebo 302'), 'smazat' => ['type' => 'boolean', 'description' => 'true = přesměrování ze staré cesty smazat']], ['z'])],
             ['smaz_stranku', 'Přesune stránku do koše (jen na výslovný pokyn uživatele; editor nebo správce). Z koše jde 30 dní obnovit v administraci. Úvodní stránku smazat nejde.', $s(['id' => $cislo('ID stránky')], ['id'])],
-            ['seznam_sablon', 'Šablony webu (layouty), která je aktivní a které jdou upravovat (správce).', $s([])],
-            ['vytvor_sablonu', 'Zkopíruje existující šablonu pod novým názvem, aby se dala upravovat (správce).', $s(['nazev' => $text('složka nové šablony: malá písmena, číslice, pomlčky'), 'podle' => $text('zdrojová šablona, výchozí ' . Layouty::VYCHOZI), 'popisny_nazev' => $text('název pro výběr ve Vzhledu')], ['nazev'])],
-            ['nacti_soubor_sablony', 'Přečte soubor šablony (base.php, novinka.php, vypis.php, stranka.php, style.css, info.php…).', $s(['sablona' => $text('složka šablony'), 'soubor' => $text('název souboru; bez něj vrátí seznam souborů')], ['sablona'])],
-            ['uloz_soubor_sablony', 'Uloží style.css (nebo jiný .css) vlastní šablony. PHP soubory šablon přes napojení měnit nejde – stránky, záhlaví a patičku postav v builderu. Vestavěné šablony upravit nejde.', $s(['sablona' => $text('složka šablony'), 'soubor' => $text('název souboru'), 'obsah' => $text('celý nový obsah souboru')], ['sablona', 'soubor', 'obsah'])],
-            ['aktivuj_sablonu', 'Přepne web na danou šablonu (správce). Před tím ji ukaž uživateli v náhledu: adresa webu s ?sablona=<složka> funguje přihlášenému správci.', $s(['sablona' => $text('složka šablony')], ['sablona'])],
         ];
 
         if (!\Kaleta\Core\Rozsireni::je($this->app->settings(), 'novinky')) {
@@ -172,12 +163,18 @@ final class Nastroje
         return array_values(array_map(fn (array $n): array => ['name' => $n[0], 'description' => $n[1], 'inputSchema' => $n[2]], $nastroje));
     }
 
+    /** @return list<string> české názvy všech nástrojů (i vypnutých rozšíření) */
+    public function nazvy(): array
+    {
+        return [...array_column($this->seznam(), 'name'), ...self::NOVINKOVE];
+    }
+
     /** Nástroje rozšíření Novinky – s vypnutým rozšířením se nenabízejí ani nespustí. */
     private const array NOVINKOVE = ['seznam_novinek', 'nacti_novinku', 'vytvor_novinku', 'uprav_novinku', 'seznam_kategorii', 'vytvor_kategorii'];
 
     public function meni(string $nazev): bool
     {
-        return in_array($nazev, ['obnov_verzi', 'zahod_koncept', 'uloz_variantu', 'vytvor_kolekci', 'uprav_kolekci', 'uloz_polozku_kolekce', 'stavba_z_html', 'stavba_uloz', 'stavba_uprav', 'uloz_tridy', 'nahraj_soubor', 'uprav_nastaveni', 'uloz_presmerovani', 'smaz_stranku', 'vloz_sekci', 'publikuj_stavbu', 'uprav_design_system', 'vytvor_stranku', 'uprav_stranku', 'vytvor_novinku', 'uprav_novinku', 'vytvor_kategorii', 'uloz_menu', 'vytvor_sablonu', 'uloz_soubor_sablony', 'aktivuj_sablonu'], true);
+        return in_array($nazev, ['obnov_verzi', 'zahod_koncept', 'uloz_variantu', 'vytvor_kolekci', 'uprav_kolekci', 'uloz_polozku_kolekce', 'stavba_z_html', 'stavba_uloz', 'stavba_uprav', 'uloz_tridy', 'nahraj_soubor', 'uprav_nastaveni', 'uloz_presmerovani', 'smaz_stranku', 'vloz_sekci', 'publikuj_stavbu', 'uprav_design_system', 'vytvor_stranku', 'uprav_stranku', 'vytvor_novinku', 'uprav_novinku', 'vytvor_kategorii', 'uloz_menu'], true);
     }
 
     /** @param array<string, mixed> $a */
@@ -516,13 +513,14 @@ final class Nastroje
                     throw new \DomainException('Kolekce smí upravovat editor nebo správce.');
                 }
                 $kolekce = $this->kolekce((string) ($a['kolekce'] ?? ''));
-                $nazevPolozky = mb_substr(trim((string) ($a['nazev'] ?? '')), 0, 200);
-                if ($nazevPolozky === '') {
-                    throw new \InvalidArgumentException('Položka musí mít název.');
-                }
                 $puvodni = isset($a['id']) ? $db->one('SELECT * FROM {kolekce_polozky} WHERE idp = ? AND idk = ?', [(int) $a['id'], $kolekce['idk']]) : null;
                 if (isset($a['id']) && $puvodni === null) {
                     throw new \InvalidArgumentException('Položka v kolekci není. Použij seznam_polozek_kolekce.');
+                }
+                // při úpravě je název nepovinný – zůstane dosavadní
+                $nazevPolozky = mb_substr(trim((string) ($a['nazev'] ?? $puvodni['nazev'] ?? '')), 0, 200);
+                if ($nazevPolozky === '') {
+                    throw new \InvalidArgumentException('Položka musí mít název.');
                 }
                 $chyby = [];
                 $data = Kolekce::vycistiData($kolekce['pole'], (is_array($a['data'] ?? null) ? $a['data'] : []) + (json_decode((string) ($puvodni['data'] ?? '{}'), true) ?: []), $chyby);
@@ -710,72 +708,6 @@ final class Nastroje
                 \Kaleta\Front\Cache::vymaz();
 
                 return ['id' => (int) $stranka['ids'], 'stav' => 'v koši – obnovit jde 30 dní v administraci (Stránky → Koš)'];
-
-            case 'seznam_sablon':
-                $jenAdmin();
-
-                return array_map(fn (string $slozka, array $l): array => ['sablona' => $slozka, 'nazev' => $l['nazev'], 'popis' => $l['popis'], 'aktivni' => $slozka === $web->get('layout'),
-                    'lze_upravovat' => !in_array($slozka, self::VESTAVENE_SABLONY, true)], array_keys(Layouty::seznam()), Layouty::seznam());
-
-            case 'vytvor_sablonu':
-                $jenAdmin();
-                $nova = (string) ($a['nazev'] ?? '');
-                $podle = (string) ($a['podle'] ?? Layouty::VYCHOZI);
-                if (!preg_match('/^[a-z][a-z0-9-]{2,40}$/', $nova) || is_dir(KALETA_ROOT . '/layout/' . $nova)) {
-                    throw new \InvalidArgumentException('Název šablony: 3-40 znaků, malá písmena, číslice a pomlčky; složka ještě nesmí existovat.');
-                }
-                if (!isset(Layouty::seznam()[$podle])) {
-                    throw new \InvalidArgumentException('Zdrojová šablona neexistuje.');
-                }
-                mkdir(KALETA_ROOT . '/layout/' . $nova, 0775);
-                foreach (glob(KALETA_ROOT . '/layout/' . $podle . '/*.{php,css}', GLOB_BRACE) ?: [] as $soubor) {
-                    $obsah = (string) file_get_contents($soubor);
-                    // zkopírovaná šablona musí odkazovat na vlastní style.css
-                    file_put_contents(KALETA_ROOT . '/layout/' . $nova . '/' . basename($soubor), str_replace("layout/{$podle}/", "layout/{$nova}/", $obsah));
-                }
-                file_put_contents(KALETA_ROOT . '/layout/' . $nova . '/info.php', "<?php\n\nreturn " . var_export([
-                    'nazev' => mb_substr((string) ($a['popisny_nazev'] ?? $nova), 0, 60), 'popis' => 'Vlastní šablona (vychází z ' . $podle . ').',
-                ], true) . ";\n");
-
-                return ['sablona' => $nova, 'soubory' => $this->souborySablony($nova), 'nahled' => $this->app->request->origin() . $this->app->url('?sablona=' . $nova)];
-
-            case 'nacti_soubor_sablony':
-                $jenAdmin();
-                $slozka = $this->sablona((string) ($a['sablona'] ?? ''));
-                if (empty($a['soubor'])) {
-                    return ['soubory' => $this->souborySablony($slozka)];
-                }
-
-                return (string) file_get_contents($this->souborSablony($slozka, (string) $a['soubor'], true));
-
-            case 'uloz_soubor_sablony':
-                $jenAdmin();
-                $slozka = $this->sablona((string) ($a['sablona'] ?? ''));
-                if (in_array($slozka, self::VESTAVENE_SABLONY, true)) {
-                    throw new \DomainException('Vestavěnou šablonu by přepsala aktualizace systému. Nejprve ji zkopíruj nástrojem vytvor_sablonu a upravuj kopii.');
-                }
-                $cesta = $this->souborSablony($slozka, (string) ($a['soubor'] ?? ''), false);
-                $obsah = (string) ($a['obsah'] ?? '');
-                if (strlen($obsah) > 300 * 1024) {
-                    throw new \InvalidArgumentException('Soubor je větší než 300 kB.');
-                }
-                if (!str_ends_with($cesta, '.css')) {
-                    // PHP přes napojení neukládáme: statická kontrola PHP kódu se nedá udělat neprůstřelnou a šablona běží jako kód systému
-                    throw new \DomainException('Přes napojení jde upravit jen style.css vlastní šablony. PHP soubory šablon mění správce na serveru; vzhled stránek, záhlaví a patičky se staví v builderu.');
-                }
-                if (preg_match('#expression\s*\(|behavior\s*:#i', $obsah)) {
-                    throw new \InvalidArgumentException('Styl obsahuje zastaralé spustitelné konstrukce (expression, behavior). Nic se neuložilo.');
-                }
-                file_put_contents($cesta, $obsah, LOCK_EX);
-
-                return ['ulozeno' => basename($cesta), 'velikost' => strlen($obsah), 'nahled' => $this->app->request->origin() . $this->app->url('?sablona=' . $slozka)];
-
-            case 'aktivuj_sablonu':
-                $jenAdmin();
-                $slozka = $this->sablona((string) ($a['sablona'] ?? ''));
-                $web->set('layout', $slozka);
-
-                return 'Web nyní používá šablonu ' . $slozka . '.';
         }
         throw new \InvalidArgumentException('Neznámý nástroj: ' . $nazev);
     }
@@ -1263,33 +1195,5 @@ final class Nastroje
         }
 
         return $kandidat;
-    }
-
-    private function sablona(string $slozka): string
-    {
-        if (!preg_match('/^[a-z][a-z0-9-]{2,40}$/', $slozka) || !isset(Layouty::seznam()[$slozka])) {
-            throw new \InvalidArgumentException('Šablona neexistuje. Použij nástroj seznam_sablon.');
-        }
-
-        return $slozka;
-    }
-
-    /** @return list<string> */
-    private function souborySablony(string $slozka): array
-    {
-        return array_map(basename(...), glob(KALETA_ROOT . '/layout/' . $slozka . '/*.{php,css}', GLOB_BRACE) ?: []);
-    }
-
-    private function souborSablony(string $slozka, string $soubor, bool $musiExistovat): string
-    {
-        if (!preg_match('/^[a-z][a-z0-9_-]{0,40}\.(php|css)$/', $soubor)) {
-            throw new \InvalidArgumentException('Název souboru: malá písmena, číslice, pomlčky a podtržítka, přípona .php nebo .css.');
-        }
-        $cesta = KALETA_ROOT . '/layout/' . $slozka . '/' . $soubor;
-        if ($musiExistovat && !is_file($cesta)) {
-            throw new \InvalidArgumentException('Soubor v šabloně není. Dostupné: ' . implode(', ', $this->souborySablony($slozka)));
-        }
-
-        return $cesta;
     }
 }

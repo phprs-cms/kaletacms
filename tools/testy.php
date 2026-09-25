@@ -83,31 +83,9 @@ $typy = (new ReflectionClass(TextNovinky::class))->newInstanceWithoutConstructor
 $html = $typy->vlozeneAdresy('<p>Úvod</p><p>https://youtu.be/dQw4w9WgXcQ</p><p>Viz https://youtu.be/dQw4w9WgXcQ v textu.</p>');
 over('vlozeneAdresy: jen samostatný řádek', [substr_count($html, 'data-vlozit'), substr_count($html, 'Viz https://youtu.be')], [1, 1]);
 
-/* ---------- bezpečný dialekt šablon (ukládání přes napojení na Claude) ---------- */
-use Kaleta\Core\SablonaKontrola;
-
-$vadne = [];
-foreach (glob(dirname(__DIR__) . '/layout/*/*.php') as $soubor) {
-    if (SablonaKontrola::over((string) file_get_contents($soubor)) !== []) {
-        $vadne[] = basename(dirname($soubor)) . '/' . basename($soubor);
-    }
-}
-over('SablonaKontrola: vestavěné šablony dialektem projdou', $vadne, []);
+/* ---------- šablony webu ---------- */
 over('Šablony: výchozí šablona existuje a je i výchozí hodnotou nastavení', [is_file(dirname(__DIR__) . '/layout/' . \Kaleta\Front\Layouty::VYCHOZI . '/base.php'), \Kaleta\Core\Settings::DEFAULTS['layout']], [true, \Kaleta\Front\Layouty::VYCHOZI]);
 over('Šablony: zrušená šablona „default“ se nevrátila', is_dir(dirname(__DIR__) . '/layout/default'), false);
-$utoky = [
-    '<?php file_put_contents(KALETA_ROOT . "/system/x.php", "x");', '<?= file_get_contents("../config.php") ?>', '<?php eval($_GET["c"]);', '<?php include "../config.php";',
-    '<?php system("id");', '<?php echo `id`;', '<?php $f = "sys" . "tem"; $f("id");', '<?php array_map("system", ["id"]);', '<?php array_map("sys" . "tem", ["id"]);',
-    '<?php $x = "system"; usort($a, $x);', '<?php call_user_func("system", "id");', '<?php $d = new PDO("mysql:host=x");', '<?php \\Kaleta\\Core\\App::boot();',
-    '<?php $web->db()->run("DROP TABLE ka_novinky");', '<?php $web->set("ai_klic", "x");', '<?= $_COOKIE["kaleta"] ?>', '<?php $a = "_GET"; echo $$a["x"];',
-    '<?php echo "{$web->db()->run(1)}";', '<?php (fn () => 1)()("x");', '<?php [$web, "set"]("a", "b");', '<?php function system2() {}', '<?php ($web->x)("id");', '<?php exit;',
-    '<?php use Kaleta\\Core\\Db as e;', '<?php echo constant("KALETA_ROOT");', '<?php preg_replace_callback("/x/", "system", "x");', '<?php highlight_file("../config.php");',
-    '<?php $m = "db"; $web->$m();', '<?php array_map(system(...), ["id"]);', '<?php $web?->db();', '<?php echo $app->settings()->get("ai_klic");', '<?php mail("a@b.cz", "x", "y");',
-    '<?php curl_init("https://example.com");', '<?php fopen("php://input", "r");', '<?php unlink("index.php");', '<?php putenv("A=B");', '<?php extract($_POST);',
-];
-$prosle = array_values(array_filter($utoky, fn (string $php): bool => SablonaKontrola::over($php) === []));
-over('SablonaKontrola: žádný z ' . count($utoky) . ' útoků neprojde', $prosle, []);
-over('SablonaKontrola: běžná šablona projde', SablonaKontrola::over('<?php $x = fn (array $c): string => e($c["titulek"]); ?><h1><?= $x($clanek) ?></h1><?php foreach (array_map(trim(...), explode(",", "a,b")) as $s): ?><?= e(t("Štítek")) ?> <?= e($url("stitek/" . $s)) ?><?php endforeach; usort($a, fn ($p, $q) => $p <=> $q); if ($web->get("logo_webu") !== "") { echo e(datum($clanek["datum"], true)); }'), []);
 
 /* ---------- anglický slovník pokrývá texty webu i administrace ---------- */
 $chybiPreklad = static function (string $slovnik, array $vzory): array {
@@ -191,6 +169,19 @@ over('Kontrola stavby: části webu osnovu nadpisů nehlídají', Kaleta\Stavite
 over('Poptávka: kampaň z utm_* adresy stránky s formulářem', Kaleta\Front\Formulare::kampan('https://example.com/akce?utm_source=google&utm_medium=cpc&utm_campaign=jaro&gclid=x&utm_term[]=a', 'https://example.com'), 'utm_source=google&utm_medium=cpc&utm_campaign=jaro');
 over('Poptávka: kampaň jen z vlastního webu', Kaleta\Front\Formulare::kampan('https://jiny.cz/?utm_source=x', 'https://example.com'), '');
 over('Poptávka: kampaň pro člověka', Kaleta\Front\Formulare::kampanText('utm_source=google&utm_medium=cpc&utm_campaign=jaro'), 'google / cpc / jaro');
+// MCP anglicky: každý nástroj má anglický název, každé pevné hlášení překlad, parametry a výsledky se převádějí
+$mcpZdroj = (string) file_get_contents(KALETA_ROOT . '/system/src/Mcp/Nastroje.php');
+preg_match_all("/^\s+\['([a-z_]+)', '/m", substr($mcpZdroj, 0, (int) strpos($mcpZdroj, 'public function zavolej')), $mcpNastroje);
+over('MCP: každý nástroj má anglický název', array_values(array_diff($mcpNastroje[1], Kaleta\Mcp\Anglicky::ceske())), []);
+preg_match_all("/Exception\('((?:[^'\\\\]|\\\\.)*)'\)/", $mcpZdroj . file_get_contents(KALETA_ROOT . '/system/src/Stavitel/Upravy.php'), $mcpHlaseni);
+over('MCP: pevná hlášení mají anglický překlad', array_values(array_filter(array_map('stripslashes', $mcpHlaseni[1]), fn (string $z): bool => Kaleta\Mcp\Anglicky::zprava($z) === $z)), []);
+over('MCP anglicky: parametry, hodnoty a položky menu', Kaleta\Mcp\Anglicky::argumenty('save_menu', ['location' => 'footer', 'items' => [['type' => 'page', 'page_id' => 2, 'children' => [['type' => 'link', 'url' => '/x', 'new_window' => true]]]]]),
+    ['umisteni' => 'paticka', 'polozky' => [['typ' => 'stranka', 'ids' => 2, 'deti' => [['typ' => 'odkaz', 'url' => '/x', 'nove_okno' => true]]]]]);
+over('MCP anglicky: typy polí kolekce a nastavení', [Kaleta\Mcp\Anglicky::argumenty('create_collection', ['fields' => [['label' => 'Foto', 'type' => 'image']]]), Kaleta\Mcp\Anglicky::argumenty('update_settings', ['settings' => ['site_name_de' => 'X', 'company_email' => 'a@b.c', 'nazev_webu' => 'Y']])],
+    [['pole' => [['popisek' => 'Foto', 'typ' => 'obrazek']]], ['nastaveni' => ['nazev_webu_de' => 'X', 'firma_email' => 'a@b.c', 'nazev_webu' => 'Y']]]);
+over('MCP anglicky: výsledek s anglickými klíči, stavba beze změny', Kaleta\Mcp\Anglicky::vysledek('save_build', ['id' => 3, 'stav' => 'publikováno', 'stavba' => ['v' => 1, 'deti' => [['typ' => 'nadpis', 'stav' => 'x']]], 'kontrola' => [['id' => 'a', 'zprava' => 'z']]]),
+    ['id' => 3, 'status' => 'published', 'build' => ['v' => 1, 'deti' => [['typ' => 'nadpis', 'stav' => 'x']]], 'check' => [['id' => 'a', 'message' => 'z']]]);
+over('MCP anglicky: hlášení s proměnnou částí', Kaleta\Mcp\Anglicky::zprava('Kategorie „Akce“ neexistuje. Použij nástroj seznam_kategorii.'), 'The category “Akce” does not exist. Use list_categories.');
 
 /* ---------- porovnání verzí ---------- */
 $r = Kaleta\Core\Rozdil::html('<p>Radnice schválila plán.</p><p>Druhý odstavec.</p>', '<p>Radnice včera schválila nový plán.</p><p>Druhý odstavec.</p><p>Třetí.</p>');

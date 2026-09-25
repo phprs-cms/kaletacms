@@ -178,6 +178,7 @@ $kontrastyHtml = function (array $kontrasty): string {
 <?php if (count($layouty) > 1): ?>
 <fieldset>
 <legend><?= e(t('Šablona')) ?></legend>
+<p class="napoveda"><?= e(t('Vlastní PHP šablony se už nevyvíjejí – vzhled webu nastavíte tady ve Vzhledu webu a v builderu. Stávající vlastní šablona dál funguje, doporučujeme ale přejít na výchozí.')) ?></p>
 <div class="karty-volby karty-volby-text">
 <?php foreach ($layouty as $slozka => $l): ?>
 	<label class="karta-volba">

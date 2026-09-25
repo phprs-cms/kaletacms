@@ -1,6 +1,8 @@
 # Šablony webu v Kaletě – pravidla pro Claude
 
-Pracuješ ve složce šablon systému Kaleta. **Upravovat smíš jen vlastní šablonu** – složku `layout/<vlastní-název>/`.
+Pracuješ ve složce šablon systému Kaleta. **Vlastní PHP šablony se od verze 1.1 nevyvíjejí:** nové weby je nedělají a přes napojení
+na Claude vytvořit ani upravit nejdou. Vzhled webu se staví v builderu a v design systému (Vzhled webu, sdílené třídy, části webu).
+Tahle pravidla platí jen pro údržbu **existující** vlastní šablony – složky `layout/<vlastní-název>/`, kterou správce kdysi založil.
 Všechno ostatní je kód systému a nemění se.
 
 ## Co se nedělá
@@ -12,14 +14,11 @@ Všechno ostatní je kód systému a nemění se.
 - Šablona je **jen prezentační vrstva**: vypisuje data, která dostane. Nesmí číst ani zapisovat soubory, volat databázi, síť ani cizí
   služby, vkládat jiné PHP soubory, vytvářet objekty nebo volat třídy systému.
 
-## Jak vzniká vlastní šablona
+## Existující vlastní šablona
 
-1. Zkopíruj vestavěnou šablonu do `layout/<vlastní-název>/` (malá písmena, číslice, pomlčky). Přes napojení na Claude k tomu slouží
-   nástroj `vytvor_sablonu`.
-2. Uprav `info.php` (název a popis), `style.css` a `base.php`. Chceš-li jinak vysázet novinku, výpis novinek nebo stránku, přidej do složky
-   vlastní `novinka.php`, `vypis.php` nebo `stranka.php` – šablona tak přepíše systémový pohled ze `system/views/front/`.
-3. Náhled bez přepnutí webu: `/?sablona=<vlastní-název>` (funguje přihlášenému správci).
-4. Aktivuje ji správce ve Vzhledu.
+1. Náhled bez přepnutí webu: `/?sablona=<vlastní-název>` (funguje přihlášenému správci). Přepíná ji správce ve Vzhledu webu.
+2. Doporučený směr je zpět k vestavěné šabloně: vzhled přenést do design systému a tříd, záhlaví a patičku do builderu.
+3. Soubory šablony mění jen správce na serveru; nové soubory (`novinka.php`, `vypis.php`, `stranka.php`) už nepřidávej.
 
 ## Co šablona dostává
 
@@ -37,8 +36,7 @@ Všechno ostatní je kód systému a nemění se.
 
 Výpis (`<?= e($x) ?>`), `if` / `foreach` / `match`, uzávěry (`$f = fn (…) => …`), `$url('cesta')`, `$web->get('klic')`,
 pomocné funkce `e()`, `t()`, `datum()`, `datum_slovy()`, `slugify()` a běžné funkce pro text, čísla a pole
-(`count`, `implode`, `array_map` s uzávěrem, `mb_substr`, `number_format`, `date`…). Přesný seznam a kontrola:
-`system/src/Core/SablonaKontrola.php`. Přes napojení na Claude jde uložit jen CSS vlastní šablony; PHP soubory šablon mění správce na serveru.
+(`count`, `implode`, `array_map` s uzávěrem, `mb_substr`, `number_format`, `date`…).
 
 Každý text pro návštěvníka obal `e()` (ochrana před XSS) a `t()` (překlad do jazyka webu). Barvy a písma ber z proměnných
 `--ka-akcent`, `--ka-pismo-titulky`, `--ka-pismo-text`; tmavý režim patří do bloku
