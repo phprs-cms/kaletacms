@@ -95,7 +95,7 @@ final class Knihovna
             ])],
 
             'novinky' => ['nazev' => t('Poslední novinky'), 'popis' => t('Tři nejnovější novinky a odkaz na všechny.'), 'stavba' => fn (): array => $n('sekce', [], [
-                $s($n('kontejner', [], [$z($n('nadpis', ['text' => t('Novinky')]), 'h2'), $n('tlacitko', ['text' => t('Všechny novinky'), 'odkaz' => '/novinky', 'varianta' => 'odkaz'])]),
+                $s($n('kontejner', [], [$z($n('nadpis', ['text' => t('Novinky')]), 'h2'), $n('tlacitko', ['text' => t('Všechny novinky'), 'odkaz' => '/' . \Kaleta\Core\Cesty::verejna('novinky', \Kaleta\Core\Jazyk::kod(), null), 'varianta' => 'odkaz'])]),
                     ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'row', 'rozmisteni' => 'space-between', 'zarovnani' => 'baseline', 'zalamovani' => 'wrap', 'mezera' => 's']]),
                 $n('novinky'),
             ])],
@@ -156,6 +156,13 @@ final class Knihovna
                 $s($z($n('nadpis', ['text' => t('Nadpis stránky')]), 'h1'), ['zaklad' => ['velikost_pisma' => '4']]),
                 $t($n('text', ['html' => '<p>' . t('Jednou větou, o čem stránka je.') . '</p>']), 'podtitul'),
             ]), ['zaklad' => ['odsazeni_y' => 'xl', 'pozadi' => 'plocha', 'zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 's']])],
+
+            'tiraz' => ['nazev' => t('Tiráž'), 'popis' => t('Kdo web provozuje: firma, sídlo, identifikační čísla, zápis v rejstříku a kontakt z Nastavení → Firma.'), 'stavba' => fn (): array => $s($n('sekce', [], [
+                $s($n('kontejner', [], [
+                    $z($n('nadpis', ['text' => t('Provozovatel webu')]), 'h2'),
+                    $n('udaje', ['udaj' => 'tiraz']),
+                ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'm', 'max_sirka' => '48rem']]),
+            ]), ['zaklad' => ['odsazeni_y' => 'xl']])],
 
             /* ---------- služby a obsah ---------- */
 
@@ -418,6 +425,7 @@ final class Knihovna
         'kariera' => ['Kariéra', ['nadpis-stranky', 'kariera', 'poptavka']],
         'kontakt' => ['Kontakt', ['nadpis-stranky', 'kontakt-formular']],
         'zasady' => ['Zásady ochrany osobních údajů', []],
+        'tiraz' => ['Tiráž (Impressum)', ['nadpis-stranky', 'tiraz']],
     ];
 
     /** Kostra zásad ochrany osobních údajů pro poptávkový formulář (HTML v jazyce webu); hranaté závorky doplní správce. */
@@ -514,7 +522,7 @@ final class Knihovna
 
     /** Kategorie sekcí (ostatní jsou „obsah“). */
     private const array KATEGORIE_SEKCI = [
-        'uvod' => 'uvod', 'uvod-obrazek' => 'uvod', 'uvod-stred' => 'uvod', 'uvod-tmavy' => 'uvod', 'uvod-video' => 'uvod', 'nadpis-stranky' => 'uvod',
+        'uvod' => 'uvod', 'uvod-obrazek' => 'uvod', 'uvod-stred' => 'uvod', 'uvod-tmavy' => 'uvod', 'uvod-video' => 'uvod', 'nadpis-stranky' => 'uvod', 'tiraz' => 'firma',
         'reference' => 'duvera', 'reference-jedna' => 'duvera', 'recenze' => 'duvera', 'loga' => 'duvera', 'cisla' => 'duvera', 'cisla-svetla' => 'duvera', 'zaruky' => 'duvera',
         'pribeh' => 'firma', 'tym' => 'firma', 'hodnoty' => 'firma', 'historie' => 'firma', 'kariera' => 'firma', 'pobocky' => 'firma',
         'vyzva' => 'akce', 'vyzva-pruh' => 'akce', 'poptavka' => 'akce', 'kontakt' => 'akce', 'kontakt-formular' => 'akce', 'faq' => 'akce', 'faq-dva' => 'akce',

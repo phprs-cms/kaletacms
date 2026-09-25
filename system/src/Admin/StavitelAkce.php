@@ -84,7 +84,7 @@ trait StavitelAkce
             'barvy' => DesignSystem::nacti($app->settings())['barvy'],
             // nabídka pro pole odkazu: stránky webu (s jazykovou předponou) a novinky; kotvy na stránce doplní editor
             'odkazy' => [...array_map(fn (array $s): array => ['/' . ($s['jazyk'] !== '' ? $s['jazyk'] . '/' : '') . ((int) $s['ids'] === $app->settings()->int('titulni_stranka') ? '' : $s['seo_link']), $s['titulek'] . ($s['zobrazit'] ? '' : ' (' . t('skrytá') . ')')],
-                $this->db->all('SELECT ids, titulek, seo_link, jazyk, zobrazit FROM {stranky} WHERE smazano IS NULL ORDER BY jazyk, poradi, titulek LIMIT 300')), ['/novinky', t('Novinky')]],
+                $this->db->all('SELECT ids, titulek, seo_link, jazyk, zobrazit FROM {stranky} WHERE smazano IS NULL ORDER BY jazyk, poradi, titulek LIMIT 300')), ['/' . \Kaleta\Core\Cesty::verejna('novinky', \Kaleta\Core\Jazyk::vychozi($app->settings()), $this->db), t('Novinky')]],
             'nahled' => $e['nahled'],
             'zpet' => $e['zpet'],
             'adresy' => array_map(fn (string $akce): string => $this->url($akce, $cil['parametry']), [

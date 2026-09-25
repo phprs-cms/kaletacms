@@ -65,7 +65,7 @@ final class Installer
         $data = [
             'db_host' => 'localhost', 'db_port' => '3306', 'db_name' => '', 'db_user' => '', 'db_password' => '', 'db_prefix' => 'ka_',
             'nazev_webu' => t('Můj web'), 'user' => 'admin', 'jmeno' => '', 'email' => '',
-            'casove_pasmo' => self::PASMA[$this->jazyk], 'web' => 'firemni',
+            'casove_pasmo' => self::PASMA[$this->jazyk], 'web' => 'firemni', 'jazyk_webu' => $this->jazyk,
         ];
         $chyby = [];
         // rozšíření zapnutá po instalaci: výchozí sada, po odeslání formuláře volba uživatele
@@ -76,6 +76,7 @@ final class Installer
                 // heslo k databázi se neořezává - může obsahovat mezery
                 $data[$klic] = $klic === 'db_password' ? (string) ($_POST[$klic] ?? '') : $this->request->post($klic);
             }
+            $data['jazyk_webu'] = isset(\Kaleta\Core\Jazyk::DOSTUPNE[$data['jazyk_webu']]) ? $data['jazyk_webu'] : $this->jazyk;
             $rozsireni = array_values(array_intersect($this->request->postList('rozsireni'), array_keys(Rozsireni::SEZNAM)));
             $chyby = $this->instaluj($data, (string) ($_POST['password'] ?? ''), (string) ($_POST['password2'] ?? ''), $rozsireni);
             if ($chyby === []) {
@@ -222,12 +223,15 @@ final class Installer
                 'jazyk' => $this->jazyk === 'cs' ? '' : $this->jazyk, // administrace prvního účtu v jazyce instalace
             ]);
 
+            // obsah webu vzniká v jazyce webu (slovník webu), administrace prvního účtu zůstává v jazyce instalace
+            $jazykWebu = $d['jazyk_webu'];
+            $x = fn (string $text): string => \Kaleta\Core\Jazyk::docasne($jazykWebu, fn (): string => t($text));
             // kostra běžného firemního webu: úvod, o nás, služby, kontakt – texty jsou jen vodítko, co na stránku patří
             $stranky = [
-                [t('Úvod'), 'uvod', 0, '<h1>' . e($d['nazev_webu']) . '</h1><p>' . e(t('Jednou větou: co děláte a pro koho. Tuto stránku upravíte v administraci v sekci Stránky.')) . '</p>'],
-                [t('O nás'), slugify(t('O nás')), 1, '<p>' . e(t('Kdo jste, jak dlouho to děláte a proč vám zákazníci věří.')) . '</p>'],
-                [t('Služby'), slugify(t('Služby')), 1, '<p>' . e(t('Co nabízíte – každou službu krátce a srozumitelně.')) . '</p>'],
-                [t('Kontakt'), slugify(t('Kontakt')), 1, '<p>' . e(t('Adresa, telefon, e-mail a otevírací doba.')) . '</p>'],
+                [$x('Úvod'), 'uvod', 0, '<h1>' . e($d['nazev_webu']) . '</h1><p>' . e($x('Jednou větou: co děláte a pro koho. Tuto stránku upravíte v administraci v sekci Stránky.')) . '</p>'],
+                [$x('O nás'), slugify($x('O nás')), 1, '<p>' . e($x('Kdo jste, jak dlouho to děláte a proč vám zákazníci věří.')) . '</p>'],
+                [$x('Služby'), slugify($x('Služby')), 1, '<p>' . e($x('Co nabízíte – každou službu krátce a srozumitelně.')) . '</p>'],
+                [$x('Kontakt'), slugify($x('Kontakt')), 1, '<p>' . e($x('Adresa, telefon, e-mail a otevírací doba.')) . '</p>'],
             ];
             // stránky rovnou ze sekcí builderu podle zvoleného ukázkového webu – nový web vypadá jako web, ne jako prázdná šablona
             $web = Knihovna::WEBY[$d['web']] ?? Knihovna::WEBY['firemni'];
@@ -236,7 +240,7 @@ final class Installer
                 $radek = ['titulek' => $titulek, 'seo_link' => $adresa, 'text' => $text, 'v_menu' => $vMenu, 'poradi' => ($i + 1) * 10];
                 if (($web['stranky'][$i] ?? []) !== []) {
                     // sekce s prvky vypnutých rozšíření (výpis novinek, formulář) se na úvodní stránky nedávají, prázdné obrázky také
-                    $stavba = Knihovna::stranka($db, $web['stranky'][$i], $titulek, $this->jazyk, Stavba::vypnuteTypy($rozsireni), true);
+                    $stavba = Knihovna::stranka($db, $web['stranky'][$i], $titulek, $jazykWebu, Stavba::vypnuteTypy($rozsireni), true);
                     $radek['stavba'] = Stavba::naJson($stavba);
                     $radek['text'] = Stavba::jakoText($stavba);
                 }
@@ -246,12 +250,12 @@ final class Installer
 
             // zásady ochrany osobních údajů: kostra k doplnění v jazyce webu (slovník webu, ne instalátoru), skrytá, dokud ji správce
             // nedoplní a nezveřejní (připomene to První kroky); mimo hlavní menu, odkaz z patičky, cookie lišty a souhlasu ve formuláři
-            [$zasady, $textZasad] = \Kaleta\Core\Jazyk::docasne($this->jazyk, fn (): array => [t('Zásady ochrany osobních údajů'), Knihovna::textZasad()]);
+            [$zasady, $textZasad] = \Kaleta\Core\Jazyk::docasne($jazykWebu, fn (): array => [t('Zásady ochrany osobních údajů'), Knihovna::textZasad()]);
             $idZasad = $db->insert('stranky', ['titulek' => $zasady, 'seo_link' => slugify($zasady), 'text' => $textZasad, 'zobrazit' => 0, 'v_menu' => 0, 'poradi' => 90]);
             \Kaleta\Core\Menu::uloz($db, 'paticka', '', [['typ' => 'stranka', 'ids' => $idZasad, 'text' => '']]);
 
             \Kaleta\Core\Hledani::dopln($db);
-            $nastaveni = ['nazev_webu' => $d['nazev_webu'], 'adresa_webu' => $this->request->origin(), 'email_webu' => $d['email'], 'jazyk_webu' => $this->jazyk,
+            $nastaveni = ['nazev_webu' => $d['nazev_webu'], 'adresa_webu' => $this->request->origin(), 'email_webu' => $d['email'], 'jazyk_webu' => $jazykWebu,
                 'design_system' => (string) json_encode(\Kaleta\Stavitel\DesignSystem::predvolba($web['predvolba']), JSON_UNESCAPED_SLASHES),
                 'casove_pasmo' => $d['casove_pasmo'], 'layout' => Layouty::VYCHOZI, 'titulni_stranka' => (string) $uvod, 'verze_db' => (string) Migrace::posledni(),
                 'rozsireni' => $rozsireni === [] ? '-' : implode(',', $rozsireni), 'cookies_zasady_url' => $this->request->basePath() . '/' . slugify($zasady)];
@@ -262,12 +266,12 @@ final class Installer
             if (!in_array('novinky', $rozsireni, true)) {
                 return; // bez novinek i bez uvítací novinky
             }
-            $kategorie = $db->insert('kategorie', ['nazev' => t('Aktuality'), 'seo_link' => slugify(t('Aktuality')), 'popis' => '']);
+            $kategorie = $db->insert('kategorie', ['nazev' => $x('Aktuality'), 'seo_link' => slugify($x('Aktuality')), 'popis' => '']);
             $db->insert('novinky', [
-                'seo_link' => slugify(t('Vítejte v Kaletě')),
-                'titulek' => t('Vítejte v Kaletě'),
-                'uvod' => '<p>' . e(t('Web je nainstalovaný a připravený. Tuto novinku můžete v administraci upravit nebo smazat.')) . '</p>',
-                'text' => '<p>' . e(t('Do administrace se dostanete na adrese admin.php. Na přehledu vás provedou První kroky: dejte webu tvář, vyplňte údaje o firmě a připravte stránky.')) . '</p>',
+                'seo_link' => slugify($x('Vítejte v Kaletě')),
+                'titulek' => $x('Vítejte v Kaletě'),
+                'uvod' => '<p>' . e($x('Web je nainstalovaný a připravený. Tuto novinku můžete v administraci upravit nebo smazat.')) . '</p>',
+                'text' => '<p>' . e($x('Do administrace se dostanete na adrese admin.php. Na přehledu vás provedou První kroky: dejte webu tvář, vyplňte údaje o firmě a připravte stránky.')) . '</p>',
                 'tema' => $kategorie,
                 'autor' => $admin,
                 'datum' => date('Y-m-d H:i:s'),

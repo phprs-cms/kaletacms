@@ -27,13 +27,19 @@ final class Seo
         $this->koren = $app->request->origin() . $app->request->basePath() . '/';
     }
 
+    /** Systémová cesta v jazyce právě zobrazené verze (/news mimo češtinu) – Core\Cesty. */
+    private function cesta(string $cesta): string
+    {
+        return \Kaleta\Core\Cesty::verejna($cesta, $this->app->jazykPrefix !== '' ? $this->app->jazykPrefix : \Kaleta\Core\Jazyk::vychozi($this->app->settings()), $this->app->db());
+    }
+
     public function robotsTxt(): string
     {
         $s = $this->app->settings();
         if (!$s->bool('indexovani')) {
             return "# Indexování webu je vypnuté v Nastavení.\nUser-agent: *\nDisallow: /\n";
         }
-        $radky = ['User-agent: *', 'Disallow: /admin.php', 'Disallow: /hledani', 'Disallow: /*?nahled=', ''];
+        $radky = ['User-agent: *', 'Disallow: /admin.php', 'Disallow: /hledani', 'Disallow: /search', 'Disallow: /*?nahled=', ''];
         if ($s->get('ai_crawlery') === 'zakazat') {
             foreach (self::AI_ROBOTI as $robot) {
                 $radky[] = 'User-agent: ' . $robot;
@@ -52,7 +58,8 @@ final class Seo
     {
         $db = $this->app->db();
         // mapa webu je jedna pro všechny jazykové verze: adresa dostane předponu podle jazyka záznamu
-        $url = fn (string $cesta, ?string $zmena = null, string $priorita = '0.5', string $jazyk = ''): string => '<url><loc>' . e($this->koren . ($jazyk !== '' ? $jazyk . '/' : '') . $cesta) . '</loc>'
+        $url = fn (string $cesta, ?string $zmena = null, string $priorita = '0.5', string $jazyk = ''): string => '<url><loc>'
+            . e($this->koren . ($jazyk !== '' ? $jazyk . '/' : '') . \Kaleta\Core\Cesty::verejna($cesta, $jazyk !== '' ? $jazyk : \Kaleta\Core\Jazyk::vychozi($this->app->settings()), $db)) . '</loc>'
             . ($zmena !== null ? '<lastmod>' . date('c', strtotime($zmena)) . '</lastmod>' : '') . '<priority>' . $priorita . '</priority></url>';
 
         // jen zapnuté jazykové verze; obsah vypnutého jazyka na webu není
@@ -101,7 +108,7 @@ final class Seo
             'version' => 'https://jsonfeed.org/version/1.1', 'title' => $s->get('nazev_webu'), 'description' => $s->get('popis_webu'),
             'home_page_url' => $this->web, 'feed_url' => $this->web . 'feed.json', 'language' => \Kaleta\Core\Jazyk::kod(),
             'items' => array_map(fn (array $c): array => array_filter([
-                'id' => 'novinka-' . $c['idc'], 'url' => $this->web . 'novinky/' . $c['seo_link'], 'title' => $c['titulek'],
+                'id' => 'novinka-' . $c['idc'], 'url' => $this->web . $this->cesta('novinky/') . $c['seo_link'], 'title' => $c['titulek'],
                 'summary' => trim(strip_tags($c['uvod'])), 'content_html' => $c['uvod'] . $c['text'],
                 'image' => $c['obrazek'] !== '' ? $this->absolutni($c['obrazek']) : null,
                 'date_published' => date('c', strtotime($c['datum'])), 'date_modified' => $c['zmeneno'] ? date('c', strtotime($c['zmeneno'])) : null,
@@ -169,7 +176,7 @@ final class Seo
         }
         array_push($radky, '', '## ' . t('Novinky'));
         foreach ($db->all('SELECT titulek, seo_link, uvod FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND noindex = 0 AND smazano IS NULL AND jazyk = ? ORDER BY datum DESC LIMIT 30', [\Kaleta\Core\Jazyk::sloupecWebu()]) as $c) {
-            $radky[] = '- [' . $c['titulek'] . '](' . $this->web . 'novinky/' . $c['seo_link'] . $md . '): ' . mb_strimwidth(trim(strip_tags($c['uvod'])), 0, 200, '…');
+            $radky[] = '- [' . $c['titulek'] . '](' . $this->web . $this->cesta('novinky/') . $c['seo_link'] . $md . '): ' . mb_strimwidth(trim(strip_tags($c['uvod'])), 0, 200, '…');
         }
 
         return implode("\n", $radky) . "\n";
@@ -182,7 +189,7 @@ final class Seo
         $hlava[] = '- ' . t('Autor') . ': ' . ($clanek['autor_jm'] ?? $this->app->settings()->get('nazev_webu'));
         $hlava[] = '- ' . t('Vydáno') . ': ' . date('Y-m-d', strtotime($clanek['datum'])) . ($clanek['zmeneno'] ? ', ' . t('aktualizováno') . ': ' . date('Y-m-d', strtotime($clanek['zmeneno'])) : '');
         $hlava[] = '- ' . t('Kategorie') . ': ' . $clanek['tema_jm'];
-        $hlava[] = '- ' . t('Zdroj') . ': ' . $this->web . 'novinky/' . $clanek['seo_link'];
+        $hlava[] = '- ' . t('Zdroj') . ': ' . $this->web . $this->cesta('novinky/') . $clanek['seo_link'];
 
         return implode("\n", $hlava) . "\n\n" . self::htmlNaMarkdown($clanek['uvod']) . "\n\n" . self::htmlNaMarkdown($clanek['text']) . "\n";
     }
@@ -229,7 +236,7 @@ final class Seo
         }
         $h[] = '<meta name="twitter:card" content="' . (($meta['obrazek'] ?? '') !== '' || $s->get('og_obrazek') !== '' ? 'summary_large_image' : 'summary') . '">';
         if ($clanek !== null && $s->bool('markdown_clanky')) {
-            $h[] = '<link rel="alternate" type="text/markdown" href="' . e($this->web . 'novinky/' . $clanek['seo_link'] . '.md') . '">';
+            $h[] = '<link rel="alternate" type="text/markdown" href="' . e($this->web . $this->cesta('novinky/') . $clanek['seo_link'] . '.md') . '">';
         }
         if ($s->bool('schema_org')) {
             $h[] = '<script type="application/ld+json">' . json_encode($this->strukturovanaData($titulek, $meta, $clanek), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) . '</script>';
@@ -353,7 +360,7 @@ final class Seo
             $graf = [
                 ['@type' => 'WebSite', '@id' => $this->web . '#web', 'name' => $s->get('nazev_webu'), 'url' => $this->web,
                     'description' => $s->get('popis_webu'), 'inLanguage' => \Kaleta\Core\Jazyk::kod(), 'publisher' => ['@id' => $vydavatel['@id']],
-                    'potentialAction' => ['@type' => 'SearchAction', 'target' => $this->web . 'hledani?q={q}', 'query-input' => 'required name=q']],
+                    'potentialAction' => ['@type' => 'SearchAction', 'target' => $this->web . $this->cesta('hledani?q={q}'), 'query-input' => 'required name=q']],
                 $vydavatel,
             ];
             if (!empty($meta['faq'])) {
@@ -385,14 +392,14 @@ final class Seo
                 'publisher' => $vydavatel,
                 'articleSection' => $clanek['tema_jm'],
                 'keywords' => implode(', ', array_column($clanek['stitky'] ?? [], 'nazev')) ?: null,
-                'mainEntityOfPage' => $this->web . 'novinky/' . $clanek['seo_link'],
+                'mainEntityOfPage' => $this->web . $this->cesta('novinky/') . $clanek['seo_link'],
                 'inLanguage' => \Kaleta\Core\Jazyk::kod(),
             ]),
             ...($this->faqData($clanek)),
             ['@type' => 'BreadcrumbList', 'itemListElement' => [
                 ['@type' => 'ListItem', 'position' => 1, 'name' => $s->get('nazev_webu'), 'item' => $this->web],
-                ['@type' => 'ListItem', 'position' => 2, 'name' => t('Novinky'), 'item' => $this->web . 'novinky'],
-                ['@type' => 'ListItem', 'position' => 3, 'name' => $clanek['tema_jm'], 'item' => $this->web . 'novinky/kategorie/' . $clanek['tema_seo']],
+                ['@type' => 'ListItem', 'position' => 2, 'name' => t('Novinky'), 'item' => $this->web . $this->cesta('novinky')],
+                ['@type' => 'ListItem', 'position' => 3, 'name' => $clanek['tema_jm'], 'item' => $this->web . $this->cesta('novinky/kategorie/') . $clanek['tema_seo']],
                 ['@type' => 'ListItem', 'position' => 4, 'name' => $clanek['titulek']],
             ]],
         ]];

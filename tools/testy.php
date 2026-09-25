@@ -182,6 +182,34 @@ over('MCP anglicky: typy polí kolekce a nastavení', [Kaleta\Mcp\Anglicky::argu
 over('MCP anglicky: výsledek s anglickými klíči, stavba beze změny', Kaleta\Mcp\Anglicky::vysledek('save_build', ['id' => 3, 'stav' => 'publikováno', 'stavba' => ['v' => 1, 'deti' => [['typ' => 'nadpis', 'stav' => 'x']]], 'kontrola' => [['id' => 'a', 'zprava' => 'z']]]),
     ['id' => 3, 'status' => 'published', 'build' => ['v' => 1, 'deti' => [['typ' => 'nadpis', 'stav' => 'x']]], 'check' => [['id' => 'a', 'message' => 'z']]]);
 over('MCP anglicky: hlášení s proměnnou částí', Kaleta\Mcp\Anglicky::zprava('Kategorie „Akce“ neexistuje. Použij nástroj seznam_kategorii.'), 'The category “Akce” does not exist. Use list_categories.');
+use Kaleta\Core\Cesty;
+over('Cesty: systémové adresy v jazyce verze', [Cesty::verejna('novinky/kategorie/akce', 'en', null), Cesty::verejna('novinky/stitek/x', 'de', null), Cesty::verejna('hledani?q=a', 'fr', null),
+    Cesty::verejna('novinky/kategorie/akce', 'cs', null), Cesty::verejna('novinky-akce', 'en', null), Cesty::verejna('novinky', 'en', null)],
+    ['news/category/akce', 'news/tag/x', 'search?q=a', 'novinky/kategorie/akce', 'novinky-akce', 'news']);
+over('Cesty: požadavek na vnitřní cestu a kanonickou podobu', [Cesty::vnitrni('/news/tag/x', 'en', null), Cesty::vnitrni('/novinky/x', 'en', null), Cesty::vnitrni('/news', 'cs', null), Cesty::vnitrni('/o-nas', 'en', null)],
+    [['/novinky/stitek/x', '/news/tag/x'], ['/novinky/x', '/news/x'], ['/novinky', '/novinky'], ['/o-nas', '/o-nas']]);
+// slovníky dalších jazyků webu: jen klíče anglického slovníku (a anglické názvy dnů a měsíců pro datum slovy), stejné %s a značky
+$enSlovnik = require KALETA_ROOT . '/system/jazyky/en.php';
+$nazvyData = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+$vadneSlovniky = [];
+foreach (glob(KALETA_ROOT . '/system/jazyky/[a-z][a-z].php') ?: [] as $soubor) {
+    $kod = basename($soubor, '.php');
+    if ($kod === 'en') {
+        continue;
+    }
+    $slovnik = require $soubor;
+    if (!isset(Kaleta\Core\Jazyk::DOSTUPNE[$kod])) {
+        $vadneSlovniky[] = $kod . ': jazyk není v Jazyk::DOSTUPNE';
+    }
+    foreach ($slovnik as $klic => $preklad) {
+        if (!isset($enSlovnik[$klic]) && !in_array($klic, $nazvyData, true) && $klic !== 'datum_format') {
+            $vadneSlovniky[] = $kod . ': navíc „' . $klic . '“';
+        } elseif (isset($enSlovnik[$klic]) && (preg_match_all('/%(?:\d+\$)?[sd]/', $enSlovnik[$klic]) !== preg_match_all('/%(?:\d+\$)?[sd]/', $preklad) || substr_count($enSlovnik[$klic], '<') !== substr_count($preklad, '<'))) {
+            $vadneSlovniky[] = $kod . ': zástupné znaky nebo značky v „' . $klic . '“';
+        }
+    }
+}
+over('Slovníky jazyků webu: klíče z en.php, stejné %s a HTML', $vadneSlovniky, []);
 
 /* ---------- porovnání verzí ---------- */
 $r = Kaleta\Core\Rozdil::html('<p>Radnice schválila plán.</p><p>Druhý odstavec.</p>', '<p>Radnice včera schválila nový plán.</p><p>Druhý odstavec.</p><p>Třetí.</p>');

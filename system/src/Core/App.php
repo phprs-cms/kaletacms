@@ -93,6 +93,11 @@ final class App
     public function url(string $path = ''): string
     {
         $path = ltrim($path, '/');
+        if (preg_match('#^(novinky|hledani)(?=$|[/?.])#', $path) && isset($this->config['db'])) {
+            // systémové adresy v jazyce verze (/news, /search mimo češtinu) – Core\Cesty
+            $jazyk = $this->jazykPrefix !== '' ? $this->jazykPrefix : Jazyk::vychozi($this->settings());
+            $path = Cesty::verejna($path, $jazyk, $this->db());
+        }
         if ($this->jazykPrefix !== '') {
             $cesta = explode('?', $path, 2)[0];
             if ((!str_contains($cesta, '.') || $cesta === 'rss.xml' || $cesta === 'feed.json') && !preg_match('#^(api/|mcp$)#', $cesta)) {

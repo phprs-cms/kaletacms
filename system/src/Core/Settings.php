@@ -22,6 +22,8 @@ final class Settings
         'firma_typ' => 'LocalBusiness',
         'firma_ico' => '',
         'firma_dic' => '',
+        'firma_rejstrik' => '',       // zápis v obchodním rejstříku (soud a spisová značka, Handelsregister…) – tiráž
+        'firma_zastupce' => '',       // kdo firmu zastupuje (jednatel, Geschäftsführer…) – tiráž
         'firma_ulice' => '',
         'firma_mesto' => '',
         'firma_psc' => '',

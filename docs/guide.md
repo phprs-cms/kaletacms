@@ -128,12 +128,21 @@ link, for your mailing tool.
 **Settings → Company:** registered name, business type, company ID, VAT ID, address, phone, **opening hours** (one per
 line, e.g. “Mo–Fr 8:00–17:00”, “Sa 9–12”, “Su closed”), map link and coordinates. The **Company details** element shows
 them anywhere on the site and search engines receive them as structured data – so Google shows your hours and address.
+For an **imprint** (legal notice, Impressum) fill in the commercial register entry and who represents the company, then
+create a page from the **Imprint** template (Pages → New page) – the Company details element in *Imprint* mode lists all
+filled-in details of the operator.
 
 ## 9. News, SEO and languages
 
 **News** is the company blog: categories, tags, scheduled publishing, trash, version history. SEO takes care of itself
-(sitemap, canonical URLs, structured data, `llms.txt` for AI search). Enable further language versions (`/en/…`) under
-**Extensions → Language versions** and pick the languages in Settings.
+(sitemap, canonical URLs, structured data, `llms.txt` for AI search). Enable further language versions (`/de/…`) under
+**Extensions → Language versions** and pick the languages in Settings – around forty languages, including all EU languages.
+Visitor texts (Search, Read more, forms, cookie bar) are translated into Czech, English, German, French, Spanish, Italian,
+Polish and Slovak; other languages show them in English, with dates in their own format. The installer lets you choose the
+site language separately from the admin language.
+
+System addresses follow the language: Czech versions use `/novinky` and `/hledani`, all others `/news`, `/news/category/…`,
+`/news/tag/…` and `/search`. The other form redirects permanently, so old links and search rankings keep working.
 
 ## 10. AI assistant and Claude
 

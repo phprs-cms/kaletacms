@@ -102,4 +102,6 @@ return [
     'Uživatel k této databázi nemá přístup. Přidělte mu ji v administraci hostingu.' => 'This user has no access to the database. Grant it in your hosting control panel.',
     'Databáze s tímto názvem na serveru není. Založte ji v administraci hostingu, nebo opravte název.' => 'There is no database with this name on the server. Create it in your hosting control panel or correct the name.',
     'K databázovému serveru se nepodařilo připojit. Zkontrolujte server a port.' => 'Could not connect to the database server. Check the server and port.',
+    'Jazyk webu' => 'Website language',
+    'V tomto jazyce vzniknou ukázkové stránky a texty pro návštěvníky. Administrace zůstane v jazyce instalace.' => 'The sample pages and the texts for visitors are created in this language. The administration stays in the language of the installation.',
 ];

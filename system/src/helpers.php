@@ -80,6 +80,13 @@ function datum_slovy(string|\DateTimeInterface|null $value = null): string
     $dny = ['neděle', 'pondělí', 'úterý', 'středa', 'čtvrtek', 'pátek', 'sobota'];
     $mesice = [1 => 'ledna', 'února', 'března', 'dubna', 'května', 'června', 'července', 'srpna', 'září', 'října', 'listopadu', 'prosince'];
     $dt = $value instanceof \DateTimeInterface ? $value : new \DateTimeImmutable($value ?? 'now');
+    // jazyk bez vlastního slovníku: datum slovy podle locale z rozšíření intl („Freitag, 25. September 2026“)
+    if (($locale = \Kaleta\Core\Jazyk::intlLocale()) !== null) {
+        $text = (new \IntlDateFormatter($locale, \IntlDateFormatter::FULL, \IntlDateFormatter::NONE, $dt->getTimezone()))->format($dt);
+        if (is_string($text) && $text !== '') {
+            return $text;
+        }
+    }
     // slovník jazyka může dát vlastní tvar data: klíč "datum_slovy" = formát pro date(), např. "l j F Y"
     $format = t('datum_slovy');
     if ($format !== 'datum_slovy') {

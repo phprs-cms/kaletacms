@@ -117,7 +117,7 @@ final class Firma
             'email' => $s->get('firma_email'),
             'telephone' => $s->get('firma_telefon'),
             'vatID' => $s->get('firma_dic'),
-            'identifier' => $s->get('firma_ico') !== '' ? ['@type' => 'PropertyValue', 'propertyID' => 'IČO', 'value' => $s->get('firma_ico')] : null,
+            'identifier' => $s->get('firma_ico') !== '' ? ['@type' => 'PropertyValue', 'propertyID' => $s->get('firma_zeme') === 'CZ' ? 'IČO' : 'Company ID', 'value' => $s->get('firma_ico')] : null,
             'address' => count($adresa) > 1 ? $adresa : null,
             'geo' => is_numeric($lat) && is_numeric($lng) ? ['@type' => 'GeoCoordinates', 'latitude' => (float) $lat, 'longitude' => (float) $lng] : null,
             'hasMap' => $s->get('firma_mapa'),

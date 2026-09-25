@@ -46,7 +46,7 @@ class Konfigurace extends Modul
             'casove_pasmo' => 'pasmo', 'jazyk_webu' => 'vyber:' . \Kaleta\Core\Jazyk::KODY, 'jazyky_dalsi' => 'seznam:' . \Kaleta\Core\Jazyk::KODY,
         ],
         'firma' => [
-            'firma_nazev' => 'text', 'firma_typ' => 'vyber:' . self::TYPY_FIRMY, 'firma_ico' => 'vzor:/^(\d{6,10})?$/', 'firma_dic' => 'vzor:/^([A-Z]{2}[A-Z0-9]{6,12})?$/',
+            'firma_nazev' => 'text', 'firma_typ' => 'vyber:' . self::TYPY_FIRMY, 'firma_ico' => 'vzor:/^((?=.*\d)[A-Za-z0-9 .\/-]{1,24})?$/', 'firma_rejstrik' => 'text', 'firma_zastupce' => 'text', 'firma_dic' => 'vzor:/^([A-Z]{2}[A-Z0-9]{6,12})?$/',
             'firma_ulice' => 'text', 'firma_mesto' => 'text', 'firma_psc' => 'vzor:/^[A-Z0-9 -]{0,10}$/i', 'firma_zeme' => 'vzor:/^[A-Z]{2}$/',
             'firma_telefon' => 'vzor:/^[+()\d\s\/.-]{0,30}$/', 'firma_email' => 'email', 'firma_hodiny' => 'hodiny', 'firma_mapa' => 'url', 'firma_gps' => 'vzor:/^(-?\d{1,2}(\.\d+)?,\s*-?\d{1,3}(\.\d+)?)?$/',
         ],

@@ -49,10 +49,14 @@ $pole('email_webu', 'E-mail webu', 'email', 'Chodí na něj upozornění systém
 <div class="radek" id="jazyky_dalsi">
 	<span class="popisek"><?= e(t('Další jazykové verze')) ?></span>
 	<div class="volby">
+		<div class="volby-jazyky">
 <?php foreach (Kaleta\Core\Jazyk::DOSTUPNE as $kod => [$nazevJazyka]): if ($kod === $hodnoty['jazyk_webu']) { continue; } ?>
-		<label><input type="checkbox" name="jazyky_dalsi[]" value="<?= e($kod) ?>"<?= in_array($kod, explode(',', $hodnoty['jazyky_dalsi']), true) ? ' checked' : '' ?>> <?= e($nazevJazyka) ?> <small>(/<?= e($kod) ?>/)</small></label><br>
+		<label><input type="checkbox" name="jazyky_dalsi[]" value="<?= e($kod) ?>"<?= in_array($kod, explode(',', $hodnoty['jazyky_dalsi']), true) ? ' checked' : '' ?>> <?= e($nazevJazyka) ?> <small>(/<?= e($kod) ?>/)</small></label>
 <?php endforeach ?>
+		</div>
 		<span class="napoveda"><?= e(t('Každá verze má své stránky, kategorie a novinky. Jazyk novinky určuje její kategorie. Překlad propojíte v editoru.')) ?></span>
+<?php $prelozene = array_map(fn (string $kod): string => Kaleta\Core\Jazyk::DOSTUPNE[$kod][0], array_values(array_filter(array_keys(Kaleta\Core\Jazyk::DOSTUPNE), fn (string $kod): bool => $kod === 'cs' || is_file(KALETA_SYSTEM . '/jazyky/' . $kod . '.php')))); ?>
+		<span class="napoveda"><?= e(t('Texty pro návštěvníky (Hledat, Číst dál…) jsou přeložené do jazyků: %s. Ostatní jazyky je mají anglicky, datum ve svém tvaru. Obsah stránek a novinek píšete v jazyce verze.', implode(', ', $prelozene))) ?></span>
 	</div>
 </div>
 <?php else: ?>

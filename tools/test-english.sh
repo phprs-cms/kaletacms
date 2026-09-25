@@ -56,14 +56,16 @@ public_site() { # public_site <starter>: every visible page, news, search, 404 a
   done
   [ "$(sql "SELECT COUNT(*) FROM ka_stranky WHERE stavba LIKE '%\"typ\":\"obrazek\"%' AND stavba NOT LIKE '%\"src\":\"media/%'")" = 0 ] || fail "$1: a starter page has an image slot without an image"
   if [ -n "$(sql "SELECT 1 FROM ka_nastaveni WHERE promenna = 'rozsireni' AND FIND_IN_SET('novinky', hodnota)")" ]; then
-    page "$1: news" /novinky
-    page "$1: news item" "/novinky/$(sql "SELECT seo_link FROM ka_novinky LIMIT 1")"
-    page "$1: news item, signed in" "/novinky/$(sql "SELECT seo_link FROM ka_novinky LIMIT 1")" 200 "$JAR"
-    page "$1: news category" "/novinky/kategorie/$(sql "SELECT seo_link FROM ka_kategorie LIMIT 1")"
+    page "$1: news" /news
+    code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/novinky/kategorie/x")
+    [ "$code" = "301 $B/news/category/x" ] || fail "$1: the Czech address /novinky/kategorie/x does not redirect to /news/category/x ($code)"
+    page "$1: news item" "/news/$(sql "SELECT seo_link FROM ka_novinky LIMIT 1")"
+    page "$1: news item, signed in" "/news/$(sql "SELECT seo_link FROM ka_novinky LIMIT 1")" 200 "$JAR"
+    page "$1: news category" "/news/category/$(sql "SELECT seo_link FROM ka_kategorie LIMIT 1")"
   fi
-  page "$1: search with results" "/hledani?q=contact"
+  page "$1: search with results" "/search?q=contact"
   grep -q 'href="/contact"' "$WORK/page.html" || fail "$1: search does not find the Contact page"
-  page "$1: search without results" "/hledani?q=zzqqxx"
+  page "$1: search without results" "/search?q=zzqqxx"
   page "$1: not found" /this-page-does-not-exist 404
   sql "UPDATE ka_stranky SET zobrazit = 1 WHERE seo_link = 'privacy-policy'"; rm -rf "$WORK/web/storage/cache/stranky"
   page "$1: privacy policy (published)" /privacy-policy
@@ -135,6 +137,6 @@ check "author: message after saving a news item" "$WORK/page.html"
 
 # a site without news: the empty list
 sql "UPDATE ka_novinky SET visible = 0"; rm -rf "$WORK/web/storage/cache/stranky"
-page "firemni: news without news items" /novinky
+page "firemni: news without news items" /news
 
 [ "$FOUND" = 0 ] && echo "  ok     English installer, public site and admin without Czech ($SCREENS screens)" || { echo "NALEZENO CHYB: $FOUND"; exit 1; }

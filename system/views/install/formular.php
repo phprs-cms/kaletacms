@@ -87,6 +87,11 @@ $splneno = !in_array(false, array_column($pozadavky, 'ok'), true);
 		<div class="cele"><label for="email"><?= e(t('E-mail')) ?></label><input type="email" id="email" name="email" value="<?= e($data['email']) ?>"><?= $chyba('email') ?></div>
 		<div><label for="password"><?= e(t('Heslo')) ?></label><input type="password" id="password" name="password" autocomplete="new-password" minlength="10" required><?= $chyba('password') ?><span class="napoveda"><?= e(t('Alespoň 10 znaků.')) ?></span></div>
 		<div><label for="password2"><?= e(t('Heslo znovu')) ?></label><input type="password" id="password2" name="password2" autocomplete="new-password" required></div>
+		<div class="cele"><label for="jazyk_webu"><?= e(t('Jazyk webu')) ?></label><select id="jazyk_webu" name="jazyk_webu">
+<?php foreach (Kaleta\Core\Jazyk::DOSTUPNE as $kod => [$nazevJazyka]): ?>
+			<option value="<?= e($kod) ?>"<?= $data['jazyk_webu'] === $kod ? ' selected' : '' ?>><?= e($nazevJazyka) ?></option>
+<?php endforeach ?>
+		</select><span class="napoveda"><?= e(t('V tomto jazyce vzniknou ukázkové stránky a texty pro návštěvníky. Administrace zůstane v jazyce instalace.')) ?></span></div>
 		<div class="cele"><label for="casove_pasmo"><?= e(t('Časové pásmo')) ?></label><select id="casove_pasmo" name="casove_pasmo">
 <?php foreach (DateTimeZone::listIdentifiers() as $pasmo): ?>
 			<option value="<?= e($pasmo) ?>"<?= $data['casove_pasmo'] === $pasmo ? ' selected' : '' ?>><?= e(str_replace('_', ' ', $pasmo)) ?></option>

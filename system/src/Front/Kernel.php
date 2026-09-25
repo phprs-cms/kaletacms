@@ -40,6 +40,9 @@ final class Kernel
     /** Složka šablony (layoutu), kterou web právě používá. */
     private string $layout = Layouty::VYCHOZI;
 
+    /** Systémová adresa v cizí podobě (/novinky na anglickém webu) – přesměrování na platnou (Core\Cesty). */
+    private ?Response $presmerovani = null;
+
     /** Požadovaná stránka výpisu je až za jeho koncem - odpoví se 404. */
     private bool $zaKoncem = false;
 
@@ -64,6 +67,13 @@ final class Kernel
             $app->request->setPath($m[2] ?? '/');
         }
         Jazyk::nastavWeb($app->settings(), $jazyk);
+        // systémové adresy v jazyce verze (/news ↔ /novinky): dál se pracuje s vnitřní podobou, cizí podoba přesměruje
+        [$vnitrni, $kanonicka] = \Kaleta\Core\Cesty::vnitrni($app->request->path(), $jazyk, $app->db());
+        if ($kanonicka !== $app->request->path() && !$app->request->isPost()) {
+            $dotaz = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_QUERY);
+            $this->presmerovani = Response::redirect($app->url(ltrim($vnitrni, '/')) . ($dotaz !== '' ? '?' . $dotaz : ''), 301);
+        }
+        $app->request->setPath($vnitrni);
         $layout = $app->settings()->get('layout');
         // náhled jiné šablony (?sablona=slozka) - jen přihlášenému administrátorovi, např. při tvorbě šablony přes Claude
         $nahled = $app->request->get('sablona');
@@ -83,6 +93,9 @@ final class Kernel
     public function handle(): Response
     {
         $request = $this->app->request;
+        if ($this->presmerovani !== null) {
+            return $this->presmerovani;
+        }
         // OAuth pro konektor Claude (metadata, registrace, tokeny) – běží i v režimu údržby, stejně jako /mcp
         if (($oauth = (new OAuth($this->app))->handle($request->path())) !== null) {
             return $oauth;
@@ -861,6 +874,7 @@ final class Kernel
             'kanonicka' => $kanonicka,
         ]);
         $html = ObrazkyHtml::dopln($this->app->db(), $html); // rozměry a barva podkladu obrázků – méně poskakování stránky
+        $html = $this->systemoveOdkazy($html);
         // image/web.js jen na stránkách, které ho potřebují (galerie a fotky v textu, video, sdílení, záložky, karusel, okno, formulář, počítadlo, odpočet)
         if (!preg_match('/data-(vlozit|sdilet|kopirovat|zalozky|karusel|formular|odeslano|pocitadlo|odpocet)|popover role="dialog"|galerie|class="(?:text|perex)[" ][\s\S]*?<img|cookies-/', $html)) {
             $html = (string) preg_replace('#<script src="[^"]*/image/web\.js[^"]*"[^>]*></script>\n?#', '', $html);
@@ -871,5 +885,21 @@ final class Kernel
         }
 
         return Response::html($html, $status);
+    }
+
+    /**
+     * Odkazy na systémové adresy uložené v obsahu (href="/novinky" ze starší stavby nebo startovacího webu) v podobě jazyka
+     * verze, aby nevedly přes přesměrování (Core\Cesty).
+     */
+    private function systemoveOdkazy(string $html): string
+    {
+        $jazyk = $this->app->jazykPrefix !== '' ? $this->app->jazykPrefix : Jazyk::vychozi($this->app->settings());
+        if (!\Kaleta\Core\Cesty::anglicky($jazyk) || !preg_match('#href="[^"]*/(?:novinky|hledani)#', $html)) {
+            return $html;
+        }
+        $zaklad = preg_quote($this->app->request->basePath() . ($this->app->jazykPrefix !== '' ? '/' . $this->app->jazykPrefix : ''), '#');
+
+        return (string) preg_replace_callback('#href="' . $zaklad . '/((?:novinky|hledani)(?:[/?\#][^"]*)?)"#',
+            fn (array $m): string => 'href="' . e($this->app->url(html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5))) . '"', $html);
     }
 }

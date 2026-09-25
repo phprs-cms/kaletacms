@@ -49,7 +49,11 @@ function slovnikJs(string $koren): array
 
 function maDiakritiku(string $text): bool
 {
-    return preg_match('/[ěščřžůťďňáéíóúýĚŠČŘŽŮŤĎŇÁÉÍÓÚÝ]/u', str_replace(POVOLENA, '', $text)) === 1;
+    // názvy jazyků v nabídkách (Slovenčina, Íslenska…) jsou ve svém jazyce záměrně
+    static $jazyky = null;
+    $jazyky ??= array_column((function (): array { require_once dirname(__DIR__) . '/system/src/Core/Jazyk.php'; return \Kaleta\Core\Jazyk::DOSTUPNE; })(), 0);
+
+    return preg_match('/[ěščřžůťďňáéíóúýĚŠČŘŽŮŤĎŇÁÉÍÓÚÝ]/u', str_replace([...POVOLENA, ...$jazyky], '', $text)) === 1;
 }
 
 /** Česká slova v textu; slova s lomítkem, tečkou uvnitř, @, = nebo podtržítkem jsou adresy a kód, ne text. */

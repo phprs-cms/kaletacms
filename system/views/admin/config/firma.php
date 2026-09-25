@@ -19,8 +19,10 @@ $pole('firma_nazev', 'Obchodní firma', 'text', 'Přesný název podle rejstří
 	<span class="napoveda"><?= e(t('Podle druhu vyhledávače ukazují otevírací dobu, mapu a hodnocení. Máte-li provozovnu pro zákazníky, nevolte „firma bez provozovny“.')) ?></span></div>
 </div>
 <?php
-$pole('firma_ico', 'IČO', 'text', '', 'maxlength="10" inputmode="numeric"');
+$pole('firma_ico', 'IČO', 'text', 'Identifikační číslo firmy; v jiné zemi její registrační číslo.', 'maxlength="24"');
 $pole('firma_dic', 'DIČ', 'text', 'Jen plátce DPH, např. CZ12345678.', 'maxlength="14"');
+$pole('firma_rejstrik', 'Zápis v rejstříku', 'text', 'Soud a spisová značka, např. „Krajský soud v Brně, oddíl C, vložka 12345“ (v Německu Handelsregister). Pro tiráž.', 'maxlength="200"');
+$pole('firma_zastupce', 'Zastoupení', 'text', 'Kdo firmu zastupuje, např. „jednatel Jan Novák“ (Geschäftsführer). Pro tiráž.', 'maxlength="200"');
 ?>
 </fieldset>
 <fieldset>
