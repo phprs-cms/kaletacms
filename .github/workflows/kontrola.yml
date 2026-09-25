@@ -22,7 +22,7 @@ jobs:
         ports: ['3306:3306']
         options: --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with: { php-version: '${{ matrix.php }}', extensions: 'pdo_mysql, mbstring, gd, zip, sodium, intl, exif', coverage: none }
       - name: Kouřový test (čistá instalace a průchod stránkami)
@@ -48,7 +48,7 @@ jobs:
         ports: ['3306:3306']
         options: --health-cmd="${{ matrix.db.health }}" --health-interval=5s --health-timeout=5s --health-retries=30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
       - uses: shivammathur/setup-php@v2
         with: { php-version: '8.4', extensions: 'pdo_mysql, mbstring, intl, sodium', coverage: none }
@@ -58,7 +58,7 @@ jobs:
   bezpecnost:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
       - name: Semgrep - bezpečnostní pravidla pro PHP a JavaScript
         uses: returntocorp/semgrep-action@v1
