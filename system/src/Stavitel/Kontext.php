@@ -63,6 +63,9 @@ final class Kontext
     /** Obsah, který systém vkládá do obálky (prvek „Obsah stránky“): novinka, výpis, stránka 404. */
     public string $obsah = '';
 
+    /** Kotvy nadpisů z textů na stránce (Prvky\Text) – ať se na jedné stránce neopakují. @var array<string, true> */
+    public array $kotvy = [];
+
     public function __construct(public readonly App $app, public bool $editor = false)
     {
     }
