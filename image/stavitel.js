@@ -716,7 +716,8 @@
 				if (p.typ === 'tlacitko' && (!o.odkaz || o.odkaz === '#')) { nalezy.push([p.id, T('Tlačítko „%s“ nikam nevede – doplňte odkaz.').replace('%s', o.text || '')]); }
 				if (p.typ === 'obrazek' && !o.src) { nalezy.push([p.id, T('Obrázek není vybraný – na webu se nezobrazí.')]); }
 				if (p.typ === 'obrazek' && o.src && !o.alt && !znacky(o.src)) { nalezy.push([p.id, T('Obrázek nemá popis pro nevidomé (alt).')]); }
-				if (p.typ === 'nadpis') { nadpisy.push([p.id, Number(String(p.znacka).slice(1)) || 2, text(o.text)]); }
+				const uroven = p.typ === 'nadpis' && /^h([1-6])$/.exec(p.znacka || 'h2'); // nadpis se značkou p (velké číslo, štítek) není v osnově
+				if (uroven) { nadpisy.push([p.id, Number(uroven[1]), text(o.text)]); }
 				if (p.deti) { projdi(p.deti, vKomponente); }
 			});
 		})(stav.stavba.deti);

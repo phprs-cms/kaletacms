@@ -39,6 +39,13 @@ final class Kontejner extends Prvek
 
     public static function vykresli(array $p, string $a, string $deti, Kontext $k): string
     {
+        if (str_contains($deti, Udaje::PRAZDNE_HODINY)) {
+            // karta „Otevírací doba“ bez vyplněné doby: na webu by zůstal jen nadpis v prázdném rámečku
+            $deti = str_replace(Udaje::PRAZDNE_HODINY, '', $deti);
+            if (trim(strip_tags((string) preg_replace('#<(h[1-6])\b.*?</\1>#s', '', $deti))) === '') {
+                return '';
+            }
+        }
         $odkaz = (string) ($p['obsah']['odkaz'] ?? '');
         if ($odkaz !== '') {
             // odkaz v odkazu HTML nedovoluje (prohlížeč by kartu rozlomil): tlačítka a odkazy uvnitř zůstanou jen vzhledem

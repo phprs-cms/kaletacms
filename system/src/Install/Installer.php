@@ -235,8 +235,8 @@ final class Installer
             foreach ($stranky as $i => [$titulek, $adresa, $vMenu, $text]) {
                 $radek = ['titulek' => $titulek, 'seo_link' => $adresa, 'text' => $text, 'v_menu' => $vMenu, 'poradi' => ($i + 1) * 10];
                 if (($web['stranky'][$i] ?? []) !== []) {
-                    // sekce s prvky vypnutých rozšíření (výpis novinek, formulář) se na úvodní stránky nedávají
-                    $stavba = Knihovna::stranka($db, $web['stranky'][$i], $titulek, $this->jazyk, Stavba::vypnuteTypy($rozsireni));
+                    // sekce s prvky vypnutých rozšíření (výpis novinek, formulář) se na úvodní stránky nedávají, prázdné obrázky také
+                    $stavba = Knihovna::stranka($db, $web['stranky'][$i], $titulek, $this->jazyk, Stavba::vypnuteTypy($rozsireni), true);
                     $radek['stavba'] = Stavba::naJson($stavba);
                     $radek['text'] = Stavba::jakoText($stavba);
                 }

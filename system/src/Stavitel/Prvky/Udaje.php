@@ -20,6 +20,9 @@ final class Udaje extends Prvek
     public const string SKUPINA = 'Dynamické';
     public const array ZNACKY = ['p', 'div', 'span', 'address'];
 
+    /** Značka nevyplněné otevírací doby na webu: kontejner, ve kterém kromě ní zbude jen nadpis, se vynechá (Kontejner::vykresli). */
+    public const string PRAZDNE_HODINY = '<!--ka-prazdne-hodiny-->';
+
     public static function vlastnosti(): array
     {
         return ['udaj' => ['typ' => 'vyber', 'popisek' => 'Údaj', 'vychozi' => 'copyright', 'moznosti' => [
@@ -59,7 +62,7 @@ final class Udaje extends Prvek
             ])))),
             'hodiny' => ($radky = \Kaleta\Front\Firma::radkyHodin($web)) !== []
                 ? '<ul' . Text::sTridou($a, 'ka-hodiny') . '>' . implode('', array_map(fn (string $r): string => '<li>' . e($r) . '</li>', $radky)) . '</ul>'
-                : $obal(''),
+                : ($k->editor ? $obal('') : self::PRAZDNE_HODINY),
             'site' => self::site($web, $a, $k),
             default => '',
         };

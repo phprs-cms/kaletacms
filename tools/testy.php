@@ -685,7 +685,7 @@ $knSchema = array_column(Kaleta\Stavitel\Stavba::schema(true, 'en')['prvky'], 'v
 over('Stavba::schema: výchozí obsah prvků v jazyce stránky', [$knSchema['nadpis']['text']['vychozi'], $knSchema['tlacitko']['text']['vychozi']], ['Heading', 'Contact us']);
 $knEnSlovnik = require KALETA_ROOT . '/system/jazyky/en.php';
 preg_match_all("/\bt\('((?:[^'\\\\]|\\\\.)*)'\)/", file_get_contents(KALETA_ROOT . '/system/src/Stavitel/Knihovna.php') . implode('', array_map('file_get_contents', glob(KALETA_ROOT . '/system/src/Stavitel/Prvky/*.php'))), $knTexty);
-over('Knihovna a prvky: všechny ukázkové texty mají anglický překlad', array_values(array_diff(array_unique($knTexty[1]), array_keys($knEnSlovnik), ['Menu', 'Standard', 'Video', 'Brno, 2026', 'Olomouc, 2025'])), []);
+over('Knihovna a prvky: všechny ukázkové texty mají anglický překlad', array_values(array_diff(array_unique($knTexty[1]), array_keys($knEnSlovnik), ['Menu', 'Standard', 'Video'])), []);
 
 over('Firma::hodiny: rozsah dnů, víc úseků, zavřeno', Kaleta\Front\Firma::hodiny("Po–Pá 8:00–17:00\nÚt 8-12, 13-17\nNe zavřeno"), [
     ['dny' => ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'], 'od' => '08:00', 'do' => '17:00'],
@@ -746,6 +746,58 @@ foreach (Kaleta\Stavitel\Knihovna::WEBY as $webKlic => $web) {
     }
 }
 over('Knihovna::WEBY: předvolby a sekce ukázkových webů existují', $webyChyby, []);
+
+// stránky ukázkových webů projdou kontrolou před publikováním z builderu (image/stavitel.js, kontrola()): tlačítka s odkazem,
+// žádný prázdný obrázek, jediný h1 a osnova bez přeskočené úrovně – česky i anglicky, se všemi rozšířeními i bez nich
+$kontrolaStranky = function (array $stavba): array {
+    $nalezy = [];
+    $nadpisy = [];
+    $projdi = function (array $deti) use (&$projdi, &$nalezy, &$nadpisy): void {
+        foreach ($deti as $p) {
+            $o = $p['obsah'] ?? [];
+            if ($p['typ'] === 'tlacitko' && in_array($o['odkaz'] ?? '', ['', '#'], true)) {
+                $nalezy[] = 'tlačítko bez odkazu: ' . ($o['text'] ?? '');
+            }
+            if ($p['typ'] === 'obrazek' && (($o['src'] ?? '') === '' || ($o['alt'] ?? '') === '')) {
+                $nalezy[] = 'obrázek bez souboru nebo popisu';
+            }
+            if ($p['typ'] === 'nadpis' && preg_match('/^h([1-6])$/', $p['znacka'] ?? 'h2', $m)) {
+                $nadpisy[] = (int) $m[1];
+            }
+            $projdi($p['deti'] ?? []);
+        }
+    };
+    $projdi($stavba['deti']);
+    if (count(array_keys($nadpisy, 1)) !== 1) {
+        $nalezy[] = count(array_keys($nadpisy, 1)) . '× h1';
+    }
+    foreach ($nadpisy as $i => $u) {
+        if ($i > 0 && $u > $nadpisy[$i - 1] + 1) {
+            $nalezy[] = 'h' . $nadpisy[$i - 1] . ' → h' . $u;
+        }
+    }
+
+    return $nalezy;
+};
+$webyKontrola = [];
+foreach (Kaleta\Stavitel\Knihovna::WEBY as $webKlic => $web) {
+    foreach (['cs', 'en'] as $jazyk) {
+        foreach (['všechna rozšíření' => array_keys(Kaleta\Core\Rozsireni::SEZNAM), 'bez rozšíření' => []] as $varianta => $zapnuta) {
+            foreach ($web['stranky'] as $i => $sekceStranky) {
+                if ($sekceStranky === []) {
+                    continue; // textová stránka: nadpis h1 dává šablona
+                }
+                [$stavba] = Kaleta\Stavitel\Knihovna::sestav($sekceStranky, 'Stránka', $jazyk, Kaleta\Stavitel\Stavba::vypnuteTypy($zapnuta), true);
+                foreach ($kontrolaStranky($stavba) as $nalez) {
+                    $webyKontrola[] = "$webKlic/$jazyk/$varianta/stránka $i: $nalez";
+                }
+            }
+        }
+    }
+}
+over('Knihovna::WEBY: stránky ukázkových webů projdou kontrolou před publikováním', array_values(array_unique($webyKontrola)), []);
+$kontaktBezFormulare = Kaleta\Stavitel\Knihovna::sestav(Kaleta\Stavitel\Knihovna::WEBY['remeslo']['stranky'][3], 'Kontakt', 'cs', Kaleta\Stavitel\Stavba::vypnuteTypy([]), true)[0];
+over('Knihovna: kontakt bez rozšíření Formuláře má údaje firmy', str_contains((string) json_encode($kontaktBezFormulare), '"udaj":"adresa"'), true);
 
 /* ---------- AI asistent: poskytovatelé a builder ---------- */
 $aiTelo = ['model' => 'm1', 'max_tokens' => 50, 'system' => 'S', 'messages' => [['role' => 'user', 'content' => [['type' => 'image', 'source' => ['media_type' => 'image/png', 'data' => 'QQ==']], ['type' => 'text', 'text' => 'Ahoj']]]]];

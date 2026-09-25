@@ -97,9 +97,6 @@ $site = array_filter(['LinkedIn' => $web->get('soc_linkedin'), 'Facebook' => $we
 <?php foreach ($site as $nazevSite => $adresa): ?>
 				<li><a href="<?= e($adresa) ?>" rel="me noopener" target="_blank"><?= e($nazevSite) ?></a></li>
 <?php endforeach ?>
-<?php if ($sNovinkami ?? true): ?>
-				<li><a href="<?= e($url('rss.xml')) ?>">RSS</a></li>
-<?php endif ?>
 			</ul>
 		</nav>
 		<p class="paticka-copy">&copy; <?= date('Y') ?> <?= e($nazevWebu) ?></p>
