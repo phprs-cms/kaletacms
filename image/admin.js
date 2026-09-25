@@ -156,6 +156,25 @@
 		prepni();
 	});
 
+	// Výpis na telefonu jako karty: buňka dostane popisek sloupce z hlavičky (ukáže ho CSS jen v úzkém okně). Role tabulky se
+	// doplní výslovně – prohlížeče je jinak při display: block zahazují a čtečka by přišla o sloupce.
+	document.querySelectorAll('table.vypis').forEach(function (tab) {
+		if (!tab.tHead || !tab.tHead.rows.length) { return; }
+		var hlavicky = Array.prototype.map.call(tab.tHead.rows[0].cells, function (th) { th.setAttribute('role', 'columnheader'); return th.textContent.trim(); });
+		tab.classList.add('vypis-karty');
+		tab.setAttribute('role', 'table');
+		Array.prototype.forEach.call(tab.querySelectorAll('thead, tbody'), function (skupina) { skupina.setAttribute('role', 'rowgroup'); });
+		Array.prototype.forEach.call(tab.rows, function (tr) { tr.setAttribute('role', 'row'); });
+		Array.prototype.forEach.call(tab.tBodies, function (telo) {
+			Array.prototype.forEach.call(telo.rows, function (tr) {
+				Array.prototype.forEach.call(tr.cells, function (td, i) {
+					td.setAttribute('role', td.tagName === 'TH' ? 'rowheader' : 'cell');
+					if (hlavicky[i]) { td.setAttribute('data-popisek', hlavicky[i]); }
+				});
+			});
+		});
+	});
+
 	// Varování před opuštěním rozepsaného formuláře
 	document.querySelectorAll('form.formular').forEach(function (form) {
 		var zmeneno = false;

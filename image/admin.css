@@ -530,6 +530,22 @@ table.vypis td.stred {
 table.vypis td a {
 	font-weight: 500;
 }
+/* telefon: řádek výpisu jako karta, u každé buňky popisek sloupce (data-popisek doplňuje admin.js) – akce jsou vidět bez posouvání do strany */
+@media (max-width: 640px) {
+	.tab-obal:has(> table.vypis-karty) { overflow: visible; border: 0; border-radius: 0; background: none; }
+	table.vypis-karty, table.vypis-karty tbody, table.vypis-karty tr, table.vypis-karty td, table.vypis-karty tbody th { display: block; }
+	table.vypis-karty thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+	table.vypis-karty tr { margin: 0 0 10px; padding: 6px 0; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); }
+	table.vypis-karty tbody tr:last-child td { border-bottom: 0; }
+	table.vypis-karty td, table.vypis-karty tbody th { position: relative; min-height: 1.5em; padding: 5px 14px 5px calc(38% + 10px); border: 0; white-space: normal; text-align: left; overflow-wrap: anywhere; }
+	table.vypis-karty td::before, table.vypis-karty tbody th::before { content: attr(data-popisek); position: absolute; left: 14px; width: calc(38% - 14px); font-size: 12px; font-weight: 600; color: var(--text-slaby); }
+	table.vypis-karty tr > :first-child { padding-left: 14px; font-size: 15px; font-weight: 600; }
+	table.vypis-karty tr > :first-child::before { display: none; }
+	table.vypis-karty td:empty { display: none; }
+	table.vypis-karty td.cislo, table.vypis-karty td.stred, table.vypis-karty td.akce { text-align: left; white-space: normal; }
+	table.vypis-karty tr.nevydany td:first-child { box-shadow: none; }
+	table.vypis-karty tr.nevydany { box-shadow: inset 3px 0 0 var(--varovani); }
+}
 .tab-obal + p.stred,
 form > p.stred {
 	text-align: left;
