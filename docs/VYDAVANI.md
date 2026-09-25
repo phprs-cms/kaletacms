@@ -60,6 +60,10 @@ i popis změn `--zmena` (správci ho vidí v administraci u nabídky aktualizace
    `https://github.com/phprs-cms/kaletacms/releases/latest/download/aktualizace.json`, instalace si novou verzi najdou samy.
    Soubor `aktualizace.json` proto ve `www` webu projektu **nesmí ležet** – server by ho podal místo přesměrování.
 5. Na kaletacms.com ověřte, že se aktualizace nabídne a nainstaluje.
+6. Na kaletacms.com přidejte vydání do kolekce **Releases** (stránka `/changelog`), anglicky: přes Clauda
+   `uloz_polozku_kolekce` s `kolekce: "releases"`, název „Kaleta X.Y.Z“ a poli `version`, `released` („25 September 2026“),
+   `kind` (First / Feature / Fix / Security release), `summary`, `changes` (HTML seznam), `notes` (odkaz na vydání na GitHubu)
+   a `number` (X·10000 + Y·100 + Z, podle něj se řadí), `zobrazit: true`.
 
 `--bezpecnostni` používejte jen pro skutečné bezpečnostní opravy: taková vydání se instalují sama a správci dostanou e-mail.
 
