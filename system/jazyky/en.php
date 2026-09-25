@@ -803,4 +803,5 @@ return [
     'Další novinky' => 'More news',
     'Odkazy v patičce' => 'Footer links',
     'Prvek se nepodařilo vykreslit.' => 'This element could not be displayed.',
+    'Aktuality' => 'News',
 ];

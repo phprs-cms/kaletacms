@@ -90,8 +90,9 @@ final class Novinky extends Modul
 
     protected function akceNovy(): Response
     {
-        if (Kategorie::seznam($this->db) === []) {
-            return $this->chyba('Nejprve založte alespoň jednu kategorii (Novinky → Kategorie).');
+        // bez kategorie by novinka nešla uložit: založí se výchozí a editor se otevře rovnou (žádná slepá ulička)
+        if (Kategorie::zalozVychozi($this->db, $this->app->settings()) !== null) {
+            $this->app->session->flash('ok', t('Novinky potřebují kategorii, proto vznikla kategorie „%s“. Přejmenovat ji nebo přidat další můžete v Novinky → Kategorie.', (string) (Kategorie::seznam($this->db)[0]['nazev'] ?? '')));
         }
 
         return $this->formular($this->vychozi());
