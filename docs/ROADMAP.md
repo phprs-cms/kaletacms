@@ -2,7 +2,7 @@
 
 What is planned next. Dates are not promised; releases ship when they are tested.
 
-## 1.2 – languages for the EU and beyond (ready, not yet released)
+## 1.2 – languages for the EU and beyond (released 25 September 2026)
 
 - Around forty site languages; visitor texts translated into Czech, English, German, French, Spanish, Italian, Polish and
   Slovak, other languages fall back to English with dates in their own format.
@@ -10,8 +10,9 @@ What is planned next. Dates are not promised; releases ship when they are tested
 - Site language chosen in the installer; imprint (Impressum) template and company fields.
 - Language switcher and light / dark / device-based look with a switcher for visitors.
 - Admin: distinct menu icons, chart tooltips, GitHub Sponsors link in the footer.
+- 1.2.1: related content on item pages (a Collection list filtered by the shown item's field, without the item itself).
 
-## 1.3 – pop-ups and newsletters
+## 1.3 – pop-ups, newsletter services and a clearer Site appearance
 
 ### Pop-up builder
 
@@ -30,15 +31,24 @@ header and footer:
 - **Results:** views, closes and conversions (form sent) per pop-up, counted cookie-free like the site statistics.
 - Claude can create and change pop-ups over MCP like other site parts.
 
+### Site appearance, clearer
+
+- One set of words everywhere: a **starter site** is content plus a style (chosen at installation), a **style** is a
+  ready set of colours, fonts and corner radius, a **theme** is only the legacy custom PHP theme.
+- Tabs instead of one long form: Style, Colours and readability, Fonts and sizes, Shapes, Dark mode, Brand, Import
+  and export (W3C design tokens), with the live preview kept.
+- No more styles are added on their own – a custom look is made in the design system or by Claude from the brand;
+  a new style comes only together with a new starter site.
+
 ### Newsletter
 
-Two steps, in this order:
+Two steps: the first in 1.3, the second in 1.4.
 
 1. **Subscribers sent to the mailing service the site already uses.** After the double opt-in the address goes to
    Brevo, MailerLite, Mailchimp, Ecomail or SmartEmailing (API key and list in the admin), or to any service through the
    existing webhook (Make, Zapier). Unsubscribing in Kaleta removes the address there too. Deliverability, bounces and
    spam rules stay with the specialist service.
-2. **A minimal built-in mailing for small lists** – “send the latest news to subscribers”:
+2. **1.4 – a minimal built-in mailing for small lists** – “send the latest news to subscribers”:
    - an e-mail editor in the same builder, with an e-mail-safe set of elements (section, one or two columns, heading,
      text, image, button, divider, news list) rendered to table-based HTML with inline styles from the design system;
    - preview on desktop and phone, test e-mail to yourself, send now or scheduled;
