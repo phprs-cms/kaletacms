@@ -26,7 +26,7 @@ $cesta = fn (string $a): string => preg_match('#^https?://#i', $a) ? $a : '/' . 
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t($u !== null ? 'Uložit změny' : 'Přidat přesměrování')) ?>"><?= $u !== null ? ' <a class="navigace" href="' . e($modul->url()) . '">' . e(t('Zrušit')) . '</a>' : '' ?></p>
 </form>
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt"><input type="hidden" name="modul" value="presmerovani">
-	<label><?= e(t('Adresa obsahuje:')) ?> <input class="textpole" type="search" name="hledat" value="<?= e($hledat) ?>" size="24"></label> <input class="tl" type="submit" value="<?= e(t('Hledat')) ?>"> (<?= e(t('Celkem:')) ?> <?= $celkem ?>)</form>
+	<label><?= e(t('Adresa obsahuje:')) ?> <input class="textpole" type="search" name="hledat" value="<?= e($hledat) ?>" size="24"></label> <input class="tl" type="submit" value="<?= e(t('Filtrovat')) ?>"> (<?= e(t('Celkem:')) ?> <?= $celkem ?>)</form>
 <p class="smltxt"><?= e(t('Přesměrování se použije jen tehdy, když na staré adrese nic není. Při změně adresy stránky, novinky nebo kategorie vzniká samo.')) ?></p>
 <?php if ($zaznamy === []): ?>
 <?= $app->view->render('admin/prazdno', ['ikona' => 'presmerovani', 'nadpis' => t('Zatím žádné přesměrování.'), 'text' => t('Nic nemusíte dělat – když změníte adresu stránky nebo novinky, přesměrování vznikne samo.')]) ?>

@@ -60,4 +60,3 @@ $pole = function (string $klic, string $popisek, string $druh = 'text', string $
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Uložit nastavení')) ?>"></p>
 <?php endif ?>
 </form>
-<p class="verze">Kaleta <?= e(KALETA_VERSION) ?> · PHP <?= e(PHP_VERSION) ?></p>

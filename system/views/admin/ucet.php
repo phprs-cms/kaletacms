@@ -39,7 +39,7 @@ $akce = e($app->url('admin.php?akce=ucet'));
 <?php foreach (Kaleta\Core\Jazyk::ADMINISTRACE as $kodJazyka => $nazevJazyka): ?>
 	<option value="<?= e($kodJazyka) ?>"<?= ($user['jazyk'] ?: 'cs') === $kodJazyka ? ' selected' : '' ?>><?= e($nazevJazyka) ?></option>
 <?php endforeach ?>
-</select><span class="napoveda">Language · Jazyk · Sprache</span></div></div>
+</select><span class="napoveda">Language · Jazyk</span></div></div>
 </fieldset>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Uložit údaje')) ?>"></p>
 </form>

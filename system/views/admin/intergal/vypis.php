@@ -73,7 +73,7 @@ $jeVse = $filtr['sekce'] === null && $filtr['clanek'] === 0 && !$filtr['nepouzit
 		<option value="<?= e($klic) ?>"<?= $filtr['razeni'] === $klic ? ' selected' : '' ?>><?= e(t($nazevRazeni)) ?></option>
 <?php endforeach ?>
 	</select>
-	<button class="navigace" type="submit"><?= e(t('Hledat')) ?></button>
+	<button class="navigace" type="submit"><?= e(t('Filtrovat')) ?></button>
 </form>
 <?php if ($obrazky === []): ?>
 <?= $app->view->render('admin/prazdno', ['ikona' => 'media', 'nadpis' => t('Žádné obrázky.'), 'text' => t('Nahrajte první fotky formulářem nahoře – nebo je přetáhněte přímo do textu v editoru.')]) ?>
