@@ -2340,4 +2340,5 @@ return [
     'komponenta „%s“' => 'component “%s”',
     'Komponentu „%s“ používá: %s. Po smazání tam zůstane prázdné místo. Opravdu ji smazat?' => 'The component “%s” is used on: %s. Deleting it leaves an empty space there. Delete it anyway?',
     'a %d dalších' => 'and %d more',
+    'U obrázků doplňte popis pro nevidomé (alt): co na obrázku je.' => 'Add a description for blind visitors (alt text) to the images: what the image shows.',
 ];

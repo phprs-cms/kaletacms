@@ -1270,6 +1270,8 @@ body.login {
 
 /* Média: popis v mřížce a hledání */
 .galerie-popis { width: 100%; min-width: 0; margin-block: 4px; padding: 4px 6px; border: 1px solid var(--linka); border-radius: 6px; background: var(--podklad); color: inherit; font: inherit; font-size: 12px; }
+/* obrázek bez popisu pro nevidomé: pole zvýrazněné, aby ho správce doplnil (jméno souboru se jako popis nepoužívá) */
+.galerie-popis:placeholder-shown { border-color: var(--varovani-text); border-style: dashed; }
 .galerie-popis.ulozeno { border-color: #1a7f37; }
 .galerie-popis.chyba { border-color: #b3261e; }
 .media-hledani { flex-wrap: wrap; gap: 6px; }
