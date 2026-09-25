@@ -101,19 +101,7 @@ final class Casti extends Modul
         if ($nazev === '') {
             return $this->zpet('Varianta musí mít název.', 'varianta', ['typ' => $typ, 'jazyk' => $jazyk], 'chyba');
         }
-        $stranky = (string) json_encode(array_values(array_unique(array_map('intval', $this->request->postList('stranky')))));
-        $varianta = $this->request->post('varianta');
-        if (preg_match(CastiWebu::VZOR_VARIANTY, $varianta) && CastiWebu::radek($this->db, $typ, $jazyk, $varianta) !== null) {
-            $this->db->update('casti', ['nazev' => $nazev, 'stranky' => $stranky, 'zmeneno' => date('Y-m-d H:i:s')], ['typ' => $typ, 'jazyk' => $jazyk, 'varianta' => $varianta]);
-        } else {
-            $varianta = substr(slugify($nazev, 40), 0, 40);
-            for ($i = 2, $zaklad = $varianta; CastiWebu::radek($this->db, $typ, $jazyk, $varianta) !== null; $i++) {
-                $varianta = substr($zaklad, 0, 36) . '-' . $i;
-            }
-            $vychozi = CastiWebu::radek($this->db, $typ, $jazyk);
-            $this->db->insert('casti', ['typ' => $typ, 'jazyk' => $jazyk, 'varianta' => $varianta, 'nazev' => $nazev, 'stranky' => $stranky, 'zmeneno' => date('Y-m-d H:i:s'),
-                'stavba_koncept' => $vychozi['stavba'] ?? Stavba::naJson(CastiWebu::vychozi($typ, $this->jazykObsahu($jazyk)))]);
-        }
+        $varianta = CastiWebu::ulozVariantu($this->db, $typ, $jazyk, $this->request->post('varianta'), $nazev, array_map('intval', $this->request->postList('stranky')), $this->jazykObsahu($jazyk));
         \Kaleta\Front\Cache::vymaz();
 
         return \Kaleta\Core\Response::redirect($this->url('stavitel', ['typ' => $typ, 'jazyk' => $jazyk, 'varianta' => $varianta]));

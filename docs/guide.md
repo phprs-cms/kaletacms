@@ -158,9 +158,12 @@ claude mcp add --transport http kaleta https://your-site.com/mcp
 
 Claude then builds the whole site with your account permissions: it sets the look (colours, fonts, shared classes),
 uploads images and fonts to Media, assembles pages, the header, the footer and the item page of collections, fixes single elements by id, sets the site
-name, company details and redirects from old addresses, and writes news. After every build change it gets a **signed
+name, company details and redirects from old addresses, and writes news. It can also create header and footer **variants** for
+selected pages, set a page's parent, language version and scheduled publishing, bring back an older published build into the
+draft, and read enquiries (only with access to Enquiries). After every build change it gets a **signed
 preview link** to the draft (valid for 60 minutes, opens without signing in) – it checks the result and can pass the
-link to you. Page and site-part builds and news are created as a **draft** and published only when you say so (and only
+link to you. With each save it also gets the **check before publishing** (buttons without links, images without descriptions,
+the heading outline) so it can fix them first. Page and site-part builds and news are created as a **draft** and published only when you say so (and only
 with publishing permission). The menu, design system, shared classes, site settings, redirects, themes, collection items
 and page text take effect straight away – the previous page text goes to the version history. Claude can move a page to
 the trash (restorable for 30 days in the admin); the site e-mail, webhooks, mail, backups and security settings cannot

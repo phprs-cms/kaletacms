@@ -159,8 +159,11 @@ hlavičky a při prvním použití potvrdit přístup v prohlížeči.
 
 Claude pak s právy vašeho účtu postaví celý web: nastaví vzhled (barvy, písma, sdílené třídy), nahraje obrázky a písma
 do Médií, poskládá stránky, záhlaví, patičku a stránku položky kolekce, opraví jednotlivé prvky podle id, nastaví název webu, údaje firmy
-a přesměrování starých adres a píše novinky. Po každé úpravě stavby dostane **podepsaný odkaz na náhled** konceptu
-(platí 60 minut, otevře ho i bez přihlášení) – zkontroluje si výsledek a odkaz může poslat i vám. Stavby stránek
+a přesměrování starých adres a píše novinky. Umí také založit **variantu** záhlaví a patičky pro vybrané stránky, nastavit stránce
+nadřazenou stránku, jazykovou verzi a plánované zveřejnění, vrátit do konceptu starší publikovanou stavbu a číst poptávky
+(jen s právem k Poptávkám). Po každé úpravě stavby dostane **podepsaný odkaz na náhled** konceptu
+(platí 60 minut, otevře ho i bez přihlášení) – zkontroluje si výsledek a odkaz může poslat i vám. S každým uložením dostane i **kontrolu před publikováním** (tlačítka bez odkazu, obrázky bez popisu,
+osnova nadpisů), aby je mohl rovnou opravit. Stavby stránek
 a částí webu i novinky vznikají jako **koncept** a publikuje je jen na váš pokyn (a jen s právem vydávat). Rovnou
 na webu se projeví: menu, vzhled (design systém), sdílené třídy, nastavení webu, přesměrování, šablony, položky
 kolekce a text stránky – předchozí text stránky přitom jde do historie verzí. Stránku umí Claude přesunout do koše

@@ -444,6 +444,32 @@ curl -s -o "$PRACE/odpoved" "$B/z-html"; ! grep -q 'header class="hlavicka"' "$P
 curl -s -o "$PRACE/odpoved" "$B/kontakt"; grep -q 'header class="hlavicka"' "$PRACE/odpoved" && echo "  ok     ostatní stránky mají výchozí záhlaví" || { echo "  CHYBA  varianta se projevila i jinde"; CHYB=$((CHYB+1)); }
 over "varianta v seznamu částí" 200 "/admin.php?modul=casti" "Landing page"
 
+echo "== Claude (MCP): varianty, verze, stránky a poptávky jako v administraci"
+# hodnota z odpovědi MCP: mcpv klíč [klíč…] (pole a objekty jako JSON)
+mcpv() { php -r '$v = json_decode(json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"], true); foreach (array_slice($argv, 2) as $k) { $v = $v[$k] ?? null; } echo is_scalar($v) ? $v : json_encode($v, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);' "$PRACE/odpoved" "$@"; }
+mcp seznam_casti '{}' > "$PRACE/odpoved"; [[ "$(mcpv)" == *'"varianta":"landing-page"'* ]] && echo "  ok     MCP: seznam částí webu s variantami" || { echo "  CHYBA  MCP seznam_casti"; CHYB=$((CHYB+1)); }
+mcp uloz_variantu "{\"cast\":\"paticka\",\"nazev\":\"Kampaň\",\"stranky\":[$IDZ]}" > "$PRACE/odpoved"; VAR=$(mcpv varianta)
+ocekavej "MCP: varianta patičky založena" "$VAR|$(mcpv stranky)" "kampan|[$IDZ]"
+mcp stavba_uloz "{\"cast\":\"paticka\",\"varianta\":\"$VAR\",\"stavba\":{\"v\":1,\"deti\":[{\"typ\":\"sekce\",\"znacka\":\"footer\",\"deti\":[{\"typ\":\"nadpis\",\"znacka\":\"p\",\"obsah\":{\"text\":\"Paticka kampane\"}}]}]}}" > "$PRACE/odpoved"
+NAHLEDV=$(mcpv nahled); curl -s -o "$PRACE/odpoved" "$NAHLEDV"
+[[ "$NAHLEDV" == *"varianta=$VAR"* ]] && grep -q 'Paticka kampane' "$PRACE/odpoved" && echo "  ok     MCP: podepsaný náhled konceptu varianty" || { echo "  CHYBA  náhled varianty: $NAHLEDV"; CHYB=$((CHYB+1)); }
+mcp publikuj_stavbu "{\"cast\":\"paticka\",\"varianta\":\"$VAR\"}" > /dev/null; rm -f "$PRACE"/web/storage/cache/stranky/*.html
+curl -s -o "$PRACE/odpoved" "$B/z-html"; grep -q 'Paticka kampane' "$PRACE/odpoved" && ! curl -s "$B/kontakt" | grep -q 'Paticka kampane' && echo "  ok     MCP: publikovaná varianta patičky jen na vybrané stránce" || { echo "  CHYBA  varianta patičky z MCP"; CHYB=$((CHYB+1)); }
+mcp uloz_variantu "{\"cast\":\"paticka\",\"varianta\":\"$VAR\",\"smazat\":true}" > /dev/null
+ocekavej "MCP: varianta smazána" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_casti WHERE varianta = '$VAR'")" 0
+mcp stavba_z_html '{"titulek":"Verze test","html":"<section><h1>Verze A</h1></section>","publikovat":true}' > /dev/null
+IDV=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'verze-test'")
+mcp stavba_z_html "{\"id\":$IDV,\"html\":\"<section><h1>Verze B</h1></section>\",\"publikovat\":true}" > /dev/null
+mcp stavba_verze "{\"id\":$IDV}" > "$PRACE/odpoved"; IDR=$(mcpv verze 0 idr)
+mcp obnov_verzi "{\"id\":$IDV,\"idr\":$IDR}" > /dev/null
+ocekavej "MCP: starší verze v konceptu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(stavba_koncept LIKE '%Verze A%', stavba LIKE '%Verze B%') FROM ka_stranky WHERE ids = $IDV")" 11
+mcp zahod_koncept "{\"id\":$IDV}" > /dev/null
+ocekavej "MCP: koncept zahozen" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT stavba_koncept IS NULL FROM ka_stranky WHERE ids = $IDV")" 1
+mcp vytvor_stranku "{\"titulek\":\"Podstranka MCP\",\"nadrazena\":$IDS,\"zverejnit_od\":\"2099-01-01 10:00\"}" > "$PRACE/odpoved"
+ocekavej "MCP: podstránka s plánovaným zveřejněním" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(seo_link, '|', zverejnit_od, '|', zobrazit) FROM ka_stranky WHERE titulek = 'Podstranka MCP'")" "o-nas/podstranka-mcp|2099-01-01 10:00:00|0"
+mcp seznam_poptavek '{"stav":"vse"}' > "$PRACE/odpoved"
+ocekavej "MCP: poptávky s kampaní" "$(mcpv 0 email)|$(mcpv 0 kampan)" "jana@example.cz|newsletter / email / jaro"
+
 # úprava přímo na webu: odkaz a formulář jen pro přihlášené s právem
 over "úprava na místě – odkaz" 200 /novinky/vitejte-v-kalete "ka-upravit-zde"
 over "úprava na místě – formulář" 200 "/novinky/vitejte-v-kalete?upravit=text" "ka-upravit-text"

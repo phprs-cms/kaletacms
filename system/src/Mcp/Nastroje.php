@@ -62,9 +62,14 @@ final class Nastroje
             'zobrazit' => ['type' => 'boolean', 'description' => 'true = stránka je na webu vidět (jen na výslovný pokyn uživatele), jinak skrytá'],
             'seo_titulek' => $text('Titulek pro vyhledávače (nepovinné, jinak název)'), 'obrazek' => $text('Obrázek pro sdílení na sociálních sítích (cesta z médií)'),
             'noindex' => ['type' => 'boolean', 'description' => 'true = skrýt stránku před vyhledávači'],
+            'nadrazena' => $cislo('ID nadřazené stránky – adresa bude /nadrazena/stranka (0 = žádná)'),
+            'jazyk' => $text('jazyková verze stránky u vícejazyčného webu (kód, např. en; prázdné = výchozí jazyk)'),
+            'preklad_z' => $cislo('ID protějšku ve výchozím jazyce (u stránky jiné jazykové verze) – přepínač jazyků a hreflang'),
+            'zverejnit_od' => $text('naplánované zveřejnění skryté stránky RRRR-MM-DD HH:MM (jen na výslovný pokyn uživatele; prázdné = zrušit)'),
         ];
         $cil = ['id' => $cislo('ID stránky'), 'cast' => $text('Místo stránky část webu (jen správce): ' . implode(' | ', array_keys(Casti::TYPY)) . ' – záhlaví, patička, obálky detailu novinky, výpisu a 404'),
             'jazyk' => $text('Jazyk části webu u vícejazyčného webu (prázdné = výchozí)'),
+            'varianta' => $text('Varianta záhlaví nebo patičky (klíč ze seznam_casti; prázdné = výchozí podoba)'),
             'kolekce' => $text('Místo stránky šablona detailu položek kolekce (adresa kolekce z seznam_kolekci, jen správce)')];
         $nastroje = [
             ['info_o_webu', 'Název webu, úvodní stránka, šablona, počty stránek a novinek, role přihlášeného uživatele a jeho oprávnění.', $s([])],
@@ -100,6 +105,15 @@ final class Nastroje
                 $s($cil + ['stavba' => ['type' => 'object', 'description' => '{"v":1,"deti":[…]} podle stavba_schema'], 'publikovat' => ['type' => 'boolean', 'description' => 'true = publikovat (jen na výslovný pokyn uživatele)']], ['stavba'])],
             ['vloz_sekci', 'Vloží hotovou sekci z knihovny (úvod, výhody, služby, čísla, reference, faq, výzva, novinky, kontakt) na konec konceptu stránky nebo části webu.', $s($cil + ['sekce' => $text('klíč sekce ze stavba_schema → knihovna')], ['sekce'])],
             ['publikuj_stavbu', 'Publikuje koncept stavby stránky nebo části webu (jen na výslovný pokyn uživatele). Předchozí verze zůstane v historii.', $s($cil)],
+            ['stavba_verze', 'Publikované verze stavby stránky nebo části webu (posledních 20): idr, kdy, kdo. Starší verzi načte do konceptu obnov_verzi.', $s($cil)],
+            ['obnov_verzi', 'Načte starší publikovanou verzi (idr ze stavba_verze) do konceptu – na webu se ukáže až po publikování.', $s($cil + ['idr' => $cislo('ID verze ze stavba_verze')], ['idr'])],
+            ['zahod_koncept', 'Zahodí rozpracovaný koncept stavby – vrátí se publikovaná podoba (jen na výslovný pokyn uživatele; nejde vrátit).', $s($cil)],
+            ['seznam_casti', 'Části webu z builderu (záhlaví, patička, obálky novinky, výpisu a 404) a varianty záhlaví a patičky: klíč, název, stránky, na kterých platí, a stav (správce).', $s([])],
+            ['uloz_variantu', 'Založí nebo změní variantu záhlaví či patičky pro vybrané stránky (správce) – např. záhlaví bez menu pro kampaňovou stránku. Nová začíná kopií výchozí podoby jako koncept; '
+                . 'pak ji uprav stavba_* s parametrem varianta a publikuj. smazat = true variantu odstraní (vybrané stránky dostanou výchozí podobu).',
+                $s(['cast' => $text('hlavicka | paticka'), 'jazyk' => $cil['jazyk'], 'varianta' => $text('klíč existující varianty – jen při úpravě nebo smazání'), 'nazev' => $text('název varianty, např. Kampaň bez menu'),
+                    'stranky' => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'ID stránek, na kterých varianta platí'],
+                    'smazat' => ['type' => 'boolean', 'description' => 'true = variantu smazat (jen na výslovný pokyn uživatele)']], ['cast'])],
             ['uprav_design_system', 'Změní vzhled celého webu (správce): barvy, písma, velikosti, šířku, zaoblení – nebo použije předvolbu. Nezadané hodnoty zůstanou. Vrátí kontrolu čitelnosti barev.',
                 $s(['predvolba' => $text('firemni | remeslo | pratelsky | elegantni | technologie (nepovinné)'), 'ds' => ['type' => 'object', 'description' => 'Změny, např. {"barvy":{"primarni":"#0f766e"},"pismo_titulky":"klasicke","zaobleni":"l"} – klíče viz stavba_schema → design_system']])],
             ['seznam_kolekci', 'Kolekce webu (reference, tým, produkty…) s poli a počty položek. Na web je dostane prvek „kolekce“ (Výpis kolekce) ve stavbě; uvnitř se {{klic}} nahradí hodnotou položky ({{nazev}}, {{url}} = detail, {{datum}} a vlastní pole).', $s([])],
@@ -138,6 +152,8 @@ final class Nastroje
             ['uprav_nastaveni', 'Změní nastavení webu (správce) – hned se projeví na webu. Klíče: nazev_webu, popis_webu, text_paticky, logo_webu, favicon a og_obrazek – obrázek pro sdílení 1200×630 (cesta media/… z nahraj_soubor nebo image/…), titulni_stranka (ID úvodní stránky), soc_facebook|instagram|x|youtube|linkedin (URL), '
                 . 'pocet_clanku, sdileni, osnova_clanku, souvisejici_auto (1/0), údaje firmy firma_nazev, firma_typ, firma_ico, firma_dic, firma_ulice, firma_mesto, firma_psc, firma_zeme (CZ), firma_telefon, firma_hodiny (den na řádek), firma_mapa, firma_gps; nazev_webu_en… pro jazykové verze. Bez parametru vrátí současné hodnoty.',
                 $s(['nastaveni' => ['type' => 'object', 'description' => '{"klic":"hodnota"}']])],
+            ['seznam_poptavek', 'Poptávky z formulářů webu (rozšíření Formuláře a poptávky; jen s právem k Poptávkám), nejnovější první: datum, formulář, stránka, kampaň (utm), e-mail, stav a vyplněná pole. Obsahují osobní údaje – používej je jen k tomu, oč uživatel žádá.',
+                $s(['stav' => $text('nove | prectene | vyrizene | vse (výchozí)'), 'hledat' => $text('text v e-mailu nebo obsahu (nepovinné)'), 'limit' => $cislo('1-50, výchozí 20')])],
             ['seznam_presmerovani', 'Přesměrování starých adres (rozšíření Přesměrování) a nejčastější adresy, které skončily chybou 404.', $s([])],
             ['uloz_presmerovani', 'Přidá nebo změní přesměrování (správce): ze staré cesty na webu na novou cestu nebo https adresu. Typ 301 = natrvalo (výchozí), 302 = dočasně.',
                 $s(['z' => $text('stará cesta, např. /docs nebo /o-nas'), 'na' => $text('nová cesta (/guide) nebo https://…'), 'typ' => $cislo('301 nebo 302'), 'smazat' => ['type' => 'boolean', 'description' => 'true = přesměrování ze staré cesty smazat']], ['z'])],
@@ -161,7 +177,7 @@ final class Nastroje
 
     public function meni(string $nazev): bool
     {
-        return in_array($nazev, ['vytvor_kolekci', 'uprav_kolekci', 'uloz_polozku_kolekce', 'stavba_z_html', 'stavba_uloz', 'stavba_uprav', 'uloz_tridy', 'nahraj_soubor', 'uprav_nastaveni', 'uloz_presmerovani', 'smaz_stranku', 'vloz_sekci', 'publikuj_stavbu', 'uprav_design_system', 'vytvor_stranku', 'uprav_stranku', 'vytvor_novinku', 'uprav_novinku', 'vytvor_kategorii', 'uloz_menu', 'vytvor_sablonu', 'uloz_soubor_sablony', 'aktivuj_sablonu'], true);
+        return in_array($nazev, ['obnov_verzi', 'zahod_koncept', 'uloz_variantu', 'vytvor_kolekci', 'uprav_kolekci', 'uloz_polozku_kolekce', 'stavba_z_html', 'stavba_uloz', 'stavba_uprav', 'uloz_tridy', 'nahraj_soubor', 'uprav_nastaveni', 'uloz_presmerovani', 'smaz_stranku', 'vloz_sekci', 'publikuj_stavbu', 'uprav_design_system', 'vytvor_stranku', 'uprav_stranku', 'vytvor_novinku', 'uprav_novinku', 'vytvor_kategorii', 'uloz_menu', 'vytvor_sablonu', 'uloz_soubor_sablony', 'aktivuj_sablonu'], true);
     }
 
     /** @param array<string, mixed> $a */
@@ -325,6 +341,95 @@ final class Nastroje
 
                 return $this->popisCile($cil) + ['stav' => 'publikováno', 'adresa' => $this->adresaCile($cil)]
                     + $this->kontrolaCile($cil, Stavba::zJson($cil['koncept'] ?? $cil['stavba']));
+
+            case 'stavba_verze':
+                $cil = $this->cilStavby($a);
+
+                return $this->popisCile($cil) + ['verze' => array_map(fn (array $r): array => ['idr' => (int) $r['idr'], 'kdy' => substr((string) $r['datum'], 0, 16), 'kdo' => $r['kdo']],
+                    Publikace::seznam($db, $cil['revize']))];
+
+            case 'obnov_verzi':
+                $cil = $this->cilStavby($a);
+                $json = Publikace::nacti($db, $cil['revize'], (int) ($a['idr'] ?? 0)) ?? throw new \InvalidArgumentException('Verze neexistuje. Použij nástroj stavba_verze.');
+
+                return $this->ulozStavbu($cil, Stavba::zJson($json), false);
+
+            case 'zahod_koncept':
+                $cil = $this->cilStavby($a);
+                if ($cil['stavba'] === null) {
+                    throw new \InvalidArgumentException('Zatím není publikovaná verze – není k čemu se vrátit.');
+                }
+                $r = $cil['radek'];
+                match ($cil['druh']) {
+                    'stranka' => $db->update('stranky', ['stavba_koncept' => null], ['ids' => $r['ids']]),
+                    'kolekce' => $db->update('kolekce', ['stavba_koncept' => null], ['idk' => $r['idk']]),
+                    default => $db->update('casti', ['stavba_koncept' => null], ['typ' => $r['typ'], 'jazyk' => $r['jazyk'], 'varianta' => $r['varianta']]),
+                };
+
+                return $this->popisCile($cil) + ['stav' => 'koncept zahozen – platí publikovaná podoba', 'adresa' => $this->adresaCile($cil)];
+
+            case 'seznam_casti':
+                $jenAdmin();
+
+                return array_map(fn (array $r): array => ['cast' => $r['typ'], 'jazyk' => $r['jazyk'], 'varianta' => $r['varianta'], 'nazev' => $r['varianta'] !== '' ? $r['nazev'] : Casti::TYPY[$r['typ']][0] ?? $r['typ'],
+                    'stranky' => $r['varianta'] !== '' ? array_map('intval', json_decode((string) $r['stranky'], true) ?: []) : null,
+                    'publikovana' => (bool) $r['publikovana'], 'neulozene_zmeny' => (bool) $r['zmeny']],
+                    $db->all('SELECT typ, jazyk, varianta, nazev, stranky, stavba IS NOT NULL AS publikovana, stavba_koncept IS NOT NULL AND (stavba IS NULL OR stavba_koncept <> stavba) AS zmeny FROM {casti} ORDER BY typ, jazyk, varianta'));
+
+            case 'uloz_variantu':
+                $jenAdmin();
+                $typ = (string) ($a['cast'] ?? '');
+                if (!in_array($typ, Casti::S_VARIANTAMI, true)) {
+                    throw new \InvalidArgumentException('Varianty mají jen záhlaví a patička: ' . implode(', ', Casti::S_VARIANTAMI) . '.');
+                }
+                $jazyk = in_array($a['jazyk'] ?? '', Jazyk::dalsi($web), true) ? (string) $a['jazyk'] : '';
+                $varianta = (string) ($a['varianta'] ?? '');
+                if (!empty($a['smazat'])) {
+                    $radek = $varianta !== '' ? Casti::radek($db, $typ, $jazyk, $varianta) : null;
+                    if ($radek === null) {
+                        throw new \InvalidArgumentException('Varianta neexistuje. Použij nástroj seznam_casti.');
+                    }
+                    Publikace::verze($this->app, ['cast' => Casti::klicRevize($typ, $jazyk, $varianta)], $radek['stavba'], null, $radek['zmeneno']);
+                    $db->delete('casti', ['typ' => $typ, 'jazyk' => $jazyk, 'varianta' => $varianta]);
+                    \Kaleta\Front\Cache::vymaz();
+
+                    return ['cast' => $typ, 'varianta' => $varianta, 'stav' => 'varianta smazána – vybrané stránky mají výchozí podobu'];
+                }
+                $nazevVarianty = mb_substr(trim((string) ($a['nazev'] ?? '')), 0, 100);
+                if ($nazevVarianty === '') {
+                    throw new \InvalidArgumentException('Varianta musí mít název.');
+                }
+                $stranky = array_values(array_filter(array_map('intval', is_array($a['stranky'] ?? null) ? $a['stranky'] : []),
+                    fn (int $ids): bool => $db->value('SELECT ids FROM {stranky} WHERE ids = ? AND jazyk = ? AND smazano IS NULL', [$ids, $jazyk]) !== null));
+                $varianta = Casti::ulozVariantu($db, $typ, $jazyk, $varianta, $nazevVarianty, $stranky, Jazyk::obsahu($web, $jazyk));
+                \Kaleta\Front\Cache::vymaz();
+
+                return ['cast' => $typ, 'jazyk' => $jazyk, 'varianta' => $varianta, 'nazev' => $nazevVarianty, 'stranky' => $stranky,
+                    'stav' => 'uloženo – stavbu varianty uprav stavba_* s parametrem varianta a publikuj; do publikování platí výchozí podoba'];
+
+            case 'seznam_poptavek':
+                if (!\Kaleta\Core\Rozsireni::je($web, 'poptavky') || !$auth->maModul('poptavky')) {
+                    throw new \DomainException('Poptávky smí číst jen uživatel s právem k Poptávkám (rozšíření Formuláře a poptávky musí být zapnuté).');
+                }
+                $kde = [];
+                $parametry = [];
+                $stavy = ['nove' => 0, 'prectene' => 1, 'vyrizene' => 2];
+                if (isset($stavy[$a['stav'] ?? ''])) {
+                    $kde[] = 'stav = ?';
+                    $parametry[] = $stavy[$a['stav']];
+                }
+                if (($a['hledat'] ?? '') !== '') {
+                    $kde[] = '(email LIKE ? OR data LIKE ?)';
+                    $hledat = '%' . addcslashes((string) $a['hledat'], '%_\\') . '%';
+                    array_push($parametry, $hledat, $hledat);
+                }
+                $limit = max(1, min(50, (int) ($a['limit'] ?? 20)));
+                $nazvyStavu = array_flip($stavy);
+
+                return array_map(fn (array $p): array => ['id' => (int) $p['idp'], 'datum' => substr((string) $p['datum'], 0, 16), 'formular' => $p['formular'], 'stranka' => $p['stranka'],
+                    'kampan' => \Kaleta\Front\Formulare::kampanText((string) $p['kampan']), 'email' => $p['email'], 'stav' => $nazvyStavu[(int) $p['stav']] ?? '',
+                    'pole' => array_map(fn (array $d): array => ['popisek' => $d[0], 'hodnota' => $d[1]], json_decode((string) $p['data'], true) ?: [])],
+                    $db->all('SELECT idp, datum, formular, stranka, kampan, email, stav, data FROM {poptavky}' . ($kde !== [] ? ' WHERE ' . implode(' AND ', $kde) : '') . ' ORDER BY idp DESC LIMIT ' . $limit, $parametry));
 
             case 'uprav_design_system':
                 $jenAdmin();
@@ -787,9 +892,50 @@ final class Nastroje
         if (($data['titulek'] ?? $puvodni['titulek'] ?? '') === '') {
             throw new \InvalidArgumentException('Stránka musí mít název.');
         }
-        if (array_key_exists('adresa', $a) || $puvodni === null) {
-            $seo = slugify((string) (($a['adresa'] ?? '') !== '' ? $a['adresa'] : $data['titulek']), 110);
-            if (in_array($seo, Stranky::VYHRAZENE, true) || isset(\Kaleta\Core\Jazyk::DOSTUPNE[$seo])) {
+        $web = $this->app->settings();
+        if (array_key_exists('jazyk', $a)) {
+            $data['jazyk'] = Jazyk::sloupec($web, (string) $a['jazyk']);
+            if ($data['jazyk'] === '' && !in_array((string) $a['jazyk'], ['', Jazyk::vychozi($web)], true)) {
+                throw new \InvalidArgumentException('Jazyková verze „' . $a['jazyk'] . '“ není zapnutá (Rozšíření → Jazykové verze, jazyky v Nastavení).');
+            }
+        }
+        $jazyk = $data['jazyk'] ?? (string) ($puvodni['jazyk'] ?? '');
+        if (array_key_exists('preklad_z', $a) || array_key_exists('jazyk', $a)) {
+            $data['preklad_z'] = $jazyk === '' ? null
+                : ($db->value("SELECT ids FROM {stranky} WHERE ids = ? AND jazyk = '' AND ids <> ? AND smazano IS NULL", [(int) ($a['preklad_z'] ?? $puvodni['preklad_z'] ?? 0), (int) ($puvodni['ids'] ?? 0)]) ?: null);
+        }
+        // nadřazená stránka: stejný jazyk, ne ona sama ani její podstránka (jinak by vznikl kruh); adresa je /nadrazena/stranka
+        $rodic = null;
+        $zmenaRodice = array_key_exists('nadrazena', $a) || array_key_exists('jazyk', $a);
+        if ($zmenaRodice) {
+            $idRodice = (int) ($a['nadrazena'] ?? $puvodni['nadrazena'] ?? 0);
+            $rodic = $idRodice > 0 ? $db->one('SELECT ids, seo_link FROM {stranky} WHERE ids = ? AND ids <> ? AND jazyk = ? AND smazano IS NULL', [$idRodice, (int) ($puvodni['ids'] ?? 0), $jazyk]) : null;
+            if ($idRodice > 0 && ($rodic === null || ($puvodni !== null && str_starts_with($rodic['seo_link'] . '/', $puvodni['seo_link'] . '/')))) {
+                throw new \InvalidArgumentException('Nadřazená stránka musí existovat, mít stejný jazyk a nesmí to být tahle stránka ani její podstránka.');
+            }
+            $data['nadrazena'] = $rodic !== null ? (int) $rodic['ids'] : null;
+        } elseif ($puvodni !== null && $puvodni['nadrazena'] !== null) {
+            $rodic = $db->one('SELECT ids, seo_link FROM {stranky} WHERE ids = ?', [(int) $puvodni['nadrazena']]);
+        }
+        if (array_key_exists('zverejnit_od', $a)) {
+            $od = strtotime(str_replace('T', ' ', (string) $a['zverejnit_od'])) ?: null;
+            if (!$this->app->auth()->smiVydavat()) {
+                throw new \DomainException('Zveřejnění naplánuje jen editor nebo správce.');
+            }
+            $data['zverejnit_od'] = $od !== null && $od > time() && !($data['zobrazit'] ?? $puvodni['zobrazit'] ?? 0) ? date('Y-m-d H:i:s', $od) : null;
+            if ($od !== null && $od <= time()) {
+                throw new \InvalidArgumentException('Čas zveřejnění už proběhl – zadej budoucí čas, nebo stránku zveřejni parametrem zobrazit.');
+            }
+        }
+        if (!empty($data['zobrazit'])) {
+            $data['zverejnit_od'] = null; // zveřejněná stránka už na plán nečeká
+        }
+        if (array_key_exists('adresa', $a) || $puvodni === null || $zmenaRodice) {
+            $zaklad = ($a['adresa'] ?? '') !== '' ? basename(str_replace('\\', '/', (string) $a['adresa']))
+                : ($puvodni !== null ? basename((string) $puvodni['seo_link']) : $data['titulek']);
+            $predpona = $rodic !== null ? $rodic['seo_link'] . '/' : '';
+            $seo = $predpona . slugify($zaklad, max(20, 118 - strlen($predpona)));
+            if ($rodic === null && (in_array($seo, Stranky::VYHRAZENE, true) || isset(\Kaleta\Core\Jazyk::DOSTUPNE[$seo]))) {
                 throw new \InvalidArgumentException('Adresu „' . $seo . '“ používá systém, zvol jinou.');
             }
             if ($db->value('SELECT ids FROM {stranky} WHERE seo_link = ? AND ids <> ?', [$seo, (int) ($puvodni['ids'] ?? 0)]) !== null) {
@@ -801,7 +947,7 @@ final class Nastroje
         if ($puvodni === null) {
             $id = $db->insert('stranky', $data + ['text' => '', 'zobrazit' => 0, 'v_menu' => 0]);
             if (!empty($data['v_menu'])) {
-                \Kaleta\Core\Menu::nastavStranku($db, $id, '', true);
+                \Kaleta\Core\Menu::nastavStranku($db, $id, $jazyk, true);
             }
         } else {
             $id = (int) $puvodni['ids'];
@@ -815,15 +961,15 @@ final class Nastroje
         }
         $ulozena = $this->stranka($id);
 
-        return ['id' => $id, 'stav' => $ulozena['zobrazit'] ? 'zveřejněná' : 'skrytá',
-            'adresa' => $this->app->request->origin() . $this->app->url($ulozena['seo_link']),
+        return ['id' => $id, 'stav' => $ulozena['zobrazit'] ? 'zveřejněná' : ($ulozena['zverejnit_od'] !== null ? 'skrytá, zveřejní se ' . substr((string) $ulozena['zverejnit_od'], 0, 16) : 'skrytá'),
+            'adresa' => $this->app->request->origin() . $this->app->url(($ulozena['jazyk'] !== '' ? $ulozena['jazyk'] . '/' : '') . $ulozena['seo_link']),
             'uprava_v_administraci' => $this->app->request->origin() . $this->app->url('admin.php?modul=stranky&akce=edit&id=' . $id)];
     }
 
     /** @return array<string, mixed> */
     private function stranka(int $id): array
     {
-        $stranka = $this->app->db()->one('SELECT ids, titulek, seo_link, popis, seo_titulek, obrazek, noindex, text, zobrazit, v_menu, poradi, jazyk FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$id]);
+        $stranka = $this->app->db()->one('SELECT ids, titulek, seo_link, popis, seo_titulek, obrazek, noindex, text, zobrazit, zverejnit_od, v_menu, poradi, jazyk, preklad_z, nadrazena FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$id]);
         if ($stranka === null) {
             throw new \InvalidArgumentException('Stránka neexistuje. Použij nástroj seznam_stranek.');
         }
@@ -852,7 +998,8 @@ final class Nastroje
                 $radek['stavba_koncept'] = Stavba::naJson(\Kaleta\Stavitel\Kolekce::vychoziSablona($radek));
             }
 
-            return ['druh' => 'kolekce', 'radek' => $radek, 'stavba' => $radek['stavba'], 'koncept' => $radek['stavba_koncept'], 'jazyk' => Jazyk::obsahu($web, '')];
+            return ['druh' => 'kolekce', 'radek' => $radek, 'stavba' => $radek['stavba'], 'koncept' => $radek['stavba_koncept'], 'jazyk' => Jazyk::obsahu($web, ''),
+                'revize' => ['cast' => 'kolekce:' . (int) $radek['idk']]];
         }
         if (isset($a['cast']) && $a['cast'] !== '') {
             if (!$auth->isAdmin()) {
@@ -863,12 +1010,21 @@ final class Nastroje
                 throw new \InvalidArgumentException('Neznámá část webu. Typy: ' . implode(', ', array_keys(Casti::TYPY)) . '.');
             }
             $jazyk = in_array($a['jazyk'] ?? '', Jazyk::dalsi($web), true) ? (string) $a['jazyk'] : '';
-            if (Casti::radek($db, $typ, $jazyk) === null) {
-                $db->insert('casti', ['typ' => $typ, 'jazyk' => $jazyk, 'stavba_koncept' => Stavba::naJson(Casti::vychozi($typ, Jazyk::obsahu($web, $jazyk))), 'zmeneno' => date('Y-m-d H:i:s')]);
+            $varianta = (string) ($a['varianta'] ?? '');
+            if ($varianta !== '') {
+                $radek = in_array($typ, Casti::S_VARIANTAMI, true) ? Casti::radek($db, $typ, $jazyk, $varianta) : null;
+                if ($radek === null) {
+                    throw new \InvalidArgumentException('Varianta neexistuje. Varianty záhlaví a patičky vypíše seznam_casti, založí uloz_variantu.');
+                }
+            } else {
+                if (Casti::radek($db, $typ, $jazyk) === null) {
+                    $db->insert('casti', ['typ' => $typ, 'jazyk' => $jazyk, 'stavba_koncept' => Stavba::naJson(Casti::vychozi($typ, Jazyk::obsahu($web, $jazyk))), 'zmeneno' => date('Y-m-d H:i:s')]);
+                }
+                $radek = (array) Casti::radek($db, $typ, $jazyk);
             }
-            $radek = (array) Casti::radek($db, $typ, $jazyk);
 
-            return ['druh' => 'cast', 'radek' => $radek, 'stavba' => $radek['stavba'], 'koncept' => $radek['stavba_koncept'], 'jazyk' => Jazyk::obsahu($web, $jazyk)];
+            return ['druh' => 'cast', 'radek' => $radek, 'stavba' => $radek['stavba'], 'koncept' => $radek['stavba_koncept'], 'jazyk' => Jazyk::obsahu($web, $jazyk),
+                'revize' => ['cast' => Casti::klicRevize($typ, $jazyk, $varianta)]];
         }
         if (!$auth->maModul('stranky')) {
             throw new \DomainException('Stránky smí upravovat editor nebo správce.');
@@ -878,7 +1034,8 @@ final class Nastroje
         }
         $radek = $db->one('SELECT * FROM {stranky} WHERE ids = ? AND smazano IS NULL', [(int) ($a['id'] ?? 0)]) ?? throw new \InvalidArgumentException('Stránka neexistuje. Použij nástroj seznam_stranek.');
 
-        return ['druh' => 'stranka', 'radek' => $radek, 'stavba' => $radek['stavba'], 'koncept' => $radek['stavba_koncept'], 'jazyk' => Jazyk::obsahu($web, $radek['jazyk'])];
+        return ['druh' => 'stranka', 'radek' => $radek, 'stavba' => $radek['stavba'], 'koncept' => $radek['stavba_koncept'], 'jazyk' => Jazyk::obsahu($web, $radek['jazyk']),
+            'revize' => ['ids' => (int) $radek['ids']]];
     }
 
     /** Rozpracovaná, jinak publikovaná stavba cíle; textová stránka jako stavba z jejího textu. */
@@ -894,7 +1051,8 @@ final class Nastroje
         return match ($cil['druh']) {
             'stranka' => ['id' => (int) $cil['radek']['ids'], 'titulek' => $cil['radek']['titulek']],
             'kolekce' => ['kolekce' => $cil['radek']['seo_link'], 'titulek' => 'Detail: ' . $cil['radek']['nazev'], 'detail_zapnuty' => (bool) $cil['radek']['detail']],
-            default => ['cast' => $cil['radek']['typ'], 'jazyk' => $cil['radek']['jazyk'], 'titulek' => Casti::TYPY[$cil['radek']['typ']][0]],
+            default => ['cast' => $cil['radek']['typ'], 'jazyk' => $cil['radek']['jazyk'], 'titulek' => Casti::TYPY[$cil['radek']['typ']][0]]
+                + ($cil['radek']['varianta'] !== '' ? ['varianta' => $cil['radek']['varianta']] : []),
         };
     }
 
@@ -960,7 +1118,9 @@ final class Nastroje
         };
         $klic = \Kaleta\Core\Nahled::klic($this->app->db(), $this->app->settings(), $podpis, $minut);
 
-        return $this->adresaCile($cil) . '?' . ($cil['druh'] === 'cast' ? 'cast=' . $r['typ'] . '&' : '') . 'stavba=koncept&nahled_klic=' . $klic;
+        $varianta = $cil['druh'] === 'cast' && $r['varianta'] !== '' ? 'varianta=' . rawurlencode($r['varianta']) . '&' : '';
+
+        return $this->adresaCile($cil) . '?' . ($cil['druh'] === 'cast' ? 'cast=' . $r['typ'] . '&' : '') . $varianta . 'stavba=koncept&nahled_klic=' . $klic;
     }
 
     /** Veřejná adresa, na které je cíl vidět (u části webu úvodní stránka, detail novinky, výpis, 404; u kolekce první položka). */
@@ -975,6 +1135,10 @@ final class Nastroje
         if ($cil['druh'] === 'stranka') {
             $uvod = $this->app->settings()->int('titulni_stranka') === (int) $r['ids'];
             $cesta = $uvod ? '' : $r['seo_link'];
+        } elseif ($r['varianta'] !== '') {
+            // varianta se ukazuje na první stránce, pro kterou platí
+            $ids = (int) ((json_decode((string) $r['stranky'], true) ?: [])[0] ?? 0);
+            $cesta = (string) $this->app->db()->value('SELECT seo_link FROM {stranky} WHERE ids = ?', [$ids]);
         } else {
             $cesta = match ($r['typ']) {
                 'novinka', 'vypis' => 'novinky',

@@ -35,6 +35,31 @@ final class Casti
         return $db->one('SELECT * FROM {casti} WHERE typ = ? AND jazyk = ? AND varianta = ?', [$typ, $jazyk, $varianta]);
     }
 
+    /**
+     * Uloží variantu záhlaví nebo patičky (název a stránky, na kterých platí) a vrátí její klíč. Nová varianta začíná
+     * kopií publikované výchozí podoby (jinak podoby ze šablony) jako koncept. Pro administraci i Clauda (MCP).
+     *
+     * @param list<int> $stranky
+     */
+    public static function ulozVariantu(Db $db, string $typ, string $jazyk, string $varianta, string $nazev, array $stranky, string $jazykObsahu): string
+    {
+        $seznam = (string) json_encode(array_values(array_unique(array_map('intval', $stranky))));
+        if (preg_match(self::VZOR_VARIANTY, $varianta) && self::radek($db, $typ, $jazyk, $varianta) !== null) {
+            $db->update('casti', ['nazev' => $nazev, 'stranky' => $seznam, 'zmeneno' => date('Y-m-d H:i:s')], ['typ' => $typ, 'jazyk' => $jazyk, 'varianta' => $varianta]);
+
+            return $varianta;
+        }
+        $varianta = substr(slugify($nazev, 40), 0, 40);
+        for ($i = 2, $zaklad = $varianta; self::radek($db, $typ, $jazyk, $varianta) !== null; $i++) {
+            $varianta = substr($zaklad, 0, 36) . '-' . $i;
+        }
+        $vychozi = self::radek($db, $typ, $jazyk);
+        $db->insert('casti', ['typ' => $typ, 'jazyk' => $jazyk, 'varianta' => $varianta, 'nazev' => $nazev, 'stranky' => $seznam, 'zmeneno' => date('Y-m-d H:i:s'),
+            'stavba_koncept' => $vychozi['stavba'] ?? Stavba::naJson(self::vychozi($typ, $jazykObsahu))]);
+
+        return $varianta;
+    }
+
     /** Publikovaná stavba části (nebo rozpracovaná pro náhled v editoru); null = část ze šablony. */
     public static function stavba(Db $db, string $typ, string $jazyk, bool $koncept = false, string $varianta = ''): ?array
     {
