@@ -28,6 +28,9 @@ final class Formular extends Prvek
         'volba' => 'volba jedné možnosti (přepínače)', 'datum' => 'datum', 'cislo' => 'číslo', 'soubor' => 'příloha (soubor)', 'souhlas' => 'zaškrtnutí (souhlas)'];
 
     /** Přílohy formuláře: povolené typy a největší velikost jednoho souboru. */
+    /** Telefon v atributu pattern (prohlížeč ho čte s příznakem v – závorky, lomítko a pomlčka ve třídě musí být escapované). */
+    public const string VZOR_TELEFONU = '[+\\(\\)\\d\\s\\/.\\-]{6,30}';
+
     public const array PRIPONY_PRILOH = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'heic', 'doc', 'docx', 'xls', 'xlsx', 'odt', 'ods', 'txt', 'zip', 'dwg', 'dxf'];
     public const int MAX_PRILOHA = 10 * 1024 * 1024;
 
@@ -58,7 +61,9 @@ final class Formular extends Prvek
 
     public static function zakladniCss(): string
     {
+        // kotva po odeslání míří na formulář: odstup, aby nad ním byl vidět i nadpis a nezakrylo ho přilepené záhlaví
         return '.ka-formular { display: grid; gap: var(--ka-mezera-s); }
+.ka-formular, .ka-formular-hotovo { scroll-margin-top: 6rem; }
 .ka-pole { display: grid; gap: var(--ka-mezera-2xs); margin: 0; }
 .ka-pole > label { font-weight: 600; }
 .ka-pole input:not([type="checkbox"]), .ka-pole select, .ka-pole textarea { box-sizing: border-box; width: 100%; padding: 0.7em 0.9em; border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-pozadi); color: var(--ka-barva-text); font: inherit; }
@@ -159,10 +164,25 @@ final class Formular extends Prvek
             'cislo' => '<input id="' . $id . '" name="' . $jmeno . '" type="number" step="any" inputmode="decimal"' . $povinne . $oznaceni . '>',
             'soubor' => '<input id="' . $id . '" name="' . $jmeno . '" type="file" accept=".' . implode(',.', self::PRIPONY_PRILOH) . '"' . $povinne . $oznaceni . '>'
                 . '<small class="ka-pole-napoveda">' . e(t('Nejvýš %d MB: PDF, obrázek, dokument nebo ZIP.', (int) (self::MAX_PRILOHA / 1048576))) . '</small>',
-            default => '<input id="' . $id . '" name="' . $jmeno . '" type="' . ($pole['typ'] === 'email' ? 'email" autocomplete="email' : ($pole['typ'] === 'tel' ? 'tel" autocomplete="tel' : 'text')) . '" maxlength="300"' . $povinne . $oznaceni . '>',
+            // telefon: stejné pravidlo jako na serveru (Front\Formulare), prohlížeč ho zkontroluje hned; vzor platí i s příznakem v
+            'tel' => '<input id="' . $id . '" name="' . $jmeno . '" type="tel" autocomplete="tel" maxlength="30" pattern="' . self::VZOR_TELEFONU . '" title="' . e(t('Telefonní číslo, například +420 123 456 789.')) . '"' . $povinne . $oznaceni . '>',
+            default => '<input id="' . $id . '" name="' . $jmeno . '" type="' . ($pole['typ'] === 'email' ? 'email" autocomplete="email' : 'text' . self::autocomplete($pole['popisek'])) . '" maxlength="300"' . $povinne . $oznaceni . '>',
         };
 
         return '<p class="ka-pole">' . $label . $vstup . $hlaska . '</p>';
+    }
+
+    /**
+     * Automatické vyplnění textového pole podle popisku (WCAG 1.3.5): jméno a firma. Typ pole zůstává „text“,
+     * aby fungovaly i dříve postavené formuláře.
+     */
+    private static function autocomplete(string $popisek): string
+    {
+        return match (true) {
+            (bool) preg_match('/^(vaše |celé |your |full )?(jméno|name)\b/iu', trim($popisek)) => '" autocomplete="name',
+            (bool) preg_match('/^(firma|společnost|název firmy|company|organi[sz]ation)\b/iu', trim($popisek)) => '" autocomplete="organization',
+            default => '',
+        };
     }
 
     /** @return list<string> možnosti výběru nebo přepínačů */
