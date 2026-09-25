@@ -18,6 +18,7 @@ return [
     'Přesměrování' => 'Redirects',
     'Protokol změn' => 'Change log',
     'Nastavení' => 'Settings',
+    'GitHub' => 'GitHub',
     'Akce' => 'Actions',
     'Alespoň 10 znaků.' => 'At least 10 characters.',
     'Autor' => 'Author',
@@ -2309,4 +2310,9 @@ return [
     'technologie a vývoj' => 'technology and development',
     'psát a upravovat stránky a novinky, spravovat kategorie a tvořit šablony webu.' => 'write and edit pages and news, manage categories and create site themes.',
     'psát a upravovat novinky.' => 'write and edit news.',
+    'bez ikony' => 'no icon',
+    'Ikona vlevo od textu' => 'Icon left of the text',
+    'Zvýraznění aktivní položky' => 'Current item highlight',
+    'podbarvení' => 'background',
+    'podtržení doplňkovou barvou' => 'underline in the secondary colour',
 ];

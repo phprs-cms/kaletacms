@@ -28,6 +28,7 @@ final class Navigace extends Prvek
             'novinky' => ['typ' => 'prepinac', 'popisek' => 'Odkaz na novinky (u automatického menu)', 'vychozi' => true],
             'mobil' => ['typ' => 'prepinac', 'popisek' => 'Na telefonu schovat za tlačítko', 'vychozi' => true],
             'mega' => ['typ' => 'prepinac', 'popisek' => 'Podmenu jako široký panel (mega menu)', 'vychozi' => false],
+            'zvyrazneni' => ['typ' => 'vyber', 'popisek' => 'Zvýraznění aktivní položky', 'vychozi' => 'pozadi', 'moznosti' => ['pozadi' => 'podbarvení', 'podtrzeni' => 'podtržení doplňkovou barvou']],
         ];
     }
 
@@ -36,7 +37,10 @@ final class Navigace extends Prvek
         return '.ka-nav { display: flex; align-items: center; }
 .ka-nav-menu { display: flex; align-items: center; gap: var(--ka-mezera-xs); }
 .ka-nav ul { display: flex; flex-wrap: wrap; gap: var(--ka-mezera-2xs); margin: 0; padding: 0; list-style: none; }
-.ka-nav a { display: block; padding: 0.5em 0.8em; border-radius: var(--ka-zaobleni-plne); color: inherit; font-weight: 600; text-decoration: none; }
+.ka-nav a { display: block; padding: 0.5em 0.8em; border-radius: var(--ka-zaobleni-plne); color: inherit; font-weight: var(--ka-nav-tloustka, 600); text-decoration: none; }
+.ka-nav a:focus-visible { outline: 3px solid var(--ka-barva-sekundarni); outline-offset: 2px; }
+.ka-nav--podtrzeni a:hover, .ka-nav--podtrzeni a[aria-current] { background: none; color: inherit; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 6px; }
+.ka-nav--podtrzeni a[aria-current] { text-decoration-color: var(--ka-barva-sekundarni); }
 .ka-nav a:hover { background: var(--ka-barva-plocha); }
 .ka-nav a[aria-current] { background: var(--ka-barva-primarni-jemna); color: var(--ka-barva-primarni); }
 .ka-nav li { position: relative; }
@@ -81,12 +85,13 @@ final class Navigace extends Prvek
             $polozky = '<li><span>' . e(t('Menu sestavíte ve Vzhled → Menu')) . '</span></li>';
         }
         $menu = '<ul>' . $polozky . '</ul>' . $k->jazyky;
+        $tridy = 'ka-nav' . (!empty($p['obsah']['mega']) ? ' ka-nav--mega' : '') . (($p['obsah']['zvyrazneni'] ?? '') === 'podtrzeni' ? ' ka-nav--podtrzeni' : '');
         if (!$p['obsah']['mobil']) {
-            return '<nav' . Text::sTridou($a, 'ka-nav' . (!empty($p['obsah']['mega']) ? ' ka-nav--mega' : '')) . ' aria-label="' . e(t('Hlavní navigace')) . '"><div class="ka-nav-menu">' . $menu . '</div></nav>';
+            return '<nav' . Text::sTridou($a, $tridy) . ' aria-label="' . e(t('Hlavní navigace')) . '"><div class="ka-nav-menu">' . $menu . '</div></nav>';
         }
         $id = 'ka-nav-' . $p['id'];
 
-        return '<nav' . Text::sTridou($a, 'ka-nav' . (!empty($p['obsah']['mega']) ? ' ka-nav--mega' : '')) . ' aria-label="' . e(t('Hlavní navigace')) . '">'
+        return '<nav' . Text::sTridou($a, $tridy) . ' aria-label="' . e(t('Hlavní navigace')) . '">'
             . '<button class="ka-nav-tl" type="button" popovertarget="' . e($id) . '" aria-label="' . e(t('Menu')) . '"><span aria-hidden="true"></span></button>'
             . '<div class="ka-nav-menu" id="' . e($id) . '" popover>' . $menu . '</div></nav>';
     }

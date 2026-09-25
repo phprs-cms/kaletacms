@@ -629,6 +629,14 @@ over('Upravy: přesun prvku do jeho potomka nejde', Kaleta\Stavitel\Upravy::prov
 $km = Kaleta\Stavitel\Stavba::kompaktni($kmStavba);
 over('Stavba::kompaktni: bez výchozích hodnot, styl zůstane', $km, ['v' => 1, 'deti' => [['id' => 'abc', 'typ' => 'sekce', 'deti' => [['id' => 'def', 'typ' => 'tlacitko', 'obsah' => ['text' => 'Jdi']], ['id' => 'ghi', 'typ' => 'kontejner', 'styl' => ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'm']]]]]]]);
 over('Stavba: zvýraznění <mark> v nadpisu zůstane, třídy a styly ne', Kaleta\Stavitel\Stavba::vycisti(['v' => 1, 'deti' => [['typ' => 'nadpis', 'id' => 'mk1', 'obsah' => ['text' => 'Publish<mark class="x" style="color:red">.</mark>']]]])[0]['deti'][0]['obsah']['text'], 'Publish<mark>.</mark>');
+$tlKontext = null;
+over('Styl::zCss: aliasy margin-top a flex-start', [Kaleta\Stavitel\Styl::zCss('margin-bottom', '24px'), Kaleta\Stavitel\Styl::zCss('align-items', 'flex-start')], [['okraj_dole' => '24px'], ['zarovnani' => 'start']]);
+over('Ikony: GitHub v sadě', str_contains(Kaleta\Stavitel\Ikony::svg('github'), 'M9 19c-4'), true);
+over('Tlačítko: ikona za textem a vlevo od textu', [
+    (bool) preg_match('#>Start<svg#', Kaleta\Stavitel\Prvky\Tlacitko::vykresli(['obsah' => ['text' => 'Start', 'odkaz' => '/x', 'varianta' => 'primarni', 'nove_okno' => false, 'ikona' => 'sipka', 'ikona_vlevo' => false]], '', '', (new ReflectionClass(Kaleta\Stavitel\Kontext::class))->newInstanceWithoutConstructor())),
+    (bool) preg_match('#</svg>GitHub</a>#', Kaleta\Stavitel\Prvky\Tlacitko::vykresli(['obsah' => ['text' => 'GitHub', 'odkaz' => '/x', 'varianta' => 'obrys', 'nove_okno' => false, 'ikona' => 'github', 'ikona_vlevo' => true]], '', '', (new ReflectionClass(Kaleta\Stavitel\Kontext::class))->newInstanceWithoutConstructor())),
+    Kaleta\Stavitel\Prvky\Tlacitko::vykresli(['obsah' => ['text' => 'Bez', 'odkaz' => '/x', 'varianta' => 'primarni', 'nove_okno' => false]], '', '', (new ReflectionClass(Kaleta\Stavitel\Kontext::class))->newInstanceWithoutConstructor()) === '<a class="ka-tlacitko ka-tlacitko--primarni" href="/x">Bez</a>',
+], [true, true, true]);
 over('Stavba::kompaktni: po vyčištění stejná stavba', Kaleta\Stavitel\Stavba::vycisti($km)[0], $kmStavba);
 $prehled = Kaleta\Stavitel\Stavba::prehled(Kaleta\Stavitel\Stavba::schema());
 over('Stavba::prehled: prvek na řádek, výchozí možnost s hvězdičkou, schéma výrazně menší', [str_contains($prehled['prvky']['tlacitko'], 'varianta:vyber(primarni*|'), strlen((string) json_encode($prehled)) < strlen((string) json_encode(Kaleta\Stavitel\Stavba::schema())) / 2],

@@ -553,5 +553,10 @@ window.KALETA_PREKLAD = {
 	"štítek": "tag",
 	"kategorie": "category",
 	"moje sekce": "my section",
-	"uživatel": "user"
+	"uživatel": "user",
+	"bez ikony": "no icon",
+	"Ikona vlevo od textu": "Icon left of the text",
+	"Zvýraznění aktivní položky": "Current item highlight",
+	"podbarvení": "background",
+	"podtržení doplňkovou barvou": "underline in the secondary colour"
 };

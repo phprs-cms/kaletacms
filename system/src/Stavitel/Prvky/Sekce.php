@@ -33,8 +33,9 @@ final class Sekce extends Prvek
 
     public static function zakladniCss(): string
     {
-        return '.ka-obal { width: min(100% - 2 * var(--ka-mezera-m), var(--ka-sirka)); margin-inline: auto; }
-.ka-obal--uzka { width: min(100% - 2 * var(--ka-mezera-m), var(--ka-sirka-textu)); }
+        return '.ka-obal { width: min(100% - 2 * var(--ka-okraj, var(--ka-mezera-m)), var(--ka-sirka)); margin-inline: auto; }
+.ka-obal--uzka { width: min(100% - 2 * var(--ka-okraj, var(--ka-mezera-m)), var(--ka-sirka-textu)); }
+:where(.stavba) a:focus-visible { outline: 3px solid var(--ka-barva-sekundarni); outline-offset: 2px; }
 .ka-obal > * + * { margin-block-start: var(--ka-mezera-m); }
 .ka-s-videem { position: relative; isolation: isolate; overflow: hidden; }
 .ka-video-pozadi { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; object-fit: cover; }
