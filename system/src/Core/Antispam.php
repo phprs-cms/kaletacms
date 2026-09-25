@@ -12,7 +12,8 @@ namespace Kaleta\Core;
  */
 final class Antispam
 {
-    private const int MIN_SEKUND = 4;
+    /** Formulář odeslaný dřív se odmítne (robot); image/web.js odeslání o zbytek odloží (atribut data-cekat). */
+    public const int MIN_SEKUND = 4;
     private const int MAX_SEKUND = 4 * 3600;
 
     public function __construct(private readonly Db $db, private readonly Settings $settings)
@@ -36,26 +37,38 @@ final class Antispam
     {
         $cas = (string) time();
 
-        return '<input type="hidden" name="as_cas" value="' . $cas . '"><input type="hidden" name="as_podpis" value="' . hash_hmac('sha256', $ucel . '|' . $cas, $this->klic()) . '">'
+        return '<input type="hidden" name="as_cas" value="' . $cas . '" data-cekat="' . self::MIN_SEKUND . '"><input type="hidden" name="as_podpis" value="' . hash_hmac('sha256', $ucel . '|' . $cas, $this->klic()) . '">'
             . '<div style="position:absolute;left:-9999px" aria-hidden="true"><label>Toto pole nevyplňujte <input type="text" name="web_adresa" tabindex="-1" autocomplete="off"></label></div>';
     }
 
     /** @return string|null důvod odmítnutí (už přeložený do jazyka webu; 'robot' je značka, ne text), null = v pořádku */
     public function over(Request $request, string $ucel): ?string
     {
+        return match ($this->duvod($request, $ucel)) {
+            null => null,
+            'robot' => 'robot',
+            'rychle' => t('To bylo příliš rychlé. Zkuste to prosím znovu za pár vteřin.'),
+            'vyprselo' => t('Platnost formuláře vypršela. Obnovte stránku a zkuste to znovu.'),
+            default => t('Formulář se nepodařilo ověřit. Obnovte stránku a zkuste to znovu.'),
+        };
+    }
+
+    /** @return 'robot'|'podpis'|'rychle'|'vyprselo'|null kód důvodu odmítnutí (formuláře builderu podle něj volí hlášení), null = v pořádku */
+    public function duvod(Request $request, string $ucel): ?string
+    {
         if ($request->post('web_adresa') !== '') {
             return 'robot';
         }
         $cas = $request->postInt('as_cas');
         if (!hash_equals(hash_hmac('sha256', $ucel . '|' . $cas, $this->klic()), $request->post('as_podpis'))) {
-            return t('Formulář se nepodařilo ověřit. Obnovte stránku a zkuste to znovu.');
+            return 'podpis';
         }
         $stari = time() - $cas;
         if ($stari < self::MIN_SEKUND) {
-            return t('To bylo příliš rychlé. Zkuste to prosím znovu za pár vteřin.');
+            return 'rychle';
         }
 
-        return $stari > self::MAX_SEKUND ? t('Platnost formuláře vypršela. Obnovte stránku a zkuste to znovu.') : null;
+        return $stari > self::MAX_SEKUND ? 'vyprselo' : null;
     }
 
     /** Kolikrát už IP adresa danou akci za posledních $minut provedla. */

@@ -92,6 +92,7 @@ final class Formular extends Prvek
         return match ($kod) {
             'pole' => t('Zkontrolujte prosím označené pole.'),
             'limit' => t('Z vaší adresy přišlo v krátké době příliš mnoho zpráv. Zkuste to prosím později.'),
+            'rychle' => t('Formulář odešel dřív, než jsme stihli ověřit, že ho posílá člověk. Počkejte prosím chvilku a odešlete ho znovu.'),
             'overeni' => t('Formulář se nepodařilo ověřit. Obnovte stránku a zkuste to znovu.'),
             default => t('Zprávu se nepodařilo odeslat. Zkuste to prosím znovu.'),
         };

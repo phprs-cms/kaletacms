@@ -303,6 +303,11 @@ grep -q 'class="ka-formular"' "$PRACE/formular.html" && grep -q 'name="as_podpis
 hodnota() { grep -o "name=\"$1\" value=\"[^\"]*\"" "$PRACE/formular.html" | head -1 | sed 's/.*value="//;s/"$//'; }
 FZ=$(hodnota zdroj); FP=$(hodnota prvek); FC=$(hodnota as_cas); FS=$(hodnota as_podpis)
 odesli() { curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FZ" -d "prvek=$FP" -d zpet=/kontakt -d "as_cas=$FC" -d "as_podpis=$FS" "$@"; }
+# příliš rychlé odeslání (automatické vyplnění): vlastní kód a hlášení „počkejte chvilku“, ne „nepodařilo se ověřit“
+TED=$(date +%s); RYCHLY=$(php -r 'echo hash_hmac("sha256", $argv[1], $argv[2]);' "formular|$FZ|$FP|$TED" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'tajny_klic'")")
+case "$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FZ" -d "prvek=$FP" -d zpet=/kontakt -d "as_cas=$TED" -d "as_podpis=$RYCHLY" -d p0=A -d p1=a@example.cz -d p3=x -d p4=1)" in *vysledek=rychle*) echo "  ok     příliš rychlé odeslání má vlastní výsledek";; *) echo "  CHYBA  příliš rychlé odeslání formuláře"; CHYB=$((CHYB+1));; esac
+over "hlášení po příliš rychlém odeslání radí počkat" 200 "/kontakt?formular=$FP&vysledek=rychle" "Počkejte prosím chvilku a odešlete ho znovu"
+grep -q 'name="as_cas" value="[0-9]*" data-cekat="4"' "$PRACE/formular.html" && echo "  ok     formulář nese minimální dobu pro odložené odeslání" || { echo "  CHYBA  data-cekat u formuláře"; CHYB=$((CHYB+1)); }
 sleep 4
 kam=$(odesli -d p0=Jana --data-urlencode p1=jana@example.cz -d p2= --data-urlencode "p3=Chci kuchyň na míru." -d p4=1)
 case "$kam" in *"/kontakt?formular=$FP&vysledek=ok#"*"$FP") echo "  ok     odeslání formuláře";; *) echo "  CHYBA  odeslání formuláře: $kam"; CHYB=$((CHYB+1));; esac

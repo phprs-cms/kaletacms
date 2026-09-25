@@ -234,13 +234,25 @@
 	// hodnoty drží jen prohlížeč návštěvníka (sessionStorage) a po úspěšném odeslání zmizí; do adresy se nic nepíše
 	document.querySelectorAll('form[data-formular]').forEach(function (f) {
 		var klic = 'ka-formular-' + f.getAttribute('data-formular');
-		f.addEventListener('submit', function () {
+		var cekat = f.querySelector('input[data-cekat]');
+		f.addEventListener('submit', function (e) {
 			var hodnoty = {};
 			Array.prototype.forEach.call(f.elements, function (p) {
 				if (!/^p\d+$/.test(p.name)) { return; }
 				if (p.type === 'checkbox' || p.type === 'radio') { if (p.checked) { hodnoty[p.name] = p.value; } } else { hodnoty[p.name] = p.value; }
 			});
 			try { sessionStorage.setItem(klic, JSON.stringify(hodnoty)); } catch (chyba) { /* soukromý režim */ }
+			// ochrana proti robotům odmítne formulář odeslaný pár vteřin po načtení stránky (s automatickým vyplněním to zvládne
+			// i člověk) – místo chyby se odeslání o zbytek odloží
+			// počítá se od první odpovědi serveru (stránka vznikla ještě před ní), ne od kliknutí na odkaz
+			var navigace = performance.getEntriesByType ? performance.getEntriesByType('navigation')[0] : null;
+			var zbyva = cekat ? parseInt(cekat.getAttribute('data-cekat'), 10) * 1000 + 250 - (performance.now() - (navigace ? navigace.responseStart : 0)) : 0;
+			if (zbyva > 0) {
+				e.preventDefault();
+				var tlacitko = f.querySelector('[type=submit]');
+				if (tlacitko) { tlacitko.disabled = true; tlacitko.setAttribute('aria-busy', 'true'); }
+				setTimeout(function () { f.submit(); }, zbyva);
+			}
 		});
 		if (!f.hasAttribute('data-obnovit')) { return; }
 		var ulozene = null;
