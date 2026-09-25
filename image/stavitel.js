@@ -64,6 +64,7 @@
 		skryto: '<path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4M6.6 6.6C3.7 8.4 2 12 2 12s3.5 7 10 7a9.6 9.6 0 0 0 4.4-1"/>',
 		vice: '<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>',
 		oko: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>', zavrit: '<path d="M6 6l12 12M18 6 6 18"/>',
+		sdilet: '<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3.2-3.2a4.5 4.5 0 0 0-6.4-6.4L12 5.6"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3.2 3.2a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2"/>',
 	};
 
 	const stav = {
@@ -698,6 +699,7 @@
 				el('button', { type: 'button', title: T('Znovu (Ctrl+Shift+Z)'), disabled: !stav.vpred.length, onclick: vpred }, ikona('vpred'))),
 			stavText,
 			el('button', { type: 'button', class: 'st-tl', title: T('Publikované verze'), onclick: dialogVerze }, ikona('verze'), el('span', { class: 'st-text' }, T('Verze'))),
+			D.adresy.sdilet ? el('button', { type: 'button', class: 'st-tl', title: T('Sdílet náhled konceptu odkazem'), onclick: dialogSdilet }, ikona('sdilet'), el('span', { class: 'st-text' }, T('Sdílet'))) : null,
 			el('a', { class: 'st-tl', href: D.stranka.adresa, target: '_blank', rel: 'noopener', title: T('Otevřít publikovanou stránku') }, ikona('oko')),
 			el('button', { type: 'button', class: 'st-tl', title: T('Nápověda a klávesové zkratky (?)'), 'aria-label': T('Nápověda'), onclick: napoveda }, ikona('napoveda')),
 			D.stranka.publikovana && stav.zmeny ? el('button', { type: 'button', class: 'st-tl', onclick: zahod }, T('Zahodit změny')) : null,
@@ -870,6 +872,37 @@
 			document.body.append(d);
 			d.showModal();
 		});
+	}
+
+	/** Odkaz na náhled konceptu pro kolegu nebo klienta: otevře ho kdokoli bez přihlášení, platí 1–7 dní. */
+	function dialogSdilet() {
+		const dni = el('select', { 'aria-label': T('Platnost odkazu') },
+			[['1', T('1 den')], ['3', T('3 dny')], ['7', T('7 dní')]].map(([k, n]) => el('option', { value: k, selected: k === '7' }, n)));
+		const vysledek = el('div', { class: 'st-sdilet', 'aria-live': 'polite' });
+		const vytvor = el('button', { type: 'button', class: 'st-tl st-tl-hlavni', onclick: () => {
+			vytvor.disabled = true;
+			// odkaz ukazuje, co má server – rozpracované změny se nejdřív uloží
+			uloz().then((ok) => ok ? dotaz(D.adresy.sdilet, { dni: dni.value }) : { ok: false, chyba: T('Koncept se nepodařilo uložit.') }).then((j) => {
+				vytvor.disabled = false;
+				if (!j.ok) { vysledek.replaceChildren(el('p', { class: 'st-sdilet-chyba' }, j.chyba || T('Odkaz se nepodařilo vytvořit.'))); return; }
+				const pole = el('input', { type: 'text', readonly: true, value: j.odkaz, 'aria-label': T('Odkaz na náhled'), onfocus: (e) => e.target.select() });
+				const kopiruj = el('button', { type: 'button', class: 'st-tl', onclick: () => {
+					pole.select();
+					(navigator.clipboard ? navigator.clipboard.writeText(j.odkaz) : Promise.reject()).then(() => { kopiruj.textContent = T('Zkopírováno'); }, () => { document.execCommand('copy'); kopiruj.textContent = T('Zkopírováno'); });
+				} }, T('Kopírovat'));
+				const plati = new Date(j.plati_do * 1000).toLocaleString(document.documentElement.lang === 'en' ? 'en-GB' : document.documentElement.lang || undefined, { dateStyle: 'medium', timeStyle: 'short' });
+				vysledek.replaceChildren(el('div', { class: 'st-sdilet-radek' }, pole, kopiruj), el('p', { class: 'st-sdilet-pozn' }, T('Platí do %s.').replace('%s', plati)));
+				pole.focus();
+			});
+		} }, T('Vytvořit odkaz'));
+		const d = el('dialog', { class: 'st-dialog' },
+			el('div', {}, el('h2', {}, T('Sdílet náhled')),
+				el('p', {}, T('Kdo dostane odkaz, uvidí koncept bez přihlášení – i změny, které uděláte později. Vyhledávače ho neindexují.')),
+				el('label', { class: 'st-sdilet-radek' }, el('span', {}, T('Platnost')), dni), vysledek),
+			el('footer', {}, el('button', { type: 'button', class: 'st-tl', onclick: () => d.close() }, T('Zavřít')), vytvor));
+		d.addEventListener('close', () => d.remove());
+		document.body.append(d);
+		d.showModal();
 	}
 
 	/* ---------- levý panel: Přidat a Struktura ---------- */

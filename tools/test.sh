@@ -184,6 +184,9 @@ curl -s -o "$PRACE/odpoved" "$B/o-nas"; ! grep -q "Builder test" "$PRACE/odpoved
 over "náhled konceptu pro editor" 200 "/o-nas?stavba=koncept&editor=1" 'data-ka-id="nad1"'
 over "náhled konceptu se neindexuje" 200 "/o-nas?stavba=koncept" 'noindex'
 curl -s -o "$PRACE/odpoved" "$B/o-nas?stavba=koncept&editor=1"; ! grep -q "Builder test" "$PRACE/odpoved" && echo "  ok     náhled konceptu nevidí návštěvník" || { echo "  CHYBA  koncept vidí nepřihlášený"; CHYB=$((CHYB+1)); }
+kod=$(st stavba_sdilet -d dni=3); SDILENY=$(php -r 'echo json_decode((string) file_get_contents($argv[1]))->odkaz ?? "";' "$PRACE/odpoved")
+curl -s -o "$PRACE/odpoved" "$SDILENY"
+[ "$kod" = 200 ] && [[ "$SDILENY" == "$B/o-nas?stavba=koncept&nahled_klic="* ]] && grep -q "Builder test" "$PRACE/odpoved" && ! grep -q 'data-ka-id' "$PRACE/odpoved" && echo "  ok     sdílený odkaz ukáže koncept bez přihlášení a bez značek editoru" || { echo "  CHYBA  stavba_sdilet: kód $kod, odkaz $SDILENY"; CHYB=$((CHYB+1)); }
 kod=$(st stavba_publikuj); ocekavej "publikování stavby" "$kod" 200
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
 curl -s -o "$PRACE/odpoved" "$B/o-nas"

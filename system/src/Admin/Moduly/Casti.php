@@ -159,7 +159,7 @@ final class Casti extends Modul
         return [
             'adresa' => $adresa, 'nahled' => $adresa . '?cast=' . $typ . '&stavba=koncept&editor=1' . ($cil['radek']['varianta'] !== '' ? '&varianta=' . rawurlencode($cil['radek']['varianta']) : ''),
             'zobrazena' => true, 'casti' => true,
-            'zpet' => ['adresa' => $this->url(), 'text' => t('Části webu')], 'nastaveni' => null,
+            'zpet' => ['adresa' => $this->url(), 'text' => t('Části webu')], 'nastaveni' => null, 'podpis' => 'cast:' . $typ . ':' . $jazyk,
         ];
     }
 

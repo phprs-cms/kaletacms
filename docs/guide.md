@@ -41,6 +41,7 @@ page**, on the left the **Add / Structure** panel, on the right the properties o
 - **Display conditions** (Advanced): show an element only between two dates (a promo banner) or only to visitors or signed-in users.
 - **Saving and publishing:** changes save continuously as a **draft** – visitors see the published version until you
   press **Publish**. **Discard changes** restores the published version; **Versions** lists the last 20 publications.
+  **Share** creates a link to the draft for a colleague or client: it opens without signing in, is valid for 1–7 days and is not indexed by search engines.
   If someone else edits the page meanwhile, the editor offers to load the newer version or overwrite it. Before publishing,
   a **check** flags buttons without links, images without descriptions, a missing main heading and low text contrast.
 - **More elements:** icon, photo gallery with a viewer, tabs, accordion, carousel, map (loads only after a click),

@@ -123,6 +123,11 @@ body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; ove
 .st-dialog h2 { margin: 0 0 12px; font-size: 17px; }
 .st-dialog ul { margin: 0; padding: 0; list-style: none; max-height: 50vh; overflow: auto; }
 .st-dialog li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--linka); }
+.st-sdilet-radek { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.st-sdilet-radek input { flex: 1; min-width: 0; padding: 7px 8px; border: 1px solid var(--linka-pole); border-radius: 8px; background: var(--plocha); color: var(--text); font: inherit; font-size: 13px; }
+.st-sdilet-radek select { padding: 6px 8px; border: 1px solid var(--linka-pole); border-radius: 8px; background: var(--plocha); color: var(--text); font: inherit; }
+.st-sdilet-pozn { margin: 8px 0 0; color: var(--text-slaby); font-size: 13px; }
+.st-sdilet-chyba { margin: 12px 0 0; color: var(--chyba); }
 .st-dialog footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--linka); }
 
 @media (max-width: 1100px) {

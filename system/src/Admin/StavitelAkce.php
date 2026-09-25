@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaleta\Admin;
 
 use Kaleta\Core\Jazyk;
+use Kaleta\Core\Nahled;
 use Kaleta\Core\Response;
 use Kaleta\Stavitel\DesignSystem;
 use Kaleta\Stavitel\Knihovna;
@@ -32,7 +33,7 @@ trait StavitelAkce
 
     /**
      * Údaje pro editor: titulek, adresa (veřejná), nahled (plátno), zobrazena, casti (nabízet prvky částí), zpet [adresa, text],
-     * nastaveni (adresa nastavení cíle, nebo null).
+     * nastaveni (adresa nastavení cíle, nebo null), podpis (cíl podepsaného náhledu, např. „stranka:12“ – Core\Nahled).
      *
      * @return array<string, mixed>
      */
@@ -89,6 +90,7 @@ trait StavitelAkce
             'adresy' => array_map(fn (string $akce): string => $this->url($akce, $cil['parametry']), [
                 'uloz' => 'stavba_uloz', 'publikuj' => 'stavba_publikuj', 'zahod' => 'stavba_zahod', 'sekce' => 'stavba_sekce', 'trida' => 'stavba_trida',
                 'revize' => 'stavba_revize', 'obnov' => 'stavba_obnov', 'aiSekce' => 'stavba_ai_sekce', 'aiText' => 'stavba_ai_text', 'ulozSekci' => 'stavba_uloz_sekci',
+                'sdilet' => 'stavba_sdilet',
             ]) + ['smazSekci' => $app->auth()->isAdmin() ? $this->url('stavba_smaz_sekci', $cil['parametry']) : null] + ['admin' => $app->url('admin.php'), 'nastaveni' => $e['nastaveni'],
                 'komponenta' => $app->auth()->isAdmin() ? $app->url('admin.php?modul=komponenty&akce=z_prvku') : null,
                 'nahledSekce' => $app->url('_sekce/')],
@@ -136,6 +138,25 @@ trait StavitelAkce
         Protokol::zapis($this->app, static::IDENT, 'publikování stavby', mb_substr($cil['titulek'], 0, 80));
 
         return Response::json(['ok' => true]);
+    }
+
+    /**
+     * Odkaz na náhled konceptu pro kolegu nebo klienta: otevře ho kdokoli bez přihlášení, platí jen pro tenhle cíl a zadaný
+     * počet dní (1–7). Ukazuje koncept v okamžiku otevření, ne stav při vytvoření odkazu; vyhledávače ho neindexují.
+     */
+    protected function akceStavbaSdilet(): Response
+    {
+        $cil = $this->request->isPost() ? $this->cilStavby() : null;
+        if ($cil === null) {
+            return Response::json(['ok' => false, 'chyba' => t('Stránka neexistuje.')], 404);
+        }
+        $e = $this->editorCile($cil);
+        $dni = max(1, min(7, $this->request->postInt('dni', 7)));
+        $klic = Nahled::klic($this->db, $this->app->settings(), $e['podpis'], $dni * 24 * 60);
+        $adresa = str_replace('&editor=1', '', $e['nahled']);
+        Protokol::zapis($this->app, static::IDENT, 'sdílení náhledu', mb_substr($cil['titulek'], 0, 80) . ' (' . $dni . ' d)');
+
+        return Response::json(['ok' => true, 'odkaz' => $this->request->origin() . $adresa . '&nahled_klic=' . $klic, 'plati_do' => time() + $dni * 86400]);
     }
 
     /** Zahodí rozpracované změny: editor se vrátí k publikované stavbě. */

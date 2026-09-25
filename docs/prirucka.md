@@ -40,6 +40,7 @@ webu**, vlevo panel **Přidat / Struktura**, vpravo vlastnosti vybraného prvku.
 - **Podmínky zobrazení** (Pokročilé): prvek jen od–do data (akční banner) nebo jen pro nepřihlášené či přihlášené.
 - **Ukládání a publikování:** změny se průběžně ukládají jako **koncept** – návštěvníci vidí publikovanou verzi, dokud
   nestisknete **Publikovat**. **Zahodit změny** vrátí publikovanou podobu, **Verze** nabídne posledních 20 publikací.
+  **Sdílet** vytvoří odkaz na koncept pro kolegu nebo klienta: otevře se bez přihlášení, platí 1–7 dní a vyhledávače ho neindexují.
   Když stránku mezitím upraví někdo jiný, editor nabídne načíst novější verzi, nebo ji přepsat. Před publikováním
   **Kontrola** upozorní na tlačítka bez odkazu, obrázky bez popisu, chybějící hlavní nadpis a slabý kontrast textu.
 - **Prvky navíc:** ikona, galerie s prohlížečkou fotek, záložky, akordeon, karusel, mapa (načte se až po klepnutí),

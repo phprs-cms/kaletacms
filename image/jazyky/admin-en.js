@@ -569,5 +569,20 @@ window.KALETA_PREKLAD = {
 	"Komponenta je společná předloha: úprava v Komponentách se projeví všude, kde je použitá. Prvek na stránce se nahradí jejím použitím.": "A component is a shared template: editing it under Components changes it everywhere it is used. The element on this page is replaced by the component.",
 	"Další akce": "More actions",
 	"Zrušit přesun klepnutím": "Cancel move by tapping",
-	"Vyberte video ve formátu MP4 nebo WebM.": "Choose a video in MP4 or WebM format."
+	"Vyberte video ve formátu MP4 nebo WebM.": "Choose a video in MP4 or WebM format.",
+	"Sdílet náhled konceptu odkazem": "Share a link to the draft preview",
+	"Sdílet": "Share",
+	"Platnost odkazu": "Link validity",
+	"1 den": "1 day",
+	"3 dny": "3 days",
+	"7 dní": "7 days",
+	"Koncept se nepodařilo uložit.": "The draft could not be saved.",
+	"Odkaz se nepodařilo vytvořit.": "The link could not be created.",
+	"Odkaz na náhled": "Preview link",
+	"Kopírovat": "Copy",
+	"Platí do %s.": "Valid until %s.",
+	"Vytvořit odkaz": "Create link",
+	"Sdílet náhled": "Share preview",
+	"Kdo dostane odkaz, uvidí koncept bez přihlášení – i změny, které uděláte později. Vyhledávače ho neindexují.": "Anyone with the link can see the draft without signing in – including changes you make later. Search engines do not index it.",
+	"Platnost": "Valid for"
 };

@@ -2353,4 +2353,5 @@ return [
     'U obrázků doplňte popis pro nevidomé (alt): co na obrázku je.' => 'Add a description for blind visitors (alt text) to the images: what the image shows.',
     'Aktualizace databáze se nepovedla: %s. Web běží dál; nainstalujte opravu v Nastavení → Zálohy a aktualizace, nebo napište na info@kaletacms.com.' => 'The database update failed: %s. The site keeps running; install the fix in Settings → Backups and updates, or write to info@kaletacms.com.',
     'Barva rámečku' => 'Border colour',
+    'sdílení náhledu' => 'preview shared',
 ];
