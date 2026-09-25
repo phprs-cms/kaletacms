@@ -2335,4 +2335,9 @@ return [
     'V ověřovací aplikaci (Google Authenticator, Microsoft Authenticator, 1Password, Aegis…) přidejte nový účet naskenováním QR kódu:' => 'In your authenticator app (Google Authenticator, Microsoft Authenticator, 1Password, Aegis…) add a new account by scanning the QR code:',
     'QR kód pro ověřovací aplikaci' => 'QR code for the authenticator app',
     'Nejde to naskenovat? Přidejte účet ručním zadáním klíče:' => 'Cannot scan it? Add the account by typing the key:',
+    'stránka „%s“' => 'page “%s”',
+    'detail kolekce „%s“' => 'collection detail “%s”',
+    'komponenta „%s“' => 'component “%s”',
+    'Komponentu „%s“ používá: %s. Po smazání tam zůstane prázdné místo. Opravdu ji smazat?' => 'The component “%s” is used on: %s. Deleting it leaves an empty space there. Delete it anyway?',
+    'a %d dalších' => 'and %d more',
 ];

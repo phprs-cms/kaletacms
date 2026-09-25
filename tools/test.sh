@@ -385,6 +385,7 @@ grep -q '<h3 class="s-kna1">První karta</h3>' "$PRACE/odpoved" && grep -q '<h3 
 ! grep -q 'id="s-kna1"' "$PRACE/odpoved" && ! grep -q 'data-ka-id' "$PRACE/odpoved" && [ "$(grep -o '\.s-kna1 {' "$PRACE/odpoved" | wc -l | tr -d ' ')" = 1 ] \
   && echo "  ok     komponenta dvakrát na stránce: styl jednou, bez duplicitního id" || { echo "  CHYBA  styl komponenty"; CHYB=$((CHYB+1)); }
 over "komponenty ukazují počet použití" 200 "/admin.php?modul=komponenty" "1×"
+grep -q 'data-potvrdit="Komponentu „Karta služby“ používá: stránka „' "$PRACE/odpoved" && echo "  ok     potvrzení smazání komponenty vyjmenuje, kde je použitá" || { echo "  CHYBA  potvrzení smazání komponenty"; CHYB=$((CHYB+1)); }
 # formulář uvnitř komponenty: odeslání ho musí najít (dřív se hledal jen ve stavbě stránky)
 komp stavba_uloz --data-urlencode 'stavba={"v":1,"deti":[{"id":"kse1","typ":"sekce","deti":[{"id":"kfo1","typ":"formular","obsah":{"nazev":"Poptávka z komponenty"}}]}]}' > /dev/null; komp stavba_publikuj > /dev/null
 rm -f "$PRACE"/web/storage/cache/stranky/*.html

@@ -5,7 +5,7 @@
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Moduly\Komponenty $modul
  * @var string $csrf
- * @var list<array<string, mixed>> $komponenty
+ * @var list<array<string, mixed>> $komponenty  i s počtem použití (pouziti) a jejich místy (mista)
  */
 ?>
 <p class="navigace-radek"><a class="tl" href="<?= e($modul->url('novy')) ?>"><?= e(t('Nová komponenta')) ?></a></p>
@@ -20,9 +20,9 @@
 <tr>
 	<td><a href="<?= e($modul->url('stavitel', ['id' => $k['idm']])) ?>"><strong><?= e($k['nazev']) ?></strong></a><?= $k['stavba_koncept'] !== null && $k['stavba'] !== null ? ' <span class="stitek stitek-koncept">' . e(t('nepublikované změny')) . '</span>' : '' ?></td>
 	<td><?= $k['vlastnosti'] === [] ? '—' : implode(' ', array_map(fn (array $v): string => '<code>{{' . e($v['klic']) . '}}</code>', $k['vlastnosti'])) ?></td>
-	<td><?= e(t('%s×', (string) $k['pouziti'])) ?></td>
+	<td<?= $k['mista'] !== [] ? ' title="' . e(implode(', ', $k['mista'])) . '"' : '' ?>><?= e(t('%s×', (string) $k['pouziti'])) ?></td>
 	<td class="akce"><a href="<?= e($modul->url('stavitel', ['id' => $k['idm']])) ?>"><?= e(t('Builder')) ?></a> · <a href="<?= e($modul->url('edit', ['id' => $k['idm']])) ?>"><?= e(t('Název a vlastnosti')) ?></a> ·
-		<form class="vradku" method="post" action="<?= e($modul->url('smaz')) ?>" data-potvrdit="<?= e($k['pouziti'] > 0 ? t('Komponenta je použitá %s×. Po smazání tato místa zůstanou prázdná. Smazat?', (string) $k['pouziti']) : t('Opravdu smazat komponentu?')) ?>"><?= $csrf ?><input type="hidden" name="idm" value="<?= (int) $k['idm'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form></td>
+		<form class="vradku" method="post" action="<?= e($modul->url('smaz')) ?>" data-potvrdit="<?= e($k['pouziti'] > 0 ? t('Komponentu „%s“ používá: %s. Po smazání tam zůstane prázdné místo. Opravdu ji smazat?', $k['nazev'], implode(', ', array_slice($k['mista'], 0, 8)) . (count($k['mista']) > 8 ? ' ' . t('a %d dalších', count($k['mista']) - 8) : '')) : t('Opravdu smazat komponentu?')) ?>"><?= $csrf ?><input type="hidden" name="idm" value="<?= (int) $k['idm'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form></td>
 </tr>
 <?php endforeach ?>
 </tbody>

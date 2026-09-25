@@ -32,7 +32,8 @@ final class Komponenty extends Modul
     {
         $komponenty = KomponentyStavby::vsechny($this->db);
         foreach ($komponenty as &$k) {
-            $k['pouziti'] = $this->pouziti((int) $k['idm']);
+            $k['mista'] = $this->mista((int) $k['idm']);
+            $k['pouziti'] = count($k['mista']);
         }
         unset($k);
 
@@ -145,16 +146,30 @@ final class Komponenty extends Modul
         ];
     }
 
-    /** Kolikrát je komponenta použitá (stránky, části webu, kolekce, jiné komponenty). */
-    private function pouziti(int $idm): int
+    /**
+     * Kde je komponenta použitá (stránky, části webu, kolekce, jiné komponenty) – názvy pro výpis a potvrzení smazání.
+     *
+     * @return list<string>
+     */
+    private function mista(int $idm): array
     {
         $vzor = '%"typ":"komponenta"%"komponenta":"' . $idm . '"%';
-        $pocet = 0;
-        foreach (['stranky', 'casti', 'kolekce', 'komponenty'] as $tabulka) {
-            // komponenta sama v sobě se nepočítá (a na webu se ani nevykreslí)
-            $pocet += (int) $this->db->value('SELECT COUNT(*) FROM {' . $tabulka . '} WHERE (stavba LIKE ? OR stavba_koncept LIKE ?)' . ($tabulka === 'komponenty' ? ' AND idm <> ?' : ''), [$vzor, $vzor, ...($tabulka === 'komponenty' ? [$idm] : [])]);
+        $kde = ' WHERE (stavba LIKE ? OR stavba_koncept LIKE ?)';
+        $mista = [];
+        foreach ($this->db->all('SELECT titulek, smazano IS NOT NULL AS kos FROM {stranky}' . $kde . ' ORDER BY smazano IS NOT NULL, titulek', [$vzor, $vzor]) as $r) {
+            $mista[] = t('stránka „%s“', $r['titulek']) . ($r['kos'] ? ' (' . t('v koši') . ')' : '');
+        }
+        foreach ($this->db->all('SELECT typ, jazyk, nazev FROM {casti}' . $kde . ' ORDER BY typ, jazyk, varianta', [$vzor, $vzor]) as $r) {
+            $mista[] = mb_strtolower(t(\Kaleta\Stavitel\Casti::TYPY[$r['typ']][0] ?? $r['typ'])) . ($r['nazev'] !== '' ? ' „' . $r['nazev'] . '“' : '') . ($r['jazyk'] !== '' ? ' (' . $r['jazyk'] . ')' : '');
+        }
+        foreach ($this->db->all('SELECT nazev FROM {kolekce}' . $kde . ' ORDER BY nazev', [$vzor, $vzor]) as $r) {
+            $mista[] = t('detail kolekce „%s“', $r['nazev']);
+        }
+        // komponenta sama v sobě se nepočítá (a na webu se ani nevykreslí)
+        foreach ($this->db->all('SELECT nazev FROM {komponenty}' . $kde . ' AND idm <> ? ORDER BY nazev', [$vzor, $vzor, $idm]) as $r) {
+            $mista[] = t('komponenta „%s“', $r['nazev']);
         }
 
-        return $pocet;
+        return $mista;
     }
 }
