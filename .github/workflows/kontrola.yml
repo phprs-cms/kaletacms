@@ -31,6 +31,30 @@ jobs:
       - name: Anglická administrace bez češtiny
         run: tools/test-english.sh
         env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root }
+  migrace:
+    # aktualizace databáze starší verze na současnou (tools/test-migrace.sh) na MySQL i MariaDB, jaké mívají hostingy
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        db:
+          - { image: 'mysql:8.4', health: 'mysqladmin ping -proot' }
+          - { image: 'mariadb:10.6', health: 'healthcheck.sh --connect --innodb_initialized' }
+          - { image: 'mariadb:11.4', health: 'healthcheck.sh --connect --innodb_initialized' }
+    services:
+      db:
+        image: ${{ matrix.db.image }}
+        env: { MYSQL_ROOT_PASSWORD: root, MARIADB_ROOT_PASSWORD: root }
+        ports: ['3306:3306']
+        options: --health-cmd="${{ matrix.db.health }}" --health-interval=5s --health-timeout=5s --health-retries=30
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: shivammathur/setup-php@v2
+        with: { php-version: '8.4', extensions: 'pdo_mysql, mbstring, intl, sodium', coverage: none }
+      - name: Aktualizace databáze z 1.0.0 na současnou verzi
+        run: tools/test-migrace.sh
+        env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root, FROM: v1.0.0 }
   bezpecnost:
     runs-on: ubuntu-latest
     steps:

@@ -372,6 +372,13 @@ over "llms.txt vyjmenuje položky kolekcí s detailem" 200 /llms.txt "/tym/zdene
 "${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('ulohy_token', 'testtoken123'); INSERT INTO ka_souhlasy (id_souhlasu, cas, kategorie) VALUES ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', NOW() - INTERVAL 40 MONTH, 'nic'), ('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', NOW(), 'nic')"
 curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 ocekavej "úklid maže staré záznamy o souhlasech s cookies" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT GROUP_CONCAT(LEFT(id_souhlasu, 1) ORDER BY id_souhlasu) FROM ka_souhlasy WHERE id_souhlasu IN ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')")" "b"
+echo 'ALTER TABLE ka_neexistuje ADD COLUMN x INT;' > "$PRACE/web/system/sql/migrace/0099-rozbita.sql"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '19' WHERE promenna = 'verze_db'"; rm -f "$PRACE"/web/storage/cache/stranky/*.html "$PRACE/web/storage/cache/migrace-chyba"
+over "nepovedená migrace neshodí web" 200 /
+grep -q 'Migrace databáze se nepovedla' "$PRACE/web/storage/log/chyby.log" && echo "  ok     nepovedená migrace je v protokolu chyb" || { echo "  CHYBA  nepovedená migrace chybí v protokolu"; CHYB=$((CHYB+1)); }
+over "nepovedená migrace nezamkne administraci" 200 "/admin.php" "Aktualizace databáze se nepovedla"
+rm -f "$PRACE/web/system/sql/migrace/0099-rozbita.sql"; sed -i.bak "/Migrace databáze se nepovedla/d" "$PRACE/web/storage/log/chyby.log"; rm -f "$PRACE/web/storage/log/chyby.log.bak"
+ocekavej "migrace, které prošly, zůstanou provedené" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'verze_db'")" 20
 mcp uprav_kolekci '{"kolekce":"tym","nazev":"Nas tym"}' > "$PRACE/odpoved"
 grep -q 'Nas tym' "$PRACE/odpoved" && grep -q 'medailonek' "$PRACE/odpoved" && echo "  ok     MCP: úprava kolekce ponechá pole" || { echo "  CHYBA  MCP uprav_kolekci"; head -c 300 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
 rm -f "$PRACE"/web/storage/cache/stranky/*.html

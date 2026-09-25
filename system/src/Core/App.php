@@ -135,13 +135,18 @@ final class App
                 http_response_code(500);
                 header('Content-Type: text/html; charset=utf-8');
             }
-            echo '<!doctype html><meta charset="utf-8"><title>Chyba</title>'
+            // jazyk webu tu ještě nemusí být známý (chyba i při startu): česky jen návštěvníkům s češtinou nebo slovenštinou v prohlížeči
+            $cesky = (bool) preg_match('/^\s*(cs|sk)\b/i', (string) ($_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? ''));
+            [$titulek, $nadpis, $pomoc] = $cesky
+                ? ['Chyba', 'Omlouváme se, na stránce došlo k chybě.', 'Podrobnosti najde správce v souboru storage/log/chyby.log.']
+                : ['Error', 'Sorry, something went wrong on this page.', 'The site administrator can find the details in storage/log/chyby.log.'];
+            echo '<!doctype html><html lang="' . ($cesky ? 'cs' : 'en') . '"><meta charset="utf-8"><title>' . $titulek . '</title>'
                 . '<body style="font:14px Verdana,sans-serif;margin:3em">'
-                . '<h1 style="font-size:18px">Omlouváme se, na stránce došlo k chybě.</h1>';
+                . '<h1 style="font-size:18px">' . $nadpis . '</h1>';
             if ($this->debug()) {
                 echo '<pre style="white-space:pre-wrap">' . e((string) $e) . '</pre>';
             } else {
-                echo '<p>Podrobnosti najde správce v souboru storage/log/chyby.log.</p>';
+                echo '<p>' . $pomoc . '</p>';
             }
         });
     }

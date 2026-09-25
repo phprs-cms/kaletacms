@@ -89,8 +89,14 @@ final class Kernel
 
         // aktualizace struktury databáze po nahrání nové verze systému
         if ($app->auth()->isAdmin() && $app->settings()->int('verze_db') < Migrace::posledni()) {
-            foreach (Migrace::proved($app->db(), $app->settings()) as $migrace) {
-                $app->session->flash('info', t('Databáze byla aktualizována: %s', $migrace));
+            try {
+                foreach (Migrace::proved($app->db(), $app->settings()) as $migrace) {
+                    $app->session->flash('info', t('Databáze byla aktualizována: %s', $migrace));
+                }
+            } catch (\Throwable $e) {
+                // administrace musí zůstat použitelná, aby šla nainstalovat oprava (Nastavení → Zálohy a aktualizace)
+                Migrace::zapisChybu($e);
+                $app->session->flash('chyba', t('Aktualizace databáze se nepovedla: %s. Web běží dál; nainstalujte opravu v Nastavení → Zálohy a aktualizace, nebo napište na info@kaletacms.com.', $e->getMessage()));
             }
         }
 

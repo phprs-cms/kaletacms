@@ -2351,4 +2351,5 @@ return [
     'Komponentu „%s“ používá: %s. Po smazání tam zůstane prázdné místo. Opravdu ji smazat?' => 'The component “%s” is used on: %s. Deleting it leaves an empty space there. Delete it anyway?',
     'a %d dalších' => 'and %d more',
     'U obrázků doplňte popis pro nevidomé (alt): co na obrázku je.' => 'Add a description for blind visitors (alt text) to the images: what the image shows.',
+    'Aktualizace databáze se nepovedla: %s. Web běží dál; nainstalujte opravu v Nastavení → Zálohy a aktualizace, nebo napište na info@kaletacms.com.' => 'The database update failed: %s. The site keeps running; install the fix in Settings → Backups and updates, or write to info@kaletacms.com.',
 ];

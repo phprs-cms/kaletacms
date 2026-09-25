@@ -34,6 +34,26 @@ final class Migrace
         return max(1, ...array_keys(self::soubory()));
     }
 
+    /** Migrace pro veřejný web: chyba se zapíše do protokolu (nejvýš jednou za hodinu) a web běží dál. */
+    public static function bezpecne(Db $db, Settings $settings): void
+    {
+        try {
+            self::proved($db, $settings);
+        } catch (\Throwable $e) {
+            self::zapisChybu($e);
+        }
+    }
+
+    public static function zapisChybu(\Throwable $e): void
+    {
+        $znacka = KALETA_ROOT . '/storage/cache/migrace-chyba';
+        if (is_file($znacka) && time() - (int) filemtime($znacka) < 3600) {
+            return;
+        }
+        @touch($znacka);
+        @file_put_contents(KALETA_ROOT . '/storage/log/chyby.log', sprintf("[%s] Migrace databáze se nepovedla: %s\n", date('c'), $e->getMessage()), FILE_APPEND | LOCK_EX);
+    }
+
     /** @return list<string> názvy právě provedených migrací */
     public static function proved(Db $db, Settings $settings): array
     {

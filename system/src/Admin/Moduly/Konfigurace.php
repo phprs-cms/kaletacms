@@ -308,7 +308,7 @@ class Konfigurace extends Modul
         }
         try {
             Zaloha::vytvor($this->db, 'predaktualizaci');
-            $verze = (new Aktualizace($this->app->settings()))->nainstaluj();
+            $verze = (new Aktualizace($this->app->settings()))->nainstaluj($this->app->db());
         } catch (\Throwable $e) {
             return $this->zpet(t('Aktualizace se nezdařila: %s Na webu se nic nezměnilo.', t($e->getMessage())), '', ['zalozka' => 'zalohy'], 'chyba');
         }

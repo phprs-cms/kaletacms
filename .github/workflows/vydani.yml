@@ -23,6 +23,7 @@ jobs:
         options: --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
       - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
       - uses: shivammathur/setup-php@v2
         with: { php-version: '8.4', extensions: 'pdo_mysql, mbstring, gd, intl, zip, sodium', coverage: none }
       - name: Verze v kódu odpovídá tagu
@@ -30,6 +31,9 @@ jobs:
       - name: Testy
         env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root }
         run: tools/test.sh
+      - name: Aktualizace databáze z předchozích vydání
+        env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root, FROM: v1.0.0 }
+        run: tools/test-migrace.sh
       - name: Koncept vydání
         uses: softprops/action-gh-release@v2
         with: { draft: true, generate_release_notes: true }

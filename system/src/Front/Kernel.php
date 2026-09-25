@@ -52,7 +52,9 @@ final class Kernel
         $app->casovePasmo();
         // po aktualizaci systému (i automatické) se databáze upraví hned při první návštěvě, ne až po přihlášení administrátora
         if ($app->settings()->int('verze_db') < KALETA_VERZE_DB) {
-            \Kaleta\Core\Migrace::proved($app->db(), $app->settings());
+            // nepovedená migrace nesmí shodit celý web: zapíše se a web běží dál (změny databáze jsou jen přidávající);
+            // správce ji uvidí v administraci a může nainstalovat opravu
+            \Kaleta\Core\Migrace::bezpecne($app->db(), $app->settings());
         }
         // jazyková verze: /en/novinky/x -> jazyk "en", cesta "/novinky/x"; adresy z $app->url() pak dostávají předponu samy
         $jazyk = Jazyk::vychozi($app->settings());

@@ -97,7 +97,7 @@ final class Aktualizace
             if ($s->bool('aktualizace_auto')) {
                 try {
                     Zaloha::vytvor($app->db(), 'predaktualizaci');
-                    $a->nainstaluj();
+                    $a->nainstaluj($app->db());
                     $vysledek = t('Bezpečnostní aktualizace %s byla nainstalována automaticky. Před instalací vznikla záloha databáze.', (string) $nova['verze']);
                 } catch (\Throwable $e) {
                     $vysledek .= ' ' . t('Automatická instalace se nezdařila: %s', $e->getMessage());
@@ -115,8 +115,12 @@ final class Aktualizace
         }
     }
 
-    /** @return string nainstalovaná verze */
-    public function nainstaluj(): string
+    /**
+     * @param Db|null $db databáze webu: migrace nové verze proběhnou hned po nahrání souborů a když selže, vrátí se
+     *                    i soubory (web tak nezůstane s novým kódem nad nezmigrovanou databází)
+     * @return string nainstalovaná verze
+     */
+    public function nainstaluj(?Db $db = null): string
     {
         if (!class_exists(\ZipArchive::class) || !function_exists('sodium_crypto_sign_verify_detached')) {
             throw new \RuntimeException(t('Server nemá rozšíření zip nebo sodium - aktualizujte ručně nahráním souborů přes FTP.'));
@@ -179,6 +183,10 @@ final class Aktualizace
                         throw new \RuntimeException(t('Nelze zapsat soubor %s.', $relativni));
                     }
                     $zapsane[] = $relativni;
+                }
+                if ($db !== null) {
+                    // migrace čtou soubory z disku, tedy už z nové verze; změny jsou jen přidávající, starý kód nad nimi běží dál
+                    Migrace::proved($db, $this->settings);
                 }
             } catch (\Throwable $e) {
                 foreach (array_reverse($zapsane) as $relativni) {

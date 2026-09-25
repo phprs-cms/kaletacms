@@ -152,6 +152,7 @@ databázi `kaleta_test` smaže a vytvoří), případně jen `php tools/testy.ph
 - `tools/screenshots.sh` (+ `tools/screenshots.mjs`, Playwright a Chrome): čistá anglická instalace každého startovacího webu
   s ukázkovými daty a snímky do `docs/screenshots/` (web projektu, README, dokumentace). Po změně vzhledu administrace pusť znovu.
 - `tools/test-english.sh` (i v CI): anglický instalátor, web všech tří startovacích webů i administrace nesmí ukázat češtinu
+- `tools/test-migrace.sh` (i v CI na MySQL 8.4, MariaDB 10.6 a 11.4 a před každým vydáním): databáze z vydání `FROM` (výchozí v1.0.0) + současné migrace = stejná struktura jako čistá instalace, migrace jdou pustit znovu, datové migrace převezmou údaje. **Každá nová migrace musí projít tímhle testem** – čistá instalace migrace nespouští (1.0.8 kvůli tomu vyšla s rozbitou migrací). Migrace piš přenositelně (MySQL i MariaDB), bez odkazu na cílovou tabulku v ON DUPLICATE KEY UPDATE.
   (`tools/cestina.php`: diakritika, český klíč slovníku s překladem, častá česká slova; `--js` = české texty skriptů administrace bez
   položky v `image/jazyky/admin-en.js`). Nový text vždy přes `t()` a překlad přes `tools/slovnik.py`; výchozí texty pro návštěvníky
   v `Settings::PREKLADANE_VYCHOZI`. Stránky startovacích webů musí projít kontrolou před publikováním (hlídá `tools/testy.php`).
