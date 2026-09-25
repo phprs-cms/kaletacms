@@ -36,7 +36,8 @@ final class Settings
         'poptavky_mesice' => '24',    // poptávky z formulářů starší než tolik měsíců se mažou (osobní údaje nemají ležet věčně); 0 = nemazat
         'design_system' => '',        // barvy, písma, škála a rozměry webu (JSON, Stavitel\DesignSystem); prázdné = výchozí
         'brand_akcent' => '',         // starší: hlavní barva webu, čte se jen dokud není uložen design_system
-        'tmavy_rezim' => 'vypnuto',   // tmavý vzhled webu: vypnuto | auto (podle zařízení návštěvníka)
+        'tmavy_rezim' => 'vypnuto',   // tmavý vzhled webu: vypnuto | auto (podle zařízení návštěvníka) | tmavy (vždy tmavý)
+        'tmavy_prepinac' => '0',      // přepínač světlý / tmavý / podle zařízení pro návštěvníky (v záhlaví vedle jazyků)
         'brand_pismo_titulky' => 'vychozi', // klíč z Front\Identita::PISMA_TITULKU
         'brand_pismo_text' => 'vychozi',            // obrázek místo textového názvu v záhlaví
         'text_paticky' => '',

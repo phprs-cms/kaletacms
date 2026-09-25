@@ -62,10 +62,11 @@ $kontrastyHtml = function (array $kontrasty): string {
 <fieldset>
 <legend><?= e(t('Tmavý režim')) ?></legend>
 <div class="volby">
-	<label><input type="radio" name="tmavy_rezim" value="vypnuto" data-prepni="tmave:0"<?= $hodnoty['tmavy_rezim'] !== 'auto' ? ' checked' : '' ?>> <?= e(t('vypnutý – web je vždy světlý')) ?></label><br>
-	<label><input type="radio" name="tmavy_rezim" value="auto" data-prepni="tmave:1"<?= $hodnoty['tmavy_rezim'] === 'auto' ? ' checked' : '' ?>> <?= e(t('podle zařízení návštěvníka')) ?></label>
+	<label><input type="radio" name="tmavy_rezim" value="vypnuto" data-prepni="tmave:0"<?= !in_array($hodnoty['tmavy_rezim'], ['auto', 'tmavy'], true) ? ' checked' : '' ?>> <?= e(t('vypnutý – web je vždy světlý')) ?></label><br>
+	<label><input type="radio" name="tmavy_rezim" value="auto" data-prepni="tmave:1"<?= $hodnoty['tmavy_rezim'] === 'auto' ? ' checked' : '' ?>> <?= e(t('podle zařízení návštěvníka')) ?></label><br>
+	<label><input type="radio" name="tmavy_rezim" value="tmavy" data-prepni="tmave:1"<?= $hodnoty['tmavy_rezim'] === 'tmavy' ? ' checked' : '' ?>> <?= e(t('vždy tmavý')) ?></label>
 </div>
-<div class="vzhled-barvy" data-sekce="tmave"<?= $hodnoty['tmavy_rezim'] !== 'auto' ? ' hidden' : '' ?>>
+<div class="vzhled-barvy" data-sekce="tmave"<?= !in_array($hodnoty['tmavy_rezim'], ['auto', 'tmavy'], true) ? ' hidden' : '' ?>>
 <?php foreach (['text' => 'Text', 'pozadi' => 'Pozadí', 'plocha' => 'Plocha'] as $klic => $nazev): ?>
 	<label class="vzhled-barva">
 		<input type="color" name="ds[barvy_tmave][<?= e($klic) ?>]" value="<?= e($ds['barvy_tmave'][$klic]) ?>">
@@ -74,6 +75,7 @@ $kontrastyHtml = function (array $kontrasty): string {
 <?php endforeach ?>
 	<p class="napoveda"><?= e(t('Zkontrolujte logo: tmavé logo na průhledném pozadí by na tmavém webu zaniklo.')) ?></p>
 </div>
+<label class="vzhled-prepinac" data-sekce="tmave"<?= !in_array($hodnoty['tmavy_rezim'], ['auto', 'tmavy'], true) ? ' hidden' : '' ?>><input type="checkbox" name="tmavy_prepinac" value="1"<?= $hodnoty['tmavy_prepinac'] === '1' ? ' checked' : '' ?>> <?= e(t('Přepínač pro návštěvníky – v záhlaví si zvolí světlý, tmavý nebo vzhled podle zařízení (volba se pamatuje v jejich prohlížeči)')) ?></label>
 </fieldset>
 
 <fieldset>

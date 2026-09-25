@@ -40,7 +40,8 @@ pomocné funkce `e()`, `t()`, `datum()`, `datum_slovy()`, `slugify()` a běžné
 
 Každý text pro návštěvníka obal `e()` (ochrana před XSS) a `t()` (překlad do jazyka webu). Barvy a písma ber z proměnných
 `--ka-akcent`, `--ka-pismo-titulky`, `--ka-pismo-text`; tmavý režim patří do bloku
-`@media (prefers-color-scheme: dark) { :root[data-tmavy] { … } }`. Žádná externí písma ani skripty z CDN.
+`@media (prefers-color-scheme: dark) { :root[data-tmavy]:not([data-tema="svetly"]) { … } }` a stejná pravidla ještě pro
+`:root[data-tmavy][data-tema="tmavy"]` (web vždy tmavý, nebo tmavý zvolený návštěvníkem přepínačem vzhledu). Žádná externí písma ani skripty z CDN.
 
 Piš moderní CSS (vrstvy `@layer`, `clamp()`, container queries, `color-mix()`) a interaktivitu bez JavaScriptu (Popover API,
 `<details>`, `<dialog>`). Společné prvky (fotogalerie, prohlížečka, video, sdílení, osnova, FAQ) dodává `image/web.css` s nulovou vahou

@@ -275,8 +275,10 @@ final class DesignSystem
         $radky = array_map(fn (string $k, string $h): string => "\t{$k}: {$h};", array_keys($p), $p);
         $tmave = array_map(fn (string $k, string $h): string => "\t\t--ka-barva-{$k}: {$h};", array_keys($ds['barvy_tmave']), $ds['barvy_tmave']);
 
+        // tmavé barvy: podle zařízení (bez volby návštěvníka „světlý“) a vždy, když web nebo návštěvník zvolí tmavý vzhled
         return self::VRSTVY . "\n" . $pisma . "@layer tokeny {\n:root {\n" . implode("\n", $radky) . "\n}\n"
-            . "@media (prefers-color-scheme: dark) {\n\t:root[data-tmavy] {\n" . implode("\n", $tmave) . "\n\t}\n}\n}\n";
+            . "@media (prefers-color-scheme: dark) {\n\t:root[data-tmavy]:not([data-tema=\"svetly\"]) {\n" . implode("\n", $tmave) . "\n\t}\n}\n"
+            . ":root[data-tmavy][data-tema=\"tmavy\"] {\n" . implode("\n", $tmave) . "\n}\n}\n";
     }
 
     /**

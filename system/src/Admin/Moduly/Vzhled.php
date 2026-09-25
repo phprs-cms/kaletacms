@@ -32,7 +32,7 @@ final class Vzhled extends Modul
             'ds' => $ds,
             'kontrasty' => DesignSystem::kontrasty($ds),
             'predvolby' => array_map(fn (string $k): array => ['nazev' => DesignSystem::PREDVOLBY[$k][0], 'popis' => DesignSystem::PREDVOLBY[$k][1], 'ds' => DesignSystem::predvolba($k)], array_combine(array_keys(DesignSystem::PREDVOLBY), array_keys(DesignSystem::PREDVOLBY))),
-            'hodnoty' => ['layout' => $web->get('layout'), 'logo_webu' => $web->get('logo_webu'), 'favicon' => $web->get('favicon'), 'tmavy_rezim' => $web->get('tmavy_rezim'), 'nazev_webu' => $web->get('nazev_webu')],
+            'hodnoty' => ['layout' => $web->get('layout'), 'logo_webu' => $web->get('logo_webu'), 'favicon' => $web->get('favicon'), 'tmavy_rezim' => $web->get('tmavy_rezim'), 'tmavy_prepinac' => $web->get('tmavy_prepinac'), 'nazev_webu' => $web->get('nazev_webu')],
         ]);
     }
 
@@ -56,7 +56,8 @@ final class Vzhled extends Modul
             }
         }
         $web->set('favicon', $ikona);
-        $web->set('tmavy_rezim', $r->post('tmavy_rezim') === 'auto' ? 'auto' : 'vypnuto');
+        $web->set('tmavy_rezim', in_array($r->post('tmavy_rezim'), ['auto', 'tmavy'], true) ? $r->post('tmavy_rezim') : 'vypnuto');
+        $web->set('tmavy_prepinac', $r->postBool('tmavy_prepinac') ? '1' : '0');
         $web->set('design_system', (string) json_encode($this->zFormulare(), JSON_UNESCAPED_SLASHES));
         $web->set('vzhled_ulozen', '1'); // první kroky: vzhled zvolil správce, ne startovací web
         // starší klíče Identity: od uložení design systému se nečtou, ať nemate export ani jiné nástroje

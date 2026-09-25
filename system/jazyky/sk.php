@@ -834,4 +834,7 @@ return [
     'Vítejte v Kaletě' => 'Náš nový web je spustený',
     'Web je nainstalovaný a připravený. Tuto novinku můžete v administraci upravit nebo smazat.' => 'Vitajte na našom novom webe. Budeme tu zverejňovať novinky o našej práci, projektoch a ponukách.',
     'Do administrace se dostanete na adrese admin.php. Na přehledu vás provedou První kroky: dejte webu tvář, vyplňte údaje o firmě a připravte stránky.' => 'Web sme prerobili, aby bolo ľahšie vidieť, čo robíme a ako nás kontaktovať. Pozrite sa – a ak máte otázku, jednoducho nám napíšte.',
+    'Vzhled' => 'Vzhľad',
+    'Podle zařízení' => 'Podľa zariadenia',
+    'Světlý' => 'Svetlý',
 ];

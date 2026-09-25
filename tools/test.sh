@@ -232,6 +232,10 @@ mcp uprav_design_system '{"ds":{"barvy":{"primarni":"#0f766e"},"zaobleni":"l"}}'
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
 over "design systém z MCP je na webu" 200 / 'ka-barva-primarni: #0f766e'
 over "design systém z MCP zachoval ostatní barvy" 200 / 'ka-barva-plocha: #f5f6f8'
+mcp uprav_nastaveni '{"nastaveni":{"tmavy_rezim":"tmavy","tmavy_prepinac":"1"}}' > /dev/null; rm -f "$PRACE"/web/storage/cache/stranky/*.html
+curl -s -o "$PRACE/odpoved" "$B/"; grep -q 'data-tmavy data-tema="tmavy"' "$PRACE/odpoved" && grep -q 'data-tema-volba="svetly"' "$PRACE/odpoved" && grep -q 'localStorage.getItem(.ka-tema.)' "$PRACE/odpoved" && grep -q 'data-tema=\\"tmavy\\"\]\|data-tema="tmavy"\] {' "$PRACE/odpoved" \
+    && echo "  ok     tmavý vzhled vždy a přepínač vzhledu pro návštěvníky (i přes MCP)" || { echo "  CHYBA  tmavý režim a přepínač vzhledu"; CHYB=$((CHYB+1)); }
+mcp uprav_nastaveni '{"nastaveni":{"tmavy_rezim":"vypnuto","tmavy_prepinac":"0"}}' > /dev/null; rm -f "$PRACE"/web/storage/cache/stranky/*.html
 
 echo "== Claude (MCP): stavba webu bez administrace"
 mcp stavba_z_html '{"titulek":"Mrizka","html":"<style>.mriz-t { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--ka-mezera-l) } .kar-t:hover { box-shadow: var(--ka-stin-m) } @media (max-width: 767px) { .mriz-t { grid-template-columns: 1fr } }</style><section><div class=\"mriz-t\"><div class=\"kar-t\"><h3>Jedna</h3></div><div class=\"kar-t\"><h3>Dva</h3></div></div></section>"}' > "$PRACE/odpoved"

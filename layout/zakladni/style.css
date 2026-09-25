@@ -31,6 +31,8 @@
 		--krok-3: var(--ka-krok-3, 2rem);
 	}
 	:root[data-tmavy] { color-scheme: light dark; }
+	:root[data-tmavy][data-tema="tmavy"] { color-scheme: dark; }
+	:root[data-tmavy][data-tema="svetly"] { color-scheme: light; }
 	*, *::before, *::after { box-sizing: border-box; }
 	html { -webkit-text-size-adjust: 100%; scroll-padding-top: 5rem; }
 	body { margin: 0; background: var(--podklad); color: var(--text); font: var(--krok-0) / 1.6 var(--pismo); text-rendering: optimizeLegibility; }

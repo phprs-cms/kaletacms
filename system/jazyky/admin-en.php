@@ -2369,4 +2369,6 @@ return [
     'Kdo web provozuje: firma, sídlo, identifikační čísla, zápis v rejstříku a kontakt z Nastavení → Firma.' => 'Who runs the site: company, registered office, identification numbers, register entry and contact from Settings → Company.',
     'Texty pro návštěvníky (Hledat, Číst dál…) jsou přeložené do jazyků: %s. Ostatní jazyky je mají anglicky, datum ve svém tvaru. Obsah stránek a novinek píšete v jazyce verze.' => 'Texts for visitors (Search, Read more…) are translated into: %s. Other languages show them in English, with dates in their own format. You write the content of pages and news in the language of the version.',
     '%s: %s návštěv' => '%s: %s visits',
+    'vždy tmavý' => 'always dark',
+    'Přepínač pro návštěvníky – v záhlaví si zvolí světlý, tmavý nebo vzhled podle zařízení (volba se pamatuje v jejich prohlížeči)' => 'Switcher for visitors – in the header they choose light, dark or matching their device (the choice is remembered in their browser)',
 ];

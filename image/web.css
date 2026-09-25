@@ -115,14 +115,19 @@ figure.galerie figcaption { grid-column: 1 / -1; }
 	img, figure, .ka-autor { break-inside: avoid; }
 }
 
-/* ---------- tmavý režim: společné prvky ---------- */
+/* ---------- tmavý režim: společné prvky (podle zařízení, nebo zvolený webem či návštěvníkem) ---------- */
 @media (prefers-color-scheme: dark) {
-	:root[data-tmavy] .cookies-lista { background: #1D1D1D; color: #ECECEC; border-color: #3A3A3A; }
-	:root[data-tmavy] .cookies-lista a, :root[data-tmavy] .cookies-tlacitka .cookies-odkaz { color: #ECECEC; }
-	:root[data-tmavy] img:not(:is(.logo, .ka-logo) img) { filter: brightness(0.92); } /* fotky ztlumit, logo ne */
-	:root[data-tmavy] :is(.ka-sdileni a:hover, .ka-sdileni button:hover) { color: color-mix(in srgb, var(--ka-akcent, #1f4fe0) 55%, #FFFFFF); }
-	:root[data-tmavy] .ka-upravit-zde { border: 1px solid rgb(255 255 255 / 0.25); }
+	:root[data-tmavy]:not([data-tema="svetly"]) .cookies-lista { background: #1D1D1D; color: #ECECEC; border-color: #3A3A3A; }
+	:root[data-tmavy]:not([data-tema="svetly"]) .cookies-lista a, :root[data-tmavy]:not([data-tema="svetly"]) .cookies-tlacitka .cookies-odkaz { color: #ECECEC; }
+	:root[data-tmavy]:not([data-tema="svetly"]) img:not(:is(.logo, .ka-logo) img) { filter: brightness(0.92); } /* fotky ztlumit, logo ne */
+	:root[data-tmavy]:not([data-tema="svetly"]) :is(.ka-sdileni a:hover, .ka-sdileni button:hover) { color: color-mix(in srgb, var(--ka-akcent, #1f4fe0) 55%, #FFFFFF); }
+	:root[data-tmavy]:not([data-tema="svetly"]) .ka-upravit-zde { border: 1px solid rgb(255 255 255 / 0.25); }
 }
+:root[data-tmavy][data-tema="tmavy"] .cookies-lista { background: #1D1D1D; color: #ECECEC; border-color: #3A3A3A; }
+:root[data-tmavy][data-tema="tmavy"] .cookies-lista a, :root[data-tmavy][data-tema="tmavy"] .cookies-tlacitka .cookies-odkaz { color: #ECECEC; }
+:root[data-tmavy][data-tema="tmavy"] img:not(:is(.logo, .ka-logo) img) { filter: brightness(0.92); } /* fotky ztlumit, logo ne */
+:root[data-tmavy][data-tema="tmavy"] :is(.ka-sdileni a:hover, .ka-sdileni button:hover) { color: color-mix(in srgb, var(--ka-akcent, #1f4fe0) 55%, #FFFFFF); }
+:root[data-tmavy][data-tema="tmavy"] .ka-upravit-zde { border: 1px solid rgb(255 255 255 / 0.25); }
 }
 
 /* Přepínač jazykových verzí je systémový prvek: vrstva stavitel, aby ho nepřebila pravidla menu šablony (nav ul, nav a);
@@ -145,11 +150,22 @@ figure.galerie figcaption { grid-column: 1 / -1; }
 	.ka-jazyky-vyber [popover] a[aria-current] { background: var(--ka-barva-primarni-jemna); color: var(--ka-barva-primarni); font-weight: 600; }
 	.ka-jazyky-vyber [popover] small { color: var(--ka-barva-tlumeny); font-size: 0.75em; letter-spacing: 0.06em; }
 	@supports not (top: anchor(bottom)) { .ka-jazyky-vyber [popover] { top: 4.5rem; right: max(1rem, (100vw - var(--ka-sirka, 72rem)) / 2); } }
+	/* přepínač vzhledu (světlý / tmavý / podle zařízení) – stejná nabídka jako jazyky, položky jsou tlačítka */
+	.ka-tema-tl { padding: 0.5em 0.6em; }
+	.ka-tema-ikona { display: none; }
+	.ka-tema:is([data-volba="auto"], :not([data-volba])) .ka-tema-ikona--auto, .ka-tema[data-volba="svetly"] .ka-tema-ikona--svetly, .ka-tema[data-volba="tmavy"] .ka-tema-ikona--tmavy { display: block; }
+	.ka-jazyky-vyber svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; flex: none; }
+	.ka-jazyky-vyber [popover] button { display: flex; align-items: center; gap: 0.6em; width: 100%; padding: 0.55em 0.75em; border: 0; border-radius: calc(var(--ka-zaobleni, 8px) / 1.5); background: none; color: inherit; font: inherit; text-align: start; cursor: pointer; }
+	.ka-jazyky-vyber [popover] button:hover { background: var(--ka-barva-plocha); }
+	.ka-jazyky-vyber [popover] button[aria-pressed="true"] { background: var(--ka-barva-primarni-jemna); color: var(--ka-barva-primarni); font-weight: 600; }
+	.ka-jazyky-vyber [popover] button:focus-visible { outline: 3px solid var(--ka-barva-sekundarni); outline-offset: 2px; }
+	.ka-jazyky + .ka-tema, .ka-jazyky-vyber + .ka-tema { margin-inline-start: var(--ka-mezera-2xs, 6px); }
 	@media (max-width: 767px) {
 		/* v rozbaleném menu na telefonu jazyky rovnou jako řada voleb, bez další vyskakovací nabídky */
 		:is(.ka-nav-menu, .navigace) .ka-jazyky, :is(.ka-nav-menu, .navigace) .ka-jazyky-vyber { align-self: flex-start; margin: var(--ka-mezera-s, 12px) 0 0; }
 		:is(.ka-nav-menu, .navigace) .ka-jazyky-tl { display: none; }
 		:is(.ka-nav-menu, .navigace) .ka-jazyky-vyber [popover] { display: flex; flex-direction: row; flex-wrap: wrap; gap: var(--ka-mezera-2xs, 4px); position: static; inset: auto; min-width: 0; max-height: none; margin: 0; padding: 0; border: 0; box-shadow: none; background: none; overflow: visible; }
-		:is(.ka-nav-menu, .navigace) .ka-jazyky-vyber [popover] a { gap: 0.4em; padding: 0.45em 0.7em; border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni-plne, 999px); }
+		:is(.ka-nav-menu, .navigace) .ka-jazyky-vyber [popover] :is(a, button) { width: auto; gap: 0.4em; padding: 0.45em 0.7em; border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni-plne, 999px); }
+		:is(.ka-nav-menu, .navigace) .ka-tema { margin-inline-start: 0; }
 	}
 }

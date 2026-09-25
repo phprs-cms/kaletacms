@@ -61,8 +61,10 @@ a sdílení). Smazaná stránka jde do **koše** a 30 dní ji jde obnovit; **Dup
 - **Předvolby** – hotový vzhled jedním klikem (barvy, písma, velikosti), pak ho dolaďte.
 - **Barvy** – hlavní, doplňková, text, pozadí, plocha. Odstíny se dopočítají samy. Blok **Čitelnost** hlídá kontrast
   podle WCAG; červeně označenou dvojici barev změňte.
-- **Tmavý režim**, **písma**, **velikosti** (základní písmo na telefonu a monitoru, poměr nadpisů, šířka obsahu),
-  **zaoblení rohů**, logo a ikona.
+- **Tmavý režim** – vypnutý (vždy světlý), podle zařízení návštěvníka, nebo vždy tmavý – s vlastní barvou textu, pozadí
+  a plochy. **Přepínač pro návštěvníky** přidá do záhlaví vedle jazyků volbu světlý / tmavý / podle zařízení; volba se
+  pamatuje v prohlížeči návštěvníka.
+- **Písma**, **velikosti** (základní písmo na telefonu a monitoru, poměr nadpisů, šířka obsahu), **zaoblení rohů**, logo a ikona.
 
 - **Typografické styly** – velikost a tloušťka pojmenovaných stylů (Hlavní titulek, Nadpis sekce, Perex…), které ve
   builderu vyberete u prvku. Změna tady se projeví na celém webu.

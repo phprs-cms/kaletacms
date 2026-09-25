@@ -62,8 +62,10 @@ sharing). A deleted page goes to the **trash** and can be restored for 30 days; 
 - **Presets** – a finished look in one click (colours, fonts, sizes), then fine-tune it.
 - **Colours** – primary, secondary, text, background, surface. Shades are derived automatically. The **Readability** block
   checks WCAG contrast; change any pair marked in red.
-- **Dark mode**, **fonts**, **sizes** (base font on phones and monitors, heading ratio, content width), **corner radius**,
-  logo and icon.
+- **Dark mode** – off (always light), matching the visitor's device, or always dark – with its own text, background and surface
+  colours. A **switcher for visitors** adds a light / dark / match-device choice to the header next to the languages; the
+  choice is remembered in the visitor's browser.
+- **Fonts**, **sizes** (base font on phones and monitors, heading ratio, content width), **corner radius**, logo and icon.
 
 - **Typography styles** – size and weight of the named styles (Main title, Section heading, Lead…) you pick for
   elements in the builder. A change here applies across the whole site.

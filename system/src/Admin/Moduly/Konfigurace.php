@@ -45,6 +45,8 @@ class Konfigurace extends Modul
             'titulni_stranka' => 'cislo:0:4294967295', 'pocet_clanku' => 'cislo:1:100', 'sdileni' => 'ano', 'kontrola_odkazu' => 'ano', 'osnova_clanku' => 'ano', 'souvisejici_auto' => 'ano', 'cache_stranek' => 'ano', 'udrzba' => 'ano', 'udrzba_text' => 'text', 'webhook_url' => 'url', 'webhook_poptavky' => 'url', 'vynutit_2fa' => 'vyber:|spravci|vsichni',
             'casove_pasmo' => 'pasmo', 'jazyk_webu' => 'vyber:' . \Kaleta\Core\Jazyk::KODY, 'jazyky_dalsi' => 'seznam:' . \Kaleta\Core\Jazyk::KODY,
         ],
+        // Vzhled webu ukládá modul Vzhled; tady jen typy pro kontrolu hodnot z napojení na Claude (není to záložka Nastavení)
+        'vzhled' => ['tmavy_rezim' => 'vyber:vypnuto|auto|tmavy', 'tmavy_prepinac' => 'ano'],
         'firma' => [
             'firma_nazev' => 'text', 'firma_typ' => 'vyber:' . self::TYPY_FIRMY, 'firma_ico' => 'vzor:/^((?=.*\d)[A-Za-z0-9 .\/-]{1,24})?$/', 'firma_rejstrik' => 'text', 'firma_zastupce' => 'text', 'firma_dic' => 'vzor:/^([A-Z]{2}[A-Z0-9]{6,12})?$/',
             'firma_ulice' => 'text', 'firma_mesto' => 'text', 'firma_psc' => 'vzor:/^[A-Z0-9 -]{0,10}$/i', 'firma_zeme' => 'vzor:/^[A-Z]{2}$/',

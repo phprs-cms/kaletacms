@@ -26,9 +26,13 @@ $jeAktivni = fn (string $odkaz): bool => $odkaz === '' ? $cesta === $url('') : (
 $site = array_filter(['LinkedIn' => $web->get('soc_linkedin'), 'Facebook' => $web->get('soc_facebook'), 'Instagram' => $web->get('soc_instagram'), 'YouTube' => $web->get('soc_youtube'), 'X' => $web->get('soc_x')]);
 ?>
 <!doctype html>
-<html lang="<?= e($jazyk ?? 'cs') ?>"<?= $web->get('tmavy_rezim') === 'auto' ? ' data-tmavy' : '' ?>>
+<?php $tmavy = in_array($web->get('tmavy_rezim'), ['auto', 'tmavy'], true); ?>
+<html lang="<?= e($jazyk ?? 'cs') ?>"<?= $tmavy ? ' data-tmavy' : '' ?><?= $web->get('tmavy_rezim') === 'tmavy' ? ' data-tema="tmavy"' : '' ?>>
 <head>
 <meta charset="utf-8">
+<?php if ($tmavy && $web->get('tmavy_prepinac') === '1'): ?>
+<script>try{var t=localStorage.getItem('ka-tema'),r=document.documentElement;if(t==='auto')r.removeAttribute('data-tema');else if(t==='svetly'||t==='tmavy')r.setAttribute('data-tema',t)}catch(e){}</script>
+<?php endif ?>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= e($titulek === '' ? $nazevWebu : (str_contains(mb_strtolower($titulek), mb_strtolower($nazevWebu)) ? $titulek : $titulek . ' – ' . $nazevWebu)) ?></title>
 <?php if ($meta['popis'] !== ''): ?>

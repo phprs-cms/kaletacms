@@ -858,4 +858,8 @@ return [
     'Vítejte v Kaletě' => 'Il nostro nuovo sito è online',
     'Web je nainstalovaný a připravený. Tuto novinku můžete v administraci upravit nebo smazat.' => 'Benvenuti nel nostro nuovo sito. Qui condivideremo notizie sul nostro lavoro, sui progetti e sulle offerte.',
     'Do administrace se dostanete na adrese admin.php. Na přehledu vás provedou První kroky: dejte webu tvář, vyplňte údaje o firmě a připravte stránky.' => 'Abbiamo rinnovato il sito perché sia più facile vedere cosa facciamo e come contattarci. Date un’occhiata – e per qualsiasi domanda, scriveteci.',
+    'Vzhled' => 'Aspetto',
+    'Podle zařízení' => 'Come il dispositivo',
+    'Světlý' => 'Chiaro',
+    'Tmavý' => 'Scuro',
 ];

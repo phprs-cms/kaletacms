@@ -296,4 +296,28 @@
 		ram.loading = 'lazy';
 		tl.replaceWith(ram);
 	});
+	// přepínač vzhledu (views/front/tema.php): volba se pamatuje v prohlížeči, hlavička šablony ji použije před vykreslením
+	(function () {
+		var volby = document.querySelectorAll('[data-tema-volba]');
+		if (!volby.length) { return; }
+		var koren = document.documentElement;
+		function oznac(v) {
+			document.querySelectorAll('.ka-tema').forEach(function (n) { n.setAttribute('data-volba', v); });
+			volby.forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-tema-volba') === v)); });
+		}
+		var ulozena = null;
+		try { ulozena = localStorage.getItem('ka-tema'); } catch (e) { /* úložiště nedostupné */ }
+		var vychozi = (document.querySelector('.ka-tema') || koren).getAttribute('data-tema-vychozi') || 'auto';
+		oznac(ulozena === 'auto' || ulozena === 'svetly' || ulozena === 'tmavy' ? ulozena : vychozi);
+		document.addEventListener('click', function (e) {
+			var b = e.target.closest && e.target.closest('[data-tema-volba]');
+			if (!b) { return; }
+			var v = b.getAttribute('data-tema-volba');
+			if (v === 'auto') { koren.removeAttribute('data-tema'); } else { koren.setAttribute('data-tema', v); }
+			try { localStorage.setItem('ka-tema', v); } catch (err) { /* volba platí jen pro tuto stránku */ }
+			oznac(v);
+			var nabidka = b.closest('[popover]');
+			if (nabidka && nabidka.matches(':popover-open')) { nabidka.hidePopover(); }
+		});
+	})();
 })();
