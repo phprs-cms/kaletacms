@@ -1,23 +1,27 @@
-# Bezpečnost Kalety
+# Kaleta security policy
 
-## Nahlášení chyby
+## Reporting a vulnerability
 
-Bezpečnostní chybu prosím **nehlaste veřejně** v Issues. Použijte soukromé hlášení na GitHubu
-(záložka *Security → Report a vulnerability*) nebo e-mailem na **info@kaletacms.com**. Popište verzi,
-postup a dopad. Ozveme se do 3 pracovních dnů; opravu běžně vydáváme do 14 dnů, u kritických chyb co nejdříve.
+Please **do not report security issues publicly** in Issues. Use GitHub's private reporting
+(*Security → Report a vulnerability*) or email **info@kaletacms.com**. Describe the version, the steps
+and the impact. We reply within 3 working days and usually release a fix within 14 days; critical issues
+are fixed as soon as possible.
 
-## Jak se oprava dostane k uživatelům
+## How a fix reaches users
 
-1. Oprava vyjde jako nová verze označená **bezpečnostní**.
-2. Každá instalace se po novinkách dívá dvakrát denně. Bezpečnostní verzi si (pokud to správce nevypnul)
-   **nainstaluje sama**: zazálohuje databázi, ověří kontrolní součet a podpis vydavatele a přepíše soubory systému.
-3. Správce dostane e-mail a v administraci vidí upozornění. Kdo má automatiku vypnutou, aktualizuje jedním tlačítkem.
-4. Po vydání opravy zveřejníme bezpečnostní oznámení (GitHub Security Advisory) s popisem a poděkováním nálezci.
+1. The fix ships as a new version marked **security release**.
+2. Every installation checks for new versions twice a day. Unless the administrator has turned it off,
+   it **installs a security release on its own**: it backs up the database, verifies the checksum and the
+   publisher's signature, and replaces the system files.
+3. The administrator gets an email and a notice in the admin. Sites with automatic updates turned off
+   update with one button.
+4. After the fix is released we publish a security advisory (GitHub Security Advisory) with a description
+   and credit to the reporter.
 
-Podporovaná je vždy poslední vydaná verze.
+Only the latest released version is supported.
 
-## Co systém chrání
+## What the system protects
 
-Připravené dotazy všude, hesla `password_hash`, CSRF u každé akce v administraci, výstup přes escapování,
-nahrané obrázky se překódovávají, složky `system/` a `storage/` nejsou z webu přístupné, aktualizace jen
-s podpisem Ed25519. Systém za běhu nepoužívá žádné knihovny třetích stran.
+Prepared statements everywhere, `password_hash` passwords, CSRF protection on every admin action, escaped
+output, re-encoded uploaded images, `system/` and `storage/` not reachable from the web, and updates only
+with an Ed25519 signature. The system uses no third-party libraries at runtime.

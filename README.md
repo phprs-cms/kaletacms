@@ -2,68 +2,67 @@
 
 # Kaleta
 
-**Open-source CMS pro firemní weby** – prezentace, služby, reference, tým, kariéra, kontakt a novinky. Vizuální builder
-stránek s výstupem na úrovni ručně psaného HTML, AI asistent a napojení Clauda přes MCP, import z WordPressu.
-[English](README.en.md)
+**An open-source CMS for business websites** – services, testimonials, team, careers, contact and news. A visual page builder
+whose output reads like hand-written HTML, an AI assistant, Claude over MCP, and a WordPress importer.
+[Česky](README.cs.md)
 
-![Builder Kalety: plátno je skutečná stránka, prvky vlevo, vlastnosti vpravo](docs/screenshots/admin-builder.png)
+![The Kaleta builder: the canvas is the real page, elements on the left, properties on the right](docs/screenshots/admin-builder.png)
 
-> **Verze 1.0.** Web projektu: [kaletacms.com](https://kaletacms.com) · stažení: [GitHub Releases](https://github.com/phprs-cms/kaletacms/releases/latest)
+> **Version 1.0.** Project website: [kaletacms.com](https://kaletacms.com) · download: [GitHub Releases](https://github.com/phprs-cms/kaletacms/releases/latest)
 
-## Co umí
+## Features
 
-- **Builder stránek** – plátno je skutečná stránka webu. Prvky a hotové sekce přetáhnete na místo, styl nastavíte zvlášť
-  pro počítač, tablet, mobil i najetí myší. Koncept se ukládá průběžně, na web jde až tlačítkem Publikovat; starší verze
-  se dají obnovit.
-- **Knihovna 39 hotových sekcí** (úvody, služby, ceník, reference, tým, galerie, kontakt s formulářem…) a **tři ukázkové
-  weby** k instalaci. Texty česky i anglicky, podle jazyka stránky.
-- **Design systém** – předvolby vzhledu jedním klikem, barvy s kontrolou čitelnosti (WCAG), písma, plynulé velikosti
-  a mezery. Všechno jsou tokeny, takže změna barvy přebarví celý web.
-- **Části webu** – záhlaví, patička a obálky detailu novinky, výpisu a stránky 404 v builderu, včetně variant pro
-  vybrané stránky (landing page bez navigace).
-- **Komponenty** – znovupoužitelné bloky s vlastnostmi; úprava komponenty se projeví všude, kde je použitá.
-- **Kolekce** – vlastní typy obsahu (reference, tým, produkty, pobočky…) s vlastními poli, výpis v builderu se
-  značkami `{{pole}}`, filtry, řazením a stránkováním, stránky položek se šablonou z builderu.
-- **Formuláře a poptávky** – poptávkový formulář bez CAPTCHA a cookies, poptávky v administraci, upozornění e-mailem,
-  export CSV a automatické mazání osobních údajů.
-- **Firma** – adresa, IČO, otevírací doba a mapa jednou v Nastavení; web je vypíše a vyhledávače dostanou strukturovaná
-  data LocalBusiness.
-- **AI** – asistent navrhne novou sekci podle popisu, přepíše text prvku, navrhne titulky, SEO popisy, korekturu i překlad
-  (Claude, OpenAI, Google Gemini nebo Mistral). Claude navíc může web stavět přes **MCP**: HTML převede na stavbu,
-  upraví části webu, kolekce i vzhled – vždy jako koncept ke schválení.
-- **Novinky** (blog), vícejazyčné weby, SEO a llms.txt, vlastní měření návštěvnosti bez cookies, přesměrování,
-  zálohy a podepsané aktualizace, **import z WordPressu** (i rovnou do builderu).
+- **Page builder** – the canvas is the real page. Drag elements and ready-made sections into place, style them separately
+  for desktop, tablet, mobile and hover. Drafts save continuously and go live only when you publish; older versions can be restored.
+- **Library of 39 ready-made sections** (heroes, services, pricing, testimonials, team, gallery, contact with a form…) and
+  **three starter sites** at installation. Texts in Czech and English, following the page language.
+- **Design system** – one-click presets, colours with a readability (WCAG) check, fonts, fluid sizes and spacing – all tokens,
+  so changing a colour restyles the whole site.
+- **Site parts** – header, footer and wrappers for the news item, news list and 404 page in the builder, including
+  variants for selected pages (a landing page without navigation).
+- **Components** – reusable blocks with properties; editing a component updates it everywhere.
+- **Collections** – custom content types (testimonials, team, products, branches…) with their own fields, listed in the
+  builder with `{{field}}` tags, filters, sorting and pagination, and item pages with a builder template.
+- **Forms and enquiries** – an enquiry form without CAPTCHA or cookies, enquiries in the admin, email notifications,
+  CSV export and automatic deletion of personal data.
+- **Company details** – address, company ID, opening hours and map once in Settings; the site shows them and search
+  engines get LocalBusiness structured data.
+- **AI** – the assistant drafts a new section from a description, rewrites element text, suggests headlines, SEO
+  descriptions, proofreading and translation (Claude, OpenAI, Google Gemini or Mistral). Claude can also build the site
+  over **MCP**: it turns HTML into builder content and edits site parts, collections and the design – always as a draft to approve.
+- **News** (blog), multilingual sites, SEO and llms.txt, cookie-free analytics, redirects, backups and signed updates,
+  **WordPress import** (straight into the builder, too).
 
-## Zásady
+## Principles
 
-- **Bez technologického dluhu:** čisté PHP 8.4+, žádný framework, Composer ani build krok; žádné cizí pluginy.
-- **Čistý výstup:** jeden prvek builderu = jedna HTML značka, CSS jen toho, co stránka používá, ve vrstvách kaskády
-  (`@layer`); JavaScript jen tam, kde je opravdu potřeba. Hlídají to testy.
-- **Web 2026:** fluidní typografie a mezery, container queries, barvy v OKLCH (`color-mix`), Popover API, přechody mezi stránkami.
-- **AI jako rovnocenný uživatel:** co jde v editoru, jde i přes MCP – stejné schéma, validace i oprávnění.
-- **Soukromí a přístupnost jako výchozí stav:** žádné cizí skripty ani písma, kontrola kontrastu barev.
-- **Instalace přes FTP**, podepsané aktualizace.
+- **No technical debt:** plain PHP 8.4+, no framework, Composer or build step; no third-party plugins.
+- **Clean output:** one builder element = one HTML tag, CSS only for what the page uses, in cascade layers (`@layer`);
+  JavaScript only where it is really needed. Tests enforce it.
+- **Web 2026:** fluid type and spacing, container queries, OKLCH colours (`color-mix`), the Popover API, view transitions.
+- **AI as a first-class user:** whatever works in the editor works over MCP – same schema, validation and permissions.
+- **Privacy and accessibility by default:** no third-party scripts or fonts, colour contrast checks.
+- **FTP installation**, signed updates.
 
-## Instalace
+## Installation
 
-1. Stáhněte balíček `kaleta-X.Y.Z.zip` z [Releases](https://github.com/phprs-cms/kaletacms/releases/latest) a nahrajte jeho obsah
-   (i skryté soubory `.htaccess`) na hosting s PHP 8.4+ a MySQL 8 / MariaDB 10.6+.
-2. Založte prázdnou databázi.
-3. Otevřete `https://vas-web.cz/install.php`, vyplňte formulář a vyberte ukázkový web.
+1. Download `kaleta-X.Y.Z.zip` from [Releases](https://github.com/phprs-cms/kaletacms/releases/latest) and upload its contents
+   (including the hidden `.htaccess` files) to hosting with PHP 8.4+ and MySQL 8 / MariaDB 10.6+.
+2. Create an empty database.
+3. Open `https://your-site.com/install.php`, fill in the form and choose a starter site.
 
-Další verze si web stáhne a nainstaluje sám (Nastavení → Zálohy a aktualizace); balíčky jsou podepsané vydavatelem.
-Nginx nečte `.htaccess` – použijte ukázku `system/nginx.priklad.conf`. Návod k používání je v [příručce](docs/prirucka.md).
+Later versions are downloaded and installed by the site itself (Settings → Backups and updates); packages are signed by the publisher.
+Nginx does not read `.htaccess` – use the example in `system/nginx.priklad.conf`. The user guide is in [docs/guide.md](docs/guide.md).
 
-## Vývoj
+## Development
 
 ```bash
 php -S localhost:8080 system/dev-router.php
 ```
 
-Testy: `php tools/testy.php` (jednotkové, bez databáze) a `tools/test.sh` (čistá instalace a průchod webem, administrací,
-builderem i MCP; potřebuje MySQL; `WEB=remeslo tools/test.sh` otestuje jiný ukázkový web). Pravidla pro přispěvatele
-a architektura jsou v [`CLAUDE.md`](CLAUDE.md).
+Tests: `php tools/testy.php` (unit, no database) and `tools/test.sh` (clean install plus a walk through the site, admin,
+builder and MCP; needs MySQL; `WEB=remeslo tools/test.sh` tests another starter site). Contributor rules and
+architecture notes are in [`CLAUDE.md`](CLAUDE.md) (Czech).
 
 ## Licence
 
-GNU GPL verze 2 nebo novější. Text licence je v souboru [`LICENSE`](LICENSE).
+GNU GPL version 2 or later. The licence text is in [`LICENSE`](LICENSE).
