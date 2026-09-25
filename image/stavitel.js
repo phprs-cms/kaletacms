@@ -1493,7 +1493,7 @@
 			el('small', { style: 'color:var(--text-slaby)' }, T('Třída sdílí vzhled mezi prvky na všech stránkách. Klepnutím na třídu ji upravíte.'))));
 		const cssPole = el('textarea', { rows: 4, placeholder: 'transition: transform .2s;\nbackdrop-filter: blur(8px);', onchange: (e) => zmen(() => { const h = e.target.value.trim(); if (h) { p.css = h; } else { delete p.css; } }) });
 		cssPole.value = p.css || '';
-		const atrPole = el('textarea', { rows: 3, placeholder: 'data-sledovat=cta\naria-label=Hlavní výzva', onchange: (e) => zmen(() => {
+		const atrPole = el('textarea', { rows: 3, placeholder: 'data-sledovat=cta\naria-label=' + T('Hlavní výzva'), onchange: (e) => zmen(() => {
 			const atributy = {};
 			e.target.value.split('\n').forEach((radek) => { const i = radek.indexOf('='); if (i > 0) { atributy[radek.slice(0, i).trim()] = radek.slice(i + 1).trim(); } });
 			if (Object.keys(atributy).length) { p.atributy = atributy; } else { delete p.atributy; }

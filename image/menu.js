@@ -2,7 +2,8 @@
  * Pořadí přetažením nebo šipkami (i z klávesnice), šipka vpravo zařadí položku do podmenu té nad ní.
  * Stav je pole položek; při odeslání formuláře jde jako JSON do skrytého pole – čistí ho server (Core\Menu::vycisti).
  */
-(function () {
+// skript je v obsahu stránky, tedy před admin.js se slovníkem překladů (window.T) – začne až po načtení všech skriptů
+document.addEventListener('DOMContentLoaded', function () {
 	'use strict';
 
 	const T = window.T || ((s) => s);
@@ -147,4 +148,4 @@
 	});
 
 	vykresli(null);
-})();
+});
