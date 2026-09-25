@@ -114,7 +114,7 @@ final class Firma
             'logo' => $s->get('logo_webu') !== '' ? $absolutni($s->get('logo_webu')) : null,
             'image' => $s->get('logo_webu') !== '' && $typ !== 'Organization' ? $absolutni($s->get('logo_webu')) : null,
             'description' => $s->get('popis_webu'),
-            'email' => $s->get('email_webu'),
+            'email' => $s->get('firma_email') !== '' ? $s->get('firma_email') : $s->get('email_webu'),
             'telephone' => $s->get('firma_telefon'),
             'vatID' => $s->get('firma_dic'),
             'identifier' => $s->get('firma_ico') !== '' ? ['@type' => 'PropertyValue', 'propertyID' => 'IČO', 'value' => $s->get('firma_ico')] : null,

@@ -10,7 +10,7 @@ For whoever runs the site: from installation through the page builder to connect
    its own look and Home, About us, Services and Contact pages built from ready-made sections with sample texts.
 3. Choose **what you want switched on**: News, Forms and enquiries, Newsletter, Statistics, Redirects, language versions,
    the AI assistant… Extensions can be switched on and off at any time in the admin (**Extensions**); switching off deletes nothing.
-4. The installation also creates a draft **Privacy policy** page, linked from the footer, the cookie bar and the form consent.
+4. The installation also creates a hidden draft **Privacy policy** page in the site language, linked from the footer, the cookie bar and the form consent. Fill in the details in square brackets and publish it.
 5. After logging in, **First steps** on the **Dashboard** guide you through: site appearance, company details, pages,
    the privacy policy and email.
 

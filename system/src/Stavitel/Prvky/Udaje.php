@@ -48,7 +48,7 @@ final class Udaje extends Prvek
             'nazev' => $obal(e($web->get('nazev_webu'))),
             'popis' => $obal(e($web->get('popis_webu'))),
             'text_paticky' => $obal(e($web->get('text_paticky'))),
-            'email' => $obal($web->get('email_webu') !== '' ? '<a href="mailto:' . e($web->get('email_webu')) . '">' . e($web->get('email_webu')) . '</a>' : ''),
+            'email' => $obal(($mail = $web->get('firma_email') !== '' ? $web->get('firma_email') : $web->get('email_webu')) !== '' ? '<a href="mailto:' . e($mail) . '">' . e($mail) . '</a>' : ''),
             'rss' => \Kaleta\Core\Rozsireni::je($web, 'novinky') ? $obal('<a href="' . e($k->url('rss.xml')) . '">RSS</a>') : '', // bez novinek RSS není
             'adresa' => $obal(implode('<br>', array_map(e(...), \Kaleta\Front\Firma::adresa($web)))),
             'telefon' => $obal($web->get('firma_telefon') !== '' ? '<a href="tel:' . e((string) preg_replace('/[^\d+]/', '', $web->get('firma_telefon'))) . '">' . e($web->get('firma_telefon')) . '</a>' : ''),

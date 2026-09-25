@@ -30,7 +30,7 @@ $site = array_filter(['LinkedIn' => $web->get('soc_linkedin'), 'Facebook' => $we
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title><?= e($titulek !== '' ? $titulek . ' – ' . $nazevWebu : $nazevWebu) ?></title>
+<title><?= e($titulek === '' ? $nazevWebu : (str_contains(mb_strtolower($titulek), mb_strtolower($nazevWebu)) ? $titulek : $titulek . ' – ' . $nazevWebu)) ?></title>
 <?php if ($meta['popis'] !== ''): ?>
 <meta name="description" content="<?= e($meta['popis']) ?>">
 <?php endif ?>

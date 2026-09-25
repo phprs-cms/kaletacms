@@ -25,6 +25,8 @@ curl -s -o /dev/null -X POST "$B/install.php" -d jazyk=en --data-urlencode "db_h
   --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ -d nazev_webu=Acme -d web=firemni -d user=admin -d jmeno=Alex -d email= \
   --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" $EXT
 [ ! -f "$WORK/web/install.php" ] || { echo "  CHYBA  English install failed"; exit 1; }
+ZASADY=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(titulek, '|', zobrazit, '|', text LIKE '%This policy explains%') FROM ka_stranky WHERE seo_link = 'privacy-policy'")
+[ "$ZASADY" = "Privacy policy|0|1" ] && echo "  ok     English install: privacy policy in English, hidden until completed" || { echo "  CHYBA  privacy policy page after English install: $ZASADY"; FOUND_ZASADY=1; }
 TOKEN=$(curl -s -c "$JAR" "$B/admin.php" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//')
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN" -d user=admin --data-urlencode "password=$PASSWORD"
 
@@ -41,4 +43,4 @@ for u in "" "modul=stranky" "modul=stranky&akce=novy" "modul=stranky&akce=stavit
     foreach (array_unique(array_map("trim", $m[1])) as $t) { if (!preg_match("/^(Čeština|restaurant, café)$/u", $t)) echo "         ", html_entity_decode($t), "\n"; }' "$WORK/page.html")
   if [ -n "$hits" ]; then echo "  CHYBA  admin.php?$u"; echo "$hits"; FOUND=$((FOUND+1)); fi
 done
-[ "$FOUND" = 0 ] && echo "  ok     English admin without Czech (35 screens)" || { echo "NALEZENO CHYB: $FOUND"; exit 1; }
+[ "$FOUND" = 0 ] && [ -z "${FOUND_ZASADY:-}" ] && echo "  ok     English admin without Czech (35 screens)" || { echo "NALEZENO CHYB: $FOUND"; exit 1; }

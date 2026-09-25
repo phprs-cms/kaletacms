@@ -109,6 +109,27 @@ $prosle = array_values(array_filter($utoky, fn (string $php): bool => SablonaKon
 over('SablonaKontrola: žádný z ' . count($utoky) . ' útoků neprojde', $prosle, []);
 over('SablonaKontrola: běžná šablona projde', SablonaKontrola::over('<?php $x = fn (array $c): string => e($c["titulek"]); ?><h1><?= $x($clanek) ?></h1><?php foreach (array_map(trim(...), explode(",", "a,b")) as $s): ?><?= e(t("Štítek")) ?> <?= e($url("stitek/" . $s)) ?><?php endforeach; usort($a, fn ($p, $q) => $p <=> $q); if ($web->get("logo_webu") !== "") { echo e(datum($clanek["datum"], true)); }'), []);
 
+/* ---------- anglický slovník pokrývá texty webu i administrace ---------- */
+$chybiPreklad = static function (string $slovnik, array $vzory): array {
+    $preklady = require dirname(__DIR__) . '/system/jazyky/' . $slovnik;
+    $chybi = [];
+    foreach ($vzory as $vzor) {
+        foreach (glob(dirname(__DIR__) . '/' . $vzor) ?: [] as $soubor) {
+            preg_match_all("/\\bt\\('((?:[^'\\\\]|\\\\.)+)'/u", (string) file_get_contents($soubor), $m);
+            foreach ($m[1] as $k) {
+                $k = stripslashes($k);
+                if (!isset($preklady[$k]) && preg_match('/[áčďéěíňóřšťúůýž]/iu', $k)) {
+                    $chybi[] = basename($soubor) . ': ' . $k;
+                }
+            }
+        }
+    }
+
+    return array_values(array_unique($chybi));
+};
+over('Slovník en.php: texty webu mají anglický překlad', $chybiPreklad('en.php', ['system/views/front/*.php', 'layout/*/*.php', 'system/src/Front/*.php', 'system/src/Stavitel/*.php', 'system/src/Stavitel/Prvky/*.php']), []);
+over('Slovník admin-en.php: E-mail webu', isset((require dirname(__DIR__) . '/system/jazyky/admin-en.php')['E-mail webu']), true);
+
 /* ---------- porovnání verzí ---------- */
 $r = Kaleta\Core\Rozdil::html('<p>Radnice schválila plán.</p><p>Druhý odstavec.</p>', '<p>Radnice včera schválila nový plán.</p><p>Druhý odstavec.</p><p>Třetí.</p>');
 over('Rozdil: slova ve změněném odstavci', str_contains($r['html'], '<ins>včera </ins>') && str_contains($r['html'], '<ins>nový </ins>'), true);

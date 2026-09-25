@@ -10,7 +10,7 @@ Návod pro toho, kdo web spravuje: od instalace přes builder stránek až po na
    přinese vlastní vzhled a stránky Úvod, O nás, Služby a Kontakt z hotových sekcí s ukázkovými texty.
 3. Vyberte, **co chcete mít zapnuté**: Novinky, Formuláře a poptávky, Newsletter, Statistiku, Přesměrování, jazykové
    verze, AI asistenta… Rozšíření jde kdykoli zapnout a vypnout v administraci (**Rozšíření**); vypnutím se nic nesmaže.
-4. Instalace založí i kostru **Zásad ochrany osobních údajů** s odkazem v patičce, v cookie liště a u souhlasu ve formuláři.
+4. Instalace založí i skrytou kostru **Zásad ochrany osobních údajů** v jazyce webu s odkazem v patičce, v cookie liště a u souhlasu ve formuláři. Doplňte údaje v hranatých závorkách a stránku zveřejněte.
 5. Po přihlášení vás na **Přehledu** provedou **První kroky**: vzhled webu, údaje o firmě, stránky, zásady a pošta.
 
 Administrace je na adrese `/admin.php`. Role: **správce** smí všechno, **editor** spravuje obsah, **autor novinek** píše

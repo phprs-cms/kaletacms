@@ -2171,7 +2171,7 @@ return [
     'Načíst tokeny' => 'Load tokens',
     'Soubor neobsahuje design tokeny, které by šly použít (čekáme JSON ve formátu DTCG).' => 'The file contains no usable design tokens (a JSON file in the DTCG format is expected).',
     'Design tokeny byly načteny.' => 'Design tokens have been loaded.',
-    'Formulář s poptávkou sbírá osobní údaje – návštěvník musí vědět, jak s nimi naložíte. Kostru stránky máte připravenou, doplňte údaje v hranatých závorkách.' => 'An enquiry form collects personal data – visitors must know how you handle it. The page skeleton is ready; fill in the details in square brackets.',
+    'Formulář s poptávkou sbírá osobní údaje – návštěvník musí vědět, jak s nimi naložíte. Kostru stránky máte připravenou jako skrytou: doplňte údaje v hranatých závorkách a stránku zveřejněte.' => 'The enquiry form collects personal data – visitors must know how you handle it. The page is prepared as a hidden draft: fill in the details in square brackets and publish it.',
     'Publikovat smí jen editor nebo správce. Změny zůstávají uložené jako koncept.' => 'Only an editor or administrator can publish. Your changes stay saved as a draft.',
     'Sdílenou třídu upravuje jen správce – změna se hned projeví na celém webu. Vzhled jednoho prvku nastavíte v jeho stylu.' => 'Only an administrator edits a shared class – a change applies to the whole website at once. Set the look of a single element in its style.',
     'Zveřejněné stránky upravuje, zveřejňuje a maže jen editor nebo správce. Můžete připravit novou skrytou stránku.' => 'Only an editor or administrator edits, publishes and deletes published pages. You can prepare a new hidden page.',
@@ -2321,4 +2321,8 @@ return [
     'Zvýraznění aktivní položky' => 'Current item highlight',
     'podbarvení' => 'background',
     'podtržení doplňkovou barvou' => 'underline in the secondary colour',
+    'E-mail webu' => 'Site email',
+    'Veřejný e-mail' => 'Public email',
+    'S předvolbou, např. +420 123 456 789.' => 'With country code, e.g. +420 123 456 789.',
+    'Kontakt pro návštěvníky a vyhledávače. Prázdné = e-mail webu ze záložky Základní (na ten chodí poptávky).' => 'Contact for visitors and search engines. Empty = the site email from the Basic tab (where enquiries are sent).',
 ];

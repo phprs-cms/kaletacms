@@ -796,4 +796,11 @@ return [
     'Aplikace je odpojená – do webu se už nedostane, dokud ji znovu nepovolíte.' => 'The application is disconnected – it will not get into the website until you allow it again.',
     'Na webu právě pracujeme. Zkuste to prosím za chvíli.' => 'We are working on the site right now. Please try again in a moment.',
     'Používáme cookies k měření návštěvnosti. Pomáhají nám zlepšovat web.' => 'We use cookies to measure traffic. They help us improve the site.',
+    'Nalezeno: %s' => 'Found: %s',
+    'Zatím zde nejsou žádné novinky.' => 'There are no news yet.',
+    'Marketingové – měření kampaní a cílení reklamy' => 'Marketing – campaign measurement and ad targeting',
+    'Požadovaná stránka na webu není. Možná má jinou adresu.' => 'The page you are looking for is not here. It may have a different address.',
+    'Další novinky' => 'More news',
+    'Odkazy v patičce' => 'Footer links',
+    'Prvek se nepodařilo vykreslit.' => 'This element could not be displayed.',
 ];

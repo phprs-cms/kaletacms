@@ -228,9 +228,10 @@ final class Installer
                 $uvod = $uvod ?: $id;
             }
 
-            // zásady ochrany osobních údajů: kostra k doplnění, mimo hlavní menu, odkaz z patičky, cookie lišty a souhlasu ve formuláři
-            $zasady = t('Zásady ochrany osobních údajů');
-            $idZasad = $db->insert('stranky', ['titulek' => $zasady, 'seo_link' => slugify($zasady), 'text' => Knihovna::textZasad(), 'v_menu' => 0, 'poradi' => 90]);
+            // zásady ochrany osobních údajů: kostra k doplnění v jazyce webu (slovník webu, ne instalátoru), skrytá, dokud ji správce
+            // nedoplní a nezveřejní (připomene to První kroky); mimo hlavní menu, odkaz z patičky, cookie lišty a souhlasu ve formuláři
+            [$zasady, $textZasad] = \Kaleta\Core\Jazyk::docasne($this->jazyk, fn (): array => [t('Zásady ochrany osobních údajů'), Knihovna::textZasad()]);
+            $idZasad = $db->insert('stranky', ['titulek' => $zasady, 'seo_link' => slugify($zasady), 'text' => $textZasad, 'zobrazit' => 0, 'v_menu' => 0, 'poradi' => 90]);
             \Kaleta\Core\Menu::uloz($db, 'paticka', '', [['typ' => 'stranka', 'ids' => $idZasad, 'text' => '']]);
 
             \Kaleta\Core\Hledani::dopln($db);

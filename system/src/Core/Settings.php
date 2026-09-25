@@ -27,6 +27,7 @@ final class Settings
         'firma_psc' => '',
         'firma_zeme' => 'CZ',
         'firma_telefon' => '',
+        'firma_email' => '',          // veřejný kontaktní e-mail firmy (web, schema.org); prázdné = e-mail webu
         'firma_hodiny' => '',         // otevírací doba po řádcích: „Po–Pá 8:00–17:00“ (Front\Firma::hodiny)
         'firma_mapa' => '',
         'firma_gps' => '',
