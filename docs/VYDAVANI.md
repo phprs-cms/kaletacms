@@ -46,6 +46,10 @@ php tools/vydani.php --novy-klic=zalozni
 
 ## Běžné vydání
 
+Všechno, co jde na GitHub a s vydáním do instalací, je **anglicky**: commit, tag, poznámky k vydání (`gh release edit --notes`)
+i popis změn `--zmena` (správci ho vidí v administraci u nabídky aktualizace).
+
+
 1. V `system/bootstrap.php` zvyšte `KALETA_VERSION`, změnu commitněte, označte tagem `vX.Y.Z` a pushněte (workflow Vydání
    spustí testy a založí koncept vydání).
 2. `php tools/vydani.php X.Y.Z --url=https://github.com/phprs-cms/kaletacms/releases/download/vX.Y.Z/kaleta-X.Y.Z.zip --zmena="…" [--bezpecnostni]`
