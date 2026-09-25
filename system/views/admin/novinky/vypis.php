@@ -11,6 +11,7 @@
  * @var array{tema:int, jazyk:string, hledat:string, stav:string} $filtr
  * @var list<string> $jazykyWebu  jazykové verze webu (prázdné = web má jen jeden jazyk)
  * @var int $vKosi  počet novinek v koši (v rozsahu přihlášeného)
+ * @var int $keVydani  koncepty autorů, které čekají na vydání (vidí editor a správce)
  */
 $kos = $filtr['stav'] === 'kos';
 $strankaUrl = fn (int $s): string => $modul->url('', array_filter($filtr) + ['strana' => $s]);
@@ -28,6 +29,9 @@ $strankaUrl = fn (int $s): string => $modul->url('', array_filter($filtr) + ['st
 <?php foreach (['' => 'Všechny', 'vydane' => 'Vydané', 'plan' => 'Naplánované', 'koncepty' => 'Koncepty'] as $klic => $nazev): ?>
 	<a href="<?= e($modul->url('', array_filter(['stav' => $klic]))) ?>"<?= $filtr['stav'] === $klic ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t($nazev)) ?></a>
 <?php endforeach ?>
+<?php if ($keVydani > 0 || $filtr['stav'] === 'ke_vydani'): ?>
+	<a href="<?= e($modul->url('', ['stav' => 'ke_vydani'])) ?>"<?= $filtr['stav'] === 'ke_vydani' ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('Čekají na vydání')) ?> (<?= $keVydani ?>)</a>
+<?php endif ?>
 <?php if ($vKosi > 0 || $kos): ?>
 	<a href="<?= e($modul->url('', ['stav' => 'kos'])) ?>"<?= $kos ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('Koš')) ?> (<?= $vKosi ?>)</a>
 <?php endif ?>
@@ -115,7 +119,11 @@ $strankaUrl = fn (int $s): string => $modul->url('', array_filter($filtr) + ['st
 	<td><?= e($c['tema_jm']) ?></td>
 	<td><?= e($c['autor_jm'] ?: $c['autor_login']) ?></td>
 	<td class="cislo"><?= e(datum($c['datum'], true)) ?></td>
+<?php if (!$c['visible'] && (int) $c['autor_uroven'] === 0 && $app->auth()->smiVydavat()): // koncept autora: čeká, až ho editor vydá ?>
+	<td><span class="stitek stitek-ceka" title="<?= e(t('Autor novinek sám nevydává – novinku zkontrolujte a vydejte.')) ?>"><?= e(t('čeká na vydání')) ?></span></td>
+<?php else: ?>
 	<td><span class="stitek stitek-<?= !$c['visible'] ? 'koncept' : (strtotime($c['datum']) > time() ? 'plan' : 'vydano') ?>"><?= e(t(!$c['visible'] ? 'koncept' : (strtotime($c['datum']) > time() ? 'naplánováno' : 'vydáno'))) ?></span></td>
+<?php endif ?>
 	<td class="akce"><a href="<?= e($modul->url('edit', ['id' => $c['idc']])) ?>"><?= e(t('Upravit')) ?></a> · <a href="<?= e($app->url('novinky/' . $c['seo_link'] . '?nahled=1')) ?>" target="_blank" rel="noopener"><?= e(t('Náhled')) ?></a> ·
 		<button class="navigace" type="submit" formaction="<?= e($modul->url('duplikuj')) ?>" name="idc" value="<?= (int) $c['idc'] ?>" formnovalidate><?= e(t('Duplikovat')) ?></button></td>
 	<td class="stred"><input type="checkbox" name="smaz[]" value="<?= (int) $c['idc'] ?>" aria-label="<?= e(t('Označit')) ?>: <?= e($c['titulek']) ?>"></td>

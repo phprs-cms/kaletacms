@@ -2328,4 +2328,8 @@ return [
     'Účet a nástroje' => 'Account and tools',
     'Novinky potřebují kategorii, proto vznikla kategorie „%s“. Přejmenovat ji nebo přidat další můžete v Novinky → Kategorie.' => 'News items need a category, so the category “%s” has been created. You can rename it or add more under News → Categories.',
     'Soubor je větší, než server dovoluje nahrát (nejvýš %s). Zmenšete ho, nebo požádejte správce hostingu o vyšší limit.' => 'The file is larger than the server allows (%s at most). Make it smaller or ask your hosting provider to raise the limit.',
+    'Čekají na vydání' => 'Awaiting publication',
+    'čeká na vydání' => 'awaiting publication',
+    'Autor novinek sám nevydává – novinku zkontrolujte a vydejte.' => 'News authors cannot publish – review this news item and publish it.',
+    'Novinky od autorů čekají na vydání' => 'News from authors awaiting publication',
 ];

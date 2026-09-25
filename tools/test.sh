@@ -125,6 +125,8 @@ TOKEN2=$(curl -s -b "$JAR2" "$B/admin.php?modul=novinky&akce=novy" | grep -o 'na
 curl -s -b "$JAR2" -c "$JAR2" -o /dev/null -X POST "$B/admin.php?modul=novinky&akce=uloz" -d "_csrf=$TOKEN2" -d idc=0 -d titulek=XSS-test -d tema=1 \
   --data-urlencode 'uvod=<p onmouseover="alert(1)">Perex</p><script>alert(2)</script>' --data-urlencode 'text=<p><img src=x onerror=alert(3)><a href="javascript:alert(4)">odkaz</a></p>'
 ocekavej "autor nevloží do novinky skript" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(uvod, text) REGEXP 'script|onerror|onmouseover|javascript' FROM ka_novinky WHERE titulek = 'XSS-test'")" "0"
+over "editor vidí na přehledu novinky od autorů, které čekají na vydání" 200 /admin.php "Novinky od autorů čekají na vydání"
+over "výpis novinek: filtr Čekají na vydání" 200 "/admin.php?modul=novinky&stav=ke_vydani" "XSS-test"
 
 echo "== firma"
 over "nastavení/firma" 200 "/admin.php?modul=config&zalozka=firma" 'name="firma_hodiny"'

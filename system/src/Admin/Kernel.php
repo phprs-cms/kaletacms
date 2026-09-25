@@ -237,6 +237,8 @@ final class Kernel
             'navstevnost' => Rozsireni::je($this->app->settings(), 'statistika') && isset($moduly['stat'])
                 ? $db->all('SELECT den, navstevy, zobrazeni FROM {stat_dny} WHERE den > CURDATE() - INTERVAL 14 DAY ORDER BY den') : [],
             'pocty' => array_filter([
+                // koncepty autorů novinek čekají na editora – dlaždice jen, když nějaké jsou
+                'Novinky od autorů čekají na vydání' => isset($moduly['novinky']) && ($ceka = Moduly\Novinky::cekaNaVydani($this->app)) > 0 ? [$ceka, 'admin.php?modul=novinky&stav=ke_vydani'] : null,
                 'Nové poptávky' => isset($moduly['poptavky']) ? [(int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE stav = 0'), 'admin.php?modul=poptavky'] : null,
                 'Zveřejněné stránky' => isset($moduly['stranky']) ? [(int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL'), 'admin.php?modul=stranky'] : null,
                 'Stránky s nepublikovanými změnami' => isset($moduly['stranky']) ? [(int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE stavba_koncept IS NOT NULL AND smazano IS NULL'), 'admin.php?modul=stranky'] : null,

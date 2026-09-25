@@ -120,7 +120,7 @@ button.galerie-polozka:hover, button.galerie-polozka:focus-visible { border-colo
 .stitek-koncept { border-color: var(--ed-varovani, #945800); color: var(--ed-varovani, #945800); }
 .stitek-chyba { border-color: var(--ed-chyba, #C4281C); color: var(--ed-chyba, #C4281C); }
 /* redakční předávka: ke korektuře (čárkovaně) a schváleno (plně) - fialová, ať se neplete s konceptem ani s vydaným */
-.stitek-korektura, .stitek-schvaleno { border-color: var(--ed-predavka, #7A4FD6); color: var(--ed-predavka, #7A4FD6); }
+.stitek-korektura, .stitek-schvaleno, .stitek-ceka { border-color: var(--ed-predavka, #7A4FD6); color: var(--ed-predavka, #7A4FD6); }
 .kalendar-clanek.stitek-korektura { border-left-style: dashed; }
 .pokrocile { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--ed-linka); }
 .pokrocile summary { margin-bottom: 14px; font-weight: bold; cursor: pointer; }
