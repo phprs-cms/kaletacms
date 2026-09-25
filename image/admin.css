@@ -285,6 +285,9 @@ h3.stred {
 	padding-top: 14px;
 	border-top: 1px solid var(--linka);
 }
+.verze-podpora { display: inline-flex; align-items: center; gap: 4px; margin-left: 4px; color: inherit; }
+.verze-podpora svg { color: #d93a1c; flex: none; }
+.verze-podpora:hover { color: var(--text); }
 /* nadpis stránky a nabídka Nápověda: stránky příručky k právě otevřené obrazovce */
 .zahlavi-stranky {
 	display: flex;
@@ -1283,3 +1286,6 @@ body.login {
 /* souhlas s připojením aplikace (OAuth) */
 .oauth-souhlas { display: grid; gap: 14px; max-width: 36rem; padding: 24px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); }
 .oauth-kdo { font-size: 18px; }
+
+.volby-jazyky { columns: 3 13rem; column-gap: 24px; }
+.volby-jazyky label { display: block; break-inside: avoid; padding-block: 2px; }

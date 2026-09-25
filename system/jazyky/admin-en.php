@@ -2356,4 +2356,7 @@ return [
     'sdílení náhledu' => 'preview shared',
     'Kampaň' => 'Campaign',
     'Vlastní PHP šablony se už nevyvíjejí – vzhled webu nastavíte tady ve Vzhledu webu a v builderu. Stávající vlastní šablona dál funguje, doporučujeme ale přejít na výchozí.' => 'Custom PHP themes are no longer developed – set the look of the site here in Site appearance and in the builder. An existing custom theme keeps working, but we recommend switching to the default one.',
+    'Texty šablony (Hledat, Číst dál…) mají přeložené čeština a angličtina; ostatní jazyky je zatím mají anglicky, datum ve svém tvaru. Obsah stránek a novinek píšete v jazyce verze.' => 'Template texts (Search, Read more…) are translated into Czech and English; other languages show them in English for now, with dates in their own format. You write the content of pages and news in the language of the version.',
+    'Kaleta je zdarma a bez reklam.' => 'Kaleta is free and has no ads.',
+    'Podpořte její vývoj na GitHub Sponsors' => 'Support its development on GitHub Sponsors',
 ];

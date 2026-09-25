@@ -102,7 +102,8 @@ if ($user !== null) {
 <p class="hlaska hlaska-<?= e($hlaska['typ']) ?>" role="status"><?= Kaleta\Admin\Cesty::odkazy($app->url('admin.php'), t($hlaska['text']), array_keys($moduly)) ?></p>
 <?php endforeach ?>
 <?= $obsah ?>
-<footer class="verze">Kaleta <?= e(KALETA_VERSION) ?></footer>
+<footer class="verze">Kaleta <?= e(KALETA_VERSION) ?> · <?= e(t('Kaleta je zdarma a bez reklam.')) ?>
+	<a class="verze-podpora" href="https://github.com/sponsors/phprscms" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><?= e(t('Podpořte její vývoj na GitHub Sponsors')) ?></a></footer>
 </main>
 <?php if (Kaleta\Core\Jazyk::kod() !== 'cs' && is_file(KALETA_ROOT . '/image/jazyky/admin-' . Kaleta\Core\Jazyk::kod() . '.js')): ?>
 <script src="<?= e($app->url('image/jazyky/admin-' . Kaleta\Core\Jazyk::kod() . '.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>
