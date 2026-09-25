@@ -85,7 +85,9 @@
 	function zmensi(soubor) {
 		if (!/^image\/(jpeg|png|webp)$/.test(soubor.type) || !window.createImageBitmap) { return Promise.resolve(soubor); }
 		return createImageBitmap(soubor, { imageOrientation: 'from-image' }).then(function (bitmapa) {
-			var pomer = Math.min(1, MAX_STRANA / Math.max(bitmapa.width, bitmapa.height));
+			// stejné pravidlo jako Core\Obrazky::pomer: vysoký obrázek (celostránkový snímek) se měří šířkou, ne delší stranou
+			var w = bitmapa.width, h = bitmapa.height;
+			var pomer = h > 2 * w ? Math.min(1, MAX_STRANA / w, 3 * MAX_STRANA / h) : Math.min(1, MAX_STRANA / Math.max(w, h));
 			if (pomer === 1 && (!MAX_SOUBOR || soubor.size <= MAX_SOUBOR)) { bitmapa.close(); return soubor; }
 			var platno = document.createElement('canvas');
 			platno.width = Math.round(bitmapa.width * pomer);

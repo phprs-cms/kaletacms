@@ -161,6 +161,20 @@ over('Qr: verze 12 (verzní bity, víc bloků) odpovídá ověřené matici', $q
 $qrSvg = Kaleta\Core\Qr::svg('otpauth://totp/x?secret=AB', 'QR <kód>');
 over('Qr: SVG s popisem, bez skriptu', str_contains($qrSvg, 'role="img" aria-label="QR &lt;kód&gt;"') && !str_contains($qrSvg, '<script'), true);
 
+/* ---------- velikosti obrázků: vysoké snímky se měří šířkou, srcset nese skutečné šířky ---------- */
+over('Obrazky::pomer: fotka na šířku i na výšku podle delší strany', [Kaleta\Core\Obrazky::pomer(4000, 3000, 2000), Kaleta\Core\Obrazky::pomer(3000, 4000, 2000)], [0.5, 0.5]);
+over('Obrazky::pomer: celostránkový snímek podle šířky, výška nejvýš trojnásobek', [Kaleta\Core\Obrazky::pomer(1440, 5000, 2000), round(Kaleta\Core\Obrazky::pomer(1440, 5000, 1200), 3), Kaleta\Core\Obrazky::pomer(1000, 9000, 2000)], [1.0, 0.72, 6000 / 9000]);
+$obrSlozka = dirname(__DIR__) . '/media/' . date('Y/m');
+@mkdir($obrSlozka, 0775, true);
+$obrTmp = tempnam(sys_get_temp_dir(), 'obr');
+$obrPng = imagecreatetruecolor(1440, 5000);
+imagepng($obrPng, $obrTmp);
+$obrUlozeno = Kaleta\Core\Obrazky::ulozSoubor($obrTmp, 'celostrankovy-snimek.png');
+$obrSrcset = Kaleta\Core\Obrazky::srcset($obrUlozeno['obr_poloha'], '');
+over('Obrazky: vysoký snímek si nechá šířku, srcset má skutečné šířky variant', [$obrUlozeno['obr_width'], $obrUlozeno['obr_height'], (bool) preg_match('/-nahled\.png 553w, .*-1200\.png 1037w, .*\.png 1440w$/', $obrSrcset)], [1440, 5000, true]);
+Kaleta\Core\Obrazky::smaz($obrUlozeno['obr_poloha'], $obrUlozeno['nahl_poloha']);
+@unlink($obrTmp);
+
 /* ---------- porovnání verzí ---------- */
 $r = Kaleta\Core\Rozdil::html('<p>Radnice schválila plán.</p><p>Druhý odstavec.</p>', '<p>Radnice včera schválila nový plán.</p><p>Druhý odstavec.</p><p>Třetí.</p>');
 over('Rozdil: slova ve změněném odstavci', str_contains($r['html'], '<ins>včera </ins>') && str_contains($r['html'], '<ins>nový </ins>'), true);

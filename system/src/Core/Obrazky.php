@@ -98,7 +98,7 @@ final class Obrazky
             $cil = $zaklad . '.' . $pripona;
             self::zapis($obr, KALETA_ROOT . '/' . $cil, $pripona);
             self::webp($obr, KALETA_ROOT . '/' . $cil, $pripona);
-            if (max($w, $h) > self::STREDNI_STRANA) {
+            if (self::pomer($w, $h, self::STREDNI_STRANA) < 1.0) {
                 $stredni = self::zmensi($obr, self::STREDNI_STRANA);
                 $stredniCil = KALETA_ROOT . '/' . $zaklad . '-1200.' . $pripona;
                 self::zapis($stredni, $stredniCil, $pripona);
@@ -141,7 +141,7 @@ final class Obrazky
         [$zaklad, $pripona] = [$m[1], $m[2]];
         self::zapis($obr, KALETA_ROOT . '/' . $stara, $pripona);
         self::webp($obr, KALETA_ROOT . '/' . $stara, $pripona);
-        if (max(imagesx($obr), imagesy($obr)) > self::STREDNI_STRANA) {
+        if (self::pomer(imagesx($obr), imagesy($obr), self::STREDNI_STRANA) < 1.0) {
             $stredni = self::zmensi($obr, self::STREDNI_STRANA);
             self::zapis($stredni, KALETA_ROOT . '/' . $zaklad . '-1200.' . $pripona, $pripona);
             self::webp($stredni, KALETA_ROOT . '/' . $zaklad . '-1200.' . $pripona, $pripona);
@@ -170,13 +170,26 @@ final class Obrazky
         }
     }
 
+    /**
+     * Poměr zmenšení na danou stranu. Běžný obrázek se vejde delší stranou; vysoký (výška přes dvojnásobek šířky – celostránkové
+     * snímky, infografiky) se měří šířkou a výška smí být až trojnásobek, jinak by z něj zbyl úzký rozmazaný proužek.
+     */
+    public static function pomer(int $w, int $h, int $strana): float
+    {
+        if ($w < 1 || $h < 1) {
+            return 1.0;
+        }
+
+        return $h > 2 * $w ? min(1.0, $strana / $w, 3 * $strana / $h) : min(1.0, $strana / max($w, $h));
+    }
+
     private static function zmensi(\GdImage $obr, int $maxStrana): \GdImage
     {
         [$w, $h] = [imagesx($obr), imagesy($obr)];
-        if (max($w, $h) <= $maxStrana) {
+        $pomer = self::pomer($w, $h, $maxStrana);
+        if ($pomer >= 1.0) {
             return $obr;
         }
-        $pomer = $maxStrana / max($w, $h);
         $novy = imagecreatetruecolor(max(1, (int) round($w * $pomer)), max(1, (int) round($h * $pomer)));
         imagealphablending($novy, false);
         imagesavealpha($novy, true);
@@ -286,11 +299,14 @@ final class Obrazky
             return '';
         }
         $varianty = [];
-        foreach (['-nahled' => self::NAHLED_STRANA, '-1200' => self::STREDNI_STRANA, '' => self::MAX_STRANA] as $pripona => $sirka) {
+        $sirky = [];
+        foreach (['-nahled', '-1200', ''] as $pripona) {
             $soubor = $m[1] . $pripona . '.' . $m[3];
-            if (is_file(KALETA_ROOT . '/' . $soubor)) {
-                $info = $pripona === '' ? @getimagesize(KALETA_ROOT . '/' . $soubor) : null;
-                $varianty[] = $zaklad . '/' . $soubor . ' ' . ($info ? $info[0] : $sirka) . 'w';
+            // skutečná šířka každé varianty: dřív se zmenšovalo podle delší strany, takže u vysokých obrázků „1200“ neznamenalo šířku
+            $info = is_file(KALETA_ROOT . '/' . $soubor) ? @getimagesize(KALETA_ROOT . '/' . $soubor) : false;
+            if ($info !== false && !isset($sirky[$info[0]])) {
+                $sirky[$info[0]] = true;
+                $varianty[] = $zaklad . '/' . $soubor . ' ' . $info[0] . 'w';
             }
         }
 
