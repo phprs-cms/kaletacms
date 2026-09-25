@@ -21,7 +21,7 @@ final class Novinky extends Modul
     public const string ROZSIRENI = 'novinky';
     public const string NAZEV = 'Novinky';
     public const string SKUPINA = 'Obsah';
-    public const string IKONA = 'clanek';
+    public const string IKONA = 'novinky';
 
     private const int NA_STRANKU = 20;
 

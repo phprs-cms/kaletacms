@@ -22,7 +22,7 @@
 <?php endif ?>
 </form>
 <?php if ($odberatele === []): ?>
-<?= $app->view->render('admin/prazdno', ['ikona' => 'poptavky', 'nadpis' => t($hledat !== '' ? 'Nic nenalezeno.' : 'Zatím žádní odběratelé.'), 'text' => t('Vložte na web prvek Odběr novinek – třeba do patičky.')]) ?>
+<?= $app->view->render('admin/prazdno', ['ikona' => 'newsletter', 'nadpis' => t($hledat !== '' ? 'Nic nenalezeno.' : 'Zatím žádní odběratelé.'), 'text' => t('Vložte na web prvek Odběr novinek – třeba do patičky.')]) ?>
 <?php else: ?>
 <div class="tab-obal"><table class="vypis">
 <thead><tr><th scope="col"><?= e(t('E-mail')) ?></th><th scope="col"><?= e(t('Stav')) ?></th><th scope="col"><?= e(t('Přihlášen')) ?></th><th scope="col"><?= e(t('Stránka')) ?></th><th scope="col"><?= e(t('Akce')) ?></th></tr></thead>

@@ -17,7 +17,7 @@ final class Odberatele extends Modul
     public const string ROZSIRENI = 'newsletter';
     public const string NAZEV = 'Odběratelé';
     public const string SKUPINA = 'Obsah';
-    public const string IKONA = 'poptavky';
+    public const string IKONA = 'newsletter';
 
     protected function akceVypis(): Response
     {
