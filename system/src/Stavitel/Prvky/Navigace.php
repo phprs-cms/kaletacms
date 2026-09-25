@@ -51,6 +51,12 @@ final class Navigace extends Prvek
 .ka-nav .podmenu > ul { display: none; position: absolute; top: 100%; left: 0; z-index: 60; flex-direction: column; flex-wrap: nowrap; min-width: 14rem; padding: var(--ka-mezera-2xs); border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-pozadi); color: var(--ka-barva-text); box-shadow: var(--ka-stin-m); }
 .ka-nav .podmenu > ul a { border-radius: calc(var(--ka-zaobleni) / 1.5); font-weight: 500; }
 .ka-nav .podmenu:hover > ul, .ka-nav .podmenu:focus-within > ul { display: flex; }
+/* přepínač jazyků v navigaci (image/web.css): pravidla menu (.ka-nav a, .ka-nav ul) se na něj nevztahují */
+.ka-nav .ka-jazyky a { padding: 0.45em 0.6em; font-weight: 600; }
+.ka-nav .ka-jazyky a[aria-current] { background: var(--ka-barva-primarni); color: var(--ka-barva-na-primarni); }
+.ka-nav .ka-jazyky-vyber [popover]:popover-open { display: flex; flex-direction: column; flex-wrap: nowrap; gap: 0; }
+.ka-nav .ka-jazyky-vyber [popover] a { display: flex; padding: 0.55em 0.75em; border-radius: calc(var(--ka-zaobleni) / 1.5); font-weight: 500; }
+.ka-nav .ka-jazyky-vyber [popover] a[aria-current] { background: var(--ka-barva-primarni-jemna); color: var(--ka-barva-primarni); font-weight: 600; }
 .ka-nav-tl { display: none; }
 .ka-nav-menu[popover] { position: static; inset: auto; width: auto; margin: 0; padding: 0; border: 0; background: none; color: inherit; overflow: visible; }
 @media (min-width: 768px) {

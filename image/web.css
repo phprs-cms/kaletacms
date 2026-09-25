@@ -35,11 +35,6 @@ figure.galerie figcaption { grid-column: 1 / -1; }
 .text a.ka-tl, a.ka-tl { color: #fff; text-decoration: none; }
 .text a.ka-tl-vedlejsi, a.ka-tl-vedlejsi { color: inherit; }
 
-/* ---------- přepínač jazykových verzí ---------- */
-.ka-jazyky { display: inline-flex; gap: 2px; margin-left: 12px; font: 600 12px/1 system-ui, sans-serif; letter-spacing: 0.04em; vertical-align: middle; }
-.ka-jazyky a { padding: 5px 7px; border-radius: 3px; color: inherit; text-decoration: none; opacity: 0.6; }
-.ka-jazyky a:hover { opacity: 1; }
-.ka-jazyky a[aria-current] { opacity: 1; background: rgb(128 128 128 / 0.18); }
 
 /* ---------- úprava stránky a novinky přímo na webu (jen pro přihlášené uživatele) ---------- */
 .ka-upravit-zde { position: fixed; right: 18px; bottom: 18px; z-index: 60; padding: 10px 16px; border-radius: 999px; background: #14171F; color: #fff; font: 600 14px/1.2 system-ui, sans-serif; text-decoration: none; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); }
@@ -128,4 +123,33 @@ figure.galerie figcaption { grid-column: 1 / -1; }
 	:root[data-tmavy] :is(.ka-sdileni a:hover, .ka-sdileni button:hover) { color: color-mix(in srgb, var(--ka-akcent, #1f4fe0) 55%, #FFFFFF); }
 	:root[data-tmavy] .ka-upravit-zde { border: 1px solid rgb(255 255 255 / 0.25); }
 }
+}
+
+/* Přepínač jazykových verzí je systémový prvek: vrstva stavitel, aby ho nepřebila pravidla menu šablony (nav ul, nav a);
+   sdílené třídy webu (vrstva tridy) ho dál upraví. */
+@layer stavitel {
+	/* ---------- přepínač jazykových verzí (tokeny design systému: barvy, zaoblení, písmo webu) ---------- */
+	.ka-jazyky { display: inline-flex; gap: 2px; margin-inline-start: var(--ka-mezera-s, 12px); padding: 3px; border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni-plne, 999px); font-size: 0.8125rem; font-weight: 600; line-height: 1; letter-spacing: 0.04em; vertical-align: middle; }
+	.ka-jazyky a { display: block; min-width: 2.25em; padding: 0.45em 0.6em; border-radius: var(--ka-zaobleni-plne, 999px); color: inherit; text-align: center; text-decoration: none; }
+	.ka-jazyky a:hover { background: var(--ka-barva-plocha); }
+	.ka-jazyky a[aria-current] { background: var(--ka-barva-primarni); color: var(--ka-barva-na-primarni); }
+	.ka-jazyky a:focus-visible, .ka-jazyky-vyber a:focus-visible, .ka-jazyky-tl:focus-visible { outline: 3px solid var(--ka-barva-sekundarni); outline-offset: 2px; }
+	.ka-jazyky-vyber { display: inline-block; position: relative; margin-inline-start: var(--ka-mezera-s, 12px); vertical-align: middle; }
+	.ka-jazyky-tl { display: inline-flex; align-items: center; gap: 0.4em; padding: 0.5em 0.8em; border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni-plne, 999px); background: none; color: inherit; font: inherit; font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.04em; line-height: 1; cursor: pointer; }
+	.ka-jazyky-tl:hover { background: var(--ka-barva-plocha); }
+	.ka-jazyky-tl svg { fill: none; stroke: currentColor; stroke-width: 1.6; }
+	.ka-jazyky-vyber [popover]:popover-open { display: flex; flex-direction: column; flex-wrap: nowrap; gap: 0; }
+	.ka-jazyky-vyber [popover] { position: fixed; inset: auto; top: anchor(bottom); right: anchor(right); margin: 6px 0 0; min-width: 13rem; max-height: min(70vh, 28rem); overflow-y: auto; padding: var(--ka-mezera-2xs, 4px); border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni, 8px); background: var(--ka-barva-pozadi); color: var(--ka-barva-text); box-shadow: var(--ka-stin-m); list-style: none; }
+	.ka-jazyky-vyber [popover] a { display: flex; justify-content: space-between; align-items: baseline; gap: 1em; padding: 0.55em 0.75em; border-radius: calc(var(--ka-zaobleni, 8px) / 1.5); color: inherit; text-decoration: none; }
+	.ka-jazyky-vyber [popover] a:hover { background: var(--ka-barva-plocha); }
+	.ka-jazyky-vyber [popover] a[aria-current] { background: var(--ka-barva-primarni-jemna); color: var(--ka-barva-primarni); font-weight: 600; }
+	.ka-jazyky-vyber [popover] small { color: var(--ka-barva-tlumeny); font-size: 0.75em; letter-spacing: 0.06em; }
+	@supports not (top: anchor(bottom)) { .ka-jazyky-vyber [popover] { top: 4.5rem; right: max(1rem, (100vw - var(--ka-sirka, 72rem)) / 2); } }
+	@media (max-width: 767px) {
+		/* v rozbaleném menu na telefonu jazyky rovnou jako řada voleb, bez další vyskakovací nabídky */
+		:is(.ka-nav-menu, .navigace) .ka-jazyky, :is(.ka-nav-menu, .navigace) .ka-jazyky-vyber { align-self: flex-start; margin: var(--ka-mezera-s, 12px) 0 0; }
+		:is(.ka-nav-menu, .navigace) .ka-jazyky-tl { display: none; }
+		:is(.ka-nav-menu, .navigace) .ka-jazyky-vyber [popover] { display: flex; flex-direction: row; flex-wrap: wrap; gap: var(--ka-mezera-2xs, 4px); position: static; inset: auto; min-width: 0; max-height: none; margin: 0; padding: 0; border: 0; box-shadow: none; background: none; overflow: visible; }
+		:is(.ka-nav-menu, .navigace) .ka-jazyky-vyber [popover] a { gap: 0.4em; padding: 0.45em 0.7em; border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni-plne, 999px); }
+	}
 }
