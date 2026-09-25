@@ -55,7 +55,7 @@
 	<h2><?= e(t('Návštěvnost za 14 dní')) ?> <small><?= e(t('%s návštěv', pocet(array_sum($dny)))) ?></small></h2>
 	<svg viewBox="0 0 280 70" preserveAspectRatio="none" role="img" aria-label="<?= e(t('Návštěvnost za 14 dní')) ?>">
 <?php $x = 0; foreach ($dny as $den => $pocet): $v = max(1, (int) round($pocet / $max * 62)); ?>
-		<rect x="<?= $x * 20 + 2 ?>" y="<?= 66 - $v ?>" width="16" height="<?= $v ?>" rx="2"><title><?= e(datum($den)) ?>: <?= $pocet ?></title></rect>
+		<rect x="<?= $x * 20 + 2 ?>" y="<?= 66 - $v ?>" width="16" height="<?= $v ?>" rx="2" data-tip="<?= e(t('%s: %s návštěv', datum($den), $pocet)) ?>" aria-label="<?= e(t('%s: %s návštěv', datum($den), $pocet)) ?>" tabindex="0"></rect>
 <?php $x++; endforeach ?>
 	</svg>
 	<p class="smltxt"><a href="<?= e($app->url('admin.php?modul=stat')) ?>"><?= e(t('Celá statistika')) ?></a></p>

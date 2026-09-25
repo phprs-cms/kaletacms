@@ -1289,3 +1289,7 @@ body.login {
 
 .volby-jazyky { columns: 3 13rem; column-gap: 24px; }
 .volby-jazyky label { display: block; break-inside: avoid; padding-block: 2px; }
+
+/* popisek grafu (image/admin.js, [data-tip]) */
+.tip { position: fixed; z-index: 1000; transform: translate(-50%, -100%); padding: 6px 9px; border-radius: 6px; background: var(--text); color: var(--plocha); font-size: 12px; line-height: 1.3; white-space: nowrap; pointer-events: none; box-shadow: 0 4px 14px rgb(0 0 0 / 0.18); }
+[data-tip]:focus-visible { outline: 2px solid var(--akcent); outline-offset: 1px; }

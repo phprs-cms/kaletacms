@@ -29,7 +29,8 @@ $zobrazeni = array_sum(array_column($graf, 'zobrazeni'));
 <h2><?= e(t('Zobrazení a návštěvy po dnech')) ?></h2>
 <div class="graf" role="img" aria-label="<?= e(t('Sloupcový graf zobrazení stránek po dnech')) ?>">
 <?php foreach ($graf as $den => $h): ?>
-	<div class="graf-sloupec" title="<?= e(t('%s: %s zobrazení, %s návštěv', datum($den), $h['zobrazeni'], $h['navstevy'])) ?>"><i style="height:<?= round($h['zobrazeni'] / $max * 100, 1) ?>%"><b style="height:<?= $h['zobrazeni'] > 0 ? round($h['navstevy'] / $h['zobrazeni'] * 100, 1) : 0 ?>%"></b></i></div>
+<?php $popisDne = t('%s: %s zobrazení, %s návštěv', datum($den), $h['zobrazeni'], $h['navstevy']); ?>
+	<div class="graf-sloupec" data-tip="<?= e($popisDne) ?>" aria-label="<?= e($popisDne) ?>" tabindex="0"><i data-tip-kotva style="height:<?= round($h['zobrazeni'] / $max * 100, 1) ?>%"><b style="height:<?= $h['zobrazeni'] > 0 ? round($h['navstevy'] / $h['zobrazeni'] * 100, 1) : 0 ?>%"></b></i></div>
 <?php endforeach ?>
 </div>
 <p class="smltxt"><?= e(datum(array_key_first($graf))) ?> – <?= e(datum(array_key_last($graf))) ?> · <?= e(t('světlá část sloupce jsou zobrazení stránek, tmavá návštěvy. Měření nepoužívá cookies a neukládá IP adresy; roboty nepočítá.')) ?></p>

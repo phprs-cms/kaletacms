@@ -371,4 +371,28 @@
 			});
 		} catch (e) { /* úložiště nedostupné */ }
 	}
+
+	// popisky grafů a údajů (data-tip): hned při najetí myší, při zaměření klávesnicí i po klepnutí na dotykové obrazovce
+	var tip = null, tipU = null;
+	function ukazTip(el) {
+		tipU = el;
+		if (!tip) {
+			tip = document.createElement('div');
+			tip.className = 'tip';
+			tip.setAttribute('role', 'tooltip');
+			document.body.appendChild(tip);
+		}
+		tip.textContent = el.getAttribute('data-tip');
+		tip.hidden = false;
+		var r = (el.querySelector('[data-tip-kotva]') || el).getBoundingClientRect(); // sloupec grafu: popisek nad jeho výškou
+		var x = Math.min(Math.max(r.left + r.width / 2, tip.offsetWidth / 2 + 8), window.innerWidth - tip.offsetWidth / 2 - 8);
+		tip.style.left = x + 'px';
+		tip.style.top = Math.max(r.top - 8, tip.offsetHeight + 8) + 'px';
+	}
+	function skryjTip() { tipU = null; if (tip) { tip.hidden = true; } }
+	document.addEventListener('pointerover', function (e) { var el = e.target.closest && e.target.closest('[data-tip]'); if (el) { ukazTip(el); } });
+	document.addEventListener('pointerout', function (e) { var el = e.target.closest && e.target.closest('[data-tip]'); if (el && !el.contains(e.relatedTarget)) { skryjTip(); } });
+	document.addEventListener('focusin', function (e) { var el = e.target.closest && e.target.closest('[data-tip]'); if (el) { ukazTip(el); } });
+	document.addEventListener('focusout', skryjTip);
+	window.addEventListener('scroll', function () { if (tipU) { ukazTip(tipU); } }, { passive: true }); // při posunu stránky popisek jde s prvkem
 })();
