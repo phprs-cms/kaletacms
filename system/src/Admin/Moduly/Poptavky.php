@@ -65,7 +65,21 @@ final class Poptavky extends Modul
         }
 
         return $this->view('detail', t('Poptávka') . ' #' . $p['idp'], ['p' => $p, 'data' => json_decode((string) $p['data'], true) ?: [],
-            'uzivatele' => $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} WHERE blokovat = 0 ORDER BY 2")]);
+            'uzivatele' => $this->resitele((int) $p['prirazeno'])]);
+    }
+
+    /**
+     * Kdo může poptávku vyřizovat: aktivní správci a uživatelé s právem k Poptávkám (ne třeba autor novinek, který je nevidí).
+     * Už přiřazený uživatel v seznamu zůstane, i když právo mezitím ztratil – uložení poznámky ho potichu neodebere.
+     *
+     * @return array<int, string>
+     */
+    private function resitele(int $prirazeny = 0): array
+    {
+        return $this->db->pairs(
+            "SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} u WHERE (blokovat = 0 AND (admin = ? OR EXISTS (SELECT 1 FROM {uzivatele_prava} p WHERE p.fk_id_user = u.idu AND p.ident_modulu = ?))) OR idu = ? ORDER BY 2",
+            [\Kaleta\Core\Auth::ADMIN, self::IDENT, $prirazeny],
+        );
     }
 
     /** Interní poznámka a kdo poptávku vyřizuje. */
@@ -75,7 +89,7 @@ final class Poptavky extends Modul
         if ($this->request->isPost()) {
             $kdo = $this->request->postInt('prirazeno');
             $this->db->update('poptavky', ['poznamka' => mb_substr(trim($this->request->post('poznamka')), 0, 5000),
-                'prirazeno' => $kdo > 0 && $this->db->value('SELECT 1 FROM {uzivatele} WHERE idu = ?', [$kdo]) !== null ? $kdo : null], ['idp' => $idp]);
+                'prirazeno' => $kdo > 0 && isset($this->resitele((int) $this->db->value('SELECT prirazeno FROM {poptavky} WHERE idp = ?', [$idp]))[$kdo]) ? $kdo : null], ['idp' => $idp]);
         }
 
         return $this->zpet('Poznámka byla uložena.', 'detail', ['id' => $idp]);

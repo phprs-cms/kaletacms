@@ -318,6 +318,7 @@ ocekavej "robot ani chyby poptávku nepřidaly" "$("${MYSQL[@]}" "$DB_NAME" -N -
 IDP=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idp FROM ka_poptavky")
 over "poptávky v administraci" 200 "/admin.php?modul=poptavky" "jana@example.cz"
 over "detail poptávky" 200 "/admin.php?modul=poptavky&akce=detail&id=$IDP" "Chci kuchyň na míru."
+grep -q '>Tester</option>' "$PRACE/odpoved" && ! grep -q '>Autor</option>' "$PRACE/odpoved" && echo "  ok     poptávku vyřizuje jen ten, kdo má přístup k Poptávkám" || { echo "  CHYBA  výběr Vyřizuje nabízí uživatele bez přístupu k Poptávkám"; CHYB=$((CHYB+1)); }
 ocekavej "otevřená poptávka je přečtená" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT stav FROM ka_poptavky")" 1
 curl -s -b "$JAR" -o "$PRACE/odpoved" "$B/admin.php?modul=poptavky&akce=csv"; grep -q 'Chci kuchyň na míru.' "$PRACE/odpoved" && echo "  ok     export poptávek do CSV" || { echo "  CHYBA  CSV poptávek"; CHYB=$((CHYB+1)); }
 over "poděkování po odeslání (na místě formuláře)" 200 "/kontakt?formular=$FP&vysledek=ok" 'class="ka-formular-hotovo"'
