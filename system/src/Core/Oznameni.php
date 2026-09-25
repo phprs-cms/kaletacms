@@ -45,6 +45,10 @@ final class Oznameni
         }
         $s->set('uklid_udaju', (string) time());
         \Kaleta\Admin\Moduly\Poptavky::promazStare($app->db(), $s);
+        if ($s->int('cookies_evidence_mesice') > 0) {
+            // záznamy o souhlasech s cookies nemají ležet věčně
+            $app->db()->run('DELETE FROM {souhlasy} WHERE cas < NOW() - INTERVAL ? MONTH', [$s->int('cookies_evidence_mesice')]);
+        }
         $app->db()->run('DELETE FROM {odberatele} WHERE stav = 0 AND datum < NOW() - INTERVAL 30 DAY');
     }
 

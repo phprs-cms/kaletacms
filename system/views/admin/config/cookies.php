@@ -25,6 +25,7 @@ $pole('cookies_zasady_url', 'Odkaz na zásady', 'text', 'Např. /zasady-ochrany-
 $pole('cookies_externi_kod', 'Kód externí služby', 'kod', 'Skript od poskytovatele (u Cookiebotu řádek s data-cbid). Načte se jako první.', 'spellcheck="false"');
 $pole('kod_marketing', 'Marketingové kódy', 'kod', 'Meta Pixel, Sklik retargeting, Google Ads… Spustí se až po souhlasu s marketingem.', 'spellcheck="false"');
 $pole('cookies_evidence', 'Evidovat souhlasy', 'ano', 'Čas, náhodný identifikátor a zvolené kategorie – bez IP adresy. Doklad pro případnou kontrolu.');
+$pole('cookies_evidence_mesice', 'Uchovávat záznamy o souhlasech (měsíců)', 'cislo', 'Starší záznamy se mažou automaticky. 0 = nemazat.', 'min="0" max="120"');
 ?>
 </details>
 <?php if ($souhlasy !== []): ?>

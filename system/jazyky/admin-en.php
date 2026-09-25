@@ -2325,4 +2325,6 @@ return [
     'Veřejný e-mail' => 'Public email',
     'S předvolbou, např. +420 123 456 789.' => 'With country code, e.g. +420 123 456 789.',
     'Kontakt pro návštěvníky a vyhledávače. E-mail webu ze záložky Základní (na ten chodí poptávky) se na webu neukazuje.' => 'Contact for visitors and search engines. The site email from the Basic tab (where enquiries are sent) is not shown on the site.',
+    'Uchovávat záznamy o souhlasech (měsíců)' => 'Keep consent records (months)',
+    'Starší záznamy se mažou automaticky. 0 = nemazat.' => 'Older records are deleted automatically. 0 = keep.',
 ];

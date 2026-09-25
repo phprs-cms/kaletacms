@@ -88,6 +88,7 @@ final class Settings
         'cookies_zasady_url' => '',
         'kod_marketing' => '',
         'cookies_evidence' => '1',    // zapisovat udělené souhlasy (doklad pro případnou kontrolu)
+        'cookies_evidence_mesice' => '36', // záznamy o souhlasech starší než tolik měsíců se mažou; 0 = nemazat
         'stav_token' => '',
         'zaloha_vzdalena' => 'vypnuto', // kopie zálohy mimo server: vypnuto | ftp | s3
         'zaloha_host' => '',          // FTP server, nebo adresa úložiště S3 (s3.eu-central-1.amazonaws.com)
