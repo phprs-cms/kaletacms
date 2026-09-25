@@ -60,8 +60,8 @@ php -S localhost:8080 system/dev-router.php
 ```
 
 Tests: `php tools/testy.php` (unit, no database) and `tools/test.sh` (clean install plus a walk through the site, admin,
-builder and MCP; needs MySQL; `WEB=remeslo tools/test.sh` tests another starter site). Contributor rules and
-architecture notes are in [`CLAUDE.md`](CLAUDE.md) (Czech).
+builder and MCP; needs MySQL; `WEB=remeslo tools/test.sh` tests another starter site). How to contribute is in
+[`CONTRIBUTING.md`](CONTRIBUTING.md); architecture notes are in [`CLAUDE.md`](CLAUDE.md) (Czech).
 
 ## Licence
 
