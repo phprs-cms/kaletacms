@@ -35,5 +35,5 @@ jobs:
         env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root, FROM: v1.0.0 }
         run: tools/test-migrace.sh
       - name: Koncept vydání
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with: { draft: true, generate_release_notes: true }
