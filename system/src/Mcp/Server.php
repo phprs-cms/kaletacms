@@ -141,12 +141,18 @@ final class Server
             }
             $vlastnosti = (array) ($nastroj['inputSchema']['properties'] ?? []);
             foreach ($argumenty as $klic => $hodnota) {
-                $typ = $vlastnosti[$klic]['type'] ?? '';
-                if (is_string($hodnota) && in_array($typ, ['object', 'array'], true) && preg_match('/^\s*[\[{]/', $hodnota)) {
-                    $rozbaleno = json_decode($hodnota, true);
-                    if (is_array($rozbaleno) && ($typ === 'array') === array_is_list($rozbaleno)) {
-                        $argumenty[$klic] = $rozbaleno;
-                    }
+                // typ může být i výčet, např. ["array", "null"] u položek menu
+                $typy = (array) ($vlastnosti[$klic]['type'] ?? []);
+                if (!is_string($hodnota) || !array_intersect($typy, ['object', 'array']) || !preg_match('/^\s*[\[{]/', $hodnota)) {
+                    continue;
+                }
+                $rozbaleno = json_decode($hodnota, true);
+                if (!is_array($rozbaleno)) {
+                    continue;
+                }
+                $druh = $rozbaleno === [] ? null : (array_is_list($rozbaleno) ? 'array' : 'object'); // [] i {} sedí na oba typy
+                if ($druh === null || in_array($druh, $typy, true)) {
+                    $argumenty[$klic] = $rozbaleno;
                 }
             }
             break;

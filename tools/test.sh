@@ -375,6 +375,7 @@ mcp seznam_kolekci '{}' > "$PRACE/odpoved"; grep -q 'kolekce\\":\\"tym' "$PRACE/
 mcp uloz_polozku_kolekce '{"kolekce":"tym","nazev":"Petr Svoboda","data":{"funkce":"Mistr truhlář"},"zobrazit":true}' > /dev/null
 mcp save_collection_item '{"collection":"tym","name":"Text JSON","values":"{\"funkce\":\"Z textu\"}"}' > "$PRACE/odpoved"
 mcp seznam_polozek_kolekce '{"kolekce":"tym","pole":"funkce","hodnota":"Z textu"}' | grep -q 'Text JSON' && echo "  ok     MCP: data poslaná jako text JSON se uloží" || { echo "  CHYBA  MCP data jako text JSON"; head -c 300 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+mcp uloz_menu '{"umisteni":"hlavni","polozky":"nejde precist"}' | grep -q 'musí být seznam' && echo "  ok     MCP: nečitelné položky menu jsou chyba, menu se nevrátí na automatické" || { echo "  CHYBA  MCP nečitelné položky menu"; CHYB=$((CHYB+1)); }
 mcp save_classes '{"classes":[{"name":"x"}]}' | grep -q 'unknown_parameters' && echo "  ok     MCP: neznámý parametr je ve výsledku, ne tiše vynechaný" || { echo "  CHYBA  MCP neznámé parametry"; CHYB=$((CHYB+1)); }
 mcp uloz_polozku_kolekce '{"kolekce":"tym","nazev":"Spatna data","data":"funkce=x"}' | grep -q 'musí být objekt' && echo "  ok     MCP: nečitelná data položky jsou chyba, ne tiché vynechání" || { echo "  CHYBA  MCP nečitelná data položky"; CHYB=$((CHYB+1)); }
 mcp uloz_polozku_kolekce '{"kolekce":"tym","nazev":"Zdenek Zeman","adresa":"zdenek","zobrazit":true}' > "$PRACE/odpoved"

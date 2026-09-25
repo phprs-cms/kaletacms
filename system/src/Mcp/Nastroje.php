@@ -229,7 +229,11 @@ final class Nastroje
                     if (!$auth->isAdmin()) {
                         throw new \DomainException('Menu smí upravovat jen správce.');
                     }
-                    \Kaleta\Core\Menu::uloz($db, $umisteni, $jazykMenu, is_array($a['polozky'] ?? null) ? $a['polozky'] : null);
+                    // null vrátí automatické menu – jen když ho volající opravdu poslal, ne když položky chybí nebo nejdou přečíst
+                    if (!array_key_exists('polozky', $a) || ($a['polozky'] !== null && !is_array($a['polozky']))) {
+                        throw new \InvalidArgumentException('Parametr polozky musí být seznam položek menu, nebo null pro automatické menu.');
+                    }
+                    \Kaleta\Core\Menu::uloz($db, $umisteni, $jazykMenu, $a['polozky']);
                     \Kaleta\Front\Cache::vymaz();
                 }
                 $ulozene = \Kaleta\Core\Menu::nacti($db, $umisteni, $jazykMenu);

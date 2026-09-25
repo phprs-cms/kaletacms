@@ -73,6 +73,26 @@
 		otevri(seznam, seznam.indexOf(img));
 	});
 
+	/* ---------- podmenu: Esc zavře panel otevřený fokusem nebo myší a vrátí fokus na položku menu (WCAG 1.4.13) ---------- */
+
+	document.addEventListener('keydown', function (e) {
+		if (e.key !== 'Escape') { return; }
+		var li = e.target.closest && e.target.closest('.ka-nav li.podmenu');
+		if (li && !li.closest('.ka-nav-menu:popover-open')) {
+			li.classList.add('zavreno');
+			var vrchol = li.querySelector(':scope > a, :scope > .menu-skupina');
+			if (vrchol && vrchol !== e.target) { vrchol.focus(); }
+		}
+		// panel otevřený jen najetím myši
+		document.querySelectorAll('.ka-nav li.podmenu:hover').forEach(function (h) { h.classList.add('zavreno'); });
+	});
+	['focusout', 'mouseout'].forEach(function (udalost) {
+		document.addEventListener(udalost, function (e) {
+			var li = e.target.closest && e.target.closest('.ka-nav li.podmenu.zavreno');
+			if (li && !li.contains(e.relatedTarget)) { li.classList.remove('zavreno'); }
+		});
+	});
+
 	/* ---------- sdílení novinky: systémové sdílení (telefon) a kopírování odkazu ---------- */
 
 	document.querySelectorAll('[data-sdilet]').forEach(function (tl) {

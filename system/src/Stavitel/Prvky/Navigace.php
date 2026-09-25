@@ -51,6 +51,7 @@ final class Navigace extends Prvek
 .ka-nav .podmenu > ul { display: none; position: absolute; top: 100%; left: 0; z-index: 60; flex-direction: column; flex-wrap: nowrap; min-width: 14rem; padding: var(--ka-mezera-2xs); border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-pozadi); color: var(--ka-barva-text); box-shadow: var(--ka-stin-m); }
 .ka-nav .podmenu > ul a { border-radius: calc(var(--ka-zaobleni) / 1.5); font-weight: 500; }
 .ka-nav .podmenu:hover > ul, .ka-nav .podmenu:focus-within > ul { display: flex; }
+.ka-nav li.podmenu.zavreno > ul { display: none; } /* Esc zavřel podmenu otevřené fokusem nebo myší (web.js) */
 /* přepínač jazyků v navigaci (image/web.css): pravidla menu (.ka-nav a, .ka-nav ul) se na něj nevztahují */
 .ka-nav .ka-jazyky a { padding: 0.45em 0.6em; font-weight: 600; }
 .ka-nav .ka-jazyky a[aria-current] { background: var(--ka-barva-primarni); color: var(--ka-barva-na-primarni); }
