@@ -16,9 +16,9 @@ What is planned next. Dates are not promised; releases ship when they are tested
 - 1.2.3: MCP reports unknown parameters and never resets the menu on unreadable items; Escape closes submenus.
 - 1.2.4: tidy submenus and a centred mega menu panel; Escape works on every page with a submenu.
 
-## 1.3 – pop-ups, newsletter services and a clearer Site appearance
+## 1.3 – pop-ups, newsletter services and a clearer Site appearance (released 26 September 2026)
 
-### Pop-up builder (done, in main)
+### Pop-up builder
 
 Today a pop-up is an element inside one page. 1.3 turns pop-ups into site-wide pieces built in the builder, like the
 header and footer:
@@ -35,7 +35,7 @@ header and footer:
 - **Results:** views, closes and conversions (form sent) per pop-up, counted cookie-free like the site statistics.
 - Claude can create and change pop-ups over MCP like other site parts.
 
-### Site appearance, clearer (done, in main)
+### Site appearance, clearer
 
 - One set of words everywhere: a **starter site** is content plus a style (chosen at installation), a **style** is a
   ready set of colours, fonts and corner radius, a **theme** is only the legacy custom PHP theme.
@@ -48,7 +48,7 @@ header and footer:
 
 Two steps: the first in 1.3, the second in 1.4.
 
-1. **Subscribers sent to the mailing service the site already uses** (done, in main). After the double opt-in the address goes to
+1. **Subscribers sent to the mailing service the site already uses**. After the double opt-in the address goes to
    Brevo, MailerLite, Mailchimp, Ecomail or SmartEmailing (API key and list in the admin), or to any service through the
    existing webhook (Make, Zapier). Unsubscribing in Kaleta removes the address there too. Deliverability, bounces and
    spam rules stay with the specialist service.
