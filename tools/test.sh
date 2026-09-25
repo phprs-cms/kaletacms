@@ -62,7 +62,9 @@ for u in /rss.xml /feed.json /sitemap.xml /robots.txt /llms.txt /novinky/vitejte
 over "mapa webu obsahuje novinku" 200 /sitemap.xml "/novinky/vitejte-v-kalete"
 over "llms.txt vyjmenuje stránky" 200 /llms.txt "## Stránky"
 over "strukturovaná data novinky" 200 /novinky/vitejte-v-kalete '"BlogPosting"'
-over "zásady ochrany osobních údajů z instalace" 200 /zasady-ochrany-osobnich-udaju "Jaké údaje zpracováváme"
+over "zásady z instalace jsou skryté, dokud je správce nedoplní" 404 /zasady-ochrany-osobnich-udaju
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_stranky SET zobrazit = 1 WHERE seo_link = 'zasady-ochrany-osobnich-udaju'"
+over "zásady ochrany osobních údajů po zveřejnění" 200 /zasady-ochrany-osobnich-udaju "Jaké údaje zpracováváme"
 over "patička odkazuje na zásady" 200 /o-nas 'zasady-ochrany-osobnich-udaju'
 over "neexistující stránka" 404 /tohle-neexistuje
 over "system/ není přístupný" 403 /system/sql/schema.sql
