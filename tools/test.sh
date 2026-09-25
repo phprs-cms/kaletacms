@@ -564,7 +564,8 @@ curl -s -b "$JAR" -o "$PRACE/export" "$B/admin.php?modul=prenos&akce=stahni&soub
 if [ "${EXPORT##*.}" = zip ]; then unzip -p "$PRACE/export" obsah.json > "$PRACE/obsah.json" 2>/dev/null || true; else cp "$PRACE/export" "$PRACE/obsah.json"; fi
 grep -q '"format":"kaleta-export"' "$PRACE/obsah.json" && grep -q '"novinky"' "$PRACE/obsah.json" && ! grep -qE '"password"|smtp_heslo|tajny_klic|ai_klic' "$PRACE/obsah.json" && echo "  ok     export obsahuje data a žádná tajemství" || { echo "  CHYBA  export"; CHYB=$((CHYB+1)); }
 grep -q '"kolekce_polozky":\[' "$PRACE/obsah.json" && grep -q 'Jana Nováková' "$PRACE/obsah.json" && grep -q '"tridy":\[' "$PRACE/obsah.json" && grep -q '"casti":\[' "$PRACE/obsah.json" && ! grep -q 'Chci kuchyň' "$PRACE/obsah.json" \
-  && echo "  ok     export obsahuje builder a kolekce, poptávky ne" || { echo "  CHYBA  export builderu a kolekcí"; CHYB=$((CHYB+1)); }
+  && grep -q '"adresa":"akce-okno"' "$PRACE/obsah.json" && ! grep -q '"zobrazeni":' "$PRACE/obsah.json" \
+  && echo "  ok     export obsahuje builder, kolekce a pop-up okna, poptávky ani počitadla ne" || { echo "  CHYBA  export builderu a kolekcí"; CHYB=$((CHYB+1)); }
 curl -s -o "$PRACE/odpoved" "$B/admin.php?modul=prenos&akce=stahni&soubor=$EXPORT"; grep -q "Heslo" "$PRACE/odpoved" && echo "  ok     export jen pro přihlášeného správce" || { echo "  CHYBA  export jde stáhnout bez přihlášení"; CHYB=$((CHYB+1)); }
 
 echo "== koš novinek"

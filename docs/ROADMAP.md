@@ -18,7 +18,7 @@ What is planned next. Dates are not promised; releases ship when they are tested
 
 ## 1.3 – pop-ups, newsletter services and a clearer Site appearance
 
-### Pop-up builder
+### Pop-up builder (done, in main)
 
 Today a pop-up is an element inside one page. 1.3 turns pop-ups into site-wide pieces built in the builder, like the
 header and footer:
@@ -26,7 +26,7 @@ header and footer:
 - **Types:** centred modal, slide-in from a corner, top or bottom bar, full screen.
 - **Triggers:** after N seconds, after scrolling N %, exit intent, click on a link or button (`#popup-name`), inactivity,
   after N page views in a visit.
-- **Where it shows:** all pages, selected pages, collections or news categories, a language version, device
+- **Where it shows:** all pages, selected pages, collection item pages or news, a language version, device
   (desktop / phone), date range, visitors coming from a campaign (`utm_*`) or a referring site.
 - **How often:** once per visit, once per N days, until closed, never again after a form in it was sent – remembered
   in the visitor's browser, no cookies.
