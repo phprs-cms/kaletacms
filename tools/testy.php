@@ -178,6 +178,16 @@ Kaleta\Core\Obrazky::smaz($obrUlozeno['obr_poloha'], $obrUlozeno['nahl_poloha'])
 over('Styl::zCss: barva rámečku (i pro stav hover)', Kaleta\Stavitel\Styl::zCss('border-color', '#F6F4EE'), ['barva_ramecku' => '#F6F4EE']);
 over('Styl::zCss: zkratka background jen s barvou', Kaleta\Stavitel\Styl::zCss('background', '#EFECE5'), Kaleta\Stavitel\Styl::zCss('background-color', '#EFECE5'));
 over('Styl::zCss: background s obrázkem zůstane mimo', Kaleta\Stavitel\Styl::zCss('background', 'url(a.png) no-repeat'), null);
+$kontrola = Kaleta\Stavitel\Kontrola::stavby(['v' => 1, 'deti' => [['id' => 's', 'typ' => 'sekce', 'deti' => [
+    ['id' => 'a', 'typ' => 'nadpis', 'znacka' => 'h2', 'obsah' => ['text' => 'Služby']],
+    ['id' => 'b', 'typ' => 'nadpis', 'znacka' => 'h4', 'obsah' => ['text' => 'Detail']],
+    ['id' => 'c', 'typ' => 'tlacitko', 'obsah' => ['text' => 'Poptat', 'odkaz' => '#']],
+    ['id' => 'd', 'typ' => 'obrazek', 'obsah' => ['src' => 'media/a.jpg', 'alt' => '']],
+    ['id' => 'e', 'typ' => 'obrazek', 'obsah' => ['src' => '{{foto}}', 'alt' => '']],
+    ['id' => 'f', 'typ' => 'nadpis', 'znacka' => 'p', 'obsah' => ['text' => '01']],
+]]]], true);
+over('Kontrola stavby: tlačítko bez odkazu, obrázek bez popisu, chybějící h1 a přeskočená úroveň', array_column($kontrola, 'id'), ['c', 'd', 'a', 'b']);
+over('Kontrola stavby: části webu osnovu nadpisů nehlídají', Kaleta\Stavitel\Kontrola::stavby(['v' => 1, 'deti' => [['id' => 'a', 'typ' => 'nadpis', 'znacka' => 'h3', 'obsah' => ['text' => 'Kontakt']]]], false), []);
 
 /* ---------- porovnání verzí ---------- */
 $r = Kaleta\Core\Rozdil::html('<p>Radnice schválila plán.</p><p>Druhý odstavec.</p>', '<p>Radnice včera schválila nový plán.</p><p>Druhý odstavec.</p><p>Třetí.</p>');

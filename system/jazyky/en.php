@@ -816,4 +816,10 @@ return [
     'Aktuality' => 'News',
     'Formulář odešel dřív, než jsme stihli ověřit, že ho posílá člověk. Počkejte prosím chvilku a odešlete ho znovu.' => 'The form was sent before we could check that a person is sending it. Please wait a moment and send it again.',
     'Telefonní číslo, například +420 123 456 789.' => 'Phone number, for example +44 20 7946 0958.',
+    'Tlačítko „%s“ nikam nevede – doplňte odkaz.' => 'The button “%s” leads nowhere – add a link.',
+    'Obrázek není vybraný – na webu se nezobrazí.' => 'No image selected – it will not appear on the site.',
+    'Obrázek nemá popis pro nevidomé (alt).' => 'The image has no description for blind visitors (alt).',
+    'Stránka nemá hlavní nadpis (h1) – vyhledávače i čtečky podle něj poznají, o čem je.' => 'The page has no main heading (h1) – search engines and screen readers use it to tell what the page is about.',
+    'Stránka má víc hlavních nadpisů (h1) – nechte jen jeden.' => 'The page has more than one main heading (h1) – keep just one.',
+    'Nadpis „%s“ přeskakuje úroveň (h%d → h%d).' => 'The heading “%s” skips a level (h%d → h%d).',
 ];

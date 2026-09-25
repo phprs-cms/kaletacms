@@ -96,7 +96,7 @@ final class Nastroje
                 $s(['html' => $text('HTML obsahu (bez <html>/<head>); <style> smí být uvnitř. Záhlaví a patičku skládej z prvků logo, navigace a udaje přes stavba_uloz – HTML je nepřevede.'), 'id' => $cislo('ID stránky; bez něj (a bez cast) vznikne nová skrytá stránka s názvem z parametru titulek'), 'cast' => $cil['cast'], 'jazyk' => $cil['jazyk'], 'titulek' => $text('Název nové stránky (když není id)'),
                     'rezim' => $text('nahradit (výchozí) = celá stavba z HTML | pridat = sekce na konec stávající stavby'), 'prepsat_tridy' => ['type' => 'boolean', 'description' => 'true = třídy, které už na webu jsou, se přepíšou stylem z <style>; jinak zůstanou'],
                     'publikovat' => ['type' => 'boolean', 'description' => 'true = hned publikovat (jen na výslovný pokyn uživatele); jinak koncept k náhledu']], ['html'])],
-            ['stavba_uloz', 'Uloží celou stavbu stránky (strom z stavba_nacti s úpravami) jako koncept. Pro drobné úpravy obsahu a stylu jednotlivých prvků. Vrátí vyčištěnou stavbu a chyby.',
+            ['stavba_uloz', 'Uloží celou stavbu stránky (strom z stavba_nacti s úpravami) jako koncept. Pro drobné úpravy obsahu a stylu jednotlivých prvků. Vrátí vyčištěnou stavbu, chyby a kontrolu před publikováním.',
                 $s($cil + ['stavba' => ['type' => 'object', 'description' => '{"v":1,"deti":[…]} podle stavba_schema'], 'publikovat' => ['type' => 'boolean', 'description' => 'true = publikovat (jen na výslovný pokyn uživatele)']], ['stavba'])],
             ['vloz_sekci', 'Vloží hotovou sekci z knihovny (úvod, výhody, služby, čísla, reference, faq, výzva, novinky, kontakt) na konec konceptu stránky nebo části webu.', $s($cil + ['sekce' => $text('klíč sekce ze stavba_schema → knihovna')], ['sekce'])],
             ['publikuj_stavbu', 'Publikuje koncept stavby stránky nebo části webu (jen na výslovný pokyn uživatele). Předchozí verze zůstane v historii.', $s($cil)],
@@ -323,7 +323,8 @@ final class Nastroje
                 }
                 $this->publikujCil($cil);
 
-                return $this->popisCile($cil) + ['stav' => 'publikováno', 'adresa' => $this->adresaCile($cil)];
+                return $this->popisCile($cil) + ['stav' => 'publikováno', 'adresa' => $this->adresaCile($cil)]
+                    + $this->kontrolaCile($cil, Stavba::zJson($cil['koncept'] ?? $cil['stavba']));
 
             case 'uprav_design_system':
                 $jenAdmin();
@@ -937,7 +938,15 @@ final class Nastroje
 
         return $this->popisCile($cil) + ['stav' => $publikovat ? 'publikováno' : 'koncept – na webu se ukáže po publikování', 'prvku' => $this->pocetPrvku($stavba['deti']),
             'chyby' => $chyby, 'nahled' => $publikovat ? $this->adresaCile($cil) : $this->nahledCile($cil, 60),
-            'stavitel' => $this->app->request->origin() . $this->app->url('admin.php?' . $parametry)];
+            'stavitel' => $this->app->request->origin() . $this->app->url('admin.php?' . $parametry)] + $this->kontrolaCile($cil, $stavba);
+    }
+
+    /** Kontrola před publikováním jako v builderu (tlačítka bez odkazu, obrázky bez popisu, osnova nadpisů stránky); bez nálezů nic. */
+    private function kontrolaCile(array $cil, array $stavba): array
+    {
+        $nalezy = \Kaleta\Stavitel\Kontrola::stavby($stavba, $cil['druh'] === 'stranka');
+
+        return $nalezy === [] ? [] : ['kontrola' => $nalezy];
     }
 
     /** Podepsaný odkaz na koncept cíle (platí jen pro tenhle cíl a omezenou dobu). */

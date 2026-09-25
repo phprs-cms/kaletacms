@@ -236,6 +236,8 @@ IDH3=$(php -r '$j = json_decode(json_decode(file_get_contents($argv[1]), true)["
 mcp stavba_uprav "{\"id\":$IDM2,\"operace\":[{\"op\":\"uprav\",\"id\":\"$IDH3\",\"obsah\":{\"text\":\"Opraveno\"}},{\"op\":\"smaz\",\"id\":\"neni\"}]}" > "$PRACE/odpoved"
 grep -q 'chyby_operaci\\":{\\"op\[1\]' "$PRACE/odpoved" && [ "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT stavba_koncept LIKE '%Opraveno%' FROM ka_stranky WHERE ids = $IDM2")" = 1 ] \
     && echo "  ok     MCP: dílčí úprava prvku podle id (chybná operace nahlášena)" || { echo "  CHYBA  MCP stavba_uprav"; head -c 600 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+KONTROLA=$(php -r '$j = json_decode(json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"], true); echo implode("|", array_column($j["kontrola"] ?? [], "zprava"));' "$PRACE/odpoved")
+[[ "$KONTROLA" == *"(h1)"* ]] && echo "  ok     MCP: zápis stavby vrátí kontrolu před publikováním (stránka bez h1)" || { echo "  CHYBA  MCP kontrola: $KONTROLA"; CHYB=$((CHYB+1)); }
 NAHLED=$(php -r '$j = json_decode(json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"], true); echo $j["nahled"];' "$PRACE/odpoved")
 curl -s -o "$PRACE/odpoved" -w '%{http_code}' "$NAHLED" > "$PRACE/kod"; grep -q 'Opraveno' "$PRACE/odpoved" && grep -q 'noindex' "$PRACE/odpoved" && [ "$(cat "$PRACE/kod")" = 200 ] \
     && echo "  ok     podepsaný náhled konceptu skryté stránky bez přihlášení" || { echo "  CHYBA  podepsaný náhled ($(cat "$PRACE/kod"))"; CHYB=$((CHYB+1)); }
