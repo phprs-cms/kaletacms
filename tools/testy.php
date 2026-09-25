@@ -175,6 +175,8 @@ over('Obrazky: vysoký snímek si nechá šířku, srcset má skutečné šířk
 Kaleta\Core\Obrazky::smaz($obrUlozeno['obr_poloha'], $obrUlozeno['nahl_poloha']);
 @unlink($obrTmp);
 
+over('Styl::zCss: barva rámečku (i pro stav hover)', Kaleta\Stavitel\Styl::zCss('border-color', '#F6F4EE'), ['barva_ramecku' => '#F6F4EE']);
+
 /* ---------- porovnání verzí ---------- */
 $r = Kaleta\Core\Rozdil::html('<p>Radnice schválila plán.</p><p>Druhý odstavec.</p>', '<p>Radnice včera schválila nový plán.</p><p>Druhý odstavec.</p><p>Třetí.</p>');
 over('Rozdil: slova ve změněném odstavci', str_contains($r['html'], '<ins>včera </ins>') && str_contains($r['html'], '<ins>nový </ins>'), true);
