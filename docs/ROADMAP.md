@@ -11,6 +11,8 @@ What is planned next. Dates are not promised; releases ship when they are tested
 - Language switcher and light / dark / device-based look with a switcher for visitors.
 - Admin: distinct menu icons, chart tooltips, GitHub Sponsors link in the footer.
 - 1.2.1: related content on item pages (a Collection list filtered by the shown item's field, without the item itself).
+- 1.2.2: MCP accepts objects and arrays sent as JSON text (item values and builds were dropped or refused); breadcrumbs
+  mark only the current page.
 
 ## 1.3 – pop-ups, newsletter services and a clearer Site appearance
 
