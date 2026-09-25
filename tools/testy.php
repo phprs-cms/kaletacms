@@ -176,6 +176,8 @@ Kaleta\Core\Obrazky::smaz($obrUlozeno['obr_poloha'], $obrUlozeno['nahl_poloha'])
 @unlink($obrTmp);
 
 over('Styl::zCss: barva rámečku (i pro stav hover)', Kaleta\Stavitel\Styl::zCss('border-color', '#F6F4EE'), ['barva_ramecku' => '#F6F4EE']);
+over('Styl::zCss: zkratka background jen s barvou', Kaleta\Stavitel\Styl::zCss('background', '#EFECE5'), Kaleta\Stavitel\Styl::zCss('background-color', '#EFECE5'));
+over('Styl::zCss: background s obrázkem zůstane mimo', Kaleta\Stavitel\Styl::zCss('background', 'url(a.png) no-repeat'), null);
 
 /* ---------- porovnání verzí ---------- */
 $r = Kaleta\Core\Rozdil::html('<p>Radnice schválila plán.</p><p>Druhý odstavec.</p>', '<p>Radnice včera schválila nový plán.</p><p>Druhý odstavec.</p><p>Třetí.</p>');

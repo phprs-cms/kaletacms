@@ -193,6 +193,10 @@ final class Styl
         $hodnota = trim((string) preg_replace('/\s*!important$/i', '', trim($hodnota)));
         // běžné zápisy, které builder zná pod logickým jménem: margin-top → margin-block-start, flex-start → start
         $vlastnost = ['margin-top' => 'margin-block-start', 'margin-bottom' => 'margin-block-end', 'margin-left' => 'margin-inline-start', 'margin-right' => 'margin-inline-end'][$vlastnost] ?? $vlastnost;
+        // zkratka background jen s barvou (background: #EFECE5) je barva pozadí
+        if ($vlastnost === 'background' && preg_match('/^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([^()]*\)|var\(--ka-barva-[a-z0-9-]+\)|[a-z]+)$/i', $hodnota)) {
+            $vlastnost = 'background-color';
+        }
         if (in_array($vlastnost, ['align-items', 'align-self', 'justify-content'], true)) {
             $hodnota = ['flex-start' => 'start', 'flex-end' => 'end'][$hodnota] ?? $hodnota;
         }
