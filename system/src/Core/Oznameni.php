@@ -26,6 +26,7 @@ final class Oznameni
         try {
             self::zpracuj($app);
             Posta::zpracujFrontu($s);
+            Newsletter::zpracujFrontu($app);
             Odkazy::naPozadi($app);
             self::uklidOsobnichUdaju($app);
         } catch (\Throwable) {

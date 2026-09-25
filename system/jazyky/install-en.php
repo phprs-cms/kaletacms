@@ -80,7 +80,7 @@ return [
     '%s – rozšíření je vypnuté, na webu se nezobrazí.' => '%s – the extension is switched off and will not appear on the website.',
     'Novinky jsou na tomto webu vypnuté.' => 'News is switched off on this website.',
     'Zásady ochrany osobních údajů' => 'Privacy policy',
-    'Prvek Odběr novinek v builderu: návštěvník zadá e-mail a potvrdí ho odkazem (double opt-in). Seznam odběratelů vyexportujete do rozesílacího nástroje.' => 'The Newsletter sign-up element in the builder: visitors enter an e-mail and confirm it by a link (double opt-in). You export the subscriber list to your mailing tool.',
+    'Prvek Odběr novinek v builderu: návštěvník zadá e-mail a potvrdí ho odkazem (double opt-in). Potvrzené odběratele web pošle do vaší mailingové služby (Brevo, MailerLite, Mailchimp, Ecomail, SmartEmailing, webhook), nebo je vyexportujete do CSV.' => 'The Newsletter sign-up element in the builder: visitors enter an e-mail and confirm it by a link (double opt-in). The site sends confirmed subscribers to your mailing service (Brevo, MailerLite, Mailchimp, Ecomail, SmartEmailing, webhook), or you export them to CSV.',
     'Statistika' => 'Statistics',
     'Vlastní měření návštěvnosti bez cookies.' => 'Your own cookie-free traffic analytics.',
     'Přesměrování' => 'Redirects',

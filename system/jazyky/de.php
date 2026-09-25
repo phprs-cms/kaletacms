@@ -753,7 +753,7 @@ return [
     'Obrázek pozadí při posunu' => 'Hintergrundbild beim Scrollen',
     'stojí (paralaxa)' => 'bleibt stehen (Parallax)',
     'posouvá se s obsahem' => 'scrollt mit dem Inhalt',
-    'Prvek Odběr novinek v builderu: návštěvník zadá e-mail a potvrdí ho odkazem (double opt-in). Seznam odběratelů vyexportujete do rozesílacího nástroje.' => 'Das Element Newsletter-Anmeldung im Builder: Besucher geben eine E-Mail-Adresse ein und bestätigen sie über einen Link (Double-Opt-in). Die Abonnentenliste exportieren Sie in Ihr Versandtool.',
+    'Prvek Odběr novinek v builderu: návštěvník zadá e-mail a potvrdí ho odkazem (double opt-in). Potvrzené odběratele web pošle do vaší mailingové služby (Brevo, MailerLite, Mailchimp, Ecomail, SmartEmailing, webhook), nebo je vyexportujete do CSV.' => 'Das Element Newsletter-Anmeldung im Builder: Besucher geben ihre E-Mail-Adresse ein und bestätigen sie über einen Link (Double-Opt-in). Bestätigte Abonnenten sendet die Website an Ihren Mailing-Dienst (Brevo, MailerLite, Mailchimp, Ecomail, SmartEmailing, Webhook), oder Sie exportieren sie als CSV.',
     'Odběratelé' => 'Abonnenten',
     'Odběratel byl smazán.' => 'Der Abonnent wurde gelöscht.',
     'Přihlášen' => 'Angemeldet',

@@ -8,7 +8,7 @@ set -euo pipefail
 KOREN="$(cd "$(dirname "$0")/.." && pwd)"
 DB_HOST="${DB_HOST:-127.0.0.1}"; DB_PORT="${DB_PORT:-3306}"; DB_NAME="${DB_NAME:-kaleta_test}"; DB_USER="${DB_USER:-root}"; DB_PASS="${DB_PASS:-}"; PORT="${PORT:-8099}"
 PRACE="$(mktemp -d)"; JAR="$PRACE/cookies.txt"; B="http://127.0.0.1:$PORT"; CHYB=0
-uklid() { [ -n "${SERVER_PID:-}" ] && kill "$SERVER_PID" 2>/dev/null || true; rm -rf "$PRACE"; }
+uklid() { for pid in "${SERVER_PID:-}" "${KANAL_PID:-}" "${SLUZBA_PID:-}"; do [ -z "$pid" ] || kill "$pid" 2>/dev/null || true; done; rm -rf "$PRACE"; }
 trap uklid EXIT
 
 echo "== syntaxe PHP"
@@ -789,6 +789,43 @@ over "odhlášení jde i s vypnutým Newsletterem" 200 "/odber?odhlasit=$TOKO" "
 curl -s -o "$PRACE/odpoved" -X POST "$B/odber?odhlasit=$TOKO"; grep -q "Odhlášeno" "$PRACE/odpoved" && echo "  ok     odhlášení tlačítkem" || { echo "  CHYBA  odhlášení"; CHYB=$((CHYB+1)); }
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = REPLACE(hodnota, 'poptavky,', 'poptavky,newsletter,') WHERE promenna = 'rozsireni'"
 ocekavej "odhlášený je smazaný" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_odberatele")" "0"
+
+echo "== odběratelé do mailingové služby (falešný server)"
+NPORT=$((PORT + 2)); mkdir -p "$PRACE/sluzba"
+cat > "$PRACE/sluzba/router.php" <<'PHP'
+<?php
+$log = __DIR__ . '/pozadavky.log';
+if ($_SERVER['REQUEST_URI'] === '/_log') { header('Content-Type: text/plain'); @readfile($log); return true; }
+$h = array_change_key_case(getallheaders());
+file_put_contents($log, $_SERVER['REQUEST_METHOD'] . ' ' . $_SERVER['REQUEST_URI'] . ' ' . ($h['api-key'] ?? $h['authorization'] ?? $h['key'] ?? '-') . ' ' . file_get_contents('php://input') . "\n", FILE_APPEND);
+if (str_contains($_SERVER['REQUEST_URI'], 'chyba')) { http_response_code(500); echo '{"message":"Invalid list"}'; return true; }
+http_response_code(201); header('Content-Type: application/json'); echo '{}'; return true;
+PHP
+(cd "$PRACE/sluzba" && exec php -S "127.0.0.1:$NPORT" router.php > /dev/null 2>&1) & SLUZBA_PID=$!
+for i in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$NPORT/_log" && break; sleep 0.2; done
+sluzba() { "${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('newsletter_sluzba','$1'),('newsletter_klic','$2'),('newsletter_seznam','$3'),('newsletter_webhook','$4'),('newsletter_test_url','http://127.0.0.1:$NPORT'); DELETE FROM ka_odber_fronta; DELETE FROM ka_odberatele; INSERT INTO ka_odberatele (email, stav, token, datum, potvrzeno) VALUES ('sluzba@example.cz', 1, '$(php -r 'echo bin2hex(random_bytes(16));')', NOW(), NOW())"; : > "$PRACE/sluzba/pozadavky.log"; }
+akce_odb() { curl -s -b "$JAR" -o "$PRACE/odpoved" "$B/admin.php?modul=odberatele"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=odberatele&akce=$1" -d "_csrf=$(csrf)" "${@:2}"; }
+posledni() { tail -1 "$PRACE/sluzba/pozadavky.log"; }
+sluzba brevo brevo-klic 7 ''; akce_odb synchronizuj
+case "$(posledni)" in 'POST /brevo/v3/contacts brevo-klic {"email":"sluzba@example.cz","listIds":[7],"updateEnabled":true}') echo "  ok     Brevo: přidání do seznamu";; *) echo "  CHYBA  Brevo: $(posledni)"; CHYB=$((CHYB+1));; esac
+ocekavej "odběratel ve službě" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(sync, '/', (SELECT COUNT(*) FROM ka_odber_fronta)) FROM ka_odberatele")" "ok/0"
+over "stav služby u odběratelů" 200 "/admin.php?modul=odberatele" "odesláno"
+IDOD=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ido FROM ka_odberatele"); akce_odb smaz -d "ido=$IDOD"; akce_odb znovu
+case "$(posledni)" in 'POST /brevo/v3/contacts/lists/7/contacts/remove brevo-klic {"emails":["sluzba@example.cz"]}') echo "  ok     Brevo: smazaný odběratel odebrán ze seznamu";; *) echo "  CHYBA  Brevo odebrání: $(posledni)"; CHYB=$((CHYB+1));; esac
+sluzba mailchimp 'abc123-us21' 'aud1' ''; akce_odb synchronizuj
+case "$(posledni)" in "PUT /mailchimp/3.0/lists/aud1/members/$(php -r 'echo md5("sluzba@example.cz");') Basic $(printf 'kaleta:abc123-us21' | base64) "*'"status":"subscribed"'*) echo "  ok     Mailchimp: člen audience";; *) echo "  CHYBA  Mailchimp: $(posledni)"; CHYB=$((CHYB+1));; esac
+sluzba mailerlite ml-klic 99 ''; akce_odb synchronizuj
+case "$(posledni)" in 'POST /mailerlite/api/subscribers Bearer ml-klic {"email":"sluzba@example.cz","groups":["99"],"status":"active"}') echo "  ok     MailerLite: odběratel ve skupině";; *) echo "  CHYBA  MailerLite: $(posledni)"; CHYB=$((CHYB+1));; esac
+sluzba smartemailing 'jmeno:klic' 5 ''; akce_odb synchronizuj
+case "$(posledni)" in "POST /smartemailing/api/v3/import Basic $(printf 'jmeno:klic' | base64) "*'"contactlists":[{"id":5,"status":"confirmed"}]'*) echo "  ok     SmartEmailing: import do seznamu";; *) echo "  CHYBA  SmartEmailing: $(posledni)"; CHYB=$((CHYB+1));; esac
+sluzba webhook '' '' 'https://hook.example.com/odber'; akce_odb synchronizuj
+case "$(posledni)" in 'POST /webhook/odber - {"udalost":"novy_odberatel",'*'"email":"sluzba@example.cz"'*) echo "  ok     webhook: nový odběratel";; *) echo "  CHYBA  webhook: $(posledni)"; CHYB=$((CHYB+1));; esac
+sluzba ecomail eco-klic chyba ''; akce_odb synchronizuj
+ocekavej "nepovedený přenos čeká na další pokus s chybou" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(pokusy, '|', chyba LIKE 'HTTP 500%', '|', dalsi > NOW()) FROM ka_odber_fronta")" "1|1|1"
+case "$(posledni)" in 'POST /ecomail/lists/chyba/subscribe eco-klic '*'"skip_confirmation":true'*) echo "  ok     Ecomail: přihlášení do seznamu";; *) echo "  CHYBA  Ecomail: $(posledni)"; CHYB=$((CHYB+1));; esac
+mcp uprav_nastaveni '{}' | grep -q 'newsletter_klic\|eco-klic' && { echo "  CHYBA  MCP ukazuje klíč mailingové služby"; CHYB=$((CHYB+1)); } || echo "  ok     klíč mailingové služby MCP neukazuje"
+kill "$SLUZBA_PID" 2>/dev/null || true
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna LIKE 'newsletter\_%'; DELETE FROM ka_odber_fronta; DELETE FROM ka_odberatele"
 
 echo "== média, tokeny DTCG, kolekce přes MCP"
 IDOM=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ido FROM ka_media WHERE obr_poloha LIKE '%.jpg' ORDER BY ido DESC LIMIT 1")

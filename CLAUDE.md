@@ -90,6 +90,10 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   `Kernel::popupy()` vloží zapnutá publikovaná okna podle pravidel serveru (`Popupy::odpovida` – místa, jazyk, období; okno s obdobím vypne cache stránky)
   na konec `<body>`; spouštěč, zařízení, kampaň, odkud, počet stránek a četnost řeší `image/web.js` (sessionStorage/localStorage, bez cookies).
   Počitadla `POST /popup` (zobrazeni|zavreni|konverze), formulář v okně má zdroj `popup:<id>`. Starý prvek `okno` (okno uvnitř jedné stránky) zůstává.
+- **Mailingové služby** (`Core\Newsletter`, Rozšíření → Newsletter: `newsletter_sluzba|klic|seznam|webhook`): potvrzení a odhlášení odběru (`Front\Odber`)
+  a smazání v Odběratelích zařadí úlohu do `ka_odber_fronta`, odešle ji `Oznameni::naPozadi` (opakování 5 min → 12 h, pak `ka_odberatele.sync = chyba`).
+  Adaptéry Brevo, MailerLite, Mailchimp, Ecomail, SmartEmailing a webhook jsou v `Newsletter::proved()`; testy je přesměrují na falešný server
+  nastavením `newsletter_test_url` (jen `http://127.0.0.1:<port>`, jen přes databázi).
 - **Firma** (`Front\Firma`, Nastavení → Firma, klíče `firma_*`): prvek `udaje` (Údaje firmy) je vypisuje na webu, `Seo` z nich skládá
   Organization/LocalBusiness (`@id` …#firma) s adresou, otevírací dobou a geo. Otevírací doba se píše lidsky po řádcích, `Firma::hodiny()` ji rozebere.
 - **Kolekce** (`Stavitel\Kolekce`, tabulky `ka_kolekce` + `ka_kolekce_polozky`, admin `Moduly\Kolekce`, MCP `seznam_kolekci`, `vytvor_kolekci`,

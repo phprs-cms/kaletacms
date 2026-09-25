@@ -9,7 +9,7 @@ $adm = fn (string $dotaz): string => $app->url('admin.php?' . $dotaz);
 $nastaveniRozsireni = [
     'novinky' => [[$adm('modul=novinky'), 'Novinky'], [$adm('modul=kategorie'), 'Kategorie'], [$adm('modul=stitky'), 'Štítky']],
     'poptavky' => [[$adm('modul=poptavky'), 'Poptávky a doba uchování'], [$adm('modul=config&zalozka=zakladni#webhook_poptavky'), 'Webhook do CRM']],
-    'newsletter' => [[$adm('modul=odberatele'), 'Odběratelé a export']],
+    'newsletter' => [[$adm('modul=odberatele'), 'Odběratelé a export'], ['#newsletter', 'Napojení na mailingovou službu']],
     'statistika' => [[$adm('modul=stat'), 'Statistika'], [$adm('modul=config&zalozka=mereni'), 'Měření']],
     'presmerovani' => [[$adm('modul=presmerovani'), 'Přesměrování']],
     'jazyky' => [[$adm('modul=config&zalozka=zakladni#jazyky_dalsi'), 'Výběr jazyků']],
@@ -67,6 +67,37 @@ $nastaveniRozsireni = [
 	<span class="napoveda"><?= e(t('U Claude vyberte z nabídky (doporučený je Sonnet). U ostatních poskytovatelů napište přesný název modelu z jejich dokumentace – nabídka modelů se tam často mění.')) ?></span></div>
 </div>
 <p class="napoveda"><?= e(t('Asistent jen navrhuje – o každé změně rozhoduje člověk. Při použití se text odešle zvolenému poskytovateli; bez kliknutí na tlačítko asistenta se nikam nic neposílá.')) ?></p>
+</details>
+<details class="pokrocile" id="newsletter"<?= in_array('newsletter', $zapnutaRozsireni, true) && $hodnoty['newsletter_sluzba'] !== '' ? ' open' : '' ?>>
+<summary><?= e(t('Newsletter – napojení na mailingovou službu')) ?></summary>
+<p class="napoveda"><?= e(t('Po potvrzení odběru (double opt-in) přidá web adresu do seznamu ve vaší službě, po odhlášení ji odebere. Rozesílání, doručitelnost a odhlašování z e-mailů zůstávají u služby. Přenos běží na pozadí – návštěvník nečeká.')) ?></p>
+<div class="radek">
+	<label for="newsletter_sluzba"><?= e(t('Služba')) ?></label>
+	<div><select id="newsletter_sluzba" name="newsletter_sluzba">
+		<option value=""><?= e(t('žádná – odběratele exportujete do CSV')) ?></option>
+<?php foreach (Kaleta\Core\Newsletter::SLUZBY as $klic => [$nazev]): ?>
+		<option value="<?= e($klic) ?>"<?= $hodnoty['newsletter_sluzba'] === $klic ? ' selected' : '' ?>><?= e(t($nazev)) ?></option>
+<?php endforeach ?>
+	</select></div>
+</div>
+<div class="radek">
+	<label for="newsletter_klic"><?= e(t('Klíč API')) ?></label>
+	<div><input class="textpole siroke" type="password" id="newsletter_klic" name="newsletter_klic" value="" autocomplete="off" placeholder="<?= $hodnoty['newsletter_klic'] !== '' ? e(t('uložen klíč končící %s – nový vložte jen při změně', $hodnoty['newsletter_klic'])) : '' ?>">
+<?php if ($hodnoty['newsletter_klic'] !== ''): ?>
+	<label><input type="checkbox" name="newsletter_klic_smazat" value="1"> <?= e(t('Odebrat uložený klíč')) ?></label>
+<?php endif ?>
+	<span class="napoveda"><?= e(t('Klíč vytvoříte v účtu služby (API, integrace). U SmartEmailingu zadejte uživatelské jméno a klíč oddělené dvojtečkou. Klíč se ukládá jen na vašem webu a přes MCP se neukazuje.')) ?></span></div>
+</div>
+<div class="radek">
+	<label for="newsletter_seznam"><?= e(t('Seznam')) ?></label>
+	<div><input class="textpole" id="newsletter_seznam" name="newsletter_seznam" value="<?= e($hodnoty['newsletter_seznam']) ?>" maxlength="64" spellcheck="false">
+	<span class="napoveda"><?= e(t('ID seznamu (Brevo, Ecomail, SmartEmailing), skupiny (MailerLite) nebo audience (Mailchimp) – najdete ho v nastavení seznamu ve službě.')) ?></span></div>
+</div>
+<div class="radek">
+	<label for="newsletter_webhook"><?= e(t('Adresa webhooku')) ?></label>
+	<div><input class="textpole siroke" type="url" id="newsletter_webhook" name="newsletter_webhook" value="<?= e($hodnoty['newsletter_webhook']) ?>" placeholder="https://hook.eu1.make.com/…">
+	<span class="napoveda"><?= e(t('Jen u volby „Jiná služba přes webhook“: web pošle JSON s událostí novy_odberatel nebo odhlaseni_odberu a e-mailem.')) ?></span></div>
+</div>
 </details>
 <?php if (in_array('claude', $zapnutaRozsireni, true)): $adresaMcp = $app->request->origin() . $app->url('mcp'); ?>
 <details class="pokrocile" id="claude" open>

@@ -48,7 +48,7 @@ header and footer:
 
 Two steps: the first in 1.3, the second in 1.4.
 
-1. **Subscribers sent to the mailing service the site already uses.** After the double opt-in the address goes to
+1. **Subscribers sent to the mailing service the site already uses** (done, in main). After the double opt-in the address goes to
    Brevo, MailerLite, Mailchimp, Ecomail or SmartEmailing (API key and list in the admin), or to any service through the
    existing webhook (Make, Zapier). Unsubscribing in Kaleta removes the address there too. Deliverability, bounces and
    spam rules stay with the specialist service.

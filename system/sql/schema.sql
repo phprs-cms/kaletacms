@@ -582,9 +582,24 @@ CREATE TABLE ka_odberatele (
     zdroj     VARCHAR(255) NOT NULL DEFAULT '',          -- stránka, ze které se přihlásil
     datum     DATETIME     NOT NULL,
     potvrzeno DATETIME     NULL,
+    sync       VARCHAR(10)  NOT NULL DEFAULT '',          -- mailingová služba: '' nic, ceka, ok, chyba
+    sync_chyba VARCHAR(255) NOT NULL DEFAULT '',
     PRIMARY KEY (ido),
     UNIQUE KEY uq_odberatel_email (email),
     UNIQUE KEY uq_odberatel_token (token)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- Fronta přidání a odebrání odběratelů v mailingové službě (Core\Newsletter), odesílá ji úklid na pozadí.
+CREATE TABLE ka_odber_fronta (
+    idf       INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    email     VARCHAR(190) NOT NULL,
+    akce      VARCHAR(10)  NOT NULL,                      -- pridat | odebrat
+    pokusy    TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    dalsi     DATETIME NULL,                             -- další pokus; NULL = vzdáno (vidět v Odběratelích)
+    chyba     VARCHAR(255) NOT NULL DEFAULT '',
+    vytvoreno DATETIME NOT NULL,
+    PRIMARY KEY (idf),
+    KEY ix_odber_fronta_dalsi (dalsi)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- OAuth 2.1 pro konektor Claude (MCP): registrovaní klienti a jednorázové autorizační kódy (tokeny jsou v ka_api_tokeny).

@@ -141,6 +141,11 @@ Rozšíření **Newsletter** přidá prvek **Odběr novinek**: návštěvník za
 Potvrzené adresy najdete v **Obsah → Odběratelé** a vyexportujete je do CSV i s odkazem na odhlášení pro váš
 rozesílací nástroj.
 
+Nebo v **Rozšíření → Newsletter** napojte mailingovou službu, kterou už používáte: Brevo, MailerLite, Mailchimp, Ecomail,
+SmartEmailing nebo jakoukoli jinou přes webhook (Make, Zapier, n8n). Zadejte klíč API a seznam; každý potvrzený odběratel
+se pak přidá do seznamu a odhlášený se z něj odebere. Přenos běží na pozadí a nepovedené pokusy se opakují; v
+**Odběratelích** vidíte stav každé adresy a stávající odběratele pošlete do služby jedním tlačítkem.
+
 ## 8. Údaje o firmě
 
 **Nastavení → Firma:** obchodní firma, druh podniku, IČO, DIČ, adresa, telefon, **otevírací doba** (po řádcích, např.

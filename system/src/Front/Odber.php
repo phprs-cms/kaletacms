@@ -87,11 +87,15 @@ final class Odber
         }
         if ($akce === 'odhlasit') {
             $db->delete('odberatele', ['ido' => (int) $o['ido']]);
+            if ((int) $o['stav'] === 1) {
+                \Kaleta\Core\Newsletter::zarad($this->app, (string) $o['email'], 'odebrat'); // i z mailingové služby
+            }
 
             return [t('Odhlášeno'), '<p>' . e(t('Adresu %s jsme ze seznamu odběratelů smazali.', $o['email'])) . '</p>'];
         }
         if ((int) $o['stav'] === 0) {
             $db->update('odberatele', ['stav' => 1, 'potvrzeno' => date('Y-m-d H:i:s')], ['ido' => (int) $o['ido']]);
+            \Kaleta\Core\Newsletter::zarad($this->app, (string) $o['email'], 'pridat'); // do mailingové služby, odešle úklid na pozadí
         }
 
         return [t('Odběr je potvrzený'), '<p>' . e(t('Děkujeme, novinky vám budeme posílat na %s. Odhlásit se můžete odkazem v každém e-mailu.', $o['email'])) . '</p>'];

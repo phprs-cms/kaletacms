@@ -732,7 +732,7 @@ return [
     'Obrázek pozadí při posunu' => 'Obrázok pozadia pri posúvaní',
     'stojí (paralaxa)' => 'stojí (paralaxa)',
     'posouvá se s obsahem' => 'posúva sa s obsahom',
-    'Prvek Odběr novinek v builderu: návštěvník zadá e-mail a potvrdí ho odkazem (double opt-in). Seznam odběratelů vyexportujete do rozesílacího nástroje.' => 'Prvok Odber noviniek v builderi: návštevník zadá e-mail a potvrdí ho odkazom (double opt-in). Zoznam odberateľov vyexportujete do rozosielacieho nástroja.',
+    'Prvek Odběr novinek v builderu: návštěvník zadá e-mail a potvrdí ho odkazem (double opt-in). Potvrzené odběratele web pošle do vaší mailingové služby (Brevo, MailerLite, Mailchimp, Ecomail, SmartEmailing, webhook), nebo je vyexportujete do CSV.' => 'Prvok Odber noviniek v builderi: návštevník zadá e-mail a potvrdí ho odkazom (double opt-in). Potvrdených odberateľov web pošle do vašej mailingovej služby (Brevo, MailerLite, Mailchimp, Ecomail, SmartEmailing, webhook), alebo ich vyexportujete do CSV.',
     'Odběratelé' => 'Odberatelia',
     'Odběratel byl smazán.' => 'Odberateľ bol zmazaný.',
     'Přihlášen' => 'Prihlásený',

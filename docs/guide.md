@@ -143,6 +143,11 @@ The **Newsletter** extension adds a **Newsletter sign-up** element: visitors ent
 (double opt-in). Confirmed addresses are in **Content → Subscribers**; export them to CSV, including the unsubscribe
 link, for your mailing tool.
 
+Or connect the mailing service you already use in **Extensions → Newsletter**: Brevo, MailerLite, Mailchimp, Ecomail,
+SmartEmailing, or any other service through a webhook (Make, Zapier, n8n). Enter the API key and the list; every confirmed
+subscriber is then added to the list, and an unsubscribed one removed from it. The transfer runs in the background and
+failed attempts are repeated; **Subscribers** shows the state of each address and can send all existing ones at once.
+
 ## 8. Company details
 
 **Settings → Company:** registered name, business type, company ID, VAT ID, address, phone, **opening hours** (one per
