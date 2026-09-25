@@ -1175,7 +1175,9 @@ body.login {
 .vzhled-formular { max-width: none; }
 .vzhled-formular .radek { grid-template-columns: 110px minmax(0, 1fr); }
 .vzhled-formular select { max-width: 100%; }
-.vzhled-nahled { position: sticky; top: 16px; display: flex; flex-direction: column; height: calc(100vh - 32px); height: calc(100dvh - 32px); border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); overflow: hidden; }
+/* náhled vpravo vedle celého formuláře (i pod ním ležících tokenů), přilepený pod horní lištou – po kliknutí na předvolbu je pořád vidět */
+.vzhled > .pokrocile { grid-column: 1; }
+.vzhled-nahled { grid-column: 2; grid-row: 1 / span 2; position: sticky; top: 80px; display: flex; flex-direction: column; height: calc(100vh - 96px); height: calc(100dvh - 96px); border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); overflow: hidden; }
 .vzhled-nahled-lista { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--linka); font-weight: 600; }
 .vzhled-zarizeni { display: inline-flex; padding: 2px; border: 1px solid var(--linka); border-radius: 8px; background: var(--podklad); }
 .vzhled-zarizeni button { padding: 4px 10px; border: 0; border-radius: 6px; background: none; color: var(--text-slaby); font: inherit; font-size: 13px; cursor: pointer; }
@@ -1211,9 +1213,11 @@ body.login {
 .vzhled-zaobleni input { position: absolute; opacity: 0; }
 .vzhled-zaobleni i { display: block; width: 44px; height: 30px; border: 2px solid var(--text-slaby); background: var(--podklad); }
 .vzhled-ulozit { position: sticky; bottom: 0; margin: 0 -24px -24px; padding: 12px 24px; border-top: 1px solid var(--linka); background: var(--plocha); }
+/* užší obrazovka: náhled nad formulářem, přilepený nahoře a nižší, aby pod ním zbylo místo na ovládání */
 @media (max-width: 1100px) {
 	.vzhled { grid-template-columns: minmax(0, 1fr); }
-	.vzhled-nahled { position: static; height: 70vh; }
+	.vzhled > .pokrocile { grid-row: 3; }
+	.vzhled-nahled { grid-column: 1; grid-row: 1; z-index: 4; top: 72px; height: 38vh; height: 38dvh; box-shadow: 0 8px 20px rgb(0 0 0 / 0.08); }
 }
 
 /* Poptávky: detail */

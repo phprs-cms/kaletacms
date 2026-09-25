@@ -114,7 +114,8 @@
 					}
 					pole.value = hodnota;
 				});
-				zmena();
+				// jako ruční změna: přepočítá náhled a formulář bude hlídat odchod bez uložení
+				vzhled.dispatchEvent(new Event('input', { bubbles: true }));
 			});
 		});
 		// počítač se vykresluje v šířce 1280 px a zmenší se do rámu, aby platily skutečné breakpointy webu
@@ -159,6 +160,7 @@
 	document.querySelectorAll('form.formular').forEach(function (form) {
 		var zmeneno = false;
 		form.addEventListener('input', function () { zmeneno = true; });
+		form.addEventListener('change', function () { zmeneno = true; });
 		form.addEventListener('submit', function () { zmeneno = false; });
 		window.addEventListener('beforeunload', function (e) {
 			if (zmeneno) { e.preventDefault(); e.returnValue = ''; }
