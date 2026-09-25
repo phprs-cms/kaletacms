@@ -25,6 +25,18 @@ final class Novinky extends Modul
 
     private const int NA_STRANKU = 20;
 
+    /**
+     * Koncept autora novinek (úroveň 0, sám nevydává) čeká, až ho vydá editor nebo správce. Jiný stav „odesláno ke schválení“
+     * Kaleta nemá – autor umí uložit jen koncept a hláška mu říká, že ho vydá editor.
+     */
+    public const string CEKA_NA_VYDANI = 'c.visible = 0 AND c.autor IN (SELECT idu FROM {uzivatele} WHERE admin = 0)';
+
+    /** Kolik novinek od autorů čeká na vydání (pro editory a správce; autorům 0). */
+    public static function cekaNaVydani(\Kaleta\Core\App $app): int
+    {
+        return $app->auth()->smiVydavat() ? (int) $app->db()->value('SELECT COUNT(*) FROM {novinky} c WHERE c.smazano IS NULL AND ' . self::CEKA_NA_VYDANI) : 0;
+    }
+
     protected function akceVypis(): Response
     {
         $auth = $this->app->auth();
@@ -56,6 +68,7 @@ final class Novinky extends Modul
             'vydane' => 'c.visible = 1 AND c.datum <= NOW()',
             'plan' => 'c.visible = 1 AND c.datum > NOW()',
             'koncepty' => 'c.visible = 0',
+            'ke_vydani' => self::CEKA_NA_VYDANI,
         ];
         if (isset($podminkyStavu[$stav])) {
             $where[] = $podminkyStavu[$stav];
@@ -66,7 +79,7 @@ final class Novinky extends Modul
         $strana = max(1, $this->request->getInt('strana', 1));
         $novinky = $this->db->all(
             "SELECT c.idc, c.seo_link, c.titulek, c.datum, c.visible, c.visit, c.smazano,
-                    t.nazev AS tema_jm, u.jmeno AS autor_jm, u.user AS autor_login
+                    t.nazev AS tema_jm, u.jmeno AS autor_jm, u.user AS autor_login, u.admin AS autor_uroven
              FROM {novinky} c
              JOIN {kategorie} t ON t.idt = c.tema
              LEFT JOIN {uzivatele} u ON u.idu = c.autor
@@ -84,14 +97,16 @@ final class Novinky extends Modul
             'kategorie' => Kategorie::seznam($this->db),
             'filtr' => ['tema' => $tema, 'jazyk' => $jazyk, 'hledat' => $hledat, 'stav' => isset($podminkyStavu[$stav]) || $vKosi ? $stav : ''],
             'vKosi' => (int) $this->db->value('SELECT COUNT(*) FROM {novinky} c WHERE c.smazano IS NOT NULL' . $auth->articleScope('c.')),
+            'keVydani' => self::cekaNaVydani($this->app),
             'jazykyWebu' => $jazykyWebu,
         ]);
     }
 
     protected function akceNovy(): Response
     {
-        if (Kategorie::seznam($this->db) === []) {
-            return $this->chyba('Nejprve založte alespoň jednu kategorii (Novinky → Kategorie).');
+        // bez kategorie by novinka nešla uložit: založí se výchozí a editor se otevře rovnou (žádná slepá ulička)
+        if (Kategorie::zalozVychozi($this->db, $this->app->settings()) !== null) {
+            $this->app->session->flash('ok', t('Novinky potřebují kategorii, proto vznikla kategorie „%s“. Přejmenovat ji nebo přidat další můžete v Novinky → Kategorie.', (string) (Kategorie::seznam($this->db)[0]['nazev'] ?? '')));
         }
 
         return $this->formular($this->vychozi());

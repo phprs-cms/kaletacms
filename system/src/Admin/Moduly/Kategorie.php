@@ -6,7 +6,9 @@ namespace Kaleta\Admin\Moduly;
 
 use Kaleta\Admin\Modul;
 use Kaleta\Core\Db;
+use Kaleta\Core\Jazyk;
 use Kaleta\Core\Response;
+use Kaleta\Core\Settings;
 
 /**
  * Kategorie novinek (tabulka ka_kategorie). Plochý seznam – firemní blog stromové rubriky nepotřebuje.
@@ -34,6 +36,20 @@ final class Kategorie extends Modul
             'SELECT t.*, (SELECT COUNT(*) FROM {novinky} c WHERE c.tema = t.idt AND c.smazano IS NULL) AS pocet_clanku
              FROM {kategorie} t' . $kde . ' ORDER BY t.hodnost DESC, t.nazev',
         );
+    }
+
+    /**
+     * Novinky potřebují aspoň jednu kategorii. Když žádná není (novinky zapnuté až po instalaci), založí výchozí
+     * „Aktuality“ v jazyce webu, jako to dělá instalace. Vrací id nové kategorie, nebo null, když už nějaká je.
+     */
+    public static function zalozVychozi(Db $db, Settings $s): ?int
+    {
+        if ($db->value('SELECT 1 FROM {kategorie} LIMIT 1') !== null) {
+            return null;
+        }
+        $nazev = Jazyk::docasne(Jazyk::vychozi($s), fn (): string => t('Aktuality'));
+
+        return $db->insert('kategorie', ['nazev' => $nazev, 'seo_link' => slugify($nazev), 'popis' => '']);
     }
 
     protected function akceVypis(): Response

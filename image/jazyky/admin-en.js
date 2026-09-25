@@ -563,5 +563,11 @@ window.KALETA_PREKLAD = {
 	"Název ve struktuře": "Name in Structure",
 	"Kotva (id pro odkaz #…)": "Anchor (id for a #… link)",
 	"Hlavní výzva": "Main call to action",
-	"%s : 1": "%s:1"
+	"%s : 1": "%s:1",
+	"Soubor je větší, než server dovoluje nahrát (nejvýš %s). Zmenšete ho, nebo požádejte správce hostingu o vyšší limit.": "The file is larger than the server allows (%s at most). Make it smaller or ask your hosting provider to raise the limit.",
+	"Rozumím": "OK",
+	"Komponenta je společná předloha: úprava v Komponentách se projeví všude, kde je použitá. Prvek na stránce se nahradí jejím použitím.": "A component is a shared template: editing it under Components changes it everywhere it is used. The element on this page is replaced by the component.",
+	"Další akce": "More actions",
+	"Zrušit přesun klepnutím": "Cancel move by tapping",
+	"Vyberte video ve formátu MP4 nebo WebM.": "Choose a video in MP4 or WebM format."
 };

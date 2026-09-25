@@ -36,7 +36,7 @@ final class Galerie extends Modul
             'strana' => $strana,
             'stran' => max(1, (int) ceil($celkem / self::NA_STRANKU)),
             'celkem' => $celkem,
-            'limit' => ini_get('upload_max_filesize'),
+            'limit' => \Kaleta\Core\Soubory::limitText(),
             'filtr' => $filtr,
             'slozky' => $this->slozky(),
             'clanek' => $filtr['clanek'] > 0 ? $this->db->value('SELECT titulek FROM {novinky} WHERE idc = ?', [$filtr['clanek']]) : null,
@@ -158,13 +158,21 @@ final class Galerie extends Modul
         $sekce = $sekce === null ? null : (int) $sekce;
         $nahrane = [];
         $chyby = [];
+        $obrazku = 0;
         foreach ($this->soubory() as $file) {
             try {
+                $priloha = \Kaleta\Core\Soubory::jePriloha((string) ($file['name'] ?? ''));
                 $data = match (true) {
                     strtolower(pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION)) === 'svg' => self::ulozSvg($file),
-                    \Kaleta\Core\Soubory::jePriloha((string) ($file['name'] ?? '')) => \Kaleta\Core\Soubory::uloz($file),
+                    $priloha => \Kaleta\Core\Soubory::uloz($file),
                     default => Obrazky::uloz($file),
                 };
+                if (!$priloha) {
+                    // název obrázku je zároveň popis pro nevidomé (alt): jméno souboru („IMG 2041“, „foto dilna“) obrázek nepopisuje
+                    // a kontroly by ho braly jako vyplněný – zůstane prázdný a výpis i kontrola před publikováním o něj požádají
+                    $data['nazev'] = '';
+                    $obrazku++;
+                }
                 $data['ido'] = $this->db->insert('media', $data + ['vlastnik' => $this->app->auth()->id(), 'sekce' => $sekce, 'datum' => date('Y-m-d H:i:s')]);
                 $nahrane[] = $this->proJson($data + ['popis' => '']);
             } catch (\RuntimeException $e) {
@@ -181,7 +189,9 @@ final class Galerie extends Modul
             $this->app->session->flash('chyba', $chyba);
         }
 
-        return $this->zpet($nahrane !== [] ? t('Nahráno souborů: %d.', count($nahrane)) : '', '', $sekce !== null ? ['sekce' => $sekce] : []);
+        $hlaska = $nahrane === [] ? '' : t('Nahráno souborů: %d.', count($nahrane)) . ($obrazku > 0 ? ' ' . t('U obrázků doplňte popis pro nevidomé (alt): co na obrázku je.') : '');
+
+        return $this->zpet($hlaska, '', $sekce !== null ? ['sekce' => $sekce] : []);
     }
 
     /**

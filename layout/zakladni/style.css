@@ -81,6 +81,9 @@
 		.navigace[popover] a { padding: 0.8rem 1rem; border-radius: calc(var(--zaobleni) / 1.5); }
 		.navigace[popover] .podmenu > ul { display: flex; position: static; min-width: 0; padding: 0 0 0 1rem; border: 0; box-shadow: none; }
 		.navigace[popover] .podmenu > a::after, .navigace[popover] .podmenu > .menu-skupina::after { display: none; }
+		/* klávesnice: Tab za poslední položku – otevřené menu se schová, aby nezakrylo prvek s fokusem (WCAG 2.4.11), a vrátí se
+		   s fokusem zpět na tlačítko nebo do menu; Esc nebo klepnutí mimo ho zavře úplně */
+		:root:has(:focus-visible):not(:has(.menu-tl:focus-visible, .navigace :focus-visible)) .navigace[popover]:popover-open { display: none; }
 	}
 	@media (min-width: 768px) {
 		.navigace[popover] { display: flex; position: static; align-items: center; gap: 0.5rem; margin: 0; padding: 0; border: 0; background: none; color: inherit; overflow: visible; }

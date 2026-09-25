@@ -17,7 +17,7 @@ use Kaleta\Stavitel\Stavba;
 /**
  * Odeslání formuláře z builderu (POST /formular). Pole a příjemce bere z PUBLIKOVANÉ stavby podle zdroje a id prvku –
  * návštěvník nemůže přidat pole ani změnit adresáta. Výsledek: poptávka v ka_poptavky, upozornění e-mailem a návrat
- * na stránku s kódem výsledku (?formular=<id>&vysledek=ok|pole|limit|overeni).
+ * na stránku s kódem výsledku (?formular=<id>&vysledek=ok|pole|limit|rychle|overeni).
  */
 final class Formulare
 {
@@ -44,12 +44,13 @@ final class Formulare
         $navrat = fn (string $vysledek, int $pole = -1): Response => Response::redirect($zpet . '?formular=' . rawurlencode($prvek['id']) . '&vysledek=' . $vysledek . ($pole >= 0 ? '&pole=' . $pole : '') . '#' . Formular::kotva($prvek), 303);
 
         $antispam = new Antispam($this->app->db(), $this->app->settings());
-        $duvod = $antispam->over($r, 'formular|' . $zdroj . '|' . $prvek['id']);
+        $duvod = $antispam->duvod($r, 'formular|' . $zdroj . '|' . $prvek['id']);
         if ($duvod === 'robot') {
             return $navrat('ok'); // robot se nedozví, že neprošel
         }
         if ($duvod !== null) {
-            return $navrat('overeni');
+            // příliš rychlé odeslání (automatické vyplnění) má vlastní hlášení: stačí chvilku počkat, obnovovat stránku netřeba
+            return $navrat($duvod === 'rychle' ? 'rychle' : 'overeni');
         }
         if ($antispam->pocet($r->ip(), 'formular', 0, 10) >= self::LIMIT) {
             return $navrat('limit');

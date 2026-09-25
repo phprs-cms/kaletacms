@@ -813,4 +813,7 @@ return [
     '702 00 Ostrava' => 'Leeds LS1 4DY',
     'Brno, 2026' => 'Manchester, 2026',
     'Olomouc, 2025' => 'York, 2025',
+    'Aktuality' => 'News',
+    'Formulář odešel dřív, než jsme stihli ověřit, že ho posílá člověk. Počkejte prosím chvilku a odešlete ho znovu.' => 'The form was sent before we could check that a person is sending it. Please wait a moment and send it again.',
+    'Telefonní číslo, například +420 123 456 789.' => 'Phone number, for example +44 20 7946 0958.',
 ];

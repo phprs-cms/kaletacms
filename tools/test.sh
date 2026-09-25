@@ -86,6 +86,9 @@ kod=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/adm
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN" -d user=admin --data-urlencode "password=$HESLO"
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('rozsireni','novinky,poptavky,newsletter,statistika,presmerovani,asistent,jazyky,api,claude') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
 over "přehled" 200 /admin.php "Přehled"
+over "přehled: nadpis obrazovky je h1" 200 /admin.php "<h1>Přehled</h1>"
+grep -q '<li class=""><a href="/admin.php?modul=vzhled">' "$PRACE/odpoved" && grep -q '<li class=""><a href="/admin.php?modul=stranky"><strong>Připravte stránky' "$PRACE/odpoved" && echo "  ok     první kroky nepočítají vzhled a stránky ze startovacího webu za hotové" || { echo "  CHYBA  první kroky odškrtnuté startovacím webem"; CHYB=$((CHYB+1)); }
+over "administrace: nadpis h1 a hlavní menu v <nav>" 200 "/admin.php?modul=stranky" '<nav class="menu-obal" aria-label="Hlavní menu">'
 for m in stranky "stranky&akce=novy" poptavky casti komponenty "komponenty&akce=novy" kolekce "kolekce&akce=novy" novinky "novinky&akce=novy" "novinky&akce=odkazy" kategorie "kategorie&akce=novy" stitky intergal stat vzhled users "users&akce=novy" presmerovani protokol prenos rozsireni; do over "modul $m" 200 "/admin.php?modul=$m"; done
 over "uživatelé se shrnutím oprávnění" 200 "/admin.php?modul=users" "Smí všechno"
 for z in zakladni seo mereni cookies posta zalohy stav; do over "nastavení/$z" 200 "/admin.php?modul=config&zalozka=$z"; done
@@ -103,6 +106,12 @@ TOKEN=$(csrf)
 kod=$(curl -s -b "$JAR" -c "$JAR" -o "$PRACE/odpoved" -w '%{http_code}' -X POST "$B/admin.php?modul=novinky&akce=uloz" -d "_csrf=$TOKEN" -d idc=0 -d titulek= -d tema=1)
 [ "$kod" = 200 ] && grep -q 'name="titulek"' "$PRACE/odpoved" && echo "  ok     chyba ve formuláři novinky vrátí formulář" || { echo "  CHYBA  validace novinky: kód $kod"; CHYB=$((CHYB+1)); }
 
+# novinky bez kategorie (zapnuté až po instalaci): „Nová novinka“ není slepá ulička – vznikne výchozí kategorie v jazyce webu
+"${MYSQL[@]}" "$DB_NAME" -e "SET FOREIGN_KEY_CHECKS=0; DROP TABLE IF EXISTS kat_zaloha; CREATE TABLE kat_zaloha AS SELECT * FROM ka_kategorie; DELETE FROM ka_kategorie; UPDATE ka_nastaveni SET hodnota='en' WHERE promenna='jazyk_webu'"
+over "nová novinka bez kategorie otevře editor" 200 "/admin.php?modul=novinky&akce=novy" 'name="titulek"'
+ocekavej "výchozí kategorie založená v jazyce webu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(COUNT(*), ':', MAX(nazev)) FROM ka_kategorie")" "1:News"
+"${MYSQL[@]}" "$DB_NAME" -e "SET FOREIGN_KEY_CHECKS=0; DELETE FROM ka_kategorie; INSERT INTO ka_kategorie SELECT * FROM kat_zaloha; DROP TABLE kat_zaloha; UPDATE ka_nastaveni SET hodnota='cs' WHERE promenna='jazyk_webu'"
+
 # autor novinek: vidí jen své novinky a nevydává
 NOVINKA=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idc FROM ka_novinky ORDER BY idc LIMIT 1")
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=users&akce=uloz" -d "_csrf=$TOKEN" -d idu=0 -d jmeno=Autor -d user=autor --data-urlencode "password=$HESLO" -d admin=0
@@ -117,6 +126,8 @@ TOKEN2=$(curl -s -b "$JAR2" "$B/admin.php?modul=novinky&akce=novy" | grep -o 'na
 curl -s -b "$JAR2" -c "$JAR2" -o /dev/null -X POST "$B/admin.php?modul=novinky&akce=uloz" -d "_csrf=$TOKEN2" -d idc=0 -d titulek=XSS-test -d tema=1 \
   --data-urlencode 'uvod=<p onmouseover="alert(1)">Perex</p><script>alert(2)</script>' --data-urlencode 'text=<p><img src=x onerror=alert(3)><a href="javascript:alert(4)">odkaz</a></p>'
 ocekavej "autor nevloží do novinky skript" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(uvod, text) REGEXP 'script|onerror|onmouseover|javascript' FROM ka_novinky WHERE titulek = 'XSS-test'")" "0"
+over "editor vidí na přehledu novinky od autorů, které čekají na vydání" 200 /admin.php "Novinky od autorů čekají na vydání"
+over "výpis novinek: filtr Čekají na vydání" 200 "/admin.php?modul=novinky&stav=ke_vydani" "XSS-test"
 
 echo "== firma"
 over "nastavení/firma" 200 "/admin.php?modul=config&zalozka=firma" 'name="firma_hodiny"'
@@ -297,6 +308,12 @@ grep -q 'class="ka-formular"' "$PRACE/formular.html" && grep -q 'name="as_podpis
 hodnota() { grep -o "name=\"$1\" value=\"[^\"]*\"" "$PRACE/formular.html" | head -1 | sed 's/.*value="//;s/"$//'; }
 FZ=$(hodnota zdroj); FP=$(hodnota prvek); FC=$(hodnota as_cas); FS=$(hodnota as_podpis)
 odesli() { curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FZ" -d "prvek=$FP" -d zpet=/kontakt -d "as_cas=$FC" -d "as_podpis=$FS" "$@"; }
+# příliš rychlé odeslání (automatické vyplnění): vlastní kód a hlášení „počkejte chvilku“, ne „nepodařilo se ověřit“
+TED=$(date +%s); RYCHLY=$(php -r 'echo hash_hmac("sha256", $argv[1], $argv[2]);' "formular|$FZ|$FP|$TED" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'tajny_klic'")")
+case "$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FZ" -d "prvek=$FP" -d zpet=/kontakt -d "as_cas=$TED" -d "as_podpis=$RYCHLY" -d p0=A -d p1=a@example.cz -d p3=x -d p4=1)" in *vysledek=rychle*) echo "  ok     příliš rychlé odeslání má vlastní výsledek";; *) echo "  CHYBA  příliš rychlé odeslání formuláře"; CHYB=$((CHYB+1));; esac
+over "hlášení po příliš rychlém odeslání radí počkat" 200 "/kontakt?formular=$FP&vysledek=rychle" "Počkejte prosím chvilku a odešlete ho znovu"
+grep -q 'type="text" autocomplete="name"' "$PRACE/formular.html" && grep -q 'type="tel" autocomplete="tel" maxlength="30" pattern="' "$PRACE/formular.html" && echo "  ok     jméno s automatickým vyplněním, telefon s kontrolou v prohlížeči" || { echo "  CHYBA  autocomplete jména nebo vzor telefonu"; CHYB=$((CHYB+1)); }
+grep -q 'name="as_cas" value="[0-9]*" data-cekat="4"' "$PRACE/formular.html" && echo "  ok     formulář nese minimální dobu pro odložené odeslání" || { echo "  CHYBA  data-cekat u formuláře"; CHYB=$((CHYB+1)); }
 sleep 4
 kam=$(odesli -d p0=Jana --data-urlencode p1=jana@example.cz -d p2= --data-urlencode "p3=Chci kuchyň na míru." -d p4=1)
 case "$kam" in *"/kontakt?formular=$FP&vysledek=ok#"*"$FP") echo "  ok     odeslání formuláře";; *) echo "  CHYBA  odeslání formuláře: $kam"; CHYB=$((CHYB+1));; esac
@@ -312,6 +329,7 @@ ocekavej "robot ani chyby poptávku nepřidaly" "$("${MYSQL[@]}" "$DB_NAME" -N -
 IDP=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idp FROM ka_poptavky")
 over "poptávky v administraci" 200 "/admin.php?modul=poptavky" "jana@example.cz"
 over "detail poptávky" 200 "/admin.php?modul=poptavky&akce=detail&id=$IDP" "Chci kuchyň na míru."
+grep -q '>Tester</option>' "$PRACE/odpoved" && ! grep -q '>Autor</option>' "$PRACE/odpoved" && echo "  ok     poptávku vyřizuje jen ten, kdo má přístup k Poptávkám" || { echo "  CHYBA  výběr Vyřizuje nabízí uživatele bez přístupu k Poptávkám"; CHYB=$((CHYB+1)); }
 ocekavej "otevřená poptávka je přečtená" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT stav FROM ka_poptavky")" 1
 curl -s -b "$JAR" -o "$PRACE/odpoved" "$B/admin.php?modul=poptavky&akce=csv"; grep -q 'Chci kuchyň na míru.' "$PRACE/odpoved" && echo "  ok     export poptávek do CSV" || { echo "  CHYBA  CSV poptávek"; CHYB=$((CHYB+1)); }
 over "poděkování po odeslání (na místě formuláře)" 200 "/kontakt?formular=$FP&vysledek=ok" 'class="ka-formular-hotovo"'
@@ -386,6 +404,7 @@ grep -q '<h3 class="s-kna1">První karta</h3>' "$PRACE/odpoved" && grep -q '<h3 
 ! grep -q 'id="s-kna1"' "$PRACE/odpoved" && ! grep -q 'data-ka-id' "$PRACE/odpoved" && [ "$(grep -o '\.s-kna1 {' "$PRACE/odpoved" | wc -l | tr -d ' ')" = 1 ] \
   && echo "  ok     komponenta dvakrát na stránce: styl jednou, bez duplicitního id" || { echo "  CHYBA  styl komponenty"; CHYB=$((CHYB+1)); }
 over "komponenty ukazují počet použití" 200 "/admin.php?modul=komponenty" "1×"
+grep -q 'data-potvrdit="Komponentu „Karta služby“ používá: stránka „' "$PRACE/odpoved" && echo "  ok     potvrzení smazání komponenty vyjmenuje, kde je použitá" || { echo "  CHYBA  potvrzení smazání komponenty"; CHYB=$((CHYB+1)); }
 # formulář uvnitř komponenty: odeslání ho musí najít (dřív se hledal jen ve stavbě stránky)
 komp stavba_uloz --data-urlencode 'stavba={"v":1,"deti":[{"id":"kse1","typ":"sekce","deti":[{"id":"kfo1","typ":"formular","obsah":{"nazev":"Poptávka z komponenty"}}]}]}' > /dev/null; komp stavba_publikuj > /dev/null
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
@@ -551,8 +570,16 @@ printf '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10" onload="aler
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=intergal&akce=nahraj" -F "_csrf=$TOKEN" -F "soubory[]=@$PRACE/foto.jpg;type=image/jpeg" -F "soubory[]=@$PRACE/logo.svg;type=image/svg+xml"
 SVG=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT obr_poloha FROM ka_media WHERE obr_poloha LIKE '%.svg' ORDER BY ido DESC LIMIT 1")
 [ -n "$SVG" ] && ! grep -q 'onload\|<script' "$PRACE/web/$SVG" && grep -q '<rect' "$PRACE/web/$SVG" && echo "  ok     SVG nahrané a vyčištěné" || { echo "  CHYBA  SVG v Médiích"; CHYB=$((CHYB+1)); }
+# soubor nad upload_max_filesize (ale pod post_max_size): srozumitelná hláška s limitem v MB, ne zkratka z php.ini
+MEZE=$(php -r '$b = fn ($v) => (int) $v * (["k" => 1024, "m" => 1048576, "g" => 1073741824][strtolower(substr(trim($v), -1))] ?? 1); echo $b(ini_get("upload_max_filesize")), " ", $b(ini_get("post_max_size"));')
+if [ "${MEZE% *}" -gt 0 ] && [ $(( ${MEZE% *} + 4096 )) -lt "${MEZE#* }" ]; then
+  head -c $(( ${MEZE% *} + 1024 )) /dev/zero > "$PRACE/velky.zip"
+  curl -s -b "$JAR" -c "$JAR" -o "$PRACE/odpoved" -X POST "$B/admin.php?modul=intergal&akce=nahraj&format=json" -F "_csrf=$TOKEN" -F "soubory[]=@$PRACE/velky.zip"
+  grep -q 'nejvýš [0-9,]* MB' "$PRACE/odpoved" && echo "  ok     soubor nad limit serveru: hláška s limitem v MB" || { echo "  CHYBA  hláška o limitu nahrávání"; head -c 300 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+fi
 IDO=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ido FROM ka_media WHERE obr_poloha LIKE '%.jpg' ORDER BY ido DESC LIMIT 1")
 FOTO=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT obr_poloha FROM ka_media WHERE ido = $IDO")
+ocekavej "nahraný obrázek nedostane popis (alt) ze jména souboru" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT('[', nazev, ']') FROM ka_media WHERE ido = $IDO")" "[]"
 php -r '$i = imagecreatetruecolor(800, 800); imagefill($i, 0, 0, imagecolorallocate($i, 20, 120, 200)); imagejpeg($i, "'"$PRACE"'/nova.jpg");'
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=intergal&akce=nahradit" -F "_csrf=$TOKEN" -F "ido=$IDO" -F "soubor=@$PRACE/nova.jpg;type=image/jpeg"
 ocekavej "náhrada souboru zachová adresu a změní rozměry" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(obr_poloha, ' ', obr_width, 'x', obr_height) FROM ka_media WHERE ido = $IDO")" "$FOTO 800x800"
@@ -575,6 +602,9 @@ over "uživatelé ukazují vlastní roli" 200 "/admin.php?modul=users" "Obchodn�
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('vynutit_2fa', 'spravci') ON DUPLICATE KEY UPDATE hodnota = 'spravci'"
 kod=$(curl -s -b "$JAR" -o /dev/null -w '%{http_code} %{redirect_url}' "$B/admin.php?modul=stranky"); case "$kod" in "302 "*akce=ucet*) echo "  ok     povinné dvoufázové přihlášení pustí jen do Můj účet";; *) echo "  CHYBA  vynucení 2FA: $kod"; CHYB=$((CHYB+1));; esac
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'vynutit_2fa'"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?akce=ucet" -d "_csrf=$TOKEN" -d co=totp_start
+curl -s -b "$JAR" -c "$JAR" -o "$PRACE/odpoved" "$B/admin.php?akce=ucet"
+grep -q '<svg class="qr"' "$PRACE/odpoved" && grep -q 'class="totp-klic"' "$PRACE/odpoved" && echo "  ok     zapnutí 2FA ukáže QR kód i klíč k ručnímu zadání" || { echo "  CHYBA  QR kód při zapínání 2FA"; CHYB=$((CHYB+1)); }
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = JSON_SET(IF(hodnota = '' OR hodnota IS NULL, '{}', hodnota), '$.vlastni_pisma', JSON_ARRAY(JSON_OBJECT('nazev', 'Znacka Sans', 'soubor', 'media/2026/01/znacka.woff2', 'tucny', '')), '$.pismo_titulky', 'vlastni-1') WHERE promenna = 'design_system'"
 rm -f "$PRACE"/web/storage/cache/stranky/*.html
 curl -s -o "$PRACE/odpoved" "$B/kontakty"

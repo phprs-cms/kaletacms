@@ -26,7 +26,7 @@
 <body class="login">
 <div class="login-karta">
 <?= $app->view->render('admin/logo', ['vyska' => 36]) ?>
-<h3><?= e(t($krok === 'heslo' ? 'Nové heslo' : 'Zapomenuté heslo')) ?></h3>
+<h1><?= e(t($krok === 'heslo' ? 'Nové heslo' : 'Zapomenuté heslo')) ?></h1>
 <?php if ($chyba !== null): ?>
 <p class="hlaska hlaska-chyba" role="alert"><?= e($chyba) ?></p>
 <?php endif ?>

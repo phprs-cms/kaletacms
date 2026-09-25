@@ -132,6 +132,17 @@ document.addEventListener('DOMContentLoaded', function () {
 		vykresli([polozky.length - 1]);
 	}));
 
+	/** Upozornění vlastním dialogem (ne window.alert – ten nejde nastylovat ani přeložit); po zavření se vrátí fokus na chybné pole. */
+	function upozorni(text, pole) {
+		const d = el('dialog', { class: 'potvrzeni', role: 'alertdialog', 'aria-modal': 'true' },
+			el('p', {}, text),
+			el('div', {}, el('button', { type: 'button', class: 'tl', onclick: () => d.close() }, T('Rozumím'))));
+		d.setAttribute('aria-label', text);
+		d.addEventListener('close', () => { d.remove(); pole.focus(); });
+		document.body.append(d);
+		d.showModal();
+	}
+
 	formular.addEventListener('submit', (e) => {
 		// odkaz bez adresy nebo textu a skupina bez textu by server zahodil potichu – raději říct hned
 		const chybna = seznam.querySelectorAll('.menu-polozka');
@@ -139,8 +150,11 @@ document.addEventListener('DOMContentLoaded', function () {
 			const p = polozka(li.dataset.cesta.split(',').map(Number));
 			if ((p.typ === 'odkaz' && (!p.text || !p.url)) || (p.typ === 'skupina' && !p.text)) {
 				e.preventDefault();
-				li.querySelector('input').focus();
-				window.alert(p.typ === 'odkaz' ? T('Vlastní odkaz potřebuje text i adresu.') : T('Skupina potřebuje text.'));
+				// chybí text, nebo (u odkazu) adresa: fokus na to pole, které je prázdné
+				const prazdne = [...li.querySelector('.menu-radek').querySelectorAll('input.textpole')].find((x) => !x.value.trim()) || li.querySelector('input');
+				prazdne.setAttribute('aria-invalid', 'true');
+				prazdne.addEventListener('input', () => prazdne.removeAttribute('aria-invalid'), { once: true });
+				upozorni(p.typ === 'odkaz' ? T('Vlastní odkaz potřebuje text i adresu.') : T('Skupina potřebuje text.'), prazdne);
 				return;
 			}
 		}

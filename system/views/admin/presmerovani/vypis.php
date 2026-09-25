@@ -58,7 +58,7 @@ $cesta = fn (string $a): string => preg_match('#^https?://#i', $a) ? $a : '/' . 
 <?php endif ?>
 <?php endif ?>
 <?php if ($nenalezeno !== []): ?>
-<h3><?= e(t('Adresy, které návštěvníci nenašli (404)')) ?></h3>
+<h2><?= e(t('Adresy, které návštěvníci nenašli (404)')) ?></h2>
 <div class="tab-obal"><table class="vypis">
 <thead><tr><th scope="col"><?= e(t('Adresa')) ?></th><th scope="col"><?= e(t('Kolikrát')) ?></th><th scope="col"><?= e(t('Naposledy')) ?></th><th scope="col"><?= e(t('Akce')) ?></th></tr></thead>
 <tbody>

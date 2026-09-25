@@ -62,6 +62,7 @@
 		mobil: '<rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/>', verze: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
 		zamek: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>', odemceno: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.5-2"/>',
 		skryto: '<path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4M6.6 6.6C3.7 8.4 2 12 2 12s3.5 7 10 7a9.6 9.6 0 0 0 4.4-1"/>',
+		vice: '<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>',
 		oko: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>', zavrit: '<path d="M6 6l12 12M18 6 6 18"/>',
 	};
 
@@ -648,7 +649,7 @@
 		const pise = v.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(v.tagName);
 		const mod = e.ctrlKey || e.metaKey;
 		if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); uloz(); return; }
-		if (pise || document.querySelector('dialog[open]')) { return; } // v otevřeném dialogu patří klávesy (Esc) jemu
+		if (pise || document.querySelector('dialog[open], .st-vice:popover-open')) { return; } // v otevřeném dialogu a nabídce patří klávesy (Esc) jim
 		// označený text se kopíruje jako text, ne jako prvek
 		const oznaceno = String(window.getSelection() || '') || (nahled && nahled.contentWindow ? String(nahled.contentWindow.getSelection() || '') : '');
 		if (mod && e.key.toLowerCase() === 'c' && oznaceno) { return; }
@@ -688,7 +689,7 @@
 			el('button', { type: 'button', title: BP[bp], 'aria-label': BP[bp], 'aria-pressed': String(stav.bp === bp), onclick: () => { stav.bp = bp; ramec.dataset.bp = bp; rozmerNahledu(nahled); prekresliListu(); prekresliPanely(); } }, ikona(ik)));
 		lista.replaceChildren(...[
 			el('a', { class: 'st-tl', href: D.zpet.adresa, title: D.zpet.text }, ikona('rodic'), el('span', { class: 'st-text' }, D.zpet.text)),
-			el('div', { class: 'st-nazev' }, el('strong', {}, D.stranka.titulek), el('small', {}, stav.zmeny ? T('rozpracovaný koncept – návštěvníci vidí publikovanou verzi') : T('beze změn proti webu'))),
+			el('div', { class: 'st-nazev' }, el('h1', {}, D.stranka.titulek), el('small', {}, stav.zmeny ? T('rozpracovaný koncept – návštěvníci vidí publikovanou verzi') : T('beze změn proti webu'))),
 			el('div', { class: 'st-skupina', role: 'group', 'aria-label': T('Zařízení') }, bpTl),
 			el('select', { class: 'st-lupa', 'aria-label': T('Velikost náhledu'), title: T('Velikost náhledu'), onchange: (e) => { stav.lupa = e.target.value; rozmerNahledu(nahled); } },
 				[['', T('Vejít se')], ['1920', T('Široký monitor (1920 px)')], ['100', '100 %'], ['75', '75 %'], ['50', '50 %']].map(([k, n]) => el('option', { value: k, selected: stav.lupa === k }, n))),
@@ -1098,15 +1099,31 @@
 			panel.append(el('ul', { class: 'st-chyby' }, vlastni.slice(0, 6).map(([, t]) => el('li', {}, t)),
 				jinde.length ? el('li', {}, T('Upozornění u jiných prvků: ') + jinde.length + ' ', el('button', { type: 'button', class: 'st-odkaz', onclick: () => { const x = prvekPodleCesty(jinde[0][0]); if (x) { vyber(x.id); } } }, T('ukázat'))) : null));
 		}
+		// méně častá akce jsou v nabídce „Další akce“ (s popisem), aby se lišta vešla do panelu i na notebooku
+		const vice = [
+			p.zamek ? null : [ikona('presun'), stav.umistovani ? T('Zrušit přesun klepnutím') : T('Přesunout klepnutím na místo (i na dotykové obrazovce)'), () => (stav.umistovani ? ukonciUmistovani() : zacniUmistovani(p.id))],
+			D.adresy.komponenta && p.typ !== 'komponenta' ? [ikona('komponenta'), T('Uložit jako komponentu'), () => ulozJakoKomponentu(p.id)] : null,
+			D.adresy.ulozSekci ? [ikona('knihovna'), T('Uložit do mých sekcí (vložíte ji pak na jakoukoli stránku)'), () => ulozDoMychSekci(p.id)] : null,
+		].filter(Boolean);
+		const nabidka = vice.length ? el('div', { id: 'st-vice', class: 'st-vice', popover: 'auto' },
+			vice.map(([ik, popis, akce]) => el('button', { type: 'button', onclick: () => { nabidka.hidePopover(); akce(); } }, ik, el('span', {}, popis)))) : null;
+		const tlVice = nabidka ? el('button', { type: 'button', title: T('Další akce'), 'aria-label': T('Další akce'), popovertarget: 'st-vice' }, ikona('vice')) : null;
+		if (nabidka) {
+			// nabídka pod tlačítkem, zarovnaná k jeho pravému okraji (popover se jinak kreslí uprostřed okna)
+			nabidka.addEventListener('toggle', (e) => {
+				if (e.newState !== 'open') { return; }
+				const r = tlVice.getBoundingClientRect();
+				nabidka.style.top = (r.bottom + 4) + 'px';
+				nabidka.style.left = Math.max(8, r.right - nabidka.offsetWidth) + 'px';
+			});
+		}
 		pravy.replaceChildren(
 			el('div', { class: 'st-hlava-prvku' }, ikona(s.ikona), el('strong', {}, s.nazev), el('div', { class: 'st-akce' },
 				el('button', { type: 'button', title: T('Nahoru'), onclick: () => posun(p.id, -1) }, ikona('nahoru')),
 				el('button', { type: 'button', title: T('Dolů'), onclick: () => posun(p.id, 1) }, ikona('dolu')),
-				p.zamek ? null : el('button', { type: 'button', title: T('Přesunout klepnutím na místo (i na dotykové obrazovce)'), 'aria-pressed': String(!!stav.umistovani), onclick: () => (stav.umistovani ? ukonciUmistovani() : zacniUmistovani(p.id)) }, ikona('presun')),
 				n.rodic ? el('button', { type: 'button', title: T('Vybrat nadřazený prvek (Esc)'), onclick: () => vyber(n.rodic.id) }, ikona('rodic')) : null,
 				el('button', { type: 'button', title: T('Duplikovat (Ctrl+D)'), onclick: () => duplikuj(p.id) }, ikona('kopie')),
-				D.adresy.komponenta && p.typ !== 'komponenta' ? el('button', { type: 'button', title: T('Uložit jako komponentu'), onclick: () => ulozJakoKomponentu(p.id) }, ikona('komponenta')) : null,
-				D.adresy.ulozSekci ? el('button', { type: 'button', title: T('Uložit do mých sekcí (vložíte ji pak na jakoukoli stránku)'), onclick: () => ulozDoMychSekci(p.id) }, ikona('knihovna')) : null,
+				tlVice, nabidka,
 				el('button', { type: 'button', class: 'nebezpecne', title: T('Smazat (Delete)'), onclick: () => smaz(p.id) }, ikona('smazat')))),
 			el('div', { class: 'st-zalozky', role: 'tablist' }, zal('obsah', T('Obsah')), zal('styl', T('Styl')), zal('pokrocile', T('Pokročilé'))),
 			panel,
@@ -1137,36 +1154,59 @@
 			} }, '{{' + klic + '}}'))));
 	}
 
+	/**
+	 * Dialog s jedním pojmenovaným polem místo window.prompt() (ten nejde nastylovat ani přeložit a prohlížeče ho potlačují).
+	 * Enter uloží, Esc zruší; vrací zadaný text, nebo null.
+	 */
+	function zadejNazev(nadpis, popisekPole, hodnota, napoveda) {
+		return new Promise((hotovo) => {
+			const idNadpisu = 'st-dialog-' + noveId();
+			const pole = el('input', { type: 'text', maxlength: 100, value: hodnota, required: true });
+			let vysledek = null;
+			const d = el('dialog', { class: 'st-dialog', 'aria-labelledby': idNadpisu },
+				el('form', { method: 'dialog', onsubmit: (e) => {
+					if (!pole.value.trim()) { e.preventDefault(); pole.focus(); return; }
+					vysledek = pole.value.trim();
+				} },
+				el('div', {}, el('h2', { id: idNadpisu }, nadpis),
+					el('label', { class: 'st-pole' }, el('span', {}, popisekPole), pole),
+					napoveda ? el('p', { class: 'st-prazdno', style: 'text-align:left;padding:0' }, napoveda) : null),
+				el('footer', {}, el('button', { type: 'button', class: 'st-tl', onclick: () => d.close() }, T('Zrušit')),
+					el('button', { type: 'submit', class: 'st-tl st-tl-hlavni' }, T('Uložit')))));
+			d.addEventListener('close', () => { d.remove(); hotovo(vysledek); });
+			document.body.append(d);
+			d.showModal();
+			pole.select();
+		});
+	}
+
 	/** Kopie vybraného prvku do vlastní knihovny (Moje sekce) – na rozdíl od komponenty se po vložení upravuje samostatně. */
 	function ulozDoMychSekci(id) {
 		const n = najdi(id);
 		if (!n) { return; }
-		const pole = el('input', { type: 'text', maxlength: 100, value: popisek(n.p) });
-		const d = el('dialog', { class: 'st-dialog' }, el('div', {}, el('h2', {}, T('Uložit do mých sekcí')),
-			el('label', { class: 'st-pole' }, el('span', {}, T('Název sekce')), pole),
-			el('p', { class: 'st-prazdno', style: 'text-align:left;padding:0' }, T('Sekce se objeví v panelu Přidat → Moje sekce. Každé vložení je samostatná kopie; když má být všude stejná, uložte ji jako komponentu.'))),
-		el('footer', {}, el('button', { type: 'button', class: 'st-tl', onclick: () => d.close() }, T('Zrušit')),
-			el('button', { type: 'button', class: 'st-tl st-tl-hlavni', onclick: () => {
-				if (!pole.value.trim()) { pole.focus(); return; }
-				d.close();
-				dotaz(D.adresy.ulozSekci, { nazev: pole.value.trim(), prvek: JSON.stringify(n.p) }).then((j) => {
-					if (!j.ok) { nastavStav(j.chyba || T('Uložení se nepovedlo.'), true); return; }
-					D.mojeSekce = j.sekce;
-					nastavStav(T('Sekce je v panelu Přidat → Moje sekce.'));
-					if (stav.levo === 'pridat') { prekresliLevy(); }
-				});
-			} }, T('Uložit'))));
-		d.addEventListener('close', () => d.remove());
-		document.body.append(d);
-		d.showModal();
-		pole.select();
+		zadejNazev(T('Uložit do mých sekcí'), T('Název sekce'), popisek(n.p),
+			T('Sekce se objeví v panelu Přidat → Moje sekce. Každé vložení je samostatná kopie; když má být všude stejná, uložte ji jako komponentu.')).then((nazev) => {
+			if (!nazev) { return; }
+			dotaz(D.adresy.ulozSekci, { nazev, prvek: JSON.stringify(n.p) }).then((j) => {
+				if (!j.ok) { nastavStav(j.chyba || T('Uložení se nepovedlo.'), true); return; }
+				D.mojeSekce = j.sekce;
+				nastavStav(T('Sekce je v panelu Přidat → Moje sekce.'));
+				if (stav.levo === 'pridat') { prekresliLevy(); }
+			});
+		});
 	}
 
 	/** Vybraný prvek se uloží jako komponenta (správce) a na jeho místě zůstane její použití. */
 	function ulozJakoKomponentu(id) {
 		const n = najdi(id);
-		const nazev = n && window.prompt(T('Název komponenty (např. Karta služby):'), popisek(n.p));
-		if (!nazev) { return; }
+		if (!n) { return; }
+		zadejNazev(T('Uložit jako komponentu'), T('Název komponenty (např. Karta služby):').replace(/:$/, ''), popisek(n.p),
+			T('Komponenta je společná předloha: úprava v Komponentách se projeví všude, kde je použitá. Prvek na stránce se nahradí jejím použitím.')).then((nazev) => {
+			if (nazev) { ulozKomponentu(n, nazev); }
+		});
+	}
+
+	function ulozKomponentu(n, nazev) {
 		dotaz(D.adresy.komponenta, { nazev, prvek: JSON.stringify(n.p) }).then((j) => {
 			if (!j.ok) { nastavStav(j.chyba || T('Uložení se nepovedlo.'), true); return; }
 			D.komponenty = j.komponenty;
@@ -1259,6 +1299,14 @@
 			case 'polozky':
 				return polePolozky(def, Array.isArray(hodnota) ? hodnota : [], zmena);
 			default:
+				if (def.media === 'video') { // soubor videa z Médií (pozadí sekce): ne nabídka odkazů, ale výběr souboru
+					vstup = el('input', { type: 'text', value: hodnota ?? '', placeholder: 'media/…/video.mp4', oninput: (e) => zmena(e.target.value) });
+					obal.append(el('span', { class: 'st-pole-radek' }, vstup, el('button', { type: 'button', class: 'st-tl', onclick: () => window.kaletaVyberObrazek && window.kaletaVyberObrazek((o) => {
+						if (!/\.(mp4|webm)$/i.test(o.url || '')) { nastavStav(T('Vyberte video ve formátu MP4 nebo WebM.'), true); return; }
+						vstup.value = o.url; zmena(o.url);
+					}, false, true) }, T('Média'))));
+					return obal;
+				}
 				vstup = el('input', { type: 'text', value: hodnota ?? '', placeholder: def.typ === 'odkaz' ? T('stránka webu, https://…, #kotva, mailto:, tel:') : null,
 					list: def.typ === 'odkaz' ? 'st-dl-odkazy' : null, onfocus: def.typ === 'odkaz' ? obnovOdkazy : null, oninput: (e) => zmena(e.target.value) });
 		}
@@ -1354,7 +1402,10 @@
 				prekresliPravy();
 			} }, T('Vložit styl'))));
 		if (s !== 'zaklad') { panel.append(el('p', { class: 'napoveda', style: 'margin:0 0 8px;font-size:12px;color:var(--text-slaby)' }, T('Prázdné pole = stejná hodnota jako na větší obrazovce (šedě).'))); }
-		const skupiny = {};
+		// první (otevřená) skupina podle druhu prvku: u textu Typografie, u obrázku Rozměry, jinak Rozložení
+		const prvni = { nadpis: 'typografie', text: 'typografie', tlacitko: 'typografie', seznam: 'typografie', citat: 'typografie', drobecky: 'typografie',
+			pocitadlo: 'typografie', obrazek: 'rozmery', video: 'rozmery', mapa: 'rozmery' }[cil.typ];
+		const skupiny = prvni ? { [prvni]: [] } : {};
 		Object.entries(STYL).forEach(([klic, def]) => { (skupiny[def.skupina] = skupiny[def.skupina] || []).push([klic, def]); });
 		const box = el('div', { class: 'st-styl' });
 		Object.entries(skupiny).forEach(([skupina, vlastnosti], poradi) => {
@@ -1593,7 +1644,10 @@
 	prekresli();
 	obnovNahled();
 	document.addEventListener('keydown', klavesy);
-	try { if (!localStorage.getItem('ka-st-prohlidka')) { setTimeout(() => prohlidka(0), 800); } } catch (e) { /* soukromý režim */ }
+	// prohlídka ne na telefonu: tam builder místo sebe ukazuje jen „potřebuje větší obrazovku“ (stavitel.css, stejná šířka);
+	// neoznačí se jako viděná, takže se spustí při prvním otevření na počítači nebo tabletu
+	const uzky = window.matchMedia('(max-width: 719px)').matches;
+	try { if (!uzky && !localStorage.getItem('ka-st-prohlidka')) { setTimeout(() => prohlidka(0), 800); } } catch (e) { /* soukromý režim */ }
 	stav.ulozeno = JSON.stringify(stav.stavba);
 	koren.addEventListener('focusout', () => setTimeout(prevezmiVycistenou, 0));
 	window.addEventListener('focus', () => { if (stav.pokusy && neulozeno()) { (stav.prihlaseni ? obnovToken() : Promise.resolve()).then(uloz); } });

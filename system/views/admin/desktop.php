@@ -12,7 +12,7 @@
  */
 ?>
 <div class="prehled-hlavicka">
-	<h2><?= e(t('Přehled')) ?></h2>
+	<h1><?= e(t('Přehled')) ?></h1>
 	<p class="navigace-radek">
 <?php if (isset($moduly['stranky'])): ?>
 		<a class="tl" href="<?= e($app->url('admin.php?modul=stranky&akce=novy')) ?>"><?= e(t('Nová stránka')) ?></a>
@@ -29,7 +29,7 @@
 <?php if (!empty($pruvodce)): $hotovych = count(array_filter($pruvodce, fn (array $k): bool => $k['hotovo'])); ?>
 <section class="pruvodce" aria-label="<?= e(t('První kroky')) ?>">
 	<div class="pruvodce-hlava">
-		<h3><?= e(t('První kroky')) ?> <small><?= $hotovych ?> / <?= count($pruvodce) ?></small></h3>
+		<h2><?= e(t('První kroky')) ?> <small><?= $hotovych ?> / <?= count($pruvodce) ?></small></h2>
 		<form method="post" action="<?= e($app->url('admin.php?akce=pruvodce_skryt')) ?>"><?= $app->session->csrfField() ?><button class="navigace" type="submit"><?= e(t('Skrýt')) ?></button></form>
 	</div>
 	<ol class="pruvodce-kroky">
@@ -52,7 +52,7 @@
     $max = max(1, ...array_values($dny));
 ?>
 <section class="prehled-graf" aria-label="<?= e(t('Návštěvnost za 14 dní')) ?>">
-	<h3><?= e(t('Návštěvnost za 14 dní')) ?> <small><?= e(t('%s návštěv', pocet(array_sum($dny)))) ?></small></h3>
+	<h2><?= e(t('Návštěvnost za 14 dní')) ?> <small><?= e(t('%s návštěv', pocet(array_sum($dny)))) ?></small></h2>
 	<svg viewBox="0 0 280 70" preserveAspectRatio="none" role="img" aria-label="<?= e(t('Návštěvnost za 14 dní')) ?>">
 <?php $x = 0; foreach ($dny as $den => $pocet): $v = max(1, (int) round($pocet / $max * 62)); ?>
 		<rect x="<?= $x * 20 + 2 ?>" y="<?= 66 - $v ?>" width="16" height="<?= $v ?>" rx="2"><title><?= e(datum($den)) ?>: <?= $pocet ?></title></rect>
@@ -62,7 +62,7 @@
 </section>
 <?php endif ?>
 <?php if ($poptavky !== []): ?>
-<h3><?= e(t('Poslední poptávky')) ?></h3>
+<h2><?= e(t('Poslední poptávky')) ?></h2>
 <div class="tab-obal">
 <table class="vypis">
 <thead><tr><th scope="col"><?= e(t('Formulář')) ?></th><th scope="col"><?= e(t('E-mail')) ?></th><th scope="col"><?= e(t('Přijato')) ?></th></tr></thead>
@@ -79,7 +79,7 @@
 </div>
 <?php endif ?>
 <?php if ($upravene !== []): ?>
-<h3><?= e(t('Naposledy upravené')) ?></h3>
+<h2><?= e(t('Naposledy upravené')) ?></h2>
 <div class="tab-obal">
 <table class="vypis">
 <thead><tr><th scope="col"><?= e(t('Název')) ?></th><th scope="col"><?= e(t('Druh')) ?></th><th scope="col"><?= e(t('Upraveno')) ?></th></tr></thead>

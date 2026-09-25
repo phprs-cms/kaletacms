@@ -12,7 +12,10 @@
 
 	var T = window.T || function (s) { return s; }; // překlad textů administrace (image/jazyky/admin-*.js)
 
-	var ADMIN = document.querySelector('script[data-admin-url]').getAttribute('data-admin-url');
+	var SKRIPT = document.querySelector('script[data-admin-url]');
+	var ADMIN = SKRIPT.getAttribute('data-admin-url');
+	var MAX_SOUBOR = parseInt(SKRIPT.getAttribute('data-max-soubor') || '0', 10); // limit serveru na soubor v bajtech (0 = bez limitu)
+	var MAX_STRANA = parseInt(SKRIPT.getAttribute('data-max-strana') || '2000', 10);
 	var CSRF = (document.querySelector('input[name="_csrf"]') || {}).value || '';
 	var GALERIE = ADMIN + '?modul=intergal';
 	var ID_CLANKU = parseInt((document.querySelector('form[data-koncept] input[name="idc"]') || {}).value || '0', 10);
@@ -77,12 +80,55 @@
 
 	/* ---------- nahrávání ---------- */
 
-	function nahraj(soubory) {
+	// Fotka z telefonu (5–10 MB) se zmenší už v prohlížeči na MAX_STRANA px – stejně by ji zmenšil server – a nenarazí tak
+	// na limit hostingu. Otočení podle EXIF zachová createImageBitmap; údaje EXIF (i poloha) zmizí, jako při zpracování na serveru.
+	function zmensi(soubor) {
+		if (!/^image\/(jpeg|png|webp)$/.test(soubor.type) || !window.createImageBitmap) { return Promise.resolve(soubor); }
+		return createImageBitmap(soubor, { imageOrientation: 'from-image' }).then(function (bitmapa) {
+			var pomer = Math.min(1, MAX_STRANA / Math.max(bitmapa.width, bitmapa.height));
+			if (pomer === 1 && (!MAX_SOUBOR || soubor.size <= MAX_SOUBOR)) { bitmapa.close(); return soubor; }
+			var platno = document.createElement('canvas');
+			platno.width = Math.round(bitmapa.width * pomer);
+			platno.height = Math.round(bitmapa.height * pomer);
+			platno.getContext('2d').drawImage(bitmapa, 0, 0, platno.width, platno.height);
+			bitmapa.close();
+			// kvalita 0,9; když je výsledek pořád nad limitem serveru, zkusí se nižší (PNG kvalitu nemá)
+			var zapis = function (kvalita) {
+				return new Promise(function (hotovo) { platno.toBlob(hotovo, soubor.type, kvalita); }).then(function (blob) {
+					if (blob && MAX_SOUBOR && blob.size > MAX_SOUBOR && soubor.type !== 'image/png' && kvalita > 0.6) { return zapis(Math.round((kvalita - 0.1) * 10) / 10); }
+					// prohlížeč, který typ neumí zapsat (WebP v Safari), vrátí jiný – pak raději původní soubor
+					return blob && blob.type === soubor.type && (pomer < 1 || blob.size < soubor.size)
+						? new File([blob], soubor.name, { type: soubor.type, lastModified: soubor.lastModified }) : soubor;
+				});
+			};
+			return zapis(0.9);
+		}).catch(function () { return soubor; });
+	}
+
+	// Zmenší obrázky a odloží soubory, které by server i tak odmítl (celý požadavek nad limitem by skončil chybou bez vysvětlení).
+	function pripravSoubory(soubory) {
+		return Promise.all(Array.prototype.map.call(soubory, zmensi)).then(function (hotove) {
+			var chyby = [];
+			var ok = hotove.filter(function (s) {
+				if (!MAX_SOUBOR || s.size <= MAX_SOUBOR) { return true; }
+				chyby.push(s.name + ': ' + T('Soubor je větší, než server dovoluje nahrát (nejvýš %s). Zmenšete ho, nebo požádejte správce hostingu o vyšší limit.').replace('%s', SKRIPT.getAttribute('data-max-soubor-text') || ''));
+				return false;
+			});
+			if (chyby.length) { oznam(chyby.join('\n')); }
+			return ok;
+		});
+	}
+
+	function nahraj(vybrane) {
+		return pripravSoubory(vybrane).then(function (soubory) { return soubory.length ? odesli(soubory) : []; });
+	}
+
+	function odesli(soubory) {
 		var data = new FormData();
 		var slozka = document.querySelector('.galerie-okno[open] select');
 		data.append('_csrf', CSRF);
 		data.append('sekce', slozka && /^\d+$/.test(slozka.value) ? slozka.value : '0');
-		Array.prototype.forEach.call(soubory, function (s) { data.append('soubory[]', s); });
+		soubory.forEach(function (s) { data.append('soubory[]', s); });
 		return fetch(GALERIE + '&akce=nahraj&format=json', { method: 'POST', body: data, credentials: 'same-origin' })
 			.then(function (r) { return r.json(); })
 			.then(function (j) {
@@ -544,7 +590,22 @@
 		form.addEventListener('drop', function (e) {
 			e.preventDefault();
 			form.classList.remove('nahravani-aktivni');
-			if (e.dataTransfer.files.length) { vstup.files = e.dataTransfer.files; form.submit(); }
+			if (e.dataTransfer.files.length) { vstup.files = e.dataTransfer.files; form.requestSubmit(); }
+		});
+		// před odesláním zmenšit fotky a odložit soubory nad limit serveru (form.submit() už tuto obsluhu nespustí)
+		form.addEventListener('submit', function (e) {
+			if (!window.DataTransfer) { return; }
+			e.preventDefault();
+			var tlacitko = form.querySelector('[type=submit]');
+			if (tlacitko) { tlacitko.disabled = true; }
+			pripravSoubory(vstup.files).then(function (soubory) {
+				if (tlacitko) { tlacitko.disabled = false; }
+				if (!soubory.length) { vstup.value = ''; return; }
+				var prenos = new DataTransfer();
+				soubory.forEach(function (s) { prenos.items.add(s); });
+				vstup.files = prenos.files;
+				form.submit();
+			});
 		});
 	});
 

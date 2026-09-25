@@ -44,7 +44,7 @@ $bezi = in_array($stav['faze'], ['analyza', 'import', 'obrazky'], true);
 </div>
 <p class="navigace-radek"><a class="navigace" href="<?= e($app->url('admin.php?modul=novinky')) ?>"><?= e(t('Zobrazit novinky')) ?></a> <a class="navigace" href="<?= e($modul->url()) ?>"><?= e(t('Zpět na Import a export')) ?></a></p>
 
-<h3><?= e(t('Obrázky ze starého webu')) ?></h3>
+<h2><?= e(t('Obrázky ze starého webu')) ?></h2>
 <?php if ($stav['faze'] === 'obrazky-hotovo'): ?>
 <p class="hlaska <?= (int) $o['chyb'] > 0 ? 'hlaska-varovani' : 'hlaska-ok' ?>"><?= e(t('Staženo %s obrázků, nepodařilo se %s.', (int) $o['stazeno'], (int) $o['chyb'])) ?></p>
 <?php if ($o['chyby'] !== []): ?>

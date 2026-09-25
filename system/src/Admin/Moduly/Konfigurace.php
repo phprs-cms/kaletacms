@@ -172,6 +172,9 @@ class Konfigurace extends Modul
         }
         if ($zalozka === 'rozsireni') {
             Rozsireni::uloz($nastaveni, $this->request->postList('rozsireni'));
+            if (Rozsireni::je($nastaveni, 'novinky')) {
+                Kategorie::zalozVychozi($this->db, $nastaveni); // novinky zapnuté po instalaci: rovnou s kategorií, jako z instalace
+            }
             if (($this->request->post('ai_klic') !== '' || $this->request->post('ai_poskytovatel') !== $this->request->post('ai_poskytovatel_puvodni')) && $nastaveni->get('ai_klic') !== '' && ($chybaKlice = (new \Kaleta\Core\Asistent($nastaveni))->overKlic()) !== null) {
                 return $this->zpet(t('Nastavení je uložené, ale klíč asistenta nefunguje: %s', t($chybaKlice)), '', static::IDENT === 'config' ? ['zalozka' => $zalozka] : [], 'chyba');
             }

@@ -120,7 +120,7 @@ button.galerie-polozka:hover, button.galerie-polozka:focus-visible { border-colo
 .stitek-koncept { border-color: var(--ed-varovani, #945800); color: var(--ed-varovani, #945800); }
 .stitek-chyba { border-color: var(--ed-chyba, #C4281C); color: var(--ed-chyba, #C4281C); }
 /* redakční předávka: ke korektuře (čárkovaně) a schváleno (plně) - fialová, ať se neplete s konceptem ani s vydaným */
-.stitek-korektura, .stitek-schvaleno { border-color: var(--ed-predavka, #7A4FD6); color: var(--ed-predavka, #7A4FD6); }
+.stitek-korektura, .stitek-schvaleno, .stitek-ceka { border-color: var(--ed-predavka, #7A4FD6); color: var(--ed-predavka, #7A4FD6); }
 .kalendar-clanek.stitek-korektura { border-left-style: dashed; }
 .pokrocile { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--ed-linka); }
 .pokrocile summary { margin-bottom: 14px; font-weight: bold; cursor: pointer; }
@@ -163,6 +163,9 @@ button.galerie-polozka:hover, button.galerie-polozka:focus-visible { border-colo
 .rozsireni-karta input { margin-top: 3px; }
 
 /* můj účet */
+/* QR kód 2FA: vždy černá na bílé (i v tmavém režimu – tak ho čtou aplikace), na úzkém displeji se zmenší */
+.totp-qr { display: inline-block; margin: 8px 0; line-height: 0; }
+.totp-qr svg { max-width: min(100%, 260px); height: auto; border-radius: 6px; }
 .totp-klic, .zalozni-kody { display: inline-block; margin: 6px 0; padding: 6px 10px; border: 1px solid var(--ed-linka); background: var(--ed-lista); font: 15px/1.6 ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.06em; user-select: all; }
 a.prihlasen { color: inherit; text-decoration: none; display: inline-flex; align-items: center; }
 
@@ -251,7 +254,7 @@ button.galerie-polozka.vybrana { border-color: var(--ed-akcent); box-shadow: 0 0
 
 /* porovnání verzí článku */
 .porovnani { max-width: 760px; font-size: 15px; line-height: 1.6; }
-.porovnani h3 { margin: 22px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ed-text-slaby); }
+.porovnani h2 { margin: 22px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ed-text-slaby); }
 .porovnani-titulek p { font-size: 20px; font-weight: 700; }
 ins { background: rgb(21 128 61 / 0.18); color: inherit; text-decoration: none; border-radius: 2px; }
 del { background: rgb(179 38 30 / 0.16); color: inherit; border-radius: 2px; }

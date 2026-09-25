@@ -8,7 +8,7 @@ body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; ove
 /* horní lišta */
 .st-lista { grid-area: lista; display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 6px 12px; border-bottom: 1px solid var(--linka); background: var(--plocha); }
 .st-lista .st-nazev { display: flex; flex-direction: column; min-width: 0; margin-right: auto; line-height: 1.2; }
-.st-lista .st-nazev strong { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.st-lista .st-nazev h1 { margin: 0; overflow: hidden; font-size: inherit; font-weight: 700; letter-spacing: normal; white-space: nowrap; text-overflow: ellipsis; }
 .st-lista .st-nazev small { color: var(--text-slaby); }
 .st-skupina { display: inline-flex; padding: 2px; border: 1px solid var(--linka); border-radius: 8px; background: var(--podklad); }
 .st-skupina button { display: grid; place-items: center; min-width: 34px; height: 30px; padding: 0 8px; border: 0; border-radius: 6px; background: none; cursor: pointer; }
@@ -74,6 +74,12 @@ body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; ove
 .st-akce button { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: none; cursor: pointer; }
 .st-akce button:hover { background: var(--podklad); }
 .st-akce button.nebezpecne:hover { color: var(--chyba); }
+.st-akce { flex: none; }
+.st-hlava-prvku strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* nabídka Další akce (popover pod tlačítkem …) */
+.st-vice { position: fixed; inset: auto; margin: 0; min-width: 220px; max-width: 300px; padding: 4px; border: 1px solid var(--linka); border-radius: 10px; background: var(--plocha); color: var(--text); box-shadow: 0 12px 32px rgb(0 0 0 / 0.18); }
+.st-akce .st-vice button { display: flex; align-items: center; gap: 10px; width: 100%; height: auto; padding: 8px 10px; text-align: left; font: inherit; font-size: 13px; color: inherit; }
+.st-vice .st-ikona { flex: none; }
 .st-pole { display: grid; gap: 4px; margin-bottom: 12px; }
 .st-pole > span { font-size: 12px; font-weight: 600; color: var(--text-slaby); }
 .st-pole input:not([type=checkbox]), .st-pole select, .st-pole textarea { width: 100%; min-width: 0; padding: 6px 8px; border: 1px solid var(--linka-pole); border-radius: 6px; background: var(--plocha); }
@@ -113,7 +119,7 @@ body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; ove
 
 .st-dialog { width: min(520px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--linka); border-radius: 12px; background: var(--plocha); color: var(--text); box-shadow: 0 20px 60px rgb(0 0 0 / 0.25); }
 .st-dialog::backdrop { background: rgb(15 17 21 / 0.45); }
-.st-dialog > div { padding: 16px 18px; }
+.st-dialog > div, .st-dialog > form > div { padding: 16px 18px; }
 .st-dialog h2 { margin: 0 0 12px; font-size: 17px; }
 .st-dialog ul { margin: 0; padding: 0; list-style: none; max-height: 50vh; overflow: auto; }
 .st-dialog li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--linka); }
@@ -199,7 +205,7 @@ body.st-umistovani .st-uzel { cursor: copy; }
 .st-prohlidka small { color: var(--text-slaby); }
 .st-styl-schranka { margin-bottom: 8px; }
 
-/* telefon: builder potřebuje šířku aspoň tabletu – místo rozbité lišty srozumitelné upozornění */
+/* telefon: builder potřebuje šířku aspoň tabletu – místo rozbité lišty srozumitelné upozornění (stejnou šířku hlídá stavitel.js u prohlídky) */
 .st-uzky { display: none; }
 @media (max-width: 719px) {
 	.st-uzky { display: grid; gap: 12px; min-height: 100vh; min-height: 100dvh; place-content: center; padding: 24px; background: var(--podklad); color: var(--text); font: 16px/1.5 system-ui, sans-serif; text-align: center; }

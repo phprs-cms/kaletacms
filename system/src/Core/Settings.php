@@ -117,6 +117,7 @@ final class Settings
         'ai_klic' => '',              // klíč API AI asistenta (nikdy se nevypisuje zpět do formuláře)
         'ai_model' => 'claude-sonnet-5',
         'pruvodce_skryt' => '0',      // administrátor skryl první kroky na přehledu
+        'vzhled_ulozen' => '',        // správce už uložil Vzhled webu (první kroky nepočítají vzhled ze startovacího webu)
         'uklizeno_verze' => '',       // verze, po jejímž nasazení už proběhl jednorázový úklid zrušených souborů
         'verze_db' => '1',            // číslo poslední provedené migrace (system/sql/migrace)
     ];
