@@ -161,11 +161,12 @@ final class StahovaniObrazku
     }
 
     /**
-     * Stáhne obrázek a vrátí jeho obsah.
+     * Stáhne obrázek a vrátí jeho obsah. S $jenObrazky = false i jiný soubor (písmo, PDF pro MCP) – jeho typ pak ověří
+     * až ukládání (Core\Soubory: povolené přípony a skutečný obsah, SVG vyčistí Core\Svg); ostatní pravidla platí stejně.
      *
      * @throws \RuntimeException s důvodem, proč obrázek stáhnout nejde
      */
-    public function stahni(string $url): string
+    public function stahni(string $url, bool $jenObrazky = true): string
     {
         for ($krok = 0; $krok <= self::MAX_PRESMEROVANI; $krok++) {
             if (!$this->povolenaAdresa($url)) {
@@ -183,7 +184,7 @@ final class StahovaniObrazku
             if ($odpoved['kod'] !== 200) {
                 throw new \RuntimeException('Starý web obrázek nevydal, odpověděl chybou', $odpoved['kod']); // kód odpovědi nese getCode()
             }
-            if (self::typObrazku($odpoved['typ'], $odpoved['data']) === null) {
+            if ($jenObrazky && self::typObrazku($odpoved['typ'], $odpoved['data']) === null) {
                 throw new \RuntimeException('Soubor není obrázek JPG, PNG, GIF ani WebP.');
             }
 

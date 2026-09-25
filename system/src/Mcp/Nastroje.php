@@ -121,8 +121,8 @@ final class Nastroje
             ['vytvor_kategorii', 'Založí kategorii novinek (editor a správce).', $s(['nazev' => $text('Název'), 'popis' => $text('Popis (HTML)')], ['nazev'])],
             ['seznam_medii', 'Naposledy nahrané obrázky a soubory s adresami a rozměry.', $s(['limit' => $cislo('1-50, výchozí 20'), 'hledat' => $text('text v názvu (nepovinné)')])],
             ['nahraj_soubor', 'Nahraje soubor do Médií: obrázek (JPG, PNG, WebP, GIF – zmenší se a dostane WebP/AVIF varianty), SVG (vyčistí se), písmo WOFF2 pro design system nebo přílohu (PDF…). '
-                . 'Zadej data v base64 (nejvýš ' . (self::MAX_NAHRANI >> 20) . ' MB), nebo url veřejného obrázku. Vrátí adresu pro prvek obrázek, obrazek_pozadi nebo vlastni_pisma.',
-                $s(['nazev' => $text('název souboru s příponou, např. tym-praha.jpg'), 'data' => $text('obsah souboru v base64'), 'url' => $text('https adresa obrázku ke stažení (místo data)'),
+                . 'Zadej url veřejného souboru (https – obrázek, písmo, PDF; u větších souborů vždy url), nebo data v base64 (nejvýš ' . (self::MAX_NAHRANI >> 20) . ' MB). Vrátí adresu pro prvek obrázek, obrazek_pozadi nebo vlastni_pisma.',
+                $s(['nazev' => $text('název souboru s příponou, např. tym-praha.jpg'), 'data' => $text('obsah souboru v base64'), 'url' => $text('https adresa souboru ke stažení (místo data)'),
                     'popis' => $text('popis obrázku pro nevidomé (alt); jinak z názvu')], ['nazev'])],
             ['nahled_odkaz', 'Podepsaný odkaz na náhled konceptu stránky nebo části webu – otevře ho kdokoli i bez přihlášení (uživatel, kolega, prohlížeč), platí jen pro tenhle cíl a jen omezenou dobu. Vyhledávače ho neindexují.',
                 $s($cil + ['minut' => $cislo('platnost v minutách, výchozí 60, nejvýš ' . \Kaleta\Core\Nahled::MAX_MINUT)])],
@@ -912,9 +912,9 @@ final class Nastroje
                 throw new \InvalidArgumentException('Stahovat jde jen z https adresy.');
             }
             try {
-                $obsah = (new \Kaleta\Core\StahovaniObrazku($url))->stahni($url);
+                $obsah = (new \Kaleta\Core\StahovaniObrazku($url))->stahni($url, false);
             } catch (\RuntimeException $e) {
-                throw new \InvalidArgumentException('Obrázek se nepodařilo stáhnout: ' . $e->getMessage());
+                throw new \InvalidArgumentException('Soubor se nepodařilo stáhnout: ' . $e->getMessage());
             }
         } else {
             $obsah = base64_decode(preg_replace('#^data:[^,]*,#', '', (string) ($a['data'] ?? '')) ?? '', true);
