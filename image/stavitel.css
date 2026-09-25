@@ -8,7 +8,7 @@ body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; ove
 /* horní lišta */
 .st-lista { grid-area: lista; display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 6px 12px; border-bottom: 1px solid var(--linka); background: var(--plocha); }
 .st-lista .st-nazev { display: flex; flex-direction: column; min-width: 0; margin-right: auto; line-height: 1.2; }
-.st-lista .st-nazev strong { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.st-lista .st-nazev h1 { margin: 0; overflow: hidden; font-size: inherit; font-weight: 700; letter-spacing: normal; white-space: nowrap; text-overflow: ellipsis; }
 .st-lista .st-nazev small { color: var(--text-slaby); }
 .st-skupina { display: inline-flex; padding: 2px; border: 1px solid var(--linka); border-radius: 8px; background: var(--podklad); }
 .st-skupina button { display: grid; place-items: center; min-width: 34px; height: 30px; padding: 0 8px; border: 0; border-radius: 6px; background: none; cursor: pointer; }

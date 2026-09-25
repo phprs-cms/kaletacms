@@ -689,7 +689,7 @@
 			el('button', { type: 'button', title: BP[bp], 'aria-label': BP[bp], 'aria-pressed': String(stav.bp === bp), onclick: () => { stav.bp = bp; ramec.dataset.bp = bp; rozmerNahledu(nahled); prekresliListu(); prekresliPanely(); } }, ikona(ik)));
 		lista.replaceChildren(...[
 			el('a', { class: 'st-tl', href: D.zpet.adresa, title: D.zpet.text }, ikona('rodic'), el('span', { class: 'st-text' }, D.zpet.text)),
-			el('div', { class: 'st-nazev' }, el('strong', {}, D.stranka.titulek), el('small', {}, stav.zmeny ? T('rozpracovaný koncept – návštěvníci vidí publikovanou verzi') : T('beze změn proti webu'))),
+			el('div', { class: 'st-nazev' }, el('h1', {}, D.stranka.titulek), el('small', {}, stav.zmeny ? T('rozpracovaný koncept – návštěvníci vidí publikovanou verzi') : T('beze změn proti webu'))),
 			el('div', { class: 'st-skupina', role: 'group', 'aria-label': T('Zařízení') }, bpTl),
 			el('select', { class: 'st-lupa', 'aria-label': T('Velikost náhledu'), title: T('Velikost náhledu'), onchange: (e) => { stav.lupa = e.target.value; rozmerNahledu(nahled); } },
 				[['', T('Vejít se')], ['1920', T('Široký monitor (1920 px)')], ['100', '100 %'], ['75', '75 %'], ['50', '50 %']].map(([k, n]) => el('option', { value: k, selected: stav.lupa === k }, n))),
