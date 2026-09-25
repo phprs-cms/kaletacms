@@ -36,7 +36,7 @@ final class Galerie extends Modul
             'strana' => $strana,
             'stran' => max(1, (int) ceil($celkem / self::NA_STRANKU)),
             'celkem' => $celkem,
-            'limit' => ini_get('upload_max_filesize'),
+            'limit' => \Kaleta\Core\Soubory::limitText(),
             'filtr' => $filtr,
             'slozky' => $this->slozky(),
             'clanek' => $filtr['clanek'] > 0 ? $this->db->value('SELECT titulek FROM {novinky} WHERE idc = ?', [$filtr['clanek']]) : null,

@@ -30,7 +30,7 @@ final class Obrazky
     {
         if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file((string) $file['tmp_name'])) {
             throw new \RuntimeException(match ($file['error'] ?? 0) {
-                UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'Soubor je větší, než server dovoluje nahrát (' . ini_get('upload_max_filesize') . ').',
+                UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => Soubory::hlaskaLimit(),
                 default => 'Soubor se nepodařilo nahrát.',
             });
         }

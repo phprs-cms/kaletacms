@@ -2327,4 +2327,5 @@ return [
     'Kontakt pro návštěvníky a vyhledávače. Prázdné = e-mail webu ze záložky Základní (na ten chodí poptávky).' => 'Contact for visitors and search engines. Empty = the site email from the Basic tab (where enquiries are sent).',
     'Účet a nástroje' => 'Account and tools',
     'Novinky potřebují kategorii, proto vznikla kategorie „%s“. Přejmenovat ji nebo přidat další můžete v Novinky → Kategorie.' => 'News items need a category, so the category “%s” has been created. You can rename it or add more under News → Categories.',
+    'Soubor je větší, než server dovoluje nahrát (nejvýš %s). Zmenšete ho, nebo požádejte správce hostingu o vyšší limit.' => 'The file is larger than the server allows (%s at most). Make it smaller or ask your hosting provider to raise the limit.',
 ];

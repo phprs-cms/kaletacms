@@ -541,6 +541,13 @@ printf '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10" onload="aler
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=intergal&akce=nahraj" -F "_csrf=$TOKEN" -F "soubory[]=@$PRACE/foto.jpg;type=image/jpeg" -F "soubory[]=@$PRACE/logo.svg;type=image/svg+xml"
 SVG=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT obr_poloha FROM ka_media WHERE obr_poloha LIKE '%.svg' ORDER BY ido DESC LIMIT 1")
 [ -n "$SVG" ] && ! grep -q 'onload\|<script' "$PRACE/web/$SVG" && grep -q '<rect' "$PRACE/web/$SVG" && echo "  ok     SVG nahrané a vyčištěné" || { echo "  CHYBA  SVG v Médiích"; CHYB=$((CHYB+1)); }
+# soubor nad upload_max_filesize (ale pod post_max_size): srozumitelná hláška s limitem v MB, ne zkratka z php.ini
+MEZE=$(php -r '$b = fn ($v) => (int) $v * (["k" => 1024, "m" => 1048576, "g" => 1073741824][strtolower(substr(trim($v), -1))] ?? 1); echo $b(ini_get("upload_max_filesize")), " ", $b(ini_get("post_max_size"));')
+if [ "${MEZE% *}" -gt 0 ] && [ $(( ${MEZE% *} + 4096 )) -lt "${MEZE#* }" ]; then
+  head -c $(( ${MEZE% *} + 1024 )) /dev/zero > "$PRACE/velky.zip"
+  curl -s -b "$JAR" -c "$JAR" -o "$PRACE/odpoved" -X POST "$B/admin.php?modul=intergal&akce=nahraj&format=json" -F "_csrf=$TOKEN" -F "soubory[]=@$PRACE/velky.zip"
+  grep -q 'nejvýš [0-9,]* MB' "$PRACE/odpoved" && echo "  ok     soubor nad limit serveru: hláška s limitem v MB" || { echo "  CHYBA  hláška o limitu nahrávání"; head -c 300 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+fi
 IDO=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ido FROM ka_media WHERE obr_poloha LIKE '%.jpg' ORDER BY ido DESC LIMIT 1")
 FOTO=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT obr_poloha FROM ka_media WHERE ido = $IDO")
 php -r '$i = imagecreatetruecolor(800, 800); imagefill($i, 0, 0, imagecolorallocate($i, 20, 120, 200)); imagejpeg($i, "'"$PRACE"'/nova.jpg");'

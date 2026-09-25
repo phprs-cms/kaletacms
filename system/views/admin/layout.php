@@ -108,6 +108,6 @@ if ($user !== null) {
 <script src="<?= e($app->url('image/jazyky/admin-' . Kaleta\Core\Jazyk::kod() . '.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>
 <?php endif ?>
 <script src="<?= e($app->url('image/admin.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>
-<script src="<?= e($app->url('image/editor.js')) ?>?v=<?= e(KALETA_VERSION) ?>" data-admin-url="<?= e($app->url('admin.php')) ?>" defer></script>
+<script src="<?= e($app->url('image/editor.js')) ?>?v=<?= e(KALETA_VERSION) ?>" data-admin-url="<?= e($app->url('admin.php')) ?>" data-max-soubor="<?= Kaleta\Core\Soubory::limit() ?>" data-max-soubor-text="<?= e(Kaleta\Core\Soubory::limitText()) ?>" data-max-strana="<?= Kaleta\Core\Obrazky::MAX_STRANA ?>" defer></script>
 </body>
 </html>

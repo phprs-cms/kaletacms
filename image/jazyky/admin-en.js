@@ -558,5 +558,6 @@ window.KALETA_PREKLAD = {
 	"Ikona vlevo od textu": "Icon left of the text",
 	"Zvýraznění aktivní položky": "Current item highlight",
 	"podbarvení": "background",
-	"podtržení doplňkovou barvou": "underline in the secondary colour"
+	"podtržení doplňkovou barvou": "underline in the secondary colour",
+	"Soubor je větší, než server dovoluje nahrát (nejvýš %s). Zmenšete ho, nebo požádejte správce hostingu o vyšší limit.": "The file is larger than the server allows (%s at most). Make it smaller or ask your hosting provider to raise the limit."
 };

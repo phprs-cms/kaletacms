@@ -16,6 +16,35 @@ final class Soubory
     private const int MAX_BAJTU = 200 * 1024 * 1024;
     private const string ZAKAZANE_TYPY = '#html|php|javascript|svg|x-sh|x-dosexec|x-executable|x-mach|x-msdownload#i';
 
+    /** Kolik bajtů smí mít jeden nahrávaný soubor: menší z upload_max_filesize a post_max_size (0 = bez omezení). */
+    public static function limit(): int
+    {
+        $bajty = static function (string $ini): int {
+            $cislo = (int) $ini;
+
+            return $cislo <= 0 ? 0 : $cislo * match (strtolower(substr(trim($ini), -1))) {
+                'g' => 1024 ** 3, 'm' => 1024 ** 2, 'k' => 1024, default => 1,
+            };
+        };
+        $limity = array_filter([$bajty((string) ini_get('upload_max_filesize')), $bajty((string) ini_get('post_max_size'))]);
+
+        return $limity === [] ? 0 : min($limity);
+    }
+
+    /** Limit pro lidi: „2 MB“ místo zkratky z php.ini („2M“). */
+    public static function limitText(): string
+    {
+        $mb = self::limit() / 1024 / 1024;
+
+        return $mb <= 0 ? '' : (fmod($mb, 1.0) === 0.0 ? (string) (int) $mb : number_format($mb, 1, Jazyk::kod() === 'cs' ? ',' : '.', '')) . ' MB';
+    }
+
+    /** Hláška pro soubor nad limitem serveru – přeložená, s limitem v MB a s radou, co dělat. */
+    public static function hlaskaLimit(): string
+    {
+        return t('Soubor je větší, než server dovoluje nahrát (nejvýš %s). Zmenšete ho, nebo požádejte správce hostingu o vyšší limit.', self::limitText());
+    }
+
     public static function jePriloha(string $jmeno): bool
     {
         return in_array(strtolower(pathinfo($jmeno, PATHINFO_EXTENSION)), self::PRIPONY, true);
@@ -30,7 +59,7 @@ final class Soubory
     {
         if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file((string) $file['tmp_name'])) {
             throw new \RuntimeException(match ($file['error'] ?? 0) {
-                UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'Soubor je větší, než server dovoluje nahrát (' . ini_get('upload_max_filesize') . ').',
+                UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => self::hlaskaLimit(),
                 default => 'Soubor se nepodařilo nahrát.',
             });
         }
