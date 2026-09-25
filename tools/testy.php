@@ -130,6 +130,16 @@ $chybiPreklad = static function (string $slovnik, array $vzory): array {
 over('Slovník en.php: texty webu mají anglický překlad', $chybiPreklad('en.php', ['system/views/front/*.php', 'layout/*/*.php', 'system/src/Front/*.php', 'system/src/Stavitel/*.php', 'system/src/Stavitel/Prvky/*.php']), []);
 over('Slovník admin-en.php: E-mail webu', isset((require dirname(__DIR__) . '/system/jazyky/admin-en.php')['E-mail webu']), true);
 
+/* ---------- skripty administrace a webu bez systémových dialogů (nejdou nastylovat, přeložit a prohlížeče je potlačují) ---------- */
+$nativniDialogy = [];
+foreach (glob(dirname(__DIR__) . '/image/*.js') ?: [] as $soubor) {
+    $kod = preg_replace(['#/\*.*?\*/#s', '#(^|[^:])//.*$#m'], ['', '$1'], (string) file_get_contents($soubor)); // bez komentářů
+    if (preg_match_all('/\b(alert|prompt|confirm)\s*\(/', (string) $kod, $m)) {
+        $nativniDialogy[] = basename($soubor) . ': ' . implode(', ', array_unique($m[1]));
+    }
+}
+over('Skripty bez window.alert/prompt/confirm', $nativniDialogy, []);
+
 /* ---------- porovnání verzí ---------- */
 $r = Kaleta\Core\Rozdil::html('<p>Radnice schválila plán.</p><p>Druhý odstavec.</p>', '<p>Radnice včera schválila nový plán.</p><p>Druhý odstavec.</p><p>Třetí.</p>');
 over('Rozdil: slova ve změněném odstavci', str_contains($r['html'], '<ins>včera </ins>') && str_contains($r['html'], '<ins>nový </ins>'), true);

@@ -22,7 +22,7 @@ final class Sekce extends Prvek
     {
         return [
             'sirka' => ['typ' => 'vyber', 'popisek' => 'Šířka obsahu', 'vychozi' => 'obsah', 'moznosti' => ['obsah' => 'šířka webu', 'uzka' => 'úzká (text)', 'plna' => 'celá šířka']],
-            'video' => ['typ' => 'odkaz', 'popisek' => 'Video na pozadí (MP4 nebo WebM z Médií, bez zvuku)', 'vychozi' => ''],
+            'video' => ['typ' => 'odkaz', 'popisek' => 'Video na pozadí (MP4 nebo WebM z Médií, bez zvuku)', 'vychozi' => '', 'media' => 'video'], // editor: výběr z Médií, ne odkaz
         ];
     }
 
