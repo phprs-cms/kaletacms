@@ -151,7 +151,9 @@ databázi `kaleta_test` smaže a vytvoří), případně jen `php tools/testy.ph
 
 - `tools/screenshots.sh` (+ `tools/screenshots.mjs`, Playwright a Chrome): čistá anglická instalace každého startovacího webu
   s ukázkovými daty a snímky do `docs/screenshots/` (web projektu, README, dokumentace). Po změně vzhledu administrace pusť znovu.
-- `tools/test-english.sh` (i v CI): anglická administrace nesmí ukázat češtinu. Nový text vždy přes `t()` a překlad přes
-  `tools/slovnik.py`; výchozí texty pro návštěvníky v `Settings::PREKLADANE_VYCHOZI`.
+- `tools/test-english.sh` (i v CI): anglický instalátor, web všech tří startovacích webů i administrace nesmí ukázat češtinu
+  (`tools/cestina.php`: diakritika, český klíč slovníku s překladem, častá česká slova; `--js` = české texty skriptů administrace bez
+  položky v `image/jazyky/admin-en.js`). Nový text vždy přes `t()` a překlad přes `tools/slovnik.py`; výchozí texty pro návštěvníky
+  v `Settings::PREKLADANE_VYCHOZI`. Stránky startovacích webů musí projít kontrolou před publikováním (hlídá `tools/testy.php`).
 - Zvýraznění `<mark>` v textu nadpisu = doplňková barva bez podbarvení (tečka za titulkem v barvě Signal).
 
