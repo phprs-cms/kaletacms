@@ -85,15 +85,15 @@ figure.galerie figcaption { grid-column: 1 / -1; }
 .ka-autor span { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.7; }
 .ka-autor p { margin: 6px 0 0; }
 
-/* ---------- tabulky v textu ---------- */
-.text table { width: 100%; margin: 1.6em 0; border-collapse: collapse; font: 15px/1.45 system-ui, sans-serif; display: block; overflow-x: auto; }
-.text th, .text td { padding: 8px 12px; border-bottom: 1px solid rgb(128 128 128 / 0.35); text-align: left; vertical-align: top; }
-.text th { border-bottom: 2px solid currentColor; font-weight: 700; white-space: nowrap; }
+/* ---------- tabulky v textu (stránky z textu i prvek Text v builderu) ---------- */
+.text table, .ka-text table { width: 100%; margin: 1.6em 0; border-collapse: collapse; font: 15px/1.45 system-ui, sans-serif; display: block; overflow-x: auto; }
+.text th, .text td, .ka-text th, .ka-text td { padding: 8px 12px; border-bottom: 1px solid rgb(128 128 128 / 0.35); text-align: left; vertical-align: top; }
+.text th, .ka-text th { border-bottom: 2px solid currentColor; font-weight: 700; white-space: nowrap; }
 
 /* ---------- ukázky kódu a vložený obsah v textu (:where = nulová váha, šablona je může přebít) ---------- */
-:where(.text) pre { overflow-x: auto; padding: 14px 16px; background: rgb(128 128 128 / 0.12); font: 14px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-:where(.text) :not(pre) > code { padding: 1px 5px; background: rgb(128 128 128 / 0.14); font-size: 0.9em; overflow-wrap: anywhere; }
-:where(.text, .perex) :is(iframe, video, embed, object) { max-width: 100%; }
+:where(.text, .ka-text) pre { overflow-x: auto; padding: 14px 16px; background: rgb(128 128 128 / 0.12); font: 14px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+:where(.text, .ka-text) :not(pre) > code { padding: 1px 5px; background: rgb(128 128 128 / 0.14); font-size: 0.9em; overflow-wrap: anywhere; }
+:where(.text, .ka-text, .perex) :is(iframe, video, embed, object) { max-width: 100%; }
 :where(.text, .perex) { overflow-wrap: break-word; }
 
 /* viditelný fokus při ovládání klávesnicí - společný všem šablonám, šablona ho smí přepsat */

@@ -588,6 +588,11 @@ over('Menu::html: podmenu, aktivní položka a větev, úvod jen přesnou shodou
     ['text' => 'Úvod', 'url' => '/', 'nove_okno' => false, 'deti' => []],
     ['text' => 'Služby', 'url' => '', 'nove_okno' => false, 'deti' => [['text' => 'Kuchyně', 'url' => '/kuchyne', 'nove_okno' => false, 'deti' => []]]],
 ], '/kuchyne/detail', '/'), '<li><a href="/">Úvod</a></li><li class="podmenu aktivni"><button type="button" class="menu-skupina">Služby</button><ul><li><a href="/kuchyne" aria-current="page">Kuchyně</a></li></ul></li>');
+over('Hledani::najdi: shoda v názvu má přednost', array_column(Kaleta\Core\Hledani::najdi('search', [
+    ['titulek' => 'Menus', 'adresa' => 'menus', 'text' => 'Link to site search from the menu.'],
+    ['titulek' => 'Site search', 'adresa' => 'site-search', 'text' => 'How search works.'],
+    ['titulek' => 'SEO', 'adresa' => 'seo', 'text' => 'Search engines and search results; search console.'],
+]), 'adresa'), ['site-search', 'seo', 'menus']);
 over('Hledani::najdi: bez diakritiky, všechna slova, úryvek', Kaleta\Core\Hledani::najdi('zkusenosti kuchyne', [
     ['titulek' => 'O nás', 'adresa' => 'o-nas', 'text' => '<p>Máme dvacet let zkušeností s nábytkem.</p>'],
     ['titulek' => 'Kuchyně', 'adresa' => 'kuchyne', 'text' => '<p>Kuchyně na míru – bohaté zkušenosti.</p>'],

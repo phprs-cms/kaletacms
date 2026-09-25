@@ -140,8 +140,29 @@ final class Seo
         }
         $radky[] = '## ' . t('Stránky');
         $uvod = $s->int('titulni_stranka');
-        foreach ($db->all('SELECT ids, titulek, seo_link, popis FROM {stranky} WHERE zobrazit = 1 AND jazyk = ? ORDER BY poradi, titulek', [\Kaleta\Core\Jazyk::sloupecWebu()]) as $r) {
+        foreach ($db->all('SELECT ids, titulek, seo_link, popis FROM {stranky} WHERE zobrazit = 1 AND noindex = 0 AND smazano IS NULL AND jazyk = ? ORDER BY poradi, titulek', [\Kaleta\Core\Jazyk::sloupecWebu()]) as $r) {
             $radky[] = '- [' . $r['titulek'] . '](' . $this->web . ((int) $r['ids'] === $uvod ? '' : $r['seo_link']) . ')' . ($r['popis'] !== '' ? ': ' . $r['popis'] : '');
+        }
+        // kolekce s vlastními stránkami položek (návod, tým, produkty…): položka s prvním delším textem jako popisem
+        foreach ($db->all('SELECT idk, nazev, seo_link, pole FROM {kolekce} WHERE detail = 1 ORDER BY nazev') as $k) {
+            $pole = json_decode((string) $k['pole'], true) ?: [];
+            $popisne = array_column(array_filter($pole, fn (array $f): bool => in_array($f['typ'] ?? '', ['radky', 'html', 'text'], true)), 'klic');
+            $polozky = $db->all('SELECT nazev, seo_link, data FROM {kolekce_polozky} WHERE idk = ? AND zobrazit = 1 AND jazyk = ? ORDER BY poradi, nazev LIMIT 200', [$k['idk'], \Kaleta\Core\Jazyk::sloupecWebu()]);
+            if ($polozky === []) {
+                continue;
+            }
+            array_push($radky, '', '## ' . $k['nazev']);
+            foreach ($polozky as $p) {
+                $data = json_decode((string) $p['data'], true) ?: [];
+                $popis = '';
+                foreach ($popisne as $klic) {
+                    if (is_string($data[$klic] ?? null) && trim(strip_tags($data[$klic])) !== '') {
+                        $popis = mb_strimwidth(trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($data[$klic]), ENT_QUOTES | ENT_HTML5))), 0, 200, '…');
+                        break;
+                    }
+                }
+                $radky[] = '- [' . $p['nazev'] . '](' . $this->web . $k['seo_link'] . '/' . $p['seo_link'] . ')' . ($popis !== '' ? ': ' . $popis : '');
+            }
         }
         if (!\Kaleta\Core\Rozsireni::je($s, 'novinky')) {
             return implode("\n", $radky) . "\n";

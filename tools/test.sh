@@ -350,6 +350,7 @@ NAHLED=$(php -r '$o = json_decode(file_get_contents($argv[1]), true); echo json_
 curl -s "$B/tym/zdenek" | grep -q 'Profil: ' && { echo "  CHYBA  koncept šablony kolekce je vidět bez publikování"; CHYB=$((CHYB+1)); } || echo "  ok     koncept šablony kolekce návštěvník nevidí"
 mcp publikuj_stavbu '{"kolekce":"tym"}' > /dev/null; rm -f "$PRACE"/web/storage/cache/stranky/*.html
 over "MCP: publikovaná šablona detailu kolekce" 200 /tym/zdenek "Profil: Zdenek Zeman"
+over "llms.txt vyjmenuje položky kolekcí s detailem" 200 /llms.txt "/tym/zdenek"
 mcp uprav_kolekci '{"kolekce":"tym","nazev":"Nas tym"}' > "$PRACE/odpoved"
 grep -q 'Nas tym' "$PRACE/odpoved" && grep -q 'medailonek' "$PRACE/odpoved" && echo "  ok     MCP: úprava kolekce ponechá pole" || { echo "  CHYBA  MCP uprav_kolekci"; head -c 300 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
 rm -f "$PRACE"/web/storage/cache/stranky/*.html

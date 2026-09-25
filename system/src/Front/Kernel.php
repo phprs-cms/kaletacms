@@ -323,7 +323,9 @@ final class Kernel
         }
         $stavba = \Kaleta\Stavitel\Stavba::zJson($koncept ? ($kolekce['stavba_koncept'] ?? $kolekce['stavba']) : $kolekce['stavba'])
             ?? \Kaleta\Stavitel\Kolekce::vychoziSablona($kolekce);
-        $this->drobecky([$kolekce['nazev'], ''], [$polozka['nazev'] ?? t('Ukázková položka'), '']);
+        // úroveň kolekce odkazuje na stránku se stejnou adresou (např. /navod nad /navod/<článek>), když na webu je
+        $rozcestnik = $db->value('SELECT seo_link FROM {stranky} WHERE seo_link = ? AND zobrazit = 1 AND smazano IS NULL AND jazyk = ? LIMIT 1', [$kolekce['seo_link'], Jazyk::sloupecWebu()]);
+        $this->drobecky([$kolekce['nazev'], $rozcestnik !== null ? $this->app->url((string) $rozcestnik) : ''], [$polozka['nazev'] ?? t('Ukázková položka'), '']);
         $k = $this->kontext();
         $k->polozka = $polozka !== null ? \Kaleta\Stavitel\Kolekce::hodnoty($kolekce, $polozka, $this->app->url(...)) : \Kaleta\Stavitel\Kolekce::ukazka($kolekce);
         $k->editor = $koncept && $r->get('editor') === '1';
@@ -538,9 +540,12 @@ final class Kernel
             $uvod = $this->idUvodu();
             $kandidati = array_map(fn (array $s): array => ['titulek' => $s['titulek'], 'adresa' => (int) $s['ids'] === $uvod ? '' : $s['seo_link'], 'text' => (string) $s['text']],
                 $db->all('SELECT ids, titulek, seo_link, text FROM {stranky} WHERE zobrazit = 1 AND noindex = 0 AND smazano IS NULL AND jazyk = ? ORDER BY poradi LIMIT 500', [Jazyk::sloupecWebu()]));
-            foreach ($db->all('SELECT p.nazev, p.seo_link, p.data, k.seo_link AS kolekce FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.detail = 1 AND p.zobrazit = 1 AND p.jazyk = ? ORDER BY p.poradi LIMIT 2000', [Jazyk::sloupecWebu()]) as $p) {
+            foreach ($db->all('SELECT p.nazev, p.seo_link, p.data, k.seo_link AS kolekce, k.pole FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.detail = 1 AND p.zobrazit = 1 AND p.jazyk = ? ORDER BY p.poradi LIMIT 2000', [Jazyk::sloupecWebu()]) as $p) {
                 $data = json_decode((string) $p['data'], true);
-                $kandidati[] = ['titulek' => $p['nazev'], 'adresa' => $p['kolekce'] . '/' . $p['seo_link'], 'text' => implode(' ', array_filter(is_array($data) ? $data : [], 'is_string'))];
+                // hledá se jen v textových polích – cesty k obrázkům a adresy odkazů by dělaly šum ve výsledcích i úryvcích
+                $textova = array_column(array_filter(json_decode((string) $p['pole'], true) ?: [], fn (array $f): bool => in_array($f['typ'] ?? '', ['text', 'radky', 'html'], true)), 'klic');
+                $kandidati[] = ['titulek' => $p['nazev'], 'adresa' => $p['kolekce'] . '/' . $p['seo_link'],
+                    'text' => implode(' ', array_filter(array_intersect_key(is_array($data) ? $data : [], array_flip($textova)), 'is_string'))];
             }
             $stranky = array_map(fn (array $v): array => ['titulek' => $v['titulek'], 'seo_link' => $v['adresa'], 'uryvek' => $v['uryvek']], \Kaleta\Core\Hledani::najdi($q, $kandidati));
         }

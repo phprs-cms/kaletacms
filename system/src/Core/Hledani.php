@@ -41,7 +41,8 @@ final class Hledani
 
     /**
      * Hledání ve stránkách a položkách kolekcí bez indexu (je jich na firemním webu stovky, ne tisíce): všechna slova
-     * dotazu bez ohledu na diakritiku a velikost písmen. Vrací shody s úryvkem textu kolem prvního nalezeného slova.
+     * dotazu bez ohledu na diakritiku a velikost písmen. Vrací shody s úryvkem textu kolem prvního nalezeného slova,
+     * seřazené podle relevance (shoda v názvu váží nejvíc, pak počet výskytů v textu; při shodě zůstává pořadí webu).
      *
      * @param list<array{titulek: string, adresa: string, text: string}> $kandidati
      * @return list<array{titulek: string, adresa: string, uryvek: string}>
@@ -53,6 +54,7 @@ final class Hledani
             return [];
         }
         $vysledky = [];
+        $skore = [];
         foreach ($kandidati as $k) {
             $prosty = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags(str_replace(['<', '>'], [' <', '> '], $k['text'])), ENT_QUOTES | ENT_HTML5)));
             $hledat = self::normalizuj($k['titulek'] . ' ' . $prosty);
@@ -66,12 +68,15 @@ final class Hledani
             $od = $pozice === false ? 0 : max(0, $pozice - 60);
             $uryvek = mb_substr($prosty, $od, 180);
             $vysledky[] = ['titulek' => $k['titulek'], 'adresa' => $k['adresa'], 'uryvek' => ($od > 0 ? '…' : '') . $uryvek . (mb_strlen($prosty) > $od + 180 ? '…' : '')];
-            if (count($vysledky) >= $limit) {
-                break;
-            }
+            $nazev = self::normalizuj($k['titulek']);
+            $text = self::normalizuj($prosty);
+            $skore[] = array_sum(array_map(fn (string $s): int => (str_contains($nazev, $s) ? 100 : 0) + min(20, substr_count($text, $s)), $slova));
         }
+        // stabilní řazení: stejné skóre = pořadí, v jakém je web řadí
+        $poradi = array_keys($vysledky);
+        array_multisort($skore, SORT_DESC, $poradi, SORT_ASC, $vysledky);
 
-        return $vysledky;
+        return array_slice($vysledky, 0, $limit);
     }
 
     /** Dotaz pro MATCH … AGAINST v režimu BOOLEAN: všechna slova od 3 znaků s libovolnou koncovkou. */
