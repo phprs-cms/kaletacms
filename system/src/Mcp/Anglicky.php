@@ -175,7 +175,7 @@ final class Anglicky
 
     /** Klíče výsledků česky => anglicky. */
     private const array KLICE = [
-        'id' => 'id', 'ids' => 'page_id', 'idc' => 'id', 'idp' => 'id', 'idr' => 'version_id', 'nazev' => 'name', 'titulek' => 'title', 'adresa' => 'url', 'seo_link' => 'slug',
+        'nezname_parametry' => 'unknown_parameters', 'id' => 'id', 'ids' => 'page_id', 'idc' => 'id', 'idp' => 'id', 'idr' => 'version_id', 'nazev' => 'name', 'titulek' => 'title', 'adresa' => 'url', 'seo_link' => 'slug',
         'popis' => 'description', 'nahled' => 'preview', 'text' => 'content', 'stranka' => 'page', 'stranky' => 'pages', 'stav' => 'status', 'jazyk' => 'language', 'varianta' => 'variant',
         'cast' => 'part', 'kolekce' => 'collection', 'typ' => 'type', 'pole' => 'fields', 'klic' => 'key', 'popisek' => 'label', 'hodnota' => 'value', 'datum' => 'date',
         'zobrazit' => 'visible', 'zobrazena' => 'visible', 'v_menu' => 'in_menu', 'poradi' => 'order', 'uvodni' => 'home', 'uvodni_stranka' => 'home_page', 'zmeneno' => 'changed',

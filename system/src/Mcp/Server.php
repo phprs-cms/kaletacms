@@ -100,7 +100,9 @@ final class Server
         $cesky = Anglicky::cesky($nazev);
         $anglicky = $cesky !== null || !in_array($nazev, $nastroje->nazvy(), true);
         try {
-            $argumenty = self::rozbalJson($cesky !== null ? Anglicky::seznam($nastroje->seznam()) : $nastroje->seznam(), $nazev, $argumenty);
+            $seznam = $cesky !== null ? Anglicky::seznam($nastroje->seznam()) : $nastroje->seznam();
+            $argumenty = self::rozbalJson($seznam, $nazev, $argumenty);
+            $nezname = self::nezname($seznam, $nazev, $argumenty);
             if ($cesky !== null) {
                 $argumenty = Anglicky::argumenty($nazev, $argumenty);
             }
@@ -108,6 +110,10 @@ final class Server
             if ($nastroje->meni($cesky ?? $nazev)) {
                 Protokol::zapis($this->app, 'claude', $cesky ?? $nazev, mb_substr((string) ($argumenty['titulek'] ?? $argumenty['nazev'] ?? $argumenty['sablona'] ?? $argumenty['id'] ?? ''), 0, 200));
                 \Kaleta\Front\Cache::vymaz();
+            }
+            if ($nezname !== [] && is_array($vysledek) && !array_is_list($vysledek)) {
+                // překlep v názvu parametru by se jinak ztratil beze stopy (nástroj ho nezná, a tak ho vynechá)
+                $vysledek['nezname_parametry'] = $nezname;
             }
             if ($cesky !== null) {
                 $vysledek = Anglicky::vysledek($nazev, $vysledek);
@@ -147,6 +153,24 @@ final class Server
         }
 
         return $argumenty;
+    }
+
+    /**
+     * Parametry, které nástroj ve schématu nemá – vrátí se ve výsledku, ať volající ví, že se nepoužily.
+     *
+     * @param list<array<string, mixed>> $seznam
+     * @param array<string, mixed> $argumenty
+     * @return list<string>
+     */
+    public static function nezname(array $seznam, string $nazev, array $argumenty): array
+    {
+        foreach ($seznam as $nastroj) {
+            if (($nastroj['name'] ?? '') === $nazev) {
+                return array_values(array_diff(array_map('strval', array_keys($argumenty)), array_keys((array) ($nastroj['inputSchema']['properties'] ?? []))));
+            }
+        }
+
+        return [];
     }
 
     /** @return array<string, mixed>|null uživatel podle tokenu */
