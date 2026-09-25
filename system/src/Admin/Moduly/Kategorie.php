@@ -63,7 +63,7 @@ final class Kategorie extends Modul
         $data = [
             'nazev' => $r->post('nazev'),
             'seo_link' => slugify($r->post('seo_link') !== '' ? $r->post('seo_link') : $r->post('nazev'), 110),
-            'popis' => $r->post('popis'),
+            'popis' => \Kaleta\Core\Html::proUzivatele($r->post('popis'), $this->app->auth()),
             'hodnost' => max(0, min(65535, $r->postInt('hodnost', 100))),
             'jazyk' => \Kaleta\Core\Jazyk::sloupec($this->app->settings(), $r->post('jazyk')),
         ];

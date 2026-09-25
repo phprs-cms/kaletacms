@@ -446,7 +446,7 @@ final class Kernel
 
         return $this->stranka(
             $kategorie['nazev'],
-            $this->view->render('vypis', ['nadpis' => $kategorie['nazev'], 'popis' => $kategorie['popis']] + $this->proVypis($novinky, $celkem, $strana, 'novinky/kategorie/' . $seo)),
+            $this->view->render('vypis', ['nadpis' => $kategorie['nazev'], 'popis' => \Kaleta\Core\Html::bezpecne((string) $kategorie['popis'])] + $this->proVypis($novinky, $celkem, $strana, 'novinky/kategorie/' . $seo)),
             ['popis' => strip_tags($kategorie['popis']), 'cast' => 'vypis'],
         );
     }
@@ -463,7 +463,7 @@ final class Kernel
         $tema = trim((string) $stitek['popis']) !== '';
 
         return $this->stranka($tema ? $stitek['nazev'] : t('Štítek') . ' ' . $stitek['nazev'], $this->view->render('vypis', [
-            'nadpis' => ($tema ? '' : '#') . $stitek['nazev'], 'popis' => $tema ? (string) $stitek['popis'] : '',
+            'nadpis' => ($tema ? '' : '#') . $stitek['nazev'], 'popis' => $tema ? \Kaleta\Core\Html::bezpecne((string) $stitek['popis']) : '',
         ] + $this->proVypis($novinky, $celkem, $strana, 'novinky/stitek/' . $seo)), [
             'popis' => $tema ? mb_strimwidth(trim(strip_tags((string) $stitek['popis'])), 0, 300, '…') : '',
             'cast' => 'vypis',

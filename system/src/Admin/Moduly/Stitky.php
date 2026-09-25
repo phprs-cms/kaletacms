@@ -37,7 +37,7 @@ final class Stitky extends Modul
         if (!$this->request->isPost() || $stitek === null || $nazev === '') {
             return $this->zpet('Vyplňte název štítku.', typ: 'chyba');
         }
-        $this->db->update('stitky', ['nazev' => $nazev, 'popis' => trim($this->request->post('popis')), 'obrazek' => mb_substr($this->request->post('obrazek'), 0, 255)], ['ids' => $stitek['ids']]);
+        $this->db->update('stitky', ['nazev' => $nazev, 'popis' => \Kaleta\Core\Html::proUzivatele(trim($this->request->post('popis')), $this->app->auth()), 'obrazek' => mb_substr($this->request->post('obrazek'), 0, 255)], ['ids' => $stitek['ids']]);
 
         // sloučení: novinky dostanou cílový štítek, tento zanikne a jeho adresa se přesměruje
         $cil = $this->db->one('SELECT * FROM {stitky} WHERE ids = ? AND ids <> ?', [$this->request->postInt('sloucit_do'), $stitek['ids']]);

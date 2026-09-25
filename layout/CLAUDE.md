@@ -38,7 +38,7 @@ Všechno ostatní je kód systému a nemění se.
 Výpis (`<?= e($x) ?>`), `if` / `foreach` / `match`, uzávěry (`$f = fn (…) => …`), `$url('cesta')`, `$web->get('klic')`,
 pomocné funkce `e()`, `t()`, `datum()`, `datum_slovy()`, `slugify()` a běžné funkce pro text, čísla a pole
 (`count`, `implode`, `array_map` s uzávěrem, `mb_substr`, `number_format`, `date`…). Přesný seznam a kontrola:
-`system/src/Core/SablonaKontrola.php` – soubor ukládaný přes napojení na Claude, který pravidla poruší, se neuloží.
+`system/src/Core/SablonaKontrola.php`. Přes napojení na Claude jde uložit jen CSS vlastní šablony; PHP soubory šablon mění správce na serveru.
 
 Každý text pro návštěvníka obal `e()` (ochrana před XSS) a `t()` (překlad do jazyka webu). Barvy a písma ber z proměnných
 `--ka-akcent`, `--ka-pismo-titulky`, `--ka-pismo-text`; tmavý režim patří do bloku

@@ -246,6 +246,18 @@ ocekavej "MCP: přesměrování staré adresy" "$(curl -s -o /dev/null -w '%{htt
 mcp smaz_stranku "{\"id\":$IDM2}" > /dev/null
 ocekavej "MCP: stránka do koše" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT smazano IS NOT NULL FROM ka_stranky WHERE ids = $IDM2")" 1
 mcp smaz_stranku "{\"id\":$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'titulni_stranka'")}" | grep -q 'isError' && echo "  ok     MCP: úvodní stránku smazat nejde" || { echo "  CHYBA  MCP smazal úvodní stránku"; CHYB=$((CHYB+1)); }
+mcp vytvor_sablonu '{"nazev":"test-kopie"}' > /dev/null
+mcp uloz_soubor_sablony '{"sablona":"test-kopie","soubor":"base.php","obsah":"<?php $url = \"system\"; echo $url(\"id\");"}' > "$PRACE/odpoved"
+grep -q 'isError' "$PRACE/odpoved" && ! grep -q 'system' "$PRACE/web/layout/test-kopie/base.php" && echo "  ok     MCP: PHP soubor šablony uložit nejde" || { echo "  CHYBA  MCP uložil PHP šablonu"; CHYB=$((CHYB+1)); }
+mcp uloz_soubor_sablony '{"sablona":"test-kopie","soubor":"style.css","obsah":"body { color: #111 }"}' > "$PRACE/odpoved"
+grep -q 'ulozeno' "$PRACE/odpoved" && echo "  ok     MCP: style.css vlastní šablony uložit jde" || { echo "  CHYBA  MCP neuložil style.css"; head -c 300 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+rm -rf "$PRACE/web/layout/test-kopie"
+mcp vytvor_kategorii '{"nazev":"Kategorie XSS","popis":"<p>Úvod</p><script>alert(1)</script><img src=x onerror=alert(2)>"}' > /dev/null
+over "MCP: popis kategorie se vyčistí" 200 "/novinky/kategorie/kategorie-xss" "Úvod"
+! grep -qE '<script>alert|onerror' "$PRACE/odpoved" && echo "  ok     MCP: v popisu kategorie nezůstal skript" || { echo "  CHYBA  popis kategorie pustil skript"; CHYB=$((CHYB+1)); }
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_kategorie SET popis = '<p>Stary popis</p><script>alert(3)</script>' WHERE seo_link = 'kategorie-xss'"
+over "Uložený starý popis kategorie" 200 "/novinky/kategorie/kategorie-xss" "Stary popis"
+! grep -q '<script>alert(3)' "$PRACE/odpoved" && echo "  ok     Výpis čistí i dřív uložený popis kategorie" || { echo "  CHYBA  výpis kategorie vypsal skript"; CHYB=$((CHYB+1)); }
 
 echo "== části webu v builderu"
 over "části webu" 200 "/admin.php?modul=casti" "Záhlaví"

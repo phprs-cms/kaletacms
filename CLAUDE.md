@@ -121,7 +121,7 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   validace `Konfigurace::overHodnotu`), přesměrování, koš stránek, novinky, kategorie a VLASTNÍ šablony. Výstup je kompaktní JSON bez výchozích hodnot.
   Zápis stavby vrací podepsaný náhled (`Core\Nahled`, `?stavba=koncept&nahled_klic=`, HMAC `tajny_klic`, jen jeden cíl, omezená platnost). Nová novinka
   je koncept, nová stránka skrytá; vydat/zveřejnit jen na výslovný pokyn a s právem. **Hranice (bezpečí na prvním místě):** žádný nástroj nesmí zapisovat mimo obsah
-  a `layout/<vlastní>/`, spouštět kód ani dotaz; PHP šablon ukládaných přes MCP projde `Core\SablonaKontrola`. Pravidla pro Claude v souborech: `layout/CLAUDE.md`.
+  a `layout/<vlastní>/`, spouštět kód ani dotaz; přes MCP jde u vlastní šablony uložit jen CSS, PHP soubory šablon ne (statickou kontrolu PHP nejde udělat neprůstřelnou). Pravidla pro Claude v souborech: `layout/CLAUDE.md`.
 - **Přihlášení:** hesla `password_hash`, TOTP, passkeys (`Core\Passkey`, jen jako náhrada kódu u účtu s TOTP), obnova hesla `Admin\ObnovaHesla`.
 
 ## Import z WordPressu a export

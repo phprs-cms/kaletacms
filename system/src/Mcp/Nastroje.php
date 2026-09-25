@@ -138,7 +138,7 @@ final class Nastroje
             ['seznam_sablon', 'Šablony webu (layouty), která je aktivní a které jdou upravovat (správce).', $s([])],
             ['vytvor_sablonu', 'Zkopíruje existující šablonu pod novým názvem, aby se dala upravovat (správce).', $s(['nazev' => $text('složka nové šablony: malá písmena, číslice, pomlčky'), 'podle' => $text('zdrojová šablona, výchozí ' . Layouty::VYCHOZI), 'popisny_nazev' => $text('název pro výběr ve Vzhledu')], ['nazev'])],
             ['nacti_soubor_sablony', 'Přečte soubor šablony (base.php, novinka.php, vypis.php, stranka.php, style.css, info.php…).', $s(['sablona' => $text('složka šablony'), 'soubor' => $text('název souboru; bez něj vrátí seznam souborů')], ['sablona'])],
-            ['uloz_soubor_sablony', 'Uloží soubor vlastní šablony (.php nebo .css). PHP se před uložením kontroluje. Vestavěné šablony upravit nejde.', $s(['sablona' => $text('složka šablony'), 'soubor' => $text('název souboru'), 'obsah' => $text('celý nový obsah souboru')], ['sablona', 'soubor', 'obsah'])],
+            ['uloz_soubor_sablony', 'Uloží style.css (nebo jiný .css) vlastní šablony. PHP soubory šablon přes napojení měnit nejde – stránky, záhlaví a patičku postav v builderu. Vestavěné šablony upravit nejde.', $s(['sablona' => $text('složka šablony'), 'soubor' => $text('název souboru'), 'obsah' => $text('celý nový obsah souboru')], ['sablona', 'soubor', 'obsah'])],
             ['aktivuj_sablonu', 'Přepne web na danou šablonu (správce). Před tím ji ukaž uživateli v náhledu: adresa webu s ?sablona=<složka> funguje přihlášenému správci.', $s(['sablona' => $text('složka šablony')], ['sablona'])],
         ];
 
@@ -465,7 +465,7 @@ final class Nastroje
                 }
                 $seo = $this->volnaAdresa('kategorie', 'idt', slugify($jmeno, 110));
 
-                return ['id' => $db->insert('kategorie', ['nazev' => $jmeno, 'seo_link' => $seo, 'popis' => (string) ($a['popis'] ?? '')]), 'adresa' => $seo];
+                return ['id' => $db->insert('kategorie', ['nazev' => $jmeno, 'seo_link' => $seo, 'popis' => \Kaleta\Core\Html::bezpecne((string) ($a['popis'] ?? ''))]), 'adresa' => $seo];
 
             case 'seznam_medii':
                 $hledat = is_string($a['hledat'] ?? null) && trim($a['hledat']) !== '' ? '%' . addcslashes(trim($a['hledat']), '%_\\') . '%' : null;
@@ -625,14 +625,11 @@ final class Nastroje
                 if (strlen($obsah) > 300 * 1024) {
                     throw new \InvalidArgumentException('Soubor je větší než 300 kB.');
                 }
-                if (str_ends_with($cesta, '.php')) {
-                    // šablona je jen prezentační vrstva: nesmí na soubory, databázi, síť ani na kód systému (Core\SablonaKontrola)
-                    $vady = \Kaleta\Core\SablonaKontrola::over($obsah);
-                    if ($vady !== []) {
-                        throw new \InvalidArgumentException("Soubor se neuložil – šablona smí jen vypisovat data, která dostává:\n- " . implode("\n- ", array_slice($vady, 0, 12))
-                            . "\nPovolené: výpis, if/foreach/match, uzávěry, \$web->get(), \$url(), e(), t(), datum() a běžné funkce pro text, čísla a pole. Pravidla: layout/CLAUDE.md.");
-                    }
-                } elseif (preg_match('#expression\s*\(|behavior\s*:#i', $obsah)) {
+                if (!str_ends_with($cesta, '.css')) {
+                    // PHP přes napojení neukládáme: statická kontrola PHP kódu se nedá udělat neprůstřelnou a šablona běží jako kód systému
+                    throw new \DomainException('Přes napojení jde upravit jen style.css vlastní šablony. PHP soubory šablon mění správce na serveru; vzhled stránek, záhlaví a patičky se staví v builderu.');
+                }
+                if (preg_match('#expression\s*\(|behavior\s*:#i', $obsah)) {
                     throw new \InvalidArgumentException('Styl obsahuje zastaralé spustitelné konstrukce (expression, behavior). Nic se neuložilo.');
                 }
                 file_put_contents($cesta, $obsah, LOCK_EX);
