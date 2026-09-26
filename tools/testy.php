@@ -200,6 +200,8 @@ over('Pop-up: období a jazyk platí i pro celý web', [
     Kaleta\Stavitel\Popupy::odpovida($ppObdobi, $ppKde(['jazyk' => 'en'])), Kaleta\Stavitel\Popupy::odpovida($ppObdobi, $ppKde(['jazyk' => 'en', 'dnes' => '2026-10-15'])),
     Kaleta\Stavitel\Popupy::odpovida($ppObdobi, $ppKde(['jazyk' => 'cs', 'dnes' => '2026-10-15'])), Kaleta\Stavitel\Popupy::odpovida($ppObdobi, $ppKde(['jazyk' => 'en', 'dnes' => '2026-11-01'])),
 ], [false, true, false, false]);
+$navCss = Kaleta\Stavitel\Prvky\Navigace::zakladniCss();
+over('Navigace: menu na telefonu se dá posouvat (dlouhé menu se skupinami)', (bool) preg_match('/@media \\(max-width: 767px\\).*?\\.ka-nav-menu\\[popover\\] \\{[^}]*max-height:[^}]*overflow-y: auto/s', $navCss), true);
 over('MCP anglicky: pop-up okno – hodnoty a pravidla', Kaleta\Mcp\Anglicky::argumenty('save_popup', ['type' => 'slide_in', 'trigger' => 'exit', 'frequency' => 'until_closed', 'template' => 'lead_magnet',
     'rules' => ['where' => 'selected', 'pages' => [2], 'device' => 'phone', 'campaign' => 'jaro']]),
     ['typ' => 'panel', 'spoustec' => 'odchod', 'cetnost' => 'zavreni', 'vzor' => 'magnet', 'pravidla' => ['kde' => 'vybrane', 'stranky' => [2], 'zarizeni' => 'telefon', 'utm' => 'jaro']]);

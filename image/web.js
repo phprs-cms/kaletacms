@@ -299,6 +299,16 @@
 					new MutationObserver(function (z, pozorovatel) { if (l.hidden) { pozorovatel.disconnect(); spust(); } }).observe(l, { attributes: true, attributeFilter: ['hidden'] });
 					return;
 				}
+				// ani nezavře menu, se kterým návštěvník právě pracuje (na telefonu popover): počká, až ho zavře
+				var menu = document.querySelector('.ka-nav [popover]:popover-open');
+				if (menu) {
+					menu.addEventListener('toggle', function pockej(e) {
+						if (e.newState !== 'closed') { return; }
+						menu.removeEventListener('toggle', pockej);
+						setTimeout(spust, 400);
+					});
+					return;
+				}
 				hotovo = otevri();
 			};
 			var hodnota = parseInt(okno.getAttribute('data-hodnota'), 10) || 0;

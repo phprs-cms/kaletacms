@@ -76,7 +76,7 @@ final class Navigace extends Prvek
 	.ka-nav-tl span::before, .ka-nav-tl span::after { content: ""; position: absolute; left: 0; }
 	.ka-nav-tl span::before { top: -6px; }
 	.ka-nav-tl span::after { top: 6px; }
-	.ka-nav-menu[popover] { position: fixed; inset: 4.5rem var(--ka-mezera-m) auto; flex-direction: column; align-items: stretch; padding: var(--ka-mezera-s); border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-pozadi); color: var(--ka-barva-text); box-shadow: var(--ka-stin-l); }
+	.ka-nav-menu[popover] { position: fixed; inset: 4.5rem var(--ka-mezera-m) auto; flex-direction: column; align-items: stretch; padding: var(--ka-mezera-s); border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-pozadi); color: var(--ka-barva-text); box-shadow: var(--ka-stin-l); max-height: calc(100dvh - 5.5rem); overflow-y: auto; overscroll-behavior: contain; }
 	.ka-nav-menu[popover]:not(:popover-open) { display: none; }
 	/* klávesnice: Tab za poslední položku menu – otevřené menu se schová, aby nezakrylo prvek, na který fokus přešel (WCAG 2.4.11),
 	   a ukáže se zase, když se fokus do navigace vrátí; Esc nebo klepnutí mimo ho zavře úplně (Popover API, bez JavaScriptu) */
