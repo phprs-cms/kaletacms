@@ -419,6 +419,8 @@ ocekavej "překlad stránky začíná kopií stavby originálu" "$("${MYSQL[@]}"
 mcp get_build "{\"id\":$IDZEN,\"texts_only\":true}" > "$PRACE/odpoved"
 grep -q 'texts' "$PRACE/odpoved" && grep -q '{{nazev}}' "$PRACE/odpoved" && ! grep -q '\\"build\\"' "$PRACE/odpoved" && ! grep -q 'kolekce\\":\\"tym' "$PRACE/odpoved" \
   && echo "  ok     MCP: jen texty stavby pro překlad (bez struktury a technických polí)" || { echo "  CHYBA  MCP texty stavby"; head -c 400 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+mcp uloz_polozku_kolekce '{"kolekce":"tym","nazev":"Klic navic","data":{"funkce":"x","nazev":"Jinak"}}' | grep -q 'nezname_klice.*nazev' \
+  && echo "  ok     MCP: klíč, který kolekce nemá, je ve výsledku" || { echo "  CHYBA  MCP neznámý klíč položky"; CHYB=$((CHYB+1)); }
 mcp vytvor_stranku '{"titulek":"Skryta textem","adresa":"skryta-textem","zobrazit":"false"}' > /dev/null
 ocekavej "MCP: zobrazit poslané jako text „false“ nechá stránku skrytou" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT zobrazit FROM ka_stranky WHERE seo_link = 'skryta-textem'")" 0
 mcp stavba_nacti '{"cast":"paticka","jazyk":"en"}' > /dev/null

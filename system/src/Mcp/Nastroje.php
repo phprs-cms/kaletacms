@@ -578,7 +578,10 @@ final class Nastroje
                     $idp = $db->insert('kolekce_polozky', $radek + ['idk' => $kolekce['idk'], 'datum' => date('Y-m-d H:i:s'), 'zobrazit' => 0]);
                 }
 
-                return ['id' => $idp, 'kolekce' => $kolekce['seo_link'], 'neplatna_pole' => array_keys($chyby),
+                // klíč, který kolekce nemá (překlep, „nazev“ v data místo parametru), by se jinak tiše zahodil
+                $neznameKlice = array_values(array_diff(array_keys(is_array($a['data'] ?? null) ? $a['data'] : []), array_column($kolekce['pole'], 'klic')));
+
+                return ['id' => $idp, 'kolekce' => $kolekce['seo_link'], 'neplatna_pole' => array_keys($chyby)] + ($neznameKlice !== [] ? ['nezname_klice' => $neznameKlice] : []) + [
                     'adresa' => $kolekce['detail'] ? $this->app->request->origin() . $this->app->url(($jazykPolozky !== '' ? $jazykPolozky . '/' : '') . $kolekce['seo_link'] . '/' . $seo) : null];
 
             case 'seznam_novinek':
