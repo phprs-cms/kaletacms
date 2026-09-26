@@ -408,6 +408,7 @@ curl -s -o "$PRACE/odpoved" "$B/en/tym/zdenek"
 grep -q '<h1>Profile: Zdenek Zeman EN</h1>' "$PRACE/odpoved" && grep -q 'href="/en/team">Our team</a>' "$PRACE/odpoved" && grep -q 'hreflang="cs" href="[^"]*/tym/zdenek"' "$PRACE/odpoved" \
   && curl -s "$B/tym/zdenek" | grep -q 'Profil: Zdenek Zeman<' && curl -s "$B/tym/zdenek" | grep -q 'hreflang="en" href="[^"]*/en/tym/zdenek"' \
   && echo "  ok     šablona detailu v jazyce, drobečky přes překlad rozcestníku, hreflang mezi překlady položky" || { echo "  CHYBA  kolekce ve více jazycích"; grep -o '<nav class="ka-drobecky.\{0,300\}' "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+grep -q 'class="logo"[^>]*><img src="/image/kaleta-logo.svg"' "$PRACE/odpoved" && ! grep -q 'src="/en/image/' "$PRACE/odpoved" && echo "  ok     logo a obrázky šablony na jazykové verzi bez předpony jazyka" || { echo "  CHYBA  adresa loga s předponou jazyka"; CHYB=$((CHYB+1)); }
 ocekavej "verze šablony jazyka zvlášť" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_stavba_revize WHERE cast = 'kolekce:$IDK:en'")" 1
 mcp seznam_stranek '{}' | grep -q 'en\\/team' && echo "  ok     MCP: seznam stránek ukazuje adresu s předponou jazyka" || { echo "  CHYBA  MCP adresa stránky jazykové verze"; CHYB=$((CHYB+1)); }
 over "šablona detailu jazyka v builderu" 200 "/admin.php?modul=kolekce&akce=stavitel&id=$IDK&jazyk=en" 'en\/tym\/zdenek'
