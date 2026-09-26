@@ -419,6 +419,8 @@ ocekavej "překlad stránky začíná kopií stavby originálu" "$("${MYSQL[@]}"
 mcp get_build "{\"id\":$IDZEN,\"texts_only\":true}" > "$PRACE/odpoved"
 grep -q 'texts' "$PRACE/odpoved" && grep -q '{{nazev}}' "$PRACE/odpoved" && ! grep -q '\\"build\\"' "$PRACE/odpoved" && ! grep -q 'kolekce\\":\\"tym' "$PRACE/odpoved" \
   && echo "  ok     MCP: jen texty stavby pro překlad (bez struktury a technických polí)" || { echo "  CHYBA  MCP texty stavby"; head -c 400 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+mcp vytvor_stranku '{"titulek":"Skryta textem","adresa":"skryta-textem","zobrazit":"false"}' > /dev/null
+ocekavej "MCP: zobrazit poslané jako text „false“ nechá stránku skrytou" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT zobrazit FROM ka_stranky WHERE seo_link = 'skryta-textem'")" 0
 mcp stavba_nacti '{"cast":"paticka","jazyk":"en"}' > /dev/null
 ocekavej "patička nového jazyka začíná kopií patičky výchozího jazyka" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT e.stavba_koncept = COALESCE(c.stavba_koncept, c.stavba) FROM ka_casti e JOIN ka_casti c ON c.typ = e.typ AND c.jazyk = '' AND c.varianta = '' WHERE e.typ = 'paticka' AND e.jazyk = 'en' AND e.varianta = ''")" 1
 "${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('ulohy_token', 'testtoken123'); INSERT INTO ka_souhlasy (id_souhlasu, cas, kategorie) VALUES ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', NOW() - INTERVAL 40 MONTH, 'nic'), ('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', NOW(), 'nic')"

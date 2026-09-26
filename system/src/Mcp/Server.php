@@ -143,6 +143,11 @@ final class Server
             foreach ($argumenty as $klic => $hodnota) {
                 // typ může být i výčet, např. ["array", "null"] u položek menu
                 $typy = (array) ($vlastnosti[$klic]['type'] ?? []);
+                // logická hodnota poslaná jako text: „false“ by v PHP byla pravda (skrytá stránka by se zveřejnila)
+                if (is_string($hodnota) && in_array('boolean', $typy, true) && in_array(strtolower(trim($hodnota)), ['true', 'false', '1', '0', ''], true)) {
+                    $argumenty[$klic] = in_array(strtolower(trim($hodnota)), ['true', '1'], true);
+                    continue;
+                }
                 if (!is_string($hodnota) || !array_intersect($typy, ['object', 'array']) || !preg_match('/^\s*[\[{]/', $hodnota)) {
                     continue;
                 }
