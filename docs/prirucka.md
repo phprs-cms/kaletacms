@@ -180,6 +180,8 @@ Systémové adresy se řídí jazykem: česká verze má `/novinky` a `/hledani`
 **Překlad s Claudem:** požádejte Clauda o překlad stránky nebo celého webu. Přes napojení Clauda začíná překlad jako kopie
 stavby původní stránky, takže rozložení zůstane stejné a mění se jen texty a odkazy. Záhlaví a patička nového jazyka
 začínají jako kopie těch ve výchozím jazyce.
+Jazyk, jehož úvodní stránka ještě nemá zveřejněný překlad, se návštěvníkům nenabízí: chybí v přepínači jazyků, `hreflang`
+i v mapě webu, dokud jeho úvod nezveřejníte. Překlad tak můžete v klidu připravit.
 
 ## 10. AI asistent a Claude
 

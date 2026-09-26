@@ -179,6 +179,24 @@ final class Jazyk
         return array_values(array_diff(array_intersect(explode(',', $s->get('jazyky_dalsi')), array_keys(self::DOSTUPNE)), [self::vychozi($s)]));
     }
 
+    /**
+     * Další jazyky, které web nabízí návštěvníkům a vyhledávačům (přepínač jazyků, hreflang, mapa webu). Když je úvodem
+     * webu stránka, jen jazyky s jejím zveřejněným překladem – rozpracovaná jazyková verze se zatím neukazuje.
+     *
+     * @return list<string>
+     */
+    public static function zverejnene(Settings $s, Db $db): array
+    {
+        $dalsi = self::dalsi($s);
+        $uvod = $s->int('titulni_stranka');
+        if ($dalsi === [] || $uvod === 0) {
+            return $dalsi;
+        }
+        $hotove = array_column($db->all('SELECT DISTINCT jazyk FROM {stranky} WHERE preklad_z = ? AND zobrazit = 1 AND smazano IS NULL', [$uvod]), 'jazyk');
+
+        return array_values(array_intersect($dalsi, $hotove));
+    }
+
     /** Jazyk obsahu podle sloupce "jazyk" (stránka, kategorie, novinka): prázdný = výchozí jazyk webu. */
     public static function obsahu(Settings $s, string $sloupec): string
     {

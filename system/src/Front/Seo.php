@@ -62,8 +62,8 @@ final class Seo
             . e($this->koren . ($jazyk !== '' ? $jazyk . '/' : '') . \Kaleta\Core\Cesty::verejna($cesta, $jazyk !== '' ? $jazyk : \Kaleta\Core\Jazyk::vychozi($this->app->settings()), $db)) . '</loc>'
             . ($zmena !== null ? '<lastmod>' . date('c', strtotime($zmena)) . '</lastmod>' : '') . '<priority>' . $priorita . '</priority></url>';
 
-        // jen zapnuté jazykové verze; obsah vypnutého jazyka na webu není
-        $jazyky = ['', ...\Kaleta\Core\Jazyk::dalsi($this->app->settings())];
+        // jen zapnuté a zveřejněné jazykové verze; obsah vypnutého nebo rozpracovaného jazyka v mapě není
+        $jazyky = ['', ...\Kaleta\Core\Jazyk::zverejnene($this->app->settings(), $db)];
         $vJazyku = ' AND jazyk IN (' . implode(',', array_fill(0, count($jazyky), '?')) . ')';
         $xml = [$url('', null, '1.0')];
         foreach (array_slice($jazyky, 1) as $jazyk) {

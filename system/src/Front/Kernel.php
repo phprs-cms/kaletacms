@@ -678,7 +678,9 @@ final class Kernel
     private function jazyky(?array $novinka): array
     {
         $web = $this->app->settings();
-        $dalsi = Jazyk::dalsi($web);
+        // rozpracovaný jazyk (bez zveřejněného překladu úvodu) přepínač nenabízí; na jeho vlastních stránkách zůstane
+        $zverejnene = Jazyk::zverejnene($web, $this->app->db());
+        $dalsi = array_values(array_filter(Jazyk::dalsi($web), fn (string $j): bool => in_array($j, $zverejnene, true) || $j === Jazyk::sloupecWebu()));
         if ($dalsi === []) {
             return [];
         }

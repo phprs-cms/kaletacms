@@ -183,6 +183,8 @@ System addresses follow the language: Czech versions use `/novinky` and `/hledan
 **Translating with Claude:** ask Claude to translate a page or the whole site. Over the Claude connection a translation
 starts as a copy of the original page's build, so the layout stays the same and only the texts and links change. The
 header and footer of a new language start as a copy of the default language's ones.
+A language whose home page has no published translation yet is not offered to visitors: it stays out of the language
+switcher, `hreflang` and the sitemap until you publish its home page, so you can prepare a translation in peace.
 
 ## 10. AI assistant and Claude
 

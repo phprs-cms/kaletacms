@@ -644,6 +644,14 @@ IDU=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link 
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota='$IDU' WHERE promenna='titulni_stranka'"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?modul=stranky&akce=smaz" -d "_csrf=$TOKEN" -d "ids=$IDU"
 ocekavej "úvodní stránku nejde smazat" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT smazano IS NULL FROM ka_stranky WHERE ids = $IDU")" "1"
+# rozpracovaná jazyková verze (bez zveřejněného překladu úvodu) se v přepínači, hreflang ani mapě webu nenabízí
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_stranky SET zobrazit = 1, smazano = NULL WHERE ids = $IDU"; rm -f "$PRACE"/web/storage/cache/stranky/*.html
+! curl -s "$B/" | grep -q 'hreflang="en"' && ! curl -s "$B/sitemap.xml" | grep -q '/en/</loc>' \
+  && echo "  ok     jazyk bez zveřejněného překladu úvodu se návštěvníkům nenabízí" || { echo "  CHYBA  rozpracovaný jazyk v přepínači nebo mapě webu"; CHYB=$((CHYB+1)); }
+mcp vytvor_stranku "{\"titulek\":\"About home\",\"adresa\":\"about-home\",\"jazyk\":\"en\",\"preklad_z\":$IDU,\"text\":\"<p>Home</p>\",\"zobrazit\":1}" > /dev/null; rm -f "$PRACE"/web/storage/cache/stranky/*.html
+curl -s "$B/" | grep -q 'hreflang="en"' && curl -s "$B/sitemap.xml" | grep -q '/en/</loc>' \
+  && echo "  ok     se zveřejněným překladem úvodu se jazyk nabízí" || { echo "  CHYBA  hotový jazyk chybí v přepínači nebo mapě webu"; CHYB=$((CHYB+1)); }
+"${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_stranky WHERE seo_link = 'about-home'"
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota='0' WHERE promenna='titulni_stranka'"
 
 echo "== podstránky, plán, historie, šablony, export"
