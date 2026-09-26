@@ -37,6 +37,7 @@ final class Anglicky
         'parent' => ['nadrazena', 'ID of the parent page – the address becomes /parent/page (0 = none)'],
         'language' => ['jazyk', 'Language version of the page on a multilingual site (code such as de; empty = default language)'],
         'translation_of' => ['preklad_z', 'ID of the counterpart in the default language (for a page in another language version) – language switcher and hreflang'],
+        'copy_build' => ['kopie_stavby', 'only for a new page with translation_of: the draft starts as a copy of the original’s build – then translate with get_build (texts_only) and edit_build'],
         'publish_at' => ['zverejnit_od', 'Scheduled publishing of a hidden page YYYY-MM-DD HH:MM (only when the user explicitly asks; empty = cancel)'],
     ];
 
@@ -72,7 +73,9 @@ final class Anglicky
             ['location' => ['umisteni', 'main | footer'], 'language' => ['jazyk', 'language version (empty = default)'], 'items' => ['polozky', 'menu items']]],
         'builder_schema' => ['stavba_schema', 'How a page is put together in the builder: element types and their fields, style properties, design system tokens (colours, spacing, type), the section library and the shared classes of the site. Load it before you first use the *_build tools. Returns a short overview (one element per line); full definitions of chosen elements through the elements parameter. The build JSON uses the builder’s own (Czech) keys: typ, znacka, obsah, styl, tridy, deti, kotva.',
             ['elements' => ['prvky', 'element types to get the full definition for (field labels, default children), e.g. ["formular","karusel"]'], 'full' => ['uplne', 'true = the whole schema with all labels (large)']]],
-        'get_build' => ['stavba_nacti', 'The build of a page or site part (a tree of elements with ids) – the draft in progress, otherwise the published version. Default values are left out. A page without a build returns a build made from its text.', ['*cil']],
+        'get_build' => ['stavba_nacti', 'The build of a page or site part (a tree of elements with ids) – the draft in progress, otherwise the published version. Default values are left out. A page without a build returns a build made from its text. '
+            . 'With texts_only just the texts and links of elements by id (for translating: send them back as “update” operations in edit_build).',
+            ['*cil', 'texts_only' => ['jen_texty', 'true = instead of the build a list texts: [{id, type, content: only text properties and links, attributes}]']]],
         'edit_build' => ['stavba_uprav', 'Partial edits of the draft by element id (ids from get_build) – fix a text, a link or a style without sending the whole build. Operations: '
             . '{"op":"update","id":"…","content":{…},"style":{"mobil":{"mezera":"s"}},"classes":[…]} (content and style merge, a null value removes) | {"op":"replace","id":"…","element":{…}} | {"op":"delete","id":"…"} | '
             . '{"op":"insert","elements":[…],"into":"parent id or null = root","position":0 | "after":"id" | "before":"id"} | {"op":"move","id":"…","into":…,"after":…}. Elements themselves use the build JSON keys (typ, obsah, styl…).',
@@ -208,7 +211,7 @@ final class Anglicky
         'seo_popis' => 'seo_description', 'obrazek' => 'image', 'obrazek_popis' => 'image_caption', 'noindex' => 'noindex', 'nadrazena' => 'parent', 'preklad_z' => 'translation_of',
         'zverejnit_od' => 'publish_at', 'uvod' => 'intro', 'kategorie' => 'category', 'stitky' => 'tags', 'visible' => 'published', 'vydana' => 'published', 'formular' => 'form',
         'email' => 'email', 'kampan' => 'campaign', 'url' => 'url', 'rozmery' => 'size', 'velikost' => 'size', 'soubory' => 'files', 'sablona' => 'theme', 'presmerovani' => 'redirects', 'nenalezeno' => 'not_found', 'z' => 'from', 'na' => 'to', 'pocet' => 'count', 'naposledy' => 'last_seen',
-        'cesta' => 'path', 'neplatna_pole' => 'invalid_fields', 'chyby_operaci' => 'operation_errors', 'nastaveni' => 'settings', 'faq' => 'faq', 'data' => 'values', 'stavba' => 'build',
+        'cesta' => 'path', 'neplatna_pole' => 'invalid_fields', 'chyby_operaci' => 'operation_errors', 'texty' => 'texts', 'nastaveni' => 'settings', 'faq' => 'faq', 'data' => 'values', 'stavba' => 'build',
         'vlastnosti' => 'properties', 'deti' => 'children', 'nove_okno' => 'new_window', 'popup' => 'popup', 'aktivni' => 'active',
     ];
 
@@ -244,6 +247,7 @@ final class Anglicky
         'Chybí kategorie.' => 'The category is missing.',
         'Chybí název kategorie.' => 'The category name is missing.',
         'Chybí název kolekce.' => 'The collection name is missing.',
+        'Kopie stavby potřebuje preklad_z – ID stránky ve výchozím jazyce, a jazyk překladu.' => 'copy_build needs translation_of – the ID of the page in the default language – and the language of the translation.',
         'Datum nemá platný tvar (RRRR-MM-DD HH:MM).' => 'The date is not valid (YYYY-MM-DD HH:MM).',
         'K novinkám nemáš přístup (role uživatele).' => 'You have no access to news (user role).',
         'Kategorie smí zakládat editor nebo správce.' => 'Only editors and administrators can create categories.',
@@ -582,6 +586,9 @@ final class Anglicky
                 $k === 'nastaveni' && is_array($h) => self::klicNastaveni($h, false),
                 in_array($k, ['hlaseni', 'chyby', 'chyby_operaci'], true) && is_array($h) => array_map(fn (mixed $z): mixed => is_string($z) ? self::hlaseni($z) : $z, $h),
                 in_array($k, self::BEZ_PREKLADU, true) => $h,
+                // texty stavby pro překlad: vnitřek obsahu jsou vlastnosti prvků jako ve stavbě (text, odkaz, html…)
+                $k === 'texty' && is_array($h) => array_map(fn (mixed $t): mixed => is_array($t) ? ['id' => $t['id'] ?? '', 'type' => $t['typ'] ?? '']
+                    + (isset($t['obsah']) ? ['content' => $t['obsah']] : []) + (isset($t['atributy']) ? ['attributes' => $t['atributy']] : []) : $t, $h),
                 $k === 'titulek' && is_string($h) && isset(self::NAZVY_CASTI[$h]) => self::NAZVY_CASTI[$h],
                 is_array($h) => self::prelozPole($h, $vyjimky),
                 ($k === 'stav' || $k === 'role') && is_string($h) => self::stav($h),
@@ -655,6 +662,7 @@ final class Anglicky
             . '(5) Fixes: edit_build by element id (ids from get_build) – do not send the whole build for one text. (6) Site settings with update_settings, old addresses with save_redirect. The menu (save_menu), design system, classes and settings apply to the site straight away; hidden pages appear in the menu only once they are visible. '
             . '(7) A header or footer only for some pages (a campaign without the menu): save_part_variant, then the *_build tools with the variant parameter; overview with list_site_parts. list_build_versions and restore_build_version bring back an older published version (into the draft). '
             . '(8) Pop-ups (a newsletter sign-up, a download, an announcement bar): save_popup with a template creates one (inactive), build its content with the *_build tools and the popup parameter, set type, trigger, frequency and rules with save_popup; activate it (active: true) only after publishing and only when the user asks. list_popups shows views, closes and conversions. '
+            . '(9) Translating into another language version (the admin switches languages on): create_page with language, translation_of and copy_build, then get_build with texts_only and edit_build “update” operations for the texts and links (internal links point to the translated pages); the header and footer with the part and language parameters (they start as a copy of the default language); save_menu with language; a collection item translation with the same slug and language; a collection item template with collection and language. '
             . 'Builds are saved as drafts – publish (publish_build) and make pages visible only when the user explicitly asks. '
             . 'A new news item is a draft; only a user with the publishing permission can publish it, and only when explicitly asked. A new page is hidden until the user explicitly wants it visible. '
             . 'BOUNDARIES: this connection changes only content (pages, news, categories, collections, site parts) and the look (design system, classes). Do not change the system code, themes '

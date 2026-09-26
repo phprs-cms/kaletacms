@@ -177,6 +177,10 @@ tvaru. Jazyk webu zvolíte už při instalaci, nezávisle na jazyku administrace
 Systémové adresy se řídí jazykem: česká verze má `/novinky` a `/hledani`, všechny ostatní `/news`, `/news/category/…`,
 `/news/tag/…` a `/search`. Druhá podoba natrvalo přesměruje, takže staré odkazy i pozice ve vyhledávačích zůstanou.
 
+**Překlad s Claudem:** požádejte Clauda o překlad stránky nebo celého webu. Přes napojení Clauda začíná překlad jako kopie
+stavby původní stránky, takže rozložení zůstane stejné a mění se jen texty a odkazy. Záhlaví a patička nového jazyka
+začínají jako kopie těch ve výchozím jazyce.
+
 ## 10. AI asistent a Claude
 
 **Asistent** zapnete v **Rozšíření**. Vyberte poskytovatele (Anthropic Claude, OpenAI, Google Gemini, Mistral), vložte

@@ -618,6 +618,44 @@ final class Stavba
         return ['v' => $stavba['v'] ?? self::VERZE, 'deti' => array_map($uzel, $stavba['deti'] ?? [])];
     }
 
+    /** Typy vlastností prvku, které nesou text pro návštěvníka nebo odkaz (překlad stavby). */
+    private const array TEXTOVE_VLASTNOSTI = ['text', 'odkaz', 'radky', 'html', 'inline', 'textarea', 'polozky', 'souhlas'];
+
+    /** Textové vlastnosti, které jsou nastavení, ne text pro návštěvníka (klíče kolekcí a polí, e-mail, datum, číslo hodnocení). */
+    private const array TECHNICKE_VLASTNOSTI = ['kolekce', 'razeni_pole', 'filtr_pole', 'komponenta', 'kategorie', 'prijemce', 'cil', 'hodnota'];
+
+    /**
+     * Texty stavby pro překlad: prvky s id a jen ty vlastnosti obsahu, které nesou text nebo odkaz (bez stylů a struktury),
+     * a popisky pro čtečky v atributech. Změny se vrací operací „uprav“ podle id (Upravy).
+     *
+     * @param array<string, mixed> $stavba
+     * @return list<array{id: string, typ: string, obsah?: array<string, mixed>, atributy?: array<string, string>}>
+     */
+    public static function texty(array $stavba): array
+    {
+        $vysledek = [];
+        $projdi = function (array $prvky) use (&$projdi, &$vysledek): void {
+            foreach ($prvky as $p) {
+                $trida = self::trida((string) ($p['typ'] ?? ''));
+                $obsah = [];
+                foreach ($trida !== null ? $trida::vlastnosti() : [] as $klic => $v) {
+                    $hodnota = $p['obsah'][$klic] ?? null;
+                    if (in_array($v['typ'] ?? '', self::TEXTOVE_VLASTNOSTI, true) && !in_array($klic, self::TECHNICKE_VLASTNOSTI, true) && $hodnota !== null && $hodnota !== '' && $hodnota !== []) {
+                        $obsah[$klic] = $hodnota;
+                    }
+                }
+                $atributy = array_intersect_key(is_array($p['atributy'] ?? null) ? $p['atributy'] : [], ['aria-label' => 1, 'title' => 1]);
+                if (($obsah !== [] || $atributy !== []) && isset($p['id'])) {
+                    $vysledek[] = ['id' => (string) $p['id'], 'typ' => (string) $p['typ']] + ($obsah !== [] ? ['obsah' => $obsah] : []) + ($atributy !== [] ? ['atributy' => $atributy] : []);
+                }
+                $projdi(is_array($p['deti'] ?? null) ? $p['deti'] : []);
+            }
+        };
+        $projdi($stavba['deti'] ?? []);
+
+        return $vysledek;
+    }
+
     /** @param list<string>|null $rozsireni */
     public static function vypnuteTypy(?array $rozsireni): array
     {

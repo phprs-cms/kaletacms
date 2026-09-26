@@ -17,6 +17,7 @@ What is planned next. Dates are not promised; releases ship when they are tested
 - 1.2.4: tidy submenus and a centred mega menu panel; Escape works on every page with a submenu.
 - 1.3.1: the mobile menu scrolls when it is taller than the screen; an automatic pop-up waits until the visitor closes the menu.
 - 1.3.2: collections in several languages – a translated item keeps its address, a detail template per language, breadcrumbs to the translated section page; builder canvases without site pop-ups.
+- 1.3.3: translating with Claude – a page translation starts as a copy of the original build, texts only for translation, the header and footer of a new language start as a copy.
 
 ## 1.3 – pop-ups, newsletter services and a clearer Site appearance (released 26 September 2026)
 

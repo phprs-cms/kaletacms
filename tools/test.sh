@@ -410,6 +410,17 @@ grep -q '<h1>Profile: Zdenek Zeman EN</h1>' "$PRACE/odpoved" && grep -q 'href="/
   && echo "  ok     šablona detailu v jazyce, drobečky přes překlad rozcestníku, hreflang mezi překlady položky" || { echo "  CHYBA  kolekce ve více jazycích"; grep -o '<nav class="ka-drobecky.\{0,300\}' "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
 ocekavej "verze šablony jazyka zvlášť" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_stavba_revize WHERE cast = 'kolekce:$IDK:en'")" 1
 over "šablona detailu jazyka v builderu" 200 "/admin.php?modul=kolekce&akce=stavitel&id=$IDK&jazyk=en" 'en\/tym\/zdenek'
+# překlad přes MCP: stránka jako kopie stavby originálu, texty podle id, záhlaví a patička jazyka začínají kopií výchozího
+mcp vytvor_stranku '{"titulek":"Bez originalu","adresa":"bez-originalu","kopie_stavby":true}' | grep -q 'potřebuje preklad_z' \
+  && ocekavej "kopie stavby bez originálu stránku nezaloží" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_stranky WHERE seo_link = 'bez-originalu'")" 0 || { echo "  CHYBA  kopie stavby bez preklad_z"; CHYB=$((CHYB+1)); }
+mcp vytvor_stranku "{\"titulek\":\"From HTML\",\"adresa\":\"from-html\",\"jazyk\":\"en\",\"preklad_z\":$IDZ,\"kopie_stavby\":true}" > /dev/null
+IDZEN=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'from-html'")
+ocekavej "překlad stránky začíná kopií stavby originálu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT n.stavba_koncept = COALESCE(o.stavba_koncept, o.stavba) FROM ka_stranky n JOIN ka_stranky o ON o.ids = n.preklad_z WHERE n.ids = $IDZEN")" 1
+mcp get_build "{\"id\":$IDZEN,\"texts_only\":true}" > "$PRACE/odpoved"
+grep -q 'texts' "$PRACE/odpoved" && grep -q '{{nazev}}' "$PRACE/odpoved" && ! grep -q '\\"build\\"' "$PRACE/odpoved" && ! grep -q 'kolekce\\":\\"tym' "$PRACE/odpoved" \
+  && echo "  ok     MCP: jen texty stavby pro překlad (bez struktury a technických polí)" || { echo "  CHYBA  MCP texty stavby"; head -c 400 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+mcp stavba_nacti '{"cast":"paticka","jazyk":"en"}' > /dev/null
+ocekavej "patička nového jazyka začíná kopií patičky výchozího jazyka" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT e.stavba_koncept = COALESCE(c.stavba_koncept, c.stavba) FROM ka_casti e JOIN ka_casti c ON c.typ = e.typ AND c.jazyk = '' AND c.varianta = '' WHERE e.typ = 'paticka' AND e.jazyk = 'en' AND e.varianta = ''")" 1
 "${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('ulohy_token', 'testtoken123'); INSERT INTO ka_souhlasy (id_souhlasu, cas, kategorie) VALUES ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', NOW() - INTERVAL 40 MONTH, 'nic'), ('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', NOW(), 'nic')"
 curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 ocekavej "úklid maže staré záznamy o souhlasech s cookies" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT GROUP_CONCAT(LEFT(id_souhlasu, 1) ORDER BY id_souhlasu) FROM ka_souhlasy WHERE id_souhlasu IN ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')")" "b"

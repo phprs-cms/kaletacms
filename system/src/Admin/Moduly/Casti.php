@@ -10,7 +10,6 @@ use Kaleta\Core\Jazyk;
 use Kaleta\Core\Response;
 use Kaleta\Stavitel\Casti as CastiWebu;
 use Kaleta\Stavitel\Publikace;
-use Kaleta\Stavitel\Stavba;
 
 /**
  * Části webu v builderu: záhlaví, patička a obálky detailu novinky, výpisu a stránky 404. Bez publikované stavby
@@ -54,7 +53,7 @@ final class Casti extends Modul
     {
         [$typ, $jazyk, $varianta] = $this->typJazyk();
         if ($typ !== null && $varianta === '' && CastiWebu::radek($this->db, $typ, $jazyk) === null) {
-            $this->db->insert('casti', ['typ' => $typ, 'jazyk' => $jazyk, 'stavba_koncept' => Stavba::naJson(CastiWebu::vychozi($typ, $this->jazykObsahu($jazyk))), 'zmeneno' => date('Y-m-d H:i:s')]);
+            $this->db->insert('casti', ['typ' => $typ, 'jazyk' => $jazyk, 'stavba_koncept' => CastiWebu::zacatek($this->db, $typ, $jazyk, $this->jazykObsahu($jazyk)), 'zmeneno' => date('Y-m-d H:i:s')]);
         }
 
         return $this->editorStavby();

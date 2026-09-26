@@ -180,6 +180,10 @@ site language separately from the admin language.
 System addresses follow the language: Czech versions use `/novinky` and `/hledani`, all others `/news`, `/news/category/…`,
 `/news/tag/…` and `/search`. The other form redirects permanently, so old links and search rankings keep working.
 
+**Translating with Claude:** ask Claude to translate a page or the whole site. Over the Claude connection a translation
+starts as a copy of the original page's build, so the layout stays the same and only the texts and links change. The
+header and footer of a new language start as a copy of the default language's ones.
+
 ## 10. AI assistant and Claude
 
 Enable the **assistant** under **Extensions**. Choose a provider (Anthropic Claude, OpenAI, Google Gemini, Mistral), enter

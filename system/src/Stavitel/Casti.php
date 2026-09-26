@@ -83,6 +83,18 @@ final class Casti
         return '';
     }
 
+    /**
+     * Koncept nové části v jazyce $sloupec (JSON): další jazyk začíná kopií téže části výchozího jazyka (stejný vzhled,
+     * texty se přeloží), jinak výchozí stavbou podle šablony v jazyce obsahu $jazyk.
+     */
+    public static function zacatek(Db $db, string $typ, string $sloupec, string $jazyk): string
+    {
+        $vychozi = $sloupec !== '' ? self::radek($db, $typ, '') : null;
+        $json = $vychozi['stavba_koncept'] ?? $vychozi['stavba'] ?? null;
+
+        return $json !== null ? (string) $json : Stavba::naJson(self::vychozi($typ, $jazyk));
+    }
+
     /** Stavba, se kterou se část poprvé otevře v builderu (odpovídá tomu, co dosud kreslila šablona). */
     public static function vychozi(string $typ, string $jazyk): array
     {

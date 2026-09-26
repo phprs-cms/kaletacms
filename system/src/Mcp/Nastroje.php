@@ -61,6 +61,7 @@ final class Nastroje
             'nadrazena' => $cislo('ID nadřazené stránky – adresa bude /nadrazena/stranka (0 = žádná)'),
             'jazyk' => $text('jazyková verze stránky u vícejazyčného webu (kód, např. en; prázdné = výchozí jazyk)'),
             'preklad_z' => $cislo('ID protějšku ve výchozím jazyce (u stránky jiné jazykové verze) – přepínač jazyků a hreflang'),
+            'kopie_stavby' => ['type' => 'boolean', 'description' => 'jen u nové stránky s preklad_z: koncept začne kopií stavby originálu – pro překlad pak stavba_nacti s jen_texty a stavba_uprav'],
             'zverejnit_od' => $text('naplánované zveřejnění skryté stránky RRRR-MM-DD HH:MM (jen na výslovný pokyn uživatele; prázdné = zrušit)'),
         ];
         $cil = ['id' => $cislo('ID stránky'), 'cast' => $text('Místo stránky část webu (jen správce): ' . implode(' | ', array_keys(Casti::TYPY)) . ' – záhlaví, patička, obálky detailu novinky, výpisu a 404'),
@@ -81,7 +82,9 @@ final class Nastroje
             ['stavba_schema', 'Jak se skládá stránka v builderu: typy prvků a jejich pole, vlastnosti stylu, tokeny design systému (barvy, mezery, písmo), hotové sekce knihovny a sdílené třídy webu. Načti před prvním použitím nástrojů stavba_*. Vrací stručný přehled (prvek na řádek); úplné definice vybraných prvků přes parametr prvky.',
                 $s(['prvky' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'typy prvků, pro které chceš úplnou definici (popisky polí, výchozí děti), např. ["formular","karusel"]'],
                     'uplne' => ['type' => 'boolean', 'description' => 'true = celé schéma se všemi popisky (velké)']])],
-            ['stavba_nacti', 'Stavba stránky nebo části webu (strom prvků s id) – rozpracovaný koncept, jinak publikovaná verze. Vynechává výchozí hodnoty. Stránka bez stavby vrátí stavbu z jejího textu.', $s($cil)],
+            ['stavba_nacti', 'Stavba stránky nebo části webu (strom prvků s id) – rozpracovaný koncept, jinak publikovaná verze. Vynechává výchozí hodnoty. Stránka bez stavby vrátí stavbu z jejího textu. '
+                . 'S jen_texty jen texty a odkazy prvků podle id (pro překlad: vrať je operacemi „uprav“ ve stavba_uprav).',
+                $s($cil + ['jen_texty' => ['type' => 'boolean', 'description' => 'true = místo stavby seznam texty: [{id, typ, obsah: jen textové vlastnosti a odkazy, atributy}]']])],
             ['stavba_uprav', 'Dílčí úpravy konceptu podle id prvků (id ze stavba_nacti) – oprava textu, odkazu nebo stylu bez posílání celé stavby. Operace: '
                 . '{"op":"uprav","id":"…","obsah":{…},"styl":{"mobil":{"mezera":"s"}},"tridy":[…]} (obsah a styl se slučují, null hodnotu odebere) | {"op":"nahrad","id":"…","prvek":{…}} | {"op":"smaz","id":"…"} | '
                 . '{"op":"vloz","prvky":[…],"do":"id rodiče nebo null = kořen","pozice":0 | "za":"id" | "pred":"id"} | {"op":"presun","id":"…","do":…,"za":…}.',
@@ -276,7 +279,8 @@ final class Nastroje
                 $cil = $this->cilStavby($a);
 
                 return $this->popisCile($cil) + ['publikovana' => $cil['stavba'] !== null,
-                    'neulozene_zmeny' => $cil['koncept'] !== null && $cil['koncept'] !== $cil['stavba'], 'stavba' => Stavba::kompaktni($this->stavbaCile($cil))];
+                    'neulozene_zmeny' => $cil['koncept'] !== null && $cil['koncept'] !== $cil['stavba']]
+                    + (!empty($a['jen_texty']) ? ['texty' => Stavba::texty($this->stavbaCile($cil))] : ['stavba' => Stavba::kompaktni($this->stavbaCile($cil))]);
 
             case 'stavba_uprav':
                 $cil = $this->cilStavby($a);
@@ -908,6 +912,14 @@ final class Nastroje
         }
         $data['zmeneno'] = date('Y-m-d H:i:s');
         if ($puvodni === null) {
+            if (!empty($a['kopie_stavby'])) {
+                // překlad začíná kopií stavby originálu (koncept, jinak publikovaná) – texty pak změní stavba_uprav podle id
+                $original = ($data['preklad_z'] ?? null) !== null ? $db->one('SELECT stavba, stavba_koncept FROM {stranky} WHERE ids = ?', [$data['preklad_z']]) : null;
+                if ($original === null) {
+                    throw new \InvalidArgumentException('Kopie stavby potřebuje preklad_z – ID stránky ve výchozím jazyce, a jazyk překladu.');
+                }
+                $data['stavba_koncept'] = $original['stavba_koncept'] ?? $original['stavba'];
+            }
             $id = $db->insert('stranky', $data + ['text' => '', 'zobrazit' => 0, 'v_menu' => 0]);
             if (!empty($data['v_menu'])) {
                 \Kaleta\Core\Menu::nastavStranku($db, $id, $jazyk, true);
@@ -1070,7 +1082,7 @@ final class Nastroje
                 }
             } else {
                 if (Casti::radek($db, $typ, $jazyk) === null) {
-                    $db->insert('casti', ['typ' => $typ, 'jazyk' => $jazyk, 'stavba_koncept' => Stavba::naJson(Casti::vychozi($typ, Jazyk::obsahu($web, $jazyk))), 'zmeneno' => date('Y-m-d H:i:s')]);
+                    $db->insert('casti', ['typ' => $typ, 'jazyk' => $jazyk, 'stavba_koncept' => Casti::zacatek($db, $typ, $jazyk, Jazyk::obsahu($web, $jazyk)), 'zmeneno' => date('Y-m-d H:i:s')]);
                 }
                 $radek = (array) Casti::radek($db, $typ, $jazyk);
             }
