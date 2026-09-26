@@ -31,6 +31,9 @@ final class Kernel
     /** Kategorie nebo stránka, kterou požadavek zobrazuje - přepínač jazyků podle ní najde protějšek v jiné verzi. */
     private ?array $protejsek = null;
 
+    /** Zobrazená položka kolekce [idk, adresa kolekce, adresa položky]: protějšky v dalších jazycích mají stejnou adresu. */
+    private ?array $polozkaKolekce = null;
+
     /** Zobrazená stránka je úvodní: v každé jazykové verzi má adresu kořene (/, /en/), ne svou adresu (ta přesměrovává). */
     private bool $jeUvod = false;
 
@@ -344,8 +347,10 @@ final class Kernel
         $db = $this->app->db();
         $r = $this->app->request;
         $kolekce = \Kaleta\Stavitel\Kolekce::podleSeo($db, $seoKolekce);
-        // koncept šablony: správce, nebo podepsaný náhled právě této kolekce (Core\Nahled, cíl kolekce:<idk>)
-        $koncept = $kolekce !== null && $r->get('stavba') === 'koncept' && ($this->app->auth()->isAdmin() || $this->smiKoncept('kolekce:' . (int) $kolekce['idk']));
+        // šablona detailu v jazyce zobrazené verze webu; jazyk bez vlastní šablony použije šablonu výchozího jazyka
+        $sablona = $kolekce !== null ? \Kaleta\Stavitel\Kolekce::vJazyce($db, $kolekce, Jazyk::sloupecWebu()) : null;
+        // koncept šablony: správce, nebo podepsaný náhled právě této šablony (Core\Nahled, cíl kolekce:<idk>[:<jazyk>])
+        $koncept = $sablona !== null && $r->get('stavba') === 'koncept' && ($this->app->auth()->isAdmin() || $this->smiKoncept(\Kaleta\Stavitel\Kolekce::klicSablony($sablona)));
         if ($kolekce === null || (!$kolekce['detail'] && !$koncept)) {
             return $this->nenalezeno();
         }
@@ -356,11 +361,22 @@ final class Kernel
         if ($polozka !== null) {
             $polozka['data'] = json_decode((string) $polozka['data'], true) ?: [];
         }
-        $stavba = \Kaleta\Stavitel\Stavba::zJson($koncept ? ($kolekce['stavba_koncept'] ?? $kolekce['stavba']) : $kolekce['stavba'])
+        $stavba = \Kaleta\Stavitel\Stavba::zJson($koncept ? ($sablona['stavba_koncept'] ?? $sablona['stavba']) : $sablona['stavba'])
+            ?? \Kaleta\Stavitel\Stavba::zJson($koncept ? ($kolekce['stavba_koncept'] ?? $kolekce['stavba']) : $kolekce['stavba'])
             ?? \Kaleta\Stavitel\Kolekce::vychoziSablona($kolekce);
-        // úroveň kolekce odkazuje na stránku se stejnou adresou (např. /navod nad /navod/<článek>), když na webu je
-        $rozcestnik = $db->value('SELECT seo_link FROM {stranky} WHERE seo_link = ? AND zobrazit = 1 AND smazano IS NULL AND jazyk = ? LIMIT 1', [$kolekce['seo_link'], Jazyk::sloupecWebu()]);
-        $this->drobecky([$kolekce['nazev'], $rozcestnik !== null ? $this->app->url((string) $rozcestnik) : ''], [$polozka['nazev'] ?? t('Ukázková položka'), '']);
+        // úroveň kolekce odkazuje na stránku se stejnou adresou (např. /navod nad /navod/<článek>), když na webu je – s jejím
+        // titulkem; v další jazykové verzi na její překlad (adresy stránek jsou jedinečné napříč jazyky: /de/vergleich)
+        $rozcestnik = null;
+        $hlavni = $db->one('SELECT ids, preklad_z, jazyk, seo_link, titulek, zobrazit FROM {stranky} WHERE seo_link = ? AND smazano IS NULL', [$kolekce['seo_link']]);
+        if ($hlavni !== null && $hlavni['jazyk'] === Jazyk::sloupecWebu()) {
+            $rozcestnik = $hlavni['zobrazit'] ? $hlavni : null;
+        } elseif ($hlavni !== null) {
+            $original = (int) ($hlavni['preklad_z'] ?: $hlavni['ids']);
+            $rozcestnik = $db->one('SELECT seo_link, titulek FROM {stranky} WHERE (ids = ? OR preklad_z = ?) AND jazyk = ? AND zobrazit = 1 AND smazano IS NULL LIMIT 1', [$original, $original, Jazyk::sloupecWebu()]);
+        }
+        $this->drobecky([$rozcestnik !== null && $rozcestnik['titulek'] !== '' ? (string) $rozcestnik['titulek'] : $kolekce['nazev'], $rozcestnik !== null ? $this->app->url((string) $rozcestnik['seo_link']) : ''],
+            [$polozka['nazev'] ?? t('Ukázková položka'), '']);
+        $this->polozkaKolekce = $polozka !== null ? [(int) $kolekce['idk'], (string) $kolekce['seo_link'], (string) $polozka['seo_link']] : null;
         $k = $this->kontext();
         $k->polozka = $polozka !== null ? \Kaleta\Stavitel\Kolekce::hodnoty($kolekce, $polozka, $this->app->url(...)) : \Kaleta\Stavitel\Kolekce::ukazka($kolekce);
         $k->editor = $koncept && $r->get('editor') === '1';
@@ -670,6 +686,9 @@ final class Kernel
         if ($novinka !== null) {
             $original = (int) ($novinka['preklad_z'] ?: $novinka['idc']);
             $preklady = array_map(fn (string $seo): string => 'novinky/' . $seo, $this->app->db()->pairs('SELECT jazyk, seo_link FROM {novinky} WHERE (idc = ? OR preklad_z = ?) AND visible = 1 AND datum <= NOW()', [$original, $original]));
+        } elseif ($this->polozkaKolekce !== null) {
+            [$idk, $kolekce, $seo] = $this->polozkaKolekce;
+            $preklady = array_map(fn (string $s): string => $kolekce . '/' . $s, $this->app->db()->pairs('SELECT jazyk, seo_link FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND zobrazit = 1', [$idk, $seo]));
         } elseif ($this->protejsek !== null && !$this->jeUvod) {
             // kategorie nebo stránka: originál + jeho překlady
             [$tabulka, $klic, $radek, $cesta] = $this->protejsek;
@@ -861,8 +880,8 @@ final class Kernel
     private function popupy(\Kaleta\Stavitel\Kontext $k, bool $novinky): string
     {
         $r = $this->app->request;
-        if ($r->get('nahled') === 'vzhled') {
-            return ''; // náhled ve Vzhledu webu ukazuje stránku bez oken
+        if ($r->get('nahled') === 'vzhled' || ($r->get('editor') === '1' && !$this->nahledPopupu)) {
+            return ''; // náhled ve Vzhledu webu a plátno builderu (mimo builder okna) ukazují stránku bez oken
         }
         $db = $this->app->db();
         $nahled = $this->nahledPopupu ?: ($r->get('stavba') === 'koncept' && preg_match('/^\d{1,9}$/', $r->get('popup')) && $this->smiKoncept('popup:' . $r->get('popup')) ? (int) $r->get('popup') : 0);

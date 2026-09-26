@@ -10,7 +10,6 @@ use Kaleta\Core\Jazyk;
 use Kaleta\Core\Response;
 use Kaleta\Stavitel\Kolekce as KolekceObsahu;
 use Kaleta\Stavitel\Publikace;
-use Kaleta\Stavitel\Stavba;
 
 /**
  * Kolekce – vlastní typy obsahu (reference, tým, produkty, pobočky…). Definici polí a šablonu detailu mění správce,
@@ -100,7 +99,7 @@ final class Kolekce extends Modul
             return $this->chyba('Kolekce neexistuje.', 404);
         }
 
-        return $this->view('polozky', $k['nazev'], ['k' => $k,
+        return $this->view('polozky', $k['nazev'], ['k' => $k, 'jazyky' => Jazyk::dalsi($this->app->settings()),
             'polozky' => $this->db->all('SELECT idp, nazev, seo_link, poradi, zobrazit, jazyk, datum FROM {kolekce_polozky} WHERE idk = ? ORDER BY poradi, nazev', [$k['idk']])]);
     }
 
@@ -136,12 +135,14 @@ final class Kolekce extends Modul
         $chyby = [];
         $data = KolekceObsahu::vycistiData($k['pole'], is_array($_POST['data'] ?? null) ? $_POST['data'] : [], $chyby);
         $seo = slugify($r->post('seo_link') !== '' ? $r->post('seo_link') : $nazev, 150);
-        for ($i = 2, $zaklad = $seo; $this->db->value('SELECT idp FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND idp <> ?', [$k['idk'], $seo, $idp]) !== null; $i++) {
+        // adresa je jedinečná v jazyce: překlad položky smí mít stejnou (/compare/wordpress, /de/compare/wordpress)
+        $jazyk = Jazyk::sloupec($this->app->settings(), $r->post('jazyk'));
+        for ($i = 2, $zaklad = $seo; $this->db->value('SELECT idp FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ? AND idp <> ?', [$k['idk'], $jazyk, $seo, $idp]) !== null; $i++) {
             $seo = $zaklad . '-' . $i;
         }
         $radek = ['idk' => $k['idk'], 'nazev' => $nazev, 'seo_link' => $seo, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE),
             'poradi' => max(-9999, min(9999, $r->postInt('poradi'))), 'zobrazit' => $r->postBool('zobrazit') ? 1 : 0,
-            'jazyk' => Jazyk::sloupec($this->app->settings(), $r->post('jazyk')), 'zmeneno' => date('Y-m-d H:i:s')];
+            'jazyk' => $jazyk, 'zmeneno' => date('Y-m-d H:i:s')];
         if ($idp > 0 && $this->db->value('SELECT idp FROM {kolekce_polozky} WHERE idp = ? AND idk = ?', [$idp, $k['idk']]) !== null) {
             $this->db->update('kolekce_polozky', $radek, ['idp' => $idp]);
         } else {
@@ -164,7 +165,7 @@ final class Kolekce extends Modul
             return $this->zpet('', 'polozky', ['id' => $idk]);
         }
         $seo = mb_substr($p['seo_link'] . '-kopie', 0, 150);
-        for ($i = 2, $zaklad = $seo; $this->db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ?', [$idk, $seo]) !== null; $i++) {
+        for ($i = 2, $zaklad = $seo; $this->db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ?', [$idk, $p['jazyk'], $seo]) !== null; $i++) {
             $seo = $zaklad . '-' . $i;
         }
         $id = $this->db->insert('kolekce_polozky', ['idk' => $idk, 'nazev' => mb_substr(t('%s (kopie)', $p['nazev']), 0, 200), 'seo_link' => $seo, 'data' => $p['data'],
@@ -191,9 +192,9 @@ final class Kolekce extends Modul
         if (($odmitnuti = $this->spravce()) !== null) {
             return $odmitnuti;
         }
-        $k = KolekceObsahu::podleId($this->db, $this->request->getInt('id'));
+        $k = $this->sablona();
         if ($k !== null && $k['stavba'] === null && $k['stavba_koncept'] === null) {
-            $this->db->update('kolekce', ['stavba_koncept' => Stavba::naJson(KolekceObsahu::vychoziSablona($k))], ['idk' => $k['idk']]);
+            KolekceObsahu::zapisSablonu($this->db, $k, ['stavba_koncept' => KolekceObsahu::zacatekSablony($this->db, $k), 'zmeneno' => date('Y-m-d H:i:s')]);
         }
 
         return $this->editorStavby();
@@ -204,17 +205,31 @@ final class Kolekce extends Modul
         if (!$this->app->auth()->isAdmin()) {
             return null;
         }
-        $k = KolekceObsahu::podleId($this->db, $this->request->getInt('id'));
+        $k = $this->sablona();
+        if ($k === null) {
+            return null;
+        }
+        $jazyk = $k['sablona_jazyk'];
 
-        return $k === null ? null : [
-            'radek' => $k, 'stavba' => $k['stavba'], 'koncept' => $k['stavba_koncept'], 'jazyk' => Jazyk::vychozi($this->app->settings()),
-            'titulek' => t('Detail: %s', $k['nazev']), 'revize' => ['cast' => 'kolekce:' . (int) $k['idk']], 'parametry' => ['id' => (int) $k['idk']],
+        return [
+            'radek' => $k, 'stavba' => $k['stavba'], 'koncept' => $k['stavba_koncept'], 'jazyk' => Jazyk::obsahu($this->app->settings(), $jazyk),
+            'titulek' => t('Detail: %s', $k['nazev']) . ($jazyk !== '' ? ' (' . strtoupper($jazyk) . ')' : ''), 'revize' => ['cast' => KolekceObsahu::klicSablony($k)],
+            'parametry' => ['id' => (int) $k['idk']] + ($jazyk !== '' ? ['jazyk' => $jazyk] : []),
         ];
+    }
+
+    /** Kolekce se šablonou jazyka z adresy (?jazyk=de; bez něj nebo s jazykem, který web nemá, výchozí jazyk). */
+    private function sablona(): ?array
+    {
+        $k = KolekceObsahu::podleId($this->db, $this->request->getInt('id'));
+        $jazyk = $this->request->get('jazyk');
+
+        return $k === null ? null : KolekceObsahu::vJazyce($this->db, $k, in_array($jazyk, Jazyk::dalsi($this->app->settings()), true) ? $jazyk : '');
     }
 
     protected function ulozKoncept(array $cil, ?string $koncept): void
     {
-        $this->db->update('kolekce', ['stavba_koncept' => $koncept], ['idk' => $cil['radek']['idk']]);
+        KolekceObsahu::zapisSablonu($this->db, $cil['radek'], ['stavba_koncept' => $koncept]);
     }
 
     protected function publikujCil(array $cil): void
@@ -225,14 +240,16 @@ final class Kolekce extends Modul
     protected function editorCile(array $cil): array
     {
         $k = $cil['radek'];
-        $seo = $this->db->value('SELECT seo_link FROM {kolekce_polozky} WHERE idk = ? AND zobrazit = 1 ORDER BY poradi, nazev LIMIT 1', [$k['idk']]);
-        $adresa = $this->app->url($k['seo_link'] . '/' . ($seo ?? '_ukazka'));
+        $jazyk = $k['sablona_jazyk'];
+        // náhled na první položce v jazyce šablony (další jazyk má adresy /<jazyk>/…)
+        $seo = $this->db->value('SELECT seo_link FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND zobrazit = 1 ORDER BY poradi, nazev LIMIT 1', [$k['idk'], $jazyk]);
+        $adresa = $this->app->url(($jazyk !== '' ? $jazyk . '/' : '') . $k['seo_link'] . '/' . ($seo ?? '_ukazka'));
 
         return [
             'adresa' => $adresa, 'nahled' => $adresa . '?stavba=koncept&editor=1', 'zobrazena' => (bool) $k['detail'], 'casti' => false,
             'zpet' => ['adresa' => $this->url('polozky', ['id' => (int) $k['idk']]), 'text' => $k['nazev']], 'nastaveni' => $this->url('edit', ['id' => (int) $k['idk']]), 'textNastaveni' => t('Pole a nastavení kolekce'),
             'kolekce' => ['seo_link' => $k['seo_link'], 'nazev' => $k['nazev'], 'pole' => $k['pole'], 'detail' => (bool) $k['detail']],
-            'podpis' => 'kolekce:' . (int) $k['idk'],
+            'podpis' => KolekceObsahu::klicSablony($k),
         ];
     }
 

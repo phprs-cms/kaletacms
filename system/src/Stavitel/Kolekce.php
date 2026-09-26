@@ -47,6 +47,60 @@ final class Kolekce
         return $r === null ? null : self::rozbal($r);
     }
 
+    /**
+     * Šablona detailu v jazykové verzi: kolekce, jejíž stavba a koncept patří jazyku (sablona_jazyk). Výchozí jazyk ('')
+     * má šablonu v ka_kolekce, další jazyky v ka_kolekce_sablony; jazyk bez vlastní šablony má stavbu i koncept null.
+     *
+     * @param array<string, mixed> $kolekce @return array<string, mixed>
+     */
+    public static function vJazyce(Db $db, array $kolekce, string $jazyk): array
+    {
+        $kolekce['sablona_jazyk'] = $jazyk;
+        if ($jazyk === '') {
+            return $kolekce;
+        }
+        $r = $db->one('SELECT stavba, stavba_koncept, zmeneno FROM {kolekce_sablony} WHERE idk = ? AND jazyk = ?', [$kolekce['idk'], $jazyk]);
+
+        return ['stavba' => $r['stavba'] ?? null, 'stavba_koncept' => $r['stavba_koncept'] ?? null, 'zmeneno' => $r['zmeneno'] ?? null] + $kolekce;
+    }
+
+    /** Zapíše sloupce šablony jazyka, kterou vrátil vJazyce (výchozí do ka_kolekce, další jazyk založí řádek). @param array<string, mixed> $sloupce */
+    public static function zapisSablonu(Db $db, array $kolekce, array $sloupce): void
+    {
+        $jazyk = (string) ($kolekce['sablona_jazyk'] ?? '');
+        if ($jazyk === '') {
+            $db->update('kolekce', $sloupce, ['idk' => $kolekce['idk']]);
+        } elseif ($db->value('SELECT 1 FROM {kolekce_sablony} WHERE idk = ? AND jazyk = ?', [$kolekce['idk'], $jazyk]) !== null) {
+            $db->update('kolekce_sablony', $sloupce, ['idk' => $kolekce['idk'], 'jazyk' => $jazyk]);
+        } else {
+            $db->insert('kolekce_sablony', $sloupce + ['idk' => $kolekce['idk'], 'jazyk' => $jazyk]);
+        }
+    }
+
+    /** Klíč verzí a podepsaného náhledu šablony: kolekce:<idk>, u dalšího jazyka kolekce:<idk>:<jazyk>. */
+    public static function klicSablony(array $kolekce): string
+    {
+        $jazyk = (string) ($kolekce['sablona_jazyk'] ?? '');
+
+        return 'kolekce:' . (int) $kolekce['idk'] . ($jazyk !== '' ? ':' . $jazyk : '');
+    }
+
+    /**
+     * Koncept, se kterým builder šablonu jazyka otevře, dokud ji nikdo neuložil: další jazyk začíná kopií šablony
+     * výchozího jazyka, výchozí jazyk šablonou poskládanou z polí kolekce.
+     */
+    public static function zacatekSablony(Db $db, array $kolekce): string
+    {
+        if (($kolekce['sablona_jazyk'] ?? '') !== '') {
+            $vychozi = (array) self::podleId($db, (int) $kolekce['idk']);
+            if (($vychozi['stavba_koncept'] ?? $vychozi['stavba'] ?? null) !== null) {
+                return (string) ($vychozi['stavba_koncept'] ?? $vychozi['stavba']);
+            }
+        }
+
+        return Stavba::naJson(self::vychoziSablona($kolekce));
+    }
+
     private static function rozbal(array $r): array
     {
         $r['pole'] = json_decode((string) $r['pole'], true) ?: [];

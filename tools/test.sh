@@ -393,6 +393,23 @@ rm -f "$PRACE"/web/storage/cache/stranky/*.html
 curl -s -o "$PRACE/odpoved" "$B/tym/jana-novakova"
 grep -q 'Kolega: Zuzana Zelena' "$PRACE/odpoved" && ! grep -q 'Kolega: Jana' "$PRACE/odpoved" && ! grep -q 'Kolega: Petr' "$PRACE/odpoved" && ! curl -s "$B/tym/petr-svoboda" | grep -q 'Kolega: Zuzana' \
     && echo "  ok     související položky: filtr podle pole zobrazené položky, bez ní samotné" || { echo "  CHYBA  související položky kolekce"; CHYB=$((CHYB+1)); }
+# kolekce ve více jazycích: překlad položky má stejnou adresu, další jazyk vlastní šablonu detailu, drobečky vedou na překlad rozcestníku
+mcp vytvor_stranku '{"titulek":"Náš tým","adresa":"tym","text":"<p>Tým</p>","zobrazit":true}' > /dev/null; IDTYM=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'tym'")
+mcp vytvor_stranku "{\"titulek\":\"Our team\",\"adresa\":\"team\",\"jazyk\":\"en\",\"preklad_z\":$IDTYM,\"text\":\"<p>Team</p>\",\"zobrazit\":true}" > /dev/null
+mcp uloz_polozku_kolekce '{"kolekce":"tym","nazev":"Zdenek Zeman EN","adresa":"zdenek","jazyk":"en","data":{"funkce":"Workshop lead"},"zobrazit":true}' > "$PRACE/odpoved"
+grep -q 'en\\/tym\\/zdenek\\"' "$PRACE/odpoved" && mcp uloz_polozku_kolekce '{"kolekce":"tym","nazev":"Druhy Zdenek","adresa":"zdenek","jazyk":"en"}' | grep -q 'tym\\/zdenek-2' \
+  && echo "  ok     adresa položky je jedinečná v jazyce (překlad smí mít stejnou)" || { echo "  CHYBA  adresa položky v jiném jazyce"; head -c 300 "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+mcp stavba_uloz '{"kolekce":"tym","jazyk":"en","stavba":{"v":1,"deti":[{"typ":"sekce","deti":[{"typ":"drobecky"},{"typ":"nadpis","znacka":"h1","obsah":{"text":"Profile: {{nazev}}"}}]}]}}' > /dev/null
+rm -f "$PRACE"/web/storage/cache/stranky/*.html
+curl -s "$B/en/tym/zdenek" | grep -q 'Profil: Zdenek Zeman EN' && echo "  ok     jazyk bez vlastní šablony použije šablonu výchozího jazyka, koncept je skrytý" || { echo "  CHYBA  šablona detailu jazyka bez publikování"; CHYB=$((CHYB+1)); }
+mcp publikuj_stavbu '{"kolekce":"tym","jazyk":"en"}' > /dev/null; mcp stavba_uloz '{"kolekce":"tym","jazyk":"en","publikovat":true,"stavba":{"v":1,"deti":[{"typ":"sekce","deti":[{"typ":"drobecky"},{"typ":"nadpis","znacka":"h1","obsah":{"text":"Profile: {{nazev}}"}}]}]}}' > /dev/null
+rm -f "$PRACE"/web/storage/cache/stranky/*.html
+curl -s -o "$PRACE/odpoved" "$B/en/tym/zdenek"
+grep -q '<h1>Profile: Zdenek Zeman EN</h1>' "$PRACE/odpoved" && grep -q 'href="/en/team">Our team</a>' "$PRACE/odpoved" && grep -q 'hreflang="cs" href="[^"]*/tym/zdenek"' "$PRACE/odpoved" \
+  && curl -s "$B/tym/zdenek" | grep -q 'Profil: Zdenek Zeman<' && curl -s "$B/tym/zdenek" | grep -q 'hreflang="en" href="[^"]*/en/tym/zdenek"' \
+  && echo "  ok     šablona detailu v jazyce, drobečky přes překlad rozcestníku, hreflang mezi překlady položky" || { echo "  CHYBA  kolekce ve více jazycích"; grep -o '<nav class="ka-drobecky.\{0,300\}' "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
+ocekavej "verze šablony jazyka zvlášť" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_stavba_revize WHERE cast = 'kolekce:$IDK:en'")" 1
+over "šablona detailu jazyka v builderu" 200 "/admin.php?modul=kolekce&akce=stavitel&id=$IDK&jazyk=en" 'en\/tym\/zdenek'
 "${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('ulohy_token', 'testtoken123'); INSERT INTO ka_souhlasy (id_souhlasu, cas, kategorie) VALUES ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', NOW() - INTERVAL 40 MONTH, 'nic'), ('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', NOW(), 'nic')"
 curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 ocekavej "úklid maže staré záznamy o souhlasech s cookies" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT GROUP_CONCAT(LEFT(id_souhlasu, 1) ORDER BY id_souhlasu) FROM ka_souhlasy WHERE id_souhlasu IN ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')")" "b"
@@ -512,6 +529,8 @@ kod=$(curl -s -o /dev/null -w '%{http_code}' "$B/_popup/$IDPP?stavba=koncept"); 
 curl -s -o "$PRACE/odpoved" "$NAHLEDP"; grep -q 'data-otevrit="1"' "$PRACE/odpoved" && grep -q 'noindex' "$PRACE/odpoved" && echo "  ok     podepsaný náhled okno rovnou otevře" || { echo "  CHYBA  náhled okna: $NAHLEDP"; CHYB=$((CHYB+1)); }
 over "okno v builderu" 200 "/admin.php?modul=popupy&akce=stavitel&id=$IDPP" 'id="stavitel-data"'
 over "plátno okna v builderu" 200 "/_popup/$IDPP?stavba=koncept&editor=1" 'ka-popup--editor'
+curl -s -b "$JAR" "$B/o-nas" | grep -q "data-popup=\"$IDPP\"" && ! curl -s -b "$JAR" "$B/o-nas?stavba=koncept&editor=1" | grep -q "data-popup=" \
+  && echo "  ok     plátno builderu stránky je bez pop-up oken webu" || { echo "  CHYBA  pop-up okno v plátně builderu"; CHYB=$((CHYB+1)); }
 curl -s "$B/" | sed -n '/data-popup=/,$p' > "$PRACE/formular.html" # jen okno – stránka může mít vlastní formulář
 FZ=$(hodnota zdroj); FP=$(hodnota prvek); FC=$(hodnota as_cas); FS=$(hodnota as_podpis)
 ocekavej "formulář v okně má zdroj okna" "$FZ|$FP" "popup:$IDPP|ab12cd3"

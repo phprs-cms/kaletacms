@@ -129,6 +129,11 @@ Výpis umí **řazení** (i podle pole, např. ceny), **pevný filtr**, **tlač�
 Když u kolekce zapnete **stránky položek**, každá položka má adresu `/kolekce/polozka`. Vzhled té stránky navrhnete
 v builderu přes **Šablona detailu**.
 
+Na webu s **jazykovými verzemi** dejte každé položce jazyk. Překlad položky má stejnou adresu, např. `/compare/wordpress`
+a `/de/compare/wordpress`; přepínač jazyků a `hreflang` je propojí. Každý další jazyk má vlastní **Šablonu detailu (DE)**.
+Začíná jako kopie výchozí šablony a dokud ji nepublikujete, položky v tom jazyce používají výchozí. Drobečky vedou na
+překlad stránky s adresou kolekce (u `/compare` třeba `/de/vergleich`).
+
 ## 7. Formuláře a poptávky
 
 Prvek **Formulář** (nebo hotová sekce *Poptávkový formulář*) vloží poptávkový formulář. V panelu Obsah nastavíte pole

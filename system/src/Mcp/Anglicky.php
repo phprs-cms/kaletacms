@@ -17,9 +17,9 @@ final class Anglicky
     private const array CIL = [
         'id' => ['id', 'Page ID'],
         'part' => ['cast', 'Instead of a page, a site part (administrators only): header | footer | news_item | news_list | not_found – the header, the footer and the wrappers of a news item, the news list and the 404 page'],
-        'language' => ['jazyk', 'Language version of the site part on a multilingual site (empty = default)'],
+        'language' => ['jazyk', 'Language version of the site part or of the collection item template on a multilingual site (empty = default)'],
         'variant' => ['varianta', 'Header or footer variant (key from list_site_parts; empty = the default)'],
-        'collection' => ['kolekce', 'Instead of a page, the item page template of a collection (collection slug from list_collections, administrators only)'],
+        'collection' => ['kolekce', 'Instead of a page, the item page template of a collection (collection slug from list_collections, administrators only); with "language", the template of that language version'],
         'popup' => ['popup', 'Instead of a page, the content of a pop-up window (ID from list_popups, administrators only)'],
     ];
 
@@ -86,7 +86,8 @@ final class Anglicky
             . 'breakpoints from desktop down: @media (max-width: 1023px) = tablet, @media (max-width: 767px) = mobile. An element with a class from <style> gets no default style – layout (display:grid, gap) belongs in the class. It is converted to a build and classes; the result says what could not be converted. Saved as a draft.',
             ['html' => ['html', 'HTML of the content (without <html>/<head>); <style> may be inside. Build the header and footer from the logo, navigation and company details elements with save_build – HTML does not convert them.'],
                 'id' => ['id', 'Page ID; without it (and without part) a new hidden page is created with the name from title'], 'part' => ['cast', 'Instead of a page, a site part (administrators only)'],
-                'language' => ['jazyk', 'Language version of the site part (empty = default)'], 'title' => ['titulek', 'Name of the new page (when there is no id)'],
+                'language' => self::CIL['language'], 'variant' => self::CIL['variant'], 'collection' => self::CIL['collection'], 'popup' => self::CIL['popup'],
+                'title' => ['titulek', 'Name of the new page (when there is no id)'],
                 'mode' => ['rezim', 'replace (default) = the whole build from the HTML | append = sections at the end of the existing build'],
                 'overwrite_classes' => ['prepsat_tridy', 'true = classes that already exist on the site are overwritten by the <style>; otherwise they stay'],
                 'publish' => ['publikovat', 'true = publish straight away (only when the user explicitly asks); otherwise a draft to preview']]],
@@ -130,7 +131,7 @@ final class Anglicky
                 'page' => ['strana', 'page from 1']]],
         'save_collection_item' => ['uloz_polozku_kolekce', 'Adds an item to a collection, or changes an existing one (with id). Without "visible": true a new item stays hidden.',
             ['collection' => ['kolekce', 'collection slug'], 'id' => ['id', 'item ID – only when changing it'], 'name' => ['nazev', 'item name (required for a new item, when changing only if it changes)'],
-                'slug' => ['adresa', 'address of the item in URLs (optional, otherwise from the name), e.g. install'], 'language' => ['jazyk', 'language version of the item on a multilingual site (empty = default)'],
+                'slug' => ['adresa', 'address of the item in URLs (optional, otherwise from the name), e.g. install'], 'language' => ['jazyk', 'language version of the item on a multilingual site (empty = default); a translation keeps the slug of the original, so the language switcher and hreflang link them'],
                 'values' => ['data', 'field values by the keys from list_collections, e.g. {"quote":"…","logo":"media/…"}; fields you leave out stay'],
                 'order' => ['poradi', 'Order, lower = first'], 'visible' => ['zobrazit', 'true = the item is on the site (only when the user asks)']]],
         'list_news' => ['seznam_novinek', 'List of news (newest first).',

@@ -7,6 +7,7 @@
  * @var string $csrf
  * @var array<string, mixed> $k
  * @var list<array<string, mixed>> $polozky
+ * @var list<string> $jazyky další jazyky webu (šablona detailu pro každý zvlášť)
  */
 ?>
 <p class="navigace-radek"><a class="tl" href="<?= e($modul->url('polozka', ['id' => $k['idk']])) ?>"><?= e(t('Přidat položku')) ?></a>
@@ -15,6 +16,9 @@
 	<a class="navigace" href="<?= e($modul->url('edit', ['id' => $k['idk']])) ?>"><?= e(t('Pole a nastavení')) ?></a>
 <?php if ($k['detail']): ?>
 	<a class="navigace" href="<?= e($modul->url('stavitel', ['id' => $k['idk']])) ?>"><?= e(t('Šablona detailu')) ?></a>
+<?php foreach ($jazyky as $jazyk): ?>
+	<a class="navigace" href="<?= e($modul->url('stavitel', ['id' => $k['idk'], 'jazyk' => $jazyk])) ?>"><?= e(t('Šablona detailu (%s)', strtoupper($jazyk))) ?></a>
+<?php endforeach ?>
 <?php endif ?>
 <?php endif ?></p>
 <?php if ($polozky === []): ?>

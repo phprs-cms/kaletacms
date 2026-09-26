@@ -219,7 +219,7 @@ final class Seo
         if (($meta['obrazek'] ?? '') === '' && $s->get('og_obrazek') !== '') {
             $h[] = '<meta property="og:image" content="' . e($this->absolutni($s->get('og_obrazek'))) . '">';
         }
-        // jazykové verze: hreflang jen na existující překlady (novinka, stránka, kategorie), na úvodu na úvod každé verze
+        // jazykové verze: hreflang jen na existující překlady (novinka, stránka, kategorie, položka kolekce), na úvodu na úvod každé verze
         $vychozi = \Kaleta\Core\Jazyk::vychozi($s);
         foreach ($meta['jazyky'] ?? [] as $kod => $j) {
             if ($j['preklad'] || ($meta['hlavni'] ?? false)) {

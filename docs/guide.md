@@ -131,6 +131,12 @@ The list supports **sorting** (also by a field, e.g. price), a **fixed filter**,
 **pagination**. When you enable **item pages** for a collection, each item gets an address `/collection/item`; design that
 page in the builder via **Detail template**.
 
+On a site with **language versions**, give each item a language. A translated item keeps the same address, e.g.
+`/compare/wordpress` and `/de/compare/wordpress`; the language switcher and `hreflang` link the two. Each further
+language has its own **Detail template (DE)**. It starts as a copy of the default template, and until you publish it,
+items in that language use the default one. The breadcrumbs lead to the translation of the page with the collection's
+address (for `/compare`, e.g. `/de/vergleich`).
+
 ## 7. Forms and enquiries
 
 The **Form** element (or the *Enquiry form* section) adds an enquiry form. In the Content panel you set the fields (text,

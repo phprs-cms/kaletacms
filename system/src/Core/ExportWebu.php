@@ -123,6 +123,7 @@ final class ExportWebu
         self::pole($f, 'sekce', $db->all('SELECT idx, nazev, prvek FROM {sekce} ORDER BY idx'));
         self::pole($f, 'menu', $db->all('SELECT umisteni, jazyk, polozky FROM {menu} ORDER BY umisteni, jazyk'));
         self::pole($f, 'kolekce', $db->all('SELECT idk, nazev, seo_link, pole, detail, stavba FROM {kolekce} ORDER BY idk'));
+        self::pole($f, 'kolekce_sablony', $db->all('SELECT idk, jazyk, stavba FROM {kolekce_sablony} WHERE stavba IS NOT NULL ORDER BY idk, jazyk'));
         // pop-up okna s pravidly a publikovanou stavbou; počitadla ne (jsou jen statistika tohoto webu)
         self::pole($f, 'popupy', $db->all('SELECT idpp, nazev, adresa, typ, spoustec, hodnota, pravidla, cetnost, dni, aktivni, poradi, stavba FROM {popupy} ORDER BY idpp'));
         self::pole($f, 'kolekce_polozky', self::postupne($db, 'SELECT idp, idk, nazev, seo_link, data, poradi, zobrazit, jazyk, datum FROM {kolekce_polozky} WHERE idp > ? ORDER BY idp LIMIT 500', 'idp'));

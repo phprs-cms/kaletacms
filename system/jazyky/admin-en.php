@@ -1090,6 +1090,7 @@ return [
     'Přidat položku' => 'Add item',
     'Pole a nastavení' => 'Fields and settings',
     'Šablona detailu' => 'Detail template',
+    'Šablona detailu (%s)' => 'Detail template (%s)',
     'Název kolekce' => 'Collection name',
     'např. Reference, Tým, Produkty' => 'e.g. Testimonials, Team, Products',
     'Z názvu, když ji nevyplníte. Stránky položek pak budou na /adresa/nazev-polozky.' => 'From the name if left empty. Item pages will then be at /address/item-name.',

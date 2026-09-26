@@ -502,9 +502,20 @@ CREATE TABLE ka_kolekce_polozky (
     datum    DATETIME NOT NULL,
     zmeneno  DATETIME NULL,
     PRIMARY KEY (idp),
-    UNIQUE KEY ux_kolekce_polozky_seo (idk, seo_link),
+    UNIQUE KEY ux_kolekce_polozky_seo (idk, jazyk, seo_link),
     KEY ix_kolekce_polozky (idk, zobrazit, poradi),
     CONSTRAINT fk_kolekce_polozky FOREIGN KEY (idk) REFERENCES ka_kolekce (idk) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- Šablona detailu kolekce v dalších jazycích webu (výchozí jazyk je v ka_kolekce); bez řádku platí šablona výchozího jazyka.
+CREATE TABLE ka_kolekce_sablony (
+    idk            INT UNSIGNED NOT NULL,
+    jazyk          CHAR(2) NOT NULL,
+    stavba         MEDIUMTEXT NULL,
+    stavba_koncept MEDIUMTEXT NULL,
+    zmeneno        DATETIME NULL,
+    PRIMARY KEY (idk, jazyk),
+    CONSTRAINT fk_kolekce_sablony FOREIGN KEY (idk) REFERENCES ka_kolekce (idk) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Menu webu (Vzhled → Menu): hlavní a v patičce, pro každou jazykovou verzi. Bez řádku se hlavní menu skládá ze stránek „v menu“.

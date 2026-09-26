@@ -34,12 +34,12 @@ final class Publikace
         \Kaleta\Front\Cache::vymaz();
     }
 
-    /** Šablona detailu položek kolekce (verze pod klíčem „kolekce:<idk>“). */
+    /** Šablona detailu položek kolekce v jazyce z Kolekce::vJazyce (verze pod klíčem „kolekce:<idk>“, u dalšího jazyka „kolekce:<idk>:<jazyk>“). */
     public static function kolekce(App $app, array $kolekce): void
     {
         $novy = $kolekce['stavba_koncept'] ?? $kolekce['stavba'];
-        self::verze($app, ['cast' => 'kolekce:' . (int) $kolekce['idk']], $kolekce['stavba'], $novy, $kolekce['zmeneno'] ?? null);
-        $app->db()->update('kolekce', ['stavba' => $novy, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['idk' => $kolekce['idk']]);
+        self::verze($app, ['cast' => Kolekce::klicSablony($kolekce)], $kolekce['stavba'], $novy, $kolekce['zmeneno'] ?? null);
+        Kolekce::zapisSablonu($app->db(), $kolekce, ['stavba' => $novy, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')]);
         \Kaleta\Front\Cache::vymaz();
     }
 
