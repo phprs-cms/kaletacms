@@ -409,6 +409,7 @@ grep -q '<h1>Profile: Zdenek Zeman EN</h1>' "$PRACE/odpoved" && grep -q 'href="/
   && curl -s "$B/tym/zdenek" | grep -q 'Profil: Zdenek Zeman<' && curl -s "$B/tym/zdenek" | grep -q 'hreflang="en" href="[^"]*/en/tym/zdenek"' \
   && echo "  ok     šablona detailu v jazyce, drobečky přes překlad rozcestníku, hreflang mezi překlady položky" || { echo "  CHYBA  kolekce ve více jazycích"; grep -o '<nav class="ka-drobecky.\{0,300\}' "$PRACE/odpoved"; CHYB=$((CHYB+1)); }
 ocekavej "verze šablony jazyka zvlášť" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_stavba_revize WHERE cast = 'kolekce:$IDK:en'")" 1
+mcp seznam_stranek '{}' | grep -q 'en\\/team' && echo "  ok     MCP: seznam stránek ukazuje adresu s předponou jazyka" || { echo "  CHYBA  MCP adresa stránky jazykové verze"; CHYB=$((CHYB+1)); }
 over "šablona detailu jazyka v builderu" 200 "/admin.php?modul=kolekce&akce=stavitel&id=$IDK&jazyk=en" 'en\/tym\/zdenek'
 # překlad přes MCP: stránka jako kopie stavby originálu, texty podle id, záhlaví a patička jazyka začínají kopií výchozího
 mcp vytvor_stranku '{"titulek":"Bez originalu","adresa":"bez-originalu","kopie_stavby":true}' | grep -q 'potřebuje preklad_z' \
@@ -424,6 +425,8 @@ mcp uloz_polozku_kolekce '{"kolekce":"tym","nazev":"Klic navic","data":{"funkce"
 mcp vytvor_stranku '{"titulek":"Skryta textem","adresa":"skryta-textem","zobrazit":"false"}' > /dev/null
 ocekavej "MCP: zobrazit poslané jako text „false“ nechá stránku skrytou" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT zobrazit FROM ka_stranky WHERE seo_link = 'skryta-textem'")" 0
 mcp stavba_nacti '{"cast":"paticka","jazyk":"en"}' > /dev/null
+ocekavej "MCP: čtení části, která ještě není, nic nezaloží" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_casti WHERE typ = 'paticka' AND jazyk = 'en'")" 0
+mcp stavba_uprav '{"cast":"paticka","jazyk":"en","operace":[]}' > /dev/null
 ocekavej "patička nového jazyka začíná kopií patičky výchozího jazyka" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT e.stavba_koncept = COALESCE(c.stavba_koncept, c.stavba) FROM ka_casti e JOIN ka_casti c ON c.typ = e.typ AND c.jazyk = '' AND c.varianta = '' WHERE e.typ = 'paticka' AND e.jazyk = 'en' AND e.varianta = ''")" 1
 "${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('ulohy_token', 'testtoken123'); INSERT INTO ka_souhlasy (id_souhlasu, cas, kategorie) VALUES ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', NOW() - INTERVAL 40 MONTH, 'nic'), ('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', NOW(), 'nic')"
 curl -s -o /dev/null "$B/ulohy?token=testtoken123"

@@ -220,9 +220,11 @@ final class Nastroje
             case 'seznam_stranek':
                 $uvod = $web->int('titulni_stranka');
 
-                return array_map(fn (array $r): array => ['id' => (int) $r['ids'], 'titulek' => $r['titulek'], 'adresa' => $this->app->request->origin() . $this->app->url((int) $r['ids'] === $uvod ? '' : $r['seo_link']),
+                // adresa jazykové verze má předponu (/de/…); překlad úvodu je kořenem své verze (/de/)
+                return array_map(fn (array $r): array => ['id' => (int) $r['ids'], 'titulek' => $r['titulek'], 'adresa' => $this->app->request->origin()
+                    . $this->app->url(($r['jazyk'] !== '' ? $r['jazyk'] . '/' : '') . ((int) $r['ids'] === $uvod || ($uvod > 0 && (int) $r['preklad_z'] === $uvod) ? '' : $r['seo_link'])),
                     'uvodni' => (int) $r['ids'] === $uvod, 'zobrazena' => (bool) $r['zobrazit'], 'v_menu' => (bool) $r['v_menu'], 'jazyk' => $r['jazyk']],
-                    $db->all('SELECT ids, titulek, seo_link, zobrazit, v_menu, jazyk FROM {stranky} WHERE smazano IS NULL ORDER BY jazyk, poradi, titulek'));
+                    $db->all('SELECT ids, titulek, seo_link, zobrazit, v_menu, jazyk, preklad_z FROM {stranky} WHERE smazano IS NULL ORDER BY jazyk, poradi, titulek'));
 
             case 'nacti_stranku':
                 return $this->stranka((int) ($a['id'] ?? 0));
@@ -1084,10 +1086,9 @@ final class Nastroje
                     throw new \InvalidArgumentException('Varianta neexistuje. Varianty záhlaví a patičky vypíše seznam_casti, založí uloz_variantu.');
                 }
             } else {
-                if (Casti::radek($db, $typ, $jazyk) === null) {
-                    $db->insert('casti', ['typ' => $typ, 'jazyk' => $jazyk, 'stavba_koncept' => Casti::zacatek($db, $typ, $jazyk, Jazyk::obsahu($web, $jazyk)), 'zmeneno' => date('Y-m-d H:i:s')]);
-                }
-                $radek = (array) Casti::radek($db, $typ, $jazyk);
+                // část, která ještě není: koncept, se kterým by začal builder – řádek se založí až zápisem (čtení nic nemění)
+                $radek = Casti::radek($db, $typ, $jazyk) ?? ['typ' => $typ, 'jazyk' => $jazyk, 'varianta' => '', 'nazev' => '', 'stranky' => null, 'stavba' => null,
+                    'stavba_koncept' => Casti::zacatek($db, $typ, $jazyk, Jazyk::obsahu($web, $jazyk)), 'zmeneno' => null, 'nova' => true];
             }
 
             return ['druh' => 'cast', 'radek' => $radek, 'stavba' => $radek['stavba'], 'koncept' => $radek['stavba_koncept'], 'jazyk' => Jazyk::obsahu($web, $jazyk),
@@ -1138,7 +1139,16 @@ final class Nastroje
         } elseif ($cil['druh'] === 'popup') {
             Publikace::popup($this->app, (array) \Kaleta\Stavitel\Popupy::podleId($db, $cil['radek']['idpp']));
         } else {
+            $this->zalozCast($cil['radek']);
             Publikace::cast($this->app, (array) Casti::radek($db, $cil['radek']['typ'], $cil['radek']['jazyk'], (string) $cil['radek']['varianta']));
+        }
+    }
+
+    /** Část webu, kterou cilStavby jen předložil (ještě není v databázi), se založí s výchozím konceptem před prvním zápisem. */
+    private function zalozCast(array $radek): void
+    {
+        if (!empty($radek['nova']) && Casti::radek($this->app->db(), $radek['typ'], $radek['jazyk']) === null) {
+            $this->app->db()->insert('casti', ['typ' => $radek['typ'], 'jazyk' => $radek['jazyk'], 'stavba_koncept' => $radek['stavba_koncept'], 'zmeneno' => date('Y-m-d H:i:s')]);
         }
     }
 
@@ -1156,6 +1166,7 @@ final class Nastroje
         } elseif ($cil['druh'] === 'popup') {
             $db->update('popupy', ['stavba_koncept' => Stavba::naJson($stavba)], ['idpp' => $r['idpp']]);
         } else {
+            $this->zalozCast($r);
             $db->update('casti', ['stavba_koncept' => Stavba::naJson($stavba)], ['typ' => $r['typ'], 'jazyk' => $r['jazyk'], 'varianta' => $r['varianta']]);
         }
         if ($publikovat) {
