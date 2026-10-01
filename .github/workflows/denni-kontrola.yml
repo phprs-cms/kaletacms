@@ -57,7 +57,7 @@ jobs:
           docker run --rm -v "$PWD:/src" semgrep/semgrep semgrep scan --quiet --metrics=off \
             --config p/php --config p/javascript --config p/secrets --config p/owasp-top-ten --config p/security-audit \
             --sarif --output /src/semgrep.sarif /src || true
-      - uses: github/codeql-action/upload-sarif@v3
+      - uses: github/codeql-action/upload-sarif@v4
         with: { sarif_file: semgrep.sarif, category: semgrep-denni }
       - name: Nové nálezy vysoké závažnosti zastaví běh (bez podrobností v záznamu)
         run: |
