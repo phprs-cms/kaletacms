@@ -38,5 +38,5 @@ jobs:
         env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root }
         run: tools/test-update.sh
       - name: Koncept vydání
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with: { draft: true, generate_release_notes: true }
