@@ -5442,9 +5442,24 @@ $zip->addFromString('index.php', (string) file_get_contents($site . '/index.php'
 $zip->addFromString('system/aktualizace.pub', (string) file_get_contents($site . '/system/aktualizace.pub')); // the same test key: tools/check-channel.php checks the keys of the package
 $zip->close();
 $sha = hash_file('sha256', dirname($site) . '/kanal/k.zip');
-$m = ['verze' => '9.9.9', 'url' => "http://127.0.0.1:$port/k.zip", 'sha256' => $sha, 'min_php' => PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION, 'zmeny' => ['test'],
-    'podpis' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Signature::packageMessage('9.9.9', $sha, false), $sk))];
+// signed as tools/release.php signs: v1 ("podpis") and v2 over every field ("podpis2", 3.9)
+$m = Kaleta\Core\Signature::signManifest(['verze' => '9.9.9', 'url' => "http://127.0.0.1:$port/k.zip", 'sha256' => $sha, 'min_php' => PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION, 'zmeny' => ['test']], $sk);
 file_put_contents(dirname($site) . '/kanal/ok.json', json_encode($m));
+// 3.3.2 (N40): the same release, genuinely signed as a security release (the source changes its answer between check and installation)
+file_put_contents(dirname($site) . '/kanal/ok-bezpecnostni.json', json_encode(Kaleta\Core\Signature::signManifest(['bezpecnostni' => true] + $m, $sk)));
+// 3.9: the security flag turned on after signing – signature v2 no longer holds, the check refuses the manifest at once
+file_put_contents(dirname($site) . '/kanal/prepnuty.json', json_encode(['bezpecnostni' => true] + $m));
+// 3.9: signature v2 removed from a 3.9+ manifest (to get around it) – refused too
+file_put_contents(dirname($site) . '/kanal/bezv2.json', json_encode(array_diff_key($m, ['podpis2' => 1])));
+// 3.9 (N37-4): a package whose own bootstrap needs a newer PHP than its (here signed) manifest says – refused before a file is written
+$newPhp = new ZipArchive();
+$newPhp->open(dirname($site) . '/kanal/p.zip', ZipArchive::CREATE | ZipArchive::OVERWRITE);
+$newPhp->addFromString('image/test-novephp.txt', "nove php\n");
+$newPhp->addFromString('system/bootstrap.php', (string) preg_replace("/const KALETA_MIN_PHP = '[^']*';/", "const KALETA_MIN_PHP = '99.0';", $bootstrap));
+$newPhp->addFromString('index.php', (string) file_get_contents($site . '/index.php'));
+$newPhp->close();
+$shaP = hash_file('sha256', dirname($site) . '/kanal/p.zip');
+file_put_contents(dirname($site) . '/kanal/balicekphp.json', json_encode(Kaleta\Core\Signature::signManifest(['url' => "http://127.0.0.1:$port/p.zip", 'sha256' => $shaP] + $m, $sk)));
 // 2.8: a package that installs fine but breaks the home page – the update must undo itself
 $broken = new ZipArchive();
 $broken->open(dirname($site) . '/kanal/b.zip', ZipArchive::CREATE);
@@ -5453,18 +5468,22 @@ $broken->addFromString('system/bootstrap.php', $bootstrap);
 $broken->addFromString('index.php', "<?php\nif (str_starts_with((string) parse_url((string) (\$_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH), '/ulohy')) { require __DIR__ . '/system/bootstrap.php'; \$app = Kaleta\\Core\\App::boot(); (new Kaleta\\Front\\Kernel(\$app))->handle()->send(); exit; }\nhttp_response_code(500);\necho 'broken';\n");
 $broken->close();
 $shaB = hash_file('sha256', dirname($site) . '/kanal/b.zip');
-file_put_contents(dirname($site) . '/kanal/rozbity.json', json_encode(['url' => "http://127.0.0.1:$port/b.zip", 'sha256' => $shaB,
-    'podpis' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Signature::packageMessage('9.9.9', $shaB, false), $sk))] + $m));
+file_put_contents(dirname($site) . '/kanal/rozbity.json', json_encode(Kaleta\Core\Signature::signManifest(['url' => "http://127.0.0.1:$port/b.zip", 'sha256' => $shaB] + $m, $sk)));
+// a foreign v1 signature (v2 holds): the installation checks v1 as before and refuses
 file_put_contents(dirname($site) . '/kanal/zly.json', json_encode(['podpis' => base64_encode(random_bytes(64))] + $m));
 // 3.7: a correctly signed release for a PHP newer than the server runs
-file_put_contents(dirname($site) . '/kanal/novephp.json', json_encode(['min_php' => '99.0'] + $m));
+file_put_contents(dirname($site) . '/kanal/novephp.json', json_encode(Kaleta\Core\Signature::signManifest(['min_php' => '99.0'] + $m, $sk)));
 // 3.8 (D3): release channels – folders with aktualizace.json (latest) and aktualizace-stable.json next to it, one key
-$signed = fn (string $version): array => ['verze' => $version, 'podpis' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Signature::packageMessage($version, $sha, false), $sk))];
+$signed = fn (string $version, string $channel): array => Kaleta\Core\Signature::signManifest(['verze' => $version, 'kanal' => $channel] + $m, $sk);
 $channels = [
-    'kanaly' => [$signed('9.9.10') + ['kanal' => 'latest'] + $m, ['kanal' => 'stable'] + $m],   // latest 9.9.10, stable 9.9.9
-    'pozadu' => [$signed('9.9.10') + ['kanal' => 'latest'] + $m, $signed('1.0.0') + ['kanal' => 'stable'] + $m], // the stable line is behind the site
-    'spatne' => [$signed('9.9.10') + ['kanal' => 'latest'] + $m, $signed('9.9.10') + ['kanal' => 'latest'] + $m], // a wrong redirect: the latest manifest at the stable address
-    'bez' => [$signed('9.9.10') + ['kanal' => 'latest'] + $m, null],                              // no stable channel published yet
+    'kanaly' => [$signed('9.9.10', 'latest'), $signed('9.9.9', 'stable')],   // latest 9.9.10, stable 9.9.9
+    'pozadu' => [$signed('9.9.10', 'latest'), $signed('1.0.0', 'stable')],   // the stable line is behind the site
+    'spatne' => [$signed('9.9.10', 'latest'), $signed('9.9.10', 'latest')],  // a wrong redirect: the latest manifest at the stable address
+    'bez' => [$signed('9.9.10', 'latest'), null],                            // no stable channel published yet
+    // 3.9 (N38-3): a genuine latest release relabelled "stable" at the stable address – the channel is signed, v2 fails
+    'podvrh' => [$signed('9.9.10', 'latest'), ['kanal' => 'stable'] + $signed('9.9.10', 'latest')],
+    // the manifest published today (3.8.0, written before v2 existed): the daily check keeps passing on its v1 signature
+    'stary' => [array_diff_key($signed('3.8.0', 'latest'), ['podpis2' => 1]), null],
 ];
 foreach ($channels as $folder => [$latest, $stable]) {
     @mkdir(dirname($site) . '/kanal/' . $folder);
@@ -5493,6 +5512,19 @@ curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
 contains -F '99.0' "$WORK/response" && echo "  ok     3.7: system health names the PHP the new version needs" || { echo "  CHYBA  3.7: health does not say which PHP the update needs"; ERRORS=$((ERRORS+1)); }
 update_from novephp.json
 [ ! -f "$WORK/web/image/test-aktualizace.txt" ] && echo "  ok     3.7: a release for a newer PHP does not install" || { echo "  CHYBA  3.7: release for a newer PHP installed"; ERRORS=$((ERRORS+1)); }
+# 3.9 (N38-3, N37-4): manifest signature v2 – a field changed after signing, or v2 removed from a 3.9+ manifest, is refused
+# as soon as the site reads the manifest: nothing is offered, nothing installs
+for f in prepnuty bezv2; do
+  "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('update_url','http://127.0.0.1:$CHANNEL_PORT/$f.json') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'"
+  curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"
+  contains -F 'není podepsaný vydavatelem Kalety (podpis v2)' "$WORK/response" && ! contains -F 'value="9.9.9"' "$WORK/response" && echo "  ok     3.9 manifest v2 ($f): the manifest is refused, nothing is offered" || { echo "  CHYBA  3.9 manifest v2 ($f): offered"; ERRORS=$((ERRORS+1)); }
+  update_from "$f.json"
+  [ ! -f "$WORK/web/image/test-aktualizace.txt" ] && echo "  ok     3.9 manifest v2 ($f): nothing installs" || { echo "  CHYBA  3.9 manifest v2 ($f): installed"; ERRORS=$((ERRORS+1)); }
+done
+# 3.9 (N37-4): the package's own KALETA_MIN_PHP decides before a file is written, whatever the manifest says
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('update_url','http://127.0.0.1:$CHANNEL_PORT/balicekphp.json') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'"
+curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&action=update" -d "_csrf=$TOKEN"
+[ ! -f "$WORK/web/image/test-novephp.txt" ] && contains -F 'vyžaduje PHP 99.0' "$WORK/response" && echo "  ok     3.9: a package that needs a newer PHP is refused before a file is written" || { echo "  CHYBA  3.9: package PHP requirement"; ERRORS=$((ERRORS+1)); }
 # 2.8: the check after an update asks the site itself – a second server on the same files, since this one is busy installing
 PROBE_PORT=$((PORT + 11)); (cd "$WORK/web" && exec php -S "127.0.0.1:$PROBE_PORT" system/dev-router.php > /dev/null 2>&1) & PROBE_PID=$!
 for i in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$PROBE_PORT/" && break; sleep 0.2; done
@@ -5512,12 +5544,9 @@ cat > "$WORK/kanal/flip.php" <<'PHP'
 <?php
 $n = (int) @file_get_contents(__DIR__ . '/flip.n');
 file_put_contents(__DIR__ . '/flip.n', (string) ($n + 1));
-$m = json_decode((string) file_get_contents(__DIR__ . '/ok.json'), true);
-if ($n === 0) {
-    $m['bezpecnostni'] = true;
-}
+// both answers are genuinely signed (3.9: a flag changed after signing is refused at the check already, see prepnuty.json)
 header('Content-Type: application/json');
-echo json_encode($m);
+echo file_get_contents(__DIR__ . ($n === 0 ? '/ok-bezpecnostni.json' : '/ok.json'));
 PHP
 sq "INSERT INTO ka_nastaveni VALUES ('auto_updates', '1') ON DUPLICATE KEY UPDATE hodnota = '1';
   INSERT INTO ka_nastaveni VALUES ('update_url', 'http://127.0.0.1:$CHANNEL_PORT/flip.php') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota);
@@ -5557,17 +5586,25 @@ channel_source spatne/aktualizace.json; backups_page
 contains -F 'nenabízí vydání stabilního kanálu' "$WORK/response" && ! contains -F 'value="9.9.10"' "$WORK/response" && echo "  ok     3.8 channels: a latest manifest at the stable address offers nothing" || { echo "  CHYBA  3.8 channels: wrong manifest on the stable channel"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=update" -d "_csrf=$TOKEN" -d verze=9.9.10
 [ ! -f "$WORK/web/image/test-aktualizace.txt" ] && echo "  ok     3.8 channels: a latest manifest at the stable address does not install" || { echo "  CHYBA  3.8 channels: installed a latest release on the stable channel"; ERRORS=$((ERRORS+1)); }
+# 3.9 (N38-3): a genuine latest release relabelled "stable" at the stable address – the channel is signed (v2), so it is refused
+channel_source podvrh/aktualizace.json; backups_page
+contains -F 'podpis v2' "$WORK/response" && ! contains -F 'value="9.9.10"' "$WORK/response" && echo "  ok     3.9 channels: a latest release relabelled stable is refused (the channel is signed)" || { echo "  CHYBA  3.9 channels: relabelled stable manifest offered"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=update" -d "_csrf=$TOKEN" -d verze=9.9.10
+[ ! -f "$WORK/web/image/test-aktualizace.txt" ] && echo "  ok     3.9 channels: a latest release relabelled stable does not install" || { echo "  CHYBA  3.9 channels: installed a relabelled release on the stable channel"; ERRORS=$((ERRORS+1)); }
 # a custom source with another file name has no stable twin: the site follows it as before, whatever the channel
 channel_source ok.json; backups_page
 contains -F 'nemá proto stabilní protějšek' "$WORK/response" && contains -F 'value="9.9.9"' "$WORK/response" && echo "  ok     3.8 channels: a custom source without a stable twin keeps working on Stable" || { echo "  CHYBA  3.8 channels: custom source on Stable"; ERRORS=$((ERRORS+1)); }
 # tools/check-channel.php checks both manifests (signature, package, keys, the channel mark) and skips a stable one not yet published
-for c in kanaly spatne bez; do
+for c in kanaly spatne bez podvrh stary; do
   if php "$WORK/web/tools/check-channel.php" "http://127.0.0.1:$CHANNEL_PORT/$c/aktualizace.json" > "$WORK/channel-$c.txt" 2>&1; then echo ok >> "$WORK/channel-$c.txt"; else echo failed >> "$WORK/channel-$c.txt"; fi
 done
 expect "3.8 check-channel: both manifests pass, a latest one at the stable address fails, a missing stable one is skipped" \
   "$(tail -1 "$WORK/channel-kanaly.txt")|$(contains -F 'aktualizace-stable.json – nabízená verze: 9.9.9' "$WORK/channel-kanaly.txt" && echo stable)|$(tail -1 "$WORK/channel-spatne.txt")|$(contains -F '"kanal": "stable"' "$WORK/channel-spatne.txt" && echo why)|$(tail -1 "$WORK/channel-bez.txt")|$(contains -F '404' "$WORK/channel-bez.txt" && echo skipped)" \
   "ok|stable|failed|why|ok|skipped"
 [ "$(tail -1 "$WORK/channel-kanaly.txt")" = ok ] || cat "$WORK/channel-kanaly.txt"
+expect "3.9 check-channel: a relabelled stable manifest fails on signature v2; a pre-3.9 manifest without v2 passes on v1" \
+  "$(tail -1 "$WORK/channel-podvrh.txt")|$(contains -F 'podpis v2 (podpis2) NEPLATÍ' "$WORK/channel-podvrh.txt" && echo why)|$(tail -1 "$WORK/channel-stary.txt")|$(contains -F 'bez podpisu v2' "$WORK/channel-stary.txt" && echo noted)" \
+  "failed|why|ok|noted"
 sq "UPDATE ka_nastaveni SET hodnota = 'latest' WHERE promenna = 'update_channel'" > /dev/null
 update_from ok.json
 [ -f "$WORK/web/image/test-aktualizace.txt" ] && echo "  ok     podepsaná aktualizace se nainstaluje" || { echo "  CHYBA  aktualizace se nenainstalovala"; sq "SELECT message, data FROM ka_events WHERE type LIKE 'update.%'"; ERRORS=$((ERRORS+1)); }

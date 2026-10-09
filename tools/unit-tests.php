@@ -4933,6 +4933,84 @@ check('3.8 channels: the stable manifest is the twin of aktualizace.json, wherev
     ['https://kaletacms.com/aktualizace-stable.json', 'https://mirror.example/kaleta/aktualizace-stable.json?t=1', null, null, 'latest', ['latest', 'stable'], false, 'stable', null]);
 check('3.7 updates: response headers of file_get_contents() on 8.3 come from the calling scope, on 8.4 from PHP',
     PHP_VERSION_ID >= 80400 ? is_array(last_response_headers(['HTTP/1.1 999 ignored'])) : last_response_headers(['HTTP/1.1 200 OK']), PHP_VERSION_ID >= 80400 ? true : ['HTTP/1.1 200 OK']);
+// 3.9 (N38-3, N37-4): manifest signature v2 covers every field a site acts on, in a canonical encoding with byte lengths
+$v2Fixed = ['verze' => '3.9.0', 'vydano' => '2026-10-16', 'url' => 'https://example.org/kaleta-3.9.0.zip', 'sha256' => str_repeat('AB', 32), 'min_php' => '8.3',
+    'bezpecnostni' => false, 'kanal' => 'stable', 'klic' => '0123abcd', 'zmeny' => ['Fix: ř|x', '']];
+check('3.9 manifest v2: the canonical message is stable (fixed vector: field order, byte lengths, lower-case hash, the list of changes)',
+    Kaleta\Core\Signature::manifestMessage($v2Fixed),
+    "kaleta-manifest-v2\nverze=5:3.9.0\nvydano=10:2026-10-16\nurl=36:https://example.org/kaleta-3.9.0.zip\nsha256=64:" . str_repeat('ab', 32)
+    . "\nmin_php=3:8.3\nbezpecnostni=5:false\nkanal=6:stable\nklic=8:0123abcd\nzmeny=13:9:Fix: ř|x0:\n");
+check('3.9 manifest v2: a value cannot pass for another field, a missing field reads as the site reads it, odd types have no message', [
+    Kaleta\Core\Signature::manifestMessage(['url' => "x\nmin_php=3:8.3"]) === Kaleta\Core\Signature::manifestMessage(['url' => 'x', 'min_php' => '8.3']),
+    Kaleta\Core\Signature::manifestMessage(['zmeny' => ['a', 'b']]) === Kaleta\Core\Signature::manifestMessage(['zmeny' => ['ab']]),
+    Kaleta\Core\Signature::manifestMessage([]) === Kaleta\Core\Signature::manifestMessage(['bezpecnostni' => false, 'kanal' => null, 'zmeny' => []]),
+    Kaleta\Core\Signature::manifestMessage(['bezpecnostni' => 'true']), Kaleta\Core\Signature::manifestMessage(['verze' => 390]),
+    Kaleta\Core\Signature::manifestMessage(['kanal' => ['stable']]), Kaleta\Core\Signature::manifestMessage(['zmeny' => ['a' => 'b']]), Kaleta\Core\Signature::manifestMessage(['zmeny' => [1]])],
+    [false, false, true, null, null, null, null, null]);
+if (function_exists('sodium_crypto_sign_seed_keypair')) {
+    $v2Pair = sodium_crypto_sign_seed_keypair(str_repeat("\x07", 32));
+    [$v2Sk, $v2Pk] = [sodium_crypto_sign_secretkey($v2Pair), sodium_crypto_sign_publickey($v2Pair)];
+    $v2Backup = sodium_crypto_sign_keypair();
+    $v2Pub = (string) tempnam(sys_get_temp_dir(), 'v2');
+    file_put_contents($v2Pub, base64_encode($v2Pk) . " provozni\n" . base64_encode(sodium_crypto_sign_publickey($v2Backup)) . " zalozni\n");
+    $v2Signed = Kaleta\Core\Signature::signManifest($v2Fixed, $v2Sk);
+    check('3.9 manifest v2: a signed manifest carries v1 exactly as before 3.9 (deterministic Ed25519, fixed key) and a valid v2', [
+        $v2Signed['klic'], $v2Signed['podpis'] === base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Signature::packageMessage('3.9.0', str_repeat('AB', 32), false), $v2Sk)),
+        hash('sha256', (string) $v2Signed['podpis2']), Kaleta\Core\Signature::manifestValid($v2Signed, $v2Pub),
+        Kaleta\Core\Signature::isValid(Kaleta\Core\Signature::packageMessage('3.9.0', str_repeat('ab', 32), false), (string) $v2Signed['podpis'], $v2Pub)],
+        ['fe812c12', true, '703ffe3b35d916b2d819d77c80c5b14d1dfc2c0219734092eb0050638e284389', true, true]);
+    // tampering with any signed field – changing it or removing it – breaks v2; an unsigned extra field does not
+    $tampered = [];
+    foreach (Kaleta\Core\Signature::MANIFEST_FIELDS as $field) {
+        $changed = $v2Signed;
+        $changed[$field] = match ($field) {
+            'bezpecnostni' => true, 'zmeny' => ['Fix: ř|x', '', 'Visit evil.example'], 'klic' => Kaleta\Core\Signature::id(sodium_crypto_sign_publickey($v2Backup)),
+            'sha256' => str_repeat('ab', 31) . 'ac', 'min_php' => '8.2', 'kanal' => 'latest', default => (is_string($changed[$field]) ? $changed[$field] : '') . '1',
+        };
+        $removed = $v2Signed;
+        unset($removed[$field]);
+        $tampered[$field] = [Kaleta\Core\Signature::manifestValid($changed, $v2Pub), $field === 'bezpecnostni' ? 'flag false = absent' : Kaleta\Core\Signature::manifestValid($removed, $v2Pub)];
+    }
+    check('3.9 manifest v2: changing or removing any signed field breaks the signature', $tampered, array_replace(array_fill_keys(Kaleta\Core\Signature::MANIFEST_FIELDS, [false, false]), ['bezpecnostni' => [false, 'flag false = absent']]));
+    $v2BackupSigned = Kaleta\Core\Signature::signManifest($v2Fixed, sodium_crypto_sign_secretkey($v2Backup));
+    check('3.9 manifest v2: the hash is compared in any case, extra fields are not signed, the backup key signs too, a foreign one does not', [
+        Kaleta\Core\Signature::manifestValid(['sha256' => str_repeat('ab', 32)] + $v2Signed, $v2Pub), Kaleta\Core\Signature::manifestValid($v2Signed + ['poznamka' => 'x'], $v2Pub),
+        Kaleta\Core\Signature::manifestValid($v2BackupSigned, $v2Pub), Kaleta\Core\Signature::manifestValid(Kaleta\Core\Signature::signManifest($v2Fixed, sodium_crypto_sign_secretkey(sodium_crypto_sign_keypair())), $v2Pub),
+        // the signature of one key under the id of the other: "klic" is signed and names the only key that counts
+        Kaleta\Core\Signature::manifestValid(['klic' => $v2BackupSigned['klic'], 'podpis2' => base64_encode(sodium_crypto_sign_detached((string) Kaleta\Core\Signature::manifestMessage(['klic' => $v2BackupSigned['klic']] + $v2Fixed), $v2Sk))] + $v2Fixed, $v2Pub),
+        Kaleta\Core\Signature::manifestValid(['podpis2' => 'AAAA'] + $v2Signed, $v2Pub)],
+        [true, true, true, false, false, false]);
+    // what a 3.9 site acts on (Updater::verified, then Updater::choose): v2 decides; without v2 only an older release, without its channel
+    $v2Verdict = static function (array $manifest, string $channel = 'stable', string $current = '3.8.0') use ($v2Pub): string {
+        try {
+            $c = Kaleta\Core\Updater::choose(Kaleta\Core\Updater::verified($manifest, $v2Pub), $channel, $current, '8.4.5');
+        } catch (RuntimeException) {
+            return 'refused';
+        }
+
+        return $c['nova'] !== null ? 'offer ' . $c['nova']['verze'] : ($c['vyzaduje_php'] !== null ? 'needs php ' . $c['vyzaduje_php']['min_php'] : ($c['chyba'] !== null ? 'error' : 'nothing'));
+    };
+    $v1Only = static fn (array $m): array => array_diff_key(Kaleta\Core\Signature::signManifest($m, $v2Sk), ['podpis2' => 1]);
+    check('3.9 manifest v2: a signed stable manifest is offered; a forged channel or min_php, a stripped v2 or a v1-only newer release are refused', [
+        $v2Verdict($v2Signed), $v2Verdict(['kanal' => 'stable'] + Kaleta\Core\Signature::signManifest(['kanal' => 'latest'] + $v2Fixed, $v2Sk)),
+        $v2Verdict(['min_php' => '8.2'] + Kaleta\Core\Signature::signManifest(['min_php' => '99.0'] + $v2Fixed, $v2Sk), 'latest'),
+        $v2Verdict(Kaleta\Core\Signature::signManifest(['min_php' => '99.0'] + $v2Fixed, $v2Sk), 'latest'),
+        $v2Verdict(array_diff_key($v2Signed, ['podpis2' => 1])), $v2Verdict($v1Only(['verze' => '3.10.0'] + $v2Fixed), 'latest'),
+        $v2Verdict(['verze' => 3.8] + $v1Only($v2Fixed), 'latest')],
+        ['offer 3.9.0', 'refused', 'refused', 'needs php 99.0', 'refused', 'refused', 'refused']);
+    check('3.9 manifest v2: a v1-only manifest of an older release is read as before, but its unsigned channel never makes it stable', [
+        $v2Verdict($v1Only(['verze' => '3.8.5'] + $v2Fixed), 'stable', '3.8.0'), $v2Verdict($v1Only(['verze' => '3.8.5'] + $v2Fixed), 'latest', '3.8.0'),
+        array_key_exists('kanal', Kaleta\Core\Updater::verified($v1Only(['verze' => '3.8.5'] + $v2Fixed), $v2Pub)),
+        array_key_exists('kanal', Kaleta\Core\Updater::verified($v2Signed, $v2Pub))],
+        ['error', 'offer 3.8.5', false, true]);
+    unlink($v2Pub);
+}
+check('3.9 updates: the PHP a package needs is read from its own bootstrap (none before 3.7)', [
+    Kaleta\Core\Updater::packageMinPhp((string) file_get_contents(KALETA_SYSTEM . '/bootstrap.php')),
+    Kaleta\Core\Updater::packageMinPhp("<?php\nif (PHP_VERSION_ID < 80400) {\n    exit('Kaleta vyžaduje PHP 8.4');\n}\n"),
+    Kaleta\Core\Updater::packageMinPhp("<?php\n// const KALETA_MIN_PHP = '7.0';\nconst KALETA_MIN_PHP = '8.5';\n"),
+    str_contains((string) file_get_contents(KALETA_ROOT . '/tools/release.php'), 'Kaleta\Core\Signature::signManifest(')],
+    [KALETA_MIN_PHP, null, '8.5', true]);
 // one minimum everywhere: the bootstrap gate, PHPStan, the CI matrix, the release manifest and the README
 $bootstrapSource = (string) file_get_contents(KALETA_SYSTEM . '/bootstrap.php');
 [$minMajor, $minMinor] = array_map('intval', explode('.', KALETA_MIN_PHP));

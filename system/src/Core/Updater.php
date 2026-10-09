@@ -13,6 +13,9 @@ namespace Kaleta\Core;
  * The package (ZIP) is accepted only when the SHA-256 and the Ed25519 signature (Core\Signature::packageMessage) match,
  * verified by one of the public keys in system/aktualizace.pub (operational + backup, see docs/RELEASING.md). Only the
  * publisher has the private key (tools/release.php).
+ * 3.9: the manifest also carries signature v2 ("podpis2", Core\Signature::manifestMessage) over every field the site acts
+ * on – the channel and min_php too. It is checked as soon as the manifest is read (verified(), which also says what
+ * happens to a manifest without it).
  * config.php, media/, storage/, extensions/ (add-ons), install.php and layouts that are not part of the package are never overwritten.
  */
 final class Updater
@@ -32,6 +35,9 @@ final class Updater
     public const array CHANNELS = ['latest', 'stable'];
 
     public const string STABLE_FILE = 'aktualizace-stable.json';
+
+    /** 3.9: the first version whose manifest carries signature v2 – a manifest of this or a later version without it is refused. */
+    public const string SIGNED_V2_SINCE = '3.9.0';
 
     private const array PROTECTED_PATHS = ['config.php', 'install.php', 'media/', 'storage/', 'extensions/', 'image/ukazka/', 'tools/', '.git/']; // extensions/: add-ons (3.0)
     private const int MAX_BYTES = 60 * 1024 * 1024;
@@ -306,6 +312,12 @@ final class Updater
                 throw new \RuntimeException(t('The package signature is not valid – the package does not come from the Kaleta publisher.'));
             }
             $files = $this->extract($zip, $workDir);
+            // 3.9 (N37-4): the PHP the package itself needs, before a file is written – the manifest's min_php is unsigned
+            // in a manifest without signature v2
+            $packageMinPhp = self::packageMinPhp((string) file_get_contents($workDir . '/system/bootstrap.php'));
+            if ($packageMinPhp !== null && version_compare(PHP_VERSION, $packageMinPhp, '<')) {
+                throw new \RuntimeException(t('The new version requires PHP %s; the server runs %s.', $packageMinPhp, PHP_VERSION));
+            }
             $previous = $this->releaseFiles();
             $releaseHashes = $this->releaseHashes();
             touch(KALETA_ROOT . '/storage/udrzba.lock');
@@ -476,6 +488,43 @@ final class Updater
         return null;
     }
 
+    /**
+     * What of a downloaded manifest the site may act on (3.9, manifest signature v2; audit findings N38-3 and N37-4).
+     *
+     * - With "podpis2": it must be valid (Signature::manifestValid), so every field the site acts on is the publisher's,
+     *   the channel and min_php included. An invalid one refuses the manifest: nothing is offered or installed.
+     * - Without it (a manifest from before 3.9): only a version older than SIGNED_V2_SINCE is read this way – a newer one
+     *   without v2 was tampered with (the signature removed to get around it) and is refused. An old manifest is read
+     *   under the v1 rules, except that its unsigned "kanal" is dropped: it never makes a stable-channel manifest (the
+     *   stable channel offers nothing from it). Its unsigned min_php decides only what is offered; install() checks the
+     *   requirement of the package itself (its KALETA_MIN_PHP) before it writes a file.
+     *
+     * The v1 signature ("podpis") is checked at installation as before, in both cases.
+     *
+     * @param array<array-key, mixed> $manifest the decoded manifest, before anything in it is changed
+     * @return array<array-key, mixed>
+     */
+    public static function verified(array $manifest, string $keyFile): array
+    {
+        $version = $manifest['verze'] ?? null;
+        $signed = array_key_exists('podpis2', $manifest) ? Signature::manifestValid($manifest, $keyFile)
+            : is_string($version) && version_compare($version, self::SIGNED_V2_SINCE, '<');
+        if (!$signed) {
+            throw new \RuntimeException(t('The update information file is not signed by the Kaleta publisher (signature v2), so nothing is offered or installed.'));
+        }
+        if (!array_key_exists('podpis2', $manifest)) {
+            unset($manifest['kanal']);
+        }
+
+        return $manifest;
+    }
+
+    /** The oldest PHP a package says it needs (KALETA_MIN_PHP in its system/bootstrap.php, 3.7 and later); null = it does not say. */
+    public static function packageMinPhp(string $bootstrapSource): ?string
+    {
+        return preg_match("/^const KALETA_MIN_PHP = '(\\d+\\.\\d+(?:\\.\\d+)?)';/m", $bootstrapSource, $found) === 1 ? $found[1] : null;
+    }
+
     /** @return array<string, mixed> */
     private function manifest(): array
     {
@@ -484,6 +533,7 @@ final class Updater
         if (!is_array($m) || !isset($m['verze'], $m['url'], $m['sha256'], $m['podpis']) || !preg_match('/^\d+\.\d+\.\d+([.-][0-9A-Za-z.-]+)?$/D', (string) $m['verze'])) {
             throw new \RuntimeException(t('The update information file is not in a valid format.'));
         }
+        $m = self::verified($m, $this->keyFile); // 3.9: before anything else is read from it
         $m['zmeny'] = array_values(array_filter(array_map(fn ($z): string => mb_substr((string) $z, 0, 300), (array) ($m['zmeny'] ?? []))));
 
         return $m;

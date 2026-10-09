@@ -17,7 +17,8 @@ tím se nové klíče dostanou do instalací a odvolané z nich zmizí.
 
 Podepisuje se řetězec `verze|sha256 balíčku|bezne nebo bezpecnostni` a zvlášť seznam souborů jádra (`system/soubory.json`).
 Příznak bezpečnostního vydání je tedy krytý podpisem: kdo by ovládl jen web s manifestem, nemůže běžné vydání prohlásit
-za bezpečnostní a vynutit jeho automatickou instalaci.
+za bezpečnostní a vynutit jeho automatickou instalaci. Od 3.9 nese manifest navíc **podpis v2** přes všechna pole, podle
+kterých web jedná – i kanál a `min_php` (viz [Podpis manifestu v2](#podpis-manifestu-v2-39)).
 
 Soukromé klíče **nikdy** nepatří do gitu (hlídá `.gitignore`), do balíčku ani do cloudové synchronizace. Pozor: pokud složka
 projektu leží v synchronizované složce (iCloud Drive, Dropbox), synchronizuje se i `tools/klice/` – přesuňte klíče jinam
@@ -102,9 +103,8 @@ Jak to funguje (`Core\Updater`):
 - Výběr verze je jedna čistá funkce `Updater::choose()` (jednotkové testy): nabídne se **jen novější** verze, než web
   běží; vydání pro novější PHP se nenabídne (`min_php`, 3.7). Na kanálu Stable musí manifest říkat `"kanal": "stable"` –
   když na stabilní adrese omylem leží manifest Latest (špatné přesměrování), web nenabídne ani nenainstaluje nic a řekne proč.
-  Pole `kanal` (stejně jako `min_php`) zatím není součástí podpisu (N38-3): kdo ovládne stabilní adresu, může jako Stable
-  podstrčit jiné, ale vždy pravé a novější vydání – downgrade, nepodepsaný balíček ani změnu příznaku bezpečnostní nikoli.
-  Podpis kanálu a min_php přijde s verzí 2 podpisu manifestu.
+  Pole `kanal` a `min_php` jsou od 3.9 podepsaná (podpis v2, N38-3 a N37-4): kdo ovládne stabilní adresu, už nemůže pravé
+  vydání Latest přeznačit na Stable. Weby do 3.8 čtou jen podpis v1 a tohle riziko pro ně zůstává (přijaté v 3.8).
 - **Web napřed před stabilní řadou** (přepnul z Latest, když běžel na novější minor): žádný downgrade. Nic se nenabízí,
   dokud stabilní řada jeho verzi nepředežene; administrace, Stav systému (řádek *Kanál aktualizací*, varování) i MCP
   `get_health` (`update.ahead_of_stable`) to říkají. Bezpečnostní opravy k němu do té doby dorazí jen na Latest.
@@ -113,8 +113,8 @@ Jak to funguje (`Core\Updater`):
   povýšení vynechal, dostane novou řadu s její první bezpečnostní záplatou.
 - Kanál ukazují: administrace (karty Nejnovější/Stabilní), Stav systému, měsíční zpráva (řádek *Verze Kalety*), MCP
   `site_info` (`update_channel`) a `get_health` (`update`), heartbeat konzole webů (`update_channel`).
-- `tools/check-channel.php` (i denní kontrola) ověří oba manifesty: podpis, balíček, klíče, `"kanal"` a že Stable není
-  napřed před Latest. Dokud stabilní manifest neexistuje (404), kontroluje se jen Latest.
+- `tools/check-channel.php` (i denní kontrola) ověří oba manifesty: podpis v1 i v2, balíček, klíče, `"kanal"` a že Stable
+  není napřed před Latest. Dokud stabilní manifest neexistuje (404), kontroluje se jen Latest.
 
 ### Kde stabilní manifest leží
 
@@ -134,7 +134,11 @@ Každá stabilní řada má udržovací větev `stable-X.Y` z tagu, který je ve
 1. `git switch stable-3.8`, oprava přes `git cherry-pick` z `main`, `KALETA_VERSION = '3.8.1'` (další volný patch řady),
    commit, tag `v3.8.1`, push větve i tagu. Testy jako u běžného vydání.
 2. `php tools/release.php 3.8.1 --channel=stable --bezpecnostni --url=https://github.com/phprs-cms/kaletacms/releases/download/v3.8.1/kaleta-3.8.1.zip --zmena="Security fix: …"`
-   – zapíše `dist/aktualizace-stable.json` (Latest manifest se nemění). Balíček vyzkoušejte jako aktualizaci:
+   – zapíše `dist/aktualizace-stable.json` (Latest manifest se nemění). **Udržovací větev starší než 3.9** (`stable-3.8`)
+   má `release.php` bez podpisu v2: manifest pak podepište znovu nástrojem z `main` – `git switch main` a
+   `php tools/release.php 3.8.1 --channel=stable --bezpecnostni --package=dist/kaleta-3.8.1.zip --url=… --zmena="…"`
+   (`dist/` git nesleduje, balíček zůstane; nic se nestaví, jen se podepíše manifest v1 + v2). Bez toho by denní kontrola
+   selhala a weby od 3.9 na kanálu Stable by manifest odmítly. Balíček vyzkoušejte jako aktualizaci:
    `PACKAGE=dist/kaleta-3.8.1.zip MANIFEST=dist/aktualizace-stable.json FROM=v3.8.0 tools/test-update.sh`.
 3. `gh release upload v3.8.1 dist/kaleta-3.8.1.zip` a vydání zveřejněte **bez** označení latest:
    `gh release edit v3.8.1 --draft=false --latest=false`. **Pozor:** kdyby se v3.8.1 stalo „latest“, přesměrování
@@ -167,6 +171,46 @@ až 3.8 poběží na Latest bez regresí a vyjde 3.9:
    `https://github.com/phprs-cms/kaletacms/releases/download/stable-channel/aktualizace-stable.json`
 5. `php tools/check-channel.php` – musí vypsat obě verze; `git branch stable-3.8 v3.8.N && git push origin stable-3.8`.
 6. Na zkušebním webu přepněte kanál na Stabilní a ověřte nabídku (a že web na 3.9 hlásí „napřed před stabilní řadou“).
+
+## Podpis manifestu v2 (3.9)
+
+Manifest (`aktualizace.json` i `aktualizace-stable.json`) nese od 3.9 **dva podpisy** stejným klíčem:
+
+- `podpis` (v1, beze změny od 1.0): řetězec `verze|sha256|bezne nebo bezpecnostni`. Instalované verze 1.0–3.8 čtou jen
+  tenhle, proto zůstává v každém manifestu, dokud takové weby existují.
+- `podpis2` (v2): přes všechna pole, podle kterých web jedná – `verze`, `vydano`, `url`, `sha256`, `min_php`,
+  `bezpecnostni`, `kanal`, `klic` a `zmeny` (`Core\Signature::MANIFEST_FIELDS`). Podepisuje se hlavička
+  `kaleta-manifest-v2\n` a pak pro každé pole v tomhle pořadí řádek `jméno=<délka v bajtech>:<hodnota>\n`; hodnota je ta,
+  kterou web čte (chybějící text = prázdný, příznak `true`/`false`, otisk malými písmeny, každá změna seznamu
+  `<délka>:<text>`). Díky délkám nemůže žádná hodnota „přetéct“ do jiného pole. Platí jen klíč uvedený v `klic`.
+  Starší weby pole `podpis2` neznají a přeskočí ho.
+
+Web od 3.9 manifest ověří hned po stažení, dřív než cokoli nabídne (`Core\Updater::verified`):
+
+1. **Manifest s `podpis2`**: podpis musí platit. Neplatí-li, web manifest odmítne – nic nenabídne, nic nenainstaluje
+   a v administraci napíše proč.
+2. **Manifest bez `podpis2` s verzí 3.9.0 a novější**: odmítne ho – podpis v2 někdo odstranil, aby ho obešel.
+3. **Manifest bez `podpis2` se starší verzí** (vydání před 3.9, staré zrcadlo): čte se jako dřív podle v1, jen jeho
+   nepodepsaný `kanal` se zahodí – na kanálu Stable takový manifest nic nenabídne. Nepodepsané `min_php` rozhoduje jen
+   o tom, co se nabídne; instalace před zápisem prvního souboru ověří PHP, které potřebuje **sám balíček**
+   (`KALETA_MIN_PHP` v jeho `system/bootstrap.php`, krytý podepsaným otiskem). Web od 3.9 starší verzi stejně nedostane
+   (nabízí se jen novější), takže v praxi jedná jen podle manifestů s platným v2.
+4. Podpis v1 se při instalaci ověřuje dál jako dřív (v obou případech).
+
+Co to znamená pro vydavatele:
+
+- `tools/release.php` od 3.9 zapisuje oba podpisy sám (`Core\Signature::signManifest`). **Běžné vydání se nemění.**
+- Podepsaný manifest **nikdy neupravujte ručně** – ani `url`, ani řádek změn. Podpis v2 by přestal platit a weby od 3.9
+  by ho odmítly. Spusťte `release.php` znovu.
+- Stabilní manifest a každý manifest verze 3.9.0+ musí mít platný v2 – hlídá to `tools/check-channel.php` (i denní
+  kontrola). Záplatu stabilní řady z větve starší než 3.9 proto podepište nástrojem z `main` (viz
+  [Bezpečnostní záplata stabilní řady](#bezpečnostní-záplata-stabilní-řady-např-38--381)).
+- Vlastní zdroj aktualizací (zrcadlo) musí manifest podávat beze změny: `url` je podepsaná, takže zrcadlo, které ji
+  přepíše na svůj server, weby od 3.9 neaktualizuje (balíček musí ležet na adrese z podepsaného manifestu).
+- `PACKAGE=dist/kaleta-X.Y.Z.zip tools/test-update.sh` nejdřív ověří oba podpisy manifestu. Test pak přesměruje `url`
+  na svůj místní kanál; vydání, které samo kontroluje v2 (od 3.9), proto dostane v2 podepsaný znovu dočasným klíčem
+  (v1 zůstává vydavatele a web ho ověří). `TRUST_KEY=<veřejný klíč>` zkouší balíček podepsaný dočasným klíčem (suchý
+  běh `release.php` s `KALETA_KLIC`).
 
 ## Plánovaná výměna provozního klíče
 
