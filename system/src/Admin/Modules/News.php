@@ -46,23 +46,23 @@ final class News extends Module
         if (($authors = $auth->managedAuthors()) !== null) {
             $where[] = 'c.autor IN (' . implode(',', $authors) . ')';
         }
-        if (($colorScheme = $this->request->getInt('tema')) > 0) {
+        if (($colorScheme = $this->request->getInt('category')) > 0) {
             $where[] = 'c.tema = ?';
             $params[] = $colorScheme;
         }
         // language version: the site's default language is stored in the column as ''
         $s = $this->app->settings();
         $siteLanguages = ($additional = \Kaleta\Core\Language::additional($s)) === [] ? [] : [\Kaleta\Core\Language::defaults($s), ...$additional];
-        $language = in_array($this->request->get('jazyk'), $siteLanguages, true) ? $this->request->get('jazyk') : '';
+        $language = in_array($this->request->get('language'), $siteLanguages, true) ? $this->request->get('language') : '';
         if ($language !== '') {
             $where[] = 'c.jazyk = ?';
             $params[] = \Kaleta\Core\Language::column($s, $language);
         }
-        if (($search = $this->request->get('hledat')) !== '') {
+        if (($search = $this->request->get('search')) !== '') {
             $where[] = 'c.titulek LIKE ?';
             $params[] = '%' . addcslashes($search, '%_\\') . '%';
         }
-        $state = $this->request->get('stav');
+        $state = $this->request->get('status');
         $inTrash = $state === 'kos';
         $where[] = $inTrash ? 'c.smazano IS NOT NULL' : 'c.smazano IS NULL';
         $statusConditions = [
@@ -77,7 +77,7 @@ final class News extends Module
         $cond = implode(' AND ', $where);
 
         $total = (int) $this->db->value("SELECT COUNT(*) FROM {novinky} c WHERE {$cond}", $params);
-        $pageNumber = max(1, $this->request->getInt('strana', 1));
+        $pageNumber = max(1, $this->request->getInt('page', 1));
         $news = $this->db->all(
             "SELECT c.idc, c.seo_link, c.titulek, c.datum, c.visible, c.visit, c.smazano, c.valid_until, c.review_by,
                     t.nazev AS tema_jm, u.jmeno AS autor_jm, u.user AS autor_login, u.admin AS autor_uroven,
@@ -97,7 +97,7 @@ final class News extends Module
             'pageNumber' => $pageNumber,
             'pageCount' => max(1, (int) ceil($total / self::PER_PAGE)),
             'category' => Categories::listAll($this->db),
-            'filter' => ['tema' => $colorScheme, 'jazyk' => $language, 'hledat' => $search, 'stav' => isset($statusConditions[$state]) || $inTrash ? $state : ''],
+            'filter' => ['category' => $colorScheme, 'language' => $language, 'search' => $search, 'status' => isset($statusConditions[$state]) || $inTrash ? $state : ''],
             'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {novinky} c WHERE c.smazano IS NOT NULL' . $auth->articleScope('c.')),
             'toPublish' => self::countAwaitingPublication($this->app),
             'siteLanguages' => $siteLanguages,
@@ -118,7 +118,7 @@ final class News extends Module
     private function defaults(): array
     {
         // from the translation overview (2.14): the original in the default language is filled in
-        $original = $this->request->getInt('preklad_z') > 0 ? $this->db->value("SELECT idc FROM {novinky} WHERE idc = ? AND jazyk = '' AND smazano IS NULL", [$this->request->getInt('preklad_z')]) : null;
+        $original = $this->request->getInt('translation_of') > 0 ? $this->db->value("SELECT idc FROM {novinky} WHERE idc = ? AND jazyk = '' AND smazano IS NULL", [$this->request->getInt('translation_of')]) : null;
 
         return [
             'idc' => 0, 'seo_link' => '', 'titulek' => '', 'uvod' => '', 'text' => '', 'obrazek' => '', 'obrazek_popis' => '', 'obrazek_autor' => '',
@@ -326,16 +326,16 @@ final class News extends Module
             return $this->redirectToSite($r->post('zpet'));
         }
         // an unpublished news item is visible on the site only in the preview
-        $preview = $newsItem['visible'] && strtotime((string) $newsItem['datum']) <= time() ? '' : 'nahled=1';
+        $preview = $newsItem['visible'] && strtotime((string) $newsItem['datum']) <= time() ? '' : 'preview=1';
         try {
             $data = ['titulek' => mb_substr($r->post('titulek'), 0, 255), 'uvod' => \Kaleta\Core\Html::forUserOrFail($r->post('uvod'), $this->app->auth(), 'uvod'),
                 'text' => \Kaleta\Core\Html::forUserOrFail($r->post('text'), $this->app->auth(), 'text')];
         } catch (\Kaleta\Core\HtmlTooLarge) {
             // over a limit of Core\HtmlLimits: nothing is saved (the result is only a code in the address, never a text)
-            return $this->redirectToSite($r->post('zpet'), '?' . ($preview !== '' ? $preview . '&' : '') . 'upravit=text&chyba=limit');
+            return $this->redirectToSite($r->post('zpet'), '?' . ($preview !== '' ? $preview . '&' : '') . 'edit=text&error=limit');
         }
         if ($data['titulek'] === '') {
-            return $this->redirectToSite($r->post('zpet'), '?' . ($preview !== '' ? $preview . '&' : '') . 'upravit=text&chyba=1');
+            return $this->redirectToSite($r->post('zpet'), '?' . ($preview !== '' ? $preview . '&' : '') . 'upravit=text&error=1');
         }
         if ([$newsItem['titulek'], $newsItem['uvod'], $newsItem['text']] !== array_values($data)) {
             self::version($this->db, $newsItem, $this->app->auth()->id());
@@ -379,14 +379,14 @@ final class News extends Module
         return Response::json(['ok' => true]);
     }
 
-    /** Searching news by title for the link dialog in the editor and for the command palette (?uprava=1). */
+    /** Searching news by title for the link dialog in the editor and for the command palette (?edit=1). */
     protected function actionSearchJson(): Response
     {
         $q = mb_substr(trim($this->request->get('q')), 0, 80);
         if (mb_strlen($q) < 2) {
             return Response::json(['clanky' => []]);
         }
-        $editMode = $this->request->get('uprava') === '1';
+        $editMode = $this->request->get('edit') === '1';
         $news = $this->db->all(
             'SELECT idc, titulek, seo_link, jazyk, visible AND datum <= NOW() AS vydany FROM {novinky} WHERE smazano IS NULL AND titulek LIKE ?'
                 . ($editMode ? $this->app->auth()->articleScope() : '') . ' ORDER BY datum DESC LIMIT 8',
@@ -565,7 +565,7 @@ final class News extends Module
     protected function actionVersions(): Response
     {
         $newsItem = $this->load($this->request->getInt('id'));
-        $version = $newsItem === null ? null : $this->db->one('SELECT * FROM {novinky_revize} WHERE idr = ? AND idc = ?', [$this->request->getInt('idr'), $newsItem['idc']]);
+        $version = $newsItem === null ? null : $this->db->one('SELECT * FROM {novinky_revize} WHERE idr = ? AND idc = ?', [$this->request->getInt('revision'), $newsItem['idc']]);
         if ($version === null) {
             return $this->error('This version of the news item does not exist.', 404);
         }
@@ -580,7 +580,7 @@ final class News extends Module
         $newsItem = $this->load($this->request->getInt('id'));
         $version = $newsItem === null ? null : $this->db->one(
             "SELECT r.*, IF(u.jmeno = '' OR u.jmeno IS NULL, u.user, u.jmeno) AS kdo_jm FROM {novinky_revize} r LEFT JOIN {uzivatele} u ON u.idu = r.kdo WHERE r.idr = ? AND r.idc = ?",
-            [$this->request->getInt('idr'), $newsItem['idc'] ?? 0],
+            [$this->request->getInt('revision'), $newsItem['idc'] ?? 0],
         );
         if ($version === null) {
             return $this->error('This version of the news item does not exist.', 404);
@@ -649,7 +649,7 @@ final class News extends Module
             \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'restored from trash', mb_substr($newsItem['titulek'], 0, 80));
         }
 
-        return $this->back(t('News items restored: %d. They are back as drafts.', $restored), '', ['stav' => 'kos'], $restored > 0 ? 'ok' : 'chyba');
+        return $this->back(t('News items restored: %d. They are back as drafts.', $restored), '', ['status' => 'kos'], $restored > 0 ? 'ok' : 'chyba');
     }
 
     /** Permanent deletion from the trash (only someone who can publish). */
@@ -667,7 +667,7 @@ final class News extends Module
             }
         }
 
-        return $this->back(t('News items permanently deleted: %d.', $deleted), '', ['stav' => 'kos'], $deleted > 0 ? 'ok' : 'chyba');
+        return $this->back(t('News items permanently deleted: %d.', $deleted), '', ['status' => 'kos'], $deleted > 0 ? 'ok' : 'chyba');
     }
 
     /** The trash empties itself: news items older than 30 days are deleted permanently (called by Admin\Kernel on entering the admin). */

@@ -2835,5 +2835,6 @@ window.KALETA_PREKLAD = {
 	"No image chosen": "Není vybraný obrázek",
 	"Remove": "Odebrat",
 	"Choose image": "Vybrat obrázek",
-	"Address": "Adresa"
+	"Address": "Adresa",
+	"https://… or /about-us": "https://… nebo /o-nas"
 };

@@ -17,7 +17,7 @@
  * @var bool $news  the News feature is on
  */
 ?>
-<form class="formular" method="post" action="<?= e($module->url('save_variant', ['typ' => $type, 'jazyk' => $language])) ?>">
+<form class="formular" method="post" action="<?= e($module->url('save_variant', ['type' => $type, 'language' => $language])) ?>">
 <?= $csrf ?>
 <input type="hidden" name="varianta" value="<?= e($variant) ?>">
 <p class="napoveda"><?= e(t('A variant applies only to the selected pages; elsewhere the default stays. For example a landing page with a simpler header. If you leave the variant empty in the builder, the page will have no header (footer).')) ?></p>

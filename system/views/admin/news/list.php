@@ -8,13 +8,13 @@
  * @var int $pageNumber
  * @var int $pageCount
  * @var list<array<string, mixed>> $category
- * @var array{tema:int, jazyk:string, hledat:string, stav:string} $filter
+ * @var array{category:int, language:string, search:string, status:string} $filter
  * @var list<string> $siteLanguages  language versions of the site (empty = the site has only one language)
  * @var int $inTrash  number of news items in the trash (within the signed-in user's scope)
  * @var int $toPublish  authors' drafts waiting to be published (seen by editors and administrators)
  */
-$trash = $filter['stav'] === 'kos';
-$pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['strana' => $s]);
+$trash = $filter['status'] === 'kos';
+$pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['page' => $s]);
 ?>
 <p class="navigace-radek"><a class="tl" href="<?= e($module->url('new')) ?>"><?= e(t('New news item')) ?></a>
 <?php if ($app->auth()->hasModule('categories')): ?>
@@ -27,39 +27,39 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['str
 
 <nav class="zalozky" aria-label="<?= e(t('News status')) ?>">
 <?php foreach (['' => 'Všechny', 'vydane' => 'Vydané', 'plan' => 'Scheduled', 'koncepty' => 'Drafts'] as $key => $name): ?>
-	<a href="<?= e($module->url('', array_filter(['stav' => $key]))) ?>"<?= $filter['stav'] === $key ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t($name)) ?></a>
+	<a href="<?= e($module->url('', array_filter(['status' => $key]))) ?>"<?= $filter['status'] === $key ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t($name)) ?></a>
 <?php endforeach ?>
-<?php if ($toPublish > 0 || $filter['stav'] === 'ke_vydani'): ?>
-	<a href="<?= e($module->url('', ['stav' => 'ke_vydani'])) ?>"<?= $filter['stav'] === 'ke_vydani' ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('Awaiting publication')) ?> (<?= $toPublish ?>)</a>
+<?php if ($toPublish > 0 || $filter['status'] === 'ke_vydani'): ?>
+	<a href="<?= e($module->url('', ['status' => 'ke_vydani'])) ?>"<?= $filter['status'] === 'ke_vydani' ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('Awaiting publication')) ?> (<?= $toPublish ?>)</a>
 <?php endif ?>
 <?php if ($inTrash > 0 || $trash): ?>
-	<a href="<?= e($module->url('', ['stav' => 'kos'])) ?>"<?= $trash ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('Trash')) ?> (<?= $inTrash ?>)</a>
+	<a href="<?= e($module->url('', ['status' => 'kos'])) ?>"<?= $trash ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('Trash')) ?> (<?= $inTrash ?>)</a>
 <?php endif ?>
 </nav>
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt">
 	<input type="hidden" name="module" value="news">
-	<input type="hidden" name="stav" value="<?= e($filter['stav']) ?>">
+	<input type="hidden" name="status" value="<?= e($filter['status']) ?>">
 <?php if (count($category) > 1): ?>
 	<label><?= e(t('Category:')) ?>
-		<select name="tema">
+		<select name="category">
 			<option value="0"><?= e(t('všechny')) ?></option>
 <?php foreach ($category as $k): ?>
-			<option value="<?= (int) $k['idt'] ?>"<?= $filter['tema'] === (int) $k['idt'] ? ' selected' : '' ?>><?= e($k['nazev']) ?></option>
+			<option value="<?= (int) $k['idt'] ?>"<?= $filter['category'] === (int) $k['idt'] ? ' selected' : '' ?>><?= e($k['nazev']) ?></option>
 <?php endforeach ?>
 		</select>
 	</label>
 <?php endif ?>
 <?php if ($siteLanguages !== []): ?>
 	<label><?= e(t('Language:')) ?>
-		<select name="jazyk">
+		<select name="language">
 			<option value=""><?= e(t('všechny')) ?></option>
 <?php foreach ($siteLanguages as $code): ?>
-			<option value="<?= e($code) ?>"<?= $filter['jazyk'] === $code ? ' selected' : '' ?>><?= e(\Kaleta\Core\Language::AVAILABLE[$code][0]) ?></option>
+			<option value="<?= e($code) ?>"<?= $filter['language'] === $code ? ' selected' : '' ?>><?= e(\Kaleta\Core\Language::AVAILABLE[$code][0]) ?></option>
 <?php endforeach ?>
 		</select>
 	</label>
 <?php endif ?>
-	<label><?= e(t('Headline contains:')) ?> <input class="textpole" type="search" name="hledat" value="<?= e($filter['hledat']) ?>" size="20"></label>
+	<label><?= e(t('Headline contains:')) ?> <input class="textpole" type="search" name="search" value="<?= e($filter['search']) ?>" size="20"></label>
 	<input class="tl" type="submit" value="<?= e(t('Filtrovat')) ?>">
 	(<?= e(t('Total:')) ?> <?= $total ?>)
 </form>
@@ -124,7 +124,7 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['str
 <?php else: ?>
 	<td><span class="stitek stitek-<?= !$c['visible'] ? 'koncept' : (strtotime($c['datum']) > time() ? 'plan' : 'vydano') ?>"><?= e(t(!$c['visible'] ? 'koncept' : (strtotime($c['datum']) > time() ? 'naplánováno' : 'vydáno'))) ?></span></td>
 <?php endif ?>
-	<td class="akce"><a href="<?= e($module->url('edit', ['id' => $c['idc']])) ?>"><?= e(t('Edit')) ?></a> · <a href="<?= e($app->url('novinky/' . $c['seo_link'] . '?nahled=1')) ?>" target="_blank" rel="noopener"><?= e(t('Preview')) ?></a> ·
+	<td class="akce"><a href="<?= e($module->url('edit', ['id' => $c['idc']])) ?>"><?= e(t('Edit')) ?></a> · <a href="<?= e($app->url('novinky/' . $c['seo_link'] . '?preview=1')) ?>" target="_blank" rel="noopener"><?= e(t('Preview')) ?></a> ·
 <?php if ((int) $c['social_open'] > 0): // social post drafts not posted yet (2.13) ?>
 		<a href="<?= e($module->url('edit', ['id' => $c['idc']])) ?>#social-posts" title="<?= e(t('Social post drafts waiting to be posted')) ?>"><?= e(t('Social posts')) ?> (<?= (int) $c['social_open'] ?>)</a> ·
 <?php endif ?>

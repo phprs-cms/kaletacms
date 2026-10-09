@@ -86,9 +86,9 @@ mkdir -p "$WORK/web/media" "$WORK/web/storage/log" "$WORK/web/storage/cache"
 for i in $(seq 1 30); do curl -s -o /dev/null "$B/install.php" && break; sleep 0.3; done
 
 echo "== Installer"
-page "installer" "/install.php?jazyk=en"
+page "installer" "/install.php?language=en"
 grep -q 'the /news listing' "$WORK/page.html" && ! grep -q '/novinky' "$WORK/page.html" || fail "installer: the News feature does not name the English news address"
-GERMAN=1; page "German installer" "/install.php?jazyk=de"; GERMAN=
+GERMAN=1; page "German installer" "/install.php?language=de"; GERMAN=
 grep -q 'Datenbank' "$WORK/page.html" || fail "German installer: not in German"
 curl -s -o "$WORK/page.html" -X POST "$B/install.php" -d jazyk=en --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB_NAME" -d db_user=nosuchuser \
   -d db_password=wrong -d db_prefix=ka_ -d nazev_webu=Acme -d web=firemni -d user=admin -d email= --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD"
@@ -144,13 +144,13 @@ curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?module=extensions"; grep -q
 curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?module=business"; grep -qE 'CZ12345678|\+420|Mapy\.cz|CZ, SK' "$WORK/page.html" && fail "English admin: Czech-only examples in the company details"
 curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?module=enquiries"; grep -q 'practice in CZ' "$WORK/page.html" && fail "English admin: the retention hint assumes the Czech Republic"
 NEWS=$(sql "SELECT idc FROM ka_novinky LIMIT 1")
-ADMIN_SCREENS=("" "module=pages" "module=pages&action=new" "module=pages&action=builder&id=1" "module=enquiries" "module=parts" "module=parts&action=builder&typ=hlavicka&jazyk=" \
+ADMIN_SCREENS=("" "module=pages" "module=pages&action=new" "module=pages&action=builder&id=1" "module=enquiries" "module=parts" "module=parts&action=builder&type=hlavicka&language=" \
   "module=components" "module=collections" "module=collections&action=new" "module=news" "module=news&action=new" "module=news&action=edit&id=$NEWS" "module=categories" "module=categories&action=new" \
   "module=tags" "module=media" "module=stats" "module=appearance" "module=menu" "module=users" "module=users&action=new" "module=roles" "module=roles&action=new" "module=redirects" \
-  "module=changelog" "module=transfer" "module=extensions" "module=claude_settings" "module=addons" "module=subscribers" "module=newsletters" "module=newsletters&action=new" "module=parts&action=templates&typ=hlavicka" "module=parts&action=templates&typ=paticka" "action=account" "module=settings&tab=general" "module=business" "module=settings&tab=seo" \
+  "module=changelog" "module=transfer" "module=extensions" "module=claude_settings" "module=addons" "module=subscribers" "module=newsletters" "module=newsletters&action=new" "module=parts&action=templates&type=hlavicka" "module=parts&action=templates&type=paticka" "action=account" "module=settings&tab=general" "module=business" "module=settings&tab=seo" \
   "module=settings&tab=analytics" "module=settings&tab=cookies" "module=settings&tab=mail" "module=settings&tab=backups" "module=status" \
   "module=popups" "module=popups&action=new" "module=notebook" "module=notebook&action=edit" "module=requests" "module=requests&action=new" "module=schedules" "module=schedules&action=edit" \
-  "module=bookings" "module=bookings&action=new" "module=bookings&action=services&nova=1" "module=bookings&action=staff" "module=bookings&action=staff_edit" "module=whistleblowing")
+  "module=bookings" "module=bookings&action=new" "module=bookings&action=services&new=1" "module=bookings&action=staff" "module=bookings&action=staff_edit" "module=whistleblowing")
 for u in "${ADMIN_SCREENS[@]}"; do
   page "admin.php?$u" "/admin.php?$u" 200 "$JAR"
 done
@@ -174,7 +174,7 @@ sql "UPDATE ka_uzivatele SET jazyk = '', register = '' WHERE user = 'admin'"; GE
 TOKEN=$(token "$WORK/page.html")
 curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/page.html" -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$TOKEN" -d tab=company --data-urlencode "company_name=Acme Ltd" -d company_country=GB
 check "message after saving settings" "$WORK/page.html"
-curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/page.html" -X POST "$B/admin.php?module=menu&action=save&umisteni=paticka" -d "_csrf=$TOKEN" --data-urlencode 'polozky=[{"typ":"novinky","text":""}]'
+curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/page.html" -X POST "$B/admin.php?module=menu&action=save&location=paticka" -d "_csrf=$TOKEN" --data-urlencode 'polozky=[{"typ":"novinky","text":""}]'
 check "message after saving a menu" "$WORK/page.html"
 head -c $((3 * 1024 * 1024)) /dev/zero > "$WORK/big.jpg"
 curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/page.html" -X POST "$B/admin.php?module=media&action=upload" -F "_csrf=$TOKEN" -F "soubory[]=@$WORK/big.jpg;type=image/jpeg"
@@ -192,7 +192,7 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=popups&act
 PP=$(sql "SELECT idpp FROM ka_popupy ORDER BY idpp DESC LIMIT 1")
 page "pop-up settings" "/admin.php?module=popups&action=edit&id=$PP" 200 "$JAR"
 page "pop-up in the builder" "/admin.php?module=popups&action=builder&id=$PP" 200 "$JAR"
-page "pop-up template on the builder canvas" "/_popup/$PP?stavba=koncept&editor=1" 200 "$JAR"
+page "pop-up template on the builder canvas" "/_popup/$PP?build=koncept&editor=1" 200 "$JAR"
 curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/page.html" -X POST "$B/admin.php?module=popups&action=toggle" -d "_csrf=$TOKEN" -d "idpp=$PP"
 check "message: an unpublished pop-up cannot be turned on" "$WORK/page.html"
 page "pop-up list" "/admin.php?module=popups" 200 "$JAR"

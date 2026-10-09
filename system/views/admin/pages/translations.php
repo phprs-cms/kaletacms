@@ -19,12 +19,12 @@ $types = ['page' => t('Pages'), 'news' => t('News'), 'collection_item' => t('Col
 $editUrl = fn (array $row, int $id): string => match ($row['type']) {
     'page' => $module->url('edit', ['id' => $id]),
     'news' => $app->url('admin.php?module=news&action=edit&id=' . $id),
-    default => $app->url('admin.php?module=collections&action=item&id=' . (int) $row['collection']['idk'] . '&polozka=' . $id),
+    default => $app->url('admin.php?module=collections&action=item&id=' . (int) $row['collection']['idk'] . '&item=' . $id),
 };
 $createUrl = fn (array $row, string $code): string => match ($row['type']) {
-    'page' => $module->url('new', ['jazyk' => $code, 'preklad_z' => $row['id']]),
-    'news' => $app->url('admin.php?module=news&action=new&preklad_z=' . $row['id']),
-    default => $app->url('admin.php?module=collections&action=item&id=' . (int) $row['collection']['idk'] . '&polozka=0&jazyk=' . $code . '&original=' . $row['id']),
+    'page' => $module->url('new', ['language' => $code, 'translation_of' => $row['id']]),
+    'news' => $app->url('admin.php?module=news&action=new&translation_of=' . $row['id']),
+    default => $app->url('admin.php?module=collections&action=item&id=' . (int) $row['collection']['idk'] . '&item=0&language=' . $code . '&original=' . $row['id']),
 };
 $counts = ['missing' => 0, 'outdated' => 0];
 foreach ($rows as $row) {

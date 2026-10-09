@@ -99,7 +99,7 @@ final class SiteParts extends Module
         }
         $this->app->session->flash('ok', 'The template is in the draft – adjust it and publish; until then visitors see the published version.');
 
-        return Response::redirect($this->url('builder', ['typ' => $type, 'jazyk' => $language] + ($variant !== '' ? ['varianta' => $variant] : [])));
+        return Response::redirect($this->url('builder', ['type' => $type, 'language' => $language] + ($variant !== '' ? ['variant' => $variant] : [])));
     }
 
     protected function actionVariant(): Response
@@ -131,14 +131,14 @@ final class SiteParts extends Module
         }
         $name = mb_substr(trim($this->request->post('nazev')), 0, 100);
         if ($name === '') {
-            return $this->back('The variant needs a name.', 'variant', ['typ' => $type, 'jazyk' => $language], 'chyba');
+            return $this->back('The variant needs a name.', 'variant', ['type' => $type, 'language' => $language], 'chyba');
         }
         $rules = ['novinky' => $this->request->post('novinky') === '1', 'vypis' => $this->request->post('vypis') === '1', 'kolekce' => $this->request->postList('kolekce'),
             'nadrazene' => array_map('intval', $this->request->postList('nadrazene'))];
         $variant = CastiWebu::saveVariant($this->db, $type, $language, $this->request->post('varianta'), $name, array_map('intval', $this->request->postList('stranky')), $this->contentLanguage($language), $rules);
         \Kaleta\Front\Cache::clear();
 
-        return \Kaleta\Core\Response::redirect($this->url('builder', ['typ' => $type, 'jazyk' => $language, 'varianta' => $variant]));
+        return \Kaleta\Core\Response::redirect($this->url('builder', ['type' => $type, 'language' => $language, 'variant' => $variant]));
     }
 
     protected function loadBuildTarget(): ?array
@@ -149,7 +149,7 @@ final class SiteParts extends Module
         return $row === null ? null : [
             'radek' => $row, 'stavba' => $row['stavba'], 'koncept' => $row['stavba_koncept'], 'jazyk' => $this->contentLanguage($language),
             'titulek' => t(CastiWebu::TYPES[$type][0]) . ($variant !== '' ? ' – ' . $row['nazev'] : ''),
-            'revize' => ['cast' => CastiWebu::versionKey($type, $language, $variant)], 'parametry' => ['typ' => $type, 'jazyk' => $language] + ($variant !== '' ? ['varianta' => $variant] : []),
+            'revize' => ['cast' => CastiWebu::versionKey($type, $language, $variant)], 'parametry' => ['type' => $type, 'language' => $language] + ($variant !== '' ? ['variant' => $variant] : []),
         ];
     }
 
@@ -179,7 +179,7 @@ final class SiteParts extends Module
         $url = $this->app->url(($language !== '' ? $language . '/' : '') . $path);
 
         return [
-            'adresa' => $url, 'nahled' => $url . '?cast=' . $type . '&stavba=koncept&editor=1' . ($target['radek']['varianta'] !== '' ? '&varianta=' . rawurlencode($target['radek']['varianta']) : ''),
+            'adresa' => $url, 'nahled' => $url . '?part=' . $type . '&build=koncept&editor=1' . ($target['radek']['varianta'] !== '' ? '&variant=' . rawurlencode($target['radek']['varianta']) : ''),
             'zobrazena' => true, 'casti' => true,
             'zpet' => ['adresa' => $this->url(), 'text' => t('Site parts')], 'nastaveni' => null, 'podpis' => 'cast:' . $type . ':' . $language . ($target['radek']['varianta'] !== '' ? ':' . $target['radek']['varianta'] : ''),
         ];
@@ -188,9 +188,9 @@ final class SiteParts extends Module
     /** @return array{0: ?string, 1: string, 2: string} type, language and variant of the part from the request URL */
     private function readPartParams(): array
     {
-        $type = $this->request->get('typ');
-        $language = $this->request->get('jazyk');
-        $variant = $this->request->get('varianta');
+        $type = $this->request->get('type');
+        $language = $this->request->get('language');
+        $variant = $this->request->get('variant');
 
         return [isset(CastiWebu::TYPES[$type]) ? $type : null, in_array($language, Language::additional($this->app->settings()), true) ? $language : '',
             in_array($type, CastiWebu::WITH_VARIANTS, true) && preg_match(CastiWebu::VARIANT_PATTERN, $variant) ? $variant : ''];

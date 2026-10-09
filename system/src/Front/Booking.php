@@ -72,7 +72,7 @@ final class Booking
         if ($element === null) {
             return Response::redirect($back, 303);
         }
-        $redirect = fn (string $result): Response => Response::redirect($back . '?rezervace=' . rawurlencode($element['id']) . '&vysledek=' . $result . '#' . Element::anchor($element), 303);
+        $redirect = fn (string $result): Response => Response::redirect($back . '?booking=' . rawurlencode($element['id']) . '&result=' . $result . '#' . Element::anchor($element), 303);
         $antispam = new Antispam($this->app->db(), $this->app->settings());
         $reason = $antispam->reason($r, 'rezervace|' . $source . '|' . $element['id']);
         if ($reason === 'robot') {
@@ -92,8 +92,8 @@ final class Booking
         }
         $o = $element['obsah'];
         // the element may fix the service or the person – then the visitor's choice does not count
-        $serviceId = (int) $o['sluzba'] > 0 ? (int) $o['sluzba'] : $r->postInt('sluzba');
-        $staffId = (int) $o['osoba'] > 0 ? (int) $o['osoba'] : $r->postInt('osoba');
+        $serviceId = (int) $o['sluzba'] > 0 ? (int) $o['sluzba'] : $r->postInt('service');
+        $staffId = (int) $o['osoba'] > 0 ? (int) $o['osoba'] : $r->postInt('staff');
         [$booking, $error] = Bookings::book($this->app, ['service_id' => $serviceId, 'staff_id' => $staffId, 'slot' => $r->post('slot'), 'name' => $r->post('jmeno'), 'email' => $r->post('email'),
             'phone' => $r->post('telefon'), 'note' => $r->post('poznamka'), 'source' => $back, 'language' => \Kaleta\Core\Language::siteColumn(), 'by' => 'customer']);
         if ($booking === null) {

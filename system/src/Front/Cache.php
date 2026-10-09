@@ -131,7 +131,7 @@ final class Cache
             return null;
         }
         $params = array_filter(array_keys($_GET), fn (int|string $k): bool => !preg_match(self::TRACKING_PARAMS, (string) $k));
-        if (array_diff($params, ['strana']) !== []) {
+        if (array_diff($params, ['page']) !== []) {
             return null;
         }
         foreach (array_keys($_COOKIE) as $cookie) {
@@ -140,6 +140,6 @@ final class Cache
             }
         }
 
-        return self::FOLDER . '/' . md5($r->origin() . '|' . \Kaleta\Core\Language::code() . '|' . $r->path() . '|' . $r->getInt('strana', 1)) . '.html';
+        return self::FOLDER . '/' . md5($r->origin() . '|' . \Kaleta\Core\Language::code() . '|' . $r->path() . '|' . $r->getInt('page', 1)) . '.html';
     }
 }

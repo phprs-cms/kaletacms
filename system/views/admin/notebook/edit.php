@@ -11,7 +11,7 @@ use Kaleta\Core\Notebook;
 
 $isNew = $note === null;
 ?>
-<p><a href="<?= e($module->url('', $isNew ? [] : ['tema' => (string) $note['topic']])) ?>">← <?= e(t('All notes')) ?></a></p>
+<p><a href="<?= e($module->url('', $isNew ? [] : ['topic' => (string) $note['topic']])) ?>">← <?= e(t('All notes')) ?></a></p>
 <form class="formular" method="post" action="<?= e($module->url('save')) ?>">
 <?= $csrf ?>
 <input type="hidden" name="id" value="<?= (int) ($note['id'] ?? 0) ?>">

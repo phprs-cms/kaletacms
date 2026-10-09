@@ -12,11 +12,11 @@
 $names = array_column($staff, 'name', 'id');
 ?>
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>">← <?= e(t('All bookings')) ?></a> <a class="navigace" href="<?= e($module->url('staff')) ?>"><?= e(t('People')) ?></a></p>
-<p><a class="tl" href="<?= e($module->url('services', ['nova' => 1])) ?>"><?= e(t('New service')) ?></a></p>
+<p><a class="tl" href="<?= e($module->url('services', ['new' => 1])) ?>"><?= e(t('New service')) ?></a></p>
 <?php if ($services === [] && $staff === []): // the set-up order (3.5): a person first, then the service they offer ?>
 <?= $app->view->render('admin/empty', ['icon' => 'rezervace', 'heading' => t('Add a person first'), 'text' => t('A service needs someone who offers it. Add the person (or one entry for the whole business) with their weekly hours, then the service.'), 'action' => [$module->url('staff_edit'), t('New person')]]) ?>
 <?php elseif ($services === []): ?>
-<?= $app->view->render('admin/empty', ['icon' => 'rezervace', 'heading' => t('Add a service'), 'text' => t('No services yet. A service is what the visitor books: a haircut, a consultation, a tyre change – with how long it takes.'), 'action' => [$module->url('services', ['nova' => 1]), t('New service')]]) ?>
+<?= $app->view->render('admin/empty', ['icon' => 'rezervace', 'heading' => t('Add a service'), 'text' => t('No services yet. A service is what the visitor books: a haircut, a consultation, a tyre change – with how long it takes.'), 'action' => [$module->url('services', ['new' => 1]), t('New service')]]) ?>
 <?php else: ?>
 <div class="tab-obal"><table class="vypis">
 <thead><tr><th scope="col"><?= e(t('Service')) ?></th><th scope="col"><?= e(t('Duration')) ?></th><th scope="col"><?= e(t('Buffer')) ?></th><th scope="col"><?= e(t('Price')) ?></th><th scope="col"><?= e(t('Offered by')) ?></th><th scope="col"></th></tr></thead>

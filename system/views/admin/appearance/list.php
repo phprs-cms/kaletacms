@@ -4,7 +4,7 @@
  * in tabs (colours, dark mode, font and sizes, shapes, brand, import and export) with a live preview of the real home page.
  * Tabs are switched by image/admin.js (data-zalozky); without the script the whole form is visible at once.
  * The preview is handled by image/admin.js (data-vzhled): after every change it requests the token CSS (action nahled) and puts it into the iframe.
- * While a draft look exists, the iframe (?nahled=vzhled) renders it (Front\Kernel::startSitePreview) and the bar says so.
+ * While a draft look exists, the iframe (?preview=vzhled) renders it (Front\Kernel::startSitePreview) and the bar says so.
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Appearance $module
@@ -150,7 +150,7 @@ $tabs = ['styl' => 'Styl', 'barvy' => 'Colours', 'tmavy' => 'Dark mode', 'pismo'
 	<span class="popisek"><?= e(t('Font %d', $i + 1)) ?></span>
 	<div class="pole-vedle">
 		<input class="textpole" type="text" name="ds[vlastni_pisma][<?= $i ?>][nazev]" value="<?= e($vp['nazev']) ?>" maxlength="40" placeholder="<?= e(t('name, e.g. Bricolage Grotesque')) ?>" aria-label="<?= e(t('Name of font %d', $i + 1)) ?>">
-		<input class="textpole" type="text" name="ds[vlastni_pisma][<?= $i ?>][soubor]" value="<?= e($vp['soubor']) ?>" placeholder="media/…/pismo.woff2" aria-label="<?= e(t('File of font %d', $i + 1)) ?>">
+		<input class="textpole" type="text" name="ds[vlastni_pisma][<?= $i ?>][soubor]" value="<?= e($vp['soubor']) ?>" placeholder="media/…/font.woff2" aria-label="<?= e(t('File of font %d', $i + 1)) ?>">
 		<input class="textpole" type="text" name="ds[vlastni_pisma][<?= $i ?>][tucny]" value="<?= e($vp['tucny']) ?>" placeholder="<?= e(t('bold weight (optional)')) ?>" aria-label="<?= e(t('Bold weight of font %d', $i + 1)) ?>">
 	</div>
 </div>
@@ -261,6 +261,6 @@ $tabs = ['styl' => 'Styl', 'barvy' => 'Colours', 'tmavy' => 'Dark mode', 'pismo'
 			<button type="button" data-zarizeni="mobil" aria-pressed="false"><?= e(t('Phone')) ?></button>
 		</span>
 	</div>
-	<div class="vzhled-ramec" data-ramec><iframe src="<?= e($app->url('') . '?nahled=vzhled') ?>" title="<?= e(t('Home page preview')) ?>" data-nahled></iframe></div>
+	<div class="vzhled-ramec" data-ramec><iframe src="<?= e($app->url('') . '?preview=vzhled') ?>" title="<?= e(t('Home page preview')) ?>" data-nahled></iframe></div>
 </aside>
 </div>

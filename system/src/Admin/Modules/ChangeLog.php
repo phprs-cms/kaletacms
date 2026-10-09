@@ -23,9 +23,9 @@ final class ChangeLog extends Module
 
     protected function actionList(): Response
     {
-        $who = $this->request->getInt('kdo');
-        $whereParts = $this->request->get('kde');
-        $search = mb_substr(trim($this->request->get('hledat')), 0, 100);
+        $who = $this->request->getInt('user');
+        $whereParts = $this->request->get('area');
+        $search = mb_substr(trim($this->request->get('search')), 0, 100);
         $by = in_array($this->request->get('by'), ['people', 'claude'], true) ? $this->request->get('by') : '';
         $conditions = [];
         $params = [];
@@ -47,7 +47,7 @@ final class ChangeLog extends Module
         $sql = $conditions === [] ? '' : ' WHERE ' . implode(' AND ', $conditions);
         $total = (int) $this->db->value('SELECT COUNT(*) FROM {protokol}' . $sql, $params);
         $pageCount = max(1, (int) ceil($total / self::PER_PAGE));
-        $pageNumber = max(1, min($pageCount, $this->request->getInt('strana', 1)));
+        $pageNumber = max(1, min($pageCount, $this->request->getInt('page', 1)));
 
         return $this->view('list', 'Change log', [
             'records' => $this->db->all('SELECT * FROM {protokol}' . $sql . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),

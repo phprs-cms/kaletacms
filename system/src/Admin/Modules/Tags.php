@@ -22,7 +22,7 @@ final class Tags extends Module
 
     protected function actionList(): Response
     {
-        $edit = $this->db->one('SELECT * FROM {stitky} WHERE ids = ?', [$this->request->getInt('uprav')]);
+        $edit = $this->db->one('SELECT * FROM {stitky} WHERE ids = ?', [$this->request->getInt('edit')]);
 
         return $this->view('list', 'Tags and topics', [
             'tags' => $this->db->all('SELECT s.*, (SELECT COUNT(*) FROM {novinky_stitky} cs WHERE cs.ids = s.ids) AS pocet FROM {stitky} s ORDER BY (s.popis IS NOT NULL AND s.popis <> \'\') DESC, pocet DESC, s.nazev LIMIT 500'),
@@ -40,7 +40,7 @@ final class Tags extends Module
         try {
             $description = \Kaleta\Core\Html::forUserOrFail(trim($this->request->post('popis')), $this->app->auth(), 'popis');
         } catch (\Kaleta\Core\HtmlTooLarge $e) {
-            return $this->back(t('Nothing was saved: %s', $e->localized()), '', ['uprav' => $tag['ids']], 'chyba');
+            return $this->back(t('Nothing was saved: %s', $e->localized()), '', ['edit' => $tag['ids']], 'chyba');
         }
         $this->db->update('stitky', ['nazev' => $name, 'popis' => $description, 'obrazek' => mb_substr($this->request->post('obrazek'), 0, 255)], ['ids' => $tag['ids']]);
 

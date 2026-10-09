@@ -2947,5 +2947,6 @@ window.KALETA_PREKLAD = {
 	"No image chosen": "Kein Bild ausgewählt",
 	"Remove": "Entfernen",
 	"Choose image": "Bild auswählen",
-	"Address": "Adresse"
+	"Address": "Adresse",
+	"https://… or /about-us": "https://… oder /ueber-uns"
 };

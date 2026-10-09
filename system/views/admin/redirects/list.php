@@ -30,7 +30,7 @@ $path = fn (string $a): string => preg_match('#^https?://#i', $a) ? $a : '/' . $
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t($u !== null ? 'Save changes' : 'Add redirect')) ?>"><?= $u !== null ? ' <a class="navigace" href="' . e($module->url()) . '">' . e(t('Cancel')) . '</a>' : '' ?></p>
 </form>
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt"><input type="hidden" name="module" value="redirects">
-	<label><?= e(t('Address contains:')) ?> <input class="textpole" type="search" name="hledat" value="<?= e($search) ?>" size="24"></label> <input class="tl" type="submit" value="<?= e(t('Filtrovat')) ?>"> (<?= e(t('Total:')) ?> <?= $total ?>)</form>
+	<label><?= e(t('Address contains:')) ?> <input class="textpole" type="search" name="search" value="<?= e($search) ?>" size="24"></label> <input class="tl" type="submit" value="<?= e(t('Filtrovat')) ?>"> (<?= e(t('Total:')) ?> <?= $total ?>)</form>
 <p class="smltxt"><?= e(t('A redirect is only used when nothing exists at the old address. It is created automatically when the address of a page, news item or category changes.')) ?></p>
 <?php if ($records === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'presmerovani', 'heading' => t('No redirects yet.'), 'text' => t('Nothing to do – when you change the address of a page or news item, a redirect is created automatically.')]) ?>
@@ -46,7 +46,7 @@ $path = fn (string $a): string => preg_match('#^https?://#i', $a) ? $a : '/' . $
 	<td><?= (int) ($z['typ'] ?? 301) === 410 ? '<span class="stitek">' . e(t('gone (410)')) . '</span>' : e($path($z['na_adresu'])) ?><?= (int) ($z['typ'] ?? 301) === 302 ? ' <span class="stitek">302</span>' : '' ?><?= $z['auto_score'] !== null ? ' <span class="stitek" title="' . e(t('Created by the site itself from an address visitors could not find. Delete it to undo.')) . '">' . e(t('automatic, score %d', (int) $z['auto_score'])) . '</span>' : '' ?></td>
 	<td class="cislo"><?= (int) $z['pocet'] ?>×</td>
 	<td class="cislo"><?= e(format_date($z['vytvoreno'])) ?></td>
-	<td class="akce"><a href="<?= e($module->url('', ['upravit' => (int) $z['idp']])) ?>#upravit"><?= e(t('Edit')) ?></a> ·
+	<td class="akce"><a href="<?= e($module->url('', ['edit' => (int) $z['idp']])) ?>#upravit"><?= e(t('Edit')) ?></a> ·
 		<form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Delete the redirect? The old address will then end with a 404 error.')) ?>"><?= $csrf ?><input type="hidden" name="idp" value="<?= (int) $z['idp'] ?>"><input type="hidden" name="titulek" value="<?= e('/' . $z['z_adresy']) ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form></td>
 </tr>
 <?php endforeach ?>
@@ -56,7 +56,7 @@ $path = fn (string $a): string => preg_match('#^https?://#i', $a) ? $a : '/' . $
 <?php if ($pageCount > 1): ?>
 <p class="strankovani">
 <?php for ($s = 1; $s <= $pageCount; $s++): ?>
-	<?= $s === $pageNumber ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($module->url('', array_filter(['hledat' => $search, 'strana' => $s]))) . '">' . $s . '</a>' ?>
+	<?= $s === $pageNumber ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($module->url('', array_filter(['search' => $search, 'page' => $s]))) . '">' . $s . '</a>' ?>
 <?php endfor ?>
 </p>
 <?php endif ?>

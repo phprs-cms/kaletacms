@@ -20,6 +20,8 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   Starší názvy sloupců zůstaly: `idc` = novinka, `tema`/`idt` = kategorie, `ido` = médium, `idu` = uživatel.
 - Identifikátory v kódu anglicky (od 1.4); komentáře v kódu anglicky, texty rozhraní anglicky se slovníky (`t()`). Česky zůstává
   datový model: sloupce databáze, klíče staveb (JSON) a design systému – na hranici MCP je překládá `Mcp\Translator` a `Mcp\Vocabulary`.
+- **Parametry adresy (query) jsou vždy anglicky** (`preview_key`, `build`, `page`, `search`, `status`, `item`…) – v odkazech, formulářích s GET, `Request::get*()`,
+  JS i testech; hodnoty a názvy polí v POST zůstávají, jak jsou. Dřívější české názvy fungují dál jako aliasy (`Request::LEGACY_QUERY`, `get*()`/`has()` je zkusí, když chybí anglický; odkazy v odeslaných e-mailech, záložky a sdílené náhledy se nikdy nerozbijí) – záznam z mapy se nemaže, nový odkaz píše jen anglicky. Hlídá to `tools/unit-tests.php` (seznam dřívějších českých názvů).
 - **Změna databáze = dva zápisy:** úplné schéma `system/sql/schema.sql` a migrace `system/sql/migrace/NNNN-popis.sql` + zvýšit
   `KALETA_DB_VERSION` v `system/bootstrap.php` (hlídá `tools/test.sh`). Výchozí stav je migrace 0001.
 - **Rozšíření** (`Core\Extensions::CATALOG`) jsou vestavěné části Kalety. **Doplňky (add-ons, 3.0)** jiných vývojářů jsou
@@ -80,7 +82,7 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   do vrstvy `stavitel` přes `:where()`. **Styl** (`Builder\Style::PROPERTIES`) má stavy `zaklad`/`tablet` (≤1023 px)/`mobil` (≤767 px)/`hover`; hodnoty
   jsou tokeny nebo bezpečné volné hodnoty. Vlastní CSS tříd projde `Style::customCss()` (bez `url()`, bloků, `@`).
 - **Publikování** (`Builder\Publisher`, i z MCP): předchozí verze do `ka_stavba_revize` (20, `ids` stránky nebo `cast` = "typ:jazyk"), do `text` se uloží obsah bez rozložení
-  (`Build::asText`) – z něj čerpá hledání, llms.txt, API i návrat k textu. Náhled konceptu `?stavba=koncept` jen s právem Stránky, `&editor=1` přidá `data-ka-id`.
+  (`Build::asText`) – z něj čerpá hledání, llms.txt, API i návrat k textu. Náhled konceptu `?build=koncept` jen s právem Stránky, `&editor=1` přidá `data-ka-id`.
 - **Editor** `image/stavitel.js` + `stavitel.css` (samostatná stránka `akce=stavitel`): plátno je skutečná stránka v iframe (počítač vykreslený v 1280 px
   a zmenšený), průběžné ukládání konceptu (`stavba_uloz`, vrací vyčištěný strom), knihovna sekcí `Builder\Library`, verze.
 - **Části webu** (`Builder\SiteParts`, tabulka `ka_casti` typ+jazyk, admin `Modules\SiteParts`, jen správce): záhlaví, patička a obálky `novinka`/`vypis`/`nenalezeno`
@@ -89,7 +91,7 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   Záhlaví a patička mohou mít varianty (`ka_casti.varianta`, `stranky` = JSON čísel stránek; `SiteParts::pageVariant`), prázdná varianta část skryje.
   Akce builderu sdílí trait `Admin\BuilderActions` (stránky i části), publikování a verze `Builder\Publisher`.
 - **Pop-up okna** (`Builder\Popups`, tabulka `ka_popupy`, admin `Modules\Popups` pod Vzhledem, jen správce, MCP `seznam_popupu`, `uloz_popup`
-  a stavba_* s parametrem `popup`): obsah je stavba (verze pod `popup:<id>`, podepsaný náhled `popup:<id>`), plátno builderu `/_popup/<id>?stavba=koncept&editor=1`.
+  a stavba_* s parametrem `popup`): obsah je stavba (verze pod `popup:<id>`, podepsaný náhled `popup:<id>`), plátno builderu `/_popup/<id>?build=koncept&editor=1`.
   `Kernel::popups()` vloží zapnutá publikovaná okna podle pravidel serveru (`Popups::matches` – místa, jazyk, období; okno s obdobím vypne cache stránky)
   na konec `<body>`; spouštěč, zařízení, kampaň, odkud, počet stránek a četnost řeší `image/web.js` (sessionStorage/localStorage, bez cookies).
   Počitadla `POST /popup` (zobrazeni|zavreni|konverze), formulář v okně má zdroj `popup:<id>`. Starý prvek `okno` (okno uvnitř jedné stránky) převedla 2.0 na pop-up okna webu (`Builder\ModalConversion`, migrace 0034, i při importu).
@@ -115,7 +117,7 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   ochrana proti zanoření (`Context::$nesting`). Náhled pro editor `/_komponenta/<id>` (jen správce).
 - **Formuláře** (prvek `formular`, `Front\Forms` na `POST /formular`): pole a příjemce se berou z PUBLIKOVANÉ stavby podle `zdroj` + id prvku,
   nikdy z požadavku. Ochrana `Core\Antispam` (podpis času, honeypot, limit na IP) – bez cookies, stránka zůstává v cache. Výsledek jen jako kód
-  v adrese (`?formular=<id>&vysledek=ok|pole|limit|overeni`), text hlášení nikdy z adresy. Poptávky v `ka_poptavky` (admin `Modules\Enquiries`,
+  v adrese (`?form=<id>&result=ok|pole|limit|overeni`), text hlášení nikdy z adresy. Poptávky v `ka_poptavky` (admin `Modules\Enquiries`,
   CSV, samy se mažou po `enquiries_months`), upozornění přes `Mail::send` s Reply-To návštěvníka.
 - **HTML → stavba** (`Builder\HtmlConverter`, MCP `stavba_z_html`): sémantické HTML + `<style>` s pravidly jedné třídy → prvky a třídy; `.trida:hover` a `@media (max-width: 1023px|767px)`
   se převedou na stavy třídy (`Style::fromCss` – deklarace s obdobou ve stylu builderu). Prvek se stylovanou třídou nedostane výchozí styl typu (vrstva `prvky` je
@@ -173,8 +175,8 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   v nastavení) – z Vzhledu webu, builderu, editoru menu i MCP (`update_design_system`, `save_classes`, `save_menu`); nová třída platí hned.
   Publikuje `Look::publish` (admin lišta `admin/look_bar`, MCP `publish_look`), předchozí vzhled jde do `ka_look_versions` (20), zpět
   `restore_look_version`. Koncept se vykresluje jen při `Look::activate()`: náhled celého webu (`Preview` cíl `web`, cookie `ka_nahled`,
-  `?nahled_konec=1`) nebo správce v builderu (`?stavba=koncept`); háčky jsou v `DesignSystem::load`, `Build::css` a `Menu::load`.
-  Zápis stavby vrací podepsaný náhled (`Core\Preview`, `?stavba=koncept&nahled_klic=`, HMAC `secret_key`, jen jeden cíl, omezená platnost). Nová novinka
+  `?preview_end=1`) nebo správce v builderu (`?build=koncept`); háčky jsou v `DesignSystem::load`, `Build::css` a `Menu::load`.
+  Zápis stavby vrací podepsaný náhled (`Core\Preview`, `?build=koncept&preview_key=`, HMAC `secret_key`, jen jeden cíl, omezená platnost). Nová novinka
   je koncept, nová stránka skrytá; vydat/zveřejnit jen na výslovný pokyn a s právem. **Hranice (bezpečí na prvním místě):** žádný nástroj nesmí zapisovat mimo obsah
   spouštět kód ani dotaz (statickou kontrolu PHP nejde udělat neprůstřelnou, proto MCP žádné PHP šablony nemění).
 - **Přihlášení:** hesla `password_hash`, TOTP, passkeys (`Core\Passkey`, jen jako náhrada kódu u účtu s TOTP), obnova hesla `Admin\PasswordReset`.

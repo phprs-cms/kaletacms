@@ -311,7 +311,7 @@ class Settings extends Module
         if (Backup::refusedInDemo()) {
             return $this->error(\Kaleta\Core\Demo::refusal(), 403);
         }
-        $path = Backup::path($this->request->get('soubor'));
+        $path = Backup::path($this->request->get('file'));
         if ($path === null) {
             return $this->error('Backup does not exist.', 404);
         }

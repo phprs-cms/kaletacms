@@ -91,7 +91,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	<button class="tl" type="submit" name="po_ulozeni" value="vypis"<?= $readOnly ? ' disabled' : '' ?>><?= e(t('Uložit')) ?></button>
 	<button class="tl" type="submit" name="po_ulozeni" value="zustat"<?= $readOnly ? ' disabled' : '' ?>><?= e(t('Save and continue')) ?></button>
 <?php if ($newsItem['idc']): ?>
-	<a class="navigace" href="<?= e($module->app()->url('novinky/' . $newsItem['seo_link'] . '?nahled=1')) ?>" target="_blank" rel="noopener"><?= e(t('Preview')) ?></a>
+	<a class="navigace" href="<?= e($module->app()->url('novinky/' . $newsItem['seo_link'] . '?preview=1')) ?>" target="_blank" rel="noopener"><?= e(t('Preview')) ?></a>
 <?php endif ?>
 </p>
 </fieldset>
@@ -217,7 +217,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <summary><?= e(t('Version history (%s)', count($versions))) ?></summary>
 <ul class="revize">
 <?php foreach ($versions as $version): ?>
-	<li><a href="<?= e($module->url('versions', ['id' => $newsItem['idc'], 'idr' => $version['idr']])) ?>" title="<?= e($version['titulek']) ?>"><?= e(format_date($version['datum'], true)) ?></a> <span class="napoveda vradku"><?= e($version['kdo_jm'] ?? '') ?></span> · <a href="<?= e($module->url('compare', ['id' => $newsItem['idc'], 'idr' => $version['idr']])) ?>"><?= e(t('what changed')) ?></a></li>
+	<li><a href="<?= e($module->url('versions', ['id' => $newsItem['idc'], 'revision' => $version['idr']])) ?>" title="<?= e($version['titulek']) ?>"><?= e(format_date($version['datum'], true)) ?></a> <span class="napoveda vradku"><?= e($version['kdo_jm'] ?? '') ?></span> · <a href="<?= e($module->url('compare', ['id' => $newsItem['idc'], 'revision' => $version['idr']])) ?>"><?= e(t('what changed')) ?></a></li>
 <?php endforeach ?>
 </ul>
 <p class="napoveda"><?= e(t('Click to load an older version into the editor. The last 20 versions are kept.')) ?></p>

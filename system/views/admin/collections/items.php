@@ -25,14 +25,14 @@
 <?php if ($k['detail']): ?>
 	<a class="navigace" href="<?= e($module->url('builder', ['id' => $k['idk']])) ?>"><?= e(t('Detail template')) ?></a>
 <?php foreach ($languages as $language): ?>
-	<a class="navigace" href="<?= e($module->url('builder', ['id' => $k['idk'], 'jazyk' => $language])) ?>"><?= e(t('Detail template (%s)', strtoupper($language))) ?></a>
+	<a class="navigace" href="<?= e($module->url('builder', ['id' => $k['idk'], 'language' => $language])) ?>"><?= e(t('Detail template (%s)', strtoupper($language))) ?></a>
 <?php endforeach ?>
 <?php endif ?>
 <?php endif ?></p>
 <?php if ($inTrash > 0 || $trash): ?>
 <nav class="zalozky" aria-label="<?= e(t('Items')) ?>">
 	<a href="<?= e($module->url('items', ['id' => $k['idk']])) ?>"<?= $trash ? '' : ' class="aktivni" aria-current="true"' ?>><?= e(t('Všechny')) ?></a>
-	<a href="<?= e($module->url('items', ['id' => $k['idk'], 'stav' => 'kos'])) ?>"<?= $trash ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('Trash')) ?> (<?= $inTrash ?>)</a>
+	<a href="<?= e($module->url('items', ['id' => $k['idk'], 'status' => 'kos'])) ?>"<?= $trash ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('Trash')) ?> (<?= $inTrash ?>)</a>
 </nav>
 <?php endif ?>
 <?php if ($trash): ?>
@@ -72,7 +72,7 @@
 <?php foreach ($items as $p): ?>
 <tr<?= $p['zobrazit'] ? '' : ' class="nevydany"' ?>>
 	<td><input type="checkbox" name="oznacene[]" value="<?= (int) $p['idp'] ?>" form="hromadne" aria-label="<?= e(t('Select %s', $p['nazev'])) ?>"></td>
-	<td><a href="<?= e($module->url('item', ['id' => $k['idk'], 'polozka' => $p['idp']])) ?>"><?= e($p['nazev']) ?></a><?= $p['jazyk'] !== '' ? ' <span class="stitek">' . e(strtoupper($p['jazyk'])) . '</span>' : '' ?><?= $p['valid_until'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Hides itself the day after.')) . '">' . e(t('true until %s', format_date($p['valid_until']))) . '</span>' : '' ?><?= $p['review_by'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Asks for a review on this day.')) . '">' . e(t('review by %s', format_date($p['review_by']))) . '</span>' : '' ?></td>
+	<td><a href="<?= e($module->url('item', ['id' => $k['idk'], 'item' => $p['idp']])) ?>"><?= e($p['nazev']) ?></a><?= $p['jazyk'] !== '' ? ' <span class="stitek">' . e(strtoupper($p['jazyk'])) . '</span>' : '' ?><?= $p['valid_until'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Hides itself the day after.')) . '">' . e(t('true until %s', format_date($p['valid_until']))) . '</span>' : '' ?><?= $p['review_by'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Asks for a review on this day.')) . '">' . e(t('review by %s', format_date($p['review_by']))) . '</span>' : '' ?></td>
 	<td><?= (int) $p['poradi'] ?></td>
 <?php if ($downloads !== null): ?>
 	<td class="cislo stazeni"><?= (int) ($downloads[(int) $p['idp']][0] ?? 0) ?> / <?= (int) ($downloads[(int) $p['idp']][1] ?? 0) ?></td>

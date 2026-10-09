@@ -21,7 +21,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 ?>
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to overview')) ?></a>
 <?php if ($page['ids']): ?>
-	<a class="navigace" href="<?= e($app->url(($page['jazyk'] ?? '') !== '' ? $page['jazyk'] . '/' . ($home ? '' : $page['seo_link']) : ($home ? '' : $page['seo_link'])) . ($page['zobrazit'] ? '' : '?stavba=koncept')) ?>" target="_blank" rel="noopener"><?= e(t($page['zobrazit'] ? 'View on site' : 'Preview hidden page')) ?></a>
+	<a class="navigace" href="<?= e($app->url(($page['jazyk'] ?? '') !== '' ? $page['jazyk'] . '/' . ($home ? '' : $page['seo_link']) : ($home ? '' : $page['seo_link'])) . ($page['zobrazit'] ? '' : '?build=koncept')) ?>" target="_blank" rel="noopener"><?= e(t($page['zobrazit'] ? 'View on site' : 'Preview hidden page')) ?></a>
 <?php endif ?></p>
 <?php if (($page['stavba_koncept'] ?? null) !== null): ?>
 <p class="hlaska hlaska-varovani"><?= e(t(($page['stavba'] ?? null) !== null ? 'The builder has work-in-progress changes that are not on the site yet.' : 'You are building this page in the builder. The site still shows the text below – once you publish in the builder, the build replaces it.')) ?>

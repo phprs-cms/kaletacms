@@ -25,7 +25,7 @@ foreach ($parents as $parent) {
 <?php if ($languages !== []): ?>
 <nav class="zalozky" aria-label="<?= e(t('Language')) ?>">
 <?php foreach (['', ...$languages] as $code): ?>
-	<a href="<?= e($module->url('category', ['id' => $k['idk']] + ($category['id'] > 0 ? ['kategorie' => $category['id']] : []) + ($code !== '' ? ['jazyk' => $code] : []))) ?>"<?= $code === $language ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(Language::AVAILABLE[$code === '' ? Language::defaults($app->settings()) : $code][0]) ?><?= $category['id'] > 0 && !isset($category['texts'][$code]) ? ' +' : '' ?></a>
+	<a href="<?= e($module->url('category', ['id' => $k['idk']] + ($category['id'] > 0 ? ['category' => $category['id']] : []) + ($code !== '' ? ['language' => $code] : []))) ?>"<?= $code === $language ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(Language::AVAILABLE[$code === '' ? Language::defaults($app->settings()) : $code][0]) ?><?= $category['id'] > 0 && !isset($category['texts'][$code]) ? ' +' : '' ?></a>
 <?php endforeach ?>
 </nav>
 <?php endif ?>

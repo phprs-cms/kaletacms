@@ -694,7 +694,7 @@ final class Facts
         foreach ($db->all('SELECT p.idp, p.idk, p.nazev, p.popis, p.data, k.nazev AS kolekce FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE p.smazano IS NULL') as $i) {
             $values = json_decode((string) $i['data'], true);
             yield ['kind' => 'item', 'where' => $i['kolekce'] . ': ' . $i['nazev'], 'target' => ['collection' => (int) $i['idk'], 'item' => (int) $i['idp']],
-                'edit' => 'admin.php?module=collections&action=item&id=' . (int) $i['idk'] . '&polozka=' . (int) $i['idp'],
+                'edit' => 'admin.php?module=collections&action=item&id=' . (int) $i['idk'] . '&item=' . (int) $i['idp'],
                 'text' => $i['nazev'] . "\n" . $i['popis'] . "\n" . implode("\n", array_map(fn (mixed $v): string => is_scalar($v) ? (string) $v : '', is_array($values) ? $values : [])), 'build' => null];
         }
         foreach ($db->all('SELECT typ, jazyk, varianta, nazev, stavba FROM {casti}') as $c) {

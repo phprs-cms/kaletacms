@@ -51,23 +51,53 @@ final class Request
         return ($this->server['REQUEST_METHOD'] ?? 'GET') === 'POST';
     }
 
-    /** Whether the address has the query parameter at all (also with an empty value: ?varianta). */
+    /**
+     * Query parameters are English; these are the Czech names they had before this change (new name => former names). Links that
+     * already exist (e-mails sent, bookmarks, shared previews, List-Unsubscribe) keep working: get*() and has() fall back to the
+     * former name when the English one is missing. Kaleta itself only writes the English names. Never remove an entry.
+     */
+    public const LEGACY_QUERY = [
+        'preview_key' => ['nahled_klic'], 'preview_end' => ['nahled_konec'], 'preview' => ['nahled'], 'build' => ['stavba'],
+        'item' => ['polozka'], 'variant' => ['varianta'], 'result' => ['vysledek'], 'edit' => ['upravit', 'uprava', 'uprav'],
+        'page' => ['strana'], 'search' => ['hledat'], 'sort' => ['razeni'], 'file' => ['soubor'], 'translation_of' => ['preklad_z'],
+        'section' => ['sekce'], 'view' => ['pohled'], 'comment' => ['komentar'], 'unsubscribe' => ['odhlasit'], 'confirm' => ['potvrdit'],
+        'category' => ['kategorie', 'tema'], 'topic' => ['tema'], 'type' => ['typ'], 'key' => ['klic'], 'status' => ['stav'],
+        'language' => ['jazyk'], 'part' => ['cast'], 'location' => ['umisteni'], 'field' => ['pole'], 'new' => ['nova'],
+        'unused' => ['nepouzite'], 'staff' => ['osoba'], 'service' => ['sluzba'], 'user' => ['kdo'], 'area' => ['kde'],
+        'article' => ['clanek'], 'password' => ['heslo'], 'revision' => ['idr'], 'days' => ['dni'], 'parent' => ['nadrazena'],
+        'subscription' => ['odber'], 'quantity' => ['mnozstvi'], 'booking' => ['rezervace'], 'form' => ['formular'],
+        'error' => ['chyba'], 'product' => ['produkt'], 'sent' => ['odeslano'], 'from' => ['z'], 'path' => ['cesta'], 'template' => ['sablona'],
+    ];
+
+    /** The raw query value under the English name, or else under a former Czech one. */
+    private function raw(string $key): mixed
+    {
+        foreach ([$key, ...(self::LEGACY_QUERY[$key] ?? [])] as $name) {
+            if (array_key_exists($name, $this->query)) {
+                return $this->query[$name];
+            }
+        }
+
+        return null;
+    }
+
+    /** Whether the address has the query parameter at all (also with an empty value: ?variant). */
     public function has(string $key): bool
     {
-        return array_key_exists($key, $this->query);
+        return $this->raw($key) !== null;
     }
 
     /** Text value from GET; an array or a missing key returns the default value. */
     public function get(string $key, string $default = ''): string
     {
-        $value = $this->query[$key] ?? null;
+        $value = $this->raw($key);
 
         return is_string($value) ? trim($value) : $default;
     }
 
     public function getInt(string $key, int $default = 0): int
     {
-        $value = $this->query[$key] ?? null;
+        $value = $this->raw($key);
 
         return is_string($value) && preg_match('/^-?\d{1,18}$/', $value) ? (int) $value : $default;
     }
@@ -158,14 +188,14 @@ final class Request
 
     /**
      * Request path inside the installation, always starts with a slash: "/novinky/muj-titulek".
-     * Without mod_rewrite the form index.php?cesta=/novinky/muj-titulek works too.
+     * Without mod_rewrite the form index.php?path=/novinky/muj-titulek works too.
      */
     public function path(): string
     {
         if ($this->path !== null) {
             return $this->path;
         }
-        $fallback = $this->get('cesta');
+        $fallback = $this->get('path');
         if ($fallback !== '') {
             return '/' . trim($fallback, '/');
         }

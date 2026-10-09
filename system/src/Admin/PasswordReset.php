@@ -121,7 +121,7 @@ final class PasswordReset
                 // whoever resets the password may have lost the account: connection tokens (MCP) stop being valid
                 $app->db()->delete('api_tokeny', ['idu' => $user['idu']]);
                 ChangeLog::write($app, 'prihlaseni', 'obnova-hesla', t('password changed, connection tokens revoked, account: %s', (string) $user['user']));
-                return Response::redirect($app->url('admin.php?heslo=zmeneno'));
+                return Response::redirect($app->url('admin.php?password=zmeneno'));
             }
         }
 

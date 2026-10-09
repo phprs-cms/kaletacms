@@ -158,7 +158,7 @@ check "3.2: System status is its own screen" 200 "/admin.php?module=status" "Cro
 check "3.2: Claude settings hold the instructions and the guardrails" 200 "/admin.php?module=claude_settings" 'name="claude_instructions"'
 check "3.2: Business details show the hub tabs" 200 "/admin.php?module=facts" 'zalozky-hub'
 check "3.2: the menu leads to the hubs" 200 "/admin.php" "module=claude_settings"
-expect "3.2: Business details refuse the actions of Settings it does not offer" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=business&action=download_backup&soubor=x")" 404
+expect "3.2: Business details refuse the actions of Settings it does not offer" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=business&action=download_backup&file=x")" 404
 # 3.3.2 (N41): the cron and monitoring tokens change only from System status – not through Business details, which editors share
 "${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('tasks_token', 'before-n41'), ('health_token', 'before-n41')"
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=business"
@@ -211,7 +211,7 @@ curl -s -b "$JAR2" -c "$JAR2" -o /dev/null -X POST "$B/admin.php?module=news&act
   --data-urlencode 'uvod=<p onmouseover="alert(1)">Perex</p><script>alert(2)</script>' --data-urlencode 'text=<p><img src=x onerror=alert(3)><a href="javascript:alert(4)">odkaz</a></p>'
 expect "autor nevloží do novinky skript" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(uvod, text) REGEXP 'script|onerror|onmouseover|javascript' FROM ka_novinky WHERE titulek = 'XSS-test'")" "0"
 check "editor vidí na přehledu novinky od autorů, které čekají na vydání" 200 /admin.php "Novinky od autorů čekají na vydání"
-check "výpis novinek: filtr Čekají na vydání" 200 "/admin.php?module=news&stav=ke_vydani" "XSS-test"
+check "výpis novinek: filtr Čekají na vydání" 200 "/admin.php?module=news&status=ke_vydani" "XSS-test"
 
 echo "== firma"
 check "nastavení/firma" 200 "/admin.php?module=business" 'name="company_hours"'
@@ -263,8 +263,8 @@ grep -q '"konflikt":true' "$WORK/response" && grep -q 'Builder test' "$WORK/resp
 expect "publikování z cizí verze odmítnuto" "$(page_action build_publish -d verze=0000000000000000)" 409
 expect "přepsání cizí verze na přání" "$(page_action build_save -d verze=0000000000000000 -d prepsat=1 --data-urlencode "stavba=$BUILD")" 200
 expect "builder bez CSRF odmítnut" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php?module=pages&action=build_save&id=$IDS" --data-urlencode "stavba=$BUILD")" 400
-expect "knihovna sekcí jen přes POST" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=pages&action=build_section&id=$IDS&klic=faq")" 404
-code=$(page_action "build_section&klic=vyhody"); [ "$code" = 200 ] && grep -q '"karta"' "$WORK/response" && echo "  ok     sekce z knihovny založí své třídy" || { echo "  CHYBA  stavba_sekce: kód $code"; ERRORS=$((ERRORS+1)); }
+expect "knihovna sekcí jen přes POST" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=pages&action=build_section&id=$IDS&key=faq")" 404
+code=$(page_action "build_section&key=vyhody"); [ "$code" = 200 ] && grep -q '"karta"' "$WORK/response" && echo "  ok     sekce z knihovny založí své třídy" || { echo "  CHYBA  stavba_sekce: kód $code"; ERRORS=$((ERRORS+1)); }
 code=$(page_action build_class -d nazev=karta --data-urlencode 'styl={"zaklad":{"pozadi":"plocha","odsazeni_y":"l"}}' --data-urlencode 'css=letter-spacing: 0.01em; background: url(x)')
 [ "$code" = 200 ] && grep -q 'Nepovolená deklarace' "$WORK/response" && echo "  ok     třída uložena, nebezpečné CSS zahozeno" || { echo "  CHYBA  stavba_trida: kód $code"; ERRORS=$((ERRORS+1)); }
 expect "neplatný název třídy odmítnut" "$(page_action build_class -d 'nazev=Karta Velka')" 400
@@ -272,12 +272,13 @@ expect "a change of an existing class in the builder goes to the draft look" "$(
 publish_look
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/o-nas"; ! grep -q "Builder test" "$WORK/response" && echo "  ok     koncept není před publikováním na webu" || { echo "  CHYBA  koncept je na webu dřív, než se publikuje"; ERRORS=$((ERRORS+1)); }
-check "náhled konceptu pro editor" 200 "/o-nas?stavba=koncept&editor=1" 'data-ka-id="nad1"'
-check "náhled konceptu se neindexuje" 200 "/o-nas?stavba=koncept" 'noindex'
-curl -s -o "$WORK/response" "$B/o-nas?stavba=koncept&editor=1"; ! grep -q "Builder test" "$WORK/response" && echo "  ok     náhled konceptu nevidí návštěvník" || { echo "  CHYBA  koncept vidí nepřihlášený"; ERRORS=$((ERRORS+1)); }
+check "náhled konceptu pro editor" 200 "/o-nas?build=koncept&editor=1" 'data-ka-id="nad1"'
+check "náhled konceptu se neindexuje" 200 "/o-nas?build=koncept" 'noindex'
+curl -s -o "$WORK/response" "$B/o-nas?build=koncept&editor=1"; ! grep -q "Builder test" "$WORK/response" && echo "  ok     náhled konceptu nevidí návštěvník" || { echo "  CHYBA  koncept vidí nepřihlášený"; ERRORS=$((ERRORS+1)); }
 code=$(page_action build_share -d dni=3); SHARED_LINK=$(php -r 'echo json_decode((string) file_get_contents($argv[1]))->odkaz ?? "";' "$WORK/response")
 curl -s -o "$WORK/response" "$SHARED_LINK"
-[ "$code" = 200 ] && [[ "$SHARED_LINK" == "$B/o-nas?stavba=koncept&nahled_klic="* ]] && grep -q "Builder test" "$WORK/response" && ! grep -q 'data-ka-id' "$WORK/response" && echo "  ok     sdílený odkaz ukáže koncept bez přihlášení a bez značek editoru" || { echo "  CHYBA  stavba_sdilet: kód $code, odkaz $SHARED_LINK"; ERRORS=$((ERRORS+1)); }
+[ "$code" = 200 ] && [[ "$SHARED_LINK" == "$B/o-nas?build=koncept&preview_key="* ]] && grep -q "Builder test" "$WORK/response" && ! grep -q 'data-ka-id' "$WORK/response" && echo "  ok     sdílený odkaz ukáže koncept bez přihlášení a bez značek editoru" || { echo "  CHYBA  stavba_sdilet: kód $code, odkaz $SHARED_LINK"; ERRORS=$((ERRORS+1)); }
+OLD_QUERY="stavba=koncept&nahled_klic="; curl -s -o "$WORK/response" "${SHARED_LINK/build=koncept&preview_key=/"$OLD_QUERY"}"; grep -q "Builder test" "$WORK/response" && echo "  ok     an old shared preview link (stavba=, nahled_klic=) still opens the draft" || { echo "  CHYBA  old preview link"; ERRORS=$((ERRORS+1)); }
 code=$(page_action build_publish); expect "publikování stavby" "$code" 200
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/o-nas"
@@ -386,8 +387,8 @@ PREVIEW=$(php -r '$j = json_decode(json_decode(file_get_contents($argv[1]), true
 curl -s -o "$WORK/response" -w '%{http_code}' "$PREVIEW" > "$WORK/kod"; grep -q 'Opraveno' "$WORK/response" && grep -q 'noindex' "$WORK/response" && [ "$(cat "$WORK/kod")" = 200 ] \
     && echo "  ok     podepsaný náhled konceptu skryté stránky bez přihlášení" || { echo "  CHYBA  podepsaný náhled ($(cat "$WORK/kod"))"; ERRORS=$((ERRORS+1)); }
 expect "náhled s cizím nebo pozměněným klíčem nejde" "$(curl -s -o /dev/null -w '%{http_code}' "${PREVIEW%?}x")" 404
-expect "klíč náhledu jedné stránky neotevře jinou" "$(curl -s -o /dev/null -w '%{http_code}' "$B/z-html?stavba=koncept&nahled_klic=${PREVIEW##*nahled_klic=}" | tr -d '\n'; curl -s "$B/z-html?stavba=koncept&nahled_klic=${PREVIEW##*nahled_klic=}" | grep -c 'Opraveno')" "2000"
-mcp nahled_odkaz '{"cast":"paticka"}' > "$WORK/response"; grep -q 'cast=paticka&stavba=koncept&nahled_klic=' "$WORK/response" && echo "  ok     MCP: odkaz na náhled části webu" || { echo "  CHYBA  MCP nahled_odkaz"; ERRORS=$((ERRORS+1)); }
+expect "klíč náhledu jedné stránky neotevře jinou" "$(curl -s -o /dev/null -w '%{http_code}' "$B/z-html?build=koncept&preview_key=${PREVIEW##*preview_key=}" | tr -d '\n'; curl -s "$B/z-html?build=koncept&preview_key=${PREVIEW##*preview_key=}" | grep -c 'Opraveno')" "2000"
+mcp nahled_odkaz '{"cast":"paticka"}' > "$WORK/response"; grep -q 'part=paticka&build=koncept&preview_key=' "$WORK/response" && echo "  ok     MCP: odkaz na náhled části webu" || { echo "  CHYBA  MCP nahled_odkaz"; ERRORS=$((ERRORS+1)); }
 mcp uloz_tridy '{"css":".stitek-t { padding: var(--ka-mezera-2xs) var(--ka-mezera-s); border-radius: var(--ka-zaobleni) } @media (max-width: 1023px) { .stitek-t { font-size: var(--ka-krok--1) } }"}' > "$WORK/response"
 mcp uloz_tridy '{"css":".stitek-t:hover { background-color: #ffe3dc }"}' > /dev/null
 mcp seznam_trid '{"nazev":"stitek-t"}' > "$WORK/response"; grep -q 'velikost_pisma\\":\\"-1' "$WORK/response" && grep -q 'hover' "$WORK/response" && grep -q 'border-radius' "$WORK/response" && echo "  ok     MCP: sdílená třída z CSS i se stavem tablet" || { echo "  CHYBA  MCP uloz_tridy"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
@@ -465,20 +466,20 @@ slug_q "DELETE FROM ka_presmerovani WHERE z_adresy LIKE '%old-wp-post'; UPDATE k
 
 echo "== části webu v builderu"
 check "části webu" 200 "/admin.php?module=parts" "Záhlaví"
-check "záhlaví se otevře v builderu s koncept podle šablony" 200 "/admin.php?module=parts&action=builder&typ=hlavicka&jazyk=" 'id="stavitel-data"'
+check "záhlaví se otevře v builderu s koncept podle šablony" 200 "/admin.php?module=parts&action=builder&type=hlavicka&language=" 'id="stavitel-data"'
 contains -q '"pri_rolovani":{"typ"' "$WORK/response" && echo "  ok     3.6 UXA-12: the header part offers the header options" || { echo "  CHYBA  3.6 UXA-12: the header part lost its header options"; ERRORS=$((ERRORS+1)); }
 TOKEN=$(csrf)
-part_action() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=parts&action=$1&typ=$2&jazyk=" -d "_csrf=$TOKEN" "${@:3}"; }
+part_action() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=parts&action=$1&type=$2&language=" -d "_csrf=$TOKEN" "${@:3}"; }
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/o-nas"; grep -q 'header class="hlavicka"' "$WORK/response" && ! grep -q 'ka-nav' "$WORK/response" && echo "  ok     nepublikované záhlaví kreslí šablona" || { echo "  CHYBA  nepublikované záhlaví je na webu"; ERRORS=$((ERRORS+1)); }
-check "náhled konceptu záhlaví pro editor" 200 "/o-nas?cast=hlavicka&stavba=koncept&editor=1" 'data-ka-typ="navigace"'
-curl -s -o "$WORK/response" "$B/o-nas?cast=hlavicka&stavba=koncept&editor=1"; ! grep -q 'data-ka-typ' "$WORK/response" && echo "  ok     náhled části nevidí návštěvník" || { echo "  CHYBA  koncept části vidí nepřihlášený"; ERRORS=$((ERRORS+1)); }
+check "náhled konceptu záhlaví pro editor" 200 "/o-nas?part=hlavicka&build=koncept&editor=1" 'data-ka-typ="navigace"'
+curl -s -o "$WORK/response" "$B/o-nas?part=hlavicka&build=koncept&editor=1"; ! grep -q 'data-ka-typ' "$WORK/response" && echo "  ok     náhled části nevidí návštěvník" || { echo "  CHYBA  koncept části vidí nepřihlášený"; ERRORS=$((ERRORS+1)); }
 expect "publikování záhlaví" "$(part_action build_publish hlavicka)" 200
 curl -s -o "$WORK/response" "$B/o-nas"
 grep -q 'class="ka-nav"' "$WORK/response" && ! grep -q 'header class="hlavicka"' "$WORK/response" && grep -q 'href="/o-nas" aria-current="page"' "$WORK/response" && echo "  ok     záhlaví z builderu na webu s aktivní položkou menu" || { echo "  CHYBA  záhlaví z builderu"; ERRORS=$((ERRORS+1)); }
 [ "$(grep -o '<style>' "$WORK/response" | wc -l | tr -d ' ')" = 1 ] && [ "$(grep -o '@layer stavitel {' "$WORK/response" | wc -l | tr -d ' ')" = 1 ] && echo "  ok     stránka a části webu mají jedno CSS" || { echo "  CHYBA  CSS částí webu se opakuje"; ERRORS=$((ERRORS+1)); }
 WRAPPER='{"v":1,"deti":[{"id":"obs1","typ":"obsah"},{"id":"sek9","typ":"sekce","deti":[{"id":"nad9","typ":"nadpis","obsah":{"text":"Pod článkem"}}]}]}'
-check "obálka novinky v builderu" 200 "/admin.php?module=parts&action=builder&typ=novinka&jazyk=" 'id="stavitel-data"'
+check "obálka novinky v builderu" 200 "/admin.php?module=parts&action=builder&type=novinka&language=" 'id="stavitel-data"'
 part_action build_save novinka --data-urlencode "stavba=$WRAPPER" > /dev/null; part_action build_publish novinka > /dev/null
 curl -s -o "$WORK/response" "$B/novinky/vitejte-v-kalete"; grep -q 'Pod článkem' "$WORK/response" && grep -q '<main id="obsah" class="stavba" tabindex="-1">' "$WORK/response" && grep -q 'class="obal obsah"' "$WORK/response" && grep -q 'Vítejte' "$WORK/response" && echo "  ok     obálka kolem novinky" || { echo "  CHYBA  obálka novinky"; ERRORS=$((ERRORS+1)); }
 part_action build_save hlavicka --data-urlencode 'stavba={"v":1,"deti":[{"typ":"sekce","znacka":"header","deti":[{"typ":"logo"}]}]}' > /dev/null; part_action build_publish hlavicka > /dev/null
@@ -516,24 +517,24 @@ grep -q 'method="post" action="/form"' "$WORK/formular.html" && ! grep -q 'actio
 submit_form() { curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/form" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d zpet=/kontakt -d "as_cas=$FORM_TIME" -d "as_podpis=$FORM_SIGNATURE" "$@"; }
 # too fast a submit (autofill): its own code and the message „počkejte chvilku“ (wait a moment), not „nepodařilo se ověřit“ (could not verify)
 NOW=$(date +%s); FAST_SIGNATURE=$(php -r 'echo hash_hmac("sha256", $argv[1], $argv[2]);' "formular|$FORM_SOURCE|$FORM_ELEMENT|$NOW" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'secret_key'")")
-case "$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d zpet=/kontakt -d "as_cas=$NOW" -d "as_podpis=$FAST_SIGNATURE" -d p0=A -d p1=a@example.cz -d p3=x -d p4=1)" in *vysledek=rychle*) echo "  ok     příliš rychlé odeslání má vlastní výsledek";; *) echo "  CHYBA  příliš rychlé odeslání formuláře"; ERRORS=$((ERRORS+1));; esac
-check "hlášení po příliš rychlém odeslání radí počkat" 200 "/kontakt?formular=$FORM_ELEMENT&vysledek=rychle" "Počkejte prosím chvilku a odešlete ho znovu"
+case "$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d zpet=/kontakt -d "as_cas=$NOW" -d "as_podpis=$FAST_SIGNATURE" -d p0=A -d p1=a@example.cz -d p3=x -d p4=1)" in *result=rychle*) echo "  ok     příliš rychlé odeslání má vlastní výsledek";; *) echo "  CHYBA  příliš rychlé odeslání formuláře"; ERRORS=$((ERRORS+1));; esac
+check "hlášení po příliš rychlém odeslání radí počkat" 200 "/kontakt?form=$FORM_ELEMENT&result=rychle" "Počkejte prosím chvilku a odešlete ho znovu"
 grep -q 'type="text" autocomplete="name"' "$WORK/formular.html" && grep -q 'type="tel" autocomplete="tel" maxlength="30" pattern="' "$WORK/formular.html" && echo "  ok     jméno s automatickým vyplněním, telefon s kontrolou v prohlížeči" || { echo "  CHYBA  autocomplete jména nebo vzor telefonu"; ERRORS=$((ERRORS+1)); }
 grep -q 'name="as_cas" value="[0-9]*" data-cekat="4"' "$WORK/formular.html" && echo "  ok     formulář nese minimální dobu pro odložené odeslání" || { echo "  CHYBA  data-cekat u formuláře"; ERRORS=$((ERRORS+1)); }
 sleep 4
 location=$(submit_form -H "Referer: $B/kontakt?utm_source=newsletter&utm_medium=email&utm_campaign=jaro" -d p0=Jana --data-urlencode p1=jana@example.cz -d p2= --data-urlencode "p3=Chci kuchyň na míru." -d p4=1)
-case "$location" in *"/kontakt?formular=$FORM_ELEMENT&vysledek=ok#"*"$FORM_ELEMENT") echo "  ok     odeslání formuláře";; *) echo "  CHYBA  odeslání formuláře: $location"; ERRORS=$((ERRORS+1));; esac
+case "$location" in *"/kontakt?form=$FORM_ELEMENT&result=ok#"*"$FORM_ELEMENT") echo "  ok     odeslání formuláře";; *) echo "  CHYBA  odeslání formuláře: $location"; ERRORS=$((ERRORS+1));; esac
 expect "poptávka uložena" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(COUNT(*), '/', MAX(email), '/', MAX(stav)) FROM ka_poptavky")" "1/jana@example.cz/0"
 expect "webhook: new enquiry delivered after the response, signed" "$(hook_check 1)|$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(event, '/', status, '/', delivered IS NOT NULL, '/', body IS NULL) FROM ka_webhook_deliveries")" "nova_poptavka|signed|/crm|nova_poptavka/204/1/1"
 grep -q 'email.":."jana@example.cz' "$WORK/hook/calls.log" && echo "  ok     webhook: the enquiry data are in the body" || { echo "  CHYBA  webhook body: $(cat "$WORK/hook/calls.log")"; ERRORS=$((ERRORS+1)); }
 expect "poptávka nese kampaň z utm_* stránky s formulářem" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT kampan FROM ka_poptavky")" "utm_source=newsletter&utm_medium=email&utm_campaign=jaro"
-case "$(submit_form -d p0=Jana -d p1=neni-email -d p3=x -d p4=1)" in *vysledek=pole\&pole=1*) echo "  ok     neplatný e-mail odmítnut s číslem pole";; *) echo "  CHYBA  validace e-mailu"; ERRORS=$((ERRORS+1));; esac
-curl -s -o "$WORK/response" "$B/kontakt?formular=$FORM_ELEMENT&vysledek=pole&pole=1"
+case "$(submit_form -d p0=Jana -d p1=neni-email -d p3=x -d p4=1)" in *result=pole\&field=1*) echo "  ok     neplatný e-mail odmítnut s číslem pole";; *) echo "  CHYBA  validace e-mailu"; ERRORS=$((ERRORS+1));; esac
+curl -s -o "$WORK/response" "$B/kontakt?form=$FORM_ELEMENT&result=pole&field=1"
 grep -q 'aria-invalid="true" aria-describedby="f-'"$FORM_ELEMENT"'-1-chyba"' "$WORK/response" && grep -q 'data-obnovit' "$WORK/response" && echo "  ok     chybné pole je označené a vyplněné hodnoty se obnoví" || { echo "  CHYBA  označení chybného pole"; ERRORS=$((ERRORS+1)); }
-case "$(submit_form -d p0=Jana --data-urlencode p1=jana@example.cz -d p3=x)" in *vysledek=pole*) echo "  ok     chybějící souhlas odmítnut";; *) echo "  CHYBA  povinný souhlas"; ERRORS=$((ERRORS+1));; esac
+case "$(submit_form -d p0=Jana --data-urlencode p1=jana@example.cz -d p3=x)" in *result=pole*) echo "  ok     chybějící souhlas odmítnut";; *) echo "  CHYBA  povinný souhlas"; ERRORS=$((ERRORS+1));; esac
 submit_form -d p0=Robot --data-urlencode p1=r@example.cz -d p3=spam -d p4=1 -d web_adresa=http://spam.example > /dev/null
-case "$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d zpet=/kontakt -d "as_cas=$FORM_TIME" -d as_podpis=podvrh -d p0=A -d p1=a@example.cz -d p3=x -d p4=1)" in *vysledek=overeni*) echo "  ok     podvržený podpis odmítnut";; *) echo "  CHYBA  podpis formuláře"; ERRORS=$((ERRORS+1));; esac
-case "$(submit_form -d zdroj=stranka:999 -d p0=A)" in *formular=*) echo "  CHYBA  neexistující formulář přijat"; ERRORS=$((ERRORS+1));; *) echo "  ok     neexistující formulář nic neuloží";; esac
+case "$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d zpet=/kontakt -d "as_cas=$FORM_TIME" -d as_podpis=podvrh -d p0=A -d p1=a@example.cz -d p3=x -d p4=1)" in *result=overeni*) echo "  ok     podvržený podpis odmítnut";; *) echo "  CHYBA  podpis formuláře"; ERRORS=$((ERRORS+1));; esac
+case "$(submit_form -d zdroj=stranka:999 -d p0=A)" in *form=*) echo "  CHYBA  neexistující formulář přijat"; ERRORS=$((ERRORS+1));; *) echo "  ok     neexistující formulář nic neuloží";; esac
 expect "robot ani chyby poptávku nepřidaly" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_poptavky")" 1
 IDP=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idp FROM ka_poptavky")
 check "poptávky v administraci" 200 "/admin.php?module=enquiries" "jana@example.cz"
@@ -541,7 +542,7 @@ check "detail poptávky" 200 "/admin.php?module=enquiries&action=detail&id=$IDP"
 grep -q '>Tester</option>' "$WORK/response" && ! grep -q '>Autor</option>' "$WORK/response" && echo "  ok     poptávku vyřizuje jen ten, kdo má přístup k Poptávkám" || { echo "  CHYBA  výběr Vyřizuje nabízí uživatele bez přístupu k Poptávkám"; ERRORS=$((ERRORS+1)); }
 expect "otevřená poptávka je přečtená" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT stav FROM ka_poptavky")" 1
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=enquiries&action=csv"; grep -q 'Chci kuchyň na míru.' "$WORK/response" && echo "  ok     export poptávek do CSV" || { echo "  CHYBA  CSV poptávek"; ERRORS=$((ERRORS+1)); }
-check "poděkování po odeslání (na místě formuláře)" 200 "/kontakt?formular=$FORM_ELEMENT&vysledek=ok" 'class="ka-formular-hotovo"'
+check "poděkování po odeslání (na místě formuláře)" 200 "/kontakt?form=$FORM_ELEMENT&result=ok" 'class="ka-formular-hotovo"'
 
 echo "== kolekce"
 check "kolekce" 200 "/admin.php?module=collections" "Kolekce"
@@ -607,7 +608,7 @@ grep -q '<h1>Profile: Zdenek Zeman EN</h1>' "$WORK/response" && grep -q 'href="/
 grep -q 'class="logo"[^>]*><img src="/image/kaleta-logo.svg"' "$WORK/response" && ! grep -q 'src="/en/image/' "$WORK/response" && echo "  ok     logo a obrázky šablony na jazykové verzi bez předpony jazyka" || { echo "  CHYBA  adresa loga s předponou jazyka"; ERRORS=$((ERRORS+1)); }
 expect "verze šablony jazyka zvlášť" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_stavba_revize WHERE cast = 'kolekce:$IDK:en'")" 1
 mcp seznam_stranek '{}' | contains 'en\\/team' && echo "  ok     MCP: seznam stránek ukazuje adresu s předponou jazyka" || { echo "  CHYBA  MCP adresa stránky jazykové verze"; ERRORS=$((ERRORS+1)); }
-check "šablona detailu jazyka v builderu" 200 "/admin.php?module=collections&action=builder&id=$IDK&jazyk=en" 'en\/tym\/zdenek'
+check "šablona detailu jazyka v builderu" 200 "/admin.php?module=collections&action=builder&id=$IDK&language=en" 'en\/tym\/zdenek'
 # translation via MCP: the page as a copy of the original's build, texts by id, the language's header and footer start as a copy of the default one
 mcp vytvor_stranku '{"titulek":"Bez originalu","adresa":"bez-originalu","kopie_stavby":true}' | contains 'potřebuje preklad_z' \
   && expect "kopie stavby bez originálu stránku nezaloží" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_stranky WHERE seo_link = 'bez-originalu'")" 0 || { echo "  CHYBA  kopie stavby bez preklad_z"; ERRORS=$((ERRORS+1)); }
@@ -661,8 +662,8 @@ check "2.4: settings tab links to its guide article" 200 "/admin.php?module=sett
 check "2.4: dashboard links to the guide" 200 "/admin.php" 'guide/first-steps#the-dashboard'
 component_action build_save --data-urlencode 'stavba={"v":1,"deti":[{"id":"kse1","typ":"sekce","deti":[{"id":"kna1","typ":"nadpis","znacka":"h3","obsah":{"text":"{{nadpis}}"},"styl":{"zaklad":{"barva":"primarni"}}},{"typ":"tlacitko","obsah":{"text":"Více","odkaz":"{{odkaz}}"}},{"typ":"komponenta","obsah":{"komponenta":"'"$IDM"'"}}]}]}' > /dev/null
 expect "publikování komponenty" "$(component_action build_publish)" 200
-check "náhled komponenty pro editor" 200 "/_komponenta/$IDM?stavba=koncept&editor=1" "Výchozí nadpis"
-check "3.7: the component preview at /_component" 200 "/_component/$IDM?stavba=koncept&editor=1" "Výchozí nadpis"
+check "náhled komponenty pro editor" 200 "/_komponenta/$IDM?build=koncept&editor=1" "Výchozí nadpis"
+check "3.7: the component preview at /_component" 200 "/_component/$IDM?build=koncept&editor=1" "Výchozí nadpis"
 mcp stavba_uloz "{\"id\":$IDZ,\"publikovat\":true,\"stavba\":{\"v\":1,\"deti\":[{\"typ\":\"komponenta\",\"obsah\":{\"komponenta\":\"$IDM\",\"hodnoty\":{\"nadpis\":\"První <b>karta</b>\",\"odkaz\":\"javascript:alert(1)\"}}},{\"typ\":\"komponenta\",\"obsah\":{\"komponenta\":\"$IDM\"}}]}}" > /dev/null
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" -w '' "$B/z-html"
@@ -677,7 +678,7 @@ component_action build_save --data-urlencode 'stavba={"v":1,"deti":[{"id":"kse1"
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/formular.html" "$B/z-html"
 location=$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$(field_value zdroj)" -d prvek=kfo1 -d zpet=/z-html -d "as_cas=$(field_value as_cas)" -d "as_podpis=$(field_value as_podpis)")
-case "$location" in *"formular=kfo1"*) echo "  ok     formulář v komponentě se odešle";; *) echo "  CHYBA  formulář v komponentě: $location"; ERRORS=$((ERRORS+1));; esac
+case "$location" in *"form=kfo1"*) echo "  ok     formulář v komponentě se odešle";; *) echo "  CHYBA  formulář v komponentě: $location"; ERRORS=$((ERRORS+1));; esac
 code=$(curl -s -b "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=components&action=from_element" -d "_csrf=$TOKEN" --data-urlencode "nazev=Výzva" --data-urlencode 'prvek={"typ":"sekce","deti":[{"typ":"nadpis","obsah":{"text":"Zavolejte nám"}}]}')
 [ "$code" = 200 ] && grep -q '"ok":true' "$WORK/response" && echo "  ok     uložení prvku jako komponenty" || { echo "  CHYBA  z_prvku: $code"; ERRORS=$((ERRORS+1)); }
 
@@ -686,11 +687,11 @@ check "3.7: the section preview at /_section" 200 /_section/cenik "Vyberte si ba
 expect "náhled sekce jen pro přihlášené" "$(curl -s -o /dev/null -w '%{http_code}' "$B/_sekce/cenik")" 404
 
 echo "== varianty záhlaví"
-check "formulář varianty" 200 "/admin.php?module=parts&action=variant&typ=hlavicka&jazyk=" 'Název varianty'
+check "formulář varianty" 200 "/admin.php?module=parts&action=variant&type=hlavicka&language=" 'Název varianty'
 TOKEN=$(csrf)
-location=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?module=parts&action=save_variant&typ=hlavicka&jazyk=" -d "_csrf=$TOKEN" --data-urlencode "nazev=Landing page" -d "stranky[]=$IDZ")
-case "$location" in *"varianta=landing-page"*) echo "  ok     varianta založena a otevřena v builderu";; *) echo "  CHYBA  založení varianty: $location"; ERRORS=$((ERRORS+1));; esac
-variant_action() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=parts&action=$1&typ=hlavicka&jazyk=&varianta=landing-page" -d "_csrf=$TOKEN" "${@:2}"; }
+location=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?module=parts&action=save_variant&type=hlavicka&language=" -d "_csrf=$TOKEN" --data-urlencode "nazev=Landing page" -d "stranky[]=$IDZ")
+case "$location" in *"variant=landing-page"*) echo "  ok     varianta založena a otevřena v builderu";; *) echo "  CHYBA  založení varianty: $location"; ERRORS=$((ERRORS+1));; esac
+variant_action() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=parts&action=$1&type=hlavicka&language=&variant=landing-page" -d "_csrf=$TOKEN" "${@:2}"; }
 variant_action build_save --data-urlencode 'stavba={"v":1,"deti":[]}' > /dev/null
 expect "publikování varianty" "$(variant_action build_publish)" 200
 rm -f "$WORK"/web/storage/cache/stranky/*.html
@@ -706,7 +707,7 @@ mcp uloz_variantu "{\"cast\":\"paticka\",\"nazev\":\"Kampaň\",\"stranky\":[$IDZ
 expect "MCP: varianta patičky založena" "$VARIANT|$(mcp_value stranky)" "kampan|[$IDZ]"
 mcp stavba_uloz "{\"cast\":\"paticka\",\"varianta\":\"$VARIANT\",\"stavba\":{\"v\":1,\"deti\":[{\"typ\":\"sekce\",\"znacka\":\"footer\",\"deti\":[{\"typ\":\"nadpis\",\"znacka\":\"p\",\"obsah\":{\"text\":\"Paticka kampane\"}}]}]}}" > "$WORK/response"
 VARIANT_PREVIEW=$(mcp_value nahled); curl -s -o "$WORK/response" "$VARIANT_PREVIEW"
-[[ "$VARIANT_PREVIEW" == *"varianta=$VARIANT"* ]] && grep -q 'Paticka kampane' "$WORK/response" && echo "  ok     MCP: podepsaný náhled konceptu varianty" || { echo "  CHYBA  náhled varianty: $VARIANT_PREVIEW"; ERRORS=$((ERRORS+1)); }
+[[ "$VARIANT_PREVIEW" == *"variant=$VARIANT"* ]] && grep -q 'Paticka kampane' "$WORK/response" && echo "  ok     MCP: podepsaný náhled konceptu varianty" || { echo "  CHYBA  náhled varianty: $VARIANT_PREVIEW"; ERRORS=$((ERRORS+1)); }
 mcp publikuj_stavbu "{\"cast\":\"paticka\",\"varianta\":\"$VARIANT\"}" > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/z-html"; grep -q 'Paticka kampane' "$WORK/response" && ! curl -s "$B/kontakt" | contains 'Paticka kampane' && echo "  ok     MCP: publikovaná varianta patičky jen na vybrané stránce" || { echo "  CHYBA  varianta patičky z MCP"; ERRORS=$((ERRORS+1)); }
 mcp uloz_variantu "{\"cast\":\"paticka\",\"varianta\":\"$VARIANT\",\"smazat\":true}" > /dev/null
@@ -749,9 +750,9 @@ mcp uloz_variantu "{\"cast\":\"paticka\",\"varianta\":\"z-stranka\",\"smazat\":t
 expect "3.6: without the page variant the page under the parent takes the rule variant" "$(footer_on /o-nas/pod-onas)" "Paticka-pravidel"
 mcp seznam_casti '{}' > "$WORK/response"
 [[ "$(mcp_value)" == *'"varianta":"a-pravidla"'*'"novinky":true'*"\"nadrazene\":[$IDS]"* ]] && echo "  ok     3.6 MCP: list_site_parts (Czech alias) shows the rules" || { echo "  CHYBA  3.6 seznam_casti rules: $(mcp_value)"; ERRORS=$((ERRORS+1)); }
-check "3.6: the variant form offers kinds of content" 200 "/admin.php?module=parts&action=variant&typ=paticka&jazyk=&varianta=a-pravidla" 'name="nadrazene\[\]"'
+check "3.6: the variant form offers kinds of content" 200 "/admin.php?module=parts&action=variant&type=paticka&language=&variant=a-pravidla" 'name="nadrazene\[\]"'
 TOKEN=$(csrf)
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=parts&action=save_variant&typ=paticka&jazyk=" -d "_csrf=$TOKEN" -d varianta=a-pravidla --data-urlencode "nazev=A pravidla" -d vypis=1 -d "kolekce[]=reference" -d "kolekce[]=Spatna adresa!"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=parts&action=save_variant&type=paticka&language=" -d "_csrf=$TOKEN" -d varianta=a-pravidla --data-urlencode "nazev=A pravidla" -d vypis=1 -d "kolekce[]=reference" -d "kolekce[]=Spatna adresa!"
 expect "3.6 admin: rules saved from the form (news list, a collection; a bad slug dropped; unticked news items off)" "$(sq "SELECT pravidla FROM ka_casti WHERE varianta = 'a-pravidla'")" '{"novinky":false,"vypis":true,"kolekce":["reference"],"nadrazene":[]}'
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 expect "3.6: the news list takes the variant now, a news item no longer" "$(footer_on /novinky)|$(footer_on /novinky/vitejte-v-kalete)" "Paticka-pravidel|"
@@ -853,7 +854,7 @@ mcp create_collection '{"name":"Kos test","fields":[{"label":"Popis","type":"tex
 mcp save_collection_item '{"collection":"kos-test","name":"Polozka","visible":true}' > "$WORK/response"; ITEM=$(mcp_value id)
 mcp delete_collection_item "{\"collection\":\"kos-test\",\"id\":$ITEM}" > /dev/null
 expect "MCP: a collection item goes to the trash, hidden" "$(sq "SELECT CONCAT(smazano IS NOT NULL, zobrazit) FROM ka_kolekce_polozky WHERE idp = $ITEM")" "10"
-check "collection trash in the admin" 200 "/admin.php?module=collections&action=items&id=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'kos-test'")&stav=kos" "Polozka"
+check "collection trash in the admin" 200 "/admin.php?module=collections&action=items&id=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'kos-test'")&status=kos" "Polozka"
 mcp list_trash '{}' > "$WORK/response"
 expect "MCP: list_trash shows the item" "$(mcp_value collection_items 0 name)" "Polozka"
 mcp save_collection_item "{\"collection\":\"kos-test\",\"id\":$ITEM,\"visible\":true}" | contains 'is in the trash' && [ "$(sq "SELECT zobrazit FROM ka_kolekce_polozky WHERE idp = $ITEM")" = 0 ] \
@@ -924,8 +925,8 @@ expect "MCP: the design system goes to the draft look, the site keeps the publis
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/"; grep -q 'ka-barva-primarni: #123456' "$WORK/response" && { echo "  CHYBA  the draft look is on the public site"; ERRORS=$((ERRORS+1)); } || echo "  ok     visitors do not see the draft look"
 # 3.5 (UXA-03): the preview in Site appearance shows the saved draft look – to the administrator only, never to visitors
-curl -s -o "$WORK/response" "$B/?nahled=vzhled"; grep -q 'ka-barva-primarni: #123456' "$WORK/response" && { echo "  CHYBA  ?nahled=vzhled shows the draft look to a visitor"; ERRORS=$((ERRORS+1)); } || echo "  ok     ?nahled=vzhled keeps the published look for visitors"
-curl -s -b "$JAR" -o "$WORK/response" "$B/?nahled=vzhled"; expect "the Site appearance preview shows the saved draft look to the administrator" "$(grep -c 'ka-barva-primarni: #123456' "$WORK/response")" "1"
+curl -s -o "$WORK/response" "$B/?preview=vzhled"; grep -q 'ka-barva-primarni: #123456' "$WORK/response" && { echo "  CHYBA  ?preview=vzhled shows the draft look to a visitor"; ERRORS=$((ERRORS+1)); } || echo "  ok     ?preview=vzhled keeps the published look for visitors"
+curl -s -b "$JAR" -o "$WORK/response" "$B/?preview=vzhled"; expect "the Site appearance preview shows the saved draft look to the administrator" "$(grep -c 'ka-barva-primarni: #123456' "$WORK/response")" "1"
 check "Site appearance labels the preview as the draft look" 200 "/admin.php?module=appearance" "Náhled: koncept vzhledu"
 # 3.5 (UXA-04): the look bar names the options (not the stored keys zaoblene, l) and shows colour swatches
 expect "the look bar names the options and shows colour swatches" "$(grep -c "Písmo nadpisů [^<]* → $([ "$NEWFONT" = zaoblene ] && echo Zaoblené || echo 'Psací stroj')" "$WORK/response")|$(grep -c "→ $([ "$NEWRADIUS" = l ] && echo velké || echo jemné)" "$WORK/response")|$(grep -c 'class="vzhled-vzorek" style="background:#123456"' "$WORK/response")|$(grep -c -e "→ $NEWFONT" -e "→ $NEWRADIUS[,<]" "$WORK/response" || true)" "1|1|1|0"
@@ -948,7 +949,7 @@ mcp edit_build "{\"id\":$DRAFTPAGE,\"operations\":[{\"op\":\"insert\",\"elements
 curl -s -b "$WORK/preview.jar" -o "$WORK/response" "$B/$DRAFTSLUG"
 expect "browsing on in the preview (cookie) shows page drafts too" "$(grep -c 'Only in the draft' "$WORK/response")|$(grep -c 'ka-barva-primarni: #123456' "$WORK/response")" "1|1"
 curl -s -o "$WORK/response" "$B/$DRAFTSLUG"; ! grep -q 'Only in the draft' "$WORK/response" && echo "  ok     without the preview the page draft stays hidden" || { echo "  CHYBA  page draft visible without the preview"; ERRORS=$((ERRORS+1)); }
-curl -s -b "$WORK/preview.jar" -c "$WORK/preview.jar" -o "$WORK/response" "$B/$DRAFTSLUG?nahled_konec=1"
+curl -s -b "$WORK/preview.jar" -c "$WORK/preview.jar" -o "$WORK/response" "$B/$DRAFTSLUG?preview_end=1"
 curl -s -b "$WORK/preview.jar" -o "$WORK/response" "$B/$DRAFTSLUG"; ! grep -q 'Only in the draft' "$WORK/response" && echo "  ok     ending the preview shows the published site again" || { echo "  CHYBA  the preview did not end"; ERRORS=$((ERRORS+1)); }
 mcp discard_draft "{\"id\":$DRAFTPAGE}" > /dev/null
 check "the admin shows the look bar on every screen" 200 "/admin.php?module=pages" 'id="vzhled-koncept"' # 3.6: one line, its button says Publish
@@ -968,7 +969,7 @@ mcp update_design_system "{\"ds\":{\"barvy\":{\"primarni\":\"$OLDPRIMARY\"},\"pi
 sq "DELETE FROM ka_menu; INSERT INTO ka_menu SELECT * FROM menu_before; DROP TABLE menu_before"; rm -f "$WORK"/web/storage/cache/stranky/*.html
 
 echo "== ready-made templates of site parts (1.7)"
-check "templates of the header" 200 "/admin.php?module=parts&action=templates&typ=hlavicka" "Logo uprostřed"
+check "templates of the header" 200 "/admin.php?module=parts&action=templates&type=hlavicka" "Logo uprostřed"
 mcp builder_schema '{}' > "$WORK/response"
 expect "MCP: builder_schema lists the part templates" "$(mcp_value part_templates header na-stred | grep -c 'Centred logo')|$(mcp_value part_templates footer tiraz | grep -c 'imprint')" "1|1"
 PUBLISHEDFOOTER=$(sq "SELECT SHA2(COALESCE(stavba, ''), 256) FROM ka_casti WHERE typ = 'paticka' AND jazyk = '' AND varianta = ''")
@@ -976,9 +977,9 @@ mcp apply_part_template '{"part":"footer","template":"kompaktni"}' > "$WORK/resp
 expect "MCP: a template goes to the draft, the published footer stays" "$(sq "SELECT stavba_koncept LIKE '%\"udaj\":\"copyright\"%' AND stavba_koncept NOT LIKE '%\"mrizka\"%' FROM ka_casti WHERE typ = 'paticka' AND jazyk = '' AND varianta = ''")|$(sq "SELECT SHA2(COALESCE(stavba, ''), 256) FROM ka_casti WHERE typ = 'paticka' AND jazyk = '' AND varianta = ''")" "1|$PUBLISHEDFOOTER"
 curl -s -o "$WORK/footer.html" "$(mcp_value preview)"; grep -q '<footer' "$WORK/footer.html" && echo "  ok     MCP: the part preview shows the template" || { echo "  CHYBA  part template preview"; ERRORS=$((ERRORS+1)); }
 mcp apply_part_template '{"part":"footer","template":"nothing"}' | contains 'Unknown template' && echo "  ok     MCP: an unknown template is refused" || { echo "  CHYBA  unknown template accepted"; ERRORS=$((ERRORS+1)); }
-curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=parts&action=templates&typ=nenalezeno"
-code=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code} %{redirect_url}' -X POST "$B/admin.php?module=parts&action=apply_template&typ=nenalezeno" -d "_csrf=$(csrf)" -d sablona=s-hledanim)
-case "$code" in "302 "*"module=parts&action=builder&typ=nenalezeno"*) echo "  ok     admin: a template opens in the builder";; *) echo "  CHYBA  admin apply template: $code"; ERRORS=$((ERRORS+1));; esac
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=parts&action=templates&type=nenalezeno"
+code=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code} %{redirect_url}' -X POST "$B/admin.php?module=parts&action=apply_template&type=nenalezeno" -d "_csrf=$(csrf)" -d sablona=s-hledanim)
+case "$code" in "302 "*"module=parts&action=builder&type=nenalezeno"*) echo "  ok     admin: a template opens in the builder";; *) echo "  CHYBA  admin apply template: $code"; ERRORS=$((ERRORS+1));; esac
 expect "admin: the 404 wrapper got the search template as a draft" "$(sq "SELECT stavba_koncept LIKE '%\"typ\":\"hledani\"%' FROM ka_casti WHERE typ = 'nenalezeno' AND jazyk = ''")" "1"
 mcp discard_draft '{"part":"footer"}' > /dev/null; sq "DELETE FROM ka_casti WHERE typ = 'nenalezeno' AND jazyk = '' AND stavba IS NULL"
 
@@ -1003,32 +1004,32 @@ mcp uloz_popup "{\"id\":$IDPP,\"pravidla\":{\"od\":\"2099-01-01\"}}" > /dev/null
 mcp uloz_popup "{\"id\":$IDPP,\"pravidla\":{\"od\":\"\",\"kde\":\"vse\"}}" > "$WORK/response"; POPUP_PREVIEW=$(mcp_value nahled); rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o /dev/null -X POST "$B/popup" -d "id=$IDPP" -d udalost=zobrazeni; curl -s -o /dev/null -X POST "$B/popup" -d "id=$IDPP" -d udalost=konverze; curl -s -o /dev/null -X POST "$B/popup" -d "id=$IDPP" -d udalost=nic
 expect "počitadla okna bez cookies" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazeni, '/', zavreni, '/', konverze) FROM ka_popupy WHERE idpp = $IDPP")" "1/0/1"
-code=$(curl -s -o /dev/null -w '%{http_code}' "$B/_popup/$IDPP?stavba=koncept"); expect "koncept okna bez přihlášení není" "$code" 404
+code=$(curl -s -o /dev/null -w '%{http_code}' "$B/_popup/$IDPP?build=koncept"); expect "koncept okna bez přihlášení není" "$code" 404
 curl -s -o "$WORK/response" "$POPUP_PREVIEW"; grep -q 'data-otevrit="1"' "$WORK/response" && grep -q 'noindex' "$WORK/response" && echo "  ok     podepsaný náhled okno rovnou otevře" || { echo "  CHYBA  náhled okna: $POPUP_PREVIEW"; ERRORS=$((ERRORS+1)); }
 check "okno v builderu" 200 "/admin.php?module=popups&action=builder&id=$IDPP" 'id="stavitel-data"'
-check "plátno okna v builderu" 200 "/_popup/$IDPP?stavba=koncept&editor=1" 'ka-popup--editor'
-curl -s -b "$JAR" "$B/o-nas" | contains "data-popup=\"$IDPP\"" && ! curl -s -b "$JAR" "$B/o-nas?stavba=koncept&editor=1" | contains "data-popup=" \
+check "plátno okna v builderu" 200 "/_popup/$IDPP?build=koncept&editor=1" 'ka-popup--editor'
+curl -s -b "$JAR" "$B/o-nas" | contains "data-popup=\"$IDPP\"" && ! curl -s -b "$JAR" "$B/o-nas?build=koncept&editor=1" | contains "data-popup=" \
   && echo "  ok     plátno builderu stránky je bez pop-up oken webu" || { echo "  CHYBA  pop-up okno v plátně builderu"; ERRORS=$((ERRORS+1)); }
 curl -s "$B/" | sed -n '/data-popup=/,$p' > "$WORK/formular.html" # jen okno – stránka může mít vlastní formulář
 FORM_SOURCE=$(field_value zdroj); FORM_ELEMENT=$(field_value prvek); FORM_TIME=$(field_value as_cas); FORM_SIGNATURE=$(field_value as_podpis)
 expect "formulář v okně má zdroj okna" "$FORM_SOURCE|$FORM_ELEMENT" "popup:$IDPP|ab12cd3"
 sleep 4
 location=$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d zpet=/ -d "as_cas=$FORM_TIME" -d "as_podpis=$FORM_SIGNATURE" --data-urlencode p0=okno@example.cz)
-case "$location" in *"vysledek=ok"*) echo "  ok     formulář v okně odeslán";; *) echo "  CHYBA  formulář v okně: $location"; ERRORS=$((ERRORS+1));; esac
+case "$location" in *"result=ok"*) echo "  ok     formulář v okně odeslán";; *) echo "  CHYBA  formulář v okně: $location"; ERRORS=$((ERRORS+1));; esac
 expect "poptávka z okna uložena" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(formular, '|', zdroj) FROM ka_poptavky WHERE email = 'okno@example.cz'")" "Z okna|popup:$IDPP"
 mcp seznam_popupu '{}' > "$WORK/response"; expect "MCP: seznam oken s počitadly" "$(mcp_value 0 nazev)|$(mcp_value 0 zobrazeni)|$(mcp_value 0 konverze)" "Akce okno|1|1"
 mcp uloz_popup "{\"id\":$IDPP,\"aktivni\":false}" > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html # další testy počítají se stránkami bez okna
 
 # editing right on the site: the link and the form only for signed-in users with the permission
 check "úprava na místě – odkaz" 200 /novinky/vitejte-v-kalete "ka-upravit-zde"
-check "úprava na místě – formulář" 200 "/novinky/vitejte-v-kalete?upravit=text" "ka-upravit-text"
-check "úprava stránky na místě" 200 "/o-nas?upravit=text" "ka-upravit-text"
-curl -s -o "$WORK/response" "$B/novinky/vitejte-v-kalete?upravit=text"; grep -q "ka-upravit" "$WORK/response" && { echo "  CHYBA  úprava na místě je vidět bez přihlášení"; ERRORS=$((ERRORS+1)); } || echo "  ok     úprava na místě bez přihlášení není"
+check "úprava na místě – formulář" 200 "/novinky/vitejte-v-kalete?edit=text" "ka-upravit-text"
+check "úprava stránky na místě" 200 "/o-nas?edit=text" "ka-upravit-text"
+curl -s -o "$WORK/response" "$B/novinky/vitejte-v-kalete?edit=text"; grep -q "ka-upravit" "$WORK/response" && { echo "  CHYBA  úprava na místě je vidět bez přihlášení"; ERRORS=$((ERRORS+1)); } || echo "  ok     úprava na místě bez přihlášení není"
 
 echo "== import z WordPressu a export"
 check "import a export" 200 "/admin.php?module=transfer" "WordPress"
 TOKEN=$(csrf)
-wp_batch() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?module=transfer&action=progress&soubor=wordpress-sample.xml" -d "_csrf=$TOKEN"; }
+wp_batch() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?module=transfer&action=progress&file=wordpress-sample.xml" -d "_csrf=$TOKEN"; }
 wp_import() { # náhled (čtení souboru) → volby → import; ukázkový soubor se vejde do jedné dávky
   wp_batch
   curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=run" -d "_csrf=$TOKEN" -d soubor=wordpress-sample.xml -d koncepty=1 -d stranky=1 -d stavitel=1 -d presmerovani=1 -d rubrika=0
@@ -1037,9 +1038,9 @@ wp_import() { # náhled (čtení souboru) → volby → import; ukázkový soubo
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=upload" -F "_csrf=$TOKEN" -F "soubor=@$ROOT/tools/fixtures/wordpress-sample.xml"
 wp_batch
 # 3.6: a menu item is not an unknown type any more (menus are imported); the preview still names what is not converted
-check "import z WordPressu – náhled upozorní na zkratku doplňku" 200 "/admin.php?module=transfer&action=preview&soubor=wordpress-sample.xml" "kontaktni-formular"
-check "3.6 import z WordPressu – náhled nabízí vše skryté" 200 "/admin.php?module=transfer&action=preview&soubor=wordpress-sample.xml" 'name="skryte" value="1">'
-check "import z WordPressu – náhled hlásí SEO data pluginů" 200 "/admin.php?module=transfer&action=preview&soubor=wordpress-sample.xml" "Rank Math"
+check "import z WordPressu – náhled upozorní na zkratku doplňku" 200 "/admin.php?module=transfer&action=preview&file=wordpress-sample.xml" "kontaktni-formular"
+check "3.6 import z WordPressu – náhled nabízí vše skryté" 200 "/admin.php?module=transfer&action=preview&file=wordpress-sample.xml" 'name="skryte" value="1">'
+check "import z WordPressu – náhled hlásí SEO data pluginů" 200 "/admin.php?module=transfer&action=preview&file=wordpress-sample.xml" "Rank Math"
 wp_import
 grep -q "Import obsahu je hotový" "$WORK/response" && echo "  ok     import z WordPressu doběhl" || { echo "  CHYBA  import z WordPressu nedoběhl"; ERRORS=$((ERRORS+1)); }
 check "importovaná novinka" 200 /novinky/lavka-pres-bystrinu "Lávka přes Bystřinu"
@@ -1063,7 +1064,7 @@ wp_import
 COUNTS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT((SELECT COUNT(*) FROM ka_novinky WHERE seo_link LIKE 'lavka-pres-bystrinu%' OR seo_link LIKE 'slavnosti-syra%' OR seo_link LIKE 'rozpocet-obce%'), '/', (SELECT COUNT(*) FROM ka_stranky WHERE seo_link LIKE 'o-zpravodaji%'))")
 expect "opakovaný import nic nezdvojil (novinky/stránky)" "$COUNTS" "4/1"
 # 2.7: a custom post type with ACF fields becomes a collection; its items keep their addresses
-cpt_batch() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?module=transfer&action=progress&soubor=wordpress-cpt.xml" -d "_csrf=$TOKEN"; }
+cpt_batch() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?module=transfer&action=progress&file=wordpress-cpt.xml" -d "_csrf=$TOKEN"; }
 cpt_import() {
   cpt_batch
   curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=run" -d "_csrf=$TOKEN" -d soubor=wordpress-cpt.xml -d koncepty=1 -d stranky=1 -d presmerovani=1 -d rubrika=0 -d kolekce=1
@@ -1071,7 +1072,7 @@ cpt_import() {
 }
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=upload" -F "_csrf=$TOKEN" -F "soubor=@$ROOT/tools/fixtures/wordpress-cpt.xml"
 cpt_batch
-check "import z WordPressu – náhled ukáže vlastní typ obsahu jako kolekci" 200 "/admin.php?module=transfer&action=preview&soubor=wordpress-cpt.xml" "reference"
+check "import z WordPressu – náhled ukáže vlastní typ obsahu jako kolekci" 200 "/admin.php?module=transfer&action=preview&file=wordpress-cpt.xml" "reference"
 cpt_import
 expect "vlastní typ obsahu → kolekce s poli podle hodnot" "$(sq "SELECT CONCAT(seo_link, '|', detail, '|', JSON_EXTRACT(pole, '\$[*].klic'), '|', JSON_EXTRACT(pole, '\$[*].typ')) FROM ka_kolekce WHERE nazev = 'Reference'")" 'reference|1|["klient", "rok_dokonceni", "datum_predani", "web_klienta", "fotka", "obsah"]|["text", "cislo", "datum", "odkaz", "obrazek", "html"]'
 expect "položky kolekce: hodnoty polí, koncept skrytý" "$(sq "SELECT GROUP_CONCAT(CONCAT(seo_link, ':', zobrazit, ':', JSON_UNQUOTE(JSON_EXTRACT(data, '$.klient')), ':', JSON_UNQUOTE(JSON_EXTRACT(data, '$.datum_predani'))) ORDER BY idp SEPARATOR '|') FROM ka_kolekce_polozky WHERE idk = (SELECT idk FROM ka_kolekce WHERE seo_link = 'reference')")" "kuchyne-novak:1:Rodina Novákových:2024-03-15|pekarna-u-mlyna:0:Pekárna U Mlýna:2023-11-01"
@@ -1084,13 +1085,13 @@ check "složka importu není přístupná z webu" 403 /storage/import/wordpress-
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=export" -d "_csrf=$TOKEN"
 check "export webu je v seznamu" 200 "/admin.php?module=transfer" "action=download"
 EXPORT=$(grep -o 'export-[0-9]*-[0-9]*\.[a-z]*' "$WORK/response" | head -1)
-curl -s -b "$JAR" -o "$WORK/export" "$B/admin.php?module=transfer&action=download&soubor=$EXPORT"
+curl -s -b "$JAR" -o "$WORK/export" "$B/admin.php?module=transfer&action=download&file=$EXPORT"
 if [ "${EXPORT##*.}" = zip ]; then unzip -p "$WORK/export" obsah.json > "$WORK/obsah.json" 2>/dev/null || true; else cp "$WORK/export" "$WORK/obsah.json"; fi
 grep -q '"format":"kaleta-export"' "$WORK/obsah.json" && grep -q '"novinky"' "$WORK/obsah.json" && ! grep -qE '"password"|smtp_heslo|tajny_klic|ai_klic' "$WORK/obsah.json" && echo "  ok     export obsahuje data a žádná tajemství" || { echo "  CHYBA  export"; ERRORS=$((ERRORS+1)); }
 grep -q '"kolekce_polozky":\[' "$WORK/obsah.json" && grep -q 'Jana Nováková' "$WORK/obsah.json" && grep -q '"tridy":\[' "$WORK/obsah.json" && grep -q '"casti":\[' "$WORK/obsah.json" && ! grep -q 'Chci kuchyň' "$WORK/obsah.json" \
   && grep -q '"adresa":"akce-okno"' "$WORK/obsah.json" && ! grep -q '"zobrazeni":' "$WORK/obsah.json" \
   && echo "  ok     export obsahuje builder, kolekce a pop-up okna, poptávky ani počitadla ne" || { echo "  CHYBA  export builderu a kolekcí"; ERRORS=$((ERRORS+1)); }
-curl -s -o "$WORK/response" "$B/admin.php?module=transfer&action=download&soubor=$EXPORT"; grep -q "Heslo" "$WORK/response" && echo "  ok     export jen pro přihlášeného správce" || { echo "  CHYBA  export jde stáhnout bez přihlášení"; ERRORS=$((ERRORS+1)); }
+curl -s -o "$WORK/response" "$B/admin.php?module=transfer&action=download&file=$EXPORT"; grep -q "Heslo" "$WORK/response" && echo "  ok     export jen pro přihlášeného správce" || { echo "  CHYBA  export jde stáhnout bez přihlášení"; ERRORS=$((ERRORS+1)); }
 
 echo "== koš novinek"
 IDC=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idc FROM ka_novinky WHERE seo_link = 'vitejte-v-kalete'")
@@ -1098,8 +1099,8 @@ check "výpis novinek" 200 "/admin.php?module=news" "Smazat označené"
 TOKEN=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=news&action=delete" -d "_csrf=$TOKEN" -d "smaz[]=$IDC"
 check "novinka v koši není na webu" 404 /novinky/vitejte-v-kalete
-check "novinka v koši není ani v náhledu" 404 "/novinky/vitejte-v-kalete?nahled=1"
-check "záložka Koš" 200 "/admin.php?module=news&stav=kos" "Vítejte"
+check "novinka v koši není ani v náhledu" 404 "/novinky/vitejte-v-kalete?preview=1"
+check "záložka Koš" 200 "/admin.php?module=news&status=kos" "Vítejte"
 check "novinka v koši nejde upravit" 404 "/admin.php?module=news&action=edit&id=$IDC"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=news&action=restore" -d "_csrf=$TOKEN" -d "smaz[]=$IDC"
 expect "obnovená novinka se vrátí jako koncept" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(visible, '/', smazano IS NULL) FROM ka_novinky WHERE idc = $IDC")" "0/1"
@@ -1129,7 +1130,7 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&acti
 expect "duplikát stránky je skrytý a má volnou adresu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazit, '/', seo_link) FROM ka_stranky ORDER BY ids DESC LIMIT 1")" "0/kontakty-kopie"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=delete" -d "_csrf=$TOKEN" -d "ids=$IDS"
 check "stránka v koši není na webu" 404 /kontakty
-check "záložka Koš u stránek" 200 "/admin.php?module=pages&stav=kos" "Kontakt"
+check "záložka Koš u stránek" 200 "/admin.php?module=pages&status=kos" "Kontakt"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=restore" -d "_csrf=$TOKEN" -d "ids=$IDS"
 expect "obnovená stránka je skrytá" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazit, '/', smazano IS NULL) FROM ka_stranky WHERE ids = $IDS")" "0/1"
 IDU=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'o-nas'")
@@ -1300,8 +1301,8 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=media&acti
 expect "ohnisko ořezu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ohnisko FROM ka_media WHERE ido = $IDO")" "20% 80%"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=redirects&action=save" -d "_csrf=$TOKEN" -d z_adresy=/akce-leto -d na_adresu=/kontakty -d typ=302
 code=$(curl -s -o /dev/null -w '%{http_code}' "$B/akce-leto"); expect "dočasné přesměrování 302" "$code" "302"
-check "hledání v přesměrováních" 200 "/admin.php?module=redirects&hledat=akce-leto" "akce-leto"
-check "protokol s filtrem" 200 "/admin.php?module=changelog&kde=stranky" "Protokol"
+check "hledání v přesměrováních" 200 "/admin.php?module=redirects&search=akce-leto" "akce-leto"
+check "protokol s filtrem" 200 "/admin.php?module=changelog&area=stranky" "Protokol"
 IDU2=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d idu=0 -d user=pozvany --data-urlencode email=pozvany@example.cz -d admin=2 -d pozvat=1)
 expect "pozvaný uživatel má odkaz na heslo s delší platností" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT obnova_otisk <> '' AND obnova_cas > '$(site_time)' FROM ka_uzivatele WHERE user = 'pozvany'")" "1"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=roles&action=save" -d "_csrf=$TOKEN" -d idr=0 -d nazev=Obchodník -d uroven=0 -d 'moduly[]=enquiries' -d 'moduly[]=collections'
@@ -1336,8 +1337,8 @@ check "editor menu" 200 "/admin.php?module=menu" 'data-menu-seznam'
 IDO=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'o-nas'")
 # 2.7: an icon (lide = people) and a description on an item, a group inside the submenu with its own items (a column), an unknown icon drops out
 MENU='[{"typ":"stranka","ids":'$IDO',"text":"O firmě","ikona":"lide","popis":"Kdo jsme","deti":[{"typ":"odkaz","text":"Kariéra","url":"https://example.cz/kariera","nove_okno":true},{"typ":"skupina","text":"Tým","ikona":"neexistuje","deti":[{"typ":"odkaz","text":"Vedení","url":"/vedeni"}]}]},{"typ":"novinky"},{"typ":"odkaz","text":"Zlý","url":"javascript:alert(1)"}]'
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=menu&action=save&umisteni=hlavni" -d "_csrf=$TOKEN" --data-urlencode "polozky=$MENU"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=menu&action=save&umisteni=paticka" -d "_csrf=$TOKEN" --data-urlencode 'polozky=[{"typ":"odkaz","text":"Zásady ochrany soukromí","url":"/zasady"}]'
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=menu&action=save&location=hlavni" -d "_csrf=$TOKEN" --data-urlencode "polozky=$MENU"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=menu&action=save&location=paticka" -d "_csrf=$TOKEN" --data-urlencode 'polozky=[{"typ":"odkaz","text":"Zásady ochrany soukromí","url":"/zasady"}]'
 expect "the menu waits in the draft look" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_menu WHERE umisteni = 'paticka' AND polozky LIKE '%/zasady%'")" "0"
 publish_look
 rm -f "$WORK"/web/storage/cache/stranky/*.html
@@ -1351,13 +1352,13 @@ mcp get_menu '{"location":"main"}' > "$WORK/response"; grep -q 'icon\\":\\"peopl
 mcp nacti_menu '{"umisteni":"paticka"}' > "$WORK/response"; grep -q 'Zásady ochrany soukromí' "$WORK/response" && echo "  ok     menu v patičce (MCP)" || { echo "  CHYBA  menu v patičce"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=save" -d "_csrf=$TOKEN" -d "ids=$IDS" -d titulek=Kontakt -d seo_link=kontakty -d zobrazit=1 -d v_menu=1 -d "text=<p>Adresa.</p>"
 expect "zaškrtnutá stránka se přidá na konec sestaveného menu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT polozky LIKE '%\"ids\":$IDS%' FROM ka_menu WHERE umisteni = 'hlavni'")" "1"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=menu&action=automatic&umisteni=hlavni" -d "_csrf=$TOKEN"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=menu&action=automatic&location=hlavni" -d "_csrf=$TOKEN"
 publish_look
 expect "návrat k automatickému menu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_menu WHERE umisteni = 'hlavni'")" "0"
 # 3.6 (UXA-09): "Save and publish menu" publishes that menu at once and keeps a version; the rest of the draft look waits
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=menu&action=save&umisteni=hlavni" -d "_csrf=$TOKEN" --data-urlencode 'polozky=[{"typ":"odkaz","text":"Draft only","url":"/draft-only"}]'
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=menu&action=save&location=hlavni" -d "_csrf=$TOKEN" --data-urlencode 'polozky=[{"typ":"odkaz","text":"Draft only","url":"/draft-only"}]'
 LOOK_VERSION=$(sq "SELECT COALESCE(MAX(id), 0) FROM ka_look_versions")
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=menu&action=save&umisteni=paticka" -d "_csrf=$TOKEN" -d publikovat=1 --data-urlencode 'polozky=[{"typ":"odkaz","text":"Published at once","url":"/published-at-once"}]'
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=menu&action=save&location=paticka" -d "_csrf=$TOKEN" -d publikovat=1 --data-urlencode 'polozky=[{"typ":"odkaz","text":"Published at once","url":"/published-at-once"}]'
 expect "3.6 UXA-09: Save and publish menu publishes that menu with a version, another menu waits in the draft" \
   "$(sq "SELECT COUNT(*) FROM ka_menu WHERE umisteni = 'paticka' AND polozky LIKE '%published-at-once%'")|$(sq "SELECT COUNT(*) FROM ka_menu WHERE polozky LIKE '%draft-only%'")|$(sq "SELECT hodnota LIKE '%draft-only%' AND hodnota NOT LIKE '%published-at-once%' FROM ka_nastaveni WHERE promenna = 'look_draft'")|$(sq "SELECT COALESCE(MAX(id), 0) > $LOOK_VERSION FROM ka_look_versions")" "1|0|1|1"
 check "3.6 UXA-09: the draft look bar is one line naming what waits, the details open below" 200 "/admin.php?module=pages" '<summary><strong>Nepublikované změny:</strong> menu</summary>'
@@ -1437,17 +1438,19 @@ NEWSLETTER_FORM=$(tr '\n' ' ' < "$WORK/response" | grep -o 'class="ka-newsletter
 NL_SIGNATURE=$(echo "$NEWSLETTER_FORM" | grep -o 'name="as_podpis" value="[^"]*"' | head -1 | sed 's/.*value="//;s/"//'); NL_TIME=$(echo "$NEWSLETTER_FORM" | grep -o 'name="as_cas" value="[^"]*"' | head -1 | sed 's/.*value="//;s/"//')
 sleep 5
 code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -X POST "$B/odber" -d "email=Odber@Example.cz" -d zpet=/z-html -d kotva=x -d "as_podpis=$NL_SIGNATURE" -d "as_cas=$NL_TIME" -d web_adresa=)
-case "$code" in "303 "*"/z-html?odber=ok#x") echo "  ok     přihlášení k odběru";; *) echo "  CHYBA  přihlášení k odběru: $code"; ERRORS=$((ERRORS+1));; esac
+case "$code" in "303 "*"/z-html?subscription=ok#x") echo "  ok     přihlášení k odběru";; *) echo "  CHYBA  přihlášení k odběru: $code"; ERRORS=$((ERRORS+1));; esac
 SUB_TOKEN=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT token FROM ka_odberatele WHERE email = 'odber@example.cz' AND stav = 0")
-check "odkaz z e-mailu jen nabídne potvrzení" 200 "/odber?potvrdit=$SUB_TOKEN" "Potvrdit odběr"
+check "odkaz z e-mailu jen nabídne potvrzení" 200 "/odber?confirm=$SUB_TOKEN" "Potvrdit odběr"
+check "old link (potvrdit=) from an e-mail sent before the rename still offers the confirmation" 200 "/odber?potvrdit=$SUB_TOKEN" "Potvrdit odběr"
 expect "otevření odkazu (skener pošty) odběr nepotvrdí" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT stav FROM ka_odberatele WHERE email = 'odber@example.cz'")" "0"
-curl -s -o "$WORK/response" -X POST "$B/odber?potvrdit=$SUB_TOKEN"; grep -q "Odběr je potvrzený" "$WORK/response" && echo "  ok     potvrzení odběru tlačítkem" || { echo "  CHYBA  potvrzení odběru"; ERRORS=$((ERRORS+1)); }
+curl -s -o "$WORK/response" -X POST "$B/odber?confirm=$SUB_TOKEN"; grep -q "Odběr je potvrzený" "$WORK/response" && echo "  ok     potvrzení odběru tlačítkem" || { echo "  CHYBA  potvrzení odběru"; ERRORS=$((ERRORS+1)); }
 expect "odběratel je potvrzený" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT stav FROM ka_odberatele WHERE email = 'odber@example.cz'")" "1"
 check "odběratelé v administraci" 200 "/admin.php?module=subscribers" "odber@example.cz"
-curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=subscribers&action=csv"; grep -q "odber@example.cz;.*/subscription?odhlasit=$SUB_TOKEN" "$WORK/response" && echo "  ok     export odběratelů s odkazem na odhlášení" || { echo "  CHYBA  export odběratelů"; head -3 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=subscribers&action=csv"; grep -q "odber@example.cz;.*/subscription?unsubscribe=$SUB_TOKEN" "$WORK/response" && echo "  ok     export odběratelů s odkazem na odhlášení" || { echo "  CHYBA  export odběratelů"; head -3 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = REPLACE(hodnota, 'newsletter,', '') WHERE promenna = 'extensions'"
-check "odhlášení jde i s vypnutým Newsletterem" 200 "/odber?odhlasit=$SUB_TOKEN" "Odhlásit odběr"
-curl -s -o "$WORK/response" -X POST "$B/odber?odhlasit=$SUB_TOKEN"; grep -q "Odhlášeno" "$WORK/response" && echo "  ok     odhlášení tlačítkem" || { echo "  CHYBA  odhlášení"; ERRORS=$((ERRORS+1)); }
+check "odhlášení jde i s vypnutým Newsletterem" 200 "/odber?unsubscribe=$SUB_TOKEN" "Odhlásit odběr"
+check "old link (odhlasit=) from an e-mail sent before the rename still offers the unsubscribe" 200 "/odber?odhlasit=$SUB_TOKEN" "Odhlásit odběr"
+curl -s -o "$WORK/response" -X POST "$B/odber?unsubscribe=$SUB_TOKEN"; grep -q "Odhlášeno" "$WORK/response" && echo "  ok     odhlášení tlačítkem" || { echo "  CHYBA  odhlášení"; ERRORS=$((ERRORS+1)); }
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = REPLACE(hodnota, 'poptavky,', 'poptavky,newsletter,') WHERE promenna = 'extensions'"
 expect "odhlášený je smazaný" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_odberatele")" "0"
 
@@ -1496,7 +1499,7 @@ done
 expect "3.7 N37-2: an imported page \"Tasks\" or \"Subscription\" gets a numbered slug, and the import says why" \
   "$(sq "SELECT GROUP_CONCAT(seo_link ORDER BY seo_link) FROM ka_stranky WHERE titulek IN ('Subscription', 'Tasks') AND smazano IS NULL")|$(grep -c 'Adresu /tasks používá systém, proto stránka dostala /tasks-2.' "$WORK/response" || true)" "subscription-2,tasks-2|1"
 sq "INSERT INTO ka_odberatele (email, stav, token, datum) VALUES ('n37@example.cz', 0, '37373737373737373737373737373737', '$(site_time)')" > /dev/null
-curl -s -o /dev/null -X POST "$B/subscription?odhlasit=37373737373737373737373737373737" -H 'Content-Type: application/x-www-form-urlencoded' -d 'List-Unsubscribe=One-Click'
+curl -s -o /dev/null -X POST "$B/subscription?unsubscribe=37373737373737373737373737373737" -H 'Content-Type: application/x-www-form-urlencoded' -d 'List-Unsubscribe=One-Click'
 expect "3.7 N37-2: … so cron still runs at /tasks and the one-click unsubscribe at /subscription still unsubscribes" \
   "$(curl -s "$B/tasks?token=testtoken123" | cut -c1-3)|$(sq "SELECT COUNT(*) FROM ka_odberatele WHERE email = 'n37@example.cz'")" "OK |0"
 mcp create_page '{"title":"Consent 37","text":"<p>Consent page 37</p>"}' > /dev/null; mcp create_page '{"title":"Conversion 37","text":"<p>Conversion page 37</p>"}' > /dev/null
@@ -1617,7 +1620,7 @@ expect "sending started for confirmed subscribers only" "$(db "SELECT CONCAT(sta
 curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
 expect "cron sends a batch: 2 delivered, the refused one waits for a retry" "$(db "SELECT CONCAT(status, '|', sent_count, '|', failed_count, '|', (SELECT COUNT(*) FROM ka_newsletter_queue WHERE newsletter_id = $NL AND next_attempt > '$(site_time)')) FROM ka_newsletters WHERE id = $NL")" "sending|2|0|1"
 F=$(mail_to anna@example.cz); [ -n "$F" ] && eml "$F" > "$WORK/eml.txt"
-expect "subscriber e-mail: one-click unsubscribe with the own link, no one else's" "$(grep -c "^List-Unsubscribe: <http://127.0.0.1:$PORT/subscription?odhlasit=$ANNA>" "$WORK/eml.txt")|$(grep -c '^List-Unsubscribe-Post: List-Unsubscribe=One-Click' "$WORK/eml.txt")|$(grep -c "odhlasit=$ANNA" "$WORK/eml.txt")|$(grep -c "$PETR" "$WORK/eml.txt")" "1|1|3|0"
+expect "subscriber e-mail: one-click unsubscribe with the own link, no one else's" "$(grep -c "^List-Unsubscribe: <http://127.0.0.1:$PORT/subscription?unsubscribe=$ANNA>" "$WORK/eml.txt")|$(grep -c '^List-Unsubscribe-Post: List-Unsubscribe=One-Click' "$WORK/eml.txt")|$(grep -c "unsubscribe=$ANNA" "$WORK/eml.txt")|$(grep -c "$PETR" "$WORK/eml.txt")" "1|1|3|0"
 expect "subscriber e-mail: subject, text part and HTML part" "$(grep -c '^Subject-Decoded: Jarní novinky$' "$WORK/eml.txt")|$(grep -c '^Všechny novinky: http' "$WORK/eml.txt")|$(grep -c '<h1 ' "$WORK/eml.txt")" "1|1|1"
 expect "newsletter recipients are not in the mail log" "$(db "SELECT COUNT(*) FROM ka_posta WHERE komu IN ('anna@example.cz', 'petr@example.cz')")" "0"
 db "UPDATE ka_newsletter_queue SET next_attempt = '$(site_time)' WHERE next_attempt IS NOT NULL"; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
@@ -1626,20 +1629,20 @@ expect "a refused address is given up after three attempts, the newsletter is se
 check "newsletters: list with counts" 200 "/admin.php?module=newsletters" "Odesláno"
 check "a sent newsletter is read-only" 200 "/admin.php?module=newsletters&action=edit&id=$NL" "Příjemci"
 contains -c 'name="subject"' "$WORK/response" && { echo "  CHYBA  a sent newsletter can still be edited"; ERRORS=$((ERRORS+1)); } || echo "  ok     a sent newsletter has no form"
-curl -s -o /dev/null -X POST "$B/odber?odhlasit=$ANNA" -H 'Content-Type: application/x-www-form-urlencoded' -d 'List-Unsubscribe=One-Click'
+curl -s -o /dev/null -X POST "$B/odber?unsubscribe=$ANNA" -H 'Content-Type: application/x-www-form-urlencoded' -d 'List-Unsubscribe=One-Click'
 expect "one-click unsubscribe from the mail client (RFC 8058) – the older /odber link of an e-mail sent before 3.7" "$(db "SELECT COUNT(*) FROM ka_odberatele WHERE email = 'anna@example.cz'")" "0"
 
 # 3.7: a sign-up through /subscription gets a confirmation e-mail with the English link; confirming and one-click unsubscribing work there too
 rm -f "$WORK"/smtp/*.eml
 code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -X POST "$B/subscription" -d "email=en37@example.cz" -d zpet=/z-html -d kotva=x -d "as_podpis=$NL_SIGNATURE" -d "as_cas=$NL_TIME" -d web_adresa=)
-case "$code" in "303 "*"/z-html?odber=ok#x") echo "  ok     3.7: sign-up through POST /subscription";; *) echo "  CHYBA  3.7: sign-up through /subscription: $code"; ERRORS=$((ERRORS+1));; esac
+case "$code" in "303 "*"/z-html?subscription=ok#x") echo "  ok     3.7: sign-up through POST /subscription";; *) echo "  CHYBA  3.7: sign-up through /subscription: $code"; ERRORS=$((ERRORS+1));; esac
 : > "$WORK/eml.txt"; for i in $(seq 1 25); do F=$(mail_to en37@example.cz || true); if [ -n "$F" ]; then eml "$F" > "$WORK/eml.txt"; grep -q 'potvrdit=' "$WORK/eml.txt" && break; fi; sleep 0.2; done
 EN37=$(db "SELECT token FROM ka_odberatele WHERE email = 'en37@example.cz'")
-expect "3.7: the confirmation e-mail links to /subscription, not /odber" "$(grep -c "http://127.0.0.1:$PORT/subscription?potvrdit=$EN37" "$WORK/eml.txt")|$(grep -c '/odber?' "$WORK/eml.txt")" "1|0"
-check "3.7: the confirmation link opens at /subscription" 200 "/subscription?potvrdit=$EN37" "Potvrdit odběr"
-contains -q "action=\"/subscription?potvrdit=$EN37\"" "$WORK/response" && echo "  ok     3.7: … and its button posts back to /subscription" || { echo "  CHYBA  3.7: confirm button action"; ERRORS=$((ERRORS+1)); }
-curl -s -o /dev/null -X POST "$B/subscription?potvrdit=$EN37"
-curl -s -o /dev/null -X POST "$B/subscription?odhlasit=$EN37" -H 'Content-Type: application/x-www-form-urlencoded' -d 'List-Unsubscribe=One-Click'
+expect "3.7: the confirmation e-mail links to /subscription, not /odber" "$(grep -c "http://127.0.0.1:$PORT/subscription?confirm=$EN37" "$WORK/eml.txt")|$(grep -c '/odber?' "$WORK/eml.txt")" "1|0"
+check "3.7: the confirmation link opens at /subscription" 200 "/subscription?confirm=$EN37" "Potvrdit odběr"
+contains -q "action=\"/subscription?confirm=$EN37\"" "$WORK/response" && echo "  ok     3.7: … and its button posts back to /subscription" || { echo "  CHYBA  3.7: confirm button action"; ERRORS=$((ERRORS+1)); }
+curl -s -o /dev/null -X POST "$B/subscription?confirm=$EN37"
+curl -s -o /dev/null -X POST "$B/subscription?unsubscribe=$EN37" -H 'Content-Type: application/x-www-form-urlencoded' -d 'List-Unsubscribe=One-Click'
 expect "3.7: confirmed, then one-click unsubscribed at /subscription" "$(db "SELECT COUNT(*) FROM ka_odberatele WHERE email = 'en37@example.cz'")" "0"
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | contains '"name":"draft_newsletter"' && echo "  ok     MCP: newsletter tools listed" || { echo "  CHYBA  MCP: newsletter tools missing"; ERRORS=$((ERRORS+1)); }
 db "DELETE FROM ka_odberatele WHERE email LIKE 'odmitnout%'"
@@ -1681,7 +1684,7 @@ db "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), 
 
 echo "== média, tokeny DTCG, kolekce přes MCP"
 IDOM=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ido FROM ka_media WHERE obr_poloha LIKE '%.jpg' ORDER BY ido DESC LIMIT 1")
-check "média: hledání a řazení" 200 "/admin.php?module=media&hledat=jpg&razeni=velikost" 'data-popis-media='
+check "média: hledání a řazení" 200 "/admin.php?module=media&search=jpg&sort=velikost" 'data-popis-media='
 reply=$(curl -s -b "$JAR" -c "$JAR" -X POST "$B/admin.php?module=media&action=save_caption" -d "_csrf=$TOKEN" -d "ido=$IDOM" --data-urlencode "popis=Dilna zevnitr")
 expect "popis obrázku bez znovunačtení" "$reply|$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT nazev FROM ka_media WHERE ido = $IDOM")" '{"ok":true}|Dilna zevnitr'
 curl -s -b "$JAR" -o "$WORK/tokeny.json" "$B/admin.php?module=appearance&action=tokens"
@@ -1718,7 +1721,7 @@ expect "a scheduled item waits hidden" "$(sq "SELECT CONCAT(zobrazit, '|', zvere
 sq "UPDATE ka_kolekce_polozky SET zverejnit_od = '$(site_time)' - INTERVAL 1 MINUTE WHERE idp = $PLAN" > /dev/null; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "the scheduled item publishes itself" "$(sq "SELECT CONCAT(zobrazit, '|', zverejnit_od IS NULL) FROM ka_kolekce_polozky WHERE idp = $PLAN")" "1|1"
 IDK_TYM=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'tym'")
-check "the item form has SEO fields, scheduling and the history" 200 "/admin.php?module=collections&action=item&id=$IDK_TYM&polozka=$JANA" 'Historie položky'
+check "the item form has SEO fields, scheduling and the history" 200 "/admin.php?module=collections&action=item&id=$IDK_TYM&item=$JANA" 'Historie položky'
 grep -q 'name="seo_titulek"' "$WORK/response" && grep -q 'name="zverejnit_od"' "$WORK/response" && echo "  ok     item form fields" || { echo "  CHYBA  item form fields"; ERRORS=$((ERRORS+1)); }
 mcp update_collection '{"collection":"tym","structured_data":{"type":"Person","fields":{"jobTitle":"funkce"}}}' > /dev/null
 rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/response" "$B/tym/zuzana-zelena"
@@ -1761,7 +1764,7 @@ expect "privacy template: a disclaimer and only the enabled features" "$(sq "SEL
 # streamed backup download and the media ZIP only on POST
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"; TOKEN=$(csrf)
 LAST_BACKUP=$(ls -t "$WORK"/web/storage/zalohy/ | grep '^kaleta-' | head -1)
-curl -s -b "$JAR" -o "$WORK/backup-download" "$B/admin.php?module=settings&action=download_backup&soubor=$LAST_BACKUP"
+curl -s -b "$JAR" -o "$WORK/backup-download" "$B/admin.php?module=settings&action=download_backup&file=$LAST_BACKUP"
 expect "a backup downloads whole (streamed)" "$(wc -c < "$WORK/backup-download" | tr -d ' ')" "$(wc -c < "$WORK/web/storage/zalohy/$LAST_BACKUP" | tr -d ' ')"
 expect "the media ZIP is not built by a GET" "$(curl -s -b "$JAR" -o /dev/null -w '%{content_type}' "$B/admin.php?module=settings&action=media_backup" | tr 'A-Z' 'a-z')" "text/html; charset=utf-8"
 expect "the media ZIP by POST, with the originals" "$(curl -s -b "$JAR" -o "$WORK/media.zip" -w '%{content_type}' -X POST "$B/admin.php?module=settings&action=media_backup" -d "_csrf=$TOKEN")|$([ "$(unzip -Z1 "$WORK/media.zip" 2>/dev/null | grep -c '^media/')" -gt 0 ] && echo files)" "application/zip|files"
@@ -1782,10 +1785,10 @@ grep -q 'href="/produkty/bezecke-pasy/zdravotni"' "$WORK/response" && grep -q 'h
   && grep -q '"@type":"CollectionPage"' "$WORK/response" && grep -q '"@type":"BreadcrumbList"' "$WORK/response" && grep -q '<link rel="canonical" href="[^"]*/produkty/bezecke-pasy">' "$WORK/response" \
   && grep -q '<meta name="description" content="Rehabilitační běžecké pásy.">' "$WORK/response" && grep -q 'aria-label="Drobečková navigace"\|class="ka-drobecky"' "$WORK/response" \
   && echo "  ok     3.7: subcategory cards, items, CollectionPage, BreadcrumbList, canonical and description" || { echo "  CHYBA  3.7 category page"; ERRORS=$((ERRORS+1)); }
-check "3.7: the second page of a category" 200 "/produkty/bezecke-pasy?strana=2" 'href="/produkty/pas-13"'
-grep -q '<link rel="canonical" href="[^"]*/produkty/bezecke-pasy?strana=2">' "$WORK/response" && ! grep -q 'href="/produkty/pas-01"' "$WORK/response" \
-  && echo "  ok     3.7: paging with ?strana= and its own canonical address" || { echo "  CHYBA  3.7 category paging"; ERRORS=$((ERRORS+1)); }
-check "3.7: a page past the last one is a 404" 404 "/produkty/bezecke-pasy?strana=9"
+check "3.7: the second page of a category" 200 "/produkty/bezecke-pasy?page=2" 'href="/produkty/pas-13"'
+grep -q '<link rel="canonical" href="[^"]*/produkty/bezecke-pasy?page=2">' "$WORK/response" && ! grep -q 'href="/produkty/pas-01"' "$WORK/response" \
+  && echo "  ok     3.7: paging with ?page= and its own canonical address" || { echo "  CHYBA  3.7 category paging"; ERRORS=$((ERRORS+1)); }
+check "3.7: a page past the last one is a 404" 404 "/produkty/bezecke-pasy?page=9"
 check "3.7: a subcategory page has the parent in its breadcrumbs" 200 /produkty/bezecke-pasy/zdravotni '<a href="/produkty/bezecke-pasy">Běžecké pásy</a>'
 code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/produkty/zdravotni"); expect "3.7: a subcategory at the first level redirects to its own address" "$code" "301 $B/produkty/bezecke-pasy/zdravotni"
 check "3.7: a subcategory under another parent is a 404" 404 /produkty/elektro/zdravotni
@@ -1802,7 +1805,7 @@ expect "3.7: an item address made from the name skips a category address" "$(mcp
 PRODUKTY=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'produkty'")
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=collections&action=categories&id=$PRODUKTY"
 grep -q 'Zdravotní pásy' "$WORK/response" && grep -q '/produkty/bezecke-pasy/zdravotni' "$WORK/response" && echo "  ok     3.7 admin: the category tree with addresses" || { echo "  CHYBA  3.7 admin categories"; ERRORS=$((ERRORS+1)); }
-check "3.7 admin: the category form" 200 "/admin.php?module=collections&action=category&id=$PRODUKTY&kategorie=$CAT_SUB" 'name="parent_id"'
+check "3.7 admin: the category form" 200 "/admin.php?module=collections&action=category&id=$PRODUKTY&category=$CAT_SUB" 'name="parent_id"'
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=collections&action=save_category" -d "_csrf=$TOKEN" -d "idk=$PRODUKTY" -d id=0 --data-urlencode "name=Kolizní" -d slug=pas-02 -d visible=1
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=collections&action=save_category" -d "_csrf=$TOKEN" -d "idk=$PRODUKTY" -d id=0 --data-urlencode "name=Příslušenství" -d slug=prislusenstvi -d visible=1 -d sort_order=30
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=collections&action=save_item" -d "_csrf=$TOKEN" -d "idk=$PRODUKTY" -d idp=0 --data-urlencode "nazev=Admin kolize" -d seo_link=prislusenstvi -d zobrazit=1
@@ -1811,7 +1814,7 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=collection
 expect "3.7 admin: a clash refused both ways, the ticked categories saved" "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_collection_category_texts WHERE slug = 'pas-02'), '|', (SELECT COUNT(*) FROM ka_kolekce_polozky WHERE nazev = 'Admin kolize'), '|',
   (SELECT GROUP_CONCAT(category_id ORDER BY category_id) FROM ka_collection_item_categories ic JOIN ka_kolekce_polozky p ON p.idp = ic.idp WHERE p.seo_link = 'madla'))")" "0|0|$(printf '%s\n' "$CAT_SUB" "$CAT_ACC" | sort -n | paste -sd, -)"
 MADLA=$(sq "SELECT idp FROM ka_kolekce_polozky WHERE seo_link = 'madla'")
-check "3.7 admin: the item form ticks the item's categories" 200 "/admin.php?module=collections&action=item&id=$PRODUKTY&polozka=$MADLA" "name=\"kategorie\[\]\" value=\"$CAT_ACC\" checked"
+check "3.7 admin: the item form ticks the item's categories" 200 "/admin.php?module=collections&action=item&id=$PRODUKTY&item=$MADLA" "name=\"kategorie\[\]\" value=\"$CAT_ACC\" checked"
 # MCP reading: the categories with counts, items filtered by a category (its subcategories included)
 mcp list_collection_categories '{"collection":"produkty"}' > "$WORK/response"
 expect "3.7 MCP: list_collection_categories – the tree with item counts" "$(mcp_value categories 0 slug)|$(mcp_value categories 0 items)|$(mcp_value categories 1 parent)" "bezecke-pasy|14|bezecke-pasy"
@@ -1830,7 +1833,7 @@ expect "3.7 MCP: the category template is a draft target of its own" "$(mcp_valu
 curl -s "$B/produkty/bezecke-pasy" | contains 'Kategorie: Běžecké' && { echo "  CHYBA  3.7 the draft category template is visible"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.7: the draft of the category template stays hidden"
 mcp publish_build '{"collection":"produkty","category_template":true}' > /dev/null
 check "3.7: the published category template with {{pocet}}" 200 /produkty/bezecke-pasy '<h1>Kategorie: Běžecké pásy</h1>'
-grep -q '<p>14 produktů</p>' "$WORK/response" && grep -q 'aria-label="Stránky výpisu"' "$WORK/response" && grep -q 'href="/produkty/bezecke-pasy?strana=2"' "$WORK/response" \
+grep -q '<p>14 produktů</p>' "$WORK/response" && grep -q 'aria-label="Stránky výpisu"' "$WORK/response" && grep -q 'href="/produkty/bezecke-pasy?page=2"' "$WORK/response" \
   && echo "  ok     3.7: the item count and the paging of the category's own list" || { echo "  CHYBA  3.7 the category template's list"; ERRORS=$((ERRORS+1)); }
 expect "3.7: the category template's versions are kept apart from the item template's" "$(sq "SELECT COUNT(*) FROM ka_collection_category_templates WHERE idk = $PRODUKTY AND stavba LIKE '%Kategorie: {{nazev}}%'")" 1
 check "3.7 admin: the category template in the builder" 200 "/admin.php?module=collections&action=builder&id=$PRODUKTY&sablona=kategorie" 'id="stavitel-data"'
@@ -1890,7 +1893,7 @@ submit37() { local t; t=$(( $(date +%s) - 30 )); curl -s -o /dev/null -w '%{redi
   -d "as_podpis=$(php -r 'echo hash_hmac("sha256", $argv[1], $argv[2]);' "formular|$1|$2|$t" "$SECRET37")"; }
 sq "DELETE FROM ka_kontrola_ip WHERE typ = 'formular'" > /dev/null
 expect "3.7 N37-7: a form of the English item template and of the English category template is found in its language" \
-  "$(submit37 "kolekce:$FORMY37" f37item | grep -c 'formular=f37item&vysledek=ok' || true)|$(submit37 "kategorie:$FORMY37" f37cat | grep -c 'formular=f37cat&vysledek=ok' || true)|$(sq "SELECT COUNT(*) FROM ka_poptavky WHERE prvek IN ('f37item', 'f37cat')")" "1|1|2"
+  "$(submit37 "kolekce:$FORMY37" f37item | grep -c 'form=f37item&result=ok' || true)|$(submit37 "kategorie:$FORMY37" f37cat | grep -c 'form=f37cat&result=ok' || true)|$(sq "SELECT COUNT(*) FROM ka_poptavky WHERE prvek IN ('f37item', 'f37cat')")" "1|1|2"
 sq "DELETE FROM ka_poptavky WHERE prvek IN ('f37item', 'f37cat')" > /dev/null; mcp delete_collection '{"collection":"formy-37"}' > /dev/null
 # previous / next item: in the collection order, within the item's category, a nav landmark with rel links
 mcp save_build '{"collection":"produkty","publish":true,"build":{"v":1,"children":[{"type":"section","children":[{"type":"heading","tag":"h1","content":{"text":"{{nazev}}"}},{"type":"previous_next","content":{"previous_label":"Předchozí produkt","thumbnails":true}}]}]}}' > /dev/null
@@ -1911,10 +1914,10 @@ draw_submit() { local t; t=$(( $(date +%s) - 30 )); curl -s -o /dev/null -w '%{r
   -F "as_podpis=$(php -r 'echo hash_hmac("sha256", $argv[1], $argv[2]);' "formular|stranka:$DRAW_PAGE|vyk1|$t" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'secret_key'")")" -F p0=Jana -F "p1=@$WORK/vykres.pdf;type=application/pdf"; }
 sq "DELETE FROM ka_kontrola_ip WHERE typ = 'formular'" > /dev/null # earlier submissions from this address must not hit the limit
 if [ "$FORM_MB" -ge 2 ]; then
-  case "$(draw_submit)" in *vysledek=ok*) echo "  ok     3.7: a 1.2 MB drawing passes a form with a higher limit";; *) echo "  CHYBA  3.7 attachment under the limit"; ERRORS=$((ERRORS+1));; esac
+  case "$(draw_submit)" in *result=ok*) echo "  ok     3.7: a 1.2 MB drawing passes a form with a higher limit";; *) echo "  CHYBA  3.7 attachment under the limit"; ERRORS=$((ERRORS+1));; esac
   draw_form 1
   check "3.7: the form's own lower limit is shown" 200 /vykresy "Nejvýš 1 MB: PDF"
-  case "$(draw_submit)" in *vysledek=pole*) echo "  ok     3.7: the same drawing is refused by a form with a 1 MB limit";; *) echo "  CHYBA  3.7 attachment over the form's limit"; ERRORS=$((ERRORS+1));; esac
+  case "$(draw_submit)" in *result=pole*) echo "  ok     3.7: the same drawing is refused by a form with a 1 MB limit";; *) echo "  CHYBA  3.7 attachment over the form's limit"; ERRORS=$((ERRORS+1));; esac
 fi
 expect "3.7: a form without its own limit keeps 10 MB (the default)" "$(php -r 'require $argv[1] . "/system/bootstrap.php"; echo Kaleta\Builder\Elements\Form::attachmentLimit(["max_priloha" => 10]) === min(10 * 1048576, Kaleta\Core\Files::limit() ?: PHP_INT_MAX) ? "ok" : "no", "|", Kaleta\Builder\Build::fresh("formular")["obsah"]["max_priloha"];' "$ROOT")" "ok|10"
 
@@ -1933,7 +1936,7 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&a
 sq "DELETE FROM ka_nastaveni WHERE promenna IN ('company_map', 'social_facebook', 'social_linkedin'); INSERT INTO ka_nastaveni SELECT * FROM ka_n55_backup; DROP TABLE ka_n55_backup;
   DELETE FROM ka_facts WHERE fact_key IN ('n55promo', 'n55note')" > /dev/null
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=transfer"; MOVE_EXPORT=$(grep -o 'export-[0-9]*-[0-9]*\.zip' "$WORK/response" | head -1)
-curl -s -b "$JAR" -o "$WORK/presun.zip" "$B/admin.php?module=transfer&action=download&soubor=$MOVE_EXPORT"
+curl -s -b "$JAR" -o "$WORK/presun.zip" "$B/admin.php?module=transfer&action=download&file=$MOVE_EXPORT"
 sq "DELETE FROM ka_booking_services WHERE name = 'Move test'" > /dev/null
 MEDIA_IN_ZIP=$(unzip -Z1 "$WORK/presun.zip" | grep -c '^media/.')
 [ "$MEDIA_IN_ZIP" -gt 0 ] && echo "  ok     the export carries the media ($MEDIA_IN_ZIP files)" || { echo "  CHYBA  no media in the export"; ERRORS=$((ERRORS+1)); }
@@ -1953,7 +1956,7 @@ grep -q 'id="soubor-kaleta"' "$WORK/response" && echo "  ok     an empty site of
 location=$(curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o /dev/null -w '%{redirect_url}' -X POST "$B2/admin.php?module=transfer&action=upload" -F "_csrf=$(csrf)" -F "soubor=@$WORK/presun.zip;type=application/zip")
 curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o "$WORK/response" "$location"
 grep -q "Export webu „Testovací firma“" "$WORK/response" && grep -q 'name="potvrzeni"' "$WORK/response" && echo "  ok     preview of the export with counts and a confirmation" || { echo "  CHYBA  preview of the export: $location"; ERRORS=$((ERRORS+1)); }
-MOVE_FILE=$(printf '%s' "$location" | sed 's/.*soubor=//')
+MOVE_FILE=$(printf '%s' "$location" | sed 's/.*file=//')
 curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o /dev/null -X POST "$B2/admin.php?module=transfer&action=kaleta_run" -d "_csrf=$(csrf)" -d "soubor=$MOVE_FILE"
 expect "without the confirmation nothing starts" "$("${MYSQL[@]}" "$DB2" -N -e "SELECT COUNT(*) FROM ka_stranky")" "0"
 curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o /dev/null -X POST "$B2/admin.php?module=transfer&action=kaleta_run" -d "_csrf=$(csrf)" -d "soubor=$MOVE_FILE" -d potvrzeni=1
@@ -1990,7 +1993,7 @@ SLUG_ITEM=$("${MYSQL[@]}" "$DB2" -N -e "SELECT seo_link FROM ka_stranky WHERE zo
 expect "a moved page looks the same" "$(curl -s "$B2/$SLUG_ITEM" | grep -o '<h1[^>]*>[^<]*' | head -1)" "$(curl -s "$B/$SLUG_ITEM" | grep -o '<h1[^>]*>[^<]*' | head -1)"
 curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o "$WORK/response" "$B2/admin.php?module=transfer"
 grep -q 'id="soubor-kaleta"' "$WORK/response" && { echo "  CHYBA  a site with content still offers the import form"; ERRORS=$((ERRORS+1)); }
-expect "a site with content refuses another import" "$(curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o /dev/null -w '%{redirect_url}' -X POST "$B2/admin.php?module=transfer&action=kaleta_select" -d "_csrf=$(csrf)" -d "soubor=$MOVE_FILE" | grep -c 'kaleta')|$(curl -s -b "$JAR_MOVE" -o - "$B2/admin.php?module=transfer&action=kaleta&soubor=$MOVE_FILE" | grep -c 'name="potvrzeni"')" "1|0"
+expect "a site with content refuses another import" "$(curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o /dev/null -w '%{redirect_url}' -X POST "$B2/admin.php?module=transfer&action=kaleta_select" -d "_csrf=$(csrf)" -d "soubor=$MOVE_FILE" | grep -c 'kaleta')|$(curl -s -b "$JAR_MOVE" -o - "$B2/admin.php?module=transfer&action=kaleta&file=$MOVE_FILE" | grep -c 'name="potvrzeni"')" "1|0"
 # 3.7 security review N37-2, N37-10, N37-11: an export with a page on a system address (its subpage, and a later page with
 # the first free slug), a category address with a newline, categories against the tree rules, one with an item's address,
 # texts in an unknown language and an assignment across collections – imported by the rules of a save, the result says what changed
@@ -2017,7 +2020,7 @@ curl -s -o /dev/null -X POST "$B2/install.php" --data-urlencode "db_host=$DB_HOS
 rm -f "$JAR_MOVE"; curl -s -c "$JAR_MOVE" -b "$JAR_MOVE" -o "$WORK/response" "$B2/admin.php"; curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o /dev/null -X POST "$B2/admin.php" -d "_csrf=$(csrf)" -d user=admin --data-urlencode "password=$PASSWORD"
 curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o "$WORK/response" "$B2/admin.php?module=transfer"
 location=$(curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o /dev/null -w '%{redirect_url}' -X POST "$B2/admin.php?module=transfer&action=upload" -F "_csrf=$(csrf)" -F "soubor=@$WORK/presun37.zip;type=application/zip")
-curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o "$WORK/response" "$location"; MOVE37=$(printf '%s' "$location" | sed 's/.*soubor=//')
+curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o "$WORK/response" "$location"; MOVE37=$(printf '%s' "$location" | sed 's/.*file=//')
 curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o /dev/null -X POST "$B2/admin.php?module=transfer&action=kaleta_run" -d "_csrf=$(csrf)" -d "soubor=$MOVE37" -d potvrzeni=1
 for i in $(seq 1 80); do
   curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o "$WORK/response" -X POST "$B2/admin.php?module=transfer&action=kaleta" -d "_csrf=$(csrf)" -d "soubor=$MOVE37"
@@ -2478,9 +2481,9 @@ expect "3.6 N36-1: the news list and a live news item are not taken over by redi
 check "3.6 admin Import and export" 200 "/admin.php?module=transfer" "WordPress"
 TOKEN=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=upload" -F "_csrf=$TOKEN" -F "soubor=@$ROOT/tools/fixtures/wordpress-migration.xml"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=progress&soubor=wordpress-migration.xml" -d "_csrf=$TOKEN"
-check "3.6 admin import preview: the WordPress menus and the option to bring them into the draft look" 200 "/admin.php?module=transfer&action=preview&soubor=wordpress-migration.xml" 'name="menu" value="1" checked'
-check "3.6 admin import preview: a page builder layout is reported" 200 "/admin.php?module=transfer&action=preview&soubor=wordpress-migration.xml" 'Breakdance'
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=progress&file=wordpress-migration.xml" -d "_csrf=$TOKEN"
+check "3.6 admin import preview: the WordPress menus and the option to bring them into the draft look" 200 "/admin.php?module=transfer&action=preview&file=wordpress-migration.xml" 'name="menu" value="1" checked'
+check "3.6 admin import preview: a page builder layout is reported" 200 "/admin.php?module=transfer&action=preview&file=wordpress-migration.xml" 'Breakdance'
 sq "UPDATE ka_nastaveni SET hodnota = COALESCE((SELECT hodnota FROM ka_test_look LIMIT 1), '') WHERE promenna = 'look_draft'; DROP TABLE ka_test_look" > /dev/null
 
 echo "== 2.3: leads, statistics, forms, embeds, page head code, accessibility audit"
@@ -2506,7 +2509,7 @@ curl -s -o /dev/null -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FO
 expect "an enquiry carries the first page, the campaign and the referring site of the visit" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(vstup, '|', odkud, '|', kampan) FROM ka_poptavky WHERE email = 'petr@example.cz'")" "/sluzby|google.com|utm_source=google&utm_medium=cpc&utm_campaign=kuchyne"
 mcp get_stats '{"days":7}' > "$WORK/response"; mcp_text
 contains -q '"campaign":"google / cpc / kuchyne"' "$WORK/text" && contains -q '"device":"phone"' "$WORK/text" && contains -q '"path":"/sluzby"' "$WORK/text" && echo "  ok     get_stats: campaigns, devices and the first pages of leads" || { echo "  CHYBA  get_stats"; head -c 500 "$WORK/text"; ERRORS=$((ERRORS+1)); }
-check "Statistics: pages, campaigns and first pages that bring leads" 200 "/admin.php?module=stats&dni=7" "google / cpc / kuchyne"
+check "Statistics: pages, campaigns and first pages that bring leads" 200 "/admin.php?module=stats&days=7" "google / cpc / kuchyne"
 # 2.8: real-user speed – the beacon script only with the statistics on and only for visitors, one beacon per page view, the table in Statistics, get_stats and the audit
 rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/response" "$B/sluzby"
 grep -q '<script src="/image/vitals.js?v=[^"]*" defer data-vitals="/vitals"></script>' "$WORK/response" && ! grep -q 'blocking="render" data-vitals' "$WORK/response" && echo "  ok     2.8: the speed beacon script loads deferred with the statistics on" || { echo "  CHYBA  vitals.js on the page"; ERRORS=$((ERRORS+1)); }
@@ -2516,7 +2519,7 @@ curl -s -o /dev/null -X POST "$B/vitals" -A 'Mozilla/5.0 test' -d path=/neexistu
 curl -s -o /dev/null -X POST "$B/vitals" -d path=/sluzby -d lcp=1800                                  # curl's own user agent = a bot
 curl -s -o /dev/null -X POST "$B/vitals" -A 'Mozilla/5.0 test' -d path=/sluzby -d lcp=999999 -d cls=abc # out of range, not numeric
 expect "2.8: the beacon lands in histogram buckets per metric; made-up pages, bots and nonsense do not" "$(sq "SELECT GROUP_CONCAT(CONCAT(path, ':', metric, ':', bucket, ':', samples) ORDER BY metric) FROM ka_web_vitals")" "/sluzby:cls:2:1,/sluzby:inp:2:1,/sluzby:lcp:3:1"
-curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=stats&dni=7"
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=stats&days=7"
 grep -q 'href="/sluzby"' "$WORK/response" && grep -qE '2[.,]0 s <span class="stitek stitek-vydano">' "$WORK/response" && grep -qE '150 ms <span class="stitek stitek-vydano">' "$WORK/response" && echo "  ok     2.8: Statistics show p75 LCP, CLS and INP per page with the rating" || { echo "  CHYBA  Statistics: real-user speed"; ERRORS=$((ERRORS+1)); }
 mcp get_stats '{"days":7}' > "$WORK/response"; mcp_text
 contains -q '"web_vitals":\[{"path":"/sluzby","samples":1,"lcp_p75":2000' "$WORK/text" && contains -q '"lcp_rating":"good"' "$WORK/text" && contains -q '"cls_p75":0.05' "$WORK/text" && contains -q '"inp_p75":150' "$WORK/text" && echo "  ok     2.8: get_stats carries web_vitals" || { echo "  CHYBA  get_stats web_vitals"; head -c 600 "$WORK/text"; ERRORS=$((ERRORS+1)); }
@@ -2534,7 +2537,7 @@ contains -q '"stats":"1"' "$WORK/text" && expect "3.2: update_settings stats=tru
 mcp site_audit '{"kind":"speed"}' > "$WORK/response"; mcp_text
 contains -q '"path":"/audit-pomalu"' "$WORK/text" && contains -qE '3[.,]0 s' "$WORK/text" && ! contains -q '/sluzby' "$WORK/text" && echo "  ok     2.8: the site audit flags a page whose p75 LCP got worse by more than 25 %" || { echo "  CHYBA  speed audit"; head -c 600 "$WORK/text"; ERRORS=$((ERRORS+1)); }
 "${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_web_vitals WHERE path = '/audit-pomalu'"
-case "$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d zpet=/leads-23 -d "as_cas=$FORM_TIME" -d "as_podpis=$FORM_SIGNATURE" --data-urlencode p2=tick@example.cz)" in *vysledek=pole\&pole=0*) echo "  ok     a required group needs at least one ticked option";; *) echo "  CHYBA  required checkbox group"; ERRORS=$((ERRORS+1));; esac
+case "$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d zpet=/leads-23 -d "as_cas=$FORM_TIME" -d "as_podpis=$FORM_SIGNATURE" --data-urlencode p2=tick@example.cz)" in *result=pole\&field=0*) echo "  ok     a required group needs at least one ticked option";; *) echo "  CHYBA  required checkbox group"; ERRORS=$((ERRORS+1));; esac
 curl -s -o /dev/null -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d zpet=/leads-23 -d "as_cas=$FORM_TIME" -d "as_podpis=$FORM_SIGNATURE" -d 'p0[]=Kuchyne' -d 'p0[]=Podvrh' -d p1=Hacked --data-urlencode p2=tick@example.cz
 expect "ticked options (only offered ones) and the form's own hidden value are saved" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT data FROM ka_poptavky WHERE email = 'tick@example.cz'")" '[["Sluzby","Kuchyne"],["Produkt","Dubovy stul"],["Email","tick@example.cz"]]'
 # accessibility in the site audit
@@ -2577,18 +2580,18 @@ grep -q 'class="ka-captcha cf-turnstile" data-sitekey="test-site"' "$WORK/formul
   && echo "  ok     CAPTCHA: the Turnstile widget in the form, its script once" || { echo "  CHYBA  CAPTCHA widget"; ERRORS=$((ERRORS+1)); }
 FORM_SOURCE=$(field_value zdroj); FORM_ELEMENT=$(field_value prvek); FORM_TIME=$(field_value as_cas); FORM_SIGNATURE=$(field_value as_podpis); sleep 4
 captcha_post() { curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d zpet=/leads-23 -d "as_cas=$FORM_TIME" -d "as_podpis=$FORM_SIGNATURE" -d 'p0[]=Koupelna' --data-urlencode "p2=$1" "${@:2}"; }
-case "$(captcha_post fail@example.cz -d cf-turnstile-response=wrong)" in *vysledek=captcha*) echo "  ok     CAPTCHA: a failed check is refused";; *) echo "  CHYBA  CAPTCHA: failed check"; ERRORS=$((ERRORS+1));; esac
-case "$(captcha_post none@example.cz)" in *vysledek=captcha*) echo "  ok     CAPTCHA: a form without the answer is refused";; *) echo "  CHYBA  CAPTCHA: missing answer"; ERRORS=$((ERRORS+1));; esac
+case "$(captcha_post fail@example.cz -d cf-turnstile-response=wrong)" in *result=captcha*) echo "  ok     CAPTCHA: a failed check is refused";; *) echo "  CHYBA  CAPTCHA: failed check"; ERRORS=$((ERRORS+1));; esac
+case "$(captcha_post none@example.cz)" in *result=captcha*) echo "  ok     CAPTCHA: a form without the answer is refused";; *) echo "  CHYBA  CAPTCHA: missing answer"; ERRORS=$((ERRORS+1));; esac
 captcha_post pass@example.cz -d cf-turnstile-response=pass > /dev/null
 expect "CAPTCHA: a passed check saves the enquiry, the failed ones not" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT GROUP_CONCAT(email ORDER BY email) FROM ka_poptavky WHERE email IN ('fail@example.cz','none@example.cz','pass@example.cz')")" "pass@example.cz"
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = 'recaptcha' WHERE promenna = 'captcha_provider'"; rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/formular.html" "$B/leads-23"
 grep -q 'name="g-recaptcha-response" value="" data-recaptcha="test-site"' "$WORK/formular.html" && grep -q 'recaptcha/api.js?render=test-site' "$WORK/formular.html" || { echo "  CHYBA  reCAPTCHA v3 field and script"; ERRORS=$((ERRORS+1)); }
-case "$(captcha_post low@example.cz -d g-recaptcha-response=low)" in *vysledek=captcha*) echo "  ok     reCAPTCHA v3: a low score is refused";; *) echo "  CHYBA  reCAPTCHA score"; ERRORS=$((ERRORS+1));; esac
+case "$(captcha_post low@example.cz -d g-recaptcha-response=low)" in *result=captcha*) echo "  ok     reCAPTCHA v3: a low score is refused";; *) echo "  CHYBA  reCAPTCHA score"; ERRORS=$((ERRORS+1));; esac
 kill "$CAPTCHA_PID" 2>/dev/null; wait "$CAPTCHA_PID" 2>/dev/null || true; CAPTCHA_PID=
 captcha_post down@example.cz -d g-recaptcha-response=pass > /dev/null
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('captcha_fail_open', '0') ON DUPLICATE KEY UPDATE hodnota = '0'"
-case "$(captcha_post closed@example.cz -d g-recaptcha-response=pass)" in *vysledek=captcha*) ;; *) echo "  CHYBA  CAPTCHA: fail closed"; ERRORS=$((ERRORS+1));; esac
+case "$(captcha_post closed@example.cz -d g-recaptcha-response=pass)" in *result=captcha*) ;; *) echo "  CHYBA  CAPTCHA: fail closed"; ERRORS=$((ERRORS+1));; esac
 expect "CAPTCHA: when the provider is down the owner's choice decides" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT GROUP_CONCAT(email) FROM ka_poptavky WHERE email IN ('down@example.cz','closed@example.cz')")" "down@example.cz"
 mcp update_settings '{"settings":{"captcha_secret":"stolen","captcha_provider":"hcaptcha"}}' > "$WORK/response"
 [ "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'captcha_secret'")" = "test-secret" ] && mcp update_settings '{}' > "$WORK/response" && ! contains -q 'test-secret' "$WORK/response" \
@@ -3207,12 +3210,12 @@ contains -q 'Petr Podpis' "$WORK/response" && contains -q '777 123 456' "$WORK/r
   && echo "  ok     people: get_email_signature has the name and the phone in an inline-styled table, never the absence" || { echo "  CHYBA  get_email_signature"; head -c 600 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp get_email_signature "{\"collection\":\"$TEAM\",\"slug\":\"petr-podpis\"}" > "$WORK/response"
 contains -q 'mailto:petr@example.cz' "$WORK/response" && contains -q 'people_collection\\":true' "$WORK/response" && echo "  ok     people: the signature by the person's address" || { echo "  CHYBA  get_email_signature slug"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
-check "people: the item form offers the e-mail signature" 200 "/admin.php?module=collections&action=item&id=$TEAM_IDK&polozka=${PERSON:-0}" 'action=signature'
-check "people: the admin signature page shows the preview with the copy button" 200 "/admin.php?module=collections&action=signature&id=$TEAM_IDK&polozka=${PERSON:-0}" 'data-kopirovat-podpis'
+check "people: the item form offers the e-mail signature" 200 "/admin.php?module=collections&action=item&id=$TEAM_IDK&item=${PERSON:-0}" 'action=signature'
+check "people: the admin signature page shows the preview with the copy button" 200 "/admin.php?module=collections&action=signature&id=$TEAM_IDK&item=${PERSON:-0}" 'data-kopirovat-podpis'
 grep -q 'Petr Podpis' "$WORK/response" && grep -q 'Obchodní ředitel' "$WORK/response" && grep -q 'href="tel:+420777123456"' "$WORK/response" && ! grep -q 'Dovolen' "$WORK/response" && echo "  ok     people: the preview has the name, the role and the phone, never the absence" || { echo "  CHYBA  signature preview"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=collections&action=edit&id=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'lide-test'")"
 grep -q 'name="hidden_redirect"' "$WORK/response" && grep -q 'name="pole\[0\]\[kolekce\]"' "$WORK/response" && echo "  ok     collections: the form offers links and the redirect" || { echo "  CHYBA  formulář kolekce"; ERRORS=$((ERRORS+1)); }
-curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=collections&action=item&id=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'lide-test'")&polozka=$(sq "SELECT idp FROM ka_kolekce_polozky WHERE seo_link = 'jana-nova'")"
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=collections&action=item&id=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'lide-test'")&item=$(sq "SELECT idp FROM ka_kolekce_polozky WHERE seo_link = 'jana-nova'")"
 grep -q '<option value="praha-centrum" selected>Praha centrum</option>' "$WORK/response" && echo "  ok     collections: the item form chooses the linked item" || { echo "  CHYBA  formulář položky s vazbou"; ERRORS=$((ERRORS+1)); }
 
 echo "== 2.10: true until and review by"
@@ -3273,7 +3276,7 @@ expect "fields: the date and time, the file and the location are stored clean" "
 curl -s -o "$WORK/response" "$B/typy-poli/den-otevrenych-dveri"
 grep -q '2. 11. 2026 17:00' "$WORK/response" && grep -q 'href="[^"]*media/cenik-2026.pdf"' "$WORK/response" && grep -q 'cenik-2026.pdf)' "$WORK/response" \
   && echo "  ok     fields: the item page shows the day and time and a button to the file with its name" || { echo "  CHYBA  stránka položky s termínem a souborem"; ERRORS=$((ERRORS+1)); }
-check "fields: the item form has a date-time input and a Media file picker" 200 "/admin.php?module=collections&action=item&id=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'typy-poli'")&polozka=$(sq "SELECT idp FROM ka_kolekce_polozky WHERE seo_link = 'den-otevrenych-dveri'")" 'type="datetime-local" id="pole-zacatek" name="data\[zacatek\]" value="2026-11-02T17:00"'
+check "fields: the item form has a date-time input and a Media file picker" 200 "/admin.php?module=collections&action=item&id=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'typy-poli'")&item=$(sq "SELECT idp FROM ka_kolekce_polozky WHERE seo_link = 'den-otevrenych-dveri'")" 'type="datetime-local" id="pole-zacatek" name="data\[zacatek\]" value="2026-11-02T17:00"'
 grep -q 'data-soubor' "$WORK/response" && echo "  ok     fields: the file field opens Media" || { echo "  CHYBA  data-soubor"; ERRORS=$((ERRORS+1)); }
 # the period of a Collection list (2.11): upcoming, current and past by a start and an end field – the SQL condition run on real rows
 mcp create_collection '{"name":"Období","slug":"obdobi-test","fields":[{"label":"Od","type":"datetime"},{"label":"Do","type":"datetime"}]}' > /dev/null
@@ -3322,9 +3325,9 @@ expect "events: a collection that is not a calendar has no .ics" "$(curl -s -o /
 sq "DELETE FROM ka_kontrola_ip WHERE typ = 'formular'" > /dev/null
 FORM_SOURCE=$(field_value zdroj || true); FORM_ELEMENT=$(field_value prvek || true); FORM_TIME=$(field_value as_cas || true); FORM_SIGNATURE=$(field_value as_podpis || true); sleep 4
 register() { curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d "zpet=/akce-test/joga" -d "as_cas=$FORM_TIME" -d "as_podpis=$FORM_SIGNATURE" -d p0=Eva --data-urlencode "p1=$1" -d p4=1; }
-case "$(register eva@example.cz)" in *vysledek=ok*) echo "  ok     events: a registration is accepted";; *) echo "  CHYBA  registrace na akci"; ERRORS=$((ERRORS+1));; esac
+case "$(register eva@example.cz)" in *result=ok*) echo "  ok     events: a registration is accepted";; *) echo "  CHYBA  registrace na akci"; ERRORS=$((ERRORS+1));; esac
 expect "events: the registration is an enquiry from the event's page" "$(sq "SELECT CONCAT(zdroj, '|', stranka) FROM ka_poptavky ORDER BY idp DESC LIMIT 1")" "kolekce:$EVENTS_IDK|/akce-test/joga"
-case "$(register petr@example.cz)" in *vysledek=plno*) echo "  ok     events: a full event refuses another registration on the server";; *) echo "  CHYBA  plná akce přijala registraci"; ERRORS=$((ERRORS+1));; esac
+case "$(register petr@example.cz)" in *result=plno*) echo "  ok     events: a full event refuses another registration on the server";; *) echo "  CHYBA  plná akce přijala registraci"; ERRORS=$((ERRORS+1));; esac
 curl -s -o "$WORK/response" "$B/akce-test/joga"
 grep -q 'Akce je plně obsazená.' "$WORK/response" && ! grep -q 'class="ka-formular"' "$WORK/response" && echo "  ok     events: the page of a full event shows it is full instead of the form" || { echo "  CHYBA  plná akce stále ukazuje formulář"; ERRORS=$((ERRORS+1)); }
 mcp list_collection_items '{"collection":"akce-test"}' > "$WORK/response"
@@ -3352,15 +3355,15 @@ expect "products: a comparison without known products is not found" "$(curl -s -
 expect "products: a collection that is not a catalogue has no comparison" "$(curl -s -o /dev/null -w '%{http_code}' "$B/typy-poli/_porovnat?i=den-otevrenych-dveri")" "404"
 mcp update_page "{\"id\":$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'produkty-test'"),\"visible\":true}" > /dev/null
 # without the script: Add to enquiry opens the list page with the product, the basket field has it
-curl -s -o "$WORK/formular.html" "$B/produkty-test?produkt=produkty-test/lehatko-basic&varianta=$(php -r 'echo rawurlencode("Šedá");')&mnozstvi=2"
+curl -s -o "$WORK/formular.html" "$B/produkty-test?product=produkty-test/lehatko-basic&variant=$(php -r 'echo rawurlencode("Šedá");')&quantity=2"
 grep -q 'data-kosik-pole' "$WORK/formular.html" && grep -q '2 × Lehátko Basic – Šedá (LB-1-S)' "$WORK/formular.html" && echo "  ok     products: the enquiry form takes the product from the address" || { echo "  CHYBA  košík bez skriptu"; ERRORS=$((ERRORS+1)); }
 sq "DELETE FROM ka_kontrola_ip WHERE typ = 'formular'" > /dev/null
 FORM_SOURCE=$(field_value zdroj || true); FORM_ELEMENT=$(grep -o 'name="prvek" value="[^"]*"' "$WORK/formular.html" | tail -1 | sed 's/.*value="//;s/"$//'); FORM_TIME=$(grep -o 'name="as_cas" value="[^"]*"' "$WORK/formular.html" | tail -1 | sed 's/.*value="//;s/"$//')
 FORM_SIGNATURE=$(grep -o 'name="as_podpis" value="[^"]*"' "$WORK/formular.html" | tail -1 | sed 's/.*value="//;s/"$//'); sleep 4
 basket_send() { curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d "zpet=/produkty-test" -d "as_cas=$FORM_TIME" -d "as_podpis=$FORM_SIGNATURE" --data-urlencode "p0=$1" -d p1=Eva -d p2=eva@example.cz -d p5=1; }
-case "$(basket_send '[{"c":"produkty-test","i":"lehatko-pro","v":"Zlatá","q":1}]')" in *vysledek=pole*) echo "  ok     products: a variant the product does not have is refused";; *) echo "  CHYBA  neexistující varianta v košíku"; ERRORS=$((ERRORS+1));; esac
-case "$(basket_send '[]')" in *vysledek=pole*) echo "  ok     products: an empty basket is refused";; *) echo "  CHYBA  prázdný košík"; ERRORS=$((ERRORS+1));; esac
-case "$(basket_send '[{"c":"produkty-test","i":"lehatko-basic","v":"Modrá","q":3},{"c":"produkty-test","i":"lehatko-pro","v":"","q":1,"n":"<script>"}]')" in *vysledek=ok*) echo "  ok     products: the basket is sent";; *) echo "  CHYBA  odeslání košíku"; ERRORS=$((ERRORS+1));; esac
+case "$(basket_send '[{"c":"produkty-test","i":"lehatko-pro","v":"Zlatá","q":1}]')" in *result=pole*) echo "  ok     products: a variant the product does not have is refused";; *) echo "  CHYBA  neexistující varianta v košíku"; ERRORS=$((ERRORS+1));; esac
+case "$(basket_send '[]')" in *result=pole*) echo "  ok     products: an empty basket is refused";; *) echo "  CHYBA  prázdný košík"; ERRORS=$((ERRORS+1));; esac
+case "$(basket_send '[{"c":"produkty-test","i":"lehatko-basic","v":"Modrá","q":3},{"c":"produkty-test","i":"lehatko-pro","v":"","q":1,"n":"<script>"}]')" in *result=ok*) echo "  ok     products: the basket is sent";; *) echo "  CHYBA  odeslání košíku"; ERRORS=$((ERRORS+1));; esac
 sq "SELECT data FROM ka_poptavky ORDER BY idp DESC LIMIT 1" > "$WORK/response"
 grep -q '3 × Lehátko Basic – Modrá (LB-1-M)' "$WORK/response" && grep -q '1 × Lehátko Pro (LP-2)' "$WORK/response" && ! grep -q 'script' "$WORK/response" \
   && echo "  ok     products: the enquiry lists the products as the database has them, never the visitor's text" || { echo "  CHYBA  řádky košíku v poptávce"; cat "$WORK/response"; ERRORS=$((ERRORS+1)); }
@@ -3449,7 +3452,7 @@ printf '%%PDF-1.4 test CV\n' > "$WORK/cv.pdf"
 sleep 4
 location=$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -F "zdroj=$JOB_SOURCE" -F "prvek=$JOB_ELEMENT" -F zpet=/volna-mista/truhlar -F "as_cas=$JOB_TIME" -F "as_podpis=$JOB_SIGNATURE" \
   -F p0=Jan -F p1=jan@example.cz -F p2= -F "p3=@$WORK/cv.pdf" --form-string "p4=Hlásím se." -F p5=1 --form-string "p6=<b>Truhlář</b>") # --form-string: a value starting with < would be read as a file by -F
-case "$location" in *"/volna-mista/truhlar?formular=$JOB_ELEMENT&vysledek=ok#"*) echo "  ok     jobs: an application with a CV was sent";; *) echo "  CHYBA  application: $location"; ERRORS=$((ERRORS+1));; esac
+case "$location" in *"/volna-mista/truhlar?form=$JOB_ELEMENT&result=ok#"*) echo "  ok     jobs: an application with a CV was sent";; *) echo "  CHYBA  application: $location"; ERRORS=$((ERRORS+1));; esac
 APP_IDP=$(sq "SELECT MAX(idp) FROM ka_poptavky WHERE zdroj = 'kolekce:$JOBS_IDK'")
 expect "jobs: the application is an enquiry from the job's page with the job name as plain text and the CV outside the web root" \
   "$(sq "SELECT CONCAT(stranka, '|', email, '|', JSON_UNQUOTE(JSON_EXTRACT(data, '\$[6][1]')), '|', JSON_UNQUOTE(JSON_EXTRACT(data, '\$[3][2]')) REGEXP '^[0-9]{4}/[0-9]{2}/[a-f0-9]{24}[.]pdf$') FROM ka_poptavky WHERE idp = $APP_IDP")" "/volna-mista/truhlar|jan@example.cz|Truhlář|1"
@@ -3508,7 +3511,7 @@ rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/formular.html"
 GATE_SOURCE=$(field_value zdroj); GATE_ELEMENT=$(field_value prvek); GATE_TIME=$(field_value as_cas); GATE_SIGNATURE=$(field_value as_podpis)
 sleep 4
 location=$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$GATE_SOURCE" -d "prvek=$GATE_ELEMENT" -d zpet=/cenik-emailem -d "as_cas=$GATE_TIME" -d "as_podpis=$GATE_SIGNATURE" --data-urlencode p0=gate@example.cz)
-case "$location" in *vysledek=ok*) echo "  ok     gated: the form was sent";; *) echo "  CHYBA  gated form: $location"; ERRORS=$((ERRORS+1));; esac
+case "$location" in *result=ok*) echo "  ok     gated: the form was sent";; *) echo "  CHYBA  gated form: $location"; ERRORS=$((ERRORS+1));; esac
 expect "gated: the enquiry records which file was sent" "$(sq "SELECT data LIKE '%Soubor poslan% e-mailem%cenik-v2.pdf%' FROM ka_poptavky WHERE email = 'gate@example.cz'")" "1"
 # a plain-text e-mail: one base64 body (the eml helper above decodes the parts of a multipart newsletter)
 gate_mail() { php -r '[$h, $b] = explode("\r\n\r\n", file_get_contents($argv[1]), 2); preg_match("/^Subject: (.*)$/m", $h, $s); echo "Subject-Decoded: ", mb_decode_mimeheader(trim($s[1] ?? "")), "\n", base64_decode($b);' "$1"; }
@@ -3595,7 +3598,7 @@ mcp save_collection_item "{\"collection\":\"preset-kurzy\",\"name\":\"Kurz loňs
 check "presets: the course page shows the place and the formatted start" 200 /preset-kurzy/kurz-svarovani "Brno"
 grep -q '"Event"' "$WORK/response" && grep -q '"startDate"' "$WORK/response" && echo "  ok     presets: the course page carries the Event structured data" || { echo "  CHYBA  course Event schema"; ERRORS=$((ERRORS+1)); }
 # the hidden list page in the administrator's preview shows only the course still to come
-curl -s -b "$JAR" -o "$WORK/response" "$B/preset-kurzy?stavba=koncept"
+curl -s -b "$JAR" -o "$WORK/response" "$B/preset-kurzy?build=koncept"
 grep -q 'Kurz svařování' "$WORK/response" && ! grep -q 'Kurz loňský' "$WORK/response" && echo "  ok     presets: the courses list shows the future course and not the past one" || { echo "  CHYBA  courses list by date"; grep -o 'Kurz [a-zě]*' "$WORK/response" | sort -u; ERRORS=$((ERRORS+1)); }
 
 echo "== 2.11 F1: screen mode for a reception"
@@ -3675,7 +3678,7 @@ expect "notices: a created row per notice, written by Claude, with the values" "
 mcp save_collection_item "{\"collection\":\"uredni-deska\",\"id\":$NOTICE_B,\"values\":{\"summary\":\"Schválený rozpočet.\"}}" > /dev/null
 mcp save_collection_item "{\"collection\":\"uredni-deska\",\"id\":$NOTICE_B,\"values\":{\"summary\":\"Schválený rozpočet.\"}}" > /dev/null
 expect "notices: a change is logged once with the field, the old and the new value" "$(sq "SELECT CONCAT(COUNT(*), '|', MAX(JSON_UNQUOTE(JSON_EXTRACT(fields, '$.summary[0]'))), '|', MAX(JSON_UNQUOTE(JSON_EXTRACT(fields, '$.summary[1]'))), '|', MAX(JSON_CONTAINS_PATH(fields, 'one', '$.reference'))) FROM ka_notice_log WHERE idp = $NOTICE_B AND action = 'changed'")" "1||Schválený rozpočet.|0"
-curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=collections&action=item&id=$BOARD_IDK&polozka=$NOTICE_B"; TOKEN=$(csrf)
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=collections&action=item&id=$BOARD_IDK&item=$NOTICE_B"; TOKEN=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=collections&action=save_item" -d "_csrf=$TOKEN" -d "idk=$BOARD_IDK" -d "idp=$NOTICE_B" --data-urlencode "nazev=Rozpočet 2026" -d "seo_link=rozpocet-2026" -d "poradi=100" -d "zobrazit=1" \
   -d "data[posted]=$N_TEN_AGO" -d "data[taken_down]=$N_YESTERDAY" -d "data[reference]=MU/2026/12" --data-urlencode "data[issuer]=Rada města" --data-urlencode "data[category]=Rozpočet" -d "data[document]=" --data-urlencode "data[summary]=Schválený rozpočet."
 expect "admin: saving the form logs the change under the user's name" "$(sq "SELECT CONCAT(\`by\`, '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '$.issuer[1]'))) FROM ka_notice_log WHERE idp = $NOTICE_B AND action = 'changed' ORDER BY id DESC LIMIT 1")" "Tester|Rada města"
@@ -3689,7 +3692,7 @@ expect "notices: posted for both visible notices, taken_down for the archived on
 sq "UPDATE ka_jobs SET last_run = NULL WHERE name = 'notices'" > /dev/null; curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
 grep -q 'notices: posted 0, taken down 0' "$WORK/tasks.txt" && [ "$(sq "SELECT COUNT(*) FROM ka_notice_log WHERE action IN ('posted', 'taken_down')")" = 3 ] && echo "  ok     notices: a second run records nothing twice" || { echo "  CHYBA  notices job ran twice"; ERRORS=$((ERRORS+1)); }
 # the log under the item form and the CSV for an administrator, not for a guest
-check "notices: the item form shows the log with the CSV link" 200 "/admin.php?module=collections&action=item&id=$BOARD_IDK&polozka=$NOTICE_B" "action=notice_log"
+check "notices: the item form shows the log with the CSV link" 200 "/admin.php?module=collections&action=item&id=$BOARD_IDK&item=$NOTICE_B" "action=notice_log"
 grep -q 'Rada města' "$WORK/response" && grep -q "taken_down: $N_YESTERDAY" "$WORK/response" && echo "  ok     notices: the log shows the changes and the takedown" || { echo "  CHYBA  log under the form"; ERRORS=$((ERRORS+1)); }
 code=$(curl -s -b "$JAR" -o "$WORK/response" -w '%{http_code} %{content_type}' "$B/admin.php?module=collections&action=notice_log&id=$BOARD_IDK")
 expect "notices: the administrator downloads the log as CSV" "$code" "200 text/csv; charset=utf-8"
@@ -3732,7 +3735,7 @@ mcp update_enquiry "{\"id\":$TRIAGE_ID,\"category\":\"nonsense\"}" > "$WORK/resp
 contains -q 'category must be one of' "$WORK/response" && echo "  ok     triage: an unknown kind is refused" || { echo "  CHYBA  neznámá kategorie"; ERRORS=$((ERRORS+1)); }
 mcp list_enquiries '{"limit":50}' > "$WORK/response"
 contains -q 'draft_reply' "$WORK/response" && ! contains -q 'first page of Google' "$WORK/response" && echo "  ok     triage: list_enquiries carries the triage and leaves spam out" || { echo "  CHYBA  list_enquiries a spam"; ERRORS=$((ERRORS+1)); }
-check "triage: the admin list leaves spam out" 200 "/admin.php?module=enquiries" "kategorie=spam"
+check "triage: the admin list leaves spam out" 200 "/admin.php?module=enquiries" "category=spam"
 ! grep -q 'first page of Google' "$WORK/response" && echo "  ok     triage: spam is not in the default list" || { echo "  CHYBA  spam v seznamu"; ERRORS=$((ERRORS+1)); }
 check "triage: the detail has the kind, the priority and the draft in the e-mail reply" 200 "/admin.php?module=enquiries&action=detail&id=$TRIAGE_ID" 'body=Dobr%C3%BD%20den'
 TRIAGE_CSRF=$(csrf)
@@ -3773,8 +3776,8 @@ grep -q 'data-kdyz="p0" data-kdyz-hodnota="Dveře"' "$WORK/formular.html" && gre
 sq "DELETE FROM ka_kontrola_ip WHERE typ = 'formular'" > /dev/null
 FORM_SOURCE=$(field_value zdroj || true); FORM_ELEMENT=$(field_value prvek || true); FORM_TIME=$(field_value as_cas || true); FORM_SIGNATURE=$(field_value as_podpis || true); sleep 4
 calc() { curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d "zpet=/kalkulacka-212" -d "as_cas=$FORM_TIME" -d "as_podpis=$FORM_SIGNATURE" "$@"; }
-case "$(calc --data-urlencode 'p0=Dveře' -d p4=d@example.cz -d p5=1)" in *vysledek=pole*pole=3*) echo "  ok     conditions: a required field shown by the answer is checked on the server";; *) echo "  CHYBA  podmíněné povinné pole"; ERRORS=$((ERRORS+1));; esac
-case "$(calc -d p0=Okna -d p1=4 -d p4=o@example.cz --data-urlencode 'p3=Dub' -d p5=1)" in *vysledek=ok*) echo "  ok     conditions: a hidden required field does not block the form";; *) echo "  CHYBA  skryté povinné pole"; ERRORS=$((ERRORS+1));; esac
+case "$(calc --data-urlencode 'p0=Dveře' -d p4=d@example.cz -d p5=1)" in *result=pole*field=3*) echo "  ok     conditions: a required field shown by the answer is checked on the server";; *) echo "  CHYBA  podmíněné povinné pole"; ERRORS=$((ERRORS+1));; esac
+case "$(calc -d p0=Okna -d p1=4 -d p4=o@example.cz --data-urlencode 'p3=Dub' -d p5=1)" in *result=ok*) echo "  ok     conditions: a hidden required field does not block the form";; *) echo "  CHYBA  skryté povinné pole"; ERRORS=$((ERRORS+1));; esac
 expect "calculator: the server computes the estimate and drops the hidden answer" "$(sq "SELECT data FROM ka_poptavky ORDER BY idp DESC LIMIT 1" | php -r '$d = json_decode(stream_get_contents(STDIN), true); echo implode("|", array_map(fn ($r) => $r[0] . "=" . str_replace("\u{a0}", " ", $r[1]), $d));')" "Typ=Okna|Počet=4|Email=o@example.cz|Odhad=7 700 Kč"
 echo "== 2.12: testimonial requests with consent"
 REF_ENQUIRY=$(sq "INSERT INTO ka_poptavky (datum, formular, zdroj, stranka, email, data, stav) VALUES ('$(site_time)', 'Kontakt', 'stranka:1', '/kontakt', 'zakaznik@example.cz', '[[\"Zpráva\",\"Děkujeme\"]]', 2); SELECT LAST_INSERT_ID();")
@@ -3794,7 +3797,7 @@ REF_ITEM=$(sq "SELECT item_id FROM ka_testimonial_requests WHERE idp = $REF_ENQU
 [ -n "$REF_ITEM" ] && expect "testimonials: the answer is a hidden draft reference with the words, the name and the role" "$(sq "SELECT CONCAT(p.zobrazit, '|', p.nazev, '|', p.data->>'\$.quote', '|', p.data->>'\$.client', '|', k.preset) FROM ka_kolekce_polozky p JOIN ka_kolekce k ON k.idk = p.idk WHERE p.idp = $REF_ITEM")" "0|Eva Nováková|Výborná spolupráce, vše včas.|Eva Nováková, ředitelka, ACME|references" \
   || { echo "  CHYBA  koncept reference"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 expect "testimonials: the consent the customer saw is kept, the link works once" "$(sq "SELECT consent LIKE '%publish my words%' OR consent LIKE '%zveřejn%' FROM ka_testimonial_requests WHERE item_id = $REF_ITEM")|$(curl -s -o /dev/null -w '%{http_code}' "$B/$REF_LINK")" "1|404"
-check "testimonials: the enquiry detail shows the request and links the draft" 200 "/admin.php?module=enquiries&action=detail&id=$REF_ENQUIRY" "polozka=$REF_ITEM"
+check "testimonials: the enquiry detail shows the request and links the draft" 200 "/admin.php?module=enquiries&action=detail&id=$REF_ENQUIRY" "item=$REF_ITEM"
 echo "== 2.12: calls and e-mail clicks counted as conversions (Core\\Conversions)"
 # a page with nothing but a phone number keeps image/web.js while the statistics are on – the click counter needs it and learns the endpoint from data-konverze; never for signed-in users
 mcp vytvor_stranku '{"titulek":"Volejte 212","zobrazit":true,"text":"<p>Zavolejte: <a href=\"tel:+420777000212\">+420 777 000 212</a></p>"}' > /dev/null
@@ -3814,7 +3817,7 @@ beacon tel /neexistuje-212 > /dev/null                                # a page t
 beacon tel 'volejte-212' > /dev/null                                  # not a path
 curl -s -o /dev/null -b "$JAR" -X POST "$B/konverze" -A 'Mozilla/5.0 test' -d type=whatsapp -d path=/volejte-212   # signed in – never counted
 expect "2.12: once per visitor, type and page a day; unknown types, bots, made-up pages and signed-in users are not counted" "$(sq "SELECT GROUP_CONCAT(CONCAT(cesta, ':', typ, ':', pocet) ORDER BY typ) FROM ka_stat_konverze")" "/volejte-212:mailto:1,/volejte-212:tel:2"
-curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=stats&dni=7"
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=stats&days=7"
 grep -q 'href="/volejte-212"' "$WORK/response" && grep -q '<td class="cislo">2 / 1 / 0</td>' "$WORK/response" && grep -q 'Kontaktní kliknutí (hovory, e-maily, WhatsApp)' "$WORK/response" && echo "  ok     2.12: Statistics show calls, e-mails and WhatsApp per page and in total" || { echo "  CHYBA  Statistics: contact clicks"; ERRORS=$((ERRORS+1)); }
 mcp get_stats '{"days":7}' > "$WORK/response"; mcp_text
 contains -q '"contact_clicks":{"calls":2,"emails":1,"whatsapp":0,"by_page":\[{"path":"/volejte-212","calls":2,"emails":1,"whatsapp":0}\]}' "$WORK/text" && contains -q '"path":"/volejte-212","views":[0-9]*,"enquiries":0,"signups":0,"calls":2,"emails":1,"whatsapp":0' "$WORK/text" \
@@ -3875,7 +3878,7 @@ sq "DELETE FROM ka_kontrola_ip WHERE typ = 'formular'" > /dev/null
 rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/formular.html" "$B/koupelny-f7"
 FORM_SOURCE=$(field_value zdroj); FORM_ELEMENT=$(field_value prvek); FORM_TIME=$(field_value as_cas); FORM_SIGNATURE=$(field_value as_podpis); sleep 4
 location=$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d zpet=/koupelny-f7 -d "as_cas=$FORM_TIME" -d "as_podpis=$FORM_SIGNATURE" --data-urlencode p0=f7@example.cz -d tema=Podvrh -d about=Podvrh)
-case "$location" in *vysledek=ok*) echo "  ok     topic: the form on the page was sent";; *) echo "  CHYBA  form F7: $location"; ERRORS=$((ERRORS+1));; esac
+case "$location" in *result=ok*) echo "  ok     topic: the form on the page was sent";; *) echo "  CHYBA  form F7: $location"; ERRORS=$((ERRORS+1));; esac
 F7_IDP=$(sq "SELECT MAX(idp) FROM ka_poptavky WHERE zdroj = 'stranka:$PAGE_F7'")
 expect "topic: on a page the topic is the page title – what was posted for it is ignored" "$(sq "SELECT tema FROM ka_poptavky WHERE idp = $F7_IDP")" "Koupelny F7"
 check "topic: the Enquiries list shows it with a link to the page" 200 "/admin.php?module=enquiries" 'Téma: <a href="/koupelny-f7"'
@@ -3883,7 +3886,7 @@ check "topic: the enquiry detail shows it" 200 "/admin.php?module=enquiries&acti
 mcp list_enquiries '{"limit":1}' > "$WORK/response"
 expect "MCP: list_enquiries has about" "$(mcp_value 0 about)" "Koupelny F7"
 # the thank-you in place of the form: the steps as a list, by when the reply comes (counted in working hours) and who replies
-check "next steps: the thank-you lists the steps" 200 "/koupelny-f7?formular=$FORM_ELEMENT&vysledek=ok" '<ol class="ka-kroky"><li>Zavoláme vám</li><li>Přijedeme na zaměření</li></ol>'
+check "next steps: the thank-you lists the steps" 200 "/koupelny-f7?form=$FORM_ELEMENT&result=ok" '<ol class="ka-kroky"><li>Zavoláme vám</li><li>Přijedeme na zaměření</li></ol>'
 grep -q 'class="ka-kroky-termin">Odpovíme .* do [0-9]*:[0-9][0-9]\.</p>' "$WORK/response" && grep -q '<p class="ka-kroky-kdo">Jana z kanceláře vám odpoví.</p>' "$WORK/response" \
   && echo "  ok     next steps: the thank-you says by when and who replies" || { echo "  CHYBA  thank-you deadline or who replies"; grep -o 'ka-formular-hotovo.\{0,400\}' "$WORK/response" | head -c 500; ERRORS=$((ERRORS+1)); }
 echo "== 2.12: pricing table, before and after, hotspots, timeline"
@@ -4030,7 +4033,7 @@ expect "MCP: get_page content_check – one H1 (the title), a skipped level, an 
   "$(php -r '$c = array_column(json_decode(file_get_contents($argv[1]), true), "ok", "check"); echo (int) $c["single_h1"], (int) $c["heading_order"], (int) $c["images_alt"], (int) $c["title_length"], (int) $c["description_length"];' "$WORK/check.json")" "10000"
 check "the page editor shows the content check of the saved version" 200 "/admin.php?module=pages&action=edit&id=$F16_PAGE" 'data-kontrola="heading_order"'
 # translation overview: the page has no English version – missing in the admin matrix and over MCP; after translating and changing the original – outdated
-check "translations: the overview offers to create the missing English version" 200 "/admin.php?module=pages&action=translations" "preklad_z=$F16_PAGE"
+check "translations: the overview offers to create the missing English version" 200 "/admin.php?module=pages&action=translations" "translation_of=$F16_PAGE"
 grep -q 'data-stav="missing"' "$WORK/response" && echo "  ok     translations: the cell says missing" || { echo "  CHYBA  translation matrix cell"; ERRORS=$((ERRORS+1)); }
 mcp translation_status '{"type":"page"}' > "$WORK/response"; mcp_value items > "$WORK/items.json"
 f16_status() { php -r '$v = json_decode(file_get_contents($argv[1]), true) ?: []; foreach ($v as $i) { if ((int) $i["id"] === (int) $argv[2]) { echo $i["type"], "|", $i["translations"]["en"]["status"]; } }' "$WORK/items.json" "$F16_PAGE"; }
@@ -4307,7 +4310,7 @@ expect "search: the snapshot of today – Google's CTR in per cent, Bing's days 
 grep -q '"site":"sc-domain:example.com","dimension":"query"' "$FAKE_LOGS-search.log" && grep -q '"limit":250' "$FAKE_LOGS-search.log" && grep -q '"bing":"GetPageStats","site":"https://example.com/","has_key":true' "$FAKE_LOGS-search.log" \
   && echo "  ok     search: Google was asked for the chosen property with 250 rows per dimension, Bing for the registered site with the key" || { echo "  CHYBA  what the fake services were asked"; cat "$FAKE_LOGS-search.log"; ERRORS=$((ERRORS+1)); }
 expect "search: the calls are logged by their action, and the Bing key is in no log row" "$(sq "SELECT CONCAT(GROUP_CONCAT(DISTINCT action ORDER BY action), '|', SUM(action LIKE '%bing-test-key%' OR error LIKE '%bing-test-key%')) FROM ka_connector_log WHERE action LIKE 'search.%'")" "search.page,search.query,search.sitemaps,search.sites|0"
-check "search: Statistics show the queries and pages of both engines with the sitemap coverage" 200 "/admin.php?module=stats&dni=7" "kaleta cms"
+check "search: Statistics show the queries and pages of both engines with the sitemap coverage" 200 "/admin.php?module=stats&days=7" "kaleta cms"
 grep -q '<td>kaleta bing</td><td class="cislo">6</td><td class="cislo">120</td><td class="cislo">5,0 %</td><td class="cislo">5,0</td>' "$WORK/response" && grep -q 'href="https://example.com/sluzby"' "$WORK/response" && grep -q '<td>https://example.com/sitemap.xml</td><td class="cislo">15</td><td class="cislo">10</td>' "$WORK/response" \
   && grep -q 'Nejčastější dotazy (Google)' "$WORK/response" && ! grep -q 'bing-test-key' "$WORK/response" && echo "  ok     search: the Statistics tables and never the Bing key" || { echo "  CHYBA  Statistics: search section"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=connectors"; ! grep -q 'bing-test-key' "$WORK/response" && echo "  ok     search: the Bing key is not on the Connections screen" || { echo "  CHYBA  Bing key on the page"; ERRORS=$((ERRORS+1)); }
@@ -4475,7 +4478,7 @@ sleep 4
 # cannot deliver the queue and only the cron call below does
 sq "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('notification_check', UNIX_TIMESTAMP()) ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)" > /dev/null
 location=$(crm_submit --data-urlencode "p0=Karel Novák" --data-urlencode p1=karel@example.cz --data-urlencode "p2=+420 777 123 456" --data-urlencode "p3=Chci novou kuchyň." -d p4=1)
-case "$location" in *vysledek=ok*) echo "  ok     enquiries: the form was sent";; *) echo "  CHYBA  form: $location"; ERRORS=$((ERRORS+1));; esac
+case "$location" in *result=ok*) echo "  ok     enquiries: the form was sent";; *) echo "  CHYBA  form: $location"; ERRORS=$((ERRORS+1));; esac
 CRM_IDP=$(sq "SELECT MAX(idp) FROM ka_poptavky"); FORM_NAME=$(sq "SELECT formular FROM ka_poptavky WHERE idp = $CRM_IDP")
 expect "enquiries: one delivery per destination waits in the queue – nothing went out while the visitor waited" "$(sq "SELECT CONCAT(COUNT(*), '|', GROUP_CONCAT(action ORDER BY action), '|', SUM(delivered_at IS NULL), '|', SUM(payload LIKE '%\"enquiry\":$CRM_IDP,%')) FROM ka_connector_queue WHERE id > $QID0")|$([ -f "$FAKE_LOGS-crm.log" ] && grep -c karel "$FAKE_LOGS-crm.log" || echo 0)" "4|crm.lead,crm.lead,crm.lead,sheets.append|4|4|0"
 curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
@@ -4508,7 +4511,7 @@ printf '%%PDF-1.4 test CV\n' > "$WORK/cv.pdf"
 submit_application() { sq "DELETE FROM ka_kontrola_ip WHERE typ = 'formular'" > /dev/null; curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -F "zdroj=$JOB_SOURCE" -F "prvek=$JOB_ELEMENT" -F zpet=/volna-mista/truhlar -F "as_cas=$JOB_TIME" -F "as_podpis=$JOB_SIGNATURE" \
   -F p0=Petr -F "p1=$1" -F p2= -F "p3=@$WORK/cv.pdf" --form-string "p4=Hlásím se." -F p5=1 --form-string "p6=Truhlář"; }
 QID2=$(sq "SELECT MAX(id) FROM ka_connector_queue")
-case "$(submit_application f13-applicant@example.cz)" in *vysledek=ok*) echo "  ok     enquiries: an application with a CV was sent";; *) echo "  CHYBA  application"; ERRORS=$((ERRORS+1));; esac
+case "$(submit_application f13-applicant@example.cz)" in *result=ok*) echo "  ok     enquiries: an application with a CV was sent";; *) echo "  CHYBA  application"; ERRORS=$((ERRORS+1));; esac
 expect "enquiries: the application is stored but goes to no CRM and no sheet by default" "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_poptavky WHERE email = 'f13-applicant@example.cz'), '|', (SELECT COUNT(*) FROM ka_connector_queue WHERE id > $QID2))")" "1|0"
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=connectors"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=connectors&action=save" -d "_csrf=$(csrf)" -d service=raynet --data-urlencode account=user@example.cz -d "config[instance]=acme-crm" -d "config[enquiries]=1" -d "config[enquiry_jobs]=1"
@@ -4620,9 +4623,9 @@ expect "notebook: site_info counts the notes and names the pinned ones" "$(mcp_v
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | contains 'read_notebook before larger changes' && echo "  ok     notebook: the server instructions tell Claude to read the notebook and write decisions down" || { echo "  CHYBA  notebook: server instructions"; ERRORS=$((ERRORS+1)); }
 check "notebook: the admin list by topic with the pinned note first" 200 "/admin.php?module=notebook" "Fotky z roku 2024"
 expect "notebook: the pinned note is above the newer one in the admin" "$(grep -o 'Fotky z roku 2024\|Nikdy slovo levný' "$WORK/response" | head -1)|$(grep -c 'Nikdy slovo levný' "$WORK/response")" "Fotky z roku 2024|1"
-check "notebook: search in the admin" 200 "/admin.php?module=notebook&hledat=levn%C3%BD" "Nikdy slovo levný"
+check "notebook: search in the admin" 200 "/admin.php?module=notebook&search=levn%C3%BD" "Nikdy slovo levný"
 grep -q 'Fotky z roku 2024' "$WORK/response" && { echo "  CHYBA  notebook: the search still lists the other note"; ERRORS=$((ERRORS+1)); }
-check "notebook: the admin filter by topic" 200 "/admin.php?module=notebook&tema=credits" "Fotky z roku 2024"
+check "notebook: the admin filter by topic" 200 "/admin.php?module=notebook&topic=credits" "Fotky z roku 2024"
 TOKEN=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=notebook&action=save" -d "_csrf=$TOKEN" -d id=0 -d topic=decisions --data-urlencode "title=Klient je citlivý na stránku O nás" --data-urlencode "text=Texty na O nás schvaluje jednatel osobně."
 NB_ID3=$(sq "SELECT id FROM ka_notebook WHERE title LIKE 'Klient je citliv%'")
@@ -4634,7 +4637,7 @@ check "notebook: the edit form shows the changed text" 200 "/admin.php?module=no
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=transfer"; TOKEN=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=export" -d "_csrf=$TOKEN"
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=transfer"; NB_EXPORT=$(grep -o 'export-[0-9]*-[0-9]*\.[a-z]*' "$WORK/response" | head -1)
-curl -s -b "$JAR" -o "$WORK/nb-export" "$B/admin.php?module=transfer&action=download&soubor=$NB_EXPORT"
+curl -s -b "$JAR" -o "$WORK/nb-export" "$B/admin.php?module=transfer&action=download&file=$NB_EXPORT"
 if [ "${NB_EXPORT##*.}" = zip ]; then unzip -p "$WORK/nb-export" obsah.json > "$WORK/nb-obsah.json" 2>/dev/null || true; else cp "$WORK/nb-export" "$WORK/nb-obsah.json"; fi
 grep -q '"notebook":\[' "$WORK/nb-obsah.json" && grep -q 'Klient je citlivý na stránku O nás' "$WORK/nb-obsah.json" && echo "  ok     notebook: the site export carries the notes (the import is checked in the 1.8 move)" || { echo "  CHYBA  notebook in the export"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=notebook"; TOKEN=$(csrf)
@@ -4715,22 +4718,22 @@ curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=pages&actio
 contains -q '"komentare":\[\]' "$WORK/response" && contains -q '"komentarVyrizen":' "$WORK/response" && echo "  ok     comments: the builder of a page carries the comments panel data (empty) and the resolve address" || { echo "  CHYBA  builder comments data"; ERRORS=$((ERRORS+1)); }
 dc_share() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=pages&action=build_share&id=$DC_PAGE" -d "_csrf=$(csrf)" -d dni=1 "$@"; }
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=pages"
-code=$(dc_share -d komentare=1); DC_LINK=$(php -r 'echo json_decode((string) file_get_contents($argv[1]))->odkaz ?? "";' "$WORK/response"); DC_KEY="${DC_LINK##*nahled_klic=}"
+code=$(dc_share -d komentare=1); DC_LINK=$(php -r 'echo json_decode((string) file_get_contents($argv[1]))->odkaz ?? "";' "$WORK/response"); DC_KEY="${DC_LINK##*preview_key=}"
 [ "$code" = 200 ] && contains -q '"komentare":true' "$WORK/response" && [[ "$DC_KEY" == *k.* ]] && echo "  ok     comments: Share with “Allow comments” signs the flag into the key" || { echo "  CHYBA  build_share with comments: code $code, link $DC_LINK"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=pages"
-dc_share > /dev/null; DC_PLAIN_KEY="$(php -r 'echo json_decode((string) file_get_contents($argv[1]))->odkaz ?? "";' "$WORK/response")"; DC_PLAIN_KEY="${DC_PLAIN_KEY##*nahled_klic=}"
+dc_share > /dev/null; DC_PLAIN_KEY="$(php -r 'echo json_decode((string) file_get_contents($argv[1]))->odkaz ?? "";' "$WORK/response")"; DC_PLAIN_KEY="${DC_PLAIN_KEY##*preview_key=}"
 curl -s -o "$WORK/response" "$DC_LINK"; DC_ELEMENT=$(grep -o 'data-ka-id="[^"]*"' "$WORK/response" | head -1 | sed 's/data-ka-id="//;s/"//')
 contains -q 'data-ka-komentare' "$WORK/response" && contains -q 'Draft paragraph to comment on' "$WORK/response" && contains -q 'noindex' "$WORK/response" && [ -n "$DC_ELEMENT" ] && ! contains -q 'data-ka-typ' "$WORK/response" \
   && echo "  ok     comments: a visitor with the link sees the draft, the comment widget and element ids – not the editor markers" || { echo "  CHYBA  comment mode preview"; ERRORS=$((ERRORS+1)); }
-curl -s -o "$WORK/response" "$B/komentar-koncept?stavba=koncept&nahled_klic=$DC_PLAIN_KEY"
+curl -s -o "$WORK/response" "$B/komentar-koncept?build=koncept&preview_key=$DC_PLAIN_KEY"
 contains -q 'Draft paragraph to comment on' "$WORK/response" && ! contains -q 'data-ka-komentare' "$WORK/response" && ! contains -q 'data-ka-id' "$WORK/response" && echo "  ok     comments: a plain preview link shows the draft without the widget" || { echo "  CHYBA  plain preview shows the widget"; ERRORS=$((ERRORS+1)); }
 dc_post() { curl -s -o "$WORK/response" -w '%{http_code} %{redirect_url}' -X POST "$B/_komentar" -d "cil=stranka:$DC_PAGE" "$@"; }
 expect "3.7: a refused comment gets the same answer at /_comment as at /_komentar" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/_comment" -d "cil=stranka:$DC_PAGE" -d klic=x)" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/_komentar" -d "cil=stranka:$DC_PAGE" -d klic=x)"
-DC_RESULT=$(dc_post -d "klic=$DC_KEY" -d "prvek=$DC_ELEMENT" --data-urlencode "zpet=/komentar-koncept?stavba=koncept&nahled_klic=$DC_KEY" --data-urlencode "citace=Draft paragraph" --data-urlencode "jmeno=Client <b>Novak</b>" --data-urlencode "text=Please <b>fix</b> this paragraph – it is  too long.")
-[[ "$DC_RESULT" == "303 $B/komentar-koncept?stavba=koncept&nahled_klic=$DC_KEY&komentar=ok#ka-komentar" ]] && echo "  ok     comments: an anonymous visitor with the key posts a comment and comes back to the preview" || { echo "  CHYBA  comment POST: $DC_RESULT"; ERRORS=$((ERRORS+1)); }
+DC_RESULT=$(dc_post -d "klic=$DC_KEY" -d "prvek=$DC_ELEMENT" --data-urlencode "zpet=/komentar-koncept?build=koncept&preview_key=$DC_KEY" --data-urlencode "citace=Draft paragraph" --data-urlencode "jmeno=Client <b>Novak</b>" --data-urlencode "text=Please <b>fix</b> this paragraph – it is  too long.")
+[[ "$DC_RESULT" == "303 $B/komentar-koncept?build=koncept&preview_key=$DC_KEY&comment=ok#ka-komentar" ]] && echo "  ok     comments: an anonymous visitor with the key posts a comment and comes back to the preview" || { echo "  CHYBA  comment POST: $DC_RESULT"; ERRORS=$((ERRORS+1)); }
 expect "comments: stored as plain text with the element, the quote and the name" "$(sq "SELECT CONCAT_WS('|', name, text, element, quote, resolved_at IS NULL) FROM ka_draft_comments WHERE target = 'stranka:$DC_PAGE'")" "Client Novak|Please fix this paragraph – it is too long.|$DC_ELEMENT|Draft paragraph|1"
 expect "comments: an invalid key, a plain key and a wrong target are refused" "$(dc_post -d klic=1999999999k.$(printf 'a%.0s' $(seq 1 64)) -d jmeno=X -d text=Y | cut -c1-3)|$(dc_post -d "klic=$DC_PLAIN_KEY" -d jmeno=X -d text=Y | cut -c1-3)|$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/_komentar" -d cil=stranka:999999 -d "klic=$DC_KEY" -d jmeno=X -d text=Y)" "403|403|403"
-expect "comments: without a name or a text nothing is stored" "$(dc_post -d "klic=$DC_KEY" -d jmeno= -d text=Hello | sed 's/.*komentar=//;s/#.*//')|$(sq "SELECT COUNT(*) FROM ka_draft_comments")" "chyba|1"
+expect "comments: without a name or a text nothing is stored" "$(dc_post -d "klic=$DC_KEY" -d jmeno= -d text=Hello | sed 's/.*comment=//;s/#.*//')|$(sq "SELECT COUNT(*) FROM ka_draft_comments")" "chyba|1"
 for i in $(seq 1 25); do DC_MAIL=$(grep -l '^X-Rcpt-To: editor@example.cz' "$WORK"/smtp-dc/*.eml 2>/dev/null | tail -1); [ -n "$DC_MAIL" ] && break; sleep 0.2; done # every administrator gets one; the test reads the admin's (the fake SMTP server writes its file a moment after accepting)
 dc_body() { php -r '[$h, $b] = explode("\r\n\r\n", file_get_contents($argv[1]), 2); echo base64_decode($b);' "$1"; } # a single-part base64 message
 [ -n "$DC_MAIL" ] && eml "$DC_MAIL" | contains 'Nový komentář ke konceptu „Comment draft“' && dc_body "$DC_MAIL" | contains 'Client Novak' && dc_body "$DC_MAIL" | contains "module=pages&action=builder&id=$DC_PAGE" \
@@ -4754,9 +4757,9 @@ expect "comments: the builder resolves a comment with one click, a comment of an
 # the site's clock, not the database's NOW() (the CI database runs in UTC, the site in Europe/Prague)
 DC_NOW=$(site_time)
 sq "INSERT INTO ka_kontrola_ip (ip_adresa, typ, cil, cas) SELECT SUBSTRING(SHA2('kaleta|127.0.0.1', 256), 1, 40), 'komentar', $DC_PAGE, '$DC_NOW' FROM ka_nastaveni LIMIT 10" > /dev/null
-expect "comments: the eleventh comment from one address in ten minutes is refused" "$(dc_post -d "klic=$DC_KEY" -d jmeno=Client -d text=Again | sed 's/.*komentar=//;s/#.*//')|$(sq "SELECT COUNT(*) FROM ka_draft_comments WHERE target = 'stranka:$DC_PAGE'")" "limit|2"
+expect "comments: the eleventh comment from one address in ten minutes is refused" "$(dc_post -d "klic=$DC_KEY" -d jmeno=Client -d text=Again | sed 's/.*comment=//;s/#.*//')|$(sq "SELECT COUNT(*) FROM ka_draft_comments WHERE target = 'stranka:$DC_PAGE'")" "limit|2"
 mcp nahled_odkaz "{\"id\":$DC_PAGE,\"komentare\":true}" > "$WORK/response"; mcp_text
-contains -q 'nahled_klic=[0-9]*k\.' "$WORK/text" && contains -q '"komentare":true' "$WORK/text" && echo "  ok     MCP: preview_link with comments: true gives a commenting link" || { echo "  CHYBA  preview_link comments"; head -c 300 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+contains -q 'preview_key=[0-9]*k\.' "$WORK/text" && contains -q '"komentare":true' "$WORK/text" && echo "  ok     MCP: preview_link with comments: true gives a commenting link" || { echo "  CHYBA  preview_link comments"; head -c 300 "$WORK/text"; ERRORS=$((ERRORS+1)); }
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', ''); DELETE FROM ka_kontrola_ip WHERE typ = 'komentar'" > /dev/null
 echo "== 2.17: undo a whole Claude session"
 sq "UPDATE ka_agent_sessions SET last_at = '2000-01-01 00:00:00'" > /dev/null
@@ -4970,12 +4973,12 @@ for i in $(seq 1 30); do curl -s -o /dev/null "$SRC/img/team.png" && break; slee
 sed "s|http://127.0.0.1:65000|$SRC|g" "$ROOT/tools/fixtures/blogger-export.xml" > "$WORK/blogger-export.xml"
 TOKEN=$(csrf)
 check "import and export: the section for other systems lists Ghost and Blogger" 200 "/admin.php?module=transfer" 'option value="blogger">Blogger'
-src_batch() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?module=transfer&action=source_progress&soubor=$1" -d "_csrf=$TOKEN"; }
+src_batch() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?module=transfer&action=source_progress&file=$1" -d "_csrf=$TOKEN"; }
 # Ghost: the export does not carry the site address – the admin enters it in the preview; the primary tag becomes the category
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=source_upload" -F "_csrf=$TOKEN" -F system=ghost -F "soubor=@$ROOT/tools/fixtures/ghost-export.json"
 src_batch ghost-ghost-export.json
-check "Ghost: the preview counts posts, pages and tags and says that routes.yaml is not read" 200 "/admin.php?module=transfer&action=source_preview&soubor=ghost-ghost-export.json" "routes.yaml"
-curl -s -o "$WORK/response" -b "$JAR" "$B/admin.php?module=transfer&action=source_preview&soubor=ghost-ghost-export.json"
+check "Ghost: the preview counts posts, pages and tags and says that routes.yaml is not read" 200 "/admin.php?module=transfer&action=source_preview&file=ghost-ghost-export.json" "routes.yaml"
+curl -s -o "$WORK/response" -b "$JAR" "$B/admin.php?module=transfer&action=source_preview&file=ghost-ghost-export.json"
 contains -q 'name="site_url"' "$WORK/response" && contains -q 'Firing the first kiln' "$WORK/response" && contains -q 'bookmark 1' "$WORK/response" && echo "  ok     Ghost: the preview asks for the site address, shows the first titles and the unsupported card" || { echo "  CHYBA  Ghost preview"; ERRORS=$((ERRORS+1)); }
 ghost_run() { curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=source_run" -d "_csrf=$TOKEN" -d soubor=ghost-ghost-export.json -d posts=news -d pages=page -d categories=category -d tags=tag -d drafts=1 -d builder=1 -d redirects=1 -d default_category=0 -d "site_url=$SRC"; src_batch ghost-ghost-export.json; }
 ghost_run
@@ -4999,7 +5002,7 @@ grep -q 'dlazdice-polozka"><strong>4</strong><span>Skipped\|<strong>4</strong><s
 # Blogger: the Atom export names the blog's address; labels → tags, the comment is skipped, the draft hidden
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=source_upload" -F "_csrf=$TOKEN" -F system=blogger -F "soubor=@$WORK/blogger-export.xml"
 src_batch blogger-blogger-export.xml
-curl -s -o "$WORK/response" -b "$JAR" "$B/admin.php?module=transfer&action=source_preview&soubor=blogger-blogger-export.xml"
+curl -s -o "$WORK/response" -b "$JAR" "$B/admin.php?module=transfer&action=source_preview&file=blogger-blogger-export.xml"
 contains -q 'Comments are skipped\|Komentáře se vynechávají' "$WORK/response" && ! contains -q 'name="site_url"' "$WORK/response" && contains -q 'Planting the first beds' "$WORK/response" && echo "  ok     Blogger: the preview says comments are skipped and knows the blog's address" || { echo "  CHYBA  Blogger preview"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=source_run" -d "_csrf=$TOKEN" -d soubor=blogger-blogger-export.xml -d posts=news -d pages=page -d categories=category -d tags=tag -d drafts=1 -d builder=1 -d redirects=1 -d default_category=0
 src_batch blogger-blogger-export.xml
@@ -5030,7 +5033,7 @@ for mode in s html; do
   url_slash "$mode"
   codes=""; for p in /.well-known/oauth-protected-resource /.well-known/oauth-protected-resource/mcp /.well-known/oauth-authorization-server /.well-known/openid-configuration; do codes="$codes$(curl -s -o /dev/null -w '%{http_code}' "$B$p") "; done
   expect "url_slash $mode: the OAuth discovery of the Claude connection is answered, never redirected" "$codes" "200 200 200 200 "
-  expect "url_slash $mode: /mcp, /ulohy and the subscription link are not redirected" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}') $(curl -s -o /dev/null -w '%{redirect_url}' "$B/ulohy")$(curl -s -o /dev/null -w '%{redirect_url}' "$B/odber?potvrdit=x")$(curl -s -o /dev/null -w '%{redirect_url}' "$B/tasks")$(curl -s -o /dev/null -w '%{redirect_url}' "$B/subscription?potvrdit=x")" "200 "
+  expect "url_slash $mode: /mcp, /ulohy and the subscription link are not redirected" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}') $(curl -s -o /dev/null -w '%{redirect_url}' "$B/ulohy")$(curl -s -o /dev/null -w '%{redirect_url}' "$B/odber?confirm=x")$(curl -s -o /dev/null -w '%{redirect_url}' "$B/tasks")$(curl -s -o /dev/null -w '%{redirect_url}' "$B/subscription?confirm=x")" "200 "
 done
 code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/about-this-diary/"); expect "url_slash html: /about-this-diary/ redirects to /about-this-diary.html" "$code" "301 $B/about-this-diary.html"
 check "url_slash html: /about-this-diary.html is the page and its canonical URL" 200 /about-this-diary.html "rel=\"canonical\" href=\"$B/about-this-diary.html\""
@@ -5125,15 +5128,15 @@ curl -s -o "$WORK/response" "$B/_booking/days?service=$BK_SERVICE&staff=0&month=
 grep -q "\"$BK_DAY\"" "$WORK/response" && echo "  ok     booking: /_booking/days lists the day among the days with free times" || { echo "  CHYBA  /_booking/days"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 bk_field() { grep -o "name=\"$1\" value=\"[^\"]*\"" "$WORK/booking.html" | head -1 | sed 's/.*value="//;s/"$//'; }
 BK_SOURCE=$(bk_field zdroj); BK_TIME=$(( $(date +%s) - 10 )); BK_SIGNATURE=$(php -r 'echo hash_hmac("sha256", $argv[1], $argv[2]);' "rezervace|$BK_SOURCE|bk1|$BK_TIME" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'secret_key'")")
-book() { curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/_booking" -d "zdroj=$BK_SOURCE" -d prvek=bk1 -d zpet=/rezervace-test -d "as_cas=$BK_TIME" -d "as_podpis=$BK_SIGNATURE" -d "sluzba=$BK_SERVICE" -d osoba=0 "$@"; }
-case "$(book --data-urlencode "slot=$BK_DAY 10:00" --data-urlencode "jmeno=Petr Rezervující" -d email=petr-bk@example.cz -d telefon=+420777000111 -d poznamka=Test -d souhlas=1)" in *vysledek=ok*) echo "  ok     booking: a visitor books a time";; *) echo "  CHYBA  booking POST"; ERRORS=$((ERRORS+1));; esac
+book() { curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/_booking" -d "zdroj=$BK_SOURCE" -d prvek=bk1 -d zpet=/rezervace-test -d "as_cas=$BK_TIME" -d "as_podpis=$BK_SIGNATURE" -d "service=$BK_SERVICE" -d staff=0 "$@"; }
+case "$(book --data-urlencode "slot=$BK_DAY 10:00" --data-urlencode "jmeno=Petr Rezervující" -d email=petr-bk@example.cz -d telefon=+420777000111 -d poznamka=Test -d souhlas=1)" in *result=ok*) echo "  ok     booking: a visitor books a time";; *) echo "  CHYBA  booking POST"; ERRORS=$((ERRORS+1));; esac
 expect "booking: saved as confirmed for the person, with the end time by the duration" "$(sq "SELECT CONCAT(COUNT(*), '|', MAX(staff_id), '|', MAX(TIME(ends_at))) FROM ka_bookings WHERE email = 'petr-bk@example.cz' AND status = 'confirmed'")" "1|$BK_STAFF|10:30:00"
 expect "booking: the confirmation went to the customer and the notification to the person" "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_posta WHERE komu = 'petr-bk@example.cz'), '|', (SELECT COUNT(*) FROM ka_posta WHERE komu = 'jana-bk@example.cz' AND predmet LIKE 'Nová rezervace%'))")" "1|1"
-case "$(book --data-urlencode "slot=$BK_DAY 10:00" -d jmeno=Druhy -d email=druhy-bk@example.cz -d souhlas=1)" in *vysledek=obsazeno*) echo "  ok     booking: the same time cannot be booked twice";; *) echo "  CHYBA  double booking"; ERRORS=$((ERRORS+1));; esac
+case "$(book --data-urlencode "slot=$BK_DAY 10:00" -d jmeno=Druhy -d email=druhy-bk@example.cz -d souhlas=1)" in *result=obsazeno*) echo "  ok     booking: the same time cannot be booked twice";; *) echo "  CHYBA  double booking"; ERRORS=$((ERRORS+1));; esac
 expect "booking: the second attempt saved nothing" "$(sq "SELECT COUNT(*) FROM ka_bookings WHERE starts_at = '$BK_DAY 10:00:00'")" "1"
 curl -s -o "$WORK/response" "$B/_booking/slots?service=$BK_SERVICE&staff=0&day=$BK_DAY"
 ! grep -q '"10:00"' "$WORK/response" && ! grep -q '"09:30"' "$WORK/response" && ! grep -q '"10:30"' "$WORK/response" && grep -q '"11:00"' "$WORK/response" && echo "  ok     booking: the booked time and the buffer around it are gone from the free times" || { echo "  CHYBA  slots after booking"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
-case "$(book --data-urlencode "slot=$BK_DAY 11:00" -d jmeno=Petr -d email=petr-bk@example.cz -d souhlas=)" in *vysledek=souhlas*) echo "  ok     booking: without the consent nothing is saved";; *) echo "  CHYBA  consent check"; ERRORS=$((ERRORS+1));; esac
+case "$(book --data-urlencode "slot=$BK_DAY 11:00" -d jmeno=Petr -d email=petr-bk@example.cz -d souhlas=)" in *result=souhlas*) echo "  ok     booking: without the consent nothing is saved";; *) echo "  CHYBA  consent check"; ERRORS=$((ERRORS+1));; esac
 # the queued body is JSON (slashes escaped), and the mysql client escapes the backslashes once more on output
 bk_token() { sq "SELECT telo FROM ka_posta WHERE komu = 'petr-bk@example.cz' ORDER BY idp $1 LIMIT 1" | php -r '$t = json_decode(str_replace("\\\\", "\\", file_get_contents("php://stdin")), true); preg_match("#_booking\\\\?/cancel\\\\?/([a-f0-9]{32})#", (string) ($t["text"] ?? ""), $m); echo $m[1] ?? "";'; }
 BK_TOKEN=$(bk_token ASC)
@@ -5144,7 +5147,7 @@ expect "booking: opening the link cancels nothing" "$(sq "SELECT status FROM ka_
 bk_cancel() { curl -s -o "$WORK/response" -w '%{http_code}' -X POST -d zrusit=1 "$B/_booking/cancel/${1:-0000000000000000000000000000000a}"; }
 code=$(bk_cancel "$BK_TOKEN"); [ "$code" = 200 ] && grep -q 'Váš termín je zrušen' "$WORK/response" && echo "  ok     booking: the customer cancels before the deadline" || { echo "  CHYBA  cancel by the customer: kód $code"; ERRORS=$((ERRORS+1)); }
 expect "booking: cancelled by the customer, the person was told" "$(sq "SELECT CONCAT(status, '|', cancelled_by, '|', (SELECT COUNT(*) FROM ka_posta WHERE komu = 'jana-bk@example.cz' AND predmet LIKE 'Zrušená rezervace%')) FROM ka_bookings WHERE email = 'petr-bk@example.cz'")" "cancelled|customer|1"
-case "$(book --data-urlencode "slot=$BK_DAY 11:00" --data-urlencode "jmeno=Petr Rezervující" -d email=petr-bk@example.cz -d souhlas=1)" in *vysledek=ok*) echo "  ok     booking: a second appointment";; *) echo "  CHYBA  second booking"; ERRORS=$((ERRORS+1));; esac
+case "$(book --data-urlencode "slot=$BK_DAY 11:00" --data-urlencode "jmeno=Petr Rezervující" -d email=petr-bk@example.cz -d souhlas=1)" in *result=ok*) echo "  ok     booking: a second appointment";; *) echo "  CHYBA  second booking"; ERRORS=$((ERRORS+1));; esac
 BK_TOKEN2=$(bk_token DESC)
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('booking_cancel_hours', '200')" > /dev/null
 code=$(bk_cancel "$BK_TOKEN2"); [ "$code" = 200 ] && grep -q 'už nelze zrušit online' "$WORK/response" && echo "  ok     booking: after the deadline the link refuses to cancel" || { echo "  CHYBA  cancel after the deadline: kód $code"; ERRORS=$((ERRORS+1)); }
@@ -5188,13 +5191,13 @@ expect "booking: past the enquiry retention the booking is anonymised, the row s
 mcp save_booking_service "{\"id\":${BK_SERVICE:-0},\"requires_confirmation\":true}" > /dev/null
 expect "3.3 booking: the service needs confirmation" "$(sq "SELECT requires_confirmation FROM ka_booking_services WHERE id = ${BK_SERVICE:-0}")" "1"
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('booking_pending_mail', 'Ahoj {name}, dostali jsme tvoji zprávu.')" > /dev/null
-case "$(book --data-urlencode "slot=$BK_DAY 15:00" --data-urlencode "jmeno=Pavla Žádost" -d email=pavla-bk@example.cz -d souhlas=1)" in *vysledek=pending*) echo "  ok     3.3 booking: a visitor's request comes back as pending";; *) echo "  CHYBA  3.3 pending request"; ERRORS=$((ERRORS+1));; esac
-check "3.3 booking: the element thanks for a request, not for a booking" 200 "/rezervace-test?rezervace=bk1&vysledek=pending" "vaši žádost jsme přijali"
+case "$(book --data-urlencode "slot=$BK_DAY 15:00" --data-urlencode "jmeno=Pavla Žádost" -d email=pavla-bk@example.cz -d souhlas=1)" in *result=pending*) echo "  ok     3.3 booking: a visitor's request comes back as pending";; *) echo "  CHYBA  3.3 pending request"; ERRORS=$((ERRORS+1));; esac
+check "3.3 booking: the element thanks for a request, not for a booking" 200 "/rezervace-test?booking=bk1&result=pending" "vaši žádost jsme přijali"
 expect "3.3 booking: saved as pending with a hold" "$(sq "SELECT CONCAT(status, '|', hold_until IS NOT NULL) FROM ka_bookings WHERE email = 'pavla-bk@example.cz'")" "pending|1"
 expect "3.3 booking: the customer got the acknowledgement in the site's own words, the person the notification, nobody a confirmation" "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_posta WHERE komu = 'pavla-bk@example.cz' AND predmet LIKE 'Přijali jsme vaši žádost%' AND telo LIKE '%Ahoj Pavla Žádost, dostali jsme tvoji zprávu.%'), '|', (SELECT COUNT(*) FROM ka_posta WHERE komu = 'jana-bk@example.cz' AND predmet LIKE 'Žádost čeká na vaši odpověď%'), '|', (SELECT COUNT(*) FROM ka_posta WHERE komu = 'pavla-bk@example.cz'))")" "1|1|1"
 curl -s -o "$WORK/response" "$B/_booking/slots?service=$BK_SERVICE&staff=0&day=$BK_DAY"
 ! grep -q '"15:00"' "$WORK/response" && grep -q '"16:00"' "$WORK/response" && echo "  ok     3.3 booking: a pending request holds its time" || { echo "  CHYBA  3.3 hold"; ERRORS=$((ERRORS+1)); }
-case "$(book --data-urlencode "slot=$BK_DAY 15:00" -d jmeno=Druha -d email=druha-bk@example.cz -d souhlas=1)" in *vysledek=obsazeno*) echo "  ok     3.3 booking: nobody else can take the held time";; *) echo "  CHYBA  3.3 held time taken"; ERRORS=$((ERRORS+1));; esac
+case "$(book --data-urlencode "slot=$BK_DAY 15:00" -d jmeno=Druha -d email=druha-bk@example.cz -d souhlas=1)" in *result=obsazeno*) echo "  ok     3.3 booking: nobody else can take the held time";; *) echo "  CHYBA  3.3 held time taken"; ERRORS=$((ERRORS+1));; esac
 curl -s -b "$JAR" -c "$JAR" -o /dev/null "$B/admin.php?module=bookings&action=list"
 check "3.3 booking: the list shows the request and what waits" 200 "/admin.php?module=bookings" "Pavla Žádost"
 BK_P1=$(sq "SELECT id FROM ka_bookings WHERE email = 'pavla-bk@example.cz'")
@@ -5234,7 +5237,7 @@ expect "3.3 booking: the hold ran out – the provider is reminded, the customer
 sq "UPDATE ka_jobs SET last_run = '$(site_time)' - INTERVAL 2 HOUR WHERE name = 'booking_reminders'" > /dev/null
 curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "3.3 booking: the reminder goes out once" "$(sq "SELECT COUNT(*) FROM ka_posta WHERE komu = 'jana-bk@example.cz' AND predmet LIKE 'Stále čeká na vaši odpověď%'")" "1"
-case "$(book --data-urlencode "slot=$BK_DAY 16:00" -d jmeno=Iva -d email=iva-bk@example.cz -d souhlas=1)" in *vysledek=pending*) echo "  ok     3.3 booking: after the hold the time can be requested by someone else";; *) echo "  CHYBA  3.3 expired hold"; ERRORS=$((ERRORS+1));; esac
+case "$(book --data-urlencode "slot=$BK_DAY 16:00" -d jmeno=Iva -d email=iva-bk@example.cz -d souhlas=1)" in *result=pending*) echo "  ok     3.3 booking: after the hold the time can be requested by someone else";; *) echo "  CHYBA  3.3 expired hold"; ERRORS=$((ERRORS+1));; esac
 mcp confirm_booking "{\"id\":$(sq "SELECT id FROM ka_bookings WHERE email = 'iva-bk@example.cz'"),\"confirm\":true}" > /dev/null
 expect "3.3 booking: Claude accepts the request that holds the time now" "$(sq "SELECT status FROM ka_bookings WHERE email = 'iva-bk@example.cz'")" "confirmed"
 mcp confirm_booking "{\"id\":$(sq "SELECT id FROM ka_bookings WHERE email = 'hana-bk@example.cz'"),\"confirm\":true}" > "$WORK/response"
@@ -5285,7 +5288,7 @@ contains -q 'Fetching from\|Stahuji z' "$WORK/response" && echo "  ok     Joomla
 for i in 1 2 3 4; do src_batch "$JOOMLA_FILE"; done
 # 8 calls: the refused attempt, articles paged 0/2/4, categories paged 0/2, users, tags – every one carried a token header
 expect "Joomla: the fake saw a token header on every call and was paged through articles with offsets 0, 2, 4 (the first 0 is the refused attempt)" "$(grep -c '"has_token":true' "$FAKE_LOGS-joomla.log")|$(grep -c '"has_token":false' "$FAKE_LOGS-joomla.log")|$(grep 'content/articles' "$FAKE_LOGS-joomla.log" | grep -o '"offset":[0-9]*' | tr '\n' ' ' | sed 's/ $//')|$(grep -c 'content/categories' "$FAKE_LOGS-joomla.log")" "8|0|\"offset\":0 \"offset\":0 \"offset\":2 \"offset\":4|2"
-curl -s -o "$WORK/response" -b "$JAR" "$B/admin.php?module=transfer&action=source_preview&soubor=$JOOMLA_FILE"
+curl -s -o "$WORK/response" -b "$JAR" "$B/admin.php?module=transfer&action=source_preview&file=$JOOMLA_FILE"
 contains -q 'SEF URL\|SEF adres' "$WORK/response" && contains -q 'Hello from the bakery' "$WORK/response" && contains -q 'Marta Editor' "$WORK/response" && ! contains -q 'name="site_url"' "$WORK/response" && ! contains -q 'jm-secret-token' "$WORK/response" \
   && echo "  ok     Joomla: the preview warns about SEF addresses, shows the first titles and the authors, knows the site address, never the token" || { echo "  CHYBA  Joomla preview"; ERRORS=$((ERRORS+1)); }
 joomla_run() { curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=source_run" -d "_csrf=$TOKEN" -d "soubor=$JOOMLA_FILE" -d posts=news -d pages=page -d categories=category -d tags=tag -d drafts=1 -d builder=1 -d redirects=1 -d default_category=0; src_batch "$JOOMLA_FILE"; }
@@ -5303,7 +5306,7 @@ src_batch "$JOOMLA_FILE"; joomla_run
 expect "Joomla: a second import of the fetched file adds nothing" "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_novinky WHERE seo_link LIKE 'hello-from-the-bakery%' OR seo_link LIKE 'summer-market%' OR seo_link LIKE 'unpublished-recipe%' OR seo_link LIKE 'archived-thoughts%'), '/', (SELECT COUNT(*) FROM ka_kategorie WHERE nazev IN ('News', 'Blog')))")" "4/2"
 grep -q 'dlazdice-polozka"><strong>4</strong><span>Skipped\|<strong>4</strong><span>Přeskočeno' "$WORK/response" && echo "  ok     Joomla: the result shows 4 skipped" || { echo "  CHYBA  Joomla: skipped count"; ERRORS=$((ERRORS+1)); }
 # the token never lands anywhere: settings, the change log, files under storage/ (the fetched file and the state), the pages shown
-curl -s -o "$WORK/response" -b "$JAR" "$B/admin.php?module=transfer&action=source_progress&soubor=$JOOMLA_FILE"
+curl -s -o "$WORK/response" -b "$JAR" "$B/admin.php?module=transfer&action=source_progress&file=$JOOMLA_FILE"
 expect "Joomla: the token is in neither ka_nastaveni nor ka_protokol" "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_nastaveni WHERE hodnota LIKE '%jm-secret-token%'), '|', (SELECT COUNT(*) FROM ka_protokol WHERE popis LIKE '%jm-secret-token%' OR akce LIKE '%jm-secret-token%' OR duvod LIKE '%jm-secret-token%'))")" "0|0"
 grep -rq 'jm-secret-token' "$WORK/web/storage" "$WORK/response" && { echo "  CHYBA  Joomla: the token is in a file under storage/ or on a page"; grep -rl 'jm-secret-token' "$WORK/web/storage" "$WORK/response"; ERRORS=$((ERRORS+1)); } || echo "  ok     Joomla: the token is in no file under storage/ and on no page"
 # Drupal: wrong credentials → 401; signed in, the unpublished node comes too; the tags endpoint is missing and skipped
@@ -5314,7 +5317,7 @@ contains -q 'refused the request.*401\|odmítl.*401' "$WORK/response" && echo " 
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=source_fetch" -d "_csrf=$TOKEN" -d system=drupal -d "adresa=$FAKE" -d token=drupal:dr-pass -d 'kroky[]=pages' -d 'kroky[]=tags'
 for i in 1 2 3; do src_batch "$DRUPAL_FILE"; done
 expect "Drupal: the fake saw the right Basic auth on the 4 calls after the refused one, articles paged with offsets 0 and 2, the tags endpoint asked once" "$(grep -c '"signed_in":true' "$FAKE_LOGS-drupal.log")|$(grep -c '"signed_in":false' "$FAKE_LOGS-drupal.log")|$(grep 'node/article' "$FAKE_LOGS-drupal.log" | grep -o '"offset":[0-9]*' | tr '\n' ' ' | sed 's/ $//')|$(grep -c 'taxonomy_term/tags' "$FAKE_LOGS-drupal.log")" "4|1|\"offset\":0 \"offset\":0 \"offset\":2|1"
-curl -s -o "$WORK/response" -b "$JAR" "$B/admin.php?module=transfer&action=source_preview&soubor=$DRUPAL_FILE"
+curl -s -o "$WORK/response" -b "$JAR" "$B/admin.php?module=transfer&action=source_preview&file=$DRUPAL_FILE"
 contains -q 'does not offer tags\|nenabízí tags' "$WORK/response" && contains -q 'Hello from Drupal' "$WORK/response" && contains -q 'About the bakery' "$WORK/response" && ! contains -q 'dr-pass' "$WORK/response" \
   && echo "  ok     Drupal: the preview notes the skipped tags step, shows the article and the page titles, never the credentials" || { echo "  CHYBA  Drupal preview"; ERRORS=$((ERRORS+1)); }
 drupal_run() { curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=source_run" -d "_csrf=$TOKEN" -d "soubor=$DRUPAL_FILE" -d posts=news -d pages=page -d categories=category -d tags=tag -d drafts=1 -d builder=1 -d redirects=1 -d default_category=0; src_batch "$DRUPAL_FILE"; }
@@ -5335,7 +5338,7 @@ grep -rq 'dr-pass' "$WORK/web/storage" && { echo "  CHYBA  Drupal: the credentia
 # Webflow: the CSV of a collection; the admin enters the collection's address with its folder for the old addresses
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=source_upload" -F "_csrf=$TOKEN" -F system=webflow -F "soubor=@$ROOT/tools/fixtures/webflow-blog.csv"
 src_batch webflow-webflow-blog.csv
-curl -s -o "$WORK/response" -b "$JAR" "$B/admin.php?module=transfer&action=source_preview&soubor=webflow-webflow-blog.csv"
+curl -s -o "$WORK/response" -b "$JAR" "$B/admin.php?module=transfer&action=source_preview&file=webflow-webflow-blog.csv"
 contains -q 'name="site_url"' "$WORK/response" && contains -q 'From a live website\|Z běžícího webu' "$WORK/response" && contains -q 'Spring sourdough' "$WORK/response" && echo "  ok     Webflow: the preview asks for the collection address, points static pages to the URL importer, shows the first titles" || { echo "  CHYBA  Webflow preview"; ERRORS=$((ERRORS+1)); }
 webflow_run() { curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=source_run" -d "_csrf=$TOKEN" -d soubor=webflow-webflow-blog.csv -d posts=news -d pages=page -d categories=category -d tags=tag -d drafts=1 -d builder=1 -d redirects=1 -d default_category=0 -d "site_url=$B/blog/"; src_batch webflow-webflow-blog.csv; }
 webflow_run

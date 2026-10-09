@@ -107,7 +107,7 @@ $phase = [
 	<td><?= $state === null ? '–' : e(t($phase[$state['faze']] ?? '–')) . ($state['faze'] === 'import' ? ' (' . (int) $state['pozice'] . ' / ' . (int) $state['celkem'] . ')' : '') ?></td>
 	<td class="akce">
 <?php if ($state !== null): ?>
-		<a href="<?= e($module->url($state['faze'] === 'nahled' ? 'preview' : 'progress', ['soubor' => $s['soubor']])) ?>"><?= e(t(in_array($state['faze'], ['hotovo', 'obrazky-hotovo'], true) ? 'Result' : 'Continue')) ?></a>
+		<a href="<?= e($module->url($state['faze'] === 'nahled' ? 'preview' : 'progress', ['file' => $s['soubor']])) ?>"><?= e(t(in_array($state['faze'], ['hotovo', 'obrazky-hotovo'], true) ? 'Result' : 'Continue')) ?></a>
 <?php endif ?>
 <?php if (!$missingXml): ?>
 		<form class="vradku" method="post" action="<?= e($module->url('select')) ?>"><?= $csrf ?><input type="hidden" name="soubor" value="<?= e($s['soubor']) ?>"><button class="navigace" type="submit"><?= e(t($state === null ? 'Show preview' : 'Read again')) ?></button></form>
@@ -173,7 +173,7 @@ $phase = [
 	<td><?= $state === null ? '–' : e(t($phase[$state['faze']] ?? '–')) . ($state['faze'] === 'import' ? ' (' . (int) $state['pozice'] . ' / ' . (int) $state['celkem'] . ')' : '') ?></td>
 	<td class="akce">
 <?php if ($state !== null): ?>
-		<a href="<?= e($module->url($state['faze'] === 'nahled' ? 'source_preview' : 'source_progress', ['soubor' => $s['soubor']])) ?>"><?= e(t(in_array($state['faze'], ['hotovo', 'obrazky-hotovo'], true) ? 'Result' : 'Continue')) ?></a>
+		<a href="<?= e($module->url($state['faze'] === 'nahled' ? 'source_preview' : 'source_progress', ['file' => $s['soubor']])) ?>"><?= e(t(in_array($state['faze'], ['hotovo', 'obrazky-hotovo'], true) ? 'Result' : 'Continue')) ?></a>
 <?php endif ?>
 		<form class="vradku" method="post" action="<?= e($module->url('source_select')) ?>"><?= $csrf ?><input type="hidden" name="soubor" value="<?= e($s['soubor']) ?>"><button class="navigace" type="submit"><?= e(t($state === null ? 'Show preview' : 'Read again')) ?></button></form>
 		<form class="vradku" method="post" action="<?= e($module->url('source_delete')) ?>" data-potvrdit="<?= e(t('Delete the file %s? Content that has already been imported stays on the site.', $s['soubor'])) ?>"><?= $csrf ?><input type="hidden" name="soubor" value="<?= e($s['soubor']) ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form>
@@ -213,7 +213,7 @@ $phase = [
 	<td><?= $state === null ? '–' : e(t(['priprava' => 'being read', 'nahled' => 'ready to import', 'data' => 'import in progress', 'media' => 'import in progress', 'hotovo' => 'imported'][$state['faze']] ?? '–')) ?></td>
 	<td class="akce">
 <?php if ($state !== null && $state['faze'] !== 'priprava'): ?>
-		<a href="<?= e($module->url('kaleta', ['soubor' => $s['soubor']])) ?>"><?= e(t($state['faze'] === 'hotovo' ? 'Result' : 'Continue')) ?></a>
+		<a href="<?= e($module->url('kaleta', ['file' => $s['soubor']])) ?>"><?= e(t($state['faze'] === 'hotovo' ? 'Result' : 'Continue')) ?></a>
 <?php endif ?>
 <?php if ($state === null || $state['faze'] === 'nahled'): ?>
 		<form class="vradku" method="post" action="<?= e($module->url('kaleta_select')) ?>"><?= $csrf ?><input type="hidden" name="soubor" value="<?= e($s['soubor']) ?>"><button class="navigace" type="submit"><?= e(t($state === null ? 'Show preview' : 'Read again')) ?></button></form>
@@ -245,7 +245,7 @@ $phase = [
 	<td><?= e($x['soubor']) ?></td>
 	<td class="cislo"><?= e(Kaleta\Core\Files::size($x['velikost'])) ?></td>
 	<td class="cislo"><?= e(format_date(date('Y-m-d H:i:s', $x['cas']), true)) ?></td>
-	<td class="akce"><a href="<?= e($module->url('download', ['soubor' => $x['soubor']])) ?>"><?= e(t('Download')) ?></a>
+	<td class="akce"><a href="<?= e($module->url('download', ['file' => $x['soubor']])) ?>"><?= e(t('Download')) ?></a>
 		<form class="vradku" method="post" action="<?= e($module->url('delete_export')) ?>" data-potvrdit="<?= e(t('Delete the export %s?', $x['soubor'])) ?>"><?= $csrf ?><input type="hidden" name="soubor" value="<?= e($x['soubor']) ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form></td>
 </tr>
 <?php endforeach ?>

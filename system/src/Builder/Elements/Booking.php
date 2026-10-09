@@ -14,7 +14,7 @@ use Kaleta\Core\Booking as Bookings;
  * free time, leaves a name, e-mail and phone and agrees to the processing. Sent to /_booking (Front\Booking).
  *
  * The server renders a plain form that works without image/web.js: the services and people as radio buttons and a
- * select of the next free times of the chosen service (?rezervace=<id>&sluzba=<service> reloads it for another service).
+ * select of the next free times of the chosen service (?booking=<id>&service=<service> reloads it for another service).
  * With the script the select becomes a small month calendar of days with free times (/_booking/days) and the times of
  * the chosen day (/_booking/slots).
  */
@@ -84,7 +84,7 @@ final class Booking extends Element
         return $p['kotva'] ?? (!empty($p['styl']) ? 's-' . $p['id'] : 'rezervace-' . $p['id']);
     }
 
-    /** The message after sending by the code in the url (?rezervace=<id>&vysledek=<code>) – the text never comes from the url. */
+    /** The message after sending by the code in the url (?booking=<id>&result=<code>) – the text never comes from the url. */
     public static function messages(string $code): string
     {
         return match ($code) {
@@ -107,7 +107,7 @@ final class Booking extends Element
         $o = $p['obsah'];
         $r = $k->app->request;
         $db = $k->app->db();
-        $result = $r->get('rezervace') === $p['id'] ? $r->get('vysledek') : '';
+        $result = $r->get('booking') === $p['id'] ? $r->get('result') : '';
         $id = str_contains($a, ' id="') ? '' : ' id="' . e(self::anchor($p)) . '"';
         if ($result === 'pending') { // a service that needs the provider's confirmation: a request, not a booking (3.3)
             return '<div' . Text::withClass($a, 'ka-rezervace-hotovo') . $id . ' role="status" data-odeslano="' . e(t('Booking')) . '"><p>' . e(Bookings::pendingThanks($k->app->settings())) . '</p></div>';
@@ -126,7 +126,7 @@ final class Booking extends Element
             return $k->editor ? '<div' . Text::withClass($a, 'ka-rezervace-prazdne') . '><p>' . e(t('Add a service and a person who offers it in Administration → Bookings; the form appears here.')) . '</p></div>' : '';
         }
         // the plain form (no script) shows the next free times of one service: the only one, the fixed one, or the one asked for
-        $chosen = $r->get('rezervace') === $p['id'] && $r->getInt('sluzba') > 0 ? $r->getInt('sluzba') : (count($services) === 1 ? $services[0]['id'] : 0);
+        $chosen = $r->get('booking') === $p['id'] && $r->getInt('service') > 0 ? $r->getInt('service') : (count($services) === 1 ? $services[0]['id'] : 0);
         $chosenService = null;
         foreach ($services as $s) {
             if ($s['id'] === $chosen) {
@@ -144,7 +144,7 @@ final class Booking extends Element
         $html .= '<fieldset class="ka-rezervace-krok" data-krok="sluzba"><legend>' . e(t('Service')) . '</legend><div class="ka-rezervace-volby">';
         foreach ($services as $i => $s) {
             $meta = implode(' · ', array_filter([t('%d min', $s['duration_min']), $s['price_text']]));
-            $html .= '<label><input type="radio" name="sluzba" value="' . $s['id'] . '" required data-trvani="' . $s['duration_min'] . '"' . (!empty($s['requires_confirmation']) ? ' data-potvrzeni="1"' : '') . ($s['id'] === ($chosenService['id'] ?? ($fixedService !== null || count($services) === 1 ? $s['id'] : 0)) ? ' checked' : '') . '>'
+            $html .= '<label><input type="radio" name="service" value="' . $s['id'] . '" required data-trvani="' . $s['duration_min'] . '"' . (!empty($s['requires_confirmation']) ? ' data-potvrzeni="1"' : '') . ($s['id'] === ($chosenService['id'] ?? ($fixedService !== null || count($services) === 1 ? $s['id'] : 0)) ? ' checked' : '') . '>'
                 . '<span>' . e($s['name']) . '<small>' . e($meta) . ($s['description'] !== '' ? ' – ' . e($s['description']) : '') . '</small></span></label>';
         }
         $html .= '</div></fieldset>';
@@ -152,16 +152,16 @@ final class Booking extends Element
         // 2. the person – only when there is a choice
         $offering = array_values(array_filter($staff, fn (array $m): bool => array_intersect($m['services'], array_column($services, 'id')) !== []));
         if ($fixedStaff !== null) {
-            $html .= '<input type="hidden" name="osoba" value="' . $fixedStaff['id'] . '">';
+            $html .= '<input type="hidden" name="staff" value="' . $fixedStaff['id'] . '">';
         } elseif (count($offering) > 1) {
             $html .= '<fieldset class="ka-rezervace-krok" data-krok="osoba"><legend>' . e(t('Who')) . '</legend><div class="ka-rezervace-volby">'
-                . '<label><input type="radio" name="osoba" value="0" checked><span>' . e(t('Anyone available')) . '</span></label>';
+                . '<label><input type="radio" name="staff" value="0" checked><span>' . e(t('Anyone available')) . '</span></label>';
             foreach ($offering as $m) {
-                $html .= '<label data-sluzby="' . e(implode(',', $m['services'])) . '"><input type="radio" name="osoba" value="' . $m['id'] . '"><span>' . e($m['name']) . '</span></label>';
+                $html .= '<label data-sluzby="' . e(implode(',', $m['services'])) . '"><input type="radio" name="staff" value="' . $m['id'] . '"><span>' . e($m['name']) . '</span></label>';
             }
             $html .= '</div></fieldset>';
         } else {
-            $html .= '<input type="hidden" name="osoba" value="0">';
+            $html .= '<input type="hidden" name="staff" value="0">';
         }
 
         // 3. the day and the time: the calendar (script) and the plain select
@@ -180,7 +180,7 @@ final class Booking extends Element
                 . ($options === '' ? '<p class="ka-rezervace-prazdne">' . e(t('There are no free times at the moment. Please contact us.')) . '</p><select id="' . $name . '-slot" name="slot" hidden></select>'
                     : '<select id="' . $name . '-slot" name="slot" required><option value="">' . e(t('— choose —')) . '</option>' . $options . '</select>');
         } else {
-            $html .= '<select name="slot" hidden></select><button class="ka-tlacitko" type="submit" formmethod="get" formaction="' . e($k->app->url($r->path())) . '" name="rezervace" value="' . e($p['id']) . '">' . e(t('Show free times')) . '</button>';
+            $html .= '<select name="slot" hidden></select><button class="ka-tlacitko" type="submit" formmethod="get" formaction="' . e($k->app->url($r->path())) . '" name="booking" value="' . e($p['id']) . '">' . e(t('Show free times')) . '</button>';
         }
         $html .= '</div></fieldset>';
 

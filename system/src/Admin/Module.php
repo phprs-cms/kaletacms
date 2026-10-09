@@ -134,7 +134,7 @@ abstract class Module
     /** Redirect back to the module with a message (Post/Redirect/Get pattern). */
     /** Return to the site page after editing "directly on the site": only a local path under the site root, never a foreign URL. */
     /**
-     * Language version filter in lists (pages, categories, collection items) by ?jazyk=code.
+     * Language version filter in lists (pages, categories, collection items) by ?language=code.
      *
      * @return array{0: list<string>, 1: string, 2: ?string} site languages (empty = single language), selected code, value of the jazyk column (null = all)
      */
@@ -143,7 +143,7 @@ abstract class Module
         $siteSettings = $this->app->settings();
         $additional = \Kaleta\Core\Language::additional($siteSettings);
         $languages = $additional === [] ? [] : [\Kaleta\Core\Language::defaults($siteSettings), ...$additional];
-        $code = in_array($this->request->get('jazyk'), $languages, true) ? $this->request->get('jazyk') : '';
+        $code = in_array($this->request->get('language'), $languages, true) ? $this->request->get('language') : '';
 
         return [$languages, $code, $code === '' ? null : \Kaleta\Core\Language::column($siteSettings, $code)];
     }

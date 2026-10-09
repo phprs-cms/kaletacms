@@ -31,17 +31,17 @@ $preview = function (string $data): string {
 ?>
 <nav class="zalozky" aria-label="<?= e(t('Enquiry status')) ?>">
 <?php foreach (['' => 'Všechny', 'otevrene' => 'To do', 'moje' => 'Mine', 'vyrizene' => 'Resolved'] as $key => $name): ?>
-	<a href="<?= e($module->url('', array_filter(['stav' => $key]))) ?>"<?= $filter === $key ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t($name)) ?></a>
+	<a href="<?= e($module->url('', array_filter(['status' => $key]))) ?>"<?= $filter === $key ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t($name)) ?></a>
 <?php endforeach ?>
 </nav>
 <nav class="zalozky" aria-label="<?= e(t('Kind')) ?>">
 <?php foreach (['' => t('All kinds'), '-' => t('Not sorted')] + array_map('t', Kaleta\Core\Triage::CATEGORIES) as $key => $name): ?>
-	<a href="<?= e($module->url('', array_filter(['stav' => $filter, 'kategorie' => $key]))) ?>"<?= $kind === $key ? ' class="aktivni" aria-current="true"' : '' ?>><?= e($name) ?><?= $key === 'spam' && $spam > 0 ? ' (' . $spam . ')' : '' ?></a>
+	<a href="<?= e($module->url('', array_filter(['status' => $filter, 'category' => $key]))) ?>"<?= $kind === $key ? ' class="aktivni" aria-current="true"' : '' ?>><?= e($name) ?><?= $key === 'spam' && $spam > 0 ? ' (' . $spam . ')' : '' ?></a>
 <?php endforeach ?>
 </nav>
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt">
-	<input type="hidden" name="module" value="enquiries"><input type="hidden" name="stav" value="<?= e($filter) ?>">
-	<label><?= e(t('Search (name, e-mail, text):')) ?> <input class="textpole" type="search" name="hledat" value="<?= e($search) ?>" size="24"></label>
+	<input type="hidden" name="module" value="enquiries"><input type="hidden" name="status" value="<?= e($filter) ?>">
+	<label><?= e(t('Search (name, e-mail, text):')) ?> <input class="textpole" type="search" name="search" value="<?= e($search) ?>" size="24"></label>
 	<input class="tl" type="submit" value="<?= e(t('Filtrovat')) ?>">
 </form>
 <br>
@@ -75,7 +75,7 @@ $preview = function (string $data): string {
 <?php if ($pageCount > 1): ?>
 <p class="strankovani">
 <?php for ($s = 1; $s <= $pageCount; $s++): ?>
-	<?= $s === $pageNumber ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($module->url('', array_filter(['stav' => $filter]) + ['strana' => $s])) . '">' . $s . '</a>' ?>
+	<?= $s === $pageNumber ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($module->url('', array_filter(['status' => $filter]) + ['page' => $s])) . '">' . $s . '</a>' ?>
 <?php endfor ?>
 </p>
 <?php endif ?>

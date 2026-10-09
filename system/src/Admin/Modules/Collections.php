@@ -144,7 +144,7 @@ final class Collections extends Module
         }
 
         [$siteLanguages, $language, $column] = $this->readLanguageFilter();
-        $trash = $this->request->get('stav') === 'kos';
+        $trash = $this->request->get('status') === 'kos';
 
         return $this->view('items', $k['nazev'], ['k' => $k, 'languages' => Language::additional($this->app->settings()), 'siteLanguages' => $siteLanguages, 'language' => $language,
             'trash' => $trash, 'noticeBoard' => Notices::isNotices($k), 'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {kolekce_polozky} WHERE idk = ? AND smazano IS NOT NULL', [$k['idk']]),
@@ -160,7 +160,7 @@ final class Collections extends Module
         if ($k === null) {
             return $this->error('The collection does not exist.', 404);
         }
-        $idp = $this->request->getInt('polozka');
+        $idp = $this->request->getInt('item');
         // an item in the trash is not edited (saving would publish it again) – it comes back through Restore first
         $p = $idp > 0 ? $this->db->one('SELECT * FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NULL', [$idp, $k['idk']]) : null;
         if ($idp > 0 && $p === null) {
@@ -169,11 +169,11 @@ final class Collections extends Module
         $assigned = $p !== null ? CategoryTree::ofItem($this->db, (int) $p['idp']) : [];
         if ($p === null) {
             // a new translation from the translation overview (2.14): the original's values, hidden, in the chosen language with the same address
-            $language = Language::column($this->app->settings(), $this->request->get('jazyk'));
+            $language = Language::column($this->app->settings(), $this->request->get('language'));
             $original = $language !== '' ? $this->db->one("SELECT * FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND jazyk = '' AND smazano IS NULL", [$this->request->getInt('original'), $k['idk']]) : null;
             $p = ['idp' => 0, 'nazev' => $original['nazev'] ?? '', 'seo_link' => $original['seo_link'] ?? '', 'data' => $original['data'] ?? '{}', 'poradi' => $original['poradi'] ?? 100, 'zobrazit' => $original === null ? 1 : 0,
                 'jazyk' => $language, 'datum' => date('Y-m-d H:i:s'), 'seo_titulek' => '', 'popis' => '', 'obrazek' => $original['obrazek'] ?? '', 'noindex' => 0, 'zverejnit_od' => null, 'valid_until' => null, 'review_by' => null];
-            $assigned = $original !== null ? CategoryTree::ofItem($this->db, (int) $original['idp']) : ($this->request->getInt('kategorie') > 0 ? [$this->request->getInt('kategorie')] : []);
+            $assigned = $original !== null ? CategoryTree::ofItem($this->db, (int) $original['idp']) : ($this->request->getInt('category') > 0 ? [$this->request->getInt('category')] : []);
         }
         $p['data'] = json_decode((string) $p['data'], true) ?: [];
 
@@ -195,7 +195,7 @@ final class Collections extends Module
         $idp = $r->postInt('idp');
         $name = mb_substr(trim($r->post('nazev')), 0, 200);
         if ($name === '') {
-            return $this->back('The item needs a name.', 'item', ['id' => $k['idk'], 'polozka' => $idp], 'chyba');
+            return $this->back('The item needs a name.', 'item', ['id' => $k['idk'], 'item' => $idp], 'chyba');
         }
         $errors = [];
         $data = KolekceObsahu::sanitizeData($k['pole'], is_array($_POST['data'] ?? null) ? $_POST['data'] : [], $errors);
@@ -205,7 +205,7 @@ final class Collections extends Module
         // 3.7: never a category's address – a given one is refused, one made from the name gets a number
         $storedSlug = $idp > 0 ? (string) $this->db->value('SELECT seo_link FROM {kolekce_polozky} WHERE idp = ? AND idk = ?', [$idp, $k['idk']]) : '';
         if ($r->post('seo_link') !== '' && $seo !== $storedSlug && CategoryTree::slugIsCategory($this->db, (int) $k['idk'], $seo)) {
-            return $this->back(CategoryTree::itemSlugRefusal($seo), 'item', ['id' => $k['idk'], 'polozka' => $idp], 'chyba');
+            return $this->back(CategoryTree::itemSlugRefusal($seo), 'item', ['id' => $k['idk'], 'item' => $idp], 'chyba');
         }
         $seo = CategoryTree::freeItemSlug($this->db, (int) $k['idk'], $language, $seo, $idp, $storedSlug);
         $row = ['idk' => $k['idk'], 'nazev' => $name, 'seo_link' => $seo, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE),
@@ -214,7 +214,7 @@ final class Collections extends Module
             + KolekceObsahu::pageFields($_POST, $r->postBool('zobrazit'));
         // a notice that is (or was) on the board cannot be hidden (2.11, Core\Notices)
         if (Notices::refusesHiding($k, $data, (bool) $row['zobrazit'])) {
-            return $this->back(t(Notices::REFUSAL_HIDE), 'item', ['id' => $k['idk'], 'polozka' => $idp], 'chyba');
+            return $this->back(t(Notices::REFUSAL_HIDE), 'item', ['id' => $k['idk'], 'item' => $idp], 'chyba');
         }
         $previous = $idp > 0 ? $this->db->one('SELECT * FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NULL', [$idp, $k['idk']]) : null;
         if ($previous !== null) {
@@ -229,7 +229,7 @@ final class Collections extends Module
         Notices::recordSave($this->app, $k, $previous, $row, $idp);
         \Kaleta\Front\Cache::clear();
         if ($errors !== []) {
-            return $this->back(t('The item is saved, but these fields had an invalid value and were left empty: %s', implode(', ', $errors)), 'item', ['id' => $k['idk'], 'polozka' => $idp], 'chyba');
+            return $this->back(t('The item is saved, but these fields had an invalid value and were left empty: %s', implode(', ', $errors)), 'item', ['id' => $k['idk'], 'item' => $idp], 'chyba');
         }
 
         return $this->back('The item was saved.', 'items', ['id' => $k['idk']]);
@@ -428,20 +428,20 @@ final class Collections extends Module
         return $this->view('categories', t('Categories: %s', $k['nazev']), ['k' => $k, 'tree' => $tree, 'translated' => $translated, 'languages' => $languages, 'counts' => $counts]);
     }
 
-    /** A category's form: the shared settings and the texts of one language (?jazyk=; the default language without it). */
+    /** A category's form: the shared settings and the texts of one language (?language=; the default language without it). */
     protected function actionCategory(): Response
     {
         $k = KolekceObsahu::byId($this->db, $this->request->getInt('id'));
         if ($k === null) {
             return $this->error('The collection does not exist.', 404);
         }
-        $id = $this->request->getInt('kategorie');
+        $id = $this->request->getInt('category');
         $category = $id > 0 ? CategoryTree::byId($this->db, $id) : null;
         if ($id > 0 && ($category === null || $category['idk'] !== (int) $k['idk'])) {
             return $this->error('The category does not exist in this collection.', 404);
         }
-        $language = in_array($this->request->get('jazyk'), Language::additional($this->app->settings()), true) ? $this->request->get('jazyk') : '';
-        $category ??= ['id' => 0, 'idk' => (int) $k['idk'], 'parent_id' => $this->request->getInt('nadrazena') ?: null, 'image' => '', 'sort_order' => 100, 'visible' => true, 'texts' => []];
+        $language = in_array($this->request->get('language'), Language::additional($this->app->settings()), true) ? $this->request->get('language') : '';
+        $category ??= ['id' => 0, 'idk' => (int) $k['idk'], 'parent_id' => $this->request->getInt('parent') ?: null, 'image' => '', 'sort_order' => 100, 'visible' => true, 'texts' => []];
         $parents = array_values(array_filter(CategoryTree::tree($this->db, (int) $k['idk'], ''), fn (array $c): bool => $c['parent_id'] === null && $c['id'] !== $category['id']));
         $texts = $category['texts'][$language] ?? ['name' => '', 'slug' => '', 'description' => '', 'seo_title' => '', 'seo_description' => ''];
         $heading = $texts['name'] !== '' ? $texts['name'] : ($category['texts']['']['name'] ?? t('New category'));
@@ -466,7 +466,7 @@ final class Collections extends Module
                 'parent_id' => $r->postInt('parent_id'), 'visible' => $r->postBool('visible'),
             ]);
         } catch (\InvalidArgumentException $e) {
-            return $this->back($e->getMessage(), 'category', ['id' => $k['idk']] + ($id > 0 ? ['kategorie' => $id] : []) + ($language !== '' ? ['jazyk' => $language] : []), 'chyba');
+            return $this->back($e->getMessage(), 'category', ['id' => $k['idk']] + ($id > 0 ? ['category' => $id] : []) + ($language !== '' ? ['language' => $language] : []), 'chyba');
         }
         \Kaleta\Admin\ChangeLog::write($this->app, 'collections', 'category saved', mb_substr($k['seo_link'] . ': ' . $r->post('name'), 0, 80));
         \Kaleta\Front\Cache::clear();
@@ -501,7 +501,7 @@ final class Collections extends Module
     protected function actionSignature(): Response
     {
         $k = KolekceObsahu::byId($this->db, $this->request->getInt('id'));
-        $p = $k === null ? null : $this->db->one('SELECT * FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NULL', [$this->request->getInt('polozka'), $k['idk']]);
+        $p = $k === null ? null : $this->db->one('SELECT * FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NULL', [$this->request->getInt('item'), $k['idk']]);
         if ($k === null || $p === null) {
             return $this->error('The item does not exist.', 404);
         }
@@ -526,7 +526,7 @@ final class Collections extends Module
         CategoryTree::assign($this->db, $id, $idk, CategoryTree::ofItem($this->db, (int) $p['idp'])); // the copy is in the same categories (3.7)
         Notices::recordSave($this->app, (array) KolekceObsahu::byId($this->db, $idk), null, $copy, $id);
 
-        return $this->back('The copy of the item is hidden – edit it and publish it.', 'item', ['id' => $idk, 'polozka' => $id]);
+        return $this->back('The copy of the item is hidden – edit it and publish it.', 'item', ['id' => $idk, 'item' => $id]);
     }
 
     /** An earlier version of the item back (1.9); the current one goes to the history first. */
@@ -550,7 +550,7 @@ final class Collections extends Module
         Notices::recordSave($this->app, (array) KolekceObsahu::byId($this->db, $idk), $item, $version, $idp);
         \Kaleta\Front\Cache::clear();
 
-        return $this->back(t('The earlier version of the item is back; the one before it is in the history.') . $kept, 'item', ['id' => $idk, 'polozka' => $idp]);
+        return $this->back(t('The earlier version of the item is back; the one before it is in the history.') . $kept, 'item', ['id' => $idk, 'item' => $idp]);
     }
 
     /** To the trash: the item disappears from the site at once and can be restored for 30 days. */
@@ -605,12 +605,12 @@ final class Collections extends Module
         $idk = $this->request->postInt('idk');
         if ($this->request->isPost()) {
             if ($this->isNoticeBoard($idk)) {
-                return $this->back(t(Notices::REFUSAL_DELETE), 'items', ['id' => $idk, 'stav' => 'kos'], 'chyba');
+                return $this->back(t(Notices::REFUSAL_DELETE), 'items', ['id' => $idk, 'status' => 'kos'], 'chyba');
             }
             $this->db->run('DELETE FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NOT NULL', [$this->request->postInt('idp'), $idk]);
         }
 
-        return $this->back('The item was deleted permanently.', 'items', ['id' => $idk, 'stav' => 'kos']);
+        return $this->back('The item was deleted permanently.', 'items', ['id' => $idk, 'status' => 'kos']);
     }
 
     /** Moves an item to the trash (admin and MCP); returns whether it was there to move. */
@@ -663,24 +663,24 @@ final class Collections extends Module
         return [
             'radek' => $k, 'stavba' => $k['stavba'], 'koncept' => $k['stavba_koncept'], 'jazyk' => Language::ofContent($this->app->settings(), $language),
             'titulek' => t($categories ? 'Category page: %s' : 'Detail: %s', $k['nazev']) . ($language !== '' ? ' (' . strtoupper($language) . ')' : ''), 'revize' => ['cast' => KolekceObsahu::templateKey($k)],
-            'parametry' => ['id' => (int) $k['idk']] + ($language !== '' ? ['jazyk' => $language] : []) + ($categories ? ['sablona' => 'kategorie'] : []),
+            'parametry' => ['id' => (int) $k['idk']] + ($language !== '' ? ['language' => $language] : []) + ($categories ? ['template' => 'kategorie'] : []),
         ];
     }
 
     /**
-     * Collection with the template of the language from the URL (?jazyk=de; without it, or with a language the site does
-     * not have, the default language) – the item template, or with ?sablona=kategorie the category template (3.7).
+     * Collection with the template of the language from the URL (?language=de; without it, or with a language the site does
+     * not have, the default language) – the item template, or with ?template=kategorie the category template (3.7).
      */
     private function template(): ?array
     {
         $k = KolekceObsahu::byId($this->db, $this->request->getInt('id'));
-        $language = $this->request->get('jazyk');
+        $language = $this->request->get('language');
         $language = in_array($language, Language::additional($this->app->settings()), true) ? $language : '';
         if ($k === null) {
             return null;
         }
 
-        return $this->request->get('sablona') === 'kategorie' ? CategoryTree::template($this->db, $k, $language) : KolekceObsahu::inLanguage($this->db, $k, $language);
+        return $this->request->get('template') === 'kategorie' ? CategoryTree::template($this->db, $k, $language) : KolekceObsahu::inLanguage($this->db, $k, $language);
     }
 
     protected function saveDraft(array $target, ?string $draft): void
@@ -703,7 +703,7 @@ final class Collections extends Module
             $url = $this->app->url(($language !== '' ? $language . '/' : '') . $k['seo_link'] . '/' . ($first !== null ? $first['slug'] : '_kategorie'));
 
             return [
-                'adresa' => $url, 'nahled' => $url . '?stavba=koncept&editor=1', 'zobrazena' => true, 'casti' => false,
+                'adresa' => $url, 'nahled' => $url . '?build=koncept&editor=1', 'zobrazena' => true, 'casti' => false,
                 'zpet' => ['adresa' => $this->url('categories', ['id' => (int) $k['idk']]), 'text' => t('Categories: %s', $k['nazev'])], 'nastaveni' => $this->url('categories', ['id' => (int) $k['idk']]), 'textNastaveni' => t('Categories'),
                 'kolekce' => ['seo_link' => $k['seo_link'], 'nazev' => t('Category page: %s', $k['nazev']), 'detail' => true, 'pole' => [
                     ['klic' => 'popis', 'popisek' => t('Category description'), 'typ' => 'html'], ['klic' => 'obrazek', 'popisek' => t('Image'), 'typ' => 'obrazek'],
@@ -717,7 +717,7 @@ final class Collections extends Module
         $url = $this->app->url(($language !== '' ? $language . '/' : '') . $k['seo_link'] . '/' . ($seo ?? '_ukazka'));
 
         return [
-            'adresa' => $url, 'nahled' => $url . '?stavba=koncept&editor=1', 'zobrazena' => (bool) $k['detail'], 'casti' => false,
+            'adresa' => $url, 'nahled' => $url . '?build=koncept&editor=1', 'zobrazena' => (bool) $k['detail'], 'casti' => false,
             'zpet' => ['adresa' => $this->url('items', ['id' => (int) $k['idk']]), 'text' => $k['nazev']], 'nastaveni' => $this->url('edit', ['id' => (int) $k['idk']]), 'textNastaveni' => t('Collection fields and settings'),
             'kolekce' => ['seo_link' => $k['seo_link'], 'nazev' => $k['nazev'], 'pole' => $k['pole'], 'detail' => (bool) $k['detail']],
             'podpis' => KolekceObsahu::templateKey($k),

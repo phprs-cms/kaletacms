@@ -10,29 +10,29 @@
  * @var int $pageCount
  * @var int $total
  * @var string $limit
- * @var array{sekce: ?int, clanek: int, nepouzite: bool, hledat: string, razeni: string} $filter
+ * @var array{section: ?int, article: int, unused: bool, search: string, sort: string} $filter
  * @var list<array<string, mixed>> $folders
  * @var string|null $newsItem  title of the news item used as the filter
  */
 $activeFolder = null;
 foreach ($folders as $s) {
-    if ((int) $s['ids'] === $filter['sekce']) {
+    if ((int) $s['ids'] === $filter['section']) {
         $activeFolder = $s;
     }
 }
-$params = array_filter(['sekce' => $filter['sekce'], 'clanek' => $filter['clanek'] ?: null, 'nepouzite' => $filter['nepouzite'] ? 1 : null,
-    'hledat' => $filter['hledat'] !== '' ? $filter['hledat'] : null, 'razeni' => $filter['razeni'] !== 'nove' ? $filter['razeni'] : null], fn ($v): bool => $v !== null);
-$isAll = $filter['sekce'] === null && $filter['clanek'] === 0 && !$filter['nepouzite'];
+$params = array_filter(['section' => $filter['section'], 'article' => $filter['article'] ?: null, 'unused' => $filter['unused'] ? 1 : null,
+    'search' => $filter['search'] !== '' ? $filter['search'] : null, 'sort' => $filter['sort'] !== 'nove' ? $filter['sort'] : null], fn ($v): bool => $v !== null);
+$isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['unused'];
 ?>
 <div class="media">
 <nav class="media-slozky" aria-label="<?= e(t('Folders')) ?>">
 	<a href="<?= e($module->url()) ?>"<?= $isAll ? ' class="aktivni"' : '' ?>><?= e(t('All media')) ?></a>
-	<a href="<?= e($module->url('', ['sekce' => 0])) ?>"<?= $filter['sekce'] === 0 ? ' class="aktivni"' : '' ?>><?= e(t('Nezařazené')) ?></a>
-	<a href="<?= e($module->url('', ['nepouzite' => 1])) ?>"<?= $filter['nepouzite'] ? ' class="aktivni"' : '' ?>><?= e(t('Unused')) ?></a>
+	<a href="<?= e($module->url('', ['section' => 0])) ?>"<?= $filter['section'] === 0 ? ' class="aktivni"' : '' ?>><?= e(t('Nezařazené')) ?></a>
+	<a href="<?= e($module->url('', ['unused' => 1])) ?>"<?= $filter['unused'] ? ' class="aktivni"' : '' ?>><?= e(t('Unused')) ?></a>
 	<a href="<?= e($module->url('cleanup')) ?>"><?= e(t('Clean-up')) ?></a>
 	<strong><?= e(t('Folders')) ?></strong>
 <?php foreach ($folders as $s): ?>
-	<a href="<?= e($module->url('', ['sekce' => $s['ids']])) ?>"<?= $activeFolder === $s ? ' class="aktivni"' : '' ?>><?= e($s['nazev']) ?> <small>(<?= (int) $s['pocet'] ?>)</small></a>
+	<a href="<?= e($module->url('', ['section' => $s['ids']])) ?>"<?= $activeFolder === $s ? ' class="aktivni"' : '' ?>><?= e($s['nazev']) ?> <small>(<?= (int) $s['pocet'] ?>)</small></a>
 <?php endforeach ?>
 	<form method="post" action="<?= e($module->url('folder')) ?>">
 		<?= $csrf ?>
@@ -65,13 +65,13 @@ $isAll = $filter['sekce'] === null && $filter['clanek'] === 0 && !$filter['nepou
 
 <form class="navigace-radek media-hledani" method="get" action="<?= e($app->url('admin.php')) ?>" role="search">
 	<input type="hidden" name="module" value="media">
-<?php foreach (array_diff_key($params, ['hledat' => 1, 'razeni' => 1]) as $k => $v): ?>
+<?php foreach (array_diff_key($params, ['search' => 1, 'sort' => 1]) as $k => $v): ?>
 	<input type="hidden" name="<?= e($k) ?>" value="<?= e((string) $v) ?>">
 <?php endforeach ?>
-	<input class="textpole" type="search" name="hledat" value="<?= e($filter['hledat']) ?>" placeholder="<?= e(t('Search name, description or file')) ?>" aria-label="<?= e(t('Search media')) ?>">
-	<select name="razeni" aria-label="<?= e(t('Řazení')) ?>" data-odeslat-pri-zmene>
+	<input class="textpole" type="search" name="search" value="<?= e($filter['search']) ?>" placeholder="<?= e(t('Search name, description or file')) ?>" aria-label="<?= e(t('Search media')) ?>">
+	<select name="sort" aria-label="<?= e(t('Řazení')) ?>" data-odeslat-pri-zmene>
 <?php foreach (Kaleta\Admin\Modules\Media::SORT_ORDERS as $key => [$sortName]): ?>
-		<option value="<?= e($key) ?>"<?= $filter['razeni'] === $key ? ' selected' : '' ?>><?= e(t($sortName)) ?></option>
+		<option value="<?= e($key) ?>"<?= $filter['sort'] === $key ? ' selected' : '' ?>><?= e(t($sortName)) ?></option>
 <?php endforeach ?>
 	</select>
 	<button class="navigace" type="submit"><?= e(t('Filtrovat')) ?></button>
@@ -95,7 +95,7 @@ $isAll = $filter['sekce'] === null && $filter['clanek'] === 0 && !$filter['nepou
 <?php if ($o['nahl_poloha'] !== ''): ?>
 			<input class="galerie-popis" type="text" value="<?= e((string) $o['nazev']) ?>" maxlength="150" placeholder="<?= e(t('Popis pro nevidomé (alt)')) ?>" aria-label="<?= e(t('Description of image %s', $o['nazev'])) ?>" data-popis-media="<?= (int) $o['ido'] ?>" data-adresa="<?= e($module->url('save_caption')) ?>" form="">
 <?php endif ?>
-			<span><label><input type="checkbox" name="oznacene[]" value="<?= (int) $o['ido'] ?>"> <?= e(t('označit')) ?></label> &middot; <a href="<?= e($module->url('list', $params + ['uprav' => $o['ido'], 'strana' => $pageNumber])) ?>#uprav"><?= e(t('description')) ?></a></span>
+			<span><label><input type="checkbox" name="oznacene[]" value="<?= (int) $o['ido'] ?>"> <?= e(t('označit')) ?></label> &middot; <a href="<?= e($module->url('list', $params + ['edit' => $o['ido'], 'page' => $pageNumber])) ?>#uprav"><?= e(t('description')) ?></a></span>
 		</figcaption>
 	</figure>
 <?php endforeach ?>
@@ -113,7 +113,7 @@ $isAll = $filter['sekce'] === null && $filter['clanek'] === 0 && !$filter['nepou
 </p>
 </form>
 
-<?php foreach ($images as $o): if ((int) $o['ido'] !== $app->request->getInt('uprav')) { continue; } ?>
+<?php foreach ($images as $o): if ((int) $o['ido'] !== $app->request->getInt('edit')) { continue; } ?>
 <form class="formular" id="uprav" method="post" action="<?= e($module->url('save')) ?>">
 	<?= $csrf ?>
 	<input type="hidden" name="ido" value="<?= (int) $o['ido'] ?>">
@@ -143,7 +143,7 @@ $isAll = $filter['sekce'] === null && $filter['clanek'] === 0 && !$filter['nepou
 <?php if ($pageCount > 1): ?>
 <p class="strankovani">
 <?php for ($s = 1; $s <= $pageCount; $s++): ?>
-	<?= $s === $pageNumber ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($module->url('', $params + ['strana' => $s])) . '">' . $s . '</a>' ?>
+	<?= $s === $pageNumber ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($module->url('', $params + ['page' => $s])) . '">' . $s . '</a>' ?>
 <?php endfor ?>
 </p>
 <?php endif ?>

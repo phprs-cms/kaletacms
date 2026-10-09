@@ -180,7 +180,7 @@ final class Popups extends Module
         $url = $this->app->url('_popup/' . $p['idpp']);
 
         return [
-            'adresa' => $url . '?stavba=koncept', 'nahled' => $url . '?stavba=koncept&editor=1', 'zobrazena' => (bool) $p['aktivni'], 'casti' => false,
+            'adresa' => $url . '?build=koncept', 'nahled' => $url . '?build=koncept&editor=1', 'zobrazena' => (bool) $p['aktivni'], 'casti' => false,
             'zpet' => ['adresa' => $this->url(), 'text' => t('Pop-ups')], 'nastaveni' => $this->url('edit', ['id' => $p['idpp']]),
             'textNastaveni' => t('Pop-up settings (when and where it shows)'), 'podpis' => 'popup:' . $p['idpp'],
         ];

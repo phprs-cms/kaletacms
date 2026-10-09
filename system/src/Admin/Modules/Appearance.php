@@ -135,7 +135,7 @@ final class Appearance extends Module
     /** Signed link to the whole-site preview (Core\Preview target "web"). */
     public static function sitePreviewUrl(\Kaleta\Core\App $app, int $minutes): string
     {
-        return $app->request->origin() . $app->url('') . '?nahled_klic=' . \Kaleta\Core\Preview::key($app->db(), $app->settings(), 'web', $minutes);
+        return $app->request->origin() . $app->url('') . '?preview_key=' . \Kaleta\Core\Preview::key($app->db(), $app->settings(), 'web', $minutes);
     }
 
     /** Design tokens for download in the DTCG format (Figma, Tokens Studio, Style Dictionary). */

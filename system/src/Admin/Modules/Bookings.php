@@ -27,17 +27,17 @@ final class Bookings extends Module
     protected function actionList(): Response
     {
         Booking::purge($this->app);
-        $view = in_array($this->request->get('pohled'), ['dnes', 'minule', 'vse'], true) ? $this->request->get('pohled') : 'nadchazejici';
+        $view = in_array($this->request->get('view'), ['dnes', 'minule', 'vse'], true) ? $this->request->get('view') : 'nadchazejici';
         $filter = match ($view) {
             'dnes' => ['from' => date('Y-m-d'), 'to' => date('Y-m-d'), 'status' => ''],
             'minule' => ['from' => date('Y-m-d', strtotime('-30 days')), 'to' => date('Y-m-d', strtotime('-1 day')), 'status' => ''],
             'vse' => ['from' => '', 'to' => '', 'status' => ''],
             default => ['from' => date('Y-m-d'), 'to' => date('Y-m-d', strtotime('+30 days')), 'status' => 'active'],
         };
-        $filter['staff'] = $this->request->getInt('osoba');
-        $filter['service'] = $this->request->getInt('sluzba');
-        if (isset(Booking::STATUSES[$this->request->get('stav')])) {
-            $filter['status'] = $this->request->get('stav');
+        $filter['staff'] = $this->request->getInt('staff');
+        $filter['service'] = $this->request->getInt('service');
+        if (isset(Booking::STATUSES[$this->request->get('status')])) {
+            $filter['status'] = $this->request->get('status');
         }
         $byDay = [];
         foreach (Booking::list($this->db, $filter + ['limit' => 500]) as $b) {
@@ -192,7 +192,7 @@ final class Bookings extends Module
         }
         $id = $this->request->getInt('id');
 
-        return $this->view('services', 'Services', ['services' => Booking::services($this->db, false), 'staff' => Booking::staff($this->db, false), 'edit' => $id > 0 ? Booking::service($this->db, $id) : ($this->request->get('nova') !== '' ? [] : null)]);
+        return $this->view('services', 'Services', ['services' => Booking::services($this->db, false), 'staff' => Booking::staff($this->db, false), 'edit' => $id > 0 ? Booking::service($this->db, $id) : ($this->request->get('new') !== '' ? [] : null)]);
     }
 
     protected function actionServiceSave(): Response
@@ -207,7 +207,7 @@ final class Bookings extends Module
         $result = Booking::saveService($this->app, ['name' => $r->post('name'), 'duration_min' => $r->postInt('duration_min'), 'buffer_min' => $r->postInt('buffer_min'), 'price_text' => $r->post('price_text'),
             'description' => $r->post('description'), 'active' => $r->postBool('active'), 'requires_confirmation' => $r->postBool('requires_confirmation'), 'sort_order' => $r->postInt('sort_order'), 'staff' => array_map('intval', $r->postList('staff'))], $r->postInt('id'));
 
-        return is_string($result) ? $this->back($result, 'services', $r->postInt('id') > 0 ? ['id' => $r->postInt('id')] : ['nova' => 1], 'chyba') : $this->back('The service is saved.', 'services');
+        return is_string($result) ? $this->back($result, 'services', $r->postInt('id') > 0 ? ['id' => $r->postInt('id')] : ['new' => 1], 'chyba') : $this->back('The service is saved.', 'services');
     }
 
     protected function actionServiceDelete(): Response

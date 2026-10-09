@@ -22,8 +22,8 @@ final class Subscribers extends Module
 
     protected function actionList(): Response
     {
-        $search = mb_substr($this->request->get('hledat'), 0, 100);
-        $pageNumber = max(1, $this->request->getInt('strana', 1));
+        $search = mb_substr($this->request->get('search'), 0, 100);
+        $pageNumber = max(1, $this->request->getInt('page', 1));
         $whereParts = $search !== '' ? ' WHERE email LIKE ?' : '';
         $params = $search !== '' ? ['%' . addcslashes($search, '%_\\') . '%'] : [];
 

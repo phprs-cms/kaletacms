@@ -189,7 +189,7 @@ final class Links
             [$title, $edit, $page, $target] = match ((string) $r['kind']) {
                 'news' => [(string) $r['news_title'], 'admin.php?module=news&action=edit&id=' . $id, ltrim(substr($app->newsItemUrl((string) $r['news_slug'], (string) $r['news_language']), strlen($app->request->basePath())), '/'), ['news' => $id]],
                 'page' => [(string) $r['page_title'], 'admin.php?module=pages&action=' . ($r['page_build'] ? 'builder' : 'edit') . '&id=' . $id, $prefix($r['page_language']) . $r['page_slug'], ['page' => $id]],
-                default => [(string) $r['item_title'], 'admin.php?module=collections&action=item&id=' . (int) $r['idk'] . '&polozka=' . $id, $r['detail'] ? $prefix($r['item_language']) . $r['collection'] . '/' . $r['item_slug'] : '', ['collection' => (string) $r['collection'], 'item' => $id]],
+                default => [(string) $r['item_title'], 'admin.php?module=collections&action=item&id=' . (int) $r['idk'] . '&item=' . $id, $r['detail'] ? $prefix($r['item_language']) . $r['collection'] . '/' . $r['item_slug'] : '', ['collection' => (string) $r['collection'], 'item' => $id]],
             };
             $url = (string) $r['url'];
             $out[] = ['kind' => (string) $r['kind'], 'id' => $id, 'title' => $title, 'url' => $url, 'element' => (string) $r['element'], 'status' => (int) $r['stav'], 'found' => (string) $r['cas'],

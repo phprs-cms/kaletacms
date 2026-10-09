@@ -26,7 +26,7 @@ final class Enquiries extends Module
     {
         \Kaleta\Core\Jobs::purgeApplications($this->app); // applications to job openings have their own, usually shorter, retention (2.11)
         self::deleteExpired($this->db, $this->app->settings());
-        $filter = $this->request->get('stav');
+        $filter = $this->request->get('status');
         $conditions = match ($filter) {
             'otevrene' => ['stav < 2'],
             'vyrizene' => ['stav = 2'],
@@ -35,7 +35,7 @@ final class Enquiries extends Module
         };
         $params = [];
         // the kind from triage (2.12): spam stays out of the list unless asked for; '-' = not sorted yet
-        $kind = $this->request->get('kategorie');
+        $kind = $this->request->get('category');
         if ($kind === '-') {
             $conditions[] = "kategorie = ''";
         } elseif (isset(\Kaleta\Core\Triage::CATEGORIES[$kind])) {
@@ -45,7 +45,7 @@ final class Enquiries extends Module
             $kind = '';
             $conditions[] = "kategorie <> 'spam'";
         }
-        $search = mb_substr(trim($this->request->get('hledat')), 0, 100);
+        $search = mb_substr(trim($this->request->get('search')), 0, 100);
         if ($search !== '') {
             $conditions[] = '(email LIKE ? OR formular LIKE ? OR data LIKE ? OR poznamka LIKE ?)';
             // the data is JSON with \uXXXX instead of diacritics – the search also looks in that form
@@ -54,7 +54,7 @@ final class Enquiries extends Module
             array_push($params, $pattern, $pattern, $jsonPattern, $pattern);
         }
         $whereParts = 'WHERE ' . implode(' AND ', $conditions); // never empty: spam is left out unless asked for
-        $pageNumber = max(1, $this->request->getInt('strana', 1));
+        $pageNumber = max(1, $this->request->getInt('page', 1));
 
         return $this->view('list', 'Enquiries', [
             'enquiries' => $this->db->all('SELECT idp, datum, formular, stranka, tema, email, stav, kategorie, priorita, data, prirazeno FROM {poptavky} ' . $whereParts . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
@@ -145,7 +145,7 @@ final class Enquiries extends Module
     protected function actionAttachment(): Response
     {
         $p = $this->db->one('SELECT data FROM {poptavky} WHERE idp = ?', [$this->request->getInt('id')]);
-        $item = ($p !== null ? (json_decode((string) $p['data'], true) ?: []) : [])[$this->request->getInt('pole')] ?? null;
+        $item = ($p !== null ? (json_decode((string) $p['data'], true) ?: []) : [])[$this->request->getInt('field')] ?? null;
         $path = is_array($item) && preg_match('#^\d{4}/\d{2}/[a-f0-9]{24}\.[a-z0-9]{2,5}$#D', (string) ($item[2] ?? '')) ? KALETA_ROOT . '/storage/prilohy/' . $item[2] : null;
         if ($path === null || !is_file($path)) {
             return $this->error('The attachment no longer exists.', 404);

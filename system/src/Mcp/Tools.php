@@ -584,7 +584,7 @@ final class Tools
         Media::recordUsage($db, $id, $saved['obrazek'], $saved['uvod'], $saved['text']);
 
         return ['id' => $id, 'stav' => !$saved['visible'] ? 'koncept' : (strtotime($saved['datum']) > time() ? 'naplánováno' : 'vydáno')]
-            + self::validityOutput($saved) + ['nahled' => $this->app->request->origin() . $this->app->url('novinky/' . $saved['seo_link'] . '?nahled=1'),
+            + self::validityOutput($saved) + ['nahled' => $this->app->request->origin() . $this->app->url('novinky/' . $saved['seo_link'] . '?preview=1'),
             'uprava_v_administraci' => $this->app->request->origin() . $this->app->url('admin.php?module=news&action=edit&id=' . $id)];
     }
 
@@ -1126,10 +1126,10 @@ final class Tools
         }
         $params = match ($target['druh']) {
             'stranka' => 'module=pages&action=builder&id=' . (int) $r['ids'],
-            'kolekce' => 'module=collections&action=builder&id=' . (int) $r['idk'] . ($r['sablona_jazyk'] !== '' ? '&jazyk=' . $r['sablona_jazyk'] : '') . (($r['sablona_druh'] ?? '') === 'kategorie' ? '&sablona=kategorie' : ''),
+            'kolekce' => 'module=collections&action=builder&id=' . (int) $r['idk'] . ($r['sablona_jazyk'] !== '' ? '&language=' . $r['sablona_jazyk'] : '') . (($r['sablona_druh'] ?? '') === 'kategorie' ? '&template=kategorie' : ''),
             'popup' => 'module=popups&action=builder&id=' . (int) $r['idpp'],
             'komponenta' => 'module=components&action=builder&id=' . (int) $r['idm'],
-            default => 'module=parts&action=builder&typ=' . $r['typ'] . '&jazyk=' . $r['jazyk'],
+            default => 'module=parts&action=builder&type=' . $r['typ'] . '&language=' . $r['jazyk'],
         };
 
         return $this->describeTarget($target) + ['stav' => $publish ? 'publikováno' : 'koncept – na webu se ukáže po publikování', 'prvku' => $this->countElements($build['deti']),
@@ -1166,12 +1166,12 @@ final class Tools
         };
         $key = \Kaleta\Core\Preview::key($this->app->db(), $this->app->settings(), $signature, $minutes, $comments && $target['druh'] === 'stranka');
         if ($target['druh'] === 'popup') {
-            return $this->targetUrl($target) . '?stavba=koncept&nahled_klic=' . $key;
+            return $this->targetUrl($target) . '?build=koncept&preview_key=' . $key;
         }
 
-        $variant = $target['druh'] === 'cast' && $r['varianta'] !== '' ? 'varianta=' . rawurlencode($r['varianta']) . '&' : '';
+        $variant = $target['druh'] === 'cast' && $r['varianta'] !== '' ? 'variant=' . rawurlencode($r['varianta']) . '&' : '';
 
-        return $this->targetUrl($target) . '?' . ($target['druh'] === 'cast' ? 'cast=' . $r['typ'] . '&' : '') . $variant . 'stavba=koncept&nahled_klic=' . $key;
+        return $this->targetUrl($target) . '?' . ($target['druh'] === 'cast' ? 'part=' . $r['typ'] . '&' : '') . $variant . 'build=koncept&preview_key=' . $key;
     }
 
     /**

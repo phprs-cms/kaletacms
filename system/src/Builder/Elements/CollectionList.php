@@ -86,9 +86,9 @@ final class CollectionList extends Element
         }
         $categories = $categoryId === null ? null : ($categoryId === false ? [] : \Kaleta\Builder\CollectionCategories::withChildren($db, $categoryId));
         // the visitor's filter and page are in the url under a key by the element id (there can be several lists on a page);
-        // the item list of the category page shown pages with ?strana=, the page number its canonical address keeps
+        // the item list of the category page shown pages with ?page=, the page number its canonical address keeps
         $filterParam = 'f-' . $p['id'];
-        $pageParam = $current ? 'strana' : 's-' . $p['id'];
+        $pageParam = $current ? 'page' : 's-' . $p['id'];
         $filterField = preg_match(Collections::KEY_PATTERN, (string) $o['filtr_pole']) ? (string) $o['filtr_pole'] : '';
         $filterValues = $filterField !== '' && $o['filtry'] ? Collections::fieldValues($db, (int) $collection['idk'], Language::siteColumn(), $filterField) : [];
         // a field linking to another collection (2.10) stores addresses – the buttons show the names of the linked items

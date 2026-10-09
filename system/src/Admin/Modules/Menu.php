@@ -47,16 +47,16 @@ final class Menu extends Module
         if ($this->request->isPost()) {
             $items = json_decode((string) ($_POST['polozky'] ?? ''), true);
             if (!is_array($items)) {
-                return $this->back('The menu could not be saved – please try again.', '', ['umisteni' => $location, 'jazyk' => $language], 'chyba');
+                return $this->back('The menu could not be saved – please try again.', '', ['location' => $location, 'language' => $language], 'chyba');
             }
             \Kaleta\Core\Look::setMenu($this->app->settings(), $location, $language, $items);
             // 3.6: "Save and publish menu" – only this menu goes live, the rest of the draft look keeps waiting
             if ($this->request->post('publikovat') === '1' && \Kaleta\Core\Look::publishMenu($this->app, $location, $language)) {
-                return $this->back('The menu is published – visitors see it now.', '', ['umisteni' => $location, 'jazyk' => $language]);
+                return $this->back('The menu is published – visitors see it now.', '', ['location' => $location, 'language' => $language]);
             }
         }
 
-        return $this->back('The menu is saved to the draft look – preview the whole site, then publish it.', '', ['umisteni' => $location, 'jazyk' => $language]);
+        return $this->back('The menu is saved to the draft look – preview the whole site, then publish it.', '', ['location' => $location, 'language' => $language]);
     }
 
     /** The main menu returns to being assembled automatically from pages "in menu"; the footer menu is emptied. */
@@ -67,14 +67,14 @@ final class Menu extends Module
             \Kaleta\Core\Look::setMenu($this->app->settings(), $location, $language, null);
         }
 
-        return $this->back($location === 'hlavni' ? 'In the draft look the menu is again built automatically from pages in the navigation.' : 'In the draft look the footer menu is empty.', '', ['umisteni' => $location, 'jazyk' => $language]);
+        return $this->back($location === 'hlavni' ? 'In the draft look the menu is again built automatically from pages in the navigation.' : 'In the draft look the footer menu is empty.', '', ['location' => $location, 'language' => $language]);
     }
 
     /** @return array{0: string, 1: string} location and language (column) from the URL */
     private function selection(): array
     {
-        $location = $this->request->get('umisteni');
-        $language = $this->request->get('jazyk');
+        $location = $this->request->get('location');
+        $language = $this->request->get('language');
 
         return [isset(MenuWebu::LOCATIONS[$location]) ? $location : 'hlavni', in_array($language, Language::additional($this->app->settings()), true) ? $language : ''];
     }

@@ -140,7 +140,7 @@ final class Components extends Module
         $url = $this->app->url('_komponenta/' . (int) $k['idm']);
 
         return [
-            'adresa' => $url . '?stavba=koncept', 'nahled' => $url . '?stavba=koncept&editor=1', 'zobrazena' => true, 'casti' => false,
+            'adresa' => $url . '?build=koncept', 'nahled' => $url . '?build=koncept&editor=1', 'zobrazena' => true, 'casti' => false,
             'zpet' => ['adresa' => $this->url(), 'text' => t('Components')], 'nastaveni' => $this->url('edit', ['id' => (int) $k['idm']]),
             // hint of the {{properties}} in the editor (the same as for a collection, only without built-in values)
             'kolekce' => ['seo_link' => '', 'nazev' => $k['nazev'], 'pole' => $k['vlastnosti'], 'detail' => false, 'vestavene' => false],

@@ -20,7 +20,7 @@ final class DraftComments
     {
     }
 
-    /** POST /_comment (or /_komentar) from the widget: back to the preview with ?komentar=ok | chyba | limit, 403 when the key does not allow it. */
+    /** POST /_comment (or /_komentar) from the widget: back to the preview with ?comment=ok | chyba | limit, 403 when the key does not allow it. */
     public function post(): Response
     {
         $r = $this->app->request;
@@ -30,8 +30,8 @@ final class DraftComments
             return new Response(e(t('This preview link does not allow comments.')), 403, ['Content-Type' => 'text/plain; charset=utf-8', 'Cache-Control' => 'no-store']);
         }
         $back = $r->post('zpet');
-        $back = preg_match('~^/[^\s\\\\#]*$~D', $back) && !str_starts_with($back, '//') ? $back : $this->app->url('') . '?stavba=koncept&nahled_klic=' . rawurlencode($r->post('klic'));
-        $redirect = fn (string $result): Response => Response::redirect($back . (str_contains($back, '?') ? '&' : '?') . 'komentar=' . $result . '#ka-komentar', 303);
+        $back = preg_match('~^/[^\s\\\\#]*$~D', $back) && !str_starts_with($back, '//') ? $back : $this->app->url('') . '?build=koncept&preview_key=' . rawurlencode($r->post('klic'));
+        $redirect = fn (string $result): Response => Response::redirect($back . (str_contains($back, '?') ? '&' : '?') . 'comment=' . $result . '#ka-komentar', 303);
         if ($r->post('web_adresa') !== '') {
             return $redirect('ok'); // a bot filled the hidden field – it gets a thank-you and nothing is stored
         }
@@ -49,9 +49,9 @@ final class DraftComments
     {
         return $this->app->view->render('front/komentare', [
             'cil' => $target, 'klic' => $key,
-            'zpet' => $this->app->url($path) . '?stavba=koncept&nahled_klic=' . rawurlencode($key),
+            'zpet' => $this->app->url($path) . '?build=koncept&preview_key=' . rawurlencode($key),
             'akce' => $this->app->url('_komentar'),
-            'vysledek' => in_array($this->app->request->get('komentar'), ['ok', 'chyba', 'limit'], true) ? $this->app->request->get('komentar') : '',
+            'vysledek' => in_array($this->app->request->get('comment'), ['ok', 'chyba', 'limit'], true) ? $this->app->request->get('comment') : '',
         ]);
     }
 }

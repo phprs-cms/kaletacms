@@ -28,7 +28,7 @@ $languages = Language::additional($app->settings());
         'radky' => '<textarea class="textbox nizky" id="' . e($id) . '" name="' . e($displayName) . '" rows="4">' . e($h) . '</textarea>',
         'html' => '<textarea class="textbox" id="' . e($id) . '" name="' . e($displayName) . '" rows="10" data-editor>' . e($h) . '</textarea>',
         'obrazek' => '<input class="textpole siroke" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500" data-obrazek>',
-        'odkaz' => '<input class="textpole siroke" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500" placeholder="https://… ' . e(t('or')) . ' /stranka">',
+        'odkaz' => '<input class="textpole siroke" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500" placeholder="' . e(t('https://… or /page')) . '">',
         'cislo' => '<input class="textpole" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" inputmode="decimal" size="12">',
         'datum' => '<input class="textpole" type="date" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '">',
         // a whole day is stored without a time; the input shows it at midnight, which saves back as the whole day (Collections::cleanDateTime)
@@ -92,7 +92,7 @@ $languages = Language::additional($app->settings());
 <?php endif ?>
 </details>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save item')) ?>"> <a class="navigace" href="<?= e($module->url('items', ['id' => $k['idk']])) ?>"><?= e(t('Back')) ?></a><?php if ($p['idp'] > 0 && Kaleta\Builder\EmailSignature::isPeople($k)): ?>
-	<a class="navigace" href="<?= e($module->url('signature', ['id' => (int) $k['idk'], 'polozka' => (int) $p['idp']])) ?>"><?= e(t('E-mail signature')) ?></a><?php endif ?></p>
+	<a class="navigace" href="<?= e($module->url('signature', ['id' => (int) $k['idk'], 'item' => (int) $p['idp']])) ?>"><?= e(t('E-mail signature')) ?></a><?php endif ?></p>
 </form>
 <?php if (($versions ?? []) !== []): ?>
 <details class="pokrocile">

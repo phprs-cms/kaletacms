@@ -14,17 +14,17 @@ use Kaleta\Core\Notebook;
 ?>
 <p class="hlaska"><?= e(t('Notes for whoever works on the site next – Claude in a new conversation, or a colleague: decisions, wording rules, photo credits, the history of the site, what the client is sensitive about. Claude reads them with read_notebook before larger changes and writes decisions down with write_notebook – a drafts-only connection too. Nothing here is shown on the site.')) ?></p>
 <nav class="zalozky" aria-label="<?= e(t('Topic')) ?>">
-	<a href="<?= e($module->url('', array_filter(['hledat' => $search]))) ?>"<?= $topic === '' ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('All topics')) ?></a>
+	<a href="<?= e($module->url('', array_filter(['search' => $search]))) ?>"<?= $topic === '' ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('All topics')) ?></a>
 <?php foreach (Notebook::TOPICS as $key => $label): ?>
-	<a href="<?= e($module->url('', array_filter(['tema' => $key, 'hledat' => $search]))) ?>"<?= $topic === $key ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t($label)) ?><?= isset($counts[$key]) ? ' (' . (int) $counts[$key] . ')' : '' ?></a>
+	<a href="<?= e($module->url('', array_filter(['topic' => $key, 'search' => $search]))) ?>"<?= $topic === $key ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t($label)) ?><?= isset($counts[$key]) ? ' (' . (int) $counts[$key] . ')' : '' ?></a>
 <?php endforeach ?>
 </nav>
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt">
-	<input type="hidden" name="module" value="notebook"><input type="hidden" name="tema" value="<?= e($topic) ?>">
-	<label><?= e(t('Search (title, text):')) ?> <input class="textpole" type="search" name="hledat" value="<?= e($search) ?>" size="24"></label>
+	<input type="hidden" name="module" value="notebook"><input type="hidden" name="topic" value="<?= e($topic) ?>">
+	<label><?= e(t('Search (title, text):')) ?> <input class="textpole" type="search" name="search" value="<?= e($search) ?>" size="24"></label>
 	<input class="tl" type="submit" value="<?= e(t('Filtrovat')) ?>">
 </form>
-<p><a class="tl" href="<?= e($module->url('edit', array_filter(['tema' => $topic]))) ?>"><?= e(t('New note')) ?></a></p>
+<p><a class="tl" href="<?= e($module->url('edit', array_filter(['topic' => $topic]))) ?>"><?= e(t('New note')) ?></a></p>
 <?php if ($notes === [] && ($search !== '' || $topic !== '')): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'protokol', 'heading' => t('No note matches the filter.'), 'text' => t('Try another word or topic.'), 'action' => [$module->url(), t('Clear filter')]]) ?>
 <?php elseif ($notes === []): ?>
@@ -41,7 +41,7 @@ use Kaleta\Core\Notebook;
 	<td><?= e($n['author']) ?></td>
 	<td class="cislo"><?= e(format_date($n['updated_at'], true)) ?></td>
 	<td class="akce">
-		<form class="vradku" method="post" action="<?= e($module->url('pin')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $n['id'] ?>"><input type="hidden" name="tema" value="<?= e($topic) ?>"><input type="hidden" name="hledat" value="<?= e($search) ?>"><button class="navigace" type="submit"><?= e(t($n['pinned'] ? 'Unpin' : 'Pin')) ?></button></form> ·
+		<form class="vradku" method="post" action="<?= e($module->url('pin')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $n['id'] ?>"><input type="hidden" name="topic" value="<?= e($topic) ?>"><input type="hidden" name="search" value="<?= e($search) ?>"><button class="navigace" type="submit"><?= e(t($n['pinned'] ? 'Unpin' : 'Pin')) ?></button></form> ·
 		<form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Delete the note? It cannot be brought back.')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $n['id'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form>
 	</td>
 </tr>

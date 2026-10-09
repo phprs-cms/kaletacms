@@ -40,7 +40,7 @@
 	<td><a href="<?= e($app->url('novinky/stitek/' . $s['seo_link'])) ?>" target="_blank" rel="noopener">#<?= e($s['nazev']) ?></a></td>
 	<td class="cislo"><?= (int) $s['pocet'] ?></td>
 	<td><?= trim((string) $s['popis']) !== '' ? '<span class="stitek stitek-vydano">' . e(t('has an intro')) . '</span>' : '' ?></td>
-	<td class="akce"><a href="<?= e($module->url('', ['uprav' => $s['ids']])) ?>#uprav"><?= e(t('Edit')) ?></a>
+	<td class="akce"><a href="<?= e($module->url('', ['edit' => $s['ids']])) ?>#uprav"><?= e(t('Edit')) ?></a>
 		<form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Delete the tag? The news items stay, they just lose this tag.')) ?>"><?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $s['ids'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form></td>
 </tr>
 <?php endforeach ?>

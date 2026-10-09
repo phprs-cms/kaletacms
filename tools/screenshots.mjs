@@ -58,7 +58,7 @@ if (SITE === 'firemni') {
       await page.waitForTimeout(600);
     },
   });
-  await shot('admin-site-parts', '/admin.php?module=parts&action=builder&typ=hlavicka&jazyk=', { before: async () => page.waitForTimeout(1500) });
+  await shot('admin-site-parts', '/admin.php?module=parts&action=builder&type=hlavicka&language=', { before: async () => page.waitForTimeout(1500) });
   await shot('admin-appearance', '/admin.php?module=appearance');
   await shot('admin-enquiries', '/admin.php?module=enquiries');
   await shot('admin-extensions', '/admin.php?module=extensions');

@@ -187,7 +187,7 @@ trait BuilderActions
         $url = str_replace('&editor=1', '', $e['nahled']);
         ChangeLog::write($this->app, static::IDENT, 'preview shared', mb_substr($target['titulek'], 0, 80) . ' (' . $days . ' d' . ($comments ? ', comments' : '') . ')');
 
-        return Response::json(['ok' => true, 'odkaz' => $this->request->origin() . $url . '&nahled_klic=' . $key, 'plati_do' => time() + $days * 86400, 'komentare' => $comments]);
+        return Response::json(['ok' => true, 'odkaz' => $this->request->origin() . $url . '&preview_key=' . $key, 'plati_do' => time() + $days * 86400, 'komentare' => $comments]);
     }
 
     /**
@@ -297,7 +297,7 @@ trait BuilderActions
     protected function actionBuildSection(): Response
     {
         $target = $this->request->isPost() ? $this->loadBuildTarget() : null;
-        $section = $target !== null ? Library::section($this->request->get('klic'), $target['jazyk']) : null;
+        $section = $target !== null ? Library::section($this->request->get('key'), $target['jazyk']) : null;
         if ($section === null) {
             return Response::json(['ok' => false, 'chyba' => t('The section is not in the library.')], 404);
         }

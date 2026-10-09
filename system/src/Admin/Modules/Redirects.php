@@ -51,23 +51,23 @@ final class Redirects extends Module
 
     protected function actionList(): Response
     {
-        $search = mb_substr(trim($this->request->get('hledat')), 0, 100);
+        $search = mb_substr(trim($this->request->get('search')), 0, 100);
         $whereParts = $search !== '' ? 'WHERE z_adresy LIKE ? OR na_adresu LIKE ?' : '';
         $params = $search !== '' ? array_fill(0, 2, '%' . addcslashes($search, '%_\\') . '%') : [];
         $total = (int) $this->db->value('SELECT COUNT(*) FROM {presmerovani} ' . $whereParts, $params);
-        $pageNumber = max(1, min((int) ceil(max(1, $total) / self::PER_PAGE), $this->request->getInt('strana', 1)));
+        $pageNumber = max(1, min((int) ceil(max(1, $total) / self::PER_PAGE), $this->request->getInt('page', 1)));
 
         $notFound = \Kaleta\Core\NotFound::pending($this->app, 60, 50);
 
         return $this->view('list', 'Redirects', [
             'records' => $this->db->all('SELECT * FROM {presmerovani} ' . $whereParts . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
             'total' => $total, 'pageNumber' => $pageNumber, 'pageCount' => (int) ceil($total / self::PER_PAGE), 'search' => $search,
-            'edit' => $this->request->getInt('upravit') > 0 ? $this->db->one('SELECT * FROM {presmerovani} WHERE idp = ?', [$this->request->getInt('upravit')]) : null,
+            'edit' => $this->request->getInt('edit') > 0 ? $this->db->one('SELECT * FROM {presmerovani} WHERE idp = ?', [$this->request->getInt('edit')]) : null,
             'notFound' => $notFound,
             'suggestions' => \Kaleta\Core\RedirectMatcher::suggestions($this->app, $notFound),
             'autoOn' => $this->app->settings()->bool('redirect_auto'),
             'threshold' => \Kaleta\Core\RedirectMatcher::threshold($this->app->settings()),
-            'fromUrl' => mb_substr($this->request->get('z'), 0, 255),
+            'fromUrl' => mb_substr($this->request->get('from'), 0, 255),
         ]);
     }
 

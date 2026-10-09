@@ -14,7 +14,7 @@ $deleted = $title['smazano'] + $home['smazano'] + $text['smazano'];
 ?>
 <p class="navigace-radek">
 	<a class="navigace" href="<?= e($module->url('edit', ['id' => (int) $newsItem['idc']])) ?>"><?= e(t('Back to the news item')) ?></a>
-	<a class="navigace" href="<?= e($module->url('versions', ['id' => (int) $newsItem['idc'], 'idr' => (int) $versions['idr']])) ?>"><?= e(t('Load this version into the editor')) ?></a>
+	<a class="navigace" href="<?= e($module->url('versions', ['id' => (int) $newsItem['idc'], 'revision' => (int) $versions['idr']])) ?>"><?= e(t('Load this version into the editor')) ?></a>
 </p>
 <p><?= e(t('Version from %s', format_date($versions['datum'], true))) ?><?= ($versions['kdo_jm'] ?? '') !== '' ? ' · ' . e($versions['kdo_jm']) : '' ?> → <?= e(t('current text')) ?>.
 	<ins><?= e(t('added')) ?>: <?= $added ?></ins> · <del><?= e(t('deleted')) ?>: <?= $deleted ?></del></p>

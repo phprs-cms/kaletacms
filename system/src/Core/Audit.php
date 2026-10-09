@@ -132,7 +132,7 @@ final class Audit
         }
         foreach ($db->all('SELECT p.idp, p.idk, p.nazev, p.seo_link, p.seo_titulek, p.popis, p.data, p.jazyk, k.seo_link AS kolekce, k.pole, k.nazev AS kolekce_nazev FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.detail = 1 AND p.zobrazit = 1 AND p.noindex = 0 AND p.smazano IS NULL') as $p) {
             $where = t('Item “%s” (%s)', $p['nazev'], $p['kolekce_nazev']);
-            $edit = 'admin.php?module=collections&action=item&id=' . (int) $p['idk'] . '&polozka=' . (int) $p['idp'];
+            $edit = 'admin.php?module=collections&action=item&id=' . (int) $p['idk'] . '&item=' . (int) $p['idp'];
             $url = ($p['jazyk'] !== '' ? $p['jazyk'] . '/' : '') . $p['kolekce'] . '/' . $p['seo_link'];
             $target = ['collection' => (string) $p['kolekce'], 'item' => (int) $p['idp']];
             if (trim((string) $p['popis']) === '' && !$this->hasLongerText((string) $p['data'], (string) $p['pole'])) {
@@ -155,7 +155,7 @@ final class Audit
         $db = $this->app->db();
         foreach ($db->all('SELECT typ, jazyk, varianta, nazev, stavba FROM {casti} WHERE stavba IS NOT NULL') as $c) {
             $where = t('Site part “%s”', trim($c['typ'] . ' ' . $c['varianta'] . ' ' . $c['jazyk']));
-            $edit = 'admin.php?module=parts&action=builder&typ=' . rawurlencode((string) $c['typ']) . ($c['varianta'] !== '' ? '&varianta=' . rawurlencode((string) $c['varianta']) : '') . '&jazyk=' . rawurlencode((string) $c['jazyk']);
+            $edit = 'admin.php?module=parts&action=builder&type=' . rawurlencode((string) $c['typ']) . ($c['varianta'] !== '' ? '&variant=' . rawurlencode((string) $c['varianta']) : '') . '&language=' . rawurlencode((string) $c['jazyk']);
             $this->links((string) $c['stavba'], $where, $edit, null, ['part' => (string) $c['typ']]);
             foreach (Check::builds((array) Build::fromJson((string) $c['stavba']), false, 50) as $f) {
                 $this->add('build', $where, $f['zprava'], $edit, null, ['part' => (string) $c['typ']], $f['id']);
@@ -178,7 +178,7 @@ final class Audit
             }
         }
         foreach ($db->all('SELECT p.idp, p.idk, p.nazev, p.data, k.seo_link AS kolekce, k.nazev AS kolekce_nazev FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE p.zobrazit = 1 AND p.smazano IS NULL') as $p) {
-            $this->links((string) $p['data'], t('Item “%s” (%s)', $p['nazev'], $p['kolekce_nazev']), 'admin.php?module=collections&action=item&id=' . (int) $p['idk'] . '&polozka=' . (int) $p['idp'], null,
+            $this->links((string) $p['data'], t('Item “%s” (%s)', $p['nazev'], $p['kolekce_nazev']), 'admin.php?module=collections&action=item&id=' . (int) $p['idk'] . '&item=' . (int) $p['idp'], null,
                 ['collection' => (string) $p['kolekce'], 'item' => (int) $p['idp']]);
         }
     }
@@ -266,7 +266,7 @@ final class Audit
             }
         }
         foreach ($db->all('SELECT p.idp, p.idk, p.nazev, p.seo_link, p.jazyk, p.review_by, k.seo_link AS kolekce, k.nazev AS kolekce_nazev, k.detail FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE p.review_by IS NOT NULL AND p.review_by <= CURDATE() AND p.smazano IS NULL ORDER BY p.review_by') as $p) {
-            $this->add('review', t('Item “%s” (%s)', $p['nazev'], $p['kolekce_nazev']), $message((string) $p['review_by']), 'admin.php?module=collections&action=item&id=' . (int) $p['idk'] . '&polozka=' . (int) $p['idp'],
+            $this->add('review', t('Item “%s” (%s)', $p['nazev'], $p['kolekce_nazev']), $message((string) $p['review_by']), 'admin.php?module=collections&action=item&id=' . (int) $p['idk'] . '&item=' . (int) $p['idp'],
                 $p['detail'] ? ($p['jazyk'] !== '' ? $p['jazyk'] . '/' : '') . $p['kolekce'] . '/' . $p['seo_link'] : null, ['collection' => (string) $p['kolekce'], 'item' => (int) $p['idp']]);
         }
         foreach ($db->all('SELECT idpp, nazev, review_by FROM {popupy} WHERE review_by IS NOT NULL AND review_by <= CURDATE() ORDER BY review_by') as $c) {
@@ -283,7 +283,7 @@ final class Audit
         foreach ($this->app->db()->all('SELECT p.idp, p.idk, p.nazev, p.seo_link, p.jazyk, k.seo_link AS kolekce, k.nazev AS kolekce_nazev, k.detail FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk'
             . ' WHERE k.preset = ? AND p.zobrazit = 1 AND p.smazano IS NULL AND p.valid_until IS NULL ORDER BY p.nazev', [Jobs::PRESET]) as $p) {
             $this->add('job', t('Item “%s” (%s)', $p['nazev'], $p['kolekce_nazev']), t('Job opening without a closing date – set “true until” to the application deadline: the job then hides itself and search engines get validThrough, which they need to tell an open job from an expired one.'),
-                'admin.php?module=collections&action=item&id=' . (int) $p['idk'] . '&polozka=' . (int) $p['idp'],
+                'admin.php?module=collections&action=item&id=' . (int) $p['idk'] . '&item=' . (int) $p['idp'],
                 $p['detail'] ? ($p['jazyk'] !== '' ? $p['jazyk'] . '/' : '') . $p['kolekce'] . '/' . $p['seo_link'] : null, ['collection' => (string) $p['kolekce'], 'item' => (int) $p['idp']]);
         }
     }
@@ -294,7 +294,7 @@ final class Audit
         foreach ($this->app->db()->all('SELECT p.idp, p.idk, p.nazev, p.seo_link, p.jazyk, p.valid_until, k.seo_link AS kolekce, k.nazev AS kolekce_nazev, k.detail FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk'
             . ' WHERE k.preset = ? AND p.zobrazit = 1 AND p.smazano IS NULL AND p.valid_until IS NOT NULL AND p.valid_until BETWEEN CURDATE() AND CURDATE() + INTERVAL ? DAY ORDER BY p.valid_until', [Documents::PRESET, Documents::EXPIRY_WARNING_DAYS]) as $p) {
             $this->add('document', t('Item “%s” (%s)', $p['nazev'], $p['kolekce_nazev']), t('The document is true until %s – upload the new edition or move the date; the day after, it hides itself and its download address stops working.', format_date((string) $p['valid_until'])),
-                'admin.php?module=collections&action=item&id=' . (int) $p['idk'] . '&polozka=' . (int) $p['idp'],
+                'admin.php?module=collections&action=item&id=' . (int) $p['idk'] . '&item=' . (int) $p['idp'],
                 $p['detail'] ? ($p['jazyk'] !== '' ? $p['jazyk'] . '/' : '') . $p['kolekce'] . '/' . $p['seo_link'] : null, ['collection' => (string) $p['kolekce'], 'item' => (int) $p['idp']]);
         }
     }
@@ -466,7 +466,7 @@ final class Audit
         foreach (NotFound::pending($this->app, 30, 25) as $n) {
             $path = trim($n['cesta'], '/');
             $this->add('not_found', '/' . $path, t('%d visits in the last 30 days ended with “page not found” – add a redirect to the right page.', (int) $n['pocet']),
-                'admin.php?module=redirects&z=' . rawurlencode('/' . $path) . '#upravit', null, ['redirect_from' => '/' . $path]);
+                'admin.php?module=redirects&from=' . rawurlencode('/' . $path) . '#upravit', null, ['redirect_from' => '/' . $path]);
         }
     }
 

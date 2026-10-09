@@ -10,7 +10,7 @@
  * @var string $variant
  * @var list<array{klic: string, nazev: string, popis: string}> $templates
  */
-$params = ['typ' => $type, 'jazyk' => $language] + ($variant !== '' ? ['varianta' => $variant] : []);
+$params = ['type' => $type, 'language' => $language] + ($variant !== '' ? ['variant' => $variant] : []);
 ?>
 <p class="napoveda"><?= e(t('A template is a clean skeleton – colours, fonts and spacing come from your design system. It goes into the draft of the part: adjust it in the builder and publish it; until then visitors see the published version.')) ?></p>
 <div class="karty-volby karty-volby-text">

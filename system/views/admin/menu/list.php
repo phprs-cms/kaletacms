@@ -11,17 +11,17 @@
  * @var list<array{ids:int, titulek:string, skryta:bool}> $pages
  * @var array<string, string> $languages
  */
-$choice = ['umisteni' => $location, 'jazyk' => $language];
+$choice = ['location' => $location, 'language' => $language];
 ?>
 <nav class="zalozky" aria-label="<?= e(t('Menu')) ?>">
 <?php foreach (Kaleta\Core\Menu::LOCATIONS as $key => $name): ?>
-	<a href="<?= e($module->url('', ['umisteni' => $key, 'jazyk' => $language])) ?>"<?= $key === $location ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t($name)) ?></a>
+	<a href="<?= e($module->url('', ['location' => $key, 'language' => $language])) ?>"<?= $key === $location ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t($name)) ?></a>
 <?php endforeach ?>
 </nav>
 <?php if (count($languages) > 1): ?>
 <p class="smltxt"><?= e(t('Language version:')) ?>
 <?php foreach ($languages as $code => $name): ?>
-	<a class="navigace<?= $code === $language ? ' aktivni' : '' ?>" href="<?= e($module->url('', ['umisteni' => $location, 'jazyk' => $code])) ?>"<?= $code === $language ? ' aria-current="true"' : '' ?>><?= e($name) ?></a>
+	<a class="navigace<?= $code === $language ? ' aktivni' : '' ?>" href="<?= e($module->url('', ['location' => $location, 'language' => $code])) ?>"<?= $code === $language ? ' aria-current="true"' : '' ?>><?= e($name) ?></a>
 <?php endforeach ?></p>
 <?php endif ?>
 <p class="smltxt"><?= e(t($location === 'hlavni'

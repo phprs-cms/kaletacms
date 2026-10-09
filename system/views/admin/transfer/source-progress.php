@@ -35,7 +35,7 @@ $f = $state['stahovani'];
 <p class="hlaska" role="status"><?= e(t('Downloading images from the old site: %s of %s news items and pages done, %s images downloaded. Keep this page open, I will continue automatically.', (int) $o['hotovo'], (int) $o['celkem'], (int) $o['stazeno'])) ?></p>
 <progress class="prenos-prubeh" max="<?= max(1, (int) $o['celkem']) ?>" value="<?= (int) $o['hotovo'] ?>"></progress>
 <?php endif ?>
-<form method="post" action="<?= e($module->url('source_progress', ['soubor' => $state['soubor']])) ?>" data-auto-odeslat="600">
+<form method="post" action="<?= e($module->url('source_progress', ['file' => $state['soubor']])) ?>" data-auto-odeslat="600">
 	<?= $csrf ?>
 	<p><button class="tl" type="submit"><?= e(t('Continue')) ?></button></p>
 </form>

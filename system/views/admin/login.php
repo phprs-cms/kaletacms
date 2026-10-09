@@ -27,7 +27,7 @@
 <h1><?= e(t('Sign in to the administration')) ?></h1>
 <?php if ($error !== null): ?>
 <p class="hlaska hlaska-chyba" role="alert"><?= e($error) ?></p>
-<?php elseif ($app->request->get('heslo') === 'zmeneno'): ?>
+<?php elseif ($app->request->get('password') === 'zmeneno'): ?>
 <p class="hlaska hlaska-ok" role="status"><?= e(t('The password has been changed. Sign in with the new password.')) ?></p>
 <?php endif ?>
 <?php $demo = Kaleta\Core\Demo::account(); ?>

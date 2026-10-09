@@ -62,7 +62,7 @@ final class Subscription
             $db->update('odberatele', ['token' => $token, 'datum' => date('Y-m-d H:i:s')], ['ido' => (int) $subscriber['ido']]);
         }
         $siteSettings = $this->app->settings();
-        $link = $this->address('odber?potvrdit=' . $token);
+        $link = $this->address('odber?confirm=' . $token);
         Mail::send($siteSettings, $email, t('Confirm your subscription – %s', $siteSettings->get('site_name')),
             t('Hello,') . "\n\n" . t('to confirm your subscription to news from %s, click the link:', $siteSettings->get('site_name')) . "\n" . $link . "\n\n"
             . t('If you did not ask to subscribe, ignore this e-mail – without confirmation we will not send you anything.') . "\n");
@@ -71,7 +71,7 @@ final class Subscription
     }
 
     /**
-     * Link from the e-mail (?potvrdit= / ?odhlasit=). Opening the link (GET) only shows a button – mail link scanners
+     * Link from the e-mail (?confirm= / ?unsubscribe=). Opening the link (GET) only shows a button – mail link scanners
      * (Safe Links etc.) would otherwise confirm the subscription or unsubscribe the subscriber on their own. The change
      * happens only on submission (POST), unsubscribing also with one click from the mail client (List-Unsubscribe-Post).
      *
@@ -81,19 +81,19 @@ final class Subscription
     {
         $r = $this->app->request;
         $db = $this->app->db();
-        $action = preg_match('/^[a-f0-9]{32}$/D', $r->get('potvrdit')) ? 'potvrdit' : (preg_match('/^[a-f0-9]{32}$/D', $r->get('odhlasit')) ? 'odhlasit' : '');
+        $action = preg_match('/^[a-f0-9]{32}$/D', $r->get('confirm')) ? 'confirm' : (preg_match('/^[a-f0-9]{32}$/D', $r->get('unsubscribe')) ? 'unsubscribe' : '');
         $o = $action !== '' ? $db->one('SELECT * FROM {odberatele} WHERE token = ?', [$r->get($action)]) : null;
         if ($o === null) {
             return [t('The link is no longer valid'), '<p>' . e(t('The link is invalid or has already been used. If you want to receive news, please subscribe again.')) . '</p>'];
         }
         if (!$r->isPost()) {
-            [$heading, $text, $button] = $action === 'potvrdit'
+            [$heading, $text, $button] = $action === 'confirm'
                 ? [t('Potvrzení odběru'), t('Please confirm that you want to receive news at %s.', $o['email']), t('Potvrdit odběr')]
                 : [t('Odhlášení odběru'), t('Do you really no longer want to receive news at %s?', $o['email']), t('Odhlásit odběr')];
 
             return [$heading, '<p>' . e($text) . '</p><form method="post" action="' . e($this->app->url('odber') . '?' . $action . '=' . $o['token']) . '"><p><button class="tlacitko" type="submit">' . e($button) . '</button></p></form>'];
         }
-        if ($action === 'odhlasit') {
+        if ($action === 'unsubscribe') {
             $db->delete('odberatele', ['ido' => (int) $o['ido']]);
             if ((int) $o['stav'] === 1) {
                 \Kaleta\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'odebrat'); // from the mailing service too
@@ -112,7 +112,7 @@ final class Subscription
     /** Unsubscribe link for the mailing tool (subscriber export). */
     public static function unsubscribeLink(App $app, string $token): string
     {
-        return (new self($app))->address('odber?odhlasit=' . $token);
+        return (new self($app))->address('odber?unsubscribe=' . $token);
     }
 
     private function address(string $path): string

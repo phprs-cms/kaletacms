@@ -243,7 +243,7 @@ final class Transfer extends Module
     {
         WpImport::begin($file);
 
-        return $this->back('', 'progress', ['soubor' => $file]);
+        return $this->back('', 'progress', ['file' => $file]);
     }
 
     protected function actionDeleteFile(): Response
@@ -263,7 +263,7 @@ final class Transfer extends Module
     {
         $state = $this->state();
         if ($state === null || $state['faze'] === 'analyza') {
-            return $this->back('', $state === null ? '' : 'progress', $state === null ? [] : ['soubor' => $state['soubor']]);
+            return $this->back('', $state === null ? '' : 'progress', $state === null ? [] : ['file' => $state['soubor']]);
         }
         $settings = $this->app->settings();
 
@@ -291,7 +291,7 @@ final class Transfer extends Module
         ], $this->db, $this->app->settings()));
         WpImport::saveState($state);
 
-        return $this->back('', 'progress', ['soubor' => $state['soubor']]);
+        return $this->back('', 'progress', ['file' => $state['soubor']]);
     }
 
     /* ---------- import: 3. progress in batches (preview, content and images) ---------- */
@@ -313,7 +313,7 @@ final class Transfer extends Module
             $error = $e !== null ? self::message($e) : '';
         }
         if ($state['faze'] === 'nahled' && $error === '') {
-            return $this->back('', 'preview', ['soubor' => $state['soubor']]);
+            return $this->back('', 'preview', ['file' => $state['soubor']]);
         }
 
         return $this->view('progress', 'Import from WordPress', [
@@ -333,13 +333,13 @@ final class Transfer extends Module
         (new WpImport($this->db, $this->app->settings(), $this->request->basePath(), $this->app->auth()->id()))->startImages($state);
         WpImport::saveState($state);
 
-        return $this->back('', 'progress', ['soubor' => $state['soubor']]);
+        return $this->back('', 'progress', ['file' => $state['soubor']]);
     }
 
     /** @return array<string, mixed>|null import state of the file from the URL or the form */
     private function state(): ?array
     {
-        $file = $this->request->isPost() && $this->request->post('soubor') !== '' ? $this->request->post('soubor') : $this->request->get('soubor');
+        $file = $this->request->isPost() && $this->request->post('soubor') !== '' ? $this->request->post('soubor') : $this->request->get('file');
 
         return WpFile::path($file) === null ? null : WpImport::loadState($file);
     }
@@ -401,7 +401,7 @@ final class Transfer extends Module
     {
         Batch::saveState(Batch::newState($file));
 
-        return $this->back('', 'source_progress', ['soubor' => $file]);
+        return $this->back('', 'source_progress', ['file' => $file]);
     }
 
     /**
@@ -444,7 +444,7 @@ final class Transfer extends Module
         Batch::saveState($state);
         $this->app->session->set(Fetch::sessionKey($file), $token);
 
-        return $this->back('', 'source_progress', ['soubor' => $file]);
+        return $this->back('', 'source_progress', ['file' => $file]);
     }
 
     protected function actionSourceDelete(): Response
@@ -464,7 +464,7 @@ final class Transfer extends Module
     {
         $state = $this->sourceState();
         if ($state === null || in_array($state['faze'], ['stahovani', 'analyza'], true)) {
-            return $this->back('', $state === null ? '' : 'source_progress', $state === null ? [] : ['soubor' => $state['soubor']]);
+            return $this->back('', $state === null ? '' : 'source_progress', $state === null ? [] : ['file' => $state['soubor']]);
         }
         $settings = $this->app->settings();
 
@@ -497,14 +497,14 @@ final class Transfer extends Module
             'default_category' => $r->postInt('default_category'), 'site_url' => $r->post('site_url'),
         ], Language::additional($this->app->settings()), array_map('intval', array_column($this->db->all('SELECT idu FROM {uzivatele} WHERE blokovat = 0'), 'idu')));
         if ($state['web']['adresa'] === '' && $state['mapovani']['site_url'] === '' && $r->post('site_url') !== '') {
-            return $this->back('Enter the address of the site, e.g. https://www.example.com.', 'source_preview', ['soubor' => $state['soubor']], 'chyba');
+            return $this->back('Enter the address of the site, e.g. https://www.example.com.', 'source_preview', ['file' => $state['soubor']], 'chyba');
         }
         $state['faze'] = 'import';
         $state['pozice'] = 0;
         $state['vysledek'] = Batch::newState($state['soubor'])['vysledek'];
         Batch::saveState($state);
 
-        return $this->back('', 'source_progress', ['soubor' => $state['soubor']]);
+        return $this->back('', 'source_progress', ['file' => $state['soubor']]);
     }
 
     /** GET only shows where the import is; POST does one batch under the import lock. The page submits itself until done. */
@@ -542,7 +542,7 @@ final class Transfer extends Module
             }
         }
         if ($state['faze'] === 'nahled' && $error === '') {
-            return $this->back('', 'source_preview', ['soubor' => $state['soubor']]);
+            return $this->back('', 'source_preview', ['file' => $state['soubor']]);
         }
 
         return $this->view('source-progress', t('Import from %s', Sources::byKey($state['zdroj'])::name()), [
@@ -563,13 +563,13 @@ final class Transfer extends Module
         (new Batch($this->db, $this->app->settings(), $this->request->basePath(), $this->app->auth()->id()))->startImages($state);
         Batch::saveState($state);
 
-        return $this->back('', 'source_progress', ['soubor' => $state['soubor']]);
+        return $this->back('', 'source_progress', ['file' => $state['soubor']]);
     }
 
     /** @return array<string, mixed>|null import state of the file from the URL or the form */
     private function sourceState(): ?array
     {
-        $file = $this->request->isPost() && $this->request->post('soubor') !== '' ? $this->request->post('soubor') : $this->request->get('soubor');
+        $file = $this->request->isPost() && $this->request->post('soubor') !== '' ? $this->request->post('soubor') : $this->request->get('file');
 
         return Batch::path($file) === null ? null : Batch::loadState($file);
     }
@@ -592,7 +592,7 @@ final class Transfer extends Module
         }
         SiteImport::saveState($state);
 
-        return $this->back('', 'kaleta', ['soubor' => $file]);
+        return $this->back('', 'kaleta', ['file' => $file]);
     }
 
     /** An export already in storage/import (uploaded over FTP): read it again from the start. */
@@ -623,7 +623,7 @@ final class Transfer extends Module
      */
     protected function actionKaleta(): Response
     {
-        $file = $this->request->isPost() ? $this->request->post('soubor') : $this->request->get('soubor');
+        $file = $this->request->isPost() ? $this->request->post('soubor') : $this->request->get('file');
         $state = SiteImport::path($file) === null ? null : SiteImport::loadState($file);
         if ($state === null) {
             return $this->back('The file does not exist.', type: 'chyba');
@@ -659,15 +659,15 @@ final class Transfer extends Module
         $file = $this->request->post('soubor');
         $state = SiteImport::path($file) === null ? null : SiteImport::loadState($file);
         if (!$this->request->isPost() || $state === null || $state['faze'] !== 'nahled' || !$this->request->postBool('potvrzeni')) {
-            return $this->back('Confirm that the content of this site will be replaced.', $state === null ? '' : 'kaleta', $state === null ? [] : ['soubor' => $file], 'chyba');
+            return $this->back('Confirm that the content of this site will be replaced.', $state === null ? '' : 'kaleta', $state === null ? [] : ['file' => $file], 'chyba');
         }
         if (!SiteImport::siteContent($this->db)['prazdny']) {
-            return $this->back('The site already has its own content. A Kaleta export can be imported only into a new, empty site.', 'kaleta', ['soubor' => $file], 'chyba');
+            return $this->back('The site already has its own content. A Kaleta export can be imported only into a new, empty site.', 'kaleta', ['file' => $file], 'chyba');
         }
         $state['faze'] = 'data';
         SiteImport::saveState($state);
 
-        return $this->back('', 'kaleta', ['soubor' => $file]);
+        return $this->back('', 'kaleta', ['file' => $file]);
     }
 
     /* ---------- export ---------- */
@@ -696,7 +696,7 @@ final class Transfer extends Module
      */
     protected function actionDownload(): Response
     {
-        $path = SiteExport::path($this->request->get('soubor'));
+        $path = SiteExport::path($this->request->get('file'));
         if ($path === null) {
             return $this->error('The export does not exist.', 404);
         }

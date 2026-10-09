@@ -161,7 +161,7 @@ final class Form extends Element
             : '<div class="ka-pole">' . \Kaleta\Core\Captcha::widget($k->app->settings()) . '</div>';
     }
 
-    /** Message after sending by the code in the url (?formular=<id>&vysledek=<code>) – the text never comes from the url. */
+    /** Message after sending by the code in the url (?form=<id>&result=<code>) – the text never comes from the url. */
     public static function messages(string $code): string
     {
         return match ($code) {
@@ -180,7 +180,7 @@ final class Form extends Element
     {
         $o = $p['obsah'];
         $r = $k->app->request;
-        $result = $r->get('formular') === $p['id'] ? $r->get('vysledek') : '';
+        $result = $r->get('form') === $p['id'] ? $r->get('result') : '';
         $id = str_contains($a, ' id="') ? '' : ' id="' . e(self::anchor($p)) . '"';
         $hasBasket = in_array('kosik', array_column($o['pole'], 'typ'), true);
         if ($result === 'ok') {
@@ -197,7 +197,7 @@ final class Form extends Element
         }
         $k->types['tlacitko'] = true; // the form button looks like the Button element
         $html = $result !== '' ? '<p class="ka-formular-chyba" role="alert">' . e(self::messages($result)) . '</p>' : '';
-        $invalid = $result === 'pole' ? $r->getInt('pole', -1) : -1;
+        $invalid = $result === 'pole' ? $r->getInt('field', -1) : -1;
         [$steps, $stepTitle, $current] = [[], '', ''];
         foreach ($o['pole'] as $i => $field) {
             if ($field['typ'] === 'skryte') {
@@ -247,15 +247,15 @@ final class Form extends Element
     /**
      * The enquiry basket field (2.11, Builder\Products): the products the visitor collected with Add to enquiry, which the
      * script keeps in the browser and writes into the hidden field as JSON. Without the script a product opened from Add to
-     * enquiry (?produkt=collection/item&varianta=…&mnozstvi=…) is in it, checked like any basket line.
+     * enquiry (?product=collection/item&variant=…&quantity=…) is in it, checked like any basket line.
      */
     private static function basketField(array $field, int $i, string $element, bool $error, Context $k): string
     {
         $r = $k->app->request;
         $prefill = '[]';
         $list = '';
-        if (preg_match('#^([a-z0-9-]{1,110})/([a-z0-9-]{1,160})$#D', $r->get('produkt'), $m) === 1) {
-            $line = ['c' => $m[1], 'i' => $m[2], 'v' => mb_substr($r->get('varianta'), 0, 100), 'q' => max(1, min(9999, $r->getInt('mnozstvi', 1)))];
+        if (preg_match('#^([a-z0-9-]{1,110})/([a-z0-9-]{1,160})$#D', $r->get('product'), $m) === 1) {
+            $line = ['c' => $m[1], 'i' => $m[2], 'v' => mb_substr($r->get('variant'), 0, 100), 'q' => max(1, min(9999, $r->getInt('quantity', 1)))];
             $lines = \Kaleta\Builder\Products::basketLines($k->app->db(), (string) json_encode([$line]));
             if ($lines !== null && $lines !== []) {
                 $line['n'] = (string) $k->app->db()->value('SELECT p.nazev FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.seo_link = ? AND p.seo_link = ? AND p.zobrazit = 1 LIMIT 1', [$m[1], $m[2]]);

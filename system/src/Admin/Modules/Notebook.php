@@ -24,8 +24,8 @@ final class Notebook extends Module
 
     protected function actionList(): Response
     {
-        $topic = Notes::topic($this->request->get('tema')) ?? '';
-        $search = mb_substr(trim($this->request->get('hledat')), 0, 100);
+        $topic = Notes::topic($this->request->get('topic')) ?? '';
+        $search = mb_substr(trim($this->request->get('search')), 0, 100);
 
         return $this->view('list', 'Notebook', ['notes' => Notes::all($this->db, $topic, $search), 'topic' => $topic, 'search' => $search,
             'counts' => $this->db->pairs('SELECT topic, COUNT(*) FROM {notebook} GROUP BY topic')]);
@@ -39,7 +39,7 @@ final class Notebook extends Module
             return $this->back('The note does not exist.', '', [], 'chyba');
         }
 
-        return $this->view('edit', $note !== null ? $note['title'] : 'New note', ['note' => $note, 'topic' => Notes::topic($this->request->get('tema')) ?? 'other']);
+        return $this->view('edit', $note !== null ? $note['title'] : 'New note', ['note' => $note, 'topic' => Notes::topic($this->request->get('topic')) ?? 'other']);
     }
 
     protected function actionSave(): Response
@@ -54,7 +54,7 @@ final class Notebook extends Module
             return $this->back($saved, 'edit', $id > 0 ? ['id' => $id] : [], 'chyba');
         }
 
-        return $this->back('The note is saved.', '', ['tema' => (string) $saved['topic']]);
+        return $this->back('The note is saved.', '', ['topic' => (string) $saved['topic']]);
     }
 
     /** Pins a note or takes the pin off – one click in the list. */
@@ -66,7 +66,7 @@ final class Notebook extends Module
             Notes::save($this->app, ['pinned' => !$note['pinned']], $id);
         }
 
-        return $this->back('', '', array_filter(['tema' => $this->request->post('tema'), 'hledat' => $this->request->post('hledat')]));
+        return $this->back('', '', array_filter(['topic' => $this->request->post('tema'), 'search' => $this->request->post('hledat')]));
     }
 
     protected function actionDelete(): Response

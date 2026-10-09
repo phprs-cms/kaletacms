@@ -3,6 +3,10 @@
 (function () {
 	'use strict';
 
+	// query parameter of the address; the former Czech name still works (links that were sent or bookmarked before the rename)
+	var param = function (name, former) { var q = new URLSearchParams(location.search); return q.has(name) ? q.get(name) : q.get(former); };
+	var subscribed = function () { return param('subscription', 'odber') === 'ok'; };
+
 	/* ---------- transition between pages (View Transitions are driven only by the template CSS): when the browser interrupts
 	   or skips it (fast clicking through, the new page does not allow the transition), that is fine – no unhandled error in the console ---------- */
 
@@ -285,7 +289,7 @@
 
 			// conversion: return after a form submit or a subscription in the popup (the anchor in the URL points inside the popup)
 			var target = location.hash.length > 1 && document.getElementById(decodeURIComponent(location.hash.slice(1)));
-			if (target && modal.contains(target) && (modal.querySelector('[data-odeslano]') || new URLSearchParams(location.search).get('odber') === 'ok')) {
+			if (target && modal.contains(target) && (modal.querySelector('[data-odeslano]') || subscribed())) {
 				conversion = true;
 				report(modal, 'konverze');
 				track({ event: 'popup_conversion', popup_id: modal.getAttribute('data-popup'), popup_name: modal.getAttribute('aria-label') || '' });
@@ -480,7 +484,7 @@
 			if (p.type === 'checkbox' || p.type === 'radio') { p.checked = p.value === storedForm[p.name]; } else { p.value = storedForm[p.name]; }
 		});
 	});
-	var sent = new URLSearchParams(location.search).get('odeslano');
+	var sent = param('sent', 'odeslano');
 	Array.prototype.map.call(document.querySelectorAll('[data-odeslano]'), function (h) { return h.getAttribute('data-odeslano'); }).concat(sent ? [sent] : []).forEach(function (name) {
 		try { Object.keys(sessionStorage).forEach(function (k) { if (k.indexOf('ka-formular-') === 0) { sessionStorage.removeItem(k); } }); } catch (error) { /* nothing */ }
 		// conversion tracking: a custom script listens for the event, Google Tag Manager gets an entry in dataLayer
@@ -488,7 +492,7 @@
 		track({ event: 'kaleta_formular_odeslan', formular: name }); // the event name of 1.x, kept for existing containers
 		track({ event: 'generate_lead', form_name: name });
 	});
-	if (new URLSearchParams(location.search).get('odber') === 'ok') { track({ event: 'sign_up', method: 'newsletter' }); }
+	if (subscribed()) { track({ event: 'sign_up', method: 'newsletter' }); }
 
 	/* ---------- multi-step forms, conditions and the price estimate (2.12, Builder\Elements\Form): without the script every
 	   step and every field is shown, and the server checks the answers and computes the estimate itself ---------- */
@@ -802,7 +806,7 @@
 		var product;
 		try { product = JSON.parse(form.getAttribute('data-produkt')); } catch (err) { return; }
 		e.preventDefault();
-		var variant = form.querySelector('[name=varianta]'), quantity = form.querySelector('[name=mnozstvi]');
+		var variant = form.querySelector('[name=variant]'), quantity = form.querySelector('[name=quantity]');
 		addLine({ c: product.c, i: product.i, n: product.n, v: variant ? variant.value : '', q: Math.max(1, Math.min(9999, parseInt(quantity ? quantity.value : '1', 10) || 1)) });
 		basket.page = safeUrl(form.getAttribute('data-kosik')) || basket.page;
 		store(BASKET, basket);
@@ -882,7 +886,7 @@
 
 	if (document.querySelector('[data-kosik-odeslan]')) { basket.lines = []; store(BASKET, basket); } // the enquiry was sent
 	document.querySelectorAll('[data-kosik-pole]').forEach(function (field) {
-		// a product opened without the script (?produkt=…) joins the basket
+		// a product opened without the script (?product=…) joins the basket
 		try { JSON.parse(field.value || '[]').forEach(function (l) { if (!basket.lines.some(function (b) { return b.c === l.c && b.i === l.i && (b.v || '') === (l.v || ''); })) { addLine({ c: l.c, i: l.i, n: l.n || l.i, v: l.v, q: l.q }); } }); } catch (err) { /* nothing */ }
 		basket.page = location.pathname + '#poptavka';
 		store(BASKET, basket);
@@ -944,14 +948,14 @@
 		slot.required = false; // the script fills it in; the server checks it anyway
 		var today = new Date(); today.setHours(0, 0, 0, 0);
 		var month = new Date(today.getFullYear(), today.getMonth(), 1), day = null, freeDays = [], monthRequest = 0, timesRequest = 0; // own counters: an answer for the times must not make the month's answer look stale (3.2.2)
-		function service() { var el = form.querySelector('input[name="sluzba"]:checked'); return el ? el.value : ''; }
-		function staff() { var el = form.querySelector('input[name="osoba"]:checked') || form.querySelector('input[name="osoba"][type="hidden"]'); return el ? el.value : '0'; }
+		function service() { var el = form.querySelector('input[name="service"]:checked'); return el ? el.value : ''; }
+		function staff() { var el = form.querySelector('input[name="staff"]:checked') || form.querySelector('input[name="staff"][type="hidden"]'); return el ? el.value : '0'; }
 		function filterStaff() {
 			var s = service();
 			form.querySelectorAll('label[data-sluzby]').forEach(function (label) {
 				var fits = !s || label.getAttribute('data-sluzby').split(',').indexOf(s) !== -1, input = label.querySelector('input');
 				label.hidden = !fits;
-				if (!fits && input && input.checked) { var anyone = form.querySelector('input[name="osoba"][value="0"]'); if (anyone) { anyone.checked = true; } }
+				if (!fits && input && input.checked) { var anyone = form.querySelector('input[name="staff"][value="0"]'); if (anyone) { anyone.checked = true; } }
 			});
 		}
 		function setSlot(value, label) {
@@ -1029,10 +1033,10 @@
 		}
 		var submit = form.querySelector('button[data-zadost]');
 		function syncButton() { // a service that needs confirmation is requested, not booked
-			var el = form.querySelector('input[name="sluzba"]:checked');
+			var el = form.querySelector('input[name="service"]:checked');
 			if (submit) { submit.textContent = el && el.hasAttribute('data-potvrzeni') ? submit.getAttribute('data-zadost') : submit.getAttribute('data-rezervovat'); }
 		}
-		form.querySelectorAll('input[name="sluzba"], input[name="osoba"]').forEach(function (input) {
+		form.querySelectorAll('input[name="service"], input[name="staff"]').forEach(function (input) {
 			input.addEventListener('change', function () { syncButton(); filterStaff(); day = null; setSlot('', ''); renderMonth(); });
 		});
 		form.addEventListener('submit', function (e) {

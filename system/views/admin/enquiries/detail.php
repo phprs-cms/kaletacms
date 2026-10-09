@@ -34,7 +34,7 @@ use Kaleta\Admin\Modules\Enquiries;
 	<dt><?= e(t('Anonymised')) ?></dt><dd><?= e(format_date((string) $p['anonymizovano'], true)) ?> · <?= e(t('the row stays for statistics without the person')) ?></dd>
 <?php endif ?>
 <?php foreach ($data as $i => $d): [$labelText, $value] = $d; ?>
-	<dt><?= e($labelText) ?></dt><dd><?= $value === '' ? '<span class="napoveda">—</span>' : (isset($d[2]) ? '<a href="' . e($module->url('attachment', ['id' => (int) $p['idp'], 'pole' => $i])) . '">' . e($value) . '</a>' : nl2br(e($value))) ?></dd>
+	<dt><?= e($labelText) ?></dt><dd><?= $value === '' ? '<span class="napoveda">—</span>' : (isset($d[2]) ? '<a href="' . e($module->url('attachment', ['id' => (int) $p['idp'], 'field' => $i])) . '">' . e($value) . '</a>' : nl2br(e($value))) ?></dd>
 <?php endforeach ?>
 </dl>
 <h2><?= e(t('Triage')) ?></h2>
@@ -70,7 +70,7 @@ use Kaleta\Admin\Modules\Enquiries;
 <h2><?= e(t('Testimonial')) ?></h2>
 <?php foreach ($testimonials as $req): ?>
 <p class="smltxt"><?= e(format_date((string) $req['created_at'], true)) ?> · <?= $req['used_at'] !== null
-    ? e(t('Answered')) . ($req['item_id'] !== null ? ' – <a href="' . e($app->url('admin.php?module=collections&action=item&id=' . (int) $app->db()->value('SELECT idk FROM {kolekce_polozky} WHERE idp = ?', [(int) $req['item_id']]) . '&polozka=' . (int) $req['item_id'])) . '">' . e(t('the draft reference')) . '</a>' : '')
+    ? e(t('Answered')) . ($req['item_id'] !== null ? ' – <a href="' . e($app->url('admin.php?module=collections&action=item&id=' . (int) $app->db()->value('SELECT idk FROM {kolekce_polozky} WHERE idp = ?', [(int) $req['item_id']]) . '&item=' . (int) $req['item_id'])) . '">' . e(t('the draft reference')) . '</a>' : '')
     : e(strtotime((string) $req['expires_at']) < time() ? t('Expired') : t('Waiting for the answer')) ?></p>
 <?php endforeach ?>
 <form class="vradku" method="post" action="<?= e($module->url('testimonial')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $p['idp'] ?>">

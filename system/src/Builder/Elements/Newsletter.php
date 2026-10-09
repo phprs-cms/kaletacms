@@ -45,7 +45,7 @@ final class Newsletter extends Element
         $o = $p['obsah'];
         $r = $k->app->request;
         $id = 'nl-' . $p['id'];
-        $result = $r->get('odber');
+        $result = $r->get('subscription');
         $message = match ($result) {
             'ok' => t('Thank you! We have sent you an e-mail with a link – click it to confirm your subscription.'),
             'chyba' => t('Please check the e-mail address.'),

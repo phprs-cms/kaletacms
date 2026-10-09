@@ -508,7 +508,7 @@
 		};
 		if (what.novy) { embedUrl(newElement(what.novy)); return; }
 		if (what.vlastni) { embedUrl(withNewIds(what.vlastni)); return; }
-		query(D.adresy.sekce + '&klic=' + encodeURIComponent(what.sekce), { ok: 1 }).then((j) => {
+		query(D.adresy.sekce + '&key=' + encodeURIComponent(what.sekce), { ok: 1 }).then((j) => {
 			if (!j.ok) { setState(j.chyba, true); return; }
 			D.tridy = j.tridy;
 			embedUrl(j.prvek, true);
@@ -1236,7 +1236,7 @@
 
 	function sectionButton(s) {
 		return (
-			el('button', { onmouseenter: (e) => showSectionPreview(e.currentTarget, s.klic), onmouseleave: hideSectionPreview, onfocus: (e) => showSectionPreview(e.currentTarget, s.klic), onblur: hideSectionPreview, type: 'button', draggable: 'true', ondragstart: (e) => startDrag(e, { sekce: s.klic }), ondragend: endDrag, onclick: () => query(D.adresy.sekce + '&klic=' + encodeURIComponent(s.klic), { ok: 1 }).then((j) => {
+			el('button', { onmouseenter: (e) => showSectionPreview(e.currentTarget, s.klic), onmouseleave: hideSectionPreview, onfocus: (e) => showSectionPreview(e.currentTarget, s.klic), onblur: hideSectionPreview, type: 'button', draggable: 'true', ondragstart: (e) => startDrag(e, { sekce: s.klic }), ondragend: endDrag, onclick: () => query(D.adresy.sekce + '&key=' + encodeURIComponent(s.klic), { ok: 1 }).then((j) => {
 				if (!j.ok) { setState(j.chyba, true); return; }
 				D.tridy = j.tridy;
 				insert(j.prvek, true);
@@ -1855,14 +1855,14 @@
 					setCondition('jazyky', list.length ? list : null);
 				} }), l.nazev))));
 		}
-		// a query parameter of the page address: a campaign link (?utm_campaign=jaro) or a variant (?varianta=b)
+		// a query parameter of the page address: a campaign link (?utm_campaign=jaro) or a variant (?variant=b)
 		const parameter = cond.parametr || {};
 		const setParameter = (name, value) => setCondition('parametr', name ? Object.assign({ nazev: name }, value ? { hodnota: value } : {}) : null);
 		panel.append(el('div', { class: 'st-pole-radek' },
 				el('label', { class: 'st-pole' }, el('span', {}, T('Only with a URL parameter (name)')),
 					el('input', { type: 'text', value: parameter.nazev || '', placeholder: 'utm_campaign', maxlength: 40, onchange: (e) => setParameter(e.target.value.trim(), parameter.hodnota || '') })),
 				el('label', { class: 'st-pole' }, el('span', {}, T('…with the value (empty = any)')),
-					el('input', { type: 'text', value: parameter.hodnota || '', placeholder: 'jaro', maxlength: 80, disabled: !parameter.nazev, onchange: (e) => setParameter(parameter.nazev || '', e.target.value.trim()) }))),
+					el('input', { type: 'text', value: parameter.hodnota || '', placeholder: 'spring', maxlength: 80, disabled: !parameter.nazev, onchange: (e) => setParameter(parameter.nazev || '', e.target.value.trim()) }))),
 			el('div', {}, state.chyby[state.cestaVybraneho + '.podminky'] ? el('small', { class: 'st-chyba-pole' }, state.chyby[state.cestaVybraneho + '.podminky']) : null, // el() skips null – append() would write "null"
 				el('small', { style: 'color:var(--text-slaby)' }, T('On the canvas the element is always visible. On the website it appears only when the conditions are met – for example a promotional banner for a week.') + ' '
 					+ T('A page with a date, sign-in or URL parameter condition is assembled for every visit (it is not cached).'))));

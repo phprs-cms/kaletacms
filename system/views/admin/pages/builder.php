@@ -1,7 +1,7 @@
 <?php
 /**
  * Full-screen page builder. All controls are assembled by image/stavitel.js from the data below; without JavaScript it only explains why.
- * The canvas is a real page of the site (?stavba=koncept&editor=1) – what the editor shows is exactly what the visitor will see.
+ * The canvas is a real page of the site (?build=koncept&editor=1) – what the editor shows is exactly what the visitor will see.
  *
  * @var Kaleta\Core\App $app
  * @var array<string, mixed> $data  build, schema, library, classes, action urls (Modules\Pages::actionBuilder)

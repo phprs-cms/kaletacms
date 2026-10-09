@@ -86,7 +86,7 @@ if ($user !== null) {
 </section>
 <?php endif ?>
 <?php if ($statements !== []): ?>
-<dialog class="paleta" id="paleta" aria-label="<?= e(t('Quick search and commands')) ?>"<?= isset($modules['news']) ? ' data-clanky="' . e($app->url('admin.php?module=news&action=search_json&uprava=1')) . '"' : '' ?>>
+<dialog class="paleta" id="paleta" aria-label="<?= e(t('Quick search and commands')) ?>"<?= isset($modules['news']) ? ' data-clanky="' . e($app->url('admin.php?module=news&action=search_json&edit=1')) . '"' : '' ?>>
 	<input class="paleta-pole" type="search" autocomplete="off" spellcheck="false" placeholder="<?= e(t('Where do you want to go? Type the name of a section, action, page or news item…')) ?>" aria-label="<?= e(t('Quick search and commands')) ?>" aria-controls="paleta-seznam">
 	<ul class="paleta-seznam" id="paleta-seznam" role="listbox"></ul>
 	<p class="paleta-napoveda"><kbd>↑</kbd> <kbd>↓</kbd> <?= e(t('výběr')) ?> · <kbd>Enter</kbd> <?= e(t('open')) ?> · <kbd>Esc</kbd> <?= e(t('close')) ?></p>

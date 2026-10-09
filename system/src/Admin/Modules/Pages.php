@@ -57,8 +57,8 @@ final class Pages extends Module
 
     protected function actionList(): Response
     {
-        $trash = $this->request->get('stav') === 'kos';
-        $search = mb_substr(trim($this->request->get('hledat')), 0, 100);
+        $trash = $this->request->get('status') === 'kos';
+        $search = mb_substr(trim($this->request->get('search')), 0, 100);
         [$siteLanguages, $language, $column] = $this->readLanguageFilter();
         $where = [$trash ? 'smazano IS NOT NULL' : 'smazano IS NULL'];
         $params = [];
@@ -126,11 +126,11 @@ final class Pages extends Module
     protected function actionNew(): Response
     {
         // from the translation overview (2.14): the language version and the original are filled in
-        $language = \Kaleta\Core\Language::column($this->app->settings(), $this->request->get('jazyk'));
-        $original = $language !== '' ? $this->db->one("SELECT ids, titulek, popis FROM {stranky} WHERE ids = ? AND jazyk = '' AND smazano IS NULL", [$this->request->getInt('preklad_z')]) : null;
+        $language = \Kaleta\Core\Language::column($this->app->settings(), $this->request->get('language'));
+        $original = $language !== '' ? $this->db->one("SELECT ids, titulek, popis FROM {stranky} WHERE ids = ? AND jazyk = '' AND smazano IS NULL", [$this->request->getInt('translation_of')]) : null;
 
         return $this->form(['ids' => 0, 'seo_link' => '', 'titulek' => $original['titulek'] ?? '', 'popis' => $original['popis'] ?? '', 'seo_titulek' => '', 'obrazek' => '', 'noindex' => 0, 'text' => '', 'zobrazit' => 1, 'v_menu' => 1, 'poradi' => 100, 'stavba' => null, 'stavba_koncept' => null,
-            'nadrazena' => $this->request->getInt('nadrazena') ?: null, 'zverejnit_od' => null, 'valid_until' => null, 'review_by' => null, 'jazyk' => $language, 'preklad_z' => $original['ids'] ?? null]);
+            'nadrazena' => $this->request->getInt('parent') ?: null, 'zverejnit_od' => null, 'valid_until' => null, 'review_by' => null, 'jazyk' => $language, 'preklad_z' => $original['ids'] ?? null]);
     }
 
     /** Translation overview (2.14, Core\Translations): what is missing or older than the original in each language version. */
@@ -203,12 +203,12 @@ final class Pages extends Module
         }
         $title = mb_substr($r->post('titulek'), 0, 200);
         if ($title === '') {
-            return $this->redirectToSite($r->post('zpet'), '?upravit=text&chyba=1');
+            return $this->redirectToSite($r->post('zpet'), '?edit=text&error=1');
         }
         try {
             $text = \Kaleta\Core\Html::forUserOrFail($r->post('text'), $this->app->auth(), 'text');
         } catch (\Kaleta\Core\HtmlTooLarge) {
-            return $this->redirectToSite($r->post('zpet'), '?upravit=text&chyba=limit'); // over a limit of Core\HtmlLimits: nothing saved
+            return $this->redirectToSite($r->post('zpet'), '?edit=text&error=limit'); // over a limit of Core\HtmlLimits: nothing saved
         }
         if ($page['titulek'] !== $title || (string) $page['text'] !== $text) {
             $this->saveVersion((int) $page['ids'], $page['titulek'], (string) $page['text']); // an edit directly on the site goes to the history as in the admin
@@ -423,7 +423,7 @@ final class Pages extends Module
         $url = $this->app->url(($page['jazyk'] !== '' ? $page['jazyk'] . '/' : '') . ($home ? '' : $page['seo_link']));
 
         return [
-            'adresa' => $url, 'nahled' => $url . '?stavba=koncept&editor=1', 'zobrazena' => (bool) $page['zobrazit'], 'casti' => false, 'nadpisy' => true,
+            'adresa' => $url, 'nahled' => $url . '?build=koncept&editor=1', 'zobrazena' => (bool) $page['zobrazit'], 'casti' => false, 'nadpisy' => true,
             'poPublikovani' => (bool) ($page['show_on_publish'] ?? false), // hidden until the build is published, then shown (3.5)
             'zpet' => ['adresa' => $this->url(), 'text' => t('Pages')], 'nastaveni' => $this->url('edit', ['id' => (int) $page['ids']]),
             'podpis' => 'stranka:' . (int) $page['ids'],
@@ -621,7 +621,7 @@ final class Pages extends Module
             $this->db->run('DELETE FROM {stranky} WHERE ids = ? AND smazano IS NOT NULL', [$this->request->postInt('ids')]);
         }
 
-        return $this->back('The page has been permanently deleted.', '', ['stav' => 'kos']);
+        return $this->back('The page has been permanently deleted.', '', ['status' => 'kos']);
     }
 
     /** Pages in the trash longer than TRASH_DAYS are deleted permanently (called by Admin\Kernel). */

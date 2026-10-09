@@ -54,7 +54,7 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&a
 [ "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=bookings")|$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=whistleblowing")" = "200|403" ] && ok "the features of the snapshot show (Bookings), the others not (Whistleblowing)" || fail "features in the demo"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=extensions&action=save" -d "_csrf=$T" -d tab=extensions -d 'rozsireni[]=bookings' -d 'rozsireni[]=whistleblowing' -d 'rozsireni[]=claude'
 [ "$(sql "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")" = bookings ] && ok "visitors cannot switch features" || fail "features switched in the demo"
-code=$(curl -s -b "$JAR" -o /dev/null -w '%{http_code} %{redirect_url}' "$B/admin.php?module=settings&action=download_backup&soubor=x")
+code=$(curl -s -b "$JAR" -o /dev/null -w '%{http_code} %{redirect_url}' "$B/admin.php?module=settings&action=download_backup&file=x")
 case "$code" in 302*) ok "backups cannot be downloaded";; *) fail "backup download: $code";; esac
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$T" -d tab=mail -d mail_mode=smtp --data-urlencode smtp_host=evil.example
 [ "$(sql "SELECT COUNT(*) FROM ka_nastaveni WHERE promenna = 'smtp_host' AND hodnota = 'evil.example'")" = 0 ] && ok "mail settings stay" || fail "mail settings changed"
@@ -67,7 +67,7 @@ done
 [ "$(ls "$WORK/web/storage/zalohy" 2>/dev/null | wc -l | tr -d ' ')" = "$BACKUPS_BEFORE" ] && ok "no Settings screen makes a backup" || fail "a backup was made in the demo"
 DEMO_CODES=""
 for m in status claude_settings extensions business; do
-  DEMO_CODES="$DEMO_CODES$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=$m&action=download_backup&soubor=x") "
+  DEMO_CODES="$DEMO_CODES$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=$m&action=download_backup&file=x") "
 done
 [ "$DEMO_CODES" = "302 302 302 302 " ] && ok "no Settings screen hands out a backup" || fail "backup download through a Settings screen: $DEMO_CODES"
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/pair.html" -L -X POST "$B/admin.php?module=status&action=fleet_pair" -d "_csrf=$T" -d "kod=x"

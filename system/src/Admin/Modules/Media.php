@@ -27,7 +27,7 @@ final class Media extends Module
 
     protected function actionList(): Response
     {
-        $pageNumber = max(1, $this->request->getInt('strana', 1));
+        $pageNumber = max(1, $this->request->getInt('page', 1));
         [$where, $params, $filter] = $this->filter();
         $total = (int) $this->db->value("SELECT COUNT(*) FROM {media} o WHERE {$where}", $params);
 
@@ -39,7 +39,7 @@ final class Media extends Module
             'limit' => \Kaleta\Core\Files::limitText(),
             'filter' => $filter,
             'folders' => $this->folders(),
-            'newsItem' => $filter['clanek'] > 0 ? $this->db->value('SELECT titulek FROM {novinky} WHERE idc = ?', [$filter['clanek']]) : null,
+            'newsItem' => $filter['article'] > 0 ? $this->db->value('SELECT titulek FROM {novinky} WHERE idc = ?', [$filter['article']]) : null,
         ]);
     }
 
@@ -49,7 +49,7 @@ final class Media extends Module
         [$where, $params] = $this->filter();
 
         return Response::json([
-            'obrazky' => array_map($this->toJson(...), $this->load($where, $params, max(1, $this->request->getInt('strana', 1)), 60)),
+            'obrazky' => array_map($this->toJson(...), $this->load($where, $params, max(1, $this->request->getInt('page', 1)), 60)),
             'slozky' => array_map(fn (array $s): array => ['id' => (int) $s['ids'], 'nazev' => $s['nazev']], $this->folders()),
         ]);
     }
@@ -68,7 +68,7 @@ final class Media extends Module
             $ids = $this->db->insert('media_slozky', ['nazev' => $name]);
         }
 
-        return $this->back('Folder saved.', '', ['sekce' => $ids]);
+        return $this->back('Folder saved.', '', ['section' => $ids]);
     }
 
     /** Deleting a folder; the images stay and move to the unsorted ones. */
@@ -182,7 +182,7 @@ final class Media extends Module
 
         $message = $uploaded === [] ? '' : t('Files uploaded: %d.', count($uploaded)) . ($imageCount > 0 ? ' ' . t('Add a description for blind visitors (alt text) to the images: what the image shows.') : '');
 
-        return $this->back($message, '', $section !== null ? ['sekce' => $section] : []);
+        return $this->back($message, '', $section !== null ? ['section' => $section] : []);
     }
 
     /**
@@ -268,12 +268,12 @@ final class Media extends Module
         try {
             $new = Images::replace($image['obr_poloha'], $file);
         } catch (\RuntimeException $e) {
-            return $this->back(t($e->getMessage()), 'list', ['uprav' => $ido], 'chyba');
+            return $this->back(t($e->getMessage()), 'list', ['edit' => $ido], 'chyba');
         }
         $this->db->update('media', $new + ['barva' => ''], ['ido' => $ido]);
         \Kaleta\Front\Cache::clear();
 
-        return $this->back('The file has been replaced – the new version is shown everywhere it is used.', 'list', ['uprav' => $ido]);
+        return $this->back('The file has been replaced – the new version is shown everywhere it is used.', 'list', ['edit' => $ido]);
     }
 
     protected function actionSave(): Response
@@ -403,7 +403,7 @@ final class Media extends Module
             \Kaleta\Admin\ChangeLog::write($this->app, 'media', 'deleted', (string) $count);
         }
 
-        return $this->back($move ? t('Images moved: %d.', $count) : t('Images deleted: %d.', $count), $backTo, $move && $target ? ['sekce' => $target] : []);
+        return $this->back($move ? t('Images moved: %d.', $count) : t('Images deleted: %d.', $count), $backTo, $move && $target ? ['section' => $target] : []);
     }
 
     private function canEdit(int $ido): bool
@@ -414,33 +414,33 @@ final class Media extends Module
     }
 
     /**
-     * List filter from the URL: sekce (folder number, 0 = unsorted), clanek (idc), nepouzite=1, hledat (name, label or file name).
+     * List filter from the URL: section (folder number, 0 = unsorted), article (idc), unused=1, search (name, label or file name).
      *
-     * @return array{0: string, 1: list<int|string>, 2: array{sekce: ?int, clanek: int, nepouzite: bool, hledat: string, razeni: string}}
+     * @return array{0: string, 1: list<int|string>, 2: array{section: ?int, article: int, unused: bool, search: string, sort: string}}
      */
     private function filter(): array
     {
         $where = ['1 = 1'];
         $params = [];
-        $section = $this->request->get('sekce') === '' ? null : $this->request->getInt('sekce');
+        $section = $this->request->get('section') === '' ? null : $this->request->getInt('section');
         if ($section !== null) {
             $where[] = $section > 0 ? 'o.sekce = ?' : 'o.sekce IS NULL';
             if ($section > 0) {
                 $params[] = $section;
             }
         }
-        $newsItem = $this->request->getInt('clanek');
+        $newsItem = $this->request->getInt('article');
         if ($newsItem > 0) {
             $where[] = 'EXISTS (SELECT 1 FROM {media_pouziti} p WHERE p.ido = o.ido AND p.idc = ?)';
             $params[] = $newsItem;
         }
-        $search = mb_substr(trim($this->request->get('hledat')), 0, 100);
+        $search = mb_substr(trim($this->request->get('search')), 0, 100);
         if ($search !== '') {
             $where[] = '(o.nazev LIKE ? OR o.popis LIKE ? OR o.obr_poloha LIKE ?)';
             $pattern = '%' . addcslashes($search, '%_\\') . '%';
             array_push($params, $pattern, $pattern, $pattern);
         }
-        $unused = $this->request->get('nepouzite') === '1';
+        $unused = $this->request->get('unused') === '1';
         if ($unused) {
             $where[] = 'NOT EXISTS (SELECT 1 FROM {media_pouziti} p WHERE p.ido = o.ido)';
             $elsewhere = array_keys(self::findUsagesElsewhere($this->db));
@@ -449,9 +449,9 @@ final class Media extends Module
             }
         }
 
-        $sort = isset(self::SORT_ORDERS[$this->request->get('razeni')]) ? $this->request->get('razeni') : 'nove';
+        $sort = isset(self::SORT_ORDERS[$this->request->get('sort')]) ? $this->request->get('sort') : 'nove';
 
-        return [implode(' AND ', $where), $params, ['sekce' => $section, 'clanek' => $newsItem, 'nepouzite' => $unused, 'hledat' => $search, 'razeni' => $sort]];
+        return [implode(' AND ', $where), $params, ['section' => $section, 'article' => $newsItem, 'unused' => $unused, 'search' => $search, 'sort' => $sort]];
     }
 
     /** @return list<array<string, mixed>> folders with the number of images */
@@ -469,7 +469,7 @@ final class Media extends Module
 
     private function load(string $where, array $params, int $pageNumber, int $count): array
     {
-        $order = self::SORT_ORDERS[$this->request->get('razeni')][1] ?? self::SORT_ORDERS['nove'][1];
+        $order = self::SORT_ORDERS[$this->request->get('sort')][1] ?? self::SORT_ORDERS['nove'][1];
         $elsewhere = self::findUsagesElsewhere($this->db);
 
         return array_map(function (array $o) use ($elsewhere): array {

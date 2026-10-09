@@ -31,7 +31,7 @@ $admin = $app->auth()->isAdmin();
 <?php endif ?>
 <form class="navigace-radek" method="get" action="<?= e($app->url('admin.php')) ?>" role="search">
 	<input type="hidden" name="module" value="subscribers">
-	<input class="textpole" type="search" name="hledat" value="<?= e($search) ?>" placeholder="<?= e(t('Search e-mail')) ?>" aria-label="<?= e(t('Search e-mail')) ?>">
+	<input class="textpole" type="search" name="search" value="<?= e($search) ?>" placeholder="<?= e(t('Search e-mail')) ?>" aria-label="<?= e(t('Search e-mail')) ?>">
 	<button class="navigace" type="submit"><?= e(t('Filtrovat')) ?></button>
 <?php if ($confirmed > 0): ?>
 	<a class="tl" href="<?= e($module->url('csv')) ?>"><?= e(t('Export confirmed (CSV)')) ?> · <?= $confirmed ?></a>
@@ -66,8 +66,8 @@ $admin = $app->auth()->isAdmin();
 </table></div>
 <?php if ($total > 100): ?>
 <p class="navigace-radek">
-<?php if ($pageNumber > 1): ?><a class="navigace" href="<?= e($module->url('', ['hledat' => $search, 'strana' => $pageNumber - 1])) ?>"><?= e(t('Previous')) ?></a><?php endif ?>
-<?php if ($pageNumber * 100 < $total): ?><a class="navigace" href="<?= e($module->url('', ['hledat' => $search, 'strana' => $pageNumber + 1])) ?>"><?= e(t('Next')) ?></a><?php endif ?>
+<?php if ($pageNumber > 1): ?><a class="navigace" href="<?= e($module->url('', ['search' => $search, 'page' => $pageNumber - 1])) ?>"><?= e(t('Previous')) ?></a><?php endif ?>
+<?php if ($pageNumber * 100 < $total): ?><a class="navigace" href="<?= e($module->url('', ['search' => $search, 'page' => $pageNumber + 1])) ?>"><?= e(t('Next')) ?></a><?php endif ?>
 </p>
 <?php endif ?>
 <?php endif ?>

@@ -46,7 +46,7 @@ $vital = function (array $r, string $metric, callable $format) use ($ratingBadge
 ?>
 <nav class="zalozky" aria-label="<?= e(t('Period')) ?>">
 <?php foreach (Kaleta\Core\Report::PERIODS as $d): ?>
-	<a href="<?= e($module->url('', ['dni' => $d])) ?>"<?= $days === $d ? ' class="aktivni" aria-current="page"' : '' ?>><?= e(t('%s days', $d)) ?></a>
+	<a href="<?= e($module->url('', ['days' => $d])) ?>"<?= $days === $d ? ' class="aktivni" aria-current="page"' : '' ?>><?= e(t('%s days', $d)) ?></a>
 <?php endforeach ?>
 </nav>
 <div class="dlazdice">

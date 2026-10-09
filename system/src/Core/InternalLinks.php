@@ -130,7 +130,7 @@ final class InternalLinks
         foreach ($db->all('SELECT p.idp, p.idk, p.nazev, p.seo_link, p.jazyk, k.seo_link AS kolekce FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.detail = 1 AND p.zobrazit = 1 AND p.smazano IS NULL ORDER BY p.idk, p.poradi LIMIT 3000') as $p) {
             $path = $prefix((string) $p['jazyk']) . $p['kolekce'] . '/' . $p['seo_link'];
             if (!isset($listedCollections[(string) $p['kolekce']]) && !isset($linked[$path])) {
-                $out[] = ['kind' => 'item', 'id' => (int) $p['idp'], 'title' => (string) $p['nazev'], 'path' => $path, 'edit' => 'admin.php?module=collections&action=item&id=' . (int) $p['idk'] . '&polozka=' . (int) $p['idp'], 'target' => ['collection' => (string) $p['kolekce'], 'item' => (int) $p['idp']]];
+                $out[] = ['kind' => 'item', 'id' => (int) $p['idp'], 'title' => (string) $p['nazev'], 'path' => $path, 'edit' => 'admin.php?module=collections&action=item&id=' . (int) $p['idk'] . '&item=' . (int) $p['idp'], 'target' => ['collection' => (string) $p['kolekce'], 'item' => (int) $p['idp']]];
             }
         }
 

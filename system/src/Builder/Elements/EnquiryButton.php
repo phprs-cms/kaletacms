@@ -63,13 +63,13 @@ final class EnquiryButton extends Element
         $basket = (string) $o['kosik'] !== '' ? (string) $o['kosik'] : $k->url((string) $product['c']) . '#poptavka';
         $id = 'p-' . $p['id'] . '-' . substr(md5((string) $product['i']), 0, 6); // unique also in a list of several products
         $variants = (array) ($product['v'] ?? []);
-        $html = '<input type="hidden" name="produkt" value="' . e($product['c'] . '/' . $product['i']) . '">';
+        $html = '<input type="hidden" name="product" value="' . e($product['c'] . '/' . $product['i']) . '">';
         if ($variants !== []) {
-            $html .= '<label for="' . $id . '-v">' . e(t('Variant')) . '<select id="' . $id . '-v" name="varianta">'
+            $html .= '<label for="' . $id . '-v">' . e(t('Variant')) . '<select id="' . $id . '-v" name="variant">'
                 . implode('', array_map(fn (mixed $v): string => '<option>' . e((string) $v) . '</option>', $variants)) . '</select></label>';
         }
         if ($o['mnozstvi']) {
-            $html .= '<label for="' . $id . '-q">' . e(t('Quantity')) . '<input id="' . $id . '-q" name="mnozstvi" type="number" value="1" min="1" max="9999" inputmode="numeric"></label>';
+            $html .= '<label for="' . $id . '-q">' . e(t('Quantity')) . '<input id="' . $id . '-q" name="quantity" type="number" value="1" min="1" max="9999" inputmode="numeric"></label>';
         }
         $html .= '<button class="ka-tlacitko ka-tlacitko--primarni" type="submit">' . e($o['text']) . '</button>';
         if ($o['porovnani']) {

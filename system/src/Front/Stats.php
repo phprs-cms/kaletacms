@@ -51,7 +51,7 @@ final class Stats
     {
         $server = $_SERVER;
         $ua = (string) ($server['HTTP_USER_AGENT'] ?? '');
-        if (!self::isOn($app) || $ua === '' || self::isBot($ua) || $app->request->get('nahled') !== '') {
+        if (!self::isOn($app) || $ua === '' || self::isBot($ua) || $app->request->get('preview') !== '') {
             return;
         }
         $db = $app->db();

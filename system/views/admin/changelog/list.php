@@ -41,7 +41,7 @@ foreach (['update' => 'aktualizuj', 'automatic' => 'automaticky', 'duplicate' =>
 <p><a class="navigace" href="<?= e($module->url('sessions')) ?>"><?= e(t('Claude sessions')) ?></a> – <?= e(t('undo everything one Claude session changed')) ?></p>
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt">
 	<input type="hidden" name="module" value="changelog">
-	<label><?= e(t('User:')) ?> <select name="kdo" data-odeslat-pri-zmene><option value="0"><?= e(t('všichni')) ?></option>
+	<label><?= e(t('User:')) ?> <select name="user" data-odeslat-pri-zmene><option value="0"><?= e(t('všichni')) ?></option>
 <?php foreach ($users as $userId => $displayName): ?>
 		<option value="<?= (int) $userId ?>"<?= $who === (int) $userId ? ' selected' : '' ?>><?= e($displayName) ?></option>
 <?php endforeach ?>
@@ -50,12 +50,12 @@ foreach (['update' => 'aktualizuj', 'automatic' => 'automaticky', 'duplicate' =>
 		<option value="people"<?= $by === 'people' ? ' selected' : '' ?>><?= e(t('people in the admin')) ?></option>
 		<option value="claude"<?= $by === 'claude' ? ' selected' : '' ?>><?= e(t('Claude')) ?></option>
 	</select></label>
-	<label><?= e(t('Where:')) ?> <select name="kde" data-odeslat-pri-zmene><option value=""><?= e(t('everywhere')) ?></option>
+	<label><?= e(t('Where:')) ?> <select name="area" data-odeslat-pri-zmene><option value=""><?= e(t('everywhere')) ?></option>
 <?php foreach ($modules as $m): ?>
 		<option value="<?= e($m) ?>"<?= $whereParts === $m ? ' selected' : '' ?>><?= e(isset($names[$m]) ? t($names[$m]) : $m) ?></option>
 <?php endforeach ?>
 	</select></label>
-	<label><?= e(t('Detail contains:')) ?> <input class="textpole" type="search" name="hledat" value="<?= e($search) ?>" size="18"></label>
+	<label><?= e(t('Detail contains:')) ?> <input class="textpole" type="search" name="search" value="<?= e($search) ?>" size="18"></label>
 	<input class="tl" type="submit" value="<?= e(t('Filtrovat')) ?>"> (<?= e(t('Total:')) ?> <?= $total ?>)
 </form>
 <div class="tab-obal">
@@ -77,7 +77,7 @@ foreach (['update' => 'aktualizuj', 'automatic' => 'automaticky', 'duplicate' =>
 <?php if ($pageCount > 1): ?>
 <p class="strankovani">
 <?php for ($s = max(1, $pageNumber - 5); $s <= min($pageCount, $pageNumber + 5); $s++): ?>
-	<?= $s === $pageNumber ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($module->url('', array_filter(['kdo' => $who ?: null, 'by' => $by, 'kde' => $whereParts, 'hledat' => $search, 'strana' => $s]))) . '">' . $s . '</a>' ?>
+	<?= $s === $pageNumber ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($module->url('', array_filter(['user' => $who ?: null, 'by' => $by, 'area' => $whereParts, 'search' => $search, 'page' => $s]))) . '">' . $s . '</a>' ?>
 <?php endfor ?>
 </p>
 <?php endif ?>

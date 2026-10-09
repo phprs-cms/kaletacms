@@ -5526,6 +5526,7 @@ return [
     'A cron job that calls /tasks reaches that page and runs nothing – point it at /ulohy.' => 'Cron, který volá /tasks, se dostane na tu stránku a nic nespustí – nasměrujte ho na /ulohy.',
     'PHP JIT' => 'JIT v PHP',
     'opcache.jit = %s on PHP %s can crash pages (a bug in PHP 8.3) – ask the hosting for opcache.jit = tracing (the default) or PHP 8.4' => 'opcache.jit = %s na PHP %s může shazovat stránky (chyba PHP 8.3) – požádejte hosting o opcache.jit = tracing (výchozí) nebo PHP 8.4',
+    'https://… or /page' => 'https://… nebo /stranka',
     'The update source of the stable channel does not offer a stable-channel release (aktualizace-stable.json), so nothing is offered. Switch to the Latest channel or check the custom update source.' => 'Zdroj aktualizací stabilního kanálu nenabízí vydání stabilního kanálu (aktualizace-stable.json), proto se nic nenabízí. Přepněte na kanál Nejnovější, nebo zkontrolujte vlastní zdroj aktualizací.',
     'Latest channel' => 'kanál Nejnovější',
     'Stable channel' => 'kanál Stabilní',

@@ -16,7 +16,7 @@ use Kaleta\Builder\Build;
 /**
  * Submission of a builder form (POST /form, or /formular from pages cached before 3.7). Fields and recipient are taken from the PUBLISHED build by source and
  * element id – the visitor cannot add a field or change the recipient. Result: an enquiry in ka_poptavky, an e-mail
- * notification and a return to the page with a result code (?formular=<id>&vysledek=ok|pole|limit|rychle|overeni).
+ * notification and a return to the page with a result code (?form=<id>&result=ok|pole|limit|rychle|overeni).
  */
 final class Forms
 {
@@ -61,7 +61,7 @@ final class Forms
         if ($element === null) {
             return Response::redirect($back, 303);
         }
-        $redirectUri = fn (string $result, int $field = -1): Response => Response::redirect($back . '?formular=' . rawurlencode($element['id']) . '&vysledek=' . $result . ($field >= 0 ? '&pole=' . $field : '') . '#' . Form::anchor($element), 303);
+        $redirectUri = fn (string $result, int $field = -1): Response => Response::redirect($back . '?form=' . rawurlencode($element['id']) . '&result=' . $result . ($field >= 0 ? '&field=' . $field : '') . '#' . Form::anchor($element), 303);
 
         $antispam = new Antispam($this->app->db(), $this->app->settings());
         $reason = $antispam->reason($r, 'formular|' . $source . '|' . $element['id']);
@@ -217,10 +217,10 @@ final class Forms
         // the browser reads „/\cizi.cz“ as //cizi.cz – a backslash in the thank-you page URL is rejected
         if ($thankYouUrl !== '' && !str_contains($thankYouUrl, '\\') && (str_starts_with($thankYouUrl, '/') && !str_starts_with($thankYouUrl, '//') || preg_match('#^https://#', $thankYouUrl))) {
             // a URL on the site is the full path (including the language, /en/…), only the installation folder is added
-            // ?odeslano=<name> on the thank-you page reports the conversion to analytics (image/web.js), just like the
+            // ?sent=<name> on the thank-you page reports the conversion to analytics (image/web.js), just like the
             // in-place thank-you
             $thankYouUrl = (str_starts_with($thankYouUrl, '/') ? $r->basePath() . $thankYouUrl : $thankYouUrl);
-            $thankYouUrl .= (str_contains($thankYouUrl, '?') ? '&' : '?') . 'odeslano=' . rawurlencode((string) $element['obsah']['nazev']);
+            $thankYouUrl .= (str_contains($thankYouUrl, '?') ? '&' : '?') . 'sent=' . rawurlencode((string) $element['obsah']['nazev']);
 
             return Response::redirect($thankYouUrl, 303);
         }
