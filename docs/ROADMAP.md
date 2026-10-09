@@ -636,6 +636,12 @@ What the owner's multilingual WordPress sites need before they move, and the fir
 Audited before release (N39): a new password ends the user's Claude connections, a multilingual import adds language
 versions only when asked, the WordPress header has a memory cap, and switching per-language slugs off never ends half-done.
 
+Fix:
+
+8. 3.9.1: the phone menu of the Navigation element keeps its rows close together (the bar's gap belonged to wide screens) and
+   every submenu arrow in the same place; "Support Kaleta" in the admin footer, the README and the GitHub Sponsor button lead
+   to Buy Me a Coffee (https://buymeacoffee.com/Kaletacms).
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).

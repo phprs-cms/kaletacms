@@ -1,7 +1,7 @@
 {
     "name": "kaleta",
     "displayName": "Kaleta for Claude",
-    "version": "3.9.0",
+    "version": "3.9.1",
     "description": "Runbooks for Kaleta CMS sites over the site's own Claude connection (MCP): move a WordPress or any other site, launch a fresh install, weekly care, online bookings and an EU compliance check. Drafts first; the site owner publishes.",
     "author": {
         "name": "Kaleta",
