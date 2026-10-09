@@ -47,7 +47,9 @@ use Kaleta\Core\Session;
 final class OAuth
 {
     public const int ACCESS_LIFETIME = 3600;
-    public const int REFRESH_LIFETIME = 30 * 86400;
+    // 3.9 (owner decision): a Claude connection stays signed in while it is used at least once a year, like a personal token;
+    // the access token still lasts an hour and every refresh rotates the refresh token
+    public const int REFRESH_LIFETIME = 365 * 86400;
     private const int CODE_LIFETIME = 600;
     private const string CLIENT_PATTERN = '/^[a-f0-9]{32}$/D';
 

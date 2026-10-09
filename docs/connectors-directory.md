@@ -105,10 +105,9 @@ without OAuth) but are not part of the listing.
 | `offline_access` scope | Not listed in `scopes_supported`; the token endpoint returns a refresh token anyway, so Claude refreshes normally. |
 
 Token lifetimes: personal tokens default to one year (owner decision of 2 October 2026, `Admin\Account::TOKEN_LIFETIMES`).
-OAuth access tokens live one hour and refresh tokens 30 days, renewed with every refresh – a connection that is used at
-least once a month never expires; one idle for more than 30 days asks the user to sign in again. **Open for the owner:**
-whether OAuth refresh tokens should also last a year (`OAuth::REFRESH_LIFETIME`); it is a product decision, not a spec
-issue, so 3.8 leaves it.
+OAuth access tokens live one hour and refresh tokens one year (owner decision of 9 October 2026, 3.9), renewed with
+every refresh – a connection that is used at least once a year never expires; one idle for longer asks the user to sign
+in again. Unused connections are still reported by the security hygiene check.
 
 ## 5. Tools
 
