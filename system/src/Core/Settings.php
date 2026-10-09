@@ -199,6 +199,7 @@ final class Settings
         'smtp_encryption' => 'tls',    // tls (STARTTLS, port 587) | ssl (port 465) | zadne
         'smtp_user' => '',
         'smtp_password' => '',           // type "tajne": never written back into the form
+        'smtp_provider' => '',         // 3.9: the mail service chosen in Settings → Mail (Core\MailServices); '' = derived from smtp_host
         'notification_check' => '0',   // when the check for newly published news items last ran
         'tasks_last_run' => '0',       // when cron last called /tasks (/ulohy) (newsletters are sent only while cron runs)
         'newsletter_hourly_limit' => '300', // newsletters: at most this many e-mails per hour (the SMTP relay's limit)

@@ -38,6 +38,8 @@ trait HealthTools
                 array_filter($checks, fn (array $c): bool => $c['stav'] !== 'ok'))),
             'jobs' => array_map(fn (array $j): array => ['job' => $j['name'], 'last_run' => $j['last_run'], 'failures_in_a_row' => $j['failures'], 'last_error' => $j['last_error'] !== '' ? $j['last_error'] : null], Scheduler::overview($db, $this->app->settings())),
             'cron_last_run_minutes' => $cron > 0 ? (int) floor((time() - $cron) / 60) : null,
+            // 3.9: the mail service the site sends through (null = another SMTP server or the host's mail()) – never its credentials
+            'mail_service' => \Kaleta\Core\MailServices::name(\Kaleta\Core\MailServices::current($this->app->settings())) ?: null,
             'last_backup' => $backup !== null ? date('Y-m-d H:i', (int) $backup['cas']) : null,
             'events_last_7_days' => Events::problems($db, 168),
             'next' => 'Fix what you can (e.g. with update_settings or the site audit) and tell the user what needs them: hosting, DNS or a password are theirs. list_events shows what happened.',

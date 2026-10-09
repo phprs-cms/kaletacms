@@ -10,6 +10,51 @@
 <fieldset data-sekce="smtp"<?= $values['mail_mode'] === 'smtp' ? '' : ' hidden' ?>>
 <legend><?= e(t('SMTP server')) ?></legend>
 <?php
+// 3.9 (Core\MailServices): a mail service fills the server, port and encryption and says what the user name and password are;
+// the choice shown is derived from the saved server, so a working configuration is shown as it is and saved unchanged
+$siteSettings = $app->settings();
+$serviceChoice = Kaleta\Core\MailServices::choice($siteSettings);
+$sesRegion = Kaleta\Core\MailServices::region($values['smtp_host']) ?: Kaleta\Core\MailServices::DEFAULT_REGION;
+$newsletterLink = Kaleta\Core\MailServices::newsletterLink($siteSettings);
+$featuresUrl = $app->url('admin.php?module=extensions') . '#newsletter';
+?>
+<div class="radek">
+	<label for="smtp_provider"><?= e(t('Send through')) ?></label>
+	<div><select id="smtp_provider" name="smtp_provider" data-smtp-sluzba>
+		<option value="<?= e(Kaleta\Core\MailServices::OTHER) ?>"<?= $serviceChoice === Kaleta\Core\MailServices::OTHER ? ' selected' : '' ?>><?= e(t('Other server – your host, Google Workspace, Seznam…')) ?></option>
+		<optgroup label="<?= e(t('Mail services with an SMTP relay')) ?>">
+<?php foreach (Kaleta\Core\MailServices::PROVIDERS as $key => $service): ?>
+		<option value="<?= e($key) ?>" data-host="<?= e(Kaleta\Core\MailServices::host($key, $sesRegion)) ?>" data-port="<?= $service['port'] ?>" data-sifrovani="<?= e($service['encryption']) ?>"<?= $serviceChoice === $key ? ' selected' : '' ?>><?= e($service['name']) ?></option>
+<?php endforeach ?>
+		</optgroup>
+	</select>
+	<span class="napoveda"><?= e(t('A mail service fills in the server, the port and the encryption. The user name and the password stay yours to paste – the service’s SMTP credentials, not its API key unless the service says so.')) ?></span></div>
+</div>
+<div class="radek" data-smtp-tip="ses"<?= $serviceChoice === 'ses' ? '' : ' hidden' ?>>
+	<label for="smtp_ses_region"><?= e(t('Amazon SES region')) ?></label>
+	<div><select id="smtp_ses_region" name="smtp_ses_region" data-smtp-region>
+<?php foreach (Kaleta\Core\MailServices::SES_REGIONS + [$sesRegion => $sesRegion] as $region => $regionName): ?>
+		<option value="<?= e($region) ?>"<?= $region === $sesRegion ? ' selected' : '' ?>><?= e($regionName . ' – ' . $region) ?></option>
+<?php endforeach ?>
+	</select>
+	<span class="napoveda"><?= e(t('The region where the sending domain is verified in Amazon SES – the SMTP credentials work only there.')) ?></span></div>
+</div>
+<?php foreach (Kaleta\Core\MailServices::PROVIDERS as $key => $service): ?>
+<div class="hlaska hlaska-akce" data-smtp-tip="<?= e($key) ?>"<?= $serviceChoice === $key ? '' : ' hidden' ?>>
+	<p><strong><?= e(t('User name')) ?>:</strong> <?= e(t($service['user'])) ?></p>
+	<p><strong><?= e(t('Password')) ?>:</strong> <?= e(t($service['password'])) ?></p>
+<?php if ($newsletterLink !== null && $newsletterLink['provider'] === $key): ?>
+	<p><?= e(t('Your newsletter integration uses %s too. Its API key is not copied here – the SMTP relay signs in with its own credentials, so paste them below.', $newsletterLink['service'])) ?> <a href="<?= e($featuresUrl) ?>"><?= e(t('Newsletter integration')) ?></a></p>
+<?php endif ?>
+	<p><a href="<?= e($service['docs']) ?>" target="_blank" rel="noopener noreferrer"><?= e(t('%s: SMTP guide', $service['name'])) ?></a></p>
+</div>
+<?php endforeach ?>
+<?php if ($newsletterLink !== null && $newsletterLink['provider'] !== '' && $newsletterLink['provider'] !== $serviceChoice): ?>
+<p class="napoveda"><?= e(t('Your newsletter integration uses %s, which also relays e-mail over SMTP – choose %s above to send the site’s mail through the same account.', $newsletterLink['service'], Kaleta\Core\MailServices::PROVIDERS[$newsletterLink['provider']]['name'])) ?> <a href="<?= e($featuresUrl) ?>"><?= e(t('Newsletter integration')) ?></a></p>
+<?php elseif ($newsletterLink !== null && $newsletterLink['note'] !== ''): ?>
+<p class="napoveda"><?= e(t($newsletterLink['note'])) ?> <a href="<?= e($featuresUrl) ?>"><?= e(t('Newsletter integration')) ?></a></p>
+<?php endif ?>
+<?php
 $field('smtp_host', 'Server address', 'text', 'For example smtp.gmail.com, smtp.seznam.cz, smtp-relay.brevo.com or smtp.vasedomena.cz.', 'maxlength="120" placeholder="smtp.example.com" autocomplete="off"');
 ?>
 <div class="radek">
@@ -37,7 +82,35 @@ $field('smtp_user', 'Přihlašovací jméno', 'text', 'Usually the full e-mail a
 $field('newsletter_hourly_limit', 'Newsletters: e-mails per hour', 'cislo', 'Newsletters go out in batches while cron runs. Keep to the sending limit of your SMTP service – free plans often allow only a few hundred e-mails a day.', 'min="10" max="100000"');
 ?>
 </fieldset>
-<details class="pokrocile"<?= $values['mail_from'] !== '' || $values['mail_reply_to'] !== '' ? ' open' : '' ?>>
+<?php
+// 3.9: after saving with a mail service – the DNS records it needs for the sending domain, and what the daily domain check found
+$currentService = Kaleta\Core\MailServices::current($siteSettings);
+if ($currentService !== null):
+    $service = Kaleta\Core\MailServices::PROVIDERS[$currentService];
+    $sender = $siteSettings->get('mail_from') !== '' ? $siteSettings->get('mail_from') : $siteSettings->get('site_email');
+    $sendingDomain = strtolower(substr((string) strrchr($sender, '@'), 1));
+    $watchMail = is_array($domainWatch['mail'] ?? null) && ($domainWatch['mail']['domain'] ?? '') === $sendingDomain ? $domainWatch['mail'] : null;
+?>
+<fieldset>
+<legend><?= e(t('DNS records for %s', $service['name'])) ?></legend>
+<p class="napoveda"><?= e(t($service['dns'])) ?></p>
+<?php if ($sendingDomain !== '' && $service['spf'] !== ''): ?>
+<p class="napoveda"><?= e(t('The SPF record of %s must include %s – one SPF record per domain, for example:', $sendingDomain, 'include:' . $service['spf'])) ?> <code><?= e('v=spf1 mx include:' . $service['spf'] . ' ~all') ?></code></p>
+<?php endif ?>
+<?php if ($watchMail !== null && ($watchMail['error'] ?? null) === null): ?>
+<ul class="napoveda">
+	<li><?= e(t('SPF record')) ?>: <?= e(match (true) {
+        $watchMail['spf'] === null => t('none found on %s', $sendingDomain),
+        $watchMail['spf_covers_smtp'] === true || $service['spf'] === '' => t('found – all is well'),
+        default => t('found, but it does not seem to include %s yet', 'include:' . $service['spf']),
+    }) ?></li>
+	<li><?= e(t('DKIM signature')) ?>: <?= e($watchMail['dkim'] !== null ? t('key published under the selector %s', (string) $watchMail['dkim']) : t('not found yet')) ?></li>
+</ul>
+<?php endif ?>
+<p class="napoveda"><?= e(t('System status checks the sending domain once a day; after adding the records, use Check now there.')) ?> <a href="<?= e($app->url('admin.php?module=status')) ?>"><?= e(t('System status')) ?></a></p>
+</fieldset>
+<?php endif ?>
+<details class="pokrocile"<?= $values['mail_from'] !== ''|| $values['mail_reply_to'] !== '' ? ' open' : '' ?>>
 <summary><?= e(t('Sender and replies')) ?></summary>
 <?php
 $field('mail_from', 'Sender address', 'email', 'Empty = the site e-mail. With SMTP it must be an address your mailbox is allowed to send from.');

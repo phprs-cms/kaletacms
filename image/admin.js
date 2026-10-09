@@ -268,6 +268,26 @@
 		});
 	});
 
+	// Settings → Mail (3.9): choosing a mail service fills the SMTP server, port and encryption from its option and shows
+	// its hint (what the user name and the password are); the user name and the password fields are never touched
+	document.querySelectorAll('select[data-smtp-sluzba]').forEach(function (service) {
+		var form = service.form, region = form.querySelector('select[data-smtp-region]');
+		var fill = function () {
+			var option = service.options[service.selectedIndex];
+			if (!option || !option.hasAttribute('data-host')) { return; }
+			var host = option.getAttribute('data-host');
+			if (service.value === 'ses' && region) { host = host.replace(/^email-smtp\.[^.]+\./, 'email-smtp.' + region.value + '.'); }
+			form.querySelector('#smtp_host').value = host;
+			form.querySelector('#smtp_port').value = option.getAttribute('data-port');
+			form.querySelector('#smtp_encryption').value = option.getAttribute('data-sifrovani');
+		};
+		service.addEventListener('change', function () {
+			form.querySelectorAll('[data-smtp-tip]').forEach(function (tip) { tip.hidden = tip.getAttribute('data-smtp-tip') !== service.value; });
+			fill();
+		});
+		if (region) { region.addEventListener('change', fill); }
+	});
+
 	// General: a form with data-prepinac="pole" shows only rows whose data-pro contains the selected value of the field
 	document.querySelectorAll('form[data-prepinac]').forEach(function (form) {
 		var displayName = form.getAttribute('data-prepinac');

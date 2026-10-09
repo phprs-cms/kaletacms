@@ -281,6 +281,23 @@ await step('newsletter: draft and preview', async () => {
   }
 });
 
+await step('3.9 Settings → Mail: choosing a mail service fills the server, port and encryption, shows its hint, and leaves the user name alone', async () => {
+  await visit('/admin.php?module=settings&tab=mail');
+  await page.locator('label.karta-volba', { has: page.locator('input[name="mail_mode"][value="smtp"]') }).click();
+  await page.fill('#smtp_user', 'kept@example.com');
+  await page.selectOption('#smtp_provider', 'brevo');
+  const brevo = [await page.inputValue('#smtp_host'), await page.inputValue('#smtp_port'), await page.inputValue('#smtp_encryption'), await page.inputValue('#smtp_user'),
+    await page.locator('[data-smtp-tip="brevo"]').isVisible(), await page.locator('#smtp_ses_region').isVisible()].join('|');
+  if (brevo !== 'smtp-relay.brevo.com|587|tls|kept@example.com|true|false') { throw new Error('Brevo: ' + brevo); }
+  await page.selectOption('#smtp_provider', 'ses');
+  await page.selectOption('#smtp_ses_region', 'eu-west-1');
+  const ses = [await page.inputValue('#smtp_host'), await page.locator('[data-smtp-tip="brevo"]').isVisible(), await page.locator('#smtp_ses_region').isVisible()].join('|');
+  if (ses !== 'email-smtp.eu-west-1.amazonaws.com|false|true') { throw new Error('SES: ' + ses); }
+  // "Other server" keeps whatever is typed in – the free form as before
+  await page.selectOption('#smtp_provider', 'other');
+  if (await page.inputValue('#smtp_host') !== 'email-smtp.eu-west-1.amazonaws.com') { throw new Error('Other server changed the server'); }
+});
+
 await step('site parts: every header and footer template renders', async () => {
   for (const [part, templates] of [['hlavicka', ['klasicka', 'na-stred', 's-listou', 'minimalni']], ['paticka', ['sloupce', 'kompaktni', 'tiraz', 'vyzva']]]) {
     for (const template of templates) {

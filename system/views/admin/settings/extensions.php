@@ -83,7 +83,19 @@ if (in_array('bookings', $enabledExtensions, true) && in_array(false, Kaleta\Cor
 <?php foreach (Kaleta\Core\Newsletter::SERVICES as $key => [$name]): ?>
 		<option value="<?= e($key) ?>"<?= $values['newsletter_service'] === $key ? ' selected' : '' ?>><?= e(t($name)) ?></option>
 <?php endforeach ?>
-	</select></div>
+	</select>
+<?php
+// 3.9: the same account can relay the site's own e-mail (Settings → Mail) – said here and linked, never a key copied across
+$newsletterLink = Kaleta\Core\MailServices::newsletterLink($app->settings());
+if ($newsletterLink !== null && ($newsletterLink['provider'] !== '' || $newsletterLink['note'] !== '')):
+    $mailUrl = $app->url('admin.php?module=settings&tab=mail');
+?>
+	<span class="napoveda"><?php if ($newsletterLink['provider'] !== '' && Kaleta\Core\MailServices::current($app->settings()) === $newsletterLink['provider']): ?><?= e(t('The site’s own e-mail goes through %s too (Settings → Mail), signed in with an SMTP key of its own – this API key is not used there.', $newsletterLink['service'])) ?>
+<?php elseif ($newsletterLink['provider'] !== ''): ?><?= e(t('%s can also send the site’s own e-mail (password resets, enquiries, newsletters) over SMTP – choose it in Settings → Mail and paste an SMTP key there; this API key is not copied.', $newsletterLink['service'])) ?>
+<?php else: ?><?= e(t($newsletterLink['note'])) ?>
+<?php endif ?> <a href="<?= e($mailUrl) ?>"><?= e(t('Settings → Mail')) ?></a></span>
+<?php endif ?>
+	</div>
 </div>
 <div class="radek">
 	<label for="newsletter_key"><?= e(t('API key')) ?></label>

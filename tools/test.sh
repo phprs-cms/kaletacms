@@ -1679,6 +1679,45 @@ expect "3.3.3: the reset link went through the queue and was delivered by the ti
   "$RESET_KNOWN|$(db "SELECT CONCAT(COUNT(*), '|', SUM(odeslano IS NOT NULL), '|', SUM(telo IS NULL), '|', MIN(pokusu)) FROM ka_posta WHERE komu = 'admin@example.cz'")|$(grep -c 'action=password&token=[a-f0-9]\{64\}' "$WORK/eml.txt")" "200|1|1|1|1|1"
 RESET_UNKNOWN=$(reset_request nikdo-takovy); sed 's/<[^>]*>//g' "$WORK/response" > "$WORK/reset-unknown.txt"
 expect "3.3.3: an unknown name gets the same page and queues nothing" "$RESET_UNKNOWN|$(cmp -s "$WORK/reset-known.txt" "$WORK/reset-unknown.txt" && echo same)|$(db "SELECT COUNT(*) FROM ka_posta")" "200|same|1"
+# 3.9 (owner's idea): Settings → Mail → "Send through" a mail service. A configuration from before 3.9 (no smtp_provider) is shown as
+# it is and saving the form unchanged keeps every value; a service fills its server, port and encryption only when the server is not
+# already its own; the user name and the password are never touched; the test e-mail still reaches the fake SMTP server
+mail_form() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=mail"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$(csrf)" -d tab=mail -d mail_mode=smtp -d newsletter_hourly_limit=300 -d smtp_password= -d smtp_ses_region=eu-central-1 "$@"; }
+mail_smtp() { db "SELECT CONCAT_WS('|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'smtp_host'), (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'smtp_port'), (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'smtp_encryption'), (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'smtp_user'), (SELECT hodnota = '$1' FROM ka_nastaveni WHERE promenna = 'smtp_password'))"; }
+OLD_SMTP_PW=$(tok)
+db "DELETE FROM ka_nastaveni WHERE promenna = 'smtp_provider'; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', 'smtp.firma.example'), ('smtp_port', '465'), ('smtp_encryption', 'ssl'), ('smtp_user', 'web@firma.example'), ('smtp_password', '$OLD_SMTP_PW')"
+check "3.9: the Mail tab shows a configuration from before 3.9 as it is" 200 "/admin.php?module=settings&tab=mail" 'value="smtp.firma.example"'
+contains -q '<option value="other" selected>' "$WORK/response" && contains -q 'data-smtp-sluzba' "$WORK/response" && contains -q 'data-host="smtp-relay.brevo.com" data-port="587" data-sifrovani="tls"' "$WORK/response" && ! contains -q "$OLD_SMTP_PW" "$WORK/response" \
+  && echo "  ok     3.9: … as “Other server”, with every service's server in the choice and the password never in the page" || { echo "  CHYBA  3.9: the mail service choice"; ERRORS=$((ERRORS+1)); }
+mail_form -d smtp_provider=other -d smtp_host=smtp.firma.example -d smtp_port=465 -d smtp_encryption=ssl -d smtp_user=web@firma.example
+expect "3.9: saving it unchanged keeps the custom server exactly – server, port, encryption, user name and password" "$(mail_smtp "$OLD_SMTP_PW")|$(db "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'smtp_provider'")" "smtp.firma.example|465|ssl|web@firma.example|1|other"
+# a Brevo server on port 2525 (set up before 3.9): shown as Brevo with what Brevo wants as the password, saved with its own port
+db "DELETE FROM ka_nastaveni WHERE promenna = 'smtp_provider'; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('smtp_host', 'smtp-relay.brevo.com'), ('smtp_port', '2525'), ('smtp_encryption', 'tls'), ('newsletter_service', 'brevo')"
+check "3.9: a Brevo server is shown as Brevo, with its SMTP login and key explained" 200 "/admin.php?module=settings&tab=mail" 'SMTP login, který Brevo ukazuje'
+contains -q '<option value="brevo" data-host="smtp-relay.brevo.com" data-port="587" data-sifrovani="tls" selected>' "$WORK/response" && contains -q 'Napojení newsletteru používá také Brevo. Jeho API klíč se sem nekopíruje' "$WORK/response" && contains -q 'href="/admin.php?module=extensions#newsletter"' "$WORK/response" && contains -q 'DNS záznamy pro Brevo' "$WORK/response" \
+  && echo "  ok     3.9: … the newsletter integration on the same account is named and linked (no key copied), and the DNS records for Brevo follow" || { echo "  CHYBA  3.9: Brevo hint, newsletter link or DNS records"; ERRORS=$((ERRORS+1)); }
+check "3.9: Features links the newsletter integration back to Settings → Mail" 200 "/admin.php?module=extensions" 'Vlastní pošta webu jde také přes Brevo'
+contains -q 'href="/admin.php?module=settings&amp;tab=mail"' "$WORK/response" && echo "  ok     3.9: … with the link to the Mail tab" || { echo "  CHYBA  3.9: Features → Mail link"; ERRORS=$((ERRORS+1)); }
+mail_form -d smtp_provider=brevo -d smtp_host=smtp-relay.brevo.com -d smtp_port=2525 -d smtp_encryption=tls -d smtp_user=web@firma.example
+expect "3.9: saving Brevo keeps its own server on port 2525 and the password" "$(mail_smtp "$OLD_SMTP_PW")" "smtp-relay.brevo.com|2525|tls|web@firma.example|1"
+# choosing a service without JavaScript: its server, port and encryption are filled; the user name and password stay
+mail_form -d smtp_provider=postmark -d smtp_host= -d smtp_port=25 -d smtp_encryption=zadne -d smtp_user=web@firma.example
+expect "3.9: choosing Postmark fills its server, port and STARTTLS; the user name and password stay" "$(mail_smtp "$OLD_SMTP_PW")" "smtp.postmarkapp.com|587|tls|web@firma.example|1"
+mail_form -d smtp_provider=ses -d smtp_ses_region=eu-west-1 -d smtp_host=smtp.postmarkapp.com -d smtp_port=587 -d smtp_encryption=tls -d smtp_user=web@firma.example
+expect "3.9: switching to Amazon SES gives the endpoint of the chosen region" "$(mail_smtp "$OLD_SMTP_PW")" "email-smtp.eu-west-1.amazonaws.com|587|tls|web@firma.example|1"
+check "3.9: System status names the mail service" 200 "/admin.php?module=status" 'přes Amazon SES (SMTP server email-smtp.eu-west-1.amazonaws.com)'
+mcp site_info '{}' > "$WORK/response"; SITE_MAIL=$(mcp_value mail); contains -q "$OLD_SMTP_PW" "$WORK/response" && SITE_MAIL="leaked"
+mcp get_health '{}' > "$WORK/response"; HEALTH_MAIL=$(mcp_value mail_service); contains -q "$OLD_SMTP_PW" "$WORK/response" && HEALTH_MAIL="leaked"
+mcp update_settings '{"settings":{"smtp_provider":"brevo","smtp_host":"smtp.evil.example","smtp_password":"x"}}' > /dev/null
+expect "3.9: MCP names the service (site_info, get_health), never the password, and cannot change the mail server" "$SITE_MAIL|$HEALTH_MAIL|$(mail_smtp "$OLD_SMTP_PW")|$(db "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'smtp_provider'")" \
+  '{"sending":"smtp","service":"Amazon SES"}|Amazon SES|email-smtp.eu-west-1.amazonaws.com|587|tls|web@firma.example|1|ses'
+# back to "Other server" – the fake SMTP server – through the form: the test e-mail arrives there
+mail_form -d smtp_provider=other -d smtp_host=127.0.0.1 -d "smtp_port=$SMTP_PORT" -d smtp_encryption=zadne -d smtp_user=
+rm -f "$WORK"/smtp/*.eml; SITE_MAILBOX=$(db "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_email'")
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=test_mail" -d "_csrf=$(csrf)" -d tab=mail
+: > "$WORK/eml.txt"; for i in $(seq 1 25); do F=$(mail_to "$SITE_MAILBOX" || true); if [ -n "$F" ]; then eml "$F" > "$WORK/eml.txt"; break; fi; sleep 0.2; done
+expect "3.9: “Other server” saved through the form – the test e-mail reaches the fake SMTP server" "$(mail_smtp "$OLD_SMTP_PW")|$(grep -c 'can send e-mail\|umí odesílat e-maily\|E-Mails senden kann' "$WORK/eml.txt")" "127.0.0.1|$SMTP_PORT|zadne||1|1"
+db "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('newsletter_service', 'smtp_password', 'smtp_provider')"
 kill "$SMTP_PID" 2>/dev/null || true
 db "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', ''); DELETE FROM ka_odberatele; DELETE FROM ka_newsletters; DELETE FROM ka_newsletter_queue"
 
