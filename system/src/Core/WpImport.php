@@ -46,7 +46,7 @@ final class WpImport
      * obrazky = images are downloaded right after the content (MCP; the admin has its own button for it).
      */
     public const array DEFAULT_OPTIONS = ['jazyk' => '', 'koncepty' => true, 'stranky' => true, 'stavitel' => true, 'presmerovani' => true, 'rubrika' => 0, 'kolekce' => true,
-        'menu' => true, 'menu_umisteni' => [], 'autori' => [], 'skryte' => false, 'obrazky' => false];
+        'menu' => true, 'menu_umisteni' => [], 'autori' => [], 'skryte' => false, 'obrazky' => false, 'jazyky_pridat' => false];
 
     /** At most this many menu items are kept from one file (Core\Menu takes 80 per menu). */
     public const int MAX_MENU_ITEMS = 500;
@@ -423,7 +423,11 @@ final class WpImport
         $this->header = $wp->header();
         $this->source = self::source((string) $state['web']['adresa']);
         $this->authors = $this->authorMap($state);
-        $this->ensureLanguages($state);
+        // 3.9 N39-3: new language versions only when the owner chose it in the preview (or add_languages over MCP) – an added
+        // language shows in the switcher, hreflang and the sitemap at once; without it, posts in such a language are left out
+        if ($state['volby']['jazyky_pridat'] ?? false) {
+            $this->ensureLanguages($state);
+        }
         $end = microtime(true) + self::SECONDS;
         $count = 0;
         foreach ($wp->items((int) $state['pozice']) as $order => $p) {
@@ -1428,7 +1432,7 @@ final class WpImport
     public static function options(array $input, Db $db, Settings $settings): array
     {
         $options = self::DEFAULT_OPTIONS;
-        foreach (['koncepty', 'stranky', 'stavitel', 'presmerovani', 'kolekce', 'menu', 'skryte', 'obrazky'] as $key) {
+        foreach (['koncepty', 'stranky', 'stavitel', 'presmerovani', 'kolekce', 'menu', 'skryte', 'obrazky', 'jazyky_pridat'] as $key) {
             if (array_key_exists($key, $input)) {
                 $options[$key] = (bool) $input[$key];
             }
@@ -1559,7 +1563,7 @@ final class WpImport
         'pages_off' => 'pages – the pages option is off',
         'collections_off' => 'items of custom post types – the collections option is off',
         'too_large' => 'posts whose HTML is over a safety limit (size, nesting or number of elements) – nothing of them was imported; too_large lists them',
-        'language_unavailable' => 'posts in a language this site cannot offer yet (languages.not_available lists them) – nothing of them was imported',
+        'language_unavailable' => 'posts in a language this site does not have (languages.not_available lists the ones Kaleta cannot offer; others need add_languages: true or the language added in Settings first) – nothing of them was imported',
     ];
 
     /** Why a redirect was not made or a menu was not put into the draft look, in English for the summary. */

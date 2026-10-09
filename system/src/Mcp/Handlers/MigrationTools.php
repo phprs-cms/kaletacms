@@ -130,7 +130,7 @@ trait MigrationTools
     {
         $input = ['skryte' => true, 'obrazky' => true, 'jazyk' => (string) ($a['language'] ?? ''), 'rubrika' => (int) ($a['default_category'] ?? 0),
             'autori' => is_array($a['authors'] ?? null) ? $a['authors'] : []];
-        foreach (['drafts' => 'koncepty', 'pages' => 'stranky', 'builder' => 'stavitel', 'redirects' => 'presmerovani', 'collections' => 'kolekce', 'menus' => 'menu', 'images' => 'obrazky'] as $en => $cs) {
+        foreach (['drafts' => 'koncepty', 'pages' => 'stranky', 'builder' => 'stavitel', 'redirects' => 'presmerovani', 'collections' => 'kolekce', 'menus' => 'menu', 'images' => 'obrazky', 'add_languages' => 'jazyky_pridat'] as $en => $cs) {
             if (array_key_exists($en, $a)) {
                 $input[$cs] = (bool) $a[$en];
             }

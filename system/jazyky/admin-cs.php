@@ -5622,7 +5622,6 @@ return [
     'languages in the addresses' => 'jazyky v adresách',
     'no language named' => 'jazyk neuveden',
     'Each post, page and category arrives in its language version and is linked to its original in the default language.' => 'Každý příspěvek, stránka i kategorie přijde do své jazykové verze a propojí se se svým originálem ve výchozím jazyce.',
-    'Language versions the site does not have yet are added: %s.' => 'Jazykové verze, které web zatím nemá, se přidají: %s.',
     'Not imported – this site cannot offer these languages yet: %s.' => 'Nepřeneseno – tyto jazyky web zatím nabídnout neumí: %s.',
     'Translations linked to their original' => 'Překlady propojené s originálem',
     'Language versions added to the site: %s.' => 'Jazykové verze přidané na web: %s.',
@@ -5638,4 +5637,7 @@ return [
     'A news item of this category has the same address as a news item in that language version. Change one of them first.' => 'Novinka této kategorie má stejnou adresu jako novinka v té jazykové verzi. Nejdřív jednu z nich změňte.',
     'Two language versions in the export share addresses, so the same address in every language was switched on (Settings → General).' => 'Dvě jazykové verze v exportu sdílejí adresy, proto se zapnula stejná adresa ve všech jazycích (Nastavení → Základní).',
     'Skipped: %d (that language version already has the address).' => 'Přeskočeno: %d (ta jazyková verze už adresu má).',
+    'Apps connected to this account (the Claude connector) are disconnected with the new password – connect them again in the Claude app.' => 'Aplikace připojené k tomuto účtu (konektor Claude) se novým heslem odpojí – připojte je znovu v aplikaci Claude.',
+    'Language versions the site does not have yet: %s – add them below, otherwise their posts are left out.' => 'Jazykové verze, které web zatím nemá: %s – přidejte je níže, jinak se jejich příspěvky vynechají.',
+    'add the language versions %s to the site – they show in the language switcher at once' => 'přidat na web jazykové verze %s – hned se ukážou v přepínači jazyků',
 ];

@@ -52,7 +52,7 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
     $found === [] ? t('no language named') : implode(', ', array_map(fn (string $code, int $count): string => (Kaleta\Core\Language::AVAILABLE[$code][0] ?? $code) . ' ' . $count, array_map('strval', array_keys($found)), array_map('intval', $found))))) ?>
 	<?= e(t('Each post, page and category arrives in its language version and is linked to its original in the default language.')) ?>
 <?php if ($missing !== []): ?>
-	<?= e(t('Language versions the site does not have yet are added: %s.', implode(', ', array_map(fn (string $code): string => Kaleta\Core\Language::AVAILABLE[$code][0] ?? $code, $missing)))) ?>
+	<?= e(t('Language versions the site does not have yet: %s – add them below, otherwise their posts are left out.', implode(', ', array_map(fn (string $code): string => Kaleta\Core\Language::AVAILABLE[$code][0] ?? $code, $missing)))) ?>
 <?php endif ?></p>
 <?php if (($state['jazyky']['nepodporovane'] ?? []) !== []): ?>
 <p class="hlaska hlaska-varovani"><?= e(t('Not imported – this site cannot offer these languages yet: %s.', implode(', ', array_map(fn (string $language, int $count): string => $language . ' (' . $count . ')', array_map('strval', array_keys($state['jazyky']['nepodporovane'])), array_map('intval', $state['jazyky']['nepodporovane']))))) ?></p>
@@ -110,6 +110,9 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 <?php endif ?>
 <?php if (($p['menu'] ?? []) !== []): ?>
 	<label><input type="checkbox" name="menu" value="1"<?= ($options['menu'] ?? true) ? ' checked' : '' ?>> <?= e(t('navigation menus (%s) into the draft look', count($p['menu']))) ?></label>
+<?php endif ?>
+<?php if (($missing ?? []) !== []): ?>
+	<label><input type="checkbox" name="jazyky_pridat" value="1"<?= ($options['jazyky_pridat'] ?? false) ? ' checked' : '' ?>> <?= e(t('add the language versions %s to the site – they show in the language switcher at once', implode(', ', array_map(fn (string $code): string => Kaleta\Core\Language::AVAILABLE[$code][0] ?? $code, $missing)))) ?></label>
 <?php endif ?>
 	<label><input type="checkbox" name="skryte" value="1"<?= ($options['skryte'] ?? false) ? ' checked' : '' ?>> <?= e(t('everything hidden – news as drafts, pages hidden; publish them when they are ready')) ?></label>
 </div></div>

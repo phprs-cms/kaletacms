@@ -65,6 +65,9 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 <div class="radek"><span class="popisek"><?= e(t('Connections')) ?></span><div class="volby"><label><input type="checkbox" name="zrusit_tokeny" value="1" checked> <?= e(t('also revoke connection tokens (Claude, API)')) ?></label>
 	<span class="napoveda"><?= e(t('A token works without the password and without two-factor sign-in. If you are changing the password because you suspect misuse, leave this ticked and create the connection again afterwards.')) ?></span></div></div>
 <?php endif ?>
+<?php if ($apps !== []): ?>
+<p class="napoveda"><?= e(t('Apps connected to this account (the Claude connector) are disconnected with the new password – connect them again in the Claude app.')) ?></p>
+<?php endif ?>
 </fieldset>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Změnit heslo')) ?>"></p>
 </form>

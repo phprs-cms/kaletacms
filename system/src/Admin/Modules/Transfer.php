@@ -287,7 +287,7 @@ final class Transfer extends Module
         WpImport::run($state, WpImport::options([
             'jazyk' => $r->post('jazyk'), 'koncepty' => $r->postBool('koncepty'), 'stranky' => $r->postBool('stranky'), 'stavitel' => $r->postBool('stavitel'),
             'presmerovani' => $r->postBool('presmerovani'), 'rubrika' => $r->postInt('rubrika'), 'kolekce' => $r->postBool('kolekce'),
-            'menu' => $r->postBool('menu'), 'skryte' => $r->postBool('skryte'),
+            'menu' => $r->postBool('menu'), 'skryte' => $r->postBool('skryte'), 'jazyky_pridat' => $r->postBool('jazyky_pridat'),
         ], $this->db, $this->app->settings()));
         WpImport::saveState($state);
 

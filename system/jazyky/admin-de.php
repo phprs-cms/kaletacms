@@ -6028,7 +6028,6 @@ return [
     'languages in the addresses' => 'Sprachen in den Adressen',
     'no language named' => 'keine Sprache angegeben',
     'Each post, page and category arrives in its language version and is linked to its original in the default language.' => 'Jeder Beitrag, jede Seite und jede Kategorie kommt in ihre Sprachversion und wird mit dem Original in der Standardsprache verknüpft.',
-    'Language versions the site does not have yet are added: %s.' => 'Sprachversionen, die die Website noch nicht hat, werden hinzugefügt: %s.',
     'Not imported – this site cannot offer these languages yet: %s.' => 'Nicht importiert – diese Sprachen kann die Website noch nicht anbieten: %s.',
     'Translations linked to their original' => 'Mit dem Original verknüpfte Übersetzungen',
     'Language versions added to the site: %s.' => 'Zur Website hinzugefügte Sprachversionen: %s.',
@@ -6044,4 +6043,7 @@ return [
     'A news item of this category has the same address as a news item in that language version. Change one of them first.' => 'Ein News-Beitrag dieser Kategorie hat dieselbe Adresse wie ein News-Beitrag in dieser Sprachversion. Ändern Sie zuerst einen davon.',
     'Two language versions in the export share addresses, so the same address in every language was switched on (Settings → General).' => 'Zwei Sprachversionen im Export teilen Adressen, daher wurde „Dieselbe Adresse in jeder Sprache“ eingeschaltet (Einstellungen → Allgemein).',
     'Skipped: %d (that language version already has the address).' => 'Übersprungen: %d (diese Sprachversion hat die Adresse bereits).',
+    'Apps connected to this account (the Claude connector) are disconnected with the new password – connect them again in the Claude app.' => 'Mit diesem Konto verbundene Apps (der Claude-Konnektor) werden mit dem neuen Passwort getrennt – verbinden Sie sie in der Claude-App erneut.',
+    'Language versions the site does not have yet: %s – add them below, otherwise their posts are left out.' => 'Sprachversionen, die die Website noch nicht hat: %s – fügen Sie sie unten hinzu, sonst werden ihre Beiträge ausgelassen.',
+    'add the language versions %s to the site – they show in the language switcher at once' => 'die Sprachversionen %s zur Website hinzufügen – sie erscheinen sofort im Sprachumschalter',
 ];

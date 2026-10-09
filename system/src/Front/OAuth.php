@@ -452,6 +452,16 @@ final class OAuth
      * no code are deleted a day after their registration. A client approved once stays – Claude keeps its client_id and
      * signs in with it again when its tokens have run out.
      */
+    /**
+     * Disconnects every app a user connected over OAuth (the Claude connector): its access and refresh tokens go. Called when
+     * the password changes (3.9, N39-1) – a refresh token lives a year, so a stolen one must not outlive the password.
+     * Personal tokens (druh "token") stay; My account asks about those.
+     */
+    public static function revokeConnections(Db $db, int $userId): int
+    {
+        return $db->run("DELETE FROM {api_tokeny} WHERE idu = ? AND druh <> 'token'", [$userId])->rowCount();
+    }
+
     public static function purgeUnusedClients(Db $db): int
     {
         $db->run('DELETE FROM {oauth_rotated} WHERE expires_at < ?', [date('Y-m-d H:i:s')]);

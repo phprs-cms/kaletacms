@@ -128,6 +128,9 @@ final class Users extends Module
         $this->db->transaction(function () use (&$id, $data, $modules): void {
             if ($id > 0) {
                 $this->db->update('uzivatele', $data, ['idu' => $id]);
+                if (isset($data['password'])) {
+                    \Kaleta\Front\OAuth::revokeConnections($this->db, $id); // a new password ends the user's Claude connections (N39-1)
+                }
             } else {
                 $id = $this->db->insert('uzivatele', $data);
             }

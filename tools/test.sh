@@ -199,6 +199,12 @@ expect "výchozí kategorie založená v jazyce webu" "$("${MYSQL[@]}" "$DB_NAME
 # news author: sees only their own news items and does not publish
 NEWS_ID=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idc FROM ka_novinky ORDER BY idc LIMIT 1")
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d idu=0 -d jmeno=Autor -d user=autor --data-urlencode "password=$PASSWORD" -d admin=0
+# 3.9 N39-1: a new password set by an administrator ends the user's Claude connections (OAuth tokens live a year), personal tokens stay
+IDU_AUTOR=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idu FROM ka_uzivatele WHERE user = 'autor'")
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_api_tokeny (idu, nazev, klient, druh, otisk, vytvoren, expirace) VALUES ($IDU_AUTOR, 'Claude', 'n39client', 'obnova', SHA2('n39-refresh', 256), '$(site_time)', '$(site_time '+300 days')'), ($IDU_AUTOR, 'Claude', 'n39client', 'pristup', SHA2('n39-access', 256), '$(site_time)', '$(site_time '+1 hour')'), ($IDU_AUTOR, 'personal', NULL, 'token', SHA2('n39-personal', 256), '$(site_time)', NULL)"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d "idu=$IDU_AUTOR" -d jmeno=Autor -d user=autor --data-urlencode "password=$PASSWORD" -d admin=0
+expect "3.9 N39-1: an administrator's new password ends the user's Claude connections, the personal token stays" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(SUM(druh <> 'token'), '|', SUM(druh = 'token')) FROM ka_api_tokeny WHERE idu = $IDU_AUTOR")" "0|1"
+"${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_api_tokeny WHERE idu = $IDU_AUTOR"
 JAR2="$WORK/jar2"
 TOKEN2=$(curl -s -c "$JAR2" "$B/admin.php" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//')
 curl -s -b "$JAR2" -c "$JAR2" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN2" -d user=autor --data-urlencode "password=$PASSWORD"
@@ -2533,7 +2539,7 @@ sq "DROP TABLE IF EXISTS ka_test_ml; CREATE TABLE ka_test_ml AS SELECT * FROM ka
 ml_run() { # $1 = fixture: upload, import confirmed with the first call, one call per batch until done
   mcp upload_file "{\"filename\":\"$1.xml\",\"data\":\"$(base64 < "$ROOT/tools/fixtures/$1.xml" | tr -d '\n')\"}" > "$WORK/response"
   ML_FILE=$(mcp_value import_file); [ -n "$ML_FILE" ] && [ "$ML_FILE" != null ] || ML_FILE="$1.xml" # an export already there is never replaced
-  mcp import_wordpress "{\"file\":\"$ML_FILE\",\"confirm\":true,\"images\":false}" > "$WORK/response"
+  mcp import_wordpress "{\"file\":\"$ML_FILE\",\"confirm\":true,\"images\":false${2:-,\"add_languages\":true}}" > "$WORK/response"
   for _ in 1 2 3 4 5; do [ "$(mcp_value phase)" = done ] && break; mcp import_wordpress "{\"import\":\"$ML_FILE\"}" > "$WORK/response"; done
 }
 ml_run wordpress-polylang
@@ -2571,6 +2577,14 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&a
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=progress&soubor=wordpress-polylang.xml" -d "_csrf=$TOKEN"
 check "3.9 admin import preview: a multilingual site with its languages, the unavailable one named" 200 "/admin.php?module=transfer&action=preview&soubor=wordpress-polylang.xml" 'Polylang'
 contains -q 'ar (1)' "$WORK/response" && echo "  ok     3.9 admin import preview: Arabic named as a language this site cannot offer" || { echo "  CHYBA  3.9 admin preview of the languages"; ERRORS=$((ERRORS+1)); }
+# N39-3: without add_languages a multilingual import never adds a language version (it would show in the switcher at once)
+sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'additional_languages'" > /dev/null
+cp "$ROOT/tools/fixtures/wordpress-polylang.xml" "$WORK/wordpress-polylang-n39.xml"
+mcp upload_file "{\"filename\":\"wordpress-polylang-n39.xml\",\"data\":\"$(base64 < "$WORK/wordpress-polylang-n39.xml" | tr -d '\n')\"}" > "$WORK/response"
+N39_FILE=$(mcp_value import_file); [ -n "$N39_FILE" ] && [ "$N39_FILE" != null ] || N39_FILE=wordpress-polylang-n39.xml
+mcp import_wordpress "{\"file\":\"$N39_FILE\",\"confirm\":true,\"images\":false}" > "$WORK/response"
+for _ in 1 2 3 4 5; do [ "$(mcp_value phase)" = done ] && break; mcp import_wordpress "{\"import\":\"$N39_FILE\"}" > "$WORK/response"; done
+expect "3.9 N39-3: without add_languages the import adds no language version" "$(mcp_value phase)|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'additional_languages'")|$(mcp_value languages added_to_site 0)" "done||null"
 sq "DELETE FROM ka_nastaveni WHERE promenna IN ('additional_languages', 'extensions', 'look_draft'); INSERT INTO ka_nastaveni SELECT * FROM ka_test_ml; DROP TABLE ka_test_ml" > /dev/null
 
 echo "== 2.3: leads, statistics, forms, embeds, page head code, accessibility audit"

@@ -137,14 +137,20 @@ final class Slug
             return self::refusal($shared);
         }
         $settings->set('slugs_per_language', '0');
+        $added = [];
         try {
             foreach (self::TABLES as $table => [, $global]) {
                 if (!self::hasKey($db, $table, $global)) {
                     $db->run("ALTER TABLE {{$table}} ADD UNIQUE KEY {$global} (seo_link)");
+                    $added[$table] = $global;
                 }
             }
         } catch (\PDOException $e) {
-            // a second language version took a shared slug in the meantime: per language stays on
+            // a second language version took a shared slug in the meantime: per language stays on – and the keys this call
+            // already put back go again, so no table refuses a shared slug while the setting says they are allowed (N39-6)
+            foreach ($added as $table => $global) {
+                $db->run("ALTER TABLE {{$table}} DROP INDEX {$global}");
+            }
             $settings->set('slugs_per_language', '1');
 
             return ($shared = self::duplicates($db)) !== [] ? self::refusal($shared) : throw $e;

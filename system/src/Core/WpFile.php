@@ -139,6 +139,13 @@ final class WpFile
     }
 
     /**
+     * At most this many categories and tags (and their languages) are kept from the header (3.9, N39-2): a company site has
+     * hundreds; an export with millions of translation groups would otherwise take eight times its size in memory on every
+     * import batch. Terms past the limit are imported without a language link.
+     */
+    public const int MAX_TERMS = 20000;
+
+    /**
      * Data from the start of the file (before the first post): old site, authors (and their e-mails, only to find an
      * existing user with the same address – never to create an account), categories, tags, the navigation menus
      * (nav_menu terms, 3.6) and the term numbers of categories and tags (menu items point to terms by number).
@@ -184,7 +191,7 @@ final class WpFile
                     $email = trim($field['wp:author_email'] ?? '');
                     $h['emaily'][(string) ($field['wp:author_login'] ?? '')] = filter_var($email, FILTER_VALIDATE_EMAIL) !== false ? mb_strtolower($email) : '';
                 }
-                if ($term > 0 && in_array($reader->name, ['wp:category', 'wp:tag'], true)) {
+                if ($term > 0 && in_array($reader->name, ['wp:category', 'wp:tag'], true) && count($h['terminy']) < self::MAX_TERMS) {
                     // menu items name a category or a tag by its term number
                     $h['terminy'][$term] = [$reader->name === 'wp:category' ? 'rubrika' : 'stitek', (string) ($field[$reader->name === 'wp:category' ? 'wp:category_nicename' : 'wp:tag_slug'] ?? '')];
                     $h['nazev_terminu'][$term] = self::plainText($field[$reader->name === 'wp:category' ? 'wp:cat_name' : 'wp:tag_name'] ?? '');
@@ -205,7 +212,7 @@ final class WpFile
                     if (($field['wp:term_taxonomy'] ?? '') === 'language' && $slug !== '') {
                         $h['jazyky'][$slug] = WpLanguages::locale($description);
                         $h['plugin'] = WpLanguages::POLYLANG;
-                    } elseif (($field['wp:term_taxonomy'] ?? '') === 'term_translations' && $slug !== '') {
+                    } elseif (($field['wp:term_taxonomy'] ?? '') === 'term_translations' && $slug !== '' && count($h['jazyk_terminu']) < self::MAX_TERMS) {
                         foreach (WpLanguages::translationMap($description) as $language => $id) {
                             $h['jazyk_terminu'][$id] = $language;
                             $h['skupina_terminu'][$id] = 'pll:' . $slug;

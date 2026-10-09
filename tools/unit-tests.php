@@ -1400,6 +1400,16 @@ $wpmlItems = iterator_to_array((new Kaleta\Core\WpFile($wpmlPath))->items());
 check('3.9 WpImport preview (WPML): the language from the custom fields, a duplicate grouped with its original, a page with the language only in its address',
     [$wpmlState['jazyky']['nalezeno'], $wpmlState['jazyky']['skupiny'], $wpmlState['jazyky']['polozky'][307], Kaleta\Core\WpImport::itemLanguage($wpmlItems[4], $wpmlState), Kaleta\Core\WpImport::itemLanguage($wpmlItems[0], $wpmlState)],
     [['cs' => 3, 'en' => 4], ['wpml:1' => [300, 301], 'dup:305' => [306], 'wpml:2' => [310, 311]], ['en', 'page', 'about-wpx'], ['en', ''], ['cs', '']]);
+// 3.9 N39-2: translation groups past WpFile::MAX_TERMS are not kept – an export with a huge number of them cannot fill the memory
+$n392File = (string) tempnam(sys_get_temp_dir(), 'kaleta-n392');
+$n392 = '<?xml version="1.0" encoding="UTF-8"?><rss xmlns:wp="http://wordpress.org/export/1.2/"><channel><title>x</title>';
+for ($i = 0; $i < Kaleta\Core\WpFile::MAX_TERMS / 2 + 5000; $i++) {
+    $n392 .= '<wp:term><wp:term_id>' . $i . '</wp:term_id><wp:term_taxonomy>term_translations</wp:term_taxonomy><wp:term_slug>pll_' . $i . '</wp:term_slug><wp:term_description><![CDATA[a:2:{s:2:"cs";i:' . (2 * $i + 1) . ';s:2:"en";i:' . (2 * $i + 2) . ';}]]></wp:term_description></wp:term>';
+}
+file_put_contents($n392File, $n392 . '</channel></rss>');
+$n392Header = (new Kaleta\Core\WpFile($n392File))->header();
+@unlink($n392File);
+check('3.9 N39-2: the WordPress header keeps at most WpFile::MAX_TERMS term languages', [count($n392Header['jazyk_terminu']), $n392Header['skupina_terminu'][1] ?? ''], [Kaleta\Core\WpFile::MAX_TERMS, 'pll:pll_0']);
 check('3.9 WpImport::itemLanguage: a single-language export never guesses a language from an address; categoryKey',
     [Kaleta\Core\WpImport::itemLanguage(['odkaz' => 'https://a.example/en/x/', 'jazyk_wp' => '', 'jazyk_plugin' => ''], Kaleta\Core\WpImport::newState('x.xml')),
         Kaleta\Core\WpImport::categoryKey('blog', ''), Kaleta\Core\WpImport::categoryKey('blog', 'en')],

@@ -764,6 +764,7 @@
     },
     "import_wordpress": {
         "parameters": {
+            "add_languages": "boolean",
             "authors": "object",
             "builder": "boolean",
             "collections": "boolean",

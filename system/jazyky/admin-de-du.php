@@ -869,4 +869,7 @@ return [
     'The same address in every language cannot be switched off while two language versions share an address: %s. Change one of each pair first.' => 'Dieselbe Adresse in jeder Sprache lässt sich nicht ausschalten, solange zwei Sprachversionen eine Adresse teilen: %s. Ändere zuerst bei jedem Paar eine davon.',
     'The database is not updated yet (migration 0083) – open the administration once more and try again.' => 'Die Datenbank ist noch nicht aktualisiert (Migration 0083) – öffne die Administration erneut und versuche es noch einmal.',
     'A news item of this category has the same address as a news item in that language version. Change one of them first.' => 'Ein News-Beitrag dieser Kategorie hat dieselbe Adresse wie ein News-Beitrag in dieser Sprachversion. Ändere zuerst einen davon.',
+    'Apps connected to this account (the Claude connector) are disconnected with the new password – connect them again in the Claude app.' => 'Mit diesem Konto verbundene Apps (der Claude-Konnektor) werden mit dem neuen Passwort getrennt – verbinde sie in der Claude-App erneut.',
+    'Language versions the site does not have yet: %s – add them below, otherwise their posts are left out.' => 'Sprachversionen, die die Website noch nicht hat: %s – füge sie unten hinzu, sonst werden ihre Beiträge ausgelassen.',
+    'add the language versions %s to the site – they show in the language switcher at once' => 'die Sprachversionen %s zur Website hinzufügen – sie erscheinen sofort im Sprachumschalter',
 ];

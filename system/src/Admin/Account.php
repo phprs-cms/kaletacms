@@ -68,7 +68,9 @@ final class Account
                         $newHash = password_hash($newItems, PASSWORD_DEFAULT);
                         $db->update('uzivatele', ['password' => $newHash], ['idu' => $user['idu']]);
                         $app->auth()->refreshAfterPasswordChange($newHash); // this ends the other sign-ins of this account
-                        $revoked = $r->postBool('zrusit_tokeny') ? $db->delete('api_tokeny', ['idu' => $user['idu']]) : 0;
+                        // apps connected over OAuth (Claude) always go – their refresh token lives a year (N39-1); personal tokens on request
+                        $revoked = \Kaleta\Front\OAuth::revokeConnections($db, (int) $user['idu'])
+                            + ($r->postBool('zrusit_tokeny') ? $db->delete('api_tokeny', ['idu' => $user['idu'], 'druh' => 'token']) : 0);
                         ChangeLog::write($app, 'ucet', 'password_change', $revoked > 0 ? t('connection tokens revoked: %d', $revoked) : '');
                         $message = ['ok', $revoked > 0 ? 'The password has been changed, other sign-ins ended and connection tokens revoked.' : 'The password has been changed and other sign-ins of this account have been ended.'];
                     }
