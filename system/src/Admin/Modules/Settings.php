@@ -104,6 +104,12 @@ class Settings extends Module
             }
             $field['screen_collections'] = 'seznam:' . implode('|', array_keys($this->screenCollections())); // the screen shows only collections that exist
         }
+        if ($tab === 'cookies') {
+            // 3.9 (UXM-11): the cookie bar text and the policy link for each further language version; empty = as in the default language
+            foreach (\Kaleta\Core\Language::additional($this->app->settings()) as $language) {
+                $field += ['cookies_text_' . $language => $field['cookies_text'], 'cookies_policy_url_' . $language => $field['cookies_policy_url']];
+            }
+        }
 
         return $field;
     }
@@ -726,13 +732,27 @@ class Settings extends Module
      */
     public static function checkable(string $key): bool
     {
+        $type = self::fieldType($key);
+
+        return $type !== null && !str_starts_with($type, 'tajne') && !str_starts_with($type, 'seznam');
+    }
+
+    /**
+     * The type of a settings field; a language variant of a per-language setting (Settings::PER_LANGUAGE: site_name_de,
+     * cookies_text_de, cookies_policy_url_de – 3.9) has the type of its base. null = not a field of the admin form.
+     */
+    private static function fieldType(string $key): ?string
+    {
         foreach (self::FIELDS as $field) {
             if (isset($field[$key])) {
-                return !str_starts_with($field[$key], 'tajne') && !str_starts_with($field[$key], 'seznam');
+                return $field[$key];
             }
         }
+        if (preg_match('/^(.+)_([a-z]{2})$/D', $key, $m) === 1 && in_array($m[1], \Kaleta\Core\Settings::PER_LANGUAGE, true)) {
+            return self::fieldType($m[1]);
+        }
 
-        return false;
+        return null;
     }
 
     /**
@@ -741,10 +761,7 @@ class Settings extends Module
      */
     public static function verifyValue(string $key, string $value): ?string
     {
-        $type = null;
-        foreach (self::FIELDS as $field) {
-            $type ??= $field[$key] ?? null;
-        }
+        $type = self::fieldType($key);
         if ($type === null && preg_match('/^(nazev|popis)_webu_([a-z]{2})$/D', $key, $m)) {
             $type = $m[1] === 'nazev' ? 'text' : 'radky';
         }
