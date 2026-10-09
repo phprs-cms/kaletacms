@@ -341,6 +341,14 @@ final class SiteImport
             }
             $this->db->run('SET FOREIGN_KEY_CHECKS = 1');
             $state['vyprazdneno'] = true;
+            // 3.9: an export where two language versions share a slug (/kontakt, /en/kontakt) needs slugs per language here
+            // too, before the first row – otherwise the global unique key refuses the second one (Core\Slug)
+            if (!Slug::perLanguage($this->db) && self::sharesSlugs(self::workFolder((string) $state['soubor']))) {
+                $refusal = Slug::switchPerLanguage($this->db, $this->settings, true);
+                $state['zmeny'] = [...(array) $state['zmeny'], $refusal === null
+                    ? ['Two language versions in the export share addresses, so the same address in every language was switched on (Settings → General).']
+                    : [$refusal[0], $refusal[1]]];
+            }
 
             return;
         }
@@ -499,6 +507,25 @@ final class SiteImport
         return preg_match('/^[a-z0-9][a-z0-9-]*\z/', $slug) && strlen($slug) <= $max ? $slug : slugify($fallback, $max);
     }
 
+    /** Does a slug of a page, news item or category appear twice in the export (two language versions, 3.9)? Read without decoding the rows. */
+    private static function sharesSlugs(string $folder): bool
+    {
+        foreach (array_keys(Slug::TABLES) as $table) {
+            $seen = [];
+            $file = $folder . '/' . $table . '.ndjson';
+            foreach (is_file($file) ? new \SplFileObject($file, 'rb') : [] as $line) {
+                if (is_string($line) && preg_match('/"seo_link"\s*:\s*"((?:[^"\\\\]|\\\\.)*)"/', $line, $m) === 1) {
+                    if (isset($seen[$m[1]])) {
+                        return true;
+                    }
+                    $seen[$m[1]] = true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     /** The address of a page: one segment, or a subpage's path under its parent (o-nas/tym); otherwise one made from the name. */
     private static function pageSlug(mixed $slug, string $fallback): string
     {
@@ -511,7 +538,7 @@ final class SiteImport
      * A page slug the system uses (an English system path of 3.7 such as form or subscription, Pages::slugReserved) would
      * take over that address – the page gets a free one (form-2), its subpages move with it, and the result says so (N37-2).
      */
-    private function freePageSlug(string $slug): string
+    private function freePageSlug(string $slug, string $language): string
     {
         $root = explode('/', $slug, 2)[0];
         if (isset($this->renamedPages[$root])) {
@@ -531,9 +558,9 @@ final class SiteImport
             }
         }
         $free = Slug::makeUnique($slug, fn (string $a): bool => Pages::slugReserved($a, $this->db) || isset($this->exportPageSlugs[$a])
-            || $this->db->value('SELECT 1 FROM {stranky} WHERE seo_link = ?', [$a]) !== null, 120);
+            || Slug::taken($this->db, 'stranky', $a, $language), 120);
         $this->renamedPages[$slug] = $free;
-        Pages::move($this->db, $slug, $free, false); // subpages imported before it; the old address is the system's, so no redirect
+        Pages::move($this->db, $slug, $free, false, $language); // subpages imported before it; the old address is the system's, so no redirect
         $this->notes[] = ['The address %s is used by the system, so the page got %s.', '/' . $slug, '/' . $free];
 
         return $free;
@@ -705,7 +732,7 @@ final class SiteImport
 
     private static function language(mixed $v): string
     {
-        return is_string($v) && preg_match('/^[a-z]{2}$/D', $v) ? $v : '';
+        return Language::offeredOrDefault($v);
     }
 
     /** A path of an image or file: from media/, or an https:// address; anything else (javascript:…) is dropped. */
@@ -761,7 +788,7 @@ final class SiteImport
             return null;
         }
 
-        return ['ids' => (int) $r['ids'], 'titulek' => $title, 'seo_link' => $this->freePageSlug(self::pageSlug($r['seo_link'] ?? '', $title)), 'popis' => self::text($r['popis'] ?? '', 300),
+        return ['ids' => (int) $r['ids'], 'titulek' => $title, 'seo_link' => $this->freePageSlug(self::pageSlug($r['seo_link'] ?? '', $title), self::language($r['jazyk'] ?? '')), 'popis' => self::text($r['popis'] ?? '', 300),
             'seo_titulek' => self::text($r['seo_titulek'] ?? '', 200), 'obrazek' => self::file($r['obrazek'] ?? ''), 'noindex' => (int) !empty($r['noindex']),
             'text' => $text, 'zobrazit' => (int) !empty($r['zobrazit']), 'zverejnit_od' => self::date($r['zverejnit_od'] ?? null),
             'v_menu' => (int) !empty($r['v_menu']), 'poradi' => (int) ($r['poradi'] ?? 0), 'zmeneno' => self::date($r['zmeneno'] ?? null) ?? date('Y-m-d H:i:s'),
@@ -967,8 +994,9 @@ final class SiteImport
         }
         $wanted = self::slug($r['slug'] ?? '', $name, 160);
         $other = fn (string $a): bool => $this->db->value('SELECT 1 FROM {collection_category_texts} WHERE idk = ? AND language = ? AND slug = ?', [$idk, $language, $a]) !== null;
+        [$sameLanguage, $languageParams] = Slug::scope($this->db, $language); // 3.9: an item of another language version only without slugs per language
         $unusable = fn (string $a): bool => preg_match(CollectionCategories::SLUG_PATTERN, $a) !== 1 || in_array($a, CollectionCategories::RESERVED_SLUGS, true)
-            || $this->db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? LIMIT 1', [$idk, $a]) !== null;
+            || $this->db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ?' . $sameLanguage . ' LIMIT 1', [$idk, $a, ...$languageParams]) !== null;
         $slug = $wanted;
         if ($unusable($wanted)) {
             $slug = Slug::makeUnique($wanted, fn (string $a): bool => $unusable($a) || $other($a), 160);
@@ -1050,8 +1078,7 @@ final class SiteImport
         $values = json_decode((string) @file_get_contents(self::workFolder($file) . '/nastaveni.json'), true);
         foreach (is_array($values) ? $values : [] as $key => $value) {
             $key = OldSettingsKeys::current((string) $key); // an export of 1.4.0 and older has the old keys
-            $base = (string) preg_replace('/_[a-z]{2}$/', '', $key);
-            if (!is_scalar($value) || $key === 'site_url' || (!in_array($key, SiteExport::SETTINGS, true) && !(in_array($base, Settings::PER_LANGUAGE, true) && $base !== $key))) {
+            if (!is_scalar($value) || $key === 'site_url' || (!in_array($key, SiteExport::SETTINGS, true) && Language::settingKey($key, Settings::PER_LANGUAGE) === null)) {
                 continue;
             }
             $value = (string) $value;

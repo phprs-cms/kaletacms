@@ -66,7 +66,7 @@ final class Popups
             'stranky' => array_values(array_unique(array_filter(array_map('intval', is_array($p['stranky'] ?? null) ? $p['stranky'] : []), fn (int $i): bool => $i > 0))),
             'kolekce' => array_values(array_unique(array_filter(is_array($p['kolekce'] ?? null) ? $p['kolekce'] : [], fn (mixed $k): bool => is_string($k) && preg_match('/^[a-z0-9-]{1,110}$/D', $k) === 1))),
             'novinky' => !empty($p['novinky']),
-            'jazyk' => is_string($p['jazyk'] ?? null) && preg_match('/^[a-z]{2}$/D', $p['jazyk']) ? $p['jazyk'] : '',
+            'jazyk' => \Kaleta\Core\Language::offeredOrDefault($p['jazyk'] ?? null),
             'od' => $date($p['od'] ?? ''),
             'do' => $date($p['do'] ?? ''),
             'zarizeni' => isset(self::DEVICES[$p['zarizeni'] ?? '']) ? $p['zarizeni'] : 'vse',

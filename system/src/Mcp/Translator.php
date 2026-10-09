@@ -712,8 +712,8 @@ final class Translator
         foreach ($settings as $k => $h) {
             $k = (string) $k;
             $language = '';
-            if (preg_match('/^(site_name|site_description|nazev_webu|popis_webu)_([a-z]{2})$/D', $k, $m)) {
-                [$k, $language] = [$m[1], '_' . $m[2]];
+            if (($m = \Kaleta\Core\Language::settingKey($k, ['site_name', 'site_description', 'nazev_webu', 'popis_webu'])) !== null) {
+                [$k, $language] = [$m[0], '_' . $m[1]];
             }
             $result[($mapping[$k] ?? $k) . $language] = $h;
         }

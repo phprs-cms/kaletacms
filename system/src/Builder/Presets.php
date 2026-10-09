@@ -178,7 +178,7 @@ final class Presets
     private static function createListPage(App $app, array $preset, string $key, string $name, string $pageSeo, string $collectionSeo, array $fields): ?int
     {
         $db = $app->db();
-        if ($db->value('SELECT 1 FROM {stranky} WHERE seo_link = ?', [$pageSeo]) !== null || \Kaleta\Admin\Modules\Pages::slugReserved($pageSeo, $db)) {
+        if (\Kaleta\Core\Slug::taken($db, 'stranky', $pageSeo, '') || \Kaleta\Admin\Modules\Pages::slugReserved($pageSeo, $db)) {
             return null;
         }
         $build = self::listPage($preset, $name, $collectionSeo, $fields);

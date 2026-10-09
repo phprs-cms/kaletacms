@@ -74,7 +74,7 @@ final class Blueprint
             if (is_array($v) && $v !== [] && !array_is_list($v)) {
                 $out = [];
                 foreach ($v as $language => $t) {
-                    if (is_string($language) && preg_match('/^[a-z]{2}$/D', $language) === 1 && is_string($t) && trim($t) !== '') {
+                    if (is_string($language) && Language::isOffered($language) && is_string($t) && trim($t) !== '') {
                         $out[$language] = mb_substr(trim(strip_tags($t)), 0, $max);
                     }
                 }

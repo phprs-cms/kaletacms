@@ -78,8 +78,10 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 		<span class="napoveda"><?= e(t('Texts for visitors (Search, Read more…) are translated into: %s. Other languages show them in English, with dates in their own format. You write the content of pages and news in the language of the version.', implode(', ', $translated))) ?></span>
 	</div>
 </div>
+<?php $field('slugs_per_language', 'The same address in every language', 'ano', 'A page, a news item or a category may have the same address as one in another language version (/kontakt and /en/kontakt), as on a multilingual WordPress site. System addresses and language codes stay reserved in every language. Switching it off again is possible only while no two language versions share an address.'); ?>
 <?php else: ?>
 <?php foreach (array_filter(explode(',', $values['additional_languages'])) as $code): ?><input type="hidden" name="additional_languages[]" value="<?= e($code) ?>"><?php endforeach ?>
+<?php if ($values['slugs_per_language'] === '1'): ?><input type="hidden" name="slugs_per_language" value="1"><?php endif ?>
 <?php endif ?>
 </fieldset>
 <fieldset>

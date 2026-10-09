@@ -176,7 +176,7 @@ trait NewsTools
         if ($displayName === '') {
             throw new \InvalidArgumentException('Chybí název kategorie.');
         }
-        $seo = $this->availableSlug('kategorie', 'idt', slugify($displayName, 110));
+        $seo = $this->availableSlug('kategorie', slugify($displayName, 110));
 
         $description = \Kaleta\Core\Html::safeOrFail((string) ($a['popis'] ?? ''), 'description');
 
@@ -208,12 +208,13 @@ trait NewsTools
             $changes['hodnost'] = max(0, min(65535, (int) $a['order']));
         }
         if (trim((string) ($a['slug'] ?? '')) !== '') {
-            $changes['seo_link'] = \Kaleta\Core\Slug::makeUnique(slugify((string) $a['slug'], 110), fn (string $x): bool => $db->value('SELECT idt FROM {kategorie} WHERE seo_link = ? AND idt <> ?', [$x, $id]) !== null, 120);
+            $changes['seo_link'] = \Kaleta\Core\Slug::makeUnique(slugify((string) $a['slug'], 110), fn (string $x): bool => \Kaleta\Core\Slug::taken($db, 'kategorie', $x, (string) $c['jazyk'], $id), 120);
         }
         if ($changes !== []) {
             $db->update('kategorie', $changes, ['idt' => $id]);
             if (isset($changes['seo_link']) && $changes['seo_link'] !== $c['seo_link']) {
-                \Kaleta\Admin\Modules\Redirects::add($db, 'novinky/kategorie/' . $c['seo_link'], 'novinky/kategorie/' . $changes['seo_link']);
+                \Kaleta\Admin\Modules\Redirects::add($db, \Kaleta\Core\Slug::redirectPath($db, 'novinky/kategorie/' . $c['seo_link'], (string) $c['jazyk']),
+                    \Kaleta\Core\Slug::redirectPath($db, 'novinky/kategorie/' . $changes['seo_link'], (string) $c['jazyk']));
             }
             \Kaleta\Front\Cache::clear();
         }

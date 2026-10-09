@@ -67,6 +67,84 @@ final class Language
     /** Codes from AVAILABLE for Settings field types (vyber:… / seznam:…). */
     public const string CODES = 'cs|en|bg|ca|da|de|el|es|et|fi|fr|ga|hr|hu|is|it|lt|lv|mt|nl|no|pl|pt|ro|sk|sl|sq|sr|bs|mk|sv|tr|uk|ru|hi|id|ja|ko|vi|zh';
 
+    /**
+     * A language code as Kaleta stores it (3.9, docs/design/4.0-data-model.md §2): a lowercase BCP 47 tag – the language,
+     * then optional script, region or variant subtags (cs, en, pt-br, zh-hant, sr-latn) – in a VARCHAR(35) ASCII column.
+     * Every place that reads a code from a URL, a settings key, an import or a tool goes through the helpers below (a unit
+     * test refuses a two-letter pattern of its own); which codes are accepted is still only what AVAILABLE offers.
+     */
+    public const string TAG = '[a-z]{2,3}(?:-[a-z0-9]{2,8}){0,3}';
+
+    /** The longest tag a language column holds (RFC 5646 recommends supporting 35 characters). */
+    public const int TAG_MAX = 35;
+
+    /** Is it a code in the stored form (a lowercase tag, at most TAG_MAX characters)? Says nothing about whether Kaleta offers it. */
+    public static function isTag(string $code): bool
+    {
+        return strlen($code) <= self::TAG_MAX && preg_match('/^' . self::TAG . '$/D', $code) === 1;
+    }
+
+    /** Is it a code Kaleta offers (AVAILABLE)? The only codes accepted from requests, imports, exports and tools. */
+    public static function isOffered(string $code): bool
+    {
+        return self::isTag($code) && isset(self::AVAILABLE[$code]);
+    }
+
+    /** The value when it is a code Kaleta offers, otherwise '' – the default language (a stored language column). */
+    public static function offeredOrDefault(mixed $value): string
+    {
+        return is_string($value) && self::isOffered($value) ? $value : '';
+    }
+
+    /**
+     * A tag from another system (Joomla's pt-BR, a Drupal langcode, a locale pt_BR) in the stored form: the whole tag when
+     * Kaleta offers it, otherwise its language subtag when that is offered (pt-BR → pt until regional versions exist,
+     * §2 step 2), otherwise ''.
+     */
+    public static function fromForeign(string $tag): string
+    {
+        $tag = strtolower(str_replace('_', '-', trim($tag)));
+        if (!self::isTag($tag)) {
+            return '';
+        }
+
+        return self::isOffered($tag) ? $tag : self::offeredOrDefault(explode('-', $tag)[0]);
+    }
+
+    /**
+     * The language prefix of a site path: "/en/kontakt" → ["en", "/kontakt"], "/en" → ["en", "/"]; null when the first
+     * segment is not a code Kaleta offers. Whether that version is switched on is the caller's question (Front\Kernel asks
+     * additional(), App::url() only keeps a prefix a link already has).
+     *
+     * @return array{0: string, 1: string}|null
+     */
+    public static function splitPrefix(string $path): ?array
+    {
+        if (preg_match('#^/(' . self::TAG . ')(/.*)?$#Ds', $path, $m) !== 1 || !self::isOffered($m[1])) {
+            return null;
+        }
+
+        return [$m[1], ($m[2] ?? '') !== '' ? $m[2] : '/'];
+    }
+
+    /**
+     * A settings key with a language suffix (site_name_en, popis_webu_de): [base, code] when the base is one of $bases and
+     * the code is one Kaleta offers, otherwise null.
+     *
+     * @param list<string> $bases
+     * @return array{0: string, 1: string}|null
+     */
+    public static function settingKey(string $key, array $bases): ?array
+    {
+        foreach ($bases as $base) {
+            if (str_starts_with($key, $base . '_') && self::isOffered($code = substr($key, strlen($base) + 1))) {
+                return [$base, $code];
+            }
+        }
+
+        return null;
+    }
+
     private static string $code = 'cs';
 
     private static bool $loaded = false;
@@ -170,7 +248,7 @@ final class Language
         }
     }
 
-    /** Value of the "jazyk" column for the currently shown version of the site ('' = default language). Only '' or two lowercase letters. */
+    /** Value of the "jazyk" column for the currently shown version of the site ('' = default language). Only '' or a code from AVAILABLE. */
     public static function siteColumn(): string
     {
         return self::$column;

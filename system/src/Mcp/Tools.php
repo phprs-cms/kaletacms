@@ -41,7 +41,7 @@ final class Tools
      * Since 3.3.2 neither are gtm_id and matomo_url/matomo_id: a GTM container or a Matomo host loads whatever its owner chooses (ga4_id and
      * plausible_domain load from a fixed host and stay).
      */
-    private const string MCP_SETTINGS = '/^(site_name|site_description|footer_text|home_page|news_slug|social_(facebook|instagram|x|youtube|linkedin)|news_per_page|share_buttons|article_outline|related_news_auto|company_[a-z_]+|security_contact|claude_instructions|lead_attribution|agency_(name|url|email|phone|logo)|captcha_(provider|site_key|fail_open)|dark_mode|theme_switcher|german_register|site_(name|description)_[a-z]{2}|indexing|schema_org|llms_txt|markdown_news|indexnow|ai_crawlers|url_slash|robots_extra|verification_(google|bing)|cookies_(mode|text|policy_url|log|log_months)|cookies_(text|policy_url)_[a-z]{2}|stats|ga4_id|plausible_domain|screen_(mode|seconds|news|hours|clock)|redirect_auto(_threshold)?|booking_(lead_hours|horizon_days|cancel_hours|reminder_hours|hold_hours|pending_thanks|pending_mail|declined_mail))$/D';
+    private const string MCP_SETTINGS = '/^(site_name|site_description|footer_text|home_page|news_slug|social_(facebook|instagram|x|youtube|linkedin)|news_per_page|share_buttons|article_outline|related_news_auto|company_[a-z_]+|security_contact|claude_instructions|lead_attribution|agency_(name|url|email|phone|logo)|captcha_(provider|site_key|fail_open)|dark_mode|theme_switcher|german_register|site_(name|description)_' . Language::TAG . '|indexing|schema_org|llms_txt|markdown_news|indexnow|ai_crawlers|url_slash|robots_extra|verification_(google|bing)|cookies_(mode|text|policy_url|log|log_months)|cookies_(text|policy_url)_' . Language::TAG . '|stats|ga4_id|plausible_domain|screen_(mode|seconds|news|hours|clock)|redirect_auto(_threshold)?|booking_(lead_hours|horizon_days|cancel_hours|reminder_hours|hold_hours|pending_thanks|pending_mail|declined_mail))$/D';
 
     /**
      * Records the last import step created (pages, news items, items, categories, redirects, images – 3.7, N37-26): Mcp\Server
@@ -545,6 +545,9 @@ final class Tools
             $data['tema'] = $this->category((string) $a['kategorie']);
             // the news item takes over the category's language version – just like when saved in the administration
             $data['jazyk'] = (string) $db->value('SELECT jazyk FROM {kategorie} WHERE idt = ?', [$data['tema']]);
+            if ($previous !== null && $data['jazyk'] !== $previous['jazyk'] && \Kaleta\Core\Slug::taken($db, 'novinky', (string) $previous['seo_link'], $data['jazyk'], (int) $previous['idc'])) {
+                throw new \InvalidArgumentException('A news item with the address „' . $previous['seo_link'] . '“ already exists in that language version.');
+            }
         }
         if (!empty($a['datum'])) {
             $ts = strtotime((string) $a['datum']);
@@ -570,7 +573,7 @@ final class Tools
                 throw new \InvalidArgumentException('Chybí kategorie.');
             }
             $data += ['uvod' => '', 'text' => '', 'autor' => $auth->id(), 'datum' => date('Y-m-d H:i:s'), 'visible' => 0,
-                'seo_link' => $this->availableSlug('novinky', 'idc', slugify($data['titulek'], 150))];
+                'seo_link' => $this->availableSlug('novinky', slugify($data['titulek'], 150), (string) ($data['jazyk'] ?? ''))];
             $id = $db->insert('novinky', $data);
         } else {
             $id = (int) $previous['idc'];
@@ -700,7 +703,7 @@ final class Tools
             if ($parent === null && $seo !== ($previous['seo_link'] ?? null) && Pages::slugReserved($seo, $db)) {
                 throw new \InvalidArgumentException('Adresu „' . $seo . '“ používá systém, zvol jinou.');
             }
-            if ($db->value('SELECT ids FROM {stranky} WHERE seo_link = ? AND ids <> ?', [$seo, (int) ($previous['ids'] ?? 0)]) !== null) {
+            if (\Kaleta\Core\Slug::taken($db, 'stranky', $seo, $language, (int) ($previous['ids'] ?? 0))) {
                 throw new \InvalidArgumentException('Stránka s adresou „' . $seo . '“ už existuje.');
             }
             $data['seo_link'] = $seo;
@@ -727,7 +730,7 @@ final class Tools
             }
             $db->update('stranky', $data, ['ids' => $id]);
             if (isset($data['seo_link']) && $data['seo_link'] !== $previous['seo_link']) {
-                Pages::move($db, $previous['seo_link'], $data['seo_link'], (bool) $previous['zobrazit']);
+                Pages::move($db, $previous['seo_link'], $data['seo_link'], (bool) $previous['zobrazit'], $language);
             }
         }
         $saved = $this->page($id);
@@ -1322,7 +1325,8 @@ final class Tools
 
     private function category(string $nameOrSlug): int
     {
-        $idt = $this->app->db()->value('SELECT idt FROM {kategorie} WHERE seo_link = ? OR nazev = ? LIMIT 1', [$nameOrSlug, $nameOrSlug]);
+        // with slugs per language (3.9) two versions may share a slug: the default language's category wins, as before
+        $idt = $this->app->db()->value("SELECT idt FROM {kategorie} WHERE seo_link = ? OR nazev = ? ORDER BY jazyk = '' DESC, idt LIMIT 1", [$nameOrSlug, $nameOrSlug]);
         if ($idt === null) {
             throw new \InvalidArgumentException('Kategorie „' . $nameOrSlug . '“ neexistuje. Použij nástroj seznam_kategorii.');
         }
@@ -1330,8 +1334,9 @@ final class Tools
         return (int) $idt;
     }
 
-    private function availableSlug(string $table, string $key, string $seo): string
+    /** A free slug of a news item or category in its language version (per language only with slugs_per_language, Core\Slug). */
+    private function availableSlug(string $table, string $seo, string $language = ''): string
     {
-        return \Kaleta\Core\Slug::makeUnique($seo, fn (string $a): bool => $this->app->db()->value("SELECT {$key} FROM {{$table}} WHERE seo_link = ?", [$a]) !== null, $table === 'novinky' ? 160 : 120);
+        return \Kaleta\Core\Slug::makeUnique($seo, fn (string $a): bool => \Kaleta\Core\Slug::taken($this->app->db(), $table, $a, $language), $table === 'novinky' ? 160 : 120);
     }
 }

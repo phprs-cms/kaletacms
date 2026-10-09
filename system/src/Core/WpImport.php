@@ -897,19 +897,25 @@ final class WpImport
      */
     private function addressInUse(string $path): bool
     {
-        // 3.9: a page address in a language version (/en/kontakt) is in use only when that version has the page – the default
-        // language's /kontakt does not answer /en/kontakt (the router looks pages up by slug and language)
-        if (preg_match('#^([a-z]{2})/([^/?]+)$#D', $path, $m) === 1 && in_array($m[1], Language::additional($this->settings), true) && !Pages::slugReserved($m[2], $this->db)) {
-            return $this->db->value('SELECT 1 FROM {stranky} WHERE seo_link = ? AND jazyk = ? AND smazano IS NULL', [$m[2], $m[1]]) !== null
+        // 3.9: an old /en/… address (Polylang, WPML) belongs to the English version. A page address there is in use only when
+        // that version has the page (or a redirect) – the router looks pages up by slug and language, so the default
+        // language's /kontakt does not answer /en/kontakt, whatever slugs_per_language says
+        $prefix = Language::splitPrefix('/' . $path);
+        $language = $prefix !== null && in_array($prefix[0], Language::additional($this->settings), true) ? $prefix[0] : '';
+        $slug = $language !== '' ? trim((string) $prefix[1], '/') : $path;
+        if ($language !== '' && $slug !== '' && !str_contains($slug, '/') && !Pages::slugReserved($slug, $this->db)) {
+            return $this->db->value('SELECT 1 FROM {stranky} WHERE seo_link = ? AND jazyk = ? AND smazano IS NULL', [$slug, $language]) !== null
                 || $this->db->value('SELECT 1 FROM {presmerovani} WHERE z_adresy = ?', [$path]) !== null;
         }
-        if ($this->db->value('SELECT 1 FROM {stranky} WHERE seo_link = ? AND smazano IS NULL', [$path]) !== null
+        [$sameLanguage, $languageParams] = Slug::scope($this->db, $language);
+        [$sameItemLanguage] = Slug::scope($this->db, $language, 'p.jazyk');
+        if ($this->db->value('SELECT 1 FROM {stranky} WHERE seo_link = ? AND smazano IS NULL' . $sameLanguage, [$slug, ...$languageParams]) !== null
             || (!str_starts_with($path, '?') && Audit::pathResolves($this->db, $this->settings, '/' . $path))) {
             return true;
         }
-        $parts = explode('/', $path);
+        $parts = explode('/', $slug);
 
-        return count($parts) === 2 && $this->db->value('SELECT 1 FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.seo_link = ? AND p.seo_link = ? AND p.smazano IS NULL', $parts) !== null;
+        return count($parts) === 2 && $this->db->value('SELECT 1 FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.seo_link = ? AND p.seo_link = ? AND p.smazano IS NULL' . $sameItemLanguage, [...$parts, ...$languageParams]) !== null;
     }
 
     /**
@@ -924,15 +930,6 @@ final class WpImport
     }
 
     /* ---------- language versions and translations (3.9, Core\WpLanguages) ---------- */
-
-    /**
-     * The setting slugs_per_language (the 4.0 data model, §3): on = a page, news item or category slug only has to be free
-     * within its own language version, so a translation keeps the slug it had on WordPress. Off unless the setting is "1".
-     */
-    public static function slugsPerLanguage(Settings $settings): bool
-    {
-        return $settings->bool('slugs_per_language');
-    }
 
     /**
      * The value of the "jazyk" column for a post, page or item: by its own language (Polylang, WPML or its address), else
@@ -994,8 +991,8 @@ final class WpImport
     {
         $reserved = fn (string $slug): bool => $table === 'stranky' && Pages::slugReserved($slug, $this->db);
         $inLanguage = fn (string $slug): bool => $this->db->value('SELECT 1 FROM {' . $table . '} WHERE seo_link = ? AND jazyk = ?', [$slug, $language]) !== null;
-        if (self::slugsPerLanguage($this->settings) && !$this->globalSlugKey($table)) {
-            return Slug::makeUnique($base, fn (string $slug): bool => $reserved($slug) || $inLanguage($slug), $max);
+        if (Slug::perLanguage($this->db) && !$this->globalSlugKey($table)) {
+            return Slug::makeUnique($base, fn (string $slug): bool => $reserved($slug) || Slug::taken($this->db, $table, $slug, $language), $max);
         }
         $slug = $table === 'stranky' ? Pages::freeSlug($this->db, $base, 0, '', $max)
             : self::availableSlug($base, fn (string $a): bool => $this->db->value('SELECT 1 FROM {' . $table . '} WHERE seo_link = ?', [$a]) !== null);

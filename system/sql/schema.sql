@@ -31,7 +31,7 @@ CREATE TABLE ka_uzivatele (
     totp_zalozni   TEXT NULL,                             -- JSON: hashes of one-time backup codes
     posledni_login DATETIME NULL,                         -- last completed sign-in to the administration
     potvrzeno      DATETIME NULL,                         -- created or last confirmed by an administrator (saved in Users, reactivated) – the unused-account check counts from it
-    jazyk          CHAR(2) NOT NULL DEFAULT '',            -- admin language; '' = Czech
+    jazyk          VARCHAR(35) CHARACTER SET ascii NOT NULL DEFAULT '',            -- admin language; '' = Czech
     register       VARCHAR(10) NOT NULL DEFAULT '',        -- form of address in the German administration: '' = formal (Sie), 'informal' = du
     pozice         VARCHAR(100) NOT NULL DEFAULT '',      -- position in the company (bio of the news author)
     foto           VARCHAR(255) NOT NULL DEFAULT '',
@@ -80,10 +80,11 @@ CREATE TABLE ka_kategorie (
     seo_link  VARCHAR(120) NOT NULL,
     popis     TEXT NOT NULL,
     hodnost   SMALLINT UNSIGNED NOT NULL DEFAULT 100,     -- order, higher = higher up
-    jazyk     CHAR(2) NOT NULL DEFAULT '',                -- language version; '' = the site's default language
+    jazyk     VARCHAR(35) CHARACTER SET ascii NOT NULL DEFAULT '',                -- language version; '' = the site's default language
     preklad_z INT UNSIGNED NULL,                          -- counterpart in the default language (hreflang, language switcher)
     PRIMARY KEY (idt),
-    UNIQUE KEY uq_topic_seo (seo_link)
+    UNIQUE KEY uq_topic_seo (seo_link),
+    UNIQUE KEY uq_topic_jazyk_seo (jazyk, seo_link)            -- 3.9: per language; the global key goes while slugs_per_language is on (Core\Slug)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 
@@ -113,13 +114,14 @@ CREATE TABLE ka_novinky (
     oznameno       DATETIME NULL,                         -- when the system announced the publishing (webhook, IndexNow); NULL = not yet
     valid_until    DATE NULL,                             -- true until: the day after, the news item hides itself (2.10, Core\Validity)
     review_by      DATE NULL,                             -- review by: on this day the site audit asks for a check (2.10)
-    jazyk          CHAR(2) NOT NULL DEFAULT '',           -- taken from the category on save
+    jazyk          VARCHAR(35) CHARACTER SET ascii NOT NULL DEFAULT '',           -- taken from the category on save
     preklad_z      INT UNSIGNED NULL,                     -- idc of the news item this one is a translation of
     hledani        MEDIUMTEXT NULL,                       -- text without diacritics for search (Core\Search)
     odkazy_cas     DATETIME NULL,                         -- when the links were last checked
     smazano        DATETIME NULL,                         -- in the trash since (deleted permanently after 30 days); NULL = not in the trash
     PRIMARY KEY (idc),
     UNIQUE KEY uq_clanky_seo (seo_link),
+    UNIQUE KEY uq_clanky_jazyk_seo (jazyk, seo_link),          -- 3.9: per language; the global key goes while slugs_per_language is on (Core\Slug)
     KEY ix_clanky_jazyk (jazyk, visible, datum),
     KEY ix_clanky_oznameno (oznameno, visible, datum),
     KEY ix_clanky_datum (datum),
@@ -242,7 +244,7 @@ CREATE TABLE ka_stranky (
     poradi   SMALLINT UNSIGNED NOT NULL DEFAULT 100,
     zmeneno  DATETIME NULL,
     links_checked DATETIME NULL,                         -- when the links of the published page were last checked (2.14, Core\Links)
-    jazyk          CHAR(2) NOT NULL DEFAULT '',            -- language version; '' = the site's default language
+    jazyk          VARCHAR(35) CHARACTER SET ascii NOT NULL DEFAULT '',            -- language version; '' = the site's default language
     preklad_z      INT UNSIGNED NULL,                      -- counterpart in the default language (hreflang, language switcher)
     nadrazena      INT UNSIGNED NULL,                      -- parent page: the URL is /nadrazena/stranka
     stavba         MEDIUMTEXT NULL,                        -- published build (JSON tree of builder elements); NULL = text page
@@ -250,6 +252,7 @@ CREATE TABLE ka_stranky (
     smazano        DATETIME NULL,                          -- in the trash since (deleted permanently after 30 days); NULL = not in the trash
     PRIMARY KEY (ids),
     UNIQUE KEY uq_stranky_seo (seo_link),
+    UNIQUE KEY uq_stranky_jazyk_seo (jazyk, seo_link),         -- 3.9: per language; the global key goes while slugs_per_language is on (Core\Slug)
     KEY ix_stranky_smazano (smazano),
     KEY ix_stranky_zverejnit (zverejnit_od)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
@@ -259,7 +262,7 @@ CREATE TABLE ka_stranky (
 -- Without a row (or without a published build) the part from the layout applies. Language '' = the site's default language.
 CREATE TABLE ka_casti (
     typ            VARCHAR(20) NOT NULL,
-    jazyk          CHAR(2) NOT NULL DEFAULT '',
+    jazyk          VARCHAR(35) CHARACTER SET ascii NOT NULL DEFAULT '',
     varianta       VARCHAR(40) NOT NULL DEFAULT '',   -- '' = default; otherwise the variant for the pages in the stranky list (JSON of numbers)
     nazev          VARCHAR(100) NOT NULL DEFAULT '',
     stranky        TEXT NULL,
@@ -591,7 +594,7 @@ CREATE TABLE ka_kolekce_polozky (
     zverejnit_od DATETIME NULL,                         -- a hidden item publishes itself at this moment
     valid_until DATE NULL,                              -- true until: the day after, the item hides itself (2.10, Core\Validity)
     review_by DATE NULL,                                -- review by: on this day the site audit asks for a check (2.10)
-    jazyk    CHAR(2) NOT NULL DEFAULT '',
+    jazyk    VARCHAR(35) CHARACTER SET ascii NOT NULL DEFAULT '',
     datum    DATETIME NOT NULL,
     zmeneno  DATETIME NULL,
     links_checked DATETIME NULL,                        -- when the links in the item's fields were last checked (2.14, Core\Links)
@@ -606,7 +609,7 @@ CREATE TABLE ka_kolekce_polozky (
 -- The collection's item template in other site languages (the default language is in ka_kolekce); without a row the default language's template applies.
 CREATE TABLE ka_kolekce_sablony (
     idk            INT UNSIGNED NOT NULL,
-    jazyk          CHAR(2) NOT NULL,
+    jazyk          VARCHAR(35) CHARACTER SET ascii NOT NULL,
     stavba         MEDIUMTEXT NULL,
     stavba_koncept MEDIUMTEXT NULL,
     zmeneno        DATETIME NULL,
@@ -636,7 +639,7 @@ CREATE TABLE ka_collection_categories (
 
 CREATE TABLE ka_collection_category_texts (
     category_id     INT UNSIGNED NOT NULL,
-    language        CHAR(2) NOT NULL DEFAULT '',        -- '' = the default language
+    language        VARCHAR(35) CHARACTER SET ascii NOT NULL DEFAULT '',        -- '' = the default language
     idk             INT UNSIGNED NOT NULL,              -- the collection once more: the address is unique within it and the language
     name            VARCHAR(200) NOT NULL,
     slug            VARCHAR(160) NOT NULL,
@@ -662,7 +665,7 @@ CREATE TABLE ka_collection_item_categories (
 -- without its own row uses the default one, and without any row the built-in default template draws the page).
 CREATE TABLE ka_collection_category_templates (
     idk            INT UNSIGNED NOT NULL,
-    jazyk          CHAR(2) NOT NULL DEFAULT '',
+    jazyk          VARCHAR(35) CHARACTER SET ascii NOT NULL DEFAULT '',
     stavba         MEDIUMTEXT NULL,
     stavba_koncept MEDIUMTEXT NULL,
     zmeneno        DATETIME NULL,
@@ -695,7 +698,7 @@ CREATE TABLE ka_document_downloads (
 -- Site menus ("Vzhled → Menu", Appearance → Menu): main and footer, for each language version. Without a row the main menu is composed of pages „v menu“ (in menu).
 CREATE TABLE ka_menu (
     umisteni VARCHAR(20) NOT NULL,                    -- hlavni | paticka
-    jazyk    CHAR(2) NOT NULL DEFAULT '',             -- '' = the site's default language
+    jazyk    VARCHAR(35) CHARACTER SET ascii NOT NULL DEFAULT '',             -- '' = the site's default language
     polozky  MEDIUMTEXT NOT NULL,                     -- JSON [{typ: stranka|odkaz|novinky|skupina, ids, url, text, nove_okno, deti: […]}]
     zmeneno  DATETIME NULL,
     PRIMARY KEY (umisteni, jazyk)
@@ -843,7 +846,7 @@ CREATE TABLE ka_newsletters (
     news_ids     VARCHAR(500) NOT NULL DEFAULT '',          -- chosen news items (idc, comma separated)
     button_label VARCHAR(80)  NOT NULL DEFAULT '',
     button_url   VARCHAR(500) NOT NULL DEFAULT '',
-    language     CHAR(2)      NOT NULL DEFAULT '',          -- language of the fixed texts and the news items (empty = the site language)
+    language     VARCHAR(35) CHARACTER SET ascii      NOT NULL DEFAULT '',          -- language of the fixed texts and the news items (empty = the site language)
     status       VARCHAR(10)  NOT NULL DEFAULT 'draft',     -- draft | scheduled | sending | sent
     scheduled_at DATETIME     NULL,
     html         MEDIUMTEXT   NULL,                         -- the rendered e-mail, kept from the start of sending
@@ -1009,7 +1012,7 @@ CREATE TABLE ka_fleet_kits (
 CREATE TABLE ka_facts (
     id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
     fact_key    VARCHAR(40)  NOT NULL,                      -- a-z, digits, _; used as {{fact.<key>}}
-    language    VARCHAR(2)   NOT NULL DEFAULT '',           -- '' = the default language
+    language    VARCHAR(35) CHARACTER SET ascii   NOT NULL DEFAULT '',           -- '' = the default language
     label       VARCHAR(150) NOT NULL DEFAULT '',
     type        VARCHAR(10)  NOT NULL DEFAULT 'text',       -- text | number | money | date | year | phone | email | url
     value       VARCHAR(500) NOT NULL DEFAULT '',
@@ -1023,7 +1026,7 @@ CREATE TABLE ka_facts (
 CREATE TABLE ka_fact_history (
     id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
     fact_key   VARCHAR(40)  NOT NULL,
-    language   VARCHAR(2)   NOT NULL DEFAULT '',
+    language   VARCHAR(35) CHARACTER SET ascii   NOT NULL DEFAULT '',
     old_value  VARCHAR(500) NOT NULL DEFAULT '',
     new_value  VARCHAR(500) NOT NULL DEFAULT '',
     changed_at DATETIME     NOT NULL,
@@ -1418,7 +1421,7 @@ CREATE TABLE ka_bookings (
     cancelled_at  DATETIME NULL,
     cancelled_by  VARCHAR(10) NOT NULL DEFAULT '',              -- customer | admin | claude
     source        VARCHAR(255) NOT NULL DEFAULT '',             -- the page the booking was made on; 'admin' when entered by hand
-    language      VARCHAR(2) NOT NULL DEFAULT '',               -- the site language version the customer used ('' = default)
+    language      VARCHAR(35) CHARACTER SET ascii NOT NULL DEFAULT '',               -- the site language version the customer used ('' = default)
     anonymised_at DATETIME NULL,
     PRIMARY KEY (id),
     UNIQUE KEY ux_bookings_token (token_hash),

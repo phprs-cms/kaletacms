@@ -568,26 +568,35 @@ final class Audit
         $rest = '/' . implode('/', $segments);
         [$internal] = Routes::internalPath($rest, $language, $db);
         $s = $internal === '/' ? [] : explode('/', ltrim($internal, '/'));
+        // with slugs per language (3.9) /en/kontakt and /kontakt may be two pages: the lookup stays in the link's version,
+        // and a redirect may be stored with the prefix (en/old) or, from before, without it (Front\Kernel looks up both)
+        [$sameLanguage, $languageParams] = Slug::scope($db, Language::column($settings, $language));
+        [$sameItemLanguage] = Slug::scope($db, Language::column($settings, $language), 'p.jazyk');
+        $redirects = array_values(array_unique([trim($path, '/'), ...(Slug::perLanguage($db) ? [trim($rest, '/')] : [])]));
 
         return match (true) {
             $s === [] => true,
             is_file(KALETA_ROOT . '/' . ltrim($path, '/')) && preg_match('#^/(media|image)/#', $path) === 1 => true,
             in_array($s[0], ['hledani', 'rss.xml', 'feed.json', 'sitemap.xml', 'robots.txt', 'llms.txt', 'admin.php', 'mcp'], true) => true,
-            $s[0] === 'novinky' => self::newsPathExists($db, array_slice($s, 1)),
-            $db->value('SELECT 1 FROM {stranky} WHERE seo_link = ? AND zobrazit = 1 AND smazano IS NULL', [implode('/', $s)]) !== null => true,
-            count($s) === 2 && $db->value('SELECT 1 FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.seo_link = ? AND k.detail = 1 AND p.seo_link = ? AND p.zobrazit = 1 AND p.smazano IS NULL', [$s[0], $s[1]]) !== null => true,
-            $db->value('SELECT 1 FROM {presmerovani} WHERE z_adresy = ?', [trim($path, '/')]) !== null => true,
+            $s[0] === 'novinky' => self::newsPathExists($db, array_slice($s, 1), $sameLanguage, $languageParams),
+            $db->value('SELECT 1 FROM {stranky} WHERE seo_link = ? AND zobrazit = 1 AND smazano IS NULL' . $sameLanguage, [implode('/', $s), ...$languageParams]) !== null => true,
+            count($s) === 2 && $db->value('SELECT 1 FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.seo_link = ? AND k.detail = 1 AND p.seo_link = ? AND p.zobrazit = 1 AND p.smazano IS NULL' . $sameItemLanguage, [$s[0], $s[1], ...$languageParams]) !== null => true,
+            $db->value('SELECT 1 FROM {presmerovani} WHERE z_adresy IN (' . implode(',', array_fill(0, count($redirects), '?')) . ')', $redirects) !== null => true,
             default => false,
         };
     }
 
-    /** @param list<string> $s the path after /novinky */
-    private static function newsPathExists(Db $db, array $s): bool
+    /**
+     * @param list<string> $s the path after /novinky
+     * @param list<string> $languageParams
+     */
+    private static function newsPathExists(Db $db, array $s, string $sameLanguage = '', array $languageParams = []): bool
     {
         return match (true) {
             $s === [] => true,
+            // a news item of another version still answers there: Front\Kernel redirects to its own version
             count($s) === 1 => $db->value('SELECT 1 FROM {novinky} WHERE seo_link = ? AND visible = 1 AND smazano IS NULL', [$s[0]]) !== null,
-            count($s) === 2 && $s[0] === 'kategorie' => $db->value('SELECT 1 FROM {kategorie} WHERE seo_link = ?', [$s[1]]) !== null,
+            count($s) === 2 && $s[0] === 'kategorie' => $db->value('SELECT 1 FROM {kategorie} WHERE seo_link = ?' . $sameLanguage, [$s[1], ...$languageParams]) !== null,
             count($s) === 2 && $s[0] === 'stitek' => $db->value('SELECT 1 FROM {stitky} WHERE seo_link = ?', [$s[1]]) !== null,
             default => false,
         };

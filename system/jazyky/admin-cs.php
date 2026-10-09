@@ -5631,4 +5631,11 @@ return [
     '%s instead of %s – %s has it' => '%s místo %s – tu má %s',
     'Banner text and policy link in other language versions' => 'Text lišty a odkaz na zásady v dalších jazykových verzích',
     'Visitors of each language version read the banner in its language. An empty field means the same as in the default language.' => 'Návštěvníci každé jazykové verze čtou lištu v jejím jazyce. Prázdné pole znamená totéž co ve výchozím jazyce.',
+    'The same address in every language' => 'Stejná adresa ve všech jazycích',
+    'A page, a news item or a category may have the same address as one in another language version (/kontakt and /en/kontakt), as on a multilingual WordPress site. System addresses and language codes stay reserved in every language. Switching it off again is possible only while no two language versions share an address.' => 'Stránka, novinka nebo kategorie smí mít stejnou adresu jako jiná v jiné jazykové verzi (/kontakt a /en/kontakt), jako na vícejazyčném webu z WordPressu. Adresy systému a kódy jazyků zůstávají vyhrazené ve všech jazycích. Znovu vypnout to jde, jen dokud žádné dvě jazykové verze nesdílejí adresu.',
+    'The same address in every language cannot be switched off while two language versions share an address: %s. Change one of each pair first.' => 'Stejnou adresu ve všech jazycích nejde vypnout, dokud dvě jazykové verze sdílejí adresu: %s. Nejdřív u každé dvojice jednu změňte.',
+    'The database is not updated yet (migration 0083) – open the administration once more and try again.' => 'Databáze ještě není aktualizovaná (migrace 0083) – otevřete administraci znovu a zkuste to ještě jednou.',
+    'A news item of this category has the same address as a news item in that language version. Change one of them first.' => 'Novinka této kategorie má stejnou adresu jako novinka v té jazykové verzi. Nejdřív jednu z nich změňte.',
+    'Two language versions in the export share addresses, so the same address in every language was switched on (Settings → General).' => 'Dvě jazykové verze v exportu sdílejí adresy, proto se zapnula stejná adresa ve všech jazycích (Nastavení → Základní).',
+    'Skipped: %d (that language version already has the address).' => 'Přeskočeno: %d (ta jazyková verze už adresu má).',
 ];

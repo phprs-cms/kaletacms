@@ -51,6 +51,7 @@ class Settings extends Module
             'agency_name' => 'text', 'agency_url' => 'url', 'agency_email' => 'email', 'agency_phone' => 'vzor:/^[+()\d\s\/.-]{0,30}$/',
             'agency_logo' => 'vzor:#^((media|image)/[A-Za-z0-9/_.-]{1,200}\.(svg|png|webp|jpe?g|avif))?$#',
             'time_zone' => 'pasmo', 'site_language' => 'vyber:' . \Kaleta\Core\Language::CODES, 'german_register' => 'vyber:formal|informal', 'additional_languages' => 'seznam:' . \Kaleta\Core\Language::CODES,
+            'slugs_per_language' => 'ano', // 3.9: switched by Core\Slug::switchPerLanguage (actionSave), never written directly
         ],
         // the site appearance is saved by the Appearance module; here only types for checking values from the Claude connection (it is not a Settings tab)
         'vzhled' => ['dark_mode' => 'vyber:vypnuto|auto|tmavy', 'theme_switcher' => 'ano'],
@@ -245,6 +246,14 @@ class Settings extends Module
                 continue;
             }
             $clean = self::sanitize($type, $value, $this->request->postBool($key));
+            if ($key === 'slugs_per_language') {
+                // the database keys change with it; switching off is refused while two language versions share a slug
+                if (($refusal = \Kaleta\Core\Slug::switchPerLanguage($this->db, $settings, $clean === '1')) !== null) {
+                    $errors[] = $key;
+                    $reason = t($refusal[0], $refusal[1]);
+                }
+                continue;
+            }
             if ($key === 'news_slug' && ($slugError = \Kaleta\Core\Routes::slugError($clean ?? $value, $this->db)) !== null) {
                 $clean = null; // the length and the system addresses are checked here, the message says why
                 $reason = $slugError;
@@ -756,8 +765,8 @@ class Settings extends Module
                 return $field[$key];
             }
         }
-        if (preg_match('/^(.+)_([a-z]{2})$/D', $key, $m) === 1 && in_array($m[1], \Kaleta\Core\Settings::PER_LANGUAGE, true)) {
-            return self::fieldType($m[1]);
+        if (($m = \Kaleta\Core\Language::settingKey($key, \Kaleta\Core\Settings::PER_LANGUAGE)) !== null) {
+            return self::fieldType($m[0]);
         }
 
         return null;
@@ -770,8 +779,8 @@ class Settings extends Module
     public static function verifyValue(string $key, string $value): ?string
     {
         $type = self::fieldType($key);
-        if ($type === null && preg_match('/^(nazev|popis)_webu_([a-z]{2})$/D', $key, $m)) {
-            $type = $m[1] === 'nazev' ? 'text' : 'radky';
+        if ($type === null && ($m = \Kaleta\Core\Language::settingKey($key, ['nazev_webu', 'popis_webu'])) !== null) {
+            $type = $m[0] === 'nazev_webu' ? 'text' : 'radky';
         }
         if ($type === null || str_starts_with($type, 'tajne') || str_starts_with($type, 'seznam')) {
             return null;

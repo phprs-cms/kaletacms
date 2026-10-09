@@ -338,7 +338,7 @@ final class Bookings extends Module
             \Kaleta\Builder\Build::fresh(\Kaleta\Builder\Elements\Booking::TYPE),
         ])]]);
         $slug = \Kaleta\Core\Slug::makeUnique(slugify($title, 110), fn (string $a): bool => Pages::slugReserved($a, $this->db)
-            || $this->db->value('SELECT 1 FROM {stranky} WHERE seo_link = ?', [$a]) !== null || $this->db->value('SELECT 1 FROM {kolekce} WHERE seo_link = ?', [$a]) !== null, 120);
+            || \Kaleta\Core\Slug::taken($this->db, 'stranky', $a, '') || $this->db->value('SELECT 1 FROM {kolekce} WHERE seo_link = ?', [$a]) !== null, 120);
         $id = $this->db->insert('stranky', ['titulek' => $title, 'seo_link' => $slug, 'text' => '', 'zobrazit' => 0, 'show_on_publish' => 1, 'v_menu' => 1,
             'stavba_koncept' => \Kaleta\Builder\Build::toJson($build), 'zmeneno' => date('Y-m-d H:i:s')]);
         \Kaleta\Core\Menu::setPage($this->db, $id, '', true);

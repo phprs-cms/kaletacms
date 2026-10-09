@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kaleta\Import;
 
+use Kaleta\Core\Language;
+
 /**
  * Joomla 4 and 5: the Web Services API (/api/index.php/v1/…) read by Import\Fetch with the token from an API-enabled user
  * (X-Joomla-Token) into joomla-<domain>.json; this class reads that file.
@@ -220,7 +222,7 @@ final class Joomla implements Source, Remote
             featureImageUrl: $image !== '' ? $this->absoluteUrl(self::imagePath($image)) : '',
             seoDescription: self::text($a['metadesc'] ?? ''),
             oldUrl: $alias !== '' ? '/' . ($path !== '' ? $path . '/' : '') . $id . '-' . $alias : '',
-            language: preg_match('/^([a-z]{2})-[A-Z]{2}$/D', self::text($a['language'] ?? ''), $m) ? $m[1] : '',
+            language: Language::fromForeign(self::text($a['language'] ?? '')),
         );
     }
 

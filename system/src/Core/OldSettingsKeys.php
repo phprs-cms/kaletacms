@@ -123,7 +123,7 @@ final class OldSettingsKeys
             return self::KEYS[$key];
         }
 
-        return preg_match('/^(nazev_webu|popis_webu)_([a-z]{2})$/D', $key, $m) ? self::KEYS[$m[1]] . '_' . $m[2] : $key;
+        return ($m = Language::settingKey($key, ['nazev_webu', 'popis_webu'])) !== null ? self::KEYS[$m[0]] . '_' . $m[1] : $key;
     }
 
     /**

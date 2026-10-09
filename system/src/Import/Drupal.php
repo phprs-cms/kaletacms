@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kaleta\Import;
 
+use Kaleta\Core\Language;
+
 /**
  * Drupal 9, 10 and 11: the JSON:API core module (/jsonapi/…) read by Import\Fetch into drupal-<domain>.json; this class
  * reads that file.
@@ -218,7 +220,7 @@ final class Drupal implements Source, Remote
             featureImageUrl: $image,
             seoDescription: $description,
             oldUrl: $alias !== '' ? $alias : ($nid !== '' ? '/node/' . $nid : ''),
-            language: preg_match('/^[a-z]{2}$/D', self::text($a['langcode'] ?? '')) ? (string) $a['langcode'] : '',
+            language: Language::fromForeign(self::text($a['langcode'] ?? '')),
         );
     }
 

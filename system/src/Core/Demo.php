@@ -57,7 +57,7 @@ final class Demo
 
     /** Settings keys the demo saves – everything else (code, secret keys, addresses of other servers, tokens) stays as it is. */
     private const string SETTINGS_KEYS = '/^(site_name|site_description|footer_text|social_(facebook|instagram|x|youtube|linkedin)|social_networks|home_page|news_per_page|share_buttons|article_outline|related_news_auto|'
-        . 'screen_(mode|seconds|news|hours|clock|collections)|time_zone|site_language|additional_languages|(nazev|popis)_webu_[a-z]{2}|company_[a-z_]+|indexing|schema_org|share_image|share_image_auto|'
+        . 'screen_(mode|seconds|news|hours|clock|collections)|time_zone|site_language|additional_languages|(nazev|popis)_webu_' . Language::TAG . '|company_[a-z_]+|indexing|schema_org|share_image|share_image_auto|'
         . 'verification_(google|bing)|robots_extra|ai_crawlers|llms_txt|markdown_news|ga4_id|plausible_domain|cookies_(mode|text|log|log_months)|lead_attribution|accessibility_toolbar)$/';
 
     /**
