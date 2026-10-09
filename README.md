@@ -71,6 +71,11 @@ starter site to the output budget; `php tools/contracts.php` shows changes of th
 builder elements); static analysis is PHPStan with `phpstan.neon.dist`. How to contribute is in
 [`CONTRIBUTING.md`](CONTRIBUTING.md); architecture notes are in [`CLAUDE.md`](CLAUDE.md) (Czech).
 
+## Support
+
+Kaleta is free, with no ads, paid tiers or licence keys. If it saves you time, you can support its development on
+[Buy Me a Coffee](https://buymeacoffee.com/Kaletacms) – see [why Kaleta is free](https://kaletacms.com/why-free).
+
 ## Licence
 
 GNU GPL version 2 or later. The licence text is in [`LICENSE`](LICENSE).

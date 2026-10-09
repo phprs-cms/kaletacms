@@ -70,6 +70,11 @@ Testy: `php tools/unit-tests.php` (jednotkové, bez databáze) a `tools/test.sh`
 builderem i MCP; potřebuje MySQL; `WEB=remeslo tools/test.sh` otestuje jiný ukázkový web). Pravidla pro přispěvatele
 a architektura jsou v [`CLAUDE.md`](CLAUDE.md).
 
+## Podpora
+
+Kaleta je zdarma, bez reklam, placených verzí a licenčních klíčů. Pokud vám šetří čas, můžete její vývoj podpořit na
+[Buy Me a Coffee](https://buymeacoffee.com/Kaletacms) – viz [proč je Kaleta zdarma](https://kaletacms.com/cs/proc-zdarma).
+
 ## Licence
 
 GNU GPL verze 2 nebo novější. Text licence je v souboru [`LICENSE`](LICENSE).

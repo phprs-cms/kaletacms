@@ -130,6 +130,7 @@ grep -q 'data-kopirovat="#mcp-adresa-prehled"' "$WORK/response" && grep -q "<cod
 check "3.5: Claude settings have the address with Copy and the connection state" 200 "/admin.php?module=claude_settings" 'data-kopirovat="#mcp-adresa-nastaveni"'
 grep -q 'Zatím nepřipojeno' "$WORK/response" && echo "  ok     3.5: Claude settings say Claude is not connected yet" || { echo "  CHYBA  3.5: Claude settings state"; ERRORS=$((ERRORS+1)); }
 check "3.5: My account has the address with Copy" 200 "/admin.php?action=account" 'data-kopirovat="#mcp-adresa-ucet"'
+check "3.9.1: the admin footer links to the support page (Buy Me a Coffee)" 200 "/admin.php?action=account" 'href="https://buymeacoffee.com/Kaletacms"'
 TOKEN=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=requests&action=save" -d "_csrf=$TOKEN" -d quick=1 -d from=dashboard -d "text=Zkouška před připojením."
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php"
