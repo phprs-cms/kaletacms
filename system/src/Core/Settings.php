@@ -214,8 +214,12 @@ final class Settings
         'db_version' => '1',            // number of the last applied migration (system/sql/migrace)
     ];
 
-    /** Settings that can be filled in separately for each additional language version of the site (key_en, key_de…). */
-    public const array PER_LANGUAGE = ['site_name', 'site_description'];
+    /**
+     * Settings that can be filled in separately for each additional language version of the site (key_en, key_de…); the
+     * visitor's version reads its own value, an empty one falls back to the default language's. 3.9 (UXM-11): the cookie
+     * bar text and the privacy policy link too.
+     */
+    public const array PER_LANGUAGE = ['site_name', 'site_description', 'cookies_text', 'cookies_policy_url'];
 
     /** @var array<string, string>|null */
     private ?array $values = null;

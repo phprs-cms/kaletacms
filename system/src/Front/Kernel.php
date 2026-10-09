@@ -128,7 +128,8 @@ final class Kernel
         if ($this->redirect !== null) {
             // a stored redirect of the requested address wins over the generic one: /blog/old-post from a WordPress import
             // still leads to its target after the news slug changed from blog to another one
-            return $this->storedRedirect(trim($this->requestedPath, '/')) ?? $this->redirect;
+            return ($this->app->languagePrefix !== '' ? $this->storedRedirect($this->app->languagePrefix . '/' . trim($this->requestedPath, '/')) : null)
+                ?? $this->storedRedirect(trim($this->requestedPath, '/')) ?? $this->redirect;
         }
         // 2.8: the firewall of the public site (off by default; never admin.php)
         if (($refused = \Kaleta\Core\Firewall::check($this->app)) !== null) {
@@ -149,8 +150,11 @@ final class Kernel
         }
         // an old numeric WordPress URL /?p=123 (after import): its path is the home page, which always exists, so the redirect
         // on a 404 error would never be reached – it is therefore looked up by the parameter, even before the cache
-        if ($request->getInt('p') > 0 && $request->path() === '/' && Extensions::isEnabled($this->app->settings(), 'presmerovani')) {
-            $target = $this->app->db()->one('SELECT idp, na_adresu, typ FROM {presmerovani} WHERE z_adresy = ?', ['?p=' . $request->getInt('p')]);
+        // 3.9: also ?page_id=123 (a WordPress page) and Polylang's language home ?lang=en, stored as ?lang=en by the import
+        $post = $request->getInt('p') > 0 ? $request->getInt('p') : $request->getInt('page_id');
+        $lang = preg_match('/^[a-z]{2}$/D', $request->get('lang')) === 1 ? $request->get('lang') : '';
+        if (($post > 0 || $lang !== '') && $request->path() === '/' && Extensions::isEnabled($this->app->settings(), 'presmerovani')) {
+            $target = $this->app->db()->one('SELECT idp, na_adresu, typ FROM {presmerovani} WHERE z_adresy = ?', [$post > 0 ? '?p=' . $post : '?lang=' . $lang]);
             if ($target !== null) {
                 $this->app->db()->run('UPDATE {presmerovani} SET pocet = pocet + 1 WHERE idp = ?', [$target['idp']]);
 
@@ -1144,6 +1148,10 @@ final class Kernel
         // first the address the visitor asked for (/blog/old-post under a custom news slug, as a WordPress import writes it),
         // then its internal form (novinky/old-post, as a changed news slug writes it)
         $requested = trim($this->requestedPath, '/');
+        // 3.9: an old address of a language version (/en/kontakt from a WordPress import, stored with its prefix) first
+        if ($this->app->languagePrefix !== '' && ($redirect = $this->storedRedirect($this->app->languagePrefix . '/' . $requested)) !== null) {
+            return $redirect;
+        }
         if (($redirect = $this->storedRedirect($requested, trim($this->app->request->path(), '/'))) !== null) {
             return $redirect;
         }

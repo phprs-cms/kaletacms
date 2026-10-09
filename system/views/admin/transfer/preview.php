@@ -37,13 +37,26 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 <?php endif ?>
 </div>
 <?php if (($p['menu'] ?? []) !== []): ?>
-<?php $menuPlaces = Kaleta\Core\WpImport::menuLocations(array_map(fn (array $m): string => (string) $m['nazev'], $p['menu']), array_map(fn (array $m): int => (int) $m['polozky'], $p['menu']), (array) ($options['menu_umisteni'] ?? [])); ?>
+<?php $menuPlaces = Kaleta\Core\WpImport::previewMenus($state, $languages[0]); // 3.9: the locations within each language version ?>
 <p><?= e(t('Menus go to the draft look with links to the new addresses: the navigation on the site changes only when you publish the look.')) ?></p>
 <ul>
 <?php foreach ($p['menu'] as $slug => $m): ?>
-	<li><?= e(t('Menu “%s” (%s items): %s', (string) $m['nazev'], (int) $m['polozky'], ($menuPlaces[(string) $slug] ?? '') !== '' ? t(Kaleta\Core\Menu::LOCATIONS[$menuPlaces[(string) $slug]]) : t('left out – this site has a main and a footer menu'))) ?></li>
+<?php [$menuPlace, $menuLanguage] = $menuPlaces[(string) $slug] ?? ['', '']; ?>
+	<li><?= e(t('Menu “%s” (%s items): %s', (string) $m['nazev'], (int) $m['polozky'], $menuPlace !== '' ? t(Kaleta\Core\Menu::LOCATIONS[$menuPlace]) : t('left out – this site has a main and a footer menu'))) ?><?= $menuLanguage !== '' ? ' (' . e(Kaleta\Core\Language::AVAILABLE[$menuLanguage][0] ?? $menuLanguage) . ')' : '' ?></li>
 <?php endforeach ?>
 </ul>
+<?php endif ?>
+<?php if (Kaleta\Core\WpImport::isMultilingual($state)): // 3.9: Polylang or WPML ?>
+<?php $found = (array) $state['jazyky']['nalezeno']; $missing = array_diff(array_map('strval', array_keys($found)), $languages); ?>
+<p><?= e(t('Multilingual site (%s): %s.', $state['jazyky']['plugin'] === 'wpml' ? 'WPML' : ($state['jazyky']['plugin'] === 'polylang' ? 'Polylang' : t('languages in the addresses')),
+    $found === [] ? t('no language named') : implode(', ', array_map(fn (string $code, int $count): string => (Kaleta\Core\Language::AVAILABLE[$code][0] ?? $code) . ' ' . $count, array_map('strval', array_keys($found)), array_map('intval', $found))))) ?>
+	<?= e(t('Each post, page and category arrives in its language version and is linked to its original in the default language.')) ?>
+<?php if ($missing !== []): ?>
+	<?= e(t('Language versions the site does not have yet are added: %s.', implode(', ', array_map(fn (string $code): string => Kaleta\Core\Language::AVAILABLE[$code][0] ?? $code, $missing)))) ?>
+<?php endif ?></p>
+<?php if (($state['jazyky']['nepodporovane'] ?? []) !== []): ?>
+<p class="hlaska hlaska-varovani"><?= e(t('Not imported – this site cannot offer these languages yet: %s.', implode(', ', array_map(fn (string $language, int $count): string => $language . ' (' . $count . ')', array_map('strval', array_keys($state['jazyky']['nepodporovane'])), array_map('intval', $state['jazyky']['nepodporovane']))))) ?></p>
+<?php endif ?>
 <?php endif ?>
 <?php foreach ($p['stavitele'] ?? [] as $builder => $count): ?>
 <p class="hlaska hlaska-varovani"><?= e(t('%s pages and posts were laid out with %s: the layout is not in the export, only the text in the post content comes over.', (int) $count, (string) $builder)) ?></p>

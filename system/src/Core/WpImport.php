@@ -28,6 +28,11 @@ use Kaleta\Admin\Modules\Pages;
  *    the new addresses; they go to the draft look (Core\Look) and change the site only when the look is published.
  *  - The option "skryte" (always on over MCP, 3.6) brings everything in hidden: news as drafts, pages and items hidden.
  *  - The admin (Admin\Modules\Transfer) and MCP (import_wordpress) share one code path: options(), run(), advance() and summary().
+ *  - A multilingual site (3.9, Polylang or WPML – Core\WpLanguages): each post, page, item and category goes to its language
+ *    version (the site's default language = the main one; a missing version is added), translations point to their
+ *    original in the default language (preklad_z; collection items share the original's address), menus go to the
+ *    language of what they link to, and old /en/… and ?lang=en addresses redirect. Slugs stay unique across languages
+ *    until slugs_per_language is on: a clash gets a number and is listed in the report.
  */
 final class WpImport
 {
@@ -54,8 +59,12 @@ final class WpImport
 
     private string $source = 'wp';
 
-    /** @var array{nazev:string, adresa:string, autori:array<string,string>, emaily:array<string,string>, rubriky:array<string,array{nazev:string, predek:string}>, stitky:array<string,string>, menu:array<string,string>, terminy:array<int,array{0:string, 1:string}>} */
-    private array $header = ['nazev' => '', 'adresa' => '', 'autori' => [], 'emaily' => [], 'rubriky' => [], 'stitky' => [], 'menu' => [], 'terminy' => []];
+    /** @var array{nazev:string, adresa:string, autori:array<string,string>, emaily:array<string,string>, rubriky:array<string,array{nazev:string, predek:string}>, stitky:array<string,string>, menu:array<string,string>, terminy:array<int,array{0:string, 1:string}>, jazyky:array<string,string>, jazyk_terminu:array<int,string>, skupina_terminu:array<int,string>, nazev_terminu:array<int,string>, plugin:string} */
+    private array $header = ['nazev' => '', 'adresa' => '', 'autori' => [], 'emaily' => [], 'rubriky' => [], 'stitky' => [], 'menu' => [], 'terminy' => [],
+        'jazyky' => [], 'jazyk_terminu' => [], 'skupina_terminu' => [], 'nazev_terminu' => [], 'plugin' => ''];
+
+    /** @var array<string, bool> table => it still has the unique key on seo_link alone (globalSlugKey) */
+    private array $globalKeys = [];
 
     /** @var array<string, int> WordPress author login => our user the news items belong to (3.6) */
     private array $authors = [];
@@ -85,7 +94,12 @@ final class WpImport
                 'menu' => [], 'menu_bez' => 0, 'prispevky_autoru' => [], 'stavitele' => []],
             'prilohy' => [], 'volby' => self::DEFAULT_OPTIONS, 'nahledy' => [],
             'menu' => [], // items of the navigation menus (tallyMenuItem), built after the content (menus())
-            'vysledek' => ['clanky' => 0, 'stranky' => 0, 'rubriky' => 0, 'presmerovani' => 0, 'preskoceno' => 0, 'seo' => 0, 'polozky' => 0, 'skryto' => 0],
+            // 3.9: the languages of a multilingual export (Polylang, WPML – Core\WpLanguages): the plugin, Polylang slug => our code
+            // ('' = a language this site cannot offer), items per language, the unavailable ones, each item's [code, type, slug]
+            // and the translation groups (group => WordPress ids); pridano = the language versions the import added to the site
+            'jazyky' => ['plugin' => '', 'kody' => [], 'nalezeno' => [], 'nepodporovane' => [], 'polozky' => [], 'skupiny' => [], 'pridano' => []],
+            'vysledek' => ['clanky' => 0, 'stranky' => 0, 'rubriky' => 0, 'presmerovani' => 0, 'preskoceno' => 0, 'seo' => 0, 'polozky' => 0, 'skryto' => 0, 'preklady' => 0, 'kolize' => 0],
+            'kolize' => [], // 3.9: slugs another language version already has – [address it would have, address it got, the other one]
             // 3.6: what was left out and why (reason => count), the redirects made and refused, the menus and authors
             'vynechano' => [], 'presmerovani' => ['nove' => [], 'odmitnute' => []], 'menu_vysledek' => [], 'autori_vysledek' => [],
             'obr' => ['typ' => 'clanek', 'id' => 0, 'hotovo' => 0, 'celkem' => 0, 'stazeno' => 0, 'chyb' => 0, 'chyby' => []],
@@ -151,6 +165,11 @@ final class WpImport
             $state['prehled']['rubriky'] = count($h['rubriky']);
             $state['prehled']['stitky'] = count($h['stitky']);
             $state['prehled']['autori'] = count($h['autori']);
+            // 3.9: the multilingual plugin and Polylang's languages (slug => our code, '' = a language this site cannot offer)
+            $state['jazyky']['plugin'] = $h['plugin'];
+            foreach ($h['jazyky'] as $slug => $locale) {
+                $state['jazyky']['kody'][(string) $slug] = WpLanguages::code((string) $slug, $locale) ?? '';
+            }
         }
         $end = microtime(true) + $seconds;
         foreach ($wp->items((int) $state['pozice']) as $order => $p) {
@@ -187,6 +206,7 @@ final class WpImport
             if ($p['typ'] === 'post' && $p['autor'] !== '' && self::articleStatus($p['stav']) !== null) {
                 $overview['prispevky_autoru'][$p['autor']] = ($overview['prispevky_autoru'][$p['autor']] ?? 0) + 1;
             }
+            self::tallyLanguage($state, $p);
             if ($p['stavitel'] !== '') {
                 // a page builder's layout is not in the post text – only the text there is comes over (3.6)
                 $overview['stavitele'][$p['stavitel']] = ($overview['stavitele'][$p['stavitel']] ?? 0) + 1;
@@ -209,6 +229,7 @@ final class WpImport
             // a custom post type becomes a collection (2.7): count its items, vote on the type of each field, remember the address
             $t = $overview['typy'][$p['typ']] ?? ['pocet' => 0, 'predpony' => [], 'pole' => [], 'vynechano' => [], 'obsah' => false, 'perex' => false];
             $t['pocet']++;
+            self::tallyLanguage($state, $p);
             $prefix = WpTypes::prefix($p['odkaz']);
             if ($prefix !== '') {
                 $t['predpony'][$prefix] = ($t['predpony'][$prefix] ?? 0) + 1;
@@ -257,6 +278,65 @@ final class WpImport
         $menu = $state['prehled']['menu'][$p['menu']] ?? ['nazev' => (string) $p['menu_nazev'], 'polozky' => 0];
         $menu['polozky']++;
         $state['prehled']['menu'][$p['menu']] = $menu;
+    }
+
+    /**
+     * The language and the translation group of a post, a page or an item of a custom post type (3.9): items per language,
+     * the languages this site cannot offer, and for linking the translations after the content each item's code, type and
+     * WordPress slug plus the members of each group.
+     *
+     * @param array<string, mixed> $state
+     * @param array<string, mixed> $p a post from WpFile::item()
+     */
+    private static function tallyLanguage(array &$state, array $p): void
+    {
+        if ($state['jazyky']['plugin'] === '' && $p['jazyk_plugin'] !== '') {
+            $state['jazyky']['plugin'] = (string) $p['jazyk_plugin'];
+        }
+        [$code, $unavailable] = self::itemLanguage($p, $state);
+        $imported = self::articleStatus((string) $p['stav']) !== null;
+        if ($unavailable !== '') {
+            if ($imported) {
+                $state['jazyky']['nepodporovane'][$unavailable] = ($state['jazyky']['nepodporovane'][$unavailable] ?? 0) + 1;
+            }
+
+            return;
+        }
+        if ($code !== '' && $imported) {
+            $state['jazyky']['nalezeno'][$code] = ($state['jazyky']['nalezeno'][$code] ?? 0) + 1;
+        }
+        if ($code !== '' || $p['skupina'] !== '') {
+            $state['jazyky']['polozky'][(int) $p['id']] = [$code, (string) $p['typ'], mb_substr(rawurldecode((string) $p['adresa']), 0, 160)];
+        }
+        if ($p['skupina'] !== '' && count($state['jazyky']['skupiny'][$p['skupina']] ?? []) < 50) {
+            $state['jazyky']['skupiny'][(string) $p['skupina']][] = (int) $p['id'];
+        }
+    }
+
+    /**
+     * The language of a post (3.9): our code by the plugin's own name of it (a Polylang slug through its locale, a WPML
+     * code), else – in an export of a multilingual site – by its address (/en/…, ?lang=en); '' = not known (the site's
+     * default language, or the language chosen in the options). The second value is the plugin's name of a language this
+     * site cannot offer – such a post is left out and reported.
+     *
+     * @param array<string, mixed> $p a post from WpFile::item()
+     * @param array<string, mixed> $state
+     * @return array{0: string, 1: string}
+     */
+    public static function itemLanguage(array $p, array $state): array
+    {
+        $raw = (string) ($p['jazyk_wp'] ?? '');
+        $codes = (array) ($state['jazyky']['kody'] ?? []);
+        if ($raw !== '') {
+            $code = array_key_exists($raw, $codes) ? (string) $codes[$raw] : (WpLanguages::code($raw) ?? '');
+
+            return $code === '' ? ['', $raw] : [$code, ''];
+        }
+        if (($state['jazyky']['plugin'] ?? '') !== '' || ($p['jazyk_plugin'] ?? '') !== '') {
+            return [WpLanguages::urlLanguage((string) ($p['odkaz'] ?? ''), array_keys(Language::AVAILABLE)), ''];
+        }
+
+        return ['', ''];
     }
 
     /* ---------- pure conversions (covered by tools/unit-tests.php) ---------- */
@@ -343,6 +423,7 @@ final class WpImport
         $this->header = $wp->header();
         $this->source = self::source((string) $state['web']['adresa']);
         $this->authors = $this->authorMap($state);
+        $this->ensureLanguages($state);
         $end = microtime(true) + self::SECONDS;
         $count = 0;
         foreach ($wp->items((int) $state['pozice']) as $order => $p) {
@@ -370,8 +451,10 @@ final class WpImport
                 return; // the rest next time; the import knows the number of posts (celkem) from the preview
             }
         }
+        // the translations are linked once every language version is in (an original may come after its translation)
+        $this->linkTranslations($state);
         // the menus last: now every page and post they point to has its new address
-        $state['menu_vysledek'] = ($state['volby']['menu'] ?? true) ? $this->menus($state) : [];
+        $state['menu_vysledek'] =($state['volby']['menu'] ?? true) ? $this->menus($state) : [];
         $state['faze'] = 'hotovo';
     }
 
@@ -417,11 +500,17 @@ final class WpImport
 
             return;
         }
+        $language = $this->itemColumn($p, $state);
+        if ($language === null) {
+            self::leftOut($state, 'language_unavailable');
+
+            return;
+        }
         $idc = $this->convertedId('clanek', (string) $p['id'], 'novinky', 'idc');
         if ($idc !== null) {
             $state['vysledek']['preskoceno']++; // an already converted news item stays as it is – someone may have edited it in the meantime
         } else {
-            $idc = $this->createArticle($p, self::hidden($articleStatus, $state), $state);
+            $idc = $this->createArticle($p, self::hidden($articleStatus, $state), $state, $language);
         }
         // for now we only note the featured image – it is downloaded in a separate step (also for a previously converted news item that does not have it yet)
         $preview = (string) ($state['prilohy'][$p['nahled']] ?? '');
@@ -435,18 +524,15 @@ final class WpImport
      * @param array{visible:int} $articleStatus
      * @param array<string, mixed> $state
      */
-    private function createArticle(array $p, array $articleStatus, array &$state): int
+    private function createArticle(array $p, array $articleStatus, array &$state, string $postLanguage): int
     {
         [$home, $text] = WpContent::introAndText($p['perex'], $p['obsah'], $state['prilohy']);
-        $colorScheme = $p['rubriky'] === [] ? $this->defaultCategory($state) : $this->category((string) array_key_first($p['rubriky']), (string) reset($p['rubriky']), $state);
+        $colorScheme = $p['rubriky'] === [] ? $this->defaultCategory($state, $postLanguage) : $this->category((string) array_key_first($p['rubriky']), (string) reset($p['rubriky']), $state, $postLanguage);
         $language = (string) $this->db->value('SELECT jazyk FROM {kategorie} WHERE idt = ?', [$colorScheme]); // the news item takes over the category's language, as when saving in the admin
         $title = mb_substr($p['titulek'] !== '' ? $p['titulek'] : t('(untitled)'), 0, 255);
         $now = date('Y-m-d H:i:s');
 
-        $seo = self::availableSlug(
-            slugify(rawurldecode($p['adresa']) !== '' ? rawurldecode($p['adresa']) : $title, 150),
-            fn (string $url): bool => $this->db->value('SELECT idc FROM {novinky} WHERE seo_link = ?', [$url]) !== null,
-        );
+        $seo = $this->freeSlug('novinky', slugify(rawurldecode($p['adresa']) !== '' ? rawurldecode($p['adresa']) : $title, 150), $language, 'novinky/', $state, 160);
         $plugin = $this->seo($p, (string) (reset($p['rubriky']) ?: ''), 255, 320, $state);
         $idc = $this->db->insert('novinky', [
             'seo_link' => $seo, 'titulek' => $title, 'uvod' => $home, 'text' => $text, 'tema' => $colorScheme, 'jazyk' => $language,
@@ -489,11 +575,16 @@ final class WpImport
 
             return;
         }
+        $language = $this->itemColumn($p, $state);
+        if ($language === null) {
+            self::leftOut($state, 'language_unavailable');
+
+            return;
+        }
         $articleStatus = self::hidden($articleStatus, $state);
         $title = mb_substr($p['titulek'] !== '' ? $p['titulek'] : t('(untitled)'), 0, 200);
-        $language = Language::column($this->settings, (string) $state['volby']['jazyk']);
         // a page has its slug directly under the site root, so it must not take a slug the system uses
-        $seo = Pages::freeSlug($this->db, slugify(rawurldecode($p['adresa']) !== '' ? rawurldecode($p['adresa']) : $title, 110));
+        $seo = $this->freeSlug('stranky', slugify(rawurldecode($p['adresa']) !== '' ? rawurldecode($p['adresa']) : $title, 110), $language, '', $state, 120);
         $text = WpContent::sanitize($p['obsah'], $state['prilohy']);
         $plugin = $this->seo($p, '', 200, 300, $state);
         $ids = $this->db->insert('stranky', [
@@ -532,9 +623,14 @@ final class WpImport
 
             return;
         }
+        $language = $this->itemColumn($p, $state);
+        if ($language === null) {
+            self::leftOut($state, 'language_unavailable');
+
+            return;
+        }
         $articleStatus = self::hidden($articleStatus, $state);
         $collection = $this->collectionFor((string) $p['typ'], $state);
-        $language = Language::column($this->settings, (string) $state['volby']['jazyk']);
         $input = [];
         foreach ($collection['mapa'] as $old => $new) {
             $value = (string) ($p['pole'][$old] ?? '');
@@ -554,7 +650,10 @@ final class WpImport
         $data = \Kaleta\Builder\Collections::sanitizeData($collection['pole'], $input);
         $title = mb_substr($p['titulek'] !== '' ? $p['titulek'] : t('(untitled)'), 0, 200);
         $idk = (int) $collection['idk'];
-        $seo = \Kaleta\Builder\CollectionCategories::freeItemSlug($this->db, $idk, $language, slugify(rawurldecode($p['adresa']) !== '' ? rawurldecode($p['adresa']) : $title, 150), 0, '', 120);
+        // 3.9: items in two languages are each other's translation when they have the same address in the same collection (the
+        // switcher and hreflang pair them so) – a translation takes the address of its original; its old address redirects
+        $original = $language !== '' ? $this->originalSlug($p, $state) : '';
+        $seo = \Kaleta\Builder\CollectionCategories::freeItemSlug($this->db, $idk, $language, $original !== '' ? $original : slugify(rawurldecode($p['adresa']) !== '' ? rawurldecode($p['adresa']) : $title, 150), 0, '', 120);
         $plugin = $this->seo($p, '', 200, 300, $state);
         $row = [
             'idk' => $idk, 'nazev' => $title, 'seo_link' => $seo, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
@@ -662,30 +761,62 @@ final class WpImport
      *
      * @param array<string, mixed> $state
      */
-    private function category(string $url, string $name, array &$state): int
+    private function category(string $url, string $name, array &$state, string $language): int
     {
-        if (isset($this->categories[$url])) {
-            return $this->categories[$url];
+        // 3.9: a category belongs to the language version of its posts (Polylang and WPML keep both in one language); two
+        // languages may share a slug in WordPress, so a category of another version than the default one is mapped as slug@code
+        $key = self::categoryKey($url, $language);
+        if (isset($this->categories[$key])) {
+            return $this->categories[$key];
         }
-        $idt = $this->convertedId('rubrika', $url, 'kategorie', 'idt');
+        $idt = $this->convertedId('rubrika', $key, 'kategorie', 'idt');
         if ($idt === null) {
             $description = $this->header['rubriky'][$url] ?? ['nazev' => $name, 'predek' => ''];
-            $name = mb_substr($description['nazev'] !== '' ? $description['nazev'] : ($name !== '' ? $name : $url), 0, 100);
-            $language = Language::column($this->settings, (string) $state['volby']['jazyk']);
+            $name = mb_substr($this->termName($url, $language) ?? ($description['nazev'] !== '' ? $description['nazev'] : ($name !== '' ? $name : $url)), 0, 100);
             $seo = slugify(rawurldecode($url), 110);
             // the same slug, name and language = the same category that is already on the site; otherwise a new one with a free slug
             $idt = $this->db->value('SELECT idt FROM {kategorie} WHERE seo_link = ? AND jazyk = ? AND LOWER(nazev) = LOWER(?)', [$seo, $language, $name]);
             if ($idt === null) {
                 $idt = $this->db->insert('kategorie', [
                     'nazev' => $name, 'popis' => '', 'jazyk' => $language,
-                    'seo_link' => self::availableSlug($seo, fn (string $a): bool => $this->db->value('SELECT idt FROM {kategorie} WHERE seo_link = ?', [$a]) !== null),
+                    'seo_link' => $this->freeSlug('kategorie', $seo, $language, 'novinky/kategorie/', $state, 120),
                 ]);
                 $state['vysledek']['rubriky']++;
             }
-            $this->writeMap('rubrika', $url, (int) $idt);
+            $this->writeMap('rubrika', $key, (int) $idt);
         }
 
-        return $this->categories[$url] = (int) $idt;
+        return $this->categories[$key] = (int) $idt;
+    }
+
+    /** The import map key of a category: its WordPress slug, with @code for a language version other than the default (3.9). */
+    public static function categoryKey(string $slug, string $language): string
+    {
+        return $language === '' ? $slug : $slug . '@' . $language;
+    }
+
+    /**
+     * The name of a category in a language version, when the export names the language of its term (Polylang lets two
+     * languages share a slug, and the header then holds the name of only one of them); null = no such term.
+     */
+    private function termName(string $slug, string $language): ?string
+    {
+        foreach ($this->header['terminy'] as $id => [$kind, $termSlug]) {
+            if ($kind === 'rubrika' && $termSlug === $slug && ($this->header['nazev_terminu'][$id] ?? '') !== '' && $this->termLanguage((int) $id) === $language) {
+                return $this->header['nazev_terminu'][$id];
+            }
+        }
+
+        return null;
+    }
+
+    /** The language column of a category or a tag by its term number (3.9); null = the export does not name it. */
+    private function termLanguage(int $term): ?string
+    {
+        $raw = $this->header['jazyk_terminu'][$term] ?? '';
+        $code = $raw === '' ? null : WpLanguages::code($raw, $this->header['jazyky'][$raw] ?? '');
+
+        return $code === null ? null : Language::column($this->settings, $code);
     }
 
     /**
@@ -693,14 +824,20 @@ final class WpImport
      *
      * @param array<string, mixed> $state
      */
-    private function defaultCategory(array &$state): int
+    private function defaultCategory(array &$state, string $language): int
     {
         $idt = (int) $state['volby']['rubrika'];
-        if ($idt > 0 && $this->db->value('SELECT idt FROM {kategorie} WHERE idt = ?', [$idt]) !== null) {
+        $chosen = $idt > 0 ? $this->db->value('SELECT jazyk FROM {kategorie} WHERE idt = ?', [$idt]) : null;
+        $multilingual = ($state['jazyky']['nalezeno'] ?? []) !== [];
+        if ($chosen !== null && (!$multilingual || (string) $chosen === $language)) {
             return $idt;
         }
+        if ($multilingual) {
+            // 3.9: posts of each language version without a category get that version's own "Uncategorised"
+            return $this->category('nezarazene', Language::runWith(Language::ofContent($this->settings, $language), fn (): string => t('Nezařazené'), 'admin-'), $state, $language);
+        }
 
-        return $state['volby']['rubrika'] = $this->category('nezarazene', t('Nezařazené'), $state);
+        return $state['volby']['rubrika'] = $this->category('nezarazene', t('Nezařazené'), $state, $language);
     }
 
     /** A tag is looked up by the slug made from its name and an unknown one is created – the same as when saving a news item in the admin. */
@@ -760,6 +897,12 @@ final class WpImport
      */
     private function addressInUse(string $path): bool
     {
+        // 3.9: a page address in a language version (/en/kontakt) is in use only when that version has the page – the default
+        // language's /kontakt does not answer /en/kontakt (the router looks pages up by slug and language)
+        if (preg_match('#^([a-z]{2})/([^/?]+)$#D', $path, $m) === 1 && in_array($m[1], Language::additional($this->settings), true) && !Pages::slugReserved($m[2], $this->db)) {
+            return $this->db->value('SELECT 1 FROM {stranky} WHERE seo_link = ? AND jazyk = ? AND smazano IS NULL', [$m[2], $m[1]]) !== null
+                || $this->db->value('SELECT 1 FROM {presmerovani} WHERE z_adresy = ?', [$path]) !== null;
+        }
         if ($this->db->value('SELECT 1 FROM {stranky} WHERE seo_link = ? AND smazano IS NULL', [$path]) !== null
             || (!str_starts_with($path, '?') && Audit::pathResolves($this->db, $this->settings, '/' . $path))) {
             return true;
@@ -777,6 +920,228 @@ final class WpImport
     {
         if (count($state['presmerovani'][$list]) < self::MAX_LISTED) {
             $state['presmerovani'][$list][] = $row;
+        }
+    }
+
+    /* ---------- language versions and translations (3.9, Core\WpLanguages) ---------- */
+
+    /**
+     * The setting slugs_per_language (the 4.0 data model, §3): on = a page, news item or category slug only has to be free
+     * within its own language version, so a translation keeps the slug it had on WordPress. Off unless the setting is "1".
+     */
+    public static function slugsPerLanguage(Settings $settings): bool
+    {
+        return $settings->bool('slugs_per_language');
+    }
+
+    /**
+     * The value of the "jazyk" column for a post, page or item: by its own language (Polylang, WPML or its address), else
+     * the language chosen in the options. Null = its language is one this site cannot offer, or one the import could not add.
+     *
+     * @param array<string, mixed> $p
+     * @param array<string, mixed> $state
+     */
+    private function itemColumn(array $p, array $state): ?string
+    {
+        [$code, $unavailable] = self::itemLanguage($p, $state);
+        if ($unavailable !== '') {
+            return null;
+        }
+        if ($code === '') {
+            return Language::column($this->settings, (string) $state['volby']['jazyk']);
+        }
+        $column = Language::column($this->settings, $code);
+
+        return $column === '' && $code !== Language::defaults($this->settings) ? null : $column;
+    }
+
+    /**
+     * The language versions of the export that this site does not have yet are added (the Language versions feature is
+     * switched on, the codes appended to additional_languages) before the first post, so each post lands in its own
+     * version. Only languages of Language::AVAILABLE; the rest are left out and reported. The report names the added
+     * versions (added_to_site); with a page as the home page, a version shows in the language switcher only once its
+     * translation of the home page is published (Language::published).
+     *
+     * @param array<string, mixed> $state
+     */
+    private function ensureLanguages(array &$state): void
+    {
+        $default = Language::defaults($this->settings);
+        $wanted = array_values(array_diff(array_map('strval', array_keys((array) $state['jazyky']['nalezeno'])), [$default, '']));
+        $missing = array_values(array_diff($wanted, Language::additional($this->settings)));
+        if ($missing === []) {
+            return;
+        }
+        if (!Extensions::isEnabled($this->settings, 'jazyky')) {
+            Extensions::save($this->settings, [...Extensions::enabled($this->settings), 'jazyky']);
+        }
+        $current = array_filter(explode(',', $this->settings->get('additional_languages')), fn (string $c): bool => isset(Language::AVAILABLE[$c]) && $c !== $default);
+        $this->settings->set('additional_languages', implode(',', array_values(array_unique([...$current, ...$missing]))));
+        $state['jazyky']['pridano'] = array_values(array_unique([...(array) $state['jazyky']['pridano'], ...$missing]));
+    }
+
+    /**
+     * A free slug for a new page, news item or category in its language version. While slugs are unique across all
+     * languages (the setting slugs_per_language is off, or the database still has the global key – the 4.0 data model §3),
+     * a slug another language version already has gets the usual suffix, and the clash is listed in the report with both
+     * addresses, so the owner sees which addresses will change once slugs are per language. With slugs per language the
+     * translation keeps its slug.
+     *
+     * @param string $path the address in front of the slug (novinky/, novinky/kategorie/ or '' for a page)
+     * @param array<string, mixed> $state
+     */
+    private function freeSlug(string $table, string $base, string $language, string $path, array &$state, int $max): string
+    {
+        $reserved = fn (string $slug): bool => $table === 'stranky' && Pages::slugReserved($slug, $this->db);
+        $inLanguage = fn (string $slug): bool => $this->db->value('SELECT 1 FROM {' . $table . '} WHERE seo_link = ? AND jazyk = ?', [$slug, $language]) !== null;
+        if (self::slugsPerLanguage($this->settings) && !$this->globalSlugKey($table)) {
+            return Slug::makeUnique($base, fn (string $slug): bool => $reserved($slug) || $inLanguage($slug), $max);
+        }
+        $slug = $table === 'stranky' ? Pages::freeSlug($this->db, $base, 0, '', $max)
+            : self::availableSlug($base, fn (string $a): bool => $this->db->value('SELECT 1 FROM {' . $table . '} WHERE seo_link = ?', [$a]) !== null);
+        $other = $slug === $base || $reserved($base) || $inLanguage($base) ? null : $this->db->value('SELECT jazyk FROM {' . $table . '} WHERE seo_link = ? LIMIT 1', [$base]);
+        if ($other !== null) {
+            $address = fn (string $code, string $s): string => '/' . ($code !== '' ? $code . '/' : '') . $path . $s;
+            $state['vysledek']['kolize'] = (int) ($state['vysledek']['kolize'] ?? 0) + 1;
+            if (count((array) $state['kolize']) < self::MAX_LISTED) {
+                $state['kolize'][] = [$address($language, $base), $address($language, $slug), $address((string) $other, $base)];
+            }
+        }
+
+        return $slug;
+    }
+
+    /** Does the table still have the unique key on seo_link alone (slugs unique across all languages)? */
+    private function globalSlugKey(string $table): bool
+    {
+        return $this->globalKeys[$table] ??= $this->db->value(
+            "SELECT INDEX_NAME FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND NON_UNIQUE = 0
+             GROUP BY INDEX_NAME HAVING COUNT(*) = 1 AND MAX(COLUMN_NAME) = 'seo_link'",
+            [$this->db->prefix . $table],
+        ) !== null;
+    }
+
+    /**
+     * The WordPress ids of a translation group with their language code and type: [code, type, slug] by id. A WPML
+     * duplicate's group (dup:<id>) includes its original.
+     *
+     * @param array<string, mixed> $state
+     * @return array<int, array{0: string, 1: string, 2: string}>
+     */
+    private static function groupMembers(string $group, array $state): array
+    {
+        $ids = (array) ($state['jazyky']['skupiny'][$group] ?? []);
+        if (str_starts_with($group, 'dup:')) {
+            $ids[] = (int) substr($group, 4);
+        }
+        $members = [];
+        foreach ($ids as $id) {
+            $item = $state['jazyky']['polozky'][(int) $id] ?? null;
+            if (is_array($item)) {
+                $members[(int) $id] = [(string) ($item[0] ?? ''), (string) ($item[1] ?? ''), (string) ($item[2] ?? '')];
+            }
+        }
+
+        return $members;
+    }
+
+    /**
+     * The WordPress id of the original in a translation group: the member in the site's default language (a member
+     * without a known language counts as default when there is none with it explicitly); null = none.
+     *
+     * @param array<int, array{0: string, 1: string, 2: string}> $members
+     */
+    private function original(array $members): ?int
+    {
+        $default = Language::defaults($this->settings);
+        $fallback = null;
+        foreach ($members as $id => [$code]) {
+            if ($code === $default) {
+                return $id;
+            }
+            $fallback ??= $code === '' ? $id : null;
+        }
+
+        return $fallback;
+    }
+
+    /**
+     * The address of the original of a collection item's translation: the original's address here when it is imported,
+     * else the slug it will get from its WordPress slug; '' = the item is not a translation.
+     *
+     * @param array<string, mixed> $p
+     * @param array<string, mixed> $state
+     */
+    private function originalSlug(array $p, array $state): string
+    {
+        if ($p['skupina'] === '') {
+            return '';
+        }
+        $members = self::groupMembers((string) $p['skupina'], $state);
+        $original = $this->original($members);
+        if ($original === null || $original === (int) $p['id']) {
+            return '';
+        }
+        $idp = $this->convertedId('polozka', (string) $original, 'kolekce_polozky', 'idp');
+        if ($idp !== null) {
+            return (string) $this->db->value('SELECT seo_link FROM {kolekce_polozky} WHERE idp = ?', [$idp]);
+        }
+
+        return $members[$original][2] !== '' ? slugify($members[$original][2], 150) : '';
+    }
+
+    /**
+     * After the content: every translation points to its original in the default language (preklad_z of pages, news items
+     * and categories – hreflang and the language switcher follow it), and Polylang's language home ?lang=en redirects to
+     * /en/. A link set by hand earlier is never overwritten.
+     *
+     * @param array<string, mixed> $state
+     */
+    private function linkTranslations(array &$state): void
+    {
+        $tables = ['post' => ['clanek', 'novinky', 'idc'], 'page' => ['stranka', 'stranky', 'ids']];
+        $linked = 0;
+        foreach (array_keys((array) $state['jazyky']['skupiny']) as $group) {
+            $members = self::groupMembers((string) $group, $state);
+            $original = $this->original($members);
+            if ($original === null || !isset($tables[$members[$original][1]])) {
+                continue;
+            }
+            [$map, $table, $key] = $tables[$members[$original][1]];
+            $ours = $this->convertedId($map, (string) $original, $table, $key);
+            foreach ($members as $id => [$code, $type]) {
+                $translation = $id === $original || $type !== $members[$original][1] ? null : $this->convertedId($map, (string) $id, $table, $key);
+                if ($ours !== null && $translation !== null && $code !== '') {
+                    $linked += $this->db->run('UPDATE {' . $table . '} SET preklad_z = ? WHERE ' . $key . " = ? AND preklad_z IS NULL AND jazyk <> ''", [$ours, $translation])->rowCount();
+                }
+            }
+        }
+        // categories: Polylang term_translations and WPML term groups, by term number
+        $groups = [];
+        foreach ($this->header['skupina_terminu'] as $term => $group) {
+            [$kind, $slug] = $this->header['terminy'][$term] ?? ['', ''];
+            $language = $this->termLanguage((int) $term);
+            if ($kind === 'rubrika' && $language !== null) {
+                $groups[$group][$language] = $this->convertedId('rubrika', self::categoryKey($slug, $language), 'kategorie', 'idt');
+            }
+        }
+        foreach ($groups as $byLanguage) {
+            $ours = $byLanguage[''] ?? null;
+            foreach ($byLanguage as $language => $idt) {
+                if ($ours !== null && $idt !== null && $language !== '') {
+                    $linked += $this->db->run("UPDATE {kategorie} SET preklad_z = ? WHERE idt = ? AND preklad_z IS NULL AND jazyk <> ''", [$ours, $idt])->rowCount();
+                }
+            }
+        }
+        $state['vysledek']['preklady'] = (int) ($state['vysledek']['preklady'] ?? 0) + $linked;
+        if ($state['volby']['presmerovani']) {
+            foreach (array_intersect(array_map('strval', array_keys((array) $state['jazyky']['nalezeno'])), Language::additional($this->settings)) as $code) {
+                if ($this->db->value('SELECT 1 FROM {presmerovani} WHERE z_adresy = ?', ['?lang=' . $code]) === null) {
+                    Redirects::add($this->db, '?lang=' . $code, $code, false); // Polylang's /?lang=en – the home of the version
+                    self::listRedirect($state, 'nove', ['/?lang=' . $code, '/' . $code . '/']);
+                    $state['vysledek']['presmerovani']++;
+                }
+            }
         }
     }
 
@@ -1106,7 +1471,7 @@ final class WpImport
         $state['volby'] = $options;
         $state['faze'] = 'import';
         $state['pozice'] = 0;
-        foreach (['vysledek', 'vynechano', 'presmerovani', 'menu_vysledek', 'autori_vysledek'] as $key) {
+        foreach (['vysledek', 'vynechano', 'presmerovani', 'menu_vysledek', 'autori_vysledek', 'kolize'] as $key) {
             $state[$key] = $fresh[$key];
         }
     }
@@ -1197,6 +1562,7 @@ final class WpImport
         'pages_off' => 'pages – the pages option is off',
         'collections_off' => 'items of custom post types – the collections option is off',
         'too_large' => 'posts whose HTML is over a safety limit (size, nesting or number of elements) – nothing of them was imported; too_large lists them',
+        'language_unavailable' => 'posts in a language this site cannot offer yet (languages.not_available lists them) – nothing of them was imported',
     ];
 
     /** Why a redirect was not made or a menu was not put into the draft look, in English for the summary. */
@@ -1275,7 +1641,51 @@ final class WpImport
                 'why' => ['volba' => 'chosen in the options', 'email' => 'a user here has the same e-mail', 'import' => 'no user here has the author\'s e-mail – the user who runs the import'][$a['jak']] ?? $a['jak']],
                 array_map('strval', array_keys($state['autori_vysledek'])), array_values($state['autori_vysledek'])),
             'images' => ['downloaded' => (int) $state['obr']['stazeno'], 'failed' => (int) $state['obr']['chyb'], 'recent_failures' => $state['obr']['chyby']],
-        ] + (($state['prilis_velke'] ?? []) !== [] ? ['too_large' => self::tooLarge($state, HtmlLimits::english(...))] : []);
+        ] + (($state['prilis_velke'] ?? []) !== [] ? ['too_large' => self::tooLarge($state, HtmlLimits::english(...))] : [])
+            + (self::isMultilingual($state) ? ['languages' => self::languageSummary($state)] : []);
+    }
+
+    /**
+     * Is the export from a multilingual site (Polylang or WPML, or posts with a language)? (3.9)
+     *
+     * @param array<string, mixed> $state
+     */
+    public static function isMultilingual(array $state): bool
+    {
+        $languages = (array) ($state['jazyky'] ?? []);
+
+        return ($languages['plugin'] ?? '') !== '' || ($languages['nalezeno'] ?? []) !== [] || ($languages['nepodporovane'] ?? []) !== [];
+    }
+
+    /**
+     * The languages of a multilingual export and what the import did with them (3.9), in English.
+     *
+     * @param array<string, mixed> $state
+     * @return array<string, mixed>
+     */
+    private static function languageSummary(array $state): array
+    {
+        $languages = (array) $state['jazyky'];
+        $v = $state['vysledek'];
+        $unavailable = [];
+        foreach ((array) $languages['nepodporovane'] as $language => $count) {
+            $unavailable[] = ['language' => (string) $language, 'items' => (int) $count, 'why' => 'this site cannot offer the language yet – its posts and pages are left out'];
+        }
+
+        return [
+            'plugin' => $languages['plugin'] !== '' ? (string) $languages['plugin'] : null,
+            'items_per_language' => array_map(intval(...), (array) $languages['nalezeno']),
+            'not_available' => $unavailable,
+            'translation_groups' => count((array) $languages['skupiny']),
+            'added_to_site' => array_values((array) $languages['pridano']),
+            'translations_linked' => (int) ($v['preklady'] ?? 0),
+            'slug_clashes' => array_map(fn (array $r): array => ['address' => (string) $r[1], 'wanted' => (string) $r[0], 'taken_by' => (string) $r[2]], array_slice((array) $state['kolize'], 0, 50)),
+            'more_slug_clashes' => max(0, (int) ($v['kolize'] ?? 0) - 50),
+            'how' => 'Each post, page and item arrives in its language version (the site\'s default language in the main one; a missing version is added to the site, '
+                . 'see added_to_site) and is linked to its original in the default language. '
+                . 'Slugs are unique across languages until per-language slugs are on: a slug another language version already has got a number '
+                . '(slug_clashes – these addresses change once slugs are per language), and the old address redirects to the new one.',
+        ];
     }
 
     /**
@@ -1320,12 +1730,23 @@ final class WpImport
         foreach (array_keys($byMenu) as $slug) {
             $names[(string) $slug] = (string) (($this->header['menu'][$slug] ?? '') ?: ($state['prehled']['menu'][$slug]['nazev'] ?? $slug));
         }
-        $locations = self::menuLocations($names, array_map('count', $byMenu), (array) ($state['volby']['menu_umisteni'] ?? []));
-        $language = Language::column($this->settings, (string) $state['volby']['jazyk']);
+        // 3.9: a multilingual site has a menu per language (Polylang assigns them to the theme locations per language in its
+        // options, which the export lacks) – each menu goes to the language of what it links to, and the locations are
+        // chosen within each language version
+        $menuLanguages = [];
+        foreach ($byMenu as $slug => $items) {
+            $menuLanguages[(string) $slug] = $this->menuLanguage($items, $state);
+        }
+        $locations = [];
+        foreach (array_unique($menuLanguages) as $language) {
+            $inLanguage = array_filter($names, fn (string $slug): bool => $menuLanguages[$slug] === $language, ARRAY_FILTER_USE_KEY);
+            $locations += self::menuLocations($inLanguage, array_map('count', array_intersect_key($byMenu, $inLanguage)), (array) ($state['volby']['menu_umisteni'] ?? []));
+        }
         $draft = Look::draft($this->settings)['menus'] ?? [];
         $result = [];
         foreach ($byMenu as $slug => $items) {
             $slug = (string) $slug;
+            $language = $menuLanguages[$slug];
             $warnings = [];
             $tree = Menu::sanitize($this->menuTree($items, $state, $warnings));
             $location = $locations[$slug];
@@ -1348,6 +1769,75 @@ final class WpImport
                 // publishing the look replaces what visitors see now: a saved menu, or the automatic one built from the pages
                 'nahrazuje' => $location === '' ? null : ($live === null ? 'the automatic menu' : sprintf('a saved menu with %d items', count(Menu::flatten(Menu::sanitize(json_decode((string) $live, true)))))),
                 'upozorneni' => $warnings] + ($reason !== '' && $tree !== [] ? ['deti' => $tree] : []);
+        }
+
+        return $result;
+    }
+
+    /**
+     * The language column of a WordPress menu (3.9): the language most of its items link to – posts and pages by their
+     * language, categories by their term's, custom links by their address (/en/…) – else the language of the options.
+     *
+     * @param list<array<string, mixed>> $items
+     * @param array<string, mixed> $state
+     */
+    private function menuLanguage(array $items, array $state): string
+    {
+        $fallback = Language::column($this->settings, (string) $state['volby']['jazyk']);
+        if (!self::isMultilingual($state)) {
+            return $fallback;
+        }
+        $codes = array_map('strval', array_keys((array) $state['jazyky']['nalezeno']));
+        $votes = [];
+        foreach ($items as $item) {
+            $votes[] = match ((string) $item['druh']) {
+                'post_type' => is_array($found = $state['jazyky']['polozky'][(int) $item['objekt_id']] ?? null) ? (string) ($found[0] ?? '') : '',
+                'taxonomy' => ($term = $this->termLanguage((int) $item['objekt_id'])) === null ? '' : ($term === '' ? Language::defaults($this->settings) : $term),
+                default => WpLanguages::urlLanguage((string) $item['url'], $codes),
+            };
+        }
+        $code = WpLanguages::majority($votes);
+        $column = $code === '' ? null : Language::column($this->settings, $code);
+
+        return $column === null || ($column === '' && $code !== Language::defaults($this->settings)) ? $fallback : $column;
+    }
+
+    /**
+     * The preview's guess of each menu's language and location (3.9): the language most of its links to posts and pages
+     * (or addresses) have – the import decides again with the categories too (menuLanguage) – and the locations chosen
+     * within each language, as the import does.
+     *
+     * @param array<string, mixed> $state
+     * @param string $default the site's default language
+     * @return array<string, array{0: string, 1: string}> menu slug => [location hlavni | paticka | '', language code ('' = the default or not known)]
+     */
+    public static function previewMenus(array $state, string $default): array
+    {
+        $codes = array_map('strval', array_keys((array) ($state['jazyky']['nalezeno'] ?? [])));
+        $votes = [];
+        foreach ((array) $state['menu'] as $item) {
+            $found = $state['jazyky']['polozky'][(int) $item['objekt_id']] ?? null;
+            $votes[(string) $item['menu']][] = (string) $item['druh'] === 'post_type' ? (is_array($found) ? (string) ($found[0] ?? '') : '')
+                : ((string) $item['druh'] === 'custom' ? WpLanguages::urlLanguage((string) $item['url'], $codes) : '');
+        }
+        $menus = (array) $state['prehled']['menu'];
+        $languages = [];
+        foreach (array_keys($menus) as $slug) {
+            $language = self::isMultilingual($state) ? WpLanguages::majority($votes[(string) $slug] ?? []) : '';
+            $languages[(string) $slug] = $language === $default ? '' : $language;
+        }
+        $result = [];
+        foreach (array_unique($languages) as $language) {
+            $names = $counts = [];
+            foreach ($menus as $slug => $m) {
+                if ($languages[(string) $slug] === $language) {
+                    $names[(string) $slug] = (string) $m['nazev'];
+                    $counts[(string) $slug] = (int) $m['polozky'];
+                }
+            }
+            foreach (self::menuLocations($names, $counts, (array) ($state['volby']['menu_umisteni'] ?? [])) as $slug => $location) {
+                $result[$slug] = [$location, $language];
+            }
         }
 
         return $result;
@@ -1510,15 +2000,22 @@ final class WpImport
         $object = (string) $item['objekt'];
         $id = (string) $item['objekt_id'];
         $link = fn (string $url, string $fallback): array => ['typ' => 'odkaz', 'url' => $url, 'text' => $text !== '' ? $text : $fallback, 'nove_okno' => (bool) $item['nove_okno']];
+        // 3.9: a link to a news item, a category or an item of another language version than the default one names the version
+        $prefix = fn (array $row): string => (string) ($row['jazyk'] ?? '') !== '' ? '/' . $row['jazyk'] : '';
+        if ((string) $item['druh'] === 'custom' && str_starts_with((string) $item['url'], '#pll_switcher')) {
+            $warnings[] = sprintf('“%s” (the Polylang language switcher) was left out: this site shows its own language switcher.', $text);
+
+            return null;
+        }
         $found = match ((string) $item['druh']) {
             'post_type' => match (true) {
                 $object === 'page' => ($ids = $this->convertedId('stranka', $id, 'stranky', 'ids')) !== null ? ['typ' => 'stranka', 'ids' => $ids, 'text' => $text] : null,
-                $object === 'post' => ($row = $this->db->one('SELECT seo_link, titulek FROM {novinky} WHERE idc = ?', [(int) $this->convertedId('clanek', $id, 'novinky', 'idc')])) !== null
-                    ? $link('/novinky/' . $row['seo_link'], (string) $row['titulek']) : null,
-                default => ($row = $this->db->one('SELECT p.seo_link, p.nazev, k.seo_link AS kolekce FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE p.idp = ?',
-                    [(int) $this->convertedId('polozka', $id, 'kolekce_polozky', 'idp')])) !== null ? $link('/' . $row['kolekce'] . '/' . $row['seo_link'], (string) $row['nazev']) : null,
+                $object === 'post' => ($row = $this->db->one('SELECT seo_link, titulek, jazyk FROM {novinky} WHERE idc = ?', [(int) $this->convertedId('clanek', $id, 'novinky', 'idc')])) !== null
+                    ? $link($prefix($row) . '/novinky/' . $row['seo_link'], (string) $row['titulek']) : null,
+                default => ($row = $this->db->one('SELECT p.seo_link, p.nazev, p.jazyk, k.seo_link AS kolekce FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE p.idp = ?',
+                    [(int) $this->convertedId('polozka', $id, 'kolekce_polozky', 'idp')])) !== null ? $link($prefix($row) . '/' . $row['kolekce'] . '/' . $row['seo_link'], (string) $row['nazev']) : null,
             },
-            'taxonomy' => $this->menuTerm($this->header['terminy'][(int) $id] ?? ['', ''], $link),
+            'taxonomy' => $this->menuTerm($this->header['terminy'][(int) $id] ?? ['', ''], $link, $this->termLanguage((int) $id) ?? ''),
             'post_type_archive' => $object === 'post' ? ['typ' => 'novinky', 'text' => $text]
                 : (($row = $this->db->one('SELECT seo_link, nazev FROM {kolekce} WHERE idk = ?', [(int) $this->convertedId('kolekce', $object, 'kolekce', 'idk')])) !== null
                     ? $link('/' . $row['seo_link'], (string) $row['nazev']) : null),
@@ -1541,16 +2038,19 @@ final class WpImport
      * @param callable(string, string): array<string, mixed> $link
      * @return array<string, mixed>|null
      */
-    private function menuTerm(array $term, callable $link): ?array
+    private function menuTerm(array $term, callable $link, string $language): ?array
     {
         [$kind, $slug] = $term;
+        // a category whose term names no language went to the language of its posts (category())
+        $category = $this->convertedId('rubrika', self::categoryKey($slug, $language), 'kategorie', 'idt')
+            ?? ($language === '' ? (int) $this->db->value("SELECT nase_id FROM {import_mapa} WHERE zdroj = ? AND typ = 'rubrika' AND cizi_id LIKE ? ORDER BY nase_id LIMIT 1", [$this->source, addcslashes($slug, '%_\\') . '@%']) : 0);
         $row = match ($kind) {
-            'rubrika' => $this->db->one('SELECT seo_link, nazev FROM {kategorie} WHERE idt = ?', [(int) $this->convertedId('rubrika', $slug, 'kategorie', 'idt')]),
-            'stitek' => $this->db->one('SELECT seo_link, nazev FROM {stitky} WHERE ids = ?', [(int) $this->convertedId('stitek', $slug, 'stitky', 'ids')]),
+            'rubrika' => $this->db->one('SELECT seo_link, nazev, jazyk FROM {kategorie} WHERE idt = ?', [$category]),
+            'stitek' => $this->db->one("SELECT seo_link, nazev, '' AS jazyk FROM {stitky} WHERE ids = ?", [(int) $this->convertedId('stitek', $slug, 'stitky', 'ids')]),
             default => null,
         };
 
-        return $row === null ? null : $link('/novinky/' . ($kind === 'rubrika' ? 'kategorie/' : 'stitek/') . $row['seo_link'], (string) $row['nazev']);
+        return $row === null ? null : $link(($row['jazyk'] !== '' ? '/' . $row['jazyk'] : '') . '/novinky/' . ($kind === 'rubrika' ? 'kategorie/' : 'stitek/') . $row['seo_link'], (string) $row['nazev']);
     }
 
     /**
