@@ -72,7 +72,7 @@
 	   next to its link; image/web.js adds aria-expanded and opens it by click, Enter or Space */
 	.navigace li.podmenu { display: flex; flex-wrap: wrap; align-items: center; }
 	.navigace .podmenu > .menu-skupina { border-radius: 999px; cursor: pointer; }
-	.navigace .menu-rozbalit { display: grid; place-items: center; min-width: 1.75rem; min-height: 1.75rem; margin-inline-start: -0.6rem; padding: 0; border: 0; border-radius: 999px; background: none; color: inherit; font: inherit; cursor: pointer; }
+	.navigace .menu-rozbalit { display: grid; place-items: center; min-width: 1.75rem; min-height: 1.75rem; margin-inline-start: -0.225rem; padding: 0; border: 0; border-radius: 999px; background: none; color: inherit; font: inherit; cursor: pointer; }
 	.navigace .podmenu > .menu-skupina::after, .navigace .menu-rozbalit::after { content: ""; display: inline-block; width: 0.4em; height: 0.4em; margin-inline-start: 0.45em; border: solid currentColor; border-width: 0 2px 2px 0; transform: translateY(-0.2em) rotate(45deg); }
 	.navigace .menu-rozbalit::after { margin: 0; transform: translateY(-0.1em) rotate(45deg); }
 	.navigace .podmenu > [aria-expanded="true"]::after { transform: translateY(0.1em) rotate(-135deg); }
@@ -105,7 +105,8 @@
 		   without the script every submenu stays expanded and the toggles are hidden */
 		.navigace[popover] .podmenu > [aria-expanded="false"] + ul { display: none; }
 		.navigace[popover] .podmenu > a, .navigace[popover] .podmenu > .menu-skupina { flex: 1; }
-		.navigace[popover] .podmenu > .menu-skupina { display: flex; justify-content: space-between; align-items: center; padding: 0.8rem 1rem; border-radius: calc(var(--zaobleni) / 1.5); }
+		.navigace[popover] .podmenu > .menu-skupina { display: flex; justify-content: space-between; align-items: center; padding: 0.8rem 0 0.8rem 1rem; border-radius: calc(var(--zaobleni) / 1.5); }
+		.navigace[popover] .podmenu > .menu-skupina::after { margin-inline: 0 calc(1.375rem - 0.2em); } /* 3.9.1: the arrow where a group with a page has its toggle */
 		.navigace[popover] .menu-rozbalit { min-width: 2.75rem; min-height: 2.75rem; margin: 0; border-radius: calc(var(--zaobleni) / 1.5); }
 		.navigace[popover] .menu-rozbalit:not([aria-expanded]), .navigace[popover] .podmenu > .menu-skupina:not([aria-expanded])::after { display: none; }
 		/* keyboard: Tab past the last item – the open menu hides so it does not cover the focused element (WCAG 2.4.11), and comes back

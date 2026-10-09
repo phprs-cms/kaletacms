@@ -1409,6 +1409,13 @@ for ($i = 0; $i < Kaleta\Core\WpFile::MAX_TERMS / 2 + 5000; $i++) {
 file_put_contents($n392File, $n392 . '</channel></rss>');
 $n392Header = (new Kaleta\Core\WpFile($n392File))->header();
 @unlink($n392File);
+// 3.9.1: the phone menu – rows close together whatever the element's gap, and every arrow in the same place
+$navCss = Kaleta\Builder\Elements\Navigation::baseCss();
+check('3.9.1 Navigation: the phone sheet resets the gap of its lists and puts the arrow of a group where a toggle has it', [
+    str_contains($navCss, '.ka-nav-menu[popover] ul { flex-direction: column; gap: 2px; }'),
+    str_contains($navCss, '.ka-nav-menu[popover] .podmenu > .menu-skupina::after { margin-inline: 0 calc(1.375rem - 0.2em); }'),
+    str_contains($navCss, '.ka-nav .menu-rozbalit { display: grid; place-items: center; min-width: 1.75em; min-height: 1.75em; margin-inline-start: -0.225em;')],
+    [true, true, true]);
 check('3.9 N39-2: the WordPress header keeps at most WpFile::MAX_TERMS term languages', [count($n392Header['jazyk_terminu']), $n392Header['skupina_terminu'][1] ?? ''], [Kaleta\Core\WpFile::MAX_TERMS, 'pll:pll_0']);
 check('3.9 WpImport::itemLanguage: a single-language export never guesses a language from an address; categoryKey',
     [Kaleta\Core\WpImport::itemLanguage(['odkaz' => 'https://a.example/en/x/', 'jazyk_wp' => '', 'jazyk_plugin' => ''], Kaleta\Core\WpImport::newState('x.xml')),

@@ -51,7 +51,8 @@ final class Navigation extends Element
 /* 3.6: a submenu parent is a disclosure (Core\Menu::html) – a group is its own toggle button, a linked item has a toggle next to its link */
 .ka-nav li.podmenu { display: flex; flex-wrap: wrap; align-items: center; }
 .ka-nav .podmenu > .menu-skupina { cursor: pointer; border-radius: var(--ka-zaobleni-plne); }
-.ka-nav .menu-rozbalit { display: grid; place-items: center; min-width: 1.75em; min-height: 1.75em; margin-inline-start: -0.6em; padding: 0; border: 0; border-radius: var(--ka-zaobleni-plne); background: none; color: inherit; font: inherit; cursor: pointer; }
+/* 3.9.1: -0.225em puts the arrow of a toggle 0.45em after the link, as far as a group without a page has it after its name */
+.ka-nav .menu-rozbalit { display: grid; place-items: center; min-width: 1.75em; min-height: 1.75em; margin-inline-start: -0.225em; padding: 0; border: 0; border-radius: var(--ka-zaobleni-plne); background: none; color: inherit; font: inherit; cursor: pointer; }
 .ka-nav .podmenu > .menu-skupina::after, .ka-nav .menu-rozbalit::after { content: ""; display: inline-block; width: 0.4em; height: 0.4em; margin-inline-start: 0.45em; border: solid currentColor; border-width: 0 2px 2px 0; transform: translateY(-0.2em) rotate(45deg); }
 .ka-nav .menu-rozbalit::after { margin: 0; transform: translateY(-0.1em) rotate(45deg); }
 .ka-nav .podmenu > [aria-expanded="true"]::after { transform: translateY(0.1em) rotate(-135deg); }
@@ -109,13 +110,16 @@ CSS;
 	/* keyboard: Tab past the last menu item hides the open menu, so it does not cover the element the focus moved to (WCAG 2.4.11),
 	   and it shows again when the focus comes back to the navigation; Esc or a click outside closes it completely (Popover API, no JavaScript) */
 	:root:has(:focus-visible) .ka-nav{T}:not(:has(:focus-visible)) > .ka-nav-menu[popover]:popover-open { display: none; }
-	{N}.ka-nav-menu[popover] ul { flex-direction: column; }
+	/* 3.9.1: the rows of the sheet sit close together – the gap of the element (--ka-nav-mezera) belongs to the bar on a wide screen */
+	{N}.ka-nav-menu[popover] ul { flex-direction: column; gap: 2px; }
 	{N}.ka-nav-menu[popover] .podmenu > ul { display: flex; flex-basis: 100%; position: static; min-width: 0; padding: 0 0 0 1rem; border: 0; box-shadow: none; }
 	/* 3.6: the groups are an accordion – closed, the one with the current page opened by image/web.js when the menu opens;
 	   without the script every submenu stays expanded and the toggles, which would do nothing, are hidden */
 	{N}.ka-nav-menu[popover] .podmenu > [aria-expanded="false"] + ul { display: none; }
 	{N}.ka-nav-menu[popover] .podmenu > a, {N}.ka-nav-menu[popover] .podmenu > .menu-skupina { flex: 1; }
-	{N}.ka-nav-menu[popover] .podmenu > .menu-skupina { display: flex; justify-content: space-between; align-items: center; border-radius: calc(var(--ka-zaobleni) / 1.5); }
+	{N}.ka-nav-menu[popover] .podmenu > .menu-skupina { display: flex; justify-content: space-between; align-items: center; min-height: 2.75rem; border-radius: calc(var(--ka-zaobleni) / 1.5); }
+	/* 3.9.1: a group without a page has its arrow where a group with a page has its toggle – in the middle of the last 2.75rem */
+	{N}.ka-nav-menu[popover] .podmenu > .menu-skupina::after { margin-inline: 0 calc(1.375rem - 0.2em); }
 	{N}.ka-nav-menu[popover] .menu-rozbalit { min-width: 2.75rem; min-height: 2.75rem; margin: 0; border-radius: calc(var(--ka-zaobleni) / 1.5); }
 	{N}.ka-nav-menu[popover] .menu-rozbalit:not([aria-expanded]), {N}.ka-nav-menu[popover] .podmenu > .menu-skupina:not([aria-expanded])::after { display: none; }
 	{N}.ka-nav-menu[popover] .menu-sloupec > ul { padding-inline-start: 1rem; }
