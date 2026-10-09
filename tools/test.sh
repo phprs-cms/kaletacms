@@ -5437,6 +5437,8 @@ $channels = [
     'bez' => [$signed('9.9.10', 'latest'), null],                            // no stable channel published yet
     // 3.9 (N38-3): a genuine latest release relabelled "stable" at the stable address – the channel is signed, v2 fails
     'podvrh' => [$signed('9.9.10', 'latest'), ['kanal' => 'stable'] + $signed('9.9.10', 'latest')],
+    // the manifest published today (3.8.0, written before v2 existed): the daily check keeps passing on its v1 signature
+    'stary' => [array_diff_key($signed('3.8.0', 'latest'), ['podpis2' => 1]), null],
 ];
 foreach ($channels as $folder => [$latest, $stable]) {
     @mkdir(dirname($site) . '/kanal/' . $folder);
@@ -5548,14 +5550,16 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&a
 channel_source ok.json; backups_page
 contains -F 'nemá proto stabilní protějšek' "$WORK/response" && contains -F 'value="9.9.9"' "$WORK/response" && echo "  ok     3.8 channels: a custom source without a stable twin keeps working on Stable" || { echo "  CHYBA  3.8 channels: custom source on Stable"; ERRORS=$((ERRORS+1)); }
 # tools/check-channel.php checks both manifests (signature, package, keys, the channel mark) and skips a stable one not yet published
-for c in kanaly spatne bez podvrh; do
+for c in kanaly spatne bez podvrh stary; do
   if php "$WORK/web/tools/check-channel.php" "http://127.0.0.1:$CHANNEL_PORT/$c/aktualizace.json" > "$WORK/channel-$c.txt" 2>&1; then echo ok >> "$WORK/channel-$c.txt"; else echo failed >> "$WORK/channel-$c.txt"; fi
 done
 expect "3.8 check-channel: both manifests pass, a latest one at the stable address fails, a missing stable one is skipped" \
   "$(tail -1 "$WORK/channel-kanaly.txt")|$(contains -F 'aktualizace-stable.json – nabízená verze: 9.9.9' "$WORK/channel-kanaly.txt" && echo stable)|$(tail -1 "$WORK/channel-spatne.txt")|$(contains -F '"kanal": "stable"' "$WORK/channel-spatne.txt" && echo why)|$(tail -1 "$WORK/channel-bez.txt")|$(contains -F '404' "$WORK/channel-bez.txt" && echo skipped)" \
   "ok|stable|failed|why|ok|skipped"
 [ "$(tail -1 "$WORK/channel-kanaly.txt")" = ok ] || cat "$WORK/channel-kanaly.txt"
-expect "3.9 check-channel: a relabelled stable manifest fails on signature v2" "$(tail -1 "$WORK/channel-podvrh.txt")|$(contains -F 'podpis v2 (podpis2) NEPLATÍ' "$WORK/channel-podvrh.txt" && echo why)" "failed|why"
+expect "3.9 check-channel: a relabelled stable manifest fails on signature v2; a pre-3.9 manifest without v2 passes on v1" \
+  "$(tail -1 "$WORK/channel-podvrh.txt")|$(contains -F 'podpis v2 (podpis2) NEPLATÍ' "$WORK/channel-podvrh.txt" && echo why)|$(tail -1 "$WORK/channel-stary.txt")|$(contains -F 'bez podpisu v2' "$WORK/channel-stary.txt" && echo noted)" \
+  "failed|why|ok|noted"
 sq "UPDATE ka_nastaveni SET hodnota = 'latest' WHERE promenna = 'update_channel'" > /dev/null
 update_from ok.json
 [ -f "$WORK/web/image/test-aktualizace.txt" ] && echo "  ok     podepsaná aktualizace se nainstaluje" || { echo "  CHYBA  aktualizace se nenainstalovala"; sq "SELECT message, data FROM ka_events WHERE type LIKE 'update.%'"; ERRORS=$((ERRORS+1)); }

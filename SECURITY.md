@@ -46,6 +46,29 @@ newer minor than the stable line is offered nothing until the stable line passes
 and security fixes reach such a site only on Latest. A site with a custom update source keeps it: the Stable channel
 reads `aktualizace-stable.json` next to that source's `aktualizace.json`.
 
+## Update signatures
+
+Every update manifest (`aktualizace.json`, `aktualizace-stable.json`) is signed with the publisher's Ed25519 key, twice:
+
+- **v1** (`podpis`): the version, the SHA-256 of the package and the security-release flag. Kaleta 1.0 to 3.8 check
+  this one, so it stays in every manifest.
+- **v2** (`podpis2`, from Kaleta 3.9): every field a site acts on – version, release date, package URL, SHA-256,
+  minimum PHP, security flag, channel, key id and the list of changes – in a canonical encoding with byte lengths
+  (`Kaleta\Core\Signature::manifestMessage`). Only the key named in the signed key id counts.
+
+A site on Kaleta 3.9 or later checks v2 as soon as it reads the manifest, before it offers anything:
+
+- a manifest with an invalid v2 signature is refused: nothing is offered or installed;
+- a manifest of version 3.9.0 or later without v2 is refused (the signature was stripped);
+- a manifest of an older version without v2 is read under the v1 rules, but its unsigned channel is ignored, so it is
+  never a stable-channel release, and the installation checks the PHP version the package itself requires before it
+  writes a file.
+
+The v1 signature and the SHA-256 of the downloaded package are checked at installation, as before. Sites up to 3.8 read
+only v1: for them the channel and the minimum PHP stay unsigned (accepted for 3.8; an install on a PHP the release does
+not support is rolled back by the post-update check). A mirror of the update source must serve the manifest unchanged –
+the package URL is signed.
+
 ## What the system protects
 
 Prepared statements everywhere, `password_hash` passwords, CSRF protection on every admin action, escaped
