@@ -3,7 +3,7 @@
   "name": "com.kaletacms/kaleta",
   "title": "Kaleta",
   "description": "Build and run a company website with Claude: pages, news, collections and the look, as drafts.",
-  "version": "3.8.0",
+  "version": "3.9.0",
   "websiteUrl": "https://kaletacms.com",
   "repository": {
     "url": "https://github.com/phprs-cms/kaletacms",

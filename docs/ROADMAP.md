@@ -610,6 +610,32 @@ The fourth release of the 30-day plan: Kaleta where Claude users look, and a cal
 Audited before release (N38): the HTML pre-scan is linear on every input, the check and the parser always read the same
 UTF-8 text, a loopback OAuth port is a plain number, and the weekly-care skill prepares live edits for approval first.
 
+## 3.9 – migration III (released 9 October 2026)
+
+What the owner's multilingual WordPress sites need before they move, and the first 3.x steps of the 4.0 data model.
+
+1. **The same address in every language version** (4.0 design §3 step 1): Settings → General, "The same address in every
+   language" lets a Czech and an English page, news item, category or collection item share a slug. Off by default (no
+   change for existing sites); switching it on drops the global unique keys for that site, switching it off is refused
+   while versions share a slug. Migration 0083 also widens every language column to `VARCHAR(35)` ascii (§2 step 1), and
+   every language pattern goes through `Core\Language`.
+2. **Polylang and WPML imports:** a WordPress export arrives as linked language versions – pages, posts, categories,
+   collection items and menus in their own version, translations linked, missing languages added, old `/en/…` and
+   `?lang=` addresses redirected, and slug clashes listed in the report when slugs are not per language.
+3. **Cookie bar per language (UXM-11):** the text and the policy link of the cookie bar can differ per language version.
+4. **Mail services in Settings → Mail:** Brevo, Mailgun, Amazon SES, Postmark, SendGrid, MailerSend, SMTP2GO, Mailjet or
+   Mandrill fill the server, port and encryption, say what the user name and password are, and which DNS records to add;
+   an existing configuration stays as it is.
+5. **English query parameters** (PR #16 by czepter): Kaleta writes only English parameter names; the old Czech ones stay
+   as aliases (`Request::LEGACY_QUERY`), so links in e-mails, shared previews, bookmarks and cached forms keep working.
+6. **Signed update manifests v2** (N38-3, N37-4): a second signature covers every field a site acts on – the channel,
+   the PHP requirement, the address and the changes; the v1 signature stays for sites up to 3.8. A 3.9 site also reads the
+   PHP requirement from the signed package itself before writing a file.
+7. **Claude connections last a year:** an OAuth refresh token lives 365 days, renewed with every use (owner decision).
+
+Audited before release (N39): a new password ends the user's Claude connections, a multilingual import adds language
+versions only when asked, the WordPress header has a memory cap, and switching per-language slugs off never ends half-done.
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).
