@@ -5966,4 +5966,5 @@ return [
     'The assistant\'s reply is over a safety limit for HTML. Please try again.' => 'Die Antwort des Assistenten überschreitet eine Sicherheitsgrenze für HTML. Bitte erneut versuchen.',
     'The text is over a safety limit for HTML (too large or nested too deeply), so it cannot be translated.' => 'Der Text überschreitet eine Sicherheitsgrenze für HTML (zu groß oder zu tief verschachtelt) und kann daher nicht übersetzt werden.',
     'Nothing was saved: the text is over a safety limit for HTML (too large or nested too deeply).' => 'Es wurde nichts gespeichert: Der Text überschreitet eine Sicherheitsgrenze für HTML (zu groß oder zu tief verschachtelt).',
+    'The update information file is not signed by the Kaleta publisher (signature v2), so nothing is offered or installed.' => 'Die Update-Informationsdatei ist nicht vom Herausgeber von Kaleta signiert (Signatur v2), daher wird nichts angeboten oder installiert.',
 ];

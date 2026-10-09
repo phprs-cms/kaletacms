@@ -6,6 +6,9 @@
 # PACKAGE=dist/kaleta-X.Y.Z.zip tests a real release package instead (tools/release.php; the manifest next to it), signed
 # with the publisher's key the old release already trusts – run it before uploading a release.
 # MANIFEST=dist/aktualizace-stable.json takes the stable manifest instead (a patch of the stable line, docs/RELEASING.md).
+# 3.9: the manifest's signatures v1 and v2 are checked first. v2 also covers the package address the test points to its
+# own channel, so for an old release that checks v2 (3.9+) v2 is signed again with a throwaway key it trusts; v1 stays
+# the publisher's. TRUST_KEY=<public key, base64> makes the old site trust the key of a dry run of tools/release.php.
 # The database DB_NAME is DROPPED and created again.
 set -euo pipefail
 
@@ -113,8 +116,9 @@ ksort($hashes);
 $zip->addFromString('system/soubory.json', substr($fileList('99.0.0', $hashes), 0, -2) . ",\n    \"legacy\": " . json_encode((object) $legacy, JSON_UNESCAPED_SLASHES) . "\n}\n");
 $zip->close();
 $sha = hash_file('sha256', $channel . '/kaleta.zip');
-file_put_contents($channel . '/aktualizace.json', json_encode(['verze' => '99.0.0', 'url' => "http://127.0.0.1:$port/kaleta.zip", 'sha256' => $sha, 'min_php' => '8.4', 'zmeny' => ['test'],
-    'podpis' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Signature::packageMessage('99.0.0', $sha, false), $sk))]));
+// signed as tools/release.php signs (3.9): v1 for the old release up to 3.8, v2 over every field for 3.9 and later
+file_put_contents($channel . '/aktualizace.json', json_encode(Kaleta\Core\Signature::signManifest(['verze' => '99.0.0', 'vydano' => date('Y-m-d'), 'url' => "http://127.0.0.1:$port/kaleta.zip", 'sha256' => $sha,
+    'min_php' => '8.4', 'bezpecnostni' => false, 'zmeny' => ['test'], 'kanal' => 'latest'], $sk)));
 echo '  ok     ' . count($hashes) . " files in the package\n";
 PHP
 # a class file of the old release that the new one no longer has: the update must delete it
@@ -124,7 +128,39 @@ if [ -n "${PACKAGE:-}" ]; then
   php -r '$h = []; foreach (file($argv[2], FILE_IGNORE_NEW_LINES) as $s) { if (!preg_match("#^(tools/|docs/|\.github/|\.claude/|CLAUDE\.md$|\.git|media/|storage/|install\.php$)#", $s) && is_file($argv[1] . "/" . $s)) { $h[$s] = hash_file("sha256", $argv[1] . "/" . $s); } }
     file_put_contents($argv[1] . "/system/soubory.json", json_encode(["verze" => "stara", "soubory" => $h]));' "$WORK/web" "$WORK/stare-soubory.txt"
   cp "$PACKAGE" "$WORK/kanal/kaleta.zip"
-  php -r '$m = json_decode(file_get_contents($argv[1]), true); $m["url"] = "http://127.0.0.1:" . $argv[2] . "/kaleta.zip"; file_put_contents($argv[3], json_encode($m));' "${MANIFEST:-$(dirname "$PACKAGE")/aktualizace.json}" "$CHANNEL_PORT" "$WORK/kanal/aktualizace.json"
+  # TRUST_KEY=<public key, base64>: a package signed with a throwaway key (a dry run of tools/release.php) – the old site trusts it too
+  [ -z "${TRUST_KEY:-}" ] || printf '\n%s test-release\n' "$TRUST_KEY" >> "$WORK/web/system/aktualizace.pub"
+  # does the old release check manifest signature v2 (3.9 and later)?
+  FROM_V2=0; git -C "$ROOT" show "$FROM:system/src/Core/Signature.php" 2>/dev/null | grep -q 'function manifestMessage' && FROM_V2=1
+  cat > "$WORK/manifest.php" <<'PHP'
+<?php
+// the real manifest: both signatures must hold for the keys the sites know; then its package address points to the local channel
+[, $root, $source, $port, $target, $sitePub, $fromV2, $trustKey] = $argv;
+require $root . '/system/src/Core/Signature.php';
+$keys = tempnam(sys_get_temp_dir(), 'kaleta-pub');
+file_put_contents($keys, file_get_contents($root . '/system/aktualizace.pub') . ($trustKey !== '' ? "\n" . $trustKey . " test-release\n" : ''));
+$m = json_decode((string) file_get_contents($source), true);
+$v1 = Kaleta\Core\Signature::isValid(Kaleta\Core\Signature::packageMessage((string) $m['verze'], (string) $m['sha256'], !empty($m['bezpecnostni'])), (string) $m['podpis'], $keys);
+$v2 = isset($m['podpis2']) ? Kaleta\Core\Signature::manifestValid($m, $keys) : null;
+unlink($keys);
+if (!$v1 || $v2 === false) {
+    fwrite(STDOUT, '  CHYBA  the manifest ' . $source . ': signature ' . (!$v1 ? 'v1' : 'v2') . " does not hold for system/aktualizace.pub\n");
+    exit(1);
+}
+echo "  ok     the manifest holds signature v1" . ($v2 ? ' and v2' : ' (no v2: a release before 3.9)') . "\n";
+$m['url'] = "http://127.0.0.1:$port/kaleta.zip";
+if ($fromV2 === '1') {
+    // v2 covers the package address, which the test has just changed: an old release that checks v2 gets it signed again
+    // with a throwaway key it trusts (the publisher's v2 was checked above; v1 stays the publisher's and is checked by the site)
+    $pair = sodium_crypto_sign_keypair();
+    file_put_contents($sitePub, "\n" . base64_encode(sodium_crypto_sign_publickey($pair)) . " test-url\n", FILE_APPEND);
+    $m['klic'] = Kaleta\Core\Signature::id(sodium_crypto_sign_publickey($pair));
+    $m['podpis2'] = base64_encode(sodium_crypto_sign_detached((string) Kaleta\Core\Signature::manifestMessage($m), sodium_crypto_sign_secretkey($pair)));
+    echo "  ok     v2 signed again for the local package address (the old release checks v2)\n";
+}
+file_put_contents($target, json_encode($m));
+PHP
+  php "$WORK/manifest.php" "$ROOT" "${MANIFEST:-$(dirname "$PACKAGE")/aktualizace.json}" "$CHANNEL_PORT" "$WORK/kanal/aktualizace.json" "$WORK/web/system/aktualizace.pub" "$FROM_V2" "${TRUST_KEY:-}"
   NEW_VERSION=$(php -r 'echo json_decode(file_get_contents($argv[1]), true)["verze"];' "$WORK/kanal/aktualizace.json")
   echo "  ok     release package $PACKAGE ($NEW_VERSION)"
 else

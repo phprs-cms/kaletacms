@@ -12,7 +12,9 @@
  *   php tools/release.php 3.8.4 --channel=stable --package=dist/kaleta-3.8.4.zip --url=…/v3.8.4/kaleta-3.8.4.zip --zmena="…"
  * Instead of a file, the private key can be passed in the KALETA_KLIC environment variable (base64) - for releasing from GitHub Actions.
  *
- * Creates dist/kaleta-<version>.zip (files tracked by git) and dist/aktualizace.json signed with the private key.
+ * Creates dist/kaleta-<version>.zip (files tracked by git) and dist/aktualizace.json signed with the private key – with both
+ * manifest signatures (3.9): v1 for the installed versions up to 3.8, v2 over every field for 3.9 and later. Never edit
+ * the manifest by hand afterwards (not even the URL or a change line): v2 would no longer hold – run this again instead.
  * Keys: tools/klice/vydavatel.key (primary) and tools/klice/zalozni.key (backup, should be kept offline) are PRIVATE - never into git.
  * system/aktualizace.pub carries the public keys (one per line), it is part of the system. Key rotation and revocation: docs/RELEASING.md.
  *   php tools/release.php --novy-klic=zalozni      creates a key pair and appends the public one to system/aktualizace.pub
@@ -155,13 +157,15 @@ if ($options['package'] === '') {
 }
 
 $sha = hash_file('sha256', $zipFile);
-$manifest = [
+// two signatures (3.9): "podpis" (v1: version|sha256|security flag – the only one installed versions up to 3.8 check) and
+// "podpis2" (v2: every field below, the channel and min_php included – checked by 3.9 and later, Core\Signature::manifestMessage)
+$manifest = Kaleta\Core\Signature::signManifest([
     'verze' => $version, 'vydano' => date('Y-m-d'), 'url' => $options['url'], 'sha256' => $sha,
-    'podpis' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Signature::packageMessage($version, $sha, $options['bezpecnostni']), $sk)),
-    'klic' => $keyId, // only for reference, which key signed it; installations try all keys they know
+    'podpis' => '', // filled in by signManifest
+    'klic' => $keyId, // the key that signed it; signature v2 is checked against this key only
     'min_php' => $minPhp[1], 'bezpecnostni' => $options['bezpecnostni'], 'zmeny' => $options['zmeny'],
     'kanal' => $options['channel'], // 3.8: a site on the stable channel accepts only a manifest that says "stable" (Core\Updater::choose)
-];
+], $sk);
 $manifestName = $options['channel'] === 'stable' ? 'aktualizace-stable.json' : 'aktualizace.json';
 @mkdir($root . '/dist');
 file_put_contents($root . '/dist/' . $manifestName, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n");

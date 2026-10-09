@@ -5560,4 +5560,5 @@ return [
     'The assistant\'s reply is over a safety limit for HTML. Please try again.' => 'Odpověď asistenta je přes bezpečnostní limit pro HTML. Zkuste to prosím znovu.',
     'The text is over a safety limit for HTML (too large or nested too deeply), so it cannot be translated.' => 'Text je přes bezpečnostní limit pro HTML (příliš velký nebo hluboce vnořený), proto ho nejde přeložit.',
     'Nothing was saved: the text is over a safety limit for HTML (too large or nested too deeply).' => 'Nic nebylo uloženo: text je přes bezpečnostní limit pro HTML (příliš velký nebo hluboce vnořený).',
+    'The update information file is not signed by the Kaleta publisher (signature v2), so nothing is offered or installed.' => 'Soubor s informací o aktualizaci není podepsaný vydavatelem Kalety (podpis v2), proto se nic nenabízí ani neinstaluje.',
 ];

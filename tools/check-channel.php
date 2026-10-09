@@ -11,6 +11,10 @@
  * channel is checked. A stable manifest must say "kanal": "stable" and must not offer a newer version than the latest one;
  * the latest manifest must not say "stable".
  *
+ * 3.9: manifest signature v2 ("podpis2", over every field – Core\Signature::manifestMessage) must hold when it is there,
+ * and must be there on the stable manifest and on any manifest of 3.9.0 or later (sites from 3.9 on refuse them without it).
+ * A latest manifest of an older release without it passes on its v1 signature, as before.
+ *
  * Signs nothing and needs no private key.
  */
 
@@ -60,7 +64,7 @@ $download = static function (string $url) use ($fetch): string {
  *
  * @return array<string, mixed> the manifest
  */
-$check = static function (string $json, string $label) use ($download, $keys, $local, &$errors): array {
+$check = static function (string $json, string $label, bool $stableManifest = false) use ($download, $keys, $local, &$errors): array {
     $m = json_decode($json, true, 16, JSON_THROW_ON_ERROR);
     if (!is_array($m)) {
         throw new RuntimeException("$label: soubor není objekt JSON");
@@ -76,6 +80,16 @@ $check = static function (string $json, string $label) use ($download, $keys, $l
     }
     if (!Signature::isValid(Signature::packageMessage($m['verze'], strtolower($m['sha256']), !empty($m['bezpecnostni'])), $m['podpis'], $keys)) {
         $errors[] = "$label: podpis NEPLATÍ pro žádný klíč v system/aktualizace.pub";
+    }
+    // 3.9: signature v2 over every field (the channel and min_php too) – what installations from 3.9 on check (Core\Updater::verified)
+    if (array_key_exists('podpis2', $m)) {
+        if (!Signature::manifestValid($m, $keys)) {
+            $errors[] = "$label: podpis v2 (podpis2) NEPLATÍ – weby od 3.9 manifest odmítnou (upravený po podpisu, nebo klíč z „klic“ není v system/aktualizace.pub)";
+        }
+    } elseif ($stableManifest || version_compare($m['verze'], Updater::SIGNED_V2_SINCE, '>=')) {
+        $errors[] = "$label: chybí podpis v2 (podpis2) – weby od 3.9 manifest odmítnou; podepište ho znovu nástrojem tools/release.php z větve main";
+    } else {
+        echo "$label: bez podpisu v2 – vydání před " . Updater::SIGNED_V2_SINCE . ", platí podpis v1 (tak ho čtou weby do 3.8)\n";
     }
     $zip = (string) tempnam(sys_get_temp_dir(), 'kaleta');
     file_put_contents($zip, $download($m['url']));
@@ -118,7 +132,7 @@ if ($stableUrl !== null) {
         } elseif ($status !== 200) {
             throw new RuntimeException("nelze stáhnout $stableUrl" . ($status > 0 ? " (HTTP $status)" : ''));
         } else {
-            $stable = $check($body, 'aktualizace-stable.json');
+            $stable = $check($body, 'aktualizace-stable.json', true);
             if (($stable['kanal'] ?? null) !== 'stable') {
                 $errors[] = 'aktualizace-stable.json: manifest neříká "kanal": "stable" – weby na stabilním kanálu by nic nedostaly (přesměrování ukazuje na jiný soubor?)';
             }
