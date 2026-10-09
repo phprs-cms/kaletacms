@@ -335,7 +335,7 @@ final class News extends Module
             return $this->redirectToSite($r->post('zpet'), '?' . ($preview !== '' ? $preview . '&' : '') . 'edit=text&error=limit');
         }
         if ($data['titulek'] === '') {
-            return $this->redirectToSite($r->post('zpet'), '?' . ($preview !== '' ? $preview . '&' : '') . 'upravit=text&error=1');
+            return $this->redirectToSite($r->post('zpet'), '?' . ($preview !== '' ? $preview . '&' : '') . 'edit=text&error=1');
         }
         if ([$newsItem['titulek'], $newsItem['uvod'], $newsItem['text']] !== array_values($data)) {
             self::version($this->db, $newsItem, $this->app->auth()->id());

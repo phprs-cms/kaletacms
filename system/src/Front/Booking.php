@@ -92,8 +92,9 @@ final class Booking
         }
         $o = $element['obsah'];
         // the element may fix the service or the person – then the visitor's choice does not count
-        $serviceId = (int) $o['sluzba'] > 0 ? (int) $o['sluzba'] : $r->postInt('service');
-        $staffId = (int) $o['osoba'] > 0 ? (int) $o['osoba'] : $r->postInt('staff');
+        // a form opened or cached before 3.9 posts the old names sluzba / osoba (PR #16 renamed them)
+        $serviceId = (int) $o['sluzba'] > 0 ? (int) $o['sluzba'] : ($r->postInt('service') ?: $r->postInt('sluzba'));
+        $staffId = (int) $o['osoba'] > 0 ? (int) $o['osoba'] : ($r->postInt('staff') ?: $r->postInt('osoba'));
         [$booking, $error] = Bookings::book($this->app, ['service_id' => $serviceId, 'staff_id' => $staffId, 'slot' => $r->post('slot'), 'name' => $r->post('jmeno'), 'email' => $r->post('email'),
             'phone' => $r->post('telefon'), 'note' => $r->post('poznamka'), 'source' => $back, 'language' => \Kaleta\Core\Language::siteColumn(), 'by' => 'customer']);
         if ($booking === null) {

@@ -278,7 +278,7 @@ curl -s -o "$WORK/response" "$B/o-nas?build=koncept&editor=1"; ! grep -q "Builde
 code=$(page_action build_share -d dni=3); SHARED_LINK=$(php -r 'echo json_decode((string) file_get_contents($argv[1]))->odkaz ?? "";' "$WORK/response")
 curl -s -o "$WORK/response" "$SHARED_LINK"
 [ "$code" = 200 ] && [[ "$SHARED_LINK" == "$B/o-nas?build=koncept&preview_key="* ]] && grep -q "Builder test" "$WORK/response" && ! grep -q 'data-ka-id' "$WORK/response" && echo "  ok     sdílený odkaz ukáže koncept bez přihlášení a bez značek editoru" || { echo "  CHYBA  stavba_sdilet: kód $code, odkaz $SHARED_LINK"; ERRORS=$((ERRORS+1)); }
-OLD_QUERY="stavba=koncept&nahled_klic="; curl -s -o "$WORK/response" "${SHARED_LINK/build=koncept&preview_key=/"$OLD_QUERY"}"; grep -q "Builder test" "$WORK/response" && echo "  ok     an old shared preview link (stavba=, nahled_klic=) still opens the draft" || { echo "  CHYBA  old preview link"; ERRORS=$((ERRORS+1)); }
+curl -s -o "$WORK/response" "$B/o-nas?stavba=koncept&nahled_klic=${SHARED_LINK##*preview_key=}"; grep -q "Builder test" "$WORK/response" && echo "  ok     an old shared preview link (stavba=, nahled_klic=) still opens the draft" || { echo "  CHYBA  old preview link"; ERRORS=$((ERRORS+1)); }
 code=$(page_action build_publish); expect "publikování stavby" "$code" 200
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/o-nas"
@@ -5133,6 +5133,9 @@ case "$(book --data-urlencode "slot=$BK_DAY 10:00" --data-urlencode "jmeno=Petr 
 expect "booking: saved as confirmed for the person, with the end time by the duration" "$(sq "SELECT CONCAT(COUNT(*), '|', MAX(staff_id), '|', MAX(TIME(ends_at))) FROM ka_bookings WHERE email = 'petr-bk@example.cz' AND status = 'confirmed'")" "1|$BK_STAFF|10:30:00"
 expect "booking: the confirmation went to the customer and the notification to the person" "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_posta WHERE komu = 'petr-bk@example.cz'), '|', (SELECT COUNT(*) FROM ka_posta WHERE komu = 'jana-bk@example.cz' AND predmet LIKE 'Nová rezervace%'))")" "1|1"
 case "$(book --data-urlencode "slot=$BK_DAY 10:00" -d jmeno=Druhy -d email=druhy-bk@example.cz -d souhlas=1)" in *result=obsazeno*) echo "  ok     booking: the same time cannot be booked twice";; *) echo "  CHYBA  double booking"; ERRORS=$((ERRORS+1));; esac
+# PR #16 renamed the booking form's fields to service / staff: a form opened or cached before the update posts sluzba / osoba
+# and must still reach the same service (the taken time proves the service was read, nothing new is booked)
+case "$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/_booking" -d "zdroj=$BK_SOURCE" -d prvek=bk1 -d zpet=/rezervace-test -d "as_cas=$BK_TIME" -d "as_podpis=$BK_SIGNATURE" -d "sluzba=$BK_SERVICE" -d osoba=0 --data-urlencode "slot=$BK_DAY 10:00" -d jmeno=Stary -d email=stary-bk@example.cz -d souhlas=1)" in *result=obsazeno*) echo "  ok     booking: a form with the old field names (sluzba, osoba) still books the same service";; *) echo "  CHYBA  booking with the old field names"; ERRORS=$((ERRORS+1));; esac
 expect "booking: the second attempt saved nothing" "$(sq "SELECT COUNT(*) FROM ka_bookings WHERE starts_at = '$BK_DAY 10:00:00'")" "1"
 curl -s -o "$WORK/response" "$B/_booking/slots?service=$BK_SERVICE&staff=0&day=$BK_DAY"
 ! grep -q '"10:00"' "$WORK/response" && ! grep -q '"09:30"' "$WORK/response" && ! grep -q '"10:30"' "$WORK/response" && grep -q '"11:00"' "$WORK/response" && echo "  ok     booking: the booked time and the buffer around it are gone from the free times" || { echo "  CHYBA  slots after booking"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }

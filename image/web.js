@@ -806,7 +806,7 @@
 		var product;
 		try { product = JSON.parse(form.getAttribute('data-produkt')); } catch (err) { return; }
 		e.preventDefault();
-		var variant = form.querySelector('[name=variant]'), quantity = form.querySelector('[name=quantity]');
+		var variant = form.querySelector('[name=variant], [name=varianta]'), quantity = form.querySelector('[name=quantity], [name=mnozstvi]'); // a page cached before 3.9 has the old names
 		addLine({ c: product.c, i: product.i, n: product.n, v: variant ? variant.value : '', q: Math.max(1, Math.min(9999, parseInt(quantity ? quantity.value : '1', 10) || 1)) });
 		basket.page = safeUrl(form.getAttribute('data-kosik')) || basket.page;
 		store(BASKET, basket);
@@ -948,14 +948,14 @@
 		slot.required = false; // the script fills it in; the server checks it anyway
 		var today = new Date(); today.setHours(0, 0, 0, 0);
 		var month = new Date(today.getFullYear(), today.getMonth(), 1), day = null, freeDays = [], monthRequest = 0, timesRequest = 0; // own counters: an answer for the times must not make the month's answer look stale (3.2.2)
-		function service() { var el = form.querySelector('input[name="service"]:checked'); return el ? el.value : ''; }
-		function staff() { var el = form.querySelector('input[name="staff"]:checked') || form.querySelector('input[name="staff"][type="hidden"]'); return el ? el.value : '0'; }
+		function service() { var el = form.querySelector('input[name="service"]:checked, input[name="sluzba"]:checked'); return el ? el.value : ''; }
+		function staff() { var el = form.querySelector('input[name="staff"]:checked, input[name="osoba"]:checked') || form.querySelector('input[name="staff"][type="hidden"], input[name="osoba"][type="hidden"]'); return el ? el.value : '0'; }
 		function filterStaff() {
 			var s = service();
 			form.querySelectorAll('label[data-sluzby]').forEach(function (label) {
 				var fits = !s || label.getAttribute('data-sluzby').split(',').indexOf(s) !== -1, input = label.querySelector('input');
 				label.hidden = !fits;
-				if (!fits && input && input.checked) { var anyone = form.querySelector('input[name="staff"][value="0"]'); if (anyone) { anyone.checked = true; } }
+				if (!fits && input && input.checked) { var anyone = form.querySelector('input[name="staff"][value="0"], input[name="osoba"][value="0"]'); if (anyone) { anyone.checked = true; } }
 			});
 		}
 		function setSlot(value, label) {
@@ -1033,10 +1033,10 @@
 		}
 		var submit = form.querySelector('button[data-zadost]');
 		function syncButton() { // a service that needs confirmation is requested, not booked
-			var el = form.querySelector('input[name="service"]:checked');
+			var el = form.querySelector('input[name="service"]:checked, input[name="sluzba"]:checked');
 			if (submit) { submit.textContent = el && el.hasAttribute('data-potvrzeni') ? submit.getAttribute('data-zadost') : submit.getAttribute('data-rezervovat'); }
 		}
-		form.querySelectorAll('input[name="service"], input[name="staff"]').forEach(function (input) {
+		form.querySelectorAll('input[name="service"], input[name="staff"], input[name="sluzba"], input[name="osoba"]').forEach(function (input) {
 			input.addEventListener('change', function () { syncButton(); filterStaff(); day = null; setSlot('', ''); renderMonth(); });
 		});
 		form.addEventListener('submit', function (e) {

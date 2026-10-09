@@ -131,7 +131,7 @@ final class Cache
             return null;
         }
         $params = array_filter(array_keys($_GET), fn (int|string $k): bool => !preg_match(self::TRACKING_PARAMS, (string) $k));
-        if (array_diff($params, ['page']) !== []) {
+        if (array_diff($params, ['page', ...\Kaleta\Core\Request::LEGACY_QUERY['page']]) !== []) { // the old Czech name of the page number is the same page (Request alias)
             return null;
         }
         foreach (array_keys($_COOKIE) as $cookie) {

@@ -204,7 +204,7 @@ a name, an address, a description, an image, its own title and description for s
 *published on the site*; on a site with language versions each language has its own name, address and texts, while the
 tree, the order and the image are shared. Tick the categories on each item (an item may be in several) – *Add item* next
 to a category ticks it for you. A category page shows breadcrumbs, the description, the subcategories as cards and the
-items of the category and its subcategories, 12 to a page (`?strana=2`, each page with its own canonical address); the
+items of the category and its subcategories, 12 to a page (`?page=2`, each page with its own canonical address); the
 pages are in the sitemap with `hreflang` to their translations and carry schema.org `CollectionPage` and
 `BreadcrumbList`. An address is never both a category and an item of the same collection: saving one refuses the
 other's address (an item address made from the name gets a number instead), and should old imported data still clash,
@@ -215,7 +215,7 @@ Design the category page in the builder via **Category page template** (on the C
 have its own). It fills in `{{nazev}}`, `{{popis}}` (the description), `{{obrazek}}`, `{{pocet}}` (visible items, the
 subcategories included) and `{{nadrazena}}` / `{{nadrazena_url}}` (the parent). Two settings of the **Collection list**
 do the rest: *List* – items or categories – and *Category* – an address, or `*` for the category page being shown. With
-`*` a list of items shows that category's items (and pages with `?strana=`), a list of categories its subcategories; on
+`*` a list of items shows that category's items (and pages with `?page=`), a list of categories its subcategories; on
 an item page `*` means the item's first category, which gives a "more from this category" list. Elsewhere a list of
 categories with an empty *Category* shows the top-level ones – a catalogue overview on any page.
 
