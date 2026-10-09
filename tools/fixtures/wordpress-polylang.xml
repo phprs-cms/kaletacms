@@ -1,0 +1,283 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- A WordPress export (WXR 1.2) of a Czech and English site with Polylang, for the 3.9 tests of import_wordpress: the shapes
+     Polylang leaves in an export – the taxonomy "language" (slug, serialized locale), post_translations and term_translations
+     groups (serialized language => id) – with a page pair, a page pair sharing one slug, a post pair in categories that share
+     a slug, an Arabic page (a language Kaleta cannot offer yet), a menu per language and the Polylang language switcher.
+     The English translation of the page pair comes BEFORE its original. Made up; the .example domain does not exist. -->
+<rss version="2.0"
+	xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/"
+	xmlns:content="http://purl.org/rss/1.0/modules/content/"
+	xmlns:wfw="http://wellformedweb.org/CommentAPI/"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:wp="http://wordpress.org/export/1.2/"
+>
+<channel>
+	<title>ICTX</title>
+	<link>https://www.ictx.example</link>
+	<description>IT služby</description>
+	<language>cs-CZ</language>
+	<wp:wxr_version>1.2</wp:wxr_version>
+	<wp:base_site_url>https://www.ictx.example</wp:base_site_url>
+	<wp:base_blog_url>https://www.ictx.example</wp:base_blog_url>
+
+	<wp:author><wp:author_id>1</wp:author_id><wp:author_login><![CDATA[ictx]]></wp:author_login><wp:author_email><![CDATA[web@ictx.example]]></wp:author_email><wp:author_display_name><![CDATA[ICTX]]></wp:author_display_name><wp:author_first_name><![CDATA[]]></wp:author_first_name><wp:author_last_name><![CDATA[]]></wp:author_last_name></wp:author>
+
+	<wp:category><wp:term_id>5</wp:term_id><wp:category_nicename><![CDATA[blog-ictx]]></wp:category_nicename><wp:category_parent><![CDATA[]]></wp:category_parent><wp:cat_name><![CDATA[Blog ICTX]]></wp:cat_name></wp:category>
+	<wp:category><wp:term_id>6</wp:term_id><wp:category_nicename><![CDATA[blog-ictx]]></wp:category_nicename><wp:category_parent><![CDATA[]]></wp:category_parent><wp:cat_name><![CDATA[ICTX Blog]]></wp:cat_name></wp:category>
+	<wp:term><wp:term_id>2</wp:term_id><wp:term_taxonomy><![CDATA[language]]></wp:term_taxonomy><wp:term_slug><![CDATA[cs]]></wp:term_slug><wp:term_parent><![CDATA[]]></wp:term_parent><wp:term_name><![CDATA[Čeština]]></wp:term_name><wp:term_description><![CDATA[a:3:{s:6:"locale";s:5:"cs_CZ";s:3:"rtl";i:0;s:9:"flag_code";s:2:"cz";}]]></wp:term_description></wp:term>
+	<wp:term><wp:term_id>3</wp:term_id><wp:term_taxonomy><![CDATA[language]]></wp:term_taxonomy><wp:term_slug><![CDATA[en]]></wp:term_slug><wp:term_parent><![CDATA[]]></wp:term_parent><wp:term_name><![CDATA[English]]></wp:term_name><wp:term_description><![CDATA[a:3:{s:6:"locale";s:5:"en_GB";s:3:"rtl";i:0;s:9:"flag_code";s:2:"gb";}]]></wp:term_description></wp:term>
+	<wp:term><wp:term_id>4</wp:term_id><wp:term_taxonomy><![CDATA[language]]></wp:term_taxonomy><wp:term_slug><![CDATA[ar]]></wp:term_slug><wp:term_parent><![CDATA[]]></wp:term_parent><wp:term_name><![CDATA[العربية]]></wp:term_name><wp:term_description><![CDATA[a:3:{s:6:"locale";s:2:"ar";s:3:"rtl";i:1;s:9:"flag_code";s:4:"arab";}]]></wp:term_description></wp:term>
+	<wp:term><wp:term_id>7</wp:term_id><wp:term_taxonomy><![CDATA[term_language]]></wp:term_taxonomy><wp:term_slug><![CDATA[pll_cs]]></wp:term_slug><wp:term_parent><![CDATA[]]></wp:term_parent><wp:term_name><![CDATA[Čeština]]></wp:term_name></wp:term>
+	<wp:term><wp:term_id>8</wp:term_id><wp:term_taxonomy><![CDATA[term_translations]]></wp:term_taxonomy><wp:term_slug><![CDATA[pll_66f0a1b2c3d4e]]></wp:term_slug><wp:term_parent><![CDATA[]]></wp:term_parent><wp:term_name><![CDATA[pll_66f0a1b2c3d4e]]></wp:term_name><wp:term_description><![CDATA[a:2:{s:2:"cs";i:5;s:2:"en";i:6;}]]></wp:term_description></wp:term>
+	<wp:term><wp:term_id>9</wp:term_id><wp:term_taxonomy><![CDATA[post_translations]]></wp:term_taxonomy><wp:term_slug><![CDATA[pll_66f0a1b2c3d50]]></wp:term_slug><wp:term_parent><![CDATA[]]></wp:term_parent><wp:term_name><![CDATA[pll_66f0a1b2c3d50]]></wp:term_name><wp:term_description><![CDATA[a:2:{s:2:"en";i:101;s:2:"cs";i:100;}]]></wp:term_description></wp:term>
+	<wp:term><wp:term_id>10</wp:term_id><wp:term_taxonomy><![CDATA[post_translations]]></wp:term_taxonomy><wp:term_slug><![CDATA[pll_66f0a1b2c3d51]]></wp:term_slug><wp:term_parent><![CDATA[]]></wp:term_parent><wp:term_name><![CDATA[pll_66f0a1b2c3d51]]></wp:term_name><wp:term_description><![CDATA[a:3:{s:2:"cs";i:102;s:2:"en";i:103;s:4:"sync";a:1:{s:2:"en";s:2:"cs";}}]]></wp:term_description></wp:term>
+	<wp:term><wp:term_id>11</wp:term_id><wp:term_taxonomy><![CDATA[post_translations]]></wp:term_taxonomy><wp:term_slug><![CDATA[pll_66f0a1b2c3d52]]></wp:term_slug><wp:term_parent><![CDATA[]]></wp:term_parent><wp:term_name><![CDATA[pll_66f0a1b2c3d52]]></wp:term_name><wp:term_description><![CDATA[a:2:{s:2:"cs";i:110;s:2:"en";i:111;}]]></wp:term_description></wp:term>
+	<wp:term><wp:term_id>20</wp:term_id><wp:term_taxonomy><![CDATA[nav_menu]]></wp:term_taxonomy><wp:term_slug><![CDATA[hlavni-menu]]></wp:term_slug><wp:term_name><![CDATA[Hlavní menu]]></wp:term_name></wp:term>
+	<wp:term><wp:term_id>21</wp:term_id><wp:term_taxonomy><![CDATA[nav_menu]]></wp:term_taxonomy><wp:term_slug><![CDATA[main-menu-en]]></wp:term_slug><wp:term_name><![CDATA[Main menu EN]]></wp:term_name></wp:term>
+
+	<generator>https://wordpress.org/?v=6.6</generator>
+
+	<!-- pages: the English translation first, then its Czech original -->
+	<item>
+		<title><![CDATA[Our solutions]]></title>
+		<link>https://www.ictx.example/en/solutions-ictx/</link>
+		<dc:creator><![CDATA[ictx]]></dc:creator>
+		<content:encoded><![CDATA[<p>Security, outsourcing and our own data centre.</p>]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>101</wp:post_id>
+		<wp:post_date><![CDATA[2026-03-01 10:05:00]]></wp:post_date>
+		<wp:post_name><![CDATA[solutions-ictx]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_parent>0</wp:post_parent>
+		<wp:menu_order>0</wp:menu_order>
+		<wp:post_type><![CDATA[page]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+		<category domain="language" nicename="en"><![CDATA[English]]></category>
+		<category domain="post_translations" nicename="pll_66f0a1b2c3d50"><![CDATA[pll_66f0a1b2c3d50]]></category>
+	</item>
+	<item>
+		<title><![CDATA[Naše řešení]]></title>
+		<link>https://www.ictx.example/reseni-ictx/</link>
+		<dc:creator><![CDATA[ictx]]></dc:creator>
+		<content:encoded><![CDATA[<p>Bezpečnost, outsourcing a vlastní datové centrum.</p>]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>100</wp:post_id>
+		<wp:post_date><![CDATA[2026-03-01 10:00:00]]></wp:post_date>
+		<wp:post_name><![CDATA[reseni-ictx]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_parent>0</wp:post_parent>
+		<wp:menu_order>0</wp:menu_order>
+		<wp:post_type><![CDATA[page]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+		<category domain="language" nicename="cs"><![CDATA[Čeština]]></category>
+		<category domain="post_translations" nicename="pll_66f0a1b2c3d50"><![CDATA[pll_66f0a1b2c3d50]]></category>
+	</item>
+	<!-- a page pair with one slug (Polylang Pro shares slugs between languages): Kaleta's slugs are global for now -->
+	<item>
+		<title><![CDATA[Kontakt]]></title>
+		<link>https://www.ictx.example/kontakt-ictx/</link>
+		<dc:creator><![CDATA[ictx]]></dc:creator>
+		<content:encoded><![CDATA[<p>Zlín a Praha.</p>]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>102</wp:post_id>
+		<wp:post_date><![CDATA[2026-03-01 10:10:00]]></wp:post_date>
+		<wp:post_name><![CDATA[kontakt-ictx]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_parent>0</wp:post_parent>
+		<wp:menu_order>0</wp:menu_order>
+		<wp:post_type><![CDATA[page]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+		<category domain="language" nicename="cs"><![CDATA[Čeština]]></category>
+		<category domain="post_translations" nicename="pll_66f0a1b2c3d51"><![CDATA[pll_66f0a1b2c3d51]]></category>
+	</item>
+	<item>
+		<title><![CDATA[Contact]]></title>
+		<link>https://www.ictx.example/en/kontakt-ictx/</link>
+		<dc:creator><![CDATA[ictx]]></dc:creator>
+		<content:encoded><![CDATA[<p>Zlín and Prague.</p>]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>103</wp:post_id>
+		<wp:post_date><![CDATA[2026-03-01 10:15:00]]></wp:post_date>
+		<wp:post_name><![CDATA[kontakt-ictx]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_parent>0</wp:post_parent>
+		<wp:menu_order>0</wp:menu_order>
+		<wp:post_type><![CDATA[page]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+		<category domain="language" nicename="en"><![CDATA[English]]></category>
+		<category domain="post_translations" nicename="pll_66f0a1b2c3d51"><![CDATA[pll_66f0a1b2c3d51]]></category>
+	</item>
+	<!-- a language Kaleta cannot offer yet: left out and reported -->
+	<item>
+		<title><![CDATA[حلولنا]]></title>
+		<link>https://www.ictx.example/ar/solutions-ictx-ar/</link>
+		<dc:creator><![CDATA[ictx]]></dc:creator>
+		<content:encoded><![CDATA[<p>الأمن</p>]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>104</wp:post_id>
+		<wp:post_date><![CDATA[2026-03-01 10:20:00]]></wp:post_date>
+		<wp:post_name><![CDATA[solutions-ictx-ar]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_parent>0</wp:post_parent>
+		<wp:menu_order>0</wp:menu_order>
+		<wp:post_type><![CDATA[page]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+		<category domain="language" nicename="ar"><![CDATA[العربية]]></category>
+	</item>
+
+	<!-- posts: a pair in two categories that share the slug blog-ictx (one per language, linked by term_translations) -->
+	<item>
+		<title><![CDATA[Snídaně s AI]]></title>
+		<link>https://www.ictx.example/blog-ictx/snidane-s-ai-ictx/</link>
+		<dc:creator><![CDATA[ictx]]></dc:creator>
+		<content:encoded><![CDATA[<p>Zveme vás na snídani.</p>]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>110</wp:post_id>
+		<wp:post_date><![CDATA[2026-03-05 08:00:00]]></wp:post_date>
+		<wp:post_name><![CDATA[snidane-s-ai-ictx]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_parent>0</wp:post_parent>
+		<wp:menu_order>0</wp:menu_order>
+		<wp:post_type><![CDATA[post]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+		<category domain="category" nicename="blog-ictx"><![CDATA[Blog ICTX]]></category>
+		<category domain="language" nicename="cs"><![CDATA[Čeština]]></category>
+		<category domain="post_translations" nicename="pll_66f0a1b2c3d52"><![CDATA[pll_66f0a1b2c3d52]]></category>
+	</item>
+	<item>
+		<title><![CDATA[Breakfast with AI]]></title>
+		<link>https://www.ictx.example/en/blog-ictx/breakfast-with-ai-ictx/</link>
+		<dc:creator><![CDATA[ictx]]></dc:creator>
+		<content:encoded><![CDATA[<p>Join us for breakfast.</p>]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>111</wp:post_id>
+		<wp:post_date><![CDATA[2026-03-05 08:30:00]]></wp:post_date>
+		<wp:post_name><![CDATA[breakfast-with-ai-ictx]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_parent>0</wp:post_parent>
+		<wp:menu_order>0</wp:menu_order>
+		<wp:post_type><![CDATA[post]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+		<category domain="category" nicename="blog-ictx"><![CDATA[ICTX Blog]]></category>
+		<category domain="language" nicename="en"><![CDATA[English]]></category>
+		<category domain="post_translations" nicename="pll_66f0a1b2c3d52"><![CDATA[pll_66f0a1b2c3d52]]></category>
+	</item>
+
+	<!-- the Czech menu: two pages, the category and the Polylang language switcher -->
+	<item>
+		<title><![CDATA[Řešení]]></title>
+		<link>https://www.ictx.example/?p=200</link>
+		<dc:creator><![CDATA[ictx]]></dc:creator>
+		<content:encoded><![CDATA[]]></content:encoded>
+		<wp:post_id>200</wp:post_id>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:menu_order>1</wp:menu_order>
+		<wp:post_type><![CDATA[nav_menu_item]]></wp:post_type>
+		<category domain="nav_menu" nicename="hlavni-menu"><![CDATA[Hlavní menu]]></category>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_type]]></wp:meta_key><wp:meta_value><![CDATA[post_type]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_menu_item_parent]]></wp:meta_key><wp:meta_value><![CDATA[0]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_object_id]]></wp:meta_key><wp:meta_value><![CDATA[100]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_object]]></wp:meta_key><wp:meta_value><![CDATA[page]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_url]]></wp:meta_key><wp:meta_value><![CDATA[]]></wp:meta_value></wp:postmeta>
+	</item>
+	<item>
+		<title><![CDATA[Blog]]></title>
+		<link>https://www.ictx.example/?p=201</link>
+		<dc:creator><![CDATA[ictx]]></dc:creator>
+		<content:encoded><![CDATA[]]></content:encoded>
+		<wp:post_id>201</wp:post_id>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:menu_order>2</wp:menu_order>
+		<wp:post_type><![CDATA[nav_menu_item]]></wp:post_type>
+		<category domain="nav_menu" nicename="hlavni-menu"><![CDATA[Hlavní menu]]></category>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_type]]></wp:meta_key><wp:meta_value><![CDATA[taxonomy]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_menu_item_parent]]></wp:meta_key><wp:meta_value><![CDATA[0]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_object_id]]></wp:meta_key><wp:meta_value><![CDATA[5]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_object]]></wp:meta_key><wp:meta_value><![CDATA[category]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_url]]></wp:meta_key><wp:meta_value><![CDATA[]]></wp:meta_value></wp:postmeta>
+	</item>
+	<item>
+		<title><![CDATA[Kontakt]]></title>
+		<link>https://www.ictx.example/?p=202</link>
+		<dc:creator><![CDATA[ictx]]></dc:creator>
+		<content:encoded><![CDATA[]]></content:encoded>
+		<wp:post_id>202</wp:post_id>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:menu_order>3</wp:menu_order>
+		<wp:post_type><![CDATA[nav_menu_item]]></wp:post_type>
+		<category domain="nav_menu" nicename="hlavni-menu"><![CDATA[Hlavní menu]]></category>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_type]]></wp:meta_key><wp:meta_value><![CDATA[post_type]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_menu_item_parent]]></wp:meta_key><wp:meta_value><![CDATA[0]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_object_id]]></wp:meta_key><wp:meta_value><![CDATA[102]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_object]]></wp:meta_key><wp:meta_value><![CDATA[page]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_url]]></wp:meta_key><wp:meta_value><![CDATA[]]></wp:meta_value></wp:postmeta>
+	</item>
+	<item>
+		<title><![CDATA[Jazyky]]></title>
+		<link>https://www.ictx.example/?p=203</link>
+		<dc:creator><![CDATA[ictx]]></dc:creator>
+		<content:encoded><![CDATA[]]></content:encoded>
+		<wp:post_id>203</wp:post_id>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:menu_order>4</wp:menu_order>
+		<wp:post_type><![CDATA[nav_menu_item]]></wp:post_type>
+		<category domain="nav_menu" nicename="hlavni-menu"><![CDATA[Hlavní menu]]></category>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_type]]></wp:meta_key><wp:meta_value><![CDATA[custom]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_menu_item_parent]]></wp:meta_key><wp:meta_value><![CDATA[0]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_object_id]]></wp:meta_key><wp:meta_value><![CDATA[203]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_object]]></wp:meta_key><wp:meta_value><![CDATA[custom]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_url]]></wp:meta_key><wp:meta_value><![CDATA[#pll_switcher]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_pll_menu_item]]></wp:meta_key><wp:meta_value><![CDATA[a:1:{s:10:"show_names";i:1;}]]></wp:meta_value></wp:postmeta>
+	</item>
+
+	<!-- the English menu: the two English pages and the English category -->
+	<item>
+		<title><![CDATA[Solutions]]></title>
+		<link>https://www.ictx.example/?p=210</link>
+		<dc:creator><![CDATA[ictx]]></dc:creator>
+		<content:encoded><![CDATA[]]></content:encoded>
+		<wp:post_id>210</wp:post_id>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:menu_order>1</wp:menu_order>
+		<wp:post_type><![CDATA[nav_menu_item]]></wp:post_type>
+		<category domain="nav_menu" nicename="main-menu-en"><![CDATA[Main menu EN]]></category>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_type]]></wp:meta_key><wp:meta_value><![CDATA[post_type]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_menu_item_parent]]></wp:meta_key><wp:meta_value><![CDATA[0]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_object_id]]></wp:meta_key><wp:meta_value><![CDATA[101]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_object]]></wp:meta_key><wp:meta_value><![CDATA[page]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_url]]></wp:meta_key><wp:meta_value><![CDATA[]]></wp:meta_value></wp:postmeta>
+	</item>
+	<item>
+		<title><![CDATA[Blog]]></title>
+		<link>https://www.ictx.example/?p=211</link>
+		<dc:creator><![CDATA[ictx]]></dc:creator>
+		<content:encoded><![CDATA[]]></content:encoded>
+		<wp:post_id>211</wp:post_id>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:menu_order>2</wp:menu_order>
+		<wp:post_type><![CDATA[nav_menu_item]]></wp:post_type>
+		<category domain="nav_menu" nicename="main-menu-en"><![CDATA[Main menu EN]]></category>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_type]]></wp:meta_key><wp:meta_value><![CDATA[taxonomy]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_menu_item_parent]]></wp:meta_key><wp:meta_value><![CDATA[0]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_object_id]]></wp:meta_key><wp:meta_value><![CDATA[6]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_object]]></wp:meta_key><wp:meta_value><![CDATA[category]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_url]]></wp:meta_key><wp:meta_value><![CDATA[]]></wp:meta_value></wp:postmeta>
+	</item>
+	<item>
+		<title><![CDATA[Contact]]></title>
+		<link>https://www.ictx.example/?p=212</link>
+		<dc:creator><![CDATA[ictx]]></dc:creator>
+		<content:encoded><![CDATA[]]></content:encoded>
+		<wp:post_id>212</wp:post_id>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:menu_order>3</wp:menu_order>
+		<wp:post_type><![CDATA[nav_menu_item]]></wp:post_type>
+		<category domain="nav_menu" nicename="main-menu-en"><![CDATA[Main menu EN]]></category>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_type]]></wp:meta_key><wp:meta_value><![CDATA[post_type]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_menu_item_parent]]></wp:meta_key><wp:meta_value><![CDATA[0]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_object_id]]></wp:meta_key><wp:meta_value><![CDATA[103]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_object]]></wp:meta_key><wp:meta_value><![CDATA[page]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_url]]></wp:meta_key><wp:meta_value><![CDATA[]]></wp:meta_value></wp:postmeta>
+	</item>
+</channel>
+</rss>

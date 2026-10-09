@@ -1347,6 +1347,69 @@ check('WpImport náhled: a custom post type with its fields, address and what is
     'pocet' => 2, 'predpony' => ['reference' => 2], 'pole' => ['klient' => ['text' => 2], 'rok_dokonceni' => ['cislo' => 2], 'datum_predani' => ['datum' => 2], 'web_klienta' => ['odkaz' => 1], 'fotka' => ['obrazek' => 1, 'text' => 0]],
     'vynechano' => ['galerie' => true], 'obsah' => true, 'perex' => false]], []]);
 
+/* ---------- 3.9: multilingual WordPress – Polylang and WPML (tools/fixtures/wordpress-polylang.xml, wordpress-wpml.xml) ---------- */
+check('3.9 WpLanguages::code: the locale first, then the code; regional codes to their language; unknown languages null', [
+    Kaleta\Core\WpLanguages::code('cs', 'cs_CZ'), Kaleta\Core\WpLanguages::code('cz', 'cs_CZ'), Kaleta\Core\WpLanguages::code('en', 'en_GB'), Kaleta\Core\WpLanguages::code('pt-br'),
+    Kaleta\Core\WpLanguages::code('zh-hans'), Kaleta\Core\WpLanguages::code('nb'), Kaleta\Core\WpLanguages::code('DE'), Kaleta\Core\WpLanguages::code('ar', 'ar'), Kaleta\Core\WpLanguages::code('')],
+    ['cs', 'cs', 'en', 'pt', 'zh', 'no', 'de', null, null]);
+check('3.9 WpLanguages::translationMap: language => id from a Polylang group; extra keys (sync), objects, references and damaged strings give nothing', [
+    Kaleta\Core\WpLanguages::translationMap('a:3:{s:2:"cs";i:102;s:2:"en";i:103;s:4:"sync";a:1:{s:2:"en";s:2:"cs";}}'),
+    Kaleta\Core\WpLanguages::translationMap('a:2:{s:5:"pt-br";s:2:"12";s:2:"de";i:0;}'),
+    Kaleta\Core\WpLanguages::translationMap('a:1:{s:2:"cs";O:8:"stdClass":0:{}}'),
+    Kaleta\Core\WpLanguages::translationMap('a:1:{s:2:"cs";R:1;}'),
+    Kaleta\Core\WpLanguages::translationMap('a:2:{s:3:"cs";i:1;}'),
+    Kaleta\Core\WpLanguages::translationMap('O:8:"stdClass":1:{s:2:"cs";i:1;}'),
+    Kaleta\Core\WpLanguages::unserializeArray('a:1:{i:0;a:1:{i:0;a:1:{i:0;a:1:{i:0;a:1:{i:0;i:1;}}}}}'),
+    Kaleta\Core\WpLanguages::unserializeArray('a:2:{s:1:"a";b:1;s:1:"b";d:0.5;}x')],
+    [['cs' => 102, 'en' => 103], ['pt-br' => 12], [], [], [], [], null, null]);
+check('3.9 WpLanguages::locale, urlLanguage and majority', [
+    Kaleta\Core\WpLanguages::locale('a:3:{s:6:"locale";s:5:"cs_CZ";s:3:"rtl";i:0;s:9:"flag_code";s:2:"cz";}'), Kaleta\Core\WpLanguages::locale('a:1:{s:6:"locale";s:9:"<script>x";}'),
+    Kaleta\Core\WpLanguages::urlLanguage('https://a.example/en/about/', ['cs', 'en']), Kaleta\Core\WpLanguages::urlLanguage('https://a.example/?page_id=4&lang=en', ['cs', 'en']),
+    Kaleta\Core\WpLanguages::urlLanguage('https://a.example/enterprise/', ['cs', 'en']), Kaleta\Core\WpLanguages::urlLanguage('https://a.example/de/x/', ['cs', 'en']),
+    Kaleta\Core\WpLanguages::majority(['en', '', 'cs', 'en']), Kaleta\Core\WpLanguages::majority(['', ''])],
+    ['cs_CZ', '', 'en', 'en', '', '', 'en', '']);
+$pllPath = KALETA_ROOT . '/tools/fixtures/wordpress-polylang.xml';
+$pllHeader = (new Kaleta\Core\WpFile($pllPath))->header();
+check('3.9 WpFile: Polylang languages with their locales, the language and group of each category by term number, names of categories sharing a slug',
+    [$pllHeader['plugin'], $pllHeader['jazyky'], $pllHeader['jazyk_terminu'], $pllHeader['skupina_terminu'], $pllHeader['nazev_terminu']],
+    ['polylang', ['cs' => 'cs_CZ', 'en' => 'en_GB', 'ar' => 'ar'], [5 => 'cs', 6 => 'en'], [5 => 'pll:pll_66f0a1b2c3d4e', 6 => 'pll:pll_66f0a1b2c3d4e'], [5 => 'Blog ICTX', 6 => 'ICTX Blog']]);
+$pllItems = iterator_to_array((new Kaleta\Core\WpFile($pllPath))->items());
+check('3.9 WpFile: a post names its Polylang language and translation group', [$pllItems[0]['jazyk_wp'], $pllItems[0]['skupina'], $pllItems[0]['jazyk_plugin'], $pllItems[0]['rubriky']],
+    ['en', 'pll:pll_66f0a1b2c3d50', 'polylang', []]);
+$pllState = Kaleta\Core\WpImport::newState('wordpress-polylang.xml');
+Kaleta\Core\WpImport::analyze($pllState, 30, $pllPath);
+check('3.9 WpImport preview (Polylang): items per language, Arabic reported as unavailable, translation groups (a translation before its original too)',
+    [$pllState['jazyky']['plugin'], $pllState['jazyky']['kody'], $pllState['jazyky']['nalezeno'], $pllState['jazyky']['nepodporovane'], $pllState['jazyky']['skupiny'], $pllState['jazyky']['polozky'][103]],
+    ['polylang', ['cs' => 'cs', 'en' => 'en', 'ar' => ''], ['en' => 3, 'cs' => 3], ['ar' => 1],
+        ['pll:pll_66f0a1b2c3d50' => [101, 100], 'pll:pll_66f0a1b2c3d51' => [102, 103], 'pll:pll_66f0a1b2c3d52' => [110, 111]], ['en', 'page', 'kontakt-ictx']]);
+check('3.9 WpImport::previewMenus: a menu per language, each the main menu of its version; a single-language export as before',
+    [Kaleta\Core\WpImport::previewMenus($pllState, 'cs'), Kaleta\Core\WpImport::previewMenus($migState, 'cs')],
+    [['hlavni-menu' => ['hlavni', ''], 'main-menu-en' => ['hlavni', 'en']], ['hlavni-menu' => ['hlavni', ''], 'paticka' => ['paticka', ''], 'socialni-site' => ['', '']]]);
+$pllSummary = Kaleta\Core\WpImport::summary($pllState);
+check('3.9 WpImport::summary of a multilingual export: the languages block; a single-language export has none',
+    [array_keys($pllSummary['languages']), $pllSummary['languages']['not_available'][0]['language'], $pllSummary['languages']['translation_groups'], isset(Kaleta\Core\WpImport::summary($migState)['languages'])],
+    [['plugin', 'items_per_language', 'not_available', 'translation_groups', 'added_to_site', 'translations_linked', 'slug_clashes', 'more_slug_clashes', 'how'], 'ar', 3, false]);
+$wpmlPath = KALETA_ROOT . '/tools/fixtures/wordpress-wpml.xml';
+$wpmlHeader = (new Kaleta\Core\WpFile($wpmlPath))->header();
+check('3.9 WpFile: WPML Export and Import termmeta – the language and the group of each category', [$wpmlHeader['plugin'], $wpmlHeader['jazyk_terminu'], $wpmlHeader['skupina_terminu']],
+    ['wpml', [30 => 'cs', 31 => 'en'], [30 => 'wpml:7', 31 => 'wpml:7']]);
+$wpmlState = Kaleta\Core\WpImport::newState('wordpress-wpml.xml');
+Kaleta\Core\WpImport::analyze($wpmlState, 30, $wpmlPath);
+$wpmlItems = iterator_to_array((new Kaleta\Core\WpFile($wpmlPath))->items());
+check('3.9 WpImport preview (WPML): the language from the custom fields, a duplicate grouped with its original, a page with the language only in its address',
+    [$wpmlState['jazyky']['nalezeno'], $wpmlState['jazyky']['skupiny'], $wpmlState['jazyky']['polozky'][307], Kaleta\Core\WpImport::itemLanguage($wpmlItems[4], $wpmlState), Kaleta\Core\WpImport::itemLanguage($wpmlItems[0], $wpmlState)],
+    [['cs' => 3, 'en' => 4], ['wpml:1' => [300, 301], 'dup:305' => [306], 'wpml:2' => [310, 311]], ['en', 'page', 'about-wpx'], ['en', ''], ['cs', '']]);
+check('3.9 WpImport::itemLanguage: a single-language export never guesses a language from an address; categoryKey; slugs_per_language is off unless set',
+    [Kaleta\Core\WpImport::itemLanguage(['odkaz' => 'https://a.example/en/x/', 'jazyk_wp' => '', 'jazyk_plugin' => ''], Kaleta\Core\WpImport::newState('x.xml')),
+        Kaleta\Core\WpImport::categoryKey('blog', ''), Kaleta\Core\WpImport::categoryKey('blog', 'en'),
+        Kaleta\Core\WpImport::slugsPerLanguage($reportSettings([])), Kaleta\Core\WpImport::slugsPerLanguage($reportSettings(['slugs_per_language' => '1']))],
+    [['', ''], 'blog', 'blog@en', false, true]);
+check('3.9 UXM-11: the cookie bar text and policy link per language are settings with the type of their base (form, MCP, archive import)', [
+    Kaleta\Admin\Modules\Settings::checkable('cookies_text_de'), Kaleta\Admin\Modules\Settings::checkable('cookies_policy_url_en'), Kaleta\Admin\Modules\Settings::checkable('cookies_mode_de'),
+    Kaleta\Admin\Modules\Settings::verifyValue('cookies_policy_url_de', '/de/datenschutz'), Kaleta\Admin\Modules\Settings::verifyValue('cookies_policy_url_de', 'javascript:alert(1)'),
+    Kaleta\Admin\Modules\Settings::verifyValue('cookies_text_de', ' Wir verwenden Cookies. '), in_array('cookies_text', Kaleta\Core\Settings::PER_LANGUAGE, true)],
+    [true, true, false, '/de/datenschutz', null, 'Wir verwenden Cookies.', true]);
+
 $wpTmp = sys_get_temp_dir() . '/kaleta-wp-' . bin2hex(random_bytes(4));
 mkdir($wpTmp);
 $wpHead = '<rss version="2.0" xmlns:wp="http://wordpress.org/export/1.2/" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>T</title><link>https://stary.example</link>';

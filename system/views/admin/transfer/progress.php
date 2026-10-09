@@ -48,7 +48,21 @@ $running = in_array($state['faze'], ['analyza', 'import', 'obrazky'], true);
 <?php if (($v['skryto'] ?? 0) > 0): ?>
 	<div class="dlazdice-polozka"><strong><?= (int) $v['skryto'] ?></strong><span><?= e(t('Public on WordPress, imported hidden')) ?></span></div>
 <?php endif ?>
+<?php if (Kaleta\Core\WpImport::isMultilingual($state)): ?>
+	<div class="dlazdice-polozka"><strong><?= (int) ($v['preklady'] ?? 0) ?></strong><span><?= e(t('Translations linked to their original')) ?></span></div>
+<?php endif ?>
 </div>
+<?php if (($state['jazyky']['pridano'] ?? []) !== []): ?>
+<p><?= e(t('Language versions added to the site: %s.', implode(', ', array_map(fn (string $code): string => Kaleta\Core\Language::AVAILABLE[$code][0] ?? $code, array_map('strval', (array) $state['jazyky']['pridano']))))) ?></p>
+<?php endif ?>
+<?php if (($state['kolize'] ?? []) !== []): // 3.9: slugs are unique across languages until per-language slugs are on ?>
+<details class="pokrocile" open><summary><?= e(t('Addresses another language version already had (%s)', (int) ($v['kolize'] ?? count($state['kolize'])))) ?></summary>
+<p class="napoveda"><?= e(t('These got a number at the end; the old address redirects to the new one. Once each language version can have its own addresses, they can get their original address back.')) ?></p><ul>
+<?php foreach ($state['kolize'] as $r): ?>
+	<li><?= e(t('%s instead of %s – %s has it', (string) $r[1], (string) $r[0], (string) $r[2])) ?></li>
+<?php endforeach ?>
+</ul></details>
+<?php endif ?>
 <?php if (($tooLarge = Kaleta\Core\WpImport::tooLarge($state, Kaleta\Core\HtmlLimits::message(...))) !== []): // 3.8: left out, never imported in part ?>
 <div class="hlaska hlaska-varovani"><p><?= e(t('Not imported – the HTML is over a safety limit:')) ?></p><ul>
 <?php foreach ($tooLarge as $row): ?>
@@ -64,7 +78,7 @@ $running = in_array($state['faze'], ['analyza', 'import', 'obrazky'], true);
 <?php foreach ($state['menu_vysledek'] as $m): ?>
 	<li><?= e($m['stav'] === 'koncept'
         ? t('Menu “%s” is in the draft look – %s, %s items. Publish the look to show it on the site.', (string) $m['nazev'], t(Kaleta\Core\Menu::LOCATIONS[$m['umisteni']] ?? ''), (int) $m['polozky'])
-        : t('Menu “%s” was not imported: %s.', (string) $m['nazev'], t($menuReasons[$m['duvod']] ?? (string) $m['duvod']))) ?></li>
+        : t('Menu “%s” was not imported: %s.', (string) $m['nazev'], t($menuReasons[$m['duvod']] ?? (string) $m['duvod']))) ?><?= ($m['jazyk'] ?? '') !== '' ? ' (' . e(Kaleta\Core\Language::AVAILABLE[$m['jazyk']][0] ?? (string) $m['jazyk']) . ')' : '' ?></li>
 <?php endforeach ?>
 </ul>
 <p class="navigace-radek"><a class="navigace" href="<?= e($app->url('admin.php?module=menu')) ?>"><?= e(t('Open the menu')) ?></a></p>

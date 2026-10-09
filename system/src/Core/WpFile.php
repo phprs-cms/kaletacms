@@ -143,11 +143,16 @@ final class WpFile
      * existing user with the same address – never to create an account), categories, tags, the navigation menus
      * (nav_menu terms, 3.6) and the term numbers of categories and tags (menu items point to terms by number).
      *
-     * @return array{nazev:string, adresa:string, autori:array<string,string>, emaily:array<string,string>, rubriky:array<string,array{nazev:string, predek:string}>, stitky:array<string,string>, menu:array<string,string>, terminy:array<int,array{0:string, 1:string}>}
+     * 3.9: the languages of a multilingual site (Core\WpLanguages) – Polylang's languages (slug => locale), the language and
+     * the translation group of each category and tag by its term number (Polylang term_translations, WPML termmeta), the
+     * term names by number (Polylang lets two languages share a category slug) and the plugin found (polylang | wpml | '').
+     *
+     * @return array{nazev:string, adresa:string, autori:array<string,string>, emaily:array<string,string>, rubriky:array<string,array{nazev:string, predek:string}>, stitky:array<string,string>, menu:array<string,string>, terminy:array<int,array{0:string, 1:string}>, jazyky:array<string,string>, jazyk_terminu:array<int,string>, skupina_terminu:array<int,string>, nazev_terminu:array<int,string>, plugin:string}
      */
     public function header(): array
     {
-        $h = ['nazev' => '', 'adresa' => '', 'autori' => [], 'emaily' => [], 'rubriky' => [], 'stitky' => [], 'menu' => [], 'terminy' => []];
+        $h = ['nazev' => '', 'adresa' => '', 'autori' => [], 'emaily' => [], 'rubriky' => [], 'stitky' => [], 'menu' => [], 'terminy' => [],
+            'jazyky' => [], 'jazyk_terminu' => [], 'skupina_terminu' => [], 'nazev_terminu' => [], 'plugin' => ''];
         $link = '';
         $reader = $this->open();
         try {
@@ -162,7 +167,8 @@ final class WpFile
                 if ($reader->name === 'item') {
                     break;
                 }
-                $field = self::fields($this->node($reader));
+                $node = $this->node($reader);
+                $field = self::fields($node);
                 $term = (int) ($field['wp:term_id'] ?? 0);
                 match ($reader->name) {
                     'title' => $h['nazev'] = self::plainText($field['title'] ?? ''),
@@ -181,6 +187,30 @@ final class WpFile
                 if ($term > 0 && in_array($reader->name, ['wp:category', 'wp:tag'], true)) {
                     // menu items name a category or a tag by its term number
                     $h['terminy'][$term] = [$reader->name === 'wp:category' ? 'rubrika' : 'stitek', (string) ($field[$reader->name === 'wp:category' ? 'wp:category_nicename' : 'wp:tag_slug'] ?? '')];
+                    $h['nazev_terminu'][$term] = self::plainText($field[$reader->name === 'wp:category' ? 'wp:cat_name' : 'wp:tag_name'] ?? '');
+                    // 3.9: WPML Export and Import writes the language and the translation group of a term as its termmeta
+                    $meta = self::termMeta($node);
+                    if (($meta[WpLanguages::WPML_LANGUAGE] ?? '') !== '') {
+                        $h['jazyk_terminu'][$term] = mb_substr($meta[WpLanguages::WPML_LANGUAGE], 0, 20);
+                        $h['plugin'] = WpLanguages::WPML;
+                    }
+                    if (($meta[WpLanguages::WPML_GROUP] ?? '') !== '') {
+                        $h['skupina_terminu'][$term] = 'wpml:' . mb_substr($meta[WpLanguages::WPML_GROUP], 0, 60);
+                    }
+                }
+                if ($reader->name === 'wp:term') {
+                    // 3.9: Polylang's languages and the translation groups of categories and tags are terms of its own taxonomies
+                    $slug = mb_substr((string) ($field['wp:term_slug'] ?? ''), 0, 60);
+                    $description = (string) ($field['wp:term_description'] ?? '');
+                    if (($field['wp:term_taxonomy'] ?? '') === 'language' && $slug !== '') {
+                        $h['jazyky'][$slug] = WpLanguages::locale($description);
+                        $h['plugin'] = WpLanguages::POLYLANG;
+                    } elseif (($field['wp:term_taxonomy'] ?? '') === 'term_translations' && $slug !== '') {
+                        foreach (WpLanguages::translationMap($description) as $language => $id) {
+                            $h['jazyk_terminu'][$id] = $language;
+                            $h['skupina_terminu'][$id] = 'pll:' . $slug;
+                        }
+                    }
                 }
                 $hasMore = $this->additional($reader);
             }
@@ -236,6 +266,9 @@ final class WpFile
             'id' => 0, 'typ' => 'post', 'stav' => '', 'titulek' => '', 'odkaz' => '', 'adresa' => '', 'datum' => '', 'datum_gmt' => '', 'vydano' => '',
             'autor' => '', 'obsah' => '', 'perex' => '', 'heslo' => '', 'pripnuty' => false, 'priloha_url' => '', 'nahled' => 0,
             'rubriky' => [], 'stitky' => [], 'meta' => [], 'pole' => [], 'poradi' => 0, 'menu' => '', 'menu_nazev' => '', 'stavitel' => '',
+            // 3.9: the language as the plugin names it (a Polylang slug, a WPML code), the translation group (pll:… | wpml:… | dup:<id>)
+            // and the multilingual plugin that left a trace on the post (Core\WpLanguages)
+            'jazyk_wp' => '', 'skupina' => '', 'jazyk_plugin' => '',
         ];
         foreach ($item->childNodes as $n) {
             if (!$n instanceof \DOMElement) {
@@ -266,13 +299,31 @@ final class WpFile
                     } elseif ($n->getAttribute('domain') === 'nav_menu' && $p['menu'] === '') {
                         $p['menu'] = mb_substr($n->getAttribute('nicename'), 0, 190); // the menu a nav_menu_item belongs to (3.6)
                         $p['menu_nazev'] = self::plainText($text);
+                    } elseif ($n->getAttribute('domain') === 'language' && $n->getAttribute('nicename') !== '') {
+                        $p['jazyk_wp'] = mb_substr($n->getAttribute('nicename'), 0, 20); // Polylang (3.9)
+                        $p['jazyk_plugin'] = WpLanguages::POLYLANG;
+                    } elseif ($n->getAttribute('domain') === 'post_translations' && $n->getAttribute('nicename') !== '') {
+                        $p['skupina'] = 'pll:' . mb_substr($n->getAttribute('nicename'), 0, 60);
+                        $p['jazyk_plugin'] = WpLanguages::POLYLANG;
+                    } elseif (in_array($n->getAttribute('domain'), WpLanguages::WPML_TAXONOMIES, true) && $p['jazyk_plugin'] === '') {
+                        $p['jazyk_plugin'] = WpLanguages::WPML;
                     }
                     break;
                 case 'wp:postmeta':
                     $meta = self::fields($n);
                     $key = (string) ($meta['wp:meta_key'] ?? '');
+                    $value = trim((string) ($meta['wp:meta_value'] ?? ''));
                     if ($key === '_thumbnail_id') {
                         $p['nahled'] = (int) ($meta['wp:meta_value'] ?? 0);
+                    } elseif ($key === WpLanguages::WPML_LANGUAGE && $value !== '') {
+                        $p['jazyk_wp'] = mb_substr($value, 0, 20); // WPML Export and Import (3.9)
+                        $p['jazyk_plugin'] = WpLanguages::WPML;
+                    } elseif ($key === WpLanguages::WPML_GROUP && $value !== '') {
+                        $p['skupina'] = 'wpml:' . mb_substr($value, 0, 60);
+                        $p['jazyk_plugin'] = WpLanguages::WPML;
+                    } elseif ($key === WpLanguages::WPML_DUPLICATE && ctype_digit($value) && (int) $value > 0) {
+                        $p['skupina'] = $p['skupina'] !== '' ? $p['skupina'] : 'dup:' . (int) $value; // a WPML duplicate of that post
+                        $p['jazyk_plugin'] = WpLanguages::WPML;
                     } elseif (in_array($key, WpSeo::keys(), true)) {
                         $p['meta'][$key] = mb_substr((string) ($meta['wp:meta_value'] ?? ''), 0, 2000); // SEO plugin data (Core\WpSeo)
                     } elseif ($p['typ'] === 'nav_menu_item' && str_starts_with($key, '_menu_item_')) {
@@ -391,6 +442,24 @@ final class WpFile
         }
 
         return $field;
+    }
+
+    /**
+     * The term meta of a category or a tag (<wp:termmeta> with a key and a value) as key => value.
+     *
+     * @return array<string, string>
+     */
+    private static function termMeta(\DOMElement $term): array
+    {
+        $meta = [];
+        foreach ($term->childNodes as $n) {
+            if ($n instanceof \DOMElement && $n->nodeName === 'wp:termmeta' && count($meta) < 100) {
+                $field = self::fields($n);
+                $meta[trim($field['wp:meta_key'] ?? '')] = trim($field['wp:meta_value'] ?? '');
+            }
+        }
+
+        return $meta;
     }
 
     /** Titles and names: without tags, entities converted to characters, without surrounding whitespace. */

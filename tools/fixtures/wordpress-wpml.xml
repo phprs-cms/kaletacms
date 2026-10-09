@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- A WordPress export (WXR 1.2) of a Czech and English site with WPML, for the 3.9 tests of import_wordpress. WPML keeps the
+     languages in its own table, which the core exporter leaves out; its "Export and Import" add-on writes them as custom
+     fields: _wpml_import_language_code, _wpml_import_translation_group and _wpml_import_source_language_code (postmeta of
+     posts, termmeta of categories). A duplicate keeps _icl_lang_duplicate_of; a page without the fields shows its language only
+     in its address (/en/…), with the WPML core taxonomy translation_priority as the sign of a multilingual site. Made up; the
+     .example domain does not exist. -->
+<rss version="2.0"
+	xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/"
+	xmlns:content="http://purl.org/rss/1.0/modules/content/"
+	xmlns:wfw="http://wellformedweb.org/CommentAPI/"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:wp="http://wordpress.org/export/1.2/"
+>
+<channel>
+	<title>WPX</title>
+	<link>https://www.wpx.example</link>
+	<description>Stroje a servis</description>
+	<language>cs-CZ</language>
+	<wp:wxr_version>1.2</wp:wxr_version>
+	<wp:base_site_url>https://www.wpx.example</wp:base_site_url>
+	<wp:base_blog_url>https://www.wpx.example</wp:base_blog_url>
+
+	<wp:author><wp:author_id>1</wp:author_id><wp:author_login><![CDATA[wpx]]></wp:author_login><wp:author_email><![CDATA[web@wpx.example]]></wp:author_email><wp:author_display_name><![CDATA[WPX]]></wp:author_display_name><wp:author_first_name><![CDATA[]]></wp:author_first_name><wp:author_last_name><![CDATA[]]></wp:author_last_name></wp:author>
+
+	<wp:category><wp:term_id>30</wp:term_id><wp:category_nicename><![CDATA[aktuality-wpx]]></wp:category_nicename><wp:category_parent><![CDATA[]]></wp:category_parent><wp:cat_name><![CDATA[Aktuality WPX]]></wp:cat_name>
+		<wp:termmeta><wp:meta_key><![CDATA[_wpml_import_language_code]]></wp:meta_key><wp:meta_value><![CDATA[cs]]></wp:meta_value></wp:termmeta>
+		<wp:termmeta><wp:meta_key><![CDATA[_wpml_import_translation_group]]></wp:meta_key><wp:meta_value><![CDATA[7]]></wp:meta_value></wp:termmeta>
+		<wp:termmeta><wp:meta_key><![CDATA[_wpml_import_source_language_code]]></wp:meta_key><wp:meta_value><![CDATA[]]></wp:meta_value></wp:termmeta>
+	</wp:category>
+	<wp:category><wp:term_id>31</wp:term_id><wp:category_nicename><![CDATA[news-wpx]]></wp:category_nicename><wp:category_parent><![CDATA[]]></wp:category_parent><wp:cat_name><![CDATA[News WPX]]></wp:cat_name>
+		<wp:termmeta><wp:meta_key><![CDATA[_wpml_import_language_code]]></wp:meta_key><wp:meta_value><![CDATA[en]]></wp:meta_value></wp:termmeta>
+		<wp:termmeta><wp:meta_key><![CDATA[_wpml_import_translation_group]]></wp:meta_key><wp:meta_value><![CDATA[7]]></wp:meta_value></wp:termmeta>
+		<wp:termmeta><wp:meta_key><![CDATA[_wpml_import_source_language_code]]></wp:meta_key><wp:meta_value><![CDATA[cs]]></wp:meta_value></wp:termmeta>
+	</wp:category>
+	<wp:term><wp:term_id>40</wp:term_id><wp:term_taxonomy><![CDATA[nav_menu]]></wp:term_taxonomy><wp:term_slug><![CDATA[menu-en-wpx]]></wp:term_slug><wp:term_name><![CDATA[Menu EN]]></wp:term_name></wp:term>
+	<wp:term><wp:term_id>41</wp:term_id><wp:term_taxonomy><![CDATA[translation_priority]]></wp:term_taxonomy><wp:term_slug><![CDATA[optional]]></wp:term_slug><wp:term_name><![CDATA[Optional]]></wp:term_name></wp:term>
+
+	<generator>https://wordpress.org/?v=6.6</generator>
+
+	<!-- a page and its translation (one translation group) -->
+	<item>
+		<title><![CDATA[Služby]]></title>
+		<link>https://www.wpx.example/sluzby-wpx/</link>
+		<dc:creator><![CDATA[wpx]]></dc:creator>
+		<content:encoded><![CDATA[<p>Servis strojů po celé republice.</p>]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>300</wp:post_id>
+		<wp:post_date><![CDATA[2026-04-01 09:00:00]]></wp:post_date>
+		<wp:post_name><![CDATA[sluzby-wpx]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_parent>0</wp:post_parent>
+		<wp:menu_order>0</wp:menu_order>
+		<wp:post_type><![CDATA[page]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+		<category domain="translation_priority" nicename="optional"><![CDATA[Optional]]></category>
+		<wp:postmeta><wp:meta_key><![CDATA[_wpml_import_language_code]]></wp:meta_key><wp:meta_value><![CDATA[cs]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_wpml_import_translation_group]]></wp:meta_key><wp:meta_value><![CDATA[1]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_wpml_import_source_language_code]]></wp:meta_key><wp:meta_value><![CDATA[]]></wp:meta_value></wp:postmeta>
+	</item>
+	<item>
+		<title><![CDATA[Services]]></title>
+		<link>https://www.wpx.example/en/services-wpx/</link>
+		<dc:creator><![CDATA[wpx]]></dc:creator>
+		<content:encoded><![CDATA[<p>Machine service across the country.</p>]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>301</wp:post_id>
+		<wp:post_date><![CDATA[2026-04-01 09:05:00]]></wp:post_date>
+		<wp:post_name><![CDATA[services-wpx]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_parent>0</wp:post_parent>
+		<wp:menu_order>0</wp:menu_order>
+		<wp:post_type><![CDATA[page]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+		<category domain="translation_priority" nicename="optional"><![CDATA[Optional]]></category>
+		<wp:postmeta><wp:meta_key><![CDATA[_wpml_import_language_code]]></wp:meta_key><wp:meta_value><![CDATA[en]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_wpml_import_translation_group]]></wp:meta_key><wp:meta_value><![CDATA[1]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_wpml_import_source_language_code]]></wp:meta_key><wp:meta_value><![CDATA[cs]]></wp:meta_value></wp:postmeta>
+	</item>
+	<!-- a duplicate: WPML keeps only the id of the original -->
+	<item>
+		<title><![CDATA[Ceník]]></title>
+		<link>https://www.wpx.example/cenik-wpx/</link>
+		<dc:creator><![CDATA[wpx]]></dc:creator>
+		<content:encoded><![CDATA[<p>Ceník servisu.</p>]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>305</wp:post_id>
+		<wp:post_date><![CDATA[2026-04-01 09:20:00]]></wp:post_date>
+		<wp:post_name><![CDATA[cenik-wpx]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_parent>0</wp:post_parent>
+		<wp:menu_order>0</wp:menu_order>
+		<wp:post_type><![CDATA[page]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+		<wp:postmeta><wp:meta_key><![CDATA[_wpml_import_language_code]]></wp:meta_key><wp:meta_value><![CDATA[cs]]></wp:meta_value></wp:postmeta>
+	</item>
+	<item>
+		<title><![CDATA[Ceník]]></title>
+		<link>https://www.wpx.example/en/cenik-wpx-en/</link>
+		<dc:creator><![CDATA[wpx]]></dc:creator>
+		<content:encoded><![CDATA[<p>Ceník servisu.</p>]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>306</wp:post_id>
+		<wp:post_date><![CDATA[2026-04-01 09:25:00]]></wp:post_date>
+		<wp:post_name><![CDATA[cenik-wpx-en]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_parent>0</wp:post_parent>
+		<wp:menu_order>0</wp:menu_order>
+		<wp:post_type><![CDATA[page]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+		<wp:postmeta><wp:meta_key><![CDATA[_wpml_import_language_code]]></wp:meta_key><wp:meta_value><![CDATA[en]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_icl_lang_duplicate_of]]></wp:meta_key><wp:meta_value><![CDATA[305]]></wp:meta_value></wp:postmeta>
+	</item>
+	<!-- no WPML fields: the language is only in the address -->
+	<item>
+		<title><![CDATA[About us]]></title>
+		<link>https://www.wpx.example/en/about-wpx/</link>
+		<dc:creator><![CDATA[wpx]]></dc:creator>
+		<content:encoded><![CDATA[<p>A family business since 1991.</p>]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>307</wp:post_id>
+		<wp:post_date><![CDATA[2026-04-01 09:30:00]]></wp:post_date>
+		<wp:post_name><![CDATA[about-wpx]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_parent>0</wp:post_parent>
+		<wp:menu_order>0</wp:menu_order>
+		<wp:post_type><![CDATA[page]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+		<category domain="translation_priority" nicename="optional"><![CDATA[Optional]]></category>
+	</item>
+
+	<!-- a post and its translation, each in its language's category -->
+	<item>
+		<title><![CDATA[Nový servisní vůz]]></title>
+		<link>https://www.wpx.example/aktuality-wpx/novy-servisni-vuz-wpx/</link>
+		<dc:creator><![CDATA[wpx]]></dc:creator>
+		<content:encoded><![CDATA[<p>Máme nový vůz.</p>]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>310</wp:post_id>
+		<wp:post_date><![CDATA[2026-04-02 08:00:00]]></wp:post_date>
+		<wp:post_name><![CDATA[novy-servisni-vuz-wpx]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_parent>0</wp:post_parent>
+		<wp:menu_order>0</wp:menu_order>
+		<wp:post_type><![CDATA[post]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+		<category domain="category" nicename="aktuality-wpx"><![CDATA[Aktuality WPX]]></category>
+		<wp:postmeta><wp:meta_key><![CDATA[_wpml_import_language_code]]></wp:meta_key><wp:meta_value><![CDATA[cs]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_wpml_import_translation_group]]></wp:meta_key><wp:meta_value><![CDATA[2]]></wp:meta_value></wp:postmeta>
+	</item>
+	<item>
+		<title><![CDATA[A new service van]]></title>
+		<link>https://www.wpx.example/en/news-wpx/new-service-van-wpx/</link>
+		<dc:creator><![CDATA[wpx]]></dc:creator>
+		<content:encoded><![CDATA[<p>We have a new van.</p>]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>311</wp:post_id>
+		<wp:post_date><![CDATA[2026-04-02 08:30:00]]></wp:post_date>
+		<wp:post_name><![CDATA[new-service-van-wpx]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_parent>0</wp:post_parent>
+		<wp:menu_order>0</wp:menu_order>
+		<wp:post_type><![CDATA[post]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+		<category domain="category" nicename="news-wpx"><![CDATA[News WPX]]></category>
+		<wp:postmeta><wp:meta_key><![CDATA[_wpml_import_language_code]]></wp:meta_key><wp:meta_value><![CDATA[en]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_wpml_import_translation_group]]></wp:meta_key><wp:meta_value><![CDATA[2]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_wpml_import_source_language_code]]></wp:meta_key><wp:meta_value><![CDATA[cs]]></wp:meta_value></wp:postmeta>
+	</item>
+
+	<!-- the English menu: the English page, the English post and a custom link to the English about page -->
+	<item>
+		<title><![CDATA[Services]]></title>
+		<link>https://www.wpx.example/?p=320</link>
+		<dc:creator><![CDATA[wpx]]></dc:creator>
+		<content:encoded><![CDATA[]]></content:encoded>
+		<wp:post_id>320</wp:post_id>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:menu_order>1</wp:menu_order>
+		<wp:post_type><![CDATA[nav_menu_item]]></wp:post_type>
+		<category domain="nav_menu" nicename="menu-en-wpx"><![CDATA[Menu EN]]></category>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_type]]></wp:meta_key><wp:meta_value><![CDATA[post_type]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_menu_item_parent]]></wp:meta_key><wp:meta_value><![CDATA[0]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_object_id]]></wp:meta_key><wp:meta_value><![CDATA[301]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_object]]></wp:meta_key><wp:meta_value><![CDATA[page]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_url]]></wp:meta_key><wp:meta_value><![CDATA[]]></wp:meta_value></wp:postmeta>
+	</item>
+	<item>
+		<title><![CDATA[Van]]></title>
+		<link>https://www.wpx.example/?p=321</link>
+		<dc:creator><![CDATA[wpx]]></dc:creator>
+		<content:encoded><![CDATA[]]></content:encoded>
+		<wp:post_id>321</wp:post_id>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:menu_order>2</wp:menu_order>
+		<wp:post_type><![CDATA[nav_menu_item]]></wp:post_type>
+		<category domain="nav_menu" nicename="menu-en-wpx"><![CDATA[Menu EN]]></category>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_type]]></wp:meta_key><wp:meta_value><![CDATA[post_type]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_menu_item_parent]]></wp:meta_key><wp:meta_value><![CDATA[0]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_object_id]]></wp:meta_key><wp:meta_value><![CDATA[311]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_object]]></wp:meta_key><wp:meta_value><![CDATA[post]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_url]]></wp:meta_key><wp:meta_value><![CDATA[]]></wp:meta_value></wp:postmeta>
+	</item>
+	<item>
+		<title><![CDATA[About]]></title>
+		<link>https://www.wpx.example/?p=322</link>
+		<dc:creator><![CDATA[wpx]]></dc:creator>
+		<content:encoded><![CDATA[]]></content:encoded>
+		<wp:post_id>322</wp:post_id>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:menu_order>3</wp:menu_order>
+		<wp:post_type><![CDATA[nav_menu_item]]></wp:post_type>
+		<category domain="nav_menu" nicename="menu-en-wpx"><![CDATA[Menu EN]]></category>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_type]]></wp:meta_key><wp:meta_value><![CDATA[custom]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_menu_item_parent]]></wp:meta_key><wp:meta_value><![CDATA[0]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_object_id]]></wp:meta_key><wp:meta_value><![CDATA[322]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_object]]></wp:meta_key><wp:meta_value><![CDATA[custom]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_menu_item_url]]></wp:meta_key><wp:meta_value><![CDATA[https://www.wpx.example/en/about-wpx/]]></wp:meta_value></wp:postmeta>
+	</item>
+</channel>
+</rss>
