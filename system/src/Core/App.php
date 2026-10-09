@@ -111,7 +111,7 @@ final class App
         if ($this->languagePrefix !== '') {
             $pathOnly = explode('?', $path, 2)[0];
             // a path that already names its language version (a menu link written as /cs/funkce) keeps it – no /cs/cs/…
-            $ownPrefix = preg_match('#^([a-z]{2})(?:/|$)#', $pathOnly, $m) === 1 && isset(Language::AVAILABLE[$m[1]]);
+            $ownPrefix = Language::splitPrefix('/' . $pathOnly) !== null;
             if (!$ownPrefix && (!str_contains($pathOnly, '.') || $pathOnly === 'rss.xml' || $pathOnly === 'feed.json') && $pathOnly !== 'mcp') {
                 $path = $this->languagePrefix . ($path === '' ? '/' : '/' . $path);
             }

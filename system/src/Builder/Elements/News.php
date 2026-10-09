@@ -48,7 +48,8 @@ final class News extends Element
     {
         $o = $p['obsah'];
         $reader = new NewsRepository($k->app->db(), $k->app->settings(), $k->app->request->basePath());
-        $idt = $o['kategorie'] === '' ? null : $k->app->db()->value('SELECT idt FROM {kategorie} WHERE seo_link = ?', [$o['kategorie']]);
+        // with slugs per language (3.9) two versions may share a category slug: the version shown comes first
+        $idt = $o['kategorie'] === '' ? null : $k->app->db()->value('SELECT idt FROM {kategorie} WHERE seo_link = ? ORDER BY jazyk = ? DESC LIMIT 1', [$o['kategorie'], \Kaleta\Core\Language::siteColumn()]);
         [$news] = $idt === null ? $reader->listPublished(1, (int) $o['pocet']) : $reader->inCategory((int) $idt, 1, (int) $o['pocet']);
         $html = '';
         foreach ($news as $n) {

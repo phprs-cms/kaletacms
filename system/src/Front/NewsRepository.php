@@ -115,7 +115,10 @@ final class NewsRepository
     /** @return array<string, mixed>|null */
     public function bySlug(string $seo, bool $includeUnpublished = false): ?array
     {
-        $newsItem = $this->db->one(self::SELECT . ' WHERE c.seo_link = ? AND c.smazano IS NULL' . ($includeUnpublished ? '' : ' AND ' . self::PUBLISHED), [$seo]);
+        // with slugs per language (3.9) /news/x and /en/news/x may be two news items: the one of the version asked for
+        // comes first; one of another version still answers there (Front\Kernel redirects to its own version)
+        $newsItem = $this->db->one(self::SELECT . ' WHERE c.seo_link = ? AND c.smazano IS NULL' . ($includeUnpublished ? '' : ' AND ' . self::PUBLISHED) . ' ORDER BY c.jazyk = ? DESC LIMIT 1',
+            [$seo, \Kaleta\Core\Language::siteColumn()]);
         if ($newsItem === null) {
             return null;
         }

@@ -80,10 +80,10 @@ final class Kernel
         // language version: /en/novinky/x -> language "en", path "/novinky/x"; URLs from $app->url() then get the prefix
         // automatically
         $language = Language::defaults($app->settings());
-        if (preg_match('#^/([a-z]{2})(/.*)?$#D', $app->request->path(), $m) && in_array($m[1], Language::additional($app->settings()), true)) {
-            $language = $m[1];
-            $app->languagePrefix = $m[1];
-            $app->request->setPath($m[2] ?? '/');
+        if (($prefix = Language::splitPrefix($app->request->path())) !== null && in_array($prefix[0], Language::additional($app->settings()), true)) {
+            $language = $prefix[0];
+            $app->languagePrefix = $prefix[0];
+            $app->request->setPath($prefix[1]);
         }
         Language::setSite($app->settings(), $language);
         // system URLs in the version's language (/news ↔ /novinky): the internal form is used from here on, a foreign form
@@ -705,7 +705,8 @@ final class Kernel
     {
         $db = $this->app->db();
         $parentPage = null;
-        $main = $db->one('SELECT ids, preklad_z, jazyk, seo_link, titulek, zobrazit FROM {stranky} WHERE seo_link = ? AND smazano IS NULL', [$collection['seo_link']]);
+        // with slugs per language (3.9) the page of the version itself comes first
+        $main = $db->one('SELECT ids, preklad_z, jazyk, seo_link, titulek, zobrazit FROM {stranky} WHERE seo_link = ? AND smazano IS NULL ORDER BY jazyk = ? DESC LIMIT 1', [$collection['seo_link'], Language::siteColumn()]);
         if ($main !== null && $main['jazyk'] === Language::siteColumn()) {
             $parentPage = $main['zobrazit'] ? $main : null;
         } elseif ($main !== null) {
@@ -1076,7 +1077,7 @@ final class Kernel
         if (!Extensions::isEnabled($this->app->settings(), 'presmerovani')) {
             return null;
         }
-        $forms = self::redirectForms(...$paths);
+        $forms = self::redirectForms(...$this->redirectSources(...$paths));
         // a pattern rule (3.6) is never an exact one, even for a visitor who typed its asterisk
         $rows = array_values(array_filter($this->app->db()->all('SELECT * FROM {presmerovani} WHERE z_adresy IN (' . implode(',', array_fill(0, count($forms), '?')) . ')', $forms),
             fn (array $r): bool => !\Kaleta\Core\RedirectRules::isPattern((string) $r['z_adresy'])));
@@ -1089,6 +1090,22 @@ final class Kernel
         }
 
         return $rows[0] ?? null; // the database compares without regard to case
+    }
+
+    /**
+     * The addresses a redirect for the visited one may be stored under. With slugs per language (3.9, Core\Slug) a version's
+     * redirects carry its prefix (en/old – /old may be another page's), so in a language version the prefixed form comes
+     * first; the form without it still answers for redirects written before (they were shared by all versions).
+     *
+     * @return list<string>
+     */
+    private function redirectSources(string ...$paths): array
+    {
+        if ($this->app->languagePrefix === '' || !\Kaleta\Core\Slug::perLanguage($this->app->db())) {
+            return array_values($paths);
+        }
+
+        return [...array_map(fn (string $p): string => $this->app->languagePrefix . '/' . trim($p, '/'), $paths), ...$paths];
     }
 
     /** The forms of the given addresses a redirect may be stored under: each as it is, without and with .html. @return list<string> */
@@ -1117,7 +1134,7 @@ final class Kernel
             return null;
         }
         $rows = \Kaleta\Core\RedirectRules::patternRows($this->app->db());
-        $found = $rows === [] ? null : \Kaleta\Core\RedirectRules::resolve($rows, self::redirectForms(...$paths));
+        $found = $rows === [] ? null : \Kaleta\Core\RedirectRules::resolve($rows, self::redirectForms(...$this->redirectSources(...$paths)));
         if ($found === null) {
             return null;
         }

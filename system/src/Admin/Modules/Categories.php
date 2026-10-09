@@ -30,11 +30,13 @@ final class Categories extends Module
      */
     public static function listAll(Db $db, ?string $language = null): array
     {
-        $whereParts = $language !== null && preg_match('/^([a-z]{2})?$/D', $language) ? " WHERE t.jazyk = '{$language}'" : '';
+        $filter = $language !== null && ($language === '' || \Kaleta\Core\Language::isOffered($language));
+        $whereParts = $filter ? ' WHERE t.jazyk = ?' : '';
 
         return $db->all(
             'SELECT t.*, (SELECT COUNT(*) FROM {novinky} c WHERE c.tema = t.idt AND c.smazano IS NULL) AS pocet_clanku
              FROM {kategorie} t' . $whereParts . ' ORDER BY t.hodnost DESC, t.nazev',
+            $filter ? [(string) $language] : [],
         );
     }
 
@@ -97,18 +99,24 @@ final class Categories extends Module
             'jazyk' => \Kaleta\Core\Language::column($this->app->settings(), $r->post('jazyk')),
         ];
         $data['preklad_z'] = $data['jazyk'] === '' ? null : ($this->db->value("SELECT idt FROM {kategorie} WHERE idt = ? AND jazyk = '' AND idt <> ?", [$r->postInt('preklad_z'), $id]) ?: null);
-        if ($data['nazev'] === '' || $descriptionError !== null) {
-            return $this->form(['idt' => $id] + $data, array_filter(['nazev' => $data['nazev'] === '' ? 'Fill in the category name.' : null, 'popis' => $descriptionError]));
+        // with slugs per language (3.9) the news of a category that moves to another language version must not meet a news
+        // item with the same slug there
+        $clash = $id > 0 && \Kaleta\Core\Slug::perLanguage($this->db) && $this->db->value('SELECT 1 FROM {novinky} c JOIN {novinky} o ON o.seo_link = c.seo_link AND o.jazyk = ? AND o.tema <> c.tema
+            WHERE c.tema = ? AND c.jazyk <> ? LIMIT 1', [$data['jazyk'], $id, $data['jazyk']]) !== null;
+        if ($data['nazev'] === '' || $descriptionError !== null || $clash) {
+            return $this->form(['idt' => $id] + $data, array_filter(['nazev' => $data['nazev'] === '' ? 'Fill in the category name.' : null, 'popis' => $descriptionError,
+                'jazyk' => $clash ? 'A news item of this category has the same address as a news item in that language version. Change one of them first.' : null]));
         }
 
-        $data['seo_link'] = \Kaleta\Core\Slug::makeUnique($data['seo_link'], fn (string $a): bool => $this->db->value('SELECT idt FROM {kategorie} WHERE seo_link = ? AND idt <> ?', [$a, $id]) !== null, 120);
+        $data['seo_link'] = \Kaleta\Core\Slug::makeUnique($data['seo_link'], fn (string $a): bool => \Kaleta\Core\Slug::taken($this->db, 'kategorie', $a, $data['jazyk'], $id), 120);
 
         if ($id > 0) {
-            $previous = $this->db->value('SELECT seo_link FROM {kategorie} WHERE idt = ?', [$id]);
+            $previous = $this->db->one('SELECT seo_link, jazyk FROM {kategorie} WHERE idt = ?', [$id]);
             $this->db->update('kategorie', $data, ['idt' => $id]);
-            if ($previous !== null && $previous !== $data['seo_link']) {
+            if ($previous !== null && $previous['seo_link'] !== $data['seo_link']) {
                 // the category changed its slug: the old one is redirected, neither links nor search engines lose the page
-                Redirects::add($this->db, 'novinky/kategorie/' . $previous, 'novinky/kategorie/' . $data['seo_link']);
+                Redirects::add($this->db, \Kaleta\Core\Slug::redirectPath($this->db, 'novinky/kategorie/' . $previous['seo_link'], (string) $previous['jazyk']),
+                    \Kaleta\Core\Slug::redirectPath($this->db, 'novinky/kategorie/' . $data['seo_link'], $data['jazyk']));
             }
             $this->db->run('UPDATE {novinky} SET jazyk = ? WHERE tema = ?', [$data['jazyk'], $id]); // news items have the language of their category
         } else {

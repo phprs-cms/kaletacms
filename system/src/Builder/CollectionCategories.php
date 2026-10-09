@@ -219,14 +219,18 @@ final class CollectionCategories
     }
 
     /** Is the address taken by a category of the collection (in any language)? The item save refuses it. */
-    public static function slugIsCategory(Db $db, int $idk, string $slug): bool
+    public static function slugIsCategory(Db $db, int $idk, string $slug, ?string $language = null): bool
     {
-        return $db->value('SELECT 1 FROM {collection_category_texts} WHERE idk = ? AND slug = ? LIMIT 1', [$idk, $slug]) !== null;
+        // with slugs per language (3.9, Core\Slug) only a category of the item's own language version takes the address
+        [$sameLanguage, $languageParams] = $language !== null ? Slug::scope($db, $language, 'language') : ['', []];
+
+        return $db->value('SELECT 1 FROM {collection_category_texts} WHERE idk = ? AND slug = ?' . $sameLanguage . ' LIMIT 1', [$idk, $slug, ...$languageParams]) !== null;
     }
 
     /**
      * May an item of the collection have the address in its language (3.7, N37-8): no other item of the language has it,
-     * and no category of the collection has it in any language – the item would take over the category page. The item's
+     * and no category of the collection has it in any language (with slugs per language, 3.9: in the item's language) –
+     * the item would take over the category page. The item's
      * own stored address passes the category check (old data with a clash: the item keeps it and wins, see the class
      * comment). The one check of every place that sets an item address: the item form, save_collection_item,
      * save_collection_items and the CSV/JSON import, a copy, a restore from the trash or of a version, the WordPress
@@ -234,7 +238,7 @@ final class CollectionCategories
      */
     public static function itemSlugFree(Db $db, int $idk, string $language, string $slug, int $idp = 0, string $stored = ''): bool
     {
-        return ($slug === $stored || !self::slugIsCategory($db, $idk, $slug))
+        return ($slug === $stored || !self::slugIsCategory($db, $idk, $slug, $language))
             && $db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ? AND idp <> ?', [$idk, $language, $slug, $idp]) === null;
     }
 
@@ -251,7 +255,7 @@ final class CollectionCategories
     public static function freeRestoredItemSlug(Db $db, int $idp): ?string
     {
         $item = $db->one('SELECT idk, jazyk, seo_link FROM {kolekce_polozky} WHERE idp = ?', [$idp]);
-        if ($item === null || !self::slugIsCategory($db, (int) $item['idk'], (string) $item['seo_link'])) {
+        if ($item === null || !self::slugIsCategory($db, (int) $item['idk'], (string) $item['seo_link'], (string) $item['jazyk'])) {
             return null;
         }
         $free = self::freeItemSlug($db, (int) $item['idk'], (string) $item['jazyk'], $item['seo_link'] . '-2', $idp);
@@ -295,7 +299,8 @@ final class CollectionCategories
         if ($db->value('SELECT 1 FROM {collection_category_texts} WHERE idk = ? AND language = ? AND slug = ? AND category_id <> ?', [$idk, $language, $slug, (int) $id]) !== null) {
             throw new \InvalidArgumentException(t('The address “%s” is already used by another category of this collection.', $slug));
         }
-        if ($db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? LIMIT 1', [$idk, $slug]) !== null) {
+        [$sameLanguage, $languageParams] = Slug::scope($db, $language); // 3.9: only an item of the category's language with slugs per language
+        if ($db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ?' . $sameLanguage . ' LIMIT 1', [$idk, $slug, ...$languageParams]) !== null) {
             throw new \InvalidArgumentException(t('The address “%s” is already used by an item of this collection – a category page and an item page cannot share it.', $slug));
         }
         $parent = array_key_exists('parent_id', $input) ? (int) (is_scalar($input['parent_id']) ? $input['parent_id'] : 0) : ($previous['parent_id'] ?? 0);

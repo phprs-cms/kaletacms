@@ -54,6 +54,17 @@ expect_sql "no settings row left under an old key" "SELECT COUNT(*) FROM ka_nast
 expect_sql "a site from before 2.2 keeps its extensions (0035) – the Claude connection does not switch itself on" "SELECT hodnota <> '' AND hodnota NOT LIKE '%claude%' FROM ka_nastaveni WHERE promenna = 'extensions'" "1"
 expect_sql "3.3.4 (0076): an OAuth client registered before the upgrade counts as approved – the daily clean-up never removes it" "SELECT approved = vytvoren FROM ka_oauth_klienti WHERE client_id = REPEAT('a', 32)" "1"
 
+# 3.9 (0083): the language columns hold a BCP 47 tag – VARCHAR(35) in ASCII on an upgraded site as on a fresh one (the
+# structure check above compares the type, not the character set), and a site's language values stay as they were
+langcols() { "${MYSQL[@]}" -N -e "SELECT GROUP_CONCAT(CONCAT(TABLE_NAME, '.', COLUMN_NAME, ':', COLUMN_TYPE, ':', CHARACTER_SET_NAME) ORDER BY TABLE_NAME, COLUMN_NAME) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '$1' AND COLUMN_NAME IN ('jazyk', 'language')"; }
+[ "$(langcols "$OLD")" = "$(langcols "$NEW")" ] && [ "$(langcols "$OLD" | grep -o ':varchar(35):ascii' | wc -l | tr -d ' ')" = 14 ] && echo "  ok     3.9 (0083): the 14 language columns are VARCHAR(35) ASCII, as on a fresh install" || { echo "  CHYBA  0083 language columns: $(langcols "$OLD")"; ERRORS=$((ERRORS+1)); }
+"${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_stranky (ids, seo_link, titulek, text, jazyk) VALUES (9083, 'kontakt-83', 'Kontakt', '', ''), (9084, 'contact-83', 'Contact', '', 'en')"
+expect_sql "3.9 (0083): pages, news and categories have the per-language slug key next to the global one" \
+  "SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = '$OLD' AND INDEX_NAME IN ('uq_stranky_seo', 'uq_stranky_jazyk_seo', 'uq_clanky_seo', 'uq_clanky_jazyk_seo', 'uq_topic_seo', 'uq_topic_jazyk_seo') AND SEQ_IN_INDEX = 1" "6"
+"${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_stranky (ids, seo_link, titulek, text, jazyk) VALUES (9085, 'kontakt-83', 'Contact', '', 'en')" 2>/dev/null && { echo "  CHYBA  0083: a duplicate slug passed the global key"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.9 (0083): … a duplicate slug in another language is refused by the database"
+expect_sql "3.9 (0083): language values read back unchanged" "SELECT GROUP_CONCAT(CONCAT(ids, ':', jazyk, ':', LENGTH(jazyk)) ORDER BY ids) FROM ka_stranky WHERE ids IN (9083, 9084)" "9083::0,9084:en:2"
+"${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_stranky WHERE ids IN (9083, 9084)"
+
 # 3.2 (0073): a site as 3.1.1 left it gets the new feature defaults – Bookings and Whistleblowing stay on where they are in
 # use and are off where not; Statistics are off where the old "stats" setting was off. The data migration runs again by name.
 site_311() { "${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_bookings; DELETE FROM ka_booking_services; DELETE FROM ka_whistleblowing_cases;

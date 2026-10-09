@@ -46,13 +46,14 @@ final class Pages extends Module
     }
 
     /**
-     * A free page slug made from $base (o-nas, o-nas-2…): no other page has it – one in the trash keeps its slug reserved –
-     * and it is not reserved (slugReserved), unless it is the page's own stored slug. $id = the page itself (0 = a new one).
+     * A free page slug made from $base (o-nas, o-nas-2…): no other page has it – one in the trash keeps its slug reserved;
+     * with slugs per language (3.9, Core\Slug) only a page of the same language version counts – and it is not reserved
+     * (slugReserved, in every language), unless it is the page's own stored slug. $id = the page itself (0 = a new one).
      */
-    public static function freeSlug(\Kaleta\Core\Db $db, string $base, int $id = 0, string $stored = '', int $max = 120): string
+    public static function freeSlug(\Kaleta\Core\Db $db, string $base, int $id = 0, string $stored = '', int $max = 120, string $language = ''): string
     {
         return \Kaleta\Core\Slug::makeUnique($base, fn (string $a): bool => ($a !== $stored && self::slugReserved($a, $db))
-            || $db->value('SELECT 1 FROM {stranky} WHERE seo_link = ? AND ids <> ?', [$a, $id]) !== null, $max);
+            || \Kaleta\Core\Slug::taken($db, 'stranky', $a, $language, $id), $max);
     }
 
     protected function actionList(): Response
@@ -159,11 +160,16 @@ final class Pages extends Module
         $language = \Kaleta\Core\Language::column($this->app->settings(), $this->request->post('jazyk'));
         $done = 0;
         $skipped = 0;
+        $clashes = 0; // 3.9: with slugs per language a page cannot move where another page of that version has its slug
         foreach (array_unique(array_map(intval(...), $this->request->postList('oznacene'))) as $id) {
             $page = $this->loadPage($id);
             // authors may only touch hidden pages and never publish; the home page stays visible and out of the trash
             if ($page === null || (!$auth->canPublish() && ($page['zobrazit'] || $action === 'zobrazit')) || ($id === $home && in_array($action, ['skryt', 'kos'], true))) {
                 $skipped++;
+                continue;
+            }
+            if ($action === 'jazyk' && $language !== $page['jazyk'] && \Kaleta\Core\Slug::taken($this->db, 'stranky', (string) $page['seo_link'], $language, $id)) {
+                $clashes++;
                 continue;
             }
             match ($action) {
@@ -183,7 +189,8 @@ final class Pages extends Module
             'jazyk' => t('Pages moved to the language version: %d.', $done), default => t('Pages moved to the trash: %d.', $done),
         };
 
-        return $this->back($message . ($skipped > 0 ? ' ' . t('Skipped: %d (no permission, or the home page).', $skipped) : ''), '', [], $done > 0 ? 'ok' : 'chyba');
+        return $this->back($message . ($skipped > 0 ? ' ' . t('Skipped: %d (no permission, or the home page).', $skipped) : '')
+            . ($clashes > 0 ? ' ' . t('Skipped: %d (that language version already has the address).', $clashes) : ''), '', [], $done > 0 ? 'ok' : 'chyba');
     }
 
     protected function actionEdit(): Response
@@ -301,11 +308,12 @@ final class Pages extends Module
         $storedSlug = $id > 0 ? $this->db->value('SELECT seo_link FROM {stranky} WHERE ids = ?', [$id]) : null;
         if ($r->post('seo_link') === '') {
             // slug from the name: a taken or reserved one gets a number (o-nas-2), as with news
-            $data['seo_link'] = self::freeSlug($this->db, $data['seo_link'], $id, (string) $storedSlug);
+            $data['seo_link'] = self::freeSlug($this->db, $data['seo_link'], $id, (string) $storedSlug, language: $language);
         }
+        [$sameLanguage, $languageParams] = \Kaleta\Core\Slug::scope($this->db, $language);
         if ($parent === null && $data['seo_link'] !== $storedSlug && self::slugReserved($data['seo_link'], $this->db)) {
             $errors['seo_link'] = 'This URL is used by the system, choose another one.';
-        } elseif (($other = $this->db->one('SELECT ids, smazano FROM {stranky} WHERE seo_link = ? AND ids <> ?', [$data['seo_link'], $id])) !== null) {
+        } elseif (($other = $this->db->one('SELECT ids, smazano FROM {stranky} WHERE seo_link = ? AND ids <> ?' . $sameLanguage, [$data['seo_link'], $id, ...$languageParams])) !== null) {
             $errors['seo_link'] = $other['smazano'] !== null ? 'A page in the trash uses this address – restore it or delete it permanently.' : 'A page with this URL already exists.';
         }
         // the page password (2.14, Core\PageLock): empty = unchanged, a tick removes it; only its hash is stored
@@ -324,13 +332,13 @@ final class Pages extends Module
             return $this->form(['ids' => $id] + $data + ($previous ?? ['stavba' => null, 'stavba_koncept' => null]), $errors);
         }
         if ($id > 0) {
-            $previous = $this->db->one('SELECT seo_link, zobrazit, titulek, text FROM {stranky} WHERE ids = ?', [$id]);
+            $previous = $this->db->one('SELECT seo_link, zobrazit, titulek, text, jazyk FROM {stranky} WHERE ids = ?', [$id]);
             if ($previous !== null && ($previous['text'] !== $data['text'] || $previous['titulek'] !== $data['titulek'])) {
                 $this->saveVersion($id, $previous['titulek'], (string) $previous['text']);
             }
             $this->db->update('stranky', $data, ['ids' => $id]);
             if ($previous !== null && $previous['seo_link'] !== $data['seo_link']) {
-                $this->moveSubpages($previous['seo_link'], $data['seo_link'], (bool) $previous['zobrazit']);
+                self::move($this->db, $previous['seo_link'], $data['seo_link'], (bool) $previous['zobrazit'], $language);
             }
         } else {
             $id = $this->db->insert('stranky', $data);
@@ -467,22 +475,23 @@ final class Pages extends Module
         $db->run('DELETE FROM {stranky_revize} WHERE ids = ? AND idr NOT IN (SELECT idr FROM (SELECT idr FROM {stranky_revize} WHERE ids = ? ORDER BY idr DESC LIMIT 30) t)', [$ids, $ids]);
     }
 
-    /** The page changed its slug: subpages move with it and the old URLs of visible pages are redirected. */
-    private function moveSubpages(string $old, string $newVersion, bool $visible): void
+    /**
+     * The page changed its slug: subpages move with it and the old URLs of visible pages are redirected. With slugs per
+     * language (3.9) only the subpages of its own language version move – /en/sluzby/web is not a subpage of /sluzby – and
+     * the redirects carry the language prefix (Core\Slug::redirectPath).
+     */
+    public static function move(\Kaleta\Core\Db $db, string $old, string $newVersion, bool $visible, string $language = ''): void
     {
-        self::move($this->db, $old, $newVersion, $visible);
-    }
-
-    public static function move(\Kaleta\Core\Db $db, string $old, string $newVersion, bool $visible): void
-    {
+        $redirect = fn (string $path): string => \Kaleta\Core\Slug::redirectPath($db, $path, $language);
         if ($visible) {
-            Redirects::add($db, $old, $newVersion);
+            Redirects::add($db, $redirect($old), $redirect($newVersion));
         }
-        foreach ($db->all('SELECT ids, seo_link, zobrazit FROM {stranky} WHERE seo_link LIKE ?', [addcslashes($old, '%_\\') . '/%']) as $p) {
+        [$sameLanguage, $languageParams] = \Kaleta\Core\Slug::scope($db, $language);
+        foreach ($db->all('SELECT ids, seo_link, zobrazit FROM {stranky} WHERE seo_link LIKE ?' . $sameLanguage, [addcslashes($old, '%_\\') . '/%', ...$languageParams]) as $p) {
             $target = $newVersion . substr($p['seo_link'], strlen($old));
             $db->update('stranky', ['seo_link' => $target], ['ids' => $p['ids']]);
             if ($p['zobrazit']) {
-                Redirects::add($db, $p['seo_link'], $target);
+                Redirects::add($db, $redirect($p['seo_link']), $redirect($target));
             }
         }
     }
@@ -600,14 +609,15 @@ final class Pages extends Module
      */
     public static function freeRestoredSlug(\Kaleta\Core\Db $db, int $ids): ?string
     {
-        $slug = (string) $db->value('SELECT seo_link FROM {stranky} WHERE ids = ?', [$ids]);
+        $page = $db->one('SELECT seo_link, jazyk FROM {stranky} WHERE ids = ?', [$ids]);
+        [$slug, $language] = [(string) ($page['seo_link'] ?? ''), (string) ($page['jazyk'] ?? '')];
         if (!self::slugReserved($slug, $db)) {
             return null;
         }
-        $free = \Kaleta\Core\Slug::makeUnique($slug . '-2', fn (string $a): bool => self::slugReserved($a, $db) || $db->value('SELECT 1 FROM {stranky} WHERE seo_link = ?', [$a]) !== null
+        $free = \Kaleta\Core\Slug::makeUnique($slug . '-2', fn (string $a): bool => self::slugReserved($a, $db) || \Kaleta\Core\Slug::taken($db, 'stranky', $a, $language, $ids)
             || $db->value('SELECT 1 FROM {kolekce} WHERE seo_link = ?', [$a]) !== null, 120);
         $db->update('stranky', ['seo_link' => $free], ['ids' => $ids]);
-        self::move($db, $slug, $free, false); // the old address belongs to the news, so it gets no redirect
+        self::move($db, $slug, $free, false, $language); // the old address belongs to the news, so it gets no redirect
 
         return $free;
     }
@@ -639,7 +649,7 @@ final class Pages extends Module
         }
         $copy = array_diff_key($page, ['ids' => 0, 'smazano' => 0]);
         $copy['titulek'] = mb_substr(t('%s (copy)', $page['titulek']), 0, 200);
-        $copy['seo_link'] = self::freeSlug($this->db, mb_substr($page['seo_link'] . '-kopie', 0, 110));
+        $copy['seo_link'] = self::freeSlug($this->db, mb_substr($page['seo_link'] . '-kopie', 0, 110), language: (string) $page['jazyk']);
         $copy['zobrazit'] = 0;
         $copy['show_on_publish'] = 0;
         $copy['v_menu'] = 0; // the copy does not get into the navigation until someone adds it there

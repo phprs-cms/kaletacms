@@ -231,6 +231,7 @@ final class MigrationReport
         }
         [$internal] = Routes::internalPath('/' . implode('/', $segments), $language, $db);
         $s = $internal === '/' ? [] : explode('/', ltrim((string) $internal, '/'));
+        $column = Language::column($settings, $language); // 3.9: with slugs per language the version of the address wins (/en/kontakt)
         if ($s === []) {
             $home = (int) $settings->get('home_page');
             $page = $home > 0 ? $db->one('SELECT titulek, seo_titulek, popis, zobrazit, stavba, stavba_koncept, text FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$home]) : null;
@@ -238,18 +239,18 @@ final class MigrationReport
             return $page !== null ? self::page($page) : ['typ' => 'home', 'titulek' => (string) $settings->get('site_name'), 'popis' => (string) $settings->get('site_description'), 'formular' => false, 'obrazky' => 0, 'zobrazeno' => true];
         }
         if ($s[0] === 'novinky' && count($s) === 2) {
-            $n = $db->one('SELECT titulek, seo_titulek, seo_popis, uvod, text, visible FROM {novinky} WHERE seo_link = ? AND smazano IS NULL', [$s[1]]);
+            $n = $db->one('SELECT titulek, seo_titulek, seo_popis, uvod, text, visible FROM {novinky} WHERE seo_link = ? AND smazano IS NULL ORDER BY jazyk = ? DESC LIMIT 1', [$s[1], $column]);
 
             return $n === null ? null : ['typ' => 'news', 'titulek' => (string) ($n['seo_titulek'] ?: $n['titulek']),
                 'popis' => trim((string) ($n['seo_popis'] ?: strip_tags((string) $n['uvod']))), 'formular' => false,
                 'obrazky' => substr_count(strtolower((string) $n['text']), '<img'), 'zobrazeno' => (bool) $n['visible']];
         }
-        $page = $db->one('SELECT titulek, seo_titulek, popis, zobrazit, stavba, stavba_koncept, text FROM {stranky} WHERE seo_link = ? AND smazano IS NULL', [implode('/', $s)]);
+        $page = $db->one('SELECT titulek, seo_titulek, popis, zobrazit, stavba, stavba_koncept, text FROM {stranky} WHERE seo_link = ? AND smazano IS NULL ORDER BY jazyk = ? DESC LIMIT 1', [implode('/', $s), $column]);
         if ($page !== null) {
             return self::page($page);
         }
         if (count($s) === 2) {
-            $item = $db->one('SELECT p.nazev, p.seo_titulek, p.popis, p.zobrazit, p.data FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.seo_link = ? AND k.detail = 1 AND p.seo_link = ? AND p.smazano IS NULL', [$s[0], $s[1]]);
+            $item = $db->one('SELECT p.nazev, p.seo_titulek, p.popis, p.zobrazit, p.data FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.seo_link = ? AND k.detail = 1 AND p.seo_link = ? AND p.smazano IS NULL ORDER BY p.jazyk = ? DESC LIMIT 1', [$s[0], $s[1], $column]);
             if ($item !== null) {
                 return ['typ' => 'item', 'titulek' => (string) ($item['seo_titulek'] ?: $item['nazev']), 'popis' => trim((string) $item['popis']), 'formular' => false,
                     'obrazky' => preg_match_all('#\.(jpe?g|png|webp|gif|avif)"#i', (string) $item['data']), 'zobrazeno' => (bool) $item['zobrazit']];

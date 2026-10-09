@@ -278,7 +278,7 @@ trait CollectionTools
         $itemLanguage = array_key_exists('jazyk', $a) ? Language::column($siteSettings, (string) $a['jazyk']) : (string) ($previous['jazyk'] ?? '');
         // 3.7: never a category's address – a given one is refused, one made from the name gets a number
         $storedSlug = (string) ($previous['seo_link'] ?? '');
-        if ($url !== '' && $seo !== $storedSlug && CollectionCategories::slugIsCategory($db, (int) $collection['idk'], $seo)) {
+        if ($url !== '' && $seo !== $storedSlug && CollectionCategories::slugIsCategory($db, (int) $collection['idk'], $seo, $itemLanguage)) {
             throw new \InvalidArgumentException(Language::runWith('en', fn (): string => CollectionCategories::itemSlugRefusal($seo), 'admin-'));
         }
         $seo = CollectionCategories::freeItemSlug($db, (int) $collection['idk'], $itemLanguage, $seo, (int) ($previous['idp'] ?? 0), $storedSlug);

@@ -445,7 +445,7 @@ final class WpImport
 
         $seo = self::availableSlug(
             slugify(rawurldecode($p['adresa']) !== '' ? rawurldecode($p['adresa']) : $title, 150),
-            fn (string $url): bool => $this->db->value('SELECT idc FROM {novinky} WHERE seo_link = ?', [$url]) !== null,
+            fn (string $url): bool => Slug::taken($this->db, 'novinky', $url, $language),
         );
         $plugin = $this->seo($p, (string) (reset($p['rubriky']) ?: ''), 255, 320, $state);
         $idc = $this->db->insert('novinky', [
@@ -493,7 +493,7 @@ final class WpImport
         $title = mb_substr($p['titulek'] !== '' ? $p['titulek'] : t('(untitled)'), 0, 200);
         $language = Language::column($this->settings, (string) $state['volby']['jazyk']);
         // a page has its slug directly under the site root, so it must not take a slug the system uses
-        $seo = Pages::freeSlug($this->db, slugify(rawurldecode($p['adresa']) !== '' ? rawurldecode($p['adresa']) : $title, 110));
+        $seo = Pages::freeSlug($this->db, slugify(rawurldecode($p['adresa']) !== '' ? rawurldecode($p['adresa']) : $title, 110), language: $language);
         $text = WpContent::sanitize($p['obsah'], $state['prilohy']);
         $plugin = $this->seo($p, '', 200, 300, $state);
         $ids = $this->db->insert('stranky', [
@@ -678,7 +678,7 @@ final class WpImport
             if ($idt === null) {
                 $idt = $this->db->insert('kategorie', [
                     'nazev' => $name, 'popis' => '', 'jazyk' => $language,
-                    'seo_link' => self::availableSlug($seo, fn (string $a): bool => $this->db->value('SELECT idt FROM {kategorie} WHERE seo_link = ?', [$a]) !== null),
+                    'seo_link' => self::availableSlug($seo, fn (string $a): bool => Slug::taken($this->db, 'kategorie', $a, $language)),
                 ]);
                 $state['vysledek']['rubriky']++;
             }
@@ -760,13 +760,19 @@ final class WpImport
      */
     private function addressInUse(string $path): bool
     {
-        if ($this->db->value('SELECT 1 FROM {stranky} WHERE seo_link = ? AND smazano IS NULL', [$path]) !== null
+        // with slugs per language (3.9) an old /en/… address is looked up in the English version only (Polylang, WPML)
+        $prefix = Slug::perLanguage($this->db) ? Language::splitPrefix('/' . $path) : null;
+        $language = $prefix !== null && in_array($prefix[0], Language::additional($this->settings), true) ? $prefix[0] : '';
+        $slug = $language !== '' ? trim((string) $prefix[1], '/') : $path;
+        [$sameLanguage, $languageParams] = Slug::scope($this->db, $language);
+        [$sameItemLanguage] = Slug::scope($this->db, $language, 'p.jazyk');
+        if ($this->db->value('SELECT 1 FROM {stranky} WHERE seo_link = ? AND smazano IS NULL' . $sameLanguage, [$slug, ...$languageParams]) !== null
             || (!str_starts_with($path, '?') && Audit::pathResolves($this->db, $this->settings, '/' . $path))) {
             return true;
         }
-        $parts = explode('/', $path);
+        $parts = explode('/', $slug);
 
-        return count($parts) === 2 && $this->db->value('SELECT 1 FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.seo_link = ? AND p.seo_link = ? AND p.smazano IS NULL', $parts) !== null;
+        return count($parts) === 2 && $this->db->value('SELECT 1 FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.seo_link = ? AND p.seo_link = ? AND p.smazano IS NULL' . $sameItemLanguage, [...$parts, ...$languageParams]) !== null;
     }
 
     /**

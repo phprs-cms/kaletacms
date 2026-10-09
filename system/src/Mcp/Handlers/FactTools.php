@@ -18,7 +18,7 @@ trait FactTools
     /** list_facts */
     private function toolListFacts(string $name, array $a): mixed
     {
-        $language = preg_match('/^[a-z]{2}$/D', (string) ($a['language'] ?? '')) ? (string) $a['language'] : '';
+        $language = Language::offeredOrDefault($a['language'] ?? '');
         $usage = Facts::usage($this->app->db());
 
         return [
@@ -40,7 +40,7 @@ trait FactTools
             throw new \DomainException('Facts are changed by people with access to Business details – the site states them everywhere.');
         }
         $key = mb_strtolower(trim((string) ($a['key'] ?? '')));
-        $language = preg_match('/^[a-z]{2}$/D', (string) ($a['language'] ?? '')) && in_array((string) $a['language'], Language::additional($this->app->settings()), true) ? (string) $a['language'] : '';
+        $language = in_array(Language::offeredOrDefault($a['language'] ?? ''), Language::additional($this->app->settings()), true) ? (string) $a['language'] : '';
         $before = Facts::all($this->app)[$key] ?? null;
         $data = array_filter(['label' => $a['label'] ?? null, 'type' => $a['type'] ?? null, 'value' => isset($a['value']) ? (string) $a['value'] : null,
             'schema' => $a['schema_property'] ?? null, 'source' => $a['source'] ?? null], fn (mixed $v): bool => $v !== null);

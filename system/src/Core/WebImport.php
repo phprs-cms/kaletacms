@@ -424,7 +424,7 @@ final class WebImport
     private function createPage(array $page, string $oldPath, string $language): int
     {
         $base = $oldPath !== '' ? basename($oldPath) : 'home';
-        $seo = Pages::freeSlug($this->db, slugify((string) preg_replace('/\.(html?|php|aspx?)$/i', '', $base) ?: $page['titulek'], 110));
+        $seo = Pages::freeSlug($this->db, slugify((string) preg_replace('/\.(html?|php|aspx?)$/i', '', $base) ?: $page['titulek'], 110), language: $language);
         $build = $this->build($page['titulek'], $page['obsah']);
 
         return $this->db->insert('stranky', [
@@ -441,9 +441,10 @@ final class WebImport
         $category = (int) $this->db->value('SELECT idt FROM {kategorie} WHERE jazyk = ? ORDER BY idt LIMIT 1', [$language]);
         if ($category === 0) {
             $name = Language::runWith($language !== '' ? $language : Language::defaults($this->settings), fn (): string => t('Aktuality'));
-            $category = $this->db->insert('kategorie', ['nazev' => $name, 'seo_link' => slugify($name), 'popis' => '', 'jazyk' => $language]);
+            $category = $this->db->insert('kategorie', ['nazev' => $name, 'seo_link' => Slug::makeUnique(slugify($name), fn (string $a): bool => Slug::taken($this->db, 'kategorie', $a, $language), 120),
+                'popis' => '', 'jazyk' => $language]);
         }
-        $seo = WpImport::availableSlug(slugify($page['titulek'], 150), fn (string $url): bool => $this->db->value('SELECT idc FROM {novinky} WHERE seo_link = ?', [$url]) !== null);
+        $seo = WpImport::availableSlug(slugify($page['titulek'], 150), fn (string $url): bool => Slug::taken($this->db, 'novinky', $url, $language));
         $now = date('Y-m-d H:i:s');
         $idc = $this->db->insert('novinky', [
             'seo_link' => $seo, 'titulek' => mb_substr($page['titulek'], 0, 255), 'uvod' => $page['popis'] !== '' ? '<p>' . e($page['popis']) . '</p>' : '',

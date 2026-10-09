@@ -204,7 +204,7 @@ final class Collections extends Module
         $language = Language::column($this->app->settings(), $r->post('jazyk'));
         // 3.7: never a category's address – a given one is refused, one made from the name gets a number
         $storedSlug = $idp > 0 ? (string) $this->db->value('SELECT seo_link FROM {kolekce_polozky} WHERE idp = ? AND idk = ?', [$idp, $k['idk']]) : '';
-        if ($r->post('seo_link') !== '' && $seo !== $storedSlug && CategoryTree::slugIsCategory($this->db, (int) $k['idk'], $seo)) {
+        if ($r->post('seo_link') !== '' && $seo !== $storedSlug && CategoryTree::slugIsCategory($this->db, (int) $k['idk'], $seo, $language)) {
             return $this->back(CategoryTree::itemSlugRefusal($seo), 'item', ['id' => $k['idk'], 'polozka' => $idp], 'chyba');
         }
         $seo = CategoryTree::freeItemSlug($this->db, (int) $k['idk'], $language, $seo, $idp, $storedSlug);

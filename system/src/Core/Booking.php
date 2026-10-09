@@ -758,7 +758,7 @@ final class Booking
                 'name' => $name, 'email' => mb_substr($email, 0, 190), 'phone' => mb_substr($phone, 0, 40), 'note' => mb_substr(trim(strip_tags((string) ($input['note'] ?? ''))), 0, 1000),
                 'status' => $pending ? 'pending' : 'confirmed', 'token_hash' => hash('sha256', $token), 'created_at' => date('Y-m-d H:i:s'),
                 'hold_until' => $pending ? min(date('Y-m-d H:i:s', strtotime('+' . max(1, $app->settings()->int('booking_hold_hours')) . ' hours')), $start->format('Y-m-d H:i:s')) : null,
-                'source' => mb_substr((string) ($input['source'] ?? ''), 0, 255), 'language' => preg_match('/^[a-z]{2}$/D', (string) ($input['language'] ?? '')) ? (string) $input['language'] : ''];
+                'source' => mb_substr((string) ($input['source'] ?? ''), 0, 255), 'language' => Language::offeredOrDefault($input['language'] ?? '')];
             $row['id'] = $db->insert('bookings', $row);
 
             return [$row, null];

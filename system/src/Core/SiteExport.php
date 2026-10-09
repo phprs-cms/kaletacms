@@ -219,8 +219,7 @@ final class SiteExport
         $selection = [];
         foreach ($all as $key => $value) {
             // the site name and description may have a variant for another language (site_name_en)
-            $base = (string) preg_replace('/_[a-z]{2}$/', '', (string) $key);
-            if (in_array($key, self::SETTINGS, true) || (in_array($base, Settings::PER_LANGUAGE, true) && $base !== $key)) {
+            if (in_array($key, self::SETTINGS, true) || Language::settingKey((string) $key, Settings::PER_LANGUAGE) !== null) {
                 $selection[(string) $key] = (string) $value;
             }
         }

@@ -326,7 +326,7 @@ final class Batch
         $now = date('Y-m-d H:i:s');
         $seo = Slug::makeUnique(
             slugify($p->slug !== '' ? rawurldecode($p->slug) : $title, 150),
-            fn (string $url): bool => $this->db->value('SELECT idc FROM {novinky} WHERE seo_link = ?', [$url]) !== null,
+            fn (string $url): bool => Slug::taken($this->db, 'novinky', $url, $language),
             120,
         );
         $idc = $this->db->insert('novinky', [
@@ -366,7 +366,7 @@ final class Batch
         $title = mb_substr($p->title !== '' ? $p->title : t('(untitled)'), 0, 200);
         $language = Language::column($this->settings, (string) $m['language']);
         // a page has its slug directly under the site root, so it must not take a slug the system uses
-        $seo = Pages::freeSlug($this->db, slugify($p->slug !== '' ? rawurldecode($p->slug) : $title, 110));
+        $seo = Pages::freeSlug($this->db, slugify($p->slug !== '' ? rawurldecode($p->slug) : $title, 110), language: $language);
         $text = WpContent::sanitize($p->html);
         $plain = fn (string $html): string => trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
         $ids = $this->db->insert('stranky', [
@@ -419,7 +419,7 @@ final class Batch
             if ($idt === null) {
                 $idt = $this->db->insert('kategorie', [
                     'nazev' => $name, 'popis' => '', 'jazyk' => $language,
-                    'seo_link' => Slug::makeUnique($seo, fn (string $a): bool => $this->db->value('SELECT idt FROM {kategorie} WHERE seo_link = ?', [$a]) !== null, 120),
+                    'seo_link' => Slug::makeUnique($seo, fn (string $a): bool => Slug::taken($this->db, 'kategorie', $a, $language), 120),
                 ]);
                 $state['vysledek']['rubriky']++;
             }

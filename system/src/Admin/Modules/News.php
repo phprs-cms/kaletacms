@@ -149,11 +149,16 @@ final class News extends Module
         }
         $done = 0;
         $skipped = 0;
+        $clashes = 0; // 3.9: with slugs per language a news item cannot move where another one of that version has its slug
         // the list's checkboxes are the ones of "Delete selected" (smaz[]); oznacene[] is what the other lists send
         foreach (array_unique(array_map(intval(...), [...$this->request->postList('smaz'), ...$this->request->postList('oznacene')])) as $id) {
             $newsItem = $this->load($id);
             if ($newsItem === null || (!$auth->canPublish() && ($newsItem['visible'] || $action === 'vydat'))) {
                 $skipped++;
+                continue;
+            }
+            if ($action === 'kategorie' && $category['jazyk'] !== $newsItem['jazyk'] && \Kaleta\Core\Slug::taken($this->db, 'novinky', (string) $newsItem['seo_link'], (string) $category['jazyk'], $id)) {
+                $clashes++;
                 continue;
             }
             $now = date('Y-m-d H:i:s');
@@ -178,7 +183,8 @@ final class News extends Module
             'kategorie' => t('News items moved to the category: %d.', $done), default => t('News items moved to the trash: %d. They can be restored for 30 days (News → Trash).', $done),
         };
 
-        return $this->back($message . ($skipped > 0 ? ' ' . t('Skipped: %d (no permission).', $skipped) : ''), '', [], $done > 0 ? 'ok' : 'chyba');
+        return $this->back($message . ($skipped > 0 ? ' ' . t('Skipped: %d (no permission).', $skipped) : '')
+            . ($clashes > 0 ? ' ' . t('Skipped: %d (that language version already has the address).', $clashes) : ''), '', [], $done > 0 ? 'ok' : 'chyba');
     }
 
     /** Copy of a news item as a draft (tags included) – a quick start for a similar news item. */
@@ -189,7 +195,7 @@ final class News extends Module
             return $this->back();
         }
         $copy = array_intersect_key($newsItem, array_flip(['uvod', 'text', 'obrazek', 'obrazek_popis', 'obrazek_autor', 'tema', 't_slova', 'seo_popis', 'noindex', 'faq', 'jazyk']));
-        $seo = \Kaleta\Core\Slug::makeUnique($newsItem['seo_link'] . '-kopie', fn (string $a): bool => $this->db->value('SELECT 1 FROM {novinky} WHERE seo_link = ?', [$a]) !== null);
+        $seo = \Kaleta\Core\Slug::makeUnique($newsItem['seo_link'] . '-kopie', fn (string $a): bool => \Kaleta\Core\Slug::taken($this->db, 'novinky', $a, (string) $newsItem['jazyk']));
         $id = $this->db->insert('novinky', $copy + ['titulek' => mb_substr(t('%s (copy)', $newsItem['titulek']), 0, 255), 'seo_link' => $seo, 'visible' => 0,
             'datum' => date('Y-m-d H:i:s'), 'autor' => $this->app->auth()->id(), 'zmeneno' => date('Y-m-d H:i:s')]);
         $this->db->run('INSERT INTO {novinky_stitky} (idc, ids) SELECT ?, ids FROM {novinky_stitky} WHERE idc = ?', [$id, $newsItem['idc']]);
@@ -283,7 +289,7 @@ final class News extends Module
         if ($r->postBool('oznacit_aktualizaci') && $data['visible']) {
             $data['aktualizovano'] = date('Y-m-d H:i:s');
         }
-        $data['seo_link'] = $this->findFreeSlug($data['seo_link'], $id);
+        $data['seo_link'] = $this->findFreeSlug($data['seo_link'], $id, $data['jazyk']);
         if ($id > 0) {
             if ([$previous['titulek'], $previous['uvod'], $previous['text']] !== [$data['titulek'], $data['uvod'], $data['text']]) {
                 self::version($this->db, $previous, $this->app->auth()->id());
@@ -291,7 +297,8 @@ final class News extends Module
             $this->db->update('novinky', $data, ['idc' => $id]);
             if ($previous['seo_link'] !== $data['seo_link'] && $previous['visible']) {
                 // a published news item changed its slug: the old one is redirected so that links and search engines do not lose the page
-                Redirects::add($this->db, 'novinky/' . $previous['seo_link'], 'novinky/' . $data['seo_link']);
+                Redirects::add($this->db, \Kaleta\Core\Slug::redirectPath($this->db, 'novinky/' . $previous['seo_link'], (string) $previous['jazyk']),
+                    \Kaleta\Core\Slug::redirectPath($this->db, 'novinky/' . $data['seo_link'], $data['jazyk']));
             }
         } else {
             $id = $this->db->insert('novinky', $data);
@@ -547,7 +554,7 @@ final class News extends Module
         foreach ($translation as $field => $value) {
             $data[$field] = $field === 'titulek' ? mb_substr($value, 0, 255) : $value;
         }
-        $data['seo_link'] = $this->findFreeSlug(slugify($data['titulek'], 100), 0);
+        $data['seo_link'] = $this->findFreeSlug(slugify($data['titulek'], 100), 0, $language);
         $id = $this->db->insert('novinky', $data);
         Media::recordUsage($this->db, $id, (string) $data['obrazek'], $data['uvod'], $data['text']);
         $this->db->run('INSERT INTO {novinky_stitky} (idc, ids) SELECT ?, ids FROM {novinky_stitky} WHERE idc = ?', [$id, $newsItem['idc']]);
@@ -758,9 +765,10 @@ final class News extends Module
         return $newsItem === null || ($authors !== null && !in_array((int) $newsItem['autor'], $authors, true)) ? null : $newsItem;
     }
 
-    private function findFreeSlug(string $seo, int $idc): string
+    /** A free news slug: another news item in the trash keeps its own; per language version with slugs_per_language (3.9, Core\Slug). */
+    private function findFreeSlug(string $seo, int $idc, string $language): string
     {
-        return \Kaleta\Core\Slug::makeUnique($seo, fn (string $a): bool => $this->db->value('SELECT idc FROM {novinky} WHERE seo_link = ? AND idc <> ?', [$a, $idc]) !== null);
+        return \Kaleta\Core\Slug::makeUnique($seo, fn (string $a): bool => \Kaleta\Core\Slug::taken($this->db, 'novinky', $a, $language, $idc));
     }
 
     /** Value from <input type="datetime-local"> -> DATETIME; empty or invalid = null. */
