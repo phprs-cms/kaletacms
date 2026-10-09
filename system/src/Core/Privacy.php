@@ -372,7 +372,11 @@ final class Privacy
             }
         }
         $sections[] = ['heading' => t('Connected services and processors'), 'lines' => array_merge($services, [
-            $s->get('mail_mode') === 'smtp' ? t('E-mail: sent through the SMTP server %s.', $s->get('smtp_host')) : t('E-mail: sent by the hosting server’s mail function.'),
+            match (true) {
+                MailServices::current($s) !== null => t('E-mail: sent through %s (SMTP server %s) – the service processes the recipients’ addresses and the messages.', MailServices::name(MailServices::current($s)), $s->get('smtp_host')),
+                $s->get('mail_mode') === 'smtp' => t('E-mail: sent through the SMTP server %s.', $s->get('smtp_host')),
+                default => t('E-mail: sent by the hosting server’s mail function.'),
+            },
             $s->get('remote_backup') !== 'vypnuto' ? t('Backups: automatic %s, an off-site copy over %s to %s.', $yes($s->bool('auto_backups')), strtoupper($s->get('remote_backup')), $s->get('backup_host')) : t('Backups: automatic %s, kept on this server only.', $yes($s->bool('auto_backups'))),
             Extensions::isEnabled($s, 'asistent') && $s->get('ai_provider') !== '' ? t('Writing assistant: %s – texts the administrators ask about%s are sent to it.', $s->get('ai_provider'), $s->bool('triage_assistant') ? ' ' . t('and new enquiries (triage)') : '') : t('Writing assistant: off.'),
             Extensions::isEnabled($s, 'claude') ? t('Claude (MCP): administrators’ assistants work with the content; enquiries are shown to them as the Enquiries screen shows them.') : '',

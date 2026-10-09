@@ -49,7 +49,7 @@ final class DomainWatch
         'office365.com' => 'spf.protection.outlook.com', 'outlook.com' => 'spf.protection.outlook.com', 'seznam.cz' => 'spf.seznam.cz',
         'brevo.com' => 'spf.brevo.com', 'sendinblue.com' => 'spf.brevo.com', 'sendgrid.net' => 'sendgrid.net', 'mailgun.org' => 'mailgun.org',
         'amazonaws.com' => 'amazonses.com', 'postmarkapp.com' => 'spf.mtasv.net', 'mandrillapp.com' => 'spf.mandrillapp.com', 'mailjet.com' => 'spf.mailjet.com',
-        'smtp2go.com' => 'spf.smtp2go.com', 'zoho.com' => 'zohomail.com', 'zoho.eu' => 'zohomail.eu'];
+        'smtp2go.com' => 'spf.smtp2go.com', 'zoho.com' => 'zohomail.com', 'zoho.eu' => 'zohomail.eu', 'mailersend.net' => '_spf.mailersend.net'];
 
     private const int TIMEOUT = 5;
     private const int MAX_BYTES = 256 * 1024;
@@ -166,7 +166,8 @@ final class DomainWatch
                 break;
             }
         }
-        foreach (self::DKIM_SELECTORS as $selector) {
+        // 3.9: a known mail service's own selectors first (Brevo signs with brevo1/brevo2, Mailjet with mailjet…)
+        foreach (array_values(array_unique([...MailServices::dkimSelectors(MailServices::detect($smtpHost)), ...self::DKIM_SELECTORS])) as $selector) {
             foreach ($this->txt($selector . '._domainkey.' . $domain) ?? [] as $record) {
                 if (preg_match('/(^|;)\s*(v=DKIM1|p=)/i', $record)) {
                     $out['dkim'] = $selector;
@@ -399,13 +400,17 @@ final class DomainWatch
         } else {
             $domain = (string) $mail['domain'];
             $smtp = (string) $mail['smtp_host'];
+            $service = MailServices::detect($smtp); // 3.9: the mail service behind the SMTP server, if it is a known one
             if ($mail['spf'] === null) {
                 $add(t('SPF record'), 'varovani', t('%s has no SPF record – receiving servers cannot tell that its mail is legitimate and often file it as spam. Add a TXT record on %s: %s', $domain, $domain, self::suggestedSpf($domain, $smtp, (string) ($result['site_host'] ?? ''))));
             } else {
                 $covers = $mail['spf_covers_smtp'];
-                $add(t('SPF record'), $covers === false ? 'varovani' : 'ok', $domain . ': ' . $mail['spf'] . match ($covers) {
-                    true => ' – ' . t('includes the SMTP server %s', $smtp),
-                    false => ' – ' . t('does not seem to include the SMTP server %s; add %s (or the value your mail provider publishes)', $smtp, 'include:' . (self::SPF_INCLUDES[self::registrableDomain($smtp)] ?? self::registrableDomain($smtp))),
+                // 3.9: a mail service that authenticates through its own return path and DKIM needs no include in the domain's SPF
+                $noInclude = $covers === false && $service !== null && MailServices::PROVIDERS[$service]['spf'] === '';
+                $add(t('SPF record'), $covers === false && !$noInclude ? 'varovani' : 'ok', $domain . ': ' . $mail['spf'] . match (true) {
+                    $covers === true => ' – ' . t('includes the SMTP server %s', $smtp),
+                    $noInclude => ' – ' . t('%s needs no include in this record – its DKIM and return-path records authenticate the mail', MailServices::name($service)),
+                    $covers === false => ' – ' . t('does not seem to include the SMTP server %s; add %s (or the value your mail provider publishes)', $smtp, 'include:' . (self::SPF_INCLUDES[self::registrableDomain($smtp)] ?? self::registrableDomain($smtp))),
                     default => '',
                 });
             }
@@ -416,9 +421,12 @@ final class DomainWatch
                 $add(t('DMARC record'), 'ok', $domain . ': ' . $mail['dmarc'] . ($policy === 'none' ? ' – ' . t('policy p=none only reports; once the reports look right, move to p=quarantine') : ''));
             }
             // not found under the common selectors is no proof – many providers use their own, so it is a note, not a warning
-            $add(t('DKIM signature'), 'ok', $mail['dkim'] === null
-                ? t('no DKIM key found under the common selectors (%s). If your mail provider signs with another selector, all is well; otherwise turn DKIM signing on with the provider and publish its key in DNS', implode(', ', self::DKIM_SELECTORS))
-                : t('key published under the selector %s', (string) $mail['dkim']));
+            $add(t('DKIM signature'), 'ok', match (true) {
+                $mail['dkim'] !== null => t('key published under the selector %s', (string) $mail['dkim']),
+                // 3.9: the chosen mail service says which records to add
+                $service !== null => t('no DKIM key found under the common selectors. %s: %s', MailServices::name($service), t(MailServices::PROVIDERS[$service]['dns'])),
+                default => t('no DKIM key found under the common selectors (%s). If your mail provider signs with another selector, all is well; otherwise turn DKIM signing on with the provider and publish its key in DNS', implode(', ', self::DKIM_SELECTORS)),
+            });
         }
 
         $tls = is_array($result['tls'] ?? null) ? $result['tls'] : null;

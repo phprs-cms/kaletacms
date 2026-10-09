@@ -74,6 +74,7 @@ class Settings extends Module
             'captcha_provider' => 'vyber:|hcaptcha|recaptcha|turnstile', 'captcha_site_key' => 'vzor:/^[A-Za-z0-9_.-]{0,100}$/', 'captcha_secret' => 'tajne', 'captcha_fail_open' => 'ano'],
         'mail' => ['mail_mode' => 'vyber:mail|smtp', 'mail_from' => 'email', 'mail_reply_to' => 'email', 'smtp_host' => 'vzor:/^[A-Za-z0-9.-]{0,120}$/', 'smtp_port' => 'cislo:1:65535',
             'smtp_encryption' => 'vyber:tls|ssl|zadne', 'smtp_user' => 'text', 'smtp_password' => 'tajne', 'newsletter_hourly_limit' => 'cislo:10:100000',
+            'smtp_provider' => 'vyber:' . \Kaleta\Core\MailServices::CHOICES, // 3.9: the mail service; MailServices::settle() fills its server after the save
             'report_monthly' => 'ano', 'report_recipients' => 'emaily'],
         // Claude's instructions and guardrails (3.2: own screen, Modules\ClaudeSettings – the keys stay)
         'claude' => ['claude_instructions' => 'radky', 'claude_change_limit' => 'cislo:0:10000', 'claude_destructive' => 'ano', 'claude_apps_only' => 'ano', 'claude_protected_pages' => 'vzor:/^[0-9 ,;]{0,500}$/'],
@@ -164,7 +165,7 @@ class Settings extends Module
             'mediaStatus' => $settings->get('remote_media_status'),
             'tasksToken' => $settings->get('tasks_token'),
             'errorLog' => $tab === 'health' ? self::readFileTail(KALETA_ROOT . '/storage/log/chyby.log', 40) : [],
-            'domainWatch' => $tab === 'health' ? \Kaleta\Core\DomainWatch::cached($settings) : null,
+            'domainWatch' => in_array($tab, ['health', 'mail'], true) ? \Kaleta\Core\DomainWatch::cached($settings) : null, // Mail (3.9): the SPF and DKIM of the chosen service
             'mail' => $tab === 'mail' ? $this->db->all('SELECT komu, predmet, vytvoreno, odeslano, pokusu, dalsi_pokus, chyba FROM {posta} ORDER BY idp DESC LIMIT 30') : [],
             'webhookSecret' => $tab === 'webhooks' ? \Kaleta\Core\Webhook::secret($settings) : '',
             'deliveries' => $tab === 'webhooks' ? $this->db->all('SELECT id, event, url, attempts, status, error, created, next_attempt, delivered, body IS NOT NULL AS resendable FROM {webhook_deliveries} ORDER BY id DESC LIMIT 30') : [],
@@ -248,6 +249,11 @@ class Settings extends Module
                 continue;
             }
             $settings->set($key, $clean);
+        }
+        // 3.9: a mail service chosen without JavaScript (or switched from another one) gets its server, port and encryption;
+        // a server that already is the service's stays as it is – the user name and the password are never touched
+        if ($tab === 'mail' && array_key_exists('smtp_provider', $_POST) && array_intersect(['smtp_host', 'smtp_provider'], $errors) === [] && !\Kaleta\Core\Demo::active()) {
+            \Kaleta\Core\MailServices::settle($settings, $this->request->post('smtp_ses_region'));
         }
         if ($tab === 'seo' && $settings->bool('indexnow') && $settings->get('indexnow_key') === '') {
             $settings->set('indexnow_key', bin2hex(random_bytes(16)));
@@ -600,9 +606,11 @@ class Settings extends Module
         ], 'admin-');
         $ok = \Kaleta\Core\Mail::send($this->app->settings(), $recipient, $subject, $text, queueOnFailure: false);
         $back = $this->request->post('tab') === 'mail' ? 'mail' : 'health';
+        $service = \Kaleta\Core\MailServices::current($this->app->settings()); // 3.9: a failed sign-in says what this service wants as the password
 
         return $this->back(
             match (true) {
+                !$ok && $service !== null => t('Sending failed: %s', t(\Kaleta\Core\Mail::$error)) . ' ' . t('%s – password: %s', \Kaleta\Core\MailServices::name($service), t(\Kaleta\Core\MailServices::PROVIDERS[$service]['password'])),
                 !$ok => t('Sending failed: %s', t(\Kaleta\Core\Mail::$error)),
                 $this->app->settings()->get('mail_mode') === 'smtp' => t('The message has been handed over for delivery to %s. If it does not arrive, check your spam folder.', $recipient),
                 default => t('The message has been handed over for delivery to %s. If it does not arrive, check your spam folder – or set up sending via SMTP (Settings → Mail).', $recipient),

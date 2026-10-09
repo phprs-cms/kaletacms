@@ -38,6 +38,9 @@ trait PageTools
             'web' => $siteSettings->get('site_name'), 'adresa' => $this->app->request->origin() . $this->app->url(''), 'popis' => $siteSettings->get('site_description'),
             'uvodni_stranka' => $siteSettings->int('home_page') ?: null, 'verze_kaleta' => KALETA_VERSION,
             'update_channel' => \Kaleta\Core\Updater::channel($siteSettings), // 3.8 (D3): latest (a minor every week) or stable (security fixes only)
+            // 3.9: how the site sends e-mail and through which mail service – the name only, never the server's credentials
+            'mail' => ['sending' => $siteSettings->get('mail_mode') === 'smtp' && $siteSettings->get('smtp_host') !== '' ? 'smtp' : 'server',
+                'service' => \Kaleta\Core\MailServices::name(\Kaleta\Core\MailServices::current($siteSettings)) ?: null],
             'stranek' => (int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE smazano IS NULL'),
             'novinek_vydanych' => (int) $db->value('SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND smazano IS NULL'),
             'uzivatel' => $auth->user()['user'], 'role' => \Kaleta\Core\Auth::TYPES[(int) $auth->user()['admin']], 'smi_vydavat' => $auth->canPublish(),
