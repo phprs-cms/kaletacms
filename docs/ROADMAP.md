@@ -641,6 +641,11 @@ Fix:
 8. 3.9.1: the phone menu of the Navigation element keeps its rows close together (the bar's gap belonged to wide screens) and
    every submenu arrow in the same place; "Support Kaleta" in the admin footer, the README and the GitHub Sponsor button lead
    to Buy Me a Coffee (https://buymeacoffee.com/Kaletacms).
+9. 3.9.2 (security, after the daily audit of 10 October 2026): a Kaleta export can no longer place a media file with a script
+   extension inside its name (photo.php.jpg); media/.htaccess and the nginx example block such names, migration 0084
+   brings the new media/.htaccess to existing sites (N67); the nginx example closes extensions/ outside public/ (N68).
+   With it the fixes found while moving a real site (SVG colours, relative media, {{obrazek}}, collection checks, max
+   width, links in dark bands, hidden categories) and presets written in the site language.
 
 ## Not planned
 
