@@ -135,7 +135,7 @@ check "3.9.1: the admin footer links to the support page (Buy Me a Coffee)" 200 
 # one of 3.9.1, rebuilt from today's file) and keeps a customised one, with the new version next to it and a warning
 n67_rerun() { "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = REPLACE(REPLACE(hodnota, ',0084-media-htaccess', ''), '0084-media-htaccess', '') WHERE promenna = 'data_migrations'"; curl -s -o /dev/null "$B/?n67=$RANDOM"; }
 cp "$WORK/web/media/.htaccess" "$WORK/media-htaccess-new"
-{ echo '# Uploaded files are only served – never run.'; sed -e '1,2d' -e 's/|pht|phtml|phar|pl|py|cgi|sh|shtml|html?|js)(\\.|\$)/|phtml|phar|pl|py|cgi|sh|html?|js)$/' "$WORK/media-htaccess-new"; } > "$WORK/web/media/.htaccess"
+{ echo '# Uploaded files are only served – never run.'; sed -e '1,2d' -e 's/"(?i)/"/' -e 's/|pht|phtml|phar|pl|py|cgi|sh|shtml|html?|js)(\\.|\$)/|phtml|phar|pl|py|cgi|sh|html?|js)$/' "$WORK/media-htaccess-new"; } > "$WORK/web/media/.htaccess"
 expect "3.9.2 N67: the test rebuilds the media/.htaccess of 3.9.1 exactly" "$(php -r 'echo hash_file("sha256", $argv[1]);' "$WORK/web/media/.htaccess")" "e20dd912d8066f36f5d967ee462497fca1dcbcd5b53f19d6f77e6bff7ceec708"
 n67_rerun
 expect "3.9.2 N67: migration 0084 replaces the media/.htaccess of an earlier release" "$(cmp -s "$WORK/web/media/.htaccess" "$WORK/media-htaccess-new" && echo same)|$([ -f "$WORK/web/media/.htaccess.kaleta-nova" ] && echo nova)" "same|"

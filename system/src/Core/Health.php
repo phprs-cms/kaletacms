@@ -59,6 +59,15 @@ final class Health
             // an update keeps a customised .htaccess and puts its own next to it (Core\Updater) – since 3.3.2 it also closes extensions/
             $add(t('Bezpečnost'), '.htaccess', 'varovani', t('An update left a newer .htaccess.kaleta-nova next to your customised .htaccess – carry its new rules over (since 3.3.2 they keep the code of add-ons in extensions/ away from visitors), then delete the file.'));
         }
+        $mediaRules = is_file(KALETA_ROOT . '/media/.htaccess') ? (string) file_get_contents(KALETA_ROOT . '/media/.htaccess') : '';
+        if (!is_file(KALETA_ROOT . '/media/.htaccess.kaleta-nova') && !str_contains($mediaRules, self::MEDIA_RULE)) {
+            // 3.9.2 (N392-2): the migration could not write the file (permissions) or something put an older one back
+            $add(t('Bezpečnost'), 'media/.htaccess', 'varovani', t('media/.htaccess does not have the rule of Kaleta 3.9.2 that blocks files like photo.php.jpg – copy media/.htaccess from the release package (on nginx, the media rules of system/nginx.example.conf).'));
+        }
+        if (($risky = self::riskyMedia()) !== []) {
+            // 3.9.2 (N392-1): a file an import placed before 3.9.2 – blocked by the new rule, but it should not be there at all
+            $add(t('Bezpečnost'), t('Media files'), 'varovani', t('Files with a script extension in their name are in media/ (%s) – check them and delete them over FTP.', implode(', ', $risky)));
+        }
         if (is_file(KALETA_ROOT . '/media/.htaccess.kaleta-nova')) {
             // 3.9.2 (N67): migration 0084 keeps a customised media/.htaccess and puts Kaleta's newer one next to it
             $add(t('Bezpečnost'), 'media/.htaccess', 'varovani', t('A newer media/.htaccess.kaleta-nova is next to your customised media/.htaccess – carry over its deny rule (since 3.9.2 it also blocks files like photo.php.jpg), then delete the file.'));
@@ -197,6 +206,37 @@ final class Health
 
         // --- domain and mail (2.8, Core\DomainWatch): the cached result only – no page view waits for DNS or a remote server
         return [...$k, ...DomainWatch::rows(DomainWatch::cached($siteSettings), Demo::active(), time())];
+    }
+
+    /** The deny rule of media/.htaccess since 3.9.2 (N67): a script extension anywhere in a file name, in any case. */
+    private const string MEDIA_RULE = '(?i)\\.(php\\d?|pht|phtml|phar|pl|py|cgi|sh|shtml|html?|js)(\\.|$)';
+
+    /**
+     * Files in media/ whose name holds a script extension (photo.php.jpg, x.PHP) – Kaleta never writes such a name, an import
+     * before 3.9.2 could (N67, N392-1). At most 5 are named; the walk stops after 50,000 entries so the page stays fast.
+     *
+     * @return list<string>
+     */
+    public static function riskyMedia(?string $folder = null): array
+    {
+        $folder ??= KALETA_ROOT . '/media';
+        if (!is_dir($folder)) {
+            return [];
+        }
+        $found = [];
+        $seen = 0;
+        $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($folder, \FilesystemIterator::SKIP_DOTS));
+        foreach ($files as $file) {
+            if (++$seen > 50000 || count($found) >= 5) {
+                break;
+            }
+            $name = $file instanceof \SplFileInfo ? $file->getFilename() : '';
+            if ($name !== '' && $name[0] !== '.' && preg_match('/' . self::MEDIA_RULE . '/', $name) === 1) {
+                $found[] = substr($file->getPathname(), strlen(dirname($folder)) + 1);
+            }
+        }
+
+        return $found;
     }
 
     /** Summary for monitoring: the worst status found. */

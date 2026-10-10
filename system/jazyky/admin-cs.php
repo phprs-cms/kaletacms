@@ -5644,4 +5644,7 @@ return [
     'The collection list shows the category “%s”, which the collection does not have – it will stay empty.' => 'Výpis kolekce ukazuje kategorii „%s“, kterou kolekce nemá – zůstane prázdný.',
     '{{%s}} is not a field of the collection “%s” – it will stay empty on the site.' => '{{%s}} není pole kolekce „%s“ – na webu zůstane prázdné.',
     'A newer media/.htaccess.kaleta-nova is next to your customised media/.htaccess – carry over its deny rule (since 3.9.2 it also blocks files like photo.php.jpg), then delete the file.' => 'Vedle vašeho upraveného media/.htaccess je novější media/.htaccess.kaleta-nova – převezměte z něj pravidlo zákazu (od 3.9.2 blokuje i soubory jako foto.php.jpg) a soubor smažte.',
+    'media/.htaccess does not have the rule of Kaleta 3.9.2 that blocks files like photo.php.jpg – copy media/.htaccess from the release package (on nginx, the media rules of system/nginx.example.conf).' => 'media/.htaccess nemá pravidlo Kalety 3.9.2, které blokuje soubory jako foto.php.jpg – zkopírujte media/.htaccess z balíčku vydání (na nginx pravidla pro média ze system/nginx.example.conf).',
+    'Files with a script extension in their name are in media/ (%s) – check them and delete them over FTP.' => 'V media/ jsou soubory s příponou skriptu ve jméně (%s) – zkontrolujte je a smažte přes FTP.',
+    'Media files' => 'Soubory v médiích',
 ];

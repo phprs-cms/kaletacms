@@ -29,7 +29,7 @@ final class EnquiryDelivery
     private const array ACTIONS = [Google::KEY => 'sheets.append'];
 
     /** A text field labelled like this holds the sender's name (the site languages). */
-    private const string NAME_LABEL = '/(^|[^\p{L}])(name|jm[eé]no|meno|imi[eę]|nom|nombre|nome)([^\p{L}]|$)/iu';
+    private const string NAME_LABEL = '/(^|[^\p{L}])(name|vorname|nachname|jm[eé]no|meno|imi[eę]|nom|nombre|nome)([^\p{L}]|$)/iu';
     private const string COMPANY_LABEL = '/(^|[^\p{L}])(company|firma|firm|spole[cč]nost|spoločnosť|soci[eé]t[eé]|empresa|azienda|unternehmen)([^\p{L}]|$)/iu';
 
     /**

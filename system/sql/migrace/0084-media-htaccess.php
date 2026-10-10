@@ -15,8 +15,8 @@ use Kaleta\Core\Settings;
 return static function (Db $db, Settings $settings): void {
     $new = <<<'HTACCESS'
 # Uploaded files are only served – never run. The rule also matches an extension inside the name (x.php.jpg, x.shtml.pdf):
-# Apache's mod_mime applies a handler for an extension wherever it stands in the name (3.9.2, N67).
-<FilesMatch "\.(php\d?|pht|phtml|phar|pl|py|cgi|sh|shtml|html?|js)(\.|$)">
+# Apache's mod_mime applies a handler for an extension wherever it stands in the name, in any case (3.9.2, N67).
+<FilesMatch "(?i)\.(php\d?|pht|phtml|phar|pl|py|cgi|sh|shtml|html?|js)(\.|$)">
     Require all denied
 </FilesMatch>
 Options -Indexes -ExecCGI
@@ -44,7 +44,11 @@ HTACCESS . "\n"; // a heredoc drops the last line break, the file has one
         return;
     }
     if ($current === null || in_array(hash('sha256', $current), $shipped, true)) {
-        if (@file_put_contents($file, $new) === false) {
+        // written next to it and renamed: a request in between sees the old or the new file, never half of one; a failure is
+        // reported by System status (Core\Health checks the rule itself)
+        $temporary = $file . '.kaleta-' . bin2hex(random_bytes(4));
+        if (@file_put_contents($temporary, $new) === false || !@rename($temporary, $file)) {
+            @unlink($temporary);
             error_log('Kaleta 3.9.2: media/.htaccess could not be updated – copy the deny rule from the release package by hand');
         }
         @unlink($file . '.kaleta-nova');

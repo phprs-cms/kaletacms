@@ -1421,9 +1421,25 @@ check('3.9.2 N67: SiteImport::mediaTarget takes photo.jpg and Kaleta\'s photo.jp
 $n67Htaccess = (string) file_get_contents(KALETA_ROOT . '/media/.htaccess');
 preg_match('/<FilesMatch "([^"]+)">/', $n67Htaccess, $n67Deny);
 check('3.9.2 N67: media/.htaccess refuses a script extension inside the name too, never an ordinary photo or document', array_map(
-    fn (string $n): bool => preg_match('/' . str_replace('/', '\/', $n67Deny[1] ?? '^$') . '/i', $n) === 1,
-    ['x.php.jpg', 'x.shtml.pdf', 'x.phtml', 'x.PHP7.png', 'index.html', 'photo.jpg', 'photo.jpg.webp', 'wash.jpg', 'english.pdf', 'phpinfo.png']),
-    [true, true, true, true, true, false, false, false, false, false]);
+    fn (string $n): bool => preg_match('/' . str_replace('/', '\/', $n67Deny[1] ?? '^$') . '/', $n) === 1, // no /i: the rule itself says (?i), as Apache needs (N392-1)
+    ['x.php.jpg', 'x.shtml.pdf', 'x.phtml', 'x.PHP7.png', 'x.PHP.jpg', 'index.html', 'photo.jpg', 'photo.jpg.webp', 'wash.jpg', 'english.pdf', 'phpinfo.png']),
+    [true, true, true, true, true, true, false, false, false, false, false]);
+// N392-1, N392-2: System status finds a planted file in media/ and knows the rule of 3.9.2
+$n392Media = sys_get_temp_dir() . '/kaleta-n392-' . bin2hex(random_bytes(3)) . '/media';
+@mkdir($n392Media . '/2026/10', 0777, true);
+foreach (['2026/10/photo.jpg', '2026/10/photo.jpg.webp', '2026/10/x.PHP.jpg', 'a.shtml.pdf', '.htaccess'] as $n392File) {
+    file_put_contents($n392Media . '/' . $n392File, 'x');
+}
+$n392Found = Kaleta\Core\Health::riskyMedia($n392Media);
+sort($n392Found);
+array_map('unlink', array_filter([...glob($n392Media . '/2026/10/*') ?: [], ...glob($n392Media . '/{,.}[!.]*', GLOB_BRACE) ?: []], 'is_file'));
+@rmdir($n392Media . '/2026/10'); @rmdir($n392Media . '/2026'); @rmdir($n392Media); @rmdir(dirname($n392Media));
+check('3.9.2 N392-1: System status names files with a script extension in media/, never Kaleta\'s own names or .htaccess', $n392Found, ['media/2026/10/x.PHP.jpg', 'media/a.shtml.pdf']);
+check('3.9.2 N392-2: the rule System status looks for is the one media/.htaccess ships',
+    str_contains($n67Htaccess, (string) (new ReflectionClassConstant(Kaleta\Core\Health::class, 'MEDIA_RULE'))->getValue()), true);
+check('3.9.2 N392-4: a German "Vor- und Nachname" field is the name of a lead',
+    array_map(fn (string $l): bool => preg_match((string) (new ReflectionClassConstant(Kaleta\Core\EnquiryDelivery::class, 'NAME_LABEL'))->getValue(), $l) === 1, ['Vor- und Nachname', 'Name', 'Jméno a příjmení', 'Firmenname', 'Unternehmen']),
+    [true, true, true, false, false]);
 preg_match("/<<<'HTACCESS'\n(.*?)\nHTACCESS/s", (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0084-media-htaccess.php'), $n67Migration);
 check('3.9.2 N67: migration 0084 writes exactly the media/.htaccess of the package', ($n67Migration[1] ?? '') . "\n" === $n67Htaccess, true);
 check('3.9.1 Navigation: the phone sheet resets the gap of its lists and puts the arrow of a group where a toggle has it', [

@@ -178,7 +178,7 @@ rsync -a --delete "$SITE/media/" ~/review/media/
 ```
 
 ```text
-30 3 * * * mysql kaleta_review < ~/review/snapshot.sql && mysql kaleta_review -e "DELETE FROM ka_api_tokeny WHERE idu <> (SELECT idu FROM ka_uzivatele WHERE user = 'anthropic-review')" && rsync -a --delete ~/review/media/ /path/to/review-site/media/ && rm -rf /path/to/review-site/storage/cache/stranky/* /path/to/review-site/storage/import/*
+30 3 * * * mysql kaleta_review < ~/review/snapshot.sql && mysql kaleta_review -e "DELETE t FROM ka_api_tokeny t LEFT JOIN ka_uzivatele u ON u.idu = t.idu AND u.user = 'anthropic-review' WHERE u.idu IS NULL" && rsync -a --delete --exclude=.htaccess ~/review/media/ /path/to/review-site/media/ && rm -rf /path/to/review-site/storage/cache/stranky/* /path/to/review-site/storage/import/*
 ```
 
 `mysqldump` writes `DROP TABLE IF EXISTS` before each table, so the restore replaces content, users, settings and the
