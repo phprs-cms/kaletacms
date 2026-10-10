@@ -1711,6 +1711,9 @@ check('Styl::vycisti: vloženo CSS, neznámá vlastnost a stav vypadnou', Kaleta
 check('Styl::vycisti: chyby', array_keys($buildStyleErrors), ['s.zaklad.barva', 's.zaklad.neznama', 's.tisk']);
 check('Styl::css: tokeny, sloupce, hover a breakpoint', Kaleta\Builder\Style::css('#s-a', ['zaklad' => ['odsazeni_y' => 'xl', 'barva' => 'primarni', 'sloupce' => '3'], 'mobil' => ['sloupce' => '1'], 'hover' => ['barva' => '#ff0000']]),
     "#s-a { padding-block: var(--ka-mezera-xl); color: var(--ka-barva-primarni); grid-template-columns: repeat(3, minmax(0, 1fr)); }\n#s-a:is(:hover, :focus-visible) { color: #ff0000; }\n@media (max-width: 767px) { #s-a { grid-template-columns: repeat(1, minmax(0, 1fr)); } }\n");
+// 3.9.2: a max width replaced the template's img { max-width: 100% } – an 800px photo ran off a phone; percent and keywords stay
+check('3.9.2: Style::css caps a max width with the space', [Kaleta\Builder\Style::css('#a', ['zaklad' => ['max_sirka' => '800px']]), Kaleta\Builder\Style::css('#a', ['zaklad' => ['max_sirka' => '60%']])],
+    ["#a { max-width: min(800px, 100%); }\n", "#a { max-width: 60%; }\n"]);
 check('Html::bezpecne: bez skriptů, obsluh událostí a javascript:, se strukturou a třídami', Kaleta\Core\Html::safe('<p class="x" onclick="a()">A <a href="javascript:alert(1)">b</a><img src="x" onerror="alert(1)"><script>alert(1)</script></p><iframe src="https://x"></iframe><a href="/k" target="_blank" data-vlozit="javascript:x">k</a>'),
     '<p class="x">A <a>b</a><img src="x"></p><a href="/k" target="_blank" rel="noopener">k</a>');
 check('Stavba: háčky skriptů webu nejdou vložit jako vlastní atribut', [preg_match(Kaleta\Builder\Build::ATTRIBUTE_PATTERN, 'data-vlozit'), preg_match(Kaleta\Builder\Build::ATTRIBUTE_PATTERN, 'data-samo'), preg_match(Kaleta\Builder\Build::ATTRIBUTE_PATTERN, 'data-sledovat')], [0, 0, 1]);
@@ -2261,6 +2264,15 @@ check('2.10: an item link stores the address of the item', [Kaleta\Builder\Colle
 $linkValues = Kaleta\Builder\Collections::values(['seo_link' => 'lide', 'detail' => 1, 'pole' => $linkFields], ['nazev' => 'Jana', 'seo_link' => 'jana', 'datum' => '2026-10-02 10:00:00', 'data' => ['pobocka' => 'praha-centrum']], fn (string $p): string => '/' . $p);
 check('2.10: {{field}}, {{field_url}} and {{field_seo}} of an item link (without a database only the address)', [$linkValues['pobocka'], $linkValues['pobocka_url'], $linkValues['pobocka_seo']],
     [['', 'text'], ['', 'odkaz'], ['praha-centrum', 'text']]);
+// 3.9.2: {{obrazek}} without such a field = the item page's image, else the first image field; a field named obrazek stays itself
+$imageFields = [['klic' => 'perex', 'popisek' => 'Perex', 'typ' => 'text'], ['klic' => 'foto', 'popisek' => 'Foto', 'typ' => 'obrazek']];
+$imageItem = ['nazev' => 'Byt', 'seo_link' => 'byt', 'datum' => '2026-10-02 10:00:00', 'obrazek' => 'media/2026/10/hero.jpg', 'data' => ['foto' => 'media/2026/10/foto.jpg']];
+check('3.9.2: {{obrazek}} of an item – its page image, else its first image field, a field of that name wins', [
+    Kaleta\Builder\Collections::values(['seo_link' => 'r', 'detail' => 1, 'pole' => $imageFields], $imageItem, fn (string $p): string => '/' . $p)['obrazek'],
+    Kaleta\Builder\Collections::values(['seo_link' => 'r', 'detail' => 1, 'pole' => $imageFields], ['obrazek' => ''] + $imageItem, fn (string $p): string => '/' . $p)['obrazek'],
+    Kaleta\Builder\Collections::values(['seo_link' => 'r', 'detail' => 1, 'pole' => [['klic' => 'obrazek', 'popisek' => 'Obrázek', 'typ' => 'text']]], ['data' => ['obrazek' => 'x']] + $imageItem, fn (string $p): string => '/' . $p)['obrazek'],
+    Kaleta\Builder\Collections::sample(['pole' => $imageFields])['obrazek'],
+], [['media/2026/10/hero.jpg', 'obrazek'], ['media/2026/10/foto.jpg', 'obrazek'], ['x', 'text'], ['', 'obrazek']]);
 check('2.10: where hidden items redirect – a path on the site or https', array_map(Kaleta\Builder\Collections::cleanRedirect(...), ['', '/tym', 'https://example.com/team', 'javascript:alert(1)', 'tym', '/a b']),
     ['', '/tym', 'https://example.com/team', null, null, null]);
 check('2.10: Hours::rangesText – hours for people from ranges or their text, nothing from nonsense (the door sign)', [Kaleta\Core\Hours::rangesText([['08:00', '12:00'], ['13:30', '17:00']]), Kaleta\Core\Hours::rangesText('9-12'), Kaleta\Core\Hours::rangesText('morning')],
@@ -4637,6 +4649,18 @@ check('3.7: Svg::sanitize checks every attribute, also one whose local name anot
     Kaleta\Core\Svg::sanitize('<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><use xlink:href="data:image/svg+xml,x" href="#a"/>'
         . '<g onload="alert(1)" x:onload="y" xmlns:x="urn:x"/></svg>'),
     '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><use href="#a"/><g xmlns:x="urn:x"/></svg>');
+// 3.9.2: a logo from a design tool colours its shapes by classes in <style> – the block goes, its plain presentation rules stay
+// on the shapes (a light logo turned black on a dark header); a later rule wins, url() only to #id, other properties never
+check('3.9.2: Svg::sanitize moves simple class rules of <style> onto the shapes',
+    Kaleta\Core\Svg::sanitize('<svg xmlns="http://www.w3.org/2000/svg"><defs><style>/* x */ .cls-1 { fill: #f0eae4; stroke-width: 0px; } .a, .b { fill: url(#g); behavior: x }'
+        . ' .c { fill: url(https://e.cz/x); } .cls-1 { opacity: .5 } path.d { fill: red }</style></defs><path class="cls-1" fill="#000" d="M0 0"/><rect class="b c d"/></svg>'),
+    '<svg xmlns="http://www.w3.org/2000/svg"><defs/><path class="cls-1" fill="#f0eae4" d="M0 0" opacity=".5" stroke-width="0px"/><rect class="b c d" fill="url(#g)"/></svg>');
+// 3.9.2: upload_file gives media/…; in formatted text of an item one level deep it pointed to /realizace/media/… (a 404)
+check('3.9.2: ImageHtml::rootMedia roots relative Media addresses in src, href and srcset, nothing else',
+    Kaleta\Front\ImageHtml::rootMedia('<img src="media/2026/10/a.jpg" srcset="media/2026/10/a-nahled.jpg 640w, media/2026/10/a.jpg 2000w"><a href="media/x.pdf">x</a>'
+        . '<img src="/media/b.jpg"><img src="https://e.cz/media/c.jpg"><p>media/d.jpg</p><a href="kontakt">k</a>', '/web'),
+    '<img src="/web/media/2026/10/a.jpg" srcset="/web/media/2026/10/a-nahled.jpg 640w, /web/media/2026/10/a.jpg 2000w"><a href="/web/media/x.pdf">x</a>'
+        . '<img src="/media/b.jpg"><img src="https://e.cz/media/c.jpg"><p>media/d.jpg</p><a href="kontakt">k</a>');
 // defence in depth: an attribute in any other namespace (made by a DOM change) is never written under its local name
 check('3.7 N37-1: Html::outer writes the qualified name and leaves out namespaced attributes HTML parsing never creates',
     Kaleta\Core\Html::transform('<img src="/x.png">', function (Dom\HTMLElement $body): void {

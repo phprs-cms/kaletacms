@@ -1937,4 +1937,8 @@ return [
     'Item name' => 'Nom de l’élément',
     'Previous and next item' => 'Élément précédent et suivant',
     'Nothing was saved: the text is over a safety limit for HTML (too large or nested too deeply).' => 'Rien n’a été enregistré : le texte dépasse une limite de sécurité pour le HTML (trop volumineux ou trop imbriqué).',
+    'The collection list shows the collection “%s”, which does not exist.' => 'La liste de collection affiche la collection « %s », qui n’existe pas.',
+    'The collection list shows the category “%s”, which the collection does not have – it will stay empty.' => 'La liste de collection affiche la catégorie « %s », que la collection n’a pas – elle restera vide.',
+    'The category “%s” is hidden – the collection list will show only its empty text until you make the category visible.' => 'La catégorie « %s » est masquée – la liste de collection n’affichera que son texte vide tant que vous ne rendez pas la catégorie visible.',
+    '{{%s}} is not a field of the collection “%s” – it will stay empty on the site.' => '{{%s}} n’est pas un champ de la collection « %s » – il restera vide sur le site.',
 ];

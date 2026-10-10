@@ -373,4 +373,8 @@ Der Link gilt %d Tage.
     'Your appointment is confirmed – thank you.' => 'Dein Termin ist bestätigt – vielen Dank.',
     'Your appointment is confirmed' => 'Dein Termin ist bestätigt',
     'Your request for %s – %s' => 'Deine Anfrage für den %s – %s',
+    'The collection list shows the collection “%s”, which does not exist.' => 'Die Sammlungsliste zeigt die Sammlung „%s“, die es nicht gibt.',
+    'The collection list shows the category “%s”, which the collection does not have – it will stay empty.' => 'Die Sammlungsliste zeigt die Kategorie „%s“, die die Sammlung nicht hat – sie bleibt leer.',
+    'The category “%s” is hidden – the collection list will show only its empty text until you make the category visible.' => 'Die Kategorie „%s“ ist ausgeblendet – die Sammlungsliste zeigt nur ihren Leertext, bis du die Kategorie sichtbar machst.',
+    '{{%s}} is not a field of the collection “%s” – it will stay empty on the site.' => '{{%s}} ist kein Feld der Sammlung „%s“ – es bleibt auf der Website leer.',
 ];

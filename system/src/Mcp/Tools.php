@@ -163,7 +163,7 @@ final class Tools
                     'pravidla' => ['type' => 'object', 'description' => '{"kde":"vse|vybrane","stranky":[id],"kolekce":["adresa"],"novinky":true,"jazyk":"en","od":"RRRR-MM-DD","do":"RRRR-MM-DD","zarizeni":"vse|pocitac|telefon","utm":"text z utm_*","odkud":"část adresy webu, odkud návštěvník přišel"} – vynechané klíče zůstanou'],
                     'aktivni' => ['type' => 'boolean', 'description' => 'true = okno se ukazuje na webu (jen publikované, jen na výslovný pokyn uživatele)'],
                     'poradi' => $number('Pořadí, menší = přednost'), 'valid_until' => $text('True until YYYY-MM-DD (2.10): after this day it hides itself; empty string = always (optional)'), 'review_by' => $text('Review by YYYY-MM-DD (2.10): on this day the site audit and the event content.review ask the user to check it; empty string = none (optional)')])],
-            ['seznam_kolekci', 'Kolekce webu (reference, tým, produkty…) s poli a počty položek. Na web je dostane prvek „kolekce“ (Výpis kolekce) ve stavbě; uvnitř se {{klic}} nahradí hodnotou položky ({{nazev}}, {{url}} = detail, {{datum}} a vlastní pole).', $s([])],
+            ['seznam_kolekci', 'Kolekce webu (reference, tým, produkty…) s poli a počty položek. Na web je dostane prvek „kolekce“ (Výpis kolekce) ve stavbě; uvnitř se {{klic}} nahradí hodnotou položky ({{nazev}}, {{url}} = detail, {{datum}}, {{obrazek}} = obrázek stránky položky, jinak její první obrázkové pole, a vlastní pole).', $s([])],
             ['vytvor_kolekci', 'Založí kolekci (správce). Pole: seznam {popisek, typ}; typ = ' . implode(' | ', array_keys(Collections::FIELD_TYPES)) . '. Klíč pole vznikne z popisku.',
                 $s(['nazev' => $text('Název, např. Reference'), 'adresa' => $text('Adresa kolekce v URL (nepovinné, jinak z názvu), např. guide'),
                     'pole' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => '[{"popisek":"Citát","typ":"radky"},{"popisek":"Logo","typ":"obrazek"}]'],
@@ -1148,7 +1148,11 @@ final class Tools
      */
     private function checkTarget(array $target, array $build): array
     {
-        $findings = \Kaleta\Builder\Check::builds($build, $target['druh'] === 'stranka');
+        // an item template checks its {{fields}} against its collection; a category template has other placeholders
+        $collection = $target['druh'] === 'kolekce' && ($target['radek']['sablona_druh'] ?? '') !== 'kategorie'
+            ? \Kaleta\Builder\Collections::byId($this->app->db(), (int) $target['radek']['idk']) : null;
+        $findings = array_slice([...\Kaleta\Builder\Check::builds($build, $target['druh'] === 'stranka'),
+            ...\Kaleta\Builder\Check::collections($this->app->db(), $build, $collection)], 0, \Kaleta\Builder\Check::MAX);
 
         return $findings === [] ? [] : ['kontrola' => $findings];
     }

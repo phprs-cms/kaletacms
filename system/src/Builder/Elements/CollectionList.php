@@ -11,7 +11,7 @@ use Kaleta\Builder\Element;
 
 /**
  * Collection list: the inside of the element is the pattern of one item and repeats for each collection item (references, team, products…).
- * In texts, images and links inside, {{field}} is replaced by the item's value: {{nazev}}, {{url}}, {{datum}} and custom fields.
+ * In texts, images and links inside, {{field}} is replaced by the item's value: {{nazev}}, {{url}}, {{datum}}, {{obrazek}} and custom fields.
  */
 final class CollectionList extends Element
 {

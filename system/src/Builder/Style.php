@@ -419,6 +419,11 @@ final class Style
                     $image = $css;
                     continue;
                 }
+                if ($key === 'max_sirka' && preg_match('/^([\d.]+(px|rem|em|ch)|var\(--[\w-]+\))$/', $css)) {
+                    // never wider than the space (3.9.2): a max width replaces the img { max-width: 100% } of the template, and
+                    // an 800px photo with width="2000" then ran off a phone screen
+                    $css = 'min(' . $css . ', 100%)';
+                }
                 $rows[] = $property . ': ' . $css;
                 if ($key === 'pozadi' && ($value === 'bila' || $value === 'cerna') && !isset($properties['barva'])) {
                     // white and black do not change in dark mode: the text and derived shades inside adapt to them (otherwise light text on white)
