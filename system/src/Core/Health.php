@@ -177,11 +177,20 @@ final class Health
         $update = (new Updater($siteSettings))->state();
         $add(t('Operation'), t('Updates'), !$update['nastaveno'] || $update['chyba'] !== null || $update['nova'] !== null || $update['vyzaduje_php'] !== null ? 'varovani' : 'ok', match (true) {
             !$update['nastaveno'] => t('no update source is set'),
-            $update['chyba'] !== null => t('the update source is not responding: %s', (string) $update['chyba']),
+            $update['stale'] => (string) $update['chyba'], // 3.10 (N39-7): the message says what happened
+            $update['chyba'] !== null => t('the update source is not responding: %s', (string) $update['chyba'])
+                . ($update['failing_since'] > 0 && time() - $update['failing_since'] >= 86400 ? ' ' . t('The checks have been failing for %d days.', intdiv(time() - $update['failing_since'], 86400)) : ''),
             $update['vyzaduje_php'] !== null => t('version %s needs PHP %s or newer, the server runs PHP %s – ask the hosting for a newer PHP to update', $update['vyzaduje_php']['verze'], $update['vyzaduje_php']['min_php'], PHP_VERSION),
             $update['nova'] !== null => t('version %s is available (Settings → Backups and updates)', (string) $update['nova']['verze']),
             default => t('the system is up to date (%s)', KALETA_VERSION) . ($update['overeno'] > 0 ? ', ' . t('checked %s', format_date((new \DateTimeImmutable())->setTimestamp((int) $update['overeno']), true)) : ''),
         });
+        // 3.10 (N39-7): the newest signed update information the source gave is old – the source may be stuck or replay an
+        // old copy (a warning only: nothing re-signs it automatically, see Updater::FRESHNESS_DAYS)
+        $published = $update['newest'] !== null && $update['newest']['vydano'] !== '' ? \DateTimeImmutable::createFromFormat('!Y-m-d', $update['newest']['vydano']) : false;
+        if ($published !== false && $published->getTimestamp() < time() - Updater::FRESHNESS_DAYS * 86400) {
+            $add(t('Operation'), t('Update information'), 'varovani', t('the newest update information this site has received (version %s) was published on %s, %d days ago. The publisher refreshes it at least every %d days, so the update source may be stuck or serving an old copy – check the update source in Settings → Backups and updates.',
+                $update['newest']['verze'], format_date($published), intdiv(time() - $published->getTimestamp(), 86400), Updater::FRESHNESS_DAYS));
+        }
         // 3.8 (D3): which release channel the site follows; a stable site that runs a newer minor than the stable line waits
         if ($update['nastaveno']) {
             $add(t('Operation'), t('Update channel'), $update['ahead_of'] !== null ? 'varovani' : 'ok', match (true) {

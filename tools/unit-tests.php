@@ -5165,8 +5165,48 @@ if (function_exists('sodium_crypto_sign_seed_keypair')) {
         array_key_exists('kanal', Kaleta\Core\Updater::verified($v1Only(['verze' => '3.8.5'] + $v2Fixed), $v2Pub)),
         array_key_exists('kanal', Kaleta\Core\Updater::verified($v2Signed, $v2Pub))],
         ['error', 'offer 3.8.5', false, true]);
+    // 3.10 (N39-8): pre-release tags of 3.9.0 need v2 – version_compare() alone would read them as "before 3.9.0"
+    check('3.10 manifest v2 (N39-8): only the numeric X.Y.Z decides whether v2 is required, so no 3.9.0 pre-release passes on v1 alone', [
+        version_compare('3.9.0-rc1', Kaleta\Core\Updater::SIGNED_V2_SINCE, '<'), version_compare('3.9.0-x', '3.9.0-dev', '<'),
+        array_map(Kaleta\Core\Updater::needsSignatureV2(...), ['3.8.5', '3.8.99-rc1', '3.9.0', '3.9.0-rc1', '3.9.0-dev', '3.9.0-x', '3.9.0.1', '3.10.0', '10.0.0', '3.9', '']),
+        $v2Verdict($v1Only(['verze' => '3.9.0-rc1'] + $v2Fixed), 'latest'), $v2Verdict($v1Only(['verze' => '3.9.0-dev'] + $v2Fixed), 'latest'),
+        $v2Verdict($v1Only(['verze' => '3.8.9-rc1'] + $v2Fixed), 'latest'), $v2Verdict(Kaleta\Core\Signature::signManifest(['verze' => '3.9.0-rc1'] + $v2Fixed, $v2Sk))],
+        [true, true, [false, false, true, true, true, true, true, true, true, true, true], 'refused', 'refused', 'offer 3.8.9-rc1', 'offer 3.9.0-rc1']);
+    // 3.10 (N39-7): freshness – a manifest older than the newest one the source gave before is stale (signed date, then version)
+    $v2At = static fn (string $version, ?string $date): array => Kaleta\Core\Signature::signManifest(array_merge($v2Fixed, ['verze' => $version, 'vydano' => $date]), $v2Sk);
+    $v2Seen = ['verze' => '3.9.2', 'vydano' => '2026-10-09'];
+    check('3.10 freshness (N39-7): the signed date decides, then the version on the same day; a later re-signing wins; a v1-only or undated one after a v2 one is stale', [
+        Kaleta\Core\Updater::isStale($v2At('3.9.1', '2026-10-01'), null),
+        Kaleta\Core\Updater::isStale($v2At('3.9.2', '2026-10-09'), $v2Seen), Kaleta\Core\Updater::isStale($v2At('3.10.0', '2026-10-16'), $v2Seen),
+        Kaleta\Core\Updater::isStale($v2At('3.9.3', '2026-10-09'), $v2Seen), Kaleta\Core\Updater::isStale($v2At('3.9.1', '2026-10-17'), $v2Seen),
+        Kaleta\Core\Updater::isStale($v2At('3.9.1', '2026-10-09'), $v2Seen), Kaleta\Core\Updater::isStale($v2At('3.9.2-rc1', '2026-10-09'), $v2Seen),
+        Kaleta\Core\Updater::isStale($v2At('3.9.3', '2026-10-08'), $v2Seen), Kaleta\Core\Updater::isStale($v2At('3.10.0', null), $v2Seen),
+        Kaleta\Core\Updater::isStale($v1Only(['verze' => '3.8.4'] + $v2Fixed), $v2Seen), Kaleta\Core\Updater::isStale($v2At('3.9.0', null), ['verze' => '3.8.9', 'vydano' => ''])],
+        [false, false, false, false, false, true, true, true, true, true, false]);
+    check('3.10 freshness: the release date is read only as a real YYYY-MM-DD; a date changed after signing breaks v2', [
+        Kaleta\Core\Updater::releaseDate(['vydano' => '2026-10-09']), Kaleta\Core\Updater::releaseDate(['vydano' => '2026-02-30']), Kaleta\Core\Updater::releaseDate(['vydano' => '2026-10-09T10:00']),
+        Kaleta\Core\Updater::releaseDate(['vydano' => 20261009]), Kaleta\Core\Updater::releaseDate([]),
+        Kaleta\Core\Signature::manifestValid(['vydano' => '2026-12-31'] + $v2At('3.9.1', '2026-10-01'), $v2Pub)],
+        ['2026-10-09', '', '', '', '', false]);
     unlink($v2Pub);
 }
+// 3.10: a manifest the publisher really published (3.9.1, signed with the key in system/aktualizace.pub) keeps verifying
+// and is read the same way; after 3.9.2 of the same day it is stale
+$published391 = json_decode('{"verze":"3.9.1","vydano":"2026-10-09","url":"https://github.com/phprs-cms/kaletacms/releases/download/v3.9.1/kaleta-3.9.1.zip","sha256":"766fb576f904fbfeea82f24b80e4630b7f5310cdbf796e1c6b6fe8671f4f9f48","podpis":"gookkb/YqOvbfDcqQ/DFjNvnqE40uEgrbnambX/JfoeREy30TOImpGCZO+JJtyZRCUzHM7WZrImJaBKfCEx4Cw==","klic":"3c68e740","min_php":"8.3","bezpecnostni":false,"zmeny":["The phone menu keeps its rows close together and every submenu arrow in the same place","Support Kaleta in the admin footer leads to Buy Me a Coffee"],"kanal":"latest","podpis2":"7kGxcSRC1CTo3T5yfKHXDMm+9/p672i1VB7zshlgRwIe065BqIJnzF+kbt81JuqRUk4LsqVGSNStWA3qC25/BQ=="}', true);
+if (function_exists('sodium_crypto_sign_verify_detached')) {
+    check('3.10: the published 3.9.1 manifest keeps verifying (v1 and v2) and is fresh until a newer one of the source was seen', [
+        Kaleta\Core\Signature::manifestValid($published391, KALETA_SYSTEM . '/aktualizace.pub'),
+        Kaleta\Core\Signature::isValid(Kaleta\Core\Signature::packageMessage('3.9.1', $published391['sha256'], false), $published391['podpis'], KALETA_SYSTEM . '/aktualizace.pub'),
+        Kaleta\Core\Updater::verified($published391, KALETA_SYSTEM . '/aktualizace.pub') === $published391,
+        Kaleta\Core\Updater::isStale($published391, null), Kaleta\Core\Updater::isStale($published391, ['verze' => '3.9.1', 'vydano' => '2026-10-09']),
+        Kaleta\Core\Updater::isStale($published391, ['verze' => '3.9.2', 'vydano' => '2026-10-09'])],
+        [true, true, true, false, false, true]);
+}
+check('3.10 freshness: the threshold of System status, the setting, and the daily check warns two weeks earlier', [
+    Kaleta\Core\Updater::FRESHNESS_DAYS, array_key_exists('update_seen', Kaleta\Core\Settings::DEFAULTS), in_array('update_seen', Kaleta\Core\SiteExport::SETTINGS, true),
+    str_contains((string) file_get_contents(KALETA_ROOT . '/tools/check-channel.php'), 'Updater::needsSignatureV2($m[\'verze\'])'),
+    str_contains((string) file_get_contents(KALETA_ROOT . '/tools/release.php'), "'vydano' => date('Y-m-d')")],
+    [60, true, false, true, true]);
 check('3.9 updates: the PHP a package needs is read from its own bootstrap (none before 3.7)', [
     Kaleta\Core\Updater::packageMinPhp((string) file_get_contents(KALETA_SYSTEM . '/bootstrap.php')),
     Kaleta\Core\Updater::packageMinPhp("<?php\nif (PHP_VERSION_ID < 80400) {\n    exit('Kaleta vyžaduje PHP 8.4');\n}\n"),

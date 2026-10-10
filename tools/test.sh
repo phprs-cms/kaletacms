@@ -5627,7 +5627,7 @@ $zip->addFromString('system/aktualizace.pub', (string) file_get_contents($site .
 $zip->close();
 $sha = hash_file('sha256', dirname($site) . '/kanal/k.zip');
 // signed as tools/release.php signs: v1 ("podpis") and v2 over every field ("podpis2", 3.9)
-$m = Kaleta\Core\Signature::signManifest(['verze' => '9.9.9', 'url' => "http://127.0.0.1:$port/k.zip", 'sha256' => $sha, 'min_php' => PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION, 'zmeny' => ['test']], $sk);
+$m = Kaleta\Core\Signature::signManifest(['verze' => '9.9.9', 'vydano' => date('Y-m-d'), 'url' => "http://127.0.0.1:$port/k.zip", 'sha256' => $sha, 'min_php' => PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION, 'zmeny' => ['test']], $sk);
 file_put_contents(dirname($site) . '/kanal/ok.json', json_encode($m));
 // 3.3.2 (N40): the same release, genuinely signed as a security release (the source changes its answer between check and installation)
 file_put_contents(dirname($site) . '/kanal/ok-bezpecnostni.json', json_encode(Kaleta\Core\Signature::signManifest(['bezpecnostni' => true] + $m, $sk)));
@@ -5668,7 +5668,21 @@ $channels = [
     'podvrh' => [$signed('9.9.10', 'latest'), ['kanal' => 'stable'] + $signed('9.9.10', 'latest')],
     // the manifest published today (3.8.0, written before v2 existed): the daily check keeps passing on its v1 signature
     'stary' => [array_diff_key($signed('3.8.0', 'latest'), ['podpis2' => 1]), null],
+    // 3.10 (N39-7): a manifest signed 50 days ago (sites warn at 60, the check two weeks earlier) and one without a signed date
+    'zastaraly' => [Kaleta\Core\Signature::signManifest(['verze' => '9.9.10', 'kanal' => 'latest', 'vydano' => date('Y-m-d', time() - 50 * 86400)] + $m, $sk), null],
+    'nedatovany' => [Kaleta\Core\Signature::signManifest(['verze' => '9.9.10', 'kanal' => 'latest', 'vydano' => ''] + $m, $sk), null],
 ];
+// 3.10 (N39-7): one source answering with a newer, then an older signed manifest (a replay), a v1-only one, and one
+// published 70 days ago (System status warns after 60)
+$replay = [
+    'novy' => $signed('9.9.10', 'latest'),
+    'starsi' => Kaleta\Core\Signature::signManifest(['verze' => '9.9.9', 'kanal' => 'latest', 'vydano' => date('Y-m-d', time() - 7 * 86400)] + $m, $sk),
+    'v1' => array_diff_key($signed('3.8.0', 'latest'), ['podpis2' => 1]),
+    'stary-datum' => Kaleta\Core\Signature::signManifest(['verze' => '9.9.10', 'kanal' => 'latest', 'vydano' => date('Y-m-d', time() - 70 * 86400)] + $m, $sk),
+];
+foreach ($replay as $name => $manifest) {
+    file_put_contents(dirname($site) . '/kanal/replay-' . $name . '.json', json_encode($manifest));
+}
 foreach ($channels as $folder => [$latest, $stable]) {
     @mkdir(dirname($site) . '/kanal/' . $folder);
     file_put_contents(dirname($site) . '/kanal/' . $folder . '/aktualizace.json', json_encode($latest));
@@ -5789,7 +5803,37 @@ expect "3.8 check-channel: both manifests pass, a latest one at the stable addre
 expect "3.9 check-channel: a relabelled stable manifest fails on signature v2; a pre-3.9 manifest without v2 passes on v1" \
   "$(tail -1 "$WORK/channel-podvrh.txt")|$(contains -F 'podpis v2 (podpis2) NEPLATÍ' "$WORK/channel-podvrh.txt" && echo why)|$(tail -1 "$WORK/channel-stary.txt")|$(contains -F 'bez podpisu v2' "$WORK/channel-stary.txt" && echo noted)" \
   "failed|why|ok|noted"
+for c in zastaraly nedatovany; do
+  if php "$WORK/web/tools/check-channel.php" "http://127.0.0.1:$CHANNEL_PORT/$c/aktualizace.json" > "$WORK/channel-$c.txt" 2>&1; then echo ok >> "$WORK/channel-$c.txt"; else echo failed >> "$WORK/channel-$c.txt"; fi
+done
+expect "3.10 check-channel: a manifest signed 50 days ago fails (re-sign two weeks before sites warn), one without a signed date fails, a fresh one says its date" \
+  "$(tail -1 "$WORK/channel-zastaraly.txt")|$(contains -F 'sign the manifest again' "$WORK/channel-zastaraly.txt" && echo why)|$(tail -1 "$WORK/channel-nedatovany.txt")|$(contains -F 'release date (vydano' "$WORK/channel-nedatovany.txt" && echo why)|$(contains -F "published $(date +%Y-%m-%d) (0 days ago)" "$WORK/channel-kanaly.txt" && echo dated)" \
+  "failed|why|failed|why|dated"
 sq "UPDATE ka_nastaveni SET hodnota = 'latest' WHERE promenna = 'update_channel'" > /dev/null
+# 3.10 (N39-7): manifest freshness – the source first gives 9.9.10, then replays an older, validly signed 9.9.9 (and a
+# v1-only 3.8.0): refused as a stale manifest, said so, nothing offered or installed; the newer one is accepted again
+replay_serve() { cp "$WORK/kanal/replay-$1.json" "$WORK/kanal/replay.json"; sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'" > /dev/null; }
+replay_serve novy; channel_source replay.json; backups_page
+expect "3.10 freshness: a new signed manifest is offered and remembered for its source" "$(contains -F 'value="9.9.10"' "$WORK/response" && echo offered)|$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '\$.\"http://127.0.0.1:$CHANNEL_PORT/replay.json\".verze')) FROM ka_nastaveni WHERE promenna = 'update_seen'")" "offered|9.9.10"
+replay_serve starsi; backups_page
+contains -F 'starší informací o aktualizaci (verze 9.9.9' "$WORK/response" && ! contains -F 'value="9.9.9"' "$WORK/response" && echo "  ok     3.10 freshness: an older signed manifest of the same source is refused as stale and nothing is offered" || { echo "  CHYBA  3.10 freshness: a replayed older manifest was not refused"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
+contains -F 'starší informací o aktualizaci' "$WORK/response" && ! contains -F 'zdroj aktualizací neodpovídá' "$WORK/response" && echo "  ok     3.10 freshness: System status names the stale manifest (not an unreachable source)" || { echo "  CHYBA  3.10 freshness: System status"; ERRORS=$((ERRORS+1)); }
+replay_serve starsi; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=update" -d "_csrf=$TOKEN" -d verze=9.9.9
+replay_serve v1; backups_page
+expect "3.10 freshness: the stale one does not install; a v1-only manifest after a v2 one is stale too; the remembered one stays 9.9.10" \
+  "$([ -f "$WORK/web/image/test-aktualizace.txt" ] && echo installed || echo kept)|$(contains -F 'starší informací o aktualizaci (verze 3.8.0' "$WORK/response" && echo stale)|$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '\$.\"http://127.0.0.1:$CHANNEL_PORT/replay.json\".verze')) FROM ka_nastaveni WHERE promenna = 'update_seen'")" "kept|stale|9.9.10"
+replay_serve novy; backups_page
+contains -F 'value="9.9.10"' "$WORK/response" && ! contains -F 'starší informací' "$WORK/response" && echo "  ok     3.10 freshness: once the source is current again, the update is offered" || { echo "  CHYBA  3.10 freshness: current source after a stale answer"; ERRORS=$((ERRORS+1)); }
+# the newest update information is 70 days old: System status warns (only a warning – it is still offered)
+replay_serve stary-datum; channel_source replay-stary-datum.json; backups_page
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
+contains -F 'Informace o aktualizaci' "$WORK/response" && contains -F 'před 70 dny' "$WORK/response" && echo "  ok     3.10 freshness: System status warns that the newest update information is 70 days old" || { echo "  CHYBA  3.10 freshness: no warning about old update information"; ERRORS=$((ERRORS+1)); }
+# checks failing for days: System status says how long
+sq "UPDATE ka_nastaveni SET hodnota = JSON_OBJECT('url', 'http://127.0.0.1:$CHANNEL_PORT/replay-stary-datum.json', 'overeno', UNIX_TIMESTAMP(), 'manifest', NULL, 'chyba', 'test', 'stale', false, 'failing_since', UNIX_TIMESTAMP() - 3 * 86400 - 60) WHERE promenna = 'update_cache'" > /dev/null
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
+contains -F 'Kontroly selhávají už 3 dní' "$WORK/response" && echo "  ok     3.10: System status says how long the update checks have been failing" || { echo "  CHYBA  3.10: failing checks without their duration"; ERRORS=$((ERRORS+1)); }
+sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('update_cache', 'update_seen')" > /dev/null
 update_from ok.json
 [ -f "$WORK/web/image/test-aktualizace.txt" ] && echo "  ok     podepsaná aktualizace se nainstaluje" || { echo "  CHYBA  aktualizace se nenainstalovala"; sq "SELECT message, data FROM ka_events WHERE type LIKE 'update.%'"; ERRORS=$((ERRORS+1)); }
 grep -q "vlastni uprava spravce" "$WORK/web/.htaccess" && [ -f "$WORK/web/.htaccess.kaleta-nova" ] && echo "  ok     vlastní .htaccess zůstal, nová verze leží vedle" || { echo "  CHYBA  aktualizace přepsala vlastní .htaccess"; ERRORS=$((ERRORS+1)); }

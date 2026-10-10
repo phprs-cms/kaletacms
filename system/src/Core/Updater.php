@@ -16,6 +16,9 @@ namespace Kaleta\Core;
  * 3.9: the manifest also carries signature v2 ("podpis2", Core\Signature::manifestMessage) over every field the site acts
  * on – the channel and min_php too. It is checked as soon as the manifest is read (verified(), which also says what
  * happens to a manifest without it).
+ * 3.10: freshness (audit N39-7) – the site remembers the newest signed manifest each update source gave it (setting
+ * update_seen) and refuses an older one (isStale) as a stale manifest, not as "no update"; System status warns when the
+ * newest one is older than FRESHNESS_DAYS (Core\Health).
  * config.php, media/, storage/, extensions/ (add-ons), install.php and layouts that are not part of the package are never overwritten.
  */
 final class Updater
@@ -38,6 +41,22 @@ final class Updater
 
     /** 3.9: the first version whose manifest carries signature v2 – a manifest of this or a later version without it is refused. */
     public const string SIGNED_V2_SINCE = '3.9.0';
+
+    /**
+     * 3.10 (N39-7): System status warns when the newest signed update information the site has received was published
+     * longer ago than this. Releases come out weekly (the stable line about monthly) and the publisher re-signs the
+     * manifests at least this often (docs/RELEASING.md), so 60 days is two missed stable cycles or eight missed weekly
+     * releases – a source that is stuck or replays an old copy shows up, a quiet month or a holiday does not. A warning
+     * only, never an expiry: the keys are offline with the publisher, nothing re-signs automatically, and an expired
+     * manifest would stop the very update that fixes things.
+     */
+    public const int FRESHNESS_DAYS = 60;
+
+    /** The exception code of a stale manifest (state() tells it from an unreachable source). */
+    public const int STALE = 3910;
+
+    /** How many update sources update_seen remembers (latest, stable, and a custom source or two). */
+    private const int SEEN_SOURCES = 4;
 
     private const array PROTECTED_PATHS = ['config.php', 'install.php', 'media/', 'storage/', 'extensions/', 'image/ukazka/', 'tools/', '.git/']; // extensions/: add-ons (3.0)
     private const int MAX_BYTES = 60 * 1024 * 1024;
@@ -155,12 +174,15 @@ final class Updater
      * 3.8: channel = latest | stable | custom (effectiveChannel); ahead_of = on the stable channel, the stable version this
      * site is already past (it waits for the stable line, never downgrades).
      *
-     * @return array{nastaveno:bool, aktualni:string, nova:?array<string, mixed>, vyzaduje_php:?array{verze:string, min_php:string, bezpecnostni:bool}, chyba:?string, overeno:int, channel:string, ahead_of:?string}
+     * 3.10: stale = the source answered with older signed update information than it gave before (N39-7); failing_since = when
+     * the checks started failing (0 = they work); newest = the newest signed manifest this source gave the site (version, release date).
+     *
+     * @return array{nastaveno:bool, aktualni:string, nova:?array<string, mixed>, vyzaduje_php:?array{verze:string, min_php:string, bezpecnostni:bool}, chyba:?string, overeno:int, channel:string, ahead_of:?string, stale:bool, failing_since:int, newest:?array{verze:string, vydano:string, at:int}}
      */
     public function state(bool $force = false): array
     {
         $state = ['nastaveno' => $this->url() !== '', 'aktualni' => KALETA_VERSION, 'nova' => null, 'vyzaduje_php' => null, 'chyba' => null, 'overeno' => 0,
-            'channel' => $this->effectiveChannel(), 'ahead_of' => null];
+            'channel' => $this->effectiveChannel(), 'ahead_of' => null, 'stale' => false, 'failing_since' => 0, 'newest' => null];
         if (!$state['nastaveno']) {
             return $state;
         }
@@ -171,16 +193,23 @@ final class Updater
             $manifest = $cache['manifest'] ?? null;
             $state['chyba'] = $cache['chyba'] ?? null;
             $state['overeno'] = (int) $cache['overeno'];
+            $state['stale'] = ($cache['stale'] ?? false) === true;
+            $state['failing_since'] = (int) ($cache['failing_since'] ?? 0);
         } else {
             try {
                 $manifest = $this->manifest();
             } catch (\RuntimeException $e) {
                 $manifest = null;
                 $state['chyba'] = $e->getMessage();
+                $state['stale'] = $e->getCode() === self::STALE;
+                // 3.10: since when the checks fail – carried over while they keep failing (System status says how long)
+                $state['failing_since'] = is_array($cache) && ($cache['chyba'] ?? null) !== null && (int) ($cache['failing_since'] ?? 0) > 0 ? (int) $cache['failing_since'] : time();
             }
             $state['overeno'] = time();
-            $this->settings->set('update_cache', (string) json_encode(['url' => $this->url(), 'overeno' => time(), 'manifest' => $manifest, 'chyba' => $state['chyba']], JSON_UNESCAPED_UNICODE));
+            $this->settings->set('update_cache', (string) json_encode(['url' => $this->url(), 'overeno' => time(), 'manifest' => $manifest, 'chyba' => $state['chyba'],
+                'stale' => $state['stale'], 'failing_since' => $state['failing_since']], JSON_UNESCAPED_UNICODE));
         }
+        $state['newest'] = $this->seen()[$this->url()] ?? null;
         $choice = self::choose(is_array($manifest) ? $manifest : null, $state['channel']);
 
         return ['nova' => $choice['nova'], 'vyzaduje_php' => $choice['vyzaduje_php'], 'ahead_of' => $choice['ahead_of'], 'chyba' => $state['chyba'] ?? $choice['chyba']] + $state;
@@ -494,7 +523,8 @@ final class Updater
      * - With "podpis2": it must be valid (Signature::manifestValid), so every field the site acts on is the publisher's,
      *   the channel and min_php included. An invalid one refuses the manifest: nothing is offered or installed.
      * - Without it (a manifest from before 3.9): only a version older than SIGNED_V2_SINCE is read this way – a newer one
-     *   without v2 was tampered with (the signature removed to get around it) and is refused. An old manifest is read
+     *   without v2 was tampered with (the signature removed to get around it) and is refused. Pre-releases of 3.9.0 need v2
+     *   too (needsSignatureV2, 3.10, N39-8). An old manifest is read
      *   under the v1 rules, except that its unsigned "kanal" is dropped: it never makes a stable-channel manifest (the
      *   stable channel offers nothing from it). Its unsigned min_php decides only what is offered; install() checks the
      *   requirement of the package itself (its KALETA_MIN_PHP) before it writes a file.
@@ -508,7 +538,7 @@ final class Updater
     {
         $version = $manifest['verze'] ?? null;
         $signed = array_key_exists('podpis2', $manifest) ? Signature::manifestValid($manifest, $keyFile)
-            : is_string($version) && version_compare($version, self::SIGNED_V2_SINCE, '<');
+            : is_string($version) && !self::needsSignatureV2($version);
         if (!$signed) {
             throw new \RuntimeException(t('The update information file is not signed by the Kaleta publisher (signature v2), so nothing is offered or installed.'));
         }
@@ -517,6 +547,100 @@ final class Updater
         }
 
         return $manifest;
+    }
+
+    /**
+     * Must a manifest of this version carry signature v2 (3.10, audit N39-8)? Only the numeric release (X.Y.Z) counts: in
+     * version_compare() "3.9.0-rc1" and "3.9.0-dev" are lower than "3.9.0" and an unknown suffix ("3.9.0-x") lower still,
+     * so a pre-release of 3.9.0 would pass as a release from before 3.9. Every 3.9.0 build needs v2; a version that does not
+     * start with X.Y.Z needs it too (there is nothing older to read it as).
+     */
+    public static function needsSignatureV2(string $version): bool
+    {
+        return preg_match('/^(\d+\.\d+\.\d+)/', $version, $release) !== 1 || version_compare($release[1], self::SIGNED_V2_SINCE, '>=');
+    }
+
+    /**
+     * Is a verified manifest older than the newest signed one the same update source already gave this site (3.10, audit
+     * N39-7)? A host or mirror that serves an older, validly signed manifest would otherwise freeze the site on it, or – on
+     * a site that has not updated yet – offer an older release than the source really has.
+     *
+     * Order: the signed release date ("vydano", YYYY-MM-DD) first, the version on the same day (tools/release.php writes the
+     * day only, and a patch can follow on the same day). A newer date wins even with a lower version: the publisher may
+     * deliberately re-sign (docs/RELEASING.md). A manifest without signature v2 after a v2 one is stale by definition (it
+     * comes from before 3.9, and its date is not signed); without a valid date a v2 manifest sorts below any dated one.
+     *
+     * @param array<array-key, mixed> $manifest the verified manifest (verified())
+     * @param array{verze: string, vydano: string, at?: int}|null $seen the newest one the source gave before (null = none yet)
+     */
+    public static function isStale(array $manifest, ?array $seen): bool
+    {
+        if ($seen === null) {
+            return false;
+        }
+        if (!array_key_exists('podpis2', $manifest)) {
+            return true;
+        }
+        $date = self::releaseDate($manifest);
+        if ($date !== $seen['vydano']) {
+            return $date < $seen['vydano'];
+        }
+
+        return version_compare(is_scalar($manifest['verze'] ?? null) ? (string) $manifest['verze'] : '', $seen['verze'], '<');
+    }
+
+    /**
+     * The signed release date of a manifest (YYYY-MM-DD) as a site orders by it; '' when it is missing or not a date.
+     *
+     * @param array<array-key, mixed> $manifest
+     */
+    public static function releaseDate(array $manifest): string
+    {
+        $date = $manifest['vydano'] ?? null;
+
+        return is_string($date) && preg_match('/^(\d{4})-(\d{2})-(\d{2})$/D', $date, $d) === 1 && checkdate((int) $d[2], (int) $d[3], (int) $d[1]) ? $date : '';
+    }
+
+    /**
+     * The newest signed manifest each update source gave this site: update source address => version, release date and
+     * when it was received (setting update_seen, 3.10).
+     *
+     * @return array<string, array{verze: string, vydano: string, at: int}>
+     */
+    private function seen(): array
+    {
+        $seen = [];
+        foreach ((array) json_decode($this->settings->get('update_seen'), true) as $url => $entry) {
+            if (is_string($url) && is_array($entry) && is_string($entry['verze'] ?? null) && is_string($entry['vydano'] ?? null)) {
+                $seen[$url] = ['verze' => $entry['verze'], 'vydano' => $entry['vydano'], 'at' => (int) ($entry['at'] ?? 0)];
+            }
+        }
+
+        return $seen;
+    }
+
+    /**
+     * Refuses a stale manifest (isStale) and remembers a signed one as the newest of its source. Only a manifest with
+     * signature v2 is remembered – the date of an older one is not signed.
+     *
+     * @param array<array-key, mixed> $manifest the verified manifest
+     */
+    private function checkFreshness(array $manifest): void
+    {
+        $url = $this->url();
+        $seen = $this->seen();
+        $newest = $seen[$url] ?? null;
+        if (self::isStale($manifest, $newest)) {
+            throw new \RuntimeException(t('The update source answered with older update information (version %s, published %s) than it gave this site before (version %s, published %s) – an outdated copy of the file, or someone serving an old one on purpose. Nothing is offered or installed from it; the check repeats every hour.',
+                is_scalar($manifest['verze'] ?? null) ? (string) $manifest['verze'] : '?', self::releaseDate($manifest) !== '' ? self::releaseDate($manifest) : '?',
+                (string) $newest['verze'], $newest['vydano'] !== '' ? $newest['vydano'] : '?'), self::STALE);
+        }
+        if (!array_key_exists('podpis2', $manifest)) {
+            return;
+        }
+        unset($seen[$url]); // the source just used goes last, the oldest ones drop out
+        $seen[$url] = ['verze' => (string) $manifest['verze'], 'vydano' => self::releaseDate($manifest), 'at' => time()];
+        $this->settings->set('update_seen', (string) json_encode(array_slice($seen, -self::SEEN_SOURCES, null, true), JSON_UNESCAPED_SLASHES));
     }
 
     /** The oldest PHP a package says it needs (KALETA_MIN_PHP in its system/bootstrap.php, 3.7 and later); null = it does not say. */
@@ -534,6 +658,7 @@ final class Updater
             throw new \RuntimeException(t('The update information file is not in a valid format.'));
         }
         $m = self::verified($m, $this->keyFile); // 3.9: before anything else is read from it
+        $this->checkFreshness($m); // 3.10 (N39-7): not older than what this source gave before
         $m['zmeny'] = array_values(array_filter(array_map(fn ($z): string => mb_substr((string) $z, 0, 300), (array) ($m['zmeny'] ?? []))));
 
         return $m;

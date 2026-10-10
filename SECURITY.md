@@ -59,7 +59,8 @@ Every update manifest (`aktualizace.json`, `aktualizace-stable.json`) is signed 
 A site on Kaleta 3.9 or later checks v2 as soon as it reads the manifest, before it offers anything:
 
 - a manifest with an invalid v2 signature is refused: nothing is offered or installed;
-- a manifest of version 3.9.0 or later without v2 is refused (the signature was stripped);
+- a manifest of version 3.9.0 or later without v2 is refused (the signature was stripped) – from 3.10 a pre-release of
+  3.9.0 (`3.9.0-rc1`, `3.9.0-dev`) counts as 3.9.0 too;
 - a manifest of an older version without v2 is read under the v1 rules, but its unsigned channel is ignored, so it is
   never a stable-channel release, and the installation checks the PHP version the package itself requires before it
   writes a file.
@@ -68,6 +69,13 @@ The v1 signature and the SHA-256 of the downloaded package are checked at instal
 only v1: for them the channel and the minimum PHP stay unsigned (accepted for 3.8; an install on a PHP the release does
 not support is rolled back by the post-update check). A mirror of the update source must serve the manifest unchanged –
 the package URL is signed.
+
+From Kaleta 3.10 a site also checks that the manifest is fresh: it remembers the newest v2-signed manifest each update
+source gave it (version and signed release date) and refuses an older one as a stale manifest – a host or mirror that
+replays an old, validly signed file cannot freeze the site on it or offer an older release. A version lower than the
+installed one is never offered. System status warns when the newest update information the site has received is more
+than 60 days old (the publisher re-signs the manifests at least that often) or when the checks keep failing. This is a
+warning, not an expiry: the signing keys are kept offline, so a manifest cannot expire without stopping updates.
 
 ## What the system protects
 
