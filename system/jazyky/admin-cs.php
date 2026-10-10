@@ -5642,6 +5642,5 @@ return [
     'add the language versions %s to the site – they show in the language switcher at once' => 'přidat na web jazykové verze %s – hned se ukážou v přepínači jazyků',
     'The collection list shows the collection “%s”, which does not exist.' => 'Výpis kolekce ukazuje kolekci „%s“, která neexistuje.',
     'The collection list shows the category “%s”, which the collection does not have – it will stay empty.' => 'Výpis kolekce ukazuje kategorii „%s“, kterou kolekce nemá – zůstane prázdný.',
-    'The category “%s” is hidden – the collection list will show only its empty text until you make the category visible.' => 'Kategorie „%s“ je skrytá – výpis kolekce ukáže jen text pro prázdný výpis, dokud kategorii nezviditelníte.',
     '{{%s}} is not a field of the collection “%s” – it will stay empty on the site.' => '{{%s}} není pole kolekce „%s“ – na webu zůstane prázdné.',
 ];

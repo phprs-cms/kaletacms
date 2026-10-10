@@ -69,7 +69,7 @@ final class Check
     }
 
     /**
-     * Collection lists and item templates (3.9.2): a list of a missing or hidden category shows only its empty text, and
+     * Collection lists and item templates (3.9.2): a list of a missing collection or category shows only its empty text, and
      * {{key}} that the collection does not have stays empty on the site – both look fine in the draft JSON and break the page.
      *
      * @param array<string, mixed> $build sanitized build
@@ -111,8 +111,6 @@ final class Check
                         $row = CollectionCategories::bySlug($db, (int) $list['idk'], $category, '');
                         if ($row === null) {
                             $findings[] = ['id' => $id, 'zprava' => t('The collection list shows the category “%s”, which the collection does not have – it will stay empty.', $category)];
-                        } elseif (!$row['visible']) {
-                            $findings[] = ['id' => $id, 'zprava' => t('The category “%s” is hidden – the collection list will show only its empty text until you make the category visible.', $category)];
                         }
                     }
                     $inner = ($o['zdroj'] ?? 'polozky') === 'kategorie' ? [null, []] : [$list, $keys($list)];

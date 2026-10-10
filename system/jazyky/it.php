@@ -1945,6 +1945,5 @@ return [
     'Nothing was saved: the text is over a safety limit for HTML (too large or nested too deeply).' => 'Non è stato salvato nulla: il testo supera un limite di sicurezza per l’HTML (troppo grande o annidato troppo in profondità).',
     'The collection list shows the collection “%s”, which does not exist.' => 'L’elenco della raccolta mostra la raccolta “%s”, che non esiste.',
     'The collection list shows the category “%s”, which the collection does not have – it will stay empty.' => 'L’elenco della raccolta mostra la categoria “%s”, che la raccolta non ha – resterà vuoto.',
-    'The category “%s” is hidden – the collection list will show only its empty text until you make the category visible.' => 'La categoria “%s” è nascosta – l’elenco della raccolta mostrerà solo il testo vuoto finché non renderà visibile la categoria.',
     '{{%s}} is not a field of the collection “%s” – it will stay empty on the site.' => '{{%s}} non è un campo della raccolta “%s” – resterà vuoto sul sito.',
 ];
