@@ -373,4 +373,6 @@ Der Link gilt %d Tage.
     'Your appointment is confirmed – thank you.' => 'Dein Termin ist bestätigt – vielen Dank.',
     'Your appointment is confirmed' => 'Dein Termin ist bestätigt',
     'Your request for %s – %s' => 'Deine Anfrage für den %s – %s',
+    'Thank you for your application. We will get back to you.' => 'Vielen Dank für deine Bewerbung. Wir melden uns bei dir.',
+    'A few words about you' => 'Ein paar Worte über dich',
 ];

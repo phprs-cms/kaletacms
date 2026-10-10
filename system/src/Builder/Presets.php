@@ -128,9 +128,23 @@ final class Presets
      * Creates a collection from a preset and a hidden page listing its items (when no page has its address yet), plus the
      * preset's extra_pages (a notice board's archive) the same way.
      *
+     * Everything a preset writes – the name, field labels, the item template and the list pages – is site content, so it is
+     * written in the site's default language from the site dictionary, whoever creates it: an MCP request (English interface),
+     * an administrator using another language, a visitor on a language version (a testimonial).
+     *
      * @return array{0: int, 1: ?int, 2: list<array{id: int, path: string, name: string}>}|null [collection id, page id or null, extra pages]
      */
     public static function createWithPage(App $app, string $key, string $name = '', bool $withPage = true): ?array
+    {
+        return \Kaleta\Core\Language::runWith(\Kaleta\Core\Language::defaults($app->settings()), fn (): ?array => self::build($app, $key, $name, $withPage));
+    }
+
+    /**
+     * createWithPage() in the site language.
+     *
+     * @return array{0: int, 1: ?int, 2: list<array{id: int, path: string, name: string}>}|null
+     */
+    private static function build(App $app, string $key, string $name, bool $withPage): ?array
     {
         $preset = self::get($key);
         if ($preset === null) {

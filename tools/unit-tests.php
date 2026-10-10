@@ -2849,6 +2849,34 @@ check('2.11 presets: the item templates survive sanitizing and show the fields',
     str_contains($f1Template('courses'), '<strong>{{when}}</strong>') && str_contains($f1Template('courses'), '{{capacity}}') && str_contains($f1Template('courses'), '"typ":"formular"')], [true, true, true, true]);
 $f1List = Kaleta\Builder\Build::toJson(Kaleta\Builder\Presets::listPage($f1Presets['courses'], 'Kurzy', 'kurzy', $f1Fields('courses')));
 check('2.11 presets: the list page of courses lists the upcoming ones with the start and the place on the card', [str_contains($f1List, '"obdobi":"nadchazejici"'), str_contains($f1List, '"razeni_pole":"start"'), str_contains($f1List, '<p>{{start}}</p>'), str_contains($f1List, '<p>{{place}}</p>')], [true, true, true, true]);
+// 3.9.2: create_collection preset jobs over MCP on a Czech site gave a half-English item page – the preset texts were only in the
+// admin dictionary, while an MCP request has the site dictionary loaded – and the applicant's name was "Název" (the name of a thing)
+$presetSiteTexts = static function (string $key, array $p): array {
+    preg_match_all("/\\bt\\('((?:[^'\\\\]|\\\\.)+)'/u", (string) file_get_contents(KALETA_SYSTEM . '/presets/' . $key . '.php'), $m);
+
+    return array_values(array_unique([$p['name'], ...array_map('stripslashes', $m[1]), ...array_column($p['fields'], 1), ...array_column((array) $p['extra_pages'], 'name')]));
+};
+$jobsCs = Kaleta\Core\Language::runWith('cs', fn (): string => Kaleta\Builder\Build::toJson(Kaleta\Builder\Presets::itemTemplate($presets['jobs'], Kaleta\Builder\Collections::sanitizeFields(array_map(
+    fn (array $f): array => ['klic' => $f[0], 'popisek' => t($f[1]), 'typ' => $f[2]] + (isset($f[3]['preset']) ? ['kolekce' => 'tym'] : []), $presets['jobs']['fields'])))));
+check('3.9.2 presets: the jobs item template built in a Czech site (as over MCP) has no English text and asks for "Jméno a příjmení"', [
+    array_values(array_filter($presetSiteTexts('jobs', $presets['jobs']), fn (string $text): bool => str_contains($jobsCs, $text))),
+    str_contains($jobsCs, '"popisek":"Jméno a příjmení"'), str_contains($jobsCs, 'Název'), str_contains($jobsCs, '"tlacitko":"Odeslat žádost"')], [[], true, false, true]);
+// every text a preset writes into the site (name, field labels, the item template, extra pages) is in every site dictionary;
+// a Czech source text (a key of en.php) passes through in Czech
+$presetUntranslated = [];
+$sourceCzech = require KALETA_SYSTEM . '/jazyky/en.php';
+foreach (glob(KALETA_SYSTEM . '/jazyky/[a-z][a-z].php') ?: [] as $file) {
+    $code = basename($file, '.php');
+    $dictionary = $code === 'en' ? [] : require $file;
+    foreach ($code === 'en' ? [] : $presets as $presetKey => $p) {
+        foreach ($presetSiteTexts($presetKey, $p) as $text) {
+            if (!isset($dictionary[$text]) && !($code === 'cs' && isset($sourceCzech[$text]))) {
+                $presetUntranslated[] = $code . ': ' . $presetKey . ': ' . $text;
+            }
+        }
+    }
+}
+check('3.9.2 presets: what a preset writes into the site is translated in every site dictionary', array_values(array_unique($presetUntranslated)), []);
 
 /* ---------- 2.11 F1: screen mode (Front\Screen) ---------- */
 check('2.11 Screen::seconds – within 5–60, empty = 10', array_map(Kaleta\Front\Screen::seconds(...), ['', '3', '90', '20', 0]), [10, 5, 60, 20, 10]);
