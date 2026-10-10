@@ -368,23 +368,27 @@ final class Catalog
 
     /**
      * The core tools an essentials connection lists (3.10): pages, the builder, the menu and the look, collections, media,
-     * requests and enquiries, facts, the audit and the change log – what the server instructions, the prompts and the
-     * plugin skills reach for first. tools/list of these plus META stays under 50 KB (tools/unit-tests.php checks it).
+     * requests and enquiries, facts, the audit, the change log and undo_agent_session (the safety net of a Claude session)
+     * – what the server instructions, the prompts and the plugin skills reach for first. tools/list of these plus META
+     * stays under 50 KB (tools/unit-tests.php checks it); every other read tool is one run_read_tool away.
      */
     public const array ESSENTIALS = ['site_info', 'list_pages', 'get_page', 'create_page', 'update_page', 'get_menu', 'save_menu', 'builder_schema', 'get_build',
         'edit_build', 'build_from_html', 'save_build', 'insert_section', 'publish_build', 'preview_link', 'list_collections', 'list_collection_items',
         'save_collection_item', 'list_media', 'upload_file', 'update_media', 'list_requests', 'update_request', 'list_enquiries', 'list_facts', 'save_fact',
-        'update_design_system', 'publish_look', 'site_audit', 'get_health', 'list_changes', 'read_notebook', 'list_pending_review'];
+        'update_design_system', 'publish_look', 'site_audit', 'get_health', 'list_changes', 'undo_agent_session', 'read_notebook'];
 
     /**
      * The meta tools (3.10): English name => [access, title, open world]. They are listed only for an essentials connection
      * but callable on any; they are not site tools – no Tools method, no Translator entry – and Mcp\Server runs them itself.
-     * run_tool can run anything the connection may, so its annotations say so; the inner tool is checked like a direct call.
+     * The runner is split so reads stay frictionless and writes keep a tool a client confirms: run_read_tool runs read tools
+     * only (annotated read-only), run_tool runs anything the connection may, so its annotations say so; either way the inner
+     * tool is checked like a direct call.
      *
      * @var array<string, array{0: 'read'|'destructive', 1: string, 2: bool}>
      */
     public const array META = [
         'find_tools' => ['read', 'Find more tools', false],
+        'run_read_tool' => ['read', 'Run a read-only tool by name', false],
         'run_tool' => ['destructive', 'Run a tool by name', true],
     ];
 

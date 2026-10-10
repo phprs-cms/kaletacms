@@ -18,8 +18,8 @@ chat. What a connection may do is set when you connect: everything your account 
 The skills respect that.
 
 A connection also has a tool set, chosen when you connect: **Essentials** (the default for a connector) lists the core
-tools and keeps every conversation lighter; Claude reaches the other tools a skill names with `find_tools` and
-`run_tool`. **All tools** lists everything at once. Switch it for any connection in Kaleta under My account.
+tools and keeps every conversation lighter; Claude reaches the other tools a skill names with `find_tools`, then
+`run_read_tool` (reads) or `run_tool` (changes). **All tools** lists everything at once. Switch it for any connection in Kaleta under My account.
 
 ## Where it works
 

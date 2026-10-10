@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Kaleta\Mcp;
 
 /**
- * Tools on demand (3.10). An essentials connection (Catalog::TOOL_SETS) lists the core tools (Catalog::ESSENTIALS) and two
+ * Tools on demand (3.10). An essentials connection (Catalog::TOOL_SETS) lists the core tools (Catalog::ESSENTIALS) and the
  * meta tools: find_tools tells Claude what else the connection may use and hands out the full definitions it asks for,
- * run_tool runs any of them by name (Mcp\Server, the same path as a direct tools/call). The site's tools stay the same;
+ * run_read_tool runs a read tool by name and run_tool any tool (Mcp\Server, the same path as a direct tools/call). The site's tools stay the same;
  * only what every conversation carries in its context gets shorter.
  */
 final class Discovery
@@ -18,20 +18,24 @@ final class Discovery
     /** @return list<array<string, mixed>> the meta tools' definitions (English only, like the tools added in English) */
     public static function definitions(): array
     {
+        $runner = fn (string $what): array => ['type' => 'object', 'properties' => [
+            'name' => ['type' => 'string', 'description' => 'the tool, e.g. ' . $what . ' (from find_tools)'],
+            'arguments' => ['type' => 'object', 'description' => 'the tool\'s parameters, as find_tools describes them'],
+        ], 'required' => ['name']];
+
         return [
             ['name' => 'find_tools', 'description' => 'Finds the other tools of this site (3.10). This connection lists the essentials only; every other tool it may use – news, redirects, settings, '
-                . 'pop-ups, trash and versions, bookings, newsletters, the notebook, imports and more – is found here and run with run_tool. Without arguments: a short index (name, access, one line each). '
-                . 'With query (words, e.g. "redirect 404") or names (exact tool names): the full definitions, up to 8 – the parameters to pass to run_tool.',
+                . 'pop-ups, trash and versions, bookings, newsletters, the notebook, imports and more – is found here. Without arguments: a short index (name, access, runner, one line each). '
+                . 'With query (words, e.g. "redirect 404") or names (exact tool names): the full definitions, up to 8. Run a read tool with run_read_tool, any other with run_tool.',
                 'inputSchema' => ['type' => 'object', 'properties' => [
                     'query' => ['type' => 'string', 'description' => 'words to look for in the tool names, titles and descriptions'],
                     'names' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'exact tool names, e.g. ["list_news", "create_news"]'],
                 ], 'required' => []]],
+            ['name' => 'run_read_tool', 'description' => 'Runs a read-only tool of this site by its name (3.10), exactly as a direct call: it changes nothing. A tool that changes the site is refused – use run_tool. '
+                . 'Call find_tools first for the parameters.', 'inputSchema' => $runner('list_news')],
             ['name' => 'run_tool', 'description' => 'Runs a tool of this site by its name (3.10) exactly as a direct call would: the same access of this connection, the same limits, '
-                . 'change log and undo. For a tool that is not in your list – call find_tools first for its parameters. The rules of the tool still hold: publish, make visible, delete or send only when the user asks.',
-                'inputSchema' => ['type' => 'object', 'properties' => [
-                    'name' => ['type' => 'string', 'description' => 'the tool, e.g. create_news (from find_tools)'],
-                    'arguments' => ['type' => 'object', 'description' => 'the tool\'s parameters, as find_tools describes them'],
-                ], 'required' => ['name']]],
+                . 'change log and undo. Call find_tools first for the parameters. The rules of the tool still hold: publish, make visible, delete or send only when the user asks.',
+                'inputSchema' => $runner('create_news')],
         ];
     }
 
@@ -59,7 +63,8 @@ final class Discovery
      */
     public static function find(array $available, array $inList, array $arguments): array
     {
-        $byName = array_column($available, null, 'name');
+        // each tool says which runner takes it: a read tool run_read_tool (nothing to confirm), any other run_tool
+        $byName = array_map(fn (array $t): array => $t + ['runner' => self::runner((string) $t['name'])], array_column($available, null, 'name'));
         $others = array_values(array_filter($available, fn (array $t): bool => !in_array($t['name'], $inList, true)));
         $names = $arguments['names'] ?? [];
         if (is_string($names)) {
@@ -99,9 +104,15 @@ final class Discovery
                 + ($matches === [] ? ['note' => 'No tool outside your list matches “' . mb_substr($query, 0, 100) . '”. Call find_tools without arguments for the index, or use a tool from your list.'] : []);
         }
 
-        return ['tools' => array_map(fn (array $t): array => ['name' => $t['name'], 'access' => Catalog::access((string) $t['name']), 'about' => self::summary($t)], $others),
+        return ['tools' => array_map(fn (array $t): array => ['name' => $t['name'], 'access' => Catalog::access((string) $t['name']), 'runner' => self::runner((string) $t['name']), 'about' => self::summary($t)], $others),
             'note' => $others === [] ? 'Every tool this connection may use is already in your list.'
-                : 'Call find_tools with names (or a query) for the parameters, then run_tool with name and arguments. Access: read changes nothing, draft saves drafts, write changes the site, destructive removes or sends.'];
+                : 'Call find_tools with names (or a query) for the parameters, then the runner with name and arguments. Access: read changes nothing, draft saves drafts, write changes the site, destructive removes or sends.'];
+    }
+
+    /** The meta tool that runs a tool: run_read_tool for a read tool, run_tool for anything that changes the site. */
+    public static function runner(string $name): string
+    {
+        return Catalog::access($name) === 'read' ? 'run_read_tool' : 'run_tool';
     }
 
     /**

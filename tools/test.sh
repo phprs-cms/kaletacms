@@ -2466,11 +2466,11 @@ mcp_text; contains -q 'Unknown language codes: xx' "$WORK/text" && contains -q '
 mcp update_settings "{\"settings\":{\"extensions\":[\"$(printf %s "$EXT_BEFORE" | sed 's/,/","/g')\"],\"llms_txt\":\"1\"}}" > /dev/null
 check "OAuth metadata for a site in a subfolder (openid-configuration)" 200 "/.well-known/openid-configuration" '"token_endpoint"'
 
-echo "== 3.10: tools on demand – an essentials connection lists the core tools, finds the rest (find_tools) and runs it (run_tool)"
-# mcp_list <token>: how many tools tools/list holds | whether find_tools and run_tool are among them | whether it fits in 50 KB
+echo "== 3.10: tools on demand – an essentials connection lists the core tools, finds the rest (find_tools) and runs it (run_read_tool, run_tool)"
+# mcp_list <token>: how many tools tools/list holds | whether the three meta tools are among them | whether it fits in 50 KB
 mcp_list() { curl -s -X POST "$B/mcp" -H "Authorization: Bearer $1" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' \
   | php -r '$t = json_decode(stream_get_contents(STDIN), true)["result"]["tools"] ?? []; $n = array_column($t, "name");
-    echo count($t), "|", in_array("find_tools", $n, true) && in_array("run_tool", $n, true) ? "meta" : (array_intersect(["find_tools", "run_tool"], $n) ? "half" : "no-meta"), "|", strlen(json_encode(["tools" => $t], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) <= 50000 ? "small" : "large";'; }
+    $meta = array_intersect(["find_tools", "run_read_tool", "run_tool"], $n); echo count($t), "|", count($meta) === 3 ? "meta" : ($meta ? "part" : "no-meta"), "|", strlen(json_encode(["tools" => $t], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) <= 50000 ? "small" : "large";'; }
 token_of() { grep -o "\"$1\":\"[a-z0-9_]*\"" "$WORK/response" | sed 's/.*:"//;s/"//' || true; }
 ALL_BEFORE=$(mcp_list "$API_TOKEN")
 case "$ALL_BEFORE" in *"|no-meta|large") echo "  ok     3.10: a connection from before (all tools) lists every tool and no meta tool ($ALL_BEFORE)";; *) echo "  CHYBA  3.10: the all-tools list: $ALL_BEFORE"; ERRORS=$((ERRORS+1));; esac
@@ -2485,27 +2485,33 @@ curl -s -o "$WORK/response" -X POST "$B/oauth/token" -d grant_type=authorization
 ESS_ACCESS=$(token_of access_token); ESS_REFRESH=$(token_of refresh_token)
 expect "3.10: the essentials chosen at consent are on the access and the refresh token" "$(sq "SELECT GROUP_CONCAT(CONCAT(druh, ':', tool_set) ORDER BY druh) FROM ka_api_tokeny WHERE otisk IN (SHA2('$ESS_ACCESS', 256), SHA2('$ESS_REFRESH', 256))")" "obnova:essentials,pristup:essentials"
 ESS_LIST=$(mcp_list "$ESS_ACCESS")
-case "$ESS_LIST" in *"|meta|small") [ "${ESS_LIST%%|*}" -lt "${ALL_BEFORE%%|*}" ] && echo "  ok     3.10: an essentials connection lists the core tools plus find_tools and run_tool, under 50 KB ($ESS_LIST)" || { echo "  CHYBA  3.10: the essentials list is not shorter: $ESS_LIST"; ERRORS=$((ERRORS+1)); };; *) echo "  CHYBA  3.10: the essentials list: $ESS_LIST"; ERRORS=$((ERRORS+1));; esac
+case "$ESS_LIST" in *"|meta|small") [ "${ESS_LIST%%|*}" -lt "${ALL_BEFORE%%|*}" ] && echo "  ok     3.10: an essentials connection lists the core tools plus find_tools, run_read_tool and run_tool, under 50 KB ($ESS_LIST)" || { echo "  CHYBA  3.10: the essentials list is not shorter: $ESS_LIST"; ERRORS=$((ERRORS+1)); };; *) echo "  CHYBA  3.10: the essentials list: $ESS_LIST"; ERRORS=$((ERRORS+1));; esac
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $ESS_ACCESS" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' > "$WORK/response"
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' > "$WORK/response2"
-contains -q 'YOUR TOOL LIST HOLDS THE ESSENTIALS' "$WORK/response" && contains -q 'call find_tools' "$WORK/response" && ! contains -q 'YOUR TOOL LIST HOLDS THE ESSENTIALS' "$WORK/response2" \
-  && echo "  ok     3.10: the server instructions of an essentials connection point to find_tools and run_tool, an all-tools connection's do not" || { echo "  CHYBA  3.10: instructions"; ERRORS=$((ERRORS+1)); }
+contains -q 'YOUR TOOL LIST HOLDS THE ESSENTIALS' "$WORK/response" && contains -q 'then run_read_tool for a read tool or run_tool' "$WORK/response" && ! contains -q 'YOUR TOOL LIST HOLDS THE ESSENTIALS' "$WORK/response2" \
+  && echo "  ok     3.10: the server instructions of an essentials connection point to find_tools and the runners, an all-tools connection's do not" || { echo "  CHYBA  3.10: instructions"; ERRORS=$((ERRORS+1)); }
 # the refresh keeps the tool set
 curl -s -o "$WORK/response" -X POST "$B/oauth/token" -d grant_type=refresh_token -d "refresh_token=$ESS_REFRESH" -d "client_id=$CLIENT"
 ESS_ACCESS=$(token_of access_token); ESS_REFRESH=$(token_of refresh_token)
 expect "3.10: a token refresh keeps the essentials" "$(sq "SELECT GROUP_CONCAT(CONCAT(druh, ':', tool_set) ORDER BY druh) FROM ka_api_tokeny WHERE otisk IN (SHA2('$ESS_ACCESS', 256), SHA2('$ESS_REFRESH', 256))")|$(mcp_list "$ESS_ACCESS" | cut -d'|' -f2)" "obnova:essentials,pristup:essentials|meta"
 # find_tools: the index of the rest, full definitions by name or by query
 mcp_as "$ESS_ACCESS" find_tools '{}' > "$WORK/response"; mcp_text
-contains -q '"name":"list_news"' "$WORK/text" && contains -q '"name":"save_redirect","access":"write"' "$WORK/text" && ! contains -q '"name":"create_page"' "$WORK/text" && ! contains -q '"inputSchema"' "$WORK/text" \
-  && echo "  ok     3.10: find_tools without arguments indexes the tools outside the list, one line each" || { echo "  CHYBA  3.10: find_tools index"; head -c 400 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+contains -q '"name":"list_news","access":"read","runner":"run_read_tool"' "$WORK/text" && contains -q '"name":"save_redirect","access":"write","runner":"run_tool"' "$WORK/text" && ! contains -q '"name":"create_page"' "$WORK/text" && ! contains -q '"inputSchema"' "$WORK/text" \
+  && echo "  ok     3.10: find_tools without arguments indexes the tools outside the list, one line each with the runner to use" || { echo "  CHYBA  3.10: find_tools index"; head -c 400 "$WORK/text"; ERRORS=$((ERRORS+1)); }
 mcp_as "$ESS_ACCESS" find_tools '{"names":["create_news","nonexistent_tool"]}' > "$WORK/response"; mcp_text
-contains -q '"name":"create_news","title":"Create a news item"' "$WORK/text" && contains -q '"reason":{' "$WORK/text" && contains -q '"not_available":\["nonexistent_tool"\]' "$WORK/text" \
+contains -q '"name":"create_news","title":"Create a news item"' "$WORK/text" && contains -q '"reason":{' "$WORK/text" && contains -q '"runner":"run_tool"' "$WORK/text" && contains -q '"not_available":\["nonexistent_tool"\]' "$WORK/text" \
   && echo "  ok     3.10: find_tools with names returns the full definition (with reason) and names what is not available" || { echo "  CHYBA  3.10: find_tools names"; head -c 400 "$WORK/text"; ERRORS=$((ERRORS+1)); }
 mcp_as "$ESS_ACCESS" find_tools '{"query":"redirect"}' > "$WORK/response"; mcp_text
 contains -q '"name":"list_redirects"' "$WORK/text" && contains -q '"name":"save_redirect"' "$WORK/text" && echo "  ok     3.10: find_tools with a query finds the matching tools" || { echo "  CHYBA  3.10: find_tools query"; head -c 400 "$WORK/text"; ERRORS=$((ERRORS+1)); }
 # run_tool: a read and a write through the same path as a direct call – the change log has the inner tool, the connection and the reason
 mcp_as "$ESS_ACCESS" run_tool '{"name":"list_redirects","arguments":{}}' > "$WORK/response"
 contains -q '"isError":true' "$WORK/response" && { echo "  CHYBA  3.10: run_tool read"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.10: run_tool runs a read tool"
+mcp_as "$ESS_ACCESS" run_read_tool '{"name":"list_redirects","arguments":{}}' > "$WORK/response"; mcp_as "$READ_TOKEN" run_read_tool '{"name":"list_news","arguments":{}}' > "$WORK/response2"
+contains -q '"isError":true' "$WORK/response" || contains -q '"isError":true' "$WORK/response2" && { echo "  CHYBA  3.10: run_read_tool"; head -c 300 "$WORK/response"; head -c 300 "$WORK/response2"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.10: run_read_tool runs a read tool, also on a read-only connection"
+mcp_as "$ESS_ACCESS" run_read_tool "{\"name\":\"create_news\",\"arguments\":{\"title\":\"Via run_read_tool\",\"category\":\"$CATEGORY\"}}" > "$WORK/response"
+contains -q 'run_read_tool runs read-only tools only – create_news changes the site (access: draft). Use run_tool for it.' "$WORK/response" && contains -q '"isError":true' "$WORK/response" \
+  && expect "3.10: run_read_tool refuses a tool that changes the site and points to run_tool, nothing is saved" "$(sq "SELECT COUNT(*) FROM ka_novinky WHERE titulek = 'Via run_read_tool'")" "0" \
+  || { echo "  CHYBA  3.10: run_read_tool with a write tool"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 JOURNAL_BEFORE=$(sq "SELECT COUNT(*) FROM ka_agent_journal WHERE tool = 'create_news'")
 mcp_as "$ESS_ACCESS" run_tool "{\"name\":\"create_news\",\"arguments\":{\"title\":\"Written via run_tool\",\"category\":\"$CATEGORY\",\"text\":\"<p>Hello</p>\",\"typo_param\":1},\"reason\":\"The user asked for a news item (3.10 test)\"}" > "$WORK/response"; mcp_text
 expect "3.10: run_tool runs a write tool – a draft, the change log row of create_news with the connection and the reason, the undo journal, unknown parameters reported" \
@@ -2514,8 +2520,9 @@ mcp_as "$ESS_ACCESS" list_news '{}' > "$WORK/response"
 contains -q '"isError":true' "$WORK/response" || ! contains -q 'Written via run_tool' "$WORK/response" && { echo "  CHYBA  3.10: a direct call of a tool outside the list"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.10: a tool outside the list can still be called directly by name"
 # nesting, unknown tools and the connection's access
 mcp_as "$ESS_ACCESS" run_tool '{"name":"run_tool","arguments":{"name":"list_news"}}' > "$WORK/response"; mcp_as "$ESS_ACCESS" run_tool '{"name":"find_tools"}' > "$WORK/response2"
-contains -q 'not run_tool' "$WORK/response" && contains -q '"isError":true' "$WORK/response" && contains -q 'call find_tools directly' "$WORK/response2" \
-  && echo "  ok     3.10: run_tool refuses to run run_tool or find_tools" || { echo "  CHYBA  3.10: nested run_tool"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp_as "$ESS_ACCESS" run_read_tool '{"name":"run_read_tool","arguments":{"name":"list_news"}}' > "$WORK/response3"; mcp_as "$ESS_ACCESS" run_tool '{"name":"run_read_tool","arguments":{"name":"list_news"}}' > "$WORK/response4"
+contains -q 'not run_tool' "$WORK/response" && contains -q '"isError":true' "$WORK/response" && contains -q 'call find_tools directly' "$WORK/response2" && contains -q 'run_read_tool runs the site.s tools, not run_read_tool' "$WORK/response3" && contains -q 'not run_read_tool' "$WORK/response4" \
+  && echo "  ok     3.10: neither runner runs a meta tool (run_tool, run_read_tool, find_tools)" || { echo "  CHYBA  3.10: nested run_tool"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp_as "$ESS_ACCESS" run_tool '{"name":"no_such_tool","arguments":{}}' | contains -q 'Unknown tool: no_such_tool. Call find_tools' && echo "  ok     3.10: run_tool with an unknown tool points to find_tools" || { echo "  CHYBA  3.10: run_tool unknown"; ERRORS=$((ERRORS+1)); }
 mcp_as "$READ_TOKEN" run_tool "{\"name\":\"create_news\",\"arguments\":{\"title\":\"Read-only via run_tool\",\"category\":\"$CATEGORY\"}}" > "$WORK/response"
 mcp_as "$DRAFT_TOKEN" run_tool '{"name":"save_redirect","arguments":{"from":"/old-310","to":"/"}}' > "$WORK/response2"

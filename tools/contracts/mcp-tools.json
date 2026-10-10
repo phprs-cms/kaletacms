@@ -1487,6 +1487,21 @@
             "openWorldHint": false
         }
     },
+    "run_read_tool": {
+        "parameters": {
+            "arguments": "object",
+            "name": "string"
+        },
+        "required": [
+            "name"
+        ],
+        "annotations": {
+            "title": "Run a read-only tool by name",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "run_tool": {
         "parameters": {
             "arguments": "object",

@@ -98,7 +98,7 @@ final class Server
             // Czech names remain as hidden aliases
             // only the tools this connection may use (a connection limited to drafts or to reading, 2.2)
             // 3.8: each tool also carries its title (top level and annotations.title, MCP 2025-06-18) – additive fields only
-            // 3.10: an essentials connection lists the core tools and find_tools / run_tool (Mcp\Discovery)
+            // 3.10: an essentials connection lists the core tools and find_tools / run_read_tool / run_tool (Mcp\Discovery)
             'tools/list' => $ok(['tools' => $this->toolSet() === 'essentials' ? Discovery::essentials($this->available($tools)) : $this->available($tools)]),
             'tools/call' => $ok($this->call($tools, (string) ($z['params']['name'] ?? ''), (array) ($z['params']['arguments'] ?? []))),
             default => ['jsonrpc' => '2.0', 'id' => $id, 'error' => ['code' => -32601, 'message' => 'Unknown method: ' . $method]],
@@ -169,8 +169,8 @@ final class Server
 
             return ['content' => [['type' => 'text', 'text' => json_encode(Discovery::find($this->available($tools), $inList, $arguments), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]]];
         }
-        if ($name === 'run_tool') {
-            return $this->runTool($tools, $arguments);
+        if ($name === 'run_tool' || $name === 'run_read_tool') {
+            return $this->runTool($tools, $arguments, $name);
         }
         $czech = Translator::czech($name);
         $isEnglish = $czech !== null || !in_array($name, $tools->names(), true);
@@ -242,22 +242,23 @@ final class Server
     }
 
     /**
-     * run_tool (3.10): the inner tool goes through call() like a direct tools/call – the connection's access, the
-     * guardrails and the reason, the journal for undo, unknown parameters, the translation, the change log and the cache.
-     * It never runs a meta tool, so a call cannot nest.
+     * run_tool and run_read_tool (3.10): the inner tool goes through call() like a direct tools/call – the connection's
+     * access, the guardrails and the reason, the journal for undo, unknown parameters, the translation, the change log and
+     * the cache. run_read_tool runs read tools only; neither runs a meta tool, so a call cannot nest.
      *
      * @param array<string, mixed> $arguments
+     * @param string $runner run_tool | run_read_tool
      * @return array<string, mixed>
      */
-    private function runTool(Tools $tools, array $arguments): array
+    private function runTool(Tools $tools, array $arguments, string $runner): array
     {
         $error = fn (string $text): array => ['content' => [['type' => 'text', 'text' => $text]], 'isError' => true];
         $name = trim(is_scalar($arguments['name'] ?? null) ? (string) $arguments['name'] : '');
         if ($name === '') {
-            return $error('run_tool needs name – the tool to run (find_tools lists them) – and its arguments as an object.');
+            return $error($runner . ' needs name – the tool to run (find_tools lists them) – and its arguments as an object.');
         }
         if (isset(Catalog::META[$name])) {
-            return $error('run_tool runs the site\'s tools, not ' . $name . ' – call ' . ($name === 'find_tools' ? 'find_tools directly.' : 'the tool you need directly in run_tool.'));
+            return $error($runner . ' runs the site\'s tools, not ' . $name . ' – call ' . ($name === 'find_tools' ? 'find_tools directly.' : 'the tool you need directly in ' . $runner . '.'));
         }
         $inner = $arguments['arguments'] ?? [];
         if (is_string($inner)) {
@@ -265,13 +266,17 @@ final class Server
             $inner = trim($inner) === '' ? [] : json_decode($inner, true);
         }
         if (!is_array($inner) || ($inner !== [] && array_is_list($inner))) {
-            return $error('run_tool: arguments must be an object with the tool\'s parameters, e.g. {"id": 12}. find_tools with names gives them.');
+            return $error($runner . ': arguments must be an object with the tool\'s parameters, e.g. {"id": 12}. find_tools with names gives them.');
         }
         if (!isset($inner['reason']) && is_string($arguments['reason'] ?? null)) {
             $inner['reason'] = $arguments['reason']; // the reason may come with run_tool itself
         }
         if (Catalog::english($name) === null) {
             return $error('Unknown tool: ' . mb_substr($name, 0, 100) . '. Call find_tools for the tools of this site.');
+        }
+        if ($runner === 'run_read_tool' && Catalog::access($name) !== 'read') {
+            // the read-only runner stays read-only: a client may run it without asking, so a change goes through run_tool
+            return $error('run_read_tool runs read-only tools only – ' . mb_substr($name, 0, 100) . ' changes the site (access: ' . Catalog::access($name) . '). Use run_tool for it.');
         }
 
         return $this->call($tools, $name, $inner);
