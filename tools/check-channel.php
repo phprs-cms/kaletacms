@@ -15,6 +15,10 @@
  * and must be there on the stable manifest and on any manifest of 3.9.0 or later (sites from 3.9 on refuse them without it).
  * A latest manifest of an older release without it passes on its v1 signature, as before.
  *
+ * 3.10 (N39-7): a manifest with v2 must carry its signed release date ("vydano", YYYY-MM-DD) – sites order by it and
+ * refuse an older manifest than the one they already have. The check fails RESIGN_BEFORE_DAYS before sites start
+ * warning that the update information is old (Core\Updater::FRESHNESS_DAYS): re-sign the manifest then (docs/RELEASING.md).
+ *
  * Signs nothing and needs no private key.
  */
 
@@ -33,6 +37,9 @@ foreach ($arguments as $i => $argument) {
         unset($arguments[$i]);
     }
 }
+/** The check fails this many days before sites warn about old update information – two weeks to re-sign it. */
+const RESIGN_BEFORE_DAYS = 14;
+
 $manifestUrl = array_values($arguments)[0] ?? Updater::DEFAULT_URL;
 $stableUrl = $stableArgument ?? Updater::stableUrl($manifestUrl);
 $keys = dirname(__DIR__) . '/system/aktualizace.pub';
@@ -86,7 +93,17 @@ $check = static function (string $json, string $label, bool $stableManifest = fa
         if (!Signature::manifestValid($m, $keys)) {
             $errors[] = "$label: podpis v2 (podpis2) NEPLATÍ – weby od 3.9 manifest odmítnou (upravený po podpisu, nebo klíč z „klic“ není v system/aktualizace.pub)";
         }
-    } elseif ($stableManifest || version_compare($m['verze'], Updater::SIGNED_V2_SINCE, '>=')) {
+        // 3.10 (N39-7): the signed release date sites order manifests by, and its age
+        $published = Updater::releaseDate($m);
+        $age = $published !== '' ? (int) floor((time() - (int) strtotime($published . ' 00:00:00 UTC')) / 86400) : null;
+        if ($age === null) {
+            $errors[] = "$label: the signed release date (vydano, YYYY-MM-DD) is missing or invalid – sites cannot tell it from an older copy; sign it again with tools/release.php";
+        } elseif ($age > Updater::FRESHNESS_DAYS - RESIGN_BEFORE_DAYS) {
+            $errors[] = "$label: published $published, $age days ago – sites warn after " . Updater::FRESHNESS_DAYS . " days that their update information is old; sign the manifest again (docs/RELEASING.md, Freshness)";
+        } else {
+            echo "$label: published $published ($age days ago)\n";
+        }
+    } elseif ($stableManifest || Updater::needsSignatureV2($m['verze'])) {
         $errors[] = "$label: chybí podpis v2 (podpis2) – weby od 3.9 manifest odmítnou; podepište ho znovu nástrojem tools/release.php z větve main";
     } else {
         echo "$label: bez podpisu v2 – vydání před " . Updater::SIGNED_V2_SINCE . ", platí podpis v1 (tak ho čtou weby do 3.8)\n";

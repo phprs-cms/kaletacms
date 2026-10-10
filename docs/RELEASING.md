@@ -212,6 +212,36 @@ Co to znamená pro vydavatele:
   (v1 zůstává vydavatele a web ho ověří). `TRUST_KEY=<veřejný klíč>` zkouší balíček podepsaný dočasným klíčem (suchý
   běh `release.php` s `KALETA_KLIC`).
 
+### Freshness and pre-releases (3.10, audit N39-7 and N39-8)
+
+A site from 3.10 on remembers, per update source (the latest, the stable or a custom address), the newest manifest with
+a valid v2 signature it received: its version and its signed release date `vydano` (setting `update_seen`). A manifest
+that is older is refused as a **stale manifest** – the admin and System status say so instead of "up to date", and
+nothing is offered or installed from it (`Core\Updater::isStale`):
+
+- the signed `vydano` (YYYY-MM-DD, written by `release.php`) decides first: an earlier date is stale;
+- on the same date the version decides: a lower version is stale (3.9.1 and 3.9.2 came out on the same day);
+- a later date wins even with a lower version – a deliberate re-signing by the publisher is accepted;
+- a manifest without `podpis2` after one with it is stale (it comes from before 3.9; its date is not signed);
+- a version lower than the installed one is never offered, as before.
+
+What it means for the publisher:
+
+- **Never publish an older manifest again to "pull" a release.** Sites that saw the newer one call it stale. Publish a
+  fixed, higher patch instead (or, if you must, re-sign the older package today with `--package`: the newer date wins).
+- **Re-sign at least every 60 days.** System status on every site warns when the newest update information it has is
+  older than `Core\Updater::FRESHNESS_DAYS` (60 days: two missed stable cycles or eight missed weekly releases). Weekly
+  releases refresh `aktualizace.json` anyway; the **stable manifest** may sit still longer. `tools/check-channel.php`
+  (and the daily check) fails 14 days before that limit, so you get two weeks' notice. Re-signing changes nothing but
+  the date: `php tools/release.php X.Y.Z [--channel=stable] --package=dist/kaleta-X.Y.Z.zip --url=… --zmena="…"` with the
+  same version, URL, flags and change lines as the published manifest, then upload it as usual.
+- There is deliberately **no hard expiry** in the manifest: the keys are offline with the publisher, nothing re-signs
+  automatically, and an expired manifest would stop the very update that fixes the problem. Sites only warn.
+- `check-channel.php` requires a valid signed `vydano` on every manifest with `podpis2`.
+- A pre-release of 3.9.0 (`3.9.0-rc1`, `3.9.0-dev`, any suffix) needs signature v2 like 3.9.0 itself: only the numeric
+  X.Y.Z is compared against `SIGNED_V2_SINCE` (`Core\Updater::needsSignatureV2`) – in `version_compare()` such tags are
+  lower than `3.9.0`. Never publish a pre-release manifest without v2.
+
 ## Plánovaná výměna provozního klíče
 
 1. Starý `tools/klice/vydavatel.key` přesuňte do archivu (nemažte ho, dokud výměna neproběhne).

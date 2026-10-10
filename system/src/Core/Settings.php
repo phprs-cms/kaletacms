@@ -189,6 +189,7 @@ final class Settings
         'update_url' => '',      // URL of the aktualizace.json file; empty = the project's default source
         'update_channel' => 'latest', // 3.8: latest (a new minor every week) or stable (security fixes, a new minor about monthly) – Core\Updater
         'update_cache' => '',
+        'update_seen' => '',       // 3.10: the newest signed manifest each update source gave the site (JSON, Core\Updater – a stale one is refused)
         'auto_updates' => '1',    // install security releases automatically
         'update_attempt' => '',    // the version the background maintenance has already tried / announced
         'extensions' => '',            // enabled extensions (Core\Extensions); empty = default set
