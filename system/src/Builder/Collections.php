@@ -11,7 +11,7 @@ use Kaleta\Core\WpContent;
  * Collections – custom content types (references, team, products, branches…): field definitions, items and values for the builder.
  *
  * In the builder the Collection list element lists them: its inside repeats for each item and the {{field}} placeholders
- * in texts, images and links are replaced by the item's values. {{nazev}}, {{url}} (item page) and {{datum}} are always available.
+ * in texts, images and links are replaced by the item's values. {{nazev}}, {{url}} (item page), {{datum}} and {{obrazek}} (the item page's image) are always available.
  */
 final class Collections
 {
@@ -478,6 +478,15 @@ final class Collections
             }
             $h[$p['klic']] = [$value, $p['typ']];
         }
+        // {{obrazek}} without a field of that name (3.9.2) = the image of the item's page (for sharing), else its first image
+        // field – the same image search engines and social networks show, so a card or a hero has a photo without a new field
+        if (!isset($h['obrazek'])) {
+            $image = (string) ($item['obrazek'] ?? '');
+            foreach ($collection['pole'] as $p) {
+                $image = $image === '' && $p['typ'] === 'obrazek' ? (string) ($item['data'][$p['klic']] ?? '') : $image;
+            }
+            $h['obrazek'] = [$image, 'obrazek'];
+        }
         if ($db !== null && ($collection['preset'] ?? '') !== '') {
             $h += \Kaleta\Core\Calendar::values($db, $collection, $item, $url, date('Y-m-d H:i')); // an event's when, where, status, iCal (2.11)
             $h += Products::values($collection, $item); // a product for the enquiry basket and comparison (2.11)
@@ -536,6 +545,7 @@ final class Collections
         if (\Kaleta\Core\Notices::isBoard($collection)) {
             $h['notice_status'] ??= ['[' . t('Notice status') . ']', 'text'];
         }
+        $h['obrazek'] ??= ['', 'obrazek'];
 
         return $h;
     }

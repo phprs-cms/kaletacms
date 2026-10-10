@@ -1943,4 +1943,7 @@ return [
     'Previous and next item' => 'Elemento precedente e successivo',
     '%s – page %d' => '%s – pagina %d',
     'Nothing was saved: the text is over a safety limit for HTML (too large or nested too deeply).' => 'Non è stato salvato nulla: il testo supera un limite di sicurezza per l’HTML (troppo grande o annidato troppo in profondità).',
+    'The collection list shows the collection “%s”, which does not exist.' => 'L’elenco della raccolta mostra la raccolta “%s”, che non esiste.',
+    'The collection list shows the category “%s”, which the collection does not have – it will stay empty.' => 'L’elenco della raccolta mostra la categoria “%s”, che la raccolta non ha – resterà vuoto.',
+    '{{%s}} is not a field of the collection “%s” – it will stay empty on the site.' => '{{%s}} non è un campo della raccolta “%s” – resterà vuoto sul sito.',
 ];

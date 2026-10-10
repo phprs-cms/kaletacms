@@ -11,7 +11,7 @@ use Kaleta\Builder\Element;
 
 /**
  * Collection list: the inside of the element is the pattern of one item and repeats for each collection item (references, team, products…).
- * In texts, images and links inside, {{field}} is replaced by the item's value: {{nazev}}, {{url}}, {{datum}} and custom fields.
+ * In texts, images and links inside, {{field}} is replaced by the item's value: {{nazev}}, {{url}}, {{datum}}, {{obrazek}} and custom fields.
  */
 final class CollectionList extends Element
 {
@@ -140,7 +140,9 @@ final class CollectionList extends Element
     /**
      * The category a list is about (3.7): '' = none; * = the category page shown, on an item page the item's first category
      * (related items), elsewhere none; an address = that category of the collection (in the site's language, else the
-     * default one). Returns [id | null (no category) | false (an address that is no visible category), whether it is the
+     * default one) – hidden too (3.9.2): hidden means the category has no page of its own, while a list the site's builder
+     * set to it still lists its items (the old site's listing pages stay, without a second unstyled category page).
+     * Returns [id | null (no category) | false (an address that is no category of the collection), whether it is the
      * category page shown].
      *
      * @return array{0: int|false|null, 1: bool}
@@ -163,7 +165,7 @@ final class CollectionList extends Element
         $db = $k->app->db();
         $category = \Kaleta\Builder\CollectionCategories::bySlug($db, $idk, $value, Language::siteColumn()) ?? \Kaleta\Builder\CollectionCategories::bySlug($db, $idk, $value, '');
 
-        return [$category !== null && $category['visible'] ? $category['id'] : false, false];
+        return [$category !== null ? $category['id'] : false, false];
     }
 
     /** The categories of a collection as cards: the subcategories of the category, without one the top-level categories. */

@@ -68,6 +68,70 @@ final class Check
         return array_slice($findings, 0, $max);
     }
 
+    /**
+     * Collection lists and item templates (3.9.2): a list of a missing collection or category shows only its empty text, and
+     * {{key}} that the collection does not have stays empty on the site – both look fine in the draft JSON and break the page.
+     *
+     * @param array<string, mixed> $build sanitized build
+     * @param ?array<string, mixed> $collection the collection whose item template this is (null = a page, a part…)
+     * @return list<array{id: ?string, zprava: string}>
+     */
+    public static function collections(\Kaleta\Core\Db $db, array $build, ?array $collection, int $max = self::MAX): array
+    {
+        $findings = [];
+        $keys = static function (array $collection) use ($db): array {
+            // the keys derived from fields ({{file_name}}, {{date_iso}}…) come from the values of an empty item, those of a
+            // preset (an event's place, a product's price) from a real one when there is any
+            $empty = ['idp' => 0, 'nazev' => '', 'seo_link' => '', 'datum' => date('Y-m-d H:i:s'), 'obrazek' => '', 'data' => []];
+            $item = $db->one('SELECT * FROM {kolekce_polozky} WHERE idk = ? AND smazano IS NULL ORDER BY zobrazit DESC, idp LIMIT 1', [(int) $collection['idk']]);
+            if (is_array($item)) {
+                $item['data'] = json_decode((string) ($item['data'] ?? ''), true) ?: [];
+            }
+            $values = Collections::sample($collection) + Collections::values($collection, $empty, static fn (string $p): string => $p, $db)
+                + (is_array($item) ? Collections::values($collection, $item, static fn (string $p): string => $p, $db) : []);
+
+            return [...array_keys($values), 'latest', 'versions']; // + a document library's file links (Core\Documents::values)
+        };
+        $walk = static function (array $children, ?array $collection, array $known) use (&$walk, &$findings, $db, $keys): void {
+            foreach ($children as $p) {
+                if (!is_array($p)) {
+                    continue;
+                }
+                $o = is_array($p['obsah'] ?? null) ? $p['obsah'] : [];
+                $id = isset($p['id']) ? (string) $p['id'] : null;
+                $inner = [$collection, $known];
+                if (($p['typ'] ?? '') === 'kolekce' && ($o['kolekce'] ?? '') !== '') {
+                    $list = Collections::bySlug($db, (string) $o['kolekce']);
+                    if ($list === null) {
+                        $findings[] = ['id' => $id, 'zprava' => t('The collection list shows the collection “%s”, which does not exist.', (string) $o['kolekce'])];
+                        continue;
+                    }
+                    $category = trim((string) ($o['kategorie'] ?? ''));
+                    if ($category !== '' && $category !== '*') {
+                        $row = CollectionCategories::bySlug($db, (int) $list['idk'], $category, '');
+                        if ($row === null) {
+                            $findings[] = ['id' => $id, 'zprava' => t('The collection list shows the category “%s”, which the collection does not have – it will stay empty.', $category)];
+                        }
+                    }
+                    $inner = ($o['zdroj'] ?? 'polozky') === 'kategorie' ? [null, []] : [$list, $keys($list)];
+                } elseif ($collection !== null) {
+                    preg_match_all('/\{\{\s*([a-z0-9_]+)\s*\}\}/', (string) json_encode($o, JSON_UNESCAPED_UNICODE), $m);
+                    foreach (array_unique($m[1]) as $key) {
+                        if (!in_array($key, $known, true)) {
+                            $findings[] = ['id' => $id, 'zprava' => t('{{%s}} is not a field of the collection “%s” – it will stay empty on the site.', $key, (string) $collection['nazev'])];
+                        }
+                    }
+                }
+                if (is_array($p['deti'] ?? null) && ($p['typ'] ?? '') !== 'komponenta') {
+                    $walk($p['deti'], ...$inner);
+                }
+            }
+        };
+        $walk(is_array($build['deti'] ?? null) ? $build['deti'] : [], $collection, $collection !== null ? $keys($collection) : []);
+
+        return array_slice($findings, 0, $max);
+    }
+
     private static function text(mixed $html): string
     {
         return trim(html_entity_decode(strip_tags((string) $html), ENT_QUOTES | ENT_HTML5));

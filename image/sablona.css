@@ -10,14 +10,8 @@
 @layer sablona.zaklad {
 	:root {
 		color-scheme: light;
-		/* short names for the template; values from the design system */
-		--akcent: var(--ka-barva-primarni, #2b5be3);
-		--akcent-jemny: var(--ka-barva-primarni-jemna, #eef2fd);
-		--text: var(--ka-barva-text, #16181d);
-		--text-tlumeny: var(--ka-barva-tlumeny, #5b5f68);
-		--podklad: var(--ka-barva-pozadi, #ffffff);
-		--plocha: var(--ka-barva-plocha, #f5f6f8);
-		--linka: var(--ka-barva-linka, #dfe1e5);
+		/* short names for the template; values from the design system. Colours are not here: an alias resolved on :root
+		   would not follow a band that overrides a token (--ka-barva-primarni in a dark footer) – they are read where they are used */
 		--pismo: var(--ka-pismo-text, system-ui, sans-serif);
 		--pismo-titulky: var(--ka-pismo-titulky, var(--pismo));
 		--sirka: var(--ka-sirka, 72rem);
@@ -35,14 +29,14 @@
 	:root[data-tmavy][data-tema="svetly"] { color-scheme: light; }
 	*, *::before, *::after { box-sizing: border-box; }
 	html { -webkit-text-size-adjust: 100%; scroll-padding-top: 5rem; }
-	body { margin: 0; background: var(--podklad); color: var(--text); font: var(--krok-0) / 1.6 var(--pismo); text-rendering: optimizeLegibility; }
+	body { margin: 0; background: var(--ka-barva-pozadi, #ffffff); color: var(--ka-barva-text, #16181d); font: var(--krok-0) / 1.6 var(--pismo); text-rendering: optimizeLegibility; }
 	h1, h2, h3, h4 { margin: 0 0 0.5em; font-family: var(--pismo-titulky); line-height: 1.15; letter-spacing: -0.015em; text-wrap: balance; }
 	h1 { font-size: var(--krok-3); }
 	h2 { font-size: var(--krok-2); }
 	h3 { font-size: var(--krok-1); }
 	p, ul, ol, figure, table, blockquote { margin: 0 0 1.1em; }
 	p { text-wrap: pretty; }
-	a { color: var(--akcent); text-underline-offset: 0.18em; }
+	a { color: var(--ka-barva-primarni, #2b5be3); text-underline-offset: 0.18em; }
 	img { max-width: 100%; height: auto; }
 	@media (prefers-reduced-motion: reduce) { @view-transition { navigation: none; } }
 }
@@ -50,20 +44,20 @@
 @layer sablona.rozvrzeni {
 	.obal { width: min(100% - 2 * var(--mezera), var(--sirka)); margin-inline: auto; }
 	.preskocit { position: absolute; left: -999px; }
-	.preskocit:focus { left: var(--mezera); top: 0.5rem; z-index: 100; padding: 0.5rem 1rem; background: var(--podklad); }
+	.preskocit:focus { left: var(--mezera); top: 0.5rem; z-index: 100; padding: 0.5rem 1rem; background: var(--ka-barva-pozadi, #ffffff); }
 	#obsah:focus { outline: none; } /* the skip link's target (tabindex="-1"): it takes focus so the next Tab starts in the content; it is no control */
 	/* exceptions to the opening hours (2.10, Core\Hours): a quiet bar above the header, a few days ahead until they end */
-	.ka-oznameni-hodiny { background: var(--akcent-jemny); color: var(--text); border-bottom: 1px solid var(--linka); font-size: 0.9375rem; text-align: center; }
+	.ka-oznameni-hodiny { background: var(--ka-barva-primarni-jemna, #eef2fd); color: var(--ka-barva-text, #16181d); border-bottom: 1px solid var(--ka-barva-linka, #dfe1e5); font-size: 0.9375rem; text-align: center; }
 	.ka-oznameni-hodiny p { margin: 0 auto; padding: 0.5rem var(--mezera); max-width: var(--sirka); }
 
-	.hlavicka { position: sticky; top: 0; z-index: 50; background: color-mix(in oklch, var(--podklad) 88%, transparent); backdrop-filter: blur(12px); border-bottom: 1px solid var(--linka); }
+	.hlavicka { position: sticky; top: 0; z-index: 50; background: color-mix(in oklch, var(--ka-barva-pozadi, #ffffff) 88%, transparent); backdrop-filter: blur(12px); border-bottom: 1px solid var(--ka-barva-linka, #dfe1e5); }
 	.hlavicka-obal { display: flex; align-items: center; justify-content: space-between; gap: var(--mezera); min-height: 4.25rem; }
-	.logo { color: var(--text); font: 700 var(--krok-1) / 1 var(--pismo-titulky); text-decoration: none; }
+	.logo { color: var(--ka-barva-text, #16181d); font: 700 var(--krok-1) / 1 var(--pismo-titulky); text-decoration: none; }
 	.logo img { display: block; max-height: 2.75rem; width: auto; }
 	.navigace ul { display: flex; flex-wrap: wrap; gap: 0.25rem; margin: 0; padding: 0; list-style: none; }
-	.navigace a { display: block; padding: 0.5rem 0.8rem; border-radius: 999px; color: var(--text); font-weight: 600; text-decoration: none; }
-	.navigace a:hover { background: var(--plocha); }
-	.navigace a[aria-current] { background: var(--akcent-jemny); color: var(--akcent); }
+	.navigace a { display: block; padding: 0.5rem 0.8rem; border-radius: 999px; color: var(--ka-barva-text, #16181d); font-weight: 600; text-decoration: none; }
+	.navigace a:hover { background: var(--ka-barva-plocha, #f5f6f8); }
+	.navigace a[aria-current] { background: var(--ka-barva-primarni-jemna, #eef2fd); color: var(--ka-barva-primarni, #2b5be3); }
 	.menu-tl { display: none; }
 	/* submenu: on a computer it opens on mouse hover and on keyboard focus, on a phone it is shown indented under its item */
 	.navigace li { position: relative; }
@@ -76,9 +70,9 @@
 	.navigace .podmenu > .menu-skupina::after, .navigace .menu-rozbalit::after { content: ""; display: inline-block; width: 0.4em; height: 0.4em; margin-inline-start: 0.45em; border: solid currentColor; border-width: 0 2px 2px 0; transform: translateY(-0.2em) rotate(45deg); }
 	.navigace .menu-rozbalit::after { margin: 0; transform: translateY(-0.1em) rotate(45deg); }
 	.navigace .podmenu > [aria-expanded="true"]::after { transform: translateY(0.1em) rotate(-135deg); }
-	.navigace .podmenu > button:hover { background: var(--plocha); }
-	.navigace .podmenu.aktivni > a, .navigace .podmenu.aktivni > .menu-skupina { color: var(--akcent); }
-	.navigace .podmenu > ul { display: none; position: absolute; top: 100%; left: 0; z-index: 60; flex-direction: column; flex-wrap: nowrap; min-width: 14rem; padding: 0.4rem; border: 1px solid var(--linka); border-radius: var(--zaobleni); background: var(--podklad); box-shadow: 0 16px 40px rgb(0 0 0 / 0.14); }
+	.navigace .podmenu > button:hover { background: var(--ka-barva-plocha, #f5f6f8); }
+	.navigace .podmenu.aktivni > a, .navigace .podmenu.aktivni > .menu-skupina { color: var(--ka-barva-primarni, #2b5be3); }
+	.navigace .podmenu > ul { display: none; position: absolute; top: 100%; left: 0; z-index: 60; flex-direction: column; flex-wrap: nowrap; min-width: 14rem; padding: 0.4rem; border: 1px solid var(--ka-barva-linka, #dfe1e5); border-radius: var(--zaobleni); background: var(--ka-barva-pozadi, #ffffff); box-shadow: 0 16px 40px rgb(0 0 0 / 0.14); }
 	.navigace .podmenu > ul a { border-radius: calc(var(--zaobleni) / 1.5); font-weight: 500; }
 	/* open: without the script on hover and keyboard focus; with it by the toggle, and on hover only for a real pointer */
 	.navigace .podmenu:not(:has(> [aria-expanded])):is(:hover, :focus-within) > ul, .navigace .podmenu > [aria-expanded="true"] + ul { display: flex; }
@@ -87,17 +81,17 @@
 	/* icon before the label; a group inside a submenu = a heading with its items under it (Core\Menu::html) */
 	.navigace .menu-ikona { display: inline-block; width: 1.1em; height: 1.1em; margin-inline-end: 0.45em; vertical-align: -0.2em; }
 	.navigace .menu-sloupec > ul { flex-direction: column; flex-wrap: nowrap; }
-	.navigace .menu-nadpis { display: block; padding: 0.5rem 0.8rem 0.2rem; color: var(--text-tlumeny); font-size: 0.8em; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+	.navigace .menu-nadpis { display: block; padding: 0.5rem 0.8rem 0.2rem; color: var(--ka-barva-tlumeny, #5b5f68); font-size: 0.8em; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
 
 	/* phone: the navigation is a popover – the button opens it, Esc or a tap outside closes it; no script */
 	@media (max-width: 767px) {
-		.menu-tl { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border: 1px solid var(--linka); border-radius: 50%; background: var(--podklad); color: var(--text); cursor: pointer; }
+		.menu-tl { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border: 1px solid var(--ka-barva-linka, #dfe1e5); border-radius: 50%; background: var(--ka-barva-pozadi, #ffffff); color: var(--ka-barva-text, #16181d); cursor: pointer; }
 		.menu-tl span, .menu-tl span::before, .menu-tl span::after { display: block; width: 1.1rem; height: 2px; background: currentColor; }
 		.menu-tl span { position: relative; }
 		.menu-tl span::before, .menu-tl span::after { content: ""; position: absolute; left: 0; }
 		.menu-tl span::before { top: -6px; }
 		.menu-tl span::after { top: 6px; }
-		.navigace[popover] { inset: 4.5rem var(--mezera) auto; width: auto; margin: 0; padding: 0.75rem; border: 1px solid var(--linka); border-radius: var(--zaobleni); background: var(--podklad); color: var(--text); box-shadow: 0 20px 50px rgb(0 0 0 / 0.18); }
+		.navigace[popover] { inset: 4.5rem var(--mezera) auto; width: auto; margin: 0; padding: 0.75rem; border: 1px solid var(--ka-barva-linka, #dfe1e5); border-radius: var(--zaobleni); background: var(--ka-barva-pozadi, #ffffff); color: var(--ka-barva-text, #16181d); box-shadow: 0 20px 50px rgb(0 0 0 / 0.18); }
 		.navigace[popover] ul { flex-direction: column; }
 		.navigace[popover] a { padding: 0.8rem 1rem; border-radius: calc(var(--zaobleni) / 1.5); }
 		.navigace[popover] .podmenu > ul { display: flex; flex-basis: 100%; position: static; min-width: 0; padding: 0 0 0 1rem; border: 0; box-shadow: none; }
@@ -119,12 +113,12 @@
 
 	.obsah { padding-block: var(--mezera-velka); min-height: 60vh; }
 	.stavba { min-height: 60vh; }
-	.paticka { padding-block: var(--mezera-velka) var(--mezera); background: var(--plocha); border-top: 1px solid var(--linka); font-size: 0.95em; }
+	.paticka { padding-block: var(--mezera-velka) var(--mezera); background: var(--ka-barva-plocha, #f5f6f8); border-top: 1px solid var(--ka-barva-linka, #dfe1e5); font-size: 0.95em; }
 	.paticka-obal { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: var(--mezera); }
-	.paticka p { margin: 0.4em 0 0; color: var(--text-tlumeny); }
+	.paticka p { margin: 0.4em 0 0; color: var(--ka-barva-tlumeny, #5b5f68); }
 	.paticka ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.3rem; }
 	.paticka a { color: inherit; }
-	.paticka-copy { grid-column: 1 / -1; padding-top: var(--mezera); border-top: 1px solid var(--linka); font-size: 0.875em; }
+	.paticka-copy { grid-column: 1 / -1; padding-top: var(--mezera); border-top: 1px solid var(--ka-barva-linka, #dfe1e5); font-size: 0.875em; }
 }
 
 @layer sablona.prvky {
@@ -132,38 +126,38 @@
 	.stranka, .novinka { max-width: var(--sirka-textu); margin-inline: auto; }
 	.stranka-uvod { max-width: none; }
 	.stranka-uvod .text > h1:first-child { max-width: 18ch; font-size: clamp(2.5rem, 1.6rem + 4.5vw, 4.5rem); }
-	.stranka-uvod .text > :where(p, ul) { max-width: var(--sirka-textu); font-size: var(--krok-1); color: var(--text-tlumeny); }
-	.perex { font-size: var(--krok-1); line-height: 1.5; color: var(--text-tlumeny); }
-	.text blockquote { margin-inline: 0; padding-left: 1.2em; border-left: 3px solid var(--akcent); }
+	.stranka-uvod .text > :where(p, ul) { max-width: var(--sirka-textu); font-size: var(--krok-1); color: var(--ka-barva-tlumeny, #5b5f68); }
+	.perex { font-size: var(--krok-1); line-height: 1.5; color: var(--ka-barva-tlumeny, #5b5f68); }
+	.text blockquote { margin-inline: 0; padding-left: 1.2em; border-left: 3px solid var(--ka-barva-primarni, #2b5be3); }
 	.novinka-obrazek { margin: 0 0 1.5em; }
 	.novinka-obrazek img { width: 100%; border-radius: var(--zaobleni); }
-	.novinka-aktualizovano { font-size: 0.875em; color: var(--text-tlumeny); }
+	.novinka-aktualizovano { font-size: 0.875em; color: var(--ka-barva-tlumeny, #5b5f68); }
 	.novinka-stitky { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 2em; }
-	.novinka-stitky a { padding: 0.25rem 0.75rem; border-radius: 999px; background: var(--plocha); font-size: 0.875em; text-decoration: none; }
-	.souvisejici { margin-top: var(--mezera-velka); padding-top: var(--mezera); border-top: 1px solid var(--linka); }
+	.novinka-stitky a { padding: 0.25rem 0.75rem; border-radius: 999px; background: var(--ka-barva-plocha, #f5f6f8); font-size: 0.875em; text-decoration: none; }
+	.souvisejici { margin-top: var(--mezera-velka); padding-top: var(--mezera); border-top: 1px solid var(--ka-barva-linka, #dfe1e5); }
 	.souvisejici ul { padding-left: 1.1em; }
 
 	/* news list: cards that adapt to the width of the container (container queries), not the window */
 	.vypis-hlavicka { max-width: var(--sirka-textu); margin-bottom: var(--mezera); }
 	.novinky-mrizka { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr)); gap: var(--mezera); }
-	.novinka-karta { container-type: inline-size; display: flex; flex-direction: column; padding: 0 0 1rem; border-radius: var(--zaobleni); background: var(--podklad); border: 1px solid var(--linka); overflow: hidden; }
+	.novinka-karta { container-type: inline-size; display: flex; flex-direction: column; padding: 0 0 1rem; border-radius: var(--zaobleni); background: var(--ka-barva-pozadi, #ffffff); border: 1px solid var(--ka-barva-linka, #dfe1e5); overflow: hidden; }
 	.novinka-karta > :not(.novinka-karta-obrazek) { padding-inline: 1.1rem; }
 	.novinka-karta-obrazek img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
-	.novinka-info { margin: 1rem 0 0.4rem; font-size: 0.85em; color: var(--text-tlumeny); }
+	.novinka-info { margin: 1rem 0 0.4rem; font-size: 0.85em; color: var(--ka-barva-tlumeny, #5b5f68); }
 	.novinka-info a { color: inherit; }
 	.novinka-karta h2 { font-size: var(--krok-1); }
-	.novinka-karta h2 a { color: var(--text); text-decoration: none; }
-	.novinka-karta h2 a:hover { color: var(--akcent); }
+	.novinka-karta h2 a { color: var(--ka-barva-text, #16181d); text-decoration: none; }
+	.novinka-karta h2 a:hover { color: var(--ka-barva-primarni, #2b5be3); }
 	.novinka-karta .perex { font-size: 1em; }
 	.novinka-karta .perex p:last-child { margin-bottom: 0; }
 	@container (min-width: 34rem) {
 		.novinka-karta h2 { font-size: var(--krok-2); }
 	}
 	.vypis-stranky { margin-bottom: var(--mezera); }
-	.vypis-stranky p { margin: 0.2em 0 0.9em; color: var(--text-tlumeny); font-size: 0.92em; }
+	.vypis-stranky p { margin: 0.2em 0 0.9em; color: var(--ka-barva-tlumeny, #5b5f68); font-size: 0.92em; }
 
 	.hledani { display: flex; gap: 0.5rem; max-width: 30rem; margin: 1em 0; }
-	.hledani input { flex: 1; min-width: 0; padding: 0.65rem 0.9rem; border: 1px solid var(--linka); border-radius: 999px; background: var(--podklad); color: inherit; font: inherit; }
-	.hledani button { padding: 0.65rem 1.2rem; border: 0; border-radius: 999px; background: var(--akcent); color: var(--ka-barva-na-primarni, #fff); font: 600 1em var(--pismo); cursor: pointer; }
+	.hledani input { flex: 1; min-width: 0; padding: 0.65rem 0.9rem; border: 1px solid var(--ka-barva-linka, #dfe1e5); border-radius: 999px; background: var(--ka-barva-pozadi, #ffffff); color: inherit; font: inherit; }
+	.hledani button { padding: 0.65rem 1.2rem; border: 0; border-radius: 999px; background: var(--ka-barva-primarni, #2b5be3); color: var(--ka-barva-na-primarni, #fff); font: 600 1em var(--pismo); cursor: pointer; }
 	.strankovani { display: flex; justify-content: center; align-items: center; gap: 1rem; margin-top: var(--mezera-velka); }
 }

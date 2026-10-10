@@ -1917,4 +1917,7 @@ return [
     'Previous and next item' => 'Predchádzajúca a ďalšia položka',
     '%s – page %d' => '%s – strana %d',
     'Nothing was saved: the text is over a safety limit for HTML (too large or nested too deeply).' => 'Nič sa neuložilo: text prekračuje bezpečnostný limit pre HTML (je príliš veľký alebo príliš hlboko vnorený).',
+    'The collection list shows the collection “%s”, which does not exist.' => 'Výpis kolekcie zobrazuje kolekciu „%s“, ktorá neexistuje.',
+    'The collection list shows the category “%s”, which the collection does not have – it will stay empty.' => 'Výpis kolekcie zobrazuje kategóriu „%s“, ktorú kolekcia nemá – zostane prázdny.',
+    '{{%s}} is not a field of the collection “%s” – it will stay empty on the site.' => '{{%s}} nie je pole kolekcie „%s“ – na webe zostane prázdne.',
 ];

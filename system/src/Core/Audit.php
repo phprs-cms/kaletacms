@@ -118,7 +118,7 @@ final class Audit
                 continue; // a hidden page is not in search engines – only its links matter (it may be published later)
             }
             if ($build !== null) {
-                foreach (Check::builds($build, true, 50) as $c) {
+                foreach ([...Check::builds($build, true, 50), ...Check::collections($db, $build, null, 50)] as $c) {
                     $this->add('build', $where, $c['zprava'], 'admin.php?module=pages&action=builder&id=' . (int) $p['ids'], $url, $target, $c['id']);
                 }
             }

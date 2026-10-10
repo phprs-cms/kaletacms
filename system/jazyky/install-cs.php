@@ -2782,4 +2782,7 @@ return [
     'Form of address' => 'Oslovení',
     'Formal (Sie)' => 'Formální (vykání)',
     'Informal (du)' => 'Neformální (tykání)',
+    'The collection list shows the collection “%s”, which does not exist.' => 'Výpis kolekce ukazuje kolekci „%s“, která neexistuje.',
+    'The collection list shows the category “%s”, which the collection does not have – it will stay empty.' => 'Výpis kolekce ukazuje kategorii „%s“, kterou kolekce nemá – zůstane prázdný.',
+    '{{%s}} is not a field of the collection “%s” – it will stay empty on the site.' => '{{%s}} není pole kolekce „%s“ – na webu zůstane prázdné.',
 ];

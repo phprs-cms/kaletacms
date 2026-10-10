@@ -1654,6 +1654,7 @@ final class Kernel
             'kanonicka' => $canonicalUrl,
             'oznameni' => \Kaleta\Core\Hours::noticeBar($this->app), // exceptions to the opening hours, a few days ahead (2.10)
         ]);
+        $html = ImageHtml::rootMedia($html, $this->app->request->basePath());
         $html = ImageHtml::complete($this->app->db(), $html); // image dimensions and background color – less page jumping
         if ($this->sitePreview) {
             $html = (string) preg_replace('/<body[^>]*>/', '$0' . $this->previewBar(), $html, 1);

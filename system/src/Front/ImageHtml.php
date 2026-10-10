@@ -52,6 +52,29 @@ final class ImageHtml
         return ' width="' . max(1, (int) round(88 * (float) $box[2] / (float) $box[3])) . '" height="88"';
     }
 
+    /**
+     * Addresses of Media written relatively in formatted text (upload_file gives media/…, an import or an editor keeps it):
+     * on a page one level deep (/realizace/kuchyne) src="media/…" would point to /realizace/media/… and end in a 404. Every
+     * src, href, poster and srcset starting with media/ gets the root of the site in the finished HTML.
+     */
+    public static function rootMedia(string $html, string $base): string
+    {
+        if (!str_contains($html, '"media/') && !str_contains($html, ', media/')) {
+            return $html;
+        }
+
+        return (string) preg_replace_callback('#(\s(?:src|href|poster|srcset)=")([^"]*)"#i', function (array $m) use ($base): string {
+            if (!str_contains($m[2], 'media/')) {
+                return $m[0];
+            }
+            $value = str_starts_with(strtolower(ltrim($m[1])), 'srcset')
+                ? (string) preg_replace('#(^|,\s*)media/#', '$1' . $base . '/media/', $m[2])
+                : (str_starts_with($m[2], 'media/') ? $base . '/' . $m[2] : $m[2]);
+
+            return $m[1] . $value . '"';
+        }, $html);
+    }
+
     public static function complete(Db $db, string $html): string
     {
         if (!preg_match_all('#<img\b[^>]*?\bsrc="[^"]*?(media/\d{4}/\d{2}/[a-z0-9-]+?)(?:-1200|-nahled)?\.(jpg|png|webp)"#i', $html, $found, PREG_SET_ORDER)) {

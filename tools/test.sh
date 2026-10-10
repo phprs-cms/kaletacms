@@ -1926,6 +1926,12 @@ mcp37() { curl -s -X POST "$B/mcp" -H "Authorization: Bearer $AUTHOR37" -H 'Cont
 expect "3.7 N37-9: list_collection_items hides a hidden category from a user without Collections, also as a filter; the editor sees and filters by it" \
   "$(mcp37 '{"collection":"produkty"}' | grep -c 'skryta-37' || true)|$(mcp37 '{"collection":"produkty","category":"skryta-37"}' | grep -c 'The category is not in this collection' || true)|$(mcp list_collection_items '{"collection":"produkty","category":"skryta-37"}' > "$WORK/response"; mcp_value total)" "0|1|1"
 sq "DELETE FROM ka_api_tokeny WHERE nazev = 'author 37'; DELETE FROM ka_uzivatele_prava WHERE fk_id_user = (SELECT idu FROM ka_uzivatele WHERE user = 'n37-author'); DELETE FROM ka_uzivatele WHERE user = 'n37-author'" > /dev/null
+# 3.9.2: a hidden category has no page of its own, but a list set to it still lists its items (the listing pages of a moved site)
+mcp create_page '{"title":"Výpis skryté 37","slug":"vypis-skryte-37","visible":true}' > /dev/null
+HIDDEN_LIST=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'vypis-skryte-37'")
+mcp save_build '{"id":'"$HIDDEN_LIST"',"publish":true,"build":{"v":1,"children":[{"type":"section","children":[{"type":"heading","tag":"h1","content":{"text":"Skrytá kategorie"}},{"type":"collection_list","content":{"collection":"produkty","category":"skryta-37","empty_text":"Nic 37"},"children":[{"type":"heading","tag":"h3","content":{"text":"seo-{{seo}}"}}]}]}]}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
+check "3.9.2: a list set to a hidden category lists its items" 200 /vypis-skryte-37 'seo-stimulator'
+check "3.9.2: the hidden category itself still has no page" 404 /produkty/skryta-37
 # N37-10: an address with a trailing newline is no second URL of a category page
 check "3.7 N37-10: a category address with a trailing newline is a 404, not the category page" 404 "/produkty/bezecke-pasy/zdravotni%0A"
 # N37-7: a form in the English item or category template is found when the English page posts it

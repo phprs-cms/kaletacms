@@ -41,6 +41,7 @@ final class Svg
         if (!$ok || $dom->documentElement === null || strtolower($dom->documentElement->localName) !== 'svg') {
             return null;
         }
+        self::inlineClassStyles($dom);
         self::node($dom->documentElement);
         $output = $dom->saveXML($dom->documentElement);
 
@@ -58,6 +59,51 @@ final class Svg
         }
 
         return [0, 0];
+    }
+
+    /**
+     * Logos from design tools colour their shapes by classes in a <style> block (.cls-1 { fill: #f0eae4 }). The block itself
+     * never stays (CSS can load things), so simple rules of class selectors become presentation attributes of the shapes –
+     * without that a light logo turns black. Only presentation properties with plain values (colours, numbers, url(#id)).
+     */
+    private static function inlineClassStyles(\DOMDocument $dom): void
+    {
+        $css = '';
+        foreach (iterator_to_array($dom->getElementsByTagName('style')) as $style) {
+            $css .= $style->textContent . "\n";
+        }
+        if ($css === '') {
+            return;
+        }
+        $css = preg_replace('#/\*.*?\*/#s', '', $css) ?? '';
+        $byClass = [];
+        preg_match_all('/([^{}]+)\{([^{}]*)\}/', $css, $rules, PREG_SET_ORDER);
+        foreach ($rules as [, $selectors, $body]) {
+            $declarations = [];
+            foreach (explode(';', $body) as $declaration) {
+                [$property, $value] = array_map('trim', explode(':', $declaration, 2)) + [1 => ''];
+                $property = strtolower($property);
+                if ($property !== 'style' && in_array($property, self::ATTRIBUTES, true) && preg_match('/^(url\(\s*#[\w-]+\s*\)|[#\w\s.,%()-]+)$/', $value)
+                    && !preg_match('/javascript|expression/i', $value)) {
+                    $declarations[$property] = $value;
+                }
+            }
+            foreach (explode(',', $selectors) as $selector) {
+                if ($declarations !== [] && preg_match('/^\.([\w-]+)$/', trim($selector), $m)) {
+                    $byClass[$m[1]] = $declarations + ($byClass[$m[1]] ?? []);
+                }
+            }
+        }
+        if ($byClass === []) {
+            return;
+        }
+        foreach (iterator_to_array($dom->getElementsByTagName('*')) as $el) {
+            foreach (preg_split('/\s+/', $el->getAttribute('class'), -1, PREG_SPLIT_NO_EMPTY) ?: [] as $class) {
+                foreach ($byClass[$class] ?? [] as $property => $value) {
+                    $el->setAttribute($property, $value); // a class rule wins over a presentation attribute, as in CSS
+                }
+            }
+        }
     }
 
     private static function node(\DOMElement $el): void
