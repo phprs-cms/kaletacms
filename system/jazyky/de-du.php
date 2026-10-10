@@ -376,4 +376,6 @@ Der Link gilt %d Tage.
     'The collection list shows the collection “%s”, which does not exist.' => 'Die Sammlungsliste zeigt die Sammlung „%s“, die es nicht gibt.',
     'The collection list shows the category “%s”, which the collection does not have – it will stay empty.' => 'Die Sammlungsliste zeigt die Kategorie „%s“, die die Sammlung nicht hat – sie bleibt leer.',
     '{{%s}} is not a field of the collection “%s” – it will stay empty on the site.' => '{{%s}} ist kein Feld der Sammlung „%s“ – es bleibt auf der Website leer.',
+    'Thank you for your application. We will get back to you.' => 'Vielen Dank für deine Bewerbung. Wir melden uns bei dir.',
+    'A few words about you' => 'Ein paar Worte über dich',
 ];

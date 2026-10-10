@@ -51,7 +51,7 @@ return [
             ['znacka' => 'h2'] + $n('nadpis', ['text' => t('Apply for this job')]),
             // the hidden field carries the job name: {{nazev}} is filled on the item page and comes back with the form (Front\Forms)
             $n('formular', ['nazev' => t('Job application'), 'tlacitko' => t('Send application'), 'dekujeme' => t('Thank you for your application. We will get back to you.'), 'pole' => [
-                ['popisek' => t('Name'), 'typ' => 'text', 'povinne' => true],
+                ['popisek' => t('Full name'), 'typ' => 'text', 'povinne' => true],
                 ['popisek' => t('Email'), 'typ' => 'email', 'povinne' => true],
                 ['popisek' => t('Phone'), 'typ' => 'tel', 'povinne' => false],
                 ['popisek' => t('CV'), 'typ' => 'soubor', 'povinne' => true],

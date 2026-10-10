@@ -43,7 +43,7 @@ trait CollectionTools
     {
         $existing = $this->app->db()->pairs("SELECT preset, seo_link FROM {kolekce} WHERE preset <> '' ORDER BY idk DESC");
 
-        return ['presets' => array_map(fn (array $p): array => $p + ['existing_collection' => $existing[$p['preset']] ?? ''], \Kaleta\Builder\Presets::describe()),
+        return ['presets' => array_map(fn (array $p): array => $p + ['existing_collection' => $existing[$p['preset']] ?? ''], Language::runWith('en', \Kaleta\Builder\Presets::describe(...), 'admin-')), // in English like the rest of MCP, not in the site language
             'next' => 'create_collection {"preset":"<key>","name":"…"} creates one; then add items with save_collection_item and put a Collection list on a page.'];
     }
 
