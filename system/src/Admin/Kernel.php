@@ -69,7 +69,8 @@ final class Kernel
         \Kaleta\Extension\Registry::boot($app); // add-ons (3.0): their admin pages and tools
 
         // admin language: the user's choice (My account); the sign-in page follows the site language. It is set first so that even the message about an expired form is translated
-        $language = (string) ($app->auth()->user()['jazyk'] ?? '') ?: \Kaleta\Core\Language::defaults($app->settings());
+        // (a regional site language such as de-at gives the administration of its language)
+        $language = \Kaleta\Core\Language::base((string) ($app->auth()->user()['jazyk'] ?? '') ?: \Kaleta\Core\Language::defaults($app->settings()));
         \Kaleta\Core\Language::setAdminRegister((string) ($app->auth()->user()['register'] ?? ''));
         \Kaleta\Core\Language::setSiteRegister($app->settings()->get('german_register'));
         \Kaleta\Core\Language::set(isset(\Kaleta\Core\Language::ADMIN_LANGUAGES[$language]) ? $language : 'cs', 'admin-');

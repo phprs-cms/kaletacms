@@ -5664,6 +5664,51 @@ expect "3.9: without shared slugs it switches off and the global keys are back" 
   "0|uq_clanky_jazyk_seo,uq_clanky_seo,uq_stranky_jazyk_seo,uq_stranky_seo,uq_topic_jazyk_seo,uq_topic_seo"
 sq "UPDATE ka_nastaveni SET hodnota = '$HOME39' WHERE promenna = 'home_page'" > /dev/null
 
+echo "== 3.10: English table names, the site's clock and regional language versions (data model §4, §6 and §2 step 2)"
+# §4: {news} is the news table – the same rows through either placeholder, on the installed site's own connection
+expect "3.10: {news} and {novinky}, {settings} and {nastaveni} are the same tables" \
+  "$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $db = Kaleta\Core\App::boot()->db();
+    echo $db->value("SELECT COUNT(*) FROM {news}") === $db->value("SELECT COUNT(*) FROM {novinky}") ? "same" : "differ", "|", $db->value("SELECT hodnota FROM {settings} WHERE promenna = ?", ["site_language"]);')" "same|cs"
+# §6: System status shows the clock; a zone this server does not know (written straight into the database) is a warning
+check "3.10: System status shows the site's time zone and that PHP and the database agree" 200 "/admin.php?module=status" 'Europe/Prague (UTC+0[12]:00) – PHP i databáze počítají čas stejně'
+sq "UPDATE ka_nastaveni SET hodnota = 'Mars/Olympus_Mons' WHERE promenna = 'time_zone'" > /dev/null
+check "3.10: a time zone the server does not know is a warning on System status" 200 "/admin.php?module=status" 'Časové pásmo v nastavení je Mars/Olympus_Mons, ale PHP běží v Europe/Prague'
+sq "UPDATE ka_nastaveni SET hodnota = 'Europe/Prague' WHERE promenna = 'time_zone'" > /dev/null
+# changing the zone in Settings → General says that saved dates are not converted (and they are not)
+NEWS310=$(sq "SELECT CONCAT(idc, '|', datum) FROM ka_novinky ORDER BY idc LIMIT 1")
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/general310.html" "$B/admin.php?module=settings&tab=general"
+php -r '$d = new DOMDocument(); @$d->loadHTML(file_get_contents($argv[1])); $x = new DOMXPath($d); $f = $x->query("//form[.//input[@name=\"tab\"]]")->item(0); $q = [];
+  foreach ($x->query(".//input|.//select|.//textarea", $f) as $e) { $n = $e->getAttribute("name"); $t = $e->getAttribute("type"); if ($n === "" || $t === "submit" || (in_array($t, ["checkbox", "radio"], true) && !$e->hasAttribute("checked"))) continue;
+    $v = $e->nodeName === "select" ? (($o = $x->query(".//option[@selected]", $e)->item(0) ?? $x->query(".//option", $e)->item(0)) ? $o->getAttribute("value") : "") : ($e->nodeName === "textarea" ? $e->textContent : $e->getAttribute("value"));
+    $q[] = rawurlencode($n) . "=" . rawurlencode($n === "time_zone" ? "Europe/London" : $v); }
+  echo implode("&", $q);' "$WORK/general310.html" > "$WORK/general310.post"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" --data-binary @"$WORK/general310.post"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=general"
+contains -q 'Časové pásmo se změnilo z Europe/Prague na Europe/London' "$WORK/response" && contains -q 'nepřevádí už uložená data' "$WORK/response" \
+  && expect "3.10: a time zone change warns that saved dates keep their clock time – and they do" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'time_zone'")|$(sq "SELECT CONCAT(idc, '|', datum) FROM ka_novinky WHERE idc = ${NEWS310%%|*}")" "Europe/London|$NEWS310" \
+  || { echo "  CHYBA  3.10: no time zone change warning: $(grep -o 'class="zprava[^"]*"[^<]*<[^<]*' "$WORK/response" | head -3)"; ERRORS=$((ERRORS+1)); }
+sq "UPDATE ka_nastaveni SET hodnota = 'Europe/Prague' WHERE promenna = 'time_zone'" > /dev/null
+# §2 step 2: a Brazilian Portuguese version next to Czech and English – /pt-br/ in addresses, pt-BR in lang and hreflang, the
+# two-letter versions exactly as before
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('additional_languages', 'en,pt-br'), ('home_page', '0')" > /dev/null
+mcp create_page '{"title":"Kontakt 310","slug":"kontakt-310","content":"<p>Česky 310</p>","visible":true}' > "$WORK/response"; CS310=$(mcp_value id)
+mcp create_page "{\"title\":\"Contato 310\",\"slug\":\"contato-310\",\"language\":\"pt-br\",\"translation_of\":$CS310,\"content\":\"<p>Português 310</p>\",\"visible\":true}" > "$WORK/response"
+mcp update_settings '{"settings":{"site_name_pt-br":"Meu site 310"}}' > /dev/null
+expect "3.10: a page and a site name in the pt-br version are stored under the lowercase tag" \
+  "$(sq "SELECT CONCAT(jazyk, ':', seo_link) FROM ka_stranky WHERE preklad_z = $CS310")|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_name_pt-br'")" "pt-br:contato-310|Meu site 310"
+P310=$(get39 /pt-br/contato-310)
+contains -q '<html lang="pt-BR"' "$WORK/response" && contains -q 'Português 310' "$WORK/response" && contains -q 'Meu site 310' "$WORK/response" \
+  && contains -q 'hreflang="cs" href="[^"]*/kontakt-310"' "$WORK/response" && contains -q 'hreflang="pt-BR" href="[^"]*/pt-br/contato-310"' "$WORK/response" \
+  && contains -q '<meta property="og:locale" content="pt_BR">' "$WORK/response" && P310="$P310 ok"
+C310=$(get39 /kontakt-310)
+contains -q '<html lang="cs"' "$WORK/response" && contains -q 'hreflang="pt-BR" href="[^"]*/pt-br/contato-310"' "$WORK/response" && ! contains -q 'Meu site 310' "$WORK/response" && C310="$C310 ok"
+expect "3.10: /pt-br/contato-310 is the pt-BR version (lang, hreflang, og:locale, its site name); /kontakt-310 points to it" "$P310|$C310" "200  ok|200  ok"
+get39 /sitemap.xml > /dev/null
+expect "3.10: the sitemap lists the pt-br address; the prefix is lowercase only" "$(contains -q '/pt-br/contato-310</loc>' "$WORK/response" && echo listed)|$(get39 /pt-BR/contato-310)" "listed|404 "
+mcp create_page '{"title":"Pt","slug":"pt-br"}' > "$WORK/response"
+expect "3.10: a regional code stays reserved as a page slug" "$(contains -q 'isError' "$WORK/response" && echo refused)|$(sq "SELECT COUNT(*) FROM ka_stranky WHERE seo_link = 'pt-br'")" "refused|0"
+sq "DELETE FROM ka_stranky WHERE ids = $CS310 OR preklad_z = $CS310; DELETE FROM ka_nastaveni WHERE promenna = 'site_name_pt-br'; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('additional_languages', 'en'), ('home_page', '$HOME39')" > /dev/null
+
 echo "== 2.9: monthly report by e-mail"
 REPORT_MAILS() { sq "SELECT COUNT(*) FROM ka_posta WHERE predmet LIKE '%Zpráva o webu%' OR predmet LIKE '%Website report%'"; }
 LAST_MONTH=$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format("Y-m");')

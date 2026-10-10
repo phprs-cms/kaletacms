@@ -1396,10 +1396,12 @@ check('WpImport náhled: a custom post type with its fields, address and what is
     'vynechano' => ['galerie' => true], 'obsah' => true, 'perex' => false]], []]);
 
 /* ---------- 3.9: multilingual WordPress – Polylang and WPML (tools/fixtures/wordpress-polylang.xml, wordpress-wpml.xml) ---------- */
-check('3.9 WpLanguages::code: the locale first, then the code; regional codes to their language; unknown languages null', [
+check('3.10 WpLanguages::code: the slug Kaleta offers (the old addresses use it), else the locale, else the language; a regional version is kept unless the site has only its language; unknown languages null', [
     Kaleta\Core\WpLanguages::code('cs', 'cs_CZ'), Kaleta\Core\WpLanguages::code('cz', 'cs_CZ'), Kaleta\Core\WpLanguages::code('en', 'en_GB'), Kaleta\Core\WpLanguages::code('pt-br'),
-    Kaleta\Core\WpLanguages::code('zh-hans'), Kaleta\Core\WpLanguages::code('nb'), Kaleta\Core\WpLanguages::code('DE'), Kaleta\Core\WpLanguages::code('ar', 'ar'), Kaleta\Core\WpLanguages::code('')],
-    ['cs', 'cs', 'en', 'pt', 'zh', 'no', 'de', null, null]);
+    Kaleta\Core\WpLanguages::code('zh-hans'), Kaleta\Core\WpLanguages::code('nb'), Kaleta\Core\WpLanguages::code('DE'), Kaleta\Core\WpLanguages::code('ar', 'ar'), Kaleta\Core\WpLanguages::code(''),
+    Kaleta\Core\WpLanguages::code('english', 'en_GB'), Kaleta\Core\WpLanguages::code('english', 'en_GB', ['cs', 'en']), Kaleta\Core\WpLanguages::code('pt-br', '', ['cs', 'pt']),
+    Kaleta\Core\WpLanguages::code('pt-br', '', ['cs', 'pt', 'pt-br']), Kaleta\Core\WpLanguages::code('zh-tw', 'zh_TW'), Kaleta\Core\WpLanguages::code('nb', 'nb_NO')],
+    ['cs', 'cs', 'en', 'pt-br', 'zh', 'no', 'de', null, null, 'en-gb', 'en', 'pt', 'pt-br', 'zh', 'no']);
 check('3.9 WpLanguages::translationMap: language => id from a Polylang group; extra keys (sync), objects, references and damaged strings give nothing', [
     Kaleta\Core\WpLanguages::translationMap('a:3:{s:2:"cs";i:102;s:2:"en";i:103;s:4:"sync";a:1:{s:2:"en";s:2:"cs";}}'),
     Kaleta\Core\WpLanguages::translationMap('a:2:{s:5:"pt-br";s:2:"12";s:2:"de";i:0;}'),
@@ -5523,16 +5525,17 @@ check('3.8 plugin: tools/build-plugin.php zips the manifest, .mcp.json, the READ
 check('3.9 Language::isTag – the stored form is a lowercase BCP 47 tag of at most 35 characters', array_map(fn (string $t): bool => Kaleta\Core\Language::isTag($t),
     ['cs', 'en', 'pt-br', 'zh-hant', 'sr-latn', 'yue', 'pt-BR', 'pt_br', 'e', 'english', 'en-', '-en', 'en/x', '', 'a-' . str_repeat('b', 40)]),
     [true, true, true, true, true, true, false, false, false, false, false, false, false, false, false]);
-check('3.9 Language::isOffered / offeredOrDefault – only what AVAILABLE offers today (two-letter codes), anything else is the default language', [
+check('3.9 Language::isOffered / offeredOrDefault – only what AVAILABLE offers (3.10: regional versions too), anything else is the default language', [
     Kaleta\Core\Language::isOffered('en'), Kaleta\Core\Language::isOffered('xx'), Kaleta\Core\Language::isOffered('pt-br'), Kaleta\Core\Language::isOffered('EN'),
     Kaleta\Core\Language::offeredOrDefault('de'), Kaleta\Core\Language::offeredOrDefault('xx'), Kaleta\Core\Language::offeredOrDefault(null), Kaleta\Core\Language::offeredOrDefault(['en']), Kaleta\Core\Language::offeredOrDefault("en' OR 1=1")],
-    [true, false, false, false, 'de', '', '', '', '']);
-check('3.9 Language::fromForeign – Joomla pt-BR, a locale en_GB and a Drupal langcode keep the language Kaleta offers; unknown ones are dropped', array_map(fn (string $t): string => Kaleta\Core\Language::fromForeign($t),
-    ['pt-BR', 'en_GB', 'de', 'DE-at', 'xx-YY', '*', '', 'zh-Hant-TW']), ['pt', 'en', 'de', 'de', '', '', '', 'zh']);
+    [true, false, true, false, 'de', '', '', '', '']);
+check('3.10 Language::fromForeign – Joomla pt-BR, a locale en_GB and a Drupal langcode keep the longest part Kaleta offers (§2 step 2); unknown ones are dropped', array_map(fn (string $t): string => Kaleta\Core\Language::fromForeign($t),
+    ['pt-BR', 'en_GB', 'de', 'DE-at', 'xx-YY', '*', '', 'zh-Hant-TW', 'en-US', 'pt-PT', 'sr-Latn']), ['pt-br', 'en-gb', 'de', 'de-at', '', '', '', 'zh-hant', 'en', 'pt', 'sr']);
 check('3.9 Language::splitPrefix – the language prefix of a path only for a code Kaleta offers (the router then asks additional())', [
     Kaleta\Core\Language::splitPrefix('/en/kontakt'), Kaleta\Core\Language::splitPrefix('/en'), Kaleta\Core\Language::splitPrefix('/en/'), Kaleta\Core\Language::splitPrefix('/de/sluzby/web'), Kaleta\Core\Language::splitPrefix('/kontakt'),
-    Kaleta\Core\Language::splitPrefix('/xx/kontakt'), Kaleta\Core\Language::splitPrefix('/pt-br/x'), Kaleta\Core\Language::splitPrefix('/english/x'), Kaleta\Core\Language::splitPrefix('en/x'), Kaleta\Core\Language::splitPrefix("/en/a\nb")],
-    [['en', '/kontakt'], ['en', '/'], ['en', '/'], ['de', '/sluzby/web'], null, null, null, null, null, ['en', "/a\nb"]]);
+    Kaleta\Core\Language::splitPrefix('/xx/kontakt'), Kaleta\Core\Language::splitPrefix('/pt-br/x'), Kaleta\Core\Language::splitPrefix('/english/x'), Kaleta\Core\Language::splitPrefix('en/x'), Kaleta\Core\Language::splitPrefix("/en/a\nb"),
+    Kaleta\Core\Language::splitPrefix('/pt-BR/x'), Kaleta\Core\Language::splitPrefix('/zh-hant'), Kaleta\Core\Language::splitPrefix('/pt-xx/x')],
+    [['en', '/kontakt'], ['en', '/'], ['en', '/'], ['de', '/sluzby/web'], null, null, ['pt-br', '/x'], null, null, ['en', "/a\nb"], null, ['zh-hant', '/'], null]);
 check('3.9 Language::settingKey – per-language settings keys (site_name_en, nazev_webu_de) only with a code Kaleta offers', [
     Kaleta\Core\Language::settingKey('site_name_en', ['site_name', 'site_description']), Kaleta\Core\Language::settingKey('site_description_de', ['site_name', 'site_description']),
     Kaleta\Core\Language::settingKey('site_name_xx', ['site_name']), Kaleta\Core\Language::settingKey('site_name', ['site_name']), Kaleta\Core\Language::settingKey('site_name_en', ['nazev_webu']),
@@ -5609,5 +5612,103 @@ check('3.9: slug lookups without the language are only the global ones on purpos
     'Routes.php:stranky', 'Routes.php:stranky', 'Routes.php:stranky', // the news slug and the English system paths are one for all versions
     'WpImport.php:stranky',  // a collection's slug is taken in every version (/<collection> and /en/<collection>)
 ]);
+/* ---------- 3.10: the rename map (data model §4), the site's clock (§6 step 1) and regional language tags (§2 step 2) ---------- */
+// the map covers every table of schema.sql exactly, and is a bijection: no English name twice, none equal to the name another
+// table has today ({news} must never mean two tables), every listed column exists and the English columns of a table are unique
+$schema310 = (string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql');
+preg_match_all('/CREATE TABLE ka_(\w+) \((.*?)\n\) ENGINE/s', $schema310, $schemaTables310, PREG_SET_ORDER);
+$schemaColumns310 = [];
+foreach ($schemaTables310 as [, $table, $body]) {
+    preg_match_all('/^\s+([a-z_0-9]+)\s+[A-Z]/m', $body, $c);
+    $schemaColumns310[$table] = array_values(array_diff($c[1], ['PRIMARY', 'UNIQUE', 'KEY', 'INDEX', 'FULLTEXT', 'CONSTRAINT']));
+}
+$names310 = Kaleta\Core\Names::map();
+$tables310 = array_keys($schemaColumns310);
+$mapped310 = array_keys($names310);
+sort($tables310);
+sort($mapped310);
+check('3.10 names.php covers every table of schema.sql, and nothing else', [array_values(array_diff($tables310, $mapped310)), array_values(array_diff($mapped310, $tables310))], [[], []]);
+$english310 = array_column($names310, 0);
+$nameProblems310 = [];
+foreach ($names310 as $table => [$english, $columns]) {
+    if (preg_match('/^[a-z][a-z0-9_]*$/D', $english) !== 1) {
+        $nameProblems310[] = $table . ': ' . $english . ' is not a placeholder name';
+    }
+    if (isset($names310[$english]) && $english !== $table) {
+        $nameProblems310[] = $table . ': ' . $english . ' is the name of another table today';
+    }
+    foreach (array_keys($columns) as $column) {
+        if (!in_array($column, $schemaColumns310[$table] ?? [], true)) {
+            $nameProblems310[] = $table . '.' . $column . ' does not exist';
+        }
+    }
+    $after = array_map(fn (string $c): string => $columns[$c] ?? $c, $schemaColumns310[$table] ?? []);
+    if (count($after) !== count(array_unique($after))) {
+        $nameProblems310[] = $table . ': two columns would get one English name';
+    }
+}
+check('3.10 names.php is a bijection: English table names unique and free, listed columns exist, English columns unique per table',
+    [count($english310) === count(array_unique($english310)), $nameProblems310], [true, []]);
+$db310 = new Kaleta\Core\Db('mysql:host=127.0.0.1', '', '', 'ka_');
+check('3.10 Db::sql: the English placeholder names the table of today, the Czech one stays, English and unknown names are as they are', [
+    $db310->sql('SELECT * FROM {news} n JOIN {categories} c ON c.idt = n.tema'), $db310->sql('SELECT * FROM {novinky}'), $db310->sql('SELECT * FROM {newsletters}'),
+    $db310->sql('SELECT * FROM {ext_shop_orders}'), $db310->sql('SELECT * FROM {media}'), Kaleta\Core\Names::english('stranky'), Kaleta\Core\Names::english('ext_shop_orders'),
+    Kaleta\Core\Names::columns('news')['idc'] ?? null, Kaleta\Core\Names::columns('novinky')['tema'] ?? null],
+    ['SELECT * FROM `ka_novinky` n JOIN `ka_kategorie` c ON c.idt = n.tema', 'SELECT * FROM `ka_novinky`', 'SELECT * FROM `ka_newsletters`',
+        'SELECT * FROM `ka_ext_shop_orders`', 'SELECT * FROM `ka_media`', 'pages', 'ext_shop_orders', 'id', 'category_id']);
+
+// the clock: in 3.x it is the site's wall time, exactly what date() gave
+$zone310 = date_default_timezone_get();
+date_default_timezone_set('Europe/Prague');
+$moment310 = (new DateTimeImmutable('2026-10-25 00:30:00', new DateTimeZone('UTC')))->getTimestamp(); // the first 02:30 of the DST switch
+check('3.10 Clock: wall time on the site\'s clock, to and from a DATETIME column; zero, empty and impossible values are null', [
+    Kaleta\Core\Clock::toDb($moment310), Kaleta\Core\Clock::toDb($moment310 + 3600), Kaleta\Core\Clock::toDb(new DateTimeImmutable('2026-07-01 10:00:00', new DateTimeZone('UTC'))),
+    Kaleta\Core\Clock::fromDb('2026-07-01 12:00:00')?->getTimestamp(), Kaleta\Core\Clock::fromDb('2026-07-01')?->format('Y-m-d H:i'),
+    Kaleta\Core\Clock::fromDb(null), Kaleta\Core\Clock::fromDb(''), Kaleta\Core\Clock::fromDb('0000-00-00 00:00:00'), Kaleta\Core\Clock::fromDb('2026-02-30 10:00:00'), Kaleta\Core\Clock::fromDb('yesterday'),
+    Kaleta\Core\Clock::zone()->getName(), Kaleta\Core\Clock::offset() === date('P'), abs(strtotime(Kaleta\Core\Clock::now()) - time()) <= 1, Kaleta\Core\Clock::today() === date('Y-m-d'),
+    abs(strtotime(Kaleta\Core\Clock::nowUtc() . ' UTC') - time()) <= 1, abs(strtotime(Kaleta\Core\Clock::at('-1 hour')) - (time() - 3600)) <= 1],
+    ['2026-10-25 02:30:00', '2026-10-25 02:30:00', '2026-07-01 12:00:00', (new DateTimeImmutable('2026-07-01 10:00:00', new DateTimeZone('UTC')))->getTimestamp(), '2026-07-01 00:00',
+        null, null, null, null, null, 'Europe/Prague', true, true, true, true, true]);
+date_default_timezone_set($zone310);
+check('3.10 Health::clock: the setting, PHP and the database session agree; a zone the server does not know and a shifted session warn', Kaleta\Core\Language::runWith('en', fn (): array => [
+    Kaleta\Core\Health::clock('Europe/Prague', 'Europe/Prague', 120, 120)[0], Kaleta\Core\Health::clock('Europe/Prague', 'Europe/Prague', 120, 120)[1],
+    Kaleta\Core\Health::clock('Europe/Prague', 'Europe/Prague', 120, 0)[0], str_contains(Kaleta\Core\Health::clock('Europe/Prague', 'Europe/Prague', 120, 0)[1], 'UTC+00:00'),
+    Kaleta\Core\Health::clock('America/Nuuk', 'Europe/Prague', 120, 120)[0], Kaleta\Core\Health::clock('', 'UTC', 0, 0)[0], Kaleta\Core\Health::clock('Asia/Kolkata', 'Asia/Kolkata', 330, -150)[1]], 'admin-'),
+    ['ok', 'Europe/Prague (UTC+02:00) – PHP and the database count time the same way', 'varovani', true, 'varovani', 'ok',
+        'PHP writes dates in Asia/Kolkata (UTC+05:30), but the database compares them in UTC-02:30 – scheduled publishing and time limits are off by 480 minutes. Ask the hosting whether the database connection keeps its session time zone.']);
+// the 3.x classes that already write through the clock stay that way (the rest follow table by table, §6)
+$clockFiles310 = [];
+foreach (['AgentJournal', 'Requests', 'Facts', 'DraftComments', 'Triage', 'SocialDrafts'] as $class) {
+    if (str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/' . $class . '.php'), "date('Y-m-d H:i:s'")) {
+        $clockFiles310[] = $class;
+    }
+}
+check('3.10: the classes moved to Core\Clock do not write wall time with date() again', $clockFiles310, []);
+
+// regional language tags: offered like any language, stored lowercase, printed in the canonical case
+$regional310 = array_values(array_filter(array_keys(Kaleta\Core\Language::AVAILABLE), fn (string $c): bool => str_contains($c, '-')));
+check('3.10 Language::AVAILABLE offers the regional versions after their language; every code is a stored tag with a locale; CODES lists them all', [
+    $regional310, array_values(array_filter(array_keys(Kaleta\Core\Language::AVAILABLE), fn (string $c): bool => !Kaleta\Core\Language::isTag($c) || !isset(Kaleta\Core\Language::AVAILABLE[Kaleta\Core\Language::base($c)])
+        || preg_match('/^[a-z]{2,3}_[A-Z]{2}$/D', Kaleta\Core\Language::AVAILABLE[$c][1]) !== 1)), Kaleta\Core\Language::CODES === implode('|', array_keys(Kaleta\Core\Language::AVAILABLE))],
+    [['en-gb', 'de-at', 'pt-br', 'zh-hant'], [], true]);
+check('3.10 Language::tag – the canonical BCP 47 case for lang, hreflang and feeds; two-letter codes as they are', array_map(Kaleta\Core\Language::tag(...),
+    ['cs', 'en', 'pt-br', 'zh-hant', 'sr-latn-rs', 'es-419', 'en-gb', 'de-at-1996', 'en-x-private', 'yue', 'PT-BR']),
+    ['cs', 'en', 'pt-BR', 'zh-Hant', 'sr-Latn-RS', 'es-419', 'en-GB', 'de-AT-1996', 'en-x-private', 'yue', 'pt-BR']);
+check('3.10 Language::base / forSite – a regional source lands in the version the site has; the version itself when the site has it', [
+    Kaleta\Core\Language::base('pt-br'), Kaleta\Core\Language::base('cs'), Kaleta\Core\Language::forSite('en-gb', ['cs', 'en']), Kaleta\Core\Language::forSite('en-gb', ['cs', 'en', 'en-gb']),
+    Kaleta\Core\Language::forSite('en-gb', ['cs']), Kaleta\Core\Language::forSite('en', ['cs', 'en-gb']), Kaleta\Core\Language::forSite('', ['cs'])],
+    ['pt', 'cs', 'en', 'en-gb', 'en-gb', 'en', '']);
+Kaleta\Core\Language::set('de-at');
+$deAt310 = [Kaleta\Core\Language::code(), t('Read more'), t('datum_format'), format_count(12345)];
+Kaleta\Core\Language::set('en-gb');
+$enGb310 = [t('Read more'), format_number(4.5), format_count(12345)];
+Kaleta\Core\Language::set('pt-br');
+$ptBr310 = [t('datum_format'), Kaleta\Core\Language::intlLocale() ?? 'pt_BR'];
+Kaleta\Core\Language::set('cs');
+check('3.10 a regional version uses the dictionary and number format of its language, and its own date format and locale without one', [$deAt310, $enGb310, $ptBr310],
+    [['de-at', (require KALETA_SYSTEM . '/jazyky/de.php')['Read more'] ?? 'Read more', 'd.m.Y', '12.345'], [(require KALETA_SYSTEM . '/jazyky/en.php')['Read more'] ?? 'Read more', '4.5', '12,345'], ['d/m/Y', 'pt_BR']]);
+check('3.10 a page slug cannot be a regional language code (the prefix /pt-br/ belongs to the version)', [
+    Kaleta\Core\Routes::systemSlugError('pt-br') !== null, Kaleta\Core\Routes::systemSlugError('zh-hant') !== null, Kaleta\Core\Routes::systemSlugError('pt-brasil')], [true, true, null]);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

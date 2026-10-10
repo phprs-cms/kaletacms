@@ -633,7 +633,7 @@ final class Facts
         if ($type === 'text' && self::startsWithScheme($value)) {
             return 'A text fact cannot begin with an address scheme other than http, https, mailto or tel (javascript:, data:…). For a link use the type web address.';
         }
-        $row = ['value' => $value, 'updated_at' => date('Y-m-d H:i:s')];
+        $row = ['value' => $value, 'updated_at' => Clock::now()];
         if ($language === '') {
             $row += ['type' => $type, 'label' => mb_substr(trim((string) ($data['label'] ?? ($existing['label'] ?? $key))), 0, 150),
                 'schema_prop' => isset($data['schema']) && isset(self::SCHEMA_PROPS[$data['schema']]) ? (string) $data['schema'] : (string) ($existing['schema_prop'] ?? ''),
@@ -645,7 +645,7 @@ final class Facts
             $db->update('facts', $row, ['id' => (int) $existing['id']]);
         }
         if ($existing !== null && (string) $existing['value'] !== $value) {
-            $db->insert('fact_history', ['fact_key' => $key, 'language' => $language, 'old_value' => (string) $existing['value'], 'new_value' => $value, 'changed_at' => date('Y-m-d H:i:s')]);
+            $db->insert('fact_history', ['fact_key' => $key, 'language' => $language, 'old_value' => (string) $existing['value'], 'new_value' => $value, 'changed_at' => Clock::now()]);
             Events::record($db, 'fact.changed', 'info', t('The fact %s changed.', $key), ['fact' => $key, 'language' => $language]);
         }
         ChangeLog::write($app, 'facts', $existing === null ? 'create' : 'update', $key . ($language !== '' ? ' (' . $language . ')' : ''));

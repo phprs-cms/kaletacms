@@ -241,7 +241,7 @@ final class Transfer extends Module
 
     private function start(string $file): Response
     {
-        WpImport::begin($file);
+        WpImport::begin($file, [Language::defaults($this->app->settings()), ...Language::additional($this->app->settings())]);
 
         return $this->back('', 'progress', ['file' => $file]);
     }

@@ -43,7 +43,7 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 		<option value="<?= e($timeZone) ?>"<?= $values['time_zone'] === $timeZone ? ' selected' : '' ?>><?= e(str_replace('_', ' ', $timeZone)) ?></option>
 <?php endforeach ?>
 	</select>
-	<span class="napoveda"><?= e(t('Scheduled news is published and dates are shown according to it. It is now %s.', format_date(new DateTimeImmutable(), true))) ?></span></div>
+	<span class="napoveda"><?= e(t('Scheduled news is published and dates are shown according to it. It is now %s.', format_date(new DateTimeImmutable(), true))) ?> <?= e(t('Changing it does not convert dates already saved: they keep their clock time.')) ?></span></div>
 </div>
 <div class="radek">
 	<label for="site_language"><?= e(t('Jazyk webu')) ?></label>
@@ -54,7 +54,7 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 	</select>
 	<span class="napoveda"><?= e(t('The site texts (Search, News, Read more…) are in this language, and the site declares it to search engines.')) ?></span></div>
 </div>
-<?php if (in_array('de', array_merge([$values['site_language']], explode(',', $values['additional_languages'])), true)): ?>
+<?php if (in_array('de', array_map(Kaleta\Core\Language::base(...), array_merge([$values['site_language']], explode(',', $values['additional_languages']))), true)): ?>
 <div class="radek">
 	<label for="german_register"><?= e(t('Form of address in German')) ?></label>
 	<div><select id="german_register" name="german_register">
@@ -74,7 +74,7 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 <?php endforeach ?>
 		</div>
 		<span class="napoveda"><?= e(t('Each version has its own pages, categories and news. A news item\'s language is set by its category. Link translations in the editor.')) ?></span>
-<?php $translated = array_map(fn (string $code): string => Kaleta\Core\Language::AVAILABLE[$code][0], array_values(array_filter(array_keys(Kaleta\Core\Language::AVAILABLE), fn (string $code): bool => $code === 'cs' || is_file(KALETA_SYSTEM . '/jazyky/' . $code . '.php')))); ?>
+<?php $translated = array_map(fn (string $code): string => Kaleta\Core\Language::AVAILABLE[$code][0], array_values(array_filter(array_keys(Kaleta\Core\Language::AVAILABLE), fn (string $code): bool => $code === 'cs' || is_file(KALETA_SYSTEM . '/jazyky/' . Kaleta\Core\Language::base($code) . '.php')))); ?>
 		<span class="napoveda"><?= e(t('Texts for visitors (Search, Read more…) are translated into: %s. Other languages show them in English, with dates in their own format. You write the content of pages and news in the language of the version.', implode(', ', $translated))) ?></span>
 	</div>
 </div>

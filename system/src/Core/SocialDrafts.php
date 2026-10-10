@@ -171,7 +171,7 @@ final class SocialDrafts
         $url = self::origin($app) . $app->newsItemUrl((string) $c['seo_link'], (string) $c['jazyk']);
         $image = self::image($app, $c);
         $lead = self::plain((string) $c['uvod']);
-        $now = date('Y-m-d H:i:s');
+        $now = Clock::now();
         foreach ($networks as $network) {
             $link = self::trackedLink($url, $network, (string) $c['seo_link']);
             $db->insert('social_drafts', ['idc' => $idc, 'network' => $network, 'text' => mb_substr(self::text($network, (string) $c['titulek'], $lead, $hashtags, $link), 0, self::MAX_TEXT),
@@ -235,7 +235,7 @@ final class SocialDrafts
     /** "Mark as posted" (and back): copied_at remembers when the person posted it. */
     public static function markPosted(Db $db, int $id, bool $posted): void
     {
-        $db->update('social_drafts', ['copied_at' => $posted ? date('Y-m-d H:i:s') : null], ['id' => $id]);
+        $db->update('social_drafts', ['copied_at' => $posted ? Clock::now() : null], ['id' => $id]);
     }
 
     /**

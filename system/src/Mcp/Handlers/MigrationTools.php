@@ -57,7 +57,7 @@ trait MigrationTools
             } catch (\RuntimeException $e) {
                 throw new \InvalidArgumentException($e->getMessage());
             }
-            $state = WpImport::begin($file);
+            $state = WpImport::begin($file, [\Kaleta\Core\Language::defaults($settings), ...\Kaleta\Core\Language::additional($settings)]);
         }
         $confirm = ($a['confirm'] ?? false) === true;
         $created = WpImport::created($state); // the records this call creates count against the hourly change limit (3.7, N37-26)

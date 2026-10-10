@@ -25,7 +25,7 @@ $headFont = e($headingFont);
 $link = static fn (string $text): string => preg_replace_callback('~https?://[^\s<>"]+~', fn (array $m): string => '<a href="' . $m[0] . '" style="color:' . $c['primarni'] . ';">' . $m[0] . '</a>', $text) ?? $text;
 ?>
 <!DOCTYPE html>
-<html lang="<?= e($language) ?>" dir="ltr">
+<html lang="<?= e(Kaleta\Core\Language::tag($language)) ?>" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">

@@ -103,7 +103,7 @@ final class Requests
         $db = $app->db();
         $ids = array_values(array_unique(array_filter(array_map('intval', $attachments), fn (int $id): bool => $id > 0)));
         $ids = $ids === [] ? [] : array_map('intval', array_column($db->all('SELECT ido FROM {media} WHERE ido IN (' . implode(',', array_fill(0, count($ids), '?')) . ') ORDER BY ido', $ids), 'ido'));
-        $now = date('Y-m-d H:i:s');
+        $now = Clock::now();
         $id = $db->insert('requests', ['created_at' => $now, 'updated_at' => $now, 'author_id' => $authorId, 'title' => $title, 'text' => mb_substr($text, 0, self::MAX_TEXT),
             'about' => self::cleanAbout($about), 'attachments' => (string) json_encode(array_slice($ids, 0, self::MAX_ATTACHMENTS)), 'status' => 'new']);
         // the event and the e-mail carry the id and the title – the text waits in the administration
@@ -219,7 +219,7 @@ final class Requests
         if (($text === '' && $links === []) || !in_array($sender, ['claude', 'person'], true)) {
             return false;
         }
-        $now = date('Y-m-d H:i:s');
+        $now = Clock::now();
         $app->db()->insert('request_messages', ['request_id' => $requestId, 'sender' => $sender, 'sender_name' => mb_substr($senderName, 0, 190), 'text' => mb_substr($text, 0, self::MAX_MESSAGE),
             'links' => $links === [] ? null : (string) json_encode($links, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'created_at' => $now]);
         $app->db()->update('requests', ['updated_at' => $now], ['id' => $requestId]);
@@ -242,7 +242,7 @@ final class Requests
         if (!isset(self::STATUSES[$status]) || !self::canMove((string) $request['status'], $status)) {
             return false;
         }
-        $now = date('Y-m-d H:i:s');
+        $now = Clock::now();
         $app->db()->update('requests', ['status' => $status, 'updated_at' => $now, 'done_at' => in_array($status, ['done', 'declined'], true) ? $now : null], ['id' => $request['id']]);
         if ($status === 'done' && $notify) {
             $notes = array_filter(self::messages($app->db(), (int) $request['id']), fn (array $m): bool => $m['sender'] === 'claude' && $m['text'] !== '');

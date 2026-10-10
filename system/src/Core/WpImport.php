@@ -168,7 +168,7 @@ final class WpImport
             // 3.9: the multilingual plugin and Polylang's languages (slug => our code, '' = a language this site cannot offer)
             $state['jazyky']['plugin'] = $h['plugin'];
             foreach ($h['jazyky'] as $slug => $locale) {
-                $state['jazyky']['kody'][(string) $slug] = WpLanguages::code((string) $slug, $locale) ?? '';
+                $state['jazyky']['kody'][(string) $slug] = WpLanguages::code((string) $slug, $locale, (array) ($state['jazyky']['web'] ?? [])) ?? '';
             }
         }
         $end = microtime(true) + $seconds;
@@ -328,12 +328,12 @@ final class WpImport
         $raw = (string) ($p['jazyk_wp'] ?? '');
         $codes = (array) ($state['jazyky']['kody'] ?? []);
         if ($raw !== '') {
-            $code = array_key_exists($raw, $codes) ? (string) $codes[$raw] : (WpLanguages::code($raw) ?? '');
+            $code = array_key_exists($raw, $codes) ? (string) $codes[$raw] : (WpLanguages::code($raw, '', (array) ($state['jazyky']['web'] ?? [])) ?? '');
 
             return $code === '' ? ['', $raw] : [$code, ''];
         }
         if (($state['jazyky']['plugin'] ?? '') !== '' || ($p['jazyk_plugin'] ?? '') !== '') {
-            return [WpLanguages::urlLanguage((string) ($p['odkaz'] ?? ''), array_keys(Language::AVAILABLE)), ''];
+            return [Language::forSite(WpLanguages::urlLanguage((string) ($p['odkaz'] ?? ''), array_keys(Language::AVAILABLE)), (array) ($state['jazyky']['web'] ?? [])), ''];
         }
 
         return ['', ''];
@@ -818,7 +818,7 @@ final class WpImport
     private function termLanguage(int $term): ?string
     {
         $raw = $this->header['jazyk_terminu'][$term] ?? '';
-        $code = $raw === '' ? null : WpLanguages::code($raw, $this->header['jazyky'][$raw] ?? '');
+        $code = $raw === '' ? null : WpLanguages::code($raw, $this->header['jazyky'][$raw] ?? '', [Language::defaults($this->settings), ...Language::additional($this->settings)]);
 
         return $code === null ? null : Language::column($this->settings, $code);
     }
@@ -1408,11 +1408,13 @@ final class WpImport
     /**
      * A new import of a file in storage/import: the first step reads the file (the preview).
      *
+     * @param list<string> $siteLanguages the site's languages (default and additional)
      * @return array<string, mixed>
      */
-    public static function begin(string $file): array
+    public static function begin(string $file, array $siteLanguages = []): array
     {
         $state = self::newState($file);
+        $state['jazyky']['web'] = $siteLanguages; // 3.10: a regional language of the export folds into the version the site has (Language::forSite)
         // the fingerprint of the file that was previewed: every later batch refuses a file replaced in the meantime (3.6, N36-2)
         $path = WpFile::path($file);
         $state['otisk'] = $path !== null ? (string) hash_file('sha256', $path) : '';

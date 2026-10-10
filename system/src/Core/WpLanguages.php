@@ -43,23 +43,23 @@ final class WpLanguages
     private const int MAX_SERIALIZED = 20000;
 
     /**
-     * Our language code (a key of Language::AVAILABLE) for a WordPress language: the locale first (cs_CZ – a Polylang
-     * slug may be "cz"), then the code or slug itself (en, pt-br, zh-hans, nb → no); null = a language this site cannot offer.
+     * Our language code (a key of Language::AVAILABLE) for a WordPress language: the code or slug itself when Kaleta offers it
+     * (en, pt-br – it is what the old addresses use, /en/…), else the locale (cs_CZ – a Polylang slug may be "cz"), else the
+     * code's language (zh-hans → zh, nb → no); null = a language this site cannot offer. A regional version Kaleta offers is
+     * kept (3.10: pt-br, en_GB without a slug of its own → en-gb), unless the site has its language but not that version
+     * ($site, Language::forSite): an en_GB export into a site with English stays English.
+     *
+     * @param list<string> $site the site's languages (the default one and the additional ones)
      */
-    public static function code(string $raw, string $locale = ''): ?string
+    public static function code(string $raw, string $locale = '', array $site = []): ?string
     {
+        $norway = fn (string $value): string => (string) preg_replace('/^n[bn](?=-|$)/', 'no', strtolower(str_replace('_', '-', trim($value))));
+        if (Language::isOffered($own = $norway($raw))) {
+            return Language::forSite($own, $site);
+        }
         foreach ([$locale, $raw] as $value) {
-            $value = strtolower(trim($value));
-            if ($value === '') {
-                continue;
-            }
-            if (isset(Language::AVAILABLE[$value])) {
-                return $value;
-            }
-            $base = (string) preg_split('/[-_]/', $value)[0];
-            $base = in_array($base, ['nb', 'nn'], true) ? 'no' : $base;
-            if (isset(Language::AVAILABLE[$base])) {
-                return $base;
+            if (($code = Language::fromForeign($norway($value))) !== '') {
+                return Language::forSite($code, $site);
             }
         }
 

@@ -21,7 +21,7 @@ $atributy ??= '';
 <?php if ($styl === 'rada' || ($styl === 'auto' && count($jazyky) <= 3)): ?>
 <nav<?= Kaleta\Builder\Elements\Text::withClass($atributy, 'ka-jazyky') ?> lang="en" aria-label="Language">
 <?php foreach ($jazyky as $kod => $j): ?>
-	<a href="<?= e($j['url']) ?>" hreflang="<?= e($kod) ?>" lang="<?= e($kod) ?>" title="<?= e($j['nazev']) ?>"<?= $j['aktivni'] ? ' aria-current="true"' : '' ?>><?= e(strtoupper($kod)) ?></a>
+	<a href="<?= e($j['url']) ?>" hreflang="<?= e(Kaleta\Core\Language::tag($kod)) ?>" lang="<?= e(Kaleta\Core\Language::tag($kod)) ?>" title="<?= e($j['nazev']) ?>"<?= $j['aktivni'] ? ' aria-current="true"' : '' ?>><?= e(strtoupper($kod)) ?></a>
 <?php endforeach ?>
 </nav>
 <?php else: $id = 'ka-jazyky-' . bin2hex(random_bytes(3)); ?>
@@ -33,7 +33,7 @@ $atributy ??= '';
 	</button>
 	<ul id="<?= $id ?>" popover style="position-anchor: --<?= $id ?>">
 <?php foreach ($jazyky as $kod => $j): ?>
-		<li><a href="<?= e($j['url']) ?>" hreflang="<?= e($kod) ?>" lang="<?= e($kod) ?>"<?= $j['aktivni'] ? ' aria-current="true"' : '' ?>><span><?= e($j['nazev']) ?></span><small><?= e(strtoupper($kod)) ?></small></a></li>
+		<li><a href="<?= e($j['url']) ?>" hreflang="<?= e(Kaleta\Core\Language::tag($kod)) ?>" lang="<?= e(Kaleta\Core\Language::tag($kod)) ?>"<?= $j['aktivni'] ? ' aria-current="true"' : '' ?>><span><?= e($j['nazev']) ?></span><small><?= e(strtoupper($kod)) ?></small></a></li>
 <?php endforeach ?>
 	</ul>
 </nav>

@@ -29,7 +29,7 @@ $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => 
 ?>
 <!doctype html>
 <?php $tmavy = in_array($web->get('dark_mode'), ['auto', 'tmavy'], true); ?>
-<html lang="<?= e($jazyk ?? 'cs') ?>"<?= $tmavy ? ' data-tmavy' : '' ?><?= $web->get('dark_mode') === 'tmavy' ? ' data-tema="tmavy"' : '' ?>>
+<html lang="<?= e(Kaleta\Core\Language::tag($jazyk ?? 'cs')) ?>"<?= $tmavy ? ' data-tmavy' : '' ?><?= $web->get('dark_mode') === 'tmavy' ? ' data-tema="tmavy"' : '' ?>>
 <head>
 <meta charset="utf-8">
 <?php if ($tmavy && $web->get('theme_switcher') === '1'): ?>

@@ -99,6 +99,13 @@ These names keep working through every 3.x release. Breaking them needs Kaleta 4
 
 Everything else in Kaleta is internal and may change in any release: classes, tables, columns, views and CSS classes.
 
+### Table names (notice ahead of 4.0)
+
+If your add-on queries Kaleta's own tables through `$api->app()->db()`, write the English table names. Since 3.10, a
+placeholder takes either name: `{news}` and `{novinky}` are both the news table today. Kaleta 4.0 plans to rename the
+tables to their English names, and both placeholders will keep working through 4.x. The map of every table, with the
+planned English names of the most-read columns, is `system/sql/names.php`. Column names do not change in 4.0.
+
 ## An example
 
 `docs/examples/extensions/hello/` uses every part of the API. Copy it to `extensions/hello/` and switch it on in Add-ons to try it.
