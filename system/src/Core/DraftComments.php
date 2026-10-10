@@ -69,7 +69,7 @@ final class DraftComments
             return 0;
         }
         $id = $db->insert('draft_comments', ['target' => $target, 'element' => $element !== null ? self::cleanElement($element) : null,
-            'quote' => self::clean($quote, self::MAX_QUOTE), 'name' => $name, 'text' => $text, 'created_at' => date('Y-m-d H:i:s')]);
+            'quote' => self::clean($quote, self::MAX_QUOTE), 'name' => $name, 'text' => $text, 'created_at' => Clock::now()]);
         Events::record($db, 'comment.received', 'info', t('A comment on the draft of “%s” arrived from a preview link.', (string) $page['titulek']), ['page' => (int) $page['ids'], 'comment' => $id]);
         self::notify($app, $page, $name, $text);
         if (random_int(1, 20) === 1) {
@@ -121,7 +121,7 @@ final class DraftComments
         $user = $app->auth()->user();
 
         return $id > 0 && $app->db()->run('UPDATE {draft_comments} SET resolved_at = ?, resolved_by = ? WHERE id = ? AND resolved_at IS NULL',
-            [date('Y-m-d H:i:s'), isset($user['idu']) ? (int) $user['idu'] : null, $id])->rowCount() > 0;
+            [Clock::now(), isset($user['idu']) ? (int) $user['idu'] : null, $id])->rowCount() > 0;
     }
 
     /**

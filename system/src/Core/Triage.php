@@ -59,7 +59,7 @@ final class Triage
         if ($changes === []) {
             return false;
         }
-        $db->update('poptavky', $changes + ['triaged_by' => mb_substr($by, 0, 40), 'triaged_at' => date('Y-m-d H:i:s')], ['idp' => $idp]);
+        $db->update('poptavky', $changes + ['triaged_by' => mb_substr($by, 0, 40), 'triaged_at' => Clock::now()], ['idp' => $idp]);
 
         return true;
     }
@@ -116,7 +116,7 @@ final class Triage
             try {
                 $result = $assistant->triage(self::text($enquiry), (string) $settings->get('site_name'));
             } catch (\RuntimeException $e) {
-                $db->update('poptavky', ['triaged_by' => 'assistant', 'triaged_at' => date('Y-m-d H:i:s')], ['idp' => (int) $enquiry['idp']]); // not asked again
+                $db->update('poptavky', ['triaged_by' => 'assistant', 'triaged_at' => Clock::now()], ['idp' => (int) $enquiry['idp']]); // not asked again
                 $failed = $e->getMessage();
 
                 continue;

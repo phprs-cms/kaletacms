@@ -44,6 +44,9 @@ final class Health
         $pending = Migration::latest() - max(1, $siteSettings->int('db_version'));
         $add(t('Database'), t('Database structure'), $pending <= 0, $pending <= 0 ? t('up to date (version %d)', $siteSettings->int('db_version')) : t('%d updates pending - they will run the next time the administration loads', $pending));
         $size = (int) $db->value('SELECT COALESCE(SUM(data_length + index_length), 0) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE ?', [addcslashes($db->prefix, '_%') . '%']);
+        [$clockState, $clockInfo] = self::clock($siteSettings->get('time_zone'), date_default_timezone_get(), intdiv((int) date('Z'), 60),
+            (int) $db->value('SELECT TIMESTAMPDIFF(MINUTE, UTC_TIMESTAMP(), NOW())'));
+        $add(t('Database'), t('Time zone'), $clockState, $clockInfo);
         $add(t('Database'), t('Velikost'), 'ok', t('%s, news items: %d', self::size($size), (int) $db->value('SELECT COUNT(*) FROM {novinky}')));
 
         // --- files and security
@@ -245,6 +248,27 @@ final class Health
         $statuses = array_column($checks, 'stav');
 
         return in_array('chyba', $statuses, true) ? 'chyba' : (in_array('varovani', $statuses, true) ? 'varovani' : 'ok');
+    }
+
+    /**
+     * Do the time_zone setting, PHP and the database session count time the same way (3.10, data model §6)? PHP writes dates
+     * on the site's clock and SQL compares them with NOW(); when they disagree, scheduled items and time limits shift. Pure
+     * for the tests: the setting, PHP's zone, and the UTC offsets of PHP and of the database session in minutes.
+     *
+     * @return array{0: string, 1: string} [ok | varovani, what the administrator reads]
+     */
+    public static function clock(string $setting, string $phpZone, int $phpMinutes, int $dbMinutes): array
+    {
+        $offset = fn (int $minutes): string => sprintf('UTC%s%02d:%02d', $minutes < 0 ? '-' : '+', intdiv(abs($minutes), 60), abs($minutes) % 60);
+        if ($setting !== '' && $setting !== $phpZone) {
+            return ['varovani', t('The time zone setting is %s, but PHP runs in %s – this server does not know the zone, so dates are written and shown on the %s clock. Choose the zone again in Settings → General.', $setting, $phpZone, $phpZone)];
+        }
+        if ($dbMinutes !== $phpMinutes) {
+            return ['varovani', t('PHP writes dates in %s (%s), but the database compares them in %s – scheduled publishing and time limits are off by %d minutes. Ask the hosting whether the database connection keeps its session time zone.',
+                $phpZone, $offset($phpMinutes), $offset($dbMinutes), abs($phpMinutes - $dbMinutes))];
+        }
+
+        return ['ok', t('%s (%s) – PHP and the database count time the same way', $phpZone, $offset($phpMinutes))];
     }
 
     /**

@@ -220,6 +220,7 @@ class Settings extends Module
         $errors = [];
         $given = [];
         $reason = ''; // why the news URL was refused (Core\Routes::slugError)
+        $zoneBefore = $settings->get('time_zone');
         foreach ($this->fields($tab) as $key => $type) {
             if (\Kaleta\Core\Demo::active() && \Kaleta\Core\Demo::blocksSetting($key, $type)) {
                 continue; // the public demo keeps code fields, secret keys and the site e-mail as they are
@@ -297,6 +298,11 @@ class Settings extends Module
         if ($tab === 'general' && ($settings->bool('screen_mode') || $this->request->postBool('novy_token_obrazovka'))) {
             // the screen address exists as soon as the mode is on; the button replaces it (the old one stops working)
             \Kaleta\Front\Screen::ensureSecret($settings, $this->request->postBool('novy_token_obrazovka'));
+        }
+
+        if ($errors === [] && $settings->get('time_zone') !== $zoneBefore) {
+            // 3.10 (data model §6): stored dates are wall time and are not converted – a scheduled item keeps its clock time
+            return $this->back(t('Settings saved. The time zone changed from %s to %s: dates already saved keep their clock time and are not converted, so check scheduled pages and news.', $zoneBefore, $settings->get('time_zone')), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'info');
         }
 
         return $errors === []

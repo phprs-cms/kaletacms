@@ -23,7 +23,7 @@
 $a5 = $format === 'a5';
 ?>
 <!DOCTYPE html>
-<html lang="<?= e($language) ?>">
+<html lang="<?= e(Kaleta\Core\Language::tag($language)) ?>">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">

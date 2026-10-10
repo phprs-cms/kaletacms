@@ -52,18 +52,21 @@ final class Db
             // The database must count time the same way as PHP: PHP writes article dates (date()), but queries compare them with NOW().
             // On a server with the database in a different zone (typically UTC) a just published article would show up hours later.
             // An offset instead of a zone name: named zones need loaded tables in MySQL, which are often missing on hosting.
-            $this->pdo->exec("SET time_zone = '" . date('P') . "'");
+            $this->pdo->exec("SET time_zone = '" . Clock::offset() . "'");
         }
 
         return $this->pdo;
     }
 
-    /** Fills in the table prefix: {novinky} -> `ka_novinky`. */
+    /**
+     * Fills in the table prefix: {novinky} -> `ka_novinky`. The English name of a table works the same (3.10, Core\Names):
+     * {news} -> `ka_novinky` until a release renames the table, and both keep working after that.
+     */
     public function sql(string $sql): string
     {
         return preg_replace_callback(
             '/\{([a-z][a-z0-9_]*)\}/',
-            fn (array $m): string => '`' . $this->prefix . $m[1] . '`',
+            fn (array $m): string => '`' . $this->prefix . Names::physical($m[1]) . '`',
             $sql,
         ) ?? $sql;
     }

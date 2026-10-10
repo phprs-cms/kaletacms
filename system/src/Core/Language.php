@@ -20,14 +20,18 @@ final class Language
     /**
      * code => [name in that language, locale (Open Graph, date format), numeric date format for date()]. Right-to-left languages
      * (Arabic, Hebrew) are not available yet – templates and the builder do not account for them.
+     * Regional versions (3.10, docs/design/4.0-data-model.md §2 step 2) follow their language: en-gb, de-at, pt-br, zh-hant. They
+     * use the dictionary of the language (base()) unless they have their own, and print their tag in the canonical case (tag()).
      */
     public const array AVAILABLE = [
         'cs' => ['Čeština', 'cs_CZ', 'j. n. Y'],
         'en' => ['English', 'en_US', 'j M Y'],
+        'en-gb' => ['English (UK)', 'en_GB', 'j M Y'],
         'bg' => ['Български', 'bg_BG', 'd.m.Y'],
         'ca' => ['Català', 'ca_ES', 'd/m/Y'],
         'da' => ['Dansk', 'da_DK', 'd.m.Y'],
         'de' => ['Deutsch', 'de_DE', 'd.m.Y'],
+        'de-at' => ['Deutsch (Österreich)', 'de_AT', 'd.m.Y'],
         'el' => ['Ελληνικά', 'el_GR', 'd/m/Y'],
         'es' => ['Español', 'es_ES', 'd/m/Y'],
         'et' => ['Eesti', 'et_EE', 'd.m.Y'],
@@ -45,6 +49,7 @@ final class Language
         'no' => ['Norsk', 'nb_NO', 'd.m.Y'],
         'pl' => ['Polski', 'pl_PL', 'd.m.Y'],
         'pt' => ['Português', 'pt_PT', 'd/m/Y'],
+        'pt-br' => ['Português (Brasil)', 'pt_BR', 'd/m/Y'],
         'ro' => ['Română', 'ro_RO', 'd.m.Y'],
         'sk' => ['Slovenčina', 'sk_SK', 'j. n. Y'],
         'sl' => ['Slovenščina', 'sl_SI', 'j. n. Y'],
@@ -62,10 +67,11 @@ final class Language
         'ko' => ['한국어', 'ko_KR', 'Y. m. d.'],
         'vi' => ['Tiếng Việt', 'vi_VN', 'd/m/Y'],
         'zh' => ['中文', 'zh_CN', 'Y-m-d'],
+        'zh-hant' => ['中文（繁體）', 'zh_TW', 'Y/m/d'],
     ];
 
     /** Codes from AVAILABLE for Settings field types (vyber:… / seznam:…). */
-    public const string CODES = 'cs|en|bg|ca|da|de|el|es|et|fi|fr|ga|hr|hu|is|it|lt|lv|mt|nl|no|pl|pt|ro|sk|sl|sq|sr|bs|mk|sv|tr|uk|ru|hi|id|ja|ko|vi|zh';
+    public const string CODES = 'cs|en|en-gb|bg|ca|da|de|de-at|el|es|et|fi|fr|ga|hr|hu|is|it|lt|lv|mt|nl|no|pl|pt|pt-br|ro|sk|sl|sq|sr|bs|mk|sv|tr|uk|ru|hi|id|ja|ko|vi|zh|zh-hant';
 
     /**
      * A language code as Kaleta stores it (3.9, docs/design/4.0-data-model.md §2): a lowercase BCP 47 tag – the language,
@@ -97,9 +103,8 @@ final class Language
     }
 
     /**
-     * A tag from another system (Joomla's pt-BR, a Drupal langcode, a locale pt_BR) in the stored form: the whole tag when
-     * Kaleta offers it, otherwise its language subtag when that is offered (pt-BR → pt until regional versions exist,
-     * §2 step 2), otherwise ''.
+     * A tag from another system (Joomla's pt-BR, a Drupal langcode, a locale pt_BR) in the stored form: the longest part of the
+     * tag Kaleta offers – zh-Hant-TW → zh-hant, pt-BR → pt-br, en-US → en (§2 step 2) – otherwise ''.
      */
     public static function fromForeign(string $tag): string
     {
@@ -107,8 +112,55 @@ final class Language
         if (!self::isTag($tag)) {
             return '';
         }
+        for ($parts = explode('-', $tag); $parts !== []; array_pop($parts)) {
+            if (self::isOffered($code = implode('-', $parts))) {
+                return $code;
+            }
+        }
 
-        return self::isOffered($tag) ? $tag : self::offeredOrDefault(explode('-', $tag)[0]);
+        return '';
+    }
+
+    /**
+     * A code for a site with the languages $site: a regional version the site does not have, whose language it has, becomes
+     * that language (en-gb into a site with en); anything else stays. Imports use it so a regional source lands in the
+     * version the site already has.
+     *
+     * @param list<string> $site
+     */
+    public static function forSite(string $code, array $site): string
+    {
+        return !in_array($code, $site, true) && in_array(self::base($code), $site, true) ? self::base($code) : $code;
+    }
+
+    /** The language subtag of a stored code: pt-br → pt, zh-hant → zh, cs → cs. What a regional version shares with its language. */
+    public static function base(string $code): string
+    {
+        return explode('-', $code, 2)[0];
+    }
+
+    /**
+     * A stored code in the canonical case of BCP 47 (RFC 5646 §2.1.1) for <html lang>, hreflang, feeds and structured data:
+     * the language lowercase, a script titlecase, a region uppercase – pt-br → pt-BR, zh-hant → zh-Hant, sr-latn-rs → sr-Latn-RS.
+     * A two-letter code stays as it is. URLs, settings keys and the database keep the lowercase form.
+     */
+    public static function tag(string $code): string
+    {
+        $parts = explode('-', strtolower($code));
+        foreach ($parts as $i => $part) {
+            if ($i > 0 && strlen($part) === 1) {
+                break; // an extension or private use (x-…) stays lowercase
+            }
+            if ($i > 0) {
+                $parts[$i] = match (true) {
+                    strlen($part) === 4 && ctype_alpha($part) => ucfirst($part),
+                    strlen($part) === 2 && ctype_alpha($part), strlen($part) === 3 && ctype_digit($part) => strtoupper($part),
+                    default => $part,
+                };
+            }
+        }
+
+        return implode('-', $parts);
     }
 
     /**
@@ -193,15 +245,17 @@ final class Language
 
             return;
         }
+        // a regional version without its own dictionary uses the one of its language (de-at → de.php, en-gb → en.php)
         $file = KALETA_SYSTEM . '/jazyky/' . $dictionarySet . self::$code . '.php';
+        $file = is_file($file) ? $file : KALETA_SYSTEM . '/jazyky/' . $dictionarySet . self::base(self::$code) . '.php';
         $custom = is_file($file) ? require $file : [];
-        $overlay = KALETA_SYSTEM . '/jazyky/' . $dictionarySet . self::$code . '-du.php';
+        $overlay = KALETA_SYSTEM . '/jazyky/' . $dictionarySet . self::base(self::$code) . '-du.php';
         if (self::$register === 'informal' && is_file($overlay)) {
             $custom = (require $overlay) + $custom;
         }
-        $baseDictionary = self::$code !== 'en' && is_file(KALETA_SYSTEM . '/jazyky/' . $dictionarySet . 'en.php') ? require KALETA_SYSTEM . '/jazyky/' . $dictionarySet . 'en.php' : [];
+        $baseDictionary = self::base(self::$code) !== 'en' && is_file(KALETA_SYSTEM . '/jazyky/' . $dictionarySet . 'en.php') ? require KALETA_SYSTEM . '/jazyky/' . $dictionarySet . 'en.php' : [];
         self::$dictionary = $custom + $baseDictionary;
-        if (self::$code !== 'en') {
+        if (self::base(self::$code) !== 'en') {
             // the date format from the English dictionary is not taken over: its own, otherwise the language's numeric format and the date in words from the Czech keys of days and months
             if (!isset($custom['datum_format'])) {
                 self::$dictionary['datum_format'] = self::AVAILABLE[self::$code][2];
@@ -278,7 +332,7 @@ final class Language
      */
     public static function visitorAddress(Settings $s): ?string
     {
-        return in_array('de', array_merge([self::defaults($s)], self::additional($s)), true) ? self::normalizeRegister($s->get('german_register')) : null;
+        return in_array('de', array_map(self::base(...), array_merge([self::defaults($s)], self::additional($s))), true) ? self::normalizeRegister($s->get('german_register')) : null;
     }
 
     /** Register of the currently loaded dictionary: only German has an informal one. */

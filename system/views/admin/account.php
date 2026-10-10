@@ -39,7 +39,7 @@ $action = e($app->url('admin.php?action=account'));
 <div class="radek"><label for="jazyk"><?= e(t('Administration language')) ?></label><div><select id="jazyk" name="jazyk">
 <?php
 // the selected language is the one the admin actually runs in (without an own choice, the site language, if the admin supports it)
-$adminLanguage = $user['jazyk'] ?: Kaleta\Core\Language::defaults($app->settings());
+$adminLanguage = Kaleta\Core\Language::base($user['jazyk'] ?: Kaleta\Core\Language::defaults($app->settings()));
 $adminLanguage = isset(Kaleta\Core\Language::ADMIN_LANGUAGES[$adminLanguage]) ? $adminLanguage : 'cs';
 foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName): ?>
 	<option value="<?= e($languageCode) ?>"<?= $adminLanguage === $languageCode ? ' selected' : '' ?>><?= e($languageName) ?></option>

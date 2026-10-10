@@ -304,7 +304,7 @@ final class MonthlyReport
                 . ($agency !== '' && $contacts !== [] ? '<div style="margin:0 0 6px;color:#555;">' . e($agency) . ' · ' . implode(' · ', $contacts) . '</div>' : '')
                 . e($footerNote) . '</td></tr>';
 
-            $document = '<!DOCTYPE html><html lang="' . e(Language::code()) . '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light"><title>' . e($subject) . '</title></head>'
+            $document = '<!DOCTYPE html><html lang="' . e(Language::tag(Language::code())) . '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light"><title>' . e($subject) . '</title></head>'
                 . '<body style="margin:0;padding:0;background:#f6f4ee;">'
                 . '<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f6f4ee;"><tr><td align="center" style="padding:24px 12px;">'
                 . '<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="width:100%;max-width:600px;background:#ffffff;border-radius:8px;">'

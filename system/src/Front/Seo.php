@@ -141,7 +141,7 @@ final class Seo
 
         return [
             'version' => 'https://jsonfeed.org/version/1.1', 'title' => $s->get('site_name'), 'description' => $s->get('site_description'),
-            'home_page_url' => $this->siteSettings, 'feed_url' => $this->siteSettings . 'feed.json', 'language' => \Kaleta\Core\Language::code(),
+            'home_page_url' => $this->siteSettings, 'feed_url' => $this->siteSettings . 'feed.json', 'language' => \Kaleta\Core\Language::tag(\Kaleta\Core\Language::code()),
             'items' => array_map(fn (array $c): array => array_filter([
                 'id' => 'novinka-' . $c['idc'], 'url' => $this->page($this->path('novinky/') . $c['seo_link']), 'title' => $c['titulek'],
                 'summary' => trim(strip_tags($c['uvod'])), 'content_html' => $c['uvod'] . $c['text'],
@@ -280,7 +280,7 @@ final class Seo
         $defaults = \Kaleta\Core\Language::defaults($s);
         foreach ($meta['jazyky'] ?? [] as $code => $j) {
             if ($j['preklad'] || ($meta['hlavni'] ?? false)) {
-                $h[] = '<link rel="alternate" hreflang="' . e($code) . '" href="' . e($this->app->request->origin() . $j['url']) . '">';
+                $h[] = '<link rel="alternate" hreflang="' . e(\Kaleta\Core\Language::tag($code)) . '" href="' . e($this->app->request->origin() . $j['url']) . '">';
                 if ($code === $defaults) {
                     // a visitor in a language the site does not have gets the default version
                     $h[] = '<link rel="alternate" hreflang="x-default" href="' . e($this->app->request->origin() . $j['url']) . '">';
@@ -468,7 +468,7 @@ final class Seo
         if ($newsItem === null) {
             $chart = [
                 ['@type' => 'WebSite', '@id' => $this->siteSettings . '#web', 'name' => $s->get('site_name'), 'url' => $this->siteSettings,
-                    'description' => $s->get('site_description'), 'inLanguage' => \Kaleta\Core\Language::code(), 'publisher' => ['@id' => $issuer['@id']],
+                    'description' => $s->get('site_description'), 'inLanguage' => \Kaleta\Core\Language::tag(\Kaleta\Core\Language::code()), 'publisher' => ['@id' => $issuer['@id']],
                     'potentialAction' => ['@type' => 'SearchAction', 'target' => $this->siteSettings . $this->path('hledani?q={q}'), 'query-input' => 'required name=q']],
                 $issuer,
             ];
@@ -490,7 +490,7 @@ final class Seo
                 // a category page of a collection (3.7): a collection of the site's items, part of the site
                 $pageUrl = $this->app->request->origin() . $this->app->url(ltrim($this->app->request->path(), '/'));
                 $chart[] = array_filter(['@type' => 'CollectionPage', '@id' => $pageUrl . '#kategorie', 'url' => $pageUrl, 'name' => (string) $meta['kategorie_kolekce']['nazev'],
-                    'description' => (string) $meta['kategorie_kolekce']['popis'], 'image' => (string) ($meta['obrazek'] ?? ''), 'inLanguage' => \Kaleta\Core\Language::code(),
+                    'description' => (string) $meta['kategorie_kolekce']['popis'], 'image' => (string) ($meta['obrazek'] ?? ''), 'inLanguage' => \Kaleta\Core\Language::tag(\Kaleta\Core\Language::code()),
                     'isPartOf' => ['@id' => $this->siteSettings . '#web']], fn (mixed $v): bool => $v !== '');
             }
             if (count($meta['drobecky'] ?? []) > 1) {
@@ -517,7 +517,7 @@ final class Seo
                 'articleSection' => $newsItem['tema_jm'],
                 'keywords' => implode(', ', array_column($newsItem['stitky'] ?? [], 'nazev')) ?: null,
                 'mainEntityOfPage' => $this->page($this->path('novinky/') . $newsItem['seo_link']),
-                'inLanguage' => \Kaleta\Core\Language::code(),
+                'inLanguage' => \Kaleta\Core\Language::tag(\Kaleta\Core\Language::code()),
             ]),
             ...($this->faqData($newsItem)),
             ['@type' => 'BreadcrumbList', 'itemListElement' => [

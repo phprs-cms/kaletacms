@@ -134,6 +134,15 @@ PRIVACY=$(sql "SELECT CONCAT(titulek, '|', zobrazit, '|', text LIKE '%This polic
 [ "$PRIVACY" = "Privacy policy|0|1" ] && echo "  ok     English install: privacy policy in English, hidden until completed" || fail "privacy policy page after English install: $PRIVACY"
 login "$JAR" admin "$PASSWORD"
 public_site firemni
+# 3.10 (data model §2 step 2): a site in British English – the English texts and admin, lang="en-GB", no Czech anywhere
+sql "UPDATE ka_nastaveni SET hodnota = 'en-gb' WHERE promenna = 'site_language'"; rm -rf "$WORK/web/storage/cache/stranky"
+page "firemni in en-gb: home page" /
+grep -q '<html lang="en-GB"' "$WORK/page.html" && grep -q '<meta property="og:locale" content="en_GB">' "$WORK/page.html" || fail "en-gb: the home page does not declare en-GB"
+page "firemni in en-gb: search" "/search?q=contact"
+grep -q 'href="/contact"' "$WORK/page.html" || fail "en-gb: search does not find the Contact page"
+page "en-gb: admin dashboard" "/admin.php" 200 "$JAR"
+grep -q '<html lang="en"' "$WORK/page.html" || fail "en-gb: the admin of a British English site is not English"
+sql "UPDATE ka_nastaveni SET hodnota = 'en' WHERE promenna = 'site_language'"; rm -rf "$WORK/web/storage/cache/stranky"
 # 3.5 (UXA-06): an English install uses English names and neutral examples – the home page slug, the news address, the
 # examples in the forms; it claims no country nobody set
 HOMESLUG=$(sql "SELECT seo_link FROM ka_stranky WHERE ids = (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'home_page')")

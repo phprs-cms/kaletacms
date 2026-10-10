@@ -60,9 +60,9 @@ final class AgentJournal
     public static function start(Db $db, string $connection, string $tool): ?self
     {
         try {
-            $now = date('Y-m-d H:i:s');
+            $now = Clock::now();
             $session = $db->one('SELECT id FROM {agent_sessions} WHERE connection = ? AND undone_at IS NULL AND last_at > ? ORDER BY id DESC LIMIT 1',
-                [$connection, date('Y-m-d H:i:s', time() - self::SESSION_GAP * 60)]);
+                [$connection, Clock::toDb(time() - self::SESSION_GAP * 60)]);
             $id = $session !== null ? (int) $session['id'] : $db->insert('agent_sessions', ['connection' => mb_substr($connection, 0, 100), 'started_at' => $now, 'last_at' => $now, 'calls' => 0]);
             $db->run('UPDATE {agent_sessions} SET last_at = ?, calls = calls + 1 WHERE id = ?', [$now, $id]);
             $call = (int) $db->value('SELECT calls FROM {agent_sessions} WHERE id = ?', [$id]);
@@ -118,7 +118,7 @@ final class AgentJournal
                 }
                 $this->db->insert('agent_journal', ['session_id' => $this->session, 'call_no' => $this->call, 'tool' => $this->tool, 'tbl' => $table,
                     'row_key' => (string) json_encode($key, JSON_UNESCAPED_UNICODE), 'before_row' => $old === null ? null : (string) json_encode($old, JSON_UNESCAPED_UNICODE),
-                    'after_row' => $new === null ? null : (string) json_encode($new, JSON_UNESCAPED_UNICODE), 'created_at' => date('Y-m-d H:i:s')]);
+                    'after_row' => $new === null ? null : (string) json_encode($new, JSON_UNESCAPED_UNICODE), 'created_at' => Clock::now()]);
             }
         });
     }
@@ -139,7 +139,7 @@ final class AgentJournal
     public function untracked(string $table, string $why): void
     {
         $this->quietly(fn (): int => $this->db->insert('agent_journal', ['session_id' => $this->session, 'call_no' => $this->call, 'tool' => $this->tool, 'tbl' => $table,
-            'row_key' => '', 'before_row' => null, 'after_row' => null, 'untracked' => mb_substr($why, 0, 120), 'created_at' => date('Y-m-d H:i:s')]));
+            'row_key' => '', 'before_row' => null, 'after_row' => null, 'untracked' => mb_substr($why, 0, 120), 'created_at' => Clock::now()]));
     }
 
     /**
@@ -151,10 +151,9 @@ final class AgentJournal
      */
     public function aroundRaw(string $sql, array $params): ?\Closure
     {
-        if ($this->busy || preg_match('/^\s*(UPDATE|DELETE\s+FROM|INSERT\s+INTO|REPLACE\s+INTO)\s+\{([a-z0-9_]+)\}/i', $sql, $m) !== 1 || !self::journaled($m[2])) {
+        if ($this->busy || preg_match('/^\s*(UPDATE|DELETE\s+FROM|INSERT\s+INTO|REPLACE\s+INTO)\s+\{([a-z0-9_]+)\}/i', $sql, $m) !== 1 || !self::journaled($table = Names::physical($m[2]))) {
             return null;
         }
-        $table = $m[2];
         $verb = strtoupper(substr(ltrim($m[1]), 0, 6));
         if (($verb === 'UPDATE' || $verb === 'DELETE') && array_is_list($params) && preg_match('/\sWHERE\s(.+)$/is', $sql, $w) === 1 && stripos($w[1], 'SELECT') === false) {
             $whereSql = (string) preg_replace('/\s+(ORDER\s+BY|LIMIT)\s.*$/is', '', $w[1]);
@@ -248,7 +247,7 @@ final class AgentJournal
             }
         });
         $user = $app->auth()->user();
-        $db->update('agent_sessions', ['undone_at' => date('Y-m-d H:i:s'), 'undone_by' => mb_substr((string) ($user['jmeno'] ?? '') ?: (string) ($user['user'] ?? ''), 0, 100)], ['id' => $sessionId]);
+        $db->update('agent_sessions', ['undone_at' => Clock::now(), 'undone_by' => mb_substr((string) ($user['jmeno'] ?? '') ?: (string) ($user['user'] ?? ''), 0, 100)], ['id' => $sessionId]);
         $result['undone'] = true;
         \Kaleta\Front\Cache::clear();
         \Kaleta\Admin\ChangeLog::write($app, 'changelog', 'undo_session', '#' . $sessionId . ' ' . $session['connection'] . ': ' . $result['restored'] . '/' . $result['removed'] . '/' . count($result['conflicts']));
@@ -277,7 +276,7 @@ final class AgentJournal
     /** Deletes journal entries and sessions older than JOURNAL_DAYS (a daily job). */
     public static function purge(Db $db): string
     {
-        $before = date('Y-m-d H:i:s', time() - self::JOURNAL_DAYS * 86400);
+        $before = Clock::toDb(time() - self::JOURNAL_DAYS * 86400);
         $n = $db->run('DELETE FROM {agent_sessions} WHERE last_at < ?', [$before])->rowCount();
 
         return 'sessions removed ' . $n;

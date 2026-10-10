@@ -206,7 +206,7 @@ final class Screen
         $siteName = $s->get('site_name');
         $logo = $s->get('logo');
         $logoHtml = $logo !== '' ? '<img class="obrazovka-logo" src="' . e($base . '/' . ltrim($logo, '/')) . '" alt="' . e($siteName) . '">' : '<span class="obrazovka-nazev">' . e($siteName) . '</span>';
-        $html = '<!doctype html><html lang="' . e(Language::code()) . '"' . ($dark ? ' data-tmavy' : '') . ($s->get('dark_mode') === 'tmavy' ? ' data-tema="tmavy"' : '') . '><head><meta charset="utf-8">'
+        $html = '<!doctype html><html lang="' . e(Language::tag(Language::code())) . '"' . ($dark ? ' data-tmavy' : '') . ($s->get('dark_mode') === 'tmavy' ? ' data-tema="tmavy"' : '') . '><head><meta charset="utf-8">'
             . '<meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><title>' . e($siteName) . '</title>'
             . ($count > 1 ? '<noscript><meta http-equiv="refresh" content="' . $seconds . '; url=' . e($path . '?s=' . (($active + 1) % $count)) . '"></noscript>' : '')
             . DesignSystem::fontPreloads($ds, $base) . '<style>' . DesignSystem::css($ds, $base) . self::css() . '</style></head><body class="obrazovka">'

@@ -12,7 +12,7 @@ echo '<?xml version="1.0" encoding="utf-8"?>' . "\n";
 	<title><?= e($web->get('site_name')) ?></title>
 	<link><?= e($adresa) ?></link>
 	<description><?= e($web->get('site_description')) ?></description>
-	<language><?= e(\Kaleta\Core\Language::code()) ?></language>
+	<language><?= e(\Kaleta\Core\Language::tag(\Kaleta\Core\Language::code())) ?></language>
 	<generator>Kaleta <?= e(KALETA_VERSION) ?></generator>
 <?php foreach ($novinky as $c): ?>
 	<item>
