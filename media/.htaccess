@@ -1,5 +1,6 @@
-# Uploaded files are only served – never run.
-<FilesMatch "\.(php\d?|phtml|phar|pl|py|cgi|sh|html?|js)$">
+# Uploaded files are only served – never run. The rule also matches an extension inside the name (x.php.jpg, x.shtml.pdf):
+# Apache's mod_mime applies a handler for an extension wherever it stands in the name (3.9.2, N67).
+<FilesMatch "\.(php\d?|pht|phtml|phar|pl|py|cgi|sh|shtml|html?|js)(\.|$)">
     Require all denied
 </FilesMatch>
 Options -Indexes -ExecCGI

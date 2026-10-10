@@ -1172,15 +1172,21 @@ final class SiteImport
         }
     }
 
-    /** Where a file from the archive goes; null = it does not belong in media/ or its type is not allowed. */
+    /**
+     * Where a file from the archive goes; null = it does not belong in media/ or its type is not allowed. Every part of the
+     * name after its first dot must be an allowed extension (3.9.2, N67): Kaleta's own photo.jpg.webp passes, photo.php.jpg
+     * does not – Apache runs a handler for an extension wherever it stands in the name, and the bytes are copied unchanged.
+     */
     public static function mediaTarget(string $name): ?string
     {
         if (!preg_match('#^media/(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_][A-Za-z0-9_.-]*$#D', $name) || str_contains($name, '..')) {
             return null;
         }
-        $extension = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+        $allowed = [...self::MEDIA_EXTENSIONS, ...Files::FILE_EXTENSIONS];
+        $parts = explode('.', strtolower(basename($name)));
+        array_shift($parts); // the name itself
 
-        return in_array($extension, [...self::MEDIA_EXTENSIONS, ...Files::FILE_EXTENSIONS], true) ? $name : null;
+        return $parts !== [] && array_diff($parts, $allowed) === [] ? $name : null;
     }
 
     /** After the import: the search index, the cache and the working files. */

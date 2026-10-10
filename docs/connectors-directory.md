@@ -178,12 +178,13 @@ rsync -a --delete "$SITE/media/" ~/review/media/
 ```
 
 ```text
-30 3 * * * mysql kaleta_review < ~/review/snapshot.sql && rsync -a --delete ~/review/media/ /path/to/review-site/media/ && rm -rf /path/to/review-site/storage/cache/stranky/* /path/to/review-site/storage/import/*
+30 3 * * * mysql kaleta_review < ~/review/snapshot.sql && mysql kaleta_review -e "DELETE FROM ka_api_tokeny WHERE idu <> (SELECT idu FROM ka_uzivatele WHERE user = 'anthropic-review')" && rsync -a --delete ~/review/media/ /path/to/review-site/media/ && rm -rf /path/to/review-site/storage/cache/stranky/* /path/to/review-site/storage/import/*
 ```
 
 `mysqldump` writes `DROP TABLE IF EXISTS` before each table, so the restore replaces content, users, settings and the
 change log, while tokens and OAuth clients stay – the reviewer's connection keeps working after a reset (their user
-keeps its id). A later improvement would be a `review` variant of `system/demo.php` that does the same without the
+keeps its id). The `DELETE` after the restore removes the tokens of every other user: a user created after the snapshot
+disappears with the reset, and the next user created would get the same id and inherit that token (N70). A later improvement would be a `review` variant of `system/demo.php` that does the same without the
 public demo's restrictions.
 
 ## 7. Review risks to know before submitting

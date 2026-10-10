@@ -218,6 +218,8 @@ fi
 check "admin dashboard" /admin.php
 # releases before 1.1 migrate on the first admin load after the update, later ones during the update itself
 expect "database migrated to $LAST_MIGRATION" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'")" "$LAST_MIGRATION"
+# 3.9.2 (N67): an update never overwrites media/, migration 0084 brings the newer media/.htaccess to the site
+if [ "$LAST_MIGRATION" -ge 84 ]; then grep -q 'shtml|html?|js)(\\.|\$)' "$WORK/web/media/.htaccess" && echo "  ok     media/.htaccess refuses a script extension inside the name (migration 0084)" || { echo "  CHYBA  media/.htaccess not updated by migration 0084"; ERRORS=$((ERRORS+1)); }; fi
 expect "no settings row left under a key of 1.4.0" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_nastaveni WHERE promenna IN ('verze_db', 'nazev_webu', 'aktualizace_url', 'aktualizace_cache', 'uklizeno_verze')")" "0"
 if [ "$LAST_MIGRATION" -ge 34 ] && [ "$MODAL_PLANTED" = 1 ]; then
   rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/response" "$B/okno-test"

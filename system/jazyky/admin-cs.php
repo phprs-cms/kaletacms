@@ -5643,4 +5643,5 @@ return [
     'The collection list shows the collection “%s”, which does not exist.' => 'Výpis kolekce ukazuje kolekci „%s“, která neexistuje.',
     'The collection list shows the category “%s”, which the collection does not have – it will stay empty.' => 'Výpis kolekce ukazuje kategorii „%s“, kterou kolekce nemá – zůstane prázdný.',
     '{{%s}} is not a field of the collection “%s” – it will stay empty on the site.' => '{{%s}} není pole kolekce „%s“ – na webu zůstane prázdné.',
+    'A newer media/.htaccess.kaleta-nova is next to your customised media/.htaccess – carry over its deny rule (since 3.9.2 it also blocks files like photo.php.jpg), then delete the file.' => 'Vedle vašeho upraveného media/.htaccess je novější media/.htaccess.kaleta-nova – převezměte z něj pravidlo zákazu (od 3.9.2 blokuje i soubory jako foto.php.jpg) a soubor smažte.',
 ];

@@ -131,6 +131,19 @@ check "3.5: Claude settings have the address with Copy and the connection state"
 grep -q 'Zatím nepřipojeno' "$WORK/response" && echo "  ok     3.5: Claude settings say Claude is not connected yet" || { echo "  CHYBA  3.5: Claude settings state"; ERRORS=$((ERRORS+1)); }
 check "3.5: My account has the address with Copy" 200 "/admin.php?action=account" 'data-kopirovat="#mcp-adresa-ucet"'
 check "3.9.1: the admin footer links to the support page (Buy Me a Coffee)" 200 "/admin.php?action=account" 'href="https://buymeacoffee.com/Kaletacms"'
+# 3.9.2 N67: an update never touches media/, so migration 0084 does – it replaces a media/.htaccess Kaleta shipped (here the
+# one of 3.9.1, rebuilt from today's file) and keeps a customised one, with the new version next to it and a warning
+n67_rerun() { "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = REPLACE(REPLACE(hodnota, ',0084-media-htaccess', ''), '0084-media-htaccess', '') WHERE promenna = 'data_migrations'"; curl -s -o /dev/null "$B/?n67=$RANDOM"; }
+cp "$WORK/web/media/.htaccess" "$WORK/media-htaccess-new"
+{ echo '# Uploaded files are only served – never run.'; sed -e '1,2d' -e 's/|pht|phtml|phar|pl|py|cgi|sh|shtml|html?|js)(\\.|\$)/|phtml|phar|pl|py|cgi|sh|html?|js)$/' "$WORK/media-htaccess-new"; } > "$WORK/web/media/.htaccess"
+expect "3.9.2 N67: the test rebuilds the media/.htaccess of 3.9.1 exactly" "$(php -r 'echo hash_file("sha256", $argv[1]);' "$WORK/web/media/.htaccess")" "e20dd912d8066f36f5d967ee462497fca1dcbcd5b53f19d6f77e6bff7ceec708"
+n67_rerun
+expect "3.9.2 N67: migration 0084 replaces the media/.htaccess of an earlier release" "$(cmp -s "$WORK/web/media/.htaccess" "$WORK/media-htaccess-new" && echo same)|$([ -f "$WORK/web/media/.htaccess.kaleta-nova" ] && echo nova)" "same|"
+printf '# my own rules\nRequire all granted\n' > "$WORK/web/media/.htaccess"
+n67_rerun
+expect "3.9.2 N67: a customised media/.htaccess stays, the new one waits next to it" "$(head -1 "$WORK/web/media/.htaccess")|$(cmp -s "$WORK/web/media/.htaccess.kaleta-nova" "$WORK/media-htaccess-new" && echo nova)" "# my own rules|nova"
+check "3.9.2 N67: System status asks to carry the new media/.htaccess over" 200 "/admin.php?module=status" "media/.htaccess.kaleta-nova"
+cp "$WORK/media-htaccess-new" "$WORK/web/media/.htaccess"; rm -f "$WORK/web/media/.htaccess.kaleta-nova"
 TOKEN=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=requests&action=save" -d "_csrf=$TOKEN" -d quick=1 -d from=dashboard -d "text=Zkouška před připojením."
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php"

@@ -6049,4 +6049,5 @@ return [
     'The collection list shows the collection “%s”, which does not exist.' => 'Die Sammlungsliste zeigt die Sammlung „%s“, die es nicht gibt.',
     'The collection list shows the category “%s”, which the collection does not have – it will stay empty.' => 'Die Sammlungsliste zeigt die Kategorie „%s“, die die Sammlung nicht hat – sie bleibt leer.',
     '{{%s}} is not a field of the collection “%s” – it will stay empty on the site.' => '{{%s}} ist kein Feld der Sammlung „%s“ – es bleibt auf der Website leer.',
+    'A newer media/.htaccess.kaleta-nova is next to your customised media/.htaccess – carry over its deny rule (since 3.9.2 it also blocks files like photo.php.jpg), then delete the file.' => 'Neben Ihrer angepassten media/.htaccess liegt eine neuere media/.htaccess.kaleta-nova – übernehmen Sie deren Sperrregel (seit 3.9.2 blockiert sie auch Dateien wie foto.php.jpg) und löschen Sie die Datei dann.',
 ];

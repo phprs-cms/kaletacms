@@ -1411,6 +1411,21 @@ $n392Header = (new Kaleta\Core\WpFile($n392File))->header();
 @unlink($n392File);
 // 3.9.1: the phone menu – rows close together whatever the element's gap, and every arrow in the same place
 $navCss = Kaleta\Builder\Elements\Navigation::baseCss();
+// 3.9.2 N67: an imported Kaleta export may not place a file with a dangerous extension inside its name, and media/.htaccess
+// refuses such a name wherever the extension stands; migration 0084 carries exactly the shipped media/.htaccess
+check('3.9.2 N67: SiteImport::mediaTarget takes photo.jpg and Kaleta\'s photo.jpg.webp, never photo.php.jpg, x.phtml.pdf or x.shtml.pdf', array_map(
+    fn (string $n): ?string => Kaleta\Core\SiteImport::mediaTarget($n),
+    ['media/2026/10/photo.jpg', 'media/2026/10/photo.jpg.webp', 'media/2026/10/photo.png.avif', 'media/doc/price-list.pdf', 'media/x.php.jpg', 'media/a/x.phtml.pdf',
+        'media/x.shtml.pdf', 'media/x.php5.txt', 'media/noextension', 'media/x.jpg.']),
+    ['media/2026/10/photo.jpg', 'media/2026/10/photo.jpg.webp', 'media/2026/10/photo.png.avif', 'media/doc/price-list.pdf', null, null, null, null, null, null]);
+$n67Htaccess = (string) file_get_contents(KALETA_ROOT . '/media/.htaccess');
+preg_match('/<FilesMatch "([^"]+)">/', $n67Htaccess, $n67Deny);
+check('3.9.2 N67: media/.htaccess refuses a script extension inside the name too, never an ordinary photo or document', array_map(
+    fn (string $n): bool => preg_match('/' . str_replace('/', '\/', $n67Deny[1] ?? '^$') . '/i', $n) === 1,
+    ['x.php.jpg', 'x.shtml.pdf', 'x.phtml', 'x.PHP7.png', 'index.html', 'photo.jpg', 'photo.jpg.webp', 'wash.jpg', 'english.pdf', 'phpinfo.png']),
+    [true, true, true, true, true, false, false, false, false, false]);
+preg_match("/<<<'HTACCESS'\n(.*?)\nHTACCESS/s", (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0084-media-htaccess.php'), $n67Migration);
+check('3.9.2 N67: migration 0084 writes exactly the media/.htaccess of the package', ($n67Migration[1] ?? '') . "\n" === $n67Htaccess, true);
 check('3.9.1 Navigation: the phone sheet resets the gap of its lists and puts the arrow of a group where a toggle has it', [
     str_contains($navCss, '.ka-nav-menu[popover] ul { flex-direction: column; gap: 2px; }'),
     str_contains($navCss, '.ka-nav-menu[popover] .podmenu > .menu-skupina::after { margin-inline: 0 calc(1.375rem - 0.2em); }'),

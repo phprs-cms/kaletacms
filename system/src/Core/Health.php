@@ -59,6 +59,10 @@ final class Health
             // an update keeps a customised .htaccess and puts its own next to it (Core\Updater) – since 3.3.2 it also closes extensions/
             $add(t('Bezpečnost'), '.htaccess', 'varovani', t('An update left a newer .htaccess.kaleta-nova next to your customised .htaccess – carry its new rules over (since 3.3.2 they keep the code of add-ons in extensions/ away from visitors), then delete the file.'));
         }
+        if (is_file(KALETA_ROOT . '/media/.htaccess.kaleta-nova')) {
+            // 3.9.2 (N67): migration 0084 keeps a customised media/.htaccess and puts Kaleta's newer one next to it
+            $add(t('Bezpečnost'), 'media/.htaccess', 'varovani', t('A newer media/.htaccess.kaleta-nova is next to your customised media/.htaccess – carry over its deny rule (since 3.9.2 it also blocks files like photo.php.jpg), then delete the file.'));
+        }
         $core = Integrity::check();
         $add(t('Bezpečnost'), t('Core files'), $core['stav'], $core['info']);
 
