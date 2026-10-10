@@ -420,6 +420,7 @@ CREATE TABLE ka_api_tokeny (
     klient    CHAR(32) NULL,                              -- OAuth client_id; NULL = a personal token from "Můj účet" (My account)
     druh      VARCHAR(10) NOT NULL DEFAULT 'token',       -- token | pristup | obnova
     access    VARCHAR(10) NOT NULL DEFAULT 'full',        -- full | drafts | read – what the connection may do (2.2)
+    tool_set  VARCHAR(16) NOT NULL DEFAULT 'all',         -- all | essentials – the tools it lists (3.10, Mcp\Catalog::TOOL_SETS)
     expirace  DATETIME NULL,
     otisk     CHAR(64) NOT NULL,                          -- sha256 of the token
     vytvoren  DATETIME NOT NULL,
@@ -816,6 +817,7 @@ CREATE TABLE ka_oauth_kody (
     presmerovani VARCHAR(500) NOT NULL,
     vyzva        VARCHAR(128) NOT NULL,              -- code_challenge (PKCE, S256)
     access       VARCHAR(10)  NOT NULL DEFAULT 'full', -- the access chosen on the consent screen
+    tool_set     VARCHAR(16)  NOT NULL DEFAULT 'all',  -- the tool set chosen on the consent screen (3.10)
     expirace     DATETIME     NOT NULL,
     PRIMARY KEY (otisk)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;

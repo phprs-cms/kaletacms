@@ -17,6 +17,10 @@ ask. It asks before anything is deleted, discarded or sent. It never asks for pa
 chat. What a connection may do is set when you connect: everything your account may do, drafts only, or read only.
 The skills respect that.
 
+A connection also has a tool set, chosen when you connect: **Essentials** (the default for a connector) lists the core
+tools and keeps every conversation lighter; Claude reaches the other tools a skill names with `find_tools` and
+`run_tool`. **All tools** lists everything at once. Switch it for any connection in Kaleta under My account.
+
 ## Where it works
 
 The plugin is a standard Claude plugin folder: `.claude-plugin/plugin.json`, `skills/<name>/SKILL.md` and `.mcp.json`.

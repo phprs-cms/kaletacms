@@ -150,6 +150,12 @@ final class Prompts
                     . 'tell the user what is ready to review (list_pending_review lists everything that waits for a person).',
                 default => '',
             };
+        if (($app->auth()->connection()['tool_set'] ?? 'all') === 'essentials') {
+            // 3.10: the list holds the core tools; the rest – everything these instructions name – is a find_tools away
+            $text .= ' YOUR TOOL LIST HOLDS THE ESSENTIALS: pages, builds, the menu and the look, collections, media, requests, enquiries, facts, the audit and the change log. '
+                . 'Every other tool named here or that a task needs (news, redirects, settings, pop-ups, trash, versions, bookings, newsletters, the notebook, imports…) exists too: '
+                . 'call find_tools (with names or a query) for its parameters, then run_tool with name and arguments – the same rules and confirmations as a direct call.';
+        }
         $address = \Kaleta\Core\Language::visitorAddress($app->settings());
         if ($address !== null) {
             $text .= ' GERMAN FORM OF ADDRESS: the German texts for visitors of this site (pages, news, replies to enquiries, e-mails) use the '

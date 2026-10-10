@@ -21,7 +21,8 @@ use Kaleta\Core\Session;
  *   /oauth/token                            exchange of a code for tokens (PKCE S256) and token refresh
  *
  * The application gets the permissions of the user who allowed it – all of them, or (chosen on the consent screen, 2.2)
- * only drafts or only reading. The access token is valid for an hour, the
+ * only drafts or only reading – and, since 3.10, the tool set it lists (essentials or all tools). The access token is
+ * valid for an hour, the
  * refresh token for 30 days, and it is exchanged for a new one on every use. Tokens are stored in ka_api_tokeny (hashes
  * only) – disconnecting the application in "Můj účet" (My account) deletes them.
  * At the domain root the metadata are at /.well-known/. A site in a subfolder serves them at /folder/.well-known/
@@ -286,13 +287,15 @@ final class OAuth
      * to the application.
      *
      * @param array<string, mixed> $pending parameters saved in authorize()
+     * @param string $toolSet the tool set chosen on the consent screen (3.10, Mcp\Catalog::TOOL_SETS)
      */
-    public function issueCode(array $pending, int $idu, string $access = 'full'): string
+    public function issueCode(array $pending, int $idu, string $access = 'full', string $toolSet = 'all'): string
     {
         $code = bin2hex(random_bytes(32));
         $this->app->db()->run('UPDATE {oauth_klienti} SET approved = ? WHERE client_id = ? AND approved IS NULL', [date('Y-m-d H:i:s'), (string) $pending['client_id']]);
         $this->app->db()->insert('oauth_kody', ['otisk' => hash('sha256', $code), 'client_id' => $pending['client_id'], 'idu' => $idu, 'presmerovani' => $pending['redirect_uri'],
-            'vyzva' => $pending['challenge'], 'access' => self::access($access), 'expirace' => date('Y-m-d H:i:s', time() + self::CODE_LIFETIME)]);
+            'vyzva' => $pending['challenge'], 'access' => self::access($access),
+            'tool_set' => \Kaleta\Mcp\Catalog::toolSet($toolSet), 'expirace' => date('Y-m-d H:i:s', time() + self::CODE_LIFETIME)]);
 
         return self::withParams((string) $pending['redirect_uri'], ['code' => $code, 'state' => (string) $pending['state'], 'iss' => $this->issuer()]);
     }
@@ -329,7 +332,7 @@ final class OAuth
                 return $this->error('invalid_grant', 'The code is invalid, expired or already used, or the redirect URI or PKCE does not match.');
             }
 
-            return $this->issueTokens($db, (int) $code['idu'], $client, (string) $code['access']);
+            return $this->issueTokens($db, (int) $code['idu'], $client, (string) $code['access'], (string) $code['tool_set']);
         }
         if ($r->post('grant_type') === 'refresh_token') {
             return $this->refresh($db, $client, $r->post('refresh_token'));
@@ -339,13 +342,13 @@ final class OAuth
     }
 
     /** @param array<string, mixed> $client */
-    private function issueTokens(Db $db, int $idu, array $client, string $level): Response
+    private function issueTokens(Db $db, int $idu, array $client, string $level, string $toolSet): Response
     {
         if (!self::isActiveUser($db, $idu)) {
             return $this->error('invalid_grant', 'The account that allowed the application no longer has access.');
         }
         $pair = ['kaleta_oa_' . bin2hex(random_bytes(24)), 'kaleta_or_' . bin2hex(random_bytes(24))];
-        self::storeTokens($db, $idu, $client, $level, $pair);
+        self::storeTokens($db, $idu, $client, $level, $toolSet, $pair);
 
         return $this->tokenResponse($db, $pair);
     }
@@ -379,7 +382,8 @@ final class OAuth
                 }
                 $db->insert('oauth_rotated', ['hash' => $hash, 'client_id' => (string) $client['client_id'], 'idu' => (int) $refresh['idu'], 'salt' => $salt,
                     'rotated_at' => $now, 'expires_at' => (string) $refresh['expirace']]);
-                self::storeTokens($db, (int) $refresh['idu'], $client, (string) $refresh['access'], $pair); // the access chosen at consent stays
+                // the access and the tool set chosen at consent (or switched in My account) stay
+                self::storeTokens($db, (int) $refresh['idu'], $client, (string) $refresh['access'], (string) $refresh['tool_set'], $pair);
 
                 return true;
             });
@@ -428,11 +432,11 @@ final class OAuth
      * @param array<string, mixed> $client
      * @param array{0: string, 1: string} $pair access token and refresh token
      */
-    private static function storeTokens(Db $db, int $idu, array $client, string $level, array $pair): void
+    private static function storeTokens(Db $db, int $idu, array $client, string $level, string $toolSet, array $pair): void
     {
         foreach ([[$pair[0], 'pristup', self::ACCESS_LIFETIME], [$pair[1], 'obnova', self::REFRESH_LIFETIME]] as [$token, $kind, $lifetime]) {
             $db->insert('api_tokeny', ['idu' => $idu, 'nazev' => (string) $client['nazev'], 'klient' => (string) $client['client_id'], 'druh' => $kind, 'access' => self::access($level),
-                'expirace' => date('Y-m-d H:i:s', time() + $lifetime), 'otisk' => hash('sha256', $token), 'vytvoren' => date('Y-m-d H:i:s')]);
+                'tool_set' => \Kaleta\Mcp\Catalog::toolSet($toolSet), 'expirace' => date('Y-m-d H:i:s', time() + $lifetime), 'otisk' => hash('sha256', $token), 'vytvoren' => date('Y-m-d H:i:s')]);
         }
     }
 

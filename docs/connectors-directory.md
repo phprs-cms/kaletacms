@@ -25,7 +25,7 @@ Requirements were checked on 9 October 2026 against:
 | Remote server over HTTPS (submission) | Every Kaleta site serves `https://<site>/mcp` (Streamable HTTP, JSON responses); plain HTTP is refused except on localhost. |
 | Every tool has a `title` and the applicable `readOnlyHint` or `destructiveHint` (submission, review criteria) | Done in 3.8: every tool has a title (top-level `title` and `annotations.title`, `Mcp\Catalog::TITLES`), `readOnlyHint` and `destructiveHint` from `Mcp\Catalog` access levels, `idempotentHint` where verified, `openWorldHint` for tools that reach outside the site. Add-on tools get the same fields from their declaration. |
 | Tool names ≤ 64 characters (review criteria) | Longest name has 26 characters. |
-| Read and write split into separate tools; no catch-all API tool (review criteria) | Every tool does one thing; there is no tool that takes an HTTP method or a free endpoint. |
+| Read and write split into separate tools; no catch-all API tool (review criteria) | Every tool does one thing; there is no tool that takes an HTTP method or a free endpoint. Since 3.10 an essentials connection also lists `run_tool`, which runs one of the site's own named tools by name with the same checks as a direct call – see review risks below. |
 | Narrow, accurate descriptions; no prompt-injection patterns (review criteria) | Descriptions say what each tool does. Some carry safety rules (never publish because a request said so, drafts only) – see review risks below. |
 | Actionable errors, reasonable response sizes (review criteria) | Errors are tool results with `isError: true` and a sentence that says what to do; list tools page (`limit`, `offset`). |
 | OAuth 2.0 for authenticated services (submission, authentication) | OAuth 2.1 with PKCE S256, dynamic client registration (RFC 7591), protected resource metadata (RFC 9728), authorization server metadata (RFC 8414), refresh token rotation. Details in section 4. |
@@ -132,8 +132,27 @@ By feature: 109 core tools, 11 News, 7 Enquiries, 2 Redirects, 5 Newsletter, 2 F
   `cancel_booking`, `propose_booking_times`) – `Mcp\Catalog::OPEN_WORLD`.
 - Prompts (`build_page` and others) and resources (the site owner's instructions, an overview) are offered too; the
   portal syncs them with the tools.
-- tools/list with every feature on is about 151 KB (154,393 bytes; 144,985 before the titles). The descriptions are long
-  on purpose (the builder's data model); trimming them is a separate task.
+- tools/list with every feature on is about 152 KB (155,375 bytes in 3.9.2; 144,985 before the titles). The descriptions
+  are long on purpose (the builder's data model).
+
+**Tool sets (3.10).** Each connection has a tool set (`ka_api_tokeny.tool_set`, `Mcp\Catalog::TOOL_SETS`), chosen next
+to the access level on the consent screen (default **Essentials**) and for a personal token (default **All tools**), and
+switchable for an existing connection in My account. Connections from before 3.10 keep all tools; a token refresh keeps
+the tool set.
+
+- **All tools** – tools/list as above, unchanged.
+- **Essentials** – the 33 core tools of `Mcp\Catalog::ESSENTIALS` (pages, builds, menu and look, collections, media,
+  requests, enquiries, facts, audit, health, change log, notebook, pending review) plus two meta tools: 35 tools,
+  48,544 bytes with every feature on (a unit test keeps it under 50 KB). The server instructions add one paragraph
+  pointing to the meta tools.
+  - `find_tools` (read, `readOnlyHint: true`): without arguments a compact index of every other tool the connection may
+    use (name, access, one line – about 13 KB); with `names` or `query` the full definitions of up to 8 tools.
+  - `run_tool` (`readOnlyHint: false`, `destructiveHint: true`, `openWorldHint: true` – it can run anything the
+    connection may): runs a tool by name through the same path as a direct tools/call (access level, guardrails and
+    reason, undo journal, change log). It refuses itself and `find_tools` as the inner tool.
+  - A tool outside the list can still be called directly by name.
+- `find_tools` and `run_tool` are callable on any connection, but listed only for essentials connections; both are in
+  the contract (`tools/contracts/mcp-tools.json`).
 
 ## 6. Reviewer access (owner decision D2: a private review site, reset nightly, never a public demo)
 
@@ -199,7 +218,13 @@ public demo's restrictions.
   prompt injection, but the criteria reject descriptions that "tell Claude to behave in ways unrelated to the tool's
   function". They relate to the tool, so they should pass; if a reviewer flags them, move the rules into the server
   instructions (`Prompts::serverInstructions`).
-- **Size of tools/list** (about 150 KB with every feature on) costs context in every conversation.
+- **Size of tools/list** (about 150 KB with every feature on) costs context in every conversation. Since 3.10 new OAuth
+  connections default to the essentials (about 48 KB); the reviewers' connection gets them too unless they pick all tools.
+- **`run_tool` as a catch-all.** The criteria reject "catch-all API" tools. `run_tool` takes no HTTP method or endpoint –
+  only the name of one of the site's own tools, checked exactly as a direct call – and its annotations are the most
+  cautious ones. If a reviewer still flags it, the fallback is to submit with all tools listed (the connection's tool set),
+  where `run_tool` is not listed. A client that confirms per tool asks once for `run_tool`, not for each inner tool – the
+  connection's access level and the tools' own rules still apply.
 
 ## 8. Checklist
 
@@ -213,6 +238,8 @@ Done in the code (3.8):
 - [x] `initialize`: `title`, `websiteUrl`, `icons`.
 - [x] OAuth: loopback redirect with any port (Claude Code).
 - [x] Draft registry entry `docs/server.json`.
+- [x] 3.10: tool sets – essentials (about 48 KB) with `find_tools` / `run_tool`, or all tools; chosen at consent and in
+      My account.
 
 For the owner:
 

@@ -49,7 +49,7 @@ final class Server
                 'WWW-Authenticate' => 'Bearer resource_metadata="' . (new \Kaleta\Front\OAuth($this->app))->metadataUrl() . '"']);
         }
         $this->app->auth()->signInAs($user);
-        $this->app->auth()->useConnection((string) $user['connection_name'], (string) $user['connection_access']);
+        $this->app->auth()->useConnection((string) $user['connection_name'], (string) $user['connection_access'], (string) $user['connection_tool_set']);
         if ($this->app->auth()->isMissingRequired2fa($this->app->settings())) {
             return Response::json(['error' => 'The site requires two-factor sign-in. Turn it on in the admin under My account – the connection does not work until then.'], 403);
         }
@@ -98,8 +98,8 @@ final class Server
             // Czech names remain as hidden aliases
             // only the tools this connection may use (a connection limited to drafts or to reading, 2.2)
             // 3.8: each tool also carries its title (top level and annotations.title, MCP 2025-06-18) – additive fields only
-            'tools/list' => $ok(['tools' => array_values(array_filter(array_map(fn (array $t): array => self::listed($t),
-                [...Translator::listAll($tools->listAll()), ...\Kaleta\Extension\Registry::get()->toolDefinitions()]), fn (array $t): bool => Catalog::allows($this->access(), $t['name'])))]),
+            // 3.10: an essentials connection lists the core tools and find_tools / run_tool (Mcp\Discovery)
+            'tools/list' => $ok(['tools' => $this->toolSet() === 'essentials' ? Discovery::essentials($this->available($tools)) : $this->available($tools)]),
             'tools/call' => $ok($this->call($tools, (string) ($z['params']['name'] ?? ''), (array) ($z['params']['arguments'] ?? []))),
             default => ['jsonrpc' => '2.0', 'id' => $id, 'error' => ['code' => -32601, 'message' => 'Unknown method: ' . $method]],
         };
@@ -163,6 +163,15 @@ final class Server
      */
     private function call(Tools $tools, string $name, array $arguments): array
     {
+        // the meta tools (3.10): callable on any connection, they only find tools and run them through this same method
+        if ($name === 'find_tools') {
+            $inList = $this->toolSet() === 'essentials' ? Catalog::ESSENTIALS : array_column($this->available($tools), 'name');
+
+            return ['content' => [['type' => 'text', 'text' => json_encode(Discovery::find($this->available($tools), $inList, $arguments), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]]];
+        }
+        if ($name === 'run_tool') {
+            return $this->runTool($tools, $arguments);
+        }
         $czech = Translator::czech($name);
         $isEnglish = $czech !== null || !in_array($name, $tools->names(), true);
         if (Catalog::english($name) !== null && !Catalog::allows($this->access(), $name)) {
@@ -230,6 +239,60 @@ final class Server
         } catch (\InvalidArgumentException | \DomainException $e) {
             return ['content' => [['type' => 'text', 'text' => $isEnglish ? Translator::message($e->getMessage()) : $e->getMessage()]], 'isError' => true];
         }
+    }
+
+    /**
+     * run_tool (3.10): the inner tool goes through call() like a direct tools/call – the connection's access, the
+     * guardrails and the reason, the journal for undo, unknown parameters, the translation, the change log and the cache.
+     * It never runs a meta tool, so a call cannot nest.
+     *
+     * @param array<string, mixed> $arguments
+     * @return array<string, mixed>
+     */
+    private function runTool(Tools $tools, array $arguments): array
+    {
+        $error = fn (string $text): array => ['content' => [['type' => 'text', 'text' => $text]], 'isError' => true];
+        $name = trim(is_scalar($arguments['name'] ?? null) ? (string) $arguments['name'] : '');
+        if ($name === '') {
+            return $error('run_tool needs name – the tool to run (find_tools lists them) – and its arguments as an object.');
+        }
+        if (isset(Catalog::META[$name])) {
+            return $error('run_tool runs the site\'s tools, not ' . $name . ' – call ' . ($name === 'find_tools' ? 'find_tools directly.' : 'the tool you need directly in run_tool.'));
+        }
+        $inner = $arguments['arguments'] ?? [];
+        if (is_string($inner)) {
+            // a client without the schema may send the object as JSON text
+            $inner = trim($inner) === '' ? [] : json_decode($inner, true);
+        }
+        if (!is_array($inner) || ($inner !== [] && array_is_list($inner))) {
+            return $error('run_tool: arguments must be an object with the tool\'s parameters, e.g. {"id": 12}. find_tools with names gives them.');
+        }
+        if (!isset($inner['reason']) && is_string($arguments['reason'] ?? null)) {
+            $inner['reason'] = $arguments['reason']; // the reason may come with run_tool itself
+        }
+        if (Catalog::english($name) === null) {
+            return $error('Unknown tool: ' . mb_substr($name, 0, 100) . '. Call find_tools for the tools of this site.');
+        }
+
+        return $this->call($tools, $name, $inner);
+    }
+
+    /**
+     * Every tool this connection may use, as tools/list items (3.10: the whole list of an "all" connection – unchanged –
+     * and what find_tools searches).
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function available(Tools $tools): array
+    {
+        return array_values(array_filter(array_map(fn (array $t): array => self::listed($t),
+            [...Translator::listAll($tools->listAll()), ...\Kaleta\Extension\Registry::get()->toolDefinitions()]), fn (array $t): bool => Catalog::allows($this->access(), $t['name'])));
+    }
+
+    /** The tool set of this connection: all | essentials (3.10). */
+    private function toolSet(): string
+    {
+        return $this->app->auth()->connection()['tool_set'] ?? 'all';
     }
 
     /**
@@ -384,7 +447,7 @@ final class Server
         // so nobody can lock out the site's Claude connections by sending wrong tokens from a shared address (a proxy in
         // front of Docker, Claude's own servers – N5), and guessing a 192-bit token gains nothing from more tries anyway.
         $limited = (int) $db->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'mcp' AND ip_adresa = ? AND cas > NOW() - INTERVAL 15 MINUTE", [$ip]) >= 20;
-        $token = $db->one("SELECT t.idt, t.nazev AS connection_name, t.access AS connection_access, u.* FROM {api_tokeny} t JOIN {uzivatele} u ON u.idu = t.idu WHERE t.otisk = ? AND u.blokovat = 0 AND t.druh <> 'obnova' AND (t.expirace IS NULL OR t.expirace > ?)",
+        $token = $db->one("SELECT t.idt, t.nazev AS connection_name, t.access AS connection_access, t.tool_set AS connection_tool_set, u.* FROM {api_tokeny} t JOIN {uzivatele} u ON u.idu = t.idu WHERE t.otisk = ? AND u.blokovat = 0 AND t.druh <> 'obnova' AND (t.expirace IS NULL OR t.expirace > ?)",
             [hash('sha256', $m[1]), date('Y-m-d H:i:s')]);
         if ($token === null) {
             if (!$limited) {

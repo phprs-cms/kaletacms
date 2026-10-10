@@ -65,6 +65,15 @@ expect_sql "3.9 (0083): pages, news and categories have the per-language slug ke
 expect_sql "3.9 (0083): language values read back unchanged" "SELECT GROUP_CONCAT(CONCAT(ids, ':', jazyk, ':', LENGTH(jazyk)) ORDER BY ids) FROM ka_stranky WHERE ids IN (9083, 9084)" "9083::0,9084:en:2"
 "${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_stranky WHERE ids IN (9083, 9084)"
 
+# 3.10 (0085): a Claude connection and an OAuth code from before the upgrade keep every tool (tool_set all) – the column is
+# taken off again, rows are added as 3.9.2 wrote them, and the migration runs again from version 84
+"${MYSQL[@]}" "$OLD" -e "ALTER TABLE ka_api_tokeny DROP COLUMN tool_set; ALTER TABLE ka_oauth_kody DROP COLUMN tool_set; SET FOREIGN_KEY_CHECKS = 0;
+  INSERT INTO ka_api_tokeny (idu, nazev, klient, druh, access, otisk, vytvoren) VALUES (9085, 'Claude', REPEAT('d', 32), 'obnova', 'drafts', REPEAT('e', 64), '$(site_time)');
+  INSERT INTO ka_oauth_kody (otisk, client_id, idu, presmerovani, vyzva, access, expirace) VALUES (REPEAT('f', 64), REPEAT('d', 32), 9085, 'https://claude.ai/cb', 'x', 'read', '$(site_time)');
+  SET FOREIGN_KEY_CHECKS = 1; UPDATE ka_nastaveni SET hodnota = '84' WHERE promenna = 'db_version'" && migrate > /dev/null
+expect_sql "3.10 (0085): an existing connection and code keep all tools and their access" "SELECT CONCAT((SELECT CONCAT(access, ':', tool_set) FROM ka_api_tokeny WHERE idu = 9085), '|', (SELECT CONCAT(access, ':', tool_set) FROM ka_oauth_kody WHERE idu = 9085))" "drafts:all|read:all"
+"${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_api_tokeny WHERE idu = 9085; DELETE FROM ka_oauth_kody WHERE idu = 9085"
+
 # 3.2 (0073): a site as 3.1.1 left it gets the new feature defaults – Bookings and Whistleblowing stay on where they are in
 # use and are off where not; Statistics are off where the old "stats" setting was off. The data migration runs again by name.
 site_311() { "${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_bookings; DELETE FROM ka_booking_services; DELETE FROM ka_whistleblowing_cases;

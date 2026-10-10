@@ -2466,6 +2466,85 @@ mcp_text; contains -q 'Unknown language codes: xx' "$WORK/text" && contains -q '
 mcp update_settings "{\"settings\":{\"extensions\":[\"$(printf %s "$EXT_BEFORE" | sed 's/,/","/g')\"],\"llms_txt\":\"1\"}}" > /dev/null
 check "OAuth metadata for a site in a subfolder (openid-configuration)" 200 "/.well-known/openid-configuration" '"token_endpoint"'
 
+echo "== 3.10: tools on demand – an essentials connection lists the core tools, finds the rest (find_tools) and runs it (run_tool)"
+# mcp_list <token>: how many tools tools/list holds | whether find_tools and run_tool are among them | whether it fits in 50 KB
+mcp_list() { curl -s -X POST "$B/mcp" -H "Authorization: Bearer $1" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' \
+  | php -r '$t = json_decode(stream_get_contents(STDIN), true)["result"]["tools"] ?? []; $n = array_column($t, "name");
+    echo count($t), "|", in_array("find_tools", $n, true) && in_array("run_tool", $n, true) ? "meta" : (array_intersect(["find_tools", "run_tool"], $n) ? "half" : "no-meta"), "|", strlen(json_encode(["tools" => $t], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) <= 50000 ? "small" : "large";'; }
+token_of() { grep -o "\"$1\":\"[a-z0-9_]*\"" "$WORK/response" | sed 's/.*:"//;s/"//' || true; }
+ALL_BEFORE=$(mcp_list "$API_TOKEN")
+case "$ALL_BEFORE" in *"|no-meta|large") echo "  ok     3.10: a connection from before (all tools) lists every tool and no meta tool ($ALL_BEFORE)";; *) echo "  CHYBA  3.10: the all-tools list: $ALL_BEFORE"; ERRORS=$((ERRORS+1));; esac
+expect "3.10: connections that existed before keep all tools" "$(sq "SELECT GROUP_CONCAT(DISTINCT tool_set) FROM ka_api_tokeny WHERE otisk IN (SHA2('$API_TOKEN', 256), SHA2('$READ_TOKEN', 256), SHA2('$DRAFT_TOKEN', 256))")" "all"
+# the consent screen offers the tool set and preselects the essentials; the choice goes with the code into the tokens
+NONCE_310=$(oauth_nonce "$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' "$B/oauth/authorize?response_type=code&client_id=$CLIENT&redirect_uri=$REDIRECT_URI&code_challenge=$CHALLENGE&code_challenge_method=S256&state=ts310")")
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=oauth&request=$NONCE_310"
+contains -q 'Které nástroje nabízí?' "$WORK/response" && contains -q 'name="tool_set" value="essentials" checked' "$WORK/response" && ! contains -q 'value="all" checked' "$WORK/response" \
+  && echo "  ok     3.10: the consent screen offers the essentials (preselected) or all tools" || { echo "  CHYBA  3.10: the tool set on the consent screen"; ERRORS=$((ERRORS+1)); }
+REDIRECT=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?action=oauth" -d "_csrf=$(csrf)" -d "request=$NONCE_310" -d povolit=1 -d access=full -d tool_set=essentials)
+curl -s -o "$WORK/response" -X POST "$B/oauth/token" -d grant_type=authorization_code -d "code=$(printf %s "$REDIRECT" | grep -o 'code=[a-f0-9]*' | sed 's/code=//' || true)" -d "redirect_uri=$REDIRECT_URI" -d "client_id=$CLIENT" -d "code_verifier=$VERIFIER"
+ESS_ACCESS=$(token_of access_token); ESS_REFRESH=$(token_of refresh_token)
+expect "3.10: the essentials chosen at consent are on the access and the refresh token" "$(sq "SELECT GROUP_CONCAT(CONCAT(druh, ':', tool_set) ORDER BY druh) FROM ka_api_tokeny WHERE otisk IN (SHA2('$ESS_ACCESS', 256), SHA2('$ESS_REFRESH', 256))")" "obnova:essentials,pristup:essentials"
+ESS_LIST=$(mcp_list "$ESS_ACCESS")
+case "$ESS_LIST" in *"|meta|small") [ "${ESS_LIST%%|*}" -lt "${ALL_BEFORE%%|*}" ] && echo "  ok     3.10: an essentials connection lists the core tools plus find_tools and run_tool, under 50 KB ($ESS_LIST)" || { echo "  CHYBA  3.10: the essentials list is not shorter: $ESS_LIST"; ERRORS=$((ERRORS+1)); };; *) echo "  CHYBA  3.10: the essentials list: $ESS_LIST"; ERRORS=$((ERRORS+1));; esac
+curl -s -X POST "$B/mcp" -H "Authorization: Bearer $ESS_ACCESS" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' > "$WORK/response"
+curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' > "$WORK/response2"
+contains -q 'YOUR TOOL LIST HOLDS THE ESSENTIALS' "$WORK/response" && contains -q 'call find_tools' "$WORK/response" && ! contains -q 'YOUR TOOL LIST HOLDS THE ESSENTIALS' "$WORK/response2" \
+  && echo "  ok     3.10: the server instructions of an essentials connection point to find_tools and run_tool, an all-tools connection's do not" || { echo "  CHYBA  3.10: instructions"; ERRORS=$((ERRORS+1)); }
+# the refresh keeps the tool set
+curl -s -o "$WORK/response" -X POST "$B/oauth/token" -d grant_type=refresh_token -d "refresh_token=$ESS_REFRESH" -d "client_id=$CLIENT"
+ESS_ACCESS=$(token_of access_token); ESS_REFRESH=$(token_of refresh_token)
+expect "3.10: a token refresh keeps the essentials" "$(sq "SELECT GROUP_CONCAT(CONCAT(druh, ':', tool_set) ORDER BY druh) FROM ka_api_tokeny WHERE otisk IN (SHA2('$ESS_ACCESS', 256), SHA2('$ESS_REFRESH', 256))")|$(mcp_list "$ESS_ACCESS" | cut -d'|' -f2)" "obnova:essentials,pristup:essentials|meta"
+# find_tools: the index of the rest, full definitions by name or by query
+mcp_as "$ESS_ACCESS" find_tools '{}' > "$WORK/response"; mcp_text
+contains -q '"name":"list_news"' "$WORK/text" && contains -q '"name":"save_redirect","access":"write"' "$WORK/text" && ! contains -q '"name":"create_page"' "$WORK/text" && ! contains -q '"inputSchema"' "$WORK/text" \
+  && echo "  ok     3.10: find_tools without arguments indexes the tools outside the list, one line each" || { echo "  CHYBA  3.10: find_tools index"; head -c 400 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+mcp_as "$ESS_ACCESS" find_tools '{"names":["create_news","nonexistent_tool"]}' > "$WORK/response"; mcp_text
+contains -q '"name":"create_news","title":"Create a news item"' "$WORK/text" && contains -q '"reason":{' "$WORK/text" && contains -q '"not_available":\["nonexistent_tool"\]' "$WORK/text" \
+  && echo "  ok     3.10: find_tools with names returns the full definition (with reason) and names what is not available" || { echo "  CHYBA  3.10: find_tools names"; head -c 400 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+mcp_as "$ESS_ACCESS" find_tools '{"query":"redirect"}' > "$WORK/response"; mcp_text
+contains -q '"name":"list_redirects"' "$WORK/text" && contains -q '"name":"save_redirect"' "$WORK/text" && echo "  ok     3.10: find_tools with a query finds the matching tools" || { echo "  CHYBA  3.10: find_tools query"; head -c 400 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+# run_tool: a read and a write through the same path as a direct call – the change log has the inner tool, the connection and the reason
+mcp_as "$ESS_ACCESS" run_tool '{"name":"list_redirects","arguments":{}}' > "$WORK/response"
+contains -q '"isError":true' "$WORK/response" && { echo "  CHYBA  3.10: run_tool read"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.10: run_tool runs a read tool"
+JOURNAL_BEFORE=$(sq "SELECT COUNT(*) FROM ka_agent_journal WHERE tool = 'create_news'")
+mcp_as "$ESS_ACCESS" run_tool "{\"name\":\"create_news\",\"arguments\":{\"title\":\"Written via run_tool\",\"category\":\"$CATEGORY\",\"text\":\"<p>Hello</p>\",\"typo_param\":1},\"reason\":\"The user asked for a news item (3.10 test)\"}" > "$WORK/response"; mcp_text
+expect "3.10: run_tool runs a write tool – a draft, the change log row of create_news with the connection and the reason, the undo journal, unknown parameters reported" \
+  "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_novinky WHERE titulek = 'Written via run_tool' AND visible = 0), '|', (SELECT COUNT(*) FROM ka_protokol WHERE modul = 'claude' AND akce = 'vytvor_novinku' AND via <> '' AND duvod = 'The user asked for a news item (3.10 test)'), '|', (SELECT COUNT(*) FROM ka_agent_journal WHERE tool = 'create_news') > $JOURNAL_BEFORE)")|$(grep -c 'typo_param' "$WORK/text")" "1|1|1|1"
+mcp_as "$ESS_ACCESS" list_news '{}' > "$WORK/response"
+contains -q '"isError":true' "$WORK/response" || ! contains -q 'Written via run_tool' "$WORK/response" && { echo "  CHYBA  3.10: a direct call of a tool outside the list"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.10: a tool outside the list can still be called directly by name"
+# nesting, unknown tools and the connection's access
+mcp_as "$ESS_ACCESS" run_tool '{"name":"run_tool","arguments":{"name":"list_news"}}' > "$WORK/response"; mcp_as "$ESS_ACCESS" run_tool '{"name":"find_tools"}' > "$WORK/response2"
+contains -q 'not run_tool' "$WORK/response" && contains -q '"isError":true' "$WORK/response" && contains -q 'call find_tools directly' "$WORK/response2" \
+  && echo "  ok     3.10: run_tool refuses to run run_tool or find_tools" || { echo "  CHYBA  3.10: nested run_tool"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp_as "$ESS_ACCESS" run_tool '{"name":"no_such_tool","arguments":{}}' | contains -q 'Unknown tool: no_such_tool. Call find_tools' && echo "  ok     3.10: run_tool with an unknown tool points to find_tools" || { echo "  CHYBA  3.10: run_tool unknown"; ERRORS=$((ERRORS+1)); }
+mcp_as "$READ_TOKEN" run_tool "{\"name\":\"create_news\",\"arguments\":{\"title\":\"Read-only via run_tool\",\"category\":\"$CATEGORY\"}}" > "$WORK/response"
+mcp_as "$DRAFT_TOKEN" run_tool '{"name":"save_redirect","arguments":{"from":"/old-310","to":"/"}}' > "$WORK/response2"
+contains -q 'can only read the site' "$WORK/response" && contains -q 'can only save drafts' "$WORK/response2" \
+  && expect "3.10: run_tool keeps a read-only and a drafts-only connection to their access" "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_novinky WHERE titulek = 'Read-only via run_tool'), '|', (SELECT COUNT(*) FROM ka_presmerovani WHERE z_adresy LIKE '%old-310%'))")" "0|0" \
+  || { echo "  CHYBA  3.10: run_tool and the connection's access"; head -c 300 "$WORK/response"; head -c 300 "$WORK/response2"; ERRORS=$((ERRORS+1)); }
+mcp_as "$READ_TOKEN" find_tools '{"names":["create_news","list_news"]}' > "$WORK/response"; mcp_text
+contains -q '"not_available":\["create_news"\]' "$WORK/text" && contains -q '"name":"list_news"' "$WORK/text" && echo "  ok     3.10: find_tools on a read-only connection hands out reads only" || { echo "  CHYBA  3.10: find_tools read-only"; head -c 300 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+# personal tokens: all tools by default, the essentials when chosen; My account shows and switches the tool set
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=account"; ACCOUNT_CSRF=$(csrf)
+contains -q 'name="tool_set" value="all" checked' "$WORK/response" && echo "  ok     3.10: a new personal token preselects all tools" || { echo "  CHYBA  3.10: personal token default"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?action=account" -d "_csrf=$ACCOUNT_CSRF" -d co=token_novy -d "nazev=Claude essentials" -d access=full -d tool_set=essentials
+ESS_TOKEN=$(grep -o 'kaleta_[a-f0-9]\{48\}' "$WORK/response" | head -1 || true)
+expect "3.10: a personal token with the essentials lists them" "$(sq "SELECT tool_set FROM ka_api_tokeny WHERE nazev = 'Claude essentials'")|$(mcp_list "$ESS_TOKEN" | cut -d'|' -f2-)" "essentials|meta|small"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=account"
+ESS_IDT=$(sq "SELECT idt FROM ka_api_tokeny WHERE nazev = 'Claude essentials'")
+contains -q "value=\"all:token:$ESS_IDT\"" "$WORK/response" && contains -q "value=\"all:app:$CLIENT\"" "$WORK/response" && contains -q 'základní nástroje' "$WORK/response" \
+  && echo "  ok     3.10: My account shows the tool set of tokens and connected applications with a switch" || { echo "  CHYBA  3.10: My account tool set"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?action=account" -d "_csrf=$ACCOUNT_CSRF" -d "tool_set_switch=all:token:$ESS_IDT"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response2" -X POST "$B/admin.php?action=account" -d "_csrf=$ACCOUNT_CSRF" -d "tool_set_switch=all:app:$CLIENT"
+expect "3.10: My account switches a personal token and every token of a connected application to all tools, in the change log" \
+  "$(sq "SELECT CONCAT((SELECT tool_set FROM ka_api_tokeny WHERE idt = ${ESS_IDT:-0}), '|', (SELECT GROUP_CONCAT(DISTINCT tool_set) FROM ka_api_tokeny WHERE klient = '$CLIENT'), '|', (SELECT COUNT(*) FROM ka_protokol WHERE akce = 'claude_tool_set'))")|$(mcp_list "$ESS_TOKEN" | cut -d'|' -f2)" "all|all|2|no-meta"
+curl -s -o "$WORK/response" -X POST "$B/oauth/token" -d grant_type=refresh_token -d "refresh_token=$ESS_REFRESH" -d "client_id=$CLIENT"
+expect "3.10: the next refresh of the switched application keeps all tools" "$(sq "SELECT tool_set FROM ka_api_tokeny WHERE otisk = SHA2('$(token_of refresh_token)', 256)")|$(mcp_list "$(token_of access_token)" | cut -d'|' -f2)" "all|no-meta"
+sq "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'other 310', SHA2('other-310', 256), '$(site_time)' FROM ka_uzivatele WHERE user = 'obchodnik'" > /dev/null
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?action=account" -d "_csrf=$ACCOUNT_CSRF" -d "tool_set_switch=essentials:token:$(sq "SELECT idt FROM ka_api_tokeny WHERE nazev = 'other 310'")"
+expect "3.10: a switch never reaches another user's token" "$(sq "SELECT tool_set FROM ka_api_tokeny WHERE nazev = 'other 310'")" "all"
+sq "DELETE FROM ka_api_tokeny WHERE nazev IN ('Claude essentials', 'other 310')" > /dev/null
+
 echo "== 3.6: WordPress import over MCP (import_wordpress) – everything hidden, menus into the draft look, authors, redirects"
 # Jan Novák has an account here with the e-mail of the WordPress author (in another case); a page here already uses the old address /kontakt-stavby
 sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, admin) VALUES ('jan-novak-36', '!', 'Jan Novák', 'jan.novak@stavby-novak.example', 1)" > /dev/null

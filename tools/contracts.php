@@ -15,7 +15,8 @@ require_once dirname(__DIR__) . '/system/bootstrap.php';
 function kaleta_mcp_contract(): array
 {
     $contract = [];
-    foreach (Kaleta\Mcp\Translator::listAll(Kaleta\Mcp\Tools::definitions()) as $tool) {
+    // 3.10: the meta tools find_tools and run_tool (Mcp\Discovery) are part of the interface too
+    foreach ([...Kaleta\Mcp\Translator::listAll(Kaleta\Mcp\Tools::definitions()), ...Kaleta\Mcp\Discovery::definitions()] as $tool) {
         $properties = (array) $tool['inputSchema']['properties'];
         ksort($properties);
         $contract[$tool['name']] = [

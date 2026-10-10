@@ -13,6 +13,7 @@
  * @var bool $claudeHost whether that host belongs to Claude's own apps (Front\OAuth::CLAUDE_HOSTS)
  * @var bool $approved whether someone on this site has allowed this app before
  * @var string $selected the access chosen in advance
+ * @var string $toolSet the tool set chosen in advance (3.10)
  */
 $role = t(Kaleta\Core\Auth::TYPES[(int) $user['admin']] ?? '');
 ?>
@@ -29,7 +30,7 @@ $role = t(Kaleta\Core\Auth::TYPES[(int) $user['admin']] ?? '');
 	<form method="post" action="<?= e($app->url('admin.php?action=oauth')) ?>">
 		<?= $csrf ?>
 		<input type="hidden" name="request" value="<?= e($nonce) ?>">
-		<?= $app->view->render('admin/connection-access', ['role' => $role, 'selected' => $selected, 'claude' => $claudeHost]) ?>
+		<?= $app->view->render('admin/connection-access', ['role' => $role, 'selected' => $selected, 'claude' => $claudeHost, 'toolSet' => $toolSet]) ?>
 		<p class="napoveda"><?= e(t('You can revoke the connection at any time in My account → Connected applications.')) ?></p>
 		<div class="tlacitka">
 		<button class="tl" type="submit" name="povolit" value="1"><?= e(t('Allow access')) ?></button>

@@ -384,7 +384,14 @@ be changed over the connection.
   change settings, redirects or anything else on the live site;
 - **Read only** – Claude reads pages, settings, the audit and the change log and suggests changes.
 
-My account shows the access of every connected app and token. The **change log** marks every change Claude made with the
+**Which tools it lists.** You also choose the tool set: **Essentials** (the default when you connect Claude) lists the
+tools for pages, builds, the look, collections, media and requests – a much shorter list, so every conversation starts
+faster and keeps more room for your work. Claude finds the other tools (news, redirects, settings, bookings…) with
+`find_tools` and runs them with `run_tool` when it needs them, with the same access and rules. **All tools** lists
+everything at once (the default for a personal token – Claude Code and scripts). Connections from before 3.10 keep all
+tools; switch any connection in My account.
+
+My account shows the access and the tool set of every connected app and token. The **change log** marks every change Claude made with the
 name of its connection, and can show only Claude's changes or only people's; Claude reads it too (`list_changes`).
 
 **Instructions for Claude.** Under **Claude settings** write what Claude should keep to – how you address

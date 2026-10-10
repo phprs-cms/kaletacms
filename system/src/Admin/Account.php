@@ -31,7 +31,7 @@ final class Account
 
         if ($r->isPost()) {
             $message = null;
-            switch ($r->postInt('smaz_token') > 0 ? 'token_smaz' : ($r->post('odpojit_klient') !== '' ? 'aplikace_odpojit' : $r->post('co'))) {
+            switch ($r->postInt('smaz_token') > 0 ? 'token_smaz' : ($r->post('odpojit_klient') !== '' ? 'aplikace_odpojit' : ($r->post('tool_set_switch') !== '' ? 'tool_set' : $r->post('co')))) {
                 case 'profil':
                     if ($r->post('email') !== '' && filter_var($r->post('email'), FILTER_VALIDATE_EMAIL) === false) {
                         $message = ['chyba', 'The e-mail address is not valid.'];
@@ -85,16 +85,34 @@ final class Account
                     }
                     $token = 'kaleta_' . bin2hex(random_bytes(24));
                     $access = \Kaleta\Front\OAuth::access($r->post('access') ?: 'full');
+                    // 3.10: a personal token lists all tools unless the person picks the essentials (Claude Code and scripts)
+                    $toolSet = \Kaleta\Mcp\Catalog::toolSet($r->post('tool_set'));
                     // a token with an expiry ends by itself (2.8); one without works until it is revoked and System status reports it
                     $days = in_array($r->postInt('platnost', 365), self::TOKEN_LIFETIMES, true) ? $r->postInt('platnost', 365) : 365;
-                    $db->insert('api_tokeny', ['idu' => $user['idu'], 'nazev' => mb_substr($r->post('nazev') ?: 'Claude', 0, 100), 'access' => $access, 'otisk' => hash('sha256', $token), 'vytvoren' => date('Y-m-d H:i:s'),
+                    $db->insert('api_tokeny', ['idu' => $user['idu'], 'nazev' => mb_substr($r->post('nazev') ?: 'Claude', 0, 100), 'access' => $access, 'tool_set' => $toolSet, 'otisk' => hash('sha256', $token), 'vytvoren' => date('Y-m-d H:i:s'),
                         'expirace' => $days > 0 ? date('Y-m-d H:i:s', time() + $days * 86400) : null]);
-                    ChangeLog::write($app, 'ucet', 'claude_token', $access . ($days > 0 ? ', ' . $days . ' days' : ', no expiry'));
+                    ChangeLog::write($app, 'ucet', 'claude_token', $access . ($toolSet === 'essentials' ? ', essentials' : '') . ($days > 0 ? ', ' . $days . ' days' : ', no expiry'));
                     // the token is shown only now - hence no redirect
                     return $this->page(['newToken' => $token] + $data);
                 case 'token_smaz':
                     $db->delete('api_tokeny', ['idt' => $r->postInt('smaz_token'), 'idu' => $user['idu']]);
                     $message = ['ok', 'Token revoked.'];
+                    break;
+                case 'tool_set':
+                    // 3.10: an existing connection switches between the essentials and all tools – "<set>:token:<id>" for a
+                    // personal token, "<set>:app:<client_id>" for every token of a connected application (a refresh copies it)
+                    $parts = explode(':', $r->post('tool_set_switch'), 3);
+                    $toolSet = \Kaleta\Mcp\Catalog::toolSet($parts[0]);
+                    $changed = match ($parts[1] ?? '') {
+                        'token' => $db->run("UPDATE {api_tokeny} SET tool_set = ? WHERE idt = ? AND idu = ? AND druh = 'token'", [$toolSet, (int) ($parts[2] ?? 0), $user['idu']])->rowCount(),
+                        'app' => $db->run('UPDATE {api_tokeny} SET tool_set = ? WHERE klient = ? AND idu = ?', [$toolSet, (string) ($parts[2] ?? ''), $user['idu']])->rowCount(),
+                        default => 0,
+                    };
+                    if ($changed > 0) {
+                        ChangeLog::write($app, 'ucet', 'claude_tool_set', $toolSet);
+                    }
+                    $message = ['ok', $toolSet === 'essentials' ? 'The connection now lists the essentials – Claude finds the other tools when it needs them. Start a new conversation to see the change.'
+                        : 'The connection now lists all tools. Start a new conversation to see the change.'];
                     break;
                 case 'aplikace_odpojit':
                     $db->delete('api_tokeny', ['klient' => $r->post('odpojit_klient'), 'idu' => $user['idu']]);
@@ -234,7 +252,8 @@ final class Account
             'keys' => $app->auth()->accountKeys((int) $user['idu']),
             'tokens' => $app->db()->all("SELECT * FROM {api_tokeny} WHERE idu = ? AND druh = 'token' ORDER BY idt DESC", [$user['idu']]),
             // apps connected via OAuth (the Claude connector): one item per client, valid while it has a refresh token
-            'apps' => $app->db()->all("SELECT klient, MAX(nazev) AS nazev, MAX(access) AS access, MIN(vytvoren) AS vytvoren, MAX(pouzit) AS pouzit FROM {api_tokeny} WHERE idu = ? AND klient IS NOT NULL AND expirace > ? GROUP BY klient ORDER BY MIN(vytvoren) DESC",
+            // the tool set of an application is the one of its newest token (3.10; a new consent may have chosen another)
+            'apps' => $app->db()->all("SELECT klient, MAX(nazev) AS nazev, MAX(access) AS access, SUBSTRING_INDEX(GROUP_CONCAT(tool_set ORDER BY idt DESC), ',', 1) AS tool_set, MIN(vytvoren) AS vytvoren, MAX(pouzit) AS pouzit FROM {api_tokeny} WHERE idu = ? AND klient IS NOT NULL AND expirace > ? GROUP BY klient ORDER BY MIN(vytvoren) DESC",
                 [$user['idu'], date('Y-m-d H:i:s')]),
             'mcpUrl' => $app->request->origin() . $app->url('mcp'),
         ]));

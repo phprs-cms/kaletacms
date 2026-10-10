@@ -359,12 +359,47 @@ final class Catalog
         'save_redirect', 'ignore_not_found', 'save_redirects', 'save_fact', 'delete_fact', 'delete_notebook_entry', 'update_social_draft', 'remove_blueprint',
         'delete_hours_exception', 'cancel_booking', 'confirm_booking', 'decline_booking', 'delete_newsletter'];
 
+    /**
+     * The tool set of a connection (3.10): "all" lists every tool the connection may use (as before 3.10); "essentials"
+     * lists ESSENTIALS and the two META tools, which reach the rest on demand – a much shorter tools/list in every
+     * conversation. Existing connections keep "all"; the choice is on the connection row like its access.
+     */
+    public const array TOOL_SETS = ['all', 'essentials'];
+
+    /**
+     * The core tools an essentials connection lists (3.10): pages, the builder, the menu and the look, collections, media,
+     * requests and enquiries, facts, the audit and the change log – what the server instructions, the prompts and the
+     * plugin skills reach for first. tools/list of these plus META stays under 50 KB (tools/unit-tests.php checks it).
+     */
+    public const array ESSENTIALS = ['site_info', 'list_pages', 'get_page', 'create_page', 'update_page', 'get_menu', 'save_menu', 'builder_schema', 'get_build',
+        'edit_build', 'build_from_html', 'save_build', 'insert_section', 'publish_build', 'preview_link', 'list_collections', 'list_collection_items',
+        'save_collection_item', 'list_media', 'upload_file', 'update_media', 'list_requests', 'update_request', 'list_enquiries', 'list_facts', 'save_fact',
+        'update_design_system', 'publish_look', 'site_audit', 'get_health', 'list_changes', 'read_notebook', 'list_pending_review'];
+
+    /**
+     * The meta tools (3.10): English name => [access, title, open world]. They are listed only for an essentials connection
+     * but callable on any; they are not site tools – no Tools method, no Translator entry – and Mcp\Server runs them itself.
+     * run_tool can run anything the connection may, so its annotations say so; the inner tool is checked like a direct call.
+     *
+     * @var array<string, array{0: 'read'|'destructive', 1: string, 2: bool}>
+     */
+    public const array META = [
+        'find_tools' => ['read', 'Find more tools', false],
+        'run_tool' => ['destructive', 'Run a tool by name', true],
+    ];
+
+    /** A known tool set; anything else (an old row, a form from before 3.10) is "all", as it was. */
+    public static function toolSet(string $set): string
+    {
+        return in_array($set, self::TOOL_SETS, true) ? $set : 'all';
+    }
+
     /** The title of a tool by either name (3.8): Kaleta's own from TITLES, an add-on's from its declaration. */
     public static function title(string $name): string
     {
         $english = self::english($name) ?? $name;
 
-        return self::TITLES[$english] ?? \Kaleta\Extension\Registry::get()->tool($english)['title'] ?? ucfirst(str_replace('_', ' ', $english));
+        return self::TITLES[$english] ?? self::META[$english][1] ?? \Kaleta\Extension\Registry::get()->tool($english)['title'] ?? ucfirst(str_replace('_', ' ', $english));
     }
 
     /** Does the tool reach outside the site (3.8, OPEN_WORLD; an add-on's tool as it declares)? */
@@ -372,7 +407,7 @@ final class Catalog
     {
         $english = self::english($name) ?? $name;
 
-        return in_array($english, self::OPEN_WORLD, true) || (\Kaleta\Extension\Registry::get()->tool($english)['openWorld'] ?? false);
+        return in_array($english, self::OPEN_WORLD, true) || (self::META[$english][2] ?? false) || (\Kaleta\Extension\Registry::get()->tool($english)['openWorld'] ?? false);
     }
 
     /** Is the write tool idempotent (3.8, IDEMPOTENT; an add-on's tool as it declares)? */
@@ -396,6 +431,9 @@ final class Catalog
 
     public static function access(string $name): string
     {
+        if (isset(self::META[$name])) {
+            return self::META[$name][0];
+        }
         $addon = \Kaleta\Extension\Registry::get()->tool($name);
         if ($addon !== null) {
             return $addon['access'];

@@ -417,9 +417,11 @@ final class Kernel
                 return Response::redirect($oauth->deny($pending));
             }
             $access = \Kaleta\Front\OAuth::access($app->request->post('access') ?: 'full'); // a consent page from before 2.2 sends none: as before
-            ChangeLog::write($app, 'claude', 'app_connect', mb_substr((string) $pending['nazev'] . ' (' . $access . ')', 0, 100));
+            // 3.10: the tool set (essentials by default on the page); a consent page from before 3.10 sends none: all tools, as before
+            $toolSet = \Kaleta\Mcp\Catalog::toolSet($app->request->post('tool_set'));
+            ChangeLog::write($app, 'claude', 'app_connect', mb_substr((string) $pending['nazev'] . ' (' . $access . ($toolSet === 'essentials' ? ', essentials' : '') . ')', 0, 100));
 
-            return Response::redirect($oauth->issueCode($pending, $app->auth()->id(), $access));
+            return Response::redirect($oauth->issueCode($pending, $app->auth()->id(), $access, $toolSet));
         }
 
         $host = \Kaleta\Front\OAuth::host((string) $pending['redirect_uri']);
@@ -430,6 +432,8 @@ final class Kernel
             // 3.3.4 (N65): Claude's own apps keep full access as the default; an application returning anywhere else starts
             // at drafts only, so one careless click does not hand it the whole account
             'selected' => $claudeHost ? 'full' : 'drafts',
+            // 3.10: a new connection lists the essentials – a shorter tools/list in every conversation; the rest is a find_tools away
+            'toolSet' => 'essentials',
         ]));
         // sending the consent ends with a redirect to the app – CSP form-action must allow it (admin.php)
         $target = parse_url((string) $pending['redirect_uri']);

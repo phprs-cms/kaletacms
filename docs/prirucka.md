@@ -322,7 +322,14 @@ i položky přitom jde do historie verzí. Stránku umí Claude přesunout do ko
   přesměrování ani nic jiného na živém webu nezmění;
 - **Jen čtení** – Claude čte stránky, nastavení, audit a protokol změn a navrhuje úpravy.
 
-Můj účet ukáže přístup každé připojené aplikace a tokenu. **Protokol změn** u každé změny od Clauda uvede název napojení
+**Které nástroje nabízí.** Vyberete také sadu nástrojů: **Základní** (výchozí při připojení Clauda) nabízí nástroje pro
+stránky, stavby, vzhled, kolekce, média a požadavky – mnohem kratší seznam, takže každá konverzace začne rychleji a zbude
+víc místa pro vaši práci. Ostatní nástroje (novinky, přesměrování, nastavení, rezervace…) si Claude najde přes
+`find_tools` a spustí přes `run_tool`, až je bude potřebovat, se stejným přístupem i pravidly. **Všechny nástroje** nabízí
+všechno najednou (výchozí pro osobní token – Claude Code a skripty). Napojení z doby před 3.10 mají všechny nástroje dál;
+kterékoli napojení přepnete v Můj účet.
+
+Můj účet ukáže přístup a sadu nástrojů každé připojené aplikace a tokenu. **Protokol změn** u každé změny od Clauda uvede název napojení
 a umí ukázat jen změny Clauda nebo jen lidí; Claude ho čte také (`list_changes`).
 
 **Pokyny pro Clauda.** V **Rozšíření → Napojení na Claude** napište, čeho se má Claude držet – jak oslovujete zákazníky,

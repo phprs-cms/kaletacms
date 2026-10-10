@@ -588,6 +588,50 @@ check('3.8: idempotentHint only on write tools of the verified list, never on a 
     array_values(array_filter(array_keys(Kaleta\Mcp\Catalog::TOOLS), fn (string $t): bool => isset(Kaleta\Mcp\Tools::annotations($t)['idempotentHint']) !== in_array($t, Kaleta\Mcp\Catalog::IDEMPOTENT, true))),
     array_values(array_intersect(Kaleta\Mcp\Catalog::IDEMPOTENT, ['publish_build', 'publish_look', 'send_newsletter', 'send_test_newsletter', 'import_wordpress', 'import_website', 'edit_build', 'save_section', 'save_hours_exception', 'update_settings', 'create_page', 'create_news', 'upload_file']))],
     [[], [], []]);
+// 3.10: tools on demand – an essentials connection lists the core tools and find_tools / run_tool (Mcp\Discovery); an "all"
+// connection lists every tool exactly as before, never a meta tool
+$all310 = array_map(Kaleta\Mcp\Server::listed(...), Kaleta\Mcp\Translator::listAll(Kaleta\Mcp\Tools::definitions()));
+$essentials310 = Kaleta\Mcp\Discovery::essentials($all310);
+$json310 = fn (mixed $v): int => strlen((string) json_encode($v, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+check('3.10: the essentials are catalog tools of no extension, once each, in catalog order, then the two meta tools; the list stays under 50 KB', [
+    array_values(array_diff(Kaleta\Mcp\Catalog::ESSENTIALS, array_keys(Kaleta\Mcp\Catalog::TOOLS))), array_keys(array_filter(array_count_values(Kaleta\Mcp\Catalog::ESSENTIALS), fn (int $n): bool => $n > 1)),
+    array_values(array_filter(Kaleta\Mcp\Catalog::ESSENTIALS, fn (string $t): bool => Kaleta\Mcp\Catalog::extension($t) !== '')),
+    array_column($essentials310, 'name') === [...array_values(array_intersect(array_column($all310, 'name'), Kaleta\Mcp\Catalog::ESSENTIALS)), 'find_tools', 'run_tool'],
+    count($essentials310) === count(Kaleta\Mcp\Catalog::ESSENTIALS) + 2, $json310(['tools' => $essentials310]) <= 50000, $json310(['tools' => $essentials310]) * 3 < $json310(['tools' => $all310])],
+    [[], [], [], true, true, true, true]);
+check('3.10: an "all" connection lists every catalog tool and no meta tool (the tools/list of 3.9.2)', [
+    array_values(array_diff(array_keys(Kaleta\Mcp\Catalog::TOOLS), array_column($all310, 'name'))), array_values(array_diff(array_column($all310, 'name'), array_keys(Kaleta\Mcp\Catalog::TOOLS))),
+    array_values(array_intersect(array_keys(Kaleta\Mcp\Catalog::META), array_column($all310, 'name'))), count($all310) === count(Kaleta\Mcp\Catalog::TOOLS)], [[], [], [], true]);
+$meta310 = array_column(array_slice($essentials310, -2), null, 'name');
+check('3.10: find_tools reads, run_tool may do anything the connection may – titles, annotations and schemas; neither is a site tool (no method, no Translator entry, no Czech alias)', [
+    $meta310['find_tools']['annotations'], $meta310['run_tool']['annotations'], array_keys((array) $meta310['find_tools']['inputSchema']['properties']), array_keys((array) $meta310['run_tool']['inputSchema']['properties']),
+    $meta310['run_tool']['inputSchema']['required'], Kaleta\Mcp\Catalog::english('run_tool'), Kaleta\Mcp\Translator::czech('find_tools'),
+    method_exists(Kaleta\Mcp\Tools::class, Kaleta\Mcp\Catalog::method('run_tool')), array_values(array_intersect(array_keys(Kaleta\Mcp\Catalog::META), array_keys(Kaleta\Mcp\Catalog::TOOLS))),
+    Kaleta\Mcp\Catalog::allows('read', 'find_tools'), Kaleta\Mcp\Catalog::toolSet('essentials'), Kaleta\Mcp\Catalog::toolSet(''), Kaleta\Mcp\Catalog::toolSet('everything')],
+    [['title' => 'Find more tools', 'readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false], ['title' => 'Run a tool by name', 'readOnlyHint' => false, 'destructiveHint' => true, 'openWorldHint' => true],
+     ['query', 'names'], ['name', 'arguments', 'reason'], ['name'], null, null, false, [], true, 'essentials', 'all', 'all']);
+$find310 = fn (array $arguments, array $inList = Kaleta\Mcp\Catalog::ESSENTIALS): array => Kaleta\Mcp\Discovery::find($all310, $inList, $arguments);
+$index310 = $find310([]);
+$byNames310 = $find310(['names' => ['create_news', 'list_pages', 'no_such_tool']]);
+$query310 = $find310(['query' => 'redirect 404']);
+check('3.10: find_tools – the index holds every tool outside the list with access and one line; names give full definitions (a write tool with its reason); a query its best matches outside the list, at most 8', [
+    array_column($index310['tools'], 'name') === array_values(array_diff(array_column($all310, 'name'), Kaleta\Mcp\Catalog::ESSENTIALS)), array_keys($index310['tools'][0]),
+    array_values(array_filter($index310['tools'], fn (array $t): bool => mb_strlen($t['about']) > 110 || $t['about'] === '' || preg_match('/\(\d\.\d+\)/', $t['about']) === 1)),
+    array_column($byNames310['tools'], 'name'), array_key_exists('reason', (array) $byNames310['tools'][0]['inputSchema']['properties']), array_key_exists('reason', (array) $byNames310['tools'][1]['inputSchema']['properties']), $byNames310['not_available'],
+    array_slice(array_column($query310['tools'], 'name'), 0, 3), count($query310['tools']) <= Kaleta\Mcp\Discovery::MAX_DEFINITIONS, array_values(array_intersect(array_column($query310['tools'], 'name'), Kaleta\Mcp\Catalog::ESSENTIALS)),
+    count($find310(['names' => array_column($all310, 'name')])['tools']), count($find310(['names' => array_column($all310, 'name')])['more']), array_column($find310(['names' => 'list_news, get_news'])['tools'], 'name'),
+    $find310([], array_column($all310, 'name'))['tools'], isset($find310(['query' => 'zzzqqq'])['note']),
+    Kaleta\Mcp\Discovery::summary(['name' => 'x', 'title' => 'X', 'description' => 'Lists the trash (2.15). More text.']), Kaleta\Mcp\Discovery::summary(['name' => 'x', 'title' => 'The title', 'description' => ''])],
+    [true, ['name', 'access', 'about'], [], ['create_news', 'list_pages'], true, false, ['no_such_tool'],
+     ['list_redirects', 'save_redirect', 'save_redirects'], true, [], 8, count($all310) - 8, ['list_news', 'get_news'], [], true, 'Lists the trash', 'The title']);
+// a read-only connection finds only reads: find_tools respects the connection's access like tools/list
+$readOnly310 = array_values(array_filter($all310, fn (array $t): bool => Kaleta\Mcp\Catalog::allows('read', $t['name'])));
+check('3.10: find_tools on a read-only connection offers only reads and names a write tool as not available', [
+    array_values(array_unique(array_column(Kaleta\Mcp\Discovery::find($readOnly310, Kaleta\Mcp\Catalog::ESSENTIALS, [])['tools'], 'access'))),
+    Kaleta\Mcp\Discovery::find($readOnly310, Kaleta\Mcp\Catalog::ESSENTIALS, ['names' => ['create_news']])['not_available']], [['read'], ['create_news']]);
+check('3.10: the server instructions of an essentials connection point to find_tools and run_tool; the access check of run_tool is the one of a direct call', [
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Prompts.php'), "=== 'essentials'") && str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Prompts.php'), 'call find_tools'),
+    (bool) preg_match('/function runTool\(.*?return \$this->call\(\$tools, \$name, \$inner\);/s', (string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Server.php'))], [true, true]);
 // MCP in English: every tool has an English name, every fixed message a translation, parameters and results are converted
 $mcpSource = (string) file_get_contents(KALETA_ROOT . '/system/src/Mcp/Tools.php');
 preg_match_all("/^\s+\['([a-z_]+)', '/m", substr($mcpSource, 0, (int) strpos($mcpSource, 'public function call(')), $mcpTools);
@@ -5387,7 +5431,8 @@ foreach ($pluginSkills as $skillFile) {
         $pluginProblems[] = "{$skill}: kaleta-tools lists {$tool} but the skill never mentions it";
     }
     foreach ($words as $word) {
-        if (!isset(Kaleta\Mcp\Catalog::TOOLS[$word]) && !isset($pluginParameters[$word]) && !$pluginIsSetting($word) && !in_array($word, $terms, true)) {
+        // 3.10: the meta tools find_tools and run_tool reach the rest from an essentials connection – known words, not site tools
+        if (!isset(Kaleta\Mcp\Catalog::TOOLS[$word]) && !isset(Kaleta\Mcp\Catalog::META[$word]) && !isset($pluginParameters[$word]) && !$pluginIsSetting($word) && !in_array($word, $terms, true)) {
             $pluginProblems[] = "{$skill}: {$word} is no tool, parameter or setting of the Kaleta connection (a typo, or mark it in kaleta-terms)";
         }
     }

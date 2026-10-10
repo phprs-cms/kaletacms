@@ -566,6 +566,19 @@
             "openWorldHint": false
         }
     },
+    "find_tools": {
+        "parameters": {
+            "names": "array",
+            "query": "string"
+        },
+        "required": [],
+        "annotations": {
+            "title": "Find more tools",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "get_blueprint": {
         "parameters": [],
         "required": [],
@@ -1472,6 +1485,21 @@
             "destructiveHint": false,
             "idempotentHint": true,
             "openWorldHint": false
+        }
+    },
+    "run_tool": {
+        "parameters": {
+            "arguments": "object",
+            "name": "string"
+        },
+        "required": [
+            "name"
+        ],
+        "annotations": {
+            "title": "Run a tool by name",
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": true
         }
     },
     "save_booking_service": {
