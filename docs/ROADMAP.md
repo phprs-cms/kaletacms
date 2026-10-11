@@ -647,6 +647,23 @@ Fix:
    With it the fixes found while moving a real site (SVG colours, relative media, {{obrazek}}, collection checks, max
    width, links in dark bands, hidden categories) and presets written in the site language.
 
+## 3.10 – lighter Claude connections, regional languages, fresher updates (released 11 October 2026)
+
+1. **Essentials tool set** (owner plan, item 1): a new Claude connection can list 36 essential tools (about 49 KB instead
+   of 155 KB for all 136). `find_tools` finds the rest; three runners run them – `run_read_tool` (reads inside the site),
+   `run_tool` (drafts and changes), `run_destructive_tool` (removing, sending, reaching outside; Claude confirms first) –
+   through the same access, guardrails, change log and undo. Chosen on the consent screen, switchable in My account;
+   existing connections keep all tools (migration 0085).
+2. **Safe steps towards the 4.0 data model** (design §2, §4, §6): English table names next to the current ones
+   (`system/sql/names.php`, `Core\Names`, undo included), `Core\Clock` and a System status check that the site's time zone,
+   PHP and the database agree, regional language versions (en-GB, de-AT, pt-BR, zh-Hant).
+3. **Update freshness** (N39-7, N39-8): a site refuses older or wrong-channel update information, does not remember dates in
+   the future, warns after 60 days without fresh information and can forget what it remembered.
+4. **Community showcase** on kaletacms.com: real sites only, submitted through a form and checked by hand.
+
+Audited before release (N310): runners split by what they can do, the channel bound before update information is
+remembered, English table names journaled for undo, MCP keeps working if migration 0085 has not run.
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).
