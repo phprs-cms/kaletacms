@@ -124,6 +124,7 @@ final class Db
     /** @param array<string, scalar|null> $data */
     public function insert(string $table, array $data): int
     {
+        $table = Names::physical($table); // {news} and 'news' are the news table – journaled and undone like 'novinky' (3.10, N310-5)
         $columns = array_keys($data);
         $sql = sprintf(
             'INSERT INTO {%s} (%s) VALUES (%s)',
@@ -146,6 +147,7 @@ final class Db
      */
     public function update(string $table, array $data, array $where): int
     {
+        $table = Names::physical($table);
         $set = implode(', ', array_map(fn (string $c): string => self::quoteName($c) . ' = ?', array_keys($data)));
         $cond = implode(' AND ', array_map(fn (string $c): string => self::quoteName($c) . ' = ?', array_keys($where)));
         $sql = sprintf('UPDATE {%s} SET %s WHERE %s', $table, $set, $cond);
@@ -161,6 +163,7 @@ final class Db
     /** @param array<string, scalar|null> $where */
     public function delete(string $table, array $where): int
     {
+        $table = Names::physical($table);
         if ($where === []) {
             throw new \LogicException('Deleting without a condition is not allowed.');
         }

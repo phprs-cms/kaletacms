@@ -5033,6 +5033,22 @@ expect "undo: the original page has its title and no build again, the new page i
   "Undo original|1|0|Edited by a person|1"
 expect "undo: the session is marked undone and cannot be undone twice" "$(sq "SELECT undone_at IS NOT NULL FROM ka_agent_sessions WHERE id = $UNDO_S")|$(mcp undo_agent_session "{\"id\":$UNDO_S,\"confirm\":true}" | grep -c 'already undone')" "1|1"
 check "undo: the change log lists Claude sessions with the undo button" 200 "/admin.php?module=changelog&action=sessions" "action=undo"
+# 3.10 (N310-5): writes through the English table names (an add-on following docs/EXTENSIONS.md) are journaled under
+# today's name and undone with the session – an insert (redirects), an update (pages) and a delete (tags)
+sq "INSERT INTO ka_stitky (nazev, seo_link) VALUES ('N310-5 tag', 'n310-5-tag')" > /dev/null
+TAG3105=$(sq "SELECT ids FROM ka_stitky WHERE seo_link = 'n310-5-tag'")
+S3105=$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $db = Kaleta\Core\App::boot()->db();
+  $db->journal = Kaleta\Core\AgentJournal::start($db, "n310-5", "ext_test_write");
+  $db->insert("redirects", ["z_adresy" => "n310-5-old", "na_adresu" => "n310-5-new", "vytvoreno" => Kaleta\Core\Clock::now()]);
+  $db->update("pages", ["titulek" => "N310-5 changed"], ["ids" => (int) $argv[1]]);
+  $db->delete("tags", ["ids" => (int) $argv[2]]);
+  echo $db->journal?->session ?? 0;' "$UNDO_OLD" "$TAG3105")
+expect "3.10 N310-5: an insert, an update and a delete through English table names are journaled under today's names" \
+  "$(sq "SELECT GROUP_CONCAT(tbl ORDER BY id) FROM ka_agent_journal WHERE session_id = ${S3105:-0} AND untracked IS NULL")" "presmerovani,stranky,stitky"
+mcp undo_agent_session "{\"id\":${S3105:-0},\"confirm\":true}" > /dev/null
+expect "3.10 N310-5: … and undoing the session takes all three back" \
+  "$(sq "SELECT COUNT(*) FROM ka_presmerovani WHERE z_adresy = 'n310-5-old'")|$(sq "SELECT titulek FROM ka_stranky WHERE ids = $UNDO_OLD")|$(sq "SELECT nazev FROM ka_stitky WHERE ids = $TAG3105")" "0|Undo original|N310-5 tag"
+sq "DELETE FROM ka_stitky WHERE ids = $TAG3105" > /dev/null
 sq "UPDATE ka_agent_sessions SET last_at = '2000-01-01 00:00:00'" > /dev/null
 echo "== 3.0: add-ons through the extension API"
 mkdir -p "$WORK/web/extensions" && cp -R "$ROOT/docs/examples/extensions/hello" "$WORK/web/extensions/hello"

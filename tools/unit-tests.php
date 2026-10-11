@@ -5700,6 +5700,11 @@ check('3.10 Db::sql: the English placeholder names the table of today, the Czech
     ['SELECT * FROM `ka_novinky` n JOIN `ka_kategorie` c ON c.idt = n.tema', 'SELECT * FROM `ka_novinky`', 'SELECT * FROM `ka_newsletters`',
         'SELECT * FROM `ka_ext_shop_orders`', 'SELECT * FROM `ka_media`', 'pages', 'ext_shop_orders', 'id', 'category_id']);
 
+// N310-5: the journal knows a table by either name, so a write through 'pages' or {pages} is undone like one through 'stranky'
+check('3.10 (N310-5) AgentJournal::journaled – every English name of a journaled table is journaled; English names of other tables are not',
+    [array_values(array_filter(Kaleta\Core\AgentJournal::TABLES, fn (string $t): bool => !Kaleta\Core\AgentJournal::journaled(Kaleta\Core\Names::english($t)))),
+        Kaleta\Core\AgentJournal::journaled('pages'), Kaleta\Core\AgentJournal::journaled('news'), Kaleta\Core\AgentJournal::journaled('audit_log'), Kaleta\Core\AgentJournal::journaled('api_tokens')],
+    [[], true, true, false, false]);
 // the clock: in 3.x it is the site's wall time, exactly what date() gave
 $zone310 = date_default_timezone_get();
 date_default_timezone_set('Europe/Prague');
