@@ -98,6 +98,8 @@ $check = static function (string $json, string $label, bool $stableManifest = fa
         $age = $published !== '' ? (int) floor((time() - (int) strtotime($published . ' 00:00:00 UTC')) / 86400) : null;
         if ($age === null) {
             $errors[] = "$label: the signed release date (vydano, YYYY-MM-DD) is missing or invalid – sites cannot tell it from an older copy; sign it again with tools/release.php";
+        } elseif ($age < -Updater::FUTURE_DAYS) {
+            $errors[] = "$label: the signed release date $published lies in the future – sites do not remember it for the freshness check; check the clock and sign the manifest again";
         } elseif ($age > Updater::FRESHNESS_DAYS - RESIGN_BEFORE_DAYS) {
             $errors[] = "$label: published $published, $age days ago – sites warn after " . Updater::FRESHNESS_DAYS . " days that their update information is old; sign the manifest again (docs/RELEASING.md, Freshness)";
         } else {

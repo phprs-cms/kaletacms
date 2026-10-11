@@ -180,7 +180,7 @@ final class Health
         $update = (new Updater($siteSettings))->state();
         $add(t('Operation'), t('Updates'), !$update['nastaveno'] || $update['chyba'] !== null || $update['nova'] !== null || $update['vyzaduje_php'] !== null ? 'varovani' : 'ok', match (true) {
             !$update['nastaveno'] => t('no update source is set'),
-            $update['stale'] => (string) $update['chyba'], // 3.10 (N39-7): the message says what happened
+            $update['refused'] => (string) $update['chyba'] . ' ' . t('If the publisher really published this, forget the remembered update information in Settings → Backups and updates.'), // 3.10 (N39-7, N310-1): the message says what happened
             $update['chyba'] !== null => t('the update source is not responding: %s', (string) $update['chyba'])
                 . ($update['failing_since'] > 0 && time() - $update['failing_since'] >= 86400 ? ' ' . t('The checks have been failing for %d days.', intdiv(time() - $update['failing_since'], 86400)) : ''),
             $update['vyzaduje_php'] !== null => t('version %s needs PHP %s or newer, the server runs PHP %s – ask the hosting for a newer PHP to update', $update['vyzaduje_php']['verze'], $update['vyzaduje_php']['min_php'], PHP_VERSION),
@@ -193,6 +193,10 @@ final class Health
         if ($published !== false && $published->getTimestamp() < time() - Updater::FRESHNESS_DAYS * 86400) {
             $add(t('Operation'), t('Update information'), 'varovani', t('the newest update information this site has received (version %s) was published on %s, %d days ago. The publisher refreshes it at least every %d days, so the update source may be stuck or serving an old copy – check the update source in Settings → Backups and updates.',
                 $update['newest']['verze'], format_date($published), intdiv(time() - $published->getTimestamp(), 86400), Updater::FRESHNESS_DAYS));
+        }
+        // 3.10 (N310-3): a signed date in the future is not remembered – a wrong clock here or at the publisher
+        if ($update['future_date'] !== '') {
+            $add(t('Operation'), t('Update information'), 'varovani', t('the update source signs its update information with a date in the future (%s), so the site does not remember it for the freshness check. Check the date and time of the server; if they are right, tell the Kaleta publisher.', $update['future_date']));
         }
         // 3.8 (D3): which release channel the site follows; a stable site that runs a newer minor than the stable line waits
         if ($update['nastaveno']) {

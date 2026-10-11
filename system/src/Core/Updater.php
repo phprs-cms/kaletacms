@@ -16,9 +16,10 @@ namespace Kaleta\Core;
  * 3.9: the manifest also carries signature v2 ("podpis2", Core\Signature::manifestMessage) over every field the site acts
  * on – the channel and min_php too. It is checked as soon as the manifest is read (verified(), which also says what
  * happens to a manifest without it).
- * 3.10: freshness (audit N39-7) – the site remembers the newest signed manifest each update source gave it (setting
- * update_seen) and refuses an older one (isStale) as a stale manifest, not as "no update"; System status warns when the
- * newest one is older than FRESHNESS_DAYS (Core\Health).
+ * 3.10: freshness (audit N39-7) – the site remembers the newest signed manifest each update source gave it per channel
+ * (setting update_seen) and refuses an older one, or one of the other channel, as an error, not as "no update" (admit(),
+ * N310-1); System status warns when the newest one is older than FRESHNESS_DAYS (Core\Health). A date in the future is
+ * never remembered, and the administrator can forget it all (forgetSeen(), N310-3).
  * config.php, media/, storage/, extensions/ (add-ons), install.php and layouts that are not part of the package are never overwritten.
  */
 final class Updater
@@ -52,11 +53,18 @@ final class Updater
      */
     public const int FRESHNESS_DAYS = 60;
 
-    /** The exception code of a stale manifest (state() tells it from an unreachable source). */
+    /** The exception codes of a manifest refused as stale or of the other channel (state() tells them from an unreachable source). */
     public const int STALE = 3910;
+    public const int WRONG_CHANNEL = 3911;
 
-    /** How many update sources update_seen remembers (latest, stable, and a custom source or two). */
-    private const int SEEN_SOURCES = 4;
+    /** 3.10 (N310-3): a signed release date more than this many days after today (UTC) is never remembered. */
+    public const int FUTURE_DAYS = 2;
+
+    /** How many entries update_seen keeps (source + channel: latest, stable, a custom source with both channels…). */
+    private const int SEEN_SOURCES = 6;
+
+    /** The signed release date of the manifest just read when it lies in the future (admit()), for state(). */
+    private string $futureDate = '';
 
     private const array PROTECTED_PATHS = ['config.php', 'install.php', 'media/', 'storage/', 'extensions/', 'image/ukazka/', 'tools/', '.git/']; // extensions/: add-ons (3.0)
     private const int MAX_BYTES = 60 * 1024 * 1024;
@@ -174,15 +182,17 @@ final class Updater
      * 3.8: channel = latest | stable | custom (effectiveChannel); ahead_of = on the stable channel, the stable version this
      * site is already past (it waits for the stable line, never downgrades).
      *
-     * 3.10: stale = the source answered with older signed update information than it gave before (N39-7); failing_since = when
-     * the checks started failing (0 = they work); newest = the newest signed manifest this source gave the site (version, release date).
+     * 3.10: stale = the source answered with older signed update information than it gave before (N39-7); refused = it was
+     * refused as stale or as the other channel's (N310-1); failing_since = when the checks started failing (0 = they work);
+     * newest = the newest signed manifest this source gave the site (version, release date); future_date = the signed date
+     * of the manifest just read when it lies in the future, so it was not remembered (N310-3).
      *
-     * @return array{nastaveno:bool, aktualni:string, nova:?array<string, mixed>, vyzaduje_php:?array{verze:string, min_php:string, bezpecnostni:bool}, chyba:?string, overeno:int, channel:string, ahead_of:?string, stale:bool, failing_since:int, newest:?array{verze:string, vydano:string, at:int}}
+     * @return array{nastaveno:bool, aktualni:string, nova:?array<string, mixed>, vyzaduje_php:?array{verze:string, min_php:string, bezpecnostni:bool}, chyba:?string, overeno:int, channel:string, ahead_of:?string, stale:bool, refused:bool, failing_since:int, newest:?array{verze:string, vydano:string, at:int}, future_date:string}
      */
     public function state(bool $force = false): array
     {
         $state = ['nastaveno' => $this->url() !== '', 'aktualni' => KALETA_VERSION, 'nova' => null, 'vyzaduje_php' => null, 'chyba' => null, 'overeno' => 0,
-            'channel' => $this->effectiveChannel(), 'ahead_of' => null, 'stale' => false, 'failing_since' => 0, 'newest' => null];
+            'channel' => $this->effectiveChannel(), 'ahead_of' => null, 'stale' => false, 'refused' => false, 'failing_since' => 0, 'newest' => null, 'future_date' => ''];
         if (!$state['nastaveno']) {
             return $state;
         }
@@ -194,7 +204,9 @@ final class Updater
             $state['chyba'] = $cache['chyba'] ?? null;
             $state['overeno'] = (int) $cache['overeno'];
             $state['stale'] = ($cache['stale'] ?? false) === true;
+            $state['refused'] = ($cache['refused'] ?? false) === true;
             $state['failing_since'] = (int) ($cache['failing_since'] ?? 0);
+            $state['future_date'] = is_string($cache['future_date'] ?? null) ? $cache['future_date'] : '';
         } else {
             try {
                 $manifest = $this->manifest();
@@ -202,14 +214,16 @@ final class Updater
                 $manifest = null;
                 $state['chyba'] = $e->getMessage();
                 $state['stale'] = $e->getCode() === self::STALE;
+                $state['refused'] = in_array($e->getCode(), [self::STALE, self::WRONG_CHANNEL], true);
                 // 3.10: since when the checks fail – carried over while they keep failing (System status says how long)
                 $state['failing_since'] = is_array($cache) && ($cache['chyba'] ?? null) !== null && (int) ($cache['failing_since'] ?? 0) > 0 ? (int) $cache['failing_since'] : time();
             }
             $state['overeno'] = time();
+            $state['future_date'] = $this->futureDate;
             $this->settings->set('update_cache', (string) json_encode(['url' => $this->url(), 'overeno' => time(), 'manifest' => $manifest, 'chyba' => $state['chyba'],
-                'stale' => $state['stale'], 'failing_since' => $state['failing_since']], JSON_UNESCAPED_UNICODE));
+                'stale' => $state['stale'], 'refused' => $state['refused'], 'failing_since' => $state['failing_since'], 'future_date' => $state['future_date']], JSON_UNESCAPED_UNICODE));
         }
-        $state['newest'] = $this->seen()[$this->url()] ?? null;
+        $state['newest'] = self::newestOf($this->seen(), $this->url());
         $choice = self::choose(is_array($manifest) ? $manifest : null, $state['channel']);
 
         return ['nova' => $choice['nova'], 'vyzaduje_php' => $choice['vyzaduje_php'], 'ahead_of' => $choice['ahead_of'], 'chyba' => $state['chyba'] ?? $choice['chyba']] + $state;
@@ -602,17 +616,17 @@ final class Updater
     }
 
     /**
-     * The newest signed manifest each update source gave this site: update source address => version, release date and
-     * when it was received (setting update_seen, 3.10).
+     * The newest signed manifest each update source gave this site, per channel: "<update source address>#<signed kanal>"
+     * => version, release date and when it was received (setting update_seen, 3.10; the channel in the key since N310-1).
      *
      * @return array<string, array{verze: string, vydano: string, at: int}>
      */
     private function seen(): array
     {
         $seen = [];
-        foreach ((array) json_decode($this->settings->get('update_seen'), true) as $url => $entry) {
-            if (is_string($url) && is_array($entry) && is_string($entry['verze'] ?? null) && is_string($entry['vydano'] ?? null)) {
-                $seen[$url] = ['verze' => $entry['verze'], 'vydano' => $entry['vydano'], 'at' => (int) ($entry['at'] ?? 0)];
+        foreach ((array) json_decode($this->settings->get('update_seen'), true) as $key => $entry) {
+            if (is_string($key) && is_array($entry) && is_string($entry['verze'] ?? null) && is_string($entry['vydano'] ?? null)) {
+                $seen[$key] = ['verze' => $entry['verze'], 'vydano' => $entry['vydano'], 'at' => (int) ($entry['at'] ?? 0)];
             }
         }
 
@@ -620,27 +634,113 @@ final class Updater
     }
 
     /**
-     * Refuses a stale manifest (isStale) and remembers a signed one as the newest of its source. Only a manifest with
-     * signature v2 is remembered – the date of an older one is not signed.
+     * Whether a site may act on a verified manifest, and what it then remembers (pure, 3.10; audit N39-7, N310-1, N310-3).
+     *
+     * 1. The channel first, before anything is remembered (N310-1): on the stable channel only a manifest that says
+     *    "kanal": "stable" counts, on the latest channel never one that says "stable" (a manifest without signature v2 has
+     *    no channel left after verified(), so it counts as latest). A custom source without a stable twin takes both, as
+     *    before. Otherwise the other channel's genuine manifest, served once at the wrong address, would make the right one
+     *    look stale – a lasting block on Stable, a silent freeze on Latest.
+     * 2. Freshness (N39-7): the newest one remembered for this source AND its channel (key "<url>#<kanal>") must not be
+     *    newer (isStale). A manifest without v2 is stale when anything is remembered for the source.
+     * 3. Only a v2 manifest is remembered, and not one dated more than FUTURE_DAYS after today (N310-3): a wrong date (a
+     *    typo, the clock of the signing machine – or of this server) would otherwise lock out every later release. It is
+     *    still offered; System status reports the date.
+     *
+     * @param array<array-key, mixed> $manifest the verified manifest (verified())
+     * @param string $channel effectiveChannel(): latest | stable | custom
+     * @param array<string, array{verze: string, vydano: string, at: int}> $seen
+     * @return array{refused: ?string, newest: ?array{verze: string, vydano: string, at: int}, seen: array<string, array{verze: string, vydano: string, at: int}>, future: ?string}
+     *         refused = null | "channel" | "stale"; newest = the remembered one it was compared with; future = a date not remembered
+     */
+    public static function admit(array $manifest, string $channel, string $url, array $seen, ?int $now = null): array
+    {
+        $now ??= time();
+        $result = ['refused' => null, 'newest' => null, 'seen' => $seen, 'future' => null];
+        $kanal = is_string($manifest['kanal'] ?? null) && $manifest['kanal'] !== '' ? $manifest['kanal'] : 'latest';
+        if ($channel !== 'custom' && ($channel === 'stable') !== ($kanal === 'stable')) {
+            $result['refused'] = 'channel';
+
+            return $result;
+        }
+        if (!array_key_exists('podpis2', $manifest)) {
+            // from before 3.9 (its date and channel are not signed): stale after any signed one of this source
+            foreach ($seen as $key => $entry) {
+                if (str_starts_with($key, $url . '#')) {
+                    return ['refused' => 'stale', 'newest' => $entry] + $result;
+                }
+            }
+
+            return $result;
+        }
+        $key = $url . '#' . $kanal;
+        if (self::isStale($manifest, $seen[$key] ?? null)) {
+            return ['refused' => 'stale', 'newest' => $seen[$key]] + $result;
+        }
+        $date = self::releaseDate($manifest);
+        if ($date > gmdate('Y-m-d', $now + self::FUTURE_DAYS * 86400)) {
+            $result['future'] = $date;
+
+            return $result;
+        }
+        unset($seen[$key]); // the source just used goes last, the oldest ones drop out
+        $seen[$key] = ['verze' => (string) $manifest['verze'], 'vydano' => $date, 'at' => $now];
+        $result['seen'] = array_slice($seen, -self::SEEN_SOURCES, null, true);
+
+        return $result;
+    }
+
+    /**
+     * The newest manifest remembered for an update source, of any channel (a custom source may have both).
+     *
+     * @param array<string, array{verze: string, vydano: string, at: int}> $seen
+     * @return array{verze: string, vydano: string, at: int}|null
+     */
+    public static function newestOf(array $seen, string $url): ?array
+    {
+        $newest = null;
+        foreach ($seen as $key => $entry) {
+            if (str_starts_with($key, $url . '#') && ($newest === null || $entry['vydano'] > $newest['vydano'] || ($entry['vydano'] === $newest['vydano'] && version_compare($entry['verze'], $newest['verze'], '>')))) {
+                $newest = $entry;
+            }
+        }
+
+        return $newest;
+    }
+
+    /**
+     * Applies admit() to a downloaded manifest: refuses it with a message the administrator can act on, or remembers it.
      *
      * @param array<array-key, mixed> $manifest the verified manifest
      */
-    private function checkFreshness(array $manifest): void
+    private function admitManifest(array $manifest): void
     {
-        $url = $this->url();
+        $channel = $this->effectiveChannel();
         $seen = $this->seen();
-        $newest = $seen[$url] ?? null;
-        if (self::isStale($manifest, $newest)) {
+        $verdict = self::admit($manifest, $channel, $this->url(), $seen);
+        $version = is_scalar($manifest['verze'] ?? null) ? (string) $manifest['verze'] : '?';
+        if ($verdict['refused'] === 'channel') {
+            throw new \RuntimeException($channel === 'stable' ? self::notStableMessage()
+                : t('The update source of the Latest channel answered with the stable-channel release (version %s, aktualizace-stable.json) – a wrong redirect, or someone serving the other channel\'s file. Nothing is offered or installed from it; the check repeats every hour.', $version), self::WRONG_CHANNEL);
+        }
+        if ($verdict['refused'] === 'stale' && $verdict['newest'] !== null) {
             throw new \RuntimeException(t('The update source answered with older update information (version %s, published %s) than it gave this site before (version %s, published %s) – an outdated copy of the file, or someone serving an old one on purpose. Nothing is offered or installed from it; the check repeats every hour.',
-                is_scalar($manifest['verze'] ?? null) ? (string) $manifest['verze'] : '?', self::releaseDate($manifest) !== '' ? self::releaseDate($manifest) : '?',
-                (string) $newest['verze'], $newest['vydano'] !== '' ? $newest['vydano'] : '?'), self::STALE);
+                $version, self::releaseDate($manifest) !== '' ? self::releaseDate($manifest) : '?', $verdict['newest']['verze'], $verdict['newest']['vydano'] !== '' ? $verdict['newest']['vydano'] : '?'), self::STALE);
         }
-        if (!array_key_exists('podpis2', $manifest)) {
-            return;
+        $this->futureDate = $verdict['future'] ?? '';
+        if ($verdict['seen'] !== $seen) {
+            $this->settings->set('update_seen', (string) json_encode($verdict['seen'], JSON_UNESCAPED_SLASHES));
         }
-        unset($seen[$url]); // the source just used goes last, the oldest ones drop out
-        $seen[$url] = ['verze' => (string) $manifest['verze'], 'vydano' => self::releaseDate($manifest), 'at' => time()];
-        $this->settings->set('update_seen', (string) json_encode(array_slice($seen, -self::SEEN_SOURCES, null, true), JSON_UNESCAPED_SLASHES));
+    }
+
+    /**
+     * Forgets every remembered manifest and the last check (3.10, N310-3: Settings -> Backups and updates, "Forget
+     * remembered update information"): the next check accepts whatever valid signed manifest the source gives.
+     */
+    public function forgetSeen(): void
+    {
+        $this->settings->set('update_seen', '');
+        $this->settings->set('update_cache', '');
     }
 
     /** The oldest PHP a package says it needs (KALETA_MIN_PHP in its system/bootstrap.php, 3.7 and later); null = it does not say. */
@@ -658,7 +758,7 @@ final class Updater
             throw new \RuntimeException(t('The update information file is not in a valid format.'));
         }
         $m = self::verified($m, $this->keyFile); // 3.9: before anything else is read from it
-        $this->checkFreshness($m); // 3.10 (N39-7): not older than what this source gave before
+        $this->admitManifest($m); // 3.10 (N39-7, N310-1): of this channel, and not older than what this source gave before
         $m['zmeny'] = array_values(array_filter(array_map(fn ($z): string => mb_substr((string) $z, 0, 300), (array) ($m['zmeny'] ?? []))));
 
         return $m;

@@ -214,10 +214,13 @@ Co to znamená pro vydavatele:
 
 ### Freshness and pre-releases (3.10, audit N39-7 and N39-8)
 
-A site from 3.10 on remembers, per update source (the latest, the stable or a custom address), the newest manifest with
-a valid v2 signature it received: its version and its signed release date `vydano` (setting `update_seen`). A manifest
-that is older is refused as a **stale manifest** – the admin and System status say so instead of "up to date", and
-nothing is offered or installed from it (`Core\Updater::isStale`):
+A site from 3.10 on remembers, per update source **and channel** (key `<address>#<kanal>`), the newest manifest with
+a valid v2 signature it received: its version and its signed release date `vydano` (setting `update_seen`). Before
+anything is compared or remembered, the signed channel must fit the address (N310-1): the stable address accepts only
+`"kanal": "stable"`, the latest address never `"stable"`; a custom source without a stable twin takes both. A manifest
+of the other channel is an error ("the source answered with the other channel's release"), never "up to date". A
+manifest that is older is refused as a **stale manifest** – the admin and System status say so instead of "up to date",
+and nothing is offered or installed from it (`Core\Updater::admit`, `isStale`):
 
 - the signed `vydano` (YYYY-MM-DD, written by `release.php`) decides first: an earlier date is stale;
 - on the same date the version decides: a lower version is stale (3.9.1 and 3.9.2 came out on the same day);
@@ -237,7 +240,14 @@ What it means for the publisher:
   same version, URL, flags and change lines as the published manifest, then upload it as usual.
 - There is deliberately **no hard expiry** in the manifest: the keys are offline with the publisher, nothing re-signs
   automatically, and an expired manifest would stop the very update that fixes the problem. Sites only warn.
-- `check-channel.php` requires a valid signed `vydano` on every manifest with `podpis2`.
+- `check-channel.php` requires a valid signed `vydano` on every manifest with `podpis2`, not in the future.
+- **A date in the future is never remembered** (more than 2 days after the site's today, `FUTURE_DAYS`, N310-3): the
+  manifest is still offered, and System status reports the date (a wrong clock at the signing machine or on the server).
+  Otherwise one typo like `2099-12-31` would make every later release look stale.
+- **Recovery** when a site refuses the genuine manifest as stale (a bad date remembered before 3.10's fix, a test
+  manifest, a restored backup): Settings → Backups and updates → **Forget remembered update information** (admin only,
+  logged in the change log). The next check accepts any manifest the publisher signed. Without the admin: clear the
+  setting `update_seen` in `ka_nastaveni`.
 - A pre-release of 3.9.0 (`3.9.0-rc1`, `3.9.0-dev`, any suffix) needs signature v2 like 3.9.0 itself: only the numeric
   X.Y.Z is compared against `SIGNED_V2_SINCE` (`Core\Updater::needsSignatureV2`) – in `version_compare()` such tags are
   lower than `3.9.0`. Never publish a pre-release manifest without v2.
