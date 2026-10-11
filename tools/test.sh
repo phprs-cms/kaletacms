@@ -5876,7 +5876,7 @@ contains -q '"directions":{"cs":"ltr","en":"ltr","ar":"rtl"}' "$WORK/text" && ec
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=pages&action=builder&id=$ARRTL"
 contains -q '"smer":"rtl"' "$WORK/response" && ! contains -q '<html[^>]*dir="rtl"' "$WORK/response" && echo "  ok     RTL: the builder of an Arabic page gets the direction for its fields, the admin page itself stays left to right" || { echo "  CHYBA  RTL: builder direction"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=pages&action=edit&id=$ARRTL"
-contains -q 'name="titulek" value="شريط كينيزيو" maxlength="200" required dir="rtl"' "$WORK/response" && contains -q 'data-editor dir="rtl"' "$WORK/response" && echo "  ok     RTL: the page form writes Arabic fields right to left" || { echo "  CHYBA  RTL: page form direction"; ERRORS=$((ERRORS+1)); }
+contains -q 'name="titulek" value="شريط كينيزيو" maxlength="200" required placeholder="[^"]*" dir="rtl"' "$WORK/response" && contains -q 'data-editor dir="rtl"' "$WORK/response" && echo "  ok     RTL: the page form writes Arabic fields right to left" || { echo "  CHYBA  RTL: page form direction"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=pages&action=edit&id=$CSRTL"
 ! contains -q 'dir="rtl"' "$WORK/response" && echo "  ok     RTL: a Czech page form has no dir attribute" || { echo "  CHYBA  RTL: dir on a Czech form"; ERRORS=$((ERRORS+1)); }
 # slugs: an Arabic title is transliterated, a title with nothing to transliterate takes the type and number (never n-a); the
