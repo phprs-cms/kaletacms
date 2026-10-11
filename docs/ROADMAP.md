@@ -670,6 +670,22 @@ Fix:
    person only what their own page, news and collection lists show (N33); records of replaced Claude refresh tokens are
    kept 30 days instead of up to a year, still enough to detect a stolen token (N39-5).
 
+## 3.11 – Arabic, drafts by default, no invented content (released 11 October 2026)
+
+1. **Right-to-left languages** (owner decision 11 October 2026: fysiomed.eu keeps Arabic; design §5): Arabic as a site
+   language with `dir="rtl"`, logical CSS properties, mirrored arrows and swipes, bidi isolation of inserted values and in
+   admin lists, an Arabic visitor dictionary (native review welcome), Arabic search, Arabic WordPress import, RTL e-mails,
+   readable Latin slugs for Arabic titles (`page-<id>` when nothing transliterates). Lines split as UTF-8 (byte 0x85 is
+   part of Arabic letters).
+2. **Outside UX review of 3.10** (Claude/kaleta-ux/ux-2026-10-11-3.10.md, UX310-1…30): new Claude connections default to
+   "Drafts only – you publish" (owner decision); starter sites use visible placeholders and the pre-publish check, the
+   Site audit and Claude report sample content; translating a builder page copies its build; System status and Backups
+   and updates agree; truthful preset messages; a visible page title field; wording fixes.
+3. kaletacms.com: the homepage design-system demo shows plain labels instead of token names.
+
+Audited before release (N311): robots.txt rules kept when the file is not UTF-8, an application's strongest access shown,
+drafts as the fallback of the consent and token forms, bidi controls dropped from RTL e-mails.
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).
@@ -686,4 +702,3 @@ Fix:
 
 - Visitor dictionaries keyed by English text, like the admin ones (moved from 2.4).
 - Legal text templates with a clear disclaimer (privacy policy, terms, cookie policy) per country.
-- Right-to-left languages.

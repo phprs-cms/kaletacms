@@ -2368,7 +2368,7 @@ sq "UPDATE ka_jobs SET last_run = NULL WHERE name = 'security'" > /dev/null; cur
 expect "3.3.4 N66: an unused registration older than a day is deleted, approved clients stay" "$(sq "SELECT COUNT(*) FROM ka_oauth_klienti WHERE client_id = '$CLIENT_OLD'")|$(sq "SELECT COUNT(*) FROM ka_oauth_klienti WHERE client_id IN ('$CLIENT_A', '$CLIENT')")|$(grep -c 'unused app registrations removed' "$WORK/tasks.txt")" "0|2|1"
 
 echo "== 2.2: connection access, change log, instructions, prompts, settings over MCP"
-expect "an OAuth connection approved without a choice (a consent page from before 2.2) has full access" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT GROUP_CONCAT(DISTINCT access) FROM ka_api_tokeny WHERE klient = '$CLIENT'")" "full"
+expect "3.11 N311-3: an OAuth connection approved without a choice gets drafts only, the default of the consent page" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT GROUP_CONCAT(DISTINCT access) FROM ka_api_tokeny WHERE klient = '$CLIENT'")" "drafts"
 REDIRECT=$(oauth_allow "response_type=code&client_id=$CLIENT&redirect_uri=$REDIRECT_URI&code_challenge=$CHALLENGE&code_challenge_method=S256&state=drafts" -d povolit=1 -d access=drafts)
 AUTH_CODE=$(printf %s "$REDIRECT" | grep -o 'code=[a-f0-9]*' | sed 's/code=//' || true)
 curl -s -o "$WORK/response" -X POST "$B/oauth/token" -d grant_type=authorization_code -d "code=$AUTH_CODE" -d "redirect_uri=$REDIRECT_URI" -d "client_id=$CLIENT" -d "code_verifier=$VERIFIER"
