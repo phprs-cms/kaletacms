@@ -664,6 +664,12 @@ Fix:
 Audited before release (N310): runners split by what they can do, the channel bound before update information is
 remembered, English table names journaled for undo, MCP keeps working if migration 0085 has not run.
 
+Fix:
+
+5. 3.10.1 (after the daily audit): the translation overview (Pages → Translations and `translation_status`) shows each
+   person only what their own page, news and collection lists show (N33); records of replaced Claude refresh tokens are
+   kept 30 days instead of up to a year, still enough to detect a stolen token (N39-5).
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).
