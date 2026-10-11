@@ -17,6 +17,7 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
 - **Co se nevypisuje, nemá styl ani skript.** Do `image/web.css` ani `style.css` šablony nepatří selektor, který nikde nevzniká; skript nesmí
   hledat `[data-…]` prvek, který nikde nevzniká (hlídá `tools/unit-tests.php`).
 - **Tabulky** mají významové názvy (`ka_novinky`, `ka_kategorie`, `ka_uzivatele`, `ka_media`, `ka_nastaveni`…); v kódu vždy přes `{novinky}`.
+  Anglický název z mapy `system/sql/names.php` (`Core\Names`) funguje stejně (`{news}` = `ka_novinky`, 3.10); nová tabulka = záznam v mapě (hlídá `tools/unit-tests.php`).
   Starší názvy sloupců zůstaly: `idc` = novinka, `tema`/`idt` = kategorie, `ido` = médium, `idu` = uživatel.
 - Identifikátory v kódu anglicky (od 1.4); komentáře v kódu anglicky, texty rozhraní anglicky se slovníky (`t()`). Česky zůstává
   datový model: sloupce databáze, klíče staveb (JSON) a design systému – na hranici MCP je překládá `Mcp\Translator` a `Mcp\Vocabulary`.
@@ -153,7 +154,7 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
 - **Zálohy mimo server** (`Core\RemoteBackup`): záloha databáze i přírůstková kopie `media/` (`syncMedia`, manifest `storage/zalohy/media-kopie.json`)
   na FTPS nebo S3; automatická záloha denně při změně (`ka_protokol`, nové poptávky), jinak týdně. Testy: falešné S3 přes `backup_test_url`.
 - **Pošta** vždy přes `Core\Mail::send()` (fronta `ka_posta`). **Nahrávání:** obrázky `Core\Images`, přílohy `Core\Files` (whitelist přípon).
-- **Čas:** pásmo `time_zone` (`App::applyTimezone()`); zapisuj přes `date()`, porovnávej s `NOW()`.
+- **Čas:** pásmo `time_zone` (`App::applyTimezone()`); databáze drží čas webu (wall time). Nový kód zapisuje přes `Core\Clock` (`now()`, `toDb()`, `fromDb()`, `at('-1 hour')` místo `NOW() - INTERVAL`) – do 4.1 dává totéž co `date()` (návrh `docs/design/4.0-data-model.md` §6). Stav systému hlídá, že PHP, nastavení a relace databáze počítají čas stejně.
 - **AI asistent** (`Core\Assistant`): poskytovatel `ai_provider` (anthropic | openai | google | mistral, pevné adresy v `PROVIDERS`),
   uvnitř se pracuje s tvarem Claude API a `call()` ho převádí (`naOpenAi`/`zOpenAi`). V builderu `suggestSection()` (HTML → `HtmlConverter::saveToSite`) a `rewrite()`.
   Klíč `ai_key` je typ `tajne`; odpověď modelu je nedůvěryhodný vstup. Překlad (`Assistant::translate()`) bere od modelu
