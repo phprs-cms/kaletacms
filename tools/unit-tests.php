@@ -5853,6 +5853,11 @@ check('RTL Collections::fill: on an Arabic page a value inside a heading or a te
 // 0x85 (NEL) is a line break for a byte pattern – and the second byte of م (U+0645) or Å: lines are split as UTF-8
 $rtlList = Kaleta\Builder\Elements\BulletList::render(['znacka' => 'ul', 'obsah' => ['polozky' => "تصميم الحل\nمدير مشروع\nÅre", 'styl' => 'fajfky']], '', '', new Kaleta\Builder\Context((new ReflectionClass(Kaleta\Core\App::class))->newInstanceWithoutConstructor()));
 check('RTL a list, FAQ and opening hours split lines as UTF-8: Arabic and Å stay whole', [substr_count($rtlList, '<li>'), str_contains($rtlList, '<li>تصميم الحل</li>'), str_contains($rtlList, '<li>Åre</li>'), count(Seo::faq("كم يستغرق المشروع؟\nمم\n\nسؤال\nجواب"))], [3, true, true, 2]);
+check('RTL slugify: Arabic titles get a stable lowercase ASCII transliteration (vowel marks dropped, Arabic-Indic digits as digits); nothing to transliterate stays n-a for Slug::fromId',
+    array_map(fn (string $t): string => slugify($t), ['شريط لاصق', 'شريط كينيزيو 5 cm', 'تثبيت الركبة المؤلمة بالشريط', 'الأَمْنُ ٢٠٢٦', 'مدونة FXM', 'עברית', 'Příliš žluťoučký']),
+    ['shryt-lasq', 'shryt-kynyzyw-5-cm', 'tthbyt-alrkba-almulma-balshryt', 'alamn-2026', 'mdwna-fxm', 'n-a', 'prilis-zlutoucky']);
+check('RTL bdi(): a typed value isolated and escaped for the administration lists', [bdi('سارة <x>'), bdi(null)], ['<bdi>سارة &lt;x&gt;</bdi>', '<bdi></bdi>']);
+check('RTL Slug::FALLBACK names the four tables a new slug can come from', array_keys(Kaleta\Core\Slug::FALLBACK), ['stranky', 'novinky', 'kategorie', 'kolekce_polozky']);
 check('RTL Search::normalize: Arabic stays searchable without vowel marks and with one alef; Latin tokens as before',
     [Kaleta\Core\Search::normalize('<p>الأَمْنُ والسلامة – Kinesio Tape (5 cm)</p>'), Kaleta\Core\Search::normalize('Příliš žluťoučký kůň, 5 cm!'), Kaleta\Core\Search::query('شريط لاصق')],
     ['الامن والسلامة kinesio tape 5 cm', 'prilis zlutoucky kun 5 cm', '+شريط* +لاصق*']);

@@ -547,6 +547,7 @@ final class WpImport
             'zmeneno' => $now,
             'oznameno' => $now, // an old news item is not announced (webhook, IndexNow)
         ]);
+        $seo = Slug::fromId($this->db, 'novinky', $idc); // a title with nothing to transliterate: news-<id>, not n-a
         foreach (array_slice($p['stitky'], 0, 20, true) as $url => $name) {
             $this->tag($idc, (string) $url, $name !== '' ? $name : (string) ($this->header['stitky'][$url] ?? $url));
         }
@@ -600,6 +601,7 @@ final class WpImport
             'v_menu' => 0, // dozens of old pages would flood the navigation; the administrator adds them to the menu themselves
             'zmeneno' => date('Y-m-d H:i:s'), 'jazyk' => $language,
         ]);
+        $seo = Slug::fromId($this->db, 'stranky', $ids); // a title with nothing to transliterate: page-<id>, not n-a
         $this->writeMap('stranka', (string) $p['id'], $ids);
         $state['vysledek']['stranky']++;
         if ($state['volby']['presmerovani']) {
@@ -665,6 +667,7 @@ final class WpImport
             'zobrazit' => $articleStatus['visible'], 'jazyk' => $language, 'datum' => self::date($p), 'zmeneno' => date('Y-m-d H:i:s'),
         ];
         $idp = $this->db->insert('kolekce_polozky', $row);
+        $seo = Slug::fromId($this->db, 'kolekce_polozky', $idp); // a name with nothing to transliterate: item-<id>
         $this->writeMap('polozka', (string) $p['id'], $idp);
         // an imported notice of an official notice board (2.11, Core\Notices) starts its audit trail
         $board = \Kaleta\Builder\Collections::byId($this->db, $idk);
@@ -785,6 +788,7 @@ final class WpImport
                     'nazev' => $name, 'popis' => '', 'jazyk' => $language,
                     'seo_link' => $this->freeSlug('kategorie', $seo, $language, 'novinky/kategorie/', $state, 120),
                 ]);
+                Slug::fromId($this->db, 'kategorie', (int) $idt); // nothing to transliterate: category-<id>
                 $state['vysledek']['rubriky']++;
             }
             $this->writeMap('rubrika', $key, (int) $idt);

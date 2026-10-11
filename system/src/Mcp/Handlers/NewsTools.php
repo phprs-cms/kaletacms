@@ -180,7 +180,9 @@ trait NewsTools
 
         $description = \Kaleta\Core\Html::safeOrFail((string) ($a['popis'] ?? ''), 'description');
 
-        return ['id' => $db->insert('kategorie', ['nazev' => $displayName, 'seo_link' => $seo, 'popis' => $description]), 'adresa' => $seo];
+        $id = $db->insert('kategorie', ['nazev' => $displayName, 'seo_link' => $seo, 'popis' => $description]);
+
+        return ['id' => $id, 'adresa' => \Kaleta\Core\Slug::fromId($db, 'kategorie', $id)]; // nothing to transliterate: category-<id>
     }
 
     /** update_category */

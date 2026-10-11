@@ -342,6 +342,7 @@ final class Pages extends Module
             }
         } else {
             $id = $this->db->insert('stranky', $data);
+            \Kaleta\Core\Slug::fromId($this->db, 'stranky', $id); // a title with nothing to transliterate: page-<id>, not n-a
             $template = \Kaleta\Builder\Library::PAGE_TEMPLATES[$r->post('sablona')] ?? null;
             if ($template !== null && $template[1] !== []) {
                 // new page from a template: sections from the library as a draft and straight into the builder

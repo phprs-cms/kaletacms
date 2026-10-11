@@ -302,6 +302,7 @@ final class News extends Module
             }
         } else {
             $id = $this->db->insert('novinky', $data);
+            \Kaleta\Core\Slug::fromId($this->db, 'novinky', $id); // a title with nothing to transliterate: news-<id>, not n-a
         }
 
         Media::recordUsage($this->db, $id, $data['obrazek'], $data['uvod'], $data['text']);

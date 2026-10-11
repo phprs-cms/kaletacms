@@ -67,16 +67,18 @@ HEADER=$(cd "$WORK/poradenstvi" && php -r 'require "system/bootstrap.php"; $b = 
 "${MYSQL[@]}" "${DB_NAME}_remeslo" -e "UPDATE ka_nastaveni SET hodnota = CONCAT(hodnota, ',jazyky') WHERE promenna = 'extensions' AND NOT FIND_IN_SET('jazyky', hodnota);
   INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('additional_languages', 'ar'), ('cookies_mode', 'vestavena'), ('lead_attribution', '1') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)"
 (cd "$WORK/remeslo" && php -r 'require "system/bootstrap.php"; $db = Kaleta\Core\App::boot()->db();
-  $build = Kaleta\Core\Language::runWith("ar", function () use ($db): array {
-    [$sections, $classes] = [[], []];
-    foreach (["uvod", "vyhody", "faq", "cenik", "poptavka"] as $key) { $s = Kaleta\Builder\Library::section($key, "ar"); $sections[] = $s["prvek"]; $classes = array_merge($classes, $s["tridy"]); }
-    Kaleta\Builder\Library::createClasses($db, $classes);
-    array_splice($sections, 1, 0, [Kaleta\Builder\Build::fresh("sekce", [], [Kaleta\Builder\Build::fresh("nadpis", ["text" => "شريط Kinesio Tape (5 cm)"]),
-      Kaleta\Builder\Build::fresh("text", ["html" => "<p>السعر 120 EUR – Kinesio Tape (5 cm × 5 m) للرياضيين.</p>"]),
-      Kaleta\Builder\Build::fresh("karusel", ["naraz" => "1", "popis" => "Kinesio"], Kaleta\Builder\Elements\Carousel::defaultChildren())])]);
-    return Kaleta\Builder\Build::sanitize(["v" => 1, "deti" => $sections])[0];
-  });
-  $db->insert("stranky", ["seo_link" => "rtl-test", "titulek" => "اختبار", "text" => "", "v_menu" => 0, "jazyk" => "ar", "zobrazit" => 1, "stavba" => Kaleta\Builder\Build::toJson($build)]);')
+  foreach (["ar" => "rtl-test", "en" => "ltr-test"] as $language => $slug) { // the same page in English: the carousel checks run in both directions
+    $build = Kaleta\Core\Language::runWith($language, function () use ($db, $language): array {
+      [$sections, $classes] = [[], []];
+      foreach (["uvod", "vyhody", "faq", "cenik", "poptavka"] as $key) { $s = Kaleta\Builder\Library::section($key, $language); $sections[] = $s["prvek"]; $classes = array_merge($classes, $s["tridy"]); }
+      Kaleta\Builder\Library::createClasses($db, $classes);
+      array_splice($sections, 1, 0, [Kaleta\Builder\Build::fresh("sekce", [], [Kaleta\Builder\Build::fresh("nadpis", ["text" => $language === "ar" ? "شريط Kinesio Tape (5 cm)" : "Kinesio Tape (5 cm)"]),
+        Kaleta\Builder\Build::fresh("text", ["html" => $language === "ar" ? "<p>السعر 120 EUR – Kinesio Tape (5 cm × 5 m) للرياضيين.</p>" : "<p>Kinesio Tape (5 cm × 5 m) for athletes – 120 EUR.</p>"]),
+        Kaleta\Builder\Build::fresh("karusel", ["naraz" => "1", "popis" => "Kinesio"], Kaleta\Builder\Elements\Carousel::defaultChildren())])]);
+      return Kaleta\Builder\Build::sanitize(["v" => 1, "deti" => $sections])[0];
+    });
+    $db->insert("stranky", ["seo_link" => $slug, "titulek" => $slug, "text" => "", "v_menu" => 0, "jazyk" => $language === "ar" ? "ar" : "", "zobrazit" => 1, "stavba" => Kaleta\Builder\Build::toJson($build)]);
+  }')
 rm -f "$WORK"/remeslo/storage/cache/stranky/*.html
 NODE_PATH="$WORK/pw/node_modules" BASE="$B" STARTERS="$STARTERS" PASSWORD="$PASSWORD" CHROME="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}" node "$ROOT/tools/test-browser.mjs"
 for site in web remeslo poradenstvi; do

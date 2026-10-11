@@ -315,6 +315,7 @@ trait CollectionTools
         } else {
             $row += ['idk' => $collection['idk'], 'datum' => date('Y-m-d H:i:s'), 'zobrazit' => 0];
             $idp = $db->insert('kolekce_polozky', $row);
+            \Kaleta\Core\Slug::fromId($db, 'kolekce_polozky', $idp); // a name with nothing to transliterate: item-<id>
         }
         if ($categoryIds !== null) {
             CollectionCategories::assign($db, $idp, (int) $collection['idk'], $categoryIds);

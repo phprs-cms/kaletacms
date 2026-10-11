@@ -120,7 +120,7 @@ final class Categories extends Module
             }
             $this->db->run('UPDATE {novinky} SET jazyk = ? WHERE tema = ?', [$data['jazyk'], $id]); // news items have the language of their category
         } else {
-            $this->db->insert('kategorie', $data);
+            \Kaleta\Core\Slug::fromId($this->db, 'kategorie', $this->db->insert('kategorie', $data)); // nothing to transliterate: category-<id>
         }
 
         return $this->back('Category saved.');

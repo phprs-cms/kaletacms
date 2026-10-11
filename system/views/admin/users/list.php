@@ -13,9 +13,9 @@
 <tbody>
 <?php foreach ($authors as $a): ?>
 <tr<?= $a['blokovat'] ? ' class="nevydany"' : '' ?>>
-	<td><a href="<?= e($module->url('edit', ['id' => $a['idu']])) ?>"><?= e($a['user']) ?></a><?= $a['blokovat'] ? ' <strong>(' . e(t($a['blokovano_automaticky'] !== null ? 'blocked automatically' : 'blocked')) . ')</strong>' : '' ?><?= $a['totp_tajemstvi'] !== '' ? ' <span class="stitek stitek-vydano" title="' . e(t('two-factor sign-in')) . '">2FA</span>' : '' ?></td>
-	<td><?= e($a['jmeno']) ?><br><span class="smltxt"><?= e($a['shrnuti']) ?></span></td>
-	<td><?= e($a['email']) ?></td>
+	<td><a href="<?= e($module->url('edit', ['id' => $a['idu']])) ?>"><?= bdi($a['user']) ?></a><?= $a['blokovat'] ? ' <strong>(' . e(t($a['blokovano_automaticky'] !== null ? 'blocked automatically' : 'blocked')) . ')</strong>' : '' ?><?= $a['totp_tajemstvi'] !== '' ? ' <span class="stitek stitek-vydano" title="' . e(t('two-factor sign-in')) . '">2FA</span>' : '' ?></td>
+	<td><?= bdi($a['jmeno']) ?><br><span class="smltxt"><?= e($a['shrnuti']) ?></span></td>
+	<td><?= bdi($a['email']) ?></td>
 	<td><?= e($a['nazev_role'] ?? t(Kaleta\Core\Auth::TYPES[(int) $a['admin']] ?? '?')) ?></td>
 	<td class="cislo"><?= (int) $a['pocet_clanku'] ?></td>
 	<td class="cislo"><?= e(format_date($a['posledni_login'], true)) ?: '-' ?></td>

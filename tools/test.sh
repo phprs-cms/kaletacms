@@ -5783,7 +5783,16 @@ curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=pages&action=edit&id=
 contains -q 'name="titulek" value="شريط كينيزيو" maxlength="200" required dir="rtl"' "$WORK/response" && contains -q 'data-editor dir="rtl"' "$WORK/response" && echo "  ok     RTL: the page form writes Arabic fields right to left" || { echo "  CHYBA  RTL: page form direction"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=pages&action=edit&id=$CSRTL"
 ! contains -q 'dir="rtl"' "$WORK/response" && echo "  ok     RTL: a Czech page form has no dir attribute" || { echo "  CHYBA  RTL: dir on a Czech form"; ERRORS=$((ERRORS+1)); }
-sq "DELETE FROM ka_stranky WHERE ids IN ($CSRTL, $ARRTL)" > /dev/null
+# slugs: an Arabic title is transliterated, a title with nothing to transliterate takes the type and number (never n-a); the
+# admin lists isolate typed values
+mcp create_page '{"title":"صفحة الخدمات","language":"ar"}' > "$WORK/response"; SLUGAR=$(mcp_value id)
+mcp create_page '{"title":"עמוד"}' > "$WORK/response"; SLUGHE=$(mcp_value id)
+mcp create_category '{"name":"日本"}' > "$WORK/response"; SLUGCAT=$(mcp_value id)
+expect "RTL slugs: an Arabic title transliterated, a Hebrew page and a Japanese category by type and number" \
+  "$(sq "SELECT seo_link FROM ka_stranky WHERE ids = $SLUGAR")|$(sq "SELECT seo_link FROM ka_stranky WHERE ids = $SLUGHE")|$(sq "SELECT seo_link FROM ka_kategorie WHERE idt = $SLUGCAT")" \
+  "sfha-alkhdmat|page-$SLUGHE|category-$SLUGCAT"
+check "RTL: the pages list isolates titles (<bdi>)" 200 "/admin.php?module=pages" '<bdi>صفحة الخدمات</bdi>'
+sq "DELETE FROM ka_stranky WHERE ids IN ($CSRTL, $ARRTL, $SLUGAR, $SLUGHE); DELETE FROM ka_kategorie WHERE idt = $SLUGCAT" > /dev/null
 # fysiomed.eu's shape: an English site with an Arabic half from Polylang; for this part English is the default language
 LANGRTL=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_language'")
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('site_language', 'en'), ('additional_languages', '')" > /dev/null
