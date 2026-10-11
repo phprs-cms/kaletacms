@@ -25,7 +25,7 @@
 <p><?= e(t($update['channel'] === 'stable' ? 'You have the newest version of the stable channel.' : 'You have the latest version.')) ?><?= $update['overeno'] ? ' <small>' . e(t('Checked %s.', format_date((new DateTimeImmutable())->setTimestamp((int) $update['overeno']), true))) . '</small>' : '' ?></p>
 <?php endif ?>
 <?php if ($update['nastaveno']): ?>
-<p><button class="navigace" type="submit" formaction="<?= e($module->url('check')) ?>"><?= e(t('Check now')) ?></button></p>
+<p><button class="navigace" type="submit" formaction="<?= e($module->url('check')) ?>"><?= e(t('Check now')) ?></button><?php if ($update['newest'] !== null || $update['refused']): ?> <button class="navigace" type="submit" formaction="<?= e($module->url('forget_updates')) ?>" data-potvrdit="<?= e(t('Forget the update information this site remembers? Use it only when you know the update source is right: the next check accepts any update information signed by the publisher, even an older one.')) ?>"><?= e(t('Forget remembered update information')) ?></button><?php endif ?></p>
 <?php endif ?>
 <div class="radek"><span class="popisek" id="update_channel_popisek"><?= e(t('Update channel')) ?></span><div role="radiogroup" aria-labelledby="update_channel_popisek">
 <div class="karty-volby karty-volby-text">

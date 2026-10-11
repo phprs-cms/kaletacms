@@ -5671,6 +5671,7 @@ $channels = [
     // 3.10 (N39-7): a manifest signed 50 days ago (sites warn at 60, the check two weeks earlier) and one without a signed date
     'zastaraly' => [Kaleta\Core\Signature::signManifest(['verze' => '9.9.10', 'kanal' => 'latest', 'vydano' => date('Y-m-d', time() - 50 * 86400)] + $m, $sk), null],
     'nedatovany' => [Kaleta\Core\Signature::signManifest(['verze' => '9.9.10', 'kanal' => 'latest', 'vydano' => ''] + $m, $sk), null],
+    'budouci' => [Kaleta\Core\Signature::signManifest(['verze' => '9.9.10', 'kanal' => 'latest', 'vydano' => '2099-12-31'] + $m, $sk), null],
 ];
 // 3.10 (N39-7): one source answering with a newer, then an older signed manifest (a replay), a v1-only one, and one
 // published 70 days ago (System status warns after 60)
@@ -5682,6 +5683,13 @@ $replay = [
 ];
 foreach ($replay as $name => $manifest) {
     file_put_contents(dirname($site) . '/kanal/replay-' . $name . '.json', json_encode($manifest));
+}
+// 3.10 (N310-1): genuine manifests of both channels to serve at the wrong address; (N310-3) one dated far in the future
+$dated = fn (string $version, string $channel, int $daysAgo): array => Kaleta\Core\Signature::signManifest(['verze' => $version, 'kanal' => $channel, 'vydano' => date('Y-m-d', time() - $daysAgo * 86400)] + $m, $sk);
+@mkdir(dirname($site) . '/kanal/krizem');
+foreach (['latest-10' => $dated('9.9.10', 'latest', 10), 'latest-0' => $dated('9.9.10', 'latest', 0), 'stable-20' => $dated('9.9.9', 'stable', 20), 'stable-5' => $dated('9.9.11', 'stable', 5),
+    'budouci' => Kaleta\Core\Signature::signManifest(['verze' => '9.9.10', 'kanal' => 'latest', 'vydano' => '2099-12-31'] + $m, $sk)] as $name => $manifest) {
+    file_put_contents(dirname($site) . '/kanal/krizem-' . $name . '.json', json_encode($manifest));
 }
 foreach ($channels as $folder => [$latest, $stable]) {
     @mkdir(dirname($site) . '/kanal/' . $folder);
@@ -5803,18 +5811,19 @@ expect "3.8 check-channel: both manifests pass, a latest one at the stable addre
 expect "3.9 check-channel: a relabelled stable manifest fails on signature v2; a pre-3.9 manifest without v2 passes on v1" \
   "$(tail -1 "$WORK/channel-podvrh.txt")|$(contains -F 'podpis v2 (podpis2) NEPLATÍ' "$WORK/channel-podvrh.txt" && echo why)|$(tail -1 "$WORK/channel-stary.txt")|$(contains -F 'bez podpisu v2' "$WORK/channel-stary.txt" && echo noted)" \
   "failed|why|ok|noted"
-for c in zastaraly nedatovany; do
+for c in zastaraly nedatovany budouci; do
   if php "$WORK/web/tools/check-channel.php" "http://127.0.0.1:$CHANNEL_PORT/$c/aktualizace.json" > "$WORK/channel-$c.txt" 2>&1; then echo ok >> "$WORK/channel-$c.txt"; else echo failed >> "$WORK/channel-$c.txt"; fi
 done
 expect "3.10 check-channel: a manifest signed 50 days ago fails (re-sign two weeks before sites warn), one without a signed date fails, a fresh one says its date" \
   "$(tail -1 "$WORK/channel-zastaraly.txt")|$(contains -F 'sign the manifest again' "$WORK/channel-zastaraly.txt" && echo why)|$(tail -1 "$WORK/channel-nedatovany.txt")|$(contains -F 'release date (vydano' "$WORK/channel-nedatovany.txt" && echo why)|$(contains -F "published $(date +%Y-%m-%d) (0 days ago)" "$WORK/channel-kanaly.txt" && echo dated)" \
   "failed|why|failed|why|dated"
+expect "3.10 check-channel (N310-3): a signed date in the future fails" "$(tail -1 "$WORK/channel-budouci.txt")|$(contains -F 'lies in the future' "$WORK/channel-budouci.txt" && echo why)" "failed|why"
 sq "UPDATE ka_nastaveni SET hodnota = 'latest' WHERE promenna = 'update_channel'" > /dev/null
 # 3.10 (N39-7): manifest freshness – the source first gives 9.9.10, then replays an older, validly signed 9.9.9 (and a
 # v1-only 3.8.0): refused as a stale manifest, said so, nothing offered or installed; the newer one is accepted again
 replay_serve() { cp "$WORK/kanal/replay-$1.json" "$WORK/kanal/replay.json"; sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'" > /dev/null; }
 replay_serve novy; channel_source replay.json; backups_page
-expect "3.10 freshness: a new signed manifest is offered and remembered for its source" "$(contains -F 'value="9.9.10"' "$WORK/response" && echo offered)|$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '\$.\"http://127.0.0.1:$CHANNEL_PORT/replay.json\".verze')) FROM ka_nastaveni WHERE promenna = 'update_seen'")" "offered|9.9.10"
+expect "3.10 freshness: a new signed manifest is offered and remembered for its source" "$(contains -F 'value="9.9.10"' "$WORK/response" && echo offered)|$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '\$.\"http://127.0.0.1:$CHANNEL_PORT/replay.json#latest\".verze')) FROM ka_nastaveni WHERE promenna = 'update_seen'")" "offered|9.9.10"
 replay_serve starsi; backups_page
 contains -F 'starší informací o aktualizaci (verze 9.9.9' "$WORK/response" && ! contains -F 'value="9.9.9"' "$WORK/response" && echo "  ok     3.10 freshness: an older signed manifest of the same source is refused as stale and nothing is offered" || { echo "  CHYBA  3.10 freshness: a replayed older manifest was not refused"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
@@ -5822,7 +5831,7 @@ contains -F 'starší informací o aktualizaci' "$WORK/response" && ! contains -
 replay_serve starsi; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=update" -d "_csrf=$TOKEN" -d verze=9.9.9
 replay_serve v1; backups_page
 expect "3.10 freshness: the stale one does not install; a v1-only manifest after a v2 one is stale too; the remembered one stays 9.9.10" \
-  "$([ -f "$WORK/web/image/test-aktualizace.txt" ] && echo installed || echo kept)|$(contains -F 'starší informací o aktualizaci (verze 3.8.0' "$WORK/response" && echo stale)|$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '\$.\"http://127.0.0.1:$CHANNEL_PORT/replay.json\".verze')) FROM ka_nastaveni WHERE promenna = 'update_seen'")" "kept|stale|9.9.10"
+  "$([ -f "$WORK/web/image/test-aktualizace.txt" ] && echo installed || echo kept)|$(contains -F 'starší informací o aktualizaci (verze 3.8.0' "$WORK/response" && echo stale)|$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '\$.\"http://127.0.0.1:$CHANNEL_PORT/replay.json#latest\".verze')) FROM ka_nastaveni WHERE promenna = 'update_seen'")" "kept|stale|9.9.10"
 replay_serve novy; backups_page
 contains -F 'value="9.9.10"' "$WORK/response" && ! contains -F 'starší informací' "$WORK/response" && echo "  ok     3.10 freshness: once the source is current again, the update is offered" || { echo "  CHYBA  3.10 freshness: current source after a stale answer"; ERRORS=$((ERRORS+1)); }
 # the newest update information is 70 days old: System status warns (only a warning – it is still offered)
@@ -5833,6 +5842,41 @@ contains -F 'Informace o aktualizaci' "$WORK/response" && contains -F 'před 70 
 sq "UPDATE ka_nastaveni SET hodnota = JSON_OBJECT('url', 'http://127.0.0.1:$CHANNEL_PORT/replay-stary-datum.json', 'overeno', UNIX_TIMESTAMP(), 'manifest', NULL, 'chyba', 'test', 'stale', false, 'failing_since', UNIX_TIMESTAMP() - 3 * 86400 - 60) WHERE promenna = 'update_cache'" > /dev/null
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
 contains -F 'Kontroly selhávají už 3 dní' "$WORK/response" && echo "  ok     3.10: System status says how long the update checks have been failing" || { echo "  CHYBA  3.10: failing checks without their duration"; ERRORS=$((ERRORS+1)); }
+# 3.10 (N310-1): the other channel's genuine manifest at the wrong address is refused before it is remembered – it neither
+# blocks the right one later nor passes as "up to date"
+kriz() { cp "$WORK/kanal/krizem-$1.json" "$WORK/kanal/krizem/$2"; sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'" > /dev/null; }
+seen_kriz() { sq "SELECT CONCAT_WS('|', JSON_UNQUOTE(JSON_EXTRACT(hodnota, '\$.\"http://127.0.0.1:$CHANNEL_PORT/krizem/$1#$2\".verze')), JSON_LENGTH(hodnota)) FROM ka_nastaveni WHERE promenna = 'update_seen'"; }
+sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_seen'; UPDATE ka_nastaveni SET hodnota = 'stable' WHERE promenna = 'update_channel'" > /dev/null
+kriz stable-20 aktualizace-stable.json; channel_source krizem/aktualizace.json; backups_page
+B1="$(contains -F 'value="9.9.9"' "$WORK/response" && echo offered)"
+kriz latest-0 aktualizace-stable.json; backups_page
+B2="$(contains -F 'nenabízí vydání stabilního kanálu' "$WORK/response" && echo refused)|$(seen_kriz aktualizace-stable.json stable)"
+kriz stable-5 aktualizace-stable.json; backups_page
+expect "3.10 channels (N310-1): Stable – the latest manifest served at the stable address is refused and not remembered; a new stable release after it is offered" \
+  "$B1|$B2|$(contains -F 'value="9.9.11"' "$WORK/response" && ! contains -F 'starší informací' "$WORK/response" && echo offered)" "offered|refused|9.9.9|1|offered"
+sq "UPDATE ka_nastaveni SET hodnota = 'latest' WHERE promenna = 'update_channel'" > /dev/null
+kriz latest-10 aktualizace.json; backups_page
+A1="$(contains -F 'value="9.9.10"' "$WORK/response" && echo offered)"
+kriz stable-5 aktualizace.json; backups_page
+A2="$(contains -F 'odpověděl vydáním stabilního kanálu (verze 9.9.11' "$WORK/response" && ! contains -F 'Máte aktuální verzi' "$WORK/response" && echo refused)|$(seen_kriz aktualizace.json latest)"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
+A2="$A2|$(contains -F 'odpověděl vydáním stabilního kanálu' "$WORK/response" && contains -F 'zapomeňte zapamatované informace' "$WORK/response" && echo status)"
+kriz latest-10 aktualizace.json; backups_page
+expect "3.10 channels (N310-1): Latest – the stable manifest (newer date) at the latest address is an error, not \"up to date\", and not remembered; the latest one is offered again" \
+  "$A1|$A2|$(contains -F 'value="9.9.10"' "$WORK/response" && echo offered)" "offered|refused|9.9.10|2|status|offered"
+# 3.10 (N310-3): a manifest dated far in the future is offered but not remembered, and System status says so
+channel_source krizem-budouci.json; backups_page
+B3="$(contains -F 'value="9.9.10"' "$WORK/response" && echo offered)|$(sq "SELECT JSON_CONTAINS_PATH(hodnota, 'one', '\$.\"http://127.0.0.1:$CHANNEL_PORT/krizem-budouci.json#latest\"') FROM ka_nastaveni WHERE promenna = 'update_seen'")"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
+expect "3.10 freshness (N310-3): a date in the future is offered, not remembered, and System status names it" "$B3|$(contains -F 'datem v budoucnosti (2099-12-31)' "$WORK/response" && echo warned)" "offered|0|warned"
+# the way out: Forget remembered update information (admin, CSRF, change log) – then a source that is right again is accepted
+replay_serve starsi; channel_source replay.json; backups_page
+contains -F 'Zapomenout zapamatované informace o aktualizacích' "$WORK/response" && echo "  ok     3.10 (N310-3): the stale message comes with the Forget button" || { echo "  CHYBA  3.10: no Forget button next to the stale message"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=forget_updates" -d "_csrf=bad"
+FORGOT_BAD="$(sq "SELECT hodnota <> '' FROM ka_nastaveni WHERE promenna = 'update_seen'")"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=forget_updates" -d "_csrf=$TOKEN"; backups_page
+expect "3.10 (N310-3): Forget needs the CSRF token, clears what was remembered, is in the change log, and the source is accepted again" \
+  "$FORGOT_BAD|$(sq "SELECT JSON_LENGTH(hodnota) FROM ka_nastaveni WHERE promenna = 'update_seen'")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'settings' AND akce = 'forget update information'")|$(contains -F 'value="9.9.9"' "$WORK/response" && echo offered)" "1|1|1|offered"
 sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('update_cache', 'update_seen')" > /dev/null
 update_from ok.json
 [ -f "$WORK/web/image/test-aktualizace.txt" ] && echo "  ok     podepsaná aktualizace se nainstaluje" || { echo "  CHYBA  aktualizace se nenainstalovala"; sq "SELECT message, data FROM ka_events WHERE type LIKE 'update.%'"; ERRORS=$((ERRORS+1)); }

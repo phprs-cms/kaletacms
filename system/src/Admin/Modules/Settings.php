@@ -544,6 +544,21 @@ class Settings extends Module
         return $this->back('', '', ['tab' => 'backups']);
     }
 
+    /**
+     * 3.10 (N310-3): forgets the remembered update information (the newest manifest of each source, Core\Updater::forgetSeen)
+     * – the way out when the source really is right again after a stale or future-dated manifest. Logged in the change log.
+     */
+    protected function actionForgetUpdates(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back('', '', ['tab' => 'backups']);
+        }
+        (new Updater($this->app->settings()))->forgetSeen();
+        \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'forget update information');
+
+        return $this->back(t('The remembered update information was forgotten; the next check accepts any update information signed by the publisher.'), '', ['tab' => 'backups']);
+    }
+
     /** Downloads, verifies and installs the new version. Before that it backs up the database. */
     protected function actionUpdate(): Response
     {

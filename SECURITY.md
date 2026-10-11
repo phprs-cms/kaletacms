@@ -72,8 +72,11 @@ the package URL is signed.
 
 From Kaleta 3.10 a site also checks that the manifest is fresh: it remembers the newest v2-signed manifest each update
 source gave it (version and signed release date) and refuses an older one as a stale manifest – a host or mirror that
-replays an old, validly signed file cannot freeze the site on it or offer an older release. A version lower than the
-installed one is never offered. System status warns when the newest update information the site has received is more
+replays an old, validly signed file cannot freeze the site on it or offer an older release. The signed channel is
+checked first and the memory is kept per channel, so the other channel's genuine manifest served at the wrong address
+is an error, never "up to date", and never makes the right one look stale. A signed date more than 2 days in the
+future is not remembered, and an administrator can forget the remembered manifests (Settings → Backups and updates). A
+version lower than the installed one is never offered. System status warns when the newest update information the site has received is more
 than 60 days old (the publisher re-signs the manifests at least that often) or when the checks keep failing. This is a
 warning, not an expiry: the signing keys are kept offline, so a manifest cannot expire without stopping updates.
 

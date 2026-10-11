@@ -189,7 +189,7 @@ $builderParity = [
     'build_package' => $readOnly, 'build_paste' => 'admin: paste from the system clipboard of another Kaleta site – Claude inserts elements with save_build or edit_build and brings classes with save_classes',
 ];
 $settingsParity = ['list' => $readOnly, 'save' => 'update_settings', 'download_backup' => $readOnly, 'backup' => 'admin: backups', 'restore_backup' => 'admin: backups',
-    'delete_backup' => 'admin: backups', 'media_backup' => 'admin: backups', 'delete_log' => 'admin: error log', 'check' => 'admin: updates', 'update' => 'admin: updates',
+    'delete_backup' => 'admin: backups', 'media_backup' => 'admin: backups', 'delete_log' => 'admin: error log', 'check' => 'admin: updates', 'update' => 'admin: updates', 'forget_updates' => 'admin: updates',
     'test_mail' => 'admin: mail server settings', 'domain_check' => 'admin: the domain and mail watch runs on its own once a day', 'test_webhook' => 'admin: webhooks (addresses and the signing secret stay out of MCP)',
     'retry_webhook' => 'admin: webhooks (addresses and the signing secret stay out of MCP)', 'new_webhook_secret' => 'admin: webhooks (addresses and the signing secret stay out of MCP)',
     'firewall_unblock' => 'admin: the firewall is a security setting (2.8) – not over MCP',
@@ -5188,6 +5188,40 @@ if (function_exists('sodium_crypto_sign_seed_keypair')) {
         Kaleta\Core\Updater::releaseDate(['vydano' => 20261009]), Kaleta\Core\Updater::releaseDate([]),
         Kaleta\Core\Signature::manifestValid(['vydano' => '2026-12-31'] + $v2At('3.9.1', '2026-10-01'), $v2Pub)],
         ['2026-10-09', '', '', '', '', false]);
+    // 3.10 (N310-1, N310-3): the channel is bound before anything is remembered, the memory is per source AND channel, and a
+    // date in the future is never remembered – sequences as a site sees them (admit() is what manifest() applies)
+    $v2Ch = static fn (string $version, string $date, string $kanal): array => Kaleta\Core\Signature::signManifest(array_merge($v2Fixed, ['verze' => $version, 'vydano' => $date, 'kanal' => $kanal]), $v2Sk);
+    $v2Run = static function (array $steps, string $channel, string $url): array {
+        $seen = [];
+        $verdicts = [];
+        foreach ($steps as $manifest) {
+            $v = Kaleta\Core\Updater::admit($manifest, $channel, $url, $seen, (int) strtotime('2026-10-10 12:00:00 UTC'));
+            $verdicts[] = ($v['refused'] ?? 'ok') . ($v['future'] !== null ? ' future ' . $v['future'] : '');
+            $seen = $v['seen'];
+        }
+
+        return [$verdicts, array_map(static fn (array $e): string => $e['verze'] . ' ' . $e['vydano'], $seen)];
+    };
+    [$L, $S, $C] = ['https://x.example/aktualizace.json', 'https://x.example/aktualizace-stable.json', 'https://mirror.example/kaleta.json'];
+    check('3.10 freshness (N310-1): the other channel\'s genuine manifest is refused before it is remembered – no freeze on Latest, no block on Stable', [
+        // A: Latest – latest 3.10.1, the stable manifest (newer date) served once, latest 3.10.1 again, then a v1-only replay
+        $v2Run([$v2Ch('3.10.1', '2026-10-01', 'latest'), $v2Ch('3.9.2', '2026-10-05', 'stable'), $v2Ch('3.10.1', '2026-10-01', 'latest'), Kaleta\Core\Updater::verified($v1Only(['verze' => '3.8.4'] + $v2Fixed), $v2Pub)], 'latest', $L),
+        // B: Stable – stable 3.10.0, the latest manifest served once, then a genuine new stable 3.10.2 (older than that latest one)
+        $v2Run([$v2Ch('3.10.0', '2026-09-20', 'stable'), $v2Ch('3.10.3', '2026-10-08', 'latest'), $v2Ch('3.10.2', '2026-10-06', 'stable')], 'stable', $S),
+        // a custom source without a stable twin takes both channels, each remembered on its own (the one used last goes last)
+        $v2Run([$v2Ch('3.10.1', '2026-10-01', 'latest'), $v2Ch('3.9.2', '2026-10-05', 'stable'), $v2Ch('3.10.1', '2026-10-01', 'latest'), $v2Ch('3.9.1', '2026-10-04', 'stable')], 'custom', $C),
+        $v2Run([Kaleta\Core\Updater::verified($v1Only(['verze' => '3.8.4'] + $v2Fixed), $v2Pub)], 'stable', $S)],
+        [[['ok', 'channel', 'ok', 'stale'], [$L . '#latest' => '3.10.1 2026-10-01']],
+         [['ok', 'channel', 'ok'], [$S . '#stable' => '3.10.2 2026-10-06']],
+         [['ok', 'ok', 'ok', 'stale'], [$C . '#stable' => '3.9.2 2026-10-05', $C . '#latest' => '3.10.1 2026-10-01']],
+         [['channel'], []]]);
+    check('3.10 freshness (N310-3): a date more than 2 days ahead is offered but never remembered, so it cannot lock out later releases', [
+        $v2Run([$v2Ch('3.10.4', '2099-12-31', 'latest'), $v2Ch('3.10.5', '2026-10-10', 'latest')], 'latest', $L),
+        $v2Run([$v2Ch('3.10.4', '2026-10-12', 'latest'), $v2Ch('3.10.5', '2026-10-13', 'latest')], 'latest', $L),
+        Kaleta\Core\Updater::newestOf([$C . '#latest' => ['verze' => '3.10.1', 'vydano' => '2026-10-01', 'at' => 0], $C . '#stable' => ['verze' => '3.9.2', 'vydano' => '2026-10-05', 'at' => 0],
+            $C . 'x#latest' => ['verze' => '9.0.0', 'vydano' => '2027-01-01', 'at' => 0]], $C)['verze'] ?? null,
+        Kaleta\Core\Updater::newestOf([], $C)],
+        [[['ok future 2099-12-31', 'ok'], [$L . '#latest' => '3.10.5 2026-10-10']], [['ok', 'ok future 2026-10-13'], [$L . '#latest' => '3.10.4 2026-10-12']], '3.9.2', null]);
     unlink($v2Pub);
 }
 // 3.10: a manifest the publisher really published (3.9.1, signed with the key in system/aktualizace.pub) keeps verifying
