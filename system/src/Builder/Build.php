@@ -708,9 +708,10 @@ final class Build
         // in a build, spacing is controlled by the containers' gap, not by the layout's margins of headings and paragraphs; text inside a Text element keeps them
         $base = ':where(.stavba) :where(h1, h2, h3, h4, h5, h6, p, ul, ol, blockquote, figure, hr) { margin-block: 0; }' . "\n"
             . ':where(.stavba) :where(.ka-text) > * + * { margin-block-start: 1em; }' . "\n";
+        $rtl = \Kaleta\Core\Language::isRtl(\Kaleta\Core\Language::code());
         foreach (self::ELEMENTS as $className) {
             if (isset($k->types[$className::TYPE]) && $className::baseCss() !== '') {
-                $base .= $className::baseCss() . "\n";
+                $base .= $className::baseCss() . "\n" . ($rtl && $className::rtlCss() !== '' ? $className::rtlCss() . "\n" : '');
             }
         }
         $classes = '';

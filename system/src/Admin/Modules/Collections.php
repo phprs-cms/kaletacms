@@ -225,6 +225,7 @@ final class Collections extends Module
             $this->db->update('kolekce_polozky', $row, ['idp' => $idp]);
         } else {
             $idp = $this->db->insert('kolekce_polozky', $row + ['datum' => date('Y-m-d H:i:s')]);
+            \Kaleta\Core\Slug::fromId($this->db, 'kolekce_polozky', $idp); // a name with nothing to transliterate: item-<id>
         }
         if ($r->post('kategorie_formular') === '1') {
             CategoryTree::assign($this->db, $idp, (int) $k['idk'], array_map(intval(...), $r->postList('kategorie'))); // 3.7: the ticked categories

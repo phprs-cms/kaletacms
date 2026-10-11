@@ -11,6 +11,15 @@ function e(string|int|float|null $value): string
     return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
+/**
+ * A value people typed (a name, an e-mail, a title) printed inside the administration's left-to-right text: escaped and
+ * isolated in <bdi>, so an Arabic name keeps its order and does not pull the punctuation around it (looks the same for Latin text).
+ */
+function bdi(string|int|float|null $value): string
+{
+    return '<bdi>' . e($value) . '</bdi>';
+}
+
 /** Translation of a template text into the site language: t('Read more'), t('Page %s of %s', 2, 5). See Core\Language. */
 function t(string $text, string|int ...$values): string
 {
@@ -25,7 +34,11 @@ function remove_diacritics(string $text): string
     return strtr($text, $mapping);
 }
 
-/** Converting text to URL form: "Příliš žluťoučký kůň" -> "prilis-zlutoucky-kun". */
+/**
+ * Converting text to URL form: "Příliš žluťoučký kůň" -> "prilis-zlutoucky-kun". Arabic (and Persian) letters get a plain
+ * Latin transliteration without vowels, "شريط لاصق" -> "shryt-lasq"; a title with nothing to transliterate gives "n-a"
+ * (a new page, news item, category or item then takes its type and number, Core\Slug::fromId).
+ */
 function slugify(string $text, int $maxLength = 120): string
 {
     $map = [
@@ -35,23 +48,33 @@ function slugify(string $text, int $maxLength = 120): string
         'ž' => 'z', 'ß' => 'ss',
     ];
     $text = strtr(mb_strtolower($text), $map);
+    if (preg_match('/[\x{0600}-\x{06FF}]/u', $text) === 1) {
+        $text = strtr((string) preg_replace('/[\x{064B}-\x{065F}\x{0670}\x{0640}]/u', '', $text), [
+            'ا' => 'a', 'أ' => 'a', 'إ' => 'i', 'آ' => 'a', 'ٱ' => 'a', 'ء' => '', 'ؤ' => 'u', 'ئ' => 'y', 'ب' => 'b', 'ت' => 't', 'ث' => 'th',
+            'ج' => 'j', 'ح' => 'h', 'خ' => 'kh', 'د' => 'd', 'ذ' => 'dh', 'ر' => 'r', 'ز' => 'z', 'س' => 's', 'ش' => 'sh', 'ص' => 's',
+            'ض' => 'd', 'ط' => 't', 'ظ' => 'z', 'ع' => '', 'غ' => 'gh', 'ف' => 'f', 'ق' => 'q', 'ك' => 'k', 'ل' => 'l', 'م' => 'm',
+            'ن' => 'n', 'ه' => 'h', 'ة' => 'a', 'و' => 'w', 'ي' => 'y', 'ى' => 'a', 'پ' => 'p', 'چ' => 'ch', 'ژ' => 'zh', 'گ' => 'g',
+            'ک' => 'k', 'ی' => 'y', '٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4', '٥' => '5', '٦' => '6', '٧' => '7',
+            '٨' => '8', '٩' => '9', '۰' => '0', '۱' => '1', '۲' => '2', '۳' => '3', '۴' => '4', '۵' => '5', '۶' => '6', '۷' => '7', '۸' => '8', '۹' => '9',
+        ]);
+    }
     $text = preg_replace('/[^a-z0-9]+/', '-', $text) ?? '';
     $text = trim(substr($text, 0, $maxLength), '-');
 
     return $text !== '' ? $text : 'n-a';
 }
 
-/** Decimal number in the site language: 4,5 in Czech, Slovak and German, 4.5 in English. */
+/** Decimal number in the site language: 4,5 in Czech, Slovak and German, 4.5 in English and Arabic (Western digits). */
 function format_number(float|int $number, int $decimals = 1): string
 {
-    return number_format((float) $number, $decimals, Kaleta\Core\Language::base(Kaleta\Core\Language::code()) === 'en' ? '.' : ',', '');
+    return number_format((float) $number, $decimals, in_array(Kaleta\Core\Language::base(Kaleta\Core\Language::code()), ['en', 'ar', 'he'], true) ? '.' : ',', '');
 }
 
-/** Count with a thousands separator in the site language: 12 345 in Czech and Slovak, 12,345 in English, 12.345 in German. */
+/** Count with a thousands separator in the site language: 12 345 in Czech and Slovak, 12,345 in English and Arabic, 12.345 in German. */
 function format_count(float|int $number, int $decimals = 0): string
 {
     [$decimalSeparator, $thousandsSeparator] = match (Kaleta\Core\Language::base(Kaleta\Core\Language::code())) {
-        'en' => ['.', ','],
+        'en', 'ar', 'he' => ['.', ','],
         'de' => [',', '.'],
         default => [',', "\u{00A0}"],
     };

@@ -87,6 +87,31 @@ final class Slug
         return $db->value("SELECT 1 FROM {{$table}} WHERE seo_link = ? AND {$id} <> ?{$where} LIMIT 1", [$slug, $except, ...$params]) !== null;
     }
 
+    /** The type word of a slug made from a number (fromId): table => [id column, word]. */
+    public const array FALLBACK = ['stranky' => ['ids', 'page'], 'novinky' => ['idc', 'news'], 'kategorie' => ['idt', 'category'], 'kolekce_polozky' => ['idp', 'item']];
+
+    /**
+     * A row just created with slugify's "n-a" (a title with nothing to transliterate – Hebrew, Chinese, emoji) gets its type
+     * and number instead: page-12, news-40, category-3, item-7 (unique in its scope like any slug). Only right after an
+     * insert – an existing slug never changes. Returns the slug the row has now.
+     */
+    public static function fromId(Db $db, string $table, int $id): string
+    {
+        [$key, $word] = self::FALLBACK[$table] ?? throw new \InvalidArgumentException('Unknown table ' . $table);
+        $row = $db->one("SELECT * FROM {{$table}} WHERE {$key} = ?", [$id]) ?? [];
+        $current = (string) ($row['seo_link'] ?? '');
+        if (preg_match('/^n-a(-\d+)?$/D', $current) !== 1) {
+            return $current;
+        }
+        $isTaken = $table === 'kolekce_polozky'
+            ? fn (string $s): bool => $db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ? AND idp <> ? LIMIT 1', [(int) $row['idk'], (string) $row['jazyk'], $s, $id]) !== null
+            : fn (string $s): bool => self::taken($db, $table, $s, (string) ($row['jazyk'] ?? ''), $id);
+        $slug = self::makeUnique($word . '-' . $id, $isTaken, 120);
+        $db->update($table, ['seo_link' => $slug], [$key => $id]);
+
+        return $slug;
+    }
+
     /**
      * Slugs that more than one language version uses: table => list of slugs (at most $limit per table, trash included –
      * the global key covers it too). Empty = the global keys can come back.

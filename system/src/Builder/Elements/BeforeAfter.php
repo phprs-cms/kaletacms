@@ -51,6 +51,14 @@ final class BeforeAfter extends Element
 .ka-pred-po[data-zapnuto]:has(.ka-pred-po-ovladac:focus-visible)::after { outline: 3px solid var(--ka-barva-sekundarni); outline-offset: 2px; }';
     }
 
+    public static function rtlCss(): string
+    {
+        // the range runs from the right: the divider stands at --ka-delic from the right and the after photo shows to its left
+        return '.ka-pred-po[data-zapnuto] .ka-pred-po-po { clip-path: inset(0 var(--ka-delic) 0 0); }
+.ka-pred-po[data-zapnuto]::before { translate: 50% 0; }
+.ka-pred-po[data-zapnuto]::after { translate: 50% -50%; }';
+    }
+
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $o = $p['obsah'];

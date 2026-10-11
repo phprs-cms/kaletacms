@@ -576,6 +576,7 @@ final class Tools
             $data += ['uvod' => '', 'text' => '', 'autor' => $auth->id(), 'datum' => date('Y-m-d H:i:s'), 'visible' => 0,
                 'seo_link' => $this->availableSlug('novinky', slugify($data['titulek'], 150), (string) ($data['jazyk'] ?? ''))];
             $id = $db->insert('novinky', $data);
+            \Kaleta\Core\Slug::fromId($db, 'novinky', $id); // a title with nothing to transliterate: news-<id>, not n-a
         } else {
             $id = (int) $previous['idc'];
             \Kaleta\Admin\Modules\News::version($db, $previous, $auth->id()); // history is pruned the same way as in the administration
@@ -721,6 +722,7 @@ final class Tools
                 $data['stavba_koncept'] = $original['stavba_koncept'] ?? $original['stavba'];
             }
             $id = $db->insert('stranky', $data + ['text' => '', 'zobrazit' => 0, 'v_menu' => 0]);
+            \Kaleta\Core\Slug::fromId($db, 'stranky', $id); // a title with nothing to transliterate: page-<id>, not n-a
             if (!empty($data['v_menu'])) {
                 \Kaleta\Core\Menu::setPage($db, $id, $language, true);
             }

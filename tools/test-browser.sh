@@ -61,6 +61,25 @@ HEADER=$(cd "$WORK/poradenstvi" && php -r 'require "system/bootstrap.php"; $b = 
   $mega = function (array &$n) use (&$mega): void { if (($n["typ"] ?? "") === "navigace") { $n["obsah"]["mega"] = true; } foreach (array_keys($n["deti"] ?? []) as $i) { $mega($n["deti"][$i]); } };
   foreach (array_keys($b["deti"] ?? []) as $i) { $mega($b["deti"][$i]); } echo addslashes((string) json_encode($b, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));')
 "${MYSQL[@]}" "${DB_NAME}_poradenstvi" -e "INSERT INTO ka_casti (typ, jazyk, varianta, nazev, stavba) VALUES ('hlavicka', '', '', 'Header', '$HEADER')"
+# right-to-left (data model §5): the Crafts starter gets an Arabic version with a page of Arabic sections, Latin product names inside
+# Arabic text and a carousel – the browser checks it at 1440 and 390 px (no sideways scroll, the phone menu, mirrored arrows); on a
+# starter, so the steps on the main site see a single-language site as before
+"${MYSQL[@]}" "${DB_NAME}_remeslo" -e "UPDATE ka_nastaveni SET hodnota = CONCAT(hodnota, ',jazyky') WHERE promenna = 'extensions' AND NOT FIND_IN_SET('jazyky', hodnota);
+  INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('additional_languages', 'ar'), ('cookies_mode', 'vestavena'), ('lead_attribution', '1') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)"
+(cd "$WORK/remeslo" && php -r 'require "system/bootstrap.php"; $db = Kaleta\Core\App::boot()->db();
+  foreach (["ar" => "rtl-test", "en" => "ltr-test"] as $language => $slug) { // the same page in English: the carousel checks run in both directions
+    $build = Kaleta\Core\Language::runWith($language, function () use ($db, $language): array {
+      [$sections, $classes] = [[], []];
+      foreach (["uvod", "vyhody", "faq", "cenik", "poptavka"] as $key) { $s = Kaleta\Builder\Library::section($key, $language); $sections[] = $s["prvek"]; $classes = array_merge($classes, $s["tridy"]); }
+      Kaleta\Builder\Library::createClasses($db, $classes);
+      array_splice($sections, 1, 0, [Kaleta\Builder\Build::fresh("sekce", [], [Kaleta\Builder\Build::fresh("nadpis", ["text" => $language === "ar" ? "شريط Kinesio Tape (5 cm)" : "Kinesio Tape (5 cm)"]),
+        Kaleta\Builder\Build::fresh("text", ["html" => $language === "ar" ? "<p>السعر 120 EUR – Kinesio Tape (5 cm × 5 m) للرياضيين.</p>" : "<p>Kinesio Tape (5 cm × 5 m) for athletes – 120 EUR.</p>"]),
+        Kaleta\Builder\Build::fresh("karusel", ["naraz" => "1", "popis" => "Kinesio"], Kaleta\Builder\Elements\Carousel::defaultChildren())])]);
+      return Kaleta\Builder\Build::sanitize(["v" => 1, "deti" => $sections])[0];
+    });
+    $db->insert("stranky", ["seo_link" => $slug, "titulek" => $slug, "text" => "", "v_menu" => 0, "jazyk" => $language === "ar" ? "ar" : "", "zobrazit" => 1, "stavba" => Kaleta\Builder\Build::toJson($build)]);
+  }')
+rm -f "$WORK"/remeslo/storage/cache/stranky/*.html
 NODE_PATH="$WORK/pw/node_modules" BASE="$B" STARTERS="$STARTERS" PASSWORD="$PASSWORD" CHROME="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}" node "$ROOT/tools/test-browser.mjs"
 for site in web remeslo poradenstvi; do
   if [ -s "$WORK/$site/storage/log/chyby.log" ]; then echo "== application error log ($site):"; cat "$WORK/$site/storage/log/chyby.log"; exit 1; fi

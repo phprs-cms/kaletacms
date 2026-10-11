@@ -32,6 +32,9 @@ final class Mail
      */
     public static function send(Settings $siteSettings, string $recipient, string $subject, string $text, string $html = '', array $headers = [], bool $queueOnFailure = true): bool
     {
+        if ($html === '' && Language::isRtl(Language::code())) {
+            $html = self::rightToLeft($text, Language::code()); // a plain message in Arabic reads from the right in every mail client
+        }
         $ok = self::deliver($siteSettings, $recipient, $subject, $text, $html, $headers);
         $error = self::$error;
         try {
@@ -50,6 +53,19 @@ final class Mail
         self::$error = $error;
 
         return $ok;
+    }
+
+    /**
+     * The HTML part of a plain message in a right-to-left language: the same text with dir="rtl", the lines kept and the
+     * addresses as links. Mail clients guess the direction of plain text line by line – a line that starts with a Latin name
+     * or a number would otherwise turn to the left.
+     */
+    public static function rightToLeft(string $text, string $language): string
+    {
+        $body = preg_replace_callback('~https?://(?:(?!&quot;|&#039;)[^\s<>"])+~', fn (array $m): string => '<a href="' . $m[0] . '" dir="ltr">' . $m[0] . '</a>', e($text)) ?? e($text);
+
+        return '<!DOCTYPE html><html lang="' . e(Language::tag($language)) . '" dir="rtl"><head><meta charset="utf-8"></head>'
+            . '<body><div dir="rtl" style="font:15px/1.6 Tahoma, Arial, sans-serif; text-align: right; white-space: pre-wrap;">' . $body . '</div></body></html>';
     }
 
     /** A message was queued by later() in this request: afterResponse() sends it. */

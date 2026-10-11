@@ -107,7 +107,7 @@ final class Products
     /** @return list<string> non-empty trimmed lines without tags */
     private static function lines(string $text): array
     {
-        return array_values(array_filter(array_map(fn (string $l): string => trim(strip_tags($l)), preg_split('/\R/', $text) ?: []), fn (string $l): bool => $l !== ''));
+        return array_values(array_filter(array_map(fn (string $l): string => trim(strip_tags($l)), preg_split('/\R/u', $text) ?: []), fn (string $l): bool => $l !== ''));
     }
 
     /** The product fields of a collection made from the products preset: role => key ('' when gone); null otherwise. @return array<string, string>|null */

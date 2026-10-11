@@ -54,6 +54,16 @@ abstract class Element
     }
 
     /**
+     * What a right-to-left page (Arabic) adds after the base CSS: the few rules logical properties cannot say – a centring
+     * translate, a clip or a transform origin, a position on a photo that must not mirror. Output only on such pages, so a
+     * left-to-right page keeps its CSS as it was.
+     */
+    public static function rtlCss(): string
+    {
+        return '';
+    }
+
+    /**
      * Declarations a content property adds to this element's own style rule (layer „prvky“, after the style, so that the
      * element's style cannot undo them – e.g. the header that is transparent at the top must be fixed even when its style says sticky).
      * Empty = none; a non-empty result gives the element an id and a style rule even without a style of its own.

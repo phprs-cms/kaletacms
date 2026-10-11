@@ -607,7 +607,7 @@ final class WebImport
         $groups = []; // agent => rules
         $agents = [];
         $inRules = false;
-        foreach (preg_split('/\R/', $text) ?: [] as $line) {
+        foreach (preg_split('/\R/u', $text) ?: [] as $line) {
             $line = trim((string) preg_replace('/#.*$/', '', $line));
             if (!preg_match('/^([a-z-]+)\s*:\s*(.*)$/i', $line, $m)) {
                 continue;

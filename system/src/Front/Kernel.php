@@ -144,7 +144,7 @@ final class Kernel
             return $oauth;
         }
         if ($this->app->settings()->bool('maintenance') && $request->path() !== '/mcp' && $this->app->auth()->user() === null) {
-            return new Response('<!doctype html><html lang="' . e(Language::tag(Language::code())) . '"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' . e($this->app->settings()->get('site_name')) . '</title>'
+            return new Response('<!doctype html><html lang="' . e(Language::tag(Language::code())) . '"' . Language::dirAttribute(Language::code()) . '><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' . e($this->app->settings()->get('site_name')) . '</title>'
                 . '<body style="font:18px/1.5 system-ui,sans-serif;display:grid;place-items:center;min-height:90vh;margin:0;padding:24px;text-align:center"><div><h1 style="font-size:28px">' . e($this->app->settings()->get('site_name'))
                 . '</h1><p>' . e($this->app->settings()->get('maintenance_text')) . '</p></div>', 503, ['Content-Type' => 'text/html; charset=utf-8', 'Retry-After' => '3600']);
         }
@@ -460,7 +460,7 @@ final class Kernel
         $css = \Kaleta\Builder\DesignSystem::css(\Kaleta\Builder\DesignSystem::load($siteSettings), $this->app->request->basePath()) . \Kaleta\Builder\Build::css($this->app->db(), $k) . '@layer tridy {' . $classes . '}';
         $layout = $this->app->url('image/sablona.css');
 
-        return new Response('<!doctype html><html lang="' . e(Language::tag(Language::code())) . '"><head><meta charset="utf-8"><meta name="robots" content="noindex">'
+        return new Response('<!doctype html><html lang="' . e(Language::tag(Language::code())) . '"' . Language::dirAttribute(Language::code()) . '><head><meta charset="utf-8"><meta name="robots" content="noindex">'
             . '<link rel="stylesheet" href="' . e($layout) . '"><link rel="stylesheet" href="' . e($this->app->url('image/web.css')) . '"><style>' . $css . 'body{margin:0}</style></head>'
             . '<body><main class="stavba">' . $html . '</main></body></html>', 200, ['Content-Type' => 'text/html; charset=utf-8', 'Cache-Control' => 'private, max-age=300']);
     }

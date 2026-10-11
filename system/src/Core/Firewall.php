@@ -164,7 +164,7 @@ final class Firewall
     {
         $valid = [];
         $invalid = [];
-        foreach (preg_split('/\R/', $text) ?: [] as $line) {
+        foreach (preg_split('/\R/u', $text) ?: [] as $line) {
             $entry = trim(explode('#', $line, 2)[0]);
             if ($entry === '') {
                 continue;

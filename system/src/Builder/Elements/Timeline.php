@@ -52,6 +52,11 @@ final class Timeline extends Element
 }';
     }
 
+    public static function rtlCss(): string
+    {
+        return '.ka-casova-osa::before, .ka-casova-osa-polozka::before { translate: 50% 0; }';
+    }
+
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $html = '';

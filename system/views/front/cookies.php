@@ -40,25 +40,25 @@
 </div>
 <button type="button" class="cookies-znovu" id="cookies-znovu" hidden><?= e(t('Cookie settings')) ?></button>
 <style>
-.cookies-lista { position: fixed; z-index: 1000; left: 16px; right: 16px; bottom: 16px; max-width: 560px; max-height: calc(100vh - 32px); overflow-y: auto; margin: 0 auto 0 0; padding: 18px 20px; border: 1px solid #D0D5DD; border-radius: 10px; background: #FFFFFF; color: #14171F; box-shadow: 0 12px 40px rgb(0 0 0 / 0.18); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+.cookies-lista { position: fixed; z-index: 1000; inset-inline: 16px; bottom: 16px; max-width: 560px; max-height: calc(100vh - 32px); overflow-y: auto; margin-block: 0; margin-inline: 0 auto; padding: 18px 20px; border: 1px solid #D0D5DD; border-radius: 10px; background: #FFFFFF; color: #14171F; box-shadow: 0 12px 40px rgb(0 0 0 / 0.18); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
 .cookies-lista p { margin: 6px 0 12px; }
 .cookies-lista a { color: inherit; }
 .cookies-volby:not([hidden]) { display: grid; gap: 6px; margin-bottom: 14px; }
 .cookies-tlacitka { display: flex; flex-wrap: wrap; gap: 8px; }
 .cookies-tlacitka button { padding: 9px 16px; border: 1px solid #14171F; border-radius: 6px; background: #14171F; color: #FFFFFF; font: inherit; font-weight: 600; cursor: pointer; }
 .cookies-tlacitka button[data-cookies="nic"], .cookies-tlacitka button[data-cookies="ulozit"] { background: #FFFFFF; color: #14171F; }
-.cookies-tlacitka .cookies-odkaz { border-color: transparent; background: none; color: #14171F; text-decoration: underline; font-weight: 400; padding-left: 4px; padding-right: 4px; }
-.cookies-znovu { position: fixed; z-index: 999; left: 12px; bottom: 12px; padding: 5px 10px; border: 1px solid #D0D5DD; border-radius: 6px; background: #FFFFFF; color: #475467; font: 12px system-ui, sans-serif; cursor: pointer; opacity: 0.85; }
+.cookies-tlacitka .cookies-odkaz { border-color: transparent; background: none; color: #14171F; text-decoration: underline; font-weight: 400; padding-inline: 4px; }
+.cookies-znovu { position: fixed; z-index: 999; inset-inline-start: 12px; bottom: 12px; padding: 5px 10px; border: 1px solid #D0D5DD; border-radius: 6px; background: #FFFFFF; color: #475467; font: 12px system-ui, sans-serif; cursor: pointer; opacity: 0.85; }
 /* while the bar shows, focus that moves to the bottom of the window scrolls clear of it, and the end of the page can scroll above it */
 :root:has(#cookies-lista:not([hidden])) { scroll-padding-bottom: var(--ka-cookies-vyska, 0px); padding-bottom: var(--ka-cookies-vyska, 0px); }
 @media (max-width: 600px) {
-	.cookies-lista { left: 8px; right: 8px; bottom: 8px; max-height: calc(100vh - 16px); padding: 12px 14px; font-size: 13px; line-height: 1.4; }
+	.cookies-lista { inset-inline: 8px; bottom: 8px; max-height: calc(100vh - 16px); padding: 12px 14px; font-size: 13px; line-height: 1.4; }
 	.cookies-lista p { margin: 2px 0 10px; }
 	/* two lines of the text until the visitor opens Settings; the link to the policy follows on its own line */
 	.cookies-lista:has(.cookies-volby[hidden]) .cookies-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
 	.cookies-tlacitka { gap: 6px; }
 	.cookies-tlacitka button { padding: 8px 9px; }
-	.cookies-tlacitka .cookies-odkaz { padding-left: 2px; padding-right: 2px; }
+	.cookies-tlacitka .cookies-odkaz { padding-inline: 2px; }
 }
 </style>
 <script>

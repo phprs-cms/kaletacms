@@ -86,8 +86,8 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['pag
 <tbody>
 <?php foreach ($news as $c): ?>
 <tr class="nevydany">
-	<td><?= e($c['titulek']) ?></td>
-	<td><?= e($c['tema_jm']) ?></td>
+	<td><?= bdi($c['titulek']) ?></td>
+	<td><?= bdi($c['tema_jm']) ?></td>
 	<td class="cislo"><?= e(format_date($c['smazano'], true)) ?></td>
 	<td class="akce"><button class="navigace" type="submit" form="obnov-jeden" name="smaz[]" value="<?= (int) $c['idc'] ?>"><?= e(t('Restore')) ?></button></td>
 	<td class="stred"><input type="checkbox" name="smaz[]" value="<?= (int) $c['idc'] ?>" aria-label="<?= e(t('Select')) ?>: <?= e($c['titulek']) ?>"></td>
@@ -115,9 +115,9 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['pag
 <tbody>
 <?php foreach ($news as $c): ?>
 <tr<?= $c['visible'] ? '' : ' class="nevydany"' ?>>
-	<td><a href="<?= e($module->url('edit', ['id' => $c['idc']])) ?>"><?= e($c['titulek']) ?></a><?= $c['valid_until'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Hides itself the day after.')) . '">' . e(t('true until %s', format_date($c['valid_until']))) . '</span>' : '' ?><?= $c['review_by'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Asks for a review on this day.')) . '">' . e(t('review by %s', format_date($c['review_by']))) . '</span>' : '' ?></td>
-	<td><?= e($c['tema_jm']) ?></td>
-	<td><?= e($c['autor_jm'] ?: $c['autor_login']) ?></td>
+	<td><a href="<?= e($module->url('edit', ['id' => $c['idc']])) ?>"><?= bdi($c['titulek']) ?></a><?= $c['valid_until'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Hides itself the day after.')) . '">' . e(t('true until %s', format_date($c['valid_until']))) . '</span>' : '' ?><?= $c['review_by'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Asks for a review on this day.')) . '">' . e(t('review by %s', format_date($c['review_by']))) . '</span>' : '' ?></td>
+	<td><?= bdi($c['tema_jm']) ?></td>
+	<td><?= bdi($c['autor_jm'] ?: $c['autor_login']) ?></td>
 	<td class="cislo"><?= e(format_date($c['datum'], true)) ?></td>
 <?php if (!$c['visible'] && (int) $c['autor_uroven'] === 0 && $app->auth()->canPublish()): // an author's draft: waiting for an editor to publish it ?>
 	<td><span class="stitek stitek-ceka" title="<?= e(t('News authors cannot publish – review this news item and publish it.')) ?>"><?= e(t('awaiting publication')) ?></span></td>

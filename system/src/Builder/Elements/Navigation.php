@@ -59,7 +59,7 @@ final class Navigation extends Element
 .ka-nav .podmenu > button:hover { background: var(--ka-barva-plocha); }
 .ka-nav .podmenu > button:focus-visible { outline: 3px solid var(--ka-barva-sekundarni); outline-offset: 2px; }
 .ka-nav .podmenu.aktivni > a, .ka-nav .podmenu.aktivni > .menu-skupina { color: var(--ka-barva-primarni); }
-.ka-nav .podmenu > ul { display: none; position: absolute; top: 100%; left: 0; z-index: 60; flex-direction: column; flex-wrap: nowrap; min-width: 14rem; padding: var(--ka-mezera-2xs); border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-pozadi); color: var(--ka-barva-text); box-shadow: var(--ka-stin-m); gap: 2px; }
+.ka-nav .podmenu > ul { display: none; position: absolute; top: 100%; inset-inline-start: 0; z-index: 60; flex-direction: column; flex-wrap: nowrap; min-width: 14rem; padding: var(--ka-mezera-2xs); border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-pozadi); color: var(--ka-barva-text); box-shadow: var(--ka-stin-m); gap: 2px; }
 /* a submenu has its own gaps and padding – --ka-nav-mezera and --ka-nav-odsazeni belong to the items of the main bar */
 .ka-nav .podmenu > ul a { padding: 0.55em 0.8em; border-radius: calc(var(--ka-zaobleni) / 1.5); font-weight: 500; }
 /* open: without image/web.js (no aria-expanded yet) on hover and keyboard focus; with it by the toggle button, and on hover
@@ -102,7 +102,7 @@ CSS;
 	{N}.ka-nav-tl { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border: var(--ka-nav-tlacitko-okraj, 1px solid var(--ka-barva-linka)); border-radius: 50%; background: var(--ka-barva-pozadi); color: var(--ka-barva-text); cursor: pointer; }
 	{N}.ka-nav-tl span, {N}.ka-nav-tl span::before, {N}.ka-nav-tl span::after { display: block; width: 1.1rem; height: 2px; background: currentColor; }
 	{N}.ka-nav-tl span { position: relative; }
-	{N}.ka-nav-tl span::before, {N}.ka-nav-tl span::after { content: ""; position: absolute; left: 0; }
+	{N}.ka-nav-tl span::before, {N}.ka-nav-tl span::after { content: ""; position: absolute; inset-inline-start: 0; }
 	{N}.ka-nav-tl span::before { top: -6px; }
 	{N}.ka-nav-tl span::after { top: 6px; }
 	{N}.ka-nav-menu[popover] { position: fixed; inset: 4.5rem var(--ka-mezera-m) auto; flex-direction: column; align-items: stretch; padding: var(--ka-mezera-s); border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-pozadi); color: var(--ka-barva-text); box-shadow: var(--ka-stin-l); max-height: calc(100dvh - 5.5rem); overflow-y: auto; overscroll-behavior: contain; }
@@ -112,7 +112,7 @@ CSS;
 	:root:has(:focus-visible) .ka-nav{T}:not(:has(:focus-visible)) > .ka-nav-menu[popover]:popover-open { display: none; }
 	/* 3.9.1: the rows of the sheet sit close together – the gap of the element (--ka-nav-mezera) belongs to the bar on a wide screen */
 	{N}.ka-nav-menu[popover] ul { flex-direction: column; gap: 2px; }
-	{N}.ka-nav-menu[popover] .podmenu > ul { display: flex; flex-basis: 100%; position: static; min-width: 0; padding: 0 0 0 1rem; border: 0; box-shadow: none; }
+	{N}.ka-nav-menu[popover] .podmenu > ul { display: flex; flex-basis: 100%; position: static; min-width: 0; padding: 0; padding-inline-start: 1rem; border: 0; box-shadow: none; }
 	/* 3.6: the groups are an accordion – closed, the one with the current page opened by image/web.js when the menu opens;
 	   without the script every submenu stays expanded and the toggles, which would do nothing, are hidden */
 	{N}.ka-nav-menu[popover] .podmenu > [aria-expanded="false"] + ul { display: none; }

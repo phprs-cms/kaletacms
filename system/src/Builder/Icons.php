@@ -62,6 +62,9 @@ final class Icons
         'nastaveni' => ['Nastavení', '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>'],
     ];
 
+    /** Icons that point along the line of text: a right-to-left page (Arabic) draws them mirrored. */
+    public const array DIRECTIONAL = ['sipka', 'odeslat'];
+
     /** Options for the select in the editor (key => name). */
     public static function options(): array
     {
@@ -72,6 +75,9 @@ final class Icons
     public static function svg(string $key, string $className = ''): string
     {
         $inner = self::SET[$key][1] ?? self::SET['fajfka'][1];
+        if (in_array($key, self::DIRECTIONAL, true) && \Kaleta\Core\Language::isRtl(\Kaleta\Core\Language::code())) {
+            $inner = '<g transform="matrix(-1 0 0 1 24 0)">' . $inner . '</g>';
+        }
 
         return '<svg' . ($className !== '' ? ' class="' . e($className) . '"' : '') . ' viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' . $inner . '</svg>';
     }

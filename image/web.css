@@ -24,9 +24,9 @@ figure.galerie figcaption { grid-column: 1 / -1; }
 .ka-prohlizecka p { margin: 0; padding: 10px 70px 16px; min-height: 22px; text-align: center; font: 14px/1.4 system-ui, sans-serif; color: #d6d6da; }
 .ka-prohlizecka button { position: absolute; display: grid; place-items: center; width: 46px; height: 46px; padding: 0; border: 0; border-radius: 50%; background: rgb(255 255 255 / 0.12); color: #fff; font: 24px/1 system-ui, sans-serif; cursor: pointer; }
 .ka-prohlizecka button:hover, .ka-prohlizecka button:focus-visible { background: var(--ka-akcent, #1f4fe0); outline: none; }
-.ka-prohlizecka [data-zavrit] { top: 14px; right: 14px; }
-.ka-prohlizecka [data-krok="-1"] { left: 14px; top: 50%; translate: 0 -50%; }
-.ka-prohlizecka [data-krok="1"] { right: 14px; top: 50%; translate: 0 -50%; }
+.ka-prohlizecka [data-zavrit] { top: 14px; inset-inline-end: 14px; }
+.ka-prohlizecka [data-krok="-1"] { inset-inline-start: 14px; top: 50%; translate: 0 -50%; }
+.ka-prohlizecka [data-krok="1"] { inset-inline-end: 14px; top: 50%; translate: 0 -50%; }
 .ka-prohlizecka [hidden] { display: none; }
 
 /* ---------- buttons ---------- */
@@ -37,7 +37,7 @@ figure.galerie figcaption { grid-column: 1 / -1; }
 
 
 /* ---------- editing a page or news item right on the site (only for signed-in users) ---------- */
-.ka-upravit-zde { position: fixed; right: 18px; bottom: 18px; z-index: 60; padding: 10px 16px; border-radius: 999px; background: #14171F; color: #fff; font: 600 14px/1.2 system-ui, sans-serif; text-decoration: none; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); }
+.ka-upravit-zde { position: fixed; inset-inline-end: 18px; bottom: 18px; z-index: 60; padding: 10px 16px; border-radius: 999px; background: #14171F; color: #fff; font: 600 14px/1.2 system-ui, sans-serif; text-decoration: none; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); }
 .ka-upravit-zde:hover { background: var(--ka-akcent, #1f4fe0); color: #fff; }
 .ka-upravit-text { max-width: 860px; margin: 0 auto; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
 .ka-upravit-text label { display: block; margin: 0 0 4px; font-size: 13px; font-weight: 600; opacity: 0.7; }
@@ -46,7 +46,7 @@ figure.galerie figcaption { grid-column: 1 / -1; }
 .ka-upravit-lista { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 0; }
 .ka-upravit-lista .ka-tl-vedlejsi { border: 1px solid currentColor; background: transparent; color: inherit; opacity: 0.85; }
 .ka-upravit-lista .ka-tl-vedlejsi:hover { opacity: 1; }
-.ka-upravit-vse { margin-left: auto; color: inherit; font-size: 13px; opacity: 0.8; }
+.ka-upravit-vse { margin-inline-start: auto; color: inherit; font-size: 13px; opacity: 0.8; }
 .ka-upravit-hlaska { padding: 10px 14px; border-radius: 8px; background: #FEF3F2; color: #B42318; font-size: 15px; }
 .ka-ui, .ka-ui * { box-sizing: border-box; }
 
@@ -56,19 +56,20 @@ figure.galerie figcaption { grid-column: 1 / -1; }
 .ka-medium-zvuk { aspect-ratio: auto; background: none; }
 .ka-medium-zvuk audio { display: block; width: 100%; }
 .ka-medium-spustit { display: grid; place-content: center; justify-items: center; gap: 6px; width: 100%; height: 100%; min-height: 120px; border: 0; background: #111; color: #fff; font: 600 17px/1.3 system-ui, sans-serif; cursor: pointer; }
+/* the play triangle points right in every language (a media convention), so its optical nudge stays physical */
 .ka-medium-spustit span { display: grid; place-items: center; width: 64px; height: 64px; padding-left: 5px; border-radius: 50%; background: var(--ka-akcent, #1f4fe0); font-size: 26px; }
 .ka-medium-spustit small { font-weight: 400; font-size: 12px; opacity: 0.65; }
 
 /* ---------- text outline ---------- */
-.ka-osnova { margin: 0 0 1.8em; padding: 16px 20px; border-left: 4px solid var(--ka-akcent, #1f4fe0); background: rgb(128 128 128 / 0.08); font: 15px/1.5 system-ui, sans-serif; }
+.ka-osnova { margin: 0 0 1.8em; padding: 16px 20px; border-inline-start: 4px solid var(--ka-akcent, #1f4fe0); background: rgb(128 128 128 / 0.08); font: 15px/1.5 system-ui, sans-serif; }
 .ka-osnova strong { display: block; margin-bottom: 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.7; }
-.ka-osnova ol { margin: 0; padding-left: 20px; }
+.ka-osnova ol { margin: 0; padding-inline-start: 20px; }
 .ka-osnova li { margin: 3px 0; }
 .text h2[id] { scroll-margin-top: 80px; }
 
 /* ---------- sharing a news item ---------- */
 .ka-sdileni { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 2em 0 1em; font: 600 13px/1 system-ui, sans-serif; }
-.ka-sdileni span { margin-right: 4px; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.65; }
+.ka-sdileni span { margin-inline-end: 4px; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.65; }
 .ka-sdileni a, .ka-sdileni button, .text .ka-sdileni a { padding: 8px 12px; border: 1px solid rgb(128 128 128 / 0.45); border-radius: 99px; background: transparent; color: inherit; font: inherit; text-decoration: none; cursor: pointer; }
 .ka-sdileni a:hover, .ka-sdileni button:hover, .text .ka-sdileni a:hover { border-color: var(--ka-akcent, #1f4fe0); color: var(--ka-akcent, #1f4fe0); }
 .ka-sdileni [hidden] { display: none; }
@@ -82,7 +83,7 @@ figure.galerie figcaption { grid-column: 1 / -1; }
 
 /* ---------- tables in the text (text pages and the Text element in the builder) ---------- */
 .text table, .ka-text table { width: 100%; margin: 1.6em 0; border-collapse: collapse; font: 15px/1.45 system-ui, sans-serif; display: block; overflow-x: auto; }
-.text th, .text td, .ka-text th, .ka-text td { padding: 8px 12px; border-bottom: 1px solid rgb(128 128 128 / 0.35); text-align: left; vertical-align: top; }
+.text th, .text td, .ka-text th, .ka-text td { padding: 8px 12px; border-bottom: 1px solid rgb(128 128 128 / 0.35); text-align: start; vertical-align: top; }
 .text thead th, .ka-text thead th { border-bottom: 2px solid currentColor; font-weight: 700; }
 .text tbody th, .ka-text tbody th { font-weight: 600; min-width: 8em; }
 
@@ -153,6 +154,13 @@ figure.galerie figcaption { grid-column: 1 / -1; }
 	/* the Language switcher element in the footer: the menu above the button, aligned to its left edge */
 	.ka-jazyky-vyber--nahoru [popover] { top: auto; bottom: anchor(top); right: auto; left: anchor(left); margin: 0 0 6px; }
 	@supports not (top: anchor(bottom)) { .ka-jazyky-vyber--nahoru [popover] { top: auto; bottom: 4.5rem; left: 1rem; right: auto; } }
+	/* a right-to-left page: the menu hangs from the other edge of its button (anchor() has no logical side for a fixed popover) */
+	:root[dir="rtl"] .ka-jazyky-vyber [popover] { right: auto; left: anchor(left); }
+	:root[dir="rtl"] .ka-jazyky-vyber--nahoru [popover] { left: auto; right: anchor(right); }
+	@supports not (top: anchor(bottom)) {
+		:root[dir="rtl"] .ka-jazyky-vyber [popover] { right: auto; left: max(1rem, (100vw - var(--ka-sirka, 72rem)) / 2); }
+		:root[dir="rtl"] .ka-jazyky-vyber--nahoru [popover] { left: auto; right: 1rem; }
+	}
 	.ka-jazyky-prvek { margin-inline-start: 0; } /* a standalone element: needs no spacing from the menu */
 	.ka-jazyky-sipka { stroke-width: 2; opacity: 0.7; }
 	.ka-jazyky-vyber--nahoru .ka-jazyky-sipka { rotate: 180deg; }
@@ -187,12 +195,12 @@ figure.galerie figcaption { grid-column: 1 / -1; }
 	.ka-popup--cela { inset: 0; width: 100vw; max-width: none; height: 100dvh; max-height: none; border-radius: 0; display: none; }
 	.ka-popup--cela:popover-open { display: grid; place-items: center; }
 	.ka-popup--cela > .ka-popup-obsah { width: min(48rem, 100%); }
-	.ka-popup--panel { inset: auto 1rem 1rem auto; width: min(24rem, calc(100vw - 2rem)); margin: 0; padding: var(--ka-mezera-l, 2rem) var(--ka-mezera-m, 1.25rem) var(--ka-mezera-m, 1.25rem); }
+	.ka-popup--panel { inset-block: auto 1rem; inset-inline: auto 1rem; width: min(24rem, calc(100vw - 2rem)); margin: 0; padding: var(--ka-mezera-l, 2rem) var(--ka-mezera-m, 1.25rem) var(--ka-mezera-m, 1.25rem); }
 	.ka-popup--panel::backdrop, .ka-popup--lista-nahore::backdrop, .ka-popup--lista-dole::backdrop { background: none; }
 	.ka-popup--lista-nahore, .ka-popup--lista-dole { inset: 0 0 auto; width: 100vw; max-width: none; margin: 0; padding: 0.75rem 3.5rem; border-radius: 0; box-shadow: var(--ka-stin-m, 0 8px 24px rgb(0 0 0 / 0.15)); background: var(--ka-barva-primarni, #111); color: var(--ka-barva-na-primarni, #fff); text-align: center; }
 	.ka-popup--lista-dole { inset: auto 0 0; }
 	.ka-popup--lista-nahore .ka-popup-obsah, .ka-popup--lista-dole .ka-popup-obsah { --ka-barva-text: var(--ka-barva-na-primarni, #fff); --ka-barva-primarni: var(--ka-barva-na-primarni, #fff); }
-	.ka-popup-zavrit { position: absolute; top: 0.5rem; right: 0.5rem; display: grid; place-items: center; width: 2.5rem; height: 2.5rem; padding: 0; border: 0; border-radius: 50%; background: none; color: inherit; font: 1.5rem/1 system-ui, sans-serif; cursor: pointer; }
+	.ka-popup-zavrit { position: absolute; top: 0.5rem; inset-inline-end: 0.5rem; display: grid; place-items: center; width: 2.5rem; height: 2.5rem; padding: 0; border: 0; border-radius: 50%; background: none; color: inherit; font: 1.5rem/1 system-ui, sans-serif; cursor: pointer; }
 	.ka-popup-zavrit:hover { background: color-mix(in oklch, currentColor 10%, transparent); }
 	.ka-popup-zavrit:focus-visible { outline: 3px solid var(--ka-barva-sekundarni, currentColor); outline-offset: 2px; }
 	/* the heading the script moves focus to after opening, for screen readers (tabindex="-1"), has no outline – it cannot be operated */

@@ -13,7 +13,7 @@
  * @var string $kanonicka
  * @var string $hlava  tags for <head> from Settings: SEO, structured data, tracking codes (always output before </head>)
  * @var string $pata   cookie bar and codes before </body> (always output)
- * @var string $jazyk  language code of the displayed version of the site (cs, en…) for <html lang>
+ * @var string $jazyk  language code of the displayed version of the site (cs, en…) for <html lang> and <html dir> (rtl for Arabic)
  * @var string $jazyky_html  ready-made language version switcher; empty if the site has a single language
  * @var bool $sNovinkami  the News extension is enabled (links to RSS)
  * @var list<array{titulek:string, seo_link:string, uvod:bool}> $stranky  pages "in the menu" (the home page has an empty slug) – only for older templates
@@ -29,7 +29,7 @@ $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => 
 ?>
 <!doctype html>
 <?php $tmavy = in_array($web->get('dark_mode'), ['auto', 'tmavy'], true); ?>
-<html lang="<?= e(Kaleta\Core\Language::tag($jazyk ?? 'cs')) ?>"<?= $tmavy ? ' data-tmavy' : '' ?><?= $web->get('dark_mode') === 'tmavy' ? ' data-tema="tmavy"' : '' ?>>
+<html lang="<?= e(Kaleta\Core\Language::tag($jazyk ?? 'cs')) ?>"<?= Kaleta\Core\Language::dirAttribute($jazyk ?? 'cs') ?><?= $tmavy ? ' data-tmavy' : '' ?><?= $web->get('dark_mode') === 'tmavy' ? ' data-tema="tmavy"' : '' ?>>
 <head>
 <meta charset="utf-8">
 <?php if ($tmavy && $web->get('theme_switcher') === '1'): ?>

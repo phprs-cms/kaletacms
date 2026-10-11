@@ -347,6 +347,7 @@ final class Pages extends Module
             }
         } else {
             $id = $this->db->insert('stranky', $data);
+            \Kaleta\Core\Slug::fromId($this->db, 'stranky', $id); // a title with nothing to transliterate: page-<id>, not n-a
             $original = $data['preklad_z'] !== null && $r->postBool('copy_build') ? $this->db->one('SELECT stavba, stavba_koncept FROM {stranky} WHERE ids = ?', [$data['preklad_z']]) : null;
             if ($original !== null && ($original['stavba_koncept'] ?? $original['stavba']) !== null) {
                 // 3.11 (UX310-4): the translation of a builder page – the draft is a copy of the original's build and opens

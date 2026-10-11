@@ -694,6 +694,67 @@ await step('3.7 builder: Previous / next item in the item template, a nav landma
   await visitor.close();
 });
 
+// right-to-left (data model §5): the Arabic page of the Crafts starter (tools/test-browser.sh) as a visitor sees it on a computer and
+// on a phone, and its English twin – the carousel shows its first slide whole at load and Next brings the second, in both directions
+for (const [language, path] of [['ar', '/ar/rtl-test'], ['en', '/ltr-test']]) {
+  for (const [width, height, name] of [[1440, 900, 'desktop'], [390, 844, 'phone']]) {
+    await step(`RTL: the ${language === 'ar' ? 'Arabic' : 'English'} page at ${width} px – direction, no sideways scroll, the carousel${language === 'ar' ? ' and the layout mirrored' : ''}`, async () => {
+      const visitor = await browser.newContext({ viewport: { width, height }, locale: language });
+      const v = await visitor.newPage();
+      watch(v);
+      try {
+        await v.goto(`${STARTER_SITES.remeslo}${path}`, { waitUntil: 'networkidle' });
+        const root = await v.evaluate(() => [document.documentElement.lang, document.documentElement.dir].join());
+        if (root !== (language === 'ar' ? 'ar,rtl' : 'en,')) { throw new Error(`<html> is ${root}`); }
+        const overflow = () => v.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        if (await overflow() > 1) { throw new Error(`the page scrolls sideways by ${await overflow()} px`); }
+        // the cookie bar sits at the start side – the right edge of a right-to-left page
+        const bar = await v.locator('#cookies-lista').boundingBox();
+        if (language === 'ar' && bar && width - (bar.x + bar.width) > 24) { throw new Error(`the cookie bar is ${Math.round(width - bar.x - bar.width)} px from the right edge`); }
+        if (await v.locator('#cookies-lista button').count()) { await v.locator('#cookies-lista button').first().click(); }
+        // the carousel at load: the first slide and its heading whole inside the strip; Previous is off
+        const carousel = v.locator('[data-karusel]').first();
+        const strip = carousel.locator('.ka-karusel-pas');
+        await carousel.scrollIntoViewIfNeeded();
+        const inside = (i) => strip.evaluate((s, n) => { const box = s.getBoundingClientRect(); const slide = s.children[n].getBoundingClientRect(); const heading = s.children[n].querySelector('h3').getBoundingClientRect();
+          return [slide, heading].every((r) => r.width > 0 && r.left >= box.left - 1 && r.right <= box.right + 1); }, i);
+        if (!(await inside(0))) { throw new Error('the first slide is not whole inside the carousel at load'); }
+        if (!(await carousel.locator('[data-krok="-1"]').isDisabled())) { throw new Error('Previous is not off at the first slide'); }
+        if (SHOTS && language === 'ar') { await v.screenshot({ path: `${SHOTS}/rtl-arabic-${name}.png`, fullPage: true }); }
+        const [previous, next] = [await carousel.locator('[data-krok="-1"]').boundingBox(), await carousel.locator('[data-krok="1"]').boundingBox()];
+        if (!previous || !next || (language === 'ar' ? previous.x <= next.x : previous.x >= next.x)) { throw new Error('Previous and Next are in the wrong order'); }
+        if (await carousel.locator('[data-krok="-1"]').evaluate((b) => getComputedStyle(b).direction) !== (language === 'ar' ? 'rtl' : 'ltr')) { throw new Error('the arrow buttons do not follow the direction (their arrows mirror with it)'); }
+        await carousel.locator('[data-krok="1"]').click();
+        await v.waitForTimeout(900);
+        if (!(await inside(1)) || await inside(0)) { throw new Error('Next did not bring the second slide'); }
+        const scrolled = await strip.evaluate((s) => s.scrollLeft);
+        if (language === 'ar' ? !(scrolled < -10) : !(scrolled > 10)) { throw new Error(`Next moved the strip to ${scrolled}`); }
+        await carousel.locator('[data-krok="-1"]').click();
+        await v.waitForTimeout(900);
+        if (!(await inside(0))) { throw new Error('Previous did not bring the first slide back'); }
+        if (name === 'phone' && language === 'ar') {
+          // the phone menu: its button at the left (the end side), the logo at the right; the sheet opens inside the window, its items from the right
+          const toggle = v.locator('.ka-nav-tl:visible, .menu-tl:visible').first();
+          const logo = v.locator('.ka-logo:visible, .logo:visible').first();
+          const [t, l] = [await toggle.boundingBox(), await logo.boundingBox()];
+          if (!t || !l || t.x >= l.x) { throw new Error('the menu button is not left of the logo'); }
+          await toggle.click();
+          const sheet = v.locator('.ka-nav-menu[popover]:popover-open, .navigace[popover]:popover-open').first();
+          await sheet.waitFor();
+          const box = await sheet.boundingBox();
+          const item = await sheet.locator('a:visible').first().boundingBox();
+          if (!box || box.x < 0 || box.x + box.width > width + 1) { throw new Error('the menu sheet is outside the window'); }
+          if (!item || (box.x + box.width) - (item.x + item.width) > 48) { throw new Error('the menu items do not start at the right'); }
+          if (await overflow() > 1) { throw new Error('the open menu scrolls the page sideways'); }
+          if (SHOTS) { await v.screenshot({ path: `${SHOTS}/rtl-arabic-phone-menu.png` }); }
+        }
+      } finally {
+        await visitor.close();
+      }
+    });
+  }
+}
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

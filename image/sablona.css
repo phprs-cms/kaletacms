@@ -43,8 +43,8 @@
 
 @layer sablona.rozvrzeni {
 	.obal { width: min(100% - 2 * var(--mezera), var(--sirka)); margin-inline: auto; }
-	.preskocit { position: absolute; left: -999px; }
-	.preskocit:focus { left: var(--mezera); top: 0.5rem; z-index: 100; padding: 0.5rem 1rem; background: var(--ka-barva-pozadi, #ffffff); }
+	.preskocit { position: absolute; inset-inline-start: -999px; }
+	.preskocit:focus { inset-inline-start: var(--mezera); top: 0.5rem; z-index: 100; padding: 0.5rem 1rem; background: var(--ka-barva-pozadi, #ffffff); }
 	#obsah:focus { outline: none; } /* the skip link's target (tabindex="-1"): it takes focus so the next Tab starts in the content; it is no control */
 	/* exceptions to the opening hours (2.10, Core\Hours): a quiet bar above the header, a few days ahead until they end */
 	.ka-oznameni-hodiny { background: var(--ka-barva-primarni-jemna, #eef2fd); color: var(--ka-barva-text, #16181d); border-bottom: 1px solid var(--ka-barva-linka, #dfe1e5); font-size: 0.9375rem; text-align: center; }
@@ -72,7 +72,7 @@
 	.navigace .podmenu > [aria-expanded="true"]::after { transform: translateY(0.1em) rotate(-135deg); }
 	.navigace .podmenu > button:hover { background: var(--ka-barva-plocha, #f5f6f8); }
 	.navigace .podmenu.aktivni > a, .navigace .podmenu.aktivni > .menu-skupina { color: var(--ka-barva-primarni, #2b5be3); }
-	.navigace .podmenu > ul { display: none; position: absolute; top: 100%; left: 0; z-index: 60; flex-direction: column; flex-wrap: nowrap; min-width: 14rem; padding: 0.4rem; border: 1px solid var(--ka-barva-linka, #dfe1e5); border-radius: var(--zaobleni); background: var(--ka-barva-pozadi, #ffffff); box-shadow: 0 16px 40px rgb(0 0 0 / 0.14); }
+	.navigace .podmenu > ul { display: none; position: absolute; top: 100%; inset-inline-start: 0; z-index: 60; flex-direction: column; flex-wrap: nowrap; min-width: 14rem; padding: 0.4rem; border: 1px solid var(--ka-barva-linka, #dfe1e5); border-radius: var(--zaobleni); background: var(--ka-barva-pozadi, #ffffff); box-shadow: 0 16px 40px rgb(0 0 0 / 0.14); }
 	.navigace .podmenu > ul a { border-radius: calc(var(--zaobleni) / 1.5); font-weight: 500; }
 	/* open: without the script on hover and keyboard focus; with it by the toggle, and on hover only for a real pointer */
 	.navigace .podmenu:not(:has(> [aria-expanded])):is(:hover, :focus-within) > ul, .navigace .podmenu > [aria-expanded="true"] + ul { display: flex; }
@@ -88,18 +88,18 @@
 		.menu-tl { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border: 1px solid var(--ka-barva-linka, #dfe1e5); border-radius: 50%; background: var(--ka-barva-pozadi, #ffffff); color: var(--ka-barva-text, #16181d); cursor: pointer; }
 		.menu-tl span, .menu-tl span::before, .menu-tl span::after { display: block; width: 1.1rem; height: 2px; background: currentColor; }
 		.menu-tl span { position: relative; }
-		.menu-tl span::before, .menu-tl span::after { content: ""; position: absolute; left: 0; }
+		.menu-tl span::before, .menu-tl span::after { content: ""; position: absolute; inset-inline-start: 0; }
 		.menu-tl span::before { top: -6px; }
 		.menu-tl span::after { top: 6px; }
 		.navigace[popover] { inset: 4.5rem var(--mezera) auto; width: auto; margin: 0; padding: 0.75rem; border: 1px solid var(--ka-barva-linka, #dfe1e5); border-radius: var(--zaobleni); background: var(--ka-barva-pozadi, #ffffff); color: var(--ka-barva-text, #16181d); box-shadow: 0 20px 50px rgb(0 0 0 / 0.18); }
 		.navigace[popover] ul { flex-direction: column; }
 		.navigace[popover] a { padding: 0.8rem 1rem; border-radius: calc(var(--zaobleni) / 1.5); }
-		.navigace[popover] .podmenu > ul { display: flex; flex-basis: 100%; position: static; min-width: 0; padding: 0 0 0 1rem; border: 0; box-shadow: none; }
+		.navigace[popover] .podmenu > ul { display: flex; flex-basis: 100%; position: static; min-width: 0; padding: 0; padding-inline-start: 1rem; border: 0; box-shadow: none; }
 		/* 3.6: the groups are an accordion – closed, the one with the current page opened by image/web.js when the menu opens;
 		   without the script every submenu stays expanded and the toggles are hidden */
 		.navigace[popover] .podmenu > [aria-expanded="false"] + ul { display: none; }
 		.navigace[popover] .podmenu > a, .navigace[popover] .podmenu > .menu-skupina { flex: 1; }
-		.navigace[popover] .podmenu > .menu-skupina { display: flex; justify-content: space-between; align-items: center; padding: 0.8rem 0 0.8rem 1rem; border-radius: calc(var(--zaobleni) / 1.5); }
+		.navigace[popover] .podmenu > .menu-skupina { display: flex; justify-content: space-between; align-items: center; padding: 0.8rem 0; padding-inline-start: 1rem; border-radius: calc(var(--zaobleni) / 1.5); }
 		.navigace[popover] .podmenu > .menu-skupina::after { margin-inline: 0 calc(1.375rem - 0.2em); } /* 3.9.1: the arrow where a group with a page has its toggle */
 		.navigace[popover] .menu-rozbalit { min-width: 2.75rem; min-height: 2.75rem; margin: 0; border-radius: calc(var(--zaobleni) / 1.5); }
 		.navigace[popover] .menu-rozbalit:not([aria-expanded]), .navigace[popover] .podmenu > .menu-skupina:not([aria-expanded])::after { display: none; }
@@ -128,14 +128,14 @@
 	.stranka-uvod .text > h1:first-child { max-width: 18ch; font-size: clamp(2.5rem, 1.6rem + 4.5vw, 4.5rem); }
 	.stranka-uvod .text > :where(p, ul) { max-width: var(--sirka-textu); font-size: var(--krok-1); color: var(--ka-barva-tlumeny, #5b5f68); }
 	.perex { font-size: var(--krok-1); line-height: 1.5; color: var(--ka-barva-tlumeny, #5b5f68); }
-	.text blockquote { margin-inline: 0; padding-left: 1.2em; border-left: 3px solid var(--ka-barva-primarni, #2b5be3); }
+	.text blockquote { margin-inline: 0; padding-inline-start: 1.2em; border-inline-start: 3px solid var(--ka-barva-primarni, #2b5be3); }
 	.novinka-obrazek { margin: 0 0 1.5em; }
 	.novinka-obrazek img { width: 100%; border-radius: var(--zaobleni); }
 	.novinka-aktualizovano { font-size: 0.875em; color: var(--ka-barva-tlumeny, #5b5f68); }
 	.novinka-stitky { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 2em; }
 	.novinka-stitky a { padding: 0.25rem 0.75rem; border-radius: 999px; background: var(--ka-barva-plocha, #f5f6f8); font-size: 0.875em; text-decoration: none; }
 	.souvisejici { margin-top: var(--mezera-velka); padding-top: var(--mezera); border-top: 1px solid var(--ka-barva-linka, #dfe1e5); }
-	.souvisejici ul { padding-left: 1.1em; }
+	.souvisejici ul { padding-inline-start: 1.1em; }
 
 	/* news list: cards that adapt to the width of the container (container queries), not the window */
 	.vypis-hlavicka { max-width: var(--sirka-textu); margin-bottom: var(--mezera); }
