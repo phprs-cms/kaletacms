@@ -84,7 +84,7 @@ final class Account
                         break;
                     }
                     $token = 'kaleta_' . bin2hex(random_bytes(24));
-                    $access = \Kaleta\Front\OAuth::access($r->post('access') ?: 'full');
+                    $access = \Kaleta\Front\OAuth::access($r->post('access') ?: 'drafts'); // no choice sent: drafts only (3.11, N311-3)
                     // 3.10: a personal token lists all tools unless the person picks the essentials (Claude Code and scripts)
                     $toolSet = \Kaleta\Mcp\Catalog::toolSet($r->post('tool_set'));
                     // a token with an expiry ends by itself (2.8); one without works until it is revoked and System status reports it
@@ -253,7 +253,7 @@ final class Account
             'tokens' => $app->db()->all("SELECT * FROM {api_tokeny} WHERE idu = ? AND druh = 'token' ORDER BY idt DESC", [$user['idu']]),
             // apps connected via OAuth (the Claude connector): one item per client, valid while it has a refresh token
             // the tool set of an application is the one of its newest token (3.10; a new consent may have chosen another)
-            'apps' => $app->db()->all("SELECT klient, MAX(nazev) AS nazev, MAX(access) AS access, SUBSTRING_INDEX(GROUP_CONCAT(tool_set ORDER BY idt DESC), ',', 1) AS tool_set, MIN(vytvoren) AS vytvoren, MAX(pouzit) AS pouzit FROM {api_tokeny} WHERE idu = ? AND klient IS NOT NULL AND expirace > ? GROUP BY klient ORDER BY MIN(vytvoren) DESC",
+            'apps' => $app->db()->all("SELECT klient, MAX(nazev) AS nazev, ELT(MIN(FIELD(access, 'full', 'drafts', 'read')), 'full', 'drafts', 'read') AS access, SUBSTRING_INDEX(GROUP_CONCAT(tool_set ORDER BY idt DESC), ',', 1) AS tool_set, MIN(vytvoren) AS vytvoren, MAX(pouzit) AS pouzit FROM {api_tokeny} WHERE idu = ? AND klient IS NOT NULL AND expirace > ? GROUP BY klient ORDER BY MIN(vytvoren) DESC",
                 [$user['idu'], date('Y-m-d H:i:s')]),
             'mcpUrl' => $app->request->origin() . $app->url('mcp'),
         ]));

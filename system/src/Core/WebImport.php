@@ -607,7 +607,8 @@ final class WebImport
         $groups = []; // agent => rules
         $agents = [];
         $inRules = false;
-        foreach (preg_split('/\R/u', $text) ?: [] as $line) {
+        // lines by CR/LF only: robots.txt may not be UTF-8 (a Latin-1 comment) and a failed split must never drop the rules (3.11, N311-1)
+        foreach (preg_split('/\r\n|\n|\r/', $text) ?: [] as $line) {
             $line = trim((string) preg_replace('/#.*$/', '', $line));
             if (!preg_match('/^([a-z-]+)\s*:\s*(.*)$/i', $line, $m)) {
                 continue;

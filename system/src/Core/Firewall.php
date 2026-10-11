@@ -164,7 +164,7 @@ final class Firewall
     {
         $valid = [];
         $invalid = [];
-        foreach (preg_split('/\R/u', $text) ?: [] as $line) {
+        foreach (preg_split('/\r\n|\n|\r/', $text) ?: [] as $line) { // CR/LF only – any bytes, never a failed split (3.11, N311-1)
             $entry = trim(explode('#', $line, 2)[0]);
             if ($entry === '') {
                 continue;

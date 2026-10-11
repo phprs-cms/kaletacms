@@ -421,7 +421,7 @@ final class Kernel
             if (!$app->request->postBool('povolit')) {
                 return Response::redirect($oauth->deny($pending));
             }
-            $access = \Kaleta\Front\OAuth::access($app->request->post('access') ?: 'full'); // a consent page from before 2.2 sends none: as before
+            $access = \Kaleta\Front\OAuth::access($app->request->post('access') ?: 'drafts'); // no choice sent: drafts only, the default of the page (3.11, N311-3)
             // 3.10: the tool set (essentials by default on the page); a consent page from before 3.10 sends none: all tools, as before
             $toolSet = \Kaleta\Mcp\Catalog::toolSet($app->request->post('tool_set'));
             ChangeLog::write($app, 'claude', 'app_connect', mb_substr((string) $pending['nazev'] . ' (' . $access . ($toolSet === 'essentials' ? ', essentials' : '') . ')', 0, 100));

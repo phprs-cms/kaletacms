@@ -62,6 +62,8 @@ final class Mail
      */
     public static function rightToLeft(string $text, string $language): string
     {
+        // bidi embedding/override/isolate controls typed by a visitor would reorder what the reader sees (a reversed link): dropped here (3.11, N311-4)
+        $text = preg_replace('/[\x{202A}-\x{202E}\x{2066}-\x{2069}]/u', '', $text) ?? $text;
         $body = preg_replace_callback('~https?://(?:(?!&quot;|&#039;)[^\s<>"])+~', fn (array $m): string => '<a href="' . $m[0] . '" dir="ltr">' . $m[0] . '</a>', e($text)) ?? e($text);
 
         return '<!DOCTYPE html><html lang="' . e(Language::tag($language)) . '" dir="rtl"><head><meta charset="utf-8"></head>'
