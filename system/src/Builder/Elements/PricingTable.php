@@ -79,6 +79,11 @@ final class PricingTable extends Element
         return $features;
     }
 
+    public static function rtlCss(): string
+    {
+        return '.ka-cenik-stitek { translate: 50% -50%; }';
+    }
+
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $plans = array_values(array_filter($p['obsah']['plany'], fn (array $x): bool => $x['nazev'] !== ''));

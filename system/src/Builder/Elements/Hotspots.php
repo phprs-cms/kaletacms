@@ -60,6 +60,14 @@ final class Hotspots extends Element
 .ka-hotspoty-sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }';
     }
 
+    public static function rtlCss(): string
+    {
+        // a point sits on the photo, which does not mirror: "from the left" stays from the left, and the description opens away from the edge
+        return '.ka-hotspoty-bod { right: auto; left: var(--x); }
+.ka-hotspoty-popis { inset-inline-start: auto; inset-inline-end: -1rem; }
+.ka-hotspoty-bod--vlevo .ka-hotspoty-popis { inset-inline-end: auto; inset-inline-start: -1rem; }';
+    }
+
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $o = $p['obsah'];

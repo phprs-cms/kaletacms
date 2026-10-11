@@ -365,7 +365,7 @@ final class Seo
         $html = $marketing === '' ? '' : self::deferUntilConsent($marketing, $mode);
         if (\Kaleta\Core\Demo::active()) {
             // the public demo (2.6): a badge that leads to the admin; inline styles, so no site class can hide it
-            $html .= '<a href="' . e($this->app->url('admin.php')) . '" style="position:fixed;left:12px;bottom:12px;z-index:2147483000;padding:8px 12px;border-radius:999px;background:#121212;color:#fff;font:600 13px/1.2 system-ui,sans-serif;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.25)">'
+            $html .= '<a href="' . e($this->app->url('admin.php')) . '" style="position:fixed;inset-inline-start:12px;bottom:12px;z-index:2147483000;padding:8px 12px;border-radius:999px;background:#121212;color:#fff;font:600 13px/1.2 system-ui,sans-serif;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.25)">'
                 . e(t('Kaleta demo – try the admin')) . '</a>';
         }
         // remembering where leads came from needs the visitor's consent to marketing (2.3)
@@ -537,8 +537,8 @@ final class Seo
     public static function faq(?string $text): array
     {
         $pairs = [];
-        foreach (preg_split('/\R\s*\R/', trim((string) $text)) ?: [] as $block) {
-            $rows = preg_split('/\R/', trim($block), 2) ?: [];
+        foreach (preg_split('/\R\s*\R/u', trim((string) $text)) ?: [] as $block) {
+            $rows = preg_split('/\R/u', trim($block), 2) ?: [];
             if (count($rows) === 2 && trim($rows[0]) !== '' && trim($rows[1]) !== '') {
                 $pairs[] = [trim($rows[0]), trim($rows[1])];
             }

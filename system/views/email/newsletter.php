@@ -22,10 +22,11 @@
 $c = array_map(fn (string $v): string => preg_match('/^#[0-9a-f]{3,8}$/iD', $v) ? $v : '#000000', $colors);
 $font = e($textFont);
 $headFont = e($headingFont);
+$dir = Kaleta\Core\Language::dirAttribute($language); // Arabic: also on the tables, as webmail drops the attributes of <html>
 $link = static fn (string $text): string => preg_replace_callback('~https?://[^\s<>"]+~', fn (array $m): string => '<a href="' . $m[0] . '" style="color:' . $c['primarni'] . ';">' . $m[0] . '</a>', $text) ?? $text;
 ?>
 <!DOCTYPE html>
-<html lang="<?= e(Kaleta\Core\Language::tag($language)) ?>" dir="ltr">
+<html lang="<?= e(Kaleta\Core\Language::tag($language)) ?>" dir="<?= Kaleta\Core\Language::dir($language) ?>">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -45,7 +46,7 @@ $link = static fn (string $text): string => preg_replace_callback('~https?://[^\
 <?php endif ?>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:<?= $c['plocha'] ?>;">
 <tr><td align="center" style="padding:24px 12px;">
-<table role="presentation" class="ka-obal" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;background:<?= $c['pozadi'] ?>;border-radius:<?= e($radius) ?>;">
+<table role="presentation" class="ka-obal"<?= $dir ?> width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;background:<?= $c['pozadi'] ?>;border-radius:<?= e($radius) ?>;">
 <tr><td class="ka-odsazeni" style="padding:28px 40px 8px 40px;font-family:<?= $headFont ?>;">
 <?php if ($logo !== ''): ?>
 	<a href="<?= e($siteUrl) ?>"><img src="<?= e($logo) ?>" alt="<?= e($siteName) ?>" height="40" style="display:block;height:40px;width:auto;"></a>
@@ -72,7 +73,7 @@ $link = static fn (string $text): string => preg_replace_callback('~https?://[^\
 </td></tr>
 <?php endforeach ?>
 <?php if ($button !== null): ?>
-<tr><td class="ka-odsazeni" align="left" style="padding:16px 40px 8px 40px;">
+<tr><td class="ka-odsazeni" align="<?= $dir === '' ? 'left' : 'right' ?>" style="padding:16px 40px 8px 40px;">
 	<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="background:<?= $c['primarni'] ?>;border-radius:<?= e($radius) ?>;">
 		<a href="<?= e($button[1]) ?>" style="display:inline-block;padding:12px 24px;font-family:<?= $font ?>;font-size:16px;font-weight:600;line-height:1.2;color:<?= $c['na-primarni'] ?>;text-decoration:none;border-radius:<?= e($radius) ?>;"><?= e($button[0]) ?></a>
 	</td></tr></table>
@@ -80,7 +81,7 @@ $link = static fn (string $text): string => preg_replace_callback('~https?://[^\
 <?php endif ?>
 <tr><td class="ka-odsazeni" style="padding:24px 40px 32px 40px;"></td></tr>
 </table>
-<table role="presentation" class="ka-obal" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
+<table role="presentation" class="ka-obal"<?= $dir ?> width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
 <tr><td class="ka-odsazeni" style="padding:20px 40px;font-family:<?= $font ?>;font-size:13px;line-height:1.6;color:<?= $c['tlumeny'] ?>;">
 <?php foreach ($company as $line): ?>
 	<?= e($line) ?><br>

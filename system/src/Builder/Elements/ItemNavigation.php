@@ -104,9 +104,11 @@ final class ItemNavigation extends Element
                 . ($image !== '' ? '<img src="' . e($k->image($image)) . '" alt="" loading="lazy" decoding="async">' : '') . $text . '</a>';
         };
 
+        $rtl = \Kaleta\Core\Language::isRtl(\Kaleta\Core\Language::code()); // the previous item lies to the right in Arabic
+
         return '<nav' . Text::withClass($a, 'ka-predchozi-dalsi') . ' aria-label="' . e(t('Previous and next item')) . '">'
-            . ($previous !== null ? $link($previous, $previousUrl, $previousImage, 'prev', (string) $o['popisek_predchozi'], '←') : '')
-            . ($next !== null ? $link($next, $nextUrl, $nextImage, 'next', (string) $o['popisek_dalsi'], '→') : '')
+            . ($previous !== null ? $link($previous, $previousUrl, $previousImage, 'prev', (string) $o['popisek_predchozi'], $rtl ? '→' : '←') : '')
+            . ($next !== null ? $link($next, $nextUrl, $nextImage, 'next', (string) $o['popisek_dalsi'], $rtl ? '←' : '→') : '')
             . '</nav>';
     }
 }

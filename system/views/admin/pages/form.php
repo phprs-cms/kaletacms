@@ -17,6 +17,8 @@ foreach ($parents as $r) {
         $prefix = $r['seo_link'] . '/';
     }
 }
+// the content fields of a right-to-left version (Arabic) are written from the right; the administration around them stays as it is
+$contentDir = Kaleta\Core\Language::dirAttribute(Kaleta\Core\Language::ofContent($app->settings(), (string) ($page['jazyk'] ?? '')));
 $error = fn (string $field): string => isset($errors[$field]) ? '<span class="chyba-pole" role="alert">' . e(t($errors[$field])) . '</span>' : '';
 ?>
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to overview')) ?></a>
@@ -32,7 +34,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <input type="hidden" name="ids" value="<?= (int) $page['ids'] ?>">
 <div class="radek pres-celou">
 	<label for="titulek"><?= e(t('Název stránky')) ?></label>
-	<input class="textpole siroke titulek-pole" type="text" id="titulek" name="titulek" value="<?= e($page['titulek']) ?>" maxlength="200" required><?= $error('titulek') ?>
+	<input class="textpole siroke titulek-pole" type="text" id="titulek" name="titulek" value="<?= e($page['titulek']) ?>" maxlength="200" required<?= $contentDir ?>><?= $error('titulek') ?>
 </div>
 <?php if (!$page['ids']): ?>
 <div class="radek">
@@ -53,7 +55,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <?php else: ?>
 <div class="radek pres-celou">
 	<label for="text"><?= e(t('Content')) ?></label>
-	<textarea class="textbox vysoky" id="text" name="text" rows="18" data-editor><?= e($page['text']) ?></textarea><?= $error('text') ?>
+	<textarea class="textbox vysoky" id="text" name="text" rows="18" data-editor<?= $contentDir ?>><?= e($page['text']) ?></textarea><?= $error('text') ?>
 <?php if ($page['ids']): ?>
 	<span class="napoveda"><?= e(t('Want to build the page from sections, columns and buttons?')) ?> <a href="<?= e($module->url('builder', ['id' => (int) $page['ids']])) ?>"><?= e(t('Open in the builder')) ?></a></span>
 <?php endif ?>
@@ -76,11 +78,11 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <summary><?= e(t('Search engines and sharing')) ?></summary>
 <div class="radek">
 	<label for="seo_titulek"><?= e(t('Search engine title')) ?></label>
-	<input class="textpole siroke" type="text" id="seo_titulek" name="seo_titulek" value="<?= e($page['seo_titulek']) ?>" maxlength="200" placeholder="<?= e(t('empty = page name')) ?>">
+	<input class="textpole siroke" type="text" id="seo_titulek" name="seo_titulek" value="<?= e($page['seo_titulek']) ?>" maxlength="200"<?= $contentDir ?> placeholder="<?= e(t('empty = page name')) ?>">
 </div>
 <div class="radek">
 	<label for="popis"><?= e(t('Search engine description')) ?></label>
-	<div><input class="textpole siroke" type="text" id="popis" name="popis" value="<?= e($page['popis']) ?>" maxlength="300">
+	<div><input class="textpole siroke" type="text" id="popis" name="popis" value="<?= e($page['popis']) ?>" maxlength="300"<?= $contentDir ?>>
 	<span class="napoveda"><?= e(t('One or two sentences on what visitors will find on the page (up to 160 characters).')) ?></span></div>
 </div>
 <div class="radek">

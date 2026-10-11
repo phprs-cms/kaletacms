@@ -19,12 +19,12 @@ $options = ['text' => t('Larger text'), 'kontrast' => t('High contrast'), 'podtr
 :root.ka-kontrast img, :root.ka-kontrast video { filter: contrast(1.15); }
 :root.ka-podtrzeni a { text-decoration: underline; text-decoration-thickness: 0.09em; text-underline-offset: 0.12em; }
 :root.ka-klid *, :root.ka-klid *::before, :root.ka-klid *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
-.ka-pristupnost { --ka-pristupnost-dole: max(56px, var(--ka-cookies-vyska, 0px)); position: fixed; left: 12px; bottom: var(--ka-pristupnost-dole); z-index: 998; font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+.ka-pristupnost { --ka-pristupnost-dole: max(56px, var(--ka-cookies-vyska, 0px)); position: fixed; inset-inline-start: 12px; bottom: var(--ka-pristupnost-dole); z-index: 998; font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
 .ka-pristupnost-tl { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid #475467; border-radius: 999px; background: #ffffff; color: #14171f; cursor: pointer; font: inherit; }
 .ka-pristupnost-tl:focus-visible, .ka-pristupnost-panel button:focus-visible { outline: 3px solid #0000c8; outline-offset: 2px; }
 /* the popover UA style is inset: 0 – without resetting top the panel would open at the top of the window */
-.ka-pristupnost-panel { position: fixed; inset: auto auto calc(var(--ka-pristupnost-dole) + 44px) 12px; max-height: calc(100vh - var(--ka-pristupnost-dole) - 56px); overflow-y: auto; margin: 0; padding: 8px; border: 1px solid #475467; border-radius: 10px; background: #ffffff; color: #14171f; box-shadow: 0 12px 40px rgb(0 0 0 / 0.18); min-width: 220px; }
-.ka-pristupnost-panel button { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ka-pristupnost-panel { position: fixed; inset-block: auto calc(var(--ka-pristupnost-dole) + 44px); inset-inline: 12px auto; max-height: calc(100vh - var(--ka-pristupnost-dole) - 56px); overflow-y: auto; margin: 0; padding: 8px; border: 1px solid #475467; border-radius: 10px; background: #ffffff; color: #14171f; box-shadow: 0 12px 40px rgb(0 0 0 / 0.18); min-width: 220px; }
+.ka-pristupnost-panel button { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; text-align: start; cursor: pointer; }
 .ka-pristupnost-panel button:hover { background: #f2f4f7; }
 .ka-pristupnost-panel button[aria-pressed="true"]::after { content: "✓"; font-weight: 700; }
 .ka-pristupnost-panel button[aria-pressed="false"]::after { content: ""; width: 1em; }

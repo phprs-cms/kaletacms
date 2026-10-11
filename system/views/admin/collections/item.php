@@ -15,18 +15,19 @@
 use Kaleta\Core\Language;
 
 $languages = Language::additional($app->settings());
+$contentDir = Language::dirAttribute(Language::ofContent($app->settings(), (string) $p['jazyk'])); // an item of a right-to-left version (Arabic)
 ?>
 <form class="formular" method="post" action="<?= e($module->url('save_item')) ?>">
 <?= $csrf ?>
 <input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>">
 <input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>">
-<div class="radek"><label for="nazev"><?= e(t('Název')) ?></label><div><input class="textpole siroke" id="nazev" name="nazev" value="<?= e($p['nazev']) ?>" maxlength="200" required></div></div>
+<div class="radek"><label for="nazev"><?= e(t('Název')) ?></label><div><input class="textpole siroke" id="nazev" name="nazev" value="<?= e($p['nazev']) ?>" maxlength="200" required<?= $contentDir ?>></div></div>
 <?php foreach ($k['pole'] as $field): $h = (string) ($p['data'][$field['klic']] ?? ''); $id = 'pole-' . $field['klic']; $displayName = 'data[' . $field['klic'] . ']'; ?>
 <div class="radek<?= $field['typ'] === 'html' ? ' pres-celou' : '' ?>">
 	<label for="<?= e($id) ?>"><?= e($field['popisek']) ?></label>
 	<div><?= match ($field['typ']) {
-        'radky' => '<textarea class="textbox nizky" id="' . e($id) . '" name="' . e($displayName) . '" rows="4">' . e($h) . '</textarea>',
-        'html' => '<textarea class="textbox" id="' . e($id) . '" name="' . e($displayName) . '" rows="10" data-editor>' . e($h) . '</textarea>',
+        'radky' => '<textarea class="textbox nizky" id="' . e($id) . '" name="' . e($displayName) . '" rows="4"' . $contentDir . '>' . e($h) . '</textarea>',
+        'html' => '<textarea class="textbox" id="' . e($id) . '" name="' . e($displayName) . '" rows="10" data-editor' . $contentDir . '>' . e($h) . '</textarea>',
         'obrazek' => '<input class="textpole siroke" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500" data-obrazek>',
         'odkaz' => '<input class="textpole siroke" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500" placeholder="' . e(t('https://… or /page')) . '">',
         'cislo' => '<input class="textpole" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" inputmode="decimal" size="12">',
@@ -39,7 +40,7 @@ $languages = Language::additional($app->settings());
             (array) ($field['moznosti'] ?? []))) . '</select>',
         'polozka' => '<select id="' . e($id) . '" name="' . e($displayName) . '"><option value="">–</option>' . implode('', array_map(fn (string $slug, string $name): string => '<option value="' . e($slug) . '"' . ($slug === $h ? ' selected' : '') . '>' . e($name) . '</option>',
             array_keys($choices = Kaleta\Builder\Collections::choices($app->db(), (string) ($field['kolekce'] ?? ''))), $choices)) . '</select>',
-        default => '<input class="textpole siroke" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500">',
+        default => '<input class="textpole siroke" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500"' . $contentDir . '>',
     } ?> <code class="napoveda">{{<?= e($field['klic']) ?>}}</code></div>
 </div>
 <?php endforeach ?>

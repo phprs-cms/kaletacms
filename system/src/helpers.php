@@ -41,17 +41,17 @@ function slugify(string $text, int $maxLength = 120): string
     return $text !== '' ? $text : 'n-a';
 }
 
-/** Decimal number in the site language: 4,5 in Czech, Slovak and German, 4.5 in English. */
+/** Decimal number in the site language: 4,5 in Czech, Slovak and German, 4.5 in English and Arabic (Western digits). */
 function format_number(float|int $number, int $decimals = 1): string
 {
-    return number_format((float) $number, $decimals, Kaleta\Core\Language::base(Kaleta\Core\Language::code()) === 'en' ? '.' : ',', '');
+    return number_format((float) $number, $decimals, in_array(Kaleta\Core\Language::base(Kaleta\Core\Language::code()), ['en', 'ar', 'he'], true) ? '.' : ',', '');
 }
 
-/** Count with a thousands separator in the site language: 12 345 in Czech and Slovak, 12,345 in English, 12.345 in German. */
+/** Count with a thousands separator in the site language: 12 345 in Czech and Slovak, 12,345 in English and Arabic, 12.345 in German. */
 function format_count(float|int $number, int $decimals = 0): string
 {
     [$decimalSeparator, $thousandsSeparator] = match (Kaleta\Core\Language::base(Kaleta\Core\Language::code())) {
-        'en' => ['.', ','],
+        'en', 'ar', 'he' => ['.', ','],
         'de' => [',', '.'],
         default => [',', "\u{00A0}"],
     };

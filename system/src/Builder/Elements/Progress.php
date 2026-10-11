@@ -42,6 +42,11 @@ final class Progress extends Element
 } }';
     }
 
+    public static function rtlCss(): string
+    {
+        return '.ka-prubeh-radek meter { transform-origin: right; }'; // a meter fills from the right in a right-to-left page
+    }
+
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $html = '';

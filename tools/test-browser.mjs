@@ -687,6 +687,56 @@ await step('3.7 builder: Previous / next item in the item template, a nav landma
   await visitor.close();
 });
 
+// right-to-left (data model §5): the Arabic page of the Crafts starter (tools/test-browser.sh) as a visitor sees it on a computer and on a phone
+for (const [width, height, name] of [[1440, 900, 'desktop'], [390, 844, 'phone']]) {
+  await step(`RTL: the Arabic page at ${width} px – dir="rtl", no sideways scroll, the layout and the carousel arrows mirrored`, async () => {
+    const visitor = await browser.newContext({ viewport: { width, height }, locale: 'ar' });
+    const v = await visitor.newPage();
+    watch(v);
+    try {
+      await v.goto(`${STARTER_SITES.remeslo}/ar/rtl-test`, { waitUntil: 'networkidle' });
+      const root = await v.evaluate(() => [document.documentElement.lang, document.documentElement.dir].join());
+      if (root !== 'ar,rtl') { throw new Error(`<html> is ${root}`); }
+      const overflow = () => v.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      if (await overflow() > 1) { throw new Error(`the page scrolls sideways by ${await overflow()} px`); }
+      // the cookie bar sits at the start side – the right edge of a right-to-left page
+      const bar = await v.locator('#cookies-lista').boundingBox();
+      if (bar && width - (bar.x + bar.width) > 24) { throw new Error(`the cookie bar is ${Math.round(width - bar.x - bar.width)} px from the right edge`); }
+      if (SHOTS) { await v.screenshot({ path: `${SHOTS}/rtl-arabic-${name}.png`, fullPage: true }); }
+      if (await v.locator('#cookies-lista button').count()) { await v.locator('#cookies-lista button').first().click(); }
+      // the carousel: Previous stands right of Next, its arrow is mirrored with the text (a right-to-left button), Next scrolls to the left
+      const carousel = v.locator('[data-karusel]').first();
+      await carousel.scrollIntoViewIfNeeded();
+      const [previous, next] = [await carousel.locator('[data-krok="-1"]').boundingBox(), await carousel.locator('[data-krok="1"]').boundingBox()];
+      if (!previous || !next || previous.x <= next.x) { throw new Error('the Previous arrow is not right of Next'); }
+      if (await carousel.locator('[data-krok="-1"]').evaluate((b) => getComputedStyle(b).direction) !== 'rtl') { throw new Error('the arrow buttons are not right to left'); }
+      await carousel.locator('[data-krok="1"]').click();
+      await v.waitForTimeout(900);
+      const scrolled = await carousel.locator('.ka-karusel-pas').evaluate((strip) => strip.scrollLeft);
+      if (!(scrolled < -10) || await carousel.locator('[data-krok="-1"]').isDisabled()) { throw new Error(`Next moved the strip to ${scrolled}`); }
+      await carousel.locator('.ka-karusel-pas').focus();
+      if (name === 'phone') {
+        // the phone menu: its button at the left (the end side), the logo at the right; the sheet opens inside the window, its items from the right
+        const toggle = v.locator('.ka-nav-tl:visible, .menu-tl:visible').first();
+        const logo = v.locator('.ka-logo:visible, .logo:visible').first();
+        const [t, l] = [await toggle.boundingBox(), await logo.boundingBox()];
+        if (!t || !l || t.x >= l.x) { throw new Error('the menu button is not left of the logo'); }
+        await toggle.click();
+        const sheet = v.locator('.ka-nav-menu[popover]:popover-open, .navigace[popover]:popover-open').first();
+        await sheet.waitFor();
+        const box = await sheet.boundingBox();
+        const item = await sheet.locator('a:visible').first().boundingBox();
+        if (!box || box.x < 0 || box.x + box.width > width + 1) { throw new Error('the menu sheet is outside the window'); }
+        if (!item || (box.x + box.width) - (item.x + item.width) > 48) { throw new Error('the menu items do not start at the right'); }
+        if (await overflow() > 1) { throw new Error('the open menu scrolls the page sideways'); }
+        if (SHOTS) { await v.screenshot({ path: `${SHOTS}/rtl-arabic-phone-menu.png` }); }
+      }
+    } finally {
+      await visitor.close();
+    }
+  });
+}
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

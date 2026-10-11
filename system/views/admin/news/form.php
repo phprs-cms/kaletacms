@@ -21,6 +21,8 @@
  * @var list<array<string, mixed>>|null $socialDrafts  social post drafts (2.13, Core\SocialDrafts); null = the news item is not published
  */
 $dt = fn (?string $v): string => $v ? date('Y-m-d\TH:i', strtotime($v)) : '';
+// the content fields of a news item in a right-to-left version (Arabic) are written from the right
+$contentDir = Kaleta\Core\Language::dirAttribute(Kaleta\Core\Language::ofContent($app->settings(), (string) ($newsItem['jazyk'] ?? '')));
 $error = fn (string $field): string => isset($errors[$field]) ? '<span class="chyba-pole" role="alert">' . e(t($errors[$field])) . '</span>' : '';
 ?>
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to the news list')) ?></a></p>
@@ -35,16 +37,16 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <div class="clanek-hlavni">
 	<div class="radek pres-celou">
 		<label for="titulek"><?= e(t('Titulek')) ?></label>
-		<input class="textpole siroke titulek-pole" type="text" id="titulek" name="titulek" value="<?= e($newsItem['titulek']) ?>" maxlength="255" required placeholder="<?= e(t('News item title')) ?>"><?= $error('titulek') ?>
+		<input class="textpole siroke titulek-pole" type="text" id="titulek" name="titulek" value="<?= e($newsItem['titulek']) ?>" maxlength="255" required<?= $contentDir ?> placeholder="<?= e(t('News item title')) ?>"><?= $error('titulek') ?>
 	</div>
 	<div class="radek pres-celou">
 		<label for="uvod"><?= e(t('Lead paragraph')) ?></label>
-		<textarea class="textbox" id="uvod" name="uvod" rows="5" data-editor="maly"><?= e($newsItem['uvod']) ?></textarea><?= $error('uvod') ?>
+		<textarea class="textbox" id="uvod" name="uvod" rows="5" data-editor="maly"<?= $contentDir ?>><?= e($newsItem['uvod']) ?></textarea><?= $error('uvod') ?>
 		<span class="napoveda"><?= e(t('Shown in lists and at the start of the news item – do not repeat it in the text.')) ?></span>
 	</div>
 	<div class="radek pres-celou">
 		<label for="text"><?= e(t('Text')) ?></label>
-		<textarea class="textbox vysoky" id="text" name="text" rows="20" data-editor><?= e($newsItem['text']) ?></textarea><?= $error('text') ?>
+		<textarea class="textbox vysoky" id="text" name="text" rows="20" data-editor<?= $contentDir ?>><?= e($newsItem['text']) ?></textarea><?= $error('text') ?>
 		<span class="napoveda"><?= e(t('To embed a video, put its address (YouTube, Vimeo) on a line of its own. It loads for the visitor only after a click.')) ?></span>
 	</div>
 </div>
@@ -191,7 +193,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 </div>
 <div class="radek">
 	<label for="seo_titulek"><?= e(t('Search engine title')) ?></label>
-	<div><input class="textpole siroke" type="text" id="seo_titulek" name="seo_titulek" value="<?= e($newsItem['seo_titulek']) ?>" maxlength="255" placeholder="<?= e(t('empty = news item title')) ?>"></div>
+	<div><input class="textpole siroke" type="text" id="seo_titulek" name="seo_titulek" value="<?= e($newsItem['seo_titulek']) ?>" maxlength="255"<?= $contentDir ?> placeholder="<?= e(t('empty = news item title')) ?>"></div>
 </div>
 <div class="radek">
 	<label for="seo_popis"><?= e(t('Search engine description')) ?></label>

@@ -52,7 +52,7 @@ final class Company
     /** @return list<string> opening hours lines as the administrator entered them */
     public static function openingHoursLines(Settings $s): array
     {
-        return array_values(array_filter(array_map('trim', preg_split('/\R/', $s->get('company_hours')) ?: []), fn (string $r): bool => $r !== ''));
+        return array_values(array_filter(array_map('trim', preg_split('/\R/u', $s->get('company_hours')) ?: []), fn (string $r): bool => $r !== ''));
     }
 
     /**
@@ -63,7 +63,7 @@ final class Company
     public static function parseOpeningHours(string $text): ?array
     {
         $result = [];
-        foreach (array_filter(array_map('trim', preg_split('/\R/', $text) ?: [])) as $row) {
+        foreach (array_filter(array_map('trim', preg_split('/\R/u', $text) ?: [])) as $row) {
             $r = mb_strtolower(remove_diacritics(str_replace(['–', '—', '−'], '-', $row)));
             if (!preg_match('/^([a-z]{2})[a-z.]*\s*(?:-\s*([a-z]{2})[a-z.]*)?\s*:?\s+(.+)$/', $r, $m) || !isset(self::DAYS[$m[1]]) || ($m[2] !== '' && !isset(self::DAYS[$m[2]]))) {
                 return null;

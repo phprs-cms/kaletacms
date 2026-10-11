@@ -43,7 +43,7 @@ final class EnquiryButton extends Element
 .ka-do-poptavky-stav { flex-basis: 100%; margin: 0; font-size: 0.9em; }
 .ka-do-poptavky-stav:empty { display: none; }
 .ka-porovnani { width: 100%; border-collapse: collapse; }
-.ka-porovnani th, .ka-porovnani td { padding: 0.6em 0.8em; border-bottom: 1px solid var(--ka-barva-linka); text-align: left; vertical-align: top; }
+.ka-porovnani th, .ka-porovnani td { padding: 0.6em 0.8em; border-bottom: 1px solid var(--ka-barva-linka); text-align: start; vertical-align: top; }
 .ka-porovnani thead img { display: block; width: 100%; max-width: 12rem; height: auto; margin-bottom: 0.5em; }
 .ka-porovnani-obal { overflow-x: auto; }
 .ka-porovnani-stranka { display: grid; gap: var(--ka-mezera-m); max-width: var(--ka-sirka); margin-inline: auto; padding: var(--ka-mezera-xl) var(--ka-mezera-m); }

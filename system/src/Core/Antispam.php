@@ -38,7 +38,7 @@ final class Antispam
         $time = (string) time();
 
         return '<input type="hidden" name="as_cas" value="' . $time . '" data-cekat="' . self::MIN_SECONDS . '"><input type="hidden" name="as_podpis" value="' . hash_hmac('sha256', $purpose . '|' . $time, $this->key()) . '">'
-            . '<div style="position:absolute;left:-9999px" aria-hidden="true"><label>' . e(t('Leave this field empty')) . ' <input type="text" name="web_adresa" tabindex="-1" autocomplete="off"></label></div>';
+            . '<div style="position:absolute;inset-inline-start:-9999px" aria-hidden="true"><label>' . e(t('Leave this field empty')) . ' <input type="text" name="web_adresa" tabindex="-1" autocomplete="off"></label></div>';
     }
 
     /** @return string|null reason for rejection (already translated to the site language; 'robot' is a marker, not text), null = OK */

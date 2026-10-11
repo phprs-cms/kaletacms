@@ -11,10 +11,19 @@ namespace Kaleta\Core;
  */
 final class Search
 {
-    /** Lowercase without diacritics, only letters and digits separated by a space. */
+    /**
+     * Lowercase without diacritics, only letters and digits separated by a space. Arabic and Hebrew letters stay (an Arabic
+     * site is searchable), without the vowel marks and the elongation, and with one form of alef and ya – the way people type
+     * a query. Latin text gives the same tokens as before.
+     */
     public static function normalize(string $text): string
     {
         $text = remove_diacritics(mb_strtolower(html_entity_decode(strip_tags(str_replace(['<', '>'], [' <', '> '], $text)), ENT_QUOTES | ENT_HTML5)));
+        if (preg_match('/[\x{0590}-\x{06FF}]/u', $text) === 1) {
+            $text = strtr((string) preg_replace('/[\x{0591}-\x{05C7}\x{064B}-\x{065F}\x{0670}\x{0640}]/u', '', $text), ['أ' => 'ا', 'إ' => 'ا', 'آ' => 'ا', 'ى' => 'ي']);
+
+            return trim((string) preg_replace('/[^a-z0-9\x{0621}-\x{064A}\x{0660}-\x{0669}\x{066E}-\x{06D3}\x{06F0}-\x{06F9}\x{05D0}-\x{05EA}]+/u', ' ', $text));
+        }
 
         return trim((string) preg_replace('/[^a-z0-9]+/', ' ', $text));
     }

@@ -2682,9 +2682,9 @@ ml_run() { # $1 = fixture: upload, import confirmed with the first call, one cal
   for _ in 1 2 3 4 5; do [ "$(mcp_value phase)" = done ] && break; mcp import_wordpress "{\"import\":\"$ML_FILE\"}" > "$WORK/response"; done
 }
 ml_run wordpress-polylang
-expect "3.9 Polylang: English added to the site, Arabic reported and left out, every translation linked to its original (2 pages, a post, a category)" \
-  "$(mcp_value phase)|$(mcp_value languages added_to_site 0)|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'additional_languages'")|$(mcp_value languages not_available 0 language)|$(sq "SELECT COUNT(*) FROM ka_stranky WHERE seo_link LIKE 'solutions-ictx-ar%'")|$(mcp_value languages translations_linked)" \
-  "done|en|en|ar|0|4"
+expect "3.9 Polylang: English added to the site, Hebrew reported and left out, every translation linked to its original (2 pages, a post, a category)" \
+  "$(mcp_value phase)|$(mcp_value languages added_to_site 0)|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'additional_languages'")|$(mcp_value languages not_available 0 language)|$(sq "SELECT COUNT(*) FROM ka_stranky WHERE seo_link LIKE 'solutions-ictx-he%'")|$(mcp_value languages translations_linked)" \
+  "done|en|en|he|0|4"
 expect "3.9 Polylang: the English page is in the English version and points to its Czech original (which came after it in the file)" \
   "$(sq "SELECT CONCAT(c.jazyk, '/', e.jazyk, '/', e.preklad_z = c.ids) FROM ka_stranky e JOIN ka_stranky c ON c.seo_link = 'reseni-ictx' WHERE e.seo_link = 'solutions-ictx'")" "/en/1"
 expect "3.9 Polylang: a slug both languages share gets a number in English while slugs are global, and the report shows both addresses" \
@@ -2715,7 +2715,7 @@ TOKEN=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=upload" -F "_csrf=$TOKEN" -F "soubor=@$ROOT/tools/fixtures/wordpress-polylang.xml"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=progress&soubor=wordpress-polylang.xml" -d "_csrf=$TOKEN"
 check "3.9 admin import preview: a multilingual site with its languages, the unavailable one named" 200 "/admin.php?module=transfer&action=preview&soubor=wordpress-polylang.xml" 'Polylang'
-contains -q 'ar (1)' "$WORK/response" && echo "  ok     3.9 admin import preview: Arabic named as a language this site cannot offer" || { echo "  CHYBA  3.9 admin preview of the languages"; ERRORS=$((ERRORS+1)); }
+contains -q 'he (1)' "$WORK/response" && echo "  ok     3.9 admin import preview: Hebrew named as a language this site cannot offer" || { echo "  CHYBA  3.9 admin preview of the languages"; ERRORS=$((ERRORS+1)); }
 # N39-3: without add_languages a multilingual import never adds a language version (it would show in the switcher at once)
 sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'additional_languages'" > /dev/null
 cp "$ROOT/tools/fixtures/wordpress-polylang.xml" "$WORK/wordpress-polylang-n39.xml"
@@ -4364,7 +4364,7 @@ grep -q 'data-pristupnost' "$WORK/response" && { echo "  CHYBA  2.14 toolbar sho
 sq "INSERT INTO ka_nastaveni VALUES ('accessibility_toolbar', '1') ON DUPLICATE KEY UPDATE hodnota = '1'" > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
 check "2.14: with the setting on, the toolbar is on the page with translated options" 200 "/video-2-14" 'data-pristupnost-volba="kontrast" aria-pressed="false">Vysoký kontrast</button>'
 # 3.5 (UXP-03): "Larger text" shows its size instead of an on/off state; the panel resets the popover's inset (it opened top-left)
-grep -q 'data-pristupnost-volba="text"><span>Větší písmo</span> <span class="ka-pristupnost-uroven">' "$WORK/response" && grep -q 'ka-pristupnost-panel { position: fixed; inset: auto auto calc(' "$WORK/response" \
+grep -q 'data-pristupnost-volba="text"><span>Větší písmo</span> <span class="ka-pristupnost-uroven">' "$WORK/response" && grep -q 'ka-pristupnost-panel { position: fixed; inset-block: auto calc(' "$WORK/response" \
   && echo "  ok     3.5: toolbar – the text size in the label, the panel above its button" || { echo "  CHYBA  3.5: toolbar label or panel position"; ERRORS=$((ERRORS+1)); }
 grep -q 'aria-label="Možnosti přístupnosti"' "$WORK/response" && grep -q "localStorage.getItem(KEY)" "$WORK/response" \
   && echo "  ok     2.14: the toolbar is labelled for screen readers and remembers the choice in localStorage" || { echo "  CHYBA  2.14 toolbar markup"; ERRORS=$((ERRORS+1)); }
@@ -5757,6 +5757,51 @@ expect "3.10: the sitemap lists the pt-br address; the prefix is lowercase only"
 mcp create_page '{"title":"Pt","slug":"pt-br"}' > "$WORK/response"
 expect "3.10: a regional code stays reserved as a page slug" "$(contains -q 'isError' "$WORK/response" && echo refused)|$(sq "SELECT COUNT(*) FROM ka_stranky WHERE seo_link = 'pt-br'")" "refused|0"
 sq "DELETE FROM ka_stranky WHERE ids = $CS310 OR preklad_z = $CS310; DELETE FROM ka_nastaveni WHERE promenna = 'site_name_pt-br'; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('additional_languages', 'en'), ('home_page', '$HOME39')" > /dev/null
+
+echo "== right-to-left: an Arabic language version (data model §5) – dir, hreflang, Latin names inside Arabic, an Arabic WordPress import"
+# a Czech site with an Arabic version, the home page = the news list (hreflang then needs no translated home page); restored at the end
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('additional_languages', 'en,ar'), ('home_page', '0')" > /dev/null
+mcp create_page '{"title":"Kinesio RTL","slug":"kinesio-rtl","content":"<p>Česky RTL</p>","visible":true}' > "$WORK/response"; CSRTL=$(mcp_value id)
+mcp create_page "{\"title\":\"شريط كينيزيو\",\"slug\":\"kinesio-rtl-ar\",\"language\":\"ar\",\"translation_of\":$CSRTL,\"content\":\"<p>شريط Kinesio Tape (5 cm) للرياضيين – السعر 120 EUR.</p>\",\"visible\":true}" > "$WORK/response"; ARRTL=$(mcp_value id)
+ARP=$(get39 /ar/kinesio-rtl-ar)
+contains -q '<html lang="ar" dir="rtl"' "$WORK/response" && contains -q 'شريط Kinesio Tape (5 cm) للرياضيين' "$WORK/response" && contains -q '<meta property="og:locale" content="ar_SA">' "$WORK/response" \
+  && contains -q 'hreflang="cs" href="[^"]*/kinesio-rtl"' "$WORK/response" && contains -q 'hreflang="ar" href="[^"]*/ar/kinesio-rtl-ar"' "$WORK/response" \
+  && contains -q "$(php -r 'echo (require $argv[1])["Skip to content"];' "$ROOT/system/jazyky/ar.php")" "$WORK/response" && ARP="$ARP ok"
+CSP=$(get39 /kinesio-rtl)
+contains -q '<html lang="cs"' "$WORK/response" && ! contains -q 'dir="rtl"' "$WORK/response" && contains -q 'hreflang="ar" href="[^"]*/ar/kinesio-rtl-ar"' "$WORK/response" && CSP="$CSP ok"
+expect "RTL: /ar/kinesio-rtl-ar is right to left with Arabic texts, its Latin product name and hreflang both ways; the Czech page has no dir" "$ARP|$CSP" "200  ok|200  ok"
+get39 /sitemap.xml > /dev/null
+expect "RTL: the sitemap lists the Arabic address; ar is a reserved slug" "$(contains -q '/ar/kinesio-rtl-ar</loc>' "$WORK/response" && echo listed)|$(mcp create_page '{"title":"Ar","slug":"ar"}' > "$WORK/response"; contains -q 'isError' "$WORK/response" && echo refused)" "listed|refused"
+mcp site_info '{}' > "$WORK/response"; mcp_text
+contains -q '"code":"ar","published":true,"direction":"rtl"' "$WORK/text" && contains -q '"direction":"ltr"' "$WORK/text" && echo "  ok     RTL: site_info reports the direction of every language version" || { echo "  CHYBA  RTL: site_info direction"; head -c 600 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+mcp translation_status '{}' > "$WORK/response"; mcp_text
+contains -q '"directions":{"cs":"ltr","en":"ltr","ar":"rtl"}' "$WORK/text" && echo "  ok     RTL: translation_status reports the directions" || { echo "  CHYBA  RTL: translation_status directions"; head -c 400 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+# the builder of the Arabic page: the canvas is the page itself (dir="rtl"), the editor tells its fields the direction; the admin stays left to right
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=pages&action=builder&id=$ARRTL"
+contains -q '"smer":"rtl"' "$WORK/response" && ! contains -q '<html[^>]*dir="rtl"' "$WORK/response" && echo "  ok     RTL: the builder of an Arabic page gets the direction for its fields, the admin page itself stays left to right" || { echo "  CHYBA  RTL: builder direction"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=pages&action=edit&id=$ARRTL"
+contains -q 'name="titulek" value="شريط كينيزيو" maxlength="200" required dir="rtl"' "$WORK/response" && contains -q 'data-editor dir="rtl"' "$WORK/response" && echo "  ok     RTL: the page form writes Arabic fields right to left" || { echo "  CHYBA  RTL: page form direction"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=pages&action=edit&id=$CSRTL"
+! contains -q 'dir="rtl"' "$WORK/response" && echo "  ok     RTL: a Czech page form has no dir attribute" || { echo "  CHYBA  RTL: dir on a Czech form"; ERRORS=$((ERRORS+1)); }
+sq "DELETE FROM ka_stranky WHERE ids IN ($CSRTL, $ARRTL)" > /dev/null
+# fysiomed.eu's shape: an English site with an Arabic half from Polylang; for this part English is the default language
+LANGRTL=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_language'")
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('site_language', 'en'), ('additional_languages', '')" > /dev/null
+ml_run wordpress-arabic
+expect "RTL import: Arabic (Polylang ar) added to the site, nothing left out, the page, post and category linked to their English originals" \
+  "$(mcp_value phase)|$(mcp_value languages added_to_site 0)|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'additional_languages'")|$(mcp_value languages not_available 0 language)|$(mcp_value languages translations_linked)" \
+  "done|ar|ar|null|3"
+expect "RTL import: the Arabic page and post are in the Arabic version and point to the English ones" \
+  "$(sq "SELECT CONCAT(a.jazyk, '/', a.preklad_z = e.ids) FROM ka_stranky a JOIN ka_stranky e ON e.seo_link = 'kinesio-tape-fxm' WHERE a.seo_link = 'kinesio-tape-ar-fxm'")|$(sq "SELECT CONCAT(a.jazyk, '/', a.preklad_z = e.idc) FROM ka_novinky a JOIN ka_novinky e ON e.seo_link = 'taping-knee-fxm' WHERE a.seo_link = 'taping-knee-ar-fxm'")" \
+  "ar/1|ar/1"
+sq "UPDATE ka_stranky SET zobrazit = 1 WHERE seo_link LIKE 'kinesio-tape-%fxm'" > /dev/null # over MCP everything arrives hidden
+IMP=$(get39 /ar/kinesio-tape-ar-fxm)
+contains -q '<html lang="ar" dir="rtl"' "$WORK/response" && contains -q 'Kinesio Tape (5 cm × 5 m)' "$WORK/response" && contains -q 'hreflang="en" href="[^"]*/kinesio-tape-fxm"' "$WORK/response" && IMP="$IMP ok"
+IMPEN=$(get39 /kinesio-tape-fxm)
+contains -q '<html lang="en">' "$WORK/response" && contains -q 'hreflang="ar" href="[^"]*/ar/kinesio-tape-ar-fxm"' "$WORK/response" && IMPEN="$IMPEN ok"
+expect "RTL import: the imported Arabic page renders right to left with hreflang to English, and back" "$IMP|$IMPEN" "200  ok|200  ok"
+sq "DELETE FROM ka_stranky WHERE seo_link LIKE '%-fxm'; DELETE FROM ka_novinky WHERE seo_link LIKE '%-fxm'; DELETE FROM ka_kategorie WHERE seo_link LIKE 'blog-fxm%'; DELETE FROM ka_presmerovani WHERE z_adresy LIKE '%fxm%'" > /dev/null
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('site_language', '$LANGRTL'), ('additional_languages', 'en'), ('home_page', '$HOME39')" > /dev/null
 
 echo "== 2.9: monthly report by e-mail"
 REPORT_MAILS() { sq "SELECT COUNT(*) FROM ka_posta WHERE predmet LIKE '%Zpráva o webu%' OR predmet LIKE '%Website report%'"; }
