@@ -830,7 +830,7 @@ CREATE TABLE ka_oauth_rotated (
     idu        INT UNSIGNED NOT NULL,
     salt       CHAR(64)     NOT NULL,              -- with the old token it derives the pair it was rotated into
     rotated_at DATETIME     NOT NULL,
-    expires_at DATETIME     NOT NULL,              -- when the rotated token would have expired; the record goes then
+    expires_at DATETIME     NOT NULL,              -- the record goes then: OAuth::ROTATED_LIFETIME after the rotation (3.10.1), at most the old token's expiry
     PRIMARY KEY (hash),
     KEY ix_oauth_rotated_client (client_id, idu)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;

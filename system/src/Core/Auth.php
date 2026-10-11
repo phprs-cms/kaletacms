@@ -464,6 +464,30 @@ final class Auth
         return $authors === null ? '' : ' AND ' . $alias . 'autor IN (' . implode(',', array_map(intval(...), $authors)) . ')';
     }
 
+    /*
+     * What a list may show (3.10.1, the audit's N33): list_pages, list_news, list_collection_items and the translation
+     * overview (Core\Translations – admin and translation_status) take their conditions from here, so the rules cannot
+     * drift apart. Each is part of a WHERE condition: it starts with " AND", or is empty.
+     */
+
+    /** Pages: without the Pages section only the published ones – the user can link to those, drafts stay unseen. */
+    public function pageListScope(string $alias = ''): string
+    {
+        return $this->hasModule('pages') ? '' : ' AND ' . $alias . 'zobrazit = 1';
+    }
+
+    /** News: an author only their own (articleScope), and without the News section only what visitors see (3.3.2, N12). */
+    public function newsListScope(string $alias = ''): string
+    {
+        return $this->articleScope($alias) . ($this->hasModule('news') ? '' : ' AND ' . $alias . 'visible = 1 AND ' . $alias . 'datum <= NOW()');
+    }
+
+    /** Collection items: without the Collections section only the items shown on the site. */
+    public function collectionItemListScope(string $alias = ''): string
+    {
+        return $this->hasModule('collections') ? '' : ' AND ' . $alias . 'zobrazit = 1';
+    }
+
     /**
      * IDs of authors whose news items the user can manage: an author only themselves, an editor and an administrator all (null = no limit).
      *

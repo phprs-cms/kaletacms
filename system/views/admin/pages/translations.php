@@ -58,6 +58,8 @@ foreach ($rows as $row) {
 <?php else: ?>
 		<a class="navigace" href="<?= e($createUrl($row, $code)) ?>"><?= e(t('Create')) ?></a>
 <?php endif ?>
+<?php elseif ($cell['id'] === null): /* a translation outside the user's scope (3.10.1): its status without a link */ ?>
+		<span class="stitek <?= $cell['status'] === Translations::OUTDATED ? 'stitek-koncept' : 'stitek-vydano' ?>"><?= e($cell['status'] === Translations::OUTDATED ? t('older than original') : t('translated')) ?></span>
 <?php elseif ($cell['status'] === Translations::OUTDATED): ?>
 		<a class="stitek stitek-koncept" href="<?= e($editUrl($row, (int) $cell['id'])) ?>" title="<?= e(t('The original changed after this translation was saved.')) ?>"><?= e(t('older than original')) ?></a>
 <?php else: ?>

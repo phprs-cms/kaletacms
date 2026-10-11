@@ -162,14 +162,15 @@ trait CollectionTools
 
         $collection = $this->collection((string) ($a['kolekce'] ?? ''));
 
-        $whereParts = ['idk = ?', 'smazano IS NULL']; // the trash is in list_trash
+        // the trash is in list_trash; without the Collections section only published items (Auth::collectionItemListScope)
+        $whereParts = ['idk = ?', 'smazano IS NULL' . $auth->collectionItemListScope()];
         $args = [$collection['idk']];
         if (isset($a['jazyk']) && is_string($a['jazyk'])) {
             $whereParts[] = 'jazyk = ?';
             $args[] = $a['jazyk'];
         }
-        if (!empty($a['jen_zobrazene']) || !$auth->hasModule('collections')) {
-            $whereParts[] = 'zobrazit = 1'; // without the Collections section only published items
+        if (!empty($a['jen_zobrazene'])) {
+            $whereParts[] = 'zobrazit = 1';
         }
         if (is_string($a['hledat'] ?? null) && trim($a['hledat']) !== '') {
             $whereParts[] = '(nazev LIKE ? OR data LIKE ?)';

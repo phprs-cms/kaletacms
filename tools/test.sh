@@ -2332,6 +2332,18 @@ REFRESH_R2=$(cat "$WORK"/race-refresh-* | grep -o '"refresh_token":"[a-z0-9_]*"'
 curl -s -o "$WORK/response" -X POST "$B/oauth/token" -d grant_type=refresh_token -d "refresh_token=$REFRESH_R2" -d "client_id=$CLIENT_R"
 REFRESH_R3=$(grep -o '"refresh_token":"[a-z0-9_]*"' "$WORK/response" | sed 's/.*:"//;s/"//' || true)
 [ -n "$REFRESH_R3" ] && [ "$REFRESH_R3" != "$REFRESH_R2" ] && echo "  ok     3.3.4 N13: the new refresh token refreshes normally" || { echo "  CHYBA  N13 refresh after the race"; cat "$WORK/response"; ERRORS=$((ERRORS+1)); }
+# 3.10.1 (N39-5): a rotation is remembered for 30 days, not for the old token's year; past that window (a record from
+# before 3.10.1 kept for a year included) the old token is plainly invalid, the live pair keeps working and the record goes
+expect "3.10.1 N39-5: two refreshes leave two rotation records, each kept at most 30 days" \
+  "$(sq "SELECT CONCAT(COUNT(*), '|', MAX(expires_at) <= '$(site_time)' + INTERVAL 30 DAY + INTERVAL 1 MINUTE) FROM ka_oauth_rotated WHERE client_id = '$CLIENT_R'")" "2|1"
+sq "UPDATE ka_oauth_rotated SET rotated_at = '$(site_time)' - INTERVAL 31 DAY, expires_at = '$(site_time)' + INTERVAL 300 DAY WHERE hash = SHA2('$REFRESH_R2', 256)" > /dev/null
+expect "3.10.1 N39-5: a refresh token rotated more than 30 days ago is refused without revoking the live pair or recording theft" \
+  "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/oauth/token" -d grant_type=refresh_token -d "refresh_token=$REFRESH_R2" -d "client_id=$CLIENT_R")|$(sq "SELECT COUNT(*) FROM ka_api_tokeny WHERE klient = '$CLIENT_R' AND druh = 'obnova'")|$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'security.token_reuse' AND data LIKE '%$CLIENT_R%'")" "400|1|0"
+curl -s -o "$WORK/response" -X POST "$B/oauth/token" -d grant_type=refresh_token -d "refresh_token=$REFRESH_R3" -d "client_id=$CLIENT_R"
+REFRESH_R4=$(grep -o '"refresh_token":"[a-z0-9_]*"' "$WORK/response" | sed 's/.*:"//;s/"//' || true)
+expect "3.10.1 N39-5: the live refresh token still works, and the cleanup deletes the record past its window, the recent ones stay" \
+  "$([ -n "$REFRESH_R4" ] && [ "$REFRESH_R4" != "$REFRESH_R3" ] && echo new)|$(sq "SELECT COUNT(*) FROM ka_oauth_rotated WHERE hash = SHA2('$REFRESH_R2', 256)")|$(sq "SELECT COUNT(*) FROM ka_oauth_rotated WHERE client_id = '$CLIENT_R'")" "new|0|2"
+REFRESH_R3="$REFRESH_R4"
 # reuse of a rotated refresh token after the grace period counts as theft: every token of the client for the user goes
 sq "UPDATE ka_oauth_rotated SET rotated_at = '$(site_time)' - INTERVAL 1 MINUTE WHERE client_id = '$CLIENT_R'" > /dev/null
 expect "3.3.4 N13: a rotated refresh token used after the grace period is refused and revokes the client's tokens, recorded as an event" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/oauth/token" -d grant_type=refresh_token -d "refresh_token=$REFRESH_R" -d "client_id=$CLIENT_R")|$(sq "SELECT COUNT(*) FROM ka_api_tokeny WHERE klient = '$CLIENT_R'")|$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'security.token_reuse' AND data LIKE '%$CLIENT_R%'")|$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/oauth/token" -d grant_type=refresh_token -d "refresh_token=$REFRESH_R3" -d "client_id=$CLIENT_R")" "400|0|1|400"
@@ -4297,6 +4309,26 @@ sleep 1; mcp update_page "{\"id\":$F16_PAGE,\"description\":\"Originál se změn
 mcp translation_status '{"status":"outdated"}' > "$WORK/response"; mcp_value items > "$WORK/items.json"
 expect "MCP: the original changed after the translation – outdated" "$(f16_status)" "page|outdated"
 check "translations: the matrix marks the older translation" 200 "/admin.php?module=pages&action=translations" 'data-stav="outdated"'
+# 3.10.1 (N33): an author's connection gets the overview its list tools give – no hidden page, no other author's draft,
+# no hidden collection item, its own draft yes; the administrator (and the admin screen) still sees all of them
+mcp create_page '{"title":"N33 hidden page"}' > /dev/null; sq "UPDATE ka_stranky SET zobrazit = 0 WHERE titulek = 'N33 hidden page'" > /dev/null
+mcp create_news "{\"title\":\"N33 other author draft\",\"category\":\"$CATEGORY\"}" > /dev/null
+mcp create_collection '{"name":"N33","slug":"n33","fields":[{"label":"Popis","type":"text"}]}' > /dev/null
+mcp save_collection_item '{"collection":"n33","name":"N33 hidden item"}' > /dev/null; mcp save_collection_item '{"collection":"n33","name":"N33 shown item","visible":true}' > /dev/null
+sq "INSERT INTO ka_uzivatele (user, password, jmeno, admin, posledni_login, potvrzeno) VALUES ('n33-author', '', 'Author N33', 0, '$(site_time)', '$(site_time)');
+  INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, 'news' FROM ka_uzivatele WHERE user = 'n33-author'" > /dev/null
+AUTHOR33_TOKEN="kaleta_$(printf 'c%.0s' $(seq 1 48))"
+sq "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'author 33', '$(php -r 'echo hash("sha256", $argv[1]);' "$AUTHOR33_TOKEN")', '$(site_time)' FROM ka_uzivatele WHERE user = 'n33-author'" > /dev/null
+mcp_as "$AUTHOR33_TOKEN" create_news "{\"title\":\"N33 own draft\",\"category\":\"$CATEGORY\"}" > /dev/null
+mcp_as "$AUTHOR33_TOKEN" translation_status '{"status":"all"}' > "$WORK/response"; mcp_text
+expect "3.10.1 N33: translation_status for an author lists its own draft, but no hidden page, other author's draft or hidden collection item" \
+  "$(grep -c 'N33 own draft' "$WORK/text")|$(grep -c 'N33 shown item' "$WORK/text")|$(grep -c 'N33 hidden page\|N33 other author draft\|N33 hidden item' "$WORK/text")" "1|1|0"
+mcp translation_status '{"status":"all"}' > "$WORK/response"; mcp_text
+expect "3.10.1 N33: the administrator's translation_status lists all of them" \
+  "$(grep -o 'N33 own draft\|N33 shown item\|N33 hidden page\|N33 other author draft\|N33 hidden item' "$WORK/text" | sort -u | wc -l | tr -d ' ')" "5"
+check "3.10.1 N33: the admin translation overview still lists the hidden page for the administrator" 200 "/admin.php?module=pages&action=translations" "N33 hidden page"
+mcp delete_collection '{"collection":"n33"}' > /dev/null
+sq "DELETE FROM ka_novinky WHERE titulek LIKE 'N33 %'; DELETE FROM ka_stranky WHERE titulek = 'N33 hidden page'; DELETE FROM ka_uzivatele WHERE user = 'n33-author'" > /dev/null
 # bulk actions in the pages list: two pages hidden at once, one moved to a language version, one to the trash
 mcp create_page '{"title":"Hromadně A","visible":true}' > /dev/null; mcp create_page '{"title":"Hromadně B","visible":true}' > /dev/null
 F16_A=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'hromadne-a'"); F16_B=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'hromadne-b'")

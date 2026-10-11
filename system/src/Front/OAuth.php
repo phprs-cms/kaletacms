@@ -23,7 +23,7 @@ use Kaleta\Core\Session;
  * The application gets the permissions of the user who allowed it – all of them, or (chosen on the consent screen, 2.2)
  * only drafts or only reading – and, since 3.10, the tool set it lists (essentials or all tools). The access token is
  * valid for an hour, the
- * refresh token for 30 days, and it is exchanged for a new one on every use. Tokens are stored in ka_api_tokeny (hashes
+ * refresh token for a year (3.9), and it is exchanged for a new one on every use. Tokens are stored in ka_api_tokeny (hashes
  * only) – disconnecting the application in "Můj účet" (My account) deletes them.
  * At the domain root the metadata are at /.well-known/. A site in a subfolder serves them at /folder/.well-known/
  * (openid-configuration included), where MCP clients that follow the current specification look; for others, sign-in with
@@ -44,6 +44,10 @@ use Kaleta\Core\Session;
  *  - N66: clients that were never approved and have no token and no code are deleted a day after registration (the daily
  *    job "security"); the registration limit counts the visitor by Firewall::visitorKey (an IPv6 address by its /64).
  *  - N20: the code_verifier must have the 43–128 characters RFC 7636 requires.
+ *
+ * 3.10.1 (the audit's N39-5): a rotation record is kept for ROTATED_LIFETIME, no longer for the rest of the old token's
+ * year – about 720 rows for a connection Claude refreshes every hour instead of 8,760. Past that window a reused old
+ * token is simply invalid (no revoke). Records from before 3.10.1 go by their rotated_at in the same cleanup.
  */
 final class OAuth
 {
@@ -71,6 +75,14 @@ final class OAuth
      * was lost, or two parallel refreshes of one client). After that, using it again revokes the client's tokens.
      */
     public const int REFRESH_GRACE = 30;
+
+    /**
+     * Seconds a rotation record is kept (3.10.1, N39-5): the window in which a reused old refresh token is still recognised
+     * as theft. Not shorter, because reuse detection protects the case where a thief refreshes first – the real client
+     * comes back with the old token when it next needs a token (after days of not being used, too), and the reuse then
+     * revokes the thief's pair. Thirty days was the refresh lifetime before 3.9.
+     */
+    public const int ROTATED_LIFETIME = 30 * 86400;
 
     public function __construct(private readonly App $app)
     {
@@ -380,8 +392,9 @@ final class OAuth
                 if ($db->delete('api_tokeny', ['idt' => (int) $refresh['idt'], 'druh' => 'obnova']) !== 1) {
                     return false; // another request rotated it a moment ago
                 }
+                // remembered for ROTATED_LIFETIME (N39-5), never past the old token's own expiry
                 $db->insert('oauth_rotated', ['hash' => $hash, 'client_id' => (string) $client['client_id'], 'idu' => (int) $refresh['idu'], 'salt' => $salt,
-                    'rotated_at' => $now, 'expires_at' => (string) $refresh['expirace']]);
+                    'rotated_at' => $now, 'expires_at' => min((string) $refresh['expirace'], date('Y-m-d H:i:s', time() + self::ROTATED_LIFETIME))]);
                 // the access and the tool set chosen at consent (or switched in My account) stay
                 self::storeTokens($db, (int) $refresh['idu'], $client, (string) $refresh['access'], (string) ($refresh['tool_set'] ?? 'all'), $pair);
 
@@ -392,7 +405,9 @@ final class OAuth
             }
         }
         $record = $db->one('SELECT * FROM {oauth_rotated} WHERE hash = ?', [$hash]);
-        if ($record === null || $record['client_id'] !== $client['client_id'] || (string) $record['expires_at'] < $now) {
+        // a record past its window is no longer evidence of theft, even before the cleanup removes it (a record from before 3.10.1)
+        if ($record === null || $record['client_id'] !== $client['client_id'] || (string) $record['expires_at'] < $now
+            || (string) $record['rotated_at'] < date('Y-m-d H:i:s', time() - self::ROTATED_LIFETIME)) {
             return $invalid();
         }
         if ((int) strtotime((string) $record['rotated_at']) >= time() - self::REFRESH_GRACE) {
@@ -466,16 +481,11 @@ final class OAuth
         // cleanup of expired tokens, codes and rotation records
         $db->run("DELETE FROM {api_tokeny} WHERE druh <> 'token' AND expirace < ?", [date('Y-m-d H:i:s')]);
         $db->run('DELETE FROM {oauth_kody} WHERE expirace < ?', [date('Y-m-d H:i:s')]);
-        $db->run('DELETE FROM {oauth_rotated} WHERE expires_at < ?', [date('Y-m-d H:i:s')]);
+        self::purgeRotated($db);
 
         return $this->json(['access_token' => $pair[0], 'token_type' => 'Bearer', 'expires_in' => self::ACCESS_LIFETIME, 'refresh_token' => $pair[1], 'scope' => 'mcp']);
     }
 
-    /**
-     * Registration housekeeping (3.3.4, N66, the daily job "security"): clients nobody ever approved that have no token and
-     * no code are deleted a day after their registration. A client approved once stays – Claude keeps its client_id and
-     * signs in with it again when its tokens have run out.
-     */
     /**
      * Disconnects every app a user connected over OAuth (the Claude connector): its access and refresh tokens go. Called when
      * the password changes (3.9, N39-1) – a refresh token lives a year, so a stolen one must not outlive the password.
@@ -486,13 +496,27 @@ final class OAuth
         return $db->run("DELETE FROM {api_tokeny} WHERE idu = ? AND druh <> 'token'", [$userId])->rowCount();
     }
 
+    /**
+     * Registration housekeeping (3.3.4, N66, the daily job "security"): clients nobody ever approved that have no token and
+     * no code are deleted a day after their registration. A client approved once stays – Claude keeps its client_id and
+     * signs in with it again when its tokens have run out. Rotation records past their window go too (3.10.1, N39-5).
+     */
     public static function purgeUnusedClients(Db $db): int
     {
-        $db->run('DELETE FROM {oauth_rotated} WHERE expires_at < ?', [date('Y-m-d H:i:s')]);
+        self::purgeRotated($db);
 
         return $db->run('DELETE FROM {oauth_klienti} WHERE approved IS NULL AND vytvoren < ?
             AND client_id NOT IN (SELECT klient FROM {api_tokeny} WHERE klient IS NOT NULL) AND client_id NOT IN (SELECT client_id FROM {oauth_kody})',
             [date('Y-m-d H:i:s', time() - 86400)])->rowCount();
+    }
+
+    /**
+     * Deletes rotation records past their window (3.10.1, N39-5): expired ones, and those rotated more than ROTATED_LIFETIME
+     * ago – which also clears the records from before 3.10.1 that were kept for the old token's whole year.
+     */
+    private static function purgeRotated(Db $db): void
+    {
+        $db->run('DELETE FROM {oauth_rotated} WHERE expires_at < ? OR rotated_at < ?', [date('Y-m-d H:i:s'), date('Y-m-d H:i:s', time() - self::ROTATED_LIFETIME)]);
     }
 
     /** @return array{0: string, 1: string} client_id and secret from the Basic header or from the form */

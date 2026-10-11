@@ -99,7 +99,7 @@ without OAuth) but are not part of the listing.
 | PKCE S256 and `code_challenge_methods_supported: ["S256"]` | Yes; the verifier must have 43–128 characters. |
 | Redirect URI `https://claude.ai/api/mcp/auth_callback` | Accepted; claude.ai and claude.com are Claude's own hosts on the consent screen. |
 | Claude Code: loopback redirect on any port, for `127.0.0.1` and `localhost` | **Fixed in 3.8.** A registered loopback redirect now matches with any port (RFC 8252 §7.3, `OAuth::redirectAllowed`); before, the same client coming back on another port got "unknown client or return address". |
-| Token endpoint takes `application/x-www-form-urlencoded`; `invalid_grant` for a dead refresh token; rotation for public clients | Yes; rotated refresh tokens have a 30-second grace for retries, a later reuse revokes the client's tokens. |
+| Token endpoint takes `application/x-www-form-urlencoded`; `invalid_grant` for a dead refresh token; rotation for public clients | Yes; rotated refresh tokens have a 30-second grace for retries, a later reuse (within 30 days of the rotation) revokes the client's tokens. |
 | Endpoints answer within 10 s (refresh 30 s) | Plain database work; no outbound calls on these endpoints. |
 | CIMD (`client_id_metadata_document_supported`) | Not offered – Claude falls back to DCR. Optional; the docs recommend CIMD for high-traffic servers because DCR registers a new client per connection (Kaleta deletes unapproved clients after a day). |
 | `offline_access` scope | Not listed in `scopes_supported`; the token endpoint returns a refresh token anyway, so Claude refreshes normally. |

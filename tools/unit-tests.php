@@ -3331,6 +3331,13 @@ check('2.14 Translations::status – missing, present, outdated (the original ch
     Kaleta\Core\Translations::status(null, '2026-01-10 10:00:00'), Kaleta\Core\Translations::status(['zmeneno' => '2026-01-11 10:00:00'], '2026-01-10 10:00:00'),
     Kaleta\Core\Translations::status(['zmeneno' => '2026-01-09 10:00:00'], '2026-01-10 10:00:00'), Kaleta\Core\Translations::status(['zmeneno' => null, 'datum' => '2026-01-09 10:00:00'], '2026-01-10 10:00:00'),
     Kaleta\Core\Translations::status(['zmeneno' => '2026-01-09 10:00:00'], null)], ['missing', 'present', 'outdated', 'outdated', 'present']);
+// 3.10.1 (N33): the translation overview and the list tools take their scope from the same Auth methods, so they cannot drift
+$n33Sources = array_map(fn (string $f): string => (string) file_get_contents(KALETA_ROOT . $f), ['/system/src/Core/Translations.php', '/system/src/Mcp/Handlers/PageTools.php', '/system/src/Mcp/Handlers/NewsTools.php', '/system/src/Mcp/Handlers/CollectionTools.php']);
+check('3.10.1 N33: Translations::matrix scopes pages, news and collection items (originals and translations) with the helpers list_pages, list_news and list_collection_items use', [
+    substr_count($n33Sources[0], '$auth->pageListScope('), substr_count($n33Sources[0], '$auth->newsListScope('), substr_count($n33Sources[0], '$auth->collectionItemListScope('),
+    str_contains($n33Sources[1], '$auth->pageListScope()'), str_contains($n33Sources[2], "\$auth->newsListScope('c.')"), str_contains($n33Sources[3], '$auth->collectionItemListScope()'),
+    str_contains($n33Sources[2], 'managedAuthors')], [2, 2, 2, true, true, true, false]);
+check('3.10.1 N39-5: a rotation record is kept 30 days – within the refresh token\'s year, well past the retry grace', [Kaleta\Front\OAuth::ROTATED_LIFETIME, Kaleta\Front\OAuth::ROTATED_LIFETIME < Kaleta\Front\OAuth::REFRESH_LIFETIME, Kaleta\Front\OAuth::ROTATED_LIFETIME > Kaleta\Front\OAuth::REFRESH_GRACE], [30 * 86400, true, true]);
 check('2.14 MCP: the two read-only tools are in the catalog as reads', [Kaleta\Mcp\Catalog::access('list_media_without_alt'), Kaleta\Mcp\Catalog::access('translation_status'), Kaleta\Mcp\Tools::annotations('translation_status')['readOnlyHint']], ['read', 'read', true]);
 /* ---------- 2.14: EU duties as templates (Core\Privacy) ---------- */
 $f17Embeds = ['{"typ":"video","obsah":{"url":"https://www.youtube.com/watch?v=abc123","titulek":""}}', '<p>Text without any embed</p>', '{"typ":"mapa","obsah":{"adresa":"Praha"}}'];
