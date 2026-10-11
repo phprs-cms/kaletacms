@@ -325,8 +325,9 @@ i položky přitom jde do historie verzí. Stránku umí Claude přesunout do ko
 **Které nástroje nabízí.** Vyberete také sadu nástrojů: **Základní** (výchozí při připojení Clauda) nabízí nástroje pro
 stránky, stavby, vzhled, kolekce, média a požadavky – mnohem kratší seznam, takže každá konverzace začne rychleji a zbude
 víc místa pro vaši práci. Ostatní nástroje (novinky, přesměrování, nastavení, rezervace…) si Claude najde přes
-`find_tools` a spustí, až je bude potřebovat – čtení přes `run_read_tool`, změny přes `run_tool` (ten vám aplikace Claude
-může dát k potvrzení) – se stejným přístupem i pravidly. **Všechny nástroje** nabízí
+`find_tools` a spustí, až je bude potřebovat – čtení přes `run_read_tool`, koncepty a změny přes `run_tool` a mazání,
+odesílání nebo cokoli mimo web přes `run_destructive_tool`, který si s vámi Claude nejdřív potvrdí (aplikace Claude se
+ptá u každého z nich zvlášť) – se stejným přístupem i pravidly. **Všechny nástroje** nabízí
 všechno najednou (výchozí pro osobní token – Claude Code a skripty). Napojení z doby před 3.10 mají všechny nástroje dál;
 kterékoli napojení přepnete v Můj účet.
 

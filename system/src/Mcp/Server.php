@@ -98,8 +98,8 @@ final class Server
             // Czech names remain as hidden aliases
             // only the tools this connection may use (a connection limited to drafts or to reading, 2.2)
             // 3.8: each tool also carries its title (top level and annotations.title, MCP 2025-06-18) – additive fields only
-            // 3.10: an essentials connection lists the core tools and find_tools / run_read_tool / run_tool (Mcp\Discovery)
-            'tools/list' => $ok(['tools' => $this->toolSet() === 'essentials' ? Discovery::essentials($this->available($tools)) : $this->available($tools)]),
+            // 3.10: an essentials connection lists the core tools, find_tools and the runners it needs (Mcp\Discovery)
+            'tools/list' => $ok(['tools' => $this->toolSet() === 'essentials' ? Discovery::essentials($this->available($tools), $this->access()) : $this->available($tools)]),
             'tools/call' => $ok($this->call($tools, (string) ($z['params']['name'] ?? ''), (array) ($z['params']['arguments'] ?? []))),
             default => ['jsonrpc' => '2.0', 'id' => $id, 'error' => ['code' => -32601, 'message' => 'Unknown method: ' . $method]],
         };
@@ -165,11 +165,17 @@ final class Server
     {
         // the meta tools (3.10): callable on any connection, they only find tools and run them through this same method
         if ($name === 'find_tools') {
-            $inList = $this->toolSet() === 'essentials' ? Catalog::ESSENTIALS : array_column($this->available($tools), 'name');
+            $available = $this->available($tools);
+            $essentials = $this->toolSet() === 'essentials';
+            try {
+                $found = Discovery::find($available, $essentials ? Catalog::ESSENTIALS : array_column($available, 'name'), $arguments, $essentials ? Discovery::runners($available, $this->access()) : []);
+            } catch (\InvalidArgumentException $e) {
+                return ['content' => [['type' => 'text', 'text' => $e->getMessage()]], 'isError' => true];
+            }
 
-            return ['content' => [['type' => 'text', 'text' => json_encode(Discovery::find($this->available($tools), $inList, $arguments), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]]];
+            return ['content' => [['type' => 'text', 'text' => json_encode($found, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]]];
         }
-        if ($name === 'run_tool' || $name === 'run_read_tool') {
+        if (isset(Discovery::RUNNERS[$name])) {
             return $this->runTool($tools, $arguments, $name);
         }
         $czech = Translator::czech($name);
@@ -242,12 +248,13 @@ final class Server
     }
 
     /**
-     * run_tool and run_read_tool (3.10): the inner tool goes through call() like a direct tools/call – the connection's
-     * access, the guardrails and the reason, the journal for undo, unknown parameters, the translation, the change log and
-     * the cache. run_read_tool runs read tools only; neither runs a meta tool, so a call cannot nest.
+     * The runners (3.10): the inner tool goes through call() like a direct tools/call – the connection's access, the
+     * guardrails and the reason, the journal for undo, unknown parameters, the translation, the change log and the cache.
+     * Each runs only its own class of tools (Discovery::runner – the audit's N310-2 and N310-4), so its annotations hold
+     * for whatever it runs; none runs a meta tool, so a call cannot nest.
      *
      * @param array<string, mixed> $arguments
-     * @param string $runner run_tool | run_read_tool
+     * @param string $runner run_read_tool | run_tool | run_destructive_tool
      * @return array<string, mixed>
      */
     private function runTool(Tools $tools, array $arguments, string $runner): array
@@ -274,9 +281,9 @@ final class Server
         if (Catalog::english($name) === null) {
             return $error('Unknown tool: ' . mb_substr($name, 0, 100) . '. Call find_tools for the tools of this site.');
         }
-        if ($runner === 'run_read_tool' && Catalog::access($name) !== 'read') {
-            // the read-only runner stays read-only: a client may run it without asking, so a change goes through run_tool
-            return $error('run_read_tool runs read-only tools only – ' . mb_substr($name, 0, 100) . ' changes the site (access: ' . Catalog::access($name) . '). Use run_tool for it.');
+        if (Discovery::runner($name) !== $runner) {
+            // a client may "always allow" one runner: it must never reach a tool of a more dangerous class
+            return $error(Discovery::refusal($runner, $name));
         }
 
         return $this->call($tools, $name, $inner);
@@ -452,8 +459,18 @@ final class Server
         // so nobody can lock out the site's Claude connections by sending wrong tokens from a shared address (a proxy in
         // front of Docker, Claude's own servers – N5), and guessing a 192-bit token gains nothing from more tries anyway.
         $limited = (int) $db->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'mcp' AND ip_adresa = ? AND cas > NOW() - INTERVAL 15 MINUTE", [$ip]) >= 20;
-        $token = $db->one("SELECT t.idt, t.nazev AS connection_name, t.access AS connection_access, t.tool_set AS connection_tool_set, u.* FROM {api_tokeny} t JOIN {uzivatele} u ON u.idu = t.idu WHERE t.otisk = ? AND u.blokovat = 0 AND t.druh <> 'obnova' AND (t.expirace IS NULL OR t.expirace > ?)",
+        $select = fn (string $toolSet): ?array => $db->one('SELECT t.idt, t.nazev AS connection_name, t.access AS connection_access, ' . $toolSet . " AS connection_tool_set, u.* FROM {api_tokeny} t JOIN {uzivatele} u ON u.idu = t.idu WHERE t.otisk = ? AND u.blokovat = 0 AND t.druh <> 'obnova' AND (t.expirace IS NULL OR t.expirace > ?)",
             [hash('sha256', $m[1]), date('Y-m-d H:i:s')]);
+        try {
+            $token = $select('t.tool_set');
+        } catch (\PDOException $e) {
+            // 3.10 audit (N310-9): before migration 0085 has run (no ALTER privilege, a lock timeout) every connection
+            // keeps working with all tools instead of failing with an SQL error
+            if ($e->getCode() !== '42S22') {
+                throw $e;
+            }
+            $token = $select("'all'");
+        }
         if ($token === null) {
             if (!$limited) {
                 $db->insert('kontrola_ip', ['ip_adresa' => $ip, 'typ' => 'mcp', 'cas' => date('Y-m-d H:i:s')]);

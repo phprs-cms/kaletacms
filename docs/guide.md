@@ -387,8 +387,9 @@ be changed over the connection.
 **Which tools it lists.** You also choose the tool set: **Essentials** (the default when you connect Claude) lists the
 tools for pages, builds, the look, collections, media and requests – a much shorter list, so every conversation starts
 faster and keeps more room for your work. Claude finds the other tools (news, redirects, settings, bookings…) with
-`find_tools` and runs them when it needs them – reads with `run_read_tool`, changes with `run_tool` (which your Claude
-app can ask you to confirm) – with the same access and rules. **All tools** lists
+`find_tools` and runs them when it needs them – reads with `run_read_tool`, drafts and changes with `run_tool`, and
+deleting, sending or anything that reaches outside the site with `run_destructive_tool`, which Claude confirms with you
+first (your Claude app asks for each runner separately) – with the same access and rules. **All tools** lists
 everything at once (the default for a personal token – Claude Code and scripts). Connections from before 3.10 keep all
 tools; switch any connection in My account.
 

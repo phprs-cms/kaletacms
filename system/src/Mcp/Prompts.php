@@ -153,9 +153,9 @@ final class Prompts
         if (($app->auth()->connection()['tool_set'] ?? 'all') === 'essentials') {
             // 3.10: the list holds the core tools; the rest – everything these instructions name – is a find_tools away
             $text .= ' YOUR TOOL LIST HOLDS THE ESSENTIALS: pages, builds, the menu and the look, collections, media, requests, enquiries, facts, the audit, the change log and undo. '
-                . 'Every other tool named here or that a task needs (news, redirects, settings, pop-ups, trash, versions, bookings, newsletters, the notebook, imports…) exists too: '
-                . 'call find_tools (with names or a query) for its parameters, then run_read_tool for a read tool or run_tool for one that changes the site, with name and arguments – '
-                . 'the same rules and confirmations as a direct call.';
+                . 'Every other tool named here or that a task needs (news, redirects, settings, health, pop-ups, trash, versions, bookings, newsletters, imports…) exists too: '
+                . 'call find_tools (with names or a query) for its parameters and its runner, then that runner with name and arguments: run_read_tool for reads, run_tool for drafts and changes, '
+                . 'run_destructive_tool for deleting, sending or reaching outside the site – confirm that exact action with the user first. The same rules as a direct call.';
         }
         $address = \Kaleta\Core\Language::visitorAddress($app->settings());
         if ($address !== null) {

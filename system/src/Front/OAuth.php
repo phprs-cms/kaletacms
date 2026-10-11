@@ -293,7 +293,7 @@ final class OAuth
     {
         $code = bin2hex(random_bytes(32));
         $this->app->db()->run('UPDATE {oauth_klienti} SET approved = ? WHERE client_id = ? AND approved IS NULL', [date('Y-m-d H:i:s'), (string) $pending['client_id']]);
-        $this->app->db()->insert('oauth_kody', ['otisk' => hash('sha256', $code), 'client_id' => $pending['client_id'], 'idu' => $idu, 'presmerovani' => $pending['redirect_uri'],
+        self::insertWithToolSet($this->app->db(), 'oauth_kody', ['otisk' => hash('sha256', $code), 'client_id' => $pending['client_id'], 'idu' => $idu, 'presmerovani' => $pending['redirect_uri'],
             'vyzva' => $pending['challenge'], 'access' => self::access($access),
             'tool_set' => \Kaleta\Mcp\Catalog::toolSet($toolSet), 'expirace' => date('Y-m-d H:i:s', time() + self::CODE_LIFETIME)]);
 
@@ -332,7 +332,7 @@ final class OAuth
                 return $this->error('invalid_grant', 'The code is invalid, expired or already used, or the redirect URI or PKCE does not match.');
             }
 
-            return $this->issueTokens($db, (int) $code['idu'], $client, (string) $code['access'], (string) $code['tool_set']);
+            return $this->issueTokens($db, (int) $code['idu'], $client, (string) $code['access'], (string) ($code['tool_set'] ?? 'all'));
         }
         if ($r->post('grant_type') === 'refresh_token') {
             return $this->refresh($db, $client, $r->post('refresh_token'));
@@ -383,7 +383,7 @@ final class OAuth
                 $db->insert('oauth_rotated', ['hash' => $hash, 'client_id' => (string) $client['client_id'], 'idu' => (int) $refresh['idu'], 'salt' => $salt,
                     'rotated_at' => $now, 'expires_at' => (string) $refresh['expirace']]);
                 // the access and the tool set chosen at consent (or switched in My account) stay
-                self::storeTokens($db, (int) $refresh['idu'], $client, (string) $refresh['access'], (string) $refresh['tool_set'], $pair);
+                self::storeTokens($db, (int) $refresh['idu'], $client, (string) $refresh['access'], (string) ($refresh['tool_set'] ?? 'all'), $pair);
 
                 return true;
             });
@@ -435,8 +435,28 @@ final class OAuth
     private static function storeTokens(Db $db, int $idu, array $client, string $level, string $toolSet, array $pair): void
     {
         foreach ([[$pair[0], 'pristup', self::ACCESS_LIFETIME], [$pair[1], 'obnova', self::REFRESH_LIFETIME]] as [$token, $kind, $lifetime]) {
-            $db->insert('api_tokeny', ['idu' => $idu, 'nazev' => (string) $client['nazev'], 'klient' => (string) $client['client_id'], 'druh' => $kind, 'access' => self::access($level),
+            self::insertWithToolSet($db, 'api_tokeny', ['idu' => $idu, 'nazev' => (string) $client['nazev'], 'klient' => (string) $client['client_id'], 'druh' => $kind, 'access' => self::access($level),
                 'tool_set' => \Kaleta\Mcp\Catalog::toolSet($toolSet), 'expirace' => date('Y-m-d H:i:s', time() + $lifetime), 'otisk' => hash('sha256', $token), 'vytvoren' => date('Y-m-d H:i:s')]);
+        }
+    }
+
+    /**
+     * An insert of a code or a token with its tool set (3.10). Before migration 0085 has run the column is missing: the
+     * row is stored without it and the connection has all tools, as before 3.10 – a token exchange never fails on it
+     * (the audit's N310-9).
+     *
+     * @param array<string, mixed> $row
+     */
+    private static function insertWithToolSet(Db $db, string $table, array $row): void
+    {
+        try {
+            $db->insert($table, $row);
+        } catch (\PDOException $e) {
+            if ($e->getCode() !== '42S22') {
+                throw $e;
+            }
+            unset($row['tool_set']);
+            $db->insert($table, $row);
         }
     }
 

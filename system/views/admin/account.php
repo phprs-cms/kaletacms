@@ -132,6 +132,9 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 <?php endif ?>
 
 <?php if ($claude): ?>
+<?php // the buttons of the listed connections (switch, disconnect, revoke) belong to this form through their form attribute:
+// the form below then has "Create token" as its only button, so Enter in the token name creates the token (3.10 audit, N310-7) ?>
+<form id="claude-connections" method="post" action="<?= $action ?>"><?= $csrf ?></form>
 <form class="formular" method="post" action="<?= $action ?>">
 <?= $csrf ?>
 <fieldset id="claude"><legend><?= e(t('Claude connection')) ?></legend>
@@ -150,7 +153,7 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 <?php
 // 3.10: the tool set of a connection and the button that switches it ("<set>:token:<id>" or "<set>:app:<client_id>")
 $toolSetLabel = fn (string $set): string => '<span class="stitek">' . e($set === 'essentials' ? t('essentials') : t('all tools')) . '</span>';
-$toolSetSwitch = fn (string $set, string $target): string => '<button class="navigace" type="submit" name="tool_set_switch" value="' . e(($set === 'essentials' ? 'all' : 'essentials') . ':' . $target) . '">'
+$toolSetSwitch = fn (string $set, string $target): string => '<button class="navigace" type="submit" form="claude-connections" name="tool_set_switch" value="' . e(($set === 'essentials' ? 'all' : 'essentials') . ':' . $target) . '">'
     . e($set === 'essentials' ? t('List all tools') : t('List essentials only')) . '</button>';
 ?>
 <?php if ($apps !== []): ?>
@@ -158,7 +161,7 @@ $toolSetSwitch = fn (string $set, string $target): string => '<button class="nav
 <?php foreach ($apps as $a): ?>
 <p><span class="stitek"><?= e($a['nazev']) ?></span> <span class="stitek"><?= e($accessLabel[$a['access']] ?? $accessLabel['read']) ?></span> <?= $toolSetLabel((string) $a['tool_set']) ?> <?= e(t('connected %s', format_date($a['vytvoren']))) ?>, <?= e($a['pouzit'] ? t('naposledy použita %s', format_date($a['pouzit'], true)) : t('zatím nepoužita')) ?>
 	<?= $toolSetSwitch((string) $a['tool_set'], 'app:' . $a['klient']) ?>
-	<button class="navigace nebezpecne" type="submit" name="odpojit_klient" value="<?= e($a['klient']) ?>" data-potvrdit="<?= e(t('Disconnect the application? It will not get into the website until you allow it again.')) ?>"><?= e(t('Disconnect')) ?></button></p>
+	<button class="navigace nebezpecne" type="submit" form="claude-connections" name="odpojit_klient" value="<?= e($a['klient']) ?>" data-potvrdit="<?= e(t('Disconnect the application? It will not get into the website until you allow it again.')) ?>"><?= e(t('Disconnect')) ?></button></p>
 <?php endforeach ?>
 <?php endif ?>
 <p><?= e(t('Claude will work with the site')) ?> <strong><?= e(t('in your name and with your permissions')) ?></strong>: <?= e(t((int) $user['admin'] === 2 ? 'write and edit pages and news, and manage categories, collections and the look of the site.' : 'write and edit news.')) ?> <?= e(t('It creates new news items as drafts and new pages as hidden. All its changes are in the Change log. Protect the token like a password.')) ?></p>
@@ -166,7 +169,7 @@ $toolSetSwitch = fn (string $set, string $target): string => '<button class="nav
 <p><span class="stitek"><?= e($t['nazev']) ?></span> <span class="stitek"><?= e($accessLabel[$t['access']] ?? $accessLabel['read']) ?></span> <?= $toolSetLabel((string) $t['tool_set']) ?> <?= e(t('created %s', format_date($t['vytvoren']))) ?>, <?= e($t['pouzit'] ? t('naposledy použit %s', format_date($t['pouzit'], true)) : t('zatím nepoužit')) ?>,
 	<?= $t['expirace'] === null ? e(t('no expiry')) : ($t['expirace'] < date('Y-m-d H:i:s') ? '<strong>' . e(t('expired %s', format_date($t['expirace']))) . '</strong>' : e(t('valid until %s', format_date($t['expirace'])))) ?>
 	<?= $toolSetSwitch((string) $t['tool_set'], 'token:' . (int) $t['idt']) ?>
-	<button class="navigace nebezpecne" type="submit" name="smaz_token" value="<?= (int) $t['idt'] ?>" data-potvrdit="<?= e(t('Revoke the token? Claude will no longer be able to sign in with it.')) ?>"><?= e(t('Revoke token')) ?></button></p>
+	<button class="navigace nebezpecne" type="submit" form="claude-connections" name="smaz_token" value="<?= (int) $t['idt'] ?>" data-potvrdit="<?= e(t('Revoke the token? Claude will no longer be able to sign in with it.')) ?>"><?= e(t('Revoke token')) ?></button></p>
 <?php endforeach ?>
 <div class="radek"><label for="token-nazev"><?= e(t('Name of the new token')) ?></label><div><input class="textpole" type="text" id="token-nazev" name="nazev" maxlength="100" size="30" placeholder="<?= e(t('e.g. Claude on my laptop')) ?>"></div></div>
 <div class="radek"><label for="token-platnost"><?= e(t('Valid for')) ?></label><div><select id="token-platnost" name="platnost">

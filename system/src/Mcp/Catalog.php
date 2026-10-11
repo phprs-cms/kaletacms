@@ -370,26 +370,28 @@ final class Catalog
      * The core tools an essentials connection lists (3.10): pages, the builder, the menu and the look, collections, media,
      * requests and enquiries, facts, the audit, the change log and undo_agent_session (the safety net of a Claude session)
      * – what the server instructions, the prompts and the plugin skills reach for first. tools/list of these plus META
-     * stays under 50 KB (tools/unit-tests.php checks it); every other read tool is one run_read_tool away.
+     * stays under 50 KB (tools/unit-tests.php checks it); every other tool is one runner away (Discovery::runner).
      */
     public const array ESSENTIALS = ['site_info', 'list_pages', 'get_page', 'create_page', 'update_page', 'get_menu', 'save_menu', 'builder_schema', 'get_build',
         'edit_build', 'build_from_html', 'save_build', 'insert_section', 'publish_build', 'preview_link', 'list_collections', 'list_collection_items',
         'save_collection_item', 'list_media', 'upload_file', 'update_media', 'list_requests', 'update_request', 'list_enquiries', 'list_facts', 'save_fact',
-        'update_design_system', 'publish_look', 'site_audit', 'get_health', 'list_changes', 'undo_agent_session', 'read_notebook'];
+        'update_design_system', 'publish_look', 'site_audit', 'list_changes', 'undo_agent_session', 'read_notebook'];
 
     /**
      * The meta tools (3.10): English name => [access, title, open world]. They are listed only for an essentials connection
      * but callable on any; they are not site tools – no Tools method, no Translator entry – and Mcp\Server runs them itself.
-     * The runner is split so reads stay frictionless and writes keep a tool a client confirms: run_read_tool runs read tools
-     * only (annotated read-only), run_tool runs anything the connection may, so its annotations say so; either way the inner
-     * tool is checked like a direct call.
+     * Three runners, each with annotations that hold for every tool it runs (3.10 audit, N310-2 and N310-4), so a client's
+     * "always allow" on one never covers a more dangerous class: run_read_tool reads inside the site, run_tool saves drafts
+     * or changes the site without removing, sending or reaching outside, run_destructive_tool takes the rest (destructive or
+     * open-world). Each refuses the other classes (Discovery::runner); the inner tool is checked like a direct call.
      *
-     * @var array<string, array{0: 'read'|'destructive', 1: string, 2: bool}>
+     * @var array<string, array{0: 'read'|'draft'|'destructive', 1: string, 2: bool}>
      */
     public const array META = [
         'find_tools' => ['read', 'Find more tools', false],
         'run_read_tool' => ['read', 'Run a read-only tool by name', false],
-        'run_tool' => ['destructive', 'Run a tool by name', true],
+        'run_tool' => ['draft', 'Run a tool that saves or changes', false],
+        'run_destructive_tool' => ['destructive', 'Run a destructive or outside tool', true],
     ];
 
     /** A known tool set; anything else (an old row, a form from before 3.10) is "all", as it was. */

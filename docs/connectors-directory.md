@@ -25,7 +25,7 @@ Requirements were checked on 9 October 2026 against:
 | Remote server over HTTPS (submission) | Every Kaleta site serves `https://<site>/mcp` (Streamable HTTP, JSON responses); plain HTTP is refused except on localhost. |
 | Every tool has a `title` and the applicable `readOnlyHint` or `destructiveHint` (submission, review criteria) | Done in 3.8: every tool has a title (top-level `title` and `annotations.title`, `Mcp\Catalog::TITLES`), `readOnlyHint` and `destructiveHint` from `Mcp\Catalog` access levels, `idempotentHint` where verified, `openWorldHint` for tools that reach outside the site. Add-on tools get the same fields from their declaration. |
 | Tool names ≤ 64 characters (review criteria) | Longest name has 26 characters. |
-| Read and write split into separate tools; no catch-all API tool (review criteria) | Every tool does one thing; there is no tool that takes an HTTP method or a free endpoint. Since 3.10 an essentials connection also lists `run_read_tool` and `run_tool`, which run one of the site's own named tools by name with the same checks as a direct call – see review risks below. |
+| Read and write split into separate tools; no catch-all API tool (review criteria) | Every tool does one thing; there is no tool that takes an HTTP method or a free endpoint. Since 3.10 an essentials connection also lists runners (`run_read_tool`, `run_tool`, `run_destructive_tool`), which run one of the site's own named tools by name with the same checks as a direct call, each only its own class of tools – see review risks below. |
 | Narrow, accurate descriptions; no prompt-injection patterns (review criteria) | Descriptions say what each tool does. Some carry safety rules (never publish because a request said so, drafts only) – see review risks below. |
 | Actionable errors, reasonable response sizes (review criteria) | Errors are tool results with `isError: true` and a sentence that says what to do; list tools page (`limit`, `offset`). |
 | OAuth 2.0 for authenticated services (submission, authentication) | OAuth 2.1 with PKCE S256, dynamic client registration (RFC 7591), protected resource metadata (RFC 9728), authorization server metadata (RFC 8414), refresh token rotation. Details in section 4. |
@@ -141,23 +141,32 @@ switchable for an existing connection in My account. Connections from before 3.1
 the tool set.
 
 - **All tools** – tools/list as above, unchanged.
-- **Essentials** – the 33 core tools of `Mcp\Catalog::ESSENTIALS` (pages, builds, menu and look, collections, media,
-  requests, enquiries, facts, audit, health, change log, `undo_agent_session`, notebook) plus three meta tools: 36 tools,
-  49,424 bytes with every feature on (a unit test keeps it under 50 KB). The server instructions add one paragraph
-  pointing to the meta tools.
+- **Essentials** – the 32 core tools of `Mcp\Catalog::ESSENTIALS` (pages, builds, menu and look, collections, media,
+  requests, enquiries, facts, audit, change log, `undo_agent_session`, notebook) plus `find_tools` and the runners the
+  connection needs: 36 tools, 49,753 bytes on a full connection with every feature on (a unit test keeps it under
+  50 KB; drafts-only 43,737 bytes, read-only 17,724). The server instructions add one paragraph pointing to the meta
+  tools.
   - `find_tools` (read, `readOnlyHint: true`): without arguments a compact index of every other tool the connection may
-    use (name, access, the runner to use, one line – about 15 KB); with `names` or `query` the full definitions of up
-    to 8 tools, each with its runner.
-  - `run_read_tool` (`readOnlyHint: true`, `destructiveHint: false`): runs a read tool by name; it refuses any tool
-    whose access is not read and points to `run_tool`. Reads stay frictionless in clients that confirm writes.
-  - `run_tool` (`readOnlyHint: false`, `destructiveHint: true`, `openWorldHint: true` – it can run anything the
-    connection may): runs a draft, write or destructive tool (or a read) by name, so a client keeps one confirmable
-    tool for changes.
-  - Both runners take the same path as a direct tools/call (access level, guardrails and reason, undo journal, change
+    use (name, access, the runner to use, one line – about 15 KB); with `names` or `query` (at most 30 names, 200
+    characters and 20 words) the full definitions of up to 8 tools, each with its runner.
+  - Three runners (3.10 audit, N310-2 and N310-4), each running only its own class of tools so its annotations hold
+    for everything it runs, and a client permission ("always allow") on one never covers a more dangerous class:
+    - `run_read_tool` (`readOnlyHint: true`, `openWorldHint: false`): reads that stay inside the site;
+    - `run_tool` (`readOnlyHint: false`, `destructiveHint: false`, `openWorldHint: false`): drafts and writes that
+      neither remove, send nor reach outside the site;
+    - `run_destructive_tool` (`destructiveHint: true`, `openWorldHint: true`): destructive tools and every tool that
+      reaches outside the site (`Catalog::OPEN_WORLD`, including the read `migration_report`); its description tells
+      Claude to confirm the exact action with the user first.
+    Each refuses a tool of another class and names the right runner.
+  - Only the runners the connection's access can use are listed (N310-6): a read-only connection gets `find_tools` and
+    `run_read_tool` only (its open-world read `migration_report` stays callable by name); `find_tools` marks a tool
+    whose runner is not listed as "direct call".
+  - The runners take the same path as a direct tools/call (access level, guardrails and reason, undo journal, change
     log) and refuse every meta tool as the inner tool.
   - A tool outside the list can still be called directly by name.
-- The meta tools are callable on any connection, but listed only for essentials connections; all three are in the
+- The meta tools are callable on any connection, but listed only for essentials connections; all four are in the
   contract (`tools/contracts/mcp-tools.json`).
+- Before migration 0085 has run (the `tool_set` column missing), MCP and OAuth keep working with all tools (N310-9).
 
 ## 6. Reviewer access (owner decision D2: a private review site, reset nightly, never a public demo)
 
@@ -225,11 +234,12 @@ public demo's restrictions.
   instructions (`Prompts::serverInstructions`).
 - **Size of tools/list** (about 150 KB with every feature on) costs context in every conversation. Since 3.10 new OAuth
   connections default to the essentials (about 49 KB); the reviewers' connection gets them too unless they pick all tools.
-- **`run_tool` as a catch-all.** The criteria reject "catch-all API" tools. The runners take no HTTP method or endpoint –
-  only the name of one of the site's own tools, checked exactly as a direct call. Reads go through `run_read_tool`
-  (read-only, refuses anything else); changes through `run_tool`, whose annotations are the most cautious ones, so a
-  client that confirms per tool still asks before changes – once for `run_tool`, not for each inner tool; the
-  connection's access level and the tools' own rules still apply.
+- **Runners as a catch-all.** The criteria reject "catch-all API" tools. The runners take no HTTP method or endpoint –
+  only the name of one of the site's own tools, checked exactly as a direct call – and each runs one class of tools
+  only, with annotations true for all of them: reads (`run_read_tool`), drafts and writes (`run_tool`), and anything
+  destructive or reaching outside the site (`run_destructive_tool`). A client that confirms per tool asks once per
+  runner, so an "always allow" for drafts never covers deleting or sending; the connection's access level and the
+  tools' own rules still apply.
 - **The directory review should use an "All tools" connection** (choose it on the consent screen) if reviewers prefer
   no catch-all runner – then every tool is listed on its own and no meta tool is.
 
@@ -245,7 +255,7 @@ Done in the code (3.8):
 - [x] `initialize`: `title`, `websiteUrl`, `icons`.
 - [x] OAuth: loopback redirect with any port (Claude Code).
 - [x] Draft registry entry `docs/server.json`.
-- [x] 3.10: tool sets – essentials (about 49 KB) with `find_tools` / `run_read_tool` / `run_tool`, or all tools; chosen
+- [x] 3.10: tool sets – essentials (about 49 KB) with `find_tools` and three runners, or all tools; chosen
       at consent and in My account.
 
 For the owner:

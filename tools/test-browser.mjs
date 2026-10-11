@@ -54,6 +54,20 @@ for (const url of ['/admin.php', '/admin.php?module=pages', '/admin.php?module=p
   await step(`open ${url}`, () => visit(url));
 }
 
+// 3.10 audit (N310-7): Enter in the name of a new token creates the token – also when tokens with their tool set switch
+// and revoke buttons are listed above it (they belong to another form, so they are never the form's default button)
+await step('account: Enter in the token name creates the token, with tokens listed too', async () => {
+  for (const name of ['Enter token 1', 'Enter token 2']) {
+    await visit('/admin.php?action=account');
+    await page.fill('#token-nazev', name);
+    await Promise.all([page.waitForNavigation(), page.press('#token-nazev', 'Enter')]);
+    if (!((await page.locator('code.totp-klic').first().textContent()) || '').startsWith('kaleta_')) throw new Error(`no new token for ${name}`);
+  }
+  const listed = await page.locator('#claude .stitek', { hasText: 'Enter token' }).count();
+  const switched = await page.locator('#claude .stitek', { hasText: /^essentials$/ }).count();
+  if (listed !== 2 || switched !== 0) throw new Error(`${listed} tokens listed, ${switched} switched to the essentials`);
+});
+
 await step('appearance: change a colour and preview', async () => {
   await visit('/admin.php?module=appearance');
   const colour = page.locator('input[type="color"]:visible').first();

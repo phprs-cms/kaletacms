@@ -1487,6 +1487,21 @@
             "openWorldHint": false
         }
     },
+    "run_destructive_tool": {
+        "parameters": {
+            "arguments": "object",
+            "name": "string"
+        },
+        "required": [
+            "name"
+        ],
+        "annotations": {
+            "title": "Run a destructive or outside tool",
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": true
+        }
+    },
     "run_read_tool": {
         "parameters": {
             "arguments": "object",
@@ -1511,10 +1526,10 @@
             "name"
         ],
         "annotations": {
-            "title": "Run a tool by name",
+            "title": "Run a tool that saves or changes",
             "readOnlyHint": false,
-            "destructiveHint": true,
-            "openWorldHint": true
+            "destructiveHint": false,
+            "openWorldHint": false
         }
     },
     "save_booking_service": {
