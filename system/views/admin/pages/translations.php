@@ -8,6 +8,8 @@
  * @var string $csrf
  * @var list<string> $languages
  * @var list<array<string, mixed>> $rows
+ * @var int $home  the home page (3.11)
+ * @var list<string> $notInSwitcher  languages not in the switcher yet (3.11)
  * @var bool $assistant  the AI assistant can translate news items
  * @var bool $news  the user may open News
  * @var bool $collections  the user may open Collections
@@ -39,6 +41,16 @@ foreach ($rows as $row) {
 <?php if ($languages === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'stranky', 'heading' => t('The site has a single language.'), 'text' => t('Add language versions in Settings → General; this screen then shows which translations are missing.'), 'action' => [$app->url('admin.php?module=settings&tab=general'), t('Settings')]]) ?>
 <?php else: ?>
+<?php // 3.11 (UX310-7): say why a language is not in the switcher (and has no hreflang) yet
+$homeRow = array_values(array_filter($rows, fn (array $r): bool => $r['type'] === 'page' && $r['id'] === ($home ?? 0)))[0] ?? null;
+foreach ($notInSwitcher ?? [] as $code): $homeCell = $homeRow['translations'][$code] ?? null; ?>
+<p class="hlaska hlaska-varovani"><strong><?= e(t('%s is not in the language switcher yet.', Language::AVAILABLE[$code][0])) ?></strong> <?= e(t('It appears, with the hreflang links for search engines, once the home page has a published translation.')) ?>
+<?php if ($homeRow !== null && $homeCell !== null && $homeCell['status'] === Translations::MISSING): ?>
+	<a href="<?= e($createUrl($homeRow, $code)) ?>"><?= e(t('Translate the home page')) ?></a>
+<?php elseif ($homeRow !== null && ($homeCell['id'] ?? null) !== null): ?>
+	<a href="<?= e($editUrl($homeRow, (int) $homeCell['id'])) ?>"><?= e(t('Publish the translated home page')) ?></a>
+<?php endif ?></p>
+<?php endforeach ?>
 <p class="smltxt"><?= e(t('Missing translations: %d, older than the original: %d.', $counts['missing'], $counts['outdated'])) ?> <?= e(t('“Older” means the original changed after the translation was last saved.')) ?></p>
 <?php foreach ($types as $type => $heading): $ofType = array_values(array_filter($rows, fn (array $r): bool => $r['type'] === $type)); if ($ofType === [] || ($type === 'news' && !$news) || ($type === 'collection_item' && !$collections)) { continue; } ?>
 <h2><?= e($heading) ?></h2>

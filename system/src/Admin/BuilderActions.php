@@ -90,6 +90,8 @@ trait BuilderActions
                 'poPublikovani' => (bool) ($e['poPublikovani'] ?? false), // a new page waits hidden for its first publish (3.5)
                 'nadpisy' => (bool) ($e['nadpisy'] ?? false)], // check before publishing: the page should have one h1 and not skip levels
             'stavba' => Build::fromJson($target['koncept'] ?? $target['stavba']),
+            // sample content from a starter site or a template (3.11, UX310-1) – the pre-publish check lists it
+            'vzory' => \Kaleta\Builder\SampleContent::findings(Build::fromJson($target['koncept'] ?? $target['stavba']) ?? ['deti' => []]),
             'zmeny' => $target['koncept'] !== null && $target['koncept'] !== $target['stavba'],
             'verze' => self::computeBuildVersion($target['koncept'] ?? $target['stavba']),
             'schema' => $schema,
@@ -143,7 +145,8 @@ trait BuilderActions
         $json = Build::toJson($build);
         $this->saveDraft($target, $json);
 
-        return Response::json(['ok' => true, 'stavba' => $build, 'chyby' => self::builderNotes($errors), 'zmeny' => $json !== $target['stavba'], 'verze' => self::computeBuildVersion($json)]);
+        return Response::json(['ok' => true, 'stavba' => $build, 'chyby' => self::builderNotes($errors), 'zmeny' => $json !== $target['stavba'], 'verze' => self::computeBuildVersion($json),
+            'vzory' => \Kaleta\Builder\SampleContent::findings($build)]);
     }
 
     /** Publishing: the draft becomes the build; the previous published version goes to the history. */

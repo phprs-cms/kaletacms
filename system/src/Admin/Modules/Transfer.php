@@ -272,6 +272,8 @@ final class Transfer extends Module
             'languages' => array_merge([Language::defaults($settings)], Language::additional($settings)),
             'categories' => $this->db->all('SELECT idt, nazev, jazyk FROM {kategorie} ORDER BY jazyk, nazev'),
             'redirectsEnabled' => \Kaleta\Core\Extensions::isEnabled($settings, 'presmerovani'),
+            // 3.11 (UX310-16): into a site that is already live, the import arrives hidden unless the person chooses otherwise
+            'hiddenByDefault' => $this->db->value('SELECT 1 FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL LIMIT 1') !== null,
         ]);
     }
 

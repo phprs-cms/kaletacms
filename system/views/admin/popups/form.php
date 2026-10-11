@@ -68,9 +68,9 @@ $selection = function (string $displayName, array $options, string $value, bool 
 <div class="radek"><label for="odkud"><?= e(t('Only from a referrer')) ?></label><div><input class="textpole" id="odkud" name="odkud" value="<?= e($rules['odkud']) ?>" maxlength="80"><span class="napoveda"><?= e(t('Part of the address of the site the visitor came from (e.g. facebook.com). Empty = from anywhere.')) ?></span></div></div>
 </fieldset>
 <div class="radek">
-	<label for="valid_until"><?= e(t('True until')) ?></label>
+	<label for="valid_until"><?= e(t('Visible until')) ?></label>
 	<div><input class="textpole" type="date" id="valid_until" name="valid_until" value="<?= e((string) ($p['valid_until'] ?? '')) ?>">
-	<span class="napoveda"><?= e(t('After this day the pop-up switches itself off. Empty = always.')) ?></span></div>
+	<span class="napoveda"><?= e(t('After this day the pop-up switches itself off. Leave empty to keep it on.')) ?></span></div>
 </div>
 <div class="radek">
 	<label for="review_by"><?= e(t('Review by')) ?></label>

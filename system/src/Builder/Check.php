@@ -60,7 +60,9 @@ final class Check
             }
             foreach ($outline as $i => $n) {
                 if ($i > 0 && $n[1] > $outline[$i - 1][1] + 1) {
-                    $findings[] = ['id' => $n[0], 'zprava' => t('The heading “%s” skips a level (h%d → h%d).', mb_substr($n[2], 0, 40), $outline[$i - 1][1], $n[1])];
+                    // a heading of the items of a Collection list holds {{tokens}} – named for what it is (3.11, UX310-13)
+                    $findings[] = ['id' => $n[0], 'zprava' => str_contains($n[2], '{{') ? t('The item heading of a Collection list skips a level (h%d → h%d).', $outline[$i - 1][1], $n[1])
+                        : t('The heading “%s” skips a level (h%d → h%d).', mb_substr($n[2], 0, 40), $outline[$i - 1][1], $n[1])];
                 }
             }
         }

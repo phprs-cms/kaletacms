@@ -120,6 +120,11 @@ code=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/ad
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN" -d user=admin --data-urlencode "password=$PASSWORD"
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('extensions','novinky,poptavky,newsletter,statistika,presmerovani,asistent,jazyky,claude') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
 check "přehled" 200 /admin.php "Přehled"
+# 3.11 (UX310-1, UX310-20): right after the installation the site audit names the starter site's sample content (placeholders,
+# sample reviews and figures, sample texts); the questions for an agency are folded away on a site nobody hands over
+check "3.11 UX310-1: the site audit names the sample content of the starter pages" 200 "/admin.php?module=audit" "Na stránce je pořád ukázkový obsah z úvodního webu"
+grep -q 'ukázkové reference: ' "$WORK/response" && grep -q '<summary>Stavíte web pro klienta? (2)</summary>' "$WORK/response" \
+  && echo "  ok     3.11 UX310-1/20: the home page has sample testimonials; the client questions are folded away" || { echo "  CHYBA  3.11: the audit of a fresh starter site"; sed 's/<[^>]*>/ /g' "$WORK/response" | grep -i 'ukázk\|klient' | head -5; ERRORS=$((ERRORS+1)); }
 # 3.5 (UXA-07, UXA-20): until a Claude connection has ever called the site, the dashboard leads with "Connect Claude" (the
 # address with Copy, the HTTPS warning), then First steps, and Ask Claude below
 dash_order() { php -r '$h = (string) file_get_contents($argv[1]); $p = array_map(fn (string $n) => strpos($h, $n), [$argv[2], $argv[3], $argv[4]]); echo in_array(false, $p, true) ? "missing" : ($p[0] < $p[1] && $p[1] < $p[2] ? "ok" : "order");' "$WORK/response" "$@"; }
@@ -184,7 +189,7 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=status&act
 expect "3.3.2: Business details never replace the cron or monitoring token, System status does" \
   "$N41_BUSINESS|$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(hodnota <> 'before-n41', LENGTH(hodnota)) FROM ka_nastaveni WHERE promenna = 'health_token'")" "before-n41,before-n41|132"
 check "nastavení: volba úvodní stránky" 200 "/admin.php?module=settings&tab=general" 'name="home_page"'
-check "neznámý modul" 403 "/admin.php?module=neexistuje"
+check "neznámý modul – 3.11 (UX310-30): it does not exist, rather than no access" 404 "/admin.php?module=neexistuje"
 check "2.0: the public API of 1.x is gone" 404 /api/novinky
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('additional_languages','en') ON DUPLICATE KEY UPDATE hodnota='en'"
 check "anglická verze webu" 200 /en/ 'lang="en"'
@@ -1059,7 +1064,7 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&a
 wp_batch
 # 3.6: a menu item is not an unknown type any more (menus are imported); the preview still names what is not converted
 check "import z WordPressu – náhled upozorní na zkratku doplňku" 200 "/admin.php?module=transfer&action=preview&file=wordpress-sample.xml" "kontaktni-formular"
-check "3.6 import z WordPressu – náhled nabízí vše skryté" 200 "/admin.php?module=transfer&action=preview&file=wordpress-sample.xml" 'name="skryte" value="1">'
+check "3.6 import z WordPressu – náhled nabízí vše skryté (3.11 UX310-16: preselected on a site with published pages)" 200 "/admin.php?module=transfer&action=preview&file=wordpress-sample.xml" 'name="skryte" value="1" checked>'
 check "import z WordPressu – náhled hlásí SEO data pluginů" 200 "/admin.php?module=transfer&action=preview&file=wordpress-sample.xml" "Rank Math"
 wp_import
 grep -q "Import obsahu je hotový" "$WORK/response" && echo "  ok     import z WordPressu doběhl" || { echo "  CHYBA  import z WordPressu nedoběhl"; ERRORS=$((ERRORS+1)); }
@@ -2293,13 +2298,17 @@ case "$REDIRECT" in "$URI_A?code="*"state=n14a"*) echo "  ok     3.3.4 N14: Allo
 expect "3.3.4 N14: B got no code – it still needs its own consent" "$(sq "SELECT COUNT(*) FROM ka_oauth_kody WHERE client_id = '$CLIENT_B'")|$(sq "SELECT COUNT(*) FROM ka_oauth_kody WHERE client_id = '$CLIENT_A'")" "0|1"
 expect "3.3.4 N14: a consent without its request is refused" "$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php?action=oauth" -d "_csrf=$CSRF_A" -d povolit=1)|$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php?action=oauth" -d "_csrf=$CSRF_A" -d "request=$NONCE_A" -d povolit=1)" "400|400"
 # N65: B's consent (an unknown host) leads with the host, warns, marks the client as new and preselects drafts only;
-# A's (claude.ai) has no warning and keeps full access as the default
+# A's (claude.ai) has no warning; since 3.11 (UX310-2) it starts at drafts only too
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=oauth&request=$NONCE_B"
 contains -q '<strong>claude.ai.evil.example</strong>' "$WORK/response" && contains -q 'claude.ai.evil.example není adresa vlastních aplikací Claude' "$WORK/response" && contains -q 'nová, neověřená' "$WORK/response" \
   && contains -q 'value="drafts" checked' "$WORK/response" && ! contains -q 'value="full" checked' "$WORK/response" && contains -q 'Co smí aplikace dělat?' "$WORK/response" && ! contains -q 'Claude staví' "$WORK/response" \
   && echo "  ok     3.3.4 N65: a consent for an unknown host shows the host, the warning, the new mark and drafts only, and does not speak of Claude" || { echo "  CHYBA  N65 consent for an unknown host"; sed 's/<[^>]*>/ /g' "$WORK/response" | grep -i 'evil\|claude' | head -5; ERRORS=$((ERRORS+1)); }
-contains -q '<strong>claude.ai</strong>' "$WORK/consent-a" && ! contains -q 'není adresa vlastních aplikací Claude' "$WORK/consent-a" && contains -q 'value="full" checked' "$WORK/consent-a" && contains -q 'Co smí Claude dělat?' "$WORK/consent-a" \
-  && echo "  ok     3.3.4 N65: a consent for claude.ai shows no warning and keeps full access as the default" || { echo "  CHYBA  N65 consent for claude.ai"; ERRORS=$((ERRORS+1)); }
+contains -q '<strong>claude.ai</strong>' "$WORK/consent-a" && ! contains -q 'není adresa vlastních aplikací Claude' "$WORK/consent-a" && contains -q 'value="drafts" checked' "$WORK/consent-a" && ! contains -q 'value="full" checked' "$WORK/consent-a" && contains -q 'Co smí Claude dělat?' "$WORK/consent-a" \
+  && echo "  ok     3.3.4 N65, 3.11 UX310-2: a consent for claude.ai shows no warning and preselects drafts only" || { echo "  CHYBA  N65 consent for claude.ai"; ERRORS=$((ERRORS+1)); }
+# 3.11 (UX310-8): the consent stands on its own – no admin menu, no search, no draft-look bar with a one-click Publish
+contains -q '<body class="login">' "$WORK/consent-a" && ! contains -q 'class="menu"' "$WORK/consent-a" && ! contains -q 'data-paleta' "$WORK/consent-a" && ! contains -q 'action=publish_look' "$WORK/consent-a" \
+  && contains -q 'Jen koncepty – publikujete vy <span class="stitek stitek-vydano">doporučeno' "$WORK/consent-a" \
+  && echo "  ok     3.11 UX310-8: the consent screen has no admin menu and no Publish bar; Drafts only is marked recommended" || { echo "  CHYBA  3.11: the consent screen frame"; ERRORS=$((ERRORS+1)); }
 expect "3.3.4 N65: a client allowed once is approved, the other is not" "$(sq "SELECT GROUP_CONCAT(approved IS NOT NULL ORDER BY client_id = '$CLIENT_A' DESC) FROM ka_oauth_klienti WHERE client_id IN ('$CLIENT_A', '$CLIENT_B')")" "1,0"
 NONCE_A2=$(oauth_nonce "$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' "$B/oauth/authorize?$(authorize_query "$CLIENT_A" "$URI_A" again)")")
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=oauth&request=$NONCE_A2"
@@ -2490,7 +2499,7 @@ expect "3.10: connections that existed before keep all tools" "$(sq "SELECT GROU
 # the consent screen offers the tool set and preselects the essentials; the choice goes with the code into the tokens
 NONCE_310=$(oauth_nonce "$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' "$B/oauth/authorize?response_type=code&client_id=$CLIENT&redirect_uri=$REDIRECT_URI&code_challenge=$CHALLENGE&code_challenge_method=S256&state=ts310")")
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=oauth&request=$NONCE_310"
-contains -q 'Které nástroje nabízí?' "$WORK/response" && contains -q 'name="tool_set" value="essentials" checked' "$WORK/response" && ! contains -q 'value="all" checked' "$WORK/response" \
+contains -q 'Kolik toho má Claude načíst hned na začátku?' "$WORK/response" && contains -q 'name="tool_set" value="essentials" checked' "$WORK/response" && ! contains -q 'value="all" checked' "$WORK/response" \
   && echo "  ok     3.10: the consent screen offers the essentials (preselected) or all tools" || { echo "  CHYBA  3.10: the tool set on the consent screen"; ERRORS=$((ERRORS+1)); }
 REDIRECT=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?action=oauth" -d "_csrf=$(csrf)" -d "request=$NONCE_310" -d povolit=1 -d access=full -d tool_set=essentials)
 curl -s -o "$WORK/response" -X POST "$B/oauth/token" -d grant_type=authorization_code -d "code=$(printf %s "$REDIRECT" | grep -o 'code=[a-f0-9]*' | sed 's/code=//' || true)" -d "redirect_uri=$REDIRECT_URI" -d "client_id=$CLIENT" -d "code_verifier=$VERIFIER"
@@ -5790,6 +5799,62 @@ mcp create_page '{"title":"Pt","slug":"pt-br"}' > "$WORK/response"
 expect "3.10: a regional code stays reserved as a page slug" "$(contains -q 'isError' "$WORK/response" && echo refused)|$(sq "SELECT COUNT(*) FROM ka_stranky WHERE seo_link = 'pt-br'")" "refused|0"
 sq "DELETE FROM ka_stranky WHERE ids = $CS310 OR preklad_z = $CS310; DELETE FROM ka_nastaveni WHERE promenna = 'site_name_pt-br'; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('additional_languages', 'en'), ('home_page', '$HOME39')" > /dev/null
 
+echo "== 3.11: the outside UX review of 3.10 – sample content, translations of builder pages, truthful presets, the page form"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=pages&action=new"; TOKEN=$(csrf)
+# UX310-6: the title field of a new page is labelled, has a placeholder and the focus
+contains -q '<label for="titulek">Název stránky</label>' "$WORK/response" && contains -q 'placeholder="např. Zahradní architektura" autofocus' "$WORK/response" \
+  && echo "  ok     3.11 UX310-6: the page title field has its label, a placeholder and the focus" || { echo "  CHYBA  3.11: the page title field"; ERRORS=$((ERRORS+1)); }
+contains -q '<label for="valid_until">Platí do</label>' "$WORK/response" && contains -q 'Nechte prázdné, aby zůstala vidět.' "$WORK/response" \
+  && echo "  ok     3.11 UX310-15: Visible until says how to keep the page visible" || { echo "  CHYBA  3.11: Visible until"; ERRORS=$((ERRORS+1)); }
+# UX310-1: a page from the landing template – the builder's pre-publish check gets its sample content from the server, a saved
+# draft answers with what is still sample, MCP publish_build reports it, and once published the site audit lists the page
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=save" -d "_csrf=$TOKEN" -d ids=0 --data-urlencode "titulek=Prodejní stránka 311" -d sablona=landing -d zobrazit=1 -d poradi=100
+L311=$(sq "SELECT ids FROM ka_stranky WHERE titulek = 'Prodejní stránka 311'")
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=pages&action=builder&id=$L311"
+contains -q '"vzory":\[{"id":"[a-z0-9]*","zprava":"Na stránce je pořád ukázkový obsah z úvodního webu (ukázkové reference: 2, zástupná čísla: 2, ukázkové texty: ' "$WORK/response" \
+  && echo "  ok     3.11 UX310-1: the builder of a template page lists its sample content for the pre-publish check" || { echo "  CHYBA  3.11: sample content in the builder data"; grep -o '"vzory":[^]]*' "$WORK/response" | head -c 400; ERRORS=$((ERRORS+1)); }
+mcp publish_build "{\"id\":$L311}" > "$WORK/response"; mcp_text
+contains -q 'This page still has sample content from the starter site' "$WORK/text" \
+  && echo "  ok     3.11 UX310-1: MCP publish_build reports the sample content first in its check" || { echo "  CHYBA  3.11: publish_build check"; head -c 500 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+mcp site_audit '{"kind":"sample"}' > "$WORK/response"; mcp_text
+contains -q 'Prodejní stránka 311' "$WORK/text" && contains -q '"kind":"sample"' "$WORK/text" \
+  && echo "  ok     3.11 UX310-1: site_audit kind sample lists the published template page" || { echo "  CHYBA  3.11: site_audit kind sample"; head -c 500 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?module=pages&action=build_save&id=$L311" -d "_csrf=$TOKEN" \
+  --data-urlencode 'stavba={"v":1,"deti":[{"id":"own311","typ":"text","obsah":{"html":"<p>Naše vlastní slova o zahradách v Brně.</p>"}},{"id":"quo311","typ":"citat","obsah":{"text":"[Slova zákazníka – skutečný citát, použitý s jeho svolením]","autor":"[Jméno zákazníka]"}}]}'
+contains -q '"vzory":\[{"id":"quo311","zprava":"Na stránce je pořád ukázkový obsah z úvodního webu (ukázkové reference: 1)' "$WORK/response" && ! contains -q '"id":"own311","zprava"' "$WORK/response" \
+  && echo "  ok     3.11 UX310-1: a saved draft answers with the sample still in it – a rewritten text is not" || { echo "  CHYBA  3.11: sample content after a build save"; head -c 600 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+sq "DELETE FROM ka_stranky WHERE ids = $L311" > /dev/null
+# UX310-4: "Create" a translation of a builder page – the form names the translation, and the new page starts as a copy of the
+# original's build, hidden until its first publish, in the builder
+SL311=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'sluzby' AND jazyk = '' AND smazano IS NULL")
+check "3.11 UX310-4: the translation form names the original and the language" 200 "/admin.php?module=pages&action=new&language=en&translation_of=$SL311" "Překlad: Služby → English"
+contains -q 'name="copy_build" value="1"' "$WORK/response" && ! contains -q 'name="sablona"' "$WORK/response" && contains -q 'Vytvořit překlad a otevřít builder' "$WORK/response" \
+  && echo "  ok     3.11 UX310-4: the form copies the build instead of offering a blank text page" || { echo "  CHYBA  3.11: the translation form"; ERRORS=$((ERRORS+1)); }
+TR311=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?module=pages&action=save" -d "_csrf=$TOKEN" -d ids=0 --data-urlencode "titulek=Services 311" -d jazyk=en -d "preklad_z=$SL311" -d copy_build=1 -d text= -d zobrazit=1 -d poradi=100)
+expect "3.11 UX310-4: the translation opens in the builder with the original's build, hidden until its first publish" \
+  "$(printf %s "$TR311" | grep -q 'action=builder' && echo builder || echo "$TR311")|$(sq "SELECT CONCAT(t.stavba_koncept = COALESCE(o.stavba_koncept, o.stavba), '|', t.zobrazit, '|', t.show_on_publish, '|', t.preklad_z = o.ids) FROM ka_stranky t JOIN ka_stranky o ON o.ids = $SL311 WHERE t.titulek = 'Services 311'")" "builder|1|0|1|1"
+sq "DELETE FROM ka_stranky WHERE titulek = 'Services 311'" > /dev/null
+# UX310-7: Translations put the home page first and say why a language is not in the switcher yet
+HOME311=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'uvod' AND jazyk = ''")
+sq "UPDATE ka_nastaveni SET hodnota = 'en,pt-br' WHERE promenna = 'additional_languages'; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('home_page', '$HOME311')" > /dev/null
+check "3.11 UX310-7: Translations say Brazilian Portuguese is not in the language switcher until the home page is translated" 200 "/admin.php?module=pages&action=translations" "Português (Brasil) zatím není v přepínači jazyků."
+contains -q "action=new&amp;language=pt-br&amp;translation_of=$HOME311\">Přeložit úvodní stránku" "$WORK/response" \
+  && echo "  ok     3.11 UX310-7: it links to translating the home page" || { echo "  CHYBA  3.11: the switcher hint on Translations"; ERRORS=$((ERRORS+1)); }
+check "3.11 UX310-12: Settings → General marks a language without visitor texts and names the one not in the switcher" 200 "/admin.php?module=settings&tab=general" "(/pt-br/ · texty pro návštěvníky anglicky)"
+contains -q 'Zatím nejsou v přepínači jazyků: [^<]*Português (Brasil)\.' "$WORK/response" && echo "  ok     3.11 UX310-7: Settings → General names the language not in the switcher" || { echo "  CHYBA  3.11: the switcher hint in Settings"; ERRORS=$((ERRORS+1)); }
+sq "UPDATE ka_nastaveni SET hodnota = 'en' WHERE promenna = 'additional_languages'; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('home_page', '$HOME39')" > /dev/null
+# UX310-5: a ready-made collection says what really happened with its list page – the address taken by a page, then free
+PLANS311=$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; Kaleta\Core\Language::set("cs"); echo slugify(t("Pricing plans"));')
+mcp create_page "{\"title\":\"Plány 311\",\"slug\":\"$PLANS311\",\"content\":\"<p>Naše plány</p>\"}" > /dev/null
+curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?module=collections&action=preset" -d "_csrf=$TOKEN" -d preset=plans
+contains -q "Vytvořeno. Stránka „Plány 311“ už používá adresu /$PLANS311, takže stránka s výpisem nevznikla" "$WORK/response" && ! contains -q 'se skrytou stránkou, která ji vypisuje' "$WORK/response" \
+  && echo "  ok     3.11 UX310-5: a preset whose address is a page says no list page was added, and which page has it" || { echo "  CHYBA  3.11: preset message with a taken address"; grep -o 'class="hlaska[^>]*>[^<]*' "$WORK/response" | head -3; ERRORS=$((ERRORS+1)); }
+curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?module=collections&action=preset" -d "_csrf=$TOKEN" -d preset=plans
+contains -q "Vytvořeno, i se skrytou stránkou /$PLANS311-2, která ji vypisuje" "$WORK/response" && expect "3.11 UX310-5: the second one gets a free address and its hidden list page" "$(sq "SELECT zobrazit FROM ka_stranky WHERE seo_link = '$PLANS311-2'")" "0" \
+  || { echo "  CHYBA  3.11: preset message with its list page"; grep -o 'class="hlaska[^>]*>[^<]*' "$WORK/response" | head -3; ERRORS=$((ERRORS+1)); }
+# UX310-30: a mistyped section is "does not exist", not "no access"
+check "3.11 UX310-30: an unknown admin section is a 404" 404 "/admin.php?module=claude" "Tato stránka neexistuje."
+
 echo "== 2.9: monthly report by e-mail"
 REPORT_MAILS() { sq "SELECT COUNT(*) FROM ka_posta WHERE predmet LIKE '%Zpráva o webu%' OR predmet LIKE '%Website report%'"; }
 LAST_MONTH=$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format("Y-m");')
@@ -5935,7 +6000,7 @@ update_from novephp.json
 for f in prepnuty bezv2; do
   "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('update_url','http://127.0.0.1:$CHANNEL_PORT/$f.json') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'"
   curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"
-  contains -F 'není podepsaný vydavatelem Kalety (podpis v2)' "$WORK/response" && ! contains -F 'value="9.9.9"' "$WORK/response" && echo "  ok     3.9 manifest v2 ($f): the manifest is refused, nothing is offered" || { echo "  CHYBA  3.9 manifest v2 ($f): offered"; ERRORS=$((ERRORS+1)); }
+  contains -F 'Informace o aktualizaci není podepsaná vydavatelem Kalety' "$WORK/response" && ! contains -F 'value="9.9.9"' "$WORK/response" && echo "  ok     3.9 manifest v2 ($f): the manifest is refused, nothing is offered" || { echo "  CHYBA  3.9 manifest v2 ($f): offered"; ERRORS=$((ERRORS+1)); }
   update_from "$f.json"
   [ ! -f "$WORK/web/image/test-aktualizace.txt" ] && echo "  ok     3.9 manifest v2 ($f): nothing installs" || { echo "  CHYBA  3.9 manifest v2 ($f): installed"; ERRORS=$((ERRORS+1)); }
 done
@@ -6006,7 +6071,7 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&a
 [ ! -f "$WORK/web/image/test-aktualizace.txt" ] && echo "  ok     3.8 channels: a latest manifest at the stable address does not install" || { echo "  CHYBA  3.8 channels: installed a latest release on the stable channel"; ERRORS=$((ERRORS+1)); }
 # 3.9 (N38-3): a genuine latest release relabelled "stable" at the stable address – the channel is signed (v2), so it is refused
 channel_source podvrh/aktualizace.json; backups_page
-contains -F 'podpis v2' "$WORK/response" && ! contains -F 'value="9.9.10"' "$WORK/response" && echo "  ok     3.9 channels: a latest release relabelled stable is refused (the channel is signed)" || { echo "  CHYBA  3.9 channels: relabelled stable manifest offered"; ERRORS=$((ERRORS+1)); }
+contains -F 'není podepsaná vydavatelem Kalety' "$WORK/response" && ! contains -F 'value="9.9.10"' "$WORK/response" && echo "  ok     3.9 channels: a latest release relabelled stable is refused (the channel is signed)" || { echo "  CHYBA  3.9 channels: relabelled stable manifest offered"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=update" -d "_csrf=$TOKEN" -d verze=9.9.10
 [ ! -f "$WORK/web/image/test-aktualizace.txt" ] && echo "  ok     3.9 channels: a latest release relabelled stable does not install" || { echo "  CHYBA  3.9 channels: installed a relabelled release on the stable channel"; ERRORS=$((ERRORS+1)); }
 # a custom source with another file name has no stable twin: the site follows it as before, whatever the channel
@@ -6035,6 +6100,7 @@ sq "UPDATE ka_nastaveni SET hodnota = 'latest' WHERE promenna = 'update_channel'
 # v1-only 3.8.0): refused as a stale manifest, said so, nothing offered or installed; the newer one is accepted again
 replay_serve() { cp "$WORK/kanal/replay-$1.json" "$WORK/kanal/replay.json"; sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'" > /dev/null; }
 replay_serve novy; channel_source replay.json; backups_page
+! contains -F 'Obnovit historii aktualizací' "$WORK/response" && echo "  ok     3.11 UX310-10: a healthy update state offers no reset of the update history" || { echo "  CHYBA  3.11: the reset button shows in the normal state"; ERRORS=$((ERRORS+1)); }
 expect "3.10 freshness: a new signed manifest is offered and remembered for its source" "$(contains -F 'value="9.9.10"' "$WORK/response" && echo offered)|$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '\$.\"http://127.0.0.1:$CHANNEL_PORT/replay.json#latest\".verze')) FROM ka_nastaveni WHERE promenna = 'update_seen'")" "offered|9.9.10"
 replay_serve starsi; backups_page
 contains -F 'starší informací o aktualizaci (verze 9.9.9' "$WORK/response" && ! contains -F 'value="9.9.9"' "$WORK/response" && echo "  ok     3.10 freshness: an older signed manifest of the same source is refused as stale and nothing is offered" || { echo "  CHYBA  3.10 freshness: a replayed older manifest was not refused"; ERRORS=$((ERRORS+1)); }
@@ -6046,10 +6112,14 @@ expect "3.10 freshness: the stale one does not install; a v1-only manifest after
   "$([ -f "$WORK/web/image/test-aktualizace.txt" ] && echo installed || echo kept)|$(contains -F 'starší informací o aktualizaci (verze 3.8.0' "$WORK/response" && echo stale)|$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '\$.\"http://127.0.0.1:$CHANNEL_PORT/replay.json#latest\".verze')) FROM ka_nastaveni WHERE promenna = 'update_seen'")" "kept|stale|9.9.10"
 replay_serve novy; backups_page
 contains -F 'value="9.9.10"' "$WORK/response" && ! contains -F 'starší informací' "$WORK/response" && echo "  ok     3.10 freshness: once the source is current again, the update is offered" || { echo "  CHYBA  3.10 freshness: current source after a stale answer"; ERRORS=$((ERRORS+1)); }
-# the newest update information is 70 days old: System status warns (only a warning – it is still offered)
-replay_serve stary-datum; channel_source replay-stary-datum.json; backups_page
+# the newest update information is 70 days old: System status warns (only a warning – it is still offered); 3.11 (UX310-3):
+# the Updates row itself says so – never a green "up to date" next to it – and Backups and updates shows the same words,
+# with Reset update history under Troubleshooting (UX310-10)
+replay_serve stary-datum; channel_source replay-stary-datum.json; backups_page; cp "$WORK/response" "$WORK/backups-stale.html"
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
-contains -F 'Informace o aktualizaci' "$WORK/response" && contains -F 'před 70 dny' "$WORK/response" && echo "  ok     3.10 freshness: System status warns that the newest update information is 70 days old" || { echo "  CHYBA  3.10 freshness: no warning about old update information"; ERRORS=$((ERRORS+1)); }
+contains -F 'Kaleta nemůže potvrdit, že jde o nejnovější verzi – informace o aktualizaci je 70 dní stará' "$WORK/response" && ! contains -F 'systém je aktuální' "$WORK/response" \
+  && contains -F 'Kaleta nemůže potvrdit, že jde o nejnovější verzi – informace o aktualizaci je 70 dní stará' "$WORK/backups-stale.html" && contains -F 'Obnovit historii aktualizací' "$WORK/backups-stale.html" \
+  && ! contains -F 'aktualizace-stable.json' "$WORK/backups-stale.html" && echo "  ok     3.10 freshness, 3.11 UX310-3: System status and Backups and updates both say the update information is 70 days old, with the reset under Troubleshooting" || { echo "  CHYBA  3.10/3.11 freshness: the warning about old update information"; ERRORS=$((ERRORS+1)); }
 # checks failing for days: System status says how long
 sq "UPDATE ka_nastaveni SET hodnota = JSON_OBJECT('url', 'http://127.0.0.1:$CHANNEL_PORT/replay-stary-datum.json', 'overeno', UNIX_TIMESTAMP(), 'manifest', NULL, 'chyba', 'test', 'stale', false, 'failing_since', UNIX_TIMESTAMP() - 3 * 86400 - 60) WHERE promenna = 'update_cache'" > /dev/null
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
@@ -6072,7 +6142,7 @@ A1="$(contains -F 'value="9.9.10"' "$WORK/response" && echo offered)"
 kriz stable-5 aktualizace.json; backups_page
 A2="$(contains -F 'odpověděl vydáním stabilního kanálu (verze 9.9.11' "$WORK/response" && ! contains -F 'Máte aktuální verzi' "$WORK/response" && echo refused)|$(seen_kriz aktualizace.json latest)"
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
-A2="$A2|$(contains -F 'odpověděl vydáním stabilního kanálu' "$WORK/response" && contains -F 'zapomeňte zapamatované informace' "$WORK/response" && echo status)"
+A2="$A2|$(contains -F 'odpověděl vydáním stabilního kanálu' "$WORK/response" && contains -F 'obnovte historii aktualizací' "$WORK/response" && echo status)"
 kriz latest-10 aktualizace.json; backups_page
 expect "3.10 channels (N310-1): Latest – the stable manifest (newer date) at the latest address is an error, not \"up to date\", and not remembered; the latest one is offered again" \
   "$A1|$A2|$(contains -F 'value="9.9.10"' "$WORK/response" && echo offered)" "offered|refused|9.9.10|2|status|offered"
@@ -6082,8 +6152,8 @@ B3="$(contains -F 'value="9.9.10"' "$WORK/response" && echo offered)|$(sq "SELEC
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
 expect "3.10 freshness (N310-3): a date in the future is offered, not remembered, and System status names it" "$B3|$(contains -F 'datem v budoucnosti (2099-12-31)' "$WORK/response" && echo warned)" "offered|0|warned"
 # the way out: Forget remembered update information (admin, CSRF, change log) – then a source that is right again is accepted
-replay_serve starsi; channel_source replay.json; backups_page
-contains -F 'Zapomenout zapamatované informace o aktualizacích' "$WORK/response" && echo "  ok     3.10 (N310-3): the stale message comes with the Forget button" || { echo "  CHYBA  3.10: no Forget button next to the stale message"; ERRORS=$((ERRORS+1)); }
+replay_serve novy; channel_source replay.json; backups_page; replay_serve starsi; backups_page
+contains -F 'Obnovit historii aktualizací' "$WORK/response" && contains -F 'Kaleta odmítla informaci o aktualizaci' "$WORK/response" && echo "  ok     3.10 (N310-3), 3.11: the stale message, in plain words, comes with the reset button" || { echo "  CHYBA  3.10: no reset button next to the stale message"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=forget_updates" -d "_csrf=bad"
 FORGOT_BAD="$(sq "SELECT hodnota <> '' FROM ka_nastaveni WHERE promenna = 'update_seen'")"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=forget_updates" -d "_csrf=$TOKEN"; backups_page

@@ -28,7 +28,7 @@ final class CollectionList extends Element
         return [
             'kolekce' => ['typ' => 'text', 'popisek' => 'Collections', 'vychozi' => '', 'max' => 110],
             // 3.7: the list shows the collection's items, or its categories as cards ({{nazev}}, {{url}}, {{popis}}, {{obrazek}}, {{pocet}})
-            'zdroj' => ['typ' => 'vyber', 'popisek' => 'List', 'vychozi' => 'polozky', 'moznosti' => ['polozky' => 'items', 'kategorie' => 'categories']],
+            'zdroj' => ['typ' => 'vyber', 'popisek' => 'Show', 'vychozi' => 'polozky', 'moznosti' => ['polozky' => 'items', 'kategorie' => 'categories']],
             'kategorie' => ['typ' => 'text', 'popisek' => 'Category (its address; * = the category page shown, on an item page the item’s category). Categories: the subcategories of it, empty = the top-level ones', 'vychozi' => '', 'max' => 160],
             'pocet' => ['typ' => 'cislo', 'popisek' => 'Maximum items', 'vychozi' => 12, 'min' => 1, 'max' => 100],
             'razeni' => ['typ' => 'vyber', 'popisek' => 'Řazení', 'vychozi' => 'poradi', 'moznosti' => ['poradi' => 'by order in the administration', 'nazev' => 'by name', 'nejnovejsi' => 'newest first',
@@ -64,7 +64,8 @@ final class CollectionList extends Element
     {
         // the class karta from the section library (the editor creates it on insert if the site does not have it yet)
         return [['tridy' => ['karta']] + \Kaleta\Builder\Build::fresh('kontejner', [], [
-            ['znacka' => 'h3'] + \Kaleta\Builder\Build::fresh('nadpis', ['text' => '{{nazev}}']),
+            // h2 (3.11, UX310-13): the item heading follows the page outline under its h1 – an h3 skipped a level; the size stays
+            ['znacka' => 'h2', 'styl' => ['zaklad' => ['velikost_pisma' => '1']]] + \Kaleta\Builder\Build::fresh('nadpis', ['text' => '{{nazev}}']),
             \Kaleta\Builder\Build::fresh('tlacitko', ['text' => t('More information'), 'odkaz' => '{{url}}', 'varianta' => 'odkaz']),
         ])];
     }

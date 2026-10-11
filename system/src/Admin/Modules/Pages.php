@@ -128,10 +128,15 @@ final class Pages extends Module
     {
         // from the translation overview (2.14): the language version and the original are filled in
         $language = \Kaleta\Core\Language::column($this->app->settings(), $this->request->get('language'));
-        $original = $language !== '' ? $this->db->one("SELECT ids, titulek, popis FROM {stranky} WHERE ids = ? AND jazyk = '' AND smazano IS NULL", [$this->request->getInt('translation_of')]) : null;
+        $original = $language !== '' ? $this->db->one("SELECT ids, titulek, popis, text, stavba, stavba_koncept FROM {stranky} WHERE ids = ? AND jazyk = '' AND smazano IS NULL", [$this->request->getInt('translation_of')]) : null;
+        // 3.11 (UX310-4): a translation of a builder page starts as a copy of the original's build (the draft, otherwise
+        // the published one – as MCP create_page with copy_build), a text page as a copy of its text
+        $copyBuild = $original !== null && ($original['stavba_koncept'] ?? $original['stavba']) !== null;
 
-        return $this->form(['ids' => 0, 'seo_link' => '', 'titulek' => $original['titulek'] ?? '', 'popis' => $original['popis'] ?? '', 'seo_titulek' => '', 'obrazek' => '', 'noindex' => 0, 'text' => '', 'zobrazit' => 1, 'v_menu' => 1, 'poradi' => 100, 'stavba' => null, 'stavba_koncept' => null,
-            'nadrazena' => $this->request->getInt('parent') ?: null, 'zverejnit_od' => null, 'valid_until' => null, 'review_by' => null, 'jazyk' => $language, 'preklad_z' => $original['ids'] ?? null]);
+        return $this->form(['ids' => 0, 'seo_link' => '', 'titulek' => $original['titulek'] ?? '', 'popis' => $original['popis'] ?? '', 'seo_titulek' => '', 'obrazek' => '', 'noindex' => 0,
+            'text' => $original !== null && !$copyBuild ? (string) $original['text'] : '', 'zobrazit' => 1, 'v_menu' => 1, 'poradi' => 100, 'stavba' => null, 'stavba_koncept' => null,
+            'nadrazena' => $this->request->getInt('parent') ?: null, 'zverejnit_od' => null, 'valid_until' => null, 'review_by' => null, 'jazyk' => $language, 'preklad_z' => $original['ids'] ?? null,
+            'copy_build' => $copyBuild], translationOf: $original === null ? null : (string) $original['titulek']);
     }
 
     /** Translation overview (2.14, Core\Translations): what is missing or older than the original in each language version. */
@@ -329,7 +334,7 @@ final class Pages extends Module
         if ($errors !== []) {
             $previous = $id > 0 ? $this->db->one('SELECT stavba, stavba_koncept, heslo_hash FROM {stranky} WHERE ids = ?', [$id]) : null;
 
-            return $this->form(['ids' => $id] + $data + ($previous ?? ['stavba' => null, 'stavba_koncept' => null]), $errors);
+            return $this->form(['ids' => $id] + $data + ['copy_build' => $r->postBool('copy_build')] + ($previous ?? ['stavba' => null, 'stavba_koncept' => null]), $errors);
         }
         if ($id > 0) {
             $previous = $this->db->one('SELECT seo_link, zobrazit, titulek, text, jazyk FROM {stranky} WHERE ids = ?', [$id]);
@@ -342,6 +347,16 @@ final class Pages extends Module
             }
         } else {
             $id = $this->db->insert('stranky', $data);
+            $original = $data['preklad_z'] !== null && $r->postBool('copy_build') ? $this->db->one('SELECT stavba, stavba_koncept FROM {stranky} WHERE ids = ?', [$data['preklad_z']]) : null;
+            if ($original !== null && ($original['stavba_koncept'] ?? $original['stavba']) !== null) {
+                // 3.11 (UX310-4): the translation of a builder page – the draft is a copy of the original's build and opens
+                // in the builder; it goes on the site with its first publish (show_on_publish), as a page from a template
+                $this->db->update('stranky', ['stavba_koncept' => $original['stavba_koncept'] ?? $original['stavba']], ['ids' => $id]);
+                \Kaleta\Core\Menu::setPage($this->db, $id, $language, (bool) $data['v_menu']);
+                $this->app->session->flash('ok', 'The translation starts as a copy of the original – replace the texts, then publish.');
+
+                return \Kaleta\Core\Response::redirect($this->url('builder', ['id' => $id]));
+            }
             $template = \Kaleta\Builder\Library::PAGE_TEMPLATES[$r->post('sablona')] ?? null;
             if ($template !== null && $template[1] !== []) {
                 // new page from a template: sections from the library as a draft and straight into the builder
@@ -664,13 +679,15 @@ final class Pages extends Module
      * @param array<string, mixed> $page
      * @param array<string, string> $errors
      */
-    private function form(array $page, array $errors = []): Response
+    private function form(array $page, array $errors = [], ?string $translationOf = null): Response
     {
         $language = (string) ($page['jazyk'] ?? '');
         $custom = (string) ($page['seo_link'] ?? '');
+        $languageName = \Kaleta\Core\Language::AVAILABLE[$language][0] ?? $language;
 
-        return $this->view('form', $page['ids'] ? 'Edit page' : 'New page', [
-            'page' => $page, 'errors' => $errors,
+        // 3.11 (UX310-4): a new translation says so in its heading – "Translation: Garden design → Português (Brasil)"
+        return $this->view('form', $page['ids'] ? 'Edit page' : ($translationOf !== null ? t('Translation: %s → %s', $translationOf, $languageName) : 'New page'), [
+            'page' => $page, 'errors' => $errors, 'translationOf' => $translationOf, 'languageName' => $languageName,
             // possible parent pages: the same language, not the page itself nor its subpages
             'parents' => array_values(array_filter($this->db->all('SELECT ids, titulek, seo_link FROM {stranky} WHERE jazyk = ? AND smazano IS NULL AND ids <> ? ORDER BY seo_link', [$language, (int) $page['ids']]),
                 fn (array $s): bool => $custom === '' || !str_starts_with($s['seo_link'] . '/', $custom . '/'))),

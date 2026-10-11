@@ -34,7 +34,8 @@ use Kaleta\Core\Session;
  *    form carries that nonce and approves only that request – a second /oauth/authorize in the same session cannot swap
  *    the request behind a consent page the person is looking at.
  *  - N65: the consent screen leads with the return host, warns when it is not one of Claude's own (CLAUDE_HOSTS), marks
- *    clients the site never approved, and pre-selects "Drafts only" for a client outside Claude's hosts. The setting
+ *    clients the site never approved, and pre-selects "Drafts only" for a client outside Claude's hosts (3.11: for every
+ *    new connection, Claude's own apps too – UX310-2). The setting
  *    claude_apps_only (Claude settings, off by default) refuses registration and sign-in outside CLAUDE_HOSTS.
  *  - N13: a code or a refresh token is redeemed only by the request whose DELETE removed its row. A rotated refresh token
  *    is remembered in ka_oauth_rotated. Used again within REFRESH_GRACE seconds (a client retrying a refresh whose answer
@@ -83,6 +84,12 @@ final class OAuth
      * revokes the thief's pair. Thirty days was the refresh lifetime before 3.9.
      */
     public const int ROTATED_LIFETIME = 30 * 86400;
+
+    /**
+     * One name for each access level (3.11, UX310-2) – the consent screen, the chips in My account and the table in Claude
+     * settings say the same; translated with t() where shown.
+     */
+    public const array ACCESS_LABELS = ['drafts' => 'Drafts only – you publish', 'full' => 'Can also publish', 'read' => 'Read only'];
 
     public function __construct(private readonly App $app)
     {

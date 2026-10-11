@@ -9,7 +9,10 @@
  * @var bool $customMenu  the site has a built main menu
  * @var list<array{ids:int, titulek:string, seo_link:string}> $parents  possible parent pages
  * @var list<array{idr:int, datum:string, titulek:string, kdo:?string}> $versions  older versions of the text
+ * @var ?string $translationOf  the title of the original when this is a new translation (3.11)
+ * @var string $languageName  the name of the page's language version
  */
+$copyBuild = !$page['ids'] && !empty($page['copy_build']);
 $segment = basename((string) $page['seo_link']);
 $prefix = '';
 foreach ($parents as $r) {
@@ -27,14 +30,21 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <p class="hlaska hlaska-varovani"><?= e(t(($page['stavba'] ?? null) !== null ? 'The builder has work-in-progress changes that are not on the site yet.' : 'You are building this page in the builder. The site still shows the text below – once you publish in the builder, the build replaces it.')) ?>
 	<a href="<?= e($module->url('builder', ['id' => (int) $page['ids']])) ?>"><?= e(t('Open the builder')) ?></a></p>
 <?php endif ?>
+<?php if (!$page['ids'] && ($translationOf ?? null) !== null): ?>
+<p class="hlaska"><?= e($copyBuild ? t('Translate “%s” into %s – the page starts as a copy of the original; replace the texts and publish.', $translationOf, $languageName)
+    : t('Translate “%s” into %s – the text below is a copy of the original; replace it and publish.', $translationOf, $languageName)) ?></p>
+<?php endif ?>
 <form class="formular" method="post" action="<?= e($module->url('save')) ?>" data-koncept="stranka-<?= (int) $page['ids'] ?>">
 <?= $csrf ?>
 <input type="hidden" name="ids" value="<?= (int) $page['ids'] ?>">
+<?php if ($copyBuild): ?>
+<input type="hidden" name="copy_build" value="1">
+<?php endif ?>
 <div class="radek pres-celou">
 	<label for="titulek"><?= e(t('Název stránky')) ?></label>
-	<input class="textpole siroke titulek-pole" type="text" id="titulek" name="titulek" value="<?= e($page['titulek']) ?>" maxlength="200" required><?= $error('titulek') ?>
+	<input class="textpole siroke titulek-pole" type="text" id="titulek" name="titulek" value="<?= e($page['titulek']) ?>" maxlength="200" required placeholder="<?= e(t('e.g. Garden design')) ?>"<?= $page['ids'] ? '' : ' autofocus' ?>><?= $error('titulek') ?>
 </div>
-<?php if (!$page['ids']): ?>
+<?php if (!$page['ids'] && ($translationOf ?? null) === null): ?>
 <div class="radek">
 	<label for="sablona"><?= e(t('Start from a template')) ?></label>
 	<div><select id="sablona" name="sablona">
@@ -45,7 +55,9 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	</select><span class="napoveda"><?= e(t('A template builds the page from ready-made sections with sample texts and opens it in the builder.')) ?></span></div>
 </div>
 <?php endif ?>
-<?php if (($page['stavba'] ?? null) !== null): ?>
+<?php if ($copyBuild): ?>
+<input type="hidden" name="text" value="">
+<?php elseif (($page['stavba'] ?? null) !== null): ?>
 <div class="radek pres-celou">
 	<p class="hlaska"><?= e(t('This page\'s content is built in the builder.')) ?> <a class="tl" href="<?= e($module->url('builder', ['id' => (int) $page['ids']])) ?>"><?= e(t('Open the builder')) ?></a></p>
 	<input type="hidden" name="text" value="<?= e($page['text']) ?>"><?= $error('text') ?>
@@ -128,9 +140,9 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	</div>
 </div>
 <div class="radek">
-	<label for="valid_until"><?= e(t('True until')) ?></label>
+	<label for="valid_until"><?= e(t('Visible until')) ?></label>
 	<div><input class="textpole" type="date" id="valid_until" name="valid_until" value="<?= e((string) ($page['valid_until'] ?? '')) ?>">
-	<span class="napoveda"><?= e(t('After this day the page hides itself. Empty = always.')) ?></span></div>
+	<span class="napoveda"><?= e(t('After this day the page hides itself. Leave empty to keep it visible.')) ?></span></div>
 </div>
 <div class="radek">
 	<label for="review_by"><?= e(t('Review by')) ?></label>
@@ -142,8 +154,21 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	<div><input class="textpole" type="number" id="poradi" name="poradi" value="<?= (int) $page['poradi'] ?>" min="0" max="65535">
 	<span class="napoveda"><?= e(t('Lower number = earlier in the page list and in the automatic menu.')) ?></span></div>
 </div>
+<?php if ($copyBuild): ?>
+<p class="tlacitka"><button class="tl" type="submit"><?= e(t('Create the translation and open the builder')) ?></button></p>
+<?php else: ?>
 <p class="tlacitka"><button class="tl" type="submit"><?= e(t('Uložit')) ?></button><?php if (($page['stavba'] ?? null) === null): ?> <button class="navigace" type="submit" name="po_ulozeni" value="stavitel"><?= e(t('Save and open in the builder')) ?></button><?php endif ?></p>
+<?php endif ?>
 </form>
+<?php if (!$page['ids'] && ($translationOf ?? null) !== null && $app->auth()->hasModule('requests') && Kaleta\Core\Extensions::isEnabled($app->settings(), 'claude')): // 3.11 (UX310-4): translating is what Claude does well ?>
+<form class="formular" method="post" action="<?= e($app->url('admin.php?module=requests&action=save')) ?>">
+<?= $csrf ?>
+<input type="hidden" name="quick" value="1">
+<input type="hidden" name="about" value="page:<?= (int) $page['preklad_z'] ?>">
+<input type="hidden" name="text" value="<?= e(t('Translate the page “%s” into %s: start the translation as a copy of the original build, translate all its texts and leave it as a draft for me to check.', $translationOf, $languageName)) ?>">
+<p class="napoveda"><?= e(t('Or let Claude do it: it creates the translation as a draft for you to check.')) ?> <button class="navigace" type="submit"><?= e(t('Ask Claude to translate it')) ?></button></p>
+</form>
+<?php endif ?>
 <?php if ($versions !== []): ?>
 <details class="pokrocile">
 <summary><?= e(t('Text history (%s)', count($versions))) ?></summary>

@@ -88,7 +88,7 @@ $running = in_array($state['faze'], ['analyza', 'import', 'obrazky'], true);
 <ul>
 <?php foreach ($state['autori_vysledek'] as $a): ?>
 	<li><?= e(match ($a['jak']) {
-        'import' => t('%s: the news items belong to you', (string) $a['jmeno']),
+        'import' => t('%s: their news items now belong to your account', (string) $a['jmeno']),
         'email' => t('%s: the news items belong to %s, who has the same e-mail', (string) $a['jmeno'], (string) $a['uzivatel_jmeno']),
         default => t('%s: the news items belong to %s', (string) $a['jmeno'], (string) $a['uzivatel_jmeno']),
     }) ?></li>
@@ -102,7 +102,7 @@ $running = in_array($state['faze'], ['analyza', 'import', 'obrazky'], true);
 <?php endforeach ?>
 </ul></details>
 <?php endif ?>
-<p class="navigace-radek"><a class="navigace" href="<?= e($app->url('admin.php?module=news')) ?>"><?= e(t('Show news')) ?></a> <a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to Import and export')) ?></a></p>
+<p class="navigace-radek"><a class="navigace" href="<?= e($app->url('admin.php?module=news')) ?>"><?= e(t('Show news')) ?></a> <a class="navigace" href="<?= e($app->url('admin.php?module=pages')) ?>"><?= e(t('Show the pages')) ?></a><?php if ($app->auth()->hasModule('redirects')): // 3.11 (UX310-17): somewhere to go after the counts ?> <a class="navigace" href="<?= e($app->url('admin.php?module=redirects')) ?>"><?= e(t('Show the redirects')) ?></a><?php endif ?> <a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to Import and export')) ?></a></p>
 
 <h2><?= e(t('Images from the old site')) ?></h2>
 <?php if ($state['faze'] === 'obrazky-hotovo'): ?>

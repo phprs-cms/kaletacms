@@ -23,7 +23,7 @@ final class Rating extends Element
     {
         return [
             'hodnota' => ['typ' => 'text', 'popisek' => 'Rating (0–5, e.g. 4.8)', 'vychozi' => '4,8', 'max' => 4],
-            'text' => ['typ' => 'text', 'popisek' => 'Text next to the stars', 'vychozi' => t('out of 5 · 120 reviews'), 'max' => 120],
+            'text' => ['typ' => 'text', 'popisek' => 'Text next to the stars', 'vychozi' => t('out of 5 · [number] reviews'), 'max' => 120], // 3.11: the count is the owner's to fill in
         ];
     }
 

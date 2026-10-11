@@ -178,22 +178,21 @@ final class Health
                 . ($cronShadowed ? ' ' . t('A cron job that calls /tasks reaches that page and runs nothing – point it at /ulohy.') : ''));
         }
         $update = (new Updater($siteSettings))->state();
-        $add(t('Operation'), t('Updates'), !$update['nastaveno'] || $update['chyba'] !== null || $update['nova'] !== null || $update['vyzaduje_php'] !== null ? 'varovani' : 'ok', match (true) {
+        // 3.11 (UX310-3): old update information makes the Updates row amber too – never a green "up to date" next to the
+        // warning; Backups and updates shows the same (Updater::staleDays)
+        $staleDays = Updater::staleDays($update);
+        $add(t('Operation'), t('Updates'), !$update['nastaveno'] || $update['chyba'] !== null || $update['nova'] !== null || $update['vyzaduje_php'] !== null || $staleDays !== null ? 'varovani' : 'ok', match (true) {
             !$update['nastaveno'] => t('no update source is set'),
-            $update['refused'] => (string) $update['chyba'] . ' ' . t('If the publisher really published this, forget the remembered update information in Settings → Backups and updates.'), // 3.10 (N39-7, N310-1): the message says what happened
+            $update['refused'] => (string) $update['chyba'] . ' ' . t('If the publisher really published this, reset the update history in Settings → Backups and updates.'), // 3.10 (N39-7, N310-1): the message says what happened
             $update['chyba'] !== null => t('the update source is not responding: %s', (string) $update['chyba'])
                 . ($update['failing_since'] > 0 && time() - $update['failing_since'] >= 86400 ? ' ' . t('The checks have been failing for %d days.', intdiv(time() - $update['failing_since'], 86400)) : ''),
             $update['vyzaduje_php'] !== null => t('version %s needs PHP %s or newer, the server runs PHP %s – ask the hosting for a newer PHP to update', $update['vyzaduje_php']['verze'], $update['vyzaduje_php']['min_php'], PHP_VERSION),
-            $update['nova'] !== null => t('version %s is available (Settings → Backups and updates)', (string) $update['nova']['verze']),
+            $update['nova'] !== null => t('version %s is available (Settings → Backups and updates)', (string) $update['nova']['verze']) . ($staleDays !== null ? ' ' . self::staleText($staleDays) : ''),
+            // 3.10 (N39-7): the newest signed update information the source gave is old – the source may be stuck or replay
+            // an old copy (a warning only: nothing re-signs it automatically, see Updater::FRESHNESS_DAYS)
+            $staleDays !== null => self::staleText($staleDays),
             default => t('the system is up to date (%s)', KALETA_VERSION) . ($update['overeno'] > 0 ? ', ' . t('checked %s', format_date((new \DateTimeImmutable())->setTimestamp((int) $update['overeno']), true)) : ''),
         });
-        // 3.10 (N39-7): the newest signed update information the source gave is old – the source may be stuck or replay an
-        // old copy (a warning only: nothing re-signs it automatically, see Updater::FRESHNESS_DAYS)
-        $published = $update['newest'] !== null && $update['newest']['vydano'] !== '' ? \DateTimeImmutable::createFromFormat('!Y-m-d', $update['newest']['vydano']) : false;
-        if ($published !== false && $published->getTimestamp() < time() - Updater::FRESHNESS_DAYS * 86400) {
-            $add(t('Operation'), t('Update information'), 'varovani', t('the newest update information this site has received (version %s) was published on %s, %d days ago. The publisher refreshes it at least every %d days, so the update source may be stuck or serving an old copy – check the update source in Settings → Backups and updates.',
-                $update['newest']['verze'], format_date($published), intdiv(time() - $published->getTimestamp(), 86400), Updater::FRESHNESS_DAYS));
-        }
         // 3.10 (N310-3): a signed date in the future is not remembered – a wrong clock here or at the publisher
         if ($update['future_date'] !== '') {
             $add(t('Operation'), t('Update information'), 'varovani', t('the update source signs its update information with a date in the future (%s), so the site does not remember it for the freshness check. Check the date and time of the server; if they are right, tell the Kaleta publisher.', $update['future_date']));
@@ -226,6 +225,15 @@ final class Health
 
     /** The deny rule of media/.htaccess since 3.9.2 (N67): a script extension anywhere in a file name, in any case. */
     private const string MEDIA_RULE = '(?i)\\.(php\\d?|pht|phtml|phar|pl|py|cgi|sh|shtml|html?|js)(\\.|$)';
+
+    /**
+     * The owner's words for old update information (3.11, UX310-3) – the same sentence in System status and in Backups and
+     * updates; the technical detail sits behind "Details for your developer" there.
+     */
+    public static function staleText(int $days): string
+    {
+        return t('Kaleta can’t confirm this is the newest version – the update information is %d days old. Usually this clears itself within a day; if it is still here after a week, write to info@kaletacms.com (include this message).', $days);
+    }
 
     /**
      * Files in media/ whose name holds a script extension (photo.php.jpg, x.PHP) – Kaleta never writes such a name, an import

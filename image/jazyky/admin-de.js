@@ -2619,14 +2619,12 @@ window.KALETA_PREKLAD = {
 	"Ready-made sections": "Fertige Abschnitte",
 	"Draft saved": "Entwurf gespeichert",
 	"A container has no content of its own – put elements into it and set its look in the Style tab.": "Ein Container hat keinen eigenen Inhalt – fügen Sie Elemente ein und legen Sie sein Erscheinungsbild im Reiter „Stil“ fest.",
-	"Mobile": "Smartphone",
 	"Up": "Nach oben",
 	"Page settings (title, address, SEO)": "Seiteneinstellungen (Titel, Adresse, SEO)",
 	"Load into draft": "In den Entwurf laden",
 	"Unsaved…": "Nicht gespeichert…",
 	"Page preview": "Seitenvorschau",
 	"Remove class from element": "Klasse vom Element entfernen",
-	"Open the published page": "Veröffentlichte Seite öffnen",
 	"Fields of collection “%s” – insert into text, image or link:": "Felder der Sammlung „%s“ – in Text, Bild oder Link einfügen:",
 	"This element has no editable content.": "Dieses Element hat keinen bearbeitbaren Inhalt.",
 	"Elements and structure": "Elemente und Struktur",
@@ -2948,5 +2946,8 @@ window.KALETA_PREKLAD = {
 	"Remove": "Entfernen",
 	"Choose image": "Bild auswählen",
 	"Address": "Adresse",
-	"https://… or /about-us": "https://… oder /ueber-uns"
+	"https://… or /about-us": "https://… oder /ueber-uns",
+	"The item heading of a Collection list skips a level (h%d → h%d).": "Die Eintragsüberschrift einer Sammlungsliste überspringt eine Ebene (h%d → h%d).",
+	"Open the published page – the draft preview is under ⋯ → Share": "Veröffentlichte Seite öffnen – die Entwurfsvorschau finden Sie unter ⋯ → Teilen",
+	"Nothing to publish – all changes are live": "Nichts zu veröffentlichen – alle Änderungen sind live"
 };

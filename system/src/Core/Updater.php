@@ -154,7 +154,7 @@ final class Updater
 
     private static function notStableMessage(): string
     {
-        return t('The update source of the stable channel does not offer a stable-channel release (aktualizace-stable.json), so nothing is offered. Switch to the Latest channel or check the custom update source.');
+        return t('The update source of the stable channel does not offer a stable-channel release, so nothing is offered. Switch to the Latest channel or check the custom update source.');
     }
 
     /**
@@ -554,7 +554,7 @@ final class Updater
         $signed = array_key_exists('podpis2', $manifest) ? Signature::manifestValid($manifest, $keyFile)
             : is_string($version) && !self::needsSignatureV2($version);
         if (!$signed) {
-            throw new \RuntimeException(t('The update information file is not signed by the Kaleta publisher (signature v2), so nothing is offered or installed.'));
+            throw new \RuntimeException(t('The update information is not signed by the Kaleta publisher, so nothing is offered or installed.'));
         }
         if (!array_key_exists('podpis2', $manifest)) {
             unset($manifest['kanal']);
@@ -691,6 +691,23 @@ final class Updater
     }
 
     /**
+     * How old the newest update information of the source is, in days, when it is older than FRESHNESS_DAYS – otherwise
+     * null (3.11, UX310-3: System status and Backups and updates show the same warning from it).
+     *
+     * @param array{newest: ?array{verze: string, vydano: string, at: int}} $state from state()
+     */
+    public static function staleDays(array $state, ?int $now = null): ?int
+    {
+        $published = $state['newest'] !== null && $state['newest']['vydano'] !== '' ? \DateTimeImmutable::createFromFormat('!Y-m-d', $state['newest']['vydano']) : false;
+        $now ??= time();
+        if ($published === false || $published->getTimestamp() >= $now - self::FRESHNESS_DAYS * 86400) {
+            return null;
+        }
+
+        return intdiv($now - $published->getTimestamp(), 86400);
+    }
+
+    /**
      * The newest manifest remembered for an update source, of any channel (a custom source may have both).
      *
      * @param array<string, array{verze: string, vydano: string, at: int}> $seen
@@ -721,7 +738,7 @@ final class Updater
         $version = is_scalar($manifest['verze'] ?? null) ? (string) $manifest['verze'] : '?';
         if ($verdict['refused'] === 'channel') {
             throw new \RuntimeException($channel === 'stable' ? self::notStableMessage()
-                : t('The update source of the Latest channel answered with the stable-channel release (version %s, aktualizace-stable.json) – a wrong redirect, or someone serving the other channel\'s file. Nothing is offered or installed from it; the check repeats every hour.', $version), self::WRONG_CHANNEL);
+                : t('The update source of the Latest channel answered with the stable-channel release (version %s) – usually a wrong redirect at the source. Nothing is offered or installed from it; the check repeats every hour.', $version), self::WRONG_CHANNEL);
         }
         if ($verdict['refused'] === 'stale' && $verdict['newest'] !== null) {
             throw new \RuntimeException(t('The update source answered with older update information (version %s, published %s) than it gave this site before (version %s, published %s) – an outdated copy of the file, or someone serving an old one on purpose. Nothing is offered or installed from it; the check repeats every hour.',

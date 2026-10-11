@@ -2619,14 +2619,12 @@ window.KALETA_PREKLAD = {
 	"Ready-made sections": "Hotové sekce",
 	"Draft saved": "Koncept uložen",
 	"A container has no content of its own – put elements into it and set its look in the Style tab.": "Kontejner nemá vlastní obsah – vložte do něj prvky, vzhled nastavíte v záložce Styl.",
-	"Mobile": "Mobil",
 	"Up": "Nahoru",
 	"Page settings (title, address, SEO)": "Nastavení stránky (název, adresa, SEO)",
 	"Load into draft": "Načíst do konceptu",
 	"Unsaved…": "Neuloženo…",
 	"Page preview": "Náhled stránky",
 	"Remove class from element": "Odebrat třídu z prvku",
-	"Open the published page": "Otevřít publikovanou stránku",
 	"Fields of collection “%s” – insert into text, image or link:": "Pole kolekce „%s“ – vložte do textu, obrázku nebo odkazu:",
 	"This element has no editable content.": "Prvek nemá nastavitelný obsah.",
 	"Elements and structure": "Prvky a struktura",
@@ -2836,5 +2834,8 @@ window.KALETA_PREKLAD = {
 	"Remove": "Odebrat",
 	"Choose image": "Vybrat obrázek",
 	"Address": "Adresa",
-	"https://… or /about-us": "https://… nebo /o-nas"
+	"https://… or /about-us": "https://… nebo /o-nas",
+	"The item heading of a Collection list skips a level (h%d → h%d).": "Nadpis položek ve Výpisu kolekce přeskakuje úroveň (h%d → h%d).",
+	"Open the published page – the draft preview is under ⋯ → Share": "Otevřít publikovanou stránku – náhled konceptu je pod ⋯ → Sdílet",
+	"Nothing to publish – all changes are live": "Není co publikovat – všechny změny už jsou na webu"
 };

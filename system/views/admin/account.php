@@ -149,12 +149,12 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 <?php endif ?>
 <p><?= e(t('The easiest way is to add a custom connector in the Claude app with the address %s – Claude sends you here to sign in and confirm access, no token to copy. The token below is for Claude Code and other tools without sign-in.', $mcpUrl)) ?></p>
 <?= $app->view->render('admin/mcp_address', ['url' => $mcpUrl, 'id' => 'mcp-adresa-ucet']) ?>
-<?php $accessLabel = ['full' => t('full access'), 'drafts' => t('drafts only'), 'read' => t('read only')]; ?>
+<?php $accessLabel = array_map(fn (string $label): string => t($label), Kaleta\Front\OAuth::ACCESS_LABELS); ?>
 <?php
 // 3.10: the tool set of a connection and the button that switches it ("<set>:token:<id>" or "<set>:app:<client_id>")
 $toolSetLabel = fn (string $set): string => '<span class="stitek">' . e($set === 'essentials' ? t('essentials') : t('all tools')) . '</span>';
 $toolSetSwitch = fn (string $set, string $target): string => '<button class="navigace" type="submit" form="claude-connections" name="tool_set_switch" value="' . e(($set === 'essentials' ? 'all' : 'essentials') . ':' . $target) . '">'
-    . e($set === 'essentials' ? t('List all tools') : t('List essentials only')) . '</button>';
+    . e($set === 'essentials' ? t('Switch to all tools') : t('Switch to essentials')) . '</button>';
 ?>
 <?php if ($apps !== []): ?>
 <h2><?= e(t('Connected applications')) ?></h2>
@@ -164,7 +164,9 @@ $toolSetSwitch = fn (string $set, string $target): string => '<button class="nav
 	<button class="navigace nebezpecne" type="submit" form="claude-connections" name="odpojit_klient" value="<?= e($a['klient']) ?>" data-potvrdit="<?= e(t('Disconnect the application? It will not get into the website until you allow it again.')) ?>"><?= e(t('Disconnect')) ?></button></p>
 <?php endforeach ?>
 <?php endif ?>
-<p><?= e(t('Claude will work with the site')) ?> <strong><?= e(t('in your name and with your permissions')) ?></strong>: <?= e(t((int) $user['admin'] === 2 ? 'write and edit pages and news, and manage categories, collections and the look of the site.' : 'write and edit news.')) ?> <?= e(t('It creates new news items as drafts and new pages as hidden. All its changes are in the Change log. Protect the token like a password.')) ?></p>
+<p><?= e(t('Claude will work with the site')) ?> <strong><?= e(t('in your name and with your permissions')) ?></strong>: <?= e(t((int) $user['admin'] === 2 ? 'write and edit pages and news, and manage categories, collections and the look of the site.' : 'write and edit news.')) ?> <?= e(t('With “Drafts only”, pages and news stay drafts until you publish them; with “Can also publish”, Claude publishes when you ask it to. All its changes are in the Change log.')) ?></p>
+<h2><?= e(t('Personal tokens (Claude Code and other tools)')) ?></h2>
+<p class="napoveda"><?= e(t('For tools without sign-in. Protect a token like a password.')) ?></p>
 <?php foreach ($tokens as $t): ?>
 <p><span class="stitek"><?= e($t['nazev']) ?></span> <span class="stitek"><?= e($accessLabel[$t['access']] ?? $accessLabel['read']) ?></span> <?= $toolSetLabel((string) $t['tool_set']) ?> <?= e(t('created %s', format_date($t['vytvoren']))) ?>, <?= e($t['pouzit'] ? t('naposledy použit %s', format_date($t['pouzit'], true)) : t('zatím nepoužit')) ?>,
 	<?= $t['expirace'] === null ? e(t('no expiry')) : ($t['expirace'] < date('Y-m-d H:i:s') ? '<strong>' . e(t('expired %s', format_date($t['expirace']))) . '</strong>' : e(t('valid until %s', format_date($t['expirace'])))) ?>

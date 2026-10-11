@@ -15,7 +15,8 @@
 	--akcent: #121212;         /* primary buttons and links: Ink */
 	--akcent-tmavy: #000000;
 	--akcent-svetly: #ECE8DE;
-	--signal: #FF4F2E;         /* Signal: only the logo dot and small accents (focus, active item) – never small text */
+	--signal: #FF4F2E;         /* Signal: only the logo dot and small accents (active item) – never small text */
+	--fokus: #E63B1A;          /* the focus ring: Signal a shade darker – 3.8 : 1 on Paper (WCAG 1.4.11 asks 3 : 1; 3.11, UX310-27) */
 	--chyba: #C4281C;
 	--chyba-podklad: #FEF3F2;
 	--ok: #067647;
@@ -63,6 +64,7 @@
 		--varovani-text: #FDB022;
 		--predavka-text: #B69CFF;
 		--na-akcentu: #121212;
+		--fokus: #FF4F2E;
 	}
 }
 :root[data-tema="tmavy"] {
@@ -82,6 +84,7 @@
 	--varovani-text: #FDB022;
 	--predavka-text: #B69CFF;
 	--na-akcentu: #121212;
+	--fokus: #FF4F2E;
 }
 
 * {
@@ -105,7 +108,7 @@ a:hover {
 	text-decoration: underline;
 }
 :focus-visible {
-	outline: 2px solid var(--signal, var(--akcent));
+	outline: 2px solid var(--fokus, var(--akcent));
 	outline-offset: 2px;
 	border-radius: 4px;
 }
@@ -916,17 +919,13 @@ body.login {
 .clanek-nastaveni .pokrocile[open] summary {
 	margin-bottom: 14px;
 }
-/* article and page title: a large field without a border (must stay after the .textpole rules) */
+/* article and page title: a large field (must stay after the .textpole rules); 3.11 (UX310-6): with the usual visible
+   border – a borderless field on a white card looked like empty space */
 .titulek-pole {
 	padding: 8px 10px;
-	border-color: transparent;
 	font-size: 20px;
 	font-weight: 700;
 	letter-spacing: -0.02em;
-}
-.titulek-pole:focus {
-	border-color: var(--linka-pole);
-	box-shadow: none;
 }
 .clanek-hlavni .radek > label {
 	font-size: 12px;
@@ -1294,6 +1293,11 @@ body.login {
 .oauth-souhlas { display: grid; gap: 14px; max-width: 36rem; padding: 24px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); }
 .oauth-kdo { font-size: 18px; }
 .oauth-navrat { font-size: 18px; overflow-wrap: anywhere; }
+/* 3.11 (UX310-8): the consent stands on its own, like the sign-in page – a wider card, no second frame inside it */
+.login-karta-siroka { max-width: 40rem; }
+.login-web { margin: 0; font-weight: 600; }
+.login-karta .oauth-souhlas { max-width: none; padding: 0; border: 0; background: none; }
+.login-karta .oauth-souhlas .tlacitka .tl, .login-karta .oauth-souhlas .tlacitka .navigace { width: auto; margin-top: 0; }
 
 .volby-jazyky { columns: 3 13rem; column-gap: 24px; }
 /* a long list of checkboxes (pages for a popup) */

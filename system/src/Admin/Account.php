@@ -111,8 +111,8 @@ final class Account
                     if ($changed > 0) {
                         ChangeLog::write($app, 'ucet', 'claude_tool_set', $toolSet);
                     }
-                    $message = ['ok', $toolSet === 'essentials' ? 'The connection now lists the essentials – Claude finds the other tools when it needs them. Start a new conversation to see the change.'
-                        : 'The connection now lists all tools. Start a new conversation to see the change.'];
+                    $message = ['ok', $toolSet === 'essentials' ? 'Done – Claude will load the essentials in the next conversation it starts and find the other tools when it needs them.'
+                        : 'Done – Claude will see all tools in the next conversation it starts.'];
                     break;
                 case 'aplikace_odpojit':
                     $db->delete('api_tokeny', ['klient' => $r->post('odpojit_klient'), 'idu' => $user['idu']]);

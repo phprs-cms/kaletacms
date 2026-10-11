@@ -70,9 +70,14 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 	<div class="volby">
 		<div class="volby-jazyky">
 <?php foreach (Kaleta\Core\Language::AVAILABLE as $code => [$languageName]): if ($code === $values['site_language']) { continue; } ?>
-		<label><input type="checkbox" name="additional_languages[]" value="<?= e($code) ?>"<?= in_array($code, explode(',', $values['additional_languages']), true) ? ' checked' : '' ?>> <?= e($languageName) ?> <small>(/<?= e($code) ?>/)</small></label>
+		<label><input type="checkbox" name="additional_languages[]" value="<?= e($code) ?>"<?= in_array($code, explode(',', $values['additional_languages']), true) ? ' checked' : '' ?>> <?= e($languageName) ?> <small>(/<?= e($code) ?>/<?= $code !== 'cs' && !is_file(KALETA_SYSTEM . '/jazyky/' . Kaleta\Core\Language::base($code) . '.php') ? ' · ' . e(t('visitor texts in English')) : '' ?>)</small></label>
 <?php endforeach ?>
 		</div>
+<?php // 3.11 (UX310-7): a language visitors cannot switch to yet, and why
+$waiting = array_diff(Kaleta\Core\Language::additional($app->settings()), Kaleta\Core\Language::published($app->settings(), $app->db()));
+if ($waiting !== []): ?>
+		<span class="napoveda"><?= e(t('Not in the language switcher yet: %s. A language appears there once the home page has a published translation.', implode(', ', array_map(fn (string $c): string => Kaleta\Core\Language::AVAILABLE[$c][0], $waiting)))) ?> <a href="<?= e($app->url('admin.php?module=pages&action=translations')) ?>"><?= e(t('Translations')) ?></a></span>
+<?php endif ?>
 		<span class="napoveda"><?= e(t('Each version has its own pages, categories and news. A news item\'s language is set by its category. Link translations in the editor.')) ?></span>
 <?php $translated = array_map(fn (string $code): string => Kaleta\Core\Language::AVAILABLE[$code][0], array_values(array_filter(array_keys(Kaleta\Core\Language::AVAILABLE), fn (string $code): bool => $code === 'cs' || is_file(KALETA_SYSTEM . '/jazyky/' . Kaleta\Core\Language::base($code) . '.php')))); ?>
 		<span class="napoveda"><?= e(t('Texts for visitors (Search, Read more…) are translated into: %s. Other languages show them in English, with dates in their own format. You write the content of pages and news in the language of the version.', implode(', ', $translated))) ?></span>

@@ -40,7 +40,7 @@ $languages = Language::additional($app->settings());
         'polozka' => '<select id="' . e($id) . '" name="' . e($displayName) . '"><option value="">–</option>' . implode('', array_map(fn (string $slug, string $name): string => '<option value="' . e($slug) . '"' . ($slug === $h ? ' selected' : '') . '>' . e($name) . '</option>',
             array_keys($choices = Kaleta\Builder\Collections::choices($app->db(), (string) ($field['kolekce'] ?? ''))), $choices)) . '</select>',
         default => '<input class="textpole siroke" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500">',
-    } ?> <code class="napoveda">{{<?= e($field['klic']) ?>}}</code></div>
+    } ?> <span class="napoveda"><?= e(t('In templates:')) ?> <code>{{<?= e($field['klic']) ?>}}</code></span></div>
 </div>
 <?php endforeach ?>
 <?php if ($categories !== []): ?>
@@ -73,9 +73,9 @@ $languages = Language::additional($app->settings());
 <div class="radek"><span class="popisek"><?= e(t('Display')) ?></span><div class="volby"><label><input type="checkbox" name="zobrazit" value="1"<?= $p['zobrazit'] ? ' checked' : '' ?>> <?= e(t('published on the site')) ?></label><br>
 	<span class="napoveda" data-aktivni-kdyz="zobrazit="><label for="zverejnit_od"><?= e(t('Publish the hidden item automatically at:')) ?></label> <input class="textpole" type="datetime-local" id="zverejnit_od" name="zverejnit_od" value="<?= e(($p['zverejnit_od'] ?? null) ? date('Y-m-d\TH:i', strtotime($p['zverejnit_od'])) : '') ?>"></span></div></div>
 <div class="radek">
-	<label for="valid_until"><?= e(t('True until')) ?></label>
+	<label for="valid_until"><?= e(t('Visible until')) ?></label>
 	<div><input class="textpole" type="date" id="valid_until" name="valid_until" value="<?= e((string) ($p['valid_until'] ?? '')) ?>">
-	<span class="napoveda"><?= e(t('After this day the item hides itself. Empty = always.')) ?></span></div>
+	<span class="napoveda"><?= e(t('After this day the item hides itself. Leave empty to keep it visible.')) ?></span></div>
 </div>
 <div class="radek">
 	<label for="review_by"><?= e(t('Review by')) ?></label>

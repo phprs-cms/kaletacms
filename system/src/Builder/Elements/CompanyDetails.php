@@ -14,7 +14,7 @@ use Kaleta\Builder\Element;
 final class CompanyDetails extends Element
 {
     public const string TYPE = 'udaje';
-    public const string NAME = 'Company details';
+    public const string NAME = 'Business details'; // 3.11 (UX310-21): the same name as the section in the sidebar
     public const string DESCRIPTION = 'Address, phone, email, company ID, opening hours, map, copyright or social networks from Settings.';
     public const string ICON = 'udaje';
     public const string GROUP = 'Dynamic';

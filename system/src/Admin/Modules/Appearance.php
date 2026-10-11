@@ -44,6 +44,8 @@ final class Appearance extends Module
         }
         $r = $this->request;
         $siteSettings = $this->app->settings();
+        // the logo and the icon are live at once; only colours, fonts, sizes and shapes go to the draft look (3.11, UX310-11)
+        $logoChanged = mb_substr($r->post('logo'), 0, 255) !== $siteSettings->get('logo') || mb_substr($r->post('favicon'), 0, 255) !== $siteSettings->get('favicon');
         $siteSettings->set('logo', mb_substr($r->post('logo'), 0, 255));
         $icon = mb_substr($r->post('favicon'), 0, 255);
         if ($icon !== $siteSettings->get('favicon') || ($icon !== '' && !is_file(KALETA_ROOT . '/media/ikona-180.png'))) {
@@ -69,7 +71,11 @@ final class Appearance extends Module
         $siteSettings->set('brand_text_font', 'vychozi');
         \Kaleta\Front\Cache::clear();
 
-        return $this->back($inDraft ? 'Saved to the draft look – preview the whole site, then publish it.' : 'The site appearance has been saved.');
+        return $this->back(match (true) {
+            $inDraft && $logoChanged => 'Logo and icon saved and live. Colours, fonts and sizes are in the draft look – preview the whole site, then publish them.',
+            $inDraft => 'Saved to the draft look – preview the whole site, then publish it.',
+            default => 'The site appearance has been saved.',
+        });
     }
 
     /**

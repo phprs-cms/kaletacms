@@ -1653,7 +1653,6 @@ return [
     'Karusel' => 'Carousel',
     'Klíč' => 'Key',
     'Lidé' => 'People',
-    'List' => 'Leaf',
     'Mapa' => 'Map',
     'Mapa s adresou firmy – načte se až po klepnutí (soukromí, rychlost).' => 'A map with the company address – loads only after a click (privacy, speed).',
     'Místo' => 'Location',

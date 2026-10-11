@@ -110,21 +110,28 @@ await step('3.5 a new page from a template stays hidden until its build is publi
   const visitor = await browser.newContext();
   if ((await visitor.request.get(`${BASE}/browser-template-page`)).status() !== 404) { throw new Error('the empty template page is live before its build is published'); }
   await page.locator('.st-lista button.st-tl-hlavni').click();
+  // 3.11 (UX310-1): the template's placeholders and sample texts are in the pre-publish check, the summary first
   const anyway = page.locator('dialog[open] .st-tl-hlavni');
-  if (await anyway.waitFor({ timeout: 1500 }).then(() => true, () => false)) { await anyway.click(); }
+  await anyway.waitFor({ timeout: 5000 });
+  const firstFinding = (await page.locator('dialog[open] .st-kontrola li').first().textContent()) || '';
+  if (!/This page still has sample content from the starter site \(sample testimonials: 2, placeholder figures: 2, sample texts: \d+\)/.test(firstFinding)) {
+    throw new Error(`the pre-publish check does not lead with the sample content: ${firstFinding}`);
+  }
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/builder-sample-content-check.png`, fullPage: false }); }
+  await anyway.click();
   await page.locator('.st-lista .st-skryta').waitFor({ state: 'detached' });
   if ((await visitor.request.get(`${BASE}/browser-template-page`)).status() !== 200) { throw new Error('the page is not live after its first publish'); }
   await visitor.close();
 });
 
-await step('builder: select, style, mobile, edit text', async () => {
+await step('builder: select, style, phone, edit text', async () => {
   await visit('/admin.php?module=pages&action=builder&id=1');
   await page.waitForTimeout(1500);
   await canvas().locator('h1').first().click();
   await page.waitForTimeout(500);
   await page.getByRole('tab', { name: 'Style' }).first().click().catch(() => page.getByText('Style', { exact: true }).first().click());
   await page.waitForTimeout(400);
-  await page.getByRole('button', { name: 'Mobile' }).first().click();
+  await page.getByRole('button', { name: 'Phone' }).first().click(); // 3.11: "Phone", as in Site appearance
   await page.waitForTimeout(1000);
   await page.getByRole('button', { name: 'Desktop' }).first().click().catch(() => {});
   await page.waitForTimeout(600);

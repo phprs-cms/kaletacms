@@ -70,6 +70,8 @@ trait CollectionTools
 
             return ['kolekce' => $created['seo_link'], 'nazev' => $created['nazev'], 'pole' => $created['pole'], 'presmerovat_skryte' => $created['hidden_redirect'], 'preset' => (string) $a['preset'],
                 'list_page' => $pageId !== null ? ['id' => $pageId, 'path' => '/' . $created['seo_link'], 'visible' => false, 'note' => 'A hidden page listing the items; add an intro, then publish it with update_page visible=true when the user wants.'] : null]
+                // 3.11 (UX310-5): say why there is no list page – the address is already a page
+                + ($pageId === null ? ['list_page_note' => 'No list page was added: /' . $created['seo_link'] . ' is already taken. Add a Collection list element (type collection) to that page, or create a page at another address.'] : [])
                 // further hidden list pages of the preset (2.11): a notice board's archive
                 + ($extraPages !== [] ? ['more_pages' => array_map(fn (array $p): array => $p + ['visible' => false], $extraPages)] : [])
                 + ['how_to_use' => (string) ($preset['claude'] ?? '')];

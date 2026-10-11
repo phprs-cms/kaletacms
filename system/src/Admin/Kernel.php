@@ -169,7 +169,11 @@ final class Kernel
         }
         $class = $this->modules()[$ident] ?? null;
         if ($class === null) {
-            return $this->page('Error', $app->view->render('admin/error', ['text' => 'You do not have access to this module.']), 403);
+            // 3.11 (UX310-30): a mistyped section is not a matter of access
+            $known = array_filter(self::MODULES, fn (string $c): bool => $c::IDENT === $ident) !== [];
+
+            return $known ? $this->page('Error', $app->view->render('admin/error', ['text' => 'You do not have access to this module.']), 403)
+                : $this->page('Error', $app->view->render('admin/error', ['text' => 'This page does not exist.']), 404);
         }
 
         $response = (new $class($this))->handle($action === '' ? 'list' : $action);
@@ -321,7 +325,7 @@ final class Kernel
         $steps = [
             // done only after the user's own choice: appearance and pages from the starter site do not count
             ['Give your site a face', 'Logo, main colour and fonts.', 'admin.php?module=appearance', $s->get('logo') !== '' || $s->bool('appearance_saved') || $s->get('brand_accent') !== ''],
-            ['Fill in company details', 'Address, phone and opening hours appear on the contact page, in the footer and to search engines.', 'admin.php?module=business', $s->get('company_street') !== '' && ($s->get('company_phone') !== '' || $s->get('company_email') !== '' || $s->get('site_email') !== '')],
+            ['Fill in business details', 'Address, phone and opening hours appear on the contact page, in the footer and to search engines.', 'admin.php?module=business', $s->get('company_street') !== '' && ($s->get('company_phone') !== '' || $s->get('company_email') !== '' || $s->get('site_email') !== '')],
             ['Prepare your pages', 'About us, Services, Contact – and pick the home page in Settings.', 'admin.php?module=pages', (int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1') >= 3 && $s->int('home_page') > 0
                 && $db->value('SELECT 1 FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1 AND zmeneno IS NOT NULL LIMIT 1') !== null],
             ['Complete the privacy policy', 'The enquiry form collects personal data – visitors must know how you handle it. The page is prepared as a hidden draft: fill in the details in square brackets and publish it.', 'admin.php?module=pages',
@@ -329,7 +333,7 @@ final class Kernel
                 $db->value("SELECT 1 FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1 AND (" . implode(' OR ', array_map(fn (string $w): string => "seo_link LIKE '%" . $w . "%'", ['soukromi', 'osobni', 'osobnych', 'gdpr', 'dsgvo', 'privacy', 'datenschutz', 'privacidad', 'confidentialite', 'riservatezza', 'prywatnosc', 'prywatnosci'])) . ") AND text NOT LIKE '%[%]%' LIMIT 1") !== null],
             ['Set up e-mail', 'Where the site sends e-mail from (forms, password reset).', 'admin.php?module=settings&tab=mail', $s->get('mail_mode') === 'smtp' || $s->get('mail_from') !== ''],
             // 3.2: a suggestion, not an installer question – done once a blueprint is applied
-            ['Your kind of business', 'Twenty blueprints – from a software company or a restaurant to a clinic or a trade – add the collections, facts and checks such a business needs; Claude can make one for any other.', 'admin.php?module=blueprints',
+            ['Your kind of business', 'Twenty ready-made setups – from a software company or a restaurant to a clinic or a trade – add the collections, facts and checks such a business needs; Claude can make one for any other.', 'admin.php?module=blueprints',
                 $db->value('SELECT 1 FROM {blueprints} LIMIT 1') !== null],
         ];
         // 2.2: Claude is the main way to build and edit a Kaleta site – done once any user has connected it; the first step
@@ -427,15 +431,16 @@ final class Kernel
 
         $host = \Kaleta\Front\OAuth::host((string) $pending['redirect_uri']);
         $claudeHost = \Kaleta\Front\OAuth::isClaudeHost($host);
-        $page = $this->page('Connect an application', $app->view->render('admin/oauth', [
+        // 3.11 (UX310-8): a focused frame without the admin menu and the draft-look bar – a stray Publish has no place here
+        $page = Response::html($app->view->render('admin/bare', ['app' => $app, 'heading' => t('Connect an application'), 'content' => $app->view->render('admin/oauth', [
             'app' => $app, 'csrf' => $app->session->csrfField(), 'pending' => $pending, 'nonce' => $nonce, 'user' => $app->auth()->user(),
             'url' => $host, 'claudeHost' => $claudeHost, 'approved' => $oauth->isApprovedClient((string) $pending['client_id']),
-            // 3.3.4 (N65): Claude's own apps keep full access as the default; an application returning anywhere else starts
-            // at drafts only, so one careless click does not hand it the whole account
-            'selected' => $claudeHost ? 'full' : 'drafts',
+            // 3.11 (UX310-2, owner decision 11 Oct 2026): every new connection starts at drafts only – the "drafts you
+            // approve" the installer and the site promise; publishing is one click away. Connections that exist keep their access.
+            'selected' => 'drafts',
             // 3.10: a new connection lists the essentials – a shorter tools/list in every conversation; the rest is a find_tools away
             'toolSet' => 'essentials',
-        ]));
+        ])]));
         // sending the consent ends with a redirect to the app – CSP form-action must allow it (admin.php)
         $target = parse_url((string) $pending['redirect_uri']);
         $origin = ($target['scheme'] ?? '') . '://' . ($target['host'] ?? '') . (isset($target['port']) ? ':' . $target['port'] : '');

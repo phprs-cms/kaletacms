@@ -70,15 +70,16 @@ final class Library
                 $s($n('mrizka', [], array_map(fn (array $d): array => $s($n('kontejner', [], [
                     $s($z($n('nadpis', ['text' => $d[0]]), 'p'), ['zaklad' => ['velikost_pisma' => '4', 'tloustka_pisma' => '800']]),
                     $n('text', ['html' => '<p>' . $d[1] . '</p>']),
-                ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => '2xs', 'zarovnani_textu' => 'center']]), [['15+', t('years in business')], [t('1,200'), t('completed projects')], [t('98%'), t('spokojených zákazníků')], ['24 h', t('response time')]])),
+                ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => '2xs', 'zarovnani_textu' => 'center']]), [[t('[number]'), t('years in business')], [t('[number]'), t('completed projects')], [t('[number]'), t('spokojených zákazníků')], [t('[number]'), t('response time')]])),
                     ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '4', 'mezera' => 'l'], 'tablet' => ['sloupce' => '2']]),
             ]), ['zaklad' => ['odsazeni_y' => 'xl', 'pozadi' => 'primarni', 'barva' => 'na-primarni']])],
 
             'reference' => ['nazev' => t('Testimonials'), 'popis' => t('What customers say about you – quotes with names.'), 'stavba' => fn (): array => $n('sekce', [], [
                 $t($n('nadpis', ['text' => t('What our customers say')]), 'nadpis-sekce'),
                 $s($n('mrizka', [], [
-                    $t($n('citat', ['text' => t('Everything went exactly as agreed, on time and on budget. We will gladly come back.'), 'autor' => t('David Clarke'), 'pozice' => t('Managing Director, Clarke Ltd')]), 'karta'),
-                    $t($n('citat', ['text' => t('We appreciate the fast communication and that they always recommended the best solution.'), 'autor' => t('Emma Johnson'), 'pozice' => t('Operations Director')]), 'karta'),
+                    // 3.11 (UX310-1): placeholders, never invented reviews – SampleContent reports them until real ones replace them
+                    $t($n('citat', ['text' => t('[A customer’s words – a real quote, used with their permission]'), 'autor' => t('[Customer’s name]'), 'pozice' => t('[Role, company]')]), 'karta'),
+                    $t($n('citat', ['text' => t('[A customer’s words – a real quote, used with their permission]'), 'autor' => t('[Customer’s name]'), 'pozice' => t('[Role, company]')]), 'karta'),
                 ]), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => 'auto:20rem', 'mezera' => 'l']]),
             ])],
 
@@ -206,8 +207,8 @@ final class Library
                     $s($n('kontejner', [], [$z($n('nadpis', ['text' => $d[0]]), 'h3'), $t($n('text', ['html' => '<p>' . $d[1] . '</p>']), 'podtitul')]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => '2xs']]),
                     $s($z($n('nadpis', ['text' => $d[2]]), 'p'), ['zaklad' => ['tloustka_pisma' => '700', 'velikost_pisma' => '1']]),
                 ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'row', 'rozmisteni' => 'space-between', 'zarovnani' => 'baseline', 'mezera' => 'm', 'odsazeni_y' => 'm', 'linka_dole' => '1px solid var(--ka-barva-linka)'], 'mobil' => ['smer' => 'column', 'mezera' => 'xs']]), [
-                    [t('Consultation'), t('An hour with an expert at your place or online.'), t('from £40')],
-                    [t('Tailored design'), t('A design including visualisation and budget.'), t('from £190')],
+                    [t('Consultation'), t('An hour with an expert at your place or online.'), t('[price]')],
+                    [t('Tailored design'), t('A design including visualisation and budget.'), t('[price]')],
                     [t('Realizace'), t('Complete execution according to the design.'), t('depending on scope')],
                 ])), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column']]),
             ])],
@@ -220,8 +221,8 @@ final class Library
                     $n('seznam', ['polozky' => $d[2], 'styl' => 'fajfky']),
                     $n('tlacitko', ['text' => t('I\'m interested'), 'odkaz' => $url('Contact'), 'varianta' => $d[3] ? 'primarni' : 'obrys']),
                 ]), 'karta'), $d[3] ? ['zaklad' => ['ramecek' => '2px solid var(--ka-barva-primarni)', 'stin' => 'm']] : []), [
-                    [t('Basic'), t('£120'), t('Consultation') . "\n" . t('Solution design'), false],
-                    [t('Standard'), t('£290'), t('Consultation') . "\n" . t('Solution design') . "\n" . t('Realizace') . "\n" . t('A year of free service'), true],
+                    [t('Basic'), t('[price]'), t('Consultation') . "\n" . t('Solution design'), false],
+                    [t('Standard'), t('[price]'), t('Consultation') . "\n" . t('Solution design') . "\n" . t('Realizace') . "\n" . t('A year of free service'), true],
                     [t('Na míru'), t('by agreement'), t('Everything in Standard') . "\n" . t('Your own schedule') . "\n" . t('A personal project manager'), false],
                 ])), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => 'auto:16rem', 'mezera' => 'l', 'zarovnani' => 'stretch']]),
             ])],
@@ -256,7 +257,7 @@ final class Library
                     $z($n('nadpis', ['text' => $d[0]]), 'h3'),
                     $t($n('text', ['html' => '<p>' . $d[1] . '</p>']), 'podtitul'),
                 ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'xs']]), [
-                    [t('Family house'), t('Manchester, 2026')], [t('Office'), t('London, 2025')], [t('Flat renovation'), t('York, 2025')],
+                    [t('Family house'), t('[Place, year]')], [t('Office'), t('[Place, year]')], [t('Flat renovation'), t('[Place, year]')],
                 ])), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => 'auto:18rem', 'mezera' => 'l']]),
             ])],
 
@@ -268,18 +269,18 @@ final class Library
             /* ---------- trust ---------- */
 
             'reference-jedna' => ['nazev' => t('Big quote'), 'popis' => t('One prominent testimonial in the centre.'), 'stavba' => fn (): array => $s($n('sekce', ['sirka' => 'uzka'], [
-                $s($n('citat', ['text' => t('The best company we have ever worked with. They kept every deadline and the result exceeded our expectations.'), 'autor' => t('Sarah Miller'), 'pozice' => t('café owner')]),
+                $s($n('citat', ['text' => t('[A customer’s words – a real quote, used with their permission]'), 'autor' => t('[Customer’s name]'), 'pozice' => t('[Role, company]')]),
                     ['zaklad' => ['velikost_pisma' => '2', 'zarovnani_textu' => 'center']]),
             ]), ['zaklad' => ['odsazeni_y' => '2xl', 'pozadi' => 'primarni-jemna']])],
 
             'recenze' => ['nazev' => t('Customer reviews'), 'popis' => t('Three short reviews with stars.'), 'stavba' => fn (): array => $n('sekce', [], [
                 $t($n('nadpis', ['text' => t('Customer reviews')]), 'nadpis-sekce'),
                 $s($n('mrizka', [], array_map(fn (array $d): array => $t($n('kontejner', [], [
-                    $s($z($n('nadpis', ['text' => '★★★★★']), 'p'), ['zaklad' => ['barva' => 'primarni', 'proklad' => '0.12em']]),
+                    $s($z($n('nadpis', ['text' => t('[rating]')]), 'p'), ['zaklad' => ['barva' => 'primarni', 'proklad' => '0.12em']]),
                     $n('text', ['html' => '<p>' . $d[0] . '</p>']),
                     $s($z($n('nadpis', ['text' => $d[1]]), 'p'), ['zaklad' => ['tloustka_pisma' => '600', 'velikost_pisma' => '-1']]),
                 ]), 'karta'), [
-                    [t('Fast, clean and for the agreed price.'), t('Tom K.')], [t('Helpful people, great communication.'), t('Jane P.')], [t('I recommend them to all my friends.'), t('Paul S.')],
+                    [t('[A short review from a real customer]'), t('[Customer’s name]')], [t('[A short review from a real customer]'), t('[Customer’s name]')], [t('[A short review from a real customer]'), t('[Customer’s name]')],
                 ])), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '3', 'mezera' => 'l'], 'tablet' => ['sloupce' => '1']]),
             ])],
 
@@ -294,7 +295,7 @@ final class Library
                     $s($z($n('nadpis', ['text' => $d[0]]), 'p'), ['zaklad' => ['velikost_pisma' => '5', 'tloustka_pisma' => '800', 'barva' => 'primarni']]),
                     $t($n('text', ['html' => '<p>' . $d[1] . '</p>']), 'podtitul'),
                 ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => '2xs']]), [
-                    ['20+', t('years of experience')], ['500+', t('spokojených zákazníků')], [t('5 years'), t('guarantee on work')],
+                    [t('[number]'), t('years of experience')], [t('[number]'), t('spokojených zákazníků')], [t('[number]'), t('guarantee on work')],
                 ])), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '3', 'mezera' => 'l'], 'mobil' => ['sloupce' => '1']]),
             ])],
 
@@ -324,7 +325,7 @@ final class Library
                     $s($n('obrazek', ['alt' => $d[0]]), ['zaklad' => ['sirka' => '100%', 'pomer_stran' => '1', 'prizpusobeni' => 'cover', 'zaobleni' => 'plne']]),
                     $z($n('nadpis', ['text' => $d[0]]), 'h3'), $t($n('text', ['html' => '<p>' . $d[1] . '</p>']), 'podtitul'),
                 ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'xs', 'zarovnani_textu' => 'center', 'zarovnani' => 'center']]), [
-                    [t('John Smith'), t('owner')], [t('Emily Smith'), t('design and measuring')], [t('Peter Brown'), t('project lead')],
+                    [t('[Name]'), t('owner')], [t('[Name]'), t('design and measuring')], [t('[Name]'), t('project lead')],
                 ])), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => 'auto:12rem', 'mezera' => 'l']]),
             ])],
 
@@ -342,7 +343,7 @@ final class Library
                     $s($z($n('nadpis', ['text' => $d[0]]), 'p'), ['zaklad' => ['tloustka_pisma' => '800', 'barva' => 'primarni', 'velikost_pisma' => '1']]),
                     $n('text', ['html' => '<p>' . $d[1] . '</p>']),
                 ]), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '6rem 1fr', 'mezera' => 'm', 'odsazeni_y' => 's', 'linka_dole' => '1px solid var(--ka-barva-linka)'], 'mobil' => ['sloupce' => '1', 'mezera' => '2xs']]), [
-                    ['2005', t('The company is founded in a family garage.')], ['2012', t('A new workshop and the first employees.')], ['2020', t('The five-hundredth finished project.')], ['2026', t('Opening of the showroom.')],
+                    [t('[year]'), t('The company is founded in a family garage.')], [t('[year]'), t('A new workshop and the first employees.')], [t('[year]'), t('The five-hundredth finished project.')], [t('[year]'), t('Opening of the showroom.')],
                 ])), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column']]),
             ])],
 
@@ -366,7 +367,7 @@ final class Library
                     $z($n('nadpis', ['text' => $d[0]]), 'h3'),
                     $n('text', ['html' => '<p>' . $d[1] . '<br>' . $d[2] . '</p><p>' . $d[3] . '</p>']),
                 ]), 'karta'), [
-                    [t('London'), t('12 High Street'), t('London EC2A 4NE'), t('Mon–Fri 8–17')], [t('Manchester'), t('5 King Street'), t('Manchester M2 5DB'), t('Mon–Fri 9–17')], [t('Leeds'), t('20 Station Road'), t('Leeds LS1 4DY'), t('Mon–Thu 8–16')],
+                    ...array_fill(0, 3, [t('[Town]'), t('[Street and number]'), t('[Postcode and town]'), t('[Opening hours]')]),
                 ])), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => 'auto:16rem', 'mezera' => 'l']]),
             ])],
 
@@ -379,7 +380,7 @@ final class Library
                 ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'row', 'rozmisteni' => 'space-between', 'zarovnani' => 'center', 'mezera' => 'm', 'zalamovani' => 'wrap']]),
             ]), ['zaklad' => ['odsazeni_y' => 'l', 'pozadi' => 'primarni', 'barva' => 'na-primarni']])],
 
-            'kontakt-formular' => ['nazev' => t('Contact with form'), 'popis' => t('Company details from Settings on the left, an enquiry form on the right.'), 'stavba' => fn (): array => $n('sekce', [], [
+            'kontakt-formular' => ['nazev' => t('Contact with form'), 'popis' => t('Business details on the left, an enquiry form on the right.'), 'stavba' => fn (): array => $n('sekce', [], [
                 $s($n('mrizka', [], [
                     $s($n('kontejner', [], [
                         $z($n('nadpis', ['text' => t('Contact details')]), 'h2'),

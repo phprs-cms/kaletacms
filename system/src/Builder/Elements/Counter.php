@@ -25,7 +25,7 @@ final class Counter extends Element
     public static function properties(): array
     {
         return [
-            'cislo' => ['typ' => 'text', 'popisek' => 'Number – or a fact or count token ({{fact.projects}}, {{years_since:2004}}, {{count:reference}})', 'vychozi' => '1200', 'max' => 140],
+            'cislo' => ['typ' => 'text', 'popisek' => 'Number – or a fact or count token ({{fact.projects}}, {{years_since:2004}}, {{count:reference}})', 'vychozi' => t('[number]'), 'max' => 140], // 3.11: a placeholder, never an invented figure
             'pred' => ['typ' => 'text', 'popisek' => 'Before the number (e.g. “+”)', 'vychozi' => '', 'max' => 10],
             'za' => ['typ' => 'text', 'popisek' => 'After the number (e.g. “ %”, “+”, “ years”)', 'vychozi' => '+', 'max' => 20],
             'popisek' => ['typ' => 'text', 'popisek' => 'Label', 'vychozi' => t('spokojených zákazníků'), 'max' => 120],

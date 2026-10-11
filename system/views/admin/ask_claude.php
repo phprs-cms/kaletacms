@@ -39,7 +39,7 @@ $when = $routine === null ? '' : match ($routine['cadence']) {
 	<p class="hlaska ask-claude-nepripojeno"><?= e($ask['admin'] ? t('Claude is not connected to this site yet, so requests wait until it is.') : t('Claude is not connected to this site yet – requests wait until an administrator connects it.')) ?><?php if ($ask['admin']): ?> <a href="#pripojit-claude"><?= e(t('Connect Claude')) ?></a><?php endif ?></p>
 <?php endif ?>
 <?php if ($ask['examples'] !== []): ?>
-	<p class="smltxt ask-claude-zkuste"><?= e(t('For example – click one, change it and send:')) ?></p>
+	<p class="smltxt ask-claude-zkuste"><?= e($ask['connected'] ? t('For example – click one, change it and send:') : t('For example – click one, change it and save:')) ?></p>
 	<ul class="ask-claude-priklady">
 <?php foreach ($ask['examples'] as $key => $text): ?>
 		<li><button type="button" class="ask-claude-priklad" data-ask-claude-example="<?= e($key) ?>"><?= e(t($text)) ?></button></li>

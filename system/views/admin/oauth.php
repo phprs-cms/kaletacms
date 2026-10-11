@@ -30,7 +30,7 @@ $role = t(Kaleta\Core\Auth::TYPES[(int) $user['admin']] ?? '');
 	<form method="post" action="<?= e($app->url('admin.php?action=oauth')) ?>">
 		<?= $csrf ?>
 		<input type="hidden" name="request" value="<?= e($nonce) ?>">
-		<?= $app->view->render('admin/connection-access', ['role' => $role, 'selected' => $selected, 'claude' => $claudeHost, 'toolSet' => $toolSet]) ?>
+		<?= $app->view->render('admin/connection-access', ['role' => $role, 'selected' => $selected, 'claude' => $claudeHost, 'toolSet' => $toolSet, 'recommended' => 'drafts']) ?>
 		<p class="napoveda"><?= e(t('You can revoke the connection at any time in My account → Connected applications.')) ?></p>
 		<div class="tlacitka">
 		<button class="tl" type="submit" name="povolit" value="1"><?= e(t('Allow access')) ?></button>

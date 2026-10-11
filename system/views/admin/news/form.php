@@ -71,9 +71,9 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	<span class="napoveda"><?= e(t('A future date = the news item is published automatically at that time.')) ?></span></div>
 </div>
 <div class="radek">
-	<label for="valid_until"><?= e(t('True until')) ?></label>
+	<label for="valid_until"><?= e(t('Visible until')) ?></label>
 	<div><input class="textpole" type="date" id="valid_until" name="valid_until" value="<?= e((string) ($newsItem['valid_until'] ?? '')) ?>">
-	<span class="napoveda"><?= e(t('After this day the news item hides itself. Empty = always.')) ?></span></div>
+	<span class="napoveda"><?= e(t('After this day the news item hides itself. Leave empty to keep it visible.')) ?></span></div>
 </div>
 <div class="radek">
 	<label for="review_by"><?= e(t('Review by')) ?></label>

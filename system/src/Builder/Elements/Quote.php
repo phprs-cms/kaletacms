@@ -19,8 +19,8 @@ final class Quote extends Element
     public static function properties(): array
     {
         return [
-            'text' => ['typ' => 'inline', 'popisek' => 'Text', 'vychozi' => t('Working with them was quick and hassle-free. Recommended.'), 'max' => 1500],
-            'autor' => ['typ' => 'text', 'popisek' => 'Jméno', 'vychozi' => t('Jane Doe'), 'max' => 120],
+            'text' => ['typ' => 'inline', 'popisek' => 'Text', 'vychozi' => t('[A customer’s words – a real quote, used with their permission]'), 'max' => 1500], // 3.11: a placeholder, never an invented review
+            'autor' => ['typ' => 'text', 'popisek' => 'Jméno', 'vychozi' => t('[Customer’s name]'), 'max' => 120],
             'pozice' => ['typ' => 'text', 'popisek' => 'Position or company', 'vychozi' => '', 'max' => 160],
         ];
     }

@@ -9,6 +9,7 @@
  * @var list<string> $languages  language versions of the site, the first one is the default
  * @var list<array{idt:int, nazev:string, jazyk:string}> $categories  news categories
  * @var bool $redirectsEnabled
+ * @var bool $hiddenByDefault  the site already has published pages – the import arrives hidden unless chosen otherwise (3.11)
  */
 $p = $state['prehled'];
 $options = $state['volby'];
@@ -16,7 +17,7 @@ $statuses = ['publish' => 'vydané', 'future' => 'naplánované', 'draft' => 'ko
 $byStatus = function (array $counts) use ($statuses): string {
     $parts = [];
     foreach ($counts as $s => $count) {
-        $parts[] = (int) $count . ' ' . t($statuses[$s] ?? 'jiné');
+        $parts[] = t($statuses[$s] ?? 'jiné') . ': ' . (int) $count; // "drafts: 1" – no plural forms needed (3.11)
     }
 
     return implode(', ', $parts);
@@ -42,7 +43,7 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 <ul>
 <?php foreach ($p['menu'] as $slug => $m): ?>
 <?php [$menuPlace, $menuLanguage] = $menuPlaces[(string) $slug] ?? ['', '']; ?>
-	<li><?= e(t('Menu “%s” (%s items): %s', (string) $m['nazev'], (int) $m['polozky'], $menuPlace !== '' ? t(Kaleta\Core\Menu::LOCATIONS[$menuPlace]) : t('left out – this site has a main and a footer menu'))) ?><?= $menuLanguage !== '' ? ' (' . e(Kaleta\Core\Language::AVAILABLE[$menuLanguage][0] ?? $menuLanguage) . ')' : '' ?></li>
+	<li><?= e(t('Menu “%s” (items: %d): %s', (string) $m['nazev'], (int) $m['polozky'], $menuPlace !== '' ? t(Kaleta\Core\Menu::LOCATIONS[$menuPlace]) : t('left out – this site has a main and a footer menu'))) ?><?= $menuLanguage !== '' ? ' (' . e(Kaleta\Core\Language::AVAILABLE[$menuLanguage][0] ?? $menuLanguage) . ')' : '' ?></li>
 <?php endforeach ?>
 </ul>
 <?php endif ?>
@@ -59,7 +60,7 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 <?php endif ?>
 <?php endif ?>
 <?php foreach ($p['stavitele'] ?? [] as $builder => $count): ?>
-<p class="hlaska hlaska-varovani"><?= e(t('%s pages and posts were laid out with %s: the layout is not in the export, only the text in the post content comes over.', (int) $count, (string) $builder)) ?></p>
+<p class="hlaska hlaska-varovani"><?= e(t('Laid out with %s (pages and posts: %d): the layout is not in the export, only the text in the post content comes over.', (string) $builder, (int) $count)) ?></p>
 <?php endforeach ?>
 <?php foreach ($p['typy'] ?? [] as $type => $t): ?>
 <?php $prefixes = $t['predpony']; arsort($prefixes); $address = (string) (array_key_first($prefixes) ?? $type); ?>
@@ -100,7 +101,7 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 <?php endforeach ?>
 </select><span class="napoveda"><?= e(t('Which language version of the site the new categories and pages belong to.')) ?></span></div></div>
 <?php endif ?>
-<div class="radek"><span class="popisek"><?= e(t('What to import')) ?></span><div class="volby">
+<div class="radek"><span class="popisek"><?= e(t('What to import')) ?></span><div class="volby volby-pod-sebou">
 	<label><input type="checkbox" name="koncepty" value="1"<?= $options['koncepty'] ? ' checked' : '' ?>> <?= e(t('drafts and posts pending review (%s)', (int) (($p['clanky']['draft'] ?? 0) + ($p['clanky']['pending'] ?? 0)))) ?></label>
 	<label><input type="checkbox" name="stranky" value="1"<?= $options['stranky'] ? ' checked' : '' ?>> <?= e(t('pages (%s)', $converts($p['stranky']))) ?></label>
 	<label><input type="checkbox" name="stavitel" value="1"<?= ($options['stavitel'] ?? true) ? ' checked' : '' ?>> <?= e(t('pages straight into the builder – edit them visually; the original text stays as a backup')) ?></label>
@@ -114,7 +115,7 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 <?php if (($missing ?? []) !== []): ?>
 	<label><input type="checkbox" name="jazyky_pridat" value="1"<?= ($options['jazyky_pridat'] ?? false) ? ' checked' : '' ?>> <?= e(t('add the language versions %s to the site – they show in the language switcher at once', implode(', ', array_map(fn (string $code): string => Kaleta\Core\Language::AVAILABLE[$code][0] ?? $code, $missing)))) ?></label>
 <?php endif ?>
-	<label><input type="checkbox" name="skryte" value="1"<?= ($options['skryte'] ?? false) ? ' checked' : '' ?>> <?= e(t('everything hidden – news as drafts, pages hidden; publish them when they are ready')) ?></label>
+	<label><input type="checkbox" name="skryte" value="1"<?= ($options['skryte'] ?? false) || ($hiddenByDefault ?? false) ? ' checked' : '' ?>> <?= e(t('everything hidden – news as drafts, pages hidden; publish them when they are ready')) ?></label>
 </div></div>
 <?php if (!$redirectsEnabled): ?>
 <p class="napoveda"><?= e(t('The redirects will be saved but only take effect once you turn on the Redirects feature.')) ?></p>

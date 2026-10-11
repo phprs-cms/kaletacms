@@ -562,7 +562,7 @@ class Settings extends Module
         (new Updater($this->app->settings()))->forgetSeen();
         \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'forget update information');
 
-        return $this->back(t('The remembered update information was forgotten; the next check accepts any update information signed by the publisher.'), '', ['tab' => 'backups']);
+        return $this->back(t('The update history was reset; the next check accepts any update information signed by the publisher.'), '', ['tab' => 'backups']);
     }
 
     /** Downloads, verifies and installs the new version. Before that it backs up the database. */

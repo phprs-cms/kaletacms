@@ -24,6 +24,7 @@ final class Audit extends Module
             $groups[$f['kind']][] = $f;
         }
 
-        return $this->view('list', 'Site audit', ['groups' => $groups, 'total' => count($findings)]);
+        // the questions for an agency (3.11) are not counted as things to fix on a site nobody hands over
+        return $this->view('list', 'Site audit', ['groups' => $groups, 'total' => count(array_filter($findings, fn (array $f): bool => empty($f['for_client'])))]);
     }
 }

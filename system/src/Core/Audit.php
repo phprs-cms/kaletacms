@@ -17,6 +17,8 @@ use Kaleta\Builder\Check;
  *  - orphan pages (2.14, Core\InternalLinks): published pages, news and items nothing on the site links to;
  *  - pages and item pages without a description, duplicate titles;
  *  - menu items pointing at hidden or deleted pages;
+ *  - sample content (3.11, Builder\SampleContent): published pages that still show the starter site's placeholders,
+ *    sample testimonials, figures or texts, and text pages with placeholders in square brackets;
  *  - the builder check of every published build: buttons without a link, images without alt, the heading outline;
  *  - the most frequent addresses that end in 404 and have no redirect;
  *  - accessibility (2.3, the European Accessibility Act, WCAG 2.2 AA): colour contrast of the design system, links that
@@ -34,7 +36,7 @@ final class Audit
 {
     /** Kinds of findings in the order they are shown. */
     public const array KINDS = [
-        'link' => 'Broken links', 'orphan' => 'Pages nobody links to', 'menu' => 'Menu', 'description' => 'Missing descriptions', 'title' => 'Duplicate titles',
+        'sample' => 'Sample content', 'link' => 'Broken links', 'orphan' => 'Pages nobody links to', 'menu' => 'Menu', 'description' => 'Missing descriptions', 'title' => 'Duplicate titles',
         'build' => 'Buttons, images and headings', 'review' => 'Review by', 'job' => 'Job openings', 'document' => 'Document expires soon', 'accessibility' => 'Accessibility', 'not_found' => 'Frequent 404 errors', 'speed' => 'Speed', 'fact' => 'Facts', 'blueprint' => 'Industry checks', 'handover' => 'Before handing over',
     ];
 
@@ -52,7 +54,7 @@ final class Audit
     }
 
     /**
-     * @return list<array{kind: string, where: string, message: string, edit: string, url: string, target: array<string, int|string>, element?: string}>
+     * @return list<array{kind: string, where: string, message: string, edit: string, url: string, target: array<string, int|string>, element?: string, for_client?: bool}> for_client = a question only for a site built for a client (3.11)
      */
     public function run(): array
     {
@@ -116,6 +118,13 @@ final class Audit
             $this->links($p['stavba'] ?? (string) $p['text'], $where, $build !== null ? 'admin.php?module=pages&action=builder&id=' . (int) $p['ids'] : $edit, $url, $target);
             if (!$p['zobrazit']) {
                 continue; // a hidden page is not in search engines – only its links matter (it may be published later)
+            }
+            $builder = 'admin.php?module=pages&action=builder&id=' . (int) $p['ids'];
+            $sample = $build !== null ? \Kaleta\Builder\SampleContent::find($build) : [];
+            if ($sample !== []) {
+                $this->add('sample', $where, \Kaleta\Builder\SampleContent::summary($sample), $builder, $url, $target, $sample[0]['id']);
+            } elseif ($build === null && preg_match_all(\Kaleta\Builder\SampleContent::PLACEHOLDER, html_entity_decode(strip_tags((string) $p['text']), ENT_QUOTES | ENT_HTML5), $m) > 0) {
+                $this->add('sample', $where, t('The page text still has placeholders in square brackets (%s) – fill them in or delete them.', implode(', ', array_slice(array_unique($m[0]), 0, 3))), $edit, $url, $target);
             }
             if ($build !== null) {
                 foreach ([...Check::builds($build, true, 50), ...Check::collections($db, $build, null, 50)] as $c) {
@@ -282,7 +291,7 @@ final class Audit
     {
         foreach ($this->app->db()->all('SELECT p.idp, p.idk, p.nazev, p.seo_link, p.jazyk, k.seo_link AS kolekce, k.nazev AS kolekce_nazev, k.detail FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk'
             . ' WHERE k.preset = ? AND p.zobrazit = 1 AND p.smazano IS NULL AND p.valid_until IS NULL ORDER BY p.nazev', [Jobs::PRESET]) as $p) {
-            $this->add('job', t('Item “%s” (%s)', $p['nazev'], $p['kolekce_nazev']), t('Job opening without a closing date – set “true until” to the application deadline: the job then hides itself and search engines get validThrough, which they need to tell an open job from an expired one.'),
+            $this->add('job', t('Item “%s” (%s)', $p['nazev'], $p['kolekce_nazev']), t('Job opening without a closing date – set “Visible until” to the application deadline: the job then hides itself and search engines get validThrough, which they need to tell an open job from an expired one.'),
                 'admin.php?module=collections&action=item&id=' . (int) $p['idk'] . '&item=' . (int) $p['idp'],
                 $p['detail'] ? ($p['jazyk'] !== '' ? $p['jazyk'] . '/' : '') . $p['kolekce'] . '/' . $p['seo_link'] : null, ['collection' => (string) $p['kolekce'], 'item' => (int) $p['idp']]);
         }
@@ -429,7 +438,7 @@ final class Audit
         $check($s->get('site_email') !== '', t('No site e-mail: enquiries and password resets have nowhere to go.'), 'admin.php?module=settings&tab=general', 'site_email');
         $check($s->get('mail_mode') === 'smtp', t('E-mail goes out through the host’s mail() – set an SMTP server so enquiries and newsletters do not end up in spam.'), 'admin.php?module=settings&tab=mail', 'smtp');
         $check($s->get('remote_backup') !== '' && $s->get('remote_backup') !== 'vypnuto', t('Backups stay on the same server – add an off-site copy (FTPS or S3) in case the hosting is lost.'), 'admin.php?module=settings&tab=backups', 'remote_backup');
-        $check(trim($s->get('company_name')) !== '' && trim($s->get('company_street')) !== '', t('Company details are missing – the footer, the imprint and search engines use them.'), 'admin.php?module=business', 'company');
+        $check(trim($s->get('company_name')) !== '' && trim($s->get('company_street')) !== '', t('Business details are missing – the footer, the imprint and search engines use them.'), 'admin.php?module=business', 'company');
         $check($s->bool('indexing'), t('Search engines are blocked – switch indexing on when the site goes live.'), 'admin.php?module=settings&tab=seo', 'indexing');
         $check($s->get('favicon') !== '' || is_file(KALETA_ROOT . '/media/ikona-32.png'), t('No site icon (favicon) – browsers and phones show a blank one.'), 'admin.php?module=appearance', 'favicon');
         $tracking = trim($s->get('ga4_id') . $s->get('matomo_url') . $s->get('marketing_code')) !== '';
@@ -450,8 +459,17 @@ final class Audit
                 'admin.php?module=users&action=edit&id=' . (int) $c['idu'] . '#napojeni', null, ['handover' => 'unused_connection', 'user' => (int) $c['idu'], 'connection' => (string) $c['name']]);
         }
         $check(SecurityHygiene::autoSuspend($s) !== [], t('Unused accounts and Claude connections are only reported – switch on the automatic suspension (Settings → General) so that leftover access closes itself.'), 'admin.php?module=settings&tab=general', 'auto_suspend');
-        $check((int) $db->value('SELECT COUNT(*) FROM {uzivatele} WHERE admin < 2 AND blokovat = 0') > 0, t('The client has no account of their own yet – create one with the Client role (Users → Roles).'), 'admin.php?module=users', 'client_account');
+        $clientAccount = (int) $db->value('SELECT COUNT(*) FROM {uzivatele} WHERE admin < 2 AND blokovat = 0') > 0;
+        $before = count($this->findings);
+        $check($clientAccount, t('The client has no account of their own yet – create one with the Client role (Users → Roles).'), 'admin.php?module=users', 'client_account');
         $check($s->get('agency_name') !== '' && ($s->get('agency_email') !== '' || $s->get('agency_phone') !== ''), t('Your contact is not set – the client will not see whom to ask (Settings → General → Built and looked after by).'), 'admin.php?module=settings&tab=general', 'agency');
+        // 3.11 (UX310-20): an owner who built the site alone has no client – these two are then only a question
+        // ("Building this for a client?"), folded away and not counted; a role, another account or the agency contact asks them
+        if ($s->get('agency_name') === '' && !$clientAccount && $db->value('SELECT 1 FROM {role} LIMIT 1') === null) {
+            for ($i = $before; $i < count($this->findings); $i++) {
+                $this->findings[$i]['for_client'] = true;
+            }
+        }
         if (Extensions::isEnabled($s, 'newsletter')) {
             $check($s->int('tasks_last_run') > 0, t('Background tasks have never run – newsletters are sent only while they do. Add the cron line from System status.'), 'admin.php?module=status', 'cron');
         }

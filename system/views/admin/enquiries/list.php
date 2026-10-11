@@ -22,9 +22,11 @@
 use Kaleta\Admin\Modules\Enquiries;
 
 $pageCount = (int) ceil($total / $perPage);
-$preview = function (string $data): string {
+// a ticked consent is stored as "yes" in the site language – the preview says what it is (3.11, UX310-25)
+$yes = Kaleta\Core\Language::runWith(Kaleta\Core\Language::defaults($app->settings()), fn (): string => t('yes'));
+$preview = function (string $data) use ($yes): string {
     $items = json_decode($data, true) ?: [];
-    $text = implode(' · ', array_filter(array_map(fn (array $d): string => (string) $d[1], $items), fn (string $v): bool => $v !== '' && mb_strlen($v) > 1));
+    $text = implode(' · ', array_filter(array_map(fn (array $d): string => (string) $d[1] === $yes ? t('Consent: yes') : (string) $d[1], $items), fn (string $v): bool => $v !== '' && mb_strlen($v) > 1));
 
     return mb_strimwidth($text, 0, 140, '…');
 };

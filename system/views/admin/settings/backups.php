@@ -1,11 +1,17 @@
 <?php
 /** The "Zálohy a aktualizace" (Backups and updates) tab. */
+// 3.11 (UX310-3, UX310-10): old or refused update information is said in the owner's words, the same as in System status,
+// with the technical detail folded away; resetting the update history is offered only then
+$staleDays = Kaleta\Core\Updater::staleDays($update);
+$developer = fn (string $detail): string => '<details><summary>' . e(t('Details for your developer')) . '</summary><p>' . e($detail) . '</p></details>';
 ?>
 <fieldset>
 <legend><?= e(t('System update')) ?></legend>
 <p><?= e(t('Installed version:')) ?> <strong><?= e($update['aktualni']) ?></strong><?php if ($update['nastaveno']): ?> · <?= e(t(['latest' => 'Latest channel', 'stable' => 'Stable channel', 'custom' => 'custom update source'][$update['channel']] ?? 'Latest channel')) ?><?php endif ?></p>
 <?php if (!$update['nastaveno']): ?>
 <p class="hlaska"><?= e(t('No update source is set yet. Upload a new version via FTP (overwrite all files except config.php, media/ and storage/); the database will be adjusted automatically.')) ?></p>
+<?php elseif ($update['refused']): ?>
+<div class="hlaska hlaska-chyba"><p><?= e(t('Kaleta refused the update information it received, so nothing is offered or installed. Usually this clears itself within a day; if it is still here after a week, write to info@kaletacms.com (include this message).')) ?></p><?= $developer((string) $update['chyba']) ?></div>
 <?php elseif ($update['chyba'] !== null): ?>
 <p class="hlaska hlaska-chyba"><?= e($update['chyba']) ?></p>
 <?php elseif ($update['vyzaduje_php'] !== null): ?>
@@ -21,11 +27,23 @@
 <p class="napoveda"><?= e(t('The database is backed up before the update. The package is accepted only with a valid publisher signature. config.php, uploaded media and a custom PHP theme are not overwritten.')) ?></p>
 <?php elseif ($update['ahead_of'] !== null): ?>
 <p class="hlaska"><?= e(t('This site runs version %s, which is newer than the stable channel (%s). Nothing is offered until the stable channel moves past this version – a site never goes back to an older one. Until then, security fixes reach this site only on the Latest channel.', $update['aktualni'], $update['ahead_of'])) ?></p>
+<?php elseif ($staleDays !== null): // the box below says it – never "You have the latest version" next to it ?>
 <?php else: ?>
 <p><?= e(t($update['channel'] === 'stable' ? 'You have the newest version of the stable channel.' : 'You have the latest version.')) ?><?= $update['overeno'] ? ' <small>' . e(t('Checked %s.', format_date((new DateTimeImmutable())->setTimestamp((int) $update['overeno']), true))) . '</small>' : '' ?></p>
 <?php endif ?>
+<?php if ($staleDays !== null && $update['newest'] !== null && $update['chyba'] === null): ?>
+<div class="hlaska hlaska-varovani"><p><?= e(Kaleta\Core\Health::staleText($staleDays)) ?></p><?= $developer(t('The newest update information this site has received (version %s) was published on %s. The publisher refreshes it at least every %d days, so the update source may be stuck or serving an old copy.',
+    $update['newest']['verze'], format_date($update['newest']['vydano']), Kaleta\Core\Updater::FRESHNESS_DAYS)) ?></div>
+<?php endif ?>
 <?php if ($update['nastaveno']): ?>
-<p><button class="navigace" type="submit" formaction="<?= e($module->url('check')) ?>"><?= e(t('Check now')) ?></button><?php if ($update['newest'] !== null || $update['refused']): ?> <button class="navigace" type="submit" formaction="<?= e($module->url('forget_updates')) ?>" data-potvrdit="<?= e(t('Forget the update information this site remembers? Use it only when you know the update source is right: the next check accepts any update information signed by the publisher, even an older one.')) ?>"><?= e(t('Forget remembered update information')) ?></button><?php endif ?></p>
+<p><button class="navigace" type="submit" formaction="<?= e($module->url('check')) ?>"><?= e(t('Check now')) ?></button></p>
+<?php if ($update['refused'] || $staleDays !== null): ?>
+<details class="pokrocile">
+<summary><?= e(t('Troubleshooting')) ?></summary>
+<p class="napoveda"><?= e(t('Only when Kaleta support or a refusal message above tells you to. After a reset, the next check also accepts older signed update information.')) ?></p>
+<p><button class="navigace nebezpecne" type="submit" formaction="<?= e($module->url('forget_updates')) ?>" data-potvrdit="<?= e(t('Reset the update history? Use it only when you know the update source is right: the next check accepts any update information signed by the publisher, even an older one.')) ?>"><?= e(t('Reset update history')) ?></button></p>
+</details>
+<?php endif ?>
 <?php endif ?>
 <div class="radek"><span class="popisek" id="update_channel_popisek"><?= e(t('Update channel')) ?></span><div role="radiogroup" aria-labelledby="update_channel_popisek">
 <div class="karty-volby karty-volby-text">

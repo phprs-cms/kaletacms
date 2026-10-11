@@ -13,7 +13,7 @@
 	let csrf = (document.querySelector('input[name="_csrf"]') || {}).value || '';
 	const TYPY = Object.fromEntries(D.schema.prvky.map((p) => [p.typ, p]));
 	const STYLE = D.schema.styl;
-	const BP = { zaklad: T('Desktop'), tablet: T('Tablet'), mobil: T('Mobile') };
+	const BP = { zaklad: T('Desktop'), tablet: T('Tablet'), mobil: T('Phone') }; // 3.11: "Phone", as in Site appearance
 	const ICONS = {
 		sekce: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M3 15h18"/>',
 		kontejner: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h5"/>',
@@ -79,6 +79,7 @@
 		stavba: D.stavba && Array.isArray(D.stavba.deti) ? D.stavba : { v: 1, deti: [] },
 		vybrane: null, bp: 'zaklad', stavPrvku: '', levo: 'pridat', pravo: 'obsah', zpet: [], vpred: [], posledniKlic: null, posledniCas: 0,
 		zmeny: !!D.zmeny, uklada: false, skryte: {}, casovac: null, verze: D.verze || '', ulozeno: '', pokusy: 0, prihlaseni: false, konflikt: false, vycistena: null, chyby: {}, sbalene: {}, trida: null, tazeny: null, tazeno: null, upravaNaPlatne: false, umistovani: null, lupa: '', vlozeni: null,
+		vzory: Array.isArray(D.vzory) ? D.vzory : [], // sample content of the saved draft, found by the server (3.11, UX310-1)
 	};
 
 	/* ---------- small helpers ---------- */
@@ -240,6 +241,7 @@
 			state.ulozeno = sent;
 			state.verze = j.verze || state.verze;
 			state.chyby = j.chyby || {};
+			state.vzory = Array.isArray(j.vzory) ? j.vzory : [];
 			// the server cleaned the tree (dropped invalid values) – it is taken over only when nothing changed meanwhile and the user is not typing
 			state.vycistena = JSON.stringify(j.stavba) !== sent ? { sent, stavba: j.stavba } : null;
 			adoptSanitized();
@@ -844,11 +846,12 @@
 				el('button', { type: 'button', title: T('Redo (Ctrl+Shift+Z)'), disabled: !state.vpred.length, onclick: forward }, icon('vpred'))),
 			stateText,
 			...barMenu(),
-			el('a', { class: 'st-tl', href: D.stranka.adresa, target: '_blank', rel: 'noopener', title: T('Open the published page') }, icon('oko')),
+			el('a', { class: 'st-tl', href: D.stranka.adresa, target: '_blank', rel: 'noopener', title: T('Open the published page – the draft preview is under ⋯ → Share') }, icon('oko')),
 			el('button', { type: 'button', class: 'st-tl', title: T('Help and keyboard shortcuts (?)'), 'aria-label': T('Help'), onclick: hint }, icon('napoveda')),
 			D.stranka.publikovana && state.zmeny ? el('button', { type: 'button', class: 'st-tl', onclick: discard }, T('Discard changes')) : null,
 			el('button', { type: 'button', class: 'st-tl st-tl-hlavni', disabled: (!state.zmeny && D.stranka.publikovana) || D.stranka.smiPublikovat === false,
-				title: D.stranka.smiPublikovat === false ? T('Only an editor or administrator can publish. Your changes stay saved as a draft.') : null, onclick: publishAfterCheck }, T('Publish')),
+				title: D.stranka.smiPublikovat === false ? T('Only an editor or administrator can publish. Your changes stay saved as a draft.')
+					: (!state.zmeny && D.stranka.publikovana ? T('Nothing to publish – all changes are live') : null), onclick: publishAfterCheck }, T('Publish')),
 		].filter(Boolean));
 	}
 
@@ -895,9 +898,18 @@
 			if (!h1.length) { findings.push([headings[0] ? headings[0][0] : null, T('The page has no main heading (h1) – search engines and screen readers use it to tell what the page is about.')]); }
 			// "Fix it" (3.6): every H1 after the first becomes an H2
 			if (h1.length > 1) { findings.push([h1[1][0], T('The page has more than one main heading (h1) – keep just one.'), () => h1.slice(1).forEach(([id]) => { const n = find(id); if (n) { n.p.znacka = 'h2'; } })]); }
-			headings.forEach((n, i) => { if (i > 0 && n[1] > headings[i - 1][1] + 1) { findings.push([n[0], T('The heading “%s” skips a level (h%d → h%d).').replace('%s', n[2].slice(0, 40)).replace('%d', headings[i - 1][1]).replace('%d', n[1])]); } });
+			headings.forEach((n, i) => {
+				if (i > 0 && n[1] > headings[i - 1][1] + 1) {
+					// a Collection list item heading holds {{tokens}} – named for what it is (3.11)
+					findings.push([n[0], (n[2].includes('{{') ? T('The item heading of a Collection list skips a level (h%d → h%d).') : T('The heading “%s” skips a level (h%d → h%d).').replace('%s', n[2].slice(0, 40)))
+						.replace('%d', headings[i - 1][1]).replace('%d', n[1])]);
+				}
+			});
 		}
-		return findings;
+		// sample content from the starter site or a template (3.11, found by the server): its summary first, the elements
+		// after the other findings, so a finding with "Fix it" is never pushed out of the list
+		const sample = state.vzory.filter((f) => !f.id || find(f.id)).map((f) => [f.id, f.zprava]);
+		return sample.length ? [sample[0], ...findings, ...sample.slice(1)] : findings;
 	}
 	/**
 	 * Text contrast on the canvas (WCAG AA: 4.5 : 1, large text 3 : 1): the text color against the first opaque surface below it.
@@ -977,8 +989,14 @@
 		d.show();
 	}
 
-	/** Before publishing shows the check findings; publishing is possible anyway (warnings only). A finding with a fix offers "Fix it". */
+	/**
+	 * Before publishing shows the check findings; publishing is possible anyway (warnings only). A finding with a fix offers
+	 * "Fix it". The draft is saved first, so the server's findings (sample content) are those of what gets published.
+	 */
 	function publishAfterCheck() {
+		save().then((ok) => { if (ok) { showCheck(); } });
+	}
+	function showCheck() {
 		const findings = check();
 		if (!findings.length) { publish(); return; }
 		const list = el('ul', { class: 'st-kontrola' });

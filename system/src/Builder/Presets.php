@@ -237,7 +237,8 @@ final class Presets
         if (is_string($image)) {
             $card[] = $n('obrazek', ['src' => '{{' . $image . '}}', 'alt' => '{{nazev}}']);
         }
-        $card[] = ['znacka' => 'h3'] + $n('nadpis', ['text' => '{{nazev}}']);
+        // 3.11 (UX310-13): an h2 under the page's h1 (an h3 skipped a level), in the size the h3 had
+        $card[] = ['znacka' => 'h2', 'styl' => ['zaklad' => ['velikost_pisma' => '1']]] + $n('nadpis', ['text' => '{{nazev}}']);
         foreach ((array) $preset['card'] as $key) {
             // a field, or a value a feature computes for the preset (an event's {{when}}); an empty one leaves no paragraph
             if (is_string($key) && preg_match(Collections::KEY_PATTERN, $key) === 1) {

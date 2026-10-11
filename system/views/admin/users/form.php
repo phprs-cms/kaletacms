@@ -113,7 +113,7 @@ $role = [
 <fieldset id="napojeni">
 <legend><?= e(t('Claude connections')) ?></legend>
 <p class="napoveda"><?= e(t('Personal tokens and connected applications of this account. A connection nobody has used for %d days is reported in System status; revoke what is not needed any more.', Kaleta\Core\SecurityHygiene::CONNECTION_DAYS)) ?></p>
-<?php $accessLabel = ['full' => t('full access'), 'drafts' => t('drafts only'), 'read' => t('read only')]; ?>
+<?php $accessLabel = array_map(fn (string $label): string => t($label), Kaleta\Front\OAuth::ACCESS_LABELS); ?>
 <?php foreach ($connections as $c): ?>
 <form class="vradku" method="post" action="<?= e($module->url('revoke_connection')) ?>" data-potvrdit="<?= e(t('Revoke the connection? Claude will no longer be able to sign in with it.')) ?>"><?= $csrf ?><input type="hidden" name="idu" value="<?= (int) $author['idu'] ?>"><input type="hidden" name="user" value="<?= e($author['user']) ?>">
 <p><span class="stitek"><?= e($c['name']) ?></span> <span class="stitek"><?= e(t($c['kind'] === 'token' ? 'personal token' : 'connected application')) ?></span> <span class="stitek"><?= e($accessLabel[$c['access']] ?? $accessLabel['read']) ?></span>

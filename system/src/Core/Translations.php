@@ -43,8 +43,9 @@ final class Translations
 
     /**
      * @return array{languages: list<string>, rows: list<array{type: string, id: int, title: string, changed: ?string, collection?: array{idk: int, nazev: string, seo_link: string},
-     *     translations: array<string, array{status: string, id: ?int}>}>} languages = the site's additional languages ([] = a single-language site);
-     *     id = null for a missing translation and for one outside the user's scope
+     *     translations: array<string, array{status: string, id: ?int}>}>, home?: int, notInSwitcher?: list<string>} languages = the site's additional
+     *     languages ([] = a single-language site); id = null for a missing translation and for one outside the user's scope; notInSwitcher = languages
+     *     visitors cannot switch to yet, because the home page has no published translation (Language::published)
      */
     public static function matrix(App $app): array
     {
@@ -70,7 +71,9 @@ final class Translations
         foreach ($db->all("SELECT ids AS id, preklad_z, jazyk, zmeneno, (1" . $auth->pageListScope() . ") AS in_scope FROM {stranky} WHERE smazano IS NULL AND jazyk <> '' AND preklad_z IS NOT NULL") as $t) {
             $pageTranslations[(int) $t['preklad_z']][$t['jazyk']] = $t;
         }
-        foreach ($db->all("SELECT ids, titulek, zmeneno FROM {stranky} WHERE smazano IS NULL AND jazyk = ''" . $auth->pageListScope() . ' ORDER BY poradi, titulek') as $p) {
+        // 3.11 (UX310-7): the home page first – a language enters the switcher once the home page has a published translation
+        $home = $s->int('home_page');
+        foreach ($db->all("SELECT ids, titulek, zmeneno FROM {stranky} WHERE smazano IS NULL AND jazyk = ''" . $auth->pageListScope() . ' ORDER BY ids = ? DESC, poradi, titulek', [$home]) as $p) {
             $rows[] = ['type' => 'page', 'id' => (int) $p['ids'], 'title' => $p['titulek'], 'changed' => $p['zmeneno'], 'translations' => $cells($pageTranslations[(int) $p['ids']] ?? [], $p['zmeneno'])];
         }
 
@@ -97,6 +100,6 @@ final class Translations
                 'translations' => $cells($itemTranslations[(int) $p['idk']][$p['seo_link']] ?? [], $changed)];
         }
 
-        return ['languages' => $languages, 'rows' => $rows];
+        return ['languages' => $languages, 'rows' => $rows, 'home' => $home, 'notInSwitcher' => array_values(array_diff($languages, Language::published($s, $db)))];
     }
 }
