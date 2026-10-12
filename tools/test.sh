@@ -130,6 +130,7 @@ grep -q 'ukázkové reference: ' "$WORK/response" && grep -q '<summary>Stavíte 
 dash_order() { php -r '$h = (string) file_get_contents($argv[1]); $p = array_map(fn (string $n) => strpos($h, $n), [$argv[2], $argv[3], $argv[4]]); echo in_array(false, $p, true) ? "missing" : ($p[0] < $p[1] && $p[1] < $p[2] ? "ok" : "order");' "$WORK/response" "$@"; }
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php"
 expect "3.5: not connected – Connect Claude, First steps, then Ask Claude" "$(dash_order 'id="pripojit-claude"' 'class="pruvodce"' 'id="ask-claude-nadpis"')" "ok"
+expect "3.12 (UX310-26): with the Connect Claude card, First steps do not repeat it" "$(grep -c 'admin.php#pripojit-claude' "$WORK/response" || true)" "0"
 grep -q 'data-kopirovat="#mcp-adresa-prehled"' "$WORK/response" && grep -q "<code id=\"mcp-adresa-prehled\">$B/mcp</code>" "$WORK/response" && grep -q 'Web neběží na HTTPS' "$WORK/response" \
   && echo "  ok     3.5: the card has the MCP address with Copy and warns that the site is not on HTTPS" || { echo "  CHYBA  3.5: connect card"; ERRORS=$((ERRORS+1)); }
 check "3.5: Claude settings have the address with Copy and the connection state" 200 "/admin.php?module=claude_settings" 'data-kopirovat="#mcp-adresa-nastaveni"'
@@ -272,6 +273,25 @@ publish_look
 curl -s -o "$WORK/response" "$B/"
 grep -q 'ka-barva-primarni: #9a3412' "$WORK/response" && grep -q 'ka-sirka: 80rem' "$WORK/response" && grep -q 'ka-pismo-titulky: Georgia' "$WORK/response" && echo "  ok     uložený vzhled je po publikování na webu" || { echo "  CHYBA  uložení vzhledu"; ERRORS=$((ERRORS+1)); }
 grep -q 'body{' "$WORK/response" && { echo "  CHYBA  do CSS proniklo neplatné zadání barvy"; ERRORS=$((ERRORS+1)); } || echo "  ok     neplatná barva se nahradí výchozí"
+# 3.12 (UX310-11): the logo and the site icon go to the draft look like the colours – the preview shows them, publishing puts them live
+appearance_identity() { curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=appearance&action=save" -d "_csrf=$TOKEN" --data-urlencode 'ds[barvy][primarni]=#9a3412' \
+  --data-urlencode 'ds[barvy][text]=red;}body{' -d 'ds[pismo_titulky]=klasicke' -d 'ds[sirka]=1280' -d "logo=$1" -d "favicon=$2"; rm -f "$WORK"/web/storage/cache/stranky/*.html; }
+appearance_identity image/kaleta-logo.svg image/kaleta-logo.svg
+expect "3.12 (UX310-11): a saved logo and icon wait in the draft look, the site keeps the published ones" \
+  "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'logo'), ''), '|', (SELECT CONCAT(JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.identity.logo')), ',', JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.identity.favicon')), ',', JSON_EXTRACT(hodnota, '$.design_system') IS NULL) FROM ka_nastaveni WHERE promenna = 'look_draft'))")" \
+  "|image/kaleta-logo.svg,image/kaleta-logo.svg,1"
+curl -s -o "$WORK/response" "$B/"; grep -q 'kaleta-logo.svg' "$WORK/response" && { echo "  CHYBA  3.12: the draft logo is on the site before publishing"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.12: visitors do not see the draft logo"
+check "3.12: the appearance preview shows the draft logo and icon" 200 "/?preview=vzhled" 'rel="icon" href="/image/kaleta-logo.svg"'
+grep -q 'class="logo"[^>]*><img src="/image/kaleta-logo.svg"' "$WORK/response" && echo "  ok     3.12: the preview has the draft logo in the header" || { echo "  CHYBA  3.12: no draft logo in the preview"; ERRORS=$((ERRORS+1)); }
+check "3.12: Site appearance edits the draft logo and the bar names it" 200 "/admin.php?module=appearance" 'id="logo" name="logo" value="image/kaleta-logo.svg"'
+grep -q 'Nepublikované změny:</strong> logo, ikona webu' "$WORK/response" && echo "  ok     3.12: the look bar lists logo and icon" || { echo "  CHYBA  3.12: the look bar does not list the logo"; ERRORS=$((ERRORS+1)); }
+publish_look
+curl -s -o "$WORK/response" "$B/"
+grep -q 'class="logo"[^>]*><img src="/image/kaleta-logo.svg"' "$WORK/response" && grep -q 'rel="icon" href="/image/kaleta-logo.svg"' "$WORK/response" && echo "  ok     3.12: publishing the look puts the logo and the icon live" || { echo "  CHYBA  3.12: the published logo is not on the site"; ERRORS=$((ERRORS+1)); }
+appearance_identity image/kaleta-logo.svg ''
+expect "3.12: an unchanged live logo stays, only the removed icon waits in the draft" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'logo'), '|', (SELECT CONCAT(JSON_EXTRACT(hodnota, '$.identity.logo') IS NULL, ',', JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.identity.favicon'))) FROM ka_nastaveni WHERE promenna = 'look_draft'))")" "image/kaleta-logo.svg|1,"
+appearance_identity '' ''; publish_look
+expect "3.12: logo and icon removed again after publishing" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'logo'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'favicon'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'look_draft'))")" "||"
 
 echo "== builder stránek"
 IDS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'o-nas'")
@@ -435,6 +455,9 @@ check "security.txt: without a contact there is none" 404 /.well-known/security.
 mcp update_settings '{"settings":{"security_contact":"security@example.com"}}' > /dev/null
 check "security.txt from the security contact (RFC 9116)" 200 /.well-known/security.txt "Contact: mailto:security@example.com"
 mcp uprav_nastaveni '{"nastaveni":{"logo_webu":"image/kaleta-logo.svg","favicon":"../config.php"}}' > "$WORK/response"
+# 3.12 (UX310-11): over MCP too, the logo goes to the draft look and publish_look puts it live
+expect "3.12: MCP update_settings puts the logo into the draft look and says so" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'logo'), ''), '|', (SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.identity.logo')) FROM ka_nastaveni WHERE promenna = 'look_draft'))")|$(grep -c 'logo in the draft look' "$WORK/response")" "|image/kaleta-logo.svg|1"
+mcp publish_look '{}' > /dev/null
 expect "MCP: logo webu ze systémových souborů, cesta mimo media/ a image/ neprojde" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'logo'), '|', COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'favicon'), ''))")" "image/kaleta-logo.svg|"
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 check "3.5 (UXP-15): an SVG logo gets its width and height from the file" 200 / 'kaleta-logo.svg" alt="[^"]*" width="281" height="71"'
@@ -4895,6 +4918,13 @@ expect "3.7 N37-20 guardrails: parallel calls never get past the hourly limit �
   "$RACE2_OK|$(sq "SELECT COUNT(*) FROM ka_presmerovani WHERE z_adresy LIKE 'r20-%'")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE idp > $RACE2_LOG AND akce = 'save_redirects'")|$RACE2_REFUSED" "2|4|2|8"
 setting claude_change_limit 0
 check "guardrails: the settings are in Claude settings" 200 "/admin.php?module=claude_settings" "claude_protected_pages"
+# 3.12 (UX310-19): protected pages are ticked in a list of the site's pages, the setting keeps its "12, 15" form
+grep -q "name=\"claude_protected_pages\[\]\" value=\"$GUARD_PAGE\">" "$WORK/response" && echo "  ok     3.12: Claude settings list the pages to protect" || { echo "  CHYBA  3.12: no page picker for protected pages"; ERRORS=$((ERRORS+1)); }
+KEEP_CLAUDE="-d claude_destructive=$(sq "SELECT COALESCE(MAX(hodnota), 1) FROM ka_nastaveni WHERE promenna = 'claude_destructive'") -d claude_apps_only=$(sq "SELECT COALESCE(MAX(hodnota), 0) FROM ka_nastaveni WHERE promenna = 'claude_apps_only'")" # the switches of the form keep their values
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=claude_settings&action=save" -d "_csrf=$(csrf)" -d tab=claude $KEEP_CLAUDE -d 'claude_protected_pages[]=' -d "claude_protected_pages[]=$GUARD_PAGE" -d "claude_protected_pages[]=$GUARD_PAGE"
+expect "3.12: the ticked pages are saved as their numbers" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'claude_protected_pages'")" "$GUARD_PAGE"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=claude_settings&action=save" -d "_csrf=$(csrf)" -d tab=claude $KEEP_CLAUDE -d 'claude_protected_pages[]='
+expect "3.12: nothing ticked = no protected page" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'claude_protected_pages'")" ""
 echo "== 2.15: agent notebook"
 mcp site_info '{}' > "$WORK/response"; NB_BEFORE=$(mcp_value notebook_count)
 mcp write_notebook '{"topic":"style","title":"Nikdy slovo levný","text":"Píšeme „výhodný“ nebo „dostupný“, nikdy „levný“ – rozhodnutí klienta z 3. 10. 2026."}' > "$WORK/response"
@@ -5818,6 +5848,8 @@ P310=$(get39 /pt-br/contato-310)
 contains -q '<html lang="pt-BR"' "$WORK/response" && contains -q 'Português 310' "$WORK/response" && contains -q 'Meu site 310' "$WORK/response" \
   && contains -q 'hreflang="cs" href="[^"]*/kontakt-310"' "$WORK/response" && contains -q 'hreflang="pt-BR" href="[^"]*/pt-br/contato-310"' "$WORK/response" \
   && contains -q '<meta property="og:locale" content="pt_BR">' "$WORK/response" && P310="$P310 ok"
+# 3.12 (UX310-12): pt-br visitors get the Portuguese interface texts (pt.php), not English
+contains -q 'Pular para o conteúdo' "$WORK/response" && ! contains -q '>Skip to content<' "$WORK/response" && echo "  ok     3.12: /pt-br/ has Portuguese visitor texts" || { echo "  CHYBA  3.12: /pt-br/ visitor texts are not Portuguese"; ERRORS=$((ERRORS+1)); }
 C310=$(get39 /kontakt-310)
 contains -q '<html lang="cs"' "$WORK/response" && contains -q 'hreflang="pt-BR" href="[^"]*/pt-br/contato-310"' "$WORK/response" && ! contains -q 'Meu site 310' "$WORK/response" && C310="$C310 ok"
 expect "3.10: /pt-br/contato-310 is the pt-BR version (lang, hreflang, og:locale, its site name); /kontakt-310 points to it" "$P310|$C310" "200  ok|200  ok"
@@ -5864,12 +5896,15 @@ expect "3.11 UX310-4: the translation opens in the builder with the original's b
 sq "DELETE FROM ka_stranky WHERE titulek = 'Services 311'" > /dev/null
 # UX310-7: Translations put the home page first and say why a language is not in the switcher yet
 HOME311=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'uvod' AND jazyk = ''")
-sq "UPDATE ka_nastaveni SET hodnota = 'en,pt-br' WHERE promenna = 'additional_languages'; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('home_page', '$HOME311')" > /dev/null
+sq "UPDATE ka_nastaveni SET hodnota = 'en,pt-br,ja' WHERE promenna = 'additional_languages'; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('home_page', '$HOME311')" > /dev/null
 check "3.11 UX310-7: Translations say Brazilian Portuguese is not in the language switcher until the home page is translated" 200 "/admin.php?module=pages&action=translations" "Português (Brasil) zatím není v přepínači jazyků."
 contains -q "action=new&amp;language=pt-br&amp;translation_of=$HOME311\">Přeložit úvodní stránku" "$WORK/response" \
   && echo "  ok     3.11 UX310-7: it links to translating the home page" || { echo "  CHYBA  3.11: the switcher hint on Translations"; ERRORS=$((ERRORS+1)); }
-check "3.11 UX310-12: Settings → General marks a language without visitor texts and names the one not in the switcher" 200 "/admin.php?module=settings&tab=general" "(/pt-br/ · texty pro návštěvníky anglicky)"
-contains -q 'Zatím nejsou v přepínači jazyků: [^<]*Português (Brasil)\.' "$WORK/response" && echo "  ok     3.11 UX310-7: Settings → General names the language not in the switcher" || { echo "  CHYBA  3.11: the switcher hint in Settings"; ERRORS=$((ERRORS+1)); }
+check "3.11 UX310-12: Settings → General marks a language without visitor texts and names the one not in the switcher" 200 "/admin.php?module=settings&tab=general" "(/ja/ · texty pro návštěvníky anglicky)"
+# 3.12 (UX310-12): Portuguese has visitor texts now; Japanese is marked in the language list and in a warning
+! contains -q '(/pt-br/ · texty pro návštěvníky anglicky)' "$WORK/response" && contains -q 'class="hlaska hlaska-varovani">Návštěvníci verze 日本語 uvidí texty webu' "$WORK/response" \
+  && contains -q '>日本語 – texty pro návštěvníky anglicky</option>' "$WORK/response" && echo "  ok     3.12: the language picker warns about a language without visitor texts" || { echo "  CHYBA  3.12: the language picker warning"; ERRORS=$((ERRORS+1)); }
+contains -q 'Zatím nejsou v přepínači jazyků: [^<]*Português (Brasil)[,.]' "$WORK/response" && echo "  ok     3.11 UX310-7: Settings → General names the language not in the switcher" || { echo "  CHYBA  3.11: the switcher hint in Settings"; ERRORS=$((ERRORS+1)); }
 sq "UPDATE ka_nastaveni SET hodnota = 'en' WHERE promenna = 'additional_languages'; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('home_page', '$HOME39')" > /dev/null
 # UX310-5: a ready-made collection says what really happened with its list page – the address taken by a page, then free
 PLANS311=$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; Kaleta\Core\Language::set("cs"); echo slugify(t("Pricing plans"));')

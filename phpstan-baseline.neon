@@ -85,13 +85,13 @@ parameters:
 			path: system/src/Core/Look.php
 
 		-
-			message: '#^Strict comparison using \=\=\= between array\{design_system\?\: array\<string, mixed\>, classes\: array\<string, array\|null\>, menus\?\: array\<string, array\|null\>\} and array\{classes\: array\{\}\} will always evaluate to false\.$#'
+			message: '#^Strict comparison using \=\=\= between array\{design_system\?\: array\<string, mixed\>, classes\: array\<string, array\|null\>, menus\?\: array\<string, array\|null\>, identity\?\: array\<string, string\>\} and array\{classes\: array\{\}\} will always evaluate to false\.$#'
 			identifier: identical.alwaysFalse
 			count: 1
 			path: system/src/Core/Look.php
 
 		-
-			message: '#^Strict comparison using \=\=\= between array\{design_system\?\: array\<string, mixed\>, classes\: array\<string, array\|null\>, menus\?\: array\<string, array\|null\>\} and array\{\} will always evaluate to false\.$#'
+			message: '#^Strict comparison using \=\=\= between array\{design_system\?\: array\<string, mixed\>, classes\: array\<string, array\|null\>, menus\?\: array\<string, array\|null\>, identity\?\: array\<string, string\>\} and array\{\} will always evaluate to false\.$#'
 			identifier: identical.alwaysFalse
 			count: 1
 			path: system/src/Core/Look.php

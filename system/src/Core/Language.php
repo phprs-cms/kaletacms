@@ -171,6 +171,16 @@ final class Language
         return self::isRtl($code) ? ' dir="rtl"' : '';
     }
 
+    /**
+     * Does the language have texts for visitors (system/jazyky/<code>.php, or its language's – pt-br uses pt.php; Czech and
+     * English always)? Without them a version shows Search, Read more… in English (3.12: Settings warns).
+     */
+    public static function hasVisitorTexts(string $code): bool
+    {
+        return self::isOffered($code) && (in_array(self::base($code), ['cs', 'en'], true) || is_file(KALETA_SYSTEM . '/jazyky/' . $code . '.php')
+            || is_file(KALETA_SYSTEM . '/jazyky/' . self::base($code) . '.php'));
+    }
+
     /** The language subtag of a stored code: pt-br → pt, zh-hant → zh, cs → cs. What a regional version shares with its language. */
     public static function base(string $code): string
     {

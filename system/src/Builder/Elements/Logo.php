@@ -33,7 +33,7 @@ final class Logo extends Element
     {
         $siteSettings = $k->app->settings();
         $name = $siteSettings->get('site_name');
-        $logo = $siteSettings->get('logo');
+        $logo = \Kaleta\Core\Look::identity($siteSettings, 'logo'); // the draft logo in a preview of the draft look (3.12)
         $home = $k->url('');
         $content = $logo !== ''
             ? '<img src="' . e($k->image($logo)) . '" alt="' . e($p['obsah']['nazev'] ? '' : $name) . '"' . \Kaleta\Front\ImageHtml::logoSize($logo) . '>' . ($p['obsah']['nazev'] ? '<span>' . e($name) . '</span>' : '')

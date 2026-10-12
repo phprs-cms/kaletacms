@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Kaleta\Admin\Modules;
 
 use Kaleta\Admin\Module;
-use Kaleta\Core\Images;
 use Kaleta\Core\Look;
 use Kaleta\Core\Response;
 use Kaleta\Builder\DesignSystem;
@@ -33,7 +32,7 @@ final class Appearance extends Module
             'ds' => $ds, 'versions' => Look::versions($this->db),
             'contrasts' => DesignSystem::contrasts($ds), 'darkContrasts' => DesignSystem::contrasts($ds, true), 'darkColors' => DesignSystem::darkColors($ds),
             'presets' => array_map(fn (string $k): array => ['nazev' => DesignSystem::PRESETS[$k][0], 'popis' => DesignSystem::PRESETS[$k][1], 'ds' => DesignSystem::preset($k)], array_combine(array_keys(DesignSystem::PRESETS), array_keys(DesignSystem::PRESETS))),
-            'values' => ['logo' => $siteSettings->get('logo'), 'favicon' => $siteSettings->get('favicon'), 'dark_mode' => $siteSettings->get('dark_mode'), 'theme_switcher' => $siteSettings->get('theme_switcher'), 'site_name' => $siteSettings->get('site_name')],
+            'values' => ['logo' => Look::identityForEditing($siteSettings, 'logo'), 'favicon' => Look::identityForEditing($siteSettings, 'favicon'), 'dark_mode' => $siteSettings->get('dark_mode'), 'theme_switcher' => $siteSettings->get('theme_switcher'), 'site_name' => $siteSettings->get('site_name')],
         ]);
     }
 
@@ -44,18 +43,12 @@ final class Appearance extends Module
         }
         $r = $this->request;
         $siteSettings = $this->app->settings();
-        // the logo and the icon are live at once; only colours, fonts, sizes and shapes go to the draft look (3.11, UX310-11)
-        $logoChanged = mb_substr($r->post('logo'), 0, 255) !== $siteSettings->get('logo') || mb_substr($r->post('favicon'), 0, 255) !== $siteSettings->get('favicon');
-        $siteSettings->set('logo', mb_substr($r->post('logo'), 0, 255));
-        $icon = mb_substr($r->post('favicon'), 0, 255);
-        if ($icon !== $siteSettings->get('favicon') || ($icon !== '' && !is_file(KALETA_ROOT . '/media/ikona-180.png'))) {
-            // icons for phones and for installing the site are prepared from the icon once, when saving
-            $ok = $icon !== '' && preg_match('#^/?(?:[A-Za-z0-9_.-]+/){0,3}(media/[A-Za-z0-9/_.-]+)$#D', $icon, $m) && !str_contains($m[1], '..') && Images::icons(KALETA_ROOT . '/' . $m[1]);
-            if (!$ok) {
-                array_map(fn (int $n): bool => @unlink(KALETA_ROOT . '/media/ikona-' . $n . '.png'), Images::ICON_SIZES);
-            }
+        // the logo and the icon go to the draft look with the colours and fonts (3.12, UX310-11); publishing it puts them live
+        $identityInDraft = Look::setIdentity($siteSettings, 'logo', mb_substr($r->post('logo'), 0, 255));
+        $identityInDraft = Look::setIdentity($siteSettings, 'favicon', mb_substr($r->post('favicon'), 0, 255)) || $identityInDraft;
+        if ($siteSettings->get('favicon') !== '' && !is_file(KALETA_ROOT . '/media/ikona-180.png')) {
+            \Kaleta\Front\SiteIdentity::saveIcon($siteSettings, $siteSettings->get('favicon')); // the published icon lost its PNG sizes – prepare them again
         }
-        $siteSettings->set('favicon', $icon);
         $siteSettings->set('dark_mode', in_array($r->post('dark_mode'), ['auto', 'tmavy'], true) ? $r->post('dark_mode') : 'vypnuto');
         $siteSettings->set('theme_switcher', $r->postBool('theme_switcher') ? '1' : '0');
         $ds = $this->parseForm();
@@ -71,11 +64,7 @@ final class Appearance extends Module
         $siteSettings->set('brand_text_font', 'vychozi');
         \Kaleta\Front\Cache::clear();
 
-        return $this->back(match (true) {
-            $inDraft && $logoChanged => 'Logo and icon saved and live. Colours, fonts and sizes are in the draft look – preview the whole site, then publish them.',
-            $inDraft => 'Saved to the draft look – preview the whole site, then publish it.',
-            default => 'The site appearance has been saved.',
-        });
+        return $this->back($inDraft || $identityInDraft ? 'Saved to the draft look – preview the whole site, then publish it.' : 'The site appearance has been saved.');
     }
 
     /**
@@ -102,9 +91,11 @@ final class Appearance extends Module
         if (!$this->request->isPost()) {
             return $this->back();
         }
+        // in a few plain words (3.12, UX310-23): "colours, logo" – the exact values stay in the bar's details and in Earlier looks
+        $areas = Look::areas($this->app->settings());
         $summary = Look::publish($this->app);
 
-        return $this->back($summary === [] ? 'There was nothing to publish.' : t('The look is published: %s', implode(' · ', $summary)));
+        return $this->back($summary === [] ? 'There was nothing to publish.' : t('Published: %s. Visitors see the new look now.', implode(', ', $areas)));
     }
 
     protected function actionDiscardLook(): Response
@@ -161,12 +152,12 @@ final class Appearance extends Module
         $siteSettings = $this->app->settings();
         $ds = is_array($tokens) ? DesignSystem::fromDtcg($tokens, Look::designSystem($siteSettings)) : null;
         if ($ds === null) {
-            return $this->back('The file contains no usable design tokens (a JSON file in the DTCG format is expected).', '', [], 'chyba');
+            return $this->back('The file contains no usable look (a .tokens.json file from Kaleta, Figma or Tokens Studio is expected).', '', [], 'chyba');
         }
         $this->toDraft($ds);
         $siteSettings->set('appearance_saved', '1');
 
-        return $this->back('Design tokens have been loaded into the draft look – preview the whole site, then publish it.');
+        return $this->back('The look from the file is in the draft look – preview the whole site, then publish it.');
     }
 
     /** Live preview: token CSS and a readability check for the unsaved form (JSON). Saves nothing. */

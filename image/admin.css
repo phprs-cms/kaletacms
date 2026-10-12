@@ -1120,8 +1120,9 @@ body.login {
 @media (max-width: 720px) { .paleta-spustit kbd { display: none; } } /* on a phone a keyboard shortcut means nothing, „Hledat…“ (Search…) stays */
 
 /* the admin on a phone: Save is always at hand, the title fits, taking photos straight into the article */
-.galerie-vyfotit { display: none; }
-@media (pointer: coarse) { .galerie-vyfotit { display: inline-block; } }
+/* label.navigace sets display – the photo button needs the same weight to stay hidden on a desktop (3.12, UX310-24) */
+label.galerie-vyfotit { display: none; }
+@media (pointer: coarse) { label.galerie-vyfotit { display: inline-block; } }
 @media (max-width: 860px) {
 	.formular-clanek { padding-bottom: 76px; }
 	.formular-clanek .ulozit-lista {
@@ -1305,6 +1306,8 @@ body.login {
 .volby-seznam label { display: block; padding-block: 2px; }
 .neaktivni { opacity: 0.5; }
 .volby-jazyky label { display: block; break-inside: avoid; padding-block: 2px; }
+/* radio buttons with long labels, one per line (3.12: enquiry retention at 390 px wrapped mid-line) */
+.formular .volby-radky label { display: block; margin-right: 0; padding-block: 2px; }
 /* collection categories (3.7): the item's categories as a tree of checkboxes, subcategories indented in the list too */
 .kategorie-polozky { max-height: 18rem; overflow-y: auto; }
 .formular .kategorie-polozky label { display: block; margin-right: 0; padding-block: 2px; }

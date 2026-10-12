@@ -180,14 +180,14 @@ $tabs = ['styl' => 'Styl', 'barvy' => 'Colours', 'tmavy' => 'Dark mode', 'pismo'
 <legend><?= e(t('Typography styles')) ?></legend>
 <p class="napoveda"><?= e(t('Named text styles you pick for an element in the builder (Style → Typography). A change here applies everywhere the style is used.')) ?></p>
 <div class="tab-obal"><table class="vypis vzhled-typografie">
-<thead><tr><th scope="col"><?= e(t('Styl')) ?></th><th scope="col"><?= e(t('Size (scale step)')) ?></th><th scope="col"><?= e(t('Weight')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Styl')) ?></th><th scope="col"><?= e(t('Velikost')) ?></th><th scope="col"><?= e(t('Weight')) ?></th></tr></thead>
 <tbody>
 <?php foreach (DesignSystem::TYPOGRAPHY as $key => [$name, $step, $weight, $lineHeight, $forHeadings]): $custom = $ds['typografie'][$key] ?? []; ?>
 <tr>
 	<th scope="row"><span style="font: var(--ka-typ-<?= e($key) ?>, inherit)<?= $key === 'nadtitulek' ? ';text-transform:uppercase;letter-spacing:.08em' : '' ?>"><?= e(t($name)) ?></span></th>
 	<td><select name="ds[typografie][<?= e($key) ?>][krok]" aria-label="<?= e(t('Size: %s', t($name))) ?>">
 <?php foreach (DesignSystem::STEPS as $k): ?>
-		<option value="<?= e($k) ?>"<?= ($custom['krok'] ?? $step) === $k ? ' selected' : '' ?>><?= e($k === '0' ? t('0 – base font') : $k) ?></option>
+		<option value="<?= e($k) ?>"<?= ($custom['krok'] ?? $step) === $k ? ' selected' : '' ?>><?= e(match ($k) { '-1' => t('Smaller'), '0' => t('Base size'), default => t('Larger %s', $k) }) ?></option>
 <?php endforeach ?>
 	</select></td>
 	<td><select name="ds[typografie][<?= e($key) ?>][tloustka]" aria-label="<?= e(t('Weight: %s', t($name))) ?>">
@@ -217,25 +217,25 @@ $tabs = ['styl' => 'Styl', 'barvy' => 'Colours', 'tmavy' => 'Dark mode', 'pismo'
 <div role="tabpanel" id="panel-znacka" aria-labelledby="zalozka-znacka">
 <fieldset>
 <legend><?= e(t('Logo and icon')) ?></legend>
-<div class="radek"><label for="logo"><?= e(t('Logo')) ?></label><div><input class="textpole siroke" type="text" id="logo" name="logo" value="<?= e($values['logo']) ?>" maxlength="255" placeholder="<?= e(t('without a logo, the site name is shown in the header')) ?>" data-obrazek><span class="napoveda"><?= e(t('Preferably a PNG with a transparent background, at least 120 px high.')) ?></span></div></div>
-<div class="radek"><label for="favicon"><?= e(t('Site icon')) ?></label><div><input class="textpole siroke" type="text" id="favicon" name="favicon" value="<?= e($values['favicon']) ?>" maxlength="255" data-obrazek><span class="napoveda"><?= e(t('A small square image shown on the browser tab and in bookmarks. 256×256 px is enough.')) ?></span></div></div>
+<div class="radek"><label for="logo"><?= e(t('Logo')) ?></label><div><input class="textpole siroke" type="text" id="logo" name="logo" value="<?= e($values['logo']) ?>" maxlength="255" placeholder="<?= e(t('without a logo, the site name is shown in the header')) ?>" data-obrazek="nahled"><span class="napoveda"><?= e(t('Preferably a PNG with a transparent background, at least 120 px high. Without a logo, the site name is shown in the header.')) ?></span></div></div>
+<div class="radek"><label for="favicon"><?= e(t('Site icon')) ?></label><div><input class="textpole siroke" type="text" id="favicon" name="favicon" value="<?= e($values['favicon']) ?>" maxlength="255" data-obrazek="nahled"><span class="napoveda"><?= e(t('A small square image shown on the browser tab and in bookmarks. 256×256 px is enough.')) ?></span></div></div>
 </fieldset>
 
 </div>
 
-<p class="napoveda"><?= e(t('Colours, fonts, sizes and shapes go to the draft look first – with changes of shared classes and menus. Visitors see them once you publish the look.')) ?></p>
+<p class="napoveda"><?= e(t('The logo, the icon, colours, fonts, sizes and shapes go to the draft look first – with changes of shared classes and menus. Visitors see them once you publish the look.')) ?></p>
 <p class="tlacitka vzhled-ulozit"><input class="tl" type="submit" value="<?= e(t('Save appearance')) ?>"> <span class="napoveda" data-neulozeno hidden><?= e(t('The preview shows unsaved changes.')) ?></span></p>
 </form>
 
 <div role="tabpanel" id="panel-export" aria-labelledby="zalozka-export" class="vzhled-export">
 <fieldset>
-<legend><?= e(t('Design tokens (Figma, Tokens Studio)')) ?></legend>
+<legend><?= e(t('The look as a file (Figma, Tokens Studio)')) ?></legend>
 <p class="napoveda"><?= e(t('Colours, fonts, sizes and typography styles in the W3C Design Tokens format (DTCG). A Kaleta export can be loaded back in full; from another tool the colours are taken.')) ?></p>
-<p class="navigace-radek"><a class="navigace" href="<?= e($module->url('tokens')) ?>"><?= e(t('Download tokens (.tokens.json)')) ?></a></p>
-<form class="navigace-radek" method="post" action="<?= e($module->url('tokens_import')) ?>" enctype="multipart/form-data" data-potvrdit="<?= e(t('Load tokens? They will overwrite the appearance settings above.')) ?>">
+<p class="navigace-radek"><a class="navigace" href="<?= e($module->url('tokens')) ?>"><?= e(t('Download the look (.tokens.json)')) ?></a></p>
+<form class="navigace-radek" method="post" action="<?= e($module->url('tokens_import')) ?>" enctype="multipart/form-data" data-potvrdit="<?= e(t('Load the look from the file? Its colours, fonts and sizes replace the ones above – in the draft look, so you can check them before publishing.')) ?>">
 	<?= $csrf ?>
-	<input type="file" name="tokeny" accept=".json,application/json" required aria-label="<?= e(t('Tokens file')) ?>">
-	<button class="navigace" type="submit"><?= e(t('Load tokens')) ?></button>
+	<input type="file" name="tokeny" accept=".json,application/json" required aria-label="<?= e(t('File with the look (.tokens.json)')) ?>">
+	<button class="navigace" type="submit"><?= e(t('Load the look from the file')) ?></button>
 </form>
 </fieldset>
 <fieldset>

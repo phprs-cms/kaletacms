@@ -13,7 +13,8 @@ use Kaleta\Builder\DesignSystem;
  * away. Publishing keeps the previous look as a version (the last 20), which comes back into the draft with one click.
  *
  * The draft is one JSON in the settings (look_draft): {design_system: {...}, classes: {name: {styl, css} | null = delete},
- * menus: {"location|language": items | null = automatic}}. Components and site parts have their own drafts in their builds.
+ * menus: {"location|language": items | null = automatic}, identity: {logo?: path, favicon?: path}}. The logo and the site
+ * icon join the draft in 3.12 (UX310-11) – before, they went live at once. Components and site parts have their own drafts in their builds.
  */
 final class Look
 {
@@ -23,6 +24,9 @@ final class Look
     private const array DS_LABELS = ['pismo_titulky' => 'Heading font', 'pismo_text' => 'Text font', 'zaklad_min' => 'Base font size on phones',
         'zaklad_max' => 'Base font size on monitors', 'pomer_min' => 'Headings on phones', 'pomer_max' => 'Headings on monitors', 'sirka' => 'Content width',
         'sirka_textu' => 'Text width', 'zaobleni' => 'Corner radius', 'vlastni_pisma' => 'Custom fonts', 'typografie' => 'Typography styles'];
+
+    /** The site identity in the draft (3.12): settings key => label. */
+    public const array IDENTITY = ['logo' => 'Logo', 'favicon' => 'Site icon'];
 
     /** The draft look applies to this request (a preview or the builder of an administrator). */
     private static ?Settings $active = null;
@@ -38,7 +42,7 @@ final class Look
         return self::$active !== null;
     }
 
-    /** @return array{design_system?: array<string, mixed>, classes?: array<string, ?array>, menus?: array<string, ?array>} */
+    /** @return array{design_system?: array<string, mixed>, classes?: array<string, ?array>, menus?: array<string, ?array>, identity?: array<string, string>} */
     public static function draft(Settings $s): array
     {
         $draft = json_decode($s->get('look_draft'), true);
@@ -65,7 +69,52 @@ final class Look
         return array_key_exists($location . '|' . $language, $menus) ? [true, $menus[$location . '|' . $language]] : [false, null];
     }
 
+    /**
+     * The logo or the site icon this request shows (3.12): the draft one while the draft look is active, otherwise the
+     * published setting. The page frame, the Logo element and the icon links in <head> read it.
+     */
+    public static function identity(Settings $s, string $key): string
+    {
+        $draft = self::$active !== null ? (self::draft(self::$active)['identity'] ?? []) : [];
+
+        return is_string($draft[$key] ?? null) ? $draft[$key] : $s->get($key);
+    }
+
+    /** The logo or the site icon as editors should show it: the draft one when there is one. */
+    public static function identityForEditing(Settings $s, string $key): string
+    {
+        $draft = self::draft($s)['identity'] ?? [];
+
+        return is_string($draft[$key] ?? null) ? $draft[$key] : $s->get($key);
+    }
+
     /* ---------- writing to the draft ---------- */
+
+    /**
+     * The logo or the site icon into the draft (3.12, UX310-11); the published value takes it out of the draft again.
+     *
+     * @return bool whether the draft now has a change of it
+     */
+    public static function setIdentity(Settings $s, string $key, string $value): bool
+    {
+        if (!isset(self::IDENTITY[$key])) {
+            throw new \InvalidArgumentException('Unknown identity key: ' . $key);
+        }
+        $d = self::draft($s);
+        $identity = $d['identity'] ?? [];
+        if ($value === $s->get($key)) {
+            unset($identity[$key]);
+        } else {
+            $identity[$key] = $value;
+        }
+        unset($d['identity']);
+        if ($identity !== []) {
+            $d['identity'] = $identity;
+        }
+        $s->set('look_draft', $d === [] ? '' : (string) json_encode($d, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+
+        return isset($identity[$key]);
+    }
 
     public static function setDesignSystem(Settings $s, array $ds): void
     {
@@ -238,8 +287,19 @@ final class Look
         if (($draft['menus'] ?? []) !== []) {
             $lines[] = t('Menus: %s', implode(', ', array_map(fn (string $key): string => self::menuName($key, $draft['menus'][$key]), array_keys($draft['menus']))));
         }
+        foreach (self::IDENTITY as $key => $label) {
+            if (is_string($draft['identity'][$key] ?? null)) {
+                $lines[] = t($label) . ': ' . self::fileName($s->get($key)) . ' → ' . self::fileName($draft['identity'][$key]);
+            }
+        }
 
         return $lines;
+    }
+
+    /** A logo or an icon in words: its file name, or "none". */
+    private static function fileName(string $path): string
+    {
+        return $path === '' ? t('none') : basename($path);
     }
 
     /** A draft menu in words: "Main menu (EN) – automatic". */
@@ -280,6 +340,12 @@ final class Look
         }
         if (($draft['menus'] ?? []) !== []) {
             $areas[] = t('menu');
+        }
+        if (is_string($draft['identity']['logo'] ?? null)) {
+            $areas[] = t('logo');
+        }
+        if (is_string($draft['identity']['favicon'] ?? null)) {
+            $areas[] = t('site icon');
         }
 
         return array_values(array_unique($areas));
@@ -322,7 +388,7 @@ final class Look
         }
 
         return ['design_system' => DesignSystem::load($s), 'classes' => array_map(fn (array $c): array => ['styl' => $c['styl'] ?: new \stdClass(), 'css' => $c['css']],
-            self::classes($db, $s, false)), 'menus' => $menus];
+            self::classes($db, $s, false)), 'menus' => $menus, 'identity' => ['logo' => $s->get('logo'), 'favicon' => $s->get('favicon')]];
     }
 
     /**
@@ -354,6 +420,12 @@ final class Look
         foreach ($draft['menus'] ?? [] as $key => $items) {
             [$location, $language] = explode('|', $key) + ['', ''];
             Menu::save($db, $location, $language, $items);
+        }
+        if (is_string($draft['identity']['logo'] ?? null)) {
+            $s->set('logo', $draft['identity']['logo']);
+        }
+        if (is_string($draft['identity']['favicon'] ?? null)) {
+            \Kaleta\Front\SiteIdentity::saveIcon($s, $draft['identity']['favicon']);
         }
         self::discard($s);
         \Kaleta\Front\Cache::clear();
@@ -434,7 +506,9 @@ final class Look
             $menus[$r['umisteni'] . '|' . $r['jazyk']] = null;
         }
         $menus = array_merge($menus, (array) ($version['menus'] ?? []));
+        // the logo and the icon (versions from 3.12 on): only what differs from the published ones
+        $identity = array_filter(array_intersect_key((array) ($version['identity'] ?? []), self::IDENTITY), fn (mixed $v, string $k): bool => is_string($v) && $v !== $s->get($k), ARRAY_FILTER_USE_BOTH);
         $s->set('look_draft', (string) json_encode(['design_system' => $version['design_system'] ?? DesignSystem::DEFAULTS, 'classes' => $classes ?: new \stdClass(),
-            'menus' => $menus ?: new \stdClass()], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            'menus' => $menus ?: new \stdClass()] + ($identity !== [] ? ['identity' => $identity] : []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     }
 }

@@ -339,9 +339,12 @@ final class Kernel
         ];
         // 2.2: Claude is the main way to build and edit a Kaleta site – done once any user has connected it; the first step
         // since 3.1.1, because "Ask Claude" on the dashboard and the scheduled runs depend on it
-        if (\Kaleta\Core\Extensions::isEnabled($s, 'claude')) {
+        // 3.12 (UX310-26): while the "Connect Claude" card leads the dashboard (not connected, not the demo), the step would
+        // repeat it – it shows once connected (ticked) or in the demo, where there is no card
+        $connected = \Kaleta\Core\AskClaude::connected($db, $s);
+        if (\Kaleta\Core\Extensions::isEnabled($s, 'claude') && ($connected || \Kaleta\Core\Demo::active())) {
             array_unshift($steps, ['Connect Claude', 'Build and edit the site by talking to Claude. In the Claude app, add a custom connector with your site address followed by /mcp – My account shows the exact address.',
-                \Kaleta\Core\Demo::active() ? 'admin.php?action=account#claude' : 'admin.php#pripojit-claude', \Kaleta\Core\AskClaude::connected($db, $s)]);
+                \Kaleta\Core\Demo::active() ? 'admin.php?action=account#claude' : 'admin.php#pripojit-claude', $connected]);
         }
         $result = array_map(fn (array $k): array => ['nazev' => $k[0], 'popis' => $k[1], 'url' => $app->url($k[2]), 'hotovo' => (bool) $k[3]], $steps);
 

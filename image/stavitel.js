@@ -1198,9 +1198,12 @@
 		const render = (search) => {
 			const q = search.trim().toLowerCase();
 			const matches = (...texts) => !q || texts.join(' ').toLowerCase().includes(q);
+			// 3.12 (UX310-22): elements whose name matches come alone – "form" finds Form, not Embed, whose description
+			// mentions forms; the descriptions are searched only when no name matches
+			const byName = D.schema.prvky.some((p) => matches(p.nazev));
 			content.replaceChildren();
 			for (const [name, elements] of Object.entries(groups)) {
-				const selected = elements.filter((p) => matches(p.nazev, p.popis, T(name)));
+				const selected = elements.filter((p) => (byName ? matches(p.nazev) : matches(p.nazev, p.popis, T(name))));
 				if (!selected.length) { continue; }
 				content.append(el('h3', {}, T(name)), el('div', { class: 'st-prvky' }, selected.map((p) =>
 					el('button', { type: 'button', title: p.popis, draggable: 'true', onclick: () => insert(newElement(p.typ)),
@@ -1520,13 +1523,35 @@
 		if (ai) { panel.append(ai); }
 		const properties = Object.entries(s.vlastnosti || {});
 		if (!properties.length) { panel.append(el('p', { class: 'st-prazdno' }, s.kontejner ? T('A container has no content of its own – put elements into it and set its look in the Style tab.') : T('This element has no editable content.'))); return; }
+		// a Collection list (3.12, UX310-14): the field keys are a choice of the chosen collection's fields, the filter and
+		// date options fold under "More options" (open when one of them is set)
+		const listCollection = p.typ === 'kolekce' ? (D.kolekce || []).find((k) => k.seo_link === p.obsah.kolekce) || null : null;
+		const more = p.typ === 'kolekce' ? el('details', { class: 'st-vice-voleb', open: COLLECTION_MORE.some((k) => p.obsah[k] && p.obsah[k] !== (s.vlastnosti[k] || {}).vychozi) },
+			el('summary', {}, T('More options'))) : null;
 		properties.forEach(([key, def]) => {
-			const control = field(def, p.obsah[key], (h) => { if (JSON.stringify(p.obsah[key]) !== JSON.stringify(h)) { applyChange(() => { p.obsah[key] = h; }, 'obsah:' + p.id + ':' + key); } },
-				{ chyba: state.chyby[state.cestaVybraneho + '.obsah.' + key], prvek: p });
+			const fieldDef = listCollection && key in COLLECTION_FIELD_KEYS ? collectionFieldChoice(def, listCollection, COLLECTION_FIELD_KEYS[key], p.obsah[key]) : def;
+			const control = field(fieldDef, p.obsah[key], (h) => {
+				if (JSON.stringify(p.obsah[key]) !== JSON.stringify(h)) { applyChange(() => { p.obsah[key] = h; }, 'obsah:' + p.id + ':' + key); }
+				if (p.typ === 'kolekce' && key === 'kolekce') { redrawRight(); } // the field choices follow the collection
+			}, { chyba: state.chyby[state.cestaVybraneho + '.obsah.' + key], prvek: p });
 			control.dataset.pole = key; // typing on the canvas updates this field (syncInspector)
-			panel.append(control);
+			(more && COLLECTION_MORE.includes(key) ? more : panel).append(control);
 		});
+		if (more) { panel.append(more); }
 		if (p.typ === 'nadpis') { panel.append(headingLevel(p, s)); }
+	}
+
+	/** Collection list fields holding a field key, and the field types each offers (null = any). */
+	const COLLECTION_FIELD_KEYS = { razeni_pole: null, filtr_pole: null, obdobi_od: ['datum', 'termin'], obdobi_do: ['datum', 'termin'] };
+	/** Collection list options under "More options". */
+	const COLLECTION_MORE = ['filtr_pole', 'filtr_hodnota', 'bez_aktualni', 'filtry', 'obdobi', 'obdobi_od', 'obdobi_do'];
+
+	/** A select of the collection's fields (by their labels) for a field-key property; a stored key the collection lacks stays offered. */
+	function collectionFieldChoice(def, collection, types, value) {
+		const options = { '': '—' };
+		(collection.pole || []).filter((f) => !types || types.includes(f.typ)).forEach((f) => { options[f.klic] = f.popisek || f.klic; });
+		if (value && !(value in options)) { options[value] = T('%s (not a field of this collection)').replace('%s', value); }
+		return { typ: 'vyber', popisek: def.popisek, vychozi: '', moznosti: options };
 	}
 
 	/**

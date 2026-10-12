@@ -28,6 +28,8 @@
 .editor-stav { display: flex; justify-content: space-between; gap: 12px; padding: 4px 10px; border-top: 1px solid var(--ed-linka); font-size: 11px; color: var(--ed-text-slaby); }
 
 .obrazek-nahled { display: block; max-width: 260px; max-height: 160px; margin-top: 8px; border: 1px solid var(--ed-linka); border-radius: var(--ed-radius-maly); object-fit: cover; }
+/* the logo and the site icon (3.12): the preview first, then Change and Remove; a logo is shown whole on a neutral ground */
+.obrazek-nahled.obrazek-nahled-hlavni { max-height: 96px; margin: 0 0 8px; padding: 8px; background: var(--ed-plocha, transparent); object-fit: contain; }
 [data-obrazek] + button.navigace { margin-top: 6px; }
 
 .nahravani { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0 0 20px; padding: 16px; border: 2px dashed var(--ed-linka); border-radius: var(--ed-radius); background: var(--ed-plocha); }

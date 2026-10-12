@@ -233,6 +233,10 @@ class Settings extends Module
             }
             // "kod" is not trimmed or modified in any other way - it is HTML/JS inserted by the administrator
             $value = $type === 'kod' ? (string) ($_POST[$key] ?? '') : $this->request->post($key);
+            if ($key === 'claude_protected_pages' && is_array($_POST[$key] ?? null)) {
+                // the page picker of Claude settings (3.12) sends the ticked pages; the setting keeps its "12, 15" form
+                $value = implode(', ', array_unique(array_filter(array_map('intval', $this->request->postList($key)))));
+            }
             if (str_starts_with($type, 'seznam:')) {
                 $settings->set($key, implode(',', array_intersect($this->request->postList($key), explode('|', substr($type, 7)))));
                 continue;
@@ -305,6 +309,11 @@ class Settings extends Module
             \Kaleta\Front\Screen::ensureSecret($settings, $this->request->postBool('novy_token_obrazovka'));
         }
 
+        if ($tab === 'general' && $errors === [] && ($english = self::languagesInEnglish($settings)) !== []) {
+            // 3.12 (UX310-12): a language Kaleta has no visitor texts for – said right after saving, not only in a help line
+            $this->app->session->flash('info', t('Visitors of %s see the site texts (Search, Read more, the cookie bar…) in English – Kaleta has no translation of them yet. Your pages and news are in the language you write them in.',
+                implode(', ', $english)));
+        }
         if ($errors === [] && $newZone !== '') {
             // 3.12 (data model §6): the dates are wall time – the next screen offers to convert them or to keep their clock time
             return $this->back(t('Settings saved. Now confirm the new time zone and choose what happens to the dates already saved.'), 'time_zone', ['zone' => $newZone], 'info');
@@ -362,6 +371,19 @@ class Settings extends Module
         return $this->back($state !== null && $state['done']
             ? t('The time zone is now %s. Saved dates were converted: %d values in %d tables.', $to, $state['values'], $state['tables'])
             : t('The time zone is now %s. Saved dates are being converted in the background – the progress is under the time zone below.', $to), '', ['tab' => 'general']);
+    }
+
+    /**
+     * Names of the site's languages (the default and the further versions) without visitor texts (3.12, UX310-12).
+     *
+     * @return list<string>
+     */
+    public static function languagesInEnglish(\Kaleta\Core\Settings $settings): array
+    {
+        $codes = array_unique([\Kaleta\Core\Language::defaults($settings), ...\Kaleta\Core\Language::additional($settings)]);
+
+        return array_values(array_map(fn (string $code): string => \Kaleta\Core\Language::AVAILABLE[$code][0],
+            array_filter($codes, fn (string $code): bool => \Kaleta\Core\Language::isOffered($code) && !\Kaleta\Core\Language::hasVisitorTexts($code))));
     }
 
     protected function actionBackup(): Response

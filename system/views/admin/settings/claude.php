@@ -6,6 +6,7 @@
  * @var Kaleta\Core\App $app
  * @var array<string, string> $values
  * @var list<array<string, mixed>> $connections
+ * @var list<array{ids: int|string, titulek: string, seo_link: string, jazyk: string}> $protectablePages
  */
 $mcpUrl = Kaleta\Core\AskClaude::mcpUrl($app);
 $lastCall = Kaleta\Core\AskClaude::lastCall($app->db());
@@ -45,10 +46,25 @@ $accessNames = array_map(fn (string $label): string => t($label), Kaleta\Front\O
 	<div class="volby"><label><input type="hidden" name="claude_apps_only" value="0"><input type="checkbox" name="claude_apps_only" value="1"<?= $values['claude_apps_only'] === '1' ? ' checked' : '' ?>> <?= e(t('Only allow Claude’s own apps to connect')) ?></label>
 	<span class="napoveda"><?= e(t('On: only Claude on the web, desktop and phone (claude.ai, claude.com) and Claude Code on your computer can register and sign in. Connections that already exist keep working. Off: other MCP applications can connect too, after a warning on the consent screen.')) ?></span></div>
 </div>
+<?php // 3.12 (UX310-19): a list of the site's pages to tick instead of page numbers; a protected page not in the list (in the trash) stays protected
+$protectedIds = preg_match_all('/\d+/', $values['claude_protected_pages'], $m) ? array_map('intval', $m[0]) : [];
+$listedIds = array_map(fn (array $page): int => (int) $page['ids'], $protectablePages); ?>
 <div class="radek">
-	<label for="claude_protected_pages"><?= e(t('Protected pages')) ?></label>
-	<div><input class="textpole" type="text" id="claude_protected_pages" name="claude_protected_pages" value="<?= e($values['claude_protected_pages']) ?>" placeholder="12, 15" pattern="[0-9 ,;]*">
-	<span class="napoveda"><?= e(t('Page numbers (shown in the page editor’s address) that Claude must not change – neither their settings nor their build.')) ?></span></div>
+	<span class="popisek" id="claude_protected_pages"><?= e(t('Protected pages')) ?></span>
+	<div><input type="hidden" name="claude_protected_pages[]" value="">
+<?php foreach (array_diff($protectedIds, $listedIds) as $hiddenId): ?>
+	<input type="hidden" name="claude_protected_pages[]" value="<?= (int) $hiddenId ?>">
+<?php endforeach ?>
+<?php if ($protectablePages === []): ?>
+	<span class="napoveda"><?= e(t('The site has no pages yet.')) ?></span>
+<?php else: ?>
+	<div class="volby-seznam" role="group" aria-labelledby="claude_protected_pages">
+<?php foreach ($protectablePages as $page): ?>
+		<label><input type="checkbox" name="claude_protected_pages[]" value="<?= (int) $page['ids'] ?>"<?= in_array((int) $page['ids'], $protectedIds, true) ? ' checked' : '' ?>> <?= e((string) $page['titulek']) ?> <small>(/<?= e(($page['jazyk'] !== '' ? $page['jazyk'] . '/' : '') . $page['seo_link']) ?>)</small></label>
+<?php endforeach ?>
+	</div>
+<?php endif ?>
+	<span class="napoveda"><?= e(t('Pages Claude must not change – neither their settings nor their build.')) ?></span></div>
 </div>
 
 <h2><?= e(t('Connections')) ?></h2>

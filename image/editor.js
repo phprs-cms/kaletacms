@@ -179,14 +179,19 @@
 				clearTimeout(waiting);
 				waiting = setTimeout(function () { load(modal.querySelector('select').value); }, 300);
 			});
+			// one uploaded file while picking one image is the choice (3.12, UX310-24) – no second click on its thumbnail
+			var uploaded = function (newItems) {
+				if (!modal.vice && newItems.length === 1 && (!newItems[0].soubor || modal.sPrilohami)) { modal.close(); modal.zpetne(newItems[0]); return; }
+				newItems.reverse().forEach(function (o) { add(o, true); });
+			};
 			Array.prototype.forEach.call(modal.querySelectorAll('input[type=file]'), function (inputEl) { inputEl.addEventListener('change', function () {
-				upload(this.files).then(function (newItems) { newItems.reverse().forEach(function (o) { add(o, true); }); });
+				upload(this.files).then(uploaded);
 				this.value = '';
 			}); });
 			modal.addEventListener('dragover', function (e) { e.preventDefault(); });
 			modal.addEventListener('drop', function (e) {
 				e.preventDefault();
-				if (e.dataTransfer.files.length) { upload(e.dataTransfer.files).then(function (newItems) { newItems.reverse().forEach(function (o) { add(o, true); }); }); }
+				if (e.dataTransfer.files.length) { upload(e.dataTransfer.files).then(uploaded); }
 			});
 		}
 		var grid = modal.querySelector('.galerie-mrizka');
@@ -578,17 +583,39 @@
 
 	/* ---------- the "Hlavní obrázek" (Featured image) field ---------- */
 
+	// data-obrazek="nahled" (the logo and the site icon, 3.12): only the preview with Change and Remove – the path field
+	// stays for the form, hidden; without JavaScript it is a plain text field
 	document.querySelectorAll('[data-obrazek]').forEach(function (field) {
+		var previewOnly = field.getAttribute('data-obrazek') === 'nahled';
 		var tl = document.createElement('button');
 		tl.type = 'button';
 		tl.className = 'navigace';
-		tl.textContent = T('Choose from Media');
+		var remove = document.createElement('button');
+		remove.type = 'button';
+		remove.className = 'navigace nebezpecne';
+		remove.textContent = T('Remove');
 		var preview = document.createElement('img');
-		preview.className = 'obrazek-nahled';
+		preview.className = 'obrazek-nahled' + (previewOnly ? ' obrazek-nahled-hlavni' : '');
 		preview.alt = '';
-		function show() { preview.hidden = field.value.trim() === ''; if (!preview.hidden) { preview.src = field.value; } }
-		field.after(tl, preview);
-		tl.addEventListener('click', function () { pickImage(function (o) { field.value = o.url; show(); field.dispatchEvent(new Event('input', { bubbles: true })); }); });
+		function show() {
+			var empty = field.value.trim() === '';
+			preview.hidden = empty;
+			if (!empty) { preview.src = field.value; }
+			tl.textContent = empty ? T('Choose from Media') : T('Change');
+			remove.hidden = empty || !previewOnly;
+		}
+		function choose(url) { field.value = url; show(); field.dispatchEvent(new Event('input', { bubbles: true })); }
+		if (previewOnly) {
+			field.hidden = true;
+			tl.id = field.id + '-vybrat';
+			var label = field.id ? document.querySelector('label[for="' + field.id + '"]') : null;
+			if (label) { label.htmlFor = tl.id; }
+			field.after(preview, tl, remove);
+		} else {
+			field.after(tl, preview);
+		}
+		tl.addEventListener('click', function () { pickImage(function (o) { choose(o.url); }); });
+		remove.addEventListener('click', function () { choose(''); });
 		field.addEventListener('change', show);
 		preview.addEventListener('error', function () { preview.hidden = true; });
 		show();

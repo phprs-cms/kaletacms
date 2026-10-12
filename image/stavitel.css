@@ -107,6 +107,9 @@ body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; ove
 .st-obrazek-pole .st-tl.nebezpecne { color: var(--chyba); }
 .st-obrazek-adresa > summary { font-size: 12px; color: var(--text-slaby); cursor: pointer; }
 .st-obrazek-adresa > input { width: 100%; margin-top: 4px; }
+/* Collection list: the filter and date options folded (3.12) */
+.st-vice-voleb { margin: 4px 0 12px; padding-top: 8px; border-top: 1px solid var(--linka-pole); }
+.st-vice-voleb > summary { margin-bottom: 8px; font-weight: 600; cursor: pointer; }
 /* heading level (3.6) */
 .st-uroven .st-skupina { flex-wrap: wrap; width: fit-content; }
 
