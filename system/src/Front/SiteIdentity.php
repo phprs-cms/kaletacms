@@ -25,6 +25,8 @@ final class SiteIdentity
         'grotesk' => ['Bold grotesque', 'Helvetica, Arial – strong and confident', '"Helvetica Neue", Helvetica, "Arial Nova", Arial, sans-serif'],
         'zaoblene' => ['Rounded', 'friendly, for services and family businesses', 'ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN", Quicksand, Nunito, system-ui, sans-serif'],
         'strojove' => ['Typewriter', 'technology and development', 'ui-monospace, "SF Mono", Menlo, Consolas, "Courier New", monospace'],
+        // 3.12: a site with an Arabic version (Builder\FontScripts) – the named families where the device has them, else its Arabic font
+        'arabske' => ['Arabic sans-serif', 'Noto Sans Arabic, IBM Plex Sans Arabic – for Arabic text', '"Noto Sans Arabic", "IBM Plex Sans Arabic", "Geeza Pro", "Segoe UI", Tahoma, system-ui, sans-serif'],
     ];
 
     public const array TEXT_FONTS = [
@@ -33,6 +35,7 @@ final class SiteIdentity
         'knizni' => ['Book', 'Charter, Cambria', 'Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif'],
         'moderni' => ['Sans-serif', 'the device\'s system font', 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'],
         'grotesk' => ['Grotesque', 'Helvetica, Arial', '"Helvetica Neue", Helvetica, "Arial Nova", Arial, sans-serif'],
+        'arabske' => ['Arabic sans-serif', 'Noto Sans Arabic, IBM Plex Sans Arabic – for Arabic text', '"Noto Sans Arabic", "IBM Plex Sans Arabic", "Geeza Pro", "Segoe UI", Tahoma, system-ui, sans-serif'],
     ];
 
     /**

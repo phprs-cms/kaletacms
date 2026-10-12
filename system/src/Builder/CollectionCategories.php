@@ -132,6 +132,28 @@ final class CollectionCategories
             'parent_name' => (string) $r['parent_name'], 'parent_visible' => (bool) $r['parent_visible']];
     }
 
+    /**
+     * The category at a path within the site (3.12): <collection>/<category> or <collection>/<category>/<subcategory> in a
+     * language, as Front\Kernel answers it (a subcategory asked for at the first level redirects to its own address, so it
+     * counts too). For the site audit and the migration report; null = no category there.
+     *
+     * @param list<string> $segments the path without the language prefix
+     * @return array{id: int, parent_id: ?int, image: string, sort_order: int, visible: bool, name: string, slug: string, description: string, seo_title: string, seo_description: string, parent_slug: string, parent_name: string, parent_visible: bool}|null
+     */
+    public static function atPath(Db $db, array $segments, string $language): ?array
+    {
+        if (count($segments) < 2 || count($segments) > 3) {
+            return null;
+        }
+        $collection = Collections::bySlug($db, $segments[0]);
+        $category = $collection !== null ? self::bySlug($db, (int) $collection['idk'], (string) end($segments), $language) : null;
+        if ($category === null || (count($segments) === 3 && ($category['parent_id'] === null || $category['parent_slug'] !== $segments[1]))) {
+            return null;
+        }
+
+        return $category;
+    }
+
     /** Is the category on the site: visible, and so is its parent (a subcategory needs its parent's text in the language for its address). */
     public static function isPublic(array $category): bool
     {

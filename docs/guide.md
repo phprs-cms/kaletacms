@@ -431,6 +431,33 @@ same with `import_wordpress`, always hidden: it takes an export uploaded with `u
 never goes to Media) or the export's address, works in batches it resumes, and reports what came over, what was skipped
 and why, the redirects and the menus.
 
+### Moving a bilingual Arabic site
+
+A WordPress site in English and Arabic (Polylang or WPML, often with a WooCommerce shop) moves in one import:
+
+1. **Export everything** in WordPress (Tools → Export → All content). With WPML, use its *Export and Import* add-on so the
+   languages and translation groups are in the file. A large export goes over FTP into `storage/import/`.
+2. **Import with the language versions added** – tick *add the language versions … to the site* in the preview (Claude:
+   `import_wordpress` with `add_languages: true`). Arabic becomes a language version of the site, each page, post and
+   product goes to its version and is linked to its English original (the language switcher and hreflang follow it).
+3. **Addresses stay Latin.** An Arabic translation of a product takes its original's address (`/ar/product/knee-brace`);
+   Arabic pages, posts and products without an original get a transliterated address (`/ar/mn-nhn`). Every old address
+   redirects: `/ar/…` with the Arabic slug, `?lang=ar`, `?p=123` and the product categories under WooCommerce's
+   `/product-category/…`.
+4. **The shop becomes a catalogue** made from the Products preset: code, price, availability, parameters, summary,
+   description and the featured image; product categories become categories of the collection with pages in both
+   languages. Variations, orders and coupons stay in WordPress (the report lists them). A shop with its own category
+   base needs a pattern redirect – the migration report shows it.
+5. **Set the home page** to the imported one: the Arabic version appears on the site (switcher, hreflang, sitemap) once its
+   translation of the home page is published.
+6. **Choose a font with Arabic letters.** Site appearance and the site audit warn when the heading or text font has none;
+   choose *Modern sans-serif* (the device's system font) or *Arabic sans-serif*, or upload Noto Sans Arabic, IBM Plex
+   Sans Arabic, Cairo or Tajawal as a custom font.
+7. **Run the migration report** against the old site before switching the domain; it should find every old address here.
+
+Measured on a generated shop with 396 products in each language (`tools/fixtures/wordpress-scale.php`): the content
+arrives in 14 batches (about 7 seconds), the 396 images in another 14, each request well under 128 MB.
+
 **Moving a Kaleta site** to another host or starting a new site from an agency's starter kit: on the old site create
 **Import and export → Export of the whole site**, then install Kaleta on the new host and choose **Start from an export**
 in the installer. Sign in, open **Import and export → Import from Kaleta** and upload the `.zip` (a larger one over FTP

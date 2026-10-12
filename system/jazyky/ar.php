@@ -2078,4 +2078,7 @@ The link works for %d days.
     '[Opening hours]' => '[ساعات العمل]',
     'out of 5 · [number] reviews' => 'من 5 · [رقم] مراجعة',
     'Business details on the left, an enquiry form on the right.' => 'بيانات النشاط التجاري في جانب، ونموذج الاستفسار في الجانب الآخر.',
+    'In stock' => 'متوفر',
+    'Out of stock' => 'غير متوفر',
+    'On backorder' => 'متاح للطلب المسبق',
 ];

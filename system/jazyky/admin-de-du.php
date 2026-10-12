@@ -904,4 +904,7 @@ return [
     'For example – click one, change it and save:' => 'Zum Beispiel – klick auf einen, ändere ihn und speichere:',
     'Logo and icon saved and live. Colours, fonts and sizes are in the draft look – preview the whole site, then publish them.' => 'Logo und Symbol sind gespeichert und live. Farben, Schriften und Größen sind im Entwurf des Erscheinungsbilds – sieh dir die ganze Website an und veröffentliche sie dann.',
     '%s: their news items now belong to your account' => '%s: Die News gehören jetzt zu deinem Konto',
+    'Kaleta cannot tell whether the heading font %s has %s letters for the %s version – check the languages the font supports.' => 'Kaleta kann nicht erkennen, ob die Überschriftenschrift %s %s Buchstaben für die Version %s hat – prüfe, welche Sprachen die Schrift unterstützt.',
+    'Kaleta cannot tell whether the text font %s has %s letters for the %s version – check the languages the font supports.' => 'Kaleta kann nicht erkennen, ob die Textschrift %s %s Buchstaben für die Version %s hat – prüfe, welche Sprachen die Schrift unterstützt.',
+    'Fonts with them: %s; or upload one as a custom font (e.g. %s).' => 'Schriften, die sie haben: %s; oder lade eine als eigene Schrift hoch (z. B. %s).',
 ];

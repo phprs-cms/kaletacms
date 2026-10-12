@@ -5906,6 +5906,70 @@ IMPEN=$(get39 /kinesio-tape-fxm)
 contains -q '<html lang="en">' "$WORK/response" && contains -q 'hreflang="ar" href="[^"]*/ar/kinesio-tape-ar-fxm"' "$WORK/response" && IMPEN="$IMPEN ok"
 expect "RTL import: the imported Arabic page renders right to left with hreflang to English, and back" "$IMP|$IMPEN" "200  ok|200  ok"
 sq "DELETE FROM ka_stranky WHERE seo_link LIKE '%-fxm'; DELETE FROM ka_novinky WHERE seo_link LIKE '%-fxm'; DELETE FROM ka_kategorie WHERE seo_link LIKE 'blog-fxm%'; DELETE FROM ka_presmerovani WHERE z_adresy LIKE '%fxm%'" > /dev/null
+# 3.12: fysiomed.eu at a smaller scale – a generated WooCommerce shop (tools/fixtures/wordpress-scale.php, 60 products in
+# English and Arabic with Polylang, product categories, featured images, a menu per language), its live side served by the
+# fake old site; imported over MCP with the images, then the front, the old addresses and the migration report
+SCALE_PORT=$((PORT + 8)); SCALE="http://127.0.0.1:$SCALE_PORT" # the big fake old site of 3.7 is stopped by now
+php "$ROOT/tools/fixtures/wordpress-scale.php" --products=60 --site="$SCALE" --out="$WORK/web/storage/import/fysio-scale.xml" # put there as over FTP
+(cd "$ROOT/tools" && KALETA_FAKE_MODE=wordpress KALETA_FAKE_WXR="$WORK/web/storage/import/fysio-scale.xml" exec php -S "127.0.0.1:$SCALE_PORT" fake-old-site.php > /dev/null 2>&1) & OLDSITE_PID=$!
+sq "DROP TABLE IF EXISTS ka_test_scale; CREATE TABLE ka_test_scale AS SELECT * FROM ka_nastaveni WHERE promenna IN ('look_draft', 'design_system', 'home_page'); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('look_draft', 'additional_languages')" > /dev/null
+for _ in $(seq 1 30); do curl -s -o /dev/null "$SCALE/robots.txt" && break; sleep 0.2; done
+mcp import_wordpress '{"file":"fysio-scale.xml","confirm":true,"add_languages":true}' > "$WORK/response"; SCALE_CALLS=1
+for _ in $(seq 1 25); do [ "$(mcp_value phase)" = done ] && break; mcp import_wordpress '{"import":"fysio-scale.xml"}' > "$WORK/response"; SCALE_CALLS=$((SCALE_CALLS + 1)); done
+SCOL=$(mcp_value woocommerce collection)
+expect "3.12 scale: 60 products ×2 in a few calls – Arabic added, products in a catalogue with 12 categories, every image downloaded, translations linked" \
+  "$(mcp_value phase)|$(mcp_value languages added_to_site 0)|$(mcp_value result collection_items)|$(mcp_value result collection_categories)|$(mcp_value woocommerce products)|$(mcp_value images downloaded)|$(mcp_value images failed)|$(mcp_value languages translations_linked)|$([ "$SCALE_CALLS" -le 8 ] && echo few)" \
+  "done|ar|119|12|119|60|0|28|few"
+expect "3.12 scale: the catalogue keeps the Products preset; an Arabic product shares its English original's address, with its price, code, Arabic availability and picture" \
+  "$(sq "SELECT CONCAT(k.preset, '|', a.seo_link = e.seo_link, '|', JSON_UNQUOTE(JSON_EXTRACT(a.data, '$.price')), '|', JSON_UNQUOTE(JSON_EXTRACT(a.data, '$.code')), '|', JSON_UNQUOTE(JSON_EXTRACT(a.data, '$.availability')), '|', JSON_UNQUOTE(JSON_EXTRACT(a.data, '$.image')) LIKE 'media/%', '|', a.obrazek LIKE 'media/%')
+     FROM ka_kolekce_polozky e JOIN ka_kolekce_polozky a ON a.idk = e.idk AND a.jazyk = 'ar' AND a.nazev LIKE '%FS-001' JOIN ka_kolekce k ON k.idk = e.idk WHERE e.jazyk = '' AND e.nazev = 'Pro Knee Brace FS-001'")" \
+  "products|1|11.90|FS-001|متوفر|1|1"
+expect "3.12 scale: an Arabic-only product gets a transliterated Latin address; a category has an Arabic name and a Latin address; both menus have the shop's category" \
+  "$(sq "SELECT seo_link FROM ka_kolekce_polozky WHERE jazyk = 'ar' AND nazev LIKE '%FS-040'")|$(sq "SELECT CONCAT(t.name, ':', t.slug) FROM ka_collection_category_texts t JOIN ka_collection_category_texts e ON e.category_id = t.category_id AND e.language = '' AND e.slug = 'taping-fs' WHERE t.language = 'ar'")|$(sq "SELECT CONCAT(JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.menus.\"hlavni|\"[3].url')), ' ', JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.menus.\"hlavni|ar\"[3].url'))) FROM ka_nastaveni WHERE promenna = 'look_draft'")" \
+  "kmada-barda-klasyky-fs-040|الأشرطة:alashrta|/$SCOL/taping-fs /ar/$SCOL/alashrta"
+# everything arrived hidden: shown here, the imported home page as the home page (a language version is public once its
+# translation of the home page is)
+sq "UPDATE ka_kolekce_polozky SET zobrazit = 1 WHERE seo_link LIKE '%-fs-%'; UPDATE ka_collection_categories c JOIN ka_kolekce k ON k.idk = c.idk SET c.visible = 1 WHERE k.seo_link = '$SCOL';
+    UPDATE ka_stranky SET zobrazit = 1 WHERE seo_link LIKE '%-fs' OR jazyk = 'ar'; UPDATE ka_nastaveni SET hodnota = (SELECT ids FROM ka_stranky WHERE seo_link = 'home-fs') WHERE promenna = 'home_page'" > /dev/null
+SC1=$(get39 "/$SCOL/pro-knee-brace-fs-001"); contains -q "hreflang=\"ar\" href=\"[^\"]*/ar/$SCOL/pro-knee-brace-fs-001\"" "$WORK/response" && SC1="$SC1 ok"
+SC2=$(get39 "/ar/$SCOL/pro-knee-brace-fs-001"); contains -q '<html lang="ar" dir="rtl"' "$WORK/response" && contains -q "hreflang=\"en\" href=\"[^\"]*/$SCOL/pro-knee-brace-fs-001\"" "$WORK/response" && contains -q 'متوفر' "$WORK/response" && SC2="$SC2 ok"
+expect "3.12 scale: the English and the Arabic product page, linked by hreflang both ways" "$SC1|$SC2" "200  ok|200  ok"
+SC_AR=$(php -r 'echo implode("-", array_map(fn ($w) => strtolower(rawurlencode($w)), ["دعامة", "الركبة", "احترافي", "fs-001"]));')
+expect "3.12 scale: old addresses redirect – an Arabic product, ?lang=ar, a product category and an Arabic subcategory under WooCommerce's base" \
+  "$(get39 "/ar/product/$SC_AR/")|$(get39 '/?lang=ar')|$(get39 /product-category/taping-fs/)|$(get39 "/ar/product-category/$(php -r 'echo strtolower(rawurlencode("الأشرطة")) . "/" . strtolower(rawurlencode("شريط-الحركة"));')/")" \
+  "301 $B/ar/$SCOL/pro-knee-brace-fs-001|301 $B/ar|301 $B/$SCOL/taping-fs|301 $B/ar/$SCOL/alashrta/shryt-alhrka"
+SC3=$(get39 "/ar/$SCOL/alashrta"); contains -q 'dir="rtl"' "$WORK/response" && contains -q "href=\"/ar/$SCOL/pro-[a-z-]*fs-0" "$WORK/response" && SC3="$SC3 ok"
+curl -s -o "$WORK/response" -G "$B/ar/search" --data-urlencode "q=دعامة الركبة"; SC4=$(grep -o "href=\"/ar/$SCOL/[a-z0-9-]*\"" "$WORK/response" | sort -u | wc -l | tr -d ' ')
+get39 /sitemap.xml > /dev/null
+expect "3.12 scale: the Arabic category page lists its products, Arabic search finds the products, the sitemap has both languages' products and categories" \
+  "$SC3|$([ "$SC4" -ge 3 ] && echo found)|$(grep -c "<loc>[^<]*/ar/$SCOL/pro-knee-brace-fs-001</loc>" "$WORK/response")|$(grep -c "<loc>[^<]*/$SCOL/taping-fs/kinesiology-tape-fs</loc>" "$WORK/response")|$(grep -c "<loc>[^<]*/ar/$SCOL/alashrta</loc>" "$WORK/response")" \
+  "200  ok|found|1|1|1"
+mcp migration_report "{\"url\":\"$SCALE\"}" > "$WORK/response"; SC_REPORT=$(mcp_value report_id)
+for _ in 1 2 3 4 5 6; do [ "$(mcp_value phase)" = done ] && break; mcp migration_report "{\"report_id\":\"$SC_REPORT\"}" > "$WORK/response"; done
+expect "3.12 scale: the migration report finds every old address of the shop (products, pages, posts, categories in both languages) here" \
+  "$(mcp_value phase)|$(mcp_value summary addresses)|$(mcp_value summary missing)|$(mcp_value summary errors)" "done|194|0|0"
+# the fonts: an Arabic version with a heading font without Arabic letters is reported in Site appearance and the site audit
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('design_system', '{\"pismo_titulky\":\"elegantni\",\"pismo_text\":\"moderni\"}'), ('look_draft', '')" > /dev/null
+check "3.12: Site appearance warns that the heading font has no Arabic letters and names fonts that have them" 200 "/admin.php?module=appearance" 'Arabic sans-serif\|Arabské bezpatkové'
+contains -q 'Noto Sans Arabic, IBM Plex Sans Arabic, Cairo, Tajawal' "$WORK/response" && echo "  ok     3.12: the warning suggests Arabic fonts to upload" || { echo "  CHYBA  3.12: the font warning"; ERRORS=$((ERRORS+1)); }
+mcp site_audit '{"kind":"accessibility"}' > "$WORK/response"; mcp_text; FA1=$(contains -q '"look":"font_headings","script":"arabic"' "$WORK/text" && echo reported)
+sq "UPDATE ka_nastaveni SET hodnota = '{\"pismo_titulky\":\"arabske\",\"pismo_text\":\"moderni\"}' WHERE promenna = 'design_system'" > /dev/null
+mcp site_audit '{"kind":"accessibility"}' > "$WORK/response"; mcp_text; FA2=$(contains -q '"look":"font_' "$WORK/text" && echo still || echo gone)
+expect "3.12: site_audit reports the heading font without Arabic letters, and not once the Arabic font is chosen" "$FA1|$FA2" "reported|gone"
+# the WPML variant of the same shop over the admin's preview
+php "$ROOT/tools/fixtures/wordpress-scale.php" --products=60 --plugin=wpml --site="$SCALE" --out="$WORK/web/storage/import/fysio-scale-wpml.xml"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=transfer"; TOKEN=$(csrf)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=select" -d "_csrf=$TOKEN" -d soubor=fysio-scale-wpml.xml
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=progress" -d "_csrf=$TOKEN" -d soubor=fysio-scale-wpml.xml
+check "3.12: the admin preview of a WPML WooCommerce shop names the catalogue and its categories" 200 "/admin.php?module=transfer&action=preview&file=fysio-scale-wpml.xml" 'WooCommerce'
+contains -q '119' "$WORK/response" && contains -q 'WPML' "$WORK/response" && echo "  ok     3.12: 119 products and WPML in the preview" || { echo "  CHYBA  3.12: WPML preview"; ERRORS=$((ERRORS+1)); }
+kill "$OLDSITE_PID" 2>/dev/null; OLDSITE_PID=
+SCIDK=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = '$SCOL'") # step by step: one cascade over the whole collection is deeper than MySQL allows
+sq "DELETE FROM ka_collection_item_categories WHERE idp IN (SELECT idp FROM ka_kolekce_polozky WHERE idk = $SCIDK); DELETE FROM ka_kolekce_polozky WHERE idk = $SCIDK;
+    DELETE FROM ka_collection_categories WHERE idk = $SCIDK AND parent_id IS NOT NULL; DELETE FROM ka_collection_categories WHERE idk = $SCIDK; DELETE FROM ka_kolekce WHERE idk = $SCIDK" > /dev/null
+sq "DELETE FROM ka_presmerovani WHERE na_adresu LIKE '%-fs%' OR na_adresu LIKE 'ar%' OR na_adresu LIKE '$SCOL/%' OR z_adresy = '?lang=ar';
+    DELETE FROM ka_stranky WHERE ids IN (SELECT nase_id FROM ka_import_mapa WHERE zdroj = 'wp:127.0.0.1' AND typ = 'stranka'); DELETE FROM ka_novinky WHERE idc IN (SELECT nase_id FROM ka_import_mapa WHERE zdroj = 'wp:127.0.0.1' AND typ = 'clanek');
+    DELETE FROM ka_kategorie WHERE idt IN (SELECT nase_id FROM ka_import_mapa WHERE zdroj = 'wp:127.0.0.1' AND typ = 'rubrika'); DELETE FROM ka_import_mapa WHERE zdroj = 'wp:127.0.0.1'; DELETE FROM ka_nastaveni WHERE promenna IN ('look_draft', 'design_system', 'home_page'); INSERT INTO ka_nastaveni SELECT * FROM ka_test_scale; DROP TABLE ka_test_scale" > /dev/null
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('site_language', '$LANGRTL'), ('additional_languages', 'en'), ('home_page', '$HOME39')" > /dev/null
 
 echo "== 2.9: monthly report by e-mail"

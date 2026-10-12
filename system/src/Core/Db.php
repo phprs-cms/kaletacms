@@ -190,12 +190,19 @@ final class Db
     }
 
     /**
+     * Runs $fn in a transaction. Called inside another one (3.12: a collection category saved by the WordPress import, which
+     * runs each post in its own transaction), it joins the outer transaction – the outer one commits or rolls back all of it.
+     *
      * @template T
      * @param callable(self): T $fn
      * @return T
      */
     public function transaction(callable $fn): mixed
     {
+        $joined = $this->pdo()->inTransaction();
+        if ($joined) {
+            return $fn($this);
+        }
         $this->pdo()->beginTransaction();
         try {
             $result = $fn($this);

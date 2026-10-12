@@ -154,12 +154,15 @@ final class WpFile
      * the translation group of each category and tag by its term number (Polylang term_translations, WPML termmeta), the
      * term names by number (Polylang lets two languages share a category slug) and the plugin found (polylang | wpml | '').
      *
-     * @return array{nazev:string, adresa:string, autori:array<string,string>, emaily:array<string,string>, rubriky:array<string,array{nazev:string, predek:string}>, stitky:array<string,string>, menu:array<string,string>, terminy:array<int,array{0:string, 1:string}>, jazyky:array<string,string>, jazyk_terminu:array<int,string>, skupina_terminu:array<int,string>, nazev_terminu:array<int,string>, plugin:string}
+     * 3.12: WooCommerce product categories (product_cat terms, Core\WpWooCommerce) are terms of the kind "polozky" with their
+     * name, the slug of their parent (predek_terminu) and their language and translation group like the other terms.
+     *
+     * @return array{nazev:string, adresa:string, autori:array<string,string>, emaily:array<string,string>, rubriky:array<string,array{nazev:string, predek:string}>, stitky:array<string,string>, menu:array<string,string>, terminy:array<int,array{0:string, 1:string}>, jazyky:array<string,string>, jazyk_terminu:array<int,string>, skupina_terminu:array<int,string>, nazev_terminu:array<int,string>, predek_terminu:array<int,string>, plugin:string}
      */
     public function header(): array
     {
         $h = ['nazev' => '', 'adresa' => '', 'autori' => [], 'emaily' => [], 'rubriky' => [], 'stitky' => [], 'menu' => [], 'terminy' => [],
-            'jazyky' => [], 'jazyk_terminu' => [], 'skupina_terminu' => [], 'nazev_terminu' => [], 'plugin' => ''];
+            'jazyky' => [], 'jazyk_terminu' => [], 'skupina_terminu' => [], 'nazev_terminu' => [], 'predek_terminu' => [], 'plugin' => ''];
         $link = '';
         $reader = $this->open();
         try {
@@ -191,10 +194,17 @@ final class WpFile
                     $email = trim($field['wp:author_email'] ?? '');
                     $h['emaily'][(string) ($field['wp:author_login'] ?? '')] = filter_var($email, FILTER_VALIDATE_EMAIL) !== false ? mb_strtolower($email) : '';
                 }
-                if ($term > 0 && in_array($reader->name, ['wp:category', 'wp:tag'], true) && count($h['terminy']) < self::MAX_TERMS) {
+                $productCategory = $reader->name === 'wp:term' && ($field['wp:term_taxonomy'] ?? '') === WpWooCommerce::CATEGORIES;
+                if ($term > 0 && (in_array($reader->name, ['wp:category', 'wp:tag'], true) || $productCategory) && count($h['terminy']) < self::MAX_TERMS) {
                     // menu items name a category or a tag by its term number
-                    $h['terminy'][$term] = [$reader->name === 'wp:category' ? 'rubrika' : 'stitek', (string) ($field[$reader->name === 'wp:category' ? 'wp:category_nicename' : 'wp:tag_slug'] ?? '')];
-                    $h['nazev_terminu'][$term] = self::plainText($field[$reader->name === 'wp:category' ? 'wp:cat_name' : 'wp:tag_name'] ?? '');
+                    $h['terminy'][$term] = match (true) {
+                        $productCategory => ['polozky', mb_substr((string) ($field['wp:term_slug'] ?? ''), 0, 190)],
+                        default => [$reader->name === 'wp:category' ? 'rubrika' : 'stitek', (string) ($field[$reader->name === 'wp:category' ? 'wp:category_nicename' : 'wp:tag_slug'] ?? '')],
+                    };
+                    $h['nazev_terminu'][$term] = self::plainText($field[match ($reader->name) { 'wp:category' => 'wp:cat_name', 'wp:tag' => 'wp:tag_name', default => 'wp:term_name' }] ?? '');
+                    if ($productCategory && trim((string) ($field['wp:term_parent'] ?? '')) !== '') {
+                        $h['predek_terminu'][$term] = mb_substr(trim((string) $field['wp:term_parent']), 0, 190); // the parent by its slug, as the exporter writes it
+                    }
                     // 3.9: WPML Export and Import writes the language and the translation group of a term as its termmeta
                     $meta = self::termMeta($node);
                     if (($meta[WpLanguages::WPML_LANGUAGE] ?? '') !== '') {
@@ -276,6 +286,9 @@ final class WpFile
             // 3.9: the language as the plugin names it (a Polylang slug, a WPML code), the translation group (pll:… | wpml:… | dup:<id>)
             // and the multilingual plugin that left a trace on the post (Core\WpLanguages)
             'jazyk_wp' => '', 'skupina' => '', 'jazyk_plugin' => '',
+            // 3.12: a WooCommerce product (Core\WpWooCommerce) – its categories (slug => name), its meta and product type, and
+            // the terms of its global attributes [taxonomy, name]
+            'kategorie' => [], 'woo' => [], 'vlastnosti' => [],
         ];
         foreach ($item->childNodes as $n) {
             if (!$n instanceof \DOMElement) {
@@ -314,6 +327,12 @@ final class WpFile
                         $p['jazyk_plugin'] = WpLanguages::POLYLANG;
                     } elseif (in_array($n->getAttribute('domain'), WpLanguages::WPML_TAXONOMIES, true) && $p['jazyk_plugin'] === '') {
                         $p['jazyk_plugin'] = WpLanguages::WPML;
+                    } elseif ($n->getAttribute('domain') === WpWooCommerce::CATEGORIES && $n->getAttribute('nicename') !== '' && count($p['kategorie']) < 50) {
+                        $p['kategorie'][mb_substr($n->getAttribute('nicename'), 0, 190)] = self::plainText($text); // 3.12: WooCommerce product categories
+                    } elseif ($n->getAttribute('domain') === WpWooCommerce::PRODUCT_TYPE) {
+                        $p['woo']['typ'] = mb_substr($n->getAttribute('nicename'), 0, 40);
+                    } elseif (str_starts_with($n->getAttribute('domain'), WpWooCommerce::ATTRIBUTE_PREFIX) && count($p['vlastnosti']) < 200) {
+                        $p['vlastnosti'][] = [mb_substr($n->getAttribute('domain'), 0, 60), mb_substr(self::plainText($text), 0, 200)]; // a global product attribute (pa_colour: Red)
                     }
                     break;
                 case 'wp:postmeta':
@@ -335,6 +354,8 @@ final class WpFile
                         $p['meta'][$key] = mb_substr((string) ($meta['wp:meta_value'] ?? ''), 0, 2000); // SEO plugin data (Core\WpSeo)
                     } elseif ($p['typ'] === 'nav_menu_item' && str_starts_with($key, '_menu_item_')) {
                         $p['meta'][$key] = mb_substr((string) ($meta['wp:meta_value'] ?? ''), 0, 600); // where a menu item leads (3.6)
+                    } elseif (in_array($key, WpWooCommerce::META, true) && $p['typ'] === WpWooCommerce::TYPE) {
+                        $p['woo'][$key] = mb_substr($value, 0, 20000); // 3.12: SKU, prices, stock and the product's own attributes
                     } elseif (isset(self::BUILDERS[$key])) {
                         $p['stavitel'] = self::BUILDERS[$key]; // only that a page builder made the layout – its data is not read
                     } elseif (WpTypes::isCustomType($p['typ']) && count($p['pole']) < 120) {

@@ -1436,7 +1436,7 @@ $cptState = Kaleta\Core\WpImport::newState('wordpress-cpt.xml');
 Kaleta\Core\WpImport::analyze($cptState, 30, $cptPath);
 check('WpImport náhled: a custom post type with its fields, address and what is left out', [$cptState['prehled']['typy'], $cptState['prehled']['jine']], [['reference' => [
     'pocet' => 2, 'predpony' => ['reference' => 2], 'pole' => ['klient' => ['text' => 2], 'rok_dokonceni' => ['cislo' => 2], 'datum_predani' => ['datum' => 2], 'web_klienta' => ['odkaz' => 1], 'fotka' => ['obrazek' => 1, 'text' => 0]],
-    'vynechano' => ['galerie' => true], 'obsah' => true, 'perex' => false]], []]);
+    'vynechano' => ['galerie' => true], 'obsah' => true, 'perex' => false, 'woo' => false, 'kategorie' => []]], []]);
 
 /* ---------- 3.9: multilingual WordPress – Polylang and WPML (tools/fixtures/wordpress-polylang.xml, wordpress-wpml.xml) ---------- */
 check('3.10 WpLanguages::code: the slug Kaleta offers (the old addresses use it), else the locale, else the language; a regional version is kept unless the site has only its language; unknown languages null', [
@@ -1501,6 +1501,53 @@ for ($i = 0; $i < Kaleta\Core\WpFile::MAX_TERMS / 2 + 5000; $i++) {
 file_put_contents($n392File, $n392 . '</channel></rss>');
 $n392Header = (new Kaleta\Core\WpFile($n392File))->header();
 @unlink($n392File);
+// 3.12: a WooCommerce shop (Core\WpWooCommerce) – the generated bilingual export of tools/fixtures/wordpress-scale.php,
+// products as the Products preset, product categories with their parents and languages
+$wooFile = (string) tempnam(sys_get_temp_dir(), 'kaleta-woo');
+exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(KALETA_ROOT . '/tools/fixtures/wordpress-scale.php') . ' --products=6 --out=' . escapeshellarg($wooFile), $wooOutput, $wooExit);
+$wooHeader = (new Kaleta\Core\WpFile($wooFile))->header();
+$wooItems = array_values(array_filter(iterator_to_array((new Kaleta\Core\WpFile($wooFile))->items()), fn (array $p): bool => $p['typ'] === 'product'));
+$wooState = Kaleta\Core\WpImport::newState('scale.xml');
+Kaleta\Core\WpImport::analyze($wooState, 30, $wooFile);
+@unlink($wooFile);
+$wooCategory = array_search(['polozky', 'taping-fs'], $wooHeader['terminy'], true);
+$wooChild = array_search(['polozky', 'kinesiology-tape-fs'], $wooHeader['terminy'], true);
+check('3.12 WooCommerce: product categories in the header with name, parent and language; a product with its categories, meta and attributes', [
+    $wooExit, $wooHeader['nazev_terminu'][$wooCategory] ?? null, $wooHeader['predek_terminu'][$wooChild] ?? null, $wooHeader['jazyk_terminu'][$wooChild] ?? null,
+    $wooHeader['skupina_terminu'][$wooChild] === ($wooHeader['skupina_terminu'][$wooChild + 1] ?? ''), $wooItems[0]['kategorie'], $wooItems[0]['woo']['_sku'] ?? null,
+    $wooItems[0]['woo']['typ'] ?? null, Kaleta\Core\WpWooCommerce::isProduct($wooItems[0]), $wooState['prehled']['typy']['product']['woo'], count($wooState['prehled']['typy']['product']['kategorie']),
+    $wooState['prehled']['jine'], $wooState['jazyky']['nalezeno']],
+    [0, 'Taping', 'taping-fs', 'en', true, ['supports-and-braces-fs' => 'Supports and braces', 'knee-supports-fs' => 'Knee supports'], 'FS-001', 'simple', true, true, 20, [], ['en' => 32, 'ar' => 32]]);
+$wooText = fn (string $t): string => '[' . $t . ']';
+$wooValues = Kaleta\Core\WpWooCommerce::values($wooItems[0], [(int) $wooItems[0]['nahled'] => 'https://old.example/a.jpg'], ['knee-supports-fs' => 'supports-and-braces-fs'], $wooText);
+check('3.12 WooCommerce: a product as the fields of the Products preset (image, code, the most specific category, price, availability, parameters)', [
+    $wooValues['image'], $wooValues['code'], $wooValues['category'], $wooValues['price'], $wooValues['availability'], $wooValues['parameters'], str_starts_with($wooValues['description'], '<p>A high quality'),
+    array_diff(array_keys($wooValues), array_column((array) Kaleta\Builder\Presets::get('products')['fields'], 0))],
+    ['https://old.example/a.jpg', 'FS-001', 'Knee supports', '11.90', '[In stock]', 'Material: Cotton, Elastane', true, []]);
+check('3.12 WooCommerce: the price a visitor saw, the attributes as Name: value lines within the limits of the Parameters field', [
+    Kaleta\Core\WpWooCommerce::price(['_price' => '19,5', '_regular_price' => '25']), Kaleta\Core\WpWooCommerce::price(['_regular_price' => '25']), Kaleta\Core\WpWooCommerce::price(['_price' => 'free']),
+    Kaleta\Core\WpWooCommerce::parameters(serialize(['pa_size' => ['name' => 'pa_size', 'value' => '', 'is_taxonomy' => 1], 'weight' => ['name' => 'Weight: net', 'value' => '1 kg', 'is_taxonomy' => 0]]), [['pa_size', 'S'], ['pa_size', 'M'], ['pa_colour', 'Red']]),
+    Kaleta\Builder\Products::cleanParameters(Kaleta\Core\WpWooCommerce::parameters(serialize(['x' => ['name' => str_repeat('n', 100), 'value' => str_repeat('v', 300), 'is_taxonomy' => 0]]), [])) !== null,
+    Kaleta\Core\WpWooCommerce::parameters('O:8:"stdClass":0:{}', [])],
+    ['19.5', '25', '', "Size: S, M\nWeight  net: 1 kg\nColour: Red", true, '']);
+check('3.12 WooCommerce: the old addresses of a product category, with the parent and without, behind the language prefix (decoded)', [
+    Kaleta\Core\WpWooCommerce::oldCategoryPaths('knee-fs', 'supports-fs', ''), Kaleta\Core\WpWooCommerce::oldCategoryPaths('%d8%a3', '', 'ar'),
+    Kaleta\Core\WpWooCommerce::mainCategory(['a' => 'A', 'b' => 'B'], ['b' => 'a']), Kaleta\Core\WpWooCommerce::mainCategory(['a' => 'A'], [])],
+    [['product-category/supports-fs/knee-fs', 'product-category/knee-fs'], ['ar/product-category/أ'], 'B', 'A']);
+// 3.12: fonts and scripts (Builder\FontScripts) – an Arabic version with a font without Arabic letters is reported, with fonts that have them
+$fsDs = Kaleta\Builder\DesignSystem::sanitize([]);
+$fsCustom = ['vlastni_pisma' => [['nazev' => 'Cairo Bold', 'soubor' => 'media/c.woff2', 'tucny' => ''], ['nazev' => 'Brand Sans', 'soubor' => 'media/b.woff2', 'tucny' => ''], ['nazev' => 'Interstate', 'soubor' => 'media/i.woff2', 'tucny' => '']]];
+$fsProblems = Kaleta\Builder\FontScripts::problems(['pismo_titulky' => 'elegantni', 'pismo_text' => 'moderni'] + $fsDs, ['en', 'ar', 'ru']);
+check('3.12 FontScripts: the scripts of languages, of offered stacks and of custom fonts by their family (a whole word), unknown families', [
+    Kaleta\Builder\FontScripts::script('ar'), Kaleta\Builder\FontScripts::script('sr'), Kaleta\Builder\FontScripts::script('en-gb'), Kaleta\Builder\FontScripts::covered($fsCustom, 'vlastni-1'),
+    Kaleta\Builder\FontScripts::covered($fsCustom, 'vlastni-2'), Kaleta\Builder\FontScripts::covered($fsCustom, 'vlastni-3'), Kaleta\Builder\FontScripts::covered($fsDs, 'moderni'),
+    array_diff(array_keys(Kaleta\Front\SiteIdentity::TITLE_FONTS + Kaleta\Front\SiteIdentity::TEXT_FONTS), array_keys(Kaleta\Builder\FontScripts::STACKS))],
+    ['arabic', 'cyrillic', null, ['arabic'], null, null, ['arabic', 'hebrew', 'cyrillic', 'greek'], []]);
+check('3.12 FontScripts: an elegant serif for headings has neither Arabic nor Cyrillic letters, the system font for text has both; the fonts with Arabic are offered', [
+    array_map(fn (array $p): string => $p['role'] . ':' . $p['script'] . ':' . implode(',', $p['languages']) . ':' . ($p['known'] ? 'known' : 'unknown'), $fsProblems),
+    $fsProblems[0]['offered'], $fsProblems[0]['upload'][0], Kaleta\Builder\FontScripts::problems(['pismo_titulky' => 'arabske', 'pismo_text' => 'arabske'] + $fsDs, ['en', 'ar']),
+    str_contains(Kaleta\Core\Language::runWith('en', fn (): string => Kaleta\Builder\FontScripts::message($fsProblems[0], Kaleta\Front\SiteIdentity::TITLE_FONTS), 'admin-'), 'Noto Sans Arabic')],
+    [['headings:arabic:ar:known', 'headings:cyrillic:ru:known'], ['moderni', 'arabske'], 'Noto Sans Arabic', [], true]);
 // 3.9.1: the phone menu – rows close together whatever the element's gap, and every arrow in the same place
 $navCss = Kaleta\Builder\Elements\Navigation::baseCss();
 // 3.9.2 N67: an imported Kaleta export may not place a file with a dangerous extension inside its name, and media/.htaccess

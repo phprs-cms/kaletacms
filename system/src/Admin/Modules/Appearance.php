@@ -32,6 +32,8 @@ final class Appearance extends Module
         return $this->view('list', 'Site appearance', [
             'ds' => $ds, 'versions' => Look::versions($this->db),
             'contrasts' => DesignSystem::contrasts($ds), 'darkContrasts' => DesignSystem::contrasts($ds, true), 'darkColors' => DesignSystem::darkColors($ds),
+            // 3.12: a language version in a script the chosen fonts have no letters for (Arabic, Hebrew, Cyrillic, Greek)
+            'fontProblems' => \Kaleta\Builder\FontScripts::problems($ds, [\Kaleta\Core\Language::defaults($siteSettings), ...\Kaleta\Core\Language::additional($siteSettings)]),
             'presets' => array_map(fn (string $k): array => ['nazev' => DesignSystem::PRESETS[$k][0], 'popis' => DesignSystem::PRESETS[$k][1], 'ds' => DesignSystem::preset($k)], array_combine(array_keys(DesignSystem::PRESETS), array_keys(DesignSystem::PRESETS))),
             'values' => ['logo' => $siteSettings->get('logo'), 'favicon' => $siteSettings->get('favicon'), 'dark_mode' => $siteSettings->get('dark_mode'), 'theme_switcher' => $siteSettings->get('theme_switcher'), 'site_name' => $siteSettings->get('site_name')],
         ]);

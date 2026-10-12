@@ -354,6 +354,32 @@ design systém. Totéž umí Claude nástrojem `import_website` a pak sladí vzh
 příspěvky na novinky, stránky volitelně **rovnou do builderu**, stáhne obrázky do Médií a založí přesměrování ze starých
 adres. Import jde spustit znovu – co už převedl, přeskočí.
 
+### Přesun dvojjazyčného arabského webu
+
+Web na WordPressu v angličtině a arabštině (Polylang nebo WPML, často s obchodem WooCommerce) se přesune jedním importem:
+
+1. **Exportujte vše** ve WordPressu (Nástroje → Export → Veškerý obsah). U WPML použijte jeho doplněk *Export and Import*,
+   aby byly v souboru jazyky a skupiny překladů. Velký export nahrajte přes FTP do `storage/import/`.
+2. **Importujte s přidáním jazykových verzí** – v náhledu zaškrtněte *přidat na web jazykové verze …* (Claude:
+   `import_wordpress` s `add_languages: true`). Arabština se stane jazykovou verzí webu, každá stránka, příspěvek a produkt
+   přijde do své verze a propojí se s anglickým originálem (přepínač jazyků i hreflang).
+3. **Adresy zůstanou latinkou.** Arabský překlad produktu převezme adresu originálu (`/ar/product/knee-brace`); arabské
+   stránky, příspěvky a produkty bez originálu dostanou přepsanou adresu (`/ar/mn-nhn`). Každá stará adresa přesměruje:
+   `/ar/…` s arabským slugem, `?lang=ar`, `?p=123` i kategorie produktů pod `/product-category/…` z WooCommerce.
+4. **Obchod se stane katalogem** z předvolby Produkty: kód, cena, dostupnost, parametry, shrnutí, popis a hlavní obrázek;
+   kategorie produktů budou kategoriemi kolekce se stránkami v obou jazycích. Varianty, objednávky a kupóny zůstanou ve
+   WordPressu (souhrn je vypíše). Obchod s vlastním základem adres kategorií potřebuje přesměrování podle vzoru – ukáže to
+   kontrola přesunu.
+5. **Nastavte úvodní stránku** na naimportovanou: arabská verze se na webu objeví (přepínač, hreflang, mapa webu), jakmile
+   je zveřejněný její překlad úvodní stránky.
+6. **Zvolte písmo s arabskými písmeny.** Vzhled webu i audit upozorní, když je písmo nadpisů nebo textu nemá; zvolte
+   *Moderní bezpatkové* (systémové písmo zařízení) nebo *Arabské bezpatkové*, případně nahrajte jako vlastní písmo Noto Sans
+   Arabic, IBM Plex Sans Arabic, Cairo nebo Tajawal.
+7. **Spusťte kontrolu přesunu** proti starému webu před přepnutím domény; měla by tu najít každou starou adresu.
+
+Změřeno na vygenerovaném obchodě s 396 produkty v každém jazyce (`tools/fixtures/wordpress-scale.php`): obsah projde ve
+14 dávkách (asi 7 sekund), 396 obrázků v dalších 14, každý požadavek hluboko pod 128 MB.
+
 **Přesun webu na Kaletě** k jinému hostingu nebo nový web ze startovací sady agentury: na starém webu vytvořte **Import
 a export → Export celého webu**, na novém hostingu nainstalujte Kaletu a v instalátoru zvolte **Začít z exportu**.
 Přihlaste se, otevřete **Import a export → Import z Kalety** a nahrajte `.zip` (větší přes FTP do `storage/import/`).

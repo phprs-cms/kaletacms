@@ -334,6 +334,11 @@ final class Audit
                 }
             }
         }
+        // 3.12: a language version in a script the heading or text font has no letters for (Builder\FontScripts)
+        foreach (\Kaleta\Builder\FontScripts::problems($ds, [Language::defaults($s), ...Language::additional($s)]) as $problem) {
+            $this->add('accessibility', t('Site appearance'), \Kaleta\Builder\FontScripts::message($problem, $problem['role'] === 'headings' ? \Kaleta\Front\SiteIdentity::TITLE_FONTS : \Kaleta\Front\SiteIdentity::TEXT_FONTS),
+                'admin.php?module=appearance#panel-pismo', null, ['look' => 'font_' . $problem['role'], 'script' => $problem['script']]);
+        }
         $home = (int) $s->get('home_page');
         $statement = false;
         foreach ($db->all('SELECT ids, titulek, seo_link, text, stavba FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1') as $p) {
@@ -599,6 +604,8 @@ final class Audit
             $s[0] === 'novinky' => self::newsPathExists($db, array_slice($s, 1), $sameLanguage, $languageParams),
             $db->value('SELECT 1 FROM {stranky} WHERE seo_link = ? AND zobrazit = 1 AND smazano IS NULL' . $sameLanguage, [implode('/', $s), ...$languageParams]) !== null => true,
             count($s) === 2 && $db->value('SELECT 1 FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.seo_link = ? AND k.detail = 1 AND p.seo_link = ? AND p.zobrazit = 1 AND p.smazano IS NULL' . $sameItemLanguage, [$s[0], $s[1], ...$languageParams]) !== null => true,
+            // 3.12: a category page of a collection (/<collection>/<category>[/<subcategory>])
+            ($category = \Kaleta\Builder\CollectionCategories::atPath($db, $s, Language::column($settings, $language))) !== null && \Kaleta\Builder\CollectionCategories::isPublic($category) => true,
             $db->value('SELECT 1 FROM {presmerovani} WHERE z_adresy IN (' . implode(',', array_fill(0, count($redirects), '?')) . ')', $redirects) !== null => true,
             default => false,
         };

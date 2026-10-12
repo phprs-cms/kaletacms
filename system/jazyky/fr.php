@@ -2046,4 +2046,7 @@ return [
     '[Postcode and town]' => '[Code postal et ville]',
     '[Opening hours]' => '[Horaires d’ouverture]',
     'out of 5 · [number] reviews' => 'sur 5 · [nombre] avis',
+    'In stock' => 'En stock',
+    'Out of stock' => 'En rupture de stock',
+    'On backorder' => 'Sur commande',
 ];
