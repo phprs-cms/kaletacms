@@ -2077,4 +2077,8 @@ O link funciona por %d dias.
     '[Opening hours]' => '[Horário de funcionamento]',
     'out of 5 · [number] reviews' => 'de 5 · [número] avaliações',
     'Business details on the left, an enquiry form on the right.' => 'Dados da empresa à esquerda, formulário de contato à direita.',
+    // 3.12: availability of a product catalogue item (Core\WpWooCommerce)
+    'In stock' => 'Em estoque',
+    'Out of stock' => 'Fora de estoque',
+    'On backorder' => 'Sob encomenda',
 ];

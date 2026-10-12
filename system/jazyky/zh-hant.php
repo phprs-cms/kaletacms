@@ -2077,4 +2077,8 @@ The link works for %d days.
     '[Opening hours]' => '[營業時間]',
     'out of 5 · [number] reviews' => '滿分 5 分 · [數字] 則評論',
     'Business details on the left, an enquiry form on the right.' => '左側為公司資料，右側為詢問表單。',
+    // 3.12: availability of a product catalogue item (Core\WpWooCommerce)
+    'In stock' => '有貨',
+    'Out of stock' => '缺貨',
+    'On backorder' => '可預訂',
 ];
