@@ -106,7 +106,7 @@ final class WpImport
         return [
             'soubor' => $file, 'otisk' => '', 'faze' => 'analyza', 'pozice' => 0, 'celkem' => 0, 'web' => ['nazev' => '', 'adresa' => ''],
             'prehled' => ['clanky' => [], 'stranky' => [], 'rubriky' => 0, 'stitky' => 0, 'autori' => 0, 'prilohy' => 0, 'obrazky' => 0, 'jine' => [], 'zkratky' => [], 'seo' => [], 'typy' => [],
-                'menu' => [], 'menu_bez' => 0, 'prispevky_autoru' => [], 'stavitele' => []],
+                'menu' => [], 'menu_bez' => 0, 'prispevky_autoru' => [], 'stavitele' => [], 'odkazy' => []],
             'prilohy' => [], 'volby' => self::DEFAULT_OPTIONS, 'nahledy' => [],
             'menu' => [], // items of the navigation menus (tallyMenuItem), built after the content (menus())
             // 3.9: the languages of a multilingual export (Polylang, WPML – Core\WpLanguages): the plugin, Polylang slug => our code
@@ -215,6 +215,7 @@ final class WpImport
             }
         } elseif ($p['typ'] === 'nav_menu_item') {
             self::tallyMenuItem($state, $p);
+            self::tallyLinks($state, '<a href="' . e((string) ($p['meta']['_menu_item_url'] ?? '')) . '">');
         } elseif ($p['typ'] === 'post' || $p['typ'] === 'page') {
             $destination = $p['typ'] === 'post' ? 'clanky' : 'stranky';
             $overview[$destination][$p['stav']] = ($overview[$destination][$p['stav']] ?? 0) + 1;
@@ -227,6 +228,7 @@ final class WpImport
                 $overview['stavitele'][$p['stavitel']] = ($overview['stavitele'][$p['stavitel']] ?? 0) + 1;
             }
             $overview['obrazky'] += substr_count(strtolower($p['obsah']), '<img');
+            self::tallyLinks($state, (string) $p['obsah']);
             foreach (WpContent::unknownShortcodes($p['obsah']) as $shortcode) {
                 $overview['zkratky'][$shortcode] = ($overview['zkratky'][$shortcode] ?? 0) + 1;
             }
@@ -272,6 +274,23 @@ final class WpImport
             $overview['typy'][$p['typ']] = $t;
         } elseif (!in_array($p['typ'], self::TYPES, true)) {
             $overview['jine'][$p['typ']] = ($overview['jine'][$p['typ']] ?? 0) + 1;
+        }
+    }
+
+    /**
+     * Links to the old site's own pages (3.12), at most 2,000 different paths: the import finds the shop's product category
+     * base among them (WpWooCommerce::categoryBase).
+     *
+     * @param array<string, mixed> $state
+     */
+    private static function tallyLinks(array &$state, string $html): void
+    {
+        $paths = &$state['prehled']['odkazy'];
+        foreach (WpWooCommerce::ownPaths($html, ImageDownloader::domainFromUrl((string) $state['web']['adresa'])) as $path) {
+            if (count((array) $paths) >= 2000) {
+                return;
+            }
+            $paths[$path] = true;
         }
     }
 
@@ -706,6 +725,8 @@ final class WpImport
                 $ids[] = $this->itemCategory($collection, (string) $p['typ'], (string) $slug, (string) $name, $language, $state);
             }
             CollectionCategories::assign($this->db, $idp, $idk, array_values(array_filter($ids)));
+            // a visible item in a category an earlier hidden import made shows it (3.12)
+            $state['vysledek']['kategorie_zobrazeny'] = (int) ($state['vysledek']['kategorie_zobrazeny'] ?? 0) + count(CollectionCategories::showForItems($this->db, [$idp]));
         }
         // an imported notice of an official notice board (2.11, Core\Notices) starts its audit trail
         $board = \Kaleta\Builder\Collections::byId($this->db, $idk);
@@ -832,11 +853,26 @@ final class WpImport
         if ($state['volby']['presmerovani']) {
             $category = CollectionCategories::bySlug($this->db, $idk, $address, $language);
             $prefix = $language !== '' ? $language . '/' : '';
-            $state['vysledek']['presmerovani'] += $category === null ? 0 : $this->redirectPaths(WpWooCommerce::oldCategoryPaths($slug, $parentSlug, rtrim($prefix, '/')),
+            $state['vysledek']['presmerovani'] += $category === null ? 0 : $this->redirectPaths(WpWooCommerce::oldCategoryPaths($slug, $parentSlug, rtrim($prefix, '/'), $this->categoryBase($state)),
                 $prefix . CollectionCategories::path((string) $collection['seo_link'], $category), $state);
         }
 
         return $this->itemCategories[$key . '|' . $language] = $id;
+    }
+
+    /** The shop's own product category base found in the export's links ('' = only the default one), once per request. */
+    private ?string $categoryBase = null;
+
+    /** @param array<string, mixed> $state */
+    private function categoryBase(array &$state): string
+    {
+        if ($this->categoryBase === null) {
+            $slugs = array_values(array_map(fn (array $t): string => (string) $t[1], array_filter($this->header['terminy'], fn (array $t): bool => $t[0] === 'polozky')));
+            $this->categoryBase = WpWooCommerce::categoryBase(array_map('strval', array_keys((array) ($state['prehled']['odkazy'] ?? []))), $slugs, array_map('strval', array_keys(Language::AVAILABLE)));
+            $state['zaklad_kategorii'] = $this->categoryBase;
+        }
+
+        return $this->categoryBase;
     }
 
     /**
@@ -1818,6 +1854,7 @@ final class WpImport
             + (($p['typy'][WpWooCommerce::TYPE]['woo'] ?? false) ? ['woocommerce' => [
                 'products' => (int) $p['typy'][WpWooCommerce::TYPE]['pocet'], 'product_categories' => count((array) ($p['typy'][WpWooCommerce::TYPE]['kategorie'] ?? [])),
                 'collection' => (string) ($state['kolekce'][WpWooCommerce::TYPE]['seo_link'] ?? ''),
+                'category_base' => (string) ($state['zaklad_kategorii'] ?? '') !== '' ? '/' . $state['zaklad_kategorii'] . '/ (found in the export\'s links) and /' . WpWooCommerce::CATEGORY_BASE . '/' : '/' . WpWooCommerce::CATEGORY_BASE . '/',
                 'how' => 'Products arrive in a catalogue made from the Products preset (an enquiry basket instead of a checkout): code (SKU), price, availability, '
                     . 'parameters (attributes), summary, description and the featured image as its picture. Product categories are categories of the collection '
                     . 'with their own pages (/<collection>/<category>) in every language, and the old /' . WpWooCommerce::CATEGORY_BASE . '/… addresses redirect to them '

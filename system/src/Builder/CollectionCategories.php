@@ -83,6 +83,51 @@ final class CollectionCategories
         return array_map(fn (array $c): array => ['id' => $c['id'], 'parent_id' => $c['parent_id'], 'name' => (string) ($names[$c['id']] ?? $c['name']), 'visible' => $c['visible']], self::tree($db, $idk, ''));
     }
 
+    /**
+     * A hidden category becomes visible with its first published item (3.12): when an item is published – saved visible in
+     * the admin or over MCP, in bulk, by its scheduled date or by an import – each hidden category it belongs to that had
+     * no other published item, and that category's parent, is shown, so the category pages work at once. A category hidden
+     * on purpose while it has published items stays hidden; one without a published item stays as it is; a category is
+     * never hidden automatically. Logged in the change log (with the person or connection when $app is given). Returns
+     * the names of the categories shown.
+     *
+     * @param list<int> $idps the items that have just become visible (an item that was visible before is not passed)
+     * @return list<string>
+     */
+    public static function showForItems(Db $db, array $idps, ?\Kaleta\Core\App $app = null): array
+    {
+        $idps = array_values(array_unique(array_filter(array_map(intval(...), $idps))));
+        if ($idps === []) {
+            return [];
+        }
+        $ids = [];
+        foreach ($db->all('SELECT DISTINCT c.id, c.parent_id FROM {collection_item_categories} ic JOIN {kolekce_polozky} p ON p.idp = ic.idp JOIN {collection_categories} c ON c.id = ic.category_id
+            WHERE ic.idp IN (' . implode(',', array_fill(0, count($idps), '?')) . ') AND p.zobrazit = 1 AND p.smazano IS NULL AND c.visible = 0
+            AND NOT EXISTS (SELECT 1 FROM {collection_item_categories} oc JOIN {kolekce_polozky} o ON o.idp = oc.idp WHERE oc.category_id = c.id
+                AND o.zobrazit = 1 AND o.smazano IS NULL AND o.idp NOT IN (' . implode(',', array_fill(0, count($idps), '?')) . '))', [...$idps, ...$idps]) as $r) {
+            $ids[(int) $r['id']] = true;
+            if ($r['parent_id'] !== null) {
+                $ids[(int) $r['parent_id']] = true; // a subcategory's address and page need its parent
+            }
+        }
+        $hidden = $ids === [] ? [] : $db->all('SELECT c.id, COALESCE(d.name, (SELECT t.name FROM {collection_category_texts} t WHERE t.category_id = c.id ORDER BY t.language LIMIT 1)) AS name
+            FROM {collection_categories} c LEFT JOIN {collection_category_texts} d ON d.category_id = c.id AND d.language = \'\'
+            WHERE c.visible = 0 AND c.id IN (' . implode(',', array_keys($ids)) . ') ORDER BY c.parent_id IS NOT NULL, c.id');
+        if ($hidden === []) {
+            return [];
+        }
+        $db->run('UPDATE {collection_categories} SET visible = 1, updated_at = ? WHERE visible = 0 AND id IN (' . implode(',', array_map(fn (array $r): int => (int) $r['id'], $hidden)) . ')', [date('Y-m-d H:i:s')]);
+        $names = array_map(fn (array $r): string => (string) $r['name'], $hidden);
+        $description = mb_substr(implode(', ', $names), 0, 255);
+        if ($app !== null) {
+            \Kaleta\Admin\ChangeLog::write($app, 'collections', 'category_shown', $description);
+        } else {
+            \Kaleta\Admin\ChangeLog::system($db, 'collections', 'category_shown', $description);
+        }
+
+        return $names;
+    }
+
     /** Does the collection have any category at all (in any language)? */
     public static function has(Db $db, int $idk): bool
     {

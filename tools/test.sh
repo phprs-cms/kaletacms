@@ -5927,7 +5927,23 @@ expect "3.12 scale: the catalogue keeps the Products preset; an Arabic product s
 expect "3.12 scale: an Arabic-only product gets a transliterated Latin address; a category has an Arabic name and a Latin address; both menus have the shop's category" \
   "$(sq "SELECT seo_link FROM ka_kolekce_polozky WHERE jazyk = 'ar' AND nazev LIKE '%FS-040'")|$(sq "SELECT CONCAT(t.name, ':', t.slug) FROM ka_collection_category_texts t JOIN ka_collection_category_texts e ON e.category_id = t.category_id AND e.language = '' AND e.slug = 'taping-fs' WHERE t.language = 'ar'")|$(sq "SELECT CONCAT(JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.menus.\"hlavni|\"[3].url')), ' ', JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.menus.\"hlavni|ar\"[3].url'))) FROM ka_nastaveni WHERE promenna = 'look_draft'")" \
   "kmada-barda-klasyky-fs-040|الأشرطة:alashrta|/$SCOL/taping-fs /ar/$SCOL/alashrta"
-# everything arrived hidden: shown here, the imported home page as the home page (a language version is public once its
+# 3.12: everything arrived hidden, the categories too; publishing an item shows its hidden category and that category's
+# parent – over MCP, in the admin's bulk action and by a scheduled date – while categories without a published item stay hidden
+SCIDK=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = '$SCOL'")
+SC_CAT() { sq "SELECT GROUP_CONCAT(CONCAT(t.slug, '=', c.visible) ORDER BY t.slug) FROM ka_collection_categories c JOIN ka_collection_category_texts t ON t.category_id = c.id AND t.language = '' WHERE c.idk = $SCIDK AND t.slug IN ($1)"; }
+SC_ITEM() { sq "SELECT idp FROM ka_kolekce_polozky WHERE idk = $SCIDK AND jazyk = '' AND nazev = '$1'"; }
+SC_LOG=$(sq "SELECT COUNT(*) FROM ka_protokol WHERE akce = 'category_shown'")
+mcp save_collection_item "{\"collection\":\"$SCOL\",\"id\":$(SC_ITEM 'Pro Knee Brace FS-001'),\"visible\":true}" > /dev/null
+SC_A=$(SC_CAT "'supports-and-braces-fs', 'knee-supports-fs', 'back-supports-fs', 'taping-fs'")
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=collections&action=items&id=$SCIDK"; TOKEN=$(csrf)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=collections&action=bulk_items" -d "_csrf=$TOKEN" -d "idk=$SCIDK" -d provest=zobrazit -d "oznacene[]=$(SC_ITEM 'Pro Back Support Belt FS-003')"
+SC_B=$(SC_CAT "'clinic-equipment-fs', 'tables-fs'")
+sq "UPDATE ka_kolekce_polozky SET zverejnit_od = '$(site_time '-1 minute')' WHERE idp = $(SC_ITEM 'Sport Kinesio Tape FS-016'); UPDATE ka_jobs SET last_run = NULL WHERE name = 'notifications'" > /dev/null
+curl -s -o /dev/null "$B/tasks?token=testtoken123"
+expect "3.12: a published product shows its hidden category and the parent (MCP, admin bulk, scheduled), empty ones stay hidden, each logged" \
+  "$SC_A|$SC_B|$(SC_CAT "'taping-fs', 'kinesiology-tape-fs', 'rigid-tape-fs'")|$(( $(sq "SELECT COUNT(*) FROM ka_protokol WHERE akce = 'category_shown'") - SC_LOG ))" \
+  "back-supports-fs=0,knee-supports-fs=1,supports-and-braces-fs=1,taping-fs=0|clinic-equipment-fs=1,tables-fs=1|kinesiology-tape-fs=1,rigid-tape-fs=0,taping-fs=1|3"
+# the rest is shown by hand here, the imported home page as the home page (a language version is public once its
 # translation of the home page is)
 sq "UPDATE ka_kolekce_polozky SET zobrazit = 1 WHERE seo_link LIKE '%-fs-%'; UPDATE ka_collection_categories c JOIN ka_kolekce k ON k.idk = c.idk SET c.visible = 1 WHERE k.seo_link = '$SCOL';
     UPDATE ka_stranky SET zobrazit = 1 WHERE seo_link LIKE '%-fs' OR jazyk = 'ar'; UPDATE ka_nastaveni SET hodnota = (SELECT ids FROM ka_stranky WHERE seo_link = 'home-fs') WHERE promenna = 'home_page'" > /dev/null
@@ -5939,7 +5955,15 @@ expect "3.12 scale: old addresses redirect – an Arabic product, ?lang=ar, a pr
   "$(get39 "/ar/product/$SC_AR/")|$(get39 '/?lang=ar')|$(get39 /product-category/taping-fs/)|$(get39 "/ar/product-category/$(php -r 'echo strtolower(rawurlencode("الأشرطة")) . "/" . strtolower(rawurlencode("شريط-الحركة"));')/")" \
   "301 $B/ar/$SCOL/pro-knee-brace-fs-001|301 $B/ar|301 $B/$SCOL/taping-fs|301 $B/ar/$SCOL/alashrta/shryt-alhrka"
 SC3=$(get39 "/ar/$SCOL/alashrta"); contains -q 'dir="rtl"' "$WORK/response" && contains -q "href=\"/ar/$SCOL/pro-[a-z-]*fs-0" "$WORK/response" && SC3="$SC3 ok"
-curl -s -o "$WORK/response" -G "$B/ar/search" --data-urlencode "q=دعامة الركبة"; SC4=$(grep -o "href=\"/ar/$SCOL/[a-z0-9-]*\"" "$WORK/response" | sort -u | wc -l | tr -d ' ')
+curl -s -o "$WORK/response" -G "$B/ar/search" --data-urlencode "q=دعامه الركبه"; SC4=$(grep -o "href=\"/ar/$SCOL/[a-z0-9-]*\"" "$WORK/response" | sort -u | wc -l | tr -d ' ')
+# 3.12: the news index of an Arabic post made before (ة kept) is emptied by migration 0089 and filled again before a search
+SC_NEWS=$(sq "SELECT idc FROM ka_novinky WHERE jazyk = 'ar' AND titulek = 'نصيحة التمرين رقم 1'")
+sq "UPDATE ka_novinky SET visible = 1, datum = '$(site_time '-1 day')', hledani = 'نصيحة التمرين رقم 1' WHERE idc = $SC_NEWS; UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0089-arabic-search-index,', ',')) WHERE promenna = 'data_migrations'" > /dev/null
+curl -s -b "$JAR" -o /dev/null "$B/admin.php"
+SC_INDEX=$(sq "SELECT COALESCE(hledani, 'NULL') FROM ka_novinky WHERE idc = $SC_NEWS")
+curl -s -o "$WORK/response" -G "$B/ar/search" --data-urlencode "q=نصيحه"
+expect "3.12: migration 0089 empties an old Arabic news index, the next search fills it with ة as ه and finds the post" \
+  "$SC_INDEX|$(sq "SELECT hledani LIKE '%نصيحه التمرين%' FROM ka_novinky WHERE idc = $SC_NEWS")|$(grep -c 'نصيحة التمرين رقم 1' "$WORK/response")" "NULL|1|1"
 get39 /sitemap.xml > /dev/null
 expect "3.12 scale: the Arabic category page lists its products, Arabic search finds the products, the sitemap has both languages' products and categories" \
   "$SC3|$([ "$SC4" -ge 3 ] && echo found)|$(grep -c "<loc>[^<]*/ar/$SCOL/pro-knee-brace-fs-001</loc>" "$WORK/response")|$(grep -c "<loc>[^<]*/$SCOL/taping-fs/kinesiology-tape-fs</loc>" "$WORK/response")|$(grep -c "<loc>[^<]*/ar/$SCOL/alashrta</loc>" "$WORK/response")" \

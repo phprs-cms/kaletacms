@@ -154,19 +154,74 @@ final class WpWooCommerce
     }
 
     /**
-     * The old addresses of a product category: WooCommerce's default base with the parent's slug (/product-category/
-     * <parent>/<child>/) and without it (WordPress answers both), behind the language prefix of a translation (/ar/…).
+     * The old addresses of a product category: under WooCommerce's default base and, when the export shows the shop used
+     * another one (categoryBase()), under that too – with the parent's slug (/product-category/<parent>/<child>/) and
+     * without it (WordPress answers both), behind the language prefix of a translation (/ar/…).
      *
      * @return list<string> paths without the slashes at the ends
      */
-    public static function oldCategoryPaths(string $slug, string $parentSlug, string $languagePrefix): array
+    public static function oldCategoryPaths(string $slug, string $parentSlug, string $languagePrefix, string $customBase = ''): array
     {
-        $prefix = ($languagePrefix !== '' ? $languagePrefix . '/' : '') . self::CATEGORY_BASE . '/';
         $decode = fn (string $s): string => rawurldecode($s);
+        $paths = [];
+        foreach (array_unique(array_filter([self::CATEGORY_BASE, trim($customBase, '/')])) as $base) {
+            $prefix = ($languagePrefix !== '' ? $languagePrefix . '/' : '') . $base . '/';
+            $paths[] = $parentSlug !== '' ? $prefix . $decode($parentSlug) . '/' . $decode($slug) : '';
+            $paths[] = $prefix . $decode($slug);
+        }
 
-        return array_values(array_unique(array_filter([
-            $parentSlug !== '' ? $prefix . $decode($parentSlug) . '/' . $decode($slug) : '',
-            $prefix . $decode($slug),
-        ])));
+        return array_values(array_unique(array_filter($paths)));
+    }
+
+    /**
+     * The links of a post to the old site's own pages (paths, decoded, without the slashes at the ends) – the analysis keeps
+     * them to find the shop's product category base (categoryBase()).
+     *
+     * @return list<string>
+     */
+    public static function ownPaths(string $html, string $domain): array
+    {
+        if ($domain === '' || !str_contains($html, $domain)) {
+            return [];
+        }
+        preg_match_all('#href=["\']https?://(?:www\.)?' . preg_quote($domain, '#') . '(?::\d+)?(/[^"\'?\#]*)#i', $html, $m);
+
+        return array_values(array_unique(array_filter(array_map(fn (string $p): string => trim(rawurldecode($p), '/'), $m[1]), fn (string $p): bool => substr_count($p, '/') >= 1)));
+    }
+
+    /**
+     * The base of product category addresses the old shop used, from links to its category pages in menus and texts
+     * (WooCommerce keeps the base in its permalink settings, which an export does not contain): a path whose last segment
+     * is a product category's slug (after an optional language prefix and the parent's slug) votes for what stands before
+     * it. '' = no other base than the default one was found.
+     *
+     * @param list<string> $paths decoded paths without the slashes at the ends
+     * @param list<string> $slugs product category slugs (as in the export, possibly percent-encoded)
+     * @param list<string> $languages language prefixes of the old site (en, ar)
+     */
+    public static function categoryBase(array $paths, array $slugs, array $languages): string
+    {
+        $known = array_flip(array_map(fn (string $s): string => mb_strtolower(rawurldecode($s)), $slugs));
+        $votes = [];
+        foreach ($paths as $path) {
+            $segments = array_values(array_filter(explode('/', mb_strtolower($path)), fn (string $s): bool => $s !== ''));
+            if ($segments !== [] && in_array($segments[0], $languages, true)) {
+                array_shift($segments);
+            }
+            if (count($segments) < 2 || !isset($known[(string) end($segments)])) {
+                continue;
+            }
+            array_pop($segments);
+            if (count($segments) >= 2 && isset($known[(string) end($segments)])) {
+                array_pop($segments); // the parent's slug of a subcategory
+            }
+            $base = implode('/', $segments);
+            if ($base !== '' && $base !== self::CATEGORY_BASE && count($segments) <= 3) {
+                $votes[$base] = ($votes[$base] ?? 0) + 1;
+            }
+        }
+        arsort($votes);
+
+        return (string) (array_key_first($votes) ?? '');
     }
 }

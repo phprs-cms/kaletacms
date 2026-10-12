@@ -1534,6 +1534,12 @@ check('3.12 WooCommerce: the old addresses of a product category, with the paren
     Kaleta\Core\WpWooCommerce::oldCategoryPaths('knee-fs', 'supports-fs', ''), Kaleta\Core\WpWooCommerce::oldCategoryPaths('%d8%a3', '', 'ar'),
     Kaleta\Core\WpWooCommerce::mainCategory(['a' => 'A', 'b' => 'B'], ['b' => 'a']), Kaleta\Core\WpWooCommerce::mainCategory(['a' => 'A'], [])],
     [['product-category/supports-fs/knee-fs', 'product-category/knee-fs'], ['ar/product-category/أ'], 'B', 'A']);
+check('3.12 WooCommerce: a shop\'s own product category base from links in its menus and texts (with a language prefix and a parent), the default otherwise; old addresses under both', [
+    Kaleta\Core\WpWooCommerce::ownPaths('<a href="https://www.shop.example/kategorie-produktu/tejpy/">x</a> <a href="https://shop.example/ar/kategorie-produktu/%d8%a3/">y</a> <a href="https://other.example/a/b">z</a>', 'shop.example'),
+    Kaleta\Core\WpWooCommerce::categoryBase(['kategorie-produktu/tejpy', 'ar/kategorie-produktu/أ', 'shop/category/podpory/kolena', 'kontakt', 'product-category/tejpy'], ['tejpy', '%d8%a3', 'podpory', 'kolena'], ['ar', 'en']),
+    Kaleta\Core\WpWooCommerce::categoryBase(['product-category/tejpy', 'blog/tejpy-navod'], ['tejpy'], ['en']),
+    Kaleta\Core\WpWooCommerce::oldCategoryPaths('kolena', 'podpory', 'ar', 'kategorie-produktu')],
+    [['kategorie-produktu/tejpy', 'ar/kategorie-produktu/أ'], 'kategorie-produktu', '', ['ar/product-category/podpory/kolena', 'ar/product-category/kolena', 'ar/kategorie-produktu/podpory/kolena', 'ar/kategorie-produktu/kolena']]);
 // 3.12: fonts and scripts (Builder\FontScripts) – an Arabic version with a font without Arabic letters is reported, with fonts that have them
 $fsDs = Kaleta\Builder\DesignSystem::sanitize([]);
 $fsCustom = ['vlastni_pisma' => [['nazev' => 'Cairo Bold', 'soubor' => 'media/c.woff2', 'tucny' => ''], ['nazev' => 'Brand Sans', 'soubor' => 'media/b.woff2', 'tucny' => ''], ['nazev' => 'Interstate', 'soubor' => 'media/i.woff2', 'tucny' => '']]];
@@ -5959,7 +5965,11 @@ check('RTL bdi(): a typed value isolated and escaped for the administration list
 check('RTL Slug::FALLBACK names the four tables a new slug can come from', array_keys(Kaleta\Core\Slug::FALLBACK), ['stranky', 'novinky', 'kategorie', 'kolekce_polozky']);
 check('RTL Search::normalize: Arabic stays searchable without vowel marks and with one alef; Latin tokens as before',
     [Kaleta\Core\Search::normalize('<p>الأَمْنُ والسلامة – Kinesio Tape (5 cm)</p>'), Kaleta\Core\Search::normalize('Příliš žluťoučký kůň, 5 cm!'), Kaleta\Core\Search::query('شريط لاصق')],
-    ['الامن والسلامة kinesio tape 5 cm', 'prilis zlutoucky kun 5 cm', '+شريط* +لاصق*']);
+    ['الامن والسلامه kinesio tape 5 cm', 'prilis zlutoucky kun 5 cm', '+شريط* +لاصق*']);
+check('3.12 Search::normalize: taa marbuta as ha, every alef as one, alef maqsura as ya, no tatweel or harakat – the text and the query meet',
+    [Kaleta\Core\Search::normalize('مَدْرَسَةٌ ٱلْإِسْلَامِيَّة آمِنَة عَلَى طـــويل'), Kaleta\Core\Search::normalize('مدرسه الاسلاميه امنه علي طويل'),
+        Kaleta\Core\Search::find('الركبه', [['titulek' => 'دعامة الركبة', 'adresa' => 'x', 'text' => '']]) !== []],
+    ['مدرسه الاسلاميه امنه علي طويل', 'مدرسه الاسلاميه امنه علي طويل', true]);
 $rtlMail = Kaleta\Core\Mail::rightToLeft("شكرًا لكم\nhttps://example.test/ar/x?a=1&b=2 <test>", 'ar');
 check('RTL Mail::rightToLeft: the HTML part of a plain Arabic e-mail is right to left, keeps the lines, links the address and escapes the rest',
     [str_contains($rtlMail, '<html lang="ar" dir="rtl">'), str_contains($rtlMail, 'white-space: pre-wrap'), str_contains($rtlMail, '<a href="https://example.test/ar/x?a=1&amp;b=2" dir="ltr">'), str_contains($rtlMail, '&lt;test&gt;')],
