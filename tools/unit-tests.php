@@ -836,7 +836,7 @@ $enDictionary = require KALETA_ROOT . '/system/jazyky/en.php';
 $enDictionary += array_combine(array_keys(require KALETA_ROOT . '/system/jazyky/cs.php'), array_keys(require KALETA_ROOT . '/system/jazyky/cs.php'));
 $dataNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 $brokenDictionaries = [];
-foreach (glob(KALETA_ROOT . '/system/jazyky/[a-z][a-z].php') ?: [] as $file) {
+foreach ([...(glob(KALETA_ROOT . '/system/jazyky/[a-z][a-z].php') ?: []), KALETA_ROOT . '/system/jazyky/zh-hant.php'] as $file) { // zh-hant (3.12): a regional dictionary of its own
     $code = basename($file, '.php');
     if ($code === 'en') {
         continue;
@@ -3000,7 +3000,7 @@ check('3.9.2 presets: the jobs item template built in a Czech site (as over MCP)
 // a Czech source text (a key of en.php) passes through in Czech
 $presetUntranslated = [];
 $sourceCzech = require KALETA_SYSTEM . '/jazyky/en.php';
-foreach (glob(KALETA_SYSTEM . '/jazyky/[a-z][a-z].php') ?: [] as $file) {
+foreach ([...(glob(KALETA_SYSTEM . '/jazyky/[a-z][a-z].php') ?: []), KALETA_SYSTEM . '/jazyky/zh-hant.php'] as $file) {
     $code = basename($file, '.php');
     $dictionary = $code === 'en' ? [] : require $file;
     foreach ($code === 'en' ? [] : $presets as $presetKey => $p) {
@@ -5861,6 +5861,33 @@ foreach (['de', 'es', 'fr', 'it', 'pl', 'sk'] as $rtlCode) {
 }
 check('RTL ar.php has every key the other visitor dictionaries have, no empty translation, and the cookie bar link text',
     [array_values(array_diff(array_keys($rtlOthers), array_keys($rtlArabic))), array_keys(array_filter($rtlArabic, fn (string $v): bool => trim($v) === '')), isset($rtlArabic['More about cookies and privacy'])], [[], [], true]);
+// 3.12 (UX310-12): Portuguese (pt-br uses it), Simplified and Traditional Chinese – complete like the others (machine-assisted,
+// a native review is welcome); every regional version Kaleta offers finds visitor texts, and Settings says which languages have none
+$visitorOthers = $rtlOthers + $rtlArabic;
+$visitorMissing = [];
+foreach (['pt', 'zh', 'zh-hant'] as $visitorCode) {
+    $visitorDictionary = require KALETA_SYSTEM . '/jazyky/' . $visitorCode . '.php';
+    foreach (array_diff(array_keys($visitorOthers), array_keys($visitorDictionary)) as $missingKey) {
+        $visitorMissing[] = $visitorCode . ': ' . $missingKey;
+    }
+    foreach (array_keys(array_filter($visitorDictionary, fn (string $v): bool => trim($v) === '')) as $emptyKey) {
+        $visitorMissing[] = $visitorCode . ': empty ' . $emptyKey;
+    }
+}
+check('3.12 pt.php, zh.php and zh-hant.php have every key the other visitor dictionaries have, none empty', $visitorMissing, []);
+$visitorTexts = [];
+foreach (['pt-br' => 'pt', 'pt' => 'pt', 'zh' => 'zh', 'zh-hant' => 'zh-hant'] as $visitorCode => $visitorFile) {
+    Kaleta\Core\Language::set($visitorCode);
+    $visitorTexts[] = t('Read more') === (require KALETA_SYSTEM . '/jazyky/' . $visitorFile . '.php')['Read more'] && t('Read more') !== 'Read more';
+}
+Kaleta\Core\Language::set('zh-hant');
+$visitorTexts[] = t('datum_format');
+Kaleta\Core\Language::set('cs');
+check('3.12 pt-br reads pt.php, zh-hant its own file with its own date format', $visitorTexts, [true, true, true, true, 'Y/m/d']);
+check('3.12 Language::hasVisitorTexts: Czech, English and every language with a dictionary (regional ones through theirs) – Japanese and unknown codes not',
+    [Kaleta\Core\Language::hasVisitorTexts('cs'), Kaleta\Core\Language::hasVisitorTexts('en-gb'), Kaleta\Core\Language::hasVisitorTexts('pt-br'), Kaleta\Core\Language::hasVisitorTexts('zh-hant'),
+        Kaleta\Core\Language::hasVisitorTexts('de-at'), Kaleta\Core\Language::hasVisitorTexts('ja'), Kaleta\Core\Language::hasVisitorTexts('xx'), Kaleta\Core\Language::hasVisitorTexts('../cs')],
+    [true, true, true, true, true, false, false, false]);
 Kaleta\Core\Language::set('ar');
 $rtlFormats = [format_count(12345), format_number(4.5), t('datum_format'), format_date('2026-10-07'), format_date_long('2026-10-07'), t('Read more') !== 'Read more',
     t('Back to %s', 'Kinesio Tape (5 cm)'), t('Step %d', 2) === sprintf($rtlArabic['Step %d'], 2)];

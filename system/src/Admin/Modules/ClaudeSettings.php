@@ -34,6 +34,9 @@ final class ClaudeSettings extends Settings
             GROUP BY t.idu, t.klient, IF(t.klient IS NULL, t.idt, 0) HAVING t.klient IS NULL OR SUM(t.druh = 'obnova') > 0
             ORDER BY MAX(t.pouzit) IS NULL, MAX(t.pouzit) DESC, MAX(t.idt) DESC LIMIT 200");
 
+        // protected pages are picked from a list (3.12, UX310-19) instead of typing numbers from the editor's address
+        $data['protectablePages'] = $this->db->all('SELECT ids, titulek, seo_link, jazyk FROM {stranky} WHERE smazano IS NULL ORDER BY jazyk, poradi, titulek LIMIT 500');
+
         return parent::view($template, $heading, $data);
     }
 }

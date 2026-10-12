@@ -88,15 +88,17 @@ $preview = function (string $data) use ($yes): string {
 <?= $csrf ?>
 <div class="radek"><label for="mesice"><?= e(t('Delete enquiries older than')) ?></label><div><input class="textpole" type="number" id="mesice" name="mesice" value="<?= $months ?>" min="0" max="120" size="4"> <?= e(t('months')) ?>
 <span class="napoveda"><?= e(t('Enquiries contain personal data – they should not be kept longer than necessary. 0 = keep forever.')) ?></span></div></div>
-<div class="radek"><span class="popisek"><?= e(t('After that period')) ?></span><div class="volby">
+<div class="radek"><span class="popisek"><?= e(t('After that period')) ?></span><div class="volby volby-radky">
 <?php foreach (['delete' => 'delete them including attachments', 'anonymise' => 'anonymise them – the row stays for statistics (date, form, page, topic, kind) without the name, e-mail, phone, message and attachments'] as $key => $labelText): ?>
 	<label><input type="radio" name="po_uplynuti" value="<?= $key ?>"<?= $expiry === $key ? ' checked' : '' ?>> <?= e(t($labelText)) ?></label>
 <?php endforeach ?>
 </div></div>
-<div class="radek"><label for="mesice-uchazeci"><?= e(t('Delete job applications after')) ?></label><div><input class="textpole" type="number" id="mesice-uchazeci" name="mesice_uchazeci" value="<?= $applicationMonths ?>" min="0" max="120" size="4"> <?= e(t('months')) ?> <input class="tl" type="submit" value="<?= e(t('Uložit')) ?>">
+<div class="radek"><label for="mesice-uchazeci"><?= e(t('Delete job applications after')) ?></label><div><input class="textpole" type="number" id="mesice-uchazeci" name="mesice_uchazeci" value="<?= $applicationMonths ?>" min="0" max="120" size="4"> <?= e(t('months')) ?>
 <span class="napoveda"><?= e(t('Applications sent from the pages of a Job openings collection carry CVs and are usually kept only for a limited time after the selection. 0 = like other enquiries.')) ?><?= $suggestion !== null ? ' ' . e(t('Usual practice in %s: %d months – check with your lawyer.', $suggestion[0], $suggestion[1])) : '' ?></span></div></div>
 <div class="radek"><span></span><div><label><input type="checkbox" name="triage_assistant" value="1"<?= $app->settings()->bool('triage_assistant') ? ' checked' : '' ?>> <?= e(t('Sort new enquiries with the writing assistant')) ?></label>
 <span class="napoveda"><?= e(t('The assistant suggests the kind, the priority and a reply; the text of each enquiry is then sent to the AI provider chosen in Features – mention it in your privacy policy. Claude can sort enquiries over its connection without this.')) ?></span></div></div>
+<?php // 3.12 (UX310-25): one Save for the whole form, below it – beside the job-applications field it looked as if it saved only that ?>
+<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save settings')) ?>"></p>
 </form>
 <p><a class="navigace" href="<?= e($module->url('personal')) ?>"><?= e(t('Personal data request')) ?></a> – <?= e(t('find, export or erase everything about one e-mail address')) ?></p>
 <?php endif ?>

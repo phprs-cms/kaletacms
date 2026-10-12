@@ -2949,5 +2949,7 @@ window.KALETA_PREKLAD = {
 	"https://… or /about-us": "https://… oder /ueber-uns",
 	"The item heading of a Collection list skips a level (h%d → h%d).": "Die Eintragsüberschrift einer Sammlungsliste überspringt eine Ebene (h%d → h%d).",
 	"Open the published page – the draft preview is under ⋯ → Share": "Veröffentlichte Seite öffnen – die Entwurfsvorschau finden Sie unter ⋯ → Teilen",
-	"Nothing to publish – all changes are live": "Nichts zu veröffentlichen – alle Änderungen sind live"
+	"Nothing to publish – all changes are live": "Nichts zu veröffentlichen – alle Änderungen sind live",
+	"Change": "Ändern",
+	"%s (not a field of this collection)": "%s (kein Feld dieser Sammlung)"
 };

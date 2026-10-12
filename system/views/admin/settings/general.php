@@ -49,10 +49,15 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 	<label for="site_language"><?= e(t('Jazyk webu')) ?></label>
 	<div><select id="site_language" name="site_language">
 <?php foreach (Kaleta\Core\Language::AVAILABLE as $code => [$languageName]): ?>
-		<option value="<?= e($code) ?>"<?= $values['site_language'] === $code ? ' selected' : '' ?>><?= e($languageName) ?></option>
+		<option value="<?= e($code) ?>"<?= $values['site_language'] === $code ? ' selected' : '' ?>><?= e($languageName) ?><?= Kaleta\Core\Language::hasVisitorTexts($code) ? '' : ' – ' . e(t('visitor texts in English')) ?></option>
 <?php endforeach ?>
 	</select>
-	<span class="napoveda"><?= e(t('The site texts (Search, News, Read more…) are in this language, and the site declares it to search engines.')) ?></span></div>
+	<span class="napoveda"><?= e(t('The site texts (Search, News, Read more…) are in this language, and the site declares it to search engines.')) ?></span>
+<?php // 3.12 (UX310-12): a language without visitor texts is said plainly, for the default language and the further versions alike
+if (($english = Kaleta\Admin\Modules\Settings::languagesInEnglish($app->settings())) !== []): ?>
+	<p class="hlaska hlaska-varovani"><?= e(t('Visitors of %s see the site texts (Search, Read more, the cookie bar…) in English – Kaleta has no translation of them yet. Your pages and news are in the language you write them in.', implode(', ', $english))) ?></p>
+<?php endif ?>
+	</div>
 </div>
 <?php if (in_array('de', array_map(Kaleta\Core\Language::base(...), array_merge([$values['site_language']], explode(',', $values['additional_languages']))), true)): ?>
 <div class="radek">
@@ -70,7 +75,7 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 	<div class="volby">
 		<div class="volby-jazyky">
 <?php foreach (Kaleta\Core\Language::AVAILABLE as $code => [$languageName]): if ($code === $values['site_language']) { continue; } ?>
-		<label><input type="checkbox" name="additional_languages[]" value="<?= e($code) ?>"<?= in_array($code, explode(',', $values['additional_languages']), true) ? ' checked' : '' ?>> <?= e($languageName) ?> <small>(/<?= e($code) ?>/<?= $code !== 'cs' && !is_file(KALETA_SYSTEM . '/jazyky/' . Kaleta\Core\Language::base($code) . '.php') ? ' · ' . e(t('visitor texts in English')) : '' ?>)</small></label>
+		<label><input type="checkbox" name="additional_languages[]" value="<?= e($code) ?>"<?= in_array($code, explode(',', $values['additional_languages']), true) ? ' checked' : '' ?>> <?= e($languageName) ?> <small>(/<?= e($code) ?>/<?= Kaleta\Core\Language::hasVisitorTexts($code) ? '' : ' · ' . e(t('visitor texts in English')) ?>)</small></label>
 <?php endforeach ?>
 		</div>
 <?php // 3.11 (UX310-7): a language visitors cannot switch to yet, and why
@@ -79,7 +84,7 @@ if ($waiting !== []): ?>
 		<span class="napoveda"><?= e(t('Not in the language switcher yet: %s. A language appears there once the home page has a published translation.', implode(', ', array_map(fn (string $c): string => Kaleta\Core\Language::AVAILABLE[$c][0], $waiting)))) ?> <a href="<?= e($app->url('admin.php?module=pages&action=translations')) ?>"><?= e(t('Translations')) ?></a></span>
 <?php endif ?>
 		<span class="napoveda"><?= e(t('Each version has its own pages, categories and news. A news item\'s language is set by its category. Link translations in the editor.')) ?></span>
-<?php $translated = array_map(fn (string $code): string => Kaleta\Core\Language::AVAILABLE[$code][0], array_values(array_filter(array_keys(Kaleta\Core\Language::AVAILABLE), fn (string $code): bool => $code === 'cs' || is_file(KALETA_SYSTEM . '/jazyky/' . Kaleta\Core\Language::base($code) . '.php')))); ?>
+<?php $translated = array_map(fn (string $code): string => Kaleta\Core\Language::AVAILABLE[$code][0], array_values(array_filter(array_keys(Kaleta\Core\Language::AVAILABLE), Kaleta\Core\Language::hasVisitorTexts(...)))); ?>
 		<span class="napoveda"><?= e(t('Texts for visitors (Search, Read more…) are translated into: %s. Other languages show them in English, with dates in their own format. You write the content of pages and news in the language of the version.', implode(', ', $translated))) ?></span>
 	</div>
 </div>

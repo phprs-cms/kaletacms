@@ -41,6 +41,7 @@ trait SettingsTools
         $changes = is_array($a['nastaveni'] ?? null) ? $a['nastaveni'] : [];
         $stored = [];
         $errors = [];
+        $inLookDraft = [];
         foreach ($changes as $key => $value) {
             // keys of 1.4.0 and older still work (nazev_webu, firma_email, nazev_webu_de…)
             $key = (string) $key;
@@ -86,15 +87,17 @@ trait SettingsTools
                 // logo and icon: a file from Media (nahraj_soubor) or from the system (image/…); empty = no logo / icon
                 $path = ltrim(trim((string) $value), '/');
                 $ok = $path === '' || (preg_match('#^(media|image)/[A-Za-z0-9/_.-]{1,200}\.(svg|png|webp|jpe?g|avif)$#D', $path) && !str_contains($path, '..') && is_file(KALETA_ROOT . '/' . $path));
-                if ($ok && $key === 'favicon' && $path !== '') {
-                    // icons for phones and for installing the site (media/ikona-<n>.png) are prepared right away,
-                    // as in Appearance
-                    $ok = \Kaleta\Core\Images::icons(KALETA_ROOT . '/' . $path);
-                } elseif ($key === 'favicon') {
-                    array_map(fn (int $n): bool => @unlink(KALETA_ROOT . '/media/ikona-' . $n . '.png'), \Kaleta\Core\Images::ICON_SIZES);
-                }
                 if (!$ok) {
                     $errors[$key] = 'Cesta k souboru z Médií (media/…) nebo ze systému (image/…); ikona musí jít převést na PNG.';
+                    continue;
+                }
+                if ($key !== 'share_image') {
+                    // 3.12 (UX310-11): the logo and the icon go to the draft look, as in Site appearance – publish_look puts
+                    // them live (and prepares the icon's PNG sizes)
+                    if (\Kaleta\Core\Look::setIdentity($siteSettings, $key, $path)) {
+                        $inLookDraft[] = $key;
+                    }
+                    $stored[$key] = $path;
                     continue;
                 }
                 $siteSettings->set($key, $path);
@@ -159,7 +162,11 @@ trait SettingsTools
             'claude_instructions' => $siteSettings->get('claude_instructions'),
             'screen' => \Kaleta\Front\Screen::settings($siteSettings)]; // on, seconds, collections, news, hours, clock – never the secret address
 
-        return ['ulozeno' => $stored ?: new \stdClass(), 'chyby' => $errors ?: new \stdClass(), 'nastaveni' => $current];
+        // the logo and the icon in the draft look (3.12): what visitors see is still the published value in nastaveni
+        $draft = $inLookDraft !== [] ? ['look_draft' => \Kaleta\Core\Language::runWith('en', fn (): array => \Kaleta\Core\Look::summary($db, $siteSettings), 'admin-'),
+            'stav' => implode(', ', $inLookDraft) . ' in the draft look – visitors see it after publish_look'] : [];
+
+        return ['ulozeno' => $stored ?: new \stdClass(), 'chyby' => $errors ?: new \stdClass(), 'nastaveni' => $current] + $draft;
     }
 
     /** list_redirects and save_redirect (seznam_presmerovani, uloz_presmerovani) */

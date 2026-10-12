@@ -10,10 +10,21 @@
 	/* ---------- transition between pages (View Transitions are driven only by the template CSS): when the browser interrupts
 	   or skips it (fast clicking through, the new page does not allow the transition), that is fine – no unhandled error in the console ---------- */
 
-	window.addEventListener('pagereveal', function (e) {
+	var settle = function (e) {
 		if (!e.viewTransition) { return; }
-		e.viewTransition.ready.catch(function () { /* transition skipped */ });
-		e.viewTransition.finished.catch(function () { /* transition skipped */ });
+		// all three promises reject when the browser aborts the transition ("Transition was aborted because of invalid state",
+		// 3.12 UX310-28: after a form was sent) – updateCallbackDone was left unhandled before
+		[e.viewTransition.ready, e.viewTransition.finished, e.viewTransition.updateCallbackDone].forEach(function (p) {
+			if (p) { p.catch(function () { /* transition skipped */ }); }
+		});
+		return e.viewTransition;
+	};
+	window.addEventListener('pageswap', settle);
+	window.addEventListener('pagereveal', function (e) {
+		var transition = settle(e);
+		// the answer of a form (?form=…&result=…) is the same page again after a POST – no transition, which the browser
+		// often aborts there anyway
+		if (transition && param('form', 'formular') !== null && param('result', 'vysledek') !== null) { transition.skipTransition(); }
 	});
 
 	/* ---------- texts: English in the code, the translation for the language version is sent by Front\Seo::head() in the data-texty attribute of the <script> tag ---------- */

@@ -74,6 +74,20 @@ await step('appearance: change a colour and preview', async () => {
   if (await colour.count()) { await colour.fill('#335577'); await page.waitForTimeout(800); }
 });
 
+// 3.12 (UX310-24): the logo and the site icon show a preview with Change and Remove, not a path box; the media picker offers
+// "Take a photo" only on touch devices
+await step('3.12 appearance: logo field with a preview and Change, no Take a photo on a desktop', async () => {
+  await visit('/admin.php?module=appearance');
+  await page.locator('#zalozka-znacka').click();
+  if (await page.locator('#logo').isVisible()) { throw new Error('the logo path box is still shown'); }
+  const choose = page.locator('#logo-vybrat');
+  if (!(await choose.isVisible()) || (await page.locator('label[for="logo-vybrat"]').count()) !== 1) { throw new Error('the logo has no labelled Choose button'); }
+  await choose.click();
+  await page.locator('dialog.galerie-okno[open]').waitFor();
+  if (await page.locator('dialog.galerie-okno[open] .galerie-vyfotit').isVisible()) { throw new Error('"Take a photo" shows on a desktop'); }
+  await page.locator('dialog.galerie-okno[open] [data-zavri]').click();
+});
+
 await step('appearance: save to the draft look, preview bar, publish', async () => {
   await visit('/admin.php?module=appearance');
   // the colour field may sit on a tab that is not open – set the value directly
@@ -252,6 +266,10 @@ await step('3.6 UXA-10, UXA-13: a ready section below the first gets an H2, "Fix
   await page.waitForTimeout(500);
   const png = Buffer.from((await page.evaluate(() => { const c = document.createElement('canvas'); c.width = 64; c.height = 48; const g = c.getContext('2d'); g.fillStyle = '#3366aa'; g.fillRect(0, 0, 64, 48); return c.toDataURL('image/png'); })).split(',')[1], 'base64');
   await picker.locator('input[type=file]').first().setInputFiles({ name: 'team-photo.png', mimeType: 'image/png', buffer: png });
+  // 3.12 (UX310-24): one uploaded image is the choice – the picker closes and the field shows it, no second click
+  await page.locator('.st-obrazek-pole img.st-obrazek-nahled:visible').waitFor();
+  if (await picker.count()) { throw new Error('the picker stays open after uploading the one image to choose'); }
+  await page.locator('.st-obrazek-vybrat').click();
   await picker.locator('.galerie-polozka', { hasText: 'team-photo.png' }).waitFor();
   if (/No images here yet/.test(await picker.locator('.galerie-mrizka').textContent())) { throw new Error('"No images here yet." stays next to the uploaded image'); }
   await picker.locator('.galerie-polozka').first().click();
@@ -632,6 +650,37 @@ await step('3.7 collections: CSV import of items – columns paired by themselve
   if (hidden !== 1) { throw new Error('the imported item is not in the list'); }
 });
 
+// 3.12 (UX310-14, UX310-22): the Collection list inspector offers the chosen collection's fields by their labels and folds
+// the filter options; searching "form" finds the Form element, not Embed (whose description mentions forms)
+await step('3.12 builder: search "form" finds Form only; the Collection list inspector offers the collection fields', async () => {
+  await visit('/admin.php?module=pages&action=builder&id=1');
+  await page.waitForTimeout(1500);
+  await page.locator('.st-zalozky [role="tab"]').first().click();
+  const search = page.locator('input.st-hledat').first();
+  await search.fill('form');
+  await page.waitForTimeout(300);
+  const found = (await page.locator('.st-prvky button').allTextContents()).map((n) => n.trim());
+  if (!found.includes('Form') || found.some((n) => /Embed/.test(n))) { throw new Error(`searching "form" offers ${JSON.stringify(found)}`); }
+  await search.fill('');
+  await page.waitForTimeout(300);
+  await page.locator('.st-prvky button', { hasText: /^Collection list$/ }).first().click();
+  await page.waitForTimeout(900);
+  await page.locator('.st-pole', { hasText: /^Collections/ }).locator('select').first().selectOption({ label: 'References' });
+  await page.waitForTimeout(600);
+  const sort = page.locator('.st-pole', { hasText: 'Field to sort by' }).locator('select');
+  if (await sort.count() !== 1) { throw new Error('the sort field is not a choice of the collection fields'); }
+  const labels = (await sort.locator('option').allTextContents()).map((n) => n.trim());
+  if (!labels.includes('Client') || !labels.includes('Year')) { throw new Error(`the sort field offers ${JSON.stringify(labels)}`); }
+  const more = page.locator('details.st-vice-voleb');
+  if (await more.count() !== 1 || (await more.getAttribute('open')) !== null) { throw new Error('the filter options are not folded under More options'); }
+  await more.locator('summary').click();
+  const start = page.locator('.st-vice-voleb .st-pole', { hasText: 'Start date field' }).locator('select option');
+  if (await start.count() !== 1) { throw new Error('the start date field offers fields that are not dates'); } // References has no date field: only "—"
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/collection-list-inspector.png` }); }
+  await page.locator('.st-hlava-prvku button.nebezpecne').first().click(); // leave the page as it was
+  await page.waitForTimeout(1500);
+});
+
 let equipment = 0;
 await step('3.7 collection categories: a category and a subcategory in the admin, items ticked into them, the category page', async () => {
   await visit('/admin.php?module=collections&action=new');
@@ -692,6 +741,31 @@ await step('3.7 builder: Previous / next item in the item template, a nav landma
   await nav.locator('a[rel="next"]').focus();
   if (SHOTS) { await v.screenshot({ path: `${SHOTS}/previous-next-item.png`, fullPage: true }); }
   await visitor.close();
+});
+
+// 3.12 (UX310-28): sending a form on a phone and coming back to the page leaves no script error ("Transition was aborted
+// because of invalid state") – the watch() of the page fails the step on any console error
+await step('3.12 contact form sent on a phone: no console error after the answer page', async () => {
+  const visitor = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'en-GB', isMobile: true, hasTouch: true });
+  const v = await visitor.newPage();
+  watch(v);
+  try {
+    await v.goto(`${BASE}/contact`, { waitUntil: 'networkidle' });
+    const form = v.locator('form.ka-formular, main form[method="post"]').first();
+    if (!(await form.count())) { throw new Error('the contact page has no form'); }
+    await v.waitForTimeout(3500); // the antispam signature refuses a form sent within seconds of loading
+    for (const input of await form.locator('input:visible:not([tabindex="-1"]), textarea:visible, select:visible').all()) {
+      if ((await input.evaluate((n) => n.tagName)) === 'SELECT') { continue; }
+      const type = await input.getAttribute('type');
+      if (type === 'checkbox') { await input.check(); } else if (type === 'email') { await input.fill('visitor@example.com'); } else if (type === 'tel') { await input.fill('+420 123 456 789'); }
+      else if (!['submit', 'hidden', 'radio', 'file'].includes(type || '')) { await input.fill('Browser test 3.12'); }
+    }
+    await Promise.all([v.waitForNavigation(), form.locator('button[type="submit"], input[type="submit"]').first().click()]);
+    await v.waitForTimeout(1500);
+    if (!/[?&]result=/.test(v.url())) { throw new Error(`the form answer has no result in the address: ${v.url()}`); }
+  } finally {
+    await visitor.close();
+  }
 });
 
 // right-to-left (data model §5): the Arabic page of the Crafts starter (tools/test-browser.sh) as a visitor sees it on a computer and

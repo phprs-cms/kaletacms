@@ -66,7 +66,7 @@ $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => 
 <?php else: ?>
 <header class="hlavicka">
 	<div class="obal hlavicka-obal">
-		<a class="logo" href="<?= e($url('')) ?>"<?= $jeAktivni('') ? ' aria-current="page"' : '' ?>><?php if ($web->get('logo') !== ''): ?><img src="<?= e(preg_match('#^(https?:)?/#', $web->get('logo')) ? $web->get('logo') : $url($web->get('logo'))) ?>" alt="<?= e($nazevWebu) ?>"<?= \Kaleta\Front\ImageHtml::logoSize($web->get('logo')) ?>><?php else: ?><?= e($nazevWebu) ?><?php endif ?></a>
+		<a class="logo" href="<?= e($url('')) ?>"<?= $jeAktivni('') ? ' aria-current="page"' : '' ?>><?php $logo = \Kaleta\Core\Look::identity($web, 'logo'); if ($logo !== ''): ?><img src="<?= e(preg_match('#^(https?:)?/#', $logo) ? $logo : $url($logo)) ?>" alt="<?= e($nazevWebu) ?>"<?= \Kaleta\Front\ImageHtml::logoSize($logo) ?>><?php else: ?><?= e($nazevWebu) ?><?php endif ?></a>
 		<button class="menu-tl" type="button" popovertarget="navigace" aria-label="<?= e(t('Menu')) ?>"><span aria-hidden="true"></span></button>
 		<nav class="navigace" id="navigace" popover aria-label="<?= e(t('Main navigation')) ?>">
 			<ul>
