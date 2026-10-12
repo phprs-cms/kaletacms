@@ -22,6 +22,8 @@ final class Scheduler
      * the queues decide themselves what is due, and backups, links and the clean-up keep their own pace.
      */
     public const array JOBS = [
+        // first, and the others wait while it runs: they would write the new clock into rows not converted yet (3.12)
+        'time_zone' => [0, 'any', 'Saved dates converted to a new time zone'],
         'notifications' => [0, 'any', 'Scheduled publishing and announcements'],
         'mail' => [0, 'any', 'Sending e-mail'],
         'webhooks' => [0, 'any', 'Webhook deliveries'],
@@ -56,7 +58,8 @@ final class Scheduler
 
     public const int FAILURES_TO_ALERT = 3;
 
-    private const string LOCK = 'kaleta_scheduler';
+    /** One run at a time; a time zone conversion started from Settings holds it too (Admin\Modules\Settings::actionTimeZone). */
+    public const string LOCK = 'kaleta_scheduler';
 
     /**
      * Every job with its implementation: it gets the app and the trigger (cron | visit) and returns a short result.
@@ -66,6 +69,14 @@ final class Scheduler
     public static function jobs(): array
     {
         $jobs = [
+            'time_zone' => function (App $app, string $source): string {
+                $state = TimeZoneConversion::run($app->db(), $source === 'cron' ? 20.0 : 3.0);
+                if ($state !== null && $state['finished_now']) {
+                    TimeZoneConversion::logFinished($app, $state);
+                }
+
+                return $state === null ? 'not needed' : ($state['done'] ? 'done' : 'converted ' . $state['tables_done'] . ' of ' . $state['tables'] . ' tables');
+            },
             'notifications' => function (App $app): string {
                 Notifications::process($app);
 
@@ -177,6 +188,9 @@ final class Scheduler
                     continue;
                 }
                 $results[$name] = self::runOne($app, $name, $job, $source, (int) ($state[$name]['failures'] ?? 0));
+                if ($name === 'time_zone' && TimeZoneConversion::running($db) !== null) {
+                    break; // saved dates are being converted: the other jobs wait for the next run
+                }
             }
         } finally {
             $db->value('SELECT RELEASE_LOCK(?)', [self::LOCK]);

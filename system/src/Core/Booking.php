@@ -64,7 +64,7 @@ final class Booking
     public static function services(Db $db, bool $activeOnly = true): array
     {
         try {
-            $rows = $db->all('SELECT * FROM {booking_services}' . ($activeOnly ? ' WHERE active = 1' : '') . ' ORDER BY sort_order, name, id');
+            $rows = $db->all('SELECT * FROM {booking_services}' . ($activeOnly ? ' WHERE active = 1' : '') . ' ORDER BY sort_order, ' . $db->sortText('name') . ', id');
             $links = $db->all('SELECT staff_id, service_id FROM {booking_staff_services}');
         } catch (\Throwable) {
             return []; // before the 3.0 migration
@@ -98,7 +98,7 @@ final class Booking
     public static function staff(Db $db, bool $activeOnly = true): array
     {
         try {
-            $rows = $db->all('SELECT * FROM {booking_staff}' . ($activeOnly ? ' WHERE active = 1' : '') . ' ORDER BY sort_order, name, id');
+            $rows = $db->all('SELECT * FROM {booking_staff}' . ($activeOnly ? ' WHERE active = 1' : '') . ' ORDER BY sort_order, ' . $db->sortText('name') . ', id');
             $links = $db->all('SELECT staff_id, service_id FROM {booking_staff_services}');
         } catch (\Throwable) {
             return [];
@@ -434,10 +434,10 @@ final class Booking
      */
     public static function offs(Db $db, ?int $staffId, bool $pastToo = false): array
     {
-        $sql = 'SELECT * FROM {booking_off} WHERE ' . ($staffId === null ? '1 = 1' : '(staff_id IS NULL OR staff_id = ?)') . ($pastToo ? '' : ' AND off_to >= NOW()') . ' ORDER BY off_from, id LIMIT 500';
+        $sql = 'SELECT * FROM {booking_off} WHERE ' . ($staffId === null ? '1 = 1' : '(staff_id IS NULL OR staff_id = ?)') . ($pastToo ? '' : ' AND off_to >= ?') . ' ORDER BY off_from, id LIMIT 500';
 
         return array_map(fn (array $r): array => ['id' => (int) $r['id'], 'staff_id' => $r['staff_id'] === null ? null : (int) $r['staff_id'], 'from' => (string) $r['off_from'], 'to' => (string) $r['off_to'], 'note' => (string) $r['note']],
-            $db->all($sql, $staffId === null ? [] : [$staffId]));
+            $db->all($sql, [...($staffId === null ? [] : [$staffId]), ...($pastToo ? [] : [Clock::now()])]));
     }
 
     /** Removes a service; the error when it still has upcoming bookings. */
@@ -447,7 +447,7 @@ final class Booking
         if ($db->value('SELECT id FROM {booking_services} WHERE id = ?', [$id]) === null) {
             return 'The service does not exist.';
         }
-        if ((int) $db->value("SELECT COUNT(*) FROM {bookings} WHERE service_id = ? AND status IN ('confirmed', 'pending') AND starts_at >= NOW()", [$id]) > 0) {
+        if ((int) $db->value("SELECT COUNT(*) FROM {bookings} WHERE service_id = ? AND status IN ('confirmed', 'pending') AND starts_at >= ?", [$id, Clock::now()]) > 0) {
             return 'The service has upcoming bookings – cancel them first, or switch the service off instead.';
         }
         $db->delete('booking_services', ['id' => $id]);
@@ -464,7 +464,7 @@ final class Booking
         if ($db->value('SELECT id FROM {booking_staff} WHERE id = ?', [$id]) === null) {
             return 'The person does not exist.';
         }
-        if ((int) $db->value("SELECT COUNT(*) FROM {bookings} WHERE staff_id = ? AND status IN ('confirmed', 'pending') AND starts_at >= NOW()", [$id]) > 0) {
+        if ((int) $db->value("SELECT COUNT(*) FROM {bookings} WHERE staff_id = ? AND status IN ('confirmed', 'pending') AND starts_at >= ?", [$id, Clock::now()]) > 0) {
             return 'The person has upcoming bookings – cancel or move them first, or switch the person off instead.';
         }
         $db->delete('booking_staff', ['id' => $id]);
@@ -576,7 +576,7 @@ final class Booking
         $in = implode(',', $ids);
         $from = $fromDay . ' 00:00:00';
         $to = date('Y-m-d 00:00:00', strtotime($toDay . ' +2 days'));
-        foreach ($db->all('SELECT staff_id, starts_at, ends_at FROM {bookings} WHERE staff_id IN (' . $in . ') AND (status IN (\'confirmed\', \'done\') OR (status = \'pending\' AND hold_until > NOW())) AND id <> ? AND ends_at > ? AND starts_at < ?', [$exclude, date('Y-m-d H:i:s', strtotime($from . ' -1 day')), $to]) as $b) {
+        foreach ($db->all('SELECT staff_id, starts_at, ends_at FROM {bookings} WHERE staff_id IN (' . $in . ') AND (status IN (\'confirmed\', \'done\') OR (status = \'pending\' AND hold_until > ?)) AND id <> ? AND ends_at > ? AND starts_at < ?', [Clock::now(), $exclude, date('Y-m-d H:i:s', strtotime($from . ' -1 day')), $to]) as $b) {
             $cal['busy'][(int) $b['staff_id']][] = [(string) $b['starts_at'], (string) $b['ends_at']];
         }
         foreach ($db->all('SELECT staff_id, off_from, off_to FROM {booking_off} WHERE (staff_id IS NULL OR staff_id IN (' . $in . ')) AND off_to > ? AND off_from < ?', [$from, $to]) as $o) {
@@ -864,7 +864,7 @@ final class Booking
             return false;
         }
         $db = $app->db();
-        if ($db->run("UPDATE {bookings} SET status = 'cancelled', cancelled_at = NOW(), cancelled_by = ? WHERE id = ? AND status = 'confirmed'", [$by, (int) $booking['id']])->rowCount() === 0) {
+        if ($db->run("UPDATE {bookings} SET status = 'cancelled', cancelled_at = ?, cancelled_by = ? WHERE id = ? AND status = 'confirmed'", [Clock::now(), $by, (int) $booking['id']])->rowCount() === 0) {
             return false;
         }
         $booking = self::find($db, (int) $booking['id']) ?? $booking;
@@ -893,8 +893,8 @@ final class Booking
     /** Whether another booking occupies the person at that time (a pending one only while its hold lasts). */
     private static function occupied(Db $db, int $staffId, string $start, string $end, int $exclude): bool
     {
-        return (int) $db->value("SELECT COUNT(*) FROM {bookings} WHERE staff_id = ? AND id <> ? AND (status IN ('confirmed', 'done') OR (status = 'pending' AND hold_until > NOW())) AND starts_at < ? AND ends_at > ?",
-            [$staffId, $exclude, $end, $start]) > 0;
+        return (int) $db->value("SELECT COUNT(*) FROM {bookings} WHERE staff_id = ? AND id <> ? AND (status IN ('confirmed', 'done') OR (status = 'pending' AND hold_until > ?)) AND starts_at < ? AND ends_at > ?",
+            [$staffId, $exclude, Clock::now(), $end, $start]) > 0;
     }
 
     /**
@@ -928,7 +928,7 @@ final class Booking
     {
         $db = $app->db();
         if ($booking['status'] !== 'pending'
-            || $db->run("UPDATE {bookings} SET status = 'declined', hold_until = NULL, cancelled_at = NOW(), cancelled_by = ? WHERE id = ? AND status = 'pending'", [$by, (int) $booking['id']])->rowCount() === 0) {
+            || $db->run("UPDATE {bookings} SET status = 'declined', hold_until = NULL, cancelled_at = ?, cancelled_by = ? WHERE id = ? AND status = 'pending'", [Clock::now(), $by, (int) $booking['id']])->rowCount() === 0) {
             return false;
         }
         $db->delete('booking_proposals', ['booking_id' => (int) $booking['id']]);
@@ -1274,12 +1274,12 @@ final class Booking
         $db = $app->db();
         $sent = 0;
         try {
-            $rows = $db->all("SELECT id FROM {bookings} WHERE status = 'pending' AND hold_reminded_at IS NULL AND hold_until < NOW() AND ends_at > NOW() ORDER BY starts_at LIMIT 50");
+            $rows = $db->all("SELECT id FROM {bookings} WHERE status = 'pending' AND hold_reminded_at IS NULL AND hold_until < ? AND ends_at > ? ORDER BY starts_at LIMIT 50", [Clock::now(), Clock::now()]);
         } catch (\Throwable) {
             return 0; // before the 3.3 migration
         }
         foreach ($rows as $r) {
-            if ($db->run('UPDATE {bookings} SET hold_reminded_at = NOW() WHERE id = ? AND hold_reminded_at IS NULL', [(int) $r['id']])->rowCount() === 0) {
+            if ($db->run('UPDATE {bookings} SET hold_reminded_at = ? WHERE id = ? AND hold_reminded_at IS NULL', [Clock::now(), (int) $r['id']])->rowCount() === 0) {
                 continue;
             }
             $booking = self::find($db, (int) $r['id']);
@@ -1308,13 +1308,13 @@ final class Booking
         $db = $app->db();
         $sent = 0;
         try {
-            $rows = $db->all("SELECT id FROM {bookings} WHERE status = 'confirmed' AND reminded_at IS NULL AND email <> '' AND starts_at > NOW() AND starts_at <= NOW() + INTERVAL ? HOUR AND created_at <= starts_at - INTERVAL ? HOUR ORDER BY starts_at LIMIT 50", [$hours, $hours]);
+            $rows = $db->all("SELECT id FROM {bookings} WHERE status = 'confirmed' AND reminded_at IS NULL AND email <> '' AND starts_at > ? AND starts_at <= ? AND created_at <= starts_at - INTERVAL ? HOUR ORDER BY starts_at LIMIT 50", [Clock::now(), Clock::at('+' . $hours . ' hours'), $hours]);
         } catch (\Throwable) {
             return 'skipped'; // before the 3.0 migration
         }
         foreach ($rows as $r) {
             // mark first: a failing mail server must not send the reminder again and again
-            if ($db->run('UPDATE {bookings} SET reminded_at = NOW() WHERE id = ? AND reminded_at IS NULL', [(int) $r['id']])->rowCount() === 0) {
+            if ($db->run('UPDATE {bookings} SET reminded_at = ? WHERE id = ? AND reminded_at IS NULL', [Clock::now(), (int) $r['id']])->rowCount() === 0) {
                 continue;
             }
             $booking = self::find($db, (int) $r['id']);
@@ -1341,10 +1341,10 @@ final class Booking
         }
         try {
             if ($s->get('enquiries_expiry') === 'anonymise') {
-                return $app->db()->run("UPDATE {bookings} SET name = '', email = '', phone = '', note = '', anonymised_at = NOW() WHERE anonymised_at IS NULL AND ends_at < NOW() - INTERVAL ? MONTH", [$months])->rowCount();
+                return $app->db()->run("UPDATE {bookings} SET name = '', email = '', phone = '', note = '', anonymised_at = ? WHERE anonymised_at IS NULL AND ends_at < ?", [Clock::now(), Clock::monthsAgo($months)])->rowCount();
             }
 
-            return $app->db()->run('DELETE FROM {bookings} WHERE ends_at < NOW() - INTERVAL ? MONTH', [$months])->rowCount();
+            return $app->db()->run('DELETE FROM {bookings} WHERE ends_at < ?', [Clock::monthsAgo($months)])->rowCount();
         } catch (\Throwable) {
             return 0; // before the 3.0 migration
         }
@@ -1353,7 +1353,7 @@ final class Booking
     /** Blanks the person in one booking and keeps the row (the admin's Anonymise). */
     public static function anonymise(App $app, int $id): bool
     {
-        $done = $app->db()->run("UPDATE {bookings} SET name = '', email = '', phone = '', note = '', anonymised_at = NOW() WHERE id = ? AND anonymised_at IS NULL", [$id])->rowCount() > 0;
+        $done = $app->db()->run("UPDATE {bookings} SET name = '', email = '', phone = '', note = '', anonymised_at = ? WHERE id = ? AND anonymised_at IS NULL", [Clock::now(), $id])->rowCount() > 0;
         if ($done) {
             ChangeLog::write($app, 'bookings', 'anonymise', '#' . $id);
         }

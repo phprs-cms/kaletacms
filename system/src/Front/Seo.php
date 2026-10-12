@@ -115,14 +115,15 @@ final class Seo
             return '<?xml version="1.0" encoding="utf-8"?>' . "\n" . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n" . implode("\n", $xml) . "\n</urlset>\n";
         }
         // news listing, categories and tags only where there is some published news item
-        $published = 'visible = 1 AND datum <= NOW() AND smazano IS NULL';
-        foreach ($db->all("SELECT jazyk, MAX(COALESCE(zmeneno, datum)) AS zmena FROM {novinky} WHERE {$published}{$inLanguages} GROUP BY jazyk", $languages) as $r) {
+        $published = 'visible = 1 AND datum <= ? AND smazano IS NULL'; // the first parameter of the three queries below
+        $now = \Kaleta\Core\Clock::now();
+        foreach ($db->all("SELECT jazyk, MAX(COALESCE(zmeneno, datum)) AS zmena FROM {novinky} WHERE {$published}{$inLanguages} GROUP BY jazyk", [$now, ...$languages]) as $r) {
             $xml[] = $url('novinky', $r['zmena'], '0.6', $r['jazyk']);
         }
-        foreach ($db->all("SELECT k.seo_link, k.jazyk FROM {kategorie} k WHERE EXISTS (SELECT 1 FROM {novinky} n WHERE n.tema = k.idt AND n.{$published}) AND k.jazyk IN (" . implode(',', array_fill(0, count($languages), '?')) . ')', $languages) as $r) {
+        foreach ($db->all("SELECT k.seo_link, k.jazyk FROM {kategorie} k WHERE EXISTS (SELECT 1 FROM {novinky} n WHERE n.tema = k.idt AND n.{$published}) AND k.jazyk IN (" . implode(',', array_fill(0, count($languages), '?')) . ')', [$now, ...$languages]) as $r) {
             $xml[] = $url('novinky/kategorie/' . $r['seo_link'], null, '0.4', $r['jazyk']);
         }
-        foreach ($db->all("SELECT seo_link, jazyk, COALESCE(zmeneno, datum) AS zmena FROM {novinky} WHERE {$published} AND noindex = 0{$inLanguages} ORDER BY datum DESC LIMIT 45000", $languages) as $r) {
+        foreach ($db->all("SELECT seo_link, jazyk, COALESCE(zmeneno, datum) AS zmena FROM {novinky} WHERE {$published} AND noindex = 0{$inLanguages} ORDER BY datum DESC LIMIT 45000", [$now, ...$languages]) as $r) {
             $xml[] = $url('novinky/' . $r['seo_link'], $r['zmena'], '0.5', $r['jazyk']);
         }
 
@@ -194,14 +195,14 @@ final class Seo
         }
         $rows[] = '## ' . t('Pages');
         $home = $s->int('home_page');
-        foreach ($db->all('SELECT ids, titulek, seo_link, popis FROM {stranky} WHERE zobrazit = 1 AND noindex = 0 AND heslo_hash IS NULL AND smazano IS NULL AND jazyk = ? ORDER BY poradi, titulek', [\Kaleta\Core\Language::siteColumn()]) as $r) {
+        foreach ($db->all('SELECT ids, titulek, seo_link, popis FROM {stranky} WHERE zobrazit = 1 AND noindex = 0 AND heslo_hash IS NULL AND smazano IS NULL AND jazyk = ? ORDER BY poradi, ' . $db->sortText('titulek'), [\Kaleta\Core\Language::siteColumn()]) as $r) {
             $rows[] = '- [' . $r['titulek'] . '](' . $this->page((int) $r['ids'] === $home ? '' : $r['seo_link']) . ')' . ($r['popis'] !== '' ? ': ' . $r['popis'] : '');
         }
         // collections with their own item pages (guide, team, products…): item with the first longer text as its description
-        foreach ($db->all('SELECT idk, nazev, seo_link, pole FROM {kolekce} WHERE detail = 1 ORDER BY nazev') as $k) {
+        foreach ($db->all('SELECT idk, nazev, seo_link, pole FROM {kolekce} WHERE detail = 1 ORDER BY ' . $db->sortText('nazev')) as $k) {
             $field = json_decode((string) $k['pole'], true) ?: [];
             $descriptiveFields = array_column(array_filter($field, fn (array $f): bool => in_array($f['typ'] ?? '', ['radky', 'html', 'text'], true)), 'klic');
-            $items = $db->all('SELECT nazev, seo_link, data, popis FROM {kolekce_polozky} WHERE idk = ? AND zobrazit = 1 AND noindex = 0 AND jazyk = ? ORDER BY poradi, nazev LIMIT 200', [$k['idk'], \Kaleta\Core\Language::siteColumn()]);
+            $items = $db->all('SELECT nazev, seo_link, data, popis FROM {kolekce_polozky} WHERE idk = ? AND zobrazit = 1 AND noindex = 0 AND jazyk = ? ORDER BY poradi, ' . $db->sortText('nazev') . ' LIMIT 200', [$k['idk'], \Kaleta\Core\Language::siteColumn()]);
             if ($items === []) {
                 continue;
             }
@@ -222,7 +223,7 @@ final class Seo
             return \Kaleta\Core\Facts::fillText(implode("\n", $rows) . "\n", $this->app);
         }
         array_push($rows, '', '## ' . t('Novinky'));
-        foreach ($db->all('SELECT titulek, seo_link, uvod FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND noindex = 0 AND smazano IS NULL AND jazyk = ? ORDER BY datum DESC LIMIT 30', [\Kaleta\Core\Language::siteColumn()]) as $c) {
+        foreach ($db->all('SELECT titulek, seo_link, uvod FROM {novinky} WHERE visible = 1 AND datum <= ? AND noindex = 0 AND smazano IS NULL AND jazyk = ? ORDER BY datum DESC LIMIT 30', [\Kaleta\Core\Clock::now(), \Kaleta\Core\Language::siteColumn()]) as $c) {
             $rows[] = '- [' . $c['titulek'] . '](' . $this->page($this->path('novinky/') . $c['seo_link'], $md) . '): ' . mb_strimwidth(trim(strip_tags($c['uvod'])), 0, 200, '…');
         }
 

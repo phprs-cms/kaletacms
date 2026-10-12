@@ -678,7 +678,7 @@ final class Library
     {
         foreach ($names as $name) {
             if (isset(self::CLASSES[$name])) {
-                $db->run('INSERT IGNORE INTO {tridy} (nazev, styl, zmeneno) VALUES (?, ?, NOW())', [$name, (string) json_encode(self::CLASSES[$name], JSON_UNESCAPED_UNICODE)]);
+                $db->run('INSERT IGNORE INTO {tridy} (nazev, styl, zmeneno) VALUES (?, ?, ?)', [$name, (string) json_encode(self::CLASSES[$name], JSON_UNESCAPED_UNICODE), \Kaleta\Core\Clock::now()]);
             }
         }
     }

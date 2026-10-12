@@ -36,9 +36,12 @@ trait NewsTools
         // only what visitors see (3.3.2, N12) – Auth::newsListScope, shared with translation_status
         $where = ['c.smazano IS NULL' . $auth->newsListScope('c.')];
         $p = [];
-        $statuses = ['vydane' => 'c.visible = 1 AND c.datum <= NOW()', 'plan' => 'c.visible = 1 AND c.datum > NOW()', 'koncepty' => 'c.visible = 0'];
+        $statuses = ['vydane' => 'c.visible = 1 AND c.datum <= ?', 'plan' => 'c.visible = 1 AND c.datum > ?', 'koncepty' => 'c.visible = 0'];
         if (isset($statuses[$a['stav'] ?? ''])) {
             $where[] = $statuses[$a['stav']];
+            if ($a['stav'] !== 'koncepty') {
+                $p[] = \Kaleta\Core\Clock::now(); // the site's clock (3.12, data model §6)
+            }
         }
         if (!empty($a['kategorie'])) {
             $where[] = 'c.tema = ?';
@@ -108,7 +111,7 @@ trait NewsTools
         $need($auth->hasModule('news'), 'News items can be deleted only by users with the News section.');
         $item = $db->one('SELECT idc, visible, autor FROM {novinky} WHERE idc = ? AND smazano IS NULL', [$id]) ?? throw new \InvalidArgumentException('The news item does not exist. Use list_news.');
         $need($auth->canPublish() || (!$item['visible'] && (int) $item['autor'] === $auth->id()), 'A published news item or someone else’s can be deleted only with the publishing permission.');
-        $db->run('UPDATE {novinky} SET smazano = NOW(), visible = 0 WHERE idc = ?', [$id]);
+        $db->run('UPDATE {novinky} SET smazano = ?, visible = 0 WHERE idc = ?', [\Kaleta\Core\Clock::now(), $id]);
         \Kaleta\Front\Cache::clear();
 
         return ['trashed' => $id, 'restore' => 'restore_from_trash with type news within 30 days'];

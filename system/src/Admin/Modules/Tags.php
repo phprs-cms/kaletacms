@@ -25,7 +25,7 @@ final class Tags extends Module
         $edit = $this->db->one('SELECT * FROM {stitky} WHERE ids = ?', [$this->request->getInt('edit')]);
 
         return $this->view('list', 'Tags and topics', [
-            'tags' => $this->db->all('SELECT s.*, (SELECT COUNT(*) FROM {novinky_stitky} cs WHERE cs.ids = s.ids) AS pocet FROM {stitky} s ORDER BY (s.popis IS NOT NULL AND s.popis <> \'\') DESC, pocet DESC, s.nazev LIMIT 500'),
+            'tags' => $this->db->all('SELECT s.*, (SELECT COUNT(*) FROM {novinky_stitky} cs WHERE cs.ids = s.ids) AS pocet FROM {stitky} s ORDER BY (s.popis IS NOT NULL AND s.popis <> \'\') DESC, pocet DESC, ' . $this->db->sortText('s.nazev') . ' LIMIT 500'),
             'edit' => $edit,
         ]);
     }

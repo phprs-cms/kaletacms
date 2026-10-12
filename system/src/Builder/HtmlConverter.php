@@ -97,8 +97,8 @@ final class HtmlConverter
                 continue;
             }
             $style = (string) json_encode($conversion['tridy_styl'][$className] ?? new \stdClass(), JSON_UNESCAPED_UNICODE);
-            $db->run('INSERT INTO {tridy} (nazev, styl, css, zmeneno) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE styl = VALUES(styl), css = VALUES(css), zmeneno = NOW()',
-                [$className, $style, $conversion['tridy'][$className] ?? '']);
+            $db->run('INSERT INTO {tridy} (nazev, styl, css, zmeneno) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE styl = VALUES(styl), css = VALUES(css), zmeneno = VALUES(zmeneno)',
+                [$className, $style, $conversion['tridy'][$className] ?? '', \Kaleta\Core\Clock::now()]);
         }
         $skipped = [];
         $build = self::withoutClasses($conversion['stavba'], array_merge($existing, array_keys($conversion['tridy']), array_keys($conversion['tridy_styl'])), $skipped);

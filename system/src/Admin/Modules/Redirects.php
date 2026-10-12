@@ -38,8 +38,8 @@ final class Redirects extends Module
         $db->run('UPDATE {presmerovani} SET na_adresu = ? WHERE na_adresu = ?', [$commandName, $z]);
         $db->run('DELETE FROM {presmerovani} WHERE z_adresy = ?', [trim($commandName, '/ ')]);
         $db->run(
-            'INSERT INTO {presmerovani} (z_adresy, na_adresu, vytvoreno) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE na_adresu = VALUES(na_adresu)',
-            [mb_substr($z, 0, 255), mb_substr($commandName, 0, 255)],
+            'INSERT INTO {presmerovani} (z_adresy, na_adresu, vytvoreno) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE na_adresu = VALUES(na_adresu)',
+            [mb_substr($z, 0, 255), mb_substr($commandName, 0, 255), \Kaleta\Core\Clock::now()],
         );
         // links on the site that still lead to the old address are rewritten, so visitors never meet the redirect (2.14)
         if ($heal) {

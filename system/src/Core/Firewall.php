@@ -49,7 +49,7 @@ final class Firewall
         $db = $app->db();
         $path = trim($r->path(), '/');
         $reason = match (true) {
-            $db->value('SELECT 1 FROM {firewall_blocks} WHERE ip = ? AND until > NOW()', [$ip]) !== null => 'temporary',
+            $db->value('SELECT 1 FROM {firewall_blocks} WHERE ip = ? AND until > ?', [$ip, Clock::now()]) !== null => 'temporary',
             self::inList($ip, self::parseList($s->get('firewall_ips'))[0]) => 'list',
             self::countryBlocked(self::country($r->serverValues(), $s->get('firewall_proxy')), $s->get('firewall_countries')) => 'country',
             // the Claude connection signs in on its own and may send many calls at once while it builds; sites report to a console
@@ -73,8 +73,8 @@ final class Firewall
             return null;
         }
         $db = $app->db();
-        $db->run('INSERT INTO {firewall_blocks} (ip, until, reason, created_at) VALUES (?, NOW() + INTERVAL ? HOUR, ?, NOW()) ON DUPLICATE KEY UPDATE until = VALUES(until), reason = VALUES(reason)',
-            [$ip, self::PROBE_BLOCK_HOURS, 'probe']);
+        $db->run('INSERT INTO {firewall_blocks} (ip, until, reason, created_at) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE until = VALUES(until), reason = VALUES(reason)',
+            [$ip, Clock::at('+' . self::PROBE_BLOCK_HOURS . ' hours'), 'probe', Clock::now()]);
         Events::record($db, 'firewall.blocked', 'warning', t('%s was blocked for %d hours after probing for other systems (%s).', $ip, self::PROBE_BLOCK_HOURS, '/' . mb_substr($path, 0, 120)), ['reason' => 'probe']);
 
         return self::refuse($db, $ip, 'probe', $path);
@@ -97,7 +97,7 @@ final class Firewall
 
     private static function refuse(Db $db, string $ip, string $reason, string $path): Response
     {
-        if ((int) $db->value('SELECT COUNT(*) FROM {firewall_log} WHERE created_at > NOW() - INTERVAL 1 HOUR') < self::LOG_PER_HOUR) {
+        if ((int) $db->value('SELECT COUNT(*) FROM {firewall_log} WHERE created_at > ?', [Clock::at('-1 hour')]) < self::LOG_PER_HOUR) {
             $db->insert('firewall_log', ['created_at' => date('Y-m-d H:i:s'), 'ip' => $ip, 'reason' => $reason, 'path' => '/' . mb_substr($path, 0, 254)]);
         }
 
@@ -245,7 +245,7 @@ final class Firewall
                 @unlink($file);
             }
         }
-        $db->run('DELETE FROM {firewall_log} WHERE created_at < NOW() - INTERVAL ? DAY', [self::LOG_DAYS]);
-        $db->run('DELETE FROM {firewall_blocks} WHERE until < NOW()');
+        $db->run('DELETE FROM {firewall_log} WHERE created_at < ?', [Clock::at('-' . self::LOG_DAYS . ' days')]);
+        $db->run('DELETE FROM {firewall_blocks} WHERE until < ?', [Clock::now()]);
     }
 }

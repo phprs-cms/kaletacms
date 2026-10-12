@@ -151,8 +151,8 @@ final class Documents
             return null;
         }
         // the hourly job hides an expired document a little later – the address stops working on the day itself
-        $item = $db->one('SELECT idp, data FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND jazyk = ? AND zobrazit = 1 AND smazano IS NULL AND (valid_until IS NULL OR valid_until >= CURDATE())',
-            [$collection['idk'], $seo, Language::siteColumn()]);
+        $item = $db->one('SELECT idp, data FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND jazyk = ? AND zobrazit = 1 AND smazano IS NULL AND (valid_until IS NULL OR valid_until >= ?)',
+            [$collection['idk'], $seo, Language::siteColumn(), Clock::today()]);
         $file = $item === null ? '' : (string) ((json_decode((string) $item['data'], true) ?: [])[$fileKey] ?? '');
         if ($file === '') {
             $to = (string) ($collection['hidden_redirect'] ?? '');
@@ -207,7 +207,7 @@ final class Documents
             return;
         }
         $antispam->write($r->ip(), 'stazeni', $idp);
-        $app->db()->run('INSERT INTO {document_downloads} (idp, day, count) VALUES (?, CURDATE(), 1) ON DUPLICATE KEY UPDATE count = count + 1', [$idp]);
+        $app->db()->run('INSERT INTO {document_downloads} (idp, day, count) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE count = count + 1', [$idp, Clock::today()]);
     }
 
     /**
@@ -218,7 +218,7 @@ final class Documents
     public static function counts(Db $db, int $idk): array
     {
         $out = [];
-        foreach ($db->all('SELECT d.idp, SUM(d.count) AS total, SUM(IF(d.day >= CURDATE() - INTERVAL 30 DAY, d.count, 0)) AS recent FROM {document_downloads} d JOIN {kolekce_polozky} p ON p.idp = d.idp WHERE p.idk = ? GROUP BY d.idp', [$idk]) as $r) {
+        foreach ($db->all('SELECT d.idp, SUM(d.count) AS total, SUM(IF(d.day >= ?, d.count, 0)) AS recent FROM {document_downloads} d JOIN {kolekce_polozky} p ON p.idp = d.idp WHERE p.idk = ? GROUP BY d.idp', [Clock::day('-30 days'), $idk]) as $r) {
             $out[(int) $r['idp']] = [(int) $r['recent'], (int) $r['total']];
         }
 

@@ -66,13 +66,16 @@ final class News extends Module
         $inTrash = $state === 'kos';
         $where[] = $inTrash ? 'c.smazano IS NOT NULL' : 'c.smazano IS NULL';
         $statusConditions = [
-            'vydane' => 'c.visible = 1 AND c.datum <= NOW()',
-            'plan' => 'c.visible = 1 AND c.datum > NOW()',
+            'vydane' => 'c.visible = 1 AND c.datum <= ?',
+            'plan' => 'c.visible = 1 AND c.datum > ?',
             'koncepty' => 'c.visible = 0',
             'ke_vydani' => self::AWAITING_PUBLICATION,
         ];
         if (isset($statusConditions[$state])) {
             $where[] = $statusConditions[$state];
+            if (in_array($state, ['vydane', 'plan'], true)) {
+                $params[] = \Kaleta\Core\Clock::now(); // the site's clock (3.12, data model §6)
+            }
         }
         $cond = implode(' AND ', $where);
 
@@ -379,9 +382,9 @@ final class News extends Module
 
             return Response::json(['ok' => true, 'smazano' => true]);
         }
-        $this->db->run('INSERT INTO {novinky_koncepty} (kdo, idc, cas, data) VALUES (?, ?, NOW(), ?) ON DUPLICATE KEY UPDATE cas = NOW(), data = VALUES(data)', [$me, $idc, $data]);
+        $this->db->run('INSERT INTO {novinky_koncepty} (kdo, idc, cas, data) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE cas = VALUES(cas), data = VALUES(data)', [$me, $idc, \Kaleta\Core\Clock::now(), $data]);
         if (random_int(1, 40) === 1) {
-            $this->db->run('DELETE FROM {novinky_koncepty} WHERE cas < NOW() - INTERVAL 30 DAY');
+            $this->db->run('DELETE FROM {novinky_koncepty} WHERE cas < ?', [\Kaleta\Core\Clock::at('-30 days')]);
         }
 
         return Response::json(['ok' => true]);
@@ -396,9 +399,9 @@ final class News extends Module
         }
         $editMode = $this->request->get('edit') === '1';
         $news = $this->db->all(
-            'SELECT idc, titulek, seo_link, jazyk, visible AND datum <= NOW() AS vydany FROM {novinky} WHERE smazano IS NULL AND titulek LIKE ?'
+            'SELECT idc, titulek, seo_link, jazyk, visible AND datum <= ? AS vydany FROM {novinky} WHERE smazano IS NULL AND titulek LIKE ?'
                 . ($editMode ? $this->app->auth()->articleScope() : '') . ' ORDER BY datum DESC LIMIT 8',
-            ['%' . addcslashes($q, '%_\\') . '%'],
+            [\Kaleta\Core\Clock::now(), '%' . addcslashes($q, '%_\\') . '%'],
         );
 
         return Response::json(['clanky' => array_map(fn (array $c): array => [
@@ -434,7 +437,7 @@ final class News extends Module
                 'titulek' => $this->request->post('titulek'),
                 'uvod' => $this->request->post('uvod'),
                 'text' => $this->request->post('text'),
-                'stitky_webu' => $task === 'stitky' ? array_column($this->db->all('SELECT nazev FROM {stitky} ORDER BY nazev LIMIT 300'), 'nazev') : [],
+                'stitky_webu' => $task === 'stitky' ? array_column($this->db->all('SELECT nazev FROM {stitky} ORDER BY ' . $this->db->sortText('nazev') . ' LIMIT 300'), 'nazev') : [],
             ], $image);
         } catch (\RuntimeException $e) {
             return Response::json(['chyba' => t($e->getMessage())], 502);
@@ -566,7 +569,7 @@ final class News extends Module
 
     private function hasTooManyRequests(): bool
     {
-        return (int) $this->db->value("SELECT COUNT(*) FROM {protokol} WHERE kdo = ? AND modul = 'asistent' AND cas > NOW() - INTERVAL 1 HOUR", [$this->app->auth()->id()]) >= 60;
+        return (int) $this->db->value("SELECT COUNT(*) FROM {protokol} WHERE kdo = ? AND modul = 'asistent' AND cas > ?", [$this->app->auth()->id(), \Kaleta\Core\Clock::at('-1 hour')]) >= 60;
     }
 
     /** Loads an older version of the news item into the editor; it is saved only when the form is submitted. */
@@ -617,7 +620,7 @@ final class News extends Module
         return $this->view('links', 'Broken links', [
             'links' => array_values(array_filter(\Kaleta\Core\Links::broken($this->app, 300, $this->app->auth()->articleScope('c.')), fn (array $l): bool => $l['kind'] === 'news' || $pages)),
             'checked' => (int) $this->db->value('SELECT (SELECT COUNT(*) FROM {novinky} WHERE odkazy_cas IS NOT NULL) + (SELECT COUNT(*) FROM {stranky} WHERE links_checked IS NOT NULL) + (SELECT COUNT(*) FROM {kolekce_polozky} WHERE links_checked IS NOT NULL)'),
-            'total' => (int) $this->db->value('SELECT (SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND smazano IS NULL) + (SELECT COUNT(*) FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL) + (SELECT COUNT(*) FROM {kolekce_polozky} WHERE zobrazit = 1 AND smazano IS NULL)'),
+            'total' => (int) $this->db->value('SELECT (SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= ? AND smazano IS NULL) + (SELECT COUNT(*) FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL) + (SELECT COUNT(*) FROM {kolekce_polozky} WHERE zobrazit = 1 AND smazano IS NULL)', [\Kaleta\Core\Clock::now()]),
             'isEnabled' => $this->app->settings()->bool('link_check'),
         ]);
     }
@@ -681,7 +684,7 @@ final class News extends Module
     /** The trash empties itself: news items older than 30 days are deleted permanently (called by Admin\Kernel on entering the admin). */
     public static function emptyTrash(\Kaleta\Core\Db $db): int
     {
-        return $db->run('DELETE FROM {novinky} WHERE smazano < NOW() - INTERVAL 30 DAY')->rowCount();
+        return $db->run('DELETE FROM {novinky} WHERE smazano < ?', [\Kaleta\Core\Clock::at('-30 days')])->rowCount();
     }
 
     /**
@@ -718,10 +721,10 @@ final class News extends Module
             // content check of the saved version (2.14, Core\ContentCheck); a news item not saved yet has nothing to check
             'contentCheck' => $newsItem['idc'] && !$this->request->isPost() ? \Kaleta\Core\ContentCheck::forNews($newsItem) : [],
             'tags' => $this->request->isPost() ? $this->request->post('stitky') : implode(', ', array_column(
-                $this->db->all('SELECT s.nazev FROM {stitky} s JOIN {novinky_stitky} cs ON cs.ids = s.ids WHERE cs.idc = ? ORDER BY s.nazev', [(int) $newsItem['idc']]),
+                $this->db->all('SELECT s.nazev FROM {stitky} s JOIN {novinky_stitky} cs ON cs.ids = s.ids WHERE cs.idc = ? ORDER BY ' . $this->db->sortText('s.nazev'), [(int) $newsItem['idc']]),
                 'nazev',
             )),
-            'allTags' => array_column($this->db->all('SELECT nazev FROM {stitky} ORDER BY nazev LIMIT 500'), 'nazev'),
+            'allTags' => array_column($this->db->all('SELECT nazev FROM {stitky} ORDER BY ' . $this->db->sortText('nazev') . ' LIMIT 500'), 'nazev'),
             'versions' => $this->db->all(
                 "SELECT r.idr, r.datum, r.titulek, IF(u.jmeno = '' OR u.jmeno IS NULL, u.user, u.jmeno) AS kdo_jm
                  FROM {novinky_revize} r LEFT JOIN {uzivatele} u ON u.idu = r.kdo WHERE r.idc = ? ORDER BY r.idr DESC",

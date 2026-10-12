@@ -204,10 +204,10 @@ final class Mailing
         $db = $app->db();
         [$html, $text] = self::render($app, $n);
         // only one caller starts it (cron and an admin click may meet)
-        if ($db->run("UPDATE {newsletters} SET status = 'sending', started_at = NOW(), html = ?, text = ? WHERE id = ? AND status IN ('draft', 'scheduled')", [$html, $text, $n['id']])->rowCount() === 0) {
+        if ($db->run("UPDATE {newsletters} SET status = 'sending', started_at = ?, html = ?, text = ? WHERE id = ? AND status IN ('draft', 'scheduled')", [Clock::now(), $html, $text, $n['id']])->rowCount() === 0) {
             return;
         }
-        $count = $db->run('INSERT IGNORE INTO {newsletter_queue} (newsletter_id, subscriber_id, next_attempt) SELECT ?, ido, NOW() FROM {odberatele} WHERE stav = 1', [$n['id']])->rowCount();
+        $count = $db->run('INSERT IGNORE INTO {newsletter_queue} (newsletter_id, subscriber_id, next_attempt) SELECT ?, ido, ? FROM {odberatele} WHERE stav = 1', [$n['id'], Clock::now()])->rowCount();
         $db->update('newsletters', ['recipients' => $count], ['id' => $n['id']]);
         \Kaleta\Admin\ChangeLog::write($app, 'newsletters', 'send', mb_substr((string) $n['subject'], 0, 200));
     }
@@ -223,18 +223,18 @@ final class Mailing
         if ($s->get('mail_mode') !== 'smtp' || $s->get('smtp_host') === '') {
             return 0; // waits until SMTP is set up again
         }
-        foreach ($db->all("SELECT * FROM {newsletters} WHERE status = 'scheduled' AND scheduled_at <= NOW() ORDER BY scheduled_at") as $n) {
+        foreach ($db->all("SELECT * FROM {newsletters} WHERE status = 'scheduled' AND scheduled_at <= ? ORDER BY scheduled_at", [Clock::now()]) as $n) {
             self::start($app, $n);
         }
-        $allowed = min(self::BATCH, max(10, $s->int('newsletter_hourly_limit')) - (int) $db->value('SELECT COUNT(*) FROM {newsletter_queue} WHERE sent_at >= NOW() - INTERVAL 1 HOUR'));
+        $allowed = min(self::BATCH, max(10, $s->int('newsletter_hourly_limit')) - (int) $db->value('SELECT COUNT(*) FROM {newsletter_queue} WHERE sent_at >= ?', [Clock::at('-1 hour')]));
         $sent = 0;
         $newsletters = [];
         $rows = $allowed <= 0 ? [] : $db->all("SELECT q.id, q.newsletter_id, q.attempts, o.email, o.token, o.stav FROM {newsletter_queue} q
             JOIN {newsletters} n ON n.id = q.newsletter_id AND n.status = 'sending' LEFT JOIN {odberatele} o ON o.ido = q.subscriber_id
-            WHERE q.next_attempt <= NOW() ORDER BY q.id LIMIT " . (int) $allowed);
+            WHERE q.next_attempt <= ? ORDER BY q.id LIMIT " . (int) $allowed, [Clock::now()]);
         foreach ($rows as $q) {
             // claim the row first: a concurrent call does not send the same e-mail twice
-            if ($db->run('UPDATE {newsletter_queue} SET next_attempt = NOW() + INTERVAL 10 MINUTE, attempts = attempts + 1 WHERE id = ? AND next_attempt <= NOW()', [$q['id']])->rowCount() === 0) {
+            if ($db->run('UPDATE {newsletter_queue} SET next_attempt = ?, attempts = attempts + 1 WHERE id = ? AND next_attempt <= ?', [Clock::at('+10 minutes'), $q['id'], Clock::now()])->rowCount() === 0) {
                 continue;
             }
             if ($q['email'] === null || (int) $q['stav'] !== 1) {
@@ -259,10 +259,10 @@ final class Mailing
             }
         }
         // finished: nothing left to try
-        $db->run("UPDATE {newsletters} n SET status = 'sent', finished_at = NOW() WHERE n.status = 'sending'
-            AND NOT EXISTS (SELECT 1 FROM {newsletter_queue} q WHERE q.newsletter_id = n.id AND q.next_attempt IS NOT NULL)");
+        $db->run("UPDATE {newsletters} n SET status = 'sent', finished_at = ? WHERE n.status = 'sending'
+            AND NOT EXISTS (SELECT 1 FROM {newsletter_queue} q WHERE q.newsletter_id = n.id AND q.next_attempt IS NOT NULL)", [Clock::now()]);
         // recipients are kept only while sending (and a day for the hourly limit)
-        $db->run("DELETE q FROM {newsletter_queue} q JOIN {newsletters} n ON n.id = q.newsletter_id WHERE n.status = 'sent' AND n.finished_at < NOW() - INTERVAL 1 DAY");
+        $db->run("DELETE q FROM {newsletter_queue} q JOIN {newsletters} n ON n.id = q.newsletter_id WHERE n.status = 'sent' AND n.finished_at < ?", [Clock::at('-1 day')]);
 
         return $sent;
     }
@@ -291,17 +291,17 @@ final class Mailing
             return [];
         }
         $db = $app->db();
-        $published = 'visible = 1 AND datum <= NOW() AND smazano IS NULL';
+        $published = 'visible = 1 AND datum <= ? AND smazano IS NULL'; // the first parameter of both queries: Clock::now()
         if ($n['news_mode'] === 'chosen') {
             $ids = array_map('intval', array_filter(explode(',', (string) $n['news_ids'])));
             if ($ids === []) {
                 return [];
             }
-            $rows = $db->all('SELECT idc, seo_link, titulek, uvod, obrazek, datum, jazyk FROM {novinky} WHERE ' . $published . ' AND idc IN (' . implode(',', $ids) . ')');
+            $rows = $db->all('SELECT idc, seo_link, titulek, uvod, obrazek, datum, jazyk FROM {novinky} WHERE ' . $published . ' AND idc IN (' . implode(',', $ids) . ')', [Clock::now()]);
             usort($rows, fn (array $a, array $b): int => array_search((int) $a['idc'], $ids, true) <=> array_search((int) $b['idc'], $ids, true));
         } else {
             $rows = $db->all('SELECT idc, seo_link, titulek, uvod, obrazek, datum, jazyk FROM {novinky} WHERE ' . $published . ' AND jazyk = ? ORDER BY datum DESC, idc DESC LIMIT ' . max(1, min(self::MAX_NEWS, (int) $n['news_count'])),
-                [(string) $n['language']]);
+                [Clock::now(), (string) $n['language']]);
         }
 
         return array_map(fn (array $c): array => [

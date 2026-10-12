@@ -31,7 +31,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	<div><input class="textpole" type="number" id="hodnost" name="hodnost" value="<?= (int) $category['hodnost'] ?>" min="0" max="65535">
 	<span class="napoveda"><?= e(t('Higher number = higher in the list.')) ?></span></div>
 </div>
-<?= $app->view->render('admin/language_field', ['app' => $app, 'value' => (string) ($category['jazyk'] ?? ''), 'translationOf' => (int) ($category['preklad_z'] ?? 0), 'originals' => $app->db()->pairs("SELECT idt, nazev FROM {kategorie} WHERE jazyk = '' ORDER BY nazev"), 'hint' => t('News in this category belongs to this language version of the site.')]) ?>
+<?= $app->view->render('admin/language_field', ['app' => $app, 'value' => (string) ($category['jazyk'] ?? ''), 'translationOf' => (int) ($category['preklad_z'] ?? 0), 'originals' => $app->db()->pairs("SELECT idt, nazev FROM {kategorie} WHERE jazyk = '' ORDER BY " . $app->db()->sortText('nazev')), 'hint' => t('News in this category belongs to this language version of the site.')]) ?>
 <?= $error('jazyk') ?>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t($category['idt'] ? 'Uložit' : 'Přidat')) ?>"></p>
 </form>

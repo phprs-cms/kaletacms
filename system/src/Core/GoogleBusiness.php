@@ -246,7 +246,7 @@ final class GoogleBusiness
             return $answer['error'];
         }
         if ($action === 'gbp.post') {
-            $news = $db->one('SELECT idc, titulek, uvod, obrazek, seo_link, jazyk FROM {novinky} WHERE idc = ? AND visible = 1 AND smazano IS NULL AND datum <= NOW()', [(int) ($payload['idc'] ?? 0)]);
+            $news = $db->one('SELECT idc, titulek, uvod, obrazek, seo_link, jazyk FROM {novinky} WHERE idc = ? AND visible = 1 AND smazano IS NULL AND datum <= ?', [(int) ($payload['idc'] ?? 0), Clock::now()]);
             if ($news === null) {
                 return ''; // unpublished or deleted before the delivery: no post
             }

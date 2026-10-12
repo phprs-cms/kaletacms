@@ -33,7 +33,7 @@ final class SiteParts extends Module
         $languages = array_merge([''], Language::additional($siteSettings));
         $rows = [];
         $variants = [];
-        foreach ($this->db->all('SELECT typ, jazyk, varianta, nazev, stranky, pravidla, stavba IS NOT NULL AS publikovana, stavba_koncept IS NOT NULL AND (stavba IS NULL OR stavba_koncept <> stavba) AS zmeny, zmeneno FROM {casti} ORDER BY nazev') as $r) {
+        foreach ($this->db->all('SELECT typ, jazyk, varianta, nazev, stranky, pravidla, stavba IS NOT NULL AS publikovana, stavba_koncept IS NOT NULL AND (stavba IS NULL OR stavba_koncept <> stavba) AS zmeny, zmeneno FROM {casti} ORDER BY ' . $this->db->sortText('nazev')) as $r) {
             if ($r['varianta'] === '') {
                 $rows[$r['typ'] . ':' . $r['jazyk']] = $r;
             } else {
@@ -43,7 +43,7 @@ final class SiteParts extends Module
 
         return $this->view('list', 'Site parts', [
             'types' => CastiWebu::TYPES, 'languages' => $languages, 'rows' => $rows, 'variants' => $variants,
-            'pageNames' => $this->db->pairs('SELECT ids, titulek FROM {stranky} WHERE smazano IS NULL ORDER BY poradi, titulek'),
+            'pageNames' => $this->db->pairs('SELECT ids, titulek FROM {stranky} WHERE smazano IS NULL ORDER BY poradi, ' . $this->db->sortText('titulek')),
             'collectionNames' => $this->db->pairs('SELECT seo_link, nazev FROM {kolekce}'),
             'languageNames' => array_combine($languages, array_map(fn (string $j): string => Language::AVAILABLE[Language::ofContent($siteSettings, $j)][0], $languages)),
         ]);
@@ -113,11 +113,11 @@ final class SiteParts extends Module
         return $this->view('variant', t('Variant: %s', t(CastiWebu::TYPES[$type][0])), [
             'type' => $type, 'language' => $language, 'variant' => $row['varianta'] ?? '', 'name' => $row['nazev'] ?? '',
             'selected' => array_map('intval', json_decode((string) ($row['stranky'] ?? '[]'), true) ?: []),
-            'pages' => $this->db->all('SELECT ids, titulek FROM {stranky} WHERE jazyk = ? AND smazano IS NULL ORDER BY poradi, titulek', [$language]),
+            'pages' => $this->db->all('SELECT ids, titulek FROM {stranky} WHERE jazyk = ? AND smazano IS NULL ORDER BY poradi, ' . $this->db->sortText('titulek', $language === '' ? null : $language), [$language]),
             // 3.6: kinds of content the variant takes besides the pages
             'rules' => CastiWebu::sanitizeRules(json_decode((string) ($row['pravidla'] ?? ''), true)),
-            'collections' => $this->db->all('SELECT seo_link, nazev FROM {kolekce} WHERE detail = 1 ORDER BY nazev'),
-            'parents' => $this->db->all('SELECT DISTINCT p.ids, p.titulek FROM {stranky} p JOIN {stranky} c ON c.nadrazena = p.ids AND c.smazano IS NULL WHERE p.jazyk = ? AND p.smazano IS NULL ORDER BY p.titulek', [$language]),
+            'collections' => $this->db->all('SELECT seo_link, nazev FROM {kolekce} WHERE detail = 1 ORDER BY ' . $this->db->sortText('nazev')),
+            'parents' => $this->db->all('SELECT DISTINCT p.ids, p.titulek FROM {stranky} p JOIN {stranky} c ON c.nadrazena = p.ids AND c.smazano IS NULL WHERE p.jazyk = ? AND p.smazano IS NULL ORDER BY ' . $this->db->sortText('p.titulek', $language === '' ? null : $language), [$language]),
             'news' => \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'novinky'),
         ]);
     }
@@ -171,7 +171,7 @@ final class SiteParts extends Module
         // a variant is shown on the first page it applies to
         $page = $target['radek']['varianta'] !== '' ? (json_decode((string) $target['radek']['stranky'], true) ?: [])[0] ?? null : null;
         $path = $page !== null ? (string) $this->db->value('SELECT seo_link FROM {stranky} WHERE ids = ?', [(int) $page]) : match ($type) {
-            'novinka' => ($seo = $this->db->value('SELECT seo_link FROM {novinky} WHERE visible = 1 AND smazano IS NULL AND datum <= NOW() AND jazyk = ? ORDER BY datum DESC LIMIT 1', [$language])) !== null ? 'novinky/' . $seo : 'novinky',
+            'novinka' => ($seo = $this->db->value('SELECT seo_link FROM {novinky} WHERE visible = 1 AND smazano IS NULL AND datum <= ? AND jazyk = ? ORDER BY datum DESC LIMIT 1', [\Kaleta\Core\Clock::now(), $language])) !== null ? 'novinky/' . $seo : 'novinky',
             'vypis' => 'novinky',
             'nenalezeno' => 'tahle-stranka-neexistuje',
             default => '',

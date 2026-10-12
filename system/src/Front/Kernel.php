@@ -998,7 +998,7 @@ final class Kernel
         $this->breadcrumbs([t('Novinky'), $this->app->url('novinky')], [$newsItem['tema_jm'], $this->app->url('novinky/kategorie/' . $newsItem['tema_seo'])], [$newsItem['titulek'], '']);
         $newsItem['faq_html'] = (new View([KALETA_SYSTEM . '/views/front']))->render('faq', ['faq' => Seo::faq($newsItem['faq'])]);
         $newsItem = (new NewsText($this->app))->complete($newsItem);
-        $newsItem['stitky'] = $this->app->db()->all('SELECT s.nazev, s.seo_link FROM {stitky} s JOIN {novinky_stitky} cs ON cs.ids = s.ids WHERE cs.idc = ? ORDER BY s.nazev', [$newsItem['idc']]);
+        $newsItem['stitky'] = $this->app->db()->all('SELECT s.nazev, s.seo_link FROM {stitky} s JOIN {novinky_stitky} cs ON cs.ids = s.ids WHERE cs.idc = ? ORDER BY ' . $this->app->db()->sortText('s.nazev'), [$newsItem['idc']]);
 
         $content = $this->view->render('novinka', [
             // what the editor wrote; the item itself stays as it is for the description and structured data
@@ -1186,7 +1186,7 @@ final class Kernel
         if ($path !== '' && $this->app->request->get('part') === '' && !\Kaleta\Core\NotFound::isBot($path) && mb_check_encoding($path, 'UTF-8')) {
             try {
                 if ((int) $this->app->db()->value('SELECT COUNT(*) FROM {nenalezeno}') < 2000 || $this->app->db()->value('SELECT 1 FROM {nenalezeno} WHERE cesta = ?', [$path]) !== null) {
-                    $this->app->db()->run('INSERT INTO {nenalezeno} (cesta, pocet, naposledy) VALUES (?, 1, NOW()) ON DUPLICATE KEY UPDATE pocet = pocet + 1, naposledy = NOW()', [$path]);
+                    $this->app->db()->run('INSERT INTO {nenalezeno} (cesta, pocet, naposledy) VALUES (?, 1, ?) ON DUPLICATE KEY UPDATE pocet = pocet + 1, naposledy = VALUES(naposledy)', [$path, \Kaleta\Core\Clock::now()]);
                     if ((int) $this->app->db()->value('SELECT pocet FROM {nenalezeno} WHERE cesta = ?', [$path]) === \Kaleta\Core\NotFound::SPIKE) {
                         \Kaleta\Core\Events::record($this->app->db(), 'notfound.spike', 'warning', t('/%s was requested %d times and there is no page or redirect.', mb_substr($path, 0, 150), \Kaleta\Core\NotFound::SPIKE), ['path' => $path]);
                     }
@@ -1257,7 +1257,7 @@ final class Kernel
         $translations = [];
         if ($newsItem !== null) {
             $original = (int) ($newsItem['preklad_z'] ?: $newsItem['idc']);
-            $translations = array_map(fn (string $seo): string => 'novinky/' . $seo, $this->app->db()->pairs('SELECT jazyk, seo_link FROM {novinky} WHERE (idc = ? OR preklad_z = ?) AND visible = 1 AND datum <= NOW()', [$original, $original]));
+            $translations = array_map(fn (string $seo): string => 'novinky/' . $seo, $this->app->db()->pairs('SELECT jazyk, seo_link FROM {novinky} WHERE (idc = ? OR preklad_z = ?) AND visible = 1 AND datum <= ?', [$original, $original, \Kaleta\Core\Clock::now()]));
         } elseif ($this->collectionItem !== null) {
             [$idk, $collection, $seo] = $this->collectionItem;
             $translations = array_map(fn (string $s): string => $collection . '/' . $s, $this->app->db()->pairs('SELECT jazyk, seo_link FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND zobrazit = 1', [$idk, $seo]));
@@ -1334,7 +1334,7 @@ final class Kernel
             $home = $this->homePageId();
             $this->menuPages = array_map(
                 fn (array $s): array => ['titulek' => $s['titulek'], 'seo_link' => (int) $s['ids'] === $home ? '' : $s['seo_link'], 'uvod' => (int) $s['ids'] === $home],
-                $this->app->db()->all('SELECT ids, titulek, seo_link FROM {stranky} WHERE zobrazit = 1 AND v_menu = 1 AND jazyk = ? ORDER BY poradi, titulek', [Language::siteColumn()]),
+                $this->app->db()->all('SELECT ids, titulek, seo_link FROM {stranky} WHERE zobrazit = 1 AND v_menu = 1 AND jazyk = ? ORDER BY poradi, ' . $this->app->db()->sortText('titulek'), [Language::siteColumn()]),
             );
         }
 

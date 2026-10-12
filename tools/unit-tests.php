@@ -200,7 +200,8 @@ $settingsParity = ['list' => $readOnly, 'save' => 'update_settings', 'download_b
     'fleet_kit' => 'admin: receiving the console\'s design kit is an opt-in of the site (2.16); site_info reports the version that arrived',
     'report_preview' => $readOnly, 'report_send' => 'admin: the monthly report goes to e-mail addresses that stay out of MCP (2.9) – Claude reads the same numbers with get_stats and get_health',
     'cookie_scan' => 'admin: the cookie scan runs daily on its own (2.14); Claude reads the table in processing_record', 'processing_record' => 'processing_record',
-    'accessibility_statement' => 'admin: the draft page is the administrator’s step (2.14); Claude reads the text with accessibility_statement'];
+    'accessibility_statement' => 'admin: the draft page is the administrator’s step (2.14); Claude reads the text with accessibility_statement',
+    'time_zone' => 'admin: the time zone and converting the saved dates are the administrator’s decision (3.12) – update_settings does not change the zone'];
 $parity = [
     'pages' => $builderParity + ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'export' => $readOnly, 'save' => 'update_page', 'save_text' => 'update_page',
         'delete' => 'trash_page', 'restore' => 'restore_from_trash', 'delete_permanently' => 'admin: the trash empties itself after 30 days',
@@ -521,6 +522,7 @@ foreach (glob(KALETA_SYSTEM . '/views/admin/settings/*.php') as $view) {
             'fleet_kit', // 2.16: the console tab's own button (Settings::actionFleetKit)
             'verze', // 3.3.2: the version on the update button – Settings::actionUpdate installs only that one
             'smtp_ses_region', // 3.9: the Amazon SES region – MailServices::settle() builds the server from it
+            'zone', 'choice', // 3.12: the time zone confirmation (Settings::actionTimeZone) – the new zone and convert | keep
             'screen_collections', 'novy_token_obrazovka'], true)) { // 2.11 screen mode: the collections list is added by fields() from the site's collections, the button makes a new address
             $unknownFields[] = basename($view) . ': ' . $name;
         }
@@ -5939,5 +5941,64 @@ check('3.11 N311-1: robots.txt with a non-UTF-8 byte keeps its rules (CR/LF spli
 $rtlMail311 = Kaleta\Core\Mail::rightToLeft("رابط: https://example.test/\u{202E}gpj.exe", 'ar');
 check('3.11 N311-4: bidi controls from a visitor are dropped from the HTML part of an RTL e-mail',
     [str_contains($rtlMail311, "\u{202E}"), str_contains($rtlMail311, 'https://example.test/gpj.exe'), Kaleta\Core\Mail::rightToLeft("\xFF bad", 'ar') !== ''], [false, true, true]);
+/* ---------- 3.12: the data model steps of 4.0 that are safe in 3.x (docs/design/4.0-data-model.md §1.2, §1.3, §6) ---------- */
+// §1.2: lists sort in the site language; Czech sends the same SQL as before, a missing collation falls back
+$both312 = ['utf8mb4_czech_ci', 'utf8mb4_slovak_ci', 'utf8mb4_polish_ci', 'utf8mb4_german2_ci', 'utf8mb4_danish_ci', 'utf8mb4_swedish_ci', 'utf8mb4_estonian_ci', 'utf8mb4_hungarian_ci',
+    'utf8mb4_icelandic_ci', 'utf8mb4_latvian_ci', 'utf8mb4_lithuanian_ci', 'utf8mb4_romanian_ci', 'utf8mb4_slovenian_ci', 'utf8mb4_croatian_ci', 'utf8mb4_turkish_ci', 'utf8mb4_spanish_ci',
+    'utf8mb4_vietnamese_ci', 'utf8mb4_unicode_520_ci', 'utf8mb4_unicode_ci', 'utf8mb4_general_ci']; // legacy UCA names MySQL 8 and MariaDB 10.6 both have
+check('3.12 §1.2: every collation the sort helper names exists on MySQL 8 and on MariaDB 10.6', array_values(array_diff(array_merge(Kaleta\Core\Collation::FALLBACK, ...array_values(Kaleta\Core\Collation::LANGUAGES)), $both312)), []);
+check('3.12 §1.2: Collation::choose – Czech needs no COLLATE, regional tags follow their language, others are language-neutral, a missing one falls back', [
+    Kaleta\Core\Collation::choose('cs', $both312), Kaleta\Core\Collation::choose('sk', $both312), Kaleta\Core\Collation::choose('de-at', $both312), Kaleta\Core\Collation::choose('en-gb', $both312),
+    Kaleta\Core\Collation::choose('ar', $both312), Kaleta\Core\Collation::choose('pt-br', $both312), Kaleta\Core\Collation::choose('sr', $both312), Kaleta\Core\Collation::choose('fi', $both312),
+    Kaleta\Core\Collation::choose('pl', ['utf8mb4_unicode_ci']), Kaleta\Core\Collation::choose('en', ['utf8mb4_general_ci']), Kaleta\Core\Collation::choose('en', [])],
+    ['', 'utf8mb4_slovak_ci', 'utf8mb4_german2_ci', 'utf8mb4_unicode_520_ci', 'utf8mb4_unicode_520_ci', 'utf8mb4_unicode_520_ci', 'utf8mb4_croatian_ci', 'utf8mb4_swedish_ci', 'utf8mb4_unicode_ci', 'utf8mb4_general_ci', '']);
+$offline312 = new Kaleta\Core\Db('mysql:host=127.0.0.1;port=1;dbname=none', 'none', ''); // never connects: Czech asks the server nothing
+check('3.12 §1.2: a Czech site sorts with the very same SQL (no COLLATE, no question to the server)', [$offline312->sortText('titulek', 'cs'), $offline312->sortText('p.nazev', 'cs')], ['titulek', 'p.nazev']);
+// the alphabetical lists people read go through the helper; ORDER BY a name without it is only allowed for identifiers
+$plainSort312 = [];
+foreach (['Core/Booking.php', 'Core/Menu.php', 'Admin/Modules/Pages.php', 'Admin/Modules/Tags.php', 'Admin/Modules/Categories.php', 'Admin/Modules/Collections.php', 'Admin/Modules/Users.php', 'Admin/Modules/Roles.php',
+    'Admin/Modules/Media.php', 'Builder/Collections.php', 'Builder/Components.php', 'Builder/Popups.php', 'Front/Seo.php', 'Front/Kernel.php', 'Mcp/Handlers/PageTools.php', 'Mcp/Handlers/CollectionTools.php'] as $file) {
+    if (preg_match_all('/ORDER BY[^\'"]*?(?<![.\w])(?:[a-z]\.)?(nazev|titulek|jmeno|name)\b(?!\'?\))/', (string) file_get_contents(KALETA_SYSTEM . '/src/' . $file), $m) > 0) {
+        $plainSort312[] = $file . ': ' . implode(', ', $m[0]);
+    }
+}
+check('3.12 §1.2: lists of names sort through Db::sortText', $plainSort312, []);
+// §1.3: tokens and hashes in ascii_bin – migration 0092 and schema.sql say the same for every column
+preg_match_all('/MODIFY (\w+) ([A-Z]+\(\d+\) CHARACTER SET ascii COLLATE ascii_bin (?:NOT )?NULL(?: DEFAULT \'\')?)/', (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0092-token-collation.sql'), $m312, PREG_SET_ORDER);
+$schema312 = (string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql');
+check('3.12 §1.3: the 20 token and hash columns of migration 0092 are ascii_bin in schema.sql too', [count($m312), array_values(array_filter(array_map(
+    fn (array $c): string => preg_match('/\n\s+' . $c[1] . '\s+' . str_replace(' ', '\s+', preg_quote($c[2], '/')) . '[\s,]/', $schema312) === 1 ? '' : $c[1], $m312)))], [20, []]);
+// §6: every DATETIME and DATE column is either a moment (converted with the time zone) or a civil date or time (kept)
+$dateColumns312 = [];
+foreach (preg_split('/(?=CREATE TABLE )/', $schema312) ?: [] as $tableSql) {
+    if (preg_match('/^CREATE TABLE ka_(\w+)/', $tableSql, $t) === 1 && preg_match_all('/\n\s+`?(\w+)`?\s+(?:DATETIME|DATE)\b/', $tableSql, $c) > 0) {
+        foreach ($c[1] as $column) {
+            $dateColumns312[] = $t[1] . '.' . $column;
+        }
+    }
+}
+$classified312 = [];
+foreach ([Kaleta\Core\TimeZoneConversion::INSTANTS, Kaleta\Core\TimeZoneConversion::CIVIL] as $list) {
+    foreach ($list as $table => $columns) {
+        foreach ($columns as $column) {
+            $classified312[] = $table . '.' . $column;
+        }
+    }
+}
+sort($dateColumns312);
+$sortedClassified312 = $classified312;
+sort($sortedClassified312);
+check('3.12 §6: every DATETIME and DATE column of schema.sql is classified once – instant (converted) or civil (kept)',
+    [array_values(array_diff($dateColumns312, $classified312)), array_values(array_diff($classified312, $dateColumns312)), count($classified312) === count(array_unique($classified312))], [[], [], true]);
+$prague312 = new DateTimeZone('Europe/Prague');
+$london312 = new DateTimeZone('Europe/London');
+check('3.12 §6: TimeZoneConversion::convert – by the offset at each value\'s own date, the repeated autumn hour counted, empty and impossible values left alone', [
+    Kaleta\Core\TimeZoneConversion::convert('2026-10-11 12:00:00', $prague312, $london312), Kaleta\Core\TimeZoneConversion::convert('2026-01-15 12:00:00', $prague312, new DateTimeZone('America/New_York')),
+    Kaleta\Core\TimeZoneConversion::convert('2026-10-25 02:30:00', $prague312, $london312), Kaleta\Core\TimeZoneConversion::convert('2026-10-25 03:30:00', $prague312, $london312),
+    Kaleta\Core\TimeZoneConversion::convert('2026-07-01 08:00:00', $london312, $prague312), Kaleta\Core\TimeZoneConversion::convert(null, $prague312, $london312),
+    Kaleta\Core\TimeZoneConversion::convert('0000-00-00 00:00:00', $prague312, $london312), Kaleta\Core\TimeZoneConversion::convert('2026-03-29 02:30:00', $prague312, $london312),
+    Kaleta\Core\TimeZoneConversion::convert('2026-02-30 10:00:00', $prague312, $london312)],
+    [['2026-10-11 11:00:00', false], ['2026-01-15 06:00:00', false], ['2026-10-25 01:30:00', true], ['2026-10-25 02:30:00', false], ['2026-07-01 09:00:00', false], null, null, null, null]);
+check('3.12 §6: the background job that converts saved dates runs first (the others wait for it)', array_key_first(Kaleta\Core\Scheduler::JOBS), 'time_zone');
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

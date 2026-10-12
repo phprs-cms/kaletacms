@@ -458,7 +458,7 @@ final class Server
         // table, it never refuses a request (3.3.3, N62). A request is not refused on purpose: a valid token must always work,
         // so nobody can lock out the site's Claude connections by sending wrong tokens from a shared address (a proxy in
         // front of Docker, Claude's own servers – N5), and guessing a 192-bit token gains nothing from more tries anyway.
-        $limited = (int) $db->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'mcp' AND ip_adresa = ? AND cas > NOW() - INTERVAL 15 MINUTE", [$ip]) >= 20;
+        $limited = (int) $db->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'mcp' AND ip_adresa = ? AND cas > ?", [$ip, \Kaleta\Core\Clock::at('-15 minutes')]) >= 20;
         $select = fn (string $toolSet): ?array => $db->one('SELECT t.idt, t.nazev AS connection_name, t.access AS connection_access, ' . $toolSet . " AS connection_tool_set, u.* FROM {api_tokeny} t JOIN {uzivatele} u ON u.idu = t.idu WHERE t.otisk = ? AND u.blokovat = 0 AND t.druh <> 'obnova' AND (t.expirace IS NULL OR t.expirace > ?)",
             [hash('sha256', $m[1]), date('Y-m-d H:i:s')]);
         try {
@@ -478,7 +478,7 @@ final class Server
 
             return null;
         }
-        $db->run('UPDATE {api_tokeny} SET pouzit = NOW() WHERE idt = ?', [$token['idt']]);
+        $db->run('UPDATE {api_tokeny} SET pouzit = ? WHERE idt = ?', [\Kaleta\Core\Clock::now(), $token['idt']]);
         if ($this->app->settings()->get('claude_first_used') === '') {
             // the first call of any Claude connection: the dashboard stops leading with "Connect Claude" (3.5, Core\AskClaude)
             $this->app->settings()->set('claude_first_used', date('Y-m-d H:i:s'));

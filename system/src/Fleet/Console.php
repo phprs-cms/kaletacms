@@ -46,7 +46,7 @@ final class Console
         $s = $app->settings();
         $code = bin2hex(random_bytes(16));
         $db = $app->db();
-        $db->run('DELETE FROM {fleet_pairing} WHERE expires_at < NOW() - INTERVAL 7 DAY');
+        $db->run('DELETE FROM {fleet_pairing} WHERE expires_at < ?', [\Kaleta\Core\Clock::at('-7 days')]);
         $db->insert('fleet_pairing', ['code_hash' => hash('sha256', $code), 'created_at' => date('Y-m-d H:i:s'), 'expires_at' => date('Y-m-d H:i:s', time() + self::CODE_HOURS * 3600)]);
 
         return Link::makeKey(rtrim($s->get('site_url'), '/'), $code, Keys::publicKey($s), $s->get('site_name'));
@@ -65,7 +65,7 @@ final class Console
         }
         $db = $app->db();
         $hash = hash('sha256', $d['code']);
-        if ($db->value('SELECT 1 FROM {fleet_pairing} WHERE code_hash = ? AND used_at IS NULL AND expires_at > NOW()', [$hash]) === null) {
+        if ($db->value('SELECT 1 FROM {fleet_pairing} WHERE code_hash = ? AND used_at IS NULL AND expires_at > ?', [$hash, \Kaleta\Core\Clock::now()]) === null) {
             return Response::json(['error' => 'The pairing key is unknown, used or expired – make a new one on the console.'], 403);
         }
         $row = ['name' => mb_substr((string) ($d['name'] ?? ''), 0, 150), 'url' => mb_substr(rtrim($d['url'], '/'), 0, 255), 'manage_updates' => !empty($d['manage_updates']) ? 1 : 0,
@@ -328,7 +328,7 @@ final class Console
     /** @return list<array<string, mixed>> */
     public static function sites(Db $db): array
     {
-        return $db->all('SELECT * FROM {fleet_sites} ORDER BY name, id');
+        return $db->all('SELECT * FROM {fleet_sites} ORDER BY ' . $db->sortText('name') . ', id');
     }
 
     /**

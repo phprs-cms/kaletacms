@@ -29,15 +29,20 @@ final class NewsRepository
     private const string LIST_COLUMNS = "c.idc, c.seo_link, c.titulek, c.uvod, '' AS text, c.obrazek, c.tema, c.autor, c.datum, c.visible, c.t_slova, c.noindex, '' AS faq, c.visit,
         c.zmeneno, c.aktualizovano, c.jazyk, c.preklad_z";
 
-    private const string PUBLISHED = 'c.visible = 1 AND c.datum <= NOW()';
+    /** Published: visible and its publish date has come – the ? is now on the site's clock (3.12, Clock::now() as the parameter). */
+    private const string PUBLISHED = 'c.visible = 1 AND c.datum <= ?';
 
-    /** Condition "published news item in the language of the currently shown site version". */
+    /** Condition "published news item in the language of the currently shown site version"; its parameter is $this->now. */
     private readonly string $published;
+
+    /** Now on the site's clock, the parameter of PUBLISHED. */
+    private readonly string $now;
 
     /** @param string $base path to the installation ("" or "/web") - prepended to URLs of images from media/ */
     public function __construct(private readonly Db $db, private readonly Settings $settings, private readonly string $base = '')
     {
         $this->published = self::PUBLISHED . " AND c.jazyk = '" . \Kaleta\Core\Language::siteColumn() . "'";
+        $this->now = \Kaleta\Core\Clock::now();
     }
 
     /**
@@ -78,19 +83,19 @@ final class NewsRepository
      */
     public function listPublished(int $pageNumber, ?int $limit = null, bool $withText = false): array
     {
-        return $this->query($this->published, [], 'c.datum DESC, c.idc DESC', $pageNumber, $limit, $withText);
+        return $this->query($this->published, [$this->now], 'c.datum DESC, c.idc DESC', $pageNumber, $limit, $withText);
     }
 
     /** @return array{0: list<array<string, mixed>>, 1: int} */
     public function inCategory(int $idt, int $pageNumber, ?int $limit = null): array
     {
-        return $this->query($this->published . ' AND c.tema = ?', [$idt], 'c.datum DESC, c.idc DESC', $pageNumber, $limit);
+        return $this->query($this->published . ' AND c.tema = ?', [$this->now, $idt], 'c.datum DESC, c.idc DESC', $pageNumber, $limit);
     }
 
     /** @return array{0: list<array<string, mixed>>, 1: int} */
     public function withTag(int $ids, int $pageNumber): array
     {
-        return $this->query($this->published . ' AND EXISTS (SELECT 1 FROM {novinky_stitky} cs WHERE cs.idc = c.idc AND cs.ids = ?)', [$ids], 'c.datum DESC, c.idc DESC', $pageNumber);
+        return $this->query($this->published . ' AND EXISTS (SELECT 1 FROM {novinky_stitky} cs WHERE cs.idc = c.idc AND cs.ids = ?)', [$this->now, $ids], 'c.datum DESC, c.idc DESC', $pageNumber);
     }
 
     /** @return array{0: list<array<string, mixed>>, 1: int} */
@@ -101,12 +106,12 @@ final class NewsRepository
         $like = '%' . addcslashes($q, '%_\\') . '%';
         $query = \Kaleta\Core\Search::query($q);
         if ($query === '') {
-            return $this->query($this->published . ' AND c.titulek LIKE ?', [$like], 'c.datum DESC, c.idc DESC', $pageNumber);
+            return $this->query($this->published . ' AND c.titulek LIKE ?', [$this->now, $like], 'c.datum DESC, c.idc DESC', $pageNumber);
         }
 
         return $this->query(
             $this->published . ' AND (MATCH(c.hledani) AGAINST (? IN BOOLEAN MODE) OR c.titulek LIKE ?)',
-            [$query, $like],
+            [$this->now, $query, $like],
             'c.datum DESC, c.idc DESC',
             $pageNumber,
         );
@@ -118,7 +123,7 @@ final class NewsRepository
         // with slugs per language (3.9) /news/x and /en/news/x may be two news items: the one of the version asked for
         // comes first; one of another version still answers there (Front\Kernel redirects to its own version)
         $newsItem = $this->db->one(self::SELECT . ' WHERE c.seo_link = ? AND c.smazano IS NULL' . ($includeUnpublished ? '' : ' AND ' . self::PUBLISHED) . ' ORDER BY c.jazyk = ? DESC LIMIT 1',
-            [$seo, \Kaleta\Core\Language::siteColumn()]);
+            [$seo, ...($includeUnpublished ? [] : [$this->now]), \Kaleta\Core\Language::siteColumn()]);
         if ($newsItem === null) {
             return null;
         }
@@ -145,9 +150,9 @@ final class NewsRepository
         return $this->db->all(
             'SELECT c.titulek, c.seo_link, c.datum, COUNT(cs.ids) AS shoda
              FROM {novinky} c LEFT JOIN {novinky_stitky} cs ON cs.idc = c.idc AND cs.ids IN (SELECT ids FROM {novinky_stitky} WHERE idc = ?)
-             WHERE ' . $this->published . ' AND c.idc <> ? AND (c.tema = ? OR cs.ids IS NOT NULL) AND c.datum > NOW() - INTERVAL 2 YEAR
+             WHERE ' . $this->published . ' AND c.idc <> ? AND (c.tema = ? OR cs.ids IS NOT NULL) AND c.datum > ?
              GROUP BY c.idc, c.titulek, c.seo_link, c.datum ORDER BY shoda DESC, c.datum DESC LIMIT ?',
-            [$newsItem['idc'], $newsItem['idc'], $newsItem['tema'], $count],
+            [$newsItem['idc'], $this->now, $newsItem['idc'], $newsItem['tema'], \Kaleta\Core\Clock::at('-2 years'), $count],
         );
     }
 

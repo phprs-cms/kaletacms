@@ -34,7 +34,7 @@ final class Collections extends Module
     {
         return $this->view('list', 'Collections', [
             'presets' => \Kaleta\Builder\Presets::all(),
-            'collection' => $this->db->all('SELECT k.idk, k.nazev, k.seo_link, k.detail, (SELECT COUNT(*) FROM {kolekce_polozky} p WHERE p.idk = k.idk AND p.smazano IS NULL) AS pocet FROM {kolekce} k ORDER BY k.nazev'),
+            'collection' => $this->db->all('SELECT k.idk, k.nazev, k.seo_link, k.detail, (SELECT COUNT(*) FROM {kolekce_polozky} p WHERE p.idk = k.idk AND p.smazano IS NULL) AS pocet FROM {kolekce} k ORDER BY ' . $this->db->sortText('k.nazev')),
         ]);
     }
 
@@ -43,7 +43,7 @@ final class Collections extends Module
     /** @return array<string, string> collections an item link can point to (2.10): address => name */
     private function otherCollections(int $idk): array
     {
-        return $this->db->pairs('SELECT seo_link, nazev FROM {kolekce} WHERE idk <> ? ORDER BY nazev', [$idk]);
+        return $this->db->pairs('SELECT seo_link, nazev FROM {kolekce} WHERE idk <> ? ORDER BY ' . $this->db->sortText('nazev'), [$idk]);
     }
 
     /** A ready-made collection (2.10, 2.11 Builder\Presets): its fields, item pages, structured data and the redirect of hidden items. */
@@ -154,7 +154,7 @@ final class Collections extends Module
             // a document library (2.11): how often each document was downloaded, and its stable address
             'downloads' => \Kaleta\Core\Documents::fileField($k) !== null ? \Kaleta\Core\Documents::counts($this->db, (int) $k['idk']) : null,
             'items' => $this->db->all('SELECT idp, nazev, seo_link, poradi, zobrazit, jazyk, datum, smazano, valid_until, review_by FROM {kolekce_polozky} WHERE idk = ? AND smazano IS ' . ($trash ? 'NOT NULL' : 'NULL')
-                . ($column !== null ? ' AND jazyk = ?' : '') . ' ORDER BY ' . ($trash ? 'smazano DESC' : 'jazyk, poradi, nazev'), $column !== null ? [$k['idk'], $column] : [$k['idk']])]);
+                . ($column !== null ? ' AND jazyk = ?' : '') . ' ORDER BY ' . ($trash ? 'smazano DESC' : 'jazyk, poradi, ' . $this->db->sortText('nazev')), $column !== null ? [$k['idk'], $column] : [$k['idk']])]);
     }
 
     protected function actionItem(): Response
@@ -620,7 +620,7 @@ final class Collections extends Module
     /** Moves an item to the trash (admin and MCP); returns whether it was there to move. */
     public static function trashItem(\Kaleta\Core\Db $db, int $idp, int $idk): bool
     {
-        $moved = $db->run('UPDATE {kolekce_polozky} SET smazano = NOW(), zobrazit = 0 WHERE idp = ? AND idk = ? AND smazano IS NULL', [$idp, $idk])->rowCount() > 0;
+        $moved = $db->run('UPDATE {kolekce_polozky} SET smazano = ?, zobrazit = 0 WHERE idp = ? AND idk = ? AND smazano IS NULL', [\Kaleta\Core\Clock::now(), $idp, $idk])->rowCount() > 0;
         \Kaleta\Front\Cache::clear();
 
         return $moved;
@@ -634,7 +634,7 @@ final class Collections extends Module
     /** Items longer than 30 days in the trash are deleted permanently (with pages and news, on an admin visit). */
     public static function emptyTrash(\Kaleta\Core\Db $db): void
     {
-        $db->run('DELETE FROM {kolekce_polozky} WHERE smazano < NOW() - INTERVAL 30 DAY');
+        $db->run('DELETE FROM {kolekce_polozky} WHERE smazano < ?', [\Kaleta\Core\Clock::at('-30 days')]);
     }
 
     /* ---------- item template in the builder (administrator) ---------- */
@@ -717,7 +717,7 @@ final class Collections extends Module
             ];
         }
         // preview on the first item in the template's language (an additional language has URLs /<language>/…)
-        $seo = $this->db->value('SELECT seo_link FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND zobrazit = 1 AND smazano IS NULL ORDER BY poradi, nazev LIMIT 1', [$k['idk'], $language]);
+        $seo = $this->db->value('SELECT seo_link FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND zobrazit = 1 AND smazano IS NULL ORDER BY poradi, ' . $this->db->sortText('nazev') . ' LIMIT 1', [$k['idk'], $language]);
         $url = $this->app->url(($language !== '' ? $language . '/' : '') . $k['seo_link'] . '/' . ($seo ?? '_ukazka'));
 
         return [

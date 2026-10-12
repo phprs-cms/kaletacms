@@ -104,7 +104,7 @@ final class Webhook
     {
         $db = $settings->db();
         $delivered = 0;
-        foreach ($db->all('SELECT id, event, url, body, attempts, next_attempt FROM {webhook_deliveries} WHERE next_attempt IS NOT NULL AND next_attempt <= NOW() AND body IS NOT NULL ORDER BY id LIMIT ' . max(1, $maxCount)) as $w) {
+        foreach ($db->all('SELECT id, event, url, body, attempts, next_attempt FROM {webhook_deliveries} WHERE next_attempt IS NOT NULL AND next_attempt <= ? AND body IS NOT NULL ORDER BY id LIMIT ' . max(1, $maxCount), [Clock::now()]) as $w) {
             $attempt = (int) $w['attempts'] + 1;
             $next = isset(self::RETRY_DELAYS[$attempt - 1]) ? date('Y-m-d H:i:s', time() + self::RETRY_DELAYS[$attempt - 1] * 60) : null;
             // claim the call first: a concurrent request then does not send it a second time
@@ -123,7 +123,7 @@ final class Webhook
             }
         }
         if (random_int(1, 20) === 1) {
-            $db->run('DELETE FROM {webhook_deliveries} WHERE created < NOW() - INTERVAL 30 DAY'); // enquiry data must not stay forever
+            $db->run('DELETE FROM {webhook_deliveries} WHERE created < ?', [Clock::at('-30 days')]); // enquiry data must not stay forever
         }
 
         return $delivered;
@@ -132,7 +132,7 @@ final class Webhook
     /** A failed call (given up, the body still kept) goes out once more with the next processing. */
     public static function retry(Db $db, int $id): bool
     {
-        return $db->run('UPDATE {webhook_deliveries} SET next_attempt = NOW() WHERE id = ? AND delivered IS NULL AND body IS NOT NULL', [$id])->rowCount() > 0;
+        return $db->run('UPDATE {webhook_deliveries} SET next_attempt = ? WHERE id = ? AND delivered IS NULL AND body IS NOT NULL', [Clock::now(), $id])->rowCount() > 0;
     }
 
     /** The secret signing the calls; created the first time it is needed. */
@@ -184,8 +184,8 @@ final class Webhook
             return;
         }
         $c = $app->db()->one(
-            'SELECT c.*, t.nazev AS kategorie FROM {novinky} c JOIN {kategorie} t ON t.idt = c.tema WHERE c.idc = ? AND c.visible = 1 AND c.datum <= NOW() AND c.noindex = 0',
-            [$idc],
+            'SELECT c.*, t.nazev AS kategorie FROM {novinky} c JOIN {kategorie} t ON t.idt = c.tema WHERE c.idc = ? AND c.visible = 1 AND c.datum <= ? AND c.noindex = 0',
+            [$idc, Clock::now()],
         );
         if ($c === null) {
             return; // a draft or a news item scheduled for the future

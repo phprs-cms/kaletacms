@@ -519,7 +519,7 @@ final class Facts
         try {
             if ($what === 'news') {
                 $count = Extensions::isEnabled($app->settings(), 'novinky')
-                    ? (int) $db->value('SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND smazano IS NULL AND jazyk = ?', [$language]) : null;
+                    ? (int) $db->value('SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= ? AND smazano IS NULL AND jazyk = ?', [Clock::now(), $language]) : null;
             } elseif (preg_match('/^[a-z0-9][a-z0-9-]{0,109}$/D', $what) && $db->one('SELECT idk FROM {kolekce} WHERE seo_link = ?', [$what]) !== null) {
                 $count = (int) $db->value('SELECT COUNT(*) FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.seo_link = ? AND p.zobrazit = 1 AND p.smazano IS NULL AND p.jazyk = ?', [$what, $language]);
             }

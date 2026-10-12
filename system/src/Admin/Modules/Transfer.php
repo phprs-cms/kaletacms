@@ -270,7 +270,7 @@ final class Transfer extends Module
         return $this->view('preview', 'Import from WordPress', [
             'state' => $state,
             'languages' => array_merge([Language::defaults($settings)], Language::additional($settings)),
-            'categories' => $this->db->all('SELECT idt, nazev, jazyk FROM {kategorie} ORDER BY jazyk, nazev'),
+            'categories' => $this->db->all('SELECT idt, nazev, jazyk FROM {kategorie} ORDER BY jazyk, ' . $this->db->sortText('nazev')),
             'redirectsEnabled' => \Kaleta\Core\Extensions::isEnabled($settings, 'presmerovani'),
             // 3.11 (UX310-16): into a site that is already live, the import arrives hidden unless the person chooses otherwise
             'hiddenByDefault' => $this->db->value('SELECT 1 FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL LIMIT 1') !== null,
@@ -474,8 +474,8 @@ final class Transfer extends Module
             'state' => $state,
             'source' => Sources::byKey($state['zdroj']),
             'languages' => array_merge([Language::defaults($settings)], Language::additional($settings)),
-            'categories' => $this->db->all('SELECT idt, nazev, jazyk FROM {kategorie} ORDER BY jazyk, nazev'),
-            'users' => $this->db->all('SELECT idu, jmeno, user FROM {uzivatele} WHERE blokovat = 0 ORDER BY jmeno, user'),
+            'categories' => $this->db->all('SELECT idt, nazev, jazyk FROM {kategorie} ORDER BY jazyk, ' . $this->db->sortText('nazev')),
+            'users' => $this->db->all('SELECT idu, jmeno, user FROM {uzivatele} WHERE blokovat = 0 ORDER BY ' . $this->db->sortText('jmeno') . ', user'),
             'redirectsEnabled' => \Kaleta\Core\Extensions::isEnabled($settings, 'presmerovani'),
         ]);
     }

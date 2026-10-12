@@ -97,7 +97,7 @@ final class Whistleblowing
         }
 
         return array_map(fn (array $r): array => ['idu' => (int) $r['idu'], 'name' => (string) ($r['jmeno'] !== '' ? $r['jmeno'] : $r['user']), 'email' => (string) $r['email']],
-            $db->all('SELECT idu, user, jmeno, email FROM {uzivatele} WHERE blokovat = 0 AND idu IN (' . implode(',', array_fill(0, count($ids), '?')) . ') ORDER BY jmeno, user', $ids));
+            $db->all('SELECT idu, user, jmeno, email FROM {uzivatele} WHERE blokovat = 0 AND idu IN (' . implode(',', array_fill(0, count($ids), '?')) . ') ORDER BY ' . $db->sortText('jmeno') . ', user', $ids));
     }
 
     /**
@@ -450,7 +450,7 @@ final class Whistleblowing
         $app->db()->insert('whistleblowing_messages', ['case_id' => $caseId, 'sender' => $from, 'text' => self::encrypt($app->settings(), mb_substr($text, 0, self::MAX_MESSAGE)), 'created_at' => date('Y-m-d H:i:s')]);
         if ($from === 'handler') {
             // the first answer of the handler is the acknowledgement of receipt
-            $app->db()->run("UPDATE {whistleblowing_cases} SET acknowledged_at = COALESCE(acknowledged_at, NOW()), status = IF(status = 'received', 'acknowledged', status) WHERE id = ?", [$caseId]);
+            $app->db()->run("UPDATE {whistleblowing_cases} SET acknowledged_at = COALESCE(acknowledged_at, ?), status = IF(status = 'received', 'acknowledged', status) WHERE id = ?", [Clock::now(), $caseId]);
         }
 
         return true;
@@ -464,7 +464,7 @@ final class Whistleblowing
         $data = ['status' => $status, 'closed_at' => $status === 'closed' ? date('Y-m-d H:i:s') : null];
         $app->db()->update('whistleblowing_cases', $data, ['id' => $caseId]);
         if ($status !== 'received') {
-            $app->db()->run('UPDATE {whistleblowing_cases} SET acknowledged_at = COALESCE(acknowledged_at, NOW()) WHERE id = ?', [$caseId]);
+            $app->db()->run('UPDATE {whistleblowing_cases} SET acknowledged_at = COALESCE(acknowledged_at, ?) WHERE id = ?', [Clock::now(), $caseId]);
         }
         $number = (string) $app->db()->value('SELECT number FROM {whistleblowing_cases} WHERE id = ?', [$caseId]);
         ChangeLog::write($app, 'whistleblowing', 'status', $number . ': ' . $status); // the number and the status only
@@ -502,7 +502,7 @@ final class Whistleblowing
         self::forgetAddresses($db);
         $months = $s->int('whistleblowing_retention_months') ?: self::DEFAULT_RETENTION_MONTHS;
         $purged = 0;
-        foreach ($db->all("SELECT * FROM {whistleblowing_cases} WHERE status = 'closed' AND closed_at IS NOT NULL AND closed_at < NOW() - INTERVAL ? MONTH", [$months]) as $case) {
+        foreach ($db->all("SELECT * FROM {whistleblowing_cases} WHERE status = 'closed' AND closed_at IS NOT NULL AND closed_at < ?", [Clock::monthsAgo($months)]) as $case) {
             self::delete($app, $case);
             $purged++;
         }

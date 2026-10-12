@@ -21,7 +21,7 @@ final class Components
     /** @return list<array<string, mixed>> */
     public static function all(Db $db): array
     {
-        return array_map(self::extract(...), $db->all('SELECT * FROM {komponenty} ORDER BY nazev'));
+        return array_map(self::extract(...), $db->all('SELECT * FROM {komponenty} ORDER BY ' . $db->sortText('nazev')));
     }
 
     /** @return array<string, mixed>|null */

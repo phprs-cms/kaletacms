@@ -109,7 +109,7 @@ trait BuilderActions
             'barvy' => DesignSystem::load($app->settings())['barvy'],
             // options for the link field: site pages (with the language prefix) and news; the editor adds anchors on the page
             'odkazy' => [...array_map(fn (array $s): array => ['/' . ($s['jazyk'] !== '' ? $s['jazyk'] . '/' : '') . ((int) $s['ids'] === $app->settings()->int('home_page') ? '' : $s['seo_link']), $s['titulek'] . ($s['zobrazit'] ? '' : ' (' . t('hidden') . ')')],
-                $this->db->all('SELECT ids, titulek, seo_link, jazyk, zobrazit FROM {stranky} WHERE smazano IS NULL ORDER BY jazyk, poradi, titulek LIMIT 300')), ['/' . \Kaleta\Core\Routes::publicPath('novinky', \Kaleta\Core\Language::defaults($app->settings()), $this->db), t('Novinky')]],
+                $this->db->all('SELECT ids, titulek, seo_link, jazyk, zobrazit FROM {stranky} WHERE smazano IS NULL ORDER BY jazyk, poradi, ' . $this->db->sortText('titulek') . ' LIMIT 300')), ['/' . \Kaleta\Core\Routes::publicPath('novinky', \Kaleta\Core\Language::defaults($app->settings()), $this->db), t('Novinky')]],
             'nahled' => $e['nahled'],
             'smer' => Language::dir(Language::ofContent($app->settings(), (string) $target['jazyk'])), // rtl: the content fields follow the text (the canvas has its own <html dir>)
             'komentare' => $this->commentsForEditor((string) ($e['podpis'] ?? '')), // comments from shared previews (2.15); null = this target has none (components have no signed preview)
@@ -314,7 +314,7 @@ trait BuilderActions
     public static function listMySections(\Kaleta\Core\Db $db): array
     {
         return array_values(array_filter(array_map(fn (array $r): ?array => is_array($p = json_decode((string) $r['prvek'], true)) ? ['id' => (int) $r['idx'], 'nazev' => $r['nazev'], 'prvek' => $p] : null,
-            $db->all('SELECT idx, nazev, prvek FROM {sekce} ORDER BY nazev LIMIT 200'))));
+            $db->all('SELECT idx, nazev, prvek FROM {sekce} ORDER BY ' . $db->sortText('nazev') . ' LIMIT 200'))));
     }
 
     /** Saves the selected element to the custom section library (it goes through the validator like every build). */

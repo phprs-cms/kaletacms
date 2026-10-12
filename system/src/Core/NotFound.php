@@ -40,7 +40,7 @@ final class NotFound
         $db = $app->db();
         $audit = new Audit($app);
         $out = [];
-        foreach ($db->all('SELECT cesta, pocet, naposledy FROM {nenalezeno} WHERE ignorovano IS NULL AND naposledy > NOW() - INTERVAL ? DAY AND pocet >= ? ORDER BY pocet DESC, naposledy DESC LIMIT 500', [$days, self::HITS]) as $r) {
+        foreach ($db->all('SELECT cesta, pocet, naposledy FROM {nenalezeno} WHERE ignorovano IS NULL AND naposledy > ? AND pocet >= ? ORDER BY pocet DESC, naposledy DESC LIMIT 500', [Clock::at('-' . $days . ' days'), self::HITS]) as $r) {
             $path = (string) $r['cesta'];
             if (self::isBot($path) || $audit->resolves('/' . $path)) {
                 $db->delete('nenalezeno', ['cesta' => $path]); // nothing to do about it any more
@@ -64,7 +64,7 @@ final class NotFound
         }
         $count = 0;
         foreach ($paths as $path) {
-            $count += $db->run('UPDATE {nenalezeno} SET ignorovano = NOW() WHERE cesta = ? AND ignorovano IS NULL', [trim((string) $path, '/')])->rowCount();
+            $count += $db->run('UPDATE {nenalezeno} SET ignorovano = ? WHERE cesta = ? AND ignorovano IS NULL', [Clock::now(), trim((string) $path, '/')])->rowCount();
         }
 
         return $count;

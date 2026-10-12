@@ -58,7 +58,7 @@ trait HealthTools
         $since = (int) ($a['since_id'] ?? 0);
         $db = $this->app->db();
         if ($since <= 0 && ($a['days'] ?? null) !== null) {
-            $since = (int) $db->value('SELECT COALESCE(MAX(id), 0) FROM {events} WHERE created_at < NOW() - INTERVAL ? DAY', [max(1, min(180, (int) $a['days']))]);
+            $since = (int) $db->value('SELECT COALESCE(MAX(id), 0) FROM {events} WHERE created_at < ?', [\Kaleta\Core\Clock::at('-' . max(1, min(180, (int) $a['days'])) . ' days')]);
         }
         $events = Events::since($db, $since, $types, $limit, $severity);
 

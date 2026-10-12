@@ -104,7 +104,7 @@ final class Guardrails
         $batch = "'" . implode("','", [...array_keys(self::BATCH_ROWS), ...self::COUNTED_AFTER]) . "'";
 
         return (int) $app->db()->value("SELECT COALESCE(SUM(CASE WHEN akce IN ($batch) AND popis REGEXP '^[0-9]+ rows' THEN CAST(SUBSTRING_INDEX(popis, ' ', 1) AS UNSIGNED) ELSE 1 END), 0)"
-            . " FROM {protokol} WHERE modul = 'claude' AND via = ? AND cas > NOW() - INTERVAL 1 HOUR", [$connection]);
+            . " FROM {protokol} WHERE modul = 'claude' AND via = ? AND cas > ?", [$connection, Clock::at('-1 hour')]);
     }
 
     /**

@@ -51,7 +51,7 @@ final class Hours
     public static function exceptions(Db $db, bool $pastToo = false): array
     {
         try {
-            $rows = $db->all('SELECT * FROM {hours_exceptions} WHERE proposed = 0' . ($pastToo ? '' : ' AND date_to >= CURDATE()') . ' ORDER BY date_from, id LIMIT 200');
+            $rows = $db->all('SELECT * FROM {hours_exceptions} WHERE proposed = 0' . ($pastToo ? '' : ' AND date_to >= ?') . ' ORDER BY date_from, id LIMIT 200', $pastToo ? [] : [Clock::today()]);
         } catch (\Throwable) {
             return []; // before the 2.10 migration
         }
@@ -84,7 +84,7 @@ final class Hours
     public static function proposed(Db $db): array
     {
         try {
-            return array_map(self::row(...), $db->all('SELECT * FROM {hours_exceptions} WHERE proposed = 1 AND date_to >= CURDATE() ORDER BY date_from, id LIMIT 200'));
+            return array_map(self::row(...), $db->all('SELECT * FROM {hours_exceptions} WHERE proposed = 1 AND date_to >= ? ORDER BY date_from, id LIMIT 200', [Clock::today()]));
         } catch (\Throwable) {
             return []; // before the 3.2 migration
         }

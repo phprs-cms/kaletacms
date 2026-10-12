@@ -264,21 +264,21 @@ final class Audit
         $db = $this->app->db();
         $home = (int) $this->app->settings()->get('home_page');
         $message = fn (string $day): string => t('Asked for a review by %s.', format_date($day));
-        foreach ($db->all('SELECT ids, titulek, seo_link, jazyk, review_by FROM {stranky} WHERE review_by IS NOT NULL AND review_by <= CURDATE() AND smazano IS NULL ORDER BY review_by') as $p) {
+        foreach ($db->all('SELECT ids, titulek, seo_link, jazyk, review_by FROM {stranky} WHERE review_by IS NOT NULL AND review_by <= ? AND smazano IS NULL ORDER BY review_by', [Clock::today()]) as $p) {
             $this->add('review', t('Page “%s”', $p['titulek']), $message((string) $p['review_by']), 'admin.php?module=pages&action=edit&id=' . (int) $p['ids'],
                 (int) $p['ids'] === $home ? '' : ($p['jazyk'] !== '' ? $p['jazyk'] . '/' : '') . $p['seo_link'], ['page' => (int) $p['ids']]);
         }
         if (Extensions::isEnabled($this->app->settings(), 'novinky')) {
-            foreach ($db->all('SELECT idc, titulek, seo_link, jazyk, review_by FROM {novinky} WHERE review_by IS NOT NULL AND review_by <= CURDATE() AND smazano IS NULL ORDER BY review_by') as $c) {
+            foreach ($db->all('SELECT idc, titulek, seo_link, jazyk, review_by FROM {novinky} WHERE review_by IS NOT NULL AND review_by <= ? AND smazano IS NULL ORDER BY review_by', [Clock::today()]) as $c) {
                 $this->add('review', t('News item “%s”', $c['titulek']), $message((string) $c['review_by']), 'admin.php?module=news&action=edit&id=' . (int) $c['idc'],
                     $this->relative($this->app->newsItemUrl((string) $c['seo_link'], (string) $c['jazyk'])), ['news' => (int) $c['idc']]);
             }
         }
-        foreach ($db->all('SELECT p.idp, p.idk, p.nazev, p.seo_link, p.jazyk, p.review_by, k.seo_link AS kolekce, k.nazev AS kolekce_nazev, k.detail FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE p.review_by IS NOT NULL AND p.review_by <= CURDATE() AND p.smazano IS NULL ORDER BY p.review_by') as $p) {
+        foreach ($db->all('SELECT p.idp, p.idk, p.nazev, p.seo_link, p.jazyk, p.review_by, k.seo_link AS kolekce, k.nazev AS kolekce_nazev, k.detail FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE p.review_by IS NOT NULL AND p.review_by <= ? AND p.smazano IS NULL ORDER BY p.review_by', [Clock::today()]) as $p) {
             $this->add('review', t('Item “%s” (%s)', $p['nazev'], $p['kolekce_nazev']), $message((string) $p['review_by']), 'admin.php?module=collections&action=item&id=' . (int) $p['idk'] . '&item=' . (int) $p['idp'],
                 $p['detail'] ? ($p['jazyk'] !== '' ? $p['jazyk'] . '/' : '') . $p['kolekce'] . '/' . $p['seo_link'] : null, ['collection' => (string) $p['kolekce'], 'item' => (int) $p['idp']]);
         }
-        foreach ($db->all('SELECT idpp, nazev, review_by FROM {popupy} WHERE review_by IS NOT NULL AND review_by <= CURDATE() ORDER BY review_by') as $c) {
+        foreach ($db->all('SELECT idpp, nazev, review_by FROM {popupy} WHERE review_by IS NOT NULL AND review_by <= ? ORDER BY review_by', [Clock::today()]) as $c) {
             $this->add('review', t('Pop-up “%s”', $c['nazev']), $message((string) $c['review_by']), 'admin.php?module=popups&action=edit&id=' . (int) $c['idpp'], null, ['popup' => (int) $c['idpp']]);
         }
     }
@@ -290,7 +290,7 @@ final class Audit
     private function jobs(): void
     {
         foreach ($this->app->db()->all('SELECT p.idp, p.idk, p.nazev, p.seo_link, p.jazyk, k.seo_link AS kolekce, k.nazev AS kolekce_nazev, k.detail FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk'
-            . ' WHERE k.preset = ? AND p.zobrazit = 1 AND p.smazano IS NULL AND p.valid_until IS NULL ORDER BY p.nazev', [Jobs::PRESET]) as $p) {
+            . ' WHERE k.preset = ? AND p.zobrazit = 1 AND p.smazano IS NULL AND p.valid_until IS NULL ORDER BY ' . $this->app->db()->sortText('p.nazev'), [Jobs::PRESET]) as $p) {
             $this->add('job', t('Item “%s” (%s)', $p['nazev'], $p['kolekce_nazev']), t('Job opening without a closing date – set “Visible until” to the application deadline: the job then hides itself and search engines get validThrough, which they need to tell an open job from an expired one.'),
                 'admin.php?module=collections&action=item&id=' . (int) $p['idk'] . '&item=' . (int) $p['idp'],
                 $p['detail'] ? ($p['jazyk'] !== '' ? $p['jazyk'] . '/' : '') . $p['kolekce'] . '/' . $p['seo_link'] : null, ['collection' => (string) $p['kolekce'], 'item' => (int) $p['idp']]);
@@ -301,7 +301,7 @@ final class Audit
     private function documents(): void
     {
         foreach ($this->app->db()->all('SELECT p.idp, p.idk, p.nazev, p.seo_link, p.jazyk, p.valid_until, k.seo_link AS kolekce, k.nazev AS kolekce_nazev, k.detail FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk'
-            . ' WHERE k.preset = ? AND p.zobrazit = 1 AND p.smazano IS NULL AND p.valid_until IS NOT NULL AND p.valid_until BETWEEN CURDATE() AND CURDATE() + INTERVAL ? DAY ORDER BY p.valid_until', [Documents::PRESET, Documents::EXPIRY_WARNING_DAYS]) as $p) {
+            . ' WHERE k.preset = ? AND p.zobrazit = 1 AND p.smazano IS NULL AND p.valid_until IS NOT NULL AND p.valid_until BETWEEN ? AND ? ORDER BY p.valid_until', [Documents::PRESET, Clock::today(), Clock::day('+' . Documents::EXPIRY_WARNING_DAYS . ' days')]) as $p) {
             $this->add('document', t('Item “%s” (%s)', $p['nazev'], $p['kolekce_nazev']), t('The document is true until %s – upload the new edition or move the date; the day after, it hides itself and its download address stops working.', format_date((string) $p['valid_until'])),
                 'admin.php?module=collections&action=item&id=' . (int) $p['idk'] . '&item=' . (int) $p['idp'],
                 $p['detail'] ? ($p['jazyk'] !== '' ? $p['jazyk'] . '/' : '') . $p['kolekce'] . '/' . $p['seo_link'] : null, ['collection' => (string) $p['kolekce'], 'item' => (int) $p['idp']]);

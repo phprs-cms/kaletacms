@@ -43,7 +43,15 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 		<option value="<?= e($timeZone) ?>"<?= $values['time_zone'] === $timeZone ? ' selected' : '' ?>><?= e(str_replace('_', ' ', $timeZone)) ?></option>
 <?php endforeach ?>
 	</select>
-	<span class="napoveda"><?= e(t('Scheduled news is published and dates are shown according to it. It is now %s.', format_date(new DateTimeImmutable(), true))) ?> <?= e(t('Changing it does not convert dates already saved: they keep their clock time.')) ?></span></div>
+	<span class="napoveda"><?= e(t('Scheduled news is published and dates are shown according to it. It is now %s.', format_date(new DateTimeImmutable(), true))) ?> <?= e(t('When you change it, you choose whether the dates already saved are converted to the new zone or keep their clock time.')) ?></span>
+<?php if (($zoneConversion = Kaleta\Core\TimeZoneConversion::latest($app->db())) !== null && ($zoneConversion['finished_at'] === null || strtotime((string) $zoneConversion['finished_at']) > time() - 86400)): ?>
+<?php $zoneTables = $zoneConversion['tables']; $zoneDone = count(array_filter($zoneTables, fn (array $r): bool => $r['finished_at'] !== null)); $zoneValues = array_sum(array_map(fn (array $r): int => (int) $r['values_done'], $zoneTables)); $zoneAmbiguous = array_sum(array_map(fn (array $r): int => (int) $r['ambiguous'], $zoneTables)); ?>
+	<p class="napoveda"><?= e($zoneConversion['finished_at'] === null
+		? t('Converting saved dates from %s to %s: %d of %d tables done, %d values so far. The background jobs continue it.', (string) $zoneConversion['from_zone'], (string) $zoneConversion['to_zone'], $zoneDone, count($zoneTables), $zoneValues)
+		: t('Saved dates were converted from %s to %s: %d values in %d tables.', (string) $zoneConversion['from_zone'], (string) $zoneConversion['to_zone'], $zoneValues, count($zoneTables))) ?>
+<?php if ($zoneAmbiguous > 0): ?> <?= e(t('%d of them were in the hour that repeats when daylight saving time ends; the first of the two hours was taken.', $zoneAmbiguous)) ?><?php endif ?></p>
+<?php endif ?>
+	</div>
 </div>
 <div class="radek">
 	<label for="site_language"><?= e(t('Jazyk webu')) ?></label>

@@ -45,7 +45,7 @@ final class Mail
                 'dalsi_pokus' => $ok || !$queueOnFailure ? null : date('Y-m-d H:i:s', time() + self::RETRY_DELAYS[0] * 60),
             ]);
             if (random_int(1, 50) === 1) {
-                $siteSettings->db()->run('DELETE FROM {posta} WHERE vytvoreno < NOW() - INTERVAL 30 DAY');
+                $siteSettings->db()->run('DELETE FROM {posta} WHERE vytvoreno < ?', [Clock::at('-30 days')]);
             }
         } catch (\Throwable) {
             // the mail log must not break sending (e.g. before the migration runs, the table does not exist yet)
@@ -115,7 +115,7 @@ final class Mail
     {
         $db = $siteSettings->db();
         $sent = 0;
-        foreach ($db->all('SELECT * FROM {posta} WHERE odeslano IS NULL AND telo IS NOT NULL AND dalsi_pokus <= NOW() ORDER BY idp LIMIT ' . max(1, $maxCount)) as $z) {
+        foreach ($db->all('SELECT * FROM {posta} WHERE odeslano IS NULL AND telo IS NOT NULL AND dalsi_pokus <= ? ORDER BY idp LIMIT ' . max(1, $maxCount), [Clock::now()]) as $z) {
             $body = json_decode((string) $z['telo'], true) ?: [];
             $attempt = (int) $z['pokusu'] + 1;
             // claim the message first: a concurrent request (the background jobs, Mail::afterResponse) then does not send it a second time

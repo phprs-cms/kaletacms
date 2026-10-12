@@ -119,7 +119,7 @@ final class Popups
     /** @return list<array<string, mixed>> */
     public static function all(Db $db): array
     {
-        return array_map(self::prepare(...), $db->all('SELECT * FROM {popupy} ORDER BY poradi, nazev'));
+        return array_map(self::prepare(...), $db->all('SELECT * FROM {popupy} ORDER BY poradi, ' . $db->sortText('nazev')));
     }
 
     /**

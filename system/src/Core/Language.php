@@ -319,6 +319,7 @@ final class Language
         self::setSiteRegister($s->get('german_register'));
         self::set($code);
         self::$column = self::column($s, self::$code);
+        Collation::setLanguage(self::$code); // lists of the version sort in its alphabet (3.12)
     }
 
     /**

@@ -61,8 +61,8 @@ final class Auth
     {
         // Slowing down password guessing: at most 10 attempts from one address per 15 minutes
         $attempts = (int) $this->db->value(
-            "SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'login' AND ip_adresa = ? AND cas > NOW() - INTERVAL 15 MINUTE",
-            [Antispam::hash($address)],
+            "SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'login' AND ip_adresa = ? AND cas > ?",
+            [Antispam::hash($address), Clock::at('-15 minutes')],
         );
         if ($attempts >= 10) {
             return t('Too many sign-in attempts. Try again in 15 minutes.');
@@ -183,7 +183,7 @@ final class Auth
         if (!$this->isAwaitingCode()) {
             return t('The sign-in has expired, please start again.');
         }
-        $attempts = (int) $this->db->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'login' AND ip_adresa = ? AND cas > NOW() - INTERVAL 15 MINUTE", [Antispam::hash($ip)]);
+        $attempts = (int) $this->db->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'login' AND ip_adresa = ? AND cas > ?", [Antispam::hash($ip), Clock::at('-15 minutes')]);
         if ($attempts >= 10) {
             return t('Too many attempts. Try again in 15 minutes.');
         }
@@ -253,7 +253,7 @@ final class Auth
         if (!$this->isAwaitingCode()) {
             return t('The sign-in has expired, please start again.');
         }
-        $attempts = (int) $this->db->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'login' AND ip_adresa = ? AND cas > NOW() - INTERVAL 15 MINUTE", [Antispam::hash($ip)]);
+        $attempts = (int) $this->db->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'login' AND ip_adresa = ? AND cas > ?", [Antispam::hash($ip), Clock::at('-15 minutes')]);
         if ($attempts >= 10) {
             return t('Too many attempts. Try again in 15 minutes.');
         }

@@ -141,7 +141,7 @@ final class Events
     public static function problems(Db $db, int $hours = 168): array
     {
         $out = [];
-        foreach ($db->all("SELECT type, COUNT(*) AS n FROM {events} WHERE severity IN ('warning', 'error') AND created_at > NOW() - INTERVAL ? HOUR GROUP BY type ORDER BY n DESC", [$hours]) as $r) {
+        foreach ($db->all("SELECT type, COUNT(*) AS n FROM {events} WHERE severity IN ('warning', 'error') AND created_at > ? GROUP BY type ORDER BY n DESC", [Clock::at('-' . $hours . ' hours')]) as $r) {
             $out[(string) $r['type']] = (int) $r['n'];
         }
 
@@ -150,6 +150,6 @@ final class Events
 
     public static function prune(Db $db): void
     {
-        $db->run('DELETE FROM {events} WHERE created_at < NOW() - INTERVAL ? DAY', [self::KEEP_DAYS]);
+        $db->run('DELETE FROM {events} WHERE created_at < ?', [Clock::at('-' . self::KEEP_DAYS . ' days')]);
     }
 }

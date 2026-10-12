@@ -157,17 +157,17 @@ final class Components extends Module
         $pattern = '%"typ":"komponenta"%"komponenta":"' . $idm . '"%';
         $whereParts = ' WHERE (stavba LIKE ? OR stavba_koncept LIKE ?)';
         $usages = [];
-        foreach ($this->db->all('SELECT titulek, smazano IS NOT NULL AS kos FROM {stranky}' . $whereParts . ' ORDER BY smazano IS NOT NULL, titulek', [$pattern, $pattern]) as $r) {
+        foreach ($this->db->all('SELECT titulek, smazano IS NOT NULL AS kos FROM {stranky}' . $whereParts . ' ORDER BY smazano IS NOT NULL, ' . $this->db->sortText('titulek'), [$pattern, $pattern]) as $r) {
             $usages[] = t('page “%s”', $r['titulek']) . ($r['kos'] ? ' (' . t('in trash') . ')' : '');
         }
         foreach ($this->db->all('SELECT typ, jazyk, nazev FROM {casti}' . $whereParts . ' ORDER BY typ, jazyk, varianta', [$pattern, $pattern]) as $r) {
             $usages[] = mb_strtolower(t(\Kaleta\Builder\SiteParts::TYPES[$r['typ']][0] ?? $r['typ'])) . ($r['nazev'] !== '' ? ' „' . $r['nazev'] . '“' : '') . ($r['jazyk'] !== '' ? ' (' . $r['jazyk'] . ')' : '');
         }
-        foreach ($this->db->all('SELECT nazev FROM {kolekce}' . $whereParts . ' ORDER BY nazev', [$pattern, $pattern]) as $r) {
+        foreach ($this->db->all('SELECT nazev FROM {kolekce}' . $whereParts . ' ORDER BY ' . $this->db->sortText('nazev'), [$pattern, $pattern]) as $r) {
             $usages[] = t('collection detail “%s”', $r['nazev']);
         }
         // a component inside itself does not count (and is not even rendered on the site)
-        foreach ($this->db->all('SELECT nazev FROM {komponenty}' . $whereParts . ' AND idm <> ? ORDER BY nazev', [$pattern, $pattern, $idm]) as $r) {
+        foreach ($this->db->all('SELECT nazev FROM {komponenty}' . $whereParts . ' AND idm <> ? ORDER BY ' . $this->db->sortText('nazev'), [$pattern, $pattern, $idm]) as $r) {
             $usages[] = t('component “%s”', $r['nazev']);
         }
 

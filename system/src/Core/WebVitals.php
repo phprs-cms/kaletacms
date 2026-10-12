@@ -111,7 +111,7 @@ final class WebVitals
         }
         $antispam->write($request->ip(), 'vitals', 0);
         // only pages the statistics have seen (the page view is counted before the beacon arrives) – no rows for made-up addresses
-        if ((int) $db->value('SELECT COUNT(*) FROM {stat_stranky} WHERE cesta = ? AND den >= CURDATE() - INTERVAL 1 DAY', [$path]) === 0) {
+        if ((int) $db->value('SELECT COUNT(*) FROM {stat_stranky} WHERE cesta = ? AND den >= ?', [$path, Clock::day('-1 day')]) === 0) {
             return new Response('', 204);
         }
         $today = date('Y-m-d');
@@ -120,7 +120,7 @@ final class WebVitals
                 [$today, $path, $metric, self::bucket($metric, $value)]);
         }
         if (random_int(1, 200) === 1) {
-            $db->run('DELETE FROM {web_vitals} WHERE day < CURDATE() - INTERVAL 400 DAY');
+            $db->run('DELETE FROM {web_vitals} WHERE day < ?', [Clock::day('-400 days')]);
         }
 
         return new Response('', 204);

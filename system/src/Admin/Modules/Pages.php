@@ -73,7 +73,7 @@ final class Pages extends Module
             array_push($params, $pattern, $pattern);
         }
 
-        $pages = $this->db->all('SELECT * FROM {stranky} WHERE ' . implode(' AND ', $where) . ' ORDER BY ' . ($trash ? 'smazano DESC' : 'jazyk, poradi, titulek'), $params);
+        $pages = $this->db->all('SELECT * FROM {stranky} WHERE ' . implode(' AND ', $where) . ' ORDER BY ' . ($trash ? 'smazano DESC' : 'jazyk, poradi, ' . $this->db->sortText('titulek')), $params);
 
         // column "V navigaci" (In navigation): with a custom menu by the menu items (the page or a link to its URL), otherwise the flag v_menu
         foreach ($pages as &$s) {
@@ -181,7 +181,7 @@ final class Pages extends Module
                 'zobrazit' => $this->db->update('stranky', ['zobrazit' => 1, 'show_on_publish' => 0, 'zverejnit_od' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['ids' => $id]),
                 'skryt' => $this->db->update('stranky', ['zobrazit' => 0, 'show_on_publish' => 0, 'zmeneno' => date('Y-m-d H:i:s')], ['ids' => $id]),
                 'jazyk' => $this->db->update('stranky', ['jazyk' => $language, 'preklad_z' => $language === '' ? null : $page['preklad_z'], 'zmeneno' => date('Y-m-d H:i:s')], ['ids' => $id]),
-                default => $this->db->run('UPDATE {stranky} SET smazano = NOW(), zobrazit = 0, show_on_publish = 0 WHERE ids = ?', [$id]),
+                default => $this->db->run('UPDATE {stranky} SET smazano = ?, zobrazit = 0, show_on_publish = 0 WHERE ids = ?', [\Kaleta\Core\Clock::now(), $id]),
             };
             \Kaleta\Admin\ChangeLog::write($this->app, 'pages', 'bulk ' . ['zobrazit' => 'shown', 'skryt' => 'hidden', 'jazyk' => 'language ' . ($language ?: 'default'), 'kos' => 'moved to trash'][$action], mb_substr($page['titulek'], 0, 80));
             $done++;
@@ -595,7 +595,7 @@ final class Pages extends Module
         if ($ids === $this->app->settings()->int('home_page')) {
             return $this->back('The home page cannot be deleted. First choose another home page in Settings → General.', '', [], 'chyba');
         }
-        $this->db->run('UPDATE {stranky} SET smazano = NOW(), zobrazit = 0, show_on_publish = 0 WHERE ids = ? AND smazano IS NULL', [$ids]);
+        $this->db->run('UPDATE {stranky} SET smazano = ?, zobrazit = 0, show_on_publish = 0 WHERE ids = ? AND smazano IS NULL', [\Kaleta\Core\Clock::now(), $ids]);
 
         return $this->back(t('The page is in the trash. You can restore it for %d days.', self::TRASH_DAYS));
     }
@@ -653,7 +653,7 @@ final class Pages extends Module
     /** Pages in the trash longer than TRASH_DAYS are deleted permanently (called by Admin\Kernel). */
     public static function emptyTrash(\Kaleta\Core\Db $db): int
     {
-        return $db->run('DELETE FROM {stranky} WHERE smazano < NOW() - INTERVAL ' . self::TRASH_DAYS . ' DAY')->rowCount();
+        return $db->run('DELETE FROM {stranky} WHERE smazano < ?', [\Kaleta\Core\Clock::at('-' . self::TRASH_DAYS . ' days')])->rowCount();
     }
 
     /** Copy of the page including the build and the work-in-progress draft – hidden, with a free slug. */

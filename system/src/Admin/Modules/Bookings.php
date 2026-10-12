@@ -51,7 +51,7 @@ final class Bookings extends Module
         return $this->view('list', 'Bookings', ['byDay' => $byDay, 'shown' => $view, 'filter' => $filter, 'services' => Booking::services($this->db, false), 'staff' => Booking::staff($this->db, false),
             'settings' => ['lead' => $s->int('booking_lead_hours'), 'horizon' => $s->int('booking_horizon_days'), 'cancel' => $s->int('booking_cancel_hours'), 'reminder' => $s->int('booking_reminder_hours'), 'hold' => $s->int('booking_hold_hours'),
                 'pendingThanks' => $s->get('booking_pending_thanks'), 'pendingMail' => $s->get('booking_pending_mail'), 'declinedMail' => $s->get('booking_declined_mail')],
-            'waiting' => (int) $this->db->value("SELECT COUNT(*) FROM {bookings} WHERE status = 'pending' AND ends_at > NOW()"),
+            'waiting' => (int) $this->db->value("SELECT COUNT(*) FROM {bookings} WHERE status = 'pending' AND ends_at > ?", [\Kaleta\Core\Clock::now()]),
             // the set-up card (3.5): person → service → booking page, and a warning when visitors could book nothing soon
             'setup' => Booking::setup($this->db), 'noFreeTime' => Booking::noFreeTime($this->app),
             'months' => $s->int('enquiries_months'), 'expiry' => $s->get('enquiries_expiry') === 'anonymise' ? 'anonymise' : 'delete', 'isAdmin' => $this->app->auth()->isAdmin()]);

@@ -35,7 +35,7 @@ final class Categories extends Module
 
         return $db->all(
             'SELECT t.*, (SELECT COUNT(*) FROM {novinky} c WHERE c.tema = t.idt AND c.smazano IS NULL) AS pocet_clanku
-             FROM {kategorie} t' . $whereParts . ' ORDER BY t.hodnost DESC, t.nazev',
+             FROM {kategorie} t' . $whereParts . ' ORDER BY t.hodnost DESC, ' . $db->sortText('t.nazev', $filter && $language !== '' ? $language : null),
             $filter ? [(string) $language] : [],
         );
     }

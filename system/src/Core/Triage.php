@@ -112,7 +112,7 @@ final class Triage
         $db = $app->db();
         $done = 0;
         $failed = '';
-        foreach ($db->all("SELECT * FROM {poptavky} WHERE triaged_by = '' AND datum > NOW() - INTERVAL 7 DAY ORDER BY idp LIMIT " . self::PER_RUN) as $enquiry) {
+        foreach ($db->all("SELECT * FROM {poptavky} WHERE triaged_by = '' AND datum > ? ORDER BY idp LIMIT " . self::PER_RUN, [Clock::at('-7 days')]) as $enquiry) {
             try {
                 $result = $assistant->triage(self::text($enquiry), (string) $settings->get('site_name'));
             } catch (\RuntimeException $e) {

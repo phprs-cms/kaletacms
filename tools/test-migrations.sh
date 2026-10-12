@@ -74,6 +74,17 @@ expect_sql "3.9 (0083): language values read back unchanged" "SELECT GROUP_CONCA
 expect_sql "3.10 (0085): an existing connection and code keep all tools and their access" "SELECT CONCAT((SELECT CONCAT(access, ':', tool_set) FROM ka_api_tokeny WHERE idu = 9085), '|', (SELECT CONCAT(access, ':', tool_set) FROM ka_oauth_kody WHERE idu = 9085))" "drafts:all|read:all"
 "${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_api_tokeny WHERE idu = 9085; DELETE FROM ka_oauth_kody WHERE idu = 9085"
 
+# 3.12 (0092): tokens, hashes and client ids are ASCII binary on an upgraded site as on a fresh one (the structure check
+# above compares the type, not the collation), the values stay, and a lookup by token still uses its unique key
+tokencols() { "${MYSQL[@]}" -N -e "SELECT GROUP_CONCAT(CONCAT(TABLE_NAME, '.', COLUMN_NAME, ':', COLUMN_TYPE, ':', IS_NULLABLE, ':', COALESCE(COLUMN_DEFAULT, 'NULL')) ORDER BY TABLE_NAME, COLUMN_NAME) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '$1' AND COLLATION_NAME = 'ascii_bin'"; }
+[ "$(tokencols "$OLD")" = "$(tokencols "$NEW")" ] && [ "$(tokencols "$OLD" | tr ',' '\n' | grep -c .)" = 20 ] && echo "  ok     3.12 (0092): the 20 token and hash columns are ascii_bin, as on a fresh install" || { echo "  CHYBA  0092 token columns: $(tokencols "$OLD")"; ERRORS=$((ERRORS+1)); }
+"${MYSQL[@]}" "$OLD" -e "SET FOREIGN_KEY_CHECKS = 0; INSERT INTO ka_api_tokeny (idu, nazev, klient, druh, otisk, vytvoren) VALUES (9092, 'Claude', REPEAT('a', 32), 'token', REPEAT('9', 64), '$(site_time)'); SET FOREIGN_KEY_CHECKS = 1"
+expect_sql "3.12 (0092): a token reads back by its hash and the client id compares exactly (no case folding)" "SELECT CONCAT((SELECT COUNT(*) FROM ka_api_tokeny WHERE otisk = REPEAT('9', 64)), (SELECT COUNT(*) FROM ka_api_tokeny WHERE idu = 9092 AND klient = REPEAT('A', 32)))" "10"
+# MySQL 8 prints the tree format by default (MariaDB has no such variable – --force goes on); the key is named either way
+"${MYSQL[@]}" --force "$OLD" -e "SET SESSION explain_format = 'TRADITIONAL'; EXPLAIN SELECT idt FROM ka_api_tokeny WHERE otisk = REPEAT('9', 64)" 2>/dev/null | grep -q uq_tokeny_otisk \
+  && echo "  ok     3.12 (0092): the lookup by token hash uses uq_tokeny_otisk" || { echo "  CHYBA  0092: the token lookup does not use its key"; ERRORS=$((ERRORS+1)); }
+"${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_api_tokeny WHERE idu = 9092"
+
 # 3.2 (0073): a site as 3.1.1 left it gets the new feature defaults – Bookings and Whistleblowing stay on where they are in
 # use and are off where not; Statistics are off where the old "stats" setting was off. The data migration runs again by name.
 site_311() { "${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_bookings; DELETE FROM ka_booking_services; DELETE FROM ka_whistleblowing_cases;

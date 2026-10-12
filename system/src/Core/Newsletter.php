@@ -74,7 +74,7 @@ final class Newsletter
     /** Retry abandoned tasks right away. */
     public static function retry(App $app): int
     {
-        return $app->db()->run('UPDATE {odber_fronta} SET dalsi = NOW(), pokusy = 0 WHERE dalsi IS NULL')->rowCount();
+        return $app->db()->run('UPDATE {odber_fronta} SET dalsi = ?, pokusy = 0 WHERE dalsi IS NULL', [Clock::now()])->rowCount();
     }
 
     /** Sends the tasks whose turn has come (called by the background cleanup). @return int number processed */
@@ -86,7 +86,7 @@ final class Newsletter
         }
         $db = $app->db();
         $done = 0;
-        foreach ($db->all('SELECT * FROM {odber_fronta} WHERE dalsi IS NOT NULL AND dalsi <= NOW() ORDER BY idf LIMIT ' . max(1, $limit)) as $u) {
+        foreach ($db->all('SELECT * FROM {odber_fronta} WHERE dalsi IS NOT NULL AND dalsi <= ? ORDER BY idf LIMIT ' . max(1, $limit), [Clock::now()]) as $u) {
             try {
                 self::apply($s, (string) $u['email'], (string) $u['akce'], (string) $db->value('SELECT zdroj FROM {odberatele} WHERE email = ?', [$u['email']]));
                 $db->delete('odber_fronta', ['idf' => $u['idf']]);

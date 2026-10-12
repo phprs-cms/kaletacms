@@ -119,7 +119,7 @@ class Settings extends Module
     /** @return array<string, string> address => name of every collection, for the screen mode checkboxes */
     private function screenCollections(): array
     {
-        return array_map('strval', $this->db->pairs('SELECT seo_link, nazev FROM {kolekce} ORDER BY nazev'));
+        return array_map('strval', $this->db->pairs('SELECT seo_link, nazev FROM {kolekce} ORDER BY ' . $this->db->sortText('nazev')));
     }
 
     /** Invalid values: a message with the field names as the user sees them, and the entered values back into the highlighted fields. */
@@ -177,7 +177,7 @@ class Settings extends Module
             'webhookSecret' => $tab === 'webhooks' ? \Kaleta\Core\Webhook::secret($settings) : '',
             'deliveries' => $tab === 'webhooks' ? $this->db->all('SELECT id, event, url, attempts, status, error, created, next_attempt, delivered, body IS NOT NULL AS resendable FROM {webhook_deliveries} ORDER BY id DESC LIMIT 30') : [],
             'enabledExtensions' => Extensions::enabled($settings),
-            'pages' => $tab === 'general' ? $this->db->pairs("SELECT ids, titulek FROM {stranky} WHERE zobrazit = 1 AND jazyk = '' ORDER BY poradi, titulek") : [],
+            'pages' => $tab === 'general' ? $this->db->pairs("SELECT ids, titulek FROM {stranky} WHERE zobrazit = 1 AND jazyk = '' ORDER BY poradi, " . $this->db->sortText('titulek')) : [],
             'screenCollections' => $tab === 'general' ? $this->screenCollections() : [],
             'screenUrl' => $tab === 'general' ? \Kaleta\Front\Screen::url($this->app) : '',
             'backups' => $tab === 'backups' ? Backup::listAll() : [],
@@ -185,7 +185,7 @@ class Settings extends Module
             'siteUrl' => $this->app->request->origin() . $this->app->url(''),
             'shareImages' => \Kaleta\Front\ShareImage::available(), // the SEO tab says when the server cannot draw them (2.12)
             'firewall' => $tab === 'firewall' ? [
-                'blocks' => $this->db->all('SELECT ip, until, reason FROM {firewall_blocks} WHERE until > NOW() ORDER BY until DESC LIMIT 100'),
+                'blocks' => $this->db->all('SELECT ip, until, reason FROM {firewall_blocks} WHERE until > ? ORDER BY until DESC LIMIT 100', [\Kaleta\Core\Clock::now()]),
                 'log' => $this->db->all('SELECT created_at, ip, reason, path FROM {firewall_log} ORDER BY id DESC LIMIT 50'),
                 'ip' => \Kaleta\Core\Firewall::visitorIp($this->request->serverValues(), $settings->get('firewall_proxy')),
                 'country' => \Kaleta\Core\Firewall::country($this->request->serverValues(), $settings->get('firewall_proxy')),
@@ -202,7 +202,7 @@ class Settings extends Module
                 'kit' => $settings->bool('fleet_kit'), 'kitVersion' => $settings->int('fleet_kit_version'), 'kitApplied' => $settings->int('fleet_kit_applied_at'),
                 'kitError' => $settings->get('fleet_kit_error'), 'kitWaiting' => \Kaleta\Fleet\Kit::waiting($this->db, $settings),
             ] : [],
-            'consents' => $tab === 'cookies' ? $this->db->all("SELECT kategorie, COUNT(*) AS pocet FROM {souhlasy} WHERE cas > NOW() - INTERVAL 30 DAY GROUP BY kategorie ORDER BY pocet DESC") : [],
+            'consents' => $tab === 'cookies' ? $this->db->all("SELECT kategorie, COUNT(*) AS pocet FROM {souhlasy} WHERE cas > ? GROUP BY kategorie ORDER BY pocet DESC", [\Kaleta\Core\Clock::at('-30 days')]) : [],
             'cookieTable' => $tab === 'cookies' ? \Kaleta\Core\Privacy::cookieTable($this->app) : [],
             'cookieScan' => $tab === 'cookies' ? \Kaleta\Core\Privacy::lastScan($settings) : [],
             'statementPage' => $tab === 'cookies' && $settings->int('accessibility_statement_page') > 0
@@ -221,6 +221,7 @@ class Settings extends Module
         $given = [];
         $reason = ''; // why the news URL was refused (Core\Routes::slugError)
         $zoneBefore = $settings->get('time_zone');
+        $newZone = ''; // 3.12: a new time zone is confirmed on its own screen (actionTimeZone)
         foreach ($this->fields($tab) as $key => $type) {
             if (\Kaleta\Core\Demo::active() && \Kaleta\Core\Demo::blocksSetting($key, $type)) {
                 continue; // the public demo keeps code fields, secret keys and the site e-mail as they are
@@ -247,6 +248,10 @@ class Settings extends Module
                 continue;
             }
             $clean = self::sanitize($type, $value, $this->request->postBool($key));
+            if ($key === 'time_zone' && $clean !== null && $clean !== $zoneBefore) {
+                $newZone = $clean; // saved only after the administrator chooses what happens to the dates already saved
+                continue;
+            }
             if ($key === 'slugs_per_language') {
                 // the database keys change with it; switching off is refused while two language versions share a slug
                 if (($refusal = \Kaleta\Core\Slug::switchPerLanguage($this->db, $settings, $clean === '1')) !== null) {
@@ -300,14 +305,63 @@ class Settings extends Module
             \Kaleta\Front\Screen::ensureSecret($settings, $this->request->postBool('novy_token_obrazovka'));
         }
 
-        if ($errors === [] && $settings->get('time_zone') !== $zoneBefore) {
-            // 3.10 (data model §6): stored dates are wall time and are not converted – a scheduled item keeps its clock time
-            return $this->back(t('Settings saved. The time zone changed from %s to %s: dates already saved keep their clock time and are not converted, so check scheduled pages and news.', $zoneBefore, $settings->get('time_zone')), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'info');
+        if ($errors === [] && $newZone !== '') {
+            // 3.12 (data model §6): the dates are wall time – the next screen offers to convert them or to keep their clock time
+            return $this->back(t('Settings saved. Now confirm the new time zone and choose what happens to the dates already saved.'), 'time_zone', ['zone' => $newZone], 'info');
         }
 
         return $errors === []
             ? $this->back('Settings saved.', '', static::IDENT === 'settings' ? ['tab' => $tab] : [])
             : $this->rejectInvalid($tab, $errors, $given, $reason);
+    }
+
+    /**
+     * A new time zone (3.12, docs/design/4.0-data-model.md §6, Core\TimeZoneConversion): the screen asks whether the saved
+     * moments move to the new zone's clock ("Convert saved dates") or stay as written ("Keep their clock time"); the POST
+     * sets the zone, writes the change log and converts the first batches at once – the background job finishes the rest.
+     */
+    protected function actionTimeZone(): Response
+    {
+        $settings = $this->app->settings();
+        $from = $settings->get('time_zone');
+        $to = $this->request->isPost() ? $this->request->post('zone') : $this->request->get('zone');
+        if (static::IDENT !== 'settings' || $to === $from || !in_array($to, \DateTimeZone::listIdentifiers(), true)) {
+            return $this->back('', '', ['tab' => 'general']);
+        }
+        if (\Kaleta\Core\TimeZoneConversion::running($this->db) !== null) {
+            return $this->back(t('Saved dates are still being converted after the last time zone change. Change the zone again when that has finished.'), '', ['tab' => 'general'], 'chyba');
+        }
+        if (!$this->request->isPost()) {
+            return $this->view('time_zone', 'Time zone', ['from' => $from, 'to' => $to]);
+        }
+        if (!in_array($this->request->post('choice'), ['convert', 'keep'], true)) {
+            return $this->back('', 'time_zone', ['zone' => $to]);
+        }
+        $settings->set('time_zone', $to);
+        $this->app->applyTimezone(); // the rest of this request (the change log, the messages) runs on the new clock
+        if ($this->request->post('choice') === 'keep') {
+            \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'time_zone', $from . ' → ' . $to . ': saved dates keep their clock time');
+
+            return $this->back(t('The time zone is now %s. Dates already saved keep their clock time.', $to), '', ['tab' => 'general']);
+        }
+        \Kaleta\Core\TimeZoneConversion::start($this->db, $from, $to, $this->app->auth()->id() ?: null);
+        \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'time_zone', $from . ' → ' . $to . ': converting saved dates');
+        // the first batches right away, under the background jobs' lock, so no job writes into a table half converted
+        $state = null;
+        if ((int) $this->db->value('SELECT GET_LOCK(?, 10)', [\Kaleta\Core\Scheduler::LOCK]) === 1) {
+            try {
+                $state = \Kaleta\Core\TimeZoneConversion::run($this->db, 8.0);
+            } finally {
+                $this->db->value('SELECT RELEASE_LOCK(?)', [\Kaleta\Core\Scheduler::LOCK]);
+            }
+        }
+        if ($state !== null && $state['finished_now']) {
+            \Kaleta\Core\TimeZoneConversion::logFinished($this->app, $state);
+        }
+
+        return $this->back($state !== null && $state['done']
+            ? t('The time zone is now %s. Saved dates were converted: %d values in %d tables.', $to, $state['values'], $state['tables'])
+            : t('The time zone is now %s. Saved dates are being converted in the background – the progress is under the time zone below.', $to), '', ['tab' => 'general']);
     }
 
     protected function actionBackup(): Response

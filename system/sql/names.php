@@ -125,4 +125,7 @@ return [
     'booking_off' => ['booking_off', []],
     'bookings' => ['bookings', []],
     'booking_proposals' => ['booking_proposals', []],
+    // a time zone change that converts the saved moments (3.12)
+    'time_zone_conversions' => ['time_zone_conversions', []],
+    'time_zone_progress' => ['time_zone_progress', []],
 ];

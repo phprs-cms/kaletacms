@@ -73,10 +73,11 @@ final class PendingReview
         switch ($kind) {
             case 'requests_done':
                 // marked done with a note from Claude: the requester reviews the drafts it links
-                $where = "FROM {requests} r WHERE r.status = 'done' AND r.done_at >= NOW() - INTERVAL " . self::REQUEST_DAYS . ' DAY'
+                $where = "FROM {requests} r WHERE r.status = 'done' AND r.done_at >= ?"
                     . " AND EXISTS (SELECT 1 FROM {request_messages} m WHERE m.request_id = r.id AND m.sender = 'claude')";
+                $since = [Clock::at('-' . self::REQUEST_DAYS . ' days')];
 
-                return [(int) $db->value('SELECT COUNT(*) ' . $where), 'admin.php?module=requests&status=done', $titles($db->all('SELECT r.title ' . $where . ' ORDER BY r.done_at DESC' . $limit), 'title')];
+                return [(int) $db->value('SELECT COUNT(*) ' . $where, $since), 'admin.php?module=requests&status=done', $titles($db->all('SELECT r.title ' . $where . ' ORDER BY r.done_at DESC' . $limit, $since), 'title')];
             case 'page_drafts':
                 $where = 'FROM {stranky} WHERE stavba_koncept IS NOT NULL AND smazano IS NULL';
 
@@ -99,17 +100,19 @@ final class PendingReview
                     return null; // an author's drafts wait for an editor, not for the author
                 }
                 $where = 'FROM {novinky} c WHERE c.visible = 0 AND c.smazano IS NULL' . $auth->articleScope('c.')
-                    . ' AND (COALESCE(c.zmeneno, c.datum) >= NOW() - INTERVAL ' . self::ITEM_DAYS . ' DAY OR ' . \Kaleta\Admin\Modules\News::AWAITING_PUBLICATION . ')';
+                    . ' AND (COALESCE(c.zmeneno, c.datum) >= ? OR ' . \Kaleta\Admin\Modules\News::AWAITING_PUBLICATION . ')';
+                $since = [Clock::at('-' . self::ITEM_DAYS . ' days')];
 
-                return [(int) $db->value('SELECT COUNT(*) ' . $where), 'admin.php?module=news&status=koncepty', $titles($db->all('SELECT c.titulek ' . $where . ' ORDER BY COALESCE(c.zmeneno, c.datum) DESC' . $limit), 'titulek')];
+                return [(int) $db->value('SELECT COUNT(*) ' . $where, $since), 'admin.php?module=news&status=koncepty', $titles($db->all('SELECT c.titulek ' . $where . ' ORDER BY COALESCE(c.zmeneno, c.datum) DESC' . $limit, $since), 'titulek')];
             case 'hidden_items':
                 // hidden and not scheduled: a draft of an item (Claude's, a testimonial that arrived, a colleague's)
                 $where = 'FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE p.zobrazit = 0 AND p.smazano IS NULL AND p.zverejnit_od IS NULL'
-                    . ' AND COALESCE(p.zmeneno, p.datum) >= NOW() - INTERVAL ' . self::ITEM_DAYS . ' DAY';
-                $collections = array_map(intval(...), array_column($db->all('SELECT DISTINCT p.idk ' . $where), 'idk'));
+                    . ' AND COALESCE(p.zmeneno, p.datum) >= ?';
+                $since = [Clock::at('-' . self::ITEM_DAYS . ' days')];
+                $collections = array_map(intval(...), array_column($db->all('SELECT DISTINCT p.idk ' . $where, $since), 'idk'));
 
-                return [(int) $db->value('SELECT COUNT(*) ' . $where), count($collections) === 1 ? 'admin.php?module=collections&action=items&id=' . $collections[0] : 'admin.php?module=collections',
-                    array_map(fn (array $r): string => $r['nazev'] . ' (' . $r['kolekce'] . ')', $db->all('SELECT p.nazev, k.nazev AS kolekce ' . $where . ' ORDER BY COALESCE(p.zmeneno, p.datum) DESC' . $limit))];
+                return [(int) $db->value('SELECT COUNT(*) ' . $where, $since), count($collections) === 1 ? 'admin.php?module=collections&action=items&id=' . $collections[0] : 'admin.php?module=collections',
+                    array_map(fn (array $r): string => $r['nazev'] . ' (' . $r['kolekce'] . ')', $db->all('SELECT p.nazev, k.nazev AS kolekce ' . $where . ' ORDER BY COALESCE(p.zmeneno, p.datum) DESC' . $limit, $since))];
             case 'proposed_hours':
                 $proposed = Hours::proposed($db);
 

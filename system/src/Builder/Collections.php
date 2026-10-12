@@ -91,7 +91,7 @@ final class Collections
     /** @return list<array<string, mixed>> */
     public static function all(Db $db): array
     {
-        return array_map(self::extract(...), $db->all('SELECT * FROM {kolekce} ORDER BY nazev'));
+        return array_map(self::extract(...), $db->all('SELECT * FROM {kolekce} ORDER BY ' . $db->sortText('nazev')));
     }
 
     /** @return array<string, mixed>|null */
@@ -330,13 +330,14 @@ final class Collections
             $params = [...$params, ...$categories];
         }
         $byField = preg_match(self::KEY_PATTERN, $sortField) === 1;
+        $name = $db->sortText('nazev'); // names and text fields in the alphabet of the site language (3.12, Core\Collation)
         $order = match (true) {
-            $sort === 'nazev' => 'nazev',
+            $sort === 'nazev' => $name,
             $sort === 'nejnovejsi' => 'datum DESC, idp DESC',
             // numbers sort as numbers, everything else as text
-            $sort === 'pole' && $byField => '(' . $field($sortField) . ' + 0) ASC, ' . $field($sortField) . ' ASC, nazev',
-            $sort === 'pole_sestupne' && $byField => '(' . $field($sortField) . ' + 0) DESC, ' . $field($sortField) . ' DESC, nazev',
-            default => 'poradi, nazev',
+            $sort === 'pole' && $byField => '(' . $field($sortField) . ' + 0) ASC, ' . $db->sortText($field($sortField)) . ' ASC, ' . $name,
+            $sort === 'pole_sestupne' && $byField => '(' . $field($sortField) . ' + 0) DESC, ' . $db->sortText($field($sortField)) . ' DESC, ' . $name,
+            default => 'poradi, ' . $name,
         };
         $count = max(1, min(100, $count));
         $total = (int) $db->value('SELECT COUNT(*) FROM {kolekce_polozky} WHERE ' . $whereParts, $params);
@@ -373,10 +374,12 @@ final class Collections
             [$down, $up] = ['datum DESC, idp DESC', 'datum, idp'];
         } else {
             $key = [(int) $item['poradi'], (string) $item['nazev'], (int) $item['idp']];
-            $before = '(poradi < ? OR (poradi = ? AND nazev < ?) OR (poradi = ? AND nazev = ? AND idp < ?))';
-            $after = '(poradi > ? OR (poradi = ? AND nazev > ?) OR (poradi = ? AND nazev = ? AND idp > ?))';
+            // the name compares in the order the list shows (3.12, Core\Collation) – a sort key on one table, not a lookup
+            $name = $db->sortText('nazev');
+            $before = '(poradi < ? OR (poradi = ? AND ' . $name . ' < ?) OR (poradi = ? AND ' . $name . ' = ? AND idp < ?))';
+            $after = '(poradi > ? OR (poradi = ? AND ' . $name . ' > ?) OR (poradi = ? AND ' . $name . ' = ? AND idp > ?))';
             $keyParams = [$key[0], $key[0], $key[1], $key[0], $key[1], $key[2]];
-            [$down, $up] = ['poradi DESC, nazev DESC, idp DESC', 'poradi, nazev, idp'];
+            [$down, $up] = ['poradi DESC, ' . $name . ' DESC, idp DESC', 'poradi, ' . $name . ', idp'];
         }
         $find = fn (string $condition, string $order): ?array => $db->one('SELECT * FROM {kolekce_polozky} WHERE ' . $where . ' AND ' . $condition . ' ORDER BY ' . $order . ' LIMIT 1', [...$params, ...$keyParams]);
 
@@ -532,7 +535,7 @@ final class Collections
     {
         $collection = $collectionSlug !== '' ? self::bySlug($db, $collectionSlug) : null;
 
-        return $collection === null ? [] : $db->pairs("SELECT seo_link, nazev FROM {kolekce_polozky} WHERE idk = ? AND jazyk = '' AND smazano IS NULL ORDER BY nazev", [(int) $collection['idk']]);
+        return $collection === null ? [] : $db->pairs("SELECT seo_link, nazev FROM {kolekce_polozky} WHERE idk = ? AND jazyk = '' AND smazano IS NULL ORDER BY " . $db->sortText('nazev'), [(int) $collection['idk']]);
     }
 
     /** Sample values for the editor when the collection has no items yet: field labels in square brackets. */

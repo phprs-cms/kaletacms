@@ -42,6 +42,24 @@ final class Clock
         return self::toDb(new \DateTimeImmutable($modifier, self::zone()));
     }
 
+    /**
+     * Now minus whole months on the site's clock, as NOW() - INTERVAL n MONTH counts them: a day the shorter month does not
+     * have becomes its last day (31 March minus one month = 28 February, where PHP's '-1 month' would give 3 March).
+     */
+    public static function monthsAgo(int $months): string
+    {
+        $now = new \DateTimeImmutable('now', self::zone());
+        $month = $now->modify('first day of this month')->modify('-' . $months . ' months');
+
+        return $month->setDate((int) $month->format('Y'), (int) $month->format('n'), min((int) $now->format('j'), (int) $month->format('t')))->format(self::FORMAT);
+    }
+
+    /** A day relative to today on the site's clock ('-14 days', '+30 days'), for comparisons that would use CURDATE() - INTERVAL. */
+    public static function day(string $modifier): string
+    {
+        return (new \DateTimeImmutable('today ' . $modifier, self::zone()))->format('Y-m-d');
+    }
+
     /** The site's time zone (PHP's default zone, which App::applyTimezone sets from the time_zone setting). */
     public static function zone(): \DateTimeZone
     {

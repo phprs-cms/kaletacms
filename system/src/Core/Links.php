@@ -62,11 +62,12 @@ final class Links
     private static function nextSource(App $app): ?array
     {
         $db = $app->db();
-        $due = '(%1$s IS NULL OR %1$s < NOW() - INTERVAL 30 DAY) ORDER BY %1$s IS NOT NULL, %1$s';
+        $due = '(%1$s IS NULL OR %1$s < ?) ORDER BY %1$s IS NOT NULL, %1$s';
+        $before = Clock::at('-30 days');
         $rows = [
-            'news' => $db->one('SELECT idc AS id, uvod, text, odkazy_cas AS checked FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND smazano IS NULL AND ' . sprintf($due, 'odkazy_cas') . ', datum DESC LIMIT 1'),
-            'page' => $db->one('SELECT ids AS id, text, stavba, links_checked AS checked FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL AND ' . sprintf($due, 'links_checked') . ', ids LIMIT 1'),
-            'item' => $db->one('SELECT idp AS id, data, links_checked AS checked FROM {kolekce_polozky} WHERE zobrazit = 1 AND smazano IS NULL AND ' . sprintf($due, 'links_checked') . ', idp LIMIT 1'),
+            'news' => $db->one('SELECT idc AS id, uvod, text, odkazy_cas AS checked FROM {novinky} WHERE visible = 1 AND datum <= ? AND smazano IS NULL AND ' . sprintf($due, 'odkazy_cas') . ', datum DESC LIMIT 1', [Clock::now(), $before]),
+            'page' => $db->one('SELECT ids AS id, text, stavba, links_checked AS checked FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL AND ' . sprintf($due, 'links_checked') . ', ids LIMIT 1', [$before]),
+            'item' => $db->one('SELECT idp AS id, data, links_checked AS checked FROM {kolekce_polozky} WHERE zobrazit = 1 AND smazano IS NULL AND ' . sprintf($due, 'links_checked') . ', idp LIMIT 1', [$before]),
         ];
         $kind = null;
         $row = null;

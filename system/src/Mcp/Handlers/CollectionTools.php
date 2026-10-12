@@ -192,7 +192,7 @@ trait CollectionTools
             $whereParts[] = 'idp IN (SELECT idp FROM {collection_item_categories} WHERE category_id IN (' . implode(',', array_fill(0, count($ids), '?')) . '))';
             $args = [...$args, ...$ids];
         }
-        $rows = $db->all('SELECT * FROM {kolekce_polozky} WHERE ' . implode(' AND ', $whereParts) . ' ORDER BY poradi, nazev LIMIT 5000', $args);
+        $rows = $db->all('SELECT * FROM {kolekce_polozky} WHERE ' . implode(' AND ', $whereParts) . ' ORDER BY poradi, ' . $db->sortText('nazev') . ' LIMIT 5000', $args);
         $withCategories = CollectionCategories::has($db, (int) $collection['idk']);
         if (is_string($a['pole'] ?? null) && $a['pole'] !== '') {
             // exact match of a field value (JSON in the database – filtered here, without depending on the MySQL version)

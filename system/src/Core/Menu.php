@@ -48,8 +48,8 @@ final class Menu
 
             return;
         }
-        $db->run('INSERT INTO {menu} (umisteni, jazyk, polozky, zmeneno) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE polozky = VALUES(polozky), zmeneno = NOW()',
-            [$location, $language, (string) json_encode(self::sanitize($items), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]);
+        $db->run('INSERT INTO {menu} (umisteni, jazyk, polozky, zmeneno) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE polozky = VALUES(polozky), zmeneno = VALUES(zmeneno)',
+            [$location, $language, (string) json_encode(self::sanitize($items), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), Clock::now()]);
     }
 
     /**
@@ -121,7 +121,7 @@ final class Menu
     {
         $db = $app->db();
         $pages = [];
-        foreach ($db->all('SELECT ids, titulek, seo_link, v_menu FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL AND jazyk = ? ORDER BY poradi, titulek', [$language]) as $s) {
+        foreach ($db->all('SELECT ids, titulek, seo_link, v_menu FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL AND jazyk = ? ORDER BY poradi, ' . $db->sortText('titulek', $language === '' ? null : $language), [$language]) as $s) {
             $pages[(int) $s['ids']] = $s;
         }
         $url = fn (array $s): string => $app->url((int) $s['ids'] === $home ? '' : $s['seo_link']);

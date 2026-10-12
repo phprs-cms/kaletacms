@@ -53,7 +53,7 @@ final class RedirectMatcher
         }
         if (Extensions::isEnabled($s, 'novinky')) {
             $base = strlen($app->request->basePath());
-            foreach ($db->all('SELECT seo_link, jazyk FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND smazano IS NULL ORDER BY datum DESC LIMIT 3000') as $c) {
+            foreach ($db->all('SELECT seo_link, jazyk FROM {novinky} WHERE visible = 1 AND datum <= ? AND smazano IS NULL ORDER BY datum DESC LIMIT 3000', [Clock::now()]) as $c) {
                 $out[] = ltrim(substr($app->newsItemUrl((string) $c['seo_link'], (string) $c['jazyk']), $base), '/');
             }
         }

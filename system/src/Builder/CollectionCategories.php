@@ -46,7 +46,7 @@ final class CollectionCategories
     {
         $rows = $db->all('SELECT c.id, c.parent_id, c.image, c.sort_order, c.visible, t.name, t.slug, t.description, t.seo_title, t.seo_description
             FROM {collection_categories} c JOIN {collection_category_texts} t ON t.category_id = c.id AND t.language = ?
-            WHERE c.idk = ?' . ($visibleOnly ? ' AND c.visible = 1' : '') . ' ORDER BY c.sort_order, t.name, c.id', [$language, $idk]);
+            WHERE c.idk = ?' . ($visibleOnly ? ' AND c.visible = 1' : '') . ' ORDER BY c.sort_order, ' . $db->sortText('t.name', $language === '' ? null : $language) . ', c.id', [$language, $idk]);
         $top = [];
         $children = [];
         foreach ($rows as $r) {

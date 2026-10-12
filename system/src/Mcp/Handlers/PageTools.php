@@ -42,7 +42,7 @@ trait PageTools
             'mail' => ['sending' => $siteSettings->get('mail_mode') === 'smtp' && $siteSettings->get('smtp_host') !== '' ? 'smtp' : 'server',
                 'service' => \Kaleta\Core\MailServices::name(\Kaleta\Core\MailServices::current($siteSettings)) ?: null],
             'stranek' => (int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE smazano IS NULL'),
-            'novinek_vydanych' => (int) $db->value('SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND smazano IS NULL'),
+            'novinek_vydanych' => (int) $db->value('SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= ? AND smazano IS NULL', [\Kaleta\Core\Clock::now()]),
             'uzivatel' => $auth->user()['user'], 'role' => \Kaleta\Core\Auth::TYPES[(int) $auth->user()['admin']], 'smi_vydavat' => $auth->canPublish(),
             'smi_upravovat_stranky' => $auth->hasModule('pages'),
             // what this connection may do (2.2): full, drafts (reads and drafts, never publishes) or read
@@ -78,7 +78,7 @@ trait PageTools
             . $this->app->url(($r['jazyk'] !== '' ? $r['jazyk'] . '/' : '') . ((int) $r['ids'] === $home || ($home > 0 && (int) $r['preklad_z'] === $home) ? '' : $r['seo_link'])),
             'uvodni' => (int) $r['ids'] === $home, 'zobrazena' => (bool) $r['zobrazit'], 'v_menu' => (bool) $r['v_menu'], 'jazyk' => $r['jazyk']],
             // without the Pages section (news author) only published pages – it can link to those, it does not see drafts
-            $db->all('SELECT ids, titulek, seo_link, zobrazit, v_menu, jazyk, preklad_z FROM {stranky} WHERE smazano IS NULL' . $auth->pageListScope() . ' ORDER BY jazyk, poradi, titulek'));
+            $db->all('SELECT ids, titulek, seo_link, zobrazit, v_menu, jazyk, preklad_z FROM {stranky} WHERE smazano IS NULL' . $auth->pageListScope() . ' ORDER BY jazyk, poradi, ' . $db->sortText('titulek')));
     }
 
     /** get_page (nacti_stranku) */
@@ -168,7 +168,7 @@ trait PageTools
         if ((int) $page['ids'] === $siteSettings->int('home_page')) {
             throw new \DomainException('Úvodní stránku smazat nejde – nejdřív nastav jinou (uprav_nastaveni → titulni_stranka).');
         }
-        $db->run('UPDATE {stranky} SET smazano = NOW(), zobrazit = 0, show_on_publish = 0 WHERE ids = ? AND smazano IS NULL', [(int) $page['ids']]);
+        $db->run('UPDATE {stranky} SET smazano = ?, zobrazit = 0, show_on_publish = 0 WHERE ids = ? AND smazano IS NULL', [\Kaleta\Core\Clock::now(), (int) $page['ids']]);
         \Kaleta\Front\Cache::clear();
 
         return ['id' => (int) $page['ids'], 'stav' => 'v koši – obnovit jde 30 dní v administraci (Stránky → Koš)'];
@@ -198,7 +198,7 @@ trait PageTools
         return ['umisteni' => $location, 'jazyk' => $menuLanguage, 'automaticke' => $saved === null, 'polozky' => $saved ?? [],
             'look_draft' => $inDraft ? 'the items are in the draft look – visitors see them after publish_look' : null,
             'na_webu' => \Kaleta\Core\Menu::items($this->app, $location, $menuLanguage, $siteSettings->int('home_page')),
-            'stranky' => $db->all('SELECT ids, titulek, zobrazit FROM {stranky} WHERE jazyk = ? AND smazano IS NULL ORDER BY poradi, titulek', [$menuLanguage])];
+            'stranky' => $db->all('SELECT ids, titulek, zobrazit FROM {stranky} WHERE jazyk = ? AND smazano IS NULL ORDER BY poradi, ' . $db->sortText('titulek', $menuLanguage === '' ? null : $menuLanguage), [$menuLanguage])];
     }
 
     /** save_menu: the same as get_menu */

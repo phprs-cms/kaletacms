@@ -124,7 +124,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <?= $app->view->render('admin/content_check', ['results' => $contentCheck]) ?>
 <?php endif ?>
 </details>
-<?= $app->view->render('admin/language_field', ['app' => $app, 'value' => (string) ($page['jazyk'] ?? ''), 'translationOf' => (int) ($page['preklad_z'] ?? 0), 'originals' => $app->db()->pairs("SELECT ids, titulek FROM {stranky} WHERE jazyk = '' AND smazano IS NULL ORDER BY titulek"), 'hint' => '']) ?>
+<?= $app->view->render('admin/language_field', ['app' => $app, 'value' => (string) ($page['jazyk'] ?? ''), 'translationOf' => (int) ($page['preklad_z'] ?? 0), 'originals' => $app->db()->pairs("SELECT ids, titulek FROM {stranky} WHERE jazyk = '' AND smazano IS NULL ORDER BY " . $app->db()->sortText('titulek')), 'hint' => '']) ?>
 <div class="radek">
 	<span class="popisek"><?= e(t('Display')) ?></span>
 	<div class="volby">

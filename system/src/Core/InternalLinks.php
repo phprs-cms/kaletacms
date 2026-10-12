@@ -76,7 +76,7 @@ final class InternalLinks
         foreach ($db->all('SELECT stavba FROM {casti} WHERE stavba IS NOT NULL UNION ALL SELECT stavba FROM {komponenty} WHERE stavba IS NOT NULL UNION ALL SELECT stavba FROM {popupy} WHERE stavba IS NOT NULL AND aktivni = 1 UNION ALL SELECT stavba FROM {kolekce} WHERE stavba IS NOT NULL AND detail = 1') as $c) {
             $take((string) $c['stavba']);
         }
-        foreach ($db->all('SELECT uvod, text FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND smazano IS NULL LIMIT 2000') as $c) {
+        foreach ($db->all('SELECT uvod, text FROM {novinky} WHERE visible = 1 AND datum <= ? AND smazano IS NULL LIMIT 2000', [Clock::now()]) as $c) {
             $take($c['uvod'] . ' ' . $c['text']);
         }
         foreach ($db->all('SELECT data FROM {kolekce_polozky} WHERE zobrazit = 1 AND smazano IS NULL LIMIT 5000') as $p) {
@@ -112,7 +112,7 @@ final class InternalLinks
         $newsListed = $newsListed || str_contains($builds, '"typ":"novinky"') || isset($linked['novinky']) || isset($linked[Routes::publicPath('novinky', Language::defaults($s), $db)]);
 
         $out = [];
-        foreach ($db->all('SELECT ids, titulek, seo_link, jazyk, stavba IS NOT NULL AS build FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL AND ids <> ? ORDER BY poradi, titulek', [$home]) as $p) {
+        foreach ($db->all('SELECT ids, titulek, seo_link, jazyk, stavba IS NOT NULL AS build FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL AND ids <> ? ORDER BY poradi, ' . $db->sortText('titulek'), [$home]) as $p) {
             $path = $prefix((string) $p['jazyk']) . $p['seo_link'];
             if (!isset($linked[$path])) {
                 $out[] = ['kind' => 'page', 'id' => (int) $p['ids'], 'title' => (string) $p['titulek'], 'path' => $path, 'edit' => 'admin.php?module=pages&action=' . ($p['build'] ? 'builder' : 'edit') . '&id=' . (int) $p['ids'], 'target' => ['page' => (int) $p['ids']]];
@@ -120,7 +120,7 @@ final class InternalLinks
         }
         if (!$newsListed && Extensions::isEnabled($s, 'novinky')) {
             $base = strlen($app->request->basePath());
-            foreach ($db->all('SELECT idc, titulek, seo_link, jazyk FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND smazano IS NULL ORDER BY datum DESC LIMIT 1000') as $c) {
+            foreach ($db->all('SELECT idc, titulek, seo_link, jazyk FROM {novinky} WHERE visible = 1 AND datum <= ? AND smazano IS NULL ORDER BY datum DESC LIMIT 1000', [Clock::now()]) as $c) {
                 $path = ltrim(substr($app->newsItemUrl((string) $c['seo_link'], (string) $c['jazyk']), $base), '/');
                 if (!isset($linked[$path])) {
                     $out[] = ['kind' => 'news', 'id' => (int) $c['idc'], 'title' => (string) $c['titulek'], 'path' => $path, 'edit' => 'admin.php?module=news&action=edit&id=' . (int) $c['idc'], 'target' => ['news' => (int) $c['idc']]];

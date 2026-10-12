@@ -73,7 +73,7 @@ final class Conversions
         }
         $antispam->write($request->ip(), 'konverze', 0);
         // only pages the statistics have seen (the page view is counted before anyone can click) – no rows for made-up addresses
-        if ((int) $db->value('SELECT COUNT(*) FROM {stat_stranky} WHERE cesta = ? AND den >= CURDATE() - INTERVAL 1 DAY', [$path]) === 0) {
+        if ((int) $db->value('SELECT COUNT(*) FROM {stat_stranky} WHERE cesta = ? AND den >= ?', [$path, Clock::day('-1 day')]) === 0) {
             return new Response('', 204);
         }
         $today = date('Y-m-d');
@@ -86,7 +86,7 @@ final class Conversions
         }
         $db->run('INSERT INTO {stat_konverze} (den, cesta, typ, pocet) VALUES (?, ?, ?, 1) ON DUPLICATE KEY UPDATE pocet = pocet + 1', [$today, $path, $type]);
         if (random_int(1, 200) === 1) {
-            $db->run('DELETE FROM {stat_konverze} WHERE den < CURDATE() - INTERVAL ' . self::KEEP_DAYS . ' DAY');
+            $db->run('DELETE FROM {stat_konverze} WHERE den < ?', [Clock::day('-' . self::KEEP_DAYS . ' days')]);
         }
 
         return new Response('', 204);

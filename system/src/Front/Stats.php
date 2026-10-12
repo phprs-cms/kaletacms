@@ -83,9 +83,9 @@ final class Stats
             }
         }
         if (random_int(1, 200) === 1) {
-            $db->run('DELETE FROM {stat_navstevnici} WHERE den < CURDATE() - INTERVAL 1 DAY');
-            $db->run('DELETE FROM {stat_stranky} WHERE den < CURDATE() - INTERVAL 400 DAY');
-            $db->run('DELETE FROM {stat_kampane} WHERE den < CURDATE() - INTERVAL 400 DAY');
+            $db->run('DELETE FROM {stat_navstevnici} WHERE den < ?', [\Kaleta\Core\Clock::day('-1 day')]);
+            $db->run('DELETE FROM {stat_stranky} WHERE den < ?', [\Kaleta\Core\Clock::day('-400 days')]);
+            $db->run('DELETE FROM {stat_kampane} WHERE den < ?', [\Kaleta\Core\Clock::day('-400 days')]);
         }
     }
 }

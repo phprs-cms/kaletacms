@@ -146,8 +146,8 @@ final class Popups extends Module
         $languages = array_merge([Language::defaults($siteSettings)], Language::additional($siteSettings));
 
         return [
-            'pages' => $this->db->all('SELECT ids, titulek, jazyk FROM {stranky} WHERE smazano IS NULL ORDER BY jazyk, poradi, titulek LIMIT 500'),
-            'collection' => $this->db->all('SELECT seo_link, nazev FROM {kolekce} WHERE detail = 1 ORDER BY nazev'),
+            'pages' => $this->db->all('SELECT ids, titulek, jazyk FROM {stranky} WHERE smazano IS NULL ORDER BY jazyk, poradi, ' . $this->db->sortText('titulek') . ' LIMIT 500'),
+            'collection' => $this->db->all('SELECT seo_link, nazev FROM {kolekce} WHERE detail = 1 ORDER BY ' . $this->db->sortText('nazev')),
             'languages' => count($languages) > 1 ? array_combine($languages, array_map(fn (string $j): string => Language::AVAILABLE[$j][0] ?? $j, $languages)) : [],
         ];
     }

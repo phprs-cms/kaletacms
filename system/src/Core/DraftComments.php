@@ -180,6 +180,6 @@ final class DraftComments
     public static function tidy(Db $db): void
     {
         $db->run("DELETE FROM {draft_comments} WHERE target LIKE 'stranka:%' AND NOT EXISTS (SELECT 1 FROM {stranky} s WHERE CONCAT('stranka:', s.ids) = target)");
-        $db->run('DELETE FROM {draft_comments} WHERE resolved_at IS NOT NULL AND resolved_at < NOW() - INTERVAL ? DAY', [self::KEEP_RESOLVED_DAYS]);
+        $db->run('DELETE FROM {draft_comments} WHERE resolved_at IS NOT NULL AND resolved_at < ?', [Clock::at('-' . self::KEEP_RESOLVED_DAYS . ' days')]);
     }
 }

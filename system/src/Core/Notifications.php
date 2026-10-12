@@ -47,9 +47,9 @@ final class Notifications
         Booking::purge($app); // bookings follow the same retention (3.0)
         if ($s->int('cookies_log_months') > 0) {
             // records of cookie consents should not be kept forever
-            $app->db()->run('DELETE FROM {souhlasy} WHERE cas < NOW() - INTERVAL ? MONTH', [$s->int('cookies_log_months')]);
+            $app->db()->run('DELETE FROM {souhlasy} WHERE cas < ?', [Clock::monthsAgo($s->int('cookies_log_months'))]);
         }
-        $app->db()->run('DELETE FROM {odberatele} WHERE stav = 0 AND datum < NOW() - INTERVAL 30 DAY');
+        $app->db()->run('DELETE FROM {odberatele} WHERE stav = 0 AND datum < ?', [Clock::at('-30 days')]);
         // the states of imports and migration reports, the rows of item imports (3.7, N37-25) – never an uploaded export
         try {
             WpFile::purgeOld(WpFile::folder(), time());
@@ -64,19 +64,20 @@ final class Notifications
         $db = $app->db();
         // scheduled pages: a hidden page publishes itself at the given time
         // scheduled collection items (1.9) likewise
-        $items = $db->run('UPDATE {kolekce_polozky} SET zobrazit = 1, zverejnit_od = NULL WHERE zverejnit_od IS NOT NULL AND zverejnit_od <= NOW() AND smazano IS NULL')->rowCount();
-        if ($db->run('UPDATE {stranky} SET zobrazit = 1, zverejnit_od = NULL WHERE zverejnit_od IS NOT NULL AND zverejnit_od <= NOW() AND smazano IS NULL')->rowCount() + $items > 0) {
+        $now = Clock::now();
+        $items = $db->run('UPDATE {kolekce_polozky} SET zobrazit = 1, zverejnit_od = NULL WHERE zverejnit_od IS NOT NULL AND zverejnit_od <= ? AND smazano IS NULL', [$now])->rowCount();
+        if ($db->run('UPDATE {stranky} SET zobrazit = 1, zverejnit_od = NULL WHERE zverejnit_od IS NOT NULL AND zverejnit_od <= ? AND smazano IS NULL', [$now])->rowCount() + $items > 0) {
             \Kaleta\Front\Cache::clear();
         }
-        $newsItems = $db->all('SELECT idc, seo_link, jazyk, noindex FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND oznameno IS NULL ORDER BY datum LIMIT 5');
+        $newsItems = $db->all('SELECT idc, seo_link, jazyk, noindex FROM {novinky} WHERE visible = 1 AND datum <= ? AND oznameno IS NULL ORDER BY datum LIMIT 5', [$now]);
         foreach ($newsItems as $c) {
             // mark first: if the notification fails, it must not repeat forever
-            if ($db->run('UPDATE {novinky} SET oznameno = NOW() WHERE idc = ? AND oznameno IS NULL', [$c['idc']])->rowCount() === 0) {
+            if ($db->run('UPDATE {novinky} SET oznameno = ? WHERE idc = ? AND oznameno IS NULL', [Clock::now(), $c['idc']])->rowCount() === 0) {
                 continue;
             }
             \Kaleta\Front\Cache::clear(); // a scheduled news item has just gone out - the cached listing does not know it yet
             SocialDrafts::prepare($app, (int) $c['idc']); // post drafts for the chosen networks (2.13) – a person posts them
-            if ($c['noindex'] || (int) $db->value('SELECT datum < NOW() - INTERVAL 2 DAY FROM {novinky} WHERE idc = ?', [$c['idc']]) === 1) {
+            if ($c['noindex'] || (int) $db->value('SELECT datum < ? FROM {novinky} WHERE idc = ?', [Clock::at('-2 days'), $c['idc']]) === 1) {
                 continue;
             }
             Webhook::articlePublished($app, (int) $c['idc']);

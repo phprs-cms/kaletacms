@@ -105,7 +105,9 @@ final class Account
                     $toolSet = \Kaleta\Mcp\Catalog::toolSet($parts[0]);
                     $changed = match ($parts[1] ?? '') {
                         'token' => $db->run("UPDATE {api_tokeny} SET tool_set = ? WHERE idt = ? AND idu = ? AND druh = 'token'", [$toolSet, (int) ($parts[2] ?? 0), $user['idu']])->rowCount(),
-                        'app' => $db->run('UPDATE {api_tokeny} SET tool_set = ? WHERE klient = ? AND idu = ?', [$toolSet, (string) ($parts[2] ?? ''), $user['idu']])->rowCount(),
+                        // a client id is 32 hex characters (the column is ASCII since 3.12 – other text would be an SQL error)
+                        'app' => preg_match('/^[a-f0-9]{32}$/D', (string) ($parts[2] ?? '')) === 1
+                            ? $db->run('UPDATE {api_tokeny} SET tool_set = ? WHERE klient = ? AND idu = ?', [$toolSet, (string) $parts[2], $user['idu']])->rowCount() : 0,
                         default => 0,
                     };
                     if ($changed > 0) {
@@ -115,7 +117,9 @@ final class Account
                         : 'Done – Claude will see all tools in the next conversation it starts.'];
                     break;
                 case 'aplikace_odpojit':
-                    $db->delete('api_tokeny', ['klient' => $r->post('odpojit_klient'), 'idu' => $user['idu']]);
+                    if (preg_match('/^[a-f0-9]{32}$/D', $r->post('odpojit_klient')) === 1) { // an OAuth client id (ASCII column, 3.12)
+                        $db->delete('api_tokeny', ['klient' => $r->post('odpojit_klient'), 'idu' => $user['idu']]);
+                    }
                     ChangeLog::write($app, 'ucet', 'odpojena aplikace');
                     $message = ['ok', 'The application is disconnected – it will not get into the website until you allow it again.'];
                     break;

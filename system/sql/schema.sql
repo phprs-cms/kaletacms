@@ -25,7 +25,7 @@ CREATE TABLE ka_uzivatele (
     blokovano_automaticky DATETIME NULL,                  -- when the automatic suspension blocked the account (Core\SecurityHygiene); NULL = not by it
     pocet_chyb     SMALLINT UNSIGNED NOT NULL DEFAULT 0,  -- failed sign-ins in a row
     zamceno_do     DATETIME NULL,                         -- temporary lock after 10 failed sign-ins
-    obnova_otisk   CHAR(64)     NOT NULL DEFAULT '',      -- sha256 of the one-time token for a password reset by e-mail; empty = nothing pending
+    obnova_otisk   CHAR(64) CHARACTER SET ascii COLLATE ascii_bin     NOT NULL DEFAULT '',      -- sha256 of the one-time token for a password reset by e-mail; empty = nothing pending
     obnova_cas     DATETIME NULL,                         -- when the password reset link was sent (valid for an hour)
     totp_tajemstvi VARCHAR(64)  NOT NULL DEFAULT '',      -- two-factor sign-in (TOTP); empty = off
     totp_zalozni   TEXT NULL,                             -- JSON: hashes of one-time backup codes
@@ -313,7 +313,7 @@ CREATE TABLE ka_presmerovani (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 CREATE TABLE ka_souhlasy (
     ids         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    id_souhlasu CHAR(32) NOT NULL,                       -- a random identifier stored in the visitor's cookie
+    id_souhlasu CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,                       -- a random identifier stored in the visitor's cookie
     cas         DATETIME NOT NULL,
     kategorie   VARCHAR(60) NOT NULL,                    -- "analytika,marketing" or "nic"
     PRIMARY KEY (ids),
@@ -333,7 +333,7 @@ CREATE TABLE ka_stat_dny (
 -- Contact clicks (2.12, Core\Conversions) leave a mark here too – the same hash with the page and the link type mixed in – so a click counts once a day.
 CREATE TABLE ka_stat_navstevnici (
     den   DATE NOT NULL,
-    otisk CHAR(32) NOT NULL,
+    otisk CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     PRIMARY KEY (den, otisk)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 CREATE TABLE ka_stat_novinky (
@@ -417,12 +417,12 @@ CREATE TABLE ka_api_tokeny (
     idt       INT UNSIGNED NOT NULL AUTO_INCREMENT,
     idu       INT UNSIGNED NOT NULL,
     nazev     VARCHAR(100) NOT NULL,
-    klient    CHAR(32) NULL,                              -- OAuth client_id; NULL = a personal token from "Můj účet" (My account)
+    klient    CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NULL,                              -- OAuth client_id; NULL = a personal token from "Můj účet" (My account)
     druh      VARCHAR(10) NOT NULL DEFAULT 'token',       -- token | pristup | obnova
     access    VARCHAR(10) NOT NULL DEFAULT 'full',        -- full | drafts | read – what the connection may do (2.2)
     tool_set  VARCHAR(16) NOT NULL DEFAULT 'all',         -- all | essentials – the tools it lists (3.10, Mcp\Catalog::TOOL_SETS)
     expirace  DATETIME NULL,
-    otisk     CHAR(64) NOT NULL,                          -- sha256 of the token
+    otisk     CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,                          -- sha256 of the token
     vytvoren  DATETIME NOT NULL,
     pouzit    DATETIME NULL,
     PRIMARY KEY (idt),
@@ -436,7 +436,7 @@ CREATE TABLE ka_uzivatele_klice (
     idk        INT UNSIGNED NOT NULL AUTO_INCREMENT,
     idu        INT UNSIGNED NOT NULL,
     nazev      VARCHAR(80)  NOT NULL DEFAULT '',          -- the device name given by the user („MacBook“, „telefon“)
-    otisk_id   CHAR(64)     NOT NULL,                     -- sha256 of the key identifier (the identifier can be up to 1023 bytes)
+    otisk_id   CHAR(64) CHARACTER SET ascii COLLATE ascii_bin     NOT NULL,                     -- sha256 of the key identifier (the identifier can be up to 1023 bytes)
     id_klice   TEXT         NOT NULL,                     -- key identifier, base64url
     verejny    TEXT         NOT NULL,                     -- the device's public key (PEM)
     alg        SMALLINT     NOT NULL,                     -- signature algorithm per COSE: -7 ES256, -257 RS256
@@ -771,7 +771,7 @@ CREATE TABLE ka_odberatele (
     ido       INT UNSIGNED NOT NULL AUTO_INCREMENT,
     email     VARCHAR(190) NOT NULL,
     stav      TINYINT UNSIGNED NOT NULL DEFAULT 0,       -- 0 awaiting confirmation, 1 confirmed
-    token     CHAR(32)     NOT NULL,                     -- confirming and unsubscribing via a link
+    token     CHAR(32) CHARACTER SET ascii COLLATE ascii_bin     NOT NULL,                     -- confirming and unsubscribing via a link
     zdroj     VARCHAR(255) NOT NULL DEFAULT '',          -- the page they subscribed from
     kampan    VARCHAR(255) NOT NULL DEFAULT '',          -- utm_* of the page or of the visit (2.3)
     vstup     VARCHAR(255) NOT NULL DEFAULT '',          -- the first page of the visit (2.3; only with consent to marketing)
@@ -800,8 +800,8 @@ CREATE TABLE ka_odber_fronta (
 -- OAuth 2.1 for the Claude connector (MCP): registered clients and one-time authorization codes (tokens are in ka_api_tokeny).
 CREATE TABLE ka_oauth_klienti (
     idk          INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    client_id    CHAR(32)     NOT NULL,
-    tajemstvi    CHAR(64)     NOT NULL DEFAULT '',   -- sha256 client_secret; empty = public client (PKCE only)
+    client_id    CHAR(32) CHARACTER SET ascii COLLATE ascii_bin     NOT NULL,
+    tajemstvi    CHAR(64) CHARACTER SET ascii COLLATE ascii_bin     NOT NULL DEFAULT '',   -- sha256 client_secret; empty = public client (PKCE only)
     nazev        VARCHAR(100) NOT NULL DEFAULT '',
     presmerovani TEXT         NOT NULL,              -- JSON list of allowed redirect_uri
     vytvoren     DATETIME     NOT NULL,
@@ -811,8 +811,8 @@ CREATE TABLE ka_oauth_klienti (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 CREATE TABLE ka_oauth_kody (
-    otisk        CHAR(64)     NOT NULL,              -- sha256 of the code
-    client_id    CHAR(32)     NOT NULL,
+    otisk        CHAR(64) CHARACTER SET ascii COLLATE ascii_bin     NOT NULL,              -- sha256 of the code
+    client_id    CHAR(32) CHARACTER SET ascii COLLATE ascii_bin     NOT NULL,
     idu          INT UNSIGNED NOT NULL,
     presmerovani VARCHAR(500) NOT NULL,
     vyzva        VARCHAR(128) NOT NULL,              -- code_challenge (PKCE, S256)
@@ -825,10 +825,10 @@ CREATE TABLE ka_oauth_kody (
 -- Refresh tokens exchanged for a new pair (3.3.4, Front\OAuth::refresh): within REFRESH_GRACE seconds the old token
 -- returns the same pair again, later it revokes the client's tokens for the user (reuse = theft).
 CREATE TABLE ka_oauth_rotated (
-    hash       CHAR(64)     NOT NULL,              -- sha256 of the rotated refresh token
-    client_id  CHAR(32)     NOT NULL,
+    hash       CHAR(64) CHARACTER SET ascii COLLATE ascii_bin     NOT NULL,              -- sha256 of the rotated refresh token
+    client_id  CHAR(32) CHARACTER SET ascii COLLATE ascii_bin     NOT NULL,
     idu        INT UNSIGNED NOT NULL,
-    salt       CHAR(64)     NOT NULL,              -- with the old token it derives the pair it was rotated into
+    salt       CHAR(64) CHARACTER SET ascii COLLATE ascii_bin     NOT NULL,              -- with the old token it derives the pair it was rotated into
     rotated_at DATETIME     NOT NULL,
     expires_at DATETIME     NOT NULL,              -- the record goes then: OAuth::ROTATED_LIFETIME after the rotation (3.10.1), at most the old token's expiry
     PRIMARY KEY (hash),
@@ -960,7 +960,7 @@ CREATE TABLE ka_fleet_sites (
     id              INT UNSIGNED NOT NULL AUTO_INCREMENT,
     name            VARCHAR(150) NOT NULL DEFAULT '',
     url             VARCHAR(255) NOT NULL,
-    public_key      VARCHAR(64)  NOT NULL,                  -- base64 Ed25519 key of the site
+    public_key      VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin  NOT NULL,                  -- base64 Ed25519 key of the site
     relay_token     VARCHAR(80)  NULL,                      -- the site's Claude token for the console; never shown or exported
     relay_access    VARCHAR(10)  NOT NULL DEFAULT '',       -- '' (no relay) | read | drafts | full
     relay_expires   DATETIME     NULL,
@@ -985,7 +985,7 @@ CREATE TABLE ka_fleet_sites (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 CREATE TABLE ka_fleet_pairing (
-    code_hash  CHAR(64)     NOT NULL,                       -- sha256 of the one-time code
+    code_hash  CHAR(64) CHARACTER SET ascii COLLATE ascii_bin     NOT NULL,                       -- sha256 of the one-time code
     created_at DATETIME     NOT NULL,
     expires_at DATETIME     NOT NULL,
     used_at    DATETIME     NULL,
@@ -1002,7 +1002,7 @@ CREATE TABLE ka_fleet_kits (
     created_at DATETIME     NOT NULL,
     created_by INT UNSIGNED NULL,
     manifest   MEDIUMTEXT   NOT NULL,
-    sha256     CHAR(64)     NOT NULL,                       -- of the manifest bytes: a site checks the kit it fetched against the announced hash
+    sha256     CHAR(64) CHARACTER SET ascii COLLATE ascii_bin     NOT NULL,                       -- of the manifest bytes: a site checks the kit it fetched against the announced hash
     summary    VARCHAR(255) NOT NULL DEFAULT '',            -- what it carries, in words
     PRIMARY KEY (id),
     UNIQUE KEY uq_fleet_kits_version (version)
@@ -1081,7 +1081,7 @@ CREATE TABLE ka_notice_log (
 CREATE TABLE ka_testimonial_requests (
     id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
     idp         INT UNSIGNED NULL,
-    token_hash  CHAR(64) NOT NULL,
+    token_hash  CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     email       VARCHAR(190) NOT NULL DEFAULT '',
     created_at  DATETIME NOT NULL,
     expires_at  DATETIME NOT NULL,
@@ -1153,7 +1153,7 @@ CREATE TABLE ka_whistleblowing_cases (
     text            MEDIUMTEXT NOT NULL,               -- encrypted
     contact         TEXT NULL,                         -- encrypted: name and contact, NULL = anonymous
     attachments     TEXT NULL,                         -- encrypted JSON: [{name, path, size}], files in storage/oznameni/
-    code_hash       CHAR(64) NOT NULL,                 -- sha256 of the case number and the access code
+    code_hash       CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,                 -- sha256 of the case number and the access code
     PRIMARY KEY (id),
     UNIQUE KEY ux_whistleblowing_number (number),
     KEY ix_whistleblowing_status (status, closed_at)
@@ -1415,7 +1415,7 @@ CREATE TABLE ka_bookings (
     phone         VARCHAR(40) NOT NULL DEFAULT '',
     note          VARCHAR(1000) NOT NULL DEFAULT '',
     status        VARCHAR(10) NOT NULL DEFAULT 'confirmed',     -- pending | confirmed | declined | cancelled | no_show | done
-    token_hash    CHAR(64) NOT NULL,                            -- sha256 of the customer's token (the cancel link, the .ics link)
+    token_hash    CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,                            -- sha256 of the customer's token (the cancel link, the .ics link)
     created_at    DATETIME NOT NULL,
     reminded_at   DATETIME NULL,
     hold_until    DATETIME NULL,                                -- pending: the time is held until then
@@ -1441,4 +1441,30 @@ CREATE TABLE ka_booking_proposals (
     PRIMARY KEY (id),
     KEY ix_booking_proposals_booking (booking_id),
     CONSTRAINT fk_booking_proposals_booking FOREIGN KEY (booking_id) REFERENCES ka_bookings (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- A change of the time_zone setting that converts the saved moments (3.12, docs/design/4.0-data-model.md §6, Core\TimeZoneConversion):
+-- one row per conversion and one per table it walks through, so a conversion stopped halfway continues where it was.
+CREATE TABLE ka_time_zone_conversions (
+    id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    from_zone   VARCHAR(64)  NOT NULL,                    -- the zone the saved dates were written in
+    to_zone     VARCHAR(64)  NOT NULL,                    -- the zone they are converted to (the new time_zone setting)
+    started_by  INT UNSIGNED NULL,                        -- the administrator who chose to convert
+    started_at  DATETIME     NOT NULL,
+    finished_at DATETIME     NULL,                        -- NULL = still running (the background job "time_zone" continues it)
+    PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+CREATE TABLE ka_time_zone_progress (
+    conversion_id INT UNSIGNED NOT NULL,
+    table_name    VARCHAR(64)  NOT NULL,                  -- without the prefix, as in Core\TimeZoneConversion::INSTANTS
+    position      SMALLINT UNSIGNED NOT NULL DEFAULT 0,   -- smaller tables first: the busy little ones are done in the first second
+    upto_key      BIGINT UNSIGNED NULL,                   -- a numeric primary key: rows above it were written after the start (already on the new clock)
+    last_key      VARCHAR(1000) NOT NULL DEFAULT '',      -- JSON of the primary key of the last converted row; '' = not started
+    rows_done     INT UNSIGNED NOT NULL DEFAULT 0,
+    values_done   INT UNSIGNED NOT NULL DEFAULT 0,
+    ambiguous     INT UNSIGNED NOT NULL DEFAULT 0,        -- values in the hour a daylight-saving change repeats: the first occurrence was taken
+    finished_at   DATETIME NULL,
+    PRIMARY KEY (conversion_id, table_name),
+    CONSTRAINT fk_time_zone_progress_conversion FOREIGN KEY (conversion_id) REFERENCES ka_time_zone_conversions (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;

@@ -71,6 +71,15 @@ final class Db
         ) ?? $sql;
     }
 
+    /**
+     * A text column or expression for ORDER BY in the alphabetical order of the site language (3.12, Core\Collation):
+     * 'titulek' unchanged on a Czech site, 'titulek COLLATE utf8mb4_german2_ci' on a German one. Only for ORDER BY.
+     */
+    public function sortText(string $expression, ?string $language = null): string
+    {
+        return Collation::sort($this, $expression, $language);
+    }
+
     /** @param array<int|string, scalar|null> $params */
     public function run(string $sql, array $params = []): PDOStatement
     {
@@ -210,7 +219,7 @@ final class Db
         }
     }
 
-    private static function quoteName(string $name): string
+    public static function quoteName(string $name): string
     {
         if (!preg_match('/^[a-z][a-z0-9_]*$/iD', $name)) {
             throw new \InvalidArgumentException("Neplatný název sloupce: {$name}");

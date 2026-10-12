@@ -83,7 +83,7 @@ final class Jobs
             return 0;
         }
         $db = $app->db();
-        $expired = self::expiredApplications($db->all('SELECT idp, zdroj, datum, data FROM {poptavky} WHERE datum < NOW() - INTERVAL ? MONTH', [$months]), self::sources($db), $months, date('Y-m-d H:i:s'));
+        $expired = self::expiredApplications($db->all('SELECT idp, zdroj, datum, data FROM {poptavky} WHERE datum < ?', [Clock::monthsAgo($months)]), self::sources($db), $months, date('Y-m-d H:i:s'));
         if ($expired === []) {
             return 0;
         }

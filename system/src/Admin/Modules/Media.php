@@ -457,19 +457,20 @@ final class Media extends Module
     /** @return list<array<string, mixed>> folders with the number of images */
     private function folders(): array
     {
-        return $this->db->all('SELECT s.*, (SELECT COUNT(*) FROM {media} o WHERE o.sekce = s.ids) AS pocet FROM {media_slozky} s ORDER BY s.nazev');
+        return $this->db->all('SELECT s.*, (SELECT COUNT(*) FROM {media} o WHERE o.sekce = s.ids) AS pocet FROM {media_slozky} s ORDER BY ' . $this->db->sortText('s.nazev'));
     }
 
     /** @return list<array<string, mixed>> */
     /** List sort orders: key from the URL => [label, ORDER BY]. */
     public const array SORT_ORDERS = [
-        'nove' => ['nejnovější', 'o.ido DESC'], 'stare' => ['nejstarší', 'o.ido ASC'], 'nazev' => ['by name', 'o.nazev ASC, o.ido DESC'],
+        'nove' => ['nejnovější', 'o.ido DESC'], 'stare' => ['nejstarší', 'o.ido ASC'], 'nazev' => ['by name', 'o.nazev ASC, o.ido DESC'], // sorted in the site's alphabet by load()
         'velikost' => ['largest files', 'o.obr_vel DESC'], 'nepouzite' => ['least used', 'pouzito ASC, o.ido DESC'],
     ];
 
     private function load(string $where, array $params, int $pageNumber, int $count): array
     {
         $order = self::SORT_ORDERS[$this->request->get('sort')][1] ?? self::SORT_ORDERS['nove'][1];
+        $order = str_replace('o.nazev ASC', $this->db->sortText('o.nazev') . ' ASC', $order);
         $elsewhere = self::findUsagesElsewhere($this->db);
 
         return array_map(function (array $o) use ($elsewhere): array {

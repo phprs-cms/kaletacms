@@ -22,7 +22,7 @@ final class Users extends Module
 
     protected function actionList(): Response
     {
-        $authors = $this->db->all('SELECT u.*, r.nazev AS nazev_role, (SELECT COUNT(*) FROM {novinky} c WHERE c.autor = u.idu AND c.smazano IS NULL) AS pocet_clanku FROM {uzivatele} u LEFT JOIN {role} r ON r.idr = u.role ORDER BY u.user');
+        $authors = $this->db->all('SELECT u.*, r.nazev AS nazev_role, (SELECT COUNT(*) FROM {novinky} c WHERE c.autor = u.idu AND c.smazano IS NULL) AS pocet_clanku FROM {uzivatele} u LEFT JOIN {role} r ON r.idr = u.role ORDER BY ' . $this->db->sortText('u.user'));
         $modules = [];
         foreach ($this->db->all('SELECT fk_id_user, ident_modulu FROM {uzivatele_prava}') as $r) {
             $modules[(int) $r['fk_id_user']][] = (string) $r['ident_modulu'];
@@ -188,7 +188,7 @@ final class Users extends Module
         }
         $id = $this->request->postInt('idu');
         $token = $this->request->postInt('idt');
-        $client = $this->request->post('klient');
+        $client = preg_match('/^[a-f0-9]{32}$/D', $this->request->post('klient')) === 1 ? $this->request->post('klient') : ''; // an OAuth client id (ASCII column, 3.12)
         $removed = $token > 0 ? $this->db->delete('api_tokeny', ['idt' => $token, 'idu' => $id]) : ($client !== '' ? $this->db->delete('api_tokeny', ['idu' => $id, 'klient' => $client]) : 0);
 
         return $this->back($removed > 0 ? 'The connection has been revoked – Claude can no longer sign in with it.' : 'The connection no longer exists.', 'edit', ['id' => $id], $removed > 0 ? 'ok' : 'chyba');
@@ -292,7 +292,7 @@ final class Users extends Module
 
         return $this->view('form', $id ? 'Edit user' : 'New user', [
             'author' => $author,
-            'customRoles' => $this->db->all('SELECT idr, nazev, popis FROM {role} ORDER BY nazev'),
+            'customRoles' => $this->db->all('SELECT idr, nazev, popis FROM {role} ORDER BY ' . $this->db->sortText('nazev')),
             'summary' => $summary,
             'errors' => $errors,
             // the user's Claude connections (Core\SecurityHygiene): the administrator revokes what is not needed any more

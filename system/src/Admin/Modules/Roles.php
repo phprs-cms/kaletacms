@@ -32,7 +32,7 @@ final class Roles extends Module
 
     protected function actionList(): Response
     {
-        $role = $this->db->all('SELECT r.*, (SELECT COUNT(*) FROM {uzivatele} u WHERE u.role = r.idr) AS clenu FROM {role} r ORDER BY r.nazev');
+        $role = $this->db->all('SELECT r.*, (SELECT COUNT(*) FROM {uzivatele} u WHERE u.role = r.idr) AS clenu FROM {role} r ORDER BY ' . $this->db->sortText('r.nazev'));
 
         return $this->view('list', 'Roles', ['role' => $role, 'names' => self::configurable()]);
     }
@@ -150,7 +150,7 @@ final class Roles extends Module
         return $this->view('form', (int) $role['idr'] > 0 ? 'Edit role' : 'New role', [
             'role' => $role, 'errors' => $errors, 'section' => self::configurable(),
             'selected' => array_filter(explode(',', (string) $role['moduly'])),
-            'members' => (int) $role['idr'] > 0 ? $this->db->all('SELECT idu, user, jmeno FROM {uzivatele} WHERE role = ? ORDER BY user', [(int) $role['idr']]) : [],
+            'members' => (int) $role['idr'] > 0 ? $this->db->all('SELECT idu, user, jmeno FROM {uzivatele} WHERE role = ? ORDER BY ' . $this->db->sortText('jmeno') . ', user', [(int) $role['idr']]) : [],
         ]);
     }
 }

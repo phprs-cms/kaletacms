@@ -1209,7 +1209,9 @@ expect "naplánovaná stránka čeká skrytá" "$("${MYSQL[@]}" "$DB_NAME" -N -e
 curl -s -o /dev/null "$B/novinky?x=$RANDOM"
 # the job runs after the page is sent; under load (parallel suites) it can take a few seconds, and a request that comes
 # while another background job holds the lock does nothing – as on a real site, the next visit gives it another chance
-for i in $(seq 1 16); do [ "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT zobrazit FROM ka_stranky WHERE seo_link = 'akce'")" = 1 ] && break; sleep 0.5; curl -s -o /dev/null "$B/novinky?x=$RANDOM"; done
+# (a visit starts the jobs at most once a minute, so each retry clears that mark, as a minute passing would – 3.12)
+for i in $(seq 1 16); do [ "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT zobrazit FROM ka_stranky WHERE seo_link = 'akce'")" = 1 ] && break; sleep 0.5
+  "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'notification_check'"; curl -s -o /dev/null "$B/novinky?x=$RANDOM"; done
 expect "naplánovaná stránka se v čase sama zveřejní" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT zobrazit FROM ka_stranky WHERE seo_link = 'akce'")" "1"
 location=$(save_page -d ids=0 --data-urlencode "titulek=Nabídka" -d sablona=landing -d zobrazit=0 -d v_menu=0 -d text=)
 case "$location" in *action=builder*) echo "  ok     nová stránka ze šablony jde rovnou do builderu";; *) echo "  CHYBA  šablona stránky: $location"; ERRORS=$((ERRORS+1));; esac
@@ -5764,20 +5766,46 @@ check "3.10: System status shows the site's time zone and that PHP and the datab
 sq "UPDATE ka_nastaveni SET hodnota = 'Mars/Olympus_Mons' WHERE promenna = 'time_zone'" > /dev/null
 check "3.10: a time zone the server does not know is a warning on System status" 200 "/admin.php?module=status" 'Časové pásmo v nastavení je Mars/Olympus_Mons, ale PHP běží v Europe/Prague'
 sq "UPDATE ka_nastaveni SET hodnota = 'Europe/Prague' WHERE promenna = 'time_zone'" > /dev/null
-# changing the zone in Settings → General says that saved dates are not converted (and they are not)
+# changing the zone in Settings → General asks first (3.12, data model §6): "Keep their clock time" changes nothing saved,
+# "Convert saved dates" moves the moments by the offset and leaves civil times (a day off at 09:00) as they are
 NEWS310=$(sq "SELECT CONCAT(idc, '|', datum) FROM ka_novinky ORDER BY idc LIMIT 1")
+sq "INSERT INTO ka_booking_off (staff_id, off_from, off_to, note) VALUES (NULL, '2030-07-01 09:00:00', '2030-07-01 17:00:00', 'tz312')" > /dev/null
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/general310.html" "$B/admin.php?module=settings&tab=general"
 php -r '$d = new DOMDocument(); @$d->loadHTML(file_get_contents($argv[1])); $x = new DOMXPath($d); $f = $x->query("//form[.//input[@name=\"tab\"]]")->item(0); $q = [];
   foreach ($x->query(".//input|.//select|.//textarea", $f) as $e) { $n = $e->getAttribute("name"); $t = $e->getAttribute("type"); if ($n === "" || $t === "submit" || (in_array($t, ["checkbox", "radio"], true) && !$e->hasAttribute("checked"))) continue;
     $v = $e->nodeName === "select" ? (($o = $x->query(".//option[@selected]", $e)->item(0) ?? $x->query(".//option", $e)->item(0)) ? $o->getAttribute("value") : "") : ($e->nodeName === "textarea" ? $e->textContent : $e->getAttribute("value"));
     $q[] = rawurlencode($n) . "=" . rawurlencode($n === "time_zone" ? "Europe/London" : $v); }
   echo implode("&", $q);' "$WORK/general310.html" > "$WORK/general310.post"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" --data-binary @"$WORK/general310.post"
-curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=general"
-contains -q 'Časové pásmo se změnilo z Europe/Prague na Europe/London' "$WORK/response" && contains -q 'nepřevádí už uložená data' "$WORK/response" \
-  && expect "3.10: a time zone change warns that saved dates keep their clock time – and they do" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'time_zone'")|$(sq "SELECT CONCAT(idc, '|', datum) FROM ka_novinky WHERE idc = ${NEWS310%%|*}")" "Europe/London|$NEWS310" \
-  || { echo "  CHYBA  3.10: no time zone change warning: $(grep -o 'class="zprava[^"]*"[^<]*<[^<]*' "$WORK/response" | head -3)"; ERRORS=$((ERRORS+1)); }
+TZ_NEXT=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?module=settings&action=save" --data-binary @"$WORK/general310.post")
+expect "3.12: saving a new time zone leads to the confirmation, and the zone is not changed yet" "${TZ_NEXT#*\?}|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'time_zone'")" "module=settings&action=time_zone&zone=Europe%2FLondon|Europe/Prague"
+check "3.12: the confirmation offers to convert the saved dates or to keep their clock time" 200 "/admin.php?module=settings&action=time_zone&zone=Europe/London" 'Ponechat čas na hodinách'
+contains -q 'Převést uložená data' "$WORK/response" && contains -q 'novinka naplánovaná na 12:00 v pásmu Europe/Prague bude naplánovaná na 11:00 v pásmu Europe/London' "$WORK/response" \
+  && echo "  ok     3.12: … and says what converting does with a news item at 12:00" || { echo "  CHYBA  3.12: the confirmation text"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=time_zone" --data-urlencode "_csrf=$(csrf)" -d zone=Europe/London -d choice=keep
+expect "3.12: “Keep their clock time” changes the zone and no saved date" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'time_zone'")|$(sq "SELECT CONCAT(idc, '|', datum) FROM ka_novinky WHERE idc = ${NEWS310%%|*}")|$(sq "SELECT COUNT(*) FROM ka_time_zone_conversions")" "Europe/London|$NEWS310|0"
 sq "UPDATE ka_nastaveni SET hodnota = 'Europe/Prague' WHERE promenna = 'time_zone'" > /dev/null
+check "3.12: the confirmation again (Prague → London)" 200 "/admin.php?module=settings&action=time_zone&zone=Europe/London" 'Převést uložená data'
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=time_zone" --data-urlencode "_csrf=$(csrf)" -d zone=Europe/London -d choice=convert
+NEWS312_LONDON=$(php -r 'echo (new DateTimeImmutable($argv[1], new DateTimeZone("Europe/Prague")))->setTimezone(new DateTimeZone("Europe/London"))->format("Y-m-d H:i:s");' -- "${NEWS310#*|}")
+expect "3.12: “Convert saved dates” moves the news date by the offset and keeps the day off at 09:00; the conversion finished and is in the change log" \
+  "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'time_zone'")|$(sq "SELECT datum FROM ka_novinky WHERE idc = ${NEWS310%%|*}")|$(sq "SELECT off_from FROM ka_booking_off WHERE note = 'tz312'")|$(sq "SELECT CONCAT(from_zone, '>', to_zone, ':', finished_at IS NOT NULL, ':', (SELECT COUNT(*) FROM ka_time_zone_progress p WHERE p.conversion_id = c.id AND p.finished_at IS NULL)) FROM ka_time_zone_conversions c")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'settings' AND akce IN ('time_zone', 'time_zone_converted') AND popis LIKE 'Europe/Prague → Europe/London: %'")" \
+  "Europe/London|$NEWS312_LONDON|2030-07-01 09:00:00|Europe/Prague>Europe/London:1:0|3"
+check "3.12: General shows the finished conversion" 200 "/admin.php?module=settings&tab=general" 'Uložená data jsou převedená z Europe/Prague na Europe/London'
+# idempotent and resumable: a finished conversion never runs again; a new one stopped before its first batch continues later
+expect "3.12: the background job finds nothing to convert again" "$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $db = Kaleta\Core\App::boot()->db(); var_export(Kaleta\Core\TimeZoneConversion::run($db, 5.0));')|$(sq "SELECT datum FROM ka_novinky WHERE idc = ${NEWS310%%|*}")" "NULL|$NEWS312_LONDON"
+expect "3.12: a conversion back (London → Prague) stopped at once and resumed later restores the dates" "$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); $db = $app->db();
+    Kaleta\Core\TimeZoneConversion::start($db, "Europe/London", "Europe/Prague", null); $first = Kaleta\Core\TimeZoneConversion::run($db, 0.0); $second = Kaleta\Core\TimeZoneConversion::run($db, 20.0);
+    echo $first["done"] ? "done" : "stopped", ":", $second["done"] && $second["finished_now"] ? "done" : "open";')|$(sq "SELECT CONCAT(idc, '|', datum) FROM ka_novinky WHERE idc = ${NEWS310%%|*}")|$(sq "SELECT off_from FROM ka_booking_off WHERE note = 'tz312'")" \
+  "stopped:done|$NEWS310|2030-07-01 09:00:00"
+sq "UPDATE ka_nastaveni SET hodnota = 'Europe/Prague' WHERE promenna = 'time_zone'; DELETE FROM ka_booking_off WHERE note = 'tz312'" > /dev/null
+# §1.2: names sort in the alphabet of the site language – "chata" after "hrad" on a Czech site, before it in English and
+# German; the server is asked which collations it has (a Czech site sends the same SQL as before)
+sq "INSERT INTO ka_stitky (nazev, seo_link) VALUES ('Chata 312', 'chata-312'), ('Hrad 312', 'hrad-312'), ('Cesta 312', 'cesta-312'), ('Čaj 312', 'caj-312')" > /dev/null
+expect "3.12: tags sort as Czech on a Czech site and by Unicode or German rules on an English or German one" "$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $db = Kaleta\Core\App::boot()->db();
+    foreach (["cs", "en", "de"] as $l) { echo $l, ":", implode(",", array_map(fn ($n) => strtok($n, " "), array_column($db->all("SELECT nazev FROM {stitky} WHERE seo_link LIKE ? ORDER BY " . $db->sortText("nazev", $l), ["%-312"]), "nazev"))), " "; }')" \
+  "cs:Cesta,Čaj,Hrad,Chata en:Čaj,Cesta,Chata,Hrad de:Čaj,Cesta,Chata,Hrad "
+check "3.12: the admin list of tags sorts through the site language too (Czech here)" 200 "/admin.php?module=tags" 'Chata 312'
+sq "DELETE FROM ka_stitky WHERE seo_link LIKE '%-312'" > /dev/null
 # §2 step 2: a Brazilian Portuguese version next to Czech and English – /pt-br/ in addresses, pt-BR in lang and hreflang, the
 # two-letter versions exactly as before
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('additional_languages', 'en,pt-br'), ('home_page', '0')" > /dev/null

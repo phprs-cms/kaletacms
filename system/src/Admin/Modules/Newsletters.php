@@ -155,7 +155,7 @@ final class Newsletters extends Module
         $s = $this->app->settings();
         $languages = Language::additional($s) === [] ? [] : [Language::defaults($s), ...Language::additional($s)];
         $news = \Kaleta\Core\Extensions::isEnabled($s, 'novinky')
-            ? $this->db->all('SELECT idc, titulek, datum, jazyk FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND smazano IS NULL ORDER BY datum DESC, idc DESC LIMIT 40') : [];
+            ? $this->db->all('SELECT idc, titulek, datum, jazyk FROM {novinky} WHERE visible = 1 AND datum <= ? AND smazano IS NULL ORDER BY datum DESC, idc DESC LIMIT 40', [\Kaleta\Core\Clock::now()]) : [];
 
         return $this->view('form', (int) $n['id'] > 0 ? (string) $n['subject'] : 'New newsletter', [
             'n' => $n, 'news' => $news, 'languages' => $languages, 'newsEnabled' => \Kaleta\Core\Extensions::isEnabled($s, 'novinky'),

@@ -73,7 +73,7 @@ final class Translations
         }
         // 3.11 (UX310-7): the home page first – a language enters the switcher once the home page has a published translation
         $home = $s->int('home_page');
-        foreach ($db->all("SELECT ids, titulek, zmeneno FROM {stranky} WHERE smazano IS NULL AND jazyk = ''" . $auth->pageListScope() . ' ORDER BY ids = ? DESC, poradi, titulek', [$home]) as $p) {
+        foreach ($db->all("SELECT ids, titulek, zmeneno FROM {stranky} WHERE smazano IS NULL AND jazyk = ''" . $auth->pageListScope() . ' ORDER BY ids = ? DESC, poradi, ' . $db->sortText('titulek'), [$home]) as $p) {
             $rows[] = ['type' => 'page', 'id' => (int) $p['ids'], 'title' => $p['titulek'], 'changed' => $p['zmeneno'], 'translations' => $cells($pageTranslations[(int) $p['ids']] ?? [], $p['zmeneno'])];
         }
 
@@ -93,7 +93,7 @@ final class Translations
             $itemTranslations[(int) $t['idk']][$t['seo_link']][$t['jazyk']] = $t;
         }
         foreach ($db->all("SELECT p.idp, p.idk, p.nazev, p.seo_link, p.zmeneno, p.datum, k.nazev AS kolekce, k.seo_link AS kolekce_adresa FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk
-            WHERE p.smazano IS NULL AND p.jazyk = ''" . $auth->collectionItemListScope('p.') . ' ORDER BY k.nazev, p.poradi, p.nazev') as $p) {
+            WHERE p.smazano IS NULL AND p.jazyk = ''" . $auth->collectionItemListScope('p.') . ' ORDER BY ' . $db->sortText('k.nazev') . ', p.poradi, ' . $db->sortText('p.nazev')) as $p) {
             $changed = $p['zmeneno'] ?? $p['datum'];
             $rows[] = ['type' => 'collection_item', 'id' => (int) $p['idp'], 'title' => $p['nazev'], 'changed' => $changed,
                 'collection' => ['idk' => (int) $p['idk'], 'nazev' => $p['kolekce'], 'seo_link' => $p['kolekce_adresa']],

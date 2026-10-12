@@ -44,7 +44,7 @@ final class PasswordReset
         if ($app->request->isPost()) {
             // counted by the visitor's address behind the proxy, an IPv6 address by its /64 (3.3.3, N54)
             $ip = Antispam::hash(Firewall::visitorKey($app->request, $app->settings()));
-            $attempts = (int) $app->db()->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'obnova' AND ip_adresa = ? AND cas > NOW() - INTERVAL 15 MINUTE", [$ip]);
+            $attempts = (int) $app->db()->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'obnova' AND ip_adresa = ? AND cas > ?", [$ip, \Kaleta\Core\Clock::at('-15 minutes')]);
             if ($attempts >= 5) {
                 $error = t('Too many requests. Try again in 15 minutes.');
             } else {

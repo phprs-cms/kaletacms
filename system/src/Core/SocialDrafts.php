@@ -154,7 +154,7 @@ final class SocialDrafts
     public static function prepare(App $app, int $idc): int
     {
         $db = $app->db();
-        $c = $db->one('SELECT idc, titulek, uvod, seo_link, jazyk, obrazek, seo_titulek FROM {novinky} WHERE idc = ? AND visible = 1 AND datum <= NOW() AND smazano IS NULL', [$idc]);
+        $c = $db->one('SELECT idc, titulek, uvod, seo_link, jazyk, obrazek, seo_titulek FROM {novinky} WHERE idc = ? AND visible = 1 AND datum <= ? AND smazano IS NULL', [$idc, Clock::now()]);
         if ($c === null) {
             return 0;
         }

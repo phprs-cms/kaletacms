@@ -339,7 +339,7 @@ final class Connectors
         $db->insert('connector_log', ['created_at' => date('Y-m-d H:i:s'), 'service' => $key, 'action' => mb_substr($action, 0, 60), 'status' => max(0, min(999, $answer['status'])),
             'ok' => $answer['error'] === '' ? 1 : 0, 'ms' => (int) ($answer['ms'] ?? 0), 'error' => mb_substr($answer['error'], 0, 255)]);
         if (random_int(1, 50) === 1) {
-            $db->run('DELETE FROM {connector_log} WHERE created_at < NOW() - INTERVAL 30 DAY');
+            $db->run('DELETE FROM {connector_log} WHERE created_at < ?', [Clock::at('-30 days')]);
         }
     }
 
@@ -385,7 +385,7 @@ final class Connectors
             }
         }
         if (random_int(1, 20) === 1) {
-            $db->run('DELETE FROM {connector_queue} WHERE created_at < NOW() - INTERVAL 30 DAY'); // payloads may carry personal data
+            $db->run('DELETE FROM {connector_queue} WHERE created_at < ?', [Clock::at('-30 days')]); // payloads may carry personal data
         }
 
         return 'delivered ' . $done;
