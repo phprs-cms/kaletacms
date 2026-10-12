@@ -1066,8 +1066,10 @@ wp_batch
 check "import z WordPressu – náhled upozorní na zkratku doplňku" 200 "/admin.php?module=transfer&action=preview&file=wordpress-sample.xml" "kontaktni-formular"
 check "3.6 import z WordPressu – náhled nabízí vše skryté (3.11 UX310-16: preselected on a site with published pages)" 200 "/admin.php?module=transfer&action=preview&file=wordpress-sample.xml" 'name="skryte" value="1" checked>'
 check "import z WordPressu – náhled hlásí SEO data pluginů" 200 "/admin.php?module=transfer&action=preview&file=wordpress-sample.xml" "Rank Math"
+contains -q 'data-import-jazyk=' "$WORK/response" && { echo "  CHYBA  3.12 UX310-16: a Czech export into a Czech site warns about its language"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.12 UX310-16: a Czech export into a Czech site says nothing about its language"
 wp_import
 grep -q "Import obsahu je hotový" "$WORK/response" && echo "  ok     import z WordPressu doběhl" || { echo "  CHYBA  import z WordPressu nedoběhl"; ERRORS=$((ERRORS+1)); }
+contains -q 'class="import-dalsi-kroky"' "$WORK/response" && echo "  ok     3.12 UX310-17: the import result ends in next steps" || { echo "  CHYBA  3.12 UX310-17: no next steps on the import result"; ERRORS=$((ERRORS+1)); }
 check "importovaná novinka" 200 /novinky/lavka-pres-bystrinu "Lávka přes Bystřinu"
 check "importovaná novinka – galerie a video" 200 /novinky/lavka-pres-bystrinu 'class="galerie"'
 check "importovaná stránka" 200 /o-zpravodaji "Kontakt"
@@ -2651,6 +2653,14 @@ expect "3.6 the main menu draft: links to the new addresses, hierarchy kept, a t
   "draft:Domů=/,=page[Byty=page,Postup=/rekonstrukce-bytu#postup],Aktuality stavby=/novinky/kategorie/aktuality-stavby[Zakázka=/novinky/nova-zakazka-v-lhote],Kontakt=page"
 mcp get_menu '{"location":"footer"}' > "$WORK/response"
 expect "3.6 the footer menu draft: custom links stay, a path of the old site stays a path" "$(wxr_menu)" "draft:Facebook=https://facebook.example/stavbynovak*,Ochrana údajů=/ochrana-udaju"
+# 3.12 (UX310-17): the look bar says what each draft menu changes for visitors and Publish asks first; the import result offers
+# to preview and publish only the menus, with the same summary
+check "3.12 UX310-17: the look bar lists the main menu before → after" 200 "/admin.php?module=pages" "Hlavní menu – položky: [0-9]* → [0-9]*\."
+contains -q 'Z menu zmizí:' "$WORK/response" && contains -q 'publish_look" data-potvrdit=' "$WORK/response" \
+  && echo "  ok     3.12 UX310-17: the look bar names what leaves the menu and Publish asks first" || { echo "  CHYBA  3.12 UX310-17: no removed items or no confirmation in the look bar"; ERRORS=$((ERRORS+1)); }
+check "3.12 UX310-17: the import result shows the menu changes and publishes only the menus" 200 "/admin.php?module=transfer&action=progress&file=$WXR_FILE" 'action=publish_menus" data-potvrdit='
+contains -q 'class="hlaska hlaska-varovani import-menu-zmeny"' "$WORK/response" && contains -q 'name="adresa" value="https://www.stavby-novak.example' "$WORK/response" \
+  && echo "  ok     3.12 UX310-17: the result lists what visitors will see and checks the move against the old site" || { echo "  CHYBA  3.12 UX310-17: menu changes or the move check missing on the result"; ERRORS=$((ERRORS+1)); }
 # the same file again: nothing is duplicated and the menus are not put into the draft a second time
 wxr_run
 expect "3.6 import_wordpress again: nothing duplicated, everything reported as already imported, the menus too" \
@@ -2658,6 +2668,13 @@ expect "3.6 import_wordpress again: nothing duplicated, everything reported as a
   "done|0|0|6|skipped|1|1"
 expect "3.6 the live menus did not change; the draft look holds the main and the footer menu" \
   "$(sq "SELECT COALESCE(SHA2(GROUP_CONCAT(umisteni, jazyk, polozky ORDER BY umisteni, jazyk), 256), '-') FROM ka_menu")|$(sq "SELECT JSON_LENGTH(hodnota, '\$.menus') FROM ka_nastaveni WHERE promenna = 'look_draft'")" "$WXR_LIVE_MENU|2"
+# 3.12 (UX310-17): "Publish the menus" on the import result – the menus go live, the rest of the draft keeps waiting (the live menus come back afterwards)
+sq "DROP TABLE IF EXISTS ka_test_menu; CREATE TABLE ka_test_menu AS SELECT * FROM ka_menu; UPDATE ka_nastaveni SET hodnota = JSON_SET(hodnota, '\$.classes', JSON_OBJECT('ux17-waits', JSON_OBJECT('styl', JSON_OBJECT(), 'css', ''))) WHERE promenna = 'look_draft'" > /dev/null
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=transfer&action=progress&file=$WXR_FILE"; TOKEN=$(csrf)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=publish_menus" -d "_csrf=$TOKEN" -d "soubor=$WXR_FILE"
+expect "3.12 UX310-17: Publish the menus puts both menus live and leaves the waiting class in the draft" \
+  "$(sq "SELECT COUNT(*) FROM ka_menu WHERE jazyk = '' AND ((umisteni = 'hlavni' AND polozky LIKE '%Aktuality stavby%') OR (umisteni = 'paticka' AND polozky LIKE '%facebook.example%'))")|$(sq "SELECT CONCAT(JSON_CONTAINS_PATH(hodnota, 'one', '\$.menus'), JSON_CONTAINS_PATH(hodnota, 'one', '\$.classes.\"ux17-waits\"')) FROM ka_nastaveni WHERE promenna = 'look_draft'")" "2|01"
+sq "DELETE FROM ka_menu; INSERT INTO ka_menu SELECT * FROM ka_test_menu; DROP TABLE ka_test_menu" > /dev/null
 # 3.6 N36-2: the export an import works on cannot be swapped – no .xml from a drafts-only connection, an existing name is never
 # replaced, and a file changed after the preview stops the import
 WXR_B64=$(base64 < "$ROOT/tools/fixtures/wordpress-migration.xml" | tr -d '\n')
@@ -2691,6 +2708,34 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&a
 check "3.6 admin import preview: the WordPress menus and the option to bring them into the draft look" 200 "/admin.php?module=transfer&action=preview&file=wordpress-migration.xml" 'name="menu" value="1" checked'
 check "3.6 admin import preview: a page builder layout is reported" 200 "/admin.php?module=transfer&action=preview&file=wordpress-migration.xml" 'Breakdance'
 sq "UPDATE ka_nastaveni SET hodnota = COALESCE((SELECT hodnota FROM ka_test_look LIMIT 1), '') WHERE promenna = 'look_draft'; DROP TABLE ka_test_look" > /dev/null
+
+echo "== 3.12 (UX310-16): the WordPress import preview checks the export's language against the site"
+sq "DROP TABLE IF EXISTS ka_test_312; CREATE TABLE ka_test_312 AS SELECT * FROM ka_nastaveni WHERE promenna IN ('additional_languages', 'extensions')" > /dev/null
+cat > "$WORK/ux16-de.xml" <<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:wp="http://wordpress.org/export/1.2/" xmlns:dc="http://purl.org/dc/elements/1.1/">
+<channel><title>UX16 GmbH</title><link>https://ux16.example</link><language>de-DE</language><wp:wxr_version>1.2</wp:wxr_version><wp:base_site_url>https://ux16.example</wp:base_site_url>
+<item><title>Über uns</title><link>https://ux16.example/ueber-uns-ux16/</link><dc:creator>admin</dc:creator><content:encoded><![CDATA[<p>Wir sind ein kleines Team.</p>]]></content:encoded><wp:post_id>9101</wp:post_id><wp:post_name>ueber-uns-ux16</wp:post_name><wp:status>publish</wp:status><wp:post_type>page</wp:post_type></item>
+</channel></rss>
+XML
+ux16_read() { curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=progress&file=ux16-de.xml" -d "_csrf=$TOKEN"; }
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=transfer"; TOKEN=$(csrf)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=upload" -F "_csrf=$TOKEN" -F "soubor=@$WORK/ux16-de.xml"
+ux16_read
+check "3.12 UX310-16: a German export into a Czech site – the preview warns and preselects adding German" 200 "/admin.php?module=transfer&action=preview&file=ux16-de.xml" 'value="add:de" selected'
+contains -q 'data-import-jazyk="missing"' "$WORK/response" && echo "  ok     3.12 UX310-16: the language mismatch is a warning" || { echo "  CHYBA  3.12 UX310-16: no language mismatch warning"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=run" -d "_csrf=$TOKEN" -d soubor=ux16-de.xml -d jazyk=add:de -d stranky=1 -d stavitel=1
+ux16_read
+expect "3.12 UX310-16: “add German” adds the language version and the page lands in it" \
+  "$(sq "SELECT FIND_IN_SET('de', hodnota) > 0 FROM ka_nastaveni WHERE promenna = 'additional_languages'")|$(sq "SELECT jazyk FROM ka_stranky WHERE seo_link = 'ueber-uns-ux16' AND smazano IS NULL")" "1|de"
+check "3.12 UX310-16: the result names the added language version" 200 "/admin.php?module=transfer&action=progress&file=ux16-de.xml" 'Deutsch'
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=select" -d "_csrf=$TOKEN" -d soubor=ux16-de.xml
+ux16_read
+check "3.12 UX310-16: with German on the site, the next preview sends the export into the German version" 200 "/admin.php?module=transfer&action=preview&file=ux16-de.xml" '<option value="de" selected>'
+contains -q 'data-import-jazyk="version"' "$WORK/response" && ! contains -q 'value="add:de"' "$WORK/response" && echo "  ok     3.12 UX310-16: no warning and no offer to add a language the site has" || { echo "  CHYBA  3.12 UX310-16: language version case"; ERRORS=$((ERRORS+1)); }
+check "3.12 UX310-17: Import and export keeps the last import with a way back to its next steps" 200 "/admin.php?module=transfer" 'class="hlaska import-posledni"'
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=delete_file" -d "_csrf=$TOKEN" -d soubor=ux16-de.xml
+sq "DELETE FROM ka_stranky WHERE seo_link LIKE 'ueber-uns-ux16%'; DELETE FROM ka_nastaveni WHERE promenna IN ('additional_languages', 'extensions'); INSERT INTO ka_nastaveni SELECT * FROM ka_test_312; DROP TABLE ka_test_312" > /dev/null
 
 echo "== 3.9: a multilingual WordPress export (Polylang, WPML) arrives as linked language versions"
 # the language settings and the draft look come back after this block; the site loses its English version for a moment,

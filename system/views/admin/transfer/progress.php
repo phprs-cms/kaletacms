@@ -10,6 +10,9 @@
  * @var string $error  already translated error of the last batch (the import stopped)
  * @var bool $canDownload  the server can download (curl or allow_url_fopen) and has GD
  * @var string $domain  domain of the old site – images are downloaded only from it
+ *
+ * 3.12 (UX310-17): the result ends in next steps – check the imported content, preview and publish the menus (what each
+ * menu loses and gains is listed first), the redirects, the images, and the check of the move while the old site is online.
  */
 $v = $state['vysledek'];
 $o = $state['obr'];
@@ -72,16 +75,53 @@ $running = in_array($state['faze'], ['analyza', 'import', 'obrazky'], true);
 <?php endif ?>
 <?php $menuReasons =['no_location' => 'this site has a main and a footer menu, and other menus took them', 'empty' => 'none of its links lead to anything that was imported',
     'draft_taken' => 'the draft look already holds a different menu for this place – nothing was overwritten', 'already_imported' => 'it was imported by an earlier run']; ?>
-<?php if (($state['menu_vysledek'] ?? []) !== []): ?>
-<h2><?= e(t('Menus')) ?></h2>
+<?php
+$menuChanges = Kaleta\Core\Look::menuChanges($app); // the draft menus: what visitors see now and after publishing
+$hidden = ($state['volby']['skryte'] ?? false) || (int) ($v['skryto'] ?? 0) > 0;
+$oldSite = (string) $state['web']['adresa'];
+?>
+<h2><?= e(t('Next steps')) ?></h2>
+<ol class="import-dalsi-kroky">
+	<li><?= e(t($hidden ? 'Check the imported pages and news – they are hidden until you publish them.' : 'Check the imported pages and news.')) ?>
+		<span class="navigace-radek"><a class="navigace" href="<?= e($app->url('admin.php?module=pages')) ?>"><?= e(t('Show the pages')) ?></a> <a class="navigace" href="<?= e($app->url('admin.php?module=news')) ?>"><?= e(t('Show news')) ?></a></span></li>
+<?php if ($menuChanges !== []): ?>
+	<li><?= e(t('Preview the site with the new menus, then publish them – see Menus below.')) ?></li>
+<?php endif ?>
+<?php if ((int) $v['presmerovani'] > 0 && $app->auth()->hasModule('redirects')): ?>
+	<li><?= e(t('Look through the redirects from the old addresses.')) ?> <span class="navigace-radek"><a class="navigace" href="<?= e($app->url('admin.php?module=redirects')) ?>"><?= e(t('Show the redirects')) ?></a></span></li>
+<?php endif ?>
+<?php if ($canDownload && $domain !== '' && $state['faze'] !== 'obrazky-hotovo'): ?>
+	<li><?= e(t('Download the images from the old site – see Images from the old site below.')) ?></li>
+<?php endif ?>
+<?php if ($canDownload && Kaleta\Core\WebImport::validUrl($oldSite)): ?>
+	<li><?= e(t('Before you point the domain here, check the old site against this one: every old address must lead somewhere. The old site must still be online.')) ?>
+		<form class="vradku" method="post" action="<?= e($module->url('report_start')) ?>"><?= $csrf ?><input type="hidden" name="adresa" value="<?= e($oldSite) ?>"><button class="navigace" type="submit"><?= e(t('Check the move')) ?></button></form></li>
+<?php endif ?>
+</ol>
+<?php if (($state['menu_vysledek'] ?? []) !== [] || $menuChanges !== []): ?>
+<h2 id="menus"><?= e(t('Menus')) ?></h2>
 <ul>
-<?php foreach ($state['menu_vysledek'] as $m): ?>
+<?php foreach ($state['menu_vysledek'] ?? [] as $m): ?>
 	<li><?= e($m['stav'] === 'koncept'
-        ? t('Menu “%s” is in the draft look – %s, %s items. Publish the look to show it on the site.', (string) $m['nazev'], t(Kaleta\Core\Menu::LOCATIONS[$m['umisteni']] ?? ''), (int) $m['polozky'])
+        ? t('Menu “%s” is in the draft look – %s (items: %s).', (string) $m['nazev'], t(Kaleta\Core\Menu::LOCATIONS[$m['umisteni']] ?? ''), (int) $m['polozky'])
         : t('Menu “%s” was not imported: %s.', (string) $m['nazev'], t($menuReasons[$m['duvod']] ?? (string) $m['duvod']))) ?><?= ($m['jazyk'] ?? '') !== '' ? ' (' . e(Kaleta\Core\Language::AVAILABLE[$m['jazyk']][0] ?? (string) $m['jazyk']) . ')' : '' ?></li>
 <?php endforeach ?>
 </ul>
+<?php if ($menuChanges !== []): ?>
+<div class="hlaska hlaska-varovani import-menu-zmeny">
+	<p><strong><?= e(t('What visitors will see after you publish the menus:')) ?></strong></p>
+	<ul>
+<?php foreach ($menuChanges as $change): ?>
+		<li><?= e(Kaleta\Core\Look::menuChangeText($change)) ?></li>
+<?php endforeach ?>
+	</ul>
+	<p class="navigace-radek"><a class="navigace" href="<?= e($app->url('admin.php?module=appearance&action=preview_site')) ?>" target="_blank" rel="noopener"><?= e(t('Preview the site with the new menus')) ?></a>
+		<a class="navigace" href="<?= e($app->url('admin.php?module=menu')) ?>"><?= e(t('Open the menu')) ?></a>
+		<form class="vradku" method="post" action="<?= e($module->url('publish_menus')) ?>" data-potvrdit="<?= e(t('Publish the menus? %s', implode(' ', array_map(Kaleta\Core\Look::menuChangeText(...), $menuChanges)))) ?>"><?= $csrf ?><input type="hidden" name="soubor" value="<?= e($state['soubor']) ?>"><button class="tl" type="submit"><?= e(t('Publish the menus')) ?></button></form></p>
+</div>
+<?php else: ?>
 <p class="navigace-radek"><a class="navigace" href="<?= e($app->url('admin.php?module=menu')) ?>"><?= e(t('Open the menu')) ?></a></p>
+<?php endif ?>
 <?php endif ?>
 <?php if (($state['autori_vysledek'] ?? []) !== []): ?>
 <h2><?= e(t('Authors')) ?></h2>
@@ -102,9 +142,8 @@ $running = in_array($state['faze'], ['analyza', 'import', 'obrazky'], true);
 <?php endforeach ?>
 </ul></details>
 <?php endif ?>
-<p class="navigace-radek"><a class="navigace" href="<?= e($app->url('admin.php?module=news')) ?>"><?= e(t('Show news')) ?></a> <a class="navigace" href="<?= e($app->url('admin.php?module=pages')) ?>"><?= e(t('Show the pages')) ?></a><?php if ($app->auth()->hasModule('redirects')): // 3.11 (UX310-17): somewhere to go after the counts ?> <a class="navigace" href="<?= e($app->url('admin.php?module=redirects')) ?>"><?= e(t('Show the redirects')) ?></a><?php endif ?> <a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to Import and export')) ?></a></p>
 
-<h2><?= e(t('Images from the old site')) ?></h2>
+<h2 id="images"><?= e(t('Images from the old site')) ?></h2>
 <?php if ($state['faze'] === 'obrazky-hotovo'): ?>
 <p class="hlaska <?= (int) $o['chyb'] > 0 ? 'hlaska-varovani' : 'hlaska-ok' ?>"><?= e(t('%s images downloaded, %s failed.', (int) $o['stazeno'], (int) $o['chyb'])) ?></p>
 <?php if ($o['chyby'] !== []): ?>
@@ -124,4 +163,5 @@ $running = in_array($state['faze'], ['analyza', 'import', 'obrazky'], true);
 <form method="post" action="<?= e($module->url('images')) ?>"><?= $csrf ?><input type="hidden" name="soubor" value="<?= e($state['soubor']) ?>">
 	<p><button class="tl" type="submit"><?= e(t($state['faze'] === 'obrazky-hotovo' ? 'Try downloading again' : 'Download images from the old site')) ?></button></p></form>
 <?php endif ?>
+<p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to Import and export')) ?></a></p>
 <?php endif ?>

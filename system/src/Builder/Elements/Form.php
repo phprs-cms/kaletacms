@@ -62,21 +62,23 @@ final class Form extends Element
     {
         return [
             'nazev' => ['typ' => 'text', 'popisek' => 'Form name (in Enquiries and in the email)', 'vychozi' => t('Enquiry'), 'max' => 120],
-            'pole' => ['typ' => 'polozky', 'popisek' => 'Form fields', 'max' => 20, 'pole' => [
+            // 3.12 (UX310-18): the editor shows each field as one row (souhrn = what the row says) and groups its settings
+            // (skupina): options, the price estimate and the condition open on demand – the saved build is the same
+            'pole' => ['typ' => 'polozky', 'popisek' => 'Form fields', 'max' => 20, 'souhrn' => ['popisek', 'typ', 'povinne'], 'pole' => [
                 'popisek' => ['typ' => 'text', 'popisek' => 'Label', 'vychozi' => '', 'max' => 200],
                 'typ' => ['typ' => 'vyber', 'popisek' => 'Typ', 'vychozi' => 'text', 'moznosti' => self::FIELD_TYPES],
                 'povinne' => ['typ' => 'prepinac', 'popisek' => 'Required', 'vychozi' => false],
-                'moznosti' => ['typ' => 'radky', 'popisek' => 'Choice options (one per line)', 'vychozi' => '', 'max' => 2000, 'kdyz' => ['typ' => 'vyber']],
-                'moznosti_volby' => ['typ' => 'radky', 'popisek' => 'Options (one per line)', 'vychozi' => '', 'max' => 2000, 'kdyz' => ['typ' => 'volba']],
-                'moznosti_zaskrtnuti' => ['typ' => 'radky', 'popisek' => 'Options to tick (one per line)', 'vychozi' => '', 'max' => 2000, 'kdyz' => ['typ' => 'zaskrtnuti']],
-                'hodnota' => ['typ' => 'text', 'popisek' => 'Value sent with the form (not shown to the visitor)', 'vychozi' => '', 'max' => 300, 'kdyz' => ['typ' => 'skryte']],
+                'moznosti' => ['typ' => 'radky', 'popisek' => 'Choice options (one per line)', 'vychozi' => '', 'max' => 2000, 'kdyz' => ['typ' => 'vyber'], 'skupina' => 'moznosti'],
+                'moznosti_volby' => ['typ' => 'radky', 'popisek' => 'Options (one per line)', 'vychozi' => '', 'max' => 2000, 'kdyz' => ['typ' => 'volba'], 'skupina' => 'moznosti'],
+                'moznosti_zaskrtnuti' => ['typ' => 'radky', 'popisek' => 'Options to tick (one per line)', 'vychozi' => '', 'max' => 2000, 'kdyz' => ['typ' => 'zaskrtnuti'], 'skupina' => 'moznosti'],
+                'hodnota' => ['typ' => 'text', 'popisek' => 'Value sent with the form (not shown to the visitor)', 'vychozi' => '', 'max' => 300, 'kdyz' => ['typ' => 'skryte'], 'skupina' => 'moznosti'],
                 // a quote calculator (2.12): options carry their price ("Label | 1200"), a number field a price per unit, the estimate a base
-                'cena_za_jednotku' => ['typ' => 'text', 'popisek' => 'Price per unit for the estimate (the number × this price)', 'vychozi' => '', 'max' => 20, 'kdyz' => ['typ' => 'cislo']],
-                'zaklad' => ['typ' => 'text', 'popisek' => 'Base price of the estimate', 'vychozi' => '', 'max' => 20, 'kdyz' => ['typ' => 'odhad']],
-                'mena' => ['typ' => 'text', 'popisek' => 'Currency of the estimate (e.g. EUR, Kč)', 'vychozi' => '', 'max' => 10, 'kdyz' => ['typ' => 'odhad']],
+                'cena_za_jednotku' => ['typ' => 'text', 'popisek' => 'Price per unit for the estimate (the number × this price)', 'vychozi' => '', 'max' => 20, 'kdyz' => ['typ' => 'cislo'], 'skupina' => 'odhad'],
+                'zaklad' => ['typ' => 'text', 'popisek' => 'Base price of the estimate', 'vychozi' => '', 'max' => 20, 'kdyz' => ['typ' => 'odhad'], 'skupina' => 'odhad'],
+                'mena' => ['typ' => 'text', 'popisek' => 'Currency of the estimate (e.g. EUR, Kč)', 'vychozi' => '', 'max' => 10, 'kdyz' => ['typ' => 'odhad'], 'skupina' => 'odhad'],
                 // conditions (2.12): the field shows only when another field has a value
-                'kdyz_pole' => ['typ' => 'text', 'popisek' => 'Show only when the field labelled…', 'vychozi' => '', 'max' => 200],
-                'kdyz_hodnota' => ['typ' => 'text', 'popisek' => '…has this value (for options to tick: this one is ticked)', 'vychozi' => '', 'max' => 200],
+                'kdyz_pole' => ['typ' => 'text', 'popisek' => 'Show only when the field labelled…', 'vychozi' => '', 'max' => 200, 'skupina' => 'podminka'],
+                'kdyz_hodnota' => ['typ' => 'text', 'popisek' => '…has this value (for options to tick: this one is ticked)', 'vychozi' => '', 'max' => 200, 'skupina' => 'podminka'],
             ], 'vychozi' => [
                 ['popisek' => t('Jméno'), 'typ' => 'text', 'povinne' => true, 'moznosti' => ''],
                 ['popisek' => t('Email'), 'typ' => 'email', 'povinne' => true, 'moznosti' => ''],

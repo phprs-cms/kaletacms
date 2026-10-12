@@ -2837,5 +2837,11 @@ window.KALETA_PREKLAD = {
 	"https://… or /about-us": "https://… nebo /o-nas",
 	"The item heading of a Collection list skips a level (h%d → h%d).": "Nadpis položek ve Výpisu kolekce přeskakuje úroveň (h%d → h%d).",
 	"Open the published page – the draft preview is under ⋯ → Share": "Otevřít publikovanou stránku – náhled konceptu je pod ⋯ → Sdílet",
-	"Nothing to publish – all changes are live": "Není co publikovat – všechny změny už jsou na webu"
+	"Nothing to publish – all changes are live": "Není co publikovat – všechny změny už jsou na webu",
+	"(no label)": "(bez popisku)",
+	"with a condition": "s podmínkou",
+	"Price estimate": "Odhad ceny",
+	"Condition": "Podmínka",
+	"Remove the condition": "Odebrat podmínku",
+	"Add a condition": "Přidat podmínku"
 };
