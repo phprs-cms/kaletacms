@@ -5810,4 +5810,6 @@ return [
     'Kaleta cannot tell whether the heading font %s has %s letters for the %s version – check the languages the font supports.' => 'Kaleta nepozná, jestli má písmo nadpisů %s %s písmena pro verzi %s – ověřte, které jazyky písmo podporuje.',
     'Kaleta cannot tell whether the text font %s has %s letters for the %s version – check the languages the font supports.' => 'Kaleta nepozná, jestli má písmo textu %s %s písmena pro verzi %s – ověřte, které jazyky písmo podporuje.',
     'Fonts with them: %s; or upload one as a custom font (e.g. %s).' => 'Písma, která je mají: %s; nebo nahrajte vlastní písmo (např. %s).',
+    'Hidden categories shown with their first published item: %s.' => 'Skryté kategorie zveřejněné s první zveřejněnou položkou: %s.',
+    'Left hidden for review (written by a drafts-only Claude connection): %s – check them and show them in Categories.' => 'Ponechány skryté ke kontrole (napsalo je napojení Clauda jen na koncepty): %s – zkontrolujte je a zveřejněte v Kategoriích.',
 ];

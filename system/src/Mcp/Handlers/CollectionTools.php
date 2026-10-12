@@ -323,9 +323,9 @@ trait CollectionTools
         if ($categoryIds !== null) {
             CollectionCategories::assign($db, $idp, (int) $collection['idk'], $categoryIds);
         }
-        if ((int) ($row['zobrazit'] ?? $previous['zobrazit'] ?? 0) === 1 && (int) ($previous['zobrazit'] ?? 0) === 0) {
-            CollectionCategories::showForItems($db, [$idp], $this->app); // 3.12: the first published item shows its hidden categories
-        }
+        // 3.12: the first published item shows its hidden categories; the result names them (N312-3)
+        $shown = (int) ($row['zobrazit'] ?? $previous['zobrazit'] ?? 0) === 1 && (int) ($previous['zobrazit'] ?? 0) === 0
+            ? CollectionCategories::showForItems($db, [$idp], $this->app) : ['shown' => [], 'waiting' => []];
         Notices::recordSave($this->app, $collection, $previous, $row, $idp); // the audit trail of a notice board (2.11)
         \Kaleta\Front\Cache::clear(); // item pages, lists, the sitemap and llms.txt show the change at once (as after a save in the admin)
 
@@ -335,6 +335,7 @@ trait CollectionTools
         return ['id' => $idp, 'kolekce' => $collection['seo_link'], 'neplatna_pole' => array_keys($errors)] + ($unknownKeys !== [] ? ['nezname_klice' => $unknownKeys] : []) + self::validityOutput($row)
             + ($categoryIds !== null ? ['kategorie' => CollectionCategories::slugsOfItem($db, $idp, $itemLanguage)] : [])
             + ($unknownCategories !== [] ? ['nezname_kategorie' => $unknownCategories, 'next' => 'Some category slugs are not categories of this collection (list_collection_categories); the item is in the others.'] : [])
+            + self::categoriesShown($shown)
             + ($draftsOnly ? ['zobrazit' => false, 'next' => 'Saved hidden: a person reviews the item and makes it visible (Collections, or Waiting for you on the dashboard).'] : []) + [
             'adresa' => $collection['detail'] ? $this->app->request->origin() . $this->app->url(($itemLanguage !== '' ? $itemLanguage . '/' : '') . $collection['seo_link'] . '/' . $seo) : null]
             // a document (2.11): the stable address of its current file, for links and buttons
@@ -359,7 +360,8 @@ trait CollectionTools
         $rows = array_map(\Kaleta\Builder\ItemBatch::fromMcp(...), $items);
         $dryRun = !empty($a['dry_run']);
         $options = ['drafts_only' => $auth->draftsOnly()];
-        $plan = $dryRun ? \Kaleta\Builder\ItemBatch::plan($this->app, $collection, $rows, $options) : \Kaleta\Builder\ItemBatch::save($this->app, $collection, $rows, $options);
+        $shown = ['shown' => [], 'waiting' => []];
+        $plan = $dryRun ? \Kaleta\Builder\ItemBatch::plan($this->app, $collection, $rows, $options) : \Kaleta\Builder\ItemBatch::save($this->app, $collection, $rows, $options, $shown);
         $counts = array_count_values(array_column($plan, 'status')) + ['added' => 0, 'changed' => 0, 'unchanged' => 0, 'refused' => 0];
         $media = ['downloaded' => 0, 'failed' => 0, 'deferred' => 0, 'to_download' => 0];
         $results = [];
@@ -376,9 +378,22 @@ trait CollectionTools
         $media = array_filter($media);
 
         return ['dry_run' => $dryRun, 'collection' => $collection['seo_link'], 'added' => $counts['added'], 'changed' => $counts['changed'], 'unchanged' => $counts['unchanged'], 'refused' => $counts['refused']]
-            + ($media !== [] ? ['media' => $media] : []) + ['results' => $results]
+            + ($media !== [] ? ['media' => $media] : []) + ['results' => $results] + self::categoriesShown($shown)
             + (($media['deferred'] ?? 0) > 0 ? ['next' => 'Some media were not downloaded in this call (at most ' . \Kaleta\Builder\ItemBatch::MAX_DOWNLOADS . ' downloads per call): send those items again (by id or slug) with media only to download the rest.'] : [])
             + ($auth->draftsOnly() && !$dryRun && $counts['added'] + $counts['changed'] > 0 ? ['note' => 'Saved hidden: a person reviews the items and makes them visible (Collections, or Waiting for you on the dashboard).'] : []);
+    }
+
+    /**
+     * The hidden categories published items showed, and those left for review (3.12, N312-3), for a save result.
+     *
+     * @param array{shown: list<string>, waiting: list<string>} $shown from CollectionCategories::showForItems
+     * @return array<string, mixed>
+     */
+    private static function categoriesShown(array $shown): array
+    {
+        return ($shown['shown'] !== [] ? ['categories_shown' => $shown['shown']] : [])
+            + ($shown['waiting'] !== [] ? ['categories_waiting_review' => $shown['waiting'],
+                'categories_note' => 'These hidden categories got their first published item but stay hidden: their texts come from a drafts-only connection and wait for a person to review and show them (Collections → Categories).'] : []);
     }
 
     /** delete_collection_item */
@@ -575,13 +590,15 @@ trait CollectionTools
             };
         }
         $id = Language::runWith('en', fn (): int => CollectionCategories::save($db, (int) $k['idk'], $id, $language, $input), 'admin-');
+        // texts from a drafts-only connection wait for a person (N312-3): never shown with an item, only by a person
+        CollectionCategories::markReview($this->app->settings(), $id, $draftsOnly || !$auth->canPublish());
         \Kaleta\Front\Cache::clear();
         $saved = CollectionCategories::bySlug($db, (int) $k['idk'], (string) (CollectionCategories::byId($db, $id)['texts'][$language]['slug'] ?? ''), $language);
         $path = $saved !== null ? CollectionCategories::path((string) $k['seo_link'], $saved) : '';
 
         return ['id' => $id, 'collection' => $k['seo_link'], 'language' => $language === '' ? Language::defaults($this->app->settings()) : $language, 'slug' => $saved['slug'] ?? '',
             'visible' => $saved !== null && CollectionCategories::isPublic($saved), 'url' => $this->app->request->origin() . $this->app->url(($language !== '' ? $language . '/' : '') . $path)]
-            + ($draftsOnly ? ['next' => 'Saved hidden: a person reviews the category and makes it visible (Collections → Categories).'] : []);
+            + ($draftsOnly ? ['next' => 'Saved hidden and marked for review: it stays hidden – also when one of its items is published – until a person checks it and makes it visible (Collections → Categories).'] : []);
     }
 
     /** delete_collection_category */

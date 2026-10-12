@@ -230,16 +230,15 @@ final class Collections extends Module
         if ($r->post('kategorie_formular') === '1') {
             CategoryTree::assign($this->db, $idp, (int) $k['idk'], array_map(intval(...), $r->postList('kategorie'))); // 3.7: the ticked categories
         }
-        if ((bool) $row['zobrazit'] && (int) ($previous['zobrazit'] ?? 0) === 0) {
-            CategoryTree::showForItems($this->db, [$idp], $this->app); // 3.12: the first published item shows its hidden categories
-        }
+        // 3.12: the first published item shows its hidden categories – the person is told which (N312-3)
+        $shown = (bool) $row['zobrazit'] && (int) ($previous['zobrazit'] ?? 0) === 0 ? CategoryTree::showForItems($this->db, [$idp], $this->app) : ['shown' => [], 'waiting' => []];
         Notices::recordSave($this->app, $k, $previous, $row, $idp);
         \Kaleta\Front\Cache::clear();
         if ($errors !== []) {
             return $this->back(t('The item is saved, but these fields had an invalid value and were left empty: %s', implode(', ', $errors)), 'item', ['id' => $k['idk'], 'item' => $idp], 'chyba');
         }
 
-        return $this->back('The item was saved.', 'items', ['id' => $k['idk']]);
+        return $this->back(trim(t('The item was saved.') . ' ' . CategoryTree::shownMessage($shown)), 'items', ['id' => $k['idk']]);
     }
 
     /** Actions the list does with ticked items (2.14): show, hide, language version, trash. A notice board keeps its notices (2.11). */
@@ -278,7 +277,7 @@ final class Collections extends Module
             \Kaleta\Admin\ChangeLog::write($this->app, 'collections', 'bulk ' . ['zobrazit' => 'shown', 'skryt' => 'hidden', 'jazyk' => 'language ' . ($language ?: 'default'), 'kos' => 'moved to trash'][$action], mb_substr($k['seo_link'] . ': ' . $p['nazev'], 0, 80));
             $done++;
         }
-        CategoryTree::showForItems($this->db, $published, $this->app); // 3.12: the first published items show their hidden categories
+        $shown = CategoryTree::showForItems($this->db, $published, $this->app); // 3.12: the first published items show their hidden categories
         if ($done > 0) {
             \Kaleta\Front\Cache::clear();
         }
@@ -287,7 +286,7 @@ final class Collections extends Module
             'jazyk' => t('Items moved to the language version: %d.', $done), default => t('Items moved to the trash: %d.', $done),
         };
 
-        return $this->back($message . ($skipped > 0 ? ' ' . t('Skipped: %d (the address is taken in that language).', $skipped) : ''), 'items', ['id' => $idk], $done > 0 ? 'ok' : 'chyba');
+        return $this->back(trim($message . ($skipped > 0 ? ' ' . t('Skipped: %d (the address is taken in that language).', $skipped) : '') . ' ' . CategoryTree::shownMessage($shown)), 'items', ['id' => $idk], $done > 0 ? 'ok' : 'chyba');
     }
 
     /* ---------- CSV/JSON import of items (3.7, Builder\ItemImport) ---------- */
@@ -480,6 +479,7 @@ final class Collections extends Module
         } catch (\InvalidArgumentException $e) {
             return $this->back($e->getMessage(), 'category', ['id' => $k['idk']] + ($id > 0 ? ['category' => $id] : []) + ($language !== '' ? ['language' => $language] : []), 'chyba');
         }
+        CategoryTree::markReview($this->app->settings(), $id, !$this->app->auth()->canPublish()); // a person who may publish has reviewed it (N312-3)
         \Kaleta\Admin\ChangeLog::write($this->app, 'collections', 'category saved', mb_substr($k['seo_link'] . ': ' . $r->post('name'), 0, 80));
         \Kaleta\Front\Cache::clear();
 

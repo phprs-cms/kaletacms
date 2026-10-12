@@ -263,9 +263,10 @@ final class ItemBatch
      * @param array<string, mixed> $collection
      * @param list<Row> $rows
      * @param array{drafts_only?: bool, slug_from_name?: bool, new_visible?: bool} $options
+     * @param array{shown: list<string>, waiting: list<string>}|null $categories the hidden categories the saved items showed (3.12, N312-3)
      * @return list<array<string, mixed>> the plan with the saved ids, and media_downloaded / media_deferred per item
      */
-    public static function save(App $app, array $collection, array $rows, array $options = []): array
+    public static function save(App $app, array $collection, array $rows, array $options = [], ?array &$categories = null): array
     {
         $plan = self::plan($app, $collection, $rows, $options);
         $budget = self::MAX_DOWNLOADS;
@@ -351,7 +352,7 @@ final class ItemBatch
         unset($entry);
         if ($written) {
             // 3.12: items that were hidden before show their hidden categories (the first published item of a category)
-            CollectionCategories::showForItems($db, array_map(fn (array $e): int => (int) ($e['previous']['zobrazit'] ?? 0) === 0 ? (int) ($e['id'] ?? 0) : 0, $plan), $app);
+            $categories = CollectionCategories::showForItems($db, array_map(fn (array $e): int => (int) ($e['previous']['zobrazit'] ?? 0) === 0 ? (int) ($e['id'] ?? 0) : 0, $plan), $app);
             \Kaleta\Front\Cache::clear();
         }
 

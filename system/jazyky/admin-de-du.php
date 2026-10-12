@@ -929,4 +929,5 @@ return [
     'Kaleta cannot tell whether the heading font %s has %s letters for the %s version – check the languages the font supports.' => 'Kaleta kann nicht erkennen, ob die Überschriftenschrift %s %s Buchstaben für die Version %s hat – prüfe, welche Sprachen die Schrift unterstützt.',
     'Kaleta cannot tell whether the text font %s has %s letters for the %s version – check the languages the font supports.' => 'Kaleta kann nicht erkennen, ob die Textschrift %s %s Buchstaben für die Version %s hat – prüfe, welche Sprachen die Schrift unterstützt.',
     'Fonts with them: %s; or upload one as a custom font (e.g. %s).' => 'Schriften, die sie haben: %s; oder lade eine als eigene Schrift hoch (z. B. %s).',
+    'Left hidden for review (written by a drafts-only Claude connection): %s – check them and show them in Categories.' => 'Zur Prüfung ausgeblendet gelassen (von einer Claude-Verbindung nur für Entwürfe geschrieben): %s – prüfe sie und blende sie unter Kategorien ein.',
 ];

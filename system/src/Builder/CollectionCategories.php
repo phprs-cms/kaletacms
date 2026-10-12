@@ -84,48 +84,95 @@ final class CollectionCategories
     }
 
     /**
+     * Categories whose texts a drafts-only connection wrote and no person with the right to publish has saved since
+     * (3.12, N312-3): they wait for review and are never shown automatically (showForItems). Kept as a list of ids in the
+     * setting categories_pending_review.
+     */
+    public const string REVIEW_SETTING = 'categories_pending_review';
+
+    /** @return list<int> */
+    public static function pendingReview(Db $db): array
+    {
+        $raw = (string) ($db->value('SELECT hodnota FROM {nastaveni} WHERE promenna = ?', [self::REVIEW_SETTING]) ?? '');
+
+        return array_values(array_filter(array_map(intval(...), explode(',', $raw))));
+    }
+
+    /** Marks a category as waiting for review (saved by a drafts-only connection) or reviewed (saved by a person who may publish). */
+    public static function markReview(\Kaleta\Core\Settings $settings, int $id, bool $pending): void
+    {
+        $ids = array_values(array_diff(self::pendingReview($settings->db()), [$id]));
+        if ($pending) {
+            $ids[] = $id;
+        }
+        $settings->set(self::REVIEW_SETTING, implode(',', array_slice($ids, -2000)));
+    }
+
+    /**
      * A hidden category becomes visible with its first published item (3.12): when an item is published – saved visible in
      * the admin or over MCP, in bulk, by its scheduled date or by an import – each hidden category it belongs to that had
      * no other published item, and that category's parent, is shown, so the category pages work at once. A category hidden
      * on purpose while it has published items stays hidden; one without a published item stays as it is; a category is
-     * never hidden automatically. Logged in the change log (with the person or connection when $app is given). Returns
-     * the names of the categories shown.
+     * never hidden automatically. A category waiting for review (pendingReview – its texts come from a drafts-only
+     * connection, N312-3) is not shown either: it is named in "waiting", so the person who publishes is told. Shown
+     * categories are logged in the change log (with the person or connection when $app is given).
      *
      * @param list<int> $idps the items that have just become visible (an item that was visible before is not passed)
-     * @return list<string>
+     * @return array{shown: list<string>, waiting: list<string>} the names of the categories shown and of those left for review
      */
     public static function showForItems(Db $db, array $idps, ?\Kaleta\Core\App $app = null): array
     {
         $idps = array_values(array_unique(array_filter(array_map(intval(...), $idps))));
         if ($idps === []) {
-            return [];
+            return ['shown' => [], 'waiting' => []];
         }
+        $pending = array_flip(self::pendingReview($db));
         $ids = [];
+        $waiting = [];
         foreach ($db->all('SELECT DISTINCT c.id, c.parent_id FROM {collection_item_categories} ic JOIN {kolekce_polozky} p ON p.idp = ic.idp JOIN {collection_categories} c ON c.id = ic.category_id
             WHERE ic.idp IN (' . implode(',', array_fill(0, count($idps), '?')) . ') AND p.zobrazit = 1 AND p.smazano IS NULL AND c.visible = 0
             AND NOT EXISTS (SELECT 1 FROM {collection_item_categories} oc JOIN {kolekce_polozky} o ON o.idp = oc.idp WHERE oc.category_id = c.id
                 AND o.zobrazit = 1 AND o.smazano IS NULL AND o.idp NOT IN (' . implode(',', array_fill(0, count($idps), '?')) . '))', [...$idps, ...$idps]) as $r) {
+            if (isset($pending[(int) $r['id']])) {
+                $waiting[(int) $r['id']] = true; // unreviewed texts: a person shows it
+                continue;
+            }
             $ids[(int) $r['id']] = true;
             if ($r['parent_id'] !== null) {
-                $ids[(int) $r['parent_id']] = true; // a subcategory's address and page need its parent
+                $parent = (int) $r['parent_id']; // a subcategory's address and page need its parent – unless the parent waits for review
+                isset($pending[$parent]) ? $waiting[$parent] = true : $ids[$parent] = true;
             }
         }
-        $hidden = $ids === [] ? [] : $db->all('SELECT c.id, COALESCE(d.name, (SELECT t.name FROM {collection_category_texts} t WHERE t.category_id = c.id ORDER BY t.language LIMIT 1)) AS name
+        $names = fn (array $set, string $visible): array => $set === [] ? [] : $db->all('SELECT c.id, COALESCE(d.name, (SELECT t.name FROM {collection_category_texts} t WHERE t.category_id = c.id ORDER BY t.language LIMIT 1)) AS name
             FROM {collection_categories} c LEFT JOIN {collection_category_texts} d ON d.category_id = c.id AND d.language = \'\'
-            WHERE c.visible = 0 AND c.id IN (' . implode(',', array_keys($ids)) . ') ORDER BY c.parent_id IS NOT NULL, c.id');
+            WHERE c.visible = ' . $visible . ' AND c.id IN (' . implode(',', array_keys($set)) . ') ORDER BY c.parent_id IS NOT NULL, c.id');
+        $hidden = $names($ids, '0');
+        $waitingNames = array_map(fn (array $r): string => (string) $r['name'], $names($waiting, '0'));
         if ($hidden === []) {
-            return [];
+            return ['shown' => [], 'waiting' => $waitingNames];
         }
         $db->run('UPDATE {collection_categories} SET visible = 1, updated_at = ? WHERE visible = 0 AND id IN (' . implode(',', array_map(fn (array $r): int => (int) $r['id'], $hidden)) . ')', [date('Y-m-d H:i:s')]);
-        $names = array_map(fn (array $r): string => (string) $r['name'], $hidden);
-        $description = mb_substr(implode(', ', $names), 0, 255);
+        $shown = array_map(fn (array $r): string => (string) $r['name'], $hidden);
+        $description = mb_substr(implode(', ', $shown), 0, 255);
         if ($app !== null) {
             \Kaleta\Admin\ChangeLog::write($app, 'collections', 'category_shown', $description);
         } else {
             \Kaleta\Admin\ChangeLog::system($db, 'collections', 'category_shown', $description);
         }
 
-        return $names;
+        return ['shown' => $shown, 'waiting' => $waitingNames];
+    }
+
+    /**
+     * The sentences a person who published items reads (3.12, N312-3): the categories shown with them and those left hidden
+     * for review; '' = none.
+     *
+     * @param array{shown: list<string>, waiting: list<string>} $result from showForItems()
+     */
+    public static function shownMessage(array $result): string
+    {
+        return trim(($result['shown'] !== [] ? t('Hidden categories shown with their first published item: %s.', implode(', ', $result['shown'])) : '')
+            . ($result['waiting'] !== [] ? ' ' . t('Left hidden for review (written by a drafts-only Claude connection): %s – check them and show them in Categories.', implode(', ', $result['waiting'])) : ''));
     }
 
     /** Does the collection have any category at all (in any language)? */

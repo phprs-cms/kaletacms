@@ -134,9 +134,17 @@ final class WpImport
     public static function saveState(array $state): void
     {
         $path = self::stateFile((string) $state['soubor']);
+        // invalid UTF-8 from the file (a percent-encoded slug) is replaced, never lost with the whole state (N312-4); a state that
+        // cannot be encoded at all is refused loudly – the last good one stays
+        $json = json_encode($state, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+        if ($json === false) {
+            throw new \RuntimeException('The import state could not be saved (' . json_last_error_msg() . ') – the import stopped where it was; start it again.');
+        }
         // first next to it, then rename: an interrupted write must not leave a half-written file
-        file_put_contents($path . '.tmp', (string) json_encode($state, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
-        rename($path . '.tmp', $path);
+        if (file_put_contents($path . '.tmp', $json, LOCK_EX) !== strlen($json) || !rename($path . '.tmp', $path)) {
+            @unlink($path . '.tmp');
+            throw new \RuntimeException('The import state could not be saved – check write permissions for storage/import.');
+        }
     }
 
     public static function deleteState(string $file): void
@@ -729,7 +737,7 @@ final class WpImport
             }
             CollectionCategories::assign($this->db, $idp, $idk, array_values(array_filter($ids)));
             // a visible item in a category an earlier hidden import made shows it (3.12)
-            $state['vysledek']['kategorie_zobrazeny'] = (int) ($state['vysledek']['kategorie_zobrazeny'] ?? 0) + count(CollectionCategories::showForItems($this->db, [$idp]));
+            $state['vysledek']['kategorie_zobrazeny'] = (int) ($state['vysledek']['kategorie_zobrazeny'] ?? 0) + count(CollectionCategories::showForItems($this->db, [$idp])['shown']);
         }
         // an imported notice of an official notice board (2.11, Core\Notices) starts its audit trail
         $board = \Kaleta\Builder\Collections::byId($this->db, $idk);
@@ -816,7 +824,7 @@ final class WpImport
      * @param array<string, mixed> $collection from collectionFor()
      * @param array<string, mixed> $state
      */
-    private function itemCategory(array $collection, string $type, string $slug, string $name, string $language, array &$state, int $depth = 0): ?int
+    private function itemCategory(array $collection, string $type, string $slug, string $name, string $language, array &$state, array $path = []): ?int
     {
         $term = $this->termId('polozky', $slug, $language);
         $group = $term !== null ? (string) ($this->header['skupina_terminu'][$term] ?? '') : '';
@@ -831,17 +839,28 @@ final class WpImport
         }
         $parentSlug = $term !== null ? (string) ($this->header['predek_terminu'][$term] ?? '') : '';
         $parent = null;
-        if ($parentSlug !== '' && $parentSlug !== $slug && $depth < 5) {
+        $path[$slug] = true;
+        if ($parentSlug !== '' && isset($path[$parentSlug])) {
+            // a parent cycle in the export (A under B under A, N312-6): broken here, each category is created once
+            $state['kategorie_cykly'] = array_slice(array_values(array_unique([...(array) ($state['kategorie_cykly'] ?? []), WpWooCommerce::readableSlug($slug) . ' → ' . WpWooCommerce::readableSlug($parentSlug)])), 0, 50);
+            $parentSlug = '';
+        }
+        if ($parentSlug !== '' && count($path) < 50) {
             $parentTerm = $this->termId('polozky', $parentSlug, $language);
-            $parent = $this->itemCategory($collection, $type, $parentSlug, $parentTerm !== null ? (string) ($this->header['nazev_terminu'][$parentTerm] ?? '') : '', $language, $state, $depth + 1);
+            $parent = $this->itemCategory($collection, $type, $parentSlug, $parentTerm !== null ? (string) ($this->header['nazev_terminu'][$parentTerm] ?? '') : '', $language, $state, $path);
             $grandparent = $parent !== null ? $this->db->value('SELECT parent_id FROM {collection_categories} WHERE id = ?', [$parent]) : null;
             $parent = $grandparent !== null ? (int) $grandparent : $parent; // two levels only
+            // the parent's chain may have created this category meanwhile (N312-6): never a second one
+            $id ??= $this->convertedId('kategorie_kolekce', $key, 'collection_categories', 'id');
+            if ($id !== null && $this->db->value('SELECT 1 FROM {collection_category_texts} WHERE category_id = ? AND language = ?', [$id, $language]) !== null) {
+                return $this->itemCategories[$key . '|' . $language] = $id;
+            }
         }
         [$sameLanguage, $languageParams] = Slug::scope($this->db, $language);
-        $address = Slug::makeUnique(slugify(rawurldecode($slug), 150) ?: 'category', fn (string $s): bool => in_array($s, CollectionCategories::RESERVED_SLUGS, true)
+        $address = Slug::makeUnique(slugify(WpWooCommerce::readableSlug($slug), 150) ?: 'category', fn (string $s): bool => in_array($s, CollectionCategories::RESERVED_SLUGS, true)
             || $this->db->value('SELECT 1 FROM {collection_category_texts} WHERE idk = ? AND language = ? AND slug = ? AND category_id <> ?', [$idk, $language, $s, (int) $id]) !== null
             || $this->db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ?' . $sameLanguage . ' LIMIT 1', [$idk, $s, ...$languageParams]) !== null, 160);
-        $title = $term !== null && ($this->header['nazev_terminu'][$term] ?? '') !== '' ? (string) $this->header['nazev_terminu'][$term] : ($name !== '' ? $name : rawurldecode($slug));
+        $title = $term !== null && ($this->header['nazev_terminu'][$term] ?? '') !== '' ? (string) $this->header['nazev_terminu'][$term] : ($name !== '' ? $name : WpWooCommerce::readableSlug($slug));
         $new = $id === null;
         try {
             $id = CollectionCategories::save($this->db, $idk, $id, $language, ['name' => $title, 'slug' => $address]
@@ -1068,6 +1087,12 @@ final class WpImport
             if ($old === '' || $old === $newVersion) {
                 continue;
             }
+            // an imported old address is always a literal one (N312-4, N312-5): never a pattern rule (*), invalid UTF-8,
+            // control or direction characters, or longer than the column
+            if (!self::literalPath($old)) {
+                self::listRedirect($state, 'odmitnute', ['/' . (mb_check_encoding($old, 'UTF-8') ? $old : mb_convert_encoding($old, 'UTF-8', 'UTF-8')), '/' . $newVersion, 'not_literal']);
+                continue;
+            }
             $existing = $this->db->value('SELECT na_adresu FROM {presmerovani} WHERE z_adresy = ?', [$old]);
             $refused = match (true) {
                 $existing !== null && trim((string) $existing, '/') !== trim($newVersion, '/') => 'redirect_exists',
@@ -1086,6 +1111,17 @@ final class WpImport
         }
 
         return $count;
+    }
+
+    /**
+     * May an old address of an import become a redirect source (N312-4, N312-5)? Valid UTF-8, at most 255 characters, no
+     * "*" (a pattern rule in Core\RedirectRules would catch other addresses), no control or direction characters, and a
+     * query only as ?p=<number> or ?lang=<code>, which the import writes itself.
+     */
+    public static function literalPath(string $path): bool
+    {
+        return $path !== '' && mb_check_encoding($path, 'UTF-8') && mb_strlen($path) <= 255 && !str_contains($path, '*')
+            && preg_match('/[\p{Cc}\p{Cf}]/u', $path) !== 1 && (!str_starts_with($path, '?') || preg_match('/^\?(p=\d+|lang=[a-z0-9-]{2,35})$/D', $path) === 1);
     }
 
     /**
@@ -1719,7 +1755,11 @@ final class WpImport
         } catch (\RuntimeException $e) {
             $error = $e;
         } finally {
-            self::saveState($state);
+            try {
+                self::saveState($state);
+            } catch (\RuntimeException $e) {
+                $error = $e; // the last good state stays on disk (N312-4)
+            }
             flock($lock, LOCK_UN);
             fclose($lock);
         }
@@ -1780,6 +1820,7 @@ final class WpImport
     private const array REFUSED = [
         'address_in_use' => 'the old address is a page or item of this site already – it keeps working and no link is rewritten',
         'redirect_exists' => 'the old address already redirects elsewhere – that redirect was kept',
+        'not_literal' => 'the old address has a "*", invalid characters or is too long – an import never writes a pattern rule; add it by hand if you need it',
         'no_location' => 'this site has a main and a footer menu, and the other WordPress menus took them; choose with menu_locations',
         'empty' => 'none of its links lead to anything that was imported',
         'draft_taken' => 'the draft look already holds a different menu for this location – nothing was overwritten; the items are here for save_menu',
@@ -1858,6 +1899,7 @@ final class WpImport
             + (($p['typy'][WpWooCommerce::TYPE]['woo'] ?? false) ? ['woocommerce' => [
                 'products' => (int) $p['typy'][WpWooCommerce::TYPE]['pocet'], 'product_categories' => count((array) ($p['typy'][WpWooCommerce::TYPE]['kategorie'] ?? [])),
                 'collection' => (string) ($state['kolekce'][WpWooCommerce::TYPE]['seo_link'] ?? ''),
+                'category_cycles_broken' => array_values((array) ($state['kategorie_cykly'] ?? [])),
                 'category_base' => (string) ($state['zaklad_kategorii'] ?? '') !== '' ? '/' . $state['zaklad_kategorii'] . '/ (found in the export\'s links) and /' . WpWooCommerce::CATEGORY_BASE . '/' : '/' . WpWooCommerce::CATEGORY_BASE . '/',
                 'how' => 'Products arrive in a catalogue made from the Products preset (an enquiry basket instead of a checkout): code (SKU), price, availability, '
                     . 'parameters (attributes), summary, description and the featured image as its picture. Product categories are categories of the collection '

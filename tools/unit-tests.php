@@ -1546,6 +1546,13 @@ check('3.12 WooCommerce: a shop\'s own product category base from links in its m
     Kaleta\Core\WpWooCommerce::categoryBase(['product-category/tejpy', 'blog/tejpy-navod'], ['tejpy'], ['en']),
     Kaleta\Core\WpWooCommerce::oldCategoryPaths('kolena', 'podpory', 'ar', 'kategorie-produktu')],
     [['kategorie-produktu/tejpy', 'ar/kategorie-produktu/أ'], 'kategorie-produktu', '', ['ar/product-category/podpory/kolena', 'ar/product-category/kolena', 'ar/kategorie-produktu/podpory/kolena', 'ar/kategorie-produktu/kolena']]);
+check('3.12 N312-4/5: imported redirect sources are literal – no *, no invalid UTF-8, control or direction characters, no long ones; ?p= and ?lang= stay', array_map(Kaleta\Core\WpImport::literalPath(...),
+    ['product-category/tejpy', 'ar/product-category/أ', 'product-category/*', '*/*', "product-category/\xff\xfe", "x/\u{202E}gpj", str_repeat('a', 256), '?p=12', '?lang=ar', '?s=x', '']),
+    [true, true, false, false, false, false, false, true, true, false, false]);
+check('3.12 N312-4/5: a readable slug only from valid text; a detected category base never with a "*" segment', [
+    Kaleta\Core\WpWooCommerce::readableSlug('%d8%a3'), Kaleta\Core\WpWooCommerce::readableSlug('%ff%fe'), Kaleta\Core\WpWooCommerce::readableSlug('%e2%80%aex'),
+    Kaleta\Core\WpWooCommerce::categoryBase(['*/tejpy', '*/tejpy', 'shop/tejpy'], ['tejpy'], []), Kaleta\Core\WpWooCommerce::ownPaths('<a href="https://shop.example/%ff/tejpy">x</a>', 'shop.example')],
+    ['أ', '%ff%fe', '%e2%80%aex', 'shop', []]);
 // 3.12: fonts and scripts (Builder\FontScripts) – an Arabic version with a font without Arabic letters is reported, with fonts that have them
 $fsDs = Kaleta\Builder\DesignSystem::sanitize([]);
 $fsCustom = ['vlastni_pisma' => [['nazev' => 'Cairo Bold', 'soubor' => 'media/c.woff2', 'tucny' => ''], ['nazev' => 'Brand Sans', 'soubor' => 'media/b.woff2', 'tucny' => ''], ['nazev' => 'Interstate', 'soubor' => 'media/i.woff2', 'tucny' => '']]];

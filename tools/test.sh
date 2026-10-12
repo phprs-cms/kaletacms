@@ -6041,16 +6041,29 @@ SCIDK=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = '$SCOL'")
 SC_CAT() { sq "SELECT GROUP_CONCAT(CONCAT(t.slug, '=', c.visible) ORDER BY t.slug) FROM ka_collection_categories c JOIN ka_collection_category_texts t ON t.category_id = c.id AND t.language = '' WHERE c.idk = $SCIDK AND t.slug IN ($1)"; }
 SC_ITEM() { sq "SELECT idp FROM ka_kolekce_polozky WHERE idk = $SCIDK AND jazyk = '' AND nazev = '$1'"; }
 SC_LOG=$(sq "SELECT COUNT(*) FROM ka_protokol WHERE akce = 'category_shown'")
-mcp save_collection_item "{\"collection\":\"$SCOL\",\"id\":$(SC_ITEM 'Pro Knee Brace FS-001'),\"visible\":true}" > /dev/null
+mcp save_collection_item "{\"collection\":\"$SCOL\",\"id\":$(SC_ITEM 'Pro Knee Brace FS-001'),\"visible\":true}" > "$WORK/response"; SC_MCP=$(mcp_value categories_shown)
 SC_A=$(SC_CAT "'supports-and-braces-fs', 'knee-supports-fs', 'back-supports-fs', 'taping-fs'")
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=collections&action=items&id=$SCIDK"; TOKEN=$(csrf)
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=collections&action=bulk_items" -d "_csrf=$TOKEN" -d "idk=$SCIDK" -d provest=zobrazit -d "oznacene[]=$(SC_ITEM 'Pro Back Support Belt FS-003')"
+curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/bulk.html" -X POST "$B/admin.php?module=collections&action=bulk_items" -d "_csrf=$TOKEN" -d "idk=$SCIDK" -d provest=zobrazit -d "oznacene[]=$(SC_ITEM 'Pro Back Support Belt FS-003')"
 SC_B=$(SC_CAT "'clinic-equipment-fs', 'tables-fs'")
 sq "UPDATE ka_kolekce_polozky SET zverejnit_od = '$(site_time '-1 minute')' WHERE idp = $(SC_ITEM 'Sport Kinesio Tape FS-016'); UPDATE ka_jobs SET last_run = NULL WHERE name = 'notifications'" > /dev/null
 curl -s -o /dev/null "$B/tasks?token=testtoken123"
 expect "3.12: a published product shows its hidden category and the parent (MCP, admin bulk, scheduled), empty ones stay hidden, each logged" \
   "$SC_A|$SC_B|$(SC_CAT "'taping-fs', 'kinesiology-tape-fs', 'rigid-tape-fs'")|$(( $(sq "SELECT COUNT(*) FROM ka_protokol WHERE akce = 'category_shown'") - SC_LOG ))" \
   "back-supports-fs=0,knee-supports-fs=1,supports-and-braces-fs=1,taping-fs=0|clinic-equipment-fs=1,tables-fs=1|kinesiology-tape-fs=1,rigid-tape-fs=0,taping-fs=1|3"
+expect "3.12 N312-3: the publisher is told which categories went visible – MCP categories_shown, the admin's bulk message" \
+  "$SC_MCP|$(grep -c 'Clinic equipment, Tables' "$WORK/bulk.html")" '["Supports and braces","Knee supports"]|1'
+# N312-3: a category a drafts-only connection wrote stays hidden when a person publishes its first item; the person is told
+mcp_as "$DRAFT_TOKEN" save_collection_category "{\"collection\":\"$SCOL\",\"name\":\"Secret promo\",\"slug\":\"secret-promo-fs\",\"description\":\"<p>Unreviewed text</p>\"}" > "$WORK/response"; SC_PROMISE=$(mcp_value next)
+mcp_as "$DRAFT_TOKEN" save_collection_item "{\"collection\":\"$SCOL\",\"name\":\"Draft gadget FS\",\"categories\":[\"secret-promo-fs\"]}" > "$WORK/response"; SC_DRAFT=$(mcp_value id)
+mcp save_collection_item "{\"collection\":\"$SCOL\",\"id\":$SC_DRAFT,\"visible\":true}" > "$WORK/response"
+expect "3.12 N312-3: a drafts-only connection's category stays hidden when its first item is published, the publisher is told it waits for review, and the promise says so" \
+  "$(SC_CAT "'secret-promo-fs'")|$(mcp_value categories_waiting_review)|$(get39 "/$SCOL/secret-promo-fs" | cut -c1-3)|$(printf '%s' "$SC_PROMISE" | grep -q 'also when one of its items is published' && echo promised)" \
+  'secret-promo-fs=0|["Secret promo"]|404|promised'
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=collections&action=categories&id=$SCIDK"; TOKEN=$(csrf)
+SC_PROMO=$(sq "SELECT category_id FROM ka_collection_category_texts WHERE slug = 'secret-promo-fs'")
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=collections&action=save_category" -d "_csrf=$TOKEN" -d "idk=$SCIDK" -d "id=$SC_PROMO" -d name='Secret promo' -d slug=secret-promo-fs -d description='<p>Reviewed</p>' -d sort_order=100
+expect "3.12 N312-3: once a person has saved the category, it is no longer waiting for review" "$(sq "SELECT FIND_IN_SET('$SC_PROMO', hodnota) FROM ka_nastaveni WHERE promenna = 'categories_pending_review'")" "0"
 # the rest is shown by hand here, the imported home page as the home page (a language version is public once its
 # translation of the home page is)
 sq "UPDATE ka_kolekce_polozky SET zobrazit = 1 WHERE seo_link LIKE '%-fs-%'; UPDATE ka_collection_categories c JOIN ka_kolekce k ON k.idk = c.idk SET c.visible = 1 WHERE k.seo_link = '$SCOL';
@@ -6102,6 +6115,31 @@ SCIDK=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = '$SCOL'")
 mcp delete_collection "{\"collection\":\"$SCOL\"}" > "$WORK/response"
 expect "3.12: delete_collection removes the imported catalogue with its 119 products and 12 categories (no cascade error)" \
   "$(mcp_value deleted)|$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_kolekce WHERE idk = $SCIDK), (SELECT COUNT(*) FROM ka_kolekce_polozky WHERE idk = $SCIDK), (SELECT COUNT(*) FROM ka_collection_categories WHERE idk = $SCIDK), (SELECT COUNT(*) FROM ka_collection_category_texts WHERE idk = $SCIDK))")" "$SCOL|0000"
+# N312-4, N312-5, N312-6: an export with a product category slug of invalid UTF-8 (%ff%fe), a "*" slug and a link that
+# would make "*" the category base, and a parent cycle (cyc-a under cyc-b under cyc-a) – the import keeps its state,
+# writes no pattern rule and creates each category once, the cycle named in the report
+cat > "$WORK/web/storage/import/hostile-312.xml" <<'XML'
+<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0" xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:wp="http://wordpress.org/export/1.2/">
+<channel><title>Hostile</title><link>https://www.hostile312.example</link><wp:base_site_url>https://www.hostile312.example</wp:base_site_url>
+<wp:term><wp:term_id>11</wp:term_id><wp:term_taxonomy>product_cat</wp:term_taxonomy><wp:term_slug>%ff%fe</wp:term_slug><wp:term_parent></wp:term_parent><wp:term_name><![CDATA[Odd]]></wp:term_name></wp:term>
+<wp:term><wp:term_id>12</wp:term_id><wp:term_taxonomy>product_cat</wp:term_taxonomy><wp:term_slug>%2a</wp:term_slug><wp:term_parent></wp:term_parent><wp:term_name><![CDATA[Star]]></wp:term_name></wp:term>
+<wp:term><wp:term_id>13</wp:term_id><wp:term_taxonomy>product_cat</wp:term_taxonomy><wp:term_slug>cyc-a</wp:term_slug><wp:term_parent>cyc-b</wp:term_parent><wp:term_name><![CDATA[Cycle A]]></wp:term_name></wp:term>
+<wp:term><wp:term_id>14</wp:term_id><wp:term_taxonomy>product_cat</wp:term_taxonomy><wp:term_slug>cyc-b</wp:term_slug><wp:term_parent>cyc-a</wp:term_parent><wp:term_name><![CDATA[Cycle B]]></wp:term_name></wp:term>
+<item><title>Hostile one</title><link>https://www.hostile312.example/product/hostile-one/</link><content:encoded><![CDATA[<p>See <a href="https://www.hostile312.example/*/cyc-a/">x</a> and <a href="https://www.hostile312.example/*/cyc-b/">y</a></p>]]></content:encoded><wp:post_id>501</wp:post_id><wp:post_name>hostile-one</wp:post_name><wp:status>publish</wp:status><wp:post_type>product</wp:post_type><category domain="product_cat" nicename="%ff%fe">Odd</category><category domain="product_cat" nicename="%2a">Star</category><category domain="product_type" nicename="simple">simple</category><wp:postmeta><wp:meta_key>_sku</wp:meta_key><wp:meta_value>H1</wp:meta_value></wp:postmeta></item>
+<item><title>Hostile two</title><link>https://www.hostile312.example/product/hostile-two/</link><content:encoded><![CDATA[<p>Two</p>]]></content:encoded><wp:post_id>502</wp:post_id><wp:post_name>hostile-two</wp:post_name><wp:status>publish</wp:status><wp:post_type>product</wp:post_type><category domain="product_cat" nicename="cyc-a">Cycle A</category><category domain="product_cat" nicename="%ff%fe">Odd</category><category domain="product_type" nicename="simple">simple</category><wp:postmeta><wp:meta_key>_sku</wp:meta_key><wp:meta_value>H2</wp:meta_value></wp:postmeta></item>
+</channel>
+</rss>
+XML
+HOSTILE_STARS=$(sq "SELECT COUNT(*) FROM ka_presmerovani WHERE z_adresy LIKE '%*%'")
+mcp import_wordpress '{"file":"hostile-312.xml","confirm":true,"images":false}' > "$WORK/response"
+for _ in 1 2 3 4 5; do [ "$(mcp_value phase)" = done ] && break; mcp import_wordpress '{"import":"hostile-312.xml"}' > "$WORK/response"; done
+HCOL=$(mcp_value woocommerce collection); HIDK=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = '$HCOL'")
+expect "3.12 N312-4/5/6: an odd slug keeps the import state, no \"*\" rule is written, the cycle gives each category once and is reported" \
+  "$(mcp_value phase)|$(mcp_value result collection_items)|$([ -s "$WORK"/web/storage/import/stav-"$(php -r 'echo substr(sha1("hostile-312.xml"), 0, 16);')".json ] && echo kept)|$(( $(sq "SELECT COUNT(*) FROM ka_presmerovani WHERE z_adresy LIKE '%*%'") - HOSTILE_STARS ))|$(sq "SELECT COUNT(*) FROM ka_collection_category_texts WHERE idk = $HIDK AND name LIKE 'Cycle %'")|$(mcp_value woocommerce category_cycles_broken 0)" \
+  "done|2|kept|0|2|cyc-b → cyc-a"
+mcp delete_collection "{\"collection\":\"$HCOL\"}" > /dev/null
+sq "DELETE FROM ka_presmerovani WHERE na_adresu LIKE '$HCOL/%'; DELETE FROM ka_import_mapa WHERE zdroj = 'wp:hostile312.example'" > /dev/null
 sq "DELETE FROM ka_presmerovani WHERE na_adresu LIKE '%-fs%' OR na_adresu LIKE 'ar%' OR na_adresu LIKE '$SCOL/%' OR z_adresy = '?lang=ar';
     DELETE FROM ka_stranky WHERE ids IN (SELECT nase_id FROM ka_import_mapa WHERE zdroj = 'wp:127.0.0.1' AND typ = 'stranka'); DELETE FROM ka_novinky WHERE idc IN (SELECT nase_id FROM ka_import_mapa WHERE zdroj = 'wp:127.0.0.1' AND typ = 'clanek');
     DELETE FROM ka_kategorie WHERE idt IN (SELECT nase_id FROM ka_import_mapa WHERE zdroj = 'wp:127.0.0.1' AND typ = 'rubrika'); DELETE FROM ka_import_mapa WHERE zdroj = 'wp:127.0.0.1'; DELETE FROM ka_nastaveni WHERE promenna IN ('look_draft', 'design_system', 'home_page'); INSERT INTO ka_nastaveni SELECT * FROM ka_test_scale; DROP TABLE ka_test_scale" > /dev/null

@@ -162,7 +162,7 @@ final class WpWooCommerce
      */
     public static function oldCategoryPaths(string $slug, string $parentSlug, string $languagePrefix, string $customBase = ''): array
     {
-        $decode = fn (string $s): string => rawurldecode($s);
+        $decode = fn (string $s): string => rawurldecode($s); // WpImport::redirectPaths refuses what is not a literal, valid address (N312-4, N312-5)
         $paths = [];
         foreach (array_unique(array_filter([self::CATEGORY_BASE, trim($customBase, '/')])) as $base) {
             $prefix = ($languagePrefix !== '' ? $languagePrefix . '/' : '') . $base . '/';
@@ -171,6 +171,22 @@ final class WpWooCommerce
         }
 
         return array_values(array_unique(array_filter($paths)));
+    }
+
+    /**
+     * A slug as readable text for an address or a name (N312-4): percent-decoded when that gives valid UTF-8 without control
+     * or direction characters, else the slug as it is in the export (then ASCII), else ''.
+     */
+    public static function readableSlug(string $slug): string
+    {
+        $decoded = rawurldecode($slug);
+        foreach ([$decoded, $slug] as $candidate) {
+            if (mb_check_encoding($candidate, 'UTF-8') && preg_match('/[\p{Cc}\p{Cf}]/u', $candidate) !== 1) {
+                return $candidate;
+            }
+        }
+
+        return '';
     }
 
     /**
@@ -186,7 +202,8 @@ final class WpWooCommerce
         }
         preg_match_all('#href=["\']https?://(?:www\.)?' . preg_quote($domain, '#') . '(?::\d+)?(/[^"\'?\#]*)#i', $html, $m);
 
-        return array_values(array_unique(array_filter(array_map(fn (string $p): string => trim(rawurldecode($p), '/'), $m[1]), fn (string $p): bool => substr_count($p, '/') >= 1)));
+        return array_values(array_unique(array_filter(array_map(fn (string $p): string => trim(rawurldecode($p), '/'), $m[1]),
+            fn (string $p): bool => substr_count($p, '/') >= 1 && mb_check_encoding($p, 'UTF-8') && mb_strlen($p) <= 255)));
     }
 
     /**
@@ -216,7 +233,9 @@ final class WpWooCommerce
                 array_pop($segments); // the parent's slug of a subcategory
             }
             $base = implode('/', $segments);
-            if ($base !== '' && $base !== self::CATEGORY_BASE && count($segments) <= 3) {
+            // only plain segments: letters, digits, _ . - (never a "*" that would become a pattern rule, N312-5)
+            $plain = array_filter($segments, fn (string $s): bool => preg_match('/^[\p{L}\p{N}_.-]+$/uD', $s) === 1);
+            if ($base !== '' && $base !== self::CATEGORY_BASE && count($segments) <= 3 && count($plain) === count($segments)) {
                 $votes[$base] = ($votes[$base] ?? 0) + 1;
             }
         }

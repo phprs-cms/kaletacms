@@ -206,6 +206,7 @@ final class Settings
         'tasks_last_run' => '0',       // when cron last called /tasks (/ulohy) (newsletters are sent only while cron runs)
         'newsletter_hourly_limit' => '300', // newsletters: at most this many e-mails per hour (the SMTP relay's limit)
         'data_cleanup' => '0',         // when the daily cleanup of personal data last ran (Core\Notifications)
+        'categories_pending_review' => '', // collection categories a drafts-only connection wrote, waiting for a person (3.12, N312-3)
         'ai_provider' => 'anthropic', // anthropic | openai | google | mistral (Core\Assistant::PROVIDERS)
         'ai_key' => '',              // API key of the AI assistant (never written back into the form)
         'ai_model' => 'claude-sonnet-5',
