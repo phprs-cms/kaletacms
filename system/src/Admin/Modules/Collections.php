@@ -131,7 +131,7 @@ final class Collections extends Module
             if ($k !== null && ($count = Notices::count($this->db, $k)) > 0) {
                 return $this->back(t(Notices::REFUSAL_COLLECTION, $count), 'edit', ['id' => $k['idk']], 'chyba');
             }
-            $this->db->delete('kolekce', ['idk' => $this->request->postInt('idk')]);
+            KolekceObsahu::delete($this->db, $this->request->postInt('idk')); // step by step, never one deep cascade (3.12)
         }
 
         return $this->back('The collection and its items were deleted.');

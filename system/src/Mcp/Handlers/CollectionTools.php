@@ -150,7 +150,7 @@ trait CollectionTools
         $k = $collection();
         $notices = Notices::count($db, $k); // an official notice board keeps its notices for good (2.11)
         $need($notices === 0, sprintf(Notices::REFUSAL_COLLECTION, $notices));
-        $db->delete('kolekce', ['idk' => $k['idk']]); // items and templates go with it (foreign keys)
+        \Kaleta\Builder\Collections::delete($db, (int) $k['idk']); // items, categories and templates go with it, step by step (3.12)
         \Kaleta\Front\Cache::clear();
 
         return ['deleted' => $k['seo_link']];

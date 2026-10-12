@@ -5964,9 +5964,12 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&a
 check "3.12: the admin preview of a WPML WooCommerce shop names the catalogue and its categories" 200 "/admin.php?module=transfer&action=preview&file=fysio-scale-wpml.xml" 'WooCommerce'
 contains -q '119' "$WORK/response" && contains -q 'WPML' "$WORK/response" && echo "  ok     3.12: 119 products and WPML in the preview" || { echo "  CHYBA  3.12: WPML preview"; ERRORS=$((ERRORS+1)); }
 kill "$OLDSITE_PID" 2>/dev/null; OLDSITE_PID=
-SCIDK=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = '$SCOL'") # step by step: one cascade over the whole collection is deeper than MySQL allows
-sq "DELETE FROM ka_collection_item_categories WHERE idp IN (SELECT idp FROM ka_kolekce_polozky WHERE idk = $SCIDK); DELETE FROM ka_kolekce_polozky WHERE idk = $SCIDK;
-    DELETE FROM ka_collection_categories WHERE idk = $SCIDK AND parent_id IS NOT NULL; DELETE FROM ka_collection_categories WHERE idk = $SCIDK; DELETE FROM ka_kolekce WHERE idk = $SCIDK" > /dev/null
+# deleting the imported catalogue: one foreign key cascade over it (categories, subcategories, item links) is more than
+# MySQL allows (error 6575) – Collections::delete goes step by step, and nothing of the collection is left
+SCIDK=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = '$SCOL'")
+mcp delete_collection "{\"collection\":\"$SCOL\"}" > "$WORK/response"
+expect "3.12: delete_collection removes the imported catalogue with its 119 products and 12 categories (no cascade error)" \
+  "$(mcp_value deleted)|$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_kolekce WHERE idk = $SCIDK), (SELECT COUNT(*) FROM ka_kolekce_polozky WHERE idk = $SCIDK), (SELECT COUNT(*) FROM ka_collection_categories WHERE idk = $SCIDK), (SELECT COUNT(*) FROM ka_collection_category_texts WHERE idk = $SCIDK))")" "$SCOL|0000"
 sq "DELETE FROM ka_presmerovani WHERE na_adresu LIKE '%-fs%' OR na_adresu LIKE 'ar%' OR na_adresu LIKE '$SCOL/%' OR z_adresy = '?lang=ar';
     DELETE FROM ka_stranky WHERE ids IN (SELECT nase_id FROM ka_import_mapa WHERE zdroj = 'wp:127.0.0.1' AND typ = 'stranka'); DELETE FROM ka_novinky WHERE idc IN (SELECT nase_id FROM ka_import_mapa WHERE zdroj = 'wp:127.0.0.1' AND typ = 'clanek');
     DELETE FROM ka_kategorie WHERE idt IN (SELECT nase_id FROM ka_import_mapa WHERE zdroj = 'wp:127.0.0.1' AND typ = 'rubrika'); DELETE FROM ka_import_mapa WHERE zdroj = 'wp:127.0.0.1'; DELETE FROM ka_nastaveni WHERE promenna IN ('look_draft', 'design_system', 'home_page'); INSERT INTO ka_nastaveni SELECT * FROM ka_test_scale; DROP TABLE ka_test_scale" > /dev/null
