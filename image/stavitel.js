@@ -80,7 +80,7 @@
 	const state = {
 		stavba: D.stavba && Array.isArray(D.stavba.deti) ? D.stavba : { v: 1, deti: [] },
 		vybrane: null, bp: 'zaklad', stavPrvku: '', levo: 'pridat', pravo: 'obsah', zpet: [], vpred: [], posledniKlic: null, posledniCas: 0,
-		zmeny: !!D.zmeny, uklada: false, skryte: {}, casovac: null, verze: D.verze || '', ulozeno: '', pokusy: 0, prihlaseni: false, konflikt: false, vycistena: null, chyby: {}, sbalene: {}, trida: null, tazeny: null, tazeno: null, upravaNaPlatne: false, umistovani: null, lupa: '', vlozeni: null,
+		zmeny: !!D.zmeny, uklada: false, skryte: {}, casovac: null, verze: D.verze || '', ulozeno: '', pokusy: 0, prihlaseni: false, konflikt: false, vycistena: null, chyby: {}, sbalene: {}, otevrene: {}, trida: null, tazeny: null, tazeno: null, upravaNaPlatne: false, umistovani: null, lupa: '', vlozeni: null,
 		vzory: Array.isArray(D.vzory) ? D.vzory : [], // sample content of the saved draft, found by the server (3.11, UX310-1)
 	};
 
@@ -1533,7 +1533,7 @@
 			const control = field(fieldDef, p.obsah[key], (h) => {
 				if (JSON.stringify(p.obsah[key]) !== JSON.stringify(h)) { applyChange(() => { p.obsah[key] = h; }, 'obsah:' + p.id + ':' + key); }
 				if (p.typ === 'kolekce' && key === 'kolekce') { redrawRight(); } // the field choices follow the collection
-			}, { chyba: state.chyby[state.cestaVybraneho + '.obsah.' + key], prvek: p });
+			}, { chyba: state.chyby[state.cestaVybraneho + '.obsah.' + key], prvek: p, klic: key });
 			control.dataset.pole = key; // typing on the canvas updates this field (syncInspector)
 			(more && COLLECTION_MORE.includes(key) ? more : panel).append(control);
 		});
@@ -1622,7 +1622,7 @@
 				return box;
 			}
 			case 'polozky':
-				return itemField(def, Array.isArray(value) ? value : [], change);
+				return itemField(def, Array.isArray(value) ? value : [], change, options);
 			default:
 				if (def.media === 'video' || def.media === 'soubor') { // a file from Media (section background video, a form's gated file): not a link menu, but a file picker
 					const video = def.media === 'video';
@@ -1640,34 +1640,110 @@
 		return wrapper;
 	}
 
-	function itemField(def, previous, change) {
+	/**
+	 * Items of a field (form fields, tabs, questions…). 3.12 (UX310-18): a list whose schema has a summary (souhrn – the form
+	 * fields) shows each item as one row – "Name · text · Required" – that opens into its settings: the basic ones first, the
+	 * options of a choice, the price estimate folded (open when set), and the condition behind "Add a condition". The open
+	 * rows and groups are remembered per element while the inspector redraws; the saved values are the same as before.
+	 */
+	function itemField(def, previous, change, options) {
 		const wrapper = el('div', { class: 'st-pole' }, el('span', {}, T(def.popisek)));
 		// works on a copy: every change (adding, removing and moving too) then goes through zmena → history, save, canvas re-render
 		const items = clone(Array.isArray(previous) ? previous : []);
 		const save = () => change(clone(items));
+		const compact = Array.isArray(def.souhrn);
+		const list = state.vybrane + ':' + ((options && options.klic) || def.popisek);
+		const PARTS = ['', 'odhad', 'podminka'];
+		const openKey = (i, part) => list + '|' + i + '|' + part;
+		const isOpen = (i, part) => !!state.otevrene[openKey(i, part)];
+		const setOpen = (i, part, open) => { if (open) { state.otevrene[openKey(i, part)] = true; } else { delete state.otevrene[openKey(i, part)]; } };
+		// moving or removing an item takes its open rows along
+		const reorder = (move) => {
+			const flags = items.map((_, j) => PARTS.map((part) => isOpen(j, part)));
+			flags.forEach((_, j) => PARTS.forEach((part) => setOpen(j, part, false)));
+			move(flags);
+			flags.forEach((f, j) => PARTS.forEach((part, n) => setOpen(j, part, f[n])));
+		};
+		const summaryText = (item) => def.souhrn.map((k) => {
+			const d = def.pole[k] || {};
+			if (d.typ === 'prepinac') { return item[k] ? T(d.popisek) : ''; }
+			if (d.typ === 'vyber') { return T((d.moznosti || {})[item[k] ?? d.vychozi] || String(item[k] ?? '')); }
+			return String(item[k] ?? '').trim() || T('(no label)');
+		}).filter(Boolean).concat(item.kdyz_pole ? [T('with a condition')] : []).join(' · ');
 		items.forEach((item, i) => {
-			const box = el('div', { class: 'st-polozka' });
 			// a field with the condition „kdyz“ ({pole: hodnota}) shows only when another field of the item has the given value (options only for a select)
 			const visible = (d) => !d.kdyz || Object.entries(d.kdyz).every(([pk, pv]) => item[pk] === pv);
-			Object.entries(def.pole).forEach(([k, d]) => {
-				if (!visible(d)) { return; }
-				box.append(field(d, item[k], (h) => {
-					item[k] = h;
-					save();
-					if (Object.values(def.pole).some((other) => other.kdyz && k in other.kdyz)) { redrawRight(); }
-				}));
+			let label = null;
+			const control = (k, d) => field(d, item[k], (h) => {
+				item[k] = h;
+				save();
+				if (label && (def.souhrn.includes(k) || k === 'kdyz_pole')) { label.textContent = summaryText(item); } // the row follows, the focus stays
+				if (Object.values(def.pole).some((other) => other.kdyz && k in other.kdyz)) { redrawRight(); }
 			});
-			box.append(el('div', { class: 'st-polozka-akce st-akce' },
-				el('button', { type: 'button', title: T('Up'), onclick: () => { if (i > 0) { items.splice(i - 1, 0, items.splice(i, 1)[0]); change(clone(items)); redrawRight(); } } }, icon('nahoru')),
-				el('button', { type: 'button', class: 'nebezpecne', title: T('Odebrat'), onclick: () => { items.splice(i, 1); change(clone(items)); redrawRight(); } }, icon('smazat'))));
+			const actions = el('div', { class: 'st-polozka-akce st-akce' },
+				el('button', { type: 'button', title: T('Up'), 'aria-label': T('Up'), onclick: () => { if (i > 0) { reorder((f) => f.splice(i - 1, 0, f.splice(i, 1)[0])); items.splice(i - 1, 0, items.splice(i, 1)[0]); change(clone(items)); redrawRight(); } } }, icon('nahoru')),
+				el('button', { type: 'button', class: 'nebezpecne', title: T('Odebrat'), 'aria-label': T('Odebrat'), onclick: () => { reorder((f) => f.splice(i, 1)); items.splice(i, 1); change(clone(items)); redrawRight(); } }, icon('smazat')));
+			const fields = Object.entries(def.pole).filter(([, d]) => visible(d));
+			if (!compact) {
+				const box = el('div', { class: 'st-polozka' });
+				fields.forEach(([k, d]) => box.append(control(k, d)));
+				box.append(actions);
+				wrapper.append(box);
+				return;
+			}
+			const group = (name) => fields.filter(([, d]) => (d.skupina || '') === name);
+			label = el('span', {}, summaryText(item));
+			const box = el('details', { class: 'st-polozka st-polozka-radek', 'data-polozka': openKey(i, ''), open: isOpen(i, ''), ontoggle: (e) => { if (e.target === box) { setOpen(i, '', box.open); } } },
+				el('summary', {}, label));
+			group('').forEach(([k, d]) => box.append(control(k, d)));
+			const choices = group('moznosti');
+			if (choices.length) { box.append(el('div', { class: 'st-polozka-skupina', role: 'group', 'aria-label': T('Options') }, choices.map(([k, d]) => control(k, d)))); }
+			const estimate = group('odhad');
+			if (estimate.length) {
+				// the price estimate: the estimate field's own settings are open, a number's price per unit is folded until set
+				const set = estimate.some(([k]) => String(item[k] ?? '') !== '') || item.typ === 'odhad';
+				const fold = el('details', { class: 'st-polozka-skupina', open: set || isOpen(i, 'odhad'), ontoggle: (e) => { if (e.target === fold) { setOpen(i, 'odhad', fold.open); } } },
+					el('summary', {}, T('Price estimate')), estimate.map(([k, d]) => control(k, d)));
+				box.append(fold);
+			}
+			const condition = group('podminka');
+			if (condition.length) {
+				const set = condition.some(([k]) => String(item[k] ?? '') !== '');
+				if (set || isOpen(i, 'podminka')) {
+					// the field labels of the form for the first box (typing any label still works – that is what is saved)
+					const listId = 'st-dl-podminka-' + i;
+					const others = items.filter((_, j) => j !== i).map((o) => String(o.popisek || '').trim()).filter(Boolean);
+					const block = el('div', { class: 'st-polozka-skupina st-podminka', role: 'group', 'aria-label': T('Condition') }, el('strong', {}, T('Condition')),
+						el('datalist', { id: listId }, others.map((o) => el('option', { value: o }))));
+					condition.forEach(([k, d]) => {
+						const c = control(k, d);
+						if (k === 'kdyz_pole') { const input = c.querySelector('input'); if (input) { input.setAttribute('list', listId); } }
+						block.append(c);
+					});
+					block.append(el('button', { type: 'button', class: 'st-tl', onclick: () => { condition.forEach(([k]) => { item[k] = ''; }); setOpen(i, 'podminka', false); save(); redrawRight(); } }, T('Remove the condition')));
+					box.append(block);
+				} else {
+					box.append(el('button', { type: 'button', class: 'st-tl st-pridat-podminku', onclick: () => {
+						setOpen(i, 'podminka', true);
+						redrawRight();
+						const input = right.querySelector('[data-polozka="' + CSS.escape(openKey(i, '')) + '"] .st-podminka input');
+						if (input) { input.focus(); }
+					} }, T('Add a condition')));
+				}
+			}
+			box.append(actions);
 			wrapper.append(box);
 		});
 		wrapper.append(el('button', { type: 'button', class: 'st-tl', onclick: () => {
 			const newVersion = {};
 			Object.entries(def.pole).forEach(([k, d]) => { newVersion[k] = d.vychozi ?? ''; });
 			items.push(newVersion);
+			if (compact) { setOpen(items.length - 1, '', true); }
 			change(clone(items));
 			redrawRight();
+			// the new row is open: its first box takes the focus
+			const input = compact && right.querySelector('[data-polozka="' + CSS.escape(openKey(items.length - 1, '')) + '"] input, [data-polozka="' + CSS.escape(openKey(items.length - 1, '')) + '"] select');
+			if (input) { input.focus(); }
 		} }, T('Add item')));
 		return wrapper;
 	}

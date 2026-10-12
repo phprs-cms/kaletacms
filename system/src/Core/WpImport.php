@@ -59,8 +59,8 @@ final class WpImport
 
     private string $source = 'wp';
 
-    /** @var array{nazev:string, adresa:string, autori:array<string,string>, emaily:array<string,string>, rubriky:array<string,array{nazev:string, predek:string}>, stitky:array<string,string>, menu:array<string,string>, terminy:array<int,array{0:string, 1:string}>, jazyky:array<string,string>, jazyk_terminu:array<int,string>, skupina_terminu:array<int,string>, nazev_terminu:array<int,string>, plugin:string} */
-    private array $header = ['nazev' => '', 'adresa' => '', 'autori' => [], 'emaily' => [], 'rubriky' => [], 'stitky' => [], 'menu' => [], 'terminy' => [],
+    /** @var array{nazev:string, adresa:string, jazyk:string, autori:array<string,string>, emaily:array<string,string>, rubriky:array<string,array{nazev:string, predek:string}>, stitky:array<string,string>, menu:array<string,string>, terminy:array<int,array{0:string, 1:string}>, jazyky:array<string,string>, jazyk_terminu:array<int,string>, skupina_terminu:array<int,string>, nazev_terminu:array<int,string>, plugin:string} */
+    private array $header = ['nazev' => '', 'adresa' => '', 'jazyk' => '', 'autori' => [], 'emaily' => [], 'rubriky' => [], 'stitky' => [], 'menu' => [], 'terminy' => [],
         'jazyky' => [], 'jazyk_terminu' => [], 'skupina_terminu' => [], 'nazev_terminu' => [], 'plugin' => ''];
 
     /** @var array<string, bool> table => it still has the unique key on seo_link alone (globalSlugKey) */
@@ -91,7 +91,7 @@ final class WpImport
         return [
             'soubor' => $file, 'otisk' => '', 'faze' => 'analyza', 'pozice' => 0, 'celkem' => 0, 'web' => ['nazev' => '', 'adresa' => ''],
             'prehled' => ['clanky' => [], 'stranky' => [], 'rubriky' => 0, 'stitky' => 0, 'autori' => 0, 'prilohy' => 0, 'obrazky' => 0, 'jine' => [], 'zkratky' => [], 'seo' => [], 'typy' => [],
-                'menu' => [], 'menu_bez' => 0, 'prispevky_autoru' => [], 'stavitele' => []],
+                'menu' => [], 'menu_bez' => 0, 'prispevky_autoru' => [], 'stavitele' => [], 'stavitele_nazvy' => []],
             'prilohy' => [], 'volby' => self::DEFAULT_OPTIONS, 'nahledy' => [],
             'menu' => [], // items of the navigation menus (tallyMenuItem), built after the content (menus())
             // 3.9: the languages of a multilingual export (Polylang, WPML – Core\WpLanguages): the plugin, Polylang slug => our code
@@ -161,7 +161,7 @@ final class WpImport
         $wp = new WpFile($path ?? (string) WpFile::path((string) $state['soubor'])); // $path only for tests; otherwise always the file from storage/import
         if ($state['pozice'] === 0) {
             $h = $wp->header();
-            $state['web'] = ['nazev' => $h['nazev'], 'adresa' => $h['adresa']];
+            $state['web'] = ['nazev' => $h['nazev'], 'adresa' => $h['adresa'], 'jazyk' => $h['jazyk']]; // 3.12: the language for the preview's check
             $state['prehled']['rubriky'] = count($h['rubriky']);
             $state['prehled']['stitky'] = count($h['stitky']);
             $state['prehled']['autori'] = count($h['autori']);
@@ -210,6 +210,9 @@ final class WpImport
             if ($p['stavitel'] !== '') {
                 // a page builder's layout is not in the post text – only the text there is comes over (3.6)
                 $overview['stavitele'][$p['stavitel']] = ($overview['stavitele'][$p['stavitel']] ?? 0) + 1;
+                if (count($overview['stavitele_nazvy'][$p['stavitel']] ?? []) < 10) { // 3.12: the preview names them
+                    $overview['stavitele_nazvy'][$p['stavitel']][] = mb_substr((string) $p['titulek'], 0, 120);
+                }
             }
             $overview['obrazky'] += substr_count(strtolower($p['obsah']), '<img');
             foreach (WpContent::unknownShortcodes($p['obsah']) as $shortcode) {
@@ -1626,6 +1629,7 @@ final class WpImport
                 'menus' => array_map(fn (string $slug, array $m): array => ['slug' => $slug, 'name' => (string) $m['nazev'], 'items' => (int) $m['polozky']], array_keys($p['menu']), array_values($p['menu'])),
                 'custom_post_types' => array_map(fn (array $t): int => (int) $t['pocet'], $p['typy']),
                 'seo_plugins' => array_keys($p['seo']),
+                'language' => (string) ($state['web']['jazyk'] ?? ''), // 3.12: as the export names it (cs-CZ) – compare with the site's language
             ],
             'result' => [
                 'news' => (int) $v['clanky'], 'pages' => (int) $v['stranky'], 'categories' => (int) $v['rubriky'], 'collection_items' => (int) $v['polozky'],

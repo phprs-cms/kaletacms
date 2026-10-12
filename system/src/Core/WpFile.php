@@ -153,12 +153,13 @@ final class WpFile
      * 3.9: the languages of a multilingual site (Core\WpLanguages) – Polylang's languages (slug => locale), the language and
      * the translation group of each category and tag by its term number (Polylang term_translations, WPML termmeta), the
      * term names by number (Polylang lets two languages share a category slug) and the plugin found (polylang | wpml | '').
+     * 3.12: the site's language as the channel names it (<language>cs-CZ</language>), for the preview to compare with this site.
      *
-     * @return array{nazev:string, adresa:string, autori:array<string,string>, emaily:array<string,string>, rubriky:array<string,array{nazev:string, predek:string}>, stitky:array<string,string>, menu:array<string,string>, terminy:array<int,array{0:string, 1:string}>, jazyky:array<string,string>, jazyk_terminu:array<int,string>, skupina_terminu:array<int,string>, nazev_terminu:array<int,string>, plugin:string}
+     * @return array{nazev:string, adresa:string, jazyk:string, autori:array<string,string>, emaily:array<string,string>, rubriky:array<string,array{nazev:string, predek:string}>, stitky:array<string,string>, menu:array<string,string>, terminy:array<int,array{0:string, 1:string}>, jazyky:array<string,string>, jazyk_terminu:array<int,string>, skupina_terminu:array<int,string>, nazev_terminu:array<int,string>, plugin:string}
      */
     public function header(): array
     {
-        $h = ['nazev' => '', 'adresa' => '', 'autori' => [], 'emaily' => [], 'rubriky' => [], 'stitky' => [], 'menu' => [], 'terminy' => [],
+        $h = ['nazev' => '', 'adresa' => '', 'jazyk' => '', 'autori' => [], 'emaily' => [], 'rubriky' => [], 'stitky' => [], 'menu' => [], 'terminy' => [],
             'jazyky' => [], 'jazyk_terminu' => [], 'skupina_terminu' => [], 'nazev_terminu' => [], 'plugin' => ''];
         $link = '';
         $reader = $this->open();
@@ -181,6 +182,7 @@ final class WpFile
                     'title' => $h['nazev'] = self::plainText($field['title'] ?? ''),
                     'link' => $link = trim($field['link'] ?? ''),
                     'wp:base_site_url' => $h['adresa'] = trim($field['wp:base_site_url'] ?? ''),
+                    'language' => $h['jazyk'] = mb_substr(trim($field['language'] ?? ''), 0, 20),
                     'wp:author' => $h['autori'][(string) ($field['wp:author_login'] ?? '')] = self::plainText(($field['wp:author_display_name'] ?? '') !== '' ? $field['wp:author_display_name'] : ($field['wp:author_login'] ?? '')),
                     'wp:category' => $h['rubriky'][(string) ($field['wp:category_nicename'] ?? '')] = ['nazev' => self::plainText($field['wp:cat_name'] ?? ''), 'predek' => (string) ($field['wp:category_parent'] ?? '')],
                     'wp:tag' => $h['stitky'][(string) ($field['wp:tag_slug'] ?? '')] = self::plainText($field['wp:tag_name'] ?? ''),

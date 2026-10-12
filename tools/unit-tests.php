@@ -256,7 +256,7 @@ $parity = [
     'redirects' => ['list' => $readOnly, 'save' => 'save_redirect', 'delete' => 'save_redirect', 'import' => $readOnly, 'import_save' => 'save_redirects', 'clear' => 'admin: clearing the list of 404 addresses', 'ignore' => 'ignore_not_found', 'ignore_all' => 'ignore_not_found',
         'settings' => 'update_settings'],
     'transfer' => ['list' => $readOnly, 'preview' => $readOnly, 'download' => $readOnly, 'export' => $readOnly, 'upload' => 'admin: WordPress import', 'select' => 'admin: WordPress import',
-        'run' => 'admin: WordPress import', 'progress' => 'admin: WordPress import', 'images' => 'admin: WordPress import', 'delete_file' => 'admin: WordPress import', 'delete_export' => 'admin: site export',
+        'run' => 'admin: WordPress import', 'progress' => 'admin: WordPress import', 'images' => 'admin: WordPress import', 'publish_menus' => 'publish_look', 'delete_file' => 'admin: WordPress import', 'delete_export' => 'admin: site export',
         'kaleta' => 'admin: moving a whole site into a new installation', 'kaleta_select' => 'admin: moving a whole site into a new installation',
         'kaleta_run' => 'admin: moving a whole site into a new installation', 'kaleta_delete' => 'admin: moving a whole site into a new installation',
         'web_start' => 'import_website', 'web_progress' => 'import_website', 'web_run' => 'import_website', 'web_delete' => 'admin: removing the record of an import',
@@ -1363,6 +1363,10 @@ check('3.6 WpImport preview: menus with their items, posts per author, a Breakda
     [$migState['prehled']['menu'], count($migState['menu']), $migState['prehled']['prispevky_autoru'], $migState['prehled']['stavitele'], $migState['prehled']['jine']],
     [['hlavni-menu' => ['nazev' => 'Hlavní menu', 'polozky' => 8], 'paticka' => ['nazev' => 'Patička', 'polozky' => 2], 'socialni-site' => ['nazev' => 'Sociální sítě', 'polozky' => 1]],
         11, ['jnovak' => 1, 'pkralova' => 1], ['Breakdance' => 1], []]);
+// 3.12 (UX310-16): the channel's <language> for the preview's language check, and the pages a page builder laid out by name
+check('3.12 WpFile/WpImport preview: the export language and the page laid out with Breakdance by name',
+    [$migHeader['jazyk'], $migState['web']['jazyk'], $migState['prehled']['stavitele_nazvy'], (new Kaleta\Core\WpFile(KALETA_ROOT . '/tools/fixtures/wordpress-wpml.xml'))->header()['jazyk']],
+    ['cs', 'cs', ['Breakdance' => ['O firmě Novák']], 'cs-CZ']);
 check('3.6 WpImport preview: a menu item keeps where it leads, its parent and order – not the builder data', [$migState['menu'][3], str_contains((string) json_encode($migState), 'tree_json_string')],
     [['id' => 43, 'menu' => 'hlavni-menu', 'nadrazena' => 42, 'poradi' => 4, 'druh' => 'custom', 'objekt' => 'custom', 'objekt_id' => 43,
         'url' => 'https://www.stavby-novak.example/sluzby-stavby/rekonstrukce-bytu/#postup', 'text' => 'Postup', 'nove_okno' => false], false]);

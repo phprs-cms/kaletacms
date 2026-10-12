@@ -2839,5 +2839,11 @@ window.KALETA_PREKLAD = {
 	"Open the published page – the draft preview is under ⋯ → Share": "Otevřít publikovanou stránku – náhled konceptu je pod ⋯ → Sdílet",
 	"Nothing to publish – all changes are live": "Není co publikovat – všechny změny už jsou na webu",
 	"Change": "Změnit",
-	"%s (not a field of this collection)": "%s (není pole této kolekce)"
+	"%s (not a field of this collection)": "%s (není pole této kolekce)",
+	"(no label)": "(bez popisku)",
+	"with a condition": "s podmínkou",
+	"Price estimate": "Odhad ceny",
+	"Condition": "Podmínka",
+	"Remove the condition": "Odebrat podmínku",
+	"Add a condition": "Přidat podmínku"
 };

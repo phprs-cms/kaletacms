@@ -95,6 +95,18 @@ $phase = [
 <?php endif ?>
 
 <?php if ($files !== []): ?>
+<?php
+// 3.12 (UX310-17): the latest finished import stays in view with its counts and the way back to its next steps
+$done = array_values(array_filter($files, fn (array $f): bool => in_array($f['stav']['faze'] ?? '', ['hotovo', 'obrazky-hotovo'], true)));
+usort($done, fn (array $a, array $b): int => $b['cas'] <=> $a['cas']);
+$last = $done[0] ?? null;
+?>
+<?php if ($last !== null): $result = $last['stav']['vysledek']; ?>
+<div class="hlaska import-posledni">
+	<p><strong><?= e(t('Last import:')) ?></strong> <?= e(t('%s (%s) – new news items: %s, new pages: %s, redirects: %s.', (string) ($last['stav']['web']['nazev'] ?: $last['soubor']), $last['soubor'], (int) $result['clanky'], (int) $result['stranky'], (int) $result['presmerovani'])) ?>
+		<a href="<?= e($module->url('progress', ['file' => $last['soubor']])) ?>"><?= e(t('Result and next steps')) ?></a></p>
+</div>
+<?php endif ?>
 <div class="tab-obal">
 <table class="vypis">
 <thead><tr><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('Velikost')) ?></th><th scope="col"><?= e(t('Uploaded')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>

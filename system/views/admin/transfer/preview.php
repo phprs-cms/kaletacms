@@ -10,6 +10,10 @@
  * @var list<array{idt:int, nazev:string, jazyk:string}> $categories  news categories
  * @var bool $redirectsEnabled
  * @var bool $hiddenByDefault  the site already has published pages – the import arrives hidden unless chosen otherwise (3.11)
+ * @var array{code: string, raw: string, place: string} $exportLanguage  the export's language against this site (3.12, Transfer::exportLanguage)
+ *
+ * 3.12 (UX310-16): the screen reads top-down in sections – what the file holds, its language (a mismatch with the site is a
+ * warning with a choice, the export's own language preselected), the menus, notes, what is not converted (folded), options.
  */
 $p = $state['prehled'];
 $options = $state['volby'];
@@ -23,9 +27,18 @@ $byStatus = function (array $counts) use ($statuses): string {
     return implode(', ', $parts);
 };
 $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['publish' => 1, 'future' => 1, 'draft' => 1, 'pending' => 1]));
+$languageName = fn (string $code): string => Kaleta\Core\Language::AVAILABLE[$code][0] ?? $code;
+$exportLanguage ??= ['code' => '', 'raw' => '', 'place' => ''];
+// the language version preselected: an earlier choice, else where the export's language belongs (3.12)
+$chosenLanguage = $options['jazyk'] !== '' ? $options['jazyk'] : match ($exportLanguage['place']) {
+    'version' => $exportLanguage['code'],
+    'missing' => 'add:' . $exportLanguage['code'],
+    default => '',
+};
 ?>
 <?= $app->view->render('admin/transfer/steps', ['step' => 2]) ?>
 <p><?= e(t('File %s – site “%s” (%s). Nothing has been imported yet; this is only an overview of what the file contains.', $state['soubor'], $state['web']['nazev'], $state['web']['adresa'])) ?></p>
+<h2><?= e(t('In the file')) ?></h2>
 <div class="dlazdice">
 	<div class="dlazdice-polozka"><strong><?= (int) array_sum($p['clanky']) ?></strong><span><?= e(t('Posts')) ?><?= $p['clanky'] !== [] ? ': ' . e($byStatus($p['clanky'])) : '' ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) array_sum($p['stranky']) ?></strong><span><?= e(t('Pages')) ?><?= $p['stranky'] !== [] ? ': ' . e($byStatus($p['stranky'])) : '' ?></span></div>
@@ -37,8 +50,19 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 	<div class="dlazdice-polozka"><strong><?= count($p['menu']) ?></strong><span><?= e(t('Menus')) ?></span></div>
 <?php endif ?>
 </div>
+<?php if ($exportLanguage['place'] === 'missing'): ?>
+<div class="hlaska hlaska-varovani import-jazyk" data-import-jazyk="missing">
+	<p><strong><?= e(t('Language of the export: %s. Language of your site: %s.', $languageName($exportLanguage['code']), $languageName($languages[0]))) ?></strong></p>
+	<p><?= e(t('Under Import options the content goes into a new language version (%s) unless you choose the main language (%s).', $languageName($exportLanguage['code']), $languageName($languages[0]))) ?></p>
+</div>
+<?php elseif ($exportLanguage['place'] === 'version'): ?>
+<p class="hlaska import-jazyk" data-import-jazyk="version"><?= e(t('Language of the export: %s – the content goes into this language version of the site.', $languageName($exportLanguage['code']))) ?></p>
+<?php elseif ($exportLanguage['place'] === 'unknown'): ?>
+<p class="hlaska hlaska-varovani import-jazyk" data-import-jazyk="unknown"><?= e(t('The export names its language “%s”, which this site cannot offer – check the language version under Import options.', $exportLanguage['raw'])) ?></p>
+<?php endif ?>
 <?php if (($p['menu'] ?? []) !== []): ?>
 <?php $menuPlaces = Kaleta\Core\WpImport::previewMenus($state, $languages[0]); // 3.9: the locations within each language version ?>
+<h2><?= e(t('Menus')) ?></h2>
 <p><?= e(t('Menus go to the draft look with links to the new addresses: the navigation on the site changes only when you publish the look.')) ?></p>
 <ul>
 <?php foreach ($p['menu'] as $slug => $m): ?>
@@ -60,11 +84,13 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 <?php endif ?>
 <?php endif ?>
 <?php foreach ($p['stavitele'] ?? [] as $builder => $count): ?>
-<p class="hlaska hlaska-varovani"><?= e(t('Laid out with %s (pages and posts: %d): the layout is not in the export, only the text in the post content comes over.', (string) $builder, (int) $count)) ?></p>
+<?php $builderNames = (array) ($p['stavitele_nazvy'][$builder] ?? []); // 3.12: named, so the owner knows which pages to rebuild ?>
+<p class="hlaska hlaska-varovani"><?= e(t('Laid out with %s (pages and posts: %d): the layout is not in the export, only the text in the post content comes over.', (string) $builder, (int) $count)) ?><?php if ($builderNames !== []): ?>
+	<?= e(t('Check these after the import: %s.', implode(', ', array_map(fn (string $name): string => '“' . $name . '”', $builderNames)) . ((int) $count > count($builderNames) ? ' …' : ''))) ?><?php endif ?></p>
 <?php endforeach ?>
 <?php foreach ($p['typy'] ?? [] as $type => $t): ?>
 <?php $prefixes = $t['predpony']; arsort($prefixes); $address = (string) (array_key_first($prefixes) ?? $type); ?>
-<p><?= e(t('Custom post type “%s”: %s items become a collection with item pages at /%s/…, with the fields %s.', $type, (int) $t['pocet'], $address,
+<p><?= e(t('Custom post type “%s” (items: %s) becomes a collection with item pages at /%s/…, with the fields %s.', $type, (int) $t['pocet'], $address,
     $t['pole'] === [] ? t('none') : implode(', ', array_map(fn (string $key, array $votes): string => $key . ' (' . t(Kaleta\Builder\Collections::FIELD_TYPES[Kaleta\Core\WpTypes::fieldType($votes)] ?? 'text') . ')', array_keys($t['pole']), $t['pole'])))) ?>
 <?php if ($t['vynechano'] !== []): ?> <?= e(t('Left out (repeaters, galleries or relationships – Claude can move them by hand): %s.', implode(', ', array_keys($t['vynechano'])))) ?><?php endif ?></p>
 <?php endforeach ?>
@@ -72,8 +98,8 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 <p><?= e(t('SEO plugin %s: %s custom titles, %s meta descriptions, %s noindex – they go into the SEO fields of the news items and pages. A title made only of the plugin’s variables is skipped; the site builds it itself.', $plugin, (int) $n['title'], (int) $n['description'], (int) $n['noindex'])) ?><?= (int) $n['canonical'] > 0 ? ' ' . e(t('Canonical URLs (%s) are not transferred.', (int) $n['canonical'])) : '' ?></p>
 <?php endforeach ?>
 
-<div class="hlaska hlaska-varovani">
-<p><strong><?= e(t('What will not be converted')) ?></strong></p>
+<details class="pokrocile import-nepreveditelne"<?= $p['jine'] !== [] || $p['zkratky'] !== [] ? ' open' : '' ?>>
+<summary><?= e(t('What will not be converted')) ?></summary>
 <ul>
 	<li><?= e(t('User accounts and passwords – no account is created. A news item belongs to the user here with the same e-mail as its WordPress author, otherwise to you. Comments are not transferred.')) ?></li>
 	<li><?= e(t('Widgets, appearance and plugin settings.')) ?></li>
@@ -87,19 +113,22 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 <?php endif ?>
 	<li><?= e(t('Images stay on the old site for now; after the import you can download them to your site with one button.')) ?></li>
 </ul>
-</div>
+</details>
 
 <form class="formular" method="post" action="<?= e($module->url('run')) ?>">
 <?= $csrf ?>
 <input type="hidden" name="soubor" value="<?= e($state['soubor']) ?>">
 <fieldset>
 <legend><?= e(t('Import options')) ?></legend>
-<?php if (count($languages) > 1): ?>
+<?php if (count($languages) > 1 || $exportLanguage['place'] === 'missing'): ?>
 <div class="radek"><label for="jazyk"><?= e(t('Language version')) ?></label><div><select id="jazyk" name="jazyk">
 <?php foreach ($languages as $i => $code): ?>
-	<option value="<?= $i === 0 ? '' : e($code) ?>"<?= ($i === 0 ? '' : $code) === $options['jazyk'] ? ' selected' : '' ?>><?= e(Kaleta\Core\Language::AVAILABLE[$code][0] ?? $code) ?><?= $i === 0 ? ' – ' . e(t('default site language')) : '' ?></option>
+	<option value="<?= $i === 0 ? '' : e($code) ?>"<?= ($i === 0 ? '' : $code) === $chosenLanguage ? ' selected' : '' ?>><?= e($languageName($code)) ?><?= $i === 0 ? ' – ' . e(t('default site language')) : '' ?></option>
 <?php endforeach ?>
-</select><span class="napoveda"><?= e(t('Which language version of the site the new categories and pages belong to.')) ?></span></div></div>
+<?php if ($exportLanguage['place'] === 'missing'): ?>
+	<option value="add:<?= e($exportLanguage['code']) ?>"<?= $chosenLanguage === 'add:' . $exportLanguage['code'] ? ' selected' : '' ?>><?= e(t('%s – add this language version', $languageName($exportLanguage['code']))) ?></option>
+<?php endif ?>
+</select><span class="napoveda"><?= e(t('Which language version of the site the new categories and pages belong to.')) ?><?= $exportLanguage['place'] === 'missing' ? ' ' . e(t($app->settings()->int('home_page') > 0 ? 'A new language version shows in the language switcher once the translation of the home page is published.' : 'A new language version shows in the language switcher at once.')) : '' ?></span></div></div>
 <?php endif ?>
 <div class="radek"><span class="popisek"><?= e(t('What to import')) ?></span><div class="volby volby-pod-sebou">
 	<label><input type="checkbox" name="koncepty" value="1"<?= $options['koncepty'] ? ' checked' : '' ?>> <?= e(t('drafts and posts pending review (%s)', (int) (($p['clanky']['draft'] ?? 0) + ($p['clanky']['pending'] ?? 0)))) ?></label>

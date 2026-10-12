@@ -99,6 +99,17 @@ body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; ove
 .st-zaskrt { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .st-polozka { margin-bottom: 10px; padding: 10px; border: 1px solid var(--linka); border-radius: 8px; background: var(--podklad); }
 .st-polozka-akce { display: flex; justify-content: flex-end; gap: 4px; }
+/* a form field as one row that opens into its settings; options, estimate and condition in groups (3.12, UX310-18) */
+.st-polozka-radek { min-width: 0; padding: 0 10px; } /* a grid item: a long label must not widen the panel */
+.st-polozka-radek[open] { padding-bottom: 10px; }
+.st-polozka-radek > summary { padding: 9px 0; font-size: 13px; font-weight: 600; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-polozka-radek[open] > summary { margin-bottom: 4px; border-bottom: 1px solid var(--linka); }
+.st-polozka-radek > summary:focus-visible, .st-polozka-skupina > summary:focus-visible { outline: 2px solid var(--akcent); outline-offset: 2px; border-radius: 4px; }
+.st-polozka-skupina { margin: 0 0 12px; padding: 8px 10px; border: 1px solid var(--linka); border-radius: 6px; background: var(--plocha); }
+.st-polozka-skupina > summary { font-size: 12px; font-weight: 600; color: var(--text-slaby); cursor: pointer; }
+details.st-polozka-skupina[open] > summary { margin-bottom: 8px; }
+.st-podminka > strong { display: block; margin-bottom: 6px; font-size: 12px; }
+.st-pridat-podminku { margin-bottom: 10px; }
 .st-obrazek-nahled { display: block; max-width: 100%; max-height: 120px; margin-top: 4px; border-radius: 6px; }
 /* the image field (3.6): a thumbnail (or an empty frame), Replace / Remove, the address under a toggle */
 .st-obrazek-nahled-obal { display: grid; place-items: center; min-height: 72px; padding: 6px; border: 1px dashed var(--linka-pole); border-radius: 8px; background: var(--podklad); }

@@ -7,13 +7,17 @@ namespace Kaleta\Admin\Modules;
 use Kaleta\Admin\Module;
 use Kaleta\Core\SiteExport;
 use Kaleta\Core\SiteImport;
+use Kaleta\Core\Extensions;
 use Kaleta\Core\Language;
+use Kaleta\Core\Look;
 use Kaleta\Core\Response;
+use Kaleta\Core\Settings;
 use Kaleta\Core\ImageDownloader;
 use Kaleta\Core\MigrationReport;
 use Kaleta\Core\WebImport;
 use Kaleta\Core\WpImport;
 use Kaleta\Core\WpFile;
+use Kaleta\Core\WpLanguages;
 use Kaleta\Import\Batch;
 use Kaleta\Import\Fetch;
 use Kaleta\Import\Mapping;
@@ -274,7 +278,47 @@ final class Transfer extends Module
             'redirectsEnabled' => \Kaleta\Core\Extensions::isEnabled($settings, 'presmerovani'),
             // 3.11 (UX310-16): into a site that is already live, the import arrives hidden unless the person chooses otherwise
             'hiddenByDefault' => $this->db->value('SELECT 1 FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL LIMIT 1') !== null,
+            'exportLanguage' => self::exportLanguage($state, $settings), // 3.12 (UX310-16)
         ]);
+    }
+
+    /**
+     * The language of a single-language export against this site (3.12, UX310-16): the channel's <language> (cs-CZ) as our
+     * code and where its content belongs – the default language, a language version the site has, one it does not have
+     * yet (the preview offers to add it), or a language this site cannot offer. A multilingual export (Polylang, WPML) sends
+     * each post to its own language, so it is left to its own check; '' = nothing to say.
+     *
+     * @param array<string, mixed> $state
+     * @return array{code: string, raw: string, place: string} place: default | version | missing | unknown | ''
+     */
+    private static function exportLanguage(array $state, Settings $settings): array
+    {
+        $raw = (string) ($state['web']['jazyk'] ?? '');
+        if ($raw === '' || WpImport::isMultilingual($state)) {
+            return ['code' => '', 'raw' => $raw, 'place' => ''];
+        }
+        $site = [Language::defaults($settings), ...Language::additional($settings)];
+        $code = WpLanguages::code($raw, '', $site) ?? '';
+
+        return ['code' => $code, 'raw' => $raw, 'place' => match (true) {
+            $code === '' => 'unknown',
+            $code === $site[0] => 'default',
+            in_array($code, $site, true) => 'version',
+            default => 'missing',
+        }];
+    }
+
+    /** Adds a language version to the site (the Language versions feature on, the code appended), as the import's own adding does. */
+    private function addLanguage(string $code): void
+    {
+        $settings = $this->app->settings();
+        if (!Extensions::isEnabled($settings, 'jazyky')) {
+            Extensions::save($settings, [...Extensions::enabled($settings), 'jazyky']);
+        }
+        $default = Language::defaults($settings);
+        $current = array_filter(explode(',', $settings->get('additional_languages')), fn (string $c): bool => isset(Language::AVAILABLE[$c]) && $c !== $default);
+        $settings->set('additional_languages', implode(',', array_values(array_unique([...$current, $code]))));
+        \Kaleta\Admin\ChangeLog::write($this->app, 'transfer', 'language version added for the import', $code);
     }
 
     /** Saves the options from the preview and starts the import. */
@@ -285,15 +329,44 @@ final class Transfer extends Module
             return $this->back();
         }
         $r = $this->request;
+        // 3.12 (UX310-16): "add:cs" = the export's own language, which the site does not have yet – added before the import starts
+        $language = $r->post('jazyk');
+        $added = '';
+        if (str_starts_with($language, 'add:')) {
+            $detected = self::exportLanguage($state, $this->app->settings());
+            $language = '';
+            if ($detected['place'] === 'missing' && substr($r->post('jazyk'), 4) === $detected['code']) {
+                $this->addLanguage($added = $language = $detected['code']);
+            }
+        }
         // the same options and start as MCP import_wordpress (3.6); a checkbox that is not sent is off
         WpImport::run($state, WpImport::options([
-            'jazyk' => $r->post('jazyk'), 'koncepty' => $r->postBool('koncepty'), 'stranky' => $r->postBool('stranky'), 'stavitel' => $r->postBool('stavitel'),
+            'jazyk' => $language, 'koncepty' => $r->postBool('koncepty'), 'stranky' => $r->postBool('stranky'), 'stavitel' => $r->postBool('stavitel'),
             'presmerovani' => $r->postBool('presmerovani'), 'rubrika' => $r->postInt('rubrika'), 'kolekce' => $r->postBool('kolekce'),
             'menu' => $r->postBool('menu'), 'skryte' => $r->postBool('skryte'), 'jazyky_pridat' => $r->postBool('jazyky_pridat'),
         ], $this->db, $this->app->settings()));
+        if ($added !== '') {
+            $state['jazyky']['pridano'] = array_values(array_unique([...(array) $state['jazyky']['pridano'], $added])); // the result names it
+        }
         WpImport::saveState($state);
 
         return $this->back('', 'progress', ['file' => $state['soubor']]);
+    }
+
+    /**
+     * 3.12 (UX310-17): the menus an import put into the draft look go live from the result page – only the menus; colours or
+     * classes waiting in the same draft keep waiting. The result page shows what changes first.
+     */
+    protected function actionPublishMenus(): Response
+    {
+        $state = $this->state();
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        $summary = Look::publishMenus($this->app);
+        $message = $summary === [] ? 'There was nothing to publish.' : t('The menus are published – visitors see them now: %s', implode(' · ', $summary));
+
+        return $state === null ? $this->back($message) : $this->back($message, 'progress', ['file' => $state['soubor']]);
     }
 
     /* ---------- import: 3. progress in batches (preview, content and images) ---------- */

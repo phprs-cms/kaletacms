@@ -2951,5 +2951,11 @@ window.KALETA_PREKLAD = {
 	"Open the published page – the draft preview is under ⋯ → Share": "Veröffentlichte Seite öffnen – die Entwurfsvorschau finden Sie unter ⋯ → Teilen",
 	"Nothing to publish – all changes are live": "Nichts zu veröffentlichen – alle Änderungen sind live",
 	"Change": "Ändern",
-	"%s (not a field of this collection)": "%s (kein Feld dieser Sammlung)"
+	"%s (not a field of this collection)": "%s (kein Feld dieser Sammlung)",
+	"(no label)": "(ohne Beschriftung)",
+	"with a condition": "mit Bedingung",
+	"Price estimate": "Preisschätzung",
+	"Condition": "Bedingung",
+	"Remove the condition": "Bedingung entfernen",
+	"Add a condition": "Bedingung hinzufügen"
 };

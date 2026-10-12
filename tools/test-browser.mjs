@@ -191,6 +191,56 @@ await step('builder: element tree and search', async () => {
   if (await tree.count()) { await tree.click(); await page.keyboard.press('ArrowDown'); await page.keyboard.press('ArrowUp'); }
 });
 
+await step('3.12 UX310-18: the Form inspector – a row per field, a contact form edited without the condition fields, a condition by keyboard', async () => {
+  const selectForm = async () => {
+    await visit('/admin.php?module=pages&action=builder&id=4'); // Contact of the Business starter: an enquiry form
+    await page.waitForTimeout(1500);
+    await canvas().locator('form').first().click({ position: { x: 4, y: 4 } });
+    await page.getByRole('tab', { name: 'Content' }).first().click().catch(() => {});
+    await page.locator('.st-panel details.st-polozka-radek').first().waitFor();
+    return page.locator('.st-panel details.st-polozka-radek');
+  };
+  let rows = await selectForm();
+  if ((await rows.count()) < 3) { throw new Error(`the form shows ${await rows.count()} field rows`); }
+  if (await page.locator('.st-panel details.st-polozka-radek[open]').count()) { throw new Error('a field row is open before it is opened'); }
+  if (await page.locator('.st-panel .st-podminka').count()) { throw new Error('the condition fields show without asking for them'); }
+  const summary = (await rows.first().locator('summary').textContent()).trim();
+  if (!/ · /.test(summary)) { throw new Error(`the first row says "${summary}", not "label · type · …"`); }
+  const wider = await page.locator('.st-panel').first().evaluate((panel) => panel.scrollWidth - panel.clientWidth);
+  if (wider > 1) { throw new Error(`a long field label widens the inspector by ${wider} px`); }
+  if (SHOTS) { await page.locator('.st-pravy').screenshot({ path: `${SHOTS}/form-inspector-rows.png` }); }
+  // the keyboard opens a row (Enter on its summary) and Tab goes on to its label box
+  await rows.first().locator('summary').focus();
+  await page.keyboard.press('Enter');
+  if (!(await rows.first().evaluate((d) => d.open))) { throw new Error('Enter does not open a field row'); }
+  await page.keyboard.press('Tab');
+  if (await page.evaluate(() => (document.activeElement && document.activeElement.closest('.st-polozka-radek') ? document.activeElement.tagName : '')) !== 'INPUT') { throw new Error('Tab from the row summary does not reach its label'); }
+  await page.keyboard.press('ControlOrMeta+A');
+  await page.keyboard.type('Your name');
+  if (!/^Your name · /.test((await rows.first().locator('summary').textContent()).trim())) { throw new Error('the row does not follow the label'); }
+  if (await rows.first().locator('.st-podminka').count()) { throw new Error('the condition opened by itself'); }
+  // the condition is still there: "Add a condition" by keyboard moves the focus into it
+  await rows.first().locator('button.st-pridat-podminku').focus();
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(300);
+  if (!(await page.evaluate(() => !!(document.activeElement && document.activeElement.closest('.st-podminka'))))) { throw new Error('Add a condition does not move the focus into the condition'); }
+  await page.keyboard.type('Email');
+  await page.keyboard.press('Tab');
+  await page.keyboard.type('*');
+  await page.waitForTimeout(400);
+  if (SHOTS) { await page.locator('.st-pravy').screenshot({ path: `${SHOTS}/form-inspector-condition.png` }); }
+  await page.waitForTimeout(2500); // autosave of the draft
+  rows = await selectForm();
+  const saved = (await rows.first().locator('summary').textContent()).trim();
+  if (!/^Your name · .* · with a condition$/.test(saved)) { throw new Error(`after a reload the first row says "${saved}"`); }
+  // the saved build keeps its keys: remove the condition and the label again, then the row is as it was
+  await rows.first().locator('summary').click();
+  await rows.first().getByRole('button', { name: 'Remove the condition' }).click();
+  await page.waitForTimeout(300);
+  await page.locator('.st-panel details.st-polozka-radek').first().locator('input[type="text"]').first().fill(summary.split(' · ')[0]);
+  await page.waitForTimeout(2500);
+});
+
 await step('3.6 UXA-09: the draft look bar is one line; "Save and publish menu" publishes the menu, the colours keep waiting', async () => {
   await visit('/admin.php?module=appearance');
   await page.evaluate(() => { document.querySelectorAll('[name="ds[barvy][primarni]"]').forEach((i) => { i.value = '#225588'; }); });

@@ -109,7 +109,7 @@ if ($user !== null) {
 <p class="hlaska hlaska-<?= e($message['typ']) ?>" role="status"><?= Kaleta\Admin\MenuPaths::links($app->url('admin.php'), t($message['text']), array_keys($modules)) ?></p>
 <?php endforeach ?>
 <?php if ($app->auth()->isAdmin() && Kaleta\Core\Look::hasDraft($app->settings())): // a draft look waits on every screen until it is published or discarded ?>
-<?= $app->view->render('admin/look_bar', ['app' => $app, 'summary' => Kaleta\Core\Look::summary($app->db(), $app->settings()), 'areas' => Kaleta\Core\Look::areas($app->settings()), 'csrf' => $app->session->csrfField()]) ?>
+<?= $app->view->render('admin/look_bar', ['app' => $app, 'summary' => Kaleta\Core\Look::summary($app->db(), $app->settings(), false), 'menus' => Kaleta\Core\Look::menuChanges($app), 'areas' => Kaleta\Core\Look::areas($app->settings()), 'csrf' => $app->session->csrfField()]) ?>
 <?php endif ?>
 <?= $content ?>
 <?= $app->view->render('admin/agency', ['app' => $app, 'withLogo' => false]) ?>

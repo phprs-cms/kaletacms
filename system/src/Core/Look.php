@@ -249,10 +249,11 @@ final class Look
 
     /**
      * What the draft changes, in words, for the admin bar, Claude and the change log (colours and fonts with before → after).
+     * Without $menus the menus are left out – the admin bar shows them item by item (menuChanges, 3.12).
      *
      * @return list<string>
      */
-    public static function summary(Db $db, Settings $s): array
+    public static function summary(Db $db, Settings $s, bool $menus = true): array
     {
         $draft = self::draft($s);
         $lines = [];
@@ -284,7 +285,7 @@ final class Look
             $lines[] = t('Classes: %s', implode(', ', array_map(fn (string $name): string => $name . ' (' . ($draft['classes'][$name] === null ? t('deleted')
                 : (in_array($name, $existing, true) ? t('changed') : t('new'))) . ')', array_keys($draft['classes']))));
         }
-        if (($draft['menus'] ?? []) !== []) {
+        if ($menus && ($draft['menus'] ?? []) !== []) {
             $lines[] = t('Menus: %s', implode(', ', array_map(fn (string $key): string => self::menuName($key, $draft['menus'][$key]), array_keys($draft['menus']))));
         }
         foreach (self::IDENTITY as $key => $label) {
@@ -300,6 +301,85 @@ final class Look
     private static function fileName(string $path): string
     {
         return $path === '' ? t('none') : basename($path);
+    }
+
+    /**
+     * What publishing the draft menus changes for visitors (3.12, UX310-17): for each draft menu the items visitors see now
+     * and after publishing (hidden pages drop out, as on the site), the labels that leave the menu and the new ones, and how
+     * many draft items lead to hidden pages – those show only once the pages are published (an import brings its pages hidden).
+     *
+     * @return list<array{menu: string, before: int, after: int, removed: list<string>, added: list<string>, hidden: int}>
+     */
+    public static function menuChanges(App $app): array
+    {
+        $menus = self::draft($app->settings())['menus'] ?? [];
+        if ($menus === []) {
+            return [];
+        }
+        $hiddenPages = array_map('intval', array_column($app->db()->all('SELECT ids FROM {stranky} WHERE zobrazit = 0 AND smazano IS NULL'), 'ids'));
+        $labels = fn (array $items): array => array_values(array_unique(array_filter(array_map(fn (array $i): string => trim((string) ($i['text'] ?? '')), Menu::flatten($items)), fn (string $text): bool => $text !== '')));
+        $changes = [];
+        $active = self::$active;
+        foreach ($menus as $key => $items) {
+            [$location, $language] = explode('|', (string) $key) + ['', ''];
+            try {
+                self::$active = null; // what visitors see now
+                $before = Menu::items($app, $location, $language, 0);
+                self::$active = $app->settings(); // the same menu with the draft, as the whole-site preview shows it
+                $after = Menu::items($app, $location, $language, 0);
+            } finally {
+                self::$active = $active;
+            }
+            [$was, $will] = [$labels($before), $labels($after)];
+            $changes[] = ['menu' => self::menuName((string) $key, $items === null ? null : []), 'before' => count(Menu::flatten($before)), 'after' => count(Menu::flatten($after)),
+                'removed' => array_values(array_diff($was, $will)), 'added' => array_values(array_diff($will, $was)),
+                'hidden' => count(array_filter(Menu::flatten(Menu::sanitize($items ?? [])), fn (array $i): bool => ($i['typ'] ?? '') === 'stranka' && in_array((int) ($i['ids'] ?? 0), $hiddenPages, true)))];
+        }
+
+        return $changes;
+    }
+
+    /**
+     * One change from menuChanges() in words: "Main menu – items: 4 → 7. Leaves the menu: About us, Services. New: Home, Flats."
+     *
+     * @param array{menu: string, before: int, after: int, removed: list<string>, added: list<string>, hidden: int} $change
+     */
+    public static function menuChangeText(array $change): string
+    {
+        $names = fn (array $list): string => implode(', ', array_slice($list, 0, 6)) . (count($list) > 6 ? ' …' : '');
+        $text = t('%s – items: %d → %d.', $change['menu'], $change['before'], $change['after']);
+        $text .= $change['removed'] !== [] ? ' ' . t('Leaves the menu: %s.', $names($change['removed'])) : '';
+        $text .= $change['added'] !== [] ? ' ' . t('New: %s.', $names($change['added'])) : '';
+
+        return $text . ($change['hidden'] > 0 ? ' ' . t('Items leading to hidden pages (they show once you publish those pages): %d.', $change['hidden']) : '');
+    }
+
+    /**
+     * Publishes all draft menus at once and leaves the rest of the draft waiting (3.12: "Publish the menus" after an import
+     * brought them). The published look is kept as one version first, as publish() does. Returns what was published.
+     *
+     * @return list<string>
+     */
+    public static function publishMenus(App $app): array
+    {
+        $s = $app->settings();
+        $draft = self::draft($s);
+        $menus = $draft['menus'] ?? [];
+        if ($menus === []) {
+            return [];
+        }
+        $summary = [t('Menus: %s', implode(', ', array_map(fn (string $key): string => self::menuName($key, $menus[$key]), array_map('strval', array_keys($menus)))))];
+        self::keepVersion($app, $summary);
+        foreach ($menus as $key => $items) {
+            [$location, $language] = explode('|', (string) $key) + ['', ''];
+            Menu::save($app->db(), $location, $language, $items);
+        }
+        unset($draft['menus']);
+        $s->set('look_draft', $draft === [] ? '' : (string) json_encode($draft, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        \Kaleta\Front\Cache::clear();
+        \Kaleta\Admin\ChangeLog::write($app, 'appearance', 'publish menus', mb_substr($summary[0], 0, 255));
+
+        return $summary;
     }
 
     /** A draft menu in words: "Main menu (EN) – automatic". */
