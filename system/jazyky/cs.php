@@ -3213,4 +3213,7 @@ return [
     '[Opening hours]' => '[Otevírací doba]',
     'out of 5 · [number] reviews' => 'z 5 · [číslo] recenzí',
     'Business details on the left, an enquiry form on the right.' => 'Údaje o firmě vlevo, poptávkový formulář vpravo.',
+    'In stock' => 'Skladem',
+    'Out of stock' => 'Není skladem',
+    'On backorder' => 'Na objednávku',
 ];

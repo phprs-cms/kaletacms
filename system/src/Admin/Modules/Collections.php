@@ -131,7 +131,7 @@ final class Collections extends Module
             if ($k !== null && ($count = Notices::count($this->db, $k)) > 0) {
                 return $this->back(t(Notices::REFUSAL_COLLECTION, $count), 'edit', ['id' => $k['idk']], 'chyba');
             }
-            $this->db->delete('kolekce', ['idk' => $this->request->postInt('idk')]);
+            KolekceObsahu::delete($this->db, $this->request->postInt('idk')); // step by step, never one deep cascade (3.12)
         }
 
         return $this->back('The collection and its items were deleted.');
@@ -230,6 +230,9 @@ final class Collections extends Module
         if ($r->post('kategorie_formular') === '1') {
             CategoryTree::assign($this->db, $idp, (int) $k['idk'], array_map(intval(...), $r->postList('kategorie'))); // 3.7: the ticked categories
         }
+        if ((bool) $row['zobrazit'] && (int) ($previous['zobrazit'] ?? 0) === 0) {
+            CategoryTree::showForItems($this->db, [$idp], $this->app); // 3.12: the first published item shows its hidden categories
+        }
         Notices::recordSave($this->app, $k, $previous, $row, $idp);
         \Kaleta\Front\Cache::clear();
         if ($errors !== []) {
@@ -254,8 +257,9 @@ final class Collections extends Module
         $language = Language::column($this->app->settings(), $this->request->post('jazyk'));
         $done = 0;
         $skipped = 0;
+        $published = [];
         foreach (array_unique(array_map(intval(...), $this->request->postList('oznacene'))) as $idp) {
-            $p = $this->db->one('SELECT idp, nazev, seo_link, jazyk FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NULL', [$idp, $idk]);
+            $p = $this->db->one('SELECT idp, nazev, seo_link, jazyk, zobrazit FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NULL', [$idp, $idk]);
             // the address is unique within a language: an item whose address the target language already has stays where it is
             if ($p === null || ($action === 'jazyk' && $this->db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ? AND idp <> ?', [$idk, $language, $p['seo_link'], $idp]) !== null)) {
                 $skipped++;
@@ -268,9 +272,13 @@ final class Collections extends Module
                 'jazyk' => $this->db->update('kolekce_polozky', ['jazyk' => $language, 'zmeneno' => $now], ['idp' => $idp]),
                 default => self::trashItem($this->db, $idp, $idk),
             };
+            if ($action === 'zobrazit' && (int) $p['zobrazit'] === 0) {
+                $published[] = $idp;
+            }
             \Kaleta\Admin\ChangeLog::write($this->app, 'collections', 'bulk ' . ['zobrazit' => 'shown', 'skryt' => 'hidden', 'jazyk' => 'language ' . ($language ?: 'default'), 'kos' => 'moved to trash'][$action], mb_substr($k['seo_link'] . ': ' . $p['nazev'], 0, 80));
             $done++;
         }
+        CategoryTree::showForItems($this->db, $published, $this->app); // 3.12: the first published items show their hidden categories
         if ($done > 0) {
             \Kaleta\Front\Cache::clear();
         }

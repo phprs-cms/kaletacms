@@ -65,7 +65,9 @@ final class Notifications
         // scheduled pages: a hidden page publishes itself at the given time
         // scheduled collection items (1.9) likewise
         $now = Clock::now();
+        $due = array_map(intval(...), array_column($db->all('SELECT idp FROM {kolekce_polozky} WHERE zverejnit_od IS NOT NULL AND zverejnit_od <= ? AND smazano IS NULL', [$now]), 'idp'));
         $items = $db->run('UPDATE {kolekce_polozky} SET zobrazit = 1, zverejnit_od = NULL WHERE zverejnit_od IS NOT NULL AND zverejnit_od <= ? AND smazano IS NULL', [$now])->rowCount();
+        \Kaleta\Builder\CollectionCategories::showForItems($db, $due); // 3.12: their hidden categories too (logged as Kaleta's own change)
         if ($db->run('UPDATE {stranky} SET zobrazit = 1, zverejnit_od = NULL WHERE zverejnit_od IS NOT NULL AND zverejnit_od <= ? AND smazano IS NULL', [$now])->rowCount() + $items > 0) {
             \Kaleta\Front\Cache::clear();
         }

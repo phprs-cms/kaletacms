@@ -2055,4 +2055,7 @@ return [
     '[Opening hours]' => '[Öffnungszeiten]',
     'out of 5 · [number] reviews' => 'von 5 · [Zahl] Bewertungen',
     'Business details on the left, an enquiry form on the right.' => 'Links die Firmendaten, rechts ein Anfrageformular.',
+    'In stock' => 'Auf Lager',
+    'Out of stock' => 'Nicht auf Lager',
+    'On backorder' => 'Lieferbar auf Bestellung',
 ];

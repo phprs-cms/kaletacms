@@ -7,6 +7,8 @@ namespace Kaleta\Core;
 use Kaleta\Admin\Modules\Media;
 use Kaleta\Admin\Modules\Redirects;
 use Kaleta\Admin\Modules\Pages;
+use Kaleta\Builder\CollectionCategories;
+use Kaleta\Builder\Presets;
 
 /**
  * Import from WordPress: pages, posts (→ news), categories, tags, redirects from old URLs and (separately) images.
@@ -33,11 +35,18 @@ use Kaleta\Admin\Modules\Pages;
  *    original in the default language (preklad_z; collection items share the original's address), menus go to the
  *    language of what they link to, and old /en/… and ?lang=en addresses redirect. Slugs stay unique across languages
  *    until slugs_per_language is on: a clash gets a number and is listed in the report.
+ *  - A WooCommerce shop (3.12, Core\WpWooCommerce): products go to a collection with the fields of the Products preset (code,
+ *    price, availability, parameters, image…), product categories become categories of the collection in every language
+ *    and their old /product-category/… addresses redirect to the category pages.
  */
 final class WpImport
 {
     public const int BATCH = 100;
-    public const int IMAGE_BATCH = 10;
+    /**
+     * Images per batch (3.12: 30, was 10): a shop with hundreds of products took a call per ten images over MCP; one image
+     * is processed at a time, so the count does not raise the memory, and SECONDS still ends a batch of slow downloads.
+     */
+    public const int IMAGE_BATCH = 30;
     public const int SECONDS = 8;
 
     /**
@@ -59,9 +68,9 @@ final class WpImport
 
     private string $source = 'wp';
 
-    /** @var array{nazev:string, adresa:string, jazyk:string, autori:array<string,string>, emaily:array<string,string>, rubriky:array<string,array{nazev:string, predek:string}>, stitky:array<string,string>, menu:array<string,string>, terminy:array<int,array{0:string, 1:string}>, jazyky:array<string,string>, jazyk_terminu:array<int,string>, skupina_terminu:array<int,string>, nazev_terminu:array<int,string>, plugin:string} */
+    /** @var array{nazev:string, adresa:string, jazyk:string, autori:array<string,string>, emaily:array<string,string>, rubriky:array<string,array{nazev:string, predek:string}>, stitky:array<string,string>, menu:array<string,string>, terminy:array<int,array{0:string, 1:string}>, jazyky:array<string,string>, jazyk_terminu:array<int,string>, skupina_terminu:array<int,string>, nazev_terminu:array<int,string>, predek_terminu:array<int,string>, plugin:string} */
     private array $header = ['nazev' => '', 'adresa' => '', 'jazyk' => '', 'autori' => [], 'emaily' => [], 'rubriky' => [], 'stitky' => [], 'menu' => [], 'terminy' => [],
-        'jazyky' => [], 'jazyk_terminu' => [], 'skupina_terminu' => [], 'nazev_terminu' => [], 'plugin' => ''];
+        'jazyky' => [], 'jazyk_terminu' => [], 'skupina_terminu' => [], 'nazev_terminu' => [], 'predek_terminu' => [], 'plugin' => ''];
 
     /** @var array<string, bool> table => it still has the unique key on seo_link alone (globalSlugKey) */
     private array $globalKeys = [];
@@ -71,6 +80,12 @@ final class WpImport
 
     /** @var array<string, int> categories converted in this request (category slug in WordPress => our idt) */
     private array $categories = [];
+
+    /** @var array<string, ?int> collection categories (3.12) converted in this request: map key|language => category id */
+    private array $itemCategories = [];
+
+    /** @var array<string, array<string, list<int>>> term numbers by kind and slug (termId) */
+    private array $termsBySlug = [];
 
     private int $downloadsLeft = 0;
     private float $end = 0.0;
@@ -91,14 +106,14 @@ final class WpImport
         return [
             'soubor' => $file, 'otisk' => '', 'faze' => 'analyza', 'pozice' => 0, 'celkem' => 0, 'web' => ['nazev' => '', 'adresa' => ''],
             'prehled' => ['clanky' => [], 'stranky' => [], 'rubriky' => 0, 'stitky' => 0, 'autori' => 0, 'prilohy' => 0, 'obrazky' => 0, 'jine' => [], 'zkratky' => [], 'seo' => [], 'typy' => [],
-                'menu' => [], 'menu_bez' => 0, 'prispevky_autoru' => [], 'stavitele' => [], 'stavitele_nazvy' => []],
+                'menu' => [], 'menu_bez' => 0, 'prispevky_autoru' => [], 'stavitele' => [], 'stavitele_nazvy' => [], 'odkazy' => []],
             'prilohy' => [], 'volby' => self::DEFAULT_OPTIONS, 'nahledy' => [],
             'menu' => [], // items of the navigation menus (tallyMenuItem), built after the content (menus())
             // 3.9: the languages of a multilingual export (Polylang, WPML – Core\WpLanguages): the plugin, Polylang slug => our code
             // ('' = a language this site cannot offer), items per language, the unavailable ones, each item's [code, type, slug]
             // and the translation groups (group => WordPress ids); pridano = the language versions the import added to the site
             'jazyky' => ['plugin' => '', 'kody' => [], 'nalezeno' => [], 'nepodporovane' => [], 'polozky' => [], 'skupiny' => [], 'pridano' => []],
-            'vysledek' => ['clanky' => 0, 'stranky' => 0, 'rubriky' => 0, 'presmerovani' => 0, 'preskoceno' => 0, 'seo' => 0, 'polozky' => 0, 'skryto' => 0, 'preklady' => 0, 'kolize' => 0],
+            'vysledek' => ['clanky' => 0, 'stranky' => 0, 'rubriky' => 0, 'presmerovani' => 0, 'preskoceno' => 0, 'seo' => 0, 'polozky' => 0, 'skryto' => 0, 'preklady' => 0, 'kolize' => 0, 'kategorie_kolekce' => 0],
             'kolize' => [], // 3.9: slugs another language version already has – [address it would have, address it got, the other one]
             // 3.6: what was left out and why (reason => count), the redirects made and refused, the menus and authors
             'vynechano' => [], 'presmerovani' => ['nove' => [], 'odmitnute' => []], 'menu_vysledek' => [], 'autori_vysledek' => [],
@@ -140,7 +155,7 @@ final class WpImport
         $v = is_array($state['vysledek'] ?? null) ? $state['vysledek'] : [];
         $images = is_array($state['obr'] ?? null) ? $state['obr'] : [];
 
-        return array_sum(array_map(intval(...), array_values(array_intersect_key($v, array_flip(['clanky', 'stranky', 'rubriky', 'polozky', 'kolekce', 'presmerovani'])))))
+        return array_sum(array_map(intval(...), array_values(array_intersect_key($v, array_flip(['clanky', 'stranky', 'rubriky', 'polozky', 'kolekce', 'presmerovani', 'kategorie_kolekce'])))))
             + intval($images['stazeno'] ?? 0);
     }
 
@@ -200,6 +215,7 @@ final class WpImport
             }
         } elseif ($p['typ'] === 'nav_menu_item') {
             self::tallyMenuItem($state, $p);
+            self::tallyLinks($state, '<a href="' . e((string) ($p['meta']['_menu_item_url'] ?? '')) . '">');
         } elseif ($p['typ'] === 'post' || $p['typ'] === 'page') {
             $destination = $p['typ'] === 'post' ? 'clanky' : 'stranky';
             $overview[$destination][$p['stav']] = ($overview[$destination][$p['stav']] ?? 0) + 1;
@@ -215,6 +231,7 @@ final class WpImport
                 }
             }
             $overview['obrazky'] += substr_count(strtolower($p['obsah']), '<img');
+            self::tallyLinks($state, (string) $p['obsah']);
             foreach (WpContent::unknownShortcodes($p['obsah']) as $shortcode) {
                 $overview['zkratky'][$shortcode] = ($overview['zkratky'][$shortcode] ?? 0) + 1;
             }
@@ -230,8 +247,15 @@ final class WpImport
             }
         } elseif (WpTypes::isCustomType($p['typ']) && self::articleStatus($p['stav']) !== null) {
             // a custom post type becomes a collection (2.7): count its items, vote on the type of each field, remember the address
-            $t = $overview['typy'][$p['typ']] ?? ['pocet' => 0, 'predpony' => [], 'pole' => [], 'vynechano' => [], 'obsah' => false, 'perex' => false];
+            $t = $overview['typy'][$p['typ']] ?? ['pocet' => 0, 'predpony' => [], 'pole' => [], 'vynechano' => [], 'obsah' => false, 'perex' => false, 'woo' => false, 'kategorie' => []];
             $t['pocet']++;
+            // 3.12: a WooCommerce product goes to the Products preset; its categories become categories of the collection
+            $t['woo'] = ($t['woo'] ?? false) || WpWooCommerce::isProduct($p);
+            foreach (array_keys((array) $p['kategorie']) as $slug) {
+                if (count($t['kategorie'] ?? []) < 2000) {
+                    $t['kategorie'][(string) $slug] = true;
+                }
+            }
             self::tallyLanguage($state, $p);
             $prefix = WpTypes::prefix($p['odkaz']);
             if ($prefix !== '') {
@@ -253,6 +277,23 @@ final class WpImport
             $overview['typy'][$p['typ']] = $t;
         } elseif (!in_array($p['typ'], self::TYPES, true)) {
             $overview['jine'][$p['typ']] = ($overview['jine'][$p['typ']] ?? 0) + 1;
+        }
+    }
+
+    /**
+     * Links to the old site's own pages (3.12), at most 2,000 different paths: the import finds the shop's product category
+     * base among them (WpWooCommerce::categoryBase).
+     *
+     * @param array<string, mixed> $state
+     */
+    private static function tallyLinks(array &$state, string $html): void
+    {
+        $paths = &$state['prehled']['odkazy'];
+        foreach (WpWooCommerce::ownPaths($html, ImageDownloader::domainFromUrl((string) $state['web']['adresa'])) as $path) {
+            if (count((array) $paths) >= 2000) {
+                return;
+            }
+            $paths[$path] = true;
         }
     }
 
@@ -452,6 +493,12 @@ final class WpImport
                 self::leftOut($state, 'too_large');
                 $state['prilis_velke'] = array_slice([...(array) ($state['prilis_velke'] ?? []),
                     ['titulek' => mb_substr($p['titulek'] !== '' ? $p['titulek'] : '#' . $p['id'], 0, 120), 'limit' => $e->violation]], -15);
+            } catch (\Throwable $e) {
+                // 3.12: the transaction rolled the post back, so the state forgets it too (a collection created with it would
+                // otherwise stay in the state without its row) – the next batch starts again at this post
+                $state = $before;
+                $this->itemCategories = [];
+                throw $e;
             }
             $state['pozice'] = $order + 1;
             if ((++$count >= $batch || microtime(true) > $end) && $state['pozice'] < $state['celkem']) {
@@ -640,7 +687,9 @@ final class WpImport
         }
         $articleStatus = self::hidden($articleStatus, $state);
         $collection = $this->collectionFor((string) $p['typ'], $state);
-        $input = [];
+        // 3.12: a WooCommerce product fills the fields of the Products preset; the availability in the product's language
+        $input = ($collection['woo'] ?? false) ? WpWooCommerce::values($p, $state['prilohy'], $this->categoryParents(),
+            fn (string $text): string => Language::runWith(Language::ofContent($this->settings, $language), fn (): string => t($text))) : [];
         foreach ($collection['mapa'] as $old => $new) {
             $value = (string) ($p['pole'][$old] ?? '');
             $input[$new] = match ($collection['typy'][$new]) {
@@ -650,10 +699,10 @@ final class WpImport
                 default => $value,
             };
         }
-        if (isset($collection['typy']['obsah'])) {
+        if (isset($collection['typy']['obsah']) && !($collection['woo'] ?? false)) {
             $input['obsah'] = WpContent::sanitize($p['obsah'], $state['prilohy']);
         }
-        if (isset($collection['typy']['perex'])) {
+        if (isset($collection['typy']['perex']) && !($collection['woo'] ?? false)) {
             $input['perex'] = trim(html_entity_decode(strip_tags($p['perex']), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
         }
         $data = \Kaleta\Builder\Collections::sanitizeData($collection['pole'], $input);
@@ -672,6 +721,16 @@ final class WpImport
         $idp = $this->db->insert('kolekce_polozky', $row);
         $seo = Slug::fromId($this->db, 'kolekce_polozky', $idp); // a name with nothing to transliterate: item-<id>
         $this->writeMap('polozka', (string) $p['id'], $idp);
+        if ($p['kategorie'] !== []) {
+            // 3.12: product categories as categories of the collection, created with their first product
+            $ids = [];
+            foreach ($p['kategorie'] as $slug => $name) {
+                $ids[] = $this->itemCategory($collection, (string) $p['typ'], (string) $slug, (string) $name, $language, $state);
+            }
+            CollectionCategories::assign($this->db, $idp, $idk, array_values(array_filter($ids)));
+            // a visible item in a category an earlier hidden import made shows it (3.12)
+            $state['vysledek']['kategorie_zobrazeny'] = (int) ($state['vysledek']['kategorie_zobrazeny'] ?? 0) + count(CollectionCategories::showForItems($this->db, [$idp]));
+        }
         // an imported notice of an official notice board (2.11, Core\Notices) starts its audit trail
         $board = \Kaleta\Builder\Collections::byId($this->db, $idk);
         if ($board !== null && Notices::isNotices($board)) {
@@ -690,7 +749,7 @@ final class WpImport
      * The collection of a custom post type: created on first use, remembered in the state.
      *
      * @param array<string, mixed> $state
-     * @return array{idk: int, seo_link: string, pole: list<array{klic: string, popisek: string, typ: string}>, mapa: array<string, string>, typy: array<string, string>}
+     * @return array{idk: int, seo_link: string, pole: list<array{klic: string, popisek: string, typ: string}>, mapa: array<string, string>, typy: array<string, string>, woo?: bool}
      */
     private function collectionFor(string $type, array &$state): array
     {
@@ -698,23 +757,27 @@ final class WpImport
             return $state['kolekce'][$type];
         }
         $t = $state['prehled']['typy'][$type];
-        $definitions = [];
+        // 3.12: WooCommerce products take the fields of the Products preset (labels in the site's default language), their
+        // custom fields follow
+        $preset = ($t['woo'] ?? false) ? Presets::get(WpWooCommerce::PRESET) : null;
+        $definitions = $preset !== null ? Language::runWith(Language::defaults($this->settings), fn (): array => Presets::fields($this->db, $preset)) : [];
+        $first = count($definitions);
         $oldKeys = [];
         foreach ($t['pole'] as $old => $votes) {
             $definitions[] = ['popisek' => WpTypes::label((string) $old), 'typ' => WpTypes::fieldType($votes)];
             $oldKeys[] = (string) $old;
         }
-        if ($t['perex']) {
+        if ($t['perex'] && $preset === null) {
             $definitions[] = ['klic' => 'perex', 'popisek' => t('Excerpt'), 'typ' => 'radky'];
         }
-        if ($t['obsah']) {
+        if ($t['obsah'] && $preset === null) {
             $definitions[] = ['klic' => 'obsah', 'popisek' => t('Content'), 'typ' => 'html'];
         }
         $fields = \Kaleta\Builder\Collections::sanitizeFields($definitions);
         $map = [];
         foreach ($oldKeys as $i => $old) {
-            if (isset($fields[$i])) {
-                $map[$old] = $fields[$i]['klic'];
+            if (isset($fields[$first + $i])) {
+                $map[$old] = $fields[$first + $i]['klic'];
             }
         }
         arsort($t['predpony']);
@@ -728,14 +791,127 @@ final class WpImport
         } else {
             $seo = self::availableSlug($wanted, fn (string $url): bool => in_array($url, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$url])
                 || $this->db->value('SELECT idk FROM {kolekce} WHERE seo_link = ?', [$url]) !== null || $this->db->value('SELECT ids FROM {stranky} WHERE seo_link = ?', [$url]) !== null);
-            $idk = $this->db->insert('kolekce', ['nazev' => mb_substr(WpTypes::label($type), 0, 100), 'seo_link' => $seo, 'detail' => 1,
-                'pole' => (string) json_encode($fields, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s')]);
+            $name = $preset !== null ? Language::runWith(Language::defaults($this->settings), fn (): string => t((string) $preset['name'])) : WpTypes::label($type);
+            // a product catalogue keeps the preset (the enquiry basket and comparison find its fields), its structured data and item template
+            $schema = $preset !== null && is_array($preset['schema']) ? \Kaleta\Builder\CollectionSchema::sanitize($preset['schema'], $fields) : null;
+            $idk = $this->db->insert('kolekce', ['nazev' => mb_substr($name, 0, 100), 'seo_link' => $seo, 'detail' => 1,
+                'pole' => (string) json_encode($fields, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s')] + ($preset === null ? [] : [
+                    'preset' => WpWooCommerce::PRESET, 'schema_org' => $schema === null ? null : (string) json_encode($schema, JSON_UNESCAPED_UNICODE),
+                    'stavba' => \Kaleta\Builder\Build::toJson(Language::runWith(Language::defaults($this->settings), fn (): array => Presets::itemTemplate($preset, $fields))),
+                ]));
             $this->writeMap('kolekce', $type, $idk);
             $state['vysledek']['kolekce'] = ($state['vysledek']['kolekce'] ?? 0) + 1;
         }
 
         return $state['kolekce'][$type] = ['idk' => $idk, 'seo_link' => $seo, 'pole' => $fields, 'mapa' => $map,
-            'typy' => array_column($fields, 'typ', 'klic')];
+            'typy' => array_column($fields, 'typ', 'klic'), 'woo' => $preset !== null];
+    }
+
+    /**
+     * A category of a collection (3.12) for a product category of an item: one category per translation group (Polylang
+     * term_translations, WPML term groups) with a name and an address in each language, created with its first item, the
+     * parent first. Two levels like Builder\CollectionCategories: a deeper category goes under the top-level one. The old
+     * addresses of the category (WooCommerce's /product-category/…) redirect to its page. Null = it could not be created.
+     *
+     * @param array<string, mixed> $collection from collectionFor()
+     * @param array<string, mixed> $state
+     */
+    private function itemCategory(array $collection, string $type, string $slug, string $name, string $language, array &$state, int $depth = 0): ?int
+    {
+        $term = $this->termId('polozky', $slug, $language);
+        $group = $term !== null ? (string) ($this->header['skupina_terminu'][$term] ?? '') : '';
+        $key = mb_substr($type . ':' . ($group !== '' ? $group : self::categoryKey($slug, $language)), 0, 190);
+        if (array_key_exists($key . '|' . $language, $this->itemCategories)) {
+            return $this->itemCategories[$key . '|' . $language];
+        }
+        $idk = (int) $collection['idk'];
+        $id = $this->convertedId('kategorie_kolekce', $key, 'collection_categories', 'id');
+        if ($id !== null && $this->db->value('SELECT 1 FROM {collection_category_texts} WHERE category_id = ? AND language = ?', [$id, $language]) !== null) {
+            return $this->itemCategories[$key . '|' . $language] = $id; // an earlier run of this file, or a product before this one
+        }
+        $parentSlug = $term !== null ? (string) ($this->header['predek_terminu'][$term] ?? '') : '';
+        $parent = null;
+        if ($parentSlug !== '' && $parentSlug !== $slug && $depth < 5) {
+            $parentTerm = $this->termId('polozky', $parentSlug, $language);
+            $parent = $this->itemCategory($collection, $type, $parentSlug, $parentTerm !== null ? (string) ($this->header['nazev_terminu'][$parentTerm] ?? '') : '', $language, $state, $depth + 1);
+            $grandparent = $parent !== null ? $this->db->value('SELECT parent_id FROM {collection_categories} WHERE id = ?', [$parent]) : null;
+            $parent = $grandparent !== null ? (int) $grandparent : $parent; // two levels only
+        }
+        [$sameLanguage, $languageParams] = Slug::scope($this->db, $language);
+        $address = Slug::makeUnique(slugify(rawurldecode($slug), 150) ?: 'category', fn (string $s): bool => in_array($s, CollectionCategories::RESERVED_SLUGS, true)
+            || $this->db->value('SELECT 1 FROM {collection_category_texts} WHERE idk = ? AND language = ? AND slug = ? AND category_id <> ?', [$idk, $language, $s, (int) $id]) !== null
+            || $this->db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ?' . $sameLanguage . ' LIMIT 1', [$idk, $s, ...$languageParams]) !== null, 160);
+        $title = $term !== null && ($this->header['nazev_terminu'][$term] ?? '') !== '' ? (string) $this->header['nazev_terminu'][$term] : ($name !== '' ? $name : rawurldecode($slug));
+        $new = $id === null;
+        try {
+            $id = CollectionCategories::save($this->db, $idk, $id, $language, ['name' => $title, 'slug' => $address]
+                + ($new ? ['parent_id' => $parent ?? 0, 'visible' => !($state['volby']['skryte'] ?? false)] : []));
+        } catch (\InvalidArgumentException) {
+            return $this->itemCategories[$key . '|' . $language] = null;
+        }
+        if ($new) {
+            $this->writeMap('kategorie_kolekce', $key, $id);
+            $state['vysledek']['kategorie_kolekce'] = (int) ($state['vysledek']['kategorie_kolekce'] ?? 0) + 1;
+        }
+        if ($state['volby']['presmerovani']) {
+            $category = CollectionCategories::bySlug($this->db, $idk, $address, $language);
+            $prefix = $language !== '' ? $language . '/' : '';
+            $state['vysledek']['presmerovani'] += $category === null ? 0 : $this->redirectPaths(WpWooCommerce::oldCategoryPaths($slug, $parentSlug, rtrim($prefix, '/'), $this->categoryBase($state)),
+                $prefix . CollectionCategories::path((string) $collection['seo_link'], $category), $state);
+        }
+
+        return $this->itemCategories[$key . '|' . $language] = $id;
+    }
+
+    /** The shop's own product category base found in the export's links ('' = only the default one), once per request. */
+    private ?string $categoryBase = null;
+
+    /** @param array<string, mixed> $state */
+    private function categoryBase(array &$state): string
+    {
+        if ($this->categoryBase === null) {
+            $slugs = array_values(array_map(fn (array $t): string => (string) $t[1], array_filter($this->header['terminy'], fn (array $t): bool => $t[0] === 'polozky')));
+            $this->categoryBase = WpWooCommerce::categoryBase(array_map('strval', array_keys((array) ($state['prehled']['odkazy'] ?? []))), $slugs, array_map('strval', array_keys(Language::AVAILABLE)));
+            $state['zaklad_kategorii'] = $this->categoryBase;
+        }
+
+        return $this->categoryBase;
+    }
+
+    /**
+     * Product category slug => the slug of its parent (3.12), from the export's header.
+     *
+     * @return array<string, string>
+     */
+    private function categoryParents(): array
+    {
+        $parents = [];
+        foreach ($this->header['predek_terminu'] as $term => $parent) {
+            $parents[(string) ($this->header['terminy'][$term][1] ?? '')] = (string) $parent;
+        }
+
+        return $parents;
+    }
+
+    /**
+     * The number of a category or tag term by its slug (3.12): the term of the given language when the export names the
+     * terms' languages (Polylang may share a slug between languages), else the first with the slug.
+     */
+    private function termId(string $kind, string $slug, string $language): ?int
+    {
+        if ($this->termsBySlug === []) {
+            foreach ($this->header['terminy'] as $id => [$k, $s]) {
+                $this->termsBySlug[(string) $k][(string) $s][] = (int) $id;
+            }
+        }
+        $ids = $this->termsBySlug[$kind][$slug] ?? [];
+        foreach ($ids as $id) {
+            if (($this->termLanguage($id) ?? $language) === $language) {
+                return $id;
+            }
+        }
+
+        return $ids[0] ?? null;
     }
 
     /**
@@ -876,8 +1052,19 @@ final class WpImport
      */
     private function redirect(array $p, string $newVersion, array &$state): int
     {
+        return $this->redirectPaths([self::oldPath($p['odkaz']), $p['id'] > 0 ? '?p=' . (int) $p['id'] : ''], $newVersion, $state);
+    }
+
+    /**
+     * Redirects from old paths to one new address (redirect(); 3.12 also the old addresses of product categories).
+     *
+     * @param list<string> $oldPaths without the slashes at the ends; '' is skipped
+     * @param array<string, mixed> $state
+     */
+    private function redirectPaths(array $oldPaths, string $newVersion, array &$state): int
+    {
         $count = 0;
-        foreach (array_unique([self::oldPath($p['odkaz']), $p['id'] > 0 ? '?p=' . (int) $p['id'] : '']) as $old) {
+        foreach (array_unique($oldPaths) as $old) {
             if ($old === '' || $old === $newVersion) {
                 continue;
             }
@@ -1265,7 +1452,7 @@ final class WpImport
      */
     private function itemImages(int $id, array &$state, ImageDownloader $downloader): bool
     {
-        $item = $this->db->one('SELECT p.idp, p.nazev, p.data, p.obrazek, k.pole FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE p.idp = ?', [$id]);
+        $item = $this->db->one('SELECT p.idp, p.nazev, p.data, p.obrazek, k.pole, k.preset FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE p.idp = ?', [$id]);
         if ($item === null) {
             return true;
         }
@@ -1297,6 +1484,12 @@ final class WpImport
             $complete = $image !== false;
             if (is_array($image) && $share === '') {
                 $share = (string) $image['obr_poloha'];
+            }
+            // 3.12: a product's featured image is its picture too (the image field of the Products preset), also when the
+            // old site's address could not be kept in the field (only https addresses and Media paths are)
+            $field = Presets::field(['preset' => $item['preset'], 'pole' => json_decode((string) $item['pole'], true) ?: []], WpWooCommerce::PRESET, 'image', ['obrazek']);
+            if (is_array($image) && $field !== null && (string) ($data[$field] ?? '') === '') {
+                $data[$field] = (string) $image['obr_poloha'];
             }
             if ($complete) {
                 unset($state['nahledy']['p' . $id]);
@@ -1575,6 +1768,14 @@ final class WpImport
         'language_unavailable' => 'posts in a language this site does not have (languages.not_available lists the ones Kaleta cannot offer; others need add_languages: true or the language added in Settings first) – nothing of them was imported',
     ];
 
+    /** Post types of WooCommerce without a counterpart here (3.12), in English for the summary. */
+    private const array OTHER_TYPES = [
+        'product_variation' => 'WooCommerce variations – each product came over without them; list the sizes or colours in its Variants field (name | code | price per line)',
+        'shop_order' => 'WooCommerce orders – a catalogue has no checkout, so orders stay in WordPress (export them there if you need them)',
+        'shop_order_refund' => 'WooCommerce refunds – they stay in WordPress with the orders',
+        'shop_coupon' => 'WooCommerce coupons – a catalogue has no checkout',
+    ];
+
     /** Why a redirect was not made or a menu was not put into the draft look, in English for the summary. */
     private const array REFUSED = [
         'address_in_use' => 'the old address is a page or item of this site already – it keeps working and no link is rewritten',
@@ -1603,7 +1804,7 @@ final class WpImport
             $skipped[] = ['what' => 'already_imported', 'count' => (int) $v['preskoceno'], 'why' => 'converted by an earlier run of this file and left as they are, so later edits stay'];
         }
         foreach ($p['jine'] as $type => $count) {
-            $skipped[] = ['what' => 'type:' . $type, 'count' => (int) $count, 'why' => 'a content type of WordPress or of a plugin without a counterpart here'];
+            $skipped[] = ['what' => 'type:' . $type, 'count' => (int) $count, 'why' => self::OTHER_TYPES[$type] ?? 'a content type of WordPress or of a plugin without a counterpart here'];
         }
         foreach ($p['stavitele'] ?? [] as $builder => $count) {
             $skipped[] = ['what' => 'layout:' . $builder, 'count' => (int) $count, 'why' => 'the ' . $builder . ' layout is not in the export – only the text in the post content came over; rebuild these pages from the live site (build_from_html)'];
@@ -1635,6 +1836,7 @@ final class WpImport
                 'news' => (int) $v['clanky'], 'pages' => (int) $v['stranky'], 'categories' => (int) $v['rubriky'], 'collection_items' => (int) $v['polozky'],
                 'collections' => (int) ($v['kolekce'] ?? 0), 'seo_fields' => (int) $v['seo'], 'redirects' => (int) $v['presmerovani'],
                 'already_imported' => (int) $v['preskoceno'], 'hidden_but_public_on_wordpress' => (int) $v['skryto'],
+                'collection_categories' => (int) ($v['kategorie_kolekce'] ?? 0),
             ],
             'skipped' => $skipped,
             'redirects' => [
@@ -1653,6 +1855,17 @@ final class WpImport
                 array_map('strval', array_keys($state['autori_vysledek'])), array_values($state['autori_vysledek'])),
             'images' => ['downloaded' => (int) $state['obr']['stazeno'], 'failed' => (int) $state['obr']['chyb'], 'recent_failures' => $state['obr']['chyby']],
         ] + (($state['prilis_velke'] ?? []) !== [] ? ['too_large' => self::tooLarge($state, HtmlLimits::english(...))] : [])
+            + (($p['typy'][WpWooCommerce::TYPE]['woo'] ?? false) ? ['woocommerce' => [
+                'products' => (int) $p['typy'][WpWooCommerce::TYPE]['pocet'], 'product_categories' => count((array) ($p['typy'][WpWooCommerce::TYPE]['kategorie'] ?? [])),
+                'collection' => (string) ($state['kolekce'][WpWooCommerce::TYPE]['seo_link'] ?? ''),
+                'category_base' => (string) ($state['zaklad_kategorii'] ?? '') !== '' ? '/' . $state['zaklad_kategorii'] . '/ (found in the export\'s links) and /' . WpWooCommerce::CATEGORY_BASE . '/' : '/' . WpWooCommerce::CATEGORY_BASE . '/',
+                'how' => 'Products arrive in a catalogue made from the Products preset (an enquiry basket instead of a checkout): code (SKU), price, availability, '
+                    . 'parameters (attributes), summary, description and the featured image as its picture. Product categories are categories of the collection '
+                    . 'with their own pages (/<collection>/<category>) in every language, and the old /' . WpWooCommerce::CATEGORY_BASE . '/… addresses redirect to them '
+                    . '(WooCommerce\'s default category base – a shop with another base needs a pattern redirect, migration_report shows it). '
+                    . 'An import that brings everything in hidden hides the categories too: show them with the products (save_collection_category visible). '
+                    . 'Put a Collection list of the products on the old shop page.',
+            ]] : [])
             + (self::isMultilingual($state) ? ['languages' => self::languageSummary($state)] : []);
     }
 
@@ -2026,7 +2239,8 @@ final class WpImport
                 default => ($row = $this->db->one('SELECT p.seo_link, p.nazev, p.jazyk, k.seo_link AS kolekce FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE p.idp = ?',
                     [(int) $this->convertedId('polozka', $id, 'kolekce_polozky', 'idp')])) !== null ? $link($prefix($row) . '/' . $row['kolekce'] . '/' . $row['seo_link'], (string) $row['nazev']) : null,
             },
-            'taxonomy' => $this->menuTerm($this->header['terminy'][(int) $id] ?? ['', ''], $link, $this->termLanguage((int) $id) ?? ''),
+            'taxonomy' => ($this->header['terminy'][(int) $id][0] ?? '') === 'polozky' ? $this->menuItemCategory((int) $id, $link)
+                : $this->menuTerm($this->header['terminy'][(int) $id] ?? ['', ''], $link, $this->termLanguage((int) $id) ?? ''),
             'post_type_archive' => $object === 'post' ? ['typ' => 'novinky', 'text' => $text]
                 : (($row = $this->db->one('SELECT seo_link, nazev FROM {kolekce} WHERE idk = ?', [(int) $this->convertedId('kolekce', $object, 'kolekce', 'idk')])) !== null
                     ? $link('/' . $row['seo_link'], (string) $row['nazev']) : null),
@@ -2062,6 +2276,27 @@ final class WpImport
         };
 
         return $row === null ? null : $link(($row['jazyk'] !== '' ? '/' . $row['jazyk'] : '') . '/novinky/' . ($kind === 'rubrika' ? 'kategorie/' : 'stitek/') . $row['seo_link'], (string) $row['nazev']);
+    }
+
+    /**
+     * A menu item linking to a product category (3.12): the page of the collection category it became, in its language.
+     *
+     * @param callable(string, string): array<string, mixed> $link
+     * @return array<string, mixed>|null
+     */
+    private function menuItemCategory(int $term, callable $link): ?array
+    {
+        $slug = (string) ($this->header['terminy'][$term][1] ?? '');
+        $language = $this->termLanguage($term) ?? '';
+        $group = (string) ($this->header['skupina_terminu'][$term] ?? '');
+        $id = $this->convertedId('kategorie_kolekce', mb_substr(WpWooCommerce::TYPE . ':' . ($group !== '' ? $group : self::categoryKey($slug, $language)), 0, 190), 'collection_categories', 'id');
+        $idk = $this->convertedId('kolekce', WpWooCommerce::TYPE, 'kolekce', 'idk');
+        $address = $id !== null ? $this->db->value('SELECT slug FROM {collection_category_texts} WHERE category_id = ? AND language = ?', [$id, $language]) : null;
+        $category = $address !== null && $idk !== null ? CollectionCategories::bySlug($this->db, $idk, (string) $address, $language) : null;
+        $collection = $idk !== null ? (string) $this->db->value('SELECT seo_link FROM {kolekce} WHERE idk = ?', [$idk]) : '';
+
+        return $category === null || $collection === '' ? null
+            : $link(($language !== '' ? '/' . $language : '') . '/' . CollectionCategories::path($collection, $category), $category['name']);
     }
 
     /**

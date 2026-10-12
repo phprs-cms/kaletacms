@@ -90,6 +90,10 @@ $chosenLanguage = $options['jazyk'] !== '' ? $options['jazyk'] : match ($exportL
 <?php endforeach ?>
 <?php foreach ($p['typy'] ?? [] as $type => $t): ?>
 <?php $prefixes = $t['predpony']; arsort($prefixes); $address = (string) (array_key_first($prefixes) ?? $type); ?>
+<?php if ($t['woo'] ?? false): // 3.12: a WooCommerce shop becomes a product catalogue (Core\WpWooCommerce) ?>
+<p><?= e(t('WooCommerce shop: %s products become a product catalogue at /%s/… (code, price, availability, parameters and the picture), and %s product categories become its categories with their own pages; the old /product-category/… addresses redirect to them. Variations, orders and coupons stay in WordPress.',
+    (int) $t['pocet'], $address, count((array) ($t['kategorie'] ?? [])))) ?></p>
+<?php continue; endif ?>
 <p><?= e(t('Custom post type “%s” (items: %s) becomes a collection with item pages at /%s/…, with the fields %s.', $type, (int) $t['pocet'], $address,
     $t['pole'] === [] ? t('none') : implode(', ', array_map(fn (string $key, array $votes): string => $key . ' (' . t(Kaleta\Builder\Collections::FIELD_TYPES[Kaleta\Core\WpTypes::fieldType($votes)] ?? 'text') . ')', array_keys($t['pole']), $t['pole'])))) ?>
 <?php if ($t['vynechano'] !== []): ?> <?= e(t('Left out (repeaters, galleries or relationships – Claude can move them by hand): %s.', implode(', ', array_keys($t['vynechano'])))) ?><?php endif ?></p>

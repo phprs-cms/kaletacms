@@ -926,4 +926,7 @@ return [
     'Download the images from the old site – see Images from the old site below.' => 'Lade die Bilder von der alten Website herunter – siehe Bilder von der alten Website unten.',
     'Before you point the domain here, check the old site against this one: every old address must lead somewhere. The old site must still be online.' => 'Bevor du die Domain hierher umstellst, prüfe die alte Website gegen diese: Jede alte Adresse muss irgendwohin führen. Die alte Website muss dafür noch online sein.',
     'What visitors will see after you publish the menus:' => 'Was Besucher sehen, nachdem du die Menüs veröffentlicht hast:',
+    'Kaleta cannot tell whether the heading font %s has %s letters for the %s version – check the languages the font supports.' => 'Kaleta kann nicht erkennen, ob die Überschriftenschrift %s %s Buchstaben für die Version %s hat – prüfe, welche Sprachen die Schrift unterstützt.',
+    'Kaleta cannot tell whether the text font %s has %s letters for the %s version – check the languages the font supports.' => 'Kaleta kann nicht erkennen, ob die Textschrift %s %s Buchstaben für die Version %s hat – prüfe, welche Sprachen die Schrift unterstützt.',
+    'Fonts with them: %s; or upload one as a custom font (e.g. %s).' => 'Schriften, die sie haben: %s; oder lade eine als eigene Schrift hoch (z. B. %s).',
 ];

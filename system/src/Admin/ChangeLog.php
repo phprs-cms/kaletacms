@@ -34,6 +34,20 @@ final class ChangeLog
     }
 
     /**
+     * A change Kaleta made by itself, outside a request of a person or a connection (3.12: a category shown by a scheduled
+     * publication or an import step): no user, the name "Kaleta".
+     */
+    public static function system(\Kaleta\Core\Db $db, string $module, string $action, string $description = ''): int
+    {
+        try {
+            return $db->insert('protokol', ['cas' => date('Y-m-d H:i:s'), 'kdo' => null, 'jmeno' => 'Kaleta', 'via' => '',
+                'modul' => mb_substr($module, 0, 30), 'akce' => mb_substr($action, 0, 40), 'popis' => mb_substr($description, 0, 255)]);
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    /**
      * A row written before the change it records (Claude's guardrails, 3.7: the hourly limit counts it while the tool
      * runs) gets its final description once the change is done – one row per change, never a second one.
      */

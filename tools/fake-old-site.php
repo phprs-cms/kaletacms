@@ -16,7 +16,11 @@ declare(strict_types=1);
  * KALETA_FAKE_MODE (3.7, the follow-up audit N37-23 and N37-24) turns it into a hostile old site:
  *  - robots: a 1 MB robots.txt of wildcard rules (Disallow: /blocked/ first), no sitemap, and a home page with 2,000 links;
  *  - sitemaps: robots.txt names sitemaps on other hosts, the sitemap index lists three sitemaps of 2,000 pages each,
- *    150 more sitemaps of this host (over the queue limit) and one on another host.
+ *    150 more sitemaps of this host (over the queue limit) and one on another host;
+ *  - wordpress (3.12): the live side of a WordPress export named by KALETA_FAKE_WXR (tools/fixtures/wordpress-scale.php
+ *    --site=http://127.0.0.1:<port>) – a sitemap of every published post, page and product and of the product category
+ *    pages (/product-category/…, /ar/product-category/…), each of them a small page with its title, and a JPEG for every
+ *    image under /wp-content/uploads/.
  */
 const PAGES = 350;
 
@@ -47,6 +51,43 @@ if ($mode === 'robots') {
     } elseif (preg_match('#^/(l/\d+|blocked/x)/?$#', $path) === 1) {
         header('Content-Type: text/html; charset=utf-8');
         echo $page('Linked page');
+    } else {
+        http_response_code(404);
+        echo 'Not found';
+    }
+
+    return true;
+}
+if ($mode === 'wordpress') {
+    // the published addresses of the export (links of posts, pages and products) and the product category pages
+    $addresses = [];
+    $xml = (string) file_get_contents((string) getenv('KALETA_FAKE_WXR'));
+    preg_match_all('#<item>.*?</item>#s', $xml, $items);
+    foreach ($items[0] as $item) {
+        if (preg_match('#<wp:post_type><!\[CDATA\[(post|page|product)\]\]></wp:post_type>#', $item) === 1 && str_contains($item, '<wp:status><![CDATA[publish]]>')
+            && preg_match('#<link>([^<]+)</link>#', $item, $link) === 1 && preg_match('#<title><!\[CDATA\[(.*?)\]\]></title>#s', $item, $title) === 1) {
+            $addresses[(string) parse_url($link[1], PHP_URL_PATH)] = $title[1];
+        }
+    }
+    preg_match_all('#<wp:term><wp:term_id>\d+</wp:term_id><wp:term_taxonomy>product_cat</wp:term_taxonomy><wp:term_slug>([^<]+)</wp:term_slug><wp:term_parent>([^<]*)</wp:term_parent><wp:term_name><!\[CDATA\[(.*?)\]\]>#', $xml, $terms, PREG_SET_ORDER);
+    foreach ($terms as [, $slug, $parent, $name]) {
+        $arabic = str_starts_with($slug, '%'); // the generator's Arabic categories have percent-encoded Arabic slugs
+        $addresses[($arabic ? '/ar' : '') . '/product-category/' . ($parent !== '' ? $parent . '/' : '') . $slug . '/'] = $name;
+    }
+    if ($path === '/robots.txt') {
+        header('Content-Type: text/plain');
+        echo "User-agent: *\nCrawl-delay: 0\n\nSitemap: {$origin}/sitemap.xml\n";
+    } elseif ($path === '/sitemap.xml') {
+        header('Content-Type: application/xml');
+        echo $urlset(array_map('strval', array_keys($addresses)));
+    } elseif (($title = array_column(array_map(null, array_map('rawurldecode', array_keys($addresses)), $addresses), 1, 0)[rawurldecode($path)] ?? null) !== null) {
+        header('Content-Type: text/html; charset=utf-8'); // Arabic addresses are compared decoded: a client may change the case of %d8
+        echo $page(htmlspecialchars((string) $title));
+    } elseif (preg_match('#^/wp-content/uploads/\d{4}/\d{2}/[a-z0-9-]+\.jpg$#', $path) === 1) {
+        header('Content-Type: image/jpeg');
+        $image = imagecreatetruecolor(640, 480);
+        imagefill($image, 0, 0, (int) imagecolorallocate($image, crc32($path) & 255, 120, 90));
+        imagejpeg($image, null, 80);
     } else {
         http_response_code(404);
         echo 'Not found';

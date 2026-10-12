@@ -127,7 +127,7 @@ parameters:
 			path: system/src/Core/Updater.php
 
 		-
-			message: '#^Comparison operation "\<\=" between 10 and 0 is always false\.$#'
+			message: '#^Comparison operation "\<\=" between 30 and 0 is always false\.$#'
 			identifier: smallerOrEqual.alwaysFalse
 			count: 1
 			path: system/src/Core/WpImport.php

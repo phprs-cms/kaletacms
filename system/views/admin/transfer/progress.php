@@ -48,6 +48,9 @@ $running = in_array($state['faze'], ['analyza', 'import', 'obrazky'], true);
 <?php if (($v['polozky'] ?? 0) > 0): ?>
 	<div class="dlazdice-polozka"><strong><?= (int) $v['polozky'] ?></strong><span><?= e(t('Collection items (custom post types), in %s new collections', (int) ($v['kolekce'] ?? 0))) ?></span></div>
 <?php endif ?>
+<?php if (($v['kategorie_kolekce'] ?? 0) > 0): ?>
+	<div class="dlazdice-polozka"><strong><?= (int) $v['kategorie_kolekce'] ?></strong><span><?= e(t('Categories of collections (product categories)')) ?></span></div>
+<?php endif ?>
 <?php if (($v['skryto'] ?? 0) > 0): ?>
 	<div class="dlazdice-polozka"><strong><?= (int) $v['skryto'] ?></strong><span><?= e(t('Public on WordPress, imported hidden')) ?></span></div>
 <?php endif ?>

@@ -110,7 +110,49 @@ final class Collections
         return $r === null ? null : self::extract($r);
     }
 
+    /** Items deleted in one statement by delete(). */
+    private const int DELETE_BATCH = 500;
+
     /**
+     * Deletes a collection with its items, categories and templates (3.12). The foreign keys would do it in one cascade, but
+     * the cascade from the collection through its categories (and their subcategories, which cascade again) and the items'
+     * category links grows with the data: on a collection of a moved shop – hundreds of products in categories – MySQL
+     * refuses it (error 6575, a cascade over more than 30 tables). So the children go first, step by step, in one
+     * transaction: the item links to categories, the items in batches, the categories from the deepest level up (each
+     * delete cascades only to its texts), then the collection row, whose cascade is left with the templates. As with the
+     * cascade, only the collection row goes into the undo journal of a Claude session (Core\AgentJournal). Returns the
+     * number of deleted collections (0 or 1).
+     */
+    public static function delete(Db $db, int $idk): int
+    {
+        return $db->transaction(function () use ($db, $idk): int {
+            $journal = $db->journal;
+            $db->journal = null; // what the cascade removed was never journaled either
+            try {
+                $db->run('DELETE ic FROM {collection_item_categories} ic JOIN {kolekce_polozky} p ON p.idp = ic.idp WHERE p.idk = ?', [$idk]);
+                $db->run('DELETE ic FROM {collection_item_categories} ic JOIN {collection_categories} c ON c.id = ic.category_id WHERE c.idk = ?', [$idk]);
+                while ($db->run('DELETE FROM {kolekce_polozky} WHERE idk = ? LIMIT ' . self::DELETE_BATCH, [$idk])->rowCount() > 0) {
+                    // the next batch
+                }
+                // categories without subcategories first, until none is left – the depth of the tree never adds to a cascade
+                for ($level = 0; $level < 50; $level++) {
+                    $leaves = array_map(intval(...), array_column($db->all('SELECT c.id FROM {collection_categories} c WHERE c.idk = ?
+                        AND NOT EXISTS (SELECT 1 FROM {collection_categories} s WHERE s.parent_id = c.id)', [$idk]), 'id'));
+                    if ($leaves === []) {
+                        break;
+                    }
+                    $db->run('DELETE FROM {collection_categories} WHERE id IN (' . implode(',', $leaves) . ')');
+                }
+            } finally {
+                $db->journal = $journal;
+            }
+
+            return $db->delete('kolekce', ['idk' => $idk]);
+        });
+    }
+
+    /**
+     * Item template in a language version:    /**
      * Item template in a language version: the collection whose build and draft belong to the language (sablona_jazyk). The default
      * language ('') has its template in ka_kolekce, other languages in ka_kolekce_sablony; a language without its own template has
      * both build and draft null.

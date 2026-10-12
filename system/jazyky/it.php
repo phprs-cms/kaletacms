@@ -2051,4 +2051,7 @@ return [
     '[Postcode and town]' => '[CAP e città]',
     '[Opening hours]' => '[Orari di apertura]',
     'out of 5 · [number] reviews' => 'su 5 · [numero] recensioni',
+    'In stock' => 'Disponibile',
+    'Out of stock' => 'Esaurito',
+    'On backorder' => 'Su ordinazione',
 ];

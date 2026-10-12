@@ -16,6 +16,7 @@
  * @var array<string, array{nazev:string, popis:string, ds:array<string, mixed>}> $presets
  * @var array<string, string> $values
  * @var list<array{id: int, summary: string, created: string, author: ?string}> $versions earlier published looks (Core\Look)
+ * @var list<array{role: string, font: string, script: string, languages: list<string>, known: bool, offered: list<string>, upload: list<string>}> $fontProblems scripts the fonts lack (3.12, Builder\FontScripts)
  */
 use Kaleta\Front\SiteIdentity;
 use Kaleta\Builder\DesignSystem;
@@ -142,6 +143,9 @@ $tabs = ['styl' => 'Styl', 'barvy' => 'Colours', 'tmavy' => 'Dark mode', 'pismo'
 	</select>
 	<span class="napoveda"><?= e(t('System fonts download nothing. A custom font is stored on your own server – it does not need visitor consent either.')) ?></span></div>
 </div>
+<?php foreach ($fontProblems as $problem): ?>
+<p class="hlaska hlaska-varovani"><?= e(Kaleta\Builder\FontScripts::message($problem, $problem['role'] === 'headings' ? SiteIdentity::TITLE_FONTS : SiteIdentity::TEXT_FONTS)) ?></p>
+<?php endforeach ?>
 <details class="pokrocile"<?= $ds['vlastni_pisma'] !== [] ? ' open' : '' ?>>
 <summary><?= e(t('Brand fonts (WOFF2)')) ?></summary>
 <p class="napoveda"><?= e(t('Upload the font files (.woff2) to Media and paste their address here. One variable font file is enough, or a regular and a bold weight. After saving, choose the font above.')) ?></p>

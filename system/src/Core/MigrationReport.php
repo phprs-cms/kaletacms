@@ -256,6 +256,13 @@ final class MigrationReport
                     'obrazky' => preg_match_all('#\.(jpe?g|png|webp|gif|avif)"#i', (string) $item['data']), 'zobrazeno' => (bool) $item['zobrazit']];
             }
         }
+        // 3.12: a category page of a collection (a moved shop's product categories)
+        $category = \Kaleta\Builder\CollectionCategories::atPath($db, $s, $column);
+        if ($category !== null) {
+            return ['typ' => 'category', 'titulek' => $category['seo_title'] !== '' ? $category['seo_title'] : $category['name'],
+                'popis' => $category['seo_description'] !== '' ? $category['seo_description'] : trim(strip_tags($category['description'])), 'formular' => false, 'obrazky' => 0,
+                'zobrazeno' => \Kaleta\Builder\CollectionCategories::isPublic($category)];
+        }
 
         return null;
     }

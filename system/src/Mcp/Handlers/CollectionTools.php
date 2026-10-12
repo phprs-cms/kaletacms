@@ -150,7 +150,7 @@ trait CollectionTools
         $k = $collection();
         $notices = Notices::count($db, $k); // an official notice board keeps its notices for good (2.11)
         $need($notices === 0, sprintf(Notices::REFUSAL_COLLECTION, $notices));
-        $db->delete('kolekce', ['idk' => $k['idk']]); // items and templates go with it (foreign keys)
+        \Kaleta\Builder\Collections::delete($db, (int) $k['idk']); // items, categories and templates go with it, step by step (3.12)
         \Kaleta\Front\Cache::clear();
 
         return ['deleted' => $k['seo_link']];
@@ -322,6 +322,9 @@ trait CollectionTools
         }
         if ($categoryIds !== null) {
             CollectionCategories::assign($db, $idp, (int) $collection['idk'], $categoryIds);
+        }
+        if ((int) ($row['zobrazit'] ?? $previous['zobrazit'] ?? 0) === 1 && (int) ($previous['zobrazit'] ?? 0) === 0) {
+            CollectionCategories::showForItems($db, [$idp], $this->app); // 3.12: the first published item shows its hidden categories
         }
         Notices::recordSave($this->app, $collection, $previous, $row, $idp); // the audit trail of a notice board (2.11)
         \Kaleta\Front\Cache::clear(); // item pages, lists, the sitemap and llms.txt show the change at once (as after a save in the admin)

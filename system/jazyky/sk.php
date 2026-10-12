@@ -2025,4 +2025,7 @@ return [
     '[Postcode and town]' => '[PSČ a mesto]',
     '[Opening hours]' => '[Otváracie hodiny]',
     'out of 5 · [number] reviews' => 'z 5 · [číslo] recenzií',
+    'In stock' => 'Skladom',
+    'Out of stock' => 'Nie je skladom',
+    'On backorder' => 'Na objednávku',
 ];
