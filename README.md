@@ -34,7 +34,7 @@ whose output reads like hand-written HTML, an AI assistant, Claude over MCP, and
 - **AI** – the assistant drafts a new section from a description, rewrites element text, suggests headlines, SEO
   descriptions, proofreading and translation (Claude, OpenAI, Google Gemini or Mistral). Claude can also build the site
   over **MCP**: it turns HTML into builder content and edits site parts, collections and the design – always as a draft to approve.
-- **News** (blog), sites in around forty languages, SEO and llms.txt, cookie-free analytics, redirects, backups and signed updates,
+- **News** (blog), sites in around forty languages, the admin in Czech, English, German and Spanish, SEO and llms.txt, cookie-free analytics, redirects, backups and signed updates,
   **WordPress import** (straight into the builder, too).
 
 ## Principles
