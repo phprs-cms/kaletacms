@@ -346,30 +346,44 @@ class Settings extends Module
         if (!in_array($this->request->post('choice'), ['convert', 'keep'], true)) {
             return $this->back('', 'time_zone', ['zone' => $to]);
         }
-        $settings->set('time_zone', $to);
+        $convert = $this->request->post('choice') === 'convert';
+        try {
+            // 3.12.1 (N312-1): the zone changes only while it is still $from, under a lock, together with the start – a
+            // second click or tab finds the new zone and changes nothing
+            $started = \Kaleta\Core\TimeZoneConversion::begin($this->db, $settings, $from, $to, $convert, $this->app->auth()->id() ?: null);
+        } catch (\Throwable $e) {
+            return $this->back(t('The time zone could not be changed: %s', $e->getMessage()), '', ['tab' => 'general'], 'chyba');
+        }
+        if ($started === null) {
+            return $this->back(t('The time zone was not changed: it has just been changed in another window, or saved dates are still being converted.'), '', ['tab' => 'general'], 'chyba');
+        }
         $this->app->applyTimezone(); // the rest of this request (the change log, the messages) runs on the new clock
-        if ($this->request->post('choice') === 'keep') {
+        if (!$convert) {
             \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'time_zone', $from . ' → ' . $to . ': saved dates keep their clock time');
 
             return $this->back(t('The time zone is now %s. Dates already saved keep their clock time.', $to), '', ['tab' => 'general']);
         }
-        \Kaleta\Core\TimeZoneConversion::start($this->db, $from, $to, $this->app->auth()->id() ?: null);
         \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'time_zone', $from . ' → ' . $to . ': converting saved dates');
-        // the first batches right away, under the background jobs' lock, so no job writes into a table half converted
+        // a larger site: the first batches right away, under the background jobs' lock, so no job writes into a table
+        // half converted; a failing table is skipped and reported, never an error page (N312-2)
         $state = null;
         if ((int) $this->db->value('SELECT GET_LOCK(?, 10)', [\Kaleta\Core\Scheduler::LOCK]) === 1) {
             try {
-                $state = \Kaleta\Core\TimeZoneConversion::run($this->db, 8.0);
+                $state = \Kaleta\Core\TimeZoneConversion::run($this->db, 8.0)
+                    ?? \Kaleta\Core\TimeZoneConversion::state($this->db, $started, $from, $to); // converted at once in begin()
+            } catch (\Throwable) {
+                $state = null; // the background job continues it
             } finally {
                 $this->db->value('SELECT RELEASE_LOCK(?)', [\Kaleta\Core\Scheduler::LOCK]);
             }
         }
-        if ($state !== null && $state['finished_now']) {
+        if ($state !== null && ($state['finished_now'] || ($state['done'] && $state['id'] === $started))) { // finished now, or at once in begin()
             \Kaleta\Core\TimeZoneConversion::logFinished($this->app, $state);
         }
 
         return $this->back($state !== null && $state['done']
             ? t('The time zone is now %s. Saved dates were converted: %d values in %d tables.', $to, $state['values'], $state['tables'])
+                . ($state['out_of_range'] + count($state['failed']) > 0 ? ' ' . t('Some were left as they were – see the time zone below and System status.') : '')
             : t('The time zone is now %s. Saved dates are being converted in the background – the progress is under the time zone below.', $to), '', ['tab' => 'general']);
     }
 

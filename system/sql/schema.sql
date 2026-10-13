@@ -1464,6 +1464,8 @@ CREATE TABLE ka_time_zone_progress (
     rows_done     INT UNSIGNED NOT NULL DEFAULT 0,
     values_done   INT UNSIGNED NOT NULL DEFAULT 0,
     ambiguous     INT UNSIGNED NOT NULL DEFAULT 0,        -- values in the hour a daylight-saving change repeats: the first occurrence was taken
+    out_of_range  INT UNSIGNED NOT NULL DEFAULT 0,        -- values left as they were: outside the years 1000–9999 after the move (3.12.1)
+    error         VARCHAR(255) NOT NULL DEFAULT '',       -- the table could not be converted and was skipped (3.12.1); '' = fine
     finished_at   DATETIME NULL,
     PRIMARY KEY (conversion_id, table_name),
     CONSTRAINT fk_time_zone_progress_conversion FOREIGN KEY (conversion_id) REFERENCES ka_time_zone_conversions (id) ON DELETE CASCADE

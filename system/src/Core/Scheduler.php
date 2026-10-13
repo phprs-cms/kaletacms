@@ -22,7 +22,8 @@ final class Scheduler
      * the queues decide themselves what is due, and backups, links and the clean-up keep their own pace.
      */
     public const array JOBS = [
-        // first, and the others wait while it runs: they would write the new clock into rows not converted yet (3.12)
+        // first, and the others wait while it runs: they would write the new clock into rows not converted yet (3.12); when it
+        // fails, they run anyway and System status warns (3.12.1)
         'time_zone' => [0, 'any', 'Saved dates converted to a new time zone'],
         'notifications' => [0, 'any', 'Scheduled publishing and announcements'],
         'mail' => [0, 'any', 'Sending e-mail'],
@@ -75,7 +76,8 @@ final class Scheduler
                     TimeZoneConversion::logFinished($app, $state);
                 }
 
-                return $state === null ? 'not needed' : ($state['done'] ? 'done' : 'converted ' . $state['tables_done'] . ' of ' . $state['tables'] . ' tables');
+                return ($state === null ? 'not needed' : ($state['done'] ? 'done' : 'converted ' . $state['tables_done'] . ' of ' . $state['tables'] . ' tables'))
+                    . ($state !== null && $state['failed'] !== [] ? ', not converted: ' . implode(', ', $state['failed']) : '');
             },
             'notifications' => function (App $app): string {
                 Notifications::process($app);
@@ -188,8 +190,8 @@ final class Scheduler
                     continue;
                 }
                 $results[$name] = self::runOne($app, $name, $job, $source, (int) ($state[$name]['failures'] ?? 0));
-                if ($name === 'time_zone' && TimeZoneConversion::running($db) !== null) {
-                    break; // saved dates are being converted: the other jobs wait for the next run
+                if ($name === 'time_zone' && !str_starts_with($results[$name], 'error') && TimeZoneConversion::running($db) !== null) {
+                    break; // saved dates are being converted: the other jobs wait for the next run – unless the conversion fails (3.12.1, N312-2)
                 }
             }
         } finally {

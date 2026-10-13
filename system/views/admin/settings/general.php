@@ -49,7 +49,9 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 	<p class="napoveda"><?= e($zoneConversion['finished_at'] === null
 		? t('Converting saved dates from %s to %s: %d of %d tables done, %d values so far. The background jobs continue it.', (string) $zoneConversion['from_zone'], (string) $zoneConversion['to_zone'], $zoneDone, count($zoneTables), $zoneValues)
 		: t('Saved dates were converted from %s to %s: %d values in %d tables.', (string) $zoneConversion['from_zone'], (string) $zoneConversion['to_zone'], $zoneValues, count($zoneTables))) ?>
-<?php if ($zoneAmbiguous > 0): ?> <?= e(t('%d of them were in the hour that repeats when daylight saving time ends; the first of the two hours was taken.', $zoneAmbiguous)) ?><?php endif ?></p>
+<?php if ($zoneAmbiguous > 0): ?> <?= e(t('%d of them were in the hour that repeats when daylight saving time ends; the first of the two hours was taken.', $zoneAmbiguous)) ?><?php endif ?>
+<?php if (($zoneOutside = array_sum(array_map(fn (array $r): int => (int) $r['out_of_range'], $zoneTables))) > 0): ?> <?= e(t('%d values were left as they were: they would leave the years 1000–9999.', $zoneOutside)) ?><?php endif ?>
+<?php if (($zoneFailed = array_column(array_filter($zoneTables, fn (array $r): bool => (string) $r['error'] !== ''), 'table_name')) !== []): ?> <?= e(t('Not converted because of an error (see the change log): %s.', implode(', ', $zoneFailed))) ?><?php endif ?></p>
 <?php endif ?>
 	</div>
 </div>

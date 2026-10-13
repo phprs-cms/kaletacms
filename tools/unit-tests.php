@@ -6093,7 +6093,13 @@ check('3.12 §6: TimeZoneConversion::convert – by the offset at each value\'s 
     Kaleta\Core\TimeZoneConversion::convert('2026-07-01 08:00:00', $london312, $prague312), Kaleta\Core\TimeZoneConversion::convert(null, $prague312, $london312),
     Kaleta\Core\TimeZoneConversion::convert('0000-00-00 00:00:00', $prague312, $london312), Kaleta\Core\TimeZoneConversion::convert('2026-03-29 02:30:00', $prague312, $london312),
     Kaleta\Core\TimeZoneConversion::convert('2026-02-30 10:00:00', $prague312, $london312)],
-    [['2026-10-11 11:00:00', false], ['2026-01-15 06:00:00', false], ['2026-10-25 01:30:00', true], ['2026-10-25 02:30:00', false], ['2026-07-01 09:00:00', false], null, null, null, null]);
+    [['2026-10-11 11:00:00', false, false], ['2026-01-15 06:00:00', false, false], ['2026-10-25 01:30:00', true, false], ['2026-10-25 02:30:00', false, false], ['2026-07-01 09:00:00', false, false], null, null, null, null]);
+// 3.12.1 (N312-2): a "never" date moved east, or the first DATETIME moved west, has no value on the new clock – left and counted
+check('3.12.1 N312-2: a value that would leave the DATETIME range is left as it is (counted), the edges that stay inside convert', [
+    Kaleta\Core\TimeZoneConversion::convert('9999-12-31 23:30:00', new DateTimeZone('Asia/Tokyo'), new DateTimeZone('Pacific/Kiritimati')),
+    Kaleta\Core\TimeZoneConversion::convert('1000-01-01 00:30:00', $prague312, $london312),
+    Kaleta\Core\TimeZoneConversion::convert('9999-12-31 23:30:00', $prague312, $london312), Kaleta\Core\TimeZoneConversion::convert('1000-01-01 05:00:00', $prague312, $london312)],
+    [[null, false, true], [null, false, true], ['9999-12-31 22:30:00', false, false], ['1000-01-01 04:01:01', false, false]]); // the year 1000 runs on local mean time in the zone database
 check('3.12 §6: the background job that converts saved dates runs first (the others wait for it)', array_key_first(Kaleta\Core\Scheduler::JOBS), 'time_zone');
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

@@ -18,15 +18,36 @@ namespace Kaleta\Core;
  *    counted (ambiguous).
  *  - Each batch and its progress record (ka_time_zone_progress) are written in one transaction: a conversion stopped at any
  *    moment continues where it was, and no row is converted twice. A finished conversion is never run again.
- *  - Rows written after the start are already on the new clock: a numeric primary key above upto_key is skipped. Smaller
- *    tables go first, and the background job "time_zone" runs before every other job and holds the others back until it
- *    is done (Core\Scheduler), so mail, webhooks and the job records are not written halfway.
+ *  - The zone and the start change together, once (begin(), 3.12.1): a parallel or repeated confirmation changes nothing.
+ *    A site of up to AT_ONCE_ROWS moments is converted in that same transaction; a larger one converts its busy tables
+ *    then and the rest in batches, where a numeric primary key above upto_key marks a row written on the new clock.
+ *    The background job "time_zone" runs before every other job and holds the others back until it is done
+ *    (Core\Scheduler) – unless it fails: then the others run anyway and System status warns.
+ *  - A value that would leave the DATETIME range stays as it is and is counted; a table that fails is skipped with its
+ *    error on the progress row (both in the change log and on System status).
  *  - The start and the end are in the change log (Admin\ChangeLog).
  */
 final class TimeZoneConversion
 {
     /** Rows per batch (one transaction). */
     public const int BATCH = 300;
+
+    /**
+     * Moments the start converts at once, in the transaction that switches the zone (3.12.1, N312-7): a site with at most
+     * this many rows in the tables of INSTANTS switches in one step, so no request ever sees half of it.
+     */
+    public const int AT_ONCE_ROWS = 20000;
+
+    /** Tables written on almost every request (sign-ins, connections, the job records, 404s): always converted at the start. */
+    private const array BUSY = ['uzivatele', 'uzivatele_klice', 'api_tokeny', 'oauth_klienti', 'jobs', 'nenalezeno', 'firewall_blocks', 'novinky_koncepty'];
+
+    /** The range of a DATETIME column (MySQL and MariaDB). */
+    private const string DATETIME_MIN = '1000-01-01 00:00:00';
+
+    private const string DATETIME_MAX = '9999-12-31 23:59:59';
+
+    /** One start at a time (begin()); the prefix is added, so two sites in one database do not wait for each other. */
+    private const string LOCK = 'kaleta_time_zone';
 
     /**
      * The moments: table (without the prefix) => DATETIME columns converted from the old zone to the new one. Created,
@@ -156,34 +177,105 @@ final class TimeZoneConversion
     }
 
     /**
-     * Starts a conversion from $from to $to: one progress row per table, smaller tables first. Call it right after the
-     * time_zone setting changed. Returns the id; 0 when another conversion still runs or the zones are the same or unknown.
+     * Changes the time_zone setting from $from to $to and, with $convert, starts the conversion in the same step (3.12.1,
+     * N312-1). It runs under a lock and only while the setting still holds $from (a compare-and-set in the transaction that
+     * creates the conversion): a double click, a second tab or a retried request finds the new zone and changes nothing, so
+     * the saved dates move once. Returns null when refused (the zone is no longer $from, a conversion still runs, the lock
+     * is busy, an unknown zone), 0 for "keep their clock time", otherwise the id of the conversion.
+     *
+     * The start converts at once, in that transaction (N312-7): the whole site when its moments are at most $atOnceRows
+     * rows (AT_ONCE_ROWS – nearly every site, which then switches in one step), otherwise the tables written on almost
+     * every request (BUSY) and those without a numeric key; the rest goes in batches, where a numeric key above the one
+     * at the start (0 for an empty table) marks a row written on the new clock.
      */
-    public static function start(Db $db, string $from, string $to, ?int $userId): int
+    public static function begin(Db $db, Settings $settings, string $from, string $to, bool $convert, ?int $userId, ?int $atOnceRows = null): ?int
     {
         $zones = \DateTimeZone::listIdentifiers();
-        if ($from === $to || !in_array($from, $zones, true) || !in_array($to, $zones, true) || self::running($db) !== null) {
-            return 0;
+        if ($from === $to || !in_array($from, $zones, true) || !in_array($to, $zones, true)) {
+            return null;
         }
+        $lock = self::LOCK . '_' . $db->prefix;
+        if ((int) $db->value('SELECT GET_LOCK(?, 10)', [$lock]) !== 1) {
+            return null;
+        }
+        try {
+            if (self::running($db) !== null) {
+                return null;
+            }
+            // the zone may be the default without a row: one is written first, so the compare-and-set has a row to compare
+            $db->run('INSERT IGNORE INTO {nastaveni} (promenna, hodnota) VALUES (?, ?)', ['time_zone', $from]);
+            $plan = $convert ? self::plan($db) : []; // information_schema, before the transaction
+            $db->pdo()->beginTransaction();
+            try {
+                $changed = $db->run("UPDATE {nastaveni} SET hodnota = ? WHERE promenna = 'time_zone' AND hodnota = ?", [$to, $from])->rowCount() === 1;
+                $id = !$changed ? null : ($convert ? self::create($db, $plan, $from, $to, $userId, $atOnceRows ?? self::AT_ONCE_ROWS) : 0);
+                $changed ? $db->pdo()->commit() : $db->pdo()->rollBack();
+            } catch (\Throwable $e) {
+                if ($db->pdo()->inTransaction()) {
+                    $db->pdo()->rollBack();
+                }
+                throw $e;
+            }
+            if ($id !== null) {
+                $settings->set('time_zone', $to); // the settings this request holds (the same value)
+            }
+
+            return $id;
+        } finally {
+            $db->value('SELECT RELEASE_LOCK(?)', [$lock]);
+        }
+    }
+
+    /**
+     * The tables to convert, smaller first: [table, primary key, estimated rows].
+     *
+     * @return list<array{0: string, 1: list<array{0: string, 1: bool}>, 2: int}>
+     */
+    private static function plan(Db $db): array
+    {
         $sizes = [];
         foreach ($db->all('SELECT TABLE_NAME, TABLE_ROWS FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()') as $r) {
             $sizes[(string) $r['TABLE_NAME']] = (int) $r['TABLE_ROWS'];
         }
-        $tables = array_filter(array_keys(self::INSTANTS), fn (string $table): bool => isset($sizes[$db->prefix . Names::physical($table)]));
-        usort($tables, fn (string $a, string $b): int => [$sizes[$db->prefix . Names::physical($a)], $a] <=> [$sizes[$db->prefix . Names::physical($b)], $b]);
-        $db->pdo()->beginTransaction();
-        try {
-            $id = $db->insert('time_zone_conversions', ['from_zone' => $from, 'to_zone' => $to, 'started_by' => $userId, 'started_at' => Clock::now()]);
-            foreach ($tables as $position => $table) {
-                $key = self::primaryKey($db, $table);
-                // a numeric key: rows added from now on are written on the new clock and must not move
-                $upto = count($key) === 1 && $key[0][1] ? $db->value('SELECT MAX(' . Db::quoteName($key[0][0]) . ') FROM {' . $table . '}') : null;
-                $db->insert('time_zone_progress', ['conversion_id' => $id, 'table_name' => $table, 'position' => $position, 'upto_key' => $upto === null ? null : (int) $upto]);
+        $plan = [];
+        foreach (array_keys(self::INSTANTS) as $table) {
+            if (isset($sizes[$physical = $db->prefix . Names::physical($table)])) {
+                $plan[] = [$table, self::primaryKey($db, $table), $sizes[$physical]];
             }
-            $db->pdo()->commit();
-        } catch (\Throwable $e) {
-            $db->pdo()->rollBack();
-            throw $e;
+        }
+        usort($plan, fn (array $a, array $b): int => [$a[2], $a[0]] <=> [$b[2], $b[0]]);
+
+        return $plan;
+    }
+
+    /**
+     * The conversion and its progress rows, inside begin()'s transaction; the tables converted at once are finished here.
+     *
+     * @param list<array{0: string, 1: list<array{0: string, 1: bool}>, 2: int}> $plan
+     */
+    private static function create(Db $db, array $plan, string $from, string $to, ?int $userId, int $atOnceRows): int
+    {
+        $id = $db->insert('time_zone_conversions', ['from_zone' => $from, 'to_zone' => $to, 'started_by' => $userId, 'started_at' => Clock::now()]);
+        $whole = array_sum(array_column($plan, 2)) <= $atOnceRows;
+        $atOnce = [];
+        foreach ($plan as $position => [$table, $key]) {
+            $numeric = count($key) === 1 && $key[0][1];
+            // a numeric key: rows added from now on are written on the new clock and must not move (an empty table: none)
+            $upto = $numeric ? (int) ($db->value('SELECT MAX(' . Db::quoteName($key[0][0]) . ') FROM {' . $table . '}') ?? 0) : null;
+            $db->insert('time_zone_progress', ['conversion_id' => $id, 'table_name' => $table, 'position' => $position, 'upto_key' => $upto]);
+            if ($whole || !$numeric || in_array($table, self::BUSY, true)) {
+                $atOnce[] = $table;
+            }
+        }
+        $fromZone = new \DateTimeZone($from);
+        $toZone = new \DateTimeZone($to);
+        foreach ($atOnce as $table) {
+            do {
+                $progress = $db->one('SELECT * FROM {time_zone_progress} WHERE conversion_id = ? AND table_name = ?', [$id, $table]) ?? [];
+            } while (!self::batch($db, $id, $progress, $fromZone, $toZone, false));
+        }
+        if (count($atOnce) === count($plan)) {
+            $db->run('UPDATE {time_zone_conversions} SET finished_at = ? WHERE id = ?', [Clock::now(), $id]);
         }
 
         return $id;
@@ -191,10 +283,11 @@ final class TimeZoneConversion
 
     /**
      * Converts the next batches of the running conversion within $seconds. Safe to run any number of times and to stop at
-     * any moment. Returns null when nothing runs, otherwise the state: done (all tables), finished_now (this call finished
-     * it – the caller writes the change log), tables, tables_done, values, ambiguous.
+     * any moment. A table whose batch fails (3.12.1, N312-2) is left as it is, with the error on its progress row – it never
+     * stops the other tables or the other background jobs. Returns null when nothing runs, otherwise the state: done (all
+     * tables), finished_now (this call finished it – the caller writes the change log), the counts.
      *
-     * @return array{id: int, from: string, to: string, done: bool, finished_now: bool, tables: int, tables_done: int, values: int, ambiguous: int}|null
+     * @return array{id: int, from: string, to: string, done: bool, finished_now: bool, tables: int, tables_done: int, values: int, ambiguous: int, out_of_range: int, failed: list<string>}|null
      */
     public static function run(Db $db, float $seconds): ?array
     {
@@ -207,41 +300,64 @@ final class TimeZoneConversion
         $to = new \DateTimeZone((string) $conversion['to_zone']);
         $end = microtime(true) + $seconds;
         foreach ($db->all('SELECT * FROM {time_zone_progress} WHERE conversion_id = ? AND finished_at IS NULL ORDER BY position', [$id]) as $progress) {
-            while (microtime(true) < $end) {
-                if (self::batch($db, $id, $progress, $from, $to)) {
-                    break; // the table is done
+            try {
+                while (microtime(true) < $end) {
+                    if (self::batch($db, $id, $progress, $from, $to)) {
+                        break; // the table is done
+                    }
+                    $progress = $db->one('SELECT * FROM {time_zone_progress} WHERE conversion_id = ? AND table_name = ?', [$id, $progress['table_name']]) ?? $progress;
                 }
-                $progress = $db->one('SELECT * FROM {time_zone_progress} WHERE conversion_id = ? AND table_name = ?', [$id, $progress['table_name']]) ?? $progress;
+            } catch (\Throwable $e) {
+                // the table stays as it is and is reported; the conversion goes on with the next one
+                $db->run('UPDATE {time_zone_progress} SET error = ?, finished_at = ? WHERE conversion_id = ? AND table_name = ?',
+                    [mb_substr($e->getMessage(), 0, 255), Clock::now(), $id, $progress['table_name']]);
             }
             if (microtime(true) >= $end) {
                 break;
             }
         }
-        $totals = $db->one('SELECT COUNT(*) AS tables, SUM(finished_at IS NOT NULL) AS tables_done, COALESCE(SUM(values_done), 0) AS `values`, COALESCE(SUM(ambiguous), 0) AS ambiguous
-            FROM {time_zone_progress} WHERE conversion_id = ?', [$id]) ?? [];
-        $done = (int) ($totals['tables'] ?? 0) === (int) ($totals['tables_done'] ?? 0);
-        $finishedNow = $done && $db->run('UPDATE {time_zone_conversions} SET finished_at = ? WHERE id = ? AND finished_at IS NULL', [Clock::now(), $id])->rowCount() === 1;
 
-        return ['id' => $id, 'from' => $from->getName(), 'to' => $to->getName(), 'done' => $done, 'finished_now' => $finishedNow, 'tables' => (int) ($totals['tables'] ?? 0),
-            'tables_done' => (int) ($totals['tables_done'] ?? 0), 'values' => (int) ($totals['values'] ?? 0), 'ambiguous' => (int) ($totals['ambiguous'] ?? 0)];
+        return self::state($db, $id, $from->getName(), $to->getName(), true);
+    }
+
+    /**
+     * The counts of a conversion; with $finish, a conversion whose tables are all done is marked finished.
+     *
+     * @return array{id: int, from: string, to: string, done: bool, finished_now: bool, tables: int, tables_done: int, values: int, ambiguous: int, out_of_range: int, failed: list<string>}
+     */
+    public static function state(Db $db, int $id, string $from, string $to, bool $finish = false): array
+    {
+        $totals = $db->one('SELECT COUNT(*) AS tables, SUM(finished_at IS NOT NULL) AS tables_done, COALESCE(SUM(values_done), 0) AS `values`, COALESCE(SUM(ambiguous), 0) AS ambiguous,
+            COALESCE(SUM(out_of_range), 0) AS out_of_range FROM {time_zone_progress} WHERE conversion_id = ?', [$id]) ?? [];
+        $done = (int) ($totals['tables'] ?? 0) === (int) ($totals['tables_done'] ?? 0);
+        $finishedNow = $finish && $done && $db->run('UPDATE {time_zone_conversions} SET finished_at = ? WHERE id = ? AND finished_at IS NULL', [Clock::now(), $id])->rowCount() === 1;
+
+        return ['id' => $id, 'from' => $from, 'to' => $to, 'done' => $done, 'finished_now' => $finishedNow, 'tables' => (int) ($totals['tables'] ?? 0),
+            'tables_done' => (int) ($totals['tables_done'] ?? 0), 'values' => (int) ($totals['values'] ?? 0), 'ambiguous' => (int) ($totals['ambiguous'] ?? 0),
+            'out_of_range' => (int) ($totals['out_of_range'] ?? 0),
+            'failed' => array_map('strval', array_column($db->all("SELECT table_name FROM {time_zone_progress} WHERE conversion_id = ? AND error <> '' ORDER BY position", [$id]), 'table_name'))];
     }
 
     /**
      * The end of a conversion in the change log (the start is written by Settings when the administrator chooses it).
      *
-     * @param array{from: string, to: string, tables: int, values: int, ambiguous: int} $state
+     * @param array{from: string, to: string, tables: int, values: int, ambiguous: int, out_of_range: int, failed: list<string>} $state
      */
     public static function logFinished(App $app, array $state): void
     {
         \Kaleta\Admin\ChangeLog::write($app, 'settings', 'time_zone_converted', $state['from'] . ' → ' . $state['to'] . ': ' . $state['values'] . ' values in ' . $state['tables'] . ' tables'
-            . ($state['ambiguous'] > 0 ? ', ' . $state['ambiguous'] . ' in the repeated hour of a daylight-saving change' : ''));
+            . ($state['ambiguous'] > 0 ? ', ' . $state['ambiguous'] . ' in the repeated hour of a daylight-saving change' : '')
+            . ($state['out_of_range'] > 0 ? ', ' . $state['out_of_range'] . ' left as they were (outside the years 1000–9999 after the move)' : '')
+            . ($state['failed'] !== [] ? ', not converted: ' . implode(', ', $state['failed']) : ''));
     }
 
     /**
-     * A value of a DATETIME column on the old zone's clock, on the new zone's clock; null when it is empty, zero or not a
-     * date (left as it is). [new value, whether the old one was in an hour a DST change repeats].
+     * A value of a DATETIME column on the old zone's clock, on the new zone's clock: [new value, whether the old one was in
+     * an hour a DST change repeats, whether the new one would leave the range of a DATETIME column]; null when it is empty,
+     * zero or not a date. A value that would leave the range (a "never" date such as 9999-12-31 23:30 moved east) has no
+     * new value – it is left as it is and counted, never an error (3.12.1, N312-2).
      *
-     * @return array{0: string, 1: bool}|null
+     * @return array{0: ?string, 1: bool, 2: bool}|null
      */
     public static function convert(?string $value, \DateTimeZone $from, \DateTimeZone $to): ?array
     {
@@ -256,12 +372,18 @@ final class TimeZoneConversion
         // one, the conversion takes the first (the one the site lived through first) and counts it
         $earlier = (new \DateTimeImmutable('@' . ($moment->getTimestamp() - 3600)))->setTimezone($from);
         $ambiguous = $earlier->format(Clock::FORMAT) === $value;
+        $new = ($ambiguous ? $earlier : $moment)->setTimezone($to)->format(Clock::FORMAT);
+        // a four-digit year compares as text; year 999 or 10000 does not have four digits
+        $inRange = preg_match('/^\d{4}-/', $new) === 1 && $new >= self::DATETIME_MIN && $new <= self::DATETIME_MAX;
 
-        return [($ambiguous ? $earlier : $moment)->setTimezone($to)->format(Clock::FORMAT), $ambiguous];
+        return $inRange ? [$new, $ambiguous, false] : [null, $ambiguous, true];
     }
 
-    /** One batch of one table in one transaction; true when the table is finished. */
-    private static function batch(Db $db, int $id, array $progress, \DateTimeZone $from, \DateTimeZone $to): bool
+    /**
+     * One batch of one table; true when the table is finished. In its own transaction, or (the start) in the caller's. The
+     * rows are read FOR UPDATE inside it, so a request writing a row at the same moment waits instead of being overwritten.
+     */
+    private static function batch(Db $db, int $id, array $progress, \DateTimeZone $from, \DateTimeZone $to, bool $ownTransaction = true): bool
     {
         $table = (string) $progress['table_name'];
         $columns = self::INSTANTS[$table] ?? [];
@@ -273,16 +395,23 @@ final class TimeZoneConversion
             $params[] = (int) $progress['upto_key'];
         }
         $quoted = array_map(Db::quoteName(...), $key);
-        $rows = $db->all('SELECT ' . implode(', ', [...$quoted, ...array_map(Db::quoteName(...), $columns)]) . ' FROM {' . $table . '} WHERE ' . $where
-            . ' ORDER BY ' . implode(', ', $quoted) . ' LIMIT ' . self::BATCH, $params);
         $values = 0;
         $ambiguous = 0;
-        $db->pdo()->beginTransaction();
+        $outside = 0;
+        if ($ownTransaction) {
+            $db->pdo()->beginTransaction();
+        }
         try {
+            $rows = $db->all('SELECT ' . implode(', ', [...$quoted, ...array_map(Db::quoteName(...), $columns)]) . ' FROM {' . $table . '} WHERE ' . $where
+                . ' ORDER BY ' . implode(', ', $quoted) . ' LIMIT ' . self::BATCH . ' FOR UPDATE', $params);
             foreach ($rows as $row) {
                 $set = [];
                 foreach ($columns as $column) {
                     if (($converted = self::convert(isset($row[$column]) ? (string) $row[$column] : null, $from, $to)) === null) {
+                        continue;
+                    }
+                    if ($converted[0] === null) {
+                        $outside++;
                         continue;
                     }
                     $set[$column] = $converted[0];
@@ -296,12 +425,16 @@ final class TimeZoneConversion
             }
             $last = $rows === [] ? null : end($rows);
             $finished = count($rows) < self::BATCH;
-            $db->run('UPDATE {time_zone_progress} SET last_key = ?, rows_done = rows_done + ?, values_done = values_done + ?, ambiguous = ambiguous + ?, finished_at = ?
-                WHERE conversion_id = ? AND table_name = ?', [$last === null ? (string) $progress['last_key'] : (string) json_encode(array_map(fn (string $k): mixed => $last[$k], $key)),
-                count($rows), $values, $ambiguous, $finished ? Clock::now() : null, $id, $table]);
-            $db->pdo()->commit();
+            $db->run('UPDATE {time_zone_progress} SET last_key = ?, rows_done = rows_done + ?, values_done = values_done + ?, ambiguous = ambiguous + ?, out_of_range = out_of_range + ?,
+                finished_at = ? WHERE conversion_id = ? AND table_name = ?', [$last === null ? (string) $progress['last_key'] : (string) json_encode(array_map(fn (string $k): mixed => $last[$k], $key)),
+                count($rows), $values, $ambiguous, $outside, $finished ? Clock::now() : null, $id, $table]);
+            if ($ownTransaction) {
+                $db->pdo()->commit();
+            }
         } catch (\Throwable $e) {
-            $db->pdo()->rollBack();
+            if ($ownTransaction) {
+                $db->pdo()->rollBack();
+            }
             throw $e;
         }
 
