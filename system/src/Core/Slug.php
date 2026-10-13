@@ -16,6 +16,10 @@ namespace Kaleta\Core;
  * refused while two language versions share a slug); the per-language keys (jazyk, seo_link) of migration 0083 always
  * stay. Collections stay global (/<collection> is the same in every language); collection items and their categories
  * were per language already. System addresses and language codes stay reserved in every language (Pages::slugReserved).
+ *
+ * Tags (3.14, migration 0095, the owner's answer 5) follow the same rules: a tag created from a news item gets the item's
+ * language version, its slug key is (jazyk, seo_link) next to the global one, and the switch drops or restores the global
+ * key of tags with the others (Admin\Modules\Tags::findOrCreate).
  */
 final class Slug
 {
@@ -24,6 +28,7 @@ final class Slug
         'stranky' => ['ids', 'uq_stranky_seo', 'uq_stranky_jazyk_seo'],
         'novinky' => ['idc', 'uq_clanky_seo', 'uq_clanky_jazyk_seo'],
         'kategorie' => ['idt', 'uq_topic_seo', 'uq_topic_jazyk_seo'],
+        'stitky' => ['ids', 'uq_stitky_seo', 'uq_stitky_jazyk_seo'], // 3.14, migration 0095
     ];
 
     /** The setting slugs_per_language once per request; null = not read yet. */

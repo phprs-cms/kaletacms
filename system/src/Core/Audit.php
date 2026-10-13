@@ -622,6 +622,7 @@ final class Audit
             // a news item of another version still answers there: Front\Kernel redirects to its own version
             count($s) === 1 => $db->value('SELECT 1 FROM {novinky} WHERE seo_link = ? AND visible = 1 AND smazano IS NULL', [$s[0]]) !== null,
             count($s) === 2 && $s[0] === 'kategorie' => $db->value('SELECT 1 FROM {kategorie} WHERE seo_link = ?' . $sameLanguage, [$s[1], ...$languageParams]) !== null,
+            // a tag of any version answers in every version (Front\Kernel::tag prefers the version's own, 3.14)
             count($s) === 2 && $s[0] === 'stitek' => $db->value('SELECT 1 FROM {stitky} WHERE seo_link = ?', [$s[1]]) !== null,
             default => false,
         };

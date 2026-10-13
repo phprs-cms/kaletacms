@@ -5,11 +5,17 @@ declare(strict_types=1);
 namespace Kaleta\Admin\Modules;
 
 use Kaleta\Admin\Module;
+use Kaleta\Core\Db;
 use Kaleta\Core\Response;
+use Kaleta\Core\Slug;
 
 /**
  * Tags and topics. Tags are created automatically when writing news; here they can be renamed, merged and deleted.
  * A tag with a description and an image behaves on the site as a topic page (/novinky/stitek/<slug>).
+ *
+ * Language versions (3.14): a tag belongs to the version of the news item that created it (jazyk, '' = the default
+ * language). Without slugs per language a slug is still one tag for every version, so an English news item reuses the
+ * Czech tag of the same name, as before; with slugs per language (Core\Slug) each version has its own.
  */
 final class Tags extends Module
 {
@@ -19,6 +25,22 @@ final class Tags extends Module
     public const string GROUP = 'Content';
     public const string ICON = 'stitky';
     public const string PARENT = 'news';
+
+    /**
+     * The tag a news item of the language version $language gets for $name: an existing one with the same slug (in that
+     * version when slugs are per language, otherwise in any – the one of that version first), or a new one in that version.
+     * Admin, MCP and the importers. Returns [ids, created].
+     *
+     * @return array{0: int, 1: bool}
+     */
+    public static function findOrCreate(Db $db, string $name, string $language): array
+    {
+        $seo = slugify($name, 90);
+        [$sameLanguage, $languageParams] = Slug::scope($db, $language);
+        $ids = $db->value('SELECT ids FROM {stitky} WHERE seo_link = ?' . $sameLanguage . ' ORDER BY jazyk = ? DESC LIMIT 1', [$seo, ...$languageParams, $language]);
+
+        return $ids !== null ? [(int) $ids, false] : [$db->insert('stitky', ['nazev' => $name, 'seo_link' => $seo, 'jazyk' => $language]), true];
+    }
 
     protected function actionList(): Response
     {

@@ -2058,7 +2058,18 @@ sq "UPDATE ka_novinky SET text = CONCAT(text, '$N6_PAYLOAD') WHERE smazano IS NU
 sq "CREATE TABLE ka_n55_backup AS SELECT * FROM ka_nastaveni WHERE promenna IN ('company_map', 'social_facebook', 'social_linkedin');
   REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('company_map', 'javascript:alert(1)'), ('social_facebook', ' JavaScript:alert(2)'), ('social_linkedin', 'https://www.linkedin.com/company/n55');
   INSERT INTO ka_facts (fact_key, language, label, type, value, updated_at) VALUES ('n55promo', '', 'N55', 'text', 'javascript:alert(3)', '$(site_time)'), ('n55note', '', 'N55', 'text', 'Note: open daily', '$(site_time)')" > /dev/null
+sq "INSERT INTO ka_stitky (nazev, seo_link, jazyk) VALUES ('Move 314', 'move-314', 'en')" > /dev/null # 3.14: a tag's language version moves with the site
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=export" -d "_csrf=$TOKEN"
+# 3.14: the same content in export format 3 (English keys) – only on request, from the code; a second later, so the two
+# archives never share the name of one second
+sleep 1
+MOVE3_EXPORT=$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); echo Kaleta\Core\SiteExport::create($app->db(), $app->settings(), 3)["soubor"];')
+mv "$WORK/web/storage/zalohy/$MOVE3_EXPORT" "$WORK/presun3.zip"
+unzip -p "$WORK/presun3.zip" obsah.json > "$WORK/obsah3.json" 2>/dev/null || true
+expect "3.14: export format 3 has the English header, table and column names, the default export stays format 2" \
+  "$(php -r '$h = json_decode(rtrim(rtrim((string) fgets(fopen($argv[1], "rb"))), ",") . "}", true); $t = file_get_contents($argv[1]); echo $h["format_version"] ?? "-", "|", isset($h["settings"]["site_name"]) ? "settings" : "-", "|", (int) str_contains($t, "\n\"tags\":["), "|", (int) str_contains($t, "\n\"stitky\":["), "|", (int) str_contains($t, "\"slug\":\"move-314\",\"language\":\"en\"");' "$WORK/obsah3.json")|$(unzip -p "$WORK/presun3.zip" README.txt | grep -c 'Format 3 holds the same')" \
+  "3|settings|1|0|1|1"
+sq "DELETE FROM ka_stitky WHERE seo_link = 'move-314'" > /dev/null
 sq "DELETE FROM ka_nastaveni WHERE promenna IN ('company_map', 'social_facebook', 'social_linkedin'); INSERT INTO ka_nastaveni SELECT * FROM ka_n55_backup; DROP TABLE ka_n55_backup;
   DELETE FROM ka_facts WHERE fact_key IN ('n55promo', 'n55note')" > /dev/null
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=transfer"; MOVE_EXPORT=$(grep -o 'export-[0-9]*-[0-9]*\.zip' "$WORK/response" | head -1)
@@ -2120,6 +2131,42 @@ expect "a moved page looks the same" "$(curl -s "$B2/$SLUG_ITEM" | grep -o '<h1[
 curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o "$WORK/response" "$B2/admin.php?module=transfer"
 grep -q 'id="soubor-kaleta"' "$WORK/response" && { echo "  CHYBA  a site with content still offers the import form"; ERRORS=$((ERRORS+1)); }
 expect "a site with content refuses another import" "$(curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o /dev/null -w '%{redirect_url}' -X POST "$B2/admin.php?module=transfer&action=kaleta_select" -d "_csrf=$(csrf)" -d "soubor=$MOVE_FILE" | grep -c 'kaleta')|$(curl -s -b "$JAR_MOVE" -o - "$B2/admin.php?module=transfer&action=kaleta&file=$MOVE_FILE" | grep -c 'name="potvrzeni"')" "1|0"
+expect "3.14: a tag keeps its language version when the site moves" "$("${MYSQL[@]}" "$DB2" -N -e "SELECT CONCAT(jazyk, ':', seo_link) FROM ka_stitky WHERE nazev = 'Move 314'")" "en:move-314"
+# 3.14: export format 3 into a clean install gives the same site as format 2 – counts and the main rows of every main table
+# (dates in the site's wall time, as written), the settings that travel and the tag links
+roundtrip314() { "${MYSQL[@]}" --default-character-set=utf8mb4 "$1" -N -e "SET SESSION group_concat_max_len = 16000000; SELECT CONCAT_WS('|',
+  (SELECT SHA2(GROUP_CONCAT(CONCAT_WS(':', ids, seo_link, titulek, jazyk, IFNULL(preklad_z, '-'), zobrazit, SHA2(IFNULL(text, ''), 256), SHA2(IFNULL(stavba, ''), 256)) ORDER BY ids), 256) FROM ka_stranky WHERE smazano IS NULL),
+  (SELECT SHA2(GROUP_CONCAT(CONCAT_WS(':', idc, seo_link, titulek, jazyk, tema, datum, visible, SHA2(text, 256)) ORDER BY idc), 256) FROM ka_novinky WHERE smazano IS NULL),
+  (SELECT SHA2(GROUP_CONCAT(CONCAT_WS(':', idt, nazev, seo_link, jazyk) ORDER BY idt), 256) FROM ka_kategorie),
+  (SELECT CONCAT(COUNT(*), ':', SHA2(GROUP_CONCAT(CONCAT_WS(':', ids, nazev, seo_link, jazyk, SHA2(IFNULL(popis, ''), 256)) ORDER BY ids), 256)) FROM ka_stitky),
+  (SELECT SHA2(GROUP_CONCAT(CONCAT(idc, '-', ids) ORDER BY idc, ids), 256) FROM ka_novinky_stitky),
+  (SELECT SHA2(GROUP_CONCAT(CONCAT_WS(':', z_adresy, na_adresu, typ) ORDER BY idp), 256) FROM ka_presmerovani),
+  (SELECT SHA2(GROUP_CONCAT(CONCAT_WS(':', ido, obr_poloha, nazev, IFNULL(sekce, '-')) ORDER BY ido), 256) FROM ka_media),
+  (SELECT SHA2(GROUP_CONCAT(CONCAT_WS(':', idp, idk, seo_link, jazyk, SHA2(data, 256)) ORDER BY idp), 256) FROM ka_kolekce_polozky WHERE smazano IS NULL),
+  (SELECT SHA2(GROUP_CONCAT(CONCAT_WS(':', umisteni, jazyk, SHA2(polozky, 256)) ORDER BY umisteni, jazyk), 256) FROM ka_menu),
+  (SELECT SHA2(GROUP_CONCAT(CONCAT_WS(':', typ, jazyk, varianta, SHA2(IFNULL(stavba, ''), 256)) ORDER BY typ, jazyk, varianta), 256) FROM ka_casti),
+  (SELECT SHA2(GROUP_CONCAT(CONCAT_WS(':', promenna, SHA2(hodnota, 256)) ORDER BY promenna), 256) FROM ka_nastaveni WHERE promenna IN ('site_name', 'home_page', 'design_system', 'additional_languages', 'company_name')))"; }
+ROUNDTRIP2=$(move_counts "$DB2")/$(category_counts "$DB2")/$(roundtrip314 "$DB2")
+kill "$SERVER2_PID" 2>/dev/null || true; wait "$SERVER2_PID" 2>/dev/null || true
+"${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$DB2\`; CREATE DATABASE \`$DB2\` CHARACTER SET utf8mb4 COLLATE utf8mb4_czech_ci"
+rm -f "$WORK/web2/config.php"; cp "$ROOT/install.php" "$WORK/web2/install.php"; rm -rf "$WORK/web2/media"; mkdir -p "$WORK/web2/media"
+(cd "$WORK/web2" && exec php -S "127.0.0.1:$PORT2" system/dev-router.php >> "$WORK/server2.log" 2>&1) & SERVER2_PID=$!
+for i in $(seq 1 30); do curl -s -o /dev/null "$B2/install.php" && break; sleep 0.2; done
+curl -s -o /dev/null -X POST "$B2/install.php" --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB2" -d "db_user=$DB_USER" --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ \
+  --data-urlencode "nazev_webu=Nový web 314" -d web=export -d user=admin -d jmeno=Tester -d email= --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" -d 'rozsireni[]=novinky'
+rm -f "$JAR_MOVE"; curl -s -c "$JAR_MOVE" -b "$JAR_MOVE" -o "$WORK/response" "$B2/admin.php"; curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o /dev/null -X POST "$B2/admin.php" -d "_csrf=$(csrf)" -d user=admin --data-urlencode "password=$PASSWORD"
+curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o "$WORK/response" "$B2/admin.php?module=transfer"
+location=$(curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o /dev/null -w '%{redirect_url}' -X POST "$B2/admin.php?module=transfer&action=upload" -F "_csrf=$(csrf)" -F "soubor=@$WORK/presun3.zip;type=application/zip")
+curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o "$WORK/response" "$location"; MOVE314=$(printf '%s' "$location" | sed 's/.*file=//')
+grep -q "Export webu „Testovací firma“" "$WORK/response" && grep -q 'name="potvrzeni"' "$WORK/response" && echo "  ok     3.14: the preview reads a format-3 export (site name from its English header)" || { echo "  CHYBA  3.14: preview of a format-3 export: $location"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o /dev/null -X POST "$B2/admin.php?module=transfer&action=kaleta_run" -d "_csrf=$(csrf)" -d "soubor=$MOVE314" -d potvrzeni=1
+for i in $(seq 1 80); do
+  curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o "$WORK/response" -X POST "$B2/admin.php?module=transfer&action=kaleta" -d "_csrf=$(csrf)" -d "soubor=$MOVE314"
+  grep -q "Web je naimportovaný\|Import se zastavil" "$WORK/response" && break
+done
+grep -q "Web je naimportovaný" "$WORK/response" && echo "  ok     3.14: a format-3 export imports in batches" || { echo "  CHYBA  3.14 format-3 import: $(sed 's/<[^>]*>//g' "$WORK/response" | grep -i 'import\|chyb' | head -5)"; ERRORS=$((ERRORS+1)); }
+expect "3.14: export format 3 → clean install = export format 2 → clean install (counts, main rows, settings, tag links)" "$(move_counts "$DB2")/$(category_counts "$DB2")/$(roundtrip314 "$DB2")" "$ROUNDTRIP2"
+expect "3.14: … and its media files came along" "$(cd "$WORK/web2" && find media -type f ! -name '.*' | wc -l | tr -d ' ')" "$MEDIA_IN_ZIP"
 # 3.7 security review N37-2, N37-10, N37-11: an export with a page on a system address (its subpage, and a later page with
 # the first free slug), a category address with a newline, categories against the tree rules, one with an item's address,
 # texts in an unknown language and an assignment across collections – imported by the rules of a save, the result says what changed
@@ -5858,6 +5905,18 @@ mcp create_page '{"title":"Kontakt","slug":"kontakt-39","content":"<p>Česky 39<
 mcp create_page "{\"title\":\"Contact\",\"slug\":\"kontakt-39\",\"language\":\"en\",\"translation_of\":$CS39,\"content\":\"<p>English 39</p>\",\"visible\":true}" > "$WORK/response"
 contains -q 'isError' "$WORK/response" && contains -q 'kontakt-39' "$WORK/response" && expect "3.9 off: as before, an English page cannot take the slug of a Czech one" "$(sq "SELECT COUNT(*) FROM ka_stranky WHERE seo_link = 'kontakt-39'")" "1" \
   || { echo "  CHYBA  3.9 off: the second kontakt-39 was saved: $(head -c 300 "$WORK/response")"; ERRORS=$((ERRORS+1)); }
+# 3.14: tags have a language version; switched off a slug is still one tag for every version, as before
+tagkey314() { sq "SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ka_stitky' AND INDEX_NAME = 'uq_stitky_seo'"; }
+mcp create_category '{"name":"Tagy 314"}' > /dev/null
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=categories&action=new"; TOKEN=$(csrf)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=categories&action=save" -d "_csrf=$TOKEN" -d idt=0 -d "nazev=Tags 314" -d seo_link=tags-314 -d jazyk=en -d popis= -d hodnost=100
+mcp create_news '{"title":"Fair EN 314","category":"Tags 314","text":"<p>Fair in English 314</p>","tags":"Fair 314","publish":true}' > /dev/null
+mcp create_news '{"title":"Fair CS 314","category":"Tagy 314","text":"<p>Jarmark česky 314</p>","tags":"Fair 314","publish":true}' > /dev/null
+expect "3.14 off: a tag created from an English news item is English; the Czech item with the same tag reuses it, as before" \
+  "$(sq "SELECT GROUP_CONCAT(CONCAT(s.jazyk, ':', s.seo_link, ':', (SELECT COUNT(*) FROM ka_novinky_stitky ns WHERE ns.ids = s.ids))) FROM ka_stitky s WHERE s.seo_link = 'fair-314'")|$(tagkey314)" "en:fair-314:2|1"
+T314=$(get39 /novinky/stitek/fair-314); contains -q 'Fair CS 314' "$WORK/response" || T314="$T314 wrong"
+T314EN=$(get39 /en/news/tag/fair-314); contains -q 'Fair EN 314' "$WORK/response" || T314EN="$T314EN wrong"
+expect "3.14 off: the tag page answers in both versions, each with its own news" "$T314|$T314EN" "200 |200 "
 general39 1
 grep -q 'name="slugs_per_language" value="1" checked' "$WORK/general39.html" && echo "  ok     3.9: Settings → General offers the switch (checked once on) with the language versions" || { echo "  CHYBA  3.9: no slugs_per_language field"; ERRORS=$((ERRORS+1)); }
 expect "3.9: switching on drops the global keys only; the per-language keys stay" "$(keys39)|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'")" \
@@ -5889,6 +5948,18 @@ N39CS=$(get39 /novinky/akce-39); contains -q 'Novinka česky 39' "$WORK/response
 N39EN=$(get39 /en/news/akce-39); contains -q 'News in English 39' "$WORK/response" || N39EN="$N39EN wrong"
 C39=$(get39 /novinky/kategorie/zpravy-39)\|$(get39 /en/news/category/zpravy-39)
 expect "3.9 on: each news item and category answers in its own version" "$N39CS|$N39EN|$C39" "200 |200 |200 |200 "
+# 3.14: a tag with the same slug in both versions – the switch dropped the global tag key too
+mcp create_news '{"title":"Trh 39","category":"Zprávy 39","text":"<p>Trh česky 39</p>","tags":"Trh 39","publish":true}' > /dev/null
+mcp create_news '{"title":"Market 39","category":"News 39","text":"<p>Market in English 39</p>","tags":"Trh 39","publish":true}' > /dev/null
+expect "3.14 on: a tag with the same slug in both versions, each news item with the tag of its own version" \
+  "$(sq "SELECT GROUP_CONCAT(CONCAT(s.jazyk, ':', s.seo_link, ':', n.titulek) ORDER BY s.jazyk) FROM ka_stitky s JOIN ka_novinky_stitky ns ON ns.ids = s.ids JOIN ka_novinky n ON n.idc = ns.idc WHERE s.seo_link = 'trh-39'")|$(tagkey314)" \
+  ":trh-39:Trh 39,en:trh-39:Market 39|0"
+T39=$(get39 /novinky/stitek/trh-39); contains -q 'Trh 39' "$WORK/response" && ! contains -q 'Market 39' "$WORK/response" || T39="$T39 wrong"
+T39EN=$(get39 /en/news/tag/trh-39); contains -q 'Market 39' "$WORK/response" && ! contains -q '>Trh 39<' "$WORK/response" || T39EN="$T39EN wrong"
+expect "3.14 on: /novinky/stitek/trh-39 and /en/news/tag/trh-39 are two tags, each listing its own version" "$T39|$T39EN" "200 |200 "
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=tags"
+contains -q '/en/news/tag/trh-39" target="_blank" rel="noopener">#Trh 39</a> <span class="stitek">EN</span>' "$WORK/response" \
+  && echo "  ok     3.14: Tags and topics show the language of a tag and link to its own version" || { echo "  CHYBA  3.14: tag list without the language"; ERRORS=$((ERRORS+1)); }
 # a collection item and a collection category (both were per language before; the routing and hreflang stay)
 mcp create_collection '{"name":"Sluzby 39","slug":"sluzby-39","item_pages":true,"fields":[{"label":"Popis","type":"text"}]}' > /dev/null
 mcp save_collection_item '{"collection":"sluzby-39","name":"Servery","slug":"servery-39","values":{"popis":"Serverovna 39"},"visible":true}' > /dev/null
@@ -5917,10 +5988,14 @@ general39 0
 contains -q 'kontakt-39' "$WORK/general39.html" && expect "3.9: switching off is refused while two language versions share a slug, with the slugs named" \
   "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'")|$(keys39)" "1|uq_clanky_jazyk_seo,uq_stranky_jazyk_seo,uq_topic_jazyk_seo" \
   || { echo "  CHYBA  3.9: switching off with duplicates: $(grep -o 'class="zprava[^"]*"[^<]*<[^<]*' "$WORK/general39.html" | head -3)"; ERRORS=$((ERRORS+1)); }
-sq "DELETE FROM ka_stranky WHERE jazyk = 'en' AND seo_link = 'kontakt-39'; DELETE FROM ka_novinky WHERE jazyk = 'en' AND seo_link = 'akce-39'; DELETE FROM ka_kategorie WHERE jazyk = 'en' AND seo_link = 'zpravy-39'" > /dev/null
+sq "DELETE FROM ka_stranky WHERE jazyk = 'en' AND seo_link = 'kontakt-39'; DELETE FROM ka_novinky WHERE jazyk = 'en' AND seo_link IN ('akce-39', 'market-39'); DELETE FROM ka_kategorie WHERE jazyk = 'en' AND seo_link = 'zpravy-39'" > /dev/null
 general39 0
-expect "3.9: without shared slugs it switches off and the global keys are back" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'")|$(keys39)" \
-  "0|uq_clanky_jazyk_seo,uq_clanky_seo,uq_stranky_jazyk_seo,uq_stranky_seo,uq_topic_jazyk_seo,uq_topic_seo"
+contains -q 'trh-39' "$WORK/general39.html" && expect "3.14: … a tag shared by two versions refuses it too" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'")|$(tagkey314)" "1|0" \
+  || { echo "  CHYBA  3.14: switching off with a shared tag slug"; ERRORS=$((ERRORS+1)); }
+sq "DELETE FROM ka_stitky WHERE jazyk = 'en' AND seo_link = 'trh-39'" > /dev/null
+general39 0
+expect "3.9: without shared slugs it switches off and the global keys are back" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'")|$(keys39)|$(tagkey314)" \
+  "0|uq_clanky_jazyk_seo,uq_clanky_seo,uq_stranky_jazyk_seo,uq_stranky_seo,uq_topic_jazyk_seo,uq_topic_seo|1"
 sq "UPDATE ka_nastaveni SET hodnota = '$HOME39' WHERE promenna = 'home_page'" > /dev/null
 
 echo "== 3.10: English table names, the site's clock and regional language versions (data model §4, §6 and §2 step 2)"

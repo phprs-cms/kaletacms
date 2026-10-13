@@ -26,7 +26,7 @@ return [
         'datum' => 'published_at', 't_slova' => 'keywords', 'hledani' => 'search_text', 'oznameno' => 'announced_at', 'aktualizovano' => 'revised_at', 'jazyk' => 'language',
         'preklad_z' => 'translation_of', 'smazano' => 'deleted_at']],
     'kategorie' => ['categories', ['idt' => 'id', 'nazev' => 'name', 'seo_link' => 'slug', 'popis' => 'description', 'hodnost' => 'position', 'jazyk' => 'language', 'preklad_z' => 'translation_of']],
-    'stitky' => ['tags', ['ids' => 'id', 'nazev' => 'name', 'seo_link' => 'slug']],
+    'stitky' => ['tags', ['ids' => 'id', 'nazev' => 'name', 'seo_link' => 'slug', 'jazyk' => 'language']],
     'novinky_stitky' => ['news_tags', ['idc' => 'news_id', 'ids' => 'tag_id']],
     'novinky_revize' => ['news_versions', ['idr' => 'id', 'idc' => 'news_id']],
     'novinky_koncepty' => ['news_drafts', ['idc' => 'news_id']],
