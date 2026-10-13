@@ -72,6 +72,9 @@ curl -s -o "$WORK/response" -X POST "$B/install.php" --data-urlencode "db_host=$
   -d 'rozsireni[]=novinky' -d 'rozsireni[]=poptavky' -d 'rozsireni[]=statistika' -d 'rozsireni[]=presmerovani'
 grep -q "Hotovo, web běží" "$WORK/response" || { echo "  CHYBA  instalace selhala"; sed 's/<[^>]*>//g' "$WORK/response" | grep -v '^\s*$' | head -20; exit 1; }
 echo "  ok     instalace"
+# the site under test never updates itself from the public channel: a security release there (auto_updates is on by default)
+# would overwrite the copy under test in the middle of the run – the updater tests below set their own fake channel
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('update_url', 'http://127.0.0.1:1/aktualizace.json') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('update_cache', 'update_attempt')"
 grep -qE '/tasks\?token=[a-f0-9]{32}' "$WORK/response" && echo "  ok     2.8: the installer shows the cron line with its own address (3.7: the English /tasks)" || { echo "  CHYBA  instalátor neukázal řádek pro cron"; ERRORS=$((ERRORS+1)); }
 [ ! -f "$WORK/web/install.php" ] && echo "  ok     instalátor se po sobě smazal" || { echo "  CHYBA  install.php po instalaci zůstal na místě"; ERRORS=$((ERRORS+1)); }
 
@@ -1389,7 +1392,7 @@ echo "== menu"
 check "editor menu" 200 "/admin.php?module=menu" 'data-menu-seznam'
 IDO=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'o-nas'")
 # 2.7: an icon (lide = people) and a description on an item, a group inside the submenu with its own items (a column), an unknown icon drops out
-MENU='[{"typ":"stranka","ids":'$IDO',"text":"O firmě","ikona":"lide","popis":"Kdo jsme","deti":[{"typ":"odkaz","text":"Kariéra","url":"https://example.cz/kariera","nove_okno":true},{"typ":"skupina","text":"Tým","ikona":"neexistuje","deti":[{"typ":"odkaz","text":"Vedení","url":"/vedeni"}]}]},{"typ":"novinky"},{"typ":"odkaz","text":"Zlý","url":"javascript:alert(1)"}]'
+MENU='[{"typ":"stranka","ids":'$IDO',"text":"O firmě","ikona":"lide","popis":"Kdo jsme","deti":[{"typ":"odkaz","text":"Kariéra","url":"https://example.cz/kariera","nove_okno":true},{"typ":"odkaz","text":"Ikona z Médií","url":"/kontakt","ikona":"'$SVG'"},{"typ":"odkaz","text":"Cizí SVG","url":"/kontakt","ikona":"media/neni/tady.svg"},{"typ":"skupina","text":"Tým","ikona":"neexistuje","deti":[{"typ":"odkaz","text":"Vedení","url":"/vedeni"}]}]},{"typ":"novinky"},{"typ":"odkaz","text":"Zlý","url":"javascript:alert(1)"}]'
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=menu&action=save&location=hlavni" -d "_csrf=$TOKEN" --data-urlencode "polozky=$MENU"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=menu&action=save&location=paticka" -d "_csrf=$TOKEN" --data-urlencode 'polozky=[{"typ":"odkaz","text":"Zásady ochrany soukromí","url":"/zasady"}]'
 expect "the menu waits in the draft look" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_menu WHERE umisteni = 'paticka' AND polozky LIKE '%/zasady%'")" "0"
@@ -1400,6 +1403,8 @@ grep -q '<li class="podmenu"><a href="[^"]*/o-nas"><svg class="menu-ikona"' "$WO
   && echo "  ok     menu s podmenu na webu, ikona před textem, nebezpečný odkaz vypadl" || { echo "  CHYBA  menu na webu"; ERRORS=$((ERRORS+1)); }
 grep -q '</li><li class="menu-sloupec"><span class="menu-nadpis">Tým</span><ul><li><a href="[^"]*/vedeni">Vedení</a></li></ul></li>' "$WORK/response" && ! grep -q 'menu-popis\|neexistuje' "$WORK/response" \
   && echo "  ok     skupina v podmenu jako sloupec s nadpisem; popis jen v mega menu, neznámá ikona vypadla" || { echo "  CHYBA  sloupec skupiny v menu"; ERRORS=$((ERRORS+1)); }
+grep -q '<a href="[^"]*/kontakt"><img class="menu-ikona" src="[^"]*/'"$SVG"'" alt="" width="20" height="20">Ikona z Médií</a>' "$WORK/response" && grep -q '<a href="[^"]*/kontakt">Cizí SVG</a>' "$WORK/response" \
+  && echo "  ok     3.10: an SVG from Media as a menu icon is an <img>, a path to a missing file drops out" || { echo "  CHYBA  SVG z Médií jako ikona menu"; grep -o '<li>[^<]*<a[^>]*kontakt[^<]*<[^>]*>' "$WORK/response" | head -3; ERRORS=$((ERRORS+1)); }
 grep -q 'image/web\.js' "$WORK/response" && echo "  ok     stránka s podmenu načte web.js (Esc podmenu zavře)" || { echo "  CHYBA  stránka s podmenu bez web.js"; ERRORS=$((ERRORS+1)); }
 mcp get_menu '{"location":"main"}' > "$WORK/response"; grep -q 'icon\\":\\"people' "$WORK/response" && grep -q 'description\\":\\"Kdo jsme' "$WORK/response" && echo "  ok     MCP: get_menu vrací ikonu anglicky a popis položky" || { echo "  CHYBA  MCP get_menu ikona"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp nacti_menu '{"umisteni":"paticka"}' > "$WORK/response"; grep -q 'Zásady ochrany soukromí' "$WORK/response" && echo "  ok     menu v patičce (MCP)" || { echo "  CHYBA  menu v patičce"; ERRORS=$((ERRORS+1)); }
@@ -1873,6 +1878,11 @@ for i in $(seq -w 1 13); do mcp save_collection_item "{\"collection\":\"produkty
 mcp save_collection_item '{"collection":"produkty","name":"Stimulátor","slug":"stimulator","visible":true,"order":50,"categories":["elektro","neni-takova"]}' > "$WORK/response"
 expect "3.7 MCP: an item's categories by slug, an unknown slug reported" "$(mcp_value categories)|$(mcp_value unknown_categories)" '["elektro"]|["neni-takova"]'
 check "3.7: a category page lists the items of its subcategories" 200 /produkty/bezecke-pasy '<h1>Běžecké pásy</h1>'
+# the site audit and the migration report know category pages (3.9.3): a link to one is no broken link
+mcp create_page '{"title":"Audit kategorií","text":"<p><a href=\"/produkty/bezecke-pasy\">a</a> <a href=\"/produkty/bezecke-pasy/zdravotni\">b</a> <a href=\"/produkty/neni-kategorie\">c</a></p>","visible":true}' > /dev/null
+mcp site_audit '{"kind":"link"}' > "$WORK/audit.json" # not into response: the checks below still read the category page fetched above
+grep -q 'neni-kategorie' "$WORK/audit.json" && ! grep -q 'bezecke-pasy' "$WORK/audit.json" \
+  && echo "  ok     3.9.3: the audit accepts links to category pages of a collection" || { echo "  CHYBA  audit of category links"; head -c 600 "$WORK/audit.json"; ERRORS=$((ERRORS+1)); }
 grep -q 'href="/produkty/bezecke-pasy/zdravotni"' "$WORK/response" && grep -q 'href="/produkty/pas-01"' "$WORK/response" && ! grep -q 'href="/produkty/stimulator"' "$WORK/response" \
   && grep -q '"@type":"CollectionPage"' "$WORK/response" && grep -q '"@type":"BreadcrumbList"' "$WORK/response" && grep -q '<link rel="canonical" href="[^"]*/produkty/bezecke-pasy">' "$WORK/response" \
   && grep -q '<meta name="description" content="Rehabilitační běžecké pásy.">' "$WORK/response" && grep -q 'aria-label="Drobečková navigace"\|class="ka-drobecky"' "$WORK/response" \

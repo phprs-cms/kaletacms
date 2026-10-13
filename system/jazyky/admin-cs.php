@@ -5822,4 +5822,5 @@ return [
     '%d values left as they were: they would leave the years 1000–9999' => '%d hodnot zůstalo, jak byly: vyšly by mimo roky 1000–9999',
     '%d values were left as they were: they would leave the years 1000–9999.' => '%d hodnot zůstalo, jak byly: vyšly by mimo roky 1000–9999.',
     'Not converted because of an error (see the change log): %s.' => 'Kvůli chybě nepřevedeno (viz protokol změn): %s.',
+    'Media: %s' => 'Média: %s',
 ];

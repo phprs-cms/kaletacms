@@ -6229,4 +6229,5 @@ return [
     '%d values left as they were: they would leave the years 1000–9999' => '%d Werte blieben, wie sie waren: Sie lägen außerhalb der Jahre 1000–9999',
     '%d values were left as they were: they would leave the years 1000–9999.' => '%d Werte blieben, wie sie waren: Sie lägen außerhalb der Jahre 1000–9999.',
     'Not converted because of an error (see the change log): %s.' => 'Wegen eines Fehlers nicht umgerechnet (siehe Änderungsprotokoll): %s.',
+    'Media: %s' => 'Medien: %s',
 ];
