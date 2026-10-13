@@ -68,13 +68,19 @@ final class Privacy
         'hcaptcha' => ['hCaptcha', '~hcaptcha~i', [['hc_accessibility', 'Spam check: accessibility of the challenge', '1 month', 'necessary']]],
     ];
 
-    /** Cookies and storage Kaleta sets itself – the code is the source of truth, so the list is fixed. */
+    /**
+     * Cookies and storage Kaleta sets itself – the code is the source of truth, so the list is fixed (3.13: the names and
+     * lifetimes as the code sets them – views/front/cookies.php keeps the choice 180 days, Session names the session
+     * "kaleta", Front\Kernel sets the preview cookie until its signed link expires).
+     */
     private const array OWN = [
-        ['kaleta_souhlas', 'Cookie bar: the categories the visitor allowed (cookie)', '1 year', 'necessary'],
+        ['kaleta_souhlas', 'Cookie bar: the categories the visitor allowed (cookie)', '6 months', 'necessary'],
+        ['kaleta_souhlas_id', 'Cookie bar: a random identifier that links the choice to its record, only when consents are recorded (cookie)', '6 months', 'necessary'],
         ['ka-tema', 'The chosen light or dark appearance (local storage)', 'until removed', 'necessary'],
         ['ka-jazyk', 'The chosen language version (local storage)', 'until removed', 'necessary'],
         ['ka-pristupnost', 'Accessibility toolbar: text size, contrast, underlined links, reduced motion (local storage)', 'until removed', 'necessary'],
-        ['PHPSESSID', 'Sign-in to the administration – only after signing in, never for visitors', 'session', 'necessary'],
+        ['ka_nahled', 'Preview of drafts: only for someone who opened a signed preview link (cookie)', 'until the preview link expires, at most 7 days', 'necessary'],
+        ['kaleta', 'Sign-in to the administration – only after signing in, never for visitors', 'session', 'necessary'],
     ];
 
     /** Pages the scan fetches at most – a few published pages are enough to see what the site answers with. */
@@ -119,7 +125,8 @@ final class Privacy
         $rows = [];
         foreach (self::OWN as [$name, $purpose, $duration, $category]) {
             if (($name === 'ka-tema' && !$s->bool('theme_switcher')) || ($name === 'ka-pristupnost' && !$s->bool('accessibility_toolbar'))
-                || ($name === 'kaleta_souhlas' && $s->get('cookies_mode') !== 'vestavena') || ($name === 'ka-jazyk' && Language::additional($s) === [])) {
+                || ($name === 'kaleta_souhlas' && $s->get('cookies_mode') !== 'vestavena') || ($name === 'ka-jazyk' && Language::additional($s) === [])
+                || ($name === 'kaleta_souhlas_id' && ($s->get('cookies_mode') !== 'vestavena' || !$s->bool('cookies_log')))) {
                 continue;
             }
             $rows[] = ['name' => $name, 'provider' => 'Kaleta', 'purpose' => t($purpose), 'duration' => t($duration), 'category' => $category];

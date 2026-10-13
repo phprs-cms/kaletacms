@@ -4477,6 +4477,11 @@ mcp create_page '{"title":"Cookies 2.14","slug":"cookies-2-14","content":"<p>Co 
 check "2.14: {{cookie_table}} on the cookie policy page becomes the table in the site language" 200 "/cookies-2-14" '<table class="ka-cookies-tabulka"><thead><tr><th>Název</th><th>Poskytovatel</th><th>Účel</th><th>Doba</th><th>Kategorie</th></tr></thead>'
 grep -q '<td><code>kaleta_souhlas</code></td><td>Kaleta</td>' "$WORK/response" && grep -q '<td><code>YSC</code></td><td>YouTube</td><td>Přehrávač videa: zhlédnutí v rámci relace</td><td>relace</td><td>Marketing</td>' "$WORK/response" \
   && echo "  ok     2.14: the visitors' table has Kaleta's consent cookie and the YouTube rows translated" || { echo "  CHYBA  2.14 visitors' cookie table"; grep -o 'ka-cookies-tabulka.\{0,500\}' "$WORK/response" | head -c 600; ERRORS=$((ERRORS+1)); }
+# 3.13: the names and lifetimes as the code sets them – the consent 6 months, the session cookie "kaleta", the preview cookie;
+# the consent id only when consents are recorded
+grep -q '<td><code>kaleta_souhlas</code></td><td>Kaleta</td><td>[^<]*</td><td>6 měsíců</td>' "$WORK/response" && grep -q '<td><code>kaleta</code></td><td>Kaleta</td>' "$WORK/response" \
+  && grep -q '<td><code>ka_nahled</code></td>' "$WORK/response" && ! grep -q 'PHPSESSID' "$WORK/response" && ! grep -q '<code>kaleta_souhlas_id</code>' "$WORK/response" \
+  && echo "  ok     3.13: the cookie table names the session cookie kaleta, keeps the choice 6 months, lists the preview cookie and no consent id while consents are not recorded" || { echo "  CHYBA  3.13 own cookies in the table"; grep -o 'ka-cookies-tabulka.\{0,900\}' "$WORK/response" | head -c 1000; ERRORS=$((ERRORS+1)); }
 # anonymise instead of delete: the retention keeps the row with blanks (the choice first – opening Enquiries runs the retention, which would delete the old row under the default)
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=enquiries"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=enquiries&action=settings" -d "_csrf=$(csrf)" -d mesice=24 -d mesice_uchazeci=0 -d po_uplynuti=anonymise

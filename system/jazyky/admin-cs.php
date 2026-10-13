@@ -5822,4 +5822,8 @@ return [
     '%d values left as they were: they would leave the years 1000–9999' => '%d hodnot zůstalo, jak byly: vyšly by mimo roky 1000–9999',
     '%d values were left as they were: they would leave the years 1000–9999.' => '%d hodnot zůstalo, jak byly: vyšly by mimo roky 1000–9999.',
     'Not converted because of an error (see the change log): %s.' => 'Kvůli chybě nepřevedeno (viz protokol změn): %s.',
+    // 3.13: the cookie table as the code sets it (Core\Privacy::OWN)
+    'Cookie bar: a random identifier that links the choice to its record, only when consents are recorded (cookie)' => 'Cookie lišta: náhodný identifikátor, který propojí volbu s jejím záznamem – jen když se souhlasy evidují (cookie)',
+    'Preview of drafts: only for someone who opened a signed preview link (cookie)' => 'Náhled konceptů: jen pro toho, kdo otevřel podepsaný odkaz na náhled (cookie)',
+    'until the preview link expires, at most 7 days' => 'do vypršení odkazu na náhled, nejvýš 7 dní',
 ];

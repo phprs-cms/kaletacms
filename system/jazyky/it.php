@@ -2054,4 +2054,8 @@ return [
     'In stock' => 'Disponibile',
     'Out of stock' => 'Esaurito',
     'On backorder' => 'Su ordinazione',
+    // 3.13: the cookie table as the code sets it (Core\Privacy::OWN)
+    'Cookie bar: a random identifier that links the choice to its record, only when consents are recorded (cookie)' => 'Banner cookie: un identificativo casuale che collega la scelta alla sua registrazione, solo quando i consensi vengono registrati (cookie)',
+    'Preview of drafts: only for someone who opened a signed preview link (cookie)' => 'Anteprima delle bozze: solo per chi ha aperto un link di anteprima firmato (cookie)',
+    'until the preview link expires, at most 7 days' => 'fino alla scadenza del link di anteprima, al massimo 7 giorni',
 ];

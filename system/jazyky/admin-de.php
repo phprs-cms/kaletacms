@@ -6229,4 +6229,8 @@ return [
     '%d values left as they were: they would leave the years 1000–9999' => '%d Werte blieben, wie sie waren: Sie lägen außerhalb der Jahre 1000–9999',
     '%d values were left as they were: they would leave the years 1000–9999.' => '%d Werte blieben, wie sie waren: Sie lägen außerhalb der Jahre 1000–9999.',
     'Not converted because of an error (see the change log): %s.' => 'Wegen eines Fehlers nicht umgerechnet (siehe Änderungsprotokoll): %s.',
+    // 3.13: the cookie table as the code sets it (Core\Privacy::OWN)
+    'Cookie bar: a random identifier that links the choice to its record, only when consents are recorded (cookie)' => 'Cookie-Banner: eine zufällige Kennung, die die Auswahl mit ihrem Nachweis verknüpft – nur wenn Einwilligungen protokolliert werden (Cookie)',
+    'Preview of drafts: only for someone who opened a signed preview link (cookie)' => 'Vorschau von Entwürfen: nur für Personen, die einen signierten Vorschau-Link geöffnet haben (Cookie)',
+    'until the preview link expires, at most 7 days' => 'bis der Vorschau-Link abläuft, höchstens 7 Tage',
 ];
