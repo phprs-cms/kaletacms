@@ -2081,4 +2081,8 @@ The link works for %d days.
     'In stock' => '有货',
     'Out of stock' => '缺货',
     'On backorder' => '可预订',
+    // 3.13: the cookie table as the code sets it (Core\Privacy::OWN)
+    'Cookie bar: a random identifier that links the choice to its record, only when consents are recorded (cookie)' => 'Cookie 提示栏：将选择与其记录关联的随机标识符，仅在记录同意时使用（Cookie）',
+    'Preview of drafts: only for someone who opened a signed preview link (cookie)' => '草稿预览：仅针对打开了已签名预览链接的人（Cookie）',
+    'until the preview link expires, at most 7 days' => '直到预览链接过期，最长 7 天',
 ];

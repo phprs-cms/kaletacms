@@ -1,0 +1,37 @@
+{
+    "add_language_version": {
+        "language": true
+    },
+    "audit_and_fix": [],
+    "build_page": {
+        "topic": true,
+        "audience": false
+    },
+    "compliance_check": [],
+    "draft_blueprint": {
+        "business": false
+    },
+    "launch_site": {
+        "business": false
+    },
+    "migrate_site": {
+        "old_url": true,
+        "platform": false
+    },
+    "newsletter_release": {
+        "topic": false
+    },
+    "review_pending": [],
+    "scheduled_run": [],
+    "set_up_bookings": [],
+    "translate_page": {
+        "page_id": true,
+        "language": true
+    },
+    "weekly_care": [],
+    "weekly_review": [],
+    "work_requests": [],
+    "write_news": {
+        "topic": true
+    }
+}

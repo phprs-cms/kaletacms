@@ -30,7 +30,7 @@ final class Installer
     }
 
     /** Installation languages (= admin languages) and the default time zone we offer for them. */
-    private const array TIME_ZONES = ['cs' => 'Europe/Prague', 'en' => 'Europe/London', 'de' => 'Europe/Berlin'];
+    private const array TIME_ZONES = ['cs' => 'Europe/Prague', 'en' => 'Europe/London', 'de' => 'Europe/Berlin', 'es' => 'Europe/Madrid'];
 
     private string $language = 'cs';
 

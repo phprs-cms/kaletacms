@@ -52,6 +52,8 @@ final class Company
             'closed' => ['geschlossen', 'ruhetag']],
         'pl' => ['days' => ['pn' => 'Monday', 'po' => 'Monday', 'wt' => 'Tuesday', 'sr' => 'Wednesday', 'cz' => 'Thursday', 'pt' => 'Friday', 'pi' => 'Friday',
             'sb' => 'Saturday', 'so' => 'Saturday', 'nd' => 'Sunday', 'ni' => 'Sunday'], 'closed' => ['zamknięte', 'zamkniete', 'nieczynne']],
+        'es' => ['days' => ['lu' => 'Monday', 'ma' => 'Tuesday', 'mi' => 'Wednesday', 'ju' => 'Thursday', 'vi' => 'Friday', 'sa' => 'Saturday', 'do' => 'Sunday'],
+            'closed' => ['cerrado']],
     ];
 
     /** Address in lines (street; postcode and city; country, only when it is not Czech). @return list<string> */

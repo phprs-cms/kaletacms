@@ -1,8 +1,8 @@
 <?php
 /**
  * Kaleta – public contracts (2.1). What sites, agencies and Claude connections rely on is recorded in tools/contracts/
- * and checked by tools/unit-tests.php: an MCP tool or parameter, a design token or a builder element (and its content
- * properties) may be added, never removed or changed outside the deprecation policy (docs/RELEASING.md). After a
+ * and checked by tools/unit-tests.php: an MCP tool or parameter, an MCP prompt or its argument (3.13), a design token or a
+ * builder element (and its content properties) may be added, never removed or changed outside the deprecation policy (docs/RELEASING.md). After a
  * deliberate addition, record it:
  *
  *   php tools/contracts.php --update
@@ -73,6 +73,27 @@ function kaleta_extension_contract(): array
     ksort($methods);
 
     return ['version' => Kaleta\Extension\Api::VERSION, 'methods' => $methods, 'filters' => array_keys(Kaleta\Extension\Api::FILTERS), 'tool_access' => Kaleta\Extension\Api::TOOL_ACCESS];
+}
+
+/**
+ * The MCP prompts (3.13): every name prompts/get accepts – the listed ones and the earlier names kept as aliases – with its
+ * arguments (name => required). A connection in use may call any of them, so a name or an argument is never removed and
+ * an argument never becomes required.
+ *
+ * @return array<string, array<string, bool>>
+ */
+function kaleta_prompt_contract(): array
+{
+    $prompts = [];
+    foreach (Kaleta\Mcp\Prompts::listAll() as $prompt) {
+        $prompts[$prompt['name']] = array_column($prompt['arguments'], 'required', 'name');
+    }
+    foreach (Kaleta\Mcp\Prompts::HIDDEN as $name => $prompt) {
+        $prompts[$name] = array_map(fn (array $arg): bool => $arg[1], $prompt['arguments']);
+    }
+    ksort($prompts);
+
+    return $prompts;
 }
 
 /**
@@ -159,6 +180,35 @@ function kaleta_contract_diff(): array
         }
     }
 
+    $promptFile = __DIR__ . '/contracts/mcp-prompts.json';
+    if (is_file($promptFile)) {
+        $recordedPrompts = json_decode((string) file_get_contents($promptFile), true);
+        $currentPrompts = kaleta_prompt_contract();
+        foreach ($recordedPrompts as $prompt => $arguments) {
+            if (!isset($currentPrompts[$prompt])) {
+                $broken[] = "MCP prompt $prompt removed";
+                continue;
+            }
+            foreach ($arguments as $argument => $required) {
+                if (!array_key_exists($argument, $currentPrompts[$prompt])) {
+                    $broken[] = "MCP prompt $prompt: argument $argument removed";
+                } elseif ($currentPrompts[$prompt][$argument] && !$required) {
+                    $broken[] = "MCP prompt $prompt: argument $argument became required";
+                }
+            }
+            foreach (array_diff_key($currentPrompts[$prompt], $arguments) as $argument => $required) {
+                if ($required) {
+                    $broken[] = "MCP prompt $prompt: new required argument $argument";
+                } else {
+                    $added[] = "MCP prompt $prompt: argument $argument";
+                }
+            }
+        }
+        foreach (array_diff_key($currentPrompts, $recordedPrompts) as $prompt => $_) {
+            $added[] = "MCP prompt $prompt";
+        }
+    }
+
     return ['broken' => $broken, 'added' => $added];
 }
 
@@ -174,7 +224,8 @@ if (PHP_SAPI === 'cli' && realpath((string) ($_SERVER['argv'][0] ?? '')) === __F
         file_put_contents(__DIR__ . '/contracts/design-tokens.json', $json(kaleta_token_contract()));
         file_put_contents(__DIR__ . '/contracts/builder-elements.json', $json(kaleta_element_contract()));
         file_put_contents(__DIR__ . '/contracts/extension-api.json', $json(kaleta_extension_contract()));
-        echo 'recorded: ' . count(kaleta_mcp_contract()) . ' MCP tools, ' . count(kaleta_token_contract()) . ' design tokens, ' . count(kaleta_element_contract()) . " builder elements\n";
+        file_put_contents(__DIR__ . '/contracts/mcp-prompts.json', $json(kaleta_prompt_contract()));
+        echo 'recorded: ' . count(kaleta_mcp_contract()) . ' MCP tools, ' . count(kaleta_prompt_contract()) . ' MCP prompts, ' . count(kaleta_token_contract()) . ' design tokens, ' . count(kaleta_element_contract()) . " builder elements\n";
         exit(0);
     }
     $diff = kaleta_contract_diff();

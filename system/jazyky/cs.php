@@ -3215,5 +3215,9 @@ return [
     'In stock' => 'Skladem',
     'Out of stock' => 'Není skladem',
     'On backorder' => 'Na objednávku',
+    // 3.13: the cookie table as the code sets it (Core\Privacy::OWN)
+    'Cookie bar: a random identifier that links the choice to its record, only when consents are recorded (cookie)' => 'Cookie lišta: náhodný identifikátor, který propojí volbu s jejím záznamem – jen když se souhlasy evidují (cookie)',
+    'Preview of drafts: only for someone who opened a signed preview link (cookie)' => 'Náhled konceptů: jen pro toho, kdo otevřel podepsaný odkaz na náhled (cookie)',
+    'until the preview link expires, at most 7 days' => 'do vypršení odkazu na náhled, nejvýš 7 dní',
     'One day or range of days per line, day names in the site language or in English: “Mo–Fr 8:00–17:00”, “Sa 9–12”, “Su closed”, lunch break “Tu 8–12, 13–17”. Empty = no opening hours.' => 'Každý řádek jeden den nebo rozsah dnů, názvy dnů v jazyce webu nebo anglicky: „Po–Pá 8:00–17:00“, „So 9–12“, „Ne zavřeno“, polední pauza „Út 8–12, 13–17“. Prázdné = bez otevírací doby.',
 ];

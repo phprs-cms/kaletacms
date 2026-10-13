@@ -7,7 +7,7 @@
 	window.T = function (s) { return (window.KALETA_PREKLAD || {})[s] || s; };
 	var T = window.T;
 
-	// date and time like date() in PHP, in the site's time zone (<html data-pasmo>): Czech 25. 9. 2026 09:31, English 25 Sep 2026 09:31
+	// date and time like date() in PHP, in the site's time zone (<html data-pasmo>): Czech 25. 9. 2026 09:31, English 25 Sep 2026 09:31, Spanish 25/09/2026 09:31
 	window.kaletaCas = function (time, timeOnly) {
 		var c = {};
 		var format = function (timeZone) {
@@ -18,7 +18,8 @@
 		var parseOpeningHours = c.hour + ':' + c.minute;
 		if (timeOnly) { return parseOpeningHours; }
 		var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-		return (document.documentElement.lang === 'en' ? c.day + ' ' + months[c.month - 1] + ' ' + c.year : c.day + '. ' + c.month + '. ' + c.year) + ' ' + parseOpeningHours;
+		var lang = document.documentElement.lang, pad = function (n) { return ('0' + n).slice(-2); };
+		return (lang === 'en' ? c.day + ' ' + months[c.month - 1] + ' ' + c.year : lang === 'es' ? pad(c.day) + '/' + pad(c.month) + '/' + c.year : c.day + '. ' + c.month + '. ' + c.year) + ' ' + parseOpeningHours;
 	};
 
 	// Select all (2.14): a checkbox with data-vybrat-vse="<form id>" ticks every row checkbox that belongs to that form.

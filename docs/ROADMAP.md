@@ -711,6 +711,21 @@ Audited before release (N312): a time-zone conversion starts once even with para
 stall the background jobs, categories written by a drafts-only connection wait for review, imported redirects are always
 literal, the import state is never written empty, category parent cycles are broken.
 
+## 3.13 – Spanish admin, Claude's ready-made tasks, a true cookie table (released 13 October 2026)
+
+1. **Spanish admin and installer** (owner request): `admin-es.php`, `admin-es.js`, `install-es.php`, "Español" in My
+   account, the installer picks it from the browser. Machine translation – native review welcome.
+2. **The connection's ready-made tasks are Kaleta's skills** (owner decision: no plugin directory – Kaleta runs on many
+   owners' domains): 15 MCP prompts as complete runbooks (moving a site incl. WooCommerce/Polylang/WPML, launching a site,
+   adding a language version, weekly care, newsletter, bookings, compliance check); `weekly_review` stays a read-only
+   report; the plugin's skills are generated from the prompts; prompt names are part of the contract.
+3. **The cookie table every site generates** names what the code sets: `kaleta` (not PHPSESSID), the consent 6 months,
+   the preview cookie and the consent id (found while checking kaletacms.com's privacy policy).
+4. kaletacms.com: the claims audit of 13 October fixed on the site (EN/CS/DE), privacy policy and accessibility statement.
+
+Audited before release (N313): weekly_review kept read-only, exact cookie names in the scan, prompt arguments capped, a
+non-string MCP name answered as JSON-RPC, the consent id cookie Secure.
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).

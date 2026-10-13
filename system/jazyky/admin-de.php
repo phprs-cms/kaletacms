@@ -4186,7 +4186,7 @@ return [
     'Quantity' => 'Menge',
     'Compare box' => 'Feld Vergleichen',
     'parameters (Name: value per line)' => 'Parameter (Name: Wert pro Zeile)',
-    'variants (name ' => ' code | price per line)|Varianten (Name | Code | Preis pro Zeile)',
+    'variants (name | code | price per line)' => 'Varianten (Name | Code | Preis pro Zeile)',
     'enquiry basket (products added with Add to enquiry)' => 'Produktanfrage (mit „Zur Anfrage hinzufügen“ gesammelt)',
     'New product catalogue' => 'Neuer Produktkatalog',
     'Products with parameters to compare, variants and a datasheet; visitors collect them in an enquiry basket instead of a checkout.' => 'Produkte mit vergleichbaren Parametern, Varianten und Datenblatt; Besucher sammeln sie statt in einem Warenkorb in einer Anfrage.',
@@ -6228,5 +6228,9 @@ return [
     '%d values left as they were: they would leave the years 1000–9999' => '%d Werte blieben, wie sie waren: Sie lägen außerhalb der Jahre 1000–9999',
     '%d values were left as they were: they would leave the years 1000–9999.' => '%d Werte blieben, wie sie waren: Sie lägen außerhalb der Jahre 1000–9999.',
     'Not converted because of an error (see the change log): %s.' => 'Wegen eines Fehlers nicht umgerechnet (siehe Änderungsprotokoll): %s.',
+    // 3.13: the cookie table as the code sets it (Core\Privacy::OWN)
+    'Cookie bar: a random identifier that links the choice to its record, only when consents are recorded (cookie)' => 'Cookie-Banner: eine zufällige Kennung, die die Auswahl mit ihrem Nachweis verknüpft – nur wenn Einwilligungen protokolliert werden (Cookie)',
+    'Preview of drafts: only for someone who opened a signed preview link (cookie)' => 'Vorschau von Entwürfen: nur für Personen, die einen signierten Vorschau-Link geöffnet haben (Cookie)',
+    'until the preview link expires, at most 7 days' => 'bis der Vorschau-Link abläuft, höchstens 7 Tage',
     'One day or range of days per line, day names in the site language or in English: “Mo–Fr 8:00–17:00”, “Sa 9–12”, “Su closed”, lunch break “Tu 8–12, 13–17”. Empty = no opening hours.' => 'Ein Tag oder Tagesbereich pro Zeile, Tagesnamen in der Sprache der Website oder auf Englisch: „Mo–Fr 8:00–17:00“, „Sa 9–12“, „So geschlossen“, Mittagspause „Di 8–12, 13–17“. Leer = keine Öffnungszeiten.',
 ];

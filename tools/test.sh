@@ -61,7 +61,26 @@ csrf() { grep -o -m1 'name="_csrf" value="[a-f0-9]*"' "$WORK/response" | head -1
 publish_look() { curl -s -b "$JAR" -o "$WORK/look.html" "$B/admin.php?module=appearance"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=appearance&action=publish_look" -d "_csrf=$(grep -o -m1 'name="_csrf" value="[a-f0-9]*"' "$WORK/look.html" | head -1 | sed 's/.*value="//;s/"//')"; rm -f "$WORK"/web/storage/cache/stranky/*.html; }
 expect() { [ "$2" = "$3" ] && echo "  ok     $1" || { echo "  CHYBA  $1: dostal jsem „$2“, čekal jsem „$3“"; ERRORS=$((ERRORS+1)); }; }
 
+# leftovers <dictionary> <file>: visible texts of a page (and placeholders, titles, labels, button values) that are a source text
+# with a different translation in system/jazyky/<dictionary>.php – shown untranslated (3.13, the Spanish admin and installer)
+leftovers() { php -r 'require $argv[3] . "/system/bootstrap.php"; $dictionary = require $argv[3] . "/system/jazyky/" . $argv[1] . ".php";
+  $czechKeys = str_starts_with($argv[1], "admin-") ? require $argv[3] . "/system/jazyky/admin-en.php" : []; // Czech keys may match Czech page content
+  $d = Dom\HTMLDocument::createFromString((string) file_get_contents($argv[2]), LIBXML_NOERROR | Dom\HTML_NO_DEFAULT_NS); $found = [];
+  foreach ((new Dom\XPath($d))->query("//body//text()[not(ancestor::script or ancestor::style or ancestor::textarea or ancestor::option)] | //@placeholder | //@title | //@aria-label | //input[@type=\"submit\"]/@value") as $n) {
+    $t = trim((string) preg_replace("/\s+/u", " ", $n->textContent));
+    if ($t !== "" && isset($dictionary[$t]) && $dictionary[$t] !== $t && !isset($czechKeys[$t])) { $found[$t] = true; }
+  }
+  echo implode(" | ", array_slice(array_keys($found), 0, 5));' "$1" "$2" "$ROOT"; }
+
 echo "== instalace"
+# 3.13: the installer in Spanish – chosen by ?language=es and found in the browser's language, with no English left
+curl -s -o "$WORK/response" "$B/install.php?language=es"
+grep -q '<html lang="es">' "$WORK/response" && grep -q 'Base de datos' "$WORK/response" && grep -q '>Español</a>' "$WORK/response" \
+  && echo "  ok     3.13: the installer in Spanish" || { echo "  CHYBA  3.13: the installer with ?language=es is not Spanish"; ERRORS=$((ERRORS+1)); }
+expect "3.13: the Spanish installer shows no English text" "$(leftovers install-es "$WORK/response")" ""
+curl -s -H 'Accept-Language: es-MX,es;q=0.9,en;q=0.8' -o "$WORK/response" "$B/install.php"
+grep -q '<html lang="es">' "$WORK/response" && grep -q 'value="Europe/Madrid" selected' "$WORK/response" \
+  && echo "  ok     3.13: the installer follows a Spanish browser (and offers Madrid time)" || { echo "  CHYBA  3.13: a Spanish browser does not get the Spanish installer"; ERRORS=$((ERRORS+1)); }
 PASSWORD="Test-$(date +%s)-heslo"
 # 3.2: Bookings and Whistleblowing are offered, unticked; the default features are ticked
 curl -s -o "$WORK/response" "$B/install.php"
@@ -238,6 +257,15 @@ curl -s -b "$JAR2" -c "$JAR2" -o /dev/null -X POST "$B/admin.php?module=news&act
 expect "autor nevloží do novinky skript" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(uvod, text) REGEXP 'script|onerror|onmouseover|javascript' FROM ka_novinky WHERE titulek = 'XSS-test'")" "0"
 check "editor vidí na přehledu novinky od autorů, které čekají na vydání" 200 /admin.php "Novinky od autorů čekají na vydání"
 check "výpis novinek: filtr Čekají na vydání" 200 "/admin.php?module=news&status=ke_vydani" "XSS-test"
+
+echo "== 3.13: the admin in Spanish"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET jazyk = 'es' WHERE user = 'admin'"
+for screen in "|Panel" "module=pages|Páginas" "module=settings|Ajustes" "action=account|Mi cuenta"; do
+  check "3.13: Spanish admin ${screen%%|*}" 200 "/admin.php?${screen%%|*}" "${screen#*|}"
+  grep -q '<html lang="es"' "$WORK/response" && grep -q 'image/jazyky/admin-es.js' "$WORK/response" || { echo "  CHYBA  3.13: /admin.php?${screen%%|*} is not Spanish or has no Spanish script texts"; ERRORS=$((ERRORS+1)); }
+  expect "3.13: no English left on /admin.php?${screen%%|*}" "$(leftovers admin-es "$WORK/response")" ""
+done
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET jazyk = '' WHERE user = 'admin'"
 
 echo "== firma"
 check "nastavení/firma" 200 "/admin.php?module=business" 'name="company_hours"'
@@ -2494,6 +2522,23 @@ curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type:
 contains -q 'Always say renovation' "$WORK/response" && echo "  ok     the instructions as an MCP resource" || { echo "  CHYBA  resources/read"; ERRORS=$((ERRORS+1)); }
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"prompts/get","params":{"name":"build_page","arguments":{"topic":"kitchens"}}}' > "$WORK/response"
 contains -q 'Build a new page about kitchens' "$WORK/response" && echo "  ok     prompts/get fills in a ready-made task" || { echo "  CHYBA  prompts/get"; ERRORS=$((ERRORS+1)); }
+# 3.13: the prompts are Kaleta's skills – the new runbooks are listed with a title, every earlier name still works
+curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"prompts/list"}' > "$WORK/response"
+php -r '$p = array_column(json_decode(file_get_contents($argv[1]), true)["result"]["prompts"] ?? [], null, "name"); $want = ["build_page", "audit_and_fix", "translate_page", "write_news", "migrate_site", "launch_site", "weekly_care", "work_requests", "scheduled_run", "review_pending", "draft_blueprint", "set_up_bookings", "compliance_check", "add_language_version", "newsletter_release"];
+    exit(array_keys($p) === $want && !isset($p["weekly_review"]) && ($p["add_language_version"]["title"] ?? "") === "Add a language version" && ($p["add_language_version"]["arguments"][0] ?? []) === ["name" => "language", "description" => "Language code, e.g. de, en-gb, pt-br or ar", "required" => true] ? 0 : 1);' "$WORK/response" \
+  && echo "  ok     3.13: prompts/list has the runbooks (launch_site, weekly_care, set_up_bookings, compliance_check, add_language_version, newsletter_release) with titles and arguments" || { echo "  CHYBA  3.13: prompts/list"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"prompts/get","params":{"name":"add_language_version","arguments":{"language":"ar"}}}' > "$WORK/response"
+contains -q 'add the language version ar to this site' "$WORK/response" && contains -q 'run_read_tool (reads): ' "$WORK/response" && echo "  ok     3.13: prompts/get fills the language in and names the runners of non-essential tools" || { echo "  CHYBA  3.13: prompts/get add_language_version"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"prompts/get","params":{"name":"migrate_site","arguments":{"old_url":"https://old.example","platform":"WordPress"}}}' > "$WORK/response"
+OLD_PROMPTS=$(for name in weekly_review audit_and_fix review_pending work_requests scheduled_run draft_blueprint; do
+  curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"prompts/get\",\"params\":{\"name\":\"$name\"}}" | grep -c '"messages"'; done | tr -d '\n')
+contains -q 'old.example (WordPress) to this Kaleta site' "$WORK/response" && [ "$OLD_PROMPTS" = "111111" ] \
+  && echo "  ok     3.13: migrate_site fills in the old address, and the earlier prompt names (weekly_review too) still answer" || { echo "  CHYBA  3.13: earlier prompt names: $OLD_PROMPTS"; ERRORS=$((ERRORS+1)); }
+# 3.13 (N313-4): an array where a name belongs is a JSON-RPC answer, not an error page
+N313_CODE=$(curl -s -o "$WORK/response" -w '%{http_code}' -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":["x"]}}')
+[ "$N313_CODE" = 200 ] && contains -q '"jsonrpc":"2.0"' "$WORK/response" && echo "  ok     3.13 N313-4: an array as the tool name gets a JSON-RPC answer, not a 500" || { echo "  CHYBA  3.13 N313-4: HTTP $N313_CODE"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"prompts/get","params":{"name":"no_such_prompt"}}' > "$WORK/response"
+contains -q '"code":-32602' "$WORK/response" && echo "  ok     3.13: an unknown prompt is a JSON-RPC error" || { echo "  CHYBA  3.13: unknown prompt"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"resources/read","params":{"uri":"kaleta://nope"}}' > "$WORK/response"
 contains -q '"code":-32602' "$WORK/response" && echo "  ok     an unknown resource is a JSON-RPC error" || { echo "  CHYBA  resources/read unknown"; ERRORS=$((ERRORS+1)); }
 # 3.7: a drafts-only connection saves hidden collection categories only – a category page is public
@@ -4435,6 +4480,11 @@ mcp create_page '{"title":"Cookies 2.14","slug":"cookies-2-14","content":"<p>Co 
 check "2.14: {{cookie_table}} on the cookie policy page becomes the table in the site language" 200 "/cookies-2-14" '<table class="ka-cookies-tabulka"><thead><tr><th>Název</th><th>Poskytovatel</th><th>Účel</th><th>Doba</th><th>Kategorie</th></tr></thead>'
 grep -q '<td><code>kaleta_souhlas</code></td><td>Kaleta</td>' "$WORK/response" && grep -q '<td><code>YSC</code></td><td>YouTube</td><td>Přehrávač videa: zhlédnutí v rámci relace</td><td>relace</td><td>Marketing</td>' "$WORK/response" \
   && echo "  ok     2.14: the visitors' table has Kaleta's consent cookie and the YouTube rows translated" || { echo "  CHYBA  2.14 visitors' cookie table"; grep -o 'ka-cookies-tabulka.\{0,500\}' "$WORK/response" | head -c 600; ERRORS=$((ERRORS+1)); }
+# 3.13: the names and lifetimes as the code sets them – the consent 6 months, the session cookie "kaleta", the preview cookie;
+# the consent id only when consents are recorded
+grep -q '<td><code>kaleta_souhlas</code></td><td>Kaleta</td><td>[^<]*</td><td>6 měsíců</td>' "$WORK/response" && grep -q '<td><code>kaleta</code></td><td>Kaleta</td>' "$WORK/response" \
+  && grep -q '<td><code>ka_nahled</code></td>' "$WORK/response" && ! grep -q 'PHPSESSID' "$WORK/response" && ! grep -q '<code>kaleta_souhlas_id</code>' "$WORK/response" \
+  && echo "  ok     3.13: the cookie table names the session cookie kaleta, keeps the choice 6 months, lists the preview cookie and no consent id while consents are not recorded" || { echo "  CHYBA  3.13 own cookies in the table"; grep -o 'ka-cookies-tabulka.\{0,900\}' "$WORK/response" | head -c 1000; ERRORS=$((ERRORS+1)); }
 # anonymise instead of delete: the retention keeps the row with blanks (the choice first – opening Enquiries runs the retention, which would delete the old row under the default)
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=enquiries"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=enquiries&action=settings" -d "_csrf=$(csrf)" -d mesice=24 -d mesice_uchazeci=0 -d po_uplynuti=anonymise

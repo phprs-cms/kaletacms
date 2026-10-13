@@ -123,7 +123,7 @@
 		var evidence = <?= json_encode($evidence) ?>;
 		if (evidence) {
 			var id = (document.cookie.match(/(?:^|; )kaleta_souhlas_id=([a-f0-9]{32})/) || [])[1];
-			if (!id) { id = Array.prototype.map.call(crypto.getRandomValues(new Uint8Array(16)), function (b) { return ('0' + b.toString(16)).slice(-2); }).join(''); document.cookie = 'kaleta_souhlas_id=' + id + '; path=/; max-age=' + (180 * 86400) + '; SameSite=Lax'; }
+			if (!id) { id = Array.prototype.map.call(crypto.getRandomValues(new Uint8Array(16)), function (b) { return ('0' + b.toString(16)).slice(-2); }).join(''); document.cookie = 'kaleta_souhlas_id=' + id + '; path=/; max-age=' + (180 * 86400) + '; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : ''); }
 			var data = new FormData(); data.append('id', id); data.append('kategorie', kategorie.join(',') || 'nic');
 			if (navigator.sendBeacon) { navigator.sendBeacon(evidence, data); } else { fetch(evidence, { method: 'POST', body: data }); }
 		}

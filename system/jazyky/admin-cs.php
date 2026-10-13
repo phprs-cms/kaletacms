@@ -3787,7 +3787,7 @@ return [
     'Quantity' => 'Množství',
     'Compare box' => 'Políčko Porovnat',
     'parameters (Name: value per line)' => 'parametry (Název: hodnota na řádek)',
-    'variants (name ' => ' code | price per line)|varianty (název | kód | cena na řádek)',
+    'variants (name | code | price per line)' => 'varianty (název | kód | cena na řádek)',
     'enquiry basket (products added with Add to enquiry)' => 'poptávka produktů (přidané tlačítkem Přidat do poptávky)',
     'New product catalogue' => 'Nový katalog produktů',
     'Products with parameters to compare, variants and a datasheet; visitors collect them in an enquiry basket instead of a checkout.' => 'Produkty s parametry k porovnání, variantami a technickým listem; návštěvníci si je místo košíku sbírají do poptávky.',
@@ -5821,5 +5821,9 @@ return [
     '%d values left as they were: they would leave the years 1000–9999' => '%d hodnot zůstalo, jak byly: vyšly by mimo roky 1000–9999',
     '%d values were left as they were: they would leave the years 1000–9999.' => '%d hodnot zůstalo, jak byly: vyšly by mimo roky 1000–9999.',
     'Not converted because of an error (see the change log): %s.' => 'Kvůli chybě nepřevedeno (viz protokol změn): %s.',
+    // 3.13: the cookie table as the code sets it (Core\Privacy::OWN)
+    'Cookie bar: a random identifier that links the choice to its record, only when consents are recorded (cookie)' => 'Cookie lišta: náhodný identifikátor, který propojí volbu s jejím záznamem – jen když se souhlasy evidují (cookie)',
+    'Preview of drafts: only for someone who opened a signed preview link (cookie)' => 'Náhled konceptů: jen pro toho, kdo otevřel podepsaný odkaz na náhled (cookie)',
+    'until the preview link expires, at most 7 days' => 'do vypršení odkazu na náhled, nejvýš 7 dní',
     'One day or range of days per line, day names in the site language or in English: “Mo–Fr 8:00–17:00”, “Sa 9–12”, “Su closed”, lunch break “Tu 8–12, 13–17”. Empty = no opening hours.' => 'Každý řádek jeden den nebo rozsah dnů, názvy dnů v jazyce webu nebo anglicky: „Po–Pá 8:00–17:00“, „So 9–12“, „Ne zavřeno“, polední pauza „Út 8–12, 13–17“. Prázdné = bez otevírací doby.',
 ];
