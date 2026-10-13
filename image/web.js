@@ -741,6 +741,8 @@
 
 		var mapButton = locator.querySelector('[data-mapa]');
 		var mapBox = locator.querySelector('.ka-pobocky-mapa');
+		var panel = locator.classList.contains('ka-pobocky--panel');
+		var map = null, markers = [];
 		// Leaflet only from the site's own copy (StoreLocator::LEAFLET_PATH): a script from anywhere else would run with the
 		// site's rights (3.3.2)
 		var base = '';
@@ -749,7 +751,24 @@
 			base = leaflet.origin === location.origin && /\/image\/vendor\/leaflet\/$/.test(leaflet.pathname) && !leaflet.search && !leaflet.hash ? leaflet.href : '';
 		} catch (e) { base = ''; }
 		if (!base && mapButton) { mapButton.hidden = true; }
-		if (base && mapButton && mapBox) {
+		// 3.12.2: the markers follow the search, and in the side panel a branch and its marker point at each other
+		var current = function (li) {
+			items.forEach(function (other) { if (other !== li) { other.removeAttribute('aria-current'); } });
+			if (li) { li.setAttribute('aria-current', 'true'); }
+		};
+		var syncMarkers = function () {
+			if (!map) { return; }
+			markers.forEach(function (m) { if (m.li.hidden) { map.removeLayer(m.marker); } else if (!map.hasLayer(m.marker)) { m.marker.addTo(map); } });
+		};
+		if (search) { search.addEventListener('input', syncMarkers); }
+		var showOnMap = function (li) {
+			var m = markers.filter(function (x) { return x.li === li; })[0];
+			if (!map || !m) { return; }
+			current(li);
+			map.setView(m.marker.getLatLng(), Math.max(map.getZoom(), 14));
+			m.marker.openPopup();
+		};
+		if (base && mapBox) {
 			var loaded = function (id, make) { // one Leaflet on the page even with several locators
 				var existing = document.getElementById(id);
 				if (existing) { return existing; }
@@ -761,7 +780,7 @@
 			var draw = function () {
 				// Leaflet's own attribution control writes HTML: the credit is our own control instead, its text set as text in a
 				// fixed link (3.3.2); an older cached page sends the credit as HTML – the inert parser keeps just its text
-				var map = window.L.map(mapBox, { scrollWheelZoom: false, attributionControl: false });
+				map = window.L.map(mapBox, { scrollWheelZoom: panel, attributionControl: false });
 				window.L.Icon.Default.imagePath = base + 'images/';
 				var credit = new DOMParser().parseFromString(locator.getAttribute('data-atribuce') || '', 'text/html').body.textContent.trim() || '© OpenStreetMap';
 				new (window.L.Control.extend({ options: { position: 'bottomright' }, onAdd: function () {
@@ -778,25 +797,45 @@
 					var at = position(li);
 					if (!at) { return; }
 					var popup = document.createElement('div');
-					['.ka-pobocky-nazev', '.ka-pobocky-adresa'].forEach(function (part) { var n = li.querySelector(part); if (n) { popup.appendChild(n.cloneNode(true)); } });
-					window.L.marker(at).addTo(map).bindPopup(popup);
+					Array.prototype.forEach.call(li.children, function (part) {
+						if (!part.hasAttribute('data-vzdalenost') && !part.classList.contains('ka-pobocky-na-mape')) { popup.appendChild(part.cloneNode(true)); }
+					});
+					var marker = window.L.marker(at).addTo(map).bindPopup(popup);
+					marker.on('click', function () {
+						current(li);
+						if (panel) { list.scrollTo({ top: li.offsetTop - list.offsetTop - 8, behavior: 'smooth' }); }
+					});
+					markers.push({ li: li, marker: marker });
 					bounds.push(at);
+					if (panel) {
+						var go = document.createElement('button');
+						go.type = 'button';
+						go.className = 'ka-pobocky-na-mape';
+						go.textContent = locator.getAttribute('data-text-na-mape') || '';
+						go.addEventListener('click', function (e) { e.stopPropagation(); showOnMap(li); });
+						li.appendChild(go);
+						li.addEventListener('click', function (e) { if (!e.target.closest('a, button')) { showOnMap(li); } });
+					}
 				});
 				if (bounds.length) { map.fitBounds(bounds, { padding: [24, 24], maxZoom: 15 }); } else { map.setView([50, 15], 4); }
+				syncMarkers();
 			};
-			mapButton.addEventListener('click', function () {
-				mapButton.disabled = true;
+			var start = function () {
+				if (mapButton) { mapButton.disabled = true; }
 				loaded('ka-leaflet-css', function () { var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = base + 'leaflet.css'; return l; });
 				var script = loaded('ka-leaflet-js', function () { var s = document.createElement('script'); s.src = base + 'leaflet.js'; s.defer = true; return s; });
 				var ready = function () {
+					// the button and its note may sit in the map's place (the side panel): Leaflet gets an empty box
+					while (mapBox.firstChild) { mapBox.removeChild(mapBox.firstChild); }
 					mapBox.hidden = false;
-					mapButton.hidden = true;
+					if (mapButton) { mapButton.hidden = true; }
 					draw();
-					mapBox.focus(); // Leaflet makes the container focusable; the keyboard moves the map from here
+					if (mapButton) { mapBox.focus(); } // Leaflet makes the container focusable; the keyboard moves the map from here
 				};
 				if (window.L) { ready(); } else { script.addEventListener('load', ready); }
-				script.addEventListener('error', function () { mapButton.disabled = false; say(locator.getAttribute('data-text-chyba')); });
-			});
+				script.addEventListener('error', function () { if (mapButton) { mapButton.disabled = false; } say(locator.getAttribute('data-text-chyba')); });
+			};
+			if (locator.hasAttribute('data-mapa-hned')) { start(); } else if (mapButton) { mapButton.addEventListener('click', start); }
 		}
 	});
 

@@ -14,7 +14,8 @@ use Kaleta\Core\Language;
  * list with the address, a tel: link, the e-mail and a "Directions" link, usable without JavaScript. image/web.js adds a
  * search box filtering the list as you type, "Nearest to me" (navigator.geolocation only after the click, sorted by the
  * haversine distance, nothing sent anywhere) and a Leaflet map with OpenStreetMap tiles that loads only after a click, like
- * the Map element. Each branch carries data-lat/data-lng for the script; every text the script shows is rendered here with
+ * the Map element (3.12.2: or at once, and as a map beside a side panel with the search and a scrolling list, where a branch
+ * and its marker point at each other). Each branch carries data-lat/data-lng for the script; every text the script shows is rendered here with
  * t(), so the site dictionary translates it.
  */
 final class StoreLocator extends Element
@@ -29,6 +30,7 @@ final class StoreLocator extends Element
     /** Where the vendored Leaflet lives (image/vendor/leaflet/leaflet.js, leaflet.css, images/); the script loads it after the click. */
     public const string LEAFLET_PATH = 'image/vendor/leaflet/';
 
+
     public static function properties(): array
     {
         return [
@@ -37,6 +39,9 @@ final class StoreLocator extends Element
             'hledani' => ['typ' => 'prepinac', 'popisek' => 'Search box', 'vychozi' => true],
             'nejblizsi' => ['typ' => 'prepinac', 'popisek' => '“Nearest to me” button', 'vychozi' => true],
             'mapa' => ['typ' => 'prepinac', 'popisek' => 'Map (loads after a click)', 'vychozi' => true],
+            // 3.12.2: the map beside a side panel with the search and a scrolling list (like a store locator of a maps platform)
+            'rozlozeni' => ['typ' => 'vyber', 'popisek' => 'Layout', 'vychozi' => 'seznam', 'moznosti' => ['seznam' => 'List with the map above it', 'panel' => 'Map with a side panel']],
+            'mapa_hned' => ['typ' => 'prepinac', 'popisek' => 'Load the map at once (the visitor’s browser contacts OpenStreetMap when the page opens)', 'vychozi' => false],
         ];
     }
 
@@ -61,7 +66,23 @@ final class StoreLocator extends Element
 .ka-pobocky-nazev { font-size: var(--ka-krok-1); }
 .ka-pobocky-nazev a { color: inherit; }
 .ka-pobocky-vzdalenost { color: var(--ka-barva-tlumeny); font-size: var(--ka-krok--1); }
-.ka-pobocky-vzdalenost:empty { display: none; }';
+.ka-pobocky-vzdalenost:empty { display: none; }
+.ka-pobocky--panel { grid-template-columns: minmax(16rem, 24rem) minmax(0, 1fr); align-items: stretch; height: clamp(30rem, 78vh, 46rem); }
+.ka-pobocky-panel { display: flex; flex-direction: column; gap: var(--ka-mezera-s); min-height: 0; }
+.ka-pobocky--panel .ka-pobocky-seznam { flex: 1 1 auto; min-height: 0; overflow-y: auto; grid-template-columns: 1fr; gap: var(--ka-mezera-xs); padding-inline-end: var(--ka-mezera-2xs); overscroll-behavior: contain; }
+.ka-pobocky--panel .ka-pobocky-seznam li { padding: var(--ka-mezera-s); cursor: pointer; }
+.ka-pobocky--panel .ka-pobocky-seznam li[aria-current] { border-color: var(--ka-barva-primarni); box-shadow: inset 3px 0 0 var(--ka-barva-primarni); }
+.ka-pobocky--panel .ka-pobocky-nazev { font-size: var(--ka-krok-0); }
+.ka-pobocky--panel .ka-pobocky-mapa { height: auto; min-height: 100%; display: grid; place-items: center; align-content: center; gap: var(--ka-mezera-s); padding: 0; text-align: center; }
+.ka-pobocky-mapa > button { padding: 0.65em 1.2em; border: 0; border-radius: var(--ka-zaobleni-plne); background: var(--ka-barva-primarni); color: var(--ka-barva-na-primarni); font: inherit; cursor: pointer; }
+.ka-pobocky-mapa > small { max-width: 26rem; color: var(--ka-barva-tlumeny); font-size: var(--ka-krok--1); }
+.ka-pobocky-mapa .leaflet-popup-content p { margin: 0.25em 0; }
+.ka-pobocky-na-mape { justify-self: start; padding: 0; border: 0; background: none; color: var(--ka-barva-primarni); font: inherit; font-size: var(--ka-krok--1); text-decoration: underline; cursor: pointer; }
+@media (max-width: 767px) {
+	.ka-pobocky--panel { grid-template-columns: 1fr; height: auto; }
+	.ka-pobocky--panel .ka-pobocky-mapa { order: -1; min-height: 55vh; }
+	.ka-pobocky--panel .ka-pobocky-seznam { max-height: 60vh; }
+}';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -77,8 +98,10 @@ final class StoreLocator extends Element
         // the location field from the option, or the first location field the collection has; the contact fields by their preset keys
         $locationKey = preg_match(Collections::KEY_PATTERN, (string) $o['pole_poloha']) ? $field((string) $o['pole_poloha'], ['poloha']) : null;
         $locationKey ??= array_values(array_filter($collection['pole'], fn (array $f): bool => $f['typ'] === 'poloha'))[0]['klic'] ?? null;
-        $keys = ['address' => $field('address', ['text', 'radky']), 'phone' => $field('phone', ['text']), 'email' => $field('email', ['text'])];
-        [$items] = Collections::items($db, (int) $collection['idk'], Language::siteColumn(), 100);
+        // the keys of the Branches preset, or the Czech keys a collection made by hand gets from its labels (Adresa, Telefon, E-mail)
+        $keys = ['address' => $field('address', ['text', 'radky']) ?? $field('adresa', ['text', 'radky']), 'phone' => $field('phone', ['text']) ?? $field('telefon', ['text']),
+            'email' => $field('email', ['text']) ?? $field('e_mail', ['text'])];
+        [$items] = Collections::items($db, (int) $collection['idk'], Language::siteColumn(), Collections::MAX_ITEMS);
         if ($items === []) {
             return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-barva-plocha)">' . e(t('The collection has no visible items yet.')) . '</div>' : '';
         }
@@ -94,25 +117,39 @@ final class StoreLocator extends Element
         if ($o['nejblizsi']) {
             $controls .= '<button type="button" data-nejblizsi>' . e(t('Nearest to me')) . '</button>';
         }
+        $panel = $o['mapa'] && $o['rozlozeni'] === 'panel';
+        $atOnce = $o['mapa'] && $o['mapa_hned'];
+        $note = '<small>' . e(t('The map loads from OpenStreetMap after a click; “Nearest to me” asks for your location only then and sends it nowhere.')) . '</small>';
         $map = '';
         if ($o['mapa']) {
             $mapId = 'pobocky-mapa-' . e((string) $p['id']);
-            $controls .= '<button type="button" data-mapa aria-controls="' . $mapId . '">' . e(t('Show map')) . '</button><small>' . e(t('The map loads from OpenStreetMap after a click; “Nearest to me” asks for your location only then and sends it nowhere.')) . '</small>';
-            $map = '<div class="ka-pobocky-mapa" id="' . $mapId . '" role="region" aria-label="' . e(t('Map of branches')) . '" hidden></div>';
+            $button = '<button type="button" data-mapa aria-controls="' . $mapId . '">' . e(t('Show map')) . '</button>';
+            // the side panel keeps the map's place from the start: the button (or the map loaded at once) sits in it
+            if (!$atOnce && !$panel) {
+                $controls .= $button . $note;
+            }
+            $map = '<div class="ka-pobocky-mapa" id="' . $mapId . '" role="region" aria-label="' . e(t('Map of branches')) . '"' . ($panel || $atOnce ? '' : ' hidden') . '>'
+                . ($panel && !$atOnce ? $button . $note : '') . '</div>';
         }
         // the controls work only with the script, so they appear once it runs; the list is the content and is always there
-        $html = ($controls !== '' ? '<div class="ka-pobocky-ovladani" hidden>' . $controls . '</div>' : '')
+        $list = ($controls !== '' ? '<div class="ka-pobocky-ovladani" hidden>' . $controls . '</div>' : '')
+            . '<p class="ka-pobocky-zprava" role="status" aria-live="polite" data-zprava></p>'
+            . '<ul class="ka-pobocky-seznam" aria-label="' . e(t('Branches')) . '">' . $rows . '</ul>'
+            . '<p class="ka-pobocky-zprava" data-prazdne hidden>' . e(t('No branch matches your search.')) . '</p>';
+        $html = $panel ? '<div class="ka-pobocky-panel">' . $list . '</div>' . $map : (
+            ($controls !== '' ? '<div class="ka-pobocky-ovladani" hidden>' . $controls . '</div>' : '')
             . '<p class="ka-pobocky-zprava" role="status" aria-live="polite" data-zprava></p>'
             . $map
             . '<ul class="ka-pobocky-seznam" aria-label="' . e(t('Branches')) . '">' . $rows . '</ul>'
-            . '<p class="ka-pobocky-zprava" data-prazdne hidden>' . e(t('No branch matches your search.')) . '</p>';
-        $data = ' data-pobocky data-leaflet="' . e($k->url(self::LEAFLET_PATH)) . '"'
+            . '<p class="ka-pobocky-zprava" data-prazdne hidden>' . e(t('No branch matches your search.')) . '</p>');
+        $data = ' data-pobocky' . ($atOnce ? ' data-mapa-hned' : '') . ' data-leaflet="' . e($k->url(self::LEAFLET_PATH)) . '"'
             . ' data-atribuce="' . e('© OpenStreetMap contributors') . '"' // plain text: image/web.js puts it in a link to the OSM copyright page
             . ' data-text-serazeno="' . e(t('Sorted by distance from you.')) . '"'
             . ' data-text-odmitnuto="' . e(t('Location access was refused – the list stays in its usual order.')) . '"'
-            . ' data-text-chyba="' . e(t('Your location could not be determined.')) . '"';
+            . ' data-text-chyba="' . e(t('Your location could not be determined.')) . '"'
+            . ' data-text-na-mape="' . e(t('Show on map')) . '"';
 
-        return '<' . $p['znacka'] . Text::withClass($a, 'ka-pobocky') . $data . '>' . $html . '</' . $p['znacka'] . '>';
+        return '<' . $p['znacka'] . Text::withClass($a, $panel ? 'ka-pobocky ka-pobocky--panel' : 'ka-pobocky') . $data . '>' . $html . '</' . $p['znacka'] . '>';
     }
 
     /** The first collection made from the Branches preset (what the element shows when no collection is chosen). */

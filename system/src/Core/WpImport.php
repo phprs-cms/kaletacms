@@ -441,6 +441,9 @@ final class WpImport
     /** Path of the old URL for a redirect (without the domain and the slashes at the ends); empty = nothing to redirect. */
     public static function oldPath(string $link): string
     {
+        // a sitemap may write an emoji or an accented letter raw: parse_url() would turn the bytes 0x80–0x9F into "_" (it takes them
+        // for control characters), so everything outside ASCII is percent-encoded first and decoded back below (3.12.2)
+        $link = (string) preg_replace_callback('/[^\x00-\x7F]+/', fn (array $m): string => rawurlencode($m[0]), $link);
         $path = trim(rawurldecode((string) parse_url($link, PHP_URL_PATH)), '/ ');
 
         return mb_strlen($path) > 255 || !mb_check_encoding($path, 'UTF-8') ? '' : $path;

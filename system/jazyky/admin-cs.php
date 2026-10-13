@@ -5880,4 +5880,12 @@ return [
     '%d address(es) are shared by versions in different languages – allowed, “The same address in every language” is on, as it will be for every site in Kaleta 4.0' => 'Adres sdílených verzemi v různých jazycích: %d – je to dovolené, „Stejná adresa ve všech jazycích“ je zapnutá, jak to v Kaletě 4.0 bude u každého webu',
     '%d address(es) are shared by versions in different languages although “The same address in every language” is off – Kaleta 4.0 allows it, nothing to do' => 'Adres sdílených verzemi v různých jazycích: %d, přestože „Stejná adresa ve všech jazycích“ je vypnutá – Kaleta 4.0 to dovolí, není co dělat',
     'Media: %s' => 'Média: %s',
+    'Layout' => 'Rozložení',
+    'List with the map above it' => 'Seznam s mapou nad ním',
+    'Map with a side panel' => 'Mapa s bočním panelem',
+    'Load the map at once (the visitor’s browser contacts OpenStreetMap when the page opens)' => 'Načíst mapu hned (prohlížeč návštěvníka se při otevření stránky spojí s OpenStreetMap)',
+    'Part of the menu' => 'Část menu',
+    'the whole menu' => 'celé menu',
+    'first half (left of a logo in the middle)' => 'první polovina (vlevo od loga uprostřed)',
+    'second half (right of the logo)' => 'druhá polovina (vpravo od loga)',
 ];

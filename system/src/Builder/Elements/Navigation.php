@@ -25,6 +25,8 @@ final class Navigation extends Element
     {
         return [
             'menu' => ['typ' => 'vyber', 'popisek' => 'Which menu', 'vychozi' => 'hlavni', 'moznosti' => \Kaleta\Core\Menu::LOCATIONS],
+            // 3.12.2: a logo in the middle of the menu – one navigation shows the first half of the items, another the second half
+            'cast' => ['typ' => 'vyber', 'popisek' => 'Part of the menu', 'vychozi' => 'cele', 'moznosti' => ['cele' => 'the whole menu', 'prvni' => 'first half (left of a logo in the middle)', 'druha' => 'second half (right of the logo)']],
             'novinky' => ['typ' => 'prepinac', 'popisek' => 'Link to news (in the automatic menu)', 'vychozi' => true],
             'mobil' => ['typ' => 'prepinac', 'popisek' => 'Hide behind a button on phones', 'vychozi' => true],
             'mobil_tablet' => ['typ' => 'prepinac', 'popisek' => 'Also on tablets (up to 1023 px) – for a long menu', 'vychozi' => false],
@@ -139,6 +141,11 @@ CSS;
         $menu = $k->menu[$p['obsah']['menu'] ?? 'hlavni'] ?? [];
         if (!$p['obsah']['novinky']) {
             $menu = array_values(array_filter($menu, fn (array $x): bool => empty($x['auto'])));
+        }
+        // the halves around a logo: the first gets the extra item of an odd count, the second the rest
+        if (in_array($p['obsah']['cast'] ?? 'cele', ['prvni', 'druha'], true)) {
+            $half = (int) ceil(count($menu) / 2);
+            $menu = $p['obsah']['cast'] === 'prvni' ? array_slice($menu, 0, $half) : array_slice($menu, $half);
         }
         $items = \Kaleta\Core\Menu::html($menu, $k->path, $k->url(''), !empty($p['obsah']['mega']));
         if ($items === '' && $k->editor) {

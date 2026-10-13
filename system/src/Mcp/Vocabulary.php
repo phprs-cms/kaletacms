@@ -54,8 +54,8 @@ final class Vocabulary
         'prazdne' => 'empty_text', 'nazev' => 'name', 'pole' => 'fields', 'dekujeme' => 'thank_you', 'prijemce' => 'recipient', 'dekovna' => 'thank_you_page',
         'potvrzeni' => 'confirmation', 'bez_captcha' => 'no_captcha', 'poslat_soubor' => 'send_file', 'souhlas' => 'consent', 'komponenta' => 'component', 'hodnoty' => 'values', 'kod' => 'code', 'menu' => 'menu',
         'novinky' => 'news_link', 'mobil' => 'phone_menu', 'mobil_tablet' => 'tablet_menu', 'mega' => 'mega_menu', 'zvyrazneni' => 'highlight', 'jazyky' => 'language_switcher', 'smer' => 'direction',
-        'udaj' => 'detail', 'pri_rolovani' => 'on_scroll', 'text_nahore' => 'text_at_top',
-        'pole_poloha' => 'location_field', 'hledani' => 'search_box', 'nejblizsi' => 'nearest', 'mapa' => 'show_map',
+        'udaj' => 'detail', 'pri_rolovani' => 'on_scroll', 'text_nahore' => 'text_at_top', 'cast' => 'menu_part',
+        'pole_poloha' => 'location_field', 'hledani' => 'search_box', 'nejblizsi' => 'nearest', 'mapa' => 'show_map', 'rozlozeni' => 'layout', 'mapa_hned' => 'map_at_once',
         'dalsi_kroky' => 'next_steps', 'odpovime_do' => 'reply_within_hours', 'odpovida' => 'who_replies',
         'plany' => 'plans', 'obrazek_pred' => 'before_image', 'alt_pred' => 'before_alt', 'popisek_pred' => 'before_label', 'obrazek_po' => 'after_image', 'alt_po' => 'after_alt',
         'popisek_po' => 'after_label', 'delic' => 'divider_position', 'body' => 'points', 'udalosti' => 'milestones',
@@ -104,6 +104,8 @@ final class Vocabulary
         'priorita' => ['' => 'auto', '1' => 'high', '0' => 'lazy'], // the image's loading (3.5); true and false of older builds pass as they are
         'pri_rolovani' => ['pruhledna' => 'transparent', 'zmensit' => 'shrink', 'pruhledna-zmensit' => 'transparent_shrink'],
         'text_nahore' => ['svetly' => 'light', 'tmavy' => 'dark'],
+        'rozlozeni' => ['seznam' => 'list', 'panel' => 'sidebar'],
+        'cast' => ['cele' => 'whole', 'prvni' => 'first_half', 'druha' => 'second_half'],
         'udaj' => ['adresa' => 'address', 'telefon' => 'phone', 'email' => 'email', 'hodiny' => 'hours', 'otevreno' => 'open_now', 'mapa' => 'map', 'firma' => 'company', 'tiraz' => 'imprint',
             'copyright' => 'copyright', 'nazev' => 'name', 'popis' => 'description', 'text_paticky' => 'footer_text', 'site' => 'social', 'rss' => 'rss'],
     ];

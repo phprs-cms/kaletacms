@@ -6287,4 +6287,12 @@ return [
     '%d address(es) are shared by versions in different languages – allowed, “The same address in every language” is on, as it will be for every site in Kaleta 4.0' => '%d Adresse(n) werden von Versionen in verschiedenen Sprachen geteilt – erlaubt, „Dieselbe Adresse in jeder Sprache“ ist eingeschaltet, wie in Kaleta 4.0 für jede Website',
     '%d address(es) are shared by versions in different languages although “The same address in every language” is off – Kaleta 4.0 allows it, nothing to do' => '%d Adresse(n) werden von Versionen in verschiedenen Sprachen geteilt, obwohl „Dieselbe Adresse in jeder Sprache“ ausgeschaltet ist – Kaleta 4.0 erlaubt das, nichts zu tun',
     'Media: %s' => 'Medien: %s',
+    'Layout' => 'Anordnung',
+    'List with the map above it' => 'Liste mit der Karte darüber',
+    'Map with a side panel' => 'Karte mit Seitenleiste',
+    'Load the map at once (the visitor’s browser contacts OpenStreetMap when the page opens)' => 'Karte sofort laden (der Browser des Besuchers verbindet sich beim Öffnen der Seite mit OpenStreetMap)',
+    'Part of the menu' => 'Teil des Menüs',
+    'the whole menu' => 'das ganze Menü',
+    'first half (left of a logo in the middle)' => 'erste Hälfte (links von einem Logo in der Mitte)',
+    'second half (right of the logo)' => 'zweite Hälfte (rechts vom Logo)',
 ];
