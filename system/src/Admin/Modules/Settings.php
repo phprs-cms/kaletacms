@@ -168,6 +168,7 @@ class Settings extends Module
             'invalidFields' => $invalid['pole'],
             'values' => $invalid['hodnoty'] + $values,
             'checks' => $tab === 'health' ? Health::checks($this->app) : [],
+            'readiness' => $tab === 'health' ? \Kaleta\Core\Readiness::checks($this->app) : [], // 3.14: Ready for 4.0, its own section
             'remoteStatus' => $settings->get('remote_backup_status'),
             'mediaStatus' => $settings->get('remote_media_status'),
             'tasksToken' => $settings->get('tasks_token'),

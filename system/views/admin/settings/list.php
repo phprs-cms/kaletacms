@@ -7,6 +7,7 @@
  * @var string $tab
  * @var array<string, string> $values
  * @var list<array{skupina:string, nazev:string, stav:string, info:string}> $checks
+ * @var list<array{key:string, nazev:string, stav:string, info:string, seznam:list<string>}> $readiness  Ready for 4.0 (3.14, Core\Readiness), System status only
  * @var string $siteUrl
  * @var list<string> $enabledExtensions
  * @var list<array{soubor:string, velikost:int, cas:int}> $backups
