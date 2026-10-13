@@ -792,6 +792,9 @@
 					return box;
 				} }))().addTo(map);
 				window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+				// 3.12.2: a pin in the site colour (CSS .ka-pobocky-pin, --ka-pobocky-pin) instead of Leaflet's blue picture
+				var pin = window.L.divIcon({ className: 'ka-pobocky-pin', iconSize: [28, 40], iconAnchor: [14, 40], popupAnchor: [0, -36],
+					html: '<svg viewBox="0 0 28 40" aria-hidden="true"><path fill="currentColor" d="M14 0C6.3 0 0 6.1 0 13.7 0 24 14 40 14 40s14-16 14-26.3C28 6.1 21.7 0 14 0z"/><circle cx="14" cy="14" r="5" fill="#fff"/></svg>' });
 				var bounds = [];
 				items.forEach(function (li) {
 					var at = position(li);
@@ -800,7 +803,7 @@
 					Array.prototype.forEach.call(li.children, function (part) {
 						if (!part.hasAttribute('data-vzdalenost') && !part.classList.contains('ka-pobocky-na-mape')) { popup.appendChild(part.cloneNode(true)); }
 					});
-					var marker = window.L.marker(at).addTo(map).bindPopup(popup);
+					var marker = window.L.marker(at, { icon: pin, title: (li.querySelector('.ka-pobocky-nazev') || li).textContent.trim() }).addTo(map).bindPopup(popup);
 					marker.on('click', function () {
 						current(li);
 						if (panel) { list.scrollTo({ top: li.offsetTop - list.offsetTop - 8, behavior: 'smooth' }); }

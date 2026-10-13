@@ -31,6 +31,9 @@ final class StoreLocator extends Element
     public const string LEAFLET_PATH = 'image/vendor/leaflet/';
 
 
+    /** The "Nearest to me" button of the side panel: a location crosshair (the label is in aria-label and title). */
+    private const string LOCATE_ICON = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>';
+
     public static function properties(): array
     {
         return [
@@ -77,6 +80,12 @@ final class StoreLocator extends Element
 .ka-pobocky-mapa > button { padding: 0.65em 1.2em; border: 0; border-radius: var(--ka-zaobleni-plne); background: var(--ka-barva-primarni); color: var(--ka-barva-na-primarni); font: inherit; cursor: pointer; }
 .ka-pobocky-mapa > small { max-width: 26rem; color: var(--ka-barva-tlumeny); font-size: var(--ka-krok--1); }
 .ka-pobocky-mapa .leaflet-popup-content p { margin: 0.25em 0; }
+.ka-pobocky--panel .ka-pobocky-ovladani { flex-wrap: nowrap; align-items: stretch; }
+.ka-pobocky--panel .ka-pobocky-ovladani label { flex: 1 1 auto; }
+.ka-pobocky-ovladani .ka-pobocky-poloha { display: grid; place-items: center; flex: 0 0 auto; width: 2.75rem; padding: 0; }
+/* the markers are drawn in the site colour (image/web.js): a site sets its own with --ka-pobocky-pin in a class of the element */
+.ka-pobocky-pin { color: var(--ka-pobocky-pin, var(--ka-barva-primarni)); }
+.ka-pobocky-pin svg { display: block; width: 28px; height: 40px; filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.35)); }
 .ka-pobocky-na-mape { justify-self: start; padding: 0; border: 0; background: none; color: var(--ka-barva-primarni); font: inherit; font-size: var(--ka-krok--1); text-decoration: underline; cursor: pointer; }
 @media (max-width: 767px) {
 	.ka-pobocky--panel { grid-template-columns: 1fr; height: auto; }
@@ -110,14 +119,19 @@ final class StoreLocator extends Element
             $values = Collections::values($collection, $item, $k->url(...), $db);
             $rows .= self::row($values, $keys, $locationKey);
         }
+        $panel = $o['mapa'] && $o['rozlozeni'] === 'panel';
         $controls = '';
         if ($o['hledani']) {
-            $controls .= '<label><span>' . e(t('Search branches')) . '</span><input type="search" data-hledat placeholder="' . e(t('Name or address')) . '" autocomplete="off"></label>';
+            // 3.12.2: in the side panel the label is for screen readers only and its text is the placeholder – one line with the location button
+            $controls .= $panel
+                ? '<label><span class="ka-jen-ctecka">' . e(t('Search branches')) . '</span><input type="search" data-hledat placeholder="' . e(t('Search branches')) . '" autocomplete="off"></label>'
+                : '<label><span>' . e(t('Search branches')) . '</span><input type="search" data-hledat placeholder="' . e(t('Name or address')) . '" autocomplete="off"></label>';
         }
         if ($o['nejblizsi']) {
-            $controls .= '<button type="button" data-nejblizsi>' . e(t('Nearest to me')) . '</button>';
+            $controls .= $panel
+                ? '<button type="button" class="ka-pobocky-poloha" data-nejblizsi aria-label="' . e(t('Nearest to me')) . '" title="' . e(t('Nearest to me')) . '">' . self::LOCATE_ICON . '</button>'
+                : '<button type="button" data-nejblizsi>' . e(t('Nearest to me')) . '</button>';
         }
-        $panel = $o['mapa'] && $o['rozlozeni'] === 'panel';
         $atOnce = $o['mapa'] && $o['mapa_hned'];
         $note = '<small>' . e(t('The map loads from OpenStreetMap after a click; “Nearest to me” asks for your location only then and sends it nowhere.')) . '</small>';
         $map = '';
