@@ -3788,7 +3788,7 @@ return [
     'Quantity' => 'Množství',
     'Compare box' => 'Políčko Porovnat',
     'parameters (Name: value per line)' => 'parametry (Název: hodnota na řádek)',
-    'variants (name ' => ' code | price per line)|varianty (název | kód | cena na řádek)',
+    'variants (name | code | price per line)' => 'varianty (název | kód | cena na řádek)',
     'enquiry basket (products added with Add to enquiry)' => 'poptávka produktů (přidané tlačítkem Přidat do poptávky)',
     'New product catalogue' => 'Nový katalog produktů',
     'Products with parameters to compare, variants and a datasheet; visitors collect them in an enquiry basket instead of a checkout.' => 'Produkty s parametry k porovnání, variantami a technickým listem; návštěvníci si je místo košíku sbírají do poptávky.',

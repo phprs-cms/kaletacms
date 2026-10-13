@@ -4185,7 +4185,6 @@ return [
     'Page with the enquiry form (empty = the products list page)' => 'Página con el formulario de consulta (vacío = la página de la lista de productos)',
     'Compare box' => 'Cuadro de comparación',
     'parameters (Name: value per line)' => 'parámetros (Nombre: valor por línea)',
-    'variants (name ' => 'variantes (nombre ',
     'enquiry basket (products added with Add to enquiry)' => 'cesta de consulta (productos añadidos con Añadir a la consulta)',
     'New product catalogue' => 'Nuevo catálogo de productos',
     'Products with parameters to compare, variants and a datasheet; visitors collect them in an enquiry basket instead of a checkout.' => 'Productos con parámetros para comparar, variantes y ficha técnica; los visitantes los reúnen en una cesta de consulta en lugar de pasar por caja.',
@@ -6228,4 +6227,8 @@ return [
     'Page %s of %s' => 'Página %s de %s',
     'not included' => 'no incluido',
     'Upload the latest database backup (kaleta-….sql.gz from your FTP or S3 copy, or a downloaded one) over FTP into the backups folder storage/zalohy/.' => 'Sube por FTP la copia de seguridad más reciente de la base de datos (kaleta-….sql.gz de tu copia en FTP o S3, o una descargada) a la carpeta de copias storage/zalohy/.',
+    // 3.13: the cookie table as the code sets it (Core\Privacy::OWN)
+    'Cookie bar: a random identifier that links the choice to its record, only when consents are recorded (cookie)' => 'Aviso de cookies: un identificador aleatorio que vincula la elección con su registro, solo cuando se registran los consentimientos (cookie)',
+    'Preview of drafts: only for someone who opened a signed preview link (cookie)' => 'Vista previa de borradores: solo para quien abrió un enlace de vista previa firmado (cookie)',
+    'until the preview link expires, at most 7 days' => 'hasta que caduque el enlace de vista previa, como máximo 7 días',
 ];

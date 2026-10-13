@@ -4187,7 +4187,7 @@ return [
     'Quantity' => 'Menge',
     'Compare box' => 'Feld Vergleichen',
     'parameters (Name: value per line)' => 'Parameter (Name: Wert pro Zeile)',
-    'variants (name ' => ' code | price per line)|Varianten (Name | Code | Preis pro Zeile)',
+    'variants (name | code | price per line)' => 'Varianten (Name | Code | Preis pro Zeile)',
     'enquiry basket (products added with Add to enquiry)' => 'Produktanfrage (mit „Zur Anfrage hinzufügen“ gesammelt)',
     'New product catalogue' => 'Neuer Produktkatalog',
     'Products with parameters to compare, variants and a datasheet; visitors collect them in an enquiry basket instead of a checkout.' => 'Produkte mit vergleichbaren Parametern, Varianten und Datenblatt; Besucher sammeln sie statt in einem Warenkorb in einer Anfrage.',
