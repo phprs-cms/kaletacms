@@ -157,6 +157,20 @@ final class Health
                 : t('being checked again with the sanitizers of 3.3.3 by the background tasks: %d records so far, %d changed', $recheck['checked'], $recheck['changed']))
                 . ($recheck['changed'] > 0 ? ' – ' . t('only risky markup was removed; the version before is in the history of each news item, page or collection item') : ''));
         }
+        // 3.12.1 (N312-2): a time zone conversion that runs too long, skipped a table or left values as they were
+        $zoneConversion = TimeZoneConversion::latest($db);
+        if ($zoneConversion !== null && ($zoneConversion['finished_at'] === null || strtotime((string) $zoneConversion['finished_at']) > time() - 30 * 86400)) {
+            $zoneFailed = array_column(array_filter($zoneConversion['tables'], fn (array $r): bool => (string) $r['error'] !== ''), 'table_name');
+            $zoneOutside = array_sum(array_map(fn (array $r): int => (int) $r['out_of_range'], $zoneConversion['tables']));
+            $zoneSlow = $zoneConversion['finished_at'] === null && strtotime((string) $zoneConversion['started_at']) < time() - 3600;
+            if ($zoneConversion['finished_at'] === null || $zoneFailed !== [] || $zoneOutside > 0) {
+                $add(t('Operation'), t('Time zone conversion'), $zoneSlow || $zoneFailed !== [] || $zoneOutside > 0 ? 'varovani' : 'ok',
+                    ($zoneConversion['finished_at'] === null ? t('saved dates are being converted from %s to %s by the background tasks', (string) $zoneConversion['from_zone'], (string) $zoneConversion['to_zone'])
+                        : t('saved dates were converted from %s to %s', (string) $zoneConversion['from_zone'], (string) $zoneConversion['to_zone']))
+                    . ($zoneFailed !== [] ? ' – ' . t('not converted (an error, see the change log): %s', implode(', ', $zoneFailed)) : '')
+                    . ($zoneOutside > 0 ? ' – ' . t('%d values left as they were: they would leave the years 1000–9999', $zoneOutside) : ''));
+            }
+        }
         $given = (int) $db->value('SELECT COUNT(*) FROM {webhook_deliveries} WHERE delivered IS NULL AND next_attempt IS NULL AND created > ?', [Clock::at('-7 days')]);
         if ($given > 0 || $siteSettings->get('webhook_url') !== '' || $siteSettings->get('webhook_enquiries') !== '') {
             $add(t('Operation'), t('Webhooks'), $given === 0 ? 'ok' : 'varovani', $given === 0 ? t('all calls of the last 7 days delivered') : t('%d call(s) of the last 7 days not delivered – see Settings → Webhooks', $given));

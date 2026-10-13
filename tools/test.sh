@@ -5860,19 +5860,43 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&a
 expect "3.12: “Keep their clock time” changes the zone and no saved date" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'time_zone'")|$(sq "SELECT CONCAT(idc, '|', datum) FROM ka_novinky WHERE idc = ${NEWS310%%|*}")|$(sq "SELECT COUNT(*) FROM ka_time_zone_conversions")" "Europe/London|$NEWS310|0"
 sq "UPDATE ka_nastaveni SET hodnota = 'Europe/Prague' WHERE promenna = 'time_zone'" > /dev/null
 check "3.12: the confirmation again (Prague → London)" 200 "/admin.php?module=settings&action=time_zone&zone=Europe/London" 'Převést uložená data'
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=time_zone" --data-urlencode "_csrf=$(csrf)" -d zone=Europe/London -d choice=convert
+# 3.12.1 (N312-2): a "never" date and the first possible one – whichever leaves the DATETIME range is left and counted
+sq "INSERT INTO ka_protokol (cas, modul, akce, popis) VALUES ('9999-12-31 23:30:00', 'tz312', 'never', ''), ('1000-01-01 00:30:00', 'tz312', 'first', '')" > /dev/null
+# 3.12.1 (N312-1): three confirmations at once (a double click, a second tab, a retry) convert once
+TZ_CSRF=$(csrf)
+TZ_PIDS=(); for i in 1 2 3; do curl -s -b "$JAR" -o /dev/null -w '%{http_code}\n' -X POST "$B/admin.php?module=settings&action=time_zone" --data-urlencode "_csrf=$TZ_CSRF" -d zone=Europe/London -d choice=convert > "$WORK/tz312-$i" & TZ_PIDS+=($!); done; wait "${TZ_PIDS[@]}" # only these: the servers are background jobs too
 NEWS312_LONDON=$(php -r 'echo (new DateTimeImmutable($argv[1], new DateTimeZone("Europe/Prague")))->setTimezone(new DateTimeZone("Europe/London"))->format("Y-m-d H:i:s");' -- "${NEWS310#*|}")
-expect "3.12: “Convert saved dates” moves the news date by the offset and keeps the day off at 09:00; the conversion finished and is in the change log" \
-  "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'time_zone'")|$(sq "SELECT datum FROM ka_novinky WHERE idc = ${NEWS310%%|*}")|$(sq "SELECT off_from FROM ka_booking_off WHERE note = 'tz312'")|$(sq "SELECT CONCAT(from_zone, '>', to_zone, ':', finished_at IS NOT NULL, ':', (SELECT COUNT(*) FROM ka_time_zone_progress p WHERE p.conversion_id = c.id AND p.finished_at IS NULL)) FROM ka_time_zone_conversions c")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'settings' AND akce IN ('time_zone', 'time_zone_converted') AND popis LIKE 'Europe/Prague → Europe/London: %'")" \
-  "Europe/London|$NEWS312_LONDON|2030-07-01 09:00:00|Europe/Prague>Europe/London:1:0|3"
-check "3.12: General shows the finished conversion" 200 "/admin.php?module=settings&tab=general" 'Uložená data jsou převedená z Europe/Prague na Europe/London'
-# idempotent and resumable: a finished conversion never runs again; a new one stopped before its first batch continues later
+expect "3.12.1: three parallel “Convert saved dates” answer without an error and move the news date by the offset once; the day off stays at 09:00; one conversion, in the change log" \
+  "$(cat "$WORK"/tz312-* | sort -u | tr '\n' ' ')|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'time_zone'")|$(sq "SELECT datum FROM ka_novinky WHERE idc = ${NEWS310%%|*}")|$(sq "SELECT off_from FROM ka_booking_off WHERE note = 'tz312'")|$(sq "SELECT CONCAT(COUNT(*), ':', GROUP_CONCAT(CONCAT(from_zone, '>', to_zone, ':', finished_at IS NOT NULL))) FROM ka_time_zone_conversions c")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'settings' AND akce IN ('time_zone', 'time_zone_converted') AND popis LIKE 'Europe/Prague → Europe/London: %'")" \
+  "302 |Europe/London|$NEWS312_LONDON|2030-07-01 09:00:00|1:Europe/Prague>Europe/London:1|3"
+expect "3.12.1: the date that would fall before the year 1000 stays and is counted; the “never” date moves inside the range" \
+  "$(sq "SELECT GROUP_CONCAT(cas ORDER BY akce) FROM ka_protokol WHERE modul = 'tz312'")|$(sq "SELECT SUM(out_of_range) FROM ka_time_zone_progress")" "1000-01-01 00:30:00,9999-12-31 22:30:00|1"
+check "3.12: General shows the finished conversion and the value left as it was" 200 "/admin.php?module=settings&tab=general" 'Uložená data jsou převedená z Europe/Prague na Europe/London'
+contains -q '1 hodnot zůstalo, jak byly' "$WORK/response" && echo "  ok     3.12.1: … with the value left as it was" || { echo "  CHYBA  3.12.1: General does not show the value left as it was"; ERRORS=$((ERRORS+1)); }
+check "3.12.1: System status warns about the value left as it was" 200 "/admin.php?module=status" 'Převod časového pásma'
+# idempotent: a finished conversion never runs again
 expect "3.12: the background job finds nothing to convert again" "$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $db = Kaleta\Core\App::boot()->db(); var_export(Kaleta\Core\TimeZoneConversion::run($db, 5.0));')|$(sq "SELECT datum FROM ka_novinky WHERE idc = ${NEWS310%%|*}")" "NULL|$NEWS312_LONDON"
-expect "3.12: a conversion back (London → Prague) stopped at once and resumed later restores the dates" "$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); $db = $app->db();
-    Kaleta\Core\TimeZoneConversion::start($db, "Europe/London", "Europe/Prague", null); $first = Kaleta\Core\TimeZoneConversion::run($db, 0.0); $second = Kaleta\Core\TimeZoneConversion::run($db, 20.0);
-    echo $first["done"] ? "done" : "stopped", ":", $second["done"] && $second["finished_now"] ? "done" : "open";')|$(sq "SELECT CONCAT(idc, '|', datum) FROM ka_novinky WHERE idc = ${NEWS310%%|*}")|$(sq "SELECT off_from FROM ka_booking_off WHERE note = 'tz312'")" \
-  "stopped:done|$NEWS310|2030-07-01 09:00:00"
-sq "UPDATE ka_nastaveni SET hodnota = 'Europe/Prague' WHERE promenna = 'time_zone'; DELETE FROM ka_booking_off WHERE note = 'tz312'" > /dev/null
+# N312-1 at the database: two processes start the way back (London → Prague) at the same moment – one starts, one is refused.
+# N312-7: in batches (nothing at once but the busy tables), a row written after the start is on the new clock and stays;
+# the conversion stopped before its first batch resumes later; a "never" date moved east is left and counted
+sq "INSERT INTO ka_protokol (cas, modul, akce, popis) VALUES ('9999-12-31 23:30:00', 'tz312', 'never2', '')" > /dev/null
+TZ_BEGIN='require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); echo var_export(Kaleta\Core\TimeZoneConversion::begin($app->db(), $app->settings(), "Europe/London", "Europe/Prague", true, null, 0) !== null, true), "\n";'
+(cd "$WORK/web" && php -r "$TZ_BEGIN" > "$WORK/tzb1") & TZ_PIDS=($!); (cd "$WORK/web" && php -r "$TZ_BEGIN" > "$WORK/tzb2") & TZ_PIDS+=($!); wait "${TZ_PIDS[@]}"
+sq "INSERT INTO ka_protokol (cas, modul, akce, popis) VALUES ('2031-01-01 10:00:00', 'tz312', 'after', '')" > /dev/null
+expect "3.12.1: two parallel starts – exactly one conversion, the zone switched once" "$(cat "$WORK/tzb1" "$WORK/tzb2" | sort | tr '\n' ' ')|$(sq "SELECT COUNT(*) FROM ka_time_zone_conversions WHERE from_zone = 'Europe/London'")|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'time_zone'")" "false true |1|Europe/Prague"
+expect "3.12.1: the way back stopped before its first batch resumes, restores the dates once, keeps the row written after the start and the day off" "$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $db = Kaleta\Core\App::boot()->db();
+    $first = Kaleta\Core\TimeZoneConversion::run($db, 0.0); $second = Kaleta\Core\TimeZoneConversion::run($db, 20.0);
+    echo $first["done"] ? "done" : "stopped", ":", $second["done"] && $second["finished_now"] ? "done" : "open", ":", $second["out_of_range"], ":", implode(",", $second["failed"]);')|$(sq "SELECT CONCAT(idc, '|', datum) FROM ka_novinky WHERE idc = ${NEWS310%%|*}")|$(sq "SELECT off_from FROM ka_booking_off WHERE note = 'tz312'")|$(sq "SELECT GROUP_CONCAT(CONCAT(akce, '=', cas) ORDER BY akce) FROM ka_protokol WHERE modul = 'tz312' AND akce IN ('after', 'never', 'never2')")" \
+  "stopped:done:1:|$NEWS310|2030-07-01 09:00:00|after=2031-01-01 10:00:00,never=9999-12-31 23:30:00,never2=9999-12-31 23:30:00"
+# N312-2: a table that cannot be converted is skipped with its error – the conversion finishes, the other jobs are not held
+sq "INSERT INTO ka_time_zone_conversions (from_zone, to_zone, started_at) VALUES ('Europe/Prague', 'Europe/Prague', NOW()); INSERT INTO ka_time_zone_progress (conversion_id, table_name) VALUES (LAST_INSERT_ID(), 'missing_312')" > /dev/null
+sq "UPDATE ka_jobs SET last_run = '2000-01-01 00:00:00' WHERE name IN ('time_zone', 'notifications')" > /dev/null
+curl -s -o /dev/null "$B/tasks?token=testtoken123"
+expect "3.12.1: a failing table is skipped and reported, the conversion ends, the next jobs run" \
+  "$(sq "SELECT COUNT(*) FROM ka_time_zone_conversions WHERE finished_at IS NULL")|$(sq "SELECT error <> '' FROM ka_time_zone_progress WHERE table_name = 'missing_312'")|$(sq "SELECT CONCAT(last_error = '', ':', last_run > '2000-01-01') FROM ka_jobs WHERE name = 'time_zone'")|$(sq "SELECT last_run > '2000-01-01' FROM ka_jobs WHERE name = 'notifications'")" \
+  "0|1|1:1|1"
+check "3.12.1: System status names the table not converted" 200 "/admin.php?module=status" 'missing_312'
+sq "UPDATE ka_nastaveni SET hodnota = 'Europe/Prague' WHERE promenna = 'time_zone'; DELETE FROM ka_booking_off WHERE note = 'tz312'; DELETE FROM ka_protokol WHERE modul = 'tz312'; DELETE FROM ka_time_zone_conversions" > /dev/null
 # §1.2: names sort in the alphabet of the site language – "chata" after "hrad" on a Czech site, before it in English and
 # German; the server is asked which collations it has (a Czech site sends the same SQL as before)
 sq "INSERT INTO ka_stitky (nazev, seo_link) VALUES ('Chata 312', 'chata-312'), ('Hrad 312', 'hrad-312'), ('Cesta 312', 'cesta-312'), ('Čaj 312', 'caj-312')" > /dev/null
