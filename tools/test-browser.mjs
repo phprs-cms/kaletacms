@@ -219,7 +219,9 @@ await step('3.12 UX310-18: the Form inspector – a row per field, a contact for
   await page.keyboard.type('Your name');
   if (!/^Your name · /.test((await rows.first().locator('summary').textContent()).trim())) { throw new Error('the row does not follow the label'); }
   if (await rows.first().locator('.st-podminka').count()) { throw new Error('the condition opened by itself'); }
-  // the condition is still there: "Add a condition" by keyboard moves the focus into it
+  // the condition is still there: "Add a condition" by keyboard moves the focus into it – after the autosave of the label
+  // has come back (on a slow runner its redraw of the canvas and the panel could land between the key and the check)
+  await page.waitForTimeout(2500);
   await rows.first().locator('button.st-pridat-podminku').focus();
   await page.keyboard.press('Enter');
   // a slow runner may redraw the panel once more (a check coming back from the server) – the focus must survive it
