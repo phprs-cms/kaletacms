@@ -88,8 +88,8 @@ function kaleta_prompt_contract(): array
     foreach (Kaleta\Mcp\Prompts::listAll() as $prompt) {
         $prompts[$prompt['name']] = array_column($prompt['arguments'], 'required', 'name');
     }
-    foreach (Kaleta\Mcp\Prompts::ALIASES as $alias => $name) {
-        $prompts[$alias] = $prompts[$name] ?? [];
+    foreach (Kaleta\Mcp\Prompts::HIDDEN as $name => $prompt) {
+        $prompts[$name] = array_map(fn (array $arg): bool => $arg[1], $prompt['arguments']);
     }
     ksort($prompts);
 

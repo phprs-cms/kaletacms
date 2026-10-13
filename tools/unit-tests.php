@@ -5711,7 +5711,7 @@ check('3.8 plugin: tools/build-plugin.php zips the manifest, .mcp.json, the READ
 // Every prompt has a title and a description; every argument it declares is used and every {placeholder} is declared;
 // every snake_case word of its text is a tool, a parameter, a setting, a prompt or one of its terms (so a renamed or
 // invented tool name fails here); and every tool it names that an essentials connection does not list has its runner
-// in the closing section. Earlier names stay callable (Prompts::ALIASES) without being listed.
+// in the closing section. Earlier prompts stay callable (Prompts::HIDDEN) without being listed.
 $promptProblems = [];
 foreach (Kaleta\Mcp\Prompts::listAll() as $prompt) {
     $name = $prompt['name'];
@@ -5764,8 +5764,9 @@ foreach (Kaleta\Mcp\Prompts::listAll() as $prompt) {
 check('3.13 prompts: titles, descriptions, arguments declared and used, only real tools, parameters and settings, the runner of every non-essential tool', $promptProblems, []);
 $weeklyCare = Kaleta\Mcp\Prompts::get('weekly_care', [])['messages'][0]['content']['text'];
 check('3.13 prompts: the runbooks carry what 3.9–3.12 shipped, the earlier name weekly_review still works (not listed), arguments fill in', [
-    Kaleta\Mcp\Prompts::get('weekly_review', [])['messages'][0]['content']['text'] === $weeklyCare, in_array('weekly_review', Kaleta\Mcp\Prompts::names(), true),
-    array_values(array_filter(array_keys(Kaleta\Mcp\Prompts::ALIASES), fn (string $a): bool => in_array($a, Kaleta\Mcp\Prompts::names(), true))),
+    // N313-1: weekly_review stays a read-only report (a routine built on it gains no write steps), not listed
+    str_contains(Kaleta\Mcp\Prompts::get('weekly_review', [])['messages'][0]['content']['text'], 'do not change anything') && Kaleta\Mcp\Prompts::get('weekly_review', [])['messages'][0]['content']['text'] !== $weeklyCare, in_array('weekly_review', Kaleta\Mcp\Prompts::names(), true),
+    array_values(array_filter(array_keys(Kaleta\Mcp\Prompts::HIDDEN), fn (string $a): bool => in_array($a, Kaleta\Mcp\Prompts::names(), true))),
     (bool) preg_match('/add_languages.*WooCommerce.*product catalogue.*Publish the menus.*410.*migration_report/s', Kaleta\Mcp\Prompts::get('migrate_site', ['old_url' => 'https://old.example'])['messages'][0]['content']['text']),
     str_contains(Kaleta\Mcp\Prompts::get('migrate_site', ['old_url' => 'https://old.example', 'platform' => 'WordPress'])['messages'][0]['content']['text'], 'https://old.example (WordPress) to this Kaleta site'),
     (bool) preg_match('/language version ar to this site.*right-to-left.*Latin.*translation_of.*hreflang/s', Kaleta\Mcp\Prompts::get('add_language_version', ['language' => 'ar'])['messages'][0]['content']['text']),
@@ -6206,5 +6207,9 @@ check('3.12.1 N312-2: a value that would leave the DATETIME range is left as it 
     Kaleta\Core\TimeZoneConversion::convert('9999-12-31 23:30:00', $prague312, $london312), Kaleta\Core\TimeZoneConversion::convert('1000-01-01 05:00:00', $prague312, $london312)],
     [[null, false, true], [null, false, true], ['9999-12-31 22:30:00', false, false], ['1000-01-01 04:01:01', false, false]]); // the year 1000 runs on local mean time in the zone database
 check('3.12 §6: the background job that converts saved dates runs first (the others wait for it)', array_key_first(Kaleta\Core\Scheduler::JOBS), 'time_zone');
+/* ---------- 3.13: the release audit (N313) ---------- */
+$tooLong313 = '';
+try { Kaleta\Mcp\Prompts::get('migrate_site', ['old_url' => str_repeat('a', Kaleta\Mcp\Prompts::MAX_ARGUMENT + 1)]); } catch (InvalidArgumentException $e) { $tooLong313 = $e->getMessage(); }
+check('3.13 N313-3: a prompt argument longer than MAX_ARGUMENT is refused', str_contains($tooLong313, 'at most'), true);
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

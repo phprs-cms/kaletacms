@@ -2534,6 +2534,9 @@ OLD_PROMPTS=$(for name in weekly_review audit_and_fix review_pending work_reques
   curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"prompts/get\",\"params\":{\"name\":\"$name\"}}" | grep -c '"messages"'; done | tr -d '\n')
 contains -q 'old.example (WordPress) to this Kaleta site' "$WORK/response" && [ "$OLD_PROMPTS" = "111111" ] \
   && echo "  ok     3.13: migrate_site fills in the old address, and the earlier prompt names (weekly_review too) still answer" || { echo "  CHYBA  3.13: earlier prompt names: $OLD_PROMPTS"; ERRORS=$((ERRORS+1)); }
+# 3.13 (N313-4): an array where a name belongs is a JSON-RPC answer, not an error page
+N313_CODE=$(curl -s -o "$WORK/response" -w '%{http_code}' -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":["x"]}}')
+[ "$N313_CODE" = 200 ] && contains -q '"jsonrpc":"2.0"' "$WORK/response" && echo "  ok     3.13 N313-4: an array as the tool name gets a JSON-RPC answer, not a 500" || { echo "  CHYBA  3.13 N313-4: HTTP $N313_CODE"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"prompts/get","params":{"name":"no_such_prompt"}}' > "$WORK/response"
 contains -q '"code":-32602' "$WORK/response" && echo "  ok     3.13: an unknown prompt is a JSON-RPC error" || { echo "  CHYBA  3.13: unknown prompt"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"resources/read","params":{"uri":"kaleta://nope"}}' > "$WORK/response"

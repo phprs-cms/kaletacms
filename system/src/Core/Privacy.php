@@ -104,12 +104,13 @@ final class Privacy
                 $rows[] = ['name' => $name, 'provider' => self::KNOWN[$key][0], 'purpose' => t($purpose), 'duration' => t($duration), 'category' => $category];
             }
         }
-        $known = array_map(fn (array $r): string => strtolower(rtrim($r['name'], '*')), $rows);
+        // a name matches exactly, a name ending in * as a prefix (_ga_*) – "kaleta" must not explain "kaleta_tracker" (3.13, N313-2)
+        $known = array_map(fn (array $r): string => strtolower($r['name']), $rows);
         foreach ((self::lastScan($s)['cookies'] ?? []) as $name) {
             $name = (string) $name;
             $explained = false;
-            foreach ($known as $prefix) {
-                $explained = $explained || str_starts_with(strtolower($name), $prefix);
+            foreach ($known as $pattern) {
+                $explained = $explained || (str_ends_with($pattern, '*') ? str_starts_with(strtolower($name), rtrim($pattern, '*')) : strtolower($name) === $pattern);
             }
             if (!$explained) {
                 $rows[] = ['name' => $name, 'provider' => t('this site'), 'purpose' => t('Set by the server – describe its purpose'), 'duration' => t('see the browser'), 'category' => 'necessary'];

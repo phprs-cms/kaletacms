@@ -721,8 +721,18 @@ final class Prompts
                 MD],
     ];
 
-    /** Earlier names clients may still call (prompts/get), not listed => the prompt that now holds the task. */
-    public const array ALIASES = ['weekly_review' => 'weekly_care'];
+    /**
+     * Earlier prompts clients may still call (prompts/get), not listed. weekly_review stays the read-only report it was
+     * (3.13, N313-1): a routine built on it must not gain write steps – weekly_care is the runbook that also fixes.
+     */
+    public const array HIDDEN = [
+        'weekly_review' => ['title' => 'Weekly review', 'description' => 'What happened on the site this week, and what to do next – a read-only report (weekly_care also fixes what is safe).',
+            'arguments' => [], 'terms' => [],
+            'text' => 'Give me a short weekly review of the site: what changed in the last 7 days and who changed it (list_changes with since), how many new enquiries arrived (list_enquiries), which addresses ended in 404 (list_redirects) and what the site audit finds (site_audit). End with the three things you would do next, and do not change anything – this is a report only.'],
+    ];
+
+    /** The longest argument value a prompt takes (3.13, N313-3) – an address, a language, a short topic. */
+    public const int MAX_ARGUMENT = 500;
 
     /** The Claude plugin's skills (integrations/claude-plugin/skills/<folder>/SKILL.md, generated) => their prompt and when Claude uses them. */
     public const array SKILLS = [
@@ -745,7 +755,7 @@ final class Prompts
     /** @return list<string> the snake_case words a prompt's text uses that are no tool, parameter or setting */
     public static function terms(string $name): array
     {
-        return self::PROMPTS[self::ALIASES[$name] ?? $name]['terms'] ?? [];
+        return (self::PROMPTS[$name] ?? self::HIDDEN[$name] ?? [])['terms'] ?? [];
     }
 
     /** @return list<array<string, mixed>> for prompts/list */
@@ -762,12 +772,15 @@ final class Prompts
      */
     public static function get(string $name, array $arguments): array
     {
-        $p = self::PROMPTS[self::ALIASES[$name] ?? $name] ?? throw new \InvalidArgumentException('Unknown prompt: ' . $name);
+        $p = self::PROMPTS[$name] ?? self::HIDDEN[$name] ?? throw new \InvalidArgumentException('Unknown prompt: ' . $name);
         $values = [];
         foreach ($p['arguments'] as $arg => [, $required]) {
             $value = trim((string) (is_scalar($arguments[$arg] ?? null) ? $arguments[$arg] : ''));
             if ($required && $value === '') {
                 throw new \InvalidArgumentException('The prompt ' . $name . ' needs the argument ' . $arg . '.');
+            }
+            if (mb_strlen($value) > self::MAX_ARGUMENT) {
+                throw new \InvalidArgumentException('The argument ' . $arg . ' of the prompt ' . $name . ' has at most ' . self::MAX_ARGUMENT . ' characters.');
             }
             $values[$arg] = $value;
         }
