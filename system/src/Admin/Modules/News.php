@@ -750,12 +750,14 @@ final class News extends Module
     /** Tags written with commas (at most 20); unknown ones are created in the news item's language version (3.14) – admin and MCP. */
     public static function tags(\Kaleta\Core\Db $db, int $idc, string $input): void
     {
-        $db->delete('novinky_stitky', ['idc' => $idc]);
         $language = (string) $db->value('SELECT jazyk FROM {novinky} WHERE idc = ?', [$idc]);
         $names = array_unique(array_filter(array_map(fn (string $n): string => mb_substr(trim($n), 0, 80), explode(',', $input))));
-        foreach (array_slice($names, 0, 20) as $name) {
-            [$ids] = Tags::findOrCreate($db, $name, $language);
-            $db->run('INSERT IGNORE INTO {novinky_stitky} (idc, ids) VALUES (?, ?)', [$idc, $ids]);
+        // the tags are looked up while the item still has its old ones (N314-4: a tag from before 3.14 that tags this item
+        // stays its tag), only then are the links replaced
+        $ids = array_map(fn (string $name): int => Tags::findOrCreate($db, $name, $language)[0], array_slice($names, 0, 20));
+        $db->delete('novinky_stitky', ['idc' => $idc]);
+        foreach ($ids as $id) {
+            $db->run('INSERT IGNORE INTO {novinky_stitky} (idc, ids) VALUES (?, ?)', [$idc, $id]);
         }
     }
 

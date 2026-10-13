@@ -295,7 +295,7 @@ final class Readiness
             // one match at a time, at most SCAN_MAX_MATCHES (N314-3) – never every match of a large file at once
             while ($found['placeholders'] + $found['tables'] < self::SCAN_MAX_MATCHES && preg_match($regex, $text, $m, PREG_OFFSET_CAPTURE, $offset) === 1) {
                 $offset = $m[0][1] + max(1, strlen($m[0][0]));
-                $placeholder = ($m[1][0] ?? '') !== '' && ($m[1][1] ?? -1) >= 0;
+                $placeholder = ($m[1][0] ?? '') !== ''; // a placeholder match always fills group 1, a table name never does
                 $found[$placeholder ? 'placeholders' : 'tables']++;
                 if (count($found['names']) < 5) {
                     $found['names'][$placeholder ? '{' . $m[1][0] . '}' : $prefix . $m[2][0]] = true;
