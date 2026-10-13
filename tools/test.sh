@@ -6388,6 +6388,9 @@ sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_attempt'" > /d
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('update_url','http://127.0.0.1:$CHANNEL_PORT/ok.json') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=update" -d "_csrf=$TOKEN" -d verze=9.9.8
 [ ! -f "$WORK/web/image/test-aktualizace.txt" ] && echo "  ok     3.3.2: an update offering another version than the one shown is not installed" || { echo "  CHYBA  installed a version the administrator did not choose"; ERRORS=$((ERRORS+1)); }
+# 3.14: … and the screen then shows the version the source offers, so the next click installs it (kaletacms.com kept
+# offering 3.12.1 for 12 hours while the source had 3.13.1, and every click failed the same way)
+expect "3.14: after a refused update the screen shows the version the source offers now" "$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '\$.manifest.verze')) FROM ka_nastaveni WHERE promenna = 'update_cache'")" "9.9.9"
 # the automatic installation decided on a manifest that called 9.9.9 a security release; when installing, the source answers
 # with the genuine regular release (signed without the flag) – nothing may be installed
 cat > "$WORK/kanal/flip.php" <<'PHP'
