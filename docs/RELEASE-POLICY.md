@@ -51,6 +51,9 @@ any of them is removed or changed outside a deprecation:
 
 - **The Claude connection (MCP):** tool names, their parameters and parameter types, which parameters are required, and
   each tool's annotations (read, write, destructive). The hidden Czech tool names of older connections keep working too.
+  The ready-made tasks (MCP prompts, since 3.13 in the contract): every name, earlier ones included, and its arguments –
+  none removed, none made required.
+- **The extension API** for add-ons ([`docs/EXTENSIONS.md`](EXTENSIONS.md)): its version, public methods and filters.
 - **Design tokens** – both the stored names (`--ka-barva-primarni`) and the English ones (`--ka-color-primary`) – so
   custom CSS in shared classes keeps working.
 - **Builder elements** and their content properties, so every saved page keeps rendering.
@@ -62,8 +65,9 @@ any of them is removed or changed outside a deprecation:
 
 ## What is not a contract
 
-- PHP classes, functions and database tables. Kaleta has no plug-in API; build on the export, the Claude connection,
-  webhooks and feeds instead.
+- PHP classes, functions and database tables outside the extension API. Add-ons build on the versioned extension API
+  (since 3.0, `docs/EXTENSIONS.md`, recorded in `tools/contracts/extension-api.json`); everything else builds on the export,
+  the Claude connection, webhooks and feeds.
 - The HTML of the admin and the exact HTML of public pages (the look is yours through the design system and classes; the
   markup around it may improve).
 - The wording of texts, and anything marked as experimental in its release notes.

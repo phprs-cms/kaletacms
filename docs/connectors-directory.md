@@ -130,8 +130,16 @@ By feature: 109 core tools, 11 News, 7 Enquiries, 2 Redirects, 5 Newsletter, 2 F
   `import_website`, `migration_report`, `import_wordpress`, `save_collection_items` with media URLs) and e-mails to people
   outside the site's users (`send_newsletter`, `request_testimonial`, `confirm_booking`, `decline_booking`,
   `cancel_booking`, `propose_booking_times`) – `Mcp\Catalog::OPEN_WORLD`.
-- Prompts (`build_page` and others) and resources (the site owner's instructions, an overview) are offered too; the
-  portal syncs them with the tools.
+- Prompts and resources (the site owner's instructions, an overview) are offered too; the portal syncs them with the
+  tools. **The prompts are Kaleta's skills** (owner decision of 13 October 2026): Kaleta runs on many domains of many
+  owners, so everything a user needs comes with the connection itself rather than with a plugin from a directory. Each
+  prompt is a complete runbook in English that names the tools and, for an essentials connection, their runners:
+  `migrate_site` (WordPress with WooCommerce, Polylang or WPML, or any platform), `launch_site`, `add_language_version`,
+  `weekly_care`, `newsletter_release`, `set_up_bookings`, `compliance_check`, and the shorter `build_page`,
+  `translate_page`, `write_news`, `audit_and_fix`, `work_requests`, `review_pending`, `scheduled_run` and
+  `draft_blueprint` (3.13; `weekly_review` still answers as an alias). Their names and arguments are part of the
+  contract (`tools/contracts/mcp-prompts.json`). The optional Claude plugin's five skills are generated from them
+  (`php tools/build-plugin.php --skills`).
 - tools/list with every feature on is about 152 KB (155,375 bytes in 3.9.2; 144,985 before the titles). The descriptions
   are long on purpose (the builder's data model).
 
@@ -257,6 +265,8 @@ Done in the code (3.8):
 - [x] Draft registry entry `docs/server.json`.
 - [x] 3.10: tool sets – essentials (about 49 KB) with `find_tools` and three runners, or all tools; chosen
       at consent and in My account.
+- [x] 3.9: OAuth refresh tokens live one year, renewed with every use (owner decision of 9 October 2026).
+- [x] 3.13: the prompts are complete runbooks (the "skills" of every connection) and part of the contract.
 
 For the owner:
 
@@ -265,7 +275,6 @@ For the owner:
 - [ ] Set up the review site (section 6): install, privacy, content, reviewer account, snapshot, nightly cron.
 - [ ] Add the review site as a custom connector in Claude and call every tool once (the portal asks you to confirm
       this; MCP Inspector works too).
-- [ ] Decide the OAuth refresh token lifetime (30 days sliding today, one year like personal tokens?).
 - [ ] Submit in the portal (paid Claude plan): Connection (URL pattern), Tools (synced), Listing, Use cases, Company,
       Authentication (DCR), Data handling, Test & launch (review site and reviewer credentials), Compliance.
 - [ ] MCP registry (optional): prove the namespace – `com.kaletacms/*` needs a DNS TXT record or

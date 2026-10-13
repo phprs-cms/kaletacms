@@ -401,7 +401,8 @@ try {
 }
 check('2.2: MCP prompts and resources', [str_starts_with($promptText, 'Build a new page about kitchens for families.'), str_contains(Kaleta\Mcp\Prompts::get('build_page', ['topic' => 'x'])['messages'][0]['content']['text'], 'about x. First'),
     $promptError, array_column(Kaleta\Mcp\Prompts::listAll(), 'name'), array_column(Kaleta\Mcp\Prompts::resources(), 'uri')],
-    [true, true, 'The prompt translate_page needs the argument language.', ['build_page', 'audit_and_fix', 'translate_page', 'write_news', 'migrate_site', 'weekly_review', 'work_requests', 'scheduled_run', 'review_pending', 'draft_blueprint'], ['kaleta://instructions', 'kaleta://overview']]);
+    [true, true, 'The prompt translate_page needs the argument language.', ['build_page', 'audit_and_fix', 'translate_page', 'write_news', 'migrate_site', 'launch_site', 'weekly_care', 'work_requests', 'scheduled_run', 'review_pending', 'draft_blueprint',
+        'set_up_bookings', 'compliance_check', 'add_language_version', 'newsletter_release'], ['kaleta://instructions', 'kaleta://overview']]);
 // 2.8: when a job is due, and when an update counts as broken (only with a clear sign – never just because the site cannot reach itself)
 check('2.8: Scheduler::isDue', [Kaleta\Core\Scheduler::isDue(null, 300, 1000), Kaleta\Core\Scheduler::isDue(900, 0, 1000), Kaleta\Core\Scheduler::isDue(800, 300, 1000),
     Kaleta\Core\Scheduler::isDue(700, 300, 1000), Kaleta\Core\Scheduler::isDue(1000 - 86400 + 60, 86400, 1000)], [true, true, false, true, false]);
@@ -4018,7 +4019,9 @@ check('3.1 AskClaude::examples – only those whose section the person may open,
 // every tool a drafts routine is told to use is allowed for drafts-only connections, unless its sentence says it needs
 // full access or is conditional ("when this connection may"); the texts: the work_requests and scheduled_run prompts,
 // the tasks of scheduled runs, and the next step list_requests hands out
-$draftTexts = ['work_requests' => Kaleta\Mcp\Prompts::get('work_requests', [])['messages'][0]['content']['text'], 'scheduled_run' => Kaleta\Mcp\Prompts::get('scheduled_run', [])['messages'][0]['content']['text']]
+// (3.13: without the closing list of runners – an index of where the tools are, not an instruction to use them)
+$draftPrompt = fn (string $name): string => explode(Kaleta\Mcp\Prompts::RUNNERS_HEADING, Kaleta\Mcp\Prompts::get($name, [])['messages'][0]['content']['text'])[0];
+$draftTexts = ['work_requests' => $draftPrompt('work_requests'), 'scheduled_run' => $draftPrompt('scheduled_run')]
     + array_map(fn (array $task): string => $task[1], Kaleta\Core\AgentSchedules::TASKS)
     + ['next of list_requests' => (string) (preg_match("/'next' => '([^']+)'/", (string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/RequestTools.php'), $nextMatch) ? $nextMatch[1] : '')];
 $draftGaps = [];
@@ -5627,13 +5630,21 @@ foreach ($pluginSkills as $skillFile) {
     }
     foreach ($words as $word) {
         // 3.10: the meta tools find_tools and the runners reach the rest from an essentials connection – known words, not site tools
-        if (!isset(Kaleta\Mcp\Catalog::TOOLS[$word]) && !isset(Kaleta\Mcp\Catalog::META[$word]) && !isset($pluginParameters[$word]) && !$pluginIsSetting($word) && !in_array($word, $terms, true)) {
+        // 3.13: and the prompts' names – a runbook points to another one ("the prompt add_language_version")
+        if (!isset(Kaleta\Mcp\Catalog::TOOLS[$word]) && !isset(Kaleta\Mcp\Catalog::META[$word]) && !isset($pluginParameters[$word]) && !$pluginIsSetting($word) && !in_array($word, $terms, true)
+            && !in_array($word, Kaleta\Mcp\Prompts::names(), true)) {
             $pluginProblems[] = "{$skill}: {$word} is no tool, parameter or setting of the Kaleta connection (a typo, or mark it in kaleta-terms)";
         }
     }
 }
 check('3.8 plugin: the five skills are there', array_map(fn (string $f): string => basename(dirname($f)), $pluginSkills),
     ['compliance-check', 'launch-site', 'migrate-from-wordpress', 'set-up-bookings', 'weekly-care']);
+// 3.13: the skills are generated from the connection's prompts – the files in the repository are exactly what
+// tools/build-plugin.php writes (php tools/build-plugin.php --skills after a prompt changes), one per Prompts::SKILLS
+check('3.13 plugin: every SKILL.md is generated from its prompt and up to date (php tools/build-plugin.php --skills)', [
+    array_values(array_filter(array_keys(Kaleta\Mcp\Prompts::SKILLS), fn (string $folder): bool => (string) @file_get_contents($pluginRoot . '/skills/' . $folder . '/SKILL.md') !== Kaleta\Mcp\Prompts::skill($folder))),
+    array_map(fn (string $f): string => basename(dirname($f)), $pluginSkills) === (function (): array { $k = array_keys(Kaleta\Mcp\Prompts::SKILLS); sort($k); return $k; })(),
+    array_values(array_diff(array_column(Kaleta\Mcp\Prompts::SKILLS, 0), Kaleta\Mcp\Prompts::names()))], [[], true, []]);
 check('3.8 plugin: every SKILL.md is valid and names only tools, parameters and settings the Kaleta connection has', $pluginProblems, []);
 check('3.8 plugin: the frontmatter check refuses an invented tool, an unlisted tool and an unquoted colon', (function () use ($pluginFrontmatter): array {
     [$fields, $metadata, $body, $problems] = $pluginFrontmatter("---\nname: x\ndescription: Do this: then that\nmetadata:\n  kaleta-tools: \"site_info\"\n---\nCall `site_info`, then `list_pagez`.\n");
@@ -5671,6 +5682,75 @@ sort($pluginEntries);
 check('3.8 plugin: tools/build-plugin.php zips the manifest, .mcp.json, the README and the five skills under kaleta/', [str_starts_with($pluginBuild, 'Done: '), $pluginEntries],
     [true, ['kaleta/.claude-plugin/plugin.json', 'kaleta/.mcp.json', 'kaleta/README.md', 'kaleta/skills/compliance-check/SKILL.md', 'kaleta/skills/launch-site/SKILL.md',
         'kaleta/skills/migrate-from-wordpress/SKILL.md', 'kaleta/skills/set-up-bookings/SKILL.md', 'kaleta/skills/weekly-care/SKILL.md']]);
+/* ---------- 3.13: the connection's prompts are Kaleta's skills ---------- */
+// Every prompt has a title and a description; every argument it declares is used and every {placeholder} is declared;
+// every snake_case word of its text is a tool, a parameter, a setting, a prompt or one of its terms (so a renamed or
+// invented tool name fails here); and every tool it names that an essentials connection does not list has its runner
+// in the closing section. Earlier names stay callable (Prompts::ALIASES) without being listed.
+$promptProblems = [];
+foreach (Kaleta\Mcp\Prompts::listAll() as $prompt) {
+    $name = $prompt['name'];
+    if (trim($prompt['title']) === '' || trim($prompt['description']) === '' || mb_strlen($prompt['description']) > 300) {
+        $promptProblems[] = "{$name}: needs a title and a description of at most 300 characters";
+    }
+    $marked = [];
+    foreach ($prompt['arguments'] as $argument) {
+        if (trim($argument['description']) === '') {
+            $promptProblems[] = "{$name}: argument {$argument['name']} has no description";
+        }
+        $marked[$argument['name']] = 'ARG' . strtoupper(str_replace('_', '', $argument['name'])) . 'VALUE';
+    }
+    $text = Kaleta\Mcp\Prompts::get($name, $marked)['messages'][0]['content']['text'];
+    foreach ($marked as $argument => $marker) {
+        if (!str_contains($text, $marker)) {
+            $promptProblems[] = "{$name}: the argument {$argument} is declared but the text never uses it";
+        }
+    }
+    // {name} is the booking e-mails' own token, {{…}} are site tokens
+    preg_match_all('/(?<!\{)\{([a-z_]+)\}(?!\})/', $text, $placeholders);
+    foreach (array_diff(array_unique($placeholders[1]), ['name']) as $placeholder) {
+        $promptProblems[] = "{$name}: {{$placeholder}} is not a declared argument";
+    }
+    $empty = Kaleta\Mcp\Prompts::get($name, array_map(fn (array $a): string => $a['required'] ? 'x' : '', array_column($prompt['arguments'], null, 'name')))['messages'][0]['content']['text'];
+    if (preg_match('/(?<!\{)\{[a-z_]+\}(?!\})/', str_replace('{name}', '', $empty)) === 1) {
+        $promptProblems[] = "{$name}: an optional argument left empty leaves its placeholder in the text";
+    }
+    [$body, $runnerSection] = explode(Kaleta\Mcp\Prompts::RUNNERS_HEADING, $text, 2) + [1 => ''];
+    preg_match_all('/\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/', $text, $words);
+    foreach (array_unique($words[0]) as $word) {
+        if (!isset(Kaleta\Mcp\Catalog::TOOLS[$word]) && !isset(Kaleta\Mcp\Catalog::META[$word]) && !isset($pluginParameters[$word]) && !$pluginIsSetting($word)
+            && !in_array($word, Kaleta\Mcp\Prompts::names(), true) && !in_array($word, Kaleta\Mcp\Prompts::terms($name), true)) {
+            $promptProblems[] = "{$name}: {$word} is no tool, parameter, setting or prompt of the Kaleta connection (a typo, or list it in the prompt's terms)";
+        }
+    }
+    foreach (Kaleta\Mcp\Prompts::terms($name) as $term) {
+        if (isset(Kaleta\Mcp\Catalog::TOOLS[$term]) || !in_array($term, $words[0], true)) {
+            $promptProblems[] = "{$name}: the term {$term} is a tool or not in the text";
+        }
+    }
+    preg_match_all('/\b[a-z]+(?:_[a-z]+)+\b/', $body, $named);
+    foreach (array_unique($named[0]) as $tool) {
+        if (isset(Kaleta\Mcp\Catalog::TOOLS[$tool]) && !in_array($tool, Kaleta\Mcp\Catalog::ESSENTIALS, true)
+            && preg_match('/^- ' . Kaleta\Mcp\Discovery::runner($tool) . ' \([^)]*\): (?:[a-z_]+, )*' . $tool . '(?:,|$)/m', $runnerSection) !== 1) {
+            $promptProblems[] = "{$name}: {$tool} is not an essential tool and the text does not name its runner " . Kaleta\Mcp\Discovery::runner($tool);
+        }
+    }
+}
+check('3.13 prompts: titles, descriptions, arguments declared and used, only real tools, parameters and settings, the runner of every non-essential tool', $promptProblems, []);
+$weeklyCare = Kaleta\Mcp\Prompts::get('weekly_care', [])['messages'][0]['content']['text'];
+check('3.13 prompts: the runbooks carry what 3.9–3.12 shipped, the earlier name weekly_review still works (not listed), arguments fill in', [
+    Kaleta\Mcp\Prompts::get('weekly_review', [])['messages'][0]['content']['text'] === $weeklyCare, in_array('weekly_review', Kaleta\Mcp\Prompts::names(), true),
+    array_values(array_filter(array_keys(Kaleta\Mcp\Prompts::ALIASES), fn (string $a): bool => in_array($a, Kaleta\Mcp\Prompts::names(), true))),
+    (bool) preg_match('/add_languages.*WooCommerce.*product catalogue.*Publish the menus.*410.*migration_report/s', Kaleta\Mcp\Prompts::get('migrate_site', ['old_url' => 'https://old.example'])['messages'][0]['content']['text']),
+    str_contains(Kaleta\Mcp\Prompts::get('migrate_site', ['old_url' => 'https://old.example', 'platform' => 'WordPress'])['messages'][0]['content']['text'], 'https://old.example (WordPress) to this Kaleta site'),
+    (bool) preg_match('/language version ar to this site.*right-to-left.*Latin.*translation_of.*hreflang/s', Kaleta\Mcp\Prompts::get('add_language_version', ['language' => 'ar'])['messages'][0]['content']['text']),
+    (bool) preg_match('/double opt-in.*send_test_newsletter.*explicit yes: `send_newsletter`/s', Kaleta\Mcp\Prompts::get('newsletter_release', [])['messages'][0]['content']['text']),
+    str_contains(Kaleta\Mcp\Prompts::get('newsletter_release', ['topic' => 'the spring offer'])['messages'][0]['content']['text'], 'the next newsletter about the spring offer.'),
+    str_contains(Kaleta\Mcp\Prompts::get('launch_site', ['business' => 'a bakery'])['messages'][0]['content']['text'], 'The business: a bakery.'),
+    (bool) preg_match('/- run_destructive_tool \([^)]*\): .*import_wordpress/', Kaleta\Mcp\Prompts::get('migrate_site', ['old_url' => 'x'])['messages'][0]['content']['text']),
+    Kaleta\Mcp\Prompts::runners('site_info and list_pages only'), array_column(Kaleta\Mcp\Prompts::listAll(), 'title')[0]],
+    [true, false, [], true, true, true, true, true, true, true, '', 'Build a page']);
+
 /* ---------- 3.9: language tags (data model §2 step 1) and slugs per language (§3 step 1) ---------- */
 check('3.9 Language::isTag – the stored form is a lowercase BCP 47 tag of at most 35 characters', array_map(fn (string $t): bool => Kaleta\Core\Language::isTag($t),
     ['cs', 'en', 'pt-br', 'zh-hant', 'sr-latn', 'yue', 'pt-BR', 'pt_br', 'e', 'english', 'en-', '-en', 'en/x', '', 'a-' . str_repeat('b', 40)]),
