@@ -1589,7 +1589,6 @@ return [
     'Country (code)' => 'País (código)',
     'Two-letter code, e.g. GB, IE, DE, FR. Empty = not stated.' => 'Código de dos letras, p. ej. ES, MX, DE, FR. Vacío = sin indicar.',
     'Opening hours and map' => 'Horario y mapa',
-    'One day or range of days per line: “Mo–Fr 8:00–17:00”, “Sa 9–12”, “Su closed”, lunch break “Tu 8–12, 13–17”. Empty = no opening hours.' => 'Un día o rango de días por línea: “Mo–Fr 8:00–17:00”, “Sa 9–12”, “Su closed”, pausa para comer “Tu 8–12, 13–17”. Vacío = sin horario.',
     'Map link' => 'Enlace al mapa',
     'Link to the place on Google Maps, OpenStreetMap or another map – the Business details element turns it into a “Show on map” link.' => 'Enlace al lugar en Google Maps, OpenStreetMap u otro mapa – el elemento Datos de la empresa lo convierte en un enlace “Mostrar en el mapa”.',
     'Coordinates (optional)' => 'Coordenadas (opcional)',
@@ -6231,4 +6230,5 @@ return [
     'Cookie bar: a random identifier that links the choice to its record, only when consents are recorded (cookie)' => 'Aviso de cookies: un identificador aleatorio que vincula la elección con su registro, solo cuando se registran los consentimientos (cookie)',
     'Preview of drafts: only for someone who opened a signed preview link (cookie)' => 'Vista previa de borradores: solo para quien abrió un enlace de vista previa firmado (cookie)',
     'until the preview link expires, at most 7 days' => 'hasta que caduque el enlace de vista previa, como máximo 7 días',
+    'One day or range of days per line, day names in the site language or in English: “Mo–Fr 8:00–17:00”, “Sa 9–12”, “Su closed”, lunch break “Tu 8–12, 13–17”. Empty = no opening hours.' => 'Un día o rango de días por línea, nombres de los días en el idioma del sitio o en inglés: “Lu–Vi 8:00–17:00”, “Sá 9–12”, “Do cerrado”, pausa para comer “Ma 8–12, 13–17”. Vacío = sin horario.',
 ];

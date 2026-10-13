@@ -34,7 +34,7 @@ final class Hours
     public static function week(Settings $s): array
     {
         $week = array_fill_keys(self::DAYS, []);
-        foreach (Company::parseOpeningHours($s->get('company_hours')) ?? [] as $row) {
+        foreach (Company::parseOpeningHours($s->get('company_hours'), Language::defaults($s)) ?? [] as $row) {
             foreach ($row['dny'] as $day) {
                 $week[$day][] = [$row['od'], $row['do']];
             }
@@ -253,14 +253,15 @@ final class Hours
     /**
      * Opening hours written as text – one rule per line, as in Business details ("Mo-Fr 9-17") – for schema.org:
      * OpeningHoursSpecification rows with the days, opens and closes. [] when the text is empty or a line does not parse
-     * (Company::parseOpeningHours): rather no hours than wrong ones. Shared by the company and a branch (2.11).
+     * (Company::parseOpeningHours): rather no hours than wrong ones. Shared by the company and a branch (2.11). $language = the
+     * language the day names are written in.
      *
      * @return list<array<string, mixed>>
      */
-    public static function specification(string $text): array
+    public static function specification(string $text, string $language = ''): array
     {
         return array_map(fn (array $h): array => ['@type' => 'OpeningHoursSpecification', 'dayOfWeek' => $h['dny'], 'opens' => $h['od'], 'closes' => $h['do']],
-            Company::parseOpeningHours($text) ?? []);
+            Company::parseOpeningHours($text, $language) ?? []);
     }
 
     /**

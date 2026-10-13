@@ -1588,7 +1588,6 @@ return [
     'Country (code)' => 'Země (kód)',
     'Two-letter code, e.g. GB, IE, DE, FR. Empty = not stated.' => 'Dvoupísmenný kód: CZ, SK, DE… Prázdné = neuvádí se.',
     'Opening hours and map' => 'Otevírací doba a mapa',
-    'One day or range of days per line: “Mo–Fr 8:00–17:00”, “Sa 9–12”, “Su closed”, lunch break “Tu 8–12, 13–17”. Empty = no opening hours.' => 'Každý řádek jeden den nebo rozsah dnů: „Po–Pá 8:00–17:00“, „So 9–12“, „Ne zavřeno“, polední pauza „Út 8–12, 13–17“. Prázdné = bez otevírací doby.',
     'Map link' => 'Odkaz na mapu',
     'Link to the place on Google Maps, OpenStreetMap or another map – the Company details element turns it into a “Show on map” link.' => 'Adresa místa na Mapy.cz nebo Google Maps – prvek Údaje firmy z ní udělá odkaz „Zobrazit na mapě“.',
     'Coordinates (optional)' => 'Souřadnice (nepovinné)',
@@ -2785,4 +2784,5 @@ return [
     'The collection list shows the collection “%s”, which does not exist.' => 'Výpis kolekce ukazuje kolekci „%s“, která neexistuje.',
     'The collection list shows the category “%s”, which the collection does not have – it will stay empty.' => 'Výpis kolekce ukazuje kategorii „%s“, kterou kolekce nemá – zůstane prázdný.',
     '{{%s}} is not a field of the collection “%s” – it will stay empty on the site.' => '{{%s}} není pole kolekce „%s“ – na webu zůstane prázdné.',
+    'One day or range of days per line, day names in the site language or in English: “Mo–Fr 8:00–17:00”, “Sa 9–12”, “Su closed”, lunch break “Tu 8–12, 13–17”. Empty = no opening hours.' => 'Každý řádek jeden den nebo rozsah dnů, názvy dnů v jazyce webu nebo anglicky: „Po–Pá 8:00–17:00“, „So 9–12“, „Ne zavřeno“, polední pauza „Út 8–12, 13–17“. Prázdné = bez otevírací doby.',
 ];

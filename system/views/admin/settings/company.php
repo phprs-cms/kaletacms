@@ -42,7 +42,7 @@ $field('company_email', 'Public email', 'email', 'Contact for visitors and searc
 <fieldset>
 <legend><?= e(t('Opening hours and map')) ?></legend>
 <?php
-$field('company_hours', 'Opening hours', 'radky', 'One day or range of days per line: “Mo–Fr 8:00–17:00”, “Sa 9–12”, “Su closed”, lunch break “Tu 8–12, 13–17”. Empty = no opening hours.', 'rows="5" spellcheck="false"');
+$field('company_hours', 'Opening hours', 'radky', 'One day or range of days per line, day names in the site language or in English: “Mo–Fr 8:00–17:00”, “Sa 9–12”, “Su closed”, lunch break “Tu 8–12, 13–17”. Empty = no opening hours.', 'rows="5" spellcheck="false"');
 $field('company_map', 'Map link', 'url', 'Link to the place on Google Maps, OpenStreetMap or another map – the Business details element turns it into a “Show on map” link.');
 $field('company_gps', 'Coordinates (optional)', 'text', 'Latitude and longitude, e.g. 50.0875, 14.4213 – a more precise location for maps and search engines.', 'maxlength="40"');
 ?>

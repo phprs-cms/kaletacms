@@ -2187,6 +2187,26 @@ check('Firma::hodiny: rozsah dnů, víc úseků, zavřeno', Kaleta\Front\Company
     ['dny' => ['Tuesday'], 'od' => '08:00', 'do' => '12:00'], ['dny' => ['Tuesday'], 'od' => '13:00', 'do' => '17:00'],
 ]);
 check('Firma::hodiny: nesrozumitelný řádek se odmítne', [Kaleta\Front\Company::parseOpeningHours('každý den 8-17'), Kaleta\Front\Company::parseOpeningHours('Po 8-25')], [null, null]);
+$hoursDays = fn (string $text, string $language): ?array => ($rows = Kaleta\Front\Company::parseOpeningHours($text, $language)) === null ? null
+    : array_map(fn (array $r): string => implode(',', $r['dny']) . ' ' . $r['od'] . '-' . $r['do'], $rows);
+$hoursCsEn = "Po–Pá 8:00–17:00\nÚt 8-12, 13-17\nSt 9-10\nČt 9-10\nSo 9–12\nNe zavřeno\nMo-Fr 9-17\nSu closed";
+check('Opening hours by the site language: Czech and English parse the same with or without the language', [
+    Kaleta\Front\Company::parseOpeningHours($hoursCsEn, 'cs'), Kaleta\Front\Company::parseOpeningHours($hoursCsEn, 'en'), Kaleta\Front\Company::parseOpeningHours($hoursCsEn, 'en-gb')],
+    array_fill(0, 3, Kaleta\Front\Company::parseOpeningHours($hoursCsEn)));
+check('Opening hours in Slovak: Pi = Friday, Št (štvrtok, also Stvrtok) = Thursday, St = Wednesday, zatvorené = closed; a Czech site does not know Pi', [
+    $hoursDays("Po–Pi 11:00–16:00\nSo–Ne zatvorené", 'sk'), $hoursDays("Št 8-12\nŠtvrtok 8-12\nStvrtok 8-12\nSt 9-10\nStreda 9-10", 'sk'), $hoursDays("Po–Pi 11:00–16:00", 'cs')], [
+    ['Monday,Tuesday,Wednesday,Thursday,Friday 11:00-16:00'],
+    ['Thursday 08:00-12:00', 'Thursday 08:00-12:00', 'Thursday 08:00-12:00', 'Wednesday 09:00-10:00', 'Wednesday 09:00-10:00'], null]);
+check('Opening hours in German and Polish: So = Sunday in German (Saturday in Czech), geschlossen, Śr/Czw/Sob/Nd, nieczynne, zamknięte', [
+    $hoursDays("Mo–Fr 8–17\nSa 9–12\nSo geschlossen", 'de'), $hoursDays('So 10-12', 'de-at'), $hoursDays('So 10-12', 'cs'), $hoursDays('Montag-Donnerstag 8-12', 'de'),
+    $hoursDays("Pn–Pt 9–17\nŚr 18-20\nCzw 18-20\nSob 10-14\nNd nieczynne\nNiedziela zamknięte", 'pl')], [
+    ['Monday,Tuesday,Wednesday,Thursday,Friday 08:00-17:00', 'Saturday 09:00-12:00'], ['Sunday 10:00-12:00'], ['Saturday 10:00-12:00'], ['Monday,Tuesday,Wednesday,Thursday 08:00-12:00'],
+    ['Monday,Tuesday,Wednesday,Thursday,Friday 09:00-17:00', 'Wednesday 18:00-20:00', 'Thursday 18:00-20:00', 'Saturday 10:00-14:00']]);
+check('Opening hours in Spanish: Do = Sunday (Thursday in German), Miércoles, Sá, cerrado', [$hoursDays("Lu–Vi 9–17\nMiércoles 18-20\nSá 10-14\nDo cerrado", 'es'), $hoursDays('Do 10-12', 'de')],
+    [['Monday,Tuesday,Wednesday,Thursday,Friday 09:00-17:00', 'Wednesday 18:00-20:00', 'Saturday 10:00-14:00'], ['Thursday 10:00-12:00']]);
+check('Opening hours: Settings checks them in the site language (a Slovak week is kept on a Slovak site, refused on a Czech one); the structured data read them so', [
+    Kaleta\Admin\Modules\Settings::verifyValue('company_hours', "Po–Pi 11:00–16:00\nSo–Ne zatvorené", 'sk'), Kaleta\Admin\Modules\Settings::verifyValue('company_hours', "Po–Pi 11:00–16:00", 'cs'),
+    array_column(Kaleta\Core\Hours::specification('So 10-12', 'de'), 'dayOfWeek')], ["Po–Pi 11:00–16:00\nSo–Ne zatvorené", null, [['Sunday']]]);
 check('Firma: typy v Nastavení odpovídají Firma::TYPY', (new ReflectionClassConstant(Kaleta\Admin\Modules\Settings::class, 'COMPANY_TYPES'))->getValue(), implode('|', array_keys(Kaleta\Front\Company::TYPES)));
 
 /* ---------- collections ---------- */
@@ -4334,7 +4354,7 @@ check('3.3.3 N55: imported company_map and social_* must be web addresses; texts
     Kaleta\Admin\Modules\Settings::checkable('company_map'), Kaleta\Admin\Modules\Settings::checkable('social_facebook'), Kaleta\Admin\Modules\Settings::checkable('design_system'),
     Kaleta\Admin\Modules\Settings::verifyValue('company_map', 'javascript:alert(1)'), Kaleta\Admin\Modules\Settings::verifyValue('social_x', ' JavaScript:alert(2)'),
     Kaleta\Admin\Modules\Settings::verifyValue('social_linkedin', 'https://www.linkedin.com/company/x'), Kaleta\Admin\Modules\Settings::verifyValue('company_map', ''),
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/SiteImport.php'), 'Settings::checkable($key) ? \Kaleta\Admin\Modules\Settings::verifyValue($key, $value)')],
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/SiteImport.php'), 'Settings::checkable($key) ? \Kaleta\Admin\Modules\Settings::verifyValue($key, $value, $language)')],
     [true, true, false, null, null, 'https://www.linkedin.com/company/x', '', true]);
 
 // N63: imported content checked again – only risky markup changes
@@ -5805,7 +5825,7 @@ foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(KALETA_SYS
     }
 }
 sort($ownLanguagePatterns);
-check('3.9: no two-letter language pattern of its own in system/src – only the day names (Front\Company), the Mailchimp data centre (Core\Newsletter) and Amazon SES regions (Core\MailServices) use [a-z]{2}', $ownLanguagePatterns, ['Company.php', 'MailServices.php', 'Newsletter.php']);
+check('3.9: no two-letter language pattern of its own in system/src – only the Mailchimp data centre (Core\Newsletter) and Amazon SES regions (Core\MailServices) use [a-z]{2}', $ownLanguagePatterns, ['MailServices.php', 'Newsletter.php']);
 // the language columns: VARCHAR(35) ASCII in the schema, and migration 0083 widens exactly those
 $schema39 = (string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql');
 preg_match_all('/CREATE TABLE (\w+) \((.*?)\n\) ENGINE/s', $schema39, $schemaTables39, PREG_SET_ORDER);

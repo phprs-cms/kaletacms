@@ -99,7 +99,7 @@ trait FactTools
             'now' => \Kaleta\Core\Hours::statusText($this->app),
             'today' => \Kaleta\Core\Hours::todayText($this->app),
             'tokens' => '{{hours.status}} (open now, until when) and {{hours.today}} (today\'s hours) in texts; the Company details element shows the hours with the exceptions of the next 30 days.',
-            'next' => 'The regular week is changed with update_settings (company_hours, one day or range per line). Holidays and other days: save_hours_exception.',
+            'next' => 'The regular week is changed with update_settings (company_hours, one day or range per line, day names in the site language or English). Holidays and other days: save_hours_exception.',
         ];
     }
 

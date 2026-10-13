@@ -114,7 +114,7 @@ trait SettingsTools
             }
             // booking settings have no type in the settings form: they are checked like the Bookings settings form does
             $clean = preg_match(self::MCP_SETTINGS, $key) && is_scalar($value)
-                ? (str_starts_with($key, 'booking_') ? \Kaleta\Core\Booking::settingValue($key, (string) $value) : \Kaleta\Admin\Modules\Settings::verifyValue($key, is_bool($value) ? ($value ? '1' : '0') : (string) $value))
+                ? (str_starts_with($key, 'booking_') ? \Kaleta\Core\Booking::settingValue($key, (string) $value) : \Kaleta\Admin\Modules\Settings::verifyValue($key, is_bool($value) ? ($value ? '1' : '0') : (string) $value, Language::defaults($siteSettings)))
                 : null;
             if ($clean !== null && $key === 'home_page' && (int) $clean > 0
                 && $db->value('SELECT ids FROM {stranky} WHERE ids = ? AND zobrazit = 1 AND smazano IS NULL', [(int) $clean]) === null) {
