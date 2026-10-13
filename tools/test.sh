@@ -5861,7 +5861,9 @@ expect "3.12: “Keep their clock time” changes the zone and no saved date" "$
 sq "UPDATE ka_nastaveni SET hodnota = 'Europe/Prague' WHERE promenna = 'time_zone'" > /dev/null
 check "3.12: the confirmation again (Prague → London)" 200 "/admin.php?module=settings&action=time_zone&zone=Europe/London" 'Převést uložená data'
 # 3.12.1 (N312-2): a "never" date and the first possible one – whichever leaves the DATETIME range is left and counted
-sq "INSERT INTO ka_protokol (cas, modul, akce, popis) VALUES ('9999-12-31 23:30:00', 'tz312', 'never', ''), ('1000-01-01 00:30:00', 'tz312', 'first', '')" > /dev/null
+# (the first possible date sits in a hidden news item: the retention job may delete a log row that old before the check)
+sq "INSERT INTO ka_protokol (cas, modul, akce, popis) VALUES ('9999-12-31 23:30:00', 'tz312', 'never', '')" > /dev/null
+sq "INSERT INTO ka_novinky (seo_link, titulek, uvod, text, tema, datum) SELECT 'tz312-first', 'tz312 first', '', '', tema, '1000-01-01 00:30:00' FROM ka_novinky ORDER BY idc LIMIT 1" > /dev/null
 # 3.12.1 (N312-1): three confirmations at once (a double click, a second tab, a retry) convert once
 TZ_CSRF=$(csrf)
 TZ_PIDS=(); for i in 1 2 3; do curl -s -b "$JAR" -o /dev/null -w '%{http_code}\n' -X POST "$B/admin.php?module=settings&action=time_zone" --data-urlencode "_csrf=$TZ_CSRF" -d zone=Europe/London -d choice=convert > "$WORK/tz312-$i" & TZ_PIDS+=($!); done; wait "${TZ_PIDS[@]}" # only these: the servers are background jobs too
@@ -5870,7 +5872,8 @@ expect "3.12.1: three parallel “Convert saved dates” answer without an error
   "$(cat "$WORK"/tz312-* | sort -u | tr '\n' ' ')|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'time_zone'")|$(sq "SELECT datum FROM ka_novinky WHERE idc = ${NEWS310%%|*}")|$(sq "SELECT off_from FROM ka_booking_off WHERE note = 'tz312'")|$(sq "SELECT CONCAT(COUNT(*), ':', GROUP_CONCAT(CONCAT(from_zone, '>', to_zone, ':', finished_at IS NOT NULL))) FROM ka_time_zone_conversions c")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'settings' AND akce IN ('time_zone', 'time_zone_converted') AND popis LIKE 'Europe/Prague → Europe/London: %'")" \
   "302 |Europe/London|$NEWS312_LONDON|2030-07-01 09:00:00|1:Europe/Prague>Europe/London:1|3"
 expect "3.12.1: the date that would fall before the year 1000 stays and is counted; the “never” date moves inside the range" \
-  "$(sq "SELECT GROUP_CONCAT(cas ORDER BY akce) FROM ka_protokol WHERE modul = 'tz312'")|$(sq "SELECT SUM(out_of_range) FROM ka_time_zone_progress")" "1000-01-01 00:30:00,9999-12-31 22:30:00|1"
+  "$(sq "SELECT datum FROM ka_novinky WHERE seo_link = 'tz312-first'"),$(sq "SELECT cas FROM ka_protokol WHERE modul = 'tz312' AND akce = 'never'")|$(sq "SELECT SUM(out_of_range) FROM ka_time_zone_progress")" "1000-01-01 00:30:00,9999-12-31 22:30:00|1"
+sq "DELETE FROM ka_novinky WHERE seo_link = 'tz312-first'" > /dev/null
 check "3.12: General shows the finished conversion and the value left as it was" 200 "/admin.php?module=settings&tab=general" 'Uložená data jsou převedená z Europe/Prague na Europe/London'
 contains -q '1 hodnot zůstalo, jak byly' "$WORK/response" && echo "  ok     3.12.1: … with the value left as it was" || { echo "  CHYBA  3.12.1: General does not show the value left as it was"; ERRORS=$((ERRORS+1)); }
 check "3.12.1: System status warns about the value left as it was" 200 "/admin.php?module=status" 'Převod časového pásma'
