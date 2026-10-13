@@ -64,11 +64,24 @@ final class Db
      */
     public function sql(string $sql): string
     {
-        return preg_replace_callback(
+        $legacy = [];
+        $resolved = preg_replace_callback(
             '/\{([a-z][a-z0-9_]*)\}/',
-            fn (array $m): string => '`' . $this->prefix . Names::physical($m[1]) . '`',
+            function (array $m) use (&$legacy): string {
+                // 3.14: with add-ons switched on, a Czech name of a table 4.0 renames is logged for the add-on that wrote it
+                if (LegacyNames::$watching && Names::isLegacy($m[1])) {
+                    $legacy[] = $m[1];
+                }
+
+                return '`' . $this->prefix . Names::physical($m[1]) . '`';
+            },
             $sql,
         ) ?? $sql;
+        if ($legacy !== []) {
+            LegacyNames::note($legacy);
+        }
+
+        return $resolved;
     }
 
     /**
@@ -133,11 +146,12 @@ final class Db
     /** @param array<string, scalar|null> $data */
     public function insert(string $table, array $data): int
     {
+        $name = $table; // the placeholder keeps the name the caller wrote ({news} resolves the same; only a legacy name is logged, 3.14)
         $table = Names::physical($table); // {news} and 'news' are the news table – journaled and undone like 'novinky' (3.10, N310-5)
         $columns = array_keys($data);
         $sql = sprintf(
             'INSERT INTO {%s} (%s) VALUES (%s)',
-            $table,
+            $name,
             implode(', ', array_map(self::quoteName(...), $columns)),
             implode(', ', array_fill(0, count($columns), '?')),
         );
@@ -156,10 +170,11 @@ final class Db
      */
     public function update(string $table, array $data, array $where): int
     {
+        $name = $table;
         $table = Names::physical($table);
         $set = implode(', ', array_map(fn (string $c): string => self::quoteName($c) . ' = ?', array_keys($data)));
         $cond = implode(' AND ', array_map(fn (string $c): string => self::quoteName($c) . ' = ?', array_keys($where)));
-        $sql = sprintf('UPDATE {%s} SET %s WHERE %s', $table, $set, $cond);
+        $sql = sprintf('UPDATE {%s} SET %s WHERE %s', $name, $set, $cond);
         $before = $this->journal !== null && AgentJournal::journaled($table) ? $this->journal->rowsWhere($table, $cond, array_values($where)) : null;
         $count = $this->withoutJournal(fn (): int => $this->run($sql, [...array_values($data), ...array_values($where)])->rowCount());
         if ($before !== null) {
@@ -172,13 +187,14 @@ final class Db
     /** @param array<string, scalar|null> $where */
     public function delete(string $table, array $where): int
     {
+        $name = $table;
         $table = Names::physical($table);
         if ($where === []) {
             throw new \LogicException('Deleting without a condition is not allowed.');
         }
         $cond = implode(' AND ', array_map(fn (string $c): string => self::quoteName($c) . ' = ?', array_keys($where)));
         $before = $this->journal !== null && AgentJournal::journaled($table) ? $this->journal->rowsWhere($table, $cond, array_values($where)) : null;
-        $count = $this->withoutJournal(fn (): int => $this->run(sprintf('DELETE FROM {%s} WHERE %s', $table, $cond), array_values($where))->rowCount());
+        $count = $this->withoutJournal(fn (): int => $this->run(sprintf('DELETE FROM {%s} WHERE %s', $name, $cond), array_values($where))->rowCount());
         if ($before !== null) {
             $this->journal?->record($table, $before);
         }

@@ -8,6 +8,7 @@ use Kaleta\Core\Backup;
 use Kaleta\Core\Events;
 use Kaleta\Core\Health;
 use Kaleta\Core\Language;
+use Kaleta\Core\Readiness;
 use Kaleta\Core\Scheduler;
 
 /**
@@ -42,8 +43,24 @@ trait HealthTools
             'mail_service' => \Kaleta\Core\MailServices::name(\Kaleta\Core\MailServices::current($this->app->settings())) ?: null,
             'last_backup' => $backup !== null ? date('Y-m-d H:i', (int) $backup['cas']) : null,
             'events_last_7_days' => Events::problems($db, 168),
+            // 3.14: Ready for 4.0 (Core\Readiness) – read-only, as System status shows it
+            'ready_for_4_0' => self::readiness(Language::runWith('en', fn (): array => Readiness::checks($this->app), 'admin-')),
             'next' => 'Fix what you can (e.g. with update_settings or the site audit) and tell the user what needs them: hosting, DNS or a password are theirs. list_events shows what happened.',
         ];
+    }
+
+    /**
+     * The Ready for 4.0 checks for Claude: a stable key per check, English states, the files, tags or addresses behind it.
+     *
+     * @param list<array{key: string, nazev: string, stav: string, info: string, seznam: list<string>}> $checks
+     * @return array{status: string, checks: list<array<string, mixed>>}
+     */
+    private static function readiness(array $checks): array
+    {
+        $state = ['ok' => 'ok', 'varovani' => 'warning', 'info' => 'info'];
+
+        return ['status' => $state[Readiness::summary($checks)], 'checks' => array_map(fn (array $c): array => ['check' => $c['key'], 'name' => $c['nazev'],
+            'status' => $state[$c['stav']], 'detail' => $c['info']] + ($c['seznam'] !== [] ? ['items' => $c['seznam']] : []), $checks)];
     }
 
     /** list_events */
