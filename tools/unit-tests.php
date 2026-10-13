@@ -6058,10 +6058,10 @@ foreach (['Core/Booking.php', 'Core/Menu.php', 'Admin/Modules/Pages.php', 'Admin
     }
 }
 check('3.12 §1.2: lists of names sort through Db::sortText', $plainSort312, []);
-// §1.3: tokens and hashes in ascii_bin – migration 0092 and schema.sql say the same for every column
-preg_match_all('/MODIFY (\w+) ([A-Z]+\(\d+\) CHARACTER SET ascii COLLATE ascii_bin (?:NOT )?NULL(?: DEFAULT \'\')?)/', (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0092-token-collation.sql'), $m312, PREG_SET_ORDER);
+// §1.3: tokens and hashes in utf8mb4_bin – migration 0092 and schema.sql say the same for every column
+preg_match_all('/MODIFY (\w+) ([A-Z]+\(\d+\) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin (?:NOT )?NULL(?: DEFAULT \'\')?)/', (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0092-token-collation.sql'), $m312, PREG_SET_ORDER);
 $schema312 = (string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql');
-check('3.12 §1.3: the 20 token and hash columns of migration 0092 are ascii_bin in schema.sql too', [count($m312), array_values(array_filter(array_map(
+check('3.12 §1.3: the 20 token and hash columns of migration 0092 are utf8mb4_bin in schema.sql too', [count($m312), array_values(array_filter(array_map(
     fn (array $c): string => preg_match('/\n\s+' . $c[1] . '\s+' . str_replace(' ', '\s+', preg_quote($c[2], '/')) . '[\s,]/', $schema312) === 1 ? '' : $c[1], $m312)))], [20, []]);
 // §6: every DATETIME and DATE column is either a moment (converted with the time zone) or a civil date or time (kept)
 $dateColumns312 = [];

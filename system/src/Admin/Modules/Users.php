@@ -188,7 +188,7 @@ final class Users extends Module
         }
         $id = $this->request->postInt('idu');
         $token = $this->request->postInt('idt');
-        $client = preg_match('/^[a-f0-9]{32}$/D', $this->request->post('klient')) === 1 ? $this->request->post('klient') : ''; // an OAuth client id (ASCII column, 3.12)
+        $client = preg_match('/^[a-f0-9]{32}$/D', $this->request->post('klient')) === 1 ? $this->request->post('klient') : ''; // an OAuth client id is 32 hex characters (column, 3.12)
         $removed = $token > 0 ? $this->db->delete('api_tokeny', ['idt' => $token, 'idu' => $id]) : ($client !== '' ? $this->db->delete('api_tokeny', ['idu' => $id, 'klient' => $client]) : 0);
 
         return $this->back($removed > 0 ? 'The connection has been revoked – Claude can no longer sign in with it.' : 'The connection no longer exists.', 'edit', ['id' => $id], $removed > 0 ? 'ok' : 'chyba');

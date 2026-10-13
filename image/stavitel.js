@@ -1339,7 +1339,28 @@
 	function redrawPanels() { redrawTree(); redrawRight(); }
 	function redraw() { redrawBar(); redrawLeft(); redrawRight(); }
 
+	/**
+	 * The panel is rebuilt on every change (and when a check comes back from the server): the field that had the focus gets
+	 * it back – by its form row (data-polozka) and its place among the controls – so a redraw never throws the keyboard out
+	 * of the inspector (3.12, found by the Form inspector test on a slow CI runner).
+	 */
 	function redrawRight() {
+		const active = document.activeElement;
+		const row = active && right.contains(active) ? active.closest('[data-polozka]') : null;
+		const scope = active && right.contains(active) ? (row || right) : null;
+		const controls = (root) => [...root.querySelectorAll('input, select, textarea, button, summary')];
+		const index = scope ? controls(scope).indexOf(active) : -1;
+		const caret = index >= 0 && typeof active.selectionStart === 'number' ? [active.selectionStart, active.selectionEnd] : null;
+		redrawRightPanel();
+		if (index < 0 || (document.activeElement && right.contains(document.activeElement))) { return; } // nothing to keep, or the panel moved the focus itself
+		const newScope = row ? right.querySelector('[data-polozka="' + CSS.escape(row.dataset.polozka) + '"]') : right;
+		const target = newScope && controls(newScope)[index];
+		if (!target) { return; }
+		target.focus();
+		if (caret && typeof target.setSelectionRange === 'function') { try { target.setSelectionRange(caret[0], caret[1]); } catch (e) { /* not a text field */ } }
+	}
+
+	function redrawRightPanel() {
 		if (state.trida !== null) { classesPanel(); return; }
 		const n = state.vybrane && find(state.vybrane);
 		if (!n) {

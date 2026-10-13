@@ -686,7 +686,7 @@ Fix:
 Audited before release (N311): robots.txt rules kept when the file is not UTF-8, an application's strongest access shown,
 drafts as the fallback of the consent and token forms, bidi controls dropped from RTL e-mails.
 
-## 3.12 – WooCommerce moves, sorting by language, time-zone conversion (released 13 October 2026)
+## 3.12 – WooCommerce moves, sorting by language, time-zone conversion (3.12.1 released 13 October 2026)
 
 1. **fysiomed.eu readiness** (WooCommerce + Polylang, English and Arabic): WooCommerce products become a product catalogue
    (`Core\WpWooCommerce`), product categories become collection categories per language with redirects of the old
@@ -699,9 +699,12 @@ drafts as the fallback of the consent and token forms, bidi controls dropped fro
    WordPress import preview (export language, add-language path), menu changes shown before publishing and "publish the
    menus only", the Form element inspector as one row per field, smaller polish.
 3. **The last safe 4.0 steps** (design §1.2, §1.3, §6): alphabetical lists sort by the site language (`Core\Collation`;
-   Czech unchanged), token and hash columns in `ascii_bin` (migration 0092), `NOW()` replaced by `Core\Clock`
+   Czech unchanged), token and hash columns compared exactly (`utf8mb4_bin`, migration 0092), `NOW()` replaced by `Core\Clock`
    parameters, and a time-zone change offers to convert saved dates (`Core\TimeZoneConversion`, migration 0093; owner
    decision). The owner's 4.0 answers are in the design doc §8.
+
+3.12.0 was tagged but not published: CI found that with `ascii_bin` MariaDB 10.6 and 11.4 did not use the token key, so
+3.12.1 keeps `utf8mb4_bin`, and the inspector keeps the focused field when it redraws.
 
 Audited before release (N312): a time-zone conversion starts once even with parallel submits, out-of-range dates never
 stall the background jobs, categories written by a drafts-only connection wait for review, imported redirects are always

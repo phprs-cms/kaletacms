@@ -117,7 +117,7 @@ final class Account
                         : 'Done – Claude will see all tools in the next conversation it starts.'];
                     break;
                 case 'aplikace_odpojit':
-                    if (preg_match('/^[a-f0-9]{32}$/D', $r->post('odpojit_klient')) === 1) { // an OAuth client id (ASCII column, 3.12)
+                    if (preg_match('/^[a-f0-9]{32}$/D', $r->post('odpojit_klient')) === 1) { // an OAuth client id is 32 hex characters (3.12)
                         $db->delete('api_tokeny', ['klient' => $r->post('odpojit_klient'), 'idu' => $user['idu']]);
                     }
                     ChangeLog::write($app, 'ucet', 'odpojena aplikace');

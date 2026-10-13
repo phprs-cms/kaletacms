@@ -222,8 +222,9 @@ await step('3.12 UX310-18: the Form inspector – a row per field, a contact for
   // the condition is still there: "Add a condition" by keyboard moves the focus into it
   await rows.first().locator('button.st-pridat-podminku').focus();
   await page.keyboard.press('Enter');
-  await page.waitForTimeout(300);
-  if (!(await page.evaluate(() => !!(document.activeElement && document.activeElement.closest('.st-podminka'))))) { throw new Error('Add a condition does not move the focus into the condition'); }
+  // a slow runner may redraw the panel once more (a check coming back from the server) – the focus must survive it
+  await page.waitForTimeout(600);
+  if (!(await page.waitForFunction(() => !!(document.activeElement && document.activeElement.closest('.st-podminka')), null, { timeout: 3000 }).then(() => true, () => false))) { throw new Error('Add a condition does not move the focus into the condition'); }
   await page.keyboard.type('Email');
   await page.keyboard.press('Tab');
   await page.keyboard.type('*');
