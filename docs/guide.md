@@ -398,11 +398,36 @@ name of its connection, and can show only Claude's changes or only people's; Cla
 
 **Instructions for Claude.** Under **Claude settings** write what Claude should keep to – how you address
 customers, words to use or avoid, house rules. Every connection gets them when it connects. Claude also offers ready-made
-tasks (in the Claude app under **+**): build a page, run the audit and fix what is safe, translate a page, write a news
-item, and a weekly review of the site.
+tasks (below).
 
 **Settings over the connection.** Besides the site name and company details, Claude can switch extensions and language
 versions, the cookie bar, SEO switches, analytics codes and the code in `<head>` – when you ask for it.
+
+### Ready-made tasks for Claude
+
+Every Kaleta connection brings its own ready-made tasks – complete step-by-step runbooks for the jobs people ask for
+most. They come with the connection itself, so they work on every Kaleta site and in every Claude app, with nothing to
+install. In claude.ai and the Claude desktop app open **+** and choose the task under your site's connector; in Claude Code
+type `/` and pick it as `/mcp__kaleta__migrate_site` (the part in the middle is the name you gave the connection). Some
+tasks ask for a detail first, such as the old site's address or the language code. Every task works in drafts, follows
+your instructions for Claude, and asks before anything is published, deleted or sent.
+
+| Task | What Claude does |
+|---|---|
+| `migrate_site` | Moves a site from WordPress (with WooCommerce, Polylang or WPML) or any other platform: the import, the look, rebuilt pages, collections, redirects with patterns and 410, and the migration report. |
+| `launch_site` | Takes a fresh install to a finished site: details and facts, a blueprint, the look, pages, header, footer, menu, legal templates and a check before launch. |
+| `add_language_version` | Adds a language version – also regional or right-to-left – and translates pages, collections, menus, the header and the footer; checks the fonts; publishes it when you say so. |
+| `weekly_care` | Health, what changed, the audit, broken links, addresses not found, enquiries and translations, with the three things to do next. |
+| `newsletter_release` | Drafts a newsletter from your latest news, sends you a test, and sends it to subscribers only after your explicit yes. |
+| `set_up_bookings` | Sets up online bookings: services, people, hours and exceptions, rules and e-mail texts, the booking page. |
+| `compliance_check` | The record of processing, cookies, the privacy policy template, accessibility and personal data requests – templates, never legal advice. |
+| `build_page`, `translate_page`, `write_news` | A new page, a translation of one page, a news item – as drafts. |
+| `audit_and_fix` | Runs the site audit and fixes what is safe. |
+| `work_requests`, `review_pending`, `scheduled_run` | Works through your staff's requests, lists what waits for your review, does the scheduled runs of a routine. |
+| `draft_blueprint` | Makes a blueprint for a kind of business none of the shipped ones fits. |
+
+The optional "Kaleta for Claude" plugin for Claude Code carries five of these runbooks as skills, generated from the same
+tasks; you do not need it when your site is connected.
 
 ## 11. Moving from WordPress or another Kaleta site
 
