@@ -730,6 +730,36 @@ non-string MCP name answered as JSON-RPC, the consent id cookie Secure.
 did not load the stylesheet of the option cards, so the access choices were bare radio buttons and run-on text (owner
 report from a live site). The choices are one list; the browser test checks the cards.
 
+## 3.14 – Ready for 4.0, your own e-mail signature (in progress)
+
+1. **Updates:** after a refused install (the source offers a newer version than the one on the button) the screen shows
+   the version offered now – before, it kept the remembered one for 12 hours and every click failed the same way (owner
+   report from kaletacms.com).
+2. **Ready for 4.0 on System status** (`Core\Readiness`, read-only, kept out of `Health::checks`): database server,
+   rights of the database user to rename tables, add-ons and leftover layouts writing old table names (a bounded scan
+   plus a runtime log, `Core\LegacyNames`), tags used in several languages, redirect sources that will collide once
+   compared exactly, slugs shared across languages. Claude reads it in `get_health` (`ready_for_4_0`).
+3. **Expand steps for 4.0:** redirect sources normalised in `source_norm` (utf8mb4_bin, migration 0094, filled by the
+   job `redirect_sources`); tags get a language (migration 0095, `(jazyk, seo_link)` next to the global key);
+   export format 3 defined and read (`Core\ExportFormat`, English keys from `names.php`; written only on request).
+4. **Every employee copies their own e-mail signature** (owner's idea) in My account, from their Team record – linked by
+   e-mail or chosen by an administrator (migration 0096); no Collections access needed, never someone else's.
+5. **Spanish blueprints:** all 20 blueprints in Spanish.
+
+## Path to 4.0 (owner decisions, 13 October 2026)
+
+| Release | What |
+|---|---|
+| 3.14 | Ready for 4.0 check, the expand steps above, own signatures. |
+| 3.15 – the bridge | Code that works on both the old and the renamed tables (the rollback target of 4.0); 4.0 offered only on a separate update source that 3.15+ reads, so older sites never jump straight to a major version. No support window is promised for 3.15 – administrators are prompted to update to the latest release so security fixes apply. |
+| 4.0-rc | The contract steps in one release: per-language slugs for every site and the global keys dropped (§3), tables renamed (§4), export format 3 by default, tags keyed by language, redirects looked up by `source_norm`. Rehearsed on copies of the owner's sites; update tests from 3.15 and from 1.0.0 through 3.15; a rollback drill to 3.15. |
+| 4.0 | After two weeks of the candidate on the owner's sites. Never installed automatically – the administrator starts it, a backup comes first. MCP tools, parameters and Czech aliases unchanged. |
+| 4.1 | UTC instants table by table (§6 step 2); team hierarchy (departments, "reports to"), an org chart and the right contact shown automatically (owner's idea). |
+| 5.0 | Column renames per entity. |
+
+`zh` means Simplified Chinese (owner, 13 October 2026). Whether add-ons query core tables is answered by the 3.14
+readiness check on real sites.
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).
