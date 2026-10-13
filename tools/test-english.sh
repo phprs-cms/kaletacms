@@ -117,6 +117,21 @@ grep -q 'Einstellungen' "$WORK/page.html" || fail "German installer: the first a
 grep -q 'admin-de-du.js' "$WORK/page.html" || fail "German installer: the first administrator (du) does not get the script overlay"
 echo "  ok     German installation: German site, admin and the Claude address"
 
+echo "== Spanish installation through the web installer (3.13)"
+"${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$DB_NAME\`; CREATE DATABASE \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_czech_ci"
+rm -f "$WORK/web/config.php" "$JAR"; cp "$WORK/install.php" "$WORK/web/install.php"
+curl -s -o "$WORK/install.html" -X POST "$B/install.php" -d jazyk=es -d jazyk_webu=es --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB_NAME" -d "db_user=$DB_USER" \
+  --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ --data-urlencode "nazev_webu=Acme S.L." -d web=firemni -d user=admin -d email=office@example.com \
+  --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" -d 'rozsireni[]=claude' -d 'rozsireni[]=novinky'
+[ ! -f "$WORK/web/install.php" ] || { fail "Spanish installer: the installation did not finish"; sed 's/<[^>]*>//g' "$WORK/install.html" | grep -v '^\s*$' | head -10; }
+grep -q '<html lang="es">' "$WORK/install.html" && grep -q "<code>$B/mcp</code>" "$WORK/install.html" || fail "Spanish installer: the last screen is not Spanish or has no Claude address"
+[ "$(sql "SELECT CONCAT(u.user, ':', u.jazyk, ':', n.hodnota) FROM ka_uzivatele u, ka_nastaveni n WHERE n.promenna = 'site_language'")" = "admin:es:es" ] || fail "Spanish installer: the admin and the site are not Spanish"
+[ "$(sql "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'time_zone'")" = "Europe/Madrid" ] || fail "Spanish installer: the time zone is not Europe/Madrid"
+curl -s -o "$WORK/page.html" "$B/"; grep -q 'lang="es"' "$WORK/page.html" && grep -q 'Acme S.L.' "$WORK/page.html" || fail "Spanish installer: the Spanish home page is not there"
+login "$JAR" admin "$PASSWORD"; curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php"
+grep -q '<html lang="es"' "$WORK/page.html" && grep -q 'Ajustes' "$WORK/page.html" && grep -q 'admin-es.js' "$WORK/page.html" || fail "Spanish installer: the first administrator does not see the Spanish admin"
+echo "  ok     Spanish installation: Spanish site, admin and the Claude address"
+
 echo "== Crafts starter without the Forms extension"
 install remeslo novinky statistika presmerovani
 login "$JAR" admin "$PASSWORD"

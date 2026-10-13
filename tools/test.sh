@@ -61,7 +61,26 @@ csrf() { grep -o -m1 'name="_csrf" value="[a-f0-9]*"' "$WORK/response" | head -1
 publish_look() { curl -s -b "$JAR" -o "$WORK/look.html" "$B/admin.php?module=appearance"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=appearance&action=publish_look" -d "_csrf=$(grep -o -m1 'name="_csrf" value="[a-f0-9]*"' "$WORK/look.html" | head -1 | sed 's/.*value="//;s/"//')"; rm -f "$WORK"/web/storage/cache/stranky/*.html; }
 expect() { [ "$2" = "$3" ] && echo "  ok     $1" || { echo "  CHYBA  $1: dostal jsem „$2“, čekal jsem „$3“"; ERRORS=$((ERRORS+1)); }; }
 
+# leftovers <dictionary> <file>: visible texts of a page (and placeholders, titles, labels, button values) that are a source text
+# with a different translation in system/jazyky/<dictionary>.php – shown untranslated (3.13, the Spanish admin and installer)
+leftovers() { php -r 'require $argv[3] . "/system/bootstrap.php"; $dictionary = require $argv[3] . "/system/jazyky/" . $argv[1] . ".php";
+  $czechKeys = str_starts_with($argv[1], "admin-") ? require $argv[3] . "/system/jazyky/admin-en.php" : []; // Czech keys may match Czech page content
+  $d = Dom\HTMLDocument::createFromString((string) file_get_contents($argv[2]), LIBXML_NOERROR | Dom\HTML_NO_DEFAULT_NS); $found = [];
+  foreach ((new Dom\XPath($d))->query("//body//text()[not(ancestor::script or ancestor::style or ancestor::textarea or ancestor::option)] | //@placeholder | //@title | //@aria-label | //input[@type=\"submit\"]/@value") as $n) {
+    $t = trim((string) preg_replace("/\s+/u", " ", $n->textContent));
+    if ($t !== "" && isset($dictionary[$t]) && $dictionary[$t] !== $t && !isset($czechKeys[$t])) { $found[$t] = true; }
+  }
+  echo implode(" | ", array_slice(array_keys($found), 0, 5));' "$1" "$2" "$ROOT"; }
+
 echo "== instalace"
+# 3.13: the installer in Spanish – chosen by ?language=es and found in the browser's language, with no English left
+curl -s -o "$WORK/response" "$B/install.php?language=es"
+grep -q '<html lang="es">' "$WORK/response" && grep -q 'Base de datos' "$WORK/response" && grep -q '>Español</a>' "$WORK/response" \
+  && echo "  ok     3.13: the installer in Spanish" || { echo "  CHYBA  3.13: the installer with ?language=es is not Spanish"; ERRORS=$((ERRORS+1)); }
+expect "3.13: the Spanish installer shows no English text" "$(leftovers install-es "$WORK/response")" ""
+curl -s -H 'Accept-Language: es-MX,es;q=0.9,en;q=0.8' -o "$WORK/response" "$B/install.php"
+grep -q '<html lang="es">' "$WORK/response" && grep -q 'value="Europe/Madrid" selected' "$WORK/response" \
+  && echo "  ok     3.13: the installer follows a Spanish browser (and offers Madrid time)" || { echo "  CHYBA  3.13: a Spanish browser does not get the Spanish installer"; ERRORS=$((ERRORS+1)); }
 PASSWORD="Test-$(date +%s)-heslo"
 # 3.2: Bookings and Whistleblowing are offered, unticked; the default features are ticked
 curl -s -o "$WORK/response" "$B/install.php"
@@ -238,6 +257,15 @@ curl -s -b "$JAR2" -c "$JAR2" -o /dev/null -X POST "$B/admin.php?module=news&act
 expect "autor nevloží do novinky skript" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(uvod, text) REGEXP 'script|onerror|onmouseover|javascript' FROM ka_novinky WHERE titulek = 'XSS-test'")" "0"
 check "editor vidí na přehledu novinky od autorů, které čekají na vydání" 200 /admin.php "Novinky od autorů čekají na vydání"
 check "výpis novinek: filtr Čekají na vydání" 200 "/admin.php?module=news&status=ke_vydani" "XSS-test"
+
+echo "== 3.13: the admin in Spanish"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET jazyk = 'es' WHERE user = 'admin'"
+for screen in "|Panel" "module=pages|Páginas" "module=settings|Ajustes" "action=account|Mi cuenta"; do
+  check "3.13: Spanish admin ${screen%%|*}" 200 "/admin.php?${screen%%|*}" "${screen#*|}"
+  grep -q '<html lang="es"' "$WORK/response" && grep -q 'image/jazyky/admin-es.js' "$WORK/response" || { echo "  CHYBA  3.13: /admin.php?${screen%%|*} is not Spanish or has no Spanish script texts"; ERRORS=$((ERRORS+1)); }
+  expect "3.13: no English left on /admin.php?${screen%%|*}" "$(leftovers admin-es "$WORK/response")" ""
+done
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET jazyk = '' WHERE user = 'admin'"
 
 echo "== firma"
 check "nastavení/firma" 200 "/admin.php?module=business" 'name="company_hours"'

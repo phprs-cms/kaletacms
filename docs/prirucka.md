@@ -11,7 +11,7 @@ Návod pro toho, kdo web spravuje: od instalace přes builder stránek až po na
 3. Vyberte, **co chcete mít zapnuté**: Novinky, Formuláře a poptávky, Newsletter, Statistiku, Přesměrování, jazykové
    verze, AI asistenta… Rozšíření jde kdykoli zapnout a vypnout v administraci (**Rozšíření**); vypnutím se nic nesmaže.
 4. Instalace založí i skrytou kostru **Zásad ochrany osobních údajů** v jazyce webu s odkazem v patičce, v cookie liště a u souhlasu ve formuláři. Doplňte údaje v hranatých závorkách a stránku zveřejněte. Nová stránka ze šablony **Zásady ochrany osobních údajů** (Stránky → Nová stránka) se řídí tím, co má web zapnuté – poptávky, newsletter, statistika, měření a marketingové kódy, mapy – a doplní údaje o firmě. Vždy je to šablona ke kontrole, ne právní rada.
-5. Instalátor je česky, anglicky a německy. Na konci ukáže adresu pro napojení Clauda a první zadání na vyzkoušení.
+5. Instalátor je česky, anglicky, německy a španělsky (řídí se jazykem prohlížeče). Na konci ukáže adresu pro napojení Clauda a první zadání na vyzkoušení.
 6. Po přihlášení vás na **Přehledu** provedou **První kroky**: vzhled webu, údaje o firmě, stránky, zásady a pošta.
 
 Administrace je na adrese `/admin.php`. Role: **správce** smí všechno, **editor** spravuje obsah, **autor novinek** píše
@@ -22,7 +22,7 @@ zůstávají vám), **Autor textů** (novinky, které vydá někdo jiný) a **Je
 
 **Nápověda na každé obrazovce.** Vedle nadpisu každé části administrace otevře **Jak s tím pracovat** její článek
 v návodu (v jazyce administrace, pokud ho návod má); v builderu je článek v Nápovědě (**?**). Administrace je česky,
-anglicky a německy – každý uživatel si vybere v **Můj účet**.
+anglicky, německy a španělsky – každý uživatel si vybere v **Můj účet**. Nástroje Clauda (MCP) mluví vždy anglicky.
 
 **Stavíte web pro klienta?** V **Nastavení → Obecné → Web postavil a stará se o něj** vyplňte své jméno, web, e-mail,
 telefon a logo: přihlašovací obrazovka a patička administrace klientovi ukážou, koho se zeptat. Před předáním vypíše

@@ -60,7 +60,9 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   (vkládá `Seo::head()`); pravidla v `:where()` s nulovou vahou, aby je šablona přebila. Doplňky textu novinky vkládá `Front\NewsText`.
 - **Texty webu přes `t('Česky')`** (`Core\Language`, slovníky `system/jazyky/<kód>.php`; administrace `admin-<kód>.php`, instalátor
   `install-<kód>.php` – úplnost hlídá `tools/unit-tests.php`). Jazyky: čeština a angličtina (`Language::AVAILABLE`, `Language::CODES`).
-  Doplňuj nástrojem `tools/add-translations.py`. Hodnoty formulářů se nepřekládají.
+  Doplňuj nástrojem `tools/add-translations.py`. Hodnoty formulářů se nepřekládají. Administrace a instalátor jsou česky, anglicky,
+  německy (+ `-de-du` pro tykání) a španělsky (3.13, tykání): nový text administrace patří i do `admin-es.php` a `image/jazyky/admin-es.js`,
+  instalátoru do `install-es.php` – unit test hlídá, že španělština pokrývá každý německý text se stejnými zástupnými znaky.
 - **Jazykové verze:** sloupec `jazyk` ('' = výchozí) mají stránky, kategorie a novinky (novinka ho přebírá z kategorie). Každý dotaz webu
   vypisující obsah filtruje `Language::siteColumn()`. `App::url()` přidává `/en/` jen adresám bez přípony (soubory, `api/`, `mcp` jsou společné).
 - **Cache stránek** (`Front\Cache`): jen pro nepřihlášené; každý POST v administraci volá `Cache::clear()`. `Auth::user()` nesmí na webu

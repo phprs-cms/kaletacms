@@ -11,7 +11,7 @@ For whoever runs the site: from installation through the page builder to connect
 3. Choose **what you want switched on**: News, Forms and enquiries, Newsletter, Statistics, Redirects, language versions,
    the writing assistant… Features can be switched on and off at any time in the admin (**Features**); switching off deletes nothing. Bookings and Whistleblowing start switched off.
 4. The installation also creates a hidden draft **Privacy policy** page in the site language, linked from the footer, the cookie bar and the form consent. Fill in the details in square brackets and publish it. A new page from the **Privacy policy** template (Pages → New page) follows what the site has switched on – enquiries, newsletter, statistics, analytics and marketing codes, maps – and fills in your company details. It is always a template to check, not legal advice.
-5. The installer is in English, Czech and German. When it finishes, it shows the address for connecting Claude and
+5. The installer is in English, Czech, German and Spanish (it follows the browser's language). When it finishes, it shows the address for connecting Claude and
    a first prompt to try.
 6. After logging in, **First steps** on the **Dashboard** guide you through: site appearance, company details, pages,
    the privacy policy and email.
@@ -24,7 +24,7 @@ settings and users stay with you), **Writer** (news for someone else to publish)
 
 **Help on every screen.** Next to the heading of each part of the admin, **How to use this** opens its article in this
 guide (in the admin language, if the guide has it); in the builder the article is in Help (**?**). The admin speaks
-Czech, English and German – each user chooses in **My account**.
+Czech, English, German and Spanish – each user chooses in **My account**. Claude's tools (MCP) always speak English.
 
 **Building the site for a client?** In **Settings → General → Built and looked after by** fill in your name, website,
 e-mail, phone and logo: the sign-in screen and the foot of the admin show the client whom to ask for help. Before

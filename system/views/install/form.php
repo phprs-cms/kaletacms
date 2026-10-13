@@ -4,7 +4,7 @@
  * @var list<array{nazev:string, ok:bool, info:string}> $requirements
  * @var array<string, string> $data
  * @var array<string, string> $errors
- * @var string $language  installation language (cs, en)
+ * @var string $language  installation language (cs, en, de, es)
  * @var array<string, string> $languages
  * @var list<string> $extensions  checked extensions
  */

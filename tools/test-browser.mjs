@@ -821,6 +821,35 @@ await step('3.12 contact form sent on a phone: no console error after the answer
   }
 });
 
+// 3.13: the Spanish admin – My account switches the language; the dashboard, the pages list, Settings and My account are
+// Spanish (with the Spanish script texts) and, with the longer Spanish strings, none scrolls sideways on a 390 px phone
+await step('3.13 Spanish admin: switched in My account, Spanish screens without sideways scroll at 390 px', async () => {
+  const adminLanguage = async (code) => {
+    await visit('/admin.php?action=account');
+    await page.selectOption('#jazyk', code);
+    await Promise.all([page.waitForNavigation(), page.locator('form:has(#jazyk) input[type="submit"]').click()]);
+  };
+  await adminLanguage('es');
+  try {
+    for (const [width, height] of [[1440, 900], [390, 844]]) {
+      await page.setViewportSize({ width, height });
+      for (const url of ['/admin.php', '/admin.php?module=pages', '/admin.php?module=settings', '/admin.php?action=account']) {
+        await visit(url);
+        if ((await page.locator('html').getAttribute('lang')) !== 'es') { throw new Error(`${url} is not in Spanish`); }
+        if (!(await page.evaluate(() => typeof window.KALETA_PREKLAD === 'object' && Object.keys(window.KALETA_PREKLAD).length > 2500))) { throw new Error(`${url} has no Spanish script texts`); }
+        const wider = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        if (wider > 1) { throw new Error(`${url} scrolls sideways by ${wider} px at ${width} px`); }
+        if (SHOTS && width === 390) { await page.screenshot({ path: `${SHOTS}/spanish-${url.replace(/\W+/g, '-')}.png`, fullPage: true }); }
+      }
+    }
+    await visit('/admin.php?module=settings');
+    if (!(await page.locator('h1', { hasText: 'Ajustes' }).count())) { throw new Error('the Settings heading is not Spanish'); }
+  } finally {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await adminLanguage('en');
+  }
+});
+
 // right-to-left (data model §5): the Arabic page of the Crafts starter (tools/test-browser.sh) as a visitor sees it on a computer and
 // on a phone, and its English twin – the carousel shows its first slide whole at load and Next brings the second, in both directions
 for (const [language, path] of [['ar', '/ar/rtl-test'], ['en', '/ltr-test']]) {
