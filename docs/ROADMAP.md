@@ -686,6 +686,27 @@ Fix:
 Audited before release (N311): robots.txt rules kept when the file is not UTF-8, an application's strongest access shown,
 drafts as the fallback of the consent and token forms, bidi controls dropped from RTL e-mails.
 
+## 3.12 – WooCommerce moves, sorting by language, time-zone conversion (released 13 October 2026)
+
+1. **fysiomed.eu readiness** (WooCommerce + Polylang, English and Arabic): WooCommerce products become a product catalogue
+   (`Core\WpWooCommerce`), product categories become collection categories per language with redirects of the old
+   addresses (default or detected base), images in batches of 30, collections with categories delete step by step
+   (MySQL 6575), a hidden category goes visible with its first published item (owner decision), Arabic search normalises
+   ة/ه and ٱ/ا (news re-indexed, migration 0089), a font warning for scripts the chosen font lacks (`Builder\FontScripts`).
+   Measured at 396 products ×2: 28 steps, 847 old addresses, none missing.
+2. **The rest of the outside UX review of 3.10:** logo and icon in the draft look, Portuguese and Chinese visitor texts
+   with a warning for languages without them, Collection list fields by name, protected pages ticked in a list, the
+   WordPress import preview (export language, add-language path), menu changes shown before publishing and "publish the
+   menus only", the Form element inspector as one row per field, smaller polish.
+3. **The last safe 4.0 steps** (design §1.2, §1.3, §6): alphabetical lists sort by the site language (`Core\Collation`;
+   Czech unchanged), token and hash columns in `ascii_bin` (migration 0092), `NOW()` replaced by `Core\Clock`
+   parameters, and a time-zone change offers to convert saved dates (`Core\TimeZoneConversion`, migration 0093; owner
+   decision). The owner's 4.0 answers are in the design doc §8.
+
+Audited before release (N312): a time-zone conversion starts once even with parallel submits, out-of-range dates never
+stall the background jobs, categories written by a drafts-only connection wait for review, imported redirects are always
+literal, the import state is never written empty, category parent cycles are broken.
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).
