@@ -3,6 +3,7 @@
 // Env: BASE, PASSWORD (admin), CHROME (browser binary), NODE_PATH (folder with playwright-core), SHOTS (optional folder
 // for screenshots of new screens, to look at them).
 import { createRequire } from 'node:module';
+import { createHash } from 'node:crypto';
 
 const require = createRequire(`${process.env.NODE_PATH}/`);
 const { chromium } = require('playwright-core');
@@ -53,6 +54,25 @@ for (const url of ['/admin.php', '/admin.php?module=pages', '/admin.php?module=p
   '/admin.php?module=bookings', '/admin.php?module=whistleblowing']) {
   await step(`open ${url}`, () => visit(url));
 }
+
+// 3.13.1: the consent screen stands in the bare frame; its access choices are option cards (a hidden radio, a border) and
+// "recommended" / "new, not verified" are pills – both styled by editor.css, which the frame did not load
+await step('OAuth consent: the access choices are cards, the labels are pills', async () => {
+  const redirect = 'https://claude.ai/api/mcp/auth_callback';
+  const client = await (await fetch(`${BASE}/oauth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ client_name: 'Claude', redirect_uris: [redirect], token_endpoint_auth_method: 'none' }) })).json();
+  const challenge = createHash('sha256').update('v'.repeat(50)).digest('base64url');
+  await visit(`/oauth/authorize?response_type=code&client_id=${client.client_id}&redirect_uri=${encodeURIComponent(redirect)}&code_challenge=${challenge}&code_challenge_method=S256&state=s&scope=mcp`);
+  const look = await page.evaluate(() => {
+    const card = document.querySelector('.oauth-souhlas .karta-volba');
+    const pill = document.querySelector('.oauth-souhlas .stitek');
+    return card && pill ? { radio: getComputedStyle(card.querySelector('input')).opacity, border: getComputedStyle(card).borderTopWidth,
+      title: getComputedStyle(card.querySelector('strong')).display, pill: getComputedStyle(pill).borderTopWidth } : null;
+  });
+  if (!look) { throw new Error('no access choices or label on the consent screen'); }
+  if (look.radio !== '0' || look.border !== '2px' || look.title !== 'block' || look.pill !== '1px') { throw new Error(`the consent screen is unstyled: ${JSON.stringify(look)}`); }
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/oauth-consent.png`, fullPage: true }); }
+});
 
 // 3.10 audit (N310-7): Enter in the name of a new token creates the token – also when tokens with their tool set switch
 // and revoke buttons are listed above it (they belong to another form, so they are never the form's default button)

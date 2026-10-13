@@ -1299,6 +1299,9 @@ label.galerie-vyfotit { display: none; }
 .login-web { margin: 0; font-weight: 600; }
 .login-karta .oauth-souhlas { max-width: none; padding: 0; border: 0; background: none; }
 .login-karta .oauth-souhlas .tlacitka .tl, .login-karta .oauth-souhlas .tlacitka .navigace { width: auto; margin-top: 0; }
+/* 3.13.1: the grid gap spaces the consent screen, not paragraph margins too; the access choices are one list, no empty slot */
+.login-karta .oauth-souhlas > p { margin: 0; }
+.login-karta .oauth-souhlas .karty-volby { grid-template-columns: 1fr; }
 
 .volby-jazyky { columns: 3 13rem; column-gap: 24px; }
 /* a long list of checkboxes (pages for a popup) */

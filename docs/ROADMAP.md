@@ -711,7 +711,7 @@ Audited before release (N312): a time-zone conversion starts once even with para
 stall the background jobs, categories written by a drafts-only connection wait for review, imported redirects are always
 literal, the import state is never written empty, category parent cycles are broken.
 
-## 3.13 – Spanish admin, Claude's ready-made tasks, a true cookie table (released 13 October 2026)
+## 3.13 – Spanish admin, Claude's ready-made tasks, a true cookie table (3.13.1 released 13 October 2026)
 
 1. **Spanish admin and installer** (owner request): `admin-es.php`, `admin-es.js`, `install-es.php`, "Español" in My
    account, the installer picks it from the browser. Machine translation – native review welcome.
@@ -725,6 +725,10 @@ literal, the import state is never written empty, category parent cycles are bro
 
 Audited before release (N313): weekly_review kept read-only, exact cookie names in the scan, prompt arguments capped, a
 non-string MCP name answered as JSON-RPC, the consent id cookie Secure.
+
+3.13.1 (13 October 2026): the "Connect an application" consent screen is styled again – since 3.11 its focused frame
+did not load the stylesheet of the option cards, so the access choices were bare radio buttons and run-on text (owner
+report from a live site). The choices are one list; the browser test checks the cards.
 
 ## Not planned
 
