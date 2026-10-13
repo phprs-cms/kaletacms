@@ -254,7 +254,7 @@ final class Language
     private static array $dictionary = [];
 
     /** Languages the administration is translated into (dictionary system/jazyky/admin-<code>.php). */
-    public const array ADMIN_LANGUAGES = ['cs' => 'Čeština', 'en' => 'English', 'de' => 'Deutsch'];
+    public const array ADMIN_LANGUAGES = ['cs' => 'Čeština', 'en' => 'English', 'de' => 'Deutsch', 'es' => 'Español'];
 
     /**
      * German registers (issue #20): formal (Sie, the base dictionaries) and informal (du, an overlay system/jazyky/<set>de-du.php with only the

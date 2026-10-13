@@ -70,7 +70,9 @@ two PHP versions side by side. A test that only passes on your machine turns `ma
 
 Visitor texts live in `system/jazyky/<code>.php` (for example `de.php`), the English admin in `system/jazyky/admin-en.php`.
 A new language is one dictionary file keyed by the Czech source text; `tools/add-translations.py` adds entries. Languages without
-a dictionary fall back to English with dates in their own format.
+a dictionary fall back to English with dates in their own format. The admin and the installer speak Czech, English, German
+and Spanish (`admin-<code>.php`, `image/jazyky/admin-<code>.js`, `install-<code>.php`): a new admin text needs an entry in each,
+with the same placeholders – `tools/unit-tests.php` checks it.
 
 ## Commits and pull requests
 

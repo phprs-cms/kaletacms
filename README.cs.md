@@ -35,7 +35,7 @@ stránek s výstupem na úrovni ručně psaného HTML, AI asistent a napojení C
 - **AI** – asistent navrhne novou sekci podle popisu, přepíše text prvku, navrhne titulky, SEO popisy, korekturu i překlad
   (Claude, OpenAI, Google Gemini nebo Mistral). Claude navíc může web stavět přes **MCP**: HTML převede na stavbu,
   upraví části webu, kolekce i vzhled – vždy jako koncept ke schválení.
-- **Novinky** (blog), weby asi ve čtyřiceti jazycích, SEO a llms.txt, vlastní měření návštěvnosti bez cookies, přesměrování,
+- **Novinky** (blog), weby asi ve čtyřiceti jazycích, administrace česky, anglicky, německy a španělsky, SEO a llms.txt, vlastní měření návštěvnosti bez cookies, přesměrování,
   zálohy a podepsané aktualizace, **import z WordPressu** (i rovnou do builderu).
 
 ## Zásady

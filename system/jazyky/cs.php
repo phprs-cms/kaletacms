@@ -3216,4 +3216,8 @@ return [
     'In stock' => 'Skladem',
     'Out of stock' => 'Není skladem',
     'On backorder' => 'Na objednávku',
+    // 3.13: the cookie table as the code sets it (Core\Privacy::OWN)
+    'Cookie bar: a random identifier that links the choice to its record, only when consents are recorded (cookie)' => 'Cookie lišta: náhodný identifikátor, který propojí volbu s jejím záznamem – jen když se souhlasy evidují (cookie)',
+    'Preview of drafts: only for someone who opened a signed preview link (cookie)' => 'Náhled konceptů: jen pro toho, kdo otevřel podepsaný odkaz na náhled (cookie)',
+    'until the preview link expires, at most 7 days' => 'do vypršení odkazu na náhled, nejvýš 7 dní',
 ];

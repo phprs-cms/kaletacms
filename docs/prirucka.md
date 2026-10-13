@@ -11,7 +11,7 @@ Návod pro toho, kdo web spravuje: od instalace přes builder stránek až po na
 3. Vyberte, **co chcete mít zapnuté**: Novinky, Formuláře a poptávky, Newsletter, Statistiku, Přesměrování, jazykové
    verze, AI asistenta… Rozšíření jde kdykoli zapnout a vypnout v administraci (**Rozšíření**); vypnutím se nic nesmaže.
 4. Instalace založí i skrytou kostru **Zásad ochrany osobních údajů** v jazyce webu s odkazem v patičce, v cookie liště a u souhlasu ve formuláři. Doplňte údaje v hranatých závorkách a stránku zveřejněte. Nová stránka ze šablony **Zásady ochrany osobních údajů** (Stránky → Nová stránka) se řídí tím, co má web zapnuté – poptávky, newsletter, statistika, měření a marketingové kódy, mapy – a doplní údaje o firmě. Vždy je to šablona ke kontrole, ne právní rada.
-5. Instalátor je česky, anglicky a německy. Na konci ukáže adresu pro napojení Clauda a první zadání na vyzkoušení.
+5. Instalátor je česky, anglicky, německy a španělsky (řídí se jazykem prohlížeče). Na konci ukáže adresu pro napojení Clauda a první zadání na vyzkoušení.
 6. Po přihlášení vás na **Přehledu** provedou **První kroky**: vzhled webu, údaje o firmě, stránky, zásady a pošta.
 
 Administrace je na adrese `/admin.php`. Role: **správce** smí všechno, **editor** spravuje obsah, **autor novinek** píše
@@ -22,7 +22,7 @@ zůstávají vám), **Autor textů** (novinky, které vydá někdo jiný) a **Je
 
 **Nápověda na každé obrazovce.** Vedle nadpisu každé části administrace otevře **Jak s tím pracovat** její článek
 v návodu (v jazyce administrace, pokud ho návod má); v builderu je článek v Nápovědě (**?**). Administrace je česky,
-anglicky a německy – každý uživatel si vybere v **Můj účet**.
+anglicky, německy a španělsky – každý uživatel si vybere v **Můj účet**. Nástroje Clauda (MCP) mluví vždy anglicky.
 
 **Stavíte web pro klienta?** V **Nastavení → Obecné → Web postavil a stará se o něj** vyplňte své jméno, web, e-mail,
 telefon a logo: přihlašovací obrazovka a patička administrace klientovi ukážou, koho se zeptat. Před předáním vypíše
@@ -336,11 +336,36 @@ a umí ukázat jen změny Clauda nebo jen lidí; Claude ho čte také (`list_cha
 
 **Pokyny pro Clauda.** V **Rozšíření → Napojení na Claude** napište, čeho se má Claude držet – jak oslovujete zákazníky,
 která slova používat a kterým se vyhnout, pravidla domu. Každé napojení je dostane při připojení. Claude navíc nabízí
-hotové úkoly (v aplikaci Claude pod **+**): postavit stránku, projít audit a opravit, co je bezpečné, přeložit stránku,
-napsat novinku a týdenní přehled webu.
+hotové úkoly (níže).
 
 **Nastavení přes napojení.** Kromě názvu webu a údajů o firmě umí Claude zapnout rozšíření a jazykové verze, cookie lištu,
 přepínače SEO, kódy analytiky a kód v `<head>` – když o to požádáte.
+
+### Hotové úkoly pro Clauda
+
+Každé napojení Kalety přináší vlastní hotové úkoly – úplné postupy krok za krokem pro práce, o které lidé žádají
+nejčastěji. Jsou součástí samotného napojení, takže fungují na každém webu s Kaletou a v každé aplikaci Claude, nic se
+neinstaluje. V claude.ai a v desktopové aplikaci Claude otevřete **+** a vyberte úkol u konektoru svého webu; v Claude Code
+napište `/` a vyberte ho jako `/mcp__kaleta__migrate_site` (uprostřed je název, který jste napojení dali). Některé úkoly se
+nejdřív zeptají na údaj, například adresu starého webu nebo kód jazyka. Každý úkol pracuje v konceptech, drží se vašich
+pokynů pro Clauda a před zveřejněním, smazáním nebo odesláním se zeptá.
+
+| Úkol | Co Claude udělá |
+|---|---|
+| `migrate_site` | Přestěhuje web z WordPressu (i s WooCommerce, Polylangem nebo WPML) nebo z jiné platformy: import, vzhled, přestavěné stránky, kolekce, přesměrování se vzory a 410 a zprávu o přechodu. |
+| `launch_site` | Dovede čerstvou instalaci k hotovému webu: údaje a fakta, plán oboru, vzhled, stránky, záhlaví, patičku, menu, právní šablony a kontrolu před spuštěním. |
+| `add_language_version` | Přidá jazykovou verzi – i regionální nebo psanou zprava doleva – a přeloží stránky, kolekce, menu, záhlaví a patičku; zkontroluje písma; zveřejní ji, až řeknete. |
+| `weekly_care` | Zdraví webu, co se změnilo, audit, nefunkční odkazy, nenalezené adresy, poptávky a překlady a tři věci, které udělat dál. |
+| `newsletter_release` | Připraví newsletter z posledních novinek, pošle vám zkušební e-mail a odběratelům ho rozešle až po vašem výslovném souhlasu. |
+| `set_up_bookings` | Nastaví online rezervace: služby, lidi, otevírací dobu a výjimky, pravidla a texty e-mailů, stránku s rezervací. |
+| `compliance_check` | Záznam o zpracování, cookies, šablonu zásad ochrany osobních údajů, přístupnost a žádosti o osobní údaje – šablony, nikdy právní rada. |
+| `build_page`, `translate_page`, `write_news` | Novou stránku, překlad jedné stránky, novinku – jako koncepty. |
+| `audit_and_fix` | Spustí audit webu a opraví, co je bezpečné. |
+| `work_requests`, `review_pending`, `scheduled_run` | Vyřídí požadavky kolegů, vypíše, co čeká na vaši kontrolu, provede naplánované běhy rutiny. |
+| `draft_blueprint` | Připraví plán oboru pro druh podnikání, na který se žádný dodaný nehodí. |
+
+Volitelný plugin „Kaleta for Claude“ pro Claude Code nese pět z těchto postupů jako dovednosti, vygenerované ze stejných
+úkolů; když máte web připojený, nepotřebujete ho.
 
 ## 11. Přechod z WordPressu nebo z jiného webu na Kaletě
 

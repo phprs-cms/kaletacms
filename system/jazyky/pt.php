@@ -2081,4 +2081,8 @@ O link funciona por %d dias.
     'In stock' => 'Em estoque',
     'Out of stock' => 'Fora de estoque',
     'On backorder' => 'Sob encomenda',
+    // 3.13: the cookie table as the code sets it (Core\Privacy::OWN)
+    'Cookie bar: a random identifier that links the choice to its record, only when consents are recorded (cookie)' => 'Barra de cookies: um identificador aleatório que liga a escolha ao seu registo, só quando os consentimentos são registados (cookie)',
+    'Preview of drafts: only for someone who opened a signed preview link (cookie)' => 'Pré-visualização de rascunhos: só para quem abriu um link de pré-visualização assinado (cookie)',
+    'until the preview link expires, at most 7 days' => 'até o link de pré-visualização expirar, no máximo 7 dias',
 ];

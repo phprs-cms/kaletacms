@@ -91,18 +91,24 @@ final class Server
             ]),
             // the site owner's instructions and an overview; ready-made tasks (2.2)
             'resources/list' => $ok(['resources' => Prompts::resources()]),
-            'resources/read' => $this->guarded($id, fn (): array => Prompts::read($this->app, (string) ($z['params']['uri'] ?? ''))),
+            'resources/read' => $this->guarded($id, fn (): array => Prompts::read($this->app, self::text($z['params']['uri'] ?? ''))),
             'prompts/list' => $ok(['prompts' => Prompts::listAll()]),
-            'prompts/get' => $this->guarded($id, fn (): array => Prompts::get((string) ($z['params']['name'] ?? ''), (array) ($z['params']['arguments'] ?? []))),
+            'prompts/get' => $this->guarded($id, fn (): array => Prompts::get(self::text($z['params']['name'] ?? ''), (array) ($z['params']['arguments'] ?? []))),
             'ping' => $ok([]),
             // Czech names remain as hidden aliases
             // only the tools this connection may use (a connection limited to drafts or to reading, 2.2)
             // 3.8: each tool also carries its title (top level and annotations.title, MCP 2025-06-18) – additive fields only
             // 3.10: an essentials connection lists the core tools, find_tools and the runners it needs (Mcp\Discovery)
             'tools/list' => $ok(['tools' => $this->toolSet() === 'essentials' ? Discovery::essentials($this->available($tools), $this->access()) : $this->available($tools)]),
-            'tools/call' => $ok($this->call($tools, (string) ($z['params']['name'] ?? ''), (array) ($z['params']['arguments'] ?? []))),
+            'tools/call' => $ok($this->call($tools, self::text($z['params']['name'] ?? ''), (array) ($z['params']['arguments'] ?? []))),
             default => ['jsonrpc' => '2.0', 'id' => $id, 'error' => ['code' => -32601, 'message' => 'Unknown method: ' . $method]],
         };
+    }
+
+    /** A name or address from the request as text – an array or object there is no name (3.13, N313-4: no error page). */
+    private static function text(mixed $value): string
+    {
+        return is_scalar($value) ? (string) $value : '';
     }
 
     /** The project's website (3.8: serverInfo.websiteUrl, MCP 2025-11-25). */
