@@ -741,7 +741,7 @@ report from a live site). The choices are one list; the browser test checks the 
    compared exactly, slugs shared across languages. Claude reads it in `get_health` (`ready_for_4_0`).
 3. **Expand steps for 4.0:** redirect sources normalised in `source_norm` (utf8mb4_bin, migration 0094, filled by the
    job `redirect_sources`); tags get a language (migration 0095, `(jazyk, seo_link)` next to the global key);
-   export format 3 defined and read (`Core\ExportFormat`, English keys from `names.php`; written only on request).
+   export format 3 defined and read (`Core\ExportFormat`, English keys from `names.php`; written only on request until 4.0).
 4. **Every employee copies their own e-mail signature** (owner's idea) in My account, from their Team record – linked by
    e-mail or chosen by an administrator (migration 0096); no Collections access needed, never someone else's.
 5. **Spanish blueprints:** all 20 blueprints in Spanish.

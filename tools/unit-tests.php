@@ -6251,7 +6251,7 @@ $tooLong313 = '';
 try { Kaleta\Mcp\Prompts::get('migrate_site', ['old_url' => str_repeat('a', Kaleta\Mcp\Prompts::MAX_ARGUMENT + 1)]); } catch (InvalidArgumentException $e) { $tooLong313 = $e->getMessage(); }
 check('3.13 N313-3: a prompt argument longer than MAX_ARGUMENT is refused', str_contains($tooLong313, 'at most'), true);
 /* ---------- 3.14: tags per language version and export format 3 (data model §3 answer 5, §4) ---------- */
-check('3.14: the export writes format 2 unless asked (a 3.14 export imports into older 3.x), the import reads up to format 3',
+check('3.14: the export writes format 2 unless asked (format 3 becomes the default in 4.0), the import reads up to format 3',
     [Kaleta\Core\SiteExport::FORMAT_VERSION, Kaleta\Core\ExportFormat::DEFAULT, Kaleta\Core\ExportFormat::NEWEST], [2, 2, 3]);
 // every row of every imported table survives format 3 and back: the English keys of a table never meet another of its
 // columns (a key lost or read into the wrong column would be silent data loss), the news item's own values included
@@ -6392,6 +6392,16 @@ check('3.14 Readiness::scan – old placeholders and prefixed names of renamed t
     [[['file' => 'extensions/shop/Extension.php', 'placeholders' => 2, 'tables' => 1, 'names' => ['{novinky}', 'ka_novinky_stitky']],
         ['file' => 'extensions/shop/src/install.sql', 'placeholders' => 1, 'tables' => 0, 'names' => ['{stranky}']],
         ['file' => 'layout/old/base.php', 'placeholders' => 1, 'tables' => 0, 'names' => ['{kategorie}']]], true, [false, 2], 1]);
+// N314-3: a folder PHP may not open neither stops the page nor hides what the other folders hold
+mkdir($scan314 . '/extensions/locked/inner', 0777, true);
+chmod($scan314 . '/extensions/locked', 0);
+try {
+    $locked314 = Kaleta\Core\Readiness::scan($scan314, ['extensions', 'layout'], 'ka_');
+} catch (\Throwable $e) {
+    $locked314 = ['files' => [], 'error' => $e::class];
+}
+chmod($scan314 . '/extensions/locked', 0777);
+check('3.14 Readiness::scan (N314-3) – an unreadable folder is skipped, the rest is still found', [isset($locked314['error']), count($locked314['files'])], [false, 3]);
 exec('rm -rf ' . escapeshellarg($scan314));
 check('3.14 RedirectSources::normalize – the stored form in lower case: slashes, percent-encoding and case folded, accents and the language prefix kept', array_map(Kaleta\Core\RedirectSources::normalize(...),
     ['/Stara-Adresa/', 'ko%C4%8Dka', 'EN/Stary', '/?p=12', 'Café', 'https://old.example.com/Blog/Post/', 'blog/*']),

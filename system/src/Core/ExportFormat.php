@@ -28,7 +28,7 @@ namespace Kaleta\Core;
  */
 final class ExportFormat
 {
-    /** What SiteExport writes when nothing else is asked for – a 3.14 export still imports into older 3.x. */
+    /** What SiteExport writes when nothing else is asked for – format 2 until 4.0, so tools that read exports keep working (N314-6: an older Kaleta refuses an export from a newer version anyway). */
     public const int DEFAULT = 2;
 
     /** The newest format SiteImport reads (and SiteExport writes on request, SiteExport::create($db, $settings, 3)). */

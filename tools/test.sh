@@ -3693,6 +3693,10 @@ sq "UPDATE ka_kolekce_polozky SET smazano = NULL WHERE idp = $EVA; UPDATE ka_uzi
 expect "signature: not linked – a hint to ask an administrator, no signature" \
   "$(sig_page '&tab=signature'; grep -q 'Požádejte správce, aby vás propojil' "$WORK/response" && ! grep -q 'data-kopirovat-podpis\|Petr Podpis\|Eva Skrytá' "$WORK/response" && echo ' ok')" "200 ok"
 check "signature: the Users list says who is not linked" 200 "/admin.php?module=users" "Záznam v týmu: nepropojeno"
+# N314-1: an account e-mail is changed without confirming it, so a hidden record is never matched by e-mail – only chosen
+sq "UPDATE ka_uzivatele SET email = 'EVA@example.cz' WHERE idu = $SIG_USER" > /dev/null
+expect "signature: a hidden record is never linked by the e-mail, only by an administrator's choice (N314-1)" \
+  "$(sig_page '&tab=signature'; grep -q 'Požádejte správce, aby vás propojil' "$WORK/response" && ! grep -q 'Eva Skrytá\|eva@example.cz' "$WORK/response" && echo ' ok')" "200 ok"
 sq "DELETE FROM ka_uzivatele WHERE idu = $SIG_USER" > /dev/null
 
 echo "== 2.10: true until and review by"
@@ -5410,7 +5414,12 @@ GH314="$(mcp_value ready_for_4_0 checks)"
 expect "3.14: get_health keeps its keys and adds ready_for_4_0 with the add-on file and the redirect group" \
   "$(mcp_value status | grep -cE '^(ok|warning|error)$')|$(mcp_value ready_for_4_0 status)|$(printf '%s' "$GH314" | grep -c '"check":"legacy_table_names","name":"Add-ons and old table names","status":"warning"')|$(printf '%s' "$GH314" | grep -c 'extensions/legacy314/Extension.php')|$(printf '%s' "$GH314" | grep -c '/R314-Stara/ = /r314-stara')|$(printf '%s' "$GH314" | grep -c '"check":"database_version"')" \
   "1|warning|1|1|1|1"
-sq "DELETE FROM ka_presmerovani WHERE z_adresy LIKE 'r314-stara%'; UPDATE ka_nastaveni SET hodnota = 'hello' WHERE promenna = 'addons_enabled'" > /dev/null
+# N314-2: editing the old address of a redirect normalises it again (in 4.0 the lookup reads source_norm)
+R314ID=$(sq "SELECT idp FROM ka_presmerovani WHERE z_adresy = 'r314-stara'"); R314ID="${R314ID:-0}"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=redirects&action=save" -d "_csrf=$TOKEN" -d idp=$R314ID -d z_adresy=/r314-Nova -d na_adresu=/kontakt -d typ=301
+curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+expect "3.14: an edited old address is normalised again (N314-2)" "$(sq "SELECT CONCAT(z_adresy, '|', IFNULL(source_norm, 'NULL')) FROM ka_presmerovani WHERE idp = $R314ID")" "r314-Nova|r314-nova"
+sq "DELETE FROM ka_presmerovani WHERE z_adresy LIKE 'r314-stara%' OR idp = $R314ID; UPDATE ka_nastaveni SET hodnota = 'hello' WHERE promenna = 'addons_enabled'" > /dev/null
 rm -rf "$WORK/web/extensions/legacy314"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=addons&action=toggle" -d "_csrf=$TOKEN" -d slug=hello -d on=0
 rm -f "$WORK"/web/storage/cache/stranky/*.html
@@ -5986,6 +5995,12 @@ expect "3.14 on: a tag with the same slug in both versions, each news item with 
 T39=$(get39 /novinky/stitek/trh-39); contains -q 'Trh 39' "$WORK/response" && ! contains -q 'Market 39' "$WORK/response" || T39="$T39 wrong"
 T39EN=$(get39 /en/news/tag/trh-39); contains -q 'Market 39' "$WORK/response" && ! contains -q '>Trh 39<' "$WORK/response" || T39EN="$T39EN wrong"
 expect "3.14 on: /novinky/stitek/trh-39 and /en/news/tag/trh-39 are two tags, each listing its own version" "$T39|$T39EN" "200 |200 "
+# N314-4: a tag from before 3.14 ('' = shared) that already tags an English item stays its tag when the item is saved again
+MARKET39=$(sq "SELECT idc FROM ka_novinky WHERE titulek = 'Market 39'"); MARKET39="${MARKET39:-0}"
+sq "INSERT INTO ka_stitky (nazev, seo_link, jazyk) VALUES ('Stary 314', 'stary-314', ''); INSERT INTO ka_novinky_stitky (idc, ids) SELECT $MARKET39, ids FROM ka_stitky WHERE seo_link = 'stary-314'" > /dev/null
+mcp update_news "{\"id\":$MARKET39,\"tags\":\"Trh 39, Stary 314\"}" > /dev/null
+expect "3.14 on: saving an English item again keeps its tag from before 3.14 – no second tag with the same slug (N314-4)" \
+  "$(sq "SELECT CONCAT(COUNT(*), '|', MIN(jazyk), '|', (SELECT COUNT(*) FROM ka_novinky_stitky ns JOIN ka_stitky s2 ON s2.ids = ns.ids WHERE ns.idc = $MARKET39 AND s2.seo_link = 'stary-314')) FROM ka_stitky WHERE seo_link = 'stary-314'")" "1||1"
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=tags"
 contains -q '/en/news/tag/trh-39" target="_blank" rel="noopener">#Trh 39</a> <span class="stitek">EN</span>' "$WORK/response" \
   && echo "  ok     3.14: Tags and topics show the language of a tag and link to its own version" || { echo "  CHYBA  3.14: tag list without the language"; ERRORS=$((ERRORS+1)); }

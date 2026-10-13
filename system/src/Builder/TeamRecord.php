@@ -10,8 +10,10 @@ use Kaleta\Core\Db;
  * The link between a user account and the person's record in a people collection (3.14), so that every employee copies
  * their own e-mail signature in My account (Builder\EmailSignature) without access to Collections.
  *
- * The link is automatic: the record whose e-mail field holds the account's e-mail (case-insensitive, hidden records too,
- * never one in the trash). An administrator may choose the record instead in Users → edit user
+ * The link is automatic: the published record whose e-mail field holds the account's e-mail (case-insensitive, never one
+ * in the trash). A hidden record is linked only when an administrator chooses it (N314-1: anyone may change their own
+ * account e-mail without confirming it, so matching hidden records would let them read a record that is not public).
+ * An administrator may choose the record instead in Users → edit user
  * (ka_uzivatele.team_item_id). A chosen record that is no longer a person – deleted, in the trash, or its collection
  * changed – falls back to the e-mail match, so a link never points at someone else's data by accident.
  *
@@ -81,7 +83,7 @@ final class TeamRecord
         }
         foreach ($collections as $k) {
             foreach (self::items($db, $k) as $p) {
-                if (self::normalize(self::emailOf($k, $p)) === $email) {
+                if ((int) $p['zobrazit'] === 1 && self::normalize(self::emailOf($k, $p)) === $email) {
                     $p['data'] = json_decode((string) $p['data'], true) ?: [];
 
                     return ['collection' => $k, 'item' => $p, 'chosen' => false];
@@ -105,7 +107,7 @@ final class TeamRecord
         foreach (self::collections($db) as $k) {
             foreach (self::items($db, $k) as $p) {
                 $byId[(int) $p['idp']] = (string) $p['nazev'];
-                $email = self::normalize(self::emailOf($k, $p));
+                $email = (int) $p['zobrazit'] === 1 ? self::normalize(self::emailOf($k, $p)) : ''; // hidden: only by choice (N314-1)
                 if ($email !== '' && !isset($byEmail[$email])) {
                     $byEmail[$email] = (string) $p['nazev']; // the first one wins, as in forUser()
                 }

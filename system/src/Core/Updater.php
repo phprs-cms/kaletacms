@@ -757,7 +757,9 @@ final class Updater
     /** Remembers a verified manifest as the answer of the last check, so the update screen shows it (3.14). */
     private function remember(array $manifest): void
     {
-        $this->settings->set('update_cache', (string) json_encode(['url' => $this->url(), 'overeno' => time(), 'manifest' => $manifest, 'chyba' => null], JSON_UNESCAPED_UNICODE));
+        // the warning about a manifest signed with a date in the future stays (N314-5)
+        $this->settings->set('update_cache', (string) json_encode(['url' => $this->url(), 'overeno' => time(), 'manifest' => $manifest, 'chyba' => null,
+            'future_date' => $this->futureDate], JSON_UNESCAPED_UNICODE));
     }
 
     /**

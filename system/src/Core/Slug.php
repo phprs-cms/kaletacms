@@ -202,7 +202,9 @@ final class Slug
     /** @param array<string, list<string>> $shared @return array{0: string, 1: string} */
     private static function refusal(array $shared): array
     {
-        return ['The same address in every language cannot be switched off while two language versions share an address: %s. Change one of each pair first.',
+        // N314-4: a tag's address cannot be changed in Tags and topics – two tags are merged there instead
+        return [isset($shared['stitky']) ? 'The same address in every language cannot be switched off while two language versions share an address: %s. Change one of each pair first – two tags with the same address can be merged in Tags and topics.'
+            : 'The same address in every language cannot be switched off while two language versions share an address: %s. Change one of each pair first.',
             implode(', ', array_map(fn (string $s): string => '/' . $s, array_unique(array_merge(...array_values($shared)))))];
     }
 

@@ -37,7 +37,12 @@ final class Tags extends Module
     {
         $seo = slugify($name, 90);
         [$sameLanguage, $languageParams] = Slug::scope($db, $language);
-        $ids = $db->value('SELECT ids FROM {stitky} WHERE seo_link = ?' . $sameLanguage . ' ORDER BY jazyk = ? DESC LIMIT 1', [$seo, ...$languageParams, $language]);
+        // N314-4: per language, a tag from before 3.14 ('' = shared) that already tags a news item of this language stays
+        // that item's tag – re-saving the item must not split it into a second tag with the same slug
+        $legacy = $sameLanguage !== '' && $language !== '' ? " OR (jazyk = '' AND EXISTS (SELECT 1 FROM {novinky_stitky} ns JOIN {novinky} n ON n.idc = ns.idc WHERE ns.ids = {stitky}.ids AND n.jazyk = ?))" : '';
+        $ids = $legacy === ''
+            ? $db->value('SELECT ids FROM {stitky} WHERE seo_link = ?' . $sameLanguage . ' ORDER BY jazyk = ? DESC LIMIT 1', [$seo, ...$languageParams, $language])
+            : $db->value('SELECT ids FROM {stitky} WHERE seo_link = ? AND (jazyk = ?' . $legacy . ') ORDER BY jazyk = ? DESC LIMIT 1', [$seo, $language, $language, $language]);
 
         return $ids !== null ? [(int) $ids, false] : [$db->insert('stitky', ['nazev' => $name, 'seo_link' => $seo, 'jazyk' => $language]), true];
     }

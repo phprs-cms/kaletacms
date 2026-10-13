@@ -38,6 +38,12 @@ final class Readiness
     /** A larger file is read only this far. */
     public const int SCAN_FILE_BYTES = 2 * 1024 * 1024;
 
+    /** Entries of any kind walked at most (N314-3: a folder full of images or caches must not make the page slow). */
+    public const int SCAN_MAX_ENTRIES = 20000;
+
+    /** Matches counted in one file at most (N314-3: a generated 2 MB file must not fill the memory with matches). */
+    public const int SCAN_MAX_MATCHES = 500;
+
     /** At most this many lines in a list. */
     public const int MAX_LISTED = 50;
 
@@ -243,25 +249,34 @@ final class Readiness
         $regex = '/\{(' . $alternatives . ')\}' . ($prefix !== '' ? '|\b' . preg_quote($prefix, '/') . '(' . $alternatives . ')\b' : '') . '/';
         $root = rtrim($root, '/');
         $paths = [];
+        $walked = 0;
+        $complete = true;
         foreach ($folders as $folder) {
             if (!is_dir($root . '/' . $folder)) {
                 continue;
             }
-            $walk = new \RecursiveIteratorIterator(new \RecursiveCallbackFilterIterator(
-                new \RecursiveDirectoryIterator($root . '/' . $folder, \FilesystemIterator::SKIP_DOTS),
-                fn (\SplFileInfo $f): bool => !($f->isDir() && in_array($f->getFilename(), self::SCAN_SKIP, true)),
-            ));
-            foreach ($walk as $file) {
-                if ($file instanceof \SplFileInfo && $file->isFile() && in_array(strtolower($file->getExtension()), self::SCAN_TYPES, true)) {
-                    $paths[] = $file->getPathname();
+            // N314-3: a folder PHP may not open is skipped (CATCH_GET_CHILD) and an unreadable top folder ends this folder
+            // only – System status and get_health must open whatever the add-on folders look like
+            try {
+                $walk = new \RecursiveIteratorIterator(new \RecursiveCallbackFilterIterator(
+                    new \RecursiveDirectoryIterator($root . '/' . $folder, \FilesystemIterator::SKIP_DOTS),
+                    fn (\SplFileInfo $f): bool => !($f->isDir() && in_array($f->getFilename(), self::SCAN_SKIP, true)),
+                ), \RecursiveIteratorIterator::LEAVES_ONLY, \RecursiveIteratorIterator::CATCH_GET_CHILD);
+                foreach ($walk as $file) {
+                    if (++$walked > self::SCAN_MAX_ENTRIES || count($paths) >= $maxFiles + 1) {
+                        $complete = false;
+                        break 2;
+                    }
+                    if ($file instanceof \SplFileInfo && $file->isFile() && in_array(strtolower($file->getExtension()), self::SCAN_TYPES, true)) {
+                        $paths[] = $file->getPathname();
+                    }
                 }
-                if (count($paths) > $maxFiles) {
-                    break 2;
-                }
+            } catch (\UnexpectedValueException|\RuntimeException) {
+                $complete = false;
             }
         }
         sort($paths);
-        $complete = count($paths) <= $maxFiles;
+        $complete = $complete && count($paths) <= $maxFiles;
         $files = [];
         $bytes = 0;
         $seen = 0;
@@ -275,17 +290,22 @@ final class Readiness
             $bytes += min($size, self::SCAN_FILE_BYTES);
             $complete = $complete && $size <= self::SCAN_FILE_BYTES;
             $text = (string) @file_get_contents($path, false, null, 0, self::SCAN_FILE_BYTES);
-            if (preg_match_all($regex, $text, $matches, PREG_SET_ORDER) < 1) {
+            $found = ['placeholders' => 0, 'tables' => 0, 'names' => []];
+            $offset = 0;
+            // one match at a time, at most SCAN_MAX_MATCHES (N314-3) – never every match of a large file at once
+            while ($found['placeholders'] + $found['tables'] < self::SCAN_MAX_MATCHES && preg_match($regex, $text, $m, PREG_OFFSET_CAPTURE, $offset) === 1) {
+                $offset = $m[0][1] + max(1, strlen($m[0][0]));
+                $placeholder = ($m[1][0] ?? '') !== '' && ($m[1][1] ?? -1) >= 0;
+                $found[$placeholder ? 'placeholders' : 'tables']++;
+                if (count($found['names']) < 5) {
+                    $found['names'][$placeholder ? '{' . $m[1][0] . '}' : $prefix . $m[2][0]] = true;
+                }
+            }
+            if ($found['placeholders'] + $found['tables'] === 0) {
                 continue;
             }
-            $found = ['placeholders' => 0, 'tables' => 0, 'names' => []];
-            foreach ($matches as $m) {
-                $placeholder = ($m[1] ?? '') !== '';
-                $found[$placeholder ? 'placeholders' : 'tables']++;
-                $found['names'][$placeholder ? '{' . $m[1] . '}' : $prefix . $m[2]] = true;
-            }
             $files[] = ['file' => substr($path, strlen($root) + 1), 'placeholders' => $found['placeholders'], 'tables' => $found['tables'],
-                'names' => array_slice(array_keys($found['names']), 0, 5)];
+                'names' => array_keys($found['names'])];
         }
 
         return ['files' => $files, 'complete' => $complete, 'seen' => $seen];
