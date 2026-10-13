@@ -1263,7 +1263,7 @@ return [
     'Elegant serif' => 'Serif elegante',
     'Classic serif' => 'Serif clásica',
     'Georgia – serious and easy to read' => 'Georgia – seria y fácil de leer',
-    'Book' => 'Libro',
+    'Book' => 'Libresca',
     'Charter, Cambria – calm and literary' => 'Charter, Cambria – tranquila y literaria',
     'Modern sans-serif' => 'Sans serif moderna',
     'the device\'s system font – clean and neutral' => 'la fuente del sistema del dispositivo – limpia y neutra',
