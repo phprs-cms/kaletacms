@@ -1076,6 +1076,8 @@ final class SiteImport
     private function applySettings(string $file, string $fromVersion): void
     {
         $values = json_decode((string) @file_get_contents(self::workFolder($file) . '/nastaveni.json'), true);
+        // the opening hours are checked in the language of the imported site, which may come later in the archive than they do
+        $language = Language::offeredOrDefault(is_array($values) ? ($values['site_language'] ?? null) : null) ?: Language::defaults($this->settings);
         foreach (is_array($values) ? $values : [] as $key => $value) {
             $key = OldSettingsKeys::current((string) $key); // an export of 1.4.0 and older has the old keys
             if (!is_scalar($value) || $key === 'site_url' || (!in_array($key, SiteExport::SETTINGS, true) && Language::settingKey($key, Settings::PER_LANGUAGE) === null)) {
@@ -1094,7 +1096,7 @@ final class SiteImport
                 'extensions' => $value === '-' ? '-' : implode(',', array_intersect(explode(',', $value), array_keys(Extensions::CATALOG))),
                 // a field of the admin form is validated like the form and MCP do (3.3.3, N55): company_map or social_*
                 // "javascript:…" from a crafted archive is dropped and the setting keeps its value
-                default => \Kaleta\Admin\Modules\Settings::checkable($key) ? \Kaleta\Admin\Modules\Settings::verifyValue($key, $value) : mb_substr($value, 0, 20_000),
+                default => \Kaleta\Admin\Modules\Settings::checkable($key) ? \Kaleta\Admin\Modules\Settings::verifyValue($key, $value, $language) : mb_substr($value, 0, 20_000),
             };
             if ($value !== null) {
                 $this->settings->set($key, $value);

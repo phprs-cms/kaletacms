@@ -86,8 +86,9 @@ final class CollectionSchema
      * @param array<string, mixed> $item with decoded "data" (the whole row: a job posting reads datum and valid_until)
      * @param string $issuerId @id of the company node (the provider of a service, the organiser of an event)
      * @param array<string, mixed> $issuer the company node itself (Front\Company::schema) – the hiring organization of a job posting
+     * @param string $language language of the item (the day names of a branch's opening hours)
      */
-    public static function forItem(array $collection, array $item, string $url, string $description, string $image, string $issuerId, array $issuer = []): ?array
+    public static function forItem(array $collection, array $item, string $url, string $description, string $image, string $issuerId, array $issuer = [], string $language = ''): ?array
     {
         $schema = self::of($collection);
         if ($schema === null) {
@@ -126,7 +127,7 @@ final class CollectionSchema
                 + ['organizer' => ['@id' => $issuerId], 'offers' => $offer],
             // the branch belongs to the company; hours that do not parse are left out rather than guessed
             'LocalBusiness' => ['address' => $value('address'), 'telephone' => $value('telephone'), 'email' => $value('email'), 'geo' => self::geo($value('geo')),
-                'openingHoursSpecification' => \Kaleta\Core\Hours::specification($value('openingHours')) ?: null, 'parentOrganization' => ['@id' => $issuerId]],
+                'openingHoursSpecification' => \Kaleta\Core\Hours::specification($value('openingHours'), $language) ?: null, 'parentOrganization' => ['@id' => $issuerId]],
         }, fn (mixed $v): bool => $v !== '' && $v !== null);
     }
 

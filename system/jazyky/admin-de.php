@@ -1589,7 +1589,6 @@ return [
     'Country (code)' => 'Land (Code)',
     'Two-letter code, e.g. GB, IE, DE, FR. Empty = not stated.' => 'Zweistelliger Code: DE, AT, CH … Leer = keine Angabe.',
     'Opening hours and map' => 'Öffnungszeiten und Karte',
-    'One day or range of days per line: “Mo–Fr 8:00–17:00”, “Sa 9–12”, “Su closed”, lunch break “Tu 8–12, 13–17”. Empty = no opening hours.' => 'Ein Tag oder Tagesbereich pro Zeile: „Mo–Fr 8:00–17:00“, „Sa 9–12“, „So geschlossen“, Mittagspause „Di 8–12, 13–17“. Leer = keine Öffnungszeiten.',
     'Map link' => 'Kartenlink',
     'Link to the place on Google Maps, OpenStreetMap or another map – the Business details element turns it into a “Show on map” link.' => 'Link zum Ort auf Mapy.cz oder Google Maps – das Element Unternehmensdaten macht daraus einen Link „Auf Karte anzeigen“.',
     'Coordinates (optional)' => 'Koordinaten (optional)',
@@ -6229,4 +6228,5 @@ return [
     '%d values left as they were: they would leave the years 1000–9999' => '%d Werte blieben, wie sie waren: Sie lägen außerhalb der Jahre 1000–9999',
     '%d values were left as they were: they would leave the years 1000–9999.' => '%d Werte blieben, wie sie waren: Sie lägen außerhalb der Jahre 1000–9999.',
     'Not converted because of an error (see the change log): %s.' => 'Wegen eines Fehlers nicht umgerechnet (siehe Änderungsprotokoll): %s.',
+    'One day or range of days per line, day names in the site language or in English: “Mo–Fr 8:00–17:00”, “Sa 9–12”, “Su closed”, lunch break “Tu 8–12, 13–17”. Empty = no opening hours.' => 'Ein Tag oder Tagesbereich pro Zeile, Tagesnamen in der Sprache der Website oder auf Englisch: „Mo–Fr 8:00–17:00“, „Sa 9–12“, „So geschlossen“, Mittagspause „Di 8–12, 13–17“. Leer = keine Öffnungszeiten.',
 ];

@@ -251,7 +251,7 @@ class Settings extends Module
                 }
                 continue;
             }
-            $clean = self::sanitize($type, $value, $this->request->postBool($key));
+            $clean = self::sanitize($type, $value, $this->request->postBool($key), \Kaleta\Core\Language::defaults($settings));
             if ($key === 'time_zone' && $clean !== null && $clean !== $zoneBefore) {
                 $newZone = $clean; // saved only after the administrator chooses what happens to the dates already saved
                 continue;
@@ -885,9 +885,9 @@ class Settings extends Module
 
     /**
      * A settings value validated the same way as in the admin form (for MCP). null = unknown key or invalid value.
-     * Switches (type ano) take 1/0, true/false.
+     * Switches (type ano) take 1/0, true/false. $language = the site's default language (opening hours are written in it).
      */
-    public static function verifyValue(string $key, string $value): ?string
+    public static function verifyValue(string $key, string $value, string $language = ''): ?string
     {
         $type = self::fieldType($key);
         if ($type === null && ($m = \Kaleta\Core\Language::settingKey($key, ['nazev_webu', 'popis_webu'])) !== null) {
@@ -897,10 +897,10 @@ class Settings extends Module
             return null;
         }
 
-        return self::sanitize($type, trim($value), in_array(strtolower(trim($value)), ['1', 'true', 'ano'], true));
+        return self::sanitize($type, trim($value), in_array(strtolower(trim($value)), ['1', 'true', 'ano'], true), $language);
     }
 
-    private static function sanitize(string $type, string $value, bool $checked): ?string
+    private static function sanitize(string $type, string $value, bool $checked, string $language = ''): ?string
     {
         [$kind, $parameter] = explode(':', $type, 2) + [1 => ''];
 
@@ -927,7 +927,7 @@ class Settings extends Module
             'vyber' => in_array($value, explode('|', $parameter), true) ? $value : null,
             'pasmo' => in_array($value, \DateTimeZone::listIdentifiers(), true) ? $value : null,
             'vzor' => preg_match($parameter, $value) ? $value : null,
-            'hodiny' => \Kaleta\Front\Company::parseOpeningHours($value) !== null ? mb_substr(trim($value), 0, 1000) : null,
+            'hodiny' => \Kaleta\Front\Company::parseOpeningHours($value, $language) !== null ? mb_substr(trim($value), 0, 1000) : null,
             default => null,
         };
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaleta\Front;
 
+use Kaleta\Core\Language;
 use Kaleta\Core\Settings;
 
 /**
@@ -11,8 +12,8 @@ use Kaleta\Core\Settings;
  * the Company details element (site) and by schema.org structured data (Organization / LocalBusiness) for search engines
  * and AI assistants.
  *
- * Opening hours are entered in human form, line by line („Po–Pá 8:00–17:00“, „So 9–12“, „Ne zavřeno“); the site prints
- * them as written, for structured data they are parsed.
+ * Opening hours are entered in human form, line by line, in the site language or English („Po–Pá 8:00–17:00“, „So 9–12“,
+ * „Ne zavřeno“; Slovak „Po–Pi 9–17“, German „So geschlossen“); the site prints them as written, for structured data they are parsed.
  */
 final class Company
 {
@@ -33,10 +34,24 @@ final class Company
         'EducationalOrganization' => 'school and courses',
     ];
 
-    /** Days of the week: abbreviations (Czech and English) → schema.org. */
-    private const array DAYS = [
-        'po' => 'Monday', 'ut' => 'Tuesday', 'st' => 'Wednesday', 'ct' => 'Thursday', 'pa' => 'Friday', 'so' => 'Saturday', 'ne' => 'Sunday',
-        'mo' => 'Monday', 'tu' => 'Tuesday', 'we' => 'Wednesday', 'th' => 'Thursday', 'fr' => 'Friday', 'sa' => 'Saturday', 'su' => 'Sunday',
+    /**
+     * Opening hours words by language: the start of a day name (lowercase, without diacritics unless they tell two days
+     * apart) → schema.org day, and the words for "closed" (any of them counts on every site). A day name is looked up in
+     * the site's language first, then in English and Czech (what the parser always knew), so "So" is Sunday on a German
+     * site and Saturday on a Czech one, and Slovak "Št" (štvrtok) is Thursday while "St" stays Wednesday. The longest
+     * matching start wins ("stv" = štvrtok typed without diacritics). A new language = a new entry here.
+     */
+    private const array HOURS_WORDS = [
+        'cs' => ['days' => ['po' => 'Monday', 'ut' => 'Tuesday', 'st' => 'Wednesday', 'ct' => 'Thursday', 'pa' => 'Friday', 'so' => 'Saturday', 'ne' => 'Sunday'],
+            'closed' => ['zavreno']],
+        'en' => ['days' => ['mo' => 'Monday', 'tu' => 'Tuesday', 'we' => 'Wednesday', 'th' => 'Thursday', 'fr' => 'Friday', 'sa' => 'Saturday', 'su' => 'Sunday'],
+            'closed' => ['closed']],
+        'sk' => ['days' => ['po' => 'Monday', 'ut' => 'Tuesday', 'st' => 'Wednesday', 'št' => 'Thursday', 'stv' => 'Thursday', 'pi' => 'Friday', 'so' => 'Saturday', 'ne' => 'Sunday'],
+            'closed' => ['zatvorene']],
+        'de' => ['days' => ['mo' => 'Monday', 'di' => 'Tuesday', 'mi' => 'Wednesday', 'do' => 'Thursday', 'fr' => 'Friday', 'sa' => 'Saturday', 'so' => 'Sunday'],
+            'closed' => ['geschlossen', 'ruhetag']],
+        'pl' => ['days' => ['pn' => 'Monday', 'po' => 'Monday', 'wt' => 'Tuesday', 'sr' => 'Wednesday', 'cz' => 'Thursday', 'pt' => 'Friday', 'pi' => 'Friday',
+            'sb' => 'Saturday', 'so' => 'Saturday', 'nd' => 'Sunday', 'ni' => 'Sunday'], 'closed' => ['zamknięte', 'zamkniete', 'nieczynne']],
     ];
 
     /** Address in lines (street; postcode and city; country, only when it is not Czech). @return list<string> */
@@ -56,20 +71,29 @@ final class Company
     }
 
     /**
-     * Parses opening hours for schema.org. An unknown line = null (Settings rejects it with a message).
+     * Parses opening hours for schema.org. An unknown line = null (Settings rejects it with a message). $language is the
+     * language the hours are written in (the site's default language for company_hours, Language::defaults); '' = Czech
+     * and English only.
      *
      * @return list<array{dny: list<string>, od: string, do: string}>|null
      */
-    public static function parseOpeningHours(string $text): ?array
+    public static function parseOpeningHours(string $text, string $language = ''): ?array
     {
+        $languages = array_values(array_unique([Language::base($language), 'en', 'cs']));
         $result = [];
         foreach (array_filter(array_map('trim', preg_split('/\R/u', $text) ?: [])) as $row) {
-            $r = mb_strtolower(remove_diacritics(str_replace(['–', '—', '−'], '-', $row)));
-            if (!preg_match('/^([a-z]{2})[a-z.]*\s*(?:-\s*([a-z]{2})[a-z.]*)?\s*:?\s+(.+)$/', $r, $m) || !isset(self::DAYS[$m[1]]) || ($m[2] !== '' && !isset(self::DAYS[$m[2]]))) {
+            $r = mb_strtolower(str_replace(['–', '—', '−'], '-', $row));
+            if (!preg_match('/^(\p{L}{2}[\p{L}.]*)\s*(?:-\s*(\p{L}{2}[\p{L}.]*))?\s*:?\s+(.+)$/u', $r, $m)) {
                 return null;
             }
-            $days = self::dayRange($m[1], $m[2]);
-            if (preg_match('/^(zavreno|closed|-)$/', trim($m[3]))) {
+            $from = self::day($m[1], $languages);
+            $to = $m[2] !== '' ? self::day($m[2], $languages) : $from;
+            if ($from === null || $to === null) {
+                return null;
+            }
+            $days = self::dayRange($from, $to);
+            $closed = array_merge(['-'], ...array_column(self::HOURS_WORDS, 'closed'));
+            if (in_array(trim($m[3]), $closed, true) || in_array(remove_diacritics(trim($m[3])), $closed, true)) {
                 continue;
             }
             foreach (preg_split('/\s*[,;]\s*/', trim($m[3])) ?: [] as $segment) {
@@ -83,12 +107,38 @@ final class Company
         return $result;
     }
 
+    /**
+     * A day name or its abbreviation ("Po", "Pondělí", "Št.", "Mittwoch") → schema.org day; the first language that knows
+     * it decides. The word is compared as written first (Slovak "št" ≠ "st"), then without diacritics. null = unknown.
+     *
+     * @param list<string> $languages
+     */
+    private static function day(string $word, array $languages): ?string
+    {
+        $word = str_replace('.', '', $word);
+        foreach ($languages as $language) {
+            foreach ([$word, remove_diacritics($word)] as $form) {
+                $found = '';
+                foreach (self::HOURS_WORDS[$language]['days'] ?? [] as $start => $day) {
+                    if (str_starts_with($form, $start) && strlen($start) > strlen($found)) {
+                        $found = $start;
+                    }
+                }
+                if ($found !== '') {
+                    return self::HOURS_WORDS[$language]['days'][$found];
+                }
+            }
+        }
+
+        return null;
+    }
+
     /** @return list<string> */
     private static function dayRange(string $from, string $to): array
     {
         $order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-        $a = array_search(self::DAYS[$from], $order, true);
-        $b = $to === '' ? $a : array_search(self::DAYS[$to], $order, true);
+        $a = array_search($from, $order, true);
+        $b = array_search($to, $order, true);
 
         return $b >= $a ? array_slice($order, (int) $a, (int) $b - (int) $a + 1) : array_merge(array_slice($order, (int) $a), array_slice($order, 0, (int) $b + 1));
     }
@@ -122,7 +172,7 @@ final class Company
             'address' => count($url) > 1 ? $url : null,
             'geo' => is_numeric($lat) && is_numeric($lng) ? ['@type' => 'GeoCoordinates', 'latitude' => (float) $lat, 'longitude' => (float) $lng] : null,
             'hasMap' => $s->get('company_map'),
-            'openingHoursSpecification' => $type !== 'Organization' ? (\Kaleta\Core\Hours::specification($s->get('company_hours')) ?: null) : null,
+            'openingHoursSpecification' => $type !== 'Organization' ? (\Kaleta\Core\Hours::specification($s->get('company_hours'), Language::defaults($s)) ?: null) : null,
             'sameAs' => array_values(array_filter(array_map($s->get(...), ['social_facebook', 'social_instagram', 'social_x', 'social_youtube', 'social_linkedin']))) ?: null,
         ], fn (mixed $v): bool => $v !== null && $v !== '');
     }

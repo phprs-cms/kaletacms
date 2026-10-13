@@ -1588,7 +1588,6 @@ return [
     'Country (code)' => 'Země (kód)',
     'Two-letter code, e.g. GB, IE, DE, FR. Empty = not stated.' => 'Dvoupísmenný kód: CZ, SK, DE… Prázdné = neuvádí se.',
     'Opening hours and map' => 'Otevírací doba a mapa',
-    'One day or range of days per line: “Mo–Fr 8:00–17:00”, “Sa 9–12”, “Su closed”, lunch break “Tu 8–12, 13–17”. Empty = no opening hours.' => 'Každý řádek jeden den nebo rozsah dnů: „Po–Pá 8:00–17:00“, „So 9–12“, „Ne zavřeno“, polední pauza „Út 8–12, 13–17“. Prázdné = bez otevírací doby.',
     'Map link' => 'Odkaz na mapu',
     'Link to the place on Google Maps, OpenStreetMap or another map – the Business details element turns it into a “Show on map” link.' => 'Adresa místa na Mapy.cz nebo Google Maps – prvek Údaje o firmě z ní udělá odkaz „Zobrazit na mapě“.',
     'Coordinates (optional)' => 'Souřadnice (nepovinné)',
@@ -5822,4 +5821,5 @@ return [
     '%d values left as they were: they would leave the years 1000–9999' => '%d hodnot zůstalo, jak byly: vyšly by mimo roky 1000–9999',
     '%d values were left as they were: they would leave the years 1000–9999.' => '%d hodnot zůstalo, jak byly: vyšly by mimo roky 1000–9999.',
     'Not converted because of an error (see the change log): %s.' => 'Kvůli chybě nepřevedeno (viz protokol změn): %s.',
+    'One day or range of days per line, day names in the site language or in English: “Mo–Fr 8:00–17:00”, “Sa 9–12”, “Su closed”, lunch break “Tu 8–12, 13–17”. Empty = no opening hours.' => 'Každý řádek jeden den nebo rozsah dnů, názvy dnů v jazyce webu nebo anglicky: „Po–Pá 8:00–17:00“, „So 9–12“, „Ne zavřeno“, polední pauza „Út 8–12, 13–17“. Prázdné = bez otevírací doby.',
 ];

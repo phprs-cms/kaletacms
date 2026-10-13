@@ -1600,7 +1600,6 @@ window.KALETA_PREKLAD = {
 	"Country (code)": "Land (Code)",
 	"Two-letter code: CZ, SK, DE…": "Zweistelliger Code: CZ, SK, DE…",
 	"Opening hours and map": "Öffnungszeiten und Karte",
-	"One day or range of days per line: “Mo–Fr 8:00–17:00”, “Sa 9–12”, “Su closed”, lunch break “Tu 8–12, 13–17”. Empty = no opening hours.": "Pro Zeile ein Tag oder ein Tagesbereich: „Mo–Fr 8:00–17:00“, „Sa 9–12“, „So geschlossen“, Mittagspause „Di 8–12, 13–17“. Leer = keine Öffnungszeiten.",
 	"Map link": "Link zur Karte",
 	"Link to the place on Mapy.cz or Google Maps – the Company details element turns it into a “Show on map” link.": "Link zum Ort auf Mapy.cz oder Google Maps – das Element „Unternehmensdaten“ macht daraus einen Link „Auf Karte anzeigen“.",
 	"Coordinates (optional)": "Koordinaten (optional)",
@@ -2957,5 +2956,6 @@ window.KALETA_PREKLAD = {
 	"Price estimate": "Preisschätzung",
 	"Condition": "Bedingung",
 	"Remove the condition": "Bedingung entfernen",
-	"Add a condition": "Bedingung hinzufügen"
+	"Add a condition": "Bedingung hinzufügen",
+	"One day or range of days per line, day names in the site language or in English: “Mo–Fr 8:00–17:00”, “Sa 9–12”, “Su closed”, lunch break “Tu 8–12, 13–17”. Empty = no opening hours.": "Ein Tag oder Tagesbereich pro Zeile, Tagesnamen in der Sprache der Website oder auf Englisch: „Mo–Fr 8:00–17:00“, „Sa 9–12“, „So geschlossen“, Mittagspause „Di 8–12, 13–17“. Leer = keine Öffnungszeiten."
 };
