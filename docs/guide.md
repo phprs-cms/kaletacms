@@ -494,6 +494,11 @@ a save in the builder. User accounts, passwords, keys, tokens and the mail and b
 so the new site keeps its own; imported news belong to you. The import works only on an empty site – a fresh install,
 optionally with a starter site.
 
+The content file `obsah.json` in the archive is versioned, and its `README.txt` describes it. Kaleta 3.14 writes format 2
+(Czech table and column names), which every Kaleta since 1.8 imports, and reads format 3 too: the same content under the
+English names of the rename map (`pages`, `news`, `tags`, `slug`, `language`…), which Kaleta 4.0 will write. Dates stay in
+the site's own time in both.
+
 **One page** travels too: **Pages → Export** downloads a JSON file with the page's build, the shared classes it uses and
 its components (including components inside components). **Pages → Import** on another site creates the page hidden,
 adds the missing classes (a class the site already has keeps its own look) and the components, and reuses a component

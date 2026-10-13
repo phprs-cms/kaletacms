@@ -21,7 +21,7 @@
 <div class="radek"><label for="sloucit_do"><?= e(t('Merge into')) ?></label><div><select id="sloucit_do" name="sloucit_do">
 	<option value="0"><?= e(t('– do not merge –')) ?></option>
 <?php foreach ($tags as $s): if ((int) $s['ids'] !== (int) $edit['ids']): ?>
-	<option value="<?= (int) $s['ids'] ?>"><?= e($s['nazev']) ?> (<?= (int) $s['pocet'] ?>)</option>
+	<option value="<?= (int) $s['ids'] ?>"><?= e($s['nazev']) ?><?= ($s['jazyk'] ?? '') !== '' ? ' [' . e(strtoupper($s['jazyk'])) . ']' : '' ?> (<?= (int) $s['pocet'] ?>)</option>
 <?php endif; endforeach ?>
 </select><span class="napoveda"><?= e(t('The news items get the selected tag, this one is removed and its address redirects. Useful for typos and duplicate spellings.')) ?></span></div></div>
 </details>
@@ -37,7 +37,7 @@
 <tbody>
 <?php foreach ($tags as $s): ?>
 <tr>
-	<td><a href="<?= e($app->url('novinky/stitek/' . $s['seo_link'])) ?>" target="_blank" rel="noopener">#<?= e($s['nazev']) ?></a></td>
+	<td><a href="<?= e($app->newsItemUrl('stitek/' . $s['seo_link'], (string) ($s['jazyk'] ?? ''))) ?>" target="_blank" rel="noopener">#<?= e($s['nazev']) ?></a><?= ($s['jazyk'] ?? '') !== '' ? ' <span class="stitek">' . e(strtoupper($s['jazyk'])) . '</span>' : '' ?></td>
 	<td class="cislo"><?= (int) $s['pocet'] ?></td>
 	<td><?= trim((string) $s['popis']) !== '' ? '<span class="stitek stitek-vydano">' . e(t('has an intro')) . '</span>' : '' ?></td>
 	<td class="akce"><a href="<?= e($module->url('', ['edit' => $s['ids']])) ?>#uprav"><?= e(t('Edit')) ?></a>

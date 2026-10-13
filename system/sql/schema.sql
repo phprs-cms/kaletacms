@@ -198,10 +198,12 @@ CREATE TABLE ka_stitky (
     ids      INT UNSIGNED NOT NULL AUTO_INCREMENT,
     nazev    VARCHAR(80) NOT NULL,
     seo_link VARCHAR(100) NOT NULL,
+    jazyk    VARCHAR(35) CHARACTER SET ascii NOT NULL DEFAULT '', -- 3.14: language version ('' = the default language)
     popis    TEXT NULL,                                   -- intro of the topic page (HTML from the editors)
     obrazek  VARCHAR(255) NOT NULL DEFAULT '',
     PRIMARY KEY (ids),
-    UNIQUE KEY uq_stitky_seo (seo_link)
+    UNIQUE KEY uq_stitky_seo (seo_link),                 -- dropped while slugs_per_language is on (Core\Slug)
+    UNIQUE KEY uq_stitky_jazyk_seo (jazyk, seo_link)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 CREATE TABLE ka_novinky_stitky (
     idc INT UNSIGNED NOT NULL,

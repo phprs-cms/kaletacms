@@ -26,6 +26,9 @@ use Kaleta\Builder\Style;
  * Steps (Admin\Modules\Transfer, one step per request): prepare – obsah.json is split into one file per table (one row per
  * line, so even a large export does not need to fit in memory); preview; data – a database backup, emptying the content
  * and the rows in batches; media – files from the archive in batches; done. The state is a file in storage/import.
+ *
+ * Formats (Core\ExportFormat): 2 and older as they are; format 3 (English table and column names, 3.14) is turned into
+ * the shape of format 2 while it is split, so the steps after the preparation never see the difference.
  */
 final class SiteImport
 {
@@ -238,11 +241,11 @@ final class SiteImport
         if (($header['format'] ?? '') !== 'kaleta-export') {
             throw new \RuntimeException('The file is not a Kaleta export.');
         }
-        if ((int) ($header['verze_formatu'] ?? 0) > SiteExport::FORMAT_VERSION || version_compare((string) ($header['kaleta'] ?? '0'), KALETA_VERSION, '>')) {
+        if (ExportFormat::version($header) > ExportFormat::NEWEST || version_compare((string) ($header['kaleta'] ?? '0'), KALETA_VERSION, '>')) {
             throw new \RuntimeException('The export comes from a newer version of Kaleta – update this site first (Settings → Backups and updates).');
         }
         $state['hlavicka'] = ['kaleta' => (string) ($header['kaleta'] ?? ''), 'vytvoreno' => (string) ($header['vytvoreno'] ?? ''),
-            'nazev' => (string) ($header['nastaveni']['site_name'] ?? ''), 'verze_formatu' => (int) ($header['verze_formatu'] ?? 1)];
+            'nazev' => (string) ($header['nastaveni']['site_name'] ?? ''), 'verze_formatu' => ExportFormat::version($header)];
         $state['pocty'] = $counts;
         $state['media_celkem'] = $mediaCount;
         $state['faze'] = 'nahled';
@@ -250,7 +253,8 @@ final class SiteImport
 
     /**
      * obsah.json as written by SiteExport has one row per line – read as a stream. Any other layout (e.g. formatted by hand)
-     * is read whole, when it is not too large.
+     * is read whole, when it is not too large. A format-3 file is written out with the keys of format 2 (ExportFormat):
+     * tables under their names of today, rows with today's columns, the header with verze_formatu, vytvoreno, nastaveni.
      *
      * @return array{0: array<string, mixed>, 1: array<string, int>} header with settings, rows per table
      */
@@ -271,17 +275,18 @@ final class SiteImport
         $header = json_decode(rtrim(rtrim($first), ',') . '}', true);
         $table = null;
         $streamed = is_array($header);
+        $format = is_array($header) ? ExportFormat::version($header) : 1;
         while ($streamed && ($line = fgets($f)) !== false) {
             $line = rtrim($line);
             if (preg_match('/^"([a-z_]+)":\[$/D', $line, $m)) {
-                $table = $m[1];
+                $table = ExportFormat::tableFromKey($m[1], $format);
             } elseif (str_starts_with($line, '{') && $table !== null) {
                 $row = json_decode(rtrim($line, ','), true);
                 if (!is_array($row)) {
                     $streamed = false;
                     break;
                 }
-                $write($table, $row);
+                $write($table, ExportFormat::rowIn($table, $row, $format));
             } elseif (in_array($line, [']', '],', ']}', ''], true)) {
                 $table = null;
             } else {
@@ -301,11 +306,17 @@ final class SiteImport
             if (!is_array($data)) {
                 throw new \RuntimeException('The file is not a Kaleta export.');
             }
-            $header = array_diff_key($data, array_flip(self::TABLES));
-            foreach (self::TABLES as $t) {
-                foreach (is_array($data[$t] ?? null) ? $data[$t] : [] as $row) {
+            $format = ExportFormat::version($data);
+            $header = [];
+            foreach ($data as $key => $value) {
+                $t = ExportFormat::tableFromKey((string) $key, $format);
+                if (!in_array($t, self::TABLES, true)) {
+                    $header[$key] = $value;
+                    continue;
+                }
+                foreach (is_array($value) ? $value : [] as $row) {
                     if (is_array($row)) {
-                        $write($t, $row);
+                        $write($t, ExportFormat::rowIn($t, $row, $format));
                     }
                 }
             }
@@ -313,11 +324,12 @@ final class SiteImport
         foreach ($parts as $h) {
             fclose($h);
         }
+        $header = is_array($header) ? ExportFormat::headerIn($header) : [];
         if (is_array($header['nastaveni'] ?? null)) {
             file_put_contents($work . '/nastaveni.json', (string) json_encode($header['nastaveni'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         }
 
-        return [is_array($header) ? $header : [], $counts];
+        return [$header, $counts];
     }
 
     /* ---------- 2. data ---------- */
@@ -774,7 +786,7 @@ final class SiteImport
         $name = self::text(strip_tags((string) ($r['nazev'] ?? '')), 100);
 
         return (int) ($r['ids'] ?? 0) > 0 && $name !== '' ? ['ids' => (int) $r['ids'], 'nazev' => $name, 'seo_link' => self::slug($r['seo_link'] ?? '', $name, 120),
-            'popis' => self::text($r['popis'] ?? '', 5000), 'obrazek' => self::file($r['obrazek'] ?? '')] : null;
+            'popis' => self::text($r['popis'] ?? '', 5000), 'obrazek' => self::file($r['obrazek'] ?? ''), 'jazyk' => self::language($r['jazyk'] ?? '')] : null; // jazyk since 3.14
     }
 
     private function page(array $r): ?array

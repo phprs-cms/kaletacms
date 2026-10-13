@@ -344,7 +344,7 @@ final class Batch
             $tags = [...$tags, ...$p->categoryKeys];
         }
         foreach (array_slice(array_unique($tags), 0, 20) as $key) {
-            $this->tag($idc, (string) $key, $state);
+            $this->tag($idc, (string) $key, $state, $language);
         }
         Search::index($this->db, $idc);
         MediaLibrary::recordUsage($this->db, $idc, '', $intro, $text);
@@ -453,17 +453,15 @@ final class Batch
      *
      * @param array<string, mixed> $state
      */
-    private function tag(int $idc, string $key, array &$state): void
+    private function tag(int $idc, string $key, array &$state, string $language): void
     {
         $known = $state['slovnik']['stitky'][$key] ?? $state['slovnik']['rubriky'][$key] ?? ['nazev' => $key, 'slug' => $key];
         $name = mb_substr(trim($known['nazev'] !== '' ? $known['nazev'] : $key), 0, 80);
         if ($name === '') {
             return;
         }
-        $seo = slugify($name, 90);
-        $ids = $this->db->value('SELECT ids FROM {stitky} WHERE seo_link = ?', [$seo]);
-        if ($ids === null) {
-            $ids = $this->db->insert('stitky', ['nazev' => $name, 'seo_link' => $seo]);
+        [$ids, $created] = \Kaleta\Admin\Modules\Tags::findOrCreate($this->db, $name, $language); // in the post's language version (3.14)
+        if ($created) {
             $state['vysledek']['stitky']++;
         }
         $this->db->run('INSERT IGNORE INTO {novinky_stitky} (idc, ids) VALUES (?, ?)', [$idc, (int) $ids]);

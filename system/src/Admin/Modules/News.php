@@ -747,15 +747,14 @@ final class News extends Module
         }
     }
 
-    /** Tags written with commas (at most 20); unknown ones are created – admin and MCP. */
+    /** Tags written with commas (at most 20); unknown ones are created in the news item's language version (3.14) – admin and MCP. */
     public static function tags(\Kaleta\Core\Db $db, int $idc, string $input): void
     {
         $db->delete('novinky_stitky', ['idc' => $idc]);
+        $language = (string) $db->value('SELECT jazyk FROM {novinky} WHERE idc = ?', [$idc]);
         $names = array_unique(array_filter(array_map(fn (string $n): string => mb_substr(trim($n), 0, 80), explode(',', $input))));
         foreach (array_slice($names, 0, 20) as $name) {
-            $seo = slugify($name, 90);
-            $ids = $db->value('SELECT ids FROM {stitky} WHERE seo_link = ?', [$seo]);
-            $ids = $ids !== null ? (int) $ids : $db->insert('stitky', ['nazev' => $name, 'seo_link' => $seo]);
+            [$ids] = Tags::findOrCreate($db, $name, $language);
             $db->run('INSERT IGNORE INTO {novinky_stitky} (idc, ids) VALUES (?, ?)', [$idc, $ids]);
         }
     }

@@ -415,6 +415,11 @@ platí dál, a každá stavba projde stejnou kontrolou jako uložení v builderu
 nastavení pošty a záloh v exportu nikdy nejsou, nový web si nechá své; naimportované novinky budou vaše. Import jde jen do
 prázdného webu – čerstvé instalace, případně se startovacím webem.
 
+Soubor s obsahem `obsah.json` v archivu má verzi formátu a popisuje ho přiložený `README.txt`. Kaleta 3.14 zapisuje formát 2
+(české názvy tabulek a sloupců), který naimportuje každá Kaleta od 1.8, a přečte i formát 3: stejný obsah pod anglickými
+názvy z mapy přejmenování (`pages`, `news`, `tags`, `slug`, `language`…), který bude zapisovat Kaleta 4.0. Data a časy zůstávají
+v obou v čase webu.
+
 Přenést jde i **jedna stránka**: **Stránky → Exportovat** stáhne JSON se stavbou stránky, sdílenými třídami, které používá,
 a jejími komponentami (i komponentami v komponentách). **Stránky → Importovat** na jiném webu založí stránku skrytou,
 doplní chybějící třídy (třída, kterou web už má, si nechá svůj vzhled) a komponenty a dřív naimportovanou komponentu použije znovu.
