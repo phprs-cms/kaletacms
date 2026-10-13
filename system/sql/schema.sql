@@ -36,6 +36,7 @@ CREATE TABLE ka_uzivatele (
     pozice         VARCHAR(100) NOT NULL DEFAULT '',      -- position in the company (bio of the news author)
     foto           VARCHAR(255) NOT NULL DEFAULT '',
     bio            TEXT NULL,                             -- a few sentences about the author
+    team_item_id   INT UNSIGNED NULL,                     -- the person's record in the Team collection (3.14, Builder\TeamRecord); NULL = by the e-mail
     PRIMARY KEY (idu),
     UNIQUE KEY uq_user (user)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;

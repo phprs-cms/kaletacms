@@ -4,6 +4,8 @@
  * @var Kaleta\Admin\Modules\Users $module
  * @var string $csrf
  * @var list<array<string, mixed>> $authors
+ * @var bool $teamExists the site has a people collection (3.14)
+ * @var array<int, array{name: string, chosen: bool}> $linked idu => the Team record the account is linked to (Builder\TeamRecord::linked)
  */
 ?>
 <p class="navigace-radek"><a class="tl" href="<?= e($module->url('new')) ?>"><?= e(t('New user')) ?></a> <a class="navigace" href="<?= e($app->url('admin.php?module=roles')) ?>"><?= e(t('Roles')) ?></a></p>
@@ -14,7 +16,10 @@
 <?php foreach ($authors as $a): ?>
 <tr<?= $a['blokovat'] ? ' class="nevydany"' : '' ?>>
 	<td><a href="<?= e($module->url('edit', ['id' => $a['idu']])) ?>"><?= bdi($a['user']) ?></a><?= $a['blokovat'] ? ' <strong>(' . e(t($a['blokovano_automaticky'] !== null ? 'blocked automatically' : 'blocked')) . ')</strong>' : '' ?><?= $a['totp_tajemstvi'] !== '' ? ' <span class="stitek stitek-vydano" title="' . e(t('two-factor sign-in')) . '">2FA</span>' : '' ?></td>
-	<td><?= bdi($a['jmeno']) ?><br><span class="smltxt"><?= e($a['shrnuti']) ?></span></td>
+	<td><?= bdi($a['jmeno']) ?><br><span class="smltxt"><?= e($a['shrnuti']) ?></span>
+<?php if ($teamExists): ?>
+		<br><span class="smltxt"><?= isset($linked[(int) $a['idu']]) ? e(t($linked[(int) $a['idu']]['chosen'] ? 'Team record: %s (chosen)' : 'Team record: %s (by e-mail)', $linked[(int) $a['idu']]['name'])) : e(t('Team record: not linked')) ?></span>
+<?php endif ?></td>
 	<td><?= bdi($a['email']) ?></td>
 	<td><?= e($a['nazev_role'] ?? t(Kaleta\Core\Auth::TYPES[(int) $a['admin']] ?? '?')) ?></td>
 	<td class="cislo"><?= (int) $a['pocet_clanku'] ?></td>

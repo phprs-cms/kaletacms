@@ -916,6 +916,13 @@ $bareSignature = $signatureClass::render(['pole' => $peopleFields], ['nazev' => 
     ['name' => 'Web', 'url' => '', 'base' => 'https://example.com', 'phone' => '+420 222 000 111', 'address' => '', 'color' => 'red', 'text_font' => '', 'heading_font' => '', 'logo' => '']);
 check('2.10: a person without a photo and with an invalid e-mail: no image, the company phone, a safe colour and font', [str_contains($bareSignature['html'], '<img'), str_contains($bareSignature['html'], 'not an address'),
     str_contains($bareSignature['html'], 'border-left:3px solid #121212'), str_contains($bareSignature['html'], 'system-ui'), $bareSignature['text']], [false, false, true, true, "Petr\n+420 222 000 111\nWeb"]);
+// 3.14: the account ↔ person link compares e-mails without case and blanks, and only real addresses
+$teamClass = Kaleta\Builder\TeamRecord::class;
+check('3.14 TeamRecord::normalize and emailOf – case and blanks do not matter, a non-address never links', [
+    $teamClass::normalize('  Jana.Nova@Example.COM '), $teamClass::normalize('not an address'), $teamClass::normalize(''),
+    $teamClass::emailOf($peopleCollection, ['data' => ['e_mail' => ' jana@example.com ']]), $teamClass::emailOf($peopleCollection, ['data' => '{"e_mail":"petr@example.com"}']),
+    $teamClass::emailOf(['pole' => [['klic' => 'fotka', 'popisek' => 'Fotka', 'typ' => 'obrazek'], ['klic' => 'telefon', 'popisek' => 'Telefon', 'typ' => 'text']]], ['data' => ['telefon' => 'x@example.com']])],
+    ['jana.nova@example.com', '', '', 'jana@example.com', 'petr@example.com', '']);
 check('Položky jako stránky: SEO pole a plán zveřejnění', [Kaleta\Builder\Collections::pageFields(['obrazek' => 'javascript:alert(1)', 'noindex' => '1', 'zverejnit_od' => '2099-01-01T08:00', 'popis' => str_repeat('a', 400)], false),
     Kaleta\Builder\Collections::pageFields(['zverejnit_od' => '2001-01-01 08:00'], false)['zobrazit']],
     [['seo_titulek' => '', 'popis' => str_repeat('a', 300), 'obrazek' => '', 'noindex' => 1, 'zverejnit_od' => '2099-01-01 08:00:00', 'zobrazit' => 0], 1]);

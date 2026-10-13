@@ -931,4 +931,7 @@ return [
     'Kaleta cannot tell whether the text font %s has %s letters for the %s version – check the languages the font supports.' => 'Kaleta kann nicht erkennen, ob die Textschrift %s %s Buchstaben für die Version %s hat – prüfe, welche Sprachen die Schrift unterstützt.',
     'Fonts with them: %s; or upload one as a custom font (e.g. %s).' => 'Schriften, die sie haben: %s; oder lade eine als eigene Schrift hoch (z. B. %s).',
     'Left hidden for review (written by a drafts-only Claude connection): %s – check them and show them in Categories.' => 'Zur Prüfung ausgeblendet gelassen (von einer Claude-Verbindung nur für Entwürfe geschrieben): %s – prüfe sie und blende sie unter Kategorien ein.',
+    'Made from your record in %s (%s) in the look of your site. When your record or the site changes, open this page again and copy the signature anew.' => 'Erstellt aus deinem Eintrag in %s (%s) im Erscheinungsbild deiner Website. Wenn sich dein Eintrag oder die Website ändert, öffne diese Seite erneut und kopiere die Signatur neu.',
+    'You are not linked to a record yet.' => 'Du bist noch mit keinem Eintrag verknüpft.',
+    'Ask an administrator to link you to your record in the Team collection.' => 'Bitte einen Administrator, dich mit deinem Eintrag in der Sammlung Team zu verknüpfen.',
 ];

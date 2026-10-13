@@ -153,6 +153,9 @@ final class Collections extends Module
             'trash' => $trash, 'noticeBoard' => Notices::isNotices($k), 'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {kolekce_polozky} WHERE idk = ? AND smazano IS NOT NULL', [$k['idk']]),
             // a document library (2.11): how often each document was downloaded, and its stable address
             'downloads' => \Kaleta\Core\Documents::fileField($k) !== null ? \Kaleta\Core\Documents::counts($this->db, (int) $k['idk']) : null,
+            // 3.14: staff copy their own signature in My account – said on a people collection once someone is linked to a record
+            'staffSignatures' => !$trash && \Kaleta\Builder\EmailSignature::isPeople($k)
+                && \Kaleta\Builder\TeamRecord::linked($this->db, $this->db->all('SELECT idu, email, team_item_id FROM {uzivatele} WHERE blokovat = 0')) !== [],
             'items' => $this->db->all('SELECT idp, nazev, seo_link, poradi, zobrazit, jazyk, datum, smazano, valid_until, review_by FROM {kolekce_polozky} WHERE idk = ? AND smazano IS ' . ($trash ? 'NOT NULL' : 'NULL')
                 . ($column !== null ? ' AND jazyk = ?' : '') . ' ORDER BY ' . ($trash ? 'smazano DESC' : 'jazyk, poradi, ' . $this->db->sortText('nazev')), $column !== null ? [$k['idk'], $column] : [$k['idk']])]);
     }

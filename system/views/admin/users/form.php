@@ -12,6 +12,8 @@
  * @var bool $manual  access to sections is set manually (differs from the default for the role)
  * @var list<array<string, mixed>> $customRoles  roles from Uživatelé → Role (Users → Roles)
  * @var list<array<string, mixed>> $connections  the user's Claude connections (Core\SecurityHygiene::connections)
+ * @var list<array{collection: string, items: list<array{id: int, name: string, language: string, email: string, visible: bool}>}> $teamChoices  records of people collections (3.14)
+ * @var array{collection: array<string, mixed>, item: array<string, mixed>, chosen: bool}|null $teamRecord  the record the account is linked to now
  */
 $error = fn (string $field): string => isset($errors[$field]) ? '<span class="chyba-pole" role="alert">' . e(t($errors[$field])) . '</span>' : '';
 $role = [
@@ -39,6 +41,25 @@ $role = [
 	<label for="email"><?= e(t('Email')) ?></label>
 	<div><input class="textpole siroke" type="email" id="email" name="email" value="<?= e($author['email']) ?>" maxlength="190"><?= $error('email') ?></div>
 </div>
+<?php if (($teamChoices ?? []) !== []): ?>
+<div class="radek">
+	<label for="team_item_id"><?= e(t('Team record')) ?></label>
+	<div><select id="team_item_id" name="team_item_id">
+		<option value=""><?= e(t('automatic by e-mail')) ?></option>
+<?php foreach ($teamChoices as $group): ?>
+		<optgroup label="<?= e($group['collection']) ?>">
+<?php foreach ($group['items'] as $choice): ?>
+			<option value="<?= $choice['id'] ?>"<?= (int) ($author['team_item_id'] ?? 0) === $choice['id'] ? ' selected' : '' ?>><?= e($choice['name'] . ($choice['language'] !== '' ? ' (' . strtoupper($choice['language']) . ')' : '') . ($choice['email'] !== '' ? ' – ' . $choice['email'] : '') . ($choice['visible'] ? '' : ' – ' . t('hidden'))) ?></option>
+<?php endforeach ?>
+		</optgroup>
+<?php endforeach ?>
+	</select>
+	<span class="napoveda"><?= e(t('The person\'s record the user copies their own e-mail signature from in My account. Automatically, it is the record with the same e-mail as the account.')) ?>
+<?php if ($author['idu'] && empty($author['team_item_id'])): ?>
+		<?= e(($teamRecord ?? null) !== null ? t('Now linked by e-mail to %s.', (string) $teamRecord['item']['nazev']) : t('No record has this e-mail now.')) ?>
+<?php endif ?></span></div>
+</div>
+<?php endif ?>
 <div class="radek">
 	<label for="password"><?= e(t($author['idu'] ? 'New password' : 'Password')) ?></label>
 	<div><input class="textpole" type="password" id="password" name="password" size="30" minlength="10" autocomplete="new-password">

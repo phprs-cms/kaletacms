@@ -10,7 +10,8 @@ use Kaleta\Core\Extensions;
 use Kaleta\Core\Totp;
 
 /**
- * My account: own name and e-mail, password change, two-factor sign-in. Available to every signed-in user.
+ * My account: own name and e-mail, password change, two-factor sign-in, and the own e-mail signature (3.14, tab=signature).
+ * Available to every signed-in user.
  */
 final class Account
 {
@@ -164,7 +165,31 @@ final class Account
             }
         }
 
+        if ($r->get('tab') === 'signature') {
+            return $this->signature();
+        }
+
         return $this->page(['newSecret' => (string) $app->session->get('totp_nove', '')] + $data);
+    }
+
+    /**
+     * My e-mail signature (3.14): the signature from the signed-in user's own record in the Team collection
+     * (Builder\TeamRecord – chosen by an administrator, or by the e-mail), for every signed-in user, without access to
+     * Collections. Nothing in the request selects the record: only the account decides, so nobody sees another person's.
+     */
+    private function signature(): Response
+    {
+        $app = $this->kernel->app;
+        $db = $app->db();
+        $user = (array) $db->one('SELECT * FROM {uzivatele} WHERE idu = ?', [$app->auth()->id()]);
+        $record = \Kaleta\Builder\TeamRecord::forUser($db, $user);
+
+        return $this->kernel->page('My e-mail signature', $app->view->render('admin/account_signature', [
+            'app' => $app,
+            'teamExists' => \Kaleta\Builder\TeamRecord::collections($db) !== [],
+            'record' => $record,
+            'signature' => $record !== null ? \Kaleta\Builder\EmailSignature::forItem($app, $record['collection'], $record['item']) : null,
+        ]));
     }
 
     /**
@@ -260,6 +285,7 @@ final class Account
             'apps' => $app->db()->all("SELECT klient, MAX(nazev) AS nazev, ELT(MIN(FIELD(access, 'full', 'drafts', 'read')), 'full', 'drafts', 'read') AS access, SUBSTRING_INDEX(GROUP_CONCAT(tool_set ORDER BY idt DESC), ',', 1) AS tool_set, MIN(vytvoren) AS vytvoren, MAX(pouzit) AS pouzit FROM {api_tokeny} WHERE idu = ? AND klient IS NOT NULL AND expirace > ? GROUP BY klient ORDER BY MIN(vytvoren) DESC",
                 [$user['idu'], date('Y-m-d H:i:s')]),
             'mcpUrl' => $app->request->origin() . $app->url('mcp'),
+            'teamExists' => \Kaleta\Builder\TeamRecord::collections($app->db()) !== [], // the My e-mail signature tab (3.14)
         ]));
     }
 }
