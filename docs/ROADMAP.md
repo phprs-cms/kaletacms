@@ -703,8 +703,9 @@ drafts as the fallback of the consent and token forms, bidi controls dropped fro
    parameters, and a time-zone change offers to convert saved dates (`Core\TimeZoneConversion`, migration 0093; owner
    decision). The owner's 4.0 answers are in the design doc §8.
 
-3.12.0 was tagged but not published: CI found that with `ascii_bin` MariaDB 10.6 and 11.4 did not use the token key, so
-3.12.1 keeps `utf8mb4_bin`, and the inspector keeps the focused field when it redraws.
+3.12.0 was tagged but not published (CI: the MariaDB EXPLAIN check and a slow-runner focus test failed); 3.12.1 keeps the
+token columns in `utf8mb4_bin` (no conversion, no error 3988 for a non-ASCII value), and the inspector keeps the focused
+field when it redraws.
 
 Audited before release (N312): a time-zone conversion starts once even with parallel submits, out-of-range dates never
 stall the background jobs, categories written by a drafts-only connection wait for review, imported redirects are always
