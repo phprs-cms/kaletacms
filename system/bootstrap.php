@@ -6,7 +6,7 @@
 
 declare(strict_types=1);
 
-const KALETA_VERSION = '3.12.1';
+const KALETA_VERSION = '3.13.0';
 
 /** Number of the last migration in system/sql/migrace - the site uses it to tell that it must update the database after an update (checked by tools/test.sh). */
 const KALETA_DB_VERSION = 93;
