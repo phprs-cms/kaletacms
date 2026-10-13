@@ -66,7 +66,7 @@ final class Menu
                 continue;
             }
             $item = ['typ' => $p['typ'], 'text' => mb_substr(trim((string) ($p['text'] ?? '')), 0, 80)];
-            if (is_string($p['ikona'] ?? null) && $p['ikona'] !== '' && isset(Icons::SET[$p['ikona']])) {
+            if (is_string($p['ikona'] ?? null) && $p['ikona'] !== '' && (isset(Icons::SET[$p['ikona']]) || self::isMediaIcon($p['ikona']))) {
                 $item['ikona'] = $p['ikona'];
             }
             $description = is_scalar($p['popis'] ?? null) ? mb_substr(trim(strip_tags((string) $p['popis'])), 0, self::MAX_DESCRIPTION) : '';
@@ -160,9 +160,18 @@ final class Menu
     }
 
     /**
+     * May the icon be this SVG from Media (3.10)? Only a path under media/ that exists on disk – the file is cleaned at upload
+     * (Svg::sanitize) and is shown with <img>, so it never runs anything. The built-in set (Builder\Icons) stays inline.
+     */
+    public static function isMediaIcon(string $icon): bool
+    {
+        return preg_match('#^media/[A-Za-z0-9_./-]+\.svg$#D', $icon) === 1 && !str_contains($icon, '..') && is_file(KALETA_ROOT . '/' . $icon);
+    }
+
+    /**
      * List of <li> (without the wrapping <ul>) for the template and the Navigation element. An item with a submenu has the
      * class "podmenu" and a nested <ul>; the active link gets aria-current, its parent item the class "aktivni". An icon is an
-     * inline SVG (class menu-ikona) before the label. A group inside a submenu with items of its own is a column (class
+     * inline SVG (class menu-ikona) before the label, an SVG from Media an <img> with the same class. A group inside a submenu with items of its own is a column (class
      * menu-sloupec): a heading (menu-nadpis) and its list.
      *
      * @param list<array<string, mixed>> $items from items()
@@ -180,8 +189,13 @@ final class Menu
 
             return $target === rtrim($path, '/') || ($target !== rtrim($root, '/') && $target !== '' && str_starts_with($path, $target . '/'));
         };
-        $li = function (array $p, int $depth) use (&$li, $active, $mega): string {
-            $icon = ($p['ikona'] ?? '') !== '' ? Icons::svg((string) $p['ikona'], 'menu-ikona') : '';
+        $li = function (array $p, int $depth) use (&$li, $active, $mega, $root): string {
+            $icon = match (true) {
+                ($p['ikona'] ?? '') === '' => '',
+                // an SVG from Media (3.10): the file as an image, the inline set stays for the built-in icons
+                str_starts_with((string) $p['ikona'], 'media/') => '<img class="menu-ikona" src="' . e(rtrim($root, '/') . '/' . $p['ikona']) . '" alt="" width="20" height="20">',
+                default => Icons::svg((string) $p['ikona'], 'menu-ikona'),
+            };
             if ($p['deti'] !== [] && $depth === 1 && $p['url'] === '') {
                 // a group inside a submenu: a heading with its items under it – a column of the mega menu, a labelled part of a plain submenu
                 return '<li class="menu-sloupec"><span class="menu-nadpis">' . $icon . e($p['text']) . '</span><ul>' . implode('', array_map(fn (array $d): string => $li($d, 2), $p['deti'])) . '</ul></li>';

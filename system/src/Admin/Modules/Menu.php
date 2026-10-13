@@ -34,8 +34,14 @@ final class Menu extends Module
         $siteSettings = $this->app->settings();
         $languages = array_merge([''], Language::additional($siteSettings));
 
+        // SVG files from Media as further icon options (3.10): the path is the value, the file name the label
+        $mediaIcons = [];
+        foreach ($this->db->all("SELECT obr_poloha, nazev FROM {media} WHERE obr_poloha LIKE '%.svg' ORDER BY nazev, ido LIMIT 200") as $m) {
+            $mediaIcons[$m['obr_poloha']] = t('Media: %s', $m['nazev'] !== '' ? $m['nazev'] : basename((string) $m['obr_poloha']));
+        }
+
         return $this->view('list', 'Menu', [
-            'location' => $location, 'language' => $language, 'automatic' => $saved === null, 'items' => $items, 'inDraft' => $inDraft,
+            'location' => $location, 'language' => $language, 'automatic' => $saved === null, 'items' => $items, 'inDraft' => $inDraft, 'mediaIcons' => $mediaIcons,
             'pages' => array_map(fn (array $s): array => ['ids' => (int) $s['ids'], 'titulek' => $s['titulek'], 'skryta' => !$s['zobrazit']], $pages),
             'languages' => array_combine($languages, array_map(fn (string $j): string => Language::AVAILABLE[Language::ofContent($siteSettings, $j)][0], $languages)),
         ]);

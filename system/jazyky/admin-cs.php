@@ -5879,4 +5879,5 @@ return [
     '“The same address in every language” is on, and no address is shared yet' => '„Stejná adresa ve všech jazycích“ je zapnutá a zatím se žádná adresa nesdílí',
     '%d address(es) are shared by versions in different languages – allowed, “The same address in every language” is on, as it will be for every site in Kaleta 4.0' => 'Adres sdílených verzemi v různých jazycích: %d – je to dovolené, „Stejná adresa ve všech jazycích“ je zapnutá, jak to v Kaletě 4.0 bude u každého webu',
     '%d address(es) are shared by versions in different languages although “The same address in every language” is off – Kaleta 4.0 allows it, nothing to do' => 'Adres sdílených verzemi v různých jazycích: %d, přestože „Stejná adresa ve všech jazycích“ je vypnutá – Kaleta 4.0 to dovolí, není co dělat',
+    'Media: %s' => 'Média: %s',
 ];
