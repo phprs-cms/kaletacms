@@ -730,7 +730,7 @@ non-string MCP name answered as JSON-RPC, the consent id cookie Secure.
 did not load the stylesheet of the option cards, so the access choices were bare radio buttons and run-on text (owner
 report from a live site). The choices are one list; the browser test checks the cards.
 
-## 3.14 – Ready for 4.0, your own e-mail signature (in progress)
+## 3.14 – Ready for 4.0, your own e-mail signature (released 13 October 2026)
 
 1. **Updates:** after a refused install (the source offers a newer version than the one on the button) the screen shows
    the version offered now – before, it kept the remembered one for 12 hours and every click failed the same way (owner
@@ -745,6 +745,9 @@ report from a live site). The choices are one list; the browser test checks the 
 4. **Every employee copies their own e-mail signature** (owner's idea) in My account, from their Team record – linked by
    e-mail or chosen by an administrator (migration 0096); no Collections access needed, never someone else's.
 5. **Spanish blueprints:** all 20 blueprints in Spanish.
+
+Audited before release (N314): hidden Team records linked only by an administrator's choice, an edited redirect
+normalised again, the add-on scan robust and bounded, legacy tags kept on a re-save, the future-date warning kept.
 
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
