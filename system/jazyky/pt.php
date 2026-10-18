@@ -2085,4 +2085,5 @@ O link funciona por %d dias.
     'Cookie bar: a random identifier that links the choice to its record, only when consents are recorded (cookie)' => 'Barra de cookies: um identificador aleatório que liga a escolha ao seu registo, só quando os consentimentos são registados (cookie)',
     'Preview of drafts: only for someone who opened a signed preview link (cookie)' => 'Pré-visualização de rascunhos: só para quem abriu um link de pré-visualização assinado (cookie)',
     'until the preview link expires, at most 7 days' => 'até o link de pré-visualização expirar, no máximo 7 dias',
+    'open in a new window' => 'abrir numa nova janela',
 ];

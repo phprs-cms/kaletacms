@@ -2085,4 +2085,5 @@ The link works for %d days.
     'Cookie bar: a random identifier that links the choice to its record, only when consents are recorded (cookie)' => 'Cookie 提示栏：将选择与其记录关联的随机标识符，仅在记录同意时使用（Cookie）',
     'Preview of drafts: only for someone who opened a signed preview link (cookie)' => '草稿预览：仅针对打开了已签名预览链接的人（Cookie）',
     'until the preview link expires, at most 7 days' => '直到预览链接过期，最长 7 天',
+    'open in a new window' => '在新窗口中打开',
 ];

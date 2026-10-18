@@ -4665,6 +4665,13 @@ mcp create_page '{"title":"Reference portfolio detail","slug":"portfolio-sirotek
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 check "Site audit lists the orphan page" 200 "/admin.php?module=audit" "Stránky, na které nikdo neodkazuje"
 grep -q 'Stránka „Reference portfolio detail“' "$WORK/response" && echo "  ok     the orphan is named with where to fix it" || { echo "  CHYBA  orphan in audit"; ERRORS=$((ERRORS+1)); }
+# the home page of a language version (/en/) is reached through the logo and the language switcher – never an orphan
+mcp create_page '{"title":"Home language version","slug":"home-language-version","visible":true,"in_menu":false,"text":"<p>Home</p>"}' > /dev/null
+sq "UPDATE ka_stranky SET jazyk = 'en', preklad_z = (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'home_page') WHERE seo_link = 'home-language-version'" > /dev/null
+rm -f "$WORK"/web/storage/cache/stranky/*.html; mcp suggest_internal_links '{"limit":100}' | sed 's#\\/#/#g' > "$WORK/response"
+grep -q 'portfolio-sirotek' "$WORK/response" && ! grep -q 'home-language-version' "$WORK/response" \
+  && echo "  ok     the home page of a language version is no orphan" || { echo "  CHYBA  the home page of a language version is an orphan"; head -c 900 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+sq "DELETE FROM ka_stranky WHERE seo_link = 'home-language-version'" > /dev/null
 mcp suggest_internal_links '{"limit":100}' | sed 's#\\/#/#g' > "$WORK/response"
 grep -q '\\"page\\":\\"/portfolio-sirotek\\"' "$WORK/response" && grep -q '\\"page\\":\\"/sluzby/reference-portfolio\\",\\"shared_words\\":\[\\"reference\\",\\"portfolio\\"\]' "$WORK/response" \
   && echo "  ok     MCP: suggest_internal_links returns the orphan with a candidate page sharing title words" || { echo "  CHYBA  suggest_internal_links"; head -c 900 "$WORK/response"; ERRORS=$((ERRORS+1)); }

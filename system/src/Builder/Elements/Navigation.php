@@ -109,6 +109,11 @@ CSS;
 	{N}.ka-nav-tl span::after { top: 6px; }
 	{N}.ka-nav-menu[popover] { position: fixed; inset: 4.5rem var(--ka-mezera-m) auto; flex-direction: column; align-items: stretch; padding: var(--ka-mezera-s); border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-pozadi); color: var(--ka-barva-text); box-shadow: var(--ka-stin-l); max-height: calc(100dvh - 5.5rem); overflow-y: auto; overscroll-behavior: contain; }
 	{N}.ka-nav-menu[popover]:not(:popover-open) { display: none; }
+	/* the open sheet dims the page below it and its button turns into a cross */
+	{N}.ka-nav-menu[popover]::backdrop { background: rgb(0 0 0 / 0.35); }
+	.ka-nav{T}:has(> .ka-nav-menu:popover-open) > .ka-nav-tl span { background: transparent; }
+	.ka-nav{T}:has(> .ka-nav-menu:popover-open) > .ka-nav-tl span::before { top: 0; rotate: 45deg; background: currentColor; }
+	.ka-nav{T}:has(> .ka-nav-menu:popover-open) > .ka-nav-tl span::after { top: 0; rotate: -45deg; background: currentColor; }
 	/* keyboard: Tab past the last menu item hides the open menu, so it does not cover the element the focus moved to (WCAG 2.4.11),
 	   and it shows again when the focus comes back to the navigation; Esc or a click outside closes it completely (Popover API, no JavaScript) */
 	:root:has(:focus-visible) .ka-nav{T}:not(:has(:focus-visible)) > .ka-nav-menu[popover]:popover-open { display: none; }
