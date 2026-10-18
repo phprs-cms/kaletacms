@@ -607,7 +607,7 @@ final class WpImport
         ]);
         $seo = Slug::fromId($this->db, 'novinky', $idc); // a title with nothing to transliterate: news-<id>, not n-a
         foreach (array_slice($p['stitky'], 0, 20, true) as $url => $name) {
-            $this->tag($idc, (string) $url, $name !== '' ? $name : (string) ($this->header['stitky'][$url] ?? $url));
+            $this->tag($idc, (string) $url, $name !== '' ? $name : (string) ($this->header['stitky'][$url] ?? $url), $language);
         }
         Search::index($this->db, $idc);
         Media::recordUsage($this->db, $idc, '', $home, $text);
@@ -1046,16 +1046,14 @@ final class WpImport
         return $state['volby']['rubrika'] = $this->category('nezarazene', t('Nezařazené'), $state, $language);
     }
 
-    /** A tag is looked up by the slug made from its name and an unknown one is created – the same as when saving a news item in the admin. */
-    private function tag(int $idc, string $wpSlug, string $name): void
+    /** A tag is looked up by the slug made from its name and an unknown one is created in the post's language version – the same as when saving a news item in the admin. */
+    private function tag(int $idc, string $wpSlug, string $name, string $language): void
     {
         $name = mb_substr(trim($name), 0, 80);
         if ($name === '') {
             return;
         }
-        $seo = slugify($name, 90);
-        $ids = $this->db->value('SELECT ids FROM {stitky} WHERE seo_link = ?', [$seo]);
-        $ids = $ids !== null ? (int) $ids : $this->db->insert('stitky', ['nazev' => $name, 'seo_link' => $seo]);
+        [$ids] = \Kaleta\Admin\Modules\Tags::findOrCreate($this->db, $name, $language);
         $this->db->run('INSERT IGNORE INTO {novinky_stitky} (idc, ids) VALUES (?, ?)', [$idc, $ids]);
         $this->writeMap('stitek', $wpSlug, $ids);
     }
@@ -2313,7 +2311,7 @@ final class WpImport
             ?? ($language === '' ? (int) $this->db->value("SELECT nase_id FROM {import_mapa} WHERE zdroj = ? AND typ = 'rubrika' AND cizi_id LIKE ? ORDER BY nase_id LIMIT 1", [$this->source, addcslashes($slug, '%_\\') . '@%']) : 0);
         $row = match ($kind) {
             'rubrika' => $this->db->one('SELECT seo_link, nazev, jazyk FROM {kategorie} WHERE idt = ?', [$category]),
-            'stitek' => $this->db->one("SELECT seo_link, nazev, '' AS jazyk FROM {stitky} WHERE ids = ?", [(int) $this->convertedId('stitek', $slug, 'stitky', 'ids')]),
+            'stitek' => $this->db->one('SELECT seo_link, nazev, jazyk FROM {stitky} WHERE ids = ?', [(int) $this->convertedId('stitek', $slug, 'stitky', 'ids')]),
             default => null,
         };
 

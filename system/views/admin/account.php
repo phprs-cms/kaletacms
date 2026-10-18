@@ -15,9 +15,13 @@
  * @var list<array<string, mixed>> $apps  apps connected via OAuth (Claude connector)
  * @var string $newToken  token just created (shown only once)
  * @var string $mcpUrl
+ * @var bool $teamExists the site has a people collection – the My e-mail signature tab (3.14)
  */
 $action = e($app->url('admin.php?action=account'));
 ?>
+<?php if ($teamExists ?? false): ?>
+<?= $app->view->render('admin/account_tabs', ['app' => $app, 'current' => '']) ?>
+<?php endif ?>
 <?php if ($backupCodes !== []): ?>
 <div class="hlaska hlaska-ok">
 	<p><strong><?= e(t('Two-factor sign-in is on.')) ?></strong> <?= e(t('Save your backup codes – each works once when you do not have your phone. They will not be shown again.')) ?></p>

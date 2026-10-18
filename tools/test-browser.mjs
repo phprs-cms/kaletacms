@@ -3,6 +3,7 @@
 // Env: BASE, PASSWORD (admin), CHROME (browser binary), NODE_PATH (folder with playwright-core), SHOTS (optional folder
 // for screenshots of new screens, to look at them).
 import { createRequire } from 'node:module';
+import { createHash } from 'node:crypto';
 
 const require = createRequire(`${process.env.NODE_PATH}/`);
 const { chromium } = require('playwright-core');
@@ -53,6 +54,25 @@ for (const url of ['/admin.php', '/admin.php?module=pages', '/admin.php?module=p
   '/admin.php?module=bookings', '/admin.php?module=whistleblowing']) {
   await step(`open ${url}`, () => visit(url));
 }
+
+// 3.13.1: the consent screen stands in the bare frame; its access choices are option cards (a hidden radio, a border) and
+// "recommended" / "new, not verified" are pills – both styled by editor.css, which the frame did not load
+await step('OAuth consent: the access choices are cards, the labels are pills', async () => {
+  const redirect = 'https://claude.ai/api/mcp/auth_callback';
+  const client = await (await fetch(`${BASE}/oauth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ client_name: 'Claude', redirect_uris: [redirect], token_endpoint_auth_method: 'none' }) })).json();
+  const challenge = createHash('sha256').update('v'.repeat(50)).digest('base64url');
+  await visit(`/oauth/authorize?response_type=code&client_id=${client.client_id}&redirect_uri=${encodeURIComponent(redirect)}&code_challenge=${challenge}&code_challenge_method=S256&state=s&scope=mcp`);
+  const look = await page.evaluate(() => {
+    const card = document.querySelector('.oauth-souhlas .karta-volba');
+    const pill = document.querySelector('.oauth-souhlas .stitek');
+    return card && pill ? { radio: getComputedStyle(card.querySelector('input')).opacity, border: getComputedStyle(card).borderTopWidth,
+      title: getComputedStyle(card.querySelector('strong')).display, pill: getComputedStyle(pill).borderTopWidth } : null;
+  });
+  if (!look) { throw new Error('no access choices or label on the consent screen'); }
+  if (look.radio !== '0' || look.border !== '2px' || look.title !== 'block' || look.pill !== '1px') { throw new Error(`the consent screen is unstyled: ${JSON.stringify(look)}`); }
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/oauth-consent.png`, fullPage: true }); }
+});
 
 // 3.10 audit (N310-7): Enter in the name of a new token creates the token – also when tokens with their tool set switch
 // and revoke buttons are listed above it (they belong to another form, so they are never the form's default button)
@@ -823,6 +843,39 @@ await step('3.12 contact form sent on a phone: no console error after the answer
 
 // 3.13: the Spanish admin – My account switches the language; the dashboard, the pages list, Settings and My account are
 // Spanish (with the Spanish script texts) and, with the longer Spanish strings, none scrolls sideways on a 390 px phone
+// 3.14: every employee copies their own e-mail signature – an administrator links the account to a Team record, My account
+// shows the signature with a working Copy button, on a phone too without sideways scroll
+await step('3.14 My e-mail signature: a Team record linked in Users, the signature and its Copy button in My account', async () => {
+  await visit('/admin.php?module=collections');
+  // the ready-made collections are folded once the site has a collection (an earlier step made one)
+  await page.locator('details.predvolby-kolekci').evaluate((d) => { d.open = true; });
+  await Promise.all([page.waitForNavigation(), page.locator('button[name="preset"][value="people"]').click()]);
+  await Promise.all([page.waitForNavigation(), page.locator('.navigace-radek a.tl[href*="action=item"]').first().click()]);
+  await page.fill('#nazev', 'Tess Tester');
+  await page.locator('input[id^="pole-"][id*="mail"]').first().fill('tess@example.com');
+  await Promise.all([page.waitForNavigation(), page.locator('form.formular input[type="submit"]').first().click()]);
+  await visit('/admin.php?module=users&action=edit&id=1');
+  const option = await page.locator('#team_item_id option', { hasText: 'Tess Tester' }).getAttribute('value');
+  await page.selectOption('#team_item_id', option);
+  await Promise.all([page.waitForNavigation(), page.locator('form.formular input[type="submit"]').first().click()]);
+  await visit('/admin.php?module=users');
+  if (!(await page.locator('td', { hasText: 'Team record: Tess Tester (chosen)' }).count())) { throw new Error('the Users list does not show the link'); }
+  await visit('/admin.php?action=account&tab=signature');
+  if (!(await page.locator('[data-podpis-nahled]', { hasText: 'Tess Tester' }).count())) { throw new Error('My account shows no signature of the linked record'); }
+  const button = page.locator('[data-kopirovat-podpis]');
+  await button.click();
+  await page.waitForFunction(() => document.querySelector('[data-kopirovat-podpis]').textContent !== 'Copy signature');
+  try {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await visit('/admin.php?action=account&tab=signature');
+    const wider = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    if (wider > 1) { throw new Error(`My e-mail signature scrolls sideways by ${wider} px on a phone`); }
+    if (SHOTS) { await page.screenshot({ path: `${SHOTS}/account-signature-phone.png`, fullPage: true }); }
+  } finally {
+    await page.setViewportSize({ width: 1440, height: 900 });
+  }
+});
+
 await step('3.13 Spanish admin: switched in My account, Spanish screens without sideways scroll at 390 px', async () => {
   const adminLanguage = async (code) => {
     await visit('/admin.php?action=account');

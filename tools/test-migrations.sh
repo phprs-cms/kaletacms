@@ -57,13 +57,24 @@ expect_sql "3.3.4 (0076): an OAuth client registered before the upgrade counts a
 # 3.9 (0083): the language columns hold a BCP 47 tag – VARCHAR(35) in ASCII on an upgraded site as on a fresh one (the
 # structure check above compares the type, not the character set), and a site's language values stay as they were
 langcols() { "${MYSQL[@]}" -N -e "SELECT GROUP_CONCAT(CONCAT(TABLE_NAME, '.', COLUMN_NAME, ':', COLUMN_TYPE, ':', CHARACTER_SET_NAME) ORDER BY TABLE_NAME, COLUMN_NAME) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '$1' AND COLUMN_NAME IN ('jazyk', 'language')"; }
-[ "$(langcols "$OLD")" = "$(langcols "$NEW")" ] && [ "$(langcols "$OLD" | grep -o ':varchar(35):ascii' | wc -l | tr -d ' ')" = 14 ] && echo "  ok     3.9 (0083): the 14 language columns are VARCHAR(35) ASCII, as on a fresh install" || { echo "  CHYBA  0083 language columns: $(langcols "$OLD")"; ERRORS=$((ERRORS+1)); }
+[ "$(langcols "$OLD")" = "$(langcols "$NEW")" ] && [ "$(langcols "$OLD" | grep -o ':varchar(35):ascii' | wc -l | tr -d ' ')" = 15 ] && echo "  ok     3.9 (0083) and 3.14 (0095): the 15 language columns are VARCHAR(35) ASCII, as on a fresh install" || { echo "  CHYBA  0083/0095 language columns: $(langcols "$OLD")"; ERRORS=$((ERRORS+1)); }
 "${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_stranky (ids, seo_link, titulek, text, jazyk) VALUES (9083, 'kontakt-83', 'Kontakt', '', ''), (9084, 'contact-83', 'Contact', '', 'en')"
 expect_sql "3.9 (0083): pages, news and categories have the per-language slug key next to the global one" \
   "SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = '$OLD' AND INDEX_NAME IN ('uq_stranky_seo', 'uq_stranky_jazyk_seo', 'uq_clanky_seo', 'uq_clanky_jazyk_seo', 'uq_topic_seo', 'uq_topic_jazyk_seo') AND SEQ_IN_INDEX = 1" "6"
 "${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_stranky (ids, seo_link, titulek, text, jazyk) VALUES (9085, 'kontakt-83', 'Contact', '', 'en')" 2>/dev/null && { echo "  CHYBA  0083: a duplicate slug passed the global key"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.9 (0083): … a duplicate slug in another language is refused by the database"
 expect_sql "3.9 (0083): language values read back unchanged" "SELECT GROUP_CONCAT(CONCAT(ids, ':', jazyk, ':', LENGTH(jazyk)) ORDER BY ids) FROM ka_stranky WHERE ids IN (9083, 9084)" "9083::0,9084:en:2"
 "${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_stranky WHERE ids IN (9083, 9084)"
+
+# 3.14 (0095): tags get a language; on a site with "the same address in every language version" switched on, the global
+# tag key goes with the migration (the other global keys went with the switch). The column is taken off again and the
+# migration runs again from version 94 with the setting on; the tags keep their rows and become the default language.
+"${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_stitky (ids, nazev, seo_link) VALUES (9095, 'Trh', 'trh-95'); ALTER TABLE ka_stitky DROP INDEX uq_stitky_jazyk_seo, DROP COLUMN jazyk;
+  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('slugs_per_language', '1'); UPDATE ka_nastaveni SET hodnota = '94' WHERE promenna = 'db_version'" && migrate > /dev/null
+tagkeys() { "${MYSQL[@]}" -N -e "SELECT GROUP_CONCAT(DISTINCT INDEX_NAME ORDER BY INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = '$OLD' AND TABLE_NAME = 'ka_stitky' AND INDEX_NAME LIKE 'uq_%'"; }
+expect_sql "3.14 (0095): with slugs per language on, the tags lose the global key and keep the per-language one; an existing tag is the default language" \
+  "SELECT CONCAT('$(tagkeys)', '|', (SELECT CONCAT(jazyk, ':', seo_link) FROM ka_stitky WHERE ids = 9095))" "uq_stitky_jazyk_seo|:trh-95"
+"${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_stitky (ids, nazev, seo_link, jazyk) VALUES (9096, 'Market', 'trh-95', 'en')" && echo "  ok     3.14 (0095): … so an English tag can have the slug of a Czech one" || { echo "  CHYBA  0095: the same tag slug in another language refused"; ERRORS=$((ERRORS+1)); }
+"${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_stitky WHERE ids IN (9095, 9096); ALTER TABLE ka_stitky ADD UNIQUE KEY uq_stitky_seo (seo_link); DELETE FROM ka_nastaveni WHERE promenna = 'slugs_per_language'"
 
 # 3.10 (0085): a Claude connection and an OAuth code from before the upgrade keep every tool (tool_set all) – the column is
 # taken off again, rows are added as 3.9.2 wrote them, and the migration runs again from version 84
@@ -77,7 +88,8 @@ expect_sql "3.10 (0085): an existing connection and code keep all tools and thei
 # 3.12 (0092): tokens, hashes and client ids are ASCII binary on an upgraded site as on a fresh one (the structure check
 # above compares the type, not the collation), the values stay, and a lookup by token still uses its unique key
 tokencols() { "${MYSQL[@]}" -N -e "SELECT GROUP_CONCAT(CONCAT(TABLE_NAME, '.', COLUMN_NAME, ':', COLUMN_TYPE, ':', IS_NULLABLE, ':', COALESCE(COLUMN_DEFAULT, 'NULL')) ORDER BY TABLE_NAME, COLUMN_NAME) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '$1' AND COLLATION_NAME = 'utf8mb4_bin'"; }
-[ "$(tokencols "$OLD")" = "$(tokencols "$NEW")" ] && [ "$(tokencols "$OLD" | tr ',' '\n' | grep -c .)" = 20 ] && echo "  ok     3.12 (0092): the 20 token and hash columns are utf8mb4_bin, as on a fresh install" || { echo "  CHYBA  0092 token columns: $(tokencols "$OLD")"; ERRORS=$((ERRORS+1)); }
+# 3.14 (0094) adds the 21st: ka_presmerovani.source_norm, the normalised old address of a redirect
+[ "$(tokencols "$OLD")" = "$(tokencols "$NEW")" ] && [ "$(tokencols "$OLD" | tr ',' '\n' | grep -c .)" = 21 ] && tokencols "$OLD" | grep -q 'ka_presmerovani.source_norm:varchar(255):YES:NULL' && echo "  ok     3.12 (0092), 3.14 (0094): the 20 token and hash columns and the redirect source_norm are utf8mb4_bin, as on a fresh install" || { echo "  CHYBA  0092 token columns: $(tokencols "$OLD")"; ERRORS=$((ERRORS+1)); }
 "${MYSQL[@]}" "$OLD" -e "SET FOREIGN_KEY_CHECKS = 0; INSERT INTO ka_api_tokeny (idu, nazev, klient, druh, otisk, vytvoren) VALUES (9092, 'Claude', REPEAT('a', 32), 'token', REPEAT('9', 64), '$(site_time)'); SET FOREIGN_KEY_CHECKS = 1"
 expect_sql "3.12 (0092): a token reads back by its hash and the client id compares exactly (no case folding)" "SELECT CONCAT((SELECT COUNT(*) FROM ka_api_tokeny WHERE otisk = REPEAT('9', 64)), (SELECT COUNT(*) FROM ka_api_tokeny WHERE idu = 9092 AND klient = REPEAT('A', 32)))" "10"
 # the traditional EXPLAIN names the key: MySQL takes FORMAT=TRADITIONAL (its default may be the tree), MariaDB knows only the plain one

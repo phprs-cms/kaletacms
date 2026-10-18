@@ -13,6 +13,7 @@
  * @var bool $trash the trash is shown
  * @var bool $noticeBoard an official notice board (2.11): its notices are never deleted
  * @var int $inTrash items in the trash
+ * @var bool $staffSignatures a people collection with at least one user linked to a record (3.14)
  * @var array<int, array{0: int, 1: int}>|null $downloads  document library (2.11): idp => [downloads in 30 days, total]; null = not a library
  */
 ?>
@@ -29,6 +30,9 @@
 <?php endforeach ?>
 <?php endif ?>
 <?php endif ?></p>
+<?php if ($staffSignatures ?? false): ?>
+<p class="napoveda"><?= e(t('Staff can copy their own signature in My account.')) ?></p>
+<?php endif ?>
 <?php if ($inTrash > 0 || $trash): ?>
 <nav class="zalozky" aria-label="<?= e(t('Items')) ?>">
 	<a href="<?= e($module->url('items', ['id' => $k['idk']])) ?>"<?= $trash ? '' : ' class="aktivni" aria-current="true"' ?>><?= e(t('Všechny')) ?></a>

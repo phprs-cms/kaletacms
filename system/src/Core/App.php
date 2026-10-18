@@ -127,7 +127,8 @@ final class App
 
     /**
      * URL of a news item in ITS language version – regardless of which version the current request came from
-     * (publication notifications are sent in the background of someone else's visit).
+     * (publication notifications are sent in the background of someone else's visit). Any path under the news works
+     * the same way: 'stitek/<slug>' is a tag page in the tag's version (the admin tag list, 3.14).
      */
     public function newsItemUrl(string $seo, string $language): string
     {

@@ -66,7 +66,10 @@ final class Registry
             return $registry;
         }
         $manifests = self::discover();
-        foreach (self::enabled($app->settings()) as $slug) {
+        $enabled = self::enabled($app->settings());
+        // 3.14: from here on code outside system/ may run queries – Db logs the old table names it writes (Core\LegacyNames)
+        \Kaleta\Core\LegacyNames::$watching = $enabled !== [];
+        foreach ($enabled as $slug) {
             $manifest = $manifests[$slug] ?? null;
             if ($manifest === null || $manifest['problem'] !== '') {
                 continue;

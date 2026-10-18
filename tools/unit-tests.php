@@ -916,6 +916,13 @@ $bareSignature = $signatureClass::render(['pole' => $peopleFields], ['nazev' => 
     ['name' => 'Web', 'url' => '', 'base' => 'https://example.com', 'phone' => '+420 222 000 111', 'address' => '', 'color' => 'red', 'text_font' => '', 'heading_font' => '', 'logo' => '']);
 check('2.10: a person without a photo and with an invalid e-mail: no image, the company phone, a safe colour and font', [str_contains($bareSignature['html'], '<img'), str_contains($bareSignature['html'], 'not an address'),
     str_contains($bareSignature['html'], 'border-left:3px solid #121212'), str_contains($bareSignature['html'], 'system-ui'), $bareSignature['text']], [false, false, true, true, "Petr\n+420 222 000 111\nWeb"]);
+// 3.14: the account ↔ person link compares e-mails without case and blanks, and only real addresses
+$teamClass = Kaleta\Builder\TeamRecord::class;
+check('3.14 TeamRecord::normalize and emailOf – case and blanks do not matter, a non-address never links', [
+    $teamClass::normalize('  Jana.Nova@Example.COM '), $teamClass::normalize('not an address'), $teamClass::normalize(''),
+    $teamClass::emailOf($peopleCollection, ['data' => ['e_mail' => ' jana@example.com ']]), $teamClass::emailOf($peopleCollection, ['data' => '{"e_mail":"petr@example.com"}']),
+    $teamClass::emailOf(['pole' => [['klic' => 'fotka', 'popisek' => 'Fotka', 'typ' => 'obrazek'], ['klic' => 'telefon', 'popisek' => 'Telefon', 'typ' => 'text']]], ['data' => ['telefon' => 'x@example.com']])],
+    ['jana.nova@example.com', '', '', 'jana@example.com', 'petr@example.com', '']);
 check('Položky jako stránky: SEO pole a plán zveřejnění', [Kaleta\Builder\Collections::pageFields(['obrazek' => 'javascript:alert(1)', 'noindex' => '1', 'zverejnit_od' => '2099-01-01T08:00', 'popis' => str_repeat('a', 400)], false),
     Kaleta\Builder\Collections::pageFields(['zverejnit_od' => '2001-01-01 08:00'], false)['zobrazit']],
     [['seo_titulek' => '', 'popis' => str_repeat('a', 300), 'obrazek' => '', 'noindex' => 1, 'zverejnit_od' => '2099-01-01 08:00:00', 'zobrazit' => 0], 1]);
@@ -2888,7 +2895,7 @@ $blueprintTexts = function (array $m): array { // every text of a manifest that 
     }
     foreach ($m['questions'] as $q) {
         $texts[] = $q['question'];
-        $texts[] = $q['help'] ?? ['en' => 'x', 'cs' => 'x', 'de' => 'x']; // help is optional
+        $texts[] = $q['help'] ?? ['en' => 'x', 'cs' => 'x', 'de' => 'x', 'es' => 'x']; // help is optional
     }
     foreach ($m['audit'] as $r) {
         $texts[] = $r['message'];
@@ -2901,8 +2908,37 @@ sort($shippedKeys);
 check('2.11/3.3 Blueprint: the twenty industry blueprints are shipped', $shippedKeys, ['accommodation', 'agency', 'auto_service', 'beauty_wellness', 'clinic', 'craftsman', 'driving_school', 'farm', 'fitness_studio', 'it_services', 'manufacturer', 'municipality', 'nonprofit', 'photographer', 'professional_services', 'real_estate', 'restaurant', 'retail_shop', 'school_courses', 'software_saas']);
 check('2.11 Blueprint: every shipped blueprint has presets, 4–8 facts, a question for each, 3–6 checks and instructions for Claude', array_values(array_filter(array_map(fn (array $m): string => $m['presets'] === [] || count($m['facts']) < 4 || count($m['facts']) > 8
     || count($m['questions']) < 1 || count(array_unique(array_column($m['questions'], 'fact'))) !== count($m['facts']) || count($m['audit']) < 3 || count($m['audit']) > 6 || mb_strlen($m['claude']) < 200 ? $m['key'] : '', $shippedBlueprints))), []);
-check('2.11 Blueprint: every text of a shipped blueprint is in English, Czech and German', array_values(array_filter(array_map(fn (array $m): string => array_filter($blueprintTexts($m),
-    fn (string|array $t): bool => !is_array($t) || array_diff(['en', 'cs', 'de'], array_keys($t)) !== [] || in_array('', $t, true)) === [] ? '' : $m['key'], $shippedBlueprints))), []);
+check('2.11/3.14 Blueprint: every text of a shipped blueprint is in English, Czech, German and Spanish', array_values(array_filter(array_map(fn (array $m): string => array_filter($blueprintTexts($m),
+    fn (string|array $t): bool => !is_array($t) || array_diff(['en', 'cs', 'de', 'es'], array_keys($t)) !== [] || in_array('', $t, true)) === [] ? '' : $m['key'], $shippedBlueprints))), []);
+// 3.14: the same straight from the files, before sanitize() – every language object in a manifest has exactly the four admin
+// languages, none empty, none the English left untranslated in Spanish (a name like "Team" may match; long texts must not)
+$blueprintLanguageGaps = [];
+foreach ($shipped as $file) {
+    $walk = function (mixed $v, string $path) use (&$walk, &$blueprintLanguageGaps, $file): void {
+        if (!is_array($v)) {
+            return;
+        }
+        if (isset($v['en']) && is_string($v['en'])) {
+            $keys = array_keys($v);
+            sort($keys);
+            if ($keys !== ['cs', 'de', 'en', 'es'] || in_array('', array_map(fn (mixed $t): string => is_string($t) ? trim($t) : '', $v), true)
+                || (mb_strlen($v['en']) > 30 && $v['es'] === $v['en'])) {
+                $blueprintLanguageGaps[] = basename($file) . $path;
+            }
+
+            return;
+        }
+        foreach ($v as $k => $child) {
+            $walk($child, $path . '/' . $k);
+        }
+    };
+    $walk(json_decode((string) file_get_contents($file), true), '');
+}
+check('3.14 Blueprint: every language object of every shipped manifest file has en, cs, de and es, all filled in and Spanish translated', $blueprintLanguageGaps, []);
+check('3.14 Blueprint::text – the Spanish admin gets Spanish, a regional code its base language', [
+    Kaleta\Core\Language::runWith('es', fn (): string => Blueprint::text($shippedBlueprints['farm']['name']), 'admin-'),
+    Kaleta\Core\Language::runWith('es', fn (): string => Blueprint::text(['en' => 'Clinic', 'es' => 'Clínica']), 'admin-'),
+    Kaleta\Core\Language::runWith('de', fn (): string => Blueprint::text($shippedBlueprints['farm']['name']), 'admin-')], ['Granja con tienda', 'Clínica', 'Hof mit Hofladen']);
 check('2.11 Blueprint: shipped blueprints define no built-in fact and give no fact a value', array_values(array_filter(array_map(fn (array $m): string => array_filter($m['facts'],
     fn (array $f): bool => isset(Kaleta\Core\Facts::BUILT_IN[$f['key']]) || isset($f['value'])) === [] ? '' : $m['key'], $shippedBlueprints))), []);
 check('3.3 Blueprint: every shipped blueprint sits in a group of the Blueprints screen (not "other")', array_values(array_filter(array_map(fn (array $m): string => in_array($m['group'], ['', 'other'], true) || !isset(Blueprint::GROUPS[$m['group']]) ? $m['key'] : '', $shippedBlueprints))), []);
@@ -5819,16 +5855,18 @@ foreach ($schemaTables39 as [, $table, $body]) {
 }
 preg_match_all('/ALTER TABLE (\w+) MODIFY (\w+) VARCHAR\(35\) CHARACTER SET ascii/', (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0083-language-tags-and-slugs.sql'), $widened39, PREG_SET_ORDER);
 $widened39 = array_map(fn (array $m): string => $m[1] . '.' . $m[2], $widened39);
+$widened39[] = 'ka_stitky.jazyk'; // 3.14: migration 0095 adds the tags' language column in the same type
 sort($widened39);
 $schemaLanguageColumns39 = array_keys($languageColumns39);
 sort($schemaLanguageColumns39);
-check('3.9: every language column is VARCHAR(35) CHARACTER SET ascii in schema.sql (14 of them) and migration 0083 widens the same ones', [
+check('3.9: every language column is VARCHAR(35) CHARACTER SET ascii in schema.sql (15 of them with the tags\' of 3.14) and migrations 0083 and 0095 make the same ones', [
     array_unique(array_values($languageColumns39)), count($languageColumns39), $widened39 === $schemaLanguageColumns39, str_contains($schema39, 'CHAR(2)')],
-    [['VARCHAR(35) CHARACTER SET ascii'], 14, true, false]);
-check('3.9: pages, news and categories have a per-language slug key next to the global one (schema and migration 0083)', array_map(
+    [['VARCHAR(35) CHARACTER SET ascii'], 15, true, false]);
+$slugMigrations39 = (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0083-language-tags-and-slugs.sql') . (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0095-tag-language.sql');
+check('3.9: pages, news and categories (and tags, 3.14) have a per-language slug key next to the global one (schema and migrations 0083, 0095)', array_map(
     fn (array $t): bool => str_contains($schema39, 'UNIQUE KEY ' . $t[1] . ' (seo_link)') && str_contains($schema39, 'UNIQUE KEY ' . $t[2] . ' (jazyk, seo_link)')
-        && str_contains((string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0083-language-tags-and-slugs.sql'), 'ADD UNIQUE KEY ' . $t[2] . ' (jazyk, seo_link)'), Kaleta\Core\Slug::TABLES),
-    ['stranky' => true, 'novinky' => true, 'kategorie' => true]);
+        && str_contains($slugMigrations39, 'ADD UNIQUE KEY ' . $t[2] . ' (jazyk, seo_link)'), Kaleta\Core\Slug::TABLES),
+    ['stranky' => true, 'novinky' => true, 'kategorie' => true, 'stitky' => true]);
 // the "is the slug taken?" checks and the lookups by slug follow the setting
 Kaleta\Core\Slug::setPerLanguage(false);
 $slugsOff39 = [Kaleta\Core\Slug::scope(null, 'en'), Kaleta\Core\Slug::redirectPath(null, 'novinky/stary', 'en'), Kaleta\Core\Slug::redirectPath(null, 'stary', '')];
@@ -5854,7 +5892,7 @@ check('3.9 Pages::slugReserved – system addresses (Routes::SYSTEM_PATHS, both 
 $globalSlugLookups39 = [];
 foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(KALETA_SYSTEM . '/src', FilesystemIterator::SKIP_DOTS)) as $file) {
     foreach (str_ends_with((string) $file, '.php') ? (file((string) $file) ?: []) : [] as $line) {
-        if (preg_match('/\{(stranky|novinky|kategorie)\}[^\']*seo_link (=|IN)/', $line, $m) === 1
+        if (preg_match('/\{(stranky|novinky|kategorie|stitky)\}[^\']*seo_link (=|IN)/', $line, $m) === 1
             && preg_match('/jazyk = \?|jazyk = \'\'|\$sameLanguage|ORDER BY (c\.)?jazyk/', $line) !== 1) {
             $globalSlugLookups39[] = basename((string) $file) . ':' . $m[1];
         }
@@ -5863,6 +5901,7 @@ foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(KALETA_SYS
 sort($globalSlugLookups39);
 check('3.9: slug lookups without the language are only the global ones on purpose', $globalSlugLookups39, [
     'Audit.php:novinky',     // a news item of another version still answers there (Kernel redirects to its own version)
+    'Audit.php:stitky',      // 3.14: a tag of any version answers in every version (Kernel prefers the version's own)
     'Blueprint.php:stranky', // does the site have a page with one of the suggested slugs at all
     'Links.php:novinky',     // the same as Audit for the broken-link check
     'Routes.php:stranky', 'Routes.php:stranky', 'Routes.php:stranky', // the news slug and the English system paths are one for all versions
@@ -6211,5 +6250,162 @@ check('3.12 §6: the background job that converts saved dates runs first (the ot
 $tooLong313 = '';
 try { Kaleta\Mcp\Prompts::get('migrate_site', ['old_url' => str_repeat('a', Kaleta\Mcp\Prompts::MAX_ARGUMENT + 1)]); } catch (InvalidArgumentException $e) { $tooLong313 = $e->getMessage(); }
 check('3.13 N313-3: a prompt argument longer than MAX_ARGUMENT is refused', str_contains($tooLong313, 'at most'), true);
+/* ---------- 3.14: tags per language version and export format 3 (data model §3 answer 5, §4) ---------- */
+check('3.14: the export writes format 2 unless asked (format 3 becomes the default in 4.0), the import reads up to format 3',
+    [Kaleta\Core\SiteExport::FORMAT_VERSION, Kaleta\Core\ExportFormat::DEFAULT, Kaleta\Core\ExportFormat::NEWEST], [2, 2, 3]);
+// every row of every imported table survives format 3 and back: the English keys of a table never meet another of its
+// columns (a key lost or read into the wrong column would be silent data loss), the news item's own values included
+$format314 = [];
+foreach (Kaleta\Core\SiteImport::TABLES as $table) {
+    $keys = [...($schemaColumns310[$table] ?? []), ...array_keys(Kaleta\Core\ExportFormat::COMPUTED[$table] ?? [])];
+    $row = array_combine($keys, array_map(fn (string $k): string => 'v:' . $k, $keys));
+    $out = Kaleta\Core\ExportFormat::rowOut($table, $row, 3);
+    if (count($out) !== count($row) || Kaleta\Core\ExportFormat::rowIn($table, $out, 3) !== $row || Kaleta\Core\ExportFormat::rowOut($table, $row, 2) !== $row || $keys === []) {
+        $format314[] = $table;
+    }
+}
+check('3.14 format 3: every row of every exported table goes to English keys and back unchanged (no key collides with a column)', $format314, []);
+$tableKeys314 = array_map(fn (string $t): string => Kaleta\Core\ExportFormat::tableKey($t, 3), Kaleta\Core\SiteImport::TABLES);
+check('3.14 format 3: table keys are the English names of the rename map, unique, and read back to the tables of today', [
+    count(array_unique($tableKeys314)) === count($tableKeys314), array_map(fn (string $k): string => Kaleta\Core\ExportFormat::tableFromKey($k, 3), $tableKeys314) === Kaleta\Core\SiteImport::TABLES,
+    array_slice($tableKeys314, 0, 6), Kaleta\Core\ExportFormat::tableKey('stitky', 2), Kaleta\Core\ExportFormat::tableFromKey('news', 2)],
+    [true, true, ['categories', 'tags', 'popups', 'pages', 'news', 'redirects'], 'stitky', 'news']);
+check('3.14 format 3: a news item\'s author name and tag ids, the tag\'s language; the header and its version in both forms', [
+    Kaleta\Core\ExportFormat::rowOut('novinky', ['idc' => 7, 'autor' => 'Jana', 'stitky' => [1, 2], 'tema' => 3, 'text' => '<p>x</p>', 'datum' => '2026-10-13 12:00:00'], 3),
+    Kaleta\Core\ExportFormat::rowOut('stitky', ['ids' => 4, 'nazev' => 'Trh', 'seo_link' => 'trh', 'jazyk' => 'en', 'popis' => null], 3),
+    Kaleta\Core\ExportFormat::headerOut(['format' => 'kaleta-export', 'verze_formatu' => 3, 'kaleta' => '3.14.0', 'vytvoreno' => 'now', 'nastaveni' => ['site_name' => 'A']], 3),
+    Kaleta\Core\ExportFormat::headerIn(['format' => 'kaleta-export', 'format_version' => 3, 'created' => 'now', 'settings' => []]),
+    Kaleta\Core\ExportFormat::headerIn(['verze_formatu' => 2, 'nastaveni' => []]), Kaleta\Core\ExportFormat::version(['format_version' => 3]), Kaleta\Core\ExportFormat::version([])],
+    [['id' => 7, 'author' => 'Jana', 'tag_ids' => [1, 2], 'category_id' => 3, 'text' => '<p>x</p>', 'published_at' => '2026-10-13 12:00:00'],
+    ['id' => 4, 'name' => 'Trh', 'slug' => 'trh', 'language' => 'en', 'popis' => null],
+    ['format' => 'kaleta-export', 'format_version' => 3, 'kaleta' => '3.14.0', 'created' => 'now', 'settings' => ['site_name' => 'A']],
+    ['format' => 'kaleta-export', 'verze_formatu' => 3, 'vytvoreno' => 'now', 'nastaveni' => []], ['verze_formatu' => 2, 'nastaveni' => []], 3, 1]);
+// the reader: the same content as format 2 and as format 3 (streamed as SiteExport writes it, and formatted by hand) splits
+// into the same files per table and the same header – everything after the preparation sees no difference
+$rows314 = ['stitky' => [['ids' => 1, 'nazev' => 'Trh', 'seo_link' => 'trh', 'jazyk' => '', 'popis' => null, 'obrazek' => ''], ['ids' => 2, 'nazev' => 'Market', 'seo_link' => 'trh', 'jazyk' => 'en', 'popis' => '<p>EN</p>', 'obrazek' => '']],
+    'novinky' => [['idc' => 5, 'titulek' => 'Akce', 'seo_link' => 'akce', 'jazyk' => 'en', 'tema' => 3, 'datum' => '2026-10-13 12:00:00', 'autor' => 'Jana', 'stitky' => [2]]],
+    'casti' => [['typ' => 'hlavicka', 'jazyk' => '', 'varianta' => '', 'stranky' => '[1]', 'stavba' => '{"v":1,"deti":[]}']],
+    'facts' => [['fact_key' => 'phone', 'language' => '', 'value' => '+420 1']]];
+$write314 = function (int $format, bool $pretty) use ($rows314): string {
+    $header = Kaleta\Core\ExportFormat::headerOut(['format' => 'kaleta-export', 'verze_formatu' => $format, 'kaleta' => '3.14.0', 'vytvoreno' => '2026-10-13T12:00:00+02:00', 'nastaveni' => ['site_name' => 'Trh']], $format);
+    if ($pretty) {
+        foreach ($rows314 as $table => $rows) {
+            $header[Kaleta\Core\ExportFormat::tableKey($table, $format)] = array_map(fn (array $r): array => Kaleta\Core\ExportFormat::rowOut($table, $r, $format), $rows);
+        }
+
+        return (string) json_encode($header, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    }
+    $out = substr((string) json_encode($header, JSON_UNESCAPED_UNICODE), 0, -1);
+    foreach ($rows314 as $table => $rows) {
+        $out .= ",\n" . json_encode(Kaleta\Core\ExportFormat::tableKey($table, $format)) . ':[' . implode(',', array_map(fn (array $r): string => "\n" . json_encode(Kaleta\Core\ExportFormat::rowOut($table, $r, $format), JSON_UNESCAPED_UNICODE), $rows)) . "\n]";
+    }
+
+    return $out . "}\n";
+};
+$split314 = function (string $content): array {
+    $work = sys_get_temp_dir() . '/kaleta-format-' . bin2hex(random_bytes(4));
+    mkdir($work);
+    file_put_contents($work . '/obsah.json', $content);
+    [$header, $counts] = (new ReflectionMethod(Kaleta\Core\SiteImport::class, 'split'))->invoke(null, $work . '/obsah.json', $work);
+    $files = [];
+    foreach (glob($work . '/*.ndjson') ?: [] as $file) {
+        $files[basename($file)] = (string) file_get_contents($file);
+    }
+    ksort($files);
+    array_map('unlink', glob($work . '/*') ?: []);
+    rmdir($work);
+    unset($header['verze_formatu']);
+
+    return [$header, $counts, $files];
+};
+$split2_314 = $split314($write314(2, false));
+check('3.14 SiteImport reads format 3 (streamed and formatted by hand) into the same tables, rows and header as format 2', [
+    $split314($write314(3, false)) === $split2_314, $split314($write314(3, true)) === $split2_314, $split2_314[1], $split2_314[0]['nastaveni'] ?? null,
+    json_decode(explode("\n", $split2_314[2]['novinky.ndjson'] ?? '')[0], true)],
+    [true, true, ['stitky' => 2, 'novinky' => 1, 'casti' => 1, 'facts' => 1], ['site_name' => 'Trh'], $rows314['novinky'][0]]);
+// tags in the language version of their news item: the helper scopes the lookup like every other slug check
+check('3.14: Slug::TABLES lists tags with their global and per-language keys, so the switch handles them with the others', Kaleta\Core\Slug::TABLES['stitky'] ?? null, ['ids', 'uq_stitky_seo', 'uq_stitky_jazyk_seo']);
+check('3.14: the tag of a news item is created in its language (Tags::findOrCreate, used by News::tags, WpImport and Import\\Batch)', [
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Tags.php'), '\'jazyk\' => $language'),
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/News.php') . file_get_contents(KALETA_SYSTEM . '/src/Core/WpImport.php') . file_get_contents(KALETA_SYSTEM . '/src/Import/Batch.php'), 'Tags::findOrCreate('),
+    preg_match_all("/insert\\('stitky'/", implode('', array_map(fn (string $f): string => (string) file_get_contents($f), [...glob(KALETA_SYSTEM . '/src/*/*.php') ?: [], ...glob(KALETA_SYSTEM . '/src/*/*/*.php') ?: []])))],
+    [true, 3, 1]);
+/* ---------- 3.14: Ready for 4.0 (Core\Readiness, Core\LegacyNames, Core\RedirectSources) ---------- */
+check('3.14 Names::isLegacy – only the Czech names of tables 4.0 renames', [Kaleta\Core\Names::isLegacy('novinky'), Kaleta\Core\Names::isLegacy('novinky_stitky'), Kaleta\Core\Names::isLegacy('news'),
+    Kaleta\Core\Names::isLegacy('events'), Kaleta\Core\Names::isLegacy('media'), Kaleta\Core\Names::legacy()['presmerovani'] ?? null], [true, true, false, false, false, 'redirects']);
+check('3.14 LegacyNames::external – add-ons and layouts are logged; system/, tools/, root scripts, other places and the command line are not', [
+    Kaleta\Core\LegacyNames::external('/srv/site/extensions/shop/Extension.php', '/srv/site'), Kaleta\Core\LegacyNames::external('/srv/site/layout/old/base.php', '/srv/site/'),
+    Kaleta\Core\LegacyNames::external('/srv/site/system/src/Core/Db.php', '/srv/site'), Kaleta\Core\LegacyNames::external('/srv/site/tools/test.php', '/srv/site'),
+    Kaleta\Core\LegacyNames::external('/srv/site/index.php', '/srv/site'), Kaleta\Core\LegacyNames::external('/srv/other/x.php', '/srv/site'),
+    Kaleta\Core\LegacyNames::external('Command line code', '/srv/site'), Kaleta\Core\LegacyNames::addon('extensions/shop/src/Orders.php'), Kaleta\Core\LegacyNames::addon('layout/old/base.php')],
+    ['extensions/shop/Extension.php', 'layout/old/base.php', false, false, false, false, false, 'shop', '']);
+$legacyLog314 = sys_get_temp_dir() . '/kaleta-legacy-' . bin2hex(random_bytes(4)) . '.json';
+file_put_contents($legacyLog314, json_encode(['extensions/gone/Old.php' => ['names' => ['stranky' => date('Y-m-d', strtotime('-40 days'))]], 'bad' => 'x']));
+Kaleta\Core\LegacyNames::record('extensions/shop/Extension.php', 'novinky', date('Y-m-d'), $legacyLog314);
+$legacyMtime314 = (string) file_get_contents($legacyLog314);
+Kaleta\Core\LegacyNames::record('extensions/shop/Extension.php', 'novinky', date('Y-m-d'), $legacyLog314); // the same day again: nothing to write
+Kaleta\Core\LegacyNames::record('extensions/shop/Extension.php', 'stranky', date('Y-m-d', strtotime('-1 day')), $legacyLog314);
+$legacyRecent314 = Kaleta\Core\LegacyNames::recent($legacyLog314);
+check('3.14 LegacyNames::record and recent – one entry per file, names with the last day, old and broken entries dropped, add-on named', [
+    count($legacyRecent314), $legacyRecent314[0]['file'] ?? null, $legacyRecent314[0]['addon'] ?? null, $legacyRecent314[0]['names'] ?? null, $legacyRecent314[0]['last'] ?? null,
+    str_contains((string) file_get_contents($legacyLog314), 'gone'), $legacyMtime314 !== ''],
+    [1, 'extensions/shop/Extension.php', 'shop', ['novinky', 'stranky'], date('Y-m-d'), false, true]);
+@unlink($legacyLog314);
+// Kaleta's own code is never logged, even with add-ons switched on, and the SQL stays the same
+$watching314 = Kaleta\Core\LegacyNames::$watching;
+Kaleta\Core\LegacyNames::$watching = true;
+$before314 = is_file(Kaleta\Core\LegacyNames::FILE) ? (string) file_get_contents(Kaleta\Core\LegacyNames::FILE) : null;
+$sql314 = [$db310->sql('SELECT * FROM {novinky} JOIN {stranky}'), $db310->sql('SELECT * FROM {news}')];
+Kaleta\Core\LegacyNames::$watching = $watching314;
+check('3.14 Db::sql with add-ons switched on: the same SQL, and a query from tools/ is not logged as an add-on', [$sql314,
+    (is_file(Kaleta\Core\LegacyNames::FILE) ? (string) file_get_contents(Kaleta\Core\LegacyNames::FILE) : null) === $before314],
+    [['SELECT * FROM `ka_novinky` JOIN `ka_stranky`', 'SELECT * FROM `ka_novinky`'], true]);
+check('3.14 Readiness::databaseServer – MySQL 8.0+ and MariaDB 10.6+, the 5.5.5- prefix skipped', array_map(Kaleta\Core\Readiness::databaseServer(...),
+    ['8.0.36', '5.7.44-log', '10.6.12-MariaDB-log', '5.5.5-10.5.22-MariaDB', '11.4.2-MariaDB-ubu2404', '26.7.0', '8.4.3']),
+    [['MySQL', '8.0.36', true], ['MySQL', '5.7.44', false], ['MariaDB', '10.6.12', true], ['MariaDB', '10.5.22', false], ['MariaDB', '11.4.2', true], ['MySQL', '26.7.0', true], ['MySQL', '8.4.3', true]]);
+$to314 = ' TO `shop`@`localhost`';
+check('3.14 Readiness::missingPrivileges – ALL, a list, a pattern, table grants, column lists, roles and nothing readable', [
+    Kaleta\Core\Readiness::missingPrivileges(['GRANT ALL PRIVILEGES ON *.*' . $to314 . ' WITH GRANT OPTION'], 'shop'),
+    Kaleta\Core\Readiness::missingPrivileges(['GRANT USAGE ON *.*' . $to314, 'GRANT SELECT, INSERT, UPDATE, DELETE ON `shop`.*' . $to314], 'shop'),
+    Kaleta\Core\Readiness::missingPrivileges(['GRANT USAGE ON *.*' . $to314, 'GRANT ALL ON `shop\\_%`.*' . $to314], 'shop_live'),
+    Kaleta\Core\Readiness::missingPrivileges(['GRANT USAGE ON *.*' . $to314, 'GRANT ALL ON `shop\\_%`.*' . $to314], 'shopxlive'),
+    Kaleta\Core\Readiness::missingPrivileges(['GRANT USAGE ON *.*' . $to314, 'GRANT ALL ON `shop`.`ka_novinky`' . $to314], 'shop'),
+    Kaleta\Core\Readiness::missingPrivileges(['GRANT SELECT (a, b), INSERT, ALTER, CREATE, DROP ON shop.*' . $to314], 'shop'),
+    Kaleta\Core\Readiness::missingPrivileges(['GRANT USAGE ON *.*' . $to314, 'GRANT `app_role`@`%`' . $to314], 'shop'),
+    Kaleta\Core\Readiness::missingPrivileges([], 'shop'), Kaleta\Core\Readiness::missingPrivileges(['nonsense'], 'shop'),
+    Kaleta\Core\Readiness::schemaMatches('sh_p%', 'shopping'), Kaleta\Core\Readiness::schemaMatches('Shop', 'shop')],
+    [[], ['ALTER', 'CREATE', 'DROP'], [], ['ALTER', 'CREATE', 'DROP', 'INSERT'], ['ALTER', 'CREATE', 'DROP', 'INSERT'], [], null, null, null, true, true]);
+$scan314 = sys_get_temp_dir() . '/kaleta-scan-' . bin2hex(random_bytes(4));
+foreach (['extensions/shop/vendor/lib', 'extensions/shop/src', 'extensions/clean', 'layout/old'] as $folder314) {
+    mkdir($scan314 . '/' . $folder314, 0777, true);
+}
+file_put_contents($scan314 . '/extensions/shop/Extension.php', '<?php $db->all("SELECT * FROM {novinky} n JOIN {news} x"); $db->one("SELECT * FROM {novinky}"); $db->all("SELECT * FROM ka_novinky_stitky, ka_newsletters, ka_events");');
+file_put_contents($scan314 . '/extensions/shop/src/install.sql', 'CREATE TABLE IF NOT EXISTS {ext_shop_x} (id INT); INSERT INTO {stranky} SELECT 1;');
+file_put_contents($scan314 . '/extensions/shop/vendor/lib/Big.php', '<?php // {novinky} in a bundled library is not looked at');
+file_put_contents($scan314 . '/extensions/shop/notes.txt', '{novinky}');
+file_put_contents($scan314 . '/extensions/clean/Extension.php', '<?php $db->all("SELECT * FROM {news} JOIN {pages} JOIN {events}"); // stranky, novinky as words');
+file_put_contents($scan314 . '/layout/old/base.php', '<?php // {kategorie}');
+$scanned314 = Kaleta\Core\Readiness::scan($scan314, ['extensions', 'layout', 'missing'], 'ka_');
+$bounded314 = Kaleta\Core\Readiness::scan($scan314, ['extensions'], 'ka_', 2);
+check('3.14 Readiness::scan – old placeholders and prefixed names of renamed tables per file; English names, other tables, other file types and vendor/ are left out; bounded', [
+    $scanned314['files'], $scanned314['complete'], [$bounded314['complete'], $bounded314['seen']], count(Kaleta\Core\Readiness::scan($scan314, ['extensions'], '')['files'][0]['names'] ?? [])],
+    [[['file' => 'extensions/shop/Extension.php', 'placeholders' => 2, 'tables' => 1, 'names' => ['{novinky}', 'ka_novinky_stitky']],
+        ['file' => 'extensions/shop/src/install.sql', 'placeholders' => 1, 'tables' => 0, 'names' => ['{stranky}']],
+        ['file' => 'layout/old/base.php', 'placeholders' => 1, 'tables' => 0, 'names' => ['{kategorie}']]], true, [false, 2], 1]);
+// N314-3: a folder PHP may not open neither stops the page nor hides what the other folders hold
+mkdir($scan314 . '/extensions/locked/inner', 0777, true);
+chmod($scan314 . '/extensions/locked', 0);
+try {
+    $locked314 = Kaleta\Core\Readiness::scan($scan314, ['extensions', 'layout'], 'ka_');
+} catch (\Throwable $e) {
+    $locked314 = ['files' => [], 'error' => $e::class];
+}
+chmod($scan314 . '/extensions/locked', 0777);
+check('3.14 Readiness::scan (N314-3) – an unreadable folder is skipped, the rest is still found', [isset($locked314['error']), count($locked314['files'])], [false, 3]);
+exec('rm -rf ' . escapeshellarg($scan314));
+check('3.14 RedirectSources::normalize – the stored form in lower case: slashes, percent-encoding and case folded, accents and the language prefix kept', array_map(Kaleta\Core\RedirectSources::normalize(...),
+    ['/Stara-Adresa/', 'ko%C4%8Dka', 'EN/Stary', '/?p=12', 'Café', 'https://old.example.com/Blog/Post/', 'blog/*']),
+    ['stara-adresa', 'kočka', 'en/stary', '?p=12', 'café', 'blog/post', 'blog/*']);
+check('3.14 the background job that normalises redirect sources is listed', [Kaleta\Core\Scheduler::JOBS['redirect_sources'][0] ?? null, Kaleta\Core\Scheduler::JOBS['redirect_sources'][1] ?? null], [0, 'any']);
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

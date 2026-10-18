@@ -953,7 +953,9 @@ final class Kernel
 
     private function tag(string $seo): Response
     {
-        $tag = $this->app->db()->one('SELECT * FROM {stitky} WHERE seo_link = ?', [$seo]);
+        // 3.14: the tag of this language version first; a tag of another version (every tag from before 3.14 is '') still
+        // answers here, as tags were shared by all versions – with the global key there is only one row per slug anyway
+        $tag = $this->app->db()->one("SELECT * FROM {stitky} WHERE seo_link = ? ORDER BY jazyk = ? DESC, jazyk = '' DESC LIMIT 1", [$seo, Language::siteColumn()]);
         if ($tag === null) {
             return $this->notFound();
         }

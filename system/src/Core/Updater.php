@@ -322,9 +322,13 @@ final class Updater
         }
         // the manifest is checked again against what was decided on; the signature below covers the version and the flag
         if ($expectedVersion !== null && (string) $m['verze'] !== $expectedVersion) {
-            throw new \RuntimeException(t('The update source now offers version %s instead of %s – nothing was installed. Check for updates again.', (string) $m['verze'], $expectedVersion));
+            // 3.14: the screen shows what the source offers now – before, it kept the remembered version for up to 12 hours
+            // and every further click failed the same way (the owner's report from kaletacms.com, 3.12.1 vs 3.13.1)
+            $this->remember($m);
+            throw new \RuntimeException(t('The update source now offers version %s instead of %s – nothing was installed. The screen now shows version %s; check what it brings and update again.', (string) $m['verze'], $expectedVersion, (string) $m['verze']));
         }
         if ($expectedSecurity !== null && !empty($m['bezpecnostni']) !== $expectedSecurity) {
+            $this->remember($m);
             throw new \RuntimeException(t('The update source changed whether version %s is a security release – nothing was installed. Check for updates again.', (string) $m['verze']));
         }
         if (self::phpTooOld($m)) {
@@ -428,7 +432,7 @@ final class Updater
         }
         // the version just installed is the newest the source knows: the admin page right after the update need not ask again
         // (asking the source in that moment failed on sites that are their own update source and showed a red error, 2.10.2)
-        $this->settings->set('update_cache', (string) json_encode(['url' => $this->url(), 'overeno' => time(), 'manifest' => $m, 'chyba' => null], JSON_UNESCAPED_UNICODE));
+        $this->remember($m);
         if ($db !== null) {
             Events::record($db, 'update.applied', 'info', t('Version %s was installed (from %s).', (string) $m['verze'], KALETA_VERSION), ['version' => (string) $m['verze'], 'from' => KALETA_VERSION]);
         }
@@ -748,6 +752,14 @@ final class Updater
         if ($verdict['seen'] !== $seen) {
             $this->settings->set('update_seen', (string) json_encode($verdict['seen'], JSON_UNESCAPED_SLASHES));
         }
+    }
+
+    /** Remembers a verified manifest as the answer of the last check, so the update screen shows it (3.14). */
+    private function remember(array $manifest): void
+    {
+        // the warning about a manifest signed with a date in the future stays (N314-5)
+        $this->settings->set('update_cache', (string) json_encode(['url' => $this->url(), 'overeno' => time(), 'manifest' => $manifest, 'chyba' => null,
+            'future_date' => $this->futureDate], JSON_UNESCAPED_UNICODE));
     }
 
     /**

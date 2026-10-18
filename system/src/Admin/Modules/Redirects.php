@@ -112,7 +112,8 @@ final class Redirects extends Module
         }
         if ($idp > 0) {
             // editing an existing record
-            $this->db->update('presmerovani', ['z_adresy' => mb_substr($from, 0, 255), 'na_adresu' => mb_substr($target, 0, 255)], ['idp' => $idp]);
+            // source_norm back to NULL: the background job normalises the new address again (N314-2)
+            $this->db->update('presmerovani', ['z_adresy' => mb_substr($from, 0, 255), 'na_adresu' => mb_substr($target, 0, 255), 'source_norm' => null], ['idp' => $idp]);
         } elseif (RedirectRules::isPattern($from) || $code === RedirectRules::GONE) {
             RedirectRules::store($this->db, $from, $target, $code);
         } else {

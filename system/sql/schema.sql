@@ -36,6 +36,7 @@ CREATE TABLE ka_uzivatele (
     pozice         VARCHAR(100) NOT NULL DEFAULT '',      -- position in the company (bio of the news author)
     foto           VARCHAR(255) NOT NULL DEFAULT '',
     bio            TEXT NULL,                             -- a few sentences about the author
+    team_item_id   INT UNSIGNED NULL,                     -- the person's record in the Team collection (3.14, Builder\TeamRecord); NULL = by the e-mail
     PRIMARY KEY (idu),
     UNIQUE KEY uq_user (user)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
@@ -198,10 +199,12 @@ CREATE TABLE ka_stitky (
     ids      INT UNSIGNED NOT NULL AUTO_INCREMENT,
     nazev    VARCHAR(80) NOT NULL,
     seo_link VARCHAR(100) NOT NULL,
+    jazyk    VARCHAR(35) CHARACTER SET ascii NOT NULL DEFAULT '', -- 3.14: language version ('' = the default language)
     popis    TEXT NULL,                                   -- intro of the topic page (HTML from the editors)
     obrazek  VARCHAR(255) NOT NULL DEFAULT '',
     PRIMARY KEY (ids),
-    UNIQUE KEY uq_stitky_seo (seo_link)
+    UNIQUE KEY uq_stitky_seo (seo_link),                 -- dropped while slugs_per_language is on (Core\Slug)
+    UNIQUE KEY uq_stitky_jazyk_seo (jazyk, seo_link)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 CREATE TABLE ka_novinky_stitky (
     idc INT UNSIGNED NOT NULL,
@@ -302,6 +305,7 @@ CREATE TABLE ka_tridy (
 CREATE TABLE ka_presmerovani (
     idp       INT UNSIGNED NOT NULL AUTO_INCREMENT,
     z_adresy  VARCHAR(255) NOT NULL,                     -- path on the site without the leading slash: clanek/stara-adresa
+    source_norm VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL, -- z_adresy normalised for the exact lookup of 4.0, NULL = not yet (3.14, Core\RedirectSources)
     na_adresu VARCHAR(255) NOT NULL,                     -- path on the site, or a full URL https://...
     typ       SMALLINT UNSIGNED NOT NULL DEFAULT 301,    -- 301 permanent, 302 temporary, 410 gone (no target, 3.6); z_adresy with * = a pattern (Core\RedirectRules)
     auto_score TINYINT UNSIGNED NULL,                    -- NULL = by hand or a slug change; 0–100 = created by the daily job with this confidence (2.14, Core\RedirectMatcher)
@@ -309,7 +313,8 @@ CREATE TABLE ka_presmerovani (
     vytvoreno DATETIME NOT NULL,
     PRIMARY KEY (idp),
     UNIQUE KEY uq_presmerovani (z_adresy),
-    KEY ix_presmerovani_na (na_adresu(191))
+    KEY ix_presmerovani_na (na_adresu(191)),
+    KEY ix_presmerovani_norm (source_norm)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 CREATE TABLE ka_souhlasy (
     ids         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,

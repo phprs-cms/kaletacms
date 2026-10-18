@@ -32,12 +32,16 @@ final class Users extends Module
         }
         unset($a);
 
-        return $this->view('list', 'Uživatelé', ['authors' => $authors]);
+        // 3.14: who is linked to a record of the Team collection (their own e-mail signature in My account)
+        $teamExists = \Kaleta\Builder\TeamRecord::collections($this->db) !== [];
+
+        return $this->view('list', 'Uživatelé', ['authors' => $authors, 'teamExists' => $teamExists,
+            'linked' => $teamExists ? \Kaleta\Builder\TeamRecord::linked($this->db, $authors) : []]);
     }
 
     protected function actionNew(): Response
     {
-        return $this->form(['idu' => 0, 'user' => '', 'jmeno' => '', 'email' => '', 'url' => '', 'admin' => Auth::AUTHOR, 'role' => null, 'blokovat' => 0]);
+        return $this->form(['idu' => 0, 'user' => '', 'jmeno' => '', 'email' => '', 'url' => '', 'admin' => Auth::AUTHOR, 'role' => null, 'blokovat' => 0, 'team_item_id' => null]);
     }
 
     protected function actionEdit(): Response
@@ -63,6 +67,8 @@ final class Users extends Module
             'admin' => array_key_exists($r->postInt('admin'), Auth::TYPES) ? $r->postInt('admin') : Auth::AUTHOR,
             'role' => null,
             'blokovat' => (int) $r->postBool('blokovat'),
+            // 3.14: the person's record in the Team collection; empty = automatic by the e-mail, anything else must be a person
+            'team_item_id' => \Kaleta\Builder\TeamRecord::isChoice($this->db, $r->postInt('team_item_id')) ? $r->postInt('team_item_id') : null,
         ];
         // custom role (value "r<id>"): the role determines both the level and the sections
         $custom = preg_match('/^r(\d+)$/D', $r->post('admin'), $m) ? $this->db->one('SELECT * FROM {role} WHERE idr = ?', [(int) $m[1]]) : null;
@@ -298,6 +304,9 @@ final class Users extends Module
             // the user's Claude connections (Core\SecurityHygiene): the administrator revokes what is not needed any more
             'connections' => $id > 0 ? array_values(array_filter(\Kaleta\Core\SecurityHygiene::connections($this->db), fn (array $c): bool => (int) $c['idu'] === $id)) : [],
             'isSelf' => $id === $this->app->auth()->id(),
+            // 3.14: the records an account can be linked to, and the one it is linked to now (by the choice or the e-mail)
+            'teamChoices' => \Kaleta\Builder\TeamRecord::choices($this->db),
+            'teamRecord' => $id > 0 ? \Kaleta\Builder\TeamRecord::forUser($this->db, $author) : null,
             'modules' => $configurable,
             'hasModules' => $this->request->isPost()
                 ? $this->request->postList('moduly')

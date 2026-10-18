@@ -11,7 +11,7 @@ use Kaleta\Builder\Presets;
  * Industry blueprints (2.11): what a kind of business needs from its site, as a package – a clinic, a manufacturer, a
  * craftsman, a driving school, a farm, a municipality. A blueprint is a JSON manifest (FORMAT 1):
  *
- *  - key, name, description – texts are a string or {"en": "…", "cs": "…"} (the admin language, else English);
+ *  - key, name, description – texts are a string or {"en": "…", "cs": "…", "de": "…", "es": "…"} (the admin language, else English);
  *  - group – where the Blueprints screen lists it (GROUPS, 3.3); optional, another site's manifest without one is "other";
  *  - presets – ready-made collections it needs (Builder\Presets keys), created when it is applied;
  *  - facts – facts to define, never their values: [{key, label, type, schema?}];
@@ -152,7 +152,10 @@ final class Blueprint
             'presets' => array_values(array_unique($presets)), 'facts' => array_values($facts), 'questions' => $questions, 'audit' => $audit, 'claude' => $claude], []];
     }
 
-    /** A manifest text in the admin language: the string, or the language's version, English, the first. */
+    /**
+     * A manifest text in the admin language: the string, or the language's version (a regional code such as es-MX falls
+     * back to its base language), English, the first. Shipped manifests carry en, cs, de and es (3.14, unit-tested).
+     */
     public static function text(string|array $value): string
     {
         if (is_string($value)) {
@@ -160,7 +163,7 @@ final class Blueprint
         }
         $language = Language::code();
 
-        return (string) ($value[$language] ?? $value['en'] ?? reset($value));
+        return (string) ($value[$language] ?? $value[Language::base($language)] ?? $value['en'] ?? reset($value));
     }
 
     /** @return array<string, array<string, mixed>> shipped blueprints, key => manifest (an invalid file is left out) */

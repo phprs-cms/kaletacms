@@ -2068,7 +2068,18 @@ sq "UPDATE ka_novinky SET text = CONCAT(text, '$N6_PAYLOAD') WHERE smazano IS NU
 sq "CREATE TABLE ka_n55_backup AS SELECT * FROM ka_nastaveni WHERE promenna IN ('company_map', 'social_facebook', 'social_linkedin');
   REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('company_map', 'javascript:alert(1)'), ('social_facebook', ' JavaScript:alert(2)'), ('social_linkedin', 'https://www.linkedin.com/company/n55');
   INSERT INTO ka_facts (fact_key, language, label, type, value, updated_at) VALUES ('n55promo', '', 'N55', 'text', 'javascript:alert(3)', '$(site_time)'), ('n55note', '', 'N55', 'text', 'Note: open daily', '$(site_time)')" > /dev/null
+sq "INSERT INTO ka_stitky (nazev, seo_link, jazyk) VALUES ('Move 314', 'move-314', 'en')" > /dev/null # 3.14: a tag's language version moves with the site
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=export" -d "_csrf=$TOKEN"
+# 3.14: the same content in export format 3 (English keys) – only on request, from the code; a second later, so the two
+# archives never share the name of one second
+sleep 1
+MOVE3_EXPORT=$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); echo Kaleta\Core\SiteExport::create($app->db(), $app->settings(), 3)["soubor"];')
+mv "$WORK/web/storage/zalohy/$MOVE3_EXPORT" "$WORK/presun3.zip"
+unzip -p "$WORK/presun3.zip" obsah.json > "$WORK/obsah3.json" 2>/dev/null || true
+expect "3.14: export format 3 has the English header, table and column names, the default export stays format 2" \
+  "$(php -r '$h = json_decode(rtrim(rtrim((string) fgets(fopen($argv[1], "rb"))), ",") . "}", true); $t = file_get_contents($argv[1]); echo $h["format_version"] ?? "-", "|", isset($h["settings"]["site_name"]) ? "settings" : "-", "|", (int) str_contains($t, "\n\"tags\":["), "|", (int) str_contains($t, "\n\"stitky\":["), "|", (int) str_contains($t, "\"slug\":\"move-314\",\"language\":\"en\"");' "$WORK/obsah3.json")|$(unzip -p "$WORK/presun3.zip" README.txt | grep -c 'Format 3 holds the same')" \
+  "3|settings|1|0|1|1"
+sq "DELETE FROM ka_stitky WHERE seo_link = 'move-314'" > /dev/null
 sq "DELETE FROM ka_nastaveni WHERE promenna IN ('company_map', 'social_facebook', 'social_linkedin'); INSERT INTO ka_nastaveni SELECT * FROM ka_n55_backup; DROP TABLE ka_n55_backup;
   DELETE FROM ka_facts WHERE fact_key IN ('n55promo', 'n55note')" > /dev/null
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=transfer"; MOVE_EXPORT=$(grep -o 'export-[0-9]*-[0-9]*\.zip' "$WORK/response" | head -1)
@@ -2130,6 +2141,42 @@ expect "a moved page looks the same" "$(curl -s "$B2/$SLUG_ITEM" | grep -o '<h1[
 curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o "$WORK/response" "$B2/admin.php?module=transfer"
 grep -q 'id="soubor-kaleta"' "$WORK/response" && { echo "  CHYBA  a site with content still offers the import form"; ERRORS=$((ERRORS+1)); }
 expect "a site with content refuses another import" "$(curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o /dev/null -w '%{redirect_url}' -X POST "$B2/admin.php?module=transfer&action=kaleta_select" -d "_csrf=$(csrf)" -d "soubor=$MOVE_FILE" | grep -c 'kaleta')|$(curl -s -b "$JAR_MOVE" -o - "$B2/admin.php?module=transfer&action=kaleta&file=$MOVE_FILE" | grep -c 'name="potvrzeni"')" "1|0"
+expect "3.14: a tag keeps its language version when the site moves" "$("${MYSQL[@]}" "$DB2" -N -e "SELECT CONCAT(jazyk, ':', seo_link) FROM ka_stitky WHERE nazev = 'Move 314'")" "en:move-314"
+# 3.14: export format 3 into a clean install gives the same site as format 2 – counts and the main rows of every main table
+# (dates in the site's wall time, as written), the settings that travel and the tag links
+roundtrip314() { "${MYSQL[@]}" --default-character-set=utf8mb4 "$1" -N -e "SET SESSION group_concat_max_len = 16000000; SELECT CONCAT_WS('|',
+  (SELECT SHA2(GROUP_CONCAT(CONCAT_WS(':', ids, seo_link, titulek, jazyk, IFNULL(preklad_z, '-'), zobrazit, SHA2(IFNULL(text, ''), 256), SHA2(IFNULL(stavba, ''), 256)) ORDER BY ids), 256) FROM ka_stranky WHERE smazano IS NULL),
+  (SELECT SHA2(GROUP_CONCAT(CONCAT_WS(':', idc, seo_link, titulek, jazyk, tema, datum, visible, SHA2(text, 256)) ORDER BY idc), 256) FROM ka_novinky WHERE smazano IS NULL),
+  (SELECT SHA2(GROUP_CONCAT(CONCAT_WS(':', idt, nazev, seo_link, jazyk) ORDER BY idt), 256) FROM ka_kategorie),
+  (SELECT CONCAT(COUNT(*), ':', SHA2(GROUP_CONCAT(CONCAT_WS(':', ids, nazev, seo_link, jazyk, SHA2(IFNULL(popis, ''), 256)) ORDER BY ids), 256)) FROM ka_stitky),
+  (SELECT SHA2(GROUP_CONCAT(CONCAT(idc, '-', ids) ORDER BY idc, ids), 256) FROM ka_novinky_stitky),
+  (SELECT SHA2(GROUP_CONCAT(CONCAT_WS(':', z_adresy, na_adresu, typ) ORDER BY idp), 256) FROM ka_presmerovani),
+  (SELECT SHA2(GROUP_CONCAT(CONCAT_WS(':', ido, obr_poloha, nazev, IFNULL(sekce, '-')) ORDER BY ido), 256) FROM ka_media),
+  (SELECT SHA2(GROUP_CONCAT(CONCAT_WS(':', idp, idk, seo_link, jazyk, SHA2(data, 256)) ORDER BY idp), 256) FROM ka_kolekce_polozky WHERE smazano IS NULL),
+  (SELECT SHA2(GROUP_CONCAT(CONCAT_WS(':', umisteni, jazyk, SHA2(polozky, 256)) ORDER BY umisteni, jazyk), 256) FROM ka_menu),
+  (SELECT SHA2(GROUP_CONCAT(CONCAT_WS(':', typ, jazyk, varianta, SHA2(IFNULL(stavba, ''), 256)) ORDER BY typ, jazyk, varianta), 256) FROM ka_casti),
+  (SELECT SHA2(GROUP_CONCAT(CONCAT_WS(':', promenna, SHA2(hodnota, 256)) ORDER BY promenna), 256) FROM ka_nastaveni WHERE promenna IN ('site_name', 'home_page', 'design_system', 'additional_languages', 'company_name')))"; }
+ROUNDTRIP2=$(move_counts "$DB2")/$(category_counts "$DB2")/$(roundtrip314 "$DB2")
+kill "$SERVER2_PID" 2>/dev/null || true; wait "$SERVER2_PID" 2>/dev/null || true
+"${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$DB2\`; CREATE DATABASE \`$DB2\` CHARACTER SET utf8mb4 COLLATE utf8mb4_czech_ci"
+rm -f "$WORK/web2/config.php"; cp "$ROOT/install.php" "$WORK/web2/install.php"; rm -rf "$WORK/web2/media"; mkdir -p "$WORK/web2/media"
+(cd "$WORK/web2" && exec php -S "127.0.0.1:$PORT2" system/dev-router.php >> "$WORK/server2.log" 2>&1) & SERVER2_PID=$!
+for i in $(seq 1 30); do curl -s -o /dev/null "$B2/install.php" && break; sleep 0.2; done
+curl -s -o /dev/null -X POST "$B2/install.php" --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB2" -d "db_user=$DB_USER" --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ \
+  --data-urlencode "nazev_webu=Nový web 314" -d web=export -d user=admin -d jmeno=Tester -d email= --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" -d 'rozsireni[]=novinky'
+rm -f "$JAR_MOVE"; curl -s -c "$JAR_MOVE" -b "$JAR_MOVE" -o "$WORK/response" "$B2/admin.php"; curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o /dev/null -X POST "$B2/admin.php" -d "_csrf=$(csrf)" -d user=admin --data-urlencode "password=$PASSWORD"
+curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o "$WORK/response" "$B2/admin.php?module=transfer"
+location=$(curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o /dev/null -w '%{redirect_url}' -X POST "$B2/admin.php?module=transfer&action=upload" -F "_csrf=$(csrf)" -F "soubor=@$WORK/presun3.zip;type=application/zip")
+curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o "$WORK/response" "$location"; MOVE314=$(printf '%s' "$location" | sed 's/.*file=//')
+grep -q "Export webu „Testovací firma“" "$WORK/response" && grep -q 'name="potvrzeni"' "$WORK/response" && echo "  ok     3.14: the preview reads a format-3 export (site name from its English header)" || { echo "  CHYBA  3.14: preview of a format-3 export: $location"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o /dev/null -X POST "$B2/admin.php?module=transfer&action=kaleta_run" -d "_csrf=$(csrf)" -d "soubor=$MOVE314" -d potvrzeni=1
+for i in $(seq 1 80); do
+  curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o "$WORK/response" -X POST "$B2/admin.php?module=transfer&action=kaleta" -d "_csrf=$(csrf)" -d "soubor=$MOVE314"
+  grep -q "Web je naimportovaný\|Import se zastavil" "$WORK/response" && break
+done
+grep -q "Web je naimportovaný" "$WORK/response" && echo "  ok     3.14: a format-3 export imports in batches" || { echo "  CHYBA  3.14 format-3 import: $(sed 's/<[^>]*>//g' "$WORK/response" | grep -i 'import\|chyb' | head -5)"; ERRORS=$((ERRORS+1)); }
+expect "3.14: export format 3 → clean install = export format 2 → clean install (counts, main rows, settings, tag links)" "$(move_counts "$DB2")/$(category_counts "$DB2")/$(roundtrip314 "$DB2")" "$ROUNDTRIP2"
+expect "3.14: … and its media files came along" "$(cd "$WORK/web2" && find media -type f ! -name '.*' | wc -l | tr -d ' ')" "$MEDIA_IN_ZIP"
 # 3.7 security review N37-2, N37-10, N37-11: an export with a page on a system address (its subpage, and a later page with
 # the first free slug), a category address with a newline, categories against the tree rules, one with an item's address,
 # texts in an unknown language and an assignment across collections – imported by the rules of a save, the result says what changed
@@ -3615,6 +3662,52 @@ curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=collections&action=ed
 grep -q 'name="hidden_redirect"' "$WORK/response" && grep -q 'name="pole\[0\]\[kolekce\]"' "$WORK/response" && echo "  ok     collections: the form offers links and the redirect" || { echo "  CHYBA  formulář kolekce"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=collections&action=item&id=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'lide-test'")&item=$(sq "SELECT idp FROM ka_kolekce_polozky WHERE seo_link = 'jana-nova'")"
 grep -q '<option value="praha-centrum" selected>Praha centrum</option>' "$WORK/response" && echo "  ok     collections: the item form chooses the linked item" || { echo "  CHYBA  formulář položky s vazbou"; ERRORS=$((ERRORS+1)); }
+
+echo "== 3.14: every employee copies their own e-mail signature (My account)"
+mcp save_collection_item "{\"collection\":\"$TEAM\",\"name\":\"Eva Skrytá\",\"slug\":\"eva-skryta\",\"values\":{\"$(team_key 1)\":\"Účetní\",\"$(team_key 4)\":\"eva@example.cz\"},\"visible\":false}" > /dev/null
+EVA=$(sq "SELECT idp FROM ka_kolekce_polozky WHERE idk = $TEAM_IDK AND seo_link = 'eva-skryta'"); EVA="${EVA:-0}"
+OTHER_ITEM=$(sq "SELECT idp FROM ka_kolekce_polozky WHERE seo_link = 'jana-nova'") # a record of a collection that holds no people
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=users&action=new"
+grep -q 'name="team_item_id"' "$WORK/response" && grep -q "<option value=\"$EVA\">Eva Skrytá – eva@example.cz – " "$WORK/response" && ! grep -q "<option value=\"$OTHER_ITEM\"" "$WORK/response" \
+  && echo "  ok     signature: the user form offers the people records (hidden too) and nothing else" || { echo "  CHYBA  signature: the Team record select"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$(csrf)" -d idu=0 -d jmeno=Petr -d user=podpis-autor --data-urlencode email=PETR@Example.cz --data-urlencode "password=$PASSWORD" -d admin=0 -d team_item_id=
+SIG_USER=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'podpis-autor'"); SIG_USER="${SIG_USER:-0}"
+expect "signature: an author without Collections, linked automatically (no stored choice)" "$(sq "SELECT CONCAT(IFNULL(team_item_id, 'auto'), '|', (SELECT COUNT(*) FROM ka_uzivatele_prava WHERE fk_id_user = idu AND ident_modulu = 'collections')) FROM ka_uzivatele WHERE idu = $SIG_USER")" "auto|0"
+"${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_kontrola_ip WHERE typ = 'login'"
+JAR_SIG="$WORK/jar-signature"; rm -f "$JAR_SIG"
+SIG_CSRF=$(curl -s -c "$JAR_SIG" "$B/admin.php" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//')
+curl -s -b "$JAR_SIG" -c "$JAR_SIG" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$SIG_CSRF" -d user=podpis-autor --data-urlencode "password=$PASSWORD"
+sig_page() { curl -s -b "$JAR_SIG" -c "$JAR_SIG" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?action=account$1"; }
+expect "signature: My account has the My e-mail signature tab" "$(sig_page ''; grep -q 'action=account&amp;tab=signature' "$WORK/response" && echo ' ok')" "200 ok"
+expect "signature: linked by the e-mail (case-insensitive) – the author sees their own signature with the Copy button" \
+  "$(sig_page '&tab=signature'; grep -q 'data-kopirovat-podpis' "$WORK/response" && grep -q 'Petr Podpis' "$WORK/response" && grep -q 'href="tel:+420777123456"' "$WORK/response" && ! grep -q 'Eva Skrytá' "$WORK/response" && echo ' ok')" "200 ok"
+expect "signature: parameters never select another person's record" \
+  "$(sig_page "&tab=signature&id=$TEAM_IDK&item=$EVA&team_item_id=$EVA&user=$EVA"; grep -q 'Petr Podpis' "$WORK/response" && ! grep -q 'Eva Skrytá\|eva@example.cz' "$WORK/response" && echo ' ok')" "200 ok"
+expect "signature: the author cannot open the Collections signature screen of someone else" "$(curl -s -b "$JAR_SIG" -o /dev/null -w '%{http_code}' "$B/admin.php?module=collections&action=signature&id=$TEAM_IDK&item=$EVA")" "403"
+curl -s -b "$JAR_SIG" -c "$JAR_SIG" -o /dev/null -X POST "$B/admin.php?action=account&tab=signature" -d "_csrf=$SIG_CSRF" -d co=profil -d team_item_id=$EVA -d jmeno=Petr --data-urlencode email=PETR@Example.cz
+expect "signature: the user cannot link themselves to a record (only an administrator)" "$(sq "SELECT IFNULL(team_item_id, 'auto') FROM ka_uzivatele WHERE idu = $SIG_USER")" "auto"
+check "signature: the Users list shows who is linked and how" 200 "/admin.php?module=users" "Záznam v týmu: Petr Podpis (podle e-mailu)"
+check "signature: the Team items list says staff copy their own signature" 200 "/admin.php?module=collections&action=items&id=$TEAM_IDK" "zkopírují sami v sekci Můj účet"
+# an administrator's choice wins over the e-mail; a record of a collection without people is refused
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=users&action=edit&id=$SIG_USER"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$(csrf)" -d idu=$SIG_USER -d jmeno=Petr -d user=podpis-autor --data-urlencode email=PETR@Example.cz -d admin=0 -d team_item_id=$OTHER_ITEM
+expect "signature: an administrator cannot link a record of a collection without people" "$(sq "SELECT IFNULL(team_item_id, 'auto') FROM ka_uzivatele WHERE idu = $SIG_USER")" "auto"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$(csrf)" -d idu=$SIG_USER -d jmeno=Petr -d user=podpis-autor --data-urlencode email=PETR@Example.cz -d admin=0 -d team_item_id=$EVA
+expect "signature: an administrator links the account to a chosen record" "$(sq "SELECT team_item_id FROM ka_uzivatele WHERE idu = $SIG_USER")" "$EVA"
+expect "signature: linked by the administrator's choice – the chosen (hidden) record, not the e-mail match" \
+  "$(sig_page '&tab=signature'; grep -q 'Eva Skrytá' "$WORK/response" && grep -q 'Účetní' "$WORK/response" && ! grep -q 'Petr Podpis' "$WORK/response" && echo ' ok')" "200 ok"
+check "signature: the Users list marks the chosen record" 200 "/admin.php?module=users" "Záznam v týmu: Eva Skrytá (vybraný)"
+sq "UPDATE ka_kolekce_polozky SET smazano = '$(site_time)' WHERE idp = $EVA" > /dev/null
+expect "signature: a chosen record in the trash falls back to the e-mail match" "$(sig_page '&tab=signature'; grep -q 'Petr Podpis' "$WORK/response" && ! grep -q 'Eva Skrytá' "$WORK/response" && echo ' ok')" "200 ok"
+sq "UPDATE ka_kolekce_polozky SET smazano = NULL WHERE idp = $EVA; UPDATE ka_uzivatele SET team_item_id = NULL, email = 'nikdo@example.cz' WHERE idu = $SIG_USER" > /dev/null
+expect "signature: not linked – a hint to ask an administrator, no signature" \
+  "$(sig_page '&tab=signature'; grep -q 'Požádejte správce, aby vás propojil' "$WORK/response" && ! grep -q 'data-kopirovat-podpis\|Petr Podpis\|Eva Skrytá' "$WORK/response" && echo ' ok')" "200 ok"
+check "signature: the Users list says who is not linked" 200 "/admin.php?module=users" "Záznam v týmu: nepropojeno"
+# N314-1: an account e-mail is changed without confirming it, so a hidden record is never matched by e-mail – only chosen
+sq "UPDATE ka_uzivatele SET email = 'EVA@example.cz' WHERE idu = $SIG_USER" > /dev/null
+expect "signature: a hidden record is never linked by the e-mail, only by an administrator's choice (N314-1)" \
+  "$(sig_page '&tab=signature'; grep -q 'Požádejte správce, aby vás propojil' "$WORK/response" && ! grep -q 'Eva Skrytá\|eva@example.cz' "$WORK/response" && echo ' ok')" "200 ok"
+sq "DELETE FROM ka_uzivatele WHERE idu = $SIG_USER" > /dev/null
 
 echo "== 2.10: true until and review by"
 YESTERDAY=$(site_time "-1 day" "Y-m-d"); TODAY=$(site_time now "Y-m-d")
@@ -5304,6 +5397,40 @@ rm -f "$WORK"/web/storage/cache/stranky/*.html
 expect "add-ons: the admin page saved the add-on's own setting, the page uses it" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'ext.hello.word'")|$(curl -s "$B/addon-page" | grep -c 'Ahoj, Jana!')" "Ahoj|1"
 curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
 grep -q "ext_hello_daily" "$WORK/tasks.txt" && echo "  ok     add-ons: the add-on's job runs with the others" || { echo "  CHYBA  add-on job"; cat "$WORK/tasks.txt"; ERRORS=$((ERRORS+1)); }
+echo "== 3.14: Ready for 4.0 (System status, get_health)"
+# an add-on that writes the old placeholder {novinky} (in its file and while running), and two redirects whose old addresses
+# differ only in letter case and a slash – the unique key of today's collation keeps both, an exact comparison would not
+mkdir -p "$WORK/web/extensions/legacy314" && printf '%s' '{"name":"Legacy 314","class":"Legacy314\\Ext","requires":{"api":1}}' > "$WORK/web/extensions/legacy314/extension.json"
+cat > "$WORK/web/extensions/legacy314/Extension.php" <<'PHP'
+<?php namespace Legacy314; final class Ext implements \Kaleta\Extension\ExtensionInterface { public function register(\Kaleta\Extension\Api $api): void {
+    $api->app()->db()->value('SELECT COUNT(*) FROM {novinky}');
+} }
+PHP
+rm -f "$WORK/web/storage/log/legacy-table-names.json"
+sq "UPDATE ka_nastaveni SET hodnota = 'hello,legacy314' WHERE promenna = 'addons_enabled';
+  INSERT INTO ka_presmerovani (z_adresy, na_adresu, vytvoreno) VALUES ('R314-Stara/', 'kontakt', '$(site_time)'), ('r314-stara', 'kontakt', '$(site_time)')" > /dev/null
+curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
+expect "3.14: the background job normalises the new redirect sources (lower case, no slashes, utf8mb4_bin)" \
+  "$(grep -c 'redirect_sources: normalised' "$WORK/tasks.txt")|$(sq "SELECT GROUP_CONCAT(source_norm ORDER BY idp SEPARATOR ',') FROM ka_presmerovani WHERE z_adresy LIKE 'r314-stara%'")|$(sq "SELECT COUNT(*) FROM ka_presmerovani WHERE source_norm IS NULL")" \
+  "1|r314-stara,r314-stara|0"
+expect "3.14: the deprecation log names the add-on file, never Kaleta's own code" \
+  "$(grep -c 'extensions/legacy314/Extension.php' "$WORK/web/storage/log/legacy-table-names.json" 2>/dev/null)|$(grep -c '"system/\|"tools/\|"index.php\|"admin.php' "$WORK/web/storage/log/legacy-table-names.json" 2>/dev/null || true)" "1|0"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
+expect "3.14: System status has Ready for 4.0 with the add-on file (scan and while running) and the colliding redirects" \
+  "$(contains -F 'Připraveno na 4.0' "$WORK/response" && echo section)|$(contains -F 'extensions/legacy314/Extension.php – 1× starý zástupný název ({novinky})' "$WORK/response" && echo scan)|$(contains -F 'doplněk legacy314: extensions/legacy314/Extension.php za běhu použil {novinky}' "$WORK/response" && echo log)|$(contains -F '/R314-Stara/ = /r314-stara' "$WORK/response" && echo redirects)|$(contains -F 'Databázový server' "$WORK/response" && echo server)" \
+  "section|scan|log|redirects|server"
+mcp get_health '{}' > "$WORK/response"
+GH314="$(mcp_value ready_for_4_0 checks)"
+expect "3.14: get_health keeps its keys and adds ready_for_4_0 with the add-on file and the redirect group" \
+  "$(mcp_value status | grep -cE '^(ok|warning|error)$')|$(mcp_value ready_for_4_0 status)|$(printf '%s' "$GH314" | grep -c '"check":"legacy_table_names","name":"Add-ons and old table names","status":"warning"')|$(printf '%s' "$GH314" | grep -c 'extensions/legacy314/Extension.php')|$(printf '%s' "$GH314" | grep -c '/R314-Stara/ = /r314-stara')|$(printf '%s' "$GH314" | grep -c '"check":"database_version"')" \
+  "1|warning|1|1|1|1"
+# N314-2: editing the old address of a redirect normalises it again (in 4.0 the lookup reads source_norm)
+R314ID=$(sq "SELECT idp FROM ka_presmerovani WHERE z_adresy = 'r314-stara'"); R314ID="${R314ID:-0}"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=redirects&action=save" -d "_csrf=$TOKEN" -d idp=$R314ID -d z_adresy=/r314-Nova -d na_adresu=/kontakt -d typ=301
+curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+expect "3.14: an edited old address is normalised again (N314-2)" "$(sq "SELECT CONCAT(z_adresy, '|', IFNULL(source_norm, 'NULL')) FROM ka_presmerovani WHERE idp = $R314ID")" "r314-Nova|r314-nova"
+sq "DELETE FROM ka_presmerovani WHERE z_adresy LIKE 'r314-stara%' OR idp = $R314ID; UPDATE ka_nastaveni SET hodnota = 'hello' WHERE promenna = 'addons_enabled'" > /dev/null
+rm -rf "$WORK/web/extensions/legacy314"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=addons&action=toggle" -d "_csrf=$TOKEN" -d slug=hello -d on=0
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 expect "add-ons: switched off, the token is left as it was written and the tool is gone" "$(curl -s "$B/addon-page" | grep -c '{{ext.hello.greeting')|$(mcp ext_hello_greet '{}' | grep -c 'isError')" "1|1"
@@ -5826,6 +5953,18 @@ mcp create_page '{"title":"Kontakt","slug":"kontakt-39","content":"<p>Česky 39<
 mcp create_page "{\"title\":\"Contact\",\"slug\":\"kontakt-39\",\"language\":\"en\",\"translation_of\":$CS39,\"content\":\"<p>English 39</p>\",\"visible\":true}" > "$WORK/response"
 contains -q 'isError' "$WORK/response" && contains -q 'kontakt-39' "$WORK/response" && expect "3.9 off: as before, an English page cannot take the slug of a Czech one" "$(sq "SELECT COUNT(*) FROM ka_stranky WHERE seo_link = 'kontakt-39'")" "1" \
   || { echo "  CHYBA  3.9 off: the second kontakt-39 was saved: $(head -c 300 "$WORK/response")"; ERRORS=$((ERRORS+1)); }
+# 3.14: tags have a language version; switched off a slug is still one tag for every version, as before
+tagkey314() { sq "SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ka_stitky' AND INDEX_NAME = 'uq_stitky_seo'"; }
+mcp create_category '{"name":"Tagy 314"}' > /dev/null
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=categories&action=new"; TOKEN=$(csrf)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=categories&action=save" -d "_csrf=$TOKEN" -d idt=0 -d "nazev=Tags 314" -d seo_link=tags-314 -d jazyk=en -d popis= -d hodnost=100
+mcp create_news '{"title":"Fair EN 314","category":"Tags 314","text":"<p>Fair in English 314</p>","tags":"Fair 314","publish":true}' > /dev/null
+mcp create_news '{"title":"Fair CS 314","category":"Tagy 314","text":"<p>Jarmark česky 314</p>","tags":"Fair 314","publish":true}' > /dev/null
+expect "3.14 off: a tag created from an English news item is English; the Czech item with the same tag reuses it, as before" \
+  "$(sq "SELECT GROUP_CONCAT(CONCAT(s.jazyk, ':', s.seo_link, ':', (SELECT COUNT(*) FROM ka_novinky_stitky ns WHERE ns.ids = s.ids))) FROM ka_stitky s WHERE s.seo_link = 'fair-314'")|$(tagkey314)" "en:fair-314:2|1"
+T314=$(get39 /novinky/stitek/fair-314); contains -q 'Fair CS 314' "$WORK/response" || T314="$T314 wrong"
+T314EN=$(get39 /en/news/tag/fair-314); contains -q 'Fair EN 314' "$WORK/response" || T314EN="$T314EN wrong"
+expect "3.14 off: the tag page answers in both versions, each with its own news" "$T314|$T314EN" "200 |200 "
 general39 1
 grep -q 'name="slugs_per_language" value="1" checked' "$WORK/general39.html" && echo "  ok     3.9: Settings → General offers the switch (checked once on) with the language versions" || { echo "  CHYBA  3.9: no slugs_per_language field"; ERRORS=$((ERRORS+1)); }
 expect "3.9: switching on drops the global keys only; the per-language keys stay" "$(keys39)|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'")" \
@@ -5857,6 +5996,24 @@ N39CS=$(get39 /novinky/akce-39); contains -q 'Novinka česky 39' "$WORK/response
 N39EN=$(get39 /en/news/akce-39); contains -q 'News in English 39' "$WORK/response" || N39EN="$N39EN wrong"
 C39=$(get39 /novinky/kategorie/zpravy-39)\|$(get39 /en/news/category/zpravy-39)
 expect "3.9 on: each news item and category answers in its own version" "$N39CS|$N39EN|$C39" "200 |200 |200 |200 "
+# 3.14: a tag with the same slug in both versions – the switch dropped the global tag key too
+mcp create_news '{"title":"Trh 39","category":"Zprávy 39","text":"<p>Trh česky 39</p>","tags":"Trh 39","publish":true}' > /dev/null
+mcp create_news '{"title":"Market 39","category":"News 39","text":"<p>Market in English 39</p>","tags":"Trh 39","publish":true}' > /dev/null
+expect "3.14 on: a tag with the same slug in both versions, each news item with the tag of its own version" \
+  "$(sq "SELECT GROUP_CONCAT(CONCAT(s.jazyk, ':', s.seo_link, ':', n.titulek) ORDER BY s.jazyk) FROM ka_stitky s JOIN ka_novinky_stitky ns ON ns.ids = s.ids JOIN ka_novinky n ON n.idc = ns.idc WHERE s.seo_link = 'trh-39'")|$(tagkey314)" \
+  ":trh-39:Trh 39,en:trh-39:Market 39|0"
+T39=$(get39 /novinky/stitek/trh-39); contains -q 'Trh 39' "$WORK/response" && ! contains -q 'Market 39' "$WORK/response" || T39="$T39 wrong"
+T39EN=$(get39 /en/news/tag/trh-39); contains -q 'Market 39' "$WORK/response" && ! contains -q '>Trh 39<' "$WORK/response" || T39EN="$T39EN wrong"
+expect "3.14 on: /novinky/stitek/trh-39 and /en/news/tag/trh-39 are two tags, each listing its own version" "$T39|$T39EN" "200 |200 "
+# N314-4: a tag from before 3.14 ('' = shared) that already tags an English item stays its tag when the item is saved again
+MARKET39=$(sq "SELECT idc FROM ka_novinky WHERE titulek = 'Market 39'"); MARKET39="${MARKET39:-0}"
+sq "INSERT INTO ka_stitky (nazev, seo_link, jazyk) VALUES ('Stary 314', 'stary-314', ''); INSERT INTO ka_novinky_stitky (idc, ids) SELECT $MARKET39, ids FROM ka_stitky WHERE seo_link = 'stary-314'" > /dev/null
+mcp update_news "{\"id\":$MARKET39,\"tags\":\"Trh 39, Stary 314\"}" > /dev/null
+expect "3.14 on: saving an English item again keeps its tag from before 3.14 – no second tag with the same slug (N314-4)" \
+  "$(sq "SELECT CONCAT(COUNT(*), '|', MIN(jazyk), '|', (SELECT COUNT(*) FROM ka_novinky_stitky ns JOIN ka_stitky s2 ON s2.ids = ns.ids WHERE ns.idc = $MARKET39 AND s2.seo_link = 'stary-314')) FROM ka_stitky WHERE seo_link = 'stary-314'")" "1||1"
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=tags"
+contains -q '/en/news/tag/trh-39" target="_blank" rel="noopener">#Trh 39</a> <span class="stitek">EN</span>' "$WORK/response" \
+  && echo "  ok     3.14: Tags and topics show the language of a tag and link to its own version" || { echo "  CHYBA  3.14: tag list without the language"; ERRORS=$((ERRORS+1)); }
 # a collection item and a collection category (both were per language before; the routing and hreflang stay)
 mcp create_collection '{"name":"Sluzby 39","slug":"sluzby-39","item_pages":true,"fields":[{"label":"Popis","type":"text"}]}' > /dev/null
 mcp save_collection_item '{"collection":"sluzby-39","name":"Servery","slug":"servery-39","values":{"popis":"Serverovna 39"},"visible":true}' > /dev/null
@@ -5885,10 +6042,14 @@ general39 0
 contains -q 'kontakt-39' "$WORK/general39.html" && expect "3.9: switching off is refused while two language versions share a slug, with the slugs named" \
   "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'")|$(keys39)" "1|uq_clanky_jazyk_seo,uq_stranky_jazyk_seo,uq_topic_jazyk_seo" \
   || { echo "  CHYBA  3.9: switching off with duplicates: $(grep -o 'class="zprava[^"]*"[^<]*<[^<]*' "$WORK/general39.html" | head -3)"; ERRORS=$((ERRORS+1)); }
-sq "DELETE FROM ka_stranky WHERE jazyk = 'en' AND seo_link = 'kontakt-39'; DELETE FROM ka_novinky WHERE jazyk = 'en' AND seo_link = 'akce-39'; DELETE FROM ka_kategorie WHERE jazyk = 'en' AND seo_link = 'zpravy-39'" > /dev/null
+sq "DELETE FROM ka_stranky WHERE jazyk = 'en' AND seo_link = 'kontakt-39'; DELETE FROM ka_novinky WHERE jazyk = 'en' AND seo_link IN ('akce-39', 'market-39'); DELETE FROM ka_kategorie WHERE jazyk = 'en' AND seo_link = 'zpravy-39'" > /dev/null
 general39 0
-expect "3.9: without shared slugs it switches off and the global keys are back" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'")|$(keys39)" \
-  "0|uq_clanky_jazyk_seo,uq_clanky_seo,uq_stranky_jazyk_seo,uq_stranky_seo,uq_topic_jazyk_seo,uq_topic_seo"
+contains -q 'trh-39' "$WORK/general39.html" && expect "3.14: … a tag shared by two versions refuses it too" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'")|$(tagkey314)" "1|0" \
+  || { echo "  CHYBA  3.14: switching off with a shared tag slug"; ERRORS=$((ERRORS+1)); }
+sq "DELETE FROM ka_stitky WHERE jazyk = 'en' AND seo_link = 'trh-39'" > /dev/null
+general39 0
+expect "3.9: without shared slugs it switches off and the global keys are back" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'")|$(keys39)|$(tagkey314)" \
+  "0|uq_clanky_jazyk_seo,uq_clanky_seo,uq_stranky_jazyk_seo,uq_stranky_seo,uq_topic_jazyk_seo,uq_topic_seo|1"
 sq "UPDATE ka_nastaveni SET hodnota = '$HOME39' WHERE promenna = 'home_page'" > /dev/null
 
 echo "== 3.10: English table names, the site's clock and regional language versions (data model §4, §6 and §2 step 2)"
@@ -6398,6 +6559,9 @@ sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_attempt'" > /d
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('update_url','http://127.0.0.1:$CHANNEL_PORT/ok.json') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=update" -d "_csrf=$TOKEN" -d verze=9.9.8
 [ ! -f "$WORK/web/image/test-aktualizace.txt" ] && echo "  ok     3.3.2: an update offering another version than the one shown is not installed" || { echo "  CHYBA  installed a version the administrator did not choose"; ERRORS=$((ERRORS+1)); }
+# 3.14: … and the screen then shows the version the source offers, so the next click installs it (kaletacms.com kept
+# offering 3.12.1 for 12 hours while the source had 3.13.1, and every click failed the same way)
+expect "3.14: after a refused update the screen shows the version the source offers now" "$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '\$.manifest.verze')) FROM ka_nastaveni WHERE promenna = 'update_cache'")" "9.9.9"
 # the automatic installation decided on a manifest that called 9.9.9 a security release; when installing, the source answers
 # with the genuine regular release (signed without the flag) – nothing may be installed
 cat > "$WORK/kanal/flip.php" <<'PHP'
