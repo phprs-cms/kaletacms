@@ -16,9 +16,11 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DB_HOST="${DB_HOST:-127.0.0.1}"; DB_PORT="${DB_PORT:-3306}"; DB_NAME="${DB_NAME:-kaleta_test_upd}"; DB_USER="${DB_USER:-root}"; DB_PASS="${DB_PASS:-}"; PORT="${PORT:-8097}"
 FROM="${FROM:-$(git -C "$ROOT" describe --tags --abbrev=0 HEAD^)}" # the release before HEAD (also when HEAD is a release tag)
 WORK="$(mktemp -d)"; JAR="$WORK/cookies.txt"; B="http://127.0.0.1:$PORT"; CHANNEL_PORT=$((PORT + 1)); ERRORS=0
-cleanup() { for pid in "${SERVER_PID:-}" "${CHANNEL_PID:-}"; do [ -z "$pid" ] || kill "$pid" 2>/dev/null || true; done
-  # the server runs with several workers (the update checks itself over HTTP): its worker processes go too
-  { lsof -nP -iTCP:"$PORT" -sTCP:LISTEN -t 2>/dev/null || true; } | xargs kill 2>/dev/null || true; rm -rf "$WORK"; }
+cleanup() { [ -z "${SERVER_PID:-}" ] || pkill -P "$SERVER_PID" 2>/dev/null || true; for pid in "${SERVER_PID:-}" "${CHANNEL_PID:-}"; do [ -z "$pid" ] || kill "$pid" 2>/dev/null || true; done
+  # the server runs with several workers (the update checks itself over HTTP): its worker processes go too – by their
+  # command line (3.14.1: lsof is in /usr/sbin, which a minimal PATH leaves out, so the workers outlived every run)
+  pkill -f "php -S 127.0.0.1:$PORT " 2>/dev/null || true
+  { /usr/sbin/lsof -nP -iTCP:"$PORT" -sTCP:LISTEN -t 2>/dev/null || true; } | xargs kill 2>/dev/null || true; rm -rf "$WORK"; }
 trap cleanup EXIT
 
 MYSQL=(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" --init-command="SET time_zone = '+00:00'"); [ -n "$DB_PASS" ] && MYSQL+=(-p"$DB_PASS")

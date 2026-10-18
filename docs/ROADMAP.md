@@ -730,7 +730,7 @@ non-string MCP name answered as JSON-RPC, the consent id cookie Secure.
 did not load the stylesheet of the option cards, so the access choices were bare radio buttons and run-on text (owner
 report from a live site). The choices are one list; the browser test checks the cards.
 
-## 3.14 – Ready for 4.0, your own e-mail signature (released 13 October 2026)
+## 3.14 – Ready for 4.0, your own e-mail signature (3.14.1 released 18 October 2026)
 
 1. **Updates:** after a refused install (the source offers a newer version than the one on the button) the screen shows
    the version offered now – before, it kept the remembered one for 12 hours and every click failed the same way (owner
@@ -748,6 +748,11 @@ report from a live site). The choices are one list; the browser test checks the 
 
 Audited before release (N314): hidden Team records linked only by an administrator's choice, an edited redirect
 normalised again, the add-on scan robust and bounded, legacy tags kept on a re-save, the future-date warning kept.
+
+3.14.1: a number field of a collection reads as a number in the site's language – {{price}} shows 1 490 / 1,490 / 1.490
+and keeps the stored decimals (4.20), {{price_raw}} is the stored value for links and data (found while building the
+industry example sites). The update test stops its server's workers (they outlived every run because lsof was not on
+the PATH). The 18 industry example screenshots are on kaletacms.com/solutions and in docs/screenshots/examples.
 
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
