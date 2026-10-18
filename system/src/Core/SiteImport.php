@@ -393,7 +393,7 @@ final class SiteImport
                         continue; // 3.12.2: the newline after the last row is no skipped record
                     }
                     $done++;
-                    $row = $line === '' ? null : json_decode($line, true);
+                    $row = json_decode($line, true);
                     $ok = is_array($row) && $this->insert($table, $row);
                     $state['vysledek'][$table][$ok ? 'ok' : 'preskoceno'] = ($state['vysledek'][$table][$ok ? 'ok' : 'preskoceno'] ?? 0) + 1;
                 }

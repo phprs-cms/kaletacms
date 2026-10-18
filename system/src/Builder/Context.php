@@ -27,7 +27,7 @@ final class Context
     /** @var list<array{0:string, 1:string}> questions and answers from FAQ elements – for the page's structured data */
     public array $faq = [];
 
-    /** @var list<array{titulek:string, seo_link:string}> pages of the main navigation (supplied by the site) */
+    /** @var array<string, list<array<string, mixed>>> the menus by location (hlavni, paticka) as Core\Menu::items() gives them (supplied by the site) */
     public array $menu = [];
 
     /** Path of the displayed page (for aria-current in the navigation). */
