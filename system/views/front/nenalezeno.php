@@ -4,6 +4,7 @@
  *
  * @var callable(string): string $url
  * @var list<array{titulek:string, seo_link:string}> $stranky
+ * @var string $newsTitle heading of the news list (Settings::newsTitle)
  */
 ?>
 <header class="vypis-hlavicka"><h1><?= e(t('Page not found')) ?></h1></header>
@@ -18,7 +19,7 @@
 	<li><a href="<?= e($url($s['seo_link'])) ?>"><?= e($s['titulek']) ?></a></li>
 <?php endforeach ?>
 <?php if ($novinky ?? true): ?>
-	<li><a href="<?= e($url('novinky')) ?>"><?= e(t('Novinky')) ?></a></li>
+	<li><a href="<?= e($url('novinky')) ?>"><?= e($newsTitle ?? t('Novinky')) ?></a></li>
 <?php endif ?>
 </ul>
 <?php endif ?>

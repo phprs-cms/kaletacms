@@ -2845,5 +2845,6 @@ window.KALETA_PREKLAD = {
 	"Price estimate": "Odhad ceny",
 	"Condition": "Podmínka",
 	"Remove the condition": "Odebrat podmínku",
-	"Add a condition": "Přidat podmínku"
+	"Add a condition": "Přidat podmínku",
+	"Filter buttons for visitors (by the field above, without a field by category)": "Tlačítka filtru pro návštěvníky (podle pole výše, bez pole podle kategorií)"
 };

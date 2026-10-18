@@ -117,6 +117,7 @@ if ($waiting !== []): ?>
 	<span class="napoveda"><?= e(t('The page shown at the site address. News is always at %s.', substr($app->url('novinky'), strlen($app->request->basePath())))) ?></span></div>
 </div>
 <?php $field('news_slug', 'News URL', 'text', 'The first part of the news addresses in every language: blog gives /blog/…. Empty = the default address. Lowercase letters, digits and hyphens; not the address of a page, a collection or the system. The old addresses redirect to the new one.', 'maxlength="40" pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="' . e(\Kaleta\Core\Language::defaults($app->settings()) === 'cs' ? 'novinky' : 'news') . '"'); ?>
+<?php $field('news_title', 'News heading', 'text', 'The heading of the news list in the default language, e.g. Updates to go with the address /updates. Empty = News.', 'maxlength="80"'); ?>
 <?php $field('news_per_page', 'News items per page', 'cislo', '', 'min="1" max="100"'); ?>
 </fieldset>
 <fieldset>

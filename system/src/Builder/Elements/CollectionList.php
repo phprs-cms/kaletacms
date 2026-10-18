@@ -40,7 +40,7 @@ final class CollectionList extends Element
             'obdobi' => ['typ' => 'vyber', 'popisek' => 'By date', 'vychozi' => '', 'moznosti' => Collections::PERIODS],
             'obdobi_od' => ['typ' => 'text', 'popisek' => 'Start date field', 'vychozi' => '', 'max' => 31],
             'obdobi_do' => ['typ' => 'text', 'popisek' => 'End date field (optional)', 'vychozi' => '', 'max' => 31],
-            'filtry' => ['typ' => 'prepinac', 'popisek' => 'Filter buttons for visitors (by the field above)', 'vychozi' => false],
+            'filtry' => ['typ' => 'prepinac', 'popisek' => 'Filter buttons for visitors (by the field above, without a field by category)', 'vychozi' => false],
             'strankovani' => ['typ' => 'prepinac', 'popisek' => 'Paginate (by “Maximum items”)', 'vychozi' => false],
             'prazdne' => ['typ' => 'text', 'popisek' => 'Text when the collection has no items', 'vychozi' => '', 'max' => 300],
         ];
@@ -96,6 +96,24 @@ final class CollectionList extends Element
         $linkField = array_values(array_filter($collection['pole'], fn (array $f): bool => $f['klic'] === $filterField && $f['typ'] === 'polozka'))[0] ?? null;
         $labels = $linkField !== null ? array_map(fn (array $l): string => $l[0], Collections::linked($db, (string) ($linkField['kolekce'] ?? ''))) : [];
         $selected = in_array($r->get($filterParam), $filterValues, true) ? $r->get($filterParam) : '';
+        // 3.14.2: without a field the buttons are the categories of the collection – the subcategories of the list's category,
+        // otherwise the top-level ones – and only those with an item in this language (references by type, products by range)
+        if ($filterField === '' && $o['filtry'] && $categoryId !== false) {
+            $language = Language::siteColumn();
+            $buttons = [];
+            foreach (\Kaleta\Builder\CollectionCategories::tree($db, (int) $collection['idk'], $language, true) as $c) {
+                $ids = $c['parent_id'] === $categoryId ? \Kaleta\Builder\CollectionCategories::withChildren($db, $c['id']) : [];
+                if ($ids !== [] && \Kaleta\Builder\CollectionCategories::countItems($db, $ids, $language) > 0) {
+                    $buttons[$c['slug']] = ['name' => $c['name'], 'ids' => $ids];
+                }
+            }
+            $filterValues = array_map('strval', array_keys($buttons));
+            $labels = array_map(fn (array $b): string => $b['name'], $buttons);
+            $selected = in_array($r->get($filterParam), $filterValues, true) ? $r->get($filterParam) : '';
+            if ($selected !== '') {
+                $categories = $buttons[$selected]['ids'];
+            }
+        }
         // related content: the filter value from the displayed item ({{skupina}} on the item page); elsewhere nothing is filtered
         $custom = $k->item;
         $filterValue = (string) $o['filtr_hodnota'];

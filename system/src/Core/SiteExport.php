@@ -33,7 +33,7 @@ final class SiteExport
     /** The only settings that are exported: the site's name, description, identity, languages and public texts (SiteImport reads the same list). */
     public const array SETTINGS = ['site_name', 'site_description', 'keywords', 'site_url', 'logo', 'favicon', 'design_system', 'company_name', 'company_type', 'company_id', 'company_vat_id', 'company_register', 'company_representative', 'company_street', 'company_city', 'company_postcode', 'company_country', 'company_phone', 'company_hours', 'company_map', 'company_gps', 'brand_accent', 'dark_mode',
         'brand_heading_font', 'brand_text_font', 'footer_text', 'social_facebook', 'social_instagram', 'social_x', 'social_youtube', 'social_linkedin',
-        'time_zone', 'site_language', 'german_register', 'additional_languages', 'home_page', 'news_slug', 'news_slug_previous', 'company_email', 'theme_switcher', 'news_per_page', 'extensions', 'share_image', 'share_image_auto',
+        'time_zone', 'site_language', 'german_register', 'additional_languages', 'home_page', 'news_slug', 'news_slug_previous', 'news_title', 'company_email', 'theme_switcher', 'news_per_page', 'extensions', 'share_image', 'share_image_auto',
         'cookies_policy_url', 'cookies_text', 'schema_org', 'robots_extra', 'llms_txt', 'url_slash', 'maintenance_text', 'share_buttons', 'article_outline', 'related_news_auto',
         'screen_mode', 'screen_seconds', 'screen_collections', 'screen_news', 'screen_hours', 'screen_clock']; // the screen mode without its secret (2.11)
 

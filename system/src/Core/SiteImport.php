@@ -389,6 +389,9 @@ final class SiteImport
                     $line = trim((string) $f->current());
                     $f->next();
                     $state['pozice']++;
+                    if ($line === '') {
+                        continue; // 3.14.2: the newline after the last row is no skipped record
+                    }
                     $done++;
                     $row = $line === '' ? null : json_decode($line, true);
                     $ok = is_array($row) && $this->insert($table, $row);
@@ -846,7 +849,8 @@ final class SiteImport
             $to = ''; // 3.6: gone for good, no target
         }
 
-        return (int) ($r['idp'] ?? 0) > 0 && preg_match('#^[^\s/][^\s]{0,254}$#D', $from) && ($code === RedirectRules::GONE || preg_match('#^(?!//)(?!javascript:)(?!data:)[^\s]{1,255}$#iD', $to))
+        // an empty target is the home page – the Redirects module stores "/" so (3.14.2: the import used to drop these)
+        return (int) ($r['idp'] ?? 0) > 0 && preg_match('#^[^\s/][^\s]{0,254}$#D', $from) && ($code === RedirectRules::GONE || $to === '' || preg_match('#^(?!//)(?!javascript:)(?!data:)[^\s]{1,255}$#iD', $to))
             ? ['idp' => (int) $r['idp'], 'z_adresy' => $from, 'na_adresu' => $to, 'typ' => $code, 'pocet' => 0, 'vytvoreno' => date('Y-m-d H:i:s'),
                 'auto_score' => is_numeric($r['auto_score'] ?? null) ? max(0, min(100, (int) $r['auto_score'])) : null]
             : null;
