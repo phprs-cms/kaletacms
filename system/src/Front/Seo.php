@@ -222,7 +222,7 @@ final class Seo
         if (!\Kaleta\Core\Extensions::isEnabled($s, 'novinky')) {
             return \Kaleta\Core\Facts::fillText(implode("\n", $rows) . "\n", $this->app);
         }
-        array_push($rows, '', '## ' . t('Novinky'));
+        array_push($rows, '', '## ' . $s->newsTitle());
         foreach ($db->all('SELECT titulek, seo_link, uvod FROM {novinky} WHERE visible = 1 AND datum <= ? AND noindex = 0 AND smazano IS NULL AND jazyk = ? ORDER BY datum DESC LIMIT 30', [\Kaleta\Core\Clock::now(), \Kaleta\Core\Language::siteColumn()]) as $c) {
             $rows[] = '- [' . $c['titulek'] . '](' . $this->page($this->path('novinky/') . $c['seo_link'], $md) . '): ' . mb_strimwidth(trim(strip_tags($c['uvod'])), 0, 200, '…');
         }
@@ -523,7 +523,7 @@ final class Seo
             ...($this->faqData($newsItem)),
             ['@type' => 'BreadcrumbList', 'itemListElement' => [
                 ['@type' => 'ListItem', 'position' => 1, 'name' => $s->get('site_name'), 'item' => $this->siteSettings],
-                ['@type' => 'ListItem', 'position' => 2, 'name' => t('Novinky'), 'item' => $this->page($this->path('novinky'))],
+                ['@type' => 'ListItem', 'position' => 2, 'name' => $s->newsTitle(), 'item' => $this->page($this->path('novinky'))],
                 ['@type' => 'ListItem', 'position' => 3, 'name' => $newsItem['tema_jm'], 'item' => $this->page($this->path('novinky/kategorie/') . $newsItem['tema_seo'])],
                 ['@type' => 'ListItem', 'position' => 4, 'name' => $newsItem['titulek']],
             ]],

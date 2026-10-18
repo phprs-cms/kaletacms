@@ -517,6 +517,11 @@ expect "news_slug: set over MCP (a page in the trash does not block it)" "$(slug
 expect "news_slug: /blog lists the news, the item and its .md work" "$(slug_code /blog)|$(slug_code /blog/vitejte-v-kalete)|$(slug_code /blog/vitejte-v-kalete.md)" "200 |200 |200 "
 expect "news_slug: /novinky and its items redirect permanently to /blog" "$(slug_code /novinky)|$(slug_code /novinky/vitejte-v-kalete)" "301 $B/blog|301 $B/blog/vitejte-v-kalete"
 expect "news_slug: the listing and the RSS feed link to /blog" "$(curl -s "$B/blog" | grep -c '/blog/vitejte-v-kalete"')|$(curl -s "$B/rss.xml" | grep -c '/blog/vitejte-v-kalete</link>')" "1|1"
+# 3.12.2: news_title gives the list its heading (Blog to go with /blog); empty = Novinky again
+mcp update_settings '{"settings":{"news_title":"Blog firmy"}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
+expect "news_title: the heading and the title of the news list" "$(curl -s "$B/blog" | grep -c '<h1>Blog firmy</h1>')|$(curl -s "$B/blog" | grep -c '<title>Blog firmy')" "1|1"
+mcp update_settings '{"settings":{"news_title":""}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
+expect "news_title: empty = Novinky" "$(curl -s "$B/blog" | grep -c '<h1>Novinky</h1>')" "1"
 mcp uloz_presmerovani '{"z":"/blog/old-wp-post","na":"/z-html"}' > /dev/null
 expect "news_slug: a stored redirect under /blog fires (as a WordPress import writes it)" "$(slug_code /blog/old-wp-post)" "301 $B/z-html"
 mcp restore_from_trash "{\"type\":\"page\",\"id\":$BLOGPAGE}" > "$WORK/response"

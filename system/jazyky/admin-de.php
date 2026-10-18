@@ -6295,4 +6295,6 @@ return [
     'the whole menu' => 'das ganze Menü',
     'first half (left of a logo in the middle)' => 'erste Hälfte (links von einem Logo in der Mitte)',
     'second half (right of the logo)' => 'zweite Hälfte (rechts vom Logo)',
+    'News heading' => 'Überschrift der News',
+    'The heading of the news list in the default language, e.g. Updates to go with the address /updates. Empty = News.' => 'Die Überschrift der News-Liste in der Standardsprache, z. B. Aktuelles zur Adresse /aktuelles. Leer = News.',
 ];

@@ -5888,4 +5888,6 @@ return [
     'the whole menu' => 'celé menu',
     'first half (left of a logo in the middle)' => 'první polovina (vlevo od loga uprostřed)',
     'second half (right of the logo)' => 'druhá polovina (vpravo od loga)',
+    'News heading' => 'Nadpis novinek',
+    'The heading of the news list in the default language, e.g. Updates to go with the address /updates. Empty = News.' => 'Nadpis výpisu novinek ve výchozím jazyce, třeba Aktuality k adrese /aktuality. Prázdné = Novinky.',
 ];
