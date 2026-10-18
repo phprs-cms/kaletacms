@@ -238,7 +238,7 @@ final class MigrationReport
             $home = (int) $settings->get('home_page');
             $page = $home > 0 ? $db->one('SELECT titulek, seo_titulek, popis, zobrazit, stavba, stavba_koncept, text FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$home]) : null;
 
-            return $page !== null ? self::page($page) : ['typ' => 'home', 'titulek' => (string) $settings->get('site_name'), 'popis' => (string) $settings->get('site_description'), 'formular' => false, 'obrazky' => 0, 'zobrazeno' => true];
+            return $page !== null ? self::page($page, $db) : ['typ' => 'home', 'titulek' => (string) $settings->get('site_name'), 'popis' => (string) $settings->get('site_description'), 'formular' => false, 'obrazky' => 0, 'zobrazeno' => true];
         }
         if ($s[0] === 'novinky' && (count($s) === 1 || (count($s) === 3 && $s[1] === 'kategorie'))) {
             // the news list and a category list (not pages, but content on the site when the extension is on)
@@ -261,13 +261,17 @@ final class MigrationReport
         }
         $page = $db->one('SELECT titulek, seo_titulek, popis, zobrazit, stavba, stavba_koncept, text FROM {stranky} WHERE seo_link = ? AND smazano IS NULL ORDER BY jazyk = ? DESC LIMIT 1', [implode('/', $s), $column]);
         if ($page !== null) {
-            return self::page($page);
+            return self::page($page, $db);
         }
         if (count($s) === 2) {
-            $item = $db->one('SELECT p.nazev, p.seo_titulek, p.popis, p.zobrazit, p.data FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.seo_link = ? AND k.detail = 1 AND p.seo_link = ? AND p.smazano IS NULL ORDER BY p.jazyk = ? DESC LIMIT 1', [$s[0], $s[1], $column]);
+            $item = $db->one('SELECT p.nazev, p.seo_titulek, p.popis, p.zobrazit, p.data, k.stavba AS sablona FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.seo_link = ? AND k.detail = 1 AND p.seo_link = ? AND p.smazano IS NULL ORDER BY p.jazyk = ? DESC LIMIT 1', [$s[0], $s[1], $column]);
             if ($item !== null) {
-                return ['typ' => 'item', 'titulek' => (string) ($item['seo_titulek'] ?: $item['nazev']), 'popis' => trim((string) $item['popis']), 'formular' => false,
-                    'obrazky' => preg_match_all('#\.(jpe?g|png|webp|gif|avif)"#i', (string) $item['data']), 'zobrazeno' => (bool) $item['zobrazit']];
+                // 3.12.2: the item page is drawn by the collection's template – its form (also one inside a component) and images count
+                $template = $item['sablona'] !== null ? Build::fromJson((string) $item['sablona']) : null;
+                [$forms, $images] = self::countElements($template['deti'] ?? [], $db);
+
+                return ['typ' => 'item', 'titulek' => (string) ($item['seo_titulek'] ?: $item['nazev']), 'popis' => trim((string) $item['popis']), 'formular' => $forms > 0,
+                    'obrazky' => $images + preg_match_all('#\.(jpe?g|png|webp|gif|avif)"#i', (string) $item['data']), 'zobrazeno' => (bool) $item['zobrazit']];
             }
         }
         // 3.12: a category page of a collection (a moved shop's product categories)
@@ -285,14 +289,14 @@ final class MigrationReport
      * @param array<string, mixed> $p a row of ka_stranky
      * @return array{typ: string, titulek: string, popis: string, formular: bool, obrazky: int, zobrazeno: bool}
      */
-    private static function page(array $p): array
+    private static function page(array $p, ?Db $db = null): array
     {
         // a hidden imported page is still being worked on: count its draft
         $json = $p['zobrazit'] ? ($p['stavba'] ?? null) : ($p['stavba_koncept'] ?? $p['stavba'] ?? null);
         [$forms, $images] = [0, substr_count(strtolower((string) $p['text']), '<img')];
         if ($json !== null) {
             $build = Build::fromJson((string) $json);
-            [$forms, $images] = self::countElements($build['deti'] ?? []);
+            [$forms, $images] = self::countElements($build['deti'] ?? [], $db);
         }
 
         return ['typ' => 'page', 'titulek' => (string) ($p['seo_titulek'] ?: $p['titulek']), 'popis' => trim((string) $p['popis']),
@@ -301,11 +305,13 @@ final class MigrationReport
 
     /**
      * Forms and images in a build: the Form element, and the Image element plus the photos of galleries and carousels.
+     * With the database, a Component element counts what its published build holds (3.12.2) – a form shared by pages
+     * as a component is still a form.
      *
      * @param list<array<string, mixed>> $children
      * @return array{0: int, 1: int}
      */
-    public static function countElements(array $children): array
+    public static function countElements(array $children, ?Db $db = null, int $depth = 0): array
     {
         $forms = 0;
         $images = 0;
@@ -319,8 +325,14 @@ final class MigrationReport
                 $images += count((array) ($el['obsah']['fotky'] ?? []));
             } elseif ($type === 'text') {
                 $images += substr_count(strtolower((string) ($el['obsah']['html'] ?? '')), '<img');
+            } elseif ($type === \Kaleta\Builder\Elements\Component::TYPE && $db !== null && $depth < \Kaleta\Builder\Components::MAX_NESTING) {
+                $component = \Kaleta\Builder\Components::byId($db, (int) ($el['obsah']['komponenta'] ?? 0));
+                $inner = $component !== null && $component['stavba'] !== null ? Build::fromJson((string) $component['stavba']) : null;
+                [$f, $i] = self::countElements($inner['deti'] ?? [], $db, $depth + 1);
+                $forms += $f;
+                $images += $i;
             }
-            [$f, $i] = self::countElements(is_array($el['deti'] ?? null) ? $el['deti'] : []);
+            [$f, $i] = self::countElements(is_array($el['deti'] ?? null) ? $el['deti'] : [], $db, $depth);
             $forms += $f;
             $images += $i;
         }

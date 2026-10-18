@@ -5890,4 +5890,5 @@ return [
     'second half (right of the logo)' => 'druhá polovina (vpravo od loga)',
     'News heading' => 'Nadpis novinek',
     'The heading of the news list in the default language, e.g. Updates to go with the address /updates. Empty = News.' => 'Nadpis výpisu novinek ve výchozím jazyce, třeba Aktuality k adrese /aktuality. Prázdné = Novinky.',
+    'Filter buttons for visitors (by the field above, without a field by category)' => 'Tlačítka filtru pro návštěvníky (podle pole výše, bez pole podle kategorií)',
 ];

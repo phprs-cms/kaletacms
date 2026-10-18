@@ -6297,4 +6297,5 @@ return [
     'second half (right of the logo)' => 'zweite Hälfte (rechts vom Logo)',
     'News heading' => 'Überschrift der News',
     'The heading of the news list in the default language, e.g. Updates to go with the address /updates. Empty = News.' => 'Die Überschrift der News-Liste in der Standardsprache, z. B. Aktuelles zur Adresse /aktuelles. Leer = News.',
+    'Filter buttons for visitors (by the field above, without a field by category)' => 'Filter-Buttons für Besucher (nach dem Feld oben, ohne Feld nach Kategorie)',
 ];
