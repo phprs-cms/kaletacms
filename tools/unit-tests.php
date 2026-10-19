@@ -1954,6 +1954,11 @@ check('Menu::html: podmenu, aktivní položka a větev, úvod jen přesnou shodo
     ['text' => 'Úvod', 'url' => '/', 'nove_okno' => false, 'deti' => []],
     ['text' => 'Služby', 'url' => '', 'nove_okno' => false, 'deti' => [['text' => 'Kuchyně', 'url' => '/kuchyne', 'nove_okno' => false, 'deti' => []]]],
 ], '/kuchyne/detail', '/')), '<li><a href="/">Úvod</a></li><li class="podmenu aktivni"><button type="button" class="menu-skupina" aria-controls="ka-podmenu-N">Služby</button><ul id="ka-podmenu-N"><li><a href="/kuchyne" aria-current="page">Kuchyně</a></li></ul></li>');
+// a link with a fragment is never the current page: on the home page "/#produkty" used to match the path "/" (every anchor underlined)
+check('Menu::html: a link with a fragment (#…) is never aria-current, the page itself still is', array_map(fn (string $path): int => substr_count(Kaleta\Core\Menu::html([
+    ['text' => 'Home', 'url' => '/', 'nove_okno' => false, 'deti' => []], ['text' => 'Products', 'url' => '/#produkty', 'nove_okno' => false, 'deti' => []],
+    ['text' => 'Price list', 'url' => '/sluzby#cenik', 'nove_okno' => false, 'deti' => []], ['text' => 'Contact', 'url' => '#kontakt', 'nove_okno' => false, 'deti' => []],
+], $path, '/'), 'aria-current'), ['/', '/sluzby']), [1, 0]);
 $linkedParent = Kaleta\Core\Menu::html([['text' => 'O nás', 'url' => '/o-nas', 'nove_okno' => false, 'deti' => [['text' => 'Tým', 'url' => '/tym', 'nove_okno' => false, 'deti' => []]]],
     ['text' => 'Služby', 'url' => '', 'nove_okno' => false, 'deti' => [['text' => 'Kuchyně', 'url' => '/kuchyne', 'nove_okno' => false, 'deti' => []]]]], '/', '/');
 preg_match_all('/aria-controls="(ka-podmenu-\d+)"/', $linkedParent, $controls);
