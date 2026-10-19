@@ -319,7 +319,7 @@ filled-in details of the operator.
 (sitemap, canonical URLs, structured data, `llms.txt` for AI search). Enable further language versions (`/de/…`) under
 **Features → Language versions** and pick the languages in Settings – around forty languages, including all EU languages.
 Visitor texts (Search, Read more, forms, cookie bar) are translated into Czech, English, German, French, Spanish, Italian,
-Polish and Slovak; other languages show them in English, with dates in their own format. The installer lets you choose the
+Polish, Slovak, Hungarian, Portuguese, Arabic and Chinese; other languages show them in English, with dates in their own format. The installer lets you choose the
 site language separately from the admin language.
 
 German has two forms of address, formal (Sie) and informal (du), chosen separately for the admin and for the site. The admin

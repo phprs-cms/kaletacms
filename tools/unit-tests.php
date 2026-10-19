@@ -6090,7 +6090,7 @@ check('RTL ar.php has every key the other visitor dictionaries have, no empty tr
 // a native review is welcome); every regional version Kaleta offers finds visitor texts, and Settings says which languages have none
 $visitorOthers = $rtlOthers + $rtlArabic;
 $visitorMissing = [];
-foreach (['pt', 'zh', 'zh-hant'] as $visitorCode) {
+foreach (['pt', 'zh', 'zh-hant', 'hu'] as $visitorCode) { // hu (3.14.2): found missing while building a Hungarian site
     $visitorDictionary = require KALETA_SYSTEM . '/jazyky/' . $visitorCode . '.php';
     foreach (array_diff(array_keys($visitorOthers), array_keys($visitorDictionary)) as $missingKey) {
         $visitorMissing[] = $visitorCode . ': ' . $missingKey;
@@ -6099,16 +6099,18 @@ foreach (['pt', 'zh', 'zh-hant'] as $visitorCode) {
         $visitorMissing[] = $visitorCode . ': empty ' . $emptyKey;
     }
 }
-check('3.12 pt.php, zh.php and zh-hant.php have every key the other visitor dictionaries have, none empty', $visitorMissing, []);
+check('3.12 pt.php, zh.php, zh-hant.php and hu.php have every key the other visitor dictionaries have, none empty', $visitorMissing, []);
 $visitorTexts = [];
-foreach (['pt-br' => 'pt', 'pt' => 'pt', 'zh' => 'zh', 'zh-hant' => 'zh-hant'] as $visitorCode => $visitorFile) {
+foreach (['pt-br' => 'pt', 'pt' => 'pt', 'zh' => 'zh', 'zh-hant' => 'zh-hant', 'hu' => 'hu'] as $visitorCode => $visitorFile) {
     Kaleta\Core\Language::set($visitorCode);
     $visitorTexts[] = t('Read more') === (require KALETA_SYSTEM . '/jazyky/' . $visitorFile . '.php')['Read more'] && t('Read more') !== 'Read more';
 }
 Kaleta\Core\Language::set('zh-hant');
 $visitorTexts[] = t('datum_format');
+Kaleta\Core\Language::set('hu');
+$visitorTexts[] = t('datum_format');
 Kaleta\Core\Language::set('cs');
-check('3.12 pt-br reads pt.php, zh-hant its own file with its own date format', $visitorTexts, [true, true, true, true, 'Y/m/d']);
+check('3.12 pt-br reads pt.php, zh-hant its own file with its own date format; hu its own file and the date format of AVAILABLE', $visitorTexts, [true, true, true, true, true, 'Y/m/d', Kaleta\Core\Language::AVAILABLE['hu'][2]]);
 check('3.12 Language::hasVisitorTexts: Czech, English and every language with a dictionary (regional ones through theirs) – Japanese and unknown codes not',
     [Kaleta\Core\Language::hasVisitorTexts('cs'), Kaleta\Core\Language::hasVisitorTexts('en-gb'), Kaleta\Core\Language::hasVisitorTexts('pt-br'), Kaleta\Core\Language::hasVisitorTexts('zh-hant'),
         Kaleta\Core\Language::hasVisitorTexts('de-at'), Kaleta\Core\Language::hasVisitorTexts('ja'), Kaleta\Core\Language::hasVisitorTexts('xx'), Kaleta\Core\Language::hasVisitorTexts('../cs')],
