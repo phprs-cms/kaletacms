@@ -658,6 +658,20 @@
             "openWorldHint": false
         }
     },
+    "get_monthly_report": {
+        "parameters": {
+            "month": "string"
+        },
+        "required": [
+            "month"
+        ],
+        "annotations": {
+            "title": "Get a monthly report",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "get_news": {
         "parameters": {
             "id": "integer"
@@ -1111,6 +1125,16 @@
         "required": [],
         "annotations": {
             "title": "List images without alt text",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_monthly_reports": {
+        "parameters": [],
+        "required": [],
+        "annotations": {
+            "title": "List archived monthly reports",
             "readOnlyHint": true,
             "destructiveHint": false,
             "openWorldHint": false

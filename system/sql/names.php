@@ -128,4 +128,6 @@ return [
     // a time zone change that converts the saved moments (3.12)
     'time_zone_conversions' => ['time_zone_conversions', []],
     'time_zone_progress' => ['time_zone_progress', []],
+    // the archive of the monthly reports (3.16)
+    'monthly_reports' => ['monthly_reports', []],
 ];

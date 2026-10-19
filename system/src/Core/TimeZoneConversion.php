@@ -95,6 +95,7 @@ final class TimeZoneConversion
         'look_versions' => ['created'],
         'webhook_deliveries' => ['created', 'next_attempt', 'delivered'],
         'events' => ['created_at'],
+        'monthly_reports' => ['created_at', 'rebuilt_at'],
         'jobs' => ['last_run', 'last_ok'],
         'firewall_blocks' => ['until', 'created_at'],
         'firewall_log' => ['created_at'],

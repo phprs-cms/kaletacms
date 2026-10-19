@@ -35,6 +35,9 @@ final class Scheduler
         'links' => [0, 'any', 'Checking links'],
         'redirects' => [86400, 'any', 'Redirects for addresses visitors could not find'],
         'redirect_sources' => [0, 'any', 'Old addresses of redirects prepared for Kaleta 4.0'],
+        // 3.16: the previous month's report is archived once the month has turned – before the clean-up deletes the oldest
+        // firewall log of that month, and before the e-mail, which is written from it
+        'report_archive' => [3600, 'any', 'Monthly report archive: the previous month stored, 24 months kept'],
         'cleanup' => [0, 'any', 'Deleting old personal data and events'],
         'alerts' => [300, 'any', 'Alert e-mails'],
         'domain_watch' => [86400, 'any', 'Domain, certificate and mail records'],
@@ -142,6 +145,7 @@ final class Scheduler
             'updates' => fn (App $app): string => Updater::runInBackground($app), // keeps its own 12-hour pace
             'heartbeat' => fn (App $app): string => \Kaleta\Fleet\Link::send($app),
             'fleet_uptime' => fn (App $app): string => \Kaleta\Fleet\Console::checkUptime($app),
+            'report_archive' => fn (App $app): string => ReportArchive::runIfDue($app),
             'monthly_report' => fn (App $app): string => MonthlyReport::runIfDue($app),
             'cookie_scan' => function (App $app): string {
                 $scan = Privacy::scan($app);

@@ -25,6 +25,7 @@ final class MenuPaths
         [['Nastavení', 'General'], 'settings', 'module=settings&tab=general'],
         [['Nastavení', 'Analytics'], 'settings', 'module=settings&tab=analytics'],
         [['Nastavení', 'Mail'], 'settings', 'module=settings&tab=mail'],
+        [['Nastavení', 'Reports'], 'settings', 'module=settings&tab=reports'], // 3.16
         [['Appearance', 'Site appearance'], 'appearance', 'module=appearance'],
         [['Appearance', 'Menu'], 'menu', 'module=menu'],
         [['Backups and updates'], 'settings', 'module=settings&tab=backups'],

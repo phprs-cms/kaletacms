@@ -207,6 +207,8 @@ $settingsParity = ['list' => $readOnly, 'save' => 'update_settings', 'download_b
     'fleet_updates' => 'admin: who decides about updates is a security decision (2.9)', 'fleet_unpair' => 'admin: which console a site reports to is a security decision (2.9)',
     'fleet_kit' => 'admin: receiving the console\'s design kit is an opt-in of the site (2.16); site_info reports the version that arrived',
     'report_preview' => $readOnly, 'report_send' => 'admin: the monthly report goes to e-mail addresses that stay out of MCP (2.9) – Claude reads the same numbers with get_stats and get_health',
+    'report_view' => 'get_monthly_report', 'report_download' => 'get_monthly_report', // 3.16: the archive – Claude reads the same data and print_url
+    'report_rebuild' => 'admin: rebuilding an archived month replaces the stored report with what the data still hold (3.16) – the administrator decides after the warning',
     'cookie_scan' => 'admin: the cookie scan runs daily on its own (2.14); Claude reads the table in processing_record', 'processing_record' => 'processing_record',
     'accessibility_statement' => 'admin: the draft page is the administrator’s step (2.14); Claude reads the text with accessibility_statement',
     'time_zone' => 'admin: the time zone and converting the saved dates are the administrator’s decision (3.12) – update_settings does not change the zone'];
@@ -440,6 +442,46 @@ check('2.9: no e-mail address from the data gets into the report', [str_contains
 check('2.9: the subject names the month in the site language', [$withoutAgency['subject'], MonthlyReport::render($reportData, $reportSettings(['site_language' => 'cs']), 'https://example.com')['subject'],
     MonthlyReport::render(['month' => '2027-01'], $reportSettings(['site_language' => 'de']), 'https://example.com')['subject']],
     ['Website report – September 2026 – Testovací firma', 'Zpráva o webu – září 2026 – Testovací firma', 'Website-Bericht – Januar 2027 – Testovací firma']);
+// 3.16: the archived monthly report – what happened to the site, scrubbed of anything personal, kept 24 months, printable on A4
+$report316 = $reportData + ['schema' => 1, 'generated_at' => '2026-10-01 03:00:00', 'version' => '3.16.0', 'update_channel' => 'stable',
+    'requests' => ['created' => 3, 'done' => [['title' => 'Change the hours – ask jana@client.example', 'status' => 'done', 'created' => '2026-09-02 10:00:00', 'done' => '2026-09-03 11:00:00']], 'done_count' => 1,
+        'open' => [['title' => 'New price list @janinka', 'status' => 'in_progress', 'created' => '2026-09-20 09:00:00', 'done' => '']], 'open_count' => 2],
+    'work' => ['areas' => ['pages' => ['people' => 4, 'claude' => 6], 'look' => ['people' => 1, 'claude' => 0]], 'pages_published' => [['title' => 'Services', 'date' => '2026-09-05 10:00:00', 'by' => 'claude']], 'pages_published_count' => 1,
+        'news_published' => [['title' => 'We moved', 'date' => '2026-09-10 08:00:00']], 'news_published_count' => 1, 'look_published' => 1],
+    'claude' => ['sessions' => 5, 'calls' => 31, 'undone' => 1, 'runs' => 4, 'run_statuses' => ['ok' => 3, 'missed' => 1],
+        'run_list' => [['name' => 'Weekly review', 'task' => 'review', 'date' => '2026-09-28 07:10:00', 'status' => 'ok', 'summary' => 'Fixed 3 descriptions; wrote to owner@client.example']]],
+    'security' => ['firewall' => ['probe' => 40, 'rate' => 2], 'sign_ins' => 12, 'failed_sign_ins' => 3, 'events' => ['security.account_suspended' => 1]],
+    'audit' => ['kinds' => ['description' => 4, 'link' => 1], 'total' => 5, 'previous' => null, 'fixed' => null, 'new' => null],
+    'bookings' => null, 'newsletter' => ['signups' => 1, 'campaigns' => [['subject' => 'September news', 'date' => '2026-09-15 09:00:00', 'sent' => 120]]],
+    'open' => ['requests' => 2, 'page_drafts' => 1, 'look_draft' => 1]];
+$scrubbed316 = MonthlyReport::scrub($report316);
+check('3.16: MonthlyReport::scrub – no "@" anywhere in the stored JSON (addresses and handles in titles, summaries, form names), the rest kept',
+    [str_contains((string) json_encode($scrubbed316), '@'), $scrubbed316['requests']['done'][0]['title'], $scrubbed316['requests']['open'][0]['title'], $scrubbed316['work']['pages_published'][0]['title']],
+    [false, 'Change the hours – ask …', 'New price list …', 'Services']);
+check('3.16: ReportArchive keeps 24 months – the oldest kept month, across the year boundary; the job runs hourly before the e-mail', [Kaleta\Core\ReportArchive::oldestKept(new DateTimeImmutable('2026-10-19 12:00')),
+    Kaleta\Core\ReportArchive::oldestKept(new DateTimeImmutable('2027-01-01 00:10')), Kaleta\Core\ReportArchive::KEEP_MONTHS, Kaleta\Core\Scheduler::JOBS['report_archive'][0] ?? null,
+    array_search('report_archive', array_keys(Kaleta\Core\Scheduler::JOBS), true) < array_search('monthly_report', array_keys(Kaleta\Core\Scheduler::JOBS), true),
+    preg_match(Kaleta\Core\ReportArchive::MONTH_PATTERN, '2026-13'), preg_match(Kaleta\Core\ReportArchive::MONTH_PATTERN, '2026-09')], ['2024-10', '2025-01', 24, 3600, true, 0, 1]);
+check('3.16: MonthlyReport::area – a person by the admin section, Claude by the tool (Czech or English name)', [MonthlyReport::area('pages', 'save'), MonthlyReport::area('menu', 'save'),
+    MonthlyReport::area('claude', 'save_collection_item'), MonthlyReport::area('claude', 'publish_look'), MonthlyReport::area('claude', 'upload_file'), MonthlyReport::area('claude', 'draft_newsletter'),
+    MonthlyReport::area('claude', Kaleta\Mcp\Translator::czech('create_page') ?? 'create_page'), MonthlyReport::area('whatever', 'x')], ['pages', 'look', 'collections', 'look', 'media', 'newsletter', 'pages', 'other']);
+$sections316 = Kaleta\Core\Language::runWith('en', fn (): array => Kaleta\Core\ReportPage::sections($report316), 'admin-');
+$sectionKeys316 = array_column($sections316, 'key');
+check('3.16: ReportPage::sections – every section with data, in order; bookings off = no section; nothing personal printed', [$sectionKeys316,
+    str_contains((string) json_encode($sections316, JSON_UNESCAPED_UNICODE), '@'), $sections316[0]['blocks'][0]['type'], $sections316[0]['blocks'][0]['items'][0]],
+    [['summary', 'open', 'requests', 'work', 'claude', 'traffic', 'enquiries', 'newsletter', 'updates', 'backups', 'security', 'audit', 'problems'], false, 'facts', ['Visits', '120']]);
+$view316 = new Kaleta\Core\View([KALETA_SYSTEM . '/views']);
+$stored316 = ['month' => '2026-09', 'created_at' => '2026-10-01 03:00:00', 'rebuilt_at' => null, 'data' => $scrubbed316];
+$page316 = Kaleta\Core\ReportPage::render($view316, $stored316, $reportSettings(['agency_name' => 'Studio Kaleta', 'agency_logo' => 'media/logo.svg']), 'https://example.com/');
+$screen316 = Kaleta\Core\ReportPage::render($view316, array_replace($stored316, ['rebuilt_at' => '2026-10-19 10:00:00']), $reportSettings(['site_language' => 'cs']), 'https://example.com', ['script' => '/image/tisk.js', 'download' => '/x', 'back' => '/y']);
+check('3.16: the printable report – A4 with page numbers, the agency header, the month, no script in the downloaded file, nothing personal; on screen the Print button, in the site language',
+    [str_contains($page316, 'size: A4'), str_contains($page316, 'counter(page) " / " counter(pages)'), str_contains($page316, 'https://example.com/media/logo.svg'), str_contains($page316, 'Studio Kaleta'),
+        str_contains($page316, '<h1>September 2026</h1>'), str_contains($page316, '<script'), str_contains($page316, '@') && preg_match('/@(?!page|media|bottom)/', $page316) === 1, str_contains($page316, 'break-inside: avoid-page'),
+        str_contains($screen316, 'data-tisk'), str_contains($screen316, 'září 2026'), str_contains($screen316, 'Zpráva o webu'), str_contains($screen316, 'znovu sestaveno')],
+    [true, true, true, true, true, false, false, true, true, true, true, true]);
+$mail316 = MonthlyReport::render($report316, $reportSettings([]), 'https://example.com');
+check('3.16: the e-mail adds the work on the site and the security counts, and points to Settings → Reports', [str_contains($mail316['html'], 'Work on the site'), str_contains($mail316['text'], 'Requests handled: 1'),
+    str_contains($mail316['text'], '42 blocked requests, 3 failed sign-ins'), str_contains($mail316['text'], 'Settings → Reports'), str_contains($mail316['html'] . $mail316['text'], 'client.example')], [true, true, true, true, false]);
 $ok = [200, 'KALETA-PROBE 9.9.9'];
 check('2.8: Updater::probeVerdict', [
     Kaleta\Core\Updater::probeVerdict(['probe' => $ok, 'home' => [200, 'x'], 'admin' => [200, 'x']], '9.9.9'),
@@ -534,6 +576,7 @@ foreach (glob(KALETA_SYSTEM . '/views/admin/settings/*.php') as $view) {
             'precteno', // 3.15: "I have read what changes" – Settings::actionUpdateMajor installs a major version only with it
             'smtp_ses_region', // 3.9: the Amazon SES region – MailServices::settle() builds the server from it
             'zone', 'choice', // 3.12: the time zone confirmation (Settings::actionTimeZone) – the new zone and convert | keep
+            'month', // 3.16: the month of an archived report on its Send and Rebuild buttons (Settings::actionReportSend, actionReportRebuild)
             'screen_collections', 'novy_token_obrazovka'], true)) { // 2.11 screen mode: the collections list is added by fields() from the site's collections, the button makes a new address
             $unknownFields[] = basename($view) . ': ' . $name;
         }

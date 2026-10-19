@@ -28,7 +28,7 @@ class Settings extends Module
 
     public const array TABS = [
         'general' => 'General', 'company' => 'Company', 'seo' => 'SEO and GEO',
-        'analytics' => 'Analytics', 'cookies' => 'Privacy and cookies', 'mail' => 'Mail', 'webhooks' => 'Webhooks', 'backups' => 'Backups and updates', 'firewall' => 'Firewall', 'console' => 'Fleet console', 'health' => 'System status',
+        'analytics' => 'Analytics', 'cookies' => 'Privacy and cookies', 'mail' => 'Mail', 'reports' => 'Reports', 'webhooks' => 'Webhooks', 'backups' => 'Backups and updates', 'firewall' => 'Firewall', 'console' => 'Fleet console', 'health' => 'System status',
     ];
 
     /** Company types for the field company_type (vyber:…). */
@@ -75,8 +75,9 @@ class Settings extends Module
             'captcha_provider' => 'vyber:|hcaptcha|recaptcha|turnstile', 'captcha_site_key' => 'vzor:/^[A-Za-z0-9_.-]{0,100}$/', 'captcha_secret' => 'tajne', 'captcha_fail_open' => 'ano'],
         'mail' => ['mail_mode' => 'vyber:mail|smtp', 'mail_from' => 'email', 'mail_reply_to' => 'email', 'smtp_host' => 'vzor:/^[A-Za-z0-9.-]{0,120}$/', 'smtp_port' => 'cislo:1:65535',
             'smtp_encryption' => 'vyber:tls|ssl|zadne', 'smtp_user' => 'text', 'smtp_password' => 'tajne', 'newsletter_hourly_limit' => 'cislo:10:100000',
-            'smtp_provider' => 'vyber:' . \Kaleta\Core\MailServices::CHOICES, // 3.9: the mail service; MailServices::settle() fills its server after the save
-            'report_monthly' => 'ano', 'report_recipients' => 'emaily'],
+            'smtp_provider' => 'vyber:' . \Kaleta\Core\MailServices::CHOICES], // 3.9: the mail service; MailServices::settle() fills its server after the save
+        // the monthly report (2.9) and its archive (3.16, Core\ReportArchive): the e-mail switch and the recipients moved here from Mail
+        'reports' => ['report_monthly' => 'ano', 'report_recipients' => 'emaily'],
         // Claude's instructions and guardrails (3.2: own screen, Modules\ClaudeSettings – the keys stay)
         'claude' => ['claude_instructions' => 'radky', 'claude_change_limit' => 'cislo:0:10000', 'claude_destructive' => 'ano', 'claude_apps_only' => 'ano', 'claude_protected_pages' => 'vzor:/^[0-9 ,;]{0,500}$/'],
         'extensions' => ['ai_provider' => 'vyber:' . \Kaleta\Core\Assistant::PROVIDER_KEYS, 'ai_key' => 'tajne', 'ai_model' => 'vzor:#^[A-Za-z0-9._:/-]{0,80}$#',
@@ -194,6 +195,9 @@ class Settings extends Module
                 'country' => \Kaleta\Core\Firewall::country($this->request->serverValues(), $settings->get('firewall_proxy')),
                 'invalid' => \Kaleta\Core\Firewall::parseList($settings->get('firewall_ips'))[1],
             ] : [],
+            // 3.16: the archived monthly reports, and the month the archive starts with (nothing exists before 3.16)
+            'reports' => $tab === 'reports' ? ['months' => \Kaleta\Core\ReportArchive::months($this->db), 'first' => \Kaleta\Core\ReportArchive::firstMonth($this->db),
+                'previous' => \Kaleta\Core\MonthlyReport::previousMonth(new \DateTimeImmutable())->format('Y-m')] : [],
             'hoursExceptions' => $tab === 'company' ? \Kaleta\Core\Hours::exceptions($this->db) : [],
             'hoursProposed' => $tab === 'company' ? \Kaleta\Core\Hours::proposed($this->db) : [], // by a drafts-only Claude connection (3.2)
             'fleet' => $tab === 'console' ? [
@@ -817,17 +821,78 @@ class Settings extends Module
             'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; img-src * data:; frame-ancestors 'self'; base-uri 'self' https: http:"]);
     }
 
-    /** Sends the previous month's report to the recipients right away (the public demo never gets here – Demo::blocksAdmin). */
+    /**
+     * Sends a month's report to the recipients right away (the public demo never gets here – Demo::blocksAdmin): the previous
+     * month, or an archived one chosen in Settings → Reports (3.16).
+     */
     protected function actionReportSend(): Response
     {
         if (!$this->request->isPost()) {
-            return $this->back('', '', ['tab' => 'mail']);
+            return $this->back('', '', ['tab' => 'reports']);
         }
-        $sent = \Kaleta\Core\MonthlyReport::sendAndRecord($this->app, \Kaleta\Core\MonthlyReport::previousMonth(new \DateTimeImmutable()));
+        $month = $this->request->post('month');
+        if ($month !== '' && \Kaleta\Core\ReportArchive::get($this->db, $month) === null) {
+            return $this->back('This month is not in the archive.', '', ['tab' => 'reports'], 'chyba');
+        }
+        $start = $month !== '' ? new \DateTimeImmutable($month . '-01') : \Kaleta\Core\MonthlyReport::previousMonth(new \DateTimeImmutable());
+        $sent = \Kaleta\Core\MonthlyReport::sendAndRecord($this->app, $start);
 
         return $sent === 0
-            ? $this->back('There is nobody to send the report to – fill in the recipients, or the site e-mail on the General tab.', '', ['tab' => 'mail'], 'chyba')
-            : $this->back(t('The report has been handed over for delivery to %d recipient(s).', $sent), '', ['tab' => 'mail']);
+            ? $this->back('There is nobody to send the report to – fill in the recipients, or the site e-mail on the General tab.', '', ['tab' => 'reports'], 'chyba')
+            : $this->back(t('The report for %s has been handed over for delivery to %d recipient(s).', \Kaleta\Core\ReportPage::monthName($start->format('Y-m')), $sent), '', ['tab' => 'reports']);
+    }
+
+    /** One archived month as the printable page (3.16, Core\ReportPage) – GET that only renders, with its Print button. */
+    protected function actionReportView(): Response
+    {
+        $stored = \Kaleta\Core\ReportArchive::get($this->db, $this->request->get('month'));
+        if ($stored === null) {
+            return $this->error('This month is not in the archive.', 404);
+        }
+        $html = \Kaleta\Core\ReportPage::render($this->app->view, $stored, $this->app->settings(), $this->siteAddress(), [
+            'script' => $this->app->url('image/tisk.js') . '?v=' . KALETA_VERSION, 'download' => $this->url('report_download', ['month' => $stored['month']]), 'back' => $this->url('', ['tab' => 'reports'])]);
+
+        // its own inline styles and the Print button script, nothing else may run – like the door sign
+        return new Response($html, 200, ['Content-Type' => 'text/html; charset=utf-8', 'Cache-Control' => 'no-store, private',
+            'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data: https: http:; script-src 'self'; frame-ancestors 'self'; base-uri 'none'"]);
+    }
+
+    /** The same page as an HTML file to keep or attach (3.16): no toolbar, no script, the logo by its full address. */
+    protected function actionReportDownload(): Response
+    {
+        $stored = \Kaleta\Core\ReportArchive::get($this->db, $this->request->get('month'));
+        if ($stored === null) {
+            return $this->error('This month is not in the archive.', 404);
+        }
+        $host = (string) preg_replace('/[^a-z0-9.-]+/', '-', strtolower((string) (parse_url($this->siteAddress(), PHP_URL_HOST) ?: 'site')));
+
+        return new Response(\Kaleta\Core\ReportPage::render($this->app->view, $stored, $this->app->settings(), $this->siteAddress()), 200, ['Content-Type' => 'text/html; charset=utf-8',
+            'Content-Disposition' => 'attachment; filename="website-report-' . $host . '-' . $stored['month'] . '.html"', 'Cache-Control' => 'no-store, private', 'X-Content-Type-Options' => 'nosniff',
+            'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data: https: http:; frame-ancestors 'none'; base-uri 'none'"]);
+    }
+
+    /**
+     * Builds an archived month again from the data still available (3.16) – the administrator's explicit choice after a
+     * warning: the sources are kept 30–180 days, so a rebuilt older month can show less than the stored one.
+     */
+    protected function actionReportRebuild(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back('', '', ['tab' => 'reports']);
+        }
+        $month = $this->request->post('month');
+        if (\Kaleta\Core\ReportArchive::get($this->db, $month) === null) {
+            return $this->back('This month is not in the archive.', '', ['tab' => 'reports'], 'chyba');
+        }
+        \Kaleta\Core\ReportArchive::store($this->app, new \DateTimeImmutable($month . '-01'), true);
+
+        return $this->back(t('The report for %s was rebuilt from the data still available.', \Kaleta\Core\ReportPage::monthName($month)), '', ['tab' => 'reports']);
+    }
+
+    /** The site address for the report's links and logo: the setting, not the Host header. */
+    private function siteAddress(): string
+    {
+        return rtrim($this->app->settings()->get('site_url') ?: $this->app->request->origin(), '/') . rtrim($this->app->url(''), '/');
     }
 
     /** Checks the mail DNS records, the certificate and the domain registration right away (2.8, Core\DomainWatch). */
