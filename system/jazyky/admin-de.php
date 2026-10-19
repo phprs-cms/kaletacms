@@ -6286,4 +6286,13 @@ return [
     '“The same address in every language” is on, and no address is shared yet' => '„Dieselbe Adresse in jeder Sprache“ ist eingeschaltet, und noch wird keine Adresse geteilt',
     '%d address(es) are shared by versions in different languages – allowed, “The same address in every language” is on, as it will be for every site in Kaleta 4.0' => '%d Adresse(n) werden von Versionen in verschiedenen Sprachen geteilt – erlaubt, „Dieselbe Adresse in jeder Sprache“ ist eingeschaltet, wie in Kaleta 4.0 für jede Website',
     '%d address(es) are shared by versions in different languages although “The same address in every language” is off – Kaleta 4.0 allows it, nothing to do' => '%d Adresse(n) werden von Versionen in verschiedenen Sprachen geteilt, obwohl „Dieselbe Adresse in jeder Sprache“ ausgeschaltet ist – Kaleta 4.0 erlaubt das, nichts zu tun',
+    'Waiting for approval' => 'Wartet auf Freigabe',
+    'Files Claude uploaded over a connection limited to drafts. They are not public yet: they show in the administration and in draft previews, and go public with the draft that uses them when it is published – or here with Publish file. Files nobody approves are deleted after %d days.' => 'Dateien, die Claude über eine auf Entwürfe beschränkte Verbindung hochgeladen hat. Sie sind noch nicht öffentlich: Man sieht sie in der Verwaltung und in Entwurfsvorschauen, öffentlich werden sie mit dem Entwurf, der sie verwendet, sobald er veröffentlicht wird – oder hier mit „Datei veröffentlichen“. Dateien, die niemand freigibt, werden nach %d Tagen gelöscht.',
+    'Deleted on %s unless it is approved.' => 'Wird am %s gelöscht, falls niemand sie freigibt.',
+    'Publish file' => 'Datei veröffentlichen',
+    'Delete the file? Drafts that use it will show it no more.' => 'Datei löschen? Entwürfe, die sie verwenden, zeigen sie dann nicht mehr.',
+    'The file could not be moved to the media folder – check the write permissions of media/.' => 'Die Datei konnte nicht in den Medienordner verschoben werden – prüfen Sie die Schreibrechte von media/.',
+    'The file is public: %s' => 'Die Datei ist öffentlich: %s',
+    'Files from Claude waiting for approval' => 'Dateien von Claude, die auf Freigabe warten',
+    'Files waiting for approval: public with the content that uses them, deleted after 30 days' => 'Dateien, die auf Freigabe warten: öffentlich mit dem Inhalt, der sie verwendet, nach 30 Tagen gelöscht',
 ];

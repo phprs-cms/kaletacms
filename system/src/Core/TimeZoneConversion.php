@@ -56,7 +56,7 @@ final class TimeZoneConversion
     public const array INSTANTS = [
         'uzivatele' => ['blokovano_automaticky', 'zamceno_do', 'obnova_cas', 'posledni_login', 'potvrzeno'],
         'novinky' => ['datum', 'zmeneno', 'aktualizovano', 'oznameno', 'odkazy_cas', 'smazano'],
-        'media' => ['datum'],
+        'media' => ['datum', 'staged_at'],
         'kontrola_ip' => ['cas'],
         'novinky_revize' => ['datum'],
         'stranky' => ['zverejnit_od', 'zmeneno', 'links_checked', 'smazano'],

@@ -72,17 +72,21 @@ final class Files
      *
      * @return array{obr_poloha:string, obr_width:int, obr_height:int, obr_vel:int, nahl_poloha:string, nahl_width:int, nahl_height:int, nazev:string}
      */
-    public static function saveFile(string $path, string $displayName): array
+    public static function saveFile(string $path, string $displayName, bool $staged = false): array
     {
         if (!is_file($path)) {
             throw new \RuntimeException('The file could not be uploaded.');
         }
 
-        return self::process($path, $displayName, false);
+        return self::process($path, $displayName, false, $staged);
     }
 
-    /** @return array{obr_poloha:string, obr_width:int, obr_height:int, obr_vel:int, nahl_poloha:string, nahl_width:int, nahl_height:int, nazev:string} */
-    private static function process(string $tmp, string $displayName, bool $uploaded): array
+    /**
+     * $staged (3.15): into the staging area outside the web root (Core\MediaStaging); the path returned is the public one.
+     *
+     * @return array{obr_poloha:string, obr_width:int, obr_height:int, obr_vel:int, nahl_poloha:string, nahl_width:int, nahl_height:int, nazev:string}
+     */
+    private static function process(string $tmp, string $displayName, bool $uploaded, bool $staged = false): array
     {
         $extension = strtolower(pathinfo($displayName, PATHINFO_EXTENSION));
         if (!in_array($extension, self::FILE_EXTENSIONS, true)) {
@@ -93,24 +97,30 @@ final class Files
             throw new \RuntimeException(filesize($tmp) > self::MAX_BYTES ? 'The file is too large (200 MB at most).' : 'The file content does not match its extension.');
         }
         $folder = 'media/' . date('Y/m');
-        if (!is_dir(KALETA_ROOT . '/' . $folder) && !mkdir(KALETA_ROOT . '/' . $folder, 0775, true)) {
+        if (!is_dir(MediaStaging::absolute($folder, $staged)) && !mkdir(MediaStaging::absolute($folder, $staged), 0775, true)) {
             throw new \RuntimeException(t('The folder %s cannot be created – check the write permissions.', $folder));
         }
         $name = pathinfo($displayName, PATHINFO_FILENAME);
         $target = $folder . '/' . slugify($name, 60) . '-' . bin2hex(random_bytes(3)) . '.' . $extension;
-        if (!($uploaded ? move_uploaded_file($tmp, KALETA_ROOT . '/' . $target) : copy($tmp, KALETA_ROOT . '/' . $target))) {
+        $disk = MediaStaging::absolute($target, $staged);
+        if (!($uploaded ? move_uploaded_file($tmp, $disk) : copy($tmp, $disk))) {
             throw new \RuntimeException('The file could not be saved.');
         }
 
         // an attachment is recognized in the media table by an empty thumbnail and zero dimensions
-        return ['obr_poloha' => $target, 'obr_width' => 0, 'obr_height' => 0, 'obr_vel' => (int) filesize(KALETA_ROOT . '/' . $target),
+        return ['obr_poloha' => $target, 'obr_width' => 0, 'obr_height' => 0, 'obr_vel' => (int) filesize($disk),
             'nahl_poloha' => '', 'nahl_width' => 0, 'nahl_height' => 0, 'nazev' => mb_substr($name, 0, 150)];
     }
 
     public static function delete(string $path): void
     {
-        if (preg_match('#^media/\d{4}/\d{2}/[a-z0-9-]+\.(' . implode('|', self::FILE_EXTENSIONS) . ')$#', $path) && is_file(KALETA_ROOT . '/' . $path)) {
-            unlink(KALETA_ROOT . '/' . $path);
+        if (!preg_match('#^media/\d{4}/\d{2}/[a-z0-9-]+\.(' . implode('|', self::FILE_EXTENSIONS) . ')$#', $path)) {
+            return;
+        }
+        foreach ([KALETA_ROOT . '/' . $path, MediaStaging::absolute($path, true)] as $disk) { // also a copy waiting for approval (3.15)
+            if (is_file($disk)) {
+                unlink($disk);
+            }
         }
     }
 

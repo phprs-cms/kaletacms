@@ -40,7 +40,45 @@ final class Media extends Module
             'filter' => $filter,
             'folders' => $this->folders(),
             'newsItem' => $filter['article'] > 0 ? $this->db->value('SELECT titulek FROM {novinky} WHERE idc = ?', [$filter['article']]) : null,
+            'stagedCount' => \Kaleta\Core\MediaStaging::count($this->db),
         ]);
+    }
+
+    /**
+     * Waiting for approval (3.15, Core\MediaStaging) → Publish file: a file a Claude connection limited to drafts stored moves
+     * to media/ and is public from now on. Only whoever may publish.
+     */
+    protected function actionApprove(): Response
+    {
+        $file = $this->stagedFile();
+        if ($file === null || !$this->app->auth()->canPublish()) {
+            return $this->back('', '', ['staged' => 1]);
+        }
+        if (!\Kaleta\Core\MediaStaging::promote($this->db, $file)) {
+            return $this->back(t('The file could not be moved to the media folder – check the write permissions of media/.'), '', ['staged' => 1], 'chyba');
+        }
+        \Kaleta\Admin\ChangeLog::write($this->app, 'media', 'approved', $file['obr_poloha']);
+
+        return $this->back(t('The file is public: %s', $file['obr_poloha']), '', ['staged' => 1]);
+    }
+
+    /** Waiting for approval → Delete: the staged file and its row go (drafts that use it show it no more). */
+    protected function actionDiscard(): Response
+    {
+        $file = $this->stagedFile();
+        if ($file === null || !($this->app->auth()->canPublish() || $this->canEdit((int) $file['ido']))) {
+            return $this->back('', '', ['staged' => 1]);
+        }
+        \Kaleta\Core\MediaStaging::discard($this->db, $file);
+        \Kaleta\Admin\ChangeLog::write($this->app, 'media', 'discarded', $file['obr_poloha']);
+
+        return $this->back(t('Images deleted: %d.', 1), '', ['staged' => 1]);
+    }
+
+    /** @return array<string, mixed>|null the staged media row from the form */
+    private function stagedFile(): ?array
+    {
+        return $this->request->isPost() ? $this->db->one('SELECT * FROM {media} WHERE ido = ? AND staged_at IS NOT NULL', [$this->request->postInt('ido')]) : null;
     }
 
     /** JSON list for the image picker dialog in the editor; the same filters as in the list. */
@@ -237,19 +275,20 @@ final class Media extends Module
      * @return array<string, mixed> row for the media table
      * @throws \Kaleta\Core\HtmlTooLarge when the SVG is over a limit of Core\HtmlLimits (the file is refused)
      */
-    public static function saveSvgContent(string $content, string $displayName): array
+    public static function saveSvgContent(string $content, string $displayName, bool $staged = false): array
     {
         $svg = strlen($content) < 2_000_000 ? \Kaleta\Core\Svg::sanitize($content) : null;
         if ($svg === null) {
             throw new \RuntimeException('The SVG file could not be read (max. 2 MB, valid SVG).');
         }
+        // $staged (3.15): into the staging area outside the web root (Core\MediaStaging); the path is the public one
         $folder = 'media/' . date('Y/m');
-        if (!is_dir(KALETA_ROOT . '/' . $folder)) {
-            mkdir(KALETA_ROOT . '/' . $folder, 0775, true);
+        if (!is_dir(\Kaleta\Core\MediaStaging::absolute($folder, $staged))) {
+            mkdir(\Kaleta\Core\MediaStaging::absolute($folder, $staged), 0775, true);
         }
         $name = pathinfo($displayName, PATHINFO_FILENAME);
         $path = $folder . '/' . slugify($name, 60) . '-' . bin2hex(random_bytes(3)) . '.svg';
-        file_put_contents(KALETA_ROOT . '/' . $path, $svg);
+        file_put_contents(\Kaleta\Core\MediaStaging::absolute($path, $staged), $svg);
         [$w, $h] = \Kaleta\Core\Svg::dimensions($svg);
 
         return ['obr_poloha' => $path, 'obr_width' => min(65535, $w), 'obr_height' => min(65535, $h), 'obr_vel' => strlen($svg),
@@ -260,7 +299,8 @@ final class Media extends Module
     protected function actionReplace(): Response
     {
         $ido = $this->request->postInt('ido');
-        $image = $this->request->isPost() && $this->canEdit($ido) ? $this->db->one('SELECT * FROM {media} WHERE ido = ?', [$ido]) : null;
+        // a file waiting for approval is not replaced: it would land in media/ before anyone approved it (3.15)
+        $image = $this->request->isPost() && $this->canEdit($ido) ? $this->db->one('SELECT * FROM {media} WHERE ido = ? AND staged_at IS NULL', [$ido]) : null;
         $file = $_FILES['soubor'] ?? null;
         if ($image === null || !is_array($file)) {
             return $this->back();
@@ -414,9 +454,10 @@ final class Media extends Module
     }
 
     /**
-     * List filter from the URL: section (folder number, 0 = unsorted), article (idc), unused=1, search (name, label or file name).
+     * List filter from the URL: section (folder number, 0 = unsorted), article (idc), unused=1, staged=1 (waiting for approval,
+     * 3.15), search (name, label or file name).
      *
-     * @return array{0: string, 1: list<int|string>, 2: array{section: ?int, article: int, unused: bool, search: string, sort: string}}
+     * @return array{0: string, 1: list<int|string>, 2: array{section: ?int, article: int, unused: bool, staged: bool, search: string, sort: string}}
      */
     private function filter(): array
     {
@@ -449,9 +490,14 @@ final class Media extends Module
             }
         }
 
+        $staged = $this->request->get('staged') === '1';
+        if ($staged) {
+            $where[] = 'o.staged_at IS NOT NULL';
+        }
+
         $sort = isset(self::SORT_ORDERS[$this->request->get('sort')]) ? $this->request->get('sort') : 'nove';
 
-        return [implode(' AND ', $where), $params, ['section' => $section, 'article' => $newsItem, 'unused' => $unused, 'search' => $search, 'sort' => $sort]];
+        return [implode(' AND ', $where), $params, ['section' => $section, 'article' => $newsItem, 'unused' => $unused, 'staged' => $staged, 'search' => $search, 'sort' => $sort]];
     }
 
     /** @return list<array<string, mixed>> folders with the number of images */

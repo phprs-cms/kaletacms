@@ -6284,4 +6284,13 @@ return [
     '“The same address in every language” is on, and no address is shared yet' => '«La misma dirección en todos los idiomas» está activada y aún no se comparte ninguna dirección',
     '%d address(es) are shared by versions in different languages – allowed, “The same address in every language” is on, as it will be for every site in Kaleta 4.0' => '%d dirección(es) las comparten versiones en distintos idiomas: está permitido, «La misma dirección en todos los idiomas» está activada, como lo estará en todos los sitios con Kaleta 4.0',
     '%d address(es) are shared by versions in different languages although “The same address in every language” is off – Kaleta 4.0 allows it, nothing to do' => '%d dirección(es) las comparten versiones en distintos idiomas aunque «La misma dirección en todos los idiomas» está desactivada: Kaleta 4.0 lo permite, no hay nada que hacer',
+    'Waiting for approval' => 'Pendiente de aprobación',
+    'Files Claude uploaded over a connection limited to drafts. They are not public yet: they show in the administration and in draft previews, and go public with the draft that uses them when it is published – or here with Publish file. Files nobody approves are deleted after %d days.' => 'Archivos que Claude subió con una conexión limitada a borradores. Todavía no son públicos: se ven en la administración y en las vistas previas de borradores, y se publican con el borrador que los usa cuando se publique, o aquí con Publicar archivo. Los archivos que nadie aprueba se eliminan a los %d días.',
+    'Deleted on %s unless it is approved.' => 'Se eliminará el %s si nadie lo aprueba.',
+    'Publish file' => 'Publicar archivo',
+    'Delete the file? Drafts that use it will show it no more.' => '¿Eliminar el archivo? Los borradores que lo usan dejarán de mostrarlo.',
+    'The file could not be moved to the media folder – check the write permissions of media/.' => 'No se pudo mover el archivo a la carpeta de medios: revise los permisos de escritura de media/.',
+    'The file is public: %s' => 'El archivo es público: %s',
+    'Files from Claude waiting for approval' => 'Archivos de Claude pendientes de aprobación',
+    'Files waiting for approval: public with the content that uses them, deleted after 30 days' => 'Archivos pendientes de aprobación: públicos con el contenido que los usa, eliminados a los 30 días',
 ];

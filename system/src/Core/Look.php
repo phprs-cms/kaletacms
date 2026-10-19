@@ -486,6 +486,9 @@ final class Look
         }
         $summary = self::summary($db, $s);
         self::keepVersion($app, $summary);
+        // 3.15: the files waiting for approval the draft uses (custom fonts, background images of classes, the logo) go public
+        // with it (Core\MediaStaging)
+        MediaStaging::promoteReferenced($db, (string) json_encode($draft, JSON_UNESCAPED_SLASHES));
         if (isset($draft['design_system'])) {
             $s->set('design_system', (string) json_encode(DesignSystem::sanitize($draft['design_system'] + DesignSystem::DEFAULTS), JSON_UNESCAPED_SLASHES));
         }

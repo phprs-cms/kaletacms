@@ -5879,4 +5879,13 @@ return [
     '“The same address in every language” is on, and no address is shared yet' => '„Stejná adresa ve všech jazycích“ je zapnutá a zatím se žádná adresa nesdílí',
     '%d address(es) are shared by versions in different languages – allowed, “The same address in every language” is on, as it will be for every site in Kaleta 4.0' => 'Adres sdílených verzemi v různých jazycích: %d – je to dovolené, „Stejná adresa ve všech jazycích“ je zapnutá, jak to v Kaletě 4.0 bude u každého webu',
     '%d address(es) are shared by versions in different languages although “The same address in every language” is off – Kaleta 4.0 allows it, nothing to do' => 'Adres sdílených verzemi v různých jazycích: %d, přestože „Stejná adresa ve všech jazycích“ je vypnutá – Kaleta 4.0 to dovolí, není co dělat',
+    'Waiting for approval' => 'Čeká na schválení',
+    'Files Claude uploaded over a connection limited to drafts. They are not public yet: they show in the administration and in draft previews, and go public with the draft that uses them when it is published – or here with Publish file. Files nobody approves are deleted after %d days.' => 'Soubory, které Claude nahrál přes připojení omezené na koncepty. Zatím nejsou veřejné: ukazují se v administraci a v náhledech konceptů a zveřejní se s konceptem, který je používá, až ho někdo publikuje – nebo tady tlačítkem Zveřejnit soubor. Soubory, které nikdo neschválí, se po %d dnech smažou.',
+    'Deleted on %s unless it is approved.' => 'Smaže se %s, pokud ho nikdo neschválí.',
+    'Publish file' => 'Zveřejnit soubor',
+    'Delete the file? Drafts that use it will show it no more.' => 'Smazat soubor? Koncepty, které ho používají, ho už neukážou.',
+    'The file could not be moved to the media folder – check the write permissions of media/.' => 'Soubor se nepodařilo přesunout do složky médií – zkontrolujte práva k zápisu do media/.',
+    'The file is public: %s' => 'Soubor je veřejný: %s',
+    'Files from Claude waiting for approval' => 'Soubory od Clauda čekající na schválení',
+    'Files waiting for approval: public with the content that uses them, deleted after 30 days' => 'Soubory čekající na schválení: zveřejnění s obsahem, který je používá, smazání po 30 dnech',
 ];

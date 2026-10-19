@@ -429,11 +429,14 @@ final class ItemBatch
         $temporary = WpFile::folder() . '/polozka-' . bin2hex(random_bytes(6)) . '.tmp';
         try {
             file_put_contents($temporary, (new ImageDownloader($url))->download($url, $image));
-            $saved = $image ? Images::saveFile($temporary, $name !== '' ? $name : 'image.jpg') : Files::saveFile($temporary, $name);
+            // 3.15 (N10): a connection limited to drafts stages the file outside the web root until it is approved
+            $staged = \Kaleta\Core\MediaStaging::appliesTo($app->auth());
+            $saved = $image ? Images::saveFile($temporary, $name !== '' ? $name : 'image.jpg', $staged) : Files::saveFile($temporary, $name, $staged);
             if ($alt !== '') {
                 $saved['nazev'] = mb_substr($alt, 0, 150);
             }
-            $ido = $app->db()->insert('media', $saved + ['vlastnik' => $app->auth()->id() ?: null, 'datum' => date('Y-m-d H:i:s')]);
+            $now = date('Y-m-d H:i:s');
+            $ido = $app->db()->insert('media', $saved + ['vlastnik' => $app->auth()->id() ?: null, 'datum' => $now, 'staged_at' => $staged ? $now : null]);
             $app->db()->run('INSERT INTO {import_mapa} (zdroj, typ, cizi_id, nase_id) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE nase_id = VALUES(nase_id)', [self::MEDIA_SOURCE, 'medium', sha1($url), $ido]);
 
             return [(string) $saved['obr_poloha'], ''];
