@@ -173,7 +173,8 @@ final class Menu
     public static function html(array $items, string $path, string $root, bool $mega = false): string
     {
         $active = function (string $url) use ($path, $root): bool {
-            if ($url === '' || preg_match('#^[a-z]+:|^\##i', $url)) {
+            // a link with a fragment (/#produkty, /sluzby#cenik) points into a page, it is never the current page itself
+            if ($url === '' || preg_match('#^[a-z]+:|\##i', $url)) {
                 return false;
             }
             $target = rtrim((string) parse_url($url, PHP_URL_PATH), '/');
