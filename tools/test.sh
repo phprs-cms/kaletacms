@@ -7071,8 +7071,9 @@ expect "3.15 check-channel (N315-8): a 3.x line with its own 4.x line passes; a 
 for c in zastaraly nedatovany budouci; do
   if php "$WORK/web/tools/check-channel.php" "http://127.0.0.1:$CHANNEL_PORT/$c/aktualizace.json" > "$WORK/channel-$c.txt" 2>&1; then echo ok >> "$WORK/channel-$c.txt"; else echo failed >> "$WORK/channel-$c.txt"; fi
 done
+# (the fresh manifest is dated by PHP in UTC – compare its age, not the shell's local date, or it fails after midnight)
 expect "3.10 check-channel: a manifest signed 50 days ago fails (re-sign two weeks before sites warn), one without a signed date fails, a fresh one says its date" \
-  "$(tail -1 "$WORK/channel-zastaraly.txt")|$(contains -F 'sign the manifest again' "$WORK/channel-zastaraly.txt" && echo why)|$(tail -1 "$WORK/channel-nedatovany.txt")|$(contains -F 'release date (vydano' "$WORK/channel-nedatovany.txt" && echo why)|$(contains -F "published $(date +%Y-%m-%d) (0 days ago)" "$WORK/channel-kanaly.txt" && echo dated)" \
+  "$(tail -1 "$WORK/channel-zastaraly.txt")|$(contains -F 'sign the manifest again' "$WORK/channel-zastaraly.txt" && echo why)|$(tail -1 "$WORK/channel-nedatovany.txt")|$(contains -F 'release date (vydano' "$WORK/channel-nedatovany.txt" && echo why)|$(contains -E "published [0-9]{4}-[0-9]{2}-[0-9]{2} \(0 days ago\)" "$WORK/channel-kanaly.txt" && echo dated)" \
   "failed|why|failed|why|dated"
 expect "3.10 check-channel (N310-3): a signed date in the future fails" "$(tail -1 "$WORK/channel-budouci.txt")|$(contains -F 'lies in the future' "$WORK/channel-budouci.txt" && echo why)" "failed|why"
 sq "UPDATE ka_nastaveni SET hodnota = 'latest' WHERE promenna = 'update_channel'" > /dev/null
