@@ -206,6 +206,7 @@ $settingsParity = ['list' => $readOnly, 'save' => 'update_settings', 'download_b
     'fleet_pair' => 'admin: which console a site reports to is a security decision (2.9)', 'fleet_send' => 'admin: the site reports every hour on its own',
     'fleet_updates' => 'admin: who decides about updates is a security decision (2.9)', 'fleet_unpair' => 'admin: which console a site reports to is a security decision (2.9)',
     'fleet_kit' => 'admin: receiving the console\'s design kit is an opt-in of the site (2.16); site_info reports the version that arrived',
+    'fleet_titles' => 'admin: what the site tells its console is the administrator\'s decision (3.16)',
     'report_preview' => $readOnly, 'report_send' => 'admin: the monthly report goes to e-mail addresses that stay out of MCP (2.9) – Claude reads the same numbers with get_stats and get_health',
     'cookie_scan' => 'admin: the cookie scan runs daily on its own (2.14); Claude reads the table in processing_record', 'processing_record' => 'processing_record',
     'accessibility_statement' => 'admin: the draft page is the administrator’s step (2.14); Claude reads the text with accessibility_statement',
@@ -530,6 +531,7 @@ foreach (glob(KALETA_SYSTEM . '/views/admin/settings/*.php') as $view) {
         if (!isset($settingsFields[$name]) && !in_array($name, ['rozsireni', 'ai_poskytovatel_puvodni', 'novy_token_ulohy', 'novy_token', 'soubor', 'tab', 'id', 'ip', 'pairing_key', 'fleet_updates',
             'exception', 'exception_from', 'exception_to', 'exception_closed', 'exception_hours', 'exception_note', 'exception_notice', 'viewport', 'robots', // viewport, robots: <meta> of the door sign
             'fleet_kit', // 2.16: the console tab's own button (Settings::actionFleetKit)
+            'fleet_request_titles', // 3.16: the console tab's own button (Settings::actionFleetTitles)
             'verze', // 3.3.2: the version on the update button – Settings::actionUpdate installs only that one
             'precteno', // 3.15: "I have read what changes" – Settings::actionUpdateMajor installs a major version only with it
             'smtp_ses_region', // 3.9: the Amazon SES region – MailServices::settle() builds the server from it
@@ -2604,6 +2606,45 @@ check('2.9: attention – what is wrong with a site, weighted', [
 $fleetClean = Kaleta\Fleet\Console::clean(['version' => '2.9.0', 'name' => str_repeat('x', 400), 'secret' => 'drop me', 'problems' => [['check' => 'Mail', 'status' => 'warning', 'detail' => ['deep' => ['deeper' => ['deepest' => 1]]]]], 'visits_7_days' => 12.7]);
 check('2.9: a heartbeat keeps only the known keys with sane values', [isset($fleetClean['secret']), mb_strlen($fleetClean['name']), $fleetClean['version'], $fleetClean['visits_7_days'], $fleetClean['problems'][0]['check']],
     [false, 255, '2.9.0', 12, 'Mail']);
+// 3.16: what waits for people – request titles cleaned and masked, the new parts bounded, new reasons for attention
+check('3.16: Fleet\Heartbeat::cleanTitle – plain text, one line, e-mail addresses masked, at most 120 characters', [
+    Kaleta\Fleet\Heartbeat::cleanTitle("<b>Call</b> back jan.novak@firma.cz\n about <i>prices</i>"),
+    Kaleta\Fleet\Heartbeat::cleanTitle('Forward to "info@example.com", or (petra+web@sub.example.co.uk) & anna@local'),
+    mb_strlen(Kaleta\Fleet\Heartbeat::cleanTitle(str_repeat('Long title ', 30))), str_contains(Kaleta\Fleet\Heartbeat::cleanTitle(str_repeat('a', 130) . 'x@y.cz'), '@')],
+    ['Call back [e-mail] about prices', 'Forward to "[e-mail]", or ([e-mail]) & [e-mail]', 120, false]);
+$fleetNew = Kaleta\Fleet\Console::clean([
+    'requests' => ['new' => 2, 'in_progress' => -5, 'done_to_review' => 1.9, 'oldest_waiting_hours' => 50, 'secret' => 'x', 'items' => array_merge(
+        [['id' => 7, 'title' => 'Write to boss@firma.cz', 'status' => 'new', 'created_at' => '2026-10-19T08:00:00+02:00', 'updated_at' => 'yesterday', 'text' => 'the whole text']],
+        [['id' => 8, 'title' => 'Bad status', 'status' => 'hacked']], array_fill(0, 30, ['id' => 9, 'title' => 'More', 'status' => 'done']))],
+    'pending_review' => ['page_drafts' => 3, 'invented_kind' => 5, 'news_drafts' => 'many'],
+    'security_7_days' => ['firewall' => ['probe' => 4, 'BAD KEY' => 1], 'failed_sign_ins' => 60, 'locked_accounts' => 1, 'events' => ['security.token_reuse' => 1, 'login.ip' => 3], 'ips' => ['1.2.3.4']],
+    'domain_watch' => ['checked' => 1, 'certificate' => ['expires' => '2027-01-01', 'days' => 70, 'error' => false, 'host' => 'example.cz'], 'domain' => null, 'mail' => ['spf' => true, 'dmarc' => false, 'record' => 'v=spf1']],
+    'updates' => ['behind_days' => 3, 'major_available' => '4.0.0; DROP'], 'report_month' => '2026-09-01', 'enquiries_new_not_spam' => 3, 'bookings_pending' => '2',
+]);
+check('3.16: a heartbeat keeps the new parts only in their shape and bounds', [
+    [$fleetNew['requests']['new'], $fleetNew['requests']['in_progress'], $fleetNew['requests']['done_to_review'], isset($fleetNew['requests']['secret']), count($fleetNew['requests']['items'])],
+    $fleetNew['requests']['items'][0], $fleetNew['pending_review'], $fleetNew['security_7_days'],
+    [$fleetNew['domain_watch']['certificate'], $fleetNew['domain_watch']['domain'], $fleetNew['domain_watch']['mail']],
+    [$fleetNew['updates'], $fleetNew['report_month'], $fleetNew['enquiries_new_not_spam'], $fleetNew['bookings_pending'], $fleetNew['agent_runs']],
+], [[2, 0, 1, false, 19], ['id' => 7, 'title' => 'Write to [e-mail]', 'status' => 'new', 'created_at' => '2026-10-19T08:00:00+02:00', 'updated_at' => null], ['page_drafts' => 3],
+    ['firewall' => ['probe' => 4], 'failed_sign_ins' => 60, 'locked_accounts' => 1, 'events' => ['security.token_reuse' => 1]],
+    [['expires' => '2027-01-01', 'days' => 70, 'error' => false], null, ['error' => null, 'spf' => true, 'dmarc' => false, 'dkim' => null, 'spf_covers_smtp' => null]],
+    [['behind_days' => 3, 'major_available' => null], null, 3, null, null]]);
+check('3.16: Fleet\Heartbeat::domainWatch – dates and found/not found only, never the records, hosts or error texts', [
+    Kaleta\Fleet\Heartbeat::domainWatch(['checked' => 5, 'site_host' => 'www.example.cz', 'report_email' => 'info@example.cz', 'tls' => ['host' => 'www.example.cz', 'expires' => 1_800_000_000, 'days' => 9, 'error' => null],
+        'domain' => ['name' => 'example.cz', 'expires' => null, 'days' => null, 'error' => 'HTTP 500 from rdap.example'], 'mail' => ['domain' => 'example.cz', 'spf' => 'v=spf1 a mx ~all', 'dmarc' => null, 'dkim' => 'google', 'spf_covers_smtp' => null, 'error' => null]]),
+    Kaleta\Fleet\Heartbeat::domainWatch(null), Kaleta\Fleet\Heartbeat::domainWatch(['checked' => 5, 'demo' => true])],
+    [['checked' => 5, 'local' => false, 'certificate' => ['expires' => date('Y-m-d', 1_800_000_000), 'days' => 9, 'error' => false], 'domain' => ['expires' => null, 'days' => null, 'error' => true],
+        'mail' => ['error' => false, 'spf' => true, 'dmarc' => false, 'dkim' => true, 'spf_covers_smtp' => null]], null, null]);
+$fleetDay = fn (int $days): string => date('Y-m-d', $fleetNow + $days * 86400 + 3600);
+check('3.16: attention – requests waiting over 48 h, bookings to confirm, certificate < 14 days, domain < 30 days, many failed sign-ins; enquiries without spam', [
+    Kaleta\Fleet\Console::attention($fleetRow([], ['requests' => ['oldest_waiting_hours' => 49], 'bookings_pending' => 1, 'domain_watch' => ['certificate' => ['expires' => $fleetDay(10)], 'domain' => ['expires' => $fleetDay(20)]],
+        'security_7_days' => ['failed_sign_ins' => 50]]), $fleetNow),
+    Kaleta\Fleet\Console::attention($fleetRow([], ['requests' => ['oldest_waiting_hours' => 48], 'bookings_pending' => 0, 'domain_watch' => ['certificate' => ['expires' => $fleetDay(20), 'days' => 3], 'domain' => ['days' => 40]],
+        'security_7_days' => ['failed_sign_ins' => 49, 'events' => ['security.account_suspended' => 2]], 'enquiries_unanswered' => 4, 'enquiries_new_not_spam' => 0]), $fleetNow)['reasons'],
+    Kaleta\Fleet\Console::attention($fleetRow([], ['security_7_days' => ['events' => ['security.token_reuse' => 1]], 'enquiries_unanswered' => 4]), $fleetNow)['reasons'],
+    Kaleta\Fleet\Console::enquiriesWaiting(['enquiries_unanswered' => 4]), Kaleta\Fleet\Console::enquiriesWaiting(['enquiries_unanswered' => 4, 'enquiries_new_not_spam' => 1]), Kaleta\Fleet\Console::enquiriesWaiting([]),
+], [['score' => 95, 'reasons' => ['requests_waiting', 'bookings_to_confirm', 'certificate_expiring', 'domain_expiring', 'sign_in_attacks']], [], ['enquiries', 'sign_in_attacks'], 4, 1, null]);
 /* ---------- 2.8: domain and mail watch (Core\DomainWatch) – no network, the lookups are fixtures ---------- */
 $watchClass = Kaleta\Core\DomainWatch::class;
 check('DomainWatch: registrable domain – www., subdomains and two-level suffixes', array_map($watchClass::registrableDomain(...), ['www.example.cz', 'shop.firma.example.co.uk', 'Example.COM', 'www.example.com.au', 'example.cz.']), ['example.cz', 'example.co.uk', 'example.com', 'example.com.au', 'example.cz']);

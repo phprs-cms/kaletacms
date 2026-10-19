@@ -425,7 +425,7 @@ final class Tools
                 $s(['id' => $number('exception id from list_hours')], ['id'])],
             ['list_sites', 'Fleet console (administrators, read-only, 2.9): the Kaleta sites that report to this console, the ones that need attention first – why (down, stopped reporting, errors, failed update, failing jobs, no backup…), version, last report, uptime, update ring and enquiries waiting. Only on a console (extension fleet).',
                 $s(['attention_only' => ['type' => 'boolean', 'description' => 'only the sites that need attention']])],
-            ['get_site', 'Fleet console (administrators, read-only, 2.9): the full last report of one site – health problems, background jobs, backups, updates, enquiries and visits (counts only), audit findings – plus uptime and the update ring.',
+            ['get_site', 'Fleet console (administrators, read-only, 2.9): the full last report of one site – health problems, background jobs, backups, updates, enquiries and visits (counts only), audit findings; from 3.16 what waits for people (requests to Claude – titles if the site shares them – review, bookings), security counts, certificate and domain dates – plus uptime and the update ring.',
                 $s(['id' => $number('site id from list_sites')], ['id'])],
             ['list_media_without_alt', 'Images in Media without a description for blind visitors (alt), read-only (2.14): id, path, size and where each is used. Write the descriptions with update_media (alt) – say what the image shows, in the site language, a few words – and show the user the batch before or after saving it, as they prefer.',
                 $s(['limit' => $number('how many, 1–200, default 50')])],
