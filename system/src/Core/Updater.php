@@ -351,6 +351,26 @@ final class Updater
     }
 
     /**
+     * 3.15 (N315-3): why the next major version cannot be installed now, or null when this site runs the newest release of
+     * its own line. $state is the line's state() – the update action asks for a fresh one (state(true)). Fails closed: the
+     * newest release must be confirmed – a failing, refused or stale source says nothing, and a newer release of the line
+     * counts even when it needs a newer PHP.
+     *
+     * @param array{nastaveno: bool, nova: ?array<string, mixed>, vyzaduje_php: ?array{verze: string, min_php: string, bezpecnostni: bool}, chyba: ?string, stale: bool, refused: bool} $state
+     */
+    public static function majorBlocker(array $state, string $current = KALETA_VERSION): ?string
+    {
+        return match (true) {
+            $state['nova'] !== null => t('Install version %s first – a new major version is installed only from the newest release of the current one.', (string) $state['nova']['verze']),
+            $state['vyzaduje_php'] !== null => t('Install version %s first – it needs PHP %s or newer, and a new major version is installed only from the newest release of the current one.',
+                $state['vyzaduje_php']['verze'], $state['vyzaduje_php']['min_php']),
+            !$state['nastaveno'] || $state['chyba'] !== null || $state['stale'] || $state['refused']
+                => t('Kaleta could not confirm that this site runs the newest %d.x release, and a new major version is installed only from it. Press Check now and try again.', self::majorOf($current)),
+            default => null,
+        };
+    }
+
+    /**
      * 3.15: the next major version on offer – the release of the next major's manifest (4.0 for a 3.15 site) – or null.
      * Read from the remembered answer (12 hours), asked anew only when that is older; never throws.
      *

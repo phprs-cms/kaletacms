@@ -105,7 +105,8 @@ $canPublish = $app->auth()->canPublish();
 <?php endif ?>
 			<span><label><input type="checkbox" name="oznacene[]" value="<?= (int) $o['ido'] ?>"> <?= e(t('označit')) ?></label> &middot; <a href="<?= e($module->url('list', $params + ['edit' => $o['ido'], 'page' => $pageNumber])) ?>#uprav"><?= e(t('description')) ?></a></span>
 <?php if ($o['staged_at'] !== null): ?>
-			<span><span class="stitek stitek-koncept" title="<?= e(t('Deleted on %s unless it is approved.', format_date(date('Y-m-d H:i:s', strtotime((string) $o['staged_at']) + Kaleta\Core\MediaStaging::DAYS * 86400)))) ?>"><?= e(t('Waiting for approval')) ?></span></span>
+<?php $deadline = strtotime((string) $o['staged_at']) + Kaleta\Core\MediaStaging::DAYS * 86400; // past it, live content keeps the file (N315-4) ?>
+			<span><span class="stitek stitek-koncept" title="<?= e($deadline < time() ? t('Kept after %d days because live content uses it – publish or delete it.', Kaleta\Core\MediaStaging::DAYS) : t('Deleted on %s unless it is approved.', format_date(date('Y-m-d H:i:s', $deadline)))) ?>"><?= e(t('Waiting for approval')) ?></span></span>
 			<span>
 <?php if ($canPublish): ?>
 				<button class="navigace" type="submit" formaction="<?= e($module->url('approve')) ?>" name="ido" value="<?= (int) $o['ido'] ?>"><?= e(t('Publish file')) ?></button>

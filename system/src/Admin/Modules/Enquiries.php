@@ -22,10 +22,19 @@ final class Enquiries extends Module
     public const array STATUSES = [0 => 'nová', 1 => 'přečtená', 2 => 'vyřízená'];
     private const int PER_PAGE = 50;
 
-    /** 3.15: new enquiries (not opened yet), as on the Dashboard. */
+    /** The list leaves spam out unless asked for (2.12) – the menu badge and the Dashboard count do the same (N315-10). */
+    public const string NOT_SPAM = "kategorie <> 'spam'";
+
+    /** 3.15: new enquiries (not opened yet), as on the Dashboard – spam does not count, as the list does not show it. */
     public static function badge(\Kaleta\Core\App $app): int
     {
-        return (int) $app->db()->value('SELECT COUNT(*) FROM {poptavky} WHERE stav = 0');
+        return self::countNew($app->db());
+    }
+
+    /** New enquiries as the list shows them (spam left out): the menu badge and the Dashboard. */
+    public static function countNew(\Kaleta\Core\Db $db): int
+    {
+        return (int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE stav = 0 AND ' . self::NOT_SPAM);
     }
 
     protected function actionList(): Response
@@ -49,7 +58,7 @@ final class Enquiries extends Module
             $params[] = $kind;
         } else {
             $kind = '';
-            $conditions[] = "kategorie <> 'spam'";
+            $conditions[] = self::NOT_SPAM;
         }
         $search = mb_substr(trim($this->request->get('search')), 0, 100);
         if ($search !== '') {

@@ -195,7 +195,7 @@ final class Auth
         }
         $backupCodes = $user === null ? null : Totp::useBackupCode($user['totp_zalozni'], $code);
         $step = $user === null ? null : Totp::step($user['totp_tajemstvi'], $code);
-        if ($step !== null && $user !== null && $step <= $this->lastCodeStep((int) $user['idu'])) {
+        if ($step !== null && $user !== null && !$this->claimCodeStep((int) $user['idu'], $step)) {
             $step = null; // 3.15 (N18): a code of a step this account already signed in with is never accepted again
         }
         if ($user === null || ($step === null && $backupCodes === null)) {
@@ -208,10 +208,6 @@ final class Auth
             return t('The code is not correct.');
         }
         $this->recordSignIn((int) $user['idu']);
-        if ($step !== null) {
-            // the step of the code, kept with the sign-in checks (cil = the account) until the tolerated drift is long over
-            $this->db->insert('kontrola_ip', ['ip_adresa' => (string) $step, 'typ' => 'totp', 'cil' => (int) $user['idu'], 'cas' => Clock::now()]);
-        }
         if ($backupCodes !== null) {
             $this->db->update('uzivatele', ['totp_zalozni' => $backupCodes], ['idu' => $user['idu']]);
         }
@@ -222,10 +218,27 @@ final class Auth
         return null;
     }
 
-    /** The newest step of a code from the app the account signed in with in the last few minutes (0 = none). */
-    private function lastCodeStep(int $idu): int
+    /**
+     * Claims the step of a code from the app for the account (3.15, N18; atomic since N315-11): true when no code of this
+     * step or a later one signed the account in during the last few minutes – the step is then recorded with the sign-in
+     * checks (cil = the account) in the same statement, under a lock per account, so two sign-ins with the same code at
+     * the same moment cannot both pass. No lock in time = not claimed (the person tries again).
+     */
+    private function claimCodeStep(int $idu, int $step): bool
     {
-        return (int) $this->db->value("SELECT MAX(CAST(ip_adresa AS UNSIGNED)) FROM {kontrola_ip} WHERE typ = 'totp' AND cil = ? AND cas > ?", [$idu, Clock::at('-5 minutes')]);
+        $lock = $this->db->lockName('totp', (string) $idu);
+        if ((int) $this->db->value('SELECT GET_LOCK(?, 5)', [$lock]) !== 1) {
+            return false;
+        }
+        try {
+            // INSERT … SELECT … WHERE NOT EXISTS: the check and the record are one statement. The steps are compared as
+            // zero-padded strings – a CAST of another row's hash would be an error in strict mode inside INSERT … SELECT
+            return $this->db->run("INSERT INTO {kontrola_ip} (ip_adresa, typ, cil, cas) SELECT ?, 'totp', ?, ? FROM DUAL WHERE NOT EXISTS ("
+                . "SELECT 1 FROM {kontrola_ip} WHERE typ = 'totp' AND cil = ? AND cas > ? AND LPAD(ip_adresa, 20, '0') >= ?)",
+                [(string) $step, $idu, Clock::now(), $idu, Clock::at('-5 minutes'), str_pad((string) $step, 20, '0', STR_PAD_LEFT)])->rowCount() === 1;
+        } finally {
+            $this->db->value('SELECT RELEASE_LOCK(?)', [$lock]);
+        }
     }
 
     /** Does the account waiting for the second step have registered passkeys? */

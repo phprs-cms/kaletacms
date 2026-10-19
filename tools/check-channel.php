@@ -151,6 +151,7 @@ try {
 } catch (Throwable $e) {
     $errors[] = $e->getMessage();
 }
+$stable = null;
 if ($stableUrl !== null) {
     try {
         [$status, $body] = $fetch($stableUrl);
@@ -176,6 +177,10 @@ if ($stableUrl !== null) {
 if (is_array($latest) && Updater::majorOf((string) $latest['verze']) > 3) {
     $errors[] = "aktualizace.json: offers {$latest['verze']} – a new major version must never be in aktualizace.json (sites before 3.15 read only that file and would take it); publish it with tools/release.php --major";
 }
+// N315-8: nor the stable twin – sites 3.8–3.14 on the stable channel read it and have no major guard
+if (is_array($stable) && Updater::majorOf((string) $stable['verze']) > 3) {
+    $errors[] = "aktualizace-stable.json: offers {$stable['verze']} – a new major version must never be in aktualizace-stable.json (stable-channel sites before 3.15 would take it); it belongs to " . Updater::manifestFile(Updater::majorOf((string) $stable['verze']), 'stable');
+}
 $majorUrls = [];
 for ($major = 4; $major <= max(4, Updater::majorOf(KALETA_VERSION) + 1); $major++) {
     $line = $major === 4 && $majorArgument !== null ? $majorArgument : Updater::lineUrl($manifestUrl, $major);
@@ -189,17 +194,41 @@ foreach ($majorUrls as $major => $line) {
         [$status, $body] = $fetch($line);
         if ($status === 404) {
             echo "$label: Kaleta $major is not published yet ($line answers 404).\n";
+        } elseif ($status !== 200) {
+            throw new RuntimeException("nelze stáhnout $line" . ($status > 0 ? " (HTTP $status)" : ''));
+        } else {
+            $m = $check($body, $label, true); // a major line is 4.0 or later: signature v2 is required
+            if (Updater::majorOf((string) $m['verze']) !== $major) {
+                $errors[] = "$label: offers {$m['verze']} – this file is the manifest of Kaleta $major only";
+            }
+            if (($m['kanal'] ?? 'latest') !== 'latest') {
+                $errors[] = "$label: the manifest says \"kanal\": \"" . (is_scalar($m['kanal']) ? (string) $m['kanal'] : '?') . "\" – the latest manifest of a major line must say \"latest\" (or nothing)";
+            }
+        }
+    } catch (Throwable $e) {
+        $errors[] = $e->getMessage();
+    }
+    // N315-8: the stable twin of the major line (aktualizace-4-stable.json) – only its own major, and it must say "stable"
+    $lineStable = Updater::stableUrl($line);
+    $stableLabel = Updater::manifestFile($major, 'stable');
+    if ($lineStable === null) {
+        continue;
+    }
+    try {
+        [$status, $body] = $fetch($lineStable);
+        if ($status === 404) {
+            echo "$stableLabel: the stable channel of Kaleta $major is not published yet ($lineStable answers 404).\n";
             continue;
         }
         if ($status !== 200) {
-            throw new RuntimeException("nelze stáhnout $line" . ($status > 0 ? " (HTTP $status)" : ''));
+            throw new RuntimeException("nelze stáhnout $lineStable" . ($status > 0 ? " (HTTP $status)" : ''));
         }
-        $m = $check($body, $label, true); // a major line is 4.0 or later: signature v2 is required
+        $m = $check($body, $stableLabel, true);
         if (Updater::majorOf((string) $m['verze']) !== $major) {
-            $errors[] = "$label: offers {$m['verze']} – this file is the manifest of Kaleta $major only";
+            $errors[] = "$stableLabel: offers {$m['verze']} – this file is the stable manifest of Kaleta $major only";
         }
-        if (($m['kanal'] ?? 'latest') !== 'latest') {
-            $errors[] = "$label: the manifest says \"kanal\": \"" . (is_scalar($m['kanal']) ? (string) $m['kanal'] : '?') . "\" – the latest manifest of a major line must say \"latest\" (or nothing)";
+        if (($m['kanal'] ?? null) !== 'stable') {
+            $errors[] = "$stableLabel: the manifest does not say \"kanal\": \"stable\" – stable-channel sites would get nothing";
         }
     } catch (Throwable $e) {
         $errors[] = $e->getMessage();

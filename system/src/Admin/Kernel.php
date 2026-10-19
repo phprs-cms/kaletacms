@@ -64,6 +64,14 @@ final class Kernel
      */
     public const array DRAFT_ACTIONS = ['draft', 'assistant', 'build_save', 'preview', 'build_ai_text'];
 
+    /**
+     * 3.15 (N315-5): the sections whose changes can put content on the site (pages, news, collections, the look, settings,
+     * the author box of My account…). Only their changes look for waiting files published content now uses (admin.php,
+     * Core\MediaStaging::promotePublished) – a save in Enquiries or Users never pays for that scan.
+     */
+    public const array PUBLISHING_MODULES = ['pages', 'news', 'collections', 'categories', 'tags', 'parts', 'popups', 'components', 'menu',
+        'appearance', 'business', 'settings', 'facts', 'bookings', 'newsletters', 'media', 'blueprints', 'transfer', 'extensions', 'changelog', 'users'];
+
     public function __construct(public readonly App $app)
     {
     }
@@ -320,7 +328,7 @@ final class Kernel
             'counts' => array_filter([
                 // drafts of news authors wait for an editor – the tile only when there are some
                 'News from authors awaiting publication' => isset($modules['news']) && ($pending = Modules\News::countAwaitingPublication($this->app)) > 0 ? [$pending, 'admin.php?module=news&status=ke_vydani'] : null,
-                'New enquiries' => isset($modules['enquiries']) ? [(int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE stav = 0'), 'admin.php?module=enquiries'] : null,
+                'New enquiries' => isset($modules['enquiries']) ? [Modules\Enquiries::countNew($db), 'admin.php?module=enquiries'] : null, // spam left out, as in the list (N315-10)
                 'Published pages' => isset($modules['pages']) ? [(int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL'), 'admin.php?module=pages'] : null,
                 'Pages with unpublished changes' => isset($modules['pages']) ? [(int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE stavba_koncept IS NOT NULL AND smazano IS NULL'), 'admin.php?module=pages'] : null,
                 'Published news' => isset($modules['news']) ? [(int) $db->value("SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= ?{$scope}", [\Kaleta\Core\Clock::now()]), 'admin.php?module=news&status=vydane'] : null,

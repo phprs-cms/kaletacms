@@ -184,13 +184,17 @@ $manifest = Kaleta\Core\Signature::signManifest([
     'kanal' => $options['channel'], // 3.8: a site on the stable channel accepts only a manifest that says "stable" (Core\Updater::choose)
 ], $sk);
 $manifestName = Kaleta\Core\Updater::manifestFile($releaseMajor, $options['channel']); // 3.15: aktualizace.json, aktualizace-stable.json, aktualizace-4.json…
+// N315-8: a 4.x manifest never goes to the 3.x files – sites before 3.15 (stable ones too) read only those and would take it
+if ($releaseMajor > 3 && in_array($manifestName, [Kaleta\Core\Updater::manifestFile(3), Kaleta\Core\Updater::manifestFile(3, 'stable')], true)) {
+    exit("{$version} is a release of Kaleta {$releaseMajor}: its manifest must not be written to {$manifestName}.\n");
+}
 @mkdir($root . '/dist');
 file_put_contents($root . '/dist/' . $manifestName, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n");
 echo "Hotovo: " . ($options['package'] !== '' ? $options['package'] : "dist/kaleta-{$version}.zip") . " (" . round(filesize($zipFile) / 1024) . " kB) a dist/{$manifestName}\n";
 if ($options['url'] === '') {
     echo "POZOR: nezadali jste --url, doplňte adresu ZIPu do dist/{$manifestName} PŘED podpisem (spusťte znovu s --url).\n";
 } elseif ($options['channel'] === 'stable') {
-    echo "1) The ZIP must be at {$options['url']} (its release on GitHub)\n2) gh release upload stable-channel dist/aktualizace-stable.json --clobber (docs/RELEASING.md, Release channels)\n";
+    echo "1) The ZIP must be at {$options['url']} (its release on GitHub)\n2) gh release upload stable-channel dist/{$manifestName} --clobber (docs/RELEASING.md, Release channels)\n";
 } elseif ($releaseMajor > 3) {
     echo "1) The ZIP must be at {$options['url']}\n2) Upload dist/{$manifestName} next to aktualizace.json on the project website – only 3.15 and later read it, and none installs it by itself (docs/RELEASING.md, Major versions).\n";
 } else {

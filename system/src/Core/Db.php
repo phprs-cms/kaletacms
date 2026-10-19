@@ -51,6 +51,15 @@ final class Db
         return new self($dsn, $c['user'], $c['password'], $c['prefix'] ?? 'ka_');
     }
 
+    /**
+     * The name of a GET_LOCK for one purpose (3.15): per database DSN and table prefix, so two sites on one MySQL server
+     * never wait for each other; at most 64 characters (the limit of MySQL).
+     */
+    public function lockName(string $purpose, string $scope = ''): string
+    {
+        return substr('kaleta-' . $purpose . '-' . hash('sha256', $this->dsn . '|' . $this->prefix . '|' . $scope), 0, 64);
+    }
+
     public function pdo(): PDO
     {
         if ($this->pdo === null) {

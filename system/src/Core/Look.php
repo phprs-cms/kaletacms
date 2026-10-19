@@ -123,7 +123,8 @@ final class Look
 
     /**
      * A class into the draft; null = delete it on publishing. A class the site does not have yet goes live at once – it
-     * changes nothing that is published, and new pages need it.
+     * changes nothing that is published, and new pages need it – unless a published build already lists its name (3.15,
+     * N315-1): then it would change the published page at once, so it waits in the draft like a change of an existing class.
      *
      * @param array{styl: array<string, mixed>, css: string}|null $class
      * @param bool $draftOnly even a new class waits in the draft (a kit from the fleet console is reviewed as a whole, 2.16)
@@ -132,7 +133,7 @@ final class Look
     public static function setClass(Settings $s, string $name, ?array $class, bool $draftOnly = false): bool
     {
         $db = $s->db();
-        if (!$draftOnly && $class !== null && $db->value('SELECT 1 FROM {tridy} WHERE nazev = ?', [$name]) === null) {
+        if (!$draftOnly && $class !== null && $db->value('SELECT 1 FROM {tridy} WHERE nazev = ?', [$name]) === null && !MediaStaging::classInPublishedBuild($db, $name)) {
             $db->run('INSERT INTO {tridy} (nazev, styl, css, zmeneno) VALUES (?, ?, ?, ?)', [$name, (string) json_encode($class['styl'] ?: new \stdClass(), JSON_UNESCAPED_UNICODE), (string) $class['css'], Clock::now()]);
             $d = self::draft($s);
             if (isset($d['classes']) && array_key_exists($name, $d['classes'])) {

@@ -68,8 +68,8 @@ $developer = fn (string $detail): string => '<details><summary>' . e(t('Details 
 	<ul><?php foreach ($major['zmeny'] as $change): ?><li><?= e($change) ?></li><?php endforeach ?></ul>
 <?php endif ?>
 	<p><?= e(t('A new major version is never installed automatically, not even as a security update. Check Ready for 4.0 first and download a database backup off the server.')) ?> <a href="<?= e($app->url('admin.php?module=status#ready-4')) ?>"><?= e(t('Ready for 4.0')) ?></a></p>
-<?php if ($update !== null && $update['nova'] !== null): ?>
-	<p class="napoveda"><?= e(t('Install version %s first – a new major version is installed only from the newest release of the current one.', (string) $update['nova']['verze'])) ?></p>
+<?php if ($update !== null && ($majorBlocker = Kaleta\Core\Updater::majorBlocker($update)) !== null): // N315-3: the action checks it again, fresh ?>
+	<p class="napoveda"><?= e($majorBlocker) ?></p>
 <?php elseif (($majorBlockers = Kaleta\Core\Readiness::blockers(Kaleta\Core\Readiness::checks($app))) !== []): ?>
 	<p class="napoveda"><?= e(t('The update to a new major version waits until Ready for 4.0 clears: %s.', implode(', ', $majorBlockers))) ?> <a href="<?= e($app->url('admin.php?module=status#ready-4')) ?>"><?= e(t('Ready for 4.0')) ?></a></p>
 <?php elseif (Kaleta\Core\Updater::phpTooOld($major)): ?>
@@ -152,6 +152,9 @@ $field('backup_region', 'Region (S3 only)', 'text', 'For example eu-central-1. F
 <legend><?= e(t('Encryption key')) ?></legend>
 <?php // 3.15 (N42, Core\Vault): where the key of the encrypted secrets is – never the key itself ?>
 <p class="hlaska<?= ['config' => ' hlaska-ok', 'missing' => ' hlaska-chyba', 'pending' => ' hlaska-varovani'][$vaultState] ?? '' ?>"><?= e(Kaleta\Core\Vault::describe($vaultState)) ?></p>
+<?php if ($vaultState === 'config'): // N315-6: the move cannot change what older backups hold ?>
+<p class="napoveda"><?= e(t('Backups made before the move still hold the old key with the data – delete them, or keep them as safe as config.php.')) ?></p>
+<?php endif ?>
 <?php if (in_array($vaultState, ['database', 'pending'], true)): ?>
 <p><button class="navigace" type="submit" formaction="<?= e($module->url('vault_move')) ?>" data-potvrdit="<?= e(t('Move the encryption key to config.php and encrypt the stored secrets and reports again?')) ?>"><?= e(t('Move the encryption key out of the database')) ?></button></p>
 <?php endif ?>

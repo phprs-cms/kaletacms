@@ -6329,7 +6329,6 @@ return [
     'The encryption key is now in config.php and the stored secrets and reports are encrypted with it (%d values).' => 'Der Schlüssel liegt jetzt in der config.php, die gespeicherten Zugangsdaten und Meldungen sind damit verschlüsselt (%d Werte).',
     'The encryption key is already in config.php.' => 'Der Schlüssel liegt bereits in der config.php.',
     'The move failed and nothing has changed in the database: %s' => 'Der Umzug ist fehlgeschlagen, in der Datenbank hat sich nichts geändert: %s',
-    'config.php cannot be written, so nothing has changed. Add this line to config.php right after “return [” (or “return array (”), then press the button again:' => 'In die config.php kann nicht geschrieben werden, deshalb hat sich nichts geändert. Fügen Sie diese Zeile direkt nach „return [“ (oder „return array (“) in die config.php ein und drücken Sie die Schaltfläche dann erneut:',
     'This line is shown only now. If you leave this page without adding it, press the button again – a new key is made and nothing is lost.' => 'Diese Zeile wird nur jetzt angezeigt. Verlassen Sie die Seite, ohne sie einzufügen, drücken Sie die Schaltfläche einfach erneut – es entsteht ein neuer Schlüssel und nichts geht verloren.',
     'Back to Backups and updates' => 'Zurück zu Backups und Updates',
     'The instructions for Claude changed – check them.' => 'Die Anweisungen für Claude wurden geändert – prüfen Sie sie.',
@@ -6339,4 +6338,10 @@ return [
     '(empty)' => '(leer)',
     'Open Claude settings' => 'Claude-Einstellungen öffnen',
     'Dismiss' => 'Ausblenden',
+    'Kept after %d days because live content uses it – publish or delete it.' => 'Nach %d Tagen behalten, weil Live-Inhalte die Datei verwenden – veröffentlichen oder löschen Sie sie.',
+    'Install version %s first – it needs PHP %s or newer, and a new major version is installed only from the newest release of the current one.' => 'Installieren Sie zuerst Version %s – sie braucht PHP %s oder neuer, und eine neue Hauptversion wird nur vom neuesten Release der aktuellen aus installiert.',
+    'Kaleta could not confirm that this site runs the newest %d.x release, and a new major version is installed only from it. Press Check now and try again.' => 'Kaleta konnte nicht bestätigen, dass auf dieser Website das neueste Release %d.x läuft, und eine neue Hauptversion wird nur von diesem aus installiert. Klicken Sie auf „Jetzt prüfen“ und versuchen Sie es erneut.',
+    'Backups made before the move still hold the old key with the data – delete them, or keep them as safe as config.php.' => 'Sicherungen von vor dem Umzug enthalten den alten Schlüssel zusammen mit den Daten – löschen Sie sie oder bewahren Sie sie so sicher auf wie die config.php.',
+    'Kaleta cannot write the key into config.php safely (the file is not writable, or it does not plainly return one array), so nothing has changed. Add this line to the array config.php returns, right after its “return [” (or “return array (”), then press the button again:' => 'Kaleta kann den Schlüssel nicht sicher in die config.php schreiben (die Datei ist nicht beschreibbar oder gibt nicht eindeutig ein Array zurück), deshalb hat sich nichts geändert. Fügen Sie diese Zeile in das Array ein, das die config.php zurückgibt, direkt nach dessen „return [“ (oder „return array (“), und drücken Sie die Schaltfläche dann erneut:',
+    'After the restore, these tables exist under both their old and their English name: %s. Nothing was deleted – ask your developer which copy to keep.' => 'Nach der Wiederherstellung gibt es diese Tabellen sowohl unter ihrem alten als auch unter ihrem englischen Namen: %s. Es wurde nichts gelöscht – fragen Sie Ihre Entwickler, welche Kopie bleiben soll.',
 ];

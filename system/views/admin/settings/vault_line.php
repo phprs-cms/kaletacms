@@ -10,7 +10,7 @@
  */
 ?>
 <div class="hlaska hlaska-varovani">
-	<p><?= e(t('config.php cannot be written, so nothing has changed. Add this line to config.php right after “return [” (or “return array (”), then press the button again:')) ?></p>
+	<p><?= e(t('Kaleta cannot write the key into config.php safely (the file is not writable, or it does not plainly return one array), so nothing has changed. Add this line to the array config.php returns, right after its “return [” (or “return array (”), then press the button again:')) ?></p>
 	<p><code id="vault-radek"><?= e($line) ?></code> <button class="navigace" type="button" data-kopirovat="#vault-radek"><?= e(t('Copy')) ?></button></p>
 	<p class="napoveda"><?= e(t('This line is shown only now. If you leave this page without adding it, press the button again – a new key is made and nothing is lost.')) ?></p>
 </div>

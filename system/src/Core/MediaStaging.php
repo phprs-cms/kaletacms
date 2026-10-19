@@ -16,10 +16,14 @@ namespace Kaleta\Core;
  *   sent only to a signed-in user or a visitor of a draft preview (the signed cookie a preview sets, see previewCookie()),
  *   with the headers media/ has (nosniff, attachment for documents, the SVG sandbox). Everyone else gets the usual 404.
  * - Going public: once published content refers to a staged file, the file moves to media/ (rename, then staged_at = NULL):
- *   after every change in the administration and every write call of a connection that may publish (promotePublished()),
- *   when the draft look is published (promoteReferenced()), at the first anonymous request for it and in the background
- *   job; a person can also approve it in Media → Waiting for approval (promote()).
- * - Nobody approved it: deleted after DAYS days by the background job (cleanup()).
+ *   when a person (or a connection that may publish) publishes – a build (promoteBuild(), with the classes it uses), the
+ *   draft look (promoteReferenced()), a change in a section of the administration that shows content on the site, a write
+ *   call of such a connection, scheduled publishing (promotePublished()) – in the background job, and at an anonymous
+ *   request for it (at most every CHECK_SECONDS per file); a person can also approve it in Media (promote()).
+ * - Shared classes never count by themselves (N315-1): a drafts-only connection creates new classes live, so a class's
+ *   background goes public only with a build a person publishes, the draft look, or the approval in Media.
+ * - Nobody approved it: deleted after DAYS days by the background job (cleanup()) – unless live content uses it: published
+ *   content makes it public, a live class keeps it waiting for a person (N315-4).
  *
  * Full-access connections, the administrators' own uploads and imports never stage anything (appliesTo()).
  */
@@ -38,33 +42,42 @@ final class MediaStaging
     public const string PREVIEW_TARGET = 'media';
 
 
-    /** Published content that may refer to media: [table, the content, which rows are on the site]. */
-    private const array PUBLISHED = [
-        ['stranky', "CONCAT_WS(' ', stavba, text, obrazek)", 'zobrazit = 1 AND smazano IS NULL'],
-        ['novinky', "CONCAT_WS(' ', obrazek, uvod, text, faq)", 'visible = 1 AND smazano IS NULL'],
-        ['kolekce_polozky', "CONCAT_WS(' ', data, obrazek)", 'zobrazit = 1 AND smazano IS NULL'],
-        ['casti', 'stavba', '1 = 1'],
-        ['popupy', 'stavba', '1 = 1'],
-        ['komponenty', 'stavba', '1 = 1'],
-        ['kolekce', 'stavba', '1 = 1'],
-        ['kolekce_sablony', 'stavba', '1 = 1'],
-        ['collection_category_templates', 'stavba', '1 = 1'],
-        ['collection_categories', 'image', 'visible = 1'],
-        ['kategorie', 'popis', '1 = 1'],
-        ['stitky', "CONCAT_WS(' ', popis, obrazek)", '1 = 1'],
-        // the draft look is not on the site; a class counts only once a published build uses it (publishedStems)
-        ['nastaveni', 'hodnota', "promenna <> 'look_draft'"],
-        ['newsletters', 'html', "status IN ('sending', 'sent')"],
+    /**
+     * Published content that may refer to media – everything the site shows: [FROM, the content, which rows are on the site].
+     * Only a person or a connection that may publish can put a row here in its public state (a drafts-only connection saves
+     * hidden pages, items and categories, news drafts and build drafts only). Shared classes are not here (N315-1).
+     */
+    public const array PUBLISHED = [
+        ['{stranky}', "CONCAT_WS(' ', stavba, text, obrazek, kod_hlavicky)", 'zobrazit = 1 AND smazano IS NULL'],
+        ['{novinky}', "CONCAT_WS(' ', obrazek, uvod, text, faq)", 'visible = 1 AND smazano IS NULL'],
+        ['{kolekce_polozky}', "CONCAT_WS(' ', data, obrazek, popis)", 'zobrazit = 1 AND smazano IS NULL'],
+        // the earlier files of a document, listed on its page (Core\Documents::versionsHtml)
+        ['{document_versions} v JOIN {kolekce_polozky} p ON p.idp = v.idp', 'v.file', 'p.zobrazit = 1 AND p.smazano IS NULL'],
+        ['{casti}', 'stavba', '1 = 1'],
+        ['{popupy}', 'stavba', '1 = 1'],
+        ['{komponenty}', 'stavba', '1 = 1'],
+        ['{kolekce}', 'stavba', '1 = 1'],
+        ['{kolekce_sablony}', 'stavba', '1 = 1'],
+        ['{collection_category_templates}', 'stavba', '1 = 1'],
+        ['{collection_categories}', 'image', 'visible = 1'],
+        ['{collection_category_texts} t JOIN {collection_categories} c ON c.id = t.category_id', 't.description', 'c.visible = 1'],
+        ['{kategorie}', 'popis', '1 = 1'],
+        ['{stitky}', "CONCAT_WS(' ', popis, obrazek)", '1 = 1'],
+        ['{menu}', 'polozky', '1 = 1'],
+        ['{facts}', 'value', '1 = 1'],
+        ['{booking_services}', 'description', 'active = 1'],
+        ['{uzivatele}', "CONCAT_WS(' ', foto, bio)", '1 = 1'], // the author box of news items
+        ['{social_drafts}', 'image', '1 = 1'], // posted by a person from the news item's drafts
+        // the draft look is not on the site
+        ['{nastaveni}', 'hodnota', "promenna <> 'look_draft'"],
+        ['{newsletters}', "CONCAT_WS(' ', intro, button_url, html)", "status IN ('sending', 'sent')"],
     ];
 
-    /** Published builds, where a class with a waiting background image counts as published: [table, which rows]. */
-    private const array BUILDS = [
-        ['stranky', 'zobrazit = 1 AND smazano IS NULL'], ['casti', '1 = 1'], ['popupy', '1 = 1'], ['komponenty', '1 = 1'], ['kolekce', '1 = 1'],
-        ['kolekce_sablony', '1 = 1'], ['collection_category_templates', '1 = 1'],
-    ];
+    /** How many staged rows one step of a scan looks at; a scan goes through all of them, step by step (N315-4). */
+    private const int BATCH = 300;
 
-    /** How many staged rows one scan looks at (they are few: a connection's uploads waiting for a person). */
-    private const int SCAN_LIMIT = 300;
+    /** An anonymous request asks again whether published content uses a waiting file at most this often (N315-5). */
+    public const int CHECK_SECONDS = 300;
 
     /** Does a file stored by this caller wait for approval: a Claude connection limited to drafts. */
     public static function appliesTo(Auth $auth): bool
@@ -194,7 +207,11 @@ final class MediaStaging
         $signedIn = $app->auth()->user() !== null;
         $access = self::access($signedIn, !$signedIn && $preview(), false);
         if ($access === 'none') {
-            // published content may already show it (a change outside the usual places): it goes public now, for everyone
+            // published content may already show it (a change outside the usual places): it goes public now, for everyone –
+            // asked at most every CHECK_SECONDS per file, so repeated requests for a known path cost one indexed query (N315-5)
+            if (!self::checkDue((int) $row['ido'])) {
+                return null;
+            }
             $access = self::access(false, false, self::isPublished($db, $row));
             if ($access === 'none' || !self::promote($db, $row)) {
                 return null;
@@ -251,66 +268,95 @@ final class MediaStaging
         return false;
     }
 
-    /** Does published content refer to the staged file? */
+    /** Does published content refer to the staged file? (Shared classes do not count, N315-1.) */
     public static function isPublished(Db $db, array $row): bool
     {
         return self::matching([$row + ['staged_at' => 'x']], self::publishedStems($db, [$row])) !== [];
     }
 
     /**
-     * Every staged file that published content refers to goes public. Cheap when nothing waits (one indexed query); called
-     * after every change in the administration, every write call of a connection that may publish, scheduled publishing and
-     * the background job. Returns the paths that went public.
+     * Every staged file that published content refers to goes public, all waiting files step by step (N315-4). Cheap when
+     * nothing waits (one indexed query). Called where content is published: a change in a section of the administration
+     * that shows content on the site (admin.php, Admin\Kernel::PUBLISHING_MODULES), a write call of a connection that may
+     * publish (Mcp\Server), scheduled publishing and the background job. Returns the paths that went public.
      *
      * @return list<string>
      */
     public static function promotePublished(Db $db): array
     {
-        $rows = self::staged($db);
+        $done = [];
+        $after = 0;
+        while (($rows = self::staged($db, $after)) !== []) {
+            $after = (int) $rows[count($rows) - 1]['ido'];
+            array_push($done, ...self::promoteRows($db, self::matching($rows, self::publishedStems($db, $rows))));
+        }
 
-        return $rows === [] ? [] : self::promoteRows($db, self::matching($rows, self::publishedStems($db, $rows)));
+        return $done;
     }
 
     /**
-     * The stems published content refers to, looked up only for the given staged rows. A class counts once a published
-     * build uses it: a drafts-only connection creates classes live (save_classes), but cannot publish a build.
+     * The stems published content (PUBLISHED) refers to, looked up only for the given staged rows: one pass over each table.
      *
      * @param list<array<string, mixed>> $rows
      * @return list<string>
      */
     private static function publishedStems(Db $db, array $rows): array
     {
-        $needles = array_map(fn (array $o): string => '%' . basename(self::stem((string) $o['obr_poloha'])) . '%', $rows);
         $stems = [];
-        $matching = function (string $table, string $content, string $where) use ($db, $needles): array {
-            $found = [];
-            foreach (array_chunk($needles, 50) as $chunk) {
-                $sql = 'SELECT ' . $content . ' AS obsah' . ($table === 'tridy' ? ', nazev' : '') . ' FROM {' . $table . '} WHERE ' . $where
-                    . ' AND (' . implode(' OR ', array_fill(0, count($chunk), $content . ' LIKE ?')) . ')';
-                array_push($found, ...$db->all($sql, $chunk));
-            }
-
-            return $found;
-        };
-        foreach (self::PUBLISHED as [$table, $content, $where]) {
-            foreach ($matching($table, $content, $where) as $r) {
-                array_push($stems, ...self::referencedStems((string) $r['obsah']));
-            }
-        }
-        foreach ($matching('tridy', "CONCAT_WS(' ', styl, css)", '1 = 1') as $class) {
-            if (self::classPublished($db, (string) $class['nazev'])) {
-                array_push($stems, ...self::referencedStems((string) $class['obsah']));
-            }
+        foreach (self::PUBLISHED as [$from, $content, $where]) {
+            array_push($stems, ...self::stemsIn($db, $from, $content, $where, $rows));
         }
 
         return array_values(array_unique($stems));
     }
 
-    /** Does a published build use the class (an element's "tridy")? */
-    private static function classPublished(Db $db, string $name): bool
+    /**
+     * The stems of the given staged rows that one source refers to (N315-5): one pass over the table with a LIKE per upload
+     * folder of the rows (media/2026/10/, also JSON-escaped media\/2026\/10\/) – usually one or two, however many files
+     * wait – then the paths in the rows found are read in PHP (MediaHygiene::paths) and only the waiting ones kept.
+     *
+     * @param list<array<string, mixed>> $rows
+     * @return list<string>
+     */
+    private static function stemsIn(Db $db, string $from, string $content, string $where, array $rows): array
     {
-        foreach (self::BUILDS as [$table, $where]) {
-            foreach ($db->all('SELECT stavba FROM {' . $table . '} WHERE ' . $where . ' AND stavba LIKE ?', ['%"' . addcslashes($name, '%_\\') . '"%']) as $r) {
+        $wanted = [];
+        $folders = [];
+        foreach ($rows as $o) {
+            $stem = self::stem((string) $o['obr_poloha']);
+            $wanted[$stem] = true;
+            if (preg_match('#^media/(\d{4})/(\d{2})/#', $stem, $m)) {
+                $folders['%media/' . $m[1] . '/' . $m[2] . '/%'] = true;
+                $folders['%media\\\\/' . $m[1] . '\\\\/' . $m[2] . '\\\\/%'] = true; // a LIKE pattern for media\/2026\/10\/
+            }
+        }
+        if ($folders === []) {
+            return [];
+        }
+        $stems = [];
+        $sql = 'SELECT ' . $content . ' AS obsah FROM ' . $from . ' WHERE ' . $where . ' AND (' . implode(' OR ', array_fill(0, count($folders), $content . ' LIKE ?')) . ')';
+        foreach ($db->all($sql, array_keys($folders)) as $r) {
+            foreach (self::referencedStems((string) $r['obsah']) as $stem) {
+                if (isset($wanted[$stem])) {
+                    $stems[$stem] = true;
+                }
+            }
+        }
+
+        return array_keys($stems);
+    }
+
+    /**
+     * Does a published build list the class (an element's "tridy")? Then a class of that name changes what the site shows,
+     * so a new one waits in the draft look like a change of an existing one (Core\Look::setClass, HtmlConverter, N315-1).
+     */
+    public static function classInPublishedBuild(Db $db, string $name): bool
+    {
+        foreach (self::PUBLISHED as [$from, $content, $where]) {
+            if (!str_contains($content, 'stavba')) {
+                continue;
+            }
+            foreach ($db->all('SELECT stavba FROM ' . $from . ' WHERE ' . $where . ' AND stavba LIKE ?', ['%"' . addcslashes($name, '%_\\') . '"%']) as $r) {
                 if (in_array($name, self::buildClasses((string) $r['stavba']), true)) {
                     return true;
                 }
@@ -348,57 +394,98 @@ final class MediaStaging
     }
 
     /**
-     * The staged files the given content refers to go public (the draft look when it is published).
+     * The staged files the given content refers to go public (the draft look when it is published, a sent newsletter).
      *
      * @return list<string> the paths that went public
      */
     public static function promoteReferenced(Db $db, string ...$content): array
     {
-        $rows = self::staged($db);
+        $stems = self::referencedStems(...$content);
+        $done = [];
+        $after = 0;
+        while ($stems !== [] && ($rows = self::staged($db, $after)) !== []) {
+            $after = (int) $rows[count($rows) - 1]['ido'];
+            array_push($done, ...self::promoteRows($db, self::matching($rows, $stems)));
+        }
 
-        return $rows === [] ? [] : self::promoteRows($db, self::matching($rows, self::referencedStems(...$content)));
+        return $done;
+    }
+
+    /**
+     * A build a person (or a connection that may publish) publishes (Builder\Publisher): the staged files it refers to go
+     * public, with those of the shared classes it uses – the one way a class's background image goes public by itself (N315-1).
+     *
+     * @return list<string> the paths that went public
+     */
+    public static function promoteBuild(Db $db, string $build): array
+    {
+        if (self::staged($db) === []) {
+            return [];
+        }
+        $content = [$build];
+        $classes = self::buildClasses($build);
+        if ($classes !== []) {
+            foreach ($db->all('SELECT styl, css FROM {tridy} WHERE nazev IN (' . implode(', ', array_fill(0, count($classes), '?')) . ')', $classes) as $class) {
+                $content[] = (string) $class['styl'] . ' ' . (string) $class['css'];
+            }
+        }
+
+        return self::promoteReferenced($db, ...$content);
     }
 
     /**
      * Moves a staged file with all its variants to media/ (rename on the same disk), then marks the row public. A rename that
      * fails moves the already moved files back and leaves the row waiting. Not journaled for undo: the files have moved.
+     * Under a lock per file (N315-7): two requests promoting the same file at once never interleave – the second finds it done.
      */
     public static function promote(Db $db, array $row): bool
     {
-        $path = (string) $row['obr_poloha'];
-        $files = self::stagedFiles($path);
-        $target = dirname(self::absolute($path, false));
-        if (!is_dir($target) && !@mkdir($target, 0775, true) && !is_dir($target)) {
+        $lock = $db->lockName('stage', (string) (int) $row['ido']);
+        if ((int) $db->value('SELECT GET_LOCK(?, 5)', [$lock]) !== 1) {
             return false;
         }
-        // the main file last: until it is there, nobody's request finds a half-moved upload
-        $main = self::absolute($path, true);
-        usort($files, fn (string $a, string $b): int => ($a === $main) <=> ($b === $main));
-        $moved = [];
-        foreach ($files as $file) {
-            $to = $target . '/' . basename($file);
-            if (is_file($to) || !@rename($file, $to)) {
-                foreach ($moved as [$from, $back]) {
-                    @rename($back, $from);
-                }
-
+        try {
+            $path = (string) $row['obr_poloha'];
+            if ($db->value('SELECT staged_at FROM {media} WHERE ido = ?', [(int) $row['ido']]) === null) {
+                return is_file(KALETA_ROOT . '/' . $path); // another request promoted it meanwhile (or the row is gone)
+            }
+            $files = self::stagedFiles($path);
+            $target = dirname(self::absolute($path, false));
+            if (!is_dir($target) && !@mkdir($target, 0775, true) && !is_dir($target)) {
                 return false;
             }
-            $moved[] = [$file, $to];
-        }
-        if (!is_file(KALETA_ROOT . '/' . $path)) {
-            return false; // the staged file itself is gone: the row stays waiting and the background job removes it
-        }
-        $journal = $db->journal;
-        $db->journal = null;
-        try {
-            $db->run('UPDATE {media} SET staged_at = NULL WHERE ido = ?', [(int) $row['ido']]);
-        } finally {
-            $db->journal = $journal;
-        }
-        \Kaleta\Front\Cache::clear();
+            // the main file last: until it is there, nobody's request finds a half-moved upload
+            $main = self::absolute($path, true);
+            usort($files, fn (string $a, string $b): int => ($a === $main) <=> ($b === $main));
+            $moved = [];
+            foreach ($files as $file) {
+                $to = $target . '/' . basename($file);
+                if (is_file($to) || !@rename($file, $to)) {
+                    foreach ($moved as [$from, $back]) {
+                        @rename($back, $from);
+                    }
 
-        return true;
+                    return false;
+                }
+                $moved[] = [$file, $to];
+            }
+            if (!is_file(KALETA_ROOT . '/' . $path)) {
+                return false; // the staged file itself is gone: the row stays waiting and the background job removes it
+            }
+            $journal = $db->journal;
+            $db->journal = null;
+            try {
+                $db->run('UPDATE {media} SET staged_at = NULL WHERE ido = ?', [(int) $row['ido']]);
+            } finally {
+                $db->journal = $journal;
+            }
+            @unlink(self::checkFile((int) $row['ido']));
+            \Kaleta\Front\Cache::clear();
+
+            return true;
+        } finally {
+            $db->value('SELECT RELEASE_LOCK(?)', [$lock]);
+        }
     }
 
     /** Deletes a staged file with its variants and its media row (Media → Waiting for approval → Delete, the background job). */
@@ -407,37 +494,72 @@ final class MediaStaging
         foreach (self::stagedFiles((string) $row['obr_poloha']) as $file) {
             @unlink($file);
         }
+        @unlink(self::checkFile((int) $row['ido']));
         $db->delete('media', ['ido' => (int) $row['ido']]);
     }
 
     /**
      * The background job: staged files published content refers to go public, those nobody approved within DAYS days are
-     * deleted. A file whose public copy is already in media/ (moved, but its row not marked) is only marked public.
+     * deleted. A file whose public copy is already in media/ (moved, but its row not marked) is only marked public. A file
+     * live content uses is never deleted (N315-4): published content makes it public, a live shared class keeps it waiting
+     * (Media says so) – a class's background goes public only with a person's publish or approval (N315-1).
      */
     public static function cleanup(Db $db): string
     {
         $published = count(self::promotePublished($db));
         $deleted = 0;
-        foreach ($db->all('SELECT * FROM {media} WHERE staged_at IS NOT NULL AND staged_at < ? ORDER BY ido LIMIT ' . self::SCAN_LIMIT, [Clock::at('-' . self::DAYS . ' days')]) as $row) {
-            if (is_file(KALETA_ROOT . '/' . $row['obr_poloha'])) {
-                $db->run('UPDATE {media} SET staged_at = NULL WHERE ido = ?', [(int) $row['ido']]);
-                continue;
+        $kept = 0;
+        $after = 0;
+        $before = Clock::at('-' . self::DAYS . ' days');
+        while (($rows = $db->all('SELECT * FROM {media} WHERE staged_at IS NOT NULL AND staged_at < ? AND ido > ? ORDER BY ido LIMIT ' . self::BATCH, [$before, $after])) !== []) {
+            $after = (int) $rows[count($rows) - 1]['ido'];
+            $inUse = array_fill_keys([...self::publishedStems($db, $rows), ...self::stemsIn($db, '{tridy}', "CONCAT_WS(' ', styl, css)", '1 = 1', $rows)], true);
+            foreach ($rows as $row) {
+                if (is_file(KALETA_ROOT . '/' . $row['obr_poloha'])) {
+                    $db->run('UPDATE {media} SET staged_at = NULL WHERE ido = ?', [(int) $row['ido']]);
+                    continue;
+                }
+                if (isset($inUse[self::stem((string) $row['obr_poloha'])])) {
+                    $kept++;
+                    continue;
+                }
+                self::discard($db, $row);
+                $deleted++;
             }
-            self::discard($db, $row);
-            $deleted++;
         }
         // files without a row (an undone Claude session removed it, Core\AgentJournal) are older than any waiting file may be
         $folder = KALETA_ROOT . '/' . self::FOLDER;
         if (is_dir($folder)) {
-            $before = time() - (self::DAYS + 1) * 86400;
+            $old = time() - (self::DAYS + 1) * 86400;
             foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($folder, \FilesystemIterator::SKIP_DOTS)) as $file) {
-                if ($file->isFile() && $file->getMTime() < $before && @unlink($file->getPathname())) {
+                if ($file->isFile() && $file->getMTime() < $old && $db->value('SELECT 1 FROM {media} WHERE obr_poloha LIKE ? AND staged_at IS NOT NULL LIMIT 1', [self::stem('media/' . substr($file->getPathname(), strlen($folder) + 1)) . '.%']) === null && @unlink($file->getPathname())) {
                     $deleted++;
                 }
             }
         }
 
-        return 'published ' . $published . ', deleted ' . $deleted;
+        return 'published ' . $published . ', deleted ' . $deleted . ($kept > 0 ? ', kept ' . $kept . ' that live content uses (Media → Waiting for approval)' : '');
+    }
+
+    /**
+     * Is it time to ask again whether published content uses a waiting file (an anonymous request, N315-5)? Remembers the
+     * question for CHECK_SECONDS in storage/cache – a file per waiting file, removed when it goes public or is deleted.
+     */
+    private static function checkDue(int $ido): bool
+    {
+        $file = self::checkFile($ido);
+        $at = @filemtime($file);
+        if ($at !== false && time() - $at < self::CHECK_SECONDS) {
+            return false;
+        }
+        @touch($file);
+
+        return true;
+    }
+
+    private static function checkFile(int $ido): string
+    {
+        return KALETA_ROOT . '/storage/cache/media-staging-' . $ido;
     }
 
     /** How many files wait for approval (Media). */
@@ -467,10 +589,14 @@ final class MediaStaging
         return '#^media/\d{4}/\d{2}/[a-z0-9][a-z0-9-]*\.(?:jpg|png|webp|gif|svg|' . implode('|', Files::FILE_EXTENSIONS) . ')(?:\.(?:webp|avif))?$#D';
     }
 
-    /** @return list<array<string, mixed>> */
-    private static function staged(Db $db): array
+    /**
+     * One step of the waiting files, oldest first, after the given id (BATCH rows).
+     *
+     * @return list<array<string, mixed>>
+     */
+    private static function staged(Db $db, int $after = 0): array
     {
-        return $db->all('SELECT ido, obr_poloha, nahl_poloha, staged_at FROM {media} WHERE staged_at IS NOT NULL ORDER BY ido LIMIT ' . self::SCAN_LIMIT);
+        return $db->all('SELECT ido, obr_poloha, nahl_poloha, staged_at FROM {media} WHERE staged_at IS NOT NULL AND ido > ? ORDER BY ido LIMIT ' . self::BATCH, [$after]);
     }
 
     /**

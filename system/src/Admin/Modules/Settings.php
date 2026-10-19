@@ -455,7 +455,8 @@ class Settings extends Module
         $result = \Kaleta\Core\Vault::move($this->app);
 
         return match ($result['status']) {
-            'moved' => $this->back(t('The encryption key is now in config.php and the stored secrets and reports are encrypted with it (%d values).', $result['count'] ?? 0), '', ['tab' => 'backups']),
+            'moved' => $this->back(t('The encryption key is now in config.php and the stored secrets and reports are encrypted with it (%d values).', $result['count'] ?? 0)
+                . ' ' . t('Backups made before the move still hold the old key with the data – delete them, or keep them as safe as config.php.'), '', ['tab' => 'backups']),
             'line' => $this->view('vault_line', 'Encryption key', ['line' => $result['line'] ?? '']),
             'already' => $this->back(t('The encryption key is already in config.php.'), '', ['tab' => 'backups']),
             'missing' => $this->back(\Kaleta\Core\Vault::describe('missing'), '', ['tab' => 'backups'], 'chyba'),
@@ -713,9 +714,9 @@ class Settings extends Module
         if ($version === '' || $this->request->post('precteno') !== '1') {
             return $this->back(t('Confirm that you have read what changes and checked Ready for 4.0, then start the update again.'), '', ['tab' => 'backups'], 'chyba');
         }
-        $pending = (new Updater($this->app->settings()))->state()['nova'];
-        if ($pending !== null) {
-            return $this->back(t('Install version %s first – a new major version is installed only from the newest release of the current one.', (string) $pending['verze']), '', ['tab' => 'backups'], 'chyba');
+        // N315-3: a fresh check of the current line must confirm this is its newest release – fails closed
+        if (($blocker = Updater::majorBlocker((new Updater($this->app->settings()))->state(true))) !== null) {
+            return $this->back($blocker, '', ['tab' => 'backups'], 'chyba');
         }
         // the database server or its rights would make the update fail half-way – Ready for 4.0 must clear them first
         if (($blockers = \Kaleta\Core\Readiness::blockers(\Kaleta\Core\Readiness::checks($this->app))) !== []) {

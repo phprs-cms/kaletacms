@@ -5922,7 +5922,6 @@ return [
     'The encryption key is now in config.php and the stored secrets and reports are encrypted with it (%d values).' => 'Šifrovací klíč je teď v config.php a uložené údaje a oznámení jsou šifrované jím (hodnot: %d).',
     'The encryption key is already in config.php.' => 'Šifrovací klíč už je v config.php.',
     'The move failed and nothing has changed in the database: %s' => 'Přesun se nezdařil a v databázi se nic nezměnilo: %s',
-    'config.php cannot be written, so nothing has changed. Add this line to config.php right after “return [” (or “return array (”), then press the button again:' => 'Do config.php nejde zapisovat, takže se nic nezměnilo. Přidejte do config.php hned za „return [“ (nebo „return array (“) tento řádek a pak tlačítko stiskněte znovu:',
     'This line is shown only now. If you leave this page without adding it, press the button again – a new key is made and nothing is lost.' => 'Tento řádek se ukazuje jen teď. Když stránku opustíte bez jeho přidání, stiskněte tlačítko znovu – vznikne nový klíč a nic se neztratí.',
     'Back to Backups and updates' => 'Zpět na Zálohy a aktualizace',
     'The instructions for Claude changed – check them.' => 'Pokyny pro Clauda se změnily – zkontrolujte je.',
@@ -5932,4 +5931,10 @@ return [
     '(empty)' => '(prázdné)',
     'Open Claude settings' => 'Otevřít nastavení Clauda',
     'Dismiss' => 'Skrýt',
+    'Kept after %d days because live content uses it – publish or delete it.' => 'Ponechán po %d dnech, protože ho používá živý obsah – zveřejněte ho, nebo smažte.',
+    'Install version %s first – it needs PHP %s or newer, and a new major version is installed only from the newest release of the current one.' => 'Nejdřív nainstalujte verzi %s – potřebuje PHP %s nebo novější a nová hlavní verze se instaluje jen z nejnovějšího vydání té současné.',
+    'Kaleta could not confirm that this site runs the newest %d.x release, and a new major version is installed only from it. Press Check now and try again.' => 'Kaleta nemohla ověřit, že na webu běží nejnovější vydání %d.x, a novou hlavní verzi lze nainstalovat jen z něj. Klikněte na Zkontrolovat teď a zkuste to znovu.',
+    'Backups made before the move still hold the old key with the data – delete them, or keep them as safe as config.php.' => 'Zálohy pořízené před přesunem obsahují starý klíč spolu s daty – smažte je, nebo je chraňte stejně jako config.php.',
+    'Kaleta cannot write the key into config.php safely (the file is not writable, or it does not plainly return one array), so nothing has changed. Add this line to the array config.php returns, right after its “return [” (or “return array (”), then press the button again:' => 'Kaleta nemůže klíč do config.php bezpečně zapsat (soubor nejde zapisovat, nebo nevrací jednoznačně jedno pole), takže se nic nezměnilo. Přidejte tento řádek do pole, které config.php vrací, hned za jeho „return [“ (nebo „return array (“), a pak tlačítko stiskněte znovu:',
+    'After the restore, these tables exist under both their old and their English name: %s. Nothing was deleted – ask your developer which copy to keep.' => 'Po obnově existují tyto tabulky pod starým i anglickým názvem zároveň: %s. Nic se nesmazalo – zeptejte se svého vývojáře, kterou kopii ponechat.',
 ];
