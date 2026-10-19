@@ -182,6 +182,7 @@ class Settings extends Module
             'screenCollections' => $tab === 'general' ? $this->screenCollections() : [],
             'screenUrl' => $tab === 'general' ? \Kaleta\Front\Screen::url($this->app) : '',
             'backups' => $tab === 'backups' ? Backup::listAll() : [],
+            'vaultState' => $tab === 'backups' ? \Kaleta\Core\Vault::state($settings) : '', // 3.15 (N42): where the encryption key is
             'update' => $tab === 'backups' ? (new Updater($settings))->state() : null,
             'siteUrl' => $this->app->request->origin() . $this->app->url(''),
             'shareImages' => \Kaleta\Front\ShareImage::available(), // the SEO tab says when the server cannot draw them (2.12)
@@ -222,6 +223,7 @@ class Settings extends Module
         $given = [];
         $reason = ''; // why the news URL was refused (Core\Routes::slugError)
         $zoneBefore = $settings->get('time_zone');
+        $instructionsBefore = $settings->get('claude_instructions'); // 3.15 (N44): a change goes to the change log and the dashboard
         $newZone = ''; // 3.12: a new time zone is confirmed on its own screen (actionTimeZone)
         foreach ($this->fields($tab) as $key => $type) {
             if (\Kaleta\Core\Demo::active() && \Kaleta\Core\Demo::blocksSetting($key, $type)) {
@@ -276,6 +278,7 @@ class Settings extends Module
             }
             $settings->set($key, $clean);
         }
+        \Kaleta\Core\ClaudeInstructions::changed($this->app, $instructionsBefore, $settings->get('claude_instructions'));
         // 3.9: a mail service chosen without JavaScript (or switched from another one) gets its server, port and encryption;
         // a server that already is the service's stays as it is – the user name and the password are never touched
         if ($tab === 'mail' && array_key_exists('smtp_provider', $_POST) && array_intersect(['smtp_host', 'smtp_provider'], $errors) === [] && !\Kaleta\Core\Demo::active()) {
@@ -436,6 +439,27 @@ class Settings extends Module
         // a backup holds every account and key of the site: who downloaded which one is in the change log (3.15, N42)
         \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'backup downloaded', basename($path));
         $this->sendFile($path, basename($path)); // streamed: a large backup does not have to fit in memory
+    }
+
+    /**
+     * Moves the encryption key out of the database (3.15, N42, Core\Vault::move): into config.php, the stored secrets and
+     * reports encrypted again in one transaction. When config.php cannot be written, the line to add is shown once – on
+     * this page only, never in a message kept in the session, a log or the change log.
+     */
+    protected function actionVaultMove(): Response
+    {
+        if (!$this->request->isPost() || !$this->app->auth()->isAdmin()) {
+            return $this->back('', '', ['tab' => 'backups']);
+        }
+        $result = \Kaleta\Core\Vault::move($this->app);
+
+        return match ($result['status']) {
+            'moved' => $this->back(t('The encryption key is now in config.php and the stored secrets and reports are encrypted with it (%d values).', $result['count'] ?? 0), '', ['tab' => 'backups']),
+            'line' => $this->view('vault_line', 'Encryption key', ['line' => $result['line'] ?? '']),
+            'already' => $this->back(t('The encryption key is already in config.php.'), '', ['tab' => 'backups']),
+            'missing' => $this->back(\Kaleta\Core\Vault::describe('missing'), '', ['tab' => 'backups'], 'chyba'),
+            default => $this->back(t('The move failed and nothing has changed in the database: %s', (string) ($result['error'] ?? '')), '', ['tab' => 'backups'], 'chyba'),
+        };
     }
 
     protected function actionDeleteBackup(): Response

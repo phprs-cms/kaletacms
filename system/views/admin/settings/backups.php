@@ -117,10 +117,21 @@ $field('backup_region', 'Region (S3 only)', 'text', 'For example eu-central-1. F
 <summary><?= e(t('How to restore the site after losing the hosting')) ?></summary>
 <ol>
 	<li><?= e(t('Install Kaleta on the new hosting with the same table prefix (ka_ unless you changed it) and any starter site.')) ?></li>
+	<li><?= e(t('Copy the line with vault_key from the old site\'s config.php into the new config.php, in place of the one the installer wrote – without it the connector secrets and whistleblowing reports in the backup cannot be read.')) ?></li>
 	<li><?= e(t('Upload the latest database backup (kaleta-….sql.gz from your FTP or S3 copy, or a downloaded one) over FTP into the backups folder storage/zalohy/.')) ?></li>
 	<li><?= e(t('Copy the media/ folder from the same place into the root of the site.')) ?></li>
 	<li><?= e(t('Here in Backups, click Restore at that backup. Then sign in with the accounts from the backup.')) ?></li>
 </ol>
 <p class="napoveda"><?= e(t('Moving a site to another Kaleta installation without accounts and secrets is simpler with Export of the whole site and Import from Kaleta (Import and export).')) ?></p>
 </details>
+</fieldset>
+
+<fieldset id="sifrovaci-klic">
+<legend><?= e(t('Encryption key')) ?></legend>
+<?php // 3.15 (N42, Core\Vault): where the key of the encrypted secrets is – never the key itself ?>
+<p class="hlaska<?= ['config' => ' hlaska-ok', 'missing' => ' hlaska-chyba', 'pending' => ' hlaska-varovani'][$vaultState] ?? '' ?>"><?= e(Kaleta\Core\Vault::describe($vaultState)) ?></p>
+<?php if (in_array($vaultState, ['database', 'pending'], true)): ?>
+<p><button class="navigace" type="submit" formaction="<?= e($module->url('vault_move')) ?>" data-potvrdit="<?= e(t('Move the encryption key to config.php and encrypt the stored secrets and reports again?')) ?>"><?= e(t('Move the encryption key out of the database')) ?></button></p>
+<?php endif ?>
+<p class="napoveda"><?= e(t('Once the key is in config.php, restoring the database on another server also needs this site\'s config.php – keep a copy of it with your backups, somewhere safe.')) ?></p>
 </fieldset>

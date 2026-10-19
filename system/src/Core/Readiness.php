@@ -147,6 +147,10 @@ final class Readiness
             default => t('%d address(es) are shared by versions in different languages although “The same address in every language” is off – Kaleta 4.0 allows it, nothing to do', $shared),
         });
 
+        // 3.15 (N42): the key of the encrypted secrets – in config.php, not in the database (Core\Vault); never the key itself
+        $vault = Vault::state($app->settings());
+        $add('vault_key', t('Encryption key'), ['config' => 'ok', 'database' => 'info'][$vault] ?? 'varovani', Vault::describe($vault));
+
         return $out;
     }
 

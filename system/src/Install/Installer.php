@@ -174,6 +174,8 @@ final class Installer
                 'prefix' => $d['db_prefix'],
             ],
             'debug' => false,
+            // 3.15 (N42): the key of the encrypted secrets (connectors, whistleblowing) lives here, never in the database
+            'vault_key' => \Kaleta\Core\Vault::newKey(),
         ];
 
         try {
@@ -205,6 +207,9 @@ final class Installer
         if (file_put_contents(KALETA_ROOT . '/config.php', $content, LOCK_EX) === false) {
             return ['db_name' => t('The tables were created, but config.php could not be written. Check the write permissions.')];
         }
+        // only now: the encrypted data belongs to the key in config.php (Core\Vault) – a config.php made by hand from the
+        // sample without the key leaves the site on secret_key, as before 3.15
+        $db->insert('nastaveni', ['promenna' => 'vault_check', 'hodnota' => \Kaleta\Core\Vault::check($config['vault_key'])]);
 
         return [];
     }

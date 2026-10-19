@@ -189,6 +189,7 @@ $builderParity = [
     'build_package' => $readOnly, 'build_paste' => 'admin: paste from the system clipboard of another Kaleta site – Claude inserts elements with save_build or edit_build and brings classes with save_classes',
 ];
 $settingsParity = ['list' => $readOnly, 'save' => 'update_settings', 'download_backup' => $readOnly, 'backup' => 'admin: backups', 'restore_backup' => 'admin: backups',
+    'vault_move' => 'admin: the encryption key goes into config.php – never through a connection (3.15, N42)', 'instructions_seen' => 'admin: an administrator has looked at the changed instructions for Claude (3.15, N44)',
     'delete_backup' => 'admin: backups', 'media_backup' => 'admin: backups', 'delete_log' => 'admin: error log', 'check' => 'admin: updates', 'update' => 'admin: updates', 'forget_updates' => 'admin: updates',
     'test_mail' => 'admin: mail server settings', 'domain_check' => 'admin: the domain and mail watch runs on its own once a day', 'test_webhook' => 'admin: webhooks (addresses and the signing secret stay out of MCP)',
     'retry_webhook' => 'admin: webhooks (addresses and the signing secret stay out of MCP)', 'new_webhook_secret' => 'admin: webhooks (addresses and the signing secret stay out of MCP)',
@@ -6481,5 +6482,40 @@ check('3.15 N48: Build::code sees through CSS escapes and comments (@\69mport, j
 check('3.15 N49: SiteImport::isValidName leaves out every import state file, an upload named web.json still counts', array_map(Kaleta\Core\SiteImport::isValidName(...),
     ['web-0123456789abcdef.json', 'parita-0123456789abcdef.json', 'polozky-0123456789abcdef.json', 'polozky-0123456789abcdef.radky.json', 'web.json', 'web-stary.zip', 'parita.json']),
     [false, false, false, false, true, true, true]);
+// N42: the vault key – the derivation of 3.14 stays (old sites read their data), config.php gets the key safely
+$n42Key = str_repeat('ab', 32);
+$n42Var = "<?php\n/**\n * Kaleta - configuration.\n */\n\ndefine('KALETA_AI_URL', 'https://x.example');\nreturn array (\n  'db' => \n  array (\n    'host' => 'localhost',\n  ),\n  'debug' => false,\n);\n";
+$n42Short = "<?php\n// return [ in a comment\nreturn [\n    'db' => ['host' => 'localhost'],\n];\n";
+$n42Added = Kaleta\Core\Vault::withKey($n42Var, $n42Key);
+check('3.15 N42: Vault::withKey adds the key inside the returned array (var_export and short syntax), keeps the other lines, refuses a second key or a broken file', [
+    $n42Added !== null && str_contains($n42Added, "return array (\n    'vault_key' => '" . $n42Key . "',") && str_contains($n42Added, "define('KALETA_AI_URL'"),
+    str_contains((string) Kaleta\Core\Vault::withKey($n42Short, $n42Key), "return [\n    'vault_key' => '" . $n42Key . "',"),
+    Kaleta\Core\Vault::withKey((string) $n42Added, $n42Key), Kaleta\Core\Vault::withKey("<?php\nreturn [\n", $n42Key), Kaleta\Core\Vault::withKey("<?php\n\$x = 1;\n", $n42Key)],
+    [true, true, null, null, null]);
+$n42File = sys_get_temp_dir() . '/kaleta-n42-' . bin2hex(random_bytes(3)) . '.php';
+file_put_contents($n42File, $n42Short);
+$n42Written = Kaleta\Core\Vault::writeConfig($n42Key, $n42File);
+$n42Config = include $n42File;
+chmod($n42File, 0444);
+$n42ReadOnly = Kaleta\Core\Vault::writeConfig(str_repeat('cd', 32), $n42File);
+chmod($n42File, 0644);
+unlink($n42File);
+check('3.15 N42: Vault::writeConfig writes a config.php that returns the key; a read-only file is left alone', [$n42Written, $n42Config['vault_key'] ?? null, $n42Config['db']['host'] ?? null, $n42ReadOnly],
+    [true, $n42Key, 'localhost', false]);
+$n42Old = Kaleta\Core\Vault::derive('legacy-secret', 'connectors');
+$n42Sealed = Kaleta\Core\Vault::seal($n42Old, 'client-secret');
+$n42New = Kaleta\Core\Vault::derive($n42Key, 'connectors');
+check('3.15 N42: Vault – the derivation of 3.14 (kaleta-<purpose>|base), re-encryption to the new key, unreadable values stay, the check value is not the key', [
+    $n42Old === sodium_crypto_generichash('kaleta-connectors|legacy-secret', '', SODIUM_CRYPTO_SECRETBOX_KEYBYTES),
+    Kaleta\Core\Vault::open($n42New, Kaleta\Core\Vault::reseal($n42Old, $n42New, $n42Sealed)), Kaleta\Core\Vault::reseal($n42New, $n42Old, $n42Sealed), Kaleta\Core\Vault::reseal($n42Old, $n42New, null),
+    Kaleta\Core\Vault::derive($n42Key, 'connectors') !== Kaleta\Core\Vault::derive($n42Key, 'whistleblowing'), strlen(Kaleta\Core\Vault::check($n42Key)), str_contains(Kaleta\Core\Vault::check($n42Key), substr($n42Key, 0, 8))],
+    [true, 'client-secret', null, null, true, 32, false]);
+check('3.15 N42: the line for config.php and every state text never show more than the line itself', [
+    Kaleta\Core\Vault::configLine($n42Key) === "'vault_key' => '" . $n42Key . "', // encrypts connector secrets and whistleblowing reports – keep it with your backups",
+    count(array_unique(array_map(Kaleta\Core\Vault::describe(...), ['config', 'database', 'pending', 'missing'])))], [true, 4]);
+// N44: the change log keeps both texts within its 255 characters
+check('3.15 N44: ClaudeInstructions::logText – both texts, whitespace folded, long ones shortened to fit the change log', [
+    Kaleta\Core\ClaudeInstructions::logText('', "Say renovation.\nNever reconstruction."), mb_strlen(Kaleta\Core\ClaudeInstructions::logText(str_repeat('a', 4000), str_repeat('b', 4000))) <= 255],
+    ['before: (empty) → now: «Say renovation. Never reconstruction.»', true]);
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

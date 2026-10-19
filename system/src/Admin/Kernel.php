@@ -247,6 +247,11 @@ final class Kernel
                     $this->app->url('admin.php?module=redirects#nenalezeno'), t('Review the addresses'), $this->app->url('admin.php?module=redirects&action=ignore_all')];
             }
         }
+        if ($this->app->auth()->isAdmin() && ($instructions = \Kaleta\Core\ClaudeInstructions::notice($this->app->settings())) !== null) {
+            // 3.15 (N44): every connection gets the instructions – a change by anyone (a Claude connection too) is checked by a person
+            $warnings[] = [t('The instructions for Claude changed – check them.') . ' ' . \Kaleta\Core\ClaudeInstructions::who($instructions),
+                $this->app->url('admin.php?module=claude_settings#zmena-pokynu'), t('Open Claude settings'), $this->app->url('admin.php?module=claude_settings&action=instructions_seen'), t('Dismiss')];
+        }
         if ($this->app->auth()->isAdmin()) {
             $backup = \Kaleta\Core\Backup::listAll()[0]['cas'] ?? 0;
             if (time() - $backup > 8 * 86400) {

@@ -6,7 +6,7 @@
  * @var Kaleta\Core\App $app
  * @var array<string, class-string<Kaleta\Admin\Module>> $modules
  * @var array<string, array{0: int, 1: string}> $counts  label => [count, url]
- * @var list<array{0: string, 1: string, 2?: string, 3?: string}> $warnings  [text, url, link text, action that dismisses it]
+ * @var list<array{0: string, 1: string, 2?: string, 3?: string, 4?: string}> $warnings  [text, url, link text, action that dismisses it, its button]
  * @var list<array<string, mixed>> $enquiries
  * @var list<array{druh: string, titulek: string, kdy: string, url: string, stav: string}> $edited
  * @var array<string, mixed>|null $ask "Ask Claude" (3.1), null without the Requests section or the Claude connection
@@ -30,7 +30,7 @@
 <?php foreach ($warnings as $w): [$text, $url] = $w; ?>
 <div class="hlaska hlaska-varovani hlaska-akce"><p><?= e($text) ?></p>
 	<p class="navigace-radek"><a class="navigace" href="<?= e($url) ?>"><?= e($w[2] ?? t('Fix')) ?></a><?php if (isset($w[3])): ?>
-		<form class="vradku" method="post" action="<?= e($w[3]) ?>"><?= $app->session->csrfField() ?><input type="hidden" name="zpet" value="prehled"><button class="navigace" type="submit"><?= e(t('Ignore all')) ?></button></form><?php endif ?></p>
+		<form class="vradku" method="post" action="<?= e($w[3]) ?>"><?= $app->session->csrfField() ?><input type="hidden" name="zpet" value="prehled"><button class="navigace" type="submit"><?= e($w[4] ?? t('Ignore all')) ?></button></form><?php endif ?></p>
 </div>
 <?php endforeach ?>
 <?php if ($connect !== null): // until Claude is connected: Connect Claude, then First steps, Ask Claude below (3.5) ?>
