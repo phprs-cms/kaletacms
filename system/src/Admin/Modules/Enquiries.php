@@ -22,6 +22,12 @@ final class Enquiries extends Module
     public const array STATUSES = [0 => 'nová', 1 => 'přečtená', 2 => 'vyřízená'];
     private const int PER_PAGE = 50;
 
+    /** 3.15: new enquiries (not opened yet), as on the Dashboard. */
+    public static function badge(\Kaleta\Core\App $app): int
+    {
+        return (int) $app->db()->value('SELECT COUNT(*) FROM {poptavky} WHERE stav = 0');
+    }
+
     protected function actionList(): Response
     {
         \Kaleta\Core\Jobs::purgeApplications($this->app); // applications to job openings have their own, usually shorter, retention (2.11)

@@ -3699,6 +3699,17 @@ expect "signature: a hidden record is never linked by the e-mail, only by an adm
   "$(sig_page '&tab=signature'; grep -q 'Požádejte správce, aby vás propojil' "$WORK/response" && ! grep -q 'Eva Skrytá\|eva@example.cz' "$WORK/response" && echo ' ok')" "200 ok"
 sq "DELETE FROM ka_uzivatele WHERE idu = $SIG_USER" > /dev/null
 
+echo "== 3.15: the admin menu shows how many things wait (owner: a new enquiry was invisible from the menu)"
+sq "INSERT INTO ka_poptavky (datum, formular, stranka, email, data, stav) VALUES ('$(site_time)', 'Badge 315', '/kontakt', 'badge315@example.cz', '[]', 0)" > /dev/null
+NEW315=$(sq "SELECT COUNT(*) FROM ka_poptavky WHERE stav = 0")
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=pages"
+menu_badge315() { perl -0ne 'if (m{module=enquiries"[^>]*>(.*?)</a>}s) { my $a = $1; print $1 if $a =~ m{class="menu-pocet" aria-hidden="true">([0-9+]+)<}; }' "$WORK/response"; }
+expect "3.15: Enquiries in the menu carries the number of new enquiries, with a text for screen readers" "$(menu_badge315)|$(grep -c 'class="navod-skryte"> – nové: ' "$WORK/response")" "$NEW315|1"
+sq "UPDATE ka_poptavky SET stav = 1 WHERE stav = 0" > /dev/null
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=pages"
+expect "3.15: … and none once they have been opened" "$(menu_badge315)" ""
+sq "DELETE FROM ka_poptavky WHERE email = 'badge315@example.cz'" > /dev/null
+
 echo "== 2.10: true until and review by"
 YESTERDAY=$(site_time "-1 day" "Y-m-d"); TODAY=$(site_time now "Y-m-d")
 # a visible page and a published news item that were true until yesterday and ask for a review today, a pop-up with a review due

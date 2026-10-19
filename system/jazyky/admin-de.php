@@ -6286,4 +6286,6 @@ return [
     '“The same address in every language” is on, and no address is shared yet' => '„Dieselbe Adresse in jeder Sprache“ ist eingeschaltet, und noch wird keine Adresse geteilt',
     '%d address(es) are shared by versions in different languages – allowed, “The same address in every language” is on, as it will be for every site in Kaleta 4.0' => '%d Adresse(n) werden von Versionen in verschiedenen Sprachen geteilt – erlaubt, „Dieselbe Adresse in jeder Sprache“ ist eingeschaltet, wie in Kaleta 4.0 für jede Website',
     '%d address(es) are shared by versions in different languages although “The same address in every language” is off – Kaleta 4.0 allows it, nothing to do' => '%d Adresse(n) werden von Versionen in verschiedenen Sprachen geteilt, obwohl „Dieselbe Adresse in jeder Sprache“ ausgeschaltet ist – Kaleta 4.0 erlaubt das, nichts zu tun',
+    // 3.15: the count next to a menu item, read by screen readers
+    '%d new' => 'neu: %d',
 ];
