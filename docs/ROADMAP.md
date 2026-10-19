@@ -796,6 +796,11 @@ each other in To – and a new *Hidden copy (Bcc)* field adds recipients that ar
 message to a list of addresses (`Mail::addresses`, a single invalid address refuses the whole list); with `mail()` the Bcc
 header is left to the server's sendmail, with SMTP it never goes out.
 
+**3.15.3 (19 October 2026):** **News text inside a wrapper keeps its spacing:** the build's reset of heading and paragraph
+margins also reached the system content in the *Page content* element of the news item, news list and 404 wrappers, so
+paragraphs, lists and figures of a news article were glued together. The reset now skips everything inside `.obsah`
+(zero specificity kept) and the content looks the same as without the wrapper.
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |
