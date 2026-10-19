@@ -9,7 +9,9 @@ use Kaleta\Core\Db;
 
 /**
  * Publishing a build draft (page, site part, collection, component or popup) – from the editor and from MCP. The previous published version goes to the history
- * (ka_stavba_revize, the last 20 for each target), the site cache is cleared.
+ * (ka_stavba_revize, the last 20 for each target), the site cache is cleared. Only a person or a connection that may publish
+ * gets here, so the files waiting for approval the build uses – its own and those of the shared classes it lists – go public
+ * with it (Core\MediaStaging::promoteBuild).
  */
 final class Publisher
 {
@@ -27,6 +29,7 @@ final class Publisher
         $now = date('Y-m-d H:i:s');
         $app->db()->run('UPDATE {stranky} SET zobrazit = 1, show_on_publish = 0, zverejnit_od = NULL WHERE ids = ? AND show_on_publish = 1 AND smazano IS NULL AND (zverejnit_od IS NULL OR zverejnit_od <= ?)', [$page['ids'], $now]);
         $app->db()->run('UPDATE {stranky} SET show_on_publish = 0 WHERE ids = ? AND show_on_publish = 1 AND zverejnit_od > ?', [$page['ids'], $now]);
+        \Kaleta\Core\MediaStaging::promoteBuild($app->db(), (string) $new); // 3.15: its waiting files and those of its classes (N315-1)
         \Kaleta\Front\Cache::clear();
     }
 
@@ -36,6 +39,7 @@ final class Publisher
         $variant = (string) ($row['varianta'] ?? '');
         self::version($app, ['cast' => SiteParts::versionKey($row['typ'], $row['jazyk'], $variant)], $row['stavba'], $new, $row['zmeneno'] ?? null);
         $app->db()->update('casti', ['stavba' => $new, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['typ' => $row['typ'], 'jazyk' => $row['jazyk'], 'varianta' => $variant]);
+        \Kaleta\Core\MediaStaging::promoteBuild($app->db(), (string) $new); // 3.15: its waiting files and those of its classes (N315-1)
         \Kaleta\Front\Cache::clear();
     }
 
@@ -48,6 +52,7 @@ final class Publisher
         $new = $collection['stavba_koncept'] ?? $collection['stavba'];
         self::version($app, ['cast' => Collections::templateKey($collection)], $collection['stavba'], $new, $collection['zmeneno'] ?? null);
         Collections::writeTemplate($app->db(), $collection, ['stavba' => $new, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')]);
+        \Kaleta\Core\MediaStaging::promoteBuild($app->db(), (string) $new); // 3.15: its waiting files and those of its classes (N315-1)
         \Kaleta\Front\Cache::clear();
     }
 
@@ -57,6 +62,7 @@ final class Publisher
         $new = $popup['stavba_koncept'] ?? $popup['stavba'];
         self::version($app, ['cast' => 'popup:' . (int) $popup['idpp']], $popup['stavba'], $new, $popup['zmeneno'] ?? null);
         $app->db()->update('popupy', ['stavba' => $new, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['idpp' => $popup['idpp']]);
+        \Kaleta\Core\MediaStaging::promoteBuild($app->db(), (string) $new); // 3.15: its waiting files and those of its classes (N315-1)
         \Kaleta\Front\Cache::clear();
     }
 
@@ -66,6 +72,7 @@ final class Publisher
         $new = $component['stavba_koncept'] ?? $component['stavba'];
         self::version($app, ['cast' => 'komponenta:' . (int) $component['idm']], $component['stavba'], $new, $component['zmeneno'] ?? null);
         $app->db()->update('komponenty', ['stavba' => $new, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['idm' => $component['idm']]);
+        \Kaleta\Core\MediaStaging::promoteBuild($app->db(), (string) $new); // 3.15: its waiting files and those of its classes (N315-1)
         \Kaleta\Front\Cache::clear();
     }
 

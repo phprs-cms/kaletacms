@@ -67,12 +67,13 @@ if ($user !== null) {
 	<nav class="menu-obal" aria-label="<?= e(t('Main menu')) ?>">
 	<ul class="menu" id="menu">
 		<li class="menu-prehled<?= $onDashboard ? ' aktivni' : '' ?>"><a href="<?= e($app->url('admin.php')) ?>"<?= $onDashboard ? ' aria-current="page"' : '' ?>><?= $icon('prehled') ?><?= e(t('Dashboard')) ?></a></li>
-<?php $group = ''; $inMenu = isset($modules[$active]) && $modules[$active]::PARENT !== '' ? $modules[$active]::PARENT : $active; ?>
+<?php $group = ''; $waiting = 0; $inMenu = isset($modules[$active]) && $modules[$active]::PARENT !== '' ? $modules[$active]::PARENT : $active; ?>
 <?php foreach ($modules as $ident => $class): if ($class::PARENT !== '' && isset($modules[$class::PARENT])) { continue; } ?>
 <?php if ($class::GROUP !== $group): $group = $class::GROUP; ?>
 		<li class="menu-skupina" aria-hidden="true"><?= e(t($group)) ?></li>
 <?php endif ?>
-		<li<?= $ident === $inMenu ? ' class="aktivni"' : '' ?>><a href="<?= e($app->url('admin.php?module=' . $ident)) ?>"<?= $ident === $inMenu ? ' aria-current="page"' : '' ?>><?= $icon($class::ICON) ?><?= e(t($class::NAME)) ?></a></li>
+<?php try { $badge = $class::badge($app); } catch (\Throwable) { $badge = 0; } $waiting += $badge; // 3.15: a count never breaks the menu ?>
+		<li<?= $ident === $inMenu ? ' class="aktivni"' : '' ?>><a href="<?= e($app->url('admin.php?module=' . $ident)) ?>"<?= $ident === $inMenu ? ' aria-current="page"' : '' ?>><?= $icon($class::ICON) ?><?= e(t($class::NAME)) ?><?php if ($badge > 0): ?> <span class="menu-pocet" aria-hidden="true"><?= $badge > 99 ? '99+' : $badge ?></span><span class="navod-skryte"> – <?= e(t('%d new', $badge)) ?></span><?php endif ?></a></li>
 <?php endforeach ?>
 		<li class="menu-web"><a href="<?= e($app->url('')) ?>" target="_blank" rel="noopener"><?= $icon('web') ?><?= e(t('Zobrazit web')) ?></a></li>
 		<li class="menu-logout"><form method="post" action="<?= e($app->url('admin.php?action=logout')) ?>"><?= $app->session->csrfField() ?><button type="submit"><?= $icon('odhlasit') ?><?= e(t('Sign out')) ?></button></form></li>

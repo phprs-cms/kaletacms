@@ -24,6 +24,10 @@ $accessNames = array_map(fn (string $label): string => t($label), Kaleta\Front\O
 </ol>
 <p class="napoveda"><?= e(t('In Claude Code, just run:')) ?> <code>claude mcp add --transport http kaleta <?= e($mcpUrl) ?></code>. <?= e(t('Connected applications and personal tokens for other tools are in')) ?> <a href="<?= e($app->url('admin.php?action=account#claude')) ?>"><?= e(t('My account')) ?></a>.
 <?= e(t('In a subfolder, the Claude app finds the sign-in on its own; for a tool that does not, use a personal token.')) ?></p>
+<?php if (!empty($instructionsChange)): // 3.15 (N44): the last change, shown once to the administrator who opens the settings ?>
+<div class="hlaska hlaska-varovani" id="zmena-pokynu"><p><?= e(t('The instructions for Claude changed – check them.')) ?> <?= e(Kaleta\Core\ClaudeInstructions::who($instructionsChange)) ?></p>
+	<details><summary><?= e(t('Before the change')) ?></summary><p style="white-space:pre-wrap"><?= e($instructionsChange['old'] !== '' ? $instructionsChange['old'] : t('(empty)')) ?></p></details></div>
+<?php endif ?>
 <div class="radek">
 	<label for="claude_instructions"><?= e(t('Instructions for Claude')) ?></label>
 	<div><textarea class="textpole siroke" id="claude_instructions" name="claude_instructions" rows="6" maxlength="5000" placeholder="<?= e(t('e.g. We address customers informally. Say “renovation”, never “reconstruction”. Keep headings short. Always offer a free visit.')) ?>"><?= e($values['claude_instructions']) ?></textarea>

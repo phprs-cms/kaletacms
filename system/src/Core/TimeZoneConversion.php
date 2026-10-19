@@ -56,7 +56,7 @@ final class TimeZoneConversion
     public const array INSTANTS = [
         'uzivatele' => ['blokovano_automaticky', 'zamceno_do', 'obnova_cas', 'posledni_login', 'potvrzeno'],
         'novinky' => ['datum', 'zmeneno', 'aktualizovano', 'oznameno', 'odkazy_cas', 'smazano'],
-        'media' => ['datum'],
+        'media' => ['datum', 'staged_at'],
         'kontrola_ip' => ['cas'],
         'novinky_revize' => ['datum'],
         'stranky' => ['zverejnit_od', 'zmeneno', 'links_checked', 'smazano'],
@@ -239,7 +239,7 @@ final class TimeZoneConversion
         }
         $plan = [];
         foreach (array_keys(self::INSTANTS) as $table) {
-            if (isset($sizes[$physical = $db->prefix . Names::physical($table)])) {
+            if (isset($sizes[$physical = $db->tableName($table)])) {
                 $plan[] = [$table, self::primaryKey($db, $table), $sizes[$physical]];
             }
         }
@@ -476,7 +476,7 @@ final class TimeZoneConversion
     {
         $rows = $db->all("SELECT k.COLUMN_NAME, c.DATA_TYPE FROM information_schema.KEY_COLUMN_USAGE k JOIN information_schema.COLUMNS c
             ON c.TABLE_SCHEMA = k.TABLE_SCHEMA AND c.TABLE_NAME = k.TABLE_NAME AND c.COLUMN_NAME = k.COLUMN_NAME
-            WHERE k.TABLE_SCHEMA = DATABASE() AND k.TABLE_NAME = ? AND k.CONSTRAINT_NAME = 'PRIMARY' ORDER BY k.ORDINAL_POSITION", [$db->prefix . Names::physical($table)]);
+            WHERE k.TABLE_SCHEMA = DATABASE() AND k.TABLE_NAME = ? AND k.CONSTRAINT_NAME = 'PRIMARY' ORDER BY k.ORDINAL_POSITION", [$db->tableName($table)]);
 
         return array_map(fn (array $r): array => [(string) $r['COLUMN_NAME'], in_array(strtolower((string) $r['DATA_TYPE']), ['tinyint', 'smallint', 'mediumint', 'int', 'bigint'], true)], $rows);
     }

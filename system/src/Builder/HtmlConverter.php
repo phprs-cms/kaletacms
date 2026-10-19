@@ -96,6 +96,12 @@ final class HtmlConverter
                 $messages[] = 'Class .' . $className . ' changed in the draft look – the site shows it after publish_look.';
                 continue;
             }
+            if ($settings !== null && \Kaleta\Core\MediaStaging::classInPublishedBuild($db, $className)) {
+                // 3.15 (N315-1): a published page already lists the name, so a new class would change it at once – draft look
+                \Kaleta\Core\Look::setClass($settings, $className, ['styl' => $conversion['tridy_styl'][$className] ?? [], 'css' => $conversion['tridy'][$className] ?? ''], true);
+                $messages[] = 'Class .' . $className . ' is used by published content, so it waits in the draft look – the site shows it after publish_look.';
+                continue;
+            }
             $style = (string) json_encode($conversion['tridy_styl'][$className] ?? new \stdClass(), JSON_UNESCAPED_UNICODE);
             $db->run('INSERT INTO {tridy} (nazev, styl, css, zmeneno) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE styl = VALUES(styl), css = VALUES(css), zmeneno = VALUES(zmeneno)',
                 [$className, $style, $conversion['tridy'][$className] ?? '', \Kaleta\Core\Clock::now()]);

@@ -17,6 +17,7 @@ trait NotebookTools
     /** read_notebook */
     private function toolReadNotebook(string $name, array $a): mixed
     {
+        $this->notebookAccess(); // 3.15 (N71): reading needs the Notebook section too, as in the administration
         $topic = isset($a['topic']) && (string) $a['topic'] !== '' ? Notebook::topic($a['topic']) : '';
         if ($topic === null) {
             throw new \DomainException('The topic must be one of: ' . implode(', ', array_keys(Notebook::TOPICS)) . '.');
@@ -53,7 +54,7 @@ trait NotebookTools
         return ['deleted' => $id, 'count' => Notebook::summary($this->app->db())['count']];
     }
 
-    /** Writing needs the Notebook section (administrators always have it; editors and authors when their role gives it). */
+    /** Reading and writing need the Notebook section (administrators always have it; editors and authors when their role gives it). */
     private function notebookAccess(): void
     {
         if (!$this->app->auth()->hasModule('notebook')) {

@@ -401,6 +401,18 @@ final class Build
         return \Kaleta\Core\Html::inner($body); // attribute values without a raw < or >
     }
 
+    /**
+     * CSS as the browser reads it, for the checks of codeNode() (3.15, N48): escapes decoded (@\69mport is @import,
+     * java\script is javascript) and comments dropped. Only checked, never written – the code stays as typed.
+     */
+    private static function cssPlain(string $css): string
+    {
+        $css = (string) preg_replace('#/\*.*?(\*/|$)#s', '', $css);
+        $css = (string) preg_replace_callback('/\\\\([0-9a-fA-F]{1,6})[ \t\r\n\f]?/', fn (array $m): string => mb_chr(max(1, min(0x10FFFF, (int) hexdec($m[1])))) ?: '', $css);
+
+        return (string) preg_replace('/\\\\(.)/su', '$1', $css);
+    }
+
     private static function codeNode(\Dom\Node $node): void
     {
         foreach (iterator_to_array($node->childNodes) as $n) {
@@ -412,7 +424,7 @@ final class Build
             if (!$n instanceof \Dom\Element) {
                 continue;
             }
-            if (strtolower($n->localName) === 'style' && preg_match('/javascript:|expression\s*\(|@import|behavior\s*:|-moz-binding/i', (string) $n->textContent)) {
+            if (strtolower($n->localName) === 'style' && preg_match('/javascript:|expression\s*\(|@import|behavior\s*:|-moz-binding/i', self::cssPlain((string) $n->textContent))) {
                 $n->remove();
                 continue;
             }
@@ -421,7 +433,7 @@ final class Build
                 $ok = !str_starts_with($name, 'on') && $name !== 'srcdoc' && $name !== 'http-equiv'
                     && (!in_array($name, self::CODE_URLS, true) && !str_ends_with($name, ':href') || WpContent::isSafeUrl($a->value) || trim($a->value) === '')
                     && ($name !== 'srcset' || !preg_match('/(javascript|data|vbscript):/i', $a->value))
-                    && ($name !== 'style' || !preg_match('/javascript:|expression\s*\(|behavior\s*:|-moz-binding|url\s*\(\s*["\']?\s*(javascript|data|vbscript):/i', $a->value))
+                    && ($name !== 'style' || !preg_match('/javascript:|expression\s*\(|behavior\s*:|-moz-binding|url\s*\(\s*["\']?\s*(javascript|data|vbscript):/i', self::cssPlain($a->value)))
                     && ($name !== 'attributename' && $name !== 'formtarget');
                 if (!$ok) {
                     $n->removeAttributeNode($a);

@@ -58,6 +58,20 @@ final class Kernel
         Modules\Fleet::class,
     ];
 
+    /**
+     * Requests of the editors' ongoing work (unsaved state, assistant, build draft): they do not change the site, so they
+     * neither clear the page cache nor publish waiting files (admin.php, Core\MediaStaging).
+     */
+    public const array DRAFT_ACTIONS = ['draft', 'assistant', 'build_save', 'preview', 'build_ai_text'];
+
+    /**
+     * 3.15 (N315-5): the sections whose changes can put content on the site (pages, news, collections, the look, settings,
+     * the author box of My account…). Only their changes look for waiting files published content now uses (admin.php,
+     * Core\MediaStaging::promotePublished) – a save in Enquiries or Users never pays for that scan.
+     */
+    public const array PUBLISHING_MODULES = ['pages', 'news', 'collections', 'categories', 'tags', 'parts', 'popups', 'components', 'menu',
+        'appearance', 'business', 'settings', 'facts', 'bookings', 'newsletters', 'media', 'blueprints', 'transfer', 'extensions', 'changelog', 'users'];
+
     public function __construct(public readonly App $app)
     {
     }
@@ -82,7 +96,7 @@ final class Kernel
 
         // every change in the admin invalidates the site page cache; the editors' ongoing requests (unsaved state, assistant,
         // build draft) do not change the site - if they cleared the cache, it would be cold all the time during work
-        if ($request->isPost() && !in_array($request->get('action'), ['draft', 'assistant', 'build_save', 'preview', 'build_ai_text'], true)) {
+        if ($request->isPost() && !in_array($request->get('action'), self::DRAFT_ACTIONS, true)) {
             \Kaleta\Front\Cache::clear();
         }
         $action = $request->get('action');
@@ -158,8 +172,11 @@ final class Kernel
             return Response::redirect($app->url('admin.php'));
         }
         if ($ident === '') {
-            $newVersion = $app->auth()->isAdmin() ? (new \Kaleta\Core\Updater($app->settings()))->state()['nova'] : null;
-            if ($newVersion !== null) {
+            $update = $app->auth()->isAdmin() ? (new \Kaleta\Core\Updater($app->settings()))->state() : null;
+            $newVersion = $update['nova'] ?? null;
+            // 3.15: a regular release waiting for BEHIND_DAYS and more is the quiet prompt among the warnings below instead
+            $behind = $update !== null && empty($newVersion['bezpecnostni']) && (\Kaleta\Core\Updater::behindDays($update) ?? 0) >= \Kaleta\Core\Updater::BEHIND_DAYS;
+            if ($newVersion !== null && !$behind) {
                 // the text is translated here (with the version number); the menu path is turned into a link only when the message is rendered (Admin\MenuPaths)
                 $app->session->flash(!empty($newVersion['bezpecnostni']) ? 'chyba' : 'info', !empty($newVersion['bezpecnostni'])
                     ? t('A SECURITY update %s is available – install it in Settings → Backups and updates.', (string) $newVersion['verze'])
@@ -247,7 +264,20 @@ final class Kernel
                     $this->app->url('admin.php?module=redirects#nenalezeno'), t('Review the addresses'), $this->app->url('admin.php?module=redirects&action=ignore_all')];
             }
         }
+        if ($this->app->auth()->isAdmin() && ($instructions = \Kaleta\Core\ClaudeInstructions::notice($this->app->settings())) !== null) {
+            // 3.15 (N44): every connection gets the instructions – a change by anyone (a Claude connection too) is checked by a person
+            $warnings[] = [t('The instructions for Claude changed – check them.') . ' ' . \Kaleta\Core\ClaudeInstructions::who($instructions),
+                $this->app->url('admin.php?module=claude_settings#zmena-pokynu'), t('Open Claude settings'), $this->app->url('admin.php?module=claude_settings&action=instructions_seen'), t('Dismiss')];
+        }
         if ($this->app->auth()->isAdmin()) {
+            // 3.15: security fixes land only in the newest release (no support window for older ones) – a site that has not
+            // updated for BEHIND_DAYS is reminded here, quietly, until it does; no e-mail
+            $update = (new \Kaleta\Core\Updater($this->app->settings()))->state(); // remembered by the check above
+            $behind = \Kaleta\Core\Updater::behindDays($update);
+            if ($behind !== null && $behind >= \Kaleta\Core\Updater::BEHIND_DAYS && empty($update['nova']['bezpecnostni'])) {
+                $warnings[] = [t('Version %s has been available for %d days and this site still runs %s. Security fixes come out only in the newest release, so keep the site up to date.', (string) $update['nova']['verze'], $behind, KALETA_VERSION),
+                    $this->app->url('admin.php?module=settings&tab=backups'), t('Update')];
+            }
             $backup = \Kaleta\Core\Backup::listAll()[0]['cas'] ?? 0;
             if (time() - $backup > 8 * 86400) {
                 $warnings[] = [$backup === 0 ? t('The site has no database backup yet.') : t('The last database backup is from %s.', format_date(date('Y-m-d H:i:s', $backup))), $this->app->url('admin.php?module=settings&tab=backups')];
@@ -298,7 +328,7 @@ final class Kernel
             'counts' => array_filter([
                 // drafts of news authors wait for an editor – the tile only when there are some
                 'News from authors awaiting publication' => isset($modules['news']) && ($pending = Modules\News::countAwaitingPublication($this->app)) > 0 ? [$pending, 'admin.php?module=news&status=ke_vydani'] : null,
-                'New enquiries' => isset($modules['enquiries']) ? [(int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE stav = 0'), 'admin.php?module=enquiries'] : null,
+                'New enquiries' => isset($modules['enquiries']) ? [Modules\Enquiries::countNew($db), 'admin.php?module=enquiries'] : null, // spam left out, as in the list (N315-10)
                 'Published pages' => isset($modules['pages']) ? [(int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL'), 'admin.php?module=pages'] : null,
                 'Pages with unpublished changes' => isset($modules['pages']) ? [(int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE stavba_koncept IS NOT NULL AND smazano IS NULL'), 'admin.php?module=pages'] : null,
                 'Published news' => isset($modules['news']) ? [(int) $db->value("SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= ?{$scope}", [\Kaleta\Core\Clock::now()]), 'admin.php?module=news&status=vydane'] : null,

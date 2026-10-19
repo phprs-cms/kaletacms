@@ -10,9 +10,10 @@
  * @var int $pageCount
  * @var int $total
  * @var string $limit
- * @var array{section: ?int, article: int, unused: bool, search: string, sort: string} $filter
+ * @var array{section: ?int, article: int, unused: bool, staged: bool, search: string, sort: string} $filter
  * @var list<array<string, mixed>> $folders
  * @var string|null $newsItem  title of the news item used as the filter
+ * @var int $stagedCount  files waiting for approval (3.15, Core\MediaStaging)
  */
 $activeFolder = null;
 foreach ($folders as $s) {
@@ -20,15 +21,19 @@ foreach ($folders as $s) {
         $activeFolder = $s;
     }
 }
-$params = array_filter(['section' => $filter['section'], 'article' => $filter['article'] ?: null, 'unused' => $filter['unused'] ? 1 : null,
+$params = array_filter(['section' => $filter['section'], 'article' => $filter['article'] ?: null, 'unused' => $filter['unused'] ? 1 : null, 'staged' => $filter['staged'] ? 1 : null,
     'search' => $filter['search'] !== '' ? $filter['search'] : null, 'sort' => $filter['sort'] !== 'nove' ? $filter['sort'] : null], fn ($v): bool => $v !== null);
-$isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['unused'];
+$isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['unused'] && !$filter['staged'];
+$canPublish = $app->auth()->canPublish();
 ?>
 <div class="media">
 <nav class="media-slozky" aria-label="<?= e(t('Folders')) ?>">
 	<a href="<?= e($module->url()) ?>"<?= $isAll ? ' class="aktivni"' : '' ?>><?= e(t('All media')) ?></a>
 	<a href="<?= e($module->url('', ['section' => 0])) ?>"<?= $filter['section'] === 0 ? ' class="aktivni"' : '' ?>><?= e(t('Nezařazené')) ?></a>
 	<a href="<?= e($module->url('', ['unused' => 1])) ?>"<?= $filter['unused'] ? ' class="aktivni"' : '' ?>><?= e(t('Unused')) ?></a>
+<?php if ($stagedCount > 0 || $filter['staged']): ?>
+	<a href="<?= e($module->url('', ['staged' => 1])) ?>"<?= $filter['staged'] ? ' class="aktivni"' : '' ?>><?= e(t('Waiting for approval')) ?> <small>(<?= $stagedCount ?>)</small></a>
+<?php endif ?>
 	<a href="<?= e($module->url('cleanup')) ?>"><?= e(t('Clean-up')) ?></a>
 	<strong><?= e(t('Folders')) ?></strong>
 <?php foreach ($folders as $s): ?>
@@ -44,6 +49,9 @@ $isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['un
 <div class="media-obsah">
 <?php if ($newsItem !== null): ?>
 <p class="hlaska"><?= e(t('Images used in the news item “%s”.', $newsItem)) ?> <a href="<?= e($module->url()) ?>"><?= e(t('Show all media')) ?></a></p>
+<?php endif ?>
+<?php if ($filter['staged']): ?>
+<p class="hlaska"><?= e(t('Files Claude uploaded over a connection limited to drafts. They are not public yet: they show in the administration and in draft previews, and go public with the draft that uses them when it is published – or here with Publish file. Files nobody approves are deleted after %d days.', Kaleta\Core\MediaStaging::DAYS)) ?></p>
 <?php endif ?>
 <?php if ($activeFolder !== null): ?>
 <div class="media-slozka-uprava">
@@ -96,6 +104,16 @@ $isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['un
 			<input class="galerie-popis" type="text" value="<?= e((string) $o['nazev']) ?>" maxlength="150" placeholder="<?= e(t('Popis pro nevidomé (alt)')) ?>" aria-label="<?= e(t('Description of image %s', $o['nazev'])) ?>" data-popis-media="<?= (int) $o['ido'] ?>" data-adresa="<?= e($module->url('save_caption')) ?>" form="">
 <?php endif ?>
 			<span><label><input type="checkbox" name="oznacene[]" value="<?= (int) $o['ido'] ?>"> <?= e(t('označit')) ?></label> &middot; <a href="<?= e($module->url('list', $params + ['edit' => $o['ido'], 'page' => $pageNumber])) ?>#uprav"><?= e(t('description')) ?></a></span>
+<?php if ($o['staged_at'] !== null): ?>
+<?php $deadline = strtotime((string) $o['staged_at']) + Kaleta\Core\MediaStaging::DAYS * 86400; // past it, live content keeps the file (N315-4) ?>
+			<span><span class="stitek stitek-koncept" title="<?= e($deadline < time() ? t('Kept after %d days because live content uses it – publish or delete it.', Kaleta\Core\MediaStaging::DAYS) : t('Deleted on %s unless it is approved.', format_date(date('Y-m-d H:i:s', $deadline)))) ?>"><?= e(t('Waiting for approval')) ?></span></span>
+			<span>
+<?php if ($canPublish): ?>
+				<button class="navigace" type="submit" formaction="<?= e($module->url('approve')) ?>" name="ido" value="<?= (int) $o['ido'] ?>"><?= e(t('Publish file')) ?></button>
+<?php endif ?>
+				<button class="navigace nebezpecne" type="submit" formaction="<?= e($module->url('discard')) ?>" name="ido" value="<?= (int) $o['ido'] ?>" data-potvrdit="<?= e(t('Delete the file? Drafts that use it will show it no more.')) ?>"><?= e(t('Smazat')) ?></button>
+			</span>
+<?php endif ?>
 		</figcaption>
 	</figure>
 <?php endforeach ?>
@@ -129,7 +147,7 @@ $isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['un
 <?php endif ?>
 	<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Uložit')) ?>"></p>
 </form>
-<?php if (preg_match('/\.(jpg|png|webp)$/', $o['obr_poloha'])): ?>
+<?php if (preg_match('/\.(jpg|png|webp)$/', $o['obr_poloha']) && $o['staged_at'] === null): ?>
 <form class="formular" method="post" action="<?= e($module->url('replace')) ?>" enctype="multipart/form-data">
 	<?= $csrf ?>
 	<input type="hidden" name="ido" value="<?= (int) $o['ido'] ?>">

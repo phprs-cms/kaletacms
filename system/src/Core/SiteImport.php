@@ -102,7 +102,9 @@ final class SiteImport
     {
         return $file !== '' && strlen($file) <= 150 && basename($file) === $file && !str_starts_with($file, '.')
             && !preg_match('#[/\\\\\x00-\x1f]#', $file) && in_array(strtolower(pathinfo($file, PATHINFO_EXTENSION)), ['zip', 'json'], true)
-            && !preg_match('/^(kaleta-)?stav-[0-9a-f]{16}\.json$/D', $file); // state files of the imports live in the same folder
+            // state files of the imports live in the same folder: WordPress and Kaleta imports, the website import and the
+            // migration report (3.15, N49), collection items (with their parts)
+            && !preg_match('/^((kaleta-)?stav|web|parita|polozky)-[0-9a-f]{16}(\.[a-z0-9-]+)?\.json$/D', $file);
     }
 
     public static function path(string $file): ?string
@@ -123,7 +125,7 @@ final class SiteImport
     public static function newState(string $file): array
     {
         return ['soubor' => $file, 'faze' => 'priprava', 'hlavicka' => [], 'pocty' => [], 'media_celkem' => 0, 'tabulka' => 0, 'pozice' => 0,
-            'vyprazdneno' => false, 'zaloha' => '', 'media_pozice' => 0, 'vysledek' => [], 'media' => ['ulozeno' => 0, 'preskoceno' => 0], 'chyby' => [], 'zmeny' => [], 'prejmenovane_stranky' => []];
+            'vyprazdneno' => false, 'zaloha' => '', 'media_pozice' => 0, 'vysledek' => [], 'media' => ['ulozeno' => 0, 'preskoceno' => 0], 'chyby' => [], 'zmeny' => [], 'prejmenovane_stranky' => [], 'media_nazvy' => []];
     }
 
     private static function stateFile(string $file): string
@@ -226,12 +228,18 @@ final class SiteImport
             stream_copy_to_stream($in, $out);
             fclose($in);
             fclose($out);
+            $renamed = [];
             for ($i = 0; $i < $zip->numFiles; $i++) {
                 $name = (string) $zip->getNameIndex($i);
-                if (self::mediaTarget($name) !== null) {
+                $target = self::archiveTarget($zip, $name);
+                if ($target !== null) {
                     $mediaCount++;
+                    if ($target !== $name) {
+                        $renamed[$name] = $target; // photo.JPG is saved as photo.jpg – the content follows (renameMedia)
+                    }
                 }
             }
+            $state['media_nazvy'] = $renamed;
             $zip->close();
         } else {
             copy($path, $json);
@@ -394,6 +402,7 @@ final class SiteImport
                     }
                     $done++;
                     $row = json_decode($line, true);
+                    $row = is_array($row) ? self::renameMedia($row, (array) ($state['media_nazvy'] ?? [])) : $row;
                     $ok = is_array($row) && $this->insert($table, $row);
                     $state['vysledek'][$table][$ok ? 'ok' : 'preskoceno'] = ($state['vysledek'][$table][$ok ? 'ok' : 'preskoceno'] ?? 0) + 1;
                 }
@@ -405,7 +414,7 @@ final class SiteImport
         $this->notes = [];
         self::$limitNotes = [];
         if ($state['tabulka'] >= count(self::TABLES)) {
-            $this->applySettings((string) $state['soubor'], (string) ($state['hlavicka']['kaleta'] ?? ''));
+            $this->applySettings((string) $state['soubor'], (string) ($state['hlavicka']['kaleta'] ?? ''), (array) ($state['media_nazvy'] ?? []));
             $state['faze'] = $state['media_celkem'] > 0 ? 'media' : 'hotovo';
             if ($state['faze'] === 'hotovo') {
                 $this->finish();
@@ -1088,10 +1097,15 @@ final class SiteImport
             'ohnisko' => is_string($r['ohnisko'] ?? null) && preg_match('/^(\d{1,3}% \d{1,3}%)?$/D', $r['ohnisko']) ? $r['ohnisko'] : '', 'datum' => self::date($r['datum'] ?? null) ?? date('Y-m-d H:i:s')];
     }
 
-    /** The public settings of the export (the same allowlist the export uses); the address of this site stays. */
-    private function applySettings(string $file, string $fromVersion): void
+    /**
+     * The public settings of the export (the same allowlist the export uses); the address of this site stays.
+     *
+     * @param array<string, string> $renamedMedia archive name => saved name of the media files (renameMedia)
+     */
+    private function applySettings(string $file, string $fromVersion, array $renamedMedia = []): void
     {
         $values = json_decode((string) @file_get_contents(self::workFolder($file) . '/nastaveni.json'), true);
+        $values = is_array($values) ? self::renameMedia($values, $renamedMedia) : $values; // the logo media/x.PNG became media/x.png
         foreach (is_array($values) ? $values : [] as $key => $value) {
             $key = OldSettingsKeys::current((string) $key); // an export of 1.4.0 and older has the old keys
             if (!is_scalar($value) || $key === 'site_url' || (!in_array($key, SiteExport::SETTINGS, true) && Language::settingKey($key, Settings::PER_LANGUAGE) === null)) {
@@ -1145,7 +1159,7 @@ final class SiteImport
         while ($state['media_pozice'] < $total && $done < self::MEDIA_BATCH && microtime(true) - $start < self::SECONDS) {
             $name = (string) $zip->getNameIndex((int) $state['media_pozice']);
             $state['media_pozice']++;
-            $target = self::mediaTarget($name);
+            $target = self::archiveTarget($zip, $name);
             if ($target === null) {
                 continue;
             }
@@ -1162,15 +1176,23 @@ final class SiteImport
                 }
                 $ok = $content !== null && file_put_contents($full, $content) !== false;
             } elseif ($ok) {
-                // streamed: a video or a large PDF does not have to fit in memory
+                // streamed into the working folder first: a video or a large PDF does not have to fit in memory, and the file
+                // reaches media/ only once its content is checked like an upload (3.15, N72)
+                $temporary = self::workFolder((string) $state['soubor']) . '/media-' . bin2hex(random_bytes(6)) . '.tmp';
                 $in = $zip->getStream($name);
-                $out = $in === false ? false : @fopen($full, 'wb');
+                $out = $in === false ? false : @fopen($temporary, 'wb');
                 $ok = $in !== false && $out !== false && stream_copy_to_stream($in, $out) !== false;
                 foreach ([$in, $out] as $handle) {
                     if (is_resource($handle)) {
                         fclose($handle);
                     }
                 }
+                if ($ok && !self::contentMatches($temporary, $target)) {
+                    $ok = false;
+                    $reason = ' – ' . t('The file content does not match its extension.');
+                }
+                $ok = $ok && (@rename($temporary, $full) || (@copy($temporary, $full) && @unlink($temporary)));
+                @unlink($temporary);
             }
             if (!$ok) {
                 $state['media']['preskoceno']++;
@@ -1191,7 +1213,9 @@ final class SiteImport
     /**
      * Where a file from the archive goes; null = it does not belong in media/ or its type is not allowed. Every part of the
      * name after its first dot must be an allowed extension (3.9.2, N67): Kaleta's own photo.jpg.webp passes, photo.php.jpg
-     * does not – Apache runs a handler for an extension wherever it stands in the name, and the bytes are copied unchanged.
+     * does not – Apache runs a handler for an extension wherever it stands in the name. The extensions are written in lower
+     * case (3.15, N72), as Media writes them: route.GPX would miss the download rule of media/.htaccess on an older server
+     * and open inside the site.
      */
     public static function mediaTarget(string $name): ?string
     {
@@ -1199,10 +1223,67 @@ final class SiteImport
             return null;
         }
         $allowed = [...self::MEDIA_EXTENSIONS, ...Files::FILE_EXTENSIONS];
-        $parts = explode('.', strtolower(basename($name)));
+        $base = basename($name);
+        $dot = (int) strpos($base, '.');
+        $parts = explode('.', strtolower($base));
         array_shift($parts); // the name itself
 
-        return $parts !== [] && array_diff($parts, $allowed) === [] ? $name : null;
+        return $parts !== [] && array_diff($parts, $allowed) === [] ? substr($name, 0, -strlen($base) + $dot) . strtolower(substr($base, $dot)) : null;
+    }
+
+    /**
+     * mediaTarget() for an entry of this archive: a name with upper-case extensions whose lower-case twin is in the archive
+     * too is left out – the twin is the file, and the content keeps pointing at it.
+     */
+    private static function archiveTarget(\ZipArchive $zip, string $name): ?string
+    {
+        $target = self::mediaTarget($name);
+
+        return $target === null || ($target !== $name && $zip->locateName($target) !== false) ? null : $target;
+    }
+
+    /**
+     * The content of the export points at the files under their names in the archive; a file saved under lower-case
+     * extensions (mediaTarget) is renamed in every text of the row – a plain path and its JSON-escaped form (media\/…).
+     *
+     * @param array<mixed> $row
+     * @param array<string, string> $renamed archive name => saved name
+     * @return array<mixed>
+     */
+    public static function renameMedia(array $row, array $renamed): array
+    {
+        if ($renamed === []) {
+            return $row;
+        }
+        $pairs = [];
+        foreach ($renamed as $from => $to) {
+            $pairs[(string) $from] = (string) $to;
+            $pairs[str_replace('/', '\\/', (string) $from)] = str_replace('/', '\\/', (string) $to);
+        }
+        array_walk_recursive($row, function (mixed &$value) use ($pairs): void {
+            if (is_string($value) && str_contains($value, 'media')) {
+                $value = strtr($value, $pairs);
+            }
+        });
+
+        return $row;
+    }
+
+    /**
+     * Is the file what its extension says (3.15, N72)? An image must be a JPG, PNG, GIF, WebP, AVIF or ICO image, an attachment
+     * must not be HTML, PHP, a script, SVG or a program (Files::forbiddenContent, as for an upload). The bytes stay as they
+     * are: Kaleta wrote the images and their variants already, and encoding them again would only lose quality.
+     */
+    public static function contentMatches(string $path, string $target): bool
+    {
+        $extension = strtolower(pathinfo($target, PATHINFO_EXTENSION));
+        if (in_array($extension, self::MEDIA_EXTENSIONS, true) && $extension !== 'svg') {
+            $info = @getimagesize($path);
+
+            return $info !== false && in_array($info[2], [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_GIF, IMAGETYPE_WEBP, IMAGETYPE_AVIF, IMAGETYPE_ICO], true);
+        }
+
+        return !Files::forbiddenContent($path);
     }
 
     /** After the import: the search index, the cache and the working files. */

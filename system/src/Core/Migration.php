@@ -14,6 +14,11 @@ namespace Kaleta\Core;
  * again safely. The code of a release before 2.0 that runs an update request knows only the .sql files and moves db_version
  * past a PHP migration without running it; so every PHP migration runs once by its name (data_migrations, 2.2) –
  * whatever db_version says – on the first request of the new code.
+ *
+ * 3.15 (the bridge to 4.0): the files name the tables as they were (`ka_novinky`). On a database whose tables 4.0 already
+ * renamed they are written with the English names (statements(), $english), so a migration of this release that has not
+ * run yet still finds its tables. A database that 4.0 migrated and that was rolled back to 3.15 has a higher db_version
+ * than any file here: nothing runs again, nothing is undone.
  */
 final class Migration
 {
@@ -23,7 +28,7 @@ final class Migration
     private const array ALREADY_APPLIED = [1050, 1060, 1061, 1022, 1826, 1091];
 
     /** The PHP data migrations (NNNN-description.php without the extension); tools/unit-tests.php checks it against the files. */
-    public const array DATA = ['0034-modal-popups', '0073-feature-defaults', '0074-imported-content-recheck', '0084-media-htaccess', '0089-arabic-search-index'];
+    public const array DATA = ['0034-modal-popups', '0073-feature-defaults', '0074-imported-content-recheck', '0084-media-htaccess', '0089-arabic-search-index', '0098-media-htaccess-case'];
 
     /**
      * Is there anything to apply: a newer structure, or a data migration that has not run on this site yet? The public site
@@ -81,6 +86,7 @@ final class Migration
         }
         $applied = [];
         try {
+            $english = $db->detectTableNames(); // 3.15: the names the tables have now (one query, only when something is pending)
             $version = max(1, (int) $db->value("SELECT MAX(CAST(hodnota AS UNSIGNED)) FROM {nastaveni} WHERE promenna IN ('db_version', 'verze_db')"));
             foreach (self::files() as $number => $file) {
                 if ($number <= $version) {
@@ -90,7 +96,7 @@ final class Migration
                     $settings->set('db_version', (string) $number); // runs below with the others that have not run yet
                     continue;
                 }
-                foreach (self::statements((string) file_get_contents($file), $db->prefix) as $sql) {
+                foreach (self::statements((string) file_get_contents($file), $db->prefix, $english) as $sql) {
                     try {
                         $db->pdo()->exec($sql);
                     } catch (\PDOException $e) {
@@ -127,15 +133,17 @@ final class Migration
     }
 
     /**
-     * Splits an SQL script into statements and replaces the prefix "ka_" with the installation's prefix.
+     * Splits an SQL script into statements and replaces the prefix "ka_" with the installation's prefix. $english (3.15): the
+     * database's tables carry their English names (4.0 renamed them) – `ka_novinky` is written as `<prefix>news`.
      *
      * @return list<string>
      */
-    public static function statements(string $sql, string $prefix): array
+    public static function statements(string $sql, string $prefix, bool $english = false): array
     {
         // constraint names must be unique in the database - they get the prefix too
         $sql = preg_replace('/\b((?:CONSTRAINT|DROP FOREIGN KEY)\s+)fk_/', '$1' . $prefix . 'fk_', $sql) ?? $sql;
-        $sql = preg_replace('/\bka_(?=[a-z])/', $prefix, $sql) ?? $sql;
+        $sql = $english ? preg_replace_callback('/\bka_([a-z][a-z0-9_]*)/', fn (array $m): string => $prefix . Names::physical($m[1], true), $sql) ?? $sql
+            : preg_replace('/\bka_(?=[a-z])/', $prefix, $sql) ?? $sql;
         // a statement ends with a semicolon at the end of a line; only a comment may follow the semicolon
         $statements = preg_split('/;[ \t]*(--[^\n]*)?(\r?\n|$)/', $sql) ?: [];
 

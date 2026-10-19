@@ -37,6 +37,22 @@ final class ClaudeSettings extends Settings
         // protected pages are picked from a list (3.12, UX310-19) instead of typing numbers from the editor's address
         $data['protectablePages'] = $this->db->all('SELECT ids, titulek, seo_link, jazyk FROM {stranky} WHERE smazano IS NULL ORDER BY jazyk, poradi, titulek LIMIT 500');
 
+        // 3.15 (N44): opening the settings is looking at the instructions – the change is shown here once, the dashboard notice goes
+        if ($template === 'list' && !$this->request->isPost() && $this->app->auth()->isAdmin()) {
+            $data['instructionsChange'] = \Kaleta\Core\ClaudeInstructions::notice($this->app->settings());
+            \Kaleta\Core\ClaudeInstructions::seen($this->app->settings());
+        }
+
         return parent::view($template, $heading, $data);
+    }
+
+    /** The dashboard notice about changed instructions for Claude is dismissed without opening the settings (3.15, N44). */
+    protected function actionInstructionsSeen(): Response
+    {
+        if ($this->request->isPost()) {
+            \Kaleta\Core\ClaudeInstructions::seen($this->app->settings());
+        }
+
+        return Response::redirect($this->app->url('admin.php'));
     }
 }

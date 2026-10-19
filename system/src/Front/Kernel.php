@@ -26,6 +26,14 @@ use Kaleta\Core\View;
  */
 final class Kernel
 {
+    /**
+     * A private page (the whistleblowing channel, 3.15 N46) talks to this site only: a header or footer with a Custom HTML
+     * embed, an image or a font from another host cannot tell a third party who opened it. The site's own inline scripts
+     * (colour scheme, accessibility toolbar) still run; no address leaves in the Referer either.
+     */
+    public const string PRIVATE_CSP = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; "
+        . "connect-src 'self'; media-src 'self'; frame-src 'none'; object-src 'none'; form-action 'self'; base-uri 'self'; frame-ancestors 'self'";
+
     private readonly View $view;
     private readonly NewsRepository $news;
 
@@ -160,6 +168,12 @@ final class Kernel
 
                 return $this->ruleResponse((string) $target['na_adresu'], (int) $target['typ'] === 410 ? 410 : 301);
             }
+        }
+        // 3.15 (N10): a file waiting for approval (Core\MediaStaging) – for a signed-in user and a draft preview; everyone
+        // else gets the usual 404, unless published content already shows it
+        if (str_starts_with($request->path(), '/media/')
+            && ($staged = \Kaleta\Core\MediaStaging::serve($this->app, $request->path(), fn (): bool => $this->sitePreview || \Kaleta\Core\MediaStaging::hasPreview($this->app), (string) ($_SERVER['HTTP_ACCEPT'] ?? ''))) !== null) {
+            return $staged;
         }
         if (($cached = Cache::load($this->app)) !== null) {
             return $cached;
@@ -1433,8 +1447,12 @@ final class Kernel
             return true;
         }
         $key = $this->app->request->get('preview_key');
+        if ($key === '' || !\Kaleta\Core\Preview::verify($this->app->db(), $this->app->settings(), $target, $key)) {
+            return false;
+        }
+        \Kaleta\Core\MediaStaging::previewCookie($this->app, $key); // 3.15: the preview shows the files that wait for approval too
 
-        return $key !== '' && \Kaleta\Core\Preview::verify($this->app->db(), $this->app->settings(), $target, $key);
+        return true;
     }
 
     private function siteParts(string $content, array $meta, string $languageSwitcher, string $path): array
@@ -1679,6 +1697,10 @@ final class Kernel
         // were at the moment of saving
         if ($status === 200 && empty($meta['noindex']) && $this->app->request->get('preview') === '' && !($this->context?->withoutCache ?? false)) {
             Cache::save($this->app, $html, $newsItem === null ? null : (int) $newsItem['idc']);
+        }
+
+        if (!empty($meta['soukroma'])) {
+            return new Response($html, $status, ['Content-Type' => 'text/html; charset=utf-8', 'Content-Security-Policy' => self::PRIVATE_CSP, 'Referrer-Policy' => 'no-referrer']);
         }
 
         return Response::html($html, $status);

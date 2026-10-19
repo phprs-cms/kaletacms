@@ -42,24 +42,28 @@ final class Images
      * An image that already lies on the server (downloaded during an import from WordPress): it goes the same way as an uploaded one,
      * so it is indistinguishable from it - re-encoding through GD, shrinking, thumbnail, WebP. The source file stays in place.
      *
+     * With $staged (3.15) the files go to the staging area outside the web root (Core\MediaStaging) instead of media/; the
+     * returned paths are the public ones the files get once approved.
+     *
      * @return array{obr_poloha:string, obr_width:int, obr_height:int, obr_vel:int, nahl_poloha:string, nahl_width:int, nahl_height:int, nazev:string}
      * @throws \RuntimeException with a Czech message for the user
      */
-    public static function saveFile(string $path, string $name): array
+    public static function saveFile(string $path, string $name, bool $staged = false): array
     {
         if (!is_file($path)) {
             throw new \RuntimeException('The file could not be uploaded.');
         }
 
-        return self::process($path, $name, false);
+        return self::process($path, $name, false, $staged);
     }
 
     /**
      * @param bool $uploaded the file came through a form (it is moved with move_uploaded_file); otherwise it is only copied
      * @return array{obr_poloha:string, obr_width:int, obr_height:int, obr_vel:int, nahl_poloha:string, nahl_width:int, nahl_height:int, nazev:string}
      */
-    private static function process(string $tmp, string $fileName, bool $uploaded): array
+    private static function process(string $tmp, string $fileName, bool $uploaded, bool $staged = false): array
     {
+        $disk = fn (string $mediaPath): string => MediaStaging::absolute($mediaPath, $staged);
         if (!extension_loaded('gd')) {
             throw new \RuntimeException('The GD extension for image processing is missing on the server.');
         }
@@ -74,7 +78,7 @@ final class Images
         $extension = self::TYPES[$info[2]];
         $name = pathinfo($fileName, PATHINFO_FILENAME);
         $folder = 'media/' . date('Y/m');
-        if (!is_dir(KALETA_ROOT . '/' . $folder) && !mkdir(KALETA_ROOT . '/' . $folder, 0775, true)) {
+        if (!is_dir($disk($folder)) && !mkdir($disk($folder), 0775, true)) {
             throw new \RuntimeException(t('The folder %s cannot be created – check the write permissions.', $folder));
         }
         $base = $folder . '/' . slugify($name, 60) . '-' . bin2hex(random_bytes(3));
@@ -82,10 +86,10 @@ final class Images
         if ($extension === 'gif') {
             // a GIF can be animated - it is saved unchanged, the thumbnail is the first frame
             $target = $base . '.gif';
-            if (!($uploaded ? move_uploaded_file($tmp, KALETA_ROOT . '/' . $target) : copy($tmp, KALETA_ROOT . '/' . $target))) {
+            if (!($uploaded ? move_uploaded_file($tmp, $disk($target)) : copy($tmp, $disk($target)))) {
                 throw new \RuntimeException('The file could not be saved.');
             }
-            $image = imagecreatefromgif(KALETA_ROOT . '/' . $target);
+            $image = imagecreatefromgif($disk($target));
             [$w, $h] = [$info[0], $info[1]];
         } else {
             $image = @imagecreatefromstring((string) file_get_contents($tmp));
@@ -96,11 +100,11 @@ final class Images
             $image = self::shrink($image, self::MAX_SIDE);
             [$w, $h] = [imagesx($image), imagesy($image)];
             $target = $base . '.' . $extension;
-            self::write($image, KALETA_ROOT . '/' . $target, $extension);
-            self::webp($image, KALETA_ROOT . '/' . $target, $extension);
+            self::write($image, $disk($target), $extension);
+            self::webp($image, $disk($target), $extension);
             if (self::ratio($w, $h, self::MEDIUM_SIDE) < 1.0) {
                 $medium = self::shrink($image, self::MEDIUM_SIDE);
-                $mediumPath = KALETA_ROOT . '/' . $base . '-1200.' . $extension;
+                $mediumPath = $disk($base . '-1200.' . $extension);
                 self::write($medium, $mediumPath, $extension);
                 self::webp($medium, $mediumPath, $extension);
             }
@@ -109,11 +113,11 @@ final class Images
         $preview = self::shrink($image, self::THUMBNAIL_SIDE);
         $thumbnailExtension = $extension === 'gif' ? 'png' : $extension;
         $thumbnailPath = $base . '-nahled.' . $thumbnailExtension;
-        self::write($preview, KALETA_ROOT . '/' . $thumbnailPath, $thumbnailExtension);
-        self::webp($preview, KALETA_ROOT . '/' . $thumbnailPath, $thumbnailExtension);
+        self::write($preview, $disk($thumbnailPath), $thumbnailExtension);
+        self::webp($preview, $disk($thumbnailPath), $thumbnailExtension);
 
         return [
-            'obr_poloha' => $target, 'obr_width' => $w, 'obr_height' => $h, 'obr_vel' => (int) filesize(KALETA_ROOT . '/' . $target),
+            'obr_poloha' => $target, 'obr_width' => $w, 'obr_height' => $h, 'obr_vel' => (int) filesize($disk($target)),
             'nahl_poloha' => $thumbnailPath, 'nahl_width' => imagesx($preview), 'nahl_height' => imagesy($preview),
             'nazev' => mb_substr(trim(str_replace(['_', '-'], ' ', $name)), 0, 150),
         ];
@@ -197,8 +201,11 @@ final class Images
             }
             // together with the image its variants for srcset and WebP are removed too
             foreach ([$path, $path . '.webp', $path . '.avif', $m[1] . '-1200.' . $m[2], $m[1] . '-1200.' . $m[2] . '.webp', $m[1] . '-1200.' . $m[2] . '.avif'] as $file) {
-                if (is_file(KALETA_ROOT . '/' . $file)) {
-                    unlink(KALETA_ROOT . '/' . $file);
+                // also the copy waiting for approval (3.15, Core\MediaStaging)
+                foreach ([KALETA_ROOT . '/' . $file, MediaStaging::absolute($file, true)] as $disk) {
+                    if (is_file($disk)) {
+                        unlink($disk);
+                    }
                 }
             }
         }

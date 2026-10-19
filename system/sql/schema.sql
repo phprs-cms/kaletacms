@@ -162,10 +162,12 @@ CREATE TABLE ka_media (
     barva       CHAR(7) NOT NULL DEFAULT '',               -- dominant color (#rrggbb) as a placeholder before loading; '' = not computed, '-' = cannot be determined
     ohnisko     VARCHAR(12) NOT NULL DEFAULT '',           -- crop center (object-position), e.g. „50% 30%“; '' = center
     datum       DATETIME NOT NULL,
+    staged_at   DATETIME NULL,                             -- 3.15: waiting for approval outside the web root (Core\MediaStaging); NULL = public
     PRIMARY KEY (ido),
     KEY ix_imggal_datum (datum),
     KEY ix_imggal_poloha (obr_poloha),
     KEY ix_imggal_sekce (sekce),
+    KEY ix_media_staged (staged_at),
     CONSTRAINT fk_imggal_sekce FOREIGN KEY (sekce) REFERENCES ka_media_slozky (ids) ON DELETE SET NULL,
     CONSTRAINT fk_imggal_vlastnik FOREIGN KEY (vlastnik) REFERENCES ka_uzivatele (idu) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;

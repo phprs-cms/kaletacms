@@ -754,6 +754,38 @@ and keeps the stored decimals (4.20), {{price_raw}} is the stored value for link
 industry example sites). The update test stops its server's workers (they outlived every run because lsof was not on
 the PATH). The 18 industry example screenshots are on kaletacms.com/solutions and in docs/screenshots/examples.
 
+## 3.15 – the bridge to 4.0, the daily audits closed (released 20 October 2026)
+
+1. **Both table names** (`Core\Names`, `Db`): a site works on today's Czech tables and on the English names 4.0 renames
+   them to, and notices a rename or a rollback by itself (a cached marker; one `information_schema` query only after a
+   missing-table error). Migrations rewrite their table names on a renamed database; `tools/rename-tables.php` and a
+   test.sh section prove both directions. 3.15 is the rollback target of 4.0.
+2. **A separate update source for majors:** 4.x is published in `aktualizace-4.json`, which only 3.15+ reads; older sites
+   get 3.15 first. A major is never installed automatically – only by an administrator, after the newest 3.x, a fresh
+   backup and the confirmation; the Ready for 4.0 blockers (database server, rights to rename tables) stop it.
+   `tools/release.php` writes the major manifest, `check-channel.php` refuses a 4.x in the 3.x manifest.
+3. **Update prompt:** 14 days behind the latest release, the dashboard asks to update (no support window – owner).
+4. **Counts in the admin menu** (owner's report): new enquiries, bookings to confirm and whistleblowing reports to
+   acknowledge next to their menu items; screen readers hear "N new", a phone shows a dot on the Menu button.
+5. **Upload staging (N10 closed):** files from a drafts-only Claude connection wait in `storage/staging` – visible to
+   signed-in users and draft previews, public when published content uses them or when approved in Media, deleted
+   after 30 days. nginx sites need the updated `/media/` block of `system/nginx.example.conf` for previews.
+6. **Vault key out of the database (N42, owner):** new installs keep the encryption key of connector credentials and
+   whistleblowing cases in config.php; existing sites move it with one button (re-encrypted in one transaction).
+   A database restored on another server then also needs config.php.
+7. **Instructions for Claude (N44, owner):** still editable over MCP; every change is in the change log with the old and
+   new text and the dashboard asks an administrator to check it.
+8. **Daily security audits:** N71 (`read_notebook` permission), N72 (site-import media: lower-case extensions, content
+   check, case-insensitive header rules – data migration 0098), N73 (SVG comments), N74 (PHP 8.5 response headers),
+   N18 (TOTP replay), N19 (tokens revoked when an administrator changes a password), N21 (ids that clobber the page),
+   N45, N46 (whistleblowing page CSP), N48 (CSS escapes), N49; N9, N22, N47 were already fixed. Migrations 0097
+   (media staging) and 0098 (media/.htaccess).
+
+Audited before release (N315): a live class cannot publish a waiting file, the vault key is written only into the
+top-level config array and verified before re-encrypting, 4.0 installs only after a successful check of the newest 3.x,
+promotion reads every public place and every waiting file (and runs only after publishing – 34 s → 0.3 s on a large
+site), the clean-up never deletes a used file, spam left out of the enquiry count, an atomic TOTP replay check.
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |

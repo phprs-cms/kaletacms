@@ -1252,7 +1252,7 @@ final class WpImport
         return $this->globalKeys[$table] ??= $this->db->value(
             "SELECT INDEX_NAME FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND NON_UNIQUE = 0
              GROUP BY INDEX_NAME HAVING COUNT(*) = 1 AND MAX(COLUMN_NAME) = 'seo_link'",
-            [$this->db->prefix . $table],
+            [$this->db->tableName($table)],
         ) !== null;
     }
 

@@ -27,6 +27,7 @@ final class Events
         'look.published' => 'The draft look (design system, classes, menus) was published.',
         'backup.created' => 'An automatic database backup was made.',
         'backup.failed' => 'A database backup or its off-site copy failed.',
+        'backup.tables_both_names' => 'After a restore, some tables exist under both their old and their English name (3.15, the tables named) – nothing was deleted, a person decides which copy stays.',
         'update.applied' => 'A new version of Kaleta was installed.',
         'update.failed' => 'Installing an update failed; the site stayed on its version.',
         'update.rolled_back' => 'An update was installed but the site did not work afterwards, so it went back to the previous version.',

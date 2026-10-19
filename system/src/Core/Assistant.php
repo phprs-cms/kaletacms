@@ -455,7 +455,7 @@ class Assistant
             $response = @file_get_contents($url, false, stream_context_create(['http' => [
                 'method' => 'POST', 'header' => implode("\r\n", $headers), 'content' => $json, 'timeout' => 90, 'ignore_errors' => true,
             ]]));
-            $code = preg_match('#^HTTP/\S+ (\d{3})#', $http_response_header[0] ?? '', $m) ? (int) $m[1] : 0;
+            $code = preg_match('#^HTTP/\S+ (\d{3})#', last_response_headers($http_response_header ?? null)[0] ?? '', $m) ? (int) $m[1] : 0; // @phpstan-ignore nullCoalesce.variable (undefined on PHP 8.3 when the request fails)
         }
         $data = is_string($response) ? json_decode($response, true) : null;
         if (($data[0] ?? null) !== null && is_array($data[0])) {

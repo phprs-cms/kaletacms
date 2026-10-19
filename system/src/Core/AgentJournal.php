@@ -76,7 +76,7 @@ final class AgentJournal
     /** Is a table journaled? It takes the English name too (pages = stranky, 3.10); the journal itself stores today's name. */
     public static function journaled(string $table): bool
     {
-        return in_array(Names::physical($table), self::TABLES, true);
+        return in_array(Names::table($table), self::TABLES, true);
     }
 
     /* ---------- called by Core\Db around its writes ---------- */
@@ -84,7 +84,7 @@ final class AgentJournal
     /** The rows a write with this condition will touch, before it. @param array<string, mixed> $where @return list<array<string, mixed>> */
     public function rowsWhere(string $table, string $whereSql, array $params): array
     {
-        $table = Names::physical($table);
+        $table = Names::table($table);
         return $this->quietly(fn (): array => $this->db->all('SELECT * FROM {' . $table . '} WHERE ' . $whereSql, $params));
     }
 
@@ -97,7 +97,7 @@ final class AgentJournal
      */
     public function record(string $table, array $before, ?array $insertedKey = null): void
     {
-        $table = Names::physical($table); // the undo, the bookkeeping rule below and the key lookup know the table by today's name
+        $table = Names::table($table); // the undo, the bookkeeping rule below and the key lookup know the table by today's name
         $this->quietly(function () use ($table, $before, $insertedKey): void {
             $keyColumns = self::primaryKey($this->db, $table);
             if ($keyColumns === []) {
@@ -133,7 +133,7 @@ final class AgentJournal
      */
     public function inserted(string $table, array $data, int $id): void
     {
-        $table = Names::physical($table);
+        $table = Names::table($table);
         $keyColumns = $this->quietly(fn (): array => self::primaryKey($this->db, $table));
         $key = count($keyColumns) === 1 && $id > 0 ? [$keyColumns[0] => $id] : array_intersect_key($data, array_flip($keyColumns));
         $this->record($table, [], $key);
@@ -142,7 +142,7 @@ final class AgentJournal
     /** A write the journal cannot follow – named in the session and in the undo result. */
     public function untracked(string $table, string $why): void
     {
-        $table = Names::physical($table);
+        $table = Names::table($table);
         $this->quietly(fn (): int => $this->db->insert('agent_journal', ['session_id' => $this->session, 'call_no' => $this->call, 'tool' => $this->tool, 'tbl' => $table,
             'row_key' => '', 'before_row' => null, 'after_row' => null, 'untracked' => mb_substr($why, 0, 120), 'created_at' => Clock::now()]));
     }
@@ -156,7 +156,7 @@ final class AgentJournal
      */
     public function aroundRaw(string $sql, array $params): ?\Closure
     {
-        if ($this->busy || preg_match('/^\s*(UPDATE|DELETE\s+FROM|INSERT\s+INTO|REPLACE\s+INTO)\s+\{([a-z0-9_]+)\}/i', $sql, $m) !== 1 || !self::journaled($table = Names::physical($m[2]))) {
+        if ($this->busy || preg_match('/^\s*(UPDATE|DELETE\s+FROM|INSERT\s+INTO|REPLACE\s+INTO)\s+\{([a-z0-9_]+)\}/i', $sql, $m) !== 1 || !self::journaled($table = Names::table($m[2]))) {
             return null;
         }
         $verb = strtoupper(substr(ltrim($m[1]), 0, 6));

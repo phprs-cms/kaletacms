@@ -189,6 +189,8 @@ $builderParity = [
     'build_package' => $readOnly, 'build_paste' => 'admin: paste from the system clipboard of another Kaleta site – Claude inserts elements with save_build or edit_build and brings classes with save_classes',
 ];
 $settingsParity = ['list' => $readOnly, 'save' => 'update_settings', 'download_backup' => $readOnly, 'backup' => 'admin: backups', 'restore_backup' => 'admin: backups',
+    'delete_backup' => 'admin: backups', 'media_backup' => 'admin: backups', 'delete_log' => 'admin: error log', 'check' => 'admin: updates', 'update' => 'admin: updates', 'forget_updates' => 'admin: updates', 'update_major' => 'admin: updates (a major version only on an explicit action, 3.15)',
+    'vault_move' => 'admin: the encryption key goes into config.php – never through a connection (3.15, N42)', 'instructions_seen' => 'admin: an administrator has looked at the changed instructions for Claude (3.15, N44)',
     'delete_backup' => 'admin: backups', 'media_backup' => 'admin: backups', 'delete_log' => 'admin: error log', 'check' => 'admin: updates', 'update' => 'admin: updates', 'forget_updates' => 'admin: updates',
     'test_mail' => 'admin: mail server settings', 'domain_check' => 'admin: the domain and mail watch runs on its own once a day', 'test_webhook' => 'admin: webhooks (addresses and the signing secret stay out of MCP)',
     'retry_webhook' => 'admin: webhooks (addresses and the signing secret stay out of MCP)', 'new_webhook_secret' => 'admin: webhooks (addresses and the signing secret stay out of MCP)',
@@ -239,7 +241,8 @@ $parity = [
     'tags' => ['list' => $readOnly, 'save' => 'admin: tags are set with news items (update_news)', 'delete' => 'admin: tags are set with news items (update_news)'],
     'media' => ['list' => $readOnly, 'listing' => $readOnly, 'upload' => 'upload_file', 'save' => 'update_media', 'save_caption' => 'update_media', 'bulk' => 'delete_media',
         'replace' => 'admin: a new file behind the same address', 'folder' => 'admin: media folders', 'folder_delete' => 'admin: media folders',
-        'cleanup' => 'list_media_without_alt', 'save_alts' => 'update_media', 'shrink' => 'admin: re-encoding a stored image in place (2.14) – Claude uploads a smaller file instead'],
+        'cleanup' => 'list_media_without_alt', 'save_alts' => 'update_media', 'shrink' => 'admin: re-encoding a stored image in place (2.14) – Claude uploads a smaller file instead',
+        'approve' => 'admin: a person approves a file a drafts-only connection staged (3.15, N10) – publishing the content that uses it does it too', 'discard' => 'delete_media'],
     'appearance' => ['list' => $readOnly, 'preview' => $readOnly, 'tokens' => $readOnly, 'save' => 'update_design_system', 'tokens_import' => 'admin: upload of a design tokens file',
         'publish_look' => 'publish_look', 'discard_look' => 'discard_look', 'restore_look' => 'restore_look_version', 'preview_site' => 'preview_link'],
     'parts' => $builderParity + ['list' => $readOnly, 'variant' => $readOnly, 'save_variant' => 'save_part_variant', 'template' => 'save_part_variant',
@@ -522,6 +525,7 @@ foreach (glob(KALETA_SYSTEM . '/views/admin/settings/*.php') as $view) {
             'exception', 'exception_from', 'exception_to', 'exception_closed', 'exception_hours', 'exception_note', 'exception_notice', 'viewport', 'robots', // viewport, robots: <meta> of the door sign
             'fleet_kit', // 2.16: the console tab's own button (Settings::actionFleetKit)
             'verze', // 3.3.2: the version on the update button – Settings::actionUpdate installs only that one
+            'precteno', // 3.15: "I have read what changes" – Settings::actionUpdateMajor installs a major version only with it
             'smtp_ses_region', // 3.9: the Amazon SES region – MailServices::settle() builds the server from it
             'zone', 'choice', // 3.12: the time zone confirmation (Settings::actionTimeZone) – the new zone and convert | keep
             'screen_collections', 'novy_token_obrazovka'], true)) { // 2.11 screen mode: the collections list is added by fields() from the site's collections, the button makes a new address
@@ -1616,7 +1620,12 @@ check('3.9.2 N392-4: a German "Vor- und Nachname" field is the name of a lead',
     array_map(fn (string $l): bool => preg_match((string) (new ReflectionClassConstant(Kaleta\Core\EnquiryDelivery::class, 'NAME_LABEL'))->getValue(), $l) === 1, ['Vor- und Nachname', 'Name', 'Jméno a příjmení', 'Firmenname', 'Unternehmen']),
     [true, true, true, false, false]);
 preg_match("/<<<'HTACCESS'\n(.*?)\nHTACCESS/s", (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0084-media-htaccess.php'), $n67Migration);
-check('3.9.2 N67: migration 0084 writes exactly the media/.htaccess of the package', ($n67Migration[1] ?? '') . "\n" === $n67Htaccess, true);
+// 3.15 (N72): migration 0098 carries the newer file (the header rules match an upper-case extension too) and replaces the one 0084 wrote
+preg_match("/<<<'HTACCESS'\n(.*?)\nHTACCESS/s", (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0098-media-htaccess-case.php'), $n72Migration);
+check('3.9.2 N67 / 3.15 N72: migration 0098 writes exactly the media/.htaccess of the package and replaces the one of 0084 (3.9.2)', [
+    ($n72Migration[1] ?? '') . "\n" === $n67Htaccess, str_contains((string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0098-media-htaccess-case.php'), "'" . hash('sha256', ($n67Migration[1] ?? '') . "\n") . "'"),
+    str_contains($n67Htaccess, (string) (new ReflectionClassConstant(Kaleta\Core\Health::class, 'MEDIA_HEADER_RULE'))->getValue()),
+    preg_match_all('/<FilesMatch "\(\?i\)/', $n67Htaccess)], [true, true, true, 3]);
 check('3.9.1 Navigation: the phone sheet resets the gap of its lists and puts the arrow of a group where a toggle has it', [
     str_contains($navCss, '.ka-nav-menu[popover] ul { flex-direction: column; gap: 2px; }'),
     str_contains($navCss, '.ka-nav-menu[popover] .podmenu > .menu-skupina::after { margin-inline: 0 calc(1.375rem - 0.2em); }'),
@@ -5970,6 +5979,94 @@ check('3.10 (N310-5) AgentJournal::journaled – every English name of a journal
     [array_values(array_filter(Kaleta\Core\AgentJournal::TABLES, fn (string $t): bool => !Kaleta\Core\AgentJournal::journaled(Kaleta\Core\Names::english($t)))),
         Kaleta\Core\AgentJournal::journaled('pages'), Kaleta\Core\AgentJournal::journaled('news'), Kaleta\Core\AgentJournal::journaled('audit_log'), Kaleta\Core\AgentJournal::journaled('api_tokens')],
     [[], true, true, false, false]);
+// 3.15 (the bridge to 4.0): a database whose tables 4.0 renamed – both placeholders name the English table, the code keeps
+// knowing the table by today's name, and migrations, the backup and the journal follow
+$renamedBefore315 = Kaleta\Core\Names::renamed();
+Kaleta\Core\Names::setRenamed(true);
+check('3.15 Names: in a renamed database {novinky} and {news} are both `news`; table() stays today\'s name; tables 4.0 does not rename stay', [
+    Kaleta\Core\Names::physical('novinky'), Kaleta\Core\Names::physical('news'), Kaleta\Core\Names::physical('newsletters'), Kaleta\Core\Names::physical('ext_shop_orders'),
+    Kaleta\Core\Names::physical('stranky', false), Kaleta\Core\Names::table('pages'), Kaleta\Core\Names::table('stranky'), Kaleta\Core\Names::columns('pages')['ids'] ?? null,
+    Kaleta\Core\AgentJournal::journaled('pages'), Kaleta\Core\ExportFormat::tableFromKey('news', 3)],
+    ['news', 'news', 'newsletters', 'ext_shop_orders', 'stranky', 'stranky', 'stranky', 'id', true, 'novinky']);
+Kaleta\Core\Names::setRenamed($renamedBefore315);
+check('3.15 Names: every table 4.0 renames maps back to its name of today (the map is the only source both directions use)',
+    array_values(array_filter(array_keys(Kaleta\Core\Names::map()), fn (string $t): bool => Kaleta\Core\Names::table(Kaleta\Core\Names::physical($t, true)) !== $t)), []);
+check('3.15 Migration::statements: on a renamed database the files\' Czech names become the English ones, the rest (keys, add-on tables) stays', [
+    Kaleta\Core\Migration::statements("ALTER TABLE ka_novinky ADD COLUMN x INT;\nCREATE TABLE ka_ext_a_b (id INT, CONSTRAINT fk_x FOREIGN KEY (id) REFERENCES ka_stranky (ids));\nUPDATE ka_nastaveni SET hodnota = 'ka_nahled' WHERE promenna = 'x';\n", 'w_', true),
+    Kaleta\Core\Migration::statements("ALTER TABLE ka_novinky_stitky ADD KEY k (idc);\n", 'ka_', false)],
+    [['ALTER TABLE w_news ADD COLUMN x INT', 'CREATE TABLE w_ext_a_b (id INT, CONSTRAINT w_fk_x FOREIGN KEY (id) REFERENCES w_pages (ids))', "UPDATE w_settings SET hodnota = 'w_nahled' WHERE promenna = 'x'"],
+        ['ALTER TABLE ka_novinky_stitky ADD KEY k (idc)']]);
+check('3.15 Backup::twin: a restored table replaces its twin under the other name; tables 4.0 does not rename have none', [
+    Kaleta\Core\Backup::twin("DROP TABLE IF EXISTS `ka_novinky`;\n", 'ka_'), Kaleta\Core\Backup::twin("DROP TABLE IF EXISTS `ka_news`;\n", 'ka_'),
+    Kaleta\Core\Backup::twin("DROP TABLE IF EXISTS `ka_newsletters`;\n", 'ka_'), Kaleta\Core\Backup::twin("CREATE TABLE `ka_novinky` (\n", 'ka_'),
+    Kaleta\Core\Backup::twin("DROP TABLE IF EXISTS `x_novinky`;\n", 'ka_')],
+    ['ka_news', 'ka_novinky', null, null, null]);
+// raw SQL in core that names a table without a placeholder would miss the renamed tables: no `ka_<table>` in code strings,
+// and a table name put together with the prefix goes through Db::tableName() (the one place that knows the names)
+$rawTables315 = [];
+foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(KALETA_SYSTEM . '/src', FilesystemIterator::SKIP_DOTS)) as $file315) {
+    if ($file315->getExtension() !== 'php') {
+        continue;
+    }
+    $source315 = (string) file_get_contents($file315->getPathname());
+    $relative315 = substr($file315->getPathname(), strlen(KALETA_ROOT) + 1);
+    foreach (token_get_all($source315) as $token315) {
+        if (is_array($token315) && in_array($token315[0], [T_CONSTANT_ENCAPSED_STRING, T_ENCAPSED_AND_WHITESPACE], true)
+            && preg_match_all('/\bka_([a-z][a-z0-9_]*)/', $token315[1], $hits315) > 0) {
+            foreach ($hits315[1] as $hit315) {
+                if (isset($names310[$hit315])) {
+                    $rawTables315[] = $relative315 . ':' . $token315[2] . ' ka_' . $hit315;
+                }
+            }
+        }
+    }
+    // "$db->prefix . $table" / ". 'novinky'" – Readiness only quotes a prefixed name in its advice and scans add-ons with it
+    if ($relative315 !== 'system/src/Core/Readiness.php' && preg_match_all('/->prefix\s*\.\s*(\$[a-zA-Z_]|\'[a-z])/', $source315, $joined315, PREG_OFFSET_CAPTURE) > 0) {
+        foreach ($joined315[0] as [$text315, $offset315]) {
+            $rawTables315[] = $relative315 . ':' . (substr_count(substr($source315, 0, $offset315), "\n") + 1) . ' ' . $text315;
+        }
+    }
+}
+check('3.15 no table name in core bypasses the placeholders or Db::tableName() (renamed tables after a rollback from 4.0)', $rawTables315, []);
+// the update sources of the major lines (3.15): aktualizace.json is the 3.x line for good, 4.x has its own manifest
+check('3.15 updates: each major line has its own manifest next to aktualizace.json, with a stable twin; another file name has none', [
+    Kaleta\Core\Updater::manifestFile(3), Kaleta\Core\Updater::manifestFile(1), Kaleta\Core\Updater::manifestFile(4), Kaleta\Core\Updater::manifestFile(4, 'stable'), Kaleta\Core\Updater::manifestFile(3, 'stable'),
+    Kaleta\Core\Updater::lineUrl(Kaleta\Core\Updater::DEFAULT_URL, 4), Kaleta\Core\Updater::lineUrl('https://mirror.example/k/aktualizace.json?t=1', 4),
+    Kaleta\Core\Updater::lineUrl('https://mirror.example/k/aktualizace-4.json', 5), Kaleta\Core\Updater::lineUrl('https://mirror.example/k/aktualizace-4.json', 3),
+    Kaleta\Core\Updater::lineUrl('https://mirror.example/updates.php', 4), Kaleta\Core\Updater::lineUrl('https://mirror.example/aktualizace.json.bak', 4),
+    Kaleta\Core\Updater::stableUrl('https://kaletacms.com/aktualizace-4.json'), Kaleta\Core\Updater::stableUrl(Kaleta\Core\Updater::DEFAULT_URL),
+    array_map(Kaleta\Core\Updater::majorOf(...), ['3.15.0', '4.0.0-rc1', '10.2.3', 'x', ''])],
+    ['aktualizace.json', 'aktualizace.json', 'aktualizace-4.json', 'aktualizace-4-stable.json', 'aktualizace-stable.json',
+        'https://kaletacms.com/aktualizace-4.json', 'https://mirror.example/k/aktualizace-4.json?t=1', 'https://mirror.example/k/aktualizace-5.json', 'https://mirror.example/k/aktualizace.json',
+        null, null, 'https://kaletacms.com/aktualizace-4-stable.json', 'https://kaletacms.com/aktualizace-stable.json', [3, 4, 10, 0, 0]]);
+$major315 = static function (?array $manifest, string $current, bool $next, string $channel = 'latest'): string {
+    $c = Kaleta\Core\Updater::choose($manifest, $channel, $current, '8.4.5', $next);
+
+    return $c['nova'] !== null ? 'offer ' . $c['nova']['verze'] : ($c['ahead_of'] !== null ? 'ahead of ' . $c['ahead_of'] : 'nothing');
+};
+check('3.15 updates: the regular manifest never offers another major version (not even a security one), the next-major one only the next major', [
+    $major315(['verze' => '4.0.0', 'min_php' => '8.3', 'bezpecnostni' => true], '3.15.0', false), $major315(['verze' => '3.15.2', 'min_php' => '8.3'], '3.15.0', false),
+    $major315(['verze' => '4.0.0', 'min_php' => '8.3', 'kanal' => 'stable'], '3.15.0', false, 'stable'), $major315(['verze' => '1.0.0', 'kanal' => 'stable'], '3.15.0', false, 'stable'),
+    $major315(['verze' => '3.14.0', 'kanal' => 'stable'], '4.0.0', true, 'stable'),
+    $major315(['verze' => '4.0.0', 'min_php' => '8.3'], '3.15.0', true), $major315(['verze' => '4.1.0-rc1', 'min_php' => '8.3'], '3.15.0', true),
+    $major315(['verze' => '3.16.0', 'min_php' => '8.3'], '3.15.0', true), $major315(['verze' => '5.0.0', 'min_php' => '8.3'], '3.15.0', true),
+    $major315(['verze' => '4.0.0', 'min_php' => '8.3'], '4.0.0', true), $major315(['verze' => '5.0.0', 'min_php' => '8.3'], '4.2.0', true)],
+    ['nothing', 'offer 3.15.2', 'nothing', 'ahead of 1.0.0', 'nothing', 'offer 4.0.0', 'offer 4.1.0-rc1', 'nothing', 'nothing', 'nothing', 'offer 5.0.0']);
+$now315 = (int) strtotime('2026-10-19 12:00:00');
+check('3.15 updates: the prompt counts the days since the site first saw the newer release or since its signed date, whichever is earlier', [
+    Kaleta\Core\Updater::behindDays(['nova' => null, 'behind_since' => $now315 - 30 * 86400], $now315),
+    Kaleta\Core\Updater::behindDays(['nova' => ['verze' => '3.15.1', 'vydano' => '2026-10-17'], 'behind_since' => $now315 - 20 * 86400], $now315),
+    Kaleta\Core\Updater::behindDays(['nova' => ['verze' => '3.15.1', 'vydano' => '2026-09-30'], 'behind_since' => $now315 - 86400], $now315),
+    Kaleta\Core\Updater::behindDays(['nova' => ['verze' => '3.15.1', 'vydano' => ''], 'behind_since' => 0], $now315),
+    Kaleta\Core\Updater::behindDays(['nova' => ['verze' => '3.15.1', 'vydano' => '2099-01-01'], 'behind_since' => $now315 - 3 * 86400], $now315),
+    Kaleta\Core\Updater::BEHIND_DAYS, Kaleta\Core\Settings::DEFAULTS['update_behind_since'] ?? null, array_key_exists('update_major_cache', Kaleta\Core\Settings::DEFAULTS),
+    in_array('update_major_cache', Kaleta\Core\SiteExport::SETTINGS, true) || in_array('update_behind_since', Kaleta\Core\SiteExport::SETTINGS, true)],
+    [null, 20, 19, 0, 3, 14, '0', true, false]);
+check('3.15 updates: release.php writes the manifest of the release\'s own line and needs --major for X.0.0; the daily check knows the major lines', [
+    str_contains((string) file_get_contents(KALETA_ROOT . '/tools/release.php'), '$manifestName = Kaleta\Core\Updater::manifestFile($releaseMajor, $options[\'channel\'])'),
+    str_contains((string) file_get_contents(KALETA_ROOT . '/tools/release.php'), "\$arg === '--major'"),
+    str_contains((string) file_get_contents(KALETA_ROOT . '/tools/check-channel.php'), 'Updater::lineUrl($manifestUrl, $major)')],
+    [true, true, true]);
 // the clock: in 3.x it is the site's wall time, exactly what date() gave
 $zone310 = date_default_timezone_get();
 date_default_timezone_set('Europe/Prague');
@@ -6420,5 +6517,198 @@ check('3.14 RedirectSources::normalize – the stored form in lower case: slashe
     ['/Stara-Adresa/', 'ko%C4%8Dka', 'EN/Stary', '/?p=12', 'Café', 'https://old.example.com/Blog/Post/', 'blog/*']),
     ['stara-adresa', 'kočka', 'en/stary', '?p=12', 'café', 'blog/post', 'blog/*']);
 check('3.14 the background job that normalises redirect sources is listed', [Kaleta\Core\Scheduler::JOBS['redirect_sources'][0] ?? null, Kaleta\Core\Scheduler::JOBS['redirect_sources'][1] ?? null], [0, 'any']);
+// 3.15: the update to 4.0 waits only for the blocking checks (database server, rights); other warnings ask for care
+$checks315 = [['key' => 'database_version', 'nazev' => 'Database server', 'stav' => 'ok', 'info' => '', 'seznam' => []],
+    ['key' => 'database_privileges', 'nazev' => 'Database user rights', 'stav' => 'varovani', 'info' => '', 'seznam' => []],
+    ['key' => 'legacy_table_names', 'nazev' => 'Add-ons and old table names', 'stav' => 'varovani', 'info' => '', 'seznam' => []],
+    ['key' => 'shared_slugs', 'nazev' => 'Addresses shared by language versions', 'stav' => 'info', 'info' => '', 'seznam' => []]];
+check('3.15 Readiness::blockers – only a warning of the database server or its rights stops the 4.0 update', [Kaleta\Core\Readiness::blockers($checks315),
+    Kaleta\Core\Readiness::blockers(array_map(fn (array $c): array => ['stav' => $c['key'] === 'database_privileges' ? 'ok' : $c['stav']] + $c, $checks315))],
+    [['Database user rights'], []]);
+/* ---------- 3.15: open findings of the daily security audits ---------- */
+// N73: an XML comment never stays in a cleaned SVG – "<!--><img onerror=…>-->" is a comment in XML, but markup once inlined into HTML
+check('3.15 N73: Svg::sanitize drops XML comments, the drawing stays',
+    Kaleta\Core\Svg::sanitize('<svg xmlns="http://www.w3.org/2000/svg"><!--><img src=x onerror=alert(1)>--><g><!-- note --><rect/></g></svg>'),
+    '<svg xmlns="http://www.w3.org/2000/svg"><g><rect/></g></svg>');
+// N74: PHP 8.5 deprecates reading the magic $http_response_header (and PHP 9 removes it) – the response headers come from
+// last_response_headers(), which passes the variable only as its PHP 8.3 fallback
+$n74 = [];
+foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(KALETA_SYSTEM . '/src', FilesystemIterator::SKIP_DOTS)) as $n74File) {
+    if ($n74File instanceof SplFileInfo && $n74File->getExtension() === 'php' && $n74File->getFilename() !== 'helpers.php') {
+        $n74Code = str_replace('last_response_headers($http_response_header ?? null)', '', (string) file_get_contents($n74File->getPathname()));
+        if (preg_match('/\$http_response_header\b/', (string) preg_replace('#^\s*(//|\*|/\*).*$#m', '', $n74Code))) {
+            $n74[] = substr($n74File->getPathname(), strlen(KALETA_SYSTEM) + 1);
+        }
+    }
+}
+check('3.15 N74: system/src reads response headers only through last_response_headers(), never the bare $http_response_header', $n74, []);
+// N72: a file from a Kaleta export gets lower-case extensions (the header rules of media/.htaccess match them on any server),
+// the content follows the new name, and the bytes must be what the extension says
+check('3.15 N72: SiteImport::mediaTarget writes the extensions in lower case, the name and folders stay', array_map(Kaleta\Core\SiteImport::mediaTarget(...),
+    ['media/2026/10/route.GPX', 'media/2026/10/Photo.JPG.webp', 'media/Docs/Price-List.PDF', 'media/2026/10/photo.jpg', 'media/x.PHP.jpg', 'media/x.Svg']),
+    ['media/2026/10/route.gpx', 'media/2026/10/Photo.jpg.webp', 'media/Docs/Price-List.pdf', 'media/2026/10/photo.jpg', null, 'media/x.svg']);
+check('3.15 N72: SiteImport::renameMedia renames the archive names in every text of a row, also JSON-escaped, nothing else',
+    Kaleta\Core\SiteImport::renameMedia(['text' => '<img src="/media/a/Photo.JPG"><img src="/media/a/Photo.JPG.webp">', 'stavba' => '{"src":"media\/a\/Photo.JPG"}',
+        'deep' => ['x' => 'https://old.example/media/a/Photo.JPG'], 'other' => 'media/a/Photo.JPGX', 'n' => 5],
+        ['media/a/Photo.JPG' => 'media/a/Photo.jpg', 'media/a/Photo.JPG.webp' => 'media/a/Photo.jpg.webp']),
+    ['text' => '<img src="/media/a/Photo.jpg"><img src="/media/a/Photo.jpg.webp">', 'stavba' => '{"src":"media\/a\/Photo.jpg"}',
+        'deep' => ['x' => 'https://old.example/media/a/Photo.jpg'], 'other' => 'media/a/Photo.jpgX', 'n' => 5]);
+$n72 = sys_get_temp_dir() . '/kaleta-n72-' . bin2hex(random_bytes(3));
+ob_start();
+imagepng(imagecreatetruecolor(2, 2));
+file_put_contents($n72 . '.png', (string) ob_get_clean());
+file_put_contents($n72 . '.html', '<!DOCTYPE html><html><body><script>alert(1)</script></body></html>');
+file_put_contents($n72 . '.gpx', '<?xml version="1.0"?><gpx version="1.1"><trk><name>r</name></trk></gpx>');
+check('3.15 N72: SiteImport::contentMatches – an image must be an image, an attachment must not be HTML', [
+    Kaleta\Core\SiteImport::contentMatches($n72 . '.png', 'media/a/x.png'), Kaleta\Core\SiteImport::contentMatches($n72 . '.png', 'media/a/x.jpg.webp'),
+    Kaleta\Core\SiteImport::contentMatches($n72 . '.html', 'media/a/x.png'), Kaleta\Core\SiteImport::contentMatches($n72 . '.html', 'media/a/x.pdf'),
+    Kaleta\Core\SiteImport::contentMatches($n72 . '.gpx', 'media/a/route.gpx'), Kaleta\Core\SiteImport::contentMatches($n72 . '.png', 'media/a/notes.txt')],
+    [true, true, false, false, true, true]);
+array_map('unlink', [$n72 . '.png', $n72 . '.html', $n72 . '.gpx']);
+// N18: the sign-in remembers the step of a code from the app (Auth::verifyCode), so Totp::step names it
+check('3.15 N18: Totp::step gives the 30-second step of a valid code (also one step off), null for a wrong one', [
+    Kaleta\Core\Totp::step('JBSWY3DPEHPK3PXP', Kaleta\Core\Totp::code('JBSWY3DPEHPK3PXP', 1_000_000), 30_000_000),
+    Kaleta\Core\Totp::step('JBSWY3DPEHPK3PXP', Kaleta\Core\Totp::code('JBSWY3DPEHPK3PXP', 999_999), 30_000_000),
+    Kaleta\Core\Totp::step('JBSWY3DPEHPK3PXP', Kaleta\Core\Totp::code('JBSWY3DPEHPK3PXP', 999_990), 30_000_000),
+    Kaleta\Core\Totp::verify('JBSWY3DPEHPK3PXP', Kaleta\Core\Totp::code('JBSWY3DPEHPK3PXP', 1_000_001), 30_000_000)], [1_000_000, 999_999, null, true]);
+// N21: a text from a user keeps its anchors, never an id the site's own pages and scripts look up (DOM clobbering)
+check('3.15 N21: Html::safe keeps anchor ids, drops ids of the site\'s hooks (ka-…, the skip link, the cookie bar, window.L, dataLayer) and odd ones',
+    Kaleta\Core\Html::safe('<h2 id="cenik">a</h2><h2 id="kontaktní-údaje">b</h2><div id="L">c</div><p id="KA-leaflet-js">d</p><p id="obsah">e</p>'
+        . '<p id="cookies-lista">f</p><p id="dataLayer">g</p><p id="a b">h</p><p id="x&quot;y">i</p><p id="section_2">j</p>'),
+    '<h2 id="cenik">a</h2><h2 id="kontaktní-údaje">b</h2><div>c</div><p>d</p><p>e</p><p>f</p><p>g</p><p>h</p><p>i</p><p id="section_2">j</p>');
+// N48: the CSS checks of Build::code read the CSS as the browser does – escapes decoded, comments dropped
+check('3.15 N48: Build::code sees through CSS escapes and comments (@\69mport, java\script), ordinary escapes stay',
+    Kaleta\Builder\Build::code('<style>@\69mport url(x.css); .a{}</style><style>.b{color:red}</style><p style="background:url(java\script:alert(1))">x</p>'
+        . '<p style="color:\72 ed">y</p><style>@im/**/port url(y.css)</style>'),
+    '<style>.b{color:red}</style><p>x</p><p style="color:\72 ed">y</p>');
+// N49: the state files of the website import, the migration report and the collection items are not offered as Kaleta exports
+check('3.15 N49: SiteImport::isValidName leaves out every import state file, an upload named web.json still counts', array_map(Kaleta\Core\SiteImport::isValidName(...),
+    ['web-0123456789abcdef.json', 'parita-0123456789abcdef.json', 'polozky-0123456789abcdef.json', 'polozky-0123456789abcdef.radky.json', 'web.json', 'web-stary.zip', 'parita.json']),
+    [false, false, false, false, true, true, true]);
+/* ---------- 3.15 (N10): files from a drafts-only connection wait for approval (Core\MediaStaging) ---------- */
+use Kaleta\Core\MediaStaging as Staging315;
+check('3.15 MediaStaging::requestedPath – a media file and its variants; never another folder, a dot path, a script or a foreign extension', array_map(Staging315::requestedPath(...), [
+    '/media/2026/10/team-a1b2c3.jpg', '/media/2026/10/team-a1b2c3-nahled.png.webp', '/media/2026/10/price-list-0f0f0f.pdf', '/media/2026/10/logo-abcdef.svg',
+    '/media/../config.php', '/media/2026/10/shell-a1b2c3.php', '/media/2026/10/x.php.jpg', '/media/ikona-32.png', '/storage/staging/2026/10/team-a1b2c3.jpg', '/media/2026/10/Team-A1.jpg']),
+    ['media/2026/10/team-a1b2c3.jpg', 'media/2026/10/team-a1b2c3-nahled.png.webp', 'media/2026/10/price-list-0f0f0f.pdf', 'media/2026/10/logo-abcdef.svg', null, null, null, null, null, null]);
+check('3.15 MediaStaging::stem and absolute – one upload with all its variants; the staged copy lies outside the web root', [
+    array_map(Staging315::stem(...), ['media/2026/10/team-a1b2c3.jpg', 'media/2026/10/team-a1b2c3-1200.jpg.avif', 'media/2026/10/team-a1b2c3-nahled.png', 'media/2026/10/pricing-1200-a1b2c3.pdf']),
+    substr(Staging315::absolute('media/2026/10/team-a1b2c3.jpg', true), strlen(KALETA_ROOT)), substr(Staging315::absolute('media/2026/10/team-a1b2c3.jpg', false), strlen(KALETA_ROOT))],
+    [['media/2026/10/team-a1b2c3', 'media/2026/10/team-a1b2c3', 'media/2026/10/team-a1b2c3', 'media/2026/10/pricing-1200-a1b2c3'],
+        '/storage/staging/2026/10/team-a1b2c3.jpg', '/media/2026/10/team-a1b2c3.jpg']);
+// the promotion scan: a build in JSON (escaped slashes), HTML with the site URL, a variant – each names its staged upload once
+$rows315 = [['ido' => 1, 'obr_poloha' => 'media/2026/10/team-a1b2c3.jpg', 'staged_at' => '2026-10-19 10:00:00'],
+    ['ido' => 2, 'obr_poloha' => 'media/2026/10/menu-0f0f0f.pdf', 'staged_at' => '2026-10-19 10:00:00'],
+    ['ido' => 3, 'obr_poloha' => 'media/2026/10/hall-123456.png', 'staged_at' => null],
+    ['ido' => 4, 'obr_poloha' => 'media/2026/09/unused-fedcba.jpg', 'staged_at' => '2026-10-01 10:00:00']];
+$stems315 = Staging315::referencedStems('{"deti":[{"typ":"obrazek","obsah":{"src":"media\/2026\/10\/team-a1b2c3-1200.jpg"}}]}',
+    '<p><a href="https://www.example.com/media/2026/10/menu-0f0f0f.pdf">Menu</a> <img src="/media/2026/10/hall-123456.png.webp"></p>');
+check('3.15 MediaStaging promotion scan – referenced stems and the staged rows they name (a public row and an unused one stay out)', [
+    $stems315, array_column(Staging315::matching($rows315, $stems315), 'ido'), Staging315::matching($rows315, []), Staging315::referencedStems('<p>no files</p>')],
+    [['media/2026/10/team-a1b2c3', 'media/2026/10/menu-0f0f0f', 'media/2026/10/hall-123456'], [1, 2], [], []]);
+check('3.15 MediaStaging::access – the routing decision: signed in or a draft preview see it, published content makes it public, the rest gets 404', [
+    Staging315::access(true, false, false), Staging315::access(false, true, false), Staging315::access(false, false, true), Staging315::access(false, false, false), Staging315::access(true, true, true)],
+    ['serve', 'serve', 'publish', 'none', 'serve']);
+$headers315 = array_map(Staging315::headers(...), ['media/2026/10/logo-abcdef.svg', 'media/2026/10/offer-abcdef.docx', 'media/2026/10/menu-0f0f0f.pdf', 'media/2026/10/team-a1b2c3.jpg.webp']);
+check('3.15 MediaStaging::headers – what media/ has: nosniff everywhere, the SVG sandbox, documents as a download; never cached nor indexed', [
+    array_column($headers315, 'X-Content-Type-Options'), str_contains($headers315[0]['Content-Security-Policy'] ?? '', 'sandbox'), $headers315[1]['Content-Disposition'] ?? null,
+    isset($headers315[2]['Content-Disposition']), array_column($headers315, 'Content-Type'), array_unique(array_column($headers315, 'Cache-Control'))],
+    [['nosniff', 'nosniff', 'nosniff', 'nosniff'], true, 'attachment', false, ['image/svg+xml', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/pdf', 'image/webp'], ['private, no-store']]);
+check('3.15 MediaStaging::buildClasses – the classes a build uses, nested too (a class with a waiting background image counts once a published build uses it)',
+    Staging315::buildClasses('{"v":1,"deti":[{"typ":"sekce","tridy":["hero","tmave"],"deti":[{"typ":"nadpis","tridy":["hero"]},{"typ":"text","obsah":{"text":"\"karta\""}}]}]}'), ['hero', 'tmave']);
+check('3.15 the background job that publishes or removes waiting files is listed, and upload_file stays a draft tool (N10 closed by staging)', [
+    Kaleta\Core\Scheduler::JOBS['media_staging'][0] ?? null, Kaleta\Core\Scheduler::JOBS['media_staging'][1] ?? null, Kaleta\Mcp\Catalog::TOOLS['upload_file'][0], Staging315::DAYS], [3600, 'any', 'draft', 30]);
+// N42: the vault key – the derivation of 3.14 stays (old sites read their data), config.php gets the key safely
+$n42Key = str_repeat('ab', 32);
+$n42Var = "<?php\n/**\n * Kaleta - configuration.\n */\n\ndefine('KALETA_AI_URL', 'https://x.example');\nreturn array (\n  'db' => \n  array (\n    'host' => 'localhost',\n  ),\n  'debug' => false,\n);\n";
+$n42Short = "<?php\n// return [ in a comment\nreturn [\n    'db' => ['host' => 'localhost'],\n];\n";
+$n42Added = Kaleta\Core\Vault::withKey($n42Var, $n42Key);
+check('3.15 N42: Vault::withKey adds the key inside the returned array (var_export and short syntax), keeps the other lines, refuses a second key or a broken file', [
+    $n42Added !== null && str_contains($n42Added, "return array (\n    'vault_key' => '" . $n42Key . "',") && str_contains($n42Added, "define('KALETA_AI_URL'"),
+    str_contains((string) Kaleta\Core\Vault::withKey($n42Short, $n42Key), "return [\n    'vault_key' => '" . $n42Key . "',"),
+    Kaleta\Core\Vault::withKey((string) $n42Added, $n42Key), Kaleta\Core\Vault::withKey("<?php\nreturn [\n", $n42Key), Kaleta\Core\Vault::withKey("<?php\n\$x = 1;\n", $n42Key)],
+    [true, true, null, null, null]);
+$n42File = sys_get_temp_dir() . '/kaleta-n42-' . bin2hex(random_bytes(3)) . '.php';
+file_put_contents($n42File, $n42Short);
+$n42Written = Kaleta\Core\Vault::writeConfig($n42Key, $n42File);
+$n42Config = include $n42File;
+chmod($n42File, 0444);
+$n42ReadOnly = Kaleta\Core\Vault::writeConfig(str_repeat('cd', 32), $n42File);
+chmod($n42File, 0644);
+unlink($n42File);
+check('3.15 N42: Vault::writeConfig writes a config.php that returns the key; a read-only file is left alone', [$n42Written, $n42Config['vault_key'] ?? null, $n42Config['db']['host'] ?? null, $n42ReadOnly],
+    [true, $n42Key, 'localhost', false]);
+// N315-2: the key goes only into the one array config.php returns at its top level; anything ambiguous is refused, and the
+// written file is read back – a file that returns another key is put back as it was
+$n315Configs = [
+    'if' => "<?php\nif (getenv('APP_ENV') === 'staging') {\n    return [\n        'db' => ['host' => 'staging'],\n    ];\n}\nreturn [\n    'db' => ['host' => 'localhost'],\n];\n",
+    'closure' => "<?php\n\$helper = static function (): array {\n    return [\n        'x' => 1,\n    ];\n};\nreturn [\n    'db' => ['host' => 'localhost'],\n];\n",
+    'bare if' => "<?php\nif (getenv('X')) return ['db' => 1];\nreturn ['db' => 2];\n",
+    'else' => "<?php\nif (getenv('X')) { \$a = 1; } else return ['db' => 2];\n",
+    'two' => "<?php\nreturn ['db' => 1];\nreturn ['db' => 2];\n",
+    'call' => "<?php\nreturn array_merge(['db' => 1], []);\n",
+];
+$n315Added = array_map(fn (string $c): ?string => Kaleta\Core\Vault::withKey($c, $n42Key), $n315Configs);
+check('3.15 N315-2: Vault::withKey – only the one top-level return gets the key (a closure before it keeps its own array); an if, an unbraced if or else, two returns or a call are refused', [
+    $n315Added['if'], str_contains((string) $n315Added['closure'], "};\nreturn [\n    'vault_key' => '" . $n42Key . "'") && str_contains((string) $n315Added['closure'], "    return [\n        'x' => 1,"),
+    $n315Added['bare if'], $n315Added['else'], $n315Added['two'], $n315Added['call']],
+    [null, true, null, null, null, null]);
+$n315File = sys_get_temp_dir() . '/kaleta-n315-' . bin2hex(random_bytes(3)) . '.php';
+$n315Spread = "<?php\n\$extra = ['vault' . '_key' => str_repeat('c', 64)];\nreturn [\n    'db' => ['host' => 'localhost'],\n    ...\$extra,\n];\n";
+file_put_contents($n315File, $n315Spread);
+$n315SpreadWritten = Kaleta\Core\Vault::writeConfig($n42Key, $n315File); // the parser accepts it, the read-back sees another key
+$n315SpreadKept = file_get_contents($n315File) === $n315Spread;
+file_put_contents($n315File, "<?php\ndefine('KALETA_N315_TEST', 1);\nreturn ['db' => ['host' => 'localhost']];\n"); // one line, a constant defined again on the read-back
+$n315LineWritten = Kaleta\Core\Vault::writeConfig($n42Key, $n315File);
+$n315LineConfig = Kaleta\Core\Vault::loadConfig($n315File);
+$n315Yields = [Kaleta\Core\Vault::yieldsKey($n315File, $n42Key), Kaleta\Core\Vault::yieldsKey($n315File, str_repeat('cd', 32))];
+unlink($n315File);
+check('3.15 N315-2: Vault::writeConfig reads the file back – one that returns another key is put back unchanged; a one-line array works; yieldsKey says which key the file gives', [
+    $n315SpreadWritten, $n315SpreadKept, $n315LineWritten, $n315LineConfig['vault_key'] ?? null, $n315LineConfig['db']['host'] ?? null, $n315Yields],
+    [false, true, true, $n42Key, 'localhost', [true, false]]);
+// N315-3: the next major only from a confirmed newest release of the line – it fails closed
+$n315State = ['nastaveno' => true, 'nova' => null, 'vyzaduje_php' => null, 'chyba' => null, 'stale' => false, 'refused' => false];
+$n315Blocked = fn (array $change): ?string => Kaleta\Core\Updater::majorBlocker($change + $n315State, '3.15.0');
+check('3.15 N315-3: Updater::majorBlocker – only a fresh, clean answer without a newer 3.x lets 4.0 install; a newer 3.x for a newer PHP, a failing, refused or stale source, or none blocks it', [
+    $n315Blocked([]), $n315Blocked(['nova' => ['verze' => '3.15.1']]), $n315Blocked(['vyzaduje_php' => ['verze' => '3.15.1', 'min_php' => '8.5', 'bezpecnostni' => false]]),
+    str_contains((string) $n315Blocked(['chyba' => 'HTTP 500']), '3.x'), $n315Blocked(['stale' => true]) !== null, $n315Blocked(['refused' => true]) !== null, $n315Blocked(['nastaveno' => false]) !== null],
+    [null, 'Install version 3.15.1 first – a new major version is installed only from the newest release of the current one.',
+        'Install version 3.15.1 first – it needs PHP 8.5 or newer, and a new major version is installed only from the newest release of the current one.', true, true, true, true]);
+// N315-1, N315-4, N315-5: what the promotion scan reads, and where it runs
+$n315From = implode(' | ', array_column(Staging315::PUBLISHED, 0));
+check('3.15 N315-1/N315-4: the promotion scan reads every public place (category texts, item descriptions, document versions, booking services, menus, facts, the author box, social drafts) and never the shared classes', [
+    str_contains($n315From, '{tridy}'), array_map(fn (string $t): bool => str_contains($n315From, $t), ['{collection_category_texts}', '{document_versions}', '{booking_services}', '{menu}', '{facts}', '{uzivatele}', '{social_drafts}']),
+    str_contains(Staging315::PUBLISHED[2][1], 'popis'), str_contains(Staging315::PUBLISHED[0][1], 'kod_hlavicky')],
+    [false, [true, true, true, true, true, true, true], true, true]);
+$n315Idents = array_map(fn (string $class): string => $class::IDENT, Kaleta\Admin\Kernel::MODULES);
+check('3.15 N315-5: only the sections that show content on the site look for waiting files after a change (each is a real section; Enquiries, Users of the change log… never pay for the scan)', [
+    array_values(array_diff(Kaleta\Admin\Kernel::PUBLISHING_MODULES, $n315Idents)), array_values(array_intersect(['enquiries', 'connectors', 'whistleblowing', 'subscribers', 'stats', 'notebook', 'requests'], Kaleta\Admin\Kernel::PUBLISHING_MODULES)),
+    Staging315::CHECK_SECONDS >= 60],
+    [[], [], true]);
+// N315-12: after a restore, tables left under the other naming scheme are renamed; a table under both names is left and named
+[$n315Renames, $n315Both] = Kaleta\Core\Backup::alignment(['ka_novinky' => true, 'ka_stranky' => true, 'ka_pages' => true, 'ka_settings' => true, 'ka_media' => true, 'ka_ext_shop_orders' => true], 'ka_', false);
+[$n315RenamesEn, $n315BothEn] = Kaleta\Core\Backup::alignment(['ka_novinky' => true, 'ka_stranky' => true, 'ka_pages' => true, 'ka_settings' => true], 'ka_', true);
+check('3.15 N315-12: Backup::alignment – a table only under the other scheme is renamed to the one the site uses, one under both names stays (and is named); unmapped and add-on tables are left alone', [
+    $n315Renames, $n315Both, $n315RenamesEn, $n315BothEn],
+    [['ka_settings' => 'ka_nastaveni'], ['ka_stranky'], ['ka_novinky' => 'ka_news'], ['ka_pages']]);
+check('3.15 N315-12: an add-on install.sql on a renamed database names the English core table (the Migration::statements rewrite)',
+    Kaleta\Core\Migration::statements("CREATE TABLE IF NOT EXISTS ka_ext_shop_orders (id INT, page INT, CONSTRAINT fk_ext_shop_page FOREIGN KEY (page) REFERENCES ka_stranky (ids));", 'ka_', true),
+    ['CREATE TABLE IF NOT EXISTS ka_ext_shop_orders (id INT, page INT, CONSTRAINT ka_fk_ext_shop_page FOREIGN KEY (page) REFERENCES ka_pages (ids))']);
+check('3.15 N315-10: the Enquiries badge and the Dashboard leave spam out, as the list does', Kaleta\Admin\Modules\Enquiries::NOT_SPAM, "kategorie <> 'spam'");
+$n42Old = Kaleta\Core\Vault::derive('legacy-secret', 'connectors');
+$n42Sealed = Kaleta\Core\Vault::seal($n42Old, 'client-secret');
+$n42New = Kaleta\Core\Vault::derive($n42Key, 'connectors');
+check('3.15 N42: Vault – the derivation of 3.14 (kaleta-<purpose>|base), re-encryption to the new key, unreadable values stay, the check value is not the key', [
+    $n42Old === sodium_crypto_generichash('kaleta-connectors|legacy-secret', '', SODIUM_CRYPTO_SECRETBOX_KEYBYTES),
+    Kaleta\Core\Vault::open($n42New, Kaleta\Core\Vault::reseal($n42Old, $n42New, $n42Sealed)), Kaleta\Core\Vault::reseal($n42New, $n42Old, $n42Sealed), Kaleta\Core\Vault::reseal($n42Old, $n42New, null),
+    Kaleta\Core\Vault::derive($n42Key, 'connectors') !== Kaleta\Core\Vault::derive($n42Key, 'whistleblowing'), strlen(Kaleta\Core\Vault::check($n42Key)), str_contains(Kaleta\Core\Vault::check($n42Key), substr($n42Key, 0, 8))],
+    [true, 'client-secret', null, null, true, 32, false]);
+check('3.15 N42: the line for config.php and every state text never show more than the line itself', [
+    Kaleta\Core\Vault::configLine($n42Key) === "'vault_key' => '" . $n42Key . "', // encrypts connector secrets and whistleblowing reports – keep it with your backups",
+    count(array_unique(array_map(Kaleta\Core\Vault::describe(...), ['config', 'database', 'pending', 'missing'])))], [true, 4]);
+// N44: the change log keeps both texts within its 255 characters
+check('3.15 N44: ClaudeInstructions::logText – both texts, whitespace folded, long ones shortened to fit the change log', [
+    Kaleta\Core\ClaudeInstructions::logText('', "Say renovation.\nNever reconstruction."), mb_strlen(Kaleta\Core\ClaudeInstructions::logText(str_repeat('a', 4000), str_repeat('b', 4000))) <= 255],
+    ['before: (empty) → now: «Say renovation. Never reconstruction.»', true]);
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

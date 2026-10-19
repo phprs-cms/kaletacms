@@ -190,7 +190,10 @@ trait MigrationTools
         return $out;
     }
 
-    /** migration_report */
+    /**
+     * migration_report – a 'read' tool on purpose (3.15, N315-9, see Catalog): it reads the old public site through the
+     * IP-pinned ImageDownloader and keeps its progress in a state file, but changes nothing on this site.
+     */
     private function toolMigrationReport(string $name, array $a): mixed
     {
         if (!$this->app->auth()->isAdmin()) {
