@@ -790,6 +790,12 @@ site), the clean-up never deletes a used file, spam left out of the enquiry coun
 skip link, menu, 404, search, form messages and cookie bar of a Hungarian site are no longer English. **Menu anchors:**
 a link with a fragment (`/#products`) is never the current page – every anchor of the home page used to be highlighted.
 
+**3.15.2 (19 October 2026):** **Several form recipients and a hidden copy** (found on fysiomed.cz, whose enquiries reached
+only the site e-mail): the form's notification e-mails take several addresses separated by commas – one message, they see
+each other in To – and a new *Hidden copy (Bcc)* field adds recipients that are only in the envelope. `Core\Mail` sends one
+message to a list of addresses (`Mail::addresses`, a single invalid address refuses the whole list); with `mail()` the Bcc
+header is left to the server's sendmail, with SMTP it never goes out.
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |
