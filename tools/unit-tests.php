@@ -2060,6 +2060,18 @@ check('Sekce při rolování: jen zmenšení nechá záhlaví v toku (žádné p
     str_contains(Kaleta\Builder\Build::html(Kaleta\Builder\Build::sanitize($shrinkOnly)[0], $shrinkContext), '<section id="s-hl2" class="ka-hlavicka-rolovani">'),
     str_contains($shrinkContext->css, 'position: fixed'), str_contains($shrinkContext->css, '#s-hl2 { animation: ka-hlavicka-mensi linear both;'),
 ], [true, false, true]);
+// 3.15.3: the build's margin reset leaves the system content inside the Page content element of a wrapper alone (news text paragraphs keep the layout's spacing)
+$wrapperBuild = ['v' => 1, 'deti' => [['id' => 'ob1', 'typ' => 'sekce', 'deti' => [['id' => 'ob2', 'typ' => 'obsah']]], ['id' => 'ob3', 'typ' => 'sekce', 'deti' => [['id' => 'ob4', 'typ' => 'text', 'obsah' => ['text' => '<p>CTA</p>']]]]]];
+$wrapperContext = new Kaleta\Builder\Context($headerApp);
+$wrapperContext->source = 'cast:novinka:';
+$wrapperContext->content = '<p>First</p><p>Second</p>';
+$wrapperHtml = Kaleta\Builder\Build::html(Kaleta\Builder\Build::sanitize($wrapperBuild)[0], $wrapperContext);
+$wrapperCss = Kaleta\Builder\Build::css((new ReflectionClass(Kaleta\Core\Db::class))->newInstanceWithoutConstructor(), $wrapperContext);
+preg_match_all('/^([^{}\n]*)\{[^}\n]*margin-block: 0;/m', $wrapperCss, $wrapperResets);
+check('Page content in a wrapper: the content sits in .obal.obsah, the only margin reset of the build skips everything inside .obsah and keeps zero specificity', [
+    (bool) preg_match('/class="obal obsah"><p>First<\/p><p>Second<\/p>/', $wrapperHtml),
+    array_map('trim', $wrapperResets[1]),
+], [true, [':where(.stavba) :where(h1, h2, h3, h4, h5, h6, p, ul, ol, blockquote, figure, hr):not(:where(.obsah *))']]);
 check('Vocabulary: záhlaví při rolování anglicky', Kaleta\Mcp\Vocabulary::contentToEnglish('sekce', ['pri_rolovani' => 'pruhledna-zmensit', 'text_nahore' => 'svetly']), ['on_scroll' => 'transparent_shrink', 'text_at_top' => 'light']);
 check('Hledani::najdi: shoda v názvu má přednost', array_column(Kaleta\Core\Search::find('search', [
     ['titulek' => 'Menus', 'adresa' => 'menus', 'text' => 'Link to site search from the menu.'],
