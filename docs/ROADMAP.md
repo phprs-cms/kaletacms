@@ -806,7 +806,7 @@ intro after a Kaleta site import, which stores U+00A0 as the entity) showed `&am
 descriptions, the JSON feed and llms.txt. One helper `plain_text()` (strip tags, block ends to spaces, decode entities, collapse
 whitespace, optional width) now builds every such description – news, categories, tags, collection items, screen mode.
 
-## 3.16 – the monthly report you can keep, what waits across your sites (in progress)
+## 3.16 – the monthly report you can keep, what waits across your sites (released 20 October 2026)
 
 1. **Monthly report archive** (owner: a summary of what happened to the site that goes with the invoice – never hours,
    prices or a work log): on the 1st every site stores the previous month (`ka_monthly_reports`, migration 0099, 24
@@ -822,6 +822,11 @@ whitespace, optional width) now builds every such description – news, categori
    whether 4.0 is available. Never enquiry contents, e-mail addresses, IPs – and no whistleblowing count. The console
    scores the new reasons (requests waiting 48 h, certificate < 14 days, domain < 30 days, bookings, failed sign-ins) and
    shows a Waiting block on the site detail.
+
+Audited before release (N316): one masker for titles and the report (spaced and written-out e-mails, full-width @, phone
+numbers – `Core\Redact`), no free text of Claude's runs in the archive, nothing about the whistleblowing channel reaches the
+console (problem counts, failing jobs, health texts), the print page escapes CSS strings, a hostile heartbeat cannot break
+the console, a rebuilt report says when its open items were counted, moments stored with their offset.
 
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
