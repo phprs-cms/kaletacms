@@ -806,6 +806,23 @@ intro after a Kaleta site import, which stores U+00A0 as the entity) showed `&am
 descriptions, the JSON feed and llms.txt. One helper `plain_text()` (strip tags, block ends to spaces, decode entities, collapse
 whitespace, optional width) now builds every such description – news, categories, tags, collection items, screen mode.
 
+## 3.16 – the monthly report you can keep, what waits across your sites (in progress)
+
+1. **Monthly report archive** (owner: a summary of what happened to the site that goes with the invoice – never hours,
+   prices or a work log): on the 1st every site stores the previous month (`ka_monthly_reports`, migration 0099, 24
+   months, the background job `report_archive`, also without cron). Settings → Reports lists the months: a print-ready A4
+   page (the browser saves it as PDF – page numbers, the agency's branding), a download and the e-mail. The report adds
+   requests handled and still open, changes by people and by Claude, Claude's sessions and scheduled runs, updates from→to,
+   backups, security (counts only), the audit with fixed/new, enquiries by category, bookings, newsletters and what waits
+   at month end. Months before 3.16 cannot be rebuilt (the logs are kept 30–180 days); a month can be rebuilt by hand.
+   MCP `list_monthly_reports`, `get_monthly_report`.
+2. **The heartbeat says what waits for people** (for the 3.17 inbox across sites): Ask Claude requests by status and
+   their titles (switchable per site, on by default; e-mail-like text masked), the pending-review counts, enquiries without
+   spam, bookings to confirm, security counts, certificate and domain expiry, Claude's runs, how far behind the site is and
+   whether 4.0 is available. Never enquiry contents, e-mail addresses, IPs – and no whistleblowing count. The console
+   scores the new reasons (requests waiting 48 h, certificate < 14 days, domain < 30 days, bookings, failed sign-ins) and
+   shows a Waiting block on the site detail.
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |
