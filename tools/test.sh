@@ -158,16 +158,24 @@ check "3.5: My account has the address with Copy" 200 "/admin.php?action=account
 check "3.9.1: the admin footer links to the support page (Buy Me a Coffee)" 200 "/admin.php?action=account" 'href="https://buymeacoffee.com/Kaletacms"'
 # 3.9.2 N67: an update never touches media/, so migration 0084 does – it replaces a media/.htaccess Kaleta shipped (here the
 # one of 3.9.1, rebuilt from today's file) and keeps a customised one, with the new version next to it and a warning
-n67_rerun() { "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = REPLACE(REPLACE(hodnota, ',0084-media-htaccess', ''), '0084-media-htaccess', '') WHERE promenna = 'data_migrations'"; curl -s -o /dev/null "$B/?n67=$RANDOM"; }
+# (3.15 N72: migration 0097 then brings the header rules that match an upper-case extension – both run again here)
+n67_rerun() { "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(REPLACE(CONCAT(',', hodnota, ','), ',0084-media-htaccess,', ','), ',0097-media-htaccess-case,', ',')) WHERE promenna = 'data_migrations'"; curl -s -o /dev/null "$B/?n67=$RANDOM"; }
 cp "$WORK/web/media/.htaccess" "$WORK/media-htaccess-new"
-{ echo '# Uploaded files are only served – never run.'; sed -e '1,2d' -e 's/"(?i)/"/' -e 's/|pht|phtml|phar|pl|py|cgi|sh|shtml|html?|js)(\\.|\$)/|phtml|phar|pl|py|cgi|sh|html?|js)$/' "$WORK/media-htaccess-new"; } > "$WORK/web/media/.htaccess"
+{ echo '# Uploaded files are only served – never run.'; sed -e '1,2d' -e '/case of the extension, as Apache/d' -e 's/ – in any$//' -e 's/"(?i)/"/' -e 's/|pht|phtml|phar|pl|py|cgi|sh|shtml|html?|js)(\\.|\$)/|phtml|phar|pl|py|cgi|sh|html?|js)$/' "$WORK/media-htaccess-new"; } > "$WORK/web/media/.htaccess"
 expect "3.9.2 N67: the test rebuilds the media/.htaccess of 3.9.1 exactly" "$(php -r 'echo hash_file("sha256", $argv[1]);' "$WORK/web/media/.htaccess")" "e20dd912d8066f36f5d967ee462497fca1dcbcd5b53f19d6f77e6bff7ceec708"
 n67_rerun
-expect "3.9.2 N67: migration 0084 replaces the media/.htaccess of an earlier release" "$(cmp -s "$WORK/web/media/.htaccess" "$WORK/media-htaccess-new" && echo same)|$([ -f "$WORK/web/media/.htaccess.kaleta-nova" ] && echo nova)" "same|"
+expect "3.9.2 N67, 3.15 N72: migrations 0084 and 0097 replace the media/.htaccess of an earlier release" "$(cmp -s "$WORK/web/media/.htaccess" "$WORK/media-htaccess-new" && echo same)|$([ -f "$WORK/web/media/.htaccess.kaleta-nova" ] && echo nova)" "same|"
 printf '# my own rules\nRequire all granted\n' > "$WORK/web/media/.htaccess"
 n67_rerun
 expect "3.9.2 N67: a customised media/.htaccess stays, the new one waits next to it" "$(head -1 "$WORK/web/media/.htaccess")|$(cmp -s "$WORK/web/media/.htaccess.kaleta-nova" "$WORK/media-htaccess-new" && echo nova)" "# my own rules|nova"
 check "3.9.2 N67: System status asks to carry the new media/.htaccess over" 200 "/admin.php?module=status" "media/.htaccess.kaleta-nova"
+# 3.15 N72: the file of 3.9.2–3.14 (header rules for lower-case extensions only) is replaced by 0097 alone; System status
+# names a file without the new rules
+sed -e '/case of the extension, as Apache/d' -e 's/ – in any$//' -e 's/<FilesMatch "(?i)\\.svg\$">/<FilesMatch "\\.svg$">/' -e 's/<FilesMatch "(?i)\\.(docx/<FilesMatch "\\.(docx/' "$WORK/media-htaccess-new" > "$WORK/web/media/.htaccess"; rm -f "$WORK/web/media/.htaccess.kaleta-nova"
+expect "3.15 N72: the test rebuilds the media/.htaccess of 3.9.2 exactly" "$(php -r 'echo hash_file("sha256", $argv[1]);' "$WORK/web/media/.htaccess")" "1901ef144717137b305ae54dcead8641c3552c35ee8c36a8e334ae37716a5669"
+check "3.15 N72: System status names a media/.htaccess without the rules of 3.15" 200 "/admin.php?module=status" "nemá pravidla Kalety 3.15"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0097-media-htaccess-case,', ',')) WHERE promenna = 'data_migrations'"; curl -s -o /dev/null "$B/?n72=$RANDOM"
+expect "3.15 N72: migration 0097 replaces the media/.htaccess of 3.9.2" "$(cmp -s "$WORK/web/media/.htaccess" "$WORK/media-htaccess-new" && echo same)|$([ -f "$WORK/web/media/.htaccess.kaleta-nova" ] && echo nova)" "same|"
 cp "$WORK/media-htaccess-new" "$WORK/web/media/.htaccess"; rm -f "$WORK/web/media/.htaccess.kaleta-nova"
 TOKEN=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=requests&action=save" -d "_csrf=$TOKEN" -d quick=1 -d from=dashboard -d "text=Zkouška před připojením."
@@ -243,6 +251,12 @@ IDU_AUTOR=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idu FROM ka_uzivatele WHERE u
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_api_tokeny (idu, nazev, klient, druh, otisk, vytvoren, expirace) VALUES ($IDU_AUTOR, 'Claude', 'n39client', 'obnova', SHA2('n39-refresh', 256), '$(site_time)', '$(site_time '+300 days')'), ($IDU_AUTOR, 'Claude', 'n39client', 'pristup', SHA2('n39-access', 256), '$(site_time)', '$(site_time '+1 hour')'), ($IDU_AUTOR, 'personal', NULL, 'token', SHA2('n39-personal', 256), '$(site_time)', NULL)"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d "idu=$IDU_AUTOR" -d jmeno=Autor -d user=autor --data-urlencode "password=$PASSWORD" -d admin=0
 expect "3.9 N39-1: an administrator's new password ends the user's Claude connections, the personal token stays" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(SUM(druh <> 'token'), '|', SUM(druh = 'token')) FROM ka_api_tokeny WHERE idu = $IDU_AUTOR")" "0|1"
+# 3.15 (N19): the user's form offers to revoke the personal tokens too (ticked, as in My account); without a new password nothing goes
+check "3.15 N19: the user's form offers to revoke the personal tokens with the new password" 200 "/admin.php?module=users&action=edit&id=$IDU_AUTOR" 'name="zrusit_tokeny" value="1" checked'
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d "idu=$IDU_AUTOR" -d jmeno=Autor -d user=autor -d admin=0 -d zrusit_tokeny=1
+N19_KEPT=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_api_tokeny WHERE idu = $IDU_AUTOR AND druh = 'token'")
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d "idu=$IDU_AUTOR" -d jmeno=Autor -d user=autor --data-urlencode "password=$PASSWORD" -d admin=0 -d zrusit_tokeny=1
+expect "3.15 N19: with it ticked an administrator's new password revokes the personal tokens too" "$N19_KEPT|$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_api_tokeny WHERE idu = $IDU_AUTOR")" "1|0"
 "${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_api_tokeny WHERE idu = $IDU_AUTOR"
 JAR2="$WORK/jar2"
 TOKEN2=$(curl -s -c "$JAR2" "$B/admin.php" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//')
@@ -1886,6 +1900,7 @@ curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&ta
 LAST_BACKUP=$(ls -t "$WORK"/web/storage/zalohy/ | grep '^kaleta-' | head -1)
 curl -s -b "$JAR" -o "$WORK/backup-download" "$B/admin.php?module=settings&action=download_backup&file=$LAST_BACKUP"
 expect "a backup downloads whole (streamed)" "$(wc -c < "$WORK/backup-download" | tr -d ' ')" "$(wc -c < "$WORK/web/storage/zalohy/$LAST_BACKUP" | tr -d ' ')"
+expect "3.15 N42: a backup download is in the change log" "$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'settings' AND akce = 'backup downloaded' AND popis = '$LAST_BACKUP'")" "1"
 expect "the media ZIP is not built by a GET" "$(curl -s -b "$JAR" -o /dev/null -w '%{content_type}' "$B/admin.php?module=settings&action=media_backup" | tr 'A-Z' 'a-z')" "text/html; charset=utf-8"
 expect "the media ZIP by POST, with the originals" "$(curl -s -b "$JAR" -o "$WORK/media.zip" -w '%{content_type}' -X POST "$B/admin.php?module=settings&action=media_backup" -d "_csrf=$TOKEN")|$([ "$(unzip -Z1 "$WORK/media.zip" 2>/dev/null | grep -c '^media/')" -gt 0 ] && echo files)" "application/zip|files"
 
@@ -2182,6 +2197,12 @@ php -r '$z = new ZipArchive(); $z->open($argv[1]); $d = json_decode((string) $z-
   $d["collection_category_texts"][] = ["category_id" => 9712, "language" => "", "idk" => $idk, "name" => "Kolize 37", "slug" => "stimulator"];
   $d["collection_category_texts"][] = ["category_id" => 9712, "language" => "xx", "idk" => $idk, "name" => "Unknown 37", "slug" => "unknown-37"];
   $d["collection_item_categories"][] = ["idp" => $other, "category_id" => $top];
+  $d["stranky"][] = ["ids" => 9704, "titulek" => "Media 315", "seo_link" => "media-315", "zobrazit" => 1, "text" => "<p><img src=\"/media/2026/10/Photo.JPG\" alt=\"p\"> <a href=\"/media/2026/10/route.GPX\">route</a></p>"];
+  $d["media"][] = ["ido" => 9790, "obr_poloha" => "media/2026/10/Photo.JPG", "nazev" => "Photo 315", "obr_width" => 4, "obr_height" => 4];
+  ob_start(); imagejpeg(imagecreatetruecolor(4, 4)); $z->addFromString("media/2026/10/Photo.JPG", (string) ob_get_clean());
+  $z->addFromString("media/2026/10/route.GPX", "<?xml version=\"1.0\"?><gpx version=\"1.1\" creator=\"x\"><trk><name>r</name></trk></gpx>");
+  $z->addFromString("media/2026/10/fake-315.pdf", "<!DOCTYPE html><html><body><script>alert(1)</script></body></html>");
+  $z->addFromString("media/2026/10/fake-315.png", "<html><body><script>alert(2)</script></body></html>");
   $z->addFromString("obsah.json", (string) json_encode($d, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); $z->close();' "$WORK/presun37.zip" "$PRODUKTY" "$CAT_SUB" "$OTHER37" "$CAT_TOP"
 kill "$SERVER2_PID" 2>/dev/null || true; wait "$SERVER2_PID" 2>/dev/null || true
 "${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$DB2\`; CREATE DATABASE \`$DB2\` CHARACTER SET utf8mb4 COLLATE utf8mb4_czech_ci"
@@ -2206,6 +2227,11 @@ expect "3.7 N37-10/N37-11: imported categories by the tree rules – two levels,
   "$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB2" -N -e "SELECT CONCAT_WS('|', (SELECT GROUP_CONCAT(COALESCE(parent_id, 'top') ORDER BY id) FROM ka_collection_categories WHERE id IN (9711, 9712)),
     (SELECT GROUP_CONCAT(CONCAT(language, ':', slug) ORDER BY category_id, language) FROM ka_collection_category_texts WHERE category_id IN (9711, 9712)), (SELECT COUNT(*) FROM ka_collection_item_categories WHERE idp = $OTHER37 AND category_id = $CAT_TOP))")|$(grep -c 'adresu stimulator nelze použít' "$WORK/response" || true)" \
   "top,top|:nova-37,:stimulator-2|0|1"
+# 3.15 N72: media from the archive get lower-case extensions (Photo.JPG → Photo.jpg, route.GPX → route.gpx) and the content
+# follows; a file whose content is not what its extension says (HTML as .pdf or .png) never reaches media/
+expect "3.15 N72: imported media get lower-case extensions, pages and media rows point at them, HTML posing as a PDF or PNG stays out" \
+  "$(ls "$WORK/web2/media/2026/10/" 2>/dev/null | grep -cE '^(Photo\.jpg|route\.gpx)$' || true)|$(ls "$WORK/web2/media/2026/10/" 2>/dev/null | grep -cE '^(Photo\.JPG|route\.GPX|fake-315\..*)$' || true)|$("${MYSQL[@]}" "$DB2" -N -e "SELECT CONCAT((SELECT LOCATE(BINARY '/media/2026/10/Photo.jpg', text) > 0 AND LOCATE(BINARY '/media/2026/10/route.gpx', text) > 0 FROM ka_stranky WHERE ids = 9704), '|', (SELECT obr_poloha FROM ka_media WHERE ido = 9790))")|$(grep -c 'fake-315.pdf' "$WORK/response" || true)" \
+  "2|0|1|media/2026/10/Photo.jpg|1"
 expect "3.7 N37-11: the item keeps its page next to the imported category" "$(curl -s "$B2/produkty/stimulator" | grep -c '<h1>Stimulátor</h1>' || true)|$(curl -s -o /dev/null -w '%{http_code}' "$B2/produkty/stimulator-2")" "1|200"
 [ -s "$WORK/web2/storage/log/chyby.log" ] && { echo "  CHYBA  errors on the new site:"; cat "$WORK/web2/storage/log/chyby.log"; ERRORS=$((ERRORS+1)); }
 kill "$SERVER2_PID" 2>/dev/null || true; "${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$DB2\`"
@@ -3282,6 +3308,8 @@ sign_in_2fa() { # prihlas2fa <jar> → vrátí kód odpovědi na zadání druhé
 expect "špatný kód z aplikace neprojde" "$(sign_in_2fa "$WORK/jar6" 000000)" "401"
 TOTP_CODE=$(php -r 'require $argv[1] . "/system/src/Core/Totp.php"; echo Kaleta\Core\Totp::code("JBSWY3DPEHPK3PXP", intdiv(time(), 30));' "$ROOT")
 expect "přihlášení s kódem z aplikace (TOTP)" "$(sign_in_2fa "$WORK/jar7" "$TOTP_CODE")" "302"
+# 3.15 (N18): the same code again – a code seen over a shoulder or by a phishing page – is refused while it is still in its window
+expect "3.15 N18: a code from the app signs in only once" "$(sign_in_2fa "$WORK/jar12" "$TOTP_CODE")|$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_kontrola_ip WHERE typ = 'totp' AND cil = (SELECT idu FROM ka_uzivatele WHERE user = 'autor')")" "401|1"
 expect "záložní kód projde" "$(sign_in_2fa "$WORK/jar8" abcde-12345)" "302"
 expect "záložní kód jde použít jen jednou" "$(sign_in_2fa "$WORK/jar9" abcde-12345)" "401"
 # 3.3.2 (N7): a correct password does not reset the count of wrong codes – the per-account lock stays reachable
@@ -3303,7 +3331,7 @@ expect "3.3.3: other details save without the password while the e-mail stays th
 account_post -d co=profil -d jmeno=Autor -d email=autor-novy@example.cz --data-urlencode "soucasne=$PASSWORD" > /dev/null
 expect "3.3.3: with the current password the e-mail changes and the old address gets a notice" \
   "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT((SELECT email FROM ka_uzivatele WHERE user = 'autor'), '|', (SELECT COUNT(*) FROM ka_posta WHERE komu = 'autor-puvodni@example.cz' AND predmet LIKE 'E-mail va%'))")" "autor-novy@example.cz|1"
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET totp_tajemstvi = '', totp_zalozni = NULL WHERE user = 'autor'; DELETE FROM ka_kontrola_ip WHERE typ = 'login'"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET totp_tajemstvi = '', totp_zalozni = NULL WHERE user = 'autor'; DELETE FROM ka_kontrola_ip WHERE typ IN ('login', 'totp')"
 
 echo "== vypnutá rozšíření Novinky a Formuláře a poptávky"
 EXTENSIONS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna='extensions'")
@@ -3373,6 +3401,8 @@ contains -q 'Test: the automatic backup failed' "$WORK/response" && contains -q 
 # firewall (2.8): the test server runs with KALETA_FIREWALL_LOCAL=1, so 127.0.0.1 counts as a visitor's address
 sq "INSERT INTO ka_nastaveni VALUES ('firewall_enabled','1'),('firewall_ips','127.0.0.1 # test'),('firewall_probes','1'),('firewall_rate','0') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)" > /dev/null
 expect "firewall: a listed address is refused on the public site" "$(curl -s -o /dev/null -w '%{http_code}' "$B/")" "403"
+# 3.15 (N46): a refused request for the whistleblowing channel is logged without the address
+expect "3.15 N46: the firewall log keeps no address for a refused report page" "$(curl -s -o /dev/null -w '%{http_code}' "$B/_report")|$(sq "SELECT CONCAT(COUNT(*), ':', COALESCE(MAX(ip), '-')) FROM ka_firewall_log WHERE path = '/_report'")|$(sq "SELECT COUNT(*) > 0 FROM ka_firewall_log WHERE path = '/' AND ip = '127.0.0.1'")" "403|1:|1"
 expect "firewall: the administration stays open" "$(curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?module=settings&tab=firewall")" "200"
 grep -q 'name="firewall_ips"' "$WORK/response" && grep -q '127.0.0.1' "$WORK/response" && echo "  ok     firewall: the tab shows the settings and the refused request" || { echo "  CHYBA  firewall: záložka"; ERRORS=$((ERRORS+1)); }
 sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'firewall_ips'" > /dev/null
@@ -4414,6 +4444,9 @@ grep -q '"has_verifier":true' "$FAKE_LOGS-oauth.log" && echo "  ok     connector
 check "connectors: the screen shows the connection and never the secret" 200 "/admin.php?module=connectors" "owner@example.com"
 ! grep -q 'test-client-secret\|access-1\|refresh-1' "$WORK/response" && echo "  ok     connectors: no credential on the page" || { echo "  CHYBA  credential on the page"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -o /dev/null "$B/admin.php?module=connectors&action=callback&code=test-code&state=0123456789abcdef0123456789abcdef"
+# 3.15 (N49): the error of a cancelled sign-in is shown only as one of the OAuth error codes, never as text from the address
+curl -s -b "$JAR" -c "$JAR" -L -o "$WORK/response" "$B/admin.php?module=connectors&action=callback&error=Call+our+support+at+evil.example"
+grep -q 'unknown_error' "$WORK/response" && ! grep -q 'evil.example' "$WORK/response" && echo "  ok     3.15 N49: a cancelled sign-in shows an OAuth error code, not text from the address" || { echo "  CHYBA  N49 OAuth callback error"; ERRORS=$((ERRORS+1)); }
 expect "connectors: a callback with a state the session did not issue changes nothing" "$(sq "SELECT COUNT(*) FROM ka_connector_log WHERE action = 'oauth.token'")" "1"
 connector_call() { php -r 'chdir($argv[1]); putenv("KALETA_CONNECTORS_FAKE=" . $argv[2]); require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $r = Kaleta\Core\Connectors::request($app, "google", "GET", "https://www.googleapis.com/echo"); echo $r["status"], "|", $r["json"]["authorization"] ?? "", "|", $r["error"];' "$WORK/web" "http://127.0.0.1:$FAKE_PORT"; }
 expect "connectors: a call is authorised with the stored token" "$(connector_call)" "200|Bearer access-1|"
@@ -4507,6 +4540,15 @@ check "clean-up: the image without a description has an input" 200 "/admin.php?m
 TOKEN=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=media&action=save_alts" -d "_csrf=$TOKEN" --data-urlencode "alt[$F16_ALT]=Ctverec z formulare"
 expect "clean-up: descriptions saved in bulk" "$(sq "SELECT nazev FROM ka_media WHERE ido = $F16_ALT")" "Ctverec z formulare"
+# 3.15 (N49): a user who is not an administrator sees only their own files in the clean-up
+mcp upload_file "{\"filename\":\"spravcuv-n49.png\",\"data\":\"$PNG\"}" > /dev/null
+sq "INSERT INTO ka_uzivatele (user, password, jmeno, admin, posledni_login, potvrzeno) VALUES ('n49-author', '$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")', 'Author N49', 0, '$(site_time)', '$(site_time)');
+  INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, 'media' FROM ka_uzivatele WHERE user = 'n49-author'" > /dev/null
+JAR_N49="$WORK/cookies-n49.txt"; curl -s -c "$JAR_N49" -o "$WORK/response" "$B/admin.php"
+curl -s -b "$JAR_N49" -c "$JAR_N49" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$(csrf)" -d user=n49-author --data-urlencode "password=$PASSWORD"
+expect "3.15 N49: the clean-up of a user who is not an administrator lists none of the administrator's files; the administrator's lists them" \
+  "$(curl -s -b "$JAR_N49" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?module=media&action=cleanup")|$(grep -q 'spravcuv-n49' "$WORK/response" && echo 1 || echo 0)|$(curl -s -b "$JAR" -o "$WORK/response2" "$B/admin.php?module=media&action=cleanup"; grep -q 'spravcuv-n49' "$WORK/response2" && echo 1 || echo 0)" "200|0|1"
+sq "DELETE FROM ka_uzivatele WHERE user = 'n49-author'" > /dev/null
 # content check: a text page with a short title, no description, a skipped heading level and an image without alt
 mcp create_page '{"title":"Kontrola obsahu F16","content":"<h2>Co nabízíme</h2><p>Text o kuchyních.</p><h4>Skok</h4><img src=\"/media/x.jpg\">"}' > /dev/null; F16_PAGE=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'kontrola-obsahu-f16'")
 mcp get_page "{\"id\":$F16_PAGE}" > "$WORK/response"; mcp_value content_check > "$WORK/check.json"
@@ -4701,6 +4743,9 @@ expect "whistleblowing: the setup is saved – on, the reader, the retention" "$
 # 3.3.3 (N53): a site with a CAPTCHA still loads none on the channel – the provider would learn who reports
 sq "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('captcha_provider','turnstile'),('captcha_site_key','test-site'),('captcha_secret','test-secret') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)" > /dev/null
 check "whistleblowing: the public form with the introduction" 200 "/_report" 'name="text"'
+# 3.15 (N46): the channel's page loads nothing from another host (an embed in the header or footer cannot see the reporter) and sends no Referer
+expect "3.15 N46: the report page has a CSP that keeps it on this site and no Referer; an ordinary page has neither" \
+  "$(curl -s -D - -o /dev/null "$B/_report" | tr -d '\r' | grep -ciE "^content-security-policy: default-src 'self';.*img-src 'self' data:;.*frame-src 'none'|^referrer-policy: no-referrer$" || true)|$(curl -s -D - -o /dev/null "$B/" | tr -d '\r' | grep -ciE '^content-security-policy:|^referrer-policy: no-referrer$' || true)" "2|0"
 grep -q 'compliance officer' "$WORK/response" && grep -q 'noindex' "$WORK/response" && ! grep -q 'googletagmanager\|data-souhlas=\|cookies-lista\|<script src="https://\|challenges.cloudflare.com\|cf-turnstile' "$WORK/response" \
   && echo "  ok     whistleblowing: the page is not indexed and carries no tracking code, consent bar, CAPTCHA or third-party script" || { echo "  CHYBA  whistleblowing page privacy"; ERRORS=$((ERRORS+1)); }
 cp "$WORK/response" "$WORK/formular.html"; WB_TIME=$(field_value as_cas); WB_SIGNATURE=$(field_value as_podpis)
@@ -5369,6 +5414,9 @@ sq "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'editor'
 expect "3.3.2 MCP: list_news and get_news without the News section show no drafts; with it they do" \
   "$(mcp_as "$EDITOR12_TOKEN" list_news '{"limit":50}' | grep -c 'N12 draft only')|$(mcp_as "$EDITOR12_TOKEN" get_news "{\"id\":$N12_DRAFT}" | grep -c '"isError":true')|$(mcp list_news '{"limit":50}' | grep -c 'N12 draft only')" "0|1|1"
 mcp trash_news "{\"id\":$N12_DRAFT}" > /dev/null
+# 3.15 (N71): the Notebook is a section – a user without it reads no notes over MCP, not even the pinned titles in site_info
+expect "3.15 N71: without the Notebook section read_notebook is refused and site_info names no pinned note; the admin still reads them" \
+  "$(mcp_as "$EDITOR12_TOKEN" read_notebook '{}' | grep -c 'no access to the Notebook')|$(mcp_as "$EDITOR12_TOKEN" site_info '{}' | grep -c 'Fotky z roku 2024')|$(mcp read_notebook '{}' | grep -c 'Fotky z roku 2024')|$(mcp site_info '{}' | grep -c 'Fotky z roku 2024')" "1|0|1|1"
 # 3.3.2 (N11): an author-level role with the Categories section cannot rename or delete a category in the admin (as over MCP)
 sq "UPDATE ka_uzivatele SET admin = 0, password = '$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")' WHERE user = 'n12-editor';
   INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, 'categories' FROM ka_uzivatele WHERE user = 'n12-editor'" > /dev/null
@@ -5437,6 +5485,9 @@ expect "schedules: custom instructions without a text are refused" "$(sq "SELECT
 mcp_as "$DRAFT_TOKEN" get_due_agent_runs '{}' > "$WORK/response"
 expect "schedules: nothing due – the drafts-only connection gets an empty list" "$(mcp_value count)" "0"
 sq "UPDATE ka_agent_schedules SET next_due = '$(site_time)' - INTERVAL 1 HOUR WHERE id = $SCHED" > /dev/null
+# 3.15 (N45): a read-only connection takes no run – it could never report it
+expect "3.15 N45: a read-only connection is refused by get_due_agent_runs and the due run stays for the routine" \
+  "$(mcp_as "$READ_TOKEN" get_due_agent_runs '{}' | grep -c 'read-only connection cannot take scheduled runs')|$(sq "SELECT COUNT(*) FROM ka_agent_runs WHERE schedule_id = $SCHED AND started_at IS NOT NULL")" "1|0"
 mcp_as "$DRAFT_TOKEN" get_due_agent_runs '{}' > "$WORK/response"; mcp_text
 RUN=$(mcp_value runs 0 id); RUN="${RUN:-0}"
 contains -q '"name":"Weekly review"' "$WORK/text" && contains -q 'Run site_audit' "$WORK/text" && contains -q 'Also: Only the Services pages.' "$WORK/text" && contains -q 'never publish' "$WORK/text" && contains -q '"connection":"drafts only' "$WORK/text" && echo "  ok     schedules: get_due_agent_runs hands the run out with the task text, the administrator's extra and the rules" || { echo "  CHYBA  get_due_agent_runs"; head -c 600 "$WORK/text"; ERRORS=$((ERRORS+1)); }

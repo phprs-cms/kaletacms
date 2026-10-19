@@ -30,8 +30,12 @@ trait AgentRunTools
     {
         $this->needSchedules();
         $connection = $this->app->auth()->connection();
-        $handed = AgentSchedules::handOut($this->app, (string) ($connection['name'] ?? ''));
         $access = (string) ($connection['access'] ?? 'full');
+        if ($access === 'read') {
+            // 3.15 (N45): handing a run out is a write, and a read-only connection could never report it – the run would be lost
+            throw new \DomainException('A read-only connection cannot take scheduled runs – it could not report them with report_agent_run. Connect the routine with a drafts-only token (My account → tokens).');
+        }
+        $handed = AgentSchedules::handOut($this->app, (string) ($connection['name'] ?? ''));
 
         return [
             'runs' => array_map(fn (array $h): array => [

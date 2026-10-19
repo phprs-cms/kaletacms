@@ -5,13 +5,14 @@
 </FilesMatch>
 Options -Indexes -ExecCGI
 <IfModule mod_headers.c>
-    # browsers must not guess the file type; documents are offered for download instead of opening inside the site
+    # browsers must not guess the file type; documents are offered for download instead of opening inside the site – in any
+    # case of the extension, as Apache's mod_mime reads it (3.15, N72)
     Header set X-Content-Type-Options "nosniff"
     # SVG from Media is cleaned (Core\Svg); a strict CSP is the second safeguard when someone opens it on its own
-    <FilesMatch "\.svg$">
+    <FilesMatch "(?i)\.svg$">
         Header set Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox"
     </FilesMatch>
-    <FilesMatch "\.(docx?|xlsx?|pptx?|od[tsp]|rtf|csv|zip|epub|gpx|ics)$">
+    <FilesMatch "(?i)\.(docx?|xlsx?|pptx?|od[tsp]|rtf|csv|zip|epub|gpx|ics)$">
         Header set Content-Disposition "attachment"
     </FilesMatch>
 </IfModule>

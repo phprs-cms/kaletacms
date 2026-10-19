@@ -314,6 +314,14 @@ final class Media extends Module
     {
         $report = \Kaleta\Core\MediaHygiene::report($this->db);
         $canEdit = fn (array $o): bool => $this->app->auth()->isAdmin() || (int) $o['vlastnik'] === $this->app->auth()->id();
+        if (!$this->app->auth()->isAdmin()) {
+            // 3.15 (N49): a user who is not an administrator sees their own files – where other people's files are used (the
+            // titles of their drafts, too) stays with them; a group of duplicates is shown when it holds a file of theirs
+            $report['unused'] = array_values(array_filter($report['unused'], $canEdit));
+            $report['oversized'] = array_values(array_filter($report['oversized'], $canEdit));
+            $report['duplicates'] = array_values(array_map(fn (array $group): array => array_map(fn (array $o): array => $canEdit($o) ? $o : ['kde' => []] + $o, $group),
+                array_filter($report['duplicates'], fn (array $group): bool => array_filter($group, $canEdit) !== [])));
+        }
 
         return $this->view('cleanup', 'Media clean-up', $report + [
             'withoutAlt' => array_slice(array_values(array_filter($report['without_alt'], $canEdit)), 0, self::ALT_BATCH),

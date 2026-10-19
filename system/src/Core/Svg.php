@@ -115,7 +115,8 @@ final class Svg
                     continue;
                 }
                 self::node($child);
-            } elseif ($child instanceof \DOMProcessingInstruction || $child instanceof \DOMCdataSection) {
+            } elseif ($child instanceof \DOMProcessingInstruction || $child instanceof \DOMCdataSection || $child instanceof \DOMComment) {
+                // a comment goes too (3.15, N73): "<!--><img onerror=…>-->" is a comment in XML, but markup once inlined into HTML
                 $el->removeChild($child);
             }
         }

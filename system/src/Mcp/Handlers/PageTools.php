@@ -32,7 +32,8 @@ trait PageTools
         $db = $this->app->db();
         $siteSettings = $this->app->settings();
         // the agent notebook (2.15, Core\Notebook): how many notes colleagues and earlier conversations left, and the pinned titles – read_notebook has them all
-        $notebook = \Kaleta\Core\Notebook::summary($db);
+        // 3.15 (N71): only for a user with the Notebook section – the pinned titles are notes too
+        $notebook = $auth->hasModule('notebook') ? \Kaleta\Core\Notebook::summary($db) : ['count' => 0, 'pinned' => []];
 
         return [
             'web' => $siteSettings->get('site_name'), 'adresa' => $this->app->request->origin() . $this->app->url(''), 'popis' => $siteSettings->get('site_description'),

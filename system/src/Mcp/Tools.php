@@ -1258,6 +1258,9 @@ final class Tools
                 throw new \InvalidArgumentException('Stahovat jde jen z https adresy.');
             }
             try {
+                // the "old site" of the downloader is the address itself, so its domain rule only keeps redirects on the host
+                // Claude named (S5, documented in 3.15): what protects the site is https only, a public address and the
+                // connection pinned to it on every hop, and the size and time limits
                 $content = (new \Kaleta\Core\ImageDownloader($url))->download($url, false);
             } catch (\RuntimeException $e) {
                 throw new \InvalidArgumentException('Soubor se nepodařilo stáhnout: ' . $e->getMessage());
