@@ -801,6 +801,11 @@ margins also reached the system content in the *Page content* element of the new
 paragraphs, lists and figures of a news article were glued together. The reset now skips everything inside `.obsah`
 (zero specificity kept) and the content looks the same as without the wrapper.
 
+**3.15.4 (19 October 2026):** **Descriptions from HTML as plain text:** a news intro with `&nbsp;` (WordPress content, or any
+intro after a Kaleta site import, which stores U+00A0 as the entity) showed `&amp;nbsp;` literally in the meta, og and JSON-LD
+descriptions, the JSON feed and llms.txt. One helper `plain_text()` (strip tags, block ends to spaces, decode entities, collapse
+whitespace, optional width) now builds every such description – news, categories, tags, collection items, screen mode.
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |
