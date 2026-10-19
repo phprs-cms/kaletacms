@@ -754,7 +754,7 @@ and keeps the stored decimals (4.20), {{price_raw}} is the stored value for link
 industry example sites). The update test stops its server's workers (they outlived every run because lsof was not on
 the PATH). The 18 industry example screenshots are on kaletacms.com/solutions and in docs/screenshots/examples.
 
-## 3.15 – the bridge to 4.0, the daily audits closed (released 20 October 2026)
+## 3.15 – the bridge to 4.0, the daily audits closed (released 19 October 2026)
 
 1. **Both table names** (`Core\Names`, `Db`): a site works on today's Czech tables and on the English names 4.0 renames
    them to, and notices a rename or a rollback by itself (a cached marker; one `information_schema` query only after a
@@ -780,6 +780,9 @@ the PATH). The 18 industry example screenshots are on kaletacms.com/solutions an
    N18 (TOTP replay), N19 (tokens revoked when an administrator changes a password), N21 (ids that clobber the page),
    N45, N46 (whistleblowing page CSP), N48 (CSS escapes), N49; N9, N22, N47 were already fixed. Migrations 0097
    (media staging) and 0098 (media/.htaccess).
+9. **Hungarian for visitors** (`system/jazyky/hu.php`, found while moving licencepro.hu): the skip link, menu, 404, search,
+   form messages and cookie bar of a Hungarian site are no longer English. **Menu anchors:** a link with a fragment
+   (`/#products`) is never the current page – every anchor of the home page used to be highlighted.
 
 Audited before release (N315): a live class cannot publish a waiting file, the vault key is written only into the
 top-level config array and verified before re-encrypting, 4.0 installs only after a successful check of the newest 3.x,
