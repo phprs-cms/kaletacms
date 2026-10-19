@@ -5897,4 +5897,6 @@ return [
     'Back up and update to %s' => 'Zazálohovat a aktualizovat na %s',
     'Version %s has been available for %d days and this site still runs %s. Security fixes come out only in the newest release, so keep the site up to date.' => 'Verze %s je k dispozici už %d dní a web pořád běží na %s. Bezpečnostní opravy vycházejí jen v nejnovějším vydání, proto web udržujte aktuální.',
     'Update' => 'Aktualizovat',
+    // 3.15: the update to 4.0 waits for the blocking checks of Ready for 4.0
+    'The update to a new major version waits until Ready for 4.0 clears: %s.' => 'Aktualizace na novou hlavní verzi počká, až kontrola Připraveno na 4.0 nebude hlásit: %s.',
 ];

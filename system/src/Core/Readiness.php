@@ -155,6 +155,23 @@ final class Readiness
         return $out;
     }
 
+    /**
+     * Checks whose warning stops the update to 4.0 (3.15): with an unsupported database server or without the rights to
+     * rename tables the update cannot succeed. Every other warning (old table names in an add-on…) only asks for care.
+     */
+    public const array BLOCKERS = ['database_version', 'database_privileges'];
+
+    /**
+     * The names of the checks that stop the update to 4.0 now – empty when it may go ahead.
+     *
+     * @param list<array{key: string, nazev: string, stav: string, info: string, seznam: list<string>}> $checks
+     * @return list<string>
+     */
+    public static function blockers(array $checks): array
+    {
+        return array_values(array_map(fn (array $c): string => $c['nazev'], array_filter($checks, fn (array $c): bool => $c['stav'] === 'varovani' && in_array($c['key'], self::BLOCKERS, true))));
+    }
+
     /** The worst state: varovani when a check warns, ok otherwise (info is never a problem). */
     public static function summary(array $checks): string
     {

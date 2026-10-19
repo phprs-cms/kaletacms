@@ -70,6 +70,8 @@ $developer = fn (string $detail): string => '<details><summary>' . e(t('Details 
 	<p><?= e(t('A new major version is never installed automatically, not even as a security update. Check Ready for 4.0 first and download a database backup off the server.')) ?> <a href="<?= e($app->url('admin.php?module=status#ready-4')) ?>"><?= e(t('Ready for 4.0')) ?></a></p>
 <?php if ($update !== null && $update['nova'] !== null): ?>
 	<p class="napoveda"><?= e(t('Install version %s first – a new major version is installed only from the newest release of the current one.', (string) $update['nova']['verze'])) ?></p>
+<?php elseif (($majorBlockers = Kaleta\Core\Readiness::blockers(Kaleta\Core\Readiness::checks($app))) !== []): ?>
+	<p class="napoveda"><?= e(t('The update to a new major version waits until Ready for 4.0 clears: %s.', implode(', ', $majorBlockers))) ?> <a href="<?= e($app->url('admin.php?module=status#ready-4')) ?>"><?= e(t('Ready for 4.0')) ?></a></p>
 <?php elseif (Kaleta\Core\Updater::phpTooOld($major)): ?>
 	<p class="napoveda"><?= e(t('Version %s needs PHP %s or newer; the server runs PHP %s. Ask your hosting to switch the site to a newer PHP, then the update will be offered here.', $majorVersion, Kaleta\Core\Updater::minPhp($major), PHP_VERSION)) ?></p>
 <?php else: ?>

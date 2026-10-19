@@ -691,6 +691,10 @@ class Settings extends Module
         if ($pending !== null) {
             return $this->back(t('Install version %s first – a new major version is installed only from the newest release of the current one.', (string) $pending['verze']), '', ['tab' => 'backups'], 'chyba');
         }
+        // the database server or its rights would make the update fail half-way – Ready for 4.0 must clear them first
+        if (($blockers = \Kaleta\Core\Readiness::blockers(\Kaleta\Core\Readiness::checks($this->app))) !== []) {
+            return $this->back(t('The update to a new major version waits until Ready for 4.0 clears: %s.', implode(', ', $blockers)), '', ['tab' => 'backups'], 'chyba');
+        }
         try {
             $backup = Backup::create($this->db, 'predaktualizaci');
             $installed = (new Updater($this->app->settings(), major: true))->install($this->app->db(), $version);

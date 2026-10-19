@@ -6505,5 +6505,13 @@ check('3.14 RedirectSources::normalize – the stored form in lower case: slashe
     ['/Stara-Adresa/', 'ko%C4%8Dka', 'EN/Stary', '/?p=12', 'Café', 'https://old.example.com/Blog/Post/', 'blog/*']),
     ['stara-adresa', 'kočka', 'en/stary', '?p=12', 'café', 'blog/post', 'blog/*']);
 check('3.14 the background job that normalises redirect sources is listed', [Kaleta\Core\Scheduler::JOBS['redirect_sources'][0] ?? null, Kaleta\Core\Scheduler::JOBS['redirect_sources'][1] ?? null], [0, 'any']);
+// 3.15: the update to 4.0 waits only for the blocking checks (database server, rights); other warnings ask for care
+$checks315 = [['key' => 'database_version', 'nazev' => 'Database server', 'stav' => 'ok', 'info' => '', 'seznam' => []],
+    ['key' => 'database_privileges', 'nazev' => 'Database user rights', 'stav' => 'varovani', 'info' => '', 'seznam' => []],
+    ['key' => 'legacy_table_names', 'nazev' => 'Add-ons and old table names', 'stav' => 'varovani', 'info' => '', 'seznam' => []],
+    ['key' => 'shared_slugs', 'nazev' => 'Addresses shared by language versions', 'stav' => 'info', 'info' => '', 'seznam' => []]];
+check('3.15 Readiness::blockers – only a warning of the database server or its rights stops the 4.0 update', [Kaleta\Core\Readiness::blockers($checks315),
+    Kaleta\Core\Readiness::blockers(array_map(fn (array $c): array => ['stav' => $c['key'] === 'database_privileges' ? 'ok' : $c['stav']] + $c, $checks315))],
+    [['Database user rights'], []]);
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

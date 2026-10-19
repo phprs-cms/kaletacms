@@ -6302,4 +6302,6 @@ return [
     'Back up and update to %s' => 'Hacer copia y actualizar a %s',
     'Version %s has been available for %d days and this site still runs %s. Security fixes come out only in the newest release, so keep the site up to date.' => 'La versión %s está disponible desde hace %d días y este sitio sigue con la %s. Las correcciones de seguridad solo salen en la última versión, así que mantén el sitio actualizado.',
     'Update' => 'Actualizar',
+    // 3.15: the update to 4.0 waits for the blocking checks of Ready for 4.0
+    'The update to a new major version waits until Ready for 4.0 clears: %s.' => 'La actualización a una nueva versión principal espera hasta que “Preparado para la 4.0” deje de señalar: %s.',
 ];
