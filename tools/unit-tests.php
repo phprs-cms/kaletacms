@@ -880,6 +880,10 @@ check('Rozdil: shodné texty', Kaleta\Core\Diff::html('<p>Stejné</p>', '<p>Stej
 check('Seo::faq', Seo::faq("Kdy to začne?\nV pondělí.\n\nKolik to stojí?\nNic."), [['Kdy to začne?', 'V pondělí.'], ['Kolik to stojí?', 'Nic.']]);
 check('Seo::faq: prázdný vstup', Seo::faq(null), []);
 
+/* ---------- llms.txt: one line of plain text from stored HTML ---------- */
+check('Seo::plainText: entity jako znaky, bez značek', Seo::plainText('<p>Výstavba zahájena v&nbsp;květnu 2023&nbsp;máme <b>R&amp;D</b>&hellip;</p><p>Druhý</p>'), 'Výstavba zahájena v květnu 2023 máme R&D… Druhý');
+check('Seo::plainText: zkrácení', Seo::plainText(str_repeat('slovo&nbsp;', 60), 20), 'slovo slovo slovo s…');
+
 /* ---------- backups to S3: AWS Signature V4 signing (the value verified by an independent computation) ---------- */
 check('404: sondy robotů se nezapisují, skutečné adresy ano', array_map(Kaleta\Core\NotFound::isBot(...), ['wp/v2/users', 'sellers.json', 'api/session/properties', '_next', 'api/novinky/x', 'about-us', 'en', 'cenik-2019']),
     [true, true, true, true, true, false, false, false]);
