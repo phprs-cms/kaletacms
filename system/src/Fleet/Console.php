@@ -32,13 +32,23 @@ final class Console
 
     /** What a heartbeat may carry (Fleet\Heartbeat) – anything else is dropped. */
     private const array HEARTBEAT_KEYS = ['name', 'url', 'version', 'php', 'db_version', 'status', 'problems', 'jobs_failing', 'cron_last_run', 'last_backup', 'offsite_backup',
-        'update_available', 'update_problem', 'auto_updates', 'update_channel', 'enquiries_unanswered', 'enquiries_7_days', 'visits_7_days', 'audit', 'problems_7_days', 'claude', 'kit_version'];
+        'update_available', 'update_problem', 'auto_updates', 'update_channel', 'enquiries_unanswered', 'enquiries_7_days', 'visits_7_days', 'audit', 'problems_7_days', 'claude', 'kit_version',
+        // 3.16: what waits for people – each has its own shape and bounds (cleanPart); a site before 3.16 sends none of them
+        'requests', 'pending_review', 'enquiries_new_not_spam', 'bookings_pending', 'security_7_days', 'domain_watch', 'agent_runs', 'updates', 'report_month'];
 
     /** Reasons for attention => weight; the list on the console is sorted by the sum. */
     public const array REASONS = [
-        'down' => 100, 'not_reporting' => 80, 'errors' => 60, 'update_failed' => 50, 'jobs_failing' => 40, 'no_backup' => 30,
-        'no_heartbeat' => 20, 'warnings' => 10, 'no_cron' => 5, 'enquiries' => 5, 'update_available' => 5, 'audit' => 2,
+        'down' => 100, 'not_reporting' => 80, 'errors' => 60, 'update_failed' => 50, 'jobs_failing' => 40, 'certificate_expiring' => 40, 'no_backup' => 30,
+        'domain_expiring' => 30, 'no_heartbeat' => 20, 'warnings' => 10, 'requests_waiting' => 10, 'sign_in_attacks' => 10, 'no_cron' => 5, 'enquiries' => 5,
+        'bookings_to_confirm' => 5, 'update_available' => 5, 'audit' => 2,
     ];
+
+    /** 3.16: a certificate or a domain registration ending within this many days asks for attention. */
+    public const int CERTIFICATE_DAYS = 14;
+    public const int DOMAIN_DAYS = 30;
+
+    /** 3.16: failed sign-ins in 7 days from which a site asks for attention (someone is guessing passwords). */
+    public const int SIGN_IN_SPIKE = 50;
 
     /** A new one-time pairing key (shown once). */
     public static function newPairingKey(App $app): string
@@ -260,7 +270,7 @@ final class Console
         if ($beat !== [] && (empty($beat['cron_last_run']) || $now - (int) $beat['cron_last_run'] > 86400)) {
             $reasons[] = 'no_cron';
         }
-        if ((int) ($beat['enquiries_unanswered'] ?? 0) > 0) {
+        if ((int) (self::enquiriesWaiting($beat) ?? 0) > 0) {
             $reasons[] = 'enquiries';
         }
         if (!empty($beat['update_available'])) {
@@ -269,8 +279,57 @@ final class Console
         if (is_array($beat['audit'] ?? null) && array_sum($beat['audit']) > 0) {
             $reasons[] = 'audit';
         }
+        // 3.16: what waits for people, certificates and domains, sign-in attacks (sites before 3.16 send none of it)
+        if ((int) ($beat['requests']['oldest_waiting_hours'] ?? 0) > Heartbeat::REQUEST_WAIT_HOURS) {
+            $reasons[] = 'requests_waiting';
+        }
+        if ((int) ($beat['bookings_pending'] ?? 0) > 0) {
+            $reasons[] = 'bookings_to_confirm';
+        }
+        $days = self::daysLeft($beat['domain_watch']['certificate'] ?? null, $now);
+        if ($days !== null && $days < self::CERTIFICATE_DAYS) {
+            $reasons[] = 'certificate_expiring';
+        }
+        $days = self::daysLeft($beat['domain_watch']['domain'] ?? null, $now);
+        if ($days !== null && $days < self::DOMAIN_DAYS) {
+            $reasons[] = 'domain_expiring';
+        }
+        if ((int) ($beat['security_7_days']['failed_sign_ins'] ?? 0) >= self::SIGN_IN_SPIKE || (int) ($beat['security_7_days']['events']['security.token_reuse'] ?? 0) > 0) {
+            $reasons[] = 'sign_in_attacks';
+        }
 
         return ['score' => array_sum(array_map(fn (string $r): int => self::REASONS[$r], $reasons)), 'reasons' => $reasons];
+    }
+
+    /**
+     * Enquiries waiting for an answer as the console shows them (3.16): new and not spam, as the site's own list counts
+     * them; a site before 3.16 sends only enquiries_unanswered (every unopened enquiry, spam included).
+     *
+     * @param array<string, mixed> $beat
+     */
+    public static function enquiriesWaiting(array $beat): ?int
+    {
+        $count = $beat['enquiries_new_not_spam'] ?? $beat['enquiries_unanswered'] ?? null;
+
+        return is_int($count) ? $count : null;
+    }
+
+    /**
+     * Days until a certificate or a domain registration ends (3.16), from its date when the report has one – the site checks
+     * once a day, the console counts from today; null when unknown.
+     *
+     * @param mixed $part ['expires' => 'Y-m-d', 'days' => int] from the heartbeat's domain_watch
+     */
+    public static function daysLeft(mixed $part, int $now): ?int
+    {
+        if (!is_array($part)) {
+            return null;
+        }
+        if (($date = self::date($part['expires'] ?? null)) !== null) {
+            return (int) floor(($date->getTimestamp() - $now) / 86400);
+        }
+
+        return is_int($part['days'] ?? null) ? $part['days'] : null;
     }
 
     /**
@@ -357,16 +416,180 @@ final class Console
         $out = [];
         foreach (self::HEARTBEAT_KEYS as $key) {
             $value = $d[$key] ?? null;
+            if (in_array($key, self::PARTS, true)) {
+                $out[$key] = self::cleanPart($key, $value);
+                continue;
+            }
             $out[$key] = match (true) {
                 is_string($value) => mb_substr($value, 0, 255),
                 is_int($value), is_bool($value), $value === null => $value,
-                is_float($value) => (int) $value,
+                is_float($value) => self::whole($value),
                 is_array($value) => self::cleanList($value),
                 default => null,
             };
         }
+        // the whistleblowing channel never shows on the console (3.16, N316-3) – a site before 3.16.0 still sends its events
+        if (is_array($out['problems_7_days'])) {
+            $out['problems_7_days'] = Heartbeat::withoutWhistleblowing($out['problems_7_days']);
+        }
+        if (is_array($out['problems'])) { // the health checks of a 3.15 site name the channel's events and job in their details
+            $out['problems'] = array_values(array_filter(array_map(function (mixed $p): mixed {
+                if (!is_array($p) || !is_string($p['detail'] ?? null) || !Heartbeat::isWhistleblowing($p['detail'])) {
+                    return $p;
+                }
+                $p['detail'] = implode(', ', array_filter(preg_split('/\s*[,;]\s*/', $p['detail']) ?: [], fn (string $part): bool => !Heartbeat::isWhistleblowing($part)));
+
+                return $p['detail'] === '' ? null : $p;
+            }, $out['problems']), fn (mixed $p): bool => $p !== null));
+        }
+        if (is_array($out['jobs_failing'])) {
+            $out['jobs_failing'] = array_values(array_filter($out['jobs_failing'], fn (mixed $job): bool => !is_string($job) || !Heartbeat::isWhistleblowing($job)));
+        }
 
         return $out;
+    }
+
+    /**
+     * 3.16: the parts of a heartbeat with their own shape (Fleet\Heartbeat) and their bounds:
+     *  - requests: new, in_progress, done_to_review, oldest_waiting_hours; items = null or up to 20 {id, title ≤ 120 with
+     *    e-mail addresses masked, status, created_at, updated_at};
+     *  - pending_review: the kinds of Core\PendingReview => count;
+     *  - enquiries_new_not_spam, bookings_pending: a count;
+     *  - security_7_days: firewall reason => count (≤ 10), failed_sign_ins, locked_accounts, security.* event => count (≤ 10);
+     *  - domain_watch: checked (a Unix time), local, certificate and domain {expires – a real Y-m-d date, days, error}, mail {error, spf, dmarc, dkim, spf_covers_smtp};
+     *  - agent_runs: runs_7_days by result, next_due, next_task (the kind), sessions_7_days;
+     *  - updates: behind_days, major_available; report_month: YYYY-MM.
+     * Every count is a non-negative integer up to MAX_COUNT; a value that is not one (a string, a float beyond 10^15) is dropped
+     * on its own, never the whole heartbeat. Moments are real ones (ISO 8601 with the offset).
+     */
+    private const array PARTS = ['requests', 'pending_review', 'enquiries_new_not_spam', 'bookings_pending', 'security_7_days', 'domain_watch', 'agent_runs', 'updates', 'report_month'];
+
+    private const int MAX_COUNT = 1_000_000;
+
+    /** A count as a part may carry it: a non-negative integer up to MAX_COUNT, null for anything else (a float too big to be a whole number too). */
+    private static function count(mixed $n): ?int
+    {
+        $n = is_float($n) ? self::whole($n) : $n;
+
+        return is_int($n) ? max(0, min(self::MAX_COUNT, $n)) : null;
+    }
+
+    /**
+     * A float as a whole number when it can be one (3.16, N316-5): NAN, INF and anything beyond ±10^15 are null – casting
+     * them would give a wrong number, and PHP 8.5 warns about it, which the console's error handler turns into a 500.
+     */
+    private static function whole(float $n): ?int
+    {
+        return is_finite($n) && abs($n) < 1e15 ? (int) $n : null;
+    }
+
+    /** A moment as the site sends it (ISO 8601 with its offset) that is a real moment, null for anything else. */
+    private static function moment(mixed $value): ?string
+    {
+        if (!is_string($value) || preg_match('/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:([+-])(\d{2}):(\d{2})|Z)$/D', $value, $m) !== 1) {
+            return null;
+        }
+
+        return checkdate((int) $m[2], (int) $m[3], (int) $m[1]) && (int) $m[4] < 24 && (int) $m[5] < 60 && (int) $m[6] < 60 && (int) ($m[8] ?? 0) <= 14 && (int) ($m[9] ?? 0) < 60 ? $value : null;
+    }
+
+    /**
+     * A calendar date 'Y-m-d' that exists (3.16, N316-5): "2026-13-45" passes a pattern, but no calendar – the console's
+     * pages and counts use this, never the raw text a site sent.
+     */
+    public static function date(mixed $value): ?\DateTimeImmutable
+    {
+        if (!is_string($value) || preg_match('/^(\d{4})-(\d{2})-(\d{2})$/D', $value, $m) !== 1 || !checkdate((int) $m[2], (int) $m[3], (int) $m[1])) {
+            return null;
+        }
+        $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $value);
+
+        return $date !== false && $date->format('Y-m-d') === $value ? $date : null;
+    }
+
+    /** The latest Unix time a heartbeat may carry as a moment (1 January 2100). */
+    private const int LATEST_TIME = 4_102_444_800;
+
+    /**
+     * A map of name => count: only names from $keys (or matching $pattern), at most $max of them.
+     *
+     * @param list<string>|null $keys
+     * @return array<string, int>
+     */
+    private static function counts(mixed $map, ?array $keys, string $pattern = '', int $max = 20): array
+    {
+        $out = [];
+        foreach (is_array($map) ? $map : [] as $name => $n) {
+            $known = is_string($name) && ($keys !== null ? in_array($name, $keys, true) : preg_match($pattern, $name) === 1);
+            if ($known && count($out) < $max && ($n = self::count($n)) !== null) {
+                $out[$name] = $n;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * One 3.16 part of a heartbeat (PARTS): known keys only, counts bounded, dates and versions by pattern, request titles
+     * cleaned again – the console does not trust a site to have masked the e-mail addresses.
+     */
+    private static function cleanPart(string $key, mixed $v): mixed
+    {
+        if ($key === 'enquiries_new_not_spam' || $key === 'bookings_pending') {
+            return self::count($v);
+        }
+        if ($key === 'report_month') {
+            return is_string($v) && preg_match('/^\d{4}-\d{2}$/D', $v) === 1 ? $v : null;
+        }
+        if (!is_array($v)) {
+            return null;
+        }
+        switch ($key) {
+            case 'pending_review':
+                return self::counts($v, array_keys(\Kaleta\Core\PendingReview::KINDS));
+            case 'requests':
+                $items = null;
+                if (is_array($v['items'] ?? null)) {
+                    $items = [];
+                    foreach (array_slice($v['items'], 0, Heartbeat::REQUEST_ITEMS) as $item) {
+                        if (is_array($item) && self::count($item['id'] ?? null) !== null && is_string($item['status'] ?? null) && isset(\Kaleta\Core\Requests::STATUSES[$item['status']])) {
+                            $items[] = ['id' => self::count($item['id']), 'title' => Heartbeat::cleanTitle(is_string($item['title'] ?? null) ? $item['title'] : ''), 'status' => $item['status'],
+                                'created_at' => self::moment($item['created_at'] ?? null), 'updated_at' => self::moment($item['updated_at'] ?? null)];
+                        }
+                    }
+                }
+
+                return ['new' => self::count($v['new'] ?? null) ?? 0, 'in_progress' => self::count($v['in_progress'] ?? null) ?? 0,
+                    'done_to_review' => self::count($v['done_to_review'] ?? null) ?? 0, 'oldest_waiting_hours' => self::count($v['oldest_waiting_hours'] ?? null), 'items' => $items];
+            case 'security_7_days':
+                return ['firewall' => self::counts($v['firewall'] ?? null, null, '/^[a-z_]{1,40}$/D', 10), 'failed_sign_ins' => self::count($v['failed_sign_ins'] ?? null) ?? 0,
+                    'locked_accounts' => self::count($v['locked_accounts'] ?? null) ?? 0, 'events' => self::counts($v['events'] ?? null, null, '/^security\.[a-z_]{1,40}$/D', 10)];
+            case 'domain_watch':
+                // checked is a Unix time, not a count: kept as it is between 1970 and 2100
+                $checked = $v['checked'] ?? null;
+                $out = ['checked' => is_int($checked) && $checked >= 0 && $checked <= self::LATEST_TIME ? $checked : null, 'local' => ($v['local'] ?? false) === true];
+                foreach (['certificate', 'domain'] as $part) {
+                    $p = $v[$part] ?? null;
+                    $out[$part] = !is_array($p) ? null : ['expires' => self::date($p['expires'] ?? null) !== null ? $p['expires'] : null,
+                        'days' => is_int($p['days'] ?? null) ? max(-100000, min(100000, $p['days'])) : null, 'error' => ($p['error'] ?? false) === true];
+                }
+                $mail = $v['mail'] ?? null;
+                $out['mail'] = !is_array($mail) ? null : array_map(fn (string $check): ?bool => is_bool($mail[$check] ?? null) ? $mail[$check] : null,
+                    ['error' => 'error', 'spf' => 'spf', 'dmarc' => 'dmarc', 'dkim' => 'dkim', 'spf_covers_smtp' => 'spf_covers_smtp']);
+
+                return $out;
+            case 'agent_runs':
+                return ['runs_7_days' => self::counts($v['runs_7_days'] ?? null, Heartbeat::RUN_STATUSES), 'next_due' => self::moment($v['next_due'] ?? null),
+                    'next_task' => is_string($v['next_task'] ?? null) && preg_match('/^[a-z_]{1,30}$/D', $v['next_task']) === 1 ? $v['next_task'] : null,
+                    'sessions_7_days' => self::count($v['sessions_7_days'] ?? null) ?? 0];
+            case 'updates':
+                $major = $v['major_available'] ?? null;
+
+                return ['behind_days' => self::count($v['behind_days'] ?? null),
+                    'major_available' => is_string($major) && preg_match('/^\d+\.\d+\.\d+([.-][0-9A-Za-z.-]{1,20})?$/D', $major) === 1 ? $major : null];
+        }
+
+        return null;
     }
 
     /**

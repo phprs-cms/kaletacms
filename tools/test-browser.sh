@@ -80,6 +80,16 @@ HEADER=$(cd "$WORK/poradenstvi" && php -r 'require "system/bootstrap.php"; $b = 
     $db->insert("stranky", ["seo_link" => $slug, "titulek" => $slug, "text" => "", "v_menu" => 0, "jazyk" => $language === "ar" ? "ar" : "", "zobrazit" => 1, "stavba" => Kaleta\Builder\Build::toJson($build)]);
   }')
 rm -f "$WORK"/remeslo/storage/cache/stranky/*.html
+# 3.16: a monthly report in the archive (Core\ReportArchive) with something in every section the browser checks – a request,
+# an update, firewall blocks, a published news item – for the print layout step
+LAST="$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format("Y-m");')"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_requests (created_at, updated_at, author_id, title, text, status, done_at) VALUES ('$LAST-03 10:00:00', '$LAST-04 10:00:00', 1, 'Update the opening hours for the holidays and add a note about the parking behind the building', 'x', 'done', '$LAST-04 10:00:00'), ('$LAST-20 10:00:00', '$LAST-20 10:00:00', 1, 'New price list', 'x', 'new', NULL);
+  INSERT INTO ka_events (created_at, type, severity, message, data) VALUES ('$LAST-10 04:00:00', 'update.applied', 'info', 'Version 3.16.0 was installed (from 3.15.4).', '{\"version\":\"3.16.0\",\"from\":\"3.15.4\"}');
+  INSERT INTO ka_firewall_log (created_at, ip, reason, path) VALUES ('$LAST-11 01:00:00', '203.0.113.9', 'probe', '/wp-login.php'), ('$LAST-12 01:00:00', '203.0.113.9', 'rate', '/');
+  INSERT INTO ka_protokol (cas, kdo, jmeno, via, modul, akce, popis) VALUES ('$LAST-05 09:00:00', 1, 'Tester', '', 'pages', 'save', 'Home'), ('$LAST-06 09:00:00', 1, 'Tester', 'Claude', 'claude', 'save_collection_item', 'x');
+  DELETE FROM ka_monthly_reports"
+(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; Kaleta\Core\ReportArchive::store(Kaleta\Core\App::boot(), Kaleta\Core\MonthlyReport::previousMonth(new DateTimeImmutable()));') \
+  || { echo "storing the monthly report failed"; exit 1; }
 NODE_PATH="$WORK/pw/node_modules" BASE="$B" STARTERS="$STARTERS" PASSWORD="$PASSWORD" CHROME="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}" node "$ROOT/tools/test-browser.mjs"
 for site in web remeslo poradenstvi; do
   if [ -s "$WORK/$site/storage/log/chyby.log" ]; then echo "== application error log ($site):"; cat "$WORK/$site/storage/log/chyby.log"; exit 1; fi

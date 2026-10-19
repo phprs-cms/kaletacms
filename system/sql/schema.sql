@@ -1477,3 +1477,17 @@ CREATE TABLE ka_time_zone_progress (
     PRIMARY KEY (conversion_id, table_name),
     CONSTRAINT fk_time_zone_progress_conversion FOREIGN KEY (conversion_id) REFERENCES ka_time_zone_conversions (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- The archive of the monthly reports (3.16, Core\ReportArchive): the report of a past month (Core\MonthlyReport::build)
+-- as JSON, kept 24 months. Built by a background job once the month has turned, independent of the e-mail; its sources
+-- are kept 30–180 days only, so this is the only copy of an older month. Counts, titles and paths, never personal data.
+CREATE TABLE ka_monthly_reports (
+    id             INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    month          CHAR(7) CHARACTER SET ascii NOT NULL,     -- YYYY-MM
+    created_at     DATETIME NOT NULL,
+    rebuilt_at     DATETIME NULL,                            -- an administrator rebuilt it from the data still available
+    schema_version SMALLINT UNSIGNED NOT NULL DEFAULT 1,     -- ReportArchive::SCHEMA of the JSON
+    data           MEDIUMTEXT NOT NULL,                      -- the built report (JSON)
+    PRIMARY KEY (id),
+    UNIQUE KEY ux_monthly_reports_month (month)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;

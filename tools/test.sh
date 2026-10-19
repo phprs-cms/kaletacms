@@ -115,6 +115,21 @@ check "hledání najde novinku i stránku" 200 "/hledani?q=Kontakt" 'href="/kont
 for u in /rss.xml /feed.json /sitemap.xml /robots.txt /llms.txt /novinky/vitejte-v-kalete.md; do check "$u" 200 "$u"; done
 check "mapa webu obsahuje novinku" 200 /sitemap.xml "/novinky/vitejte-v-kalete"
 check "llms.txt vyjmenuje stránky" 200 /llms.txt "## Stránky"
+# a news intro with entities (&nbsp; from WordPress or a Kaleta site import, &amp;) is plain text wherever it is a summary:
+# llms.txt, meta and og description, the BlogPosting description in JSON-LD – never the entity as text (&amp;nbsp;)
+NBSP_BACKUP=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(HEX(uvod), ':', HEX(seo_popis)) FROM ka_novinky WHERE seo_link = 'vitejte-v-kalete'")
+"${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -e "UPDATE ka_novinky SET uvod = '<p>Jsme rádi, že jsme v&nbsp;prosinci 2022&nbsp;získali <b>územní</b> rozhodnutí.</p><p>R&amp;D</p>', seo_popis = '' WHERE seo_link = 'vitejte-v-kalete'"
+rm -f "$WORK"/web/storage/cache/stranky/*.html
+NBSP_TEXT='Jsme rádi, že jsme v prosinci 2022 získali územní rozhodnutí. R'
+curl -s -o "$WORK/response" "$B/llms.txt"
+grep -q "$NBSP_TEXT&D" "$WORK/response" && ! grep -q '&nbsp;\|&amp;' "$WORK/response" \
+  && echo "  ok     llms.txt: news intro without HTML entities" || { echo "  CHYBA  llms.txt: entity v úvodu novinky"; grep -m1 'vitejte-v-kalete' "$WORK/response"; ERRORS=$((ERRORS+1)); }
+curl -s -o "$WORK/response" "$B/novinky/vitejte-v-kalete"
+grep -q "<meta name=\"description\" content=\"$NBSP_TEXT&amp;D\">" "$WORK/response" && grep -q "<meta property=\"og:description\" content=\"$NBSP_TEXT&amp;D\">" "$WORK/response" \
+  && grep -q "\"description\":\"$NBSP_TEXT&D\"" "$WORK/response" && ! grep -q '&amp;nbsp;\|&amp;amp;' "$WORK/response" \
+  && echo "  ok     news meta, og and JSON-LD description: plain text from the intro" || { echo "  CHYBA  popis novinky s entitami"; grep -o '<meta [^>]*description[^>]*>\|"description":"[^"]*"' "$WORK/response" | head -5; ERRORS=$((ERRORS+1)); }
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_novinky SET uvod = UNHEX('${NBSP_BACKUP%%:*}'), seo_popis = UNHEX('${NBSP_BACKUP#*:}') WHERE seo_link = 'vitejte-v-kalete'"
+rm -f "$WORK"/web/storage/cache/stranky/*.html
 check "strukturovaná data novinky" 200 /novinky/vitejte-v-kalete '"BlogPosting"'
 check "zásady z instalace jsou skryté, dokud je správce nedoplní" 404 /zasady-ochrany-osobnich-udaju
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_stranky SET zobrazit = 1 WHERE seo_link = 'zasady-ochrany-osobnich-udaju'"
@@ -1714,6 +1729,10 @@ newsletter_action send -d "id=$NL" -d when=now
 expect "no sending without an SMTP server" "$(db "SELECT status FROM ka_newsletters WHERE id = $NL")" "draft"
 db "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '$SMTP_PORT'), ('smtp_encryption', 'zadne'), ('smtp_user', ''), ('mail_from', 'web@example.cz')"
 newsletter_action send -d "id=$NL" -d when=now
+# 3.15.2: several visible recipients see each other in To, a hidden copy (Bcc) is only in the envelope
+(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); Kaleta\Core\Mail::send($app->settings(), "prvni@example.cz, druhy@example.cz", "Více příjemců", "text", "", ["Reply-To" => "navstevnik@example.cz", "Bcc" => "skryty@example.cz"]);')
+F=$(mail_to "prvni@example.cz, druhy@example.cz, skryty@example.cz")
+expect "3.15.2: To lists the visible recipients, the hidden one only in the envelope" "$([ -n "$F" ] && grep -c '^To: prvni@example.cz, druhy@example.cz' "$F")|$([ -n "$F" ] && grep -ci 'skryty@example.cz' "$F")" "1|1"
 expect "no sending while cron does not run" "$(db "SELECT status FROM ka_newsletters WHERE id = $NL")" "draft"
 check "newsletter form tells why it cannot send" 200 "/admin.php?module=newsletters&action=edit&id=$NL" "Cron za posledních 30 minut"
 curl -s -o /dev/null "$B/ulohy?token=testtoken123"
@@ -3594,6 +3613,37 @@ expect "pairing: the site knows its console and its number there" "$(sq "SELECT 
 expect "pairing: the console has the site with its first report" "$(sq3 "SELECT CONCAT(COUNT(*), '|', MAX(last_seen IS NOT NULL), '|', MAX(version <> ''), '|', MAX(manage_updates), '|', MAX(heartbeat LIKE '%enquiries_unanswered%')) FROM ka_fleet_sites")" "1|1|1|1|1"
 expect "pairing: the code works only once" "$(sq3 "SELECT COUNT(*) FROM ka_fleet_pairing WHERE used_at IS NOT NULL")" "1"
 sq3 "SELECT heartbeat FROM ka_fleet_sites" | contains '@' && { echo "  CHYBA  the report carries an e-mail address"; ERRORS=$((ERRORS+1)); } || echo "  ok     the report carries no e-mail addresses"
+# 3.16: what waits for people – request titles (switchable on the site, on by default, e-mail addresses masked), security counts without addresses
+sq "INSERT INTO ka_requests (created_at, updated_at, author_id, title, text, about, status) SELECT '$(site_time '-3 days')', '$(site_time '-3 days')', idu, 'Fleet316 ceník – napište na jana.fleet@example.cz', 'Tajný text požadavku 316', '', 'new' FROM ka_uzivatele WHERE user = 'admin';
+  INSERT INTO ka_requests (created_at, updated_at, author_id, title, text, about, status) SELECT '$(site_time '-1 hour')', '$(site_time '-1 hour')', idu, 'Fleet316 nová fotka týmu', 'Text 316', '', 'in_progress' FROM ka_uzivatele WHERE user = 'admin';
+  INSERT INTO ka_requests (created_at, updated_at, author_id, title, text, about, status) SELECT '$(site_time '-2 hours')', '$(site_time '-2 hours')', idu, 'Fleet316 zavolat +420 777 316 316, novak (at) firma316 [dot] cz', 'Text 316', '', 'new' FROM ka_uzivatele WHERE user = 'admin';
+  INSERT INTO ka_events (created_at, type, severity, message, data) VALUES ('$(site_time '-1 hour')', 'whistleblowing.due', 'warning', 'Case 316: the acknowledgement is due.', '{}');
+  INSERT INTO ka_firewall_log (created_at, ip, reason, path) VALUES ('$(site_time '-1 hour')', '203.0.113.77', 'probe', '/wp-login.php');
+  INSERT INTO ka_kontrola_ip (ip_adresa, typ, cil, cas) VALUES ('203.0.113.78', 'login', 0, '$(site_time '-1 hour')')" > /dev/null
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"; sleep 1
+grep -q 'name="fleet_request_titles" value="1" checked' "$WORK/response" && echo "  ok     Settings → Fleet console: request titles are shared by default, with the switch" || { echo "  CHYBA  the request titles switch is missing or off"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_send" -d "_csrf=$(csrf)"
+FLEET_BEAT=$(sq3 "SELECT heartbeat FROM ka_fleet_sites")
+contains -qF 'Fleet316 nová fotka týmu' <<< "$FLEET_BEAT" && contains -qF 'Fleet316 ceník – napište na [e-mail]' <<< "$FLEET_BEAT" && echo "  ok     the report carries the request titles, the e-mail address in a title masked" || { echo "  CHYBA  request titles in the report"; ERRORS=$((ERRORS+1)); }
+contains -q '@' <<< "$FLEET_BEAT" && { echo "  CHYBA  the report with request titles carries an e-mail address"; ERRORS=$((ERRORS+1)); } || echo "  ok     the report with request titles carries no e-mail address"
+contains -qF 'Fleet316 zavolat [phone], [e-mail]' <<< "$FLEET_BEAT" && ! contains -qE '316 316|firma316' <<< "$FLEET_BEAT" && echo "  ok     3.16 N316-2: a phone number and an address written out in a title are masked" || { echo "  CHYBA  N316-2 masking in request titles"; ERRORS=$((ERRORS+1)); }
+contains -qi 'whistleblow' <<< "$FLEET_BEAT" && { echo "  CHYBA  N316-3: the report carries a whistleblowing event"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.16 N316-3: no whistleblowing event or job in the report (problems_7_days)"
+contains -qE '203\.0\.113\.7|Tajný text|wp-login' <<< "$FLEET_BEAT" && { echo "  CHYBA  the report carries an address, a path or a request text"; ERRORS=$((ERRORS+1)); } || echo "  ok     the report carries no visitor address, path or request text"
+expect "the report counts the requests, the oldest waiting, the failed sign-ins and the firewall by reason" "$(sq3 "SELECT CONCAT(JSON_EXTRACT(heartbeat, '\$.requests.new') >= 1, '|', JSON_EXTRACT(heartbeat, '\$.requests.in_progress') >= 1, '|', JSON_EXTRACT(heartbeat, '\$.requests.oldest_waiting_hours') >= 71, '|', JSON_EXTRACT(heartbeat, '\$.security_7_days.failed_sign_ins') >= 1, '|', JSON_EXTRACT(heartbeat, '\$.security_7_days.firewall.probe') >= 1, '|', JSON_TYPE(JSON_EXTRACT(heartbeat, '\$.pending_review')), '|', JSON_TYPE(JSON_EXTRACT(heartbeat, '\$.enquiries_new_not_spam'))) FROM ka_fleet_sites")" "1|1|1|1|1|OBJECT|INTEGER"
+FLEET_REQ=$(sq "SELECT id FROM ka_requests WHERE title LIKE 'Fleet316 nová%'")
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=detail&id=$(sq3 "SELECT id FROM ka_fleet_sites LIMIT 1")"
+grep -qF "$B/admin.php?module=requests&amp;action=detail&amp;id=$FLEET_REQ" "$WORK/response" && grep -qF 'Fleet316 nová fotka týmu' "$WORK/response" && grep -q 'requests wait over 48 hours\|požadavky čekají přes 48 hodin' "$WORK/response" \
+  && echo "  ok     console: the detail lists what waits – request titles as plain links to the site's administration, the reason for attention" || { echo "  CHYBA  console: the Waiting block of the site detail"; ERRORS=$((ERRORS+1)); }
+grep -q 'probing for other systems: [0-9]\|zkoušení jiných systémů: [0-9]' "$WORK/response" && ! grep -q 'probe [0-9]' "$WORK/response" && echo "  ok     3.16 N316-8: the console detail names the firewall reasons in its language" || { echo "  CHYBA  N316-8 firewall reasons on the console detail"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"; sleep 1
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_titles" -d "_csrf=$(csrf)"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_send" -d "_csrf=$(csrf)"
+FLEET_BEAT=$(sq3 "SELECT heartbeat FROM ka_fleet_sites")
+expect "request titles off: the report has the counts but no titles" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_request_titles'")|$(contains -q 'Fleet316' <<< "$FLEET_BEAT" && echo titles || echo none)|$(sq3 "SELECT CONCAT(JSON_TYPE(JSON_EXTRACT(heartbeat, '\$.requests.items')), '|', JSON_EXTRACT(heartbeat, '\$.requests.new') >= 1) FROM ka_fleet_sites")" "0|none|NULL|1"
+contains -q '@' <<< "$FLEET_BEAT" && { echo "  CHYBA  the report carries an e-mail address"; ERRORS=$((ERRORS+1)); } || echo "  ok     the report without titles carries no e-mail address either"
+sq "UPDATE ka_nastaveni SET hodnota = '1' WHERE promenna = 'fleet_request_titles'; DELETE FROM ka_requests WHERE title LIKE 'Fleet316%'; DELETE FROM ka_firewall_log WHERE ip = '203.0.113.77'; DELETE FROM ka_kontrola_ip WHERE ip_adresa = '203.0.113.78';
+  DELETE FROM ka_events WHERE type = 'whistleblowing.due' AND message = 'Case 316: the acknowledgement is due.'" > /dev/null
 FLEET_NAME=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_name'")
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&show=all"
 grep -qF "$FLEET_NAME" "$WORK/response" && echo "  ok     console: the site is in the list" || { echo "  CHYBA  konzole: web není v seznamu"; ERRORS=$((ERRORS+1)); }
@@ -3636,7 +3686,7 @@ sq3 "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'test',
 curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_sites","arguments":{}}}' > "$WORK/response"
 contains -q 'console_decides_updates' "$WORK/response" && contains -q 'newest_version' "$WORK/response" && echo "  ok     MCP list_sites on the console" || { echo "  CHYBA  MCP list_sites"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"get_site\",\"arguments\":{\"id\":$FLEET_ID}}}" > "$WORK/response"
-contains -q 'jobs_failing' "$WORK/response" && echo "  ok     MCP get_site: the last report" || { echo "  CHYBA  MCP get_site"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+contains -q 'jobs_failing' "$WORK/response" && contains -q 'written_on_the_site' "$WORK/response" && echo "  ok     MCP get_site: the last report, its texts marked as written on that site (N316-6)" || { echo "  CHYBA  MCP get_site"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp list_sites '{}' > "$WORK/response"; contains -q 'newest_version' "$WORK/response" && { echo "  CHYBA  list_sites works on a site that is not a console"; ERRORS=$((ERRORS+1)); } || echo "  ok     list_sites exists only on a console"
 echo "== 2.16: shared design kit – the console publishes it, a paired site receives it as drafts only (Fleet\Kit)"
 # the console has a class, a token change, a component (with a custom-code element that must not travel) and a saved section
@@ -4495,8 +4545,10 @@ contains -q '"contact_clicks":{"calls":2,"emails":1,"whatsapp":0,"by_page":\[{"p
   && echo "  ok     2.12: get_stats carries contact_clicks and the clicks of every page" || { echo "  CHYBA  get_stats contact_clicks"; head -c 600 "$WORK/text"; ERRORS=$((ERRORS+1)); }
 # the monthly report mentions calls and e-mails when the month had any
 sq "INSERT INTO ka_stat_konverze (den, cesta, typ, pocet) VALUES ('$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format("Y-m-d");')', '/volejte-212', 'tel', 4), ('$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format("Y-m-d");')', '/volejte-212', 'mailto', 2)" > /dev/null
+sq "DELETE FROM ka_monthly_reports; UPDATE ka_jobs SET last_run = '$(site_time)' WHERE name = 'report_archive'" > /dev/null # 3.16: without the archived month the e-mail is built with the clicks above (the job held back)
 check "2.12: the monthly report mentions the calls and e-mails of the month" 200 "/admin.php?module=settings&action=report_preview" "Hovory – kliknutí na telefonní číslo"
 grep -q 'E-maily – kliknutí na e-mailovou adresu' "$WORK/response" && ! grep -q 'WhatsApp – kliknutí' "$WORK/response" && echo "  ok     2.12: the report lists only the kinds of clicks there were" || { echo "  CHYBA  monthly report: contact clicks"; ERRORS=$((ERRORS+1)); }
+expect "3.16 N316-7: the preview (GET) builds a missing month in memory and stores nothing" "$(sq "SELECT COUNT(*) FROM ka_monthly_reports")" "0"
 # statistics off: no endpoint on the page and no counting
 stats_feature 0
 curl -s -o "$WORK/response" -A 'Mozilla/5.0 test' "$B/volejte-212"; ! grep -q 'data-konverze' "$WORK/response" && echo "  ok     2.12: statistics off – the page carries no click endpoint" || { echo "  CHYBA  data-konverze with the statistics off"; ERRORS=$((ERRORS+1)); }
@@ -5109,6 +5161,7 @@ mcp list_connectors '{}' > "$WORK/response"; mcp_text
 contains -q '"service":"bing","name":"Bing Webmaster Tools","auth":"token","connected":true' "$WORK/text" && ! contains -q 'bing-test-key' "$WORK/text" && echo "  ok     search: Claude sees Bing connected, never the key" || { echo "  CHYBA  list_connectors bing"; ERRORS=$((ERRORS+1)); }
 # the monthly report names the top queries of the month's last snapshot
 sq "INSERT INTO ka_search_stats (day, engine, kind, \`key\`, clicks, impressions, ctr, position) VALUES ('$(php -r 'echo (new DateTimeImmutable("last day of last month"))->format("Y-m-d");')', 'google', 'query', 'kaleta minulý měsíc', 15, 300, 5, 4.0)" > /dev/null
+sq "DELETE FROM ka_monthly_reports" > /dev/null # 3.16: built again with the snapshot above
 check "search: the monthly report mentions the top queries when the month has a snapshot" 200 "/admin.php?module=settings&action=report_preview" "kaleta minulý měsíc na Google"
 grep -q 'Hledání, která přivedla návštěvníky' "$WORK/response" && ! grep -q 'kaleta bing' "$WORK/response" && echo "  ok     search: only the queries of that month" || { echo "  CHYBA  monthly report: searches"; ERRORS=$((ERRORS+1)); }
 # a wrong key: the job reports it on the connection and does not throw while Google still works; the day's earlier Bing snapshot stays
@@ -6675,8 +6728,10 @@ echo "== 2.9: monthly report by e-mail"
 REPORT_MAILS() { sq "SELECT COUNT(*) FROM ka_posta WHERE predmet LIKE '%Zpráva o webu%' OR predmet LIKE '%Website report%'"; }
 LAST_MONTH=$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format("Y-m");')
 sq "INSERT INTO ka_nastaveni VALUES ('report_monthly','1'),('report_recipients','owner@example.cz'),('report_last_month','') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)" > /dev/null
-curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=mail"; TOKEN=$(csrf)
-grep -q 'name="report_recipients"' "$WORK/response" && grep -q 'action=report_preview' "$WORK/response" && grep -q 'action=report_send' "$WORK/response" && echo "  ok     Settings → Mail has the monthly report with its preview and send buttons" || { echo "  CHYBA  Mail tab: monthly report"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=mail"; grep -q 'tab=reports' "$WORK/response" && ! grep -q 'name="report_recipients"' "$WORK/response" \
+  && echo "  ok     3.16: Settings → Mail points to the Reports tab" || { echo "  CHYBA  3.16 Mail tab: the pointer to Reports"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=reports"; TOKEN=$(csrf)
+grep -q 'name="report_recipients"' "$WORK/response" && grep -q 'action=report_preview' "$WORK/response" && grep -q 'action=report_send' "$WORK/response" && echo "  ok     Settings → Reports has the monthly e-mail with its preview and send buttons" || { echo "  CHYBA  Reports tab: monthly report"; ERRORS=$((ERRORS+1)); }
 check "the preview is the e-mail of the last month with the site name" 200 "/admin.php?module=settings&action=report_preview" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_name'")"
 grep -q 'max-width:600px' "$WORK/response" && grep -q 'Studio Test' "$WORK/response" && ! grep -q 'spravce@example.cz' "$WORK/response" && echo "  ok     the preview is an inline-styled e-mail with the agency, without the site e-mail" || { echo "  CHYBA  report preview"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=report_send" -d "_csrf=$TOKEN"
@@ -6692,10 +6747,69 @@ expect "the job sends the previous month once: two runs, one more report" "$(( $
 grep -q "monthly_report: sent to 1" "$WORK/tasks.txt" && grep -q "monthly_report: sent already" "$WORK/tasks2.txt" && echo "  ok     the job reports what it did" || { echo "  CHYBA  monthly_report job"; cat "$WORK/tasks.txt" "$WORK/tasks2.txt"; ERRORS=$((ERRORS+1)); }
 expect "report.sent events carry the month and the count, never an address" "$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'report.sent' AND data LIKE '%\"month\":\"$LAST_MONTH\"%' AND data NOT LIKE '%@%'")" "2"
 # recipients are validated on save: one bad address rejects the field, good ones are kept one per line
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$TOKEN" -d tab=mail -d mail_mode=mail -d report_monthly=1 --data-urlencode "report_recipients=owner@example.cz, nonsense"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$TOKEN" -d tab=reports -d report_monthly=1 --data-urlencode "report_recipients=owner@example.cz, nonsense"
 expect "recipients: an invalid address is not saved" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'report_recipients'")" "owner@example.cz"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$TOKEN" -d tab=mail -d mail_mode=mail --data-urlencode "report_recipients=owner@example.cz, agentura@example.cz"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$TOKEN" -d tab=reports --data-urlencode "report_recipients=owner@example.cz, agentura@example.cz"
 expect "recipients: valid addresses are saved one per line, the switch off when unchecked" "$(sq "SELECT CONCAT(REPLACE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'report_recipients'), '\n', '|'), ':', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'report_monthly'))")" "owner@example.cz|agentura@example.cz:0"
+
+echo "== 3.16: the archive of the monthly reports"
+# what happened last month: a request (its title names an address), an update, firewall blocks, failed sign-ins, changes by
+# a person and by Claude – the job stores the month once, whether or not the e-mail is on; nothing personal gets in
+sq "DELETE FROM ka_monthly_reports; UPDATE ka_jobs SET last_run = NULL WHERE name = 'report_archive'; UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'report_monthly';
+  INSERT INTO ka_requests (created_at, updated_at, author_id, title, text, status, done_at) SELECT '$LAST_MONTH-03 10:00:00', '$LAST_MONTH-04 10:00:00', idu, 'Opening hours 316 – ask visitor316@example.org', 'x', 'done', '$LAST_MONTH-04 10:00:00' FROM ka_uzivatele WHERE user = 'admin';
+  INSERT INTO ka_events (created_at, type, severity, message, data) VALUES ('$LAST_MONTH-10 04:00:00', 'update.applied', 'info', 'Version 3.16.0 was installed (from 3.15.4).', '{\"version\":\"3.16.0\",\"from\":\"3.15.4\"}');
+  INSERT INTO ka_firewall_log (created_at, ip, reason, path) VALUES ('$LAST_MONTH-11 01:00:00', '203.0.113.9', 'probe', '/wp-login.php'), ('$LAST_MONTH-12 01:00:00', '203.0.113.9', 'probe', '/.env');
+  INSERT INTO ka_protokol (cas, kdo, jmeno, via, modul, akce, popis) VALUES ('$LAST_MONTH-05 09:00:00', NULL, 'x', '', 'prihlaseni', 'neuspech', 'account: someone@example.org'),
+    ('$LAST_MONTH-05 09:10:00', 1, 'Admin', '', 'pages', 'save', 'Home'), ('$LAST_MONTH-06 09:00:00', 1, 'Admin', 'Claude 316', 'claude', 'save_collection_item', 'x'),
+    ('$LAST_MONTH-07 09:00:00', 1, 'Admin', '', 'whistleblowing', 'status', 'W316: closed');
+  INSERT INTO ka_agent_schedules (name, task, text, cadence, day, time, active, next_due, created_at) VALUES ('Triage 316 for Jana Nováková', 'triage', '', 'weekly', 1, '07:00', 0, NULL, '$LAST_MONTH-01 08:00:00');
+  INSERT INTO ka_agent_runs (schedule_id, due_at, finished_at, status, summary) SELECT id, '$LAST_MONTH-08 07:00:00', '$LAST_MONTH-08 07:20:00', 'ok', 'Triaged 4: Jana Nováková (+420 777 316 999) wants a roof in Brno' FROM ka_agent_schedules WHERE name = 'Triage 316 for Jana Nováková';
+  INSERT INTO ka_monthly_reports (month, created_at, schema_version, data) VALUES ('2001-01', '2001-02-01 00:00:00', 1, '{}')" > /dev/null
+curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
+sq "UPDATE ka_jobs SET last_run = NULL WHERE name = 'report_archive'" > /dev/null
+curl -s -o "$WORK/tasks2.txt" "$B/ulohy?token=testtoken123"
+grep -q "report_archive: stored $LAST_MONTH, removed 1" "$WORK/tasks.txt" && grep -q "report_archive: stored already" "$WORK/tasks2.txt" \
+  && echo "  ok     the job stores the previous month once with the e-mail off, and removes months older than 24" || { echo "  CHYBA  3.16 report_archive job"; grep report_archive "$WORK/tasks.txt" "$WORK/tasks2.txt"; ERRORS=$((ERRORS+1)); }
+expect "the archive: one row for last month, none for 2001" "$(sq "SELECT CONCAT(SUM(month = '$LAST_MONTH'), '|', SUM(month = '2001-01'), '|', MAX(schema_version)) FROM ka_monthly_reports")" "1|0|1"
+expect "the stored JSON: the request, the update, the firewall and the sign-in counts, the areas – and no \"@\" anywhere" \
+  "$(sq "SELECT CONCAT(data LIKE '%Opening hours 316%', data LIKE '%\"from\":\"3.15.4\"%', data LIKE '%\"probe\":2%', data LIKE '%\"failed_sign_ins\":1%', data LIKE '%\"collections\":{\"people\":0,\"claude\":1}%', LOCATE('@', data) = 0) FROM ka_monthly_reports WHERE month = '$LAST_MONTH'")" "111111"
+expect "3.16 N316-1/-3/-9: scheduled runs by task and result only (no name, no summary), no whistleblowing change counted, moments as ISO 8601 with the offset" \
+  "$(sq "SELECT CONCAT(data LIKE '%\"run_tasks\":{\"triage\":{\"ok\":1}}%', LOCATE('Nováková', data) = 0, LOCATE('316 999', data) = 0, LOCATE('Brno', data) = 0, LOCATE('\"other\"', data) = 0,
+    data REGEXP '\"generated_at\":\"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[+-][0-9]{2}:[0-9]{2}\"') FROM ka_monthly_reports WHERE month = '$LAST_MONTH'")" "111111"
+check "Settings → Reports lists the stored month" 200 "/admin.php?module=settings&tab=reports" "action=report_view&amp;month=$LAST_MONTH"
+grep -q 'action=report_download&amp;month=' "$WORK/response" && grep -q 'action=report_rebuild' "$WORK/response" && grep -q 'data-potvrdit=' "$WORK/response" && TOKEN=$(csrf) \
+  && echo "  ok     each month: view, download, send and rebuild (with a warning)" || { echo "  CHYBA  3.16 Reports tab actions"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -D "$WORK/headers" -o "$WORK/response" "$B/admin.php?module=settings&action=report_view&month=$LAST_MONTH"
+grep -q 'size: A4' "$WORK/response" && grep -q 'counter(pages)' "$WORK/response" && grep -q 'data-tisk' "$WORK/response" && grep -q 'Opening hours 316' "$WORK/response" && ! grep -q 'example.org' "$WORK/response" \
+  && grep -qi "content-security-policy: default-src 'none'" "$WORK/headers" && echo "  ok     the printable page: A4, page numbers, the Print button, its own CSP, nothing personal" || { echo "  CHYBA  3.16 report_view"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -D "$WORK/headers" -o "$WORK/response" "$B/admin.php?module=settings&action=report_download&month=$LAST_MONTH"
+grep -qi "content-disposition: attachment; filename=\"website-report-[a-z0-9.-]*-$LAST_MONTH.html\"" "$WORK/headers" && grep -q '<h1>' "$WORK/response" && ! grep -q '<script' "$WORK/response" \
+  && echo "  ok     download: the same page as an HTML file, without the script" || { echo "  CHYBA  3.16 report_download"; grep -i disposition "$WORK/headers"; ERRORS=$((ERRORS+1)); }
+check "a month that is not archived: 404" 404 "/admin.php?module=settings&action=report_view&month=1999-01"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=report_rebuild" -d "_csrf=$TOKEN" -d "month=$LAST_MONTH"
+expect "rebuild from the data still available: the row is replaced and marked" "$(sq "SELECT rebuilt_at IS NOT NULL FROM ka_monthly_reports WHERE month = '$LAST_MONTH'")" "1"
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&action=report_view&month=$LAST_MONTH"
+grep -q 'when the report was rebuilt – not at the end of the month\|kdy byla zpráva znovu sestavena – ne ke konci měsíce' "$WORK/response" && ! grep -q 'Co čekalo na konci měsíce\|Waiting at the end of the month' "$WORK/response" \
+  && echo "  ok     3.16 N316-7: a rebuilt report says that what waits, the problems and the audit are from the day of the rebuild" || { echo "  CHYBA  N316-7 rebuilt report labels"; ERRORS=$((ERRORS+1)); }
+# sending an older archived month never makes the job send the last one twice
+OLDER=$(php -r 'echo (new DateTimeImmutable("first day of -3 months"))->format("Y-m");')
+sq "INSERT INTO ka_monthly_reports (month, created_at, schema_version, data) VALUES ('$OLDER', '$(site_time)', 1, '{\"month\":\"$OLDER\"}'); UPDATE ka_nastaveni SET hodnota = '$LAST_MONTH' WHERE promenna = 'report_last_month'" > /dev/null
+BEFORE=$(REPORT_MAILS)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=report_send" -d "_csrf=$TOKEN" -d "month=$OLDER"
+expect "send by e-mail an archived month: queued, the last sent month kept" "$(( $(REPORT_MAILS) - BEFORE ))|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'report_last_month'")" "2|$LAST_MONTH"
+expect "a news author may not view or download reports" "$(curl -s -b "$JAR2" -o /dev/null -w '%{http_code}' "$B/admin.php?module=settings&action=report_view&month=$LAST_MONTH")|$(curl -s -b "$JAR2" -o /dev/null -w '%{http_code}' "$B/admin.php?module=settings&action=report_download&month=$LAST_MONTH")" "403|403"
+mcp list_monthly_reports '{}' > "$WORK/response"
+expect "MCP list_monthly_reports: the months, newest first" "$(mcp_value reports 0 month)|$(mcp_value kept_months)" "$LAST_MONTH|24"
+mcp get_monthly_report "{\"month\":\"$LAST_MONTH\"}" > "$WORK/response"
+expect "MCP get_monthly_report: the data and the printable page" "$(mcp_value report month)|$(mcp_value report requests done_count)|$(mcp_value print_url | grep -c "action=report_view&month=$LAST_MONTH")" "$LAST_MONTH|1|1"
+contains -q 'example.org' "$WORK/response" && { echo "  CHYBA  3.16 MCP report carries an address"; ERRORS=$((ERRORS+1)); } || echo "  ok     MCP: nothing personal in the report"
+AUTHOR316="kaleta_$(printf 'c%.0s' $(seq 1 48))"
+sq "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'author 316', '$(php -r 'echo hash("sha256", $argv[1]);' "$AUTHOR316")', '$(site_time)' FROM ka_uzivatele WHERE user = 'autor'" > /dev/null
+mcp_as "$AUTHOR316" get_monthly_report "{\"month\":\"$LAST_MONTH\"}" > "$WORK/response"
+contains -q '"isError":true' "$WORK/response" && contains -q 'administrator' "$WORK/response" && echo "  ok     MCP: a non-administrator is refused the reports" || { echo "  CHYBA  3.16 MCP refuses non-admins"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+sq "DELETE FROM ka_requests WHERE title LIKE 'Opening hours 316%'; DELETE FROM ka_api_tokeny WHERE nazev = 'author 316'; DELETE FROM ka_events WHERE type = 'update.applied' AND message = 'Version 3.16.0 was installed (from 3.15.4).';
+  DELETE FROM ka_firewall_log WHERE ip = '203.0.113.9' AND created_at LIKE '$LAST_MONTH-%'; DELETE FROM ka_protokol WHERE via = 'Claude 316' OR (modul = 'prihlaseni' AND popis = 'account: someone@example.org') OR popis = 'W316: closed';
+  DELETE FROM ka_agent_schedules WHERE name = 'Triage 316 for Jana Nováková'" > /dev/null
 
 echo "== 3.15: the same site on the English table names (as 4.0 renames them) and back – the rollback target of 4.0"
 # tools/rename-tables.php renames every table of names.php in one RENAME TABLE; the site is not told – it must notice by
@@ -6983,8 +7097,9 @@ expect "3.15 check-channel (N315-8): a 3.x line with its own 4.x line passes; a 
 for c in zastaraly nedatovany budouci; do
   if php "$WORK/web/tools/check-channel.php" "http://127.0.0.1:$CHANNEL_PORT/$c/aktualizace.json" > "$WORK/channel-$c.txt" 2>&1; then echo ok >> "$WORK/channel-$c.txt"; else echo failed >> "$WORK/channel-$c.txt"; fi
 done
+# (the fresh manifest is dated by PHP in UTC – compare its age, not the shell's local date, or it fails after midnight)
 expect "3.10 check-channel: a manifest signed 50 days ago fails (re-sign two weeks before sites warn), one without a signed date fails, a fresh one says its date" \
-  "$(tail -1 "$WORK/channel-zastaraly.txt")|$(contains -F 'sign the manifest again' "$WORK/channel-zastaraly.txt" && echo why)|$(tail -1 "$WORK/channel-nedatovany.txt")|$(contains -F 'release date (vydano' "$WORK/channel-nedatovany.txt" && echo why)|$(contains -F "published $(date +%Y-%m-%d) (0 days ago)" "$WORK/channel-kanaly.txt" && echo dated)" \
+  "$(tail -1 "$WORK/channel-zastaraly.txt")|$(contains -F 'sign the manifest again' "$WORK/channel-zastaraly.txt" && echo why)|$(tail -1 "$WORK/channel-nedatovany.txt")|$(contains -F 'release date (vydano' "$WORK/channel-nedatovany.txt" && echo why)|$(contains -E "published [0-9]{4}-[0-9]{2}-[0-9]{2} \(0 days ago\)" "$WORK/channel-kanaly.txt" && echo dated)" \
   "failed|why|failed|why|dated"
 expect "3.10 check-channel (N310-3): a signed date in the future fails" "$(tail -1 "$WORK/channel-budouci.txt")|$(contains -F 'lies in the future' "$WORK/channel-budouci.txt" && echo why)" "failed|why"
 sq "UPDATE ka_nastaveni SET hodnota = 'latest' WHERE promenna = 'update_channel'" > /dev/null

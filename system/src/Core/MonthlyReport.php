@@ -13,6 +13,16 @@ namespace Kaleta\Core;
  * The job (Core\Scheduler, hourly) sends it when report_monthly is on and report_last_month is not yet the previous month,
  * so a site without cron still gets it with the first visit of the new month. Recipients: report_recipients, otherwise the
  * site e-mail. The e-mail is written in the site's default language (Language::runWith, like the alerts).
+ *
+ * 3.16: build() is also the archived report (Core\ReportArchive, Settings → Reports, printed by Core\ReportPage): requests
+ * to Claude, changes by area and the notable ones, Claude sessions and scheduled runs, update versions, the off-site
+ * copy, security counts, the site audit, enquiry categories, bookings, newsletters sent and what waits at the month's end.
+ * A section is null when its feature is off; scrub() masks e-mail addresses and phone numbers in every string (Core\Redact).
+ * Scheduled runs are counted by task and result only – their names and summaries are free text Claude wrote, often from
+ * enquiries, so they stay in Scheduled runs (N316-1). Nothing of the whistleblowing channel is counted. Moments are stored
+ * as ISO 8601 with the offset (N316-9), so a later change of the time zone does not need to touch the JSON; moment()
+ * reads them, and the wall times of reports from before, in the site's zone. The e-mail of a month is written from the
+ * archived data when the month is stored (monthData). A summary of what happened – never hours, a work log or money.
  */
 final class MonthlyReport
 {
@@ -83,22 +93,26 @@ final class MonthlyReport
         }
         $signups = Extensions::isEnabled($s, 'newsletter') ? $count('SELECT COUNT(*) FROM {odberatele} WHERE stav = 1 AND datum >= ? AND datum < ?', [$from, $to]) : null;
 
-        $updates = array_map(fn (array $e): array => ['type' => (string) $e['type'], 'date' => (string) $e['created_at'], 'message' => (string) $e['message']],
-            $db->all('SELECT type, created_at, message FROM {events} WHERE type IN (?, ?, ?) AND created_at >= ? AND created_at < ? ORDER BY id', [...self::UPDATE_EVENTS, $from, $to]));
+        $updates = array_map(function (array $e): array {
+            $info = json_decode((string) $e['data'], true); // Updater records the version it went to and the one it came from
+            $info = is_array($info) ? $info : [];
+
+            return ['type' => (string) $e['type'], 'date' => self::iso($e['created_at']), 'message' => (string) $e['message'], 'from' => (string) ($info['from'] ?? ''), 'to' => (string) ($info['version'] ?? '')];
+        }, $db->all('SELECT type, created_at, message, data FROM {events} WHERE type IN (?, ?, ?) AND created_at >= ? AND created_at < ? ORDER BY id', [...self::UPDATE_EVENTS, $from, $to]));
         $lastBackup = Backup::listAll()[0]['cas'] ?? null;
         $backups = [
             'created' => $count('SELECT COUNT(*) FROM {events} WHERE type = ? AND created_at >= ? AND created_at < ?', ['backup.created', $from, $to]),
             'failed' => $count('SELECT COUNT(*) FROM {events} WHERE type = ? AND created_at >= ? AND created_at < ?', ['backup.failed', $from, $to]),
-            'last' => $lastBackup === null ? null : date('Y-m-d H:i:s', $lastBackup),
+            'last' => $lastBackup === null ? null : date(DATE_ATOM, $lastBackup),
         ];
         // the change log names the Claude connection a change came through (ChangeLog::write); empty = a person in the admin
         $changes = [
-            'people' => $count("SELECT COUNT(*) FROM {protokol} WHERE cas >= ? AND cas < ? AND via = ''", [$from, $to]),
-            'claude' => $count("SELECT COUNT(*) FROM {protokol} WHERE cas >= ? AND cas < ? AND via <> ''", [$from, $to]),
+            'people' => $count("SELECT COUNT(*) FROM {protokol} WHERE cas >= ? AND cas < ? AND via = '' AND modul <> 'whistleblowing'", [$from, $to]),
+            'claude' => $count("SELECT COUNT(*) FROM {protokol} WHERE cas >= ? AND cas < ? AND via <> '' AND modul <> 'whistleblowing'", [$from, $to]),
         ];
         $problems = [];
         $errors = 0;
-        foreach (Health::checks($app) as $check) {
+        foreach (Health::checks($app, true) as $check) { // what leaves the site: without the whistleblowing channel (N316-3)
             if ($check['stav'] === 'ok') {
                 continue;
             }
@@ -108,8 +122,30 @@ final class MonthlyReport
             }
         }
 
-        return [
+        // 3.16: the archived report – what happened to the site, section by section; a section whose source fails (a table
+        // of a newer migration, an error in the audit) is left out instead of losing the whole month
+        $section = static function (callable $collect): mixed {
+            try {
+                return $collect();
+            } catch (\Throwable) {
+                return null;
+            }
+        };
+        $claudeOn = Extensions::isEnabled($s, 'claude');
+        if (is_array($enquiries)) {
+            $enquiries['categories'] = $section(fn (): array => $top("SELECT kategorie AS k, COUNT(*) AS n FROM {poptavky} WHERE datum >= ? AND datum < ? AND kategorie <> '' GROUP BY kategorie ORDER BY n DESC", [$from, $to], 'category')) ?? [];
+        }
+        $events = fn (array $types): array => $section(fn (): array => array_map('intval', $db->pairs('SELECT type, COUNT(*) FROM {events} WHERE type IN (' . implode(',', array_fill(0, count($types), '?')) . ') AND created_at >= ? AND created_at < ? GROUP BY type', [...$types, $from, $to]))) ?? [];
+        $firewallFrom = Clock::at('-' . Firewall::LOG_DAYS . ' days');
+        $remote = $s->get('remote_backup');
+        $remoteStatus = explode('|', $s->get('remote_backup_status'), 2);
+        $backups += ['offsite' => in_array($remote, ['ftp', 's3'], true) ? $remote : '', 'offsite_last' => $remote !== 'vypnuto' && ($remoteStatus[1] ?? '') === 'ok' ? self::iso($remoteStatus[0]) : null,
+            'offsite_failing' => $remote !== 'vypnuto' && $remote !== '' && isset($remoteStatus[1]) && $remoteStatus[1] !== 'ok'];
+
+        return self::scrub([
+            'schema' => ReportArchive::SCHEMA,
             'month' => $monthStart->format('Y-m'),
+            'generated_at' => self::iso(Clock::now()),
             'stats' => $stats,
             // what people searched for (2.13, Core\SearchData): the top 3 queries of the month's last snapshot per engine
             'search' => SearchData::topQueries($db, $fromDay, $toDay),
@@ -123,7 +159,247 @@ final class MonthlyReport
             'changes' => $changes,
             'problems' => $problems,
             'decisions' => ['enquiries' => $enquiries['unanswered'] ?? 0, 'errors' => $errors],
+            'requests' => $claudeOn ? $section(fn (): array => self::requests($db, $from, $to)) : null,
+            'work' => $section(fn (): array => self::work($db, $from, $to)),
+            'claude' => $claudeOn ? $section(fn (): array => self::claude($db, $from, $to)) : null,
+            'security' => $section(fn (): array => ['firewall' => array_map('intval', $db->pairs('SELECT reason, COUNT(*) FROM {firewall_log} WHERE created_at >= ? AND created_at < ? GROUP BY reason ORDER BY reason', [$from, $to])),
+                // the firewall keeps its log for Firewall::LOG_DAYS: in a 31-day month (or a report made or rebuilt later) the
+                // first days are gone – the moment from which the counts are complete, when that is more than an hour into the month
+                'firewall_from' => strtotime($firewallFrom) - $monthStart->getTimestamp() > 3600 ? self::iso($firewallFrom) : null,
+                'sign_ins' => $count("SELECT COUNT(*) FROM {protokol} WHERE modul = 'prihlaseni' AND akce = 'login' AND cas >= ? AND cas < ?", [$from, $to]),
+                'failed_sign_ins' => $count("SELECT COUNT(*) FROM {protokol} WHERE modul = 'prihlaseni' AND akce = 'neuspech' AND cas >= ? AND cas < ?", [$from, $to]),
+                'events' => $events(self::SECURITY_EVENTS)]),
+            'audit' => $section(fn (): array => self::audit($app, $monthStart)),
+            'bookings' => Extensions::isEnabled($s, 'bookings') ? $section(fn (): array => ['total' => $count('SELECT COUNT(*) FROM {bookings} WHERE created_at >= ? AND created_at < ?', [$from, $to]),
+                'statuses' => array_map('intval', $db->pairs('SELECT status, COUNT(*) FROM {bookings} WHERE created_at >= ? AND created_at < ? GROUP BY status', [$from, $to])),
+                'appointments' => $count("SELECT COUNT(*) FROM {bookings} WHERE starts_at >= ? AND starts_at < ? AND status IN ('confirmed', 'done', 'no_show')", [$from, $to])]) : null,
+            'newsletter' => Extensions::isEnabled($s, 'newsletter') ? $section(fn (): array => ['signups' => (int) $signups,
+                'campaigns' => array_map(static fn (array $r): array => ['subject' => (string) $r['subject'], 'date' => self::iso($r['finished_at']), 'sent' => (int) $r['sent_count']],
+                    $db->all("SELECT subject, finished_at, sent_count FROM {newsletters} WHERE status = 'sent' AND finished_at >= ? AND finished_at < ? ORDER BY finished_at LIMIT 20", [$from, $to]))]) : null,
+            'open' => $section(fn (): array => self::open($app, $enquiries)),
+        ]);
+    }
+
+    /** Security events the report counts (3.16) – the types only, never an address or an account. */
+    private const array SECURITY_EVENTS = ['firewall.blocked', 'security.account_suspended', 'security.connection_revoked', 'security.token_reuse'];
+
+    /** At most this many titles in one list of the archived report (requests, pages, news, runs). */
+    public const int LIST_LIMIT = 20;
+
+    /** Areas of the site a change belongs to, in the order the report shows them. */
+    public const array AREAS = ['pages' => 'Pages and builder', 'news' => 'News', 'collections' => 'Collections', 'look' => 'Look and menu', 'media' => 'Media',
+        'enquiries' => 'Enquiries and bookings', 'newsletter' => 'Newsletter', 'settings' => 'Settings and accounts', 'other' => 'Other'];
+
+    /** Admin sections (Module::IDENT) => area; a section not listed is "other". */
+    private const array MODULE_AREAS = ['pages' => 'pages', 'parts' => 'pages', 'components' => 'pages', 'popups' => 'pages', 'redirects' => 'pages', 'audit' => 'pages',
+        'news' => 'news', 'categories' => 'news', 'tags' => 'news', 'collections' => 'collections', 'appearance' => 'look', 'menu' => 'look', 'media' => 'media',
+        'enquiries' => 'enquiries', 'bookings' => 'enquiries', 'subscribers' => 'newsletter', 'newsletters' => 'newsletter', 'settings' => 'settings', 'users' => 'settings',
+        'roles' => 'settings', 'claude_settings' => 'settings', 'extensions' => 'settings', 'business' => 'settings', 'facts' => 'settings', 'ucet' => 'settings', 'addons' => 'settings'];
+
+    /** The area of a Claude tool (the change log names the tool) – by the words of its English name. */
+    public static function toolArea(string $tool): string
+    {
+        $tool = \Kaleta\Mcp\Catalog::english($tool) ?? $tool;
+
+        return match (true) {
+            preg_match('/newsletter/', $tool) === 1 => 'newsletter',
+            preg_match('/news|categor|tag|social/', $tool) === 1 => 'news',
+            preg_match('/collection|item/', $tool) === 1 => 'collections',
+            preg_match('/look|class|design|menu/', $tool) === 1 => 'look',
+            preg_match('/media|upload|file/', $tool) === 1 => 'media',
+            preg_match('/enquir|booking|testimonial/', $tool) === 1 => 'enquiries',
+            preg_match('/page|build|section|component|part|popup|redirect|trash|draft|not_found/', $tool) === 1 => 'pages',
+            preg_match('/setting|fact|hours|blueprint/', $tool) === 1 => 'settings',
+            default => 'other',
+        };
+    }
+
+    /** The area of a change-log row: a person's change by the admin section, Claude's by its tool. */
+    public static function area(string $module, string $action): string
+    {
+        return $module === 'claude' ? self::toolArea($action) : (self::MODULE_AREAS[$module] ?? 'other');
+    }
+
+    /**
+     * Requests to Claude (Ask Claude, 2.15): finished this month, and the ones still open – title, status and dates only.
+     *
+     * @return array{created: int, done: list<array<string, string>>, done_count: int, open: list<array<string, string>>, open_count: int}
+     */
+    private static function requests(Db $db, string $from, string $to): array
+    {
+        $done = "FROM {requests} WHERE status IN ('done', 'declined') AND done_at >= ? AND done_at < ?";
+        $open = "FROM {requests} WHERE status IN ('new', 'in_progress') AND created_at < ?";
+        $row = static fn (array $r): array => ['title' => (string) $r['title'], 'status' => (string) $r['status'], 'created' => self::iso($r['created_at']), 'done' => self::iso($r['done_at'] ?? null) ?? ''];
+
+        return [
+            'created' => (int) $db->value('SELECT COUNT(*) FROM {requests} WHERE created_at >= ? AND created_at < ?', [$from, $to]),
+            'done' => array_map($row, $db->all('SELECT title, status, created_at, done_at ' . $done . ' ORDER BY done_at LIMIT ' . self::LIST_LIMIT, [$from, $to])),
+            'done_count' => (int) $db->value('SELECT COUNT(*) ' . $done, [$from, $to]),
+            'open' => array_map($row, $db->all('SELECT title, status, created_at, NULL AS done_at ' . $open . ' ORDER BY created_at LIMIT ' . self::LIST_LIMIT, [$to])),
+            'open_count' => (int) $db->value('SELECT COUNT(*) ' . $open, [$to]),
         ];
+    }
+
+    /**
+     * Changes by people and by Claude per area (the change log, without sign-ins and reads), and the notable ones: pages
+     * published (the build.published events), news published that month, look publishes.
+     *
+     * @return array<string, mixed>
+     */
+    private static function work(Db $db, string $from, string $to): array
+    {
+        $areas = [];
+        // the whistleblowing channel is never counted: even how often its cases were handled tells that reports exist
+        foreach ($db->all("SELECT modul, akce, via <> '' AS claude, COUNT(*) AS n FROM {protokol} WHERE cas >= ? AND cas < ? AND modul NOT IN ('prihlaseni', 'whistleblowing')
+            AND NOT (modul = 'claude' AND akce IN ('list_enquiries', 'list_bookings')) GROUP BY modul, akce, claude", [$from, $to]) as $r) {
+            $area = self::area((string) $r['modul'], (string) $r['akce']);
+            $areas[$area] ??= ['people' => 0, 'claude' => 0];
+            $areas[$area][(int) $r['claude'] === 1 ? 'claude' : 'people'] += (int) $r['n'];
+        }
+        $areas = array_intersect_key(array_replace(array_fill_keys(array_keys(self::AREAS), null), $areas), $areas);
+        // pages published: one row per page, the last publishing of the month, by a person or through Claude
+        $pages = [];
+        foreach ($db->all("SELECT created_at, data FROM {events} WHERE type = 'build.published' AND created_at >= ? AND created_at < ? ORDER BY id", [$from, $to]) as $r) {
+            $info = json_decode((string) $r['data'], true);
+            if (is_array($info) && isset($info['ids'])) {
+                $pages[(int) $info['ids']] = ['date' => self::iso($r['created_at']), 'claude' => !empty($info['claude'])];
+            }
+        }
+        $titles = $pages === [] ? [] : $db->pairs('SELECT ids, titulek FROM {stranky} WHERE ids IN (' . implode(',', array_keys($pages)) . ')');
+        $published = [];
+        foreach ($pages as $id => $p) {
+            $published[] = ['title' => (string) ($titles[$id] ?? '#' . $id), 'date' => $p['date'], 'by' => $p['claude'] ? 'claude' : 'person'];
+        }
+
+        return [
+            'areas' => $areas,
+            'pages_published' => array_slice($published, 0, self::LIST_LIMIT),
+            'pages_published_count' => count($published),
+            'news_published' => array_map(static fn (array $r): array => ['title' => (string) $r['titulek'], 'date' => self::iso($r['datum'])],
+                $db->all('SELECT titulek, datum FROM {novinky} WHERE visible = 1 AND smazano IS NULL AND datum >= ? AND datum < ? ORDER BY datum LIMIT ' . self::LIST_LIMIT, [$from, $to])),
+            'news_published_count' => (int) $db->value('SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND smazano IS NULL AND datum >= ? AND datum < ?', [$from, $to]),
+            'look_published' => (int) $db->value("SELECT COUNT(*) FROM {events} WHERE type = 'look.published' AND created_at >= ? AND created_at < ?", [$from, $to]),
+        ];
+    }
+
+    /**
+     * Claude sessions (the undo journal, 2.17) and scheduled runs (2.17): counts, and the runs by the kind of task
+     * (AgentSchedules::TASKS) and result. Never a run's name or summary (N316-1): Claude writes the summary, the triage
+     * task from the enquiries it read – names, phone numbers and what a visitor wanted would end up in the client report.
+     *
+     * @return array{sessions: int, calls: int, undone: int, runs: int, run_statuses: array<string, int>, run_tasks: array<string, array<string, int>>}
+     */
+    private static function claude(Db $db, string $from, string $to): array
+    {
+        $sessions = $db->one('SELECT COUNT(*) AS n, COALESCE(SUM(calls), 0) AS calls, COALESCE(SUM(undone_at IS NOT NULL), 0) AS undone FROM {agent_sessions} WHERE started_at >= ? AND started_at < ?', [$from, $to]) ?? [];
+        $statuses = array_map('intval', $db->pairs('SELECT status, COUNT(*) FROM {agent_runs} WHERE due_at >= ? AND due_at < ? GROUP BY status', [$from, $to]));
+        $tasks = [];
+        foreach ($db->all('SELECT s.task, r.status, COUNT(*) AS n FROM {agent_runs} r JOIN {agent_schedules} s ON s.id = r.schedule_id WHERE r.due_at >= ? AND r.due_at < ? GROUP BY s.task, r.status ORDER BY s.task, r.status', [$from, $to]) as $r) {
+            $task = isset(AgentSchedules::TASKS[(string) $r['task']]) ? (string) $r['task'] : 'custom';
+            $tasks[$task][(string) $r['status']] = ($tasks[$task][(string) $r['status']] ?? 0) + (int) $r['n'];
+        }
+
+        return [
+            'sessions' => (int) ($sessions['n'] ?? 0), 'calls' => (int) ($sessions['calls'] ?? 0), 'undone' => (int) ($sessions['undone'] ?? 0),
+            'runs' => array_sum($statuses), 'run_statuses' => $statuses, 'run_tasks' => $tasks,
+        ];
+    }
+
+    /**
+     * The site audit when the report is made: findings by kind, and against the previous archived month what got fixed and
+     * what is new (by the counts per kind – the audit keeps no history of its own).
+     *
+     * @return array{kinds: array<string, int>, total: int, previous: ?int, fixed: ?int, new: ?int}
+     */
+    private static function audit(App $app, \DateTimeImmutable $monthStart): array
+    {
+        $kinds = [];
+        foreach ((new Audit($app))->run() as $finding) {
+            $kinds[$finding['kind']] = ($kinds[$finding['kind']] ?? 0) + 1;
+        }
+        $before = ReportArchive::get($app->db(), $monthStart->modify('first day of last month')->format('Y-m'))['data']['audit']['kinds'] ?? null;
+        [$fixed, $new] = [null, null];
+        if (is_array($before)) {
+            [$fixed, $new] = [0, 0];
+            foreach (array_unique([...array_keys($kinds), ...array_keys($before)]) as $kind) {
+                $delta = ($kinds[$kind] ?? 0) - (int) ($before[$kind] ?? 0);
+                if ($delta > 0) {
+                    $new += $delta;
+                } else {
+                    $fixed -= $delta;
+                }
+            }
+        }
+
+        return ['kinds' => $kinds, 'total' => array_sum($kinds), 'previous' => is_array($before) ? (int) array_sum($before) : null, 'fixed' => $fixed, 'new' => $new];
+    }
+
+    /**
+     * What waits when the report is made (the month has just ended): requests, drafts, files waiting for approval, enquiries nobody opened.
+     *
+     * @param array<string, mixed>|null $enquiries
+     * @return array<string, int>
+     */
+    private static function open(App $app, ?array $enquiries): array
+    {
+        $db = $app->db();
+        $open = [
+            'requests' => Extensions::isEnabled($app->settings(), 'claude') ? (int) $db->value("SELECT COUNT(*) FROM {requests} WHERE status IN ('new', 'in_progress')") : 0,
+            'page_drafts' => (int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE stavba_koncept IS NOT NULL AND smazano IS NULL'),
+            'part_drafts' => (int) $db->value('SELECT COUNT(*) FROM {casti} WHERE stavba_koncept IS NOT NULL'),
+            'news_drafts' => Extensions::isEnabled($app->settings(), 'novinky') ? (int) $db->value('SELECT COUNT(*) FROM {novinky} WHERE visible = 0 AND smazano IS NULL') : 0,
+            'look_draft' => (int) Look::hasDraft($app->settings()),
+            'staged_files' => MediaStaging::count($db),
+            'enquiries' => (int) ($enquiries['unanswered'] ?? 0),
+        ];
+
+        return array_filter($open);
+    }
+
+    /**
+     * Nothing personal leaves the report (3.16): every string of the data – titles written by staff, search queries, form
+     * and campaign names, newsletter subjects – loses e-mail addresses (also written out or spaced), any other word with
+     * "@" (a handle) and phone numbers (Core\Redact, the masker the fleet heartbeat uses too). A report stored before
+     * N316-1 loses its list of scheduled runs with their names and summaries. The archive, the print page and
+     * get_monthly_report all read the scrubbed data.
+     *
+     * @param array<mixed> $data
+     * @return array<mixed>
+     */
+    public static function scrub(array $data): array
+    {
+        if (is_array($data['claude'] ?? null)) {
+            unset($data['claude']['run_list']);
+        }
+        array_walk_recursive($data, static function (mixed &$value): void {
+            if (is_string($value)) {
+                $value = Redact::text($value, '…', '…');
+            }
+        });
+
+        return $data;
+    }
+
+    /** A moment of the database (the site's wall time) as the report stores it: ISO 8601 with the offset, null for none. */
+    private static function iso(mixed $value): ?string
+    {
+        $value = is_string($value) ? $value : null;
+        $moment = Clock::fromDb($value) ?? ($value !== null ? \DateTimeImmutable::createFromFormat('!Y-m-d H:i', $value, Clock::zone()) : false);
+
+        return $moment instanceof \DateTimeImmutable ? $moment->format(DATE_ATOM) : null;
+    }
+
+    /**
+     * A moment of a stored report in the site's zone now: ISO 8601 with the offset (3.16), or the wall time of an older
+     * report; null for anything else. Printing it shows the same clock as the rest of the site after a change of the time zone.
+     */
+    public static function moment(mixed $value): ?\DateTimeImmutable
+    {
+        if (!is_string($value) || $value === '' || ($moment = date_create_immutable($value)) === false) {
+            return null;
+        }
+
+        return $moment->setTimezone(Clock::zone());
     }
 
     /**
@@ -141,8 +417,8 @@ final class MonthlyReport
             $agency = $s->get('agency_name');
             $monthName = t(self::MONTHS[(int) substr((string) $data['month'], 5, 2)] ?? 'January') . ' ' . substr((string) $data['month'], 0, 4);
             $subject = t('Website report – %s – %s', $monthName, $siteName);
-            // nothing that looks like an e-mail address gets through from the data – a form name or a message could carry one
-            $mask = static fn (string $text): string => (string) preg_replace('/[^\s@<>"]+@[^\s@<>"]+\.[a-z]{2,}/i', '…', $text);
+            // no e-mail address or phone number gets through from the data – a form name or a message could carry one (Core\Redact)
+            $mask = static fn (string $text): string => Redact::text($text, '…', '…');
             $safe = static fn (string $text): string => e($mask($text));
             $n = static fn (int $value): string => format_number($value, 0);
             $admin = $siteUrl . '/admin.php';
@@ -248,6 +524,33 @@ final class MonthlyReport
                 $section(t('Enquiries and sign-ups'), $table($rows), $plainRows($pairs));
             }
 
+            // 3.16: the work on the site – requests handled, what was published, Claude's sessions and scheduled runs; the
+            // whole story is the printable report in Settings → Reports
+            $work = (array) ($data['work'] ?? []);
+            $requests = $data['requests'] ?? null;
+            $claude = $data['claude'] ?? null;
+            $rows = [];
+            $pairs = [];
+            $add = function (string $label, int $value) use (&$rows, &$pairs, $row, $n): void {
+                $rows[] = $row(e($label), $n($value));
+                $pairs[] = [$label, $n($value)];
+            };
+            if (is_array($requests)) {
+                $add(t('Requests handled'), (int) $requests['done_count']);
+                $add(t('Requests still open'), (int) $requests['open_count']);
+            }
+            if ($work !== []) {
+                $add(t('Pages published'), (int) ($work['pages_published_count'] ?? 0));
+                $add(t('News published'), (int) ($work['news_published_count'] ?? 0));
+            }
+            if (is_array($claude)) {
+                $add(t('Claude sessions'), (int) $claude['sessions']);
+                $add(t('Scheduled Claude runs'), (int) $claude['runs']);
+            }
+            if ($rows !== []) {
+                $section(t('Work on the site'), $table($rows), $plainRows($pairs));
+            }
+
             // care of the site: updates, backups, changes
             $rows = [];
             $pairs = [];
@@ -257,8 +560,8 @@ final class MonthlyReport
                 $pairs[] = [t('Updates'), t('none this month')];
             }
             foreach ($updates as $u) {
-                $rows[] = $row(e(format_date((string) $u['date'])) . ' · ' . $safe((string) $u['message']), '');
-                $pairs[] = [format_date((string) $u['date']), (string) $u['message']];
+                $rows[] = $row(e(format_date(self::moment($u['date'] ?? null))) . ' · ' . $safe((string) $u['message']), '');
+                $pairs[] = [format_date(self::moment($u['date'] ?? null)), (string) $u['message']];
             }
             if (isset($data['version'])) {
                 $channel = t(['stable' => 'Stable channel', 'custom' => 'custom update source'][(string) ($data['update_channel'] ?? '')] ?? 'Latest channel');
@@ -267,13 +570,19 @@ final class MonthlyReport
             }
             $backups = (array) ($data['backups'] ?? []);
             $backupText = t('%d made, %d failed', (int) ($backups['created'] ?? 0), (int) ($backups['failed'] ?? 0))
-                . (($backups['last'] ?? null) !== null ? ', ' . t('the last one %s', format_date((string) $backups['last'])) : '');
+                . (self::moment($backups['last'] ?? null) !== null ? ', ' . t('the last one %s', format_date(self::moment($backups['last']))) : '');
             $rows[] = $row(e(t('Backups')), e($backupText));
             $pairs[] = [t('Backups'), $backupText];
             $changes = (array) ($data['changes'] ?? []);
             $changesText = t('%d by people, %d by Claude', (int) ($changes['people'] ?? 0), (int) ($changes['claude'] ?? 0));
             $rows[] = $row(e(t('Changes in the administration')), e($changesText));
             $pairs[] = [t('Changes in the administration'), $changesText];
+            $security = $data['security'] ?? null;
+            if (is_array($security)) {
+                $securityText = t('%d blocked requests, %d failed sign-ins', array_sum(array_map('intval', (array) ($security['firewall'] ?? []))), (int) ($security['failed_sign_ins'] ?? 0));
+                $rows[] = $row(e(t('Security')), e($securityText));
+                $pairs[] = [t('Security'), $securityText];
+            }
             $section(t('Care of the site'), $table($rows), $plainRows($pairs));
 
             // problems right now
@@ -299,7 +608,7 @@ final class MonthlyReport
                 $s->get('agency_phone') !== '' ? e($s->get('agency_phone')) : '',
             ]);
             $plainContacts = array_filter([$s->get('agency_url'), $s->get('agency_email'), $s->get('agency_phone')]);
-            $footerNote = t('Sent once a month by the website %s. Switch it off or change the recipients in Settings → Mail.', $siteName);
+            $footerNote = t('Sent once a month by the website %s. The full report to print or download, the recipients and the switch are in Settings → Reports.', $siteName);
             $footer = '<tr><td style="padding:20px 28px 24px;border-top:1px solid #eee;font:12px/1.6 Arial,Helvetica,sans-serif;color:#777;">'
                 . ($agency !== '' && $contacts !== [] ? '<div style="margin:0 0 6px;color:#555;">' . e($agency) . ' · ' . implode(' · ', $contacts) . '</div>' : '')
                 . e($footerNote) . '</td></tr>';
@@ -326,7 +635,26 @@ final class MonthlyReport
     {
         $s = $app->settings();
 
-        return Language::runWith(Language::defaults($s), fn (): array => self::render(self::build($app, $monthStart), $s, self::siteUrl($app)), 'admin-');
+        return Language::runWith(Language::defaults($s), fn (): array => self::render(self::monthData($app, $monthStart), $s, self::siteUrl($app)), 'admin-');
+    }
+
+    /**
+     * The data of a month for the e-mail and its preview: the archived report when the month is stored (3.16,
+     * Core\ReportArchive – the job stores it before the e-mail goes), so the e-mail and the printable report say the same;
+     * otherwise built in memory. Only the job report_archive and an explicit rebuild write the archive (N316-7) – opening
+     * the preview or sending the e-mail never does.
+     *
+     * @return array<string, mixed>
+     */
+    public static function monthData(App $app, \DateTimeImmutable $monthStart): array
+    {
+        try {
+            $stored = ReportArchive::get($app->db(), $monthStart->format('Y-m'));
+        } catch (\Throwable) {
+            $stored = null; // the archive table is not there yet (an update before its migration ran)
+        }
+
+        return $stored['data'] ?? self::build($app, $monthStart);
     }
 
     /**
@@ -367,7 +695,9 @@ final class MonthlyReport
         $sent = self::send($app, $monthStart);
         if ($sent > 0) {
             $month = $monthStart->format('Y-m');
-            $app->settings()->set('report_last_month', $month);
+            if ($month > $app->settings()->get('report_last_month')) {
+                $app->settings()->set('report_last_month', $month); // an older month sent again from the archive (3.16) never makes the job send the last one twice
+            }
             Events::record($app->db(), 'report.sent', 'info', t('The monthly report for %s went to %d recipient(s).', $month, $sent), ['month' => $month, 'recipients' => $sent]);
         }
 

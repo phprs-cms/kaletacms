@@ -88,7 +88,8 @@ final class Form extends Element
             ]],
             'tlacitko' => ['typ' => 'text', 'popisek' => 'Button text', 'vychozi' => t('Send enquiry'), 'max' => 80],
             'dekujeme' => ['typ' => 'text', 'popisek' => 'Thank-you message', 'vychozi' => t('Thank you, we have received your message. We will get back to you as soon as possible.'), 'max' => 400],
-            'prijemce' => ['typ' => 'text', 'popisek' => 'Notification email (empty = site email from Settings)', 'vychozi' => '', 'max' => 190],
+            'prijemce' => ['typ' => 'text', 'popisek' => 'Notification e-mails (several separated by commas; empty = site e-mail from Settings)', 'vychozi' => '', 'max' => 190],
+            'skryta_kopie' => ['typ' => 'text', 'popisek' => 'Hidden copy (Bcc): e-mails separated by commas that the other recipients do not see', 'vychozi' => '', 'max' => 190],
             'dekovna' => ['typ' => 'odkaz', 'popisek' => 'After sending, go to a page (empty = thank-you message in place of the form)', 'vychozi' => ''],
             'potvrzeni' => ['typ' => 'prepinac', 'popisek' => 'Send the sender a confirmation e-mail (thank-you only, without the message content)', 'vychozi' => false],
             // a gated download (2.11, Core\Documents): the file goes out as a signed link that works for a week

@@ -178,6 +178,12 @@ check('Kontrola stavby: části webu osnovu nadpisů nehlídají', Kaleta\Builde
 check('Poptávka: kampaň z utm_* adresy stránky s formulářem', Kaleta\Front\Forms::campaign('https://example.com/akce?utm_source=google&utm_medium=cpc&utm_campaign=jaro&gclid=x&utm_term[]=a', 'https://example.com'), 'utm_source=google&utm_medium=cpc&utm_campaign=jaro');
 check('Poptávka: kampaň jen z vlastního webu', Kaleta\Front\Forms::campaign('https://jiny.cz/?utm_source=x', 'https://example.com'), '');
 check('Poptávka: kampaň pro člověka', Kaleta\Front\Forms::campaignText('utm_source=google&utm_medium=cpc&utm_campaign=jaro'), 'google / cpc / jaro');
+check('Poptávka: více příjemců i skrytá kopie', Kaleta\Front\Forms::recipients('admin@example.com, info@example.com;Info@example.com', 'skryty@example.com admin@example.com', 'web@example.com'), [['admin@example.com', 'info@example.com'], ['skryty@example.com']]);
+check('Poptávka: neplatné adresy se vynechají, žádná platná = e-mail webu', Kaleta\Front\Forms::recipients('nekdo, @x', '', 'web@example.com'), [['web@example.com'], []]);
+check('Poptávka: bez příjemce i e-mailu webu dostanou zprávu skrytí příjemci', Kaleta\Front\Forms::recipients('', 'a@example.com', ''), [['a@example.com'], []]);
+check('Poptávka: bez příjemců nikdo', Kaleta\Front\Forms::recipients('', '', ''), [[], []]);
+check('Pošta: seznam adres oddělených čárkou', Kaleta\Core\Mail::addresses('a@example.com, B@example.com,b@example.com'), ['a@example.com', 'B@example.com']);
+check('Pošta: jedna neplatná adresa odmítne celý seznam (žádná vložená hlavička)', Kaleta\Core\Mail::addresses("a@example.com, b@example.com\r\nBcc: c@example.com"), []);
 // Parity guard: every admin action is a read, has an MCP tool, or is admin only on purpose (with the reason). A new action
 // that is none of these fails the test – decide whether Claude can do it too (MCP is the main way to work with a site).
 $readOnly = 'read';
@@ -200,7 +206,10 @@ $settingsParity = ['list' => $readOnly, 'save' => 'update_settings', 'download_b
     'fleet_pair' => 'admin: which console a site reports to is a security decision (2.9)', 'fleet_send' => 'admin: the site reports every hour on its own',
     'fleet_updates' => 'admin: who decides about updates is a security decision (2.9)', 'fleet_unpair' => 'admin: which console a site reports to is a security decision (2.9)',
     'fleet_kit' => 'admin: receiving the console\'s design kit is an opt-in of the site (2.16); site_info reports the version that arrived',
+    'fleet_titles' => 'admin: what the site tells its console is the administrator\'s decision (3.16)',
     'report_preview' => $readOnly, 'report_send' => 'admin: the monthly report goes to e-mail addresses that stay out of MCP (2.9) – Claude reads the same numbers with get_stats and get_health',
+    'report_view' => 'get_monthly_report', 'report_download' => 'get_monthly_report', // 3.16: the archive – Claude reads the same data and print_url
+    'report_rebuild' => 'admin: rebuilding an archived month replaces the stored report with what the data still hold (3.16) – the administrator decides after the warning',
     'cookie_scan' => 'admin: the cookie scan runs daily on its own (2.14); Claude reads the table in processing_record', 'processing_record' => 'processing_record',
     'accessibility_statement' => 'admin: the draft page is the administrator’s step (2.14); Claude reads the text with accessibility_statement',
     'time_zone' => 'admin: the time zone and converting the saved dates are the administrator’s decision (3.12) – update_settings does not change the zone'];
@@ -434,6 +443,96 @@ check('2.9: no e-mail address from the data gets into the report', [str_contains
 check('2.9: the subject names the month in the site language', [$withoutAgency['subject'], MonthlyReport::render($reportData, $reportSettings(['site_language' => 'cs']), 'https://example.com')['subject'],
     MonthlyReport::render(['month' => '2027-01'], $reportSettings(['site_language' => 'de']), 'https://example.com')['subject']],
     ['Website report – September 2026 – Testovací firma', 'Zpráva o webu – září 2026 – Testovací firma', 'Website-Bericht – Januar 2027 – Testovací firma']);
+// 3.16: the archived monthly report – what happened to the site, scrubbed of anything personal, kept 24 months, printable on A4
+$report316 = $reportData + ['schema' => 1, 'generated_at' => '2026-10-01 03:00:00', 'version' => '3.16.0', 'update_channel' => 'stable',
+    'requests' => ['created' => 3, 'done' => [['title' => 'Change the hours – ask jana@client.example', 'status' => 'done', 'created' => '2026-09-02 10:00:00', 'done' => '2026-09-03 11:00:00']], 'done_count' => 1,
+        'open' => [['title' => 'New price list @janinka', 'status' => 'in_progress', 'created' => '2026-09-20 09:00:00', 'done' => '']], 'open_count' => 2],
+    'work' => ['areas' => ['pages' => ['people' => 4, 'claude' => 6], 'look' => ['people' => 1, 'claude' => 0]], 'pages_published' => [['title' => 'Services', 'date' => '2026-09-05 10:00:00', 'by' => 'claude']], 'pages_published_count' => 1,
+        'news_published' => [['title' => 'We moved', 'date' => '2026-09-10 08:00:00']], 'news_published_count' => 1, 'look_published' => 1],
+    'claude' => ['sessions' => 5, 'calls' => 31, 'undone' => 1, 'runs' => 4, 'run_statuses' => ['ok' => 3, 'missed' => 1],
+        'run_list' => [['name' => 'Weekly review', 'task' => 'review', 'date' => '2026-09-28 07:10:00', 'status' => 'ok', 'summary' => 'Fixed 3 descriptions; wrote to owner@client.example']]],
+    'security' => ['firewall' => ['probe' => 40, 'rate' => 2], 'sign_ins' => 12, 'failed_sign_ins' => 3, 'events' => ['security.account_suspended' => 1]],
+    'audit' => ['kinds' => ['description' => 4, 'link' => 1], 'total' => 5, 'previous' => null, 'fixed' => null, 'new' => null],
+    'bookings' => null, 'newsletter' => ['signups' => 1, 'campaigns' => [['subject' => 'September news', 'date' => '2026-09-15 09:00:00', 'sent' => 120]]],
+    'open' => ['requests' => 2, 'page_drafts' => 1, 'look_draft' => 1]];
+$scrubbed316 = MonthlyReport::scrub($report316);
+check('3.16: MonthlyReport::scrub – no "@" anywhere in the stored JSON (addresses and handles in titles, summaries, form names), the rest kept',
+    [str_contains((string) json_encode($scrubbed316), '@'), $scrubbed316['requests']['done'][0]['title'], $scrubbed316['requests']['open'][0]['title'], $scrubbed316['work']['pages_published'][0]['title']],
+    [false, 'Change the hours – ask …', 'New price list …', 'Services']);
+check('3.16: ReportArchive keeps 24 months – the oldest kept month, across the year boundary; the job runs hourly before the e-mail', [Kaleta\Core\ReportArchive::oldestKept(new DateTimeImmutable('2026-10-19 12:00')),
+    Kaleta\Core\ReportArchive::oldestKept(new DateTimeImmutable('2027-01-01 00:10')), Kaleta\Core\ReportArchive::KEEP_MONTHS, Kaleta\Core\Scheduler::JOBS['report_archive'][0] ?? null,
+    array_search('report_archive', array_keys(Kaleta\Core\Scheduler::JOBS), true) < array_search('monthly_report', array_keys(Kaleta\Core\Scheduler::JOBS), true),
+    preg_match(Kaleta\Core\ReportArchive::MONTH_PATTERN, '2026-13'), preg_match(Kaleta\Core\ReportArchive::MONTH_PATTERN, '2026-09')], ['2024-10', '2025-01', 24, 3600, true, 0, 1]);
+check('3.16: MonthlyReport::area – a person by the admin section, Claude by the tool (Czech or English name)', [MonthlyReport::area('pages', 'save'), MonthlyReport::area('menu', 'save'),
+    MonthlyReport::area('claude', 'save_collection_item'), MonthlyReport::area('claude', 'publish_look'), MonthlyReport::area('claude', 'upload_file'), MonthlyReport::area('claude', 'draft_newsletter'),
+    MonthlyReport::area('claude', Kaleta\Mcp\Translator::czech('create_page') ?? 'create_page'), MonthlyReport::area('whatever', 'x')], ['pages', 'look', 'collections', 'look', 'media', 'newsletter', 'pages', 'other']);
+$sections316 = Kaleta\Core\Language::runWith('en', fn (): array => Kaleta\Core\ReportPage::sections($report316), 'admin-');
+$sectionKeys316 = array_column($sections316, 'key');
+check('3.16: ReportPage::sections – every section with data, in order; bookings off = no section; nothing personal printed', [$sectionKeys316,
+    str_contains((string) json_encode($sections316, JSON_UNESCAPED_UNICODE), '@'), $sections316[0]['blocks'][0]['type'], $sections316[0]['blocks'][0]['items'][0]],
+    [['summary', 'open', 'requests', 'work', 'claude', 'traffic', 'enquiries', 'newsletter', 'updates', 'backups', 'security', 'audit', 'problems'], false, 'facts', ['Visits', '120']]);
+$view316 = new Kaleta\Core\View([KALETA_SYSTEM . '/views']);
+$stored316 = ['month' => '2026-09', 'created_at' => '2026-10-01 03:00:00', 'rebuilt_at' => null, 'data' => $scrubbed316];
+$page316 = Kaleta\Core\ReportPage::render($view316, $stored316, $reportSettings(['agency_name' => 'Studio Kaleta', 'agency_logo' => 'media/logo.svg']), 'https://example.com/');
+$screen316 = Kaleta\Core\ReportPage::render($view316, array_replace($stored316, ['rebuilt_at' => '2026-10-19 10:00:00']), $reportSettings(['site_language' => 'cs']), 'https://example.com', ['script' => '/image/tisk.js', 'download' => '/x', 'back' => '/y']);
+check('3.16: the printable report – A4 with page numbers, the agency header, the month, no script in the downloaded file, nothing personal; on screen the Print button, in the site language',
+    [str_contains($page316, 'size: A4'), str_contains($page316, 'counter(page) " / " counter(pages)'), str_contains($page316, 'https://example.com/media/logo.svg'), str_contains($page316, 'Studio Kaleta'),
+        str_contains($page316, '<h1>September 2026</h1>'), str_contains($page316, '<script'), str_contains($page316, '@') && preg_match('/@(?!page|media|bottom)/', $page316) === 1, str_contains($page316, 'break-inside: avoid-page'),
+        str_contains($screen316, 'data-tisk'), str_contains($screen316, 'září 2026'), str_contains($screen316, 'Zpráva o webu'), str_contains($screen316, 'znovu sestaveno')],
+    [true, true, true, true, true, false, false, true, true, true, true, true]);
+$mail316 = MonthlyReport::render($report316, $reportSettings([]), 'https://example.com');
+check('3.16: the e-mail adds the work on the site and the security counts, and points to Settings → Reports', [str_contains($mail316['html'], 'Work on the site'), str_contains($mail316['text'], 'Requests handled: 1'),
+    str_contains($mail316['text'], '42 blocked requests, 3 failed sign-ins'), str_contains($mail316['text'], 'Settings → Reports'), str_contains($mail316['html'] . $mail316['text'], 'client.example')], [true, true, true, true, false]);
+// 3.16 audit fixes (N316-1, -2, -4, -7, -9): one masker, no run summaries, CSS strings escaped, rebuilt reports labelled, ISO moments
+use Kaleta\Core\Redact;
+$redactPositive = ['Reply to jan @ firma.cz', 'jan@ firma.cz', 'jan [at] firma [dot] cz', 'jan(at)firma.cz', "jan\u{FF20}firma.cz", "jan\u{FE6B}firma.cz", 'jan&amp;#64;firma.cz',
+    '"jan"@firma.cz', 'Call back Mr Novák, novak (at) firma.cz', 'jan at firma dot cz', 'pište na jan (zavináč) firma (tečka) cz', "jan\u{200B}@firma.cz",
+    'Jana +420 777 123 456 wants a quote', 'call 777123456', '777-123-456 asap', '(+420) 608 111 222', '00420 777 123 456', 'Tel.: 777 123 456', 'card 4111 1111 1111 1111', "\u{FF17}\u{FF17}\u{FF17} 123 456"];
+$redactLeaks = array_filter($redactPositive, static fn (string $t): bool => preg_match('/@|\x{FF20}|\x{FE6B}|firma|\d{3}[ -]?\d{3}|1111/u', Redact::text($t)) === 1);
+check('3.16 N316-2: Core\Redact masks e-mail addresses (spaced, written out, full-width, entities, invisible characters) and phone numbers', array_values($redactLeaks), []);
+check('3.16 N316-2: Core\Redact – what it leaves in place', array_map(static fn (string $t): string => Redact::text($t), [
+    'Price 12 990 Kč', 'Budget 1 250 000 000 Kč', 'Price 15.000,- Kč', 'Meeting 19. 10. 2026 14.30', '2026-10-19 10:00', '2026-10-01T03:00:00+02:00', 'Version 3.16.0', 'Years 2025–2026',
+    'Update 3.15.4 → 3.16.0', 'Hours 9:00–17:00', 'Order 12345', 'Look at page 3.2', 'We meet at 10.30', '19.10.2026', 'Tom &amp; Jerry, 25 m²', "Plain\u{202E}text\u{0007}"]),
+    ['Price 12 990 Kč', 'Budget 1 250 000 000 Kč', 'Price 15.000,- Kč', 'Meeting 19. 10. 2026 14.30', '2026-10-19 10:00', '2026-10-01T03:00:00+02:00', 'Version 3.16.0', 'Years 2025–2026',
+    'Update 3.15.4 → 3.16.0', 'Hours 9:00–17:00', 'Order 12345', 'Look at page 3.2', 'We meet at 10.30', '19.10.2026', 'Tom &amp; Jerry, 25 m²', 'Plaintext']);
+check('3.16 N316-2: the heartbeat, the report and the e-mail mask with the same Core\Redact', [Kaleta\Fleet\Heartbeat::cleanTitle('Call jan [at] firma [dot] cz or +420 777 123 456'),
+    MonthlyReport::scrub(['t' => 'Call jan [at] firma [dot] cz or +420 777 123 456'])['t'], Kaleta\Fleet\Heartbeat::cleanTitle('jan&amp;#64;firma.cz &amp; co')],
+    ['Call [e-mail] or [phone]', 'Call … or …', '[e-mail] & co']);
+$legacy316 = MonthlyReport::scrub($report316);
+check('3.16 N316-1: a run list with names and summaries (a report stored before the fix) is dropped on every read; runs are counted by task and result',
+    [isset($legacy316['claude']['run_list']), $legacy316['claude']['runs'], str_contains((string) json_encode($legacy316), 'Weekly review')], [false, 4, false]);
+$runs316 = $report316;
+$runs316['claude']['run_tasks'] = ['triage' => ['ok' => 2, 'partial' => 1], 'mystery' => ['failed' => 1]];
+$runsSection316 = array_values(array_filter(Kaleta\Core\Language::runWith('en', fn (): array => Kaleta\Core\ReportPage::sections($runs316), 'admin-'), static fn (array $s): bool => $s['key'] === 'claude'))[0];
+check('3.16 N316-1: the printed report lists scheduled runs by task and result – no name, no summary', [$runsSection316['blocks'][1]['caption'], $runsSection316['blocks'][1]['head'], $runsSection316['blocks'][1]['rows']],
+    ['Scheduled runs by task', ['Task', 'Result', 'Runs'], [['Enquiry triage', 'Done', '2'], ['Enquiry triage', 'Partly done', '1'], ['Custom instructions', 'Failed', '1']]]);
+check('3.16 N316-4: css_string escapes every control character, the quotes, the backslash and "<"', [css_string("Acme\f} .x::before{content:\"x\"}\n@page{x:'"), css_string("a\\b\x0B\u{2028}</style>"), css_string('Studio Kaleta · September 2026')],
+    ['"Acme\\c } .x::before{content:\\22 x\\22 }\\a @page{x:\\27 "', '"a\\5c b\\b \\2028 \\3c /style\\3e "', '"Studio Kaleta · September 2026"']);
+$evil316 = Kaleta\Core\ReportPage::render($view316, $stored316, $reportSettings(['site_name' => "Acme\f} .listina::before{content:\"Pay to CZ65\";display:block} @page{x:\"\nnext"]), 'https://example.com');
+preg_match('/@bottom-left \{ content: (.*?); font:/', $evil316, $bottom316);
+check('3.16 N316-4: a form feed or a line break in the site name stays inside the CSS string of the print page', [preg_match('/[\x00-\x1F]/', $bottom316[1] ?? "\f"), str_contains($bottom316[1] ?? '', 'Acme\c } .listina'), substr_count($bottom316[1] ?? '', '"')],
+    [0, true, 2]);
+$rebuiltSections316 = Kaleta\Core\Language::runWith('en', fn (): array => Kaleta\Core\ReportPage::sections($report316 + ['security' => []], '19 Oct 2026 10:00'), 'admin-');
+$byKey316 = array_column($rebuiltSections316, null, 'key');
+$notes316 = static fn (array $section): array => array_values(array_map(static fn (array $b): string => $b['text'], array_filter($section['blocks'], static fn (array $b): bool => $b['type'] === 'note')));
+check('3.16 N316-7: a rebuilt report says that what waits, the audit, the problems and the version are from the day of the rebuild', [$byKey316['open']['title'],
+    in_array('As on 19 Oct 2026 10:00, when the report was rebuilt – not at the end of the month.', $notes316($byKey316['audit']), true),
+    in_array('As on 19 Oct 2026 10:00, when the report was rebuilt – not at the end of the month.', $notes316($byKey316['problems']), true), $byKey316['updates']['blocks'][0]['rows'][0][0],
+    $sections316[1]['title']], ['Waiting when the report was rebuilt', true, true, 'Kaleta version when the report was rebuilt', 'Waiting at the end of the month']);
+$zone316 = date_default_timezone_get();
+date_default_timezone_set('Europe/Prague');
+$iso316 = $report316;
+$iso316['security']['firewall_from'] = '2026-09-02T00:30:00+02:00';
+$iso316['work']['pages_published'][0]['date'] = '2026-09-05T22:30:00+00:00';
+$isoSections316 = array_column(Kaleta\Core\Language::runWith('en', fn (): array => Kaleta\Core\ReportPage::sections($iso316), 'admin-'), null, 'key');
+date_default_timezone_set('Europe/London');
+$londonSections316 = array_column(Kaleta\Core\Language::runWith('en', fn (): array => Kaleta\Core\ReportPage::sections($iso316), 'admin-'), null, 'key');
+date_default_timezone_set($zone316);
+check('3.16 N316-9: moments stored as ISO 8601 with the offset print in the site zone of the day – a change of the time zone needs no conversion of the JSON',
+    [$isoSections316['work']['blocks'][1]['rows'][0][1], $londonSections316['work']['blocks'][1]['rows'][0][1], MonthlyReport::moment('2026-09-05 10:00:00')?->format('H:i'), MonthlyReport::moment('nonsense'), MonthlyReport::moment(null)],
+    ['6 Sep 2026', '5 Sep 2026', '10:00', null, null]);
+check('3.16 N316-7: the firewall keeps 30 days – a report says from when its firewall counts are complete', in_array(Kaleta\Core\Language::runWith('en', fn (): string => t('The firewall keeps its log for 30 days, so requests blocked before %s are not counted.', format_date('2026-09-02 00:30:00', true)), 'admin-'),
+    $notes316($isoSections316['security']), true), true);
 $ok = [200, 'KALETA-PROBE 9.9.9'];
 check('2.8: Updater::probeVerdict', [
     Kaleta\Core\Updater::probeVerdict(['probe' => $ok, 'home' => [200, 'x'], 'admin' => [200, 'x']], '9.9.9'),
@@ -524,10 +623,12 @@ foreach (glob(KALETA_SYSTEM . '/views/admin/settings/*.php') as $view) {
         if (!isset($settingsFields[$name]) && !in_array($name, ['rozsireni', 'ai_poskytovatel_puvodni', 'novy_token_ulohy', 'novy_token', 'soubor', 'tab', 'id', 'ip', 'pairing_key', 'fleet_updates',
             'exception', 'exception_from', 'exception_to', 'exception_closed', 'exception_hours', 'exception_note', 'exception_notice', 'viewport', 'robots', // viewport, robots: <meta> of the door sign
             'fleet_kit', // 2.16: the console tab's own button (Settings::actionFleetKit)
+            'fleet_request_titles', // 3.16: the console tab's own button (Settings::actionFleetTitles)
             'verze', // 3.3.2: the version on the update button – Settings::actionUpdate installs only that one
             'precteno', // 3.15: "I have read what changes" – Settings::actionUpdateMajor installs a major version only with it
             'smtp_ses_region', // 3.9: the Amazon SES region – MailServices::settle() builds the server from it
             'zone', 'choice', // 3.12: the time zone confirmation (Settings::actionTimeZone) – the new zone and convert | keep
+            'month', // 3.16: the month of an archived report on its Send and Rebuild buttons (Settings::actionReportSend, actionReportRebuild)
             'screen_collections', 'novy_token_obrazovka'], true)) { // 2.11 screen mode: the collections list is added by fields() from the site's collections, the button makes a new address
             $unknownFields[] = basename($view) . ': ' . $name;
         }
@@ -873,6 +974,17 @@ check('Rozdil: shodné texty', Kaleta\Core\Diff::html('<p>Stejné</p>', '<p>Stej
 /* ---------- FAQ ---------- */
 check('Seo::faq', Seo::faq("Kdy to začne?\nV pondělí.\n\nKolik to stojí?\nNic."), [['Kdy to začne?', 'V pondělí.'], ['Kolik to stojí?', 'Nic.']]);
 check('Seo::faq: prázdný vstup', Seo::faq(null), []);
+
+/* ---------- plain_text(): stored HTML as one line of text (meta and og description, JSON-LD, feeds, llms.txt) ---------- */
+check('plain_text: entity jako znaky, bez značek', plain_text('<p>Výstavba zahájena v&nbsp;květnu 2023&nbsp;máme <b>R&amp;D</b>&hellip;</p><p>Druhý</p>'), 'Výstavba zahájena v květnu 2023 máme R&D… Druhý');
+check('plain_text: zkrácení', plain_text(str_repeat('slovo&nbsp;', 60), 20), 'slovo slovo slovo s…');
+$nbspIntro = '<p>Jsme rádi, že jsme v&nbsp;prosinci 2022&nbsp;získali územní rozhodnutí.</p><p>R&amp;D &lt;nově&gt;</p>';
+check('plain_text: meta description z úvodu novinky se escapuje jednou (žádné &amp;nbsp;)', e(plain_text($nbspIntro, 300)), 'Jsme rádi, že jsme v prosinci 2022 získali územní rozhodnutí. R&amp;D &lt;nově&gt;');
+check('plain_text: popis v JSON-LD je text bez entit a bez značek', json_encode(['description' => plain_text($nbspIntro, 300)], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG), '{"description":"Jsme rádi, že jsme v prosinci 2022 získali územní rozhodnutí. R&D \\u003Cnově\\u003E"}');
+check('plain_text: popisy webu jdou přes plain_text, ne přes holé strip_tags', array_filter([
+    'Kernel' => preg_match('/strip_tags\(\$(newsItem|category|tag)\b|strip_tags\(\(string\) \$tag/', (string) file_get_contents(KALETA_SYSTEM . '/src/Front/Kernel.php')),
+    'Seo' => preg_match("/trim\\(strip_tags\\(\\\$c\\['uvod'\\]\\)\\)/", (string) file_get_contents(KALETA_SYSTEM . '/src/Front/Seo.php')),
+]), []);
 
 /* ---------- backups to S3: AWS Signature V4 signing (the value verified by an independent computation) ---------- */
 check('404: sondy robotů se nezapisují, skutečné adresy ano', array_map(Kaleta\Core\NotFound::isBot(...), ['wp/v2/users', 'sellers.json', 'api/session/properties', '_next', 'api/novinky/x', 'about-us', 'en', 'cenik-2019']),
@@ -1967,6 +2079,11 @@ check('Menu::html: podmenu, aktivní položka a větev, úvod jen přesnou shodo
     ['text' => 'Úvod', 'url' => '/', 'nove_okno' => false, 'deti' => []],
     ['text' => 'Služby', 'url' => '', 'nove_okno' => false, 'deti' => [['text' => 'Kuchyně', 'url' => '/kuchyne', 'nove_okno' => false, 'deti' => []]]],
 ], '/kuchyne/detail', '/')), '<li><a href="/">Úvod</a></li><li class="podmenu aktivni"><button type="button" class="menu-skupina" aria-controls="ka-podmenu-N">Služby</button><ul id="ka-podmenu-N"><li><a href="/kuchyne" aria-current="page">Kuchyně</a></li></ul></li>');
+// a link with a fragment is never the current page: on the home page "/#produkty" used to match the path "/" (every anchor underlined)
+check('Menu::html: a link with a fragment (#…) is never aria-current, the page itself still is', array_map(fn (string $path): int => substr_count(Kaleta\Core\Menu::html([
+    ['text' => 'Home', 'url' => '/', 'nove_okno' => false, 'deti' => []], ['text' => 'Products', 'url' => '/#produkty', 'nove_okno' => false, 'deti' => []],
+    ['text' => 'Price list', 'url' => '/sluzby#cenik', 'nove_okno' => false, 'deti' => []], ['text' => 'Contact', 'url' => '#kontakt', 'nove_okno' => false, 'deti' => []],
+], $path, '/'), 'aria-current'), ['/', '/sluzby']), [1, 0]);
 $linkedParent = Kaleta\Core\Menu::html([['text' => 'O nás', 'url' => '/o-nas', 'nove_okno' => false, 'deti' => [['text' => 'Tým', 'url' => '/tym', 'nove_okno' => false, 'deti' => []]]],
     ['text' => 'Služby', 'url' => '', 'nove_okno' => false, 'deti' => [['text' => 'Kuchyně', 'url' => '/kuchyne', 'nove_okno' => false, 'deti' => []]]]], '/', '/');
 preg_match_all('/aria-controls="(ka-podmenu-\d+)"/', $linkedParent, $controls);
@@ -2053,6 +2170,18 @@ check('Sekce při rolování: jen zmenšení nechá záhlaví v toku (žádné p
     str_contains(Kaleta\Builder\Build::html(Kaleta\Builder\Build::sanitize($shrinkOnly)[0], $shrinkContext), '<section id="s-hl2" class="ka-hlavicka-rolovani">'),
     str_contains($shrinkContext->css, 'position: fixed'), str_contains($shrinkContext->css, '#s-hl2 { animation: ka-hlavicka-mensi linear both;'),
 ], [true, false, true]);
+// 3.15.3: the build's margin reset leaves the system content inside the Page content element of a wrapper alone (news text paragraphs keep the layout's spacing)
+$wrapperBuild = ['v' => 1, 'deti' => [['id' => 'ob1', 'typ' => 'sekce', 'deti' => [['id' => 'ob2', 'typ' => 'obsah']]], ['id' => 'ob3', 'typ' => 'sekce', 'deti' => [['id' => 'ob4', 'typ' => 'text', 'obsah' => ['text' => '<p>CTA</p>']]]]]];
+$wrapperContext = new Kaleta\Builder\Context($headerApp);
+$wrapperContext->source = 'cast:novinka:';
+$wrapperContext->content = '<p>First</p><p>Second</p>';
+$wrapperHtml = Kaleta\Builder\Build::html(Kaleta\Builder\Build::sanitize($wrapperBuild)[0], $wrapperContext);
+$wrapperCss = Kaleta\Builder\Build::css((new ReflectionClass(Kaleta\Core\Db::class))->newInstanceWithoutConstructor(), $wrapperContext);
+preg_match_all('/^([^{}\n]*)\{[^}\n]*margin-block: 0;/m', $wrapperCss, $wrapperResets);
+check('Page content in a wrapper: the content sits in .obal.obsah, the only margin reset of the build skips everything inside .obsah and keeps zero specificity', [
+    (bool) preg_match('/class="obal obsah"><p>First<\/p><p>Second<\/p>/', $wrapperHtml),
+    array_map('trim', $wrapperResets[1]),
+], [true, [':where(.stavba) :where(h1, h2, h3, h4, h5, h6, p, ul, ol, blockquote, figure, hr):not(:where(.obsah *))']]);
 check('Vocabulary: záhlaví při rolování anglicky', Kaleta\Mcp\Vocabulary::contentToEnglish('sekce', ['pri_rolovani' => 'pruhledna-zmensit', 'text_nahore' => 'svetly']), ['on_scroll' => 'transparent_shrink', 'text_at_top' => 'light']);
 check('Hledani::najdi: shoda v názvu má přednost', array_column(Kaleta\Core\Search::find('search', [
     ['titulek' => 'Menus', 'adresa' => 'menus', 'text' => 'Link to site search from the menu.'],
@@ -2574,6 +2703,78 @@ check('2.9: attention – what is wrong with a site, weighted', [
 $fleetClean = Kaleta\Fleet\Console::clean(['version' => '2.9.0', 'name' => str_repeat('x', 400), 'secret' => 'drop me', 'problems' => [['check' => 'Mail', 'status' => 'warning', 'detail' => ['deep' => ['deeper' => ['deepest' => 1]]]]], 'visits_7_days' => 12.7]);
 check('2.9: a heartbeat keeps only the known keys with sane values', [isset($fleetClean['secret']), mb_strlen($fleetClean['name']), $fleetClean['version'], $fleetClean['visits_7_days'], $fleetClean['problems'][0]['check']],
     [false, 255, '2.9.0', 12, 'Mail']);
+// 3.16: what waits for people – request titles cleaned and masked, the new parts bounded, new reasons for attention
+check('3.16: Fleet\Heartbeat::cleanTitle – plain text, one line, e-mail addresses masked, at most 120 characters', [
+    Kaleta\Fleet\Heartbeat::cleanTitle("<b>Call</b> back jan.novak@firma.cz\n about <i>prices</i>"),
+    Kaleta\Fleet\Heartbeat::cleanTitle('Forward to "info@example.com", or (petra+web@sub.example.co.uk) & anna@local'),
+    mb_strlen(Kaleta\Fleet\Heartbeat::cleanTitle(str_repeat('Long title ', 30))), str_contains(Kaleta\Fleet\Heartbeat::cleanTitle(str_repeat('a', 130) . 'x@y.cz'), '@')],
+    ['Call back [e-mail] about prices', 'Forward to "[e-mail]", or ([e-mail]) & [e-mail]', 120, false]);
+$fleetNew = Kaleta\Fleet\Console::clean([
+    'requests' => ['new' => 2, 'in_progress' => -5, 'done_to_review' => 1.9, 'oldest_waiting_hours' => 50, 'secret' => 'x', 'items' => array_merge(
+        [['id' => 7, 'title' => 'Write to boss@firma.cz', 'status' => 'new', 'created_at' => '2026-10-19T08:00:00+02:00', 'updated_at' => 'yesterday', 'text' => 'the whole text']],
+        [['id' => 8, 'title' => 'Bad status', 'status' => 'hacked']], array_fill(0, 30, ['id' => 9, 'title' => 'More', 'status' => 'done']))],
+    'pending_review' => ['page_drafts' => 3, 'invented_kind' => 5, 'news_drafts' => 'many'],
+    'security_7_days' => ['firewall' => ['probe' => 4, 'BAD KEY' => 1], 'failed_sign_ins' => 60, 'locked_accounts' => 1, 'events' => ['security.token_reuse' => 1, 'login.ip' => 3], 'ips' => ['1.2.3.4']],
+    'domain_watch' => ['checked' => 1, 'certificate' => ['expires' => '2027-01-01', 'days' => 70, 'error' => false, 'host' => 'example.cz'], 'domain' => null, 'mail' => ['spf' => true, 'dmarc' => false, 'record' => 'v=spf1']],
+    'updates' => ['behind_days' => 3, 'major_available' => '4.0.0; DROP'], 'report_month' => '2026-09-01', 'enquiries_new_not_spam' => 3, 'bookings_pending' => '2',
+]);
+check('3.16: a heartbeat keeps the new parts only in their shape and bounds', [
+    [$fleetNew['requests']['new'], $fleetNew['requests']['in_progress'], $fleetNew['requests']['done_to_review'], isset($fleetNew['requests']['secret']), count($fleetNew['requests']['items'])],
+    $fleetNew['requests']['items'][0], $fleetNew['pending_review'], $fleetNew['security_7_days'],
+    [$fleetNew['domain_watch']['certificate'], $fleetNew['domain_watch']['domain'], $fleetNew['domain_watch']['mail']],
+    [$fleetNew['updates'], $fleetNew['report_month'], $fleetNew['enquiries_new_not_spam'], $fleetNew['bookings_pending'], $fleetNew['agent_runs']],
+], [[2, 0, 1, false, 19], ['id' => 7, 'title' => 'Write to [e-mail]', 'status' => 'new', 'created_at' => '2026-10-19T08:00:00+02:00', 'updated_at' => null], ['page_drafts' => 3],
+    ['firewall' => ['probe' => 4], 'failed_sign_ins' => 60, 'locked_accounts' => 1, 'events' => ['security.token_reuse' => 1]],
+    [['expires' => '2027-01-01', 'days' => 70, 'error' => false], null, ['error' => null, 'spf' => true, 'dmarc' => false, 'dkim' => null, 'spf_covers_smtp' => null]],
+    [['behind_days' => 3, 'major_available' => null], null, 3, null, null]]);
+check('3.16: Fleet\Heartbeat::domainWatch – dates and found/not found only, never the records, hosts or error texts', [
+    Kaleta\Fleet\Heartbeat::domainWatch(['checked' => 5, 'site_host' => 'www.example.cz', 'report_email' => 'info@example.cz', 'tls' => ['host' => 'www.example.cz', 'expires' => 1_800_000_000, 'days' => 9, 'error' => null],
+        'domain' => ['name' => 'example.cz', 'expires' => null, 'days' => null, 'error' => 'HTTP 500 from rdap.example'], 'mail' => ['domain' => 'example.cz', 'spf' => 'v=spf1 a mx ~all', 'dmarc' => null, 'dkim' => 'google', 'spf_covers_smtp' => null, 'error' => null]]),
+    Kaleta\Fleet\Heartbeat::domainWatch(null), Kaleta\Fleet\Heartbeat::domainWatch(['checked' => 5, 'demo' => true])],
+    [['checked' => 5, 'local' => false, 'certificate' => ['expires' => date('Y-m-d', 1_800_000_000), 'days' => 9, 'error' => false], 'domain' => ['expires' => null, 'days' => null, 'error' => true],
+        'mail' => ['error' => false, 'spf' => true, 'dmarc' => false, 'dkim' => true, 'spf_covers_smtp' => null]], null, null]);
+$fleetDay = fn (int $days): string => date('Y-m-d', $fleetNow + $days * 86400 + 3600);
+check('3.16: attention – requests waiting over 48 h, bookings to confirm, certificate < 14 days, domain < 30 days, many failed sign-ins; enquiries without spam', [
+    Kaleta\Fleet\Console::attention($fleetRow([], ['requests' => ['oldest_waiting_hours' => 49], 'bookings_pending' => 1, 'domain_watch' => ['certificate' => ['expires' => $fleetDay(10)], 'domain' => ['expires' => $fleetDay(20)]],
+        'security_7_days' => ['failed_sign_ins' => 50]]), $fleetNow),
+    Kaleta\Fleet\Console::attention($fleetRow([], ['requests' => ['oldest_waiting_hours' => 48], 'bookings_pending' => 0, 'domain_watch' => ['certificate' => ['expires' => $fleetDay(20), 'days' => 3], 'domain' => ['days' => 40]],
+        'security_7_days' => ['failed_sign_ins' => 49, 'events' => ['security.account_suspended' => 2]], 'enquiries_unanswered' => 4, 'enquiries_new_not_spam' => 0]), $fleetNow)['reasons'],
+    Kaleta\Fleet\Console::attention($fleetRow([], ['security_7_days' => ['events' => ['security.token_reuse' => 1]], 'enquiries_unanswered' => 4]), $fleetNow)['reasons'],
+    Kaleta\Fleet\Console::enquiriesWaiting(['enquiries_unanswered' => 4]), Kaleta\Fleet\Console::enquiriesWaiting(['enquiries_unanswered' => 4, 'enquiries_new_not_spam' => 1]), Kaleta\Fleet\Console::enquiriesWaiting([]),
+], [['score' => 95, 'reasons' => ['requests_waiting', 'bookings_to_confirm', 'certificate_expiring', 'domain_expiring', 'sign_in_attacks']], [], ['enquiries', 'sign_in_attacks'], 4, 1, null]);
+// 3.16 audit fixes (N316-3, -5, -8): nothing of the whistleblowing channel, a lying site cannot break its own console page
+check('3.16 N316-3: whistleblowing events and the job never leave the site, and the console drops them from a 3.15 site', [
+    Kaleta\Fleet\Heartbeat::withoutWhistleblowing(['whistleblowing.due' => 1, 'WHISTLEBLOWING.received' => 2, 'backup.failed' => 1]),
+    array_intersect_key(Kaleta\Fleet\Console::clean(['problems_7_days' => ['whistleblowing.due' => 1, 'mail.failed' => 2], 'jobs_failing' => ['whistleblowing', 'backup', ['x']],
+        'problems' => [['check' => 'Problems in the last 7 days', 'detail' => 'whistleblowing.due ×1, mail.failed ×2'], ['check' => 'Background jobs', 'detail' => 'Whistleblowing: due deadlines failed 3× in a row: x']]]),
+        ['problems_7_days' => 1, 'jobs_failing' => 1, 'problems' => 1])],
+    [['backup.failed' => 1], ['problems' => [['check' => 'Problems in the last 7 days', 'detail' => 'mail.failed ×2']], 'jobs_failing' => ['backup', ['x']], 'problems_7_days' => ['mail.failed' => 2]]]);
+$hostile316 = Kaleta\Fleet\Console::clean(['visits_7_days' => 1e30, 'enquiries_7_days' => -1e300,
+    'requests' => ['new' => 1e30, 'in_progress' => 3.7, 'done_to_review' => 9.2e18, 'items' => [['id' => 1e30, 'title' => 'x', 'status' => 'new'], ['id' => 4, 'title' => 'ok', 'status' => 'new', 'created_at' => '2026-02-30T10:00:00+01:00', 'updated_at' => '2026-10-19T25:00:00Z']]],
+    'domain_watch' => ['checked' => 1_760_000_000, 'certificate' => ['expires' => '2026-13-45', 'days' => 5], 'domain' => ['expires' => '9999-99-99'], 'mail' => null],
+    'agent_runs' => ['runs_7_days' => ['ok' => 2.0, 'failed' => 1e20], 'next_due' => '2026-10-21T07:00:00+02:00', 'next_task' => 'triage', 'sessions_7_days' => 1]]);
+check('3.16 N316-5: a hostile heartbeat – huge floats refused value by value, impossible dates dropped, checked kept as a Unix time', [
+    $hostile316['visits_7_days'], $hostile316['enquiries_7_days'], [$hostile316['requests']['new'], $hostile316['requests']['in_progress'], $hostile316['requests']['done_to_review']],
+    array_map(static fn (array $i): array => [$i['id'], $i['created_at'], $i['updated_at']], $hostile316['requests']['items']),
+    [$hostile316['domain_watch']['checked'], $hostile316['domain_watch']['certificate'], $hostile316['domain_watch']['domain']['expires']],
+    $hostile316['agent_runs']['runs_7_days'], $hostile316['agent_runs']['next_due']],
+    [null, null, [0, 3, 0], [[4, null, null]], [1_760_000_000, ['expires' => null, 'days' => 5, 'error' => false], null], ['ok' => 2], '2026-10-21T07:00:00+02:00']);
+check('3.16 N316-5: Console::date and daysLeft accept only real dates – a stored "2026-13-45" never reaches DateTimeImmutable', [
+    Kaleta\Fleet\Console::date('2026-13-45'), Kaleta\Fleet\Console::date('2026-02-29'), Kaleta\Fleet\Console::date('2028-02-29')?->format('Y-m-d'), Kaleta\Fleet\Console::date(['x']),
+    Kaleta\Fleet\Console::daysLeft(['expires' => '9999-99-99', 'days' => 7], $fleetNow), Kaleta\Fleet\Console::daysLeft(['expires' => '2026-13-45'], $fleetNow),
+    Kaleta\Fleet\Console::clean(['domain_watch' => ['checked' => 99_999_999_999]])['domain_watch']['checked']],
+    [null, null, '2028-02-29', null, 7, null, null]);
+$labels316 = [...array_values(Kaleta\Core\ReportPage::FIREWALL), ...array_values(Kaleta\Core\ReportPage::SECURITY), ...array_values(Kaleta\Core\AgentSchedules::STATUSES),
+    ...array_column(Kaleta\Core\AgentSchedules::TASKS, 0), ...array_column(Kaleta\Core\Scheduler::JOBS, 2), 'Newsletter', 'firewall: %s'];
+$missing316 = [];
+foreach (['cs', 'de', 'es'] as $code316) {
+    $dictionary316 = require KALETA_SYSTEM . '/jazyky/admin-' . $code316 . '.php';
+    $missing316 = [...$missing316, ...array_map(static fn (string $k): string => $code316 . ': ' . $k, array_diff($labels316, array_keys($dictionary316), ['Menu']))];
+}
+check('3.16 N316-8: the machine names the console detail shows (firewall reasons, security events, run results and tasks, jobs) have their labels in every admin language', $missing316, []);
+$detail316 = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/fleet/detail.php');
+check('3.16 N316-5/-8: the console detail reads dates through Console::date and names machine keys through the label maps', [str_contains($detail316, 'new DateTimeImmutable($part'), str_contains($detail316, 'Console::date('),
+    str_contains($detail316, 'ReportPage::FIREWALL'), str_contains($detail316, 'AgentSchedules::STATUSES'), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Fleet/Heartbeat.php'), 'TODO')], [false, true, true, true, false]);
 /* ---------- 2.8: domain and mail watch (Core\DomainWatch) – no network, the lookups are fixtures ---------- */
 $watchClass = Kaleta\Core\DomainWatch::class;
 check('DomainWatch: registrable domain – www., subdomains and two-level suffixes', array_map($watchClass::registrableDomain(...), ['www.example.cz', 'shop.firma.example.co.uk', 'Example.COM', 'www.example.com.au', 'example.cz.']), ['example.cz', 'example.co.uk', 'example.com', 'example.com.au', 'example.cz']);
@@ -6186,7 +6387,7 @@ check('RTL ar.php has every key the other visitor dictionaries have, no empty tr
 // a native review is welcome); every regional version Kaleta offers finds visitor texts, and Settings says which languages have none
 $visitorOthers = $rtlOthers + $rtlArabic;
 $visitorMissing = [];
-foreach (['pt', 'zh', 'zh-hant'] as $visitorCode) {
+foreach (['pt', 'zh', 'zh-hant', 'hu'] as $visitorCode) { // hu (3.14.2): found missing while building a Hungarian site
     $visitorDictionary = require KALETA_SYSTEM . '/jazyky/' . $visitorCode . '.php';
     foreach (array_diff(array_keys($visitorOthers), array_keys($visitorDictionary)) as $missingKey) {
         $visitorMissing[] = $visitorCode . ': ' . $missingKey;
@@ -6195,16 +6396,18 @@ foreach (['pt', 'zh', 'zh-hant'] as $visitorCode) {
         $visitorMissing[] = $visitorCode . ': empty ' . $emptyKey;
     }
 }
-check('3.12 pt.php, zh.php and zh-hant.php have every key the other visitor dictionaries have, none empty', $visitorMissing, []);
+check('3.12 pt.php, zh.php, zh-hant.php and hu.php have every key the other visitor dictionaries have, none empty', $visitorMissing, []);
 $visitorTexts = [];
-foreach (['pt-br' => 'pt', 'pt' => 'pt', 'zh' => 'zh', 'zh-hant' => 'zh-hant'] as $visitorCode => $visitorFile) {
+foreach (['pt-br' => 'pt', 'pt' => 'pt', 'zh' => 'zh', 'zh-hant' => 'zh-hant', 'hu' => 'hu'] as $visitorCode => $visitorFile) {
     Kaleta\Core\Language::set($visitorCode);
     $visitorTexts[] = t('Read more') === (require KALETA_SYSTEM . '/jazyky/' . $visitorFile . '.php')['Read more'] && t('Read more') !== 'Read more';
 }
 Kaleta\Core\Language::set('zh-hant');
 $visitorTexts[] = t('datum_format');
+Kaleta\Core\Language::set('hu');
+$visitorTexts[] = t('datum_format');
 Kaleta\Core\Language::set('cs');
-check('3.12 pt-br reads pt.php, zh-hant its own file with its own date format', $visitorTexts, [true, true, true, true, 'Y/m/d']);
+check('3.12 pt-br reads pt.php, zh-hant its own file with its own date format; hu its own file and the date format of AVAILABLE', $visitorTexts, [true, true, true, true, true, 'Y/m/d', Kaleta\Core\Language::AVAILABLE['hu'][2]]);
 check('3.12 Language::hasVisitorTexts: Czech, English and every language with a dictionary (regional ones through theirs) – Japanese and unknown codes not',
     [Kaleta\Core\Language::hasVisitorTexts('cs'), Kaleta\Core\Language::hasVisitorTexts('en-gb'), Kaleta\Core\Language::hasVisitorTexts('pt-br'), Kaleta\Core\Language::hasVisitorTexts('zh-hant'),
         Kaleta\Core\Language::hasVisitorTexts('de-at'), Kaleta\Core\Language::hasVisitorTexts('ja'), Kaleta\Core\Language::hasVisitorTexts('xx'), Kaleta\Core\Language::hasVisitorTexts('../cs')],

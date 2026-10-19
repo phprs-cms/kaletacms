@@ -11,9 +11,12 @@ namespace Kaleta\Core;
 final class Health
 {
     /**
+     * $leaving = the checks go out of the site (the fleet heartbeat, the monthly report – 3.16, N316-3): the background job
+     * and the events of the whistleblowing channel are left out of them (Whistleblowing::concerns).
+     *
      * @return list<array{skupina:string, nazev:string, stav:string, info:string, odkazy?: list<array{text:string, url:string}>}> stav: ok | varovani | chyba; odkazy = where to fix it (a user, a connection)
      */
-    public static function checks(App $app): array
+    public static function checks(App $app, bool $leaving = false): array
     {
         $k = [];
         $add = function (string $group, string $name, bool|string $state, string $info, array $links = []) use (&$k): void {
@@ -224,10 +227,10 @@ final class Health
             });
         }
         // 2.8: background jobs (Core\Scheduler) and the problems of the last week (Core\Events)
-        $failing = array_filter(Scheduler::overview($db, $app->settings()), fn (array $j): bool => $j['failures'] > 0);
+        $failing = array_filter(Scheduler::overview($db, $app->settings()), fn (array $j): bool => $j['failures'] > 0 && !($leaving && Whistleblowing::concerns((string) $j['name'])));
         $add(t('Operation'), t('Background jobs'), $failing === [] ? 'ok' : (max(array_column($failing, 'failures')) >= Scheduler::FAILURES_TO_ALERT ? 'chyba' : 'varovani'),
             $failing === [] ? t('every job worked the last time it ran') : implode('; ', array_map(fn (array $j): string => t('%s failed %d× in a row: %s', t($j['label']), $j['failures'], $j['last_error']), $failing)));
-        $problems = Events::problems($db, 168);
+        $problems = array_filter(Events::problems($db, 168), fn (string|int $type): bool => !($leaving && Whistleblowing::concerns((string) $type)), ARRAY_FILTER_USE_KEY);
         if ($problems !== []) {
             $add(t('Operation'), t('Problems in the last 7 days'), 'varovani', implode(', ', array_map(fn (string $type, int $n): string => $type . ' ×' . $n, array_keys($problems), $problems)));
         }

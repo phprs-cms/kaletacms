@@ -287,6 +287,8 @@ final class Translator
         'translation_status' => ['translation_status', '', []],
         'list_requests' => ['list_requests', '', []],
         'list_pending_review' => ['list_pending_review', '', []],
+        'list_monthly_reports' => ['list_monthly_reports', '', []],
+        'get_monthly_report' => ['get_monthly_report', '', []],
         'update_request' => ['update_request', '', []],
         'get_due_agent_runs' => ['get_due_agent_runs', '', []],
         'report_agent_run' => ['report_agent_run', '', []],

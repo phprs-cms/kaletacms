@@ -177,6 +177,7 @@ final class Settings
         'fleet_kit_version' => '0',    // the kit version applied here
         'fleet_kit_applied_at' => '',
         'fleet_kit_error' => '',       // why the last kit was refused (English, translated where shown)
+        'fleet_request_titles' => '1', // 3.16: the heartbeat carries the titles of Ask Claude requests (Fleet\Heartbeat) – on by default
         'domain_watch' => '',          // the last domain and mail check (JSON with the time of the check, Core\DomainWatch, 2.8) – internal, not editable
         'remote_backup' => 'vypnuto', // copy of the backup off the server: vypnuto (off) | ftp | s3
         'backup_host' => '',          // FTP server, or the S3 storage URL (s3.eu-central-1.amazonaws.com)

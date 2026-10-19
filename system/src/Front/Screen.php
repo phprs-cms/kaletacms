@@ -148,7 +148,7 @@ final class Screen
     /** Formatted text as one line for a screen (the HTML of an answer or a news lead). */
     public static function plain(string $html): string
     {
-        return trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5)));
+        return plain_text($html);
     }
 
     /**

@@ -690,7 +690,7 @@ final class Kernel
         foreach ($collection['pole'] as $field) {
             $h = (string) ($item['data'][$field['klic']] ?? '');
             if ($description === '' && in_array($field['typ'], ['radky', 'html'], true) && $h !== '') {
-                $description = mb_strimwidth(trim(html_entity_decode(strip_tags($h), ENT_QUOTES | ENT_HTML5)), 0, 300, '…');
+                $description = plain_text($h, 300);
             }
             if ($image === '' && $field['typ'] === 'obrazek' && $h !== '') {
                 $image = preg_match('#^https?://#', $h) ? $h : $this->app->request->origin() . $this->app->url(ltrim($h, '/'));
@@ -788,7 +788,7 @@ final class Kernel
         }
 
         $description = $category === null ? '' : ($category['seo_description'] !== '' ? $category['seo_description']
-            : mb_strimwidth(trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($category['description']), ENT_QUOTES | ENT_HTML5))), 0, 300, '…'));
+            : plain_text($category['description'], 300));
         $title = $category === null ? t('Category name') : ($category['seo_title'] !== '' ? $category['seo_title'] : $category['name']);
         $pageNumber = $this->app->request->getInt('page', 1);
 
@@ -921,7 +921,7 @@ final class Kernel
     {
         preg_match_all('#<p\b[^>]*>(.*?)</p>#si', $html, $m);
         foreach ($m[1] as $paragraph) {
-            $text = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($paragraph), ENT_QUOTES | ENT_HTML5)));
+            $text = plain_text($paragraph);
             if (mb_strlen($text) >= 50) {
                 return mb_strimwidth($text, 0, 160, '…');
             }
@@ -961,7 +961,7 @@ final class Kernel
         return $this->page(
             $category['nazev'],
             $this->view->render('vypis', ['nadpis' => $category['nazev'], 'popis' => self::authored(\Kaleta\Core\Html::safe((string) $category['popis']))] + $this->listVariables($news, $total, $pageNumber, 'novinky/kategorie/' . $seo)),
-            ['popis' => strip_tags($category['popis']), 'cast' => 'vypis'],
+            ['popis' => plain_text((string) $category['popis'], 300), 'cast' => 'vypis'],
         );
     }
 
@@ -981,7 +981,7 @@ final class Kernel
         return $this->page($colorScheme ? $tag['nazev'] : t('Štítek') . ' ' . $tag['nazev'], $this->view->render('vypis', [
             'nadpis' => ($colorScheme ? '' : '#') . $tag['nazev'], 'popis' => $colorScheme ? self::authored(\Kaleta\Core\Html::safe((string) $tag['popis'])) : '',
         ] + $this->listVariables($news, $total, $pageNumber, 'novinky/stitek/' . $seo)), [
-            'popis' => $colorScheme ? mb_strimwidth(trim(strip_tags((string) $tag['popis'])), 0, 300, '…') : '',
+            'popis' => $colorScheme ? plain_text((string) $tag['popis'], 300) : '',
             'cast' => 'vypis',
         ]);
     }
@@ -1025,7 +1025,7 @@ final class Kernel
 
         return $this->page($newsItem['seo_titulek'] !== '' ? $newsItem['seo_titulek'] : $newsItem['titulek'], $content, [
             'clanek' => $newsItem,
-            'popis' => $newsItem['seo_popis'] !== '' ? $newsItem['seo_popis'] : mb_strimwidth(trim(strip_tags($newsItem['uvod'])), 0, 300, '…'),
+            'popis' => $newsItem['seo_popis'] !== '' ? $newsItem['seo_popis'] : plain_text($newsItem['uvod'], 300),
             'klicova_slova' => $newsItem['t_slova'],
             'obrazek' => $newsItem['obrazek'],
             'noindex' => (bool) $newsItem['noindex'],

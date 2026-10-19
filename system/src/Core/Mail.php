@@ -27,7 +27,9 @@ final class Mail
      * Sends the message right away. When that fails (SMTP outage), it stores it in the queue and retries later - so
      * a registration confirmation or a new password is not lost. Every message has a log entry ("Nastavení → Pošta").
      *
-     * @param array<string, string> $headers extra headers (e.g. List-Unsubscribe)
+     * @param string $recipient one address, or several separated by commas (they all see each other in To)
+     * @param array<string, string> $headers extra headers (e.g. List-Unsubscribe); 'Bcc' = hidden recipients separated by commas,
+     *        they get the message without anyone seeing them (the header never goes out with it)
      * @param bool $queueOnFailure false = a one-off message that is not retried on error (test e-mail)
      */
     public static function send(Settings $siteSettings, string $recipient, string $subject, string $text, string $html = '', array $headers = [], bool $queueOnFailure = true): bool
@@ -160,11 +162,14 @@ final class Mail
             return false; // nobody uses the demo to send e-mail to strangers
         }
         $from = $siteSettings->get('mail_from') !== '' ? $siteSettings->get('mail_from') : $siteSettings->get('site_email');
-        if ($from === '' || filter_var($recipient, FILTER_VALIDATE_EMAIL) === false || preg_match('/[\x00-\x20\x7F"<>]/', $recipient)) {
+        $to = self::addresses($recipient);
+        $bcc = isset($headers['Bcc']) ? self::addresses($headers['Bcc']) : [];
+        if ($from === '' || $to === [] || (isset($headers['Bcc']) && $bcc === [])) {
             self::$error = $from === '' ? 'Neither the site e-mail (Settings → General) nor a sender address is filled in.' : 'The recipient address is not valid.';
 
             return false;
         }
+        unset($headers['Bcc']);
         $displayName = '=?UTF-8?B?' . base64_encode($siteSettings->get('site_name')) . '?=';
         $h = ['From' => "{$displayName} <{$from}>", 'MIME-Version' => '1.0'] + $headers;
         if ($siteSettings->get('mail_reply_to') !== '') {
@@ -188,7 +193,8 @@ final class Mail
 
         if ($siteSettings->get('mail_mode') === 'smtp' && $siteSettings->get('smtp_host') !== '') {
             try {
-                self::smtp($siteSettings, $from, $recipient, array_merge(['Date: ' . date('r'), 'To: ' . $recipient, 'Subject: ' . $encodedSubject,
+                // hidden recipients are only in the envelope (RCPT TO), never in the message
+                self::smtp($siteSettings, $from, [...$to, ...$bcc], array_merge(['Date: ' . date('r'), 'To: ' . implode(', ', $to), 'Subject: ' . $encodedSubject,
                     'Message-ID: <' . bin2hex(random_bytes(12)) . '@' . (substr((string) strrchr($from, '@'), 1) ?: 'localhost') . '>'], $rows), $body);
 
                 return true;
@@ -204,7 +210,10 @@ final class Mail
 
             return false;
         }
-        $ok = @mail($recipient, $encodedSubject, $body, implode("\r\n", $rows));
+        if ($bcc !== []) {
+            $rows[] = 'Bcc: ' . implode(', ', $bcc); // the server's sendmail delivers to it and removes the header
+        }
+        $ok = @mail(implode(', ', $to), $encodedSubject, $body, implode("\r\n", $rows));
         if (!$ok) {
             self::$error = 'The server refused to send the message (the mail() function failed).';
         }
@@ -212,8 +221,31 @@ final class Mail
         return $ok;
     }
 
-    /** @param list<string> $headers */
-    private static function smtp(Settings $siteSettings, string $from, string $recipient, array $headers, string $body): void
+    /**
+     * The addresses of a recipient list separated by commas; empty when any of them is not valid (nothing goes out to half
+     * a list, and a line break or a quote can never smuggle in another header).
+     *
+     * @return list<string>
+     */
+    public static function addresses(string $list): array
+    {
+        $valid = [];
+        foreach (explode(',', $list) as $address) {
+            $address = trim($address);
+            if (filter_var($address, FILTER_VALIDATE_EMAIL) === false || preg_match('/[\x00-\x20\x7F"<>,]/', $address)) {
+                return [];
+            }
+            $valid[strtolower($address)] ??= $address;
+        }
+
+        return array_values($valid);
+    }
+
+    /**
+     * @param list<string> $recipients
+     * @param list<string> $headers
+     */
+    private static function smtp(Settings $siteSettings, string $from, array $recipients, array $headers, string $body): void
     {
         if (!is_resource(self::$connection)) {
             self::connect($siteSettings);
@@ -221,7 +253,9 @@ final class Mail
             self::statement('RSET', [250]);
         }
         self::statement('MAIL FROM:<' . $from . '>', [250]);
-        self::statement('RCPT TO:<' . $recipient . '>', [250, 251]);
+        foreach ($recipients as $recipient) {
+            self::statement('RCPT TO:<' . $recipient . '>', [250, 251]);
+        }
         self::statement('DATA', [354]);
         // a line starting with a dot gets the dot doubled, a lone dot ends the message
         $message = preg_replace('/^\./m', '..', implode("\r\n", $headers) . "\r\n\r\n" . $body) ?? '';

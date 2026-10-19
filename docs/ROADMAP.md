@@ -754,7 +754,7 @@ and keeps the stored decimals (4.20), {{price_raw}} is the stored value for link
 industry example sites). The update test stops its server's workers (they outlived every run because lsof was not on
 the PATH). The 18 industry example screenshots are on kaletacms.com/solutions and in docs/screenshots/examples.
 
-## 3.15 – the bridge to 4.0, the daily audits closed (released 20 October 2026)
+## 3.15 – the bridge to 4.0, the daily audits closed (released 19 October 2026)
 
 1. **Both table names** (`Core\Names`, `Db`): a site works on today's Czech tables and on the English names 4.0 renames
    them to, and notices a rename or a rollback by itself (a cached marker; one `information_schema` query only after a
@@ -785,6 +785,48 @@ Audited before release (N315): a live class cannot publish a waiting file, the v
 top-level config array and verified before re-encrypting, 4.0 installs only after a successful check of the newest 3.x,
 promotion reads every public place and every waiting file (and runs only after publishing – 34 s → 0.3 s on a large
 site), the clean-up never deletes a used file, spam left out of the enquiry count, an atomic TOTP replay check.
+
+**3.15.1 (19 October 2026):** **Hungarian for visitors** (`system/jazyky/hu.php`, found while moving licencepro.hu): the
+skip link, menu, 404, search, form messages and cookie bar of a Hungarian site are no longer English. **Menu anchors:**
+a link with a fragment (`/#products`) is never the current page – every anchor of the home page used to be highlighted.
+
+**3.15.2 (19 October 2026):** **Several form recipients and a hidden copy** (found on fysiomed.cz, whose enquiries reached
+only the site e-mail): the form's notification e-mails take several addresses separated by commas – one message, they see
+each other in To – and a new *Hidden copy (Bcc)* field adds recipients that are only in the envelope. `Core\Mail` sends one
+message to a list of addresses (`Mail::addresses`, a single invalid address refuses the whole list); with `mail()` the Bcc
+header is left to the server's sendmail, with SMTP it never goes out.
+
+**3.15.3 (19 October 2026):** **News text inside a wrapper keeps its spacing:** the build's reset of heading and paragraph
+margins also reached the system content in the *Page content* element of the news item, news list and 404 wrappers, so
+paragraphs, lists and figures of a news article were glued together. The reset now skips everything inside `.obsah`
+(zero specificity kept) and the content looks the same as without the wrapper.
+
+**3.15.4 (19 October 2026):** **Descriptions from HTML as plain text:** a news intro with `&nbsp;` (WordPress content, or any
+intro after a Kaleta site import, which stores U+00A0 as the entity) showed `&amp;nbsp;` literally in the meta, og and JSON-LD
+descriptions, the JSON feed and llms.txt. One helper `plain_text()` (strip tags, block ends to spaces, decode entities, collapse
+whitespace, optional width) now builds every such description – news, categories, tags, collection items, screen mode.
+
+## 3.16 – the monthly report you can keep, what waits across your sites (released 20 October 2026)
+
+1. **Monthly report archive** (owner: a summary of what happened to the site that goes with the invoice – never hours,
+   prices or a work log): on the 1st every site stores the previous month (`ka_monthly_reports`, migration 0099, 24
+   months, the background job `report_archive`, also without cron). Settings → Reports lists the months: a print-ready A4
+   page (the browser saves it as PDF – page numbers, the agency's branding), a download and the e-mail. The report adds
+   requests handled and still open, changes by people and by Claude, Claude's sessions and scheduled runs, updates from→to,
+   backups, security (counts only), the audit with fixed/new, enquiries by category, bookings, newsletters and what waits
+   at month end. Months before 3.16 cannot be rebuilt (the logs are kept 30–180 days); a month can be rebuilt by hand.
+   MCP `list_monthly_reports`, `get_monthly_report`.
+2. **The heartbeat says what waits for people** (for the 3.17 inbox across sites): Ask Claude requests by status and
+   their titles (switchable per site, on by default; e-mail-like text masked), the pending-review counts, enquiries without
+   spam, bookings to confirm, security counts, certificate and domain expiry, Claude's runs, how far behind the site is and
+   whether 4.0 is available. Never enquiry contents, e-mail addresses, IPs – and no whistleblowing count. The console
+   scores the new reasons (requests waiting 48 h, certificate < 14 days, domain < 30 days, bookings, failed sign-ins) and
+   shows a Waiting block on the site detail.
+
+Audited before release (N316): one masker for titles and the report (spaced and written-out e-mails, full-width @, phone
+numbers – `Core\Redact`), no free text of Claude's runs in the archive, nothing about the whistleblowing channel reaches the
+console (problem counts, failing jobs, health texts), the print page escapes CSS strings, a hostile heartbeat cannot break
+the console, a rebuilt report says when its open items were counted, moments stored with their offset.
 
 ## Path to 4.0 (owner decisions, 13 October 2026)
 

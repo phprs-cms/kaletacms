@@ -393,6 +393,45 @@ await step('newsletter: draft and preview', async () => {
   }
 });
 
+// 3.16: the archived monthly report (Settings → Reports, Core\ReportPage) – the tab lists the month test-browser.sh stored,
+// the printable page has its Print button, and in print media at the width of an A4 page (210 mm less the 15 mm margins)
+// nothing is wider than the page: no table is cut at its right edge; a PDF of it is A4
+await step('monthly report: the archive and the A4 print layout', async () => {
+  await visit('/admin.php?module=settings&tab=reports');
+  const view = page.locator('a[href*="action=report_view"]').first();
+  await view.waitFor();
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/reports-tab.png`, fullPage: true }); }
+  const href = new URL(await view.getAttribute('href'), BASE).href;
+  const report = await context.newPage();
+  watch(report);
+  try {
+    await report.goto(href, { waitUntil: 'networkidle' });
+    await report.locator('[data-tisk]').waitFor();
+    if ((await report.locator('section.sekce').count()) < 5) { throw new Error('the report has fewer than 5 sections'); }
+    if (SHOTS) { await report.screenshot({ path: `${SHOTS}/report-screen.png`, fullPage: true }); }
+    await report.emulateMedia({ media: 'print' });
+    await report.setViewportSize({ width: 680, height: 1000 }); // 180 mm at 96 dpi: the printable width of A4
+    const wide = await report.evaluate(() => {
+      const page = document.querySelector('.listina').getBoundingClientRect();
+      return [...document.querySelectorAll('.listina table, .listina dl, .listina h1, .listina h2, .listina p, .listina td')]
+        .filter((el) => el.getBoundingClientRect().right > page.right + 1 || el.scrollWidth > el.clientWidth + 1).map((el) => el.tagName + ': ' + el.textContent.slice(0, 40));
+    });
+    if (wide.length) { throw new Error('wider than the A4 page in print: ' + wide.slice(0, 3).join(' | ')); }
+    if (await report.locator('.lista').isVisible()) { throw new Error('the toolbar prints'); }
+    if (SHOTS) {
+      // print media in one tall viewport (a full-page screenshot repeats the first screen in print media); the PDF has the pages
+      await report.setViewportSize({ width: 680, height: await report.evaluate(() => document.documentElement.scrollHeight) });
+      await report.screenshot({ path: `${SHOTS}/report-print.png` });
+      await report.pdf({ path: `${SHOTS}/report-print.pdf`, format: 'A4', preferCSSPageSize: true });
+    }
+    const pdf = await report.pdf({ format: 'A4', preferCSSPageSize: true });
+    const pages = (pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length;
+    if (pages < 1 || pages > 6) { throw new Error(`the A4 PDF has ${pages} pages`); }
+  } finally {
+    await report.close();
+  }
+});
+
 await step('3.9 Settings → Mail: choosing a mail service fills the server, port and encryption, shows its hint, and leaves the user name alone', async () => {
   await visit('/admin.php?module=settings&tab=mail');
   await page.locator('label.karta-volba', { has: page.locator('input[name="mail_mode"][value="smtp"]') }).click();

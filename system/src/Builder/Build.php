@@ -718,7 +718,8 @@ final class Build
     public static function css(Db $db, Context $k): string
     {
         // in a build, spacing is controlled by the containers' gap, not by the layout's margins of headings and paragraphs; text inside a Text element keeps them
-        $base = ':where(.stavba) :where(h1, h2, h3, h4, h5, h6, p, ul, ol, blockquote, figure, hr) { margin-block: 0; }' . "\n"
+        // and so does the system content inside the Page content element of a wrapper (.obsah: a news item's text looks the same as without the wrapper)
+        $base = ':where(.stavba) :where(h1, h2, h3, h4, h5, h6, p, ul, ol, blockquote, figure, hr):not(:where(.obsah *)) { margin-block: 0; }' . "\n"
             . ':where(.stavba) :where(.ka-text) > * + * { margin-block-start: 1em; }' . "\n";
         $rtl = \Kaleta\Core\Language::isRtl(\Kaleta\Core\Language::code());
         foreach (self::ELEMENTS as $className) {
@@ -929,7 +930,7 @@ final class Build
     private const array TEXT_PROPERTIES = ['text', 'odkaz', 'radky', 'html', 'inline', 'textarea', 'polozky', 'souhlas'];
 
     /** Text properties that are settings, not text for the visitor (collection and field keys, e-mail, date, rating number). */
-    private const array TECHNICAL_PROPERTIES = ['kolekce', 'razeni_pole', 'filtr_pole', 'pole_poloha', 'komponenta', 'kategorie', 'prijemce', 'cil', 'hodnota'];
+    private const array TECHNICAL_PROPERTIES = ['kolekce', 'razeni_pole', 'filtr_pole', 'pole_poloha', 'komponenta', 'kategorie', 'prijemce', 'skryta_kopie', 'cil', 'hodnota'];
 
     /**
      * Build texts for translation: elements with an id and only those content properties that carry text or a link (without styles
