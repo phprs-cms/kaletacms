@@ -169,6 +169,12 @@ final class Kernel
                 return $this->ruleResponse((string) $target['na_adresu'], (int) $target['typ'] === 410 ? 410 : 301);
             }
         }
+        // 3.15 (N10): a file waiting for approval (Core\MediaStaging) – for a signed-in user and a draft preview; everyone
+        // else gets the usual 404, unless published content already shows it
+        if (str_starts_with($request->path(), '/media/')
+            && ($staged = \Kaleta\Core\MediaStaging::serve($this->app, $request->path(), fn (): bool => $this->sitePreview || \Kaleta\Core\MediaStaging::hasPreview($this->app), (string) ($_SERVER['HTTP_ACCEPT'] ?? ''))) !== null) {
+            return $staged;
+        }
         if (($cached = Cache::load($this->app)) !== null) {
             return $cached;
         }
@@ -1441,8 +1447,12 @@ final class Kernel
             return true;
         }
         $key = $this->app->request->get('preview_key');
+        if ($key === '' || !\Kaleta\Core\Preview::verify($this->app->db(), $this->app->settings(), $target, $key)) {
+            return false;
+        }
+        \Kaleta\Core\MediaStaging::previewCookie($this->app, $key); // 3.15: the preview shows the files that wait for approval too
 
-        return $key !== '' && \Kaleta\Core\Preview::verify($this->app->db(), $this->app->settings(), $target, $key);
+        return true;
     }
 
     private function siteParts(string $content, array $meta, string $languageSwitcher, string $path): array

@@ -6,7 +6,7 @@ Every open finding of `security-2026-10-19.md` is fixed, and the older items sti
 - **N72** Site import from a Kaleta export:
   - Media get lower-case extensions (`Photo.JPG` → `Photo.jpg`). Pages, builds, media rows and settings follow the new name (`SiteImport::renameMedia`).
   - Images must really be JPG/PNG/GIF/WebP/AVIF/ICO, and attachments must pass the upload content check (`Files::forbiddenContent`).
-  - The two header rules in `media/.htaccess` get `(?i)`. Migration **0097** (data) carries the new file to existing sites, as 0084 did. A customised file gets a `.kaleta-nova` next to it, and System status reports a file without the rules.
+  - The two header rules in `media/.htaccess` get `(?i)`. Migration **0098** (data) carries the new file to existing sites, as 0084 did. A customised file gets a `.kaleta-nova` next to it, and System status reports a file without the rules.
 - **N73** `Svg::sanitize` removes XML comments.
 - **N74** Response headers come only through `last_response_headers()` (Newsletter, Assistant, Webhook). A unit test checks that `system/src` never reads the bare `$http_response_header`.
 - **N18** A code from the authenticator app signs in only once: the step is kept in `ka_kontrola_ip` (`typ = 'totp'`), with no schema change.

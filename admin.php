@@ -10,6 +10,10 @@ require __DIR__ . '/system/bootstrap.php';
 
 $app = Kaleta\Core\App::boot();
 $response = (new Kaleta\Admin\Kernel($app))->handle();
+// 3.15 (N10): after a change, files waiting for approval that published content now uses go public (Core\MediaStaging)
+if ($app->request->isPost() && $app->auth()->user() !== null && !in_array($app->request->get('action'), Kaleta\Admin\Kernel::DRAFT_ACTIONS, true)) {
+    Kaleta\Core\MediaStaging::promotePublished($app->db());
+}
 // forms may submit only to the site itself; the exception is consent to connecting an application (OAuth): after submitting,
 // the browser goes to the application's return URL (claude.ai, localhost for Claude Code) and CSP form-action guards this redirect too
 $headers = $response->headers;

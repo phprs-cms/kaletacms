@@ -239,7 +239,8 @@ $parity = [
     'tags' => ['list' => $readOnly, 'save' => 'admin: tags are set with news items (update_news)', 'delete' => 'admin: tags are set with news items (update_news)'],
     'media' => ['list' => $readOnly, 'listing' => $readOnly, 'upload' => 'upload_file', 'save' => 'update_media', 'save_caption' => 'update_media', 'bulk' => 'delete_media',
         'replace' => 'admin: a new file behind the same address', 'folder' => 'admin: media folders', 'folder_delete' => 'admin: media folders',
-        'cleanup' => 'list_media_without_alt', 'save_alts' => 'update_media', 'shrink' => 'admin: re-encoding a stored image in place (2.14) – Claude uploads a smaller file instead'],
+        'cleanup' => 'list_media_without_alt', 'save_alts' => 'update_media', 'shrink' => 'admin: re-encoding a stored image in place (2.14) – Claude uploads a smaller file instead',
+        'approve' => 'admin: a person approves a file a drafts-only connection staged (3.15, N10) – publishing the content that uses it does it too', 'discard' => 'delete_media'],
     'appearance' => ['list' => $readOnly, 'preview' => $readOnly, 'tokens' => $readOnly, 'save' => 'update_design_system', 'tokens_import' => 'admin: upload of a design tokens file',
         'publish_look' => 'publish_look', 'discard_look' => 'discard_look', 'restore_look' => 'restore_look_version', 'preview_site' => 'preview_link'],
     'parts' => $builderParity + ['list' => $readOnly, 'variant' => $readOnly, 'save_variant' => 'save_part_variant', 'template' => 'save_part_variant',
@@ -1617,10 +1618,10 @@ check('3.9.2 N392-4: a German "Vor- und Nachname" field is the name of a lead',
     array_map(fn (string $l): bool => preg_match((string) (new ReflectionClassConstant(Kaleta\Core\EnquiryDelivery::class, 'NAME_LABEL'))->getValue(), $l) === 1, ['Vor- und Nachname', 'Name', 'Jméno a příjmení', 'Firmenname', 'Unternehmen']),
     [true, true, true, false, false]);
 preg_match("/<<<'HTACCESS'\n(.*?)\nHTACCESS/s", (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0084-media-htaccess.php'), $n67Migration);
-// 3.15 (N72): migration 0097 carries the newer file (the header rules match an upper-case extension too) and replaces the one 0084 wrote
-preg_match("/<<<'HTACCESS'\n(.*?)\nHTACCESS/s", (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0097-media-htaccess-case.php'), $n72Migration);
-check('3.9.2 N67 / 3.15 N72: migration 0097 writes exactly the media/.htaccess of the package and replaces the one of 0084 (3.9.2)', [
-    ($n72Migration[1] ?? '') . "\n" === $n67Htaccess, str_contains((string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0097-media-htaccess-case.php'), "'" . hash('sha256', ($n67Migration[1] ?? '') . "\n") . "'"),
+// 3.15 (N72): migration 0098 carries the newer file (the header rules match an upper-case extension too) and replaces the one 0084 wrote
+preg_match("/<<<'HTACCESS'\n(.*?)\nHTACCESS/s", (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0098-media-htaccess-case.php'), $n72Migration);
+check('3.9.2 N67 / 3.15 N72: migration 0098 writes exactly the media/.htaccess of the package and replaces the one of 0084 (3.9.2)', [
+    ($n72Migration[1] ?? '') . "\n" === $n67Htaccess, str_contains((string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0098-media-htaccess-case.php'), "'" . hash('sha256', ($n67Migration[1] ?? '') . "\n") . "'"),
     str_contains($n67Htaccess, (string) (new ReflectionClassConstant(Kaleta\Core\Health::class, 'MEDIA_HEADER_RULE'))->getValue()),
     preg_match_all('/<FilesMatch "\(\?i\)/', $n67Htaccess)], [true, true, true, 3]);
 check('3.9.1 Navigation: the phone sheet resets the gap of its lists and puts the arrow of a group where a toggle has it', [
@@ -6578,5 +6579,38 @@ check('3.15 N48: Build::code sees through CSS escapes and comments (@\69mport, j
 check('3.15 N49: SiteImport::isValidName leaves out every import state file, an upload named web.json still counts', array_map(Kaleta\Core\SiteImport::isValidName(...),
     ['web-0123456789abcdef.json', 'parita-0123456789abcdef.json', 'polozky-0123456789abcdef.json', 'polozky-0123456789abcdef.radky.json', 'web.json', 'web-stary.zip', 'parita.json']),
     [false, false, false, false, true, true, true]);
+/* ---------- 3.15 (N10): files from a drafts-only connection wait for approval (Core\MediaStaging) ---------- */
+use Kaleta\Core\MediaStaging as Staging315;
+check('3.15 MediaStaging::requestedPath – a media file and its variants; never another folder, a dot path, a script or a foreign extension', array_map(Staging315::requestedPath(...), [
+    '/media/2026/10/team-a1b2c3.jpg', '/media/2026/10/team-a1b2c3-nahled.png.webp', '/media/2026/10/price-list-0f0f0f.pdf', '/media/2026/10/logo-abcdef.svg',
+    '/media/../config.php', '/media/2026/10/shell-a1b2c3.php', '/media/2026/10/x.php.jpg', '/media/ikona-32.png', '/storage/staging/2026/10/team-a1b2c3.jpg', '/media/2026/10/Team-A1.jpg']),
+    ['media/2026/10/team-a1b2c3.jpg', 'media/2026/10/team-a1b2c3-nahled.png.webp', 'media/2026/10/price-list-0f0f0f.pdf', 'media/2026/10/logo-abcdef.svg', null, null, null, null, null, null]);
+check('3.15 MediaStaging::stem and absolute – one upload with all its variants; the staged copy lies outside the web root', [
+    array_map(Staging315::stem(...), ['media/2026/10/team-a1b2c3.jpg', 'media/2026/10/team-a1b2c3-1200.jpg.avif', 'media/2026/10/team-a1b2c3-nahled.png', 'media/2026/10/pricing-1200-a1b2c3.pdf']),
+    substr(Staging315::absolute('media/2026/10/team-a1b2c3.jpg', true), strlen(KALETA_ROOT)), substr(Staging315::absolute('media/2026/10/team-a1b2c3.jpg', false), strlen(KALETA_ROOT))],
+    [['media/2026/10/team-a1b2c3', 'media/2026/10/team-a1b2c3', 'media/2026/10/team-a1b2c3', 'media/2026/10/pricing-1200-a1b2c3'],
+        '/storage/staging/2026/10/team-a1b2c3.jpg', '/media/2026/10/team-a1b2c3.jpg']);
+// the promotion scan: a build in JSON (escaped slashes), HTML with the site URL, a variant – each names its staged upload once
+$rows315 = [['ido' => 1, 'obr_poloha' => 'media/2026/10/team-a1b2c3.jpg', 'staged_at' => '2026-10-19 10:00:00'],
+    ['ido' => 2, 'obr_poloha' => 'media/2026/10/menu-0f0f0f.pdf', 'staged_at' => '2026-10-19 10:00:00'],
+    ['ido' => 3, 'obr_poloha' => 'media/2026/10/hall-123456.png', 'staged_at' => null],
+    ['ido' => 4, 'obr_poloha' => 'media/2026/09/unused-fedcba.jpg', 'staged_at' => '2026-10-01 10:00:00']];
+$stems315 = Staging315::referencedStems('{"deti":[{"typ":"obrazek","obsah":{"src":"media\/2026\/10\/team-a1b2c3-1200.jpg"}}]}',
+    '<p><a href="https://www.example.com/media/2026/10/menu-0f0f0f.pdf">Menu</a> <img src="/media/2026/10/hall-123456.png.webp"></p>');
+check('3.15 MediaStaging promotion scan – referenced stems and the staged rows they name (a public row and an unused one stay out)', [
+    $stems315, array_column(Staging315::matching($rows315, $stems315), 'ido'), Staging315::matching($rows315, []), Staging315::referencedStems('<p>no files</p>')],
+    [['media/2026/10/team-a1b2c3', 'media/2026/10/menu-0f0f0f', 'media/2026/10/hall-123456'], [1, 2], [], []]);
+check('3.15 MediaStaging::access – the routing decision: signed in or a draft preview see it, published content makes it public, the rest gets 404', [
+    Staging315::access(true, false, false), Staging315::access(false, true, false), Staging315::access(false, false, true), Staging315::access(false, false, false), Staging315::access(true, true, true)],
+    ['serve', 'serve', 'publish', 'none', 'serve']);
+$headers315 = array_map(Staging315::headers(...), ['media/2026/10/logo-abcdef.svg', 'media/2026/10/offer-abcdef.docx', 'media/2026/10/menu-0f0f0f.pdf', 'media/2026/10/team-a1b2c3.jpg.webp']);
+check('3.15 MediaStaging::headers – what media/ has: nosniff everywhere, the SVG sandbox, documents as a download; never cached nor indexed', [
+    array_column($headers315, 'X-Content-Type-Options'), str_contains($headers315[0]['Content-Security-Policy'] ?? '', 'sandbox'), $headers315[1]['Content-Disposition'] ?? null,
+    isset($headers315[2]['Content-Disposition']), array_column($headers315, 'Content-Type'), array_unique(array_column($headers315, 'Cache-Control'))],
+    [['nosniff', 'nosniff', 'nosniff', 'nosniff'], true, 'attachment', false, ['image/svg+xml', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/pdf', 'image/webp'], ['private, no-store']]);
+check('3.15 MediaStaging::buildClasses – the classes a build uses, nested too (a class with a waiting background image counts once a published build uses it)',
+    Staging315::buildClasses('{"v":1,"deti":[{"typ":"sekce","tridy":["hero","tmave"],"deti":[{"typ":"nadpis","tridy":["hero"]},{"typ":"text","obsah":{"text":"\"karta\""}}]}]}'), ['hero', 'tmave']);
+check('3.15 the background job that publishes or removes waiting files is listed, and upload_file stays a draft tool (N10 closed by staging)', [
+    Kaleta\Core\Scheduler::JOBS['media_staging'][0] ?? null, Kaleta\Core\Scheduler::JOBS['media_staging'][1] ?? null, Kaleta\Mcp\Catalog::TOOLS['upload_file'][0], Staging315::DAYS], [3600, 'any', 'draft', 30]);
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

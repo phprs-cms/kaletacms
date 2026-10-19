@@ -158,24 +158,24 @@ check "3.5: My account has the address with Copy" 200 "/admin.php?action=account
 check "3.9.1: the admin footer links to the support page (Buy Me a Coffee)" 200 "/admin.php?action=account" 'href="https://buymeacoffee.com/Kaletacms"'
 # 3.9.2 N67: an update never touches media/, so migration 0084 does – it replaces a media/.htaccess Kaleta shipped (here the
 # one of 3.9.1, rebuilt from today's file) and keeps a customised one, with the new version next to it and a warning
-# (3.15 N72: migration 0097 then brings the header rules that match an upper-case extension – both run again here)
-n67_rerun() { "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(REPLACE(CONCAT(',', hodnota, ','), ',0084-media-htaccess,', ','), ',0097-media-htaccess-case,', ',')) WHERE promenna = 'data_migrations'"; curl -s -o /dev/null "$B/?n67=$RANDOM"; }
+# (3.15 N72: migration 0098 then brings the header rules that match an upper-case extension – both run again here)
+n67_rerun() { "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(REPLACE(CONCAT(',', hodnota, ','), ',0084-media-htaccess,', ','), ',0098-media-htaccess-case,', ',')) WHERE promenna = 'data_migrations'"; curl -s -o /dev/null "$B/?n67=$RANDOM"; }
 cp "$WORK/web/media/.htaccess" "$WORK/media-htaccess-new"
 { echo '# Uploaded files are only served – never run.'; sed -e '1,2d' -e '/case of the extension, as Apache/d' -e 's/ – in any$//' -e 's/"(?i)/"/' -e 's/|pht|phtml|phar|pl|py|cgi|sh|shtml|html?|js)(\\.|\$)/|phtml|phar|pl|py|cgi|sh|html?|js)$/' "$WORK/media-htaccess-new"; } > "$WORK/web/media/.htaccess"
 expect "3.9.2 N67: the test rebuilds the media/.htaccess of 3.9.1 exactly" "$(php -r 'echo hash_file("sha256", $argv[1]);' "$WORK/web/media/.htaccess")" "e20dd912d8066f36f5d967ee462497fca1dcbcd5b53f19d6f77e6bff7ceec708"
 n67_rerun
-expect "3.9.2 N67, 3.15 N72: migrations 0084 and 0097 replace the media/.htaccess of an earlier release" "$(cmp -s "$WORK/web/media/.htaccess" "$WORK/media-htaccess-new" && echo same)|$([ -f "$WORK/web/media/.htaccess.kaleta-nova" ] && echo nova)" "same|"
+expect "3.9.2 N67, 3.15 N72: migrations 0084 and 0098 replace the media/.htaccess of an earlier release" "$(cmp -s "$WORK/web/media/.htaccess" "$WORK/media-htaccess-new" && echo same)|$([ -f "$WORK/web/media/.htaccess.kaleta-nova" ] && echo nova)" "same|"
 printf '# my own rules\nRequire all granted\n' > "$WORK/web/media/.htaccess"
 n67_rerun
 expect "3.9.2 N67: a customised media/.htaccess stays, the new one waits next to it" "$(head -1 "$WORK/web/media/.htaccess")|$(cmp -s "$WORK/web/media/.htaccess.kaleta-nova" "$WORK/media-htaccess-new" && echo nova)" "# my own rules|nova"
 check "3.9.2 N67: System status asks to carry the new media/.htaccess over" 200 "/admin.php?module=status" "media/.htaccess.kaleta-nova"
-# 3.15 N72: the file of 3.9.2–3.14 (header rules for lower-case extensions only) is replaced by 0097 alone; System status
+# 3.15 N72: the file of 3.9.2–3.14 (header rules for lower-case extensions only) is replaced by 0098 alone; System status
 # names a file without the new rules
 sed -e '/case of the extension, as Apache/d' -e 's/ – in any$//' -e 's/<FilesMatch "(?i)\\.svg\$">/<FilesMatch "\\.svg$">/' -e 's/<FilesMatch "(?i)\\.(docx/<FilesMatch "\\.(docx/' "$WORK/media-htaccess-new" > "$WORK/web/media/.htaccess"; rm -f "$WORK/web/media/.htaccess.kaleta-nova"
 expect "3.15 N72: the test rebuilds the media/.htaccess of 3.9.2 exactly" "$(php -r 'echo hash_file("sha256", $argv[1]);' "$WORK/web/media/.htaccess")" "1901ef144717137b305ae54dcead8641c3552c35ee8c36a8e334ae37716a5669"
 check "3.15 N72: System status names a media/.htaccess without the rules of 3.15" 200 "/admin.php?module=status" "nemá pravidla Kalety 3.15"
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0097-media-htaccess-case,', ',')) WHERE promenna = 'data_migrations'"; curl -s -o /dev/null "$B/?n72=$RANDOM"
-expect "3.15 N72: migration 0097 replaces the media/.htaccess of 3.9.2" "$(cmp -s "$WORK/web/media/.htaccess" "$WORK/media-htaccess-new" && echo same)|$([ -f "$WORK/web/media/.htaccess.kaleta-nova" ] && echo nova)" "same|"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0098-media-htaccess-case,', ',')) WHERE promenna = 'data_migrations'"; curl -s -o /dev/null "$B/?n72=$RANDOM"
+expect "3.15 N72: migration 0098 replaces the media/.htaccess of 3.9.2" "$(cmp -s "$WORK/web/media/.htaccess" "$WORK/media-htaccess-new" && echo same)|$([ -f "$WORK/web/media/.htaccess.kaleta-nova" ] && echo nova)" "same|"
 cp "$WORK/media-htaccess-new" "$WORK/web/media/.htaccess"; rm -f "$WORK/web/media/.htaccess.kaleta-nova"
 TOKEN=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=requests&action=save" -d "_csrf=$TOKEN" -d quick=1 -d from=dashboard -d "text=Zkouška před připojením."
@@ -719,12 +719,12 @@ expect "patička nového jazyka začíná kopií patičky výchozího jazyka" "$
 "${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('tasks_token', 'testtoken123'); INSERT INTO ka_souhlasy (id_souhlasu, cas, kategorie) VALUES ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '$(site_time)' - INTERVAL 40 MONTH, 'nic'), ('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', '$(site_time)', 'nic')"
 curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "úklid maže staré záznamy o souhlasech s cookies" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT GROUP_CONCAT(LEFT(id_souhlasu, 1) ORDER BY id_souhlasu) FROM ka_souhlasy WHERE id_souhlasu IN ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')")" "b"
-echo 'ALTER TABLE ka_neexistuje ADD COLUMN x INT;' > "$WORK/web/system/sql/migrace/0099-rozbita.sql"
+echo 'ALTER TABLE ka_neexistuje ADD COLUMN x INT;' > "$WORK/web/system/sql/migrace/9999-rozbita.sql"
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '19' WHERE promenna = 'db_version'"; rm -f "$WORK"/web/storage/cache/stranky/*.html "$WORK/web/storage/cache/migrace-chyba"
 check "nepovedená migrace neshodí web" 200 /
 grep -q 'The database migration failed' "$WORK/web/storage/log/chyby.log" && echo "  ok     nepovedená migrace je v protokolu chyb" || { echo "  CHYBA  nepovedená migrace chybí v protokolu"; ERRORS=$((ERRORS+1)); }
 check "nepovedená migrace nezamkne administraci" 200 "/admin.php" "Aktualizace databáze se nepovedla"
-rm -f "$WORK/web/system/sql/migrace/0099-rozbita.sql"; sed -i.bak "/The database migration failed/d" "$WORK/web/storage/log/chyby.log"; rm -f "$WORK/web/storage/log/chyby.log.bak"
+rm -f "$WORK/web/system/sql/migrace/9999-rozbita.sql"; sed -i.bak "/The database migration failed/d" "$WORK/web/storage/log/chyby.log"; rm -f "$WORK/web/storage/log/chyby.log.bak"
 expect "migrace, které prošly, zůstanou provedené" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'")" "$LAST_MIGRATION"
 mcp uprav_kolekci '{"kolekce":"tym","nazev":"Nas tym"}' > "$WORK/response"
 grep -q 'Nas tym' "$WORK/response" && grep -q 'medailonek' "$WORK/response" && echo "  ok     MCP: úprava kolekce ponechá pole" || { echo "  CHYBA  MCP uprav_kolekci"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
@@ -2537,6 +2537,65 @@ contains -q 'can only save drafts' "$WORK/response" && echo "  ok     a drafts-o
 # 2.5.1: an administrator's drafts-only connection must not reach the administrator's browser through a draft preview
 mcp_as "$DRAFT_TOKEN" save_build "{\"id\":${DRAFT_PAGE:-0},\"build\":{\"v\":1,\"children\":[{\"type\":\"section\",\"children\":[{\"type\":\"custom_html\",\"content\":{\"code\":\"<p>drafted-code</p>\"}}]}]}}" > /dev/null
 expect "a drafts-only connection cannot insert Custom HTML" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_stranky WHERE ids = '${DRAFT_PAGE:-0}' AND stavba_koncept LIKE '%drafted-code%'")" 0
+# 3.15 (N10): a file a drafts-only connection uploads waits outside the web root (Core\MediaStaging) – visible to signed-in users
+# and draft previews, public once content using it is published, or approved in Media; nobody approves it: gone after 30 days
+STAGE_PNG=$(php -r '$i = imagecreatetruecolor(1400, 900); imagefill($i, 0, 0, imagecolorallocate($i, 20, 120, 200)); ob_start(); imagepng($i); echo base64_encode(ob_get_clean());')
+stage_upload() { mcp_as "$DRAFT_TOKEN" upload_file "{\"filename\":\"$1\",\"data\":\"$2\"}" > "$WORK/response"; mcp_text; grep -o "media/[0-9]*/[0-9]*/${1%.*}-[a-f0-9]*\.${1##*.}" "$WORK/text" | head -1 || true; }
+anon_code() { curl -s -o /dev/null -w '%{http_code}' "$B/$1"; }
+STAGED=$(stage_upload staged-photo.png "$STAGE_PNG")
+STAGED_THUMB="${STAGED%.png}-nahled.png"
+expect "3.15 N10: a drafts-only upload is staged – the answer says so, nothing in media/, the files in storage/staging/, the row marked" \
+  "$(grep -c '"staged":true' "$WORK/text")|$(grep -c 'goes public with the draft' "$WORK/text")|$([ -n "$STAGED" ] && ! ls "$WORK/web/${STAGED%.png}"* > /dev/null 2>&1 && echo none)|$([ -f "$WORK/web/storage/staging/${STAGED#media/}" ] && [ -f "$WORK/web/storage/staging/${STAGED_THUMB#media/}" ] && echo staged)|$(sq "SELECT staged_at IS NOT NULL FROM ka_media WHERE obr_poloha = '$STAGED'")" \
+  "1|1|none|staged|1"
+expect "3.15 N10: anonymous visitors get 404 for a staged file and its variants, also the storage/ path itself" \
+  "$(anon_code "$STAGED")|$(anon_code "$STAGED_THUMB")|$(anon_code "$STAGED.webp")|$(anon_code "storage/staging/${STAGED#media/}")" "404|404|404|403"
+STAGE_HEAD=$(curl -s -b "$JAR" -D - -o "$WORK/staged.png" "$B/$STAGED" | tr -d '\r')
+expect "3.15 N10: a signed-in user gets the staged file (200, the image, nosniff, never cached)" \
+  "$(echo "$STAGE_HEAD" | head -1 | cut -d' ' -f2)|$(echo "$STAGE_HEAD" | grep -ic '^content-type: image/png')|$(echo "$STAGE_HEAD" | grep -ic '^x-content-type-options: nosniff')|$(echo "$STAGE_HEAD" | grep -ic '^cache-control: private, no-store')|$(php -r 'echo getimagesize($argv[1])[0] ?? 0;' "$WORK/staged.png")" \
+  "200|1|1|1|1400"
+[ ! -f "$WORK/web/storage/staging/${STAGED#media/}.webp" ] || expect "3.15: a browser that accepts WebP gets the staged WebP sibling" "$(curl -s -b "$JAR" -H 'Accept: image/webp,*/*' -D - -o /dev/null "$B/$STAGED" | tr -d '\r' | grep -i '^content-type' | cut -d' ' -f2)" "image/webp"
+STAGED_SVG=$(stage_upload staged-logo.svg "$(printf '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10"/></svg>' | base64 | tr -d '\n')")
+STAGED_PDF=$(stage_upload staged-menu.pdf "$(printf '%%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%%%EOF\n' | base64 | tr -d '\n')")
+expect "3.15: a staged SVG keeps the sandbox CSP and a staged document its nosniff, both only for signed-in users" \
+  "$(curl -s -b "$JAR" -D - -o /dev/null "$B/$STAGED_SVG" | tr -d '\r' | grep -ic '^content-security-policy:.*sandbox')|$(curl -s -b "$JAR" -D - -o /dev/null "$B/$STAGED_PDF" | tr -d '\r' | grep -ic '^x-content-type-options: nosniff')|$(anon_code "$STAGED_SVG")|$(anon_code "$STAGED_PDF")" "1|1|404|404"
+mcp list_media '{"search":"staged-photo"}' > "$WORK/response"; mcp_text
+expect "3.15: list_media marks a staged file (staged: true)" "$(grep -c '"staged":true' "$WORK/text")" "1"
+# a draft that uses it: the signed preview shows it (the preview sets a cookie for /media/), a visitor without it gets 404
+mcp create_page '{"title":"Staged image page","slug":"staged-image-page","visible":true}' > /dev/null
+STAGE_PAGE=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'staged-image-page'")
+mcp_as "$DRAFT_TOKEN" save_build "{\"id\":${STAGE_PAGE:-0},\"build\":{\"v\":1,\"children\":[{\"type\":\"section\",\"children\":[{\"type\":\"heading\",\"content\":{\"text\":\"Staged image\"}},{\"type\":\"image\",\"content\":{\"src\":\"$STAGED\",\"alt\":\"A blue area\"}}]}]}}" > /dev/null
+mcp_as "$DRAFT_TOKEN" preview_link "{\"id\":${STAGE_PAGE:-0}}" > "$WORK/response"; mcp_text
+STAGE_PREVIEW=$(grep -o 'http[^"]*preview_key=[0-9a-fk.]*' "$WORK/text" | head -1 || true)
+PREVIEW_JAR="$WORK/preview-cookies.txt"
+curl -s -c "$PREVIEW_JAR" -o "$WORK/response" "$STAGE_PREVIEW"
+expect "3.15 N10: the signed preview of the draft shows the staged image (200 with the preview's cookie, 404 without it)" \
+  "$(grep -c "$(basename "$STAGED" .png)" "$WORK/response" | sed 's/^[1-9][0-9]*$/shown/')|$(curl -s -b "$PREVIEW_JAR" -o /dev/null -w '%{http_code}' "$B/$STAGED")|$(anon_code "$STAGED")|$(grep -c 'ka_nahled_media' "$PREVIEW_JAR")" "shown|200|404|1"
+# publishing the page by someone who may publish moves the file to media/ in the same request
+mcp publish_build "{\"id\":${STAGE_PAGE:-0}}" > /dev/null
+expect "3.15 N10: publishing a page that uses a staged file makes it public at once (media/, anonymous 200, the row public, staging empty)" \
+  "$([ -f "$WORK/web/$STAGED" ] && [ -f "$WORK/web/$STAGED_THUMB" ] && echo media)|$(anon_code "$STAGED")|$(sq "SELECT staged_at IS NULL FROM ka_media WHERE obr_poloha = '$STAGED'")|$(ls "$WORK/web/storage/staging/${STAGED%.png}"* 2>/dev/null | wc -l | tr -d ' ')" \
+  "media|200|1|0"
+# a full-access upload is public at once, as before
+mcp upload_file "{\"filename\":\"public-photo.png\",\"data\":\"$PNG\"}" > "$WORK/response"; mcp_text
+PUBLIC_UP=$(grep -o 'media/[0-9]*/[0-9]*/public-photo-[a-f0-9]*\.png' "$WORK/text" | head -1 || true)
+expect "3.15: a full-access upload goes straight to media/ (no staged flag, anonymous 200)" "$(grep -c '"staged"' "$WORK/text")|$(anon_code "$PUBLIC_UP")|$(sq "SELECT staged_at IS NULL FROM ka_media WHERE obr_poloha = '$PUBLIC_UP'")" "0|200|1"
+# content published some other way still shows it: the first anonymous request finds it in published content and publishes it
+sq "UPDATE ka_stranky SET text = CONCAT(text, '<p><a href=\"/$STAGED_PDF\">Menu</a></p>') WHERE ids = ${STAGE_PAGE:-0}" > /dev/null
+expect "3.15: a staged file published content refers to goes public on the first anonymous request" "$(anon_code "$STAGED_PDF")|$([ -f "$WORK/web/$STAGED_PDF" ] && echo media)|$(sq "SELECT staged_at IS NULL FROM ka_media WHERE obr_poloha = '$STAGED_PDF'")" "200|media|1"
+# Media → Waiting for approval: the list, Publish file and Delete
+check "3.15: Media lists the files waiting for approval" 200 "/admin.php?module=media&staged=1" 'staged-logo'
+STAGE_CSRF=$(csrf); STAGE_SVG_ID=$(sq "SELECT ido FROM ka_media WHERE obr_poloha = '$STAGED_SVG'")
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=media&action=approve" -d "_csrf=$STAGE_CSRF" -d "ido=$STAGE_SVG_ID"
+expect "3.15: Publish file in Media makes a staged file public" "$(anon_code "$STAGED_SVG")|$(sq "SELECT staged_at IS NULL FROM ka_media WHERE ido = $STAGE_SVG_ID")" "200|1"
+STAGED_DEL=$(stage_upload staged-delete.png "$PNG"); STAGE_DEL_ID=$(sq "SELECT ido FROM ka_media WHERE obr_poloha = '$STAGED_DEL'")
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=media&action=discard" -d "_csrf=$STAGE_CSRF" -d "ido=${STAGE_DEL_ID:-0}"
+expect "3.15: Delete in Waiting for approval removes the staged file and its row" "$(sq "SELECT COUNT(*) FROM ka_media WHERE ido = ${STAGE_DEL_ID:-0}")|$(ls "$WORK/web/storage/staging/${STAGED_DEL%.png}"* 2>/dev/null | wc -l | tr -d ' ')" "0|0"
+# nobody approved it for 30 days: the background job deletes it
+STAGED_OLD=$(stage_upload staged-old.png "$PNG")
+sq "UPDATE ka_media SET staged_at = '$(site_time '-31 days')' WHERE obr_poloha = '$STAGED_OLD'; DELETE FROM ka_jobs WHERE name = 'media_staging'" > /dev/null
+curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+expect "3.15: the background job deletes a staged file nobody approved within 30 days (row and files)" \
+  "$(sq "SELECT COUNT(*) FROM ka_media WHERE obr_poloha = '$STAGED_OLD'")|$(ls "$WORK/web/storage/staging/${STAGED_OLD%.png}"* 2>/dev/null | wc -l | tr -d ' ')|$(sq "SELECT last_error FROM ka_jobs WHERE name = 'media_staging'")" "0|0|"
 # 3.7 N37-1: a prefixed attribute is one literal attribute (xml:onerror is not onerror) – on PHP 8.3 the compat parser bound the
 # prefix, the sanitizer missed the attribute and the serializer wrote it back as a live onerror
 mcp_as "$DRAFT_TOKEN" create_news '{"title":"N37-1 prefixed attributes","category":"'"$CATEGORY"'","text":"<p><img xml:onerror=alert(1) src=/media/x.png><a xml:href=javascript:alert(2) href=/ok>a</a> <a xlink:href=javascript:alert(3)>b</a> <span XML:ONCLICK=alert(4) x:onmouseover=alert(5) xmlns:x=y>c</span></p><svg><a xlink:href=javascript:alert(6)><text>d</text></a></svg><math><mi xml:onclick=alert(7)>e</mi></math>"}' > /dev/null

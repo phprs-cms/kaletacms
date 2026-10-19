@@ -175,9 +175,10 @@ final class Translator
                 'confirm' => ['potvrdit', 'true = import the pages found (only in the phase "preview", on the user\'s instruction)'], 'language' => ['jazyk', 'language version of the site (code, e.g. de; otherwise the main language)'],
                 'images' => ['obrazky', 'download images into Media (default true)'], 'redirects' => ['presmerovani', 'redirect the old addresses (default true)'], 'news' => ['novinky', 'articles as news (default true)']]],
         'list_media' => ['seznam_medii', 'Recently uploaded images and files with addresses and dimensions.', ['limit' => ['limit', '1-50, default 20'], 'search' => ['hledat', 'text in the name (optional)']]],
-        'upload_file' => ['nahraj_soubor', 'Uploads a file to Media: an image (JPG, PNG, WebP, GIF – resized, with WebP/AVIF variants), SVG (cleaned), a WOFF2 font for the design system or an attachment (PDF…). '
-            . 'Give the url of a public file (https – image, font, PDF; always url for larger files), or data in base64 (at most 12 MB). Returns the path for the image or background image element or for custom fonts. '
-            . 'A WordPress export (a file name ending .xml, administrators) does not go to Media: it is kept privately for import_wordpress, which the answer names.',
+        'upload_file' => ['nahraj_soubor', 'Uploads a file to Media: an image (JPG, PNG, WebP, GIF – resized, with WebP/AVIF variants), SVG (cleaned), a WOFF2 font or an attachment (PDF…). '
+            . 'Give the https url of a public file (always for larger files), or data in base64 (at most 12 MB). Returns the path for the image or background image element or for custom fonts. '
+            . 'A WordPress export (.xml, administrators) is kept privately for import_wordpress. '
+            . 'On a drafts-only connection the file is staged: shown in previews, public with the content using it.',
             ['filename' => ['nazev', 'file name with extension, e.g. team-london.jpg'], 'data' => ['data', 'file content in base64'], 'url' => ['url', 'https address of the file to download (instead of data)'],
                 'alt' => ['popis', 'image description for blind visitors (alt); otherwise from the name']]],
         'preview_link' => ['nahled_odkaz', 'A signed link to the draft preview of a page or site part – anyone can open it without signing in (the user, a colleague, a browser); it is valid only for this target and for a limited time. Search engines do not index it.',

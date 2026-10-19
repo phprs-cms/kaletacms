@@ -209,6 +209,7 @@ final class Mailing
         }
         $count = $db->run('INSERT IGNORE INTO {newsletter_queue} (newsletter_id, subscriber_id, next_attempt) SELECT ?, ido, ? FROM {odberatele} WHERE stav = 1', [$n['id'], Clock::now()])->rowCount();
         $db->update('newsletters', ['recipients' => $count], ['id' => $n['id']]);
+        MediaStaging::promoteReferenced($db, $html); // 3.15: an image waiting for approval goes out with the e-mail, so it goes public
         \Kaleta\Admin\ChangeLog::write($app, 'newsletters', 'send', mb_substr((string) $n['subject'], 0, 200));
     }
 

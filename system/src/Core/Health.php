@@ -65,7 +65,7 @@ final class Health
         $mediaRules = is_file(KALETA_ROOT . '/media/.htaccess') ? (string) file_get_contents(KALETA_ROOT . '/media/.htaccess') : '';
         if (!is_file(KALETA_ROOT . '/media/.htaccess.kaleta-nova') && (!str_contains($mediaRules, self::MEDIA_RULE) || !str_contains($mediaRules, self::MEDIA_HEADER_RULE))) {
             // 3.9.2 (N392-2): the migration could not write the file (permissions) or something put an older one back;
-            // 3.15 (N72): the same for the header rules that match an upper-case extension too (migration 0097)
+            // 3.15 (N72): the same for the header rules that match an upper-case extension too (migration 0098)
             $add(t('Bezpečnost'), 'media/.htaccess', 'varovani', t('media/.htaccess does not have the rules of Kaleta 3.15 that block files like photo.php.jpg and offer documents for download whatever the case of their extension – copy media/.htaccess from the release package (on nginx, the media rules of system/nginx.example.conf).'));
         }
         if (($risky = self::riskyMedia()) !== []) {
@@ -73,7 +73,7 @@ final class Health
             $add(t('Bezpečnost'), t('Media files'), 'varovani', t('Files with a script extension in their name are in media/ (%s) – check them and delete them over FTP.', implode(', ', $risky)));
         }
         if (is_file(KALETA_ROOT . '/media/.htaccess.kaleta-nova')) {
-            // 3.9.2 (N67), 3.15 (N72): migrations 0084 and 0097 keep a customised media/.htaccess and put Kaleta's newer one next to it
+            // 3.9.2 (N67), 3.15 (N72): migrations 0084 and 0098 keep a customised media/.htaccess and put Kaleta's newer one next to it
             $add(t('Bezpečnost'), 'media/.htaccess', 'varovani', t('A newer media/.htaccess.kaleta-nova is next to your customised media/.htaccess – carry over its rules (since 3.9.2 they block files like photo.php.jpg, since 3.15 the download rules also match an upper-case extension), then delete the file.'));
         }
         $core = Integrity::check();

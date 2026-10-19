@@ -5901,4 +5901,13 @@ return [
     'The update to a new major version waits until Ready for 4.0 clears: %s.' => 'Aktualizace na novou hlavní verzi počká, až kontrola Připraveno na 4.0 nebude hlásit: %s.',
     'media/.htaccess does not have the rules of Kaleta 3.15 that block files like photo.php.jpg and offer documents for download whatever the case of their extension – copy media/.htaccess from the release package (on nginx, the media rules of system/nginx.example.conf).' => 'media/.htaccess nemá pravidla Kalety 3.15, která blokují soubory jako foto.php.jpg a nabízejí dokumenty ke stažení bez ohledu na velikost písmen přípony – zkopírujte media/.htaccess z balíčku vydání (na nginx pravidla pro média ze system/nginx.example.conf).',
     'A newer media/.htaccess.kaleta-nova is next to your customised media/.htaccess – carry over its rules (since 3.9.2 they block files like photo.php.jpg, since 3.15 the download rules also match an upper-case extension), then delete the file.' => 'Vedle vašeho upraveného media/.htaccess je novější media/.htaccess.kaleta-nova – převezměte z něj pravidla (od 3.9.2 blokují soubory jako foto.php.jpg, od 3.15 platí pravidla pro stahování i pro příponu velkými písmeny) a soubor smažte.',
+    'Waiting for approval' => 'Čeká na schválení',
+    'Files Claude uploaded over a connection limited to drafts. They are not public yet: they show in the administration and in draft previews, and go public with the draft that uses them when it is published – or here with Publish file. Files nobody approves are deleted after %d days.' => 'Soubory, které Claude nahrál přes připojení omezené na koncepty. Zatím nejsou veřejné: ukazují se v administraci a v náhledech konceptů a zveřejní se s konceptem, který je používá, až ho někdo publikuje – nebo tady tlačítkem Zveřejnit soubor. Soubory, které nikdo neschválí, se po %d dnech smažou.',
+    'Deleted on %s unless it is approved.' => 'Smaže se %s, pokud ho nikdo neschválí.',
+    'Publish file' => 'Zveřejnit soubor',
+    'Delete the file? Drafts that use it will show it no more.' => 'Smazat soubor? Koncepty, které ho používají, ho už neukážou.',
+    'The file could not be moved to the media folder – check the write permissions of media/.' => 'Soubor se nepodařilo přesunout do složky médií – zkontrolujte práva k zápisu do media/.',
+    'The file is public: %s' => 'Soubor je veřejný: %s',
+    'Files from Claude waiting for approval' => 'Soubory od Clauda čekající na schválení',
+    'Files waiting for approval: public with the content that uses them, deleted after 30 days' => 'Soubory čekající na schválení: zveřejnění s obsahem, který je používá, smazání po 30 dnech',
 ];

@@ -58,6 +58,12 @@ final class Kernel
         Modules\Fleet::class,
     ];
 
+    /**
+     * Requests of the editors' ongoing work (unsaved state, assistant, build draft): they do not change the site, so they
+     * neither clear the page cache nor publish waiting files (admin.php, Core\MediaStaging).
+     */
+    public const array DRAFT_ACTIONS = ['draft', 'assistant', 'build_save', 'preview', 'build_ai_text'];
+
     public function __construct(public readonly App $app)
     {
     }
@@ -82,7 +88,7 @@ final class Kernel
 
         // every change in the admin invalidates the site page cache; the editors' ongoing requests (unsaved state, assistant,
         // build draft) do not change the site - if they cleared the cache, it would be cold all the time during work
-        if ($request->isPost() && !in_array($request->get('action'), ['draft', 'assistant', 'build_save', 'preview', 'build_ai_text'], true)) {
+        if ($request->isPost() && !in_array($request->get('action'), self::DRAFT_ACTIONS, true)) {
             \Kaleta\Front\Cache::clear();
         }
         $action = $request->get('action');
