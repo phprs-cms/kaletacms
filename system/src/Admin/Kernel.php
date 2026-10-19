@@ -256,6 +256,11 @@ final class Kernel
                     $this->app->url('admin.php?module=redirects#nenalezeno'), t('Review the addresses'), $this->app->url('admin.php?module=redirects&action=ignore_all')];
             }
         }
+        if ($this->app->auth()->isAdmin() && ($instructions = \Kaleta\Core\ClaudeInstructions::notice($this->app->settings())) !== null) {
+            // 3.15 (N44): every connection gets the instructions – a change by anyone (a Claude connection too) is checked by a person
+            $warnings[] = [t('The instructions for Claude changed – check them.') . ' ' . \Kaleta\Core\ClaudeInstructions::who($instructions),
+                $this->app->url('admin.php?module=claude_settings#zmena-pokynu'), t('Open Claude settings'), $this->app->url('admin.php?module=claude_settings&action=instructions_seen'), t('Dismiss')];
+        }
         if ($this->app->auth()->isAdmin()) {
             // 3.15: security fixes land only in the newest release (no support window for older ones) – a site that has not
             // updated for BEHIND_DAYS is reminded here, quietly, until it does; no e-mail

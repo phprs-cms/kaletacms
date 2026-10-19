@@ -22,10 +22,14 @@ Every open finding of `security-2026-10-19.md` is fixed, and the older items sti
   - The import state files are not offered as Kaleta exports.
   - Non-admins see only their own files in Media clean-up.
   - A cancelled OAuth sign-in shows only an RFC 6749 error code.
-- **N42** (part) Every backup download is now recorded in the change log. Moving the vault key out of the database stays a proposal (below).
+- **N42** The vault key moves out of the database (owner decision, 19 Oct; `Core\Vault`):
+  - The installer writes a random `vault_key` into config.php. Connector secrets and whistleblowing reports derive their keys from it.
+  - Existing sites keep `secret_key` (the same derivation as before) until an administrator presses "Move the encryption key out of the database" in Settings → Backups and updates.
+  - The move writes the key into config.php. When the file is not writable, it shows the exact line once and changes nothing. It then encrypts everything again in one transaction; any failure rolls back.
+  - The setting `vault_check` (a one-way check value) says which key the data belongs to. No migration was needed.
+  - Ready for 4.0 shows where the key is: in the database, the move unfinished, or the key missing from config.php. The backups tab adds a restore step (copy the `vault_key` line) and a note that config.php is needed with backups.
+  - The move and every backup download are recorded in the change log. The key itself is never shown, logged, exported or sent over MCP.
+- **N44** `claude_instructions` stays editable over MCP (owner decision). Every change, from MCP or the admin, is recorded in the change log with the old and new text. The administrators' dashboard says "The instructions for Claude changed – check them" (who, when, which connection) until an administrator opens Claude settings, which show the text before the change once, or dismisses it (`Core\ClaudeInstructions`).
 - **S5** Documented in `upload_file`: the domain rule only keeps redirects on the named host. The protection is the IP pin.
 - Already fixed earlier: N9 and N22 (3.3.3, `7d4f29da`), N47 (`bcf4f2b4`, images pinned by digest).
-- Proposals for the owner:
-  - N42: keep the vault key outside the database.
-  - N44: who may set `claude_instructions` over MCP.
-  - N45: reclass `migration_report`.
+- Proposal for the owner: N45, reclass `migration_report`.

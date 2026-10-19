@@ -85,6 +85,7 @@ final class Settings
         'tasks_token' => '',          // secret part of the cron URL /tasks (the older /ulohy too)
         'stats' => '1',          // no longer read since 3.2: the Statistics feature (Core\Extensions 'statistika') is the only switch; kept for MCP update_settings
         'secret_key' => '',           // created by itself; signs links and salts the statistics hashes
+        'vault_check' => '',          // 3.15 (N42, Core\Vault): the check value of the vault_key in config.php the encrypted data belongs to; empty = secret_key
         // SEO and GEO
         'indexing' => '1',          // 0 = the whole site noindex + Disallow in robots.txt
         'schema_org' => '1',          // structured data JSON-LD
@@ -109,6 +110,7 @@ final class Settings
         'claude_protected_pages' => '',  // page ids Claude must not change
         'claude_apps_only' => '0',       // 1 = OAuth registration and sign-in only for Claude's own apps (Front\OAuth::CLAUDE_HOSTS, 3.3.4)
         'claude_instructions' => '',   // what the site owner wants Claude to keep to (brand voice, house rules) – every connection gets it (2.2)
+        'claude_instructions_notice' => '', // 3.15 (N44, Core\ClaudeInstructions): the last change (JSON) until an administrator looks at it
         'security_contact' => '',      // who takes reports of security problems (e-mail or https page) – /.well-known/security.txt (2.1)
         'news_slug' => '',          // first segment of the news URLs in every language (blog → /blog/x); empty = novinky / news (Core\Routes)
         'news_slug_previous' => '', // earlier news_slug values, comma-separated: their URLs redirect to the current ones (kept by Settings::set)

@@ -2646,6 +2646,30 @@ mcp_text; contains -q '"claude_connection":"Claude drafts"' "$WORK/text" && echo
 check "the change log in the admin filters Claude's changes" 200 "/admin.php?module=changelog&by=claude" 'Claude: Claude drafts'
 # the site owner's instructions, resources, prompts and the protocol version
 mcp update_settings '{"settings":{"claude_instructions":"Always say renovation, never reconstruction."}}' > /dev/null
+# 3.15 (N44): the instructions reach every later connection – a change over MCP is in the change log with both texts, and the
+# administrators' dashboard says so until one of them opens Claude settings (or dismisses it)
+expect "3.15 N44: a change of the instructions over MCP is in the change log with the old and the new text and the connection" \
+  "$(sq "SELECT CONCAT(modul, '|', via, '|', popis) FROM ka_protokol WHERE akce = 'instructions changed' ORDER BY idp DESC LIMIT 1")" "claude_settings|test|before: (empty) → now: «Always say renovation, never reconstruction.»"
+check "3.15 N44: the dashboard tells the administrator the instructions for Claude changed, by whom and through which connection" 200 "/admin.php" "Pokyny pro Clauda se změnily"
+grep -q 'přes připojení Clauda test' "$WORK/response" && grep -q 'module=claude_settings#zmena-pokynu' "$WORK/response" && grep -q 'action=instructions_seen' "$WORK/response" \
+  && echo "  ok     3.15 N44: the notice names the connection, links to Claude settings and can be dismissed" || { echo "  CHYBA  N44 dashboard notice"; ERRORS=$((ERRORS+1)); }
+check "3.15 N44: Claude settings show the change once, with the text before it" 200 "/admin.php?module=claude_settings" 'id="zmena-pokynu"'
+expect "3.15 N44: once Claude settings were opened, the notice is gone from the dashboard and from Claude settings" \
+  "$(curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php"; grep -c 'Pokyny pro Clauda se změnily' "$WORK/response" || true)|$(curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=claude_settings"; grep -c 'id="zmena-pokynu"' "$WORK/response" || true)" "0|0"
+mcp update_settings '{"settings":{"claude_instructions":"Always say renovation, never reconstruction. Prices in CZK."}}' > /dev/null
+mcp update_settings '{"settings":{"claude_instructions":"Always say renovation, never reconstruction. Prices in CZK."}}' > /dev/null
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=claude_settings&action=instructions_seen" -d "_csrf=$(csrf)"
+expect "3.15 N44: the same text again is no change; Dismiss on the dashboard clears the notice without opening the settings" \
+  "$(sq "SELECT COUNT(*) FROM ka_protokol WHERE akce = 'instructions changed'")|$(curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php"; grep -c 'Pokyny pro Clauda se změnily' "$WORK/response" || true)" "2|0"
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=claude_settings"
+n44_guards() { sq "SELECT CONCAT(COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'claude_destructive'), '1'), COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'claude_apps_only'), '0'))"; }
+N44_GUARDS=$(n44_guards); N44_ARGS=(); [ "${N44_GUARDS:0:1}" = 1 ] && N44_ARGS+=(-d claude_destructive=1); [ "${N44_GUARDS:1:1}" = 1 ] && N44_ARGS+=(-d claude_apps_only=1)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=claude_settings&action=save" -d "_csrf=$(csrf)" -d tab=claude --data-urlencode "claude_instructions=Always say renovation, never reconstruction." ${N44_ARGS[@]+"${N44_ARGS[@]}"}
+expect "3.15 N44: (the guardrails of Claude settings stay as they were)" "$(n44_guards)" "$N44_GUARDS"
+expect "3.15 N44: a change in the administration is in the change log too, without a connection" \
+  "$(sq "SELECT CONCAT(via, '|', popis) FROM ka_protokol WHERE akce = 'instructions changed' ORDER BY idp DESC LIMIT 1")|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'claude_instructions'")" \
+  "|before: «Always say renovation, never reconstruction. Prices in CZK.» → now: «Always say renovation, never reconstruction.»|Always say renovation, never reconstruction."
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26"}}' > "$WORK/response"
 contains -q '"protocolVersion":"2025-03-26"' "$WORK/response" && contains -q 'Always say renovation' "$WORK/response" && contains -q '"prompts"' "$WORK/response" && echo "  ok     initialize: the client's protocol version, the owner's instructions, resources and prompts" || { echo "  CHYBA  initialize"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $DRAFT_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"1999-01-01"}}' > "$WORK/response"
@@ -4902,6 +4926,76 @@ curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "whistleblowing: the daily job records the overdue acknowledgement and deletes the closed case past the retention" \
   "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_events WHERE type = 'whistleblowing.due' AND data LIKE '%\"deadline\":\"acknowledgement\"%' AND message LIKE '%$WB_NUMBER%'), '|', (SELECT COUNT(*) FROM ka_whistleblowing_cases WHERE number = '2023-0001'), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'whistleblowing.purged'))")" "1|0|1"
 check "whistleblowing: the list highlights the overdue acknowledgement" 200 "/admin.php?module=whistleblowing" "po lhůtě"
+echo "== 3.15 (N42): the encryption key out of the database"
+# vault <read|legacy|key>: read = the connector secret and the case text as the site decrypts them; legacy = the site as
+# before 3.15 (the data encrypted with secret_key again, no vault_key in config.php); key = the key in config.php
+cat > "$WORK/vault-helper.php" <<'PHP'
+<?php
+chdir($argv[1]);
+require 'system/bootstrap.php';
+$config = require 'config.php';
+$app = new Kaleta\Core\App($config);
+$s = $app->settings();
+$db = $app->db();
+if ($argv[2] === 'read') {
+    echo Kaleta\Core\Connectors::decrypt($s, $db->value("SELECT secret FROM {connectors} WHERE service = 'google'")) ?? '-', '|',
+        mb_substr(Kaleta\Core\Whistleblowing::decrypt($s, $db->value('SELECT text FROM {whistleblowing_cases} WHERE id = ?', [(int) $argv[3]])) ?? '-', 0, 25);
+} elseif ($argv[2] === 'key') {
+    echo $config['vault_key'] ?? '';
+} elseif ($argv[2] === 'legacy') {
+    [$from, $to] = [(string) $config['vault_key'], (new Kaleta\Core\Antispam($db, $s))->key()];
+    foreach (Kaleta\Core\Vault::SEALED as $table => [$purpose, $primary, $columns]) {
+        foreach ($db->all('SELECT * FROM {' . $table . '}') as $row) {
+            foreach ($columns as $c) {
+                $new = Kaleta\Core\Vault::reseal(Kaleta\Core\Vault::derive($from, $purpose), Kaleta\Core\Vault::derive($to, $purpose), $row[$c]);
+                if ($new !== null) { $db->update($table, [$c => $new], [$primary => $row[$primary]]); }
+            }
+        }
+    }
+    $s->set('vault_check', '');
+    file_put_contents('config.php', preg_replace("/\n\s*'vault_key' => '[0-9a-f]{64}',[^\n]*/", '', (string) file_get_contents('config.php')));
+}
+PHP
+vault() { php "$WORK/vault-helper.php" "$WORK/web" "$@" "${WB_ID:-0}"; [ "$1" != legacy ] || config_changed; }
+# the server's opcache looks at a changed file again after opcache.revalidate_freq (2 s): a change made from outside waits for it
+config_changed() { sleep 3; }
+vault_sealed() { sq "SELECT SHA2(CONCAT((SELECT secret FROM ka_connectors WHERE service = 'google'), (SELECT text FROM ka_whistleblowing_cases WHERE id = ${WB_ID:-0})), 256)"; }
+vault_move() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"; curl -s -b "$JAR" -c "$JAR" -L -o "$WORK/response" -X POST "$B/admin.php?module=settings&action=vault_move" -d "_csrf=$(csrf)"; }
+VAULT_PLAIN=$(vault read)
+expect "3.15 N42: a new site keeps the encryption key in config.php, the data is readable, the backups tab says so without a button" \
+  "$(grep -c "'vault_key' => '[0-9a-f]\{64\}'" "$WORK/web/config.php")|$(sq "SELECT LENGTH(hodnota) FROM ka_nastaveni WHERE promenna = 'vault_check'")|$VAULT_PLAIN|$(curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"; grep -c 'klíčem, který je v config.php' "$WORK/response")|$(grep -c 'action=vault_move' "$WORK/response" || true)" \
+  "1|32|test-client-secret|Vedoucí skladu falšuje ev|1|0"
+VAULT_FIRST=$(vault key)
+vault legacy
+expect "3.15 N42: a site from before 3.15 (key in the database) reads its data; the backups tab and Ready for 4.0 offer the move" \
+  "$(vault read)|$(grep -c vault_key "$WORK/web/config.php" || true)|$(curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"; grep -c 'action=vault_move' "$WORK/response")|$(curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=status"; grep -c 'šifrované klíčem uloženým v databázi' "$WORK/response")" \
+  "$VAULT_PLAIN|0|1|1"
+# config.php cannot be written: the exact line comes back once, nothing changes, the key is kept nowhere
+VAULT_BEFORE=$(vault_sealed); chmod 444 "$WORK/web/config.php"; vault_move; chmod 644 "$WORK/web/config.php"
+VAULT_NEW=$(grep -o 'id="vault-radek">[^<]*' "$WORK/response" | grep -o '[0-9a-f]\{64\}' | head -1 || true); VAULT_LINE="'vault_key' => '$VAULT_NEW'"
+expect "3.15 N42: with config.php not writable the line to add is shown, nothing changes and the key is in no table" \
+  "$([ -n "$VAULT_NEW" ] && echo line)|$(grep -c 'Do config.php nejde zapisovat' "$WORK/response")|$(grep -c vault_key "$WORK/web/config.php" || true)|$(vault_sealed)|$(sq "SELECT COUNT(*) FROM ka_nastaveni WHERE hodnota LIKE '%${VAULT_NEW:-none}%'")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE popis LIKE '%${VAULT_NEW:-none}%' OR akce = 'encryption key moved'")|$(vault read)" \
+  "line|1|0|$VAULT_BEFORE|0|0|$VAULT_PLAIN"
+# the administrator adds the line by hand; a failure while encrypting again (a table gone) rolls everything back
+php -r '$f = $argv[1]; file_put_contents($f, preg_replace("/return\s*(\[|array\s*\()/", "$0\n  " . $argv[2], (string) file_get_contents($f), 1));' "$WORK/web/config.php" "$VAULT_LINE,"; config_changed
+sq "RENAME TABLE ka_whistleblowing_messages TO ka_wm_315" > /dev/null; vault_move; sq "RENAME TABLE ka_wm_315 TO ka_whistleblowing_messages" > /dev/null
+expect "3.15 N42: a failed re-encryption rolls back: the old key stays in use, the data reads, Ready for 4.0 says the move is unfinished" \
+  "$(grep -c 'Přesun se nezdařil' "$WORK/response")|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'vault_check'")|$(vault_sealed)|$(vault read)|$(curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=status"; grep -c 'Dokončete přesun' "$WORK/response")" \
+  "1||$VAULT_BEFORE|$VAULT_PLAIN|1"
+vault_move
+expect "3.15 N42: the move encrypts the data again under the key in config.php, logs it and never writes the key into the database" \
+  "$(grep -c 'Šifrovací klíč je teď v config.php' "$WORK/response")|$([ "$(vault_sealed)" != "$VAULT_BEFORE" ] && echo resealed)|$(vault read)|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE akce = 'encryption key moved'")|$(sq "SELECT COUNT(*) FROM ka_nastaveni WHERE hodnota LIKE '%$VAULT_NEW%'")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE popis LIKE '%$VAULT_NEW%'")|$(curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"; grep -c "$VAULT_NEW" "$WORK/response" || true)" \
+  "1|resealed|$VAULT_PLAIN|1|0|0|0"
+# config.php without the key the data belongs to (a database restored elsewhere): nothing reads, System status says what to put back
+cp "$WORK/web/config.php" "$WORK/config-315.php"; php -r '$f = $argv[1]; file_put_contents($f, preg_replace("/\n\s*\x27vault_key\x27 => \x27[0-9a-f]{64}\x27,[^\n]*/", "", (string) file_get_contents($f)));' "$WORK/web/config.php"; config_changed
+expect "3.15 N42: without the key in config.php the data cannot be read and System status says to put the line back" \
+  "$(vault read)|$(curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=status"; grep -c 'Vraťte do něj řádek s vault_key' "$WORK/response")" "-|-|1"
+cp "$WORK/config-315.php" "$WORK/web/config.php"; config_changed
+# a writable config.php: one press writes the key and encrypts everything again
+vault legacy; vault_move
+expect "3.15 N42: with config.php writable one press writes a new key into it and moves the data; other lines of config.php stay" \
+  "$(grep -c 'Šifrovací klíč je teď v config.php' "$WORK/response")|$(grep -c "'vault_key' => '[0-9a-f]\{64\}'" "$WORK/web/config.php")|$([ "$(vault key)" != "$VAULT_NEW" ] && [ "$(vault key)" != "$VAULT_FIRST" ] && echo new)|$(grep -c "'prefix' =>" "$WORK/web/config.php")|$(vault read)" \
+  "1|1|new|1|$VAULT_PLAIN"
 # 3.2: the feature switched off closes the channel even with its own switch on; the cases stay
 sq "UPDATE ka_nastaveni SET hodnota = '$WB_EXT' WHERE promenna = 'extensions'" > /dev/null
 check "3.2 whistleblowing off: the public address is a 404 although the channel is set up" 404 "/_report"
