@@ -16,6 +16,15 @@ final class Files
     private const int MAX_BYTES = 200 * 1024 * 1024;
     private const string FORBIDDEN_TYPES = '#html|php|javascript|svg|x-sh|x-dosexec|x-executable|x-mach|x-msdownload#i';
 
+    /**
+     * Does the content say HTML, PHP, a script, SVG or a program, whatever the extension claims? The browser could open such
+     * a file as part of the site, or the server run it. Shared by uploads and the import of a Kaleta export (3.15, N72).
+     */
+    public static function forbiddenContent(string $path): bool
+    {
+        return preg_match(self::FORBIDDEN_TYPES, (string) (new \finfo(FILEINFO_MIME_TYPE))->file($path)) === 1;
+    }
+
     /** How many bytes one uploaded file can have: the smaller of upload_max_filesize and post_max_size (0 = no limit). */
     public static function limit(): int
     {
@@ -88,8 +97,7 @@ final class Files
         if (!in_array($extension, self::FILE_EXTENSIONS, true)) {
             throw new \RuntimeException(t('This file type cannot be uploaded. Images and these attachments are allowed: %s.', implode(', ', self::FILE_EXTENSIONS)));
         }
-        $type = (string) (new \finfo(FILEINFO_MIME_TYPE))->file($tmp);
-        if (preg_match(self::FORBIDDEN_TYPES, $type) || filesize($tmp) > self::MAX_BYTES) {
+        if (self::forbiddenContent($tmp) || filesize($tmp) > self::MAX_BYTES) {
             throw new \RuntimeException(filesize($tmp) > self::MAX_BYTES ? 'The file is too large (200 MB at most).' : 'The file content does not match its extension.');
         }
         $folder = 'media/' . date('Y/m');

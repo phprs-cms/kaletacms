@@ -194,7 +194,11 @@ final class Auth
             return t('The account is temporarily locked after a series of failed attempts. Try again in 15 minutes.');
         }
         $backupCodes = $user === null ? null : Totp::useBackupCode($user['totp_zalozni'], $code);
-        if ($user === null || (!Totp::verify($user['totp_tajemstvi'], $code) && $backupCodes === null)) {
+        $step = $user === null ? null : Totp::step($user['totp_tajemstvi'], $code);
+        if ($step !== null && $user !== null && $step <= $this->lastCodeStep((int) $user['idu'])) {
+            $step = null; // 3.15 (N18): a code of a step this account already signed in with is never accepted again
+        }
+        if ($user === null || ($step === null && $backupCodes === null)) {
             $this->db->insert('kontrola_ip', ['ip_adresa' => Antispam::hash($ip), 'typ' => 'login', 'cas' => date('Y-m-d H:i:s')]);
             if ($user !== null) {
                 // wrong codes are counted per account, not only per IP address: whoever knows the password must not try codes from many addresses
@@ -204,6 +208,10 @@ final class Auth
             return t('The code is not correct.');
         }
         $this->recordSignIn((int) $user['idu']);
+        if ($step !== null) {
+            // the step of the code, kept with the sign-in checks (cil = the account) until the tolerated drift is long over
+            $this->db->insert('kontrola_ip', ['ip_adresa' => (string) $step, 'typ' => 'totp', 'cil' => (int) $user['idu'], 'cas' => Clock::now()]);
+        }
         if ($backupCodes !== null) {
             $this->db->update('uzivatele', ['totp_zalozni' => $backupCodes], ['idu' => $user['idu']]);
         }
@@ -212,6 +220,12 @@ final class Auth
         $this->startSignIn((int) $user['idu'], (string) $user['password']);
 
         return null;
+    }
+
+    /** The newest step of a code from the app the account signed in with in the last few minutes (0 = none). */
+    private function lastCodeStep(int $idu): int
+    {
+        return (int) $this->db->value("SELECT MAX(CAST(ip_adresa AS UNSIGNED)) FROM {kontrola_ip} WHERE typ = 'totp' AND cil = ? AND cas > ?", [$idu, Clock::at('-5 minutes')]);
     }
 
     /** Does the account waiting for the second step have registered passkeys? */

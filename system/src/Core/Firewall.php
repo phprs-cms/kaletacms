@@ -98,7 +98,8 @@ final class Firewall
     private static function refuse(Db $db, string $ip, string $reason, string $path): Response
     {
         if ((int) $db->value('SELECT COUNT(*) FROM {firewall_log} WHERE created_at > ?', [Clock::at('-1 hour')]) < self::LOG_PER_HOUR) {
-            $db->insert('firewall_log', ['created_at' => date('Y-m-d H:i:s'), 'ip' => $ip, 'reason' => $reason, 'path' => '/' . mb_substr($path, 0, 254)]);
+            // the whistleblowing channel (3.15, N46): the log says a report page was refused, never from which address
+            $db->insert('firewall_log', ['created_at' => date('Y-m-d H:i:s'), 'ip' => str_starts_with($path, '_report') ? '' : $ip, 'reason' => $reason, 'path' => '/' . mb_substr($path, 0, 254)]);
         }
 
         return $reason === 'rate'

@@ -65,6 +65,10 @@ $role = [
 	<div><input class="textpole" type="password" id="password" name="password" size="30" minlength="10" autocomplete="new-password">
 	<label style="font-weight:normal"><input type="checkbox" data-ukaz-heslo="password"> <?= e(t('zobrazit')) ?></label><?= $error('password') ?>
 	<span class="napoveda"><?= e(t('At least 10 characters.')) ?> <?= e(t($author['idu'] ? 'Leave empty if you are not changing the password.' : 'The user can change it later under My account.')) ?></span>
+<?php if ($author['idu'] && array_filter($connections ?? [], fn (array $c): bool => $c['kind'] === 'token') !== []): ?>
+	<label style="font-weight:normal"><input type="checkbox" name="zrusit_tokeny" value="1" checked> <?= e(t('also revoke connection tokens (Claude, API)')) ?></label>
+	<span class="napoveda"><?= e(t('A token works without the password and without two-factor sign-in. If you are changing the password because you suspect misuse, leave this ticked and create the connection again afterwards.')) ?></span>
+<?php endif ?>
 <?php if (!$author['idu']): ?>
 	<label style="font-weight:normal"><input type="checkbox" name="pozvat" value="1"> <?= e(t('Instead of a password, send an e-mail invitation – the user sets their own password')) ?></label>
 <?php endif ?>

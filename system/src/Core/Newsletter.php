@@ -159,7 +159,9 @@ final class Newsletter
             'header' => implode("\r\n", array_merge(['Content-Type: application/json; charset=utf-8', 'Accept: application/json', 'User-Agent: Kaleta/' . KALETA_VERSION], $headers)) . "\r\n",
             'content' => $body === null ? '' : (string) json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ]]));
-        $code = isset($http_response_header[0]) && preg_match('#^HTTP/\S+\s+(\d{3})#', $http_response_header[0], $m) ? (int) $m[1] : 0;
+        // the status line through last_response_headers(): PHP 8.5 deprecates reading $http_response_header (3.15, N74)
+        $status = last_response_headers($http_response_header ?? null)[0] ?? ''; // @phpstan-ignore nullCoalesce.variable (undefined on PHP 8.3 when the request fails)
+        $code = preg_match('#^HTTP/\S+\s+(\d{3})#', $status, $m) ? (int) $m[1] : 0;
 
         return [$code, is_string($response) ? $response : ''];
     }

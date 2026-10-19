@@ -5899,4 +5899,6 @@ return [
     'Update' => 'Aktualizovat',
     // 3.15: the update to 4.0 waits for the blocking checks of Ready for 4.0
     'The update to a new major version waits until Ready for 4.0 clears: %s.' => 'Aktualizace na novou hlavní verzi počká, až kontrola Připraveno na 4.0 nebude hlásit: %s.',
+    'media/.htaccess does not have the rules of Kaleta 3.15 that block files like photo.php.jpg and offer documents for download whatever the case of their extension – copy media/.htaccess from the release package (on nginx, the media rules of system/nginx.example.conf).' => 'media/.htaccess nemá pravidla Kalety 3.15, která blokují soubory jako foto.php.jpg a nabízejí dokumenty ke stažení bez ohledu na velikost písmen přípony – zkopírujte media/.htaccess z balíčku vydání (na nginx pravidla pro média ze system/nginx.example.conf).',
+    'A newer media/.htaccess.kaleta-nova is next to your customised media/.htaccess – carry over its rules (since 3.9.2 they block files like photo.php.jpg, since 3.15 the download rules also match an upper-case extension), then delete the file.' => 'Vedle vašeho upraveného media/.htaccess je novější media/.htaccess.kaleta-nova – převezměte z něj pravidla (od 3.9.2 blokují soubory jako foto.php.jpg, od 3.15 platí pravidla pro stahování i pro příponu velkými písmeny) a soubor smažte.',
 ];

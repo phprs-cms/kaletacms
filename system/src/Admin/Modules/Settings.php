@@ -434,6 +434,8 @@ class Settings extends Module
         if ($path === null) {
             return $this->error('Backup does not exist.', 404);
         }
+        // a backup holds every account and key of the site: who downloaded which one is in the change log (3.15, N42)
+        \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'backup downloaded', basename($path));
         $this->sendFile($path, basename($path)); // streamed: a large backup does not have to fit in memory
     }
 
