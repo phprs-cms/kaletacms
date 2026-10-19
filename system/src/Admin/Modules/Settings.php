@@ -208,6 +208,7 @@ class Settings extends Module
                 // the shared design kit (2.16, Fleet\Kit): opt-in, the version that arrived as drafts, and whether those drafts still wait
                 'kit' => $settings->bool('fleet_kit'), 'kitVersion' => $settings->int('fleet_kit_version'), 'kitApplied' => $settings->int('fleet_kit_applied_at'),
                 'kitError' => $settings->get('fleet_kit_error'), 'kitWaiting' => \Kaleta\Fleet\Kit::waiting($this->db, $settings),
+                'titles' => $settings->bool('fleet_request_titles'), // 3.16: request titles in the heartbeat
             ] : [],
             'consents' => $tab === 'cookies' ? $this->db->all("SELECT kategorie, COUNT(*) AS pocet FROM {souhlasy} WHERE cas > ? GROUP BY kategorie ORDER BY pocet DESC", [\Kaleta\Core\Clock::at('-30 days')]) : [],
             'cookieTable' => $tab === 'cookies' ? \Kaleta\Core\Privacy::cookieTable($this->app) : [],
@@ -596,6 +597,18 @@ class Settings extends Module
         }
 
         return $this->back('The choice about the shared kit is saved.', '', ['tab' => 'console']);
+    }
+
+    /** 3.16: whether the heartbeat carries the titles of Ask Claude requests (Fleet\Heartbeat) – the console's inbox across sites. */
+    protected function actionFleetTitles(): Response
+    {
+        if ($this->request->isPost()) {
+            $on = $this->request->postBool('fleet_request_titles');
+            $this->app->settings()->set('fleet_request_titles', $on ? '1' : '0');
+            \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'fleet_request_titles', $on ? 'on' : 'off');
+        }
+
+        return $this->back('The choice about request titles is saved.', '', ['tab' => 'console']);
     }
 
     protected function actionFirewallUnblock(): Response

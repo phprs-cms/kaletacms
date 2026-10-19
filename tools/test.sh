@@ -3594,6 +3594,31 @@ expect "pairing: the site knows its console and its number there" "$(sq "SELECT 
 expect "pairing: the console has the site with its first report" "$(sq3 "SELECT CONCAT(COUNT(*), '|', MAX(last_seen IS NOT NULL), '|', MAX(version <> ''), '|', MAX(manage_updates), '|', MAX(heartbeat LIKE '%enquiries_unanswered%')) FROM ka_fleet_sites")" "1|1|1|1|1"
 expect "pairing: the code works only once" "$(sq3 "SELECT COUNT(*) FROM ka_fleet_pairing WHERE used_at IS NOT NULL")" "1"
 sq3 "SELECT heartbeat FROM ka_fleet_sites" | contains '@' && { echo "  CHYBA  the report carries an e-mail address"; ERRORS=$((ERRORS+1)); } || echo "  ok     the report carries no e-mail addresses"
+# 3.16: what waits for people – request titles (switchable on the site, on by default, e-mail addresses masked), security counts without addresses
+sq "INSERT INTO ka_requests (created_at, updated_at, author_id, title, text, about, status) SELECT '$(site_time '-3 days')', '$(site_time '-3 days')', idu, 'Fleet316 ceník – napište na jana.fleet@example.cz', 'Tajný text požadavku 316', '', 'new' FROM ka_uzivatele WHERE user = 'admin';
+  INSERT INTO ka_requests (created_at, updated_at, author_id, title, text, about, status) SELECT '$(site_time '-1 hour')', '$(site_time '-1 hour')', idu, 'Fleet316 nová fotka týmu', 'Text 316', '', 'in_progress' FROM ka_uzivatele WHERE user = 'admin';
+  INSERT INTO ka_firewall_log (created_at, ip, reason, path) VALUES ('$(site_time '-1 hour')', '203.0.113.77', 'probe', '/wp-login.php');
+  INSERT INTO ka_kontrola_ip (ip_adresa, typ, cil, cas) VALUES ('203.0.113.78', 'login', 0, '$(site_time '-1 hour')')" > /dev/null
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"; sleep 1
+grep -q 'name="fleet_request_titles" value="1" checked' "$WORK/response" && echo "  ok     Settings → Fleet console: request titles are shared by default, with the switch" || { echo "  CHYBA  the request titles switch is missing or off"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_send" -d "_csrf=$(csrf)"
+FLEET_BEAT=$(sq3 "SELECT heartbeat FROM ka_fleet_sites")
+contains -qF 'Fleet316 nová fotka týmu' <<< "$FLEET_BEAT" && contains -qF 'Fleet316 ceník – napište na [e-mail]' <<< "$FLEET_BEAT" && echo "  ok     the report carries the request titles, the e-mail address in a title masked" || { echo "  CHYBA  request titles in the report"; ERRORS=$((ERRORS+1)); }
+contains -q '@' <<< "$FLEET_BEAT" && { echo "  CHYBA  the report with request titles carries an e-mail address"; ERRORS=$((ERRORS+1)); } || echo "  ok     the report with request titles carries no e-mail address"
+contains -qE '203\.0\.113\.7|Tajný text|wp-login' <<< "$FLEET_BEAT" && { echo "  CHYBA  the report carries an address, a path or a request text"; ERRORS=$((ERRORS+1)); } || echo "  ok     the report carries no visitor address, path or request text"
+expect "the report counts the requests, the oldest waiting, the failed sign-ins and the firewall by reason" "$(sq3 "SELECT CONCAT(JSON_EXTRACT(heartbeat, '\$.requests.new') >= 1, '|', JSON_EXTRACT(heartbeat, '\$.requests.in_progress') >= 1, '|', JSON_EXTRACT(heartbeat, '\$.requests.oldest_waiting_hours') >= 71, '|', JSON_EXTRACT(heartbeat, '\$.security_7_days.failed_sign_ins') >= 1, '|', JSON_EXTRACT(heartbeat, '\$.security_7_days.firewall.probe') >= 1, '|', JSON_TYPE(JSON_EXTRACT(heartbeat, '\$.pending_review')), '|', JSON_TYPE(JSON_EXTRACT(heartbeat, '\$.enquiries_new_not_spam'))) FROM ka_fleet_sites")" "1|1|1|1|1|OBJECT|INTEGER"
+FLEET_REQ=$(sq "SELECT id FROM ka_requests WHERE title LIKE 'Fleet316 nová%'")
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=detail&id=$(sq3 "SELECT id FROM ka_fleet_sites LIMIT 1")"
+grep -qF "$B/admin.php?module=requests&amp;action=detail&amp;id=$FLEET_REQ" "$WORK/response" && grep -qF 'Fleet316 nová fotka týmu' "$WORK/response" && grep -q 'requests wait over 48 hours\|požadavky čekají přes 48 hodin' "$WORK/response" \
+  && echo "  ok     console: the detail lists what waits – request titles as plain links to the site's administration, the reason for attention" || { echo "  CHYBA  console: the Waiting block of the site detail"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"; sleep 1
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_titles" -d "_csrf=$(csrf)"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_send" -d "_csrf=$(csrf)"
+FLEET_BEAT=$(sq3 "SELECT heartbeat FROM ka_fleet_sites")
+expect "request titles off: the report has the counts but no titles" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_request_titles'")|$(contains -q 'Fleet316' <<< "$FLEET_BEAT" && echo titles || echo none)|$(sq3 "SELECT CONCAT(JSON_TYPE(JSON_EXTRACT(heartbeat, '\$.requests.items')), '|', JSON_EXTRACT(heartbeat, '\$.requests.new') >= 1) FROM ka_fleet_sites")" "0|none|NULL|1"
+contains -q '@' <<< "$FLEET_BEAT" && { echo "  CHYBA  the report carries an e-mail address"; ERRORS=$((ERRORS+1)); } || echo "  ok     the report without titles carries no e-mail address either"
+sq "UPDATE ka_nastaveni SET hodnota = '1' WHERE promenna = 'fleet_request_titles'; DELETE FROM ka_requests WHERE title LIKE 'Fleet316%'; DELETE FROM ka_firewall_log WHERE ip = '203.0.113.77'; DELETE FROM ka_kontrola_ip WHERE ip_adresa = '203.0.113.78'" > /dev/null
 FLEET_NAME=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_name'")
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&show=all"
 grep -qF "$FLEET_NAME" "$WORK/response" && echo "  ok     console: the site is in the list" || { echo "  CHYBA  konzole: web není v seznamu"; ERRORS=$((ERRORS+1)); }

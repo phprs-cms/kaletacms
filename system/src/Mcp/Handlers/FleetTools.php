@@ -29,7 +29,7 @@ trait FleetTools
         return [
             'sites' => array_map(fn (array $s): array => ['id' => (int) $s['id'], 'name' => (string) $s['name'], 'url' => (string) $s['url'], 'version' => (string) $s['version'],
                 'attention' => $s['reasons'], 'score' => $s['score'], 'last_report' => $s['last_seen'], 'up' => $s['up'] === null ? null : (int) $s['up'] === 1,
-                'ring' => (string) $s['ring'], 'console_decides_updates' => (int) $s['manage_updates'] === 1, 'enquiries_waiting' => $s['beat']['enquiries_unanswered'] ?? null,
+                'ring' => (string) $s['ring'], 'console_decides_updates' => (int) $s['manage_updates'] === 1, 'enquiries_waiting' => Console::enquiriesWaiting($s['beat']),
                 'kit_version' => $s['beat']['kit_version'] ?? null], $sites),
             'newest_version' => Console::latest($this->app)[0],
             // the shared design kit (2.16, Fleet\Kit): the newest version the console published; kit_version says which one each site applied

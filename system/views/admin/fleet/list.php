@@ -50,7 +50,7 @@ $severity = fn (string $r): string => Console::REASONS[$r] >= Console::REASONS['
 	<td><?php if ($s['reasons'] === []): ?><span class="stitek stitek-vydano"><?= e(t('ok')) ?></span><?php endif ?><?php foreach ($s['reasons'] as $r): ?><span class="stitek<?= $severity($r) !== '' ? ' stitek-' . $severity($r) : '' ?>"><?= e($reasonLabels[$r]) ?></span> <?php endforeach ?></td>
 	<td><?= e((string) $s['version'] !== '' ? (string) $s['version'] : '–') ?><?php if ((string) $s['update_allowed'] !== ''): ?><br><span class="smltxt"><?= e(t('allowed %s', (string) $s['update_allowed'])) ?></span><?php endif ?></td>
 	<td><?= $s['last_seen'] !== null ? e(format_date(new DateTimeImmutable((string) $s['last_seen']), true)) : '–' ?></td>
-	<td class="stred"><?= isset($s['beat']['enquiries_unanswered']) ? (int) $s['beat']['enquiries_unanswered'] : '–' ?></td>
+	<td class="stred"><?= ($waiting = Console::enquiriesWaiting($s['beat'])) !== null ? $waiting : '–' ?></td>
 </tr>
 <?php endforeach ?>
 </tbody></table></div>

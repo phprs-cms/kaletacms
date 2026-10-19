@@ -61,11 +61,32 @@ final class PendingReview
     }
 
     /**
-     * One kind: [count, admin URL, example titles].
+     * 3.16: how much of each kind waits on the whole site, whoever looks – for the fleet heartbeat (Fleet\Heartbeat), which
+     * a background job sends without a signed-in person. Counts only, every kind (0 when nothing waits); a kind whose
+     * table is missing counts 0.
+     *
+     * @return array<string, int> kind => count, in the order of KINDS
+     */
+    public static function counts(App $app): array
+    {
+        $out = [];
+        foreach (array_keys(self::KINDS) as $kind) {
+            try {
+                $out[$kind] = (self::find($app, $kind, true) ?? [0])[0];
+            } catch (\Throwable) {
+                $out[$kind] = 0;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * One kind: [count, admin URL, example titles]. $siteWide (3.16): the whole site, not what the signed-in person may do.
      *
      * @return array{0: int, 1: string, 2: list<string>}|null
      */
-    private static function find(App $app, string $kind): ?array
+    private static function find(App $app, string $kind, bool $siteWide = false): ?array
     {
         $db = $app->db();
         $limit = ' LIMIT ' . self::EXAMPLES;
@@ -96,11 +117,11 @@ final class PendingReview
                 return [array_sum($counts), 'admin.php?module=pages', $examples];
             case 'news_drafts':
                 // drafts an editor can publish: recent ones, and those of news authors whatever their age (they wait for an editor)
-                $auth = $app->auth();
-                if (!$auth->isAdmin() && !$auth->isEditor()) {
+                $auth = $siteWide ? null : $app->auth(); // site-wide: no signed-in person (the heartbeat job)
+                if ($auth !== null && !$auth->isAdmin() && !$auth->isEditor()) {
                     return null; // an author's drafts wait for an editor, not for the author
                 }
-                $where = 'FROM {novinky} c WHERE c.visible = 0 AND c.smazano IS NULL' . $auth->articleScope('c.')
+                $where = 'FROM {novinky} c WHERE c.visible = 0 AND c.smazano IS NULL' . ($auth !== null ? $auth->articleScope('c.') : '')
                     . ' AND (COALESCE(c.zmeneno, c.datum) >= ? OR ' . \Kaleta\Admin\Modules\News::AWAITING_PUBLICATION . ')';
                 $since = [Clock::at('-' . self::ITEM_DAYS . ' days')];
 
@@ -115,7 +136,7 @@ final class PendingReview
                 return [(int) $db->value('SELECT COUNT(*) ' . $where, $since), count($collections) === 1 ? 'admin.php?module=collections&action=items&id=' . $collections[0] : 'admin.php?module=collections',
                     array_map(fn (array $r): string => $r['nazev'] . ' (' . $r['kolekce'] . ')', $db->all('SELECT p.nazev, k.nazev AS kolekce ' . $where . ' ORDER BY COALESCE(p.zmeneno, p.datum) DESC' . $limit, $since))];
             case 'staged_media':
-                if (!$app->auth()->canPublish()) {
+                if (!$siteWide && !$app->auth()->canPublish()) {
                     return null; // approving makes the file public – whoever may publish does it
                 }
                 $rows = $db->all('SELECT obr_poloha, nazev FROM {media} WHERE staged_at IS NOT NULL ORDER BY ido DESC' . $limit);
