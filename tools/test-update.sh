@@ -197,8 +197,13 @@ if [ "$FROM_1X" = 1 ]; then
   curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?modul=config&akce=aktualizuj" -d "_csrf=$TOKEN"
 else
   curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"; TOKEN=$(csrf)
-  # 3.15: the old release reads only aktualizace.json – it is offered the release of its line, never Kaleta 4 next to it
-  grep -qF "$NEW_VERSION" "$WORK/response" && ! grep -qF '4.0.0' "$WORK/response" && echo "  ok     the old release is offered $NEW_VERSION, not Kaleta 4.0.0" || { echo "  CHYBA  the old release's update offer"; ERRORS=$((ERRORS+1)); }
+  # 3.15: a release before 3.15 reads only aktualizace.json – it is offered the release of its line, never Kaleta 4 next to it;
+  # 3.15 and later also read aktualizace-4.json and show 4.0.0 on its own (checked after the update below)
+  if php -r 'exit(version_compare(ltrim($argv[1], "v"), "3.15.0", "<") ? 0 : 1);' "$FROM"; then
+    grep -qF "$NEW_VERSION" "$WORK/response" && ! grep -qF '4.0.0' "$WORK/response" && echo "  ok     the old release is offered $NEW_VERSION, not Kaleta 4.0.0" || { echo "  CHYBA  the old release's update offer"; ERRORS=$((ERRORS+1)); }
+  else
+    grep -qF "$NEW_VERSION" "$WORK/response" && echo "  ok     the old release is offered $NEW_VERSION" || { echo "  CHYBA  the old release's update offer"; ERRORS=$((ERRORS+1)); }
+  fi
   curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&action=update" -d "_csrf=$TOKEN" || { echo "  CHYBA  the update request got no answer; server log:"; tail -20 "$WORK/server.log"; exit 1; }
 fi
 if grep -qF "$NEW_VERSION" "$WORK/response"; then echo "  ok     update installed"; else
