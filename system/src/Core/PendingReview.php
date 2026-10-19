@@ -19,6 +19,7 @@ final class PendingReview
         'draft_comments' => ['Unresolved comments on drafts', 'pages'],
         'news_drafts' => ['News drafts to publish', 'news'],
         'hidden_items' => ['Hidden collection items changed in the last 30 days', 'collections'],
+        'staged_media' => ['Files from Claude waiting for approval', 'media'], // 3.15, Core\MediaStaging
         'proposed_hours' => ['Proposed exceptions to the opening hours', 'business'],
         'part_drafts' => ['Site parts with unpublished changes', 'parts'],
         'look_draft' => ['Unpublished changes of the look', 'appearance'],
@@ -113,6 +114,13 @@ final class PendingReview
 
                 return [(int) $db->value('SELECT COUNT(*) ' . $where, $since), count($collections) === 1 ? 'admin.php?module=collections&action=items&id=' . $collections[0] : 'admin.php?module=collections',
                     array_map(fn (array $r): string => $r['nazev'] . ' (' . $r['kolekce'] . ')', $db->all('SELECT p.nazev, k.nazev AS kolekce ' . $where . ' ORDER BY COALESCE(p.zmeneno, p.datum) DESC' . $limit, $since))];
+            case 'staged_media':
+                if (!$app->auth()->canPublish()) {
+                    return null; // approving makes the file public – whoever may publish does it
+                }
+                $rows = $db->all('SELECT obr_poloha, nazev FROM {media} WHERE staged_at IS NOT NULL ORDER BY ido DESC' . $limit);
+
+                return [MediaStaging::count($db), 'admin.php?module=media&staged=1', array_map(fn (array $r): string => $r['nazev'] !== '' ? (string) $r['nazev'] : basename((string) $r['obr_poloha']), $rows)];
             case 'proposed_hours':
                 $proposed = Hours::proposed($db);
 

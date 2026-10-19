@@ -35,6 +35,9 @@ final class Tools
     /** The largest file uploaded via MCP (base64 in one tool call). */
     private const int MAX_UPLOAD = 12 * 1024 * 1024;
 
+    /** What upload_file says about a file from a connection limited to drafts (3.15, N10). */
+    public const string STAGED_NOTE = 'Staged: the file is not public yet. It shows in previews and goes public with the draft that uses it when that is published, or when a person approves it in Media (Waiting for approval). Unapproved files are deleted after 30 days.';
+
     /**
      * Settings MCP can change (the others – e-mail, webhooks, 2FA, mail, backups – only in the administration). Code that runs on the site
      * (head_code, marketing_code, cookies_external_code) is not among them since 2.5.1: a prompt-injected Claude must not put script on every page.
@@ -1241,8 +1244,10 @@ final class Tools
     private function medium(array $o): array
     {
         return ['id' => (int) $o['ido'], 'nazev' => $o['nazev'], 'adresa' => $o['obr_poloha'], 'url' => $this->app->request->origin() . $this->app->url($o['obr_poloha']),
-            'obrazek' => $o['nahl_poloha'] !== '', 'rozmery' => $o['nahl_poloha'] !== '' ? $o['obr_width'] . '×' . $o['obr_height'] : null];
+            'obrazek' => $o['nahl_poloha'] !== '', 'rozmery' => $o['nahl_poloha'] !== '' ? $o['obr_width'] . '×' . $o['obr_height'] : null]
+            + (($o['staged_at'] ?? null) !== null ? ['staged' => true] : []); // 3.15: waiting for approval (Core\MediaStaging)
     }
+
 
     /** @return array<string, mixed> */
     private function uploadFile(array $a): array
@@ -1258,6 +1263,9 @@ final class Tools
                 throw new \InvalidArgumentException('Stahovat jde jen z https adresy.');
             }
             try {
+                // the "old site" of the downloader is the address itself, so its domain rule only keeps redirects on the host
+                // Claude named (S5, documented in 3.15): what protects the site is https only, a public address and the
+                // connection pinned to it on every hop, and the size and time limits
                 $content = (new \Kaleta\Core\ImageDownloader($url))->download($url, false);
             } catch (\RuntimeException $e) {
                 throw new \InvalidArgumentException('Soubor se nepodařilo stáhnout: ' . $e->getMessage());
@@ -1274,13 +1282,15 @@ final class Tools
         if ($extension === 'xml') {
             return $this->uploadWordpressExport($content, $displayName); // 3.6: never into Media – kept privately for import_wordpress
         }
+        // 3.15 (N10): from a connection limited to drafts the file waits outside the web root until it is approved
+        $staged = \Kaleta\Core\MediaStaging::appliesTo($this->app->auth());
         $temporary = tempnam(sys_get_temp_dir(), 'kaleta-mcp-');
         file_put_contents($temporary, $content);
         try {
             $data = match (true) {
-                $extension === 'svg' => Media::saveSvgContent($content, $displayName),
-                \Kaleta\Core\Files::isAttachment($displayName) => \Kaleta\Core\Files::saveFile($temporary, $displayName),
-                default => \Kaleta\Core\Images::saveFile($temporary, $displayName),
+                $extension === 'svg' => Media::saveSvgContent($content, $displayName, $staged),
+                \Kaleta\Core\Files::isAttachment($displayName) => \Kaleta\Core\Files::saveFile($temporary, $displayName, $staged),
+                default => \Kaleta\Core\Images::saveFile($temporary, $displayName, $staged),
             };
         } catch (\RuntimeException $e) {
             throw new \InvalidArgumentException($e->getMessage());
@@ -1290,13 +1300,14 @@ final class Tools
         if (is_string($a['popis'] ?? null) && trim($a['popis']) !== '') {
             $data['nazev'] = mb_substr(trim($a['popis']), 0, 150);
         }
-        $data['ido'] = $this->app->db()->insert('media', $data + ['vlastnik' => $this->app->auth()->id(), 'sekce' => null, 'datum' => date('Y-m-d H:i:s')]);
+        $now = date('Y-m-d H:i:s');
+        $data['ido'] = $this->app->db()->insert('media', $data + ['vlastnik' => $this->app->auth()->id(), 'sekce' => null, 'datum' => $now, 'staged_at' => $staged ? $now : null]);
 
-        return $this->medium($data) + ['pouziti' => match (true) {
+        return $this->medium($data + ['staged_at' => $staged ? $now : null]) + ['pouziti' => match (true) {
             $extension === 'woff2' || $extension === 'woff' => 'uprav_design_system {"ds":{"vlastni_pisma":[{"nazev":"…","soubor":"' . $data['obr_poloha'] . '"}],"pismo_titulky":"vlastni-1"}}',
             $data['nahl_poloha'] !== '' => 'prvek obrazek {"src":"' . $data['obr_poloha'] . '"} nebo styl obrazek_pozadi',
             default => 'odkaz na soubor: /' . $data['obr_poloha'],
-        }];
+        }] + ($staged ? ['note' => self::STAGED_NOTE] : []);
     }
 
     /** @return array<string, mixed> */

@@ -23,6 +23,16 @@ final class Db
     /** While a Claude connection runs a tool that changes the site: every content write is journaled for undo (2.17). */
     public ?AgentJournal $journal = null;
 
+    /**
+     * 3.15: whether the tables carry their English names (renamed by 4.0, then rolled back to 3.15). Read when the
+     * connection opens from a marker file in storage/cache (no query), and found out again – one query – only when a
+     * statement names a table the database does not have (tableNamesChanged()). null = not connected yet.
+     */
+    private ?bool $english = null;
+
+    /** MySQL/MariaDB "Table … doesn't exist". */
+    private const int MISSING_TABLE = 1146;
+
     public function __construct(
         private readonly string $dsn,
         private readonly string $user,
@@ -41,6 +51,15 @@ final class Db
         return new self($dsn, $c['user'], $c['password'], $c['prefix'] ?? 'ka_');
     }
 
+    /**
+     * The name of a GET_LOCK for one purpose (3.15): per database DSN and table prefix, so two sites on one MySQL server
+     * never wait for each other; at most 64 characters (the limit of MySQL).
+     */
+    public function lockName(string $purpose, string $scope = ''): string
+    {
+        return substr('kaleta-' . $purpose . '-' . hash('sha256', $this->dsn . '|' . $this->prefix . '|' . $scope), 0, 64);
+    }
+
     public function pdo(): PDO
     {
         if ($this->pdo === null) {
@@ -53,14 +72,79 @@ final class Db
             // On a server with the database in a different zone (typically UTC) a just published article would show up hours later.
             // An offset instead of a zone name: named zones need loaded tables in MySQL, which are often missing on hosting.
             $this->pdo->exec("SET time_zone = '" . Clock::offset() . "'");
+            // 3.15: today's names unless this database was found renamed before (the marker) – no query on a normal site
+            $this->english = $this->marker() !== null && is_file($this->marker());
+            Names::setRenamed($this->english);
         }
 
         return $this->pdo;
     }
 
     /**
+     * 3.15: asks the database which names its tables have – the settings table under today's name (`ka_nastaveni`) or under
+     * its English one (`ka_settings`, after 4.0 renamed the tables) – and remembers the answer in the marker file. Today's
+     * name wins when both exist (a backup from before 4.0 restored over a renamed database). Called when a statement
+     * misses a table, by migrations and after a backup is restored; returns whether the tables carry the English names.
+     */
+    public function detectTableNames(): bool
+    {
+        $pdo = $this->pdo();
+        $today = $this->prefix . Names::physical('nastaveni', false);
+        $english = $this->prefix . Names::physical('nastaveni', true);
+        $stmt = $pdo->prepare('SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN (?, ?)');
+        $stmt->execute([$today, $english]);
+        $found = array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+        // neither (an empty database before the installation): today's names, nothing remembered
+        $this->english = !in_array($today, $found, true) && in_array($english, $found, true);
+        Names::setRenamed($this->english);
+        $marker = $this->marker();
+        if ($marker !== null) {
+            $this->english ? @touch($marker) : (is_file($marker) && @unlink($marker));
+        }
+
+        return $this->english;
+    }
+
+    /** Whether the tables of this database carry their English names (3.15); connects first. */
+    public function englishTables(): bool
+    {
+        $this->pdo();
+
+        return (bool) $this->english;
+    }
+
+    /**
+     * The full name of a table in this database, prefix included, for the places that name it without a placeholder
+     * (information_schema, SHOW … LIKE): 'stranky' or 'pages' → ka_stranky, or ka_pages once 4.0 renamed the tables (3.15).
+     */
+    public function tableName(string $table): string
+    {
+        return $this->prefix . Names::physical($table, $this->englishTables());
+    }
+
+    /** The marker of a renamed database: one file per database and prefix in storage/cache, there only while renamed. */
+    private function marker(): ?string
+    {
+        return defined('KALETA_ROOT') ? KALETA_ROOT . '/storage/cache/tables-english-' . substr(hash('sha256', $this->dsn . '|' . $this->prefix), 0, 16) : null;
+    }
+
+    /** A statement missed a table: did the names of the tables change since the connection opened (3.15)? */
+    private function tableNamesChanged(\PDOException $e): bool
+    {
+        if ((int) ($e->errorInfo[1] ?? 0) !== self::MISSING_TABLE) {
+            return false;
+        }
+        $before = $this->english;
+        try {
+            return $this->detectTableNames() !== $before;
+        } catch (\PDOException) {
+            return false;
+        }
+    }
+
+    /**
      * Fills in the table prefix: {novinky} -> `ka_novinky`. The English name of a table works the same (3.10, Core\Names):
-     * {news} -> `ka_novinky` until a release renames the table, and both keep working after that.
+     * {news} -> `ka_novinky` until a release renames the table, and both keep working after that (3.15: `ka_news`).
      */
     public function sql(string $sql): string
     {
@@ -73,7 +157,7 @@ final class Db
                     $legacy[] = $m[1];
                 }
 
-                return '`' . $this->prefix . Names::physical($m[1]) . '`';
+                return '`' . $this->prefix . Names::physical($m[1], $this->english ?? false) . '`';
             },
             $sql,
         ) ?? $sql;
@@ -97,7 +181,29 @@ final class Db
     public function run(string $sql, array $params = []): PDOStatement
     {
         $journaled = $this->journal?->aroundRaw($sql, $params);
-        $stmt = $this->pdo()->prepare($this->sql($sql));
+        $pdo = $this->pdo(); // connected first: the connection decides which table names sql() writes
+        try {
+            $stmt = $this->statement($pdo, $sql, $params);
+        } catch (\PDOException $e) {
+            // 3.15: a missing table after the tables were renamed (4.0, or its rollback) – once more with the names the
+            // database has now; any other error, or the same answer, is thrown as it is
+            if (!$this->tableNamesChanged($e)) {
+                throw $e;
+            }
+            $stmt = $this->statement($pdo, $sql, $params);
+        }
+        $this->queryCount++;
+        if ($journaled !== null) {
+            $journaled();
+        }
+
+        return $stmt;
+    }
+
+    /** @param array<int|string, scalar|null> $params */
+    private function statement(PDO $pdo, string $sql, array $params): PDOStatement
+    {
+        $stmt = $pdo->prepare($this->sql($sql));
         foreach ($params as $key => $value) {
             $type = match (true) {
                 is_int($value) => PDO::PARAM_INT,
@@ -108,10 +214,6 @@ final class Db
             $stmt->bindValue(is_int($key) ? $key + 1 : $key, $value, $type);
         }
         $stmt->execute();
-        $this->queryCount++;
-        if ($journaled !== null) {
-            $journaled();
-        }
 
         return $stmt;
     }
@@ -147,7 +249,7 @@ final class Db
     public function insert(string $table, array $data): int
     {
         $name = $table; // the placeholder keeps the name the caller wrote ({news} resolves the same; only a legacy name is logged, 3.14)
-        $table = Names::physical($table); // {news} and 'news' are the news table – journaled and undone like 'novinky' (3.10, N310-5)
+        $table = Names::table($table); // {news} and 'news' are the news table – journaled and undone like 'novinky' (3.10, N310-5)
         $columns = array_keys($data);
         $sql = sprintf(
             'INSERT INTO {%s} (%s) VALUES (%s)',
@@ -171,7 +273,7 @@ final class Db
     public function update(string $table, array $data, array $where): int
     {
         $name = $table;
-        $table = Names::physical($table);
+        $table = Names::table($table);
         $set = implode(', ', array_map(fn (string $c): string => self::quoteName($c) . ' = ?', array_keys($data)));
         $cond = implode(' AND ', array_map(fn (string $c): string => self::quoteName($c) . ' = ?', array_keys($where)));
         $sql = sprintf('UPDATE {%s} SET %s WHERE %s', $name, $set, $cond);
@@ -188,7 +290,7 @@ final class Db
     public function delete(string $table, array $where): int
     {
         $name = $table;
-        $table = Names::physical($table);
+        $table = Names::table($table);
         if ($where === []) {
             throw new \LogicException('Deleting without a condition is not allowed.');
         }

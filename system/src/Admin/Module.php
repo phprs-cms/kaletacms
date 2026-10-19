@@ -59,6 +59,15 @@ abstract class Module
         return true;
     }
 
+    /**
+     * How many things wait in the module for someone to look at them (3.15, owner's report: a new enquiry was invisible
+     * from the menu) – the number next to the menu item; 0 = none. One cheap COUNT, called only for modules the user sees.
+     */
+    public static function badge(App $app): int
+    {
+        return 0;
+    }
+
     protected readonly App $app;
     protected readonly Db $db;
     protected readonly Request $request;

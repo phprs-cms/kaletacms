@@ -122,7 +122,9 @@ final class Catalog
         'undo_agent_session' => ['destructive', ''],
         'list_changes' => ['read', ''],
         'get_stats' => ['read', ''],
-        // Moving a site (2.7)
+        // Moving a site (2.7). Stays 'read' (3.15, N315-9; the class and annotations are part of the MCP contract): it changes
+        // nothing on the site – its outbound fetches are IP-pinned reads of the old public site (ImageDownloader, OPEN_WORLD
+        // sends it through run_destructive_tool) and its state files hold only the report; administrators only
         'migration_report' => ['read', ''],
         // 3.6: the WordPress export import – everything arrives hidden and menus go to the draft look, but it creates
         // records and redirects, so it is not for a drafts-only connection
@@ -173,7 +175,9 @@ final class Catalog
         'list_pending_review' => ['read', ''],
         'update_request' => ['draft', ''],
         // Scheduled runs (2.17): a routine in Claude asks what is due and reports what it did as drafts – report_agent_run
-        // only records the run, so a drafts-only connection (the one the runs are meant for) may call both
+        // only records the run, so a drafts-only connection (the one the runs are meant for) may call both.
+        // get_due_agent_runs keeps 'read' and readOnlyHint (3.15, N315-9; the contract): it changes no content – it marks
+        // runs as handed out – and refuses read-only connections itself (Handlers\AgentRunTools), which could not report them
         'get_due_agent_runs' => ['read', ''],
         'report_agent_run' => ['draft', ''],
         // Content hygiene (2.14)

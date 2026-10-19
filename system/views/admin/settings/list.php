@@ -12,6 +12,7 @@
  * @var list<string> $enabledExtensions
  * @var list<array{soubor:string, velikost:int, cas:int}> $backups
  * @var array<string, mixed>|null $update
+ * @var array<string, mixed>|null $major  the next major version on offer (3.15, Core\Updater::nextMajor), Backups and updates and System status only
  * @var list<array{kategorie:string, pocet:int}> $consents
  * @var list<string> $errorLog  last lines of the error log
  * @var string $remoteStatus  result of the last backup upload off the server

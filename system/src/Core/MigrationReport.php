@@ -252,7 +252,7 @@ final class MigrationReport
         if (count($s) === 2) {
             $item = $db->one('SELECT p.nazev, p.seo_titulek, p.popis, p.zobrazit, p.data, k.stavba AS sablona FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.seo_link = ? AND k.detail = 1 AND p.seo_link = ? AND p.smazano IS NULL ORDER BY p.jazyk = ? DESC LIMIT 1', [$s[0], $s[1], $column]);
             if ($item !== null) {
-                // 3.14.2: the item page is drawn by the collection's template – its form (also one inside a component) and images count
+                // 3.15.1: the item page is drawn by the collection's template – its form (also one inside a component) and images count
                 $template = $item['sablona'] !== null ? Build::fromJson((string) $item['sablona']) : null;
                 [$forms, $images] = self::countElements($template['deti'] ?? [], $db);
 
@@ -291,7 +291,7 @@ final class MigrationReport
 
     /**
      * Forms and images in a build: the Form element, and the Image element plus the photos of galleries and carousels.
-     * With the database, a Component element counts what its published build holds (3.14.2) – a form shared by pages
+     * With the database, a Component element counts what its published build holds (3.15.1) – a form shared by pages
      * as a component is still a form.
      *
      * @param list<array<string, mixed>> $children

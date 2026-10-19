@@ -10,6 +10,11 @@
  * channel (same key, same format, "kanal": "stable"). With --package=dist/kaleta-X.Y.Z.zip the package already built and
  * uploaded for the latest channel is signed for the stable channel as it is (a promotion) instead of building a new one.
  *   php tools/release.php 3.8.4 --channel=stable --package=dist/kaleta-3.8.4.zip --url=…/v3.8.4/kaleta-3.8.4.zip --zmena="…"
+ * 3.15: every major version has its own manifest (Core\Updater::manifestFile): a 3.x release writes dist/aktualizace.json,
+ * a 4.x release dist/aktualizace-4.json (the stable channel: aktualizace-4-stable.json). The file follows from the version –
+ * a 4.0 release can never land in aktualizace.json, which sites before 3.15 read. --major says the release is meant to be
+ * a new major version and stops when it is not (a typo in the version would otherwise go to the regular channel).
+ *   php tools/release.php 4.0.0 --major --url=…/v4.0.0/kaleta-4.0.0.zip --zmena="…"     → dist/aktualizace-4.json
  * Instead of a file, the private key can be passed in the KALETA_KLIC environment variable (base64) - for releasing from GitHub Actions.
  *
  * Creates dist/kaleta-<version>.zip (files tracked by git) and dist/aktualizace.json signed with the private key – with both
@@ -28,7 +33,7 @@ if (PHP_SAPI !== 'cli') {
 }
 $root = dirname(__DIR__);
 $version = $argv[1] ?? '';
-$options = ['url' => '', 'zmeny' => [], 'bezpecnostni' => false, 'klic' => 'provozni', 'channel' => 'latest', 'package' => ''];
+$options = ['url' => '', 'zmeny' => [], 'bezpecnostni' => false, 'klic' => 'provozni', 'channel' => 'latest', 'package' => '', 'major' => false];
 foreach (array_slice($argv, 2) as $arg) {
     if (str_starts_with($arg, '--url=')) {
         $options['url'] = substr($arg, 6);
@@ -42,6 +47,8 @@ foreach (array_slice($argv, 2) as $arg) {
         $options['channel'] = substr($arg, 10);
     } elseif (str_starts_with($arg, '--package=')) {
         $options['package'] = substr($arg, 10);
+    } elseif ($arg === '--major') {
+        $options['major'] = true;
     }
 }
 if (str_starts_with($version, '--novy-klic=')) {
@@ -69,6 +76,16 @@ if (!preg_match('/^\d+\.\d+\.\d+([.-][0-9A-Za-z.-]+)?$/', $version)) {
 }
 if (!in_array($options['channel'], ['latest', 'stable'], true)) {
     exit("--channel must be latest or stable.\n");
+}
+// 3.15: the manifest of the release's own major line – aktualizace.json stays the 3.x line for good (sites before 3.15 read
+// only that one), a 4.x release goes to aktualizace-4.json, which only 3.15 and later read
+require_once $root . '/system/src/Core/Updater.php';
+$releaseMajor = Kaleta\Core\Updater::majorOf($version);
+if ($options['major'] && $releaseMajor <= 3) {
+    exit("--major: {$version} is not a new major version (4.0 and later have their own manifest).\n");
+}
+if (!$options['major'] && $releaseMajor > 3 && str_ends_with($version, '.0.0')) {
+    exit("{$version} starts a new major line – add --major to confirm (it is published in " . Kaleta\Core\Updater::manifestFile($releaseMajor) . ", never in aktualizace.json).\n");
 }
 // the files of the release: the working tree, or (--package) the package that was already built – read from inside the ZIP
 $releaseFile = static fn (string $path): string => (string) @file_get_contents($root . '/' . $path);
@@ -166,14 +183,20 @@ $manifest = Kaleta\Core\Signature::signManifest([
     'min_php' => $minPhp[1], 'bezpecnostni' => $options['bezpecnostni'], 'zmeny' => $options['zmeny'],
     'kanal' => $options['channel'], // 3.8: a site on the stable channel accepts only a manifest that says "stable" (Core\Updater::choose)
 ], $sk);
-$manifestName = $options['channel'] === 'stable' ? 'aktualizace-stable.json' : 'aktualizace.json';
+$manifestName = Kaleta\Core\Updater::manifestFile($releaseMajor, $options['channel']); // 3.15: aktualizace.json, aktualizace-stable.json, aktualizace-4.json…
+// N315-8: a 4.x manifest never goes to the 3.x files – sites before 3.15 (stable ones too) read only those and would take it
+if ($releaseMajor > 3 && in_array($manifestName, [Kaleta\Core\Updater::manifestFile(3), Kaleta\Core\Updater::manifestFile(3, 'stable')], true)) {
+    exit("{$version} is a release of Kaleta {$releaseMajor}: its manifest must not be written to {$manifestName}.\n");
+}
 @mkdir($root . '/dist');
 file_put_contents($root . '/dist/' . $manifestName, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n");
 echo "Hotovo: " . ($options['package'] !== '' ? $options['package'] : "dist/kaleta-{$version}.zip") . " (" . round(filesize($zipFile) / 1024) . " kB) a dist/{$manifestName}\n";
 if ($options['url'] === '') {
     echo "POZOR: nezadali jste --url, doplňte adresu ZIPu do dist/{$manifestName} PŘED podpisem (spusťte znovu s --url).\n";
 } elseif ($options['channel'] === 'stable') {
-    echo "1) The ZIP must be at {$options['url']} (its release on GitHub)\n2) gh release upload stable-channel dist/aktualizace-stable.json --clobber (docs/RELEASING.md, Release channels)\n";
+    echo "1) The ZIP must be at {$options['url']} (its release on GitHub)\n2) gh release upload stable-channel dist/{$manifestName} --clobber (docs/RELEASING.md, Release channels)\n";
+} elseif ($releaseMajor > 3) {
+    echo "1) The ZIP must be at {$options['url']}\n2) Upload dist/{$manifestName} next to aktualizace.json on the project website – only 3.15 and later read it, and none installs it by itself (docs/RELEASING.md, Major versions).\n";
 } else {
     echo "1) ZIP nahrajte na {$options['url']}\n2) aktualizace.json nahrajte na web projektu.\n";
 }

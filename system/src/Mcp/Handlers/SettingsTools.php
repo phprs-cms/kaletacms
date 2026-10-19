@@ -38,6 +38,7 @@ trait SettingsTools
         };
 
         $adminOnly();
+        $instructionsBefore = $siteSettings->get('claude_instructions'); // 3.15 (N44): a change goes to the change log and the dashboard
         $changes = is_array($a['nastaveni'] ?? null) ? $a['nastaveni'] : [];
         $stored = [];
         $errors = [];
@@ -145,6 +146,7 @@ trait SettingsTools
         if ($stored !== []) {
             \Kaleta\Front\Cache::clear();
         }
+        \Kaleta\Core\ClaudeInstructions::changed($this->app, $instructionsBefore, $siteSettings->get('claude_instructions'));
         if (isset($stored['company_hours'])) {
             \Kaleta\Core\GoogleBusiness::hoursChanged($this->app); // the Business Profile gets the new week (2.13)
         }

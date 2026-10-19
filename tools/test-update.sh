@@ -61,7 +61,7 @@ echo "== package of the working tree, signed with a throwaway key"
 (cd "$ROOT" && git ls-files -z --cached --others --exclude-standard | while IFS= read -r -d '' s; do [ -e "$s" ] && printf '%s\n' "$s"; done) > "$WORK/nove-soubory.txt"
 cat > "$WORK/balicek.php" <<'PHP'
 <?php
-[, $root, $site, $channel, $port] = $argv;
+[, $root, $site, $channel, $port, $newVersion] = $argv;
 require $root . '/system/src/Core/Signature.php';
 require $root . '/system/src/Core/Integrity.php';
 $exclude = '#^(tools/|docs/|integrations/|\.github/|\.claude/|CLAUDE\.md$|\.gitignore$|\.gitleaks\.toml$|\.git-blame-ignore-revs$|phpstan\.neon\.dist$|phpstan-baseline\.neon$|docker/|Dockerfile$|compose\.yaml$|\.dockerignore$)#';
@@ -97,7 +97,7 @@ foreach (file($channel . '/../nove-soubory.txt', FILE_IGNORE_NEW_LINES) as $s) {
     }
     if ($s === 'system/bootstrap.php') {
         // the package is a new release: its version is what the site shows after the update and what triggers the one-time cleanup
-        $content = (string) preg_replace("/const KALETA_VERSION = '[^']*';/", "const KALETA_VERSION = '99.0.0';", $content);
+        $content = (string) preg_replace("/const KALETA_VERSION = '[^']*';/", "const KALETA_VERSION = '" . $newVersion . "';", $content);
     }
     $zip->addFromString($s, $content);
     if (!preg_match($unhashed, $s)) {
@@ -115,12 +115,16 @@ foreach (file($channel . '/../stare-soubory.txt', FILE_IGNORE_NEW_LINES) as $s) 
     }
 }
 ksort($hashes);
-$zip->addFromString('system/soubory.json', substr($fileList('99.0.0', $hashes), 0, -2) . ",\n    \"legacy\": " . json_encode((object) $legacy, JSON_UNESCAPED_SLASHES) . "\n}\n");
+$zip->addFromString('system/soubory.json', substr($fileList($newVersion, $hashes), 0, -2) . ",\n    \"legacy\": " . json_encode((object) $legacy, JSON_UNESCAPED_SLASHES) . "\n}\n");
 $zip->close();
 $sha = hash_file('sha256', $channel . '/kaleta.zip');
 // signed as tools/release.php signs (3.9): v1 for the old release up to 3.8, v2 over every field for 3.9 and later
-file_put_contents($channel . '/aktualizace.json', json_encode(Kaleta\Core\Signature::signManifest(['verze' => '99.0.0', 'vydano' => date('Y-m-d'), 'url' => "http://127.0.0.1:$port/kaleta.zip", 'sha256' => $sha,
+file_put_contents($channel . '/aktualizace.json', json_encode(Kaleta\Core\Signature::signManifest(['verze' => $newVersion, 'vydano' => date('Y-m-d'), 'url' => "http://127.0.0.1:$port/kaleta.zip", 'sha256' => $sha,
     'min_php' => '8.4', 'bezpecnostni' => false, 'zmeny' => ['test'], 'kanal' => 'latest'], $sk)));
+// 3.15: Kaleta 4.0.0 on its own manifest next to it – marked security, so a site that took it for a regular release would
+// install it by itself. Only 3.15 and later read this file; the old release must get the 3.x package above first.
+file_put_contents($channel . '/aktualizace-4.json', json_encode(Kaleta\Core\Signature::signManifest(['verze' => '4.0.0', 'vydano' => date('Y-m-d'), 'url' => "http://127.0.0.1:$port/kaleta.zip", 'sha256' => $sha,
+    'min_php' => '8.4', 'bezpecnostni' => true, 'zmeny' => ['Kaleta 4 test'], 'kanal' => 'latest'], $sk)));
 echo '  ok     ' . count($hashes) . " files in the package\n";
 PHP
 # a class file of the old release that the new one no longer has: the update must delete it
@@ -166,8 +170,10 @@ PHP
   NEW_VERSION=$(php -r 'echo json_decode(file_get_contents($argv[1]), true)["verze"];' "$WORK/kanal/aktualizace.json")
   echo "  ok     release package $PACKAGE ($NEW_VERSION)"
 else
-  php "$WORK/balicek.php" "$ROOT" "$WORK/web" "$WORK/kanal" "$CHANNEL_PORT"
-  NEW_VERSION=99.0.0
+  # the package is a newer release of the working tree's line (3.15: a regular update never moves to another major)
+  TREE_VERSION=$(sed -n "s/^const KALETA_VERSION = '\(.*\)';/\1/p" "$ROOT/system/bootstrap.php")
+  NEW_VERSION="${TREE_VERSION%.*}.99"
+  php "$WORK/balicek.php" "$ROOT" "$WORK/web" "$WORK/kanal" "$CHANNEL_PORT" "$NEW_VERSION"
 fi
 (cd "$WORK/kanal" && exec php -S "127.0.0.1:$CHANNEL_PORT" > /dev/null 2>&1) & CHANNEL_PID=$!
 for i in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$CHANNEL_PORT/aktualizace.json" && break; sleep 0.2; done
@@ -191,6 +197,8 @@ if [ "$FROM_1X" = 1 ]; then
   curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?modul=config&akce=aktualizuj" -d "_csrf=$TOKEN"
 else
   curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"; TOKEN=$(csrf)
+  # 3.15: the old release reads only aktualizace.json – it is offered the release of its line, never Kaleta 4 next to it
+  grep -qF "$NEW_VERSION" "$WORK/response" && ! grep -qF '4.0.0' "$WORK/response" && echo "  ok     the old release is offered $NEW_VERSION, not Kaleta 4.0.0" || { echo "  CHYBA  the old release's update offer"; ERRORS=$((ERRORS+1)); }
   curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&action=update" -d "_csrf=$TOKEN" || { echo "  CHYBA  the update request got no answer; server log:"; tail -20 "$WORK/server.log"; exit 1; }
 fi
 if grep -qF "$NEW_VERSION" "$WORK/response"; then echo "  ok     update installed"; else
@@ -222,6 +230,8 @@ check "admin dashboard" /admin.php
 expect "database migrated to $LAST_MIGRATION" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'")" "$LAST_MIGRATION"
 # 3.9.2 (N67): an update never overwrites media/, migration 0084 brings the newer media/.htaccess to the site
 if [ "$LAST_MIGRATION" -ge 84 ]; then grep -q 'shtml|html?|js)(\\.|\$)' "$WORK/web/media/.htaccess" && echo "  ok     media/.htaccess refuses a script extension inside the name (migration 0084)" || { echo "  CHYBA  media/.htaccess not updated by migration 0084"; ERRORS=$((ERRORS+1)); }; fi
+# 3.15 (N72): migration 0098 makes the header rules of media/.htaccess match an upper-case extension too
+if [ "$LAST_MIGRATION" -ge 98 ]; then grep -q '<FilesMatch "(?i)\\.svg\$">' "$WORK/web/media/.htaccess" && echo "  ok     media/.htaccess header rules match any case of the extension (migration 0098)" || { echo "  CHYBA  media/.htaccess not updated by migration 0098"; ERRORS=$((ERRORS+1)); }; fi
 expect "no settings row left under a key of 1.4.0" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_nastaveni WHERE promenna IN ('verze_db', 'nazev_webu', 'aktualizace_url', 'aktualizace_cache', 'uklizeno_verze')")" "0"
 if [ "$LAST_MIGRATION" -ge 34 ] && [ "$MODAL_PLANTED" = 1 ]; then
   rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/response" "$B/okno-test"
@@ -231,6 +241,20 @@ fi
 for m in $(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; foreach (Kaleta\Admin\Kernel::MODULES as $m) { echo $m::IDENT, "\n"; }'); do check "admin $m" "/admin.php?module=$m"; done
 for z in general seo analytics backups; do check "admin settings/$z" "/admin.php?module=settings&tab=$z"; done
 grep -q 'name="password"' "$WORK/response" && { echo "  CHYBA  the update logged the admin out"; ERRORS=$((ERRORS+1)); } || echo "  ok     admin session survived"
+
+if [ -z "${PACKAGE:-}" ]; then
+  echo "== 3.15: Kaleta 4.0.0 on its own update source"
+  # the updated site reads aktualizace-4.json next to its source: shown, but never installed by the background job – not
+  # even marked security with automatic updates on (the source again: the update adopted the unreachable one the test
+  # wrote under the key of 1.4.0 at the start)
+  "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('tasks_token', 'update-test-token'), ('auto_updates', '1'), ('update_url', 'http://127.0.0.1:$CHANNEL_PORT/aktualizace.json') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota);
+    UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('update_cache', 'update_major_cache', 'update_attempt'); UPDATE ka_jobs SET last_run = NULL WHERE name = 'updates'"
+  curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=update-test-token"
+  grep -qF "KALETA_VERSION = '$NEW_VERSION'" "$WORK/web/system/bootstrap.php" && [ "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'update_attempt'")" = "" ] \
+    && echo "  ok     the background job does not install Kaleta 4.0.0 (marked security, automatic updates on)" || { echo "  CHYBA  the background job touched Kaleta 4.0.0"; grep updates "$WORK/tasks.txt"; ERRORS=$((ERRORS+1)); }
+  check "Backups and updates after the update" "/admin.php?module=settings&tab=backups"
+  grep -q 'id="major-update"' "$WORK/response" && grep -qF 'Kaleta 4.0.0' "$WORK/response" && echo "  ok     the updated site shows Kaleta 4.0.0 on its own, to install by hand" || { echo "  CHYBA  the updated site does not show Kaleta 4.0.0"; "${MYSQL[@]}" "$DB_NAME" -N -e "SELECT promenna, LEFT(hodnota, 300) FROM ka_nastaveni WHERE promenna IN ('update_major_cache', 'update_url', 'update_channel')"; ERRORS=$((ERRORS+1)); }
+fi
 
 if [ -s "$WORK/web/storage/log/chyby.log" ]; then echo "== application error log:"; cat "$WORK/web/storage/log/chyby.log"; ERRORS=$((ERRORS+1)); fi
 if grep -qE 'Fatal|Warning|Deprecated' "$WORK/server.log"; then echo "== server log:"; grep -E 'Fatal|Warning|Deprecated' "$WORK/server.log" | head; ERRORS=$((ERRORS+1)); fi

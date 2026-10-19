@@ -222,6 +222,6 @@ final class Slug
 
     private static function hasKey(Db $db, string $table, string $key): bool
     {
-        return $db->value('SELECT 1 FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ? LIMIT 1', [$db->prefix . $table, $key]) !== null;
+        return $db->value('SELECT 1 FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ? LIMIT 1', [$db->tableName($table), $key]) !== null;
     }
 }

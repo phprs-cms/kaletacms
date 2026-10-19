@@ -182,7 +182,9 @@ class Settings extends Module
             'screenCollections' => $tab === 'general' ? $this->screenCollections() : [],
             'screenUrl' => $tab === 'general' ? \Kaleta\Front\Screen::url($this->app) : '',
             'backups' => $tab === 'backups' ? Backup::listAll() : [],
+            'vaultState' => $tab === 'backups' ? \Kaleta\Core\Vault::state($settings) : '', // 3.15 (N42): where the encryption key is
             'update' => $tab === 'backups' ? (new Updater($settings))->state() : null,
+            'major' => in_array($tab, ['backups', 'health'], true) ? Updater::nextMajor($settings) : null, // 3.15: Kaleta 4.0 on its own update source
             'siteUrl' => $this->app->request->origin() . $this->app->url(''),
             'shareImages' => \Kaleta\Front\ShareImage::available(), // the SEO tab says when the server cannot draw them (2.12)
             'firewall' => $tab === 'firewall' ? [
@@ -222,6 +224,7 @@ class Settings extends Module
         $given = [];
         $reason = ''; // why the news URL was refused (Core\Routes::slugError)
         $zoneBefore = $settings->get('time_zone');
+        $instructionsBefore = $settings->get('claude_instructions'); // 3.15 (N44): a change goes to the change log and the dashboard
         $newZone = ''; // 3.12: a new time zone is confirmed on its own screen (actionTimeZone)
         foreach ($this->fields($tab) as $key => $type) {
             if (\Kaleta\Core\Demo::active() && \Kaleta\Core\Demo::blocksSetting($key, $type)) {
@@ -276,6 +279,7 @@ class Settings extends Module
             }
             $settings->set($key, $clean);
         }
+        \Kaleta\Core\ClaudeInstructions::changed($this->app, $instructionsBefore, $settings->get('claude_instructions'));
         // 3.9: a mail service chosen without JavaScript (or switched from another one) gets its server, port and encryption;
         // a server that already is the service's stays as it is – the user name and the password are never touched
         if ($tab === 'mail' && array_key_exists('smtp_provider', $_POST) && array_intersect(['smtp_host', 'smtp_provider'], $errors) === [] && !\Kaleta\Core\Demo::active()) {
@@ -433,7 +437,31 @@ class Settings extends Module
         if ($path === null) {
             return $this->error('Backup does not exist.', 404);
         }
+        // a backup holds every account and key of the site: who downloaded which one is in the change log (3.15, N42)
+        \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'backup downloaded', basename($path));
         $this->sendFile($path, basename($path)); // streamed: a large backup does not have to fit in memory
+    }
+
+    /**
+     * Moves the encryption key out of the database (3.15, N42, Core\Vault::move): into config.php, the stored secrets and
+     * reports encrypted again in one transaction. When config.php cannot be written, the line to add is shown once – on
+     * this page only, never in a message kept in the session, a log or the change log.
+     */
+    protected function actionVaultMove(): Response
+    {
+        if (!$this->request->isPost() || !$this->app->auth()->isAdmin()) {
+            return $this->back('', '', ['tab' => 'backups']);
+        }
+        $result = \Kaleta\Core\Vault::move($this->app);
+
+        return match ($result['status']) {
+            'moved' => $this->back(t('The encryption key is now in config.php and the stored secrets and reports are encrypted with it (%d values).', $result['count'] ?? 0)
+                . ' ' . t('Backups made before the move still hold the old key with the data – delete them, or keep them as safe as config.php.'), '', ['tab' => 'backups']),
+            'line' => $this->view('vault_line', 'Encryption key', ['line' => $result['line'] ?? '']),
+            'already' => $this->back(t('The encryption key is already in config.php.'), '', ['tab' => 'backups']),
+            'missing' => $this->back(\Kaleta\Core\Vault::describe('missing'), '', ['tab' => 'backups'], 'chyba'),
+            default => $this->back(t('The move failed and nothing has changed in the database: %s', (string) ($result['error'] ?? '')), '', ['tab' => 'backups'], 'chyba'),
+        };
     }
 
     protected function actionDeleteBackup(): Response
@@ -671,6 +699,37 @@ class Settings extends Module
         }
 
         return $this->back(t('The system has been updated to version %s.', $version), '', ['tab' => 'backups']); // the database is migrated during the update (2.8)
+    }
+
+    /**
+     * 3.15: installs the next major version (Kaleta 4.0) – never by itself, only here: for the version the administrator saw,
+     * after they confirmed they read what changes, from the newest release of the current line, and after a fresh backup.
+     */
+    protected function actionUpdateMajor(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back('', '', ['tab' => 'backups']);
+        }
+        $version = $this->request->post('verze');
+        if ($version === '' || $this->request->post('precteno') !== '1') {
+            return $this->back(t('Confirm that you have read what changes and checked Ready for 4.0, then start the update again.'), '', ['tab' => 'backups'], 'chyba');
+        }
+        // N315-3: a fresh check of the current line must confirm this is its newest release – fails closed
+        if (($blocker = Updater::majorBlocker((new Updater($this->app->settings()))->state(true))) !== null) {
+            return $this->back($blocker, '', ['tab' => 'backups'], 'chyba');
+        }
+        // the database server or its rights would make the update fail half-way – Ready for 4.0 must clear them first
+        if (($blockers = \Kaleta\Core\Readiness::blockers(\Kaleta\Core\Readiness::checks($this->app))) !== []) {
+            return $this->back(t('The update to a new major version waits until Ready for 4.0 clears: %s.', implode(', ', $blockers)), '', ['tab' => 'backups'], 'chyba');
+        }
+        try {
+            $backup = Backup::create($this->db, 'predaktualizaci');
+            $installed = (new Updater($this->app->settings(), major: true))->install($this->app->db(), $version);
+        } catch (\Throwable $e) {
+            return $this->back(t('The update failed: %s Nothing has changed on the site.', t($e->getMessage())), '', ['tab' => 'backups'], 'chyba');
+        }
+
+        return $this->back(t('The system has been updated to version %s. The database backup from before the update is %s.', $installed, $backup), '', ['tab' => 'backups']);
     }
 
     /**

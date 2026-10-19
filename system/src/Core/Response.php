@@ -6,11 +6,15 @@ namespace Kaleta\Core;
 
 final class Response
 {
-    /** @param array<string, string> $headers */
+    /**
+     * @param array<string, string> $headers
+     * @param string|null $file a file on disk sent instead of the body (3.15: a staged media file, Core\MediaStaging)
+     */
     public function __construct(
         public readonly string $body = '',
         public readonly int $status = 200,
         public readonly array $headers = ['Content-Type' => 'text/html; charset=utf-8'],
+        public readonly ?string $file = null,
     ) {
     }
 
@@ -46,6 +50,13 @@ final class Response
             + (Demo::active() ? ['X-Robots-Tag' => 'noindex, nofollow'] : []); // the public demo stays out of search engines
         foreach ($this->headers + $defaults as $name => $value) {
             header($name . ': ' . $value);
+        }
+        if ($this->file !== null) {
+            if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'HEAD') {
+                readfile($this->file);
+            }
+
+            return;
         }
         echo $this->body;
     }

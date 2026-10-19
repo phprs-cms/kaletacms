@@ -164,12 +164,11 @@ final class Webhook
         [$timestamp, $signature] = self::signature(self::secret($settings), $body, time());
         $headers = ['Content-Type: application/json; charset=utf-8', 'User-Agent: Kaleta/' . KALETA_VERSION, 'X-Kaleta-Event: ' . $event,
             'X-Kaleta-Delivery: ' . $id, 'X-Kaleta-Timestamp: ' . $timestamp, 'X-Kaleta-Signature: ' . $signature];
-        $http_response_header = [];
         $response = @file_get_contents($url, false, stream_context_create(['http' => [
             'method' => 'POST', 'timeout' => 10, 'ignore_errors' => true, 'follow_location' => 0,
             'header' => implode("\r\n", $headers) . "\r\n", 'content' => $body,
         ]]));
-        $status = preg_match('#^HTTP/\S+\s+(\d{3})#', (string) ($http_response_header[0] ?? ''), $m) ? (int) $m[1] : 0;
+        $status = preg_match('#^HTTP/\S+\s+(\d{3})#', (string) (last_response_headers($http_response_header ?? null)[0] ?? ''), $m) ? (int) $m[1] : 0; // @phpstan-ignore nullCoalesce.variable (undefined on PHP 8.3 when the request fails)
         if ($status >= 200 && $status < 300) {
             return [$status, ''];
         }

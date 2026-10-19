@@ -41,7 +41,7 @@ final class Backup
         $tables = $db->run('SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE ? ORDER BY table_name', [addcslashes($db->prefix, '_%') . '%'])->fetchAll(\PDO::FETCH_COLUMN);
         foreach ($tables as $table) {
             // temporary data is not backed up
-            $structureOnly = in_array(substr($table, strlen($db->prefix)), ['stat_navstevnici', 'kontrola_ip'], true);
+            $structureOnly = in_array(Names::table(substr($table, strlen($db->prefix))), ['stat_navstevnici', 'kontrola_ip'], true); // also under the English names (3.15)
             $create = $pdo->query('SHOW CREATE TABLE `' . $table . '`')->fetch(\PDO::FETCH_NUM)[1];
             $write("DROP TABLE IF EXISTS `{$table}`;\n{$create};\n\n");
             if ($structureOnly) {
@@ -97,10 +97,92 @@ final class Backup
         $count = self::walk($path, $gz, $db->prefix, null);
         @set_time_limit(300);
         $pdo = $db->pdo();
-        self::walk($path, $gz, $db->prefix, fn (string $statement): mixed => $pdo->exec($statement));
-        $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
+        try {
+            self::walk($path, $gz, $db->prefix, function (string $statement) use ($pdo, $db): mixed {
+                // 3.15: a table restored under one name replaces its twin under the other – a backup from before 4.0 restored
+                // over the renamed tables (the rollback) leaves no English copy behind, and the other way round
+                $twin = self::twin($statement, $db->prefix);
+                if ($twin !== null) {
+                    $pdo->exec('DROP TABLE IF EXISTS `' . $twin . '`');
+                }
+
+                return $pdo->exec($statement);
+            });
+        } finally {
+            $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
+            $db->detectTableNames(); // the restored tables decide which names the site uses now
+            // N315-12: tables the backup did not have (an older backup) or did not reach (a restore that failed half-way)
+            // still carry the other naming scheme – they are renamed to the one the site uses now; a table under both names
+            // stays as it is (nothing is dropped) and the event says which
+            $both = self::alignTableNames($db);
+            if ($both !== []) {
+                Events::record($db, 'backup.tables_both_names', 'warning', t('After the restore, these tables exist under both their old and their English name: %s. Nothing was deleted – ask your developer which copy to keep.', implode(', ', $both)), ['tables' => $both]);
+            }
+        }
 
         return $count;
+    }
+
+    /**
+     * After a restore (3.15, N315-12): every table of the map that exists only under the naming scheme the site does not use
+     * now (Db::detectTableNames – the settings table decides) is renamed to the one it uses, in one RENAME TABLE. A table
+     * under both names is left as it is (nothing is dropped – which copy holds the data is for a person to say) and is
+     * returned, so the caller can report it; Status lists tables a migration would recreate empty.
+     *
+     * @return list<string> tables found under both names
+     */
+    public static function alignTableNames(Db $db): array
+    {
+        $english = $db->englishTables();
+        $existing = array_fill_keys(array_map('strval', array_column($db->all('SELECT table_name AS t FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE ?',
+            [addcslashes($db->prefix, '%_\\') . '%']), 't')), true);
+        [$renames, $both] = self::alignment($existing, $db->prefix, $english);
+        if ($renames !== []) {
+            $db->pdo()->exec('RENAME TABLE ' . implode(', ', array_map(fn (string $from, string $to): string => '`' . $from . '` TO `' . $to . '`', array_keys($renames), $renames)));
+        }
+
+        return $both;
+    }
+
+    /**
+     * Which tables to rename after a restore, and which exist under both names (alignTableNames, testable without a database).
+     *
+     * @param array<string, true> $existing table names in the database, prefix included
+     * @return array{0: array<string, string>, 1: list<string>} [old name => new name], tables under both names
+     */
+    public static function alignment(array $existing, string $prefix, bool $english): array
+    {
+        $renames = [];
+        $both = [];
+        foreach (Names::map() as $table => [$englishName]) {
+            if ($englishName === $table) {
+                continue;
+            }
+            [$wanted, $other] = $english ? [$prefix . $englishName, $prefix . $table] : [$prefix . $table, $prefix . $englishName];
+            if (isset($existing[$other]) && isset($existing[$wanted])) {
+                $both[] = $wanted;
+            } elseif (isset($existing[$other])) {
+                $renames[$other] = $wanted;
+            }
+        }
+
+        return [$renames, $both];
+    }
+
+    /**
+     * The other name of the table a DROP TABLE statement of a backup restores (3.15): `ka_news` for `ka_novinky` and back,
+     * null for a table 4.0 does not rename (or any other statement).
+     */
+    public static function twin(string $statement, string $prefix): ?string
+    {
+        if (preg_match('/^DROP TABLE IF EXISTS `([^`]+)`;/', $statement, $m) !== 1 || !str_starts_with($m[1], $prefix)) {
+            return null;
+        }
+        $name = substr($m[1], strlen($prefix));
+        $today = Names::table($name);
+        $twin = $today === $name ? Names::english($name) : $today;
+
+        return $twin !== $name ? $prefix . $twin : null;
     }
 
     /** @param (callable(string): mixed)|null $apply null = check only */

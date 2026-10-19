@@ -615,7 +615,7 @@ final class WpImport
         $state['vysledek']['clanky']++;
 
         if ($state['volby']['presmerovani']) {
-            // the public address (3.14.2): under a custom news slug (/aktuality) the old WordPress address may be the new one
+            // the public address (3.15.1): under a custom news slug (/aktuality) the old WordPress address may be the new one
             // itself – a redirect to the internal novinky/… would send it back to itself while the news item is still hidden
             $public = Routes::publicPath('novinky/' . $seo, Language::ofContent($this->settings, $language), $this->db);
             $state['vysledek']['presmerovani'] += $this->redirect($p, ($language !== '' ? $language . '/' : '') . $public, $state);
@@ -1249,7 +1249,7 @@ final class WpImport
         return $this->globalKeys[$table] ??= $this->db->value(
             "SELECT INDEX_NAME FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND NON_UNIQUE = 0
              GROUP BY INDEX_NAME HAVING COUNT(*) = 1 AND MAX(COLUMN_NAME) = 'seo_link'",
-            [$this->db->prefix . $table],
+            [$this->db->tableName($table)],
         ) !== null;
     }
 

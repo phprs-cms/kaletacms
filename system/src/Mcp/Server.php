@@ -234,6 +234,9 @@ final class Server
                     ChangeLog::describe($this->app, $logged, max(1, $tools->recordsCreated) . ' rows'); // what the step created (N37-26)
                 }
                 \Kaleta\Front\Cache::clear();
+                if (!$this->app->auth()->draftsOnly()) {
+                    \Kaleta\Core\MediaStaging::promotePublished($db); // 3.15: files waiting for approval that published content now uses
+                }
             }
             if (($czech ?? $name) === 'seznam_poptavek') {
                 // enquiries hold personal data: every read by Claude is in the change log, with how many it saw

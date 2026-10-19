@@ -31,6 +31,12 @@ final class Whistleblowing extends Module
         return $app->auth()->isAdmin() || Channel::isReader($app);
     }
 
+    /** 3.15: reports received and not acknowledged yet – the law sets a deadline for the acknowledgement. */
+    public static function badge(App $app): int
+    {
+        return (int) $app->db()->value("SELECT COUNT(*) FROM {whistleblowing_cases} WHERE status = 'received'");
+    }
+
     protected function actionList(): Response
     {
         $auth = $this->app->auth();
