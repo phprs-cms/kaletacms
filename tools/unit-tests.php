@@ -189,7 +189,7 @@ $builderParity = [
     'build_package' => $readOnly, 'build_paste' => 'admin: paste from the system clipboard of another Kaleta site – Claude inserts elements with save_build or edit_build and brings classes with save_classes',
 ];
 $settingsParity = ['list' => $readOnly, 'save' => 'update_settings', 'download_backup' => $readOnly, 'backup' => 'admin: backups', 'restore_backup' => 'admin: backups',
-    'delete_backup' => 'admin: backups', 'media_backup' => 'admin: backups', 'delete_log' => 'admin: error log', 'check' => 'admin: updates', 'update' => 'admin: updates', 'forget_updates' => 'admin: updates',
+    'delete_backup' => 'admin: backups', 'media_backup' => 'admin: backups', 'delete_log' => 'admin: error log', 'check' => 'admin: updates', 'update' => 'admin: updates', 'forget_updates' => 'admin: updates', 'update_major' => 'admin: updates (a major version only on an explicit action, 3.15)',
     'test_mail' => 'admin: mail server settings', 'domain_check' => 'admin: the domain and mail watch runs on its own once a day', 'test_webhook' => 'admin: webhooks (addresses and the signing secret stay out of MCP)',
     'retry_webhook' => 'admin: webhooks (addresses and the signing secret stay out of MCP)', 'new_webhook_secret' => 'admin: webhooks (addresses and the signing secret stay out of MCP)',
     'firewall_unblock' => 'admin: the firewall is a security setting (2.8) – not over MCP',
@@ -522,6 +522,7 @@ foreach (glob(KALETA_SYSTEM . '/views/admin/settings/*.php') as $view) {
             'exception', 'exception_from', 'exception_to', 'exception_closed', 'exception_hours', 'exception_note', 'exception_notice', 'viewport', 'robots', // viewport, robots: <meta> of the door sign
             'fleet_kit', // 2.16: the console tab's own button (Settings::actionFleetKit)
             'verze', // 3.3.2: the version on the update button – Settings::actionUpdate installs only that one
+            'precteno', // 3.15: "I have read what changes" – Settings::actionUpdateMajor installs a major version only with it
             'smtp_ses_region', // 3.9: the Amazon SES region – MailServices::settle() builds the server from it
             'zone', 'choice', // 3.12: the time zone confirmation (Settings::actionTimeZone) – the new zone and convert | keep
             'screen_collections', 'novy_token_obrazovka'], true)) { // 2.11 screen mode: the collections list is added by fields() from the site's collections, the button makes a new address
@@ -5966,6 +5967,94 @@ check('3.10 (N310-5) AgentJournal::journaled – every English name of a journal
     [array_values(array_filter(Kaleta\Core\AgentJournal::TABLES, fn (string $t): bool => !Kaleta\Core\AgentJournal::journaled(Kaleta\Core\Names::english($t)))),
         Kaleta\Core\AgentJournal::journaled('pages'), Kaleta\Core\AgentJournal::journaled('news'), Kaleta\Core\AgentJournal::journaled('audit_log'), Kaleta\Core\AgentJournal::journaled('api_tokens')],
     [[], true, true, false, false]);
+// 3.15 (the bridge to 4.0): a database whose tables 4.0 renamed – both placeholders name the English table, the code keeps
+// knowing the table by today's name, and migrations, the backup and the journal follow
+$renamedBefore315 = Kaleta\Core\Names::renamed();
+Kaleta\Core\Names::setRenamed(true);
+check('3.15 Names: in a renamed database {novinky} and {news} are both `news`; table() stays today\'s name; tables 4.0 does not rename stay', [
+    Kaleta\Core\Names::physical('novinky'), Kaleta\Core\Names::physical('news'), Kaleta\Core\Names::physical('newsletters'), Kaleta\Core\Names::physical('ext_shop_orders'),
+    Kaleta\Core\Names::physical('stranky', false), Kaleta\Core\Names::table('pages'), Kaleta\Core\Names::table('stranky'), Kaleta\Core\Names::columns('pages')['ids'] ?? null,
+    Kaleta\Core\AgentJournal::journaled('pages'), Kaleta\Core\ExportFormat::tableFromKey('news', 3)],
+    ['news', 'news', 'newsletters', 'ext_shop_orders', 'stranky', 'stranky', 'stranky', 'id', true, 'novinky']);
+Kaleta\Core\Names::setRenamed($renamedBefore315);
+check('3.15 Names: every table 4.0 renames maps back to its name of today (the map is the only source both directions use)',
+    array_values(array_filter(array_keys(Kaleta\Core\Names::map()), fn (string $t): bool => Kaleta\Core\Names::table(Kaleta\Core\Names::physical($t, true)) !== $t)), []);
+check('3.15 Migration::statements: on a renamed database the files\' Czech names become the English ones, the rest (keys, add-on tables) stays', [
+    Kaleta\Core\Migration::statements("ALTER TABLE ka_novinky ADD COLUMN x INT;\nCREATE TABLE ka_ext_a_b (id INT, CONSTRAINT fk_x FOREIGN KEY (id) REFERENCES ka_stranky (ids));\nUPDATE ka_nastaveni SET hodnota = 'ka_nahled' WHERE promenna = 'x';\n", 'w_', true),
+    Kaleta\Core\Migration::statements("ALTER TABLE ka_novinky_stitky ADD KEY k (idc);\n", 'ka_', false)],
+    [['ALTER TABLE w_news ADD COLUMN x INT', 'CREATE TABLE w_ext_a_b (id INT, CONSTRAINT w_fk_x FOREIGN KEY (id) REFERENCES w_pages (ids))', "UPDATE w_settings SET hodnota = 'w_nahled' WHERE promenna = 'x'"],
+        ['ALTER TABLE ka_novinky_stitky ADD KEY k (idc)']]);
+check('3.15 Backup::twin: a restored table replaces its twin under the other name; tables 4.0 does not rename have none', [
+    Kaleta\Core\Backup::twin("DROP TABLE IF EXISTS `ka_novinky`;\n", 'ka_'), Kaleta\Core\Backup::twin("DROP TABLE IF EXISTS `ka_news`;\n", 'ka_'),
+    Kaleta\Core\Backup::twin("DROP TABLE IF EXISTS `ka_newsletters`;\n", 'ka_'), Kaleta\Core\Backup::twin("CREATE TABLE `ka_novinky` (\n", 'ka_'),
+    Kaleta\Core\Backup::twin("DROP TABLE IF EXISTS `x_novinky`;\n", 'ka_')],
+    ['ka_news', 'ka_novinky', null, null, null]);
+// raw SQL in core that names a table without a placeholder would miss the renamed tables: no `ka_<table>` in code strings,
+// and a table name put together with the prefix goes through Db::tableName() (the one place that knows the names)
+$rawTables315 = [];
+foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(KALETA_SYSTEM . '/src', FilesystemIterator::SKIP_DOTS)) as $file315) {
+    if ($file315->getExtension() !== 'php') {
+        continue;
+    }
+    $source315 = (string) file_get_contents($file315->getPathname());
+    $relative315 = substr($file315->getPathname(), strlen(KALETA_ROOT) + 1);
+    foreach (token_get_all($source315) as $token315) {
+        if (is_array($token315) && in_array($token315[0], [T_CONSTANT_ENCAPSED_STRING, T_ENCAPSED_AND_WHITESPACE], true)
+            && preg_match_all('/\bka_([a-z][a-z0-9_]*)/', $token315[1], $hits315) > 0) {
+            foreach ($hits315[1] as $hit315) {
+                if (isset($names310[$hit315])) {
+                    $rawTables315[] = $relative315 . ':' . $token315[2] . ' ka_' . $hit315;
+                }
+            }
+        }
+    }
+    // "$db->prefix . $table" / ". 'novinky'" – Readiness only quotes a prefixed name in its advice and scans add-ons with it
+    if ($relative315 !== 'system/src/Core/Readiness.php' && preg_match_all('/->prefix\s*\.\s*(\$[a-zA-Z_]|\'[a-z])/', $source315, $joined315, PREG_OFFSET_CAPTURE) > 0) {
+        foreach ($joined315[0] as [$text315, $offset315]) {
+            $rawTables315[] = $relative315 . ':' . (substr_count(substr($source315, 0, $offset315), "\n") + 1) . ' ' . $text315;
+        }
+    }
+}
+check('3.15 no table name in core bypasses the placeholders or Db::tableName() (renamed tables after a rollback from 4.0)', $rawTables315, []);
+// the update sources of the major lines (3.15): aktualizace.json is the 3.x line for good, 4.x has its own manifest
+check('3.15 updates: each major line has its own manifest next to aktualizace.json, with a stable twin; another file name has none', [
+    Kaleta\Core\Updater::manifestFile(3), Kaleta\Core\Updater::manifestFile(1), Kaleta\Core\Updater::manifestFile(4), Kaleta\Core\Updater::manifestFile(4, 'stable'), Kaleta\Core\Updater::manifestFile(3, 'stable'),
+    Kaleta\Core\Updater::lineUrl(Kaleta\Core\Updater::DEFAULT_URL, 4), Kaleta\Core\Updater::lineUrl('https://mirror.example/k/aktualizace.json?t=1', 4),
+    Kaleta\Core\Updater::lineUrl('https://mirror.example/k/aktualizace-4.json', 5), Kaleta\Core\Updater::lineUrl('https://mirror.example/k/aktualizace-4.json', 3),
+    Kaleta\Core\Updater::lineUrl('https://mirror.example/updates.php', 4), Kaleta\Core\Updater::lineUrl('https://mirror.example/aktualizace.json.bak', 4),
+    Kaleta\Core\Updater::stableUrl('https://kaletacms.com/aktualizace-4.json'), Kaleta\Core\Updater::stableUrl(Kaleta\Core\Updater::DEFAULT_URL),
+    array_map(Kaleta\Core\Updater::majorOf(...), ['3.15.0', '4.0.0-rc1', '10.2.3', 'x', ''])],
+    ['aktualizace.json', 'aktualizace.json', 'aktualizace-4.json', 'aktualizace-4-stable.json', 'aktualizace-stable.json',
+        'https://kaletacms.com/aktualizace-4.json', 'https://mirror.example/k/aktualizace-4.json?t=1', 'https://mirror.example/k/aktualizace-5.json', 'https://mirror.example/k/aktualizace.json',
+        null, null, 'https://kaletacms.com/aktualizace-4-stable.json', 'https://kaletacms.com/aktualizace-stable.json', [3, 4, 10, 0, 0]]);
+$major315 = static function (?array $manifest, string $current, bool $next, string $channel = 'latest'): string {
+    $c = Kaleta\Core\Updater::choose($manifest, $channel, $current, '8.4.5', $next);
+
+    return $c['nova'] !== null ? 'offer ' . $c['nova']['verze'] : ($c['ahead_of'] !== null ? 'ahead of ' . $c['ahead_of'] : 'nothing');
+};
+check('3.15 updates: the regular manifest never offers another major version (not even a security one), the next-major one only the next major', [
+    $major315(['verze' => '4.0.0', 'min_php' => '8.3', 'bezpecnostni' => true], '3.15.0', false), $major315(['verze' => '3.15.2', 'min_php' => '8.3'], '3.15.0', false),
+    $major315(['verze' => '4.0.0', 'min_php' => '8.3', 'kanal' => 'stable'], '3.15.0', false, 'stable'), $major315(['verze' => '1.0.0', 'kanal' => 'stable'], '3.15.0', false, 'stable'),
+    $major315(['verze' => '3.14.0', 'kanal' => 'stable'], '4.0.0', true, 'stable'),
+    $major315(['verze' => '4.0.0', 'min_php' => '8.3'], '3.15.0', true), $major315(['verze' => '4.1.0-rc1', 'min_php' => '8.3'], '3.15.0', true),
+    $major315(['verze' => '3.16.0', 'min_php' => '8.3'], '3.15.0', true), $major315(['verze' => '5.0.0', 'min_php' => '8.3'], '3.15.0', true),
+    $major315(['verze' => '4.0.0', 'min_php' => '8.3'], '4.0.0', true), $major315(['verze' => '5.0.0', 'min_php' => '8.3'], '4.2.0', true)],
+    ['nothing', 'offer 3.15.2', 'nothing', 'ahead of 1.0.0', 'nothing', 'offer 4.0.0', 'offer 4.1.0-rc1', 'nothing', 'nothing', 'nothing', 'offer 5.0.0']);
+$now315 = (int) strtotime('2026-10-19 12:00:00');
+check('3.15 updates: the prompt counts the days since the site first saw the newer release or since its signed date, whichever is earlier', [
+    Kaleta\Core\Updater::behindDays(['nova' => null, 'behind_since' => $now315 - 30 * 86400], $now315),
+    Kaleta\Core\Updater::behindDays(['nova' => ['verze' => '3.15.1', 'vydano' => '2026-10-17'], 'behind_since' => $now315 - 20 * 86400], $now315),
+    Kaleta\Core\Updater::behindDays(['nova' => ['verze' => '3.15.1', 'vydano' => '2026-09-30'], 'behind_since' => $now315 - 86400], $now315),
+    Kaleta\Core\Updater::behindDays(['nova' => ['verze' => '3.15.1', 'vydano' => ''], 'behind_since' => 0], $now315),
+    Kaleta\Core\Updater::behindDays(['nova' => ['verze' => '3.15.1', 'vydano' => '2099-01-01'], 'behind_since' => $now315 - 3 * 86400], $now315),
+    Kaleta\Core\Updater::BEHIND_DAYS, Kaleta\Core\Settings::DEFAULTS['update_behind_since'] ?? null, array_key_exists('update_major_cache', Kaleta\Core\Settings::DEFAULTS),
+    in_array('update_major_cache', Kaleta\Core\SiteExport::SETTINGS, true) || in_array('update_behind_since', Kaleta\Core\SiteExport::SETTINGS, true)],
+    [null, 20, 19, 0, 3, 14, '0', true, false]);
+check('3.15 updates: release.php writes the manifest of the release\'s own line and needs --major for X.0.0; the daily check knows the major lines', [
+    str_contains((string) file_get_contents(KALETA_ROOT . '/tools/release.php'), '$manifestName = Kaleta\Core\Updater::manifestFile($releaseMajor, $options[\'channel\'])'),
+    str_contains((string) file_get_contents(KALETA_ROOT . '/tools/release.php'), "\$arg === '--major'"),
+    str_contains((string) file_get_contents(KALETA_ROOT . '/tools/check-channel.php'), 'Updater::lineUrl($manifestUrl, $major)')],
+    [true, true, true]);
 // the clock: in 3.x it is the site's wall time, exactly what date() gave
 $zone310 = date_default_timezone_get();
 date_default_timezone_set('Europe/Prague');

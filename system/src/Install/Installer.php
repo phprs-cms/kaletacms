@@ -183,8 +183,8 @@ final class Installer
             return self::connectionError($e);
         }
         $exists = $db->value(
-            'SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?',
-            [$d['db_prefix'] . 'uzivatele'],
+            'SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN (?, ?)',
+            [$d['db_prefix'] . 'uzivatele', $d['db_prefix'] . \Kaleta\Core\Names::physical('uzivatele', true)], // 3.15: also a site 4.0 renamed
         );
         if ((int) $exists > 0) {
             return ['db_prefix' => t('Tables with this prefix already exist in the database. Choose another prefix or remove them first.')];

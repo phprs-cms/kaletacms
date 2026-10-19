@@ -205,7 +205,9 @@ final class Health
             // 3.10 (N39-7): the newest signed update information the source gave is old – the source may be stuck or replay
             // an old copy (a warning only: nothing re-signs it automatically, see Updater::FRESHNESS_DAYS)
             $staleDays !== null => self::staleText($staleDays),
-            default => t('the system is up to date (%s)', KALETA_VERSION) . ($update['overeno'] > 0 ? ', ' . t('checked %s', format_date((new \DateTimeImmutable())->setTimestamp((int) $update['overeno']), true)) : ''),
+            default => t('the system is up to date (%s)', KALETA_VERSION) . ($update['overeno'] > 0 ? ', ' . t('checked %s', format_date((new \DateTimeImmutable())->setTimestamp((int) $update['overeno']), true)) : '')
+                // 3.15: the next major version is offered on its own – never installed by itself
+                . (($major = Updater::nextMajor($siteSettings)) !== null ? '. ' . t('Kaleta %s is available – read what changes, back up, then update.', (string) $major['verze']) : ''),
         });
         // 3.10 (N310-3): a signed date in the future is not remembered – a wrong clock here or at the publisher
         if ($update['future_date'] !== '') {

@@ -86,6 +86,11 @@ final class Readiness
             default => t('The user lacks %s on this database. The update to Kaleta 4.0 renames tables and changes keys – ask the hosting to grant them.', implode(', ', $missing)),
         });
 
+        // 3.15: which names the tables have – this release runs on both, so it is the version 4.0 can roll back to
+        $add('table_names', t('Table names'), 'ok', $db->englishTables()
+            ? t('the tables already have their English names (Kaleta 4.0 renamed them) – this version works with them too')
+            : t('the tables have today’s names; Kaleta 4.0 renames them to the English ones, and this version already works with both'));
+
         // add-ons and custom layouts that write the old table names
         $scan = self::scan(KALETA_ROOT, self::SCAN_FOLDERS, $db->prefix);
         $log = LegacyNames::recent();
