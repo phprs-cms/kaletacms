@@ -8,20 +8,28 @@
  * @var string $latest
  */
 
+use Kaleta\Core\AgentSchedules;
+use Kaleta\Core\Audit;
+use Kaleta\Core\ReportPage;
+use Kaleta\Core\Scheduler;
 use Kaleta\Fleet\Console;
 
 $reasonLabels = require __DIR__ . '/reasons.php';
 $beat = $site['beat'];
 $siteAdmin = rtrim((string) $site['url'], '/') . '/admin.php';
 $moment = fn (mixed $iso): string => is_string($iso) && ($m = date_create_immutable($iso)) !== false ? format_date($m->setTimezone(new DateTimeZone(date_default_timezone_get())), true) : '–';
-$day = fn (mixed $part): string => is_array($part) && is_string($part['expires'] ?? null) ? format_date(new DateTimeImmutable($part['expires'])) . ' (' . t('%d days', (int) Console::daysLeft($part, time())) . ')'
+// a date only when it is a real one – a site's report must never break this page (N316-5)
+$day = fn (mixed $part): string => is_array($part) && ($expires = Console::date($part['expires'] ?? null)) !== null ? format_date($expires) . ' (' . t('%d days', (int) Console::daysLeft($part, time())) . ')'
     : (is_array($part) && !empty($part['error']) ? t('could not be checked') : t('unknown'));
+// the site sends machine names; the console shows them in its own language (N316-8)
+$counts = fn (array $map, array $labels): string => implode(', ', array_map(fn (int|string $key, mixed $n): string => t($labels[$key] ?? (string) $key) . ': ' . (int) $n, array_keys($map), $map));
+$taskLabels = array_map(fn (array $task): string => $task[0], AgentSchedules::TASKS);
 $requests = is_array($beat['requests'] ?? null) ? $beat['requests'] : null;
 $pending = array_filter(is_array($beat['pending_review'] ?? null) ? $beat['pending_review'] : [], fn (mixed $n): bool => is_int($n) && $n > 0);
 $security = is_array($beat['security_7_days'] ?? null) ? $beat['security_7_days'] : null;
 $watch = is_array($beat['domain_watch'] ?? null) && empty($beat['domain_watch']['local']) ? $beat['domain_watch'] : null;
 $runs = is_array($beat['agent_runs'] ?? null) ? $beat['agent_runs'] : null;
-$date = fn (mixed $ts): string => is_int($ts) && $ts > 0 ? format_date((new DateTimeImmutable())->setTimestamp($ts), true) : '–';
+$date = fn (mixed $ts): string => is_int($ts) && $ts > 0 && $ts < 4_102_444_800 ? format_date((new DateTimeImmutable())->setTimestamp($ts), true) : '–';
 $yes = fn (mixed $v): string => $v ? t('yes') : t('no');
 ?>
 <p><a href="<?= e($module->url('')) ?>">← <?= e(t('All sites')) ?></a> · <a href="<?= e((string) $site['url']) ?>" target="_blank" rel="noopener"><?= e((string) $site['url']) ?></a> · <a href="<?= e((string) $site['url'] . '/admin.php') ?>" target="_blank" rel="noopener"><?= e(t('Administration of the site')) ?></a></p>
@@ -36,7 +44,7 @@ $yes = fn (mixed $v): string => $v ? t('yes') : t('no');
 	<tr><th scope="row"><?= e(t('Cron last called')) ?></th><td><?= e($date($beat['cron_last_run'] ?? null)) ?></td></tr>
 	<?php if (($beat['visits_7_days'] ?? null) !== null): ?><tr><th scope="row"><?= e(t('Visits in 7 days')) ?></th><td><?= (int) $beat['visits_7_days'] ?></td></tr><?php endif ?>
 	<?php if (($beat['enquiries_7_days'] ?? null) !== null): ?><tr><th scope="row"><?= e(t('Enquiries')) ?></th><td><?= e(t('%d in 7 days, %d waiting for an answer', (int) $beat['enquiries_7_days'], (int) Console::enquiriesWaiting($beat))) ?></td></tr><?php endif ?>
-	<?php if (is_array($beat['audit'] ?? null)): ?><tr><th scope="row"><?= e(t('Site audit')) ?></th><td><?= array_sum($beat['audit']) === 0 ? e(t('no findings')) : e(implode(', ', array_map(fn (string $k, int $n): string => $k . ' ' . $n, array_keys($beat['audit']), $beat['audit']))) ?></td></tr><?php endif ?>
+	<?php if (is_array($beat['audit'] ?? null)): ?><tr><th scope="row"><?= e(t('Site audit')) ?></th><td><?= array_sum(array_map('intval', $beat['audit'])) === 0 ? e(t('no findings')) : e($counts($beat['audit'], Audit::KINDS)) ?></td></tr><?php endif ?>
 </tbody></table></div>
 <?php if ($requests !== null || $pending !== [] || ($beat['bookings_pending'] ?? null) !== null || $security !== null || $watch !== null || $runs !== null): ?>
 <h2><?= e(t('Waiting')) ?></h2>
@@ -47,10 +55,10 @@ $yes = fn (mixed $v): string => $v ? t('yes') : t('no');
 	</ul><?php elseif (($requests['items'] ?? null) === null): ?><br><span class="smltxt"><?= e(t('The site does not share request titles.')) ?></span><?php endif ?></td></tr><?php endif ?>
 	<?php if ($pending !== []): ?><tr><th scope="row"><?= e(t('Waiting for review')) ?></th><td><?= e(implode(', ', array_map(fn (string $kind, int $n): string => t(Kaleta\Core\PendingReview::KINDS[$kind][0] ?? $kind) . ': ' . $n, array_keys($pending), $pending))) ?></td></tr><?php endif ?>
 	<?php if (($beat['bookings_pending'] ?? null) !== null): ?><tr><th scope="row"><?= e(t('Bookings to confirm')) ?></th><td><?= (int) $beat['bookings_pending'] ?></td></tr><?php endif ?>
-	<?php if ($security !== null): ?><tr><th scope="row"><?= e(t('Security in 7 days')) ?></th><td><?= e(t('%d failed sign-ins, %d accounts locked now', (int) $security['failed_sign_ins'], (int) $security['locked_accounts'])) ?><?php if (($security['firewall'] ?? []) !== []): ?> · <?= e(t('firewall: %s', implode(', ', array_map(fn (string $r, int $n): string => $r . ' ' . $n, array_keys($security['firewall']), $security['firewall'])))) ?><?php endif ?><?php if (($security['events'] ?? []) !== []): ?> · <?= e(implode(', ', array_map(fn (string $t, int $n): string => $t . ' ' . $n, array_keys($security['events']), $security['events']))) ?><?php endif ?></td></tr><?php endif ?>
+	<?php if ($security !== null): ?><tr><th scope="row"><?= e(t('Security in 7 days')) ?></th><td><?= e(t('%d failed sign-ins, %d accounts locked now', (int) $security['failed_sign_ins'], (int) $security['locked_accounts'])) ?><?php if (($security['firewall'] ?? []) !== []): ?> · <?= e(t('firewall: %s', $counts($security['firewall'], ReportPage::FIREWALL))) ?><?php endif ?><?php if (($security['events'] ?? []) !== []): ?> · <?= e($counts($security['events'], ReportPage::SECURITY)) ?><?php endif ?></td></tr><?php endif ?>
 	<?php if ($watch !== null): ?><tr><th scope="row"><?= e(t('Certificate')) ?></th><td><?= e($day($watch['certificate'] ?? null)) ?></td></tr>
 	<tr><th scope="row"><?= e(t('Domain')) ?></th><td><?= e($day($watch['domain'] ?? null)) ?><?php if (is_array($watch['mail'] ?? null)): ?> · <?= e(implode(', ', array_map(fn (string $k): string => strtoupper($k) . ' ' . ($watch['mail'][$k] ? t('found') : t('not found')), array_filter(['spf', 'dmarc', 'dkim'], fn (string $k): bool => is_bool($watch['mail'][$k] ?? null))))) ?><?php endif ?></td></tr><?php endif ?>
-	<?php if ($runs !== null): ?><tr><th scope="row"><?= e(t('Claude runs in 7 days')) ?></th><td><?= e(implode(', ', array_map(fn (string $k, int $n): string => $k . ' ' . $n, array_keys($runs['runs_7_days'] ?? []), $runs['runs_7_days'] ?? []))) ?> · <?= e(t('%d sessions', (int) ($runs['sessions_7_days'] ?? 0))) ?><?= ($runs['next_due'] ?? null) !== null ? ' · ' . e(t('next %s (%s)', $moment($runs['next_due']), (string) ($runs['next_task'] ?? ''))) : '' ?></td></tr><?php endif ?>
+	<?php if ($runs !== null): ?><tr><th scope="row"><?= e(t('Claude runs in 7 days')) ?></th><td><?= e($counts((array) ($runs['runs_7_days'] ?? []), AgentSchedules::STATUSES)) ?> · <?= e(t('%d sessions', (int) ($runs['sessions_7_days'] ?? 0))) ?><?= ($runs['next_due'] ?? null) !== null ? ' · ' . e(t('next %s (%s)', $moment($runs['next_due']), t($taskLabels[(string) ($runs['next_task'] ?? '')] ?? (string) ($runs['next_task'] ?? '')))) : '' ?></td></tr><?php endif ?>
 	<?php if (($beat['updates']['behind_days'] ?? null) !== null || ($beat['updates']['major_available'] ?? null) !== null): ?><tr><th scope="row"><?= e(t('Updates')) ?></th><td><?= ($beat['updates']['behind_days'] ?? null) !== null ? e(t('a newer version has waited %d days', (int) $beat['updates']['behind_days'])) : '' ?><?= ($beat['updates']['major_available'] ?? null) !== null ? ' ' . e(t('Version %s is available (a new major version).', (string) $beat['updates']['major_available'])) : '' ?></td></tr><?php endif ?>
 	<?php if (($beat['report_month'] ?? null) !== null): ?><tr><th scope="row"><?= e(t('Last monthly report')) ?></th><td><?= e((string) $beat['report_month']) ?></td></tr><?php endif ?>
 </tbody></table></div>
@@ -58,13 +66,13 @@ $yes = fn (mixed $v): string => $v ? t('yes') : t('no');
 <?php if (($beat['problems'] ?? []) !== []): ?>
 <h2><?= e(t('Problems the site reports')) ?></h2>
 <div class="tab-obal"><table class="vypis"><tbody>
-<?php foreach ($beat['problems'] as $p): ?>
+<?php foreach (array_filter((array) $beat['problems'], 'is_array') as $p): ?>
 	<tr><td class="stred"><span class="stitek stitek-<?= ($p['status'] ?? '') === 'error' ? 'chyba' : 'koncept' ?>"><?= ($p['status'] ?? '') === 'error' ? '✕' : '!' ?></span></td><td><strong><?= e((string) ($p['check'] ?? '')) ?></strong><br><span class="smltxt"><?= e((string) ($p['group'] ?? '')) ?></span></td><td><?= e((string) ($p['detail'] ?? '')) ?></td></tr>
 <?php endforeach ?>
 </tbody></table></div>
 <p class="smltxt"><?= e(t('The site reports its problems in English; fix them in its administration.')) ?></p>
 <?php endif ?>
-<?php if (($beat['jobs_failing'] ?? []) !== []): ?><p class="hlaska hlaska-chyba"><?= e(t('Background jobs that fail: %s', implode(', ', $beat['jobs_failing']))) ?></p><?php endif ?>
+<?php if (($beat['jobs_failing'] ?? []) !== []): ?><p class="hlaska hlaska-chyba"><?= e(t('Background jobs that fail: %s', implode(', ', array_map(fn (string $job): string => t(Scheduler::JOBS[$job][2] ?? $job), array_filter((array) $beat['jobs_failing'], 'is_string'))))) ?></p><?php endif ?>
 <form class="formular" method="post" action="<?= e($module->url('ring')) ?>">
 <?= $csrf ?>
 <input type="hidden" name="id" value="<?= (int) $site['id'] ?>">

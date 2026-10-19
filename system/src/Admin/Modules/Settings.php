@@ -1044,7 +1044,7 @@ class Settings extends Module
 
         return match ($kind) {
             'ano' => $checked ? '1' : '0',
-            'text' => mb_substr(str_replace(["\r", "\n"], ' ', $value), 0, 500),
+            'text' => mb_substr((string) preg_replace('/[\x00-\x1F\x7F]/', ' ', $value), 0, 500), // one line: every control character (a form feed too, N316-4) is a space
             'radky' => mb_substr($value, 0, 5000),
             'kod' => mb_substr($value, 0, 20000),
             'email' => $value === '' || filter_var($value, FILTER_VALIDATE_EMAIL) ? $value : null,

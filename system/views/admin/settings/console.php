@@ -5,7 +5,7 @@
  * @var array{paired: bool, url: string, name: string, fingerprint: string, own: string, updates: bool, allowed: string, sent: int, error: string, kit: bool, kitVersion: int, kitApplied: int, kitError: string, kitWaiting: bool, titles: bool} $fleet
  */
 ?>
-<p class="hlaska"><?= e(t('A fleet console is another Kaleta installation that shows all your sites on one screen. This site sends it a signed report every hour – version, health, background jobs, backups, enquiries waiting and visits, never names or the content of enquiries. The console cannot get into this site.')) ?></p>
+<p class="hlaska"><?= e(t('A fleet console is another Kaleta installation that shows all your sites on one screen. This site sends it a signed report every hour – version, health, background jobs, backups, counts of enquiries and requests waiting, visits and, unless you switch it off below, the titles of requests to Claude. Never the content of enquiries, e-mail addresses or phone numbers. The console cannot get into this site.')) ?></p>
 <?php if (!$fleet['paired']): ?>
 <fieldset>
 <legend><?= e(t('Pair with a console')) ?></legend>
@@ -45,6 +45,6 @@
 <fieldset>
 <legend><?= e(t('Requests on the console')) ?></legend>
 <div class="radek"><span class="popisek"><?= e(t('Request titles')) ?></span><div class="volby"><label><input type="checkbox" name="fleet_request_titles" value="1"<?= $fleet['titles'] ? ' checked' : '' ?>> <?= e(t('Send the titles of Ask Claude requests to the console')) ?></label>
-<span class="napoveda"><?= e(t('Request titles help you see the work across sites; enquiries, e-mails and contents never leave the site.')) ?> <?= e(t('E-mail addresses in a title are masked. Without the titles the console gets only how many requests wait.')) ?></span></div></div>
+<span class="napoveda"><?= e(t('Request titles help you see the work across sites; enquiries, e-mails and contents never leave the site.')) ?> <?= e(t('E-mail addresses and phone numbers in a title are masked. Without the titles the console gets only how many requests wait.')) ?></span></div></div>
 <p><button class="navigace" type="submit" formaction="<?= e($module->url('fleet_titles')) ?>"><?= e(t('Save the choice about request titles')) ?></button></p>
 </fieldset>

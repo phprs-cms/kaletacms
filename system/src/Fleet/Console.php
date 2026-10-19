@@ -325,7 +325,7 @@ final class Console
         if (!is_array($part)) {
             return null;
         }
-        if (is_string($part['expires'] ?? null) && ($date = \DateTimeImmutable::createFromFormat('!Y-m-d', $part['expires'])) !== false) {
+        if (($date = self::date($part['expires'] ?? null)) !== null) {
             return (int) floor(($date->getTimestamp() - $now) / 86400);
         }
 
@@ -423,10 +423,27 @@ final class Console
             $out[$key] = match (true) {
                 is_string($value) => mb_substr($value, 0, 255),
                 is_int($value), is_bool($value), $value === null => $value,
-                is_float($value) => (int) $value,
+                is_float($value) => self::whole($value),
                 is_array($value) => self::cleanList($value),
                 default => null,
             };
+        }
+        // the whistleblowing channel never shows on the console (3.16, N316-3) – a site before 3.16.0 still sends its events
+        if (is_array($out['problems_7_days'])) {
+            $out['problems_7_days'] = Heartbeat::withoutWhistleblowing($out['problems_7_days']);
+        }
+        if (is_array($out['problems'])) { // the health checks of a 3.15 site name the channel's events and job in their details
+            $out['problems'] = array_values(array_filter(array_map(function (mixed $p): mixed {
+                if (!is_array($p) || !is_string($p['detail'] ?? null) || !Heartbeat::isWhistleblowing($p['detail'])) {
+                    return $p;
+                }
+                $p['detail'] = implode(', ', array_filter(preg_split('/\s*[,;]\s*/', $p['detail']) ?: [], fn (string $part): bool => !Heartbeat::isWhistleblowing($part)));
+
+                return $p['detail'] === '' ? null : $p;
+            }, $out['problems']), fn (mixed $p): bool => $p !== null));
+        }
+        if (is_array($out['jobs_failing'])) {
+            $out['jobs_failing'] = array_values(array_filter($out['jobs_failing'], fn (mixed $job): bool => !is_string($job) || !Heartbeat::isWhistleblowing($job)));
         }
 
         return $out;
@@ -439,26 +456,59 @@ final class Console
      *  - pending_review: the kinds of Core\PendingReview => count;
      *  - enquiries_new_not_spam, bookings_pending: a count;
      *  - security_7_days: firewall reason => count (≤ 10), failed_sign_ins, locked_accounts, security.* event => count (≤ 10);
-     *  - domain_watch: checked, local, certificate and domain {expires Y-m-d, days, error}, mail {error, spf, dmarc, dkim, spf_covers_smtp};
+     *  - domain_watch: checked (a Unix time), local, certificate and domain {expires – a real Y-m-d date, days, error}, mail {error, spf, dmarc, dkim, spf_covers_smtp};
      *  - agent_runs: runs_7_days by result, next_due, next_task (the kind), sessions_7_days;
      *  - updates: behind_days, major_available; report_month: YYYY-MM.
-     * Every count is a non-negative integer up to MAX_COUNT.
+     * Every count is a non-negative integer up to MAX_COUNT; a value that is not one (a string, a float beyond 10^15) is dropped
+     * on its own, never the whole heartbeat. Moments are real ones (ISO 8601 with the offset).
      */
     private const array PARTS = ['requests', 'pending_review', 'enquiries_new_not_spam', 'bookings_pending', 'security_7_days', 'domain_watch', 'agent_runs', 'updates', 'report_month'];
 
     private const int MAX_COUNT = 1_000_000;
 
-    /** A count as a part may carry it: a non-negative integer up to MAX_COUNT, null for anything else. */
+    /** A count as a part may carry it: a non-negative integer up to MAX_COUNT, null for anything else (a float too big to be a whole number too). */
     private static function count(mixed $n): ?int
     {
-        return is_int($n) || is_float($n) ? max(0, min(self::MAX_COUNT, (int) $n)) : null;
+        $n = is_float($n) ? self::whole($n) : $n;
+
+        return is_int($n) ? max(0, min(self::MAX_COUNT, $n)) : null;
     }
 
-    /** A moment as the site sends it (ISO 8601 with its offset), null for anything else. */
+    /**
+     * A float as a whole number when it can be one (3.16, N316-5): NAN, INF and anything beyond ±10^15 are null – casting
+     * them would give a wrong number, and PHP 8.5 warns about it, which the console's error handler turns into a 500.
+     */
+    private static function whole(float $n): ?int
+    {
+        return is_finite($n) && abs($n) < 1e15 ? (int) $n : null;
+    }
+
+    /** A moment as the site sends it (ISO 8601 with its offset) that is a real moment, null for anything else. */
     private static function moment(mixed $value): ?string
     {
-        return is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}([+-]\d{2}:\d{2}|Z)$/D', $value) === 1 ? $value : null;
+        if (!is_string($value) || preg_match('/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:([+-])(\d{2}):(\d{2})|Z)$/D', $value, $m) !== 1) {
+            return null;
+        }
+
+        return checkdate((int) $m[2], (int) $m[3], (int) $m[1]) && (int) $m[4] < 24 && (int) $m[5] < 60 && (int) $m[6] < 60 && (int) ($m[8] ?? 0) <= 14 && (int) ($m[9] ?? 0) < 60 ? $value : null;
     }
+
+    /**
+     * A calendar date 'Y-m-d' that exists (3.16, N316-5): "2026-13-45" passes a pattern, but no calendar – the console's
+     * pages and counts use this, never the raw text a site sent.
+     */
+    public static function date(mixed $value): ?\DateTimeImmutable
+    {
+        if (!is_string($value) || preg_match('/^(\d{4})-(\d{2})-(\d{2})$/D', $value, $m) !== 1 || !checkdate((int) $m[2], (int) $m[3], (int) $m[1])) {
+            return null;
+        }
+        $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $value);
+
+        return $date !== false && $date->format('Y-m-d') === $value ? $date : null;
+    }
+
+    /** The latest Unix time a heartbeat may carry as a moment (1 January 2100). */
+    private const int LATEST_TIME = 4_102_444_800;
 
     /**
      * A map of name => count: only names from $keys (or matching $pattern), at most $max of them.
@@ -515,10 +565,12 @@ final class Console
                 return ['firewall' => self::counts($v['firewall'] ?? null, null, '/^[a-z_]{1,40}$/D', 10), 'failed_sign_ins' => self::count($v['failed_sign_ins'] ?? null) ?? 0,
                     'locked_accounts' => self::count($v['locked_accounts'] ?? null) ?? 0, 'events' => self::counts($v['events'] ?? null, null, '/^security\.[a-z_]{1,40}$/D', 10)];
             case 'domain_watch':
-                $out = ['checked' => self::count($v['checked'] ?? null), 'local' => ($v['local'] ?? false) === true];
+                // checked is a Unix time, not a count: kept as it is between 1970 and 2100
+                $checked = $v['checked'] ?? null;
+                $out = ['checked' => is_int($checked) && $checked >= 0 && $checked <= self::LATEST_TIME ? $checked : null, 'local' => ($v['local'] ?? false) === true];
                 foreach (['certificate', 'domain'] as $part) {
                     $p = $v[$part] ?? null;
-                    $out[$part] = !is_array($p) ? null : ['expires' => is_string($p['expires'] ?? null) && preg_match('/^\d{4}-\d{2}-\d{2}$/D', $p['expires']) === 1 ? $p['expires'] : null,
+                    $out[$part] = !is_array($p) ? null : ['expires' => self::date($p['expires'] ?? null) !== null ? $p['expires'] : null,
                         'days' => is_int($p['days'] ?? null) ? max(-100000, min(100000, $p['days'])) : null, 'error' => ($p['error'] ?? false) === true];
                 }
                 $mail = $v['mail'] ?? null;

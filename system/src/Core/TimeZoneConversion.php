@@ -26,6 +26,8 @@ namespace Kaleta\Core;
  *  - A value that would leave the DATETIME range stays as it is and is counted; a table that fails is skipped with its
  *    error on the progress row (both in the change log and on System status).
  *  - The start and the end are in the change log (Admin\ChangeLog).
+ *  - JSON is not walked: what stores moments inside JSON writes them as ISO 8601 with the offset (the archived monthly
+ *    reports, Core\MonthlyReport::build since 3.16), which needs no conversion – the reader turns them into the new zone.
  */
 final class TimeZoneConversion
 {
@@ -95,6 +97,7 @@ final class TimeZoneConversion
         'look_versions' => ['created'],
         'webhook_deliveries' => ['created', 'next_attempt', 'delivered'],
         'events' => ['created_at'],
+        // the moments inside the stored report (data) are ISO 8601 with their offset since 3.16 (N316-9) and stay right as they are
         'monthly_reports' => ['created_at', 'rebuilt_at'],
         'jobs' => ['last_run', 'last_ok'],
         'firewall_blocks' => ['until', 'created_at'],

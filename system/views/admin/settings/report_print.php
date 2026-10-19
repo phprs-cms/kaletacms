@@ -18,8 +18,6 @@
  * @var list<array{key: string, title: string, blocks: list<array<string, mixed>>}> $sections
  * @var array{script?: string, download?: string, back?: string} $links the screen toolbar; empty in the downloaded file
  */
-// a text inside a CSS string of the page margin boxes: no quote, backslash, line break or "</style>" can get out of it
-$cssString = static fn (string $text): string => '"' . str_replace(['\\', '"', "\n", "\r", '<'], ['\\\\', '\\"', ' ', ' ', '\\3C '], $text) . '"';
 ?>
 <!DOCTYPE html>
 <html lang="<?= e(Kaleta\Core\Language::tag($language)) ?>">
@@ -33,7 +31,7 @@ $cssString = static fn (string $text): string => '"' . str_replace(['\\', '"', "
 @page {
 	size: A4 portrait;
 	margin: 16mm 15mm 18mm;
-	@bottom-left { content: <?= $cssString($siteName . ' · ' . $monthName) ?>; font: 8pt system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: #666; }
+	@bottom-left { content: <?= css_string($siteName . ' · ' . $monthName) /* every control character, quote and "<" escaped (N316-4) */ ?>; font: 8pt system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: #666; }
 	@bottom-right { content: counter(page) " / " counter(pages); font: 8pt system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: #666; }
 }
 * { box-sizing: border-box; }

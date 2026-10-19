@@ -16,21 +16,25 @@ use Kaleta\Core\Extensions;
 use Kaleta\Core\Health;
 use Kaleta\Core\Language;
 use Kaleta\Core\PendingReview;
+use Kaleta\Core\Redact;
 use Kaleta\Core\Scheduler;
 use Kaleta\Core\Updater;
 
 /**
  * What a site tells its console (2.9): version, health, background jobs, backups, updates, enquiries waiting for an answer,
- * visits, the site audit and errors. Counts and states only – never names, e-mail addresses or the content of enquiries.
+ * visits, the site audit and errors. Counts and states – never e-mail addresses, phone numbers or the content of enquiries;
+ * the only text staff write that leaves is the request titles below, and only while the site shares them.
  * Texts are English (the console translates its own screens, not the site's sentences).
  *
  * 3.16 – what waits for people, so the console (3.17) can show one inbox across the sites: requests to Claude (counts,
  * the oldest waiting, and – when the site allows it, setting fleet_request_titles, on by default – up to 20 titles with
- * e-mail addresses masked), the "Waiting for you" counts (Core\PendingReview), enquiries without spam, bookings to confirm,
+ * e-mail addresses and phone numbers masked, Core\Redact), the "Waiting for you" counts (Core\PendingReview), enquiries without spam, bookings to confirm,
  * security in the last 7 days (counts by reason, never an address or a name), the certificate and domain dates from the
  * domain watch, Claude's scheduled runs, how long an update has waited and the latest monthly report.
  * Left out on purpose: anything about the whistleblowing channel – even a count of reports tells who might have reported
- * in a small company, and the channel's promise is that nothing about it leaves the site.
+ * in a small company, and the channel's promise is that nothing about it leaves the site: its events are dropped from
+ * problems_7_days, its job from jobs_failing, both from the health checks (Health::checks leaving), and the console drops
+ * them again.
  * Each new part is optional: null when its feature is off, and a part that fails is null instead of stopping the report.
  */
 final class Heartbeat
@@ -50,7 +54,7 @@ final class Heartbeat
     {
         $db = $app->db();
         $s = $app->settings();
-        $checks = Language::runWith('en', fn (): array => Health::checks($app));
+        $checks = Language::runWith('en', fn (): array => Health::checks($app, true)); // without the whistleblowing channel
         $problems = array_values(array_map(fn (array $c): array => ['group' => $c['skupina'], 'check' => $c['nazev'], 'status' => $c['stav'] === 'chyba' ? 'error' : 'warning',
             'detail' => mb_substr(trim(strip_tags((string) $c['info'])), 0, 200)], array_filter($checks, fn (array $c): bool => $c['stav'] !== 'ok')));
         $backup = Backup::listAll()[0] ?? null;
@@ -74,7 +78,8 @@ final class Heartbeat
             'db_version' => $s->int('db_version'),
             'status' => ['ok' => 'ok', 'varovani' => 'warning', 'chyba' => 'error'][Health::summary($checks)],
             'problems' => array_slice($problems, 0, 20),
-            'jobs_failing' => array_values(array_map(fn (array $j): string => $j['name'], array_filter(Scheduler::overview($db, $s), fn (array $j): bool => $j['failures'] > 0))),
+            'jobs_failing' => array_values(array_filter(array_map(fn (array $j): string => $j['name'], array_filter(Scheduler::overview($db, $s), fn (array $j): bool => $j['failures'] > 0)),
+                fn (string $job): bool => !self::isWhistleblowing($job))),
             'cron_last_run' => $s->int('tasks_last_run') ?: null,
             'last_backup' => $backup !== null ? (int) $backup['cas'] : null,
             'offsite_backup' => $s->get('remote_backup') !== 'vypnuto',
@@ -86,7 +91,7 @@ final class Heartbeat
             'enquiries_7_days' => Extensions::isEnabled($s, 'poptavky') ? (int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE datum > ?', [\Kaleta\Core\Clock::at('-7 days')]) : null,
             'visits_7_days' => \Kaleta\Front\Stats::enabled($s) ? (int) $db->value('SELECT COALESCE(SUM(navstevy), 0) FROM {stat_dny} WHERE den > ?', [\Kaleta\Core\Clock::day('-7 days')]) : null,
             'audit' => $audit,
-            'problems_7_days' => Events::problems($db, 168),
+            'problems_7_days' => self::withoutWhistleblowing(Events::problems($db, 168)),
             'claude' => Extensions::isEnabled($s, 'claude'),
             'kit_version' => $s->int('fleet_kit_version') ?: null, // the shared design kit this site applied (2.16, Fleet\Kit)
             // 3.16: what waits for people (see the class description)
@@ -103,6 +108,26 @@ final class Heartbeat
             'updates' => ['behind_days' => Updater::behindDays($update), 'major_available' => self::part(fn (): ?string => self::version(Updater::nextMajor($s)['verze'] ?? null))],
             'report_month' => self::part(fn (): ?string => self::reportMonth($db)),
         ];
+    }
+
+    /**
+     * Whether a name (an event type, a job) belongs to the whistleblowing channel – such names never leave the site (3.16,
+     * N316-3): even "whistleblowing.due: 1" tells the console that a report came in about a week ago.
+     */
+    public static function isWhistleblowing(string $name): bool
+    {
+        return \Kaleta\Core\Whistleblowing::concerns($name);
+    }
+
+    /**
+     * A map name => count without the whistleblowing names (isWhistleblowing).
+     *
+     * @param array<array-key, mixed> $map
+     * @return array<array-key, mixed>
+     */
+    public static function withoutWhistleblowing(array $map): array
+    {
+        return array_filter($map, fn (int|string $name): bool => !self::isWhistleblowing((string) $name), ARRAY_FILTER_USE_KEY);
     }
 
     /** A version number as the heartbeat sends it, null for anything else. */
@@ -122,13 +147,13 @@ final class Heartbeat
     }
 
     /**
-     * A request title as the console may see it: plain text on one line, at most TITLE_LENGTH characters, and anything
-     * shaped like an e-mail address masked (the title is written by staff and may quote a customer's address).
+     * A request title as the console may see it: plain text on one line, at most TITLE_LENGTH characters, with e-mail
+     * addresses (also written out or spaced) and phone numbers masked by Core\Redact – the title is written by staff and
+     * may quote a customer's address or number. The console runs it again on what it receives.
      */
     public static function cleanTitle(string $title): string
     {
-        $title = html_entity_decode(strip_tags($title), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $title = preg_replace('/[^\s@<>()\[\]{},;:"\'`]+@[^\s@<>()\[\]{},;:"\'`]+/u', '[e-mail]', $title) ?? '';
+        $title = Redact::text(html_entity_decode(strip_tags($title), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
         $title = trim(preg_replace('/[\s\x{00A0}]+/u', ' ', $title) ?? '');
 
         return mb_strlen($title) > self::TITLE_LENGTH ? rtrim(mb_substr($title, 0, self::TITLE_LENGTH - 1)) . '…' : $title;
@@ -216,11 +241,7 @@ final class Heartbeat
             'sessions_7_days' => (int) $db->value('SELECT COUNT(*) FROM {agent_sessions} WHERE started_at > ?', [$since])];
     }
 
-    /**
-     * The month of the latest archived monthly report ('2026-09'), null without the archive.
-     * TODO(3.16 merge): the archive table comes from work-stream A (MonthlyReport); align the table and column names here
-     * when both are merged – until then the guard finds no table and the key stays null.
-     */
+    /** The month of the latest archived monthly report ('2026-09', Core\ReportArchive), null while there is none or the table is not there yet. */
     private static function reportMonth(Db $db): ?string
     {
         if ($db->value('SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?', [$db->tableName('monthly_reports')]) === null) {

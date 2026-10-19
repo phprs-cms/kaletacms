@@ -16,15 +16,15 @@ namespace Kaleta\Core;
  */
 final class ReportPage
 {
-    /** Firewall reasons (ka_firewall_log.reason) => label, as Settings → Firewall names them. */
-    private const array FIREWALL = ['list' => 'blocked address', 'country' => 'blocked country', 'rate' => 'too many requests', 'probe' => 'probing for other systems', 'temporary' => 'blocked for a while'];
+    /** Firewall reasons (ka_firewall_log.reason) => label, as Settings → Firewall names them (also on the fleet console). */
+    public const array FIREWALL = ['list' => 'blocked address', 'country' => 'blocked country', 'rate' => 'too many requests', 'probe' => 'probing for other systems', 'temporary' => 'blocked for a while'];
 
     /** What waits at the end of the month (MonthlyReport::open) => label. */
     private const array OPEN = ['requests' => 'Requests to Claude still open', 'page_drafts' => 'Pages with unpublished changes', 'part_drafts' => 'Site parts with unpublished changes',
         'news_drafts' => 'News drafts', 'look_draft' => 'Unpublished changes of the look', 'staged_files' => 'Files from Claude waiting for approval', 'enquiries' => 'Enquiries nobody has opened yet'];
 
-    /** Security events => label. */
-    private const array SECURITY = ['firewall.blocked' => 'Addresses blocked for a while', 'security.account_suspended' => 'Unused accounts suspended',
+    /** Security events => label (also on the fleet console). */
+    public const array SECURITY = ['firewall.blocked' => 'Addresses blocked for a while', 'security.account_suspended' => 'Unused accounts suspended',
         'security.connection_revoked' => 'Unused Claude connections revoked', 'security.token_reuse' => 'Connected applications signed out after a reused token'];
 
     /**
@@ -62,7 +62,7 @@ final class ReportPage
             'agencyContacts' => array_values(array_filter([(string) preg_replace('#^https?://#', '', $s->get('agency_url')), $s->get('agency_email'), $s->get('agency_phone')])),
             'generated' => format_date($stored['created_at'], true),
             'rebuilt' => $stored['rebuilt_at'] !== null ? format_date($stored['rebuilt_at'], true) : '',
-            'sections' => self::sections($stored['data']),
+            'sections' => self::sections($stored['data'], $stored['rebuilt_at'] !== null ? format_date($stored['rebuilt_at'], true) : ''),
         ];
     }
 
@@ -74,15 +74,19 @@ final class ReportPage
 
     /**
      * The report as sections of blocks; texts in the current language, every string from the data scrubbed again.
+     * $rebuilt (the formatted moment of a rebuild, or '') marks the parts taken when the report was made – what waits,
+     * the problems, the audit, the version, the unopened enquiries – as the state on that day, not at the end of the month.
      *
      * @param array<string, mixed> $data from MonthlyReport::build (archived)
      * @return list<array{key: string, title: string, blocks: list<array<string, mixed>>}>
      */
-    public static function sections(array $data): array
+    public static function sections(array $data, string $rebuilt = ''): array
     {
         $data = MonthlyReport::scrub($data);
         $n = static fn (mixed $value): string => format_number((int) $value, 0);
-        $date = static fn (mixed $value, bool $time = false): string => is_string($value) && $value !== '' ? format_date($value, $time) : '';
+        $date = static fn (mixed $value, bool $time = false): string => ($moment = MonthlyReport::moment($value)) !== null ? format_date($moment, $time) : '';
+        // a rebuilt report: the parts taken "now" are from the day of the rebuild (N316-7)
+        $asRebuilt = $rebuilt !== '' ? ['type' => 'note', 'text' => t('As on %s, when the report was rebuilt – not at the end of the month.', $rebuilt)] : null;
         $pairs = static fn (array $rows): ?array => $rows === [] ? null : ['type' => 'pairs', 'rows' => $rows];
         // numeric columns align right, short ones (dates, statuses) never wrap; the rest wraps at word boundaries
         $table = static fn (string $caption, array $head, array $rows, array $numeric = [], array $short = []): ?array => $rows === [] ? null
@@ -150,7 +154,7 @@ final class ReportPage
             $rows[] = [t('Problems in System status that need fixing'), $n($errors)];
         }
         if (isset($data['open']) || $errors > 0) {
-            $add('open', t('Waiting at the end of the month'), [$pairs($rows) ?? $note(t('Nothing was waiting.'))]);
+            $add('open', $rebuilt !== '' ? t('Waiting when the report was rebuilt') : t('Waiting at the end of the month'), [$pairs($rows) ?? $note(t('Nothing was waiting.')), $asRebuilt]);
         }
 
         // requests to Claude
@@ -193,10 +197,16 @@ final class ReportPage
             foreach ((array) ($claude['run_statuses'] ?? []) as $status => $count) {
                 $rows[] = [t(AgentSchedules::STATUSES[$status] ?? (string) $status), $n($count), true]; // indented under the runs
             }
+            // by the kind of task and the result – never a run's name or summary (N316-1)
+            $taskRows = [];
+            foreach ((array) ($claude['run_tasks'] ?? []) as $task => $results) {
+                foreach ((array) $results as $status => $count) {
+                    $taskRows[] = [t(AgentSchedules::TASKS[$task][0] ?? 'Custom instructions'), t(AgentSchedules::STATUSES[$status] ?? (string) $status), $n($count)];
+                }
+            }
             $add('claude', t('Claude sessions and scheduled runs'), [
                 $pairs($rows),
-                $table(t('Scheduled runs'), [t('Date'), t('Run'), t('Result'), t('Summary')], array_map(static fn (array $r): array => [$date($r['date']),
-                    (string) $r['name'] !== '' ? (string) $r['name'] : t(AgentSchedules::TASKS[$r['task']][0] ?? 'Custom instructions'), t(AgentSchedules::STATUSES[$r['status']] ?? (string) $r['status']), (string) $r['summary']], (array) ($claude['run_list'] ?? [])), [], [0, 2]),
+                $table(t('Scheduled runs by task'), [t('Task'), t('Result'), t('Runs')], $taskRows, [2], [1]),
             ]);
         }
 
@@ -222,7 +232,7 @@ final class ReportPage
         // enquiries: counts by form, category and page – never their contents or senders
         if ($enquiries !== null) {
             $add('enquiries', t('Enquiries'), [
-                $pairs([[t('Enquiries received'), $n($enquiries['total'] ?? 0)], [t('Nobody has opened yet (now)'), $n($enquiries['unanswered'] ?? 0)]]),
+                $pairs([[t('Enquiries received'), $n($enquiries['total'] ?? 0)], [$rebuilt !== '' ? t('Nobody has opened yet (when rebuilt)') : t('Nobody has opened yet (now)'), $n($enquiries['unanswered'] ?? 0)]]),
                 $table(t('By form'), [t('Form'), t('Enquiries')], array_map(static fn (array $f): array => [(string) $f['form'] !== '' ? (string) $f['form'] : t('Form'), $n($f['n'])], (array) ($enquiries['forms'] ?? [])), [1]),
                 $table(t('By category'), [t('Category'), t('Enquiries')], array_map(static fn (array $c): array => [t(Triage::CATEGORIES[$c['category']] ?? (string) $c['category']), $n($c['n'])], (array) ($enquiries['categories'] ?? [])), [1]),
                 $table(t('By page'), [t('Page'), t('Enquiries')], array_map(static fn (array $p): array => [(string) $p['path'], $n($p['n'])], (array) ($enquiries['pages'] ?? [])), [1]),
@@ -256,7 +266,7 @@ final class ReportPage
         $result = ['update.applied' => 'Installed', 'update.failed' => 'Failed – the site stayed on its version', 'update.rolled_back' => 'Rolled back to the previous version'];
         $channel = t(['stable' => 'Stable channel', 'custom' => 'custom update source'][(string) ($data['update_channel'] ?? '')] ?? 'Latest channel');
         $add('updates', t('Kaleta updates'), [
-            isset($data['version']) ? $pairs([[t('Kaleta version'), (string) $data['version'] . ' · ' . $channel]]) : null,
+            isset($data['version']) ? $pairs([[$rebuilt !== '' ? t('Kaleta version when the report was rebuilt') : t('Kaleta version'), (string) $data['version'] . ' · ' . $channel]]) : null,
             $updates === [] ? $note(t('No update this month.')) : $table(t('Updates'), [t('Date'), t('From'), t('To'), t('Result')],
                 array_map(static fn (array $u): array => [$date($u['date'] ?? '', true), (string) ($u['from'] ?? ''), (string) ($u['to'] ?? ''), t($result[$u['type'] ?? ''] ?? 'Installed')], $updates), [], [0, 1, 2]),
         ]);
@@ -283,6 +293,8 @@ final class ReportPage
             $add('security', t('Security'), [
                 $pairs($rows),
                 $table(t('Blocked by the firewall'), [t('Reason'), t('Requests')], array_map(static fn (string $reason, int $count): array => [t(self::FIREWALL[$reason] ?? $reason), $n($count)], array_keys($firewall), $firewall), [1]),
+                // the firewall keeps its log 30 days (Firewall::LOG_DAYS): a 31-day month misses its start
+                $date($security['firewall_from'] ?? null) !== '' ? $note(t('The firewall keeps its log for 30 days, so requests blocked before %s are not counted.', $date($security['firewall_from'], true))) : null,
                 $note(t('Counts only – no addresses, accounts or e-mail addresses.')),
             ]);
         }
@@ -298,12 +310,13 @@ final class ReportPage
                 $kinds === [] ? $note(t('The audit found nothing to fix.')) : $table(t('Findings by kind'), [t('Kind'), t('Findings')],
                     array_map(static fn (string $kind, int $count): array => [t(Audit::KINDS[$kind] ?? $kind), $n($count)], array_keys($kinds), array_map('intval', $kinds)), [1]),
                 ($audit['fixed'] ?? null) === null ? $note(t('What was fixed and what is new is compared with the previous month from the next report on.')) : null,
+                $asRebuilt,
             ]);
         }
 
         // problems right now (System status when the report was made)
         $add('problems', t('Problems when the report was made'), [$problems === [] ? $note(t('None – every check in System status is fine.'))
-            : ['type' => 'list', 'items' => array_map(static fn (array $p): string => (string) $p['name'] . ' – ' . (string) $p['info'], $problems)]]);
+            : ['type' => 'list', 'items' => array_map(static fn (array $p): string => (string) $p['name'] . ' – ' . (string) $p['info'], $problems)], $asRebuilt]);
 
         return $out;
     }

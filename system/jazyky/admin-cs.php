@@ -3457,7 +3457,6 @@ return [
     'Saved.' => 'Uloženo.',
     'Checked.' => 'Zkontrolováno.',
     'The site was removed from the console. It stops reporting with its next report; pair it again to bring it back.' => 'Web je z konzole odebraný. Jeho další hlášení konzole odmítne; vrátíte ho novým spárováním.',
-    'A fleet console is another Kaleta installation that shows all your sites on one screen. This site sends it a signed report every hour – version, health, background jobs, backups, enquiries waiting and visits, never names or the content of enquiries. The console cannot get into this site.' => 'Konzole webů je jiná instalace Kalety, která ukazuje všechny vaše weby na jedné obrazovce. Tento web jí každou hodinu pošle podepsané hlášení – verzi, stav, úlohy na pozadí, zálohy, poptávky čekající na odpověď a návštěvy, nikdy jména ani obsah poptávek. Konzole se do tohoto webu dostat nemůže.',
     'Pair with a console' => 'Spárovat s konzolí',
     'Pairing key' => 'Párovací klíč',
     'On the console: Fleet → Add a site. The key is valid for 24 hours and only once.' => 'V konzoli: Konzole webů → Přidat web. Klíč platí 24 hodin a jen jednou.',
@@ -6044,7 +6043,6 @@ return [
     'Request titles' => 'Názvy požadavků',
     'Send the titles of Ask Claude requests to the console' => 'Posílat konzoli názvy požadavků Zeptat se Clauda',
     'Request titles help you see the work across sites; enquiries, e-mails and contents never leave the site.' => 'Názvy požadavků vám pomohou vidět práci napříč weby; poptávky, e-maily a obsah web nikdy neopustí.',
-    'E-mail addresses in a title are masked. Without the titles the console gets only how many requests wait.' => 'E-mailové adresy v názvu se skryjí. Bez názvů se konzole dozví jen, kolik požadavků čeká.',
     'Save the choice about request titles' => 'Uložit volbu o názvech požadavků',
     'The choice about request titles is saved.' => 'Volba o názvech požadavků je uložená.',
     'the certificate expires soon' => 'certifikát brzy vyprší',
@@ -6071,4 +6069,15 @@ return [
     'Last monthly report' => 'Poslední měsíční přehled',
     'could not be checked' => 'nepodařilo se ověřit',
     'unknown' => 'neznámé',
+    'A fleet console is another Kaleta installation that shows all your sites on one screen. This site sends it a signed report every hour – version, health, background jobs, backups, counts of enquiries and requests waiting, visits and, unless you switch it off below, the titles of requests to Claude. Never the content of enquiries, e-mail addresses or phone numbers. The console cannot get into this site.' => 'Konzole webů je jiná instalace Kalety, která ukazuje všechny vaše weby na jedné obrazovce. Tento web jí každou hodinu pošle podepsané hlášení – verzi, stav, úlohy na pozadí, zálohy, počty čekajících poptávek a požadavků, návštěvy a, pokud to níže nevypnete, názvy požadavků na Clauda. Nikdy obsah poptávek, e-mailové adresy ani telefonní čísla. Konzole se do tohoto webu dostat nemůže.',
+    'E-mail addresses and phone numbers in a title are masked. Without the titles the console gets only how many requests wait.' => 'E-mailové adresy a telefonní čísla v názvu se skryjí. Bez názvů se konzole dozví jen, kolik požadavků čeká.',
+    'As on %s, when the report was rebuilt – not at the end of the month.' => 'Stav k %s, kdy byla zpráva znovu sestavena – ne ke konci měsíce.',
+    'Waiting when the report was rebuilt' => 'Co čekalo při novém sestavení zprávy',
+    'Scheduled runs by task' => 'Naplánované běhy podle úkolu',
+    'Task' => 'Úkol',
+    'Nobody has opened yet (when rebuilt)' => 'Zatím nikdo neotevřel (při novém sestavení)',
+    'Kaleta version when the report was rebuilt' => 'Verze Kalety při novém sestavení zprávy',
+    'The firewall keeps its log for 30 days, so requests blocked before %s are not counted.' => 'Firewall si vede záznam 30 dní, požadavky zablokované před %s proto nejsou započítané.',
+    'Newsletter' => 'Newsletter', // the same word (N316-8)
+    'firewall: %s' => 'firewall: %s', // the same word (N316-8)
 ];

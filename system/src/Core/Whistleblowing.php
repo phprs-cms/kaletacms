@@ -38,6 +38,16 @@ use Kaleta\Builder\Elements\Form;
 final class Whistleblowing
 {
     /** Status => label (admin texts, translated with t()). */
+    /**
+     * Whether a name – an event type, a background job, a change-log section – belongs to this channel (3.16, N316-3).
+     * What leaves the site (the fleet heartbeat, the monthly report) leaves such names out: even "whistleblowing.due: 1"
+     * tells that a report came in about a week ago.
+     */
+    public static function concerns(string $name): bool
+    {
+        return str_contains(strtolower($name), 'whistleblow');
+    }
+
     public const array STATUSES = ['received' => 'Received', 'acknowledged' => 'Acknowledged', 'in_progress' => 'In progress', 'closed' => 'Case closed'];
 
     public const int ACKNOWLEDGE_DAYS = 7;

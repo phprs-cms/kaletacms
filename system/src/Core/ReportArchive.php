@@ -11,8 +11,11 @@ namespace Kaleta\Core;
  * firewall log a month). A month is stored once; rebuilding it from the data still available is an explicit administrator
  * action (Settings → Reports). KEEP_MONTHS are kept, older rows are deleted. Nothing exists for the months before 3.16.
  *
- * The JSON is what Settings → Reports prints (MonthlyReport::page), what the e-mail of that month is written from and
- * what Claude reads with get_monthly_report. Counts, titles and paths only, never personal data (MonthlyReport::scrub).
+ * The JSON is what Settings → Reports prints (Core\ReportPage), what the e-mail of that month is written from and
+ * what Claude reads with get_monthly_report. Counts, titles and paths only, never personal data (MonthlyReport::scrub,
+ * at build and again on every read). Only the job and the explicit rebuild write a row – the e-mail and its preview
+ * build a missing month in memory (N316-7). Moments inside the JSON are ISO 8601 with the offset, so a change of the
+ * time zone (Core\TimeZoneConversion) converts only the row's created_at and rebuilt_at.
  */
 final class ReportArchive
 {
@@ -54,7 +57,7 @@ final class ReportArchive
         $data = json_decode((string) $row['data'], true);
 
         return ['month' => (string) $row['month'], 'created_at' => (string) $row['created_at'], 'rebuilt_at' => $row['rebuilt_at'] === null ? null : (string) $row['rebuilt_at'],
-            'schema_version' => (int) $row['schema_version'], 'data' => is_array($data) ? $data : ['month' => $month]];
+            'schema_version' => (int) $row['schema_version'], 'data' => is_array($data) ? MonthlyReport::scrub($data) : ['month' => $month]];
     }
 
     /** The oldest stored month ('' = none yet) – the admin says honestly from when reports exist. */
@@ -89,12 +92,6 @@ final class ReportArchive
         }
 
         return $data;
-    }
-
-    /** The stored data of a month, built and stored first when the month is missing (the e-mail of the previous month). @return array<string, mixed> */
-    public static function data(App $app, \DateTimeImmutable $monthStart): array
-    {
-        return self::store($app, $monthStart);
     }
 
     /** Deletes the months older than KEEP_MONTHS before the given moment. Returns how many rows went. */
