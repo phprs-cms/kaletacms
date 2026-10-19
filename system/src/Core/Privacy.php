@@ -338,7 +338,7 @@ final class Privacy
         $forms = [];
         foreach (self::forms($app) as $f) {
             $forms[] = t('Form “%s” on %s: fields %s; notification to %s%s', $f['name'], $f['where'], implode(', ', array_map(fn (array $field): string => $field['label'] . ' (' . t($field['type']) . ')', $f['fields'])),
-                $f['recipient'] !== '' ? $f['recipient'] : t('the site e-mail'), $f['confirmation'] ? '; ' . t('the sender gets a confirmation e-mail') : '');
+                ($f['recipient'] !== '' ? $f['recipient'] : t('the site e-mail')) . ($f['bcc'] !== '' ? ' ' . t('(hidden copy to %s)', $f['bcc']) : ''), $f['confirmation'] ? '; ' . t('the sender gets a confirmation e-mail') : '');
         }
         $months = $s->int('enquiries_months');
         $sections[] = ['heading' => t('Enquiries and form messages'), 'lines' => array_merge($forms !== [] ? $forms : [t('No form on the published site.')], [
@@ -439,7 +439,7 @@ final class Privacy
                                 $fields[] = ['label' => (string) ($field['popisek'] ?? ''), 'type' => \Kaleta\Builder\Elements\Form::FIELD_TYPES[$type] ?? $type];
                             }
                         }
-                        $forms[] = ['name' => (string) ($n['obsah']['nazev'] ?? ''), 'where' => $t['where'], 'fields' => $fields, 'recipient' => (string) ($n['obsah']['prijemce'] ?? ''), 'confirmation' => !empty($n['obsah']['potvrzeni'])];
+                        $forms[] = ['name' => (string) ($n['obsah']['nazev'] ?? ''), 'where' => $t['where'], 'fields' => $fields, 'recipient' => (string) ($n['obsah']['prijemce'] ?? ''), 'bcc' => (string) ($n['obsah']['skryta_kopie'] ?? ''), 'confirmation' => !empty($n['obsah']['potvrzeni'])];
                     }
                     $walk((array) ($n['deti'] ?? []));
                 }

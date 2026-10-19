@@ -929,7 +929,7 @@ final class Build
     private const array TEXT_PROPERTIES = ['text', 'odkaz', 'radky', 'html', 'inline', 'textarea', 'polozky', 'souhlas'];
 
     /** Text properties that are settings, not text for the visitor (collection and field keys, e-mail, date, rating number). */
-    private const array TECHNICAL_PROPERTIES = ['kolekce', 'razeni_pole', 'filtr_pole', 'pole_poloha', 'komponenta', 'kategorie', 'prijemce', 'cil', 'hodnota'];
+    private const array TECHNICAL_PROPERTIES = ['kolekce', 'razeni_pole', 'filtr_pole', 'pole_poloha', 'komponenta', 'kategorie', 'prijemce', 'skryta_kopie', 'cil', 'hodnota'];
 
     /**
      * Build texts for translation: elements with an id and only those content properties that carry text or a link (without styles

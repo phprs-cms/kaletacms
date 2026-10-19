@@ -51,7 +51,7 @@ final class Vocabulary
         'pocet' => 'count', 'kategorie' => 'category', 'obrazky' => 'images', 'kolekce' => 'collection', 'razeni' => 'sort', 'razeni_pole' => 'sort_field',
         'filtr_pole' => 'filter_field', 'filtr_hodnota' => 'filter_value', 'bez_aktualni' => 'exclude_current', 'obdobi' => 'period', 'obdobi_od' => 'period_start_field', 'obdobi_do' => 'period_end_field', 'filtry' => 'filters',
         'kosik' => 'basket_page', 'mnozstvi' => 'quantity', 'porovnani' => 'compare', 'strankovani' => 'pagination',
-        'prazdne' => 'empty_text', 'nazev' => 'name', 'pole' => 'fields', 'dekujeme' => 'thank_you', 'prijemce' => 'recipient', 'dekovna' => 'thank_you_page',
+        'prazdne' => 'empty_text', 'nazev' => 'name', 'pole' => 'fields', 'dekujeme' => 'thank_you', 'prijemce' => 'recipient', 'skryta_kopie' => 'bcc', 'dekovna' => 'thank_you_page',
         'potvrzeni' => 'confirmation', 'bez_captcha' => 'no_captcha', 'poslat_soubor' => 'send_file', 'souhlas' => 'consent', 'komponenta' => 'component', 'hodnoty' => 'values', 'kod' => 'code', 'menu' => 'menu',
         'novinky' => 'news_link', 'mobil' => 'phone_menu', 'mobil_tablet' => 'tablet_menu', 'mega' => 'mega_menu', 'zvyrazneni' => 'highlight', 'jazyky' => 'language_switcher', 'smer' => 'direction',
         'udaj' => 'detail', 'pri_rolovani' => 'on_scroll', 'text_nahore' => 'text_at_top',

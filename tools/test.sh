@@ -1704,6 +1704,10 @@ newsletter_action send -d "id=$NL" -d when=now
 expect "no sending without an SMTP server" "$(db "SELECT status FROM ka_newsletters WHERE id = $NL")" "draft"
 db "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '$SMTP_PORT'), ('smtp_encryption', 'zadne'), ('smtp_user', ''), ('mail_from', 'web@example.cz')"
 newsletter_action send -d "id=$NL" -d when=now
+# 3.15.2: several visible recipients see each other in To, a hidden copy (Bcc) is only in the envelope
+(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); Kaleta\Core\Mail::send($app->settings(), "prvni@example.cz, druhy@example.cz", "Více příjemců", "text", "", ["Reply-To" => "navstevnik@example.cz", "Bcc" => "skryty@example.cz"]);')
+F=$(mail_to "prvni@example.cz, druhy@example.cz, skryty@example.cz")
+expect "3.15.2: To lists the visible recipients, the hidden one only in the envelope" "$([ -n "$F" ] && grep -c '^To: prvni@example.cz, druhy@example.cz' "$F")|$([ -n "$F" ] && grep -ci 'skryty@example.cz' "$F")" "1|1"
 expect "no sending while cron does not run" "$(db "SELECT status FROM ka_newsletters WHERE id = $NL")" "draft"
 check "newsletter form tells why it cannot send" 200 "/admin.php?module=newsletters&action=edit&id=$NL" "Cron za posledních 30 minut"
 curl -s -o /dev/null "$B/ulohy?token=testtoken123"

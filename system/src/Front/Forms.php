@@ -333,8 +333,8 @@ final class Forms
     private function notify(int $idp, array $element, array $data, string $email, string $campaign, string $about = ''): void
     {
         $siteSettings = $this->app->settings();
-        $recipient = filter_var($element['obsah']['prijemce'], FILTER_VALIDATE_EMAIL) !== false ? $element['obsah']['prijemce'] : $siteSettings->get('site_email');
-        if ($recipient === '') {
+        [$to, $bcc] = self::recipients((string) $element['obsah']['prijemce'], (string) ($element['obsah']['skryta_kopie'] ?? ''), $siteSettings->get('site_email'));
+        if ($to === []) {
             return; // the enquiry is saved in the administration even without an e-mail
         }
         $url = rtrim($siteSettings->get('site_url') !== '' ? $siteSettings->get('site_url') : $this->app->request->origin(), '/');
@@ -343,6 +343,38 @@ final class Forms
             . implode("\n\n", array_map(fn (array $d): string => $d[0] . ":\n" . $d[1], $data))
             . ($campaign !== '' ? "\n\n" . t('Campaign') . ":\n" . self::campaignText($campaign) : '')
             . "\n\n—\n" . t('Enquiry in the administration: %s', $url . $this->app->url('admin.php?module=enquiries&action=detail&id=' . $idp));
-        Mail::send($siteSettings, $recipient, t('%s: %s', $element['obsah']['nazev'], $siteSettings->get('site_name')), $text, '', $email !== '' ? ['Reply-To' => $email] : []);
+        $headers = ($email !== '' ? ['Reply-To' => $email] : []) + ($bcc !== [] ? ['Bcc' => implode(', ', $bcc)] : []);
+        Mail::send($siteSettings, implode(', ', $to), t('%s: %s', $element['obsah']['nazev'], $siteSettings->get('site_name')), $text, '', $headers);
+    }
+
+    /**
+     * Who gets the notification (3.15.2): the visible recipients (they see each other, reply to all reaches them) and the
+     * hidden ones (Bcc), each list separated by commas, semicolons or spaces, at most 5 addresses. Invalid addresses are
+     * skipped; no valid visible one = the site e-mail; without the site e-mail the hidden ones become the visible ones.
+     *
+     * @return array{0: list<string>, 1: list<string>} [To, Bcc]
+     */
+    public static function recipients(string $visible, string $hidden, string $siteEmail): array
+    {
+        $list = function (string $field): array {
+            $valid = [];
+            foreach (preg_split('/[\s,;]+/', $field, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $address) {
+                if (Mail::addresses($address) !== []) {
+                    $valid[strtolower($address)] ??= $address;
+                }
+            }
+
+            return $valid;
+        };
+        $to = $list($visible);
+        if ($to === [] && Mail::addresses($siteEmail) !== []) {
+            $to[strtolower($siteEmail)] = $siteEmail;
+        }
+        $bcc = array_diff_key($list($hidden), $to); // a visible recipient does not get a second copy
+        if ($to === []) {
+            [$to, $bcc] = [$bcc, []];
+        }
+
+        return [array_slice(array_values($to), 0, 5), array_slice(array_values($bcc), 0, 5)];
     }
 }

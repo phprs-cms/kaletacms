@@ -178,6 +178,12 @@ check('Kontrola stavby: části webu osnovu nadpisů nehlídají', Kaleta\Builde
 check('Poptávka: kampaň z utm_* adresy stránky s formulářem', Kaleta\Front\Forms::campaign('https://example.com/akce?utm_source=google&utm_medium=cpc&utm_campaign=jaro&gclid=x&utm_term[]=a', 'https://example.com'), 'utm_source=google&utm_medium=cpc&utm_campaign=jaro');
 check('Poptávka: kampaň jen z vlastního webu', Kaleta\Front\Forms::campaign('https://jiny.cz/?utm_source=x', 'https://example.com'), '');
 check('Poptávka: kampaň pro člověka', Kaleta\Front\Forms::campaignText('utm_source=google&utm_medium=cpc&utm_campaign=jaro'), 'google / cpc / jaro');
+check('Poptávka: více příjemců i skrytá kopie', Kaleta\Front\Forms::recipients('admin@example.com, info@example.com;Info@example.com', 'skryty@example.com admin@example.com', 'web@example.com'), [['admin@example.com', 'info@example.com'], ['skryty@example.com']]);
+check('Poptávka: neplatné adresy se vynechají, žádná platná = e-mail webu', Kaleta\Front\Forms::recipients('nekdo, @x', '', 'web@example.com'), [['web@example.com'], []]);
+check('Poptávka: bez příjemce i e-mailu webu dostanou zprávu skrytí příjemci', Kaleta\Front\Forms::recipients('', 'a@example.com', ''), [['a@example.com'], []]);
+check('Poptávka: bez příjemců nikdo', Kaleta\Front\Forms::recipients('', '', ''), [[], []]);
+check('Pošta: seznam adres oddělených čárkou', Kaleta\Core\Mail::addresses('a@example.com, B@example.com,b@example.com'), ['a@example.com', 'B@example.com']);
+check('Pošta: jedna neplatná adresa odmítne celý seznam (žádná vložená hlavička)', Kaleta\Core\Mail::addresses("a@example.com, b@example.com\r\nBcc: c@example.com"), []);
 // Parity guard: every admin action is a read, has an MCP tool, or is admin only on purpose (with the reason). A new action
 // that is none of these fails the test – decide whether Claude can do it too (MCP is the main way to work with a site).
 $readOnly = 'read';
