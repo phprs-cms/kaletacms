@@ -420,7 +420,7 @@ final class Privacy
     /**
      * The Form elements of the published site with their fields.
      *
-     * @return list<array{name: string, where: string, fields: list<array{label: string, type: string}>, recipient: string, confirmation: bool}>
+     * @return list<array{name: string, where: string, fields: list<array{label: string, type: string}>, recipient: string, bcc: string, confirmation: bool}>
      */
     public static function forms(App $app): array
     {
