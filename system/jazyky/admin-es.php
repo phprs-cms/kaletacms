@@ -6284,6 +6284,9 @@ return [
     '“The same address in every language” is on, and no address is shared yet' => '«La misma dirección en todos los idiomas» está activada y aún no se comparte ninguna dirección',
     '%d address(es) are shared by versions in different languages – allowed, “The same address in every language” is on, as it will be for every site in Kaleta 4.0' => '%d dirección(es) las comparten versiones en distintos idiomas: está permitido, «La misma dirección en todos los idiomas» está activada, como lo estará en todos los sitios con Kaleta 4.0',
     '%d address(es) are shared by versions in different languages although “The same address in every language” is off – Kaleta 4.0 allows it, nothing to do' => '%d dirección(es) las comparten versiones en distintos idiomas aunque «La misma dirección en todos los idiomas» está desactivada: Kaleta 4.0 lo permite, no hay nada que hacer',
+    'News heading' => 'Título de las noticias',
+    'The heading of the news list in the default language, e.g. Updates to go with the address /updates. Empty = News.' => 'El título de la lista de noticias en el idioma predeterminado, p. ej. Novedades para la dirección /novedades. Vacío = Noticias.',
+    'Filter buttons for visitors (by the field above, without a field by category)' => 'Botones de filtro para visitantes (según el campo de arriba; sin campo, por categoría)',
     // 3.15: the count next to a menu item, read by screen readers
     '%d new' => 'nuevos: %d',
     'Table names' => 'Nombres de las tablas',

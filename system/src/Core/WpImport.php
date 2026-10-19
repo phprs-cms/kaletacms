@@ -615,7 +615,10 @@ final class WpImport
         $state['vysledek']['clanky']++;
 
         if ($state['volby']['presmerovani']) {
-            $state['vysledek']['presmerovani'] += $this->redirect($p, ($language !== '' ? $language . '/' : '') . 'novinky/' . $seo, $state);
+            // the public address (3.15.1): under a custom news slug (/aktuality) the old WordPress address may be the new one
+            // itself – a redirect to the internal novinky/… would send it back to itself while the news item is still hidden
+            $public = Routes::publicPath('novinky/' . $seo, Language::ofContent($this->settings, $language), $this->db);
+            $state['vysledek']['presmerovani'] += $this->redirect($p, ($language !== '' ? $language . '/' : '') . $public, $state);
         }
 
         return $idc;
