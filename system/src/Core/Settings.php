@@ -190,6 +190,8 @@ final class Settings
         'update_channel' => 'latest', // 3.8: latest (a new minor every week) or stable (security fixes, a new minor about monthly) – Core\Updater
         'update_cache' => '',
         'update_seen' => '',       // 3.10: the newest signed manifest each update source gave the site (JSON, Core\Updater – a stale one is refused)
+        'update_major_cache' => '', // 3.15: the last answer of the next major version's manifest (aktualizace-4.json, Core\Updater – offered, never installed by itself)
+        'update_behind_since' => '0', // 3.15: since when a newer release of the site's line has been offered (Unix time, 0 = up to date) – the update prompt
         'auto_updates' => '1',    // install security releases automatically
         'update_attempt' => '',    // the version the background maintenance has already tried / announced
         'extensions' => '',            // enabled extensions (Core\Extensions); empty = default set

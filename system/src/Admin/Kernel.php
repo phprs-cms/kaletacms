@@ -158,8 +158,11 @@ final class Kernel
             return Response::redirect($app->url('admin.php'));
         }
         if ($ident === '') {
-            $newVersion = $app->auth()->isAdmin() ? (new \Kaleta\Core\Updater($app->settings()))->state()['nova'] : null;
-            if ($newVersion !== null) {
+            $update = $app->auth()->isAdmin() ? (new \Kaleta\Core\Updater($app->settings()))->state() : null;
+            $newVersion = $update['nova'] ?? null;
+            // 3.15: a regular release waiting for BEHIND_DAYS and more is the quiet prompt among the warnings below instead
+            $behind = $update !== null && empty($newVersion['bezpecnostni']) && (\Kaleta\Core\Updater::behindDays($update) ?? 0) >= \Kaleta\Core\Updater::BEHIND_DAYS;
+            if ($newVersion !== null && !$behind) {
                 // the text is translated here (with the version number); the menu path is turned into a link only when the message is rendered (Admin\MenuPaths)
                 $app->session->flash(!empty($newVersion['bezpecnostni']) ? 'chyba' : 'info', !empty($newVersion['bezpecnostni'])
                     ? t('A SECURITY update %s is available – install it in Settings → Backups and updates.', (string) $newVersion['verze'])
@@ -248,6 +251,14 @@ final class Kernel
             }
         }
         if ($this->app->auth()->isAdmin()) {
+            // 3.15: security fixes land only in the newest release (no support window for older ones) – a site that has not
+            // updated for BEHIND_DAYS is reminded here, quietly, until it does; no e-mail
+            $update = (new \Kaleta\Core\Updater($this->app->settings()))->state(); // remembered by the check above
+            $behind = \Kaleta\Core\Updater::behindDays($update);
+            if ($behind !== null && $behind >= \Kaleta\Core\Updater::BEHIND_DAYS && empty($update['nova']['bezpecnostni'])) {
+                $warnings[] = [t('Version %s has been available for %d days and this site still runs %s. Security fixes come out only in the newest release, so keep the site up to date.', (string) $update['nova']['verze'], $behind, KALETA_VERSION),
+                    $this->app->url('admin.php?module=settings&tab=backups'), t('Update')];
+            }
             $backup = \Kaleta\Core\Backup::listAll()[0]['cas'] ?? 0;
             if (time() - $backup > 8 * 86400) {
                 $warnings[] = [$backup === 0 ? t('The site has no database backup yet.') : t('The last database backup is from %s.', format_date(date('Y-m-d H:i:s', $backup))), $this->app->url('admin.php?module=settings&tab=backups')];

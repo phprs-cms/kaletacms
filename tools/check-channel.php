@@ -19,6 +19,10 @@
  * refuse an older manifest than the one they already have. The check fails RESIGN_BEFORE_DAYS before sites start
  * warning that the update information is old (Core\Updater::FRESHNESS_DAYS): re-sign the manifest then (docs/RELEASING.md).
  *
+ * 3.15: aktualizace.json is the 3.x line for good (sites before 3.15 read only it), so it must never offer a 4.x release; each
+ * major from 4 on has its own manifest next to it (aktualizace-4.json, Core\Updater::manifestFile), checked the same way
+ * up to the major after this code's – while one is not published (404), it is skipped. --major=<url> checks another address.
+ *
  * Signs nothing and needs no private key.
  */
 
@@ -31,9 +35,13 @@ use Kaleta\Core\Updater;
 
 $arguments = array_slice($argv, 1);
 $stableArgument = null;
+$majorArgument = null;
 foreach ($arguments as $i => $argument) {
     if (str_starts_with($argument, '--stable=')) {
         $stableArgument = substr($argument, 9);
+        unset($arguments[$i]);
+    } elseif (str_starts_with($argument, '--major=')) {
+        $majorArgument = substr($argument, 8);
         unset($arguments[$i]);
     }
 }
@@ -158,6 +166,40 @@ if ($stableUrl !== null) {
             if (is_array($latest) && version_compare((string) $stable['verze'], (string) $latest['verze'], '>')) {
                 $errors[] = "aktualizace-stable.json: stabilní kanál ({$stable['verze']}) je napřed před Latest ({$latest['verze']}) – soubory jsou nejspíš prohozené";
             }
+        }
+    } catch (Throwable $e) {
+        $errors[] = $e->getMessage();
+    }
+}
+
+// 3.15: the major lines – aktualizace.json never offers a new major version; aktualizace-4.json (…) only its own major
+if (is_array($latest) && Updater::majorOf((string) $latest['verze']) > 3) {
+    $errors[] = "aktualizace.json: offers {$latest['verze']} – a new major version must never be in aktualizace.json (sites before 3.15 read only that file and would take it); publish it with tools/release.php --major";
+}
+$majorUrls = [];
+for ($major = 4; $major <= max(4, Updater::majorOf(KALETA_VERSION) + 1); $major++) {
+    $line = $major === 4 && $majorArgument !== null ? $majorArgument : Updater::lineUrl($manifestUrl, $major);
+    if ($line !== null) {
+        $majorUrls[$major] = $line;
+    }
+}
+foreach ($majorUrls as $major => $line) {
+    $label = Updater::manifestFile($major);
+    try {
+        [$status, $body] = $fetch($line);
+        if ($status === 404) {
+            echo "$label: Kaleta $major is not published yet ($line answers 404).\n";
+            continue;
+        }
+        if ($status !== 200) {
+            throw new RuntimeException("nelze stáhnout $line" . ($status > 0 ? " (HTTP $status)" : ''));
+        }
+        $m = $check($body, $label, true); // a major line is 4.0 or later: signature v2 is required
+        if (Updater::majorOf((string) $m['verze']) !== $major) {
+            $errors[] = "$label: offers {$m['verze']} – this file is the manifest of Kaleta $major only";
+        }
+        if (($m['kanal'] ?? 'latest') !== 'latest') {
+            $errors[] = "$label: the manifest says \"kanal\": \"" . (is_scalar($m['kanal']) ? (string) $m['kanal'] : '?') . "\" – the latest manifest of a major line must say \"latest\" (or nothing)";
         }
     } catch (Throwable $e) {
         $errors[] = $e->getMessage();

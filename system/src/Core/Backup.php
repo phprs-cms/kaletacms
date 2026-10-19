@@ -41,7 +41,7 @@ final class Backup
         $tables = $db->run('SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE ? ORDER BY table_name', [addcslashes($db->prefix, '_%') . '%'])->fetchAll(\PDO::FETCH_COLUMN);
         foreach ($tables as $table) {
             // temporary data is not backed up
-            $structureOnly = in_array(substr($table, strlen($db->prefix)), ['stat_navstevnici', 'kontrola_ip'], true);
+            $structureOnly = in_array(Names::table(substr($table, strlen($db->prefix))), ['stat_navstevnici', 'kontrola_ip'], true); // also under the English names (3.15)
             $create = $pdo->query('SHOW CREATE TABLE `' . $table . '`')->fetch(\PDO::FETCH_NUM)[1];
             $write("DROP TABLE IF EXISTS `{$table}`;\n{$create};\n\n");
             if ($structureOnly) {
@@ -97,10 +97,36 @@ final class Backup
         $count = self::walk($path, $gz, $db->prefix, null);
         @set_time_limit(300);
         $pdo = $db->pdo();
-        self::walk($path, $gz, $db->prefix, fn (string $statement): mixed => $pdo->exec($statement));
+        self::walk($path, $gz, $db->prefix, function (string $statement) use ($pdo, $db): mixed {
+            // 3.15: a table restored under one name replaces its twin under the other – a backup from before 4.0 restored
+            // over the renamed tables (the rollback) leaves no English copy behind, and the other way round
+            $twin = self::twin($statement, $db->prefix);
+            if ($twin !== null) {
+                $pdo->exec('DROP TABLE IF EXISTS `' . $twin . '`');
+            }
+
+            return $pdo->exec($statement);
+        });
         $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
+        $db->detectTableNames(); // the restored tables decide which names the site uses now
 
         return $count;
+    }
+
+    /**
+     * The other name of the table a DROP TABLE statement of a backup restores (3.15): `ka_news` for `ka_novinky` and back,
+     * null for a table 4.0 does not rename (or any other statement).
+     */
+    public static function twin(string $statement, string $prefix): ?string
+    {
+        if (preg_match('/^DROP TABLE IF EXISTS `([^`]+)`;/', $statement, $m) !== 1 || !str_starts_with($m[1], $prefix)) {
+            return null;
+        }
+        $name = substr($m[1], strlen($prefix));
+        $today = Names::table($name);
+        $twin = $today === $name ? Names::english($name) : $today;
+
+        return $twin !== $name ? $prefix . $twin : null;
     }
 
     /** @param (callable(string): mixed)|null $apply null = check only */

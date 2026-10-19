@@ -20,6 +20,13 @@ namespace Kaleta\Core;
  * (setting update_seen) and refuses an older one, or one of the other channel, as an error, not as "no update" (admit(),
  * N310-1); System status warns when the newest one is older than FRESHNESS_DAYS (Core\Health). A date in the future is
  * never remembered, and the administrator can forget it all (forgetSeen(), N310-3).
+ * 3.15 (the bridge to 4.0): each major version has its own manifest – aktualizace.json is the 3.x line (and stays on the
+ * last 3.x release for good), aktualizace-4.json the 4.x line (manifestFile()). A site reads the manifest of its own line
+ * for updates; from 3.15 on it also reads the one of the next major (new self(…, major: true)) only to offer it on
+ * Settings -> Backups and updates and System status. A major version is installed only by an explicit administrator action
+ * after a fresh backup – never in the background, never as a security release, never by the fleet console – and the
+ * regular update refuses a manifest of another major version (choose(), install()). Sites before 3.15 read only
+ * aktualizace.json, so they reach 3.15 first. behindDays() (3.15): how long a newer release of the line has waited.
  * config.php, media/, storage/, extensions/ (add-ons), install.php and layouts that are not part of the package are never overwritten.
  */
 final class Updater
@@ -60,8 +67,15 @@ final class Updater
     /** 3.10 (N310-3): a signed release date more than this many days after today (UTC) is never remembered. */
     public const int FUTURE_DAYS = 2;
 
-    /** How many entries update_seen keeps (source + channel: latest, stable, a custom source with both channels…). */
-    private const int SEEN_SOURCES = 6;
+    /** How many entries update_seen keeps (source + channel: latest, stable, a custom source with both channels, the next major…). */
+    private const int SEEN_SOURCES = 8;
+
+    /**
+     * 3.15: the administration prompts to update once a newer release of the site's line has been available for this many
+     * days. Security fixes land only in the newest release (owner's decision: no support window for older ones), and a
+     * release comes out about every week – two weeks behind is a site that has missed two of them.
+     */
+    public const int BEHIND_DAYS = 14;
 
     /** The signed release date of the manifest just read when it lies in the future (admit()), for state(). */
     private string $futureDate = '';
@@ -69,10 +83,15 @@ final class Updater
     private const array PROTECTED_PATHS = ['config.php', 'install.php', 'media/', 'storage/', 'extensions/', 'image/ukazka/', 'tools/', '.git/']; // extensions/: add-ons (3.0)
     private const int MAX_BYTES = 60 * 1024 * 1024;
 
+    /**
+     * @param bool $major 3.15: read the manifest of the NEXT major version (aktualizace-4.json next to aktualizace.json) – only
+     *                    to offer it; install() then takes only that major, and only when the administrator starts it
+     */
     public function __construct(
         private readonly Settings $settings,
         private readonly string $root = KALETA_ROOT,
         private readonly string $keyFile = KALETA_SYSTEM . '/aktualizace.pub',
+        private readonly bool $major = false,
     ) {
     }
 
@@ -83,8 +102,47 @@ final class Updater
         }
 
         $source = $this->settings->get('update_url') !== '' ? $this->settings->get('update_url') : self::DEFAULT_URL;
+        // 3.15: the manifest of the line this updater reads, next to the configured one; a custom source with another file
+        // name is followed as it is for the site's own line and has no next-major twin
+        $source = self::lineUrl($source, $this->line()) ?? ($this->major ? '' : $source);
+        if ($source === '') {
+            return '';
+        }
 
         return self::channel($this->settings) === 'stable' ? (self::stableUrl($source) ?? $source) : $source;
+    }
+
+    /** The major version of a version string: "3.15.2" → 3, "4.0.0-rc1" → 4 (0 for anything else). */
+    public static function majorOf(string $version): int
+    {
+        return preg_match('/^(\d+)\./', $version, $m) === 1 ? (int) $m[1] : 0;
+    }
+
+    /** The major version whose manifest this updater reads: the running one, or the next one (3.15, $major). */
+    public function line(): int
+    {
+        return self::majorOf(KALETA_VERSION) + ($this->major ? 1 : 0);
+    }
+
+    /**
+     * The file name of the manifest of a major line (3.15): aktualizace.json for 3.x and older (every site before 3.15 reads
+     * only this one, so it stays on the last 3.x release), aktualizace-4.json for 4.x, aktualizace-5.json…; the stable
+     * channel's twin of each (stableUrl): aktualizace-stable.json, aktualizace-4-stable.json. tools/release.php writes them.
+     */
+    public static function manifestFile(int $major, string $channel = 'latest'): string
+    {
+        return 'aktualizace' . ($major > 3 ? '-' . $major : '') . ($channel === 'stable' ? '-stable' : '') . '.json';
+    }
+
+    /**
+     * The manifest of a major line next to an update source (3.15): …/aktualizace.json (or …/aktualizace-N.json) →
+     * …/aktualizace-4.json for 4. Null for a source with another file name (it has no twins).
+     */
+    public static function lineUrl(string $source, int $major): ?string
+    {
+        $line = preg_replace('#/aktualizace(-\d+)?\.json(?=$|[?\#])#', '/' . self::manifestFile($major), $source, 1, $count);
+
+        return $count === 1 && is_string($line) ? $line : null;
     }
 
     /** The channel the site chose; anything but "stable" is the default "latest" (3.8). */
@@ -99,7 +157,8 @@ final class Updater
      */
     public static function stableUrl(string $source): ?string
     {
-        $stable = preg_replace('#/aktualizace\.json(?=$|[?\#])#', '/' . self::STABLE_FILE, $source, 1, $count);
+        // 3.15: the stable twin of a major line's manifest too (aktualizace-4.json → aktualizace-4-stable.json)
+        $stable = preg_replace('#/aktualizace(-\d+)?\.json(?=$|[?\#])#', '/aktualizace$1-stable.json', $source, 1, $count);
 
         return $count === 1 && is_string($stable) ? $stable : null;
     }
@@ -122,10 +181,13 @@ final class Updater
      * for a newer PHP is not offered, the site says which PHP it needs (3.7). On the stable channel the manifest must say
      * "kanal": "stable" – a latest manifest served there by mistake (a wrong redirect, a custom source) offers nothing.
      *
+     * 3.15: only a release of the site's own major version is offered ($nextMajor false) – a regular manifest that offers
+     * another major (4.0 at aktualizace.json by mistake) offers nothing; with $nextMajor only one of the next major version.
+     *
      * @param array<string, mixed>|null $manifest
      * @return array{nova: ?array<string, mixed>, vyzaduje_php: ?array{verze: string, min_php: string, bezpecnostni: bool}, ahead_of: ?string, chyba: ?string}
      */
-    public static function choose(?array $manifest, string $channel, string $current = KALETA_VERSION, string $php = PHP_VERSION): array
+    public static function choose(?array $manifest, string $channel, string $current = KALETA_VERSION, string $php = PHP_VERSION, bool $nextMajor = false): array
     {
         $choice = ['nova' => null, 'vyzaduje_php' => null, 'ahead_of' => null, 'chyba' => null];
         if ($manifest === null || !is_scalar($manifest['verze'] ?? null)) {
@@ -137,6 +199,14 @@ final class Updater
             return $choice;
         }
         $version = (string) $manifest['verze'];
+        if (self::majorOf($version) !== self::majorOf($current) + ($nextMajor ? 1 : 0)) {
+            // 3.15: another major is never offered; an older one on the stable channel still says the site is ahead of it
+            if (!$nextMajor && $channel === 'stable' && version_compare($version, $current, '<')) {
+                $choice['ahead_of'] = $version;
+            }
+
+            return $choice;
+        }
         if (version_compare($version, $current, '>')) {
             // 3.7: a release that needs a newer PHP than the server runs is not offered (nor installed in the background
             // or by the fleet console) – the site says which PHP it needs instead
@@ -145,7 +215,7 @@ final class Updater
             } else {
                 $choice['nova'] = $manifest;
             }
-        } elseif ($channel === 'stable' && version_compare($version, $current, '<')) {
+        } elseif ($channel === 'stable' && !$nextMajor && version_compare($version, $current, '<')) {
             $choice['ahead_of'] = $version;
         }
 
@@ -187,18 +257,21 @@ final class Updater
      * newest = the newest signed manifest this source gave the site (version, release date); future_date = the signed date
      * of the manifest just read when it lies in the future, so it was not remembered (N310-3).
      *
-     * @return array{nastaveno:bool, aktualni:string, nova:?array<string, mixed>, vyzaduje_php:?array{verze:string, min_php:string, bezpecnostni:bool}, chyba:?string, overeno:int, channel:string, ahead_of:?string, stale:bool, refused:bool, failing_since:int, newest:?array{verze:string, vydano:string, at:int}, future_date:string}
+     * 3.15: behind_since = since when a newer release of the site's line has been offered (0 = none; behindDays()).
+     *
+     * @return array{nastaveno:bool, aktualni:string, nova:?array<string, mixed>, vyzaduje_php:?array{verze:string, min_php:string, bezpecnostni:bool}, chyba:?string, overeno:int, channel:string, ahead_of:?string, stale:bool, refused:bool, failing_since:int, newest:?array{verze:string, vydano:string, at:int}, future_date:string, behind_since:int}
      */
     public function state(bool $force = false): array
     {
         $state = ['nastaveno' => $this->url() !== '', 'aktualni' => KALETA_VERSION, 'nova' => null, 'vyzaduje_php' => null, 'chyba' => null, 'overeno' => 0,
-            'channel' => $this->effectiveChannel(), 'ahead_of' => null, 'stale' => false, 'refused' => false, 'failing_since' => 0, 'newest' => null, 'future_date' => ''];
+            'channel' => $this->effectiveChannel(), 'ahead_of' => null, 'stale' => false, 'refused' => false, 'failing_since' => 0, 'newest' => null, 'future_date' => '', 'behind_since' => 0];
         if (!$state['nastaveno']) {
             return $state;
         }
-        $cache = json_decode($this->settings->get('update_cache'), true);
-        // a good answer is kept 12 hours, a failure only one – a source that was briefly unreachable is asked again soon
-        $keep = is_array($cache) && ($cache['chyba'] ?? null) !== null ? 3600 : 12 * 3600;
+        $cache = json_decode($this->settings->get($this->cacheKey()), true);
+        // a good answer is kept 12 hours, a failure only one – a source that was briefly unreachable is asked again soon;
+        // the next major's manifest 12 hours either way (3.15: until it is published, its address answers 404 – the norm)
+        $keep = is_array($cache) && ($cache['chyba'] ?? null) !== null && !$this->major ? 3600 : 12 * 3600;
         if (!$force && is_array($cache) && ($cache['url'] ?? '') === $this->url() && time() - (int) ($cache['overeno'] ?? 0) < $keep) {
             $manifest = $cache['manifest'] ?? null;
             $state['chyba'] = $cache['chyba'] ?? null;
@@ -220,13 +293,78 @@ final class Updater
             }
             $state['overeno'] = time();
             $state['future_date'] = $this->futureDate;
-            $this->settings->set('update_cache', (string) json_encode(['url' => $this->url(), 'overeno' => time(), 'manifest' => $manifest, 'chyba' => $state['chyba'],
+            $this->settings->set($this->cacheKey(), (string) json_encode(['url' => $this->url(), 'overeno' => time(), 'manifest' => $manifest, 'chyba' => $state['chyba'],
                 'stale' => $state['stale'], 'refused' => $state['refused'], 'failing_since' => $state['failing_since'], 'future_date' => $state['future_date']], JSON_UNESCAPED_UNICODE));
         }
         $state['newest'] = self::newestOf($this->seen(), $this->url());
-        $choice = self::choose(is_array($manifest) ? $manifest : null, $state['channel']);
+        $choice = self::choose(is_array($manifest) ? $manifest : null, $state['channel'], KALETA_VERSION, PHP_VERSION, $this->major);
+        if (!$this->major && $state['chyba'] === null) {
+            $this->noteBehind($choice['nova']);
+        }
 
-        return ['nova' => $choice['nova'], 'vyzaduje_php' => $choice['vyzaduje_php'], 'ahead_of' => $choice['ahead_of'], 'chyba' => $state['chyba'] ?? $choice['chyba']] + $state;
+        return ['nova' => $choice['nova'], 'vyzaduje_php' => $choice['vyzaduje_php'], 'ahead_of' => $choice['ahead_of'], 'chyba' => $state['chyba'] ?? $choice['chyba'],
+            'behind_since' => $this->settings->int('update_behind_since')] + $state;
+    }
+
+    /** The setting that keeps the last answer of this updater's source: the site's own line, or the next major (3.15). */
+    private function cacheKey(): string
+    {
+        return $this->major ? 'update_major_cache' : 'update_cache';
+    }
+
+    /**
+     * 3.15: remembers since when a newer release of the site's line has been offered (update_behind_since, a Unix time; 0 =
+     * up to date) – written only when it changes, so the check costs nothing on an up-to-date site.
+     *
+     * @param array<string, mixed>|null $newVersion
+     */
+    private function noteBehind(?array $newVersion): void
+    {
+        $since = $this->settings->int('update_behind_since');
+        if ($newVersion === null && $since !== 0) {
+            $this->settings->set('update_behind_since', '0');
+        } elseif ($newVersion !== null && $since === 0) {
+            $this->settings->set('update_behind_since', (string) time());
+        }
+    }
+
+    /**
+     * 3.15: for how many days a newer release of the site's line has been available, or null when none is offered. The
+     * site has been behind at least since it first saw the offer, and at least since the newest release came out (its
+     * signed date) – a site that checks rarely, or that just installed 3.15, is not counted as up to date.
+     *
+     * @param array{nova: ?array<string, mixed>, behind_since?: int} $state from state()
+     */
+    public static function behindDays(array $state, ?int $now = null): ?int
+    {
+        if ($state['nova'] === null) {
+            return null;
+        }
+        $now ??= time();
+        $since = ($state['behind_since'] ?? 0) > 0 ? (int) $state['behind_since'] : $now;
+        $released = self::releaseDate($state['nova']);
+        if ($released !== '' && ($date = \DateTimeImmutable::createFromFormat('!Y-m-d', $released)) !== false) {
+            $since = min($since, $date->getTimestamp());
+        }
+
+        return max(0, intdiv($now - $since, 86400));
+    }
+
+    /**
+     * 3.15: the next major version on offer – the release of the next major's manifest (4.0 for a 3.15 site) – or null.
+     * Read from the remembered answer (12 hours), asked anew only when that is older; never throws.
+     *
+     * @return array<string, mixed>|null the verified manifest: verze, vydano, zmeny, min_php, bezpecnostni…
+     */
+    public static function nextMajor(Settings $settings): ?array
+    {
+        try {
+            $state = (new self($settings, major: true))->state();
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return $state['nova'] ?? null;
     }
 
     /**
@@ -243,6 +381,9 @@ final class Updater
         if ($a->url() === '') {
             return 'no update source';
         }
+        // 3.15: the next major version is only looked up here (remembered 12 hours) so the admin pages need not ask – it is
+        // never installed from the background, whatever its manifest says
+        self::nextMajor($s);
         $byConsole = $s->bool('fleet_updates') && \Kaleta\Fleet\Link::isPaired($s) ? $s->get('fleet_update_allowed') : '';
         $cache = json_decode($s->get('update_cache'), true);
         $fresh = is_array($cache) && ($cache['url'] ?? '') === $a->url() && time() - (int) ($cache['overeno'] ?? 0) < (($cache['chyba'] ?? null) !== null ? 3600 : 12 * 3600);
@@ -313,9 +454,18 @@ final class Updater
         if (function_exists('set_time_limit')) {
             @set_time_limit(300);
         }
+        if ($this->major && $expectedVersion === null) {
+            throw new \LogicException('A major version is installed only for the version the administrator chose.');
+        }
         $m = $this->manifest();
         if ($this->effectiveChannel() === 'stable' && ($m['kanal'] ?? null) !== 'stable') {
             throw new \RuntimeException(self::notStableMessage());
+        }
+        // 3.15 (defence in depth): a regular update never moves to another major version, the next-major update only to the next one
+        if (self::majorOf((string) $m['verze']) !== $this->line()) {
+            throw new \RuntimeException($this->major
+                ? t('The update source of Kaleta %d offers version %s – nothing was installed.', $this->line(), (string) $m['verze'])
+                : t('Version %s is a new major version of Kaleta. It is never installed as a regular update – Settings → Backups and updates offers it on its own, with a backup first.', (string) $m['verze']));
         }
         if (!version_compare((string) $m['verze'], KALETA_VERSION, '>')) {
             throw new \RuntimeException(t('No newer version is available.'));
@@ -431,8 +581,12 @@ final class Updater
             @opcache_reset();
         }
         // the version just installed is the newest the source knows: the admin page right after the update need not ask again
-        // (asking the source in that moment failed on sites that are their own update source and showed a red error, 2.10.2)
-        $this->remember($m);
+        // (asking the source in that moment failed on sites that are their own update source and showed a red error, 2.10.2);
+        // 3.15: after a major update this source is the new version's own line – remembered as the answer of its own check
+        $this->remember($m, $this->major ? 'update_cache' : null);
+        if ($this->major) {
+            $this->settings->set('update_major_cache', '');
+        }
         if ($db !== null) {
             Events::record($db, 'update.applied', 'info', t('Version %s was installed (from %s).', (string) $m['verze'], KALETA_VERSION), ['version' => (string) $m['verze'], 'from' => KALETA_VERSION]);
         }
@@ -755,10 +909,10 @@ final class Updater
     }
 
     /** Remembers a verified manifest as the answer of the last check, so the update screen shows it (3.14). */
-    private function remember(array $manifest): void
+    private function remember(array $manifest, ?string $key = null): void
     {
         // the warning about a manifest signed with a date in the future stays (N314-5)
-        $this->settings->set('update_cache', (string) json_encode(['url' => $this->url(), 'overeno' => time(), 'manifest' => $manifest, 'chyba' => null,
+        $this->settings->set($key ?? $this->cacheKey(), (string) json_encode(['url' => $this->url(), 'overeno' => time(), 'manifest' => $manifest, 'chyba' => null,
             'future_date' => $this->futureDate], JSON_UNESCAPED_UNICODE));
     }
 
@@ -770,6 +924,7 @@ final class Updater
     {
         $this->settings->set('update_seen', '');
         $this->settings->set('update_cache', '');
+        $this->settings->set('update_major_cache', '');
     }
 
     /** The oldest PHP a package says it needs (KALETA_MIN_PHP in its system/bootstrap.php, 3.7 and later); null = it does not say. */

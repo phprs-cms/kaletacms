@@ -183,6 +183,7 @@ class Settings extends Module
             'screenUrl' => $tab === 'general' ? \Kaleta\Front\Screen::url($this->app) : '',
             'backups' => $tab === 'backups' ? Backup::listAll() : [],
             'update' => $tab === 'backups' ? (new Updater($settings))->state() : null,
+            'major' => in_array($tab, ['backups', 'health'], true) ? Updater::nextMajor($settings) : null, // 3.15: Kaleta 4.0 on its own update source
             'siteUrl' => $this->app->request->origin() . $this->app->url(''),
             'shareImages' => \Kaleta\Front\ShareImage::available(), // the SEO tab says when the server cannot draw them (2.12)
             'firewall' => $tab === 'firewall' ? [
@@ -671,6 +672,33 @@ class Settings extends Module
         }
 
         return $this->back(t('The system has been updated to version %s.', $version), '', ['tab' => 'backups']); // the database is migrated during the update (2.8)
+    }
+
+    /**
+     * 3.15: installs the next major version (Kaleta 4.0) – never by itself, only here: for the version the administrator saw,
+     * after they confirmed they read what changes, from the newest release of the current line, and after a fresh backup.
+     */
+    protected function actionUpdateMajor(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back('', '', ['tab' => 'backups']);
+        }
+        $version = $this->request->post('verze');
+        if ($version === '' || $this->request->post('precteno') !== '1') {
+            return $this->back(t('Confirm that you have read what changes and checked Ready for 4.0, then start the update again.'), '', ['tab' => 'backups'], 'chyba');
+        }
+        $pending = (new Updater($this->app->settings()))->state()['nova'];
+        if ($pending !== null) {
+            return $this->back(t('Install version %s first – a new major version is installed only from the newest release of the current one.', (string) $pending['verze']), '', ['tab' => 'backups'], 'chyba');
+        }
+        try {
+            $backup = Backup::create($this->db, 'predaktualizaci');
+            $installed = (new Updater($this->app->settings(), major: true))->install($this->app->db(), $version);
+        } catch (\Throwable $e) {
+            return $this->back(t('The update failed: %s Nothing has changed on the site.', t($e->getMessage())), '', ['tab' => 'backups'], 'chyba');
+        }
+
+        return $this->back(t('The system has been updated to version %s. The database backup from before the update is %s.', $installed, $backup), '', ['tab' => 'backups']);
     }
 
     /**
