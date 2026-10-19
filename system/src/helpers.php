@@ -12,6 +12,19 @@ function e(string|int|float|null $value): string
 }
 
 /**
+ * Stored HTML (a news intro, a description) as one line of plain text for a meta description, structured data, feeds or
+ * llms.txt: block ends become spaces, entities characters (&nbsp; from WordPress or a site import), whitespace one space;
+ * $width > 0 shortens it with an ellipsis. The result is text, not HTML - escape it on output like any other text.
+ */
+function plain_text(string $html, int $width = 0): string
+{
+    $text = strip_tags((string) preg_replace('#</(p|h[1-6]|li|blockquote|figcaption|div)>|<br\s*/?>#i', ' ', $html));
+    $text = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+
+    return $width > 0 ? mb_strimwidth($text, 0, $width, '…') : $text;
+}
+
+/**
  * A value people typed (a name, an e-mail, a title) printed inside the administration's left-to-right text: escaped and
  * isolated in <bdi>, so an Arabic name keeps its order and does not pull the punctuation around it (looks the same for Latin text).
  */

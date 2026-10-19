@@ -112,14 +112,20 @@ check "hledání najde novinku i stránku" 200 "/hledani?q=Kontakt" 'href="/kont
 for u in /rss.xml /feed.json /sitemap.xml /robots.txt /llms.txt /novinky/vitejte-v-kalete.md; do check "$u" 200 "$u"; done
 check "mapa webu obsahuje novinku" 200 /sitemap.xml "/novinky/vitejte-v-kalete"
 check "llms.txt vyjmenuje stránky" 200 /llms.txt "## Stránky"
-# the news intro in llms.txt is plain text: entities (&nbsp; from WordPress or a Kaleta site import) become characters
-LLMS_INTRO=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT HEX(uvod) FROM ka_novinky WHERE seo_link = 'vitejte-v-kalete'")
-"${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -e "UPDATE ka_novinky SET uvod = '<p>Zahájena v&nbsp;květnu 2023&nbsp;máme R&amp;D</p>' WHERE seo_link = 'vitejte-v-kalete'"
+# a news intro with entities (&nbsp; from WordPress or a Kaleta site import, &amp;) is plain text wherever it is a summary:
+# llms.txt, meta and og description, the BlogPosting description in JSON-LD – never the entity as text (&amp;nbsp;)
+NBSP_BACKUP=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(HEX(uvod), ':', HEX(seo_popis)) FROM ka_novinky WHERE seo_link = 'vitejte-v-kalete'")
+"${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -e "UPDATE ka_novinky SET uvod = '<p>Jsme rádi, že jsme v&nbsp;prosinci 2022&nbsp;získali <b>územní</b> rozhodnutí.</p><p>R&amp;D</p>', seo_popis = '' WHERE seo_link = 'vitejte-v-kalete'"
 rm -f "$WORK"/web/storage/cache/stranky/*.html
+NBSP_TEXT='Jsme rádi, že jsme v prosinci 2022 získali územní rozhodnutí. R'
 curl -s -o "$WORK/response" "$B/llms.txt"
-grep -q 'Zahájena v květnu 2023 máme R&D' "$WORK/response" && ! grep -q '&nbsp;\|&amp;' "$WORK/response" \
+grep -q "$NBSP_TEXT&D" "$WORK/response" && ! grep -q '&nbsp;\|&amp;' "$WORK/response" \
   && echo "  ok     llms.txt: news intro without HTML entities" || { echo "  CHYBA  llms.txt: entity v úvodu novinky"; grep -m1 'vitejte-v-kalete' "$WORK/response"; ERRORS=$((ERRORS+1)); }
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_novinky SET uvod = UNHEX('$LLMS_INTRO') WHERE seo_link = 'vitejte-v-kalete'"
+curl -s -o "$WORK/response" "$B/novinky/vitejte-v-kalete"
+grep -q "<meta name=\"description\" content=\"$NBSP_TEXT&amp;D\">" "$WORK/response" && grep -q "<meta property=\"og:description\" content=\"$NBSP_TEXT&amp;D\">" "$WORK/response" \
+  && grep -q "\"description\":\"$NBSP_TEXT&D\"" "$WORK/response" && ! grep -q '&amp;nbsp;\|&amp;amp;' "$WORK/response" \
+  && echo "  ok     news meta, og and JSON-LD description: plain text from the intro" || { echo "  CHYBA  popis novinky s entitami"; grep -o '<meta [^>]*description[^>]*>\|"description":"[^"]*"' "$WORK/response" | head -5; ERRORS=$((ERRORS+1)); }
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_novinky SET uvod = UNHEX('${NBSP_BACKUP%%:*}'), seo_popis = UNHEX('${NBSP_BACKUP#*:}') WHERE seo_link = 'vitejte-v-kalete'"
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 check "strukturovaná data novinky" 200 /novinky/vitejte-v-kalete '"BlogPosting"'
 check "zásady z instalace jsou skryté, dokud je správce nedoplní" 404 /zasady-ochrany-osobnich-udaju

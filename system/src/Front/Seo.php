@@ -145,7 +145,7 @@ final class Seo
             'home_page_url' => $this->siteSettings, 'feed_url' => $this->siteSettings . 'feed.json', 'language' => \Kaleta\Core\Language::tag(\Kaleta\Core\Language::code()),
             'items' => array_map(fn (array $c): array => array_filter([
                 'id' => 'novinka-' . $c['idc'], 'url' => $this->page($this->path('novinky/') . $c['seo_link']), 'title' => $c['titulek'],
-                'summary' => trim(strip_tags($c['uvod'])), 'content_html' => $c['uvod'] . $c['text'],
+                'summary' => plain_text($c['uvod']), 'content_html' => $c['uvod'] . $c['text'],
                 'image' => $c['obrazek'] !== '' ? $this->absoluteUrl($c['obrazek']) : null,
                 'date_published' => date('c', strtotime($c['datum'])), 'date_modified' => $c['zmeneno'] ? date('c', strtotime($c['zmeneno'])) : null,
                 'authors' => $c['autor_jm'] !== null ? [['name' => $c['autor_jm']]] : null, 'tags' => [$c['tema_jm']],
@@ -212,7 +212,7 @@ final class Seo
                 $description = (string) $p['popis']; // the item's own description (1.9) first
                 foreach ($description === '' ? $descriptiveFields : [] as $key) {
                     if (is_string($data[$key] ?? null) && trim(strip_tags($data[$key])) !== '') {
-                        $description = self::plainText($data[$key]);
+                        $description = plain_text($data[$key], 200);
                         break;
                     }
                 }
@@ -224,18 +224,10 @@ final class Seo
         }
         array_push($rows, '', '## ' . t('Novinky'));
         foreach ($db->all('SELECT titulek, seo_link, uvod FROM {novinky} WHERE visible = 1 AND datum <= ? AND noindex = 0 AND smazano IS NULL AND jazyk = ? ORDER BY datum DESC LIMIT 30', [\Kaleta\Core\Clock::now(), \Kaleta\Core\Language::siteColumn()]) as $c) {
-            $rows[] = '- [' . $c['titulek'] . '](' . $this->page($this->path('novinky/') . $c['seo_link'], $md) . '): ' . self::plainText($c['uvod']);
+            $rows[] = '- [' . $c['titulek'] . '](' . $this->page($this->path('novinky/') . $c['seo_link'], $md) . '): ' . plain_text($c['uvod'], 200);
         }
 
         return \Kaleta\Core\Facts::fillText(implode("\n", $rows) . "\n", $this->app);
-    }
-
-    /** One line of plain text for llms.txt from stored HTML: no tags, entities (&nbsp; from WordPress or a site import) as characters. */
-    public static function plainText(string $html, int $width = 200): string
-    {
-        $text = strip_tags((string) preg_replace('#</(p|h[1-6]|li|blockquote|figcaption|div)>|<br\s*/?>#i', ' ', $html));
-
-        return mb_strimwidth(trim((string) preg_replace('/\s+/u', ' ', html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8'))), 0, $width, '…');
     }
 
     /** @param array<string, mixed> $newsItem */
