@@ -98,6 +98,7 @@ return [
     'fleet_sites' => ['fleet_sites', []],
     'fleet_pairing' => ['fleet_pairing', []],
     'fleet_kits' => ['fleet_kits', []],
+    'fleet_customers' => ['fleet_customers', []],
     'facts' => ['facts', []],
     'fact_history' => ['fact_history', []],
     'hours_exceptions' => ['hours_exceptions', []],

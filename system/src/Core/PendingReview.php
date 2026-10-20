@@ -25,6 +25,16 @@ final class PendingReview
         'look_draft' => ['Unpublished changes of the look', 'appearance'],
     ];
 
+    /**
+     * kind => the screen of the site's administration that opens it, relative to the site (3.17: the fleet console links
+     * to the same screens on each site – Fleet\Inbox).
+     */
+    public const array URLS = [
+        'requests_done' => 'admin.php?module=requests&status=done', 'page_drafts' => 'admin.php?module=pages', 'draft_comments' => 'admin.php?module=pages',
+        'news_drafts' => 'admin.php?module=news&status=koncepty', 'hidden_items' => 'admin.php?module=collections', 'staged_media' => 'admin.php?module=media&staged=1',
+        'proposed_hours' => 'admin.php?module=business#proposed-hours', 'part_drafts' => 'admin.php?module=parts', 'look_draft' => 'admin.php?module=appearance',
+    ];
+
     /** How many example titles one kind carries. */
     public const int EXAMPLES = 5;
 
@@ -99,11 +109,11 @@ final class PendingReview
                     . " AND EXISTS (SELECT 1 FROM {request_messages} m WHERE m.request_id = r.id AND m.sender = 'claude')";
                 $since = [Clock::at('-' . self::REQUEST_DAYS . ' days')];
 
-                return [(int) $db->value('SELECT COUNT(*) ' . $where, $since), 'admin.php?module=requests&status=done', $titles($db->all('SELECT r.title ' . $where . ' ORDER BY r.done_at DESC' . $limit, $since), 'title')];
+                return [(int) $db->value('SELECT COUNT(*) ' . $where, $since), self::URLS['requests_done'], $titles($db->all('SELECT r.title ' . $where . ' ORDER BY r.done_at DESC' . $limit, $since), 'title')];
             case 'page_drafts':
                 $where = 'FROM {stranky} WHERE stavba_koncept IS NOT NULL AND smazano IS NULL';
 
-                return [(int) $db->value('SELECT COUNT(*) ' . $where), 'admin.php?module=pages', $titles($db->all('SELECT titulek ' . $where . ' ORDER BY zmeneno DESC' . $limit), 'titulek')];
+                return [(int) $db->value('SELECT COUNT(*) ' . $where), self::URLS['page_drafts'], $titles($db->all('SELECT titulek ' . $where . ' ORDER BY zmeneno DESC' . $limit), 'titulek')];
             case 'draft_comments':
                 $counts = DraftComments::unresolvedCounts($db);
                 if ($counts === []) {
@@ -114,7 +124,7 @@ final class PendingReview
                 $counts = array_intersect_key($counts, $names);
                 $examples = array_map(fn (int $id, int $n): string => $names[$id] . ' (' . $n . ')', array_keys($counts), $counts);
 
-                return [array_sum($counts), 'admin.php?module=pages', $examples];
+                return [array_sum($counts), self::URLS['draft_comments'], $examples];
             case 'news_drafts':
                 // drafts an editor can publish: recent ones, and those of news authors whatever their age (they wait for an editor)
                 $auth = $siteWide ? null : $app->auth(); // site-wide: no signed-in person (the heartbeat job)
@@ -125,7 +135,7 @@ final class PendingReview
                     . ' AND (COALESCE(c.zmeneno, c.datum) >= ? OR ' . \Kaleta\Admin\Modules\News::AWAITING_PUBLICATION . ')';
                 $since = [Clock::at('-' . self::ITEM_DAYS . ' days')];
 
-                return [(int) $db->value('SELECT COUNT(*) ' . $where, $since), 'admin.php?module=news&status=koncepty', $titles($db->all('SELECT c.titulek ' . $where . ' ORDER BY COALESCE(c.zmeneno, c.datum) DESC' . $limit, $since), 'titulek')];
+                return [(int) $db->value('SELECT COUNT(*) ' . $where, $since), self::URLS['news_drafts'], $titles($db->all('SELECT c.titulek ' . $where . ' ORDER BY COALESCE(c.zmeneno, c.datum) DESC' . $limit, $since), 'titulek')];
             case 'hidden_items':
                 // hidden and not scheduled: a draft of an item (Claude's, a testimonial that arrived, a colleague's)
                 $where = 'FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE p.zobrazit = 0 AND p.smazano IS NULL AND p.zverejnit_od IS NULL'
@@ -133,7 +143,7 @@ final class PendingReview
                 $since = [Clock::at('-' . self::ITEM_DAYS . ' days')];
                 $collections = array_map(intval(...), array_column($db->all('SELECT DISTINCT p.idk ' . $where, $since), 'idk'));
 
-                return [(int) $db->value('SELECT COUNT(*) ' . $where, $since), count($collections) === 1 ? 'admin.php?module=collections&action=items&id=' . $collections[0] : 'admin.php?module=collections',
+                return [(int) $db->value('SELECT COUNT(*) ' . $where, $since), count($collections) === 1 ? 'admin.php?module=collections&action=items&id=' . $collections[0] : self::URLS['hidden_items'],
                     array_map(fn (array $r): string => $r['nazev'] . ' (' . $r['kolekce'] . ')', $db->all('SELECT p.nazev, k.nazev AS kolekce ' . $where . ' ORDER BY COALESCE(p.zmeneno, p.datum) DESC' . $limit, $since))];
             case 'staged_media':
                 if (!$siteWide && !$app->auth()->canPublish()) {
@@ -141,20 +151,20 @@ final class PendingReview
                 }
                 $rows = $db->all('SELECT obr_poloha, nazev FROM {media} WHERE staged_at IS NOT NULL ORDER BY ido DESC' . $limit);
 
-                return [MediaStaging::count($db), 'admin.php?module=media&staged=1', array_map(fn (array $r): string => $r['nazev'] !== '' ? (string) $r['nazev'] : basename((string) $r['obr_poloha']), $rows)];
+                return [MediaStaging::count($db), self::URLS['staged_media'], array_map(fn (array $r): string => $r['nazev'] !== '' ? (string) $r['nazev'] : basename((string) $r['obr_poloha']), $rows)];
             case 'proposed_hours':
                 $proposed = Hours::proposed($db);
 
-                return [count($proposed), 'admin.php?module=business#proposed-hours', array_map(Hours::describe(...), $proposed)];
+                return [count($proposed), self::URLS['proposed_hours'], array_map(Hours::describe(...), $proposed)];
             case 'part_drafts':
                 $rows = $db->all('SELECT typ, jazyk, varianta, nazev FROM {casti} WHERE stavba_koncept IS NOT NULL ORDER BY zmeneno DESC');
 
-                return [count($rows), 'admin.php?module=parts', array_map(fn (array $r): string => t(\Kaleta\Builder\SiteParts::TYPES[$r['typ']][0] ?? (string) $r['typ'])
+                return [count($rows), self::URLS['part_drafts'], array_map(fn (array $r): string => t(\Kaleta\Builder\SiteParts::TYPES[$r['typ']][0] ?? (string) $r['typ'])
                     . ($r['varianta'] !== '' ? ' – ' . ($r['nazev'] !== '' ? $r['nazev'] : $r['varianta']) : '') . ($r['jazyk'] !== '' ? ' (' . strtoupper((string) $r['jazyk']) . ')' : ''), $rows)];
             case 'look_draft':
                 $summary = Look::hasDraft($app->settings()) ? Look::summary($db, $app->settings()) : [];
 
-                return [count($summary), 'admin.php?module=appearance', $summary];
+                return [count($summary), self::URLS['look_draft'], $summary];
         }
 
         return null;

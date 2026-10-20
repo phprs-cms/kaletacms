@@ -90,6 +90,23 @@ LAST="$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format(
   DELETE FROM ka_monthly_reports"
 (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; Kaleta\Core\ReportArchive::store(Kaleta\Core\App::boot(), Kaleta\Core\MonthlyReport::previousMonth(new DateTimeImmutable()));') \
   || { echo "storing the monthly report failed"; exit 1; }
+# 3.17: the main site is also a fleet console with three sites and what waits on them (Fleet\Inbox) – the inbox at 1440 and 390 px
+(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); $db = $app->db(); $s = $app->settings();
+  $s->set("extensions", $s->get("extensions") . ",fleet");
+  $customer = $db->insert("fleet_customers", ["name" => "Dental Clinic Smile and Partners International Ltd"]);
+  $iso = fn (int $h): string => date(DATE_ATOM, time() - $h * 3600);
+  $sites = [["Smile Dental – the main clinic website with a long name", "https://smile-dental-clinic-with-a-long-domain.example", $customer, date("Y-m-d H:i:s", time() - 600), 1, ["last_backup" => time(),
+      "requests" => ["new" => 1, "in_progress" => 1, "done_to_review" => 0, "oldest_waiting_hours" => 80, "items" => [
+        ["id" => 12, "title" => str_repeat("Update the price list of the implants and the whitening ", 2), "status" => "new", "created_at" => $iso(80), "updated_at" => $iso(80)],
+        ["id" => 13, "title" => "New team photo", "status" => "in_progress", "created_at" => $iso(3), "updated_at" => $iso(1)]]],
+      "pending_review" => ["staged_media" => 4, "page_drafts" => 2], "enquiries_new_not_spam" => 3, "bookings_pending" => 2,
+      "domain_watch" => ["local" => false, "certificate" => ["expires" => date("Y-m-d", time() + 5 * 86400)], "domain" => null], "audit" => ["links" => 3]]],
+    ["Smile Dental – booking", "https://booking.smile.example", $customer, date("Y-m-d H:i:s", time() - 30 * 3600), 1, ["last_backup" => time(), "enquiries_unanswered" => 5]],
+    ["Bakery", "https://bakery.example", null, date("Y-m-d H:i:s", time() - 600), 0, ["last_backup" => time(), "update_problem" => "Version 3.17.0 did not install", "security_7_days" => ["failed_sign_ins" => 120, "events" => []]]]];
+  foreach ($sites as $i => [$name, $url, $cid, $seen, $up, $beat]) {
+    $db->insert("fleet_sites", ["name" => $name, "url" => $url, "public_key" => "browserkey" . $i, "paired_at" => date("Y-m-d H:i:s"), "last_seen" => $seen, "version" => "3.16.0",
+      "up" => $up, "up_changed" => date("Y-m-d H:i:s", time() - 1200), "status" => "ok", "customer_id" => $cid, "heartbeat" => json_encode($beat)]);
+  }') || { echo "the fleet console setup failed"; exit 1; }
 NODE_PATH="$WORK/pw/node_modules" BASE="$B" STARTERS="$STARTERS" PASSWORD="$PASSWORD" CHROME="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}" node "$ROOT/tools/test-browser.mjs"
 for site in web remeslo poradenstvi; do
   if [ -s "$WORK/$site/storage/log/chyby.log" ]; then echo "== application error log ($site):"; cat "$WORK/$site/storage/log/chyby.log"; exit 1; fi

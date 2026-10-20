@@ -135,7 +135,8 @@ final class Console
         $allowed = self::allowedVersion(self::row($site), array_map(self::row(...), self::sites($db)), $latest, $security, $firstSeen, time());
 
         // 2.16: the newest shared design kit is only announced here – a site that wants it asks /fleet/kit itself (Fleet\Kit)
-        $kit = Kit::announcement($db);
+        // 3.17: a kit meant for one customer is announced to that customer's sites only
+        $kit = Kit::announcementFor($db, isset($site['customer_id']) ? (int) $site['customer_id'] : null);
 
         return self::signed($app->settings(), ['ok' => true, 'update_allowed' => $allowed] + ($kit !== null ? ['kit' => $kit] : []));
     }
@@ -175,6 +176,22 @@ final class Console
             if (($siteId === null || (int) $site['id'] === $siteId) && (int) $site['manage_updates'] === 1 && version_compare($latest, (string) $site['version'], '>')) {
                 $app->db()->update('fleet_sites', ['update_allowed' => $latest], ['id' => (int) $site['id']]);
                 $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * 3.17: allows the newest version now on the sites of one customer (Fleet\Customers) that let the console decide.
+     * Returns how many sites.
+     */
+    public static function allowNowForCustomer(App $app, int $customerId): int
+    {
+        $count = 0;
+        foreach (self::sites($app->db()) as $site) {
+            if ((int) ($site['customer_id'] ?? 0) === $customerId && $customerId > 0) {
+                $count += self::allowNow($app, (int) $site['id']);
             }
         }
 

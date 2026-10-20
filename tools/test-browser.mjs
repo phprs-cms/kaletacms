@@ -915,6 +915,35 @@ await step('3.14 My e-mail signature: a Team record linked in Users, the signatu
   }
 });
 
+// 3.17: the inbox of the fleet console (Fleet\Inbox) – every row with a plain link out, no sideways scroll; on a phone the rows are cards
+await step('3.17 fleet inbox: rows with plain links, the filters, no sideways scroll at 1440 and 390 px (cards on a phone)', async () => {
+  try {
+    for (const [width, height, name] of [[1440, 900, 'desktop'], [390, 844, 'phone']]) {
+      await page.setViewportSize({ width, height });
+      for (const url of ['/admin.php?module=fleet', '/admin.php?module=fleet&action=sites&show=all', '/admin.php?module=fleet&action=customers']) {
+        await visit(url);
+        const wider = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        if (wider > 1) { throw new Error(`${url} scrolls sideways by ${wider} px at ${width} px`); }
+        if (SHOTS) { await page.screenshot({ path: `${SHOTS}/fleet-${url.replace(/.*module=fleet&?/, '').replace(/\W+/g, '-') || 'inbox'}-${name}.png`, fullPage: true }); }
+      }
+      await visit('/admin.php?module=fleet');
+      const rows = page.locator('table.vypis-karty tbody tr');
+      if (await rows.count() < 10) { throw new Error(`the inbox lists ${await rows.count()} rows`); }
+      const out = await page.locator('table.vypis-karty a[target="_blank"]').evaluateAll((links) => links.map((a) => [a.href, a.rel]));
+      if (!out.some(([href]) => href === 'https://smile-dental-clinic-with-a-long-domain.example/admin.php?module=requests&action=detail&id=12')) { throw new Error('no plain link to the request'); }
+      if (out.some(([href, rel]) => rel !== 'noopener' || /token|password|login/i.test(href))) { throw new Error('a link out is not plain'); }
+      const first = await rows.first().locator('.stitek').last().textContent();
+      if (!/urgent/.test(first)) { throw new Error(`the first row is not urgent: ${first}`); }
+      if (width === 390 && await rows.first().evaluate((tr) => getComputedStyle(tr).display) !== 'block') { throw new Error('the rows are not cards on a phone'); }
+    }
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await visit('/admin.php?module=fleet&urgent=1');
+    if (await page.locator('table.vypis-karty .stitek-chyba').count() !== await page.locator('table.vypis-karty tbody tr').count()) { throw new Error('"only urgent" lists other rows'); }
+  } finally {
+    await page.setViewportSize({ width: 1440, height: 900 });
+  }
+});
+
 await step('3.13 Spanish admin: switched in My account, Spanish screens without sideways scroll at 390 px', async () => {
   const adminLanguage = async (code) => {
     await visit('/admin.php?action=account');

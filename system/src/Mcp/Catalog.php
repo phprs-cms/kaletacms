@@ -168,6 +168,7 @@ final class Catalog
         'propose_booking_times' => ['write', ''],
         'list_sites' => ['read', 'fleet'],
         'get_site' => ['read', 'fleet'],
+        'fleet_inbox' => ['read', 'fleet'],
         // Requests to Claude (2.15): update_request changes nothing on the site – a note and a status on a request, whose
         // work is done as drafts – so a drafts-only connection may answer the requests it works on
         'list_requests' => ['read', ''],
@@ -326,6 +327,7 @@ final class Catalog
         'propose_booking_times' => 'Propose other booking times',
         'list_sites' => 'List fleet sites',
         'get_site' => 'Get a fleet site',
+        'fleet_inbox' => 'List what waits across the fleet',
         'list_requests' => 'List requests to Claude',
         'list_pending_review' => 'List what waits for review',
         'list_monthly_reports' => 'List archived monthly reports',

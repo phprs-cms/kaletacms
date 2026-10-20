@@ -213,9 +213,10 @@ final class Kit
 
     /**
      * Publishes a new kit version from what the administrator chose: the design system (yes/no), classes (names; null =
-     * all), components and sections (ids). Returns the version, its summary and size.
+     * all), components and sections (ids); since 3.17 optionally for one customer's sites only (customer = its id, null =
+     * every site). Returns the version, its summary and size.
      *
-     * @param array{design_system: bool, classes: ?list<string>, components: list<int>, sections: list<int>} $choice
+     * @param array{design_system: bool, classes: ?list<string>, components: list<int>, sections: list<int>, customer?: ?int} $choice
      * @return array{version: int, summary: string, bytes: int}
      */
     public static function publish(App $app, array $choice): array
@@ -240,7 +241,7 @@ final class Kit
         $version = (int) $db->value('SELECT COALESCE(MAX(version), 0) + 1 FROM {fleet_kits}');
         $summary = self::summary($manifest);
         $db->insert('fleet_kits', ['version' => $version, 'created_at' => date('Y-m-d H:i:s'), 'created_by' => $app->auth()->id() ?: null, 'manifest' => $json,
-            'sha256' => hash('sha256', $json), 'summary' => mb_substr($summary, 0, 255)]);
+            'sha256' => hash('sha256', $json), 'summary' => mb_substr($summary, 0, 255), 'customer_id' => ($choice['customer'] ?? null) ?: null]);
         Events::record($db, 'fleet.kit_published', 'info', t('Kit version %d was published for the fleet: %s.', $version, $summary), ['version' => $version]);
 
         return ['version' => $version, 'summary' => $summary, 'bytes' => strlen($json)];
@@ -255,19 +256,34 @@ final class Kit
             'summary' => (string) $row['summary']] + ($withManifest ? ['manifest' => (string) $row['manifest']] : []);
     }
 
-    /** What the heartbeat reply announces: the newest kit's version and hash, or nothing when no kit exists. @return array{version: int, sha256: string}|null */
-    public static function announcement(Db $db): ?array
+    /**
+     * 3.17: the newest kit one site may have – one meant for every site, or for the site's customer (Fleet\Customers).
+     *
+     * @return array{id: int, version: int, created_at: string, sha256: string, summary: string, manifest?: string}|null
+     */
+    public static function latestFor(Db $db, ?int $customerId, bool $withManifest = false): ?array
     {
-        $kit = self::latest($db);
+        $row = $db->one('SELECT id, version, created_at, sha256, summary' . ($withManifest ? ', manifest' : '') . ' FROM {fleet_kits} WHERE customer_id IS NULL'
+            . ($customerId !== null ? ' OR customer_id = ' . $customerId : '') . ' ORDER BY version DESC LIMIT 1');
+
+        return $row === null ? null : ['id' => (int) $row['id'], 'version' => (int) $row['version'], 'created_at' => (string) $row['created_at'], 'sha256' => (string) $row['sha256'],
+            'summary' => (string) $row['summary']] + ($withManifest ? ['manifest' => (string) $row['manifest']] : []);
+    }
+
+    /** What the heartbeat reply of one site announces: the newest kit's version and hash it may have (latestFor, 3.17), or nothing. @return array{version: int, sha256: string}|null */
+    public static function announcementFor(Db $db, ?int $customerId): ?array
+    {
+        $kit = self::latestFor($db, $customerId);
 
         return $kit === null ? null : ['version' => $kit['version'], 'sha256' => $kit['sha256']];
     }
 
-    /** @return list<array{version: int, created_at: string, summary: string, author: ?string}> newest first */
+    /** @return list<array{version: int, created_at: string, summary: string, author: ?string, customer_id: ?int}> newest first */
     public static function history(Db $db, int $limit = 20): array
     {
-        return array_map(fn (array $r): array => ['version' => (int) $r['version'], 'created_at' => (string) $r['created_at'], 'summary' => (string) $r['summary'], 'author' => $r['autor']],
-            $db->all('SELECT k.version, k.created_at, k.summary, u.jmeno AS autor FROM {fleet_kits} k LEFT JOIN {uzivatele} u ON u.idu = k.created_by ORDER BY k.version DESC LIMIT ' . $limit));
+        return array_map(fn (array $r): array => ['version' => (int) $r['version'], 'created_at' => (string) $r['created_at'], 'summary' => (string) $r['summary'], 'author' => $r['autor'],
+            'customer_id' => $r['customer_id'] !== null ? (int) $r['customer_id'] : null],
+            $db->all('SELECT k.version, k.created_at, k.summary, k.customer_id, u.jmeno AS autor FROM {fleet_kits} k LEFT JOIN {uzivatele} u ON u.idu = k.created_by ORDER BY k.version DESC LIMIT ' . $limit));
     }
 
     /** Which kit version each site applied, from its last heartbeat: site id => version (0 = none or not reported). @return array<int, int> */
@@ -287,14 +303,14 @@ final class Kit
     {
         $d = json_decode($body, true);
         $db = $app->db();
-        $site = is_array($d) ? $db->one('SELECT id, public_key FROM {fleet_sites} WHERE id = ?', [(int) ($d['site_id'] ?? 0)]) : null;
+        $site = is_array($d) ? $db->one('SELECT id, public_key, customer_id FROM {fleet_sites} WHERE id = ?', [(int) ($d['site_id'] ?? 0)]) : null;
         if ($site === null) {
             return Response::json(['error' => 'This console does not know the site.'], 404);
         }
         if (($d['action'] ?? '') !== 'kit' || !Keys::verify($body, $signature, (string) $site['public_key']) || abs(time() - (int) ($d['ts'] ?? 0)) > Link::MAX_SKEW) {
             return Response::json(['error' => 'The signature or the time of the request is not valid.'], 403);
         }
-        $kit = self::latest($db, true);
+        $kit = self::latestFor($db, $site['customer_id'] !== null ? (int) $site['customer_id'] : null, true); // 3.17: never another customer's kit
         if ($kit === null) {
             return Response::json(['error' => 'No kit has been published.'], 404);
         }

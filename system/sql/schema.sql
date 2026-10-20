@@ -987,8 +987,19 @@ CREATE TABLE ka_fleet_sites (
     up_changed      DATETIME     NULL,
     up_failures     TINYINT UNSIGNED NOT NULL DEFAULT 0,
     silent_reported TINYINT(1)   NOT NULL DEFAULT 0,        -- "stopped reporting" already recorded as an event
+    customer_id     INT UNSIGNED NULL,                      -- 3.17: ka_fleet_customers (Fleet\Customers), NULL = none
+    note            VARCHAR(1000) NOT NULL DEFAULT '',      -- 3.17: the owner's own note; it stays on the console
     PRIMARY KEY (id),
-    UNIQUE KEY uq_fleet_sites_key (public_key)
+    UNIQUE KEY uq_fleet_sites_key (public_key),
+    KEY ix_fleet_sites_customer (customer_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- Customers of a fleet console (3.17, Fleet\Customers): a name per group of sites, renamed in one place.
+CREATE TABLE ka_fleet_customers (
+    id   INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    name VARCHAR(150) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_fleet_customers_name (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 CREATE TABLE ka_fleet_pairing (
@@ -1011,6 +1022,7 @@ CREATE TABLE ka_fleet_kits (
     manifest   MEDIUMTEXT   NOT NULL,
     sha256     CHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin     NOT NULL,                       -- of the manifest bytes: a site checks the kit it fetched against the announced hash
     summary    VARCHAR(255) NOT NULL DEFAULT '',            -- what it carries, in words
+    customer_id INT UNSIGNED NULL,                          -- 3.17: only for this customer's sites (Fleet\Customers), NULL = every site
     PRIMARY KEY (id),
     UNIQUE KEY uq_fleet_kits_version (version)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;

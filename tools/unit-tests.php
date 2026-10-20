@@ -293,7 +293,9 @@ $parity = [
     'whistleblowing' => ['list' => 'admin: whistleblowing cases never go through Claude', 'settings' => 'admin: who reads whistleblowing reports is a security decision',
         'detail' => 'admin: whistleblowing cases never go through Claude', 'reply' => 'admin: whistleblowing cases never go through Claude',
         'status' => 'admin: whistleblowing cases never go through Claude', 'attachment' => 'admin: whistleblowing cases never go through Claude'],
-    'fleet' => ['list' => 'list_sites', 'detail' => 'get_site', 'pairing_key' => 'admin: pairing a site is a security decision (2.9)', 'ring' => 'admin: the update ring decides when sites install versions',
+    'fleet' => ['list' => 'fleet_inbox', 'sites' => 'list_sites', 'customers' => 'list_sites', 'detail' => 'get_site',
+        'customer' => 'admin: the customers and notes are the owner\'s own bookkeeping on the console (3.17)', 'customer_bulk' => 'admin: the customers and notes are the owner\'s own bookkeeping on the console (3.17)',
+        'customer_rename' => 'admin: the customers and notes are the owner\'s own bookkeeping on the console (3.17)', 'pairing_key' => 'admin: pairing a site is a security decision (2.9)', 'ring' => 'admin: the update ring decides when sites install versions',
         'allow' => 'admin: allowing a version on the sites', 'check' => 'admin: the console checks the sites every 5 minutes on its own', 'remove' => 'admin: removing a site from the console',
         'kit' => $readOnly, 'kit_publish' => 'admin: publishing a design kit to a whole fleet is a person\'s decision (2.16); list_sites shows the versions'],
 ];
@@ -2771,6 +2773,44 @@ check('3.16 N316-8: the machine names the console detail shows (firewall reasons
 $detail316 = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/fleet/detail.php');
 check('3.16 N316-5/-8: the console detail reads dates through Console::date and names machine keys through the label maps', [str_contains($detail316, 'new DateTimeImmutable($part'), str_contains($detail316, 'Console::date('),
     str_contains($detail316, 'ReportPage::FIREWALL'), str_contains($detail316, 'AgentSchedules::STATUSES'), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Fleet/Heartbeat.php'), 'TODO')], [false, true, true, true, false]);
+// 3.17: the inbox of the console (Fleet\Inbox) – built from stored heartbeats, a 3.15 heartbeat without the 3.16 parts too
+$inboxIso = fn (int $hoursAgo): string => date(DATE_ATOM, $fleetNow - $hoursAgo * 3600);
+$inboxSites = [
+    ['id' => 1, 'name' => 'Alpha', 'url' => 'https://alpha.example', 'customer_id' => 5, 'up' => 1, 'up_changed' => null, 'status' => 'warning', 'last_seen' => date('Y-m-d H:i:s', $fleetNow - 600),
+        'heartbeat' => (string) json_encode(['last_backup' => $fleetNow - 3600, 'update_problem' => 'Version 3.17.0 did not install',
+        'requests' => ['new' => 1, 'in_progress' => 1, 'done_to_review' => 1, 'oldest_waiting_hours' => 72, 'items' => [
+            ['id' => 7, 'title' => 'Price list – write to jana@example.cz', 'status' => 'new', 'created_at' => $inboxIso(72), 'updated_at' => $inboxIso(72)],
+            ['id' => 8, 'title' => 'New team photo', 'status' => 'in_progress', 'created_at' => $inboxIso(2), 'updated_at' => $inboxIso(1)],
+            ['id' => 9, 'title' => 'Opening hours', 'status' => 'done', 'created_at' => $inboxIso(30), 'updated_at' => $inboxIso(5)]]],
+        'pending_review' => ['requests_done' => 1, 'page_drafts' => 2, 'staged_media' => 3, 'look_draft' => 0], 'enquiries_new_not_spam' => 3, 'enquiries_unanswered' => 9, 'bookings_pending' => 1,
+        'security_7_days' => ['failed_sign_ins' => 80, 'events' => []], 'domain_watch' => ['local' => false, 'certificate' => ['expires' => $fleetDay(5)], 'domain' => ['expires' => $fleetDay(25)]],
+        'audit' => ['links' => 2, 'titles' => 1]])],
+    // a site on 3.15: no requests, review, bookings or security – only the enquiries it always sent; silent for 30 hours
+    ['id' => 2, 'name' => 'Beta', 'url' => 'https://beta.example/', 'customer_id' => null, 'up' => 1, 'up_changed' => null, 'status' => 'ok', 'last_seen' => date('Y-m-d H:i:s', $fleetNow - 30 * 3600),
+        'heartbeat' => (string) json_encode(['last_backup' => $fleetNow - 3600, 'enquiries_unanswered' => 4])],
+    ['id' => 3, 'name' => '', 'url' => 'https://gamma.example', 'customer_id' => 5, 'up' => 0, 'up_changed' => date('Y-m-d H:i:s', $fleetNow - 1800), 'status' => '', 'last_seen' => null, 'heartbeat' => null],
+];
+$inbox = Kaleta\Fleet\Inbox::build($inboxSites, [5 => 'Novák s.r.o.'], $fleetNow);
+$inboxKey = static fn (array $r): string => $r['site_id'] . ':' . $r['what'] . ($r['title'] !== null ? ':' . $r['title'] : '') . ($r['count'] !== null ? '=' . $r['count'] : '') . ':' . $r['urgency'] . ($r['stale'] ? ':stale' : '');
+check('3.17: Fleet\Inbox – one list from the stored heartbeats, the most urgent and the oldest first, a 3.15 heartbeat and a site without one too', array_map($inboxKey, $inbox), [
+    '1:request:Price list – write to [e-mail]:urgent', '2:site_silent:urgent', '3:site_down:urgent', '1:update_failed:urgent', '1:sign_in_attacks=80:urgent', '1:certificate_expiring:urgent',
+    '1:request:New team photo:normal', '1:domain_expiring:normal', '1:enquiries=3:normal', '2:enquiries=4:normal:stale', '1:bookings=1:normal', '1:staged_media=3:normal',
+    '1:request:Opening hours:low', '1:page_drafts=2:low', '1:audit=3:low']);
+check('3.17: Fleet\Inbox – plain links to the right screen of each site\'s administration, the customer, nothing with an @', [
+    $inbox[0]['link'], $inbox[1]['link'], $inbox[2]['link'], $inbox[2]['site'], $inbox[0]['customer'], $inbox[9]['link'], $inbox[11]['link'], $inbox[13]['link'],
+    str_contains((string) json_encode($inbox, JSON_UNESCAPED_UNICODE), '@'), $inbox[5]['days'], Kaleta\Fleet\Inbox::label($inbox[11])],
+    ['https://alpha.example/admin.php?module=requests&action=detail&id=7', 'https://beta.example/', 'https://gamma.example/', 'https://gamma.example', 'Novák s.r.o.',
+        'https://beta.example/admin.php?module=enquiries', 'https://alpha.example/admin.php?module=media&staged=1', 'https://alpha.example/admin.php?module=pages', false, 4, 'Files from Claude waiting for approval']);
+$inboxAlpha = Kaleta\Fleet\Inbox::filter($inbox, ['customer' => 5, 'urgent' => true]);
+check('3.17: Fleet\Inbox – filters by kind, site, customer and urgency; counts per kind; what waits on each site', [
+    count(Kaleta\Fleet\Inbox::filter($inbox, ['kind' => 'enquiries'])), count(Kaleta\Fleet\Inbox::filter($inbox, ['site' => 2])), array_unique(array_column($inboxAlpha, 'urgency')), count($inboxAlpha),
+    array_filter(Kaleta\Fleet\Inbox::counts($inbox)), Kaleta\Fleet\Inbox::waitingBySite($inbox), Kaleta\Fleet\Inbox::build([], [], $fleetNow)],
+    [2, 2, ['urgent'], 5, ['site' => 2, 'updates' => 1, 'security' => 1, 'expiry' => 2, 'requests' => 3, 'enquiries' => 2, 'bookings' => 1, 'review' => 2, 'audit' => 1],
+        [1 => 17, 2 => 5, 3 => 1], []]);
+check('3.17: Fleet\Customers – a customer name is one trimmed line, a note plain text', [Kaleta\Fleet\Customers::clean("  Novák\n <b>s.r.o.</b> "), mb_strlen(Kaleta\Fleet\Customers::clean(str_repeat('x', 300))),
+    Kaleta\Fleet\Customers::cleanNote("<i>Calls</i> on Mondays\r\nonly")], ['Novák s.r.o.', 150, "Calls on Mondays\nonly"]);
+$inboxView = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/fleet/inbox.php');
+check('3.17: the inbox links out plainly – a new tab without an opener, no token or sign-in in the link', [str_contains($inboxView, 'target="_blank" rel="noopener"'), (bool) preg_match('/token|password|login/i', (string) json_encode(array_column($inbox, 'link')))], [true, false]);
 /* ---------- 2.8: domain and mail watch (Core\DomainWatch) – no network, the lookups are fixtures ---------- */
 $watchClass = Kaleta\Core\DomainWatch::class;
 check('DomainWatch: registrable domain – www., subdomains and two-level suffixes', array_map($watchClass::registrableDomain(...), ['www.example.cz', 'shop.firma.example.co.uk', 'Example.COM', 'www.example.com.au', 'example.cz.']), ['example.cz', 'example.co.uk', 'example.com', 'example.com.au', 'example.cz']);
