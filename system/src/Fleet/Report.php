@@ -277,9 +277,9 @@ final class Report
         $add('summary', t('At a glance'), [['type' => 'facts', 'items' => $facts]]);
         $add('sites', t('Sites'), [
             $sites === [] ? ['type' => 'note', 'text' => t('No site of this customer reported to the console this month.')]
-                : ['type' => 'table', 'caption' => t('Sites this month'), 'head' => [t('Site'), t('Uptime'), t('Outages'), t('Version'), t('Days needing attention')],
-                    'rows' => array_map(static fn (array $s): array => [(string) ($s['name'] !== '' ? $s['name'] : $s['url']), $percent($s['uptime']['percent'] ?? null), $n(count((array) $s['incidents'])),
-                        (string) $s['version_end'], $n($s['attention']['days'] ?? 0)], $sites), 'numeric' => [1, 2, 4], 'short' => [3]],
+                : ['type' => 'table', 'caption' => t('Sites this month'), 'head' => [t('Site'), t('Version'), t('Uptime'), t('Outages'), t('Days needing attention')],
+                    'rows' => array_map(static fn (array $s): array => [(string) ($s['name'] !== '' ? $s['name'] : $s['url']), (string) $s['version_end'], $percent($s['uptime']['percent'] ?? null),
+                        $n(count((array) $s['incidents'])), $n($s['attention']['days'] ?? 0)], $sites), 'numeric' => [2, 3, 4], 'short' => [1]],
         ]);
         foreach ($sites as $s) {
             $uptime = (array) $s['uptime'];
@@ -336,9 +336,9 @@ final class Report
                 'title' => t('Fleet report – %s – %s', $base['monthName'], $customer),
                 'siteName' => $customer,
                 'brand' => $s->get('site_name'),
-                'siteAddress' => t('%d sites', $sites),
+                'siteAddress' => $sites === 1 ? t('1 site') : t('%d sites', $sites),
                 'kind' => t('Fleet report'),
-                'footer' => t('A summary of what happened to the websites of %s in %s: uptime, outages, updates and counts – no personal data.', $customer, $base['monthName']),
+                'footer' => t('A summary of what happened to these websites in %s: uptime, outages, updates and counts – no personal data.', $base['monthName']),
                 'sections' => self::sections($stored['data']),
                 'links' => $links,
                 'rebuiltNote' => t('rebuilt %s from the history still kept', $base['rebuilt'] ?? ''),

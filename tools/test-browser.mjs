@@ -1015,9 +1015,18 @@ await step('3.17 fleet console: the trends of a site and the monthly fleet repor
   if ((await svg.locator('rect.chyba').count()) < 1 || (await svg.locator('rect.slabe').count()) < 1) { throw new Error('the bad days are not marked'); }
   await page.locator('details.trend-tabulka summary').click();
   if ((await page.locator('details.trend-tabulka tbody tr').count()) < 85) { throw new Error('the table of the days is short'); }
-  await page.addScriptTag({ path: AXE });
-  const found = await page.evaluate((tags) => window.axe.run({ include: [['figure.trend'], ['details.trend-tabulka']] }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), WCAG);
-  if (found.violations.length) { throw new Error('axe: ' + found.violations.map((v) => v.id).join(', ')); }
+  // axe in a context that lets the test inject it – the administration allows no inline script (CSP), rightly
+  const axeContext = await browser.newContext({ storageState: await context.storageState(), bypassCSP: true, viewport: { width: 1440, height: 900 } });
+  try {
+    const axePage = await axeContext.newPage();
+    await axePage.goto(BASE + '/admin.php?module=fleet&action=detail&id=900', { waitUntil: 'networkidle' });
+    await axePage.locator('details.trend-tabulka summary').click();
+    await axePage.addScriptTag({ path: AXE });
+    const found = await axePage.evaluate((tags) => window.axe.run({ include: [['figure.trend'], ['details.trend-tabulka']] }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), WCAG);
+    if (found.violations.length) { throw new Error('axe: ' + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+  } finally {
+    await axeContext.close();
+  }
   if (SHOTS) {
     await page.locator('figure.trend').scrollIntoViewIfNeeded();
     await page.screenshot({ path: `${SHOTS}/fleet-trends.png`, fullPage: true });

@@ -6530,7 +6530,6 @@ return [
     'Fleet report – %s – %s' => 'Informe de sitios – %s – %s',
     '%d sites' => '%d sitios',
     'Fleet report' => 'Informe de sitios',
-    'A summary of what happened to the websites of %s in %s: uptime, outages, updates and counts – no personal data.' => 'Un resumen de lo que pasó con los sitios web de %s en %s: disponibilidad, caídas, actualizaciones y cifras – sin datos personales.',
     'rebuilt %s from the history still kept' => 'rehecho el %s con el historial guardado',
     'These addresses are not valid: %s. Nothing was saved.' => 'Estas direcciones no son válidas: %s. No se ha guardado nada.',
     'The reports for %s are ready (%d).' => 'Los informes de %s están listos (%d).',
@@ -6591,4 +6590,6 @@ return [
     'Fleet console: the weekly digest on Monday' => 'Consola de sitios: el resumen semanal del lunes',
     'Fleet console: the monthly report per customer' => 'Consola de sitios: el informe mensual por cliente',
     'ended' => 'caducado',
+    'A summary of what happened to these websites in %s: uptime, outages, updates and counts – no personal data.' => 'Un resumen de lo que pasó con estos sitios web en %s: disponibilidad, caídas, actualizaciones y cifras – sin datos personales.',
+    '1 site' => '1 sitio',
 ];

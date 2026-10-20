@@ -2898,18 +2898,18 @@ check('3.17: Report::sections – at a glance, the sites, one section per site w
     $fleetSections317['site-8']['blocks'][1]['text'] ?? null, str_contains((string) json_encode($fleetSections317, JSON_UNESCAPED_UNICODE), '@'),
     preg_match('/\b(hours? worked|price|invoice|CZK|EUR)\b/i', (string) json_encode($fleetSections317))],
     [['summary', 'sites', 'site-7', 'site-8'], [['Sites', '2'], ['Uptime', '98.43 %'], ['Outages', '1'], ['Updates installed', '1'], ['Visits', '1200'], ['Enquiries received', '14'], ['Requests handled', '5']],
-        ['Bakery …', '98.43 %', '1', '3.17.0', '1'], ['Outages', 'Updates installed', 'What needed attention', 'The site\'s own monthly report'],
+        ['Bakery …', '3.17.0', '98.43 %', '1', '1'], ['Outages', 'Updates installed', 'What needed attention', 'The site\'s own monthly report'],
         'The site\'s own monthly report for this month has not reached the console (the site sends it from Kaleta 3.17 on).', false, 0]);
 $fleetPage317 = Report::render($view316, ['month' => '2026-09', 'customer' => 'Pekárna Novák', 'created_at' => '2026-10-01 06:05:00', 'rebuilt_at' => null, 'data' => $fleetData317],
     $reportSettings(['site_name' => 'Agency console', 'agency_name' => 'Studio Kaleta', 'agency_logo' => 'media/logo.svg']), 'https://console.example');
 $fleetScreen317 = Report::render($view316, ['month' => '2026-09', 'customer' => '', 'created_at' => '2026-10-01 06:05:00', 'rebuilt_at' => '2026-10-02 09:00:00', 'data' => $fleetData317],
     $reportSettings(['site_name' => 'Agency console', 'site_language' => 'cs']), 'https://console.example', ['script' => '/image/tisk.js', 'download' => '/x', 'back' => '/y']);
 check('3.17: the printable fleet report – the A4 page of the site report with the console\'s agency, the customer and the month; no script in the download, nothing personal; in the console\'s language on screen', [
-    str_contains($fleetPage317, 'size: A4'), str_contains($fleetPage317, '<p class="druh">Fleet report</p>'), str_contains($fleetPage317, '<h1>September 2026</h1>'), str_contains($fleetPage317, 'Pekárna Novák <span>· 2 sites</span>'),
+    str_contains($fleetPage317, 'size: A4'), str_contains($fleetPage317, '<p class="druh">Fleet report</p>'), str_contains($fleetPage317, '<h1>September 2026</h1>'), str_contains($fleetPage317, 'Pekárna Novák <span>· 2 sites</span>'), str_contains($fleetPage317, 'A summary of what happened to these websites in September 2026'),
     str_contains($fleetPage317, 'https://console.example/media/logo.svg'), str_contains($fleetPage317, '<script'), preg_match('/@(?!page|media|bottom)/', $fleetPage317), str_contains($fleetPage317, 'Website report'),
     str_contains($fleetScreen317, 'data-tisk'), str_contains($fleetScreen317, 'Zpráva o webech'), str_contains($fleetScreen317, 'Weby bez zákazníka'), str_contains($fleetScreen317, 'z uchované historie'),
     str_contains($fleetScreen317, '<div class="agentura">Agency console</div>')],
-    [true, true, true, true, true, false, 0, false, true, true, true, true, true]);
+    [true, true, true, true, true, true, false, 0, false, true, true, true, true, true]);
 check('3.17: the jobs of the console run only on a console, after the uptime check; fleet_report is a read tool of the fleet extension, outside the essentials', [
     array_map(fn (string $job): bool => Kaleta\Core\Scheduler::applies($job, $reportSettings(['extensions' => '-'])), ['fleet_history', 'fleet_alerts', 'fleet_digest', 'fleet_reports']),
     array_search('fleet_alerts', array_keys(Kaleta\Core\Scheduler::JOBS), true) > array_search('fleet_uptime', array_keys(Kaleta\Core\Scheduler::JOBS), true),

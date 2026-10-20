@@ -6126,7 +6126,6 @@ return [
     'Fleet report – %s – %s' => 'Zpráva o webech – %s – %s',
     '%d sites' => 'webů: %d',
     'Fleet report' => 'Zpráva o webech',
-    'A summary of what happened to the websites of %s in %s: uptime, outages, updates and counts – no personal data.' => 'Shrnutí toho, co se dělo s weby %s v období %s: dostupnost, výpadky, aktualizace a počty – žádné osobní údaje.',
     'rebuilt %s from the history still kept' => 'znovu sestaveno %s z uchované historie',
     'These addresses are not valid: %s. Nothing was saved.' => 'Tyto adresy nejsou platné: %s. Nic se neuložilo.',
     'The reports for %s are ready (%d).' => 'Zprávy za %s jsou hotové (%d).',
@@ -6187,4 +6186,6 @@ return [
     'Fleet console: the weekly digest on Monday' => 'Konzole webů: týdenní přehled v pondělí',
     'Fleet console: the monthly report per customer' => 'Konzole webů: měsíční zpráva pro každého zákazníka',
     'ended' => 'vypršelo',
+    'A summary of what happened to these websites in %s: uptime, outages, updates and counts – no personal data.' => 'Shrnutí toho, co se dělo s těmito weby v období %s: dostupnost, výpadky, aktualizace a počty – žádné osobní údaje.',
+    '1 site' => '1 web',
 ];
