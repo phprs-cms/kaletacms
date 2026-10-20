@@ -828,6 +828,54 @@ numbers – `Core\Redact`), no free text of Claude's runs in the archive, nothin
 console (problem counts, failing jobs, health texts), the print page escapes CSS strings, a hostile heartbeat cannot break
 the console, a rebuilt report says when its open items were counted, moments stored with their offset.
 
+## 3.17 – one inbox for all your sites, history, alerts, a report per customer (in progress)
+
+The fleet console's tabs: Inbox, Sites, Customers, Fleet reports, Alerts and digest, Shared kit.
+
+1. **Inbox across all sites** (`Fleet\Inbox`, the console's new default tab): one list built only from the stored
+   heartbeats and the console's own uptime check – request titles with status and age (new / in progress / done to
+   review; counts when the site does not share titles), new enquiries (count), drafts and files waiting for approval (per
+   kind of `PendingReview`, `PendingReview::URLS` shared with the dashboard), bookings to confirm, failed updates, sign-in
+   attacks and reused tokens, certificate and domain expiring, health errors / failing jobs / no backup, audit findings,
+   site down or silent. Sorted by urgency (urgent / waiting / when convenient), then the oldest first; filters kind (with a
+   count per kind), site, customer, only urgent. Each row is a plain link (new tab, `rel=noopener`, no sign-in, no token) to
+   the right screen of that site's administration. Rows of a site silent for 26 h are marked "possibly out of date"; a 3.15
+   heartbeat gives what it has. Cards on a phone. MCP `fleet_inbox` (read-only, at most 200 items, texts marked as written
+   on the sites).
+2. **Customers** (migration 0100: `ka_fleet_customers`, `ka_fleet_sites.customer_id` + `note`, `ka_fleet_kits.customer_id`;
+   `Fleet\Customers`): a customer per site, renamed once for all its sites (renaming to an existing name merges), set on
+   the site detail (with the owner's console-only note) or in bulk from the list of sites (`action=sites`, columns Customer
+   and Waiting, customer filter). The Customers tab: sites, waiting items, the latest fleet report, rename and "Allow version
+   … now" for one customer (`Console::allowNowForCustomer`). A kit version can be meant for one customer's sites
+   (`Kit::latestFor` / `announcementFor`). MCP `list_sites` gains `customer` (output and an optional filter).
+3. **Daily history** (migration 0101, `Fleet\History`): `ka_fleet_history`, one row per site and day – every 5-minute
+   uptime check adds to the day (answered or not, the time to the first byte, `Http::checks`); the hourly job
+   `fleet_history` writes the day's status, version, attention and what waited from the stored heartbeat.
+   `ka_fleet_incidents` keeps the down periods. 400 days kept. **Trends on a site's page**: uptime and average response this
+   month and last month, 90 days as bars (inline SVG with a summary for screen readers and the days as a table), outages and
+   versions; also in MCP `get_site` (`trends`).
+4. **Alert rules** (Fleet → Alerts and digest, `Fleet\AlertRules`, job `fleet_alerts` every 5 minutes): site down,
+   stopped reporting, certificate, domain, update failed, failed sign-ins, requests waiting – on/off and a threshold,
+   recipients, quiet hours (default 24). Defaults = the behaviour before 3.17 (down and silent on); `Core\Alerts` no longer
+   sends `fleet.site_down`/`fleet.site_silent` itself. **One source of thresholds**: `Console::THRESHOLDS` (silent 26 h,
+   certificate < 14 days, domain < 30 days, 50 failed sign-ins in 7 days, a request waiting > 48 h) are a site's attention,
+   the alert rules' defaults and the inbox's urgency; when the owner changes a threshold the inbox follows it
+   (`AlertRules::thresholds`, also for a rule that is off).
+5. **Weekly digest** (`Fleet\Digest`, job `fleet_digest`, off by default): Monday from 7:00, once an ISO week – attention,
+   what waits (counts), outages and uptime of the week, versions installed, plain links; each customer's part links to the
+   inbox filtered by that customer. Request titles only with `fleet_digest_titles` (off by default).
+6. **Monthly fleet report per customer** (`Fleet\Report`, `ka_fleet_reports`, job `fleet_reports` on the 1st from 6:00, 24
+   months): per site uptime, outages, versions, days needing attention and why, and the site's own headline counts from the
+   heartbeat key `report_summary`. Printed with the 3.16 A4 page, the console's agency branding; view/print, download, make
+   now, rebuild. MCP `fleet_report` (month, customer). Not an invoice, no personal data.
+   **Grouped by the customer's id** (`ka_fleet_reports.customer_id`, 0 = the sites without one) with the name it had when it
+   was made: a renamed customer keeps its archive (the list shows the name now – linked to the inbox filter – and the name
+   then); merging two customers moves the reports along; the digest and the reports list the customers in the order of the
+   inbox's customer filter, the sites without one last.
+
+Open: a removed site's history goes with it (the stored fleet reports keep it); response time is the console's own view
+(time to the first byte from the console), not the visitors'; a forgotten customer's reports stay under its old id and name.
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |
