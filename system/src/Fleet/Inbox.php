@@ -111,7 +111,7 @@ final class Inbox
         };
 
         // the site itself: the console's own check (current) and the reports it stopped sending
-        if (isset($site['up']) && $site['up'] !== null && (int) $site['up'] === 0) {
+        if (isset($site['up']) && (int) $site['up'] === 0) {
             $add('site', 'site_down', 'urgent', '', ['since' => self::time($site['up_changed'] ?? null), 'link' => $url !== '' ? $url . '/' : '', 'stale' => false]);
         }
         if ($lastSeen !== null && $now - $lastSeen > $limit('site_silent') * 3600) {
