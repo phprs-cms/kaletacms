@@ -40,6 +40,9 @@ use Kaleta\Core\Updater;
  * 3.17 – report_summary: the headline counts of the latest archived monthly report (Core\ReportArchive) – visits,
  * enquiries, requests handled, changes by people and by Claude, updates and backups – so the console's monthly report per
  * customer can show them. Counts only; no titles, pages or anything else of the report leave the site.
+ *
+ * 3.18 – claude_connection: whether Claude is connected (Core\ClaudeConnection::summary) – the state, the moment of the last
+ * call and of the earliest end of a connection, and how requests are picked up; never who connected or how.
  */
 final class Heartbeat
 {
@@ -109,6 +112,9 @@ final class Heartbeat
             'security_7_days' => self::part(fn (): array => self::security($db)),
             'domain_watch' => self::domainWatch(DomainWatch::cached($s)),
             'agent_runs' => Extensions::isEnabled($s, 'claude') ? self::part(fn (): array => self::agentRuns($db)) : null,
+            // 3.18: whether Claude is connected – state off | none | idle | active, last_call and expires (ISO 8601), pickup
+            // automatic | manual | stalled (null while not connected); nothing about who or which connection
+            'claude_connection' => self::part(fn (): array => \Kaleta\Core\ClaudeConnection::summary(\Kaleta\Core\ClaudeConnection::status($db, $s))),
             'updates' => ['behind_days' => Updater::behindDays($update), 'major_available' => self::part(fn (): ?string => self::version(Updater::nextMajor($s)['verze'] ?? null))],
             'report_month' => self::part(fn (): ?string => self::reportMonth($db)),
             'report_summary' => self::part(fn (): ?array => ($month = self::reportMonth($db)) !== null ? self::reportSummary(\Kaleta\Core\ReportArchive::get($db, $month)) : null),

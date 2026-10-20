@@ -468,7 +468,7 @@ final class Server
         // so nobody can lock out the site's Claude connections by sending wrong tokens from a shared address (a proxy in
         // front of Docker, Claude's own servers – N5), and guessing a 192-bit token gains nothing from more tries anyway.
         $limited = (int) $db->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'mcp' AND ip_adresa = ? AND cas > ?", [$ip, \Kaleta\Core\Clock::at('-15 minutes')]) >= 20;
-        $select = fn (string $toolSet): ?array => $db->one('SELECT t.idt, t.nazev AS connection_name, t.access AS connection_access, ' . $toolSet . " AS connection_tool_set, u.* FROM {api_tokeny} t JOIN {uzivatele} u ON u.idu = t.idu WHERE t.otisk = ? AND u.blokovat = 0 AND t.druh <> 'obnova' AND (t.expirace IS NULL OR t.expirace > ?)",
+        $select = fn (string $toolSet): ?array => $db->one('SELECT t.idt, t.klient AS connection_client, t.nazev AS connection_name, t.access AS connection_access, ' . $toolSet . " AS connection_tool_set, u.* FROM {api_tokeny} t JOIN {uzivatele} u ON u.idu = t.idu WHERE t.otisk = ? AND u.blokovat = 0 AND t.druh <> 'obnova' AND (t.expirace IS NULL OR t.expirace > ?)",
             [hash('sha256', $m[1]), date('Y-m-d H:i:s')]);
         try {
             $token = $select('t.tool_set');
@@ -488,6 +488,8 @@ final class Server
             return null;
         }
         $db->run('UPDATE {api_tokeny} SET pouzit = ? WHERE idt = ?', [\Kaleta\Core\Clock::now(), $token['idt']]);
+        // 3.18: the refresh row of an OAuth connection too – the access row goes an hour after it expires (Core\ClaudeConnection)
+        \Kaleta\Core\ClaudeConnection::stamp($db, (int) $token['idu'], isset($token['connection_client']) ? (string) $token['connection_client'] : null);
         if ($this->app->settings()->get('claude_first_used') === '') {
             // the first call of any Claude connection: the dashboard stops leading with "Connect Claude" (3.5, Core\AskClaude)
             $this->app->settings()->set('claude_first_used', date('Y-m-d H:i:s'));

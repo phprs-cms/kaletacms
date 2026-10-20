@@ -110,32 +110,32 @@ final class AskClaude
     }
 
     /**
-     * Whether a Claude connection has ever been used on this site (3.5) – the same test as the step in First steps. Only a
-     * call counts: a personal token nobody used yet is not a connection. Mcp\Server remembers the first call in the
-     * setting claude_first_used; a site connected before 3.5 is recognised by a used token or an OAuth refresh token (the
-     * Claude app holds one only after it signed in), and the moment is remembered then, so revoking a token later does not
-     * bring the "Connect Claude" card back.
+     * Whether a Claude connection exists now (3.18: state idle or active of Core\ClaudeConnection) – a valid OAuth
+     * connection or personal token of an account that is not blocked, with the extension "claude" on. Until 3.18 this meant
+     * "was ever used"; revoking every connection now says "not connected" again. The first call stays remembered in the
+     * setting claude_first_used (Mcp\Server, 3.5) as history; a site connected before 3.5 is recognised by a used token or
+     * an OAuth refresh token and the moment is remembered then.
      */
     public static function connected(Db $db, Settings $settings): bool
     {
-        if ($settings->get('claude_first_used') !== '') {
-            return true;
+        if ($settings->get('claude_first_used') === '') {
+            $used = $db->value("SELECT MIN(COALESCE(pouzit, vytvoren)) FROM {api_tokeny} WHERE pouzit IS NOT NULL OR druh = 'obnova'");
+            if ($used !== null) {
+                $settings->set('claude_first_used', (string) $used);
+                ClaudeConnection::forget();
+            }
         }
-        $used = $db->value("SELECT MIN(COALESCE(pouzit, vytvoren)) FROM {api_tokeny} WHERE pouzit IS NOT NULL OR druh = 'obnova'");
-        if ($used === null) {
-            return false;
-        }
-        $settings->set('claude_first_used', (string) $used);
 
-        return true;
+        return ClaudeConnection::reachable(ClaudeConnection::status($db, $settings));
     }
 
-    /** When a Claude connection last called the site (any person, any connection), or null. */
-    public static function lastCall(Db $db): ?string
+    /**
+     * When a Claude connection last called the site (any person, any connection), or null – 3.18: reliable for an OAuth
+     * connection idle for more than an hour too (Core\ClaudeConnection).
+     */
+    public static function lastCall(Db $db, Settings $settings): ?string
     {
-        $last = $db->value('SELECT MAX(pouzit) FROM {api_tokeny}');
-
-        return $last === null ? null : (string) $last;
+        return ClaudeConnection::status($db, $settings)['last_call'];
     }
 
     /** The address of the site's MCP endpoint for the Claude connector, with the scheme and host of the request. */

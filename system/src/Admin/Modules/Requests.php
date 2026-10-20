@@ -28,7 +28,8 @@ final class Requests extends Module
 
         return $this->view('list', 'Ask Claude', ['requests' => Inbox::all($this->app, $status, 300), 'status' => $status,
             'open' => (int) $this->db->value("SELECT COUNT(*) FROM {requests} WHERE status IN ('new', 'in_progress')"),
-            'claudeOn' => \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'claude')]);
+            // 3.18: whether the requests reach Claude now (Core\ClaudeConnection) and the scheduled run that picks them up
+            'claude' => $this->claude(), 'routine' => \Kaleta\Core\AskClaude::routine($this->db)]);
     }
 
     protected function actionNew(): Response
@@ -38,6 +39,7 @@ final class Requests extends Module
             'news' => \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'novinky') ? $this->db->pairs('SELECT idc, titulek FROM {novinky} WHERE smazano IS NULL ORDER BY datum DESC LIMIT 100') : [],
             'items' => $this->db->pairs('SELECT p.idp, CONCAT(k.nazev, \' – \', p.nazev) FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE p.smazano IS NULL ORDER BY ' . $this->db->sortText('k.nazev') . ', ' . $this->db->sortText('p.nazev') . ' LIMIT 300'),
             'maxAttachments' => Inbox::MAX_ATTACHMENTS, 'limit' => \Kaleta\Core\Files::limitText(),
+            'claude' => $this->claude(), // 3.18
         ]);
     }
 
@@ -74,15 +76,34 @@ final class Requests extends Module
         } catch (\DomainException $e) {
             return $fromDashboard ? $this->toDashboard($e->getMessage(), 'chyba') : $this->back($e->getMessage(), 'new', [], 'chyba');
         }
-        // nothing is "sent" while no Claude connection has ever called the site (3.5): the request waits for it
-        $connected = \Kaleta\Core\AskClaude::connected($this->db, $this->app->settings());
+        // nothing is "sent" while no Claude connection exists (3.5, 3.18): the message says when Claude will see the request
+        $claude = $this->claude();
+        $waits = \Kaleta\Core\ClaudeConnection::blocked($claude);
         if ($fromDashboard) {
-            return $this->toDashboard($connected ? t('Sent to Claude as request #%d. Claude does it as drafts the next time it works on the site; its notes appear in the request.', $id)
-                : t('Saved as request #%d – Claude picks it up once it is connected to the site.', $id));
+            return $this->toDashboard(match (true) {
+                !\Kaleta\Core\ClaudeConnection::reachable($claude) => t('Saved as request #%d – it waits until someone connects Claude to the site.', $id),
+                $claude['pickup'] === 'stalled' => t('Saved as request #%d – it waits: the scheduled run that picks up requests is not running.', $id),
+                $claude['pickup'] === 'manual' => t('Saved as request #%d. Claude picks it up the next time someone asks it in the Claude app; its notes appear in the request.', $id),
+                default => t('Sent to Claude as request #%d. Claude does it as drafts the next time it works on the site; its notes appear in the request.', $id),
+            }, $waits ? 'varovani' : 'ok');
         }
 
-        return $this->back($connected ? 'The request is saved. Claude will see it the next time it works on the site; you will read its notes here.'
-            : 'The request is saved – Claude picks it up once it is connected to the site; you will read its notes here.', 'detail', ['id' => $id]);
+        return $this->back(match (true) {
+            !\Kaleta\Core\ClaudeConnection::reachable($claude) => 'The request is saved – it waits until someone connects Claude to the site; you will read its notes here.',
+            $claude['pickup'] === 'stalled' => 'The request is saved – it waits: the scheduled run that picks up requests is not running.',
+            $claude['pickup'] === 'manual' => 'The request is saved. Claude picks it up the next time someone asks it in the Claude app; you will read its notes here.',
+            default => 'The request is saved. Claude will see it the next time it works on the site; you will read its notes here.',
+        }, 'detail', ['id' => $id], $waits ? 'varovani' : 'ok');
+    }
+
+    /**
+     * Whether requests reach Claude now (3.18, Core\ClaudeConnection).
+     *
+     * @return array{state: string, last_call: ?string, recent: bool, pickup: ?string, stalled_since: ?string, expires: ?string, expiring: bool, waiting: int, oldest_waiting: ?string, ever: bool}
+     */
+    private function claude(): array
+    {
+        return \Kaleta\Core\ClaudeConnection::status($this->db, $this->app->settings(), true);
     }
 
     private function toDashboard(string $message, string $type = 'ok'): Response
@@ -100,7 +121,7 @@ final class Requests extends Module
         }
 
         return $this->view('detail', t('Request #%d', (int) $request['id']), [
-            'r' => $request, 'about' => Inbox::describeAbout($this->app, (string) $request['about']), 'attachments' => Inbox::attachments($this->app, $request['attachments']),
+            'r' => $request, 'claude' => $this->claude(), 'about' => Inbox::describeAbout($this->app, (string) $request['about']), 'attachments' => Inbox::attachments($this->app, $request['attachments']),
             'messages' => Inbox::messages($this->db, (int) $request['id']), 'mine' => (int) $request['author_id'] === $this->app->auth()->id(),
         ]);
     }

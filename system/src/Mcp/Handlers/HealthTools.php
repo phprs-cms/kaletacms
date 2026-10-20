@@ -45,6 +45,9 @@ trait HealthTools
             'mail_service' => \Kaleta\Core\MailServices::name(\Kaleta\Core\MailServices::current($this->app->settings())) ?: null,
             'last_backup' => $backup !== null ? date('Y-m-d H:i', (int) $backup['cas']) : null,
             'events_last_7_days' => Events::problems($db, 168),
+            // 3.18: whether Claude is connected (Core\ClaudeConnection): state off | none | idle | active, the last call, how
+            // requests are picked up (automatic | manual | stalled), the earliest end of a connection
+            'claude_connection' => \Kaleta\Core\ClaudeConnection::summary(\Kaleta\Core\ClaudeConnection::status($db, $this->app->settings())),
             // 3.14: Ready for 4.0 (Core\Readiness) – read-only, as System status shows it
             'ready_for_4_0' => self::readiness(Language::runWith('en', fn (): array => Readiness::checks($this->app), 'admin-')),
             'next' => 'Fix what you can (e.g. with update_settings or the site audit) and tell the user what needs them: hosting, DNS or a password are theirs. list_events shows what happened.',

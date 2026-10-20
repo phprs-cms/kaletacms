@@ -4,23 +4,20 @@
  * attachments; example requests that fill the box (admin.js); whether a scheduled run picks requests up; the person's
  * latest requests. "Copy for the Claude app" copies the text with the site's address and opens Claude in a new tab.
  *
+ * 3.18: whether a request written now reaches Claude (Core\ClaudeConnection, views/admin/claude_notice.php) – without a
+ * connection the box saves for later and never says "Send".
+ *
  * @var Kaleta\Core\App $app
- * @var array{connected: bool, examples: array<string, string>, recent: list<array{id: int, title: string, status: string, updated_at: string}>, routine: ?array{cadence: string, day: int, time: string, next_due: ?string}, prompt: string, admin: bool} $ask
+ * @var array{connected: bool, status: array<string, mixed>, examples: array<string, string>, recent: list<array{id: int, title: string, status: string, updated_at: string}>, routine: ?array{cadence: string, day: int, time: string, next_due: ?string}, prompt: string, admin: bool} $ask
  */
-use Kaleta\Core\AgentSchedules;
 use Kaleta\Core\Requests;
 
 $requestsUrl = fn (string $action = '', array $params = []): string => $app->url('admin.php?module=requests' . ($action !== '' ? '&action=' . $action : '') . ($params !== [] ? '&' . http_build_query($params) : ''));
-$routine = $ask['routine'];
-$when = $routine === null ? '' : match ($routine['cadence']) {
-    'weekly' => t('every %s at %s', t(AgentSchedules::WEEKDAYS[$routine['day']] ?? 'Monday'), $routine['time']),
-    'monthly' => t('on day %d of every month at %s', $routine['day'], $routine['time']),
-    default => t('every day at %s', $routine['time']),
-};
 ?>
 <section class="ask-claude" aria-labelledby="ask-claude-nadpis">
 	<h2 id="ask-claude-nadpis"><?= e(t('Ask Claude')) ?></h2>
 	<p class="smltxt"><?= e(t('Write what you need done on the site, as you would to a colleague. Claude does it as drafts and answers in Requests; a person reviews and publishes.')) ?></p>
+<?= $app->view->render('admin/claude_notice', ['app' => $app, 'claude' => $ask['status'], 'routine' => $ask['routine'], 'class' => 'ask-claude-kdy']) ?>
 	<form method="post" action="<?= e($requestsUrl('save')) ?>" enctype="multipart/form-data">
 		<?= $app->session->csrfField() ?>
 		<input type="hidden" name="quick" value="1">
@@ -28,16 +25,13 @@ $when = $routine === null ? '' : match ($routine['cadence']) {
 		<label class="navod-skryte" for="ask-claude-text"><?= e(t('What should Claude do?')) ?></label>
 		<textarea class="textbox" id="ask-claude-text" name="text" rows="3" required maxlength="<?= Requests::MAX_TEXT ?>" placeholder="<?= e(t('e.g. Add the new opening hours to the contact page')) ?>"></textarea>
 		<div class="ask-claude-tlacitka">
-			<input class="tl" type="submit" value="<?= e($ask['connected'] ? t('Send to Claude') : t('Save the request')) ?>">
+			<button class="<?= $ask['connected'] ? 'tl' : 'navigace' ?>" type="submit"><?= e($ask['connected'] ? t('Send to Claude') : t('Save for later')) ?></button>
 			<label class="ask-claude-soubory"><span><?= e(t('Attach files')) ?></span> <input type="file" name="prilohy[]" multiple></label>
 <?php if ($ask['connected']): ?>
 			<a class="navigace" href="https://claude.ai/new" target="_blank" rel="noopener" data-ask-claude-copy data-prompt="<?= e($ask['prompt']) ?>" data-copied="<?= e(t('Copied – paste it into Claude')) ?>"><?= e(t('Copy for the Claude app')) ?></a>
 <?php endif ?>
 		</div>
 	</form>
-<?php if (!$ask['connected']): ?>
-	<p class="hlaska ask-claude-nepripojeno"><?= e($ask['admin'] ? t('Claude is not connected to this site yet, so requests wait until it is.') : t('Claude is not connected to this site yet – requests wait until an administrator connects it.')) ?><?php if ($ask['admin']): ?> <a href="#pripojit-claude"><?= e(t('Connect Claude')) ?></a><?php endif ?></p>
-<?php endif ?>
 <?php if ($ask['examples'] !== []): ?>
 	<p class="smltxt ask-claude-zkuste"><?= e($ask['connected'] ? t('For example – click one, change it and send:') : t('For example – click one, change it and save:')) ?></p>
 	<ul class="ask-claude-priklady">
@@ -46,15 +40,6 @@ $when = $routine === null ? '' : match ($routine['cadence']) {
 <?php endforeach ?>
 	</ul>
 <?php endif ?>
-	<p class="smltxt ask-claude-kdy">
-<?php if ($routine !== null): ?>
-		<?= e(t('A scheduled run works through the requests %s.', $when)) ?><?php if ($routine['next_due'] !== null): ?> <?= e(t('Next: %s.', format_date($routine['next_due'], true))) ?><?php endif ?>
-<?php elseif ($ask['admin']): ?>
-		<?= e(t('No scheduled run works through the requests yet – Claude reads them when someone asks it to.')) ?> <a href="<?= e($app->url('admin.php?module=schedules')) ?>"><?= e(t('Schedule a run')) ?></a>
-<?php else: ?>
-		<?= e(t('Claude reads the requests the next time it works on the site.')) ?>
-<?php endif ?>
-	</p>
 <?php if ($ask['recent'] !== []): ?>
 	<h3><?= e(t('Your requests')) ?></h3>
 	<ul class="ask-claude-moje">

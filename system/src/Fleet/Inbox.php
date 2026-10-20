@@ -35,6 +35,8 @@ final class Inbox
         'domain_expiring' => 'The domain registration expires', 'errors' => 'The site reports errors', 'jobs_failing' => 'Background jobs fail',
         'no_backup' => 'No recent backup', 'request' => 'Request', 'requests_open' => 'Open requests', 'requests_done' => 'Done requests to review',
         'enquiries' => 'New enquiries', 'bookings' => 'Bookings to confirm', 'audit' => 'Audit findings',
+        // 3.18 (Console::claudeReason)
+        'claude_not_connected' => 'Requests wait but Claude is not connected', 'claude_run_stalled' => 'Requests wait but the scheduled run is not running',
     ];
 
     /** Urgency => weight; the list is sorted by it, then by age (the oldest first). */
@@ -172,6 +174,13 @@ final class Inbox
             if (self::count($requests['done_to_review'] ?? null) > 0) {
                 $add('requests', 'requests_done', 'low', '?' . self::query(PendingReview::URLS['requests_done']), ['count' => self::count($requests['done_to_review'])]);
             }
+        }
+        // 3.18: new requests wait while nothing picks them up – the site's Claude settings say what to do (a site before 3.18
+        // sends no claude_connection); urgent once the oldest waits past the requests threshold
+        if (($reason = Console::claudeReason($beat)) !== null) {
+            $hours = Console::count(Console::part($beat, 'requests')['oldest_waiting_hours'] ?? null);
+            $add('requests', $reason, $hours !== null && $hours > $limit('requests_waiting') ? 'urgent' : 'normal', '?module=claude_settings',
+                ['since' => $hours !== null && $lastSeen !== null ? $lastSeen - $hours * 3600 : null]);
         }
         $enquiries = Console::enquiriesWaiting($beat); // a site before 3.16 sends only enquiries_unanswered
         if ($enquiries !== null && $enquiries > 0) {

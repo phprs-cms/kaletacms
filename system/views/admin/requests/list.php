@@ -8,16 +8,19 @@
  * @var list<array<string, mixed>> $requests with 'author' and decoded 'attachments'
  * @var string $status the filter ('' = all)
  * @var int $open new and in progress together
- * @var bool $claudeOn the Claude connection extension is on
+ * @var array{state: string, last_call: ?string, pickup: ?string, stalled_since: ?string} $claude whether requests reach Claude now (3.18)
+ * @var array{cadence: string, day: int, time: string, next_due: ?string}|null $routine the scheduled run that picks them up
  */
+use Kaleta\Core\ClaudeConnection;
 use Kaleta\Core\Requests;
+
+// 3.18: a new request that waits over WAIT_HOURS while nothing picks requests up is highlighted
+$overdue = ClaudeConnection::blocked($claude) ? date('Y-m-d H:i:s', time() - ClaudeConnection::WAIT_HOURS * 3600) : null;
 
 $tag = fn (string $status): string => '<span class="stitek' . match ($status) { 'done' => ' stitek-vydano', 'new' => ' stitek-koncept', 'declined' => ' stitek-chyba', default => '' } . '">' . e(t(Requests::STATUSES[$status] ?? $status)) . '</span>';
 ?>
 <p class="hlaska"><?= e(t('Write what should change on the site – "change the opening hours on Monday", "add this PDF to the price list" – and Claude does it as drafts the next time it works on the site. Its notes and the links to the drafts appear in the request; a person reviews and publishes them.')) ?></p>
-<?php if (!$claudeOn): ?>
-<p class="hlaska chyba"><?= e(t('The Claude connection is switched off (Features) – requests are saved, but nobody reads them until it is on.')) ?></p>
-<?php endif ?>
+<?= $app->view->render('admin/claude_notice', ['app' => $app, 'claude' => $claude, 'routine' => $routine, 'class' => 'requests-stav']) ?>
 <p><a class="tl" href="<?= e($module->url('new')) ?>"><?= e(t('New request')) ?></a></p>
 <nav class="zalozky" aria-label="<?= e(t('Request status')) ?>">
 <?php foreach (['' => t('Všechny')] + array_map('t', Requests::STATUSES) as $key => $name): ?>
@@ -34,8 +37,9 @@ $tag = fn (string $status): string => '<span class="stitek' . match ($status) { 
 <thead><tr><th scope="col"><?= e(t('Request')) ?></th><th scope="col"><?= e(t('Author')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Written')) ?></th><th scope="col"><?= e(t('Last change')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($requests as $r): ?>
-<tr<?= in_array($r['status'], ['done', 'declined'], true) ? ' class="nevydany"' : '' ?>>
-	<td><a href="<?= e($module->url('detail', ['id' => (int) $r['id']])) ?>"><strong><?= e((string) $r['title']) ?></strong></a><?= $r['attachments'] !== [] ? ' <span class="smltxt">(' . e(t('%d attachments', count($r['attachments']))) . ')</span>' : '' ?><br><span class="smltxt"><?= e(mb_strimwidth((string) $r['text'], 0, 120, '…')) ?></span></td>
+<?php $late = $overdue !== null && $r['status'] === 'new' && (string) $r['created_at'] < $overdue; ?>
+<tr<?= in_array($r['status'], ['done', 'declined'], true) ? ' class="nevydany"' : ($late ? ' class="ceka-dlouho"' : '') ?>>
+	<td><a href="<?= e($module->url('detail', ['id' => (int) $r['id']])) ?>"><strong><?= e((string) $r['title']) ?></strong></a><?= $late ? ' <span class="stitek stitek-chyba">' . e(t('waiting over %d hours', ClaudeConnection::WAIT_HOURS)) . '</span>' : '' ?><?= $r['attachments'] !== [] ? ' <span class="smltxt">(' . e(t('%d attachments', count($r['attachments']))) . ')</span>' : '' ?><br><span class="smltxt"><?= e(mb_strimwidth((string) $r['text'], 0, 120, '…')) ?></span></td>
 	<td><?= e((string) $r['author']) ?></td>
 	<td><?= $tag((string) $r['status']) ?></td>
 	<td><?= e(format_date((string) $r['created_at'], true)) ?></td>

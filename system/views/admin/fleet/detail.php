@@ -31,6 +31,7 @@ $pending = array_filter(is_array($beat['pending_review'] ?? null) ? $beat['pendi
 $security = is_array($beat['security_7_days'] ?? null) ? $beat['security_7_days'] : null;
 $watch = is_array($beat['domain_watch'] ?? null) && empty($beat['domain_watch']['local']) ? $beat['domain_watch'] : null;
 $runs = is_array($beat['agent_runs'] ?? null) ? $beat['agent_runs'] : null;
+$claudeConnection = is_array($beat['claude_connection'] ?? null) ? $beat['claude_connection'] : null; // 3.18, bounded by Console::clean
 $date = fn (mixed $ts): string => is_int($ts) && $ts > 0 && $ts < 4_102_444_800 ? format_date((new DateTimeImmutable())->setTimestamp($ts), true) : '–';
 $yes = fn (mixed $v): string => $v ? t('yes') : t('no');
 ?>
@@ -49,13 +50,16 @@ $yes = fn (mixed $v): string => $v ? t('yes') : t('no');
 	<?php if (is_array($beat['audit'] ?? null)): ?><tr><th scope="row"><?= e(t('Site audit')) ?></th><td><?= Console::total($beat['audit']) === 0 ? e(t('no findings')) : e($counts($beat['audit'], Audit::KINDS)) ?></td></tr><?php endif ?>
 </tbody></table></div>
 <?= $app->view->render('admin/fleet/trend', ['trend' => $trend]) ?>
-<?php if ($requests !== null || $pending !== [] || ($beat['bookings_pending'] ?? null) !== null || $security !== null || $watch !== null || $runs !== null): ?>
+<?php if ($requests !== null || $pending !== [] || ($beat['bookings_pending'] ?? null) !== null || $security !== null || $watch !== null || $runs !== null || $claudeConnection !== null): ?>
 <h2><?= e(t('Waiting')) ?></h2>
 <div class="tab-obal"><table class="vypis"><tbody>
 	<?php if ($requests !== null): ?><tr><th scope="row"><?= e(t('Ask Claude')) ?></th><td><?= e(t('%d new, %d in progress, %d done to review', (int) $requests['new'], (int) $requests['in_progress'], (int) $requests['done_to_review'])) ?><?= ($requests['oldest_waiting_hours'] ?? null) !== null ? ' · ' . e(t('the oldest waits %d hours', (int) $requests['oldest_waiting_hours'])) : '' ?>
 	<?php if (is_array($requests['items'] ?? null) && $requests['items'] !== []): ?><ul class="smltxt">
 	<?php foreach ($requests['items'] as $item): ?><li><a href="<?= e($siteAdmin . '?module=requests&action=detail&id=' . (int) $item['id']) ?>" target="_blank" rel="noopener"><?= e((string) $item['title']) ?></a> · <?= e(t(Kaleta\Core\Requests::STATUSES[$item['status']] ?? (string) $item['status'])) ?> · <?= e($moment($item['created_at'] ?? null)) ?></li><?php endforeach ?>
 	</ul><?php elseif (($requests['items'] ?? null) === null): ?><br><span class="smltxt"><?= e(t('The site does not share request titles.')) ?></span><?php endif ?></td></tr><?php endif ?>
+	<?php if ($claudeConnection !== null): ?><tr><th scope="row"><?= e(t('Claude connection')) ?></th><td><?php if ($claudeConnection['state'] === 'none'): ?><span class="stitek stitek-chyba"><?= e(t('not connected')) ?></span><?php else: ?><?= e(t(['off' => 'switched off (Features)', 'idle' => 'connected, no call in the last 7 days', 'active' => 'connected'][$claudeConnection['state']] ?? '–')) ?><?php endif ?>
+	<?= $claudeConnection['last_call'] !== null ? ' · ' . e(t('last call %s', $moment($claudeConnection['last_call']))) : '' ?><?= $claudeConnection['pickup'] !== null ? ' · ' . e(t(['automatic' => 'requests are picked up by a scheduled run', 'manual' => 'requests are picked up when someone asks Claude', 'stalled' => 'the scheduled run that picks up requests is not running'][$claudeConnection['pickup']] ?? '')) : '' ?><?= $claudeConnection['expires'] !== null ? ' · ' . e(t('a connection ends %s', $moment($claudeConnection['expires']))) : '' ?>
+	· <a href="<?= e($siteAdmin . '?module=claude_settings') ?>" target="_blank" rel="noopener"><?= e(t('Claude settings')) ?></a></td></tr><?php endif ?>
 	<?php if ($pending !== []): ?><tr><th scope="row"><?= e(t('Waiting for review')) ?></th><td><?= e(implode(', ', array_map(fn (string $kind, int $n): string => t(Kaleta\Core\PendingReview::KINDS[$kind][0] ?? $kind) . ': ' . $n, array_keys($pending), $pending))) ?></td></tr><?php endif ?>
 	<?php if (($beat['bookings_pending'] ?? null) !== null): ?><tr><th scope="row"><?= e(t('Bookings to confirm')) ?></th><td><?= (int) $beat['bookings_pending'] ?></td></tr><?php endif ?>
 	<?php if ($security !== null): ?><tr><th scope="row"><?= e(t('Security in 7 days')) ?></th><td><?= e(t('%d failed sign-ins, %d accounts locked now', (int) $security['failed_sign_ins'], (int) $security['locked_accounts'])) ?><?php if (($security['firewall'] ?? []) !== []): ?> · <?= e(t('firewall: %s', $counts($security['firewall'], ReportPage::FIREWALL))) ?><?php endif ?><?php if (($security['events'] ?? []) !== []): ?> · <?= e($counts($security['events'], ReportPage::SECURITY)) ?><?php endif ?></td></tr><?php endif ?>

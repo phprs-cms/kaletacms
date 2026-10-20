@@ -395,7 +395,9 @@ final class OAuth
             }
             $salt = bin2hex(random_bytes(32));
             $pair = self::successor($token, $salt);
-            $rotated = $db->transaction(function (Db $db) use ($refresh, $hash, $salt, $client, $pair, $now): bool {
+            // 3.18: the new pair keeps the connection's last call (Core\ClaudeConnection) – before, a refresh started it again empty
+            $used = \Kaleta\Core\ClaudeConnection::lastUse($db, (int) $refresh['idu'], (string) $client['client_id']);
+            $rotated = $db->transaction(function (Db $db) use ($refresh, $hash, $salt, $client, $pair, $now, $used): bool {
                 if ($db->delete('api_tokeny', ['idt' => (int) $refresh['idt'], 'druh' => 'obnova']) !== 1) {
                     return false; // another request rotated it a moment ago
                 }
@@ -403,7 +405,7 @@ final class OAuth
                 $db->insert('oauth_rotated', ['hash' => $hash, 'client_id' => (string) $client['client_id'], 'idu' => (int) $refresh['idu'], 'salt' => $salt,
                     'rotated_at' => $now, 'expires_at' => min((string) $refresh['expirace'], date('Y-m-d H:i:s', time() + self::ROTATED_LIFETIME))]);
                 // the access and the tool set chosen at consent (or switched in My account) stay
-                self::storeTokens($db, (int) $refresh['idu'], $client, (string) $refresh['access'], (string) ($refresh['tool_set'] ?? 'all'), $pair);
+                self::storeTokens($db, (int) $refresh['idu'], $client, (string) $refresh['access'], (string) ($refresh['tool_set'] ?? 'all'), $pair, $used);
 
                 return true;
             });
@@ -453,12 +455,13 @@ final class OAuth
     /**
      * @param array<string, mixed> $client
      * @param array{0: string, 1: string} $pair access token and refresh token
+     * @param string|null $used the last call the pair carries over from the rotated refresh token (3.18), null for a new connection
      */
-    private static function storeTokens(Db $db, int $idu, array $client, string $level, string $toolSet, array $pair): void
+    private static function storeTokens(Db $db, int $idu, array $client, string $level, string $toolSet, array $pair, ?string $used = null): void
     {
         foreach ([[$pair[0], 'pristup', self::ACCESS_LIFETIME], [$pair[1], 'obnova', self::REFRESH_LIFETIME]] as [$token, $kind, $lifetime]) {
             self::insertWithToolSet($db, 'api_tokeny', ['idu' => $idu, 'nazev' => (string) $client['nazev'], 'klient' => (string) $client['client_id'], 'druh' => $kind, 'access' => self::access($level),
-                'tool_set' => \Kaleta\Mcp\Catalog::toolSet($toolSet), 'expirace' => date('Y-m-d H:i:s', time() + $lifetime), 'otisk' => hash('sha256', $token), 'vytvoren' => date('Y-m-d H:i:s')]);
+                'tool_set' => \Kaleta\Mcp\Catalog::toolSet($toolSet), 'expirace' => date('Y-m-d H:i:s', time() + $lifetime), 'otisk' => hash('sha256', $token), 'vytvoren' => date('Y-m-d H:i:s'), 'pouzit' => $used]);
         }
     }
 

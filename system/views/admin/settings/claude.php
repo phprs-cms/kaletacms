@@ -9,14 +9,11 @@
  * @var list<array{ids: int|string, titulek: string, seo_link: string, jazyk: string}> $protectablePages
  */
 $mcpUrl = Kaleta\Core\AskClaude::mcpUrl($app);
-$lastCall = Kaleta\Core\AskClaude::lastCall($app->db());
 $accessNames = array_map(fn (string $label): string => t($label), Kaleta\Front\OAuth::ACCESS_LABELS);
 ?>
-<?php if (!in_array('claude', $enabledExtensions, true)): ?>
-<p class="hlaska hlaska-chyba"><?= e(t('The Claude connection is switched off.')) ?> <a href="<?= e($app->url('admin.php?module=extensions')) ?>"><?= e(t('Features')) ?></a></p>
-<?php endif ?>
+<?php // 3.18: the state of the connection first – connected, idle or not, how requests reach Claude, what to do next ?>
+<?= $app->view->render('admin/claude_panel', ['app' => $app, 'claude' => Kaleta\Core\ClaudeConnection::status($app->db(), $app->settings(), true), 'routine' => Kaleta\Core\AskClaude::routine($app->db())]) ?>
 <h2><?= e(t('How to connect')) ?></h2>
-<p class="<?= $lastCall !== null ? 'hlaska hlaska-ok' : 'hlaska' ?>"><?= e($lastCall !== null ? t('Connected – Claude last worked on the site %s.', format_date($lastCall, true)) : t('Not connected yet – no Claude connection has called the site.')) ?></p>
 <ol class="navod">
 	<li><?= e(t('In the Claude app open Settings → Connectors → Add custom connector.')) ?></li>
 	<li><?= e(t('Enter this address:')) ?><?= $app->view->render('admin/mcp_address', ['url' => $mcpUrl, 'id' => 'mcp-adresa-nastaveni']) ?></li>

@@ -403,6 +403,29 @@ tasks (below).
 **Settings over the connection.** Besides the site name and company details, Claude can switch extensions and language
 versions, the cookie bar, SEO switches, analytics codes and the code in `<head>` – when you ask for it.
 
+### Is Claude connected?
+
+Claude works on the site only when it calls it – when someone asks it something in the Claude app or Claude Code, or when a
+scheduled run fires. The site cannot tell whether Claude is "online", but it knows whether a connection exists, when Claude
+last called and whether requests are picked up by themselves. The top bar of every admin screen shows it next to your
+account (on a phone as a dot; the words are there for screen readers), and it leads to **Claude settings**:
+
+| In the top bar | What it means | What to do |
+|---|---|---|
+| **Claude connected** (green dot) | A connection exists and Claude called the site in the last 7 days; the time of the last call is next to it. | Nothing. |
+| **Claude idle** (amber) | A connection exists, but Claude has not called for 7 days – or not at all yet. | Ask Claude something about the site, or set up a scheduled run. |
+| **Claude: requests wait** (amber) | The scheduled run that picks up requests missed or failed its last run, or is more than 6 hours late, and new requests wait. With nothing waiting it says **scheduled run stopped**. | Check the routine in Claude (Scheduled runs). |
+| **Claude not connected** (red ring) | No valid connection – none was made, all were revoked or have expired. | Connect Claude (Claude settings shows the address). |
+
+Without a connection **Ask Claude** says so before you write: the button becomes **Save for later**, a saved request
+waits until someone connects Claude, and so do the page's "Ask Claude to translate it" and the blueprint request. When
+requests are picked up only when someone asks Claude, the box says so with the time of the last call; when a scheduled run
+does it, the box says when it runs next. The **Requests** list has the same line at the top and highlights a new request
+that has waited over 48 hours while nothing picks it up. **Claude settings** open with the state, the last call, how
+requests are picked up, when the first connection ends and what to do next. **System status** warns when new requests wait
+and Claude is not connected or the scheduled run does not run, and when a connection ends within 14 days; `get_health`
+gives the same as `claude_connection`, and a fleet console shows it for every site (and puts such a site into its inbox).
+
 ### Ready-made tasks for Claude
 
 Every Kaleta connection brings its own ready-made tasks – complete step-by-step runbooks for the jobs people ask for

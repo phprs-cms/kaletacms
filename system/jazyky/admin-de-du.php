@@ -985,4 +985,17 @@ return [
     'Off: the digest only counts the requests. The e-mail leaves the console – turn the titles on only when the recipients may read them.' => 'Aus: Die Übersicht zählt die Aufträge nur. Die E-Mail verlässt die Konsole – schalte die Titel nur ein, wenn die Empfänger sie lesen dürfen.',
     'nobody – fill in the recipients' => 'niemanden – trag Empfänger ein',
     'The alert and digest e-mails cover every site in the console, of every customer – add only your own team\'s addresses.' => 'Die Warnungen und die Übersicht betreffen alle Websites der Konsole, aller Kunden – füge nur die Adressen deines eigenen Teams hinzu.', // 3.17 security fixes
+    'Ask an administrator to connect Claude.' => 'Bitte einen Administrator, Claude anzubinden.',
+    'To have them picked up automatically, set up a scheduled run.' => 'Damit sie automatisch abgeholt werden, richte einen geplanten Lauf ein.',
+    'The request is saved – it waits until someone connects Claude to the site; you will read its notes here.' => 'Der Auftrag ist gespeichert – er wartet, bis jemand Claude mit der Website verbindet; die Notizen liest du hier.',
+    'The request is saved. Claude picks it up the next time someone asks it in the Claude app; you will read its notes here.' => 'Der Auftrag ist gespeichert. Claude holt ihn ab, wenn jemand Claude das nächste Mal in der Claude-App fragt; die Notizen liest du hier.',
+    'Switch the Claude connection on in Features.' => 'Schalte die Claude-Anbindung unter Funktionen ein.',
+    'Connect Claude: in the Claude app add the address below as a custom connector – or create a personal token for Claude Code.' => 'Claude anbinden: Füge in der Claude-App die Adresse unten als benutzerdefinierten Connector hinzu – oder erstelle ein persönliches Token für Claude Code.',
+    'The scheduled run that picks up requests is not running – check the routine in Claude.' => 'Der geplante Lauf, der die Aufträge abholt, läuft nicht – prüfe die Routine in Claude.',
+    'Requests are picked up only when someone asks Claude. To have them picked up automatically, set up a scheduled run.' => 'Die Aufträge werden nur abgeholt, wenn jemand Claude fragt. Damit sie automatisch abgeholt werden, richte einen geplanten Lauf ein.',
+    'Claude has not called the site for %d days. If you still use it, ask it something about the site – the connection stays valid.' => 'Claude hat die Website seit %d Tagen nicht aufgerufen. Wenn du Claude weiter nutzt, frag Claude etwas zur Website – die Anbindung bleibt gültig.',
+    'A connection ends %s – connect Claude again before then (personal tokens: create a new one in My account).' => 'Eine Anbindung endet am %s – binde Claude vorher erneut an (persönliche Tokens: erstelle ein neues unter Mein Konto).',
+    '%d request(s) wait, but Claude is not connected to the site – connect it in Claude settings' => '%d Auftrag/Aufträge warten, aber Claude ist nicht mit der Website verbunden – binde Claude in den Claude-Einstellungen an',
+    '%d request(s) wait, but the scheduled run that picks them up is not running (last missed or failed %s) – check the routine in Claude (Scheduled runs)' => '%d Auftrag/Aufträge warten, aber der geplante Lauf, der sie abholt, läuft nicht (zuletzt verpasst oder fehlgeschlagen %s) – prüfe die Routine in Claude (Geplante Läufe)',
+    'a connection ends %s, connect Claude again before then' => 'eine Anbindung endet am %s, binde Claude vorher erneut an',
 ];

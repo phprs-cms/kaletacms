@@ -11,6 +11,7 @@
  * @var list<array{id: int, name: string, url: string, size: string, image: bool}> $attachments
  * @var list<array{id: int, sender: string, sender_name: string, text: string, links: list<array{label: string, url: string}>, created_at: string}> $messages
  * @var bool $mine the signed-in user wrote it
+ * @var array{state: string, last_call: ?string, pickup: ?string, stalled_since: ?string} $claude whether requests reach Claude now (3.18)
  */
 use Kaleta\Core\Requests;
 
@@ -18,6 +19,9 @@ $tag = fn (string $status): string => '<span class="stitek' . match ($status) { 
 $moves = Requests::TRANSITIONS[$r['status']] ?? [];
 ?>
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>">← <?= e(t('All requests')) ?></a></p>
+<?php if ($r['status'] === 'new' && Kaleta\Core\ClaudeConnection::blocked($claude)): // 3.18: a new request nothing picks up says so ?>
+<?= $app->view->render('admin/claude_notice', ['app' => $app, 'claude' => $claude]) ?>
+<?php endif ?>
 <div class="formular">
 <dl class="poptavka">
 	<dt><?= e(t('Request')) ?></dt><dd><strong><?= e((string) $r['title']) ?></strong></dd>
