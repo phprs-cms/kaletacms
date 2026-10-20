@@ -341,6 +341,29 @@ hotové úkoly (níže).
 **Nastavení přes napojení.** Kromě názvu webu a údajů o firmě umí Claude zapnout rozšíření a jazykové verze, cookie lištu,
 přepínače SEO, kódy analytiky a kód v `<head>` – když o to požádáte.
 
+### Je Claude připojený?
+
+Claude na webu pracuje, jen když ho zavolá – když se ho někdo na něco zeptá v aplikaci Claude nebo v Claude Code, nebo když
+přijde čas naplánovaného běhu. Web nepozná, jestli je Claude „online“, ale ví, jestli napojení existuje, kdy Claude volal
+naposledy a jestli se požadavky vyřizují samy. Horní lišta každé obrazovky administrace to ukazuje vedle vašeho účtu (na
+telefonu jako tečku; slova jsou tam pro čtečky obrazovky) a vede do **Nastavení Clauda**:
+
+| V horní liště | Co to znamená | Co udělat |
+|---|---|---|
+| **Claude připojený** (zelená tečka) | Napojení existuje a Claude web za posledních 7 dní volal; vedle je čas posledního volání. | Nic. |
+| **Claude nečinný** (oranžová) | Napojení existuje, ale Claude 7 dní nevolal – nebo ještě vůbec. | Zeptejte se Clauda na něco o webu, nebo nastavte naplánovaný běh. |
+| **Claude: požadavky čekají** (oranžová) | Naplánovaný běh, který vyřizuje požadavky, poslední běh zmeškal nebo nedokončil, nebo má přes 6 hodin zpoždění, a nové požadavky čekají. Když nic nečeká, stojí tam **plánovaný běh se zastavil**. | Zkontrolujte rutinu v Claudovi (Naplánované běhy). |
+| **Claude nepřipojený** (červený kroužek) | Žádné platné napojení – nikdo ho nevytvořil, všechna byla zrušena nebo vypršela. | Připojte Clauda (adresu najdete v Nastavení Clauda). |
+
+Bez napojení to **Zeptejte se Clauda** řekne dřív, než začnete psát: tlačítko se změní na **Uložit na později**, uložený
+požadavek počká, dokud někdo Clauda nepřipojí, a stejně tak „Požádat Clauda o překlad“ u stránky a požadavek na šablonu
+oboru. Když se požadavky vyřizují, jen když se někdo zeptá Clauda, rámeček to řekne i s časem posledního volání; když je
+vyřizuje naplánovaný běh, řekne, kdy poběží příště. Výpis **Požadavky** má stejný řádek nahoře a zvýrazní nový požadavek,
+který čeká přes 48 hodin, zatímco ho nikdo nevyřizuje. **Nastavení Clauda** začínají stavem, posledním voláním, tím, jak
+se požadavky vyřizují, kdy končí první napojení a co dál. **Stav systému** upozorní, když nové požadavky čekají a Claude
+není připojený nebo naplánovaný běh neběží, a když napojení skončí do 14 dní; `get_health` to vrací jako
+`claude_connection` a konzole flotily to ukáže u každého webu (a takový web zařadí do své schránky).
+
 ### Hotové úkoly pro Clauda
 
 Každé napojení Kalety přináší vlastní hotové úkoly – úplné postupy krok za krokem pro práce, o které lidé žádají

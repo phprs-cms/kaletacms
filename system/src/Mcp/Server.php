@@ -63,6 +63,9 @@ final class Server
         if (count($batch) > 50) {
             return Response::json(['jsonrpc' => '2.0', 'id' => null, 'error' => ['code' => -32600, 'message' => 'A batch has at most 50 messages.']], 400);
         }
+        // 3.18 audit (N318-1): only a call that is served counts as one – a call refused above (two-factor sign-in the site
+        // requires, a malformed message) leaves no trace of use, so a refused connection never shows as "Claude connected"
+        $this->served($user);
         $responses = array_values(array_filter(array_map($this->process(...), $batch)));
         if ($responses === []) {
             return new Response('', 202);
@@ -468,7 +471,7 @@ final class Server
         // so nobody can lock out the site's Claude connections by sending wrong tokens from a shared address (a proxy in
         // front of Docker, Claude's own servers – N5), and guessing a 192-bit token gains nothing from more tries anyway.
         $limited = (int) $db->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'mcp' AND ip_adresa = ? AND cas > ?", [$ip, \Kaleta\Core\Clock::at('-15 minutes')]) >= 20;
-        $select = fn (string $toolSet): ?array => $db->one('SELECT t.idt, t.nazev AS connection_name, t.access AS connection_access, ' . $toolSet . " AS connection_tool_set, u.* FROM {api_tokeny} t JOIN {uzivatele} u ON u.idu = t.idu WHERE t.otisk = ? AND u.blokovat = 0 AND t.druh <> 'obnova' AND (t.expirace IS NULL OR t.expirace > ?)",
+        $select = fn (string $toolSet): ?array => $db->one('SELECT t.idt, t.klient AS connection_client, t.nazev AS connection_name, t.access AS connection_access, ' . $toolSet . " AS connection_tool_set, u.* FROM {api_tokeny} t JOIN {uzivatele} u ON u.idu = t.idu WHERE t.otisk = ? AND u.blokovat = 0 AND t.druh <> 'obnova' AND (t.expirace IS NULL OR t.expirace > ?)",
             [hash('sha256', $m[1]), date('Y-m-d H:i:s')]);
         try {
             $token = $select('t.tool_set');
@@ -487,12 +490,25 @@ final class Server
 
             return null;
         }
+
+        return $token;
+    }
+
+    /**
+     * Records a call that is served (3.18 audit, N318-1: after every refusal in handle()): the token's last use, the refresh
+     * row of an OAuth connection – the access row goes an hour after it expires (Core\ClaudeConnection) – and the first call
+     * of any Claude connection.
+     *
+     * @param array<string, mixed> $token the row user() found
+     */
+    private function served(array $token): void
+    {
+        $db = $this->app->db();
         $db->run('UPDATE {api_tokeny} SET pouzit = ? WHERE idt = ?', [\Kaleta\Core\Clock::now(), $token['idt']]);
+        \Kaleta\Core\ClaudeConnection::stamp($db, (int) $token['idu'], isset($token['connection_client']) ? (string) $token['connection_client'] : null);
         if ($this->app->settings()->get('claude_first_used') === '') {
             // the first call of any Claude connection: the dashboard stops leading with "Connect Claude" (3.5, Core\AskClaude)
             $this->app->settings()->set('claude_first_used', date('Y-m-d H:i:s'));
         }
-
-        return $token;
     }
 }

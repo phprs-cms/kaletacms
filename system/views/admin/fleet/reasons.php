@@ -7,4 +7,6 @@ return [
     // 3.16
     'certificate_expiring' => t('the certificate expires soon'), 'domain_expiring' => t('the domain expires soon'), 'requests_waiting' => t('requests wait over 48 hours'),
     'sign_in_attacks' => t('many failed sign-ins'), 'bookings_to_confirm' => t('bookings to confirm'),
+    // 3.18
+    'claude_not_connected' => t('requests wait but Claude is not connected'), 'claude_run_stalled' => t('requests wait but the scheduled run is not running'),
 ];

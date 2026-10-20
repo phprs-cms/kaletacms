@@ -38,7 +38,9 @@ final class Console
         // 3.16: what waits for people – each has its own shape and bounds (cleanPart); a site before 3.16 sends none of them
         'requests', 'pending_review', 'enquiries_new_not_spam', 'bookings_pending', 'security_7_days', 'domain_watch', 'agent_runs', 'updates', 'report_month',
         // 3.17: the headline counts of the site's latest monthly report (Fleet\History::summary) for the fleet report
-        'report_summary'];
+        'report_summary',
+        // 3.18: whether Claude is connected to the site (Core\ClaudeConnection::summary)
+        'claude_connection'];
 
     /**
      * The address of a site as the console keeps and links it (3.17, N317-5): http(s), a host without user information
@@ -54,6 +56,8 @@ final class Console
         'down' => 100, 'not_reporting' => 80, 'errors' => 60, 'update_failed' => 50, 'jobs_failing' => 40, 'certificate_expiring' => 40, 'no_backup' => 30,
         'domain_expiring' => 30, 'no_heartbeat' => 20, 'warnings' => 10, 'requests_waiting' => 10, 'sign_in_attacks' => 10, 'no_cron' => 5, 'enquiries' => 5,
         'bookings_to_confirm' => 5, 'update_available' => 5, 'audit' => 2,
+        // 3.18: new requests wait and nothing picks them up – Claude is not connected, or the scheduled run does not run
+        'claude_not_connected' => 15, 'claude_run_stalled' => 10,
     ];
 
     /*
@@ -341,6 +345,10 @@ final class Console
         if ((self::count($beat['bookings_pending'] ?? null) ?? 0) > 0) {
             $reasons[] = 'bookings_to_confirm';
         }
+        // 3.18: new requests wait while nothing picks them up (a site before 3.18 sends no claude_connection)
+        if (($reason = self::claudeReason($beat)) !== null) {
+            $reasons[] = $reason;
+        }
         $days = self::daysLeft(self::part($beat, 'domain_watch')['certificate'] ?? null, $now);
         if ($days !== null && $days < self::CERTIFICATE_DAYS) {
             $reasons[] = 'certificate_expiring';
@@ -355,6 +363,28 @@ final class Console
         }
 
         return ['score' => array_sum(array_map(fn (string $r): int => self::REASONS[$r], $reasons)), 'reasons' => $reasons];
+    }
+
+    /**
+     * Why the new requests of a site wait (3.18): 'claude_not_connected' (no valid Claude connection), 'claude_run_stalled'
+     * (the scheduled run that picks them up does not run), or null – nothing waits, the site picks them up, or the site
+     * is before 3.18. Pure; reads the stored values through the same bounds as clean().
+     *
+     * @param array<string, mixed> $beat
+     */
+    public static function claudeReason(array $beat): ?string
+    {
+        if ((self::count(self::part($beat, 'requests')['new'] ?? null) ?? 0) < 1) {
+            return null;
+        }
+        $claude = self::cleanPart('claude_connection', $beat['claude_connection'] ?? null);
+
+        return match (true) {
+            !is_array($claude) => null,
+            $claude['state'] === 'none' => 'claude_not_connected',
+            $claude['pickup'] === 'stalled' => 'claude_run_stalled',
+            default => null,
+        };
     }
 
     /**
@@ -563,10 +593,13 @@ final class Console
      *  - agent_runs: runs_7_days by result, next_due, next_task (the kind), sessions_7_days;
      *  - updates: behind_days, major_available; report_month: YYYY-MM;
      *  - report_summary (3.17): month YYYY-MM and the counts of History::SUMMARY_COUNTS (null when the site has no such count).
+     *  - claude_connection (3.18): state off | none | idle | active (anything else drops the part), pickup automatic | manual |
+     *    stalled or null, last_call and expires real moments between 1970 and 2100 or null.
      * Every count is a non-negative integer up to MAX_COUNT; a value that is not one (a string, a float beyond 10^15) is dropped
      * on its own, never the whole heartbeat. Moments are real ones (ISO 8601 with the offset).
      */
-    private const array PARTS = ['requests', 'pending_review', 'enquiries_new_not_spam', 'bookings_pending', 'security_7_days', 'domain_watch', 'agent_runs', 'updates', 'report_month', 'report_summary'];
+    private const array PARTS = ['requests', 'pending_review', 'enquiries_new_not_spam', 'bookings_pending', 'security_7_days', 'domain_watch', 'agent_runs', 'updates', 'report_month', 'report_summary',
+        'claude_connection'];
 
     private const int MAX_COUNT = 1_000_000;
 
@@ -670,6 +703,15 @@ final class Console
         return checkdate((int) $m[2], (int) $m[3], (int) $m[1]) && (int) $m[4] < 24 && (int) $m[5] < 60 && (int) $m[6] < 60 && (int) ($m[8] ?? 0) <= 14 && (int) ($m[9] ?? 0) < 60 ? $value : null;
     }
 
+    /** A moment (moment()) between 1970 and LATEST_TIME (3.18) – the console sorts and formats it, never a year 0001 or 9999. */
+    private static function boundedMoment(mixed $value): ?string
+    {
+        $moment = self::moment($value);
+        $time = $moment !== null ? strtotime($moment) : false;
+
+        return $time !== false && $time >= 0 && $time <= self::LATEST_TIME ? $moment : null;
+    }
+
     /**
      * A calendar date 'Y-m-d' that exists (3.16, N316-5): "2026-13-45" passes a pattern, but no calendar – the console's
      * pages and counts use this, never the raw text a site sent.
@@ -764,6 +806,16 @@ final class Console
                 return ['runs_7_days' => self::counts($v['runs_7_days'] ?? null, Heartbeat::RUN_STATUSES), 'next_due' => self::moment($v['next_due'] ?? null),
                     'next_task' => is_string($v['next_task'] ?? null) && preg_match('/^[a-z_]{1,30}$/D', $v['next_task']) === 1 ? $v['next_task'] : null,
                     'sessions_7_days' => self::count($v['sessions_7_days'] ?? null) ?? 0];
+            case 'claude_connection':
+                $state = $v['state'] ?? null;
+                if (!is_string($state) || !in_array($state, \Kaleta\Core\ClaudeConnection::STATES, true)) {
+                    return null;
+                }
+                $pickup = $v['pickup'] ?? null;
+
+                return ['state' => $state, 'last_call' => self::boundedMoment($v['last_call'] ?? null),
+                    'pickup' => is_string($pickup) && in_array($pickup, \Kaleta\Core\ClaudeConnection::PICKUPS, true) ? $pickup : null,
+                    'expires' => self::boundedMoment($v['expires'] ?? null)];
             case 'updates':
                 $major = $v['major_available'] ?? null;
 

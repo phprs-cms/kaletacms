@@ -40,7 +40,9 @@ trait FleetTools
             'sites' => array_map(fn (array $s): array => ['id' => (int) $s['id'], 'name' => (string) $s['name'], 'url' => (string) $s['url'], 'version' => (string) $s['version'],
                 'attention' => $s['reasons'], 'score' => $s['score'], 'last_report' => $s['last_seen'], 'up' => $s['up'] === null ? null : (int) $s['up'] === 1,
                 'ring' => (string) $s['ring'], 'console_decides_updates' => (int) $s['manage_updates'] === 1, 'enquiries_waiting' => Console::enquiriesWaiting($s['beat']),
-                'kit_version' => $s['beat']['kit_version'] ?? null, 'customer' => $customers[(int) $s['customer_id']] ?? null], $sites),
+                'kit_version' => $s['beat']['kit_version'] ?? null, 'customer' => $customers[(int) $s['customer_id']] ?? null,
+                // 3.18: off | none | idle | active (null from a site before 3.18); get_site has the whole report.claude_connection
+                'claude_connection' => $s['beat']['claude_connection']['state'] ?? null], $sites),
             'newest_version' => Console::latest($this->app)[0],
             // the shared design kit (2.16, Fleet\Kit): the newest version the console published; kit_version says which one each site applied
             'kit' => ($kit = Kit::latest($this->app->db())) !== null ? ['version' => $kit['version'], 'published' => $kit['created_at'], 'contents' => $kit['summary']] : null,

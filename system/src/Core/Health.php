@@ -113,6 +113,26 @@ final class Health
         $add($group, t('Automatic suspension'), 'ok', $suspend === [] ? t('off – unused accounts and connections are only reported (Settings → General)')
             : implode(', ', array_filter([in_array(SecurityHygiene::SUSPEND_ACCOUNTS, $suspend, true) ? t('accounts after %d days', SecurityHygiene::ACCOUNT_DAYS) : '', in_array(SecurityHygiene::SUSPEND_CONNECTIONS, $suspend, true) ? t('Claude connections after %d days', SecurityHygiene::CONNECTION_DAYS) : ''])));
 
+        // 3.18: whether requests reach Claude (Core\ClaudeConnection) – a warning when new requests wait and nothing picks them
+        // up, or when a connection ends soon; with the Claude connection switched off only that
+        $claude = ClaudeConnection::status($db, $siteSettings, true);
+        $when = static fn (?string $moment): string => $moment !== null ? format_date($moment, true) : '–';
+        $add($group, t('Claude connection'), match (true) {
+            $claude['waiting'] > 0 && ClaudeConnection::blocked($claude) && $claude['state'] !== 'off', $claude['expiring'] => 'varovani',
+            default => 'ok',
+        }, match (true) {
+            $claude['state'] === 'off' => t('switched off (Features)'),
+            $claude['state'] === 'none' => $claude['waiting'] > 0 ? t('%d request(s) wait, but Claude is not connected to the site – connect it in Claude settings', $claude['waiting']) : t('not connected'),
+            $claude['pickup'] === 'stalled' && $claude['waiting'] > 0 => t('%d request(s) wait, but the scheduled run that picks them up is not running (last missed or failed %s) – check the routine in Claude (Scheduled runs)', $claude['waiting'], $when($claude['stalled_since'])),
+            default => ($claude['state'] === 'active' ? t('connected, last call %s', $when($claude['last_call'])) : ($claude['last_call'] !== null ? t('connected, no call in the last %d days (last call %s)', ClaudeConnection::ACTIVE_DAYS, $when($claude['last_call'])) : t('connected, no call yet')))
+                . '; ' . match ($claude['pickup']) {
+                    'automatic' => t('requests are picked up by a scheduled run'),
+                    'stalled' => t('the scheduled run that picks up requests is not running'),
+                    default => t('requests are picked up when someone asks Claude'),
+                },
+        } . ($claude['expiring'] ? ' – ' . t('a connection ends %s, connect Claude again before then', $when($claude['expires'])) : ''),
+            $claude['state'] !== 'off' ? [['text' => t('Claude settings'), 'url' => $app->url('admin.php?module=claude_settings')]] : []);
+
         // --- operation
         $log = KALETA_ROOT . '/storage/log/chyby.log';
         $errorCount = 0;

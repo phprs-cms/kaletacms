@@ -300,9 +300,17 @@ final class Kernel
         usort($edited, fn (array $a, array $b): int => strcmp($b['kdy'], $a['kdy']));
 
         // "Ask Claude" (3.1): a front door to the requests inbox – only with the section and the Claude connection on
-        // (not in the public demo, where the Claude connection is refused); it knows whether Claude was connected at all (3.1.1)
-        $ask = isset($modules['requests']) && Extensions::isEnabled($this->app->settings(), 'claude') && !\Kaleta\Core\Demo::active() ? [
-            'connected' => \Kaleta\Core\AskClaude::connected($db, $this->app->settings()),
+        // (not in the public demo, where the Claude connection is refused); 3.18: it knows whether a connection exists now
+        // and how requests reach Claude (Core\ClaudeConnection) – without one it saves for later, never "sends"
+        $claudeOn = Extensions::isEnabled($this->app->settings(), 'claude') && !\Kaleta\Core\Demo::active();
+        $claude = null;
+        if ($claudeOn) {
+            \Kaleta\Core\AskClaude::connected($db, $this->app->settings()); // remembers the first use of a site connected before 3.5 (claude_first_used)
+            $claude = \Kaleta\Core\ClaudeConnection::status($db, $this->app->settings());
+        }
+        $ask = isset($modules['requests']) && $claude !== null ? [
+            'connected' => \Kaleta\Core\ClaudeConnection::reachable($claude),
+            'status' => $claude,
             'examples' => \Kaleta\Core\AskClaude::examples($modules),
             'recent' => \Kaleta\Core\AskClaude::recent($db, $this->app->auth()->id()),
             'routine' => \Kaleta\Core\AskClaude::routine($db),
@@ -310,9 +318,10 @@ final class Kernel
             'admin' => $this->app->auth()->isAdmin(),
         ] : null;
 
-        // "Connect Claude" (3.5): until a Claude connection has ever called the site the dashboard leads with it – the address
-        // with Copy, three steps and the HTTPS warning – then First steps, and Ask Claude below; once connected, as before
-        $connect = Extensions::isEnabled($this->app->settings(), 'claude') && !\Kaleta\Core\Demo::active() && !($ask['connected'] ?? \Kaleta\Core\AskClaude::connected($db, $this->app->settings()))
+        // "Connect Claude" (3.5): while no connection exists (3.18 – also after every connection was revoked) or the only
+        // one was never used, the dashboard leads with it – the address with Copy, three steps and the HTTPS warning – then
+        // First steps, and Ask Claude below
+        $connect = $claude !== null && \Kaleta\Core\ClaudeConnection::needsConnecting($claude)
             ? ['url' => \Kaleta\Core\AskClaude::mcpUrl($this->app), 'admin' => $this->app->auth()->isAdmin()] : null;
 
         return $data + [
@@ -371,7 +380,8 @@ final class Kernel
         // since 3.1.1, because "Ask Claude" on the dashboard and the scheduled runs depend on it
         // 3.12 (UX310-26): while the "Connect Claude" card leads the dashboard (not connected, not the demo), the step would
         // repeat it – it shows once connected (ticked) or in the demo, where there is no card
-        $connected = \Kaleta\Core\AskClaude::connected($db, $s);
+        // 3.18: done = a connection exists that was used (Core\ClaudeConnection::needsConnecting is the card's own test)
+        $connected = \Kaleta\Core\AskClaude::connected($db, $s) && !\Kaleta\Core\ClaudeConnection::needsConnecting(\Kaleta\Core\ClaudeConnection::status($db, $s));
         if (\Kaleta\Core\Extensions::isEnabled($s, 'claude') && ($connected || \Kaleta\Core\Demo::active())) {
             array_unshift($steps, ['Connect Claude', 'Build and edit the site by talking to Claude. In the Claude app, add a custom connector with your site address followed by /mcp – My account shows the exact address.',
                 \Kaleta\Core\Demo::active() ? 'admin.php?action=account#claude' : 'admin.php#pripojit-claude', $connected]);

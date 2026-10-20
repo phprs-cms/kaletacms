@@ -201,6 +201,9 @@ final class Users extends Module
         $token = $this->request->postInt('idt');
         $client = preg_match('/^[a-f0-9]{32}$/D', $this->request->post('klient')) === 1 ? $this->request->post('klient') : ''; // an OAuth client id is 32 hex characters (column, 3.12)
         $removed = $token > 0 ? $this->db->delete('api_tokeny', ['idt' => $token, 'idu' => $id]) : ($client !== '' ? $this->db->delete('api_tokeny', ['idu' => $id, 'klient' => $client]) : 0);
+        if ($client !== '' && $token <= 0) {
+            \Kaleta\Front\OAuth::forgetRotations($this->db, $id, $client); // N318-3
+        }
 
         return $this->back($removed > 0 ? 'The connection has been revoked – Claude can no longer sign in with it.' : 'The connection no longer exists.', 'edit', ['id' => $id], $removed > 0 ? 'ok' : 'chyba');
     }
@@ -275,6 +278,7 @@ final class Users extends Module
             return $this->back('You cannot delete yourself.', type: 'chyba');
         }
         $this->db->delete('uzivatele', ['idu' => $id]);
+        \Kaleta\Front\OAuth::forgetRotations($this->db, $id); // its tokens go with the account (foreign key), the records too (N318-3)
 
         return $this->back('The user has been deleted. Their news items remain, without an author.');
     }

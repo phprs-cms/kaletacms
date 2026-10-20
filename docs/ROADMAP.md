@@ -876,6 +876,48 @@ The fleet console's tabs: Inbox, Sites, Customers, Fleet reports, Alerts and dig
 Open: a removed site's history goes with it (the stored fleet reports keep it); response time is the console's own view
 (time to the first byte from the console), not the visitors'; a forgotten customer's reports stay under its old id and name.
 
+## 3.18 – know whether Claude is connected (in progress)
+
+The owner: the connector to Claude is essential – the admin must say whether there is an active connection, and say so
+when there is none, so nobody writes to Ask Claude while nothing picks the requests up. MCP is pull-only: the site knows
+whether a connection exists, when Claude last called and whether a scheduled run picks requests up – not whether Claude
+is "online".
+
+1. **Reliable last call**: every MCP call that is served also stamps the refresh row of its OAuth connection (at most once
+   a minute) and a refresh carries the last call over to the new pair – before, a connection idle for over an hour lost
+   it (its access row expires and is cleaned up), so Claude settings, My account and the 60-day hygiene check showed live
+   connections as unused. `Core\ClaudeConnection::status()`: state off | none | idle | active (a call within 7 days;
+   recent within 24 h), pickup automatic | manual | stalled (a `requests` schedule that missed or failed its last run, or
+   is more than 6 hours overdue), the earliest end of a connection (expiring within 14 days), new requests waiting.
+   `AskClaude::connected()` now means "a valid connection exists now"; `claude_first_used` stays as history, and revoking
+   every connection shows "Not connected" (and the Connect Claude card) again.
+2. **The top bar of every screen** (for whoever may use Ask Claude or Claude settings, not in the public demo): Claude
+   connected (last call) / Claude idle / Claude: requests wait (or scheduled run stopped) / Claude not connected – words,
+   not colour alone (disc, diamond, ring); on a phone a dot with the words for screen readers; a link to Claude settings.
+3. **Ask Claude entry points** – the dashboard box, a new request, "Ask Claude to translate it", a blueprint for Claude:
+   without a connection a warning and **Save for later** instead of Send; manual pickup and a stalled run say so; the
+   flash after saving says when Claude will see the request. The Requests list has the same status line and highlights a
+   new request waiting over 48 hours while nothing picks it up.
+4. **Claude settings** open with a status panel: state, last call, how requests are picked up, when the first connection
+   ends, and the next steps (connect, set up a scheduled run, reconnect before it ends).
+5. **System status** "Claude connection": a warning when new requests wait and Claude is not connected or the scheduled
+   run does not run, or when a connection ends within 14 days. MCP `get_health` adds `claude_connection` {state,
+   last_call, pickup, expires}.
+6. **Fleet**: heartbeat key `claude_connection` (bounded by the console: enum values only, moments 1970–2100), attention
+   `claude_not_connected` / `claude_run_stalled` when new requests wait, the site detail, an inbox row to the site's Claude
+   settings, `list_sites` gains the state. A heartbeat from before 3.18 works as before.
+7. **Pre-release security audit** (N318-1 … N318-5): a call is stamped only after the two-factor check and every other
+   refusal, and only connections that can call count – of an account that is not blocked and meets the site's
+   two-factor requirement (a connection whose every call is refused shows "Claude not connected", N318-1). Migration 0102
+   adds `ka_api_tokeny (druh, expirace)` and `ka_oauth_rotated (rotated_at)` for the status queries, the schedule loop is
+   one query, and OAuth refreshes are limited to 30 per connection (client + user) an hour – over it `429 slow_down` with
+   `Retry-After`; the refresh token stays valid (N318-2). The last call comes from live connections only, and a
+   disconnect, a revocation, a password change or reset and a deleted account delete the connection's rotation records
+   (N318-3). Staff seeing the last-call time and the heartbeat's last call stay as they are (owner decisions, N318-4/-5).
+
+Open: the header chip has no "expires soon" state (Claude settings and System status say it); no menu badge on the
+Claude hub.
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |

@@ -43,6 +43,16 @@ if ($user !== null) {
     $statements[] = ['n' => t('My account'), 'u' => $adminUrl('action=account'), 's' => ''];
     $statements[] = ['n' => t('Zobrazit web'), 'u' => $app->url(''), 's' => ''];
 }
+// 3.18: whether Claude is connected (Core\ClaudeConnection) – for whoever may use Ask Claude or the Claude settings, with the
+// Claude connection on and not in the public demo (as Ask Claude on the dashboard); it never breaks the frame
+$claudeChip = null;
+if ($user !== null && (isset($modules['requests']) || isset($modules['claude_settings'])) && Kaleta\Core\Extensions::isEnabled($app->settings(), 'claude') && !Kaleta\Core\Demo::active()) {
+    try {
+        $claudeChip = ['claude' => Kaleta\Core\ClaudeConnection::status($app->db(), $app->settings()), 'url' => $app->url('admin.php?module=' . (isset($modules['claude_settings']) ? 'claude_settings' : 'requests'))];
+    } catch (\Throwable) {
+        $claudeChip = null;
+    }
+}
 ?>
 <!doctype html>
 <html lang="<?= e(Kaleta\Core\Language::code()) ?>" data-pasmo="<?= e(date_default_timezone_get()) ?>">
@@ -83,6 +93,9 @@ if ($user !== null) {
 <section class="loginprouzek" aria-label="<?= e(t('Account and tools')) ?>">
 	<button class="paleta-spustit" type="button" data-paleta title="<?= e(t('Quick search and commands')) ?>"><span><?= e(t('Search…')) ?></span> <kbd>Ctrl K</kbd></button>
 	<button class="tema-prepinac" type="button" data-tema-prepinac title="<?= e(t('Light / dark mode')) ?>" aria-label="<?= e(t('Toggle light and dark mode')) ?>"><?= $icon('tema') ?></button>
+<?php if ($claudeChip !== null): ?>
+	<?= $app->view->render('admin/claude_chip', ['app' => $app] + $claudeChip) ?>
+<?php endif ?>
 	<a class="prihlasen" href="<?= e($app->url('admin.php?action=account')) ?>" title="<?= e(t('My account')) ?>" aria-label="<?= e(t('My account') . ' – ' . ($user['jmeno'] ?: $user['user'])) ?>"><span class="avatar" title="<?= e(($user['jmeno'] ?: $user['user']) . ' – ' . t(Kaleta\Core\Auth::TYPES[(int) $user['admin']] ?? '')) ?>" aria-hidden="true"><?= e(mb_strtoupper(mb_substr($user['jmeno'] ?: $user['user'], 0, 1))) ?></span></a>
 </section>
 <?php endif ?>

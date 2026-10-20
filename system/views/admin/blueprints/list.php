@@ -77,10 +77,12 @@ $groups = array_filter(array_replace(array_fill_keys(array_keys(Blueprint::GROUP
 <?php endif ?>
 <h3><?= e(t('None of them fits?')) ?></h3>
 <p><?= e(t('Ask Claude to make a blueprint for your kind of business: it asks you what it needs to know, shows you the draft and applies it only when you agree. In the Claude app, the prompt is called draft_blueprint.')) ?></p>
+<?php $claude = Kaleta\Core\ClaudeConnection::status($app->db(), $app->settings()); // 3.18: without a connection the request waits – said before it is saved ?>
 <form class="formular" method="post" action="<?= e($app->url('admin.php?module=requests&action=save')) ?>"><?= $csrf ?>
+<?= Kaleta\Core\ClaudeConnection::blocked($claude) ? $app->view->render('admin/claude_notice', ['app' => $app, 'claude' => $claude]) : '' ?>
 <input type="hidden" name="quick" value="1">
 <div class="radek"><label for="blueprint-request"><?= e(t('Request for Claude')) ?></label><div><textarea class="textpole siroke" id="blueprint-request" name="text" rows="3" required><?= e(t('Make a blueprint for our kind of business. We are … (what we do and for whom). Ask me what you need to know.')) ?></textarea></div></div>
-<p><button class="navigace" type="submit"><?= e(t('Send to Claude')) ?></button></p>
+<p><button class="navigace" type="submit"><?= e(Kaleta\Core\ClaudeConnection::reachable($claude) ? t('Send to Claude') : t('Save for later')) ?></button></p>
 </form>
 <h3><?= e(t('From a file')) ?></h3>
 <form class="formular" method="post" action="<?= e($module->url('apply')) ?>" enctype="multipart/form-data"><?= $csrf ?>

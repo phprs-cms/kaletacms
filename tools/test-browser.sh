@@ -122,7 +122,9 @@ LAST="$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format(
   $db->insert("fleet_incidents", ["site_id" => 900, "started_at" => $at("-12 days 10:00"), "ended_at" => $at("-12 days 10:45"), "status" => 503]);
   Kaleta\Core\Events::record($db, "fleet.site_updated", "info", "https://shop.smile.example runs version 3.17.0.", ["site" => 900, "version" => "3.17.0"]);
   Kaleta\Fleet\Report::store($app, Kaleta\Core\MonthlyReport::previousMonth(new DateTimeImmutable()));') || { echo "preparing the fleet console failed"; exit 1; }
-NODE_PATH="$WORK/pw/node_modules" BASE="$B" STARTERS="$STARTERS" PASSWORD="$PASSWORD" CHROME="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}" node "$ROOT/tools/test-browser.mjs"
+# 3.18: the browser test changes the state of the Claude connection in the database (the mysql command as a JSON list)
+MYSQL_JSON=$(php -r 'echo json_encode(array_slice($argv, 1));' -- "${MYSQL[@]}")
+NODE_PATH="$WORK/pw/node_modules" BASE="$B" STARTERS="$STARTERS" PASSWORD="$PASSWORD" MYSQL_JSON="$MYSQL_JSON" DB_NAME="$DB_NAME" CHROME="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}" node "$ROOT/tools/test-browser.mjs"
 for site in web remeslo poradenstvi; do
   if [ -s "$WORK/$site/storage/log/chyby.log" ]; then echo "== application error log ($site):"; cat "$WORK/$site/storage/log/chyby.log"; exit 1; fi
 done
