@@ -39,7 +39,7 @@ final class Fleet extends Module
      */
     protected function actionList(): Response
     {
-        $all = Inbox::load($this->db, time());
+        $all = Inbox::load($this->db, $this->app->settings(), time());
         $customer = $this->request->getInt('customer');
         $filters = ['site' => $this->request->getInt('site'), 'customer' => $customer, 'urgent' => $this->request->get('urgent') === '1'];
         $kind = isset(Inbox::KINDS[$this->request->get('kind')]) ? $this->request->get('kind') : '';
@@ -66,14 +66,14 @@ final class Fleet extends Module
             && ($customer === 0 || (int) $s['customer_id'] === $customer)));
 
         return $this->view('list', 'Fleet', ['sites' => $listed, 'total' => count($sites), 'needing' => $needing, 'show' => $show, 'query' => $query,
-            'customers' => $customers, 'customer' => $customer, 'waiting' => Inbox::waitingBySite(Inbox::load($this->db, time())),
+            'customers' => $customers, 'customer' => $customer, 'waiting' => Inbox::waitingBySite(Inbox::load($this->db, $this->app->settings(), time())),
             'latest' => Console::latest($this->app)[0], 'pairingKey' => $this->pairingKey()]);
     }
 
     /** The customers (3.17): how many sites each has and how much waits, renaming, the new version for one customer's sites. */
     protected function actionCustomers(): Response
     {
-        $waiting = Inbox::waitingBySite(Inbox::load($this->db, time()));
+        $waiting = Inbox::waitingBySite(Inbox::load($this->db, $this->app->settings(), time()));
         $bySite = array_column(Console::sites($this->db), 'customer_id', 'id');
         $perCustomer = [];
         foreach ($waiting as $siteId => $n) {
@@ -82,7 +82,7 @@ final class Fleet extends Module
         }
 
         return $this->view('customers', 'Customers', ['customers' => Customers::all($this->db), 'waiting' => $perCustomer,
-            'without' => count(array_filter($bySite, fn (mixed $c): bool => $c === null)), 'latest' => Console::latest($this->app)[0]]);
+            'without' => count(array_filter($bySite, fn (mixed $c): bool => $c === null)), 'latest' => Console::latest($this->app)[0], 'reports' => Report::latestByCustomer($this->db)]);
     }
 
     /** Sets the customer and the note of one site (the site detail). */
@@ -296,7 +296,7 @@ final class Fleet extends Module
     /** Reports (3.17): the monthly reports per customer the console has made (Fleet\Report). */
     protected function actionReports(): Response
     {
-        return $this->view('reports', 'Fleet reports', ['reports' => Report::all($this->db),
+        return $this->view('reports', 'Fleet reports', ['reports' => Report::all($this->db), 'customers' => Customers::names($this->db),
             'previous' => \Kaleta\Core\MonthlyReport::previousMonth(new \DateTimeImmutable())->format('Y-m')]);
     }
 
@@ -319,14 +319,14 @@ final class Fleet extends Module
             : t('The reports for %s were made already – rebuild one from the list.', \Kaleta\Core\ReportPage::monthName($start->format('Y-m'))), 'reports');
     }
 
-    /** One customer's month as the printable A4 page – GET that only renders, with its Print button. */
+    /** One customer's month (?customer=<id>, the inbox's customer filter; 0 or empty = without one) as the printable A4 page – GET that only renders, with its Print button. */
     protected function actionReportView(): Response
     {
-        $stored = Report::get($this->db, $this->request->get('month'), $this->request->get('customer'));
+        $stored = Report::get($this->db, $this->request->get('month'), $this->request->getInt('customer'));
         if ($stored === null) {
             return $this->error('This month is not in the archive.', 404);
         }
-        $params = ['month' => $stored['month'], 'customer' => $stored['customer']];
+        $params = ['month' => $stored['month'], 'customer' => $stored['customer_id']];
         $html = Report::render($this->app->view, $stored, $this->app->settings(), $this->consoleAddress(), [
             'script' => $this->app->url('image/tisk.js') . '?v=' . KALETA_VERSION, 'download' => $this->url('report_download', $params), 'back' => $this->url('reports')]);
 
@@ -338,7 +338,7 @@ final class Fleet extends Module
     /** The same page as an HTML file to keep or send: no toolbar, no script. */
     protected function actionReportDownload(): Response
     {
-        $stored = Report::get($this->db, $this->request->get('month'), $this->request->get('customer'));
+        $stored = Report::get($this->db, $this->request->get('month'), $this->request->getInt('customer'));
         if ($stored === null) {
             return $this->error('This month is not in the archive.', 404);
         }

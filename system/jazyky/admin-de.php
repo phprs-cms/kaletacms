@@ -6651,4 +6651,7 @@ return [
     'ended' => 'abgelaufen',
     'A summary of what happened to these websites in %s: uptime, outages, updates and counts – no personal data.' => 'Eine Zusammenfassung dessen, was mit diesen Websites im %s geschah: Verfügbarkeit, Ausfälle, Updates und Zahlen – keine personenbezogenen Daten.',
     '1 site' => '1 Website',
+    'then %s' => 'damals %s', // 3.17 merge
+    'What waits on these sites:' => 'Was auf diesen Websites wartet:', // 3.17 merge
+    'The inbox uses the same thresholds – also for a rule that is off, which only sends no e-mail.' => 'Der Posteingang nutzt dieselben Schwellen – auch bei einer ausgeschalteten Regel, die nur keine E-Mail sendet.', // 3.17 merge
 ];

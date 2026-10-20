@@ -2858,10 +2858,18 @@ check('3.17: the heartbeat\'s report_summary – the headline counts of the late
     [['month' => '2026-09', 'visits' => 120, 'enquiries' => 3, 'requests_handled' => 2, 'changes_people' => 5, 'changes_claude' => 6, 'updates' => 1, 'backups' => 31], null,
         ['month' => '2026-09', 'visits' => null, 'enquiries' => null, 'requests_handled' => null, 'changes_people' => null, 'changes_claude' => null, 'updates' => 0, 'backups' => 2],
         ['month' => '2026-09', 'visits' => 5, 'enquiries' => null, 'requests_handled' => null, 'changes_people' => null, 'changes_claude' => null, 'updates' => null, 'backups' => null], null, null]);
-check('3.17: Console::customerOf – \'\' until the customer column exists (stream A), the trimmed name when it does; the uptime check measures the time to the first byte', [
-    Kaleta\Fleet\Console::customerOf(['id' => 1]), Kaleta\Fleet\Console::customerOf(['customer' => '  Pekárna Novák ']), Kaleta\Fleet\Console::customerOf(['customer' => null]),
+check('3.17: Console::customerIdOf – the customer id of a site row (Fleet\\Customers), 0 for none; the uptime check measures the time to the first byte', [
+    Kaleta\Fleet\Console::customerIdOf(['id' => 1]), Kaleta\Fleet\Console::customerIdOf(['customer_id' => 5]), Kaleta\Fleet\Console::customerIdOf(['customer_id' => '7']), Kaleta\Fleet\Console::customerIdOf(['customer_id' => null]),
+    Kaleta\Fleet\Console::customerIdOf(['customer_id' => -3]),
     Kaleta\Fleet\Http::milliseconds(0.2345), Kaleta\Fleet\Http::milliseconds(-1.0), Kaleta\Fleet\Http::milliseconds(999.0), Kaleta\Fleet\Http::checks(['http://10.0.0.5:8080/'])],
-    ['', 'Pekárna Novák', '', 235, 0, 60000, [['status' => 0, 'ms' => null]]]);
+    [0, 5, 7, 0, 0, 235, 0, 60000, [['status' => 0, 'ms' => null]]]);
+// 3.17 merge: the digest and the fleet report group by the customer id in the order of the inbox's customer filter
+// (Customers::names), the sites without one – or of a customer that no longer exists – last
+$groups317 = Report::byCustomer([['id' => 1, 'customer_id' => 9], ['id' => 2, 'customer_id' => null], ['id' => 3, 'customer_id' => 4], ['id' => 4, 'customer_id' => 9], ['id' => 5, 'customer_id' => 77]],
+    [4 => 'Acme', 9 => 'Pekárna Novák']);
+check('3.17 merge: Report::byCustomer – by customer id, the inbox filter\'s order, the sites without a customer last', [
+    array_map(fn (array $g): array => [$g['id'], $g['name'], array_column($g['sites'], 'id')], $groups317), Report::byCustomer([], [4 => 'Acme'])],
+    [[[4, 'Acme', [3]], [9, 'Pekárna Novák', [1, 4]], [0, '', [2, 5]]], []]);
 // alert rules: the defaults keep the behaviour before 3.17 (down and silent), thresholds bounded, the quiet hours per site and kind
 $rules317 = AlertRules::sanitize([]);
 $all317 = AlertRules::sanitize(array_map(fn (array $k): array => ['on' => '1'], AlertRules::KINDS));
@@ -2904,11 +2912,11 @@ check('3.17: Digest::due – off by default; on: Monday from 7:00, once an ISO w
     Digest::due($reportSettings(['fleet_digest' => '1', 'fleet_digest_sent' => '2026-W43']), new DateTimeImmutable('2026-10-19 09:00')), Kaleta\Core\Settings::DEFAULTS['fleet_digest'], Kaleta\Core\Settings::DEFAULTS['fleet_digest_titles']],
     [false, false, true, false, false, '0', '0']);
 $digestData317 = ['from' => '2026-10-12', 'to' => '2026-10-18', 'customers' => [
-    '' => [['id' => 7, 'name' => 'Bakery', 'url' => 'https://bakery.example', 'reasons' => ['down', 'enquiries'], 'enquiries' => 2, 'requests' => ['new' => 1, 'in_progress' => 0, 'done_to_review' => 3],
+    ['id' => 12, 'name' => 'Pekárna Novák', 'sites' => [['id' => 8, 'name' => '', 'url' => 'https://shop.example', 'reasons' => [], 'enquiries' => 0, 'requests' => null, 'request_titles' => [], 'review' => null, 'bookings' => 1,
+        'uptime' => ['percent' => null, 'checks' => 0, 'failed' => 0, 'response_ms' => null], 'incidents' => [], 'versions' => []]]],
+    ['id' => 0, 'name' => '', 'sites' => [['id' => 7, 'name' => 'Bakery', 'url' => 'https://bakery.example', 'reasons' => ['down', 'enquiries'], 'enquiries' => 2, 'requests' => ['new' => 1, 'in_progress' => 0, 'done_to_review' => 3],
         'request_titles' => ['New price list', 'Call [e-mail] back'], 'review' => 2, 'bookings' => null, 'uptime' => ['percent' => 98.5, 'checks' => 2000, 'failed' => 30, 'response_ms' => 210],
-        'incidents' => [['started_at' => '2026-10-14 10:00:00', 'ended_at' => '2026-10-14 12:30:00', 'status' => 0, 'minutes' => 150]], 'versions' => [['date' => '2026-10-15 03:00:00', 'version' => '3.17.0']]]],
-    'Pekárna Novák' => [['id' => 8, 'name' => '', 'url' => 'https://shop.example', 'reasons' => [], 'enquiries' => 0, 'requests' => null, 'request_titles' => [], 'review' => null, 'bookings' => 1,
-        'uptime' => ['percent' => null, 'checks' => 0, 'failed' => 0, 'response_ms' => null], 'incidents' => [], 'versions' => []]]]];
+        'incidents' => [['started_at' => '2026-10-14 10:00:00', 'ended_at' => '2026-10-14 12:30:00', 'status' => 0, 'minutes' => 150]], 'versions' => [['date' => '2026-10-15 03:00:00', 'version' => '3.17.0']]]]]]];
 $digest317 = Digest::compose($digestData317, $reportSettings(['site_name' => 'Agency console']), 'https://console.example', false);
 $digestTitles317 = Digest::compose($digestData317, $reportSettings(['site_name' => 'Agency console']), 'https://console.example', true);
 check('3.17: the digest – by customer, what needs attention and what waits as counts, the week\'s outages, uptime and updates, plain links; request titles only when turned on; nothing with "@"', [
@@ -2917,8 +2925,24 @@ check('3.17: the digest – by customer, what needs attention and what waits as 
     str_contains($digest317[1], 'Uptime of the week: 98.50 % · 1 outages, 150 minutes down'), str_contains($digest317[1], 'Updated to 3.17.0'), str_contains($digest317[1], 'Waiting: 1 bookings to confirm'),
     str_contains($digest317[1], 'https://console.example/admin.php?module=fleet&action=detail&id=7'), str_contains($digest317[1], 'https://bakery.example/admin.php'),
     str_contains($digest317[1], 'New price list'), str_contains($digestTitles317[1], '    · New price list'), str_contains($digest317[1] . $digestTitles317[1], '@'),
-    str_contains(Digest::compose($digestData317, $reportSettings(['site_language' => 'cs']), 'https://console.example', false)[1], 'Týden vašich webů')],
-    ['Agency console: the week of your sites (12 Oct 2026 – 18 Oct 2026)', true, true, true, true, true, true, true, true, true, true, false, true, false, true]);
+    str_contains(Digest::compose($digestData317, $reportSettings(['site_language' => 'cs']), 'https://console.example', false)[1], 'Týden vašich webů'),
+    str_contains($digest317[1], "== Pekárna Novák ==\nWhat waits on these sites: https://console.example/admin.php?module=fleet&customer=12\n"),
+    strpos($digest317[1], '== Pekárna Novák ==') < strpos($digest317[1], '== Sites without a customer =='), substr_count($digest317[1], 'module=fleet&customer=')],
+    ['Agency console: the week of your sites (12 Oct 2026 – 18 Oct 2026)', true, true, true, true, true, true, true, true, true, true, false, true, false, true, true, true, 1]);
+// 3.17 merge: one source of the thresholds – the alert rules' defaults are the console's, the inbox follows the owner's
+check('3.17 merge: the alert rules\' default thresholds are Console::THRESHOLDS (the attention and the inbox use them); a site\'s attention by them', [
+    array_filter(array_map(fn (array $k): ?int => $k[1], AlertRules::KINDS), 'is_int'), AlertRules::thresholds($reportSettings([])),
+    AlertRules::thresholds($reportSettings(['fleet_alert_rules' => '{"certificate":{"on":false,"threshold":30},"requests_waiting":{"on":true,"threshold":24}}']))['certificate'],
+    Kaleta\Fleet\Heartbeat::REQUEST_WAIT_HOURS, Kaleta\Fleet\Console::SILENT_AFTER],
+    [Kaleta\Fleet\Console::THRESHOLDS, Kaleta\Fleet\Console::THRESHOLDS, 30, 48, 26 * 3600]);
+$thresholdSite317 = ['id' => 4, 'name' => 'Delta', 'url' => 'https://delta.example', 'customer_id' => null, 'up' => 1, 'up_changed' => null, 'status' => 'ok', 'last_seen' => date('Y-m-d H:i:s', $fleetNow - 20 * 3600),
+    'heartbeat' => (string) json_encode(['last_backup' => $fleetNow - 3600, 'domain_watch' => ['local' => false, 'certificate' => ['expires' => $fleetDay(20)], 'domain' => null],
+        'security_7_days' => ['failed_sign_ins' => 30, 'events' => []], 'requests' => ['new' => 1, 'in_progress' => 0, 'done_to_review' => 0, 'oldest_waiting_hours' => 30, 'items' => null]])];
+$thresholdRows317 = fn (array $t): array => array_map(fn (array $r): string => $r['what'] . ':' . $r['urgency'], Kaleta\Fleet\Inbox::build([$thresholdSite317], [], $fleetNow, $t));
+$owner317 = AlertRules::thresholds($reportSettings(['fleet_alert_rules' => '{"certificate":{"on":false,"threshold":30},"security_spike":{"on":false,"threshold":25},"requests_waiting":{"on":true,"threshold":24},"site_silent":{"on":true,"threshold":12}}']));
+check('3.17 merge: the inbox ranks by the alert rules\' thresholds – the defaults like before, the owner\'s when changed (also for a rule that is off)', [
+    $thresholdRows317([]), $thresholdRows317(AlertRules::thresholds($reportSettings([]))), $thresholdRows317($owner317)],
+    [['requests_open:normal'], ['requests_open:normal'], ['requests_open:urgent', 'site_silent:urgent', 'sign_in_attacks:urgent', 'certificate_expiring:normal']]);
 // the monthly fleet report per customer: from the console's history, with and without the site's own report headline
 $siteData317 = Report::siteData(['id' => 7, 'name' => 'Bakery jan@bakery.example', 'url' => 'https://bakery.example', 'version' => '3.17.1'],
     ['2026-09-01' => $day317(287, 1, 287 * 200, 287, 0, '', '3.16.0'), '2026-09-02' => $day317(280, 8, 280 * 400, 280, 100, 'down,errors', '3.17.0')],

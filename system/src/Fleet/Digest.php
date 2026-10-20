@@ -12,9 +12,10 @@ use Kaleta\Core\Settings;
 
 /**
  * The weekly digest of the fleet console (3.17, Fleet → Alerts and digest; off by default): on Monday morning one e-mail
- * about the week before, grouped by customer (Console::customerOf) – the sites that need attention and why, what waits
- * (counts), the down periods and the uptime of the week, the versions installed. Plain text with plain links to the
- * console and to each site's administration.
+ * about the week before, grouped by customer like the fleet report (Report::byCustomer – the customers of the inbox's
+ * filter, the sites without one last) – the sites that need attention and why, what waits (counts), the down periods and
+ * the uptime of the week, the versions installed. Plain text with plain links to the console (each customer's part to the
+ * inbox filtered by that customer) and to each site's administration.
  *
  * The titles of requests to Claude are left out unless the owner turns them on (fleet_digest_titles, off by default):
  * the e-mail leaves the console, the titles were written on the sites. Never an enquiry, a name or an e-mail address
@@ -54,23 +55,24 @@ final class Digest
     }
 
     /**
-     * What the digest says about the week [$from, $to): customer => list of sites, each with its attention now, what waits,
-     * the down periods, the uptime of the week and the versions installed. Every site is in it – a quiet week is news too.
+     * What the digest says about the week [$from, $to): the customers (id, name; id 0 = the sites without one), each with its
+     * sites – their attention now, what waits, the down periods, the uptime of the week and the versions installed. Every
+     * site is in it – a quiet week is news too.
      *
-     * @return array{from: string, to: string, customers: array<string, list<array<string, mixed>>>}
+     * @return array{from: string, to: string, customers: list<array{id: int, name: string, sites: list<array<string, mixed>>}>}
      */
     public static function build(App $app, \DateTimeImmutable $from, \DateTimeImmutable $to): array
     {
         $db = $app->db();
         $now = time();
-        $customers = [];
+        $sites = [];
         foreach (Console::overview($db, $now) as $site) {
             $id = (int) $site['id'];
             $beat = $site['beat'];
             $requests = is_array($beat['requests'] ?? null) ? $beat['requests'] : null;
             $days = History::days($db, $id, $from->format('Y-m-d'), $to->modify('-1 day')->format('Y-m-d'));
-            $customers[Console::customerOf($site)][] = [
-                'id' => $id, 'name' => (string) $site['name'], 'url' => (string) $site['url'], 'reasons' => $site['reasons'],
+            $sites[] = [
+                'id' => $id, 'customer_id' => Console::customerIdOf($site), 'name' => (string) $site['name'], 'url' => (string) $site['url'], 'reasons' => $site['reasons'],
                 'enquiries' => Console::enquiriesWaiting($beat),
                 'requests' => $requests === null ? null : ['new' => (int) $requests['new'], 'in_progress' => (int) $requests['in_progress'], 'done_to_review' => (int) $requests['done_to_review']],
                 'request_titles' => array_values(array_map(fn (array $item): string => (string) $item['title'],
@@ -82,28 +84,30 @@ final class Digest
                 'versions' => History::versions($db, $id, $from->format('Y-m-d H:i:s'), $to->format('Y-m-d H:i:s')),
             ];
         }
-        ksort($customers, SORT_STRING); // the sites without a customer ('') first
 
-        return ['from' => $from->format('Y-m-d'), 'to' => $to->modify('-1 day')->format('Y-m-d'), 'customers' => $customers];
+        return ['from' => $from->format('Y-m-d'), 'to' => $to->modify('-1 day')->format('Y-m-d'), 'customers' => Report::byCustomer($sites, Customers::names($db))];
     }
 
     /**
      * The subject and the plain text in the console's default language. Pure; request titles only with $titles.
      *
-     * @param array{from: string, to: string, customers: array<string, list<array<string, mixed>>>} $data from build()
+     * @param array{from: string, to: string, customers: list<array{id: int, name: string, sites: list<array<string, mixed>>}>} $data from build()
      * @return array{0: string, 1: string}
      */
     public static function compose(array $data, Settings $s, string $consoleUrl, bool $titles): array
     {
         return Language::runWith(Language::defaults($s), function () use ($data, $s, $consoleUrl, $titles): array {
             $labels = require KALETA_SYSTEM . '/views/admin/fleet/reasons.php'; // in the e-mail's language
-            $sites = array_merge(...array_values($data['customers']) ?: [[]]);
+            $sites = array_merge([], ...array_column($data['customers'], 'sites'));
             $needing = count(array_filter($sites, fn (array $site): bool => $site['reasons'] !== []));
             $period = format_date($data['from']) . ' – ' . format_date($data['to']);
             $lines = [t('The week of your sites, %s.', $period), $needing === 0 ? t('No site needs attention.') : t('%d of %d sites need attention.', $needing, count($sites)), ''];
-            foreach ($data['customers'] as $customer => $customerSites) {
-                if (count($data['customers']) > 1 || $customer !== '') {
-                    $lines[] = '== ' . ($customer !== '' ? $customer : t('Sites without a customer')) . ' ==';
+            foreach ($data['customers'] as ['id' => $customerId, 'name' => $customer, 'sites' => $customerSites]) {
+                if (count($data['customers']) > 1 || $customerId > 0) {
+                    $lines[] = '== ' . ($customerId > 0 ? $customer : t('Sites without a customer')) . ' ==';
+                    if ($customerId > 0) {
+                        $lines[] = t('What waits on these sites:') . ' ' . $consoleUrl . '/admin.php?module=fleet&customer=' . $customerId;
+                    }
                     $lines[] = '';
                 }
                 foreach ($customerSites as $site) {

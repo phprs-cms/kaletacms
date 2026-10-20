@@ -6,6 +6,7 @@ namespace Kaleta\Fleet;
 
 use Kaleta\Core\Db;
 use Kaleta\Core\PendingReview;
+use Kaleta\Core\Settings;
 
 /**
  * The inbox of the fleet console (3.17): everything that waits across the sites, in one list – built only from what the
@@ -42,33 +43,43 @@ final class Inbox
     /** A row of a site whose last heartbeat is older than this may be out of date. */
     public const int STALE_AFTER = Console::SILENT_AFTER;
 
-    /** A certificate or domain ending within this many days is urgent (from Console::CERTIFICATE_DAYS / DOMAIN_DAYS it waits). */
+    /**
+     * A certificate or domain ending within this many days is urgent (from its threshold – Console::CERTIFICATE_DAYS /
+     * DOMAIN_DAYS or the owner's alert rule – it waits).
+     */
     public const int URGENT_DAYS = 7;
 
     /** How many rows the MCP tool returns at most. */
     public const int MCP_LIMIT = 200;
 
     /**
-     * The rows of all sites, sorted (urgency, then the oldest first).
+     * The rows of all sites, sorted (urgency, then the oldest first). The thresholds – when a site is silent, a certificate
+     * or domain ends soon, sign-ins are an attack, a request waits too long – are the alert rules' (AlertRules::thresholds,
+     * by default Console::THRESHOLDS), so the inbox and the alert e-mails agree.
      *
      * @param list<array<string, mixed>> $sites rows of ka_fleet_sites (heartbeat as stored JSON)
      * @param array<int, string> $customers id => name (Customers::names)
+     * @param array<string, int> $thresholds AlertRules::thresholds (missing ones: Console::THRESHOLDS)
      * @return list<array{site_id: int, site: string, url: string, customer_id: ?int, customer: ?string, kind: string, what: string, title: ?string, status: ?string, count: ?int, since: ?int, expires: ?string, days: ?int, urgency: string, link: string, stale: bool}>
      */
-    public static function build(array $sites, array $customers, int $now): array
+    public static function build(array $sites, array $customers, int $now, array $thresholds = []): array
     {
         $rows = [];
         foreach ($sites as $site) {
-            array_push($rows, ...self::forSite($site, $customers, $now));
+            array_push($rows, ...self::forSite($site, $customers, $now, $thresholds));
         }
 
         return self::sort($rows);
     }
 
-    /** The rows of the sites in the console's database. @return list<array<string, mixed>> */
-    public static function load(Db $db, int $now): array
+    /**
+     * The rows of the sites in the console's database, with the thresholds of the console's alert rules.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function load(Db $db, Settings $settings, int $now): array
     {
-        return self::build(Console::sites($db), Customers::names($db), $now);
+        return self::build(Console::sites($db), Customers::names($db), $now, AlertRules::thresholds($settings));
     }
 
     /**
@@ -76,10 +87,12 @@ final class Inbox
      *
      * @param array<string, mixed> $site a row of ka_fleet_sites
      * @param array<int, string> $customers
+     * @param array<string, int> $thresholds AlertRules::thresholds (missing ones: Console::THRESHOLDS)
      * @return list<array<string, mixed>>
      */
-    public static function forSite(array $site, array $customers, int $now): array
+    public static function forSite(array $site, array $customers, int $now, array $thresholds = []): array
     {
+        $limit = static fn (string $kind): int => (int) ($thresholds[$kind] ?? Console::THRESHOLDS[$kind]);
         $beat = json_decode((string) ($site['heartbeat'] ?? ''), true);
         $beat = is_array($beat) ? $beat : [];
         $url = rtrim((string) ($site['url'] ?? ''), '/');
@@ -100,7 +113,7 @@ final class Inbox
         if (isset($site['up']) && $site['up'] !== null && (int) $site['up'] === 0) {
             $add('site', 'site_down', 'urgent', '', ['since' => self::time($site['up_changed'] ?? null), 'link' => $url !== '' ? $url . '/' : '', 'stale' => false]);
         }
-        if ($lastSeen !== null && $now - $lastSeen > Console::SILENT_AFTER) {
+        if ($lastSeen !== null && $now - $lastSeen > $limit('site_silent') * 3600) {
             $add('site', 'site_silent', 'urgent', '', ['since' => $lastSeen, 'link' => $url !== '' ? $url . '/' : '', 'stale' => false]);
         }
         if ($beat === []) {
@@ -110,16 +123,16 @@ final class Inbox
             $add('updates', 'update_failed', 'urgent', '?module=settings&tab=backups');
         }
         $security = is_array($beat['security_7_days'] ?? null) ? $beat['security_7_days'] : [];
-        if (self::count($security['failed_sign_ins'] ?? null) >= Console::SIGN_IN_SPIKE) {
+        if (self::count($security['failed_sign_ins'] ?? null) >= $limit('security_spike')) {
             $add('security', 'sign_in_attacks', 'urgent', '?module=settings&tab=firewall', ['count' => self::count($security['failed_sign_ins'])]);
         }
         if (self::count($security['events']['security.token_reuse'] ?? null) > 0) {
             $add('security', 'token_reuse', 'urgent', '?module=status', ['count' => self::count($security['events']['security.token_reuse'])]);
         }
         $watch = is_array($beat['domain_watch'] ?? null) && empty($beat['domain_watch']['local']) ? $beat['domain_watch'] : [];
-        foreach (['certificate' => Console::CERTIFICATE_DAYS, 'domain' => Console::DOMAIN_DAYS] as $part => $limit) {
+        foreach (['certificate', 'domain'] as $part) {
             $days = Console::daysLeft($watch[$part] ?? null, $now);
-            if ($days !== null && $days < $limit) {
+            if ($days !== null && $days < $limit($part)) {
                 $add('expiry', $part . '_expiring', $days < self::URGENT_DAYS ? 'urgent' : 'normal', '?module=status',
                     ['expires' => Console::date($watch[$part]['expires'] ?? null)?->format('Y-m-d'), 'days' => $days]);
             }
@@ -143,7 +156,7 @@ final class Inbox
                 }
                 $done = $item['status'] === 'done';
                 $since = self::time($done ? ($item['updated_at'] ?? null) : ($item['created_at'] ?? null));
-                $urgency = $done ? 'low' : ($since !== null && $now - $since > Heartbeat::REQUEST_WAIT_HOURS * 3600 ? 'urgent' : 'normal');
+                $urgency = $done ? 'low' : ($since !== null && $now - $since > $limit('requests_waiting') * 3600 ? 'urgent' : 'normal');
                 $add('requests', 'request', $urgency, '?module=requests&action=detail&id=' . self::count($item['id']),
                     ['title' => Heartbeat::cleanTitle(is_string($item['title'] ?? null) ? $item['title'] : ''), 'status' => (string) $item['status'], 'since' => $since]);
             }
@@ -151,7 +164,7 @@ final class Inbox
             $open = self::count($requests['new'] ?? null) + self::count($requests['in_progress'] ?? null);
             if ($open > 0) {
                 $hours = is_int($requests['oldest_waiting_hours'] ?? null) ? $requests['oldest_waiting_hours'] : null;
-                $add('requests', 'requests_open', $hours !== null && $hours > Heartbeat::REQUEST_WAIT_HOURS ? 'urgent' : 'normal', '?module=requests',
+                $add('requests', 'requests_open', $hours !== null && $hours > $limit('requests_waiting') ? 'urgent' : 'normal', '?module=requests',
                     ['count' => $open, 'since' => $hours !== null && $lastSeen !== null ? $lastSeen - $hours * 3600 : null]);
             }
             if (self::count($requests['done_to_review'] ?? null) > 0) {

@@ -28,15 +28,18 @@ use Kaleta\Core\Settings;
  */
 final class AlertRules
 {
-    /** kind => [on by default, default threshold (null = none), label, threshold label, min, max]. */
+    /**
+     * kind => [on by default, default threshold (null = none), label, threshold label, min, max]. The default thresholds are
+     * the console's own (Console::THRESHOLDS) – the same the inbox and a site's attention use.
+     */
     public const array KINDS = [
         'site_down' => [true, null, 'Site down', '', 0, 0],
-        'site_silent' => [true, 26, 'Site stopped reporting', 'hours without a report', 2, 720],
-        'certificate' => [false, Console::CERTIFICATE_DAYS, 'Certificate ends soon', 'days before', 1, 90],
-        'domain' => [false, Console::DOMAIN_DAYS, 'Domain registration ends soon', 'days before', 1, 365],
+        'site_silent' => [true, Console::THRESHOLDS['site_silent'], 'Site stopped reporting', 'hours without a report', 2, 720],
+        'certificate' => [false, Console::THRESHOLDS['certificate'], 'Certificate ends soon', 'days before', 1, 90],
+        'domain' => [false, Console::THRESHOLDS['domain'], 'Domain registration ends soon', 'days before', 1, 365],
         'update_failed' => [false, null, 'Update failed', '', 0, 0],
-        'security_spike' => [false, Console::SIGN_IN_SPIKE, 'Failed sign-ins (security spike)', 'failed sign-ins in 7 days', 5, 100000],
-        'requests_waiting' => [false, Heartbeat::REQUEST_WAIT_HOURS, 'Requests waiting', 'hours the oldest waits', 1, 720],
+        'security_spike' => [false, Console::THRESHOLDS['security_spike'], 'Failed sign-ins (security spike)', 'failed sign-ins in 7 days', 5, 100000],
+        'requests_waiting' => [false, Console::THRESHOLDS['requests_waiting'], 'Requests waiting', 'hours the oldest waits', 1, 720],
     ];
 
     /** The console events these rules send (Core\Alerts does not send them again). */
@@ -78,6 +81,17 @@ final class AlertRules
         }
 
         return $out;
+    }
+
+    /**
+     * The thresholds in force by kind (on or off – a rule that is off still says from when a state is a problem): what the
+     * owner set in Fleet → Alerts and digest, otherwise Console::THRESHOLDS. The inbox ranks by them (Fleet\Inbox).
+     *
+     * @return array<string, int> site_silent (hours) | certificate, domain (days) | security_spike (count) | requests_waiting (hours)
+     */
+    public static function thresholds(Settings $s): array
+    {
+        return array_filter(array_map(static fn (array $rule): ?int => $rule['threshold'], self::rules($s)), 'is_int') + Console::THRESHOLDS;
     }
 
     /** The quiet hours: the same alert for the same site is not sent again sooner. */

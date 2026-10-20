@@ -6648,4 +6648,7 @@ return [
     'ended' => 'caducado',
     'A summary of what happened to these websites in %s: uptime, outages, updates and counts – no personal data.' => 'Un resumen de lo que pasó con estos sitios web en %s: disponibilidad, caídas, actualizaciones y cifras – sin datos personales.',
     '1 site' => '1 sitio',
+    'then %s' => 'entonces %s', // 3.17 merge
+    'What waits on these sites:' => 'Lo que espera en estos sitios:', // 3.17 merge
+    'The inbox uses the same thresholds – also for a rule that is off, which only sends no e-mail.' => 'La bandeja de entrada usa los mismos umbrales – también con una regla desactivada, que solo no envía correo.', // 3.17 merge
 ];

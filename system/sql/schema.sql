@@ -1066,18 +1066,19 @@ CREATE TABLE ka_fleet_incidents (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- The monthly fleet report per customer (3.17, Fleet\Report): built on the 1st from the console's own history for the
--- previous month, one row per customer ('' = the sites without one), kept 24 months, printable on A4 like the site's
+-- previous month, one row per customer (0 = the sites without one), kept 24 months, printable on A4 like the site's
 -- monthly report. A summary of what happened – never an invoice, never personal data.
 CREATE TABLE ka_fleet_reports (
     id             INT UNSIGNED NOT NULL AUTO_INCREMENT,
     month          CHAR(7) CHARACTER SET ascii NOT NULL,   -- YYYY-MM
-    customer       VARCHAR(150) NOT NULL DEFAULT '',
+    customer_id    INT UNSIGNED NOT NULL DEFAULT 0,        -- ka_fleet_customers.id (Fleet\Customers), 0 = the sites without a customer; a renamed customer keeps its reports
+    customer       VARCHAR(150) NOT NULL DEFAULT '',       -- the customer's name when the report was made
     created_at     DATETIME NOT NULL,
     rebuilt_at     DATETIME NULL,                          -- an administrator rebuilt it from the history still kept
     schema_version SMALLINT UNSIGNED NOT NULL DEFAULT 1,   -- Report::SCHEMA of the JSON
     data           MEDIUMTEXT NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY ux_fleet_reports_month_customer (month, customer)
+    UNIQUE KEY ux_fleet_reports_month_customer (month, customer_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Business facts (2.10, Core\Facts): typed facts the site states in many places – {{fact.key}} in pages, site parts and

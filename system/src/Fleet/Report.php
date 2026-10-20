@@ -15,7 +15,8 @@ use Kaleta\Core\View;
 
 /**
  * The monthly fleet report per customer (3.17, Fleet → Reports, MCP fleet_report): on the 1st the console builds, from its
- * own history (Fleet\History), one report per customer (Console::customerOf; '' = the sites without one) for the month
+ * own history (Fleet\History), one report per customer (Fleet\Customers by id – the inbox's customer filter; 0 = the
+ * sites without one; the name as it was is stored with it, so a renamed customer keeps its archive) for the month
  * before – per site the uptime, the down periods, the versions installed, how often it needed attention and why, and the
  * site's own monthly report headline counts when its heartbeat carried them (report_summary: visits, enquiries, requests
  * handled, changes by people and by Claude, updates, backups).
@@ -36,12 +37,12 @@ final class Report
     public const int HOUR = 6;
 
     /**
-     * The data of one customer's month. $summaries: site id => the site's report_summary for that month (or nothing).
+     * The data of one customer's month ($customerId 0 = the sites without a customer, $customer its name now).
      *
      * @param list<array<string, mixed>> $sites rows of ka_fleet_sites
      * @return array<string, mixed>
      */
-    public static function build(Db $db, \DateTimeImmutable $monthStart, string $customer, array $sites, int $now): array
+    public static function build(Db $db, \DateTimeImmutable $monthStart, int $customerId, string $customer, array $sites, int $now): array
     {
         $month = $monthStart->format('Y-m');
         $next = $monthStart->modify('first day of next month');
@@ -54,7 +55,7 @@ final class Report
             $out[] = self::siteData($site, $days, History::incidents($db, $id, $from, $to, $now), History::versions($db, $id, $from, $to), self::summaryFor($db, $site, $month));
         }
 
-        return MonthlyReport::scrub(['schema' => self::SCHEMA, 'month' => $month, 'customer' => $customer, 'generated_at' => date(DATE_ATOM, $now),
+        return MonthlyReport::scrub(['schema' => self::SCHEMA, 'month' => $month, 'customer_id' => $customerId, 'customer' => $customer, 'generated_at' => date(DATE_ATOM, $now),
             'sites' => $out, 'totals' => self::totals($out)]);
     }
 
@@ -131,18 +132,26 @@ final class Report
     }
 
     /**
-     * The sites grouped by customer ('' = without one), customers in alphabetical order.
+     * The sites grouped by customer id – the customers in the order of the inbox's customer filter (Customers::names), the
+     * sites without a customer (id 0, name '') last. The weekly digest groups the same way.
      *
-     * @param list<array<string, mixed>> $sites
-     * @return array<string, list<array<string, mixed>>>
+     * @param list<array<string, mixed>> $sites rows of ka_fleet_sites
+     * @param array<int, string> $customers id => name (Customers::names)
+     * @return list<array{id: int, name: string, sites: list<array<string, mixed>>}>
      */
-    public static function byCustomer(array $sites): array
+    public static function byCustomer(array $sites, array $customers): array
     {
-        $out = [];
+        $groups = [];
         foreach ($sites as $site) {
-            $out[Console::customerOf($site)][] = $site;
+            $id = Console::customerIdOf($site);
+            $groups[isset($customers[$id]) ? $id : 0][] = $site;
         }
-        ksort($out, SORT_STRING);
+        $out = [];
+        foreach ([...array_keys($customers), 0] as $id) {
+            if (isset($groups[$id])) {
+                $out[] = ['id' => $id, 'name' => $customers[$id] ?? '', 'sites' => $groups[$id]];
+            }
+        }
 
         return $out;
     }
@@ -155,19 +164,18 @@ final class Report
         $db = $app->db();
         $month = $monthStart->format('Y-m');
         $count = 0;
-        foreach (self::byCustomer(Console::sites($db)) as $customer => $sites) {
-            $customer = (string) $customer;
-            if (!$rebuild && self::get($db, $month, $customer) !== null) {
+        foreach (self::byCustomer(Console::sites($db), Customers::names($db)) as ['id' => $customerId, 'name' => $customer, 'sites' => $sites]) {
+            if (!$rebuild && self::get($db, $month, $customerId) !== null) {
                 continue;
             }
-            $data = Language::runWith(Language::defaults($app->settings()), fn (): array => self::build($db, $monthStart, $customer, $sites, time()), 'admin-');
+            $data = Language::runWith(Language::defaults($app->settings()), fn (): array => self::build($db, $monthStart, $customerId, $customer, $sites, time()), 'admin-');
             $json = (string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR);
             $now = Clock::now();
             if ($rebuild) {
-                $db->run('INSERT INTO {fleet_reports} (month, customer, created_at, rebuilt_at, schema_version, data) VALUES (?, ?, ?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE rebuilt_at = ?, schema_version = ?, data = ?', [$month, $customer, $now, $now, self::SCHEMA, $json, $now, self::SCHEMA, $json]);
+                $db->run('INSERT INTO {fleet_reports} (month, customer_id, customer, created_at, rebuilt_at, schema_version, data) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE customer = ?, rebuilt_at = ?, schema_version = ?, data = ?', [$month, $customerId, $customer, $now, $now, self::SCHEMA, $json, $customer, $now, self::SCHEMA, $json]);
             } else {
-                $db->run('INSERT IGNORE INTO {fleet_reports} (month, customer, created_at, schema_version, data) VALUES (?, ?, ?, ?, ?)', [$month, $customer, $now, self::SCHEMA, $json]);
+                $db->run('INSERT IGNORE INTO {fleet_reports} (month, customer_id, customer, created_at, schema_version, data) VALUES (?, ?, ?, ?, ?, ?)', [$month, $customerId, $customer, $now, self::SCHEMA, $json]);
             }
             $count++;
         }
@@ -176,36 +184,54 @@ final class Report
     }
 
     /**
-     * One stored report with its data (scrubbed again), null when there is none.
+     * One stored report of a customer (its id, 0 = the sites without a customer) with its data (scrubbed again), null when
+     * there is none. customer is the name the customer had when the report was made.
      *
-     * @return array{month: string, customer: string, created_at: string, rebuilt_at: ?string, schema_version: int, data: array<string, mixed>}|null
+     * @return array{month: string, customer_id: int, customer: string, created_at: string, rebuilt_at: ?string, schema_version: int, data: array<string, mixed>}|null
      */
-    public static function get(Db $db, string $month, string $customer): ?array
+    public static function get(Db $db, string $month, int $customerId): ?array
     {
         if (preg_match(\Kaleta\Core\ReportArchive::MONTH_PATTERN, $month) !== 1) {
             return null;
         }
-        $row = $db->one('SELECT month, customer, created_at, rebuilt_at, schema_version, data FROM {fleet_reports} WHERE month = ? AND customer = ?', [$month, $customer]);
+        $row = $db->one('SELECT month, customer_id, customer, created_at, rebuilt_at, schema_version, data FROM {fleet_reports} WHERE month = ? AND customer_id = ?', [$month, max(0, $customerId)]);
         if ($row === null) {
             return null;
         }
         $data = json_decode((string) $row['data'], true);
+        $customer = (string) $row['customer'];
 
-        return ['month' => (string) $row['month'], 'customer' => (string) $row['customer'], 'created_at' => (string) $row['created_at'],
+        return ['month' => (string) $row['month'], 'customer_id' => (int) $row['customer_id'], 'customer' => $customer, 'created_at' => (string) $row['created_at'],
             'rebuilt_at' => $row['rebuilt_at'] === null ? null : (string) $row['rebuilt_at'], 'schema_version' => (int) $row['schema_version'],
-            'data' => is_array($data) ? MonthlyReport::scrub($data) : ['month' => $month, 'customer' => $customer, 'sites' => []]];
+            'data' => is_array($data) ? MonthlyReport::scrub($data) : ['month' => $month, 'customer_id' => (int) $row['customer_id'], 'customer' => $customer, 'sites' => []]];
     }
 
     /**
-     * Every stored report, the newest month first.
+     * Every stored report, the newest month first; in a month the customers in the order of the inbox's customer filter
+     * (by their name now), the sites without a customer last. customer = the name when it was made.
      *
-     * @return list<array{month: string, customer: string, created_at: string, rebuilt_at: ?string, sites: int}>
+     * @return list<array{month: string, customer_id: int, customer: string, created_at: string, rebuilt_at: ?string, sites: int}>
      */
     public static function all(Db $db): array
     {
-        return array_map(static fn (array $r): array => ['month' => (string) $r['month'], 'customer' => (string) $r['customer'], 'created_at' => (string) $r['created_at'],
-            'rebuilt_at' => $r['rebuilt_at'] === null ? null : (string) $r['rebuilt_at'], 'sites' => (int) $r['sites']],
-            $db->all("SELECT month, customer, created_at, rebuilt_at, COALESCE(JSON_LENGTH(data, '$.sites'), 0) AS sites FROM {fleet_reports} ORDER BY month DESC, customer"));
+        $rows = array_map(static fn (array $r): array => ['month' => (string) $r['month'], 'customer_id' => (int) $r['customer_id'], 'customer' => (string) $r['customer'],
+            'created_at' => (string) $r['created_at'], 'rebuilt_at' => $r['rebuilt_at'] === null ? null : (string) $r['rebuilt_at'], 'sites' => (int) $r['sites']],
+            $db->all("SELECT month, customer_id, customer, created_at, rebuilt_at, COALESCE(JSON_LENGTH(data, '$.sites'), 0) AS sites FROM {fleet_reports} ORDER BY month DESC, customer"));
+        $order = array_flip(array_keys(Customers::names($db)));
+        usort($rows, static fn (array $a, array $b): int => [$b['month'], $a['customer_id'] === 0 ? 1 : 0, $order[$a['customer_id']] ?? PHP_INT_MAX, $a['customer']]
+            <=> [$a['month'], $b['customer_id'] === 0 ? 1 : 0, $order[$b['customer_id']] ?? PHP_INT_MAX, $b['customer']]);
+
+        return $rows;
+    }
+
+    /**
+     * The newest stored month of each customer (the Customers tab links to it).
+     *
+     * @return array<int, string> customer id => YYYY-MM
+     */
+    public static function latestByCustomer(Db $db): array
+    {
+        return array_map('strval', $db->pairs('SELECT customer_id, MAX(month) FROM {fleet_reports} GROUP BY customer_id'));
     }
 
     /** Deletes the months older than KEEP_MONTHS. */

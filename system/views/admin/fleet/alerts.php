@@ -22,7 +22,8 @@ use Kaleta\Fleet\AlertRules;
 <?= $csrf ?>
 <fieldset>
 <legend><?= e(t('Alert rules')) ?></legend>
-<p class="napoveda"><?= e(t('The console checks every 5 minutes and e-mails what a rule matches. By default only a site that is down or stopped reporting is sent, as before.')) ?></p>
+<p class="napoveda"><?= e(t('The console checks every 5 minutes and e-mails what a rule matches. By default only a site that is down or stopped reporting is sent, as before.')) ?>
+	<?= e(t('The inbox uses the same thresholds – also for a rule that is off, which only sends no e-mail.')) ?></p>
 <div class="tab-obal"><table class="vypis">
 <thead><tr><th scope="col"><?= e(t('Alert')) ?></th><th scope="col"><?= e(t('On')) ?></th><th scope="col"><?= e(t('Threshold')) ?></th></tr></thead>
 <tbody>

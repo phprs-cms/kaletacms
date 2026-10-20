@@ -5,7 +5,8 @@
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Fleet $module
- * @var list<array{month: string, customer: string, created_at: string, rebuilt_at: ?string, sites: int}> $reports
+ * @var list<array{month: string, customer_id: int, customer: string, created_at: string, rebuilt_at: ?string, sites: int}> $reports (customer = the name when made)
+ * @var array<int, string> $customers id => name now (Fleet\Customers) – a renamed customer shows its name now, linked to the inbox filtered by it
  * @var string $previous the previous month (YYYY-MM)
  */
 use Kaleta\Core\ReportPage;
@@ -28,10 +29,11 @@ foreach ($reports as $r) {
 <thead><tr><th scope="col"><?= e(t('Month')) ?></th><th scope="col"><?= e(t('Customer')) ?></th><th scope="col" class="cislo"><?= e(t('Sites')) ?></th><th scope="col" class="cislo"><?= e(t('Made')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($months as $month => $rows): ?>
-<?php foreach ($rows as $i => $r): $params = ['month' => $r['month'], 'customer' => $r['customer']]; ?>
+<?php foreach ($rows as $i => $r): $params = ['month' => $r['month'], 'customer' => $r['customer_id']]; $now = $customers[$r['customer_id']] ?? null; ?>
 <tr>
 	<td><?php if ($i === 0): ?><strong><?= e(ReportPage::monthName($month)) ?></strong><?php endif ?></td>
-	<td><?= e(Report::customerName($r['customer'])) ?></td>
+	<td><?php if ($now !== null): ?><a href="<?= e($module->url('', ['customer' => $r['customer_id']])) ?>"><?= e($now) ?></a><?php if ($now !== $r['customer']): ?><br><small><?= e(t('then %s', $r['customer'])) ?></small><?php endif ?>
+	<?php else: ?><?= e(Report::customerName($r['customer_id'] > 0 ? $r['customer'] : '')) ?><?php endif ?></td>
 	<td class="cislo"><?= (int) $r['sites'] ?></td>
 	<td class="cislo"><?= e(format_date($r['created_at'], true)) ?><?php if ($r['rebuilt_at'] !== null): ?><br><small><?= e(t('rebuilt %s', format_date($r['rebuilt_at'], true))) ?></small><?php endif ?></td>
 	<td><a href="<?= e($module->url('report_view', $params)) ?>" target="_blank" rel="noopener"><strong><?= e(t('View and print')) ?></strong></a> · <a href="<?= e($module->url('report_download', $params)) ?>"><?= e(t('Download')) ?></a>

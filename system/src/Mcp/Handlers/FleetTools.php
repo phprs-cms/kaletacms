@@ -87,7 +87,7 @@ trait FleetTools
         if (is_string($a['customer'] ?? null) && trim($a['customer']) !== '') {
             $customer = Customers::find($db, $a['customer']) ?? throw new \DomainException('No customer of that name – list_sites shows each site\'s customer.');
         }
-        $narrowed = Inbox::filter(Inbox::load($db, time()), ['site' => (int) ($a['site'] ?? 0), 'customer' => $customer, 'urgent' => ($a['urgent_only'] ?? false) === true]);
+        $narrowed = Inbox::filter(Inbox::load($db, $this->app->settings(), time()), ['site' => (int) ($a['site'] ?? 0), 'customer' => $customer, 'urgent' => ($a['urgent_only'] ?? false) === true]);
         $rows = Inbox::filter($narrowed, ['kind' => $kind]);
         $iso = fn (?int $ts): ?string => $ts !== null ? date(DATE_ATOM, $ts) : null;
 
@@ -110,11 +110,14 @@ trait FleetTools
         }
         $db = $this->app->db();
         $month = trim((string) ($a['month'] ?? ''));
-        $printUrl = fn (array $r): string => $this->app->request->origin() . $this->app->url('admin.php?module=fleet&action=report_view&month=' . $r['month'] . '&customer=' . rawurlencode($r['customer']));
+        $printUrl = fn (array $r): string => $this->app->request->origin() . $this->app->url('admin.php?module=fleet&action=report_view&month=' . $r['month'] . '&customer=' . $r['customer_id']);
+        // a report keeps the name its customer had; a renamed customer is still the same one (its id)
+        $names = Customers::names($db);
+        $customerOf = fn (array $r): string => $names[$r['customer_id']] ?? $r['customer'];
         if ($month === '') {
             $all = Report::all($db);
 
-            return ['reports' => array_map(fn (array $r): array => ['month' => $r['month'], 'customer' => $r['customer'], 'sites' => $r['sites'], 'created_at' => $r['created_at']], $all),
+            return ['reports' => array_map(fn (array $r): array => ['month' => $r['month'], 'customer' => $customerOf($r), 'sites' => $r['sites'], 'created_at' => $r['created_at']], $all),
                 'kept_months' => Report::KEEP_MONTHS,
                 'next' => $all === [] ? 'No fleet report yet: the console makes the previous month\'s reports on the 1st, from its own history (Kaleta 3.17 on).'
                     : 'fleet_report with month (and customer) gives a report with its print_url. customer "" = the sites without a customer.'];
@@ -122,17 +125,24 @@ trait FleetTools
         if (preg_match(\Kaleta\Core\ReportArchive::MONTH_PATTERN, $month) !== 1) {
             throw new \InvalidArgumentException('month must be YYYY-MM (fleet_report without month lists the stored ones).');
         }
-        $customers = array_key_exists('customer', $a) ? [trim((string) $a['customer'])]
-            : array_column(array_filter(Report::all($db), fn (array $r): bool => $r['month'] === $month), 'customer');
+        $stored = array_values(array_filter(Report::all($db), fn (array $r): bool => $r['month'] === $month));
+        if (array_key_exists('customer', $a)) {
+            // the customer by its name now or the name the report was made with; "" = the sites without a customer
+            $wanted = Customers::clean((string) $a['customer']);
+            $id = $wanted === '' ? 0 : Customers::find($db, $wanted);
+            $stored = array_values(array_filter($stored, fn (array $r): bool => $wanted === '' ? $r['customer_id'] === 0
+                : ($id !== null ? $r['customer_id'] === $id : $r['customer_id'] > 0 && mb_strtolower($r['customer']) === mb_strtolower($wanted))));
+        }
         $reports = [];
-        foreach ($customers as $customer) {
-            $stored = Report::get($db, $month, $customer);
-            if ($stored !== null) {
-                $reports[] = ['customer' => $stored['customer'], 'created_at' => $stored['created_at'], 'rebuilt_at' => $stored['rebuilt_at'], 'print_url' => $printUrl($stored), 'report' => $stored['data']];
+        foreach ($stored as $row) {
+            $report = Report::get($db, $month, $row['customer_id']);
+            if ($report !== null) {
+                $reports[] = ['customer' => $customerOf($report)] + ($customerOf($report) !== $report['customer'] ? ['customer_then' => $report['customer']] : [])
+                    + ['created_at' => $report['created_at'], 'rebuilt_at' => $report['rebuilt_at'], 'print_url' => $printUrl($report), 'report' => $report['data']];
             }
         }
         if ($reports === []) {
-            throw new \InvalidArgumentException('No fleet report is stored for ' . $month . ($customers !== [] && array_key_exists('customer', $a) ? ' and that customer' : '') . ' – fleet_report without month lists the stored ones.');
+            throw new \InvalidArgumentException('No fleet report is stored for ' . $month . (array_key_exists('customer', $a) ? ' and that customer' : '') . ' – fleet_report without month lists the stored ones.');
         }
 
         return ['month' => $month, 'reports' => $reports,

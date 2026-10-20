@@ -37,16 +37,18 @@ CREATE TABLE IF NOT EXISTS ka_fleet_incidents (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- 3.17: the monthly fleet report per customer (Fleet\Report): built on the 1st from the console's own history for the
--- previous month, one row per customer ('' = sites without a customer). Kept 24 months. A summary of what happened –
--- uptime, incidents, versions, attention and the sites' own headline counts – never an invoice, never personal data.
+-- previous month, one row per customer (ka_fleet_customers.id, 0 = sites without a customer) with the customer's name
+-- as it was when the report was made. Kept 24 months. A summary of what happened – uptime, incidents, versions,
+-- attention and the sites' own headline counts – never an invoice, never personal data.
 CREATE TABLE IF NOT EXISTS ka_fleet_reports (
     id             INT UNSIGNED NOT NULL AUTO_INCREMENT,
     month          CHAR(7) CHARACTER SET ascii NOT NULL,
+    customer_id    INT UNSIGNED NOT NULL DEFAULT 0,
     customer       VARCHAR(150) NOT NULL DEFAULT '',
     created_at     DATETIME NOT NULL,
     rebuilt_at     DATETIME NULL,
     schema_version SMALLINT UNSIGNED NOT NULL DEFAULT 1,
     data           MEDIUMTEXT NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY ux_fleet_reports_month_customer (month, customer)
+    UNIQUE KEY ux_fleet_reports_month_customer (month, customer_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;

@@ -47,8 +47,8 @@ final class Heartbeat
     public const int REQUEST_ITEMS = 20;
     public const int TITLE_LENGTH = 120;
 
-    /** A request that waits longer than this (new or in progress) asks for attention on the console. */
-    public const int REQUEST_WAIT_HOURS = 48;
+    /** A request that waits longer than this (new or in progress) asks for attention on the console (Console::REQUEST_WAIT_HOURS). */
+    public const int REQUEST_WAIT_HOURS = Console::REQUEST_WAIT_HOURS;
 
     /** Agent run statuses a heartbeat counts (Core\AgentSchedules; "running" is not a result yet). */
     public const array RUN_STATUSES = ['ok', 'partial', 'failed', 'missed'];

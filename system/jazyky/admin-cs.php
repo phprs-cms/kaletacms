@@ -6244,4 +6244,7 @@ return [
     'ended' => 'vypršelo',
     'A summary of what happened to these websites in %s: uptime, outages, updates and counts – no personal data.' => 'Shrnutí toho, co se dělo s těmito weby v období %s: dostupnost, výpadky, aktualizace a počty – žádné osobní údaje.',
     '1 site' => '1 web',
+    'then %s' => 'dříve %s', // 3.17 merge
+    'What waits on these sites:' => 'Co na těchto webech čeká:', // 3.17 merge
+    'The inbox uses the same thresholds – also for a rule that is off, which only sends no e-mail.' => 'Schránka používá stejné hranice – i u vypnutého pravidla, které jen neposílá e-mail.', // 3.17 merge
 ];

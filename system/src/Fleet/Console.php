@@ -29,7 +29,7 @@ final class Console
 {
     public const int CODE_HOURS = 24;
     public const int UPDATE_WAIT = 48 * 3600;
-    public const int SILENT_AFTER = 26 * 3600;
+    public const int SILENT_AFTER = self::SILENT_HOURS * 3600;
     public const int DOWN_AFTER = 2;
 
     /** What a heartbeat may carry (Fleet\Heartbeat) – anything else is dropped. */
@@ -47,12 +47,30 @@ final class Console
         'bookings_to_confirm' => 5, 'update_available' => 5, 'audit' => 2,
     ];
 
+    /*
+     * The thresholds of the console – one source (3.17) for the attention of a site (attention()), the urgency of the inbox
+     * (Fleet\Inbox) and the defaults of the alert rules (Fleet\AlertRules::KINDS). The owner may change the alert rules'
+     * thresholds (Fleet → Alerts and digest); the inbox follows those (AlertRules::thresholds), the attention keeps these.
+     */
+
+    /** A site that has not reported for more than this many hours stopped reporting. */
+    public const int SILENT_HOURS = 26;
+
     /** 3.16: a certificate or a domain registration ending within this many days asks for attention. */
     public const int CERTIFICATE_DAYS = 14;
     public const int DOMAIN_DAYS = 30;
 
     /** 3.16: failed sign-ins in 7 days from which a site asks for attention (someone is guessing passwords). */
     public const int SIGN_IN_SPIKE = 50;
+
+    /** 3.16: a request to Claude that waits longer than this (new or in progress) asks for attention. */
+    public const int REQUEST_WAIT_HOURS = 48;
+
+    /** The thresholds above by the alert rule they are the default of (AlertRules::KINDS, AlertRules::thresholds). */
+    public const array THRESHOLDS = [
+        'site_silent' => self::SILENT_HOURS, 'certificate' => self::CERTIFICATE_DAYS, 'domain' => self::DOMAIN_DAYS,
+        'security_spike' => self::SIGN_IN_SPIKE, 'requests_waiting' => self::REQUEST_WAIT_HOURS,
+    ];
 
     /** A new one-time pairing key (shown once). */
     public static function newPairingKey(App $app): string
@@ -302,7 +320,7 @@ final class Console
             $reasons[] = 'audit';
         }
         // 3.16: what waits for people, certificates and domains, sign-in attacks (sites before 3.16 send none of it)
-        if ((int) ($beat['requests']['oldest_waiting_hours'] ?? 0) > Heartbeat::REQUEST_WAIT_HOURS) {
+        if ((int) ($beat['requests']['oldest_waiting_hours'] ?? 0) > self::REQUEST_WAIT_HOURS) {
             $reasons[] = 'requests_waiting';
         }
         if ((int) ($beat['bookings_pending'] ?? 0) > 0) {
@@ -412,17 +430,20 @@ final class Console
     }
 
     /**
-     * The customer a site belongs to, '' for none (3.17). The customer is set on the console per site (Kaleta 3.17, work
-     * stream A: a column of ka_fleet_sites); until that column exists the row has no such key and every site is ''.
-     * The fleet report and the digest group by it.
+     * The name of the customer a site belongs to, '' for none (3.17, Fleet\Customers: ka_fleet_sites.customer_id → name,
+     * read once per request). The digest and the fleet report group by the id (customerIdOf), as the inbox filters by it.
      *
      * @param array<string, mixed> $site a row of ka_fleet_sites
      */
-    public static function customerOf(array $site): string
+    public static function customerOf(Db $db, array $site): string
     {
-        $customer = $site['customer'] ?? '';
+        return Customers::nameOf($db, self::customerIdOf($site));
+    }
 
-        return is_string($customer) ? mb_substr(trim($customer), 0, 150) : '';
+    /** The id of the customer a site belongs to, 0 for none. @param array<string, mixed> $site a row of ka_fleet_sites */
+    public static function customerIdOf(array $site): int
+    {
+        return is_numeric($site['customer_id'] ?? null) ? max(0, (int) $site['customer_id']) : 0;
     }
 
     /** @return list<array<string, mixed>> */
