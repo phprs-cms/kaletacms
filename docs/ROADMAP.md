@@ -828,7 +828,7 @@ numbers – `Core\Redact`), no free text of Claude's runs in the archive, nothin
 console (problem counts, failing jobs, health texts), the print page escapes CSS strings, a hostile heartbeat cannot break
 the console, a rebuilt report says when its open items were counted, moments stored with their offset.
 
-## 3.17 – one inbox for all your sites, history, alerts, a report per customer (in progress)
+## 3.17 – one inbox for all your sites, history, alerts, a report per customer (released 20 October 2026)
 
 The fleet console's tabs: Inbox, Sites, Customers, Fleet reports, Alerts and digest, Shared kit.
 
