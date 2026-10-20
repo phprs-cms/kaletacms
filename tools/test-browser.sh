@@ -90,6 +90,23 @@ LAST="$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format(
   DELETE FROM ka_monthly_reports"
 (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; Kaleta\Core\ReportArchive::store(Kaleta\Core\App::boot(), Kaleta\Core\MonthlyReport::previousMonth(new DateTimeImmutable()));') \
   || { echo "storing the monthly report failed"; exit 1; }
+# 3.17: a fleet console – the extension on, a site with 95 days of history (a bad day with an outage, a day just under 100 %,
+# a version installed) and the previous month's fleet report – for the trends and the fleet report print steps
+(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); $db = $app->db(); $s = $app->settings();
+  Kaleta\Core\Extensions::save($s, [...Kaleta\Core\Extensions::enabled($s), "fleet"]);
+  $at = fn (string $m): string => date("Y-m-d H:i:s", strtotime($m));
+  $db->insert("fleet_sites", ["id" => 900, "name" => "Bakery Example", "url" => "https://bakery.example", "public_key" => "browser-test-317", "paired_at" => $at("-120 days"),
+    "last_seen" => $at("now"), "version" => "3.17.0", "version_since" => $at("-20 days"), "status" => "ok", "up" => 1, "up_checked" => $at("now"),
+    "heartbeat" => json_encode(["version" => "3.17.0", "last_backup" => time() - 3600, "cron_last_run" => time() - 300, "enquiries_new_not_spam" => 1])]);
+  for ($i = 0; $i < 95; $i++) {
+    $failed = $i === 12 ? 9 : ($i === 40 ? 1 : 0);
+    $db->insert("fleet_history", ["site_id" => 900, "day" => date("Y-m-d", strtotime("-$i days")), "checks_ok" => 288 - $failed, "checks_failed" => $failed,
+      "response_ms_total" => (288 - $failed) * (180 + $i % 30), "response_count" => 288 - $failed, "status" => "ok", "version" => $i > 20 ? "3.16.2" : "3.17.0",
+      "attention" => $i === 12 ? 100 : 0, "reasons" => $i === 12 ? "down" : "", "updated_at" => $at("-$i days")]);
+  }
+  $db->insert("fleet_incidents", ["site_id" => 900, "started_at" => $at("-12 days 10:00"), "ended_at" => $at("-12 days 10:45"), "status" => 503]);
+  Kaleta\Core\Events::record($db, "fleet.site_updated", "info", "https://bakery.example runs version 3.17.0.", ["site" => 900, "version" => "3.17.0"]);
+  Kaleta\Fleet\Report::store($app, Kaleta\Core\MonthlyReport::previousMonth(new DateTimeImmutable()));') || { echo "preparing the fleet console failed"; exit 1; }
 NODE_PATH="$WORK/pw/node_modules" BASE="$B" STARTERS="$STARTERS" PASSWORD="$PASSWORD" CHROME="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}" node "$ROOT/tools/test-browser.mjs"
 for site in web remeslo poradenstvi; do
   if [ -s "$WORK/$site/storage/log/chyby.log" ]; then echo "== application error log ($site):"; cat "$WORK/$site/storage/log/chyby.log"; exit 1; fi

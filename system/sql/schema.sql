@@ -1015,6 +1015,59 @@ CREATE TABLE ka_fleet_kits (
     UNIQUE KEY uq_fleet_kits_version (version)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
+-- Fleet history (3.17, Fleet\History): one row per site and day – the uptime checks added up as they run (answered or
+-- not, response time), and the day's last status, version, attention and what waited from the stored heartbeat (the
+-- hourly job). Kept 400 days. Counts only, never personal data.
+CREATE TABLE ka_fleet_history (
+    site_id           INT UNSIGNED NOT NULL,
+    day               DATE NOT NULL,
+    checks_ok         INT UNSIGNED NOT NULL DEFAULT 0,     -- uptime checks answered (below HTTP 500)
+    checks_failed     INT UNSIGNED NOT NULL DEFAULT 0,
+    response_ms_total INT UNSIGNED NOT NULL DEFAULT 0,     -- the response times of the answered checks added up
+    response_count    INT UNSIGNED NOT NULL DEFAULT 0,
+    status            VARCHAR(10) NOT NULL DEFAULT '',     -- the site's own health summary: ok | warning | error
+    version           VARCHAR(30) NOT NULL DEFAULT '',
+    attention         SMALLINT UNSIGNED NULL,              -- Console::attention score; NULL = not recorded that day
+    reasons           VARCHAR(255) NOT NULL DEFAULT '',    -- its reasons, comma separated (Console::REASONS)
+    enquiries_new     INT UNSIGNED NULL,
+    requests_open     INT UNSIGNED NULL,
+    waiting_total     INT UNSIGNED NULL,                   -- "Waiting for you" on the site, all kinds together
+    audit_total       INT UNSIGNED NULL,
+    failed_sign_ins   INT UNSIGNED NULL,                   -- in the 7 days before
+    problems          INT UNSIGNED NULL,                   -- health problems the site reports
+    report_summary    VARCHAR(500) NULL,                   -- the site's monthly report headline counts (JSON, heartbeat report_summary)
+    updated_at        DATETIME NULL,
+    PRIMARY KEY (site_id, day),
+    KEY ix_fleet_history_day (day)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- The periods a site did not answer the console (3.17, Fleet\History): opened when the console marks it down (two failed
+-- checks in a row), closed when it answers again. Kept 400 days.
+CREATE TABLE ka_fleet_incidents (
+    id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    site_id    INT UNSIGNED NOT NULL,
+    started_at DATETIME NOT NULL,                          -- the first failed check
+    ended_at   DATETIME NULL,                              -- NULL = still down
+    status     SMALLINT NOT NULL DEFAULT 0,                -- the HTTP status when it went down (0 = no answer)
+    PRIMARY KEY (id),
+    KEY ix_fleet_incidents_site (site_id, started_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- The monthly fleet report per customer (3.17, Fleet\Report): built on the 1st from the console's own history for the
+-- previous month, one row per customer ('' = the sites without one), kept 24 months, printable on A4 like the site's
+-- monthly report. A summary of what happened – never an invoice, never personal data.
+CREATE TABLE ka_fleet_reports (
+    id             INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    month          CHAR(7) CHARACTER SET ascii NOT NULL,   -- YYYY-MM
+    customer       VARCHAR(150) NOT NULL DEFAULT '',
+    created_at     DATETIME NOT NULL,
+    rebuilt_at     DATETIME NULL,                          -- an administrator rebuilt it from the history still kept
+    schema_version SMALLINT UNSIGNED NOT NULL DEFAULT 1,   -- Report::SCHEMA of the JSON
+    data           MEDIUMTEXT NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY ux_fleet_reports_month_customer (month, customer)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
 -- Business facts (2.10, Core\Facts): typed facts the site states in many places – {{fact.key}} in pages, site parts and
 -- news, schema.org, llms.txt and MCP. A language version may have its own value of a text fact. Every change of a value
 -- is kept, so the old value can be found in sentences that still say it.

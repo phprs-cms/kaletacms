@@ -6,6 +6,7 @@
  * @var array<string, mixed> $site a row of ka_fleet_sites + score, reasons, beat (the decoded report)
  * @var list<array<string, mixed>> $events
  * @var string $latest
+ * @var array<string, mixed> $trend Fleet\History::trend (3.17)
  */
 
 use Kaleta\Core\AgentSchedules;
@@ -46,6 +47,7 @@ $yes = fn (mixed $v): string => $v ? t('yes') : t('no');
 	<?php if (($beat['enquiries_7_days'] ?? null) !== null): ?><tr><th scope="row"><?= e(t('Enquiries')) ?></th><td><?= e(t('%d in 7 days, %d waiting for an answer', (int) $beat['enquiries_7_days'], (int) Console::enquiriesWaiting($beat))) ?></td></tr><?php endif ?>
 	<?php if (is_array($beat['audit'] ?? null)): ?><tr><th scope="row"><?= e(t('Site audit')) ?></th><td><?= array_sum(array_map('intval', $beat['audit'])) === 0 ? e(t('no findings')) : e($counts($beat['audit'], Audit::KINDS)) ?></td></tr><?php endif ?>
 </tbody></table></div>
+<?= $app->view->render('admin/fleet/trend', ['trend' => $trend]) ?>
 <?php if ($requests !== null || $pending !== [] || ($beat['bookings_pending'] ?? null) !== null || $security !== null || $watch !== null || $runs !== null): ?>
 <h2><?= e(t('Waiting')) ?></h2>
 <div class="tab-obal"><table class="vypis"><tbody>

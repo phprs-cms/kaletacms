@@ -21,6 +21,8 @@ use Kaleta\Core\Updater;
  *    errors, without being down and without a failed update (without canaries: UPDATE_WAIT after the console first saw
  *    the version). Security releases go to everyone at once. An administrator can allow a version by hand.
  *  - Uptime: the console asks each site's home page every 5 minutes; down twice in a row = the event fleet.site_down.
+ *  - History (3.17, Fleet\History): each check and the day's state of each site are kept 400 days – trends, alert rules
+ *    (Fleet\AlertRules), the weekly digest (Fleet\Digest) and the monthly report per customer (Fleet\Report) read it.
  * The console never calls into a site and holds no credentials for it: it only answers the sites.
  */
 final class Console
@@ -34,7 +36,9 @@ final class Console
     private const array HEARTBEAT_KEYS = ['name', 'url', 'version', 'php', 'db_version', 'status', 'problems', 'jobs_failing', 'cron_last_run', 'last_backup', 'offsite_backup',
         'update_available', 'update_problem', 'auto_updates', 'update_channel', 'enquiries_unanswered', 'enquiries_7_days', 'visits_7_days', 'audit', 'problems_7_days', 'claude', 'kit_version',
         // 3.16: what waits for people – each has its own shape and bounds (cleanPart); a site before 3.16 sends none of them
-        'requests', 'pending_review', 'enquiries_new_not_spam', 'bookings_pending', 'security_7_days', 'domain_watch', 'agent_runs', 'updates', 'report_month'];
+        'requests', 'pending_review', 'enquiries_new_not_spam', 'bookings_pending', 'security_7_days', 'domain_watch', 'agent_runs', 'updates', 'report_month',
+        // 3.17: the headline counts of the site's latest monthly report (Fleet\History::summary) for the fleet report
+        'report_summary'];
 
     /** Reasons for attention => weight; the list on the console is sorted by the sum. */
     public const array REASONS = [
@@ -159,6 +163,7 @@ final class Console
         $db = $app->db();
         $url = (string) $db->value('SELECT url FROM {fleet_sites} WHERE id = ?', [$id]);
         if ($db->delete('fleet_sites', ['id' => $id]) > 0) {
+            History::forget($db, $id); // 3.17: its days and down periods; the fleet reports already made keep it
             Events::record($db, 'fleet.site_removed', 'info', t('%s is no longer in the console.', $url), ['site' => $id]);
         }
     }
@@ -356,21 +361,26 @@ final class Console
     {
         $db = $app->db();
         $sites = array_values(array_filter(self::sites($db), fn (array $s): bool => $siteId === null || (int) $s['id'] === $siteId));
-        $statuses = Http::statuses(array_map(fn (array $s): string => (string) $s['url'] . '/', $sites));
+        $checks = Http::checks(array_map(fn (array $s): string => (string) $s['url'] . '/', $sites));
         $down = 0;
+        $now = date('Y-m-d H:i:s');
         foreach ($sites as $i => $site) {
-            $status = $statuses[$i] ?? 0;
+            $status = $checks[$i]['status'] ?? 0;
             $up = $status > 0 && $status < 500;
             $failures = $up ? 0 : min(255, (int) $site['up_failures'] + 1);
-            $update = ['up_status' => $status, 'up_checked' => date('Y-m-d H:i:s'), 'up_failures' => $failures];
+            $update = ['up_status' => $status, 'up_checked' => $now, 'up_failures' => $failures];
+            History::recordCheck($db, (int) $site['id'], $up, $checks[$i]['ms'] ?? null, substr($now, 0, 10)); // 3.17: the day's uptime and response time
             if ($up && $site['up'] !== null && (int) $site['up'] === 0) {
-                $update += ['up' => 1, 'up_changed' => date('Y-m-d H:i:s')];
+                $update += ['up' => 1, 'up_changed' => $now];
                 Events::record($db, 'fleet.site_up', 'info', t('%s answers again.', (string) $site['url']), ['site' => (int) $site['id']]);
+                History::closeIncident($db, (int) $site['id'], $now);
             } elseif ($up && $site['up'] === null) {
-                $update += ['up' => 1, 'up_changed' => date('Y-m-d H:i:s')];
+                $update += ['up' => 1, 'up_changed' => $now];
             } elseif (!$up && $failures >= self::DOWN_AFTER && ($site['up'] === null || (int) $site['up'] === 1)) {
-                $update += ['up' => 0, 'up_changed' => date('Y-m-d H:i:s')];
+                $update += ['up' => 0, 'up_changed' => $now];
                 Events::record($db, 'fleet.site_down', 'error', t('%s does not answer (%s).', (string) $site['url'], $status > 0 ? 'HTTP ' . $status : t('no answer')), ['site' => (int) $site['id'], 'status' => $status]);
+                // the period starts with the first failed check of the row (the previous check, when this one is not the first)
+                History::openIncident($db, (int) $site['id'], (int) $site['up_failures'] >= 1 && $site['up_checked'] !== null ? (string) $site['up_checked'] : $now, $status);
             }
             $down += $up ? 0 : 1;
             $lastSeen = $site['last_seen'] !== null ? (int) strtotime((string) $site['last_seen']) : (int) strtotime((string) $site['paired_at']);
@@ -382,6 +392,20 @@ final class Console
         }
 
         return 'checked ' . count($sites) . ', down ' . $down;
+    }
+
+    /**
+     * The customer a site belongs to, '' for none (3.17). The customer is set on the console per site (Kaleta 3.17, work
+     * stream A: a column of ka_fleet_sites); until that column exists the row has no such key and every site is ''.
+     * The fleet report and the digest group by it.
+     *
+     * @param array<string, mixed> $site a row of ka_fleet_sites
+     */
+    public static function customerOf(array $site): string
+    {
+        $customer = $site['customer'] ?? '';
+
+        return is_string($customer) ? mb_substr(trim($customer), 0, 150) : '';
     }
 
     /** @return list<array<string, mixed>> */
@@ -458,11 +482,12 @@ final class Console
      *  - security_7_days: firewall reason => count (≤ 10), failed_sign_ins, locked_accounts, security.* event => count (≤ 10);
      *  - domain_watch: checked (a Unix time), local, certificate and domain {expires – a real Y-m-d date, days, error}, mail {error, spf, dmarc, dkim, spf_covers_smtp};
      *  - agent_runs: runs_7_days by result, next_due, next_task (the kind), sessions_7_days;
-     *  - updates: behind_days, major_available; report_month: YYYY-MM.
+     *  - updates: behind_days, major_available; report_month: YYYY-MM;
+     *  - report_summary (3.17): month YYYY-MM and the counts of History::SUMMARY_COUNTS (null when the site has no such count).
      * Every count is a non-negative integer up to MAX_COUNT; a value that is not one (a string, a float beyond 10^15) is dropped
      * on its own, never the whole heartbeat. Moments are real ones (ISO 8601 with the offset).
      */
-    private const array PARTS = ['requests', 'pending_review', 'enquiries_new_not_spam', 'bookings_pending', 'security_7_days', 'domain_watch', 'agent_runs', 'updates', 'report_month'];
+    private const array PARTS = ['requests', 'pending_review', 'enquiries_new_not_spam', 'bookings_pending', 'security_7_days', 'domain_watch', 'agent_runs', 'updates', 'report_month', 'report_summary'];
 
     private const int MAX_COUNT = 1_000_000;
 
@@ -540,6 +565,11 @@ final class Console
         }
         if ($key === 'report_month') {
             return is_string($v) && preg_match('/^\d{4}-\d{2}$/D', $v) === 1 ? $v : null;
+        }
+        if ($key === 'report_summary') {
+            $summary = History::summary($v);
+
+            return $summary === null ? null : array_map(fn (mixed $n): mixed => is_int($n) ? self::count($n) : $n, $summary);
         }
         if (!is_array($v)) {
             return null;

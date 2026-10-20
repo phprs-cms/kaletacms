@@ -10,6 +10,8 @@ namespace Kaleta\Core;
  * warnings in WARNINGS, which need the owner too – after the last one it reported and sends one e-mail with all of them, at
  * most one per hour (later ones wait for the next one).
  * The address is alerts_email, otherwise the site e-mail; alerts_enabled switches it off.
+ * On a fleet console the sites that are down or stopped reporting are e-mailed by the alert rules (3.17,
+ * Fleet\AlertRules – on by default, with quiet hours), so their events are not sent here again.
  */
 final class Alerts
 {
@@ -17,7 +19,7 @@ final class Alerts
     public const int MAX_IN_ONE = 30;
 
     /** Warnings worth an e-mail (2.10); the rest of the warnings – e.g. a blocked address – stay in the events and System status. */
-    public const array WARNINGS = ['notfound.spike', 'content.expired', 'content.review', 'fleet.site_silent', 'security.account_suspended', 'security.connection_revoked', 'agent_run.missed'];
+    public const array WARNINGS = ['notfound.spike', 'content.expired', 'content.review', 'security.account_suspended', 'security.connection_revoked', 'agent_run.missed'];
 
     /** One run of the job: returns what it did, for System status. */
     public static function run(App $app): string
@@ -65,7 +67,8 @@ final class Alerts
      */
     public static function worth(array $events): array
     {
-        return array_values(array_filter($events, fn (array $e): bool => $e['severity'] === 'error' || in_array($e['type'], self::WARNINGS, true)));
+        return array_values(array_filter($events, fn (array $e): bool => ($e['severity'] === 'error' || in_array($e['type'], self::WARNINGS, true))
+            && !in_array($e['type'], \Kaleta\Fleet\AlertRules::OWN_EVENTS, true)));
     }
 
     /**

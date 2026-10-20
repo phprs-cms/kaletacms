@@ -26,6 +26,8 @@ $severity = fn (string $r): string => Console::REASONS[$r] >= Console::REASONS['
 <?= $csrf ?>
 <p><button class="tl" type="submit"><?= e(t('Add a site')) ?></button>
 <a class="navigace" href="<?= e($module->url('kit')) ?>"><?= e(t('Shared kit')) ?></a>
+<a class="navigace" href="<?= e($module->url('alerts')) ?>"><?= e(t('Alerts and digest')) ?></a>
+<a class="navigace" href="<?= e($module->url('reports')) ?>"><?= e(t('Fleet reports')) ?></a>
 <?php if ($total > 0): ?>
 <button class="navigace" type="submit" formaction="<?= e($module->url('check')) ?>"><?= e(t('Check all now')) ?></button>
 <button class="navigace" type="submit" formaction="<?= e($module->url('allow')) ?>" data-potvrdit="<?= e(t('Every site that lets the console decide installs version %s within an hour, without waiting for the test sites. Continue?', $latest)) ?>"><?= e(t('Allow the new version everywhere now')) ?></button>
@@ -56,4 +58,4 @@ $severity = fn (string $r): string => Console::REASONS[$r] >= Console::REASONS['
 </tbody></table></div>
 <?php endif ?>
 <?php endif ?>
-<p class="smltxt"><?= e(t('Sites report every hour; the console checks every 5 minutes that each home page answers. Problems reach you by the alert e-mail (System status → Alerts).')) ?></p>
+<p class="smltxt"><?= e(t('Sites report every hour; the console checks every 5 minutes that each home page answers. Problems reach you by the alert e-mail (System status → Alerts).')) ?> <?= e(t('Which problems, to whom and how often: Alerts and digest.')) ?></p>
