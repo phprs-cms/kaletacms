@@ -178,6 +178,13 @@ final class Settings
         'fleet_kit_applied_at' => '',
         'fleet_kit_error' => '',       // why the last kit was refused (English, translated where shown)
         'fleet_request_titles' => '1', // 3.16: the heartbeat carries the titles of Ask Claude requests (Fleet\Heartbeat) – on by default
+        // 3.17, the console's side (Fleet\AlertRules, Fleet\Digest; Fleet → Alerts and digest)
+        'fleet_alert_rules' => '',     // JSON kind => {on, threshold}; '' = the defaults (site down and site silent on, as before 3.17)
+        'fleet_alert_recipients' => '', // up to 10 addresses; '' = alerts_email, otherwise the site e-mail
+        'fleet_alert_quiet_hours' => '24', // the same alert for the same site is not sent again within this many hours
+        'fleet_digest' => '0',         // the weekly digest e-mail on Monday morning – off by default
+        'fleet_digest_titles' => '0',  // the digest names the requests by their titles – off by default (the e-mail leaves the console)
+        'fleet_digest_sent' => '',     // the ISO week of the last digest (internal)
         'domain_watch' => '',          // the last domain and mail check (JSON with the time of the check, Core\DomainWatch, 2.8) – internal, not editable
         'remote_backup' => 'vypnuto', // copy of the backup off the server: vypnuto (off) | ftp | s3
         'backup_host' => '',          // FTP server, or the S3 storage URL (s3.eu-central-1.amazonaws.com)

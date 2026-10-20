@@ -17,6 +17,11 @@
  * @var string $rebuilt when an administrator rebuilt it, or empty
  * @var list<array{key: string, title: string, blocks: list<array<string, mixed>>}> $sections
  * @var array{script?: string, download?: string, back?: string} $links the screen toolbar; empty in the downloaded file
+ * The fleet console's report per customer (3.17, Fleet\Report) prints with the same page and sets three more:
+ * @var string|null $kind the line above the month ("Fleet report"); the site's report: "Website report"
+ * @var string|null $footer the sentence at the end
+ * @var string|null $rebuiltNote the note of a rebuilt report
+ * @var string|null $brand the name at the top without an agency (the console's name)
  */
 ?>
 <!DOCTYPE html>
@@ -102,15 +107,15 @@ ul.seznam li { margin: 0 0 1mm; break-inside: avoid; }
 <div class="znacka">
 <?php if ($agencyLogo !== ''): ?><img src="<?= e($agencyLogo) ?>" alt="<?= e($agency) ?>"><?php endif ?>
 <?php if ($agency !== ''): ?><div class="agentura"><?= e($agency) ?></div><?php if ($agencyContacts !== []): ?><div class="kontakty"><?= e(implode(' · ', $agencyContacts)) ?></div><?php endif ?>
-<?php else: ?><div class="agentura"><?= e($siteName) ?></div><?php endif ?>
+<?php else: ?><div class="agentura"><?= e($brand ?? $siteName) ?></div><?php endif ?>
 </div>
 <div class="titul">
-<p class="druh"><?= e(t('Website report')) ?></p>
+<p class="druh"><?= e($kind ?? t('Website report')) ?></p>
 <h1><?= e($monthName) ?></h1>
 <p class="web"><?= e($siteName) ?> <span>· <?= e($siteAddress) ?></span></p>
 </div>
 </header>
-<p class="vznik"><?= e(t('Made %s', $generated)) ?><?php if ($rebuilt !== ''): ?> · <?= e(t('rebuilt %s from the data still available', $rebuilt)) ?><?php endif ?></p>
+<p class="vznik"><?= e(t('Made %s', $generated)) ?><?php if ($rebuilt !== ''): ?> · <?= e($rebuiltNote ?? t('rebuilt %s from the data still available', $rebuilt)) ?><?php endif ?></p>
 <?php foreach ($sections as $section):
     $long = count(array_filter($section['blocks'], static fn (array $b): bool => $b['type'] === 'table' && count($b['rows']) > 8)) > 0; ?>
 <section class="sekce<?= $long ? ' dlouha' : '' ?>" id="<?= e($section['key']) ?>">
@@ -136,7 +141,7 @@ ul.seznam li { margin: 0 0 1mm; break-inside: avoid; }
 <?php endforeach ?>
 </section>
 <?php endforeach ?>
-<footer class="pata"><?= e(t('A summary of what happened to the website %s in %s: counts, titles and page addresses only – no personal data.', $siteName, $monthName)) ?></footer>
+<footer class="pata"><?= e($footer ?? t('A summary of what happened to the website %s in %s: counts, titles and page addresses only – no personal data.', $siteName, $monthName)) ?></footer>
 </main>
 <?php if (!empty($links['script'])): ?><script src="<?= e($links['script']) ?>" defer></script><?php endif ?>
 </body>

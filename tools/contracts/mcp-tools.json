@@ -579,6 +579,34 @@
             "openWorldHint": false
         }
     },
+    "fleet_inbox": {
+        "parameters": {
+            "customer": "string",
+            "kind": "string",
+            "site": "integer",
+            "urgent_only": "boolean"
+        },
+        "required": [],
+        "annotations": {
+            "title": "List what waits across the fleet",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "fleet_report": {
+        "parameters": {
+            "customer": "string",
+            "month": "string"
+        },
+        "required": [],
+        "annotations": {
+            "title": "Get a monthly fleet report",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "get_blueprint": {
         "parameters": [],
         "required": [],
@@ -1246,7 +1274,8 @@
     },
     "list_sites": {
         "parameters": {
-            "attention_only": "boolean"
+            "attention_only": "boolean",
+            "customer": "string"
         },
         "required": [],
         "annotations": {

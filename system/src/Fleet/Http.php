@@ -164,12 +164,25 @@ final class Http
      */
     public static function statuses(array $urls): array
     {
+        return array_map(fn (array $check): int => $check['status'], self::checks($urls));
+    }
+
+    /**
+     * statuses() with the response time (3.17, Fleet\History): the milliseconds until the first byte of the answer, null
+     * when there was no answer. The console adds them up per site and day.
+     *
+     * @param list<string> $urls
+     * @return list<array{status: int, ms: ?int}>
+     */
+    public static function checks(array $urls): array
+    {
         $pins = array_map(fn (string $url): ?array => self::allowedUrl($url, true) ? self::pin($url) : null, $urls);
         if (!function_exists('curl_multi_init')) {
-            return array_map(function (string $url, ?array $pin): int {
+            return array_map(function (string $url, ?array $pin): array {
                 if ($pin === null) {
-                    return 0;
+                    return ['status' => 0, 'ms' => null];
                 }
+                $start = microtime(true);
                 [$host, $port, $ip, $url] = $pin;
                 $parts = parse_url($url);
                 $target = $parts['scheme'] . '://' . (str_contains($ip, ':') ? '[' . $ip . ']' : $ip) . ':' . $port . ($parts['path'] ?? '/');
@@ -183,12 +196,12 @@ final class Http
                     }
                 }
 
-                return $status;
+                return ['status' => $status, 'ms' => $status > 0 ? self::milliseconds(microtime(true) - $start) : null];
             }, $urls, $pins);
         }
         $multi = curl_multi_init();
         $handles = [];
-        $out = array_fill(0, count($urls), 0);
+        $out = array_fill(0, count($urls), ['status' => 0, 'ms' => null]);
         foreach ($urls as $i => $url) {
             if ($pins[$i] === null) {
                 continue;
@@ -209,11 +222,19 @@ final class Http
             }
         } while ($running > 0 && $status === CURLM_OK);
         foreach ($handles as $i => $ch) {
-            $out[$i] = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+            $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+            // the time to the first byte: the transfer stops there on purpose (the write function above)
+            $out[$i] = ['status' => $status, 'ms' => $status > 0 ? self::milliseconds((int) curl_getinfo($ch, CURLINFO_STARTTRANSFER_TIME_T) / 1_000_000) : null];
             curl_multi_remove_handle($multi, $ch);
         }
         curl_multi_close($multi);
 
         return $out;
+    }
+
+    /** Seconds as whole milliseconds, at most a minute (a check never waits longer). */
+    public static function milliseconds(float $seconds): int
+    {
+        return max(0, min(60_000, (int) round($seconds * 1000)));
     }
 }

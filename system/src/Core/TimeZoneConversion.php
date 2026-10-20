@@ -105,6 +105,9 @@ final class TimeZoneConversion
         'fleet_sites' => ['relay_expires', 'paired_at', 'last_seen', 'version_since', 'up_checked', 'up_changed'],
         'fleet_pairing' => ['created_at', 'expires_at', 'used_at'],
         'fleet_kits' => ['created_at'],
+        'fleet_history' => ['updated_at'], // 3.17 (Fleet\History; the day is civil)
+        'fleet_incidents' => ['started_at', 'ended_at'],
+        'fleet_reports' => ['created_at', 'rebuilt_at'],
         'facts' => ['updated_at'],
         'fact_history' => ['changed_at'],
         'hours_exceptions' => ['created_at'],
@@ -141,7 +144,7 @@ final class TimeZoneConversion
         'kolekce_polozky' => ['valid_until', 'review_by'],
         'popupy' => ['valid_until', 'review_by'],
         'stat_dny' => ['den'], 'stat_navstevnici' => ['den'], 'stat_novinky' => ['den'], 'stat_stranky' => ['den'], 'stat_kampane' => ['den'],
-        'stat_zarizeni' => ['den'], 'stat_konverze' => ['den'], 'stat_zdroje' => ['den'], 'web_vitals' => ['day'], 'document_downloads' => ['day'], 'search_stats' => ['day'],
+        'stat_zarizeni' => ['den'], 'stat_konverze' => ['den'], 'stat_zdroje' => ['den'], 'web_vitals' => ['day'], 'document_downloads' => ['day'], 'search_stats' => ['day'], 'fleet_history' => ['day'],
         // opening hours exceptions (holidays), appointments, days off and proposed times: a 10:00 appointment stays at 10:00
         'hours_exceptions' => ['date_from', 'date_to'],
         'bookings' => ['starts_at', 'ends_at'],

@@ -6,6 +6,8 @@
  * @var array<string, mixed> $site a row of ka_fleet_sites + score, reasons, beat (the decoded report)
  * @var list<array<string, mixed>> $events
  * @var string $latest
+ * @var array<int, string> $customers id => name (3.17)
+ * @var array<string, mixed> $trend Fleet\History::trend (3.17)
  */
 
 use Kaleta\Core\AgentSchedules;
@@ -22,7 +24,7 @@ $moment = fn (mixed $iso): string => is_string($iso) && ($m = date_create_immuta
 $day = fn (mixed $part): string => is_array($part) && ($expires = Console::date($part['expires'] ?? null)) !== null ? format_date($expires) . ' (' . t('%d days', (int) Console::daysLeft($part, time())) . ')'
     : (is_array($part) && !empty($part['error']) ? t('could not be checked') : t('unknown'));
 // the site sends machine names; the console shows them in its own language (N316-8)
-$counts = fn (array $map, array $labels): string => implode(', ', array_map(fn (int|string $key, mixed $n): string => t($labels[$key] ?? (string) $key) . ': ' . (int) $n, array_keys($map), $map));
+$counts = fn (array $map, array $labels): string => implode(', ', array_map(fn (int|string $key, mixed $n): string => t($labels[$key] ?? (string) $key) . ': ' . (Console::count($n) ?? 0), array_keys($map), $map));
 $taskLabels = array_map(fn (array $task): string => $task[0], AgentSchedules::TASKS);
 $requests = is_array($beat['requests'] ?? null) ? $beat['requests'] : null;
 $pending = array_filter(is_array($beat['pending_review'] ?? null) ? $beat['pending_review'] : [], fn (mixed $n): bool => is_int($n) && $n > 0);
@@ -32,7 +34,7 @@ $runs = is_array($beat['agent_runs'] ?? null) ? $beat['agent_runs'] : null;
 $date = fn (mixed $ts): string => is_int($ts) && $ts > 0 && $ts < 4_102_444_800 ? format_date((new DateTimeImmutable())->setTimestamp($ts), true) : '–';
 $yes = fn (mixed $v): string => $v ? t('yes') : t('no');
 ?>
-<p><a href="<?= e($module->url('')) ?>">← <?= e(t('All sites')) ?></a> · <a href="<?= e((string) $site['url']) ?>" target="_blank" rel="noopener"><?= e((string) $site['url']) ?></a> · <a href="<?= e((string) $site['url'] . '/admin.php') ?>" target="_blank" rel="noopener"><?= e(t('Administration of the site')) ?></a></p>
+<p><a href="<?= e($module->url('sites', ['show' => 'all'])) ?>">← <?= e(t('All sites')) ?></a> · <a href="<?= e($module->url('', ['site' => (int) $site['id']])) ?>"><?= e(t('Inbox')) ?></a> · <a href="<?= e((string) $site['url']) ?>" target="_blank" rel="noopener"><?= e((string) $site['url']) ?></a> · <a href="<?= e((string) $site['url'] . '/admin.php') ?>" target="_blank" rel="noopener"><?= e(t('Administration of the site')) ?></a></p>
 <p class="hlaska<?= $site['reasons'] === [] ? ' hlaska-ok' : '' ?>"><?php if ($site['reasons'] === []): ?><?= e(t('Nothing needs attention.')) ?><?php else: ?><?= e(t('Needs attention:')) ?> <?= e(implode(', ', array_map(fn (string $r): string => $reasonLabels[$r], $site['reasons']))) ?><?php endif ?></p>
 <div class="tab-obal"><table class="vypis"><tbody>
 	<tr><th scope="row"><?= e(t('Up')) ?></th><td><?= $site['up'] === null ? e(t('not checked yet')) : ((int) $site['up'] === 1 ? e(t('yes')) : '<span class="stitek stitek-chyba">' . e(t('no')) . '</span>') ?><?= $site['up_checked'] !== null ? ' · ' . e(t('checked %s', format_date(new DateTimeImmutable((string) $site['up_checked']), true))) . ((int) $site['up_status'] > 0 ? ' (HTTP ' . (int) $site['up_status'] . ')' : '') : '' ?></td></tr>
@@ -42,10 +44,11 @@ $yes = fn (mixed $v): string => $v ? t('yes') : t('no');
 	<tr><th scope="row"><?= e(t('Health')) ?></th><td><?= e(t(['ok' => 'Everything is fine.', 'warning' => 'warnings', 'error' => 'errors', '' => '–'][(string) $site['status']] ?? '–')) ?></td></tr>
 	<tr><th scope="row"><?= e(t('Last backup')) ?></th><td><?= e($date($beat['last_backup'] ?? null)) ?> · <?= e(t('off-site copy: %s', $yes($beat['offsite_backup'] ?? false))) ?></td></tr>
 	<tr><th scope="row"><?= e(t('Cron last called')) ?></th><td><?= e($date($beat['cron_last_run'] ?? null)) ?></td></tr>
-	<?php if (($beat['visits_7_days'] ?? null) !== null): ?><tr><th scope="row"><?= e(t('Visits in 7 days')) ?></th><td><?= (int) $beat['visits_7_days'] ?></td></tr><?php endif ?>
-	<?php if (($beat['enquiries_7_days'] ?? null) !== null): ?><tr><th scope="row"><?= e(t('Enquiries')) ?></th><td><?= e(t('%d in 7 days, %d waiting for an answer', (int) $beat['enquiries_7_days'], (int) Console::enquiriesWaiting($beat))) ?></td></tr><?php endif ?>
-	<?php if (is_array($beat['audit'] ?? null)): ?><tr><th scope="row"><?= e(t('Site audit')) ?></th><td><?= array_sum(array_map('intval', $beat['audit'])) === 0 ? e(t('no findings')) : e($counts($beat['audit'], Audit::KINDS)) ?></td></tr><?php endif ?>
+	<?php if (Console::count($beat['visits_7_days'] ?? null) !== null): ?><tr><th scope="row"><?= e(t('Visits in 7 days')) ?></th><td><?= (int) Console::count($beat['visits_7_days']) ?></td></tr><?php endif ?>
+	<?php if (Console::count($beat['enquiries_7_days'] ?? null) !== null): ?><tr><th scope="row"><?= e(t('Enquiries')) ?></th><td><?= e(t('%d in 7 days, %d waiting for an answer', (int) Console::count($beat['enquiries_7_days']), (int) Console::enquiriesWaiting($beat))) ?></td></tr><?php endif ?>
+	<?php if (is_array($beat['audit'] ?? null)): ?><tr><th scope="row"><?= e(t('Site audit')) ?></th><td><?= Console::total($beat['audit']) === 0 ? e(t('no findings')) : e($counts($beat['audit'], Audit::KINDS)) ?></td></tr><?php endif ?>
 </tbody></table></div>
+<?= $app->view->render('admin/fleet/trend', ['trend' => $trend]) ?>
 <?php if ($requests !== null || $pending !== [] || ($beat['bookings_pending'] ?? null) !== null || $security !== null || $watch !== null || $runs !== null): ?>
 <h2><?= e(t('Waiting')) ?></h2>
 <div class="tab-obal"><table class="vypis"><tbody>
@@ -73,6 +76,19 @@ $yes = fn (mixed $v): string => $v ? t('yes') : t('no');
 <p class="smltxt"><?= e(t('The site reports its problems in English; fix them in its administration.')) ?></p>
 <?php endif ?>
 <?php if (($beat['jobs_failing'] ?? []) !== []): ?><p class="hlaska hlaska-chyba"><?= e(t('Background jobs that fail: %s', implode(', ', array_map(fn (string $job): string => t(Scheduler::JOBS[$job][2] ?? $job), array_filter((array) $beat['jobs_failing'], 'is_string'))))) ?></p><?php endif ?>
+<form class="formular" method="post" action="<?= e($module->url('customer')) ?>">
+<?= $csrf ?>
+<input type="hidden" name="id" value="<?= (int) $site['id'] ?>">
+<fieldset>
+<legend><?= e(t('Customer and note')) ?></legend>
+<div class="radek"><label for="fleet-customer"><?= e(t('Customer')) ?></label><div><input class="textpole" type="text" id="fleet-customer" name="customer" list="fleet-customers" maxlength="150" value="<?= e($customers[(int) $site['customer_id']] ?? '') ?>">
+<datalist id="fleet-customers"><?php foreach ($customers as $name): ?><option value="<?= e($name) ?>"><?php endforeach ?></datalist>
+<span class="napoveda"><?= e(t('Groups the sites of one client: the inbox and the list of sites filter by it. Empty = no customer.')) ?></span></div></div>
+<div class="radek"><label for="fleet-note"><?= e(t('Note')) ?></label><div><textarea class="textpole" id="fleet-note" name="note" rows="3" maxlength="1000"><?= e((string) $site['note']) ?></textarea>
+<span class="napoveda"><?= e(t('Only for you: it stays on the console and the site never sees it.')) ?></span></div></div>
+<p><button class="tl" type="submit"><?= e(t('Save')) ?></button></p>
+</fieldset>
+</form>
 <form class="formular" method="post" action="<?= e($module->url('ring')) ?>">
 <?= $csrf ?>
 <input type="hidden" name="id" value="<?= (int) $site['id'] ?>">

@@ -915,6 +915,35 @@ await step('3.14 My e-mail signature: a Team record linked in Users, the signatu
   }
 });
 
+// 3.17: the inbox of the fleet console (Fleet\Inbox) – every row with a plain link out, no sideways scroll; on a phone the rows are cards
+await step('3.17 fleet inbox: rows with plain links, the filters, no sideways scroll at 1440 and 390 px (cards on a phone)', async () => {
+  try {
+    for (const [width, height, name] of [[1440, 900, 'desktop'], [390, 844, 'phone']]) {
+      await page.setViewportSize({ width, height });
+      for (const url of ['/admin.php?module=fleet', '/admin.php?module=fleet&action=sites&show=all', '/admin.php?module=fleet&action=customers']) {
+        await visit(url);
+        const wider = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        if (wider > 1) { throw new Error(`${url} scrolls sideways by ${wider} px at ${width} px`); }
+        if (SHOTS) { await page.screenshot({ path: `${SHOTS}/fleet-${url.replace(/.*module=fleet&?/, '').replace(/\W+/g, '-') || 'inbox'}-${name}.png`, fullPage: true }); }
+      }
+      await visit('/admin.php?module=fleet');
+      const rows = page.locator('table.vypis-karty tbody tr');
+      if (await rows.count() < 10) { throw new Error(`the inbox lists ${await rows.count()} rows`); }
+      const out = await page.locator('table.vypis-karty a[target="_blank"]').evaluateAll((links) => links.map((a) => [a.href, a.rel]));
+      if (!out.some(([href]) => href === 'https://smile-dental-clinic-with-a-long-domain.example/admin.php?module=requests&action=detail&id=12')) { throw new Error('no plain link to the request'); }
+      if (out.some(([href, rel]) => rel !== 'noopener' || /token|password|login/i.test(href))) { throw new Error('a link out is not plain'); }
+      const first = await rows.first().locator('.stitek').last().textContent();
+      if (!/urgent/.test(first)) { throw new Error(`the first row is not urgent: ${first}`); }
+      if (width === 390 && await rows.first().evaluate((tr) => getComputedStyle(tr).display) !== 'block') { throw new Error('the rows are not cards on a phone'); }
+    }
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await visit('/admin.php?module=fleet&urgent=1');
+    if (await page.locator('table.vypis-karty .stitek-chyba').count() !== await page.locator('table.vypis-karty tbody tr').count()) { throw new Error('"only urgent" lists other rows'); }
+  } finally {
+    await page.setViewportSize({ width: 1440, height: 900 });
+  }
+});
+
 await step('3.13 Spanish admin: switched in My account, Spanish screens without sideways scroll at 390 px', async () => {
   const adminLanguage = async (code) => {
     await visit('/admin.php?action=account');
@@ -1002,6 +1031,79 @@ for (const [language, path] of [['ar', '/ar/rtl-test'], ['en', '/ltr-test']]) {
     });
   }
 }
+
+// 3.17: the fleet console (test-browser.sh switches the extension on and stores a site with 95 days of history and last month's
+// fleet report): on the site's page the trends – 90 bars with a summary for screen readers, the days as a table that opens,
+// no WCAG violation in the block, nothing wider than a phone – and the fleet report in print at the width of an A4 page
+await step('3.17 fleet console: the trends of a site and the monthly fleet report in print', async () => {
+  await visit('/admin.php?module=fleet&action=detail&id=900');
+  const svg = page.locator('figure.trend svg[role="img"]');
+  await svg.waitFor();
+  if ((await svg.locator('rect').count()) !== 90) { throw new Error('the trend has not 90 bars'); }
+  if (!/90/.test(await svg.getAttribute('aria-label') || '')) { throw new Error('the trend has no summary for screen readers'); }
+  if ((await svg.locator('rect.chyba').count()) < 1 || (await svg.locator('rect.slabe').count()) < 1) { throw new Error('the bad days are not marked'); }
+  await page.locator('details.trend-tabulka summary').click();
+  if ((await page.locator('details.trend-tabulka tbody tr').count()) < 85) { throw new Error('the table of the days is short'); }
+  // axe in a context that lets the test inject it – the administration allows no inline script (CSP), rightly
+  const axeContext = await browser.newContext({ storageState: await context.storageState(), bypassCSP: true, viewport: { width: 1440, height: 900 } });
+  try {
+    const axePage = await axeContext.newPage();
+    await axePage.goto(BASE + '/admin.php?module=fleet&action=detail&id=900', { waitUntil: 'networkidle' });
+    await axePage.locator('details.trend-tabulka summary').click();
+    await axePage.addScriptTag({ path: AXE });
+    const found = await axePage.evaluate((tags) => window.axe.run({ include: [['figure.trend'], ['details.trend-tabulka']] }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), WCAG);
+    if (found.violations.length) { throw new Error('axe: ' + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+  } finally {
+    await axeContext.close();
+  }
+  if (SHOTS) {
+    await page.locator('figure.trend').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `${SHOTS}/fleet-trends.png`, fullPage: true });
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.screenshot({ path: `${SHOTS}/fleet-trends-dark.png`, fullPage: true });
+    await page.emulateMedia({ colorScheme: 'light' });
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  try {
+    const right = await page.evaluate(() => document.querySelector('figure.trend').getBoundingClientRect().right);
+    if (right > 391) { throw new Error(`the trend is wider than a phone (${right} px)`); }
+    if (SHOTS) { await page.screenshot({ path: `${SHOTS}/fleet-trends-phone.png`, fullPage: false }); }
+  } finally {
+    await page.setViewportSize({ width: 1440, height: 900 });
+  }
+  await visit('/admin.php?module=fleet&action=reports');
+  const view = page.locator('a[href*="action=report_view"]').first();
+  await view.waitFor();
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/fleet-reports.png`, fullPage: true }); }
+  const report = await context.newPage();
+  watch(report);
+  try {
+    await report.goto(new URL(await view.getAttribute('href'), BASE).href, { waitUntil: 'networkidle' });
+    await report.locator('[data-tisk]').waitFor();
+    if ((await report.locator('section.sekce').count()) < 3) { throw new Error('the fleet report has fewer than 3 sections'); }
+    if ((await report.locator('p.druh').textContent()) !== 'Fleet report') { throw new Error('the page does not say Fleet report'); }
+    if (SHOTS) { await report.screenshot({ path: `${SHOTS}/fleet-report-screen.png`, fullPage: true }); }
+    await report.emulateMedia({ media: 'print' });
+    await report.setViewportSize({ width: 680, height: 1000 });
+    const wide = await report.evaluate(() => {
+      const sheet = document.querySelector('.listina').getBoundingClientRect();
+      return [...document.querySelectorAll('.listina table, .listina dl, .listina h1, .listina h2, .listina p, .listina td')]
+        .filter((el) => el.getBoundingClientRect().right > sheet.right + 1 || el.scrollWidth > el.clientWidth + 1).map((el) => el.tagName + ': ' + el.textContent.slice(0, 40));
+    });
+    if (wide.length) { throw new Error('wider than the A4 page in print: ' + wide.slice(0, 3).join(' | ')); }
+    if (await report.locator('.lista').isVisible()) { throw new Error('the toolbar prints'); }
+    if (SHOTS) {
+      await report.setViewportSize({ width: 680, height: await report.evaluate(() => document.documentElement.scrollHeight) });
+      await report.screenshot({ path: `${SHOTS}/fleet-report-print.png` });
+      await report.pdf({ path: `${SHOTS}/fleet-report-print.pdf`, format: 'A4', preferCSSPageSize: true });
+    }
+    const pdf = await report.pdf({ format: 'A4', preferCSSPageSize: true });
+    const pages = (pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length;
+    if (pages < 1 || pages > 4) { throw new Error(`the A4 PDF has ${pages} pages`); }
+  } finally {
+    await report.close();
+  }
+});
 
 await browser.close();
 if (errors.length) {

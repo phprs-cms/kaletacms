@@ -293,9 +293,15 @@ $parity = [
     'whistleblowing' => ['list' => 'admin: whistleblowing cases never go through Claude', 'settings' => 'admin: who reads whistleblowing reports is a security decision',
         'detail' => 'admin: whistleblowing cases never go through Claude', 'reply' => 'admin: whistleblowing cases never go through Claude',
         'status' => 'admin: whistleblowing cases never go through Claude', 'attachment' => 'admin: whistleblowing cases never go through Claude'],
-    'fleet' => ['list' => 'list_sites', 'detail' => 'get_site', 'pairing_key' => 'admin: pairing a site is a security decision (2.9)', 'ring' => 'admin: the update ring decides when sites install versions',
+    'fleet' => ['list' => 'fleet_inbox', 'sites' => 'list_sites', 'customers' => 'list_sites', 'detail' => 'get_site',
+        'customer' => 'admin: the customers and notes are the owner\'s own bookkeeping on the console (3.17)', 'customer_bulk' => 'admin: the customers and notes are the owner\'s own bookkeeping on the console (3.17)',
+        'customer_rename' => 'admin: the customers and notes are the owner\'s own bookkeeping on the console (3.17)', 'pairing_key' => 'admin: pairing a site is a security decision (2.9)', 'ring' => 'admin: the update ring decides when sites install versions',
         'allow' => 'admin: allowing a version on the sites', 'check' => 'admin: the console checks the sites every 5 minutes on its own', 'remove' => 'admin: removing a site from the console',
-        'kit' => $readOnly, 'kit_publish' => 'admin: publishing a design kit to a whole fleet is a person\'s decision (2.16); list_sites shows the versions'],
+        'kit' => $readOnly, 'kit_publish' => 'admin: publishing a design kit to a whole fleet is a person\'s decision (2.16); list_sites shows the versions',
+        // 3.17: alert rules and the digest decide what leaves the console by e-mail – a person's settings; the reports are read by fleet_report
+        'alerts' => $readOnly, 'alerts_save' => 'admin: who gets e-mails from the console and how often is the owner\'s setting (3.17)', 'digest_preview' => $readOnly,
+        'reports' => 'fleet_report', 'report_view' => 'fleet_report', 'report_download' => 'fleet_report',
+        'report_build' => 'admin: making or rebuilding the fleet reports replaces stored ones – the administrator\'s choice (3.17)'],
 ];
 $missingParity = [];
 foreach (Kaleta\Admin\Kernel::MODULES as $moduleClass) {
@@ -2702,7 +2708,7 @@ check('2.9: attention – what is wrong with a site, weighted', [
 ], [['score' => 0, 'reasons' => []], ['down', 'errors'], ['not_reporting'], ['no_heartbeat'], ['update_failed', 'jobs_failing', 'no_backup', 'enquiries']]);
 $fleetClean = Kaleta\Fleet\Console::clean(['version' => '2.9.0', 'name' => str_repeat('x', 400), 'secret' => 'drop me', 'problems' => [['check' => 'Mail', 'status' => 'warning', 'detail' => ['deep' => ['deeper' => ['deepest' => 1]]]]], 'visits_7_days' => 12.7]);
 check('2.9: a heartbeat keeps only the known keys with sane values', [isset($fleetClean['secret']), mb_strlen($fleetClean['name']), $fleetClean['version'], $fleetClean['visits_7_days'], $fleetClean['problems'][0]['check']],
-    [false, 255, '2.9.0', 12, 'Mail']);
+    [false, 150, '2.9.0', 12, 'Mail']); // 3.17: the name fits ka_fleet_sites.name (150)
 // 3.16: what waits for people – request titles cleaned and masked, the new parts bounded, new reasons for attention
 check('3.16: Fleet\Heartbeat::cleanTitle – plain text, one line, e-mail addresses masked, at most 120 characters', [
     Kaleta\Fleet\Heartbeat::cleanTitle("<b>Call</b> back jan.novak@firma.cz\n about <i>prices</i>"),
@@ -2748,7 +2754,7 @@ check('3.16 N316-3: whistleblowing events and the job never leave the site, and 
     array_intersect_key(Kaleta\Fleet\Console::clean(['problems_7_days' => ['whistleblowing.due' => 1, 'mail.failed' => 2], 'jobs_failing' => ['whistleblowing', 'backup', ['x']],
         'problems' => [['check' => 'Problems in the last 7 days', 'detail' => 'whistleblowing.due ×1, mail.failed ×2'], ['check' => 'Background jobs', 'detail' => 'Whistleblowing: due deadlines failed 3× in a row: x']]]),
         ['problems_7_days' => 1, 'jobs_failing' => 1, 'problems' => 1])],
-    [['backup.failed' => 1], ['problems' => [['check' => 'Problems in the last 7 days', 'detail' => 'mail.failed ×2']], 'jobs_failing' => ['backup', ['x']], 'problems_7_days' => ['mail.failed' => 2]]]);
+    [['backup.failed' => 1], ['problems' => [['group' => '', 'check' => 'Problems in the last 7 days', 'status' => 'warning', 'detail' => 'mail.failed ×2']], 'jobs_failing' => ['backup'], 'problems_7_days' => ['mail.failed' => 2]]]);
 $hostile316 = Kaleta\Fleet\Console::clean(['visits_7_days' => 1e30, 'enquiries_7_days' => -1e300,
     'requests' => ['new' => 1e30, 'in_progress' => 3.7, 'done_to_review' => 9.2e18, 'items' => [['id' => 1e30, 'title' => 'x', 'status' => 'new'], ['id' => 4, 'title' => 'ok', 'status' => 'new', 'created_at' => '2026-02-30T10:00:00+01:00', 'updated_at' => '2026-10-19T25:00:00Z']]],
     'domain_watch' => ['checked' => 1_760_000_000, 'certificate' => ['expires' => '2026-13-45', 'days' => 5], 'domain' => ['expires' => '9999-99-99'], 'mail' => null],
@@ -2775,6 +2781,318 @@ check('3.16 N316-8: the machine names the console detail shows (firewall reasons
 $detail316 = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/fleet/detail.php');
 check('3.16 N316-5/-8: the console detail reads dates through Console::date and names machine keys through the label maps', [str_contains($detail316, 'new DateTimeImmutable($part'), str_contains($detail316, 'Console::date('),
     str_contains($detail316, 'ReportPage::FIREWALL'), str_contains($detail316, 'AgentSchedules::STATUSES'), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Fleet/Heartbeat.php'), 'TODO')], [false, true, true, true, false]);
+// 3.17: the inbox of the console (Fleet\Inbox) – built from stored heartbeats, a 3.15 heartbeat without the 3.16 parts too
+$inboxIso = fn (int $hoursAgo): string => date(DATE_ATOM, $fleetNow - $hoursAgo * 3600);
+$inboxSites = [
+    ['id' => 1, 'name' => 'Alpha', 'url' => 'https://alpha.example', 'customer_id' => 5, 'up' => 1, 'up_changed' => null, 'status' => 'warning', 'last_seen' => date('Y-m-d H:i:s', $fleetNow - 600),
+        'heartbeat' => (string) json_encode(['last_backup' => $fleetNow - 3600, 'update_problem' => 'Version 3.17.0 did not install',
+        'requests' => ['new' => 1, 'in_progress' => 1, 'done_to_review' => 1, 'oldest_waiting_hours' => 72, 'items' => [
+            ['id' => 7, 'title' => 'Price list – write to jana@example.cz', 'status' => 'new', 'created_at' => $inboxIso(72), 'updated_at' => $inboxIso(72)],
+            ['id' => 8, 'title' => 'New team photo', 'status' => 'in_progress', 'created_at' => $inboxIso(2), 'updated_at' => $inboxIso(1)],
+            ['id' => 9, 'title' => 'Opening hours', 'status' => 'done', 'created_at' => $inboxIso(30), 'updated_at' => $inboxIso(5)]]],
+        'pending_review' => ['requests_done' => 1, 'page_drafts' => 2, 'staged_media' => 3, 'look_draft' => 0], 'enquiries_new_not_spam' => 3, 'enquiries_unanswered' => 9, 'bookings_pending' => 1,
+        'security_7_days' => ['failed_sign_ins' => 80, 'events' => []], 'domain_watch' => ['local' => false, 'certificate' => ['expires' => $fleetDay(5)], 'domain' => ['expires' => $fleetDay(25)]],
+        'audit' => ['links' => 2, 'titles' => 1]])],
+    // a site on 3.15: no requests, review, bookings or security – only the enquiries it always sent; silent for 30 hours
+    ['id' => 2, 'name' => 'Beta', 'url' => 'https://beta.example/', 'customer_id' => null, 'up' => 1, 'up_changed' => null, 'status' => 'ok', 'last_seen' => date('Y-m-d H:i:s', $fleetNow - 30 * 3600),
+        'heartbeat' => (string) json_encode(['last_backup' => $fleetNow - 3600, 'enquiries_unanswered' => 4])],
+    ['id' => 3, 'name' => '', 'url' => 'https://gamma.example', 'customer_id' => 5, 'up' => 0, 'up_changed' => date('Y-m-d H:i:s', $fleetNow - 1800), 'status' => '', 'last_seen' => null, 'heartbeat' => null],
+];
+$inbox = Kaleta\Fleet\Inbox::build($inboxSites, [5 => 'Novák s.r.o.'], $fleetNow);
+$inboxKey = static fn (array $r): string => $r['site_id'] . ':' . $r['what'] . ($r['title'] !== null ? ':' . $r['title'] : '') . ($r['count'] !== null ? '=' . $r['count'] : '') . ':' . $r['urgency'] . ($r['stale'] ? ':stale' : '');
+check('3.17: Fleet\Inbox – one list from the stored heartbeats, the most urgent and the oldest first, a 3.15 heartbeat and a site without one too', array_map($inboxKey, $inbox), [
+    '1:request:Price list – write to [e-mail]:urgent', '2:site_silent:urgent', '3:site_down:urgent', '1:update_failed:urgent', '1:sign_in_attacks=80:urgent', '1:certificate_expiring:urgent',
+    '1:request:New team photo:normal', '1:domain_expiring:normal', '1:enquiries=3:normal', '2:enquiries=4:normal:stale', '1:bookings=1:normal', '1:staged_media=3:normal',
+    '1:request:Opening hours:low', '1:page_drafts=2:low', '1:audit=3:low']);
+check('3.17: Fleet\Inbox – plain links to the right screen of each site\'s administration, the customer, nothing with an @', [
+    $inbox[0]['link'], $inbox[1]['link'], $inbox[2]['link'], $inbox[2]['site'], $inbox[0]['customer'], $inbox[9]['link'], $inbox[11]['link'], $inbox[13]['link'],
+    str_contains((string) json_encode($inbox, JSON_UNESCAPED_UNICODE), '@'), $inbox[5]['days'], Kaleta\Fleet\Inbox::label($inbox[11])],
+    ['https://alpha.example/admin.php?module=requests&action=detail&id=7', 'https://beta.example/', 'https://gamma.example/', 'https://gamma.example', 'Novák s.r.o.',
+        'https://beta.example/admin.php?module=enquiries', 'https://alpha.example/admin.php?module=media&staged=1', 'https://alpha.example/admin.php?module=pages', false, 4, 'Files from Claude waiting for approval']);
+$inboxAlpha = Kaleta\Fleet\Inbox::filter($inbox, ['customer' => 5, 'urgent' => true]);
+check('3.17: Fleet\Inbox – filters by kind, site, customer and urgency; counts per kind; what waits on each site', [
+    count(Kaleta\Fleet\Inbox::filter($inbox, ['kind' => 'enquiries'])), count(Kaleta\Fleet\Inbox::filter($inbox, ['site' => 2])), array_unique(array_column($inboxAlpha, 'urgency')), count($inboxAlpha),
+    array_filter(Kaleta\Fleet\Inbox::counts($inbox)), Kaleta\Fleet\Inbox::waitingBySite($inbox), Kaleta\Fleet\Inbox::build([], [], $fleetNow)],
+    [2, 2, ['urgent'], 5, ['site' => 2, 'updates' => 1, 'security' => 1, 'expiry' => 2, 'requests' => 3, 'enquiries' => 2, 'bookings' => 1, 'review' => 2, 'audit' => 1],
+        [1 => 17, 2 => 5, 3 => 1], []]);
+check('3.17: Fleet\Customers – a customer name is one trimmed line, a note plain text', [Kaleta\Fleet\Customers::clean("  Novák\n <b>s.r.o.</b> "), mb_strlen(Kaleta\Fleet\Customers::clean(str_repeat('x', 300))),
+    Kaleta\Fleet\Customers::cleanNote("<i>Calls</i> on Mondays\r\nonly")], ['Novák s.r.o.', 150, "Calls on Mondays\nonly"]);
+$inboxView = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/fleet/inbox.php');
+check('3.17: the inbox links out plainly – a new tab without an opener, no token or sign-in in the link', [str_contains($inboxView, 'target="_blank" rel="noopener"'), (bool) preg_match('/token|password|login/i', (string) json_encode(array_column($inbox, 'link')))], [true, false]);
+/* ---------- 3.17: the fleet console keeps history, alerts by rules, a weekly digest and a monthly report per customer ---------- */
+use Kaleta\Fleet\AlertRules;
+use Kaleta\Fleet\Digest;
+use Kaleta\Fleet\History;
+use Kaleta\Fleet\Report;
+$day317 = fn (int $ok, int $failed, int $ms = 0, int $answered = 0, ?int $attention = null, string $reasons = '', string $version = '3.17.0'): array => ['checks_ok' => $ok, 'checks_failed' => $failed,
+    'response_ms_total' => $ms, 'response_count' => $answered, 'attention' => $attention, 'reasons' => $reasons, 'version' => $version];
+check('3.17: History::uptime – the share of answered checks (rounded down, never 100 % with a failure), the average response of the answered ones; nothing measured = null', [
+    History::uptime([$day317(287, 1, 287 * 200, 287), $day317(288, 0, 288 * 300, 288)]), History::uptime([$day317(1, 2)]), History::uptime([]), History::uptime([$day317(9999, 1)])['percent']],
+    [['percent' => 99.82, 'checks' => 576, 'failed' => 1, 'response_ms' => 250], ['percent' => 33.33, 'checks' => 3, 'failed' => 2, 'response_ms' => null], ['percent' => null, 'checks' => 0, 'failed' => 0, 'response_ms' => null], 99.99]);
+$bars317 = History::bars(['2026-10-18' => $day317(10, 0, 1000, 10), '2026-10-20' => $day317(1, 1)], '2026-10-20', 4);
+check('3.17: History::bars – one bar a day, oldest first, a day without checks is null; History::minutes clips a period to the month, an open one counts until now', [
+    array_column($bars317, 'day'), array_column($bars317, 'percent'), $bars317[2]['response_ms'],
+    History::minutes('2026-09-30 23:00:00', '2026-10-01 01:30:00', (int) strtotime('2026-10-01 00:00:00'), (int) strtotime('2026-11-01 00:00:00'), (int) strtotime('2026-10-20 12:00:00')),
+    History::minutes('2026-10-31 23:50:00', null, (int) strtotime('2026-10-01 00:00:00'), (int) strtotime('2026-11-01 00:00:00'), (int) strtotime('2026-11-01 08:00:00')),
+    History::minutes('2026-10-05 10:00:00', null, (int) strtotime('2026-10-01 00:00:00'), (int) strtotime('2026-11-01 00:00:00'), (int) strtotime('2026-10-05 10:45:00')),
+    History::minutes('2026-09-01 10:00:00', '2026-09-01 11:00:00', (int) strtotime('2026-10-01 00:00:00'), (int) strtotime('2026-11-01 00:00:00'), (int) strtotime('2026-10-20 12:00:00'))],
+    [['2026-10-17', '2026-10-18', '2026-10-19', '2026-10-20'], [null, 100.0, null, 50.0], null, 90, 10, 45, 0]);
+check('3.17: History keeps 400 days – the oldest day kept; the attention of a month by days and reasons (unknown reasons dropped, days without a record not counted)', [
+    History::KEEP_DAYS, History::oldestKept((int) strtotime('2026-10-20 12:00:00')),
+    History::attention([$day317(1, 0, attention: 0), $day317(1, 0, attention: 40, reasons: 'jobs_failing,no_cron'), $day317(1, 0, attention: 45, reasons: 'jobs_failing,nonsense'), $day317(1, 0)])],
+    [400, '2025-09-15', ['days' => 2, 'recorded' => 3, 'reasons' => ['jobs_failing' => 2, 'no_cron' => 1]]]);
+$beat317 = ['last_backup' => $fleetNow - 3600, 'cron_last_run' => $fleetNow - 300, 'enquiries_new_not_spam' => 3, 'requests' => ['new' => 2, 'in_progress' => 1, 'done_to_review' => 4, 'oldest_waiting_hours' => 50, 'items' => null],
+    'pending_review' => ['page_drafts' => 2, 'news_drafts' => 1], 'audit' => ['description' => 4, 'link' => 1], 'security_7_days' => ['failed_sign_ins' => 7], 'problems' => [['check' => 'Mail']],
+    'report_summary' => ['month' => '2026-09', 'visits' => 1200, 'enquiries' => 14, 'requests_handled' => 5, 'changes_people' => 30, 'changes_claude' => 12, 'updates' => 1, 'backups' => 30, 'secret' => 'x']];
+$snap317 = History::snapshotRow($fleetRow(['version' => '3.17.0'], $beat317), $fleetNow);
+$bare317 = History::snapshotRow($fleetRow(['version' => '3.15.0'], []), $fleetNow);
+check('3.17: History::snapshotRow – the day\'s state from the stored heartbeat: attention and reasons, what waits, counts only; a site that sends nothing has nulls, not zeros', [
+    array_intersect_key($snap317, array_flip(['status', 'version', 'attention', 'reasons', 'enquiries_new', 'requests_open', 'waiting_total', 'audit_total', 'failed_sign_ins', 'problems'])),
+    json_decode((string) $snap317['report_summary'], true), [$bare317['enquiries_new'], $bare317['requests_open'], $bare317['waiting_total'], $bare317['failed_sign_ins'], $bare317['report_summary']]],
+    [['status' => 'ok', 'version' => '3.17.0', 'attention' => 17, 'reasons' => 'enquiries,audit,requests_waiting', 'enquiries_new' => 3, 'requests_open' => 3, 'waiting_total' => 3, 'audit_total' => 5, 'failed_sign_ins' => 7, 'problems' => 1],
+        ['month' => '2026-09', 'visits' => 1200, 'enquiries' => 14, 'requests_handled' => 5, 'changes_people' => 30, 'changes_claude' => 12, 'updates' => 1, 'backups' => 30], [null, null, null, null, null]]);
+$stored317 = ['month' => '2026-09', 'data' => ['month' => '2026-09', 'stats' => ['visits' => 120], 'enquiries' => ['total' => 3, 'forms' => [['form' => 'Kontakt jan@visitor.example', 'n' => 3]]],
+    'requests' => ['done_count' => 2, 'done' => [['title' => 'Call jan@client.example']]], 'work' => ['areas' => ['pages' => ['people' => 4, 'claude' => 6], 'look' => ['people' => 1, 'claude' => 0]]],
+    'updates' => [['type' => 'update.applied'], ['type' => 'update.failed']], 'backups' => ['created' => 31]]];
+check('3.17: the heartbeat\'s report_summary – the headline counts of the latest archived report only (no titles, no forms); the console keeps only a real month and the known counts', [
+    Kaleta\Fleet\Heartbeat::reportSummary($stored317), Kaleta\Fleet\Heartbeat::reportSummary(null),
+    Kaleta\Fleet\Heartbeat::reportSummary(['month' => '2026-09', 'data' => ['backups' => ['created' => 2]]]),
+    Kaleta\Fleet\Console::clean(['report_summary' => ['month' => '2026-09', 'visits' => 5, 'enquiries' => 'many', 'title' => 'Call jan@client.example', 'backups' => 1e30]])['report_summary'],
+    Kaleta\Fleet\Console::clean(['report_summary' => ['month' => '2026-13', 'visits' => 5]])['report_summary'], Kaleta\Fleet\Console::clean([])['report_summary']],
+    [['month' => '2026-09', 'visits' => 120, 'enquiries' => 3, 'requests_handled' => 2, 'changes_people' => 5, 'changes_claude' => 6, 'updates' => 1, 'backups' => 31], null,
+        ['month' => '2026-09', 'visits' => null, 'enquiries' => null, 'requests_handled' => null, 'changes_people' => null, 'changes_claude' => null, 'updates' => 0, 'backups' => 2],
+        ['month' => '2026-09', 'visits' => 5, 'enquiries' => null, 'requests_handled' => null, 'changes_people' => null, 'changes_claude' => null, 'updates' => null, 'backups' => null], null, null]);
+check('3.17: Console::customerIdOf – the customer id of a site row (Fleet\\Customers), 0 for none; the uptime check measures the time to the first byte', [
+    Kaleta\Fleet\Console::customerIdOf(['id' => 1]), Kaleta\Fleet\Console::customerIdOf(['customer_id' => 5]), Kaleta\Fleet\Console::customerIdOf(['customer_id' => '7']), Kaleta\Fleet\Console::customerIdOf(['customer_id' => null]),
+    Kaleta\Fleet\Console::customerIdOf(['customer_id' => -3]),
+    Kaleta\Fleet\Http::milliseconds(0.2345), Kaleta\Fleet\Http::milliseconds(-1.0), Kaleta\Fleet\Http::milliseconds(999.0), Kaleta\Fleet\Http::checks(['http://10.0.0.5:8080/'])],
+    [0, 5, 7, 0, 0, 235, 0, 60000, [['status' => 0, 'ms' => null]]]);
+// 3.17 merge: the digest and the fleet report group by the customer id in the order of the inbox's customer filter
+// (Customers::names), the sites without one – or of a customer that no longer exists – last
+$groups317 = Report::byCustomer([['id' => 1, 'customer_id' => 9], ['id' => 2, 'customer_id' => null], ['id' => 3, 'customer_id' => 4], ['id' => 4, 'customer_id' => 9], ['id' => 5, 'customer_id' => 77]],
+    [4 => 'Acme', 9 => 'Pekárna Novák']);
+check('3.17 merge: Report::byCustomer – by customer id, the inbox filter\'s order, the sites without a customer last', [
+    array_map(fn (array $g): array => [$g['id'], $g['name'], array_column($g['sites'], 'id')], $groups317), Report::byCustomer([], [4 => 'Acme'])],
+    [[[4, 'Acme', [3]], [9, 'Pekárna Novák', [1, 4]], [0, '', [2, 5]]], []]);
+// alert rules: the defaults keep the behaviour before 3.17 (down and silent), thresholds bounded, the quiet hours per site and kind
+$rules317 = AlertRules::sanitize([]);
+$all317 = AlertRules::sanitize(array_map(fn (array $k): array => ['on' => '1'], AlertRules::KINDS));
+check('3.17: AlertRules – by default only "site down" and "site stopped reporting" are on, as before 3.17; a threshold stays within its bounds; unknown kinds are dropped', [
+    array_keys(array_filter($rules317, fn (array $r): bool => $r['on'])), $rules317['certificate']['threshold'], $rules317['site_down']['threshold'],
+    AlertRules::sanitize(['certificate' => ['on' => true, 'threshold' => '9999'], 'domain' => ['on' => '1', 'threshold' => 'x'], 'evil' => ['on' => true]]) === array_replace($rules317,
+        ['certificate' => ['on' => true, 'threshold' => 90], 'domain' => ['on' => true, 'threshold' => 30]])],
+    [['site_down', 'site_silent'], 14, null, true]);
+$alertSite317 = fn (array $more, array $beat = []): array => $fleetRow($more + ['id' => 7, 'up_status' => 0, 'paired_at' => date('Y-m-d H:i:s', $fleetNow - 90 * 86400)], $beat);
+$kinds317 = fn (array $site, array $rules): array => array_column(AlertRules::matches($site, $rules, $fleetNow), 'kind');
+check('3.17: AlertRules::matches – each kind from the console\'s check or the stored heartbeat, at its threshold; nothing when a rule is off', [
+    $kinds317($alertSite317(['up' => 0, 'up_status' => 503]), $rules317), AlertRules::matches($alertSite317(['up' => 0, 'up_status' => 503]), $rules317, $fleetNow)[0]['detail'],
+    $kinds317($alertSite317(['last_seen' => date('Y-m-d H:i:s', $fleetNow - 27 * 3600)]), $rules317), $kinds317($alertSite317(['last_seen' => date('Y-m-d H:i:s', $fleetNow - 25 * 3600)]), $rules317),
+    $kinds317($alertSite317([], ['domain_watch' => ['certificate' => ['days' => 5], 'domain' => ['days' => 29]], 'update_problem' => 'Version 3.17.1 did not work',
+        'security_7_days' => ['failed_sign_ins' => 50], 'requests' => ['oldest_waiting_hours' => 49]]), $all317),
+    $kinds317($alertSite317([], ['domain_watch' => ['certificate' => ['days' => 14], 'domain' => ['days' => 30]], 'security_7_days' => ['failed_sign_ins' => 49], 'requests' => ['oldest_waiting_hours' => 48]]), $all317),
+    $kinds317($alertSite317(['up' => 0], ['update_problem' => 'x']), AlertRules::sanitize(['site_down' => ['on' => false]])),
+    $kinds317($alertSite317([], ['domain_watch' => ['local' => true, 'certificate' => ['days' => 1]]]), $all317)],
+    [['site_down'], 'HTTP 503', ['site_silent'], [], ['certificate', 'domain', 'update_failed', 'security_spike', 'requests_waiting'], [], [], []]);
+$found317 = [['site' => 7, 'kind' => 'site_down', 'detail' => 'no answer'], ['site' => 7, 'kind' => 'certificate', 'detail' => '5 days left'], ['site' => 8, 'kind' => 'site_down', 'detail' => 'no answer']];
+check('3.17: AlertRules::quiet – the same site and kind is not sent again within the quiet hours, a lasting state is sent again after them; other sites and kinds go out', [
+    AlertRules::quiet($found317, ['7:site_down' => $fleetNow - 3600], 24, $fleetNow), AlertRules::quiet($found317, ['7:site_down' => $fleetNow - 25 * 3600, '8:site_down' => $fleetNow - 60], 24, $fleetNow)],
+    [[$found317[1], $found317[2]], [$found317[0], $found317[1]]]);
+$alertMail317 = AlertRules::message($reportSettings(['site_name' => 'Agency console']), $found317, [7 => ['name' => 'Bakery', 'url' => 'https://bakery.example'], 8 => ['name' => '', 'url' => 'https://shop.example']], 'https://console.example');
+check('3.17: the alert e-mail – grouped by site, plain links to the console, the kinds and details in words, nothing with "@"; recipients fall back to the alert address, then the site e-mail', [
+    $alertMail317[0], str_contains($alertMail317[1], "Bakery – https://bakery.example\n  – Site down: no answer\n  – Certificate ends soon: 5 days left\n  https://console.example/admin.php?module=fleet&action=detail&id=7"),
+    str_contains($alertMail317[1], 'https://console.example/admin.php?module=fleet&action=alerts'), str_contains($alertMail317[1] . $alertMail317[0], '@'), str_contains($alertMail317[1], '<'),
+    AlertRules::recipients($reportSettings(['fleet_alert_recipients' => "a@agency.example, nonsense\nb@agency.example", 'alerts_email' => 'alerts@agency.example'])),
+    AlertRules::recipients($reportSettings(['alerts_email' => 'alerts@agency.example', 'site_email' => 'site@agency.example'])), AlertRules::recipients($reportSettings(['site_email' => 'site@agency.example']))],
+    ['Agency console: 3 alert(s) about your sites', true, true, false, false, ['a@agency.example', 'b@agency.example'], ['alerts@agency.example'], ['site@agency.example']]);
+check('3.17: Core\Alerts leaves the console\'s "down" and "stopped reporting" to the alert rules (no double e-mail); its other errors and warnings stay', array_column(Kaleta\Core\Alerts::worth([
+    ['id' => 1, 'created_at' => '', 'type' => 'fleet.site_down', 'severity' => 'error', 'message' => '', 'data' => []],
+    ['id' => 2, 'created_at' => '', 'type' => 'fleet.site_silent', 'severity' => 'warning', 'message' => '', 'data' => []],
+    ['id' => 3, 'created_at' => '', 'type' => 'backup.failed', 'severity' => 'error', 'message' => '', 'data' => []],
+    ['id' => 4, 'created_at' => '', 'type' => 'fleet.kit_refused', 'severity' => 'error', 'message' => '', 'data' => []]]), 'id'), [3, 4]);
+// the weekly digest: Monday morning, once a week, off by default; request titles only when the owner turns them on
+$digestOn317 = $reportSettings(['fleet_digest' => '1', 'fleet_digest_sent' => '2026-W42']);
+check('3.17: Digest::due – off by default; on: Monday from 7:00, once an ISO week', [Digest::due($reportSettings([]), new DateTimeImmutable('2026-10-19 08:00')),
+    Digest::due($digestOn317, new DateTimeImmutable('2026-10-19 06:59')), Digest::due($digestOn317, new DateTimeImmutable('2026-10-19 07:00')), Digest::due($digestOn317, new DateTimeImmutable('2026-10-20 08:00')),
+    Digest::due($reportSettings(['fleet_digest' => '1', 'fleet_digest_sent' => '2026-W43']), new DateTimeImmutable('2026-10-19 09:00')), Kaleta\Core\Settings::DEFAULTS['fleet_digest'], Kaleta\Core\Settings::DEFAULTS['fleet_digest_titles']],
+    [false, false, true, false, false, '0', '0']);
+$digestData317 = ['from' => '2026-10-12', 'to' => '2026-10-18', 'customers' => [
+    ['id' => 12, 'name' => 'Pekárna Novák', 'sites' => [['id' => 8, 'name' => '', 'url' => 'https://shop.example', 'reasons' => [], 'enquiries' => 0, 'requests' => null, 'request_titles' => [], 'review' => null, 'bookings' => 1,
+        'uptime' => ['percent' => null, 'checks' => 0, 'failed' => 0, 'response_ms' => null], 'incidents' => [], 'versions' => []]]],
+    ['id' => 0, 'name' => '', 'sites' => [['id' => 7, 'name' => 'Bakery', 'url' => 'https://bakery.example', 'reasons' => ['down', 'enquiries'], 'enquiries' => 2, 'requests' => ['new' => 1, 'in_progress' => 0, 'done_to_review' => 3],
+        'request_titles' => ['New price list', 'Call [e-mail] back'], 'review' => 2, 'bookings' => null, 'uptime' => ['percent' => 98.5, 'checks' => 2000, 'failed' => 30, 'response_ms' => 210],
+        'incidents' => [['started_at' => '2026-10-14 10:00:00', 'ended_at' => '2026-10-14 12:30:00', 'status' => 0, 'minutes' => 150]], 'versions' => [['date' => '2026-10-15 03:00:00', 'version' => '3.17.0']]]]]]];
+$digest317 = Digest::compose($digestData317, $reportSettings(['site_name' => 'Agency console']), 'https://console.example', false);
+$digestTitles317 = Digest::compose($digestData317, $reportSettings(['site_name' => 'Agency console']), 'https://console.example', true);
+check('3.17: the digest – by customer, what needs attention and what waits as counts, the week\'s outages, uptime and updates, plain links; request titles only when turned on; nothing with "@"', [
+    $digest317[0], str_contains($digest317[1], '1 of 2 sites need attention.'), str_contains($digest317[1], '== Sites without a customer =='), str_contains($digest317[1], '== Pekárna Novák =='),
+    str_contains($digest317[1], 'Needs attention: does not answer, enquiries waiting'), str_contains($digest317[1], 'Waiting: 2 enquiries waiting, 1 requests open, 3 done requests to review, 2 waiting for review'),
+    str_contains($digest317[1], 'Uptime of the week: 98.50 % · 1 outages, 150 minutes down'), str_contains($digest317[1], 'Updated to 3.17.0'), str_contains($digest317[1], 'Waiting: 1 bookings to confirm'),
+    str_contains($digest317[1], 'https://console.example/admin.php?module=fleet&action=detail&id=7'), str_contains($digest317[1], 'https://bakery.example/admin.php'),
+    str_contains($digest317[1], 'New price list'), str_contains($digestTitles317[1], '    · New price list'), str_contains($digest317[1] . $digestTitles317[1], '@'),
+    str_contains(Digest::compose($digestData317, $reportSettings(['site_language' => 'cs']), 'https://console.example', false)[1], 'Týden vašich webů'),
+    str_contains($digest317[1], "== Pekárna Novák ==\nWhat waits on these sites: https://console.example/admin.php?module=fleet&customer=12\n"),
+    strpos($digest317[1], '== Pekárna Novák ==') < strpos($digest317[1], '== Sites without a customer =='), substr_count($digest317[1], 'module=fleet&customer=')],
+    ['Agency console: the week of your sites (12 Oct 2026 – 18 Oct 2026)', true, true, true, true, true, true, true, true, true, true, false, true, false, true, true, true, 1]);
+// 3.17 merge: one source of the thresholds – the alert rules' defaults are the console's, the inbox follows the owner's
+check('3.17 merge: the alert rules\' default thresholds are Console::THRESHOLDS (the attention and the inbox use them); a site\'s attention by them', [
+    array_filter(array_map(fn (array $k): ?int => $k[1], AlertRules::KINDS), 'is_int'), AlertRules::thresholds($reportSettings([])),
+    AlertRules::thresholds($reportSettings(['fleet_alert_rules' => '{"certificate":{"on":false,"threshold":30},"requests_waiting":{"on":true,"threshold":24}}']))['certificate'],
+    Kaleta\Fleet\Heartbeat::REQUEST_WAIT_HOURS, Kaleta\Fleet\Console::SILENT_AFTER],
+    [Kaleta\Fleet\Console::THRESHOLDS, Kaleta\Fleet\Console::THRESHOLDS, 30, 48, 26 * 3600]);
+$thresholdSite317 = ['id' => 4, 'name' => 'Delta', 'url' => 'https://delta.example', 'customer_id' => null, 'up' => 1, 'up_changed' => null, 'status' => 'ok', 'last_seen' => date('Y-m-d H:i:s', $fleetNow - 20 * 3600),
+    'heartbeat' => (string) json_encode(['last_backup' => $fleetNow - 3600, 'domain_watch' => ['local' => false, 'certificate' => ['expires' => $fleetDay(20)], 'domain' => null],
+        'security_7_days' => ['failed_sign_ins' => 30, 'events' => []], 'requests' => ['new' => 1, 'in_progress' => 0, 'done_to_review' => 0, 'oldest_waiting_hours' => 30, 'items' => null]])];
+$thresholdRows317 = fn (array $t): array => array_map(fn (array $r): string => $r['what'] . ':' . $r['urgency'], Kaleta\Fleet\Inbox::build([$thresholdSite317], [], $fleetNow, $t));
+$owner317 = AlertRules::thresholds($reportSettings(['fleet_alert_rules' => '{"certificate":{"on":false,"threshold":30},"security_spike":{"on":false,"threshold":25},"requests_waiting":{"on":true,"threshold":24},"site_silent":{"on":true,"threshold":12}}']));
+check('3.17 merge: the inbox ranks by the alert rules\' thresholds – the defaults like before, the owner\'s when changed (also for a rule that is off)', [
+    $thresholdRows317([]), $thresholdRows317(AlertRules::thresholds($reportSettings([]))), $thresholdRows317($owner317)],
+    [['requests_open:normal'], ['requests_open:normal'], ['requests_open:urgent', 'site_silent:urgent', 'sign_in_attacks:urgent', 'certificate_expiring:normal']]);
+// the monthly fleet report per customer: from the console's history, with and without the site's own report headline
+$siteData317 = Report::siteData(['id' => 7, 'name' => 'Bakery jan@bakery.example', 'url' => 'https://bakery.example', 'version' => '3.17.1'],
+    ['2026-09-01' => $day317(287, 1, 287 * 200, 287, 0, '', '3.16.0'), '2026-09-02' => $day317(280, 8, 280 * 400, 280, 100, 'down,errors', '3.17.0')],
+    [['started_at' => '2026-09-02 10:00:00', 'ended_at' => '2026-09-02 10:40:00', 'status' => 503, 'minutes' => 40]], [['date' => '2026-09-02 03:00:00', 'version' => '3.17.0']],
+    ['month' => '2026-09', 'visits' => 1200, 'enquiries' => 14, 'requests_handled' => 5, 'changes_people' => 30, 'changes_claude' => 12, 'updates' => 1, 'backups' => 30]);
+$quiet317 = Report::siteData(['id' => 8, 'name' => '', 'url' => 'https://shop.example', 'version' => '3.16.2'], [], [], [], null);
+$fleetData317 = Kaleta\Core\MonthlyReport::scrub(['schema' => 1, 'month' => '2026-09', 'customer' => 'Pekárna Novák', 'generated_at' => '2026-10-01T06:05:00+02:00', 'sites' => [$siteData317, $quiet317], 'totals' => Report::totals([$siteData317, $quiet317])]);
+check('3.17: Report::siteData and totals – uptime, outages, the versions from the first to the last day, attention by days and reasons, the site\'s own counts; a site without history has none', [
+    $siteData317['uptime'], $siteData317['downtime_minutes'], [$siteData317['version_start'], $siteData317['version_end']], $siteData317['attention'], $siteData317['summary']['visits'], isset($siteData317['summary']['month']),
+    [$quiet317['days_recorded'], $quiet317['version_start'], $quiet317['summary'], $quiet317['uptime']['percent']], $fleetData317['totals']],
+    [['percent' => 98.43, 'checks' => 576, 'failed' => 9, 'response_ms' => 299], 40, ['3.16.0', '3.17.0'], ['days' => 1, 'recorded' => 2, 'reasons' => ['down' => 1, 'errors' => 1]], 1200, false,
+        [0, '3.16.2', null, null], ['sites' => 2, 'uptime_percent' => 98.43, 'incidents' => 1, 'downtime_minutes' => 40, 'updates' => 1, 'visits' => 1200, 'enquiries' => 14, 'requests_handled' => 5]]);
+$fleetSections317 = array_column(Kaleta\Core\Language::runWith('en', fn (): array => Report::sections($fleetData317), 'admin-'), null, 'key');
+check('3.17: Report::sections – at a glance, the sites, one section per site with its outages, updates, reasons and its own report (or a note that it did not arrive); no "@", no hours or prices', [
+    array_keys($fleetSections317), $fleetSections317['summary']['blocks'][0]['items'], $fleetSections317['sites']['blocks'][0]['rows'][0],
+    array_column(array_filter($fleetSections317['site-7']['blocks'], fn (array $b): bool => $b['type'] === 'table'), 'caption'),
+    $fleetSections317['site-8']['blocks'][1]['text'] ?? null, str_contains((string) json_encode($fleetSections317, JSON_UNESCAPED_UNICODE), '@'),
+    preg_match('/\b(hours? worked|price|invoice|CZK|EUR)\b/i', (string) json_encode($fleetSections317))],
+    [['summary', 'sites', 'site-7', 'site-8'], [['Sites', '2'], ['Uptime', '98.43 %'], ['Outages', '1'], ['Updates installed', '1'], ['Visits', '1200'], ['Enquiries received', '14'], ['Requests handled', '5']],
+        ['Bakery …', '3.17.0', '98.43 %', '1', '1'], ['Outages', 'Updates installed', 'What needed attention', 'The site\'s own monthly report'],
+        'The site\'s own monthly report for this month has not reached the console (the site sends it from Kaleta 3.17 on).', false, 0]);
+$fleetPage317 = Report::render($view316, ['month' => '2026-09', 'customer' => 'Pekárna Novák', 'created_at' => '2026-10-01 06:05:00', 'rebuilt_at' => null, 'data' => $fleetData317],
+    $reportSettings(['site_name' => 'Agency console', 'agency_name' => 'Studio Kaleta', 'agency_logo' => 'media/logo.svg']), 'https://console.example');
+$fleetScreen317 = Report::render($view316, ['month' => '2026-09', 'customer' => '', 'created_at' => '2026-10-01 06:05:00', 'rebuilt_at' => '2026-10-02 09:00:00', 'data' => $fleetData317],
+    $reportSettings(['site_name' => 'Agency console', 'site_language' => 'cs']), 'https://console.example', ['script' => '/image/tisk.js', 'download' => '/x', 'back' => '/y']);
+check('3.17: the printable fleet report – the A4 page of the site report with the console\'s agency, the customer and the month; no script in the download, nothing personal; in the console\'s language on screen', [
+    str_contains($fleetPage317, 'size: A4'), str_contains($fleetPage317, '<p class="druh">Fleet report</p>'), str_contains($fleetPage317, '<h1>September 2026</h1>'), str_contains($fleetPage317, 'Pekárna Novák <span>· 2 sites</span>'), str_contains($fleetPage317, 'A summary of what happened to these websites in September 2026'),
+    str_contains($fleetPage317, 'https://console.example/media/logo.svg'), str_contains($fleetPage317, '<script'), preg_match('/@(?!page|media|bottom)/', $fleetPage317), str_contains($fleetPage317, 'Website report'),
+    str_contains($fleetScreen317, 'data-tisk'), str_contains($fleetScreen317, 'Zpráva o webech'), str_contains($fleetScreen317, 'Weby bez zákazníka'), str_contains($fleetScreen317, 'z uchované historie'),
+    str_contains($fleetScreen317, '<div class="agentura">Agency console</div>')],
+    [true, true, true, true, true, true, false, 0, false, true, true, true, true, true]);
+check('3.17: the jobs of the console run only on a console, after the uptime check; fleet_report is a read tool of the fleet extension, outside the essentials', [
+    array_map(fn (string $job): bool => Kaleta\Core\Scheduler::applies($job, $reportSettings(['extensions' => '-'])), ['fleet_history', 'fleet_alerts', 'fleet_digest', 'fleet_reports']),
+    array_search('fleet_alerts', array_keys(Kaleta\Core\Scheduler::JOBS), true) > array_search('fleet_uptime', array_keys(Kaleta\Core\Scheduler::JOBS), true),
+    Kaleta\Mcp\Catalog::TOOLS['fleet_report'] ?? null, in_array('fleet_report', Kaleta\Mcp\Catalog::ESSENTIALS, true), isset(Kaleta\Core\Events::TYPES['fleet.alert_sent']), Report::KEEP_MONTHS],
+    [[false, false, false, false], true, ['read', 'fleet'], false, true, 24]);
+/* ---------- 3.17 security fixes (N317-1, -2, -5, -6, -7): one paired site can no longer stop the console or write into its e-mails ---------- */
+$hostile317 = Kaleta\Fleet\Console::clean([
+    'audit' => ['link' => PHP_INT_MAX, 'title' => [1], 'menu' => -7, 'BAD KEY' => 3, 'description' => 2.0],
+    'update_problem' => ['x'], 'enquiries_unanswered' => -1, 'enquiries_7_days' => PHP_INT_MAX, 'visits_7_days' => [1, 2], 'last_backup' => 1e300, 'cron_last_run' => -5,
+    'kit_version' => '3', 'db_version' => 1e20, 'problems_7_days' => ['mail.failed' => [1], 'backup.failed' => PHP_INT_MAX, "bad\nkey" => 1],
+    'jobs_failing' => ['backup', ['x'], 'Evil Job', 7], 'problems' => ['text', ['check' => ['x'], 'status' => 'hacked', 'detail' => "line\nbreak", 'extra' => 'drop']],
+    'status' => ['ok'], 'php' => "8.4\n<b>", 'update_channel' => 'LATEST!', 'offsite_backup' => 'yes', 'auto_updates' => 1, 'claude' => [true],
+    'update_available' => '9.9.9; rm', 'version' => str_repeat('1', 40), 'url' => 'https://acme.example@evil.example', 'name' => ['x'],
+]);
+check('3.17 N317-1: every key a heartbeat has carried since 2.9 is bounded on its own – counts 0…1,000,000, times 1970…2100, names by pattern, texts on one line, lists in their shape', [
+    $hostile317['audit'], [$hostile317['update_problem'], $hostile317['enquiries_unanswered'], $hostile317['enquiries_7_days'], $hostile317['visits_7_days'], $hostile317['last_backup'],
+        $hostile317['cron_last_run'], $hostile317['kit_version'], $hostile317['db_version']],
+    $hostile317['problems_7_days'], $hostile317['jobs_failing'], $hostile317['problems'],
+    [$hostile317['status'], $hostile317['php'], $hostile317['update_channel'], $hostile317['offsite_backup'], $hostile317['auto_updates'], $hostile317['claude'], $hostile317['update_available'],
+        $hostile317['version'], $hostile317['url'], $hostile317['name']],
+    array_intersect_key(Kaleta\Fleet\Console::clean(['version' => '3.17.0', 'php' => '8.4.13', 'update_channel' => 'stable', 'status' => 'warning', 'last_backup' => 1_760_000_000, 'update_available' => '3.17.1',
+        'kit_version' => 2, 'url' => 'https://www.example.cz', 'offsite_backup' => false]), array_flip(['version', 'php', 'update_channel', 'status', 'last_backup', 'update_available', 'kit_version', 'url', 'offsite_backup']))],
+    [['link' => 1_000_000, 'menu' => 0, 'description' => 2], [null, 0, 1_000_000, null, null, null, null, null],
+        ['backup.failed' => 1_000_000], ['backup'], [['group' => '', 'check' => '', 'status' => 'warning', 'detail' => 'line break']],
+        [null, null, null, null, true, null, null, null, null, null],
+        ['url' => 'https://www.example.cz', 'version' => '3.17.0', 'php' => '8.4.13', 'status' => 'warning', 'last_backup' => 1_760_000_000, 'offsite_backup' => false, 'update_available' => '3.17.1',
+            'update_channel' => 'stable', 'kit_version' => 2]]);
+// a heartbeat stored before this release kept anything: the console's pages, jobs and rules read it through the bounds
+$stored317 = function (string $json) use ($fleetNow, $all317): string {
+    $site = ['id' => 9, 'name' => 'Hostile', 'url' => 'https://hostile.example', 'customer_id' => null, 'up' => 1, 'up_changed' => null, 'up_status' => 0, 'status' => 'ok', 'version' => '3.17.0',
+        'ring' => 'normal', 'manage_updates' => 1, 'update_allowed' => '', 'version_since' => null,
+        'last_seen' => date('Y-m-d H:i:s', $fleetNow - 600), 'paired_at' => date('Y-m-d H:i:s', $fleetNow - 86400), 'heartbeat' => $json];
+    set_error_handler(static function (int $no, string $message): never {
+        throw new ErrorException($message, 0, $no); // as the console's own error handler (App) does
+    });
+    try {
+        $row = History::snapshotRow($site, $fleetNow);
+        $columns = array_filter(array_intersect_key($row, array_flip(['attention', 'enquiries_new', 'requests_open', 'waiting_total', 'audit_total', 'failed_sign_ins', 'problems'])), fn (mixed $n): bool => $n !== null);
+        $badColumns = array_filter($columns, fn (mixed $n): bool => !is_int($n) || $n < 0 || $n > 4_294_967_295);
+        $badCounts = array_filter(array_map(fn (array $r): mixed => $r['count'], Kaleta\Fleet\Inbox::build([$site], [], $fleetNow)), fn (mixed $n): bool => $n !== null && (!is_int($n) || $n < 0 || $n > 1_000_000));
+        Kaleta\Fleet\Console::attention($site, $fleetNow);
+        AlertRules::matches($site, $all317, $fleetNow);
+        Kaleta\Fleet\Console::row($site);
+
+        return $badColumns === [] && $badCounts === [] ? 'ok' : 'out of range: ' . json_encode([$badColumns, $badCounts]);
+    } catch (\Throwable $e) {
+        return get_class($e) . ': ' . $e->getMessage();
+    } finally {
+        restore_error_handler();
+    }
+};
+$storedPayloads317 = [
+    '{"audit":{"x":9223372036854775807,"y":1}}', '{"audit":{"x":[1]}}', '{"update_problem":["x"]}', '{"enquiries_unanswered":-1,"audit":{"x":-7}}', '{"enquiries_unanswered":9223372036854775807}',
+    '{"last_backup":1e300,"cron_last_run":"yesterday","bookings_pending":1e300,"enquiries_new_not_spam":[3]}',
+    '{"requests":{"new":1e300,"in_progress":[1],"oldest_waiting_hours":"many","items":[{"id":1,"status":["x"]},{"id":[2],"status":"new"},"x"]},"pending_review":{"page_drafts":9223372036854775807,"x":[1]}}',
+    '{"security_7_days":"x","domain_watch":{"certificate":"x","domain":{"days":9223372036854775807}},"problems":"x","jobs_failing":[["x"]]}',
+    '{"security_7_days":{"failed_sign_ins":1e300,"events":"x"},"requests":"x","domain_watch":"x"}', '[1,2,3]', 'not json',
+];
+check('3.17 N317-1: a hostile stored heartbeat – the inbox, the attention, the day\'s row (INT UNSIGNED columns) and the alert rules neither throw nor leave the bounds', array_map($stored317, $storedPayloads317),
+    array_fill(0, count($storedPayloads317), 'ok'));
+$hostileSite317 = ['id' => 9, 'name' => 'Hostile', 'url' => 'https://hostile.example', 'customer_id' => null, 'up' => 1, 'up_changed' => null, 'up_status' => 0, 'status' => 'ok',
+    'last_seen' => date('Y-m-d H:i:s', $fleetNow - 600), 'paired_at' => date('Y-m-d H:i:s', $fleetNow - 86400),
+    'heartbeat' => '{"last_backup":' . ($fleetNow - 3600) . ',"cron_last_run":' . ($fleetNow - 60) . ',"audit":{"x":9223372036854775807,"y":1},"update_problem":["x"],"enquiries_unanswered":-1}'];
+$hostileInbox317 = array_column(Kaleta\Fleet\Inbox::forSite($hostileSite317, [], $fleetNow), 'count', 'what');
+check('3.17 N317-1: what the hostile report still shows – the audit as a bounded count, the failed update, no enquiries; the update rule fires without the site\'s text', [
+    $hostileInbox317, Kaleta\Fleet\Console::attention($hostileSite317, $fleetNow)['reasons'], AlertRules::matches($hostileSite317, $all317, $fleetNow), History::snapshotRow($hostileSite317, $fleetNow)['audit_total']],
+    [['update_failed' => null, 'audit' => 1_000_000], ['update_failed', 'audit'], [['kind' => 'update_failed', 'detail' => '']], 1_000_000]);
+$shown317 = Kaleta\Fleet\Console::storedBeat(['heartbeat' => '{"update_problem":["x"],"update_available":["9"],"php":{"x":1},"requests":{"new":1e300,"items":[{"id":[1],"status":"new"},{"id":4,"title":["t"],"status":"new"}]},"audit":{"x":[1],"link":2},"problems":"x","last_backup":1e300}']);
+check('3.17 N317-1: the site\'s page and get_site show a stored heartbeat cleaned again – the shapes of a new one, the keys the site did not send left out', [
+    $shown317, Kaleta\Fleet\Console::storedBeat(['heartbeat' => 'not json']), Kaleta\Fleet\Console::storedBeat(['heartbeat' => null])],
+    [['audit' => ['link' => 2], 'requests' => ['new' => 0, 'in_progress' => 0, 'done_to_review' => 0, 'oldest_waiting_hours' => null,
+        'items' => [['id' => 4, 'title' => '', 'status' => 'new', 'created_at' => null, 'updated_at' => null]]]], [], []]);
+$jobs317 = (string) file_get_contents(KALETA_SYSTEM . '/src/Fleet/History.php') . (string) file_get_contents(KALETA_SYSTEM . '/src/Fleet/AlertRules.php') . (string) file_get_contents(KALETA_SYSTEM . '/src/Fleet/Report.php');
+check('3.17 N317-1: the history, alert and report jobs isolate each site (customer) – a failure is logged and the others go on', substr_count($jobs317, 'catch (\Throwable $e)'), 3);
+// N317-2: what a site sends reaches the console's e-mails on one line
+$evilName317 = "Acme\r\nACTION REQUIRED: sign in at https://evil.example\u{2028}now\u{202E}";
+$evilMail317 = AlertRules::message($reportSettings(['site_name' => 'Agency console']), [['site' => 9, 'kind' => 'update_failed', 'detail' => "failed\nSIGN IN at https://evil.example"]],
+    [9 => ['name' => $evilName317, 'url' => 'https://acme.example']], 'https://console.example');
+$evilDigest317 = Digest::compose(['from' => '2026-10-12', 'to' => '2026-10-18', 'customers' => [['id' => 0, 'name' => '', 'sites' => [['id' => 9, 'name' => $evilName317, 'url' => 'https://acme.example',
+    'reasons' => [], 'enquiries' => null, 'requests' => null, 'request_titles' => ["Title\nSIGN IN at https://evil.example"], 'review' => null, 'bookings' => null,
+    'uptime' => ['percent' => null, 'checks' => 0, 'failed' => 0, 'response_ms' => null], 'incidents' => [], 'versions' => []]]]]], $reportSettings(['site_name' => 'Agency console']), 'https://console.example', true);
+$ownLines317 = fn (string $text): array => array_values(preg_grep('/^(ACTION|SIGN|now)/', explode("\n", $text)) ?: []);
+check('3.17 N317-2: a site\'s name and update message are one line – at arrival and again in the alert and the digest e-mail, so a site cannot write lines of its own', [
+    Kaleta\Fleet\Console::clean(['name' => "Acme\n\nACTION\u{2028}REQUIRED\t \u{202E}x\u{0085}y"])['name'], Kaleta\Fleet\Console::clean(['update_problem' => "Version 3.17.1\r\nSign in at https://evil.example"])['update_problem'],
+    Kaleta\Fleet\Console::clean(['update_problem' => " \n "])['update_problem'], mb_strlen(Kaleta\Fleet\Console::clean(['update_problem' => str_repeat('x', 500)])['update_problem']),
+    Kaleta\Fleet\Console::oneLine("Name\u{00A0}with\x00null", 150), Kaleta\Fleet\Console::oneLine(['x'], 150), Kaleta\Fleet\Console::oneLine("\xC3\x28bad", 150),
+    $ownLines317($evilMail317[1]), str_contains($evilMail317[1], "Acme ACTION REQUIRED: sign in at https://evil.example now – https://acme.example\n  – Update failed: failed SIGN IN at https://evil.example\n"),
+    $ownLines317($evilDigest317[1]), str_contains($evilDigest317[1], "Acme ACTION REQUIRED: sign in at https://evil.example now – https://acme.example\n"), str_contains($evilDigest317[1], "    · Title SIGN IN at https://evil.example\n")],
+    ['Acme ACTION REQUIRED x y', 'Version 3.17.1 Sign in at https://evil.example', null, 200, 'Name with null', '', '?(bad', [], true, [], true, true]);
+// N317-5: a site's address has no user information, the inbox and the digest link only such an address
+check('3.17 N317-5: the console keeps and links a site address without user information ("https://acme.example@evil.example" opens evil.example)', [
+    Kaleta\Fleet\Console::url('https://acme.example@evil.example'), Kaleta\Fleet\Console::url('https://user:pw@acme.example/'), Kaleta\Fleet\Console::url('https://acme.example/path'),
+    Kaleta\Fleet\Console::url('http://127.0.0.1:8201'), Kaleta\Fleet\Console::url('https://acme.example/"onmouseover=x'), Kaleta\Fleet\Console::url('javascript:alert(1)'), Kaleta\Fleet\Console::url('https://acme.example\\@evil.example'),
+    Kaleta\Fleet\Console::url('https://' . str_repeat('a', 260) . '.example'), Kaleta\Fleet\Console::clean(['url' => 'https://acme.example@evil.example'])['url'],
+    array_column(Kaleta\Fleet\Inbox::forSite(['id' => 3, 'name' => 'Acme', 'url' => 'https://acme.example@evil.example', 'up' => 0, 'up_changed' => null, 'last_seen' => date('Y-m-d H:i:s', $fleetNow)], [], $fleetNow), 'link'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Fleet/Console.php'), "'fleet.site_url_changed'"), isset(Kaleta\Core\Events::TYPES['fleet.site_url_changed'])],
+    [null, null, 'https://acme.example/path', 'http://127.0.0.1:8201', null, null, null, null, null, [''], true, true]);
+// N317-6: a fleet report only of a month that has ended; N317-7: a site that flips its version lists at most 20 changes
+$flap317 = array_map(fn (int $i): array => ['date' => sprintf('2026-10-01 %02d:%02d:00', intdiv($i, 60), $i % 60), 'version' => $i % 2 === 0 ? '3.17.0' : '3.17.1'], range(0, 99));
+check('3.17 N317-6/-7: a fleet report only for a month that has ended (never the current or a future one); the versions of a period – repeats in a row once, the last 20', [
+    array_map(fn (string $m): bool => Report::monthEnded($m, new DateTimeImmutable('2026-10-20 12:00')), ['2026-09', '2026-10', '2026-11', '2099-12', '2025-01', '2026-13', '2026-9', '']),
+    count(History::latestVersions($flap317)), History::latestVersions($flap317)[19]['date'], History::VERSIONS_MAX,
+    History::latestVersions([['date' => 'a', 'version' => '3.17.0'], ['date' => 'b', 'version' => '3.17.0'], ['date' => 'c', 'version' => '3.17.1'], ['date' => 'd', 'version' => '3.17.0']])],
+    [[true, false, false, false, true, false, false, false], 20, '2026-10-01 01:39:00', 20, [['date' => 'a', 'version' => '3.17.0'], ['date' => 'c', 'version' => '3.17.1'], ['date' => 'd', 'version' => '3.17.0']]]);
+// N317-4: the recipients form says the e-mails cover every site; the new texts are in every admin language
+$texts317 = ['The alert and digest e-mails cover every site in the console, of every customer – add only your own team\'s addresses.', 'The site\'s address changed from %s to %s.',
+    'The console can make a report only for a month that has ended and that it keeps the history of (%s).'];
+$missing317 = [];
+foreach (['cs', 'de', 'es'] as $code317) {
+    $dictionary317 = require KALETA_SYSTEM . '/jazyky/admin-' . $code317 . '.php';
+    $missing317 = [...$missing317, ...array_map(static fn (string $k): string => $code317 . ': ' . $k, array_diff($texts317, array_keys($dictionary317)))];
+}
+check('3.17 N317-4: the recipients of the alerts and the digest are told the e-mails cover every site; the new texts are translated', [
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/fleet/alerts.php'), "t('The alert and digest e-mails cover every site in the console"), $missing317,
+    array_key_exists($texts317[0], require KALETA_SYSTEM . '/jazyky/admin-de-du.php')], [true, [], true]);
 /* ---------- 2.8: domain and mail watch (Core\DomainWatch) – no network, the lookups are fixtures ---------- */
 $watchClass = Kaleta\Core\DomainWatch::class;
 check('DomainWatch: registrable domain – www., subdomains and two-level suffixes', array_map($watchClass::registrableDomain(...), ['www.example.cz', 'shop.firma.example.co.uk', 'Example.COM', 'www.example.com.au', 'example.cz.']), ['example.cz', 'example.co.uk', 'example.com', 'example.com.au', 'example.cz']);

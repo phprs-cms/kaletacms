@@ -1356,7 +1356,9 @@ input[type="number"].textpole.cislo-kratke { width: 4.5em; }
 
 /* content hygiene (2.14): bulk actions under lists, the content check in the editor, the media clean-up and the translation overview */
 .hromadne { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-block: 12px; }
-.hromadne label { display: flex; align-items: center; gap: 6px; }
+.hromadne label { display: flex; align-items: center; gap: 6px; max-width: 100%; }
+/* a choice of long names (the fleet inbox's sites and customers, 3.17) never pushes the page wider than a phone */
+.hromadne select, .hromadne .textpole { min-width: 0; max-width: min(100%, 22em); }
 .kontrola-seznam { list-style: none; margin: 0; padding: 0; }
 .kontrola-seznam li { margin-block-end: 6px; padding-inline-start: 1.6em; position: relative; }
 .kontrola-seznam li > span[aria-hidden] { position: absolute; left: 0; font-weight: 700; }
@@ -1397,3 +1399,14 @@ table.preklady td[data-stav] form { margin-inline-start: 6px; }
 	.menu-otevrene .menu > .menu-skupina { margin-top: 14px; }
 	.menu-otevrene .menu a, .menu-otevrene .menu button { min-height: 44px; padding: 8px; gap: 8px; overflow-wrap: anywhere; text-decoration: none; }
 }
+
+/* 3.17: the uptime trend of a fleet site (views/admin/fleet/trend.php) – one bar a day; the summary and the table say the same in words */
+.trend { margin: 12px 0 4px; }
+.trend svg { display: block; width: 100%; height: 48px; }
+.trend rect { fill: var(--linka-pole); }
+.trend rect.ok { fill: var(--ok); }
+.trend rect.slabe { fill: var(--varovani); }
+.trend rect.chyba { fill: var(--chyba); }
+.trend figcaption { margin-top: 4px; font-size: 12px; color: var(--text-slaby); }
+.trend-tabulka { margin: 0 0 16px; }
+.trend-tabulka summary { cursor: pointer; font-size: 13px; }

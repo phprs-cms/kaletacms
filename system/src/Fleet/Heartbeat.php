@@ -36,6 +36,10 @@ use Kaleta\Core\Updater;
  * problems_7_days, its job from jobs_failing, both from the health checks (Health::checks leaving), and the console drops
  * them again.
  * Each new part is optional: null when its feature is off, and a part that fails is null instead of stopping the report.
+ *
+ * 3.17 – report_summary: the headline counts of the latest archived monthly report (Core\ReportArchive) – visits,
+ * enquiries, requests handled, changes by people and by Claude, updates and backups – so the console's monthly report per
+ * customer can show them. Counts only; no titles, pages or anything else of the report leave the site.
  */
 final class Heartbeat
 {
@@ -43,8 +47,8 @@ final class Heartbeat
     public const int REQUEST_ITEMS = 20;
     public const int TITLE_LENGTH = 120;
 
-    /** A request that waits longer than this (new or in progress) asks for attention on the console. */
-    public const int REQUEST_WAIT_HOURS = 48;
+    /** A request that waits longer than this (new or in progress) asks for attention on the console (Console::REQUEST_WAIT_HOURS). */
+    public const int REQUEST_WAIT_HOURS = Console::REQUEST_WAIT_HOURS;
 
     /** Agent run statuses a heartbeat counts (Core\AgentSchedules; "running" is not a result yet). */
     public const array RUN_STATUSES = ['ok', 'partial', 'failed', 'missed'];
@@ -107,6 +111,7 @@ final class Heartbeat
             'agent_runs' => Extensions::isEnabled($s, 'claude') ? self::part(fn (): array => self::agentRuns($db)) : null,
             'updates' => ['behind_days' => Updater::behindDays($update), 'major_available' => self::part(fn (): ?string => self::version(Updater::nextMajor($s)['verze'] ?? null))],
             'report_month' => self::part(fn (): ?string => self::reportMonth($db)),
+            'report_summary' => self::part(fn (): ?array => ($month = self::reportMonth($db)) !== null ? self::reportSummary(\Kaleta\Core\ReportArchive::get($db, $month)) : null),
         ];
     }
 
@@ -239,6 +244,41 @@ final class Heartbeat
         return ['runs_7_days' => array_combine(self::RUN_STATUSES, array_map(fn (string $status): int => (int) ($counts[$status] ?? 0), self::RUN_STATUSES)),
             'next_due' => $next !== null ? Clock::fromDb((string) $next['next_due'])?->format(DATE_ATOM) : null, 'next_task' => $next !== null ? (string) $next['task'] : null,
             'sessions_7_days' => (int) $db->value('SELECT COUNT(*) FROM {agent_sessions} WHERE started_at > ?', [$since])];
+    }
+
+    /**
+     * The headline counts of an archived monthly report (3.17, Core\ReportArchive::get) – what the console's monthly report
+     * per customer shows for the site. A count the report does not have (its feature was off) is null. Pure.
+     *
+     * @param array{month: string, data: array<string, mixed>}|null $stored
+     * @return array{month: string, visits: ?int, enquiries: ?int, requests_handled: ?int, changes_people: ?int, changes_claude: ?int, updates: int, backups: int}|null
+     */
+    public static function reportSummary(?array $stored): ?array
+    {
+        if ($stored === null) {
+            return null;
+        }
+        $d = $stored['data'];
+        $work = is_array($d['work'] ?? null) ? $d['work'] : null;
+        $sum = function (string $who) use ($work): ?int {
+            if ($work === null) {
+                return null;
+            }
+            $n = 0;
+            foreach ((array) ($work['areas'] ?? []) as $area) {
+                $n += is_array($area) ? (int) ($area[$who] ?? 0) : 0;
+            }
+
+            return $n;
+        };
+
+        return ['month' => $stored['month'],
+            'visits' => is_array($d['stats'] ?? null) ? (int) ($d['stats']['visits'] ?? 0) : null,
+            'enquiries' => is_array($d['enquiries'] ?? null) ? (int) ($d['enquiries']['total'] ?? 0) : null,
+            'requests_handled' => is_array($d['requests'] ?? null) ? (int) ($d['requests']['done_count'] ?? 0) : null,
+            'changes_people' => $sum('people'), 'changes_claude' => $sum('claude'),
+            'updates' => count(array_filter((array) ($d['updates'] ?? []), static fn (mixed $u): bool => is_array($u) && ($u['type'] ?? '') === 'update.applied')),
+            'backups' => (int) ($d['backups']['created'] ?? 0)];
     }
 
     /** The month of the latest archived monthly report ('2026-09', Core\ReportArchive), null while there is none or the table is not there yet. */
