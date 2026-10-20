@@ -8,6 +8,9 @@
 
 declare(strict_types=1);
 
+// the HTML parser of PHP 8.3 (Compat\Html5Parser) takes the run to about 120 MB, next to the 128 MB default of a local php.ini
+ini_set('memory_limit', '512M');
+
 require dirname(__DIR__) . '/system/bootstrap.php';
 
 use Kaleta\Core\Assistant;
