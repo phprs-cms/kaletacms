@@ -883,7 +883,7 @@ when there is none, so nobody writes to Ask Claude while nothing picks the reque
 whether a connection exists, when Claude last called and whether a scheduled run picks requests up – not whether Claude
 is "online".
 
-1. **Reliable last call** (no migration): every MCP call also stamps the refresh row of its OAuth connection (at most once
+1. **Reliable last call**: every MCP call that is served also stamps the refresh row of its OAuth connection (at most once
    a minute) and a refresh carries the last call over to the new pair – before, a connection idle for over an hour lost
    it (its access row expires and is cleaned up), so Claude settings, My account and the 60-day hygiene check showed live
    connections as unused. `Core\ClaudeConnection::status()`: state off | none | idle | active (a call within 7 days;
@@ -906,6 +906,14 @@ is "online".
 6. **Fleet**: heartbeat key `claude_connection` (bounded by the console: enum values only, moments 1970–2100), attention
    `claude_not_connected` / `claude_run_stalled` when new requests wait, the site detail, an inbox row to the site's Claude
    settings, `list_sites` gains the state. A heartbeat from before 3.18 works as before.
+7. **Pre-release security audit** (N318-1 … N318-5): a call is stamped only after the two-factor check and every other
+   refusal, and only connections that can call count – of an account that is not blocked and meets the site's
+   two-factor requirement (a connection whose every call is refused shows "Claude not connected", N318-1). Migration 0102
+   adds `ka_api_tokeny (druh, expirace)` and `ka_oauth_rotated (rotated_at)` for the status queries, the schedule loop is
+   one query, and OAuth refreshes are limited to 30 per connection (client + user) an hour – over it `429 slow_down` with
+   `Retry-After`; the refresh token stays valid (N318-2). The last call comes from live connections only, and a
+   disconnect, a revocation, a password change or reset and a deleted account delete the connection's rotation records
+   (N318-3). Staff seeing the last-call time and the heartbeat's last call stay as they are (owner decisions, N318-4/-5).
 
 Open: the header chip has no "expires soon" state (Claude settings and System status say it); no menu badge on the
 Claude hub.

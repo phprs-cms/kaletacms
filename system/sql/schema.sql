@@ -435,6 +435,7 @@ CREATE TABLE ka_api_tokeny (
     PRIMARY KEY (idt),
     UNIQUE KEY uq_tokeny_otisk (otisk),
     KEY ix_tokeny_klient (klient),
+    KEY ix_tokeny_druh_expirace (druh, expirace),             -- live connections by kind and expiry (3.18, Core\ClaudeConnection)
     CONSTRAINT fk_tokeny_user FOREIGN KEY (idu) REFERENCES ka_uzivatele (idu) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
@@ -839,7 +840,8 @@ CREATE TABLE ka_oauth_rotated (
     rotated_at DATETIME     NOT NULL,
     expires_at DATETIME     NOT NULL,              -- the record goes then: OAuth::ROTATED_LIFETIME after the rotation (3.10.1), at most the old token's expiry
     PRIMARY KEY (hash),
-    KEY ix_oauth_rotated_client (client_id, idu)
+    KEY ix_oauth_rotated_client (client_id, idu),
+    KEY ix_oauth_rotated_at (rotated_at)                       -- the newest refresh (3.18, Core\ClaudeConnection)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Newsletters (1.5): one e-mail template styled by the design system (Core\Mailing). The rendered e-mail is kept from

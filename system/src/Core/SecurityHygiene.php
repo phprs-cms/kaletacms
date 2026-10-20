@@ -88,6 +88,7 @@ final class SecurityHygiene
                     $db->delete('api_tokeny', ['idt' => (int) $c['id']]);
                 } else {
                     $db->delete('api_tokeny', ['idu' => (int) $c['idu'], 'klient' => (string) $c['id']]);
+                    \Kaleta\Front\OAuth::forgetRotations($db, (int) $c['idu'], (string) $c['id']); // N318-3
                 }
                 ChangeLog::write($app, 'claude', 'auto_revoke', sprintf('%s (%s) – not used for %d days (last activity %s)', (string) $c['name'], (string) $c['user'], self::CONNECTION_DAYS, (string) $c['last']));
                 Events::record($db, 'security.connection_revoked', 'warning', t('A Claude connection not used for %d days was revoked (user #%d).', self::CONNECTION_DAYS, (int) $c['idu']), ['user' => (int) $c['idu'], 'kind' => (string) $c['kind']]);

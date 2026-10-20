@@ -7319,6 +7319,39 @@ check('3.18 Inbox – a row that leads to the site\'s Claude settings when reque
     Kaleta\Fleet\Inbox::label(['what' => 'claude_not_connected']), isset(Kaleta\Fleet\Console::REASONS['claude_run_stalled'])],
     [['requests:claude_not_connected:normal:https://acme.example/admin.php?module=claude_settings'], ['requests:claude_run_stalled:urgent:https://acme.example/admin.php?module=claude_settings'], [],
         'Requests wait but Claude is not connected', true]);
+/* ---------- 3.18 audit (N318-1 … N318-3) ---------- */
+// N318-1: a connection counts only when its account can call – not blocked, with two-factor sign-in when the site requires it
+check('3.18 N318-1 ClaudeConnection::canCall – blocked accounts never, 2FA required of everyone or of administrators narrows it', [
+    Kaleta\Core\ClaudeConnection::canCall($reportSettings([])), Kaleta\Core\ClaudeConnection::canCall($reportSettings(['require_2fa' => 'vsichni'])),
+    Kaleta\Core\ClaudeConnection::canCall($reportSettings(['require_2fa' => 'spravci']))],
+    ['u.blokovat = 0', "u.blokovat = 0 AND u.totp_tajemstvi <> ''", "u.blokovat = 0 AND (u.admin <> 2 OR u.totp_tajemstvi <> '')"]);
+// the MCP server records a call only after every refusal: the stamp is not in user() and comes after the 2FA check
+$server318 = (string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Server.php');
+$user318 = substr($server318, (int) strpos($server318, 'private function user()'), (int) strpos($server318, 'private function served(') - (int) strpos($server318, 'private function user()'));
+check('3.18 N318-1 Mcp\Server – the last use, the refresh row and claude_first_used are written after the 2FA check, not when the token is looked up', [
+    str_contains($user318, 'pouzit'), str_contains($user318, 'ClaudeConnection::stamp'), str_contains($user318, 'claude_first_used'),
+    (int) strpos($server318, '$this->served($user)') > (int) strpos($server318, 'isMissingRequired2fa')], [false, false, false, true]);
+// N318-2: refreshes of one connection are limited – an hourly refresh, a burst and a retry pass, a loop waits
+$now318 = strtotime('2026-10-20 12:00:00');
+check('3.18 N318-2 OAuth::refreshWait – under 30 refreshes an hour no wait; at 30 until the oldest leaves the hour, at least a second, at most an hour', [
+    Kaleta\Front\OAuth::refreshWait(0, null, $now318), Kaleta\Front\OAuth::refreshWait(1, '2026-10-20 11:05:00', $now318), Kaleta\Front\OAuth::refreshWait(29, '2026-10-20 11:01:00', $now318),
+    Kaleta\Front\OAuth::refreshWait(30, '2026-10-20 11:10:00', $now318), Kaleta\Front\OAuth::refreshWait(45, '2026-10-20 11:00:00', $now318),
+    Kaleta\Front\OAuth::refreshWait(30, null, $now318), Kaleta\Front\OAuth::refreshWait(30, '2026-10-20 13:30:00', $now318), Kaleta\Front\OAuth::REFRESH_LIMIT, Kaleta\Front\OAuth::REFRESH_WINDOW],
+    [0, 0, 0, 600, 1, 3600, 3600, 30, 3600]);
+// N318-2: the indexes of the status queries – a migration for existing sites, the same keys in schema.sql for new ones
+$migration318 = (string) @file_get_contents(KALETA_SYSTEM . '/sql/migrace/0102-claude-status-indexes.sql');
+$schema318 = (string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql');
+check('3.18 N318-2 migration 0102 adds the status indexes, schema.sql has them, KALETA_DB_VERSION is 102', [
+    str_contains($migration318, 'ALTER TABLE ka_api_tokeny ADD KEY ix_tokeny_druh_expirace (druh, expirace);'), str_contains($migration318, 'ALTER TABLE ka_oauth_rotated ADD KEY ix_oauth_rotated_at (rotated_at);'),
+    str_contains($schema318, 'KEY ix_tokeny_druh_expirace (druh, expirace)'), str_contains($schema318, 'KEY ix_oauth_rotated_at (rotated_at)'), KALETA_DB_VERSION, Migration::latest()],
+    [true, true, true, true, 102, 102]);
+// N318-3: every revocation of an OAuth connection forgets its rotation records
+$forget318 = [];
+foreach (['src/Front/OAuth.php', 'src/Admin/Account.php', 'src/Admin/Modules/Users.php', 'src/Admin/PasswordReset.php', 'src/Core/SecurityHygiene.php'] as $file318) {
+    $forget318[] = substr_count((string) file_get_contents(KALETA_SYSTEM . '/' . $file318), 'forgetRotations(');
+}
+check('3.18 N318-3 the rotation records go with a revoked connection: password change, disconnect, admin revoke and account delete, reset, auto-revoke', $forget318, [2, 1, 2, 1, 1]);
+
 // every 3.18 text of the indicator, the notices, the health check and the console is in every admin language
 $texts318 = [];
 foreach (['src/Core/ClaudeConnection.php', 'src/Admin/Modules/Requests.php', 'views/admin/claude_chip.php', 'views/admin/claude_notice.php', 'views/admin/claude_panel.php',

@@ -17,6 +17,9 @@ namespace Kaleta\Core;
  *    when someone asks Claude); null while the state is off or none;
  *  - expires: the earliest end of a valid connection, expiring when it is within EXPIRY_DAYS.
  *
+ * Only connections that can call count (canCall(): the account is not blocked and meets the two-factor sign-in the site
+ * requires – 3.18 audit, N318-1), and the last call comes from them only (N318-3).
+ *
  * The last call is the newest ka_api_tokeny.pouzit. An OAuth access token lives an hour and its row goes after it
  * expires, so every call also stamps the connection's refresh row (stamp(), at most once a STAMP_SECONDS) and a refresh
  * carries the value over to the new pair (Front\OAuth::refresh) – before 3.18 the last call of a connection idle for
@@ -76,21 +79,30 @@ final class ClaudeConnection
     public static function facts(Db $db, Settings $settings): array
     {
         $now = Clock::now();
-        $valid = $db->one("SELECT COUNT(*) AS n, MIN(t.expirace) AS expires FROM {api_tokeny} t JOIN {uzivatele} u ON u.idu = t.idu
-            WHERE u.blokovat = 0 AND ((t.druh = 'obnova' AND t.expirace > ?) OR (t.druh = 'token' AND (t.expirace IS NULL OR t.expirace > ?)))", [$now, $now]) ?? [];
-        $last = $db->value('SELECT MAX(pouzit) FROM {api_tokeny}');
+        // 3.18 audit: only connections that can call count – of an account that is not blocked and meets the two-factor
+        // sign-in the site requires (N318-1) – and the last call is taken from them only, never from a revoked connection
+        // or a blocked account (N318-3). Live rows only: the (druh, expirace) index of migration 0102 (N318-2).
+        $can = self::canCall($settings);
+        $valid = $db->one("SELECT SUM(t.druh <> 'pristup') AS n, MIN(CASE WHEN t.druh <> 'pristup' THEN t.expirace END) AS expires, MAX(t.pouzit) AS last
+            FROM {api_tokeny} t JOIN {uzivatele} u ON u.idu = t.idu
+            WHERE $can AND ((t.druh IN ('obnova', 'pristup') AND t.expirace > ?) OR (t.druh = 'token' AND (t.expirace IS NULL OR t.expirace > ?)))", [$now, $now]) ?? [];
         try {
-            $refreshed = $db->value('SELECT MAX(rotated_at) FROM {oauth_rotated}');
+            // the newest refresh of a connection that is still live (the rotated_at index of migration 0102)
+            $refreshed = $db->value("SELECT r.rotated_at FROM {oauth_rotated} r JOIN {uzivatele} u ON u.idu = r.idu
+                WHERE $can AND EXISTS (SELECT 1 FROM {api_tokeny} t WHERE t.klient = r.client_id AND t.idu = r.idu AND t.druh = 'obnova' AND t.expirace > ?)
+                ORDER BY r.rotated_at DESC LIMIT 1", [$now]);
         } catch (\Throwable) {
             $refreshed = null; // before the 3.3.4 migration
         }
-        $lastCall = max((string) ($last ?? ''), (string) ($refreshed ?? ''));
+        $lastCall = max((string) ($valid['last'] ?? ''), (string) ($refreshed ?? ''));
         $schedules = [];
         try {
-            foreach ($db->all("SELECT id, next_due FROM {agent_schedules} WHERE active = 1 AND task = 'requests' ORDER BY id") as $s) {
-                $run = $db->one("SELECT status, COALESCE(finished_at, started_at, due_at) AS at FROM {agent_runs} WHERE schedule_id = ? AND status <> 'running' ORDER BY id DESC LIMIT 1", [(int) $s['id']]);
-                $schedules[] = ['next_due' => $s['next_due'] !== null ? (string) $s['next_due'] : null, 'last_status' => $run !== null ? (string) $run['status'] : null,
-                    'last_at' => $run !== null && $run['at'] !== null ? (string) $run['at'] : null];
+            // one query (N318-2): each active schedule of the task "requests" with its last finished run
+            foreach ($db->all("SELECT s.next_due, r.status, COALESCE(r.finished_at, r.started_at, r.due_at) AS at FROM {agent_schedules} s
+                LEFT JOIN {agent_runs} r ON r.id = (SELECT MAX(x.id) FROM {agent_runs} x WHERE x.schedule_id = s.id AND x.status <> 'running')
+                WHERE s.active = 1 AND s.task = 'requests' ORDER BY s.id LIMIT 20") as $s) {
+                $schedules[] = ['next_due' => $s['next_due'] !== null ? (string) $s['next_due'] : null, 'last_status' => $s['status'] !== null ? (string) $s['status'] : null,
+                    'last_at' => $s['at'] !== null ? (string) $s['at'] : null];
             }
         } catch (\Throwable) {
             $schedules = []; // before the 2.17 migration
@@ -111,6 +123,20 @@ final class ClaudeConnection
             'oldest_waiting' => isset($waiting['oldest']) ? (string) $waiting['oldest'] : null,
             'first_used' => $settings->get('claude_first_used'),
         ];
+    }
+
+    /**
+     * The SQL condition on the account (alias u) whose connection can call the site (3.18 audit, N318-1): not blocked, and
+     * with two-factor sign-in when the site requires it of everyone or of administrators – Mcp\Server refuses every call
+     * of the others (Core\Auth::isMissingRequired2fa), so their connection is no connection.
+     */
+    public static function canCall(Settings $settings): string
+    {
+        return 'u.blokovat = 0' . match ($settings->get('require_2fa')) {
+            'vsichni' => " AND u.totp_tajemstvi <> ''",
+            'spravci' => ' AND (u.admin <> ' . Auth::ADMIN . " OR u.totp_tajemstvi <> '')",
+            default => '',
+        };
     }
 
     /**
