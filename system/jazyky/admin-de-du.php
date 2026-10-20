@@ -976,4 +976,12 @@ return [
     'Built from each site\'s last report (every hour) and the console\'s own checks. The links open the site\'s own administration – sign in there as usual; the console has no access to the sites.' => 'Aus der letzten Meldung jeder Website (stündlich) und den eigenen Prüfungen der Konsole. Die Links öffnen die Verwaltung der Website – melde dich dort wie gewohnt an; die Konsole hat keinen Zugriff auf die Websites.',
     'Tick the sites first.' => 'Kreuze zuerst die Websites an.',
     'Fill in the new name.' => 'Gib den neuen Namen ein.',
+    '%s: %d alert(s) about your sites' => '%s: %d Warnung(en) zu deinen Websites',
+    'The fleet console noticed something on your sites:' => 'Der Website-Konsole ist auf deinen Websites etwas aufgefallen:',
+    'The same alert for the same site is not sent again within %d hours. Change the rules in Fleet → Alerts and digest:' => 'Dieselbe Warnung zur selben Website kommt frühestens nach %d Stunden wieder. Die Regeln änderst du unter Website-Konsole → Warnungen und Übersicht:',
+    'The week of your sites, %s.' => 'Die Woche deiner Websites, %s.',
+    '%s: the week of your sites (%s)' => '%s: die Woche deiner Websites (%s)',
+    'The reports for %s were made already – rebuild one from the list.' => 'Die Berichte für %s gibt es schon – neu erstellen kannst du sie in der Liste.',
+    'Off: the digest only counts the requests. The e-mail leaves the console – turn the titles on only when the recipients may read them.' => 'Aus: Die Übersicht zählt die Aufträge nur. Die E-Mail verlässt die Konsole – schalte die Titel nur ein, wenn die Empfänger sie lesen dürfen.',
+    'nobody – fill in the recipients' => 'niemanden – trag Empfänger ein',
 ];

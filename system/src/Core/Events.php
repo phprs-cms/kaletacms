@@ -49,6 +49,7 @@ final class Events
         'fleet.site_up' => 'Console: a site answers again.',
         'fleet.site_silent' => 'Console: a site stopped sending its heartbeat.',
         'fleet.site_updated' => 'Console: a site runs a new version.',
+        'fleet.alert_sent' => 'Console: an alert e-mail went out by the alert rules (3.17; the site and the kind – the quiet hours count from it).',
         'fleet.kit_published' => 'Console: a new version of the shared design kit was published for the fleet (Fleet\\Kit).',
         'fleet.kit_received' => 'A shared design kit from the fleet console arrived as drafts (the version and what it carried) – the look draft and component drafts wait for a person to publish them.',
         'fleet.kit_refused' => 'A shared design kit from the fleet console was refused (a bad signature or hash, too large) – nothing changed.',

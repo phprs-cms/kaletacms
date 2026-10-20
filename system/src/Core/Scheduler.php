@@ -53,6 +53,11 @@ final class Scheduler
         'updates' => [0, 'any', 'Updates'],
         'heartbeat' => [3600, 'any', 'Report to the fleet console'],
         'fleet_uptime' => [300, 'any', 'Fleet console: are the sites up'],
+        // 3.17: what the console remembers and tells (Fleet\History, AlertRules, Digest, Report) – after the uptime check
+        'fleet_history' => [3600, 'any', 'Fleet console: the day of each site recorded, 400 days kept'],
+        'fleet_alerts' => [300, 'any', 'Fleet console: alert e-mails by the rules'],
+        'fleet_digest' => [3600, 'any', 'Fleet console: the weekly digest on Monday'],
+        'fleet_reports' => [3600, 'any', 'Fleet console: the monthly report per customer'],
         'monthly_report' => [3600, 'any', 'Monthly report by e-mail'],
         'cookie_scan' => [86400, 'cron', 'What cookies the site sets'],
         'whistleblowing' => [86400, 'any', 'Whistleblowing: due deadlines and the retention of closed cases'],
@@ -145,6 +150,10 @@ final class Scheduler
             'updates' => fn (App $app): string => Updater::runInBackground($app), // keeps its own 12-hour pace
             'heartbeat' => fn (App $app): string => \Kaleta\Fleet\Link::send($app),
             'fleet_uptime' => fn (App $app): string => \Kaleta\Fleet\Console::checkUptime($app),
+            'fleet_history' => fn (App $app): string => \Kaleta\Fleet\History::run($app),
+            'fleet_alerts' => fn (App $app): string => \Kaleta\Fleet\AlertRules::run($app),
+            'fleet_digest' => fn (App $app): string => \Kaleta\Fleet\Digest::runIfDue($app),
+            'fleet_reports' => fn (App $app): string => \Kaleta\Fleet\Report::runIfDue($app),
             'report_archive' => fn (App $app): string => ReportArchive::runIfDue($app),
             'monthly_report' => fn (App $app): string => MonthlyReport::runIfDue($app),
             'cookie_scan' => function (App $app): string {
@@ -219,7 +228,7 @@ final class Scheduler
     {
         return match ($name) {
             'heartbeat' => \Kaleta\Fleet\Link::isPaired($s),
-            'fleet_uptime' => Extensions::isEnabled($s, 'fleet'),
+            'fleet_uptime', 'fleet_history', 'fleet_alerts', 'fleet_digest', 'fleet_reports' => Extensions::isEnabled($s, 'fleet'),
             default => true,
         };
     }
