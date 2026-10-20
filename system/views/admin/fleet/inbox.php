@@ -76,8 +76,8 @@ $filtered = $kind !== '' || $filters['site'] > 0 || $filters['customer'] > 0 || 
 <?php foreach ($rows as $r): ?>
 <tr>
 	<td><?php if ($r['title'] !== null): ?><strong><?= e($r['title'] !== '' ? $r['title'] : t('(untitled)')) ?></strong><br><span class="smltxt"><?= e(t(Inbox::label($r))) ?> · <?= e(t(Requests::STATUSES[$r['status']] ?? (string) $r['status'])) ?></span>
-	<?php elseif ($r['expires'] !== null || $r['days'] !== null): ?><strong><?= e(t(Inbox::label($r))) ?></strong><br><span class="smltxt"><?= e($r['expires'] !== null ? t('on %s', format_date(new DateTimeImmutable((string) $r['expires']))) . ' · ' : '') ?><?= e((int) $r['days'] < 0 ? t('expired') : t('in %d days', (int) $r['days'])) ?></span>
-	<?php else: ?><strong><?= e(t(Inbox::label($r))) ?></strong><?= $r['count'] !== null ? ': ' . (int) $r['count'] : '' ?><?php endif ?></td>
+	<?php elseif ($r['expires'] !== null || $r['days'] !== null): ?><strong><?= e(t(Inbox::label($r))) ?></strong><br><span class="smltxt"><?= e($r['expires'] !== null ? t('on %s', format_date(new DateTimeImmutable((string) $r['expires']))) . ' · ' : '') ?><?= e(is_int($r['days']) && $r['days'] < 0 ? t('expired') : t('in %d days', is_int($r['days']) ? $r['days'] : 0)) ?></span>
+	<?php else: ?><strong><?= e(t(Inbox::label($r))) ?></strong><?= is_int($r['count']) ? ': ' . max(0, $r['count']) : '' ?><?php endif ?></td>
 	<td data-popisek="<?= e(t('Site')) ?>"><a href="<?= e($module->url('detail', ['id' => $r['site_id']])) ?>"><?= e($r['site']) ?></a><?php if ($r['customer'] !== null): ?><br><span class="smltxt"><?= e($r['customer']) ?></span><?php endif ?>
 	<?php if ($r['stale']): ?><br><span class="stitek" title="<?= e(t('The last report of the site is older than 26 hours – this may be out of date.')) ?>"><?= e(t('possibly out of date')) ?></span><?php endif ?></td>
 	<td data-popisek="<?= e(t('Since')) ?>"><?= $r['since'] !== null ? e($moment($r['since'])) . ' <span class="smltxt">(' . e($age($r['since'])) . ')</span>' : '–' ?></td>

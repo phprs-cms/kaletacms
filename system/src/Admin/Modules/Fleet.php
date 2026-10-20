@@ -312,6 +312,10 @@ final class Fleet extends Module
             return $this->back('This month is not in the archive.', 'reports', [], 'chyba');
         }
         $start = $rebuild ? new \DateTimeImmutable($month . '-01') : \Kaleta\Core\MonthlyReport::previousMonth(new \DateTimeImmutable());
+        // only a month that has ended and that the console keeps history of (N317-6) – never a future or an empty one
+        if (!Report::buildable($this->db, $start->format('Y-m'), new \DateTimeImmutable())) {
+            return $this->back(t('The console can make a report only for a month that has ended and that it keeps the history of (%s).', \Kaleta\Core\ReportPage::monthName($start->format('Y-m'))), 'reports', [], 'chyba');
+        }
         $count = Report::store($this->app, $start, $rebuild);
         ChangeLog::write($this->app, 'fleet', $rebuild ? 'report_rebuild' : 'report_build', $start->format('Y-m') . ': ' . $count);
 
@@ -363,8 +367,6 @@ final class Fleet extends Module
         if ($row === null) {
             return null;
         }
-        $beat = json_decode((string) ($row['heartbeat'] ?? ''), true);
-
-        return $row + Console::attention($row, time()) + ['beat' => is_array($beat) ? $beat : []];
+        return $row + Console::attention($row, time()) + ['beat' => Console::storedBeat($row)];
     }
 }

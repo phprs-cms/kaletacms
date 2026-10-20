@@ -96,12 +96,13 @@ final class Inbox
         $beat = json_decode((string) ($site['heartbeat'] ?? ''), true);
         $beat = is_array($beat) ? $beat : [];
         $url = rtrim((string) ($site['url'] ?? ''), '/');
-        $url = preg_match('~^https?://[^\s/?#]+(/[^\s?#]*)?$~iD', $url) === 1 ? $url : '';
+        $url = Console::url($url) ?? '';
         $admin = $url !== '' ? $url . '/admin.php' : '';
         $lastSeen = self::time($site['last_seen'] ?? null);
         $stale = $lastSeen === null || $now - $lastSeen > self::STALE_AFTER;
         $customerId = isset($site['customer_id']) && (int) $site['customer_id'] > 0 ? (int) $site['customer_id'] : null;
-        $base = ['site_id' => (int) $site['id'], 'site' => (string) ($site['name'] ?? '') !== '' ? (string) $site['name'] : $url, 'url' => $url,
+        $name = Console::oneLine($site['name'] ?? '', Console::NAME_LENGTH);
+        $base = ['site_id' => (int) $site['id'], 'site' => $name !== '' ? $name : $url, 'url' => $url,
             'customer_id' => $customerId, 'customer' => $customerId !== null ? ($customers[$customerId] ?? null) : null];
         $rows = [];
         $add = function (string $kind, string $what, string $urgency, string $path, array $extra = []) use (&$rows, $base, $admin, $stale): void {
@@ -122,19 +123,19 @@ final class Inbox
         if (!empty($beat['update_problem'])) {
             $add('updates', 'update_failed', 'urgent', '?module=settings&tab=backups');
         }
-        $security = is_array($beat['security_7_days'] ?? null) ? $beat['security_7_days'] : [];
+        $security = Console::part($beat, 'security_7_days');
         if (self::count($security['failed_sign_ins'] ?? null) >= $limit('security_spike')) {
             $add('security', 'sign_in_attacks', 'urgent', '?module=settings&tab=firewall', ['count' => self::count($security['failed_sign_ins'])]);
         }
-        if (self::count($security['events']['security.token_reuse'] ?? null) > 0) {
-            $add('security', 'token_reuse', 'urgent', '?module=status', ['count' => self::count($security['events']['security.token_reuse'])]);
+        if (self::count(Console::part($security, 'events')['security.token_reuse'] ?? null) > 0) {
+            $add('security', 'token_reuse', 'urgent', '?module=status', ['count' => self::count(Console::part($security, 'events')['security.token_reuse'])]);
         }
-        $watch = is_array($beat['domain_watch'] ?? null) && empty($beat['domain_watch']['local']) ? $beat['domain_watch'] : [];
+        $watch = empty(Console::part($beat, 'domain_watch')['local']) ? Console::part($beat, 'domain_watch') : [];
         foreach (['certificate', 'domain'] as $part) {
             $days = Console::daysLeft($watch[$part] ?? null, $now);
             if ($days !== null && $days < $limit($part)) {
                 $add('expiry', $part . '_expiring', $days < self::URGENT_DAYS ? 'urgent' : 'normal', '?module=status',
-                    ['expires' => Console::date($watch[$part]['expires'] ?? null)?->format('Y-m-d'), 'days' => $days]);
+                    ['expires' => Console::date(Console::part($watch, $part)['expires'] ?? null)?->format('Y-m-d'), 'days' => $days]);
             }
         }
         if (($site['status'] ?? '') === 'error') {
@@ -143,15 +144,16 @@ final class Inbox
         if (is_array($beat['jobs_failing'] ?? null) && $beat['jobs_failing'] !== []) {
             $add('health', 'jobs_failing', 'normal', '?module=status', ['count' => count($beat['jobs_failing'])]);
         }
-        if (empty($beat['last_backup']) || $now - (int) $beat['last_backup'] > 8 * 86400) {
-            $add('health', 'no_backup', 'normal', '?module=settings&tab=backups', ['since' => is_int($beat['last_backup'] ?? null) && $beat['last_backup'] > 0 ? $beat['last_backup'] : null]);
+        $backup = Console::unixTime($beat['last_backup'] ?? null);
+        if ($now - ($backup ?? 0) > 8 * 86400) {
+            $add('health', 'no_backup', 'normal', '?module=settings&tab=backups', ['since' => $backup !== null && $backup > 0 ? $backup : null]);
         }
 
         // what waits for people (3.16): requests to Claude – with their titles when the site shares them
         $requests = is_array($beat['requests'] ?? null) ? $beat['requests'] : null;
         if ($requests !== null && is_array($requests['items'] ?? null)) {
             foreach ($requests['items'] as $item) {
-                if (!is_array($item) || self::count($item['id'] ?? null) === 0 || !isset(\Kaleta\Core\Requests::STATUSES[$item['status'] ?? ''])) {
+                if (!is_array($item) || self::count($item['id'] ?? null) === 0 || !is_string($item['status'] ?? null) || !isset(\Kaleta\Core\Requests::STATUSES[$item['status']])) {
                     continue;
                 }
                 $done = $item['status'] === 'done';
@@ -163,7 +165,7 @@ final class Inbox
         } elseif ($requests !== null) {
             $open = self::count($requests['new'] ?? null) + self::count($requests['in_progress'] ?? null);
             if ($open > 0) {
-                $hours = is_int($requests['oldest_waiting_hours'] ?? null) ? $requests['oldest_waiting_hours'] : null;
+                $hours = Console::count($requests['oldest_waiting_hours'] ?? null);
                 $add('requests', 'requests_open', $hours !== null && $hours > $limit('requests_waiting') ? 'urgent' : 'normal', '?module=requests',
                     ['count' => $open, 'since' => $hours !== null && $lastSeen !== null ? $lastSeen - $hours * 3600 : null]);
             }
@@ -184,7 +186,7 @@ final class Inbox
                 $add('review', (string) $kind, $kind === 'staged_media' ? 'normal' : 'low', '?' . self::query(PendingReview::URLS[$kind]), ['count' => self::count($n)]);
             }
         }
-        if (is_array($beat['audit'] ?? null) && ($findings = array_sum(array_map(self::count(...), $beat['audit']))) > 0) {
+        if (($findings = Console::total($beat['audit'] ?? null)) > 0) {
             $add('audit', 'audit', 'low', '?module=audit', ['count' => $findings]);
         }
 
@@ -255,10 +257,10 @@ final class Inbox
         return $rows;
     }
 
-    /** A non-negative count from a heartbeat (anything else is 0). */
+    /** A non-negative count from a heartbeat, at most Console::count's bound (anything else is 0, N317-1). */
     private static function count(mixed $n): int
     {
-        return is_int($n) && $n > 0 ? $n : 0;
+        return Console::count($n) ?? 0;
     }
 
     /** A Unix time from a DATETIME column or an ISO 8601 moment, null for anything else. */

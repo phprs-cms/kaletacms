@@ -71,14 +71,15 @@ final class Digest
             $beat = $site['beat'];
             $requests = is_array($beat['requests'] ?? null) ? $beat['requests'] : null;
             $days = History::days($db, $id, $from->format('Y-m-d'), $to->modify('-1 day')->format('Y-m-d'));
+            $count = static fn (mixed $n): int => Console::count($n) ?? 0; // bounded counts only (N317-1)
             $sites[] = [
-                'id' => $id, 'customer_id' => Console::customerIdOf($site), 'name' => (string) $site['name'], 'url' => (string) $site['url'], 'reasons' => $site['reasons'],
+                'id' => $id, 'customer_id' => Console::customerIdOf($site), 'name' => (string) $site['name'], 'url' => Console::url((string) $site['url']) ?? '', 'reasons' => $site['reasons'],
                 'enquiries' => Console::enquiriesWaiting($beat),
-                'requests' => $requests === null ? null : ['new' => (int) $requests['new'], 'in_progress' => (int) $requests['in_progress'], 'done_to_review' => (int) $requests['done_to_review']],
-                'request_titles' => array_values(array_map(fn (array $item): string => (string) $item['title'],
+                'requests' => $requests === null ? null : ['new' => $count($requests['new'] ?? null), 'in_progress' => $count($requests['in_progress'] ?? null), 'done_to_review' => $count($requests['done_to_review'] ?? null)],
+                'request_titles' => array_values(array_map(fn (array $item): string => is_string($item['title'] ?? null) ? $item['title'] : '',
                     array_filter(is_array($requests['items'] ?? null) ? $requests['items'] : [], fn (mixed $item): bool => is_array($item) && in_array($item['status'] ?? '', ['new', 'in_progress'], true)))),
-                'review' => is_array($beat['pending_review'] ?? null) ? (int) array_sum(array_filter($beat['pending_review'], 'is_int')) : null,
-                'bookings' => is_int($beat['bookings_pending'] ?? null) ? $beat['bookings_pending'] : null,
+                'review' => is_array($beat['pending_review'] ?? null) ? Console::total($beat['pending_review']) : null,
+                'bookings' => Console::count($beat['bookings_pending'] ?? null),
                 'uptime' => History::uptime($days),
                 'incidents' => History::incidents($db, $id, $from->format('Y-m-d H:i:s'), $to->format('Y-m-d H:i:s'), $now),
                 'versions' => History::versions($db, $id, $from->format('Y-m-d H:i:s'), $to->format('Y-m-d H:i:s')),
@@ -104,14 +105,17 @@ final class Digest
             $lines = [t('The week of your sites, %s.', $period), $needing === 0 ? t('No site needs attention.') : t('%d of %d sites need attention.', $needing, count($sites)), ''];
             foreach ($data['customers'] as ['id' => $customerId, 'name' => $customer, 'sites' => $customerSites]) {
                 if (count($data['customers']) > 1 || $customerId > 0) {
-                    $lines[] = '== ' . ($customerId > 0 ? $customer : t('Sites without a customer')) . ' ==';
+                    $lines[] = '== ' . ($customerId > 0 ? Console::oneLine($customer, Customers::NAME_LENGTH) : t('Sites without a customer')) . ' ==';
                     if ($customerId > 0) {
                         $lines[] = t('What waits on these sites:') . ' ' . $consoleUrl . '/admin.php?module=fleet&customer=' . $customerId;
                     }
                     $lines[] = '';
                 }
                 foreach ($customerSites as $site) {
-                    $lines[] = ($site['name'] !== '' ? $site['name'] . ' – ' : '') . $site['url'];
+                    // what the sites sent – names, addresses, request titles – on one line each (N317-2)
+                    $name = Console::oneLine($site['name'], Console::NAME_LENGTH);
+                    $url = Console::oneLine($site['url'], 255);
+                    $lines[] = ($name !== '' ? $name . ' – ' : '') . $url;
                     $lines[] = '  ' . ($site['reasons'] === [] ? t('Nothing needs attention.') : t('Needs attention:') . ' ' . implode(', ', array_map(fn (string $r): string => $labels[$r] ?? $r, $site['reasons'])));
                     $waits = array_filter([
                         $site['enquiries'] !== null && $site['enquiries'] > 0 ? t('%d enquiries waiting', $site['enquiries']) : null,
@@ -123,7 +127,7 @@ final class Digest
                     $lines[] = '  ' . t('Waiting:') . ' ' . ($waits === [] ? t('nothing') : implode(', ', $waits));
                     if ($titles) {
                         foreach (array_slice($site['request_titles'], 0, 10) as $title) {
-                            $lines[] = '    · ' . $title;
+                            $lines[] = '    · ' . Console::oneLine($title, Heartbeat::TITLE_LENGTH);
                         }
                     }
                     $uptime = $site['uptime']['percent'] === null ? t('not measured') : format_number($site['uptime']['percent'], 2) . ' %';
@@ -133,7 +137,9 @@ final class Digest
                         $lines[] = '  ' . t('Updated to %s', implode(', ', array_column($site['versions'], 'version')));
                     }
                     $lines[] = '  ' . $consoleUrl . '/admin.php?module=fleet&action=detail&id=' . $site['id'];
-                    $lines[] = '  ' . rtrim($site['url'], '/') . '/admin.php';
+                    if ($url !== '') {
+                        $lines[] = '  ' . rtrim($url, '/') . '/admin.php';
+                    }
                     $lines[] = '';
                 }
             }

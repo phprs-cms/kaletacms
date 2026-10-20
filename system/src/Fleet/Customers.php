@@ -69,6 +69,16 @@ final class Customers
             return (int) $id;
         }
         self::$cache = [];
+        // a new customer never gets the id of a forgotten one whose fleet reports are archived (N317-9): a server that hands
+        // out an AUTO_INCREMENT value again after a restart (MySQL 5.7) would give it that customer's reports
+        $archived = (int) $db->value('SELECT COALESCE(MAX(customer_id), 0) FROM {fleet_reports}');
+        $last = (int) $db->value('SELECT COALESCE(MAX(id), 0) FROM {fleet_customers}');
+
+        if ($archived > $last) {
+            $db->insert('fleet_customers', ['id' => $archived + 1, 'name' => $name]);
+
+            return $archived + 1;
+        }
 
         return $db->insert('fleet_customers', ['name' => $name]);
     }

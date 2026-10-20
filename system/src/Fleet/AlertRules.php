@@ -139,22 +139,26 @@ final class AlertRules
         if ($on('site_silent') && $now - $since > $limit('site_silent') * 3600) {
             $out[] = ['kind' => 'site_silent', 'detail' => $seen !== null ? 'last report ' . substr((string) $seen, 0, 16) : 'no report yet'];
         }
+        // every value of the stored heartbeat read through Console's bounds (N317-1): a site's odd report never stops the rules
+        $watch = Console::part($beat, 'domain_watch');
         foreach (['certificate' => 'certificate', 'domain' => 'domain'] as $kind => $part) {
-            $days = Console::daysLeft($beat['domain_watch'][$part] ?? null, $now);
-            if ($on($kind) && empty($beat['domain_watch']['local']) && $days !== null && $days < $limit($kind)) {
+            $days = Console::daysLeft($watch[$part] ?? null, $now);
+            if ($on($kind) && empty($watch['local']) && $days !== null && $days < $limit($kind)) {
                 $out[] = ['kind' => $kind, 'detail' => $days < 0 ? 'ended' : $days . ' days left'];
             }
         }
         if ($on('update_failed') && !empty($beat['update_problem'])) {
-            $out[] = ['kind' => 'update_failed', 'detail' => mb_substr((string) $beat['update_problem'], 0, 120)];
+            // the site's own words, on one line (N317-2): it must not write lines of its own into the e-mail
+            $out[] = ['kind' => 'update_failed', 'detail' => Console::oneLine($beat['update_problem'], 120)];
         }
-        $failed = (int) ($beat['security_7_days']['failed_sign_ins'] ?? 0);
-        $reuse = (int) ($beat['security_7_days']['events']['security.token_reuse'] ?? 0);
+        $security = Console::part($beat, 'security_7_days');
+        $failed = Console::count($security['failed_sign_ins'] ?? null) ?? 0;
+        $reuse = Console::count(Console::part($security, 'events')['security.token_reuse'] ?? null) ?? 0;
         if ($on('security_spike') && ($failed >= $limit('security_spike') || $reuse > 0)) {
             $out[] = ['kind' => 'security_spike', 'detail' => $failed . ' failed sign-ins in 7 days' . ($reuse > 0 ? ', a reused token' : '')];
         }
-        $waiting = $beat['requests']['oldest_waiting_hours'] ?? null;
-        if ($on('requests_waiting') && is_int($waiting) && $waiting > $limit('requests_waiting')) {
+        $waiting = Console::count(Console::part($beat, 'requests')['oldest_waiting_hours'] ?? null);
+        if ($on('requests_waiting') && $waiting !== null && $waiting > $limit('requests_waiting')) {
             $out[] = ['kind' => 'requests_waiting', 'detail' => 'the oldest waits ' . $waiting . ' hours'];
         }
 
@@ -191,7 +195,10 @@ final class AlertRules
         return $out;
     }
 
-    /** The background job fleet_alerts: one e-mail with what matches and was not sent within the quiet hours. */
+    /**
+     * The background job fleet_alerts: one e-mail with what matches and was not sent within the quiet hours. A site whose
+     * rules fail is logged and skipped (3.17, N317-1) – the alerts of every other site, "site down" too, still go out.
+     */
     public static function run(App $app): string
     {
         $s = $app->settings();
@@ -205,8 +212,12 @@ final class AlertRules
         $names = [];
         foreach (Console::sites($db) as $site) {
             $names[(int) $site['id']] = $site;
-            foreach (self::matches($site, $rules, $now) as $match) {
-                $alerts[] = ['site' => (int) $site['id']] + $match;
+            try {
+                foreach (self::matches($site, $rules, $now) as $match) {
+                    $alerts[] = ['site' => (int) $site['id']] + $match;
+                }
+            } catch (\Throwable $e) {
+                error_log('Fleet alerts: site ' . (int) $site['id'] . ' – ' . $e->getMessage());
             }
         }
         $quietHours = self::quietHours($s);
@@ -224,7 +235,7 @@ final class AlertRules
         }
         foreach ($alerts as $alert) {
             $site = $names[$alert['site']];
-            Events::record($db, 'fleet.alert_sent', 'info', t('Alert sent: %s – %s.', (string) $site['url'], t(self::KINDS[$alert['kind']][2])), ['site' => $alert['site'], 'kind' => $alert['kind']]);
+            Events::record($db, 'fleet.alert_sent', 'info', t('Alert sent: %s – %s.', Console::oneLine($site['url'], 255), t(self::KINDS[$alert['kind']][2])), ['site' => $alert['site'], 'kind' => $alert['kind']]);
         }
 
         return 'sent ' . count($alerts);
@@ -247,9 +258,12 @@ final class AlertRules
             $lines = [];
             foreach ($bySite as $id => $siteAlerts) {
                 $site = $sites[$id] ?? ['name' => '', 'url' => ''];
-                $lines[] = ((string) $site['name'] !== '' ? (string) $site['name'] . ' – ' : '') . (string) $site['url'];
+                // what the site sent – its name, its address, its update message – on one line each (N317-2)
+                $name = Console::oneLine($site['name'] ?? '', Console::NAME_LENGTH);
+                $lines[] = ($name !== '' ? $name . ' – ' : '') . Console::oneLine($site['url'] ?? '', 255);
                 foreach ($siteAlerts as $alert) {
-                    $lines[] = '  – ' . t(self::KINDS[$alert['kind']][2]) . ': ' . self::detail($alert['detail']);
+                    $detail = Console::oneLine(self::detail($alert['detail']), 200);
+                    $lines[] = '  – ' . t(self::KINDS[$alert['kind']][2]) . ($detail !== '' ? ': ' . $detail : '');
                 }
                 $lines[] = '  ' . $consoleUrl . '/admin.php?module=fleet&action=detail&id=' . $id;
                 $lines[] = '';

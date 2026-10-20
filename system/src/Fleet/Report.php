@@ -157,7 +157,8 @@ final class Report
     }
 
     /**
-     * Builds and stores a month for every customer. A stored one stays unless $rebuild. Returns how many were stored.
+     * Builds and stores a month for every customer. A stored one stays unless $rebuild. Returns how many were stored. A
+     * customer whose report fails is logged and skipped (3.17, N317-1) – the customers after it still get theirs.
      */
     public static function store(App $app, \DateTimeImmutable $monthStart, bool $rebuild = false): int
     {
@@ -168,19 +169,47 @@ final class Report
             if (!$rebuild && self::get($db, $month, $customerId) !== null) {
                 continue;
             }
-            $data = Language::runWith(Language::defaults($app->settings()), fn (): array => self::build($db, $monthStart, $customerId, $customer, $sites, time()), 'admin-');
-            $json = (string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR);
-            $now = Clock::now();
-            if ($rebuild) {
-                $db->run('INSERT INTO {fleet_reports} (month, customer_id, customer, created_at, rebuilt_at, schema_version, data) VALUES (?, ?, ?, ?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE customer = ?, rebuilt_at = ?, schema_version = ?, data = ?', [$month, $customerId, $customer, $now, $now, self::SCHEMA, $json, $customer, $now, self::SCHEMA, $json]);
-            } else {
-                $db->run('INSERT IGNORE INTO {fleet_reports} (month, customer_id, customer, created_at, schema_version, data) VALUES (?, ?, ?, ?, ?, ?)', [$month, $customerId, $customer, $now, self::SCHEMA, $json]);
+            try {
+                $data = Language::runWith(Language::defaults($app->settings()), fn (): array => self::build($db, $monthStart, $customerId, $customer, $sites, time()), 'admin-');
+                $json = (string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR);
+                $now = Clock::now();
+                if ($rebuild) {
+                    $db->run('INSERT INTO {fleet_reports} (month, customer_id, customer, created_at, rebuilt_at, schema_version, data) VALUES (?, ?, ?, ?, ?, ?, ?)
+                        ON DUPLICATE KEY UPDATE customer = ?, rebuilt_at = ?, schema_version = ?, data = ?', [$month, $customerId, $customer, $now, $now, self::SCHEMA, $json, $customer, $now, self::SCHEMA, $json]);
+                } else {
+                    $db->run('INSERT IGNORE INTO {fleet_reports} (month, customer_id, customer, created_at, schema_version, data) VALUES (?, ?, ?, ?, ?, ?)', [$month, $customerId, $customer, $now, self::SCHEMA, $json]);
+                }
+                $count++;
+            } catch (\Throwable $e) {
+                error_log('Fleet report: ' . $month . ', customer ' . $customerId . ' – ' . $e->getMessage());
             }
-            $count++;
         }
 
         return $count;
+    }
+
+    /**
+     * Whether a month may be made or rebuilt (3.17, N317-6): a month that has ended – never the current or a future one –
+     * and of which the console keeps history (a month before 3.17, before the first site or older than History::KEEP_DAYS
+     * is not made up, and a stored report of it is not replaced by an empty one).
+     */
+    public static function buildable(Db $db, string $month, \DateTimeImmutable $now): bool
+    {
+        return self::monthEnded($month, $now) && self::hasHistory($db, $month);
+    }
+
+    /** A YYYY-MM month that has ended at $now: the previous month or an older one. Pure. */
+    public static function monthEnded(string $month, \DateTimeImmutable $now): bool
+    {
+        return preg_match(\Kaleta\Core\ReportArchive::MONTH_PATTERN, $month) === 1 && $month <= MonthlyReport::previousMonth($now)->format('Y-m');
+    }
+
+    /** Whether the console keeps a day of any site in a YYYY-MM month (ka_fleet_history). */
+    public static function hasHistory(Db $db, string $month): bool
+    {
+        $start = new \DateTimeImmutable($month . '-01');
+
+        return $db->value('SELECT 1 FROM {fleet_history} WHERE day >= ? AND day < ? LIMIT 1', [$start->format('Y-m-d'), $start->modify('first day of next month')->format('Y-m-d')]) !== null;
     }
 
     /**
@@ -255,7 +284,7 @@ final class Report
             return 'stored already' . $suffix;
         }
         // a month the console has no history of (before 3.17, or before the first site) is not made up
-        if ($db->value('SELECT 1 FROM {fleet_history} WHERE day >= ? AND day < ? LIMIT 1', [$month->format('Y-m-d'), $month->modify('first day of next month')->format('Y-m-d')]) === null) {
+        if (!self::hasHistory($db, $month->format('Y-m'))) {
             return 'no history' . $suffix;
         }
 

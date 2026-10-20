@@ -3686,6 +3686,19 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&a
 SUMMARY317=$(sq3 "SELECT CONCAT(JSON_UNQUOTE(JSON_EXTRACT(heartbeat, '\$.report_summary.month')), '|', JSON_EXTRACT(heartbeat, '\$.report_summary.visits'), '|', JSON_EXTRACT(heartbeat, '\$.report_summary.changes_claude'), '|', heartbeat LIKE '%Secret title 317%', '|', heartbeat LIKE '%Kontakt%') FROM ka_fleet_sites WHERE id = $FLEET_ID")
 expect "report_summary: the heartbeat carries the counts of the site's last archived month – no titles, no forms" "$SUMMARY317" "$PREV317|4321|9|0|0"
 [ "$SUMMARY317" = "$PREV317|4321|9|0|0" ] || echo "         (the site's last error: $(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_last_error'"); its archive: $(sq "SELECT CONCAT(month, ' ', LEFT(data, 60)) FROM ka_monthly_reports ORDER BY month DESC LIMIT 1"))"
+# N317-5: a site's administrator changes its address – the console follows it and says so on the site's page
+SITE_URL317=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_url'")
+sq "UPDATE ka_nastaveni SET hodnota = 'http://localhost:$PORT' WHERE promenna = 'site_url'" > /dev/null
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"; sleep 1
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_send" -d "_csrf=$(csrf)"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=detail&id=$FLEET_ID"
+expect "N317-5: a new address from the site – the console follows it and records it on the site's page (from, to)" \
+  "$(sq3 "SELECT url FROM ka_fleet_sites WHERE id = $FLEET_ID")|$(sq3 "SELECT CONCAT(COUNT(*), '|', MAX(severity), '|', MAX(JSON_UNQUOTE(JSON_EXTRACT(data, '\$.from'))), '|', MAX(JSON_UNQUOTE(JSON_EXTRACT(data, '\$.to')))) FROM ka_events WHERE type = 'fleet.site_url_changed' AND JSON_EXTRACT(data, '\$.site') = $FLEET_ID")|$(grep -cE "address changed from $SITE_URL317 to http://localhost:$PORT|Adresa webu se změnila z $SITE_URL317 na http://localhost:$PORT" "$WORK/response")" \
+  "http://localhost:$PORT|1|warning|$SITE_URL317|http://localhost:$PORT|1"
+sq "UPDATE ka_nastaveni SET hodnota = '$SITE_URL317' WHERE promenna = 'site_url'" > /dev/null
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"; sleep 1
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_send" -d "_csrf=$(csrf)"
+expect "N317-5: the address back – one more event, the same address does not record one" "$(sq3 "SELECT url FROM ka_fleet_sites WHERE id = $FLEET_ID")|$(sq3 "SELECT COUNT(*) FROM ka_events WHERE type = 'fleet.site_url_changed'")" "$SITE_URL317|2"
 # the console's jobs run from its cron: the day's state from the stored heartbeat, the alerts by the rules
 SMTP_PORT=$((PORT + 3)); mkdir -p "$WORK/smtp317"
 command php "$ROOT/tools/fake-smtp.php" "$SMTP_PORT" "$WORK/smtp317" > /dev/null 2>&1 & SMTP_PID=$!
@@ -3710,6 +3723,29 @@ expect "alert rules: the owner's threshold (24 hours) sends one e-mail with a pl
 sq3 "DELETE FROM ka_jobs WHERE name = 'fleet_alerts'" > /dev/null
 curl -s -o /dev/null "$B3/tasks?token=contoken317"
 expect "alert rules: within the quiet hours the same alert for the same site is not sent again" "$(ls "$WORK"/smtp317/*.eml 2>/dev/null | wc -l | tr -d ' ')|$(sq3 "SELECT COUNT(*) FROM ka_events WHERE type = 'fleet.alert_sent'")" "1|1"
+# N317-1/-2: a heartbeat stored before 3.17's bounds (any value a modified site sent) – first by name – and a site that is down after it:
+# the day's rows, the alerts of the other site, the inbox, the list, the site's page and the digest all go on; its name stays on one line in the e-mail
+HOSTILE317='{"audit":{"x":9223372036854775807,"y":[1],"z":-7},"update_problem":["x"],"enquiries_unanswered":-1,"visits_7_days":9223372036854775807,"last_backup":1e300,"requests":{"new":1e300,"items":[{"id":1,"status":["x"]}]},"security_7_days":"x","domain_watch":{"certificate":"x"},"problems":"x","jobs_failing":[["x"]]}'
+sq3 "INSERT INTO ka_fleet_sites (name, url, public_key, paired_at, last_seen, version, version_since, manage_updates, up, heartbeat) VALUES
+  ('0 Hostile317\\nSIGN IN at http://evil317.test', 'http://hostile317.test', 'hostile317key', '$(site_time)', '$(site_time)', '3.17.0', '$(site_time)', 0, 1, '$HOSTILE317'),
+  ('Z Down317', 'http://down317.test', 'down317key', '$(site_time)', '$(site_time)', '3.17.0', '$(site_time)', 0, 0, '{\"last_backup\":$(date +%s),\"cron_last_run\":$(date +%s)}')" > /dev/null
+HOSTILE_ID317=$(sq3 "SELECT id FROM ka_fleet_sites WHERE public_key = 'hostile317key'"); DOWN_ID317=$(sq3 "SELECT id FROM ka_fleet_sites WHERE public_key = 'down317key'")
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=alerts"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=alerts_save" -d "_csrf=$(csrf)" -d on_site_down=1 -d on_site_silent=1 -d on_update_failed=1 -d on_requests_waiting=1 -d threshold_requests_waiting=24 \
+  -d threshold_site_silent=26 -d fleet_alert_recipients=owner317@agency.example -d fleet_alert_quiet_hours=24
+sq3 "DELETE FROM ka_jobs WHERE name IN ('fleet_history', 'fleet_alerts')" > /dev/null
+TASKS317=$(curl -s "$B3/tasks?token=contoken317")
+F=$(ls -t "$WORK"/smtp317/*.eml 2>/dev/null | head -1); : > "$WORK/eml.txt"; [ -n "$F" ] && eml "$F" > "$WORK/eml.txt"
+expect "N317-1: a hostile stored heartbeat stops neither the day's rows (bounded) nor the other site's alert; the jobs report no failure" \
+  "$(sq3 "SELECT CONCAT(COUNT(*), '|', COALESCE(MAX(IF(site_id = $HOSTILE_ID317, CONCAT(audit_total, '/', enquiries_new, '/', COALESCE(requests_open, '-')), NULL)), '-')) FROM ka_fleet_history WHERE site_id IN ($HOSTILE_ID317, $DOWN_ID317) AND day = '$(site_time now Y-m-d)'")|$(ls "$WORK"/smtp317/*.eml 2>/dev/null | wc -l | tr -d ' ')|$(grep -c "^Z Down317 – http://down317.test" "$WORK/eml.txt")|$(sq3 "SELECT COUNT(*) FROM ka_events WHERE type = 'fleet.alert_sent' AND JSON_EXTRACT(data, '\$.site') IN ($HOSTILE_ID317, $DOWN_ID317)")|$(grep -oE 'fleet_history: recorded [0-9]+(, failed [0-9]+)?' <<< "$TASKS317")" \
+  "2|1000000/0/0|2|1|2|fleet_history: recorded 3"
+expect "N317-2: the site's name with a line break is one line in the alert e-mail – no line of its own" "$(grep -c '^SIGN IN' "$WORK/eml.txt")|$(grep -c '^0 Hostile317 SIGN IN at http://evil317.test – http://hostile317.test' "$WORK/eml.txt")" "0|1"
+CODES317=""
+for page317 in "" "&action=sites&show=all" "&action=detail&id=$HOSTILE_ID317" "&action=digest_preview"; do CODES317="$CODES317$(curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" -w '%{http_code}' "$B3/admin.php?module=fleet$page317")|"; done
+expect "N317-1: the inbox, the list of sites, the hostile site's page and the digest preview open" "$CODES317$(grep -c '0 Hostile317' "$WORK/response")" "200|200|200|200|1"
+curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fleet_inbox","arguments":{}}}' > "$WORK/response"
+contains -qF '0 Hostile317 SIGN IN' "$WORK/response" && ! contains -q '"isError":true' "$WORK/response" && echo "  ok     N317-1: MCP fleet_inbox answers with the hostile site in it" || { echo "  CHYBA  N317-1: MCP fleet_inbox"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+sq3 "DELETE FROM ka_fleet_history WHERE site_id IN ($HOSTILE_ID317, $DOWN_ID317); DELETE FROM ka_fleet_incidents WHERE site_id IN ($HOSTILE_ID317, $DOWN_ID317); DELETE FROM ka_fleet_sites WHERE id IN ($HOSTILE_ID317, $DOWN_ID317)" > /dev/null
 # the weekly digest: a preview with the saved settings; request titles stay out unless turned on
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=digest_preview"
 grep -qF "$B/admin.php" "$WORK/response" && grep -qF "module=fleet&amp;action=detail&amp;id=$FLEET_ID" "$WORK/response" && ! grep -q 'Fleet317 secret request' "$WORK/response" \
@@ -3746,6 +3782,10 @@ curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=f
 expect "fleet report: rebuilt from the history still kept on the administrator's request" "$(sq3 "SELECT CONCAT(COUNT(*), '|', MAX(rebuilt_at IS NOT NULL)) FROM ka_fleet_reports WHERE month = '$PREV317'")" "1|1"
 sq3 "DELETE FROM ka_jobs WHERE name = 'fleet_reports'" > /dev/null; TASKS317=$(curl -s "$B3/tasks?token=contoken317")
 expect "fleet report: the job does not make a stored month again" "$(sq3 "SELECT COUNT(*) FROM ka_fleet_reports")|$(grep -o 'fleet_reports: stored already' <<< "$TASKS317")" "1|fleet_reports: stored already"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=reports"
+for month317 in 2099-12 "$(site_time now Y-m)" 2020-01; do curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=report_build" -d "_csrf=$(csrf)" -d "month=$month317"; done
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=reports"
+expect "N317-6: no report of a future month, the current one or one without history – only the month that ended stays" "$(sq3 "SELECT GROUP_CONCAT(DISTINCT month) FROM ka_fleet_reports")|$(grep -q 'that has ended\|který skončil' "$WORK/response" && echo refused || echo silent)" "$PREV317|refused"
 curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fleet_report","arguments":{}}}' > "$WORK/response"
 contains -q "$PREV317" "$WORK/response" && contains -q 'kept_months' "$WORK/response" && echo "  ok     MCP fleet_report lists the stored months and customers" || { echo "  CHYBA  MCP fleet_report list"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"fleet_report\",\"arguments\":{\"month\":\"$PREV317\",\"customer\":\"\"}}}" > "$WORK/response"
@@ -3882,6 +3922,12 @@ curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=f
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"; sleep 1
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_send" -d "_csrf=$(csrf)"
 expect "a kit for this site's customer reaches it" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_kit_version'")" "$(sq3 "SELECT MAX(version) FROM ka_fleet_kits")"
+# N317-9: the archived reports of a forgotten customer (id 900 here) never pass to a new customer
+sq3 "INSERT INTO ka_fleet_reports (month, customer_id, customer, created_at, data) VALUES ('2020-01', 900, 'Forgotten 317', '$(site_time)', '{}')" > /dev/null
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=detail&id=$GAMMA317"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=customer" -d "_csrf=$(csrf)" -d "id=$GAMMA317" -d "customer=New 317" -d "note=Calls on Mondays"
+expect "N317-9: a new customer gets an id above every archived report's customer" "$(sq3 "SELECT id > 900 FROM ka_fleet_customers WHERE name = 'New 317'")" "1"
+sq3 "DELETE FROM ka_fleet_reports WHERE customer_id = 900" > /dev/null
 sq "DELETE FROM ka_requests WHERE title LIKE 'Fleet317%'" > /dev/null; sq3 "DELETE FROM ka_fleet_sites WHERE public_key IN ('beta317key', 'gamma317key')" > /dev/null
 # disconnecting tells the console; the used key does not pair again
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"

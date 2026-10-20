@@ -6247,4 +6247,7 @@ return [
     'then %s' => 'dříve %s', // 3.17 merge
     'What waits on these sites:' => 'Co na těchto webech čeká:', // 3.17 merge
     'The inbox uses the same thresholds – also for a rule that is off, which only sends no e-mail.' => 'Schránka používá stejné hranice – i u vypnutého pravidla, které jen neposílá e-mail.', // 3.17 merge
+    'The alert and digest e-mails cover every site in the console, of every customer – add only your own team\'s addresses.' => 'Upozornění i přehled se týkají všech webů v konzoli, všech zákazníků – přidejte jen adresy vlastního týmu.', // 3.17 security fixes
+    'The site\'s address changed from %s to %s.' => 'Adresa webu se změnila z %s na %s.', // 3.17 security fixes
+    'The console can make a report only for a month that has ended and that it keeps the history of (%s).' => 'Konzole umí udělat zprávu jen za měsíc, který skončil a jehož historii uchovává (%s).', // 3.17 security fixes
 ];

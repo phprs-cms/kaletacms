@@ -292,7 +292,7 @@ final class Kit
         $out = [];
         foreach (Console::sites($db) as $site) {
             $beat = json_decode((string) ($site['heartbeat'] ?? ''), true);
-            $out[(int) $site['id']] = is_array($beat) ? (int) ($beat['kit_version'] ?? 0) : 0;
+            $out[(int) $site['id']] = is_array($beat) ? Console::count($beat['kit_version'] ?? null) ?? 0 : 0;
         }
 
         return $out;

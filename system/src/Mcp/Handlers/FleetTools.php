@@ -59,13 +59,13 @@ trait FleetTools
             throw new \DomainException('The site is not in the console. Use list_sites.');
         }
         $attention = Console::attention($site, time());
-        $beat = json_decode((string) ($site['heartbeat'] ?? ''), true);
+        $beat = Console::storedBeat($site); // the stored report in its bounded shapes (N317-1)
         $trend = History::trend($this->app->db(), (int) $site['id'], time());
 
         return ['id' => (int) $site['id'], 'name' => (string) $site['name'], 'url' => (string) $site['url'], 'attention' => $attention['reasons'], 'score' => $attention['score'],
             'up' => $site['up'] === null ? null : (int) $site['up'] === 1, 'up_checked' => $site['up_checked'], 'last_report' => $site['last_seen'], 'paired' => $site['paired_at'],
             'ring' => (string) $site['ring'], 'console_decides_updates' => (int) $site['manage_updates'] === 1, 'update_allowed' => (string) $site['update_allowed'],
-            'kit_version' => is_array($beat) ? ($beat['kit_version'] ?? null) : null, 'report' => is_array($beat) ? $beat : null,
+            'kit_version' => $beat['kit_version'] ?? null, 'report' => $beat !== [] ? $beat : null,
             // 3.17: the console's own history of the site (Fleet\History)
             'trends' => ['uptime_this_month' => $trend['this_month'], 'uptime_last_month' => $trend['last_month'], 'outages_90_days' => $trend['incidents'], 'versions_90_days' => $trend['versions']],
             // 3.16 (N316-6): the titles and texts come from another installation, as list_requests marks its texts
@@ -110,7 +110,9 @@ trait FleetTools
         }
         $db = $this->app->db();
         $month = trim((string) ($a['month'] ?? ''));
-        $printUrl = fn (array $r): string => $this->app->request->origin() . $this->app->url('admin.php?module=fleet&action=report_view&month=' . $r['month'] . '&customer=' . $r['customer_id']);
+        // the console's address from its setting, not the Host header of the request (N317-8), as the admin's links
+        $printUrl = fn (array $r): string => rtrim($this->app->settings()->get('site_url') ?: $this->app->request->origin(), '/')
+            . $this->app->url('admin.php?module=fleet&action=report_view&month=' . $r['month'] . '&customer=' . $r['customer_id']);
         // a report keeps the name its customer had; a renamed customer is still the same one (its id)
         $names = Customers::names($db);
         $customerOf = fn (array $r): string => $names[$r['customer_id']] ?? $r['customer'];

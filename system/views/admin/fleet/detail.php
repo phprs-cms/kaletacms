@@ -24,7 +24,7 @@ $moment = fn (mixed $iso): string => is_string($iso) && ($m = date_create_immuta
 $day = fn (mixed $part): string => is_array($part) && ($expires = Console::date($part['expires'] ?? null)) !== null ? format_date($expires) . ' (' . t('%d days', (int) Console::daysLeft($part, time())) . ')'
     : (is_array($part) && !empty($part['error']) ? t('could not be checked') : t('unknown'));
 // the site sends machine names; the console shows them in its own language (N316-8)
-$counts = fn (array $map, array $labels): string => implode(', ', array_map(fn (int|string $key, mixed $n): string => t($labels[$key] ?? (string) $key) . ': ' . (int) $n, array_keys($map), $map));
+$counts = fn (array $map, array $labels): string => implode(', ', array_map(fn (int|string $key, mixed $n): string => t($labels[$key] ?? (string) $key) . ': ' . (Console::count($n) ?? 0), array_keys($map), $map));
 $taskLabels = array_map(fn (array $task): string => $task[0], AgentSchedules::TASKS);
 $requests = is_array($beat['requests'] ?? null) ? $beat['requests'] : null;
 $pending = array_filter(is_array($beat['pending_review'] ?? null) ? $beat['pending_review'] : [], fn (mixed $n): bool => is_int($n) && $n > 0);
@@ -44,9 +44,9 @@ $yes = fn (mixed $v): string => $v ? t('yes') : t('no');
 	<tr><th scope="row"><?= e(t('Health')) ?></th><td><?= e(t(['ok' => 'Everything is fine.', 'warning' => 'warnings', 'error' => 'errors', '' => '–'][(string) $site['status']] ?? '–')) ?></td></tr>
 	<tr><th scope="row"><?= e(t('Last backup')) ?></th><td><?= e($date($beat['last_backup'] ?? null)) ?> · <?= e(t('off-site copy: %s', $yes($beat['offsite_backup'] ?? false))) ?></td></tr>
 	<tr><th scope="row"><?= e(t('Cron last called')) ?></th><td><?= e($date($beat['cron_last_run'] ?? null)) ?></td></tr>
-	<?php if (($beat['visits_7_days'] ?? null) !== null): ?><tr><th scope="row"><?= e(t('Visits in 7 days')) ?></th><td><?= (int) $beat['visits_7_days'] ?></td></tr><?php endif ?>
-	<?php if (($beat['enquiries_7_days'] ?? null) !== null): ?><tr><th scope="row"><?= e(t('Enquiries')) ?></th><td><?= e(t('%d in 7 days, %d waiting for an answer', (int) $beat['enquiries_7_days'], (int) Console::enquiriesWaiting($beat))) ?></td></tr><?php endif ?>
-	<?php if (is_array($beat['audit'] ?? null)): ?><tr><th scope="row"><?= e(t('Site audit')) ?></th><td><?= array_sum(array_map('intval', $beat['audit'])) === 0 ? e(t('no findings')) : e($counts($beat['audit'], Audit::KINDS)) ?></td></tr><?php endif ?>
+	<?php if (Console::count($beat['visits_7_days'] ?? null) !== null): ?><tr><th scope="row"><?= e(t('Visits in 7 days')) ?></th><td><?= (int) Console::count($beat['visits_7_days']) ?></td></tr><?php endif ?>
+	<?php if (Console::count($beat['enquiries_7_days'] ?? null) !== null): ?><tr><th scope="row"><?= e(t('Enquiries')) ?></th><td><?= e(t('%d in 7 days, %d waiting for an answer', (int) Console::count($beat['enquiries_7_days']), (int) Console::enquiriesWaiting($beat))) ?></td></tr><?php endif ?>
+	<?php if (is_array($beat['audit'] ?? null)): ?><tr><th scope="row"><?= e(t('Site audit')) ?></th><td><?= Console::total($beat['audit']) === 0 ? e(t('no findings')) : e($counts($beat['audit'], Audit::KINDS)) ?></td></tr><?php endif ?>
 </tbody></table></div>
 <?= $app->view->render('admin/fleet/trend', ['trend' => $trend]) ?>
 <?php if ($requests !== null || $pending !== [] || ($beat['bookings_pending'] ?? null) !== null || $security !== null || $watch !== null || $runs !== null): ?>

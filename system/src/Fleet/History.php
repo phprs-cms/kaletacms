@@ -59,18 +59,27 @@ final class History
         $db->run('DELETE FROM {fleet_incidents} WHERE site_id = ?', [$siteId]);
     }
 
-    /** The hourly job (Core\Scheduler fleet_history): today's row of every site from its stored heartbeat, older rows deleted. */
+    /**
+     * The hourly job (Core\Scheduler fleet_history): today's row of every site from its stored heartbeat, older rows deleted.
+     * A site whose row fails is logged and skipped (3.17, N317-1) – one site never stops the days of the others.
+     */
     public static function run(App $app): string
     {
         $db = $app->db();
         $now = time();
         $sites = Console::sites($db);
+        $failed = 0;
         foreach ($sites as $site) {
-            self::snapshot($db, $site, $now);
+            try {
+                self::snapshot($db, $site, $now);
+            } catch (\Throwable $e) {
+                $failed++;
+                error_log('Fleet history: site ' . (int) $site['id'] . ' – ' . $e->getMessage());
+            }
         }
         $pruned = self::prune($db, $now);
 
-        return 'recorded ' . count($sites) . ($pruned > 0 ? ', removed ' . $pruned : '');
+        return 'recorded ' . (count($sites) - $failed) . ($failed > 0 ? ', failed ' . $failed : '') . ($pruned > 0 ? ', removed ' . $pruned : '');
     }
 
     /** @param array<string, mixed> $site a row of ka_fleet_sites */
@@ -95,9 +104,8 @@ final class History
         $beat = json_decode((string) ($site['heartbeat'] ?? ''), true);
         $beat = is_array($beat) ? $beat : [];
         $attention = Console::attention($site, $now);
-        $count = fn (mixed $n): ?int => is_int($n) ? max(0, $n) : null;
+        // every count bounded (Console::count, N317-1): the columns are INT UNSIGNED, and an out-of-range value fails the upsert
         $requests = is_array($beat['requests'] ?? null) ? $beat['requests'] : null;
-        $pending = is_array($beat['pending_review'] ?? null) ? array_filter($beat['pending_review'], 'is_int') : null;
         $summary = self::summary($beat['report_summary'] ?? null);
 
         return [
@@ -106,11 +114,11 @@ final class History
             'attention' => min(65535, $attention['score']),
             'reasons' => mb_substr(implode(',', $attention['reasons']), 0, 255),
             'enquiries_new' => Console::enquiriesWaiting($beat),
-            'requests_open' => $requests !== null ? $count(($requests['new'] ?? 0) + ($requests['in_progress'] ?? 0)) : null,
-            'waiting_total' => $pending !== null ? (int) array_sum($pending) : null,
-            'audit_total' => is_array($beat['audit'] ?? null) ? (int) array_sum(array_filter($beat['audit'], 'is_int')) : null,
-            'failed_sign_ins' => $count($beat['security_7_days']['failed_sign_ins'] ?? null),
-            'problems' => is_array($beat['problems'] ?? null) ? count($beat['problems']) : null,
+            'requests_open' => $requests !== null ? (Console::count($requests['new'] ?? null) ?? 0) + (Console::count($requests['in_progress'] ?? null) ?? 0) : null,
+            'waiting_total' => is_array($beat['pending_review'] ?? null) ? Console::total($beat['pending_review']) : null,
+            'audit_total' => is_array($beat['audit'] ?? null) ? Console::total($beat['audit']) : null,
+            'failed_sign_ins' => Console::count(Console::part($beat, 'security_7_days')['failed_sign_ins'] ?? null),
+            'problems' => is_array($beat['problems'] ?? null) ? min(1000, count($beat['problems'])) : null,
             'report_summary' => $summary !== null ? (string) json_encode($summary) : null,
             'updated_at' => date('Y-m-d H:i:s', $now),
         ];
@@ -228,16 +236,22 @@ final class History
         return $end > $start ? intdiv($end - $start, 60) : 0;
     }
 
+    /** How many version changes of a period the trend, the digest and the report list at most (the latest ones). */
+    public const int VERSIONS_MAX = 20;
+
     /**
-     * The versions a site reported in [$from, $to) – from the events fleet.site_updated (Console::heartbeat), oldest first.
+     * The versions a site reported in [$from, $to) – from the events fleet.site_updated (Console::heartbeat), oldest first:
+     * the same version reported again in a row once, at most the last VERSIONS_MAX (3.17, N317-7 – heartbeats are not
+     * rate-limited, and a site that flips its version would otherwise fill its trend, the digest and its customer's report).
      *
      * @return list<array{date: string, version: string}>
      */
     public static function versions(Db $db, int $siteId, string $from, string $to): array
     {
+        $rows = $db->all("SELECT created_at, data FROM {events} WHERE type = 'fleet.site_updated' AND JSON_EXTRACT(data, '$.site') = ? AND created_at >= ? AND created_at < ? ORDER BY id DESC LIMIT "
+            . (self::VERSIONS_MAX * 10), [$siteId, $from, $to]);
         $out = [];
-        foreach ($db->all("SELECT created_at, data FROM {events} WHERE type = 'fleet.site_updated' AND JSON_EXTRACT(data, '$.site') = ? AND created_at >= ? AND created_at < ? ORDER BY id",
-            [$siteId, $from, $to]) as $row) {
+        foreach (array_reverse($rows) as $row) {
             $data = json_decode((string) $row['data'], true);
             $version = is_array($data) && is_string($data['version'] ?? null) && preg_match('/^\d+\.\d+\.\d+([.-][0-9A-Za-z.-]{1,20})?$/D', $data['version']) === 1 ? $data['version'] : null;
             if ($version !== null) {
@@ -245,7 +259,25 @@ final class History
             }
         }
 
-        return $out;
+        return self::latestVersions($out);
+    }
+
+    /**
+     * Version changes without the same version repeated in a row, the last VERSIONS_MAX of them. Pure.
+     *
+     * @param list<array{date: string, version: string}> $versions oldest first
+     * @return list<array{date: string, version: string}>
+     */
+    public static function latestVersions(array $versions): array
+    {
+        $out = [];
+        foreach ($versions as $v) {
+            if ($out === [] || $out[count($out) - 1]['version'] !== $v['version']) {
+                $out[] = $v;
+            }
+        }
+
+        return array_slice($out, -self::VERSIONS_MAX);
     }
 
     /**

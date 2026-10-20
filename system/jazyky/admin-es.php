@@ -6651,4 +6651,7 @@ return [
     'then %s' => 'entonces %s', // 3.17 merge
     'What waits on these sites:' => 'Lo que espera en estos sitios:', // 3.17 merge
     'The inbox uses the same thresholds – also for a rule that is off, which only sends no e-mail.' => 'La bandeja de entrada usa los mismos umbrales – también con una regla desactivada, que solo no envía correo.', // 3.17 merge
+    'The alert and digest e-mails cover every site in the console, of every customer – add only your own team\'s addresses.' => 'Las alertas y el resumen incluyen todos los sitios de la consola, de todos los clientes: añade solo las direcciones de tu propio equipo.', // 3.17 security fixes
+    'The site\'s address changed from %s to %s.' => 'La dirección del sitio cambió de %s a %s.', // 3.17 security fixes
+    'The console can make a report only for a month that has ended and that it keeps the history of (%s).' => 'La consola solo puede crear un informe de un mes que ya terminó y cuyo historial conserva (%s).', // 3.17 security fixes
 ];

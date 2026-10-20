@@ -984,4 +984,5 @@ return [
     'The reports for %s were made already – rebuild one from the list.' => 'Die Berichte für %s gibt es schon – neu erstellen kannst du sie in der Liste.',
     'Off: the digest only counts the requests. The e-mail leaves the console – turn the titles on only when the recipients may read them.' => 'Aus: Die Übersicht zählt die Aufträge nur. Die E-Mail verlässt die Konsole – schalte die Titel nur ein, wenn die Empfänger sie lesen dürfen.',
     'nobody – fill in the recipients' => 'niemanden – trag Empfänger ein',
+    'The alert and digest e-mails cover every site in the console, of every customer – add only your own team\'s addresses.' => 'Die Warnungen und die Übersicht betreffen alle Websites der Konsole, aller Kunden – füge nur die Adressen deines eigenen Teams hinzu.', // 3.17 security fixes
 ];

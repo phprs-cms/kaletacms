@@ -37,7 +37,8 @@ use Kaleta\Fleet\AlertRules;
 <?php endforeach ?>
 </tbody></table></div>
 <div class="radek"><label for="fleet_alert_recipients"><?= e(t('Recipients')) ?></label><div><textarea class="textbox nizky" id="fleet_alert_recipients" name="fleet_alert_recipients" rows="2" maxlength="2000"><?= e($recipients) ?></textarea>
-<span class="napoveda"><?= e(t('One address per line or separated by commas, at most 10. Empty = the alert address in System status, otherwise the site e-mail.')) ?><?php if ($fallback !== []): ?> <?= e(t('Now: %s', implode(', ', $fallback))) ?><?php endif ?></span></div></div>
+<span class="napoveda"><?= e(t('One address per line or separated by commas, at most 10. Empty = the alert address in System status, otherwise the site e-mail.')) ?><?php if ($fallback !== []): ?> <?= e(t('Now: %s', implode(', ', $fallback))) ?><?php endif ?></span>
+<span class="napoveda"><?= e(t('The alert and digest e-mails cover every site in the console, of every customer – add only your own team\'s addresses.')) ?></span></div></div>
 <div class="radek"><label for="fleet_alert_quiet_hours"><?= e(t('Quiet hours')) ?></label><div><input class="textpole" type="number" id="fleet_alert_quiet_hours" name="fleet_alert_quiet_hours" value="<?= $quietHours ?>" min="1" max="<?= AlertRules::QUIET_MAX ?>">
 <span class="napoveda"><?= e(t('The same alert for the same site is not sent again within this many hours; a state that lasts is sent again after them.')) ?></span></div></div>
 </fieldset>
