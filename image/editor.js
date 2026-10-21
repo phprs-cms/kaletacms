@@ -46,17 +46,32 @@
 		FIGURE: ['class'], FIGCAPTION: [], IMG: ['src', 'alt', 'width', 'height', 'loading', 'data-id'],
 		TABLE: [], THEAD: [], TBODY: [], TR: [], TH: ['colspan', 'rowspan'], TD: ['colspan', 'rowspan'], IFRAME: ['src', 'width', 'height', 'allowfullscreen', 'title'] };
 	var TAG_REPLACEMENTS = { DIV: 'P', H1: 'H2', H5: 'H4', H6: 'H4' };
+	// removed with their content: the head of a pasted page, Word's markup and every raw-text element – their text is never
+	// shown, and the serializer writes it unescaped, so it must not survive into the markup (3.18.2, N3182-1)
+	var DISCARD = /^(SCRIPT|STYLE|META|LINK|TITLE|HEAD|O:P|XML|TEXTAREA|NOSCRIPT|XMP|NOEMBED|NOFRAMES|PLAINTEXT)$/;
+	// a pasted frame only from the services the site embeds itself – the same list as data-vlozit in image/web.js
+	// (YouTube without cookies, Vimeo, Google map, Builder\Elements\Embed::SERVICES)
+	var EMBED = /^https:\/\/(www\.youtube-nocookie\.com\/embed\/|player\.vimeo\.com\/video\/|maps\.google\.com\/maps\?|calendly\.com\/|calendar\.google\.com\/calendar\/appointments\/schedules\/|docs\.google\.com\/forms\/d\/e\/|forms\.office\.com\/Pages\/ResponsePage\.aspx\?|tally\.so\/embed\/|form\.typeform\.com\/to\/|airtable\.com\/embed\/|open\.spotify\.com\/embed\/|w\.soundcloud\.com\/player\/\?)/;
+	var REL = ['noopener', 'noreferrer', 'nofollow', 'ugc', 'sponsored'];
 
 	// browsers drop tabs, line breaks and control characters from a URL before reading its scheme ("java\tscript:")
 	var UNSAFE_URL = /^(javascript|vbscript|data):/i;
+	function unsafeUrl(url) { return UNSAFE_URL.test(String(url).replace(/[\u0000-\u0020\u007f]/g, '')); }
 
-	function sanitize(node) {
+	/** The address of a pasted frame the site allows (a YouTube frame turns into its cookie-free variant), otherwise ''. */
+	function embedSrc(src) {
+		src = String(src).trim().replace(/^https:\/\/(www\.)?youtube\.com\/embed\//, 'https://www.youtube-nocookie.com/embed/');
+		return EMBED.test(src) ? src : '';
+	}
+
+	// strict: HTML from outside (a paste, the builder canvas) – a frame stays only with an allowed address
+	function sanitize(node, strict) {
 		Array.prototype.slice.call(node.childNodes).forEach(function (n) {
 			if (n.nodeType === 8) { n.remove(); return; }
 			if (n.nodeType !== 1) { return; }
 			var tag = n.tagName;
-			if (/^(SCRIPT|STYLE|META|LINK|TITLE|HEAD|O:P|XML)$/.test(tag)) { n.remove(); return; }
-			sanitize(n);
+			if (DISCARD.test(tag)) { n.remove(); return; }
+			sanitize(n, strict);
 			if (TAG_REPLACEMENTS[tag]) {
 				var fresh = n.ownerDocument.createElement(TAG_REPLACEMENTS[tag]);
 				while (n.firstChild) { fresh.appendChild(n.firstChild); }
@@ -69,18 +84,72 @@
 				return;
 			}
 			Array.prototype.slice.call(n.attributes).forEach(function (a) {
-				if (ALLOWED[tag].indexOf(a.name) === -1 || (/^(href|src)$/.test(a.name) && UNSAFE_URL.test(a.value.replace(/[\u0000-\u0020\u007f]/g, '')))) { n.removeAttribute(a.name); }
+				if (ALLOWED[tag].indexOf(a.name) === -1 || (/^(href|src)$/.test(a.name) && unsafeUrl(a.value))) { n.removeAttribute(a.name); }
 			});
+			if (tag === 'IFRAME') {
+				// a frame's content is raw text the serializer writes as it is (</iframe> inside it ends the frame) – never kept
+				n.textContent = '';
+				var src = embedSrc(n.getAttribute('src') || '');
+				if (src) { n.setAttribute('src', src); } else if (strict) { n.remove(); }
+			} else if (tag === 'A') {
+				// a new window only as _blank and always without window.opener; rel only with the values links need (N3182-5)
+				if (n.hasAttribute('target') && n.getAttribute('target') !== '_blank') { n.removeAttribute('target'); }
+				var rel = (n.getAttribute('rel') || '').toLowerCase().split(/\s+/).filter(function (t, i, all) { return REL.indexOf(t) !== -1 && all.indexOf(t) === i; });
+				if (n.getAttribute('target') === '_blank' && rel.indexOf('noopener') === -1) { rel.unshift('noopener'); }
+				if (rel.length) { n.setAttribute('rel', rel.join(' ')); } else { n.removeAttribute('rel'); }
+			}
 		});
 	}
 
-	function cleanHtml(html) {
-		// parsed in an inert document (3.18.2, CodeQL #32): in the admin page itself a pasted <img onerror> loaded and ran
-		// before sanitize() removed it – nothing loads or runs in a document without a window
-		var box = document.implementation.createHTMLDocument('').createElement('div');
+	/** Empty paragraphs out, non-breaking spaces into spaces – on the nodes, never on the markup (N3182-1). */
+	function tidy(box) {
+		Array.prototype.slice.call(box.querySelectorAll('p')).forEach(function (p) {
+			var empty = Array.prototype.every.call(p.childNodes, function (c) { return (c.nodeType === 3 && /^\s*$/.test(c.data)) || (c.nodeType === 1 && c.tagName === 'BR'); });
+			if (empty) { p.remove(); }
+		});
+		var walker = box.ownerDocument.createTreeWalker(box, 4); // NodeFilter.SHOW_TEXT
+		for (var t = walker.nextNode(); t; t = walker.nextNode()) {
+			if (t.data.indexOf('\u00a0') !== -1) { t.data = t.data.replace(/\u00a0/g, ' '); }
+		}
+	}
+
+	// parsed in an inert document (3.18.2, CodeQL #32): in the admin page itself a pasted <img onerror> loaded and ran
+	// before sanitize() removed it – nothing loads or runs in a document without a window
+	var inert = null;
+	function cleanOnce(html, strict, keepEmpty) {
+		inert = inert || document.implementation.createHTMLDocument('');
+		var box = inert.createElement('div');
 		box.innerHTML = html;
-		sanitize(box);
-		return box.innerHTML.replace(/<p>(\s|&nbsp;|<br>)*<\/p>/g, '').replace(/&nbsp;/g, ' ').trim();
+		sanitize(box, strict);
+		if (!keepEmpty) { tidy(box); }
+		return box.innerHTML.trim();
+	}
+
+	/**
+	 * The cleaned HTML. The result is parsed again (insertHTML, innerHTML, the saved field), so it must come out the same
+	 * when cleaned once more – nested paragraphs or a table the parser rebuilds settle in a pass or two; markup that does
+	 * not settle is given back as plain text.
+	 */
+	function cleanHtml(html, strict, keepEmpty) {
+		var out = cleanOnce(html, strict, keepEmpty);
+		for (var i = 0; i < 4; i++) {
+			var again = cleanOnce(out, strict, keepEmpty);
+			if (again === out) { return out; }
+			out = again;
+		}
+		var box = inert.createElement('div');
+		box.innerHTML = out;
+		return esc(box.textContent);
+	}
+
+	/** Shows cleaned HTML in an element of the admin page as nodes from the inert document – no string is parsed here. */
+	function showClean(target, html, strict, keepEmpty) {
+		var cleaned = cleanHtml(html, strict, keepEmpty);
+		var box = inert.createElement('div');
+		box.innerHTML = cleaned;
+		var fragment = document.createDocumentFragment();
+		Array.prototype.forEach.call(box.childNodes, function (n) { fragment.appendChild(document.importNode(n, true)); });
+		target.replaceChildren(fragment);
 	}
 
 	/* ---------- uploading ---------- */
@@ -368,7 +437,7 @@
 			selection.removeAllRanges();
 			if (anchor) { var r = document.createRange(); r.selectNode(anchor); selection.addRange(r); } else { selection.addRange(scope); }
 			var url = f.adresa.value.trim();
-			if (result === 'zrusit') { statement('unlink'); } else if (result === 'ok' && url !== '' && !/^\s*javascript:/i.test(url)) {
+			if (result === 'zrusit') { statement('unlink'); } else if (result === 'ok' && url !== '' && !unsafeUrl(url)) { // the sanitizer's check (N3182-6)
 				var target = f.nove.checked ? ' target="_blank" rel="noopener"' : '';
 				var text = selection.isCollapsed ? url : (anchor ? anchor.innerHTML : selection.toString().replace(/&/g, '&amp;').replace(/</g, '&lt;'));
 				statement('insertHTML', '<a href="' + url.replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '"' + target + '>' + (anchor || !selection.isCollapsed ? text : url.replace(/&/g, '&amp;').replace(/</g, '&lt;')) + '</a>');
@@ -399,7 +468,8 @@
 		var source = false;
 
 		function toField() { if (!source) { field.value = cleanHtml(surface.innerHTML); } count(); field.dispatchEvent(new Event('input', { bubbles: true })); }
-		function fromField() { surface.innerHTML = field.value.trim() || '<p><br></p>'; }
+		// the field's HTML goes through the cleanup too (it also comes from the builder canvas) and is shown as inert nodes
+		function fromField() { showClean(surface, field.value.trim() || '<p><br></p>', false, true); }
 		function count() {
 			var wordCount = (surface.innerText.trim().match(/\S+/g) || []).length;
 			state.firstChild.textContent = wordCount + T(' words') + (small ? '' : T(' · reading time about ') + Math.max(1, Math.round(wordCount / 200)) + ' min');
@@ -501,7 +571,7 @@
 				return;
 			}
 			var inserted = transfer.getData('text/html');
-			if (inserted) { e.preventDefault(); statement('insertHTML', cleanHtml(inserted)); toField(); }
+			if (inserted) { e.preventDefault(); statement('insertHTML', cleanHtml(inserted, true)); toField(); }
 		});
 		surface.addEventListener('dragover', function (e) { if (hasImages(e.dataTransfer) || (e.dataTransfer.types || []).indexOf('Files') !== -1) { e.preventDefault(); wrapper.classList.add('editor-pretazeni'); } });
 		surface.addEventListener('dragleave', function () { wrapper.classList.remove('editor-pretazeni'); });
@@ -665,7 +735,8 @@
 		});
 	});
 
-	window.kaletaCistiHtml = cleanHtml; // the builder's inspector shows text typed on the canvas through the same cleanup (3.18.2)
+	window.kaletaCistiHtml = cleanHtml; // the same cleanup for other admin scripts (3.18.2)
+	window.kaletaZobrazCiste = showClean; // the builder's inspector shows text typed on the canvas as cleaned nodes (3.18.2, N3182-1)
 	window.kaletaVytvorEditor = createEditor; // the page builder creates the editor itself over a dynamic field
 	window.kaletaVyberObrazek = pickImage; // picking an image from Media for the builder (the callback gets {url, nazev, …})
 

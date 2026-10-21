@@ -40,6 +40,9 @@ final class MigrationReport
     /** @var list<array<string, mixed>>|null pattern redirects of the site (3.6), read once per report */
     private ?array $patterns = null;
 
+    /** @var array<string, array{0: int, 1: int}> forms and images of a component (db:id:depth), counted once per batch (N3182-4) */
+    private static array $componentCounts = [];
+
     public function __construct(private readonly App $app, private readonly ImageDownloader $downloader)
     {
     }
@@ -105,6 +108,7 @@ final class MigrationReport
     public function step(array &$state, ?\Closure $checkpoint = null): void
     {
         $this->end = microtime(true) + self::SECONDS;
+        self::forgetComponents();
         if ($state['faze'] === 'hledani') {
             $discovery = $state['hledani'];
             $outer = $state;
@@ -306,12 +310,15 @@ final class MigrationReport
     /**
      * Forms and images in a build: the Form element, and the Image element plus the photos of galleries and carousels.
      * With the database, a Component element counts what its published build holds (3.18.2) – a form shared by pages
-     * as a component is still a form.
+     * as a component is still a form. A component already on the way in is not followed again (a component that holds
+     * itself, A → B → A), and each component is read and counted once per report batch (N3182-4): before, 800 uses of a
+     * component inside itself made one page cost 800⁴ lookups.
      *
      * @param list<array<string, mixed>> $children
+     * @param list<int> $stack the components the count is inside
      * @return array{0: int, 1: int}
      */
-    public static function countElements(array $children, ?Db $db = null, int $depth = 0): array
+    public static function countElements(array $children, ?Db $db = null, int $depth = 0, array $stack = []): array
     {
         $forms = 0;
         $images = 0;
@@ -326,18 +333,31 @@ final class MigrationReport
             } elseif ($type === 'text') {
                 $images += substr_count(strtolower((string) ($el['obsah']['html'] ?? '')), '<img');
             } elseif ($type === \Kaleta\Builder\Elements\Component::TYPE && $db !== null && $depth < \Kaleta\Builder\Components::MAX_NESTING) {
-                $component = \Kaleta\Builder\Components::byId($db, (int) ($el['obsah']['komponenta'] ?? 0));
-                $inner = $component !== null && $component['stavba'] !== null ? Build::fromJson((string) $component['stavba']) : null;
-                [$f, $i] = self::countElements($inner['deti'] ?? [], $db, $depth + 1);
-                $forms += $f;
-                $images += $i;
+                $id = (int) ($el['obsah']['komponenta'] ?? 0);
+                if ($id > 0 && !in_array($id, $stack, true)) {
+                    $key = spl_object_id($db) . ':' . $id . ':' . $depth;
+                    if (!isset(self::$componentCounts[$key])) {
+                        $component = \Kaleta\Builder\Components::byId($db, $id);
+                        $inner = $component !== null && $component['stavba'] !== null ? Build::fromJson((string) $component['stavba']) : null;
+                        self::$componentCounts[$key] = self::countElements($inner['deti'] ?? [], $db, $depth + 1, [...$stack, $id]);
+                    }
+                    [$f, $i] = self::$componentCounts[$key];
+                    $forms += $f;
+                    $images += $i;
+                }
             }
-            [$f, $i] = self::countElements(is_array($el['deti'] ?? null) ? $el['deti'] : [], $db, $depth);
+            [$f, $i] = self::countElements(is_array($el['deti'] ?? null) ? $el['deti'] : [], $db, $depth, $stack);
             $forms += $f;
             $images += $i;
         }
 
         return [$forms, $images];
+    }
+
+    /** Forgets the component counts (a new batch reads the components again – they may have changed). */
+    public static function forgetComponents(): void
+    {
+        self::$componentCounts = [];
     }
 
     /**

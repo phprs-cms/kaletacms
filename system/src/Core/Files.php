@@ -25,6 +25,18 @@ final class Files
         return preg_match(self::FORBIDDEN_TYPES, (string) (new \finfo(FILEINFO_MIME_TYPE))->file($path)) === 1;
     }
 
+    /** The longest file path asked of the disk – the lower of 1024 bytes and the platform's maximum. */
+    public const int MAX_PATH = 1024;
+
+    /**
+     * is_file() for a path built from content (a link, a menu icon): a path over the platform's maximum makes PHP warn under
+     * open_basedir, and the error handler turns the warning into a crash (3.18.2, N3182-3) – such a path is simply no file.
+     */
+    public static function isFile(string $path): bool
+    {
+        return strlen($path) < min(self::MAX_PATH, PHP_MAXPATHLEN) && !str_contains($path, "\0") && is_file($path);
+    }
+
     /** How many bytes one uploaded file can have: the smaller of upload_max_filesize and post_max_size (0 = no limit). */
     public static function limit(): int
     {

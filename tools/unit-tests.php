@@ -7378,5 +7378,54 @@ foreach (['cs', 'de', 'es'] as $code318) {
     $missing318 = [...$missing318, ...array_map(static fn (string $k): string => $code318 . ': ' . $k, array_values(array_filter($texts318, static fn (string $k): bool => !isset($dictionary318[$k]) && !isset($english318[$k]))))];
 }
 check('3.18: the texts of the Claude connection status are translated into Czech, German and Spanish', array_slice($missing318, 0, 5), []);
+/* ---------- 3.18.2 pre-release audit (N3182) ---------- */
+// N3182-3: a /media/ path longer than the platform's maximum made is_file() warn under open_basedir, and the error handler
+// (Core\App) turned the warning into a crash of Site audit; Files::isFile caps the length – run with open_basedir set
+if (DIRECTORY_SEPARATOR === '/' && function_exists('shell_exec')) {
+    $longScript = (string) tempnam(sys_get_temp_dir(), 'kaleta-n3182');
+    file_put_contents($longScript, '<?php require ' . var_export(KALETA_SYSTEM . '/bootstrap.php', true) . ';'
+        . ' set_error_handler(static function (int $no, string $message): never { throw new ErrorException($message, 0, $no); });'
+        . ' $name = "media/" . str_repeat("a", 5000) . ".svg"; $plain = "no warning";'
+        . ' try { is_file(KALETA_ROOT . "/" . $name); } catch (ErrorException $e) { $plain = "warns"; }'
+        . ' try { $r = [Kaleta\Core\Files::isFile(KALETA_ROOT . "/" . $name), Kaleta\Core\Menu::isMediaIcon($name), Kaleta\Core\Files::isFile(KALETA_ROOT . "/" . str_repeat("b/", 600) . "x"),'
+        . ' Kaleta\Core\Files::isFile(KALETA_SYSTEM . "/bootstrap.php"), Kaleta\Core\Files::isFile(KALETA_SYSTEM . "/bootstrap.php" . chr(0))]; } catch (Throwable $e) { $r = get_class($e) . ": " . $e->getMessage(); }'
+        . ' echo json_encode([$plain, $r]);');
+    $longRun = shell_exec(escapeshellarg(PHP_BINARY) . ' -d ' . escapeshellarg('open_basedir=' . KALETA_ROOT . PATH_SEPARATOR . sys_get_temp_dir()) . ' ' . escapeshellarg($longScript) . ' 2>&1');
+    unlink($longScript);
+    check('3.18.2 N3182-3: a 5,000-character /media/ path is no file and no crash under open_basedir (Files::isFile, Menu::isMediaIcon); a real file still is one', json_decode((string) $longRun, true), ['warns', [false, false, false, true, false]]);
+}
+check('3.18.2 N3182-3: Audit and the menu ask the disk about a path from content only through Files::isFile', [
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Audit.php'), 'is_file(KALETA_ROOT . $path)'), substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Menu.php'), ' is_file('),
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Audit.php'), 'Files::isFile('), substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Menu.php'), 'Files::isFile(')], [0, 0, 1, 1]);
+
+// N3182-2: the clipboard envelope this site packs is signed; the signature survives the browser's JSON (numeric keys
+// reordered, 1.0 written as 1) and breaks on any change; code elements are taken out of an unsigned one
+$clipKey = str_repeat('k', 64);
+$clipEnvelope = ['kaleta' => 'elements', 'v' => 1, 'site' => 'https://web.example', 'elements' => [['typ' => 'sekce', 'styl' => ['zaklad' => ['b' => 1.0, '10' => 'x', '2' => 'y']], 'deti' => [['typ' => 'html', 'obsah' => ['kod' => '<script>x()</script>']], ['typ' => 'nadpis', 'obsah' => ['text' => 'Ahoj „svět“ / ok']]]]], 'classes' => [], 'components' => []];
+$clipEnvelope['sig'] = Kaleta\Builder\ElementClipboard::signature($clipEnvelope, $clipKey);
+$clipThroughBrowser = json_decode((string) json_encode(json_decode((string) json_encode($clipEnvelope), false)), true); // a JS-like round trip: objects, then back
+$clipThroughBrowser['elements'][0]['styl']['zaklad'] = ['2' => 'y', '10' => 'x', 'b' => 1];
+$clipTampered = $clipThroughBrowser;
+$clipTampered['elements'][0]['deti'][0]['obsah']['kod'] = '<script>evil()</script>';
+$clipClaimed = $clipThroughBrowser;
+unset($clipClaimed['sig']);
+check('3.18.2 N3182-2: the clipboard signature – kept through the browser, broken by a change, missing or from another key', [
+    Kaleta\Builder\ElementClipboard::isSigned($clipEnvelope, $clipKey), Kaleta\Builder\ElementClipboard::isSigned($clipThroughBrowser, $clipKey), Kaleta\Builder\ElementClipboard::isSigned($clipTampered, $clipKey),
+    Kaleta\Builder\ElementClipboard::isSigned($clipClaimed, $clipKey), Kaleta\Builder\ElementClipboard::isSigned($clipEnvelope, str_repeat('j', 64)), Kaleta\Builder\ElementClipboard::isSigned('text', $clipKey),
+    Kaleta\Builder\ElementClipboard::isSigned(['sig' => ['x']] + $clipEnvelope, $clipKey)],
+    [true, true, false, false, false, false, false]);
+$clipDropped = 0;
+$clipWithout = Kaleta\Builder\ElementClipboard::withoutCode([['typ' => 'html', 'obsah' => ['kod' => 'a']], ['typ' => 'sekce', 'deti' => [['typ' => 'html'], ['typ' => 'kontejner', 'deti' => [['typ' => 'html'], ['typ' => 'text']]]]], ['typ' => 'nadpis']], $clipDropped);
+check('3.18.2 N3182-2: code elements leave an unsigned envelope, also from inside containers', [$clipDropped, array_column($clipWithout, 'typ'), array_column($clipWithout[0]['deti'], 'typ'), array_column($clipWithout[0]['deti'][0]['deti'], 'typ')],
+    [3, ['sekce', 'nadpis'], ['kontejner'], ['text']]);
+
+// N3182-1: the editor's paste cleanup (image/editor.js) – iframes emptied and checked against the embed list of image/web.js,
+// the clean-up on the nodes, no regular expression on the serialized markup
+$editorJs = (string) file_get_contents(KALETA_ROOT . '/image/editor.js');
+$webJs = (string) file_get_contents(KALETA_ROOT . '/image/web.js');
+preg_match('#var EMBED = (/\^https:.*?/);#', $editorJs, $editorEmbed);
+preg_match('#if \(!(/\^https:.*?/)\.test\(address\)\)#', $webJs, $webEmbed);
+check('3.18.2 N3182-1: the editor allows a pasted frame only from the services the front end embeds (the same list as data-vlozit)', [($editorEmbed[1] ?? 'a') === ($webEmbed[1] ?? 'b'),
+    str_contains($editorJs, "n.textContent = '';"), preg_match('#innerHTML\.replace\(#', $editorJs), preg_match('#/\^\\\\s\*javascript:/#', $editorJs)], [true, true, 0, 0]);
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

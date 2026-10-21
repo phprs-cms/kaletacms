@@ -66,26 +66,101 @@ final class ElementClipboard
     }
 
     /**
+     * The signature this site puts on an envelope it packs (3.18.2, N3182-2). Any web page can put text into the clipboard
+     * that claims to come from this site; only a signed envelope is the administrator's own copy, whose code elements
+     * (Custom HTML) may be pasted as they are. The data is signed in a canonical form – the envelope travels through the
+     * browser's JSON, which reorders numeric keys and writes 1.0 as 1.
+     *
+     * @param array<string, mixed> $envelope
+     */
+    public static function signature(array $envelope, string $key): string
+    {
+        $data = ['site' => $envelope['site'] ?? null, 'elements' => $envelope['elements'] ?? null, 'classes' => $envelope['classes'] ?? null, 'components' => $envelope['components'] ?? null];
+
+        return hash_hmac('sha256', 'clipboard|' . json_encode(self::canonical($data), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE), $key);
+    }
+
+    /** Was the envelope (the decoded clipboard text) packed and signed by this site? */
+    public static function isSigned(mixed $envelope, string $key): bool
+    {
+        return is_array($envelope) && is_string($envelope['sig'] ?? null) && $key !== '' && hash_equals(self::signature($envelope, $key), $envelope['sig']);
+    }
+
+    private static function canonical(mixed $value): mixed
+    {
+        if (is_array($value)) {
+            if (!array_is_list($value)) {
+                ksort($value, SORT_STRING);
+            }
+
+            return array_map(self::canonical(...), $value);
+        }
+        if (is_float($value) && is_finite($value) && floor($value) === $value && abs($value) < 2 ** 53) {
+            return (int) $value;
+        }
+
+        return $value;
+    }
+
+    /**
+     * Elements without code elements (Custom HTML, ADMIN_ONLY), also inside containers; $count says how many went.
+     *
+     * @param array<mixed> $elements
+     * @return list<array<mixed>>
+     */
+    public static function withoutCode(array $elements, int &$count): array
+    {
+        $kept = [];
+        foreach ($elements as $p) {
+            if (!is_array($p)) {
+                continue; // not an element – Build::sanitize would leave it out anyway
+            }
+            $className = Build::className((string) ($p['typ'] ?? ''));
+            if ($className !== null && $className::ADMIN_ONLY) {
+                $count++;
+                continue;
+            }
+            if (is_array($p['deti'] ?? null)) {
+                $p['deti'] = self::withoutCode(array_values($p['deti']), $count);
+            }
+            $kept[] = $p;
+        }
+
+        return $kept;
+    }
+
+    /**
      * Brings the elements of an envelope onto this site: missing classes and components are created and the component uses
      * pointed at this site's ids (PagePackage::import – an administrator only; for others the uses are emptied, the other
      * site's ids mean nothing here), media are relinked, ids and anchors dropped. From the same site nothing is imported –
      * classes, components and media are already here. The result still has to go through Build::sanitize.
+     * Without $code the code elements are left out of the elements and of the components that come along (an envelope this
+     * site did not sign – N3182-2).
      *
      * @param array{site: string, prvky: list<array<string, mixed>>, tridy: list<array<string, mixed>>, komponenty: list<array<string, mixed>>} $package
-     * @return array{0: list<array<string, mixed>>, 1: array{tridy: int, komponenty: int}, 2: int} elements, what was created, relinked images
+     * @return array{0: list<array<string, mixed>>, 1: array{tridy: int, komponenty: int}, 2: int, 3: int} elements, what was created, relinked images, left-out code elements
      */
-    public static function import(Settings $s, array $package, string $thisSite, bool $admin): array
+    public static function import(Settings $s, array $package, string $thisSite, bool $admin, bool $code = true): array
     {
+        $dropped = 0;
+        if (!$code) {
+            $package['prvky'] = self::withoutCode($package['prvky'], $dropped);
+            foreach ($package['komponenty'] as $i => $k) {
+                if (is_array($k['stavba'] ?? null) && is_array($k['stavba']['deti'] ?? null)) {
+                    $package['komponenty'][$i]['stavba']['deti'] = self::withoutCode(array_values($k['stavba']['deti']), $dropped);
+                }
+            }
+        }
         $elements = self::fresh($package['prvky']);
         if ($package['site'] !== '' && $package['site'] === strtolower(rtrim($thisSite, '/'))) {
-            return [$elements, ['tridy' => 0, 'komponenty' => 0], 0];
+            return [$elements, ['tridy' => 0, 'komponenty' => 0], 0, $dropped];
         }
         $images = 0;
         $elements = self::relinkMedia($elements, $package['site'], $images);
         [$build, $created] = PagePackage::import($s, ['tridy' => $package['tridy'], 'komponenty' => $package['komponenty']], ['deti' => $elements], $admin);
         $elements = is_array($build['deti'] ?? null) ? array_values($build['deti']) : [];
 
-        return [$admin ? $elements : self::detachComponents($elements), $created, $images];
+        return [$admin ? $elements : self::detachComponents($elements), $created, $images, $dropped];
     }
 
     /**

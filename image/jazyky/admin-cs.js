@@ -2847,5 +2847,7 @@ window.KALETA_PREKLAD = {
 	"Condition": "Podmínka",
 	"Remove the condition": "Odebrat podmínku",
 	"Add a condition": "Přidat podmínku",
-	"Filter buttons for visitors (by the field above, without a field by category)": "Tlačítka filtru pro návštěvníky (podle pole výše, bez pole podle kategorií)"
+	"Filter buttons for visitors (by the field above, without a field by category)": "Tlačítka filtru pro návštěvníky (podle pole výše, bez pole podle kategorií)",
+	"Inserting elements…": "Vkládám prvky…",
+	"Inserted": "Vloženo"
 };

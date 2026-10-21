@@ -939,6 +939,14 @@ system in dark mode and the admin switched to light their buttons were white on 
   WordPress news redirects use the public slug; emoji addresses survive a site move; the migration report counts forms and
   images inside components and item templates; the home page of a language version is no longer an orphan.
 
+Audited before release (N3182): the paste cleanup empties every frame and does its clean-up on the nodes (a frame's raw
+text could be joined into a real `</iframe>` by the old regular expression), keeps a pasted frame only from the services
+the front end embeds, `rel` only with safe values (`noopener` with every `_blank`), and the link dialog uses the same
+address check; every builder clipboard envelope goes through the server, which keeps Custom HTML only in a copy this site
+signed, and the layer tree reads element text in an inert document; long `/media/` paths no longer crash Site audit under
+`open_basedir`; the migration report follows each component once (cycles). OpenStreetMap on "map at once" stays as
+labelled (owner decision, N3182-7).
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |

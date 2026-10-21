@@ -1365,6 +1365,18 @@ expect "paste of plain text is refused" "$(paste_action build_paste --data-urlen
 expect "paste without the form token is refused" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php?module=pages&action=build_paste&id=$IDN" --data-urlencode "schranka=$FOREIGN")" 400
 code=$(paste_action build_paste --data-urlencode "schranka={\"kaleta\":\"elements\",\"v\":1,\"site\":\"$B\",\"elements\":[{\"id\":\"svuj1\",\"typ\":\"nadpis\",\"tridy\":[\"schranka-stejny\"],\"obsah\":{\"text\":\"Odsud\"}}],\"classes\":[{\"nazev\":\"schranka-stejny\",\"styl\":{},\"css\":\"\"}],\"components\":[]}")
 expect "paste from this site inserts the elements without importing anything" "$code|$(grep -c '"text":"Odsud"' "$WORK/response")|$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_tridy WHERE nazev = 'schranka-stejny'")" "200|1|0"
+# 3.18.2 N3182-2: the builder sends every envelope here, also one claiming this site – any web page can write that into the
+# clipboard. Custom HTML stays only in an envelope this site packed and signed; a changed, unsigned or foreign one loses it.
+paste_action build_package --data-urlencode 'prvky=[{"typ":"html","obsah":{"kod":"<p id=\"kod3182\">kod</p>"}},{"typ":"nadpis","obsah":{"text":"Podpis 3182"}}]' > /dev/null
+php -r '$d = json_decode(file_get_contents($argv[1]), true)["schranka"] ?? []; file_put_contents($argv[2], json_encode($d, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); $d["elements"][0]["obsah"]["kod"] = "<img src=x onerror=alert(1)>"; file_put_contents($argv[3], json_encode($d)); unset($d["sig"]); $d["elements"][0]["obsah"]["kod"] = "<p>kod</p>"; file_put_contents($argv[4], json_encode($d));' "$WORK/response" "$WORK/signed3182.json" "$WORK/changed3182.json" "$WORK/claimed3182.json"
+paste3182() { code=$(paste_action build_paste --data-urlencode "schranka@$1"); echo "$code|$(php -r '$d = json_decode(file_get_contents($argv[1]), true); echo implode(",", array_column($d["prvky"] ?? [], "typ")), "|", (int) str_contains(implode(" ", $d["hlaseni"] ?? []) . ($d["chyba"] ?? ""), "HTML"), "|", (int) str_contains(file_get_contents($argv[1]), "onerror");' "$WORK/response")"; }
+expect "3.18.2 N3182-2: an administrator's own copy (signed by this site) keeps its Custom HTML" "$(paste3182 "$WORK/signed3182.json")" "200|html,nadpis|0|0"
+expect "3.18.2 N3182-2: a signed copy changed afterwards loses its Custom HTML, with a note" "$(paste3182 "$WORK/changed3182.json")" "200|nadpis|1|0"
+expect "3.18.2 N3182-2: an envelope only claiming this site loses its Custom HTML" "$(paste3182 "$WORK/claimed3182.json")" "200|nadpis|1|0"
+printf '%s' '{"kaleta":"elements","v":1,"site":"https://jiny.example","elements":[{"typ":"html","obsah":{"kod":"<script>alert(1)</script>"}}],"components":[{"id":951,"nazev":"Kód 3182","vlastnosti":[],"stavba":{"v":1,"deti":[{"typ":"html","obsah":{"kod":"<script>alert(2)</script>"}}]}}]}' > "$WORK/foreign3182.json"
+expect "3.18.2 N3182-2: Custom HTML alone from another site's clipboard is refused with the reason" "$(paste3182 "$WORK/foreign3182.json")" "400||1|0"
+printf '%s' '{"kaleta":"elements","v":1,"site":"https://jiny.example","elements":[{"typ":"komponenta","obsah":{"komponenta":"952"}},{"typ":"text","obsah":{"html":"<p>a<img src=\"/media/x.png\" onerror=\"alert(1)\"></p>"}}],"components":[{"id":952,"nazev":"Kód 3182 b","vlastnosti":[],"stavba":{"v":1,"deti":[{"typ":"html","obsah":{"kod":"<script>alert(2)</script>"}},{"typ":"nadpis","obsah":{"text":"Komponenta 3182"}}]}}]}' > "$WORK/foreign3182.json"
+expect "3.18.2 N3182-2: a component from another site's clipboard comes without its Custom HTML, text without handlers" "$(paste3182 "$WORK/foreign3182.json")|$(sq "SELECT CONCAT(COUNT(*), '/', SUM(stavba LIKE '%\"html\"%')) FROM ka_komponenty WHERE nazev = 'Kód 3182 b'")" "200|komponenta,text|1|0|1/0"
 # display conditions on the site: a URL parameter switches the element and takes the page out of the cache, a language version does not
 paste_action build_save --data-urlencode 'stavba={"v":1,"deti":[{"id":"pod1","typ":"sekce","deti":[{"id":"pod2","typ":"nadpis","obsah":{"text":"Jarní sleva"},"podminky":{"parametr":{"nazev":"utm_campaign","hodnota":"jaro"}}},{"id":"pod3","typ":"nadpis","obsah":{"text":"Nur Deutsch"},"podminky":{"jazyky":["en"]}},{"id":"pod4","typ":"nadpis","obsah":{"text":"Pro všechny"}}]}]}' > /dev/null
 grep -q '"podminky":{"parametr":{"nazev":"utm_campaign","hodnota":"jaro"}}' "$WORK/response" && grep -q '"podminky":{"jazyky":\["en"\]}' "$WORK/response" && echo "  ok     the validator keeps the URL parameter and language conditions" || { echo "  CHYBA  conditions after sanitize"; ERRORS=$((ERRORS+1)); }
@@ -3320,6 +3332,18 @@ mcp migration_report "{\"url\":\"$OLD\"}" > "$WORK/response"; REPORT_ID=$(import
 for i in $(seq 1 20); do [ "$(import_field phase)" = done ] && break; mcp migration_report "{\"report_id\":\"$REPORT_ID\"}" > "$WORK/response"; done
 contains -q '/contact' "$WORK/response" && ! contains -q 'form_missing' "$WORK/response" \
   && echo "  ok     3.18.2: the migration report counts a form inside a component" || { echo "  CHYBA  3.18.2 form in a component: $(import_field summary)"; ERRORS=$((ERRORS+1)); }
+# 3.18.2 N3182-4: a component holding itself 60 times and a chain A → B → A – the report follows each component once
+# (before: 61⁴ lookups for the one page, the batch never ended) and still finds the form
+mcp save_component '{"name":"Cyklus 3182"}' > "$WORK/response"; CYCLE3182=$(mcp_value id)
+CYCLE_BUILD=$(php -r '$d = [["id" => "f3182", "typ" => "formular"]]; for ($i = 0; $i < 60; $i++) { $d[] = ["id" => "s3182x" . $i, "typ" => "komponenta", "obsah" => ["komponenta" => $argv[1]]]; } $d[] = ["id" => "c3182", "typ" => "komponenta", "obsah" => ["komponenta" => $argv[2]]]; echo addslashes(json_encode(["v" => 1, "deti" => [["id" => "k3182", "typ" => "sekce", "deti" => $d]]]));' "$COMP3182" "$CYCLE3182")
+sq "UPDATE ka_komponenty SET stavba = '$CYCLE_BUILD' WHERE idm = $COMP3182" > /dev/null
+sq "UPDATE ka_komponenty SET stavba = '{\"v\":1,\"deti\":[{\"id\":\"b3182\",\"typ\":\"komponenta\",\"obsah\":{\"komponenta\":\"$COMP3182\"}}]}' WHERE idm = $CYCLE3182" > /dev/null
+START3182=$(date +%s)
+mcp migration_report "{\"url\":\"$OLD\"}" > "$WORK/response"; REPORT_ID=$(import_field report_id)
+for i in $(seq 1 20); do [ "$(import_field phase)" = done ] && break; mcp migration_report "{\"report_id\":\"$REPORT_ID\"}" > "$WORK/response"; done
+[ "$(import_field phase)" = done ] && contains -q '/contact' "$WORK/response" && ! contains -q 'form_missing' "$WORK/response" && [ $(( $(date +%s) - START3182 )) -lt 60 ] \
+  && echo "  ok     3.18.2 N3182-4: a component inside itself and a chain A → B → A – the report finishes and counts the form" || { echo "  CHYBA  3.18.2 N3182-4 component cycle: $(import_field phase) $(import_field summary) $(( $(date +%s) - START3182 )) s"; ERRORS=$((ERRORS+1)); }
+mcp delete_component "{\"id\":$CYCLE3182}" > /dev/null
 sq "DELETE FROM ka_stranky WHERE ids = $CONTACT3182" > /dev/null; mcp delete_component "{\"id\":$COMP3182}" > /dev/null
 # 3.8: an old page nested 3,000 deep is never parsed – the website import skips it with the limit among its failures, the
 # migration report checks only its address

@@ -2959,5 +2959,7 @@ window.KALETA_PREKLAD = {
 	"Condition": "Bedingung",
 	"Remove the condition": "Bedingung entfernen",
 	"Add a condition": "Bedingung hinzufügen",
-	"Filter buttons for visitors (by the field above, without a field by category)": "Filter-Schaltflächen für Besucher (nach dem Feld oben, ohne Feld nach Kategorie)"
+	"Filter buttons for visitors (by the field above, without a field by category)": "Filter-Schaltflächen für Besucher (nach dem Feld oben, ohne Feld nach Kategorie)",
+	"Inserting elements…": "Elemente werden eingefügt…",
+	"Inserted": "Eingefügt"
 };

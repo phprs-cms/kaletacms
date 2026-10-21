@@ -165,7 +165,7 @@ final class Menu
      */
     public static function isMediaIcon(string $icon): bool
     {
-        return preg_match('#^media/[A-Za-z0-9_./-]+\.svg$#D', $icon) === 1 && !str_contains($icon, '..') && is_file(KALETA_ROOT . '/' . $icon);
+        return preg_match('#^media/[A-Za-z0-9_./-]+\.svg$#D', $icon) === 1 && !str_contains($icon, '..') && Files::isFile(KALETA_ROOT . '/' . $icon);
     }
 
     /**

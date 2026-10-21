@@ -6725,4 +6725,5 @@ return [
     'News heading' => 'Título de las noticias',
     'The heading of the news list in the default language, e.g. Updates to go with the address /updates. Empty = News.' => 'El título de la lista de noticias en el idioma predeterminado, p. ej. Actualidad para la dirección /actualidad. Vacío = Noticias.',
     'Filter buttons for visitors (by the field above, without a field by category)' => 'Botones de filtro para los visitantes (por el campo de arriba; sin campo, por categoría)',
+    'Code elements (Custom HTML) left out: %d – code is pasted only from a copy made on this site.' => 'Elementos de código omitidos (HTML personalizado): %d – el código solo se pega desde una copia hecha en este sitio.',
 ];

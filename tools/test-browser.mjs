@@ -407,6 +407,79 @@ await step('3.6 UXA-14, UXA-11, UXA-12: typing on the canvas updates the inspect
   if (!/Header on scroll/.test(await page.locator('.st-pravy').textContent())) { throw new Error('the header part does not offer the header options'); }
 });
 
+// 3.18.2 N3182-2: a clipboard envelope used to be inserted without the server when it merely claimed this site, and the layer
+// tree parsed its HTML in the admin page; now every envelope goes through the server and code stays only in this site's signed copy
+await step('3.18.2 builder: a pasted envelope claiming this site runs nothing; the own copy (Ctrl+C, Ctrl+V) still pastes (N3182-2)', async () => {
+  await visit('/admin.php?module=pages&action=builder&id=1');
+  await page.waitForTimeout(1500);
+  const key = (k) => page.evaluate((x) => document.body.dispatchEvent(new KeyboardEvent('keydown', { key: x, ctrlKey: true, bubbles: true, cancelable: true })), k);
+  const paste = (text) => page.evaluate(async (t) => {
+    const status = () => document.querySelector('.st-stav');
+    status().textContent = '';
+    const data = new DataTransfer();
+    data.setData('text/plain', t);
+    document.body.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+    for (let i = 0; i < 50 && !/Inserted|could not|None of/.test(status().textContent); i++) { await new Promise((r) => setTimeout(r, 100)); }
+    return { text: status().textContent, error: status().classList.contains('chyba') };
+  }, text);
+  await page.evaluate(() => { window.__clipRan = 0; });
+  const claim = JSON.stringify({ kaleta: 'elements', v: 1, site: new URL(BASE).origin, elements: [{ typ: 'text', obsah: { html: '<p>Clip 3182<img src="/media/missing-3182.png" alt="" onerror="window.__clipRan = 1"></p>' } }] });
+  const claimed = await paste(claim);
+  if (!/^Inserted/.test(claimed.text) || claimed.error) { throw new Error(`the envelope claiming this site was not inserted through the server: ${JSON.stringify(claimed)}`); }
+  await canvas().locator('.ka-text', { hasText: 'Clip 3182' }).first().waitFor({ timeout: 8000 });
+  const inserted = await canvas().locator('.ka-text', { hasText: 'Clip 3182' }).first().innerHTML();
+  await page.waitForTimeout(500);
+  if (await page.evaluate(() => window.__clipRan)) { throw new Error('the pasted envelope ran code in the admin'); }
+  if (/onerror/i.test(inserted)) { throw new Error(`the server kept the handler: ${inserted}`); }
+  await key('z');
+  await page.waitForTimeout(800);
+  // the administrator's own copy: Ctrl+C writes this site's signed envelope (captured here instead of the system clipboard)
+  await canvas().locator('h1').first().click();
+  await page.waitForTimeout(400);
+  const copied = await page.evaluate(async () => {
+    let captured = null;
+    Object.defineProperty(navigator.clipboard, 'write', { configurable: true, value: async (items) => { captured = await (await items[0].getType('text/plain')).text(); } });
+    Object.defineProperty(navigator.clipboard, 'writeText', { configurable: true, value: async (t) => { captured = t; } });
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'c', ctrlKey: true, bubbles: true, cancelable: true }));
+    for (let i = 0; i < 50 && captured === null; i++) { await new Promise((r) => setTimeout(r, 100)); }
+    return captured;
+  });
+  const envelope = JSON.parse(copied || '{}');
+  if (!envelope.sig || envelope.site !== new URL(BASE).origin || envelope.elements?.[0]?.typ !== 'nadpis') { throw new Error(`Ctrl+C did not write a signed envelope of the heading: ${String(copied).slice(0, 200)}`); }
+  const headings = await canvas().locator('h1').count();
+  const own = await paste(copied);
+  if (own.text !== 'Inserted' || own.error) { throw new Error(`the own copy did not paste: ${JSON.stringify(own)}`); }
+  await page.waitForTimeout(1500);
+  if ((await canvas().locator('h1').count()) !== headings + 1) { throw new Error('the pasted heading is not on the canvas'); }
+  await key('z');
+  await page.waitForTimeout(800);
+});
+
+// 3.18.2 N3182-1 (CodeQL #42): the inspector shows what is typed on the canvas through the editor's cleanup, as nodes
+await step('3.18.2 builder inspector: text typed on the canvas is shown cleaned – the iframe bypass runs nothing (N3182-1)', async () => {
+  await visit('/admin.php?module=pages&action=builder&id=1');
+  await page.waitForTimeout(1500);
+  const text = canvas().locator('.ka-text').first();
+  await text.dblclick();
+  const field = page.locator('.st-panel [data-pole="html"] .editor-plocha');
+  await field.waitFor({ timeout: 5000 });
+  await page.evaluate(() => { window.__inspRan = 0; });
+  await text.evaluate((node) => {
+    node.innerHTML = '<p>Typed 3182</p><iframe></ifr<p></p>ame><img src="/media/missing-3182.png" alt="" onerror="top.__inspRan = 1"></iframe>';
+    node.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await page.waitForTimeout(800);
+  const shown = await field.innerHTML();
+  if (await page.evaluate(() => window.__inspRan)) { throw new Error('the inspector ran the typed HTML'); }
+  if (!/Typed 3182/.test(shown) || /<iframe|onerror/i.test(shown)) { throw new Error(`the inspector shows ${shown}`); }
+  // ending the edit stores the value and draws the inspector's editor again from it – still nothing runs
+  await text.evaluate((node) => node.blur());
+  await page.waitForTimeout(1500);
+  if (await page.evaluate(() => window.__inspRan)) { throw new Error('the redrawn inspector ran the typed HTML'); }
+  await page.evaluate(() => document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true })));
+  await page.waitForTimeout(800);
+});
+
 await step('3.6 UXA-10, UXA-13: a ready section below the first gets an H2, "Fix it" in the check, the image field and the media picker', async () => {
   await visit('/admin.php?module=pages&action=builder&id=1');
   await page.waitForTimeout(1500);
@@ -480,6 +553,56 @@ await step('3.18.2 news editor: pasted HTML is cleaned without running anything 
   if (result.ran) { throw new Error(`the pasted HTML ran code (${result.ran})`); }
   if (/onerror|script:/i.test(result.html)) { throw new Error(`the pasted HTML kept a handler or script link: ${result.html}`); }
   if (!/<mark>word<\/mark>/.test(result.html)) { throw new Error(`the highlighted word was lost: ${result.html}`); }
+  // N3182-1: the frame's raw text held "</ifr<p></p>ame>"; the regular expression removing empty paragraphs joined it into a
+  // real </iframe>, and the <img onerror> after it ran when the cleaned string was parsed again (also with <p><br></p>)
+  const bypass = await editor.evaluate(async (surface) => {
+    const payloads = [
+      '<iframe></ifr<p></p>ame><img src="/media/missing-3182.png" alt="" onerror="window.__pasteRan = 3"></iframe>',
+      '<iframe></ifr<p><br></p>ame><img src="/media/missing-3182.png" alt="" onerror="window.__pasteRan = 4"></iframe>',
+      '<p>a</p><noscript><p title="</noscript><img src=/media/missing-3182.png alt=&quot;&quot; onerror=window.__pasteRan=5>"></p></noscript>',
+      '<xmp></xmp><img src=/media/missing-3182.png alt="" onerror=window.__pasteRan=6></xmp><p>b&nbsp;c</p><p>&nbsp;</p>',
+      '<iframe src="https://frames.example/x"></iframe><a href="https://e.example/1" target="_top" rel="opener">one</a> <a href="https://e.example/2" target="_blank" rel="opener nofollow">two</a>',
+    ];
+    for (const html of payloads) {
+      const data = new DataTransfer();
+      data.setData('text/html', html);
+      surface.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+    }
+    await new Promise((r) => setTimeout(r, 800));
+    // the cleanup gives markup that comes out the same when cleaned again (it is parsed again by insertHTML and innerHTML)
+    const clean = window.kaletaCistiHtml;
+    const samples = [...payloads, '<div><p>x</p></div>', '<table><p>t</p><tr><td>c</td></tr></table>', '<a href="/a"><p><a href="/b">b</a></p></a>', '<svg><style><img src=x onerror=1></style></svg>'];
+    const unstable = samples.filter((h) => clean(clean(h, true), true) !== clean(h, true));
+    return { ran: window.__pasteRan, html: surface.innerHTML, unstable,
+      youtube: clean('<iframe src="https://www.youtube.com/embed/abc">x</iframe>', true), other: clean('<iframe src="https://frames.example/x"></iframe>', true),
+      kept: clean('<iframe src="https://frames.example/x">x</iframe>'), spaces: clean('<p>b&nbsp;c</p><p>&nbsp;</p><p><br></p>', true) };
+  });
+  if (bypass.ran) { throw new Error(`a pasted payload ran code (${bypass.ran})`); }
+  if (/onerror|<iframe|frames\.example|rel="(?:[^"]*\s)?opener[\s"]|target="_top"/i.test(bypass.html)) { throw new Error(`the pasted HTML kept a handler, a frame, rel=opener or a target: ${bypass.html}`); }
+  if (!/<a href="https:\/\/e\.example\/2" target="_blank" rel="noopener nofollow">two<\/a>/.test(bypass.html) || !/b c/.test(bypass.html)) { throw new Error(`a link or the text was lost: ${bypass.html}`); }
+  if (bypass.unstable.length) { throw new Error(`the cleanup is not stable for: ${bypass.unstable.join(' | ')}`); }
+  if (bypass.spaces !== '<p>b c</p>') { throw new Error(`empty paragraphs and non-breaking spaces: ${bypass.spaces}`); }
+  if (bypass.youtube !== '<iframe src="https://www.youtube-nocookie.com/embed/abc"></iframe>' || bypass.other !== '' || bypass.kept !== '<iframe src="https://frames.example/x"></iframe>') {
+    throw new Error(`frames: ${JSON.stringify([bypass.youtube, bypass.other, bypass.kept])}`);
+  }
+});
+
+await step('3.18.2 news editor: the link dialog refuses java<TAB>script:, vbscript: and data: (N3182-6)', async () => {
+  const editor = page.locator('[contenteditable="true"]').first();
+  for (const address of ['java\tscript:window.__linkRan=1', 'vbscript:x', 'data:text/html,x']) {
+    await editor.click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' linkme');
+    await page.keyboard.press('Shift+ArrowLeft');
+    await page.keyboard.press('Control+k');
+    const dialog = page.locator('dialog[open]');
+    await dialog.locator('[name=adresa]').fill(address);
+    await dialog.locator('button[value="ok"]').click();
+    await page.waitForTimeout(200);
+    if (await page.locator('dialog[open]').count()) { await page.keyboard.press('Escape'); }
+  }
+  const html = await editor.innerHTML();
+  if (/script:|vbscript|data:text/i.test(html)) { throw new Error(`the link dialog inserted an unsafe address: ${html}`); }
 });
 
 await step('newsletter: draft and preview', async () => {

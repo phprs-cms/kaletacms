@@ -2960,5 +2960,7 @@ window.KALETA_PREKLAD = {
 	"Remove the condition": "Quitar la condición",
 	"Add a condition": "Añadir una condición",
 	"Tablet": "Tableta",
-	"Filter buttons for visitors (by the field above, without a field by category)": "Botones de filtro para los visitantes (por el campo de arriba; sin campo, por categoría)"
+	"Filter buttons for visitors (by the field above, without a field by category)": "Botones de filtro para los visitantes (por el campo de arriba; sin campo, por categoría)",
+	"Inserting elements…": "Insertando elementos…",
+	"Inserted": "Insertado"
 };
