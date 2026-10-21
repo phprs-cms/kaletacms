@@ -465,6 +465,23 @@ await step('news editor: type and format', async () => {
   }
 });
 
+await step('3.18.2 news editor: pasted HTML is cleaned without running anything (CodeQL #32)', async () => {
+  // before 3.18.2 the paste cleanup parsed the HTML in the admin page itself: an <img onerror> ran before it was removed
+  const editor = page.locator('[contenteditable="true"]').first();
+  await editor.click();
+  const result = await editor.evaluate(async (surface) => {
+    window.__pasteRan = 0;
+    const data = new DataTransfer();
+    data.setData('text/html', '<p>Pasted <mark>word</mark></p><img src="/media/missing-3182.png" onerror="window.__pasteRan = 1"><a href="java&#9;script:window.__pasteRan=2">link</a>');
+    surface.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+    await new Promise((r) => setTimeout(r, 600));
+    return { ran: window.__pasteRan, html: surface.innerHTML };
+  });
+  if (result.ran) { throw new Error(`the pasted HTML ran code (${result.ran})`); }
+  if (/onerror|script:/i.test(result.html)) { throw new Error(`the pasted HTML kept a handler or script link: ${result.html}`); }
+  if (!/<mark>word<\/mark>/.test(result.html)) { throw new Error(`the highlighted word was lost: ${result.html}`); }
+});
+
 await step('newsletter: draft and preview', async () => {
   await visit('/admin.php?module=newsletters&action=new');
   await page.fill('input[name="subject"]', 'Spring news from our workshop');

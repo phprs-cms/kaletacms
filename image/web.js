@@ -987,13 +987,17 @@
 			b.addEventListener('click', onClick);
 			return b;
 		}
+		function note(box, text) { // a message in an empty calendar or time list – as text (3.18.2)
+			var p = document.createElement('p'); p.className = 'ka-rezervace-prazdne'; p.textContent = text;
+			box.textContent = ''; box.appendChild(p);
+		}
 		function renderMonth() {
 			var s = service();
 			timesRequest++; // times still loading for the previous month or service are dropped
 			times.hidden = true; times.innerHTML = '';
-			if (!s) { calendar.innerHTML = '<p class="ka-rezervace-prazdne">' + T('Choose a service first.') + '</p>'; return; }
+			if (!s) { note(calendar, T('Choose a service first.')); return; }
 			var ticket = ++monthRequest, key = month.getFullYear() + '-' + pad(month.getMonth() + 1);
-			calendar.innerHTML = '<p class="ka-rezervace-prazdne">' + T('Loading…') + '</p>';
+			note(calendar, T('Loading…'));
 			load(form.getAttribute('data-dny'), { service: s, staff: staff(), month: key }, function (data) {
 				if (ticket !== monthRequest) { return; }
 				freeDays = data && data.days ? data.days : [];
@@ -1032,12 +1036,12 @@
 		function loadTimes() {
 			if (!day) { return; }
 			var ticket = ++timesRequest;
-			times.hidden = false; times.innerHTML = '<p class="ka-rezervace-prazdne">' + T('Loading…') + '</p>';
+			times.hidden = false; note(times, T('Loading…'));
 			load(form.getAttribute('data-sloty'), { service: service(), staff: staff(), day: day }, function (data) {
 				if (ticket !== timesRequest) { return; } // another day was picked meanwhile
 				times.innerHTML = '';
 				var slots = data && data.slots ? data.slots : [];
-				if (!slots.length) { times.innerHTML = '<p class="ka-rezervace-prazdne">' + T('No free times on this day.') + '</p>'; return; }
+				if (!slots.length) { note(times, T('No free times on this day.')); return; }
 				var label = new Intl.DateTimeFormat(lang, { dateStyle: 'medium' }).format(new Date(day + 'T12:00:00'));
 				slots.forEach(function (time) {
 					times.appendChild(button(time, function (e) {

@@ -41,11 +41,14 @@
 
 	/* ---------- HTML cleanup (pasting from Word and the web) ---------- */
 
-	var ALLOWED = { P: [], H2: [], H3: [], H4: [], STRONG: [], EM: [], B: [], I: [], U: [], S: [], SUB: [], SUP: [], BR: [], HR: [],
+	var ALLOWED = { P: [], H2: [], H3: [], H4: [], STRONG: [], EM: [], B: [], I: [], U: [], S: [], SUB: [], SUP: [], MARK: [], BR: [], HR: [],
 		A: ['href', 'title', 'target', 'rel'], UL: [], OL: [], LI: [], BLOCKQUOTE: [], CODE: [], PRE: [],
 		FIGURE: ['class'], FIGCAPTION: [], IMG: ['src', 'alt', 'width', 'height', 'loading', 'data-id'],
 		TABLE: [], THEAD: [], TBODY: [], TR: [], TH: ['colspan', 'rowspan'], TD: ['colspan', 'rowspan'], IFRAME: ['src', 'width', 'height', 'allowfullscreen', 'title'] };
 	var TAG_REPLACEMENTS = { DIV: 'P', H1: 'H2', H5: 'H4', H6: 'H4' };
+
+	// browsers drop tabs, line breaks and control characters from a URL before reading its scheme ("java\tscript:")
+	var UNSAFE_URL = /^(javascript|vbscript|data):/i;
 
 	function sanitize(node) {
 		Array.prototype.slice.call(node.childNodes).forEach(function (n) {
@@ -55,7 +58,7 @@
 			if (/^(SCRIPT|STYLE|META|LINK|TITLE|HEAD|O:P|XML)$/.test(tag)) { n.remove(); return; }
 			sanitize(n);
 			if (TAG_REPLACEMENTS[tag]) {
-				var fresh = document.createElement(TAG_REPLACEMENTS[tag]);
+				var fresh = n.ownerDocument.createElement(TAG_REPLACEMENTS[tag]);
 				while (n.firstChild) { fresh.appendChild(n.firstChild); }
 				n.replaceWith(fresh);
 				return;
@@ -66,13 +69,15 @@
 				return;
 			}
 			Array.prototype.slice.call(n.attributes).forEach(function (a) {
-				if (ALLOWED[tag].indexOf(a.name) === -1 || /^\s*javascript:/i.test(a.value)) { n.removeAttribute(a.name); }
+				if (ALLOWED[tag].indexOf(a.name) === -1 || (/^(href|src)$/.test(a.name) && UNSAFE_URL.test(a.value.replace(/[\u0000-\u0020\u007f]/g, '')))) { n.removeAttribute(a.name); }
 			});
 		});
 	}
 
 	function cleanHtml(html) {
-		var box = document.createElement('div');
+		// parsed in an inert document (3.18.2, CodeQL #32): in the admin page itself a pasted <img onerror> loaded and ran
+		// before sanitize() removed it – nothing loads or runs in a document without a window
+		var box = document.implementation.createHTMLDocument('').createElement('div');
 		box.innerHTML = html;
 		sanitize(box);
 		return box.innerHTML.replace(/<p>(\s|&nbsp;|<br>)*<\/p>/g, '').replace(/&nbsp;/g, ' ').trim();
@@ -660,6 +665,7 @@
 		});
 	});
 
+	window.kaletaCistiHtml = cleanHtml; // the builder's inspector shows text typed on the canvas through the same cleanup (3.18.2)
 	window.kaletaVytvorEditor = createEditor; // the page builder creates the editor itself over a dynamic field
 	window.kaletaVyberObrazek = pickImage; // picking an image from Media for the builder (the callback gets {url, nazev, …})
 

@@ -601,7 +601,8 @@
 			const box = right.querySelector('[data-pole="' + key + '"]');
 			const surface = box && box.querySelector('.editor-plocha');
 			const input = box && box.querySelector('input, textarea');
-			if (surface) { surface.innerHTML = value; } else if (input) { input.value = value.replace(/&nbsp;/g, '\u00a0'); } // a space typed at the end arrives as &nbsp;
+			// the rich-text field shows the typed HTML through the editor's cleanup (3.18.2, CodeQL #42); a space typed at the end arrives as &nbsp;
+			if (surface) { surface.innerHTML = window.kaletaCistiHtml ? window.kaletaCistiHtml(value) : ''; } else if (input) { input.value = value.replace(/&nbsp;/g, '\u00a0'); }
 		}
 		if (!state.zmeny) { state.zmeny = true; redrawBar(); }
 		setState(T('Editing on the canvas…'));
