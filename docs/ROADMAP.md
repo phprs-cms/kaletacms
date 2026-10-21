@@ -918,6 +918,27 @@ is "online".
 Open: the header chip has no "expires soon" state (Claude settings and System status say it); no menu badge on the
 Claude hub.
 
+**3.18.1 (21 October 2026):** builder dialogs (Published versions, Share, Comments…) live on `<body>`, outside `.st`: with the
+system in dark mode and the admin switched to light their buttons were white on white. The manual theme also sets
+`color-scheme`, the dialog controls inherit font and colour, and a browser-test step checks both mismatches.
+
+**3.18.2 (22 October 2026):**
+- **Security (CodeQL #32, #42):** pasted HTML in the text editor was parsed in the admin page itself, so a pasted
+  `<img onerror>` ran before the cleanup removed it. It is parsed in an inert document now; `href`/`src` drop `javascript:`,
+  `vbscript:` and `data:` also behind tabs or control characters; `<mark>` survives a paste. The builder's inspector shows
+  text typed on the canvas through the same cleanup, and the booking widget writes its messages as text (#38–#41). The
+  other CodeQL and Semgrep alerts were dismissed on GitHub with their reasons (false positives, development and release tools).
+- **Dashboard (fysiomed.cz):** a path-traversal probe in the 404 log no longer crashes the dashboard under `open_basedir` –
+  `Audit::pathResolves` checks the media/image prefix and rejects `..` before `is_file`, and `NotFound::BOTS` treats `..`
+  segments and `@fs/` as probes.
+- **Site moves and front end** (found while moving the owner's sites): a heading for the news list (`news_title`); forms with
+  several recipients labelled as such, styled consent and file fields, `:user-invalid`, the privacy link says it opens a new
+  window; the phone menu dims the page and its button turns into a cross; a navigation can split the menu around a centred
+  logo; the store locator is a map with a side panel (search label, "Nearest to me" as a location icon, markers in the site
+  colour); category filter buttons on a collection list; the site import keeps the last line and redirects to the home page;
+  WordPress news redirects use the public slug; emoji addresses survive a site move; the migration report counts forms and
+  images inside components and item templates; the home page of a language version is no longer an orphan.
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |
