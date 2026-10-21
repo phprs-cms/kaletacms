@@ -46,6 +46,10 @@
 	color-scheme: light dark;
 }
 /* dark mode: by the system, or manually with the switcher in the top bar (data-tema on <html>) */
+/* the manual choice also sets the browser's own colours (buttons, fields, scrollbars): with the system in dark mode and the
+   admin switched to light, a button without its own colour was white text on a white surface (3.18.1) */
+:root[data-tema="svetly"] { color-scheme: light; }
+:root[data-tema="tmavy"] { color-scheme: dark; }
 @media (prefers-color-scheme: dark) {
 	:root:not([data-tema="svetly"]) {
 		--podklad: #121212;
