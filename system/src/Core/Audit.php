@@ -599,7 +599,9 @@ final class Audit
 
         return match (true) {
             $s === [] => true,
-            is_file(KALETA_ROOT . '/' . ltrim($path, '/')) && preg_match('#^/(media|image)/#', $path) === 1 => true,
+            // the prefix and no '..' before the disk is asked: a probe like /@fs/../../proc/self/environ outside open_basedir
+            // makes is_file() warn, and the error handler turned that into a crash of every screen listing the 404s
+            preg_match('#^/(media|image)/#', $path) === 1 && !in_array('..', $segments, true) && is_file(KALETA_ROOT . $path) => true,
             in_array($s[0], ['hledani', 'rss.xml', 'feed.json', 'sitemap.xml', 'robots.txt', 'llms.txt', 'admin.php', 'mcp'], true) => true,
             $s[0] === 'novinky' => self::newsPathExists($db, array_slice($s, 1), $sameLanguage, $languageParams),
             $db->value('SELECT 1 FROM {stranky} WHERE seo_link = ? AND zobrazit = 1 AND smazano IS NULL' . $sameLanguage, [implode('/', $s), ...$languageParams]) !== null => true,

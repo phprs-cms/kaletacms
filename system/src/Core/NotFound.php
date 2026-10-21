@@ -16,7 +16,9 @@ final class NotFound
     /** Paths bots probe on every site: other systems' files, APIs and admin screens. */
     public const string BOTS = '#\.(php|asp|aspx|env|git|sql|bak|ini|xml|txt|js|css|map|png|jpe?g|gif|ico|webp)$|^(wp-|wp/|wordpress|oembed/|xmlrpc|\.|cgi-bin|vendor/|admin/|_next(/|$)|_nuxt|app$|api$|actuator|phpmyadmin|owa/|autodiscover|remote/|boaform|hnap1|solr|telescope|debug)'
         // ad-network crawlers (sellers.json next to ads.txt) and app APIs probed on every site (the public API of 1.x ended in 2.0)
-        . '|^sellers\.json$|^api/#i';
+        . '|^sellers\.json$|^api/'
+        // path traversal (@fs/../../proc/self/environ – the Vite dev-server probe): never an address of the site
+        . '|(^|/)\.\.(/|$)|^@fs/#i';
 
     /** At least this many visits in the period make an address worth a warning. */
     public const int HITS = 3;
