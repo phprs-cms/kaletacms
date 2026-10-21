@@ -3,7 +3,8 @@
 body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; overflow: hidden; background: var(--podklad); font: 14px/1.45 var(--pismo); color: var(--text); }
 .st { display: grid; grid-template: "lista lista lista" auto "levy platno pravy" 1fr / 272px 1fr 320px; height: 100vh; height: 100dvh; }
 .st[hidden] { display: none; }
-.st button, .st input, .st select, .st textarea { font: inherit; color: inherit; }
+.st button, .st input, .st select, .st textarea,
+.st-dialog button, .st-dialog input, .st-dialog select, .st-dialog textarea { font: inherit; color: inherit; } /* the dialogs live outside .st, on <body> (3.18.1) */
 
 /* top bar */
 .st-lista { grid-area: lista; display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 6px 12px; border-bottom: 1px solid var(--linka); background: var(--plocha); }
@@ -25,7 +26,7 @@ body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; ove
 .st-stav { min-width: 150px; color: var(--text-slaby); font-size: 12px; text-align: right; }
 .st-stav.chyba { color: var(--chyba); }
 .st-ikona { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.st-tl { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border: 1px solid var(--linka-pole); border-radius: 8px; background: var(--plocha); text-decoration: none; cursor: pointer; white-space: nowrap; }
+.st-tl { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border: 1px solid var(--linka-pole); border-radius: 8px; background: var(--plocha); color: var(--text); text-decoration: none; cursor: pointer; white-space: nowrap; }
 .st-tl:hover { border-color: var(--akcent); }
 .st-tl-hlavni { border-color: var(--akcent); background: var(--akcent); color: var(--na-akcentu) !important; font-weight: 600; }
 .st-tl-hlavni:hover { background: var(--akcent-tmavy); }

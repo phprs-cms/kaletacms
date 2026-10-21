@@ -261,6 +261,25 @@ await step('builder: select the parent element', async () => {
   await page.waitForTimeout(300);
 });
 
+await step('3.18.1 builder dialogs: readable buttons when the admin theme differs from the system (light on dark, dark on light)', async () => {
+  // the dialogs live on <body>, outside .st: with the system dark and the admin switched to light, Close was white on white
+  for (const [system, admin] of [['dark', 'svetly'], ['light', 'tmavy']]) {
+    await page.emulateMedia({ colorScheme: system });
+    await page.evaluate((t) => document.documentElement.setAttribute('data-tema', t), admin);
+    await page.evaluate(() => document.querySelector('#st-lista-vice button[title="Published versions"]').click()); // an item of the ⋯ menu
+    const dialog = page.locator('dialog.st-dialog[open]');
+    await dialog.waitFor();
+    const bad = await dialog.locator('button').evaluateAll((list) => list.map((b) => {
+      const s = getComputedStyle(b);
+      return s.color === s.backgroundColor || !/Bricolage/.test(s.fontFamily) ? `${b.textContent.trim()}: ${s.color} on ${s.backgroundColor}, ${s.fontFamily}` : '';
+    }).filter(Boolean));
+    await page.keyboard.press('Escape');
+    if (bad.length) { throw new Error(`system ${system}, admin ${admin}: ${bad.join('; ')}`); }
+  }
+  await page.evaluate(() => document.documentElement.removeAttribute('data-tema'));
+  await page.emulateMedia({ colorScheme: 'light' });
+});
+
 await step('builder: insert elements from the Add panel by click and by drag', async () => {
   // broken from 1.4.0 to 3.4.0: newElement() built the element under English keys the builder does not read (3.4.1)
   const count = () => canvas().locator('[data-ka-id]').count();

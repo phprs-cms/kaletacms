@@ -876,7 +876,7 @@ The fleet console's tabs: Inbox, Sites, Customers, Fleet reports, Alerts and dig
 Open: a removed site's history goes with it (the stored fleet reports keep it); response time is the console's own view
 (time to the first byte from the console), not the visitors'; a forgotten customer's reports stay under its old id and name.
 
-## 3.18 – know whether Claude is connected (in progress)
+## 3.18 – know whether Claude is connected (released 20 October 2026)
 
 The owner: the connector to Claude is essential – the admin must say whether there is an active connection, and say so
 when there is none, so nobody writes to Ask Claude while nothing picks the requests up. MCP is pull-only: the site knows
