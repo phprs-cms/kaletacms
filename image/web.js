@@ -751,7 +751,7 @@
 			base = leaflet.origin === location.origin && /\/image\/vendor\/leaflet\/$/.test(leaflet.pathname) && !leaflet.search && !leaflet.hash ? leaflet.href : '';
 		} catch (e) { base = ''; }
 		if (!base && mapButton) { mapButton.hidden = true; }
-		// 3.12.2: the markers follow the search, and in the side panel a branch and its marker point at each other
+		// 3.18.2: the markers follow the search, and in the side panel a branch and its marker point at each other
 		var current = function (li) {
 			items.forEach(function (other) { if (other !== li) { other.removeAttribute('aria-current'); } });
 			if (li) { li.setAttribute('aria-current', 'true'); }
@@ -792,7 +792,7 @@
 					return box;
 				} }))().addTo(map);
 				window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-				// 3.12.2: a pin in the site colour (CSS .ka-pobocky-pin, --ka-pobocky-pin) instead of Leaflet's blue picture
+				// 3.18.2: a pin in the site colour (CSS .ka-pobocky-pin, --ka-pobocky-pin) instead of Leaflet's blue picture
 				var pin = window.L.divIcon({ className: 'ka-pobocky-pin', iconSize: [28, 40], iconAnchor: [14, 40], popupAnchor: [0, -36],
 					html: '<svg viewBox="0 0 28 40" aria-hidden="true"><path fill="currentColor" d="M14 0C6.3 0 0 6.1 0 13.7 0 24 14 40 14 40s14-16 14-26.3C28 6.1 21.7 0 14 0z"/><circle cx="14" cy="14" r="5" fill="#fff"/></svg>' });
 				var bounds = [];

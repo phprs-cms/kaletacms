@@ -344,7 +344,7 @@ final class Collections
         }
     }
 
-    /** At most this many items in one query (3.12.2: 500 for the Store locator of a producer with many partner stores, 100 before). */
+    /** At most this many items in one query (3.18.2: 500 for the Store locator of a producer with many partner stores, 100 before). */
     public const int MAX_ITEMS = 500;
 
     /**

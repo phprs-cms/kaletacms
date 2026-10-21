@@ -547,7 +547,7 @@ expect "news_slug: set over MCP (a page in the trash does not block it)" "$(slug
 expect "news_slug: /blog lists the news, the item and its .md work" "$(slug_code /blog)|$(slug_code /blog/vitejte-v-kalete)|$(slug_code /blog/vitejte-v-kalete.md)" "200 |200 |200 "
 expect "news_slug: /novinky and its items redirect permanently to /blog" "$(slug_code /novinky)|$(slug_code /novinky/vitejte-v-kalete)" "301 $B/blog|301 $B/blog/vitejte-v-kalete"
 expect "news_slug: the listing and the RSS feed link to /blog" "$(curl -s "$B/blog" | grep -c '/blog/vitejte-v-kalete"')|$(curl -s "$B/rss.xml" | grep -c '/blog/vitejte-v-kalete</link>')" "1|1"
-# 3.12.2: news_title gives the list its heading (Blog to go with /blog); empty = Novinky again
+# 3.18.2: news_title gives the list its heading (Blog to go with /blog); empty = Novinky again
 mcp update_settings '{"settings":{"news_title":"Blog firmy"}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
 expect "news_title: the heading and the title of the news list" "$(curl -s "$B/blog" | grep -c '<h1>Blog firmy</h1>')|$(curl -s "$B/blog" | grep -c '<title>Blog firmy')" "1|1"
 mcp update_settings '{"settings":{"news_title":""}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
@@ -1964,6 +1964,18 @@ code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/produkty/zdrav
 check "3.7: a subcategory under another parent is a 404" 404 /produkty/elektro/zdravotni
 check "3.7: the address latest is never a category" 404 /produkty/bezecke-pasy/latest
 check "3.7: an item page still works next to the categories" 200 /produkty/stimulator '<h1>Stimulátor</h1>'
+# 3.18.2: filter buttons without a field are the categories – the top-level ones, or the subcategories of the list's category; only those with items
+mcp create_page '{"title":"Filtr kategorií 3182","slug":"filtr-kategorii-3182","visible":true}' > /dev/null
+FILTER3182=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'filtr-kategorii-3182'")
+mcp save_build '{"id":'"$FILTER3182"',"publish":true,"build":{"v":1,"children":[{"type":"section","children":[{"id":"kf3182","type":"collection_list","content":{"collection":"produkty","count":30,"filters":true},"children":[{"type":"heading","tag":"h3","content":{"text":"{{nazev}}"}}]},{"id":"kp3182","type":"collection_list","content":{"collection":"produkty","category":"bezecke-pasy","count":30,"filters":true},"children":[{"type":"heading","tag":"h4","content":{"text":"{{nazev}}"}}]}]}]}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
+curl -s -o "$WORK/response" "$B/filtr-kategorii-3182"
+grep -q 'f-kf3182=bezecke-pasy">Běžecké pásy<' "$WORK/response" && grep -q 'f-kf3182=elektro">Elektroléčba<' "$WORK/response" && ! grep -q 'f-kf3182=zdravotni' "$WORK/response" \
+  && grep -q 'f-kp3182=zdravotni">Zdravotní pásy<' "$WORK/response" && ! grep -q 'f-kp3182=elektro' "$WORK/response" \
+  && echo "  ok     3.18.2: category filter buttons – top-level ones, the subcategories under a list's category" || { echo "  CHYBA  3.18.2 category filter buttons: $(grep -o '<ul class="ka-kolekce-filtry".*</ul>' "$WORK/response" | head -c 600)"; ERRORS=$((ERRORS+1)); }
+curl -s -o "$WORK/response" "$B/filtr-kategorii-3182?f-kf3182=elektro"
+grep -q '<h3>Stimulátor</h3>' "$WORK/response" && ! grep -q '<h3>Pás 01</h3>' "$WORK/response" && grep -q 'aria-current="true">Elektroléčba<' "$WORK/response" \
+  && echo "  ok     3.18.2: a category button filters the list" || { echo "  CHYBA  3.18.2 filtering by a category button"; ERRORS=$((ERRORS+1)); }
+sq "DELETE FROM ka_stranky WHERE ids = $FILTER3182" > /dev/null
 check "3.7: the sitemap lists category pages" 200 /sitemap.xml '/produkty/bezecke-pasy/zdravotni</loc>'
 # collisions: an address is never both a category and an item of the collection
 mcp save_collection_category '{"collection":"produkty","name":"Pás","slug":"pas-01"}' | contains 'already used by an item of this collection' \
@@ -2109,7 +2121,7 @@ sq "CREATE TABLE ka_n55_backup AS SELECT * FROM ka_nastaveni WHERE promenna IN (
   REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('company_map', 'javascript:alert(1)'), ('social_facebook', ' JavaScript:alert(2)'), ('social_linkedin', 'https://www.linkedin.com/company/n55');
   INSERT INTO ka_facts (fact_key, language, label, type, value, updated_at) VALUES ('n55promo', '', 'N55', 'text', 'javascript:alert(3)', '$(site_time)'), ('n55note', '', 'N55', 'text', 'Note: open daily', '$(site_time)')" > /dev/null
 sq "INSERT INTO ka_stitky (nazev, seo_link, jazyk) VALUES ('Move 314', 'move-314', 'en')" > /dev/null # 3.14: a tag's language version moves with the site
-sq "INSERT INTO ka_presmerovani (z_adresy, na_adresu, typ, vytvoreno) VALUES ('stara-uvodni-stranka', '', 301, '$(site_time)')" > /dev/null # 3.12.2: a redirect to the home page (stored with an empty target) moves too
+sq "INSERT INTO ka_presmerovani (z_adresy, na_adresu, typ, vytvoreno) VALUES ('stara-uvodni-stranka', '', 301, '$(site_time)')" > /dev/null # 3.18.2: a redirect to the home page (stored with an empty target) moves too
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=export" -d "_csrf=$TOKEN"
 # 3.14: the same content in export format 3 (English keys) – only on request, from the code; a second later, so the two
 # archives never share the name of one second
@@ -2153,7 +2165,7 @@ for i in $(seq 1 80); do
   grep -q "Web je naimportovaný\|Import se zastavil" "$WORK/response" && break
 done
 grep -q "Web je naimportovaný" "$WORK/response" && grep -q 'data-auto-odeslat' "$WORK/response" && { echo "  CHYBA  the result still submits itself"; ERRORS=$((ERRORS+1)); } || true
-grep -q "Web je naimportovaný" "$WORK/response" && ! grep -q "přeskočen" "$WORK/response" && echo "  ok     3.12.2: nothing reported as skipped (the newline after the last row is no record)" || { echo "  CHYBA  3.12.2 the import reports skipped records: $(sed 's/<[^>]*>//g' "$WORK/response" | grep 'přeskočen' | head -3)"; ERRORS=$((ERRORS+1)); }
+grep -q "Web je naimportovaný" "$WORK/response" && ! grep -q "přeskočen" "$WORK/response" && echo "  ok     3.18.2: nothing reported as skipped (the newline after the last row is no record)" || { echo "  CHYBA  3.18.2 the import reports skipped records: $(sed 's/<[^>]*>//g' "$WORK/response" | grep 'přeskočen' | head -3)"; ERRORS=$((ERRORS+1)); }
 grep -q "Web je naimportovaný" "$WORK/response" && echo "  ok     the import went through in batches" || { echo "  CHYBA  import: $(sed 's/<[^>]*>//g' "$WORK/response" | grep -i 'import\|chyb' | head -5)"; ERRORS=$((ERRORS+1)); }
 move_counts() { "${MYSQL[@]}" "$1" -N -e "SELECT CONCAT_WS('/', (SELECT COUNT(*) FROM ka_stranky WHERE smazano IS NULL), (SELECT COUNT(*) FROM ka_novinky WHERE smazano IS NULL), (SELECT COUNT(*) FROM ka_kategorie),
   (SELECT COUNT(*) FROM ka_kolekce), (SELECT COUNT(*) FROM ka_kolekce_polozky WHERE smazano IS NULL), (SELECT COUNT(*) FROM ka_komponenty), (SELECT COUNT(*) FROM ka_tridy), (SELECT COUNT(*) FROM ka_menu),
@@ -2176,7 +2188,7 @@ expect "3.2: the booking set-up came along; Bookings follow the export's version
 MOVED_MEDIA=$("${MYSQL[@]}" "$DB2" -N -e "SELECT obr_poloha FROM ka_media ORDER BY ido LIMIT 1")
 [ -n "$MOVED_MEDIA" ] && [ -f "$WORK/web2/$MOVED_MEDIA" ] && echo "  ok     the media files are on the new site" || { echo "  CHYBA  media file $MOVED_MEDIA"; ERRORS=$((ERRORS+1)); }
 [ -z "$(find "$WORK/web2/media" -name '*.php')" ] && echo "  ok     no PHP came into media/" || { echo "  CHYBA  PHP in media/"; ERRORS=$((ERRORS+1)); }
-expect "3.12.2: a redirect to the home page works on the moved site" "$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B2/stara-uvodni-stranka")" "301 $B2/"
+expect "3.18.2: a redirect to the home page works on the moved site" "$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B2/stara-uvodni-stranka")" "301 $B2/"
 sq "DELETE FROM ka_presmerovani WHERE z_adresy = 'stara-uvodni-stranka'" > /dev/null
 code=$(curl -s -o "$WORK/response" -w '%{http_code}' "$B2/"); [ "$code" = 200 ] && grep -q "Testovací firma" "$WORK/response" && echo "  ok     the moved site runs" || { echo "  CHYBA  moved site: $code"; ERRORS=$((ERRORS+1)); }
 expect "2.15: the notebook moved with the site (the note, its topic and author)" "$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB2" -N -e "SELECT CONCAT(COUNT(*), '|', MAX(topic), '|', MAX(title), '|', MAX(author)) FROM ka_notebook")" "1|history|Historie redesignu|test"
@@ -3298,6 +3310,17 @@ mcp migration_report "{\"url\":\"$OLD\"}" > "$WORK/response"; REPORT_ID=$(import
 for i in $(seq 1 20); do [ "$(import_field phase)" = done ] && break; mcp migration_report "{\"report_id\":\"$REPORT_ID\"}" > "$WORK/response"; done
 expect "migration report: after a redirect and publishing, the contact address redirects (but the form is gone)" "$(import_field summary)" '{"addresses":4,"checked":4,"ok":2,"redirected":1,"not_published":1,"missing":0,"errors":1,"warnings":2}'
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_stranky SET zobrazit = 0 WHERE seo_link = 'about-us'; DELETE FROM ka_presmerovani WHERE z_adresy = 'contact'"
+# 3.18.2: a form shared by pages as a component is still a form – the new contact page holds it in a component
+mcp save_component '{"name":"Formulář 3182"}' > "$WORK/response"; COMP3182=$(mcp_value id)
+mcp save_build "{\"component\":$COMP3182,\"build\":{\"v\":1,\"deti\":[{\"typ\":\"sekce\",\"deti\":[{\"typ\":\"formular\"}]}]}}" > /dev/null
+mcp publish_build "{\"component\":$COMP3182}" > /dev/null
+mcp create_page '{"title":"Contact","slug":"contact","visible":true}' > /dev/null; CONTACT3182=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'contact' AND smazano IS NULL")
+mcp save_build "{\"id\":$CONTACT3182,\"publish\":true,\"build\":{\"v\":1,\"deti\":[{\"typ\":\"sekce\",\"deti\":[{\"typ\":\"komponenta\",\"obsah\":{\"komponenta\":\"$COMP3182\"}}]}]}}" > /dev/null
+mcp migration_report "{\"url\":\"$OLD\"}" > "$WORK/response"; REPORT_ID=$(import_field report_id)
+for i in $(seq 1 20); do [ "$(import_field phase)" = done ] && break; mcp migration_report "{\"report_id\":\"$REPORT_ID\"}" > "$WORK/response"; done
+contains -q '/contact' "$WORK/response" && ! contains -q 'form_missing' "$WORK/response" \
+  && echo "  ok     3.18.2: the migration report counts a form inside a component" || { echo "  CHYBA  3.18.2 form in a component: $(import_field summary)"; ERRORS=$((ERRORS+1)); }
+sq "DELETE FROM ka_stranky WHERE ids = $CONTACT3182" > /dev/null; mcp delete_component "{\"id\":$COMP3182}" > /dev/null
 # 3.8: an old page nested 3,000 deep is never parsed – the website import skips it with the limit among its failures, the
 # migration report checks only its address
 mkdir -p "$WORK/oldsite/deep"

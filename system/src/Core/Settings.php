@@ -113,7 +113,7 @@ final class Settings
         'claude_instructions_notice' => '', // 3.15 (N44, Core\ClaudeInstructions): the last change (JSON) until an administrator looks at it
         'security_contact' => '',      // who takes reports of security problems (e-mail or https page) – /.well-known/security.txt (2.1)
         'news_slug' => '',          // first segment of the news URLs in every language (blog → /blog/x); empty = novinky / news (Core\Routes)
-        'news_title' => '',         // 3.12.2: heading of the news list in the default language (Aktuality to go with /aktuality); empty = News in the site language
+        'news_title' => '',         // 3.18.2: heading of the news list in the default language (Aktuality to go with /aktuality); empty = News in the site language
         'news_slug_previous' => '', // earlier news_slug values, comma-separated: their URLs redirect to the current ones (kept by Settings::set)
         'slugs_per_language' => '0', // 3.9: a page, news item or category may share its slug with another language version (/kontakt, /en/kontakt); changed only by Core\Slug::switchPerLanguage
         'markdown_news' => '1',     // /novinky/<slug>.md
@@ -269,7 +269,7 @@ final class Settings
         return in_array($key, self::TRANSLATED_DEFAULTS, true) ? t(self::DEFAULTS[$key]) : (self::DEFAULTS[$key] ?? '');
     }
 
-    /** The heading of the news list (3.12.2): the setting news_title in the default language, otherwise News in the site language. */
+    /** The heading of the news list (3.18.2): the setting news_title in the default language, otherwise News in the site language. */
     public function newsTitle(): string
     {
         $title = trim($this->get('news_title'));

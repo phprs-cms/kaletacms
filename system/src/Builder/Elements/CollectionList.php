@@ -96,7 +96,7 @@ final class CollectionList extends Element
         $linkField = array_values(array_filter($collection['pole'], fn (array $f): bool => $f['klic'] === $filterField && $f['typ'] === 'polozka'))[0] ?? null;
         $labels = $linkField !== null ? array_map(fn (array $l): string => $l[0], Collections::linked($db, (string) ($linkField['kolekce'] ?? ''))) : [];
         $selected = in_array($r->get($filterParam), $filterValues, true) ? $r->get($filterParam) : '';
-        // 3.12.2: without a field the buttons are the categories of the collection – the subcategories of the list's category,
+        // 3.18.2: without a field the buttons are the categories of the collection – the subcategories of the list's category,
         // otherwise the top-level ones – and only those with an item in this language (references by type, products by range)
         if ($filterField === '' && $o['filtry'] && $categoryId !== false) {
             $language = Language::siteColumn();

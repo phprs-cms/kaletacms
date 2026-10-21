@@ -442,7 +442,7 @@ final class WpImport
     public static function oldPath(string $link): string
     {
         // a sitemap may write an emoji or an accented letter raw: parse_url() would turn the bytes 0x80–0x9F into "_" (it takes them
-        // for control characters), so everything outside ASCII is percent-encoded first and decoded back below (3.12.2)
+        // for control characters), so everything outside ASCII is percent-encoded first and decoded back below (3.18.2)
         $link = (string) preg_replace_callback('/[^\x00-\x7F]+/', fn (array $m): string => rawurlencode($m[0]), $link);
         $path = trim(rawurldecode((string) parse_url($link, PHP_URL_PATH)), '/ ');
 
@@ -618,7 +618,7 @@ final class WpImport
         $state['vysledek']['clanky']++;
 
         if ($state['volby']['presmerovani']) {
-            // the public address (3.12.2): under a custom news slug (/aktuality) the old WordPress address may be the new one
+            // the public address (3.18.2): under a custom news slug (/aktuality) the old WordPress address may be the new one
             // itself – a redirect to the internal novinky/… would send it back to itself while the news item is still hidden
             $public = Routes::publicPath('novinky/' . $seo, Language::ofContent($this->settings, $language), $this->db);
             $state['vysledek']['presmerovani'] += $this->redirect($p, ($language !== '' ? $language . '/' : '') . $public, $state);

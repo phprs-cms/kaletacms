@@ -14,7 +14,7 @@ use Kaleta\Core\Language;
  * list with the address, a tel: link, the e-mail and a "Directions" link, usable without JavaScript. image/web.js adds a
  * search box filtering the list as you type, "Nearest to me" (navigator.geolocation only after the click, sorted by the
  * haversine distance, nothing sent anywhere) and a Leaflet map with OpenStreetMap tiles that loads only after a click, like
- * the Map element (3.12.2: or at once, and as a map beside a side panel with the search and a scrolling list, where a branch
+ * the Map element (3.18.2: or at once, and as a map beside a side panel with the search and a scrolling list, where a branch
  * and its marker point at each other). Each branch carries data-lat/data-lng for the script; every text the script shows is rendered here with
  * t(), so the site dictionary translates it.
  */
@@ -42,7 +42,7 @@ final class StoreLocator extends Element
             'hledani' => ['typ' => 'prepinac', 'popisek' => 'Search box', 'vychozi' => true],
             'nejblizsi' => ['typ' => 'prepinac', 'popisek' => '“Nearest to me” button', 'vychozi' => true],
             'mapa' => ['typ' => 'prepinac', 'popisek' => 'Map (loads after a click)', 'vychozi' => true],
-            // 3.12.2: the map beside a side panel with the search and a scrolling list (like a store locator of a maps platform)
+            // 3.18.2: the map beside a side panel with the search and a scrolling list (like a store locator of a maps platform)
             'rozlozeni' => ['typ' => 'vyber', 'popisek' => 'Layout', 'vychozi' => 'seznam', 'moznosti' => ['seznam' => 'List with the map above it', 'panel' => 'Map with a side panel']],
             'mapa_hned' => ['typ' => 'prepinac', 'popisek' => 'Load the map at once (the visitor’s browser contacts OpenStreetMap when the page opens)', 'vychozi' => false],
         ];
@@ -122,7 +122,7 @@ final class StoreLocator extends Element
         $panel = $o['mapa'] && $o['rozlozeni'] === 'panel';
         $controls = '';
         if ($o['hledani']) {
-            // 3.12.2: in the side panel the label is for screen readers only and its text is the placeholder – one line with the location button
+            // 3.18.2: in the side panel the label is for screen readers only and its text is the placeholder – one line with the location button
             $controls .= $panel
                 ? '<label><span class="ka-jen-ctecka">' . e(t('Search branches')) . '</span><input type="search" data-hledat placeholder="' . e(t('Search branches')) . '" autocomplete="off"></label>'
                 : '<label><span>' . e(t('Search branches')) . '</span><input type="search" data-hledat placeholder="' . e(t('Name or address')) . '" autocomplete="off"></label>';
