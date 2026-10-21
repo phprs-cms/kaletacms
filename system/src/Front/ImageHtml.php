@@ -26,7 +26,7 @@ final class ImageHtml
      */
     public static function logoSize(string $logo): string
     {
-        if (!preg_match('#^/?((?:media|image)/[A-Za-z0-9/_.-]+\.svg)$#iD', $logo, $m) || str_contains($m[1], '..') || !is_file(KALETA_ROOT . '/' . $m[1])) {
+        if (!preg_match('#^/?((?:media|image)/[A-Za-z0-9/_.-]+\.svg)$#iD', $logo, $m) || str_contains($m[1], '..') || !\Kaleta\Core\Files::isFile(KALETA_ROOT . '/' . $m[1])) {
             return '';
         }
 

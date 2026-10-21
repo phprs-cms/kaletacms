@@ -146,8 +146,12 @@ final class ElementClipboard
         if (!$code) {
             $package['prvky'] = self::withoutCode($package['prvky'], $dropped);
             foreach ($package['komponenty'] as $i => $k) {
-                if (is_array($k['stavba'] ?? null) && is_array($k['stavba']['deti'] ?? null)) {
-                    $package['komponenty'][$i]['stavba']['deti'] = self::withoutCode(array_values($k['stavba']['deti']), $dropped);
+                if (is_array($k['stavba'] ?? null) && array_is_list($k['stavba'])) {
+                    $package['komponenty'][$i]['stavba'] = ['deti' => $k['stavba']]; // a build given as a plain list (N3182-10)
+                }
+                $build = $package['komponenty'][$i]['stavba'] ?? null;
+                if (is_array($build) && is_array($build['deti'] ?? null)) {
+                    $package['komponenty'][$i]['stavba']['deti'] = self::withoutCode(array_values($build['deti']), $dropped);
                 }
             }
         }

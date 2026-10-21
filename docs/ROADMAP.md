@@ -945,7 +945,7 @@ the front end embeds, `rel` only with safe values (`noopener` with every `_blank
 address check; every builder clipboard envelope goes through the server, which keeps Custom HTML only in a copy this site
 signed, and the layer tree reads element text in an inert document; long `/media/` paths no longer crash Site audit under
 `open_basedir`; the migration report follows each component once (cycles). OpenStreetMap on "map at once" stays as
-labelled (owner decision, N3182-7).
+labelled (owner decision, N3182-7). A second review found no bypass of the new cleanup; it closed the rest: only an administrator's copy is signed (N3182-8), image sizes on public pages and in newsletters and the logo check go through `Files::isFile` (N3182-9), a component build given as a plain list loses its code too (N3182-10), and the path cap is strictly below the platform maximum (N3182-11).
 
 ## Path to 4.0 (owner decisions, 13 October 2026)
 

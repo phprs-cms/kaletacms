@@ -391,7 +391,7 @@ final class Mailing
             return $path;
         }
         $path = ltrim($path, '/');
-        if ($variant && preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+?)\.(jpg|png)$#D', $path, $m) && is_file(KALETA_ROOT . '/' . $m[1] . '-1200.' . $m[2])) {
+        if ($variant && preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+?)\.(jpg|png)$#D', $path, $m) && Files::isFile(KALETA_ROOT . '/' . $m[1] . '-1200.' . $m[2])) {
             $path = $m[1] . '-1200.' . $m[2];
         }
 

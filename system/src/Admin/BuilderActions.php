@@ -244,7 +244,11 @@ trait BuilderActions
         }
 
         $envelope = ElementClipboard::pack($this->db, array_slice($elements, 0, ElementClipboard::MAX_ELEMENTS), $this->request->origin());
-        $envelope['sig'] = ElementClipboard::signature($envelope, (new \Kaleta\Core\Antispam($this->db, $this->app->settings()))->key());
+        // only an administrator's copy is signed (N3182-8): an editor's signature would let an administrator paste the editor's
+        // Custom HTML as their own
+        if ($this->app->auth()->isAdmin()) {
+            $envelope['sig'] = ElementClipboard::signature($envelope, (new \Kaleta\Core\Antispam($this->db, $this->app->settings()))->key());
+        }
 
         return Response::json(['ok' => true, 'schranka' => $envelope]);
     }

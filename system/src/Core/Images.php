@@ -344,7 +344,7 @@ final class Images
         foreach (['-nahled', '-1200', ''] as $extension) {
             $file = $m[1] . $extension . '.' . $m[3];
             // the actual width of each variant: earlier images were shrunk by the longer side, so for tall images „1200“ did not mean the width
-            $info = is_file(KALETA_ROOT . '/' . $file) ? @getimagesize(KALETA_ROOT . '/' . $file) : false;
+            $info = Files::isFile(KALETA_ROOT . '/' . $file) ? @getimagesize(KALETA_ROOT . '/' . $file) : false; // a 4 000-character address in a news text (N3182-9)
             if ($info !== false && !isset($widths[$info[0]])) {
                 $widths[$info[0]] = true;
                 $variants[] = $base . '/' . $file . ' ' . $info[0] . 'w';

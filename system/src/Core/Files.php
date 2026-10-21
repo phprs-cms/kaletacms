@@ -34,7 +34,7 @@ final class Files
      */
     public static function isFile(string $path): bool
     {
-        return strlen($path) < min(self::MAX_PATH, PHP_MAXPATHLEN) && !str_contains($path, "\0") && is_file($path);
+        return strlen($path) < min(self::MAX_PATH, PHP_MAXPATHLEN - 1) && !str_contains($path, "\0") && is_file($path); // 1023 bytes still warn where the maximum is 1024 (N3182-11)
     }
 
     /** How many bytes one uploaded file can have: the smaller of upload_max_filesize and post_max_size (0 = no limit). */
