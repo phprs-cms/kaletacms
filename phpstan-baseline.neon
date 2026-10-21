@@ -43,12 +43,6 @@ parameters:
 			path: system/src/Builder/Edits.php
 
 		-
-			message: '#^Parameter \#2 \$callback of function array_filter expects \(callable\(string\)\: bool\)\|null, Closure\(array\)\: bool given\.$#'
-			identifier: argument.type
-			count: 1
-			path: system/src/Builder/Elements/Navigation.php
-
-		-
 			message: '#^Call to an undefined method Dom\\Document\:\:saveHtml\(\)\.$#'
 			identifier: method.notFound
 			count: 1
@@ -135,12 +129,6 @@ parameters:
 		-
 			message: '#^PHPDoc tag @param references unknown parameter\: \$meta$#'
 			identifier: parameter.notFound
-			count: 1
-			path: system/src/Front/Kernel.php
-
-		-
-			message: '#^Property Kaleta\\Builder\\Context\:\:\$menu \(list\<array\{titulek\: string, seo_link\: string\}\>\) does not accept array\{hlavni\: list\<array\<string, mixed\>\>, paticka\: list\<array\<string, mixed\>\>\}\.$#'
-			identifier: assign.propertyType
 			count: 1
 			path: system/src/Front/Kernel.php
 

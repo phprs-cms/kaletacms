@@ -344,6 +344,9 @@ final class Collections
         }
     }
 
+    /** At most this many items in one query (3.18.2: 500 for the Store locator of a producer with many partner stores, 100 before). */
+    public const int MAX_ITEMS = 500;
+
     /**
      * Visible items of a collection in the site language: filter by field value, sorting (also by a custom field) and pagination.
      *
@@ -381,7 +384,7 @@ final class Collections
             $sort === 'pole_sestupne' && $byField => '(' . $field($sortField) . ' + 0) DESC, ' . $db->sortText($field($sortField)) . ' DESC, ' . $name,
             default => 'poradi, ' . $name,
         };
-        $count = max(1, min(100, $count));
+        $count = max(1, min(self::MAX_ITEMS, $count)); // the elements keep their own limits (a Collection list 100); the Store locator lists more
         $total = (int) $db->value('SELECT COUNT(*) FROM {kolekce_polozky} WHERE ' . $whereParts, $params);
         $items = array_map(function (array $r): array {
             $r['data'] = json_decode((string) $r['data'], true) ?: [];

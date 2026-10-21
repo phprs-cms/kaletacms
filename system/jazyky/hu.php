@@ -2085,4 +2085,5 @@ A hivatkozás %d napig érvényes.
     'Cookie bar: a random identifier that links the choice to its record, only when consents are recorded (cookie)' => 'Sütisáv: véletlenszerű azonosító, amely a választást a nyilvántartott rekordjához kapcsolja – csak ha a hozzájárulásokat rögzítjük (süti)',
     'Preview of drafts: only for someone who opened a signed preview link (cookie)' => 'Piszkozatok előnézete: csak annak, aki aláírt előnézeti hivatkozást nyitott meg (süti)',
     'until the preview link expires, at most 7 days' => 'amíg az előnézeti hivatkozás le nem jár, legfeljebb 7 napig',
+    'open in a new window' => 'megnyitás új ablakban',
 ];

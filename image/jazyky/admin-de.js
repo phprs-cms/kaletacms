@@ -2958,5 +2958,6 @@ window.KALETA_PREKLAD = {
 	"Price estimate": "Preisschätzung",
 	"Condition": "Bedingung",
 	"Remove the condition": "Bedingung entfernen",
-	"Add a condition": "Bedingung hinzufügen"
+	"Add a condition": "Bedingung hinzufügen",
+	"Filter buttons for visitors (by the field above, without a field by category)": "Filter-Schaltflächen für Besucher (nach dem Feld oben, ohne Feld nach Kategorie)"
 };

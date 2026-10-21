@@ -2032,4 +2032,5 @@ return [
     'Cookie bar: a random identifier that links the choice to its record, only when consents are recorded (cookie)' => 'Cookie lišta: náhodný identifikátor, ktorý prepojí voľbu s jej záznamom – len keď sa súhlasy evidujú (cookie)',
     'Preview of drafts: only for someone who opened a signed preview link (cookie)' => 'Náhľad konceptov: len pre toho, kto otvoril podpísaný odkaz na náhľad (cookie)',
     'until the preview link expires, at most 7 days' => 'do vypršania odkazu na náhľad, najviac 7 dní',
+    'open in a new window' => 'otvoriť v novom okne',
 ];

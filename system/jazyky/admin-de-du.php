@@ -998,4 +998,5 @@ return [
     '%d request(s) wait, but Claude is not connected to the site – connect it in Claude settings' => '%d Auftrag/Aufträge warten, aber Claude ist nicht mit der Website verbunden – binde Claude in den Claude-Einstellungen an',
     '%d request(s) wait, but the scheduled run that picks them up is not running (last missed or failed %s) – check the routine in Claude (Scheduled runs)' => '%d Auftrag/Aufträge warten, aber der geplante Lauf, der sie abholt, läuft nicht (zuletzt verpasst oder fehlgeschlagen %s) – prüfe die Routine in Claude (Geplante Läufe)',
     'a connection ends %s, connect Claude again before then' => 'eine Anbindung endet am %s, binde Claude vorher erneut an',
+    'Media: %s' => 'Medien: %s',
 ];

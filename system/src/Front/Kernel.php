@@ -935,14 +935,14 @@ final class Kernel
         $pageNumber = max(1, $this->app->request->getInt('page', 1));
         [$news, $total] = $this->news->listPublished($pageNumber);
         if (!$home) {
-            $this->breadcrumbs([t('Novinky'), '']);
+            $this->breadcrumbs([$this->app->settings()->newsTitle(), '']);
         }
 
-        return $this->page($home ? '' : t('Novinky'), $this->view->render('vypis', ['nadpis' => t('Novinky'), 'popis' => ''] + $this->listVariables($news, $total, $pageNumber, $home ? '' : 'novinky')), [
+        return $this->page($home ? '' : $this->app->settings()->newsTitle(), $this->view->render('vypis', ['nadpis' => $this->app->settings()->newsTitle(), 'popis' => ''] + $this->listVariables($news, $total, $pageNumber, $home ? '' : 'novinky')), [
             'hlavni' => $home,
             // without a site description: the list's own summary (the site name and the latest headlines)
             'popis' => $this->app->settings()->get('site_description') !== '' ? $this->app->settings()->get('site_description')
-                : mb_strimwidth(t('Novinky') . ' – ' . $this->app->settings()->get('site_name') . ($news !== [] ? ': ' . implode(' · ', array_column(array_slice($news, 0, 3), 'titulek')) : ''), 0, 160, '…'),
+                : mb_strimwidth($this->app->settings()->newsTitle() . ' – ' . $this->app->settings()->get('site_name') . ($news !== [] ? ': ' . implode(' · ', array_column(array_slice($news, 0, 3), 'titulek')) : ''), 0, 160, '…'),
             'cast' => 'vypis',
         ]);
     }
@@ -954,7 +954,7 @@ final class Kernel
             return $this->notFound();
         }
         $this->counterpart = ['kategorie', 'idt', $category, 'novinky/kategorie/'];
-        $this->breadcrumbs([t('Novinky'), $this->app->url('novinky')], [$category['nazev'], '']);
+        $this->breadcrumbs([$this->app->settings()->newsTitle(), $this->app->url('novinky')], [$category['nazev'], '']);
         $pageNumber = max(1, $this->app->request->getInt('page', 1));
         [$news, $total] = $this->news->inCategory((int) $category['idt'], $pageNumber);
 
@@ -1011,7 +1011,7 @@ final class Kernel
             $this->app->db()->run('UPDATE {novinky} SET visit = visit + 1 WHERE idc = ?', [$newsItem['idc']]);
         }
 
-        $this->breadcrumbs([t('Novinky'), $this->app->url('novinky')], [$newsItem['tema_jm'], $this->app->url('novinky/kategorie/' . $newsItem['tema_seo'])], [$newsItem['titulek'], '']);
+        $this->breadcrumbs([$this->app->settings()->newsTitle(), $this->app->url('novinky')], [$newsItem['tema_jm'], $this->app->url('novinky/kategorie/' . $newsItem['tema_seo'])], [$newsItem['titulek'], '']);
         $newsItem['faq_html'] = (new View([KALETA_SYSTEM . '/views/front']))->render('faq', ['faq' => Seo::faq($newsItem['faq'])]);
         $newsItem = (new NewsText($this->app))->complete($newsItem);
         $newsItem['stitky'] = $this->app->db()->all('SELECT s.nazev, s.seo_link FROM {stitky} s JOIN {novinky_stitky} cs ON cs.ids = s.ids WHERE cs.idc = ? ORDER BY ' . $this->app->db()->sortText('s.nazev'), [$newsItem['idc']]);
@@ -1218,7 +1218,7 @@ final class Kernel
     /** The page-not-found page; 410 = an address the administrator marked as gone for good (3.6) – search engines drop it. */
     private function notFoundPage(int $status): Response
     {
-        return $this->page(t('Page not found'), $this->view->render('nenalezeno', ['url' => $this->app->url(...), 'stranky' => $this->menuPages(), 'novinky' => Extensions::isEnabled($this->app->settings(), 'novinky')]), ['noindex' => true, 'cast' => 'nenalezeno'], $status);
+        return $this->page(t('Page not found'), $this->view->render('nenalezeno', ['url' => $this->app->url(...), 'stranky' => $this->menuPages(), 'novinky' => Extensions::isEnabled($this->app->settings(), 'novinky'), 'newsTitle' => $this->app->settings()->newsTitle()]), ['noindex' => true, 'cast' => 'nenalezeno'], $status);
     }
 
     /** Where a stored rule sends the visitor: its target, or for code 410 the not-found page with 410 Gone (3.6). */

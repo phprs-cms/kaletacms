@@ -109,6 +109,7 @@
     ],
     "nahoru": [],
     "navigace": [
+        "cast",
         "jazyky",
         "mega",
         "menu",
@@ -143,8 +144,10 @@
         "hledani",
         "kolekce",
         "mapa",
+        "mapa_hned",
         "nejblizsi",
-        "pole_poloha"
+        "pole_poloha",
+        "rozlozeni"
     ],
     "pocitadlo": [
         "cislo",

@@ -2058,4 +2058,5 @@ return [
     'Cookie bar: a random identifier that links the choice to its record, only when consents are recorded (cookie)' => 'Baner cookie: losowy identyfikator łączący wybór z jego zapisem – tylko gdy zgody są rejestrowane (cookie)',
     'Preview of drafts: only for someone who opened a signed preview link (cookie)' => 'Podgląd wersji roboczych: tylko dla osoby, która otworzyła podpisany link podglądu (cookie)',
     'until the preview link expires, at most 7 days' => 'do wygaśnięcia linku podglądu, najwyżej 7 dni',
+    'open in a new window' => 'otwórz w nowym oknie',
 ];
