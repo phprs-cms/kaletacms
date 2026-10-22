@@ -961,6 +961,23 @@ labelled (owner decision, N3182-7). A second review found no bypass of the new c
   last additional language), pages and news apply a filter choice at once, and collection items filter by category and
   by each choice field.
 
+## 3.19 – per-language addresses for every site, collection icons (planned)
+
+Owner decisions of 21 and 22 October 2026: no physical renames of tables or columns to English ("it doesn't matter to most
+users"), so the rest of the 4.0 contract ships as a normal 3.x release instead of a major with a release candidate.
+
+1. **Addresses unique per language on every site** (§3 step 2 of docs/design/4.0-data-model.md): `slugs_per_language` on for
+   all sites, the global keys of pages, news and categories dropped – after a check per site; a site that fails it stays as it
+   is and System status says why.
+2. **Tags per language:** the global tag key dropped; a tag used in several languages is split into one per language.
+3. **Redirects by the exact address** (`source_norm`), the remaining rows normalised, a collision report.
+4. **An icon per collection** (owner, 22 October): chosen in the collection's settings, shown in the admin menu (3.18.3 uses
+   one list icon for all).
+5. From the 3.18.3 review: the choice-field filter re-checks the field key against `KEY_PATTERN` (N3183-1, also
+   `Core\Calendar` and `Core\Documents`); the required-2FA gate shows no module menu or quick search (N3183-2).
+
+Export format 3 stays available on request, not the default.
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |
