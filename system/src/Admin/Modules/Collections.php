@@ -148,16 +148,45 @@ final class Collections extends Module
 
         [$siteLanguages, $language, $column] = $this->readLanguageFilter();
         $trash = $this->request->get('status') === 'kos';
+        // 3.18.3: besides the language, the list filters by the category and by each choice field (a job by its kind and workplace, a
+        // posting by its state…): ?category=<id>&field_<key>=<option>; an unknown category or option is no filter
+        $categories = CategoryTree::has($this->db, (int) $k['idk']) ? CategoryTree::choices($this->db, (int) $k['idk'], $column ?? '') : [];
+        $category = in_array($this->request->getInt('category'), array_column($categories, 'id'), true) ? $this->request->getInt('category') : 0;
+        $choiceFields = array_values(array_filter($k['pole'], fn (array $f): bool => $f['typ'] === 'volba'));
+        $fieldFilter = [];
+        foreach ($choiceFields as $f) {
+            $value = $this->request->get('field_' . $f['klic']);
+            if (in_array($value, $f['moznosti'] ?? [], true)) {
+                $fieldFilter[$f['klic']] = $value;
+            }
+        }
+        $where = 'idk = ? AND smazano IS ' . ($trash ? 'NOT NULL' : 'NULL');
+        $params = [$k['idk']];
+        if ($column !== null) {
+            $where .= ' AND jazyk = ?';
+            $params[] = $column;
+        }
+        foreach ($fieldFilter as $key => $value) { // the key passed the field-key pattern of sanitizeFields
+            $where .= " AND JSON_UNQUOTE(JSON_EXTRACT(data, '$." . $key . "')) = ?";
+            $params[] = $value;
+        }
+        if ($category > 0) {
+            $ids = CategoryTree::withChildren($this->db, $category, false);
+            $where .= ' AND idp IN (SELECT idp FROM {collection_item_categories} WHERE category_id IN (' . implode(',', array_fill(0, count($ids), '?')) . '))';
+            $params = [...$params, ...$ids];
+        }
 
         return $this->view('items', $k['nazev'], ['k' => $k, 'languages' => Language::additional($this->app->settings()), 'siteLanguages' => $siteLanguages, 'language' => $language,
+            'categories' => $categories, 'category' => $category, 'choiceFields' => $choiceFields, 'fieldFilter' => $fieldFilter,
+            'filtered' => $language !== '' || $category > 0 || $fieldFilter !== [],
             'trash' => $trash, 'noticeBoard' => Notices::isNotices($k), 'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {kolekce_polozky} WHERE idk = ? AND smazano IS NOT NULL', [$k['idk']]),
             // a document library (2.11): how often each document was downloaded, and its stable address
             'downloads' => \Kaleta\Core\Documents::fileField($k) !== null ? \Kaleta\Core\Documents::counts($this->db, (int) $k['idk']) : null,
             // 3.14: staff copy their own signature in My account – said on a people collection once someone is linked to a record
             'staffSignatures' => !$trash && \Kaleta\Builder\EmailSignature::isPeople($k)
                 && \Kaleta\Builder\TeamRecord::linked($this->db, $this->db->all('SELECT idu, email, team_item_id FROM {uzivatele} WHERE blokovat = 0')) !== [],
-            'items' => $this->db->all('SELECT idp, nazev, seo_link, poradi, zobrazit, jazyk, datum, smazano, valid_until, review_by FROM {kolekce_polozky} WHERE idk = ? AND smazano IS ' . ($trash ? 'NOT NULL' : 'NULL')
-                . ($column !== null ? ' AND jazyk = ?' : '') . ' ORDER BY ' . ($trash ? 'smazano DESC' : 'jazyk, poradi, ' . $this->db->sortText('nazev')), $column !== null ? [$k['idk'], $column] : [$k['idk']])]);
+            'items' => $this->db->all('SELECT idp, nazev, seo_link, poradi, zobrazit, jazyk, datum, smazano, valid_until, review_by FROM {kolekce_polozky} WHERE ' . $where
+                . ' ORDER BY ' . ($trash ? 'smazano DESC' : 'jazyk, poradi, ' . $this->db->sortText('nazev')), $params)]);
     }
 
     protected function actionItem(): Response

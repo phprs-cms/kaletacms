@@ -669,6 +669,11 @@ save_item() { curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?mod
 save_item --data-urlencode "nazev=Jana Nováková" --data-urlencode "data[funkce]=Jednatelka" --data-urlencode "data[medailonek]=<p>Dvacet let <b>v oboru</b>.</p><script>x</script>" -d poradi=1 -d zobrazit=1
 save_item --data-urlencode "nazev=Skrytý Člen" --data-urlencode "data[funkce]=Tajný" -d poradi=2
 check "položky kolekce" 200 "/admin.php?module=collections&action=items&id=$IDK" "Jana Nováková"
+# 3.18.3: the loop over the detail templates of the other languages overwrote $language, so the language filter always showed the
+# last additional language (English) although the list was not filtered by it – and choosing it did nothing
+grep -q '<option value="en" selected>' "$WORK/response" && { echo "  CHYBA  položky kolekce: filtr jazyka ukazuje English, i když nefiltruje"; ERRORS=$((ERRORS+1)); } || echo "  ok     položky kolekce: filtr jazyka bez výběru ukazuje všechny jazyky"
+check "položky kolekce: filtr jazyka ukazuje vybranou češtinu" 200 "/admin.php?module=collections&action=items&id=$IDK&language=cs" '<option value="cs" selected>'
+check "stránky: výběr jazyka ve filtru se použije hned" 200 "/admin.php?module=pages" '<select name="language" data-odeslat-pri-zmene>'
 mcp stavba_uloz "{\"id\":$IDZ,\"publikovat\":true,\"stavba\":{\"v\":1,\"deti\":[{\"typ\":\"sekce\",\"deti\":[{\"id\":\"smy1\",\"typ\":\"kolekce\",\"obsah\":{\"kolekce\":\"tym\"},\"deti\":[{\"id\":\"kar1\",\"typ\":\"kontejner\",\"styl\":{\"zaklad\":{\"pozadi\":\"plocha\"}},\"deti\":[{\"typ\":\"nadpis\",\"znacka\":\"h3\",\"obsah\":{\"text\":\"{{nazev}}\"}},{\"typ\":\"text\",\"obsah\":{\"html\":\"<p>{{funkce}}</p>{{medailonek}}\"}},{\"typ\":\"tlacitko\",\"obsah\":{\"text\":\"Profil\",\"odkaz\":\"{{url}}\"}}]}]}]}]}}" > "$WORK/response"
 grep -q 'publikováno' "$WORK/response" || { echo "  CHYBA  MCP stránka s výpisem kolekce"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 rm -f "$WORK"/web/storage/cache/stranky/*.html
@@ -1957,6 +1962,20 @@ expect "3.7 MCP: a category under a top-level one, the description through the a
 for i in $(seq -w 1 13); do mcp save_collection_item "{\"collection\":\"produkty\",\"name\":\"Pás $i\",\"slug\":\"pas-$i\",\"visible\":true,\"order\":$((10#$i)),\"categories\":[\"zdravotni\"]}" > /dev/null; done
 mcp save_collection_item '{"collection":"produkty","name":"Stimulátor","slug":"stimulator","visible":true,"order":50,"categories":["elektro","neni-takova"]}' > "$WORK/response"
 expect "3.7 MCP: an item's categories by slug, an unknown slug reported" "$(mcp_value categories)|$(mcp_value unknown_categories)" '["elektro"]|["neni-takova"]'
+# 3.18.3: the admin list of items filters by category (a top-level one with its subcategories) and by each choice field
+IDK_PROD=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'produkty'")
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=collections&action=items&id=$IDK_PROD&category=$CAT_TOP"
+grep -q '>Pás 01</a>' "$WORK/response" && ! grep -q '>Stimulátor</a>' "$WORK/response" && grep -q "<option value=\"$CAT_TOP\" selected>" "$WORK/response" \
+  && echo "  ok     3.18.3: admin items filtered by a category with its subcategories" || { echo "  CHYBA  3.18.3 admin category filter"; ERRORS=$((ERRORS+1)); }
+check "3.18.3: admin items filtered by another category" 200 "/admin.php?module=collections&action=items&id=$IDK_PROD&category=$CAT_EL" '>Stimulátor</a>'
+grep -q '>Pás 01</a>' "$WORK/response" && { echo "  CHYBA  3.18.3: the category filter let in an item of another category"; ERRORS=$((ERRORS+1)); }
+mcp create_collection '{"name":"Volby test","slug":"volby-test","fields":[{"label":"Stav","type":"choice","options":["Nový","Starý"]}]}' > /dev/null
+mcp save_collection_items '{"collection":"volby-test","items":[{"name":"Volba A","values":{"stav":"Nový"}},{"name":"Volba B","values":{"stav":"Starý"}}]}' > /dev/null
+IDK_VOL=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'volby-test'")
+check "3.18.3: admin items filtered by a choice field" 200 "/admin.php?module=collections&action=items&id=$IDK_VOL&field_stav=Nov%C3%BD" '<option value="Nový" selected>'
+grep -q '>Volba A</a>' "$WORK/response" && ! grep -q '>Volba B</a>' "$WORK/response" \
+  && echo "  ok     3.18.3: the choice filter keeps only the matching items" || { echo "  CHYBA  3.18.3 admin choice filter"; ERRORS=$((ERRORS+1)); }
+check "3.18.3: an option the field does not have is no filter" 200 "/admin.php?module=collections&action=items&id=$IDK_VOL&field_stav=Jin%C3%BD" '>Volba B</a>'
 check "3.7: a category page lists the items of its subcategories" 200 /produkty/bezecke-pasy '<h1>Běžecké pásy</h1>'
 # the site audit and the migration report know category pages (3.9.3): a link to one is no broken link
 mcp create_page '{"title":"Audit kategorií","text":"<p><a href=\"/produkty/bezecke-pasy\">a</a> <a href=\"/produkty/bezecke-pasy/zdravotni\">b</a> <a href=\"/produkty/neni-kategorie\">c</a></p>","visible":true}' > /dev/null

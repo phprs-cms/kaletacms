@@ -1,7 +1,7 @@
 <?php
 /**
  * Language version choice in a list filter (pages, categories, collection items). A site with a single language outputs nothing.
- * With $submitOnChange the list is filtered right after the choice (a form without other fields).
+ * With $submitOnChange the list is filtered right after the choice (every list filter uses it; a text search next to it keeps its button).
  *
  * @var list<string> $siteLanguages
  * @var string $language the selected code ('' = all)
