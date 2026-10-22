@@ -33,7 +33,7 @@ trait CollectionTools
         $db = $this->app->db();
 
         return array_map(fn (array $k): array => ['kolekce' => $k['seo_link'], 'nazev' => $k['nazev'], 'detail' => (bool) $k['detail'], 'presmerovat_skryte' => (string) ($k['hidden_redirect'] ?? ''), 'pole' => $k['pole'],
-            'preset' => (string) ($k['preset'] ?? ''),
+            'preset' => (string) ($k['preset'] ?? ''), 'admin_menu' => (bool) ($k['admin_menu'] ?? true),
             'polozek' => (int) $db->value('SELECT COUNT(*) FROM {kolekce_polozky} WHERE idk = ? AND smazano IS NULL', [$k['idk']])]
             + (($sd = \Kaleta\Builder\CollectionSchema::of($k)) !== null ? ['structured_data' => ['type' => $sd['typ'], 'fields' => $sd['pole'], 'currency' => $sd['mena']]] : []), Collections::all($db));
     }
@@ -65,10 +65,13 @@ trait CollectionTools
             if ($id === null) {
                 throw new \InvalidArgumentException('Unknown preset – use one of: ' . implode(', ', array_keys(\Kaleta\Builder\Presets::all())) . ' (list_collection_presets).');
             }
+            if (array_key_exists('admin_menu', $a)) { // 3.18.3: a ready-made collection can leave the admin menu too
+                $db->update('kolekce', ['admin_menu' => empty($a['admin_menu']) ? 0 : 1], ['idk' => $id]);
+            }
             $created = (array) Collections::byId($db, $id);
             $preset = (array) \Kaleta\Builder\Presets::get((string) $a['preset']);
 
-            return ['kolekce' => $created['seo_link'], 'nazev' => $created['nazev'], 'pole' => $created['pole'], 'presmerovat_skryte' => $created['hidden_redirect'], 'preset' => (string) $a['preset'],
+            return ['kolekce' => $created['seo_link'], 'nazev' => $created['nazev'], 'pole' => $created['pole'], 'presmerovat_skryte' => $created['hidden_redirect'], 'preset' => (string) $a['preset'], 'admin_menu' => (bool) $created['admin_menu'],
                 'list_page' => $pageId !== null ? ['id' => $pageId, 'path' => '/' . $created['seo_link'], 'visible' => false, 'note' => 'A hidden page listing the items; add an intro, then publish it with update_page visible=true when the user wants.'] : null]
                 // 3.11 (UX310-5): say why there is no list page – the address is already a page
                 + ($pageId === null ? ['list_page_note' => 'No list page was added: /' . $created['seo_link'] . ' is already taken. Add a Collection list element (type collection) to that page, or create a page at another address.'] : [])
@@ -86,10 +89,10 @@ trait CollectionTools
         if ($redirect === null) {
             throw new \InvalidArgumentException('redirect_hidden_to must be an address on the site (/team) or https://…');
         }
-        $db->insert('kolekce', ['nazev' => $collectionName, 'seo_link' => $seo, 'detail' => empty($a['detail']) ? 0 : 1, 'hidden_redirect' => $redirect, 'pole' => (string) json_encode($field, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s'),
+        $db->insert('kolekce', ['nazev' => $collectionName, 'seo_link' => $seo, 'detail' => empty($a['detail']) ? 0 : 1, 'admin_menu' => array_key_exists('admin_menu', $a) && empty($a['admin_menu']) ? 0 : 1, 'hidden_redirect' => $redirect, 'pole' => (string) json_encode($field, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s'),
             'schema_org' => self::collectionSchema($a['schema_org'] ?? null, $field)]);
 
-        return ['kolekce' => $seo, 'pole' => $field];
+        return ['kolekce' => $seo, 'pole' => $field, 'admin_menu' => !(array_key_exists('admin_menu', $a) && empty($a['admin_menu']))];
     }
 
     /** update_collection (uprav_kolekci) */
@@ -115,6 +118,9 @@ trait CollectionTools
         if (array_key_exists('detail', $a)) {
             $changes['detail'] = empty($a['detail']) ? 0 : 1;
         }
+        if (array_key_exists('admin_menu', $a)) {
+            $changes['admin_menu'] = empty($a['admin_menu']) ? 0 : 1;
+        }
         if (array_key_exists('presmerovat_skryte', $a)) {
             $changes['hidden_redirect'] = Collections::cleanRedirect((string) $a['presmerovat_skryte'])
                 ?? throw new \InvalidArgumentException('redirect_hidden_to must be an address on the site (/team) or https://…');
@@ -129,7 +135,7 @@ trait CollectionTools
         \Kaleta\Front\Cache::clear();
         $newVersion = (array) $db->one('SELECT * FROM {kolekce} WHERE idk = ?', [$collection['idk']]);
 
-        return ['kolekce' => $newVersion['seo_link'], 'nazev' => $newVersion['nazev'], 'detail' => (bool) $newVersion['detail'], 'presmerovat_skryte' => (string) $newVersion['hidden_redirect'], 'pole' => json_decode((string) $newVersion['pole'], true) ?: []];
+        return ['kolekce' => $newVersion['seo_link'], 'nazev' => $newVersion['nazev'], 'detail' => (bool) $newVersion['detail'], 'admin_menu' => (bool) $newVersion['admin_menu'], 'presmerovat_skryte' => (string) $newVersion['hidden_redirect'], 'pole' => json_decode((string) $newVersion['pole'], true) ?: []];
     }
 
     /** delete_collection */

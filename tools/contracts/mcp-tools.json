@@ -140,6 +140,7 @@
     },
     "create_collection": {
         "parameters": {
+            "admin_menu": "boolean",
             "fields": "array",
             "item_pages": "boolean",
             "name": "string",
@@ -2075,6 +2076,7 @@
     },
     "update_collection": {
         "parameters": {
+            "admin_menu": "boolean",
             "collection": "string",
             "fields": "array",
             "item_pages": "boolean",

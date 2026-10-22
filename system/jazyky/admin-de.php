@@ -6729,4 +6729,7 @@ return [
     'The heading of the news list in the default language, e.g. Updates to go with the address /updates. Empty = News.' => 'Die Überschrift der News-Liste in der Standardsprache, z. B. Aktuelles zur Adresse /aktuelles. Leer = News.',
     'Filter buttons for visitors (by the field above, without a field by category)' => 'Filter-Buttons für Besucher (nach dem Feld oben, ohne Feld nach Kategorie)',
     'Code elements (Custom HTML) left out: %d – code is pasted only from a copy made on this site.' => 'Ausgelassene Code-Elemente (Eigenes HTML): %d – Code wird nur aus einer auf dieser Website erstellten Kopie eingefügt.',
+    'Admin menu' => 'Admin-Menü',
+    'Show in the admin menu' => 'Im Admin-Menü anzeigen',
+    'A direct link to its items in the left menu, under Collections. The menu shows at most %d collections; the others stay under Collections.' => 'Ein direkter Link zu ihren Einträgen im linken Menü, unter Sammlungen. Das Menü zeigt höchstens %d Sammlungen; die übrigen bleiben unter Sammlungen.',
 ];

@@ -30,6 +30,31 @@ final class Collections extends Module
     public const string GROUP = 'Content';
     public const string ICON = 'kolekce';
 
+    /**
+     * 3.18.3 (owner's request): at most this many collections get their own item in the left menu – a direct link to
+     * their items (products, job openings). More would push the rest of the menu down; the others stay under Collections.
+     */
+    public const int MENU_LIMIT = 8;
+
+    /**
+     * The collections for the left menu and the command palette (3.18.3), in the order of their names: id, name and
+     * whether the collection wants a menu item (admin_menu). Call only for a person who may open the module. Never
+     * throws – a database without the column (before the migration ran) gives no direct links.
+     *
+     * @return list<array{id: int, name: string, menu: bool}>
+     */
+    public static function menuCollections(\Kaleta\Core\App $app): array
+    {
+        try {
+            $db = $app->db();
+
+            return array_map(static fn (array $r): array => ['id' => (int) $r['idk'], 'name' => (string) $r['nazev'], 'menu' => (bool) $r['admin_menu']],
+                $db->all('SELECT idk, nazev, admin_menu FROM {kolekce} ORDER BY ' . $db->sortText('nazev') . ', idk LIMIT 300'));
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
     protected function actionList(): Response
     {
         return $this->view('list', 'Collections', [
@@ -69,7 +94,7 @@ final class Collections extends Module
 
     protected function actionNew(): Response
     {
-        return $this->admin() ?? $this->view('form', 'New collection', ['k' => ['idk' => 0, 'nazev' => '', 'seo_link' => '', 'detail' => 0, 'pole' => [
+        return $this->admin() ?? $this->view('form', 'New collection', ['k' => ['idk' => 0, 'nazev' => '', 'seo_link' => '', 'detail' => 0, 'admin_menu' => 1, 'pole' => [
             ['klic' => '', 'popisek' => t('Description'), 'typ' => 'radky'], ['klic' => '', 'popisek' => t('Image'), 'typ' => 'obrazek'],
         ]], 'otherCollections' => $this->otherCollections(0)]);
     }
@@ -105,7 +130,7 @@ final class Collections extends Module
         if ($redirect === null) {
             return $this->back('The redirect of hidden items must be an address on the site (/team) or https://…', $id > 0 ? 'edit' : 'new', $id > 0 ? ['id' => $id] : [], 'chyba');
         }
-        $data = ['nazev' => $name, 'seo_link' => $seo, 'detail' => $r->postBool('detail') ? 1 : 0, 'hidden_redirect' => $redirect, 'pole' => (string) json_encode($field, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s')];
+        $data = ['nazev' => $name, 'seo_link' => $seo, 'detail' => $r->postBool('detail') ? 1 : 0, 'admin_menu' => $r->postBool('admin_menu') ? 1 : 0, 'hidden_redirect' => $redirect, 'pole' => (string) json_encode($field, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s')];
         if (is_array($_POST['schema'] ?? null)) {
             $schema = \Kaleta\Builder\CollectionSchema::sanitize($_POST['schema'], $field);
             $data['schema_org'] = $schema === null ? null : (string) json_encode($schema, JSON_UNESCAPED_UNICODE);

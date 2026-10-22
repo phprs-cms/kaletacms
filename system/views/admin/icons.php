@@ -29,6 +29,8 @@ $paths = [
     'poptavky' => '<path d="M3 13h5l1.5 3h5l1.5-3h5"/><path d="M5.5 5h13l2.5 8v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-5z"/>',
     'rezervace' => '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="m9 15.5 2 2 4-4"/>',
     'kolekce' => '<rect x="4" y="9" width="16" height="11" rx="2"/><path d="M6.5 6h11M9 3h6"/>',
+    // 3.18.3: a collection's own item in the left menu (collections have no icon of their own) – the list of its items
+    'polozky' => '<rect x="3.5" y="4.5" width="4" height="4" rx="1"/><rect x="3.5" y="13.5" width="4" height="4" rx="1"/><path d="M11 6.5h9.5M11 15.5h9.5"/>',
     'komponenta' => '<path d="M12 3 4 7.5v9L12 21l8-4.5v-9z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/>',
     'menu' => '<path d="M4 6h16M4 12h10M4 18h13"/><path d="m17 10 3 2-3 2"/>',
     'casti' => '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 8h18M3 16h18"/>',

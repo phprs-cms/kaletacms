@@ -168,6 +168,13 @@ a `{{heading}}` tag. For each use, fill in the values in the Content panel; an e
 3. In the builder, insert a **Collection list**. Its inside is the template for one card – put `{{nazev}}` (name),
    `{{url}}` (item page) or your own field tags into texts, images and links. The Content panel shows the available tags.
 
+**Straight from the menu (3.18.3):** every collection also has its own item in the left menu, right under
+**Collections** – a direct link to its items (products, job openings…), current on every screen of that collection.
+Untick *Show in the admin menu* in the collection's settings to leave one out. The menu shows at most 8 collections
+(by name); the others stay under Collections, and the quick search (Ctrl K) finds every collection by its name. Only
+people who may open Collections see these items. Claude switches it with `admin_menu` of `create_collection` and
+`update_collection`; `list_collections` says it for every collection.
+
 The list supports **sorting** (also by a field, e.g. price), a **fixed filter**, **filter buttons** for visitors and
 **pagination**. When you enable **item pages** for a collection, each item gets an address `/collection/item`; design that
 page in the builder via **Detail template**.

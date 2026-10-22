@@ -578,6 +578,7 @@ CREATE TABLE ka_kolekce (
     seo_link       VARCHAR(110) NOT NULL,
     pole           TEXT NOT NULL,
     detail         TINYINT(1) NOT NULL DEFAULT 0,
+    admin_menu     TINYINT(1) NOT NULL DEFAULT 1,       -- a direct link to its items in the admin's left menu (3.18.3)
     hidden_redirect VARCHAR(255) NOT NULL DEFAULT '',    -- where the page of a hidden or deleted item redirects (2.10); empty = 404
     preset         VARCHAR(30) NOT NULL DEFAULT '',     -- the ready-made collection it was created from (2.11, Builder\Presets); empty = its own
     schema_org     TEXT NULL,                           -- structured data of item pages: {"typ": "Service|Person|Product|Event|FAQPage", "pole": {property: field key}} (1.9)

@@ -13,6 +13,14 @@
 $icon = require __DIR__ . '/icons.php';
 $onDashboard = $active === '' && (string) $app->request->get('action') === ''; // My account (akce=ucet) is not the Dashboard
 
+// 3.18.3 (owner's request): a collection can have its own menu item – a direct link to its items, right under Collections,
+// for whoever may open Collections (no per-collection permissions exist). At most Collections::MENU_LIMIT of them, by name;
+// the item is current on every screen of that collection (its items, an item, its settings…) instead of Collections.
+$collections = $user !== null && isset($modules['collections']) ? Kaleta\Admin\Modules\Collections::menuCollections($app) : [];
+$menuCollections = array_slice(array_values(array_filter($collections, static fn (array $c): bool => $c['menu'])), 0, Kaleta\Admin\Modules\Collections::MENU_LIMIT);
+$currentCollection = $active === 'collections' && !in_array((string) $app->request->get('action'), ['', 'list', 'new', 'preset'], true)
+    && in_array($app->request->getInt('id'), array_column($menuCollections, 'id'), true) ? $app->request->getInt('id') : 0;
+
 // command palette (Ctrl/⌘+K): only where the signed-in user may go – the module list already follows permissions
 $statements = [];
 if ($user !== null) {
@@ -32,6 +40,10 @@ if ($user !== null) {
         foreach (isset($modules[$ident]) ? $items : [] as [$name, $query]) {
             $statements[] = ['n' => t($name), 'u' => $adminUrl($query), 's' => t($modules[$ident]::NAME)];
         }
+    }
+    // every collection's items by its name (3.18.3) – also those left out of the menu
+    foreach ($collections as $collection) {
+        $statements[] = ['n' => $collection['name'], 'u' => $adminUrl('module=collections&action=items&id=' . $collection['id']), 's' => t('Collections')];
     }
     foreach (isset($modules['settings']) ? Kaleta\Admin\Modules\Settings::TABS : [] as $key => $name) {
         $statements[] = ['n' => t('Nastavení') . ' → ' . t($name), 'u' => $adminUrl('module=settings&tab=' . $key), 's' => t('Nastavení')];
@@ -83,7 +95,11 @@ if ($user !== null && (isset($modules['requests']) || isset($modules['claude_set
 		<li class="menu-skupina" aria-hidden="true"><?= e(t($group)) ?></li>
 <?php endif ?>
 <?php try { $badge = $class::badge($app); } catch (\Throwable) { $badge = 0; } $waiting += $badge; // 3.15: a count never breaks the menu ?>
-		<li<?= $ident === $inMenu ? ' class="aktivni"' : '' ?>><a href="<?= e($app->url('admin.php?module=' . $ident)) ?>"<?= $ident === $inMenu ? ' aria-current="page"' : '' ?>><?= $icon($class::ICON) ?><?= e(t($class::NAME)) ?><?php if ($badge > 0): ?> <span class="menu-pocet" aria-hidden="true"><?= $badge > 99 ? '99+' : $badge ?></span><span class="navod-skryte"> – <?= e(t('%d new', $badge)) ?></span><?php endif ?></a></li>
+<?php $here = $ident === $inMenu && !($ident === 'collections' && $currentCollection > 0); ?>
+		<li<?= $here ? ' class="aktivni"' : '' ?>><a href="<?= e($app->url('admin.php?module=' . $ident)) ?>"<?= $here ? ' aria-current="page"' : '' ?>><?= $icon($class::ICON) ?><?= e(t($class::NAME)) ?><?php if ($badge > 0): ?> <span class="menu-pocet" aria-hidden="true"><?= $badge > 99 ? '99+' : $badge ?></span><span class="navod-skryte"> – <?= e(t('%d new', $badge)) ?></span><?php endif ?></a></li>
+<?php foreach ($ident === 'collections' ? $menuCollections : [] as $collection): $here = $collection['id'] === $currentCollection; ?>
+		<li class="menu-kolekce<?= $here ? ' aktivni' : '' ?>"><a href="<?= e($app->url('admin.php?module=collections&action=items&id=' . $collection['id'])) ?>"<?= $here ? ' aria-current="page"' : '' ?>><?= $icon('polozky') ?><span><?= e($collection['name']) ?></span></a></li>
+<?php endforeach ?>
 <?php endforeach ?>
 		<li class="menu-web"><a href="<?= e($app->url('')) ?>" target="_blank" rel="noopener"><?= $icon('web') ?><?= e(t('Zobrazit web')) ?></a></li>
 		<li class="menu-logout"><form method="post" action="<?= e($app->url('admin.php?action=logout')) ?>"><?= $app->session->csrfField() ?><button type="submit"><?= $icon('odhlasit') ?><?= e(t('Sign out')) ?></button></form></li>

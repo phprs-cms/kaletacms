@@ -7348,10 +7348,10 @@ check('3.18 N318-2 OAuth::refreshWait – under 30 refreshes an hour no wait; at
 // N318-2: the indexes of the status queries – a migration for existing sites, the same keys in schema.sql for new ones
 $migration318 = (string) @file_get_contents(KALETA_SYSTEM . '/sql/migrace/0102-claude-status-indexes.sql');
 $schema318 = (string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql');
-check('3.18 N318-2 migration 0102 adds the status indexes, schema.sql has them, KALETA_DB_VERSION is 102', [
+check('3.18 N318-2 migration 0102 adds the status indexes, schema.sql has them, KALETA_DB_VERSION is at least 102', [
     str_contains($migration318, 'ALTER TABLE ka_api_tokeny ADD KEY ix_tokeny_druh_expirace (druh, expirace);'), str_contains($migration318, 'ALTER TABLE ka_oauth_rotated ADD KEY ix_oauth_rotated_at (rotated_at);'),
-    str_contains($schema318, 'KEY ix_tokeny_druh_expirace (druh, expirace)'), str_contains($schema318, 'KEY ix_oauth_rotated_at (rotated_at)'), KALETA_DB_VERSION, Migration::latest()],
-    [true, true, true, true, 102, 102]);
+    str_contains($schema318, 'KEY ix_tokeny_druh_expirace (druh, expirace)'), str_contains($schema318, 'KEY ix_oauth_rotated_at (rotated_at)'), KALETA_DB_VERSION >= 102, Migration::latest() === KALETA_DB_VERSION],
+    [true, true, true, true, true, true]);
 // N318-3: every revocation of an OAuth connection forgets its rotation records
 $forget318 = [];
 foreach (['src/Front/OAuth.php', 'src/Admin/Account.php', 'src/Admin/Modules/Users.php', 'src/Admin/PasswordReset.php', 'src/Core/SecurityHygiene.php'] as $file318) {
@@ -7427,5 +7427,23 @@ preg_match('#var EMBED = (/\^https:.*?/);#', $editorJs, $editorEmbed);
 preg_match('#if \(!(/\^https:.*?/)\.test\(address\)\)#', $webJs, $webEmbed);
 check('3.18.2 N3182-1: the editor allows a pasted frame only from the services the front end embeds (the same list as data-vlozit)', [($editorEmbed[1] ?? 'a') === ($webEmbed[1] ?? 'b'),
     str_contains($editorJs, "n.textContent = '';"), preg_match('#innerHTML\.replace\(#', $editorJs), preg_match('#/\^\\\\s\*javascript:/#', $editorJs)], [true, true, 0, 0]);
+
+// 3.18.3 (owner's request): a collection's own item in the admin menu – the column for existing sites (on by default) and
+// in schema.sql for new ones, the cap of the menu, the icon, the optional MCP parameter (boolean) and the export
+$migration3183 = (string) @file_get_contents(KALETA_SYSTEM . '/sql/migrace/0103-collection-admin-menu.sql');
+$mcp3183 = array_column(Kaleta\Mcp\Translator::listAll(Kaleta\Mcp\Tools::definitions()), null, 'name');
+$icons3183 = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/icons.php');
+check('3.18.3: migration 0103 adds ka_kolekce.admin_menu on by default, schema.sql has it, KALETA_DB_VERSION is 103', [
+    str_contains($migration3183, 'ALTER TABLE ka_kolekce ADD COLUMN admin_menu TINYINT(1) NOT NULL DEFAULT 1'), (bool) preg_match('/^\s+admin_menu\s+TINYINT\(1\) NOT NULL DEFAULT 1,/m', (string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql')),
+    KALETA_DB_VERSION, Migration::latest()], [true, true, 103, 103]);
+check('3.18.3: at most 8 collections in the menu, with the list icon; create_collection and update_collection take an optional boolean admin_menu', [
+    Kaleta\Admin\Modules\Collections::MENU_LIMIT, str_contains($icons3183, "'polozky' =>"),
+    $mcp3183['create_collection']['inputSchema']['properties']['admin_menu']['type'] ?? null, in_array('admin_menu', $mcp3183['create_collection']['inputSchema']['required'], true),
+    $mcp3183['update_collection']['inputSchema']['properties']['admin_menu']['type'] ?? null, in_array('admin_menu', $mcp3183['update_collection']['inputSchema']['required'], true),
+    Kaleta\Mcp\Translator::arguments('update_collection', ['admin_menu' => false])],
+    [8, true, 'boolean', false, 'boolean', false, ['admin_menu' => false]]);
+check('3.18.3: the site export carries admin_menu and the import keeps it (on when an older export has none)', [
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/SiteExport.php'), 'detail, admin_menu, hidden_redirect'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/SiteImport.php'), "'admin_menu' => (int) !empty(\$r['admin_menu'] ?? 1)")], [true, true]);
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

@@ -56,6 +56,8 @@ grep -q "const KALETA_DB_VERSION = $LAST_MIGRATION;" "$ROOT/system/bootstrap.php
 echo "== jednotkové testy"
 php "$ROOT/tools/unit-tests.php" || ERRORS=$((ERRORS+1))
 
+# sq <query>: one value from the test database (defined early: the collection menu checks of 3.18.3 use it too)
+sq() { "${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -e "$1"; }
 csrf() { grep -o -m1 'name="_csrf" value="[a-f0-9]*"' "$WORK/response" | head -1 | sed 's/.*value="//;s/"//'; }
 # publish_look: the administrator publishes the draft look (design system, classes, menus – Core\Look) from Site appearance
 publish_look() { curl -s -b "$JAR" -o "$WORK/look.html" "$B/admin.php?module=appearance"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=appearance&action=publish_look" -d "_csrf=$(grep -o -m1 'name="_csrf" value="[a-f0-9]*"' "$WORK/look.html" | head -1 | sed 's/.*value="//;s/"//')"; rm -f "$WORK"/web/storage/cache/stranky/*.html; }
@@ -661,7 +663,7 @@ check "poděkování po odeslání (na místě formuláře)" 200 "/kontakt?form=
 echo "== kolekce"
 check "kolekce" 200 "/admin.php?module=collections" "Kolekce"
 TOKEN=$(csrf)
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=collections&action=save" -d "_csrf=$TOKEN" -d idk=0 --data-urlencode "nazev=Tým" -d detail=1 \
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=collections&action=save" -d "_csrf=$TOKEN" -d idk=0 --data-urlencode "nazev=Tým" -d detail=1 -d admin_menu=1 \
   --data-urlencode "pole[0][popisek]=Funkce" -d "pole[0][typ]=text" --data-urlencode "pole[1][popisek]=Foto" -d "pole[1][typ]=obrazek" --data-urlencode "pole[2][popisek]=Medailonek" -d "pole[2][typ]=html"
 IDK=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idk FROM ka_kolekce WHERE seo_link = 'tym'")
 expect "kolekce založena s poli" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT pole LIKE '%\"funkce\"%' AND pole LIKE '%\"medailonek\"%' FROM ka_kolekce WHERE idk = $IDK")" 1
@@ -674,6 +676,48 @@ check "položky kolekce" 200 "/admin.php?module=collections&action=items&id=$IDK
 grep -q '<option value="en" selected>' "$WORK/response" && { echo "  CHYBA  položky kolekce: filtr jazyka ukazuje English, i když nefiltruje"; ERRORS=$((ERRORS+1)); } || echo "  ok     položky kolekce: filtr jazyka bez výběru ukazuje všechny jazyky"
 check "položky kolekce: filtr jazyka ukazuje vybranou češtinu" 200 "/admin.php?module=collections&action=items&id=$IDK&language=cs" '<option value="cs" selected>'
 check "stránky: výběr jazyka ve filtru se použije hned" 200 "/admin.php?module=pages" '<select name="language" data-odeslat-pri-zmene>'
+# 3.18.3 (owner's request): a collection in the left menu – a direct link to its items, on by default, current on the
+# collection's screens instead of Collections, only for people who may open Collections; MCP admin_menu
+COLL_LINK="admin.php?module=collections&amp;action=items&amp;id=$IDK\""
+COLL_PALETTE="{\"n\":\"Tým\",\"u\":\"/admin.php?module=collections\\u0026action=items\\u0026id=$IDK\""
+check "3.18.3: the new collection form has Show in the admin menu ticked" 200 "/admin.php?module=collections&action=new" 'name="admin_menu" value="1" checked'
+expect "3.18.3: a collection saved with the default form is in the admin menu" "$(sq "SELECT admin_menu FROM ka_kolekce WHERE idk = $IDK")" 1
+check "3.18.3: the dashboard menu has the collection's own item" 200 "/admin.php" 'class="menu-kolekce"'
+grep -qF "$COLL_LINK><svg" "$WORK/response" && grep -qF '<span>Tým</span>' "$WORK/response" && grep -qF "$COLL_PALETTE" "$WORK/response" \
+  && echo "  ok     3.18.3: … it leads to the collection's items and the quick search lists it" || { echo "  CHYBA  3.18.3: the collection's menu item or palette entry"; ERRORS=$((ERRORS+1)); }
+check "3.18.3: the menu link opens the items list" 200 "/admin.php?module=collections&action=items&id=$IDK" 'Jana Nováková'
+grep -qF "<li class=\"menu-kolekce aktivni\"><a href=\"/$COLL_LINK aria-current=\"page\">" "$WORK/response" && ! grep -qF 'admin.php?module=collections" aria-current' "$WORK/response" \
+  && echo "  ok     3.18.3: on the items list the collection's item is current, not Collections" || { echo "  CHYBA  3.18.3: aria-current on the items list"; grep -o '<li[^>]*><a href="[^"]*collections[^>]*>' "$WORK/response" | head -5; ERRORS=$((ERRORS+1)); }
+IDP_JANA=$(sq "SELECT idp FROM ka_kolekce_polozky WHERE idk = $IDK AND nazev = 'Jana Nováková'")
+check "3.18.3: an item of the collection keeps its menu item current" 200 "/admin.php?module=collections&action=item&id=$IDK&item=$IDP_JANA" "class=\"menu-kolekce aktivni\""
+check "3.18.3: the list of collections keeps Collections current" 200 "/admin.php?module=collections" 'admin.php?module=collections" aria-current="page"'
+grep -qF 'menu-kolekce aktivni' "$WORK/response" && { echo "  CHYBA  3.18.3: a collection's item current on the list of collections"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.18.3: … and no collection's item"
+code=$(curl -s -b "$JAR2" -o "$WORK/response" -w '%{http_code}' "$B/admin.php")
+[ "$code" = 200 ] && grep -q 'menu-logout' "$WORK/response" && ! grep -q 'menu-kolekce' "$WORK/response" && ! grep -qF "$COLL_PALETTE" "$WORK/response" \
+  && echo "  ok     3.18.3: an author without Collections sees no collection in the menu or the quick search" || { echo "  CHYBA  3.18.3: author menu ($code)"; ERRORS=$((ERRORS+1)); }
+mcp update_collection '{"collection":"tym","admin_menu":false}' > "$WORK/response"
+grep -q 'admin_menu\\":false' "$WORK/response" && expect "3.18.3 MCP: update_collection admin_menu false switches it off" "$(sq "SELECT admin_menu FROM ka_kolekce WHERE idk = $IDK")" 0 || { echo "  CHYBA  3.18.3 MCP update_collection admin_menu"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+check "3.18.3: the dashboard after switching it off" 200 "/admin.php"
+grep -qF "$COLL_PALETTE" "$WORK/response" && ! grep -q 'menu-kolekce' "$WORK/response" \
+  && echo "  ok     3.18.3: … the menu item is gone, the quick search still finds the collection" || { echo "  CHYBA  3.18.3: a collection out of the menu"; ERRORS=$((ERRORS+1)); }
+check "3.18.3: the collection's settings show it unticked" 200 "/admin.php?module=collections&action=edit&id=$IDK" 'name="admin_menu" value="1">'
+mcp list_collections '{}' > "$WORK/response"
+grep -q 'admin_menu\\":false' "$WORK/response" && echo "  ok     3.18.3 MCP: list_collections returns admin_menu" || { echo "  CHYBA  3.18.3 MCP list_collections admin_menu"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp update_collection '{"collection":"tym","admin_menu":true}' > /dev/null
+mcp create_collection '{"name":"Mimo menu","slug":"mimo-menu","admin_menu":false}' > "$WORK/response"
+mcp create_collection '{"name":"V menu","slug":"v-menu"}' > /dev/null
+expect "3.18.3 MCP: round trip on, create_collection with admin_menu false, and without it on" "$(sq "SELECT GROUP_CONCAT(CONCAT(seo_link, ':', admin_menu) ORDER BY seo_link) FROM ka_kolekce WHERE seo_link IN ('tym', 'mimo-menu', 'v-menu')")|$(grep -c 'admin_menu\\":false' "$WORK/response")" "mimo-menu:0,tym:1,v-menu:1|1"
+# the form: an unticked box saves the collection out of the menu
+IDK_VMENU=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'v-menu'")
+check "3.18.3: a collection created through MCP without admin_menu shows it ticked" 200 "/admin.php?module=collections&action=edit&id=$IDK_VMENU" 'name="admin_menu" value="1" checked'
+TOKEN=$(csrf)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=collections&action=save" -d "_csrf=$TOKEN" -d "idk=$IDK_VMENU" --data-urlencode "nazev=V menu" -d seo_link=v-menu
+expect "3.18.3: the settings form saves an unticked box as out of the menu" "$(sq "SELECT admin_menu FROM ka_kolekce WHERE seo_link = 'v-menu'")" 0
+# at most 8 collections in the menu (by name), the rest stay under Collections
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_kolekce (nazev, seo_link, pole) VALUES ('Cap 1', 'cap-1', '[]'), ('Cap 2', 'cap-2', '[]'), ('Cap 3', 'cap-3', '[]'), ('Cap 4', 'cap-4', '[]'), ('Cap 5', 'cap-5', '[]'), ('Cap 6', 'cap-6', '[]'), ('Cap 7', 'cap-7', '[]'), ('Cap 8', 'cap-8', '[]'), ('Cap 9', 'cap-9', '[]')"
+check "3.18.3: with more than 8 collections the menu shows 8" 200 "/admin.php" 'class="menu-kolekce"'
+expect "3.18.3: … exactly 8, by name" "$(grep -c 'class="menu-kolekce' "$WORK/response")|$(grep -c '<span>Cap 9</span>' "$WORK/response")" "8|0"
+"${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_kolekce WHERE seo_link LIKE 'cap-_' OR seo_link IN ('mimo-menu', 'v-menu')"
 mcp stavba_uloz "{\"id\":$IDZ,\"publikovat\":true,\"stavba\":{\"v\":1,\"deti\":[{\"typ\":\"sekce\",\"deti\":[{\"id\":\"smy1\",\"typ\":\"kolekce\",\"obsah\":{\"kolekce\":\"tym\"},\"deti\":[{\"id\":\"kar1\",\"typ\":\"kontejner\",\"styl\":{\"zaklad\":{\"pozadi\":\"plocha\"}},\"deti\":[{\"typ\":\"nadpis\",\"znacka\":\"h3\",\"obsah\":{\"text\":\"{{nazev}}\"}},{\"typ\":\"text\",\"obsah\":{\"html\":\"<p>{{funkce}}</p>{{medailonek}}\"}},{\"typ\":\"tlacitko\",\"obsah\":{\"text\":\"Profil\",\"odkaz\":\"{{url}}\"}}]}]}]}]}}" > "$WORK/response"
 grep -q 'publikováno' "$WORK/response" || { echo "  CHYBA  MCP stránka s výpisem kolekce"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 rm -f "$WORK"/web/storage/cache/stranky/*.html
@@ -845,7 +889,6 @@ mcp seznam_poptavek '{"stav":"vse"}' > "$WORK/response"
 expect "MCP: poptávky s kampaní" "$(mcp_value 0 email)|$(mcp_value 0 kampan)" "jana@example.cz|newsletter / email / jaro"
 
 echo "== Claude (MCP): trash, deleting and the rest of the admin (1.6)"
-sq() { "${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -e "$1"; }
 # the changes a Claude connection made in the last hour, counted like Core\Guardrails (a batch or an import step by its "<n> rows")
 claude_used() { sq "SELECT COALESCE(SUM(CASE WHEN akce IN ('save_redirects','save_collection_items','importuj_web','import_wordpress') AND popis REGEXP '^[0-9]+ rows' THEN CAST(SUBSTRING_INDEX(popis, ' ', 1) AS UNSIGNED) ELSE 1 END), 0) FROM ka_protokol WHERE modul = 'claude' AND via = '$1' AND cas > '$(site_time '-1 hour')'"; }
 echo "== 3.6: header and footer variants by kind of content (INV-9)"

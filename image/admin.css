@@ -239,6 +239,21 @@ body:not(.login) {
 	padding-top: 12px;
 	border-top: 1px solid var(--linka);
 }
+/* 3.18.3: a collection's own item under Collections (a direct link to its items) – indented under it, a little smaller;
+   a long name wraps instead of widening the menu. On a phone it is one more tile of the sheet (see the 720px block). */
+.menu .menu-kolekce a {
+	padding-block: 7px;
+	padding-inline-start: 26px;
+	font-size: 14px;
+	overflow-wrap: anywhere;
+}
+.menu .menu-kolekce .ikona {
+	width: 16px;
+	height: 16px;
+}
+.menu .menu-kolekce span {
+	min-width: 0;
+}
 
 .loginprouzek {
 	grid-column: 2;
@@ -1455,6 +1470,11 @@ table.preklady td[data-stav] form { margin-inline-start: 6px; }
 	.menu-otevrene .menu > .menu-skupina, .menu-otevrene .menu > .menu-prehled { grid-column: 1 / -1; }
 	.menu-otevrene .menu > .menu-skupina { margin-top: 14px; }
 	.menu-otevrene .menu a, .menu-otevrene .menu button { min-height: 44px; padding: 8px; gap: 8px; overflow-wrap: anywhere; text-decoration: none; }
+	/* 3.18.3: Collections takes a row of its own and its collections follow it as a block of indented tiles – the next
+	   module starts a new row, so a collection never sits next to an unrelated module */
+	.menu-otevrene .menu > li:not(.menu-kolekce):has(+ .menu-kolekce) { grid-column: 1 / -1; }
+	.menu-otevrene .menu > .menu-kolekce + li:not(.menu-kolekce) { grid-column-start: 1; }
+	.menu-otevrene .menu > .menu-kolekce a { padding-inline-start: 20px; }
 }
 
 /* 3.17: the uptime trend of a fleet site (views/admin/fleet/trend.php) – one bar a day; the summary and the table say the same in words */

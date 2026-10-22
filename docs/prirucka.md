@@ -154,6 +154,13 @@ Co se má u každého použití lišit, nastavte jako **vlastnosti** (např. Nad
 3. V builderu vložte prvek **Výpis kolekce**. Jeho vnitřek je vzor jedné karty – do textů, obrázků a odkazů vložte
    značky `{{nazev}}`, `{{url}}` (stránka položky) nebo vlastní pole. Nápověda se značkami se ukáže v panelu Obsah.
 
+**Rovnou z menu (3.18.3):** každá kolekce má navíc vlastní položku v levém menu, hned pod **Kolekcemi** – přímý odkaz
+na její položky (produkty, volná místa…), zvýrazněný na každé obrazovce té kolekce. Kolekci, která tam být nemá,
+vynecháte odškrtnutím *Zobrazit v menu administrace* v jejím nastavení. Menu ukáže nejvýš 8 kolekcí (podle názvu);
+ostatní zůstanou pod Kolekcemi a rychlé hledání (Ctrl K) najde každou kolekci podle názvu. Položky vidí jen ti, kdo
+smějí do Kolekcí. Claude to přepíná parametrem `admin_menu` u `create_collection` a `update_collection`;
+`list_collections` ho u každé kolekce vrací.
+
 Výpis umí **řazení** (i podle pole, např. ceny), **pevný filtr**, **tlačítka filtru** pro návštěvníky a **stránkování**.
 Když u kolekce zapnete **stránky položek**, každá položka má adresu `/kolekce/polozka`. Vzhled té stránky navrhnete
 v builderu přes **Šablona detailu**.

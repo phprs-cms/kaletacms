@@ -947,6 +947,20 @@ signed, and the layer tree reads element text in an inert document; long `/media
 `open_basedir`; the migration report follows each component once (cycles). OpenStreetMap on "map at once" stays as
 labelled (owner decision, N3182-7). A second review found no bypass of the new cleanup; it closed the rest: only an administrator's copy is signed (N3182-8), image sizes on public pages and in newsletters and the logo check go through `Files::isFile` (N3182-9), a component build given as a plain list loses its code too (N3182-10), and the path cap is strictly below the platform maximum (N3182-11).
 
+**3.18.3 (22 October 2026):**
+- **Collections straight from the admin menu (owner's request):** each collection gets its own item in the left menu,
+  right under Collections – a direct link to its items, so products or job openings are one click away instead of
+  Collections → the collection. On by default for every existing and new collection (migration 0103, column
+  `ka_kolekce.admin_menu`); *Show in the admin menu* in the collection's settings leaves one out. At most 8 (by name),
+  the rest stay under Collections; the item is current (`aria-current`) on every screen of its collection instead of
+  Collections, has the generic list icon (collections have no icon of their own) and no count (nothing in a collection
+  waits for someone the way a new enquiry does). Only for people who may open Collections; the quick search lists every
+  collection by name. MCP: `create_collection` and `update_collection` take an optional `admin_menu`, `list_collections`
+  returns it; the site export and import carry it.
+- **Admin list filters:** the language filter of collection items shows the language really chosen (it always showed the
+  last additional language), pages and news apply a filter choice at once, and collection items filter by category and
+  by each choice field.
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |

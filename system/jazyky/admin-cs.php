@@ -6322,4 +6322,7 @@ return [
     'The heading of the news list in the default language, e.g. Updates to go with the address /updates. Empty = News.' => 'Nadpis výpisu novinek ve výchozím jazyce, třeba Aktuality k adrese /aktuality. Prázdné = Novinky.',
     'Filter buttons for visitors (by the field above, without a field by category)' => 'Tlačítka filtru pro návštěvníky (podle pole výše, bez pole podle kategorií)',
     'Code elements (Custom HTML) left out: %d – code is pasted only from a copy made on this site.' => 'Vynechané prvky s kódem (Vlastní HTML): %d – kód se vkládá jen z kopie pořízené na tomto webu.',
+    'Admin menu' => 'Menu administrace',
+    'Show in the admin menu' => 'Zobrazit v menu administrace',
+    'A direct link to its items in the left menu, under Collections. The menu shows at most %d collections; the others stay under Collections.' => 'Přímý odkaz na její položky v levém menu, pod Kolekcemi. Menu ukáže nejvýš %d kolekcí; ostatní zůstanou pod Kolekcemi.',
 ];

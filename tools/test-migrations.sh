@@ -137,4 +137,14 @@ N63_EXPECTED='<p>Hi<img src="a.jpg" alt="" loading="lazy"></p>|<p class="lead">F
 "${MYSQL[@]}" "$OLD" -e "UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0074-imported-content-recheck,', ',')) WHERE promenna = 'data_migrations'; DELETE FROM ka_nastaveni WHERE promenna = 'imported_recheck'" && migrate > /dev/null
 [ "$(n63)" = "${N63_EXPECTED%|*}|true,5,0" ] && echo "  ok     3.3.3 (0074): run again, nothing changes and no new revisions" || { echo "  CHYBA  0074 run again: $(n63)"; ERRORS=$((ERRORS+1)); }
 
+# 3.18.3 (0103): every existing collection gets its own item in the admin menu – the column is taken off again, a
+# collection is added as 3.18.2 wrote it, and the migration runs again from version 102
+"${MYSQL[@]}" "$OLD" -e "ALTER TABLE ka_kolekce DROP COLUMN admin_menu; INSERT INTO ka_kolekce (idk, nazev, seo_link, pole) VALUES (9103, 'Produkty', 'produkty-103', '[]');
+  UPDATE ka_nastaveni SET hodnota = '102' WHERE promenna = 'db_version'" && migrate > /dev/null
+expect_sql "3.18.3 (0103): an existing collection is in the admin menu after the upgrade, a new one too" \
+  "SELECT CONCAT((SELECT admin_menu FROM ka_kolekce WHERE idk = 9103), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'))" "1|$LAST_MIGRATION"
+"${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_kolekce (idk, nazev, seo_link, pole) VALUES (9104, 'Jobs', 'jobs-103', '[]')"
+expect_sql "3.18.3 (0103): … a collection created afterwards is in it by default" "SELECT admin_menu FROM ka_kolekce WHERE idk = 9104" "1"
+"${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_kolekce WHERE idk IN (9103, 9104)"
+
 [ "$ERRORS" = 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }
