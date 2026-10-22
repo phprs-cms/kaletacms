@@ -256,18 +256,6 @@ final class MigrationReport
 
             return ['typ' => 'news_list', 'titulek' => (string) ($topic['nazev'] ?? t('News')), 'popis' => trim((string) ($topic['popis'] ?? '')), 'formular' => false, 'obrazky' => 0, 'zobrazeno' => true];
         }
-        if ($s[0] === 'novinky' && (count($s) === 1 || (count($s) === 3 && $s[1] === 'kategorie'))) {
-            // the news list and a category list (not pages, but content on the site when the extension is on)
-            if (!Extensions::isEnabled($settings, 'novinky')) {
-                return null;
-            }
-            $topic = count($s) === 3 ? $db->one('SELECT nazev, popis FROM {kategorie} WHERE seo_link = ? ORDER BY jazyk = ? DESC LIMIT 1', [$s[2], $column]) : [];
-            if ($topic === null) {
-                return null;
-            }
-
-            return ['typ' => 'news_list', 'titulek' => (string) ($topic['nazev'] ?? t('News')), 'popis' => trim((string) ($topic['popis'] ?? '')), 'formular' => false, 'obrazky' => 0, 'zobrazeno' => true];
-        }
         if ($s[0] === 'novinky' && count($s) === 2) {
             $n = $db->one('SELECT titulek, seo_titulek, seo_popis, uvod, text, visible FROM {novinky} WHERE seo_link = ? AND smazano IS NULL ORDER BY jazyk = ? DESC LIMIT 1', [$s[1], $column]);
 

@@ -5829,7 +5829,6 @@ return [
     'Cookie bar: a random identifier that links the choice to its record, only when consents are recorded (cookie)' => 'Cookie lišta: náhodný identifikátor, který propojí volbu s jejím záznamem – jen když se souhlasy evidují (cookie)',
     'Preview of drafts: only for someone who opened a signed preview link (cookie)' => 'Náhled konceptů: jen pro toho, kdo otevřel podepsaný odkaz na náhled (cookie)',
     'until the preview link expires, at most 7 days' => 'do vypršení odkazu na náhled, nejvýš 7 dní',
-    'Media: %s' => 'Média: %s',
     'My e-mail signature' => 'Můj e-mailový podpis',
     'Made from your record in %s (%s) in the look of your site. When your record or the site changes, open this page again and copy the signature anew.' => 'Vytvořeno z vašeho záznamu v kolekci %s (%s) ve vzhledu vašeho webu. Když se váš záznam nebo web změní, otevřete tuto stránku znovu a podpis zkopírujte nanovo.',
     'You are not linked to a record yet.' => 'Zatím nejste propojeni se záznamem.',

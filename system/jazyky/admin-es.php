@@ -6234,7 +6234,6 @@ return [
     'Cookie bar: a random identifier that links the choice to its record, only when consents are recorded (cookie)' => 'Aviso de cookies: un identificador aleatorio que vincula la elección con su registro, solo cuando se registran los consentimientos (cookie)',
     'Preview of drafts: only for someone who opened a signed preview link (cookie)' => 'Vista previa de borradores: solo para quien abrió un enlace de vista previa firmado (cookie)',
     'until the preview link expires, at most 7 days' => 'hasta que caduque el enlace de vista previa, como máximo 7 días',
-    'Media: %s' => 'Medios: %s',
     'My e-mail signature' => 'Mi firma de correo',
     'Made from your record in %s (%s) in the look of your site. When your record or the site changes, open this page again and copy the signature anew.' => 'Creada a partir de tu registro en %s (%s) con la apariencia de tu sitio. Cuando cambie tu registro o el sitio, vuelve a abrir esta página y copia la firma de nuevo.',
     'You are not linked to a record yet.' => 'Todavía no estás vinculado a ningún registro.',
