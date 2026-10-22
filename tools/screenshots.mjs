@@ -51,7 +51,7 @@ if (SITE === 'firemni') {
   await shot('admin-builder-dark', null, { dark: true });
   await shot('admin-builder-style', null, {
     before: async () => {
-      await page.getByRole('button', { name: 'Mobile' }).first().click();
+      await page.getByRole('button', { name: 'Phone' }).first().click(); // 3.11: "Phone", as in Site appearance
       await page.waitForTimeout(1200);
       await canvas().locator('h1').first().click();
       await page.getByRole('tab', { name: 'Style' }).first().click().catch(() => page.getByText('Style', { exact: true }).first().click());
@@ -62,6 +62,8 @@ if (SITE === 'firemni') {
   await shot('admin-appearance', '/admin.php?module=appearance');
   await shot('admin-enquiries', '/admin.php?module=enquiries');
   await shot('admin-extensions', '/admin.php?module=extensions');
+  // 3.14: System status with the Ready for 4.0 check
+  await shot('admin-ready-for-4', '/admin.php?module=status', { before: async () => page.locator('#ready-4').scrollIntoViewIfNeeded() });
 
   // Claude connector: the consent screen a site owner sees when connecting Claude (OAuth dynamic registration + PKCE)
   const client = await (await fetch(`${BASE}/oauth/register`, {

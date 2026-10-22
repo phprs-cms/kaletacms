@@ -1573,7 +1573,8 @@ return [
     'Required' => 'Povinné',
     'Choice options (one per line)' => 'Možnosti výběru (každá na řádek)',
     'Thank-you message' => 'Poděkování po odeslání',
-    'Notification email (empty = site email from Settings)' => 'E-mail pro upozornění (prázdné = e-mail webu z Nastavení)',
+    'Notification e-mails (several separated by commas; empty = site e-mail from Settings)' => 'E-maily pro upozornění (více oddělte čárkou; prázdné = e-mail webu z Nastavení)',
+    'Hidden copy (Bcc): e-mails separated by commas that the other recipients do not see' => 'Skrytá kopie (Bcc): e-maily oddělené čárkou, které ostatní příjemci nevidí',
     'Company' => 'Firma',
     'Fill these in once and the site uses them everywhere: in the footer and on the contact page (the Company details element in the builder) and for Google, maps and AI assistants – so they answer correctly when you are open and where to find you.' => 'Údaje vyplníte jednou a web je použije všude: v patičce a na kontaktu (prvek Údaje firmy v builderu) i pro Google, Mapy a AI asistenty – ti tak správně odpoví na otázku, kdy máte otevřeno nebo kde vás najít.',
     'Registered company name' => 'Obchodní firma',
@@ -2785,4 +2786,5 @@ return [
     'The collection list shows the collection “%s”, which does not exist.' => 'Výpis kolekce ukazuje kolekci „%s“, která neexistuje.',
     'The collection list shows the category “%s”, which the collection does not have – it will stay empty.' => 'Výpis kolekce ukazuje kategorii „%s“, kterou kolekce nemá – zůstane prázdný.',
     '{{%s}} is not a field of the collection “%s” – it will stay empty on the site.' => '{{%s}} není pole kolekce „%s“ – na webu zůstane prázdné.',
+    'Filter buttons for visitors (by the field above, without a field by category)' => 'Tlačítka filtru pro návštěvníky (podle pole výše, bez pole podle kategorií)',
 ];

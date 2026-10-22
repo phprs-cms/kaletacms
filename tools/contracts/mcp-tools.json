@@ -579,6 +579,34 @@
             "openWorldHint": false
         }
     },
+    "fleet_inbox": {
+        "parameters": {
+            "customer": "string",
+            "kind": "string",
+            "site": "integer",
+            "urgent_only": "boolean"
+        },
+        "required": [],
+        "annotations": {
+            "title": "List what waits across the fleet",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "fleet_report": {
+        "parameters": {
+            "customer": "string",
+            "month": "string"
+        },
+        "required": [],
+        "annotations": {
+            "title": "Get a monthly fleet report",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "get_blueprint": {
         "parameters": [],
         "required": [],
@@ -653,6 +681,20 @@
         "required": [],
         "annotations": {
             "title": "Get a menu",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "get_monthly_report": {
+        "parameters": {
+            "month": "string"
+        },
+        "required": [
+            "month"
+        ],
+        "annotations": {
+            "title": "Get a monthly report",
             "readOnlyHint": true,
             "destructiveHint": false,
             "openWorldHint": false
@@ -1116,6 +1158,16 @@
             "openWorldHint": false
         }
     },
+    "list_monthly_reports": {
+        "parameters": [],
+        "required": [],
+        "annotations": {
+            "title": "List archived monthly reports",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "list_news": {
         "parameters": {
             "category": "string",
@@ -1222,7 +1274,8 @@
     },
     "list_sites": {
         "parameters": {
-            "attention_only": "boolean"
+            "attention_only": "boolean",
+            "customer": "string"
         },
         "required": [],
         "annotations": {

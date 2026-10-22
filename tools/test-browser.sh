@@ -80,7 +80,51 @@ HEADER=$(cd "$WORK/poradenstvi" && php -r 'require "system/bootstrap.php"; $b = 
     $db->insert("stranky", ["seo_link" => $slug, "titulek" => $slug, "text" => "", "v_menu" => 0, "jazyk" => $language === "ar" ? "ar" : "", "zobrazit" => 1, "stavba" => Kaleta\Builder\Build::toJson($build)]);
   }')
 rm -f "$WORK"/remeslo/storage/cache/stranky/*.html
-NODE_PATH="$WORK/pw/node_modules" BASE="$B" STARTERS="$STARTERS" PASSWORD="$PASSWORD" CHROME="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}" node "$ROOT/tools/test-browser.mjs"
+# 3.16: a monthly report in the archive (Core\ReportArchive) with something in every section the browser checks – a request,
+# an update, firewall blocks, a published news item – for the print layout step
+LAST="$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format("Y-m");')"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_requests (created_at, updated_at, author_id, title, text, status, done_at) VALUES ('$LAST-03 10:00:00', '$LAST-04 10:00:00', 1, 'Update the opening hours for the holidays and add a note about the parking behind the building', 'x', 'done', '$LAST-04 10:00:00'), ('$LAST-20 10:00:00', '$LAST-20 10:00:00', 1, 'New price list', 'x', 'new', NULL);
+  INSERT INTO ka_events (created_at, type, severity, message, data) VALUES ('$LAST-10 04:00:00', 'update.applied', 'info', 'Version 3.16.0 was installed (from 3.15.4).', '{\"version\":\"3.16.0\",\"from\":\"3.15.4\"}');
+  INSERT INTO ka_firewall_log (created_at, ip, reason, path) VALUES ('$LAST-11 01:00:00', '203.0.113.9', 'probe', '/wp-login.php'), ('$LAST-12 01:00:00', '203.0.113.9', 'rate', '/');
+  INSERT INTO ka_protokol (cas, kdo, jmeno, via, modul, akce, popis) VALUES ('$LAST-05 09:00:00', 1, 'Tester', '', 'pages', 'save', 'Home'), ('$LAST-06 09:00:00', 1, 'Tester', 'Claude', 'claude', 'save_collection_item', 'x');
+  DELETE FROM ka_monthly_reports"
+(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; Kaleta\Core\ReportArchive::store(Kaleta\Core\App::boot(), Kaleta\Core\MonthlyReport::previousMonth(new DateTimeImmutable()));') \
+  || { echo "storing the monthly report failed"; exit 1; }
+# 3.17: the main site is also a fleet console – three sites with what waits on them (Fleet\Inbox, the inbox at 1440 and 390 px),
+# one of them with 95 days of history (a bad day with an outage, a day just under 100 %, a version installed) and the previous
+# month's fleet report per customer – for the inbox, trends and fleet report print steps
+(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); $db = $app->db(); $s = $app->settings();
+  Kaleta\Core\Extensions::save($s, [...Kaleta\Core\Extensions::enabled($s), "fleet"]);
+  $customer = $db->insert("fleet_customers", ["name" => "Dental Clinic Smile and Partners International Ltd"]);
+  $iso = fn (int $h): string => date(DATE_ATOM, time() - $h * 3600);
+  $sites = [["Smile Dental – the main clinic website with a long name", "https://smile-dental-clinic-with-a-long-domain.example", $customer, date("Y-m-d H:i:s", time() - 600), 1, ["last_backup" => time(),
+      "requests" => ["new" => 1, "in_progress" => 1, "done_to_review" => 0, "oldest_waiting_hours" => 80, "items" => [
+        ["id" => 12, "title" => str_repeat("Update the price list of the implants and the whitening ", 2), "status" => "new", "created_at" => $iso(80), "updated_at" => $iso(80)],
+        ["id" => 13, "title" => "New team photo", "status" => "in_progress", "created_at" => $iso(3), "updated_at" => $iso(1)]]],
+      "pending_review" => ["staged_media" => 4, "page_drafts" => 2], "enquiries_new_not_spam" => 3, "bookings_pending" => 2,
+      "domain_watch" => ["local" => false, "certificate" => ["expires" => date("Y-m-d", time() + 5 * 86400)], "domain" => null], "audit" => ["links" => 3]]],
+    ["Smile Dental – booking", "https://booking.smile.example", $customer, date("Y-m-d H:i:s", time() - 30 * 3600), 1, ["last_backup" => time(), "enquiries_unanswered" => 5]],
+    ["Bakery", "https://bakery.example", null, date("Y-m-d H:i:s", time() - 600), 0, ["last_backup" => time(), "update_problem" => "Version 3.17.0 did not install", "security_7_days" => ["failed_sign_ins" => 120, "events" => []]]]];
+  foreach ($sites as $i => [$name, $url, $cid, $seen, $up, $beat]) {
+    $db->insert("fleet_sites", ["name" => $name, "url" => $url, "public_key" => "browserkey" . $i, "paired_at" => date("Y-m-d H:i:s"), "last_seen" => $seen, "version" => "3.16.0",
+      "up" => $up, "up_changed" => date("Y-m-d H:i:s", time() - 1200), "status" => "ok", "customer_id" => $cid, "heartbeat" => json_encode($beat)]);
+  }
+  $at = fn (string $m): string => date("Y-m-d H:i:s", strtotime($m));
+  $db->insert("fleet_sites", ["id" => 900, "name" => "Smile Dental – shop", "url" => "https://shop.smile.example", "public_key" => "browser-test-317", "paired_at" => $at("-120 days"),
+    "last_seen" => $at("now"), "version" => "3.17.0", "version_since" => $at("-20 days"), "status" => "ok", "up" => 1, "up_checked" => $at("now"), "customer_id" => $customer,
+    "heartbeat" => json_encode(["version" => "3.17.0", "last_backup" => time() - 3600, "cron_last_run" => time() - 300, "enquiries_new_not_spam" => 1])]);
+  for ($i = 0; $i < 95; $i++) {
+    $failed = $i === 12 ? 9 : ($i === 40 ? 1 : 0);
+    $db->insert("fleet_history", ["site_id" => 900, "day" => date("Y-m-d", strtotime("-$i days")), "checks_ok" => 288 - $failed, "checks_failed" => $failed,
+      "response_ms_total" => (288 - $failed) * (180 + $i % 30), "response_count" => 288 - $failed, "status" => "ok", "version" => $i > 20 ? "3.16.2" : "3.17.0",
+      "attention" => $i === 12 ? 100 : 0, "reasons" => $i === 12 ? "down" : "", "updated_at" => $at("-$i days")]);
+  }
+  $db->insert("fleet_incidents", ["site_id" => 900, "started_at" => $at("-12 days 10:00"), "ended_at" => $at("-12 days 10:45"), "status" => 503]);
+  Kaleta\Core\Events::record($db, "fleet.site_updated", "info", "https://shop.smile.example runs version 3.17.0.", ["site" => 900, "version" => "3.17.0"]);
+  Kaleta\Fleet\Report::store($app, Kaleta\Core\MonthlyReport::previousMonth(new DateTimeImmutable()));') || { echo "preparing the fleet console failed"; exit 1; }
+# 3.18: the browser test changes the state of the Claude connection in the database (the mysql command as a JSON list)
+MYSQL_JSON=$(php -r 'echo json_encode(array_slice($argv, 1));' -- "${MYSQL[@]}")
+NODE_PATH="$WORK/pw/node_modules" BASE="$B" STARTERS="$STARTERS" PASSWORD="$PASSWORD" MYSQL_JSON="$MYSQL_JSON" DB_NAME="$DB_NAME" CHROME="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}" node "$ROOT/tools/test-browser.mjs"
 for site in web remeslo poradenstvi; do
   if [ -s "$WORK/$site/storage/log/chyby.log" ]; then echo "== application error log ($site):"; cat "$WORK/$site/storage/log/chyby.log"; exit 1; fi
 done

@@ -34,7 +34,9 @@ trait HealthTools
             'status' => ['ok' => 'ok', 'varovani' => 'warning', 'chyba' => 'error'][Health::summary($checks)],
             'kaleta_version' => KALETA_VERSION,
             // 3.8 (D3): the release channel (latest | stable | custom), the version it offers, and the stable version a stable site is already past
-            'update' => ['channel' => $update['channel'], 'available' => $update['nova']['verze'] ?? $update['vyzaduje_php']['verze'] ?? null, 'ahead_of_stable' => $update['ahead_of']],
+            // 3.15: the next major version (Kaleta 4.0) on its own update source – offered only, the administrator installs it
+            'update' => ['channel' => $update['channel'], 'available' => $update['nova']['verze'] ?? $update['vyzaduje_php']['verze'] ?? null, 'ahead_of_stable' => $update['ahead_of'],
+                'major_available' => \Kaleta\Core\Updater::nextMajor($this->app->settings())['verze'] ?? null, 'behind_days' => \Kaleta\Core\Updater::behindDays($update)],
             'problems' => array_values(array_map(fn (array $c): array => ['group' => $c['skupina'], 'check' => $c['nazev'], 'status' => $c['stav'] === 'chyba' ? 'error' : 'warning', 'detail' => strip_tags((string) $c['info'])],
                 array_filter($checks, fn (array $c): bool => $c['stav'] !== 'ok'))),
             'jobs' => array_map(fn (array $j): array => ['job' => $j['name'], 'last_run' => $j['last_run'], 'failures_in_a_row' => $j['failures'], 'last_error' => $j['last_error'] !== '' ? $j['last_error'] : null], Scheduler::overview($db, $this->app->settings())),
@@ -43,6 +45,9 @@ trait HealthTools
             'mail_service' => \Kaleta\Core\MailServices::name(\Kaleta\Core\MailServices::current($this->app->settings())) ?: null,
             'last_backup' => $backup !== null ? date('Y-m-d H:i', (int) $backup['cas']) : null,
             'events_last_7_days' => Events::problems($db, 168),
+            // 3.18: whether Claude is connected (Core\ClaudeConnection): state off | none | idle | active, the last call, how
+            // requests are picked up (automatic | manual | stalled), the earliest end of a connection
+            'claude_connection' => \Kaleta\Core\ClaudeConnection::summary(\Kaleta\Core\ClaudeConnection::status($db, $this->app->settings())),
             // 3.14: Ready for 4.0 (Core\Readiness) – read-only, as System status shows it
             'ready_for_4_0' => self::readiness(Language::runWith('en', fn (): array => Readiness::checks($this->app), 'admin-')),
             'next' => 'Fix what you can (e.g. with update_settings or the site audit) and tell the user what needs them: hosting, DNS or a password are theirs. list_events shows what happened.',

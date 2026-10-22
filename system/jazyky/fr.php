@@ -2053,4 +2053,5 @@ return [
     'Cookie bar: a random identifier that links the choice to its record, only when consents are recorded (cookie)' => 'Bandeau cookies : un identifiant aléatoire qui relie le choix à son enregistrement, seulement si les consentements sont enregistrés (cookie)',
     'Preview of drafts: only for someone who opened a signed preview link (cookie)' => 'Aperçu des brouillons : seulement pour la personne qui a ouvert un lien d’aperçu signé (cookie)',
     'until the preview link expires, at most 7 days' => 'jusqu’à l’expiration du lien d’aperçu, 7 jours au plus',
+    'open in a new window' => 'ouvrir dans une nouvelle fenêtre',
 ];

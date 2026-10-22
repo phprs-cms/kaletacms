@@ -209,6 +209,7 @@ final class Mailing
         }
         $count = $db->run('INSERT IGNORE INTO {newsletter_queue} (newsletter_id, subscriber_id, next_attempt) SELECT ?, ido, ? FROM {odberatele} WHERE stav = 1', [$n['id'], Clock::now()])->rowCount();
         $db->update('newsletters', ['recipients' => $count], ['id' => $n['id']]);
+        MediaStaging::promoteReferenced($db, $html); // 3.15: an image waiting for approval goes out with the e-mail, so it goes public
         \Kaleta\Admin\ChangeLog::write($app, 'newsletters', 'send', mb_substr((string) $n['subject'], 0, 200));
     }
 
@@ -390,7 +391,7 @@ final class Mailing
             return $path;
         }
         $path = ltrim($path, '/');
-        if ($variant && preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+?)\.(jpg|png)$#D', $path, $m) && is_file(KALETA_ROOT . '/' . $m[1] . '-1200.' . $m[2])) {
+        if ($variant && preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+?)\.(jpg|png)$#D', $path, $m) && Files::isFile(KALETA_ROOT . '/' . $m[1] . '-1200.' . $m[2])) {
             $path = $m[1] . '-1200.' . $m[2];
         }
 

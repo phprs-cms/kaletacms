@@ -86,6 +86,16 @@ final class OAuth
     public const int ROTATED_LIFETIME = 30 * 86400;
 
     /**
+     * At most this many refreshes of one connection (client + user) within REFRESH_WINDOW seconds (3.18 audit, N318-2): a
+     * refresh token used in a loop would otherwise add a rotation record (kept 30 days) and a token pair per call. Claude
+     * refreshes about once an hour, a retry within REFRESH_GRACE gets the same pair without a new record – so thirty leaves
+     * room for bursts (a client restarted, several devices) and stops only a loop. Over the limit the answer is 429
+     * slow_down with Retry-After; the refresh token stays valid and works once the window has moved on.
+     */
+    public const int REFRESH_LIMIT = 30;
+    public const int REFRESH_WINDOW = 3600;
+
+    /**
      * One name for each access level (3.11, UX310-2) – the consent screen, the chips in My account and the table in Claude
      * settings say the same; translated with t() where shown.
      */
@@ -393,9 +403,17 @@ final class OAuth
             if (!self::isActiveUser($db, (int) $refresh['idu'])) {
                 return $this->error('invalid_grant', 'The account that allowed the application no longer has access.');
             }
+            $recent = $db->one('SELECT COUNT(*) AS n, MIN(rotated_at) AS oldest FROM {oauth_rotated} WHERE client_id = ? AND idu = ? AND rotated_at > ?',
+                [(string) $client['client_id'], (int) $refresh['idu'], date('Y-m-d H:i:s', time() - self::REFRESH_WINDOW)]) ?? [];
+            $wait = self::refreshWait((int) ($recent['n'] ?? 0), isset($recent['oldest']) ? (string) $recent['oldest'] : null, time());
+            if ($wait > 0) {
+                return $this->json(['error' => 'slow_down', 'error_description' => 'Too many token refreshes for this connection – try again later.'], 429, ['Retry-After' => (string) $wait]);
+            }
             $salt = bin2hex(random_bytes(32));
             $pair = self::successor($token, $salt);
-            $rotated = $db->transaction(function (Db $db) use ($refresh, $hash, $salt, $client, $pair, $now): bool {
+            // 3.18: the new pair keeps the connection's last call (Core\ClaudeConnection) – before, a refresh started it again empty
+            $used = \Kaleta\Core\ClaudeConnection::lastUse($db, (int) $refresh['idu'], (string) $client['client_id']);
+            $rotated = $db->transaction(function (Db $db) use ($refresh, $hash, $salt, $client, $pair, $now, $used): bool {
                 if ($db->delete('api_tokeny', ['idt' => (int) $refresh['idt'], 'druh' => 'obnova']) !== 1) {
                     return false; // another request rotated it a moment ago
                 }
@@ -403,7 +421,7 @@ final class OAuth
                 $db->insert('oauth_rotated', ['hash' => $hash, 'client_id' => (string) $client['client_id'], 'idu' => (int) $refresh['idu'], 'salt' => $salt,
                     'rotated_at' => $now, 'expires_at' => min((string) $refresh['expirace'], date('Y-m-d H:i:s', time() + self::ROTATED_LIFETIME))]);
                 // the access and the tool set chosen at consent (or switched in My account) stay
-                self::storeTokens($db, (int) $refresh['idu'], $client, (string) $refresh['access'], (string) ($refresh['tool_set'] ?? 'all'), $pair);
+                self::storeTokens($db, (int) $refresh['idu'], $client, (string) $refresh['access'], (string) ($refresh['tool_set'] ?? 'all'), $pair, $used);
 
                 return true;
             });
@@ -435,6 +453,23 @@ final class OAuth
     }
 
     /**
+     * Seconds a connection must wait before its next refresh (pure, 3.18 audit N318-2): 0 while it refreshed fewer than
+     * REFRESH_LIMIT times in the last REFRESH_WINDOW seconds, otherwise until the oldest of those refreshes leaves the window.
+     *
+     * @param int $recent refreshes (rotation records) of the connection within the window
+     * @param string|null $oldest the oldest of them (DATETIME in the site's time)
+     */
+    public static function refreshWait(int $recent, ?string $oldest, int $now): int
+    {
+        if ($recent < self::REFRESH_LIMIT) {
+            return 0;
+        }
+        $at = $oldest !== null ? strtotime($oldest) : false;
+
+        return $at === false ? self::REFRESH_WINDOW : max(1, min(self::REFRESH_WINDOW, $at + self::REFRESH_WINDOW - $now));
+    }
+
+    /**
      * The pair a refresh token is rotated into: derived from the token and a random salt, so a retry within the grace
      * period gets the same pair back while the pair itself is stored only as hashes.
      *
@@ -453,12 +488,13 @@ final class OAuth
     /**
      * @param array<string, mixed> $client
      * @param array{0: string, 1: string} $pair access token and refresh token
+     * @param string|null $used the last call the pair carries over from the rotated refresh token (3.18), null for a new connection
      */
-    private static function storeTokens(Db $db, int $idu, array $client, string $level, string $toolSet, array $pair): void
+    private static function storeTokens(Db $db, int $idu, array $client, string $level, string $toolSet, array $pair, ?string $used = null): void
     {
         foreach ([[$pair[0], 'pristup', self::ACCESS_LIFETIME], [$pair[1], 'obnova', self::REFRESH_LIFETIME]] as [$token, $kind, $lifetime]) {
             self::insertWithToolSet($db, 'api_tokeny', ['idu' => $idu, 'nazev' => (string) $client['nazev'], 'klient' => (string) $client['client_id'], 'druh' => $kind, 'access' => self::access($level),
-                'tool_set' => \Kaleta\Mcp\Catalog::toolSet($toolSet), 'expirace' => date('Y-m-d H:i:s', time() + $lifetime), 'otisk' => hash('sha256', $token), 'vytvoren' => date('Y-m-d H:i:s')]);
+                'tool_set' => \Kaleta\Mcp\Catalog::toolSet($toolSet), 'expirace' => date('Y-m-d H:i:s', time() + $lifetime), 'otisk' => hash('sha256', $token), 'vytvoren' => date('Y-m-d H:i:s'), 'pouzit' => $used]);
         }
     }
 
@@ -500,7 +536,25 @@ final class OAuth
      */
     public static function revokeConnections(Db $db, int $userId): int
     {
-        return $db->run("DELETE FROM {api_tokeny} WHERE idu = ? AND druh <> 'token'", [$userId])->rowCount();
+        $revoked = $db->run("DELETE FROM {api_tokeny} WHERE idu = ? AND druh <> 'token'", [$userId])->rowCount();
+        self::forgetRotations($db, $userId);
+
+        return $revoked;
+    }
+
+    /**
+     * Deletes the rotation records of a user's revoked OAuth connection – one client, or every client (3.18 audit, N318-3).
+     * Called wherever the connection's tokens go (a disconnect, a revocation, a password change or reset, the account
+     * deleted): with no token left there is nothing for reuse detection to protect – an old refresh token then simply gets
+     * invalid_grant – and the record no longer counts as the connection's last call (Core\ClaudeConnection).
+     */
+    public static function forgetRotations(Db $db, int $userId, ?string $client = null): void
+    {
+        try {
+            $client === null ? $db->delete('oauth_rotated', ['idu' => $userId]) : $db->delete('oauth_rotated', ['idu' => $userId, 'client_id' => $client]);
+        } catch (\PDOException) {
+            // before the 3.3.4 migration there are no records
+        }
     }
 
     /**
@@ -603,10 +657,14 @@ final class OAuth
         return ['Access-Control-Allow-Origin' => '*'];
     }
 
-    private function json(array $data, int $status = 200): Response
+    /**
+     * @param array<string, mixed> $data
+     * @param array<string, string> $headers extra headers (Retry-After)
+     */
+    private function json(array $data, int $status = 200, array $headers = []): Response
     {
         return new Response((string) json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), $status,
-            ['Content-Type' => 'application/json; charset=utf-8', 'Cache-Control' => 'no-store'] + self::cors());
+            ['Content-Type' => 'application/json; charset=utf-8', 'Cache-Control' => 'no-store'] + $headers + self::cors());
     }
 
     private function error(string $code, string $description, int $status = 400): Response

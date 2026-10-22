@@ -59,6 +59,28 @@ $developer = fn (string $detail): string => '<details><summary>' . e(t('Details 
 <?php $field('auto_updates', 'Install security updates automatically', 'ano', 'Recommended. Applies only to releases marked as security releases; you install regular versions yourself. The system checks for updates twice a day, backs up the database before installing and e-mails the result to the site e-mail.'); ?>
 <?php $field('update_url', 'Custom update source', 'url', 'Leave empty. Enter a different address of the update list (the aktualizace.json file) only if you manage versions yourself.', 'placeholder="https://"'); ?>
 </fieldset>
+<?php if (($major ?? null) !== null): $majorVersion = (string) $major['verze']; // 3.15: the next major version, from its own update source ?>
+<fieldset id="major-update">
+<legend><?= e(t('New major version')) ?></legend>
+<div class="hlaska">
+	<p><strong><?= e(t('Kaleta %s is available – read what changes, back up, then update.', $majorVersion)) ?></strong><?= !empty($major['vydano']) ? ' (' . e(format_date((string) $major['vydano'])) . ')' : '' ?></p>
+<?php if (($major['zmeny'] ?? []) !== []): ?>
+	<ul><?php foreach ($major['zmeny'] as $change): ?><li><?= e($change) ?></li><?php endforeach ?></ul>
+<?php endif ?>
+	<p><?= e(t('A new major version is never installed automatically, not even as a security update. Check Ready for 4.0 first and download a database backup off the server.')) ?> <a href="<?= e($app->url('admin.php?module=status#ready-4')) ?>"><?= e(t('Ready for 4.0')) ?></a></p>
+<?php if ($update !== null && ($majorBlocker = Kaleta\Core\Updater::majorBlocker($update)) !== null): // N315-3: the action checks it again, fresh ?>
+	<p class="napoveda"><?= e($majorBlocker) ?></p>
+<?php elseif (($majorBlockers = Kaleta\Core\Readiness::blockers(Kaleta\Core\Readiness::checks($app))) !== []): ?>
+	<p class="napoveda"><?= e(t('The update to a new major version waits until Ready for 4.0 clears: %s.', implode(', ', $majorBlockers))) ?> <a href="<?= e($app->url('admin.php?module=status#ready-4')) ?>"><?= e(t('Ready for 4.0')) ?></a></p>
+<?php elseif (Kaleta\Core\Updater::phpTooOld($major)): ?>
+	<p class="napoveda"><?= e(t('Version %s needs PHP %s or newer; the server runs PHP %s. Ask your hosting to switch the site to a newer PHP, then the update will be offered here.', $majorVersion, Kaleta\Core\Updater::minPhp($major), PHP_VERSION)) ?></p>
+<?php else: ?>
+	<p><label><input type="checkbox" name="precteno" value="1"> <?= e(t('I have read what changes and checked Ready for 4.0')) ?></label></p>
+	<p><button class="navigace" type="submit" name="verze" value="<?= e($majorVersion) ?>" formaction="<?= e($module->url('update_major')) ?>" data-potvrdit="<?= e(t('Update to Kaleta %s? A database backup is created first; the update cannot be undone by a click – going back means restoring that backup and the files of this version.', $majorVersion)) ?>"><?= e(t('Back up and update to %s', $majorVersion)) ?></button></p>
+<?php endif ?>
+</div>
+</fieldset>
+<?php endif ?>
 
 <fieldset>
 <legend><?= e(t('Database backups')) ?></legend>
@@ -117,10 +139,24 @@ $field('backup_region', 'Region (S3 only)', 'text', 'For example eu-central-1. F
 <summary><?= e(t('How to restore the site after losing the hosting')) ?></summary>
 <ol>
 	<li><?= e(t('Install Kaleta on the new hosting with the same table prefix (ka_ unless you changed it) and any starter site.')) ?></li>
+	<li><?= e(t('Copy the line with vault_key from the old site\'s config.php into the new config.php, in place of the one the installer wrote – without it the connector secrets and whistleblowing reports in the backup cannot be read.')) ?></li>
 	<li><?= e(t('Upload the latest database backup (kaleta-….sql.gz from your FTP or S3 copy, or a downloaded one) over FTP into the backups folder storage/zalohy/.')) ?></li>
 	<li><?= e(t('Copy the media/ folder from the same place into the root of the site.')) ?></li>
 	<li><?= e(t('Here in Backups, click Restore at that backup. Then sign in with the accounts from the backup.')) ?></li>
 </ol>
 <p class="napoveda"><?= e(t('Moving a site to another Kaleta installation without accounts and secrets is simpler with Export of the whole site and Import from Kaleta (Import and export).')) ?></p>
 </details>
+</fieldset>
+
+<fieldset id="sifrovaci-klic">
+<legend><?= e(t('Encryption key')) ?></legend>
+<?php // 3.15 (N42, Core\Vault): where the key of the encrypted secrets is – never the key itself ?>
+<p class="hlaska<?= ['config' => ' hlaska-ok', 'missing' => ' hlaska-chyba', 'pending' => ' hlaska-varovani'][$vaultState] ?? '' ?>"><?= e(Kaleta\Core\Vault::describe($vaultState)) ?></p>
+<?php if ($vaultState === 'config'): // N315-6: the move cannot change what older backups hold ?>
+<p class="napoveda"><?= e(t('Backups made before the move still hold the old key with the data – delete them, or keep them as safe as config.php.')) ?></p>
+<?php endif ?>
+<?php if (in_array($vaultState, ['database', 'pending'], true)): ?>
+<p><button class="navigace" type="submit" formaction="<?= e($module->url('vault_move')) ?>" data-potvrdit="<?= e(t('Move the encryption key to config.php and encrypt the stored secrets and reports again?')) ?>"><?= e(t('Move the encryption key out of the database')) ?></button></p>
+<?php endif ?>
+<p class="napoveda"><?= e(t('Once the key is in config.php, restoring the database on another server also needs this site\'s config.php – keep a copy of it with your backups, somewhere safe.')) ?></p>
 </fieldset>

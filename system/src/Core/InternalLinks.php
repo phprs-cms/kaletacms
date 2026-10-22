@@ -112,7 +112,8 @@ final class InternalLinks
         $newsListed = $newsListed || str_contains($builds, '"typ":"novinky"') || isset($linked['novinky']) || isset($linked[Routes::publicPath('novinky', Language::defaults($s), $db)]);
 
         $out = [];
-        foreach ($db->all('SELECT ids, titulek, seo_link, jazyk, stavba IS NOT NULL AS build FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL AND ids <> ? ORDER BY poradi, ' . $db->sortText('titulek'), [$home]) as $p) {
+        // the home page and its counterparts in the language versions (/en/) are reached through the logo and the language switcher
+        foreach ($db->all('SELECT ids, titulek, seo_link, jazyk, stavba IS NOT NULL AS build FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL AND ids <> ? AND (preklad_z IS NULL OR preklad_z <> ?) ORDER BY poradi, ' . $db->sortText('titulek'), [$home, $home]) as $p) {
             $path = $prefix((string) $p['jazyk']) . $p['seo_link'];
             if (!isset($linked[$path])) {
                 $out[] = ['kind' => 'page', 'id' => (int) $p['ids'], 'title' => (string) $p['titulek'], 'path' => $path, 'edit' => 'admin.php?module=pages&action=' . ($p['build'] ? 'builder' : 'edit') . '&id=' . (int) $p['ids'], 'target' => ['page' => (int) $p['ids']]];

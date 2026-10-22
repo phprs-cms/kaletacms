@@ -378,4 +378,5 @@ Der Link gilt %d Tage.
     '{{%s}} is not a field of the collection “%s” – it will stay empty on the site.' => '{{%s}} ist kein Feld der Sammlung „%s“ – es bleibt auf der Website leer.',
     'Thank you for your application. We will get back to you.' => 'Vielen Dank für deine Bewerbung. Wir melden uns bei dir.',
     'A few words about you' => 'Ein paar Worte über dich',
+    'open in a new window' => 'in einem neuen Fenster öffnen',
 ];

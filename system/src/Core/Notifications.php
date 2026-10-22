@@ -70,6 +70,7 @@ final class Notifications
         \Kaleta\Builder\CollectionCategories::showForItems($db, $due); // 3.12: their hidden categories too (logged as Kaleta's own change)
         if ($db->run('UPDATE {stranky} SET zobrazit = 1, zverejnit_od = NULL WHERE zverejnit_od IS NOT NULL AND zverejnit_od <= ? AND smazano IS NULL', [$now])->rowCount() + $items > 0) {
             \Kaleta\Front\Cache::clear();
+            MediaStaging::promotePublished($db); // 3.15: the files waiting for approval they use go public with them
         }
         $newsItems = $db->all('SELECT idc, seo_link, jazyk, noindex FROM {novinky} WHERE visible = 1 AND datum <= ? AND oznameno IS NULL ORDER BY datum LIMIT 5', [$now]);
         foreach ($newsItems as $c) {

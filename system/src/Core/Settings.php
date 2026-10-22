@@ -85,6 +85,7 @@ final class Settings
         'tasks_token' => '',          // secret part of the cron URL /tasks (the older /ulohy too)
         'stats' => '1',          // no longer read since 3.2: the Statistics feature (Core\Extensions 'statistika') is the only switch; kept for MCP update_settings
         'secret_key' => '',           // created by itself; signs links and salts the statistics hashes
+        'vault_check' => '',          // 3.15 (N42, Core\Vault): the check value of the vault_key in config.php the encrypted data belongs to; empty = secret_key
         // SEO and GEO
         'indexing' => '1',          // 0 = the whole site noindex + Disallow in robots.txt
         'schema_org' => '1',          // structured data JSON-LD
@@ -109,8 +110,10 @@ final class Settings
         'claude_protected_pages' => '',  // page ids Claude must not change
         'claude_apps_only' => '0',       // 1 = OAuth registration and sign-in only for Claude's own apps (Front\OAuth::CLAUDE_HOSTS, 3.3.4)
         'claude_instructions' => '',   // what the site owner wants Claude to keep to (brand voice, house rules) – every connection gets it (2.2)
+        'claude_instructions_notice' => '', // 3.15 (N44, Core\ClaudeInstructions): the last change (JSON) until an administrator looks at it
         'security_contact' => '',      // who takes reports of security problems (e-mail or https page) – /.well-known/security.txt (2.1)
         'news_slug' => '',          // first segment of the news URLs in every language (blog → /blog/x); empty = novinky / news (Core\Routes)
+        'news_title' => '',         // 3.18.2: heading of the news list in the default language (Aktuality to go with /aktuality); empty = News in the site language
         'news_slug_previous' => '', // earlier news_slug values, comma-separated: their URLs redirect to the current ones (kept by Settings::set)
         'slugs_per_language' => '0', // 3.9: a page, news item or category may share its slug with another language version (/kontakt, /en/kontakt); changed only by Core\Slug::switchPerLanguage
         'markdown_news' => '1',     // /novinky/<slug>.md
@@ -174,6 +177,14 @@ final class Settings
         'fleet_kit_version' => '0',    // the kit version applied here
         'fleet_kit_applied_at' => '',
         'fleet_kit_error' => '',       // why the last kit was refused (English, translated where shown)
+        'fleet_request_titles' => '1', // 3.16: the heartbeat carries the titles of Ask Claude requests (Fleet\Heartbeat) – on by default
+        // 3.17, the console's side (Fleet\AlertRules, Fleet\Digest; Fleet → Alerts and digest)
+        'fleet_alert_rules' => '',     // JSON kind => {on, threshold}; '' = the defaults (site down and site silent on, as before 3.17)
+        'fleet_alert_recipients' => '', // up to 10 addresses; '' = alerts_email, otherwise the site e-mail
+        'fleet_alert_quiet_hours' => '24', // the same alert for the same site is not sent again within this many hours
+        'fleet_digest' => '0',         // the weekly digest e-mail on Monday morning – off by default
+        'fleet_digest_titles' => '0',  // the digest names the requests by their titles – off by default (the e-mail leaves the console)
+        'fleet_digest_sent' => '',     // the ISO week of the last digest (internal)
         'domain_watch' => '',          // the last domain and mail check (JSON with the time of the check, Core\DomainWatch, 2.8) – internal, not editable
         'remote_backup' => 'vypnuto', // copy of the backup off the server: vypnuto (off) | ftp | s3
         'backup_host' => '',          // FTP server, or the S3 storage URL (s3.eu-central-1.amazonaws.com)
@@ -190,6 +201,8 @@ final class Settings
         'update_channel' => 'latest', // 3.8: latest (a new minor every week) or stable (security fixes, a new minor about monthly) – Core\Updater
         'update_cache' => '',
         'update_seen' => '',       // 3.10: the newest signed manifest each update source gave the site (JSON, Core\Updater – a stale one is refused)
+        'update_major_cache' => '', // 3.15: the last answer of the next major version's manifest (aktualizace-4.json, Core\Updater – offered, never installed by itself)
+        'update_behind_since' => '0', // 3.15: since when a newer release of the site's line has been offered (Unix time, 0 = up to date) – the update prompt
         'auto_updates' => '1',    // install security releases automatically
         'update_attempt' => '',    // the version the background maintenance has already tried / announced
         'extensions' => '',            // enabled extensions (Core\Extensions); empty = default set
@@ -254,6 +267,14 @@ final class Settings
 
         // default texts the visitor sees, in the site language (an English site must not show the Czech maintenance notice or cookie bar)
         return in_array($key, self::TRANSLATED_DEFAULTS, true) ? t(self::DEFAULTS[$key]) : (self::DEFAULTS[$key] ?? '');
+    }
+
+    /** The heading of the news list (3.18.2): the setting news_title in the default language, otherwise News in the site language. */
+    public function newsTitle(): string
+    {
+        $title = trim($this->get('news_title'));
+
+        return $title !== '' && Language::siteColumn() === '' ? $title : t('Novinky');
     }
 
     public function int(string $key): int

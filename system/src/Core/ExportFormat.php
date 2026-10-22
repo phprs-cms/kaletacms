@@ -59,7 +59,7 @@ final class ExportFormat
     /** The table a key of the given format names (news → novinky in format 3); an unknown key stays as it is. */
     public static function tableFromKey(string $key, int $format): string
     {
-        return $format >= 3 ? Names::physical($key) : $key;
+        return $format >= 3 ? Names::table($key) : $key;
     }
 
     /** @return array<string, string> format-2 key => format-3 key of a table's rows (only those that differ) */

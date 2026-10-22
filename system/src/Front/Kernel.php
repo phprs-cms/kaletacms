@@ -26,6 +26,14 @@ use Kaleta\Core\View;
  */
 final class Kernel
 {
+    /**
+     * A private page (the whistleblowing channel, 3.15 N46) talks to this site only: a header or footer with a Custom HTML
+     * embed, an image or a font from another host cannot tell a third party who opened it. The site's own inline scripts
+     * (colour scheme, accessibility toolbar) still run; no address leaves in the Referer either.
+     */
+    public const string PRIVATE_CSP = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; "
+        . "connect-src 'self'; media-src 'self'; frame-src 'none'; object-src 'none'; form-action 'self'; base-uri 'self'; frame-ancestors 'self'";
+
     private readonly View $view;
     private readonly NewsRepository $news;
 
@@ -160,6 +168,12 @@ final class Kernel
 
                 return $this->ruleResponse((string) $target['na_adresu'], (int) $target['typ'] === 410 ? 410 : 301);
             }
+        }
+        // 3.15 (N10): a file waiting for approval (Core\MediaStaging) – for a signed-in user and a draft preview; everyone
+        // else gets the usual 404, unless published content already shows it
+        if (str_starts_with($request->path(), '/media/')
+            && ($staged = \Kaleta\Core\MediaStaging::serve($this->app, $request->path(), fn (): bool => $this->sitePreview || \Kaleta\Core\MediaStaging::hasPreview($this->app), (string) ($_SERVER['HTTP_ACCEPT'] ?? ''))) !== null) {
+            return $staged;
         }
         if (($cached = Cache::load($this->app)) !== null) {
             return $cached;
@@ -676,7 +690,7 @@ final class Kernel
         foreach ($collection['pole'] as $field) {
             $h = (string) ($item['data'][$field['klic']] ?? '');
             if ($description === '' && in_array($field['typ'], ['radky', 'html'], true) && $h !== '') {
-                $description = mb_strimwidth(trim(html_entity_decode(strip_tags($h), ENT_QUOTES | ENT_HTML5)), 0, 300, '…');
+                $description = plain_text($h, 300);
             }
             if ($image === '' && $field['typ'] === 'obrazek' && $h !== '') {
                 $image = preg_match('#^https?://#', $h) ? $h : $this->app->request->origin() . $this->app->url(ltrim($h, '/'));
@@ -774,7 +788,7 @@ final class Kernel
         }
 
         $description = $category === null ? '' : ($category['seo_description'] !== '' ? $category['seo_description']
-            : mb_strimwidth(trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($category['description']), ENT_QUOTES | ENT_HTML5))), 0, 300, '…'));
+            : plain_text($category['description'], 300));
         $title = $category === null ? t('Category name') : ($category['seo_title'] !== '' ? $category['seo_title'] : $category['name']);
         $pageNumber = $this->app->request->getInt('page', 1);
 
@@ -907,7 +921,7 @@ final class Kernel
     {
         preg_match_all('#<p\b[^>]*>(.*?)</p>#si', $html, $m);
         foreach ($m[1] as $paragraph) {
-            $text = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($paragraph), ENT_QUOTES | ENT_HTML5)));
+            $text = plain_text($paragraph);
             if (mb_strlen($text) >= 50) {
                 return mb_strimwidth($text, 0, 160, '…');
             }
@@ -921,14 +935,14 @@ final class Kernel
         $pageNumber = max(1, $this->app->request->getInt('page', 1));
         [$news, $total] = $this->news->listPublished($pageNumber);
         if (!$home) {
-            $this->breadcrumbs([t('Novinky'), '']);
+            $this->breadcrumbs([$this->app->settings()->newsTitle(), '']);
         }
 
-        return $this->page($home ? '' : t('Novinky'), $this->view->render('vypis', ['nadpis' => t('Novinky'), 'popis' => ''] + $this->listVariables($news, $total, $pageNumber, $home ? '' : 'novinky')), [
+        return $this->page($home ? '' : $this->app->settings()->newsTitle(), $this->view->render('vypis', ['nadpis' => $this->app->settings()->newsTitle(), 'popis' => ''] + $this->listVariables($news, $total, $pageNumber, $home ? '' : 'novinky')), [
             'hlavni' => $home,
             // without a site description: the list's own summary (the site name and the latest headlines)
             'popis' => $this->app->settings()->get('site_description') !== '' ? $this->app->settings()->get('site_description')
-                : mb_strimwidth(t('Novinky') . ' – ' . $this->app->settings()->get('site_name') . ($news !== [] ? ': ' . implode(' · ', array_column(array_slice($news, 0, 3), 'titulek')) : ''), 0, 160, '…'),
+                : mb_strimwidth($this->app->settings()->newsTitle() . ' – ' . $this->app->settings()->get('site_name') . ($news !== [] ? ': ' . implode(' · ', array_column(array_slice($news, 0, 3), 'titulek')) : ''), 0, 160, '…'),
             'cast' => 'vypis',
         ]);
     }
@@ -940,14 +954,14 @@ final class Kernel
             return $this->notFound();
         }
         $this->counterpart = ['kategorie', 'idt', $category, 'novinky/kategorie/'];
-        $this->breadcrumbs([t('Novinky'), $this->app->url('novinky')], [$category['nazev'], '']);
+        $this->breadcrumbs([$this->app->settings()->newsTitle(), $this->app->url('novinky')], [$category['nazev'], '']);
         $pageNumber = max(1, $this->app->request->getInt('page', 1));
         [$news, $total] = $this->news->inCategory((int) $category['idt'], $pageNumber);
 
         return $this->page(
             $category['nazev'],
             $this->view->render('vypis', ['nadpis' => $category['nazev'], 'popis' => self::authored(\Kaleta\Core\Html::safe((string) $category['popis']))] + $this->listVariables($news, $total, $pageNumber, 'novinky/kategorie/' . $seo)),
-            ['popis' => strip_tags($category['popis']), 'cast' => 'vypis'],
+            ['popis' => plain_text((string) $category['popis'], 300), 'cast' => 'vypis'],
         );
     }
 
@@ -967,7 +981,7 @@ final class Kernel
         return $this->page($colorScheme ? $tag['nazev'] : t('Štítek') . ' ' . $tag['nazev'], $this->view->render('vypis', [
             'nadpis' => ($colorScheme ? '' : '#') . $tag['nazev'], 'popis' => $colorScheme ? self::authored(\Kaleta\Core\Html::safe((string) $tag['popis'])) : '',
         ] + $this->listVariables($news, $total, $pageNumber, 'novinky/stitek/' . $seo)), [
-            'popis' => $colorScheme ? mb_strimwidth(trim(strip_tags((string) $tag['popis'])), 0, 300, '…') : '',
+            'popis' => $colorScheme ? plain_text((string) $tag['popis'], 300) : '',
             'cast' => 'vypis',
         ]);
     }
@@ -997,7 +1011,7 @@ final class Kernel
             $this->app->db()->run('UPDATE {novinky} SET visit = visit + 1 WHERE idc = ?', [$newsItem['idc']]);
         }
 
-        $this->breadcrumbs([t('Novinky'), $this->app->url('novinky')], [$newsItem['tema_jm'], $this->app->url('novinky/kategorie/' . $newsItem['tema_seo'])], [$newsItem['titulek'], '']);
+        $this->breadcrumbs([$this->app->settings()->newsTitle(), $this->app->url('novinky')], [$newsItem['tema_jm'], $this->app->url('novinky/kategorie/' . $newsItem['tema_seo'])], [$newsItem['titulek'], '']);
         $newsItem['faq_html'] = (new View([KALETA_SYSTEM . '/views/front']))->render('faq', ['faq' => Seo::faq($newsItem['faq'])]);
         $newsItem = (new NewsText($this->app))->complete($newsItem);
         $newsItem['stitky'] = $this->app->db()->all('SELECT s.nazev, s.seo_link FROM {stitky} s JOIN {novinky_stitky} cs ON cs.ids = s.ids WHERE cs.idc = ? ORDER BY ' . $this->app->db()->sortText('s.nazev'), [$newsItem['idc']]);
@@ -1011,7 +1025,7 @@ final class Kernel
 
         return $this->page($newsItem['seo_titulek'] !== '' ? $newsItem['seo_titulek'] : $newsItem['titulek'], $content, [
             'clanek' => $newsItem,
-            'popis' => $newsItem['seo_popis'] !== '' ? $newsItem['seo_popis'] : mb_strimwidth(trim(strip_tags($newsItem['uvod'])), 0, 300, '…'),
+            'popis' => $newsItem['seo_popis'] !== '' ? $newsItem['seo_popis'] : plain_text($newsItem['uvod'], 300),
             'klicova_slova' => $newsItem['t_slova'],
             'obrazek' => $newsItem['obrazek'],
             'noindex' => (bool) $newsItem['noindex'],
@@ -1204,7 +1218,7 @@ final class Kernel
     /** The page-not-found page; 410 = an address the administrator marked as gone for good (3.6) – search engines drop it. */
     private function notFoundPage(int $status): Response
     {
-        return $this->page(t('Page not found'), $this->view->render('nenalezeno', ['url' => $this->app->url(...), 'stranky' => $this->menuPages(), 'novinky' => Extensions::isEnabled($this->app->settings(), 'novinky')]), ['noindex' => true, 'cast' => 'nenalezeno'], $status);
+        return $this->page(t('Page not found'), $this->view->render('nenalezeno', ['url' => $this->app->url(...), 'stranky' => $this->menuPages(), 'novinky' => Extensions::isEnabled($this->app->settings(), 'novinky'), 'newsTitle' => $this->app->settings()->newsTitle()]), ['noindex' => true, 'cast' => 'nenalezeno'], $status);
     }
 
     /** Where a stored rule sends the visitor: its target, or for code 410 the not-found page with 410 Gone (3.6). */
@@ -1433,8 +1447,12 @@ final class Kernel
             return true;
         }
         $key = $this->app->request->get('preview_key');
+        if ($key === '' || !\Kaleta\Core\Preview::verify($this->app->db(), $this->app->settings(), $target, $key)) {
+            return false;
+        }
+        \Kaleta\Core\MediaStaging::previewCookie($this->app, $key); // 3.15: the preview shows the files that wait for approval too
 
-        return $key !== '' && \Kaleta\Core\Preview::verify($this->app->db(), $this->app->settings(), $target, $key);
+        return true;
     }
 
     private function siteParts(string $content, array $meta, string $languageSwitcher, string $path): array
@@ -1679,6 +1697,10 @@ final class Kernel
         // were at the moment of saving
         if ($status === 200 && empty($meta['noindex']) && $this->app->request->get('preview') === '' && !($this->context?->withoutCache ?? false)) {
             Cache::save($this->app, $html, $newsItem === null ? null : (int) $newsItem['idc']);
+        }
+
+        if (!empty($meta['soukroma'])) {
+            return new Response($html, $status, ['Content-Type' => 'text/html; charset=utf-8', 'Content-Security-Policy' => self::PRIVATE_CSP, 'Referrer-Policy' => 'no-referrer']);
         }
 
         return Response::html($html, $status);

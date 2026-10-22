@@ -24,6 +24,22 @@ final class Html
     private const array ATTRIBUTES = ['href', 'src', 'alt', 'title', 'class', 'id', 'width', 'height', 'colspan', 'rowspan', 'scope', 'target', 'rel', 'lang', 'dir',
         'loading', 'decoding', 'srcset', 'sizes', 'start', 'reversed', 'type', 'cite', 'datetime', 'controls', 'poster', 'preload', 'playsinline', 'muted', 'loop'];
 
+    /**
+     * Ids the site's own pages and scripts look up (3.15, N21): an element of a text with one of them would take over a hook
+     * – the skip link, the cookie bar, window.L of the map, window.dataLayer – so such an id is dropped. Compared in lower case.
+     */
+    private const array RESERVED_IDS = ['obsah', 'navigace', 'poptavka', 'cookies-lista', 'cookies-nadpis', 'cookies-znovu', 'l', 'datalayer', 'gtag',
+        'grecaptcha', 'hcaptcha', 'turnstile'];
+
+    /**
+     * May a text from a user keep this id (3.15, N21)? Anchors (#price-list, #kontaktní-údaje) keep working; a name the site
+     * reserves – its own ka- / ka_ namespace and RESERVED_IDS – or one with other characters goes.
+     */
+    public static function isSafeId(string $id): bool
+    {
+        return preg_match('/^[\p{L}\p{N}_-]{1,100}$/uD', $id) === 1 && preg_match('/^ka[-_]/i', $id) !== 1 && !in_array(mb_strtolower($id), self::RESERVED_IDS, true);
+    }
+
     /** Sanitized HTML; '' when it is over a limit of HtmlLimits (HtmlLimits::guard() turns that into an error). */
     public static function safe(string $html): string
     {
@@ -225,7 +241,8 @@ final class Html
                         || ($name === 'data-id' && strtolower($n->localName) === 'img' && ctype_digit($a->value))) // the Media number the editor puts on an image
                     && (!in_array($name, ['href', 'src', 'poster', 'cite'], true) || WpContent::isSafeUrl($a->value))
                     && ($name !== 'srcset' || !preg_match('/(javascript|data|vbscript):/i', $a->value))
-                    && ($name !== 'target' || $a->value === '_blank');
+                    && ($name !== 'target' || $a->value === '_blank')
+                    && ($name !== 'id' || self::isSafeId($a->value));
                 if (!$ok) {
                     $n->removeAttributeNode($a);
                 }

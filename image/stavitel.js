@@ -98,7 +98,9 @@
 	const icon = (name) => el('span', { html: '<svg class="st-ikona" viewBox="0 0 24 24" aria-hidden="true">' + (ICONS[name] || ICONS.blok) + '</svg>' }).firstChild;
 	const clone = (o) => JSON.parse(JSON.stringify(o));
 	const newId = () => Math.random().toString(16).slice(2, 9).padEnd(7, '0');
-	const text = (html) => { const d = document.createElement('div'); d.innerHTML = html || ''; return d.textContent.trim(); };
+	// the text of an element's HTML for labels: parsed in a document without a window, where nothing loads or runs (N3182-2)
+	const inert = document.implementation.createHTMLDocument('');
+	const text = (html) => { const d = inert.createElement('div'); d.innerHTML = html || ''; return d.textContent.trim(); };
 
 	/**
 	 * A request to the admin. Never ends with an exception: returns the response JSON, or {ok: false, chyba, …} –
@@ -601,7 +603,8 @@
 			const box = right.querySelector('[data-pole="' + key + '"]');
 			const surface = box && box.querySelector('.editor-plocha');
 			const input = box && box.querySelector('input, textarea');
-			if (surface) { surface.innerHTML = value; } else if (input) { input.value = value.replace(/&nbsp;/g, '\u00a0'); } // a space typed at the end arrives as &nbsp;
+			// the rich-text field shows the typed HTML through the editor's cleanup (3.18.2, CodeQL #42); a space typed at the end arrives as &nbsp;
+			if (surface) { if (window.kaletaZobrazCiste) { window.kaletaZobrazCiste(surface, value, true); } else { surface.textContent = ''; } } else if (input) { input.value = value.replace(/&nbsp;/g, '\u00a0'); }
 		}
 		if (!state.zmeny) { state.zmeny = true; redrawBar(); }
 		setState(T('Editing on the canvas…'));
@@ -715,20 +718,25 @@
 		if (p && TYPY[p.typ]) { insert(withNewIds(p)); return true; }
 		return false;
 	}
-	/** Text from the system clipboard: an envelope from this or another Kaleta site; anything else is not for the editor. */
+	/**
+	 * Text from the system clipboard: an envelope from this or another Kaleta site; anything else is not for the editor.
+	 * Every envelope goes through the server (N3182-2): any web page can put text claiming this site into the clipboard, so
+	 * the claim is never trusted here – the server checks the elements, and keeps code elements only in an envelope this
+	 * site signed when it was copied (Builder\ElementClipboard::signature).
+	 */
 	function pasteText(text) {
 		let data = null;
 		try { data = JSON.parse(text); } catch (e) { return false; }
 		if (!data || data.kaleta !== CLIPBOARD_FORMAT || !Array.isArray(data.elements) || !data.elements.length) { return false; }
-		if (data.site === location.origin) { insertAll(data.elements.filter((p) => p && TYPY[p.typ]).map(withNewIds)); return true; }
-		setState(T('Inserting elements from another site…'));
+		const own = data.site === location.origin;
+		setState(own ? T('Inserting elements…') : T('Inserting elements from another site…'));
 		query(D.adresy.vlozeni, { schranka: text }).then((j) => {
 			if (!j.ok) { setState(j.chyba || T('The elements could not be inserted.'), true); return; }
 			D.tridy = j.tridy;
 			setComponents(j.komponenty);
 			insertAll(j.prvky);
 			const notes = j.hlaseni || [];
-			setState([T('Inserted from %s.').replace('%s', data.site)].concat(notes).join(' '), notes.length > 0);
+			setState([own ? T('Inserted') : T('Inserted from %s.').replace('%s', String(data.site))].concat(notes).join(' '), notes.length > 0);
 		});
 		return true;
 	}

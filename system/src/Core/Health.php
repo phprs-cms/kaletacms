@@ -11,9 +11,12 @@ namespace Kaleta\Core;
 final class Health
 {
     /**
+     * $leaving = the checks go out of the site (the fleet heartbeat, the monthly report – 3.16, N316-3): the background job
+     * and the events of the whistleblowing channel are left out of them (Whistleblowing::concerns).
+     *
      * @return list<array{skupina:string, nazev:string, stav:string, info:string, odkazy?: list<array{text:string, url:string}>}> stav: ok | varovani | chyba; odkazy = where to fix it (a user, a connection)
      */
-    public static function checks(App $app): array
+    public static function checks(App $app, bool $leaving = false): array
     {
         $k = [];
         $add = function (string $group, string $name, bool|string $state, string $info, array $links = []) use (&$k): void {
@@ -63,17 +66,18 @@ final class Health
             $add(t('Bezpečnost'), '.htaccess', 'varovani', t('An update left a newer .htaccess.kaleta-nova next to your customised .htaccess – carry its new rules over (since 3.3.2 they keep the code of add-ons in extensions/ away from visitors), then delete the file.'));
         }
         $mediaRules = is_file(KALETA_ROOT . '/media/.htaccess') ? (string) file_get_contents(KALETA_ROOT . '/media/.htaccess') : '';
-        if (!is_file(KALETA_ROOT . '/media/.htaccess.kaleta-nova') && !str_contains($mediaRules, self::MEDIA_RULE)) {
-            // 3.9.2 (N392-2): the migration could not write the file (permissions) or something put an older one back
-            $add(t('Bezpečnost'), 'media/.htaccess', 'varovani', t('media/.htaccess does not have the rule of Kaleta 3.9.2 that blocks files like photo.php.jpg – copy media/.htaccess from the release package (on nginx, the media rules of system/nginx.example.conf).'));
+        if (!is_file(KALETA_ROOT . '/media/.htaccess.kaleta-nova') && (!str_contains($mediaRules, self::MEDIA_RULE) || !str_contains($mediaRules, self::MEDIA_HEADER_RULE))) {
+            // 3.9.2 (N392-2): the migration could not write the file (permissions) or something put an older one back;
+            // 3.15 (N72): the same for the header rules that match an upper-case extension too (migration 0098)
+            $add(t('Bezpečnost'), 'media/.htaccess', 'varovani', t('media/.htaccess does not have the rules of Kaleta 3.15 that block files like photo.php.jpg and offer documents for download whatever the case of their extension – copy media/.htaccess from the release package (on nginx, the media rules of system/nginx.example.conf).'));
         }
         if (($risky = self::riskyMedia()) !== []) {
             // 3.9.2 (N392-1): a file an import placed before 3.9.2 – blocked by the new rule, but it should not be there at all
             $add(t('Bezpečnost'), t('Media files'), 'varovani', t('Files with a script extension in their name are in media/ (%s) – check them and delete them over FTP.', implode(', ', $risky)));
         }
         if (is_file(KALETA_ROOT . '/media/.htaccess.kaleta-nova')) {
-            // 3.9.2 (N67): migration 0084 keeps a customised media/.htaccess and puts Kaleta's newer one next to it
-            $add(t('Bezpečnost'), 'media/.htaccess', 'varovani', t('A newer media/.htaccess.kaleta-nova is next to your customised media/.htaccess – carry over its deny rule (since 3.9.2 it also blocks files like photo.php.jpg), then delete the file.'));
+            // 3.9.2 (N67), 3.15 (N72): migrations 0084 and 0098 keep a customised media/.htaccess and put Kaleta's newer one next to it
+            $add(t('Bezpečnost'), 'media/.htaccess', 'varovani', t('A newer media/.htaccess.kaleta-nova is next to your customised media/.htaccess – carry over its rules (since 3.9.2 they block files like photo.php.jpg, since 3.15 the download rules also match an upper-case extension), then delete the file.'));
         }
         $core = Integrity::check();
         $add(t('Bezpečnost'), t('Core files'), $core['stav'], $core['info']);
@@ -108,6 +112,26 @@ final class Health
             $accountLinks($blocked));
         $add($group, t('Automatic suspension'), 'ok', $suspend === [] ? t('off – unused accounts and connections are only reported (Settings → General)')
             : implode(', ', array_filter([in_array(SecurityHygiene::SUSPEND_ACCOUNTS, $suspend, true) ? t('accounts after %d days', SecurityHygiene::ACCOUNT_DAYS) : '', in_array(SecurityHygiene::SUSPEND_CONNECTIONS, $suspend, true) ? t('Claude connections after %d days', SecurityHygiene::CONNECTION_DAYS) : ''])));
+
+        // 3.18: whether requests reach Claude (Core\ClaudeConnection) – a warning when new requests wait and nothing picks them
+        // up, or when a connection ends soon; with the Claude connection switched off only that
+        $claude = ClaudeConnection::status($db, $siteSettings, true);
+        $when = static fn (?string $moment): string => $moment !== null ? format_date($moment, true) : '–';
+        $add($group, t('Claude connection'), match (true) {
+            $claude['waiting'] > 0 && ClaudeConnection::blocked($claude) && $claude['state'] !== 'off', $claude['expiring'] => 'varovani',
+            default => 'ok',
+        }, match (true) {
+            $claude['state'] === 'off' => t('switched off (Features)'),
+            $claude['state'] === 'none' => $claude['waiting'] > 0 ? t('%d request(s) wait, but Claude is not connected to the site – connect it in Claude settings', $claude['waiting']) : t('not connected'),
+            $claude['pickup'] === 'stalled' && $claude['waiting'] > 0 => t('%d request(s) wait, but the scheduled run that picks them up is not running (last missed or failed %s) – check the routine in Claude (Scheduled runs)', $claude['waiting'], $when($claude['stalled_since'])),
+            default => ($claude['state'] === 'active' ? t('connected, last call %s', $when($claude['last_call'])) : ($claude['last_call'] !== null ? t('connected, no call in the last %d days (last call %s)', ClaudeConnection::ACTIVE_DAYS, $when($claude['last_call'])) : t('connected, no call yet')))
+                . '; ' . match ($claude['pickup']) {
+                    'automatic' => t('requests are picked up by a scheduled run'),
+                    'stalled' => t('the scheduled run that picks up requests is not running'),
+                    default => t('requests are picked up when someone asks Claude'),
+                },
+        } . ($claude['expiring'] ? ' – ' . t('a connection ends %s, connect Claude again before then', $when($claude['expires'])) : ''),
+            $claude['state'] !== 'off' ? [['text' => t('Claude settings'), 'url' => $app->url('admin.php?module=claude_settings')]] : []);
 
         // --- operation
         $log = KALETA_ROOT . '/storage/log/chyby.log';
@@ -205,7 +229,9 @@ final class Health
             // 3.10 (N39-7): the newest signed update information the source gave is old – the source may be stuck or replay
             // an old copy (a warning only: nothing re-signs it automatically, see Updater::FRESHNESS_DAYS)
             $staleDays !== null => self::staleText($staleDays),
-            default => t('the system is up to date (%s)', KALETA_VERSION) . ($update['overeno'] > 0 ? ', ' . t('checked %s', format_date((new \DateTimeImmutable())->setTimestamp((int) $update['overeno']), true)) : ''),
+            default => t('the system is up to date (%s)', KALETA_VERSION) . ($update['overeno'] > 0 ? ', ' . t('checked %s', format_date((new \DateTimeImmutable())->setTimestamp((int) $update['overeno']), true)) : '')
+                // 3.15: the next major version is offered on its own – never installed by itself
+                . (($major = Updater::nextMajor($siteSettings)) !== null ? '. ' . t('Kaleta %s is available – read what changes, back up, then update.', (string) $major['verze']) : ''),
         });
         // 3.10 (N310-3): a signed date in the future is not remembered – a wrong clock here or at the publisher
         if ($update['future_date'] !== '') {
@@ -221,10 +247,10 @@ final class Health
             });
         }
         // 2.8: background jobs (Core\Scheduler) and the problems of the last week (Core\Events)
-        $failing = array_filter(Scheduler::overview($db, $app->settings()), fn (array $j): bool => $j['failures'] > 0);
+        $failing = array_filter(Scheduler::overview($db, $app->settings()), fn (array $j): bool => $j['failures'] > 0 && !($leaving && Whistleblowing::concerns((string) $j['name'])));
         $add(t('Operation'), t('Background jobs'), $failing === [] ? 'ok' : (max(array_column($failing, 'failures')) >= Scheduler::FAILURES_TO_ALERT ? 'chyba' : 'varovani'),
             $failing === [] ? t('every job worked the last time it ran') : implode('; ', array_map(fn (array $j): string => t('%s failed %d× in a row: %s', t($j['label']), $j['failures'], $j['last_error']), $failing)));
-        $problems = Events::problems($db, 168);
+        $problems = array_filter(Events::problems($db, 168), fn (string|int $type): bool => !($leaving && Whistleblowing::concerns((string) $type)), ARRAY_FILTER_USE_KEY);
         if ($problems !== []) {
             $add(t('Operation'), t('Problems in the last 7 days'), 'varovani', implode(', ', array_map(fn (string $type, int $n): string => $type . ' ×' . $n, array_keys($problems), $problems)));
         }
@@ -239,6 +265,9 @@ final class Health
 
     /** The deny rule of media/.htaccess since 3.9.2 (N67): a script extension anywhere in a file name, in any case. */
     private const string MEDIA_RULE = '(?i)\\.(php\\d?|pht|phtml|phar|pl|py|cgi|sh|shtml|html?|js)(\\.|$)';
+
+    /** One of the header rules of media/.htaccess since 3.15 (N72): an SVG gets its sandbox CSP whatever the case of .svg. */
+    private const string MEDIA_HEADER_RULE = '"(?i)\\.svg$"';
 
     /**
      * The owner's words for old update information (3.11, UX310-3) – the same sentence in System status and in Backups and

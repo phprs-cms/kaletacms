@@ -730,7 +730,7 @@ non-string MCP name answered as JSON-RPC, the consent id cookie Secure.
 did not load the stylesheet of the option cards, so the access choices were bare radio buttons and run-on text (owner
 report from a live site). The choices are one list; the browser test checks the cards.
 
-## 3.14 – Ready for 4.0, your own e-mail signature (released 13 October 2026)
+## 3.14 – Ready for 4.0, your own e-mail signature (3.14.1 released 18 October 2026)
 
 1. **Updates:** after a refused install (the source offers a newer version than the one on the button) the screen shows
    the version offered now – before, it kept the remembered one for 12 hours and every click failed the same way (owner
@@ -748,6 +748,204 @@ report from a live site). The choices are one list; the browser test checks the 
 
 Audited before release (N314): hidden Team records linked only by an administrator's choice, an edited redirect
 normalised again, the add-on scan robust and bounded, legacy tags kept on a re-save, the future-date warning kept.
+
+3.14.1: a number field of a collection reads as a number in the site's language – {{price}} shows 1 490 / 1,490 / 1.490
+and keeps the stored decimals (4.20), {{price_raw}} is the stored value for links and data (found while building the
+industry example sites). The update test stops its server's workers (they outlived every run because lsof was not on
+the PATH). The 18 industry example screenshots are on kaletacms.com/solutions and in docs/screenshots/examples.
+
+## 3.15 – the bridge to 4.0, the daily audits closed (released 19 October 2026)
+
+1. **Both table names** (`Core\Names`, `Db`): a site works on today's Czech tables and on the English names 4.0 renames
+   them to, and notices a rename or a rollback by itself (a cached marker; one `information_schema` query only after a
+   missing-table error). Migrations rewrite their table names on a renamed database; `tools/rename-tables.php` and a
+   test.sh section prove both directions. 3.15 is the rollback target of 4.0.
+2. **A separate update source for majors:** 4.x is published in `aktualizace-4.json`, which only 3.15+ reads; older sites
+   get 3.15 first. A major is never installed automatically – only by an administrator, after the newest 3.x, a fresh
+   backup and the confirmation; the Ready for 4.0 blockers (database server, rights to rename tables) stop it.
+   `tools/release.php` writes the major manifest, `check-channel.php` refuses a 4.x in the 3.x manifest.
+3. **Update prompt:** 14 days behind the latest release, the dashboard asks to update (no support window – owner).
+4. **Counts in the admin menu** (owner's report): new enquiries, bookings to confirm and whistleblowing reports to
+   acknowledge next to their menu items; screen readers hear "N new", a phone shows a dot on the Menu button.
+5. **Upload staging (N10 closed):** files from a drafts-only Claude connection wait in `storage/staging` – visible to
+   signed-in users and draft previews, public when published content uses them or when approved in Media, deleted
+   after 30 days. nginx sites need the updated `/media/` block of `system/nginx.example.conf` for previews.
+6. **Vault key out of the database (N42, owner):** new installs keep the encryption key of connector credentials and
+   whistleblowing cases in config.php; existing sites move it with one button (re-encrypted in one transaction).
+   A database restored on another server then also needs config.php.
+7. **Instructions for Claude (N44, owner):** still editable over MCP; every change is in the change log with the old and
+   new text and the dashboard asks an administrator to check it.
+8. **Daily security audits:** N71 (`read_notebook` permission), N72 (site-import media: lower-case extensions, content
+   check, case-insensitive header rules – data migration 0098), N73 (SVG comments), N74 (PHP 8.5 response headers),
+   N18 (TOTP replay), N19 (tokens revoked when an administrator changes a password), N21 (ids that clobber the page),
+   N45, N46 (whistleblowing page CSP), N48 (CSS escapes), N49; N9, N22, N47 were already fixed. Migrations 0097
+   (media staging) and 0098 (media/.htaccess).
+
+Audited before release (N315): a live class cannot publish a waiting file, the vault key is written only into the
+top-level config array and verified before re-encrypting, 4.0 installs only after a successful check of the newest 3.x,
+promotion reads every public place and every waiting file (and runs only after publishing – 34 s → 0.3 s on a large
+site), the clean-up never deletes a used file, spam left out of the enquiry count, an atomic TOTP replay check.
+
+**3.15.1 (19 October 2026):** **Hungarian for visitors** (`system/jazyky/hu.php`, found while moving licencepro.hu): the
+skip link, menu, 404, search, form messages and cookie bar of a Hungarian site are no longer English. **Menu anchors:**
+a link with a fragment (`/#products`) is never the current page – every anchor of the home page used to be highlighted.
+
+**3.15.2 (19 October 2026):** **Several form recipients and a hidden copy** (found on fysiomed.cz, whose enquiries reached
+only the site e-mail): the form's notification e-mails take several addresses separated by commas – one message, they see
+each other in To – and a new *Hidden copy (Bcc)* field adds recipients that are only in the envelope. `Core\Mail` sends one
+message to a list of addresses (`Mail::addresses`, a single invalid address refuses the whole list); with `mail()` the Bcc
+header is left to the server's sendmail, with SMTP it never goes out.
+
+**3.15.3 (19 October 2026):** **News text inside a wrapper keeps its spacing:** the build's reset of heading and paragraph
+margins also reached the system content in the *Page content* element of the news item, news list and 404 wrappers, so
+paragraphs, lists and figures of a news article were glued together. The reset now skips everything inside `.obsah`
+(zero specificity kept) and the content looks the same as without the wrapper.
+
+**3.15.4 (19 October 2026):** **Descriptions from HTML as plain text:** a news intro with `&nbsp;` (WordPress content, or any
+intro after a Kaleta site import, which stores U+00A0 as the entity) showed `&amp;nbsp;` literally in the meta, og and JSON-LD
+descriptions, the JSON feed and llms.txt. One helper `plain_text()` (strip tags, block ends to spaces, decode entities, collapse
+whitespace, optional width) now builds every such description – news, categories, tags, collection items, screen mode.
+
+## 3.16 – the monthly report you can keep, what waits across your sites (released 20 October 2026)
+
+1. **Monthly report archive** (owner: a summary of what happened to the site that goes with the invoice – never hours,
+   prices or a work log): on the 1st every site stores the previous month (`ka_monthly_reports`, migration 0099, 24
+   months, the background job `report_archive`, also without cron). Settings → Reports lists the months: a print-ready A4
+   page (the browser saves it as PDF – page numbers, the agency's branding), a download and the e-mail. The report adds
+   requests handled and still open, changes by people and by Claude, Claude's sessions and scheduled runs, updates from→to,
+   backups, security (counts only), the audit with fixed/new, enquiries by category, bookings, newsletters and what waits
+   at month end. Months before 3.16 cannot be rebuilt (the logs are kept 30–180 days); a month can be rebuilt by hand.
+   MCP `list_monthly_reports`, `get_monthly_report`.
+2. **The heartbeat says what waits for people** (for the 3.17 inbox across sites): Ask Claude requests by status and
+   their titles (switchable per site, on by default; e-mail-like text masked), the pending-review counts, enquiries without
+   spam, bookings to confirm, security counts, certificate and domain expiry, Claude's runs, how far behind the site is and
+   whether 4.0 is available. Never enquiry contents, e-mail addresses, IPs – and no whistleblowing count. The console
+   scores the new reasons (requests waiting 48 h, certificate < 14 days, domain < 30 days, bookings, failed sign-ins) and
+   shows a Waiting block on the site detail.
+
+Audited before release (N316): one masker for titles and the report (spaced and written-out e-mails, full-width @, phone
+numbers – `Core\Redact`), no free text of Claude's runs in the archive, nothing about the whistleblowing channel reaches the
+console (problem counts, failing jobs, health texts), the print page escapes CSS strings, a hostile heartbeat cannot break
+the console, a rebuilt report says when its open items were counted, moments stored with their offset.
+
+## 3.17 – one inbox for all your sites, history, alerts, a report per customer (released 20 October 2026)
+
+The fleet console's tabs: Inbox, Sites, Customers, Fleet reports, Alerts and digest, Shared kit.
+
+1. **Inbox across all sites** (`Fleet\Inbox`, the console's new default tab): one list built only from the stored
+   heartbeats and the console's own uptime check – request titles with status and age (new / in progress / done to
+   review; counts when the site does not share titles), new enquiries (count), drafts and files waiting for approval (per
+   kind of `PendingReview`, `PendingReview::URLS` shared with the dashboard), bookings to confirm, failed updates, sign-in
+   attacks and reused tokens, certificate and domain expiring, health errors / failing jobs / no backup, audit findings,
+   site down or silent. Sorted by urgency (urgent / waiting / when convenient), then the oldest first; filters kind (with a
+   count per kind), site, customer, only urgent. Each row is a plain link (new tab, `rel=noopener`, no sign-in, no token) to
+   the right screen of that site's administration. Rows of a site silent for 26 h are marked "possibly out of date"; a 3.15
+   heartbeat gives what it has. Cards on a phone. MCP `fleet_inbox` (read-only, at most 200 items, texts marked as written
+   on the sites).
+2. **Customers** (migration 0100: `ka_fleet_customers`, `ka_fleet_sites.customer_id` + `note`, `ka_fleet_kits.customer_id`;
+   `Fleet\Customers`): a customer per site, renamed once for all its sites (renaming to an existing name merges), set on
+   the site detail (with the owner's console-only note) or in bulk from the list of sites (`action=sites`, columns Customer
+   and Waiting, customer filter). The Customers tab: sites, waiting items, the latest fleet report, rename and "Allow version
+   … now" for one customer (`Console::allowNowForCustomer`). A kit version can be meant for one customer's sites
+   (`Kit::latestFor` / `announcementFor`). MCP `list_sites` gains `customer` (output and an optional filter).
+3. **Daily history** (migration 0101, `Fleet\History`): `ka_fleet_history`, one row per site and day – every 5-minute
+   uptime check adds to the day (answered or not, the time to the first byte, `Http::checks`); the hourly job
+   `fleet_history` writes the day's status, version, attention and what waited from the stored heartbeat.
+   `ka_fleet_incidents` keeps the down periods. 400 days kept. **Trends on a site's page**: uptime and average response this
+   month and last month, 90 days as bars (inline SVG with a summary for screen readers and the days as a table), outages and
+   versions; also in MCP `get_site` (`trends`).
+4. **Alert rules** (Fleet → Alerts and digest, `Fleet\AlertRules`, job `fleet_alerts` every 5 minutes): site down,
+   stopped reporting, certificate, domain, update failed, failed sign-ins, requests waiting – on/off and a threshold,
+   recipients, quiet hours (default 24). Defaults = the behaviour before 3.17 (down and silent on); `Core\Alerts` no longer
+   sends `fleet.site_down`/`fleet.site_silent` itself. **One source of thresholds**: `Console::THRESHOLDS` (silent 26 h,
+   certificate < 14 days, domain < 30 days, 50 failed sign-ins in 7 days, a request waiting > 48 h) are a site's attention,
+   the alert rules' defaults and the inbox's urgency; when the owner changes a threshold the inbox follows it
+   (`AlertRules::thresholds`, also for a rule that is off).
+5. **Weekly digest** (`Fleet\Digest`, job `fleet_digest`, off by default): Monday from 7:00, once an ISO week – attention,
+   what waits (counts), outages and uptime of the week, versions installed, plain links; each customer's part links to the
+   inbox filtered by that customer. Request titles only with `fleet_digest_titles` (off by default).
+6. **Monthly fleet report per customer** (`Fleet\Report`, `ka_fleet_reports`, job `fleet_reports` on the 1st from 6:00, 24
+   months): per site uptime, outages, versions, days needing attention and why, and the site's own headline counts from the
+   heartbeat key `report_summary`. Printed with the 3.16 A4 page, the console's agency branding; view/print, download, make
+   now, rebuild. MCP `fleet_report` (month, customer). Not an invoice, no personal data.
+   **Grouped by the customer's id** (`ka_fleet_reports.customer_id`, 0 = the sites without one) with the name it had when it
+   was made: a renamed customer keeps its archive (the list shows the name now – linked to the inbox filter – and the name
+   then); merging two customers moves the reports along; the digest and the reports list the customers in the order of the
+   inbox's customer filter, the sites without one last.
+
+Open: a removed site's history goes with it (the stored fleet reports keep it); response time is the console's own view
+(time to the first byte from the console), not the visitors'; a forgotten customer's reports stay under its old id and name.
+
+## 3.18 – know whether Claude is connected (released 20 October 2026)
+
+The owner: the connector to Claude is essential – the admin must say whether there is an active connection, and say so
+when there is none, so nobody writes to Ask Claude while nothing picks the requests up. MCP is pull-only: the site knows
+whether a connection exists, when Claude last called and whether a scheduled run picks requests up – not whether Claude
+is "online".
+
+1. **Reliable last call**: every MCP call that is served also stamps the refresh row of its OAuth connection (at most once
+   a minute) and a refresh carries the last call over to the new pair – before, a connection idle for over an hour lost
+   it (its access row expires and is cleaned up), so Claude settings, My account and the 60-day hygiene check showed live
+   connections as unused. `Core\ClaudeConnection::status()`: state off | none | idle | active (a call within 7 days;
+   recent within 24 h), pickup automatic | manual | stalled (a `requests` schedule that missed or failed its last run, or
+   is more than 6 hours overdue), the earliest end of a connection (expiring within 14 days), new requests waiting.
+   `AskClaude::connected()` now means "a valid connection exists now"; `claude_first_used` stays as history, and revoking
+   every connection shows "Not connected" (and the Connect Claude card) again.
+2. **The top bar of every screen** (for whoever may use Ask Claude or Claude settings, not in the public demo): Claude
+   connected (last call) / Claude idle / Claude: requests wait (or scheduled run stopped) / Claude not connected – words,
+   not colour alone (disc, diamond, ring); on a phone a dot with the words for screen readers; a link to Claude settings.
+3. **Ask Claude entry points** – the dashboard box, a new request, "Ask Claude to translate it", a blueprint for Claude:
+   without a connection a warning and **Save for later** instead of Send; manual pickup and a stalled run say so; the
+   flash after saving says when Claude will see the request. The Requests list has the same status line and highlights a
+   new request waiting over 48 hours while nothing picks it up.
+4. **Claude settings** open with a status panel: state, last call, how requests are picked up, when the first connection
+   ends, and the next steps (connect, set up a scheduled run, reconnect before it ends).
+5. **System status** "Claude connection": a warning when new requests wait and Claude is not connected or the scheduled
+   run does not run, or when a connection ends within 14 days. MCP `get_health` adds `claude_connection` {state,
+   last_call, pickup, expires}.
+6. **Fleet**: heartbeat key `claude_connection` (bounded by the console: enum values only, moments 1970–2100), attention
+   `claude_not_connected` / `claude_run_stalled` when new requests wait, the site detail, an inbox row to the site's Claude
+   settings, `list_sites` gains the state. A heartbeat from before 3.18 works as before.
+7. **Pre-release security audit** (N318-1 … N318-5): a call is stamped only after the two-factor check and every other
+   refusal, and only connections that can call count – of an account that is not blocked and meets the site's
+   two-factor requirement (a connection whose every call is refused shows "Claude not connected", N318-1). Migration 0102
+   adds `ka_api_tokeny (druh, expirace)` and `ka_oauth_rotated (rotated_at)` for the status queries, the schedule loop is
+   one query, and OAuth refreshes are limited to 30 per connection (client + user) an hour – over it `429 slow_down` with
+   `Retry-After`; the refresh token stays valid (N318-2). The last call comes from live connections only, and a
+   disconnect, a revocation, a password change or reset and a deleted account delete the connection's rotation records
+   (N318-3). Staff seeing the last-call time and the heartbeat's last call stay as they are (owner decisions, N318-4/-5).
+
+Open: the header chip has no "expires soon" state (Claude settings and System status say it); no menu badge on the
+Claude hub.
+
+**3.18.1 (21 October 2026):** builder dialogs (Published versions, Share, Comments…) live on `<body>`, outside `.st`: with the
+system in dark mode and the admin switched to light their buttons were white on white. The manual theme also sets
+`color-scheme`, the dialog controls inherit font and colour, and a browser-test step checks both mismatches.
+
+**3.18.2 (22 October 2026):**
+- **Security (CodeQL #32, #42):** pasted HTML in the text editor was parsed in the admin page itself, so a pasted
+  `<img onerror>` ran before the cleanup removed it. It is parsed in an inert document now; `href`/`src` drop `javascript:`,
+  `vbscript:` and `data:` also behind tabs or control characters; `<mark>` survives a paste. The builder's inspector shows
+  text typed on the canvas through the same cleanup, and the booking widget writes its messages as text (#38–#41). The
+  other CodeQL and Semgrep alerts were dismissed on GitHub with their reasons (false positives, development and release tools).
+- **Dashboard (fysiomed.cz):** a path-traversal probe in the 404 log no longer crashes the dashboard under `open_basedir` –
+  `Audit::pathResolves` checks the media/image prefix and rejects `..` before `is_file`, and `NotFound::BOTS` treats `..`
+  segments and `@fs/` as probes.
+- **Site moves and front end** (found while moving the owner's sites): a heading for the news list (`news_title`); forms with
+  several recipients labelled as such, styled consent and file fields, `:user-invalid`, the privacy link says it opens a new
+  window; the phone menu dims the page and its button turns into a cross; a navigation can split the menu around a centred
+  logo; the store locator is a map with a side panel (search label, "Nearest to me" as a location icon, markers in the site
+  colour); category filter buttons on a collection list; the site import keeps the last line and redirects to the home page;
+  WordPress news redirects use the public slug; emoji addresses survive a site move; the migration report counts forms and
+  images inside components and item templates; the home page of a language version is no longer an orphan.
+
+Audited before release (N3182): the paste cleanup empties every frame and does its clean-up on the nodes (a frame's raw
+text could be joined into a real `</iframe>` by the old regular expression), keeps a pasted frame only from the services
+the front end embeds, `rel` only with safe values (`noopener` with every `_blank`), and the link dialog uses the same
+address check; every builder clipboard envelope goes through the server, which keeps Custom HTML only in a copy this site
+signed, and the layer tree reads element text in an inert document; long `/media/` paths no longer crash Site audit under
+`open_basedir`; the migration report follows each component once (cycles). OpenStreetMap on "map at once" stays as
+labelled (owner decision, N3182-7). A second review found no bypass of the new cleanup; it closed the rest: only an administrator's copy is signed (N3182-8), image sizes on public pages and in newsletters and the logo check go through `Files::isFile` (N3182-9), a component build given as a plain list loses its code too (N3182-10), and the path cap is strictly below the platform maximum (N3182-11).
 
 ## Path to 4.0 (owner decisions, 13 October 2026)
 

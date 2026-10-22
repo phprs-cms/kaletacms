@@ -27,7 +27,7 @@ final class Build
      * data-leaflet, data-atribuce or data-kosik makes a script load a file or build a link from the value (3.3.2, N25). The list is
      * checked by tools/unit-tests.php against every data-* attribute those scripts mention; the renderer checks a stored build again.
      */
-    public const string ATTRIBUTE_PATTERN = '/^(data-(?!ka-|(?:admin-url|adresa|atribuce|bez-skriptu|cast|casy|cekat|cena|cena-za|cetnost|cookies|den|dni|dny|editor|formular|gtm|hledat|hodnota|hotovo|kalendar|karusel|kategorie|kdyz|kdyz-hodnota|kolekce|koncept|koncept-url|konec|konverze|kopirovat|kosik|kosik-odeslan|kosik-pole|kosik-seznam|krok|kroky|lat|leaflet|lng|mapa|mena|nahravani|nejblizsi|obnovit|obrazek|odeslano|odhad|odkud|odpocet|otevrit|pobocky|pocitadlo|popup|porovnani|porovnat|potvrzeni|prazdne|pred-po|pristupnost|pristupnost-volba|produkt|recaptcha|rezervace|rezervovat|samo|sdilet|sloty|sluzby|soubor|souhlas|spoustec|tema|tema-volba|tema-vychozi|text|text-chyba|text-odmitnuto|text-serazeno|texty|titulek|utm|vitals|vlozit|volba|vybrano|vzdalenost|zadost|zaklad|zalozky|zapnuto|zarizeni|zavrit|znovu|zprava)$)[a-z0-9-]{1,30}|aria-[a-z]{2,20}|title|lang|role|rel)$/iD';
+    public const string ATTRIBUTE_PATTERN = '/^(data-(?!ka-|(?:admin-url|adresa|atribuce|bez-skriptu|cast|casy|cekat|cena|cena-za|cetnost|cookies|den|dni|dny|editor|formular|gtm|hledat|hodnota|hotovo|kalendar|karusel|kategorie|kdyz|kdyz-hodnota|kolekce|koncept|koncept-url|konec|konverze|kopirovat|kosik|kosik-odeslan|kosik-pole|kosik-seznam|krok|kroky|lat|leaflet|lng|mapa|mapa-hned|mena|nahravani|nejblizsi|obnovit|obrazek|odeslano|odhad|odkud|odpocet|otevrit|pobocky|pocitadlo|popup|porovnani|porovnat|potvrzeni|prazdne|pred-po|pristupnost|pristupnost-volba|produkt|recaptcha|rezervace|rezervovat|samo|sdilet|sloty|sluzby|soubor|souhlas|spoustec|tema|tema-volba|tema-vychozi|text|text-chyba|text-na-mape|text-odmitnuto|text-serazeno|texty|titulek|utm|vitals|vlozit|volba|vybrano|vzdalenost|zadost|zaklad|zalozky|zapnuto|zarizeni|zavrit|znovu|zprava)$)[a-z0-9-]{1,30}|aria-[a-z]{2,20}|title|lang|role|rel)$/iD';
 
     /** Stands for the page content in a site-part wrapper until the build's own tokens are filled (html()). */
     private const string CONTENT_MARK = "\u{E000}ka-page-content\u{E000}";
@@ -401,6 +401,18 @@ final class Build
         return \Kaleta\Core\Html::inner($body); // attribute values without a raw < or >
     }
 
+    /**
+     * CSS as the browser reads it, for the checks of codeNode() (3.15, N48): escapes decoded (@\69mport is @import,
+     * java\script is javascript) and comments dropped. Only checked, never written – the code stays as typed.
+     */
+    private static function cssPlain(string $css): string
+    {
+        $css = (string) preg_replace('#/\*.*?(\*/|$)#s', '', $css);
+        $css = (string) preg_replace_callback('/\\\\([0-9a-fA-F]{1,6})[ \t\r\n\f]?/', fn (array $m): string => mb_chr(max(1, min(0x10FFFF, (int) hexdec($m[1])))) ?: '', $css);
+
+        return (string) preg_replace('/\\\\(.)/su', '$1', $css);
+    }
+
     private static function codeNode(\Dom\Node $node): void
     {
         foreach (iterator_to_array($node->childNodes) as $n) {
@@ -412,7 +424,7 @@ final class Build
             if (!$n instanceof \Dom\Element) {
                 continue;
             }
-            if (strtolower($n->localName) === 'style' && preg_match('/javascript:|expression\s*\(|@import|behavior\s*:|-moz-binding/i', (string) $n->textContent)) {
+            if (strtolower($n->localName) === 'style' && preg_match('/javascript:|expression\s*\(|@import|behavior\s*:|-moz-binding/i', self::cssPlain((string) $n->textContent))) {
                 $n->remove();
                 continue;
             }
@@ -421,7 +433,7 @@ final class Build
                 $ok = !str_starts_with($name, 'on') && $name !== 'srcdoc' && $name !== 'http-equiv'
                     && (!in_array($name, self::CODE_URLS, true) && !str_ends_with($name, ':href') || WpContent::isSafeUrl($a->value) || trim($a->value) === '')
                     && ($name !== 'srcset' || !preg_match('/(javascript|data|vbscript):/i', $a->value))
-                    && ($name !== 'style' || !preg_match('/javascript:|expression\s*\(|behavior\s*:|-moz-binding|url\s*\(\s*["\']?\s*(javascript|data|vbscript):/i', $a->value))
+                    && ($name !== 'style' || !preg_match('/javascript:|expression\s*\(|behavior\s*:|-moz-binding|url\s*\(\s*["\']?\s*(javascript|data|vbscript):/i', self::cssPlain($a->value)))
                     && ($name !== 'attributename' && $name !== 'formtarget');
                 if (!$ok) {
                     $n->removeAttributeNode($a);
@@ -706,7 +718,8 @@ final class Build
     public static function css(Db $db, Context $k): string
     {
         // in a build, spacing is controlled by the containers' gap, not by the layout's margins of headings and paragraphs; text inside a Text element keeps them
-        $base = ':where(.stavba) :where(h1, h2, h3, h4, h5, h6, p, ul, ol, blockquote, figure, hr) { margin-block: 0; }' . "\n"
+        // and so does the system content inside the Page content element of a wrapper (.obsah: a news item's text looks the same as without the wrapper)
+        $base = ':where(.stavba) :where(h1, h2, h3, h4, h5, h6, p, ul, ol, blockquote, figure, hr):not(:where(.obsah *)) { margin-block: 0; }' . "\n"
             . ':where(.stavba) :where(.ka-text) > * + * { margin-block-start: 1em; }' . "\n";
         $rtl = \Kaleta\Core\Language::isRtl(\Kaleta\Core\Language::code());
         foreach (self::ELEMENTS as $className) {
@@ -917,7 +930,7 @@ final class Build
     private const array TEXT_PROPERTIES = ['text', 'odkaz', 'radky', 'html', 'inline', 'textarea', 'polozky', 'souhlas'];
 
     /** Text properties that are settings, not text for the visitor (collection and field keys, e-mail, date, rating number). */
-    private const array TECHNICAL_PROPERTIES = ['kolekce', 'razeni_pole', 'filtr_pole', 'pole_poloha', 'komponenta', 'kategorie', 'prijemce', 'cil', 'hodnota'];
+    private const array TECHNICAL_PROPERTIES = ['kolekce', 'razeni_pole', 'filtr_pole', 'pole_poloha', 'komponenta', 'kategorie', 'prijemce', 'skryta_kopie', 'cil', 'hodnota'];
 
     /**
      * Build texts for translation: elements with an id and only those content properties that carry text or a link (without styles

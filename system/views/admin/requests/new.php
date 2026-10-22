@@ -11,9 +11,12 @@
  * @var array<int, string> $items idp => "collection – item"
  * @var int $maxAttachments
  * @var string $limit the upload limit of the server
+ * @var array{state: string, last_call: ?string, pickup: ?string, stalled_since: ?string} $claude whether requests reach Claude now (3.18)
  */
+$reachable = Kaleta\Core\ClaudeConnection::reachable($claude);
 ?>
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>">← <?= e(t('All requests')) ?></a></p>
+<?= $app->view->render('admin/claude_notice', ['app' => $app, 'claude' => $claude]) ?>
 <form class="formular" method="post" action="<?= e($module->url('save')) ?>" enctype="multipart/form-data">
 <?= $csrf ?>
 <fieldset>
@@ -37,5 +40,5 @@
 <div class="radek"><label for="req-files"><?= e(t('Attachments')) ?></label><div><input type="file" id="req-files" name="prilohy[]" multiple>
 	<span class="napoveda"><?= e(t('Up to %d files – a PDF, a photo, a document (%s each at most). They are saved to Media, so Claude can place them on the site.', $maxAttachments, $limit)) ?></span></div></div>
 </fieldset>
-<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save the request')) ?>"></p>
+<p class="tlacitka"><button class="<?= $reachable ? 'tl' : 'navigace' ?>" type="submit"><?= e($reachable ? t('Save the request') : t('Save for later')) ?></button></p>
 </form>

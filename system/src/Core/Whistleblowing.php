@@ -38,6 +38,16 @@ use Kaleta\Builder\Elements\Form;
 final class Whistleblowing
 {
     /** Status => label (admin texts, translated with t()). */
+    /**
+     * Whether a name – an event type, a background job, a change-log section – belongs to this channel (3.16, N316-3).
+     * What leaves the site (the fleet heartbeat, the monthly report) leaves such names out: even "whistleblowing.due: 1"
+     * tells that a report came in about a week ago.
+     */
+    public static function concerns(string $name): bool
+    {
+        return str_contains(strtolower($name), 'whistleblow');
+    }
+
     public const array STATUSES = ['received' => 'Received', 'acknowledged' => 'Acknowledged', 'in_progress' => 'In progress', 'closed' => 'Case closed'];
 
     public const int ACKNOWLEDGE_DAYS = 7;
@@ -128,28 +138,21 @@ final class Whistleblowing
 
     /* ---------- encryption (the same scheme as Core\Connectors, its own key) ---------- */
 
+    /** The key of this vault: from vault_key in config.php once it was moved there, until then from secret_key (Core\Vault, 3.15). */
     private static function vaultKey(Settings $settings): string
     {
-        return sodium_crypto_generichash('kaleta-whistleblowing|' . (new Antispam($settings->db(), $settings))->key(), '', SODIUM_CRYPTO_SECRETBOX_KEYBYTES);
+        return Vault::key($settings, 'whistleblowing');
     }
 
     public static function encrypt(Settings $settings, string $plain): string
     {
-        $nonce = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
-
-        return base64_encode($nonce . sodium_crypto_secretbox($plain, $nonce, self::vaultKey($settings)));
+        return Vault::seal(self::vaultKey($settings), $plain);
     }
 
     /** null when it cannot be read (another site's key, damaged). */
     public static function decrypt(Settings $settings, ?string $sealed): ?string
     {
-        $raw = $sealed !== null ? base64_decode($sealed, true) : false;
-        if ($raw === false || strlen($raw) <= SODIUM_CRYPTO_SECRETBOX_NONCEBYTES) {
-            return null;
-        }
-        $plain = sodium_crypto_secretbox_open(substr($raw, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES), substr($raw, 0, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES), self::vaultKey($settings));
-
-        return $plain === false ? null : $plain;
+        return Vault::open(self::vaultKey($settings), $sealed);
     }
 
     /* ---------- numbers, codes, deadlines (pure, unit-tested) ---------- */

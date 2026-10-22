@@ -441,6 +441,9 @@ final class WpImport
     /** Path of the old URL for a redirect (without the domain and the slashes at the ends); empty = nothing to redirect. */
     public static function oldPath(string $link): string
     {
+        // a sitemap may write an emoji or an accented letter raw: parse_url() would turn the bytes 0x80–0x9F into "_" (it takes them
+        // for control characters), so everything outside ASCII is percent-encoded first and decoded back below (3.18.2)
+        $link = (string) preg_replace_callback('/[^\x00-\x7F]+/', fn (array $m): string => rawurlencode($m[0]), $link);
         $path = trim(rawurldecode((string) parse_url($link, PHP_URL_PATH)), '/ ');
 
         return mb_strlen($path) > 255 || !mb_check_encoding($path, 'UTF-8') ? '' : $path;
@@ -615,7 +618,10 @@ final class WpImport
         $state['vysledek']['clanky']++;
 
         if ($state['volby']['presmerovani']) {
-            $state['vysledek']['presmerovani'] += $this->redirect($p, ($language !== '' ? $language . '/' : '') . 'novinky/' . $seo, $state);
+            // the public address (3.18.2): under a custom news slug (/aktuality) the old WordPress address may be the new one
+            // itself – a redirect to the internal novinky/… would send it back to itself while the news item is still hidden
+            $public = Routes::publicPath('novinky/' . $seo, Language::ofContent($this->settings, $language), $this->db);
+            $state['vysledek']['presmerovani'] += $this->redirect($p, ($language !== '' ? $language . '/' : '') . $public, $state);
         }
 
         return $idc;
@@ -1246,7 +1252,7 @@ final class WpImport
         return $this->globalKeys[$table] ??= $this->db->value(
             "SELECT INDEX_NAME FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND NON_UNIQUE = 0
              GROUP BY INDEX_NAME HAVING COUNT(*) = 1 AND MAX(COLUMN_NAME) = 'seo_link'",
-            [$this->db->prefix . $table],
+            [$this->db->tableName($table)],
         ) !== null;
     }
 

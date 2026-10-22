@@ -252,6 +252,56 @@ What it means for the publisher:
   X.Y.Z is compared against `SIGNED_V2_SINCE` (`Core\Updater::needsSignatureV2`) – in `version_compare()` such tags are
   lower than `3.9.0`. Never publish a pre-release manifest without v2.
 
+## Major versions: their own manifest (3.15, the bridge to 4.0)
+
+Owner's decision of 13 October 2026: an older site never jumps straight to a major version, and 3.15 is the release
+4.0 rolls back to. So every major line has **its own manifest** next to `aktualizace.json` (`Core\Updater::manifestFile`):
+
+| Line | Latest | Stable | Read by |
+|---|---|---|---|
+| 3.x | `aktualizace.json` | `aktualizace-stable.json` | every site; **stays on the last 3.x release for good** |
+| 4.x | `aktualizace-4.json` | `aktualizace-4-stable.json` | 3.15 and later (as "the next major"), 4.x (as its own line) |
+
+- Sites before 3.15 read only `aktualizace.json`. Because it never offers 4.x, they first get 3.15 – and 3.15 shows
+  them 4.0. **Never put a 4.x release into `aktualizace.json`**: an old site would install it like any minor.
+- `tools/release.php` picks the file from the version: `X.Y.Z` with X ≥ 4 is written to `dist/aktualizace-X.json` (with
+  `--channel=stable` to `dist/aktualizace-X-stable.json`). A version `X.0.0` with X ≥ 4 needs `--major` as a confirmation,
+  and `--major` with a 3.x version stops – a typo cannot send a major to the regular channel or the other way round.
+  Same keys, same format, signatures v1 and v2, `"kanal": "latest"`:
+
+      php tools/release.php 4.0.0 --major --url=https://github.com/phprs-cms/kaletacms/releases/download/v4.0.0/kaleta-4.0.0.zip \
+          --zmena="Tables renamed to their English names" --zmena="…"
+
+  Upload `dist/aktualizace-4.json` like `aktualizace.json` (the project website: a redirect to the release asset, as for
+  the stable manifest). The change lines are what 3.15 shows under "read what changes" – write them for the owner.
+- **What 3.15 does with it** (`Core\Updater`, `new Updater($settings, major: true)`): the address is the twin of the
+  configured source (`…/aktualizace.json` → `…/aktualizace-4.json`, `Updater::lineUrl`; a custom source with another file
+  name has none). It is checked with the regular check (background job `updates`), remembered 12 hours in
+  `update_major_cache` – also when it answers 404, which is the normal state until 4.0 is out – and verified like any
+  manifest (v2, freshness per address and channel). Settings → Backups and updates shows "Kaleta 4.0 is available – read
+  what changes, back up, then update" with the change lines and a link to Ready for 4.0; System status shows the same
+  above the Ready for 4.0 checks; MCP `get_health` says `update.major_available`.
+- **Never installed by itself.** Not by the background job (even with `"bezpecnostni": true` and automatic updates on),
+  not by the fleet console. Only Settings → Backups and updates → *Back up and update to 4.0.0* installs it, after the
+  administrator ticks "I have read what changes and checked Ready for 4.0", only when the site runs the newest release of
+  its own line, and always after a fresh database backup (`predaktualizaci`). The package goes through the same checks as
+  any update (hash, signature, PHP of the package, the site asked afterwards, files restored on failure).
+- **Defence in depth:** the regular update offers and installs only a release of the site's own major version
+  (`Updater::choose`, `install`) – a 4.x manifest served at `aktualizace.json` by mistake offers nothing on 3.15 and is
+  refused with a message. The next-major update installs only the next major.
+- The daily check (`tools/check-channel.php`) fails when `aktualizace.json` offers a major version above 3, and checks
+  `aktualizace-4.json` (signature v2 required, its own major only, `"kanal": "latest"`); 404 = not published yet.
+- **Keep re-signing `aktualizace.json` after 4.0** (freshness, 60 days): 3.15 sites warn when the update information of
+  their line gets old. Re-sign the last 3.15.x with `--package` as described under Freshness.
+
+### Update prompt (3.15)
+
+There is no support window for older releases: security fixes land only in the newest one. When a newer release of the
+site's line has been available for 14 days (`Updater::BEHIND_DAYS`; counted from the first time the site saw it or from
+its signed release date, whichever is earlier – setting `update_behind_since`), the dashboard shows a quiet warning with
+an *Update* button among the other warnings, instead of the one-line notice. No e-mail is sent for it (only security
+releases are e-mailed, as before).
+
 ## Plánovaná výměna provozního klíče
 
 1. Starý `tools/klice/vydavatel.key` přesuňte do archivu (nemažte ho, dokud výměna neproběhne).

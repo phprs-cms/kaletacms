@@ -120,6 +120,7 @@ final class PasswordReset
                 ], ['idu' => $user['idu']]);
                 // whoever resets the password may have lost the account: connection tokens (MCP) stop being valid
                 $app->db()->delete('api_tokeny', ['idu' => $user['idu']]);
+                \Kaleta\Front\OAuth::forgetRotations($app->db(), (int) $user['idu']); // N318-3
                 ChangeLog::write($app, 'prihlaseni', 'obnova-hesla', t('password changed, connection tokens revoked, account: %s', (string) $user['user']));
                 return Response::redirect($app->url('admin.php?password_changed=1'));
             }

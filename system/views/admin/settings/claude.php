@@ -9,14 +9,11 @@
  * @var list<array{ids: int|string, titulek: string, seo_link: string, jazyk: string}> $protectablePages
  */
 $mcpUrl = Kaleta\Core\AskClaude::mcpUrl($app);
-$lastCall = Kaleta\Core\AskClaude::lastCall($app->db());
 $accessNames = array_map(fn (string $label): string => t($label), Kaleta\Front\OAuth::ACCESS_LABELS);
 ?>
-<?php if (!in_array('claude', $enabledExtensions, true)): ?>
-<p class="hlaska hlaska-chyba"><?= e(t('The Claude connection is switched off.')) ?> <a href="<?= e($app->url('admin.php?module=extensions')) ?>"><?= e(t('Features')) ?></a></p>
-<?php endif ?>
+<?php // 3.18: the state of the connection first – connected, idle or not, how requests reach Claude, what to do next ?>
+<?= $app->view->render('admin/claude_panel', ['app' => $app, 'claude' => Kaleta\Core\ClaudeConnection::status($app->db(), $app->settings(), true), 'routine' => Kaleta\Core\AskClaude::routine($app->db())]) ?>
 <h2><?= e(t('How to connect')) ?></h2>
-<p class="<?= $lastCall !== null ? 'hlaska hlaska-ok' : 'hlaska' ?>"><?= e($lastCall !== null ? t('Connected – Claude last worked on the site %s.', format_date($lastCall, true)) : t('Not connected yet – no Claude connection has called the site.')) ?></p>
 <ol class="navod">
 	<li><?= e(t('In the Claude app open Settings → Connectors → Add custom connector.')) ?></li>
 	<li><?= e(t('Enter this address:')) ?><?= $app->view->render('admin/mcp_address', ['url' => $mcpUrl, 'id' => 'mcp-adresa-nastaveni']) ?></li>
@@ -24,6 +21,10 @@ $accessNames = array_map(fn (string $label): string => t($label), Kaleta\Front\O
 </ol>
 <p class="napoveda"><?= e(t('In Claude Code, just run:')) ?> <code>claude mcp add --transport http kaleta <?= e($mcpUrl) ?></code>. <?= e(t('Connected applications and personal tokens for other tools are in')) ?> <a href="<?= e($app->url('admin.php?action=account#claude')) ?>"><?= e(t('My account')) ?></a>.
 <?= e(t('In a subfolder, the Claude app finds the sign-in on its own; for a tool that does not, use a personal token.')) ?></p>
+<?php if (!empty($instructionsChange)): // 3.15 (N44): the last change, shown once to the administrator who opens the settings ?>
+<div class="hlaska hlaska-varovani" id="zmena-pokynu"><p><?= e(t('The instructions for Claude changed – check them.')) ?> <?= e(Kaleta\Core\ClaudeInstructions::who($instructionsChange)) ?></p>
+	<details><summary><?= e(t('Before the change')) ?></summary><p style="white-space:pre-wrap"><?= e($instructionsChange['old'] !== '' ? $instructionsChange['old'] : t('(empty)')) ?></p></details></div>
+<?php endif ?>
 <div class="radek">
 	<label for="claude_instructions"><?= e(t('Instructions for Claude')) ?></label>
 	<div><textarea class="textpole siroke" id="claude_instructions" name="claude_instructions" rows="6" maxlength="5000" placeholder="<?= e(t('e.g. We address customers informally. Say “renovation”, never “reconstruction”. Keep headings short. Always offer a free visit.')) ?>"><?= e($values['claude_instructions']) ?></textarea>

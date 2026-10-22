@@ -134,7 +134,7 @@ final class Menu
             $auto = array_map(fn (array $s): array => ['text' => $s['titulek'], 'url' => $url($s), 'nove_okno' => false, 'deti' => []],
                 array_values(array_filter($pages, fn (array $s): bool => (bool) $s['v_menu'])));
             if (Extensions::isEnabled($app->settings(), 'novinky')) {
-                $auto[] = ['text' => t('Novinky'), 'url' => $app->url('novinky'), 'nove_okno' => false, 'deti' => [], 'novinky' => true, 'auto' => true];
+                $auto[] = ['text' => $app->settings()->newsTitle(), 'url' => $app->url('novinky'), 'nove_okno' => false, 'deti' => [], 'novinky' => true, 'auto' => true];
             }
 
             return $auto;
@@ -147,7 +147,7 @@ final class Menu
                 'stranka' => isset($pages[$p['ids']])
                     ? ['text' => $p['text'] !== '' ? $p['text'] : $pages[$p['ids']]['titulek'], 'url' => $url($pages[$p['ids']]), 'nove_okno' => false, 'deti' => $children]
                     : null,
-                'novinky' => !$withNews ? null : ['text' => $p['text'] !== '' ? $p['text'] : t('Novinky'), 'url' => $app->url('novinky'), 'nove_okno' => false, 'deti' => $children, 'novinky' => true],
+                'novinky' => !$withNews ? null : ['text' => $p['text'] !== '' ? $p['text'] : $app->settings()->newsTitle(), 'url' => $app->url('novinky'), 'nove_okno' => false, 'deti' => $children, 'novinky' => true],
                 'odkaz' => ['text' => $p['text'], 'url' => str_starts_with($p['url'], '/') ? $app->url($p['url']) : $p['url'], 'nove_okno' => $p['nove_okno'], 'deti' => $children],
                 'skupina' => $children === [] ? null : ['text' => $p['text'], 'url' => '', 'nove_okno' => false, 'deti' => $children],
                 default => null,
@@ -165,7 +165,7 @@ final class Menu
      */
     public static function isMediaIcon(string $icon): bool
     {
-        return preg_match('#^media/[A-Za-z0-9_./-]+\.svg$#D', $icon) === 1 && !str_contains($icon, '..') && is_file(KALETA_ROOT . '/' . $icon);
+        return preg_match('#^media/[A-Za-z0-9_./-]+\.svg$#D', $icon) === 1 && !str_contains($icon, '..') && Files::isFile(KALETA_ROOT . '/' . $icon);
     }
 
     /**
@@ -182,7 +182,8 @@ final class Menu
     public static function html(array $items, string $path, string $root, bool $mega = false): string
     {
         $active = function (string $url) use ($path, $root): bool {
-            if ($url === '' || preg_match('#^[a-z]+:|^\##i', $url)) {
+            // a link with a fragment (/#produkty, /sluzby#cenik) points into a page, it is never the current page itself
+            if ($url === '' || preg_match('#^[a-z]+:|\##i', $url)) {
                 return false;
             }
             $target = rtrim((string) parse_url($url, PHP_URL_PATH), '/');

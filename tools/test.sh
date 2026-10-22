@@ -115,6 +115,21 @@ check "hledání najde novinku i stránku" 200 "/hledani?q=Kontakt" 'href="/kont
 for u in /rss.xml /feed.json /sitemap.xml /robots.txt /llms.txt /novinky/vitejte-v-kalete.md; do check "$u" 200 "$u"; done
 check "mapa webu obsahuje novinku" 200 /sitemap.xml "/novinky/vitejte-v-kalete"
 check "llms.txt vyjmenuje stránky" 200 /llms.txt "## Stránky"
+# a news intro with entities (&nbsp; from WordPress or a Kaleta site import, &amp;) is plain text wherever it is a summary:
+# llms.txt, meta and og description, the BlogPosting description in JSON-LD – never the entity as text (&amp;nbsp;)
+NBSP_BACKUP=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(HEX(uvod), ':', HEX(seo_popis)) FROM ka_novinky WHERE seo_link = 'vitejte-v-kalete'")
+"${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -e "UPDATE ka_novinky SET uvod = '<p>Jsme rádi, že jsme v&nbsp;prosinci 2022&nbsp;získali <b>územní</b> rozhodnutí.</p><p>R&amp;D</p>', seo_popis = '' WHERE seo_link = 'vitejte-v-kalete'"
+rm -f "$WORK"/web/storage/cache/stranky/*.html
+NBSP_TEXT='Jsme rádi, že jsme v prosinci 2022 získali územní rozhodnutí. R'
+curl -s -o "$WORK/response" "$B/llms.txt"
+grep -q "$NBSP_TEXT&D" "$WORK/response" && ! grep -q '&nbsp;\|&amp;' "$WORK/response" \
+  && echo "  ok     llms.txt: news intro without HTML entities" || { echo "  CHYBA  llms.txt: entity v úvodu novinky"; grep -m1 'vitejte-v-kalete' "$WORK/response"; ERRORS=$((ERRORS+1)); }
+curl -s -o "$WORK/response" "$B/novinky/vitejte-v-kalete"
+grep -q "<meta name=\"description\" content=\"$NBSP_TEXT&amp;D\">" "$WORK/response" && grep -q "<meta property=\"og:description\" content=\"$NBSP_TEXT&amp;D\">" "$WORK/response" \
+  && grep -q "\"description\":\"$NBSP_TEXT&D\"" "$WORK/response" && ! grep -q '&amp;nbsp;\|&amp;amp;' "$WORK/response" \
+  && echo "  ok     news meta, og and JSON-LD description: plain text from the intro" || { echo "  CHYBA  popis novinky s entitami"; grep -o '<meta [^>]*description[^>]*>\|"description":"[^"]*"' "$WORK/response" | head -5; ERRORS=$((ERRORS+1)); }
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_novinky SET uvod = UNHEX('${NBSP_BACKUP%%:*}'), seo_popis = UNHEX('${NBSP_BACKUP#*:}') WHERE seo_link = 'vitejte-v-kalete'"
+rm -f "$WORK"/web/storage/cache/stranky/*.html
 check "strukturovaná data novinky" 200 /novinky/vitejte-v-kalete '"BlogPosting"'
 check "zásady z instalace jsou skryté, dokud je správce nedoplní" 404 /zasady-ochrany-osobnich-udaju
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_stranky SET zobrazit = 1 WHERE seo_link = 'zasady-ochrany-osobnich-udaju'"
@@ -156,27 +171,35 @@ expect "3.12 (UX310-26): with the Connect Claude card, First steps do not repeat
 grep -q 'data-kopirovat="#mcp-adresa-prehled"' "$WORK/response" && grep -q "<code id=\"mcp-adresa-prehled\">$B/mcp</code>" "$WORK/response" && grep -q 'Web neběží na HTTPS' "$WORK/response" \
   && echo "  ok     3.5: the card has the MCP address with Copy and warns that the site is not on HTTPS" || { echo "  CHYBA  3.5: connect card"; ERRORS=$((ERRORS+1)); }
 check "3.5: Claude settings have the address with Copy and the connection state" 200 "/admin.php?module=claude_settings" 'data-kopirovat="#mcp-adresa-nastaveni"'
-grep -q 'Zatím nepřipojeno' "$WORK/response" && echo "  ok     3.5: Claude settings say Claude is not connected yet" || { echo "  CHYBA  3.5: Claude settings state"; ERRORS=$((ERRORS+1)); }
+grep -q 'Claude není připojený' "$WORK/response" && grep -q 'class="hlaska claude-panel hlaska-chyba"' "$WORK/response" && echo "  ok     3.5, 3.18: Claude settings say Claude is not connected (the status panel)" || { echo "  CHYBA  3.5: Claude settings state"; ERRORS=$((ERRORS+1)); }
 check "3.5: My account has the address with Copy" 200 "/admin.php?action=account" 'data-kopirovat="#mcp-adresa-ucet"'
 check "3.9.1: the admin footer links to the support page (Buy Me a Coffee)" 200 "/admin.php?action=account" 'href="https://buymeacoffee.com/Kaletacms"'
 # 3.9.2 N67: an update never touches media/, so migration 0084 does – it replaces a media/.htaccess Kaleta shipped (here the
 # one of 3.9.1, rebuilt from today's file) and keeps a customised one, with the new version next to it and a warning
-n67_rerun() { "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = REPLACE(REPLACE(hodnota, ',0084-media-htaccess', ''), '0084-media-htaccess', '') WHERE promenna = 'data_migrations'"; curl -s -o /dev/null "$B/?n67=$RANDOM"; }
+# (3.15 N72: migration 0098 then brings the header rules that match an upper-case extension – both run again here)
+n67_rerun() { "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(REPLACE(CONCAT(',', hodnota, ','), ',0084-media-htaccess,', ','), ',0098-media-htaccess-case,', ',')) WHERE promenna = 'data_migrations'"; curl -s -o /dev/null "$B/?n67=$RANDOM"; }
 cp "$WORK/web/media/.htaccess" "$WORK/media-htaccess-new"
-{ echo '# Uploaded files are only served – never run.'; sed -e '1,2d' -e 's/"(?i)/"/' -e 's/|pht|phtml|phar|pl|py|cgi|sh|shtml|html?|js)(\\.|\$)/|phtml|phar|pl|py|cgi|sh|html?|js)$/' "$WORK/media-htaccess-new"; } > "$WORK/web/media/.htaccess"
+{ echo '# Uploaded files are only served – never run.'; sed -e '1,2d' -e '/case of the extension, as Apache/d' -e 's/ – in any$//' -e 's/"(?i)/"/' -e 's/|pht|phtml|phar|pl|py|cgi|sh|shtml|html?|js)(\\.|\$)/|phtml|phar|pl|py|cgi|sh|html?|js)$/' "$WORK/media-htaccess-new"; } > "$WORK/web/media/.htaccess"
 expect "3.9.2 N67: the test rebuilds the media/.htaccess of 3.9.1 exactly" "$(php -r 'echo hash_file("sha256", $argv[1]);' "$WORK/web/media/.htaccess")" "e20dd912d8066f36f5d967ee462497fca1dcbcd5b53f19d6f77e6bff7ceec708"
 n67_rerun
-expect "3.9.2 N67: migration 0084 replaces the media/.htaccess of an earlier release" "$(cmp -s "$WORK/web/media/.htaccess" "$WORK/media-htaccess-new" && echo same)|$([ -f "$WORK/web/media/.htaccess.kaleta-nova" ] && echo nova)" "same|"
+expect "3.9.2 N67, 3.15 N72: migrations 0084 and 0098 replace the media/.htaccess of an earlier release" "$(cmp -s "$WORK/web/media/.htaccess" "$WORK/media-htaccess-new" && echo same)|$([ -f "$WORK/web/media/.htaccess.kaleta-nova" ] && echo nova)" "same|"
 printf '# my own rules\nRequire all granted\n' > "$WORK/web/media/.htaccess"
 n67_rerun
 expect "3.9.2 N67: a customised media/.htaccess stays, the new one waits next to it" "$(head -1 "$WORK/web/media/.htaccess")|$(cmp -s "$WORK/web/media/.htaccess.kaleta-nova" "$WORK/media-htaccess-new" && echo nova)" "# my own rules|nova"
 check "3.9.2 N67: System status asks to carry the new media/.htaccess over" 200 "/admin.php?module=status" "media/.htaccess.kaleta-nova"
+# 3.15 N72: the file of 3.9.2–3.14 (header rules for lower-case extensions only) is replaced by 0098 alone; System status
+# names a file without the new rules
+sed -e '/case of the extension, as Apache/d' -e 's/ – in any$//' -e 's/<FilesMatch "(?i)\\.svg\$">/<FilesMatch "\\.svg$">/' -e 's/<FilesMatch "(?i)\\.(docx/<FilesMatch "\\.(docx/' "$WORK/media-htaccess-new" > "$WORK/web/media/.htaccess"; rm -f "$WORK/web/media/.htaccess.kaleta-nova"
+expect "3.15 N72: the test rebuilds the media/.htaccess of 3.9.2 exactly" "$(php -r 'echo hash_file("sha256", $argv[1]);' "$WORK/web/media/.htaccess")" "1901ef144717137b305ae54dcead8641c3552c35ee8c36a8e334ae37716a5669"
+check "3.15 N72: System status names a media/.htaccess without the rules of 3.15" 200 "/admin.php?module=status" "nemá pravidla Kalety 3.15"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0098-media-htaccess-case,', ',')) WHERE promenna = 'data_migrations'"; curl -s -o /dev/null "$B/?n72=$RANDOM"
+expect "3.15 N72: migration 0098 replaces the media/.htaccess of 3.9.2" "$(cmp -s "$WORK/web/media/.htaccess" "$WORK/media-htaccess-new" && echo same)|$([ -f "$WORK/web/media/.htaccess.kaleta-nova" ] && echo nova)" "same|"
 cp "$WORK/media-htaccess-new" "$WORK/web/media/.htaccess"; rm -f "$WORK/web/media/.htaccess.kaleta-nova"
 TOKEN=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=requests&action=save" -d "_csrf=$TOKEN" -d quick=1 -d from=dashboard -d "text=Zkouška před připojením."
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php"
-grep -q 'Claude si ho vezme, jakmile bude k webu připojený' "$WORK/response" && ! grep -q 'Odesláno Claudovi' "$WORK/response" \
-  && echo "  ok     3.5: a request saved before Claude is connected says it waits, not that it was sent" || { echo "  CHYBA  3.5: request saved while not connected"; ERRORS=$((ERRORS+1)); }
+grep -q 'počká, dokud někdo Clauda k webu nepřipojí' "$WORK/response" && grep -q 'class="hlaska hlaska-varovani" role="status">Uloženo jako požadavek' "$WORK/response" && ! grep -q 'Odesláno Claudovi' "$WORK/response" \
+  && echo "  ok     3.5, 3.18: a request saved before Claude is connected says it waits, not that it was sent" || { echo "  CHYBA  3.5: request saved while not connected"; ERRORS=$((ERRORS+1)); }
 "${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_requests WHERE title = 'Zkouška před připojením.'"
 # a personal token nobody used is not a connection; its first use is, and stays remembered after the token is revoked
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_api_tokeny (idu, nazev, druh, otisk, vytvoren) SELECT idu, 'unused 3.5', 'token', SHA2('unused-3.5', 256), NOW() FROM ka_uzivatele WHERE user = 'admin'"
@@ -185,8 +208,9 @@ check "3.5: a token nobody used keeps the Connect Claude card" 200 /admin.php 'i
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php"
 "${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_api_tokeny WHERE nazev = 'unused 3.5'"
 expect "3.5: once a connection was used, Ask Claude leads again and the card is gone" "$(dash_order 'id="ask-claude-nadpis"' 'class="pruvodce"' 'class="dlazdice"')|$(grep -c 'id="pripojit-claude"' "$WORK/response" || true)" "ok|0"
-check "3.5: revoking the token later does not bring the card back" 200 /admin.php 'id="ask-claude-nadpis"'
-grep -q 'id="pripojit-claude"' "$WORK/response" && { echo "  CHYBA  3.5: the card came back"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.5: the card stays gone"
+# 3.18: "connected" means a valid connection exists now – revoking the only one says "not connected" again and the card returns
+check "3.18: revoking every connection shows Claude as not connected again" 200 /admin.php 'class="claude-stav claude-stav-none"'
+grep -q 'id="pripojit-claude"' "$WORK/response" && grep -q 'Claude není k tomuto webu připojený' "$WORK/response" && echo "  ok     3.18: the Connect Claude card returns, Ask Claude warns" || { echo "  CHYBA  3.18: not connected after revoking"; ERRORS=$((ERRORS+1)); }
 "${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_nastaveni WHERE promenna = 'claude_first_used'" # the first real MCP call below sets it again (checked there)
 check "přehled: nadpis obrazovky je h1" 200 /admin.php "<h1>Přehled</h1>"
 grep -q '<li class=""><a href="/admin.php?module=appearance">' "$WORK/response" && grep -q '<li class=""><a href="/admin.php?module=pages"><strong>Připravte stránky' "$WORK/response" && echo "  ok     první kroky nepočítají vzhled a stránky ze startovacího webu za hotové" || { echo "  CHYBA  první kroky odškrtnuté startovacím webem"; ERRORS=$((ERRORS+1)); }
@@ -246,6 +270,12 @@ IDU_AUTOR=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idu FROM ka_uzivatele WHERE u
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_api_tokeny (idu, nazev, klient, druh, otisk, vytvoren, expirace) VALUES ($IDU_AUTOR, 'Claude', 'n39client', 'obnova', SHA2('n39-refresh', 256), '$(site_time)', '$(site_time '+300 days')'), ($IDU_AUTOR, 'Claude', 'n39client', 'pristup', SHA2('n39-access', 256), '$(site_time)', '$(site_time '+1 hour')'), ($IDU_AUTOR, 'personal', NULL, 'token', SHA2('n39-personal', 256), '$(site_time)', NULL)"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d "idu=$IDU_AUTOR" -d jmeno=Autor -d user=autor --data-urlencode "password=$PASSWORD" -d admin=0
 expect "3.9 N39-1: an administrator's new password ends the user's Claude connections, the personal token stays" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(SUM(druh <> 'token'), '|', SUM(druh = 'token')) FROM ka_api_tokeny WHERE idu = $IDU_AUTOR")" "0|1"
+# 3.15 (N19): the user's form offers to revoke the personal tokens too (ticked, as in My account); without a new password nothing goes
+check "3.15 N19: the user's form offers to revoke the personal tokens with the new password" 200 "/admin.php?module=users&action=edit&id=$IDU_AUTOR" 'name="zrusit_tokeny" value="1" checked'
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d "idu=$IDU_AUTOR" -d jmeno=Autor -d user=autor -d admin=0 -d zrusit_tokeny=1
+N19_KEPT=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_api_tokeny WHERE idu = $IDU_AUTOR AND druh = 'token'")
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d "idu=$IDU_AUTOR" -d jmeno=Autor -d user=autor --data-urlencode "password=$PASSWORD" -d admin=0 -d zrusit_tokeny=1
+expect "3.15 N19: with it ticked an administrator's new password revokes the personal tokens too" "$N19_KEPT|$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_api_tokeny WHERE idu = $IDU_AUTOR")" "1|0"
 "${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_api_tokeny WHERE idu = $IDU_AUTOR"
 JAR2="$WORK/jar2"
 TOKEN2=$(curl -s -c "$JAR2" "$B/admin.php" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//')
@@ -517,6 +547,11 @@ expect "news_slug: set over MCP (a page in the trash does not block it)" "$(slug
 expect "news_slug: /blog lists the news, the item and its .md work" "$(slug_code /blog)|$(slug_code /blog/vitejte-v-kalete)|$(slug_code /blog/vitejte-v-kalete.md)" "200 |200 |200 "
 expect "news_slug: /novinky and its items redirect permanently to /blog" "$(slug_code /novinky)|$(slug_code /novinky/vitejte-v-kalete)" "301 $B/blog|301 $B/blog/vitejte-v-kalete"
 expect "news_slug: the listing and the RSS feed link to /blog" "$(curl -s "$B/blog" | grep -c '/blog/vitejte-v-kalete"')|$(curl -s "$B/rss.xml" | grep -c '/blog/vitejte-v-kalete</link>')" "1|1"
+# 3.18.2: news_title gives the list its heading (Blog to go with /blog); empty = Novinky again
+mcp update_settings '{"settings":{"news_title":"Blog firmy"}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
+expect "news_title: the heading and the title of the news list" "$(curl -s "$B/blog" | grep -c '<h1>Blog firmy</h1>')|$(curl -s "$B/blog" | grep -c '<title>Blog firmy')" "1|1"
+mcp update_settings '{"settings":{"news_title":""}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
+expect "news_title: empty = Novinky" "$(curl -s "$B/blog" | grep -c '<h1>Novinky</h1>')" "1"
 mcp uloz_presmerovani '{"z":"/blog/old-wp-post","na":"/z-html"}' > /dev/null
 expect "news_slug: a stored redirect under /blog fires (as a WordPress import writes it)" "$(slug_code /blog/old-wp-post)" "301 $B/z-html"
 mcp restore_from_trash "{\"type\":\"page\",\"id\":$BLOGPAGE}" > "$WORK/response"
@@ -634,6 +669,11 @@ save_item() { curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?mod
 save_item --data-urlencode "nazev=Jana Nováková" --data-urlencode "data[funkce]=Jednatelka" --data-urlencode "data[medailonek]=<p>Dvacet let <b>v oboru</b>.</p><script>x</script>" -d poradi=1 -d zobrazit=1
 save_item --data-urlencode "nazev=Skrytý Člen" --data-urlencode "data[funkce]=Tajný" -d poradi=2
 check "položky kolekce" 200 "/admin.php?module=collections&action=items&id=$IDK" "Jana Nováková"
+# 3.18.3: the loop over the detail templates of the other languages overwrote $language, so the language filter always showed the
+# last additional language (English) although the list was not filtered by it – and choosing it did nothing
+grep -q '<option value="en" selected>' "$WORK/response" && { echo "  CHYBA  položky kolekce: filtr jazyka ukazuje English, i když nefiltruje"; ERRORS=$((ERRORS+1)); } || echo "  ok     položky kolekce: filtr jazyka bez výběru ukazuje všechny jazyky"
+check "položky kolekce: filtr jazyka ukazuje vybranou češtinu" 200 "/admin.php?module=collections&action=items&id=$IDK&language=cs" '<option value="cs" selected>'
+check "stránky: výběr jazyka ve filtru se použije hned" 200 "/admin.php?module=pages" '<select name="language" data-odeslat-pri-zmene>'
 mcp stavba_uloz "{\"id\":$IDZ,\"publikovat\":true,\"stavba\":{\"v\":1,\"deti\":[{\"typ\":\"sekce\",\"deti\":[{\"id\":\"smy1\",\"typ\":\"kolekce\",\"obsah\":{\"kolekce\":\"tym\"},\"deti\":[{\"id\":\"kar1\",\"typ\":\"kontejner\",\"styl\":{\"zaklad\":{\"pozadi\":\"plocha\"}},\"deti\":[{\"typ\":\"nadpis\",\"znacka\":\"h3\",\"obsah\":{\"text\":\"{{nazev}}\"}},{\"typ\":\"text\",\"obsah\":{\"html\":\"<p>{{funkce}}</p>{{medailonek}}\"}},{\"typ\":\"tlacitko\",\"obsah\":{\"text\":\"Profil\",\"odkaz\":\"{{url}}\"}}]}]}]}]}}" > "$WORK/response"
 grep -q 'publikováno' "$WORK/response" || { echo "  CHYBA  MCP stránka s výpisem kolekce"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 rm -f "$WORK"/web/storage/cache/stranky/*.html
@@ -708,12 +748,12 @@ expect "patička nového jazyka začíná kopií patičky výchozího jazyka" "$
 "${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('tasks_token', 'testtoken123'); INSERT INTO ka_souhlasy (id_souhlasu, cas, kategorie) VALUES ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '$(site_time)' - INTERVAL 40 MONTH, 'nic'), ('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', '$(site_time)', 'nic')"
 curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "úklid maže staré záznamy o souhlasech s cookies" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT GROUP_CONCAT(LEFT(id_souhlasu, 1) ORDER BY id_souhlasu) FROM ka_souhlasy WHERE id_souhlasu IN ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')")" "b"
-echo 'ALTER TABLE ka_neexistuje ADD COLUMN x INT;' > "$WORK/web/system/sql/migrace/0099-rozbita.sql"
+echo 'ALTER TABLE ka_neexistuje ADD COLUMN x INT;' > "$WORK/web/system/sql/migrace/9999-rozbita.sql"
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '19' WHERE promenna = 'db_version'"; rm -f "$WORK"/web/storage/cache/stranky/*.html "$WORK/web/storage/cache/migrace-chyba"
 check "nepovedená migrace neshodí web" 200 /
 grep -q 'The database migration failed' "$WORK/web/storage/log/chyby.log" && echo "  ok     nepovedená migrace je v protokolu chyb" || { echo "  CHYBA  nepovedená migrace chybí v protokolu"; ERRORS=$((ERRORS+1)); }
 check "nepovedená migrace nezamkne administraci" 200 "/admin.php" "Aktualizace databáze se nepovedla"
-rm -f "$WORK/web/system/sql/migrace/0099-rozbita.sql"; sed -i.bak "/The database migration failed/d" "$WORK/web/storage/log/chyby.log"; rm -f "$WORK/web/storage/log/chyby.log.bak"
+rm -f "$WORK/web/system/sql/migrace/9999-rozbita.sql"; sed -i.bak "/The database migration failed/d" "$WORK/web/storage/log/chyby.log"; rm -f "$WORK/web/storage/log/chyby.log.bak"
 expect "migrace, které prošly, zůstanou provedené" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'")" "$LAST_MIGRATION"
 mcp uprav_kolekci '{"kolekce":"tym","nazev":"Nas tym"}' > "$WORK/response"
 grep -q 'Nas tym' "$WORK/response" && grep -q 'medailonek' "$WORK/response" && echo "  ok     MCP: úprava kolekce ponechá pole" || { echo "  CHYBA  MCP uprav_kolekci"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
@@ -1330,6 +1370,18 @@ expect "paste of plain text is refused" "$(paste_action build_paste --data-urlen
 expect "paste without the form token is refused" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php?module=pages&action=build_paste&id=$IDN" --data-urlencode "schranka=$FOREIGN")" 400
 code=$(paste_action build_paste --data-urlencode "schranka={\"kaleta\":\"elements\",\"v\":1,\"site\":\"$B\",\"elements\":[{\"id\":\"svuj1\",\"typ\":\"nadpis\",\"tridy\":[\"schranka-stejny\"],\"obsah\":{\"text\":\"Odsud\"}}],\"classes\":[{\"nazev\":\"schranka-stejny\",\"styl\":{},\"css\":\"\"}],\"components\":[]}")
 expect "paste from this site inserts the elements without importing anything" "$code|$(grep -c '"text":"Odsud"' "$WORK/response")|$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_tridy WHERE nazev = 'schranka-stejny'")" "200|1|0"
+# 3.18.2 N3182-2: the builder sends every envelope here, also one claiming this site – any web page can write that into the
+# clipboard. Custom HTML stays only in an envelope this site packed and signed; a changed, unsigned or foreign one loses it.
+paste_action build_package --data-urlencode 'prvky=[{"typ":"html","obsah":{"kod":"<p id=\"kod3182\">kod</p>"}},{"typ":"nadpis","obsah":{"text":"Podpis 3182"}}]' > /dev/null
+php -r '$d = json_decode(file_get_contents($argv[1]), true)["schranka"] ?? []; file_put_contents($argv[2], json_encode($d, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); $d["elements"][0]["obsah"]["kod"] = "<img src=x onerror=alert(1)>"; file_put_contents($argv[3], json_encode($d)); unset($d["sig"]); $d["elements"][0]["obsah"]["kod"] = "<p>kod</p>"; file_put_contents($argv[4], json_encode($d));' "$WORK/response" "$WORK/signed3182.json" "$WORK/changed3182.json" "$WORK/claimed3182.json"
+paste3182() { code=$(paste_action build_paste --data-urlencode "schranka@$1"); echo "$code|$(php -r '$d = json_decode(file_get_contents($argv[1]), true); echo implode(",", array_column($d["prvky"] ?? [], "typ")), "|", (int) str_contains(implode(" ", $d["hlaseni"] ?? []) . ($d["chyba"] ?? ""), "HTML"), "|", (int) str_contains(file_get_contents($argv[1]), "onerror");' "$WORK/response")"; }
+expect "3.18.2 N3182-2: an administrator's own copy (signed by this site) keeps its Custom HTML" "$(paste3182 "$WORK/signed3182.json")" "200|html,nadpis|0|0"
+expect "3.18.2 N3182-2: a signed copy changed afterwards loses its Custom HTML, with a note" "$(paste3182 "$WORK/changed3182.json")" "200|nadpis|1|0"
+expect "3.18.2 N3182-2: an envelope only claiming this site loses its Custom HTML" "$(paste3182 "$WORK/claimed3182.json")" "200|nadpis|1|0"
+printf '%s' '{"kaleta":"elements","v":1,"site":"https://jiny.example","elements":[{"typ":"html","obsah":{"kod":"<script>alert(1)</script>"}}],"components":[{"id":951,"nazev":"Kód 3182","vlastnosti":[],"stavba":{"v":1,"deti":[{"typ":"html","obsah":{"kod":"<script>alert(2)</script>"}}]}}]}' > "$WORK/foreign3182.json"
+expect "3.18.2 N3182-2: Custom HTML alone from another site's clipboard is refused with the reason" "$(paste3182 "$WORK/foreign3182.json")" "400||1|0"
+printf '%s' '{"kaleta":"elements","v":1,"site":"https://jiny.example","elements":[{"typ":"komponenta","obsah":{"komponenta":"952"}},{"typ":"text","obsah":{"html":"<p>a<img src=\"/media/x.png\" onerror=\"alert(1)\"></p>"}}],"components":[{"id":952,"nazev":"Kód 3182 b","vlastnosti":[],"stavba":{"v":1,"deti":[{"typ":"html","obsah":{"kod":"<script>alert(2)</script>"}},{"typ":"nadpis","obsah":{"text":"Komponenta 3182"}}]}}]}' > "$WORK/foreign3182.json"
+expect "3.18.2 N3182-2: a component from another site's clipboard comes without its Custom HTML, text without handlers" "$(paste3182 "$WORK/foreign3182.json")|$(sq "SELECT CONCAT(COUNT(*), '/', SUM(stavba LIKE '%\"html\"%')) FROM ka_komponenty WHERE nazev = 'Kód 3182 b'")" "200|komponenta,text|1|0|1/0"
 # display conditions on the site: a URL parameter switches the element and takes the page out of the cache, a language version does not
 paste_action build_save --data-urlencode 'stavba={"v":1,"deti":[{"id":"pod1","typ":"sekce","deti":[{"id":"pod2","typ":"nadpis","obsah":{"text":"Jarní sleva"},"podminky":{"parametr":{"nazev":"utm_campaign","hodnota":"jaro"}}},{"id":"pod3","typ":"nadpis","obsah":{"text":"Nur Deutsch"},"podminky":{"jazyky":["en"]}},{"id":"pod4","typ":"nadpis","obsah":{"text":"Pro všechny"}}]}]}' > /dev/null
 grep -q '"podminky":{"parametr":{"nazev":"utm_campaign","hodnota":"jaro"}}' "$WORK/response" && grep -q '"podminky":{"jazyky":\["en"\]}' "$WORK/response" && echo "  ok     the validator keeps the URL parameter and language conditions" || { echo "  CHYBA  conditions after sanitize"; ERRORS=$((ERRORS+1)); }
@@ -1695,6 +1747,10 @@ newsletter_action send -d "id=$NL" -d when=now
 expect "no sending without an SMTP server" "$(db "SELECT status FROM ka_newsletters WHERE id = $NL")" "draft"
 db "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '$SMTP_PORT'), ('smtp_encryption', 'zadne'), ('smtp_user', ''), ('mail_from', 'web@example.cz')"
 newsletter_action send -d "id=$NL" -d when=now
+# 3.15.2: several visible recipients see each other in To, a hidden copy (Bcc) is only in the envelope
+(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); Kaleta\Core\Mail::send($app->settings(), "prvni@example.cz, druhy@example.cz", "Více příjemců", "text", "", ["Reply-To" => "navstevnik@example.cz", "Bcc" => "skryty@example.cz"]);')
+F=$(mail_to "prvni@example.cz, druhy@example.cz, skryty@example.cz")
+expect "3.15.2: To lists the visible recipients, the hidden one only in the envelope" "$([ -n "$F" ] && grep -c '^To: prvni@example.cz, druhy@example.cz' "$F")|$([ -n "$F" ] && grep -ci 'skryty@example.cz' "$F")" "1|1"
 expect "no sending while cron does not run" "$(db "SELECT status FROM ka_newsletters WHERE id = $NL")" "draft"
 check "newsletter form tells why it cannot send" 200 "/admin.php?module=newsletters&action=edit&id=$NL" "Cron za posledních 30 minut"
 curl -s -o /dev/null "$B/ulohy?token=testtoken123"
@@ -1891,6 +1947,7 @@ curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&ta
 LAST_BACKUP=$(ls -t "$WORK"/web/storage/zalohy/ | grep '^kaleta-' | head -1)
 curl -s -b "$JAR" -o "$WORK/backup-download" "$B/admin.php?module=settings&action=download_backup&file=$LAST_BACKUP"
 expect "a backup downloads whole (streamed)" "$(wc -c < "$WORK/backup-download" | tr -d ' ')" "$(wc -c < "$WORK/web/storage/zalohy/$LAST_BACKUP" | tr -d ' ')"
+expect "3.15 N42: a backup download is in the change log" "$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'settings' AND akce = 'backup downloaded' AND popis = '$LAST_BACKUP'")" "1"
 expect "the media ZIP is not built by a GET" "$(curl -s -b "$JAR" -o /dev/null -w '%{content_type}' "$B/admin.php?module=settings&action=media_backup" | tr 'A-Z' 'a-z')" "text/html; charset=utf-8"
 expect "the media ZIP by POST, with the originals" "$(curl -s -b "$JAR" -o "$WORK/media.zip" -w '%{content_type}' -X POST "$B/admin.php?module=settings&action=media_backup" -d "_csrf=$TOKEN")|$([ "$(unzip -Z1 "$WORK/media.zip" 2>/dev/null | grep -c '^media/')" -gt 0 ] && echo files)" "application/zip|files"
 
@@ -1905,6 +1962,20 @@ expect "3.7 MCP: a category under a top-level one, the description through the a
 for i in $(seq -w 1 13); do mcp save_collection_item "{\"collection\":\"produkty\",\"name\":\"Pás $i\",\"slug\":\"pas-$i\",\"visible\":true,\"order\":$((10#$i)),\"categories\":[\"zdravotni\"]}" > /dev/null; done
 mcp save_collection_item '{"collection":"produkty","name":"Stimulátor","slug":"stimulator","visible":true,"order":50,"categories":["elektro","neni-takova"]}' > "$WORK/response"
 expect "3.7 MCP: an item's categories by slug, an unknown slug reported" "$(mcp_value categories)|$(mcp_value unknown_categories)" '["elektro"]|["neni-takova"]'
+# 3.18.3: the admin list of items filters by category (a top-level one with its subcategories) and by each choice field
+IDK_PROD=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'produkty'")
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=collections&action=items&id=$IDK_PROD&category=$CAT_TOP"
+grep -q '>Pás 01</a>' "$WORK/response" && ! grep -q '>Stimulátor</a>' "$WORK/response" && grep -q "<option value=\"$CAT_TOP\" selected>" "$WORK/response" \
+  && echo "  ok     3.18.3: admin items filtered by a category with its subcategories" || { echo "  CHYBA  3.18.3 admin category filter"; ERRORS=$((ERRORS+1)); }
+check "3.18.3: admin items filtered by another category" 200 "/admin.php?module=collections&action=items&id=$IDK_PROD&category=$CAT_EL" '>Stimulátor</a>'
+grep -q '>Pás 01</a>' "$WORK/response" && { echo "  CHYBA  3.18.3: the category filter let in an item of another category"; ERRORS=$((ERRORS+1)); }
+mcp create_collection '{"name":"Volby test","slug":"volby-test","fields":[{"label":"Stav","type":"choice","options":["Nový","Starý"]}]}' > /dev/null
+mcp save_collection_items '{"collection":"volby-test","items":[{"name":"Volba A","values":{"stav":"Nový"}},{"name":"Volba B","values":{"stav":"Starý"}}]}' > /dev/null
+IDK_VOL=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'volby-test'")
+check "3.18.3: admin items filtered by a choice field" 200 "/admin.php?module=collections&action=items&id=$IDK_VOL&field_stav=Nov%C3%BD" '<option value="Nový" selected>'
+grep -q '>Volba A</a>' "$WORK/response" && ! grep -q '>Volba B</a>' "$WORK/response" \
+  && echo "  ok     3.18.3: the choice filter keeps only the matching items" || { echo "  CHYBA  3.18.3 admin choice filter"; ERRORS=$((ERRORS+1)); }
+check "3.18.3: an option the field does not have is no filter" 200 "/admin.php?module=collections&action=items&id=$IDK_VOL&field_stav=Jin%C3%BD" '>Volba B</a>'
 check "3.7: a category page lists the items of its subcategories" 200 /produkty/bezecke-pasy '<h1>Běžecké pásy</h1>'
 # the site audit and the migration report know category pages (3.9.3): a link to one is no broken link
 mcp create_page '{"title":"Audit kategorií","text":"<p><a href=\"/produkty/bezecke-pasy\">a</a> <a href=\"/produkty/bezecke-pasy/zdravotni\">b</a> <a href=\"/produkty/neni-kategorie\">c</a></p>","visible":true}' > /dev/null
@@ -1924,6 +1995,18 @@ code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/produkty/zdrav
 check "3.7: a subcategory under another parent is a 404" 404 /produkty/elektro/zdravotni
 check "3.7: the address latest is never a category" 404 /produkty/bezecke-pasy/latest
 check "3.7: an item page still works next to the categories" 200 /produkty/stimulator '<h1>Stimulátor</h1>'
+# 3.18.2: filter buttons without a field are the categories – the top-level ones, or the subcategories of the list's category; only those with items
+mcp create_page '{"title":"Filtr kategorií 3182","slug":"filtr-kategorii-3182","visible":true}' > /dev/null
+FILTER3182=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'filtr-kategorii-3182'")
+mcp save_build '{"id":'"$FILTER3182"',"publish":true,"build":{"v":1,"children":[{"type":"section","children":[{"id":"kf3182","type":"collection_list","content":{"collection":"produkty","count":30,"filters":true},"children":[{"type":"heading","tag":"h3","content":{"text":"{{nazev}}"}}]},{"id":"kp3182","type":"collection_list","content":{"collection":"produkty","category":"bezecke-pasy","count":30,"filters":true},"children":[{"type":"heading","tag":"h4","content":{"text":"{{nazev}}"}}]}]}]}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
+curl -s -o "$WORK/response" "$B/filtr-kategorii-3182"
+grep -q 'f-kf3182=bezecke-pasy">Běžecké pásy<' "$WORK/response" && grep -q 'f-kf3182=elektro">Elektroléčba<' "$WORK/response" && ! grep -q 'f-kf3182=zdravotni' "$WORK/response" \
+  && grep -q 'f-kp3182=zdravotni">Zdravotní pásy<' "$WORK/response" && ! grep -q 'f-kp3182=elektro' "$WORK/response" \
+  && echo "  ok     3.18.2: category filter buttons – top-level ones, the subcategories under a list's category" || { echo "  CHYBA  3.18.2 category filter buttons: $(grep -o '<ul class="ka-kolekce-filtry".*</ul>' "$WORK/response" | head -c 600)"; ERRORS=$((ERRORS+1)); }
+curl -s -o "$WORK/response" "$B/filtr-kategorii-3182?f-kf3182=elektro"
+grep -q '<h3>Stimulátor</h3>' "$WORK/response" && ! grep -q '<h3>Pás 01</h3>' "$WORK/response" && grep -q 'aria-current="true">Elektroléčba<' "$WORK/response" \
+  && echo "  ok     3.18.2: a category button filters the list" || { echo "  CHYBA  3.18.2 filtering by a category button"; ERRORS=$((ERRORS+1)); }
+sq "DELETE FROM ka_stranky WHERE ids = $FILTER3182" > /dev/null
 check "3.7: the sitemap lists category pages" 200 /sitemap.xml '/produkty/bezecke-pasy/zdravotni</loc>'
 # collisions: an address is never both a category and an item of the collection
 mcp save_collection_category '{"collection":"produkty","name":"Pás","slug":"pas-01"}' | contains 'already used by an item of this collection' \
@@ -2069,6 +2152,7 @@ sq "CREATE TABLE ka_n55_backup AS SELECT * FROM ka_nastaveni WHERE promenna IN (
   REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('company_map', 'javascript:alert(1)'), ('social_facebook', ' JavaScript:alert(2)'), ('social_linkedin', 'https://www.linkedin.com/company/n55');
   INSERT INTO ka_facts (fact_key, language, label, type, value, updated_at) VALUES ('n55promo', '', 'N55', 'text', 'javascript:alert(3)', '$(site_time)'), ('n55note', '', 'N55', 'text', 'Note: open daily', '$(site_time)')" > /dev/null
 sq "INSERT INTO ka_stitky (nazev, seo_link, jazyk) VALUES ('Move 314', 'move-314', 'en')" > /dev/null # 3.14: a tag's language version moves with the site
+sq "INSERT INTO ka_presmerovani (z_adresy, na_adresu, typ, vytvoreno) VALUES ('stara-uvodni-stranka', '', 301, '$(site_time)')" > /dev/null # 3.18.2: a redirect to the home page (stored with an empty target) moves too
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=export" -d "_csrf=$TOKEN"
 # 3.14: the same content in export format 3 (English keys) – only on request, from the code; a second later, so the two
 # archives never share the name of one second
@@ -2112,6 +2196,7 @@ for i in $(seq 1 80); do
   grep -q "Web je naimportovaný\|Import se zastavil" "$WORK/response" && break
 done
 grep -q "Web je naimportovaný" "$WORK/response" && grep -q 'data-auto-odeslat' "$WORK/response" && { echo "  CHYBA  the result still submits itself"; ERRORS=$((ERRORS+1)); } || true
+grep -q "Web je naimportovaný" "$WORK/response" && ! grep -q "přeskočen" "$WORK/response" && echo "  ok     3.18.2: nothing reported as skipped (the newline after the last row is no record)" || { echo "  CHYBA  3.18.2 the import reports skipped records: $(sed 's/<[^>]*>//g' "$WORK/response" | grep 'přeskočen' | head -3)"; ERRORS=$((ERRORS+1)); }
 grep -q "Web je naimportovaný" "$WORK/response" && echo "  ok     the import went through in batches" || { echo "  CHYBA  import: $(sed 's/<[^>]*>//g' "$WORK/response" | grep -i 'import\|chyb' | head -5)"; ERRORS=$((ERRORS+1)); }
 move_counts() { "${MYSQL[@]}" "$1" -N -e "SELECT CONCAT_WS('/', (SELECT COUNT(*) FROM ka_stranky WHERE smazano IS NULL), (SELECT COUNT(*) FROM ka_novinky WHERE smazano IS NULL), (SELECT COUNT(*) FROM ka_kategorie),
   (SELECT COUNT(*) FROM ka_kolekce), (SELECT COUNT(*) FROM ka_kolekce_polozky WHERE smazano IS NULL), (SELECT COUNT(*) FROM ka_komponenty), (SELECT COUNT(*) FROM ka_tridy), (SELECT COUNT(*) FROM ka_menu),
@@ -2134,6 +2219,8 @@ expect "3.2: the booking set-up came along; Bookings follow the export's version
 MOVED_MEDIA=$("${MYSQL[@]}" "$DB2" -N -e "SELECT obr_poloha FROM ka_media ORDER BY ido LIMIT 1")
 [ -n "$MOVED_MEDIA" ] && [ -f "$WORK/web2/$MOVED_MEDIA" ] && echo "  ok     the media files are on the new site" || { echo "  CHYBA  media file $MOVED_MEDIA"; ERRORS=$((ERRORS+1)); }
 [ -z "$(find "$WORK/web2/media" -name '*.php')" ] && echo "  ok     no PHP came into media/" || { echo "  CHYBA  PHP in media/"; ERRORS=$((ERRORS+1)); }
+expect "3.18.2: a redirect to the home page works on the moved site" "$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B2/stara-uvodni-stranka")" "301 $B2/"
+sq "DELETE FROM ka_presmerovani WHERE z_adresy = 'stara-uvodni-stranka'" > /dev/null
 code=$(curl -s -o "$WORK/response" -w '%{http_code}' "$B2/"); [ "$code" = 200 ] && grep -q "Testovací firma" "$WORK/response" && echo "  ok     the moved site runs" || { echo "  CHYBA  moved site: $code"; ERRORS=$((ERRORS+1)); }
 expect "2.15: the notebook moved with the site (the note, its topic and author)" "$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB2" -N -e "SELECT CONCAT(COUNT(*), '|', MAX(topic), '|', MAX(title), '|', MAX(author)) FROM ka_notebook")" "1|history|Historie redesignu|test"
 SLUG_ITEM=$("${MYSQL[@]}" "$DB2" -N -e "SELECT seo_link FROM ka_stranky WHERE zobrazit = 1 AND smazano IS NULL AND ids <> (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'home_page') ORDER BY ids LIMIT 1")
@@ -2192,6 +2279,12 @@ php -r '$z = new ZipArchive(); $z->open($argv[1]); $d = json_decode((string) $z-
   $d["collection_category_texts"][] = ["category_id" => 9712, "language" => "", "idk" => $idk, "name" => "Kolize 37", "slug" => "stimulator"];
   $d["collection_category_texts"][] = ["category_id" => 9712, "language" => "xx", "idk" => $idk, "name" => "Unknown 37", "slug" => "unknown-37"];
   $d["collection_item_categories"][] = ["idp" => $other, "category_id" => $top];
+  $d["stranky"][] = ["ids" => 9704, "titulek" => "Media 315", "seo_link" => "media-315", "zobrazit" => 1, "text" => "<p><img src=\"/media/2026/10/Photo.JPG\" alt=\"p\"> <a href=\"/media/2026/10/route.GPX\">route</a></p>"];
+  $d["media"][] = ["ido" => 9790, "obr_poloha" => "media/2026/10/Photo.JPG", "nazev" => "Photo 315", "obr_width" => 4, "obr_height" => 4];
+  ob_start(); imagejpeg(imagecreatetruecolor(4, 4)); $z->addFromString("media/2026/10/Photo.JPG", (string) ob_get_clean());
+  $z->addFromString("media/2026/10/route.GPX", "<?xml version=\"1.0\"?><gpx version=\"1.1\" creator=\"x\"><trk><name>r</name></trk></gpx>");
+  $z->addFromString("media/2026/10/fake-315.pdf", "<!DOCTYPE html><html><body><script>alert(1)</script></body></html>");
+  $z->addFromString("media/2026/10/fake-315.png", "<html><body><script>alert(2)</script></body></html>");
   $z->addFromString("obsah.json", (string) json_encode($d, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); $z->close();' "$WORK/presun37.zip" "$PRODUKTY" "$CAT_SUB" "$OTHER37" "$CAT_TOP"
 kill "$SERVER2_PID" 2>/dev/null || true; wait "$SERVER2_PID" 2>/dev/null || true
 "${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$DB2\`; CREATE DATABASE \`$DB2\` CHARACTER SET utf8mb4 COLLATE utf8mb4_czech_ci"
@@ -2216,6 +2309,11 @@ expect "3.7 N37-10/N37-11: imported categories by the tree rules – two levels,
   "$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB2" -N -e "SELECT CONCAT_WS('|', (SELECT GROUP_CONCAT(COALESCE(parent_id, 'top') ORDER BY id) FROM ka_collection_categories WHERE id IN (9711, 9712)),
     (SELECT GROUP_CONCAT(CONCAT(language, ':', slug) ORDER BY category_id, language) FROM ka_collection_category_texts WHERE category_id IN (9711, 9712)), (SELECT COUNT(*) FROM ka_collection_item_categories WHERE idp = $OTHER37 AND category_id = $CAT_TOP))")|$(grep -c 'adresu stimulator nelze použít' "$WORK/response" || true)" \
   "top,top|:nova-37,:stimulator-2|0|1"
+# 3.15 N72: media from the archive get lower-case extensions (Photo.JPG → Photo.jpg, route.GPX → route.gpx) and the content
+# follows; a file whose content is not what its extension says (HTML as .pdf or .png) never reaches media/
+expect "3.15 N72: imported media get lower-case extensions, pages and media rows point at them, HTML posing as a PDF or PNG stays out" \
+  "$(ls "$WORK/web2/media/2026/10/" 2>/dev/null | grep -cE '^(Photo\.jpg|route\.gpx)$' || true)|$(ls "$WORK/web2/media/2026/10/" 2>/dev/null | grep -cE '^(Photo\.JPG|route\.GPX|fake-315\..*)$' || true)|$("${MYSQL[@]}" "$DB2" -N -e "SELECT CONCAT((SELECT LOCATE(BINARY '/media/2026/10/Photo.jpg', text) > 0 AND LOCATE(BINARY '/media/2026/10/route.gpx', text) > 0 FROM ka_stranky WHERE ids = 9704), '|', (SELECT obr_poloha FROM ka_media WHERE ido = 9790))")|$(grep -c 'fake-315.pdf' "$WORK/response" || true)" \
+  "2|0|1|media/2026/10/Photo.jpg|1"
 expect "3.7 N37-11: the item keeps its page next to the imported category" "$(curl -s "$B2/produkty/stimulator" | grep -c '<h1>Stimulátor</h1>' || true)|$(curl -s -o /dev/null -w '%{http_code}' "$B2/produkty/stimulator-2")" "1|200"
 [ -s "$WORK/web2/storage/log/chyby.log" ] && { echo "  CHYBA  errors on the new site:"; cat "$WORK/web2/storage/log/chyby.log"; ERRORS=$((ERRORS+1)); }
 kill "$SERVER2_PID" 2>/dev/null || true; "${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$DB2\`"
@@ -2521,6 +2619,109 @@ contains -q 'can only save drafts' "$WORK/response" && echo "  ok     a drafts-o
 # 2.5.1: an administrator's drafts-only connection must not reach the administrator's browser through a draft preview
 mcp_as "$DRAFT_TOKEN" save_build "{\"id\":${DRAFT_PAGE:-0},\"build\":{\"v\":1,\"children\":[{\"type\":\"section\",\"children\":[{\"type\":\"custom_html\",\"content\":{\"code\":\"<p>drafted-code</p>\"}}]}]}}" > /dev/null
 expect "a drafts-only connection cannot insert Custom HTML" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_stranky WHERE ids = '${DRAFT_PAGE:-0}' AND stavba_koncept LIKE '%drafted-code%'")" 0
+# 3.15 (N10): a file a drafts-only connection uploads waits outside the web root (Core\MediaStaging) – visible to signed-in users
+# and draft previews, public once content using it is published, or approved in Media; nobody approves it: gone after 30 days
+STAGE_PNG=$(php -r '$i = imagecreatetruecolor(1400, 900); imagefill($i, 0, 0, imagecolorallocate($i, 20, 120, 200)); ob_start(); imagepng($i); echo base64_encode(ob_get_clean());')
+stage_upload() { mcp_as "$DRAFT_TOKEN" upload_file "{\"filename\":\"$1\",\"data\":\"$2\"}" > "$WORK/response"; mcp_text; grep -o "media/[0-9]*/[0-9]*/${1%.*}-[a-f0-9]*\.${1##*.}" "$WORK/text" | head -1 || true; }
+anon_code() { curl -s -o /dev/null -w '%{http_code}' "$B/$1"; }
+STAGED=$(stage_upload staged-photo.png "$STAGE_PNG")
+STAGED_THUMB="${STAGED%.png}-nahled.png"
+expect "3.15 N10: a drafts-only upload is staged – the answer says so, nothing in media/, the files in storage/staging/, the row marked" \
+  "$(grep -c '"staged":true' "$WORK/text")|$(grep -c 'goes public with the draft' "$WORK/text")|$([ -n "$STAGED" ] && ! ls "$WORK/web/${STAGED%.png}"* > /dev/null 2>&1 && echo none)|$([ -f "$WORK/web/storage/staging/${STAGED#media/}" ] && [ -f "$WORK/web/storage/staging/${STAGED_THUMB#media/}" ] && echo staged)|$(sq "SELECT staged_at IS NOT NULL FROM ka_media WHERE obr_poloha = '$STAGED'")" \
+  "1|1|none|staged|1"
+expect "3.15 N10: anonymous visitors get 404 for a staged file and its variants, also the storage/ path itself" \
+  "$(anon_code "$STAGED")|$(anon_code "$STAGED_THUMB")|$(anon_code "$STAGED.webp")|$(anon_code "storage/staging/${STAGED#media/}")" "404|404|404|403"
+STAGE_HEAD=$(curl -s -b "$JAR" -D - -o "$WORK/staged.png" "$B/$STAGED" | tr -d '\r')
+expect "3.15 N10: a signed-in user gets the staged file (200, the image, nosniff, never cached)" \
+  "$(echo "$STAGE_HEAD" | head -1 | cut -d' ' -f2)|$(echo "$STAGE_HEAD" | grep -ic '^content-type: image/png')|$(echo "$STAGE_HEAD" | grep -ic '^x-content-type-options: nosniff')|$(echo "$STAGE_HEAD" | grep -ic '^cache-control: private, no-store')|$(php -r 'echo getimagesize($argv[1])[0] ?? 0;' "$WORK/staged.png")" \
+  "200|1|1|1|1400"
+[ ! -f "$WORK/web/storage/staging/${STAGED#media/}.webp" ] || expect "3.15: a browser that accepts WebP gets the staged WebP sibling" "$(curl -s -b "$JAR" -H 'Accept: image/webp,*/*' -D - -o /dev/null "$B/$STAGED" | tr -d '\r' | grep -i '^content-type' | cut -d' ' -f2)" "image/webp"
+STAGED_SVG=$(stage_upload staged-logo.svg "$(printf '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10"/></svg>' | base64 | tr -d '\n')")
+STAGED_PDF=$(stage_upload staged-menu.pdf "$(printf '%%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%%%EOF\n' | base64 | tr -d '\n')")
+expect "3.15: a staged SVG keeps the sandbox CSP and a staged document its nosniff, both only for signed-in users" \
+  "$(curl -s -b "$JAR" -D - -o /dev/null "$B/$STAGED_SVG" | tr -d '\r' | grep -ic '^content-security-policy:.*sandbox')|$(curl -s -b "$JAR" -D - -o /dev/null "$B/$STAGED_PDF" | tr -d '\r' | grep -ic '^x-content-type-options: nosniff')|$(anon_code "$STAGED_SVG")|$(anon_code "$STAGED_PDF")" "1|1|404|404"
+mcp list_media '{"search":"staged-photo"}' > "$WORK/response"; mcp_text
+expect "3.15: list_media marks a staged file (staged: true)" "$(grep -c '"staged":true' "$WORK/text")" "1"
+# a draft that uses it: the signed preview shows it (the preview sets a cookie for /media/), a visitor without it gets 404
+mcp create_page '{"title":"Staged image page","slug":"staged-image-page","visible":true}' > /dev/null
+STAGE_PAGE=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'staged-image-page'")
+mcp_as "$DRAFT_TOKEN" save_build "{\"id\":${STAGE_PAGE:-0},\"build\":{\"v\":1,\"children\":[{\"type\":\"section\",\"children\":[{\"type\":\"heading\",\"content\":{\"text\":\"Staged image\"}},{\"type\":\"image\",\"content\":{\"src\":\"$STAGED\",\"alt\":\"A blue area\"}}]}]}}" > /dev/null
+mcp_as "$DRAFT_TOKEN" preview_link "{\"id\":${STAGE_PAGE:-0}}" > "$WORK/response"; mcp_text
+STAGE_PREVIEW=$(grep -o 'http[^"]*preview_key=[0-9a-fk.]*' "$WORK/text" | head -1 || true)
+PREVIEW_JAR="$WORK/preview-cookies.txt"
+curl -s -c "$PREVIEW_JAR" -o "$WORK/response" "$STAGE_PREVIEW"
+expect "3.15 N10: the signed preview of the draft shows the staged image (200 with the preview's cookie, 404 without it)" \
+  "$(grep -c "$(basename "$STAGED" .png)" "$WORK/response" | sed 's/^[1-9][0-9]*$/shown/')|$(curl -s -b "$PREVIEW_JAR" -o /dev/null -w '%{http_code}' "$B/$STAGED")|$(anon_code "$STAGED")|$(grep -c 'ka_nahled_media' "$PREVIEW_JAR")" "shown|200|404|1"
+# publishing the page by someone who may publish moves the file to media/ in the same request
+mcp publish_build "{\"id\":${STAGE_PAGE:-0}}" > /dev/null
+expect "3.15 N10: publishing a page that uses a staged file makes it public at once (media/, anonymous 200, the row public, staging empty)" \
+  "$([ -f "$WORK/web/$STAGED" ] && [ -f "$WORK/web/$STAGED_THUMB" ] && echo media)|$(anon_code "$STAGED")|$(sq "SELECT staged_at IS NULL FROM ka_media WHERE obr_poloha = '$STAGED'")|$(ls "$WORK/web/storage/staging/${STAGED%.png}"* 2>/dev/null | wc -l | tr -d ' ')" \
+  "media|200|1|0"
+# a full-access upload is public at once, as before
+mcp upload_file "{\"filename\":\"public-photo.png\",\"data\":\"$PNG\"}" > "$WORK/response"; mcp_text
+PUBLIC_UP=$(grep -o 'media/[0-9]*/[0-9]*/public-photo-[a-f0-9]*\.png' "$WORK/text" | head -1 || true)
+expect "3.15: a full-access upload goes straight to media/ (no staged flag, anonymous 200)" "$(grep -c '"staged"' "$WORK/text")|$(anon_code "$PUBLIC_UP")|$(sq "SELECT staged_at IS NULL FROM ka_media WHERE obr_poloha = '$PUBLIC_UP'")" "0|200|1"
+# content published some other way still shows it: an anonymous request finds it in published content and publishes it – asked
+# at most every 5 minutes per file (N315-5), so the 404 the PDF got a moment ago is remembered until then
+sq "UPDATE ka_stranky SET text = CONCAT(text, '<p><a href=\"/$STAGED_PDF\">Menu</a></p>') WHERE ids = ${STAGE_PAGE:-0}" > /dev/null
+STAGE_REMEMBERED=$(anon_code "$STAGED_PDF")
+age_staging_checks() { php -r 'foreach (glob($argv[1] . "/media-staging-*") ?: [] as $f) { touch($f, time() - 600); }' "$WORK/web/storage/cache"; }
+age_staging_checks
+expect "3.15: a staged file published content refers to goes public on an anonymous request – the answer of the last 5 minutes is remembered first (N315-5)" \
+  "$STAGE_REMEMBERED|$(anon_code "$STAGED_PDF")|$([ -f "$WORK/web/$STAGED_PDF" ] && echo media)|$(sq "SELECT staged_at IS NULL FROM ka_media WHERE obr_poloha = '$STAGED_PDF'")" "404|200|media|1"
+# Media → Waiting for approval: the list, Publish file and Delete
+check "3.15: Media lists the files waiting for approval" 200 "/admin.php?module=media&staged=1" 'staged-logo'
+STAGE_CSRF=$(csrf); STAGE_SVG_ID=$(sq "SELECT ido FROM ka_media WHERE obr_poloha = '$STAGED_SVG'")
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=media&action=approve" -d "_csrf=$STAGE_CSRF" -d "ido=$STAGE_SVG_ID"
+expect "3.15: Publish file in Media makes a staged file public" "$(anon_code "$STAGED_SVG")|$(sq "SELECT staged_at IS NULL FROM ka_media WHERE ido = $STAGE_SVG_ID")" "200|1"
+STAGED_DEL=$(stage_upload staged-delete.png "$PNG"); STAGE_DEL_ID=$(sq "SELECT ido FROM ka_media WHERE obr_poloha = '$STAGED_DEL'")
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=media&action=discard" -d "_csrf=$STAGE_CSRF" -d "ido=${STAGE_DEL_ID:-0}"
+expect "3.15: Delete in Waiting for approval removes the staged file and its row" "$(sq "SELECT COUNT(*) FROM ka_media WHERE ido = ${STAGE_DEL_ID:-0}")|$(ls "$WORK/web/storage/staging/${STAGED_DEL%.png}"* 2>/dev/null | wc -l | tr -d ' ')" "0|0"
+# N315-1: a shared class never makes a waiting file public by itself – a drafts-only connection creates new classes live; a new
+# class whose name a published page already lists would change that page at once, so it waits in the draft look
+mcp create_page '{"title":"Class page 315","slug":"class-page-315","visible":true}' > /dev/null
+CLASS_PAGE=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'class-page-315'")
+sq "UPDATE ka_stranky SET stavba = '{\"v\":1,\"deti\":[{\"id\":\"c315a\",\"typ\":\"sekce\",\"tridy\":[\"hero-old315\"],\"deti\":[]}]}', zobrazit = 1, show_on_publish = 0 WHERE ids = ${CLASS_PAGE:-0}" > /dev/null
+mcp_as "$DRAFT_TOKEN" save_classes '{"css":".hero-old315 { padding: 3rem } .fresh315 { padding: 1rem }"}' > "$WORK/response"
+expect "3.15 N315-1: a drafts-only connection's new class that a published page already lists waits in the draft look; one no published build lists is live" \
+  "$(sq "SELECT COUNT(*) FROM ka_tridy WHERE nazev = 'hero-old315'")|$(sq "SELECT hodnota LIKE '%hero-old315%' FROM ka_nastaveni WHERE promenna = 'look_draft'")|$(sq "SELECT COUNT(*) FROM ka_tridy WHERE nazev = 'fresh315'")" "0|1|1"
+# a live class with a waiting background image that a published page lists: the background job, a change in Pages, a write call of
+# a full connection and an anonymous request leave it waiting – only a person's publish (or Media) makes it public
+STAGED_BG=$(stage_upload staged-bg.png "$PNG")
+sq "INSERT INTO ka_tridy (nazev, styl, css, zmeneno) VALUES ('bg315', '{\"zaklad\":{\"obrazek_pozadi\":\"$STAGED_BG\"}}', '', '$(site_time)');
+  UPDATE ka_stranky SET stavba = REPLACE(stavba, '\"hero-old315\"', '\"hero-old315\",\"bg315\"') WHERE ids = ${CLASS_PAGE:-0}; DELETE FROM ka_jobs WHERE name = 'media_staging'" > /dev/null
+curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=list" -d "_csrf=$STAGE_CSRF"
+mcp update_page "{\"id\":${CLASS_PAGE:-0},\"title\":\"Class page 315 again\"}" > /dev/null
+anon_code "$STAGED_BG" > /dev/null; age_staging_checks
+expect "3.15 N315-1: a class's waiting background stays waiting after the job, a change in Pages, a full connection's write and an anonymous request" \
+  "$(anon_code "$STAGED_BG")|$(sq "SELECT staged_at IS NOT NULL FROM ka_media WHERE obr_poloha = '$STAGED_BG'")|$(sq "SELECT stavba LIKE '%bg315%' FROM ka_stranky WHERE ids = ${CLASS_PAGE:-0}")" "404|1|1"
+mcp save_build "{\"id\":${CLASS_PAGE:-0},\"build\":{\"v\":1,\"children\":[{\"type\":\"section\",\"classes\":[\"bg315\"],\"children\":[{\"type\":\"heading\",\"content\":{\"text\":\"New hero\"}}]}]}}" > /dev/null
+mcp publish_build "{\"id\":${CLASS_PAGE:-0}}" > /dev/null
+expect "3.15 N315-1: publishing a build that uses the class (a person or a full connection) makes its waiting background public" \
+  "$(anon_code "$STAGED_BG")|$(sq "SELECT staged_at IS NULL FROM ka_media WHERE obr_poloha = '$STAGED_BG'")" "200|1"
+# N315-4: every waiting file is looked at, not only the oldest 300, and every public place – here a booking service's description
+php -r 'echo "INSERT INTO ka_media (obr_poloha, datum, staged_at) VALUES ", implode(", ", array_map(fn (int $n): string => "(\x27media/2026/01/filler315-" . sprintf("%06d", $n) . ".png\x27, NOW(), NOW())", range(1, 310))), ";";' > "$WORK/filler.sql"
+"${MYSQL[@]}" "$DB_NAME" < "$WORK/filler.sql"
+STAGED_SVC=$(stage_upload staged-service.png "$PNG")
+sq "INSERT INTO ka_booking_services (name, description, active) VALUES ('Service 315', 'Our room: /$STAGED_SVC', 1); DELETE FROM ka_jobs WHERE name = 'media_staging'" > /dev/null
+SVC_BEHIND=$(sq "SELECT COUNT(*) FROM ka_media WHERE staged_at IS NOT NULL AND ido < (SELECT ido FROM ka_media WHERE obr_poloha = '$STAGED_SVC')")
+curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+expect "3.15 N315-4: the job reaches a waiting file behind 310 others and finds it in a booking service's description" \
+  "$([ "${SVC_BEHIND:-0}" -gt 300 ] && echo behind)|$(anon_code "$STAGED_SVC")|$(sq "SELECT staged_at IS NULL FROM ka_media WHERE obr_poloha = '$STAGED_SVC'")" "behind|200|1"
+[ "$(sq "SELECT COUNT(*) FROM ka_media WHERE obr_poloha LIKE 'media/2026/01/filler315-%'")" = 310 ] || { echo "  CHYBA  3.15 N315-4: the filler rows"; ERRORS=$((ERRORS+1)); }
+sq "DELETE FROM ka_media WHERE obr_poloha LIKE 'media/2026/01/filler315-%'; DELETE FROM ka_booking_services WHERE name = 'Service 315'" > /dev/null
+# nobody approved it for 30 days: the background job deletes it – unless live content uses it (N315-4): a live class keeps it
+# waiting for a person, never deleted
+STAGED_OLD=$(stage_upload staged-old.png "$PNG")
+STAGED_KEEP=$(stage_upload staged-keep.png "$PNG")
+sq "INSERT INTO ka_tridy (nazev, styl, css, zmeneno) VALUES ('keep315', '{\"zaklad\":{\"obrazek_pozadi\":\"$STAGED_KEEP\"}}', '', '$(site_time)');
+  UPDATE ka_media SET staged_at = '$(site_time '-31 days')' WHERE obr_poloha IN ('$STAGED_OLD', '$STAGED_KEEP'); DELETE FROM ka_jobs WHERE name = 'media_staging'" > /dev/null
+curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+expect "3.15: the background job deletes a staged file nobody approved within 30 days (row and files), and keeps one a live class uses (N315-4)" \
+  "$(sq "SELECT COUNT(*) FROM ka_media WHERE obr_poloha = '$STAGED_OLD'")|$(ls "$WORK/web/storage/staging/${STAGED_OLD%.png}"* 2>/dev/null | wc -l | tr -d ' ')|$(sq "SELECT last_error FROM ka_jobs WHERE name = 'media_staging'")|$(sq "SELECT staged_at IS NOT NULL FROM ka_media WHERE obr_poloha = '$STAGED_KEEP'")|$([ -f "$WORK/web/storage/staging/${STAGED_KEEP#media/}" ] && echo kept)" "0|0||1|kept"
+check "3.15 N315-4: Media says why a file past 30 days is still waiting" 200 "/admin.php?module=media&staged=1" 'Ponechán po 30 dnech'
+sq "DELETE FROM ka_tridy WHERE nazev IN ('keep315', 'bg315', 'fresh315')" > /dev/null
 # 3.7 N37-1: a prefixed attribute is one literal attribute (xml:onerror is not onerror) – on PHP 8.3 the compat parser bound the
 # prefix, the sanitizer missed the attribute and the serializer wrote it back as a live onerror
 mcp_as "$DRAFT_TOKEN" create_news '{"title":"N37-1 prefixed attributes","category":"'"$CATEGORY"'","text":"<p><img xml:onerror=alert(1) src=/media/x.png><a xml:href=javascript:alert(2) href=/ok>a</a> <a xlink:href=javascript:alert(3)>b</a> <span XML:ONCLICK=alert(4) x:onmouseover=alert(5) xmlns:x=y>c</span></p><svg><a xlink:href=javascript:alert(6)><text>d</text></a></svg><math><mi xml:onclick=alert(7)>e</mi></math>"}' > /dev/null
@@ -2571,6 +2772,30 @@ mcp_text; contains -q '"claude_connection":"Claude drafts"' "$WORK/text" && echo
 check "the change log in the admin filters Claude's changes" 200 "/admin.php?module=changelog&by=claude" 'Claude: Claude drafts'
 # the site owner's instructions, resources, prompts and the protocol version
 mcp update_settings '{"settings":{"claude_instructions":"Always say renovation, never reconstruction."}}' > /dev/null
+# 3.15 (N44): the instructions reach every later connection – a change over MCP is in the change log with both texts, and the
+# administrators' dashboard says so until one of them opens Claude settings (or dismisses it)
+expect "3.15 N44: a change of the instructions over MCP is in the change log with the old and the new text and the connection" \
+  "$(sq "SELECT CONCAT(modul, '|', via, '|', popis) FROM ka_protokol WHERE akce = 'instructions changed' ORDER BY idp DESC LIMIT 1")" "claude_settings|test|before: (empty) → now: «Always say renovation, never reconstruction.»"
+check "3.15 N44: the dashboard tells the administrator the instructions for Claude changed, by whom and through which connection" 200 "/admin.php" "Pokyny pro Clauda se změnily"
+grep -q 'přes připojení Clauda test' "$WORK/response" && grep -q 'module=claude_settings#zmena-pokynu' "$WORK/response" && grep -q 'action=instructions_seen' "$WORK/response" \
+  && echo "  ok     3.15 N44: the notice names the connection, links to Claude settings and can be dismissed" || { echo "  CHYBA  N44 dashboard notice"; ERRORS=$((ERRORS+1)); }
+check "3.15 N44: Claude settings show the change once, with the text before it" 200 "/admin.php?module=claude_settings" 'id="zmena-pokynu"'
+expect "3.15 N44: once Claude settings were opened, the notice is gone from the dashboard and from Claude settings" \
+  "$(curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php"; grep -c 'Pokyny pro Clauda se změnily' "$WORK/response" || true)|$(curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=claude_settings"; grep -c 'id="zmena-pokynu"' "$WORK/response" || true)" "0|0"
+mcp update_settings '{"settings":{"claude_instructions":"Always say renovation, never reconstruction. Prices in CZK."}}' > /dev/null
+mcp update_settings '{"settings":{"claude_instructions":"Always say renovation, never reconstruction. Prices in CZK."}}' > /dev/null
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=claude_settings&action=instructions_seen" -d "_csrf=$(csrf)"
+expect "3.15 N44: the same text again is no change; Dismiss on the dashboard clears the notice without opening the settings" \
+  "$(sq "SELECT COUNT(*) FROM ka_protokol WHERE akce = 'instructions changed'")|$(curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php"; grep -c 'Pokyny pro Clauda se změnily' "$WORK/response" || true)" "2|0"
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=claude_settings"
+n44_guards() { sq "SELECT CONCAT(COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'claude_destructive'), '1'), COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'claude_apps_only'), '0'))"; }
+N44_GUARDS=$(n44_guards); N44_ARGS=(); [ "${N44_GUARDS:0:1}" = 1 ] && N44_ARGS+=(-d claude_destructive=1); [ "${N44_GUARDS:1:1}" = 1 ] && N44_ARGS+=(-d claude_apps_only=1)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=claude_settings&action=save" -d "_csrf=$(csrf)" -d tab=claude --data-urlencode "claude_instructions=Always say renovation, never reconstruction." ${N44_ARGS[@]+"${N44_ARGS[@]}"}
+expect "3.15 N44: (the guardrails of Claude settings stay as they were)" "$(n44_guards)" "$N44_GUARDS"
+expect "3.15 N44: a change in the administration is in the change log too, without a connection" \
+  "$(sq "SELECT CONCAT(via, '|', popis) FROM ka_protokol WHERE akce = 'instructions changed' ORDER BY idp DESC LIMIT 1")|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'claude_instructions'")" \
+  "|before: «Always say renovation, never reconstruction. Prices in CZK.» → now: «Always say renovation, never reconstruction.»|Always say renovation, never reconstruction."
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26"}}' > "$WORK/response"
 contains -q '"protocolVersion":"2025-03-26"' "$WORK/response" && contains -q 'Always say renovation' "$WORK/response" && contains -q '"prompts"' "$WORK/response" && echo "  ok     initialize: the client's protocol version, the owner's instructions, resources and prompts" || { echo "  CHYBA  initialize"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $DRAFT_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"1999-01-01"}}' > "$WORK/response"
@@ -3116,6 +3341,29 @@ mcp migration_report "{\"url\":\"$OLD\"}" > "$WORK/response"; REPORT_ID=$(import
 for i in $(seq 1 20); do [ "$(import_field phase)" = done ] && break; mcp migration_report "{\"report_id\":\"$REPORT_ID\"}" > "$WORK/response"; done
 expect "migration report: after a redirect and publishing, the contact address redirects (but the form is gone)" "$(import_field summary)" '{"addresses":4,"checked":4,"ok":2,"redirected":1,"not_published":1,"missing":0,"errors":1,"warnings":2}'
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_stranky SET zobrazit = 0 WHERE seo_link = 'about-us'; DELETE FROM ka_presmerovani WHERE z_adresy = 'contact'"
+# 3.18.2: a form shared by pages as a component is still a form – the new contact page holds it in a component
+mcp save_component '{"name":"Formulář 3182"}' > "$WORK/response"; COMP3182=$(mcp_value id)
+mcp save_build "{\"component\":$COMP3182,\"build\":{\"v\":1,\"deti\":[{\"typ\":\"sekce\",\"deti\":[{\"typ\":\"formular\"}]}]}}" > /dev/null
+mcp publish_build "{\"component\":$COMP3182}" > /dev/null
+mcp create_page '{"title":"Contact","slug":"contact","visible":true}' > /dev/null; CONTACT3182=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'contact' AND smazano IS NULL")
+mcp save_build "{\"id\":$CONTACT3182,\"publish\":true,\"build\":{\"v\":1,\"deti\":[{\"typ\":\"sekce\",\"deti\":[{\"typ\":\"komponenta\",\"obsah\":{\"komponenta\":\"$COMP3182\"}}]}]}}" > /dev/null
+mcp migration_report "{\"url\":\"$OLD\"}" > "$WORK/response"; REPORT_ID=$(import_field report_id)
+for i in $(seq 1 20); do [ "$(import_field phase)" = done ] && break; mcp migration_report "{\"report_id\":\"$REPORT_ID\"}" > "$WORK/response"; done
+contains -q '/contact' "$WORK/response" && ! contains -q 'form_missing' "$WORK/response" \
+  && echo "  ok     3.18.2: the migration report counts a form inside a component" || { echo "  CHYBA  3.18.2 form in a component: $(import_field summary)"; ERRORS=$((ERRORS+1)); }
+# 3.18.2 N3182-4: a component holding itself 60 times and a chain A → B → A – the report follows each component once
+# (before: 61⁴ lookups for the one page, the batch never ended) and still finds the form
+mcp save_component '{"name":"Cyklus 3182"}' > "$WORK/response"; CYCLE3182=$(mcp_value id)
+CYCLE_BUILD=$(php -r '$d = [["id" => "f3182", "typ" => "formular"]]; for ($i = 0; $i < 60; $i++) { $d[] = ["id" => "s3182x" . $i, "typ" => "komponenta", "obsah" => ["komponenta" => $argv[1]]]; } $d[] = ["id" => "c3182", "typ" => "komponenta", "obsah" => ["komponenta" => $argv[2]]]; echo addslashes(json_encode(["v" => 1, "deti" => [["id" => "k3182", "typ" => "sekce", "deti" => $d]]]));' "$COMP3182" "$CYCLE3182")
+sq "UPDATE ka_komponenty SET stavba = '$CYCLE_BUILD' WHERE idm = $COMP3182" > /dev/null
+sq "UPDATE ka_komponenty SET stavba = '{\"v\":1,\"deti\":[{\"id\":\"b3182\",\"typ\":\"komponenta\",\"obsah\":{\"komponenta\":\"$COMP3182\"}}]}' WHERE idm = $CYCLE3182" > /dev/null
+START3182=$(date +%s)
+mcp migration_report "{\"url\":\"$OLD\"}" > "$WORK/response"; REPORT_ID=$(import_field report_id)
+for i in $(seq 1 20); do [ "$(import_field phase)" = done ] && break; mcp migration_report "{\"report_id\":\"$REPORT_ID\"}" > "$WORK/response"; done
+[ "$(import_field phase)" = done ] && contains -q '/contact' "$WORK/response" && ! contains -q 'form_missing' "$WORK/response" && [ $(( $(date +%s) - START3182 )) -lt 60 ] \
+  && echo "  ok     3.18.2 N3182-4: a component inside itself and a chain A → B → A – the report finishes and counts the form" || { echo "  CHYBA  3.18.2 N3182-4 component cycle: $(import_field phase) $(import_field summary) $(( $(date +%s) - START3182 )) s"; ERRORS=$((ERRORS+1)); }
+mcp delete_component "{\"id\":$CYCLE3182}" > /dev/null
+sq "DELETE FROM ka_stranky WHERE ids = $CONTACT3182" > /dev/null; mcp delete_component "{\"id\":$COMP3182}" > /dev/null
 # 3.8: an old page nested 3,000 deep is never parsed – the website import skips it with the limit among its failures, the
 # migration report checks only its address
 mkdir -p "$WORK/oldsite/deep"
@@ -3292,6 +3540,8 @@ sign_in_2fa() { # prihlas2fa <jar> → vrátí kód odpovědi na zadání druhé
 expect "špatný kód z aplikace neprojde" "$(sign_in_2fa "$WORK/jar6" 000000)" "401"
 TOTP_CODE=$(php -r 'require $argv[1] . "/system/src/Core/Totp.php"; echo Kaleta\Core\Totp::code("JBSWY3DPEHPK3PXP", intdiv(time(), 30));' "$ROOT")
 expect "přihlášení s kódem z aplikace (TOTP)" "$(sign_in_2fa "$WORK/jar7" "$TOTP_CODE")" "302"
+# 3.15 (N18): the same code again – a code seen over a shoulder or by a phishing page – is refused while it is still in its window
+expect "3.15 N18: a code from the app signs in only once" "$(sign_in_2fa "$WORK/jar12" "$TOTP_CODE")|$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_kontrola_ip WHERE typ = 'totp' AND cil = (SELECT idu FROM ka_uzivatele WHERE user = 'autor')")" "401|1"
 expect "záložní kód projde" "$(sign_in_2fa "$WORK/jar8" abcde-12345)" "302"
 expect "záložní kód jde použít jen jednou" "$(sign_in_2fa "$WORK/jar9" abcde-12345)" "401"
 # 3.3.2 (N7): a correct password does not reset the count of wrong codes – the per-account lock stays reachable
@@ -3313,7 +3563,7 @@ expect "3.3.3: other details save without the password while the e-mail stays th
 account_post -d co=profil -d jmeno=Autor -d email=autor-novy@example.cz --data-urlencode "soucasne=$PASSWORD" > /dev/null
 expect "3.3.3: with the current password the e-mail changes and the old address gets a notice" \
   "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT((SELECT email FROM ka_uzivatele WHERE user = 'autor'), '|', (SELECT COUNT(*) FROM ka_posta WHERE komu = 'autor-puvodni@example.cz' AND predmet LIKE 'E-mail va%'))")" "autor-novy@example.cz|1"
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET totp_tajemstvi = '', totp_zalozni = NULL WHERE user = 'autor'; DELETE FROM ka_kontrola_ip WHERE typ = 'login'"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET totp_tajemstvi = '', totp_zalozni = NULL WHERE user = 'autor'; DELETE FROM ka_kontrola_ip WHERE typ IN ('login', 'totp')"
 
 echo "== vypnutá rozšíření Novinky a Formuláře a poptávky"
 EXTENSIONS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna='extensions'")
@@ -3383,6 +3633,8 @@ contains -q 'Test: the automatic backup failed' "$WORK/response" && contains -q 
 # firewall (2.8): the test server runs with KALETA_FIREWALL_LOCAL=1, so 127.0.0.1 counts as a visitor's address
 sq "INSERT INTO ka_nastaveni VALUES ('firewall_enabled','1'),('firewall_ips','127.0.0.1 # test'),('firewall_probes','1'),('firewall_rate','0') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)" > /dev/null
 expect "firewall: a listed address is refused on the public site" "$(curl -s -o /dev/null -w '%{http_code}' "$B/")" "403"
+# 3.15 (N46): a refused request for the whistleblowing channel is logged without the address
+expect "3.15 N46: the firewall log keeps no address for a refused report page" "$(curl -s -o /dev/null -w '%{http_code}' "$B/_report")|$(sq "SELECT CONCAT(COUNT(*), ':', COALESCE(MAX(ip), '-')) FROM ka_firewall_log WHERE path = '/_report'")|$(sq "SELECT COUNT(*) > 0 FROM ka_firewall_log WHERE path = '/' AND ip = '127.0.0.1'")" "403|1:|1"
 expect "firewall: the administration stays open" "$(curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?module=settings&tab=firewall")" "200"
 grep -q 'name="firewall_ips"' "$WORK/response" && grep -q '127.0.0.1' "$WORK/response" && echo "  ok     firewall: the tab shows the settings and the refused request" || { echo "  CHYBA  firewall: záložka"; ERRORS=$((ERRORS+1)); }
 sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'firewall_ips'" > /dev/null
@@ -3409,8 +3661,8 @@ for i in $(seq 1 30); do curl -s -o /dev/null "$B3/install.php" && break; sleep 
 curl -s -o "$WORK/response" -X POST "$B3/install.php" --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB3" -d "db_user=$DB_USER" --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ \
   --data-urlencode "nazev_webu=Konzole agentury" -d web=firemni -d user=admin -d jmeno=Tester -d email= --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" -d 'rozsireni[]=fleet' -d 'rozsireni[]=claude'
 sq3() { "${MYSQL[@]}" --default-character-set=utf8mb4 "$DB3" -N -e "$1"; }
-# the console's own update channel is not reachable here: it "knows" a newer version 9.9.9 from its cache
-sq3 "REPLACE INTO ka_nastaveni VALUES ('update_url', 'http://127.0.0.1:1/aktualizace.json'), ('update_cache', '{\"url\":\"http://127.0.0.1:1/aktualizace.json\",\"overeno\":$(date +%s),\"manifest\":{\"verze\":\"9.9.9\",\"min_php\":\"8.3\",\"zmeny\":[]},\"chyba\":null}')" > /dev/null
+# the console's own update channel is not reachable here: it "knows" a newer version 3.99.9 from its cache
+sq3 "REPLACE INTO ka_nastaveni VALUES ('update_url', 'http://127.0.0.1:1/aktualizace.json'), ('update_cache', '{\"url\":\"http://127.0.0.1:1/aktualizace.json\",\"overeno\":$(date +%s),\"manifest\":{\"verze\":\"3.99.9\",\"min_php\":\"8.3\",\"zmeny\":[]},\"chyba\":null}')" > /dev/null
 curl -s -c "$JAR_CON" -b "$JAR_CON" -o "$WORK/response" "$B3/admin.php"; curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php" -d "_csrf=$(csrf)" -d user=admin --data-urlencode "password=$PASSWORD"
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet"
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=pairing_key" -d "_csrf=$(csrf)"
@@ -3428,8 +3680,39 @@ expect "pairing: the site knows its console and its number there" "$(sq "SELECT 
 expect "pairing: the console has the site with its first report" "$(sq3 "SELECT CONCAT(COUNT(*), '|', MAX(last_seen IS NOT NULL), '|', MAX(version <> ''), '|', MAX(manage_updates), '|', MAX(heartbeat LIKE '%enquiries_unanswered%')) FROM ka_fleet_sites")" "1|1|1|1|1"
 expect "pairing: the code works only once" "$(sq3 "SELECT COUNT(*) FROM ka_fleet_pairing WHERE used_at IS NOT NULL")" "1"
 sq3 "SELECT heartbeat FROM ka_fleet_sites" | contains '@' && { echo "  CHYBA  the report carries an e-mail address"; ERRORS=$((ERRORS+1)); } || echo "  ok     the report carries no e-mail addresses"
+# 3.16: what waits for people – request titles (switchable on the site, on by default, e-mail addresses masked), security counts without addresses
+sq "INSERT INTO ka_requests (created_at, updated_at, author_id, title, text, about, status) SELECT '$(site_time '-3 days')', '$(site_time '-3 days')', idu, 'Fleet316 ceník – napište na jana.fleet@example.cz', 'Tajný text požadavku 316', '', 'new' FROM ka_uzivatele WHERE user = 'admin';
+  INSERT INTO ka_requests (created_at, updated_at, author_id, title, text, about, status) SELECT '$(site_time '-1 hour')', '$(site_time '-1 hour')', idu, 'Fleet316 nová fotka týmu', 'Text 316', '', 'in_progress' FROM ka_uzivatele WHERE user = 'admin';
+  INSERT INTO ka_requests (created_at, updated_at, author_id, title, text, about, status) SELECT '$(site_time '-2 hours')', '$(site_time '-2 hours')', idu, 'Fleet316 zavolat +420 777 316 316, novak (at) firma316 [dot] cz', 'Text 316', '', 'new' FROM ka_uzivatele WHERE user = 'admin';
+  INSERT INTO ka_events (created_at, type, severity, message, data) VALUES ('$(site_time '-1 hour')', 'whistleblowing.due', 'warning', 'Case 316: the acknowledgement is due.', '{}');
+  INSERT INTO ka_firewall_log (created_at, ip, reason, path) VALUES ('$(site_time '-1 hour')', '203.0.113.77', 'probe', '/wp-login.php');
+  INSERT INTO ka_kontrola_ip (ip_adresa, typ, cil, cas) VALUES ('203.0.113.78', 'login', 0, '$(site_time '-1 hour')')" > /dev/null
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"; sleep 1
+grep -q 'name="fleet_request_titles" value="1" checked' "$WORK/response" && echo "  ok     Settings → Fleet console: request titles are shared by default, with the switch" || { echo "  CHYBA  the request titles switch is missing or off"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_send" -d "_csrf=$(csrf)"
+FLEET_BEAT=$(sq3 "SELECT heartbeat FROM ka_fleet_sites")
+contains -qF 'Fleet316 nová fotka týmu' <<< "$FLEET_BEAT" && contains -qF 'Fleet316 ceník – napište na [e-mail]' <<< "$FLEET_BEAT" && echo "  ok     the report carries the request titles, the e-mail address in a title masked" || { echo "  CHYBA  request titles in the report"; ERRORS=$((ERRORS+1)); }
+contains -q '@' <<< "$FLEET_BEAT" && { echo "  CHYBA  the report with request titles carries an e-mail address"; ERRORS=$((ERRORS+1)); } || echo "  ok     the report with request titles carries no e-mail address"
+contains -qF 'Fleet316 zavolat [phone], [e-mail]' <<< "$FLEET_BEAT" && ! contains -qE '316 316|firma316' <<< "$FLEET_BEAT" && echo "  ok     3.16 N316-2: a phone number and an address written out in a title are masked" || { echo "  CHYBA  N316-2 masking in request titles"; ERRORS=$((ERRORS+1)); }
+contains -qi 'whistleblow' <<< "$FLEET_BEAT" && { echo "  CHYBA  N316-3: the report carries a whistleblowing event"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.16 N316-3: no whistleblowing event or job in the report (problems_7_days)"
+contains -qE '203\.0\.113\.7|Tajný text|wp-login' <<< "$FLEET_BEAT" && { echo "  CHYBA  the report carries an address, a path or a request text"; ERRORS=$((ERRORS+1)); } || echo "  ok     the report carries no visitor address, path or request text"
+expect "the report counts the requests, the oldest waiting, the failed sign-ins and the firewall by reason" "$(sq3 "SELECT CONCAT(JSON_EXTRACT(heartbeat, '\$.requests.new') >= 1, '|', JSON_EXTRACT(heartbeat, '\$.requests.in_progress') >= 1, '|', JSON_EXTRACT(heartbeat, '\$.requests.oldest_waiting_hours') >= 71, '|', JSON_EXTRACT(heartbeat, '\$.security_7_days.failed_sign_ins') >= 1, '|', JSON_EXTRACT(heartbeat, '\$.security_7_days.firewall.probe') >= 1, '|', JSON_TYPE(JSON_EXTRACT(heartbeat, '\$.pending_review')), '|', JSON_TYPE(JSON_EXTRACT(heartbeat, '\$.enquiries_new_not_spam'))) FROM ka_fleet_sites")" "1|1|1|1|1|OBJECT|INTEGER"
+FLEET_REQ=$(sq "SELECT id FROM ka_requests WHERE title LIKE 'Fleet316 nová%'")
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=detail&id=$(sq3 "SELECT id FROM ka_fleet_sites LIMIT 1")"
+grep -qF "$B/admin.php?module=requests&amp;action=detail&amp;id=$FLEET_REQ" "$WORK/response" && grep -qF 'Fleet316 nová fotka týmu' "$WORK/response" && grep -q 'requests wait over 48 hours\|požadavky čekají přes 48 hodin' "$WORK/response" \
+  && echo "  ok     console: the detail lists what waits – request titles as plain links to the site's administration, the reason for attention" || { echo "  CHYBA  console: the Waiting block of the site detail"; ERRORS=$((ERRORS+1)); }
+grep -q 'probing for other systems: [0-9]\|zkoušení jiných systémů: [0-9]' "$WORK/response" && ! grep -q 'probe [0-9]' "$WORK/response" && echo "  ok     3.16 N316-8: the console detail names the firewall reasons in its language" || { echo "  CHYBA  N316-8 firewall reasons on the console detail"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"; sleep 1
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_titles" -d "_csrf=$(csrf)"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_send" -d "_csrf=$(csrf)"
+FLEET_BEAT=$(sq3 "SELECT heartbeat FROM ka_fleet_sites")
+expect "request titles off: the report has the counts but no titles" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_request_titles'")|$(contains -q 'Fleet316' <<< "$FLEET_BEAT" && echo titles || echo none)|$(sq3 "SELECT CONCAT(JSON_TYPE(JSON_EXTRACT(heartbeat, '\$.requests.items')), '|', JSON_EXTRACT(heartbeat, '\$.requests.new') >= 1) FROM ka_fleet_sites")" "0|none|NULL|1"
+contains -q '@' <<< "$FLEET_BEAT" && { echo "  CHYBA  the report carries an e-mail address"; ERRORS=$((ERRORS+1)); } || echo "  ok     the report without titles carries no e-mail address either"
+sq "UPDATE ka_nastaveni SET hodnota = '1' WHERE promenna = 'fleet_request_titles'; DELETE FROM ka_requests WHERE title LIKE 'Fleet316%'; DELETE FROM ka_firewall_log WHERE ip = '203.0.113.77'; DELETE FROM ka_kontrola_ip WHERE ip_adresa = '203.0.113.78';
+  DELETE FROM ka_events WHERE type = 'whistleblowing.due' AND message = 'Case 316: the acknowledgement is due.'" > /dev/null
 FLEET_NAME=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_name'")
-curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&show=all"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=sites&show=all"
 grep -qF "$FLEET_NAME" "$WORK/response" && echo "  ok     console: the site is in the list" || { echo "  CHYBA  konzole: web není v seznamu"; ERRORS=$((ERRORS+1)); }
 FLEET_ID=$(sq3 "SELECT id FROM ka_fleet_sites LIMIT 1")
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=detail&id=$FLEET_ID"
@@ -3448,9 +3731,9 @@ curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fl
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=ring" -d "_csrf=$(csrf)" -d "id=$FLEET_ID" -d ring=canary
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"; sleep 1
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_send" -d "_csrf=$(csrf)"
-expect "staged updates: a test site may install the new version" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_update_allowed'")" "9.9.9"
+expect "staged updates: a test site may install the new version" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_update_allowed'")" "3.99.9"
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"
-grep -q '9.9.9' "$WORK/response" && echo "  ok     the site shows the allowed update" || { echo "  CHYBA  povolená aktualizace se neukazuje"; ERRORS=$((ERRORS+1)); }
+grep -q '3.99.9' "$WORK/response" && echo "  ok     the site shows the allowed update" || { echo "  CHYBA  povolená aktualizace se neukazuje"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_updates" -d "_csrf=$(csrf)"
 expect "the site takes the decision about updates back" "$(sq "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_updates'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_update_allowed'))")" "0|"
 # uptime from the console, and a site that stops reporting
@@ -3461,8 +3744,10 @@ sq3 "UPDATE ka_fleet_sites SET url = 'http://127.0.0.1:1', last_seen = '$(site_t
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=check" -d "_csrf=$(csrf)"
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=check" -d "_csrf=$(csrf)"
 expect "uptime: down twice in a row is an event, and so is a site that stopped reporting" "$(sq3 "SELECT CONCAT((SELECT up FROM ka_fleet_sites WHERE id = $FLEET_ID), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'fleet.site_down'), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'fleet.site_silent'))")" "0|1|1"
-curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=sites"
 grep -q 'stitek-chyba' "$WORK/response" && echo "  ok     console: a down site is first in the list of what needs attention" || { echo "  CHYBA  konzole: nedostupný web se neukazuje"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&urgent=1"
+grep -qF 'href="http://127.0.0.1:1/" target="_blank" rel="noopener"' "$WORK/response" && grep -q 'stitek-chyba' "$WORK/response" && echo "  ok     3.17 inbox: a down site is an urgent item with a plain link to it" || { echo "  CHYBA  3.17 inbox: the down site"; ERRORS=$((ERRORS+1)); }
 sq3 "UPDATE ka_fleet_sites SET url = '$B' WHERE id = $FLEET_ID" > /dev/null
 # Claude on the console reads the fleet (read-only tools, only with the extension)
 CON_TOKEN="kaleta_$(printf 'c%.0s' $(seq 1 48))"
@@ -3470,8 +3755,133 @@ sq3 "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'test',
 curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_sites","arguments":{}}}' > "$WORK/response"
 contains -q 'console_decides_updates' "$WORK/response" && contains -q 'newest_version' "$WORK/response" && echo "  ok     MCP list_sites on the console" || { echo "  CHYBA  MCP list_sites"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"get_site\",\"arguments\":{\"id\":$FLEET_ID}}}" > "$WORK/response"
-contains -q 'jobs_failing' "$WORK/response" && echo "  ok     MCP get_site: the last report" || { echo "  CHYBA  MCP get_site"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+contains -q 'jobs_failing' "$WORK/response" && contains -q 'written_on_the_site' "$WORK/response" && echo "  ok     MCP get_site: the last report, its texts marked as written on that site (N316-6)" || { echo "  CHYBA  MCP get_site"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp list_sites '{}' > "$WORK/response"; contains -q 'newest_version' "$WORK/response" && { echo "  CHYBA  list_sites works on a site that is not a console"; ERRORS=$((ERRORS+1)); } || echo "  ok     list_sites exists only on a console"
+echo "== 3.17: the console keeps history, alerts by rules, a weekly digest and a monthly report per customer (Fleet\History, AlertRules, Digest, Report)"
+expect "history: every uptime check is added to the site's day; the down period is open" \
+  "$(sq3 "SELECT CONCAT(SUM(checks_ok) >= 1, '|', SUM(checks_failed) >= 2, '|', COUNT(*)) FROM ka_fleet_history WHERE site_id = $FLEET_ID")|$(sq3 "SELECT CONCAT(COUNT(*), '|', SUM(ended_at IS NULL)) FROM ka_fleet_incidents WHERE site_id = $FLEET_ID")" "1|1|1|1|1"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=check" -d "_csrf=$(csrf)" -d "id=$FLEET_ID"
+expect "history: the site answers again – the down period ends, the response time of the answer is kept" \
+  "$(sq3 "SELECT CONCAT(COUNT(*), '|', SUM(ended_at IS NULL), '|', SUM(ended_at >= started_at)) FROM ka_fleet_incidents WHERE site_id = $FLEET_ID")|$(sq3 "SELECT SUM(response_count) >= 1 FROM ka_fleet_history WHERE site_id = $FLEET_ID")" "1|0|1|1"
+# the site's own archived month travels as headline counts (report_summary) with the next heartbeat
+PREV317=$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format("Y-m");')
+sq "REPLACE INTO ka_monthly_reports (month, created_at, schema_version, data) VALUES ('$PREV317', '$(site_time)', 1, '{\"month\":\"$PREV317\",\"stats\":{\"visits\":4321},\"enquiries\":{\"total\":17,\"forms\":[{\"form\":\"Kontakt\",\"n\":17}]},\"requests\":{\"done_count\":3,\"done\":[{\"title\":\"Secret title 317\"}]},\"work\":{\"areas\":{\"pages\":{\"people\":4,\"claude\":9}}},\"updates\":[{\"type\":\"update.applied\"}],\"backups\":{\"created\":30}}')" > /dev/null
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"; sleep 1 # a heartbeat of the same second is refused as repeated
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_send" -d "_csrf=$(csrf)"
+SUMMARY317=$(sq3 "SELECT CONCAT(JSON_UNQUOTE(JSON_EXTRACT(heartbeat, '\$.report_summary.month')), '|', JSON_EXTRACT(heartbeat, '\$.report_summary.visits'), '|', JSON_EXTRACT(heartbeat, '\$.report_summary.changes_claude'), '|', heartbeat LIKE '%Secret title 317%', '|', heartbeat LIKE '%Kontakt%') FROM ka_fleet_sites WHERE id = $FLEET_ID")
+expect "report_summary: the heartbeat carries the counts of the site's last archived month – no titles, no forms" "$SUMMARY317" "$PREV317|4321|9|0|0"
+[ "$SUMMARY317" = "$PREV317|4321|9|0|0" ] || echo "         (the site's last error: $(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_last_error'"); its archive: $(sq "SELECT CONCAT(month, ' ', LEFT(data, 60)) FROM ka_monthly_reports ORDER BY month DESC LIMIT 1"))"
+# N317-5: a site's administrator changes its address – the console follows it and says so on the site's page
+SITE_URL317=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_url'")
+sq "UPDATE ka_nastaveni SET hodnota = 'http://localhost:$PORT' WHERE promenna = 'site_url'" > /dev/null
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"; sleep 1
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_send" -d "_csrf=$(csrf)"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=detail&id=$FLEET_ID"
+expect "N317-5: a new address from the site – the console follows it and records it on the site's page (from, to)" \
+  "$(sq3 "SELECT url FROM ka_fleet_sites WHERE id = $FLEET_ID")|$(sq3 "SELECT CONCAT(COUNT(*), '|', MAX(severity), '|', MAX(JSON_UNQUOTE(JSON_EXTRACT(data, '\$.from'))), '|', MAX(JSON_UNQUOTE(JSON_EXTRACT(data, '\$.to')))) FROM ka_events WHERE type = 'fleet.site_url_changed' AND JSON_EXTRACT(data, '\$.site') = $FLEET_ID")|$(grep -cE "address changed from $SITE_URL317 to http://localhost:$PORT|Adresa webu se změnila z $SITE_URL317 na http://localhost:$PORT" "$WORK/response")" \
+  "http://localhost:$PORT|1|warning|$SITE_URL317|http://localhost:$PORT|1"
+sq "UPDATE ka_nastaveni SET hodnota = '$SITE_URL317' WHERE promenna = 'site_url'" > /dev/null
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"; sleep 1
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_send" -d "_csrf=$(csrf)"
+expect "N317-5: the address back – one more event, the same address does not record one" "$(sq3 "SELECT url FROM ka_fleet_sites WHERE id = $FLEET_ID")|$(sq3 "SELECT COUNT(*) FROM ka_events WHERE type = 'fleet.site_url_changed'")" "$SITE_URL317|2"
+# the console's jobs run from its cron: the day's state from the stored heartbeat, the alerts by the rules
+SMTP_PORT=$((PORT + 3)); mkdir -p "$WORK/smtp317"
+command php "$ROOT/tools/fake-smtp.php" "$SMTP_PORT" "$WORK/smtp317" > /dev/null 2>&1 & SMTP_PID=$!
+sq3 "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '$SMTP_PORT'), ('smtp_encryption', 'zadne'), ('smtp_user', ''), ('mail_from', 'console@example.cz'), ('tasks_token', 'contoken317')" > /dev/null
+# the oldest request of the site waits 30 hours: under the default threshold (48), over the owner's (24)
+sq3 "UPDATE ka_fleet_sites SET heartbeat = JSON_SET(heartbeat, '\$.requests', JSON_OBJECT('new', 1, 'in_progress', 0, 'done_to_review', 0, 'oldest_waiting_hours', 30, 'items', JSON_ARRAY(JSON_OBJECT('id', 5, 'title', 'Fleet317 secret request', 'status', 'new')))) WHERE id = $FLEET_ID" > /dev/null
+sq3 "DELETE FROM ka_jobs WHERE name LIKE 'fleet\\_%'" > /dev/null
+curl -s -o /dev/null "$B3/tasks?token=contoken317"
+expect "console cron: the day's row has the state from the heartbeat (version, attention, the site's report counts); with the default rules nothing is e-mailed" \
+  "$(sq3 "SELECT CONCAT(version <> '', '|', attention IS NOT NULL, '|', report_summary LIKE '%4321%') FROM ka_fleet_history WHERE site_id = $FLEET_ID AND day = '$(site_time now Y-m-d)'")|$(ls "$WORK"/smtp317/*.eml 2>/dev/null | wc -l | tr -d ' ')|$(sq3 "SELECT COUNT(*) FROM ka_events WHERE type = 'fleet.alert_sent'")" "1|1|1|0|0"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=alerts"
+grep -q 'name="on_site_down" value="1" checked' "$WORK/response" && grep -q 'name="on_site_silent" value="1" checked' "$WORK/response" && ! grep -q 'name="on_requests_waiting" value="1" checked' "$WORK/response" \
+  && grep -q 'name="threshold_requests_waiting" value="48"' "$WORK/response" && grep -q 'name="fleet_digest" value="1">' "$WORK/response" \
+  && echo "  ok     Alerts and digest: down and silent on by default (as before), the other rules off, the digest off" || { echo "  CHYBA  Alerts and digest defaults"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=alerts_save" -d "_csrf=$(csrf)" -d on_site_down=1 -d on_site_silent=1 -d on_requests_waiting=1 -d threshold_requests_waiting=24 \
+  -d threshold_site_silent=26 -d fleet_alert_recipients=owner317@agency.example -d fleet_alert_quiet_hours=24
+sq3 "DELETE FROM ka_jobs WHERE name = 'fleet_alerts'" > /dev/null
+curl -s -o /dev/null "$B3/tasks?token=contoken317"
+F=$(grep -l "^X-Rcpt-To: owner317@agency.example" "$WORK"/smtp317/*.eml 2>/dev/null | tail -1); : > "$WORK/eml.txt"; [ -n "$F" ] && eml "$F" > "$WORK/eml.txt"
+expect "alert rules: the owner's threshold (24 hours) sends one e-mail with a plain link to the site in the console, the event is recorded, no request title in it" \
+  "$(ls "$WORK"/smtp317/*.eml 2>/dev/null | wc -l | tr -d ' ')|$(grep -c "admin.php?module=fleet&action=detail&id=$FLEET_ID" "$WORK/eml.txt")|$(grep -c 'Fleet317 secret request' "$WORK/eml.txt")|$(sq3 "SELECT CONCAT(COUNT(*), '|', MAX(JSON_UNQUOTE(JSON_EXTRACT(data, '\$.kind')))) FROM ka_events WHERE type = 'fleet.alert_sent'")" "1|1|0|1|requests_waiting"
+sq3 "DELETE FROM ka_jobs WHERE name = 'fleet_alerts'" > /dev/null
+curl -s -o /dev/null "$B3/tasks?token=contoken317"
+expect "alert rules: within the quiet hours the same alert for the same site is not sent again" "$(ls "$WORK"/smtp317/*.eml 2>/dev/null | wc -l | tr -d ' ')|$(sq3 "SELECT COUNT(*) FROM ka_events WHERE type = 'fleet.alert_sent'")" "1|1"
+# N317-1/-2: a heartbeat stored before 3.17's bounds (any value a modified site sent) – first by name – and a site that is down after it:
+# the day's rows, the alerts of the other site, the inbox, the list, the site's page and the digest all go on; its name stays on one line in the e-mail
+HOSTILE317='{"audit":{"x":9223372036854775807,"y":[1],"z":-7},"update_problem":["x"],"enquiries_unanswered":-1,"visits_7_days":9223372036854775807,"last_backup":1e300,"requests":{"new":1e300,"items":[{"id":1,"status":["x"]}]},"security_7_days":"x","domain_watch":{"certificate":"x"},"problems":"x","jobs_failing":[["x"]]}'
+sq3 "INSERT INTO ka_fleet_sites (name, url, public_key, paired_at, last_seen, version, version_since, manage_updates, up, heartbeat) VALUES
+  ('0 Hostile317\\nSIGN IN at http://evil317.test', 'http://hostile317.test', 'hostile317key', '$(site_time)', '$(site_time)', '3.17.0', '$(site_time)', 0, 1, '$HOSTILE317'),
+  ('Z Down317', 'http://down317.test', 'down317key', '$(site_time)', '$(site_time)', '3.17.0', '$(site_time)', 0, 0, '{\"last_backup\":$(date +%s),\"cron_last_run\":$(date +%s)}')" > /dev/null
+HOSTILE_ID317=$(sq3 "SELECT id FROM ka_fleet_sites WHERE public_key = 'hostile317key'"); DOWN_ID317=$(sq3 "SELECT id FROM ka_fleet_sites WHERE public_key = 'down317key'")
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=alerts"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=alerts_save" -d "_csrf=$(csrf)" -d on_site_down=1 -d on_site_silent=1 -d on_update_failed=1 -d on_requests_waiting=1 -d threshold_requests_waiting=24 \
+  -d threshold_site_silent=26 -d fleet_alert_recipients=owner317@agency.example -d fleet_alert_quiet_hours=24
+sq3 "DELETE FROM ka_jobs WHERE name IN ('fleet_history', 'fleet_alerts')" > /dev/null
+TASKS317=$(curl -s "$B3/tasks?token=contoken317")
+F=$(ls -t "$WORK"/smtp317/*.eml 2>/dev/null | head -1); : > "$WORK/eml.txt"; [ -n "$F" ] && eml "$F" > "$WORK/eml.txt"
+expect "N317-1: a hostile stored heartbeat stops neither the day's rows (bounded) nor the other site's alert; the jobs report no failure" \
+  "$(sq3 "SELECT CONCAT(COUNT(*), '|', COALESCE(MAX(IF(site_id = $HOSTILE_ID317, CONCAT(audit_total, '/', enquiries_new, '/', COALESCE(requests_open, '-')), NULL)), '-')) FROM ka_fleet_history WHERE site_id IN ($HOSTILE_ID317, $DOWN_ID317) AND day = '$(site_time now Y-m-d)'")|$(ls "$WORK"/smtp317/*.eml 2>/dev/null | wc -l | tr -d ' ')|$(grep -c "^Z Down317 – http://down317.test" "$WORK/eml.txt")|$(sq3 "SELECT COUNT(*) FROM ka_events WHERE type = 'fleet.alert_sent' AND JSON_EXTRACT(data, '\$.site') IN ($HOSTILE_ID317, $DOWN_ID317)")|$(grep -oE 'fleet_history: recorded [0-9]+(, failed [0-9]+)?' <<< "$TASKS317")" \
+  "2|1000000/0/0|2|1|2|fleet_history: recorded 3"
+expect "N317-2: the site's name with a line break is one line in the alert e-mail – no line of its own" "$(grep -c '^SIGN IN' "$WORK/eml.txt")|$(grep -c '^0 Hostile317 SIGN IN at http://evil317.test – http://hostile317.test' "$WORK/eml.txt")" "0|1"
+CODES317=""
+for page317 in "" "&action=sites&show=all" "&action=detail&id=$HOSTILE_ID317" "&action=digest_preview"; do CODES317="$CODES317$(curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" -w '%{http_code}' "$B3/admin.php?module=fleet$page317")|"; done
+expect "N317-1: the inbox, the list of sites, the hostile site's page and the digest preview open" "$CODES317$(grep -c '0 Hostile317' "$WORK/response")" "200|200|200|200|1"
+curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fleet_inbox","arguments":{}}}' > "$WORK/response"
+contains -qF '0 Hostile317 SIGN IN' "$WORK/response" && ! contains -q '"isError":true' "$WORK/response" && echo "  ok     N317-1: MCP fleet_inbox answers with the hostile site in it" || { echo "  CHYBA  N317-1: MCP fleet_inbox"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+sq3 "DELETE FROM ka_fleet_history WHERE site_id IN ($HOSTILE_ID317, $DOWN_ID317); DELETE FROM ka_fleet_incidents WHERE site_id IN ($HOSTILE_ID317, $DOWN_ID317); DELETE FROM ka_fleet_sites WHERE id IN ($HOSTILE_ID317, $DOWN_ID317)" > /dev/null
+# the weekly digest: a preview with the saved settings; request titles stay out unless turned on
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=digest_preview"
+grep -qF "$B/admin.php" "$WORK/response" && grep -qF "module=fleet&amp;action=detail&amp;id=$FLEET_ID" "$WORK/response" && ! grep -q 'Fleet317 secret request' "$WORK/response" \
+  && echo "  ok     digest preview: the sites with plain links, request titles left out by default" || { echo "  CHYBA  digest preview"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=alerts"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=alerts_save" -d "_csrf=$(csrf)" -d on_site_down=1 -d fleet_digest=1 -d fleet_digest_titles=1 -d fleet_alert_recipients=owner317@agency.example
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=digest_preview"
+expect "digest with titles turned on names the request; the settings are saved" "$(grep -c 'Fleet317 secret request' "$WORK/response")|$(sq3 "SELECT GROUP_CONCAT(hodnota ORDER BY promenna SEPARATOR ',') FROM ka_nastaveni WHERE promenna IN ('fleet_digest', 'fleet_digest_titles')")" "1|1,1"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=alerts"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=alerts_save" -d "_csrf=$(csrf)" -d on_site_down=1 -d on_site_silent=1 -d fleet_alert_recipients='not-an-address'
+expect "a wrong recipient address saves nothing" "$(sq3 "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_alert_recipients'")" "owner317@agency.example"
+# the trends on the site's page: uptime this and last month, 90 days of bars with a summary and a table, the outage
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=detail&id=$FLEET_ID"
+grep -q '<figure class="trend">' "$WORK/response" && grep -q '<svg viewBox="0 0 360 40" preserveAspectRatio="none" role="img" aria-label="' "$WORK/response" && grep -q 'class="trend-tabulka"' "$WORK/response" \
+  && [ "$(grep -o '<rect class=' "$WORK/response" | wc -l | tr -d ' ')" = "90" ] && grep -q 'Výpadky za posledních 90 dní\|Outages in the last 90 days' "$WORK/response" \
+  && echo "  ok     trends: 90 bars with a summary for screen readers and the days as a table" || { echo "  CHYBA  trends on the site's page"; ERRORS=$((ERRORS+1)); }
+# the monthly fleet report per customer: from the console's own history of the previous month
+sq3 "INSERT INTO ka_fleet_history (site_id, day, checks_ok, checks_failed, response_ms_total, response_count, status, version, attention, reasons) VALUES ($FLEET_ID, '$PREV317-10', 286, 2, 57200, 286, 'ok', '3.16.0', 40, 'jobs_failing'), ($FLEET_ID, '$PREV317-11', 288, 0, 57600, 288, 'ok', '3.17.0', 0, '');
+  INSERT INTO ka_fleet_incidents (site_id, started_at, ended_at, status) VALUES ($FLEET_ID, '$PREV317-10 10:00:00', '$PREV317-10 10:25:00', 503);
+  INSERT INTO ka_events (created_at, type, severity, message, data) VALUES ('$PREV317-11 03:00:00', 'fleet.site_updated', 'info', 'updated', '{\"site\":$FLEET_ID,\"version\":\"3.17.0\"}')" > /dev/null
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=reports"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=report_build" -d "_csrf=$(csrf)"
+expect "fleet report: one per customer (here the sites without one) with the uptime, the outage, the update, the attention and the site's own counts; nothing with @" \
+  "$(sq3 "SELECT CONCAT(COUNT(*), '|', MAX(customer), '|', MAX(JSON_EXTRACT(data, '\$.sites[0].uptime.percent')), '|', MAX(JSON_EXTRACT(data, '\$.sites[0].downtime_minutes')), '|', MAX(JSON_UNQUOTE(JSON_EXTRACT(data, '\$.sites[0].updates[0].version'))), '|', MAX(JSON_EXTRACT(data, '\$.sites[0].attention.reasons.jobs_failing')), '|', MAX(JSON_EXTRACT(data, '\$.sites[0].summary.visits')), '|', MAX(LOCATE('@', data))) FROM ka_fleet_reports WHERE month = '$PREV317'")" \
+  "1||99.65|25|3.17.0|1|4321|0"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=reports"
+grep -qF "action=report_view&amp;month=$PREV317&amp;customer=" "$WORK/response" && echo "  ok     Fleet reports lists the month with view, download and rebuild" || { echo "  CHYBA  Fleet reports list"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR_CON" -c "$JAR_CON" -D "$WORK/headers" -o "$WORK/response" "$B3/admin.php?module=fleet&action=report_view&month=$PREV317&customer="
+expect "fleet report: the print page – A4, the Print button, the customer, the outage, its own CSP" "$(grep -c 'size: A4' "$WORK/response")|$(grep -c 'data-tisk' "$WORK/response")|$(grep -q 'Weby bez zákazníka\|Sites without a customer' "$WORK/response" && echo 1 || echo 0)|$(grep -ci "^content-security-policy: default-src 'none'" "$WORK/headers")|$(grep -q '4321' "$WORK/response" && echo 1 || echo 0)" "1|1|1|1|1"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -D "$WORK/headers" -o "$WORK/response" "$B3/admin.php?module=fleet&action=report_download&month=$PREV317&customer="
+expect "fleet report: the download – an attachment, no script" "$(grep -ci "^content-disposition: attachment; filename=\"fleet-report-no-customer-$PREV317.html\"" "$WORK/headers")|$(grep -c '<script' "$WORK/response")" "1|0"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=reports"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=report_build" -d "_csrf=$(csrf)" -d "month=$PREV317"
+expect "fleet report: rebuilt from the history still kept on the administrator's request" "$(sq3 "SELECT CONCAT(COUNT(*), '|', MAX(rebuilt_at IS NOT NULL)) FROM ka_fleet_reports WHERE month = '$PREV317'")" "1|1"
+sq3 "DELETE FROM ka_jobs WHERE name = 'fleet_reports'" > /dev/null; TASKS317=$(curl -s "$B3/tasks?token=contoken317")
+expect "fleet report: the job does not make a stored month again" "$(sq3 "SELECT COUNT(*) FROM ka_fleet_reports")|$(grep -o 'fleet_reports: stored already' <<< "$TASKS317")" "1|fleet_reports: stored already"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=reports"
+for month317 in 2099-12 "$(site_time now Y-m)" 2020-01; do curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=report_build" -d "_csrf=$(csrf)" -d "month=$month317"; done
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=reports"
+expect "N317-6: no report of a future month, the current one or one without history – only the month that ended stays" "$(sq3 "SELECT GROUP_CONCAT(DISTINCT month) FROM ka_fleet_reports")|$(grep -q 'that has ended\|který skončil' "$WORK/response" && echo refused || echo silent)" "$PREV317|refused"
+curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fleet_report","arguments":{}}}' > "$WORK/response"
+contains -q "$PREV317" "$WORK/response" && contains -q 'kept_months' "$WORK/response" && echo "  ok     MCP fleet_report lists the stored months and customers" || { echo "  CHYBA  MCP fleet_report list"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"fleet_report\",\"arguments\":{\"month\":\"$PREV317\",\"customer\":\"\"}}}" > "$WORK/response"
+contains -q 'print_url' "$WORK/response" && contains -q 'downtime_minutes' "$WORK/response" && contains -q '4321' "$WORK/response" && echo "  ok     MCP fleet_report gives one customer's month with its print address" || { echo "  CHYBA  MCP fleet_report month"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"get_site\",\"arguments\":{\"id\":$FLEET_ID}}}" > "$WORK/response"
+contains -q 'uptime_this_month' "$WORK/response" && contains -q 'outages_90_days' "$WORK/response" && echo "  ok     MCP get_site carries the console's trends of the site" || { echo "  CHYBA  MCP get_site trends"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp fleet_report '{}' > "$WORK/response"; contains -q 'kept_months' "$WORK/response" && { echo "  CHYBA  fleet_report works on a site that is not a console"; ERRORS=$((ERRORS+1)); } || echo "  ok     fleet_report exists only on a console"
+kill "$SMTP_PID" 2>/dev/null || true
+sq "DELETE FROM ka_monthly_reports WHERE month = '$PREV317' AND data LIKE '%Secret title 317%'" > /dev/null
+sq3 "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', '')" > /dev/null
 echo "== 2.16: shared design kit – the console publishes it, a paired site receives it as drafts only (Fleet\Kit)"
 # the console has a class, a token change, a component (with a custom-code element that must not travel) and a saved section
 sq3 "INSERT INTO ka_tridy (nazev, styl, css, zmeneno) VALUES ('kit-band', '{}', 'padding: 2rem;', '$(site_time)')" > /dev/null
@@ -3519,6 +3929,92 @@ expect "console: a kit request of an unknown site is refused" "$(curl -s -o /dev
 mcp site_info '{}' > "$WORK/response"; contains -q 'fleet_kit' "$WORK/response" && contains -q 'applied_at' "$WORK/response" && echo "  ok     MCP site_info reports the kit version on a member site" || { echo "  CHYBA  MCP site_info: fleet_kit"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_sites","arguments":{}}}' > "$WORK/response"
 contains -q 'kit_version' "$WORK/response" && contains -q 'contents' "$WORK/response" && echo "  ok     MCP list_sites on the console shows the newest kit and each site's version" || { echo "  CHYBA  MCP list_sites: kit"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+echo "== 3.17: the console's inbox across the sites, customers (Fleet\Inbox, Fleet\Customers)"
+# two more sites in the console: Beta reports like a 3.15 site (no 3.16 parts) and has been silent for 30 hours, Gamma has bookings to confirm
+sq3 "INSERT INTO ka_fleet_sites (name, url, public_key, paired_at, last_seen, version, version_since, manage_updates, up, heartbeat) VALUES
+  ('Fleet317 Beta', 'http://beta317.test', 'beta317key', '$(site_time)', '$(site_time '-30 hours')', '3.0.0', '$(site_time)', 1, 1, '{\"last_backup\":$(date +%s),\"enquiries_unanswered\":4}'),
+  ('Fleet317 Gamma', 'http://gamma317.test', 'gamma317key', '$(site_time)', '$(site_time)', '3.0.0', '$(site_time)', 1, 1, '{\"last_backup\":$(date +%s),\"bookings_pending\":2}')" > /dev/null
+BETA317=$(sq3 "SELECT id FROM ka_fleet_sites WHERE public_key = 'beta317key'"); GAMMA317=$(sq3 "SELECT id FROM ka_fleet_sites WHERE public_key = 'gamma317key'")
+# this site: a request waiting for three days, its title with a phone number and an address
+sq "INSERT INTO ka_requests (created_at, updated_at, author_id, title, text, about, status) SELECT '$(site_time '-3 days')', '$(site_time '-3 days')', idu, 'Fleet317 price list – call +420 777 317 317 or jana317@example.cz', 'Secret text 317', '', 'new' FROM ka_uzivatele WHERE user = 'admin'" > /dev/null
+REQ317=$(sq "SELECT id FROM ka_requests WHERE title LIKE 'Fleet317 price%'")
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"; sleep 1
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_send" -d "_csrf=$(csrf)"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet"
+grep -qF "$B/admin.php?module=requests&amp;action=detail&amp;id=$REQ317\" target=\"_blank\" rel=\"noopener\"" "$WORK/response" && grep -qF 'Fleet317 price list – call [phone] or [e-mail]' "$WORK/response" \
+  && echo "  ok     inbox: the request title, masked, with a plain link to the request in the site's administration" || { echo "  CHYBA  inbox: the request with its plain link"; ERRORS=$((ERRORS+1)); }
+grep -qF 'Fleet317 Beta' "$WORK/response" && grep -q 'possibly out of date\|možná neaktuální' "$WORK/response" && grep -qF 'href="http://beta317.test/admin.php?module=enquiries"' "$WORK/response" && grep -qF 'href="http://gamma317.test/admin.php?module=bookings&amp;view=vse&amp;status=pending"' "$WORK/response" \
+  && echo "  ok     inbox: a 3.15 report (enquiries) marked possibly out of date, bookings of another site, each with its link" || { echo "  CHYBA  inbox: the other sites"; ERRORS=$((ERRORS+1)); }
+! contains -qE 'jana317|777 317|Secret text 317' "$WORK/response" && ! grep -q 'admin.php?[^"]*\(token\|password\|login\)' "$WORK/response" && echo "  ok     inbox: no e-mail address, phone number or request text, no sign-in in the links" || { echo "  CHYBA  inbox: personal data or a sign-in link"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&kind=bookings"
+grep -qF 'Fleet317 Gamma' "$WORK/response" && ! grep -qF 'Fleet317 price list' "$WORK/response" && echo "  ok     inbox: the kind filter" || { echo "  CHYBA  inbox: the kind filter"; ERRORS=$((ERRORS+1)); }
+# customers: two sites at once from the list, the third one from its detail with a note
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=sites&show=all"
+grep -q 'name="sites\[\]"' "$WORK/response" && echo "  ok     the list of sites: tick sites to give them a customer" || { echo "  CHYBA  the list of sites: bulk customer"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=customer_bulk" -d "_csrf=$(csrf)" -d "sites[]=$FLEET_ID" -d "sites[]=$BETA317" --data-urlencode "customer=  Acme 317 "
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=detail&id=$GAMMA317"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=customer" -d "_csrf=$(csrf)" -d "id=$GAMMA317" -d "customer=Other 317" -d "note=Calls on Mondays"
+ACME317=$(sq3 "SELECT id FROM ka_fleet_customers WHERE name = 'Acme 317'")
+expect "customers: two sites of Acme from the list, Gamma of another customer with the owner's note" "$(sq3 "SELECT CONCAT((SELECT COUNT(*) FROM ka_fleet_sites WHERE customer_id = $ACME317), '|', (SELECT c.name FROM ka_fleet_sites s JOIN ka_fleet_customers c ON c.id = s.customer_id WHERE s.id = $GAMMA317), '|', (SELECT note FROM ka_fleet_sites WHERE id = $GAMMA317))")" "2|Other 317|Calls on Mondays"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&customer=$ACME317"
+grep -qF 'Fleet317 price list' "$WORK/response" && grep -qF 'href="http://beta317.test/' "$WORK/response" && ! grep -qF 'href="http://gamma317.test/' "$WORK/response" && echo "  ok     inbox: the customer filter" || { echo "  CHYBA  inbox: the customer filter"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=sites&customer=$ACME317"
+grep -qF 'Fleet317 Beta' "$WORK/response" && ! grep -qF 'Fleet317 Gamma' "$WORK/response" && grep -qF ">Acme 317</a>" "$WORK/response" && echo "  ok     the list of sites: the customer column and filter" || { echo "  CHYBA  the list of sites: customer"; ERRORS=$((ERRORS+1)); }
+# 3.17 merge: the fleet report groups by the customer (its id, the name as it was) – rebuilt now that the sites have customers
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=reports"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=report_build" -d "_csrf=$(csrf)" -d "month=$PREV317"
+expect "fleet report by customer: Acme's two sites in one report, Gamma in its customer's" \
+  "$(sq3 "SELECT CONCAT(customer, '|', JSON_LENGTH(data, '\$.sites'), '|', JSON_EXTRACT(data, '\$.customer_id')) FROM ka_fleet_reports WHERE month = '$PREV317' AND customer_id = $ACME317")|$(sq3 "SELECT customer FROM ka_fleet_reports WHERE month = '$PREV317' AND customer_id = $(sq3 "SELECT customer_id FROM ka_fleet_sites WHERE id = $GAMMA317")")" \
+  "Acme 317|2|$ACME317|Other 317"
+# renaming a customer once renames it for all its sites
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=customers"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=customer_rename" -d "_csrf=$(csrf)" -d "id=$ACME317" -d "name=Acme 317 Ltd"
+expect "customers: renamed once for both sites" "$(sq3 "SELECT CONCAT(COUNT(*), '|', MAX(c.name)) FROM ka_fleet_sites s JOIN ka_fleet_customers c ON c.id = s.customer_id WHERE c.id = $ACME317")" "2|Acme 317 Ltd"
+# the renamed customer keeps its archived report: the Customers tab links to it, the list shows the name now (and then), the digest links to the inbox filter
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=customers"
+grep -qF "action=report_view&amp;month=$PREV317&amp;customer=$ACME317" "$WORK/response" && echo "  ok     Customers: a link to the customer's latest fleet report" || { echo "  CHYBA  Customers: the fleet report link"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=reports"
+grep -qF "module=fleet&amp;customer=$ACME317\">Acme 317 Ltd</a>" "$WORK/response" && grep -q 'dříve Acme 317\|then Acme 317' "$WORK/response" \
+  && echo "  ok     Fleet reports: a renamed customer under its name now (the inbox filter), the name it had then" || { echo "  CHYBA  Fleet reports: the renamed customer"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=report_view&month=$PREV317&customer=$ACME317"
+expect "fleet report of the renamed customer: printed with the name it was made with" "$(sq3 "SELECT customer FROM ka_fleet_reports WHERE month = '$PREV317' AND customer_id = $ACME317")|$(grep -c 'Acme 317 <span>' "$WORK/response")" "Acme 317|1"
+curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"fleet_report\",\"arguments\":{\"month\":\"$PREV317\",\"customer\":\"Acme 317 Ltd\"}}}" > "$WORK/response"
+contains -qF 'customer_then' "$WORK/response" && contains -qF 'Acme 317 Ltd' "$WORK/response" && ! contains -qF 'Other 317' "$WORK/response" \
+  && echo "  ok     MCP fleet_report: a renamed customer by its name now, with the name the report was made with" || { echo "  CHYBA  MCP fleet_report by customer"; head -c 600 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=digest_preview"
+grep -qF "== Acme 317 Ltd ==" "$WORK/response" && grep -qF "module=fleet&amp;customer=$ACME317" "$WORK/response" && echo "  ok     digest: by customer, each with a link to the inbox filtered by it" || { echo "  CHYBA  digest: customers"; ERRORS=$((ERRORS+1)); }
+# the new version for one customer's sites only (this site decides itself since the test above; Beta lets the console decide)
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=customers"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=allow" -d "_csrf=$(csrf)" -d "customer=$ACME317"
+expect "allow the new version for one customer: Beta (Acme) yes, Gamma (another customer) no" "$(sq3 "SELECT CONCAT((SELECT update_allowed FROM ka_fleet_sites WHERE id = $BETA317), '|', (SELECT update_allowed FROM ka_fleet_sites WHERE id = $GAMMA317))")" "3.99.9|"
+# MCP on the console: fleet_inbox (read-only, filters) and list_sites with the customer
+curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fleet_inbox","arguments":{"customer":"Acme 317 Ltd"}}}' > "$WORK/response"
+contains -qF 'Fleet317 price list' "$WORK/response" && contains -q 'written_on_the_site' "$WORK/response" && contains -q "module=requests&action=detail&id=$REQ317" "$WORK/response" && ! contains -qF 'Fleet317 Gamma' "$WORK/response" && ! contains -q 'jana317' "$WORK/response" \
+  && echo "  ok     MCP fleet_inbox: one customer's waiting items with plain links, texts marked as written on the sites" || { echo "  CHYBA  MCP fleet_inbox"; head -c 600 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fleet_inbox","arguments":{"kind":"bookings"}}}' > "$WORK/response"
+contains -qF 'Fleet317 Gamma' "$WORK/response" && ! contains -qF 'Fleet317 Beta' "$WORK/response" && echo "  ok     MCP fleet_inbox: the kind filter" || { echo "  CHYBA  MCP fleet_inbox kind"; head -c 600 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_sites","arguments":{"customer":"Other 317"}}}' > "$WORK/response"
+contains -qF 'Fleet317 Gamma' "$WORK/response" && contains -qF 'Other 317' "$WORK/response" && ! contains -qF 'Fleet317 Beta' "$WORK/response" && echo "  ok     MCP list_sites: the customer of each site, filtered by customer" || { echo "  CHYBA  MCP list_sites customer"; head -c 600 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+# a kit version for another customer does not reach this site; one for its own customer does
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=kit"
+grep -q 'name="customer"' "$WORK/response" && echo "  ok     the shared kit can be meant for one customer" || { echo "  CHYBA  kit: the customer choice"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=kit_publish" -d "_csrf=$(csrf)" -d "components[]=$KIT_COMPONENT" -d "customer=$(sq3 "SELECT id FROM ka_fleet_customers WHERE name = 'Other 317'")"
+KIT_BEFORE=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_kit_version'")
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"; sleep 1
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_send" -d "_csrf=$(csrf)"
+expect "a kit for another customer does not reach this site" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_kit_version'")" "$KIT_BEFORE"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=kit"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=kit_publish" -d "_csrf=$(csrf)" -d "components[]=$KIT_COMPONENT" -d "customer=$ACME317"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"; sleep 1
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_send" -d "_csrf=$(csrf)"
+expect "a kit for this site's customer reaches it" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_kit_version'")" "$(sq3 "SELECT MAX(version) FROM ka_fleet_kits")"
+# N317-9: the archived reports of a forgotten customer (id 900 here) never pass to a new customer
+sq3 "INSERT INTO ka_fleet_reports (month, customer_id, customer, created_at, data) VALUES ('2020-01', 900, 'Forgotten 317', '$(site_time)', '{}')" > /dev/null
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=detail&id=$GAMMA317"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=customer" -d "_csrf=$(csrf)" -d "id=$GAMMA317" -d "customer=New 317" -d "note=Calls on Mondays"
+expect "N317-9: a new customer gets an id above every archived report's customer" "$(sq3 "SELECT id > 900 FROM ka_fleet_customers WHERE name = 'New 317'")" "1"
+sq3 "DELETE FROM ka_fleet_reports WHERE customer_id = 900" > /dev/null
+sq "DELETE FROM ka_requests WHERE title LIKE 'Fleet317%'" > /dev/null; sq3 "DELETE FROM ka_fleet_sites WHERE public_key IN ('beta317key', 'gamma317key')" > /dev/null
 # disconnecting tells the console; the used key does not pair again
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_unpair" -d "_csrf=$(csrf)"
@@ -3708,6 +4204,20 @@ sq "UPDATE ka_uzivatele SET email = 'EVA@example.cz' WHERE idu = $SIG_USER" > /d
 expect "signature: a hidden record is never linked by the e-mail, only by an administrator's choice (N314-1)" \
   "$(sig_page '&tab=signature'; grep -q 'Požádejte správce, aby vás propojil' "$WORK/response" && ! grep -q 'Eva Skrytá\|eva@example.cz' "$WORK/response" && echo ' ok')" "200 ok"
 sq "DELETE FROM ka_uzivatele WHERE idu = $SIG_USER" > /dev/null
+
+echo "== 3.15: the admin menu shows how many things wait (owner: a new enquiry was invisible from the menu)"
+sq "INSERT INTO ka_poptavky (datum, formular, stranka, email, data, stav) VALUES ('$(site_time)', 'Badge 315', '/kontakt', 'badge315@example.cz', '[]', 0)" > /dev/null
+# N315-10: new spam is left out of the badge and the Dashboard, as the list hides it
+sq "INSERT INTO ka_poptavky (datum, formular, stranka, email, data, stav, kategorie) VALUES ('$(site_time)', 'Badge 315', '/kontakt', 'badge315@example.cz', '[]', 0, 'spam')" > /dev/null
+NEW315=$(sq "SELECT COUNT(*) FROM ka_poptavky WHERE stav = 0 AND kategorie <> 'spam'")
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=pages"
+menu_badge315() { perl -0ne 'if (m{module=enquiries"[^>]*>(.*?)</a>}s) { my $a = $1; print $1 if $a =~ m{class="menu-pocet" aria-hidden="true">([0-9+]+)<}; }' "$WORK/response"; }
+expect "3.15: Enquiries in the menu carries the number of new enquiries (spam left out, N315-10), with a text for screen readers" \
+  "$(menu_badge315)|$(grep -c 'class="navod-skryte"> – nové: ' "$WORK/response")|$(sq "SELECT COUNT(*) FROM ka_poptavky WHERE stav = 0") " "$NEW315|1|$((NEW315 + 1)) "
+sq "UPDATE ka_poptavky SET stav = 1 WHERE stav = 0" > /dev/null
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=pages"
+expect "3.15: … and none once they have been opened" "$(menu_badge315)" ""
+sq "DELETE FROM ka_poptavky WHERE email = 'badge315@example.cz'" > /dev/null
 
 echo "== 2.10: true until and review by"
 YESTERDAY=$(site_time "-1 day" "Y-m-d"); TODAY=$(site_time now "Y-m-d")
@@ -4315,8 +4825,10 @@ contains -q '"contact_clicks":{"calls":2,"emails":1,"whatsapp":0,"by_page":\[{"p
   && echo "  ok     2.12: get_stats carries contact_clicks and the clicks of every page" || { echo "  CHYBA  get_stats contact_clicks"; head -c 600 "$WORK/text"; ERRORS=$((ERRORS+1)); }
 # the monthly report mentions calls and e-mails when the month had any
 sq "INSERT INTO ka_stat_konverze (den, cesta, typ, pocet) VALUES ('$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format("Y-m-d");')', '/volejte-212', 'tel', 4), ('$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format("Y-m-d");')', '/volejte-212', 'mailto', 2)" > /dev/null
+sq "DELETE FROM ka_monthly_reports; UPDATE ka_jobs SET last_run = '$(site_time)' WHERE name = 'report_archive'" > /dev/null # 3.16: without the archived month the e-mail is built with the clicks above (the job held back)
 check "2.12: the monthly report mentions the calls and e-mails of the month" 200 "/admin.php?module=settings&action=report_preview" "Hovory – kliknutí na telefonní číslo"
 grep -q 'E-maily – kliknutí na e-mailovou adresu' "$WORK/response" && ! grep -q 'WhatsApp – kliknutí' "$WORK/response" && echo "  ok     2.12: the report lists only the kinds of clicks there were" || { echo "  CHYBA  monthly report: contact clicks"; ERRORS=$((ERRORS+1)); }
+expect "3.16 N316-7: the preview (GET) builds a missing month in memory and stores nothing" "$(sq "SELECT COUNT(*) FROM ka_monthly_reports")" "0"
 # statistics off: no endpoint on the page and no counting
 stats_feature 0
 curl -s -o "$WORK/response" -A 'Mozilla/5.0 test' "$B/volejte-212"; ! grep -q 'data-konverze' "$WORK/response" && echo "  ok     2.12: statistics off – the page carries no click endpoint" || { echo "  CHYBA  data-konverze with the statistics off"; ERRORS=$((ERRORS+1)); }
@@ -4424,6 +4936,9 @@ grep -q '"has_verifier":true' "$FAKE_LOGS-oauth.log" && echo "  ok     connector
 check "connectors: the screen shows the connection and never the secret" 200 "/admin.php?module=connectors" "owner@example.com"
 ! grep -q 'test-client-secret\|access-1\|refresh-1' "$WORK/response" && echo "  ok     connectors: no credential on the page" || { echo "  CHYBA  credential on the page"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -o /dev/null "$B/admin.php?module=connectors&action=callback&code=test-code&state=0123456789abcdef0123456789abcdef"
+# 3.15 (N49): the error of a cancelled sign-in is shown only as one of the OAuth error codes, never as text from the address
+curl -s -b "$JAR" -c "$JAR" -L -o "$WORK/response" "$B/admin.php?module=connectors&action=callback&error=Call+our+support+at+evil.example"
+grep -q 'unknown_error' "$WORK/response" && ! grep -q 'evil.example' "$WORK/response" && echo "  ok     3.15 N49: a cancelled sign-in shows an OAuth error code, not text from the address" || { echo "  CHYBA  N49 OAuth callback error"; ERRORS=$((ERRORS+1)); }
 expect "connectors: a callback with a state the session did not issue changes nothing" "$(sq "SELECT COUNT(*) FROM ka_connector_log WHERE action = 'oauth.token'")" "1"
 connector_call() { php -r 'chdir($argv[1]); putenv("KALETA_CONNECTORS_FAKE=" . $argv[2]); require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $r = Kaleta\Core\Connectors::request($app, "google", "GET", "https://www.googleapis.com/echo"); echo $r["status"], "|", $r["json"]["authorization"] ?? "", "|", $r["error"];' "$WORK/web" "http://127.0.0.1:$FAKE_PORT"; }
 expect "connectors: a call is authorised with the stored token" "$(connector_call)" "200|Bearer access-1|"
@@ -4517,6 +5032,15 @@ check "clean-up: the image without a description has an input" 200 "/admin.php?m
 TOKEN=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=media&action=save_alts" -d "_csrf=$TOKEN" --data-urlencode "alt[$F16_ALT]=Ctverec z formulare"
 expect "clean-up: descriptions saved in bulk" "$(sq "SELECT nazev FROM ka_media WHERE ido = $F16_ALT")" "Ctverec z formulare"
+# 3.15 (N49): a user who is not an administrator sees only their own files in the clean-up
+mcp upload_file "{\"filename\":\"spravcuv-n49.png\",\"data\":\"$PNG\"}" > /dev/null
+sq "INSERT INTO ka_uzivatele (user, password, jmeno, admin, posledni_login, potvrzeno) VALUES ('n49-author', '$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")', 'Author N49', 0, '$(site_time)', '$(site_time)');
+  INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, 'media' FROM ka_uzivatele WHERE user = 'n49-author'" > /dev/null
+JAR_N49="$WORK/cookies-n49.txt"; curl -s -c "$JAR_N49" -o "$WORK/response" "$B/admin.php"
+curl -s -b "$JAR_N49" -c "$JAR_N49" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$(csrf)" -d user=n49-author --data-urlencode "password=$PASSWORD"
+expect "3.15 N49: the clean-up of a user who is not an administrator lists none of the administrator's files; the administrator's lists them" \
+  "$(curl -s -b "$JAR_N49" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?module=media&action=cleanup")|$(grep -q 'spravcuv-n49' "$WORK/response" && echo 1 || echo 0)|$(curl -s -b "$JAR" -o "$WORK/response2" "$B/admin.php?module=media&action=cleanup"; grep -q 'spravcuv-n49' "$WORK/response2" && echo 1 || echo 0)" "200|0|1"
+sq "DELETE FROM ka_uzivatele WHERE user = 'n49-author'" > /dev/null
 # content check: a text page with a short title, no description, a skipped heading level and an image without alt
 mcp create_page '{"title":"Kontrola obsahu F16","content":"<h2>Co nabízíme</h2><p>Text o kuchyních.</p><h4>Skok</h4><img src=\"/media/x.jpg\">"}' > /dev/null; F16_PAGE=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'kontrola-obsahu-f16'")
 mcp get_page "{\"id\":$F16_PAGE}" > "$WORK/response"; mcp_value content_check > "$WORK/check.json"
@@ -4665,6 +5189,13 @@ mcp create_page '{"title":"Reference portfolio detail","slug":"portfolio-sirotek
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 check "Site audit lists the orphan page" 200 "/admin.php?module=audit" "Stránky, na které nikdo neodkazuje"
 grep -q 'Stránka „Reference portfolio detail“' "$WORK/response" && echo "  ok     the orphan is named with where to fix it" || { echo "  CHYBA  orphan in audit"; ERRORS=$((ERRORS+1)); }
+# the home page of a language version (/en/) is reached through the logo and the language switcher – never an orphan
+mcp create_page '{"title":"Home language version","slug":"home-language-version","visible":true,"in_menu":false,"text":"<p>Home</p>"}' > /dev/null
+sq "UPDATE ka_stranky SET jazyk = 'en', preklad_z = (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'home_page') WHERE seo_link = 'home-language-version'" > /dev/null
+rm -f "$WORK"/web/storage/cache/stranky/*.html; mcp suggest_internal_links '{"limit":100}' | sed 's#\\/#/#g' > "$WORK/response"
+grep -q 'portfolio-sirotek' "$WORK/response" && ! grep -q 'home-language-version' "$WORK/response" \
+  && echo "  ok     the home page of a language version is no orphan" || { echo "  CHYBA  the home page of a language version is an orphan"; head -c 900 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+sq "DELETE FROM ka_stranky WHERE seo_link = 'home-language-version'" > /dev/null
 mcp suggest_internal_links '{"limit":100}' | sed 's#\\/#/#g' > "$WORK/response"
 grep -q '\\"page\\":\\"/portfolio-sirotek\\"' "$WORK/response" && grep -q '\\"page\\":\\"/sluzby/reference-portfolio\\",\\"shared_words\\":\[\\"reference\\",\\"portfolio\\"\]' "$WORK/response" \
   && echo "  ok     MCP: suggest_internal_links returns the orphan with a candidate page sharing title words" || { echo "  CHYBA  suggest_internal_links"; head -c 900 "$WORK/response"; ERRORS=$((ERRORS+1)); }
@@ -4711,6 +5242,9 @@ expect "whistleblowing: the setup is saved – on, the reader, the retention" "$
 # 3.3.3 (N53): a site with a CAPTCHA still loads none on the channel – the provider would learn who reports
 sq "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('captcha_provider','turnstile'),('captcha_site_key','test-site'),('captcha_secret','test-secret') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)" > /dev/null
 check "whistleblowing: the public form with the introduction" 200 "/_report" 'name="text"'
+# 3.15 (N46): the channel's page loads nothing from another host (an embed in the header or footer cannot see the reporter) and sends no Referer
+expect "3.15 N46: the report page has a CSP that keeps it on this site and no Referer; an ordinary page has neither" \
+  "$(curl -s -D - -o /dev/null "$B/_report" | tr -d '\r' | grep -ciE "^content-security-policy: default-src 'self';.*img-src 'self' data:;.*frame-src 'none'|^referrer-policy: no-referrer$" || true)|$(curl -s -D - -o /dev/null "$B/" | tr -d '\r' | grep -ciE '^content-security-policy:|^referrer-policy: no-referrer$' || true)" "2|0"
 grep -q 'compliance officer' "$WORK/response" && grep -q 'noindex' "$WORK/response" && ! grep -q 'googletagmanager\|data-souhlas=\|cookies-lista\|<script src="https://\|challenges.cloudflare.com\|cf-turnstile' "$WORK/response" \
   && echo "  ok     whistleblowing: the page is not indexed and carries no tracking code, consent bar, CAPTCHA or third-party script" || { echo "  CHYBA  whistleblowing page privacy"; ERRORS=$((ERRORS+1)); }
 cp "$WORK/response" "$WORK/formular.html"; WB_TIME=$(field_value as_cas); WB_SIGNATURE=$(field_value as_podpis)
@@ -4797,6 +5331,76 @@ curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "whistleblowing: the daily job records the overdue acknowledgement and deletes the closed case past the retention" \
   "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_events WHERE type = 'whistleblowing.due' AND data LIKE '%\"deadline\":\"acknowledgement\"%' AND message LIKE '%$WB_NUMBER%'), '|', (SELECT COUNT(*) FROM ka_whistleblowing_cases WHERE number = '2023-0001'), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'whistleblowing.purged'))")" "1|0|1"
 check "whistleblowing: the list highlights the overdue acknowledgement" 200 "/admin.php?module=whistleblowing" "po lhůtě"
+echo "== 3.15 (N42): the encryption key out of the database"
+# vault <read|legacy|key>: read = the connector secret and the case text as the site decrypts them; legacy = the site as
+# before 3.15 (the data encrypted with secret_key again, no vault_key in config.php); key = the key in config.php
+cat > "$WORK/vault-helper.php" <<'PHP'
+<?php
+chdir($argv[1]);
+require 'system/bootstrap.php';
+$config = require 'config.php';
+$app = new Kaleta\Core\App($config);
+$s = $app->settings();
+$db = $app->db();
+if ($argv[2] === 'read') {
+    echo Kaleta\Core\Connectors::decrypt($s, $db->value("SELECT secret FROM {connectors} WHERE service = 'google'")) ?? '-', '|',
+        mb_substr(Kaleta\Core\Whistleblowing::decrypt($s, $db->value('SELECT text FROM {whistleblowing_cases} WHERE id = ?', [(int) $argv[3]])) ?? '-', 0, 25);
+} elseif ($argv[2] === 'key') {
+    echo $config['vault_key'] ?? '';
+} elseif ($argv[2] === 'legacy') {
+    [$from, $to] = [(string) $config['vault_key'], (new Kaleta\Core\Antispam($db, $s))->key()];
+    foreach (Kaleta\Core\Vault::SEALED as $table => [$purpose, $primary, $columns]) {
+        foreach ($db->all('SELECT * FROM {' . $table . '}') as $row) {
+            foreach ($columns as $c) {
+                $new = Kaleta\Core\Vault::reseal(Kaleta\Core\Vault::derive($from, $purpose), Kaleta\Core\Vault::derive($to, $purpose), $row[$c]);
+                if ($new !== null) { $db->update($table, [$c => $new], [$primary => $row[$primary]]); }
+            }
+        }
+    }
+    $s->set('vault_check', '');
+    file_put_contents('config.php', preg_replace("/\n\s*'vault_key' => '[0-9a-f]{64}',[^\n]*/", '', (string) file_get_contents('config.php')));
+}
+PHP
+vault() { php "$WORK/vault-helper.php" "$WORK/web" "$@" "${WB_ID:-0}"; [ "$1" != legacy ] || config_changed; }
+# the server's opcache looks at a changed file again after opcache.revalidate_freq (2 s): a change made from outside waits for it
+config_changed() { sleep 3; }
+vault_sealed() { sq "SELECT SHA2(CONCAT((SELECT secret FROM ka_connectors WHERE service = 'google'), (SELECT text FROM ka_whistleblowing_cases WHERE id = ${WB_ID:-0})), 256)"; }
+vault_move() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"; curl -s -b "$JAR" -c "$JAR" -L -o "$WORK/response" -X POST "$B/admin.php?module=settings&action=vault_move" -d "_csrf=$(csrf)"; }
+VAULT_PLAIN=$(vault read)
+expect "3.15 N42: a new site keeps the encryption key in config.php, the data is readable, the backups tab says so without a button" \
+  "$(grep -c "'vault_key' => '[0-9a-f]\{64\}'" "$WORK/web/config.php")|$(sq "SELECT LENGTH(hodnota) FROM ka_nastaveni WHERE promenna = 'vault_check'")|$VAULT_PLAIN|$(curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"; grep -c 'klíčem, který je v config.php' "$WORK/response")|$(grep -c 'action=vault_move' "$WORK/response" || true)" \
+  "1|32|test-client-secret|Vedoucí skladu falšuje ev|1|0"
+VAULT_FIRST=$(vault key)
+vault legacy
+expect "3.15 N42: a site from before 3.15 (key in the database) reads its data; the backups tab and Ready for 4.0 offer the move" \
+  "$(vault read)|$(grep -c vault_key "$WORK/web/config.php" || true)|$(curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"; grep -c 'action=vault_move' "$WORK/response")|$(curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=status"; grep -c 'šifrované klíčem uloženým v databázi' "$WORK/response")" \
+  "$VAULT_PLAIN|0|1|1"
+# config.php cannot be written: the exact line comes back once, nothing changes, the key is kept nowhere
+VAULT_BEFORE=$(vault_sealed); chmod 444 "$WORK/web/config.php"; vault_move; chmod 644 "$WORK/web/config.php"
+VAULT_NEW=$(grep -o 'id="vault-radek">[^<]*' "$WORK/response" | grep -o '[0-9a-f]\{64\}' | head -1 || true); VAULT_LINE="'vault_key' => '$VAULT_NEW'"
+expect "3.15 N42: with config.php not writable the line to add is shown, nothing changes and the key is in no table" \
+  "$([ -n "$VAULT_NEW" ] && echo line)|$(grep -c 'Kaleta nemůže klíč do config.php bezpečně zapsat' "$WORK/response")|$(grep -c vault_key "$WORK/web/config.php" || true)|$(vault_sealed)|$(sq "SELECT COUNT(*) FROM ka_nastaveni WHERE hodnota LIKE '%${VAULT_NEW:-none}%'")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE popis LIKE '%${VAULT_NEW:-none}%' OR akce = 'encryption key moved'")|$(vault read)" \
+  "line|1|0|$VAULT_BEFORE|0|0|$VAULT_PLAIN"
+# the administrator adds the line by hand; a failure while encrypting again (a table gone) rolls everything back
+php -r '$f = $argv[1]; file_put_contents($f, preg_replace("/return\s*(\[|array\s*\()/", "$0\n  " . $argv[2], (string) file_get_contents($f), 1));' "$WORK/web/config.php" "$VAULT_LINE,"; config_changed
+sq "RENAME TABLE ka_whistleblowing_messages TO ka_wm_315" > /dev/null; vault_move; sq "RENAME TABLE ka_wm_315 TO ka_whistleblowing_messages" > /dev/null
+expect "3.15 N42: a failed re-encryption rolls back: the old key stays in use, the data reads, Ready for 4.0 says the move is unfinished" \
+  "$(grep -c 'Přesun se nezdařil' "$WORK/response")|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'vault_check'")|$(vault_sealed)|$(vault read)|$(curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=status"; grep -c 'Dokončete přesun' "$WORK/response")" \
+  "1||$VAULT_BEFORE|$VAULT_PLAIN|1"
+vault_move
+expect "3.15 N42: the move encrypts the data again under the key in config.php, logs it and never writes the key into the database" \
+  "$(grep -c 'Šifrovací klíč je teď v config.php' "$WORK/response")|$([ "$(vault_sealed)" != "$VAULT_BEFORE" ] && echo resealed)|$(vault read)|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE akce = 'encryption key moved'")|$(sq "SELECT COUNT(*) FROM ka_nastaveni WHERE hodnota LIKE '%$VAULT_NEW%'")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE popis LIKE '%$VAULT_NEW%'")|$(curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"; grep -c "$VAULT_NEW" "$WORK/response" || true)" \
+  "1|resealed|$VAULT_PLAIN|1|0|0|0"
+# config.php without the key the data belongs to (a database restored elsewhere): nothing reads, System status says what to put back
+cp "$WORK/web/config.php" "$WORK/config-315.php"; php -r '$f = $argv[1]; file_put_contents($f, preg_replace("/\n\s*\x27vault_key\x27 => \x27[0-9a-f]{64}\x27,[^\n]*/", "", (string) file_get_contents($f)));' "$WORK/web/config.php"; config_changed
+expect "3.15 N42: without the key in config.php the data cannot be read and System status says to put the line back" \
+  "$(vault read)|$(curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=status"; grep -c 'Vraťte do něj řádek s vault_key' "$WORK/response")" "-|-|1"
+cp "$WORK/config-315.php" "$WORK/web/config.php"; config_changed
+# a writable config.php: one press writes the key and encrypts everything again
+vault legacy; vault_move
+expect "3.15 N42: with config.php writable one press writes a new key into it and moves the data; other lines of config.php stay" \
+  "$(grep -c 'Šifrovací klíč je teď v config.php' "$WORK/response")|$(grep -c "'vault_key' => '[0-9a-f]\{64\}'" "$WORK/web/config.php")|$([ "$(vault key)" != "$VAULT_NEW" ] && [ "$(vault key)" != "$VAULT_FIRST" ] && echo new)|$(grep -c "'prefix' =>" "$WORK/web/config.php")|$(vault read)" \
+  "1|1|new|1|$VAULT_PLAIN"
 # 3.2: the feature switched off closes the channel even with its own switch on; the cases stay
 sq "UPDATE ka_nastaveni SET hodnota = '$WB_EXT' WHERE promenna = 'extensions'" > /dev/null
 check "3.2 whistleblowing off: the public address is a 404 although the channel is set up" 404 "/_report"
@@ -4837,6 +5441,7 @@ mcp list_connectors '{}' > "$WORK/response"; mcp_text
 contains -q '"service":"bing","name":"Bing Webmaster Tools","auth":"token","connected":true' "$WORK/text" && ! contains -q 'bing-test-key' "$WORK/text" && echo "  ok     search: Claude sees Bing connected, never the key" || { echo "  CHYBA  list_connectors bing"; ERRORS=$((ERRORS+1)); }
 # the monthly report names the top queries of the month's last snapshot
 sq "INSERT INTO ka_search_stats (day, engine, kind, \`key\`, clicks, impressions, ctr, position) VALUES ('$(php -r 'echo (new DateTimeImmutable("last day of last month"))->format("Y-m-d");')', 'google', 'query', 'kaleta minulý měsíc', 15, 300, 5, 4.0)" > /dev/null
+sq "DELETE FROM ka_monthly_reports" > /dev/null # 3.16: built again with the snapshot above
 check "search: the monthly report mentions the top queries when the month has a snapshot" 200 "/admin.php?module=settings&action=report_preview" "kaleta minulý měsíc na Google"
 grep -q 'Hledání, která přivedla návštěvníky' "$WORK/response" && ! grep -q 'kaleta bing' "$WORK/response" && echo "  ok     search: only the queries of that month" || { echo "  CHYBA  monthly report: searches"; ERRORS=$((ERRORS+1)); }
 # a wrong key: the job reports it on the connection and does not throw while Google still works; the day's earlier Bing snapshot stays
@@ -5379,6 +5984,9 @@ sq "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'editor'
 expect "3.3.2 MCP: list_news and get_news without the News section show no drafts; with it they do" \
   "$(mcp_as "$EDITOR12_TOKEN" list_news '{"limit":50}' | grep -c 'N12 draft only')|$(mcp_as "$EDITOR12_TOKEN" get_news "{\"id\":$N12_DRAFT}" | grep -c '"isError":true')|$(mcp list_news '{"limit":50}' | grep -c 'N12 draft only')" "0|1|1"
 mcp trash_news "{\"id\":$N12_DRAFT}" > /dev/null
+# 3.15 (N71): the Notebook is a section – a user without it reads no notes over MCP, not even the pinned titles in site_info
+expect "3.15 N71: without the Notebook section read_notebook is refused and site_info names no pinned note; the admin still reads them" \
+  "$(mcp_as "$EDITOR12_TOKEN" read_notebook '{}' | grep -c 'no access to the Notebook')|$(mcp_as "$EDITOR12_TOKEN" site_info '{}' | grep -c 'Fotky z roku 2024')|$(mcp read_notebook '{}' | grep -c 'Fotky z roku 2024')|$(mcp site_info '{}' | grep -c 'Fotky z roku 2024')" "1|0|1|1"
 # 3.3.2 (N11): an author-level role with the Categories section cannot rename or delete a category in the admin (as over MCP)
 sq "UPDATE ka_uzivatele SET admin = 0, password = '$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")' WHERE user = 'n12-editor';
   INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, 'categories' FROM ka_uzivatele WHERE user = 'n12-editor'" > /dev/null
@@ -5447,6 +6055,9 @@ expect "schedules: custom instructions without a text are refused" "$(sq "SELECT
 mcp_as "$DRAFT_TOKEN" get_due_agent_runs '{}' > "$WORK/response"
 expect "schedules: nothing due – the drafts-only connection gets an empty list" "$(mcp_value count)" "0"
 sq "UPDATE ka_agent_schedules SET next_due = '$(site_time)' - INTERVAL 1 HOUR WHERE id = $SCHED" > /dev/null
+# 3.15 (N45): a read-only connection takes no run – it could never report it
+expect "3.15 N45: a read-only connection is refused by get_due_agent_runs and the due run stays for the routine" \
+  "$(mcp_as "$READ_TOKEN" get_due_agent_runs '{}' | grep -c 'read-only connection cannot take scheduled runs')|$(sq "SELECT COUNT(*) FROM ka_agent_runs WHERE schedule_id = $SCHED AND started_at IS NOT NULL")" "1|0"
 mcp_as "$DRAFT_TOKEN" get_due_agent_runs '{}' > "$WORK/response"; mcp_text
 RUN=$(mcp_value runs 0 id); RUN="${RUN:-0}"
 contains -q '"name":"Weekly review"' "$WORK/text" && contains -q 'Run site_audit' "$WORK/text" && contains -q 'Also: Only the Services pages.' "$WORK/text" && contains -q 'never publish' "$WORK/text" && contains -q '"connection":"drafts only' "$WORK/text" && echo "  ok     schedules: get_due_agent_runs hands the run out with the task text, the administrator's extra and the rules" || { echo "  CHYBA  get_due_agent_runs"; head -c 600 "$WORK/text"; ERRORS=$((ERRORS+1)); }
@@ -5468,6 +6079,134 @@ check "schedules: the list shows the last run status" 200 "/admin.php?module=sch
 check "schedules: the history shows the summary of the reported run" 200 "/admin.php?module=schedules&action=history&id=$SCHED" "Audit clean, two descriptions drafted."
 grep -q "href=\"$B/sluzby\"" "$WORK/response" && ! grep -q 'javascript:' "$WORK/response" && echo "  ok     schedules: the history links the draft, the bad link never got in" || { echo "  CHYBA  history link"; ERRORS=$((ERRORS+1)); }
 expect "schedules: tools/list of a drafts-only connection offers report_agent_run (catalog: draft)" "$(curl -s -X POST "$B/mcp" -H "Authorization: Bearer $DRAFT_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | grep -o '"name":"report_agent_run"' | wc -l | tr -d ' ')" "1"
+echo "== 3.18: whether Claude is connected – the header, Ask Claude, requests, Claude settings, health, the fleet heartbeat (Core\\ClaudeConnection)"
+# cc318: the state as the fleet heartbeat carries it and the console's claude_* reasons for attention: state|pickup|call|reasons
+cc318() { php -r 'chdir($argv[1]); require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $app->applyTimezone();
+  $beat = Kaleta\Fleet\Heartbeat::build($app); $c = $beat["claude_connection"] ?? [];
+  echo $c["state"] ?? "-", "|", $c["pickup"] ?? "-", "|", ($c["last_call"] ?? null) !== null ? "call" : "nocall", "|",
+    implode(",", array_filter(Kaleta\Fleet\Console::attention(["up" => 1, "last_seen" => date("Y-m-d H:i:s"), "status" => "ok", "heartbeat" => json_encode($beat)], time())["reasons"], fn ($r) => str_starts_with($r, "claude_")));' "$WORK/web"; }
+chip318() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php"; grep -o 'class="claude-stav claude-stav-[a-z]*"[^>]*><span class="claude-stav-tecka" aria-hidden="true"></span><span class="claude-stav-text">[^<]*' "$WORK/response" | sed 's/^class="claude-stav claude-stav-\([a-z]*\)".*claude-stav-text">/\1|/' || true; }
+# every connection is put aside for the section (back at its end): the site has none; one new request waits for three days
+sq "DROP TABLE IF EXISTS ka_tokeny_318, ka_rotated_318; CREATE TABLE ka_tokeny_318 AS SELECT * FROM ka_api_tokeny; CREATE TABLE ka_rotated_318 AS SELECT * FROM ka_oauth_rotated; DELETE FROM ka_api_tokeny; DELETE FROM ka_oauth_rotated;
+  INSERT INTO ka_requests (created_at, updated_at, author_id, title, text, status) SELECT '$(site_time '-3 days')', '$(site_time '-3 days')', idu, 'Čeká 318', 'Starý požadavek.', 'new' FROM ka_uzivatele WHERE user = 'admin'" > /dev/null
+expect "3.18: no connection – the header says Claude is not connected" "$(chip318)" "none|Claude nepřipojený"
+grep -q 'Claude není k tomuto webu připojený. Požadavek uložený teď počká, dokud Clauda někdo nepřipojí.' "$WORK/response" && grep -q '<button class="navigace" type="submit">Uložit na později</button>' "$WORK/response" \
+  && ! grep -q '>Poslat Claudovi<' "$WORK/response" && grep -q 'id="pripojit-claude"' "$WORK/response" \
+  && echo "  ok     3.18: Ask Claude warns, saves for later (no Send to Claude), the Connect Claude card leads" || { echo "  CHYBA  3.18: Ask Claude without a connection"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=requests&action=save" -d "_csrf=$(csrf)" -d quick=1 -d from=dashboard -d "text=Zkouška 318 bez připojení."
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php"
+grep -q 'class="hlaska hlaska-varovani" role="status">Uloženo jako požadavek č. [0-9]* – počká, dokud někdo Clauda k webu nepřipojí.' "$WORK/response" \
+  && echo "  ok     3.18: saving a request flashes that it waits" || { echo "  CHYBA  3.18: flash without a connection"; grep -o 'hlaska-[a-z]*" role="status">[^<]*' "$WORK/response" | head -3; ERRORS=$((ERRORS+1)); }
+check "3.18: the Requests list has the status line" 200 "/admin.php?module=requests" 'class="hlaska hlaska-varovani claude-upozorneni requests-stav"'
+tr -d '\n\t' < "$WORK/response" | grep -q '<tr class="ceka-dlouho"><td><a href="[^"]*"><strong>Čeká 318</strong></a> <span class="stitek stitek-chyba">čeká déle než 48 hodin</span>' \
+  && echo "  ok     3.18: a new request waiting over 48 hours is highlighted while Claude is not connected" || { echo "  CHYBA  3.18: the overdue request is not highlighted"; ERRORS=$((ERRORS+1)); }
+check "3.18: a new request saves for later" 200 "/admin.php?module=requests&action=new" '<button class="navigace" type="submit">Uložit na později</button>'
+check "3.18: Claude settings – the status panel says not connected and what to do" 200 "/admin.php?module=claude_settings" 'Připojte Clauda: v aplikaci Claude přidejte adresu níže'
+check "3.18: System status warns that requests wait while Claude is not connected" 200 "/admin.php?module=status" 'Požadavky čekají ([0-9]*), ale Claude není k webu připojený'
+expect "3.18: the heartbeat says none and the console asks for attention" "$(cc318)" "none|-|nocall|claude_not_connected"
+# an OAuth connection (as the Claude app makes it): the access token for an hour, the refresh token for a year
+CLIENT318="318a$(printf '0%.0s' $(seq 1 28))"; ACC318="kaleta_oa_$(printf 'c%.0s' $(seq 1 48))"; REF318="kaleta_or_$(printf 'd%.0s' $(seq 1 48))"
+sq "INSERT INTO ka_oauth_klienti (client_id, nazev, presmerovani, vytvoren, approved) VALUES ('$CLIENT318', 'Claude', '[\"https://claude.ai/api/mcp/auth_callback\"]', '$(site_time)', '$(site_time)');
+  INSERT INTO ka_api_tokeny (idu, nazev, klient, druh, access, expirace, otisk, vytvoren) SELECT idu, 'Claude', '$CLIENT318', 'pristup', 'full', '$(site_time '+1 hour')', SHA2('$ACC318', 256), '$(site_time '-100 days')' FROM ka_uzivatele WHERE user = 'admin';
+  INSERT INTO ka_api_tokeny (idu, nazev, klient, druh, access, expirace, otisk, vytvoren) SELECT idu, 'Claude', '$CLIENT318', 'obnova', 'full', '$(site_time '+300 days')', SHA2('$REF318', 256), '$(site_time '-100 days')' FROM ka_uzivatele WHERE user = 'admin'" > /dev/null
+expect "3.18: a connection nobody has called with yet is idle" "$(chip318)" "idle|Claude nečinný"
+# 3.18 audit N318-1: the site requires two-factor sign-in of administrators and the connected administrator has none – every
+# call is refused, so none counts: nothing is stamped, Claude is not connected, staff are not told a request was sent
+TOTP318=$(sq "SELECT totp_tajemstvi FROM ka_uzivatele WHERE user = 'admin'"); FIRST318=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'claude_first_used'")
+sq "UPDATE ka_uzivatele SET totp_tajemstvi = '' WHERE user = 'admin'" > /dev/null; setting require_2fa spravci; setting claude_first_used ''
+code=$(curl -s -o "$WORK/response" -w '%{http_code}' -X POST "$B/mcp" -H "Authorization: Bearer $ACC318" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}')
+expect "3.18 N318-1: a call refused for the missing two-factor sign-in stamps neither row nor the first call" \
+  "$code|$(sq "SELECT COUNT(*) FROM ka_api_tokeny WHERE klient = '$CLIENT318' AND pouzit IS NOT NULL")|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'claude_first_used'")" "403|0|"
+expect "3.18 N318-1: the refused connection is no connection – the heartbeat says none" "$(cc318)" "none|-|nocall|claude_not_connected"
+code=$(curl -s -b "$JAR_REQ" -c "$JAR_REQ" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?module=requests&action=new")
+expect "3.18 N318-1: staff see Claude not connected and Save for later, not Send to Claude" \
+  "$code|$(grep -c 'title="Claude nepřipojený"' "$WORK/response")|$(grep -c '<button class="navigace" type="submit">Uložit na později</button>' "$WORK/response")|$(grep -c 'Poslat Claudovi' "$WORK/response")" "200|1|1|0"
+sq "UPDATE ka_uzivatele SET totp_tajemstvi = 'JBSWY3DPEHPK3PXP' WHERE user = 'admin'" > /dev/null
+expect "3.18 N318-1: with two-factor sign-in on, the same connection counts again" "$(cc318 | cut -d'|' -f1)" "idle"
+sq "UPDATE ka_uzivatele SET totp_tajemstvi = '$TOTP318' WHERE user = 'admin'" > /dev/null; setting require_2fa ''; setting claude_first_used "$FIRST318"
+curl -s -X POST "$B/mcp" -H "Authorization: Bearer $ACC318" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' > /dev/null
+expect "3.18: a call stamps the access and the refresh row" "$(sq "SELECT CONCAT(druh, ':', pouzit IS NOT NULL) FROM ka_api_tokeny WHERE klient = '$CLIENT318' ORDER BY druh")" "$(printf 'obnova:1\npristup:1')"
+expect "3.18: after the call the header says connected" "$(chip318)" "active|Claude připojený"
+grep -q '<span class="claude-stav-kdy"> – poslední volání ' "$WORK/response" && grep -q '<button class="tl" type="submit">Poslat Claudovi</button>' "$WORK/response" && grep -q 'Claude si požadavky vezme, až se ho někdo zeptá v aplikaci Claude (poslední volání ' "$WORK/response" \
+  && echo "  ok     3.18: the last call is shown, Ask Claude sends again and says requests are read when someone asks Claude" || { echo "  CHYBA  3.18: connected dashboard"; ERRORS=$((ERRORS+1)); }
+# the stamp is written at most once a minute
+sq "UPDATE ka_api_tokeny SET pouzit = '$(site_time '-30 seconds')' WHERE klient = '$CLIENT318' AND druh = 'obnova'" > /dev/null
+curl -s -X POST "$B/mcp" -H "Authorization: Bearer $ACC318" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' > /dev/null
+R318=$(sq "SELECT pouzit > '$(site_time '-20 seconds')' FROM ka_api_tokeny WHERE klient = '$CLIENT318' AND druh = 'obnova'")
+sq "UPDATE ka_api_tokeny SET pouzit = '$(site_time '-2 minutes')' WHERE klient = '$CLIENT318' AND druh = 'obnova'" > /dev/null
+curl -s -X POST "$B/mcp" -H "Authorization: Bearer $ACC318" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' > /dev/null
+expect "3.18: the refresh row is stamped at most once a minute" "$R318|$(sq "SELECT pouzit > '$(site_time '-20 seconds')' FROM ka_api_tokeny WHERE klient = '$CLIENT318' AND druh = 'obnova'")" "0|1"
+# the regression of 3.17: an hour later the access row has expired and is cleaned up – the refresh keeps the last call
+CALL318="$(site_time '-2 hours')"
+sq "UPDATE ka_api_tokeny SET pouzit = '$CALL318' WHERE klient = '$CLIENT318'; DELETE FROM ka_api_tokeny WHERE klient = '$CLIENT318' AND druh = 'pristup'" > /dev/null
+curl -s -o "$WORK/token318.json" -X POST "$B/oauth/token" -d grant_type=refresh_token -d "refresh_token=$REF318" -d "client_id=$CLIENT318"
+ACC318=$(grep -o '"access_token":"[a-z0-9_]*"' "$WORK/token318.json" | sed 's/.*:"//;s/"//' || true)
+expect "3.18: an OAuth refresh carries the last call over to the new access and refresh token" "$([ -n "$ACC318" ] && echo new)|$(sq "SELECT GROUP_CONCAT(CONCAT(druh, ':', pouzit = '$CALL318') ORDER BY druh) FROM ka_api_tokeny WHERE klient = '$CLIENT318'")" "new|obnova:1,pristup:1"
+expect "3.18: after the refresh the header still says connected" "$(chip318)" "active|Claude připojený"
+expect "3.18: the hygiene check does not count a live OAuth connection as unused (created 100 days ago, called 2 hours ago)" \
+  "$(php -r 'chdir($argv[1]); require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $app->applyTimezone(); echo count(array_filter(Kaleta\Core\SecurityHygiene::findings($app)["unused_connections"], fn ($c) => $c["id"] === $argv[2]));' "$WORK/web" "$CLIENT318")" "0"
+# 3.18 audit N318-2: refreshes of one connection are limited – a refresh every hour for a day is fine, a loop gets
+# 429 slow_down after 30 within an hour, its refresh token stays valid and works once the hour has moved on
+REF318=$(grep -o '"refresh_token":"[a-z0-9_]*"' "$WORK/token318.json" | sed 's/.*:"//;s/"//' || true)
+sq "INSERT INTO ka_oauth_rotated (hash, client_id, idu, salt, rotated_at, expires_at) SELECT SHA2(CONCAT('hourly318-', h.n), 256), '$CLIENT318', u.idu, REPEAT('0', 64), '$(site_time)' - INTERVAL h.n HOUR, '$(site_time '+20 days')'
+  FROM ka_uzivatele u, (SELECT 2 AS n UNION SELECT 3 UNION SELECT 5 UNION SELECT 8 UNION SELECT 12 UNION SELECT 16 UNION SELECT 20 UNION SELECT 24) h WHERE u.user = 'admin'" > /dev/null
+N318=0; LIMIT318=""
+for i318 in $(seq 1 40); do
+  code=$(curl -s -o "$WORK/token318.json" -D "$WORK/headers318" -w '%{http_code}' -X POST "$B/oauth/token" -d grant_type=refresh_token -d "refresh_token=$REF318" -d "client_id=$CLIENT318")
+  if [ "$code" != 200 ]; then LIMIT318="$code|$(grep -o '"error":"[a-z_]*"' "$WORK/token318.json")|$(grep -ci '^retry-after: [0-9]' "$WORK/headers318")"; break; fi
+  N318=$((N318+1)); REF318=$(grep -o '"refresh_token":"[a-z0-9_]*"' "$WORK/token318.json" | sed 's/.*:"//;s/"//' || true)
+done
+expect "3.18 N318-2: after a day of hourly refreshes a loop gets 29 more (30 within the hour), then 429 slow_down with Retry-After" "$N318|$LIMIT318" '29|429|"error":"slow_down"|1'
+expect "3.18 N318-2: the limited refresh token is not rotated – it stays valid" "$(sq "SELECT COUNT(*) FROM ka_api_tokeny WHERE otisk = SHA2('$REF318', 256) AND druh = 'obnova'")" "1"
+sq "UPDATE ka_oauth_rotated SET rotated_at = rotated_at - INTERVAL 1 HOUR WHERE client_id = '$CLIENT318'" > /dev/null
+curl -s -o "$WORK/token318.json" -X POST "$B/oauth/token" -d grant_type=refresh_token -d "refresh_token=$REF318" -d "client_id=$CLIENT318"
+ACC318=$(grep -o '"access_token":"[a-z0-9_]*"' "$WORK/token318.json" | sed 's/.*:"//;s/"//' || true)
+expect "3.18 N318-2: once the hour has moved on the same refresh token works again" "$([ -n "$ACC318" ] && echo new)" "new"
+# no call for 8 days: idle (the refresh above counts as a call too – Claude refreshes only to call the site)
+sq "UPDATE ka_api_tokeny SET pouzit = '$(site_time '-8 days')' WHERE klient = '$CLIENT318'; UPDATE ka_oauth_rotated SET rotated_at = '$(site_time '-8 days')' WHERE client_id = '$CLIENT318'" > /dev/null
+expect "3.18: no call for 8 days – idle" "$(chip318)" "idle|Claude nečinný"
+check "3.18: Claude settings – connected but idle, requests only when someone asks" 200 "/admin.php?module=claude_settings" 'Claude je připojený, ale nečinný'
+grep -q 'class="hlaska claude-panel hlaska-varovani"' "$WORK/response" && grep -q 'vyřídí je Claude, až se ho někdo zeptá v aplikaci Claude' "$WORK/response" && grep -q 'Claude web nevolal už 7 dní' "$WORK/response" \
+  && echo "  ok     3.18: the panel shows the pickup and what to do" || { echo "  CHYBA  3.18: idle panel"; ERRORS=$((ERRORS+1)); }
+# a scheduled run of the task "requests": picked up automatically
+sq "UPDATE ka_api_tokeny SET pouzit = '$(site_time '-5 minutes')' WHERE klient = '$CLIENT318';
+  INSERT INTO ka_agent_schedules (name, task, text, cadence, day, time, active, next_due, created_at) VALUES ('Requests 318', 'requests', '', 'daily', 1, '07:00', 1, '$(site_time '+1 day')', '$(site_time)')" > /dev/null
+SCHED318=$(sq "SELECT id FROM ka_agent_schedules WHERE name = 'Requests 318'")
+mcp_as "$ACC318" get_health '{}' > "$WORK/response"
+expect "3.18: get_health – claude_connection active, picked up automatically" "$(mcp_value claude_connection state)|$(mcp_value claude_connection pickup)|$([ -n "$(mcp_value claude_connection last_call)" ] && echo call)" "active|automatic|call"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php"
+grep -q 'class="smltxt ask-claude-kdy">Plánovaný běh vyřizuje požadavky ' "$WORK/response" && ! grep -q 'claude-upozorneni' "$WORK/response" \
+  && echo "  ok     3.18: with the scheduled run Ask Claude says when requests are picked up, no warning" || { echo "  CHYBA  3.18: automatic pickup on the dashboard"; ERRORS=$((ERRORS+1)); }
+expect "3.18: the heartbeat – active, automatic, the last call, no attention" "$(cc318)" "active|automatic|call|"
+# the scheduled run missed: stalled – requests wait
+sq "INSERT INTO ka_agent_runs (schedule_id, due_at, finished_at, status) VALUES ($SCHED318, '$(site_time '-2 hours')', '$(site_time '-1 hour')', 'missed')" > /dev/null
+expect "3.18: the run missed – the header says requests wait" "$(chip318)" "stalled|Claude: požadavky čekají"
+grep -q 'Naplánovaný běh, který vyřizuje požadavky, neběží (naposledy zmeškaný nebo neúspěšný ' "$WORK/response" && echo "  ok     3.18: Ask Claude warns that the scheduled run is not running" || { echo "  CHYBA  3.18: stalled warning"; ERRORS=$((ERRORS+1)); }
+check "3.18: System status warns that requests wait for a scheduled run that does not run" 200 "/admin.php?module=status" 'ale naplánovaný běh, který je vyřizuje, neběží'
+expect "3.18: the heartbeat – stalled, the console asks for attention" "$(cc318)" "active|stalled|call|claude_run_stalled"
+mcp_as "$ACC318" get_health '{}' > "$WORK/response"
+expect "3.18: get_health – pickup stalled" "$(mcp_value claude_connection pickup)" "stalled"
+# every connection revoked: none again – 3.18 audit N318-3: the connection refreshed 5 minutes ago is disconnected in My
+# account, its rotation records go with it and nothing says "last call 5 minutes ago"
+sq "UPDATE ka_oauth_rotated SET rotated_at = '$(site_time '-5 minutes')' WHERE client_id = '$CLIENT318'; UPDATE ka_agent_schedules SET active = 0 WHERE id = $SCHED318" > /dev/null
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=account"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?action=account" -d "_csrf=$(csrf)" -d "odpojit_klient=$CLIENT318"
+expect "3.18 N318-3: disconnecting the application deletes its tokens and its rotation records" "$(sq "SELECT COUNT(*) FROM ka_api_tokeny WHERE klient = '$CLIENT318'")|$(sq "SELECT COUNT(*) FROM ka_oauth_rotated WHERE client_id = '$CLIENT318'")" "0|0"
+# a record left behind (a revocation before 3.18, a blocked account) does not count once its connection has no live token:
+# with a personal token never called with the site is idle, without a last call
+sq "INSERT INTO ka_oauth_rotated (hash, client_id, idu, salt, rotated_at, expires_at) SELECT SHA2('left318', 256), '$CLIENT318', idu, REPEAT('0', 64), '$(site_time '-5 minutes')', '$(site_time '+20 days')' FROM ka_uzivatele WHERE user = 'admin';
+  INSERT INTO ka_api_tokeny (idu, nazev, druh, access, expirace, otisk, vytvoren) SELECT idu, 'Token 318', 'token', 'drafts', NULL, SHA2('token318', 256), '$(site_time)' FROM ka_uzivatele WHERE user = 'admin'" > /dev/null
+expect "3.18 N318-3: a revoked connection's record is not a last call" "$(chip318)|$(grep -c 'claude-stav-kdy"> – zatím žádné volání' "$WORK/response")|$(grep -c 'poslední volání' "$WORK/response")|$(cc318)" "idle|Claude nečinný|1|0|idle|manual|nocall|"
+sq "UPDATE ka_uzivatele SET blokovat = 1 WHERE user = 'recepce'; INSERT INTO ka_api_tokeny (idu, nazev, druh, access, expirace, otisk, vytvoren, pouzit) SELECT idu, 'Blocked 318', 'token', 'drafts', NULL, SHA2('blocked318', 256), '$(site_time)', '$(site_time '-1 minute')' FROM ka_uzivatele WHERE user = 'recepce'" > /dev/null
+expect "3.18 N318-3: a blocked account's token is neither a connection nor a last call" "$(cc318)" "idle|manual|nocall|"
+sq "DELETE FROM ka_api_tokeny WHERE otisk IN (SHA2('token318', 256), SHA2('blocked318', 256)); DELETE FROM ka_oauth_rotated WHERE hash = SHA2('left318', 256); UPDATE ka_uzivatele SET blokovat = 0 WHERE user = 'recepce'" > /dev/null
+expect "3.18: every connection revoked – not connected again" "$(chip318)" "none|Claude nepřipojený"
+grep -q 'id="pripojit-claude"' "$WORK/response" && echo "  ok     3.18: the Connect Claude card is back" || { echo "  CHYBA  3.18: no card after revoking"; ERRORS=$((ERRORS+1)); }
+# a user with only Requests sees the state too and is sent to an administrator
+code=$(curl -s -b "$JAR_REQ" -c "$JAR_REQ" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?module=requests&action=new")
+expect "3.18: a staff user sees the chip (it leads to Requests) and is asked to turn to an administrator" "$code|$(grep -c 'href="/admin.php?module=requests" title="Claude nepřipojený"' "$WORK/response")|$(grep -c 'Požádejte správce, aby Clauda připojil.' "$WORK/response")" "200|1|1"
+sq "DELETE FROM ka_agent_schedules WHERE id = $SCHED318; DELETE FROM ka_oauth_klienti WHERE client_id = '$CLIENT318'; DELETE FROM ka_requests WHERE title IN ('Čeká 318', 'Zkouška 318 bez připojení.');
+  DELETE FROM ka_oauth_rotated; INSERT INTO ka_api_tokeny SELECT * FROM ka_tokeny_318; INSERT INTO ka_oauth_rotated SELECT * FROM ka_rotated_318; DROP TABLE ka_tokeny_318, ka_rotated_318" > /dev/null
 echo "== 3.2: what a drafts-only connection may save, and Waiting for you (Core\\PendingReview)"
 # collection items: a new one is always hidden, a hidden one may change, a visible one may not
 mcp_as "$DRAFT_TOKEN" save_collection_item '{"collection":"tym","name":"Navrh Clena","values":{"funkce":"Stolar"},"visible":true}' > "$WORK/response"; mcp_text
@@ -6397,8 +7136,10 @@ echo "== 2.9: monthly report by e-mail"
 REPORT_MAILS() { sq "SELECT COUNT(*) FROM ka_posta WHERE predmet LIKE '%Zpráva o webu%' OR predmet LIKE '%Website report%'"; }
 LAST_MONTH=$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format("Y-m");')
 sq "INSERT INTO ka_nastaveni VALUES ('report_monthly','1'),('report_recipients','owner@example.cz'),('report_last_month','') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)" > /dev/null
-curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=mail"; TOKEN=$(csrf)
-grep -q 'name="report_recipients"' "$WORK/response" && grep -q 'action=report_preview' "$WORK/response" && grep -q 'action=report_send' "$WORK/response" && echo "  ok     Settings → Mail has the monthly report with its preview and send buttons" || { echo "  CHYBA  Mail tab: monthly report"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=mail"; grep -q 'tab=reports' "$WORK/response" && ! grep -q 'name="report_recipients"' "$WORK/response" \
+  && echo "  ok     3.16: Settings → Mail points to the Reports tab" || { echo "  CHYBA  3.16 Mail tab: the pointer to Reports"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=reports"; TOKEN=$(csrf)
+grep -q 'name="report_recipients"' "$WORK/response" && grep -q 'action=report_preview' "$WORK/response" && grep -q 'action=report_send' "$WORK/response" && echo "  ok     Settings → Reports has the monthly e-mail with its preview and send buttons" || { echo "  CHYBA  Reports tab: monthly report"; ERRORS=$((ERRORS+1)); }
 check "the preview is the e-mail of the last month with the site name" 200 "/admin.php?module=settings&action=report_preview" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_name'")"
 grep -q 'max-width:600px' "$WORK/response" && grep -q 'Studio Test' "$WORK/response" && ! grep -q 'spravce@example.cz' "$WORK/response" && echo "  ok     the preview is an inline-styled e-mail with the agency, without the site e-mail" || { echo "  CHYBA  report preview"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=report_send" -d "_csrf=$TOKEN"
@@ -6414,10 +7155,108 @@ expect "the job sends the previous month once: two runs, one more report" "$(( $
 grep -q "monthly_report: sent to 1" "$WORK/tasks.txt" && grep -q "monthly_report: sent already" "$WORK/tasks2.txt" && echo "  ok     the job reports what it did" || { echo "  CHYBA  monthly_report job"; cat "$WORK/tasks.txt" "$WORK/tasks2.txt"; ERRORS=$((ERRORS+1)); }
 expect "report.sent events carry the month and the count, never an address" "$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'report.sent' AND data LIKE '%\"month\":\"$LAST_MONTH\"%' AND data NOT LIKE '%@%'")" "2"
 # recipients are validated on save: one bad address rejects the field, good ones are kept one per line
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$TOKEN" -d tab=mail -d mail_mode=mail -d report_monthly=1 --data-urlencode "report_recipients=owner@example.cz, nonsense"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$TOKEN" -d tab=reports -d report_monthly=1 --data-urlencode "report_recipients=owner@example.cz, nonsense"
 expect "recipients: an invalid address is not saved" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'report_recipients'")" "owner@example.cz"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$TOKEN" -d tab=mail -d mail_mode=mail --data-urlencode "report_recipients=owner@example.cz, agentura@example.cz"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$TOKEN" -d tab=reports --data-urlencode "report_recipients=owner@example.cz, agentura@example.cz"
 expect "recipients: valid addresses are saved one per line, the switch off when unchecked" "$(sq "SELECT CONCAT(REPLACE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'report_recipients'), '\n', '|'), ':', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'report_monthly'))")" "owner@example.cz|agentura@example.cz:0"
+
+echo "== 3.16: the archive of the monthly reports"
+# what happened last month: a request (its title names an address), an update, firewall blocks, failed sign-ins, changes by
+# a person and by Claude – the job stores the month once, whether or not the e-mail is on; nothing personal gets in
+sq "DELETE FROM ka_monthly_reports; UPDATE ka_jobs SET last_run = NULL WHERE name = 'report_archive'; UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'report_monthly';
+  INSERT INTO ka_requests (created_at, updated_at, author_id, title, text, status, done_at) SELECT '$LAST_MONTH-03 10:00:00', '$LAST_MONTH-04 10:00:00', idu, 'Opening hours 316 – ask visitor316@example.org', 'x', 'done', '$LAST_MONTH-04 10:00:00' FROM ka_uzivatele WHERE user = 'admin';
+  INSERT INTO ka_events (created_at, type, severity, message, data) VALUES ('$LAST_MONTH-10 04:00:00', 'update.applied', 'info', 'Version 3.16.0 was installed (from 3.15.4).', '{\"version\":\"3.16.0\",\"from\":\"3.15.4\"}');
+  INSERT INTO ka_firewall_log (created_at, ip, reason, path) VALUES ('$LAST_MONTH-11 01:00:00', '203.0.113.9', 'probe', '/wp-login.php'), ('$LAST_MONTH-12 01:00:00', '203.0.113.9', 'probe', '/.env');
+  INSERT INTO ka_protokol (cas, kdo, jmeno, via, modul, akce, popis) VALUES ('$LAST_MONTH-05 09:00:00', NULL, 'x', '', 'prihlaseni', 'neuspech', 'account: someone@example.org'),
+    ('$LAST_MONTH-05 09:10:00', 1, 'Admin', '', 'pages', 'save', 'Home'), ('$LAST_MONTH-06 09:00:00', 1, 'Admin', 'Claude 316', 'claude', 'save_collection_item', 'x'),
+    ('$LAST_MONTH-07 09:00:00', 1, 'Admin', '', 'whistleblowing', 'status', 'W316: closed');
+  INSERT INTO ka_agent_schedules (name, task, text, cadence, day, time, active, next_due, created_at) VALUES ('Triage 316 for Jana Nováková', 'triage', '', 'weekly', 1, '07:00', 0, NULL, '$LAST_MONTH-01 08:00:00');
+  INSERT INTO ka_agent_runs (schedule_id, due_at, finished_at, status, summary) SELECT id, '$LAST_MONTH-08 07:00:00', '$LAST_MONTH-08 07:20:00', 'ok', 'Triaged 4: Jana Nováková (+420 777 316 999) wants a roof in Brno' FROM ka_agent_schedules WHERE name = 'Triage 316 for Jana Nováková';
+  INSERT INTO ka_monthly_reports (month, created_at, schema_version, data) VALUES ('2001-01', '2001-02-01 00:00:00', 1, '{}')" > /dev/null
+curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
+sq "UPDATE ka_jobs SET last_run = NULL WHERE name = 'report_archive'" > /dev/null
+curl -s -o "$WORK/tasks2.txt" "$B/ulohy?token=testtoken123"
+grep -q "report_archive: stored $LAST_MONTH, removed 1" "$WORK/tasks.txt" && grep -q "report_archive: stored already" "$WORK/tasks2.txt" \
+  && echo "  ok     the job stores the previous month once with the e-mail off, and removes months older than 24" || { echo "  CHYBA  3.16 report_archive job"; grep report_archive "$WORK/tasks.txt" "$WORK/tasks2.txt"; ERRORS=$((ERRORS+1)); }
+expect "the archive: one row for last month, none for 2001" "$(sq "SELECT CONCAT(SUM(month = '$LAST_MONTH'), '|', SUM(month = '2001-01'), '|', MAX(schema_version)) FROM ka_monthly_reports")" "1|0|1"
+expect "the stored JSON: the request, the update, the firewall and the sign-in counts, the areas – and no \"@\" anywhere" \
+  "$(sq "SELECT CONCAT(data LIKE '%Opening hours 316%', data LIKE '%\"from\":\"3.15.4\"%', data LIKE '%\"probe\":2%', data LIKE '%\"failed_sign_ins\":1%', data LIKE '%\"collections\":{\"people\":0,\"claude\":1}%', LOCATE('@', data) = 0) FROM ka_monthly_reports WHERE month = '$LAST_MONTH'")" "111111"
+expect "3.16 N316-1/-3/-9: scheduled runs by task and result only (no name, no summary), no whistleblowing change counted, moments as ISO 8601 with the offset" \
+  "$(sq "SELECT CONCAT(data LIKE '%\"run_tasks\":{\"triage\":{\"ok\":1}}%', LOCATE('Nováková', data) = 0, LOCATE('316 999', data) = 0, LOCATE('Brno', data) = 0, LOCATE('\"other\"', data) = 0,
+    data REGEXP '\"generated_at\":\"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[+-][0-9]{2}:[0-9]{2}\"') FROM ka_monthly_reports WHERE month = '$LAST_MONTH'")" "111111"
+check "Settings → Reports lists the stored month" 200 "/admin.php?module=settings&tab=reports" "action=report_view&amp;month=$LAST_MONTH"
+grep -q 'action=report_download&amp;month=' "$WORK/response" && grep -q 'action=report_rebuild' "$WORK/response" && grep -q 'data-potvrdit=' "$WORK/response" && TOKEN=$(csrf) \
+  && echo "  ok     each month: view, download, send and rebuild (with a warning)" || { echo "  CHYBA  3.16 Reports tab actions"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -D "$WORK/headers" -o "$WORK/response" "$B/admin.php?module=settings&action=report_view&month=$LAST_MONTH"
+grep -q 'size: A4' "$WORK/response" && grep -q 'counter(pages)' "$WORK/response" && grep -q 'data-tisk' "$WORK/response" && grep -q 'Opening hours 316' "$WORK/response" && ! grep -q 'example.org' "$WORK/response" \
+  && grep -qi "content-security-policy: default-src 'none'" "$WORK/headers" && echo "  ok     the printable page: A4, page numbers, the Print button, its own CSP, nothing personal" || { echo "  CHYBA  3.16 report_view"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -D "$WORK/headers" -o "$WORK/response" "$B/admin.php?module=settings&action=report_download&month=$LAST_MONTH"
+grep -qi "content-disposition: attachment; filename=\"website-report-[a-z0-9.-]*-$LAST_MONTH.html\"" "$WORK/headers" && grep -q '<h1>' "$WORK/response" && ! grep -q '<script' "$WORK/response" \
+  && echo "  ok     download: the same page as an HTML file, without the script" || { echo "  CHYBA  3.16 report_download"; grep -i disposition "$WORK/headers"; ERRORS=$((ERRORS+1)); }
+check "a month that is not archived: 404" 404 "/admin.php?module=settings&action=report_view&month=1999-01"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=report_rebuild" -d "_csrf=$TOKEN" -d "month=$LAST_MONTH"
+expect "rebuild from the data still available: the row is replaced and marked" "$(sq "SELECT rebuilt_at IS NOT NULL FROM ka_monthly_reports WHERE month = '$LAST_MONTH'")" "1"
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&action=report_view&month=$LAST_MONTH"
+grep -q 'when the report was rebuilt – not at the end of the month\|kdy byla zpráva znovu sestavena – ne ke konci měsíce' "$WORK/response" && ! grep -q 'Co čekalo na konci měsíce\|Waiting at the end of the month' "$WORK/response" \
+  && echo "  ok     3.16 N316-7: a rebuilt report says that what waits, the problems and the audit are from the day of the rebuild" || { echo "  CHYBA  N316-7 rebuilt report labels"; ERRORS=$((ERRORS+1)); }
+# sending an older archived month never makes the job send the last one twice
+OLDER=$(php -r 'echo (new DateTimeImmutable("first day of -3 months"))->format("Y-m");')
+sq "INSERT INTO ka_monthly_reports (month, created_at, schema_version, data) VALUES ('$OLDER', '$(site_time)', 1, '{\"month\":\"$OLDER\"}'); UPDATE ka_nastaveni SET hodnota = '$LAST_MONTH' WHERE promenna = 'report_last_month'" > /dev/null
+BEFORE=$(REPORT_MAILS)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=report_send" -d "_csrf=$TOKEN" -d "month=$OLDER"
+expect "send by e-mail an archived month: queued, the last sent month kept" "$(( $(REPORT_MAILS) - BEFORE ))|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'report_last_month'")" "2|$LAST_MONTH"
+expect "a news author may not view or download reports" "$(curl -s -b "$JAR2" -o /dev/null -w '%{http_code}' "$B/admin.php?module=settings&action=report_view&month=$LAST_MONTH")|$(curl -s -b "$JAR2" -o /dev/null -w '%{http_code}' "$B/admin.php?module=settings&action=report_download&month=$LAST_MONTH")" "403|403"
+mcp list_monthly_reports '{}' > "$WORK/response"
+expect "MCP list_monthly_reports: the months, newest first" "$(mcp_value reports 0 month)|$(mcp_value kept_months)" "$LAST_MONTH|24"
+mcp get_monthly_report "{\"month\":\"$LAST_MONTH\"}" > "$WORK/response"
+expect "MCP get_monthly_report: the data and the printable page" "$(mcp_value report month)|$(mcp_value report requests done_count)|$(mcp_value print_url | grep -c "action=report_view&month=$LAST_MONTH")" "$LAST_MONTH|1|1"
+contains -q 'example.org' "$WORK/response" && { echo "  CHYBA  3.16 MCP report carries an address"; ERRORS=$((ERRORS+1)); } || echo "  ok     MCP: nothing personal in the report"
+AUTHOR316="kaleta_$(printf 'c%.0s' $(seq 1 48))"
+sq "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'author 316', '$(php -r 'echo hash("sha256", $argv[1]);' "$AUTHOR316")', '$(site_time)' FROM ka_uzivatele WHERE user = 'autor'" > /dev/null
+mcp_as "$AUTHOR316" get_monthly_report "{\"month\":\"$LAST_MONTH\"}" > "$WORK/response"
+contains -q '"isError":true' "$WORK/response" && contains -q 'administrator' "$WORK/response" && echo "  ok     MCP: a non-administrator is refused the reports" || { echo "  CHYBA  3.16 MCP refuses non-admins"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+sq "DELETE FROM ka_requests WHERE title LIKE 'Opening hours 316%'; DELETE FROM ka_api_tokeny WHERE nazev = 'author 316'; DELETE FROM ka_events WHERE type = 'update.applied' AND message = 'Version 3.16.0 was installed (from 3.15.4).';
+  DELETE FROM ka_firewall_log WHERE ip = '203.0.113.9' AND created_at LIKE '$LAST_MONTH-%'; DELETE FROM ka_protokol WHERE via = 'Claude 316' OR (modul = 'prihlaseni' AND popis = 'account: someone@example.org') OR popis = 'W316: closed';
+  DELETE FROM ka_agent_schedules WHERE name = 'Triage 316 for Jana Nováková'" > /dev/null
+
+echo "== 3.15: the same site on the English table names (as 4.0 renames them) and back – the rollback target of 4.0"
+# tools/rename-tables.php renames every table of names.php in one RENAME TABLE; the site is not told – it must notice by
+# itself (Core\Db: a missing table, one look at information_schema, a marker in storage/cache), as after a rollback from 4.0
+renamed_pass() { # <label> <settings table> <pages table>
+  local l="$1" settings="ka_$2" pages="ka_$3" jar="$WORK/jar-names-$3" t code
+  rm -f "$WORK"/web/storage/cache/stranky/*.html
+  check "$l: home page" 200 "/"
+  check "$l: a page" 200 "/kontakty"
+  check "$l: news" 200 "/novinky"
+  check "$l: sitemap" 200 "/sitemap.xml"
+  rm -f "$jar"; curl -s -c "$jar" -b "$jar" -o "$WORK/response" "$B/admin.php"; t=$(csrf)
+  code=$(curl -s -b "$jar" -c "$jar" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$t" -d user=admin --data-urlencode "password=$PASSWORD")
+  expect "$l: sign-in with a new session" "$code|$(curl -s -b "$jar" -o /dev/null -w '%{http_code}' "$B/admin.php")" "302|200"
+  check "$l: admin dashboard" 200 "/admin.php"
+  for m in pages news collections menu redirects media users; do check "$l: admin $m" 200 "/admin.php?module=$m"; done
+  check "$l: Settings → General" 200 "/admin.php?module=settings&tab=general"
+  check "$l: System status with Ready for 4.0" 200 "/admin.php?module=status" 'ready-4'
+  mcp list_collections '{}' > "$WORK/response"; contains -F '"result"' "$WORK/response" && ! contains -F '"isError":true' "$WORK/response" && echo "  ok     $l: MCP list_collections" || { echo "  CHYBA  $l: MCP list_collections"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+  mcp create_page "{\"title\":\"Names $3\"}" > "$WORK/response"
+  expect "$l: MCP create_page writes into $pages" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM $pages WHERE titulek = 'Names $3'")" "1"
+  mcp list_pages '{}' > "$WORK/response"; contains -F "Names $3" "$WORK/response" && echo "  ok     $l: MCP list_pages reads it back" || { echo "  CHYBA  $l: MCP list_pages"; ERRORS=$((ERRORS+1)); }
+  # the last two migrations once more: their files name ka_stitky and ka_uzivatele – on renamed tables they must find ka_tags
+  # and ka_users (and skip what is already there), not stop the admin with a missing table
+  "${MYSQL[@]}" "$DB_NAME" -e "UPDATE $settings SET hodnota = '$((LAST_MIGRATION - 2))' WHERE promenna = 'db_version'"
+  check "$l: the admin runs pending migrations" 200 "/admin.php"
+  ! contains -F 'hlaska-chyba' "$WORK/response" && expect "$l: migrations ran on these tables" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM $settings WHERE promenna = 'db_version'")" "$LAST_MIGRATION" \
+    || { echo "  CHYBA  $l: a migration failed"; ERRORS=$((ERRORS+1)); }
+}
+sq "DELETE FROM ka_kontrola_ip WHERE typ = 'login'" > /dev/null
+expect "3.15: rename to the English names (one RENAME TABLE)" "$(php "$ROOT/tools/rename-tables.php" "$WORK/web" english | sed 's/ tables.*//')|$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN ('ka_novinky', 'ka_news', 'ka_nastaveni', 'ka_settings')")" \
+  "$(php -r '$n = 0; foreach (require $argv[1] as $t => [$e]) { $n += $e !== $t ? 1 : 0; } echo $n;' "$ROOT/system/sql/names.php")|2"
+renamed_pass "3.15 English table names" settings pages
+mcp get_health '{}' > "$WORK/response"
+contains -F 'table_names' "$WORK/response" && contains -F 'already have their English names' "$WORK/response" && echo "  ok     3.15: Ready for 4.0 (get_health) says the tables have their English names" || { echo "  CHYBA  3.15: table_names in get_health"; ERRORS=$((ERRORS+1)); }
+expect "3.15: the site remembers the renamed tables (the marker in storage/cache)" "$(ls "$WORK"/web/storage/cache/tables-english-* 2>/dev/null | wc -l | tr -d ' ')" "1"
+expect "3.15: rename back to today's names" "$(php "$ROOT/tools/rename-tables.php" "$WORK/web" today | sed 's/ tables.*//')" "$(php -r '$n = 0; foreach (require $argv[1] as $t => [$e]) { $n += $e !== $t ? 1 : 0; } echo $n;' "$ROOT/system/sql/names.php")"
+renamed_pass "3.15 today's table names again" nastaveni stranky
+expect "3.15: back on today's names the marker is gone and both pages are there" "$(ls "$WORK"/web/storage/cache/tables-english-* 2>/dev/null | wc -l | tr -d ' ')|$(sq "SELECT COUNT(*) FROM ka_stranky WHERE titulek IN ('Names pages', 'Names stranky')")" "0|2"
 
 echo "== instalace aktualizace (testovací klíč a kanál)"
 cat > "$WORK/vydani-test.php" <<'PHP'
@@ -6434,15 +7273,15 @@ $zip = new ZipArchive();
 $zip->open(dirname($site) . '/kanal/k.zip', ZipArchive::CREATE | ZipArchive::OVERWRITE);
 $zip->addFromString('image/test-aktualizace.txt', "nova verze\n");
 $zip->addFromString('.htaccess', "# htaccess nove verze\n");
-// the core of the package says it is 9.9.9 – the check after the update (2.8) asks the site which version runs
-$bootstrap = (string) preg_replace("/const KALETA_VERSION = '[^']*';/", "const KALETA_VERSION = '9.9.9';", (string) file_get_contents($site . '/system/bootstrap.php'));
+// the core of the package says it is 3.99.9 – the check after the update (2.8) asks the site which version runs
+$bootstrap = (string) preg_replace("/const KALETA_VERSION = '[^']*';/", "const KALETA_VERSION = '3.99.9';", (string) file_get_contents($site . '/system/bootstrap.php'));
 $zip->addFromString('system/bootstrap.php', $bootstrap); // balíček musí nést jádro
 $zip->addFromString('index.php', (string) file_get_contents($site . '/index.php'));
 $zip->addFromString('system/aktualizace.pub', (string) file_get_contents($site . '/system/aktualizace.pub')); // the same test key: tools/check-channel.php checks the keys of the package
 $zip->close();
 $sha = hash_file('sha256', dirname($site) . '/kanal/k.zip');
 // signed as tools/release.php signs: v1 ("podpis") and v2 over every field ("podpis2", 3.9)
-$m = Kaleta\Core\Signature::signManifest(['verze' => '9.9.9', 'vydano' => date('Y-m-d'), 'url' => "http://127.0.0.1:$port/k.zip", 'sha256' => $sha, 'min_php' => PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION, 'zmeny' => ['test']], $sk);
+$m = Kaleta\Core\Signature::signManifest(['verze' => '3.99.9', 'vydano' => date('Y-m-d'), 'url' => "http://127.0.0.1:$port/k.zip", 'sha256' => $sha, 'min_php' => PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION, 'zmeny' => ['test']], $sk);
 file_put_contents(dirname($site) . '/kanal/ok.json', json_encode($m));
 // 3.3.2 (N40): the same release, genuinely signed as a security release (the source changes its answer between check and installation)
 file_put_contents(dirname($site) . '/kanal/ok-bezpecnostni.json', json_encode(Kaleta\Core\Signature::signManifest(['bezpecnostni' => true] + $m, $sk)));
@@ -6475,26 +7314,26 @@ file_put_contents(dirname($site) . '/kanal/novephp.json', json_encode(Kaleta\Cor
 // 3.8 (D3): release channels – folders with aktualizace.json (latest) and aktualizace-stable.json next to it, one key
 $signed = fn (string $version, string $channel): array => Kaleta\Core\Signature::signManifest(['verze' => $version, 'kanal' => $channel] + $m, $sk);
 $channels = [
-    'kanaly' => [$signed('9.9.10', 'latest'), $signed('9.9.9', 'stable')],   // latest 9.9.10, stable 9.9.9
-    'pozadu' => [$signed('9.9.10', 'latest'), $signed('1.0.0', 'stable')],   // the stable line is behind the site
-    'spatne' => [$signed('9.9.10', 'latest'), $signed('9.9.10', 'latest')],  // a wrong redirect: the latest manifest at the stable address
-    'bez' => [$signed('9.9.10', 'latest'), null],                            // no stable channel published yet
+    'kanaly' => [$signed('3.99.10', 'latest'), $signed('3.99.9', 'stable')],   // latest 3.99.10, stable 3.99.9
+    'pozadu' => [$signed('3.99.10', 'latest'), $signed('1.0.0', 'stable')],   // the stable line is behind the site
+    'spatne' => [$signed('3.99.10', 'latest'), $signed('3.99.10', 'latest')],  // a wrong redirect: the latest manifest at the stable address
+    'bez' => [$signed('3.99.10', 'latest'), null],                            // no stable channel published yet
     // 3.9 (N38-3): a genuine latest release relabelled "stable" at the stable address – the channel is signed, v2 fails
-    'podvrh' => [$signed('9.9.10', 'latest'), ['kanal' => 'stable'] + $signed('9.9.10', 'latest')],
+    'podvrh' => [$signed('3.99.10', 'latest'), ['kanal' => 'stable'] + $signed('3.99.10', 'latest')],
     // the manifest published today (3.8.0, written before v2 existed): the daily check keeps passing on its v1 signature
     'stary' => [array_diff_key($signed('3.8.0', 'latest'), ['podpis2' => 1]), null],
     // 3.10 (N39-7): a manifest signed 50 days ago (sites warn at 60, the check two weeks earlier) and one without a signed date
-    'zastaraly' => [Kaleta\Core\Signature::signManifest(['verze' => '9.9.10', 'kanal' => 'latest', 'vydano' => date('Y-m-d', time() - 50 * 86400)] + $m, $sk), null],
-    'nedatovany' => [Kaleta\Core\Signature::signManifest(['verze' => '9.9.10', 'kanal' => 'latest', 'vydano' => ''] + $m, $sk), null],
-    'budouci' => [Kaleta\Core\Signature::signManifest(['verze' => '9.9.10', 'kanal' => 'latest', 'vydano' => '2099-12-31'] + $m, $sk), null],
+    'zastaraly' => [Kaleta\Core\Signature::signManifest(['verze' => '3.99.10', 'kanal' => 'latest', 'vydano' => date('Y-m-d', time() - 50 * 86400)] + $m, $sk), null],
+    'nedatovany' => [Kaleta\Core\Signature::signManifest(['verze' => '3.99.10', 'kanal' => 'latest', 'vydano' => ''] + $m, $sk), null],
+    'budouci' => [Kaleta\Core\Signature::signManifest(['verze' => '3.99.10', 'kanal' => 'latest', 'vydano' => '2099-12-31'] + $m, $sk), null],
 ];
 // 3.10 (N39-7): one source answering with a newer, then an older signed manifest (a replay), a v1-only one, and one
 // published 70 days ago (System status warns after 60)
 $replay = [
-    'novy' => $signed('9.9.10', 'latest'),
-    'starsi' => Kaleta\Core\Signature::signManifest(['verze' => '9.9.9', 'kanal' => 'latest', 'vydano' => date('Y-m-d', time() - 7 * 86400)] + $m, $sk),
+    'novy' => $signed('3.99.10', 'latest'),
+    'starsi' => Kaleta\Core\Signature::signManifest(['verze' => '3.99.9', 'kanal' => 'latest', 'vydano' => date('Y-m-d', time() - 7 * 86400)] + $m, $sk),
     'v1' => array_diff_key($signed('3.8.0', 'latest'), ['podpis2' => 1]),
-    'stary-datum' => Kaleta\Core\Signature::signManifest(['verze' => '9.9.10', 'kanal' => 'latest', 'vydano' => date('Y-m-d', time() - 70 * 86400)] + $m, $sk),
+    'stary-datum' => Kaleta\Core\Signature::signManifest(['verze' => '3.99.10', 'kanal' => 'latest', 'vydano' => date('Y-m-d', time() - 70 * 86400)] + $m, $sk),
 ];
 foreach ($replay as $name => $manifest) {
     file_put_contents(dirname($site) . '/kanal/replay-' . $name . '.json', json_encode($manifest));
@@ -6502,8 +7341,8 @@ foreach ($replay as $name => $manifest) {
 // 3.10 (N310-1): genuine manifests of both channels to serve at the wrong address; (N310-3) one dated far in the future
 $dated = fn (string $version, string $channel, int $daysAgo): array => Kaleta\Core\Signature::signManifest(['verze' => $version, 'kanal' => $channel, 'vydano' => date('Y-m-d', time() - $daysAgo * 86400)] + $m, $sk);
 @mkdir(dirname($site) . '/kanal/krizem');
-foreach (['latest-10' => $dated('9.9.10', 'latest', 10), 'latest-0' => $dated('9.9.10', 'latest', 0), 'stable-20' => $dated('9.9.9', 'stable', 20), 'stable-5' => $dated('9.9.11', 'stable', 5),
-    'budouci' => Kaleta\Core\Signature::signManifest(['verze' => '9.9.10', 'kanal' => 'latest', 'vydano' => '2099-12-31'] + $m, $sk)] as $name => $manifest) {
+foreach (['latest-10' => $dated('3.99.10', 'latest', 10), 'latest-0' => $dated('3.99.10', 'latest', 0), 'stable-20' => $dated('3.99.9', 'stable', 20), 'stable-5' => $dated('3.99.11', 'stable', 5),
+    'budouci' => Kaleta\Core\Signature::signManifest(['verze' => '3.99.10', 'kanal' => 'latest', 'vydano' => '2099-12-31'] + $m, $sk)] as $name => $manifest) {
     file_put_contents(dirname($site) . '/kanal/krizem-' . $name . '.json', json_encode($manifest));
 }
 foreach ($channels as $folder => [$latest, $stable]) {
@@ -6512,7 +7351,35 @@ foreach ($channels as $folder => [$latest, $stable]) {
     if ($stable !== null) {
         file_put_contents(dirname($site) . '/kanal/' . $folder . '/aktualizace-stable.json', json_encode($stable));
     }
+}// 3.15: a major version has its own manifest next to aktualizace.json – a 4.0.0 package (its bootstrap says 4.0.0)
+$next = new ZipArchive();
+$next->open(dirname($site) . '/kanal/k4.zip', ZipArchive::CREATE | ZipArchive::OVERWRITE);
+$next->addFromString('image/test-aktualizace4.txt', "kaleta 4\n");
+$next->addFromString('system/bootstrap.php', (string) preg_replace("/const KALETA_VERSION = '[^']*';/", "const KALETA_VERSION = '4.0.0';", (string) file_get_contents($site . '/system/bootstrap.php')));
+$next->addFromString('index.php', (string) file_get_contents($site . '/index.php'));
+$next->addFromString('system/aktualizace.pub', (string) file_get_contents($site . '/system/aktualizace.pub'));
+$next->close();
+$m4 = Kaleta\Core\Signature::signManifest(['verze' => '4.0.0', 'kanal' => 'latest', 'url' => "http://127.0.0.1:$port/k4.zip", 'sha256' => hash_file('sha256', dirname($site) . '/kanal/k4.zip'),
+    'zmeny' => ['Tables renamed to their English names']] + $m, $sk);
+foreach ([
+    'velka' => [$signed('3.99.10', 'latest'), Kaleta\Core\Signature::signManifest(['bezpecnostni' => true] + $m4, $sk)], // the line has a newer release; 4.0.0 even marked security
+    'velka2' => [$signed('3.99.9', 'latest'), $m4],                                                                      // the site runs the newest 3.x
+    'velka3' => [$m4, null],                                                                                             // 4.0.0 at the regular address by mistake
+    'velka4' => [null, $m4],                                                                                             // N315-3: the line's own source is broken
+] as $folder => [$regular, $major]) {
+    @mkdir(dirname($site) . '/kanal/' . $folder);
+    file_put_contents(dirname($site) . '/kanal/' . $folder . '/aktualizace.json', $regular === null ? '{' : json_encode($regular));
+    if ($major !== null) {
+        file_put_contents(dirname($site) . '/kanal/' . $folder . '/aktualizace-4.json', json_encode($major));
+    }
 }
+// N315-8: a 4.x release in the stable file of the 3.x line (read by stable sites 3.8–3.14, which have no major guard) and a
+// 3.x release in the stable file of the 4.x line – tools/check-channel.php must refuse both
+@mkdir(dirname($site) . '/kanal/velka5');
+file_put_contents(dirname($site) . '/kanal/velka5/aktualizace.json', json_encode($signed('3.99.9', 'latest')));
+file_put_contents(dirname($site) . '/kanal/velka5/aktualizace-stable.json', json_encode(Kaleta\Core\Signature::signManifest(['kanal' => 'stable'] + $m4, $sk)));
+file_put_contents(dirname($site) . '/kanal/velka5/aktualizace-4.json', json_encode($m4));
+file_put_contents(dirname($site) . '/kanal/velka5/aktualizace-4-stable.json', json_encode($signed('3.99.9', 'stable')));
 PHP
 # the channel on its own server: the built-in PHP server handles only one request at a time, it could not download from itself
 CHANNEL_PORT=$((PORT + 1))
@@ -6528,7 +7395,7 @@ update_from zly.json
 # 3.7: a site on an older PHP than the release needs is not offered it (it says which PHP it needs) and cannot install it
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('update_url','http://127.0.0.1:$CHANNEL_PORT/novephp.json') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'"
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"
-contains -F 'PHP 99.0' "$WORK/response" && ! contains -F 'value="9.9.9"' "$WORK/response" && echo "  ok     3.7: a release for a newer PHP is not offered, the page names the PHP it needs" || { echo "  CHYBA  3.7: release for a newer PHP offered"; ERRORS=$((ERRORS+1)); }
+contains -F 'PHP 99.0' "$WORK/response" && ! contains -F 'value="3.99.9"' "$WORK/response" && echo "  ok     3.7: a release for a newer PHP is not offered, the page names the PHP it needs" || { echo "  CHYBA  3.7: release for a newer PHP offered"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
 contains -F '99.0' "$WORK/response" && echo "  ok     3.7: system health names the PHP the new version needs" || { echo "  CHYBA  3.7: health does not say which PHP the update needs"; ERRORS=$((ERRORS+1)); }
 update_from novephp.json
@@ -6538,7 +7405,7 @@ update_from novephp.json
 for f in prepnuty bezv2; do
   "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('update_url','http://127.0.0.1:$CHANNEL_PORT/$f.json') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'"
   curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"
-  contains -F 'Informace o aktualizaci není podepsaná vydavatelem Kalety' "$WORK/response" && ! contains -F 'value="9.9.9"' "$WORK/response" && echo "  ok     3.9 manifest v2 ($f): the manifest is refused, nothing is offered" || { echo "  CHYBA  3.9 manifest v2 ($f): offered"; ERRORS=$((ERRORS+1)); }
+  contains -F 'Informace o aktualizaci není podepsaná vydavatelem Kalety' "$WORK/response" && ! contains -F 'value="3.99.9"' "$WORK/response" && echo "  ok     3.9 manifest v2 ($f): the manifest is refused, nothing is offered" || { echo "  CHYBA  3.9 manifest v2 ($f): offered"; ERRORS=$((ERRORS+1)); }
   update_from "$f.json"
   [ ! -f "$WORK/web/image/test-aktualizace.txt" ] && echo "  ok     3.9 manifest v2 ($f): nothing installs" || { echo "  CHYBA  3.9 manifest v2 ($f): installed"; ERRORS=$((ERRORS+1)); }
 done
@@ -6557,12 +7424,12 @@ update_from rozbity.json
 sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_attempt'" > /dev/null
 # 3.3.2 (N40): the version the administrator saw must be the one the source offers when installing
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('update_url','http://127.0.0.1:$CHANNEL_PORT/ok.json') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=update" -d "_csrf=$TOKEN" -d verze=9.9.8
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=update" -d "_csrf=$TOKEN" -d verze=3.99.8
 [ ! -f "$WORK/web/image/test-aktualizace.txt" ] && echo "  ok     3.3.2: an update offering another version than the one shown is not installed" || { echo "  CHYBA  installed a version the administrator did not choose"; ERRORS=$((ERRORS+1)); }
 # 3.14: … and the screen then shows the version the source offers, so the next click installs it (kaletacms.com kept
 # offering 3.12.1 for 12 hours while the source had 3.13.1, and every click failed the same way)
-expect "3.14: after a refused update the screen shows the version the source offers now" "$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '\$.manifest.verze')) FROM ka_nastaveni WHERE promenna = 'update_cache'")" "9.9.9"
-# the automatic installation decided on a manifest that called 9.9.9 a security release; when installing, the source answers
+expect "3.14: after a refused update the screen shows the version the source offers now" "$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '\$.manifest.verze')) FROM ka_nastaveni WHERE promenna = 'update_cache'")" "3.99.9"
+# the automatic installation decided on a manifest that called 3.99.9 a security release; when installing, the source answers
 # with the genuine regular release (signed without the flag) – nothing may be installed
 cat > "$WORK/kanal/flip.php" <<'PHP'
 <?php
@@ -6577,14 +7444,14 @@ sq "INSERT INTO ka_nastaveni VALUES ('auto_updates', '1') ON DUPLICATE KEY UPDAT
   UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('update_cache', 'update_attempt');
   UPDATE ka_jobs SET last_run = NULL WHERE name = 'updates'" > /dev/null
 curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
-[ ! -f "$WORK/web/image/test-aktualizace.txt" ] && grep -q 'updates: failed 9.9.9' "$WORK/tasks.txt" && echo "  ok     3.3.2: a security flag the signed package does not carry stops the automatic installation" || { echo "  CHYBA  automatic installation on an unverified security flag"; grep updates "$WORK/tasks.txt"; ERRORS=$((ERRORS+1)); }
+[ ! -f "$WORK/web/image/test-aktualizace.txt" ] && grep -q 'updates: failed 3.99.9' "$WORK/tasks.txt" && echo "  ok     3.3.2: a security flag the signed package does not carry stops the automatic installation" || { echo "  CHYBA  automatic installation on an unverified security flag"; grep updates "$WORK/tasks.txt"; ERRORS=$((ERRORS+1)); }
 sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('update_attempt', 'update_cache'); UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'auto_updates'" > /dev/null
 # 3.8 (D3): release channels – Latest (default) reads aktualizace.json, Stable the signed aktualizace-stable.json next to it
 channel_source() { sq "INSERT INTO ka_nastaveni VALUES ('update_url','http://127.0.0.1:$CHANNEL_PORT/$1') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'" > /dev/null; }
 backups_page() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"; }
 channel_source kanaly/aktualizace.json; backups_page
 expect "3.8 channels: an existing site stays on Latest" "$(sq "SELECT COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'update_channel'), 'latest')")|$(contains -F 'name="update_channel" value="latest" checked' "$WORK/response" && echo checked)" "latest|checked"
-contains -F 'value="9.9.10"' "$WORK/response" && echo "  ok     3.8 channels: Latest offers the newest version (9.9.10)" || { echo "  CHYBA  3.8 channels: Latest does not offer 9.9.10"; ERRORS=$((ERRORS+1)); }
+contains -F 'value="3.99.10"' "$WORK/response" && echo "  ok     3.8 channels: Latest offers the newest version (3.99.10)" || { echo "  CHYBA  3.8 channels: Latest does not offer 3.99.10"; ERRORS=$((ERRORS+1)); }
 TOKEN=$(csrf)
 # the channel is chosen on the Backups and updates tab; the checkboxes of the tab are sent as they are
 backups_save() { curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$TOKEN" -d tab=backups -d "update_channel=$1" \
@@ -6593,12 +7460,12 @@ backups_save beta; backups_page # the refused value is shown back once for corre
 expect "3.8 channels: an unknown channel is not saved" "$(sq "SELECT COUNT(*) FROM ka_nastaveni WHERE promenna = 'update_channel' AND hodnota = 'beta'")" "0"
 backups_save stable; sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'" > /dev/null; backups_page
 expect "3.8 channels: the site switched to Stable" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'update_channel'")" "stable"
-contains -F 'value="9.9.9"' "$WORK/response" && ! contains -F 'value="9.9.10"' "$WORK/response" && contains -F 'name="update_channel" value="stable" checked' "$WORK/response" \
-  && echo "  ok     3.8 channels: Stable offers the stable manifest (9.9.9), never the newer latest one" || { echo "  CHYBA  3.8 channels: Stable offers the wrong version"; ERRORS=$((ERRORS+1)); }
+contains -F 'value="3.99.9"' "$WORK/response" && ! contains -F 'value="3.99.10"' "$WORK/response" && contains -F 'name="update_channel" value="stable" checked' "$WORK/response" \
+  && echo "  ok     3.8 channels: Stable offers the stable manifest (3.99.9), never the newer latest one" || { echo "  CHYBA  3.8 channels: Stable offers the wrong version"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
 contains -F 'Kanál aktualizací' "$WORK/response" && contains -F 'Stabilní – jen bezpečnostní opravy' "$WORK/response" && echo "  ok     3.8 channels: System status names the channel" || { echo "  CHYBA  3.8 channels: System status does not name the channel"; ERRORS=$((ERRORS+1)); }
 mcp get_health '{}' > "$WORK/response"; GH="$(mcp_value update channel)|$(mcp_value update available)"
-mcp site_info '{}' > "$WORK/response"; expect "3.8 channels: MCP get_health and site_info say the channel and the offered version" "$GH|$(mcp_value update_channel)" "stable|9.9.9|stable"
+mcp site_info '{}' > "$WORK/response"; expect "3.8 channels: MCP get_health and site_info say the channel and the offered version" "$GH|$(mcp_value update_channel)" "stable|3.99.9|stable"
 # a site that switched to Stable while it runs a newer version than the stable line: no downgrade, it waits and says so
 channel_source pozadu/aktualizace.json; backups_page
 contains -F 'novější než stabilní kanál (1.0.0)' "$WORK/response" && ! contains -F 'value="1.0.0"' "$WORK/response" && echo "  ok     3.8 channels: a site ahead of the stable line is offered no downgrade and told why" || { echo "  CHYBA  3.8 channels: ahead of the stable line"; ERRORS=$((ERRORS+1)); }
@@ -6607,52 +7474,59 @@ mcp get_health '{}' > "$WORK/response"
 expect "3.8 channels: no downgrade is installed; get_health says the site is ahead of the stable line" "$([ -f "$WORK/web/image/test-aktualizace.txt" ] && echo installed || echo kept)|$(mcp_value update ahead_of_stable)" "kept|1.0.0"
 # the latest manifest at the stable address (a wrong redirect): nothing is offered nor installed
 channel_source spatne/aktualizace.json; backups_page
-contains -F 'nenabízí vydání stabilního kanálu' "$WORK/response" && ! contains -F 'value="9.9.10"' "$WORK/response" && echo "  ok     3.8 channels: a latest manifest at the stable address offers nothing" || { echo "  CHYBA  3.8 channels: wrong manifest on the stable channel"; ERRORS=$((ERRORS+1)); }
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=update" -d "_csrf=$TOKEN" -d verze=9.9.10
+contains -F 'nenabízí vydání stabilního kanálu' "$WORK/response" && ! contains -F 'value="3.99.10"' "$WORK/response" && echo "  ok     3.8 channels: a latest manifest at the stable address offers nothing" || { echo "  CHYBA  3.8 channels: wrong manifest on the stable channel"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=update" -d "_csrf=$TOKEN" -d verze=3.99.10
 [ ! -f "$WORK/web/image/test-aktualizace.txt" ] && echo "  ok     3.8 channels: a latest manifest at the stable address does not install" || { echo "  CHYBA  3.8 channels: installed a latest release on the stable channel"; ERRORS=$((ERRORS+1)); }
 # 3.9 (N38-3): a genuine latest release relabelled "stable" at the stable address – the channel is signed (v2), so it is refused
 channel_source podvrh/aktualizace.json; backups_page
-contains -F 'není podepsaná vydavatelem Kalety' "$WORK/response" && ! contains -F 'value="9.9.10"' "$WORK/response" && echo "  ok     3.9 channels: a latest release relabelled stable is refused (the channel is signed)" || { echo "  CHYBA  3.9 channels: relabelled stable manifest offered"; ERRORS=$((ERRORS+1)); }
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=update" -d "_csrf=$TOKEN" -d verze=9.9.10
+contains -F 'není podepsaná vydavatelem Kalety' "$WORK/response" && ! contains -F 'value="3.99.10"' "$WORK/response" && echo "  ok     3.9 channels: a latest release relabelled stable is refused (the channel is signed)" || { echo "  CHYBA  3.9 channels: relabelled stable manifest offered"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=update" -d "_csrf=$TOKEN" -d verze=3.99.10
 [ ! -f "$WORK/web/image/test-aktualizace.txt" ] && echo "  ok     3.9 channels: a latest release relabelled stable does not install" || { echo "  CHYBA  3.9 channels: installed a relabelled release on the stable channel"; ERRORS=$((ERRORS+1)); }
 # a custom source with another file name has no stable twin: the site follows it as before, whatever the channel
 channel_source ok.json; backups_page
-contains -F 'nemá proto stabilní protějšek' "$WORK/response" && contains -F 'value="9.9.9"' "$WORK/response" && echo "  ok     3.8 channels: a custom source without a stable twin keeps working on Stable" || { echo "  CHYBA  3.8 channels: custom source on Stable"; ERRORS=$((ERRORS+1)); }
+contains -F 'nemá proto stabilní protějšek' "$WORK/response" && contains -F 'value="3.99.9"' "$WORK/response" && echo "  ok     3.8 channels: a custom source without a stable twin keeps working on Stable" || { echo "  CHYBA  3.8 channels: custom source on Stable"; ERRORS=$((ERRORS+1)); }
 # tools/check-channel.php checks both manifests (signature, package, keys, the channel mark) and skips a stable one not yet published
 for c in kanaly spatne bez podvrh stary; do
   if php "$WORK/web/tools/check-channel.php" "http://127.0.0.1:$CHANNEL_PORT/$c/aktualizace.json" > "$WORK/channel-$c.txt" 2>&1; then echo ok >> "$WORK/channel-$c.txt"; else echo failed >> "$WORK/channel-$c.txt"; fi
 done
 expect "3.8 check-channel: both manifests pass, a latest one at the stable address fails, a missing stable one is skipped" \
-  "$(tail -1 "$WORK/channel-kanaly.txt")|$(contains -F 'aktualizace-stable.json – nabízená verze: 9.9.9' "$WORK/channel-kanaly.txt" && echo stable)|$(tail -1 "$WORK/channel-spatne.txt")|$(contains -F '"kanal": "stable"' "$WORK/channel-spatne.txt" && echo why)|$(tail -1 "$WORK/channel-bez.txt")|$(contains -F '404' "$WORK/channel-bez.txt" && echo skipped)" \
+  "$(tail -1 "$WORK/channel-kanaly.txt")|$(contains -F 'aktualizace-stable.json – nabízená verze: 3.99.9' "$WORK/channel-kanaly.txt" && echo stable)|$(tail -1 "$WORK/channel-spatne.txt")|$(contains -F '"kanal": "stable"' "$WORK/channel-spatne.txt" && echo why)|$(tail -1 "$WORK/channel-bez.txt")|$(contains -F '404' "$WORK/channel-bez.txt" && echo skipped)" \
   "ok|stable|failed|why|ok|skipped"
 [ "$(tail -1 "$WORK/channel-kanaly.txt")" = ok ] || cat "$WORK/channel-kanaly.txt"
 expect "3.9 check-channel: a relabelled stable manifest fails on signature v2; a pre-3.9 manifest without v2 passes on v1" \
   "$(tail -1 "$WORK/channel-podvrh.txt")|$(contains -F 'podpis v2 (podpis2) NEPLATÍ' "$WORK/channel-podvrh.txt" && echo why)|$(tail -1 "$WORK/channel-stary.txt")|$(contains -F 'bez podpisu v2' "$WORK/channel-stary.txt" && echo noted)" \
   "failed|why|ok|noted"
+if php "$WORK/web/tools/check-channel.php" "http://127.0.0.1:$CHANNEL_PORT/velka2/aktualizace.json" > "$WORK/channel-velka2.txt" 2>&1; then echo ok >> "$WORK/channel-velka2.txt"; else echo failed >> "$WORK/channel-velka2.txt"; fi
+if php "$WORK/web/tools/check-channel.php" "http://127.0.0.1:$CHANNEL_PORT/velka5/aktualizace.json" > "$WORK/channel-velka5.txt" 2>&1; then echo ok >> "$WORK/channel-velka5.txt"; else echo failed >> "$WORK/channel-velka5.txt"; fi
+expect "3.15 check-channel (N315-8): a 3.x line with its own 4.x line passes; a 4.x release in aktualizace-stable.json and a 3.x one in aktualizace-4-stable.json fail" \
+  "$(tail -1 "$WORK/channel-velka2.txt")|$(contains -F 'aktualizace-4-stable.json: the stable channel of Kaleta 4 is not published yet' "$WORK/channel-velka2.txt" && echo skipped)|$(tail -1 "$WORK/channel-velka5.txt")|$(contains -F 'must never be in aktualizace-stable.json' "$WORK/channel-velka5.txt" && echo stable3)|$(contains -F 'aktualizace-4-stable.json: offers 3.99.9' "$WORK/channel-velka5.txt" && echo stable4)" \
+  "ok|skipped|failed|stable3|stable4"
+[ "$(tail -1 "$WORK/channel-velka2.txt")" = ok ] || cat "$WORK/channel-velka2.txt"
 for c in zastaraly nedatovany budouci; do
   if php "$WORK/web/tools/check-channel.php" "http://127.0.0.1:$CHANNEL_PORT/$c/aktualizace.json" > "$WORK/channel-$c.txt" 2>&1; then echo ok >> "$WORK/channel-$c.txt"; else echo failed >> "$WORK/channel-$c.txt"; fi
 done
+# (the fresh manifest is dated in the site's zone, its age counted in UTC – -1, 0 or 1 day around midnight, never the shell's date)
 expect "3.10 check-channel: a manifest signed 50 days ago fails (re-sign two weeks before sites warn), one without a signed date fails, a fresh one says its date" \
-  "$(tail -1 "$WORK/channel-zastaraly.txt")|$(contains -F 'sign the manifest again' "$WORK/channel-zastaraly.txt" && echo why)|$(tail -1 "$WORK/channel-nedatovany.txt")|$(contains -F 'release date (vydano' "$WORK/channel-nedatovany.txt" && echo why)|$(contains -F "published $(date +%Y-%m-%d) (0 days ago)" "$WORK/channel-kanaly.txt" && echo dated)" \
+  "$(tail -1 "$WORK/channel-zastaraly.txt")|$(contains -F 'sign the manifest again' "$WORK/channel-zastaraly.txt" && echo why)|$(tail -1 "$WORK/channel-nedatovany.txt")|$(contains -F 'release date (vydano' "$WORK/channel-nedatovany.txt" && echo why)|$(contains -E "published [0-9]{4}-[0-9]{2}-[0-9]{2} \(-?[01] days ago\)" "$WORK/channel-kanaly.txt" && echo dated)" \
   "failed|why|failed|why|dated"
 expect "3.10 check-channel (N310-3): a signed date in the future fails" "$(tail -1 "$WORK/channel-budouci.txt")|$(contains -F 'lies in the future' "$WORK/channel-budouci.txt" && echo why)" "failed|why"
 sq "UPDATE ka_nastaveni SET hodnota = 'latest' WHERE promenna = 'update_channel'" > /dev/null
-# 3.10 (N39-7): manifest freshness – the source first gives 9.9.10, then replays an older, validly signed 9.9.9 (and a
+# 3.10 (N39-7): manifest freshness – the source first gives 3.99.10, then replays an older, validly signed 3.99.9 (and a
 # v1-only 3.8.0): refused as a stale manifest, said so, nothing offered or installed; the newer one is accepted again
 replay_serve() { cp "$WORK/kanal/replay-$1.json" "$WORK/kanal/replay.json"; sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'" > /dev/null; }
 replay_serve novy; channel_source replay.json; backups_page
 ! contains -F 'Obnovit historii aktualizací' "$WORK/response" && echo "  ok     3.11 UX310-10: a healthy update state offers no reset of the update history" || { echo "  CHYBA  3.11: the reset button shows in the normal state"; ERRORS=$((ERRORS+1)); }
-expect "3.10 freshness: a new signed manifest is offered and remembered for its source" "$(contains -F 'value="9.9.10"' "$WORK/response" && echo offered)|$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '\$.\"http://127.0.0.1:$CHANNEL_PORT/replay.json#latest\".verze')) FROM ka_nastaveni WHERE promenna = 'update_seen'")" "offered|9.9.10"
+expect "3.10 freshness: a new signed manifest is offered and remembered for its source" "$(contains -F 'value="3.99.10"' "$WORK/response" && echo offered)|$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '\$.\"http://127.0.0.1:$CHANNEL_PORT/replay.json#latest\".verze')) FROM ka_nastaveni WHERE promenna = 'update_seen'")" "offered|3.99.10"
 replay_serve starsi; backups_page
-contains -F 'starší informací o aktualizaci (verze 9.9.9' "$WORK/response" && ! contains -F 'value="9.9.9"' "$WORK/response" && echo "  ok     3.10 freshness: an older signed manifest of the same source is refused as stale and nothing is offered" || { echo "  CHYBA  3.10 freshness: a replayed older manifest was not refused"; ERRORS=$((ERRORS+1)); }
+contains -F 'starší informací o aktualizaci (verze 3.99.9' "$WORK/response" && ! contains -F 'value="3.99.9"' "$WORK/response" && echo "  ok     3.10 freshness: an older signed manifest of the same source is refused as stale and nothing is offered" || { echo "  CHYBA  3.10 freshness: a replayed older manifest was not refused"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
 contains -F 'starší informací o aktualizaci' "$WORK/response" && ! contains -F 'zdroj aktualizací neodpovídá' "$WORK/response" && echo "  ok     3.10 freshness: System status names the stale manifest (not an unreachable source)" || { echo "  CHYBA  3.10 freshness: System status"; ERRORS=$((ERRORS+1)); }
-replay_serve starsi; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=update" -d "_csrf=$TOKEN" -d verze=9.9.9
+replay_serve starsi; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=update" -d "_csrf=$TOKEN" -d verze=3.99.9
 replay_serve v1; backups_page
-expect "3.10 freshness: the stale one does not install; a v1-only manifest after a v2 one is stale too; the remembered one stays 9.9.10" \
-  "$([ -f "$WORK/web/image/test-aktualizace.txt" ] && echo installed || echo kept)|$(contains -F 'starší informací o aktualizaci (verze 3.8.0' "$WORK/response" && echo stale)|$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '\$.\"http://127.0.0.1:$CHANNEL_PORT/replay.json#latest\".verze')) FROM ka_nastaveni WHERE promenna = 'update_seen'")" "kept|stale|9.9.10"
+expect "3.10 freshness: the stale one does not install; a v1-only manifest after a v2 one is stale too; the remembered one stays 3.99.10" \
+  "$([ -f "$WORK/web/image/test-aktualizace.txt" ] && echo installed || echo kept)|$(contains -F 'starší informací o aktualizaci (verze 3.8.0' "$WORK/response" && echo stale)|$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '\$.\"http://127.0.0.1:$CHANNEL_PORT/replay.json#latest\".verze')) FROM ka_nastaveni WHERE promenna = 'update_seen'")" "kept|stale|3.99.10"
 replay_serve novy; backups_page
-contains -F 'value="9.9.10"' "$WORK/response" && ! contains -F 'starší informací' "$WORK/response" && echo "  ok     3.10 freshness: once the source is current again, the update is offered" || { echo "  CHYBA  3.10 freshness: current source after a stale answer"; ERRORS=$((ERRORS+1)); }
+contains -F 'value="3.99.10"' "$WORK/response" && ! contains -F 'starší informací' "$WORK/response" && echo "  ok     3.10 freshness: once the source is current again, the update is offered" || { echo "  CHYBA  3.10 freshness: current source after a stale answer"; ERRORS=$((ERRORS+1)); }
 # the newest update information is 70 days old: System status warns (only a warning – it is still offered); 3.11 (UX310-3):
 # the Updates row itself says so – never a green "up to date" next to it – and Backups and updates shows the same words,
 # with Reset update history under Troubleshooting (UX310-10)
@@ -6671,25 +7545,25 @@ kriz() { cp "$WORK/kanal/krizem-$1.json" "$WORK/kanal/krizem/$2"; sq "UPDATE ka_
 seen_kriz() { sq "SELECT CONCAT_WS('|', JSON_UNQUOTE(JSON_EXTRACT(hodnota, '\$.\"http://127.0.0.1:$CHANNEL_PORT/krizem/$1#$2\".verze')), JSON_LENGTH(hodnota)) FROM ka_nastaveni WHERE promenna = 'update_seen'"; }
 sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_seen'; UPDATE ka_nastaveni SET hodnota = 'stable' WHERE promenna = 'update_channel'" > /dev/null
 kriz stable-20 aktualizace-stable.json; channel_source krizem/aktualizace.json; backups_page
-B1="$(contains -F 'value="9.9.9"' "$WORK/response" && echo offered)"
+B1="$(contains -F 'value="3.99.9"' "$WORK/response" && echo offered)"
 kriz latest-0 aktualizace-stable.json; backups_page
 B2="$(contains -F 'nenabízí vydání stabilního kanálu' "$WORK/response" && echo refused)|$(seen_kriz aktualizace-stable.json stable)"
 kriz stable-5 aktualizace-stable.json; backups_page
 expect "3.10 channels (N310-1): Stable – the latest manifest served at the stable address is refused and not remembered; a new stable release after it is offered" \
-  "$B1|$B2|$(contains -F 'value="9.9.11"' "$WORK/response" && ! contains -F 'starší informací' "$WORK/response" && echo offered)" "offered|refused|9.9.9|1|offered"
+  "$B1|$B2|$(contains -F 'value="3.99.11"' "$WORK/response" && ! contains -F 'starší informací' "$WORK/response" && echo offered)" "offered|refused|3.99.9|1|offered"
 sq "UPDATE ka_nastaveni SET hodnota = 'latest' WHERE promenna = 'update_channel'" > /dev/null
 kriz latest-10 aktualizace.json; backups_page
-A1="$(contains -F 'value="9.9.10"' "$WORK/response" && echo offered)"
+A1="$(contains -F 'value="3.99.10"' "$WORK/response" && echo offered)"
 kriz stable-5 aktualizace.json; backups_page
-A2="$(contains -F 'odpověděl vydáním stabilního kanálu (verze 9.9.11' "$WORK/response" && ! contains -F 'Máte aktuální verzi' "$WORK/response" && echo refused)|$(seen_kriz aktualizace.json latest)"
+A2="$(contains -F 'odpověděl vydáním stabilního kanálu (verze 3.99.11' "$WORK/response" && ! contains -F 'Máte aktuální verzi' "$WORK/response" && echo refused)|$(seen_kriz aktualizace.json latest)"
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
 A2="$A2|$(contains -F 'odpověděl vydáním stabilního kanálu' "$WORK/response" && contains -F 'obnovte historii aktualizací' "$WORK/response" && echo status)"
 kriz latest-10 aktualizace.json; backups_page
 expect "3.10 channels (N310-1): Latest – the stable manifest (newer date) at the latest address is an error, not \"up to date\", and not remembered; the latest one is offered again" \
-  "$A1|$A2|$(contains -F 'value="9.9.10"' "$WORK/response" && echo offered)" "offered|refused|9.9.10|2|status|offered"
+  "$A1|$A2|$(contains -F 'value="3.99.10"' "$WORK/response" && echo offered)" "offered|refused|3.99.10|2|status|offered"
 # 3.10 (N310-3): a manifest dated far in the future is offered but not remembered, and System status says so
 channel_source krizem-budouci.json; backups_page
-B3="$(contains -F 'value="9.9.10"' "$WORK/response" && echo offered)|$(sq "SELECT JSON_CONTAINS_PATH(hodnota, 'one', '\$.\"http://127.0.0.1:$CHANNEL_PORT/krizem-budouci.json#latest\"') FROM ka_nastaveni WHERE promenna = 'update_seen'")"
+B3="$(contains -F 'value="3.99.10"' "$WORK/response" && echo offered)|$(sq "SELECT JSON_CONTAINS_PATH(hodnota, 'one', '\$.\"http://127.0.0.1:$CHANNEL_PORT/krizem-budouci.json#latest\"') FROM ka_nastaveni WHERE promenna = 'update_seen'")"
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
 expect "3.10 freshness (N310-3): a date in the future is offered, not remembered, and System status names it" "$B3|$(contains -F 'datem v budoucnosti (2099-12-31)' "$WORK/response" && echo warned)" "offered|0|warned"
 # the way out: Forget remembered update information (admin, CSRF, change log) – then a source that is right again is accepted
@@ -6699,13 +7573,59 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&a
 FORGOT_BAD="$(sq "SELECT hodnota <> '' FROM ka_nastaveni WHERE promenna = 'update_seen'")"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=forget_updates" -d "_csrf=$TOKEN"; backups_page
 expect "3.10 (N310-3): Forget needs the CSRF token, clears what was remembered, is in the change log, and the source is accepted again" \
-  "$FORGOT_BAD|$(sq "SELECT JSON_LENGTH(hodnota) FROM ka_nastaveni WHERE promenna = 'update_seen'")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'settings' AND akce = 'forget update information'")|$(contains -F 'value="9.9.9"' "$WORK/response" && echo offered)" "1|1|1|offered"
+  "$FORGOT_BAD|$(sq "SELECT JSON_LENGTH(hodnota) FROM ka_nastaveni WHERE promenna = 'update_seen'")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'settings' AND akce = 'forget update information'")|$(contains -F 'value="3.99.9"' "$WORK/response" && echo offered)" "1|1|1|offered"
 sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('update_cache', 'update_seen')" > /dev/null
 update_from ok.json
 [ -f "$WORK/web/image/test-aktualizace.txt" ] && echo "  ok     podepsaná aktualizace se nainstaluje" || { echo "  CHYBA  aktualizace se nenainstalovala"; sq "SELECT message, data FROM ka_events WHERE type LIKE 'update.%'"; ERRORS=$((ERRORS+1)); }
 grep -q "vlastni uprava spravce" "$WORK/web/.htaccess" && [ -f "$WORK/web/.htaccess.kaleta-nova" ] && echo "  ok     vlastní .htaccess zůstal, nová verze leží vedle" || { echo "  CHYBA  aktualizace přepsala vlastní .htaccess"; ERRORS=$((ERRORS+1)); }
-expect "2.10.2: after an update the site knows it runs the newest version (no new check, no error)" "$(sq "SELECT CONCAT(JSON_UNQUOTE(JSON_EXTRACT(hodnota, '\$.manifest.verze')), '|', JSON_TYPE(JSON_EXTRACT(hodnota, '\$.chyba'))) FROM ka_nastaveni WHERE promenna = 'update_cache'")" "9.9.9|NULL"
+expect "2.10.2: after an update the site knows it runs the newest version (no new check, no error)" "$(sq "SELECT CONCAT(JSON_UNQUOTE(JSON_EXTRACT(hodnota, '\$.manifest.verze')), '|', JSON_TYPE(JSON_EXTRACT(hodnota, '\$.chyba'))) FROM ka_nastaveni WHERE promenna = 'update_cache'")" "3.99.9|NULL"
 expect "2.8: a working update is checked and recorded (update.applied)" "$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'update.applied'")" "1"
+
+echo "== 3.15: a major version on its own update source (aktualizace-4.json), never with the regular updates"
+major_source() { sq "INSERT INTO ka_nastaveni VALUES ('update_url','http://127.0.0.1:$CHANNEL_PORT/$1/aktualizace.json'), ('update_channel', 'latest') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota);
+  UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('update_cache', 'update_major_cache', 'update_attempt')" > /dev/null; }
+# A: the line has 3.99.10, the next major 4.0.0 (marked security): both are shown, the major cannot be started before 3.99.10
+major_source velka; backups_page
+contains -F 'value="3.99.10"' "$WORK/response" && contains -F 'id="major-update"' "$WORK/response" && contains -F 'Je k dispozici Kaleta 4.0.0' "$WORK/response" && contains -F 'Tables renamed to their English names' "$WORK/response" \
+  && contains -F 'module=status#ready-4' "$WORK/response" && contains -F 'Nejdřív nainstalujte verzi 3.99.10' "$WORK/response" && ! contains -F 'action=update_major' "$WORK/response" \
+  && echo "  ok     3.15: Backups and updates offers 3.99.10 and shows Kaleta 4.0.0 on its own, linked to Ready for 4.0, not installable before 3.99.10" || { echo "  CHYBA  3.15: the major version on Backups and updates"; ERRORS=$((ERRORS+1)); }
+check "3.15: System status shows Kaleta 4.0.0 above the Ready for 4.0 checks" 200 "/admin.php?module=status" 'Je k dispozici Kaleta 4.0.0'
+mcp get_health '{}' > "$WORK/response"
+expect "3.15: get_health says the line offers 3.99.10 and the next major 4.0.0" "$(mcp_value update available)|$(mcp_value update major_available)" "3.99.10|4.0.0"
+# B: the background job with automatic security updates on: 4.0.0 is marked security, but a major version never installs by itself
+sq "INSERT INTO ka_nastaveni VALUES ('auto_updates', '1') ON DUPLICATE KEY UPDATE hodnota = '1'; UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('update_cache', 'update_major_cache', 'update_attempt'); UPDATE ka_jobs SET last_run = NULL WHERE name = 'updates'" > /dev/null
+curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
+expect "3.15: the background job looks up 4.0.0 but never installs it, even marked security with automatic updates on" \
+  "$([ -f "$WORK/web/image/test-aktualizace4.txt" ] && echo installed || echo kept)|$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '\$.manifest.verze')) FROM ka_nastaveni WHERE promenna = 'update_major_cache'")|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'update_attempt'")|$(grep -o 'updates: [^,]*' "$WORK/tasks.txt" | head -1)" \
+  "kept|4.0.0||updates: version 3.99.10 available"
+sq "UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'auto_updates'" > /dev/null
+# C: 4.0.0 at the regular address (a wrong upload): nothing is offered, and the regular update refuses it (defence in depth)
+major_source velka3; backups_page
+! contains -F 'value="4.0.0"' "$WORK/response" && ! contains -F 'id="major-update"' "$WORK/response" && echo "  ok     3.15: a major version at aktualizace.json is not offered" || { echo "  CHYBA  3.15: a major version offered as a regular update"; ERRORS=$((ERRORS+1)); }
+curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?module=settings&action=update" -d "_csrf=$TOKEN" -d verze=4.0.0
+[ ! -f "$WORK/web/image/test-aktualizace4.txt" ] && contains -F 'Verze 4.0.0 je nová hlavní verze Kalety' "$WORK/response" && echo "  ok     3.15: the regular update refuses a manifest of another major version" || { echo "  CHYBA  3.15: the regular update installed or did not explain a major version"; ERRORS=$((ERRORS+1)); }
+# E (N315-3): the check of the site's own line fails – it cannot say this is the newest 3.x, so 4.0.0 cannot be started (fails closed)
+major_source velka4; backups_page
+contains -F 'id="major-update"' "$WORK/response" && ! contains -F 'action=update_major' "$WORK/response" && contains -F 'Kaleta nemohla ověřit, že na webu běží nejnovější vydání 3.x' "$WORK/response" \
+  && echo "  ok     3.15 (N315-3): with the line's source failing, Kaleta 4.0.0 is shown but cannot be started" || { echo "  CHYBA  3.15 (N315-3): the major update offered without a confirmed newest 3.x"; ERRORS=$((ERRORS+1)); }
+curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?module=settings&action=update_major" -d "_csrf=$TOKEN" -d verze=4.0.0 -d precteno=1
+[ ! -f "$WORK/web/image/test-aktualizace4.txt" ] && contains -F 'Kaleta nemohla ověřit, že na webu běží nejnovější vydání 3.x' "$WORK/response" \
+  && echo "  ok     3.15 (N315-3): a POST refuses the major update while the line's source fails" || { echo "  CHYBA  3.15 (N315-3): the major update ran without a confirmed newest 3.x"; ERRORS=$((ERRORS+1)); }
+# D: the site runs the newest 3.x – the administrator installs 4.0.0: only with the confirmation, and only after a fresh backup
+major_source velka2; backups_page
+contains -F 'action=update_major' "$WORK/response" && contains -F 'name="precteno"' "$WORK/response" && echo "  ok     3.15: on the newest 3.x the major update can be started (with a confirmation)" || { echo "  CHYBA  3.15: no major update button"; ERRORS=$((ERRORS+1)); }
+curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?module=settings&action=update_major" -d "_csrf=$TOKEN" -d verze=4.0.0
+[ ! -f "$WORK/web/image/test-aktualizace4.txt" ] && contains -F 'Potvrďte, že jste si přečetli' "$WORK/response" && echo "  ok     3.15: without the confirmation nothing installs" || { echo "  CHYBA  3.15: the major update ran without the confirmation"; ERRORS=$((ERRORS+1)); }
+sleep 1; touch "$WORK/before-major"
+curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?module=settings&action=update_major" -d "_csrf=$TOKEN" -d verze=4.0.0 -d precteno=1
+MAJOR_BACKUP=$(find "$WORK/web/storage/zalohy" -name '*predaktualizaci*' -newer "$WORK/before-major" | head -1)
+expect "3.15: the administrator installs 4.0.0 – after a new backup, recorded, and the site knows its new line" \
+  "$([ -f "$WORK/web/image/test-aktualizace4.txt" ] && echo installed)|$(grep -o "KALETA_VERSION = '[^']*'" "$WORK/web/system/bootstrap.php")|$([ -n "$MAJOR_BACKUP" ] && echo backup)|$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'update.applied' AND data LIKE '%4.0.0%'")|$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '\$.manifest.verze')) FROM ka_nastaveni WHERE promenna = 'update_cache'")" \
+  "installed|KALETA_VERSION = '4.0.0'|backup|1|4.0.0"
+contains -F "$(basename "${MAJOR_BACKUP:-none}")" "$WORK/response" && echo "  ok     3.15: the message names the backup made before the major update" || { echo "  CHYBA  3.15: the message after the major update"; grep -o 'class="hlaska[^"]*"[^<]*<[^<]*' "$WORK/response" | head -3; ERRORS=$((ERRORS+1)); }
+# the rest of the test runs on the 3.x line again
+sed -i.bak "s/const KALETA_VERSION = '4.0.0';/const KALETA_VERSION = '3.99.9';/" "$WORK/web/system/bootstrap.php" && rm -f "$WORK/web/system/bootstrap.php.bak"
+sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('update_cache', 'update_major_cache', 'update_attempt')" > /dev/null
 sq "UPDATE ka_nastaveni SET hodnota = '$SITE_URL_BEFORE' WHERE promenna = 'site_url'" > /dev/null; kill "$PROBE_PID" 2>/dev/null || true
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('update_url', 'update_cache')"
 kill "$CHANNEL_PID" 2>/dev/null || true

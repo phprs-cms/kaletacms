@@ -11,12 +11,13 @@
  * @var list<array{version: int, created_at: string, summary: string, author: ?string}> $kits newest first
  * @var list<array<string, mixed>> $sites rows of ka_fleet_sites
  * @var array<int, int> $applied site id => the kit version it applied (0 = none)
+ * @var array<int, string> $customers id => name (3.17: a kit version for one customer's sites)
  */
 use Kaleta\Builder\DesignSystem;
 
 $newest = $kits[0]['version'] ?? 0;
 ?>
-<p><a href="<?= e($module->url('')) ?>">← <?= e(t('All sites')) ?></a></p>
+<?= $app->view->render('admin/fleet/tabs', ['module' => $module, 'current' => 'kit']) ?>
 <p class="hlaska"><?= e(t('The kit carries the design of this console – its design system, shared classes, components and saved sections – to the sites that chose to receive it (Settings → Fleet console on the site). A site gets each version as drafts only: the look draft, component drafts and its section library. Its people review and publish; nothing goes live by itself. Custom code never travels in a kit.')) ?></p>
 <form class="formular" method="post" action="<?= e($module->url('kit_publish')) ?>">
 <?= $csrf ?>
@@ -37,6 +38,14 @@ $newest = $kits[0]['version'] ?? 0;
 <?php if ($sections === []): ?><span class="smltxt"><?= e(t('The console has no saved sections.')) ?></span><?php endif ?>
 <?php foreach ($sections as $sec): ?><label><input type="checkbox" name="sections[]" value="<?= (int) $sec['idx'] ?>"> <?= e((string) $sec['nazev']) ?></label> <?php endforeach ?>
 </div></div>
+<?php if ($customers !== []): ?>
+<div class="radek"><label for="kit-customer"><?= e(t('Who receives it')) ?></label><div><select id="kit-customer" name="customer">
+	<option value="0"><?= e(t('every site that receives the kit')) ?></option>
+<?php foreach ($customers as $id => $name): ?>
+	<option value="<?= (int) $id ?>"><?= e(t('only the sites of %s', $name)) ?></option>
+<?php endforeach ?>
+</select><span class="napoveda"><?= e(t('A version for one customer reaches only that customer\'s sites; the others stay on the newest version meant for everyone.')) ?></span></div></div>
+<?php endif ?>
 <p><button class="tl" type="submit" data-potvrdit="<?= e(t('Publish kit version %d? Every site that receives the kit gets it as drafts with its next report.', $newest + 1)) ?>"><?= e(t('Publish a new kit version')) ?></button>
 <span class="napoveda"><?= e(t('A component or section keeps a stable key (from its name): a site updates its copy instead of adding another.')) ?></span></p>
 </fieldset>
@@ -47,7 +56,7 @@ $newest = $kits[0]['version'] ?? 0;
 <thead><tr><th scope="col"><?= e(t('Version')) ?></th><th scope="col"><?= e(t('Published')) ?></th><th scope="col"><?= e(t('Contents')) ?></th><th scope="col"><?= e(t('Sites on this version')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($kits as $kit): ?>
-<tr><td><?= (int) $kit['version'] ?></td><td><?= e(format_date(new DateTimeImmutable($kit['created_at']), true)) ?><?= $kit['author'] !== null ? ' · ' . e((string) $kit['author']) : '' ?></td><td><?= e($kit['summary']) ?></td><td class="stred"><?= count(array_keys($applied, (int) $kit['version'], true)) ?></td></tr>
+<tr><td><?= (int) $kit['version'] ?></td><td><?= e(format_date(new DateTimeImmutable($kit['created_at']), true)) ?><?= $kit['author'] !== null ? ' · ' . e((string) $kit['author']) : '' ?></td><td><?= e($kit['summary']) ?><?= $kit['customer_id'] !== null ? ' · ' . e(t('only the sites of %s', $customers[$kit['customer_id']] ?? '#' . $kit['customer_id'])) : '' ?></td><td class="stred"><?= count(array_keys($applied, (int) $kit['version'], true)) ?></td></tr>
 <?php endforeach ?>
 </tbody></table></div>
 <?php endif ?>

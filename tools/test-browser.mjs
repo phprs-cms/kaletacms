@@ -1,13 +1,17 @@
 // Kaleta – browser test (called by tools/test-browser.sh): walks the admin, the builder, the news editor, the menu
 // editor and the public site in Chrome and fails on any uncaught script error or console error.
 // Env: BASE, PASSWORD (admin), CHROME (browser binary), NODE_PATH (folder with playwright-core), SHOTS (optional folder
-// for screenshots of new screens, to look at them).
+// for screenshots of new screens, to look at them), MYSQL_JSON and DB_NAME (the mysql command as a JSON list and the
+// database – 3.18: a step changes the state of the Claude connection).
 import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 
 const require = createRequire(`${process.env.NODE_PATH}/`);
 const { chromium } = require('playwright-core');
-const { BASE, PASSWORD, CHROME, SHOTS } = process.env;
+const { BASE, PASSWORD, CHROME, SHOTS, DB_NAME } = process.env;
+const MYSQL = JSON.parse(process.env.MYSQL_JSON || '[]');
+const sql = (query) => execFileSync(MYSQL[0], [...MYSQL.slice(1), DB_NAME, '-N', '-e', query], { encoding: 'utf8' });
 
 const browser = await chromium.launch({ executablePath: CHROME, headless: true });
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'en-GB' });
@@ -43,6 +47,78 @@ await step('sign in', async () => {
   await page.fill('input[name="user"]', 'admin');
   await page.fill('input[name="password"]', PASSWORD);
   await Promise.all([page.waitForNavigation(), page.press('input[name="password"]', 'Enter')]);
+});
+
+// 3.18: whether Claude is connected – a chip next to the account on every screen with its state in words (never the colour
+// alone), the dot alone on a phone without sideways scrolling; Ask Claude warns and saves for later without a connection,
+// Requests have a status line and a highlighted old request, Claude settings a status panel. Then a call over MCP: connected.
+await step('3.18 header: the Claude connection state – not connected, then connected (1440 and 390 px, dark mode)', async () => {
+  if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
+  sql("DELETE FROM ka_api_tokeny");
+  const shot = async (name, target = page) => { if (SHOTS) { await target.screenshot({ path: `${SHOTS}/${name}.png`, ...(target === page ? { fullPage: false } : {}) }); } };
+  const chip = async (expected, kind) => {
+    const link = page.locator('.loginprouzek .claude-stav');
+    if (!(await link.isVisible())) { throw new Error('no Claude state in the header'); }
+    const state = await link.evaluate((el) => ({ cls: el.className, text: el.textContent.trim(), dot: getComputedStyle(el.querySelector('.claude-stav-tecka')).width }));
+    if (!state.cls.includes(`claude-stav-${kind}`) || !state.text.startsWith(expected)) { throw new Error(`the header says ${JSON.stringify(state)}, expected ${expected}`); }
+    if ((await page.getByRole('link', { name: new RegExp('^' + expected) }).count()) !== 1) { throw new Error(`no link named “${expected}” for screen readers`); }
+  };
+  const fits = async (where) => {
+    const wide = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    if (wide > 0) { throw new Error(`${where}: ${wide} px of sideways scroll at 390 px`); }
+    const box = await page.locator('.loginprouzek .claude-stav').boundingBox();
+    if (!box || box.width > 44 || box.x < 0 || box.x + box.width > 390) { throw new Error(`${where}: the Claude dot does not sit in the header row: ${JSON.stringify(box)}`); }
+    const logo = await page.locator('.hlavicka .kaleta-logo').boundingBox();
+    const first = await page.locator('.loginprouzek > :first-child').boundingBox();
+    if (!logo || !first || logo.x + logo.width > first.x) { throw new Error(`${where}: the header buttons cover the logo: ${JSON.stringify([logo, first])}`); }
+  };
+  for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]]) {
+    await page.setViewportSize({ width, height });
+    await visit('/admin.php');
+    await chip('Claude not connected', 'none');
+    if (width === 390) { await fits('dashboard'); }
+    const box = page.locator('.ask-claude:not(.pripojit-claude)');
+    if (!(await box.locator('.claude-upozorneni').textContent()).includes('Claude is not connected to this site.')) { throw new Error('Ask Claude does not warn'); }
+    if ((await box.locator('button[type="submit"]').textContent()).trim() !== 'Save for later') { throw new Error('Ask Claude still offers to send'); }
+    await shot(`dashboard-none-${label}`);
+    await box.scrollIntoViewIfNeeded();
+    await shot(`ask-claude-warning-${label}`, box);
+    await visit('/admin.php?module=requests');
+    if ((await page.locator('tr.ceka-dlouho').count()) < 1) { throw new Error('the request waiting for weeks is not highlighted'); }
+    if (width === 390) { await fits('requests'); }
+    await shot(`requests-status-none-${label}`);
+    await visit('/admin.php?module=claude_settings');
+    if (!(await page.locator('.claude-panel h2').textContent()).includes('Claude is not connected')) { throw new Error('Claude settings have no status panel'); }
+    if (width === 390) { await fits('Claude settings'); }
+    await shot(`claude-settings-none-${label}`, page.locator('.claude-panel'));
+  }
+  // a personal token and one call over MCP: connected
+  const token = 'kaleta_' + 'e'.repeat(48);
+  sql(`INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'Browser 318', '${createHash('sha256').update(token).digest('hex')}', NOW() FROM ka_uzivatele WHERE user = 'admin'`);
+  const call = await fetch(`${BASE}/mcp`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) });
+  if (call.status !== 200) { throw new Error(`the MCP call answered ${call.status}`); }
+  for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]]) {
+    await page.setViewportSize({ width, height });
+    await visit('/admin.php');
+    await chip('Claude connected', 'active');
+    if (width === 390) { await fits('dashboard'); }
+    if (!(await page.locator('.claude-stav .claude-stav-kdy').textContent()).includes('last call')) { throw new Error('the last call is not in the chip'); }
+    await shot(`dashboard-active-${label}`);
+    await visit('/admin.php?module=requests');
+    await shot(`requests-status-active-${label}`);
+    await visit('/admin.php?module=claude_settings');
+    if (!(await page.locator('.claude-panel h2').textContent()).includes('Claude is connected')) { throw new Error('the status panel does not say connected'); }
+    await shot(`claude-settings-active-${label}`, page.locator('.claude-panel'));
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await visit('/admin.php');
+  const dark = await page.locator('.claude-stav').evaluate((el) => [getComputedStyle(el).backgroundColor, getComputedStyle(el).color]);
+  if (dark[0] === 'rgb(255, 255, 255)') { throw new Error('the chip stays white in dark mode'); }
+  await shot('dashboard-active-dark');
+  await page.emulateMedia({ colorScheme: 'light' });
+  // the steps below see a site Claude never called, as before (the Connect Claude card leads until a first call)
+  sql("DELETE FROM ka_api_tokeny WHERE nazev = 'Browser 318'; DELETE FROM ka_nastaveni WHERE promenna = 'claude_first_used'");
 });
 
 for (const url of ['/admin.php', '/admin.php?module=pages', '/admin.php?module=pages&action=new', '/admin.php?module=pages&action=edit&id=1',
@@ -185,6 +261,25 @@ await step('builder: select the parent element', async () => {
   await page.waitForTimeout(300);
 });
 
+await step('3.18.1 builder dialogs: readable buttons when the admin theme differs from the system (light on dark, dark on light)', async () => {
+  // the dialogs live on <body>, outside .st: with the system dark and the admin switched to light, Close was white on white
+  for (const [system, admin] of [['dark', 'svetly'], ['light', 'tmavy']]) {
+    await page.emulateMedia({ colorScheme: system });
+    await page.evaluate((t) => document.documentElement.setAttribute('data-tema', t), admin);
+    await page.evaluate(() => document.querySelector('#st-lista-vice button[title="Published versions"]').click()); // an item of the ⋯ menu
+    const dialog = page.locator('dialog.st-dialog[open]');
+    await dialog.waitFor();
+    const bad = await dialog.locator('button').evaluateAll((list) => list.map((b) => {
+      const s = getComputedStyle(b);
+      return s.color === s.backgroundColor || !/Bricolage/.test(s.fontFamily) ? `${b.textContent.trim()}: ${s.color} on ${s.backgroundColor}, ${s.fontFamily}` : '';
+    }).filter(Boolean));
+    await page.keyboard.press('Escape');
+    if (bad.length) { throw new Error(`system ${system}, admin ${admin}: ${bad.join('; ')}`); }
+  }
+  await page.evaluate(() => document.documentElement.removeAttribute('data-tema'));
+  await page.emulateMedia({ colorScheme: 'light' });
+});
+
 await step('builder: insert elements from the Add panel by click and by drag', async () => {
   // broken from 1.4.0 to 3.4.0: newElement() built the element under English keys the builder does not read (3.4.1)
   const count = () => canvas().locator('[data-ka-id]').count();
@@ -312,6 +407,79 @@ await step('3.6 UXA-14, UXA-11, UXA-12: typing on the canvas updates the inspect
   if (!/Header on scroll/.test(await page.locator('.st-pravy').textContent())) { throw new Error('the header part does not offer the header options'); }
 });
 
+// 3.18.2 N3182-2: a clipboard envelope used to be inserted without the server when it merely claimed this site, and the layer
+// tree parsed its HTML in the admin page; now every envelope goes through the server and code stays only in this site's signed copy
+await step('3.18.2 builder: a pasted envelope claiming this site runs nothing; the own copy (Ctrl+C, Ctrl+V) still pastes (N3182-2)', async () => {
+  await visit('/admin.php?module=pages&action=builder&id=1');
+  await page.waitForTimeout(1500);
+  const key = (k) => page.evaluate((x) => document.body.dispatchEvent(new KeyboardEvent('keydown', { key: x, ctrlKey: true, bubbles: true, cancelable: true })), k);
+  const paste = (text) => page.evaluate(async (t) => {
+    const status = () => document.querySelector('.st-stav');
+    status().textContent = '';
+    const data = new DataTransfer();
+    data.setData('text/plain', t);
+    document.body.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+    for (let i = 0; i < 50 && !/Inserted|could not|None of/.test(status().textContent); i++) { await new Promise((r) => setTimeout(r, 100)); }
+    return { text: status().textContent, error: status().classList.contains('chyba') };
+  }, text);
+  await page.evaluate(() => { window.__clipRan = 0; });
+  const claim = JSON.stringify({ kaleta: 'elements', v: 1, site: new URL(BASE).origin, elements: [{ typ: 'text', obsah: { html: '<p>Clip 3182<img src="/media/missing-3182.png" alt="" onerror="window.__clipRan = 1"></p>' } }] });
+  const claimed = await paste(claim);
+  if (!/^Inserted/.test(claimed.text) || claimed.error) { throw new Error(`the envelope claiming this site was not inserted through the server: ${JSON.stringify(claimed)}`); }
+  await canvas().locator('.ka-text', { hasText: 'Clip 3182' }).first().waitFor({ timeout: 8000 });
+  const inserted = await canvas().locator('.ka-text', { hasText: 'Clip 3182' }).first().innerHTML();
+  await page.waitForTimeout(500);
+  if (await page.evaluate(() => window.__clipRan)) { throw new Error('the pasted envelope ran code in the admin'); }
+  if (/onerror/i.test(inserted)) { throw new Error(`the server kept the handler: ${inserted}`); }
+  await key('z');
+  await page.waitForTimeout(800);
+  // the administrator's own copy: Ctrl+C writes this site's signed envelope (captured here instead of the system clipboard)
+  await canvas().locator('h1').first().click();
+  await page.waitForTimeout(400);
+  const copied = await page.evaluate(async () => {
+    let captured = null;
+    Object.defineProperty(navigator.clipboard, 'write', { configurable: true, value: async (items) => { captured = await (await items[0].getType('text/plain')).text(); } });
+    Object.defineProperty(navigator.clipboard, 'writeText', { configurable: true, value: async (t) => { captured = t; } });
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'c', ctrlKey: true, bubbles: true, cancelable: true }));
+    for (let i = 0; i < 50 && captured === null; i++) { await new Promise((r) => setTimeout(r, 100)); }
+    return captured;
+  });
+  const envelope = JSON.parse(copied || '{}');
+  if (!envelope.sig || envelope.site !== new URL(BASE).origin || envelope.elements?.[0]?.typ !== 'nadpis') { throw new Error(`Ctrl+C did not write a signed envelope of the heading: ${String(copied).slice(0, 200)}`); }
+  const headings = await canvas().locator('h1').count();
+  const own = await paste(copied);
+  if (own.text !== 'Inserted' || own.error) { throw new Error(`the own copy did not paste: ${JSON.stringify(own)}`); }
+  await page.waitForTimeout(1500);
+  if ((await canvas().locator('h1').count()) !== headings + 1) { throw new Error('the pasted heading is not on the canvas'); }
+  await key('z');
+  await page.waitForTimeout(800);
+});
+
+// 3.18.2 N3182-1 (CodeQL #42): the inspector shows what is typed on the canvas through the editor's cleanup, as nodes
+await step('3.18.2 builder inspector: text typed on the canvas is shown cleaned – the iframe bypass runs nothing (N3182-1)', async () => {
+  await visit('/admin.php?module=pages&action=builder&id=1');
+  await page.waitForTimeout(1500);
+  const text = canvas().locator('.ka-text').first();
+  await text.dblclick();
+  const field = page.locator('.st-panel [data-pole="html"] .editor-plocha');
+  await field.waitFor({ timeout: 5000 });
+  await page.evaluate(() => { window.__inspRan = 0; });
+  await text.evaluate((node) => {
+    node.innerHTML = '<p>Typed 3182</p><iframe></ifr<p></p>ame><img src="/media/missing-3182.png" alt="" onerror="top.__inspRan = 1"></iframe>';
+    node.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await page.waitForTimeout(800);
+  const shown = await field.innerHTML();
+  if (await page.evaluate(() => window.__inspRan)) { throw new Error('the inspector ran the typed HTML'); }
+  if (!/Typed 3182/.test(shown) || /<iframe|onerror/i.test(shown)) { throw new Error(`the inspector shows ${shown}`); }
+  // ending the edit stores the value and draws the inspector's editor again from it – still nothing runs
+  await text.evaluate((node) => node.blur());
+  await page.waitForTimeout(1500);
+  if (await page.evaluate(() => window.__inspRan)) { throw new Error('the redrawn inspector ran the typed HTML'); }
+  await page.evaluate(() => document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true })));
+  await page.waitForTimeout(800);
+});
+
 await step('3.6 UXA-10, UXA-13: a ready section below the first gets an H2, "Fix it" in the check, the image field and the media picker', async () => {
   await visit('/admin.php?module=pages&action=builder&id=1');
   await page.waitForTimeout(1500);
@@ -370,6 +538,73 @@ await step('news editor: type and format', async () => {
   }
 });
 
+await step('3.18.2 news editor: pasted HTML is cleaned without running anything (CodeQL #32)', async () => {
+  // before 3.18.2 the paste cleanup parsed the HTML in the admin page itself: an <img onerror> ran before it was removed
+  const editor = page.locator('[contenteditable="true"]').first();
+  await editor.click();
+  const result = await editor.evaluate(async (surface) => {
+    window.__pasteRan = 0;
+    const data = new DataTransfer();
+    data.setData('text/html', '<p>Pasted <mark>word</mark></p><img src="/media/missing-3182.png" onerror="window.__pasteRan = 1"><a href="java&#9;script:window.__pasteRan=2">link</a>');
+    surface.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+    await new Promise((r) => setTimeout(r, 600));
+    return { ran: window.__pasteRan, html: surface.innerHTML };
+  });
+  if (result.ran) { throw new Error(`the pasted HTML ran code (${result.ran})`); }
+  if (/onerror|script:/i.test(result.html)) { throw new Error(`the pasted HTML kept a handler or script link: ${result.html}`); }
+  if (!/<mark>word<\/mark>/.test(result.html)) { throw new Error(`the highlighted word was lost: ${result.html}`); }
+  // N3182-1: the frame's raw text held "</ifr<p></p>ame>"; the regular expression removing empty paragraphs joined it into a
+  // real </iframe>, and the <img onerror> after it ran when the cleaned string was parsed again (also with <p><br></p>)
+  const bypass = await editor.evaluate(async (surface) => {
+    const payloads = [
+      '<iframe></ifr<p></p>ame><img src="/media/missing-3182.png" alt="" onerror="window.__pasteRan = 3"></iframe>',
+      '<iframe></ifr<p><br></p>ame><img src="/media/missing-3182.png" alt="" onerror="window.__pasteRan = 4"></iframe>',
+      '<p>a</p><noscript><p title="</noscript><img src=/media/missing-3182.png alt=&quot;&quot; onerror=window.__pasteRan=5>"></p></noscript>',
+      '<xmp></xmp><img src=/media/missing-3182.png alt="" onerror=window.__pasteRan=6></xmp><p>b&nbsp;c</p><p>&nbsp;</p>',
+      '<iframe src="https://frames.example/x"></iframe><a href="https://e.example/1" target="_top" rel="opener">one</a> <a href="https://e.example/2" target="_blank" rel="opener nofollow">two</a>',
+    ];
+    for (const html of payloads) {
+      const data = new DataTransfer();
+      data.setData('text/html', html);
+      surface.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+    }
+    await new Promise((r) => setTimeout(r, 800));
+    // the cleanup gives markup that comes out the same when cleaned again (it is parsed again by insertHTML and innerHTML)
+    const clean = window.kaletaCistiHtml;
+    const samples = [...payloads, '<div><p>x</p></div>', '<table><p>t</p><tr><td>c</td></tr></table>', '<a href="/a"><p><a href="/b">b</a></p></a>', '<svg><style><img src=x onerror=1></style></svg>'];
+    const unstable = samples.filter((h) => clean(clean(h, true), true) !== clean(h, true));
+    return { ran: window.__pasteRan, html: surface.innerHTML, unstable,
+      youtube: clean('<iframe src="https://www.youtube.com/embed/abc">x</iframe>', true), other: clean('<iframe src="https://frames.example/x"></iframe>', true),
+      kept: clean('<iframe src="https://frames.example/x">x</iframe>'), spaces: clean('<p>b&nbsp;c</p><p>&nbsp;</p><p><br></p>', true) };
+  });
+  if (bypass.ran) { throw new Error(`a pasted payload ran code (${bypass.ran})`); }
+  if (/onerror|<iframe|frames\.example|rel="(?:[^"]*\s)?opener[\s"]|target="_top"/i.test(bypass.html)) { throw new Error(`the pasted HTML kept a handler, a frame, rel=opener or a target: ${bypass.html}`); }
+  if (!/<a href="https:\/\/e\.example\/2" target="_blank" rel="noopener nofollow">two<\/a>/.test(bypass.html) || !/b c/.test(bypass.html)) { throw new Error(`a link or the text was lost: ${bypass.html}`); }
+  if (bypass.unstable.length) { throw new Error(`the cleanup is not stable for: ${bypass.unstable.join(' | ')}`); }
+  if (bypass.spaces !== '<p>b c</p>') { throw new Error(`empty paragraphs and non-breaking spaces: ${bypass.spaces}`); }
+  if (bypass.youtube !== '<iframe src="https://www.youtube-nocookie.com/embed/abc"></iframe>' || bypass.other !== '' || bypass.kept !== '<iframe src="https://frames.example/x"></iframe>') {
+    throw new Error(`frames: ${JSON.stringify([bypass.youtube, bypass.other, bypass.kept])}`);
+  }
+});
+
+await step('3.18.2 news editor: the link dialog refuses java<TAB>script:, vbscript: and data: (N3182-6)', async () => {
+  const editor = page.locator('[contenteditable="true"]').first();
+  for (const address of ['java\tscript:window.__linkRan=1', 'vbscript:x', 'data:text/html,x']) {
+    await editor.click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' linkme');
+    await page.keyboard.press('Shift+ArrowLeft');
+    await page.keyboard.press('Control+k');
+    const dialog = page.locator('dialog[open]');
+    await dialog.locator('[name=adresa]').fill(address);
+    await dialog.locator('button[value="ok"]').click();
+    await page.waitForTimeout(200);
+    if (await page.locator('dialog[open]').count()) { await page.keyboard.press('Escape'); }
+  }
+  const html = await editor.innerHTML();
+  if (/script:|vbscript|data:text/i.test(html)) { throw new Error(`the link dialog inserted an unsafe address: ${html}`); }
+});
+
 await step('newsletter: draft and preview', async () => {
   await visit('/admin.php?module=newsletters&action=new');
   await page.fill('input[name="subject"]', 'Spring news from our workshop');
@@ -390,6 +625,45 @@ await step('newsletter: draft and preview', async () => {
       await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true });
     }
     await page.setViewportSize({ width: 1440, height: 900 });
+  }
+});
+
+// 3.16: the archived monthly report (Settings → Reports, Core\ReportPage) – the tab lists the month test-browser.sh stored,
+// the printable page has its Print button, and in print media at the width of an A4 page (210 mm less the 15 mm margins)
+// nothing is wider than the page: no table is cut at its right edge; a PDF of it is A4
+await step('monthly report: the archive and the A4 print layout', async () => {
+  await visit('/admin.php?module=settings&tab=reports');
+  const view = page.locator('a[href*="action=report_view"]').first();
+  await view.waitFor();
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/reports-tab.png`, fullPage: true }); }
+  const href = new URL(await view.getAttribute('href'), BASE).href;
+  const report = await context.newPage();
+  watch(report);
+  try {
+    await report.goto(href, { waitUntil: 'networkidle' });
+    await report.locator('[data-tisk]').waitFor();
+    if ((await report.locator('section.sekce').count()) < 5) { throw new Error('the report has fewer than 5 sections'); }
+    if (SHOTS) { await report.screenshot({ path: `${SHOTS}/report-screen.png`, fullPage: true }); }
+    await report.emulateMedia({ media: 'print' });
+    await report.setViewportSize({ width: 680, height: 1000 }); // 180 mm at 96 dpi: the printable width of A4
+    const wide = await report.evaluate(() => {
+      const page = document.querySelector('.listina').getBoundingClientRect();
+      return [...document.querySelectorAll('.listina table, .listina dl, .listina h1, .listina h2, .listina p, .listina td')]
+        .filter((el) => el.getBoundingClientRect().right > page.right + 1 || el.scrollWidth > el.clientWidth + 1).map((el) => el.tagName + ': ' + el.textContent.slice(0, 40));
+    });
+    if (wide.length) { throw new Error('wider than the A4 page in print: ' + wide.slice(0, 3).join(' | ')); }
+    if (await report.locator('.lista').isVisible()) { throw new Error('the toolbar prints'); }
+    if (SHOTS) {
+      // print media in one tall viewport (a full-page screenshot repeats the first screen in print media); the PDF has the pages
+      await report.setViewportSize({ width: 680, height: await report.evaluate(() => document.documentElement.scrollHeight) });
+      await report.screenshot({ path: `${SHOTS}/report-print.png` });
+      await report.pdf({ path: `${SHOTS}/report-print.pdf`, format: 'A4', preferCSSPageSize: true });
+    }
+    const pdf = await report.pdf({ format: 'A4', preferCSSPageSize: true });
+    const pages = (pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length;
+    if (pages < 1 || pages > 6) { throw new Error(`the A4 PDF has ${pages} pages`); }
+  } finally {
+    await report.close();
   }
 });
 
@@ -876,6 +1150,35 @@ await step('3.14 My e-mail signature: a Team record linked in Users, the signatu
   }
 });
 
+// 3.17: the inbox of the fleet console (Fleet\Inbox) – every row with a plain link out, no sideways scroll; on a phone the rows are cards
+await step('3.17 fleet inbox: rows with plain links, the filters, no sideways scroll at 1440 and 390 px (cards on a phone)', async () => {
+  try {
+    for (const [width, height, name] of [[1440, 900, 'desktop'], [390, 844, 'phone']]) {
+      await page.setViewportSize({ width, height });
+      for (const url of ['/admin.php?module=fleet', '/admin.php?module=fleet&action=sites&show=all', '/admin.php?module=fleet&action=customers']) {
+        await visit(url);
+        const wider = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        if (wider > 1) { throw new Error(`${url} scrolls sideways by ${wider} px at ${width} px`); }
+        if (SHOTS) { await page.screenshot({ path: `${SHOTS}/fleet-${url.replace(/.*module=fleet&?/, '').replace(/\W+/g, '-') || 'inbox'}-${name}.png`, fullPage: true }); }
+      }
+      await visit('/admin.php?module=fleet');
+      const rows = page.locator('table.vypis-karty tbody tr');
+      if (await rows.count() < 10) { throw new Error(`the inbox lists ${await rows.count()} rows`); }
+      const out = await page.locator('table.vypis-karty a[target="_blank"]').evaluateAll((links) => links.map((a) => [a.href, a.rel]));
+      if (!out.some(([href]) => href === 'https://smile-dental-clinic-with-a-long-domain.example/admin.php?module=requests&action=detail&id=12')) { throw new Error('no plain link to the request'); }
+      if (out.some(([href, rel]) => rel !== 'noopener' || /token|password|login/i.test(href))) { throw new Error('a link out is not plain'); }
+      const first = await rows.first().locator('.stitek').last().textContent();
+      if (!/urgent/.test(first)) { throw new Error(`the first row is not urgent: ${first}`); }
+      if (width === 390 && await rows.first().evaluate((tr) => getComputedStyle(tr).display) !== 'block') { throw new Error('the rows are not cards on a phone'); }
+    }
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await visit('/admin.php?module=fleet&urgent=1');
+    if (await page.locator('table.vypis-karty .stitek-chyba').count() !== await page.locator('table.vypis-karty tbody tr').count()) { throw new Error('"only urgent" lists other rows'); }
+  } finally {
+    await page.setViewportSize({ width: 1440, height: 900 });
+  }
+});
+
 await step('3.13 Spanish admin: switched in My account, Spanish screens without sideways scroll at 390 px', async () => {
   const adminLanguage = async (code) => {
     await visit('/admin.php?action=account');
@@ -963,6 +1266,79 @@ for (const [language, path] of [['ar', '/ar/rtl-test'], ['en', '/ltr-test']]) {
     });
   }
 }
+
+// 3.17: the fleet console (test-browser.sh switches the extension on and stores a site with 95 days of history and last month's
+// fleet report): on the site's page the trends – 90 bars with a summary for screen readers, the days as a table that opens,
+// no WCAG violation in the block, nothing wider than a phone – and the fleet report in print at the width of an A4 page
+await step('3.17 fleet console: the trends of a site and the monthly fleet report in print', async () => {
+  await visit('/admin.php?module=fleet&action=detail&id=900');
+  const svg = page.locator('figure.trend svg[role="img"]');
+  await svg.waitFor();
+  if ((await svg.locator('rect').count()) !== 90) { throw new Error('the trend has not 90 bars'); }
+  if (!/90/.test(await svg.getAttribute('aria-label') || '')) { throw new Error('the trend has no summary for screen readers'); }
+  if ((await svg.locator('rect.chyba').count()) < 1 || (await svg.locator('rect.slabe').count()) < 1) { throw new Error('the bad days are not marked'); }
+  await page.locator('details.trend-tabulka summary').click();
+  if ((await page.locator('details.trend-tabulka tbody tr').count()) < 85) { throw new Error('the table of the days is short'); }
+  // axe in a context that lets the test inject it – the administration allows no inline script (CSP), rightly
+  const axeContext = await browser.newContext({ storageState: await context.storageState(), bypassCSP: true, viewport: { width: 1440, height: 900 } });
+  try {
+    const axePage = await axeContext.newPage();
+    await axePage.goto(BASE + '/admin.php?module=fleet&action=detail&id=900', { waitUntil: 'networkidle' });
+    await axePage.locator('details.trend-tabulka summary').click();
+    await axePage.addScriptTag({ path: AXE });
+    const found = await axePage.evaluate((tags) => window.axe.run({ include: [['figure.trend'], ['details.trend-tabulka']] }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), WCAG);
+    if (found.violations.length) { throw new Error('axe: ' + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+  } finally {
+    await axeContext.close();
+  }
+  if (SHOTS) {
+    await page.locator('figure.trend').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `${SHOTS}/fleet-trends.png`, fullPage: true });
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.screenshot({ path: `${SHOTS}/fleet-trends-dark.png`, fullPage: true });
+    await page.emulateMedia({ colorScheme: 'light' });
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  try {
+    const right = await page.evaluate(() => document.querySelector('figure.trend').getBoundingClientRect().right);
+    if (right > 391) { throw new Error(`the trend is wider than a phone (${right} px)`); }
+    if (SHOTS) { await page.screenshot({ path: `${SHOTS}/fleet-trends-phone.png`, fullPage: false }); }
+  } finally {
+    await page.setViewportSize({ width: 1440, height: 900 });
+  }
+  await visit('/admin.php?module=fleet&action=reports');
+  const view = page.locator('a[href*="action=report_view"]').first();
+  await view.waitFor();
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/fleet-reports.png`, fullPage: true }); }
+  const report = await context.newPage();
+  watch(report);
+  try {
+    await report.goto(new URL(await view.getAttribute('href'), BASE).href, { waitUntil: 'networkidle' });
+    await report.locator('[data-tisk]').waitFor();
+    if ((await report.locator('section.sekce').count()) < 3) { throw new Error('the fleet report has fewer than 3 sections'); }
+    if ((await report.locator('p.druh').textContent()) !== 'Fleet report') { throw new Error('the page does not say Fleet report'); }
+    if (SHOTS) { await report.screenshot({ path: `${SHOTS}/fleet-report-screen.png`, fullPage: true }); }
+    await report.emulateMedia({ media: 'print' });
+    await report.setViewportSize({ width: 680, height: 1000 });
+    const wide = await report.evaluate(() => {
+      const sheet = document.querySelector('.listina').getBoundingClientRect();
+      return [...document.querySelectorAll('.listina table, .listina dl, .listina h1, .listina h2, .listina p, .listina td')]
+        .filter((el) => el.getBoundingClientRect().right > sheet.right + 1 || el.scrollWidth > el.clientWidth + 1).map((el) => el.tagName + ': ' + el.textContent.slice(0, 40));
+    });
+    if (wide.length) { throw new Error('wider than the A4 page in print: ' + wide.slice(0, 3).join(' | ')); }
+    if (await report.locator('.lista').isVisible()) { throw new Error('the toolbar prints'); }
+    if (SHOTS) {
+      await report.setViewportSize({ width: 680, height: await report.evaluate(() => document.documentElement.scrollHeight) });
+      await report.screenshot({ path: `${SHOTS}/fleet-report-print.png` });
+      await report.pdf({ path: `${SHOTS}/fleet-report-print.pdf`, format: 'A4', preferCSSPageSize: true });
+    }
+    const pdf = await report.pdf({ format: 'A4', preferCSSPageSize: true });
+    const pages = (pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length;
+    if (pages < 1 || pages > 4) { throw new Error(`the A4 PDF has ${pages} pages`); }
+  } finally {
+    await report.close();
+  }
+});
 
 await browser.close();
 if (errors.length) {

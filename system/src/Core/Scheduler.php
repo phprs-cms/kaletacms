@@ -35,6 +35,9 @@ final class Scheduler
         'links' => [0, 'any', 'Checking links'],
         'redirects' => [86400, 'any', 'Redirects for addresses visitors could not find'],
         'redirect_sources' => [0, 'any', 'Old addresses of redirects prepared for Kaleta 4.0'],
+        // 3.16: the previous month's report is archived once the month has turned – before the clean-up deletes the oldest
+        // firewall log of that month, and before the e-mail, which is written from it
+        'report_archive' => [3600, 'any', 'Monthly report archive: the previous month stored, 24 months kept'],
         'cleanup' => [0, 'any', 'Deleting old personal data and events'],
         'alerts' => [300, 'any', 'Alert e-mails'],
         'domain_watch' => [86400, 'any', 'Domain, certificate and mail records'],
@@ -50,12 +53,18 @@ final class Scheduler
         'updates' => [0, 'any', 'Updates'],
         'heartbeat' => [3600, 'any', 'Report to the fleet console'],
         'fleet_uptime' => [300, 'any', 'Fleet console: are the sites up'],
+        // 3.17: what the console remembers and tells (Fleet\History, AlertRules, Digest, Report) – after the uptime check
+        'fleet_history' => [3600, 'any', 'Fleet console: the day of each site recorded, 400 days kept'],
+        'fleet_alerts' => [300, 'any', 'Fleet console: alert e-mails by the rules'],
+        'fleet_digest' => [3600, 'any', 'Fleet console: the weekly digest on Monday'],
+        'fleet_reports' => [3600, 'any', 'Fleet console: the monthly report per customer'],
         'monthly_report' => [3600, 'any', 'Monthly report by e-mail'],
         'cookie_scan' => [86400, 'cron', 'What cookies the site sets'],
         'whistleblowing' => [86400, 'any', 'Whistleblowing: due deadlines and the retention of closed cases'],
         'agent_runs' => [3600, 'any', 'Scheduled Claude runs: noticing runs nobody picked up'],
         'booking_reminders' => [3600, 'any', 'Online booking: reminders before the appointment'],
         'import_recheck' => [0, 'any', 'Imported content checked again with today\'s sanitizers'],
+        'media_staging' => [3600, 'any', 'Files waiting for approval: public with the content that uses them, deleted after 30 days'],
     ];
 
     public const int FAILURES_TO_ALERT = 3;
@@ -141,6 +150,11 @@ final class Scheduler
             'updates' => fn (App $app): string => Updater::runInBackground($app), // keeps its own 12-hour pace
             'heartbeat' => fn (App $app): string => \Kaleta\Fleet\Link::send($app),
             'fleet_uptime' => fn (App $app): string => \Kaleta\Fleet\Console::checkUptime($app),
+            'fleet_history' => fn (App $app): string => \Kaleta\Fleet\History::run($app),
+            'fleet_alerts' => fn (App $app): string => \Kaleta\Fleet\AlertRules::run($app),
+            'fleet_digest' => fn (App $app): string => \Kaleta\Fleet\Digest::runIfDue($app),
+            'fleet_reports' => fn (App $app): string => \Kaleta\Fleet\Report::runIfDue($app),
+            'report_archive' => fn (App $app): string => ReportArchive::runIfDue($app),
             'monthly_report' => fn (App $app): string => MonthlyReport::runIfDue($app),
             'cookie_scan' => function (App $app): string {
                 $scan = Privacy::scan($app);
@@ -150,6 +164,7 @@ final class Scheduler
             'whistleblowing' => fn (App $app): string => Whistleblowing::run($app),
             'agent_runs' => fn (App $app): string => 'missed ' . AgentSchedules::markMissed($app),
             'booking_reminders' => fn (App $app): string => Booking::remind($app),
+            'media_staging' => fn (App $app): string => MediaStaging::cleanup($app->db()), // 3.15 (N10)
             'import_recheck' => function (App $app, string $source): string {
                 $state = ImportRecheck::run($app->db(), $app->settings(), $source === 'cron' ? 20.0 : 2.0); // nothing to do once done (3.3.3, N63)
 
@@ -213,7 +228,7 @@ final class Scheduler
     {
         return match ($name) {
             'heartbeat' => \Kaleta\Fleet\Link::isPaired($s),
-            'fleet_uptime' => Extensions::isEnabled($s, 'fleet'),
+            'fleet_uptime', 'fleet_history', 'fleet_alerts', 'fleet_digest', 'fleet_reports' => Extensions::isEnabled($s, 'fleet'),
             default => true,
         };
     }

@@ -43,6 +43,16 @@ if ($user !== null) {
     $statements[] = ['n' => t('My account'), 'u' => $adminUrl('action=account'), 's' => ''];
     $statements[] = ['n' => t('Zobrazit web'), 'u' => $app->url(''), 's' => ''];
 }
+// 3.18: whether Claude is connected (Core\ClaudeConnection) – for whoever may use Ask Claude or the Claude settings, with the
+// Claude connection on and not in the public demo (as Ask Claude on the dashboard); it never breaks the frame
+$claudeChip = null;
+if ($user !== null && (isset($modules['requests']) || isset($modules['claude_settings'])) && Kaleta\Core\Extensions::isEnabled($app->settings(), 'claude') && !Kaleta\Core\Demo::active()) {
+    try {
+        $claudeChip = ['claude' => Kaleta\Core\ClaudeConnection::status($app->db(), $app->settings()), 'url' => $app->url('admin.php?module=' . (isset($modules['claude_settings']) ? 'claude_settings' : 'requests'))];
+    } catch (\Throwable) {
+        $claudeChip = null;
+    }
+}
 ?>
 <!doctype html>
 <html lang="<?= e(Kaleta\Core\Language::code()) ?>" data-pasmo="<?= e(date_default_timezone_get()) ?>">
@@ -67,12 +77,13 @@ if ($user !== null) {
 	<nav class="menu-obal" aria-label="<?= e(t('Main menu')) ?>">
 	<ul class="menu" id="menu">
 		<li class="menu-prehled<?= $onDashboard ? ' aktivni' : '' ?>"><a href="<?= e($app->url('admin.php')) ?>"<?= $onDashboard ? ' aria-current="page"' : '' ?>><?= $icon('prehled') ?><?= e(t('Dashboard')) ?></a></li>
-<?php $group = ''; $inMenu = isset($modules[$active]) && $modules[$active]::PARENT !== '' ? $modules[$active]::PARENT : $active; ?>
+<?php $group = ''; $waiting = 0; $inMenu = isset($modules[$active]) && $modules[$active]::PARENT !== '' ? $modules[$active]::PARENT : $active; ?>
 <?php foreach ($modules as $ident => $class): if ($class::PARENT !== '' && isset($modules[$class::PARENT])) { continue; } ?>
 <?php if ($class::GROUP !== $group): $group = $class::GROUP; ?>
 		<li class="menu-skupina" aria-hidden="true"><?= e(t($group)) ?></li>
 <?php endif ?>
-		<li<?= $ident === $inMenu ? ' class="aktivni"' : '' ?>><a href="<?= e($app->url('admin.php?module=' . $ident)) ?>"<?= $ident === $inMenu ? ' aria-current="page"' : '' ?>><?= $icon($class::ICON) ?><?= e(t($class::NAME)) ?></a></li>
+<?php try { $badge = $class::badge($app); } catch (\Throwable) { $badge = 0; } $waiting += $badge; // 3.15: a count never breaks the menu ?>
+		<li<?= $ident === $inMenu ? ' class="aktivni"' : '' ?>><a href="<?= e($app->url('admin.php?module=' . $ident)) ?>"<?= $ident === $inMenu ? ' aria-current="page"' : '' ?>><?= $icon($class::ICON) ?><?= e(t($class::NAME)) ?><?php if ($badge > 0): ?> <span class="menu-pocet" aria-hidden="true"><?= $badge > 99 ? '99+' : $badge ?></span><span class="navod-skryte"> – <?= e(t('%d new', $badge)) ?></span><?php endif ?></a></li>
 <?php endforeach ?>
 		<li class="menu-web"><a href="<?= e($app->url('')) ?>" target="_blank" rel="noopener"><?= $icon('web') ?><?= e(t('Zobrazit web')) ?></a></li>
 		<li class="menu-logout"><form method="post" action="<?= e($app->url('admin.php?action=logout')) ?>"><?= $app->session->csrfField() ?><button type="submit"><?= $icon('odhlasit') ?><?= e(t('Sign out')) ?></button></form></li>
@@ -82,6 +93,9 @@ if ($user !== null) {
 <section class="loginprouzek" aria-label="<?= e(t('Account and tools')) ?>">
 	<button class="paleta-spustit" type="button" data-paleta title="<?= e(t('Quick search and commands')) ?>"><span><?= e(t('Search…')) ?></span> <kbd>Ctrl K</kbd></button>
 	<button class="tema-prepinac" type="button" data-tema-prepinac title="<?= e(t('Light / dark mode')) ?>" aria-label="<?= e(t('Toggle light and dark mode')) ?>"><?= $icon('tema') ?></button>
+<?php if ($claudeChip !== null): ?>
+	<?= $app->view->render('admin/claude_chip', ['app' => $app] + $claudeChip) ?>
+<?php endif ?>
 	<a class="prihlasen" href="<?= e($app->url('admin.php?action=account')) ?>" title="<?= e(t('My account')) ?>" aria-label="<?= e(t('My account') . ' – ' . ($user['jmeno'] ?: $user['user'])) ?>"><span class="avatar" title="<?= e(($user['jmeno'] ?: $user['user']) . ' – ' . t(Kaleta\Core\Auth::TYPES[(int) $user['admin']] ?? '')) ?>" aria-hidden="true"><?= e(mb_strtoupper(mb_substr($user['jmeno'] ?: $user['user'], 0, 1))) ?></span></a>
 </section>
 <?php endif ?>

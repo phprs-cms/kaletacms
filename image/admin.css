@@ -46,6 +46,10 @@
 	color-scheme: light dark;
 }
 /* dark mode: by the system, or manually with the switcher in the top bar (data-tema on <html>) */
+/* the manual choice also sets the browser's own colours (buttons, fields, scrollbars): with the system in dark mode and the
+   admin switched to light, a button without its own colour was white text on a white surface (3.18.1) */
+:root[data-tema="svetly"] { color-scheme: light; }
+:root[data-tema="tmavy"] { color-scheme: dark; }
 @media (prefers-color-scheme: dark) {
 	:root:not([data-tema="svetly"]) {
 		--podklad: #121212;
@@ -201,6 +205,32 @@ body:not(.login) {
 .menu li.aktivni .ikona {
 	opacity: 1;
 }
+/* 3.15: how many things wait in a module (new enquiries, bookings to confirm, reports to acknowledge) – at the end of
+   the item; on a phone a dot on the Menu button says something waits inside */
+.menu-pocet {
+	margin-left: auto;
+	min-width: 20px;
+	padding: 1px 6px;
+	border-radius: 999px;
+	background: var(--akcent);
+	color: var(--na-akcentu);
+	font-size: 12px;
+	font-weight: 700;
+	line-height: 18px;
+	text-align: center;
+}
+.hlavicka:has(.menu-pocet) .menu-prepinac { position: relative; }
+.hlavicka:has(.menu-pocet) .menu-prepinac::after {
+	content: "";
+	position: absolute;
+	top: -4px;
+	right: -4px;
+	width: 10px;
+	height: 10px;
+	border: 2px solid var(--plocha);
+	border-radius: 50%;
+	background: var(--akcent);
+}
 .menu form {
 	margin: 0;
 }
@@ -256,6 +286,37 @@ body:not(.login) {
 .tema-prepinac .ikona {
 	width: 21px;
 	height: 21px;
+}
+/* 3.18: whether Claude is connected (views/admin/claude_chip.php) – next to the account on every screen. The text says the
+   state; the dot differs in shape too (a disc, a diamond, a ring), so colour is never the only sign */
+.claude-stav {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+	max-width: 100%;
+	min-height: 32px;
+	padding: 4px 12px 4px 10px;
+	border: 1px solid var(--linka-pole);
+	border-radius: 999px;
+	background: var(--plocha);
+	color: var(--text);
+	font-size: 13px;
+	font-weight: 600;
+	line-height: 1.2;
+	text-decoration: none;
+	white-space: nowrap;
+}
+.claude-stav:hover { border-color: var(--akcent); }
+.claude-stav-text { overflow: hidden; text-overflow: ellipsis; }
+.claude-stav-kdy { font-weight: 400; color: var(--text-slaby); }
+.claude-stav-tecka { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--ok); }
+.claude-stav-idle, .claude-stav-stalled { border-color: color-mix(in srgb, var(--varovani-text) 45%, transparent); color: var(--varovani-text); }
+.claude-stav-idle .claude-stav-tecka, .claude-stav-stalled .claude-stav-tecka { border-radius: 2px; background: var(--varovani-text); transform: rotate(45deg) scale(.85); }
+.claude-stav-none { border-color: color-mix(in srgb, var(--chyba) 45%, transparent); color: var(--chyba); }
+.claude-stav-none .claude-stav-tecka { background: none; box-shadow: inset 0 0 0 2px var(--chyba); }
+@media (max-width: 1100px) {
+	.claude-stav-kdy { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
 
 .obsah {
@@ -984,10 +1045,21 @@ body.login {
 .ask-claude-priklady { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .ask-claude-priklad { padding: 6px 12px; border: 1px solid var(--linka-pole); border-radius: 999px; background: var(--podklad); color: var(--text); font: inherit; font-size: 13px; line-height: 1.35; text-align: left; cursor: pointer; transition: border-color .15s; }
 .ask-claude-priklad:hover, .ask-claude-priklad:focus-visible { border-color: var(--akcent); }
-.ask-claude .ask-claude-kdy { margin: 14px 0 0; }
+.ask-claude .ask-claude-kdy { margin: 0 0 10px; }
 .ask-claude-moje { margin: 0; padding: 0; list-style: none; }
 .ask-claude-moje li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 6px 0; border-top: 1px solid var(--linka); }
 .ask-claude-moje li:first-child { border-top: 0; }
+/* 3.18: a new request that waits too long while nothing picks requests up (Requests list) */
+.vypis tr.ceka-dlouho > td { background: color-mix(in srgb, var(--chyba) 7%, var(--plocha)); }
+.vypis tr.ceka-dlouho > td:first-child { box-shadow: inset 3px 0 0 var(--chyba); }
+/* 3.18: the state of the Claude connection at the top of Claude settings */
+.claude-panel { display: grid; gap: 8px; margin: 0 0 20px; padding: 16px 18px; }
+.claude-panel h2 { margin: 0; font-size: 16px; color: inherit; }
+.claude-panel dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 16px; margin: 0; font-weight: 400; color: var(--text); }
+.claude-panel dt { color: var(--text-slaby); }
+.claude-panel dd { margin: 0; overflow-wrap: anywhere; }
+.claude-panel ul { margin: 0; padding-left: 20px; font-weight: 400; color: var(--text); }
+@media (max-width: 600px) { .claude-panel dl { grid-template-columns: minmax(0, 1fr); } .claude-panel dd { margin-bottom: 6px; } }
 /* "Connect Claude" (3.5): the MCP address with Copy (dashboard, Claude settings, My account) and the three steps */
 .mcp-adresa { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0; }
 .mcp-adresa code { padding: 6px 10px; border: 1px solid var(--linka-pole); border-radius: 8px; background: var(--podklad); font-size: 13px; overflow-wrap: anywhere; }
@@ -1330,7 +1402,9 @@ input[type="number"].textpole.cislo-kratke { width: 4.5em; }
 
 /* content hygiene (2.14): bulk actions under lists, the content check in the editor, the media clean-up and the translation overview */
 .hromadne { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-block: 12px; }
-.hromadne label { display: flex; align-items: center; gap: 6px; }
+.hromadne label { display: flex; align-items: center; gap: 6px; max-width: 100%; }
+/* a choice of long names (the fleet inbox's sites and customers, 3.17) never pushes the page wider than a phone */
+.hromadne select, .hromadne .textpole { min-width: 0; max-width: min(100%, 22em); }
 .kontrola-seznam { list-style: none; margin: 0; padding: 0; }
 .kontrola-seznam li { margin-block-end: 6px; padding-inline-start: 1.6em; position: relative; }
 .kontrola-seznam li > span[aria-hidden] { position: absolute; left: 0; font-weight: 700; }
@@ -1360,6 +1434,17 @@ table.preklady td[data-stav] form { margin-inline-start: 6px; }
 		-webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.6-3.6'/%3E%3C/svg%3E") center / contain no-repeat;
 		mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.6-3.6'/%3E%3C/svg%3E") center / contain no-repeat; }
 	.hlavicka { min-height: 64px; }
+	/* 3.18: on a phone the Claude state is a dot the size of the other buttons; its text stays for screen readers. Four
+	   buttons next to Menu: a little smaller and closer, the logo a little smaller, so nothing overlaps at 390 px */
+	.claude-stav { flex: none; justify-content: center; width: 36px; height: 36px; min-height: 0; padding: 0; border-radius: 50%; }
+	.claude-stav-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+	.claude-stav-tecka { width: 12px; height: 12px; }
+	.loginprouzek:has(.claude-stav) { gap: 4px; }
+	.loginprouzek:has(.claude-stav) :is(.paleta-spustit, .tema-prepinac, .avatar) { width: 36px; height: 36px; }
+	.hlavicka:has(~ .loginprouzek .claude-stav) .kaleta-logo { width: auto; height: 24px; }
+}
+@media (max-width: 380px) {
+	.hlavicka:has(~ .loginprouzek .claude-stav) .kaleta-logo { height: 20px; }
 }
 /* phones (2.17): the open menu is a sheet under the header row – two columns within each group, scrolled on its own,
    the page underneath stays where it was (no long column pushing the form down) */
@@ -1371,3 +1456,14 @@ table.preklady td[data-stav] form { margin-inline-start: 6px; }
 	.menu-otevrene .menu > .menu-skupina { margin-top: 14px; }
 	.menu-otevrene .menu a, .menu-otevrene .menu button { min-height: 44px; padding: 8px; gap: 8px; overflow-wrap: anywhere; text-decoration: none; }
 }
+
+/* 3.17: the uptime trend of a fleet site (views/admin/fleet/trend.php) – one bar a day; the summary and the table say the same in words */
+.trend { margin: 12px 0 4px; }
+.trend svg { display: block; width: 100%; height: 48px; }
+.trend rect { fill: var(--linka-pole); }
+.trend rect.ok { fill: var(--ok); }
+.trend rect.slabe { fill: var(--varovani); }
+.trend rect.chyba { fill: var(--chyba); }
+.trend figcaption { margin-top: 4px; font-size: 12px; color: var(--text-slaby); }
+.trend-tabulka { margin: 0 0 16px; }
+.trend-tabulka summary { cursor: pointer; font-size: 13px; }

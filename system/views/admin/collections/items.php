@@ -10,6 +10,11 @@
  * @var list<string> $languages other languages of the site (a detail template for each one separately)
  * @var list<string> $siteLanguages all languages of the site for the filter (empty = a single language)
  * @var string $language language selected in the filter ('' = all)
+ * @var list<array{id: int, parent_id: ?int, name: string, visible: bool}> $categories categories of the collection for the filter (3.18.3)
+ * @var int $category category selected in the filter (0 = all; a top-level one includes its subcategories)
+ * @var list<array<string, mixed>> $choiceFields the choice fields of the collection – each one is a filter
+ * @var array<string, string> $fieldFilter field key => selected option
+ * @var bool $filtered some filter is on
  * @var bool $trash the trash is shown
  * @var bool $noticeBoard an official notice board (2.11): its notices are never deleted
  * @var int $inTrash items in the trash
@@ -25,8 +30,8 @@
 	<a class="navigace" href="<?= e($module->url('edit', ['id' => $k['idk']])) ?>"><?= e(t('Fields and settings')) ?></a>
 <?php if ($k['detail']): ?>
 	<a class="navigace" href="<?= e($module->url('builder', ['id' => $k['idk']])) ?>"><?= e(t('Detail template')) ?></a>
-<?php foreach ($languages as $language): ?>
-	<a class="navigace" href="<?= e($module->url('builder', ['id' => $k['idk'], 'language' => $language])) ?>"><?= e(t('Detail template (%s)', strtoupper($language))) ?></a>
+<?php foreach ($languages as $templateLanguage): /* not $language – that is the filter choice the language filter below shows */ ?>
+	<a class="navigace" href="<?= e($module->url('builder', ['id' => $k['idk'], 'language' => $templateLanguage])) ?>"><?= e(t('Detail template (%s)', strtoupper($templateLanguage))) ?></a>
 <?php endforeach ?>
 <?php endif ?>
 <?php endif ?></p>
@@ -63,11 +68,38 @@
 </div>
 <?php endif ?>
 <?php else: ?>
-<?php if ($siteLanguages !== []): ?>
-<form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt"><input type="hidden" name="module" value="collections"><input type="hidden" name="action" value="items"><input type="hidden" name="id" value="<?= (int) $k['idk'] ?>"><?= $app->view->render('admin/language_filter', ['siteLanguages' => $siteLanguages, 'language' => $language, 'submitOnChange' => true]) ?></form>
+<?php if ($siteLanguages !== [] || $categories !== [] || $choiceFields !== []): ?>
+<form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt"><input type="hidden" name="module" value="collections"><input type="hidden" name="action" value="items"><input type="hidden" name="id" value="<?= (int) $k['idk'] ?>">
+<?= $app->view->render('admin/language_filter', ['siteLanguages' => $siteLanguages, 'language' => $language, 'submitOnChange' => true]) ?>
+<?php if ($categories !== []): ?>
+	<label><?= e(t('Category:')) ?>
+		<select name="category" data-odeslat-pri-zmene>
+			<option value=""><?= e(t('všechny')) ?></option>
+<?php foreach ($categories as $c): ?>
+			<option value="<?= (int) $c['id'] ?>"<?= $category === (int) $c['id'] ? ' selected' : '' ?>><?= ($c['parent_id'] !== null ? '– ' : '') . e($c['name']) ?></option>
+<?php endforeach ?>
+		</select>
+	</label>
 <?php endif ?>
-<?php if ($items === [] && $language === ''): ?>
+<?php foreach ($choiceFields as $f): ?>
+	<label><?= e($f['popisek']) ?>:
+		<select name="field_<?= e($f['klic']) ?>" data-odeslat-pri-zmene>
+			<option value=""><?= e(t('všechny')) ?></option>
+<?php foreach ($f['moznosti'] as $option): ?>
+			<option value="<?= e($option) ?>"<?= ($fieldFilter[$f['klic']] ?? null) === $option ? ' selected' : '' ?>><?= e($option) ?></option>
+<?php endforeach ?>
+		</select>
+	</label>
+<?php endforeach ?>
+<?php if ($filtered): ?>
+	<a href="<?= e($module->url('items', ['id' => $k['idk']])) ?>"><?= e(t('Clear filter')) ?></a>
+<?php endif ?>
+</form>
+<?php endif ?>
+<?php if ($items === [] && !$filtered): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'kolekce', 'heading' => t('The collection is empty.'), 'text' => t('Add the first item – then put it on the site with the Collection list element in the builder.'), 'action' => [$module->url('item', ['id' => $k['idk']]), t('Add item')]]) ?>
+<?php elseif ($items === []): ?>
+<p class="stred"><?= e(t('Nothing matches the filter.')) ?> <a href="<?= e($module->url('items', ['id' => $k['idk']])) ?>"><?= e(t('Clear filter')) ?></a></p>
 <?php else: ?>
 <div class="tab-obal">
 <table class="vypis">

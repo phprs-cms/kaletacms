@@ -122,7 +122,9 @@ final class Catalog
         'undo_agent_session' => ['destructive', ''],
         'list_changes' => ['read', ''],
         'get_stats' => ['read', ''],
-        // Moving a site (2.7)
+        // Moving a site (2.7). Stays 'read' (3.15, N315-9; the class and annotations are part of the MCP contract): it changes
+        // nothing on the site – its outbound fetches are IP-pinned reads of the old public site (ImageDownloader, OPEN_WORLD
+        // sends it through run_destructive_tool) and its state files hold only the report; administrators only
         'migration_report' => ['read', ''],
         // 3.6: the WordPress export import – everything arrives hidden and menus go to the draft look, but it creates
         // records and redirects, so it is not for a drafts-only connection
@@ -166,14 +168,21 @@ final class Catalog
         'propose_booking_times' => ['write', ''],
         'list_sites' => ['read', 'fleet'],
         'get_site' => ['read', 'fleet'],
+        'fleet_inbox' => ['read', 'fleet'],
+        'fleet_report' => ['read', 'fleet'], // 3.17: the monthly report per customer (Fleet\Report)
         // Requests to Claude (2.15): update_request changes nothing on the site – a note and a status on a request, whose
         // work is done as drafts – so a drafts-only connection may answer the requests it works on
         'list_requests' => ['read', ''],
         // Waiting for you (3.2): drafts and proposals that wait for a person
         'list_pending_review' => ['read', ''],
+        // The archive of the monthly reports (3.16): administrators only (Handlers\ReportTools)
+        'list_monthly_reports' => ['read', ''],
+        'get_monthly_report' => ['read', ''],
         'update_request' => ['draft', ''],
         // Scheduled runs (2.17): a routine in Claude asks what is due and reports what it did as drafts – report_agent_run
-        // only records the run, so a drafts-only connection (the one the runs are meant for) may call both
+        // only records the run, so a drafts-only connection (the one the runs are meant for) may call both.
+        // get_due_agent_runs keeps 'read' and readOnlyHint (3.15, N315-9; the contract): it changes no content – it marks
+        // runs as handed out – and refuses read-only connections itself (Handlers\AgentRunTools), which could not report them
         'get_due_agent_runs' => ['read', ''],
         'report_agent_run' => ['draft', ''],
         // Content hygiene (2.14)
@@ -319,8 +328,12 @@ final class Catalog
         'propose_booking_times' => 'Propose other booking times',
         'list_sites' => 'List fleet sites',
         'get_site' => 'Get a fleet site',
+        'fleet_inbox' => 'List what waits across the fleet',
+        'fleet_report' => 'Get a monthly fleet report',
         'list_requests' => 'List requests to Claude',
         'list_pending_review' => 'List what waits for review',
+        'list_monthly_reports' => 'List archived monthly reports',
+        'get_monthly_report' => 'Get a monthly report',
         'update_request' => 'Answer a request',
         'get_due_agent_runs' => 'Get due scheduled runs',
         'report_agent_run' => 'Report a scheduled run',

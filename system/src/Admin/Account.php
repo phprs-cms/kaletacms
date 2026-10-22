@@ -120,6 +120,7 @@ final class Account
                 case 'aplikace_odpojit':
                     if (preg_match('/^[a-f0-9]{32}$/D', $r->post('odpojit_klient')) === 1) { // an OAuth client id is 32 hex characters (3.12)
                         $db->delete('api_tokeny', ['klient' => $r->post('odpojit_klient'), 'idu' => $user['idu']]);
+                        \Kaleta\Front\OAuth::forgetRotations($db, (int) $user['idu'], $r->post('odpojit_klient')); // N318-3
                     }
                     ChangeLog::write($app, 'ucet', 'odpojena aplikace');
                     $message = ['ok', 'The application is disconnected – it will not get into the website until you allow it again.'];

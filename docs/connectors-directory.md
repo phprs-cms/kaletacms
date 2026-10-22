@@ -166,6 +166,11 @@ the tool set.
       reaches outside the site (`Catalog::OPEN_WORLD`, including the read `migration_report`); its description tells
       Claude to confirm the exact action with the user first.
     Each refuses a tool of another class and names the right runner.
+  - Two tools keep the read class and its annotations on purpose (3.15, N315-9 – changing an annotation would change the
+    contract existing connections rely on): `get_due_agent_runs` changes no content – it marks runs as handed out – and
+    refuses a read-only connection itself, because such a connection could never report a run; `migration_report`
+    changes nothing on the site – its fetches are IP-pinned reads of the old public site (and it goes through
+    `run_destructive_tool` as an open-world tool) and its state file holds only the report.
   - Only the runners the connection's access can use are listed (N310-6): a read-only connection gets `find_tools` and
     `run_read_tool` only (its open-world read `migration_report` stays callable by name); `find_tools` marks a tool
     whose runner is not listed as "direct call".

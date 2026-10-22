@@ -24,6 +24,7 @@ final class App
         $this->session = new Session($this->request->isHttps(), $this->request->basePath() . '/');
         $this->view = new View([KALETA_SYSTEM . '/views']);
         Demo::configure($config['demo'] ?? null);
+        Vault::configure($config['vault_key'] ?? null); // 3.15 (N42): the key of the encrypted secrets, outside the database
     }
 
     /** Loads config.php; when it is missing, the site is not installed yet. */

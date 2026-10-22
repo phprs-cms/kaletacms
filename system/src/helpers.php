@@ -12,6 +12,32 @@ function e(string|int|float|null $value): string
 }
 
 /**
+ * A text as a CSS string literal, quotes included (3.16, N316-4) – for a value from the data inside a style sheet, such as
+ * the site name in the print page's margin boxes. Every control character (U+0000–001F and U+007F: a form feed or a line
+ * break ends a CSS string, and the rest would be read as CSS), the line separators U+0085, U+2028 and U+2029, both quotes,
+ * the backslash and "<" ">" (no "</style>") become CSS hex escapes; everything else stays as it is.
+ */
+function css_string(string $text): string
+{
+    $escaped = preg_replace_callback('/[\x00-\x1F\x7F"\'\\\\<>\x{85}\x{2028}\x{2029}]/u', static fn (array $m): string => '\\' . dechex((int) mb_ord($m[0], 'UTF-8')) . ' ', mb_scrub($text, 'UTF-8'));
+
+    return '"' . ($escaped ?? '') . '"';
+}
+
+/**
+ * Stored HTML (a news intro, a description) as one line of plain text for a meta description, structured data, feeds or
+ * llms.txt: block ends become spaces, entities characters (&nbsp; from WordPress or a site import), whitespace one space;
+ * $width > 0 shortens it with an ellipsis. The result is text, not HTML - escape it on output like any other text.
+ */
+function plain_text(string $html, int $width = 0): string
+{
+    $text = strip_tags((string) preg_replace('#</(p|h[1-6]|li|blockquote|figcaption|div)>|<br\s*/?>#i', ' ', $html));
+    $text = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+
+    return $width > 0 ? mb_strimwidth($text, 0, $width, '…') : $text;
+}
+
+/**
  * A value people typed (a name, an e-mail, a title) printed inside the administration's left-to-right text: escaped and
  * isolated in <bdi>, so an Arabic name keeps its order and does not pull the punctuation around it (looks the same for Latin text).
  */

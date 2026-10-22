@@ -86,6 +86,11 @@ final class Readiness
             default => t('The user lacks %s on this database. The update to Kaleta 4.0 renames tables and changes keys – ask the hosting to grant them.', implode(', ', $missing)),
         });
 
+        // 3.15: which names the tables have – this release runs on both, so it is the version 4.0 can roll back to
+        $add('table_names', t('Table names'), 'ok', $db->englishTables()
+            ? t('the tables already have their English names (Kaleta 4.0 renamed them) – this version works with them too')
+            : t('the tables have today’s names; Kaleta 4.0 renames them to the English ones, and this version already works with both'));
+
         // add-ons and custom layouts that write the old table names
         $scan = self::scan(KALETA_ROOT, self::SCAN_FOLDERS, $db->prefix);
         $log = LegacyNames::recent();
@@ -147,7 +152,28 @@ final class Readiness
             default => t('%d address(es) are shared by versions in different languages although “The same address in every language” is off – Kaleta 4.0 allows it, nothing to do', $shared),
         });
 
+        // 3.15 (N42): the key of the encrypted secrets – in config.php, not in the database (Core\Vault); never the key itself
+        $vault = Vault::state($app->settings());
+        $add('vault_key', t('Encryption key'), ['config' => 'ok', 'database' => 'info'][$vault] ?? 'varovani', Vault::describe($vault));
+
         return $out;
+    }
+
+    /**
+     * Checks whose warning stops the update to 4.0 (3.15): with an unsupported database server or without the rights to
+     * rename tables the update cannot succeed. Every other warning (old table names in an add-on…) only asks for care.
+     */
+    public const array BLOCKERS = ['database_version', 'database_privileges'];
+
+    /**
+     * The names of the checks that stop the update to 4.0 now – empty when it may go ahead.
+     *
+     * @param list<array{key: string, nazev: string, stav: string, info: string, seznam: list<string>}> $checks
+     * @return list<string>
+     */
+    public static function blockers(array $checks): array
+    {
+        return array_values(array_map(fn (array $c): string => $c['nazev'], array_filter($checks, fn (array $c): bool => $c['stav'] === 'varovani' && in_array($c['key'], self::BLOCKERS, true))));
     }
 
     /** The worst state: varovani when a check warns, ok otherwise (info is never a problem). */

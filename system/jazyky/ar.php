@@ -2085,4 +2085,5 @@ The link works for %d days.
     'Cookie bar: a random identifier that links the choice to its record, only when consents are recorded (cookie)' => 'شريط ملفات تعريف الارتباط: معرّف عشوائي يربط الاختيار بسجله، فقط عند تسجيل الموافقات (ملف تعريف ارتباط)',
     'Preview of drafts: only for someone who opened a signed preview link (cookie)' => 'معاينة المسودات: فقط لمن فتح رابط معاينة موقّعًا (ملف تعريف ارتباط)',
     'until the preview link expires, at most 7 days' => 'حتى انتهاء صلاحية رابط المعاينة، 7 أيام على الأكثر',
+    'open in a new window' => 'فتح في نافذة جديدة',
 ];

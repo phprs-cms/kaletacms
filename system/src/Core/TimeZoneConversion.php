@@ -26,6 +26,8 @@ namespace Kaleta\Core;
  *  - A value that would leave the DATETIME range stays as it is and is counted; a table that fails is skipped with its
  *    error on the progress row (both in the change log and on System status).
  *  - The start and the end are in the change log (Admin\ChangeLog).
+ *  - JSON is not walked: what stores moments inside JSON writes them as ISO 8601 with the offset (the archived monthly
+ *    reports, Core\MonthlyReport::build since 3.16), which needs no conversion – the reader turns them into the new zone.
  */
 final class TimeZoneConversion
 {
@@ -56,7 +58,7 @@ final class TimeZoneConversion
     public const array INSTANTS = [
         'uzivatele' => ['blokovano_automaticky', 'zamceno_do', 'obnova_cas', 'posledni_login', 'potvrzeno'],
         'novinky' => ['datum', 'zmeneno', 'aktualizovano', 'oznameno', 'odkazy_cas', 'smazano'],
-        'media' => ['datum'],
+        'media' => ['datum', 'staged_at'],
         'kontrola_ip' => ['cas'],
         'novinky_revize' => ['datum'],
         'stranky' => ['zverejnit_od', 'zmeneno', 'links_checked', 'smazano'],
@@ -95,12 +97,17 @@ final class TimeZoneConversion
         'look_versions' => ['created'],
         'webhook_deliveries' => ['created', 'next_attempt', 'delivered'],
         'events' => ['created_at'],
+        // the moments inside the stored report (data) are ISO 8601 with their offset since 3.16 (N316-9) and stay right as they are
+        'monthly_reports' => ['created_at', 'rebuilt_at'],
         'jobs' => ['last_run', 'last_ok'],
         'firewall_blocks' => ['until', 'created_at'],
         'firewall_log' => ['created_at'],
         'fleet_sites' => ['relay_expires', 'paired_at', 'last_seen', 'version_since', 'up_checked', 'up_changed'],
         'fleet_pairing' => ['created_at', 'expires_at', 'used_at'],
         'fleet_kits' => ['created_at'],
+        'fleet_history' => ['updated_at'], // 3.17 (Fleet\History; the day is civil)
+        'fleet_incidents' => ['started_at', 'ended_at'],
+        'fleet_reports' => ['created_at', 'rebuilt_at'],
         'facts' => ['updated_at'],
         'fact_history' => ['changed_at'],
         'hours_exceptions' => ['created_at'],
@@ -137,7 +144,7 @@ final class TimeZoneConversion
         'kolekce_polozky' => ['valid_until', 'review_by'],
         'popupy' => ['valid_until', 'review_by'],
         'stat_dny' => ['den'], 'stat_navstevnici' => ['den'], 'stat_novinky' => ['den'], 'stat_stranky' => ['den'], 'stat_kampane' => ['den'],
-        'stat_zarizeni' => ['den'], 'stat_konverze' => ['den'], 'stat_zdroje' => ['den'], 'web_vitals' => ['day'], 'document_downloads' => ['day'], 'search_stats' => ['day'],
+        'stat_zarizeni' => ['den'], 'stat_konverze' => ['den'], 'stat_zdroje' => ['den'], 'web_vitals' => ['day'], 'document_downloads' => ['day'], 'search_stats' => ['day'], 'fleet_history' => ['day'],
         // opening hours exceptions (holidays), appointments, days off and proposed times: a 10:00 appointment stays at 10:00
         'hours_exceptions' => ['date_from', 'date_to'],
         'bookings' => ['starts_at', 'ends_at'],
@@ -239,7 +246,7 @@ final class TimeZoneConversion
         }
         $plan = [];
         foreach (array_keys(self::INSTANTS) as $table) {
-            if (isset($sizes[$physical = $db->prefix . Names::physical($table)])) {
+            if (isset($sizes[$physical = $db->tableName($table)])) {
                 $plan[] = [$table, self::primaryKey($db, $table), $sizes[$physical]];
             }
         }
@@ -476,7 +483,7 @@ final class TimeZoneConversion
     {
         $rows = $db->all("SELECT k.COLUMN_NAME, c.DATA_TYPE FROM information_schema.KEY_COLUMN_USAGE k JOIN information_schema.COLUMNS c
             ON c.TABLE_SCHEMA = k.TABLE_SCHEMA AND c.TABLE_NAME = k.TABLE_NAME AND c.COLUMN_NAME = k.COLUMN_NAME
-            WHERE k.TABLE_SCHEMA = DATABASE() AND k.TABLE_NAME = ? AND k.CONSTRAINT_NAME = 'PRIMARY' ORDER BY k.ORDINAL_POSITION", [$db->prefix . Names::physical($table)]);
+            WHERE k.TABLE_SCHEMA = DATABASE() AND k.TABLE_NAME = ? AND k.CONSTRAINT_NAME = 'PRIMARY' ORDER BY k.ORDINAL_POSITION", [$db->tableName($table)]);
 
         return array_map(fn (array $r): array => [(string) $r['COLUMN_NAME'], in_array(strtolower((string) $r['DATA_TYPE']), ['tinyint', 'smallint', 'mediumint', 'int', 'bigint'], true)], $rows);
     }

@@ -157,7 +157,8 @@ final class Registry
         }
         $sql = $manifest['path'] . '/install.sql';
         if (is_file($sql)) {
-            foreach (\Kaleta\Core\Migration::statements((string) file_get_contents($sql), $app->db()->prefix) as $statement) {
+            // the same rewrite as the core migrations: on a database 4.0 renamed, a REFERENCES ka_stranky names ka_pages (N315-12)
+            foreach (\Kaleta\Core\Migration::statements((string) file_get_contents($sql), $app->db()->prefix, $app->db()->englishTables()) as $statement) {
                 if (preg_match('/^\s*CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+`?' . preg_quote($app->db()->prefix, '/') . 'ext_' . preg_quote($slug, '/') . '_[a-z0-9_]+`?\s*\(/i', $statement) !== 1) {
                     throw new \DomainException('install.sql may only CREATE TABLE IF NOT EXISTS {ext_' . $slug . '_…} tables.');
                 }

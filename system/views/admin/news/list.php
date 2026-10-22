@@ -41,7 +41,7 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['pag
 	<input type="hidden" name="status" value="<?= e($filter['status']) ?>">
 <?php if (count($category) > 1): ?>
 	<label><?= e(t('Category:')) ?>
-		<select name="category">
+		<select name="category" data-odeslat-pri-zmene>
 			<option value="0"><?= e(t('všechny')) ?></option>
 <?php foreach ($category as $k): ?>
 			<option value="<?= (int) $k['idt'] ?>"<?= $filter['category'] === (int) $k['idt'] ? ' selected' : '' ?>><?= e($k['nazev']) ?></option>
@@ -51,7 +51,7 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['pag
 <?php endif ?>
 <?php if ($siteLanguages !== []): ?>
 	<label><?= e(t('Language:')) ?>
-		<select name="language">
+		<select name="language" data-odeslat-pri-zmene>
 			<option value=""><?= e(t('všechny')) ?></option>
 <?php foreach ($siteLanguages as $code): ?>
 			<option value="<?= e($code) ?>"<?= $filter['language'] === $code ? ' selected' : '' ?>><?= e(\Kaleta\Core\Language::AVAILABLE[$code][0]) ?></option>

@@ -344,6 +344,9 @@ final class Collections
         }
     }
 
+    /** At most this many items in one query (3.18.2: 500 for the Store locator of a producer with many partner stores, 100 before). */
+    public const int MAX_ITEMS = 500;
+
     /**
      * Visible items of a collection in the site language: filter by field value, sorting (also by a custom field) and pagination.
      *
@@ -381,7 +384,7 @@ final class Collections
             $sort === 'pole_sestupne' && $byField => '(' . $field($sortField) . ' + 0) DESC, ' . $db->sortText($field($sortField)) . ' DESC, ' . $name,
             default => 'poradi, ' . $name,
         };
-        $count = max(1, min(100, $count));
+        $count = max(1, min(self::MAX_ITEMS, $count)); // the elements keep their own limits (a Collection list 100); the Store locator lists more
         $total = (int) $db->value('SELECT COUNT(*) FROM {kolekce_polozky} WHERE ' . $whereParts, $params);
         $items = array_map(function (array $r): array {
             $r['data'] = json_decode((string) $r['data'], true) ?: [];
@@ -477,6 +480,20 @@ final class Collections
     }
 
     /**
+     * A number field for visitors (3.14.1): a thousands separator and the decimal mark of the site language, with as many
+     * decimals as were stored (a price "4.20" keeps both, "1490" gets none). Anything that is not a number stays as it is.
+     */
+    public static function displayNumber(string $value): string
+    {
+        $plain = str_replace([' ', "\u{00A0}"], '', trim($value));
+        if (!preg_match('/^-?\d+(?:[.,](\d+))?$/D', $plain, $m)) {
+            return $value;
+        }
+
+        return format_count((float) str_replace(',', '.', $plain), strlen($m[1] ?? ''));
+    }
+
+    /**
      * Values for the placeholders: key => [value, type].
      *
      * @param callable(string): string $url url within the site
@@ -515,6 +532,13 @@ final class Collections
             if ($p['typ'] === 'parametry' || $p['typ'] === 'varianty') {
                 // a table for visitors (2.11): parameters to compare, variants with their code and price
                 $h[$p['klic']] = [$p['typ'] === 'parametry' ? Products::parametersTable($value) : Products::variantsTable($value), 'html'];
+                continue;
+            }
+            if ($p['typ'] === 'cislo') {
+                // 3.14.1: {{price}} = the number as visitors read it (1 490 / 1,490 / 1.490, the decimals as stored: 4.20 stays
+                // 4.20), {{price_raw}} = as stored, for a link, a data attribute or a calculation
+                $h[$p['klic']] = [self::displayNumber($value), 'text'];
+                $h[$p['klic'] . '_raw'] ??= [$value, 'text'];
                 continue;
             }
             if ($p['typ'] === 'volba') {

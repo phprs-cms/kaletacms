@@ -34,8 +34,20 @@ whose output reads like hand-written HTML, an AI assistant, Claude over MCP, and
 - **AI** – the assistant drafts a new section from a description, rewrites element text, suggests headlines, SEO
   descriptions, proofreading and translation (Claude, OpenAI, Google Gemini or Mistral). Claude can also build the site
   over **MCP**: it turns HTML into builder content and edits site parts, collections and the design – always as a draft to approve.
+- **Industry blueprints** – 20 packages for a kind of business (a clinic, a restaurant, a driving school, a municipality…):
+  the collections it needs, the facts to state, checks in the site audit and instructions for Claude.
 - **News** (blog), sites in around forty languages, the admin in Czech, English, German and Spanish, SEO and llms.txt, cookie-free analytics, redirects, backups and signed updates,
   **WordPress import** (straight into the builder, too).
+
+### Examples
+
+Fictional example sites built with a starter site, an industry blueprint and their own colours and fonts – sample
+content and free stock photos ([all 18](docs/screenshots/examples), one on each page of [kaletacms.com/solutions](https://kaletacms.com/solutions)).
+
+| | | |
+|---|---|---|
+| ![A fictional fitness studio](docs/screenshots/examples/fitness-studios.webp) | ![A fictional bistro](docs/screenshots/examples/restaurants.webp) | ![A fictional town council](docs/screenshots/examples/municipalities.webp) |
+| Fitness studio | Restaurant | Municipality |
 
 ## Principles
 

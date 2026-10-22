@@ -801,6 +801,8 @@ final class WebImport
     /** An address without the fragment, tracking parameters and a trailing index file. */
     public static function normalize(string $url): string
     {
+        // raw UTF-8 (an emoji in a sitemap) is percent-encoded first: parse_url() turns the bytes 0x80–0x9F into "_" (3.18.2)
+        $url = (string) preg_replace_callback('/[^\x00-\x7F]+/', fn (array $m): string => rawurlencode($m[0]), $url);
         $c = parse_url($url);
         if (!is_array($c) || !isset($c['scheme'], $c['host']) || !in_array(strtolower($c['scheme']), ['http', 'https'], true)) {
             return '';

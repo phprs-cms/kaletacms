@@ -162,13 +162,15 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <p class="tlacitka"><button class="tl" type="submit"><?= e(t('Uložit')) ?></button><?php if (($page['stavba'] ?? null) === null): ?> <button class="navigace" type="submit" name="po_ulozeni" value="stavitel"><?= e(t('Save and open in the builder')) ?></button><?php endif ?></p>
 <?php endif ?>
 </form>
-<?php if (!$page['ids'] && ($translationOf ?? null) !== null && $app->auth()->hasModule('requests') && Kaleta\Core\Extensions::isEnabled($app->settings(), 'claude')): // 3.11 (UX310-4): translating is what Claude does well ?>
+<?php if (!$page['ids'] && ($translationOf ?? null) !== null && $app->auth()->hasModule('requests') && Kaleta\Core\Extensions::isEnabled($app->settings(), 'claude')): // 3.11 (UX310-4): translating is what Claude does well
+    $claude = Kaleta\Core\ClaudeConnection::status($app->db(), $app->settings()); // 3.18: without a connection the request waits – said before it is saved ?>
 <form class="formular" method="post" action="<?= e($app->url('admin.php?module=requests&action=save')) ?>">
+<?= Kaleta\Core\ClaudeConnection::blocked($claude) ? $app->view->render('admin/claude_notice', ['app' => $app, 'claude' => $claude]) : '' ?>
 <?= $csrf ?>
 <input type="hidden" name="quick" value="1">
 <input type="hidden" name="about" value="page:<?= (int) $page['preklad_z'] ?>">
 <input type="hidden" name="text" value="<?= e(t('Translate the page “%s” into %s: start the translation as a copy of the original build, translate all its texts and leave it as a draft for me to check.', $translationOf, $languageName)) ?>">
-<p class="napoveda"><?= e(t('Or let Claude do it: it creates the translation as a draft for you to check.')) ?> <button class="navigace" type="submit"><?= e(t('Ask Claude to translate it')) ?></button></p>
+<p class="napoveda"><?= e(t('Or let Claude do it: it creates the translation as a draft for you to check.')) ?> <button class="navigace" type="submit"><?= e(Kaleta\Core\ClaudeConnection::reachable($claude) ? t('Ask Claude to translate it') : t('Save for later')) ?></button></p>
 </form>
 <?php endif ?>
 <?php if ($versions !== []): ?>

@@ -28,7 +28,7 @@ class Settings extends Module
 
     public const array TABS = [
         'general' => 'General', 'company' => 'Company', 'seo' => 'SEO and GEO',
-        'analytics' => 'Analytics', 'cookies' => 'Privacy and cookies', 'mail' => 'Mail', 'webhooks' => 'Webhooks', 'backups' => 'Backups and updates', 'firewall' => 'Firewall', 'console' => 'Fleet console', 'health' => 'System status',
+        'analytics' => 'Analytics', 'cookies' => 'Privacy and cookies', 'mail' => 'Mail', 'reports' => 'Reports', 'webhooks' => 'Webhooks', 'backups' => 'Backups and updates', 'firewall' => 'Firewall', 'console' => 'Fleet console', 'health' => 'System status',
     ];
 
     /** Company types for the field company_type (vyber:…). */
@@ -44,7 +44,7 @@ class Settings extends Module
         'general' => [
             'site_name' => 'text', 'site_url' => 'vzor:#^https?://[a-z0-9.-]+(:\d+)?$#i', 'site_description' => 'radky', 'site_email' => 'email', 'footer_text' => 'text',
             'social_facebook' => 'url', 'social_instagram' => 'url', 'social_x' => 'url', 'social_youtube' => 'url', 'social_linkedin' => 'url',
-            'home_page' => 'cislo:0:4294967295', 'news_per_page' => 'cislo:1:100', 'news_slug' => 'vzor:/^(?:[a-z0-9]+(?:-[a-z0-9]+)*)?$/', 'share_buttons' => 'ano', 'social_networks' => 'seznam:' . \Kaleta\Core\SocialDrafts::NETWORK_KEYS, 'link_check' => 'ano', 'article_outline' => 'ano', 'related_news_auto' => 'ano', 'page_cache' => 'ano', 'maintenance' => 'ano', 'maintenance_text' => 'text', 'require_2fa' => 'vyber:|spravci|vsichni',
+            'home_page' => 'cislo:0:4294967295', 'news_per_page' => 'cislo:1:100', 'news_slug' => 'vzor:/^(?:[a-z0-9]+(?:-[a-z0-9]+)*)?$/', 'news_title' => 'text', 'share_buttons' => 'ano', 'social_networks' => 'seznam:' . \Kaleta\Core\SocialDrafts::NETWORK_KEYS, 'link_check' => 'ano', 'article_outline' => 'ano', 'related_news_auto' => 'ano', 'page_cache' => 'ano', 'maintenance' => 'ano', 'maintenance_text' => 'text', 'require_2fa' => 'vyber:|spravci|vsichni',
             // screen mode (2.11, Front\Screen); screen_collections is added by fields() from the site's collections, the secret is created by actionSave
             'screen_mode' => 'ano', 'screen_seconds' => 'cislo:' . \Kaleta\Front\Screen::MIN_SECONDS . ':' . \Kaleta\Front\Screen::MAX_SECONDS, 'screen_news' => 'ano', 'screen_hours' => 'ano', 'screen_clock' => 'ano',
             'auto_suspend' => 'seznam:' . \Kaleta\Core\SecurityHygiene::SUSPEND_ACCOUNTS . '|' . \Kaleta\Core\SecurityHygiene::SUSPEND_CONNECTIONS,
@@ -75,8 +75,9 @@ class Settings extends Module
             'captcha_provider' => 'vyber:|hcaptcha|recaptcha|turnstile', 'captcha_site_key' => 'vzor:/^[A-Za-z0-9_.-]{0,100}$/', 'captcha_secret' => 'tajne', 'captcha_fail_open' => 'ano'],
         'mail' => ['mail_mode' => 'vyber:mail|smtp', 'mail_from' => 'email', 'mail_reply_to' => 'email', 'smtp_host' => 'vzor:/^[A-Za-z0-9.-]{0,120}$/', 'smtp_port' => 'cislo:1:65535',
             'smtp_encryption' => 'vyber:tls|ssl|zadne', 'smtp_user' => 'text', 'smtp_password' => 'tajne', 'newsletter_hourly_limit' => 'cislo:10:100000',
-            'smtp_provider' => 'vyber:' . \Kaleta\Core\MailServices::CHOICES, // 3.9: the mail service; MailServices::settle() fills its server after the save
-            'report_monthly' => 'ano', 'report_recipients' => 'emaily'],
+            'smtp_provider' => 'vyber:' . \Kaleta\Core\MailServices::CHOICES], // 3.9: the mail service; MailServices::settle() fills its server after the save
+        // the monthly report (2.9) and its archive (3.16, Core\ReportArchive): the e-mail switch and the recipients moved here from Mail
+        'reports' => ['report_monthly' => 'ano', 'report_recipients' => 'emaily'],
         // Claude's instructions and guardrails (3.2: own screen, Modules\ClaudeSettings – the keys stay)
         'claude' => ['claude_instructions' => 'radky', 'claude_change_limit' => 'cislo:0:10000', 'claude_destructive' => 'ano', 'claude_apps_only' => 'ano', 'claude_protected_pages' => 'vzor:/^[0-9 ,;]{0,500}$/'],
         'extensions' => ['ai_provider' => 'vyber:' . \Kaleta\Core\Assistant::PROVIDER_KEYS, 'ai_key' => 'tajne', 'ai_model' => 'vzor:#^[A-Za-z0-9._:/-]{0,80}$#',
@@ -182,7 +183,9 @@ class Settings extends Module
             'screenCollections' => $tab === 'general' ? $this->screenCollections() : [],
             'screenUrl' => $tab === 'general' ? \Kaleta\Front\Screen::url($this->app) : '',
             'backups' => $tab === 'backups' ? Backup::listAll() : [],
+            'vaultState' => $tab === 'backups' ? \Kaleta\Core\Vault::state($settings) : '', // 3.15 (N42): where the encryption key is
             'update' => $tab === 'backups' ? (new Updater($settings))->state() : null,
+            'major' => in_array($tab, ['backups', 'health'], true) ? Updater::nextMajor($settings) : null, // 3.15: Kaleta 4.0 on its own update source
             'siteUrl' => $this->app->request->origin() . $this->app->url(''),
             'shareImages' => \Kaleta\Front\ShareImage::available(), // the SEO tab says when the server cannot draw them (2.12)
             'firewall' => $tab === 'firewall' ? [
@@ -192,6 +195,9 @@ class Settings extends Module
                 'country' => \Kaleta\Core\Firewall::country($this->request->serverValues(), $settings->get('firewall_proxy')),
                 'invalid' => \Kaleta\Core\Firewall::parseList($settings->get('firewall_ips'))[1],
             ] : [],
+            // 3.16: the archived monthly reports, and the month the archive starts with (nothing exists before 3.16)
+            'reports' => $tab === 'reports' ? ['months' => \Kaleta\Core\ReportArchive::months($this->db), 'first' => \Kaleta\Core\ReportArchive::firstMonth($this->db),
+                'previous' => \Kaleta\Core\MonthlyReport::previousMonth(new \DateTimeImmutable())->format('Y-m')] : [],
             'hoursExceptions' => $tab === 'company' ? \Kaleta\Core\Hours::exceptions($this->db) : [],
             'hoursProposed' => $tab === 'company' ? \Kaleta\Core\Hours::proposed($this->db) : [], // by a drafts-only Claude connection (3.2)
             'fleet' => $tab === 'console' ? [
@@ -202,6 +208,7 @@ class Settings extends Module
                 // the shared design kit (2.16, Fleet\Kit): opt-in, the version that arrived as drafts, and whether those drafts still wait
                 'kit' => $settings->bool('fleet_kit'), 'kitVersion' => $settings->int('fleet_kit_version'), 'kitApplied' => $settings->int('fleet_kit_applied_at'),
                 'kitError' => $settings->get('fleet_kit_error'), 'kitWaiting' => \Kaleta\Fleet\Kit::waiting($this->db, $settings),
+                'titles' => $settings->bool('fleet_request_titles'), // 3.16: request titles in the heartbeat
             ] : [],
             'consents' => $tab === 'cookies' ? $this->db->all("SELECT kategorie, COUNT(*) AS pocet FROM {souhlasy} WHERE cas > ? GROUP BY kategorie ORDER BY pocet DESC", [\Kaleta\Core\Clock::at('-30 days')]) : [],
             'cookieTable' => $tab === 'cookies' ? \Kaleta\Core\Privacy::cookieTable($this->app) : [],
@@ -222,6 +229,7 @@ class Settings extends Module
         $given = [];
         $reason = ''; // why the news URL was refused (Core\Routes::slugError)
         $zoneBefore = $settings->get('time_zone');
+        $instructionsBefore = $settings->get('claude_instructions'); // 3.15 (N44): a change goes to the change log and the dashboard
         $newZone = ''; // 3.12: a new time zone is confirmed on its own screen (actionTimeZone)
         foreach ($this->fields($tab) as $key => $type) {
             if (\Kaleta\Core\Demo::active() && \Kaleta\Core\Demo::blocksSetting($key, $type)) {
@@ -276,6 +284,7 @@ class Settings extends Module
             }
             $settings->set($key, $clean);
         }
+        \Kaleta\Core\ClaudeInstructions::changed($this->app, $instructionsBefore, $settings->get('claude_instructions'));
         // 3.9: a mail service chosen without JavaScript (or switched from another one) gets its server, port and encryption;
         // a server that already is the service's stays as it is – the user name and the password are never touched
         if ($tab === 'mail' && array_key_exists('smtp_provider', $_POST) && array_intersect(['smtp_host', 'smtp_provider'], $errors) === [] && !\Kaleta\Core\Demo::active()) {
@@ -433,7 +442,31 @@ class Settings extends Module
         if ($path === null) {
             return $this->error('Backup does not exist.', 404);
         }
+        // a backup holds every account and key of the site: who downloaded which one is in the change log (3.15, N42)
+        \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'backup downloaded', basename($path));
         $this->sendFile($path, basename($path)); // streamed: a large backup does not have to fit in memory
+    }
+
+    /**
+     * Moves the encryption key out of the database (3.15, N42, Core\Vault::move): into config.php, the stored secrets and
+     * reports encrypted again in one transaction. When config.php cannot be written, the line to add is shown once – on
+     * this page only, never in a message kept in the session, a log or the change log.
+     */
+    protected function actionVaultMove(): Response
+    {
+        if (!$this->request->isPost() || !$this->app->auth()->isAdmin()) {
+            return $this->back('', '', ['tab' => 'backups']);
+        }
+        $result = \Kaleta\Core\Vault::move($this->app);
+
+        return match ($result['status']) {
+            'moved' => $this->back(t('The encryption key is now in config.php and the stored secrets and reports are encrypted with it (%d values).', $result['count'] ?? 0)
+                . ' ' . t('Backups made before the move still hold the old key with the data – delete them, or keep them as safe as config.php.'), '', ['tab' => 'backups']),
+            'line' => $this->view('vault_line', 'Encryption key', ['line' => $result['line'] ?? '']),
+            'already' => $this->back(t('The encryption key is already in config.php.'), '', ['tab' => 'backups']),
+            'missing' => $this->back(\Kaleta\Core\Vault::describe('missing'), '', ['tab' => 'backups'], 'chyba'),
+            default => $this->back(t('The move failed and nothing has changed in the database: %s', (string) ($result['error'] ?? '')), '', ['tab' => 'backups'], 'chyba'),
+        };
     }
 
     protected function actionDeleteBackup(): Response
@@ -566,6 +599,18 @@ class Settings extends Module
         return $this->back('The choice about the shared kit is saved.', '', ['tab' => 'console']);
     }
 
+    /** 3.16: whether the heartbeat carries the titles of Ask Claude requests (Fleet\Heartbeat) – the console's inbox across sites. */
+    protected function actionFleetTitles(): Response
+    {
+        if ($this->request->isPost()) {
+            $on = $this->request->postBool('fleet_request_titles');
+            $this->app->settings()->set('fleet_request_titles', $on ? '1' : '0');
+            \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'fleet_request_titles', $on ? 'on' : 'off');
+        }
+
+        return $this->back('The choice about request titles is saved.', '', ['tab' => 'console']);
+    }
+
     protected function actionFirewallUnblock(): Response
     {
         if ($this->request->isPost()) {
@@ -674,6 +719,37 @@ class Settings extends Module
     }
 
     /**
+     * 3.15: installs the next major version (Kaleta 4.0) – never by itself, only here: for the version the administrator saw,
+     * after they confirmed they read what changes, from the newest release of the current line, and after a fresh backup.
+     */
+    protected function actionUpdateMajor(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back('', '', ['tab' => 'backups']);
+        }
+        $version = $this->request->post('verze');
+        if ($version === '' || $this->request->post('precteno') !== '1') {
+            return $this->back(t('Confirm that you have read what changes and checked Ready for 4.0, then start the update again.'), '', ['tab' => 'backups'], 'chyba');
+        }
+        // N315-3: a fresh check of the current line must confirm this is its newest release – fails closed
+        if (($blocker = Updater::majorBlocker((new Updater($this->app->settings()))->state(true))) !== null) {
+            return $this->back($blocker, '', ['tab' => 'backups'], 'chyba');
+        }
+        // the database server or its rights would make the update fail half-way – Ready for 4.0 must clear them first
+        if (($blockers = \Kaleta\Core\Readiness::blockers(\Kaleta\Core\Readiness::checks($this->app))) !== []) {
+            return $this->back(t('The update to a new major version waits until Ready for 4.0 clears: %s.', implode(', ', $blockers)), '', ['tab' => 'backups'], 'chyba');
+        }
+        try {
+            $backup = Backup::create($this->db, 'predaktualizaci');
+            $installed = (new Updater($this->app->settings(), major: true))->install($this->app->db(), $version);
+        } catch (\Throwable $e) {
+            return $this->back(t('The update failed: %s Nothing has changed on the site.', t($e->getMessage())), '', ['tab' => 'backups'], 'chyba');
+        }
+
+        return $this->back(t('The system has been updated to version %s. The database backup from before the update is %s.', $installed, $backup), '', ['tab' => 'backups']);
+    }
+
+    /**
      * Backup of uploaded media: a ZIP of the media/ folder for download. Files are only stored, not compressed (images
      * are compressed already), so even a large library is packed quickly; the ZIP is sent in chunks and deleted after.
      * A library too large for one request belongs to the off-site copy (RemoteBackup::syncMedia) or FTP.
@@ -758,17 +834,78 @@ class Settings extends Module
             'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; img-src * data:; frame-ancestors 'self'; base-uri 'self' https: http:"]);
     }
 
-    /** Sends the previous month's report to the recipients right away (the public demo never gets here – Demo::blocksAdmin). */
+    /**
+     * Sends a month's report to the recipients right away (the public demo never gets here – Demo::blocksAdmin): the previous
+     * month, or an archived one chosen in Settings → Reports (3.16).
+     */
     protected function actionReportSend(): Response
     {
         if (!$this->request->isPost()) {
-            return $this->back('', '', ['tab' => 'mail']);
+            return $this->back('', '', ['tab' => 'reports']);
         }
-        $sent = \Kaleta\Core\MonthlyReport::sendAndRecord($this->app, \Kaleta\Core\MonthlyReport::previousMonth(new \DateTimeImmutable()));
+        $month = $this->request->post('month');
+        if ($month !== '' && \Kaleta\Core\ReportArchive::get($this->db, $month) === null) {
+            return $this->back('This month is not in the archive.', '', ['tab' => 'reports'], 'chyba');
+        }
+        $start = $month !== '' ? new \DateTimeImmutable($month . '-01') : \Kaleta\Core\MonthlyReport::previousMonth(new \DateTimeImmutable());
+        $sent = \Kaleta\Core\MonthlyReport::sendAndRecord($this->app, $start);
 
         return $sent === 0
-            ? $this->back('There is nobody to send the report to – fill in the recipients, or the site e-mail on the General tab.', '', ['tab' => 'mail'], 'chyba')
-            : $this->back(t('The report has been handed over for delivery to %d recipient(s).', $sent), '', ['tab' => 'mail']);
+            ? $this->back('There is nobody to send the report to – fill in the recipients, or the site e-mail on the General tab.', '', ['tab' => 'reports'], 'chyba')
+            : $this->back(t('The report for %s has been handed over for delivery to %d recipient(s).', \Kaleta\Core\ReportPage::monthName($start->format('Y-m')), $sent), '', ['tab' => 'reports']);
+    }
+
+    /** One archived month as the printable page (3.16, Core\ReportPage) – GET that only renders, with its Print button. */
+    protected function actionReportView(): Response
+    {
+        $stored = \Kaleta\Core\ReportArchive::get($this->db, $this->request->get('month'));
+        if ($stored === null) {
+            return $this->error('This month is not in the archive.', 404);
+        }
+        $html = \Kaleta\Core\ReportPage::render($this->app->view, $stored, $this->app->settings(), $this->siteAddress(), [
+            'script' => $this->app->url('image/tisk.js') . '?v=' . KALETA_VERSION, 'download' => $this->url('report_download', ['month' => $stored['month']]), 'back' => $this->url('', ['tab' => 'reports'])]);
+
+        // its own inline styles and the Print button script, nothing else may run – like the door sign
+        return new Response($html, 200, ['Content-Type' => 'text/html; charset=utf-8', 'Cache-Control' => 'no-store, private',
+            'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data: https: http:; script-src 'self'; frame-ancestors 'self'; base-uri 'none'"]);
+    }
+
+    /** The same page as an HTML file to keep or attach (3.16): no toolbar, no script, the logo by its full address. */
+    protected function actionReportDownload(): Response
+    {
+        $stored = \Kaleta\Core\ReportArchive::get($this->db, $this->request->get('month'));
+        if ($stored === null) {
+            return $this->error('This month is not in the archive.', 404);
+        }
+        $host = (string) preg_replace('/[^a-z0-9.-]+/', '-', strtolower((string) (parse_url($this->siteAddress(), PHP_URL_HOST) ?: 'site')));
+
+        return new Response(\Kaleta\Core\ReportPage::render($this->app->view, $stored, $this->app->settings(), $this->siteAddress()), 200, ['Content-Type' => 'text/html; charset=utf-8',
+            'Content-Disposition' => 'attachment; filename="website-report-' . $host . '-' . $stored['month'] . '.html"', 'Cache-Control' => 'no-store, private', 'X-Content-Type-Options' => 'nosniff',
+            'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data: https: http:; frame-ancestors 'none'; base-uri 'none'"]);
+    }
+
+    /**
+     * Builds an archived month again from the data still available (3.16) – the administrator's explicit choice after a
+     * warning: the sources are kept 30–180 days, so a rebuilt older month can show less than the stored one.
+     */
+    protected function actionReportRebuild(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back('', '', ['tab' => 'reports']);
+        }
+        $month = $this->request->post('month');
+        if (\Kaleta\Core\ReportArchive::get($this->db, $month) === null) {
+            return $this->back('This month is not in the archive.', '', ['tab' => 'reports'], 'chyba');
+        }
+        \Kaleta\Core\ReportArchive::store($this->app, new \DateTimeImmutable($month . '-01'), true);
+
+        return $this->back(t('The report for %s was rebuilt from the data still available.', \Kaleta\Core\ReportPage::monthName($month)), '', ['tab' => 'reports']);
+    }
+
+    /** The site address for the report's links and logo: the setting, not the Host header. */
+    private function siteAddress(): string
+    {
+        return rtrim($this->app->settings()->get('site_url') ?: $this->app->request->origin(), '/') . rtrim($this->app->url(''), '/');
     }
 
     /** Checks the mail DNS records, the certificate and the domain registration right away (2.8, Core\DomainWatch). */
@@ -907,7 +1044,7 @@ class Settings extends Module
 
         return match ($kind) {
             'ano' => $checked ? '1' : '0',
-            'text' => mb_substr(str_replace(["\r", "\n"], ' ', $value), 0, 500),
+            'text' => mb_substr((string) preg_replace('/[\x00-\x1F\x7F]/', ' ', $value), 0, 500), // one line: every control character (a form feed too, N316-4) is a space
             'radky' => mb_substr($value, 0, 5000),
             'kod' => mb_substr($value, 0, 20000),
             'email' => $value === '' || filter_var($value, FILTER_VALIDATE_EMAIL) ? $value : null,

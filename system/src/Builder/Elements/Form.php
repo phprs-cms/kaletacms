@@ -88,7 +88,8 @@ final class Form extends Element
             ]],
             'tlacitko' => ['typ' => 'text', 'popisek' => 'Button text', 'vychozi' => t('Send enquiry'), 'max' => 80],
             'dekujeme' => ['typ' => 'text', 'popisek' => 'Thank-you message', 'vychozi' => t('Thank you, we have received your message. We will get back to you as soon as possible.'), 'max' => 400],
-            'prijemce' => ['typ' => 'text', 'popisek' => 'Notification email (empty = site email from Settings)', 'vychozi' => '', 'max' => 190],
+            'prijemce' => ['typ' => 'text', 'popisek' => 'Notification e-mails (several separated by commas; empty = site e-mail from Settings)', 'vychozi' => '', 'max' => 190],
+            'skryta_kopie' => ['typ' => 'text', 'popisek' => 'Hidden copy (Bcc): e-mails separated by commas that the other recipients do not see', 'vychozi' => '', 'max' => 190],
             'dekovna' => ['typ' => 'odkaz', 'popisek' => 'After sending, go to a page (empty = thank-you message in place of the form)', 'vychozi' => ''],
             'potvrzeni' => ['typ' => 'prepinac', 'popisek' => 'Send the sender a confirmation e-mail (thank-you only, without the message content)', 'vychozi' => false],
             // a gated download (2.11, Core\Documents): the file goes out as a signed link that works for a week
@@ -114,7 +115,8 @@ final class Form extends Element
 .ka-pole textarea { min-height: 8em; resize: vertical; }
 .ka-pole :focus-visible { outline: 2px solid var(--ka-barva-primarni); outline-offset: 1px; }
 .ka-pole-souhlas label { display: flex; gap: var(--ka-mezera-xs); align-items: flex-start; }
-.ka-pole-souhlas input { margin-block-start: 0.3em; accent-color: var(--ka-barva-primarni); }
+.ka-pole-souhlas input { flex: 0 0 auto; width: 1.25rem; height: 1.25rem; margin-block-start: 0.15em; accent-color: var(--ka-barva-primarni); }
+.ka-pole input[type="file"]::file-selector-button { margin-inline-end: 0.8em; padding: 0.45em 1em; border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-plocha); color: var(--ka-barva-text); font: inherit; font-weight: 600; cursor: pointer; }
 .ka-krok { display: grid; gap: var(--ka-mezera-s); margin: 0; padding: 0; border: 0; }
 .ka-krok > legend { margin-bottom: var(--ka-mezera-xs); font-weight: 700; font-size: 1.1em; }
 .ka-kroky-navigace { display: flex; flex-wrap: wrap; gap: var(--ka-mezera-xs); align-items: center; }
@@ -135,6 +137,8 @@ final class Form extends Element
 .ka-pole fieldset label { display: flex; gap: var(--ka-mezera-xs); align-items: center; font-weight: 400; }
 .ka-pole fieldset input { accent-color: var(--ka-barva-primarni); }
 .ka-pole [aria-invalid="true"] { border-color: #c4281c !important; }
+/* a field the visitor has left wrong (an e-mail without @, an empty required field after sending) shows it at once, not only in the browser bubble */
+.ka-pole :is(input, select, textarea):user-invalid:not([type="checkbox"]):not([type="radio"]) { border-color: #c4281c; box-shadow: 0 0 0 1px #c4281c; }
 .ka-pole-napoveda { color: var(--ka-barva-tlumeny); font-size: var(--ka-krok--1); }
 .ka-pole-chyba { color: color-mix(in oklch, #c4281c 80%, var(--ka-barva-text)); font-size: var(--ka-krok--1); }
 .ka-formular-hotovo, .ka-formular-chyba { margin: 0; padding: var(--ka-mezera-m); border-radius: var(--ka-zaobleni); }
@@ -286,7 +290,7 @@ final class Form extends Element
         $marking = $error ? ' aria-invalid="true" aria-describedby="' . $id . '-chyba" autofocus' : '';
         $message = $error ? '<span class="ka-pole-chyba" id="' . $id . '-chyba">' . e($field['typ'] === 'email' ? t('Enter a valid e-mail address.') : t('Please fill in this field correctly.')) . '</span>' : '';
         if ($field['typ'] === 'souhlas') {
-            $link = $privacyPolicy !== '' ? ' <a class="ka-pole-zasady" href="' . e($privacyPolicy) . '" target="_blank">' . e(t('Privacy policy')) . '</a>' : '';
+            $link = $privacyPolicy !== '' ? ' <a class="ka-pole-zasady" href="' . e($privacyPolicy) . '" target="_blank" rel="noopener" aria-label="' . e(t('Privacy policy') . ' (' . t('open in a new window') . ')') . '">' . e(t('Privacy policy')) . ' <span aria-hidden="true">↗</span></a>' : '';
 
             return '<p class="ka-pole ka-pole-souhlas"><label><input type="checkbox" name="' . $displayName . '" value="1"' . $required . $marking . '> <span>' . $labelText . $star . '</span></label>' . $link . $message . '</p>';
         }

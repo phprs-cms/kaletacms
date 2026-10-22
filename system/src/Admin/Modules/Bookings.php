@@ -24,6 +24,12 @@ final class Bookings extends Module
     public const string ICON = 'rezervace';
     public const string EXTENSION = 'bookings'; // a feature (3.2): off on new installs, switched on by 0073 where a site uses it
 
+    /** 3.15: bookings waiting for a confirmation that have not ended yet, as the Bookings screen counts them. */
+    public static function badge(\Kaleta\Core\App $app): int
+    {
+        return (int) $app->db()->value("SELECT COUNT(*) FROM {bookings} WHERE status = 'pending' AND ends_at > ?", [\Kaleta\Core\Clock::now()]);
+    }
+
     protected function actionList(): Response
     {
         Booking::purge($this->app);

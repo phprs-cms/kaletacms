@@ -124,7 +124,11 @@ final class Connectors extends Module
     protected function actionCallback(): Response
     {
         if ($this->request->get('error') !== '') {
-            return $this->back(t('The sign-in was cancelled: %s', mb_substr($this->request->get('error'), 0, 80)), '', [], 'chyba');
+            // only the error codes of OAuth (RFC 6749 §4.1.2.1) are shown – never text someone put into the address (3.15, N49)
+            $code = in_array($this->request->get('error'), ['access_denied', 'invalid_request', 'unauthorized_client', 'unsupported_response_type', 'invalid_scope',
+                'server_error', 'temporarily_unavailable', 'consent_required', 'login_required', 'interaction_required'], true) ? $this->request->get('error') : 'unknown_error';
+
+            return $this->back(t('The sign-in was cancelled: %s', $code), '', [], 'chyba');
         }
         try {
             $key = Hub::callback($this->app, $this->request->get('code'), $this->request->get('state'));

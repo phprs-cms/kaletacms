@@ -243,14 +243,23 @@ trait BuilderActions
             return Response::json(['ok' => false, 'chyba' => t('Nothing to copy.')], 400);
         }
 
-        return Response::json(['ok' => true, 'schranka' => ElementClipboard::pack($this->db, array_slice($elements, 0, ElementClipboard::MAX_ELEMENTS), $this->request->origin())]);
+        $envelope = ElementClipboard::pack($this->db, array_slice($elements, 0, ElementClipboard::MAX_ELEMENTS), $this->request->origin());
+        // only an administrator's copy is signed (N3182-8): an editor's signature would let an administrator paste the editor's
+        // Custom HTML as their own
+        if ($this->app->auth()->isAdmin()) {
+            $envelope['sig'] = ElementClipboard::signature($envelope, (new \Kaleta\Core\Antispam($this->db, $this->app->settings()))->key());
+        }
+
+        return Response::json(['ok' => true, 'schranka' => $envelope]);
     }
 
     /**
      * Elements pasted from the clipboard of another Kaleta site (JSON): the envelope is checked, missing classes and
      * components are created like on a page import (an administrator only, existing classes stay), the elements go through
      * the validator and come back with new ids – the editor inserts them at the selected position and saves the draft as
-     * usual. Media of the other site are relinked or left out; the editor shows how many.
+     * usual. Media of the other site are relinked or left out; the editor shows how many. The builder sends every envelope
+     * here, also one that claims this site (N3182-2): an administrator's code elements (Custom HTML) stay only in an envelope
+     * this site signed when it was copied – code from the clipboard of any other page is left out, as for an editor.
      */
     protected function actionBuildPaste(): Response
     {
@@ -259,17 +268,22 @@ trait BuilderActions
             return Response::json(['ok' => false, 'chyba' => t('Page does not exist.')], 404);
         }
         $raw = (string) ($_POST['schranka'] ?? '');
-        $package = strlen($raw) <= ElementClipboard::MAX_LENGTH ? ElementClipboard::parse(json_decode($raw, true)) : null;
+        $decoded = strlen($raw) <= ElementClipboard::MAX_LENGTH ? json_decode($raw, true) : null;
+        $package = ElementClipboard::parse($decoded);
         if ($package === null) {
             return Response::json(['ok' => false, 'chyba' => t('The clipboard does not contain Kaleta elements.')], 400);
         }
         $admin = $this->app->auth()->isAdmin();
-        [$elements, $created, $images] = ElementClipboard::import($this->app->settings(), $package, $this->request->origin(), $admin);
+        $code = !$admin || ElementClipboard::isSigned($decoded, (new \Kaleta\Core\Antispam($this->db, $this->app->settings()))->key()); // an editor's code elements are dropped by Build::sanitize
+        [$elements, $created, $images, $droppedCode] = ElementClipboard::import($this->app->settings(), $package, $this->request->origin(), $admin, $code);
         [$build, $errors] = Build::sanitize(['deti' => $elements], $admin);
-        if ($build['deti'] === []) {
-            return Response::json(['ok' => false, 'chyba' => t('None of the elements could be inserted.') . ($errors !== [] ? ' ' . implode(' ', array_slice(array_values(self::builderNotes($errors)), 0, 3)) : '')], 400);
-        }
         $messages = array_values(self::builderNotes($errors));
+        if ($droppedCode > 0) {
+            array_unshift($messages, t('Code elements (Custom HTML) left out: %d – code is pasted only from a copy made on this site.', $droppedCode));
+        }
+        if ($build['deti'] === []) {
+            return Response::json(['ok' => false, 'chyba' => t('None of the elements could be inserted.') . ($messages !== [] ? ' ' . implode(' ', array_slice($messages, 0, 3)) : '')], 400);
+        }
         if ($created['tridy'] > 0 || $created['komponenty'] > 0) {
             $messages[] = t('New classes: %d, new components: %d (those the site already had were kept).', $created['tridy'], $created['komponenty']);
         } elseif (!$admin && ($package['tridy'] !== [] || $package['komponenty'] !== [])) {
