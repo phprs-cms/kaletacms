@@ -162,7 +162,8 @@ final class Kernel
         $post = $request->getInt('p') > 0 ? $request->getInt('p') : $request->getInt('page_id');
         $lang = \Kaleta\Core\Language::isTag($request->get('lang')) ? $request->get('lang') : '';
         if (($post > 0 || $lang !== '') && $request->path() === '/' && Extensions::isEnabled($this->app->settings(), 'presmerovani')) {
-            $target = $this->app->db()->one('SELECT idp, na_adresu, typ FROM {presmerovani} WHERE z_adresy = ?', [$post > 0 ? '?p=' . $post : '?lang=' . $lang]);
+            $target = $this->app->db()->one('SELECT idp, na_adresu, typ FROM {presmerovani} WHERE source_norm = ? ORDER BY idp LIMIT 1', // 3.19: the exact address
+                [\Kaleta\Core\RedirectSources::normalize($post > 0 ? '?p=' . $post : '?lang=' . $lang)]);
             if ($target !== null) {
                 $this->app->db()->run('UPDATE {presmerovani} SET pocet = pocet + 1 WHERE idp = ?', [$target['idp']]);
 
@@ -967,9 +968,12 @@ final class Kernel
 
     private function tag(string $seo): Response
     {
-        // 3.14: the tag of this language version first; a tag of another version (every tag from before 3.14 is '') still
-        // answers here, as tags were shared by all versions – with the global key there is only one row per slug anyway
-        $tag = $this->app->db()->one("SELECT * FROM {stitky} WHERE seo_link = ? ORDER BY jazyk = ? DESC, jazyk = '' DESC LIMIT 1", [$seo, Language::siteColumn()]);
+        // 3.19: with slugs per language (every site that could switch) the tag of this language version only – migration 0106
+        // gave every version its own tag; on a site that could not switch, as in 3.14: the version's own tag first, then a
+        // tag of another version (every tag from before 3.14 is '') – with the global key there is one row per slug anyway
+        $tag = \Kaleta\Core\Slug::perLanguage($this->app->db())
+            ? $this->app->db()->one('SELECT * FROM {stitky} WHERE seo_link = ? AND jazyk = ?', [$seo, Language::siteColumn()])
+            : $this->app->db()->one("SELECT * FROM {stitky} WHERE seo_link = ? ORDER BY jazyk = ? DESC, jazyk = '' DESC LIMIT 1", [$seo, Language::siteColumn()]);
         if ($tag === null) {
             return $this->notFound();
         }
@@ -1098,18 +1102,26 @@ final class Kernel
             return null;
         }
         $forms = self::redirectForms(...$this->redirectSources(...$paths));
+        // 3.19 (data model §1.3): looked up only by the exact normal form of the old address (source_norm, utf8mb4_bin) –
+        // no longer by the Czech collation of z_adresy, which also folded accents (cafe = café). Every writer fills it
+        // and the job redirect_sources catches a row written otherwise; old addresses that collide are on System status.
+        $normal = array_values(array_unique(array_map(\Kaleta\Core\RedirectSources::normalize(...), $forms)));
         // a pattern rule (3.6) is never an exact one, even for a visitor who typed its asterisk
-        $rows = array_values(array_filter($this->app->db()->all('SELECT * FROM {presmerovani} WHERE z_adresy IN (' . implode(',', array_fill(0, count($forms), '?')) . ')', $forms),
+        $rows = array_values(array_filter($this->app->db()->all('SELECT * FROM {presmerovani} WHERE source_norm IN (' . implode(',', array_fill(0, count($normal), '?')) . ') ORDER BY idp', $normal),
             fn (array $r): bool => !\Kaleta\Core\RedirectRules::isPattern((string) $r['z_adresy'])));
-        foreach ($forms as $form) { // in the order of preference
-            foreach ($rows as $row) {
+        foreach ($forms as $form) { // in the order of preference; the address exactly as stored first, then the oldest row
+            $matching = array_values(array_filter($rows, fn (array $r): bool => $r['source_norm'] === \Kaleta\Core\RedirectSources::normalize($form)));
+            foreach ($matching as $row) {
                 if ($row['z_adresy'] === $form) {
                     return $row;
                 }
             }
+            if ($matching !== []) {
+                return $matching[0];
+            }
         }
 
-        return $rows[0] ?? null; // the database compares without regard to case
+        return null;
     }
 
     /**

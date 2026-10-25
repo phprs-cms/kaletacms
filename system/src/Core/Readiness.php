@@ -121,7 +121,7 @@ final class Readiness
             GROUP BY ns.ids HAVING COUNT(DISTINCT n.jazyk) > 1) AS shared') : count($tags);
         $add('tags_across_languages', t('Tags in several languages'), $tagCount === 0 ? 'ok' : 'info', $tagCount === 0
             ? t('no tag is used by news items in more than one language')
-            : t('%d tag(s) are used by news items in more than one language. That is fine today; in Kaleta 4.0 tags get a language, and each of these will need a tag per language.', $tagCount),
+            : t('%d tag(s) are used by news items in more than one language. They get one tag per language as soon as addresses are unique per language version (Settings → General, see Addresses in every language above).', $tagCount),
             array_slice(array_column($tags, 'nazev'), 0, self::MAX_LISTED));
 
         // redirects whose old addresses collide once compared exactly
@@ -130,8 +130,8 @@ final class Readiness
             $collisions = RedirectSources::collisions($db);
             $groups = $collisions === [] ? 0 : RedirectSources::collisionCount($db);
             $add('redirect_sources', t('Old addresses of redirects'), $groups > 0 ? 'varovani' : ($pending > 0 ? 'info' : 'ok'), ($groups > 0
-                ? t('%d group(s) of redirects have old addresses that count as one address today – they differ only in letter case, accents, percent-encoding or slashes. Kaleta 4.0 compares old addresses exactly: delete the extra ones in Redirects, or merge them into one.', $groups)
-                : t('no two old addresses would collide when Kaleta 4.0 compares them exactly'))
+                ? t('%d group(s) of redirects have old addresses that counted as one address before Kaleta 3.19 – they differ only in letter case, accents, percent-encoding or slashes. Redirects now compare the old address exactly: delete the extra ones in Redirects, or merge them into one.', $groups)
+                : t('every redirect is looked up by its exact old address'))
                 . ($pending > 0 ? ' ' . t('%d redirect(s) are still being prepared by the background jobs.', $pending) : ''),
                 array_map(fn (array $g): string => implode(' = ', array_map(fn (string $s): string => '/' . $s, $g)), $collisions));
         } catch (\Throwable) {
@@ -145,10 +145,11 @@ final class Readiness
         foreach (['stranky', 'novinky', 'kategorie'] as $table) {
             $shared += (int) $db->value('SELECT COUNT(*) FROM (SELECT seo_link FROM {' . $table . '} GROUP BY seo_link HAVING COUNT(DISTINCT jazyk) > 1) AS shared');
         }
+        // 3.19: on for every site that could switch (migration 0106); one that could not is a warning on System status above
         $add('shared_slugs', t('Addresses shared by language versions'), $shared === 0 ? 'ok' : 'info', match (true) {
-            $shared === 0 && !$perLanguage => t('every page, news item and category has an address of its own, in every language – Kaleta 4.0 allows the same address in each language'),
+            $shared === 0 && !$perLanguage => t('every page, news item and category has an address of its own, in every language – the update to 3.19 could not switch on the same address in every language yet (see Addresses in every language above)'),
             $shared === 0 => t('“The same address in every language” is on, and no address is shared yet'),
-            $perLanguage => t('%d address(es) are shared by versions in different languages – allowed, “The same address in every language” is on, as it will be for every site in Kaleta 4.0', $shared),
+            $perLanguage => t('%d address(es) are shared by versions in different languages – allowed, “The same address in every language” is on, as for every site since Kaleta 3.19', $shared),
             default => t('%d address(es) are shared by versions in different languages although “The same address in every language” is off – Kaleta 4.0 allows it, nothing to do', $shared),
         });
 

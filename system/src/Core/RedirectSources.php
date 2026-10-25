@@ -9,7 +9,9 @@ namespace Kaleta\Core;
  * exact comparison (utf8mb4_bin) of a normalised old address instead of the Czech text collation of z_adresy, which folds
  * case and some accents. Migration 0094 adds the column source_norm (utf8mb4_bin, NULL = not normalised yet); the
  * background job "redirect_sources" fills it in batches, and later rows too (nothing that writes a redirect has to know
- * about it). Lookups keep using z_adresy in 3.14 – nothing a visitor sees changes.
+ * about it). Lookups kept using z_adresy in 3.14–3.18; since 3.19 every lookup of a redirect for a visited address goes by
+ * source_norm (Front\Kernel, Audit, Links, MigrationReport), every writer fills it, and migration 0106 normalised the rows
+ * the job had not reached. The key stays non-unique: groups that collide are listed on System status (Core\Health).
  *
  * The normal form is what the lookup in Front\Kernel effectively compares today: the address as Redirects stores it
  * (RedirectRules::normalizeFrom – no slashes around it, percent-decoded, "?p=123" for an old WordPress address) in lower

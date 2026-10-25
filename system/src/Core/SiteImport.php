@@ -860,7 +860,7 @@ final class SiteImport
 
         // an empty target is the home page – the Redirects module stores "/" so (3.18.2: the import used to drop these)
         return (int) ($r['idp'] ?? 0) > 0 && preg_match('#^[^\s/][^\s]{0,254}$#D', $from) && ($code === RedirectRules::GONE || $to === '' || preg_match('#^(?!//)(?!javascript:)(?!data:)[^\s]{1,255}$#iD', $to))
-            ? ['idp' => (int) $r['idp'], 'z_adresy' => $from, 'na_adresu' => $to, 'typ' => $code, 'pocet' => 0, 'vytvoreno' => date('Y-m-d H:i:s'),
+            ? ['idp' => (int) $r['idp'], 'z_adresy' => $from, 'source_norm' => RedirectSources::normalize($from), 'na_adresu' => $to, 'typ' => $code, 'pocet' => 0, 'vytvoreno' => date('Y-m-d H:i:s'),
                 'auto_score' => is_numeric($r['auto_score'] ?? null) ? max(0, min(100, (int) $r['auto_score'])) : null]
             : null;
     }
@@ -937,6 +937,7 @@ final class SiteImport
         return (int) ($r['idk'] ?? 0) > 0 && $name !== '' ? ['idk' => (int) $r['idk'], 'nazev' => $name, 'seo_link' => self::slug($r['seo_link'] ?? '', $name, 110),
             'pole' => (string) json_encode(Collections::sanitizeFields($fields), JSON_UNESCAPED_UNICODE), 'detail' => (int) !empty($r['detail']),
             'admin_menu' => (int) !empty($r['admin_menu'] ?? 1), // 3.18.3; an export from before has none – the menu item is on, as on an upgraded site
+            'icon' => \Kaleta\Builder\Collections::icon($r['icon'] ?? null), // 3.19; only a key of the built-in set, an older export has none
             'hidden_redirect' => Collections::cleanRedirect((string) ($r['hidden_redirect'] ?? '')) ?? '',
             'preset' => \Kaleta\Builder\Presets::get((string) ($r['preset'] ?? '')) !== null ? (string) $r['preset'] : '',
             'schema_org' => ($schema = \Kaleta\Builder\CollectionSchema::sanitize(is_array($r['schema_org'] ?? null) ? $r['schema_org'] : json_decode((string) ($r['schema_org'] ?? ''), true), Collections::sanitizeFields($fields))) === null

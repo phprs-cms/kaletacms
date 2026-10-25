@@ -98,10 +98,16 @@ if ($waiting !== []): ?>
 		<span class="napoveda"><?= e(t('Texts for visitors (Search, Read more…) are translated into: %s. Other languages show them in English, with dates in their own format. You write the content of pages and news in the language of the version.', implode(', ', $translated))) ?></span>
 	</div>
 </div>
-<?php $field('slugs_per_language', 'The same address in every language', 'ano', 'A page, a news item or a category may have the same address as one in another language version (/kontakt and /en/kontakt), as on a multilingual WordPress site. System addresses and language codes stay reserved in every language. Switching it off again is possible only while no two language versions share an address.'); ?>
 <?php else: ?>
 <?php foreach (array_filter(explode(',', $values['additional_languages'])) as $code): ?><input type="hidden" name="additional_languages[]" value="<?= e($code) ?>"><?php endforeach ?>
-<?php if ($values['slugs_per_language'] === '1'): ?><input type="hidden" name="slugs_per_language" value="1"><?php endif ?>
+<?php endif ?>
+<?php // 3.19: the same address once in each language version is on for every site (migration 0106); the switch is offered only
+// where the update could not switch it on – with the reason – and it only switches on (running the same checks again)
+if ($values['slugs_per_language'] !== '1'):
+    if (($failure = Kaleta\Core\Slug::failure($app->settings())) !== null): ?>
+<p class="hlaska hlaska-varovani"><?= e(Kaleta\Core\Slug::failureText($failure)) ?></p>
+<?php endif ?>
+<?php $field('slugs_per_language', 'The same address in every language', 'ano', 'A page, a news item, a category or a tag may have the same address as one in another language version (/kontakt and /en/kontakt), as on a multilingual WordPress site. System addresses and language codes stay reserved in every language. Since Kaleta 3.19 this is how every site works – it can no longer be switched off.'); ?>
 <?php endif ?>
 </fieldset>
 <fieldset>

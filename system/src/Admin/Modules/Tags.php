@@ -15,7 +15,8 @@ use Kaleta\Core\Slug;
  *
  * Language versions (3.14): a tag belongs to the version of the news item that created it (jazyk, '' = the default
  * language). Without slugs per language a slug is still one tag for every version, so an English news item reuses the
- * Czech tag of the same name, as before; with slugs per language (Core\Slug) each version has its own.
+ * Czech tag of the same name, as before; with slugs per language (Core\Slug) each version has its own. 3.19: that is every
+ * site that could switch – migration 0106 split the tags used in several versions; merging stays within one version.
  */
 final class Tags extends Module
 {
@@ -71,13 +72,16 @@ final class Tags extends Module
         }
         $this->db->update('stitky', ['nazev' => $name, 'popis' => $description, 'obrazek' => mb_substr($this->request->post('obrazek'), 0, 255)], ['ids' => $tag['ids']]);
 
-        // merge: the news items get the target tag, this one ceases to exist and its slug is redirected
-        $target = $this->db->one('SELECT * FROM {stitky} WHERE ids = ? AND ids <> ?', [$this->request->postInt('sloucit_do'), $tag['ids']]);
+        // merge: the news items get the target tag, this one ceases to exist and its slug is redirected; 3.19: with tags per
+        // language only into a tag of the same version (the news items of one language never get another language's tag)
+        [$sameLanguage, $languageParams] = Slug::scope($this->db, (string) $tag['jazyk']);
+        $target = $this->db->one('SELECT * FROM {stitky} WHERE ids = ? AND ids <> ?' . $sameLanguage, [$this->request->postInt('sloucit_do'), $tag['ids'], ...$languageParams]);
         if ($target !== null) {
             $this->db->run('INSERT IGNORE INTO {novinky_stitky} (idc, ids) SELECT idc, ? FROM {novinky_stitky} WHERE ids = ?', [$target['ids'], $tag['ids']]);
             $this->db->delete('novinky_stitky', ['ids' => $tag['ids']]);
             $this->db->delete('stitky', ['ids' => $tag['ids']]);
-            Redirects::add($this->db, 'novinky/stitek/' . $tag['seo_link'], 'novinky/stitek/' . $target['seo_link']);
+            Redirects::add($this->db, Slug::redirectPath($this->db, 'novinky/stitek/' . $tag['seo_link'], (string) $tag['jazyk']),
+                Slug::redirectPath($this->db, 'novinky/stitek/' . $target['seo_link'], (string) $target['jazyk']));
 
             return $this->back(t('Tag “%s” has been merged into “%s”.', $tag['nazev'], $target['nazev']));
         }

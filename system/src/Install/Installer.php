@@ -259,7 +259,8 @@ final class Installer
             if ($d['web'] === 'export') {
                 // "Start from an export" (1.8): an empty site – the content, look and settings come with the import (Import and export)
                 $settings = ['site_name' => $d['nazev_webu'], 'site_url' => $this->request->origin(), 'site_email' => $d['email'], 'site_language' => $siteLanguage, 'german_register' => $this->register,
-                    'time_zone' => $d['casove_pasmo'], 'tasks_token' => $this->tasksToken, 'db_version' => (string) Migration::latest(), 'data_migrations' => implode(',', Migration::DATA), 'extensions' => $extensions === [] ? '-' : implode(',', $extensions)];
+                    'time_zone' => $d['casove_pasmo'], 'tasks_token' => $this->tasksToken, 'db_version' => (string) Migration::latest(), 'data_migrations' => implode(',', Migration::DATA), 'extensions' => $extensions === [] ? '-' : implode(',', $extensions),
+                    'slugs_per_language' => '1']; // 3.19: schema.sql has no global slug keys – the same address once in each language version
                 foreach ($settings as $key => $value) {
                     $db->insert('nastaveni', ['promenna' => $key, 'hodnota' => $value]);
                 }
@@ -300,7 +301,8 @@ final class Installer
             $settings = ['site_name' => $d['nazev_webu'], 'site_url' => $this->request->origin(), 'site_email' => $d['email'], 'site_language' => $siteLanguage, 'german_register' => $this->register,
                 'design_system' => (string) json_encode(\Kaleta\Builder\DesignSystem::preset($siteSettings['predvolba']), JSON_UNESCAPED_SLASHES),
                 'time_zone' => $d['casove_pasmo'], 'tasks_token' => $this->tasksToken, 'home_page' => (string) $home, 'db_version' => (string) Migration::latest(), 'data_migrations' => implode(',', Migration::DATA),
-                'extensions' => $extensions === [] ? '-' : implode(',', $extensions), 'cookies_policy_url' => $this->request->basePath() . '/' . slugify($privacyPolicy)];
+                'extensions' => $extensions === [] ? '-' : implode(',', $extensions), 'cookies_policy_url' => $this->request->basePath() . '/' . slugify($privacyPolicy),
+                'slugs_per_language' => '1']; // 3.19: schema.sql has no global slug keys – the same address once in each language version
             foreach ($settings as $key => $value) {
                 $db->insert('nastaveni', ['promenna' => $key, 'hodnota' => $value]);
             }

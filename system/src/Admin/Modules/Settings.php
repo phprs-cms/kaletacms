@@ -51,7 +51,7 @@ class Settings extends Module
             'agency_name' => 'text', 'agency_url' => 'url', 'agency_email' => 'email', 'agency_phone' => 'vzor:/^[+()\d\s\/.-]{0,30}$/',
             'agency_logo' => 'vzor:#^((media|image)/[A-Za-z0-9/_.-]{1,200}\.(svg|png|webp|jpe?g|avif))?$#',
             'time_zone' => 'pasmo', 'site_language' => 'vyber:' . \Kaleta\Core\Language::CODES, 'german_register' => 'vyber:formal|informal', 'additional_languages' => 'seznam:' . \Kaleta\Core\Language::CODES,
-            'slugs_per_language' => 'ano', // 3.9: switched by Core\Slug::switchPerLanguage (actionSave), never written directly
+            'slugs_per_language' => 'ano', // 3.9: never written directly; 3.19: only switched on, by Core\Slug::enableEverywhere (actionSave)
         ],
         // the site appearance is saved by the Appearance module; here only types for checking values from the Claude connection (it is not a Settings tab)
         'vzhled' => ['dark_mode' => 'vyber:vypnuto|auto|tmavy', 'theme_switcher' => 'ano'],
@@ -266,10 +266,11 @@ class Settings extends Module
                 continue;
             }
             if ($key === 'slugs_per_language') {
-                // the database keys change with it; switching off is refused while two language versions share a slug
-                if (($refusal = \Kaleta\Core\Slug::switchPerLanguage($this->db, $settings, $clean === '1')) !== null) {
+                // 3.19: on for every site; a site the update could not switch runs the same checks again (migration 0106) –
+                // the form never switches it off (absent or unticked = nothing changes)
+                if ($clean === '1' && !\Kaleta\Core\Slug::perLanguage($this->db) && ($failure = \Kaleta\Core\Slug::enableEverywhere($this->db, $settings)) !== null) {
                     $errors[] = $key;
-                    $reason = t($refusal[0], $refusal[1]);
+                    $reason = \Kaleta\Core\Slug::failureText($failure);
                 }
                 continue;
             }

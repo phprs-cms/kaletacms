@@ -50,6 +50,31 @@ final class Health
         [$clockState, $clockInfo] = self::clock($siteSettings->get('time_zone'), date_default_timezone_get(), intdiv((int) date('Z'), 60),
             (int) $db->value('SELECT TIMESTAMPDIFF(MINUTE, UTC_TIMESTAMP(), NOW())'));
         $add(t('Database'), t('Time zone'), $clockState, $clockInfo);
+        // 3.19 (data model §3 step 2): the same address once in each language version – on for every site the update could
+        // switch; a site it could not switch says why and what to do (migration 0106, Core\Slug::failure)
+        $slugFailure = Slug::perLanguage($db) ? null : Slug::failure($siteSettings);
+        $add(t('Database'), t('Addresses in every language'), Slug::perLanguage($db) ? 'ok' : 'varovani', match (true) {
+            Slug::perLanguage($db) => t('each language version may use the same address once (/kontakt and /en/kontakt)'),
+            $slugFailure !== null => Slug::failureText($slugFailure),
+            // the migration ran and switched the site on, and then an older version (a rollback to 3.18) switched it off
+            in_array(Slug::MIGRATION, explode(',', $siteSettings->get('data_migrations')), true) => t('addresses are unique across all languages again – an older version of Kaleta switched “The same address in every language” off. Switch it on again in Settings → General.'),
+            default => t('addresses are still unique across all languages – the database update of Kaleta 3.19 has not run yet (it runs the next time the administration loads)'),
+        }, Slug::perLanguage($db) ? [] : [['text' => t('Settings → General'), 'url' => $app->url('admin.php?module=settings&tab=general')]]);
+        // 3.19 (§1.3): redirects are looked up by the exact old address; groups that counted as one before are listed here
+        try {
+            $groups = RedirectSources::collisionCount($db);
+            if ($groups > 0 || Extensions::isEnabled($siteSettings, 'presmerovani')) {
+                $pendingSources = RedirectSources::pending($db);
+                $add(t('Database'), t('Old addresses of redirects'), $groups > 0 ? 'varovani' : 'ok', ($groups > 0
+                    ? t('%d group(s) of redirects have old addresses that counted as one address before Kaleta 3.19 – they differ only in letter case, accents, percent-encoding or slashes. Redirects now compare the old address exactly, so a visitor gets the one stored exactly as typed or the oldest of the group: delete the extra ones in Redirects, or merge them into one. %s', $groups,
+                        implode('; ', array_map(fn (array $g): string => implode(' = ', array_map(fn (string $s): string => '/' . $s, $g)), RedirectSources::collisions($db, 10))))
+                    : t('every redirect is looked up by its exact old address'))
+                    . ($pendingSources > 0 ? ' ' . t('%d redirect(s) are still being prepared by the background jobs.', $pendingSources) : ''),
+                    $groups > 0 ? [['text' => t('Redirects'), 'url' => $app->url('admin.php?module=redirects')]] : []);
+            }
+        } catch (\Throwable) {
+            // the column of migration 0094 is missing before the update ran – System status still opens
+        }
         $add(t('Database'), t('Velikost'), 'ok', t('%s, news items: %d', self::size($size), (int) $db->value('SELECT COUNT(*) FROM {novinky}')));
 
         // --- files and security

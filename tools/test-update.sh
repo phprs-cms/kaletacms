@@ -235,6 +235,13 @@ check "admin dashboard" /admin.php
 expect "database migrated to $LAST_MIGRATION" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'")" "$LAST_MIGRATION"
 # 3.9.2 (N67): an update never overwrites media/, migration 0084 brings the newer media/.htaccess to the site
 if [ "$LAST_MIGRATION" -ge 84 ]; then grep -q 'shtml|html?|js)(\\.|\$)' "$WORK/web/media/.htaccess" && echo "  ok     media/.htaccess refuses a script extension inside the name (migration 0084)" || { echo "  CHYBA  media/.htaccess not updated by migration 0084"; ERRORS=$((ERRORS+1)); }; fi
+# 3.19: the data migration 0106 ran in the update request of the old release – the same address once in each language on,
+# the global slug keys gone, the plain lookup keys of 0105 there, every redirect with its normal form
+if [ "$LAST_MIGRATION" -ge 106 ]; then expect "3.19 (0105, 0106): addresses per language on, the global keys gone, the lookup keys there, redirects normalised" \
+  "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'), '|', FIND_IN_SET('0106-addresses-per-language', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'data_migrations')) > 0, '|',
+    (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND INDEX_NAME IN ('uq_stranky_seo', 'uq_clanky_seo', 'uq_topic_seo', 'uq_stitky_seo')), '|',
+    (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND INDEX_NAME IN ('ix_stranky_seo', 'ix_clanky_seo', 'ix_topic_seo', 'ix_stitky_seo')), '|',
+    (SELECT COUNT(*) FROM ka_presmerovani WHERE source_norm IS NULL))")" "1|1|0|4|0"; fi
 # 3.15 (N72): migration 0098 makes the header rules of media/.htaccess match an upper-case extension too
 if [ "$LAST_MIGRATION" -ge 98 ]; then grep -q '<FilesMatch "(?i)\\.svg\$">' "$WORK/web/media/.htaccess" && echo "  ok     media/.htaccess header rules match any case of the extension (migration 0098)" || { echo "  CHYBA  media/.htaccess not updated by migration 0098"; ERRORS=$((ERRORS+1)); }; fi
 expect "no settings row left under a key of 1.4.0" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_nastaveni WHERE promenna IN ('verze_db', 'nazev_webu', 'aktualizace_url', 'aktualizace_cache', 'uklizeno_verze')")" "0"

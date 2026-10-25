@@ -485,8 +485,8 @@ final class RedirectRules
     public static function store(Db $db, string $from, string $to, int $code): void
     {
         if (self::isPattern($from) || $code === self::GONE) {
-            $db->run('INSERT INTO {presmerovani} (z_adresy, na_adresu, typ, vytvoreno) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE na_adresu = VALUES(na_adresu), typ = VALUES(typ), auto_score = NULL',
-                [$from, $to, $code, date('Y-m-d H:i:s')]);
+            $db->run('INSERT INTO {presmerovani} (z_adresy, source_norm, na_adresu, typ, vytvoreno) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE na_adresu = VALUES(na_adresu), typ = VALUES(typ), auto_score = NULL',
+                [$from, RedirectSources::normalize($from), $to, $code, date('Y-m-d H:i:s')]); // 3.19: with its exact normal form
 
             $db->delete('nenalezeno', ['cesta' => $from]);
 

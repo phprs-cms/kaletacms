@@ -20,7 +20,8 @@
 <summary><?= e(t('Merge with another tag')) ?></summary>
 <div class="radek"><label for="sloucit_do"><?= e(t('Merge into')) ?></label><div><select id="sloucit_do" name="sloucit_do">
 	<option value="0"><?= e(t('– do not merge –')) ?></option>
-<?php foreach ($tags as $s): if ((int) $s['ids'] !== (int) $edit['ids']): ?>
+<?php $perLanguage = Kaleta\Core\Slug::perLanguage($app->db()); // 3.19: merging stays within one language version ?>
+<?php foreach ($tags as $s): if ((int) $s['ids'] !== (int) $edit['ids'] && (!$perLanguage || (string) ($s['jazyk'] ?? '') === (string) ($edit['jazyk'] ?? ''))): ?>
 	<option value="<?= (int) $s['ids'] ?>"><?= e($s['nazev']) ?><?= ($s['jazyk'] ?? '') !== '' ? ' [' . e(strtoupper($s['jazyk'])) . ']' : '' ?> (<?= (int) $s['pocet'] ?>)</option>
 <?php endif; endforeach ?>
 </select><span class="napoveda"><?= e(t('The news items get the selected tag, this one is removed and its address redirects. Useful for typos and duplicate spellings.')) ?></span></div></div>

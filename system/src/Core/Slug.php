@@ -20,6 +20,13 @@ namespace Kaleta\Core;
  * Tags (3.14, migration 0095, the owner's answer 5) follow the same rules: a tag created from a news item gets the item's
  * language version, its slug key is (jazyk, seo_link) next to the global one, and the switch drops or restores the global
  * key of tags with the others (Admin\Modules\Tags::findOrCreate).
+ *
+ * 3.19 (data model §3 step 2, the owner's decisions of 21 and 22 October 2026): on for every site. Migration 0106 checks
+ * each site as switchPerLanguage did, drops the global keys and splits tags used in several languages; a fresh install
+ * has the setting on and schema.sql has no global keys. A site that cannot switch stays as it was (setting '0'); why is in
+ * failure() and on System status, and Settings → General offers only "switch on" there, which runs the same migration
+ * again (enableEverywhere). Switching off is no longer offered anywhere: the code of 3.18.x honours the setting, so a
+ * rollback to 3.18.3 needs no global keys; switchPerLanguage(off) stays for the documented manual schema rollback only.
  */
 final class Slug
 {
@@ -90,6 +97,46 @@ final class Slug
         [$where, $params] = self::scope($db, $language);
 
         return $db->value("SELECT 1 FROM {{$table}} WHERE seo_link = ? AND {$id} <> ?{$where} LIMIT 1", [$slug, $except, ...$params]) !== null;
+    }
+
+    /** The data migration of 3.19 that switches every site on (and splits tags); enableEverywhere() runs it again. */
+    public const string MIGRATION = '0106-addresses-per-language';
+
+    /**
+     * Why migration 0106 could not switch this site on (3.19): ['reason' => shared | database, 'table' => …, 'slugs' =>
+     * list of addresses shared by two rows of one language, or 'error' => the database's message, 'at' => when], null =
+     * nothing failed (the site is on, or the migration has not run yet).
+     *
+     * @return array{reason: string, table: string, slugs?: list<string>, error?: string, at?: string}|null
+     */
+    public static function failure(Settings $settings): ?array
+    {
+        $failure = json_decode($settings->get('slugs_switch_failed'), true);
+
+        return is_array($failure) && is_string($failure['reason'] ?? null) ? $failure + ['table' => ''] : null;
+    }
+
+    /**
+     * Settings → General on a site that could not switch (3.19): runs migration 0106 again – the same checks, the global keys
+     * dropped, tags split. null when slugs are per language now, otherwise failure().
+     *
+     * @return array{reason: string, table: string, slugs?: list<string>, error?: string, at?: string}|null
+     */
+    public static function enableEverywhere(Db $db, Settings $settings): ?array
+    {
+        (require KALETA_SYSTEM . '/sql/migrace/' . self::MIGRATION . '.php')($db, $settings);
+        self::$perLanguage = null;
+
+        return self::perLanguage($db) ? null : (self::failure($settings) ?? ['reason' => 'database', 'table' => '']);
+    }
+
+    /** The owner's words for a failure() (English source text for t()): what is wrong and what to do. */
+    public static function failureText(array $failure): string
+    {
+        return $failure['reason'] === 'shared'
+            ? t('Two items of one language version share an address (%s), so addresses cannot become unique per language yet. Give one of each pair another address, then switch on “The same address in every language” in Settings → General.', implode(', ', (array) ($failure['slugs'] ?? [])))
+            : t('The database refused to change the keys of the addresses, so addresses are still unique across all languages. Ask the hosting whether the database user may change tables (ALTER), then switch on “The same address in every language” in Settings → General.')
+                . ((string) ($failure['error'] ?? '') !== '' ? ' ' . t('The database said: %s', (string) $failure['error']) : '');
     }
 
     /** The type word of a slug made from a number (fromId): table => [id column, word]. */

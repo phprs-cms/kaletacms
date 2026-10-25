@@ -609,7 +609,8 @@ final class Audit
             count($s) === 2 && $db->value('SELECT 1 FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.seo_link = ? AND k.detail = 1 AND p.seo_link = ? AND p.zobrazit = 1 AND p.smazano IS NULL' . $sameItemLanguage, [$s[0], $s[1], ...$languageParams]) !== null => true,
             // 3.12: a category page of a collection (/<collection>/<category>[/<subcategory>])
             ($category = \Kaleta\Builder\CollectionCategories::atPath($db, $s, Language::column($settings, $language))) !== null && \Kaleta\Builder\CollectionCategories::isPublic($category) => true,
-            $db->value('SELECT 1 FROM {presmerovani} WHERE z_adresy IN (' . implode(',', array_fill(0, count($redirects), '?')) . ')', $redirects) !== null => true,
+            // 3.19: a redirect by the exact normal form of its old address, as Front\Kernel looks it up
+            $db->value('SELECT 1 FROM {presmerovani} WHERE source_norm IN (' . implode(',', array_fill(0, count($redirects), '?')) . ')', array_map(RedirectSources::normalize(...), $redirects)) !== null => true,
             default => false,
         };
     }
@@ -625,8 +626,8 @@ final class Audit
             // a news item of another version still answers there: Front\Kernel redirects to its own version
             count($s) === 1 => $db->value('SELECT 1 FROM {novinky} WHERE seo_link = ? AND visible = 1 AND smazano IS NULL', [$s[0]]) !== null,
             count($s) === 2 && $s[0] === 'kategorie' => $db->value('SELECT 1 FROM {kategorie} WHERE seo_link = ?' . $sameLanguage, [$s[1], ...$languageParams]) !== null,
-            // a tag of any version answers in every version (Front\Kernel::tag prefers the version's own, 3.14)
-            count($s) === 2 && $s[0] === 'stitek' => $db->value('SELECT 1 FROM {stitky} WHERE seo_link = ?', [$s[1]]) !== null,
+            // 3.19: a tag of its own version only, as Front\Kernel::tag answers – with slugs per language; before, any version's
+            count($s) === 2 && $s[0] === 'stitek' => $db->value('SELECT 1 FROM {stitky} WHERE seo_link = ?' . $sameLanguage, [$s[1], ...$languageParams]) !== null,
             default => false,
         };
     }

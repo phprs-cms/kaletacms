@@ -724,7 +724,8 @@ final class News extends Module
                 $this->db->all('SELECT s.nazev FROM {stitky} s JOIN {novinky_stitky} cs ON cs.ids = s.ids WHERE cs.idc = ? ORDER BY ' . $this->db->sortText('s.nazev'), [(int) $newsItem['idc']]),
                 'nazev',
             )),
-            'allTags' => array_column($this->db->all('SELECT nazev FROM {stitky} ORDER BY ' . $this->db->sortText('nazev') . ' LIMIT 500'), 'nazev'),
+            // suggestions by name – 3.19: a tag split per language has one name in each version, offered once
+            'allTags' => array_column($this->db->all('SELECT DISTINCT nazev FROM {stitky} ORDER BY ' . $this->db->sortText('nazev') . ' LIMIT 500'), 'nazev'),
             'versions' => $this->db->all(
                 "SELECT r.idr, r.datum, r.titulek, IF(u.jmeno = '' OR u.jmeno IS NULL, u.user, u.jmeno) AS kdo_jm
                  FROM {novinky_revize} r LEFT JOIN {uzivatele} u ON u.idu = r.kdo WHERE r.idc = ? ORDER BY r.idr DESC",

@@ -6407,9 +6407,14 @@ check('3.9: every language column is VARCHAR(35) CHARACTER SET ascii in schema.s
     array_unique(array_values($languageColumns39)), count($languageColumns39), $widened39 === $schemaLanguageColumns39, str_contains($schema39, 'CHAR(2)')],
     [['VARCHAR(35) CHARACTER SET ascii'], 15, true, false]);
 $slugMigrations39 = (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0083-language-tags-and-slugs.sql') . (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0095-tag-language.sql');
-check('3.9: pages, news and categories (and tags, 3.14) have a per-language slug key next to the global one (schema and migrations 0083, 0095)', array_map(
-    fn (array $t): bool => str_contains($schema39, 'UNIQUE KEY ' . $t[1] . ' (seo_link)') && str_contains($schema39, 'UNIQUE KEY ' . $t[2] . ' (jazyk, seo_link)')
-        && str_contains($slugMigrations39, 'ADD UNIQUE KEY ' . $t[2] . ' (jazyk, seo_link)'), Kaleta\Core\Slug::TABLES),
+// 3.19: schema.sql has no global key any more (migration 0106 drops it on every site that can switch), only the per-language
+// one and a plain key on seo_link for the lookups in any version (migration 0105)
+$plainKeys319 = ['stranky' => 'ix_stranky_seo', 'novinky' => 'ix_clanky_seo', 'kategorie' => 'ix_topic_seo', 'stitky' => 'ix_stitky_seo'];
+$keyMigration319 = (string) @file_get_contents(KALETA_SYSTEM . '/sql/migrace/0105-slug-lookup-keys.sql');
+check('3.9/3.19: pages, news, categories and tags have the per-language slug key (schema, migrations 0083, 0095), no global one in schema.sql, and a plain key on seo_link (0105)', array_map(
+    fn (array $t): bool => !str_contains($schema39, 'UNIQUE KEY ' . $t[1] . ' (seo_link)') && str_contains($schema39, 'UNIQUE KEY ' . $t[2] . ' (jazyk, seo_link)')
+        && str_contains($slugMigrations39, 'ADD UNIQUE KEY ' . $t[2] . ' (jazyk, seo_link)'), Kaleta\Core\Slug::TABLES)
+    + array_map(fn (string $key): bool => (bool) preg_match('/^\s+KEY ' . $key . ' \(seo_link\)/m', $schema39) && str_contains($keyMigration319, ' ADD KEY ' . $key . ' (seo_link);'), $plainKeys319),
     ['stranky' => true, 'novinky' => true, 'kategorie' => true, 'stitky' => true]);
 // the "is the slug taken?" checks and the lookups by slug follow the setting
 Kaleta\Core\Slug::setPerLanguage(false);
@@ -6436,7 +6441,8 @@ check('3.9 Pages::slugReserved – system addresses (Routes::SYSTEM_PATHS, both 
 $globalSlugLookups39 = [];
 foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(KALETA_SYSTEM . '/src', FilesystemIterator::SKIP_DOTS)) as $file) {
     foreach (str_ends_with((string) $file, '.php') ? (file((string) $file) ?: []) : [] as $line) {
-        if (preg_match('/\{(stranky|novinky|kategorie|stitky)\}[^\']*seo_link (=|IN)/', $line, $m) === 1
+        // 3.19: the English placeholders ({pages}, {news}, {categories}, {tags}) name the same tables
+        if (preg_match('/\{(stranky|novinky|kategorie|stitky|pages|news|categories|tags)\}[^\']*seo_link (=|IN)/', $line, $m) === 1
             && preg_match('/jazyk = \?|jazyk = \'\'|\$sameLanguage|ORDER BY (c\.)?jazyk/', $line) !== 1) {
             $globalSlugLookups39[] = basename((string) $file) . ':' . $m[1];
         }
@@ -6445,7 +6451,6 @@ foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(KALETA_SYS
 sort($globalSlugLookups39);
 check('3.9: slug lookups without the language are only the global ones on purpose', $globalSlugLookups39, [
     'Audit.php:novinky',     // a news item of another version still answers there (Kernel redirects to its own version)
-    'Audit.php:stitky',      // 3.14: a tag of any version answers in every version (Kernel prefers the version's own)
     'Blueprint.php:stranky', // does the site have a page with one of the suggested slugs at all
     'Links.php:novinky',     // the same as Audit for the broken-link check
     'Routes.php:stranky', 'Routes.php:stranky', 'Routes.php:stranky', // the news slug and the English system paths are one for all versions
@@ -7444,9 +7449,9 @@ check('3.18.2 N3182-1: the editor allows a pasted frame only from the services t
 $migration3183 = (string) @file_get_contents(KALETA_SYSTEM . '/sql/migrace/0103-collection-admin-menu.sql');
 $mcp3183 = array_column(Kaleta\Mcp\Translator::listAll(Kaleta\Mcp\Tools::definitions()), null, 'name');
 $icons3183 = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/icons.php');
-check('3.18.3: migration 0103 adds ka_kolekce.admin_menu on by default, schema.sql has it, KALETA_DB_VERSION is 103', [
+check('3.18.3: migration 0103 adds ka_kolekce.admin_menu on by default, schema.sql has it, KALETA_DB_VERSION is at least 103', [
     str_contains($migration3183, 'ALTER TABLE ka_kolekce ADD COLUMN admin_menu TINYINT(1) NOT NULL DEFAULT 1'), (bool) preg_match('/^\s+admin_menu\s+TINYINT\(1\) NOT NULL DEFAULT 1,/m', (string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql')),
-    KALETA_DB_VERSION, Migration::latest()], [true, true, 103, 103]);
+    KALETA_DB_VERSION >= 103, Migration::latest() === KALETA_DB_VERSION], [true, true, true, true]);
 check('3.18.3: at most 8 collections in the menu, with the list icon; create_collection and update_collection take an optional boolean admin_menu', [
     Kaleta\Admin\Modules\Collections::MENU_LIMIT, str_contains($icons3183, "'polozky' =>"),
     $mcp3183['create_collection']['inputSchema']['properties']['admin_menu']['type'] ?? null, in_array('admin_menu', $mcp3183['create_collection']['inputSchema']['required'], true),
@@ -7454,7 +7459,107 @@ check('3.18.3: at most 8 collections in the menu, with the list icon; create_col
     Kaleta\Mcp\Translator::arguments('update_collection', ['admin_menu' => false])],
     [8, true, 'boolean', false, 'boolean', false, ['admin_menu' => false]]);
 check('3.18.3: the site export carries admin_menu and the import keeps it (on when an older export has none)', [
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/SiteExport.php'), 'detail, admin_menu, hidden_redirect'),
+    (bool) preg_match('/detail, admin_menu, (icon, )?hidden_redirect/', (string) file_get_contents(KALETA_SYSTEM . '/src/Core/SiteExport.php')),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/SiteImport.php'), "'admin_menu' => (int) !empty(\$r['admin_menu'] ?? 1)")], [true, true]);
+
+// 3.19 (owner, 22 October 2026): an icon per collection – a key of the built-in set (Builder\Icons::SET) or none; the column
+// for existing sites (0104) and in schema.sql; optional in create/update_collection, English names through Mcp\Vocabulary
+check('3.19: Collections::icon keeps only a key of the built-in icon set', array_map(fn (mixed $v): ?string => Kaleta\Builder\Collections::icon($v),
+    ['dum', 'auto', 'home', '', null, '<svg>', 'dum ', ['dum'], 5, 'polozky']), ['dum', 'auto', null, null, null, null, null, null, null, null]);
+$migration319icon = (string) @file_get_contents(KALETA_SYSTEM . '/sql/migrace/0104-collection-icon.sql');
+check('3.19: migration 0104 adds ka_kolekce.icon (nullable, English name), schema.sql has it after admin_menu', [
+    str_contains($migration319icon, 'ALTER TABLE ka_kolekce ADD COLUMN icon VARCHAR(40) NULL AFTER admin_menu;'),
+    (bool) preg_match('/^\s+admin_menu\s+TINYINT\(1\) NOT NULL DEFAULT 1,[^\n]*\n\s+icon\s+VARCHAR\(40\)\s+NULL,/m', (string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql'))], [true, true]);
+$mcp319 = array_column(Kaleta\Mcp\Translator::listAll(Kaleta\Mcp\Tools::definitions()), null, 'name');
+check('3.19: create_collection and update_collection take an optional string icon', [
+    $mcp319['create_collection']['inputSchema']['properties']['icon']['type'] ?? null, in_array('icon', $mcp319['create_collection']['inputSchema']['required'], true),
+    $mcp319['update_collection']['inputSchema']['properties']['icon']['type'] ?? null, in_array('icon', $mcp319['update_collection']['inputSchema']['required'], true)],
+    ['string', false, 'string', false]);
+check('3.19: every built-in icon has an English MCP name, and the names are unique', [array_values(array_diff(array_keys(Kaleta\Builder\Icons::SET), array_keys(Kaleta\Mcp\Vocabulary::VALUES['ikona']))),
+    count(array_unique(Kaleta\Mcp\Vocabulary::VALUES['ikona'])) === count(Kaleta\Mcp\Vocabulary::VALUES['ikona'])], [[], true]);
+$iconIn319 = new ReflectionMethod(Kaleta\Mcp\Tools::class, 'collectionIconIn');
+$iconOut319 = new ReflectionMethod(Kaleta\Mcp\Tools::class, 'collectionIconOut');
+$iconRefused319 = '';
+try {
+    $iconIn319->invoke(null, 'castle');
+} catch (InvalidArgumentException $e) {
+    $iconRefused319 = $e->getMessage();
+}
+check('3.19 MCP: an icon by its English name or stored key, "" or null = none, an unknown one refused with the list; the output is English',
+    [$iconIn319->invoke(null, 'home'), $iconIn319->invoke(null, 'dum'), $iconIn319->invoke(null, ''), $iconIn319->invoke(null, null), str_contains($iconRefused319, 'home, shield'),
+        $iconOut319->invoke(null, 'auto'), $iconOut319->invoke(null, 'castle'), $iconOut319->invoke(null, null)],
+    ['dum', 'dum', null, null, true, 'car', null, null]);
+check('3.19: the export carries the icon and the import keeps only a key of the set', [
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/SiteExport.php'), 'admin_menu, icon, hidden_redirect'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/SiteImport.php'), "'icon' => \\Kaleta\\Builder\\Collections::icon(\$r['icon'] ?? null)")], [true, true]);
+
+// 3.19 (data model §3 step 2, §1.3): addresses per language on every site, tags per language, redirects by the exact address
+$files319 = array_filter(Migration::files(), fn (int $n): bool => $n >= 104 && $n <= 106, ARRAY_FILTER_USE_KEY); // the migrations of 3.19
+check('3.19: the data migration 0106 is the highest migration of its release (the update request of 3.18.3 runs .sql files by number), listed in Migration::DATA, KALETA_DB_VERSION = latest',
+    [array_map('basename', $files319), str_ends_with((string) end($files319), '.php'), in_array('0106-addresses-per-language', Migration::DATA, true), Kaleta\Core\Slug::MIGRATION, KALETA_DB_VERSION === Migration::latest()],
+    [[104 => '0104-collection-icon.sql', 105 => '0105-slug-lookup-keys.sql', 106 => '0106-addresses-per-language.php'], true, true, '0106-addresses-per-language', true]);
+$migration319 = (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0106-addresses-per-language.php');
+preg_match_all('/Kaleta\\\\([A-Za-z]+\\\\[A-Za-z]+)/', $migration319, $classes319);
+check('3.19: migration 0106 is self-contained – besides Db and Settings only Core\\RedirectSources (unchanged since 3.14), no other class of the code', array_values(array_unique($classes319[1])), ['Core\\Db', 'Core\\Settings', 'Core\\RedirectSources']);
+$installer319 = (string) file_get_contents(KALETA_SYSTEM . '/src/Install/Installer.php');
+check('3.19: both installation paths write slugs_per_language = 1 (schema.sql has no global keys)', substr_count($installer319, "'slugs_per_language' => '1'"), 2);
+check('3.19 Slug::failure reads the reason the migration stored; anything else is no failure', [
+    Kaleta\Core\Slug::failure($reportSettings(['slugs_switch_failed' => '{"reason":"shared","table":"kategorie","slugs":["/novinky/kategorie/x"]}']))['slugs'] ?? null,
+    Kaleta\Core\Slug::failure($reportSettings(['slugs_switch_failed' => 'nonsense'])), Kaleta\Core\Slug::failure($reportSettings([]))], [['/novinky/kategorie/x'], null, null]);
+check('3.19 Slug::failureText says what is wrong and what to do', Kaleta\Core\Language::runWith('en', fn (): array => [
+    str_contains(Kaleta\Core\Slug::failureText(['reason' => 'shared', 'table' => 'kategorie', 'slugs' => ['/novinky/kategorie/x', '/novinky/kategorie/y']]), '/novinky/kategorie/x, /novinky/kategorie/y'),
+    str_contains(Kaleta\Core\Slug::failureText(['reason' => 'database', 'table' => 'stranky', 'error' => 'ALTER command denied']), 'The database said: ALTER command denied'),
+    str_contains(Kaleta\Core\Slug::failureText(['reason' => 'database', 'table' => '']), 'The database said'),
+    str_contains(Kaleta\Core\Slug::failureText(['reason' => 'shared', 'table' => 'x']), 'Settings → General')], 'admin-'), [true, true, false, true]);
+// every lookup of a redirect for a visited or linked address compares source_norm – never the Czech collation of z_adresy
+$byCollation319 = [];
+foreach (['Front/Kernel.php', 'Core/Audit.php', 'Core/Links.php', 'Core/MigrationReport.php'] as $file319) {
+    foreach (file(KALETA_SYSTEM . '/src/' . $file319) ?: [] as $n => $line) {
+        if (preg_match('/\{(presmerovani|redirects)\}[^\']*WHERE z_adresy (=|IN)/', $line) === 1) {
+            $byCollation319[] = $file319 . ':' . ($n + 1);
+        }
+    }
+}
+check('3.19: redirects are looked up by source_norm in the router, the audit, the broken-link check and the migration report', $byCollation319, []);
+$writers319 = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Redirects.php') . (string) file_get_contents(KALETA_SYSTEM . '/src/Core/RedirectRules.php');
+check('3.19: every writer of a redirect fills its normal form (Redirects::add, the admin form, a pattern rule, the import)', [
+    substr_count($writers319, 'INSERT INTO {presmerovani} (z_adresy, source_norm,'), str_contains($writers319, "'source_norm' => null"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/SiteImport.php'), "'source_norm' => RedirectSources::normalize(\$from)")], [2, false, true]);
+check('3.19: System status has the rows Addresses in every language and Old addresses of redirects; the events are documented', [
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Health.php'), "t('Addresses in every language')"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Health.php'), "t('Old addresses of redirects')"),
+    array_values(array_diff(['slugs.per_language', 'slugs.per_language_failed', 'tags.split', 'redirect.collisions'], array_keys(Kaleta\Core\Events::TYPES)))], [true, true, []]);
+
+// 3.19 (N3182-7, the owner's decision of 22 October 2026): the privacy template says that a store locator loading its map at
+// once sends visitors' IP addresses to OpenStreetMap before consent – always in the template made at installation, otherwise
+// when a published build uses it; in every visitor language the template is translated into
+$privacySettings319 = $reportSettings(['extensions' => 'poptavky']);
+check('3.19 (N3182-7): the privacy template mentions OpenStreetMap at installation, and later only when the map loads at once', [
+    str_contains(Kaleta\Core\Language::runWith('en', fn (): string => Kaleta\Builder\Library::privacyPolicyText()), 'OpenStreetMap (OpenStreetMap Foundation) as soon as the page opens'),
+    str_contains(Kaleta\Core\Language::runWith('cs', fn (): string => Kaleta\Builder\Library::privacyPolicyText()), 'spojí s OpenStreetMap'),
+    str_contains(Kaleta\Core\Language::runWith('en', fn (): string => Kaleta\Builder\Library::privacyPolicyText($privacySettings319)), 'OpenStreetMap'),
+    str_contains(Kaleta\Core\Language::runWith('en', fn (): string => Kaleta\Builder\Library::privacyPolicyText($privacySettings319, true)), 'before you give your consent in the cookie bar')],
+    [true, true, false, true]);
+$privacyLanguages319 = [];
+foreach (glob(KALETA_SYSTEM . '/jazyky/*.php') ?: [] as $file319) {
+    $dictionary319 = require $file319;
+    if (is_array($dictionary319) && isset($dictionary319['Maps load from the map provider only after you click them.']) && !isset($dictionary319[Kaleta\Core\Privacy::MAP_AT_ONCE_TEXT])) {
+        $privacyLanguages319[] = basename($file319);
+    }
+}
+check('3.19 (N3182-7): every visitor language with the privacy template translates the OpenStreetMap paragraph', $privacyLanguages319, []);
+check('3.19 (N3182-7): the informal German overlay has its own du-form of the paragraph', str_contains((string) ((require KALETA_SYSTEM . '/jazyky/de-du.php')[Kaleta\Core\Privacy::MAP_AT_ONCE_TEXT] ?? ''), 'dein Browser'), true);
+
+// 3.19: a translation of a text with %s or %d goes through sprintf – a lone % in it ("kódováním % nebo") throws a ValueError
+// and the screen that shows it breaks (System status did, in the first run of the 3.19 tests)
+$strayPercent319 = [];
+foreach (glob(KALETA_SYSTEM . '/jazyky/*.php') ?: [] as $file319) {
+    foreach ((array) require $file319 as $key319 => $value319) {
+        if (preg_match('/%(?:\d+\$)?[sd]/', (string) $key319) === 1 && str_contains((string) preg_replace('/%(?:%|(?:\d+\$)?[sd])/', '', (string) $value319), '%')) {
+            $strayPercent319[] = basename($file319) . ': ' . mb_substr((string) $key319, 0, 60);
+        }
+    }
+}
+check('3.19: no translation of a text with placeholders has a lone % (sprintf would throw)', array_slice($strayPercent319, 0, 5), []);
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

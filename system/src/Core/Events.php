@@ -68,6 +68,10 @@ final class Events
         'whistleblowing.received' => 'A report arrived in the whistleblowing channel (the case number only, never its content).',
         'whistleblowing.due' => 'A whistleblowing case has a deadline due: the acknowledgement of receipt or the feedback (the case number only).',
         'whistleblowing.purged' => 'Closed whistleblowing cases past the retention period were deleted (the count only).',
+        'slugs.per_language' => 'The update to 3.19 made addresses unique per language version: the same address may be used once in each language (/kontakt and /en/kontakt).',
+        'slugs.per_language_failed' => 'The update to 3.19 could not make addresses unique per language here – the site stays as it was; the reason and what to do are on System status (Addresses in every language).',
+        'tags.split' => 'The update to 3.19 gave each language version its own tag where one tag was used by news items in several languages (counts and the first names).',
+        'redirect.collisions' => 'Redirects whose old addresses counted as one address before 3.19 differ once compared exactly (the number of groups and the first ones) – nothing was deleted; System status lists them.',
         'agent_run.missed' => 'A scheduled Claude run was not picked up within 6 hours of its time (Scheduled runs) – the routine in Claude probably stopped.',
     ];
 

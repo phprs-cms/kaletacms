@@ -196,7 +196,7 @@ final class MigrationReport
         if ($content !== null) {
             return $content + ['adresa' => '/' . $path, 'stav' => $content['zobrazeno'] ? ($hops === 0 ? 'ok' : ($hops === 1 ? 'redirect' : 'chain')) : 'hidden'];
         }
-        $rule = RedirectRules::isPattern($path) ? null : $db->one('SELECT na_adresu, typ FROM {presmerovani} WHERE z_adresy = ?', [$path]);
+        $rule = RedirectRules::isPattern($path) ? null : $db->one('SELECT na_adresu, typ FROM {presmerovani} WHERE source_norm = ? ORDER BY idp LIMIT 1', [RedirectSources::normalize($path)]); // 3.19: the exact address
         if ($rule === null) {
             // a pattern rule (3.6) answers what no exact redirect does, as on the site
             $this->patterns ??= RedirectRules::patternRows($db);

@@ -115,7 +115,8 @@ final class Settings
         'news_slug' => '',          // first segment of the news URLs in every language (blog → /blog/x); empty = novinky / news (Core\Routes)
         'news_title' => '',         // 3.18.2: heading of the news list in the default language (Aktuality to go with /aktuality); empty = News in the site language
         'news_slug_previous' => '', // earlier news_slug values, comma-separated: their URLs redirect to the current ones (kept by Settings::set)
-        'slugs_per_language' => '0', // 3.9: a page, news item or category may share its slug with another language version (/kontakt, /en/kontakt); changed only by Core\Slug::switchPerLanguage
+        'slugs_per_language' => '0', // 3.9: a page, news item, category or tag may share its slug with another language version (/kontakt, /en/kontakt); '1' on every site since 3.19 (migration 0106, the installer), a missing row = a site before 3.19; changed only by Core\Slug
+        'slugs_switch_failed' => '', // 3.19: why migration 0106 could not make addresses unique per language here (JSON: reason, table, slugs or error, at); '' = it could or did not run
         'markdown_news' => '1',     // /novinky/<slug>.md
         'indexnow' => '0',            // after a news item is published, announce its URL to search engines (Bing, Seznam, Yandex)
         'indexnow_key' => '',

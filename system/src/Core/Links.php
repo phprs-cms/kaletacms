@@ -234,7 +234,7 @@ final class Links
             $path = (string) parse_url(substr($path, strlen($app->request->basePath())), PHP_URL_PATH);
             if (preg_match('#^/(?:' . Language::TAG . '/)?novinky/([a-z0-9-]+)$#D', $path, $m)) {
                 return $app->db()->value('SELECT idc FROM {novinky} WHERE seo_link = ?', [$m[1]]) === null
-                    && $app->db()->value('SELECT idp FROM {presmerovani} WHERE z_adresy = ?', ['novinky/' . $m[1]]) === null ? 404 : null;
+                    && $app->db()->value('SELECT idp FROM {presmerovani} WHERE source_norm = ?', [RedirectSources::normalize('novinky/' . $m[1])]) === null ? 404 : null; // 3.19: the exact address
             }
 
             return null; // other URLs of the site itself (pages, items, files) are checked by the site audit

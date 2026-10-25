@@ -37,9 +37,10 @@ final class Redirects extends Module
         // the new target URL also takes over older redirects, so that no chains form
         $db->run('UPDATE {presmerovani} SET na_adresu = ? WHERE na_adresu = ?', [$commandName, $z]);
         $db->run('DELETE FROM {presmerovani} WHERE z_adresy = ?', [trim($commandName, '/ ')]);
+        // 3.19: with its exact normal form (source_norm), which the site looks redirects up by
         $db->run(
-            'INSERT INTO {presmerovani} (z_adresy, na_adresu, vytvoreno) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE na_adresu = VALUES(na_adresu)',
-            [mb_substr($z, 0, 255), mb_substr($commandName, 0, 255), \Kaleta\Core\Clock::now()],
+            'INSERT INTO {presmerovani} (z_adresy, source_norm, na_adresu, vytvoreno) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE na_adresu = VALUES(na_adresu)', // an existing row keeps the normal form of its own z_adresy
+            [mb_substr($z, 0, 255), \Kaleta\Core\RedirectSources::normalize(mb_substr($z, 0, 255)), mb_substr($commandName, 0, 255), \Kaleta\Core\Clock::now()],
         );
         // links on the site that still lead to the old address are rewritten, so visitors never meet the redirect (2.14)
         if ($heal) {
@@ -113,7 +114,7 @@ final class Redirects extends Module
         if ($idp > 0) {
             // editing an existing record
             // source_norm back to NULL: the background job normalises the new address again (N314-2)
-            $this->db->update('presmerovani', ['z_adresy' => mb_substr($from, 0, 255), 'na_adresu' => mb_substr($target, 0, 255), 'source_norm' => null], ['idp' => $idp]);
+            $this->db->update('presmerovani', ['z_adresy' => mb_substr($from, 0, 255), 'na_adresu' => mb_substr($target, 0, 255), 'source_norm' => \Kaleta\Core\RedirectSources::normalize(mb_substr($from, 0, 255))], ['idp' => $idp]);
         } elseif (RedirectRules::isPattern($from) || $code === RedirectRules::GONE) {
             RedirectRules::store($this->db, $from, $target, $code);
         } else {

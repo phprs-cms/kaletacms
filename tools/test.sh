@@ -59,6 +59,10 @@ php "$ROOT/tools/unit-tests.php" || ERRORS=$((ERRORS+1))
 # sq <query>: one value from the test database (defined early: the collection menu checks of 3.18.3 use it too)
 sq() { "${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -e "$1"; }
 csrf() { grep -o -m1 'name="_csrf" value="[a-f0-9]*"' "$WORK/response" | head -1 | sed 's/.*value="//;s/"//'; }
+# 3.19: slugs_global plays a site the update could not switch (the global keys back through Slug::switchPerLanguage, kept
+# for the manual schema rollback); slugs_everywhere switches it on again through migration 0106 (Slug::enableEverywhere)
+slugs_global() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); echo json_encode(Kaleta\Core\Slug::switchPerLanguage($app->db(), $app->settings(), false), JSON_UNESCAPED_SLASHES);'); }
+slugs_everywhere() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); echo json_encode(Kaleta\Core\Slug::enableEverywhere($app->db(), $app->settings()), JSON_UNESCAPED_SLASHES);') > /dev/null; }
 # publish_look: the administrator publishes the draft look (design system, classes, menus – Core\Look) from Site appearance
 publish_look() { curl -s -b "$JAR" -o "$WORK/look.html" "$B/admin.php?module=appearance"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=appearance&action=publish_look" -d "_csrf=$(grep -o -m1 'name="_csrf" value="[a-f0-9]*"' "$WORK/look.html" | head -1 | sed 's/.*value="//;s/"//')"; rm -f "$WORK"/web/storage/cache/stranky/*.html; }
 expect() { [ "$2" = "$3" ] && echo "  ok     $1" || { echo "  CHYBA  $1: dostal jsem „$2“, čekal jsem „$3“"; ERRORS=$((ERRORS+1)); }; }
@@ -136,6 +140,7 @@ check "strukturovaná data novinky" 200 /novinky/vitejte-v-kalete '"BlogPosting"
 check "zásady z instalace jsou skryté, dokud je správce nedoplní" 404 /zasady-ochrany-osobnich-udaju
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_stranky SET zobrazit = 1 WHERE seo_link = 'zasady-ochrany-osobnich-udaju'"
 check "zásady ochrany osobních údajů po zveřejnění" 200 /zasady-ochrany-osobnich-udaju "Jaké údaje zpracováváme"
+grep -qF 'spojí s OpenStreetMap (OpenStreetMap Foundation) a pošle mu vaši IP adresu' "$WORK/response" && echo "  ok     3.19 (N3182-7): the privacy template of the installation says when the store locator sends the IP address to OpenStreetMap" || { echo "  CHYBA  3.19 (N3182-7): no OpenStreetMap paragraph in the installation's privacy policy"; ERRORS=$((ERRORS+1)); }
 check "patička odkazuje na zásady" 200 /o-nas 'zasady-ochrany-osobnich-udaju'
 check "neexistující stránka" 404 /tohle-neexistuje
 check "system/ není přístupný" 403 /system/sql/schema.sql
@@ -718,6 +723,38 @@ expect "3.18.3: the settings form saves an unticked box as out of the menu" "$(s
 check "3.18.3: with more than 8 collections the menu shows 8" 200 "/admin.php" 'class="menu-kolekce"'
 expect "3.18.3: … exactly 8, by name" "$(grep -c 'class="menu-kolekce' "$WORK/response")|$(grep -c '<span>Cap 9</span>' "$WORK/response")" "8|0"
 "${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_kolekce WHERE seo_link LIKE 'cap-_' OR seo_link IN ('mimo-menu', 'v-menu')"
+# 3.19 (owner, 22 October 2026): an icon per collection – chosen in its settings from the built-in set, shown by its menu item
+# and in the list of collections; MCP icon by the English name, validated, "" = the list icon again
+HOUSE='<path d="M4 11 12 4l8 7"/>'; CAR='<circle cx="7" cy="17.5" r="1.7"/>'; LISTICON='<rect x="3.5" y="4.5" width="4" height="4" rx="1"/>'
+check "3.19: the collection settings offer the icon picker, the list icon chosen" 200 "/admin.php?module=collections&action=edit&id=$IDK" 'class="ikony-vyber" role="radiogroup"'
+grep -qF 'name="icon" value="" checked' "$WORK/response" && grep -qF 'name="icon" value="dum">' "$WORK/response" && grep -qF "$HOUSE" "$WORK/response" \
+  && echo "  ok     3.19: … every icon of the set with its picture, the list icon checked" || { echo "  CHYBA  3.19: the icon picker"; ERRORS=$((ERRORS+1)); }
+TOKEN=$(csrf)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=collections&action=save" -d "_csrf=$TOKEN" -d "idk=$IDK" --data-urlencode "nazev=Tým" -d seo_link=tym -d admin_menu=1 -d detail=1 -d icon=dum \
+  $(sq "SELECT pole FROM ka_kolekce WHERE idk = $IDK" | php -r '$i = 0; foreach (json_decode(stream_get_contents(STDIN), true) as $f) { foreach (["klic", "popisek", "typ"] as $k) { echo " --data-urlencode pole[$i][$k]=" . escapeshellarg((string) $f[$k]); } $i++; }' | xargs -n2 printf '%s %s ' 2>/dev/null)
+expect "3.19: the settings form saves the chosen icon (and keeps the fields)" "$(sq "SELECT CONCAT(COALESCE(icon, '-'), '|', JSON_LENGTH(pole) > 0) FROM ka_kolekce WHERE idk = $IDK")" "dum|1"
+check "3.19: the menu item of the collection shows its icon" 200 "/admin.php" 'class="menu-kolekce"'
+grep -F "$COLL_LINK" "$WORK/response" | grep -qF "$HOUSE" && echo "  ok     3.19: … the house, not the list icon" || { echo "  CHYBA  3.19: the collection's icon in the menu"; grep -F "$COLL_LINK" "$WORK/response" | head -2; ERRORS=$((ERRORS+1)); }
+check "3.19: the list of collections shows the icon" 200 "/admin.php?module=collections" 'class="kolekce-nazev"'
+grep -A0 -F "action=items&amp;id=$IDK\"><svg" "$WORK/response" | grep -qF "$HOUSE" && echo "  ok     3.19: … next to the name of the collection" || { echo "  CHYBA  3.19: the icon in the list of collections"; ERRORS=$((ERRORS+1)); }
+check "3.19: the settings show the saved icon checked" 200 "/admin.php?module=collections&action=edit&id=$IDK" 'name="icon" value="dum" checked'
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=collections&action=save" -d "_csrf=$(csrf)" -d "idk=$IDK" --data-urlencode "nazev=Tým" -d seo_link=tym -d admin_menu=1 -d detail=1 -d 'icon=<svg>' \
+  $(sq "SELECT pole FROM ka_kolekce WHERE idk = $IDK" | php -r '$i = 0; foreach (json_decode(stream_get_contents(STDIN), true) as $f) { foreach (["klic", "popisek", "typ"] as $k) { echo " --data-urlencode pole[$i][$k]=" . escapeshellarg((string) $f[$k]); } $i++; }' | xargs -n2 printf '%s %s ' 2>/dev/null)
+expect "3.19: an icon outside the set is stored as none (the list icon)" "$(sq "SELECT COALESCE(icon, '-') FROM ka_kolekce WHERE idk = $IDK")" "-"
+mcp update_collection '{"collection":"tym","icon":"car"}' > "$WORK/response"
+expect "3.19 MCP: update_collection icon by its English name, stored as the key, answered in English" "$(sq "SELECT icon FROM ka_kolekce WHERE idk = $IDK")|$(grep -c 'icon\\":\\"car' "$WORK/response")" "auto|1"
+check "3.19: … and the menu shows the car" 200 "/admin.php" "$CAR"
+mcp list_collections '{}' > "$WORK/response"
+grep -q 'icon\\":\\"car' "$WORK/response" && echo "  ok     3.19 MCP: list_collections returns the icon" || { echo "  CHYBA  3.19 MCP list_collections icon"; ERRORS=$((ERRORS+1)); }
+mcp update_collection '{"collection":"tym","icon":"castle"}' > "$WORK/response"
+expect "3.19 MCP: an unknown icon is refused with the list, nothing changes" "$(grep -c 'Unknown icon' "$WORK/response")|$(sq "SELECT icon FROM ka_kolekce WHERE idk = $IDK")" "1|auto"
+mcp create_collection '{"name":"Ikona MCP","slug":"ikona-mcp","icon":"people"}' > "$WORK/response"
+mcp create_collection '{"name":"Ikona spatna","slug":"ikona-spatna","icon":"<b>"}' > /dev/null
+expect "3.19 MCP: create_collection with an icon; with a bad one nothing is created" "$(sq "SELECT GROUP_CONCAT(CONCAT(seo_link, ':', COALESCE(icon, '-'))) FROM ka_kolekce WHERE seo_link IN ('ikona-mcp', 'ikona-spatna')")|$(grep -c 'icon\\":\\"people' "$WORK/response")" "ikona-mcp:lide|1"
+mcp update_collection '{"collection":"tym","icon":""}' > /dev/null
+check "3.19 MCP: icon \"\" puts the list icon back" 200 "/admin.php" 'class="menu-kolekce"'
+grep -F "$COLL_LINK" "$WORK/response" | grep -qF "$LISTICON" && expect "3.19: … in the menu and in the database" "$(sq "SELECT COALESCE(icon, '-') FROM ka_kolekce WHERE idk = $IDK")" "-" || { echo "  CHYBA  3.19: the list icon back"; ERRORS=$((ERRORS+1)); }
+sq "DELETE FROM ka_kolekce WHERE seo_link = 'ikona-mcp'" > /dev/null
 mcp stavba_uloz "{\"id\":$IDZ,\"publikovat\":true,\"stavba\":{\"v\":1,\"deti\":[{\"typ\":\"sekce\",\"deti\":[{\"id\":\"smy1\",\"typ\":\"kolekce\",\"obsah\":{\"kolekce\":\"tym\"},\"deti\":[{\"id\":\"kar1\",\"typ\":\"kontejner\",\"styl\":{\"zaklad\":{\"pozadi\":\"plocha\"}},\"deti\":[{\"typ\":\"nadpis\",\"znacka\":\"h3\",\"obsah\":{\"text\":\"{{nazev}}\"}},{\"typ\":\"text\",\"obsah\":{\"html\":\"<p>{{funkce}}</p>{{medailonek}}\"}},{\"typ\":\"tlacitko\",\"obsah\":{\"text\":\"Profil\",\"odkaz\":\"{{url}}\"}}]}]}]}]}}" > "$WORK/response"
 grep -q 'publikováno' "$WORK/response" || { echo "  CHYBA  MCP stránka s výpisem kolekce"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 rm -f "$WORK"/web/storage/cache/stranky/*.html
@@ -1988,6 +2025,7 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=redirects&
 # privacy policy from the enabled features
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=pages&action=new"; TOKEN=$(csrf)
 save_page -d ids=0 --data-urlencode "titulek=Zásady test" -d sablona=zasady -d zobrazit=0 -d v_menu=0 -d text= > /dev/null
+expect "3.19 (N3182-7): a privacy page made later from the template leaves OpenStreetMap out while no store locator loads its map at once" "$(sq "SELECT COUNT(*) FROM ka_stranky WHERE titulek = 'Zásady test' AND text LIKE '%OpenStreetMap%'")" "0"
 expect "privacy template: a disclaimer and only the enabled features" "$(sq "SELECT CONCAT(text LIKE '%nikoli právní rada%', '|', text LIKE '%poptávkovém formuláři%' OR text LIKE '%formuláře%', '|', text LIKE '%[ADDRESS]%' OR text LIKE '%[ADRESA]%' OR text LIKE '%sídlem%') FROM ka_stranky WHERE titulek = 'Zásady test'")" "1|1|1"
 # streamed backup download and the media ZIP only on POST
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"; TOKEN=$(csrf)
@@ -3147,6 +3185,9 @@ echo "== 3.9: a multilingual WordPress export (Polylang, WPML) arrives as linked
 # the language settings and the draft look come back after this block; the site loses its English version for a moment,
 # so the import has to add it
 sq "DROP TABLE IF EXISTS ka_test_ml; CREATE TABLE ka_test_ml AS SELECT * FROM ka_nastaveni WHERE promenna IN ('additional_languages', 'extensions', 'look_draft'); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('look_draft', 'additional_languages')" > /dev/null
+# 3.19: this block shows a site the update could not switch (slugs unique across languages, as 3.18 left every site); the
+# same import on a site with the same address in every language keeps a shared slug in both versions (WpImport::availableSlug)
+expect "3.19: the multilingual import below runs on a site whose slugs are unique across languages" "$(slugs_global)" "null"
 ml_run() { # $1 = fixture: upload, import confirmed with the first call, one call per batch until done
   mcp upload_file "{\"filename\":\"$1.xml\",\"data\":\"$(base64 < "$ROOT/tools/fixtures/$1.xml" | tr -d '\n')\"}" > "$WORK/response"
   ML_FILE=$(mcp_value import_file); [ -n "$ML_FILE" ] && [ "$ML_FILE" != null ] || ML_FILE="$1.xml" # an export already there is never replaced
@@ -3197,6 +3238,7 @@ mcp import_wordpress "{\"file\":\"$N39_FILE\",\"confirm\":true,\"images\":false}
 for _ in 1 2 3 4 5; do [ "$(mcp_value phase)" = done ] && break; mcp import_wordpress "{\"import\":\"$N39_FILE\"}" > "$WORK/response"; done
 expect "3.9 N39-3: without add_languages the import adds no language version" "$(mcp_value phase)|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'additional_languages'")|$(mcp_value languages added_to_site 0)" "done||null"
 sq "DELETE FROM ka_nastaveni WHERE promenna IN ('additional_languages', 'extensions', 'look_draft'); INSERT INTO ka_nastaveni SELECT * FROM ka_test_ml; DROP TABLE ka_test_ml" > /dev/null
+slugs_everywhere # 3.19: back to the same address once in each language (migration 0106 run again, as Settings → General does)
 
 echo "== 2.3: leads, statistics, forms, embeds, page head code, accessibility audit"
 "${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_kontrola_ip WHERE typ = 'formular'"
@@ -5011,8 +5053,10 @@ mcp vytvor_stranku '{"titulek":"Heal source","zobrazit":true}' > "$WORK/response
 sq "UPDATE ka_stranky SET stavba = '{\"v\":1,\"deti\":[{\"typ\":\"tlacitko\",\"obsah\":{\"text\":\"Go\",\"odkaz\":\"/lh-stare#cast\"}},{\"typ\":\"text\",\"obsah\":{\"html\":\"<p><a href=\\\\\"/en/lh-stare\\\\\">x</a> <a href=\\\\\"/lh-stare-jina\\\\\">y</a></p>\"}}]}', text = '<p><a href=\"/lh-stare\">t</a></p>' WHERE ids = $LH_SOURCE" > /dev/null
 sq "INSERT INTO ka_menu (umisteni, jazyk, polozky) VALUES ('lhtest', '', '[{\"typ\":\"odkaz\",\"url\":\"/lh-stare\",\"text\":\"M\"}]')" > /dev/null
 mcp uprav_stranku "{\"id\":$LH_TARGET,\"adresa\":\"lh-nove\"}" > /dev/null
-expect "link healing: a renamed page – button, text, menu and the language form point to the new address, a longer address is left alone" \
-  "$(sq "SELECT CONCAT(stavba LIKE '%/lh-nove#cast%', stavba LIKE '%/en/lh-nove%', stavba LIKE '%/lh-stare-jina%', stavba NOT LIKE '%/lh-stare\"%', text LIKE '%/lh-nove%') FROM ka_stranky WHERE ids = $LH_SOURCE")|$(sq "SELECT polozky LIKE '%/lh-nove%' FROM ka_menu WHERE umisteni = 'lhtest'")" "11111|1"
+# 3.19: addresses are per language on every site, so /en/lh-stare may be another (English) page – the default version's rename
+# heals only links without a prefix (LinkHealing, 3.9); /en/lh-stare still reaches the page through the redirect
+expect "link healing: a renamed page – button, text and menu point to the new address, a longer address and the English address are left alone" \
+  "$(sq "SELECT CONCAT(stavba LIKE '%/lh-nove#cast%', stavba LIKE '%/en/lh-stare%' AND stavba NOT LIKE '%/en/lh-nove%', stavba LIKE '%/lh-stare-jina%', text LIKE '%/lh-nove%') FROM ka_stranky WHERE ids = $LH_SOURCE")|$(sq "SELECT polozky LIKE '%/lh-nove%' FROM ka_menu WHERE umisteni = 'lhtest'")" "1111|1"
 expect "link healing: the change is an event with the count" "$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'links.healed' AND data LIKE '%lh-nove%'")" "1"
 sq "DELETE FROM ka_menu WHERE umisteni = 'lhtest'" > /dev/null
 echo "== 2.14: personal data requests"
@@ -6739,6 +6783,16 @@ general39() { # Settings → General saved as a browser does (every field as it 
   curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" --data-binary @"$WORK/general39.post"
   curl -s -b "$JAR" -c "$JAR" -o "$WORK/general39.html" "$B/admin.php?module=settings&tab=general"
 }
+# 3.19: a fresh install has the same address once in each language on and no global keys (schema.sql, the installer); this
+# part plays a site the update to 3.19 could not switch: the global keys come back through Slug::switchPerLanguage(off),
+# which no form offers any more (it stays for the documented manual schema rollback), so it behaves as 3.18 left it
+slugoff39() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); echo json_encode(Kaleta\Core\Slug::switchPerLanguage($app->db(), $app->settings(), false), JSON_UNESCAPED_SLASHES);'); }
+expect "3.19: a fresh install has the same address in every language on, with only the per-language keys (and the plain lookup keys)" \
+  "$(keys39)|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'")|$(sq "SELECT GROUP_CONCAT(INDEX_NAME ORDER BY INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('ka_stranky', 'ka_novinky', 'ka_kategorie', 'ka_stitky') AND INDEX_NAME LIKE '%seo' AND SEQ_IN_INDEX = 1")" \
+  "uq_clanky_jazyk_seo,uq_stranky_jazyk_seo,uq_topic_jazyk_seo|1|ix_clanky_seo,ix_stitky_seo,ix_stranky_seo,ix_topic_seo,uq_clanky_jazyk_seo,uq_stitky_jazyk_seo,uq_stranky_jazyk_seo,uq_topic_jazyk_seo"
+curl -s -b "$JAR" -o "$WORK/general39.html" "$B/admin.php?module=settings&tab=general"
+grep -q 'name="slugs_per_language"' "$WORK/general39.html" && { echo "  CHYBA  3.19: Settings → General still offers the switch on a site that has it on"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.19: … and Settings → General offers no switch there"
+expect "3.19: the manual rollback path switches it off while nothing is shared" "$(slugoff39)" "null"
 expect "3.9: a site from before keeps its global slug keys next to the per-language ones (migration 0083), the switch is off" \
   "$(keys39)|$(sq "SELECT COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'), '0')")" \
   "uq_clanky_jazyk_seo,uq_clanky_seo,uq_stranky_jazyk_seo,uq_stranky_seo,uq_topic_jazyk_seo,uq_topic_seo|0"
@@ -6758,8 +6812,13 @@ expect "3.14 off: a tag created from an English news item is English; the Czech 
 T314=$(get39 /novinky/stitek/fair-314); contains -q 'Fair CS 314' "$WORK/response" || T314="$T314 wrong"
 T314EN=$(get39 /en/news/tag/fair-314); contains -q 'Fair EN 314' "$WORK/response" || T314EN="$T314EN wrong"
 expect "3.14 off: the tag page answers in both versions, each with its own news" "$T314|$T314EN" "200 |200 "
+curl -s -b "$JAR" -o "$WORK/general39.html" "$B/admin.php?module=settings&tab=general"
+grep -q 'name="slugs_per_language" value="1">' "$WORK/general39.html" && echo "  ok     3.19: a site that is off gets the switch (unticked) in Settings → General" || { echo "  CHYBA  3.19: no slugs_per_language switch on a site that is off"; ERRORS=$((ERRORS+1)); }
 general39 1
-grep -q 'name="slugs_per_language" value="1" checked' "$WORK/general39.html" && echo "  ok     3.9: Settings → General offers the switch (checked once on) with the language versions" || { echo "  CHYBA  3.9: no slugs_per_language field"; ERRORS=$((ERRORS+1)); }
+grep -q 'name="slugs_per_language"' "$WORK/general39.html" && { echo "  CHYBA  3.19: the switch is still offered once on"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.19: once on, Settings → General no longer offers it (it cannot be switched off)"
+expect "3.19: switching on (migration 0106 again) split the tag both versions used – each news item keeps a tag of its own language" \
+  "$(sq "SELECT GROUP_CONCAT(CONCAT(s.jazyk, ':', n.titulek) ORDER BY s.jazyk) FROM ka_stitky s JOIN ka_novinky_stitky ns ON ns.ids = s.ids JOIN ka_novinky n ON n.idc = ns.idc WHERE s.seo_link = 'fair-314'")" \
+  ":Fair CS 314,en:Fair EN 314"
 expect "3.9: switching on drops the global keys only; the per-language keys stay" "$(keys39)|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'")" \
   "uq_clanky_jazyk_seo,uq_stranky_jazyk_seo,uq_topic_jazyk_seo|1"
 # pages: the same slug in cs and en, refused twice in one language, system addresses refused in both
@@ -6830,19 +6889,102 @@ expect "3.9 on: the English slug change redirects /en/o-nas-39 only; /o-nas-39 s
 expect "3.9 on: link healing rewrote the English link only" "$(sq "SELECT CONCAT(text LIKE '%href=\"/o-nas-39\"%', text LIKE '%href=\"/en/about-39\"%') FROM ka_stranky WHERE ids = $ON39")" "11"
 mcp save_redirect '{"from":"/en/stary-39","to":"/en/kontakt-39"}' > /dev/null
 expect "3.9 on: a redirect stored with the prefix (a Polylang address) fires in its version" "$(get39 /en/stary-39)|$(get39 /stary-39)" "301 $B/en/kontakt-39|404 "
-# switching off is refused while two versions share a slug; it works once they do not, and the global keys come back
+# 3.19: Settings → General cannot switch it off; the manual rollback path (Slug::switchPerLanguage) refuses while two versions
+# share a slug, works once they do not and the global keys come back; the form then switches it on again (migration 0106)
 general39 0
-contains -q 'kontakt-39' "$WORK/general39.html" && expect "3.9: switching off is refused while two language versions share a slug, with the slugs named" \
+expect "3.19: a save of Settings → General never switches it off" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'")|$(keys39)" "1|uq_clanky_jazyk_seo,uq_stranky_jazyk_seo,uq_topic_jazyk_seo"
+contains -q 'kontakt-39' <<<"$(slugoff39)" && expect "3.9: switching off is refused while two language versions share a slug, with the slugs named" \
   "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'")|$(keys39)" "1|uq_clanky_jazyk_seo,uq_stranky_jazyk_seo,uq_topic_jazyk_seo" \
-  || { echo "  CHYBA  3.9: switching off with duplicates: $(grep -o 'class="zprava[^"]*"[^<]*<[^<]*' "$WORK/general39.html" | head -3)"; ERRORS=$((ERRORS+1)); }
+  || { echo "  CHYBA  3.9: switching off with duplicates"; ERRORS=$((ERRORS+1)); }
 sq "DELETE FROM ka_stranky WHERE jazyk = 'en' AND seo_link = 'kontakt-39'; DELETE FROM ka_novinky WHERE jazyk = 'en' AND seo_link IN ('akce-39', 'market-39'); DELETE FROM ka_kategorie WHERE jazyk = 'en' AND seo_link = 'zpravy-39'" > /dev/null
-general39 0
-contains -q 'trh-39' "$WORK/general39.html" && expect "3.14: … a tag shared by two versions refuses it too" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'")|$(tagkey314)" "1|0" \
+contains -q 'trh-39' <<<"$(slugoff39)" && expect "3.14: … a tag shared by two versions refuses it too" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'")|$(tagkey314)" "1|0" \
   || { echo "  CHYBA  3.14: switching off with a shared tag slug"; ERRORS=$((ERRORS+1)); }
-sq "DELETE FROM ka_stitky WHERE jazyk = 'en' AND seo_link = 'trh-39'" > /dev/null
-general39 0
+sq "DELETE FROM ka_stitky WHERE jazyk = 'en' AND seo_link = 'trh-39'; DELETE FROM ka_stitky WHERE jazyk = '' AND seo_link = 'fair-314'" > /dev/null
+slugoff39 > /dev/null
 expect "3.9: without shared slugs it switches off and the global keys are back" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'")|$(keys39)|$(tagkey314)" \
   "0|uq_clanky_jazyk_seo,uq_clanky_seo,uq_stranky_jazyk_seo,uq_stranky_seo,uq_topic_jazyk_seo,uq_topic_seo|1"
+general39 1
+expect "3.19: … and Settings → General switches it on again – the global keys go once more" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'")|$(keys39)|$(tagkey314)" \
+  "1|uq_clanky_jazyk_seo,uq_stranky_jazyk_seo,uq_topic_jazyk_seo|0"
+
+echo "== 3.19: addresses unique per language on every site, tags per language, redirects by the exact address (migration 0106)"
+# an upgraded site as 3.18.3 left it: the setting off and the global keys in place, a tag shared by a Czech and an English
+# news item, a tag from before 3.14 ('') used only by an English one, redirects the background job has not reached (two
+# of them count as one under the Czech collation) – then the data migration runs by name, as on the first admin visit
+mig319() { sq "UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0106-addresses-per-language,', ',')) WHERE promenna = 'data_migrations'" > /dev/null
+  curl -s -b "$JAR" -c "$JAR" -o "$WORK/mig319.html" "$B/admin.php"; rm -f "$WORK"/web/storage/cache/stranky/*.html; }
+slugoff39 > /dev/null
+sq "INSERT INTO ka_kategorie (nazev, seo_link, popis, jazyk) VALUES ('News 319', 'news-319', '', 'en')" > /dev/null
+mcp create_news '{"title":"Fair EN 319","category":"News 319","text":"<p>Fair in English 319</p>","tags":"Veletrh 319","publish":true}' > /dev/null
+mcp create_news '{"title":"Veletrh CS 319","category":"Zprávy 39","text":"<p>Veletrh česky 319</p>","tags":"Veletrh 319","publish":true}' > /dev/null
+EN319=$(sq "SELECT idc FROM ka_novinky WHERE titulek = 'Fair EN 319'")
+sq "INSERT INTO ka_stitky (nazev, seo_link, jazyk, popis) VALUES ('Stary 319', 'stary-319', '', '<p>Topic 319</p>'); INSERT INTO ka_novinky_stitky (idc, ids) SELECT $EN319, ids FROM ka_stitky WHERE seo_link = 'stary-319';
+  INSERT INTO ka_presmerovani (z_adresy, source_norm, na_adresu, vytvoreno) VALUES ('cenik-319', NULL, 'kontakt-39', '$(site_time)'), ('cen%C3%ADk-319', NULL, 'o-nas-39', '$(site_time)'), ('Akce-319', NULL, 'kontakt-39', '$(site_time)')" > /dev/null
+expect "3.19: the site before the update – off, global keys, one tag for both news items, three redirects not normalised" \
+  "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'")|$(tagkey314)|$(sq "SELECT GROUP_CONCAT(CONCAT(jazyk, ':', (SELECT COUNT(*) FROM ka_novinky_stitky ns WHERE ns.ids = s.ids))) FROM ka_stitky s WHERE seo_link = 'veletrh-319'")|$(sq "SELECT COUNT(*) FROM ka_presmerovani WHERE source_norm IS NULL")" \
+  "0|1|en:2|3"
+EVENTS319=$(sq "SELECT COALESCE(MAX(id), 0) FROM ka_events")
+mig319
+expect "3.19: after the migration the setting is on and only the per-language keys are left (plus the plain lookup keys)" \
+  "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'")|$(keys39)|$(tagkey314)|$(sq "SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND INDEX_NAME IN ('ix_stranky_seo', 'ix_clanky_seo', 'ix_topic_seo', 'ix_stitky_seo')")" \
+  "1|uq_clanky_jazyk_seo,uq_stranky_jazyk_seo,uq_topic_jazyk_seo|0|4"
+expect "3.19 tag split: one tag per language, each news item linked to the tag of its own language" \
+  "$(sq "SELECT GROUP_CONCAT(CONCAT(s.jazyk, ':', n.titulek) ORDER BY s.jazyk) FROM ka_stitky s JOIN ka_novinky_stitky ns ON ns.ids = s.ids JOIN ka_novinky n ON n.idc = ns.idc WHERE s.seo_link = 'veletrh-319'")|$(sq "SELECT COUNT(*) FROM ka_stitky WHERE seo_link = 'veletrh-319'")" \
+  ":Veletrh CS 319,en:Fair EN 319|2"
+expect "3.19 tag split: a tag used only by English news moves to English and keeps its row and topic text" \
+  "$(sq "SELECT CONCAT(COUNT(*), '|', MIN(jazyk), '|', MIN(popis)) FROM ka_stitky WHERE seo_link = 'stary-319'")" "1|en|<p>Topic 319</p>"
+T319=$(get39 /novinky/stitek/veletrh-319); contains -q 'Veletrh CS 319' "$WORK/response" && ! contains -q 'Fair EN 319' "$WORK/response" || T319="$T319 wrong"
+T319EN=$(get39 /en/news/tag/veletrh-319); contains -q 'Fair EN 319' "$WORK/response" && ! contains -q 'Veletrh CS 319' "$WORK/response" || T319EN="$T319EN wrong"
+expect "3.19: each tag page lists its own version; the moved tag answers in English only" "$T319|$T319EN|$(get39 /en/news/tag/stary-319)|$(get39 /novinky/stitek/stary-319)" "200 |200 |200 |404 "
+expect "3.19: every redirect has its exact normal form now" "$(sq "SELECT COUNT(*) FROM ka_presmerovani WHERE source_norm IS NULL")|$(sq "SELECT GROUP_CONCAT(source_norm ORDER BY idp) FROM ka_presmerovani WHERE z_adresy IN ('cenik-319', 'cen%C3%ADk-319', 'Akce-319')")" \
+  "0|cenik-319,ceník-319,akce-319"
+expect "3.19: redirects by the exact address – /cenik-319 and /ceník-319 are two addresses now, letter case still does not matter" \
+  "$(get39 /cenik-319)|$(get39 /cen%C3%ADk-319)|$(get39 /AKCE-319)" "301 $B/kontakt-39|301 $B/o-nas-39|301 $B/kontakt-39"
+expect "3.19: the migration recorded its events (switched on, tags split, colliding redirects)" \
+  "$(sq "SELECT GROUP_CONCAT(CONCAT(type, ':', severity) ORDER BY id) FROM ka_events WHERE id > $EVENTS319 AND type IN ('slugs.per_language', 'tags.split', 'redirect.collisions', 'slugs.per_language_failed')")|$(sq "SELECT JSON_EXTRACT(data, '\$.groups') FROM ka_events WHERE id > $EVENTS319 AND type = 'redirect.collisions'")" \
+  "redirect.collisions:warning,slugs.per_language:info,tags.split:info|1"
+check "3.19: System status – addresses in every language are on" 200 "/admin.php?module=status" 'každá jazyková verze smí použít stejnou adresu jednou'
+grep -qF '/cenik-319 = /cen%C3%ADk-319' "$WORK/response" && grep -qF 'skupin(a) přesměrování má staré adresy, které se před Kaletou 3.19 počítaly jako jedna adresa' "$WORK/response" \
+  && echo "  ok     3.19: … and lists the redirects whose old addresses collide once compared exactly (nothing deleted)" || { echo "  CHYBA  3.19: the collision report on System status"; ERRORS=$((ERRORS+1)); }
+mcp get_health '{}' > "$WORK/response"
+contains -q 'cen%C3%ADk-319' "$WORK/response" && echo "  ok     3.19 MCP: get_health lists the colliding redirects too" || { echo "  CHYBA  3.19 MCP get_health collision"; ERRORS=$((ERRORS+1)); }
+# on the upgraded site: kontakt, a news item, a category and a tag with the same address in Czech and in English
+mcp create_page '{"title":"Kontakt 319","slug":"kontakt-319","content":"<p>Kontakt česky 319</p>","visible":true}' > "$WORK/response"; K319=$(mcp_value id)
+mcp create_page "{\"title\":\"Contact 319\",\"slug\":\"kontakt-319\",\"language\":\"en\",\"translation_of\":$K319,\"content\":\"<p>Contact in English 319</p>\",\"visible\":true}" > "$WORK/response"
+mcp create_category '{"name":"Rubrika 319"}' > /dev/null
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=categories&action=new"; TOKEN=$(csrf)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=categories&action=save" -d "_csrf=$TOKEN" -d idt=0 -d "nazev=Rubrika 319" -d seo_link=rubrika-319 -d jazyk=en -d popis= -d hodnost=100
+mcp create_news '{"title":"Zprava 319","category":"Zprávy 39","text":"<p>Zpráva česky 319</p>","tags":"Stitek 319","publish":true}' > /dev/null
+mcp create_news '{"title":"Zprava 319","category":"News 319","text":"<p>Report in English 319</p>","tags":"Stitek 319","publish":true}' > /dev/null
+expect "3.19 upgraded site: a page, a category, a news item and a tag with the same address in cs and en" \
+  "$(sq "SELECT GROUP_CONCAT(jazyk ORDER BY jazyk) FROM ka_stranky WHERE seo_link = 'kontakt-319'")|$(sq "SELECT GROUP_CONCAT(jazyk ORDER BY jazyk) FROM ka_kategorie WHERE seo_link = 'rubrika-319'")|$(sq "SELECT GROUP_CONCAT(jazyk ORDER BY jazyk) FROM ka_novinky WHERE seo_link = 'zprava-319'")|$(sq "SELECT GROUP_CONCAT(jazyk ORDER BY jazyk) FROM ka_stitky WHERE seo_link = 'stitek-319'")" \
+  ",en|,en|,en|,en"
+expect "3.19 upgraded site: each address answers with its own version" "$(get39 /kontakt-319)|$(contains -q 'Kontakt česky 319' "$WORK/response" && echo cs)|$(get39 /en/kontakt-319)|$(contains -q 'Contact in English 319' "$WORK/response" && echo en)|$(get39 /novinky/zprava-319)|$(get39 /en/news/zprava-319)|$(contains -q 'Report in English 319' "$WORK/response" && echo en)" \
+  "200 |cs|200 |en|200 |200 |en"
+mcp create_page '{"title":"Kontakt znovu 319","slug":"kontakt-319","content":"<p>x</p>"}' > "$WORK/response"
+expect "3.19: a second kontakt-319 in the same language is still refused" "$(contains -q 'isError' "$WORK/response" && echo refused)|$(sq "SELECT COUNT(*) FROM ka_stranky WHERE seo_link = 'kontakt-319'")" "refused|2"
+# a site that cannot switch: two categories of one language share a slug and neither key holds (removed by hand, a partial
+# restore) – the migration leaves everything as it is, records why, System status and Settings → General say what to do
+sq "UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'slugs_per_language'; ALTER TABLE ka_kategorie DROP INDEX uq_topic_jazyk_seo;
+  INSERT INTO ka_kategorie (nazev, seo_link, popis, jazyk) VALUES ('Dvojice A', 'dvojice-319', '', ''), ('Dvojice B', 'dvojice-319', '', '')" > /dev/null
+EVENTS319=$(sq "SELECT COALESCE(MAX(id), 0) FROM ka_events")
+mig319
+expect "3.19 blocked: the site stays as it was – off, keys untouched, the reason stored with the shared address" \
+  "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'")|$(keys39)|$(sq "SELECT CONCAT(JSON_UNQUOTE(JSON_EXTRACT(hodnota, '\$.reason')), ':', JSON_UNQUOTE(JSON_EXTRACT(hodnota, '\$.slugs[0]'))) FROM ka_nastaveni WHERE promenna = 'slugs_switch_failed'")" \
+  "0|uq_clanky_jazyk_seo,uq_stranky_jazyk_seo|shared:/novinky/kategorie/dvojice-319"
+expect "3.19 blocked: the event says it could not switch" "$(sq "SELECT CONCAT(type, ':', severity) FROM ka_events WHERE id > $EVENTS319 AND type LIKE 'slugs.%'")" "slugs.per_language_failed:warning"
+check "3.19 blocked: System status warns and says what to do" 200 "/admin.php?module=status" 'Dvě položky jedné jazykové verze mají stejnou adresu (/novinky/kategorie/dvojice-319)'
+check "3.19 blocked: Settings → General shows the reason and offers the switch" 200 "/admin.php?module=settings&tab=general" 'name="slugs_per_language" value="1">'
+grep -qF 'Dvě položky jedné jazykové verze mají stejnou adresu (/novinky/kategorie/dvojice-319)' "$WORK/response" && echo "  ok     3.19 blocked: … with the reason" || { echo "  CHYBA  3.19 blocked: no reason in Settings → General"; ERRORS=$((ERRORS+1)); }
+general39 1
+expect "3.19 blocked: switching on again is refused while the cause remains" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'")" "0"
+sq "UPDATE ka_kategorie SET seo_link = 'dvojice-319-b' WHERE nazev = 'Dvojice B'" > /dev/null
+general39 1
+expect "3.19 blocked: once fixed, Settings → General switches it on – the key back, the reason gone" \
+  "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'")|$(keys39)|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_switch_failed'")" \
+  "1|uq_clanky_jazyk_seo,uq_stranky_jazyk_seo,uq_topic_jazyk_seo|"
+check "3.19: System status is green for the addresses again" 200 "/admin.php?module=status" 'každá jazyková verze smí použít stejnou adresu jednou'
+sq "DELETE FROM ka_kategorie WHERE nazev IN ('Dvojice A', 'Dvojice B'); DELETE FROM ka_presmerovani WHERE z_adresy IN ('cenik-319', 'cen%C3%ADk-319', 'Akce-319')" > /dev/null
 sq "UPDATE ka_nastaveni SET hodnota = '$HOME39' WHERE promenna = 'home_page'" > /dev/null
 
 echo "== 3.10: English table names, the site's clock and regional language versions (data model §4, §6 and §2 step 2)"

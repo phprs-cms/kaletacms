@@ -48,7 +48,7 @@ LAST_MIGRATION=$(ls "$ROOT"/system/sql/migrace/[0-9]*-*.sql "$ROOT"/system/sql/m
 [ "$("${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT((SELECT moduly FROM ka_role WHERE nazev = 'Legacy'), '|', (SELECT CONCAT(modul, ':', akce) FROM ka_protokol ORDER BY idp DESC LIMIT 1))")" = "pages,news,settings|media:save" ] && echo "  ok     1.3 admin idents in roles and the change log are English" || { echo "  CHYBA  admin idents not migrated"; ERRORS=$((ERRORS+1)); }
 [ "$("${MYSQL[@]}" "$OLD" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'company_email'")" = "owner@example.com" ] && echo "  ok     existing site keeps its public contact email" || { echo "  CHYBA  firma_email not taken over"; ERRORS=$((ERRORS+1)); }
 
-expect_sql() { [ "$("${MYSQL[@]}" "$OLD" -N -e "$2")" = "$3" ] && echo "  ok     $1" || { echo "  CHYBA  $1"; ERRORS=$((ERRORS+1)); }; }
+expect_sql() { local got; got=$("${MYSQL[@]}" "$OLD" -N -e "$2"); [ "$got" = "$3" ] && echo "  ok     $1" || { echo "  CHYBA  $1: $got"; ERRORS=$((ERRORS+1)); }; }
 expect_sql "settings keys of 1.4.0 renamed (0026), per-language ones too" "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_email'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_name_en'))" "owner@example.com|Northfield"
 expect_sql "no settings row left under an old key" "SELECT COUNT(*) FROM ka_nastaveni WHERE promenna IN ('verze_db', 'email_webu', 'nazev_webu_en', 'firma_email')" "0"
 expect_sql "a site from before 2.2 keeps its extensions (0035) – the Claude connection does not switch itself on" "SELECT hodnota <> '' AND hodnota NOT LIKE '%claude%' FROM ka_nastaveni WHERE promenna = 'extensions'" "1"
@@ -59,9 +59,12 @@ expect_sql "3.3.4 (0076): an OAuth client registered before the upgrade counts a
 langcols() { "${MYSQL[@]}" -N -e "SELECT GROUP_CONCAT(CONCAT(TABLE_NAME, '.', COLUMN_NAME, ':', COLUMN_TYPE, ':', CHARACTER_SET_NAME) ORDER BY TABLE_NAME, COLUMN_NAME) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '$1' AND COLUMN_NAME IN ('jazyk', 'language')"; }
 [ "$(langcols "$OLD")" = "$(langcols "$NEW")" ] && [ "$(langcols "$OLD" | grep -o ':varchar(35):ascii' | wc -l | tr -d ' ')" = 15 ] && echo "  ok     3.9 (0083) and 3.14 (0095): the 15 language columns are VARCHAR(35) ASCII, as on a fresh install" || { echo "  CHYBA  0083/0095 language columns: $(langcols "$OLD")"; ERRORS=$((ERRORS+1)); }
 "${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_stranky (ids, seo_link, titulek, text, jazyk) VALUES (9083, 'kontakt-83', 'Kontakt', '', ''), (9084, 'contact-83', 'Contact', '', 'en')"
-expect_sql "3.9 (0083): pages, news and categories have the per-language slug key next to the global one" \
-  "SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = '$OLD' AND INDEX_NAME IN ('uq_stranky_seo', 'uq_stranky_jazyk_seo', 'uq_clanky_seo', 'uq_clanky_jazyk_seo', 'uq_topic_seo', 'uq_topic_jazyk_seo') AND SEQ_IN_INDEX = 1" "6"
-"${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_stranky (ids, seo_link, titulek, text, jazyk) VALUES (9085, 'kontakt-83', 'Contact', '', 'en')" 2>/dev/null && { echo "  CHYBA  0083: a duplicate slug passed the global key"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.9 (0083): … a duplicate slug in another language is refused by the database"
+# 3.19 (0105, 0106): the global keys are gone after the upgrade (the empty site could switch), the per-language ones stay
+expect_sql "3.9 (0083), 3.19 (0106): pages, news and categories keep the per-language slug key, the global one is gone" \
+  "SELECT GROUP_CONCAT(INDEX_NAME ORDER BY INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = '$OLD' AND INDEX_NAME IN ('uq_stranky_seo', 'uq_stranky_jazyk_seo', 'uq_clanky_seo', 'uq_clanky_jazyk_seo', 'uq_topic_seo', 'uq_topic_jazyk_seo') AND SEQ_IN_INDEX = 1" "uq_clanky_jazyk_seo,uq_stranky_jazyk_seo,uq_topic_jazyk_seo"
+"${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_stranky (ids, seo_link, titulek, text, jazyk) VALUES (9085, 'kontakt-83', 'Contact', '', 'en')" 2>/dev/null && echo "  ok     3.19 (0106): … so the same slug in another language is stored" || { echo "  CHYBA  0106: the same slug in another language refused"; ERRORS=$((ERRORS+1)); }
+"${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_stranky (ids, seo_link, titulek, text, jazyk) VALUES (9086, 'kontakt-83', 'Contact', '', 'en')" 2>/dev/null && { echo "  CHYBA  0106: a duplicate slug in one language passed"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.9 (0083): … and a duplicate in the same language is refused by the database"
+"${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_stranky WHERE ids = 9085"
 expect_sql "3.9 (0083): language values read back unchanged" "SELECT GROUP_CONCAT(CONCAT(ids, ':', jazyk, ':', LENGTH(jazyk)) ORDER BY ids) FROM ka_stranky WHERE ids IN (9083, 9084)" "9083::0,9084:en:2"
 "${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_stranky WHERE ids IN (9083, 9084)"
 
@@ -74,7 +77,7 @@ tagkeys() { "${MYSQL[@]}" -N -e "SELECT GROUP_CONCAT(DISTINCT INDEX_NAME ORDER B
 expect_sql "3.14 (0095): with slugs per language on, the tags lose the global key and keep the per-language one; an existing tag is the default language" \
   "SELECT CONCAT('$(tagkeys)', '|', (SELECT CONCAT(jazyk, ':', seo_link) FROM ka_stitky WHERE ids = 9095))" "uq_stitky_jazyk_seo|:trh-95"
 "${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_stitky (ids, nazev, seo_link, jazyk) VALUES (9096, 'Market', 'trh-95', 'en')" && echo "  ok     3.14 (0095): … so an English tag can have the slug of a Czech one" || { echo "  CHYBA  0095: the same tag slug in another language refused"; ERRORS=$((ERRORS+1)); }
-"${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_stitky WHERE ids IN (9095, 9096); ALTER TABLE ka_stitky ADD UNIQUE KEY uq_stitky_seo (seo_link); DELETE FROM ka_nastaveni WHERE promenna = 'slugs_per_language'"
+"${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_stitky WHERE ids IN (9095, 9096)" # 3.19: the site keeps per-language slugs (no global tag key)
 
 # 3.10 (0085): a Claude connection and an OAuth code from before the upgrade keep every tool (tool_set all) – the column is
 # taken off again, rows are added as 3.9.2 wrote them, and the migration runs again from version 84
@@ -146,5 +149,45 @@ expect_sql "3.18.3 (0103): an existing collection is in the admin menu after the
 "${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_kolekce (idk, nazev, seo_link, pole) VALUES (9104, 'Jobs', 'jobs-103', '[]')"
 expect_sql "3.18.3 (0103): … a collection created afterwards is in it by default" "SELECT admin_menu FROM ka_kolekce WHERE idk = 9104" "1"
 "${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_kolekce WHERE idk IN (9103, 9104)"
+
+# 3.19 (0105, 0106): a site as 3.18.3 left it – the setting off, the global keys, no plain lookup keys, a tag shared by a
+# Czech and an English news item, a tag from before 3.14 used only by English news, redirects not normalised yet (two of
+# them collide once compared exactly) – then 0105 and 0106 run again; a second run changes nothing; a site whose two
+# categories of one language share a slug (no key holds them apart) is left as it is and says why
+"${MYSQL[@]}" "$OLD" -e "SET FOREIGN_KEY_CHECKS = 0;
+  ALTER TABLE ka_stranky ADD UNIQUE KEY uq_stranky_seo (seo_link), DROP INDEX ix_stranky_seo; ALTER TABLE ka_novinky ADD UNIQUE KEY uq_clanky_seo (seo_link), DROP INDEX ix_clanky_seo;
+  ALTER TABLE ka_kategorie ADD UNIQUE KEY uq_topic_seo (seo_link), DROP INDEX ix_topic_seo; ALTER TABLE ka_stitky ADD UNIQUE KEY uq_stitky_seo (seo_link), DROP INDEX ix_stitky_seo;
+  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('slugs_per_language', '0');
+  INSERT INTO ka_kategorie (idt, nazev, seo_link, popis, jazyk) VALUES (9190, 'Zpravy', 'zpravy-190', '', ''), (9191, 'News', 'news-191', '', 'en');
+  INSERT INTO ka_novinky (idc, seo_link, titulek, uvod, text, tema, datum, jazyk) VALUES (9190, 'trh-190', 'Trh', '', '', 9190, '$(site_time)', ''), (9191, 'fair-191', 'Fair', '', '', 9191, '$(site_time)', 'en'), (9192, 'fair-192', 'Fair 2', '', '', 9191, '$(site_time)', 'en');
+  INSERT INTO ka_stitky (ids, nazev, seo_link, jazyk, popis) VALUES (9190, 'Trh', 'trh-190', '', NULL), (9191, 'Stary', 'stary-191', '', '<p>T</p>');
+  INSERT INTO ka_novinky_stitky (idc, ids) VALUES (9190, 9190), (9191, 9190), (9192, 9190), (9191, 9191);
+  INSERT INTO ka_presmerovani (idp, z_adresy, source_norm, na_adresu, vytvoreno) VALUES (9190, 'Cenik-190/', NULL, 'a', '$(site_time)'), (9191, 'cen%C3%ADk-190', NULL, 'b', '$(site_time)'), (9192, 'jiny-190', NULL, 'c', '$(site_time)');
+  UPDATE ka_nastaveni SET hodnota = '104' WHERE promenna = 'db_version';
+  UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0106-addresses-per-language,', ',')) WHERE promenna = 'data_migrations';
+  SET FOREIGN_KEY_CHECKS = 1" && migrate > /dev/null
+s319() { "${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT_WS('|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'),
+  (SELECT GROUP_CONCAT(INDEX_NAME ORDER BY INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = '$OLD' AND INDEX_NAME IN ('uq_stranky_seo', 'uq_clanky_seo', 'uq_topic_seo', 'uq_stitky_seo', 'ix_stranky_seo', 'ix_clanky_seo', 'ix_topic_seo', 'ix_stitky_seo') AND SEQ_IN_INDEX = 1),
+  (SELECT GROUP_CONCAT(CONCAT(t.jazyk, ':', t.seo_link, ':', ns.idc) ORDER BY t.seo_link, t.jazyk, ns.idc) FROM ka_stitky t JOIN ka_novinky_stitky ns ON ns.ids = t.ids WHERE t.seo_link IN ('trh-190', 'stary-191')),
+  (SELECT CONCAT(jazyk, ':', popis) FROM ka_stitky WHERE ids = 9191), (SELECT COUNT(*) FROM ka_stitky WHERE seo_link IN ('trh-190', 'stary-191')),
+  (SELECT GROUP_CONCAT(HEX(source_norm) ORDER BY idp) FROM ka_presmerovani WHERE idp BETWEEN 9190 AND 9192),
+  (SELECT GROUP_CONCAT(type ORDER BY id) FROM ka_events WHERE type IN ('slugs.per_language', 'slugs.per_language_failed', 'tags.split', 'redirect.collisions')))"; }
+S319_EXPECTED='1|ix_clanky_seo,ix_stitky_seo,ix_stranky_seo,ix_topic_seo|en:stary-191:9191,:trh-190:9190,en:trh-190:9191,en:trh-190:9192|en:<p>T</p>|3|63656E696B2D313930,63656EC3AD6B2D313930,6A696E792D313930|slugs.per_language,redirect.collisions,slugs.per_language,tags.split'
+[ "$(s319)" = "$S319_EXPECTED" ] && echo "  ok     3.19 (0105, 0106): an upgraded site gets per-language slugs, the plain lookup keys, one tag per language with the news re-linked, normalised redirects and the events" || { echo "  CHYBA  0106: $(s319)"; ERRORS=$((ERRORS+1)); }
+DIFF=$(diff <(structure "$OLD") <(structure "$NEW"))
+[ -z "$DIFF" ] && echo "  ok     3.19: … and its structure equals a fresh install again" || { echo "  CHYBA  3.19: upgraded structure differs:"; echo "$DIFF" | head -10; ERRORS=$((ERRORS+1)); }
+"${MYSQL[@]}" "$OLD" -e "UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0106-addresses-per-language,', ',')) WHERE promenna = 'data_migrations'; UPDATE ka_nastaveni SET hodnota = '104' WHERE promenna = 'db_version'" && migrate > /dev/null
+[ "$(s319)" = "$S319_EXPECTED" ] && echo "  ok     3.19 (0105, 0106): run again, nothing changes (no new tag, no new event)" || { echo "  CHYBA  0106 run again: $(s319)"; ERRORS=$((ERRORS+1)); }
+"${MYSQL[@]}" "$OLD" -e "SET FOREIGN_KEY_CHECKS = 0; DELETE FROM ka_novinky_stitky WHERE idc BETWEEN 9190 AND 9192; DELETE FROM ka_stitky WHERE seo_link IN ('trh-190', 'stary-191'); DELETE FROM ka_novinky WHERE idc BETWEEN 9190 AND 9192;
+  DELETE FROM ka_presmerovani WHERE idp BETWEEN 9190 AND 9192; SET FOREIGN_KEY_CHECKS = 1;
+  UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'slugs_per_language'; ALTER TABLE ka_kategorie DROP INDEX uq_topic_jazyk_seo;
+  INSERT INTO ka_kategorie (idt, nazev, seo_link, popis, jazyk) VALUES (9192, 'A', 'dvojice-192', '', ''), (9193, 'B', 'dvojice-192', '', '');
+  UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0106-addresses-per-language,', ',')) WHERE promenna = 'data_migrations'" && migrate > /dev/null
+expect_sql "3.19 (0106): a site that cannot switch stays as it is (off) and stores why" \
+  "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'), '|', JSON_UNQUOTE(JSON_EXTRACT(hodnota, '\$.reason')), ':', JSON_UNQUOTE(JSON_EXTRACT(hodnota, '\$.slugs[0]')), '|', (SELECT type FROM ka_events ORDER BY id DESC LIMIT 1)) FROM ka_nastaveni WHERE promenna = 'slugs_switch_failed'" \
+  "0|shared:/novinky/kategorie/dvojice-192|slugs.per_language_failed"
+"${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_kategorie WHERE idt IN (9190, 9191, 9192, 9193); UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0106-addresses-per-language,', ',')) WHERE promenna = 'data_migrations'" && migrate > /dev/null
+expect_sql "3.19 (0106): once the cause is gone it switches on – the per-language key is added back, the reason cleared" \
+  "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'), '|', (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = '$OLD' AND INDEX_NAME = 'uq_topic_jazyk_seo' AND SEQ_IN_INDEX = 1), '|', hodnota) FROM ka_nastaveni WHERE promenna = 'slugs_switch_failed'" "1|1|"
 
 [ "$ERRORS" = 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }

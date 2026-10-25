@@ -84,8 +84,8 @@ CREATE TABLE ka_kategorie (
     jazyk     VARCHAR(35) CHARACTER SET ascii NOT NULL DEFAULT '',                -- language version; '' = the site's default language
     preklad_z INT UNSIGNED NULL,                          -- counterpart in the default language (hreflang, language switcher)
     PRIMARY KEY (idt),
-    UNIQUE KEY uq_topic_seo (seo_link),
-    UNIQUE KEY uq_topic_jazyk_seo (jazyk, seo_link)            -- 3.9: per language; the global key goes while slugs_per_language is on (Core\Slug)
+    UNIQUE KEY uq_topic_jazyk_seo (jazyk, seo_link),           -- per language (3.9); the global key is gone since 3.19 (migration 0106, Core\Slug)
+    KEY ix_topic_seo (seo_link)                                 -- lookups in any language version (3.19, migration 0105)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 
@@ -121,8 +121,8 @@ CREATE TABLE ka_novinky (
     odkazy_cas     DATETIME NULL,                         -- when the links were last checked
     smazano        DATETIME NULL,                         -- in the trash since (deleted permanently after 30 days); NULL = not in the trash
     PRIMARY KEY (idc),
-    UNIQUE KEY uq_clanky_seo (seo_link),
-    UNIQUE KEY uq_clanky_jazyk_seo (jazyk, seo_link),          -- 3.9: per language; the global key goes while slugs_per_language is on (Core\Slug)
+    UNIQUE KEY uq_clanky_jazyk_seo (jazyk, seo_link),          -- per language (3.9); the global key is gone since 3.19 (migration 0106, Core\Slug)
+    KEY ix_clanky_seo (seo_link),                               -- lookups in any language version (3.19, migration 0105)
     KEY ix_clanky_jazyk (jazyk, visible, datum),
     KEY ix_clanky_oznameno (oznameno, visible, datum),
     KEY ix_clanky_datum (datum),
@@ -205,8 +205,8 @@ CREATE TABLE ka_stitky (
     popis    TEXT NULL,                                   -- intro of the topic page (HTML from the editors)
     obrazek  VARCHAR(255) NOT NULL DEFAULT '',
     PRIMARY KEY (ids),
-    UNIQUE KEY uq_stitky_seo (seo_link),                 -- dropped while slugs_per_language is on (Core\Slug)
-    UNIQUE KEY uq_stitky_jazyk_seo (jazyk, seo_link)
+    UNIQUE KEY uq_stitky_jazyk_seo (jazyk, seo_link),          -- per language (3.14); the global key is gone since 3.19 (migration 0106)
+    KEY ix_stitky_seo (seo_link)                                -- lookups in any language version (3.19, migration 0105)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 CREATE TABLE ka_novinky_stitky (
     idc INT UNSIGNED NOT NULL,
@@ -256,8 +256,8 @@ CREATE TABLE ka_stranky (
     stavba_koncept MEDIUMTEXT NULL,                        -- work-in-progress build from the editor; NULL = no unsaved changes
     smazano        DATETIME NULL,                          -- in the trash since (deleted permanently after 30 days); NULL = not in the trash
     PRIMARY KEY (ids),
-    UNIQUE KEY uq_stranky_seo (seo_link),
-    UNIQUE KEY uq_stranky_jazyk_seo (jazyk, seo_link),         -- 3.9: per language; the global key goes while slugs_per_language is on (Core\Slug)
+    UNIQUE KEY uq_stranky_jazyk_seo (jazyk, seo_link),         -- per language (3.9); the global key is gone since 3.19 (migration 0106, Core\Slug)
+    KEY ix_stranky_seo (seo_link),                              -- lookups in any language version (3.19, migration 0105)
     KEY ix_stranky_smazano (smazano),
     KEY ix_stranky_zverejnit (zverejnit_od)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
@@ -579,6 +579,7 @@ CREATE TABLE ka_kolekce (
     pole           TEXT NOT NULL,
     detail         TINYINT(1) NOT NULL DEFAULT 0,
     admin_menu     TINYINT(1) NOT NULL DEFAULT 1,       -- a direct link to its items in the admin's left menu (3.18.3)
+    icon           VARCHAR(40)  NULL,                   -- its icon in the admin (a key of Builder\Icons::SET, 3.19); NULL = the list icon
     hidden_redirect VARCHAR(255) NOT NULL DEFAULT '',    -- where the page of a hidden or deleted item redirects (2.10); empty = 404
     preset         VARCHAR(30) NOT NULL DEFAULT '',     -- the ready-made collection it was created from (2.11, Builder\Presets); empty = its own
     schema_org     TEXT NULL,                           -- structured data of item pages: {"typ": "Service|Person|Product|Event|FAQPage", "pole": {property: field key}} (1.9)
