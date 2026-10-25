@@ -175,6 +175,11 @@ Untick *Show in the admin menu* in the collection's settings to leave one out. T
 people who may open Collections see these items. Claude switches it with `admin_menu` of `create_collection` and
 `update_collection`; `list_collections` says it for every collection.
 
+**An icon per collection (3.19):** in the collection's settings, pick an **Icon** from the built-in set (a house, a car,
+people, a calendar…) – the collection's item in the left menu and the list of collections show it; *List (default)* keeps
+the generic list icon. Visitors never see it. Claude sets it with `icon` of `create_collection` and `update_collection`
+(the English name, e.g. `"icon": "home"`; `""` puts the list icon back), and `list_collections` returns it.
+
 The list supports **sorting** (also by a field, e.g. price), a **fixed filter**, **filter buttons** for visitors and
 **pagination**. When you enable **item pages** for a collection, each item gets an address `/collection/item`; design that
 page in the builder via **Detail template**.
@@ -336,6 +341,19 @@ with "Sie". Claude writes German texts for visitors in the form of address of th
 
 System addresses follow the language: Czech versions use `/novinky` and `/hledani`, all others `/news`, `/news/category/…`,
 `/news/tag/…` and `/search`. The other form redirects permanently, so old links and search rankings keep working.
+
+**The same address in every language (3.19):** a page, a news item, a category or a tag may use the same address once in
+each language version – `/kontakt` and `/en/kontakt` are two pages, as on a multilingual WordPress site. This is how every
+site works since 3.19; system addresses and language codes stay reserved in every language. **Tags** belong to a language
+version too: the update gave every language its own tag where one tag was used by news items in several languages (the
+news items keep their tags, each in its own language), a tag page lists the news of its own version, and tags merge only
+within one version. If the update could not switch a site (two items of one language share an address, or the database
+user may not change tables), the site works as before and **System status → Addresses in every language** says why and
+what to do; once that is fixed, tick *The same address in every language* in **Settings → General**.
+
+**Redirects compare the old address exactly (3.19):** letter case and the slashes around still do not matter, but `/cafe` and
+`/café` are two addresses now. Redirects whose old addresses used to count as one are listed on **System status → Old
+addresses of redirects** – nothing was deleted; keep one of each group in Redirects.
 
 **Translating with Claude:** ask Claude to translate a page or the whole site. Over the Claude connection a translation
 starts as a copy of the original page's build, so the layout stays the same and only the texts and links change. The

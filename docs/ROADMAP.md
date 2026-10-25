@@ -961,22 +961,63 @@ labelled (owner decision, N3182-7). A second review found no bypass of the new c
   last additional language), pages and news apply a filter choice at once, and collection items filter by category and
   by each choice field.
 
-## 3.19 – per-language addresses for every site, collection icons (planned)
+## 3.19 – per-language addresses for every site, collection icons (in progress)
 
 Owner decisions of 21 and 22 October 2026: no physical renames of tables or columns to English ("it doesn't matter to most
 users"), so the rest of the 4.0 contract ships as a normal 3.x release instead of a major with a release candidate.
+Migrations 0104 (collection icon), 0105 (plain lookup keys on `seo_link`) and the data migration 0106 (the highest of the
+release); `KALETA_DB_VERSION` 106. MCP tools, parameters and Czech aliases unchanged – one optional parameter, `icon`.
 
-1. **Addresses unique per language on every site** (§3 step 2 of docs/design/4.0-data-model.md): `slugs_per_language` on for
-   all sites, the global keys of pages, news and categories dropped – after a check per site; a site that fails it stays as it
-   is and System status says why.
-2. **Tags per language:** the global tag key dropped; a tag used in several languages is split into one per language.
-3. **Redirects by the exact address** (`source_norm`), the remaining rows normalised, a collision report.
-4. **An icon per collection** (owner, 22 October): chosen in the collection's settings, shown in the admin menu (3.18.3 uses
-   one list icon for all).
-5. From the 3.18.3 review: the choice-field filter re-checks the field key against `KEY_PATTERN` (N3183-1, also
-   `Core\Calendar` and `Core\Documents`); the required-2FA gate shows no module menu or quick search (N3183-2).
+1. **Addresses unique per language on every site** (docs/design/4.0-data-model.md §3 step 2). Migration 0106 makes on
+   each site the checks "The same address in every language" made (the per-language keys `(jazyk, seo_link)` of pages,
+   news, news categories and tags exist – a missing one is added, which fails only when two rows of one language share a
+   slug), drops the global keys and writes `slugs_per_language = 1`. Fresh installs: the setting on, `schema.sql` without
+   the global keys; 0105 adds a plain key on `seo_link` (lookups in any version keep an index). **A site that cannot
+   switch stays exactly as it is** (setting `0`, global keys, tags not split): the reason goes to `slugs_switch_failed`
+   and the event `slugs.per_language_failed`; System status (Database → Addresses in every language) warns with the shared
+   addresses or the database's message and what to do; Settings → General shows the reason and offers the switch, which
+   runs 0106 again (`Slug::enableEverywhere`). **The switch is never offered to switch off** – a site that is on has no
+   field; the code of 3.18.x honours the setting, so a rollback to 3.18.3 needs no global keys. `Slug::switchPerLanguage`
+   stays (export import, the documented manual schema rollback). The unit-test guard on slug lookups without a language
+   also reads the English placeholders, and the site audit looks tags up in their own version.
+2. **Tags per language:** in the same migration, only where slugs became per language – a tag used by news items of
+   several versions becomes one tag per language, the news re-linked to the tag of their own language. The rule: the tag
+   keeps its row (id, description, image) in its own language when news of that language use it, otherwise it moves to
+   the language with most of its news (a tie: the smaller code); each other language gets the existing tag with that slug
+   in that language, or a copy (name, slug, description, image); languages in code order, so a second run changes nothing.
+   Event `tags.split`. Tag pages answer only in their own version; merging stays within one version (its redirect carries
+   the language prefix); the editor's tag suggestions are distinct names. Tags are in neither the sitemap nor the feeds.
+3. **Redirects by the exact address** (§1.3): the front end (paths, `?p=`/`?lang=`), the site audit, the broken-link check
+   and the migration report look redirects up only by `source_norm` (exact, `utf8mb4_bin`); every writer fills it (Redirects,
+   the admin form, pattern rules, CSV/MCP, the Kaleta import) and the job `redirect_sources` catches a row written otherwise.
+   0106 normalises every remaining row first. Groups that counted as one address under the Czech collation are reported –
+   nothing is deleted: the event `redirect.collisions` (count and the first ten), System status (Database → Old addresses
+   of redirects, warning with the groups and a link to Redirects) and Ready for 4.0. Within a group a visitor gets the
+   row stored exactly as typed, else the oldest.
+4. **An icon per collection** (owner, 22 October): column `ka_kolekce.icon` (NULL = the list icon of 3.18.3), chosen in
+   the collection's settings from the built-in icon set (`Builder\Icons`, a grid of radio tiles without a script), shown by
+   the collection's item in the left menu and in the list of collections. MCP `create_collection` / `update_collection`
+   `icon` (the English name – home, car, people… – or the stored key; `""` = the list icon; anything else refused with the
+   list), `list_collections` returns it. The site export carries it, the import keeps only a key of the set.
+5. From the 3.18.3 review: the choice-field filter re-checks the field key against `KEY_PATTERN` where it becomes SQL
+   (`Builder\Collections::jsonField`, also `Core\Calendar`, `Core\Documents` and the iCalendar route – N3183-1); a user
+   held at the required two-factor gate gets My account without the module menu, the collection links and the quick
+   search (N3183-2).
+6. **Privacy template** (N3182-7, owner 22 October): the privacy policy made at installation, in every visitor language
+   it is translated into, says that a store locator set to "Load the map at once" sends the visitor's IP address to
+   OpenStreetMap when the page opens, before consent – worded so that it applies only then. A policy made later from the
+   template has the paragraph when a published build uses the option (`Core\Privacy::mapAtOnce`); the record of
+   processing lists it too.
 
 Export format 3 stays available on request, not the default.
+
+**Rollback to 3.18.3** (tested with the 3.18.3 code on a 3.19 database): pages, news, categories, tags and redirects work,
+sign-in and MCP `list_pages` too. Limits: 3.18.3 ignores the icon and the plain keys; its tag pages prefer the version's
+own tag (as 3.19 does); it finds redirects by `z_adresy` under the Czech collation again (the groups in the collision
+report answer as before 3.19, e.g. /café to the target of /cafe); a redirect it writes has no `source_norm` until the
+3.19 job fills it after updating again. 3.18.3 still offers "The same address in every language" in Settings → General and
+can switch it off while no slug is shared; back on 3.19 such a site stays off, and System status asks to switch it on again
+(0106 has run, so nothing does it by itself).
 
 ## Path to 4.0 (owner decisions, 13 October 2026)
 

@@ -161,6 +161,11 @@ ostatní zůstanou pod Kolekcemi a rychlé hledání (Ctrl K) najde každou kole
 smějí do Kolekcí. Claude to přepíná parametrem `admin_menu` u `create_collection` a `update_collection`;
 `list_collections` ho u každé kolekce vrací.
 
+**Ikona kolekce (3.19):** v nastavení kolekce vyberte **Ikonu** z vestavěné sady (dům, auto, lidé, kalendář…) – ukáže se
+u položky kolekce v levém menu a v seznamu kolekcí; *Seznam (výchozí)* nechá obecnou ikonu seznamu. Návštěvníci ji
+nevidí. Claude ji nastaví parametrem `icon` u `create_collection` a `update_collection` (anglický název, např.
+`"icon": "home"`; `""` vrátí ikonu seznamu) a `list_collections` ji vrací.
+
 Výpis umí **řazení** (i podle pole, např. ceny), **pevný filtr**, **tlačítka filtru** pro návštěvníky a **stránkování**.
 Když u kolekce zapnete **stránky položek**, každá položka má adresu `/kolekce/polozka`. Vzhled té stránky navrhnete
 v builderu přes **Šablona detailu**.
@@ -272,6 +277,19 @@ píše německé texty pro návštěvníky v oslovení webu, ať vám administra
 
 Systémové adresy se řídí jazykem: česká verze má `/novinky` a `/hledani`, všechny ostatní `/news`, `/news/category/…`,
 `/news/tag/…` a `/search`. Druhá podoba natrvalo přesměruje, takže staré odkazy i pozice ve vyhledávačích zůstanou.
+
+**Stejná adresa ve všech jazycích (3.19):** stránka, novinka, kategorie i štítek smí použít stejnou adresu jednou
+v každé jazykové verzi – `/kontakt` a `/en/kontakt` jsou dvě stránky, jako na vícejazyčném webu ve WordPressu. Od 3.19
+takhle funguje každý web; systémové adresy a kódy jazyků zůstávají vyhrazené ve všech jazycích. **Štítky** patří také
+k jazykové verzi: aktualizace dala každému jazyku vlastní štítek tam, kde jeden štítek používaly novinky ve více
+jazycích (novinky o štítky nepřišly, každá má ten ve svém jazyce), stránka štítku vypíše novinky své verze a slučovat
+lze jen štítky jedné verze. Když aktualizace web přepnout nemohla (dvě položky jednoho jazyka mají stejnou adresu, nebo
+uživatel databáze nesmí měnit tabulky), web funguje jako dřív a **Stav systému → Adresy ve všech jazycích** řekne proč
+a co udělat; po nápravě zaškrtněte *Stejná adresa ve všech jazycích* v **Nastavení → Základní**.
+
+**Přesměrování porovnává starou adresu přesně (3.19):** velikost písmen a lomítka okolo dál nehrají roli, ale `/cafe`
+a `/café` jsou teď dvě adresy. Přesměrování, jejichž staré adresy se dřív počítaly jako jedna, vypíše **Stav systému →
+Staré adresy přesměrování** – nic se nesmazalo; v Přesměrování z každé skupiny nechte jedno.
 
 **Překlad s Claudem:** požádejte Clauda o překlad stránky nebo celého webu. Přes napojení Clauda začíná překlad jako kopie
 stavby původní stránky, takže rozložení zůstane stejné a mění se jen texty a odkazy. Záhlaví a patička nového jazyka
