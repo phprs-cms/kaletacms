@@ -30,9 +30,10 @@ $admin = $app->auth()->isAdmin();
 <table class="vypis">
 <thead><tr><th scope="col"><?= e(t('Collections')) ?></th><th scope="col"><?= e(t('Items')) ?></th><th scope="col"><?= e(t('Item pages')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
-<?php foreach ($collection as $k): ?>
+<?php $adminIcon = require dirname(__DIR__) . '/icons.php'; ?>
+<?php foreach ($collection as $k): $kIcon = Kaleta\Builder\Collections::icon($k['icon'] ?? null); ?>
 <tr>
-	<td><a href="<?= e($module->url('items', ['id' => $k['idk']])) ?>"><strong><?= e($k['nazev']) ?></strong></a></td>
+	<td><a class="kolekce-nazev" href="<?= e($module->url('items', ['id' => $k['idk']])) ?>"><?= $kIcon !== null ? Kaleta\Builder\Icons::svg($kIcon, 'ikona') : $adminIcon('polozky') ?><strong><?= e($k['nazev']) ?></strong></a></td>
 	<td><?= (int) $k['pocet'] ?></td>
 	<td><?= $k['detail'] ? '/' . e($k['seo_link']) . '/…' : e(t('no')) ?></td>
 	<td class="akce"><a href="<?= e($module->url('item', ['id' => $k['idk']])) ?>"><?= e(t('Add item')) ?></a><?php if ($admin): ?> · <a href="<?= e($module->url('edit', ['id' => $k['idk']])) ?>"><?= e(t('Fields and settings')) ?></a><?php if ($k['detail']): ?> · <a href="<?= e($module->url('builder', ['id' => $k['idk']])) ?>"><?= e(t('Detail template')) ?></a><?php endif ?><?php endif ?></td>

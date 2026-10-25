@@ -47,6 +47,17 @@ final class Collections
         return preg_match(self::KEY_PATTERN, $key) === 1 ? "JSON_UNQUOTE(JSON_EXTRACT(data, '$." . $key . "'))" : null;
     }
 
+    /**
+     * The icon of a collection in the admin (3.19: its item in the left menu, the list of collections): a key of the
+     * built-in icon set Builder\Icons::SET, or null = the generic list icon. Anything else (an unknown key, a value of another
+     * type) is null – the admin form, MCP (which also takes the English name, Mcp\Vocabulary) and the import all store
+     * only what passes here.
+     */
+    public static function icon(mixed $value): ?string
+    {
+        return is_string($value) && isset(Icons::SET[$value]) ? $value : null;
+    }
+
     /** Where a hidden item's page may redirect: '' (404), a path on the site (/team) or an https address; null = not valid. */
     public static function cleanRedirect(string $value): ?string
     {

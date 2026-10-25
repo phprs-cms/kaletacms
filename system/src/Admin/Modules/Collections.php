@@ -38,28 +38,33 @@ final class Collections extends Module
 
     /**
      * The collections for the left menu and the command palette (3.18.3), in the order of their names: id, name and
-     * whether the collection wants a menu item (admin_menu). Call only for a person who may open the module. Never
-     * throws – a database without the column (before the migration ran) gives no direct links.
+     * whether the collection wants a menu item (admin_menu) and its icon (3.19; null = the list icon). Call only for a
+     * person who may open the module. Never throws – a database without the columns (before the migration ran) gives the
+     * links without icons, or none.
      *
-     * @return list<array{id: int, name: string, menu: bool}>
+     * @return list<array{id: int, name: string, menu: bool, icon: ?string}>
      */
     public static function menuCollections(\Kaleta\Core\App $app): array
     {
-        try {
-            $db = $app->db();
-
-            return array_map(static fn (array $r): array => ['id' => (int) $r['idk'], 'name' => (string) $r['nazev'], 'menu' => (bool) $r['admin_menu']],
-                $db->all('SELECT idk, nazev, admin_menu FROM {kolekce} ORDER BY ' . $db->sortText('nazev') . ', idk LIMIT 300'));
-        } catch (\Throwable) {
-            return [];
+        $db = $app->db();
+        foreach (['idk, nazev, admin_menu, icon', 'idk, nazev, admin_menu'] as $columns) { // 3.19: icon comes with migration 0104
+            try {
+                return array_map(static fn (array $r): array => ['id' => (int) $r['idk'], 'name' => (string) $r['nazev'], 'menu' => (bool) $r['admin_menu'],
+                    'icon' => KolekceObsahu::icon($r['icon'] ?? null)],
+                    $db->all('SELECT ' . $columns . ' FROM {kolekce} ORDER BY ' . $db->sortText('nazev') . ', idk LIMIT 300'));
+            } catch (\Throwable) {
+                continue;
+            }
         }
+
+        return [];
     }
 
     protected function actionList(): Response
     {
         return $this->view('list', 'Collections', [
             'presets' => \Kaleta\Builder\Presets::all(),
-            'collection' => $this->db->all('SELECT k.idk, k.nazev, k.seo_link, k.detail, (SELECT COUNT(*) FROM {kolekce_polozky} p WHERE p.idk = k.idk AND p.smazano IS NULL) AS pocet FROM {kolekce} k ORDER BY ' . $this->db->sortText('k.nazev')),
+            'collection' => $this->db->all('SELECT k.idk, k.nazev, k.seo_link, k.detail, k.icon, (SELECT COUNT(*) FROM {kolekce_polozky} p WHERE p.idk = k.idk AND p.smazano IS NULL) AS pocet FROM {kolekce} k ORDER BY ' . $this->db->sortText('k.nazev')),
         ]);
     }
 
@@ -94,7 +99,7 @@ final class Collections extends Module
 
     protected function actionNew(): Response
     {
-        return $this->admin() ?? $this->view('form', 'New collection', ['k' => ['idk' => 0, 'nazev' => '', 'seo_link' => '', 'detail' => 0, 'admin_menu' => 1, 'pole' => [
+        return $this->admin() ?? $this->view('form', 'New collection', ['k' => ['idk' => 0, 'nazev' => '', 'seo_link' => '', 'detail' => 0, 'admin_menu' => 1, 'icon' => null, 'pole' => [
             ['klic' => '', 'popisek' => t('Description'), 'typ' => 'radky'], ['klic' => '', 'popisek' => t('Image'), 'typ' => 'obrazek'],
         ]], 'otherCollections' => $this->otherCollections(0)]);
     }
@@ -130,7 +135,8 @@ final class Collections extends Module
         if ($redirect === null) {
             return $this->back('The redirect of hidden items must be an address on the site (/team) or https://…', $id > 0 ? 'edit' : 'new', $id > 0 ? ['id' => $id] : [], 'chyba');
         }
-        $data = ['nazev' => $name, 'seo_link' => $seo, 'detail' => $r->postBool('detail') ? 1 : 0, 'admin_menu' => $r->postBool('admin_menu') ? 1 : 0, 'hidden_redirect' => $redirect, 'pole' => (string) json_encode($field, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s')];
+        $data = ['nazev' => $name, 'seo_link' => $seo, 'detail' => $r->postBool('detail') ? 1 : 0, 'admin_menu' => $r->postBool('admin_menu') ? 1 : 0,
+            'icon' => KolekceObsahu::icon($r->post('icon')), 'hidden_redirect' => $redirect, 'pole' => (string) json_encode($field, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s')];
         if (is_array($_POST['schema'] ?? null)) {
             $schema = \Kaleta\Builder\CollectionSchema::sanitize($_POST['schema'], $field);
             $data['schema_org'] = $schema === null ? null : (string) json_encode($schema, JSON_UNESCAPED_UNICODE);

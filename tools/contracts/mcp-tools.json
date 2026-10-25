@@ -142,6 +142,7 @@
         "parameters": {
             "admin_menu": "boolean",
             "fields": "array",
+            "icon": "string",
             "item_pages": "boolean",
             "name": "string",
             "slug": "string",
@@ -2079,6 +2080,7 @@
             "admin_menu": "boolean",
             "collection": "string",
             "fields": "array",
+            "icon": "string",
             "item_pages": "boolean",
             "name": "string",
             "slug": "string",

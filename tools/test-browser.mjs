@@ -1392,6 +1392,62 @@ await step('3.18.3 menu: collections straight from the left menu (1440 and 390 p
   }
 });
 
+// 3.19 (owner, 22 October 2026): an icon per collection – picked in the collection's settings from the built-in set (radio
+// tiles, by mouse and by keyboard), shown by the collection's item in the left menu and in the list of collections; the
+// picker fits a phone without sideways scroll. Screenshots: the settings with the picker and the menu with icons.
+await step('3.19 collections: the icon picker in the settings, the icons in the menu and the list (1440 and 390 px, keyboard)', async () => {
+  if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
+  const before = sql('SELECT GROUP_CONCAT(idk) FROM ka_kolekce WHERE admin_menu = 1').trim();
+  sql("UPDATE ka_kolekce SET admin_menu = 0; INSERT INTO ka_kolekce (nazev, seo_link, pole, admin_menu, icon) VALUES ('Products', 'products-319', '[]', 1, NULL), ('Job openings', 'job-openings-319', '[]', 1, 'kufr'), ('Our team', 'team-319', '[]', 1, 'lide')");
+  const products = sql("SELECT idk FROM ka_kolekce WHERE seo_link = 'products-319'").trim();
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await visit(`/admin.php?module=collections&action=edit&id=${products}`);
+    const picker = page.locator('.ikony-vyber');
+    if (await picker.locator('input[type="radio"][name="icon"]').count() < 40) { throw new Error('the picker does not offer the icon set'); }
+    if (!(await picker.locator('input[value=""]').isChecked())) { throw new Error('a collection without an icon does not have the list icon checked'); }
+    // the mouse picks the house, the keyboard moves on to the next tile (arrow keys of a radio group)
+    await picker.locator('label', { hasText: 'House' }).click();
+    if (!(await picker.locator('input[value="dum"]').isChecked())) { throw new Error('a click on the House tile did not choose it'); }
+    const outline = await picker.locator('label:has(input[value="dum"])').evaluate((l) => getComputedStyle(l).borderColor);
+    const plain = await picker.locator('label:has(input[value="auto"])').evaluate((l) => getComputedStyle(l).borderColor);
+    if (outline === plain) { throw new Error('the chosen tile is not marked'); }
+    await picker.locator('input[value="dum"]').focus();
+    await page.keyboard.press('ArrowRight');
+    const moved = await picker.locator('input:checked').getAttribute('value');
+    if (moved === 'dum') { throw new Error('the arrow key did not move the choice'); }
+    await picker.locator('label', { hasText: 'House' }).click();
+    if (SHOTS) { await picker.scrollIntoViewIfNeeded(); await page.screenshot({ path: `${SHOTS}/collection-icon-picker-desktop.png` }); }
+    await Promise.all([page.waitForNavigation(), page.locator('form.formular input[type="submit"], form.formular button[type="submit"]').first().click()]);
+    if (sql(`SELECT icon FROM ka_kolekce WHERE idk = ${products}`).trim() !== 'dum') { throw new Error('the chosen icon was not saved'); }
+    // the menu: each collection with its own icon (the house for Products), the list of collections too
+    await visit('/admin.php');
+    const icons = await page.locator('.menu .menu-kolekce a').evaluateAll((links) => links.map((a) => [a.textContent.trim(), a.querySelector('svg').innerHTML.slice(0, 24)]));
+    const productsIcon = icons.find(([name]) => name === 'Products');
+    if (!productsIcon || !productsIcon[1].includes('M4 11 12 4l8 7')) { throw new Error(`the menu icons: ${JSON.stringify(icons)}`); }
+    if (new Set(icons.map(([, svg]) => svg)).size !== icons.length) { throw new Error('two collections share an icon in the menu'); }
+    if (SHOTS) { await page.screenshot({ path: `${SHOTS}/collections-menu-icons-desktop.png` }); }
+    await visit('/admin.php?module=collections');
+    if (await page.locator('.kolekce-nazev', { hasText: 'Products' }).locator('svg').count() !== 1) { throw new Error('no icon next to Products in the list of collections'); }
+    // phone: the picker wraps into the width, the menu sheet shows the icons
+    await page.setViewportSize({ width: 390, height: 844 });
+    await visit(`/admin.php?module=collections&action=edit&id=${products}`);
+    const wide = async (where) => { const w = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth); if (w > 0) { throw new Error(`${where}: ${w} px of sideways scroll at 390 px`); } };
+    await wide('collection settings');
+    await page.locator('.ikony-vyber').scrollIntoViewIfNeeded();
+    if (SHOTS) { await page.screenshot({ path: `${SHOTS}/collection-icon-picker-phone.png` }); }
+    await visit('/admin.php');
+    await page.click('.menu-prepinac');
+    await page.locator('.menu .menu-kolekce a').first().scrollIntoViewIfNeeded();
+    await wide('open menu');
+    if (SHOTS) { await page.screenshot({ path: `${SHOTS}/collections-menu-icons-phone.png` }); }
+    await page.keyboard.press('Escape');
+  } finally {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    sql("DELETE FROM ka_kolekce WHERE seo_link IN ('products-319', 'job-openings-319', 'team-319')" + (before !== '' && before !== 'NULL' ? `; UPDATE ka_kolekce SET admin_menu = 1 WHERE idk IN (${before})` : ''));
+  }
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

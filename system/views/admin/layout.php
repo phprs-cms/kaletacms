@@ -99,7 +99,7 @@ if ($user !== null && (isset($modules['requests']) || isset($modules['claude_set
 <?php $here = $ident === $inMenu && !($ident === 'collections' && $currentCollection > 0); ?>
 		<li<?= $here ? ' class="aktivni"' : '' ?>><a href="<?= e($app->url('admin.php?module=' . $ident)) ?>"<?= $here ? ' aria-current="page"' : '' ?>><?= $icon($class::ICON) ?><?= e(t($class::NAME)) ?><?php if ($badge > 0): ?> <span class="menu-pocet" aria-hidden="true"><?= $badge > 99 ? '99+' : $badge ?></span><span class="navod-skryte"> – <?= e(t('%d new', $badge)) ?></span><?php endif ?></a></li>
 <?php foreach ($ident === 'collections' ? $menuCollections : [] as $collection): $here = $collection['id'] === $currentCollection; ?>
-		<li class="menu-kolekce<?= $here ? ' aktivni' : '' ?>"><a href="<?= e($app->url('admin.php?module=collections&action=items&id=' . $collection['id'])) ?>"<?= $here ? ' aria-current="page"' : '' ?>><?= $icon('polozky') ?><span><?= e($collection['name']) ?></span></a></li>
+		<li class="menu-kolekce<?= $here ? ' aktivni' : '' ?>"><a href="<?= e($app->url('admin.php?module=collections&action=items&id=' . $collection['id'])) ?>"<?= $here ? ' aria-current="page"' : '' ?>><?= $collection['icon'] !== null ? Kaleta\Builder\Icons::svg($collection['icon'], 'ikona') : $icon('polozky') ?><span><?= e($collection['name']) ?></span></a></li>
 <?php endforeach ?>
 <?php endforeach ?>
 		<li class="menu-web"><a href="<?= e($app->url('')) ?>" target="_blank" rel="noopener"><?= $icon('web') ?><?= e(t('Zobrazit web')) ?></a></li>
