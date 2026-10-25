@@ -162,8 +162,11 @@ final class Kernel
         $post = $request->getInt('p') > 0 ? $request->getInt('p') : $request->getInt('page_id');
         $lang = \Kaleta\Core\Language::isTag($request->get('lang')) ? $request->get('lang') : '';
         if (($post > 0 || $lang !== '') && $request->path() === '/' && Extensions::isEnabled($this->app->settings(), 'presmerovani')) {
-            $target = $this->app->db()->one('SELECT idp, na_adresu, typ FROM {presmerovani} WHERE source_norm = ? ORDER BY idp LIMIT 1', // 3.19: the exact address
-                [\Kaleta\Core\RedirectSources::normalize($post > 0 ? '?p=' . $post : '?lang=' . $lang)]);
+            $source = $post > 0 ? '?p=' . $post : '?lang=' . $lang;
+            // 3.19: the exact address; a row not normalised yet (written by 3.18 after a rollback, a restored backup – N319-5)
+            // by its stored address until the job fills it
+            $target = $this->app->db()->one('SELECT idp, na_adresu, typ FROM {presmerovani} WHERE source_norm = ? OR (source_norm IS NULL AND z_adresy = ?) ORDER BY source_norm IS NULL, idp LIMIT 1',
+                [\Kaleta\Core\RedirectSources::normalize($source), $source]);
             if ($target !== null) {
                 $this->app->db()->run('UPDATE {presmerovani} SET pocet = pocet + 1 WHERE idp = ?', [$target['idp']]);
 
@@ -383,7 +386,8 @@ final class Kernel
                 return Response::json(['chyba' => 'Invalid token.'], 403);
             }
             // monitoring always gets the texts in Czech - they must not change with the language of the shown site version
-            $checks = Language::runWith('cs', fn (): array => \Kaleta\Core\Health::checks($this->app));
+            // N319-7: without the database's own error text and the old addresses of colliding redirects (counts only)
+            $checks = Language::runWith('cs', fn (): array => \Kaleta\Core\Health::checks($this->app, false, false));
 
             return Response::json(['stav' => \Kaleta\Core\Health::summary($checks), 'verze' => KALETA_VERSION, 'cas' => date('c'), 'kontroly' => $checks]);
         }
@@ -1106,9 +1110,20 @@ final class Kernel
         // no longer by the Czech collation of z_adresy, which also folded accents (cafe = café). Every writer fills it
         // and the job redirect_sources catches a row written otherwise; old addresses that collide are on System status.
         $normal = array_values(array_unique(array_map(\Kaleta\Core\RedirectSources::normalize(...), $forms)));
+        // N319-5: a row whose source_norm is still NULL (written by 3.18 after a rollback to it, a restored older backup, a
+        // writer that forgot the column) is found by its stored address as before 3.19 and normalised on the fly – compared
+        // by the same exact form – and filled, so redirects never stop answering until the background job reaches it
+        $stored = array_values(array_unique([...$forms, ...$normal]));
         // a pattern rule (3.6) is never an exact one, even for a visitor who typed its asterisk
-        $rows = array_values(array_filter($this->app->db()->all('SELECT * FROM {presmerovani} WHERE source_norm IN (' . implode(',', array_fill(0, count($normal), '?')) . ') ORDER BY idp', $normal),
+        $rows = array_values(array_filter($this->app->db()->all('SELECT * FROM {presmerovani} WHERE source_norm IN (' . implode(',', array_fill(0, count($normal), '?')) . ')
+            OR (source_norm IS NULL AND z_adresy IN (' . implode(',', array_fill(0, count($stored), '?')) . ')) ORDER BY idp', [...$normal, ...$stored]),
             fn (array $r): bool => !\Kaleta\Core\RedirectRules::isPattern((string) $r['z_adresy'])));
+        foreach ($rows as $i => $r) {
+            if ($r['source_norm'] === null) {
+                $rows[$i]['source_norm'] = \Kaleta\Core\RedirectSources::normalize((string) $r['z_adresy']);
+                $this->app->db()->run('UPDATE {presmerovani} SET source_norm = ? WHERE idp = ? AND source_norm IS NULL AND z_adresy = ?', [$rows[$i]['source_norm'], (int) $r['idp'], (string) $r['z_adresy']]);
+            }
+        }
         foreach ($forms as $form) { // in the order of preference; the address exactly as stored first, then the oldest row
             $matching = array_values(array_filter($rows, fn (array $r): bool => $r['source_norm'] === \Kaleta\Core\RedirectSources::normalize($form)));
             foreach ($matching as $row) {

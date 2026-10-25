@@ -31,14 +31,32 @@ foreach (CollectionSchema::TYPES as $type => [, $props]) {
 <span class="napoveda"><?= e(t('Design the detail page in the builder (Detail template). Without a detail page, items are just cards in the list.')) ?></span></div></div>
 <div class="radek"><span class="popisek"><?= e(t('Admin menu')) ?></span><div class="volby"><label><input type="checkbox" name="admin_menu" value="1"<?= ($k['admin_menu'] ?? 1) ? ' checked' : '' ?>> <?= e(t('Show in the admin menu')) ?></label>
 <span class="napoveda"><?= e(t('A direct link to its items in the left menu, under Collections. The menu shows at most %d collections; the others stay under Collections.', Kaleta\Admin\Modules\Collections::MENU_LIMIT)) ?></span></div></div>
-<?php // 3.19 (owner, 22 October 2026): an icon from the built-in set – the collection's item in the left menu and the list of collections show it
-$chosenIcon = Collections::icon($k['icon'] ?? null); $adminIcon = require dirname(__DIR__) . '/icons.php'; ?>
+<?php // 3.19 (owner, 22 October 2026): an icon from the built-in set – the collection's item in the left menu and the list of collections show it.
+// A short selection first (the list icon and Collections::ICON_SHORTLIST, plus the chosen icon), the rest under "More icons"
+// (<details>, no JavaScript) – open by itself when the chosen icon is one of those; one radio group across both
+$chosenIcon = Collections::icon($k['icon'] ?? null); $adminIcon = require dirname(__DIR__) . '/icons.php';
+$iconNames = Kaleta\Builder\Icons::options();
+$shortIcons = array_values(array_unique([...array_intersect(Collections::ICON_SHORTLIST, array_keys($iconNames)), ...($chosenIcon !== null ? [$chosenIcon] : [])]));
+$iconTile = static fn (string $iconKey): string => '<label><input type="radio" name="icon" value="' . e($iconKey) . '"' . ($chosenIcon === $iconKey ? ' checked' : '') . '>'
+    . Kaleta\Builder\Icons::svg($iconKey, 'ikona') . '<span>' . e(t($iconNames[$iconKey])) . '</span></label>'; ?>
 <div class="radek"><span class="popisek" id="ikona-kolekce"><?= e(t('Icon')) ?></span><div>
-<div class="ikony-vyber" role="radiogroup" aria-labelledby="ikona-kolekce">
+<div class="ikony-volba" role="radiogroup" aria-labelledby="ikona-kolekce">
+<div class="ikony-vyber">
 	<label><input type="radio" name="icon" value=""<?= $chosenIcon === null ? ' checked' : '' ?>><?= $adminIcon('polozky') ?><span><?= e(t('List (default)')) ?></span></label>
-<?php foreach (Kaleta\Builder\Icons::options() as $iconKey => $iconName): ?>
-	<label><input type="radio" name="icon" value="<?= e($iconKey) ?>"<?= $chosenIcon === $iconKey ? ' checked' : '' ?>><?= Kaleta\Builder\Icons::svg($iconKey, 'ikona') ?><span><?= e(t($iconName)) ?></span></label>
+<?php foreach ($shortIcons as $iconKey): ?>
+	<?= $iconTile($iconKey) ?>
+
 <?php endforeach ?>
+</div>
+<details class="ikony-dalsi"<?= $chosenIcon !== null && !in_array($chosenIcon, Collections::ICON_SHORTLIST, true) ? ' open' : '' ?>>
+<summary><?= e(t('More icons')) ?></summary>
+<div class="ikony-vyber">
+<?php foreach (array_diff(array_keys($iconNames), $shortIcons) as $iconKey): ?>
+	<?= $iconTile((string) $iconKey) ?>
+
+<?php endforeach ?>
+</div>
+</details>
 </div>
 <span class="napoveda"><?= e(t('Shown next to the collection in the admin menu and in the list of collections – visitors never see it.')) ?></span></div></div>
 <div class="radek"><label for="hidden_redirect"><?= e(t('Hidden items redirect to')) ?></label><div><input class="textpole" id="hidden_redirect" name="hidden_redirect" value="<?= e((string) ($k['hidden_redirect'] ?? '')) ?>" maxlength="255" placeholder="/<?= e($k['seo_link'] !== '' ? $k['seo_link'] : 'team') ?>">

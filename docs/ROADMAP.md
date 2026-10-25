@@ -996,7 +996,9 @@ release); `KALETA_DB_VERSION` 106. MCP tools, parameters and Czech aliases uncha
    row stored exactly as typed, else the oldest.
 4. **An icon per collection** (owner, 22 October): column `ka_kolekce.icon` (NULL = the list icon of 3.18.3), chosen in
    the collection's settings from the built-in icon set (`Builder\Icons`, a grid of radio tiles without a script), shown by
-   the collection's item in the left menu and in the list of collections. MCP `create_collection` / `update_collection`
+   the collection's item in the left menu and in the list of collections. The settings show a short selection first (the
+   list icon and eleven that suit collections – `Collections::ICON_SHORTLIST` –, plus the chosen icon) and the rest under
+   "More icons" (`<details>`, open by itself when the chosen icon is one of those; owner, 25 October). MCP `create_collection` / `update_collection`
    `icon` (the English name – home, car, people… – or the stored key; `""` = the list icon; anything else refused with the
    list), `list_collections` returns it. The site export carries it, the import keeps only a key of the set.
 5. From the 3.18.3 review: the choice-field filter re-checks the field key against `KEY_PATTERN` where it becomes SQL
@@ -1018,6 +1020,22 @@ report answer as before 3.19, e.g. /café to the target of /cafe); a redirect it
 3.19 job fills it after updating again. 3.18.3 still offers "The same address in every language" in Settings → General and
 can switch it off while no slug is shared; back on 3.19 such a site stays off, and System status asks to switch it on again
 (0106 has run, so nothing does it by itself).
+
+Audited before release (N319): 0106 never switches a site that was on back off when it fails there – the failure is
+recorded, System status and Settings → General say what to do and saving General runs it again (N319-1); a redirect whose
+old address differs from a saved one only in accents (`café` / `cafe`, one row under the Czech collation until 4.0) is
+refused with the saved one named in the admin form, MCP `save_redirect` / `save_redirects` and the CSV import, the daily
+job skips it, and an automatic writer (slug change, imports) takes the row over with the event `redirect.replaced` instead
+of silently retargeting it – letter case alone stays the same redirect (N319-2); Settings → General runs 0106 under the
+migration lock with a time limit and turns a database error into the form's message (N319-3); the tag split relinks one
+tag per transaction with explicit duplicates instead of `INSERT IGNORE` (N319-4); 0106 gets 300 s on a web request and a
+redirect row without `source_norm` still answers and is filled on the way (N319-5); `stav.json`, the heartbeat and the
+monthly report carry no database message and only the number of colliding redirect groups (N319-7); `create_collection`
+with a preset checks `icon` first (N319-8); the store-locator check reads collection item templates of every language and
+category templates (N319-9); the draft-look bar is hidden at the two-factor gate (N3183-2). Accepted: N319-6 (a visited
+path longer than 255 characters matches a stored 255-character source; the migration report names the oldest row of a
+collision group). Also fixed: the whistleblowing channel deleted a day's sent-report rows as they were written in the
+last hour of the 25-hour day of the clock change, so the daily limit did not hold then (`Whistleblowing::forgetBefore`).
 
 ## Path to 4.0 (owner decisions, 13 October 2026)
 

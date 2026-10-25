@@ -1395,6 +1395,8 @@ await step('3.18.3 menu: collections straight from the left menu (1440 and 390 p
 // 3.19 (owner, 22 October 2026): an icon per collection – picked in the collection's settings from the built-in set (radio
 // tiles, by mouse and by keyboard), shown by the collection's item in the left menu and in the list of collections; the
 // picker fits a phone without sideways scroll. Screenshots: the settings with the picker and the menu with icons.
+// The owner's follow-up: a short selection first (12 tiles), the rest under "More icons" (<details>, keyboard-friendly),
+// open by itself when the chosen icon is one of those.
 await step('3.19 collections: the icon picker in the settings, the icons in the menu and the list (1440 and 390 px, keyboard)', async () => {
   if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
   const before = sql('SELECT GROUP_CONCAT(idk) FROM ka_kolekce WHERE admin_menu = 1').trim();
@@ -1403,9 +1405,20 @@ await step('3.19 collections: the icon picker in the settings, the icons in the 
   try {
     await page.setViewportSize({ width: 1440, height: 900 });
     await visit(`/admin.php?module=collections&action=edit&id=${products}`);
-    const picker = page.locator('.ikony-vyber');
+    const picker = page.locator('.ikony-volba');
     if (await picker.locator('input[type="radio"][name="icon"]').count() < 40) { throw new Error('the picker does not offer the icon set'); }
     if (!(await picker.locator('input[value=""]').isChecked())) { throw new Error('a collection without an icon does not have the list icon checked'); }
+    const more = picker.locator('details.ikony-dalsi');
+    const visibleTiles = await picker.locator('label').evaluateAll((labels) => labels.filter((l) => l.checkVisibility()).length);
+    const openAtStart = await more.evaluate((d) => d.open);
+    if (visibleTiles !== 12 || openAtStart) { throw new Error(`the short selection shows ${visibleTiles} tiles (expected 12), "More icons" open: ${openAtStart}`); }
+    // "More icons" opens from the keyboard (Enter on the summary) and shows the rest; it closes again the same way
+    await more.locator('summary').focus();
+    await page.keyboard.press('Enter');
+    if (!(await more.evaluate((d) => d.open)) || !(await picker.locator('label:has(input[value="auto"])').isVisible())) { throw new Error('Enter on "More icons" did not show the rest of the set'); }
+    if (SHOTS) { await picker.scrollIntoViewIfNeeded(); await page.screenshot({ path: `${SHOTS}/collection-icon-picker-more-desktop.png` }); }
+    await page.keyboard.press('Enter');
+    if (await more.evaluate((d) => d.open)) { throw new Error('"More icons" did not close again'); }
     // the mouse picks the house, the keyboard moves on to the next tile (arrow keys of a radio group)
     await picker.locator('label', { hasText: 'House' }).click();
     if (!(await picker.locator('input[value="dum"]').isChecked())) { throw new Error('a click on the House tile did not choose it'); }
@@ -1434,8 +1447,16 @@ await step('3.19 collections: the icon picker in the settings, the icons in the 
     await visit(`/admin.php?module=collections&action=edit&id=${products}`);
     const wide = async (where) => { const w = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth); if (w > 0) { throw new Error(`${where}: ${w} px of sideways scroll at 390 px`); } };
     await wide('collection settings');
-    await page.locator('.ikony-vyber').scrollIntoViewIfNeeded();
+    await page.locator('.ikony-volba').scrollIntoViewIfNeeded();
     if (SHOTS) { await page.screenshot({ path: `${SHOTS}/collection-icon-picker-phone.png` }); }
+    // a chosen icon from the rest of the set: shown in the short selection, and "More icons" opens by itself
+    sql(`UPDATE ka_kolekce SET icon = 'auto' WHERE idk = ${products}`);
+    await visit(`/admin.php?module=collections&action=edit&id=${products}`);
+    const openMore = await page.locator('details.ikony-dalsi').evaluate((d) => d.open);
+    const inShort = await page.locator('.ikony-volba > .ikony-vyber input[value="auto"]').isChecked();
+    if (!openMore || !inShort) { throw new Error(`a chosen icon outside the selection: "More icons" open ${openMore}, shown first ${inShort}`); }
+    await wide('collection settings with "More icons" open');
+    sql(`UPDATE ka_kolekce SET icon = 'dum' WHERE idk = ${products}`);
     await visit('/admin.php');
     await page.click('.menu-prepinac');
     await page.locator('.menu .menu-kolekce a').first().scrollIntoViewIfNeeded();

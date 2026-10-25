@@ -165,13 +165,14 @@ final class Privacy
      * Does a published build use a store locator (Branches, element pobocky) with "Load the map at once" (mapa_hned)? Then
      * every visitor's browser asks OpenStreetMap for map tiles when the page opens, before any consent (3.18.2, N3182-7) –
      * the privacy template and the record of processing say so. Pages, site parts, pop-ups, components and the detail
-     * templates of collections, as published.
+     * templates of collections, as published – the default one and those of other language versions, and the category
+     * templates (N319-9). Only with the map itself on (the element loads nothing without it).
      */
     public static function mapAtOnce(Db $db): bool
     {
         $uses = function (mixed $nodes) use (&$uses): bool {
             foreach (is_array($nodes) ? $nodes : [] as $n) {
-                if (is_array($n) && (($n['typ'] ?? '') === 'pobocky' && !empty($n['obsah']['mapa_hned']) || $uses($n['deti'] ?? []))) {
+                if (is_array($n) && (($n['typ'] ?? '') === 'pobocky' && !empty($n['obsah']['mapa'] ?? true) && !empty($n['obsah']['mapa_hned']) || $uses($n['deti'] ?? []))) {
                     return true;
                 }
             }
@@ -179,7 +180,8 @@ final class Privacy
             return false;
         };
         foreach (["SELECT stavba FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1 AND stavba LIKE '%mapa_hned%'", "SELECT stavba FROM {casti} WHERE stavba LIKE '%mapa_hned%'",
-            "SELECT stavba FROM {popupy} WHERE stavba LIKE '%mapa_hned%'", "SELECT stavba FROM {komponenty} WHERE stavba LIKE '%mapa_hned%'", "SELECT stavba FROM {kolekce} WHERE stavba LIKE '%mapa_hned%'"] as $sql) {
+            "SELECT stavba FROM {popupy} WHERE stavba LIKE '%mapa_hned%'", "SELECT stavba FROM {komponenty} WHERE stavba LIKE '%mapa_hned%'", "SELECT stavba FROM {kolekce} WHERE stavba LIKE '%mapa_hned%'",
+            "SELECT stavba FROM {kolekce_sablony} WHERE stavba LIKE '%mapa_hned%'", "SELECT stavba FROM {collection_category_templates} WHERE stavba LIKE '%mapa_hned%'"] as $sql) {
             try {
                 foreach ($db->all($sql) as $r) {
                     $build = json_decode((string) $r['stavba'], true);

@@ -12,7 +12,9 @@
  *    added, which fails only when two rows of one language share a slug) – then the global keys go and slugs_per_language
  *    is '1'. A site that cannot switch stays exactly as it is (setting '0', the global keys in place, tags not split); the
  *    reason goes to the setting slugs_switch_failed and to the event slugs.per_language_failed, and System status says what
- *    to do. Settings → General runs this file again once the cause is fixed (Core\Slug::enableEverywhere).
+ *    to do. Settings → General runs this file again once the cause is fixed (Core\Slug::enableEverywhere). A site that was
+ *    on already (switched in 3.9–3.18, a global key left by a partial restore) stays on when this step fails – the failure
+ *    is recorded the same way, the keys it has are not touched (N319-1).
  * 3. Tags (only when slugs are per language): a tag used by news items of several language versions becomes one tag per
  *    language and the news are linked to the tag of their own language. The tag keeps its row (id, description, image) in
  *    its own language when news of that language use it, otherwise in the language with the most of its news items (a tie:
@@ -21,6 +23,8 @@
  *
  * Self-contained on purpose: the update request of 3.18.3 runs it with its own classes already loaded, so only Db, Settings
  * and Core\RedirectSources (unchanged since 3.14) are used. Safe to run again: every step looks at the state first.
+ * Runs under the migration lock (Core\Migration::apply, Core\Slug::enableEverywhere); on a web request with a time limit
+ * it gets 300 seconds, as the updater gives an update (a large site's first request after an upload by FTP, N319-5).
  */
 
 declare(strict_types=1);
@@ -29,6 +33,9 @@ use Kaleta\Core\Db;
 use Kaleta\Core\Settings;
 
 return static function (Db $db, Settings $settings): void {
+    if ((int) ini_get('max_execution_time') > 0) {
+        @set_time_limit(300); // N319-5: the redirect fill and the tag split of a large site on a host with 30 seconds
+    }
     $event = static function (string $type, string $severity, string $message, array $data) use ($db): void {
         try {
             $db->insert('events', ['created_at' => date('Y-m-d H:i:s'), 'type' => $type, 'severity' => $severity, 'message' => mb_substr($message, 0, 255),
@@ -61,8 +68,11 @@ return static function (Db $db, Settings $settings): void {
         'stitky' => ['ids', 'uq_stitky_seo', 'uq_stitky_jazyk_seo', '/novinky/stitek/'],
     ];
     $on = (string) $db->value("SELECT hodnota FROM {nastaveni} WHERE promenna = 'slugs_per_language'") === '1';
+    $wasOn = $on; // N319-1: a site that was on already is never switched off here
     $globalLeft = array_filter($tables, static fn (array $t, string $table): bool => $hasKey($table, $t[1]), ARRAY_FILTER_USE_BOTH);
-    if (!$on || $globalLeft !== []) {
+    // a failure recorded on a site that is on (N319-1) is looked at again too, so a run after the fix clears it
+    $failedBefore = (string) $db->value("SELECT hodnota FROM {nastaveni} WHERE promenna = 'slugs_switch_failed'") !== '';
+    if (!$on || $globalLeft !== [] || $failedBefore) {
         $failure = null;
         foreach ($tables as $table => [, , $perLanguage, $prefix]) {
             if ($hasKey($table, $perLanguage)) {
@@ -94,7 +104,9 @@ return static function (Db $db, Settings $settings): void {
                 }
             } catch (\Throwable $e) {
                 $failure = ['reason' => 'database', 'table' => (string) $table, 'error' => mb_substr($e->getMessage(), 0, 200)];
-                foreach ($dropped as $table => $global) { // the site stays as it was: the keys this run dropped come back
+                // a site that was off stays as it was: the keys this run dropped come back; one that was on keeps checking
+                // per language, so a global key is not put back there (N319-1)
+                foreach ($wasOn ? [] : $dropped as $table => $global) {
                     try {
                         $db->run("ALTER TABLE {{$table}} ADD UNIQUE KEY {$global} (seo_link)");
                     } catch (\Throwable) {
@@ -109,7 +121,9 @@ return static function (Db $db, Settings $settings): void {
             $on = true;
             $event('slugs.per_language', 'info', 'Addresses are unique per language version now – the same address may be used once in each language', []);
         } else {
-            $settings->set('slugs_per_language', '0');
+            if (!$wasOn) {
+                $settings->set('slugs_per_language', '0');
+            }
             $settings->set('slugs_switch_failed', (string) json_encode($failure + ['at' => date('Y-m-d H:i:s')], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
             $event('slugs.per_language_failed', 'warning', $failure['reason'] === 'shared'
                 ? 'Addresses could not become unique per language: two items of one language share an address – see System status'
@@ -130,37 +144,62 @@ return static function (Db $db, Settings $settings): void {
     $split = [];
     $created = 0;
     $relinked = 0;
+    $pdo = $db->pdo();
     foreach ($usage as $ids => ['own' => $own, 'languages' => $languages]) {
         if (array_keys($languages) === [$own]) {
             continue; // every news item of the tag is in its language
         }
-        $tag = $db->one('SELECT * FROM {stitky} WHERE ids = ?', [$ids]);
-        if ($tag === null) {
-            continue;
-        }
-        ksort($languages, SORT_STRING);
-        $keeper = $own;
-        if (!isset($languages[$own])) { // no news of its own language: the tag moves to the language most of its news are in
-            $most = max($languages);
-            $keeper = (string) array_key_first(array_filter($languages, static fn (int $n): bool => $n === $most));
-            $taken = $db->value('SELECT ids FROM {stitky} WHERE jazyk = ? AND seo_link = ? AND ids <> ?', [$keeper, $tag['seo_link'], $ids]);
-            if ($taken === null) {
-                $db->update('stitky', ['jazyk' => $keeper], ['ids' => $ids]);
-                unset($languages[$keeper]);
+        // N319-4: one tag in one transaction (the tables are InnoDB) – its move, its copies, the links copied and the old
+        // ones removed together; a run stopped halfway leaves the tag as it was, and the next run splits it
+        $pdo->beginTransaction();
+        try {
+            $tag = $db->one('SELECT * FROM {stitky} WHERE ids = ? FOR UPDATE', [$ids]);
+            if ($tag === null) {
+                $pdo->commit();
+                continue;
             }
-        } else {
-            unset($languages[$own]);
-        }
-        foreach (array_keys($languages) as $language) {
-            $language = (string) $language;
-            $target = $db->value('SELECT ids FROM {stitky} WHERE jazyk = ? AND seo_link = ? AND ids <> ?', [$language, $tag['seo_link'], $ids]);
-            if ($target === null) {
-                $target = $db->insert('stitky', ['nazev' => $tag['nazev'], 'seo_link' => $tag['seo_link'], 'jazyk' => $language, 'popis' => $tag['popis'], 'obrazek' => $tag['obrazek']]);
-                $created++;
+            ksort($languages, SORT_STRING);
+            $keeper = $own;
+            $copies = 0;
+            $moved = 0;
+            if (!isset($languages[$own])) { // no news of its own language: the tag moves to the language most of its news are in
+                $most = max($languages);
+                $keeper = (string) array_key_first(array_filter($languages, static fn (int $n): bool => $n === $most));
+                $taken = $db->value('SELECT ids FROM {stitky} WHERE jazyk = ? AND seo_link = ? AND ids <> ?', [$keeper, $tag['seo_link'], $ids]);
+                if ($taken === null) {
+                    $db->update('stitky', ['jazyk' => $keeper], ['ids' => $ids]);
+                    unset($languages[$keeper]);
+                }
+            } else {
+                unset($languages[$own]);
             }
-            $db->run('INSERT IGNORE INTO {novinky_stitky} (idc, ids) SELECT ns.idc, ? FROM {novinky_stitky} ns JOIN {novinky} n ON n.idc = ns.idc WHERE ns.ids = ? AND n.jazyk = ?', [(int) $target, $ids, $language]);
-            $relinked += $db->run('DELETE ns FROM {novinky_stitky} ns JOIN {novinky} n ON n.idc = ns.idc WHERE ns.ids = ? AND n.jazyk = ?', [$ids, $language])->rowCount();
+            foreach (array_keys($languages) as $language) {
+                $language = (string) $language;
+                $target = $db->value('SELECT ids FROM {stitky} WHERE jazyk = ? AND seo_link = ? AND ids <> ?', [$language, $tag['seo_link'], $ids]);
+                if ($target === null) {
+                    $target = $db->insert('stitky', ['nazev' => $tag['nazev'], 'seo_link' => $tag['seo_link'], 'jazyk' => $language, 'popis' => $tag['popis'], 'obrazek' => $tag['obrazek']]);
+                    $copies++;
+                }
+                // duplicates handled explicitly (no INSERT IGNORE, which would also hide a foreign-key error): only news not
+                // linked to the target yet get a link, and only links whose copy exists are removed
+                $missing = array_map('intval', array_column($db->all('SELECT ns.idc FROM {novinky_stitky} ns JOIN {novinky} n ON n.idc = ns.idc
+                    WHERE ns.ids = ? AND n.jazyk = ? AND NOT EXISTS (SELECT 1 FROM {novinky_stitky} x WHERE x.idc = ns.idc AND x.ids = ?)', [$ids, $language, (int) $target]), 'idc'));
+                foreach (array_chunk($missing, 500) as $chunk) {
+                    $db->run('INSERT INTO {novinky_stitky} (idc, ids) VALUES ' . implode(', ', array_fill(0, count($chunk), '(?, ?)')),
+                        array_merge(...array_map(static fn (int $idc): array => [$idc, (int) $target], $chunk)));
+                }
+                $moved += $db->run('DELETE ns FROM {novinky_stitky} ns JOIN {novinky} n ON n.idc = ns.idc JOIN {novinky_stitky} x ON x.idc = ns.idc AND x.ids = ?
+                    WHERE ns.ids = ? AND n.jazyk = ?', [(int) $target, $ids, $language])->rowCount();
+            }
+            $pdo->commit();
+        } catch (\Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e; // the migration is not recorded as done – the next request runs it again
         }
+        $created += $copies;
+        $relinked += $moved;
         $split[] = (string) $tag['nazev'];
     }
     if ($split !== []) {

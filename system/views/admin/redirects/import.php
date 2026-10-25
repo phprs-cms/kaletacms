@@ -19,7 +19,7 @@ $saving = $counts['added'] + $counts['changed'];
 <tbody>
 <?php foreach ($plan as $p): ?>
 <tr><td class="cislo"><?= (int) $p['row'] ?></td><td><?= e($p['from']) ?></td><td><?= e($p['to']) ?></td><td class="cislo"><?= (int) $p['code'] ?></td>
-	<td><span class="stitek<?= $p['status'] === 'refused' ? ' stitek-chyba' : '' ?>"><?= e($labels[$p['status']] ?? $p['status']) ?></span><?= $p['reason'] !== '' ? ' <span class="smltxt">' . e(t($p['reason'])) . '</span>' : '' ?></td></tr>
+	<td><span class="stitek<?= $p['status'] === 'refused' ? ' stitek-chyba' : '' ?>"><?= e($labels[$p['status']] ?? $p['status']) ?></span><?= $p['reason'] !== '' ? ' <span class="smltxt">' . e(t($p['reason'])) . (isset($p['existing']) ? ' ' . e($p['existing']) : '') . '</span>' : '' ?></td></tr>
 <?php endforeach ?>
 </tbody>
 </table>

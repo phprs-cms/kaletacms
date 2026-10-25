@@ -141,7 +141,7 @@ if ($user !== null && (isset($modules['requests']) || isset($modules['claude_set
 <?php foreach ($flashes as $message): ?>
 <p class="hlaska hlaska-<?= e($message['typ']) ?>" role="status"><?= Kaleta\Admin\MenuPaths::links($app->url('admin.php'), t($message['text']), array_keys($modules)) ?></p>
 <?php endforeach ?>
-<?php if ($app->auth()->isAdmin() && Kaleta\Core\Look::hasDraft($app->settings())): // a draft look waits on every screen until it is published or discarded ?>
+<?php if (empty($gated) && $app->auth()->isAdmin() && Kaleta\Core\Look::hasDraft($app->settings())): // a draft look waits on every screen until it is published or discarded – not at the two-factor gate (N3183-2) ?>
 <?= $app->view->render('admin/look_bar', ['app' => $app, 'summary' => Kaleta\Core\Look::summary($app->db(), $app->settings(), false), 'menus' => Kaleta\Core\Look::menuChanges($app), 'areas' => Kaleta\Core\Look::areas($app->settings()), 'csrf' => $app->session->csrfField()]) ?>
 <?php endif ?>
 <?= $content ?>

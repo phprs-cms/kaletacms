@@ -102,10 +102,12 @@ if ($waiting !== []): ?>
 <?php foreach (array_filter(explode(',', $values['additional_languages'])) as $code): ?><input type="hidden" name="additional_languages[]" value="<?= e($code) ?>"><?php endforeach ?>
 <?php endif ?>
 <?php // 3.19: the same address once in each language version is on for every site (migration 0106); the switch is offered only
-// where the update could not switch it on – with the reason – and it only switches on (running the same checks again)
-if ($values['slugs_per_language'] !== '1'):
-    if (($failure = Kaleta\Core\Slug::failure($app->settings())) !== null): ?>
-<p class="hlaska hlaska-varovani"><?= e(Kaleta\Core\Slug::failureText($failure)) ?></p>
+// where the update could not switch it on – with the reason – and it only switches on (running the same checks again);
+// a site that is on but where the migration recorded a failure (a key missing, N319-1) gets it ticked, to run it again
+$slugFailure = Kaleta\Core\Slug::failure($app->settings());
+if ($values['slugs_per_language'] !== '1' || $slugFailure !== null):
+    if ($slugFailure !== null): ?>
+<p class="hlaska hlaska-varovani"><?= e(Kaleta\Core\Slug::failureText($slugFailure, true, $values['slugs_per_language'] === '1')) ?></p>
 <?php endif ?>
 <?php $field('slugs_per_language', 'The same address in every language', 'ano', 'A page, a news item, a category or a tag may have the same address as one in another language version (/kontakt and /en/kontakt), as on a multilingual WordPress site. System addresses and language codes stay reserved in every language. Since Kaleta 3.19 this is how every site works – it can no longer be switched off.'); ?>
 <?php endif ?>

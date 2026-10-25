@@ -267,10 +267,12 @@ class Settings extends Module
             }
             if ($key === 'slugs_per_language') {
                 // 3.19: on for every site; a site the update could not switch runs the same checks again (migration 0106) –
-                // the form never switches it off (absent or unticked = nothing changes)
-                if ($clean === '1' && !\Kaleta\Core\Slug::perLanguage($this->db) && ($failure = \Kaleta\Core\Slug::enableEverywhere($this->db, $settings)) !== null) {
+                // the form never switches it off (absent or unticked = nothing changes); a site that is on but where the
+                // migration recorded a failure (a key missing, N319-1) runs it again too, so the key comes back
+                if ($clean === '1' && (!\Kaleta\Core\Slug::perLanguage($this->db) || \Kaleta\Core\Slug::failure($settings) !== null)
+                    && ($failure = \Kaleta\Core\Slug::enableEverywhere($this->db, $settings)) !== null) {
                     $errors[] = $key;
-                    $reason = \Kaleta\Core\Slug::failureText($failure);
+                    $reason = \Kaleta\Core\Slug::failureText($failure, true, \Kaleta\Core\Slug::perLanguage($this->db));
                 }
                 continue;
             }

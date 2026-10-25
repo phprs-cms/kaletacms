@@ -76,11 +76,20 @@ final class Migration
         @file_put_contents(KALETA_ROOT . '/storage/log/chyby.log', sprintf("[%s] The database migration failed: %s\n", date('c'), $e->getMessage()), FILE_APPEND | LOCK_EX);
     }
 
+    /**
+     * The name of the database lock every run of a migration takes (apply(), and Core\Slug::enableEverywhere, which runs
+     * migration 0106 again from Settings → General – N319-3).
+     */
+    public static function lockName(Db $db): string
+    {
+        return 'kaleta_migrace_' . $db->prefix;
+    }
+
     /** @return list<string> names of the migrations just applied */
     public static function apply(Db $db, Settings $settings): array
     {
         // lock: both the admin and the site run migrations, two concurrent requests must not apply the same change twice
-        $lock = 'kaleta_migrace_' . $db->prefix;
+        $lock = self::lockName($db);
         if ((int) $db->value('SELECT GET_LOCK(?, 15)', [$lock]) !== 1) {
             return [];
         }

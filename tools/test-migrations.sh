@@ -190,4 +190,29 @@ expect_sql "3.19 (0106): a site that cannot switch stays as it is (off) and stor
 expect_sql "3.19 (0106): once the cause is gone it switches on – the per-language key is added back, the reason cleared" \
   "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'), '|', (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = '$OLD' AND INDEX_NAME = 'uq_topic_jazyk_seo' AND SEQ_IN_INDEX = 1), '|', hodnota) FROM ka_nastaveni WHERE promenna = 'slugs_switch_failed'" "1|1|"
 
+# 3.19 (N319-1): a site that was on already (3.9–3.18) with a global key left (a partial restore) and the per-language key
+# of categories missing while two categories of one language share a slug – the migration fails there, and the site stays
+# on: the setting '1', the failure recorded, no global key put back; once fixed, the next run completes and clears it
+"${MYSQL[@]}" "$OLD" -e "UPDATE ka_nastaveni SET hodnota = '1' WHERE promenna = 'slugs_per_language'; ALTER TABLE ka_stitky ADD UNIQUE KEY uq_stitky_seo (seo_link); ALTER TABLE ka_kategorie DROP INDEX uq_topic_jazyk_seo;
+  INSERT INTO ka_kategorie (idt, nazev, seo_link, popis, jazyk) VALUES (9194, 'A', 'dvojice-194', '', ''), (9195, 'B', 'dvojice-194', '', '');
+  UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0106-addresses-per-language,', ',')) WHERE promenna = 'data_migrations'" && migrate > /dev/null
+expect_sql "3.19 (N319-1): an on site where 0106 fails stays on – the failure recorded, the event written, the keys as they were" \
+  "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'), '|', JSON_UNQUOTE(JSON_EXTRACT(hodnota, '\$.reason')), ':', JSON_UNQUOTE(JSON_EXTRACT(hodnota, '\$.slugs[0]')), '|', (SELECT type FROM ka_events ORDER BY id DESC LIMIT 1), '|', (SELECT GROUP_CONCAT(INDEX_NAME ORDER BY INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = '$OLD' AND INDEX_NAME IN ('uq_stitky_seo', 'uq_topic_seo', 'uq_topic_jazyk_seo') AND SEQ_IN_INDEX = 1)) FROM ka_nastaveni WHERE promenna = 'slugs_switch_failed'" \
+  "1|shared:/novinky/kategorie/dvojice-194|slugs.per_language_failed|uq_stitky_seo"
+"${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_kategorie WHERE idt IN (9194, 9195); UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0106-addresses-per-language,', ',')) WHERE promenna = 'data_migrations'" && migrate > /dev/null
+expect_sql "3.19 (N319-1): … once fixed the next run adds the key, drops the global one and clears the failure" \
+  "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'), '|', (SELECT GROUP_CONCAT(INDEX_NAME ORDER BY INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = '$OLD' AND INDEX_NAME IN ('uq_stitky_seo', 'uq_topic_seo', 'uq_topic_jazyk_seo') AND SEQ_IN_INDEX = 1), '|', hodnota) FROM ka_nastaveni WHERE promenna = 'slugs_switch_failed'" "1|uq_topic_jazyk_seo|"
+# 3.19 (N319-4): the tag split relinks without INSERT IGNORE – a news item already linked to the copy keeps one link, the
+# links of the other language move, nothing else is touched
+"${MYSQL[@]}" "$OLD" -e "SET FOREIGN_KEY_CHECKS = 0;
+  INSERT INTO ka_kategorie (idt, nazev, seo_link, popis, jazyk) VALUES (9196, 'Z', 'z-196', '', ''), (9197, 'N', 'n-197', '', 'en');
+  INSERT INTO ka_novinky (idc, seo_link, titulek, uvod, text, tema, datum, jazyk) VALUES (9196, 'a-196', 'A', '', '', 9196, '$(site_time)', ''), (9197, 'b-197', 'B', '', '', 9197, '$(site_time)', 'en'), (9198, 'c-198', 'C', '', '', 9197, '$(site_time)', 'en');
+  INSERT INTO ka_stitky (ids, nazev, seo_link, jazyk) VALUES (9196, 'Spolecny', 'spolecny-196', ''), (9197, 'Spolecny', 'spolecny-196', 'en');
+  INSERT INTO ka_novinky_stitky (idc, ids) VALUES (9196, 9196), (9197, 9196), (9198, 9196), (9197, 9197);
+  SET FOREIGN_KEY_CHECKS = 1;
+  UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0106-addresses-per-language,', ',')) WHERE promenna = 'data_migrations'" && migrate > /dev/null
+expect_sql "3.19 (N319-4): the split relinks to the existing English tag – one link per news item, the Czech one stays" \
+  "SELECT GROUP_CONCAT(CONCAT(ns.idc, ':', t.jazyk) ORDER BY ns.idc, t.jazyk) FROM ka_novinky_stitky ns JOIN ka_stitky t ON t.ids = ns.ids WHERE ns.idc BETWEEN 9196 AND 9198" "9196:,9197:en,9198:en"
+"${MYSQL[@]}" "$OLD" -e "SET FOREIGN_KEY_CHECKS = 0; DELETE FROM ka_novinky_stitky WHERE idc BETWEEN 9196 AND 9198; DELETE FROM ka_stitky WHERE ids IN (9196, 9197); DELETE FROM ka_novinky WHERE idc BETWEEN 9196 AND 9198; DELETE FROM ka_kategorie WHERE idt IN (9196, 9197); SET FOREIGN_KEY_CHECKS = 1"
+
 [ "$ERRORS" = 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }

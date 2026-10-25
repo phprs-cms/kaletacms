@@ -261,6 +261,9 @@ final class RedirectRules
 
     public const string TOO_MANY = 'The site already has the most pattern rules it can use (500).';
 
+    /** N319-2: plan() refuses a row whose old address differs from a saved one only in accents (the saved one is in existing). */
+    public const string TWIN = 'An old address that differs from this one only in letter case or accents is already saved – change that redirect instead (until Kaleta 4.0 the two cannot have different targets):';
+
     /** All redirects of the site (but the one being edited), for checking new ones for loops. */
     public static function load(Db $db, int $exceptIdp = 0): self
     {
@@ -417,10 +420,11 @@ final class RedirectRules
      * address is refused, the first one wins.
      *
      * @param list<array{from: string, to: string, code?: string, refused?: string}> $rows
-     * @return list<array{row: int, from: string, to: string, code: int, status: string, reason: string}>
+     * @return list<array{row: int, from: string, to: string, code: int, status: string, reason: string, existing?: string}>
      */
     public static function plan(Db $db, array $rows): array
     {
+        $twin = null;
         $set = self::load($db);
         $existing = [];
         foreach ($db->all('SELECT z_adresy, na_adresu, typ FROM {presmerovani}') as $r) {
@@ -443,11 +447,17 @@ final class RedirectRules
                 $code !== self::GONE && trim($r['to']) === '' => 'Enter the target – a path on this site or a full https://… address.',
                 ($problem = self::problem($from, $to)) !== null => $problem,
                 isset($seen[$key]) => 'The same old address is in an earlier row – the first one counts.',
+                // N319-2: a saved address the database counts as the same one (cafe for café) – the row is refused, the
+                // existing redirect named (existing), never silently retargeted
+                ($twin = Redirects::twin($db, $from)) !== null => self::TWIN,
                 $current !== null && $current[0] === $to && $current[1] === $code => '',
                 self::isPattern($from) && $current === null && $patterns >= self::MAX_PATTERNS => self::TOO_MANY,
                 !$set->addUnlessLoop($from, $to, $code === self::GONE) => self::LOOP,
                 default => '',
             };
+            if ($result['reason'] === self::TWIN && $twin !== null) {
+                $result['existing'] = '/' . $twin['z_adresy'];
+            }
             if ($result['reason'] === '') {
                 $result['status'] = $current === null ? 'added' : ($current[0] === $to && $current[1] === $code ? 'unchanged' : 'changed');
                 $seen[$key] = true;
@@ -485,6 +495,14 @@ final class RedirectRules
     public static function store(Db $db, string $from, string $to, int $code): void
     {
         if (self::isPattern($from) || $code === self::GONE) {
+            if (($twin = Redirects::twin($db, $from)) !== null) {
+                // N319-2: a rule for an address the database counts as one already saved (callers refuse it first): the
+                // new rule takes that row over, recorded – the saved one is never turned into this rule unseen
+                Redirects::takeOver($db, $twin, $from, $to, $code);
+                $db->delete('nenalezeno', ['cesta' => $from]);
+
+                return;
+            }
             $db->run('INSERT INTO {presmerovani} (z_adresy, source_norm, na_adresu, typ, vytvoreno) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE na_adresu = VALUES(na_adresu), typ = VALUES(typ), auto_score = NULL',
                 [$from, RedirectSources::normalize($from), $to, $code, date('Y-m-d H:i:s')]); // 3.19: with its exact normal form
 

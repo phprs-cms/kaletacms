@@ -158,7 +158,9 @@ final class RedirectMatcher
         $threshold = self::threshold($s);
         $created = 0;
         foreach (self::suggestions($app, NotFound::pending($app, 30, 200)) as $from => $found) {
-            if ($found['score'] < $threshold) {
+            // N319-2: an address that differs from a saved redirect only in accents is left to a person – a visitor's
+            // address never takes over a redirect someone saved
+            if ($found['score'] < $threshold || Redirects::twin($db, (string) $from) !== null) {
                 continue;
             }
             Redirects::add($db, $from, $found['to']);

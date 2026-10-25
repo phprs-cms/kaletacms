@@ -103,9 +103,10 @@ final class Slug
     public const string MIGRATION = '0106-addresses-per-language';
 
     /**
-     * Why migration 0106 could not switch this site on (3.19): ['reason' => shared | database, 'table' => …, 'slugs' =>
+     * Why migration 0106 could not switch this site on (3.19): ['reason' => shared | database | busy, 'table' => …, 'slugs' =>
      * list of addresses shared by two rows of one language, or 'error' => the database's message, 'at' => when], null =
-     * nothing failed (the site is on, or the migration has not run yet).
+     * nothing failed (the site is on, or the migration has not run yet). A site that was on already keeps the setting when
+     * the migration fails there (N319-1) – the failure is still recorded, so System status explains the missing key.
      *
      * @return array{reason: string, table: string, slugs?: list<string>, error?: string, at?: string}|null
      */
@@ -118,25 +119,55 @@ final class Slug
 
     /**
      * Settings → General on a site that could not switch (3.19): runs migration 0106 again – the same checks, the global keys
-     * dropped, tags split. null when slugs are per language now, otherwise failure().
+     * dropped, tags split. null when slugs are per language now and nothing failed, otherwise failure().
+     *
+     * N319-3: under the same database lock as Core\Migration::apply (a double submit or two administrators at once wait for
+     * each other, and the second run finds the work done), with the updater's time limit, and an error of the database is
+     * a failure the form shows (and System status keeps), never an error 500 after half of the form was saved.
      *
      * @return array{reason: string, table: string, slugs?: list<string>, error?: string, at?: string}|null
      */
     public static function enableEverywhere(Db $db, Settings $settings): ?array
     {
-        (require KALETA_SYSTEM . '/sql/migrace/' . self::MIGRATION . '.php')($db, $settings);
-        self::$perLanguage = null;
+        if ((int) ini_get('max_execution_time') > 0) {
+            @set_time_limit(300);
+        }
+        $lock = Migration::lockName($db);
+        if ((int) $db->value('SELECT GET_LOCK(?, 15)', [$lock]) !== 1) {
+            self::$perLanguage = null;
 
-        return self::perLanguage($db) ? null : (self::failure($settings) ?? ['reason' => 'database', 'table' => '']);
+            return self::perLanguage($db) && self::failure($settings) === null ? null : ['reason' => 'busy', 'table' => ''];
+        }
+        try {
+            (require KALETA_SYSTEM . '/sql/migrace/' . self::MIGRATION . '.php')($db, $settings);
+        } catch (\Throwable $e) {
+            $failure = ['reason' => 'database', 'table' => '', 'error' => mb_substr($e->getMessage(), 0, 200), 'at' => date('Y-m-d H:i:s')];
+            $settings->set('slugs_switch_failed', (string) json_encode($failure, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        } finally {
+            $db->run('SELECT RELEASE_LOCK(?)', [$lock]);
+            self::$perLanguage = null;
+        }
+
+        return self::failure($settings) ?? (self::perLanguage($db) ? null : ['reason' => 'database', 'table' => '']);
     }
 
-    /** The owner's words for a failure() (English source text for t()): what is wrong and what to do. */
-    public static function failureText(array $failure): string
+    /**
+     * The owner's words for a failure() (English source text for t()): what is wrong and what to do. $withError = false
+     * (N319-7): without the database's own message, which can name the database user and host – for what leaves the site
+     * (the monitoring stav.json, the fleet heartbeat, the monthly report); System status and Settings → General show it.
+     * $on = the site is per language already and only a key is missing (N319-1).
+     */
+    public static function failureText(array $failure, bool $withError = true, bool $on = false): string
     {
-        return $failure['reason'] === 'shared'
-            ? t('Two items of one language version share an address (%s), so addresses cannot become unique per language yet. Give one of each pair another address, then switch on “The same address in every language” in Settings → General.', implode(', ', (array) ($failure['slugs'] ?? [])))
-            : t('The database refused to change the keys of the addresses, so addresses are still unique across all languages. Ask the hosting whether the database user may change tables (ALTER), then switch on “The same address in every language” in Settings → General.')
-                . ((string) ($failure['error'] ?? '') !== '' ? ' ' . t('The database said: %s', (string) $failure['error']) : '');
+        return match (true) {
+            $failure['reason'] === 'busy' => t('Another request is changing the keys of the addresses right now. Wait a minute, then look at System status – or save Settings → General once more.'),
+            $failure['reason'] === 'shared' && $on => t('Two items of one language version share an address (%s), so the database key that keeps addresses unique within a language is missing. Give one of each pair another address, then save Settings → General once more – the same address in every language stays on.', implode(', ', (array) ($failure['slugs'] ?? []))),
+            $failure['reason'] === 'shared' => t('Two items of one language version share an address (%s), so addresses cannot become unique per language yet. Give one of each pair another address, then switch on “The same address in every language” in Settings → General.', implode(', ', (array) ($failure['slugs'] ?? []))),
+            default => ($on
+                ? t('The database refused to change the keys of the addresses, so an older key that keeps addresses unique across all languages is still there. Ask the hosting whether the database user may change tables (ALTER), then save Settings → General once more.')
+                : t('The database refused to change the keys of the addresses, so addresses are still unique across all languages. Ask the hosting whether the database user may change tables (ALTER), then switch on “The same address in every language” in Settings → General.'))
+                . ($withError && (string) ($failure['error'] ?? '') !== '' ? ' ' . t('The database said: %s', (string) $failure['error']) : ''),
+        };
     }
 
     /** The type word of a slug made from a number (fromId): table => [id column, word]. */

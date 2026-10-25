@@ -35,6 +35,7 @@ final class Events
         'webhook.failed' => 'A webhook call could not be delivered after all attempts.',
         'notfound.spike' => 'An address without a page is being requested often.',
         'redirect.auto' => 'A redirect for an address visitors could not find was created by itself (from, to, score; undo in Redirects).',
+        'redirect.replaced' => 'A changed address or an import saved a redirect whose old address differs from a saved one only in accents (café for cafe), so it took that row over (3.19: one row until 4.0) – from, to, and the old address and target it replaced.',
         'task.failed' => 'A background job failed several times in a row.',
         'task.recovered' => 'A background job works again.',
         'security.account_suspended' => 'An unused account was suspended.',

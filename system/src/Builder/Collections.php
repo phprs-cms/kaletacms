@@ -48,6 +48,12 @@ final class Collections
     }
 
     /**
+     * The icons the collection settings offer first (3.19, the owner): the ones that suit collections – a house, work,
+     * people, a document… –, after the list icon (none); the rest of Builder\Icons::SET opens under "More icons".
+     */
+    public const array ICON_SHORTLIST = ['dum', 'kufr', 'lide', 'clovek', 'dokument', 'kalendar', 'misto', 'darek', 'penize', 'clanek', 'obrazek'];
+
+    /**
      * The icon of a collection in the admin (3.19: its item in the left menu, the list of collections): a key of the
      * built-in icon set Builder\Icons::SET, or null = the generic list icon. Anything else (an unknown key, a value of another
      * type) is null – the admin form, MCP (which also takes the English name, Mcp\Vocabulary) and the import all store

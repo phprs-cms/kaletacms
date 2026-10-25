@@ -60,6 +60,8 @@ trait CollectionTools
 
         $adminOnly();
         if (($a['preset'] ?? '') !== '') {
+            // N319-8: the icon is checked before the collection and its hidden list page exist – a refused call creates nothing
+            $icon = array_key_exists('icon', $a) ? self::collectionIconIn($a['icon']) : null;
             // a ready-made collection (2.10 people, 2.11 Builder\Presets)
             [$id, $pageId, $extraPages] = \Kaleta\Builder\Presets::createWithPage($this->app, (string) $a['preset'], (string) ($a['nazev'] ?? '')) ?? [null, null, []];
             if ($id === null) {
@@ -69,7 +71,7 @@ trait CollectionTools
                 $db->update('kolekce', ['admin_menu' => empty($a['admin_menu']) ? 0 : 1], ['idk' => $id]);
             }
             if (array_key_exists('icon', $a)) { // 3.19
-                $db->update('kolekce', ['icon' => self::collectionIconIn($a['icon'])], ['idk' => $id]);
+                $db->update('kolekce', ['icon' => $icon], ['idk' => $id]);
             }
             $created = (array) Collections::byId($db, $id);
             $preset = (array) \Kaleta\Builder\Presets::get((string) $a['preset']);

@@ -726,9 +726,12 @@ expect "3.18.3: … exactly 8, by name" "$(grep -c 'class="menu-kolekce' "$WORK/
 # 3.19 (owner, 22 October 2026): an icon per collection – chosen in its settings from the built-in set, shown by its menu item
 # and in the list of collections; MCP icon by the English name, validated, "" = the list icon again
 HOUSE='<path d="M4 11 12 4l8 7"/>'; CAR='<circle cx="7" cy="17.5" r="1.7"/>'; LISTICON='<rect x="3.5" y="4.5" width="4" height="4" rx="1"/>'
-check "3.19: the collection settings offer the icon picker, the list icon chosen" 200 "/admin.php?module=collections&action=edit&id=$IDK" 'class="ikony-vyber" role="radiogroup"'
+check "3.19: the collection settings offer the icon picker, the list icon chosen" 200 "/admin.php?module=collections&action=edit&id=$IDK" 'class="ikony-volba" role="radiogroup"'
 grep -qF 'name="icon" value="" checked' "$WORK/response" && grep -qF 'name="icon" value="dum">' "$WORK/response" && grep -qF "$HOUSE" "$WORK/response" \
   && echo "  ok     3.19: … every icon of the set with its picture, the list icon checked" || { echo "  CHYBA  3.19: the icon picker"; ERRORS=$((ERRORS+1)); }
+# the owner's follow-up: twelve tiles first (the list icon and Collections::ICON_SHORTLIST), the rest under "More icons", closed
+PICK319=$(sed -n '/class="ikony-volba"/,/<details/p' "$WORK/response" | grep -c 'name="icon"'); MORE319=$(sed -n '/<details class="ikony-dalsi"/,/<\/details>/p' "$WORK/response" | grep -c 'name="icon"')
+expect "3.19: the picker shows a short selection of 12, the rest under a closed “More icons” (Další ikony)" "$PICK319|$(grep -c '<details class="ikony-dalsi">' "$WORK/response")|$(grep -c '<summary>Další ikony</summary>' "$WORK/response")|$((PICK319 + MORE319 > 40))" "12|1|1|1"
 TOKEN=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=collections&action=save" -d "_csrf=$TOKEN" -d "idk=$IDK" --data-urlencode "nazev=Tým" -d seo_link=tym -d admin_menu=1 -d detail=1 -d icon=dum \
   $(sq "SELECT pole FROM ka_kolekce WHERE idk = $IDK" | php -r '$i = 0; foreach (json_decode(stream_get_contents(STDIN), true) as $f) { foreach (["klic", "popisek", "typ"] as $k) { echo " --data-urlencode pole[$i][$k]=" . escapeshellarg((string) $f[$k]); } $i++; }' | xargs -n2 printf '%s %s ' 2>/dev/null)
@@ -744,6 +747,8 @@ expect "3.19: an icon outside the set is stored as none (the list icon)" "$(sq "
 mcp update_collection '{"collection":"tym","icon":"car"}' > "$WORK/response"
 expect "3.19 MCP: update_collection icon by its English name, stored as the key, answered in English" "$(sq "SELECT icon FROM ka_kolekce WHERE idk = $IDK")|$(grep -c 'icon\\":\\"car' "$WORK/response")" "auto|1"
 check "3.19: … and the menu shows the car" 200 "/admin.php" "$CAR"
+check "3.19: a chosen icon outside the short selection opens “More icons” by itself" 200 "/admin.php?module=collections&action=edit&id=$IDK" '<details class="ikony-dalsi" open>'
+expect "3.19: … and the chosen car is among the first tiles, once" "$(sed -n '/class="ikony-volba"/,/<details/p' "$WORK/response" | grep -c 'name="icon" value="auto" checked')|$(grep -c 'name="icon" value="auto"' "$WORK/response")" "1|1"
 mcp list_collections '{}' > "$WORK/response"
 grep -q 'icon\\":\\"car' "$WORK/response" && echo "  ok     3.19 MCP: list_collections returns the icon" || { echo "  CHYBA  3.19 MCP list_collections icon"; ERRORS=$((ERRORS+1)); }
 mcp update_collection '{"collection":"tym","icon":"castle"}' > "$WORK/response"
@@ -5368,7 +5373,8 @@ expect "whistleblowing: after ten wrong codes the address waits an hour, even wi
 # 3.3.2 (N35): a wrong code leaves only a short keyed hash of the address with a daily salt, never the old unkeyed sha256
 expect "3.3.2 whistleblowing: a wrong code is recorded as a short keyed bucket, not as a hash of the address" \
   "$(sq "SELECT CONCAT(COUNT(*), '|', MIN(ip_adresa LIKE 'wb:%'), '|', MAX(LENGTH(ip_adresa)), '|', SUM(ip_adresa = LEFT(SHA2('kaleta|127.0.0.1', 256), 40))) FROM ka_kontrola_ip WHERE typ = 'oznameni'")" "10|1|8|0"
-sq "UPDATE ka_kontrola_ip SET cas = '$(site_time)' - INTERVAL 25 HOUR WHERE typ = 'oznameni' LIMIT 3" > /dev/null
+# 26 hours: the code forgets rows 24 hours back, which is 23–25 hours of wall-clock time on the days the clocks change
+sq "UPDATE ka_kontrola_ip SET cas = '$(site_time)' - INTERVAL 26 HOUR WHERE typ = 'oznameni' LIMIT 3" > /dev/null
 curl -s -o /dev/null -X POST "$B/_report/follow" -d "number=$WB_NUMBER" -d code=WRONG10
 expect "3.3.2 whistleblowing: rows older than a day are forgotten on the next write" "$(sq "SELECT COUNT(*) FROM ka_kontrola_ip WHERE typ = 'oznameni' AND cas < '$(site_time)' - INTERVAL 1 DAY")" "0"
 sq "DELETE FROM ka_kontrola_ip WHERE typ = 'oznameni'" > /dev/null # an hour has passed
@@ -6986,6 +6992,70 @@ expect "3.19 blocked: once fixed, Settings → General switches it on – the ke
 check "3.19: System status is green for the addresses again" 200 "/admin.php?module=status" 'každá jazyková verze smí použít stejnou adresu jednou'
 sq "DELETE FROM ka_kategorie WHERE nazev IN ('Dvojice A', 'Dvojice B'); DELETE FROM ka_presmerovani WHERE z_adresy IN ('cenik-319', 'cen%C3%ADk-319', 'Akce-319')" > /dev/null
 sq "UPDATE ka_nastaveni SET hodnota = '$HOME39' WHERE promenna = 'home_page'" > /dev/null
+
+echo "== 3.19: pre-release audit (N319)"
+# N319-2: "cafe" and "café" are one old address for the database's unique key (the Czech collation) and two for the exact
+# lookup – a person saving the second one is refused with the saved one named, never a silent retarget of the first
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=redirects"; TOKEN=$(csrf)
+redirect_form -d z_adresy=/cafe-n319 -d na_adresu=/kontakt-39 -d typ=301
+curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?module=redirects&action=save" -d "_csrf=$TOKEN" --data-urlencode "z_adresy=/café-n319" -d na_adresu=/o-nas-39 -d typ=301
+expect "3.19 (N319-2) admin: /café-n319 next to /cafe-n319 is refused with the saved address named; /cafe-n319 keeps its target" \
+  "$(grep -c 'už je uložená: /cafe-n319' "$WORK/response")|$(sq "SELECT GROUP_CONCAT(CONCAT(z_adresy, '>', na_adresu)) FROM ka_presmerovani WHERE z_adresy = 'cafe-n319'")" "1|cafe-n319>kontakt-39"
+curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?module=redirects&action=save" -d "_csrf=$TOKEN" -d z_adresy=/CAFE-n319 -d na_adresu=/o-nas-39 -d typ=301
+expect "3.19 (N319-2) admin: the same address in other letter case is the same redirect – its target changes, no refusal" \
+  "$(grep -c 'už je uložená' "$WORK/response")|$(sq "SELECT GROUP_CONCAT(CONCAT(z_adresy, '>', na_adresu)) FROM ka_presmerovani WHERE z_adresy = 'cafe-n319'")" "0|cafe-n319>o-nas-39"
+mcp save_redirects '{"redirects":[{"from":"/café-n319","to":"/kontakt-39","code":301}]}' > "$WORK/response"
+expect "3.19 (N319-2) MCP save_redirects: the accent twin is refused and the saved one named" "$(mcp_value refused)|$(mcp_value results 0 existing)|$(sq "SELECT na_adresu FROM ka_presmerovani WHERE z_adresy = 'cafe-n319'")" "1|/cafe-n319|o-nas-39"
+# an automatic writer (a changed slug, an import) has nobody to ask: the new address wins, the row it took over is an event
+EVENTS319=$(sq "SELECT COALESCE(MAX(id), 0) FROM ka_events")
+(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); Kaleta\Admin\Modules\Redirects::add($app->db(), "café-n319", "kontakt-39", false);')
+expect "3.19 (N319-2) automatic writer: café-n319 takes the row over with its exact form, recorded with what it replaced" \
+  "$(sq "SELECT GROUP_CONCAT(CONCAT(z_adresy, '>', na_adresu, '>', source_norm)) FROM ka_presmerovani WHERE z_adresy = 'cafe-n319'")|$(sq "SELECT CONCAT(severity, '|', JSON_UNQUOTE(JSON_EXTRACT(data, '\$.replaced')), '|', JSON_UNQUOTE(JSON_EXTRACT(data, '\$.replaced_to'))) FROM ka_events WHERE id > $EVENTS319 AND type = 'redirect.replaced'")" \
+  "café-n319>kontakt-39>café-n319|warning|/cafe-n319|/o-nas-39"
+expect "3.19 (N319-2): … and /café-n319 redirects now" "$(get39 /caf%C3%A9-n319)" "301 $B/kontakt-39"
+# N319-5: a row without its normal form (written by 3.18 after a rollback, a restored backup) still answers and is filled
+sq "UPDATE ka_presmerovani SET source_norm = NULL WHERE z_adresy = 'café-n319'; INSERT INTO ka_presmerovani (z_adresy, source_norm, na_adresu, vytvoreno) VALUES ('?p=99319', NULL, 'kontakt-39', '$(site_time)')" > /dev/null
+expect "3.19 (N319-5): redirects whose source_norm is NULL still answer (the path and ?p=), the path's row is normalised on the way" \
+  "$(get39 /caf%C3%A9-n319)|$(get39 '/?p=99319')|$(sq "SELECT source_norm FROM ka_presmerovani WHERE z_adresy = 'café-n319'")" "301 $B/kontakt-39|301 $B/kontakt-39|café-n319"
+sq "DELETE FROM ka_presmerovani WHERE z_adresy IN ('café-n319', '?p=99319')" > /dev/null
+# N319-7: what leaves the site (stav.json, the heartbeat, the monthly report) carries no database message and no old addresses
+HEALTH319_BEFORE=$(sq "SELECT COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'health_token'), '')"); HEALTH319=n319healthtoken0123456789abcdef
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('health_token', '$HEALTH319')" > /dev/null
+sq "UPDATE ka_nastaveni SET hodnota = '{\"reason\":\"database\",\"table\":\"stitky\",\"error\":\"ALTER command denied to user w319x at 10.9.9.9\"}' WHERE promenna = 'slugs_switch_failed';
+  INSERT INTO ka_presmerovani (z_adresy, source_norm, na_adresu, vytvoreno) VALUES ('kolize-n319', 'kolize-n319', 'kontakt-39', '$(site_time)'), ('kolize%2Dn319', 'kolize-n319', 'o-nas-39', '$(site_time)')" > /dev/null
+rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s "$B/stav.json?token=$HEALTH319" | tee "$WORK/stav319.raw" | php -r 'echo json_encode(json_decode(stream_get_contents(STDIN), true), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);' > "$WORK/stav319.json"
+LEAVING319=$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); echo json_encode(Kaleta\Core\Language::runWith("en", fn (): array => Kaleta\Core\Health::checks($app, true), "admin-"), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);')
+expect "3.19 (N319-7): stav.json and the checks that leave the site say what is wrong (the address keys, the redirect groups) without the database message or the old addresses" \
+  "$(grep -c 'w319x\|10.9.9.9\|kolize' "$WORK/stav319.json")|$(grep -c 'Databáze odmítla změnit klíče adres\|The database refused to change the keys' "$WORK/stav319.json")|$(grep -c 'skupin(a) přesměrování\|group(s) of redirects' "$WORK/stav319.json")|$(printf '%s' "$LEAVING319" | grep -c 'w319x\|kolize')|$(printf '%s' "$LEAVING319" | grep -c 'older key')" "0|1|1|0|1"
+grep -q '"kontroly"' "$WORK/stav319.raw" || echo "         stav.json answered: $(head -c 300 "$WORK/stav319.raw")"
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('health_token', '$HEALTH319_BEFORE')" > /dev/null
+# N319-1: a site that is on stays on when the migration failed there – System status says what is missing and what to do
+check "3.19 (N319-7, N319-1): System status shows the administrators the database message and the old addresses, and warns on a site that is on" 200 "/admin.php?module=status" 'Databáze odpověděla: ALTER command denied to user w319x'
+grep -qF '/kolize-n319 = /kolize%2Dn319' "$WORK/response" && grep -qF 'tu dál je starší klíč' "$WORK/response" && echo "  ok     3.19 (N319-7, N319-1): … the colliding addresses listed, the on-site wording" || { echo "  CHYBA  3.19 N319-7 System status details"; ERRORS=$((ERRORS+1)); }
+check "3.19 (N319-1): Settings → General offers the ticked switch on an on site with a recorded failure" 200 "/admin.php?module=settings&tab=general" 'name="slugs_per_language" value="1" checked'
+sq "DELETE FROM ka_presmerovani WHERE z_adresy IN ('kolize-n319', 'kolize%2Dn319')" > /dev/null
+# N319-3: Settings → General runs migration 0106 under the migration lock – two at once wait for each other, both end well
+(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); echo json_encode(Kaleta\Core\Slug::enableEverywhere($app->db(), $app->settings()));' > "$WORK/enable319a.txt") & E319A=$!
+(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); echo json_encode(Kaleta\Core\Slug::enableEverywhere($app->db(), $app->settings()));' > "$WORK/enable319b.txt") & E319B=$!
+wait $E319A $E319B
+expect "3.19 (N319-3): two runs of the switch at once – both done, the recorded failure cleared, the site on" \
+  "$(cat "$WORK/enable319a.txt")|$(cat "$WORK/enable319b.txt")|$(sq "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'), '|', hodnota) FROM ka_nastaveni WHERE promenna = 'slugs_switch_failed'")" "null|null|1|"
+# N319-8: create_collection with a preset checks the icon before anything is created
+COLLS319=$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_kolekce), '|', (SELECT COUNT(*) FROM ka_stranky))")
+mcp create_collection '{"name":"Ikona preset 319","preset":"people","icon":"unicorn"}' > "$WORK/response"
+expect "3.19 (N319-8): a preset with an unknown icon is refused and creates no collection and no hidden page" "$(grep -c 'Unknown icon' "$WORK/response")|$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_kolekce), '|', (SELECT COUNT(*) FROM ka_stranky))")" "1|$COLLS319"
+# N319-9: a store locator that loads its map at once in a collection's template of another language or a category template
+IDK319=$(sq "SELECT MIN(idk) FROM ka_kolekce")
+maponce319() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; echo Kaleta\Core\Privacy::mapAtOnce(Kaleta\Core\App::boot()->db()) ? 1 : 0;'); }
+MAP319=$(maponce319)
+sq "INSERT INTO ka_kolekce_sablony (idk, jazyk, stavba) VALUES ($IDK319, 'xx-n319', '{\"v\":1,\"deti\":[{\"id\":\"p1\",\"typ\":\"pobocky\",\"obsah\":{\"mapa\":true,\"mapa_hned\":true}}]}')" > /dev/null
+MAP319="$MAP319|$(maponce319)"
+sq "DELETE FROM ka_kolekce_sablony WHERE jazyk = 'xx-n319'; INSERT INTO ka_collection_category_templates (idk, jazyk, stavba) VALUES ($IDK319, 'xx-n319', '{\"v\":1,\"deti\":[{\"id\":\"p1\",\"typ\":\"sekce\",\"deti\":[{\"id\":\"p2\",\"typ\":\"pobocky\",\"obsah\":{\"mapa_hned\":true}}]}]}')" > /dev/null
+MAP319="$MAP319|$(maponce319)"
+sq "UPDATE ka_collection_category_templates SET stavba = REPLACE(stavba, '{\"mapa_hned\":true}', '{\"mapa\":false,\"mapa_hned\":true}') WHERE jazyk = 'xx-n319'" > /dev/null
+MAP319="$MAP319|$(maponce319)"
+sq "DELETE FROM ka_collection_category_templates WHERE jazyk = 'xx-n319'" > /dev/null
+expect "3.19 (N319-9): the privacy check finds the map loaded at once in an item template of another language and in a category template, not with the map off" "$MAP319" "0|1|1|0"
 
 echo "== 3.10: English table names, the site's clock and regional language versions (data model §4, §6 and §2 step 2)"
 # §4: {news} is the news table – the same rows through either placeholder, on the installed site's own connection

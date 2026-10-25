@@ -203,6 +203,9 @@ trait SettingsTools
                     throw new \InvalidArgumentException('Nová adresa musí být cesta (/nova) nebo https://… adresa.');
                 }
                 $commandName = preg_match('#^https?://#i', $commandName) ? $commandName : trim($commandName, '/');
+                if (($twin = \Kaleta\Admin\Modules\Redirects::twin($db, $z)) !== null) { // N319-2: never retargets the other row
+                    throw new \InvalidArgumentException(sprintf(\Kaleta\Admin\Modules\Redirects::TWIN, '/' . $twin['z_adresy']) . ' Call save_redirect with "from": "/' . $twin['z_adresy'] . '".');
+                }
                 \Kaleta\Admin\Modules\Redirects::add($db, $z, $commandName);
                 $db->run('UPDATE {presmerovani} SET typ = ? WHERE z_adresy = ?', [(int) ($a['typ'] ?? 301) === 302 ? 302 : 301, $z]);
                 $db->delete('nenalezeno', ['cesta' => $z]);

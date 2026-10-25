@@ -816,7 +816,16 @@ a.dlazdice-polozka { color: var(--text); text-decoration: none; transition: bord
 .predvolby-kolekci-mrizka button[hidden], [data-filtr-skupina][hidden] { display: none; } /* the card search (3.3) – the flex above would beat the hidden attribute */
 .predvolby-kolekci-mrizka span { font-size: 13px; color: var(--text-slaby); }
 /* 3.19: the icon of a collection – a grid of radio buttons drawn as tiles (no script); the chosen one is outlined */
+.ikony-volba { max-width: 760px; }
 .ikony-vyber { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 112px), 1fr)); gap: 6px; max-width: 760px; }
+/* 3.19: the rest of the icon set under "More icons" – a plain <details>, keyboard and screen readers get it for free */
+.ikony-dalsi { margin-top: 8px; }
+.ikony-dalsi > summary { display: inline-flex; align-items: center; gap: 8px; padding: 6px 2px; color: var(--akcent); font-size: 14px; cursor: pointer; list-style: none; }
+.ikony-dalsi > summary::-webkit-details-marker { display: none; }
+.ikony-dalsi > summary::before { content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform .15s; flex: none; }
+.ikony-dalsi[open] > summary::before { transform: rotate(45deg); }
+.ikony-dalsi > summary:focus-visible { outline: 2px solid var(--fokus); outline-offset: 2px; border-radius: 4px; }
+.ikony-dalsi > .ikony-vyber { margin-top: 6px; }
 .formular .ikony-vyber label { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 0; padding: 10px 6px 8px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); color: var(--text); font-size: 12.5px; line-height: 1.25; text-align: center; cursor: pointer; }
 .ikony-vyber input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
 .ikony-vyber .ikona { width: 22px; height: 22px; }

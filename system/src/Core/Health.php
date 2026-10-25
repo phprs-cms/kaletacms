@@ -13,11 +13,15 @@ final class Health
     /**
      * $leaving = the checks go out of the site (the fleet heartbeat, the monthly report – 3.16, N316-3): the background job
      * and the events of the whistleblowing channel are left out of them (Whistleblowing::concerns).
+     * $details (3.19, N319-7; default: not leaving) = the database's own error message of a failed address switch (it can
+     * name the database user and host) and the list of colliding redirect addresses; without them the texts say what is
+     * wrong and what to do, with counts – the monitoring stav.json passes false as well. System status shows everything.
      *
      * @return list<array{skupina:string, nazev:string, stav:string, info:string, odkazy?: list<array{text:string, url:string}>}> stav: ok | varovani | chyba; odkazy = where to fix it (a user, a connection)
      */
-    public static function checks(App $app, bool $leaving = false): array
+    public static function checks(App $app, bool $leaving = false, ?bool $details = null): array
     {
+        $details ??= !$leaving;
         $k = [];
         $add = function (string $group, string $name, bool|string $state, string $info, array $links = []) use (&$k): void {
             $k[] = ['skupina' => $group, 'nazev' => $name, 'stav' => is_bool($state) ? ($state ? 'ok' : 'chyba') : $state, 'info' => $info] + ($links !== [] ? ['odkazy' => $links] : []);
@@ -52,23 +56,28 @@ final class Health
         $add(t('Database'), t('Time zone'), $clockState, $clockInfo);
         // 3.19 (data model §3 step 2): the same address once in each language version – on for every site the update could
         // switch; a site it could not switch says why and what to do (migration 0106, Core\Slug::failure)
-        $slugFailure = Slug::perLanguage($db) ? null : Slug::failure($siteSettings);
-        $add(t('Database'), t('Addresses in every language'), Slug::perLanguage($db) ? 'ok' : 'varovani', match (true) {
+        // switch; a site that was on already and where it failed (a key missing, N319-1) says so too
+        $slugFailure = Slug::failure($siteSettings);
+        $slugsOk = Slug::perLanguage($db) && $slugFailure === null;
+        $add(t('Database'), t('Addresses in every language'), $slugsOk ? 'ok' : 'varovani', match (true) {
+            $slugFailure !== null => Slug::failureText($slugFailure, $details, Slug::perLanguage($db)),
             Slug::perLanguage($db) => t('each language version may use the same address once (/kontakt and /en/kontakt)'),
-            $slugFailure !== null => Slug::failureText($slugFailure),
             // the migration ran and switched the site on, and then an older version (a rollback to 3.18) switched it off
             in_array(Slug::MIGRATION, explode(',', $siteSettings->get('data_migrations')), true) => t('addresses are unique across all languages again – an older version of Kaleta switched “The same address in every language” off. Switch it on again in Settings → General.'),
             default => t('addresses are still unique across all languages – the database update of Kaleta 3.19 has not run yet (it runs the next time the administration loads)'),
-        }, Slug::perLanguage($db) ? [] : [['text' => t('Settings → General'), 'url' => $app->url('admin.php?module=settings&tab=general')]]);
+        }, $slugsOk ? [] : [['text' => t('Settings → General'), 'url' => $app->url('admin.php?module=settings&tab=general')]]);
         // 3.19 (§1.3): redirects are looked up by the exact old address; groups that counted as one before are listed here
         try {
             $groups = RedirectSources::collisionCount($db);
             if ($groups > 0 || Extensions::isEnabled($siteSettings, 'presmerovani')) {
                 $pendingSources = RedirectSources::pending($db);
-                $add(t('Database'), t('Old addresses of redirects'), $groups > 0 ? 'varovani' : 'ok', ($groups > 0
-                    ? t('%d group(s) of redirects have old addresses that counted as one address before Kaleta 3.19 – they differ only in letter case, accents, percent-encoding or slashes. Redirects now compare the old address exactly, so a visitor gets the one stored exactly as typed or the oldest of the group: delete the extra ones in Redirects, or merge them into one. %s', $groups,
-                        implode('; ', array_map(fn (array $g): string => implode(' = ', array_map(fn (string $s): string => '/' . $s, $g)), RedirectSources::collisions($db, 10))))
-                    : t('every redirect is looked up by its exact old address'))
+                $add(t('Database'), t('Old addresses of redirects'), $groups > 0 ? 'varovani' : 'ok', match (true) {
+                    $groups > 0 && $details => t('%d group(s) of redirects have old addresses that counted as one address before Kaleta 3.19 – they differ only in letter case, accents, percent-encoding or slashes. Redirects now compare the old address exactly, so a visitor gets the one stored exactly as typed or the oldest of the group: delete the extra ones in Redirects, or merge them into one. %s', $groups,
+                        implode('; ', array_map(fn (array $g): string => implode(' = ', array_map(fn (string $s): string => '/' . $s, $g)), RedirectSources::collisions($db, 10)))),
+                    // N319-7: outside the site only the count – the old addresses stay on System status
+                    $groups > 0 => t('%d group(s) of redirects have old addresses that counted as one address before Kaleta 3.19 – they differ only in letter case, accents, percent-encoding or slashes. Redirects now compare the old address exactly: delete the extra ones in Redirects, or merge them into one.', $groups),
+                    default => t('every redirect is looked up by its exact old address'),
+                }
                     . ($pendingSources > 0 ? ' ' . t('%d redirect(s) are still being prepared by the background jobs.', $pendingSources) : ''),
                     $groups > 0 ? [['text' => t('Redirects'), 'url' => $app->url('admin.php?module=redirects')]] : []);
             }

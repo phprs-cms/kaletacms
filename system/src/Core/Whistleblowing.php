@@ -387,7 +387,22 @@ final class Whistleblowing
     /** The channel keeps its address rows for one day at most (also run by the daily job). */
     public static function forgetAddresses(Db $db): void
     {
-        $db->run('DELETE FROM {kontrola_ip} WHERE typ IN (?, ?) AND cas < ?', [self::WRONG_CODE, self::SENT, date('Y-m-d H:i:s', time() - 86400)]);
+        [$wrongCodes, $sent] = self::forgetBefore(time());
+        $db->run('DELETE FROM {kontrola_ip} WHERE (typ = ? AND cas < ?) OR (typ = ? AND cas < ?)', [self::WRONG_CODE, $wrongCodes, self::SENT, $sent]);
+    }
+
+    /**
+     * Where forgetAddresses() cuts, in the site's wall-clock time as the rows store it: a wrong code 24 hours back, a sent
+     * report (stamped with its day only, 00:00:00) when its day is over. 3.19: the sent rows used the 24 hours too – on
+     * the day the clocks go back (25 hours) "24 hours ago" is already today during its last hour, so each new row of the
+     * day was deleted as soon as it was written and the daily limit let every report through (the flaky test of 25 Oct
+     * 2026 at 23:xx); the day itself is what allowed() counts.
+     *
+     * @return array{0: string, 1: string}
+     */
+    public static function forgetBefore(int $now): array
+    {
+        return [date('Y-m-d H:i:s', $now - 86400), date('Y-m-d 00:00:00', $now)];
     }
 
     /** The size of every stored attachment together, in bytes. */

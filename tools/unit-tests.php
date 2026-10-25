@@ -7561,5 +7561,28 @@ foreach (glob(KALETA_SYSTEM . '/jazyky/*.php') ?: [] as $file319) {
     }
 }
 check('3.19: no translation of a text with placeholders has a lone % (sprintf would throw)', array_slice($strayPercent319, 0, 5), []);
+
+// 3.19: the whistleblowing channel forgets a sent report's row (stamped with its day) when the day is over, never "24 hours
+// back" – on the day the clocks go back that is already today during its last hour, and every new row of the day was
+// deleted as it was written (the daily limit let the sixth report through; tools/test.sh failed so at 23:xx on 25 Oct 2026)
+$zone319 = date_default_timezone_get();
+date_default_timezone_set('Europe/Prague');
+check('3.19: the whistleblowing rows are forgotten by the day, also in the last hour of the 25-hour day of the clock change', [
+    Kaleta\Core\Whistleblowing::forgetBefore((int) strtotime('2026-10-25 23:30:00')), Kaleta\Core\Whistleblowing::forgetBefore((int) strtotime('2026-10-26 10:00:00')),
+    Kaleta\Core\Whistleblowing::forgetBefore((int) strtotime('2026-03-29 23:30:00'))[1]],
+    [['2026-10-25 00:30:00', '2026-10-25 00:00:00'], ['2026-10-25 10:00:00', '2026-10-26 00:00:00'], '2026-03-29 00:00:00']);
+date_default_timezone_set($zone319);
+// 3.19 (N319-7, N319-1, N319-3): what leaves the site carries no database message; an on site and a busy lock have their own words
+$failure319 = ['reason' => 'database', 'table' => 'stitky', 'error' => "ALTER command denied to user 'w123'@'10.0.0.5'"];
+$texts319 = Kaleta\Core\Language::runWith('en', fn (): array => [Kaleta\Core\Slug::failureText($failure319), Kaleta\Core\Slug::failureText($failure319, false),
+    Kaleta\Core\Slug::failureText($failure319, false, true), Kaleta\Core\Slug::failureText(['reason' => 'shared', 'table' => 'kategorie', 'slugs' => ['/a']], true, true),
+    Kaleta\Core\Slug::failureText(['reason' => 'busy', 'table' => ''])], 'admin-');
+check('3.19 (N319-7, N319-1, N319-3): the failure texts – the database message only where asked, an on site told to save once more, a busy lock', [
+    str_contains($texts319[0], "w123'@'10.0.0.5"), str_contains($texts319[1], 'w123'), str_contains($texts319[1], 'ALTER'), str_contains($texts319[2], 'older key'),
+    str_contains($texts319[3], 'stays on'), str_contains($texts319[4], 'Another request')], [true, false, true, true, true, true]);
+check('3.19 (N319-2): the refusal of an accent twin names the saved address, in Czech too', [
+    Kaleta\Core\Language::runWith('cs', fn (): string => t(Kaleta\Admin\Modules\Redirects::TWIN, '/cafe'), 'admin-'),
+    Kaleta\Core\Language::runWith('cs', fn (): string => t(Kaleta\Core\RedirectRules::TWIN), 'admin-') !== Kaleta\Core\RedirectRules::TWIN],
+    ['Stará adresa, která se od této liší jen velikostí písmen nebo diakritikou, už je uložená: /cafe. Upravte raději to přesměrování – do Kalety 4.0 nemohou mít obě různé cíle.', true]);
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);
