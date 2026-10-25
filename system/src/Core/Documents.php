@@ -289,10 +289,11 @@ final class Documents
         }
         foreach (Collections::all($db) as $collection) {
             $fileKey = self::fileField($collection);
-            if ($fileKey === null) {
+            $value = $fileKey === null ? null : Collections::jsonField($fileKey); // N3183-1: the key is checked where it becomes SQL
+            if ($value === null) {
                 continue;
             }
-            $idp = $db->value("SELECT idp FROM {kolekce_polozky} WHERE idk = ? AND zobrazit = 1 AND smazano IS NULL AND JSON_UNQUOTE(JSON_EXTRACT(data, '$." . $fileKey . "')) = ? ORDER BY idp LIMIT 1", [$collection['idk'], $file]);
+            $idp = $db->value('SELECT idp FROM {kolekce_polozky} WHERE idk = ? AND zobrazit = 1 AND smazano IS NULL AND ' . $value . ' = ? ORDER BY idp LIMIT 1', [$collection['idk'], $file]);
             if ($idp !== null) {
                 self::count($app, (int) $idp);
                 break;

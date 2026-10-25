@@ -36,6 +36,17 @@ final class Collections
 
     public const string KEY_PATTERN = '/^[a-z][a-z0-9_]{0,30}$/D';
 
+    /**
+     * The SQL expression of one value of an item, JSON_UNQUOTE(JSON_EXTRACT(data, '$.<key>')) – null when the key is not a
+     * field key (3.19, N3183-1). Every writer of ka_kolekce.pole goes through sanitizeFields, but a key becomes SQL text only
+     * here, after it is checked again: a key stored some other way (a restore, a raw UPDATE, a future writer) can never reach
+     * a query – the caller leaves that filter out instead.
+     */
+    public static function jsonField(string $key): ?string
+    {
+        return preg_match(self::KEY_PATTERN, $key) === 1 ? "JSON_UNQUOTE(JSON_EXTRACT(data, '$." . $key . "'))" : null;
+    }
+
     /** Where a hidden item's page may redirect: '' (404), a path on the site (/team) or an https address; null = not valid. */
     public static function cleanRedirect(string $value): ?string
     {
@@ -357,7 +368,7 @@ final class Collections
      */
     public static function items(Db $db, int $idk, string $language, int $count, string $sort = 'poradi', ?array $filter = null, int $pageNumber = 1, string $sortField = '', ?array $period = null, ?array $categories = null): array
     {
-        $field = fn (string $key): string => "JSON_UNQUOTE(JSON_EXTRACT(data, '$." . $key . "'))"; // the key passed KEY_PATTERN
+        $field = fn (string $key): string => (string) self::jsonField($key); // only called with a key that passed KEY_PATTERN
         $whereParts = 'idk = ? AND zobrazit = 1 AND jazyk = ?';
         $params = [$idk, $language];
         if ($filter !== null && preg_match(self::KEY_PATTERN, $filter[0]) && $filter[1] !== '') {

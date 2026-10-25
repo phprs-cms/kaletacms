@@ -177,7 +177,9 @@ final class Collections extends Module
         // posting by its state…): ?category=<id>&field_<key>=<option>; an unknown category or option is no filter
         $categories = CategoryTree::has($this->db, (int) $k['idk']) ? CategoryTree::choices($this->db, (int) $k['idk'], $column ?? '') : [];
         $category = in_array($this->request->getInt('category'), array_column($categories, 'id'), true) ? $this->request->getInt('category') : 0;
-        $choiceFields = array_values(array_filter($k['pole'], fn (array $f): bool => $f['typ'] === 'volba'));
+        // N3183-1: a choice field whose stored key is not a field key (written some other way than sanitizeFields) is no filter
+        $choiceFields = array_values(array_filter($k['pole'], fn (array $f): bool => $f['typ'] === 'volba' && is_array($f['moznosti'] ?? null)
+            && KolekceObsahu::jsonField((string) ($f['klic'] ?? '')) !== null));
         $fieldFilter = [];
         foreach ($choiceFields as $f) {
             $value = $this->request->get('field_' . $f['klic']);
@@ -191,8 +193,8 @@ final class Collections extends Module
             $where .= ' AND jazyk = ?';
             $params[] = $column;
         }
-        foreach ($fieldFilter as $key => $value) { // the key passed the field-key pattern of sanitizeFields
-            $where .= " AND JSON_UNQUOTE(JSON_EXTRACT(data, '$." . $key . "')) = ?";
+        foreach ($fieldFilter as $key => $value) {
+            $where .= ' AND ' . KolekceObsahu::jsonField((string) $key) . ' = ?'; // checked against KEY_PATTERN above (N3183-1)
             $params[] = $value;
         }
         if ($category > 0) {

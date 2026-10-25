@@ -230,12 +230,16 @@ final class Kernel
     public function page(string $heading, string $content, int $status = 200): Response
     {
         $app = $this->app;
+        // 3.19 (N3183-2): a user held at the required two-factor gate sees My account only – no module menu, no collection
+        // links and no quick-search palette (page titles, collection names) before the second factor is set up
+        $gated = $app->auth()->user() !== null && $app->auth()->isMissingRequired2fa($app->settings());
 
         return Response::html($app->view->render('admin/layout', [
             'app' => $app,
             'heading' => t($heading),
             'content' => $content,
-            'modules' => $app->auth()->user() !== null ? $this->modules() : [],
+            'modules' => $app->auth()->user() !== null && !$gated ? $this->modules() : [],
+            'gated' => $gated,
             'active' => $app->request->get('module'),
             'user' => $app->auth()->user(),
             'flashes' => $app->session->takeFlashes(),

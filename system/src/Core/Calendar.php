@@ -233,10 +233,11 @@ final class Calendar
         $moved = 0;
         foreach (Collections::all($db) as $collection) {
             $fields = self::fields($collection);
-            if ($fields === null || $fields['repeat'] === '') {
+            $repeat = $fields === null || $fields['repeat'] === '' ? null : Collections::jsonField($fields['repeat']); // N3183-1
+            if ($repeat === null) {
                 continue;
             }
-            foreach ($db->all("SELECT idp, nazev, data FROM {kolekce_polozky} WHERE idk = ? AND smazano IS NULL AND JSON_UNQUOTE(JSON_EXTRACT(data, '$." . $fields['repeat'] . "')) <> ''", [(int) $collection['idk']]) as $r) {
+            foreach ($db->all('SELECT idp, nazev, data FROM {kolekce_polozky} WHERE idk = ? AND smazano IS NULL AND ' . $repeat . " <> ''", [(int) $collection['idk']]) as $r) {
                 $data = json_decode((string) $r['data'], true) ?: [];
                 $get = fn (string $role): string => $fields[$role] !== '' ? (string) ($data[$fields[$role]] ?? '') : '';
                 $next = self::nextOccurrence($get('start'), $get('end'), $get('repeat'), $get('repeat_until'), $now);

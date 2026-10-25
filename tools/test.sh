@@ -1494,6 +1494,10 @@ check "přehled rolí" 200 "/admin.php?module=roles" "Obchodník"
 check "uživatelé ukazují vlastní roli" 200 "/admin.php?module=users" "Obchodník"
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('require_2fa', 'spravci') ON DUPLICATE KEY UPDATE hodnota = 'spravci'"
 code=$(curl -s -b "$JAR" -o /dev/null -w '%{http_code} %{redirect_url}' "$B/admin.php?module=pages"); case "$code" in "302 "*action=account*) echo "  ok     povinné dvoufázové přihlášení pustí jen do Můj účet";; *) echo "  CHYBA  vynucení 2FA: $code"; ERRORS=$((ERRORS+1));; esac
+# 3.19 (N3183-2): at the gate My account is drawn without the module menu, the collection links and the quick-search palette
+code=$(curl -s -b "$JAR" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?action=account")
+expect "3.19 (N3183-2): at the two-factor gate My account shows no module menu, no collection link and no quick search" \
+  "$code|$(grep -c 'id="paleta-data"' "$WORK/response")|$(grep -c 'data-paleta' "$WORK/response")|$(grep -c 'class="menu-kolekce' "$WORK/response")|$(grep -c 'module=pages' "$WORK/response")|$(grep -c 'totp_start' "$WORK/response")" "200|0|0|0|0|1"
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'require_2fa'"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?action=account" -d "_csrf=$TOKEN" -d co=totp_start
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=account"
@@ -2019,6 +2023,13 @@ check "3.18.3: admin items filtered by a choice field" 200 "/admin.php?module=co
 grep -q '>Volba A</a>' "$WORK/response" && ! grep -q '>Volba B</a>' "$WORK/response" \
   && echo "  ok     3.18.3: the choice filter keeps only the matching items" || { echo "  CHYBA  3.18.3 admin choice filter"; ERRORS=$((ERRORS+1)); }
 check "3.18.3: an option the field does not have is no filter" 200 "/admin.php?module=collections&action=items&id=$IDK_VOL&field_stav=Jin%C3%BD" '>Volba B</a>'
+# 3.19 (N3183-1): a choice field whose stored key is no field key (written past sanitizeFields) is never spliced into the JSON path
+POLE_VOL=$(sq "SELECT pole FROM ka_kolekce WHERE idk = $IDK_VOL")
+sq "UPDATE ka_kolekce SET pole = JSON_ARRAY(JSON_OBJECT('klic', 'x'') OR 1=1 -- ', 'popisek', 'Stav', 'typ', 'volba', 'moznosti', JSON_ARRAY('Nový', 'Starý'))) WHERE idk = $IDK_VOL" > /dev/null
+code=$(curl -s -b "$JAR" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?module=collections&action=items&id=$IDK_VOL&field_x%27%29+OR+1%3D1+--+=Nov%C3%BD")
+expect "3.19 (N3183-1): a hostile stored field key is refused – no filter, no SQL error, both items listed" \
+  "$code|$(grep -c '>Volba A</a>' "$WORK/response")|$(grep -c '>Volba B</a>' "$WORK/response")|$(grep -c 'name="field_x' "$WORK/response")" "200|1|1|0"
+sq "UPDATE ka_kolekce SET pole = '$(printf '%s' "$POLE_VOL" | sed "s/'/''/g")' WHERE idk = $IDK_VOL" > /dev/null
 check "3.7: a category page lists the items of its subcategories" 200 /produkty/bezecke-pasy '<h1>Běžecké pásy</h1>'
 # the site audit and the migration report know category pages (3.9.3): a link to one is no broken link
 mcp create_page '{"title":"Audit kategorií","text":"<p><a href=\"/produkty/bezecke-pasy\">a</a> <a href=\"/produkty/bezecke-pasy/zdravotni\">b</a> <a href=\"/produkty/neni-kategorie\">c</a></p>","visible":true}' > /dev/null

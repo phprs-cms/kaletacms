@@ -600,10 +600,10 @@ final class Kernel
         $db = $this->app->db();
         $collection = \Kaleta\Builder\Collections::bySlug($db, $collectionSlug);
         $fields = $collection !== null ? \Kaleta\Core\Calendar::fields($collection) : null;
-        if ($collection === null || $fields === null) {
+        $start = $fields !== null ? \Kaleta\Builder\Collections::jsonField($fields['start']) : null; // N3183-1
+        if ($collection === null || $fields === null || $start === null) {
             return null;
         }
-        $start = "JSON_UNQUOTE(JSON_EXTRACT(data, '$." . $fields['start'] . "'))";
         $rows = $itemSlug !== ''
             ? $db->all('SELECT * FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND jazyk = ? AND zobrazit = 1 AND smazano IS NULL', [$collection['idk'], $itemSlug, Language::siteColumn()])
             : $db->all('SELECT * FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND zobrazit = 1 AND smazano IS NULL AND ' . $start . ' >= ? ORDER BY ' . $start . ' LIMIT 500',

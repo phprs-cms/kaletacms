@@ -9,6 +9,7 @@
  * @var string $active
  * @var array<string, mixed>|null $user
  * @var list<array{typ:string, text:string}> $flashes
+ * @var bool $gated  3.19: the user is held at the required two-factor gate (no menu, no palette)
  */
 $icon = require __DIR__ . '/icons.php';
 $onDashboard = $active === '' && (string) $app->request->get('action') === ''; // My account (akce=ucet) is not the Dashboard
@@ -23,7 +24,7 @@ $currentCollection = $active === 'collections' && !in_array((string) $app->reque
 
 // command palette (Ctrl/⌘+K): only where the signed-in user may go – the module list already follows permissions
 $statements = [];
-if ($user !== null) {
+if ($user !== null && empty($gated)) { // 3.19 (N3183-2): nothing to search at the two-factor gate
     $adminUrl = fn (string $query = ''): string => $app->url('admin.php' . ($query !== '' ? '?' . $query : ''));
     $statements[] = ['n' => t('Dashboard'), 'u' => $adminUrl(), 's' => ''];
     foreach ($modules as $ident => $class) {
@@ -107,7 +108,9 @@ if ($user !== null && (isset($modules['requests']) || isset($modules['claude_set
 	</nav>
 </header>
 <section class="loginprouzek" aria-label="<?= e(t('Account and tools')) ?>">
+<?php if ($statements !== []): ?>
 	<button class="paleta-spustit" type="button" data-paleta title="<?= e(t('Quick search and commands')) ?>"><span><?= e(t('Search…')) ?></span> <kbd>Ctrl K</kbd></button>
+<?php endif ?>
 	<button class="tema-prepinac" type="button" data-tema-prepinac title="<?= e(t('Light / dark mode')) ?>" aria-label="<?= e(t('Toggle light and dark mode')) ?>"><?= $icon('tema') ?></button>
 <?php if ($claudeChip !== null): ?>
 	<?= $app->view->render('admin/claude_chip', ['app' => $app] + $claudeChip) ?>
