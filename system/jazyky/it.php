@@ -2059,4 +2059,5 @@ return [
     'Preview of drafts: only for someone who opened a signed preview link (cookie)' => 'Anteprima delle bozze: solo per chi ha aperto un link di anteprima firmato (cookie)',
     'until the preview link expires, at most 7 days' => 'fino alla scadenza del link di anteprima, al massimo 7 giorni',
     'open in a new window' => 'apri in una nuova finestra',
+    'If a page of this website shows a store locator that loads its map at once, your browser contacts OpenStreetMap (OpenStreetMap Foundation) as soon as the page opens – before you give your consent in the cookie bar – and sends it your IP address to load the map; otherwise the map loads only after you click it.' => 'Se una pagina di questo sito mostra un localizzatore di sedi che carica subito la mappa, il tuo browser contatta OpenStreetMap (OpenStreetMap Foundation) appena la pagina si apre – prima che tu dia il consenso nel banner dei cookie – e gli invia il tuo indirizzo IP per caricare la mappa; altrimenti la mappa si carica solo dopo un clic.',
 ];

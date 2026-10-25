@@ -158,6 +158,43 @@ final class Privacy
         return $found;
     }
 
+    /** The sentence of the privacy template about the store locator's "Load the map at once" (3.19, N3182-7) – optional by its wording. */
+    public const string MAP_AT_ONCE_TEXT = 'If a page of this website shows a store locator that loads its map at once, your browser contacts OpenStreetMap (OpenStreetMap Foundation) as soon as the page opens – before you give your consent in the cookie bar – and sends it your IP address to load the map; otherwise the map loads only after you click it.';
+
+    /**
+     * Does a published build use a store locator (Branches, element pobocky) with "Load the map at once" (mapa_hned)? Then
+     * every visitor's browser asks OpenStreetMap for map tiles when the page opens, before any consent (3.18.2, N3182-7) –
+     * the privacy template and the record of processing say so. Pages, site parts, pop-ups, components and the detail
+     * templates of collections, as published.
+     */
+    public static function mapAtOnce(Db $db): bool
+    {
+        $uses = function (mixed $nodes) use (&$uses): bool {
+            foreach (is_array($nodes) ? $nodes : [] as $n) {
+                if (is_array($n) && (($n['typ'] ?? '') === 'pobocky' && !empty($n['obsah']['mapa_hned']) || $uses($n['deti'] ?? []))) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
+        foreach (["SELECT stavba FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1 AND stavba LIKE '%mapa_hned%'", "SELECT stavba FROM {casti} WHERE stavba LIKE '%mapa_hned%'",
+            "SELECT stavba FROM {popupy} WHERE stavba LIKE '%mapa_hned%'", "SELECT stavba FROM {komponenty} WHERE stavba LIKE '%mapa_hned%'", "SELECT stavba FROM {kolekce} WHERE stavba LIKE '%mapa_hned%'"] as $sql) {
+            try {
+                foreach ($db->all($sql) as $r) {
+                    $build = json_decode((string) $r['stavba'], true);
+                    if ($uses(is_array($build) ? ($build['deti'] ?? $build) : [])) {
+                        return true;
+                    }
+                }
+            } catch (\Throwable) {
+                continue; // a table of a later release – nothing to find there
+            }
+        }
+
+        return false;
+    }
+
     /** @return list<string> the published builds and texts of pages, site parts, pop-ups and components, as stored */
     private static function contentSamples(App $app): array
     {
@@ -388,6 +425,8 @@ final class Privacy
             $s->get('remote_backup') !== 'vypnuto' ? t('Backups: automatic %s, an off-site copy over %s to %s.', $yes($s->bool('auto_backups')), strtoupper($s->get('remote_backup')), $s->get('backup_host')) : t('Backups: automatic %s, kept on this server only.', $yes($s->bool('auto_backups'))),
             Extensions::isEnabled($s, 'asistent') && $s->get('ai_provider') !== '' ? t('Writing assistant: %s – texts the administrators ask about%s are sent to it.', $s->get('ai_provider'), $s->bool('triage_assistant') ? ' ' . t('and new enquiries (triage)') : '') : t('Writing assistant: off.'),
             Extensions::isEnabled($s, 'claude') ? t('Claude (MCP): administrators’ assistants work with the content; enquiries are shown to them as the Enquiries screen shows them.') : '',
+            // 3.19 (N3182-7): a store locator that loads its map at once sends every visitor's address to OpenStreetMap
+            self::mapAtOnce($db) ? t('Maps: a store locator loads its map from OpenStreetMap (OpenStreetMap Foundation) as soon as the page opens – the visitor’s IP address reaches it before any consent in the cookie bar.') : '',
             $s->get('captcha_provider') !== '' ? t('Spam check: %s receives the visitor’s address and browser details when a form is sent.', Captcha::PROVIDERS[$s->get('captcha_provider')][0] ?? $s->get('captcha_provider')) : t('Spam check: built-in only (a signed time, a trap field, a limit per address) – no third party.'),
         ])];
         $cookies = array_map(fn (array $r): string => $r['name'] . ' – ' . $r['provider'] . ' (' . t(self::CATEGORIES[$r['category']] ?? $r['category']) . ', ' . $r['duration'] . ')', self::cookieTable($app));

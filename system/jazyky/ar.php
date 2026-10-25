@@ -2086,4 +2086,5 @@ The link works for %d days.
     'Preview of drafts: only for someone who opened a signed preview link (cookie)' => 'معاينة المسودات: فقط لمن فتح رابط معاينة موقّعًا (ملف تعريف ارتباط)',
     'until the preview link expires, at most 7 days' => 'حتى انتهاء صلاحية رابط المعاينة، 7 أيام على الأكثر',
     'open in a new window' => 'فتح في نافذة جديدة',
+    'If a page of this website shows a store locator that loads its map at once, your browser contacts OpenStreetMap (OpenStreetMap Foundation) as soon as the page opens – before you give your consent in the cookie bar – and sends it your IP address to load the map; otherwise the map loads only after you click it.' => 'إذا كانت إحدى صفحات هذا الموقع تعرض أداة للبحث عن الفروع تحمّل خريطتها فورًا، فإن متصفحك يتصل بـ OpenStreetMap (مؤسسة OpenStreetMap) بمجرد فتح الصفحة – قبل أن تمنح موافقتك في شريط ملفات تعريف الارتباط – ويرسل إليه عنوان IP الخاص بك لتحميل الخريطة؛ وإلا فلا تُحمَّل الخريطة إلا بعد النقر عليها.',
 ];

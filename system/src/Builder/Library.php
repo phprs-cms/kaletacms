@@ -437,10 +437,11 @@ final class Library
     /**
      * Skeleton of a privacy policy (HTML in the current site language). Since 1.9 it follows the site: sections only for
      * the features that are switched on (enquiries, newsletter, statistics, analytics and marketing codes, the consent
-     * record, maps, a CRM webhook), and the company details, periods and services already filled in. What the site does
+     * record, maps, a CRM webhook, a store locator that loads its map at once – $mapAtOnce, Core\Privacy::mapAtOnce, 3.19), and
+     * the company details, periods and services already filled in. What the site does
      * not know stays in square brackets. It is a template with a disclaimer at the top, never legal advice.
      */
-    public static function privacyPolicyText(?\Kaleta\Core\Settings $s = null): string
+    public static function privacyPolicyText(?\Kaleta\Core\Settings $s = null, bool $mapAtOnce = false): string
     {
         $o = fn (string $heading, string ...$texts): string => '<h2>' . e(t($heading)) . '</h2>' . implode('', array_map(fn (string $x): string => '<p>' . $x . '</p>', array_filter($texts)));
         $x = fn (string $text, mixed ...$args): string => e(t($text, ...$args));
@@ -492,6 +493,12 @@ final class Library
         }
         if ($get('company_map') !== '') {
             $analytics[] = $x('Maps load from the map provider only after you click them.');
+        }
+        // 3.19 (N3182-7, the owner's decision of 22 October 2026): the store locator's "Load the map at once" contacts
+        // OpenStreetMap before consent – in the template made at installation always (nobody knows yet which elements the
+        // site will use; the sentence says when it applies), otherwise when a published build uses it
+        if ($s === null || $mapAtOnce) {
+            $analytics[] = $x(\Kaleta\Core\Privacy::MAP_AT_ONCE_TEXT);
         }
         if ($analytics !== []) {
             $html .= $o('Cookies and analytics', ...$analytics);

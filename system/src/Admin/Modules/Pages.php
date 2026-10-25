@@ -369,7 +369,7 @@ final class Pages extends Module
             }
             if ($template !== null && $data['text'] === '') {
                 // in the page's language, from what the site has switched on (1.9); with the text it may be shown as chosen
-                $text = \Kaleta\Core\Language::runWith($this->contentLanguage($language), fn (): string => \Kaleta\Builder\Library::privacyPolicyText($this->app->settings()));
+                $text = \Kaleta\Core\Language::runWith($this->contentLanguage($language), fn (): string => \Kaleta\Builder\Library::privacyPolicyText($this->app->settings(), \Kaleta\Core\Privacy::mapAtOnce($this->db)));
                 $this->db->update('stranky', ['text' => $text] + ($data['show_on_publish'] ? ['zobrazit' => 1, 'show_on_publish' => 0] : []), ['ids' => $id]);
 
                 return $this->back('The page has been created with a privacy policy outline – fill in the details in square brackets.', 'edit', ['id' => $id]);

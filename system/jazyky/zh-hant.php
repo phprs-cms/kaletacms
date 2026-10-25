@@ -2086,4 +2086,5 @@ The link works for %d days.
     'Preview of drafts: only for someone who opened a signed preview link (cookie)' => '草稿預覽：僅針對開啟了已簽署預覽連結的人（Cookie）',
     'until the preview link expires, at most 7 days' => '直到預覽連結過期，最長 7 天',
     'open in a new window' => '在新視窗中開啟',
+    'If a page of this website shows a store locator that loads its map at once, your browser contacts OpenStreetMap (OpenStreetMap Foundation) as soon as the page opens – before you give your consent in the cookie bar – and sends it your IP address to load the map; otherwise the map loads only after you click it.' => '如果本網站的某個頁面顯示了設定為立即載入地圖的門市查詢，則頁面一開啟（在您於 Cookie 橫幅中表示同意之前），您的瀏覽器就會連線至 OpenStreetMap（OpenStreetMap 基金會），並向其傳送您的 IP 位址以載入地圖；否則，地圖只會在您點擊後載入。',
 ];

@@ -379,4 +379,5 @@ Der Link gilt %d Tage.
     'Thank you for your application. We will get back to you.' => 'Vielen Dank für deine Bewerbung. Wir melden uns bei dir.',
     'A few words about you' => 'Ein paar Worte über dich',
     'open in a new window' => 'in einem neuen Fenster öffnen',
+    'If a page of this website shows a store locator that loads its map at once, your browser contacts OpenStreetMap (OpenStreetMap Foundation) as soon as the page opens – before you give your consent in the cookie bar – and sends it your IP address to load the map; otherwise the map loads only after you click it.' => 'Zeigt eine Seite dieser Website eine Filialsuche, die ihre Karte sofort lädt, verbindet sich dein Browser beim Öffnen der Seite – noch bevor du im Cookie-Banner zustimmst – mit OpenStreetMap (OpenStreetMap Foundation) und übermittelt deine IP-Adresse, um die Karte zu laden; sonst lädt die Karte erst nach einem Klick.',
 ];
