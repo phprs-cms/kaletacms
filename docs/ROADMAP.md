@@ -961,7 +961,7 @@ labelled (owner decision, N3182-7). A second review found no bypass of the new c
   last additional language), pages and news apply a filter choice at once, and collection items filter by category and
   by each choice field.
 
-## 3.19 – per-language addresses for every site, collection icons (in progress)
+## 3.19 – per-language addresses for every site, collection icons (released 26 October 2026)
 
 Owner decisions of 21 and 22 October 2026: no physical renames of tables or columns to English ("it doesn't matter to most
 users"), so the rest of the 4.0 contract ships as a normal 3.x release instead of a major with a release candidate.
