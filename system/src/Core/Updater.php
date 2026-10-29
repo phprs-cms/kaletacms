@@ -64,6 +64,16 @@ final class Updater
     public const int STALE = 3910;
     public const int WRONG_CHANNEL = 3911;
 
+    /**
+     * 3.19.1 (N88): the exception code of an update whose rollback could not put every file back – the site is a mix of
+     * two versions, the originals are kept and the maintenance page stays up (the message says what to do; "nothing has
+     * changed on the site" would be untrue).
+     */
+    public const int RESTORE_FAILED = 3912;
+
+    /** The first line of storage/udrzba.lock after a failed rollback: the lock then holds until a person removes it (App::boot). */
+    public const string RESTORE_FAILED_MARK = 'kaleta-restore-failed';
+
     /** 3.10 (N310-3): a signed release date more than this many days after today (UTC) is never remembered. */
     public const int FUTURE_DAYS = 2;
 
@@ -518,6 +528,7 @@ final class Updater
         }
         $workDir = KALETA_ROOT . '/storage/cache/aktualizace-' . bin2hex(random_bytes(4));
         $zip = $workDir . '.zip';
+        $restoreFailed = false;
         try {
             $this->download((string) $m['url'], $zip);
             $sha = hash_file('sha256', $zip);
@@ -567,11 +578,12 @@ final class Updater
                     Migration::apply($db, $this->settings);
                 }
             } catch (\Throwable $e) {
-                $this->restore($written, $setAside);
+                $stuck = $this->rollBack($written, $setAside, $db, (string) $m['verze']);
+                $restoreFailed = $stuck !== null;
                 if ($db !== null) {
                     Events::record($db, 'update.failed', 'error', mb_substr(t('Installing version %s failed: %s', (string) $m['verze'], $e->getMessage()), 0, 255), ['version' => (string) $m['verze']]);
                 }
-                throw new \RuntimeException($e->getMessage() . ' ' . t('The website files have been returned to their state before the update.'), 0, $e);
+                throw new \RuntimeException($e->getMessage() . ' ' . ($stuck ?? t('The website files have been returned to their state before the update.')), $restoreFailed ? self::RESTORE_FAILED : 0, $e);
             }
             // 2.8: does the site work on the new version? Maintenance ends, the site is asked; when it answers with an error,
             // the previous files come back (the database changes are additive, the old version keeps working on them)
@@ -579,19 +591,27 @@ final class Updater
             $answers = [];
             $problem = $db !== null ? $this->probe((string) $m['verze'], $answers) : null;
             if ($problem !== null) {
-                $this->restore($written, $setAside);
+                $stuck = $this->rollBack($written, $setAside, $db, (string) $m['verze']);
+                $restoreFailed = $stuck !== null;
                 if (function_exists('opcache_reset')) {
                     @opcache_reset();
                 }
+                $this->settings->set('update_attempt', (string) $m['verze']); // an automatic update does not try the same version again
+                if ($stuck !== null) {
+                    // not rolled back: the monthly report and the heartbeat count it as a failed update, the event above names the files
+                    Events::record($db, 'update.failed', 'error', mb_substr(t('Installing version %s failed: %s', (string) $m['verze'], $problem), 0, 255), ['version' => (string) $m['verze']]);
+                    throw new \RuntimeException(t('Version %s was installed but the site did not work afterwards (%s).', (string) $m['verze'], $problem) . ' ' . $stuck, self::RESTORE_FAILED);
+                }
                 Events::record($db, 'update.rolled_back', 'error', mb_substr(t('Version %s did not work (%s), so the site went back to version %s.', (string) $m['verze'], $problem, KALETA_VERSION), 0, 255),
                     ['version' => (string) $m['verze'], 'answers' => array_map(fn (array $a): array => [$a[0], mb_substr(trim(strip_tags($a[1])), 0, 80)], $answers)]);
-                $this->settings->set('update_attempt', (string) $m['verze']); // an automatic update does not try the same version again
                 throw new \RuntimeException(t('Version %s was installed but the site did not work afterwards (%s). The website files have been returned to their state before the update.', (string) $m['verze'], $problem));
             }
             self::deleteFolder($setAside);
             self::cleanUpObsolete($this->root, $previous, $files);
         } finally {
-            @unlink(KALETA_ROOT . '/storage/udrzba.lock');
+            if (!$restoreFailed) {
+                @unlink(KALETA_ROOT . '/storage/udrzba.lock'); // N88: after a rollback that left files behind, the maintenance page stays
+            }
             @unlink($zip);
             self::deleteFolder($workDir);
             flock($lock, LOCK_UN);
@@ -614,13 +634,84 @@ final class Updater
         return (string) $m['verze'];
     }
 
-    /** @param list<string> $written files written by the update; each comes back from the set-aside copy, a new one is removed */
-    private function restore(array $written, string $setAside): void
+    /**
+     * Files written by the update go back: each from the set-aside copy, a new one is removed. 3.19.1 (N88): a file that
+     * cannot be put back (a full disk or quota, a file owned by another user – often the same cause that made the update
+     * fail) is counted, and the set-aside folder is deleted only when every file came back; otherwise it is the only copy
+     * of the originals and stays.
+     *
+     * @param list<string> $written
+     * @return list<string> the files that could not be put back, in the order they were written
+     */
+    private function restore(array $written, string $setAside): array
     {
+        $failed = [];
         foreach (array_reverse($written) as $relativePath) {
-            is_file($setAside . '/' . $relativePath) ? @copy($setAside . '/' . $relativePath, $this->root . '/' . $relativePath) : @unlink($this->root . '/' . $relativePath);
+            $original = $setAside . '/' . $relativePath;
+            $target = $this->root . '/' . $relativePath;
+            $back = is_file($original) ? @copy($original, $target) && hash_file('sha256', $original) === hash_file('sha256', $target)
+                : !file_exists($target) || @unlink($target);
+            if (!$back) {
+                $failed[] = $relativePath;
+            }
         }
-        self::deleteFolder($setAside);
+        if ($failed === []) {
+            self::deleteFolder($setAside);
+        }
+
+        return array_reverse($failed);
+    }
+
+    /**
+     * Rolls the written files back (restore). Null when every file came back. Otherwise (N88) the site is a mix of two
+     * versions: the set-aside folder stays, storage/udrzba.lock is written with RESTORE_FAILED_MARK so visitors keep
+     * getting the maintenance page until a person fixes the files (App::boot honours it however old it is), the event
+     * update.restore_failed names the folder and the files (the alert e-mail carries it), and the text for the
+     * administrator and the background job's e-mail comes back.
+     *
+     * @param list<string> $written
+     */
+    private function rollBack(array $written, string $setAside, ?Db $db, string $version): ?string
+    {
+        $failed = $this->restore($written, $setAside);
+        if ($failed === []) {
+            return null;
+        }
+        $folder = str_starts_with($setAside, KALETA_ROOT . '/') ? substr($setAside, strlen(KALETA_ROOT) + 1) : $setAside;
+        $text = self::restoreFailedText(count($failed), $failed, $folder, KALETA_VERSION);
+        @file_put_contents(KALETA_ROOT . '/storage/udrzba.lock', self::RESTORE_FAILED_MARK . "\n" . $text . "\n", LOCK_EX);
+        if ($db !== null) {
+            Events::record($db, 'update.restore_failed', 'error', mb_substr(t('Installing version %s failed and %d file(s) could not be put back – the originals are in %s.', $version, count($failed), $folder), 0, 255),
+                ['version' => $version, 'from' => KALETA_VERSION, 'folder' => $folder, 'count' => count($failed), 'files' => array_slice($failed, 0, 50)]);
+        }
+
+        return $text;
+    }
+
+    /**
+     * What the administrator (and the background job's e-mail) reads after a rollback that left files behind (N88).
+     *
+     * @param list<string> $files
+     */
+    public static function restoreFailedText(int $count, array $files, string $folder, string $version): string
+    {
+        $shown = implode(', ', array_slice($files, 0, 5)) . (count($files) > 5 ? ', …' : '');
+
+        return t('%d file(s) could not be put back (%s), so the site is a mix of two versions. The originals are in %s: copy them back over FTP, or upload the files of version %s over FTP, then delete storage/udrzba.lock. Until then visitors see the maintenance page.', $count, $shown, $folder, $version);
+    }
+
+    /** N88: the text of a rollback that left files behind while storage/udrzba.lock still says so; null otherwise. */
+    public static function restoreFailed(string $lock = KALETA_ROOT . '/storage/udrzba.lock'): ?string
+    {
+        if (!is_file($lock)) {
+            return null;
+        }
+        $content = (string) @file_get_contents($lock, false, null, 0, 4096);
+        if (!str_starts_with($content, self::RESTORE_FAILED_MARK)) {
+            return null;
+        }
+
+        return trim(substr($content, strlen(self::RESTORE_FAILED_MARK)));
     }
 
     /**

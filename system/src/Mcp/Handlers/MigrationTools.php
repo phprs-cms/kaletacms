@@ -330,8 +330,11 @@ trait MigrationTools
             }
         }
 
+        // 3.19.1 (N79): the page only as an address on the site or an http(s) address – anything else is dropped
+        $page = mb_substr(trim((string) ($e['page'] ?? '')), 0, 255);
+
         return ['datum' => date('Y-m-d H:i:s', $time), 'formular' => mb_substr(trim((string) ($e['form'] ?? '')), 0, 120),
-            'stranka' => mb_substr(trim((string) ($e['page'] ?? '')), 0, 255),
+            'stranka' => \Kaleta\Front\Forms::isSafePage($page) ? $page : '',
             'email' => filter_var($email, FILTER_VALIDATE_EMAIL) ? mb_substr($email, 0, 190) : '', 'data' => $fields];
     }
 }

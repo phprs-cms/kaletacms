@@ -24,7 +24,7 @@ extensions/hello/
 
 The folder name is the add-on's **slug**: lowercase letters, digits and `_`, at most 31 characters.
 
-Since 3.3.2 the web server serves only `extensions/<slug>/public/` to visitors (as `/extensions/<slug>/public/…`), and never a PHP file from it. Everything else in the folder – your PHP, `extension.json`, `install.sql` – cannot be requested from the web. A site whose `.htaccess` was customised gets the new rule in `.htaccess.kaleta-nova` after the update; System status reminds the administrator to carry it over.
+Since 3.3.2 the web server serves only `extensions/<slug>/public/` to visitors (as `/extensions/<slug>/public/…`), and never a PHP file from it – since 3.19.1 also not with a path after its name (`run.php/x`), and nothing in `public/` but an existing file. PHP does not belong in `public/`. Everything else in the folder – your PHP, `extension.json`, `install.sql` – cannot be requested from the web. A site whose `.htaccess` was customised gets the new rule in `.htaccess.kaleta-nova` after the update; System status reminds the administrator to carry it over.
 
 ### extension.json
 
@@ -45,7 +45,9 @@ Since 3.3.2 the web server serves only `extensions/<slug>/public/` to visitors (
 
 ### install.sql
 
-When the add-on is switched on, `install.sql` runs. It may only contain `CREATE TABLE IF NOT EXISTS ka_ext_<slug>_<name> (…)` statements. Kaleta replaces `ka_` with the site's own table prefix.
+When the add-on is switched on, `install.sql` runs. It may only contain `CREATE TABLE IF NOT EXISTS ka_ext_<slug>_<name> (…)` statements, one per statement – each ends with a semicolon at the end of its line. Since 3.19.1 a second statement after a semicolon on the same line, or a `/*! … */` comment, is refused and nothing runs. Kaleta replaces `ka_` with the site's own table prefix.
+
+`install.sql` is a convenience, not a sandbox: your add-on's PHP runs with Kaleta's rights anyway. The check keeps the file honest for the administrator who reads it before switching the add-on on.
 
 If you change your tables in a later version, keep the old columns working, because Kaleta does not migrate add-on tables.
 

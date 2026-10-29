@@ -25,6 +25,10 @@ final class Response
 
     public static function redirect(string $url, int $status = 302): self
     {
+        // 3.19.1 (N76): the browser's URL parser drops ASCII tab and newline anywhere and C0 controls and spaces at the ends
+        // before it reads the address – so "/<TAB>/evil.example" would be "//evil.example" to it; they go here first (the
+        // other control characters too: no header may carry them)
+        $url = trim((string) preg_replace('/[\x00-\x1F\x7F]/', '', $url), ' ');
         // a path is never protocol-relative: "//evil.example" or "/\\evil.example" would leave the site (3.4.2, N34-1)
         if (preg_match('#^[/\\\\]{2}#', $url)) {
             $url = '/' . ltrim($url, '/\\');

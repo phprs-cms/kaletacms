@@ -9,8 +9,8 @@ declare(strict_types=1);
 $root = dirname(__DIR__);
 $path = rawurldecode((string) parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH));
 // Semgrep's tainted-filename findings below are covered by this rule: a path with /. (also /..) or a backslash never reaches the file system
-// add-ons (3.3.2): only extensions/<slug>/public/ is served, and never PHP from it – as in .htaccess
-if (preg_match('#^/(system|storage|tools|docs|dist)(/|$)|^/layout/.+\.php$|^/config(\.sample)?\.php$|/\.(?!well-known/)|\\\\|\x00|^/media/.*\.php|^/extensions/(?![^/]+/public/)|^/extensions/[^/]+/public/.+\.(php\d?|pht|phps|phtml|phar)$#i', $path)) {
+// add-ons (3.3.2): only extensions/<slug>/public/ is served, and never PHP from it – as in .htaccess (3.19.1: with path info too)
+if (preg_match('#^/(system|storage|tools|docs|dist)(/|$)|^/layout/.+\.php$|^/config(\.sample)?\.php$|/\.(?!well-known/)|\\\\|\x00|^/media/.*\.php|^/extensions/(?![^/]+/public/)|^/extensions/[^/]+/public/.+\.(php\d?|pht|phps|phtml|phar)(\.|/|$)#i', $path)) {
     http_response_code(403);
     exit('403');
 }

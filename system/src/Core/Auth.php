@@ -91,7 +91,8 @@ final class Auth
         // the failure counter is reset only by a completed sign-in (recordSignIn): with two-factor sign-in a correct password
         // must not wipe the wrong codes counted so far, or the per-account lock would never be reached (3.3.2, N7)
 
-        $this->session->regenerate();
+        // the form token changes where the sign-in completes (N75): here without a second step, otherwise after the code or passkey
+        $this->session->regenerate(newFormToken: $user['totp_tajemstvi'] === '');
         if ($user['totp_tajemstvi'] !== '') {
             // the password matches, but the account has two-factor sign-in: only the code from the app completes the sign-in
             $this->session->set('idu_ceka', ['idu' => (int) $user['idu'], 'cas' => time()]);
@@ -212,7 +213,7 @@ final class Auth
             $this->db->update('uzivatele', ['totp_zalozni' => $backupCodes], ['idu' => $user['idu']]);
         }
         $this->session->remove('idu_ceka');
-        $this->session->regenerate();
+        $this->session->regenerate(newFormToken: true);
         $this->startSignIn((int) $user['idu'], (string) $user['password']);
 
         return null;
@@ -309,7 +310,7 @@ final class Auth
         $this->db->update('uzivatele_klice', ['pocitadlo' => $counter, 'pouzito' => date('Y-m-d H:i:s')], ['idk' => $key['idk']]);
         $this->recordSignIn((int) $user['idu']);
         $this->session->remove('idu_ceka');
-        $this->session->regenerate();
+        $this->session->regenerate(newFormToken: true);
         $this->startSignIn((int) $user['idu'], (string) $user['password']);
 
         return null;

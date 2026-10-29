@@ -322,6 +322,16 @@ final class Forms
         return strlen($campaign) <= 255 ? $campaign : '';
     }
 
+    /**
+     * May an enquiry's page be shown as a link (3.19.1, N79)? Only an address on the site (/…, never //…) or an http(s)
+     * address, without spaces or control characters – an imported enquiry (MCP import_enquiries) carries what the old site
+     * or the connection sent, and a "javascript:" page must not become a link in the admin.
+     */
+    public static function isSafePage(string $page): bool
+    {
+        return preg_match('#^(/(?![/\\\\])|https?://[^/\\\\\x00-\x20\x7F]+(?:[/?\#]|$))[^\x00-\x20\x7F\\\\]*$#iD', $page) === 1;
+    }
+
     /** Human-readable campaign: „google / cpc / jarni-akce“ (source / medium / campaign, optionally keyword and content). */
     public static function campaignText(string $campaign): string
     {

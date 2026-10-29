@@ -160,7 +160,7 @@ abstract class Module
     protected function redirectToSite(string $target, string $suffix = ''): Response
     {
         $root = $this->app->request->basePath() . '/';
-        $isLocal = str_starts_with($target, $root) && !str_starts_with($target, '//') && !str_contains($target, '\\') && !preg_match('#[\r\n]|^/[/\\\\]#', $target);
+        $isLocal = str_starts_with($target, $root) && !str_starts_with($target, '//') && !str_contains($target, '\\') && !preg_match('#[\x00-\x20\x7F]|^/[/\\\\]#', $target); // 3.19.1 (N76): no tab, control character or space either
 
         return Response::redirect(($isLocal ? strtok($target, '?#') : $root) . ($isLocal ? $suffix : ''), 303);
     }

@@ -92,6 +92,12 @@ $developer = fn (string $detail): string => '<details><summary>' . e(t('Details 
 	<option value="ftp"<?= $values['remote_backup'] === 'ftp' ? ' selected' : '' ?>><?= e(t('to an FTP server with FTPS encryption (another host, home NAS)')) ?></option>
 	<option value="s3"<?= $values['remote_backup'] === 's3' ? ' selected' : '' ?>><?= e(t('S3 storage (Amazon S3, Backblaze B2, Wasabi, Cloudflare R2)')) ?></option>
 </select></div>
+<?php // 3.19.1 (N80): FTPS checks the server's certificate through cURL; where PHP cannot, the tab says so ?>
+<?php if (Kaleta\Core\RemoteBackup::ftpsVerified()): ?>
+<p class="napoveda"><?= e(t('FTPS: Kaleta checks the FTP server\'s certificate, as a browser does. A server with a self-signed certificate (common on a home NAS) is refused – give it a certificate from a recognised authority, for example Let\'s Encrypt, or use S3 storage.')) ?></p>
+<?php else: ?>
+<p class="hlaska<?= $values['remote_backup'] === 'ftp' ? ' hlaska-varovani' : '' ?>"><?= e(t('FTPS on this server does not check the FTP server\'s certificate – PHP here lacks cURL with FTPS. The copy is encrypted, but someone on the network path could pose as the FTP server and get the password and the backups. Prefer S3 storage, or ask the hosting for the PHP cURL extension.')) ?></p>
+<?php endif ?>
 <?php
 $field('backup_host', 'Server', 'text', 'FTP: ftp.example.com. S3: the storage endpoint, e.g. s3.eu-central-1.amazonaws.com or s3.eu-central-003.backblazeb2.com.', 'maxlength="150" autocomplete="off"');
 $field('backup_user', 'User name / access key', 'text', '', 'maxlength="190" autocomplete="off"');
@@ -159,4 +165,15 @@ $field('backup_region', 'Region (S3 only)', 'text', 'For example eu-central-1. F
 <p><button class="navigace" type="submit" formaction="<?= e($module->url('vault_move')) ?>" data-potvrdit="<?= e(t('Move the encryption key to config.php and encrypt the stored secrets and reports again?')) ?>"><?= e(t('Move the encryption key out of the database')) ?></button></p>
 <?php endif ?>
 <p class="napoveda"><?= e(t('Once the key is in config.php, restoring the database on another server also needs this site\'s config.php – keep a copy of it with your backups, somewhere safe.')) ?></p>
+</fieldset>
+<fieldset id="podpisovy-klic">
+<legend><?= e(t('Signing key')) ?></legend>
+<?php // 3.19.1 (N84, Core\SigningKey): withdraws every link the site signed – the only way to call back a shared preview link early ?>
+<p><?= e(t('The site signs the links it hands out with its own key – shared previews of drafts, downloads of gated documents, unlocked password-protected pages. A new key withdraws all of them at once, for example when a preview link went to the wrong person.')) ?></p>
+<?php $signingConsequences = implode('; ', array_map(fn (string $c): string => t($c), Kaleta\Core\SigningKey::CONSEQUENCES)); ?>
+<?php if (in_array($vaultState, ['pending', 'missing'], true)): ?>
+<p class="napoveda"><?= e(t('A new signing key can be made once the encryption key above is sorted out.')) ?></p>
+<?php else: ?>
+<p><button class="navigace nebezpecne" type="submit" formaction="<?= e($module->url('new_signing_key')) ?>" data-potvrdit="<?= e(t('Make a new signing key? This stops working at once: %s.', $signingConsequences)) ?>"><?= e(t('Make a new signing key')) ?></button></p>
+<?php endif ?>
 </fieldset>

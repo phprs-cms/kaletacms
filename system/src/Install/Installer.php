@@ -207,6 +207,9 @@ final class Installer
         if (file_put_contents(KALETA_ROOT . '/config.php', $content, LOCK_EX) === false) {
             return ['db_name' => t('The tables were created, but config.php could not be written. Check the write permissions.')];
         }
+        // 3.19.1 (N83): the database password and the encryption key are not for the other users of the server – 0600, or
+        // 0640 where PHP runs as the web server's user (Vault::configMode); a host that refuses chmod keeps its default
+        \Kaleta\Core\Vault::protectConfig(KALETA_ROOT . '/config.php');
         // only now: the encrypted data belongs to the key in config.php (Core\Vault) – a config.php made by hand from the
         // sample without the key leaves the site on secret_key, as before 3.15
         $db->insert('nastaveni', ['promenna' => 'vault_check', 'hodnota' => \Kaleta\Core\Vault::check($config['vault_key'])]);

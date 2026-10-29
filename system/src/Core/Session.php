@@ -53,11 +53,18 @@ final class Session
         unset($_SESSION[$key]);
     }
 
-    /** New session ID - call on both login and logout. */
-    public function regenerate(): void
+    /**
+     * New session ID - call on both login and logout. $newFormToken (3.19.1, N75): each step of a sign-in also starts a new
+     * form token – the token of the anonymous session must not carry over, or whoever planted the session cookie (a sibling
+     * subdomain) would know it. A password change keeps the token, so forms open in other tabs still save.
+     */
+    public function regenerate(bool $newFormToken = false): void
     {
         $this->start();
         session_regenerate_id(true);
+        if ($newFormToken) {
+            unset($_SESSION['_csrf']);
+        }
     }
 
     public function destroy(): void

@@ -35,6 +35,16 @@ final class Build
     /** Ids used by the site layout (skip to content, navigation, cookie bar) – an element's anchor must not repeat them. */
     public const array RESERVED_ANCHORS = ['obsah', 'navigace', 'cookies-lista', 'cookies-nadpis', 'cookies-znovu'];
 
+    /**
+     * May an element take this anchor (id)? Not one of the layout's ids, not the style ids (s-…) or Kaleta's own namespace
+     * (ka-…), and – 3.19.1 (N78) – none of the ids the site's scripts look up (Core\Html::isSafeId, the list texts have had
+     * since 3.15, N21: gtag, grecaptcha, poptavka, l, datalayer…): an element with such an id would take over the hook.
+     */
+    public static function isFreeAnchor(string $anchor): bool
+    {
+        return !in_array($anchor, self::RESERVED_ANCHORS, true) && preg_match('/^(s|ka)-/', $anchor) !== 1 && \Kaleta\Core\Html::isSafeId($anchor);
+    }
+
     /** Registry of element types (order = the order in the Add panel). @var list<class-string<Element>> */
     public const array ELEMENTS = [
         Elements\Section::class, Elements\Container::class, Elements\Grid::class,
@@ -132,7 +142,7 @@ final class Build
             }
             if (is_string($p['kotva'] ?? null) && preg_match('/^[a-z][a-z0-9-]{0,40}$/D', $p['kotva'])) {
                 // anchor = id on the page: it must be unique and must not clash with a layout id or with another element's style (s-…)
-                if (isset($used['kotva:' . $p['kotva']]) || in_array($p['kotva'], self::RESERVED_ANCHORS, true) || preg_match('/^(s|ka)-/', $p['kotva'])) {
+                if (isset($used['kotva:' . $p['kotva']]) || !self::isFreeAnchor($p['kotva'])) {
                     $errors[$place . '.kotva'] = 'Kotvu „' . $p['kotva'] . '“ už na stránce používá jiný prvek nebo šablona – vynechána.';
                 } else {
                     $clean['kotva'] = $p['kotva'];
@@ -642,7 +652,9 @@ final class Build
         $hasStyle = $style !== [] || $customCss !== '';
         // inside a Collection list the element repeats: style through the class s-<id>, not through the id (an id must be on the page only once)
         $isRepeated = $k->inLoop > 0;
-        $id = $isRepeated ? null : ($p['kotva'] ?? ($hasStyle ? 's-' . $p['id'] : null));
+        // 3.19.1 (N78): an anchor stored before the check (gtag, poptavka…) is not written – the element keeps its style id
+        $anchor = is_string($p['kotva'] ?? null) && self::isFreeAnchor($p['kotva']) ? $p['kotva'] : null;
+        $id = $isRepeated ? null : ($anchor ?? ($hasStyle ? 's-' . $p['id'] : null));
         $classes = array_merge($isRepeated && $hasStyle ? ['s-' . $p['id']] : [], $p['tridy'] ?? []);
         if ($hasStyle && !isset($k->styles[$p['id']])) {
             $k->styles[$p['id']] = true;

@@ -36,10 +36,11 @@ final class App
             header('Location: ' . $base . '/install.php');
             exit;
         }
-        // while files are being updated the site briefly answers 503 (a lock older than 10 minutes is a leftover and is ignored);
+        // while files are being updated the site briefly answers 503 (a lock older than 10 minutes is a leftover and is ignored –
+        // except the lock of a rollback that could not put every file back, 3.19.1 N88: it stays until a person removes it);
         // the dictionary is not loaded here yet, so a short English sentence follows the Czech text
         $lock = KALETA_ROOT . '/storage/udrzba.lock';
-        if (is_file($lock) && time() - (int) filemtime($lock) < 600 && basename((string) ($_SERVER['SCRIPT_NAME'] ?? '')) !== 'admin.php') {
+        if (is_file($lock) && (time() - (int) filemtime($lock) < 600 || \Kaleta\Core\Updater::restoreFailed($lock) !== null) && basename((string) ($_SERVER['SCRIPT_NAME'] ?? '')) !== 'admin.php') {
             http_response_code(503);
             header('Retry-After: 60');
             header('Content-Type: text/html; charset=utf-8');

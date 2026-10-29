@@ -472,11 +472,47 @@ class Settings extends Module
         };
     }
 
+    /** 3.19.1 (N83): config.php readable only by the site (0600, or 0640 – Core\Vault::configMode), from System status. */
+    protected function actionConfigPermissions(): Response
+    {
+        if (!$this->request->isPost() || !$this->app->auth()->isAdmin()) {
+            return $this->back('', '', ['tab' => 'health']);
+        }
+        if (!\Kaleta\Core\Vault::protectConfig()) {
+            return $this->back(t('The server did not allow Kaleta to change the mode of config.php. Set it to 0600 (or 0640) in your FTP client or the hosting\'s file manager.'), '', ['tab' => 'health'], 'chyba');
+        }
+        \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'config.php permissions', sprintf('%04o', \Kaleta\Core\Vault::configMode()));
+
+        return $this->back(t('config.php can now be read only by the site.'), '', ['tab' => 'health']);
+    }
+
+    /**
+     * 3.19.1 (N84): a new signing key (secret_key) – every shared preview link and everything else signed with the old
+     * key stops working at once (the confirmation in the Backups tab lists what). Core\SigningKey::rotate does it and keeps
+     * the stored secrets readable while the encryption key is still in the database.
+     */
+    protected function actionNewSigningKey(): Response
+    {
+        if (!$this->request->isPost() || !$this->app->auth()->isAdmin()) {
+            return $this->back('', '', ['tab' => 'backups']);
+        }
+        $result = \Kaleta\Core\SigningKey::rotate($this->app);
+        if ($result['status'] !== 'rotated') {
+            return $this->back($result['status'] === 'vault' ? \Kaleta\Core\Vault::describe(\Kaleta\Core\Vault::state($this->app->settings())) . ' ' . t('Until then a new signing key cannot be made.')
+                : t('A new signing key could not be made and nothing has changed: %s', (string) ($result['error'] ?? '')), '', ['tab' => 'backups'], 'chyba');
+        }
+
+        return $this->back(t('A new signing key is in place. Every shared preview link and every other link signed with the old key has stopped working.'), '', ['tab' => 'backups']);
+    }
+
     protected function actionDeleteBackup(): Response
     {
         $path = Backup::path($this->request->post('soubor'));
         if ($this->request->isPost() && $path !== null && !Backup::refusedInDemo()) {
             unlink($path);
+            // 3.19.1 (N82): which backup went, and who deleted it – also the safety backup made before a restore
+            \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'backup deleted', basename($path));
+            \Kaleta\Core\Events::record($this->db, 'backup.deleted', 'info', t('Backup %s was deleted.', basename($path)), ['file' => basename($path), 'user' => (int) ($this->app->auth()->user()['idu'] ?? 0)]);
         }
 
         return $this->back('Backup deleted.', '', ['tab' => 'backups']);
@@ -675,8 +711,20 @@ class Settings extends Module
             return $this->back(t('Obnova se nezdařila: %s', t($e->getMessage())) . ' ' . ($reverted ? t('The database is back in its state before the restore.') : (isset($safetyBackup) ? t('The state before the restore is in backup %s – please restore it.', $safetyBackup) : '')), '', ['tab' => 'backups'], 'chyba');
         }
         \Kaleta\Front\Cache::clear();
+        // 3.19.1 (N82): the restore replaced the change log and the events with the backup's copies – the record of the
+        // restore itself is written now, into the restored database, so it is not lost with the rest
+        $file = (string) basename((string) Backup::path($this->request->post('soubor')));
+        \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'backup restored', $file . ' (safety backup: ' . $safetyBackup . ')');
+        \Kaleta\Core\Events::record($this->db, 'backup.restored', 'warning', t('The database was restored from backup %s; the state before the restore is in backup %s.', $file, $safetyBackup),
+            ['file' => $file, 'safety_backup' => $safetyBackup, 'statements' => $statementCount, 'user' => (int) ($this->app->auth()->user()['idu'] ?? 0)]);
 
         return $this->back(t('The database has been restored from the backup (statements: %d). The state before the restore is saved in backup %s.', $statementCount, $safetyBackup), '', ['tab' => 'backups']);
+    }
+
+    /** 3.19.1 (N88): "nothing has changed" only when the rollback put every file back – otherwise the message says what to do. */
+    private static function updateFailure(\Throwable $e): string
+    {
+        return $e->getCode() === Updater::RESTORE_FAILED ? t('The update failed: %s', $e->getMessage()) : t('The update failed: %s Nothing has changed on the site.', t($e->getMessage()));
     }
 
     /** Checks again whether a newer version is available. */
@@ -715,7 +763,7 @@ class Settings extends Module
             // the version the administrator saw on the button (3.3.2): another one offered meanwhile is not installed
             $version = (new Updater($this->app->settings()))->install($this->app->db(), $this->request->post('verze') !== '' ? $this->request->post('verze') : null);
         } catch (\Throwable $e) {
-            return $this->back(t('The update failed: %s Nothing has changed on the site.', t($e->getMessage())), '', ['tab' => 'backups'], 'chyba');
+            return $this->back(self::updateFailure($e), '', ['tab' => 'backups'], 'chyba');
         }
 
         return $this->back(t('The system has been updated to version %s.', $version), '', ['tab' => 'backups']); // the database is migrated during the update (2.8)
@@ -746,7 +794,7 @@ class Settings extends Module
             $backup = Backup::create($this->db, 'predaktualizaci');
             $installed = (new Updater($this->app->settings(), major: true))->install($this->app->db(), $version);
         } catch (\Throwable $e) {
-            return $this->back(t('The update failed: %s Nothing has changed on the site.', t($e->getMessage())), '', ['tab' => 'backups'], 'chyba');
+            return $this->back(self::updateFailure($e), '', ['tab' => 'backups'], 'chyba');
         }
 
         return $this->back(t('The system has been updated to version %s. The database backup from before the update is %s.', $installed, $backup), '', ['tab' => 'backups']);

@@ -41,6 +41,9 @@ final class Db
     ) {
     }
 
+    /** The session's sql_mode: the server's own, without NO_BACKSLASH_ESCAPES (3.19.1, N81) – any position, MySQL and MariaDB. */
+    public const string SQL_MODE = "TRIM(BOTH ',' FROM REPLACE(CONCAT(',', @@SESSION.sql_mode, ','), ',NO_BACKSLASH_ESCAPES,', ','))";
+
     /** @param array{host?:string,port?:int,socket?:string,name:string,user:string,password:string,prefix?:string} $c */
     public static function fromConfig(array $c): self
     {
@@ -71,7 +74,9 @@ final class Db
             // The database must count time the same way as PHP: PHP writes article dates (date()), but queries compare them with NOW().
             // On a server with the database in a different zone (typically UTC) a just published article would show up hours later.
             // An offset instead of a zone name: named zones need loaded tables in MySQL, which are often missing on hosting.
-            $this->pdo->exec("SET time_zone = '" . Clock::offset() . "'");
+            // 3.19.1 (N81): NO_BACKSLASH_ESCAPES in the server's sql_mode is dropped for Kaleta's session – PDO::quote and
+            // every LIKE pattern built with addcslashes() rely on the backslash (without it every backup came out empty)
+            $this->pdo->exec("SET time_zone = '" . Clock::offset() . "', sql_mode = " . self::SQL_MODE);
             // 3.15: today's names unless this database was found renamed before (the marker) – no query on a normal site
             $this->english = $this->marker() !== null && is_file($this->marker());
             Names::setRenamed($this->english);

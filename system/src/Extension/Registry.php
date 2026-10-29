@@ -159,7 +159,10 @@ final class Registry
         if (is_file($sql)) {
             // the same rewrite as the core migrations: on a database 4.0 renamed, a REFERENCES ka_stranky names ka_pages (N315-12)
             foreach (\Kaleta\Core\Migration::statements((string) file_get_contents($sql), $app->db()->prefix, $app->db()->englishTables()) as $statement) {
-                if (preg_match('/^\s*CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+`?' . preg_quote($app->db()->prefix, '/') . 'ext_' . preg_quote($slug, '/') . '_[a-z0-9_]+`?\s*\(/i', $statement) !== 1) {
+                // 3.19.1 (N85): one statement each – a second one after a semicolon on the same line (DROP TABLE…) is refused,
+                // not handed to the database together with the CREATE TABLE
+                if (preg_match('/^\s*CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+`?' . preg_quote($app->db()->prefix, '/') . 'ext_' . preg_quote($slug, '/') . '_[a-z0-9_]+`?\s*\(/i', $statement) !== 1
+                    || !self::isSingleStatement($statement)) {
                     throw new \DomainException('install.sql may only CREATE TABLE IF NOT EXISTS {ext_' . $slug . '_…} tables.');
                 }
                 $app->db()->pdo()->exec($statement);
@@ -170,9 +173,63 @@ final class Registry
         Events::record($app->db(), 'addon.enabled', 'info', t('The add-on %s was switched on.', $manifest['name']), ['addon' => $slug, 'version' => $manifest['version']]);
     }
 
-    public static function disable(App $app, string $slug): void
+    /**
+     * Switches an add-on off. 3.19.1 (N87): the event addon.disabled says which one (an add-on that was not on changes
+     * nothing and records nothing); $record = false when the caller records its own event (fail()).
+     */
+    public static function disable(App $app, string $slug, bool $record = true): void
     {
-        $app->settings()->set('addons_enabled', implode(',', array_diff(self::enabled($app->settings()), [$slug])));
+        $enabled = self::enabled($app->settings());
+        $app->settings()->set('addons_enabled', implode(',', array_diff($enabled, [$slug])));
+        if ($record && in_array($slug, $enabled, true)) {
+            $manifest = self::discover()[$slug] ?? null;
+            Events::record($app->db(), 'addon.disabled', 'info', t('The add-on %s was switched off.', (string) ($manifest['name'] ?? $slug)), ['addon' => $slug, 'version' => (string) ($manifest['version'] ?? '')]);
+        }
+    }
+
+    /**
+     * Is this one SQL statement (3.19.1, N85)? A semicolon counts only outside quoted strings, quoted names and comments;
+     * a trailing one (with spaces or a comment after it) is allowed. MySQL runs everything after a semicolon as the next
+     * statement, so install.sql's guard checks the whole text, not just its start. A comment that starts with /*! is refused: MySQL
+     * executes its inside.
+     */
+    public static function isSingleStatement(string $sql): bool
+    {
+        $length = strlen($sql);
+        for ($i = 0; $i < $length; $i++) {
+            $char = $sql[$i];
+            if ($char === "'" || $char === '"' || $char === '`') {
+                // a quoted string or name: a doubled quote stays inside, a backslash escapes the next character (not in names)
+                for ($i++; $i < $length; $i++) {
+                    if ($char !== '`' && $sql[$i] === '\\') {
+                        $i++;
+                    } elseif ($sql[$i] === $char) {
+                        if (($sql[$i + 1] ?? '') !== $char) {
+                            break;
+                        }
+                        $i++;
+                    }
+                }
+                if ($i >= $length) {
+                    return false; // an unterminated quote
+                }
+            } elseif ($char === '#' || ($char === '-' && ($sql[$i + 1] ?? '') === '-' && in_array($sql[$i + 2] ?? "\n", [' ', "\t", "\n", "\r"], true))) {
+                $end = strpos($sql, "\n", $i);
+                $i = $end === false ? $length : $end;
+            } elseif ($char === '/' && ($sql[$i + 1] ?? '') === '*') {
+                $end = strpos($sql, '*/', $i + 2);
+                // MySQL runs the inside of a /*! comment as SQL – never a comment here
+                if ($end === false || ($sql[$i + 2] ?? '') === '!') {
+                    return false;
+                }
+                $i = $end + 1;
+            } elseif ($char === ';') {
+                // only spaces and comments may follow
+                return trim((string) preg_replace(['#/\*.*?\*/#s', '/(--[ \t]|#)[^\n]*/'], '', substr($sql, $i + 1))) === '';
+            }
+        }
+
+        return true;
     }
 
     /** A broken add-on is switched off at once and the error kept for the Add-ons screen. */
@@ -180,7 +237,7 @@ final class Registry
     {
         $message = mb_substr(get_class($e) . ': ' . $e->getMessage() . ' (' . basename($e->getFile()) . ':' . $e->getLine() . ')', 0, 500);
         try {
-            self::disable($app, $slug);
+            self::disable($app, $slug, false);
             $app->settings()->set('addons_error.' . $slug, $message);
             Events::record($app->db(), 'addon.failed', 'error', t('The add-on %s failed and was switched off: %s', $slug, $message), ['addon' => $slug]);
         } catch (\Throwable) {

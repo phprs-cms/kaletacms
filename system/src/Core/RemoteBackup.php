@@ -7,8 +7,10 @@ namespace Kaleta\Core;
 /**
  * Copy of the database backup off the server: FTP/FTPS (another hosting, NAS) or S3-compatible storage
  * (Amazon S3, Backblaze B2, Wasabi, Cloudflare R2…). A backup on the same disk as the site does not protect against
- * losing the hosting. Since 1.8 the media go to the same place, incrementally (syncMedia). No libraries: FTP through
- * the PHP extension, S3 through cURL with an AWS Signature V4 signature.
+ * losing the hosting. Since 1.8 the media go to the same place, incrementally (syncMedia). No libraries: S3 through cURL
+ * with an AWS Signature V4 signature; FTPS through cURL too since 3.19.1 (N80) – PHP's FTP extension cannot check the
+ * server's certificate, cURL checks it like the S3 path does. Only a server whose PHP has no cURL with FTPS falls back to
+ * the extension, and the Backups tab says that the certificate is not checked there (ftpsVerified()).
  */
 final class RemoteBackup
 {
@@ -128,9 +130,50 @@ final class RemoteBackup
         return $s->get('remote_backup') === 'ftp' ? self::ftp($s) : self::s3($s);
     }
 
+    /**
+     * 3.19.1 (N80): can this server send the FTPS copy with the server's certificate checked (cURL with FTPS)? When not,
+     * the copy goes through PHP's FTP extension, which encrypts but cannot check whom it talks to.
+     */
+    public static function ftpsVerified(): bool
+    {
+        return function_exists('curl_init') && in_array('ftps', (array) (curl_version()['protocols'] ?? []), true);
+    }
+
+    /**
+     * The address of one file on the FTP server for cURL (3.19.1): the folder from the settings is absolute (%2F – as
+     * ftp_chdir('/' . folder) was before), each path segment is encoded; the host may carry a port and is never taken
+     * with a scheme or a path.
+     */
+    public static function ftpUrl(string $host, string $folder, string $remote): string
+    {
+        $host = (string) preg_replace('#^[a-z]+://|/.*$#iD', '', trim($host));
+        $parts = array_values(array_filter(explode('/', trim($folder, '/') . '/' . $remote), fn (string $p): bool => $p !== ''));
+
+        return 'ftp://' . $host . '/' . (trim($folder, '/') !== '' ? '%2F' : '') . implode('/', array_map(rawurlencode(...), $parts));
+    }
+
+    /**
+     * The cURL options of an FTPS upload (3.19.1, N80): explicit TLS (AUTH TLS) required for the commands and the data,
+     * the certificate and the host name checked, only FTP spoken, missing folders created.
+     *
+     * @return array<int, mixed>
+     */
+    public static function ftpsOptions(string $user, string $password): array
+    {
+        return [
+            CURLOPT_USE_SSL => CURLUSESSL_ALL, CURLOPT_SSL_VERIFYPEER => true, CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_PROTOCOLS => CURLPROTO_FTP | CURLPROTO_FTPS, CURLOPT_FTP_CREATE_MISSING_DIRS => CURLFTP_CREATE_DIR_RETRY,
+            CURLOPT_USERNAME => $user, CURLOPT_PASSWORD => $password, CURLOPT_UPLOAD => true,
+            CURLOPT_CONNECTTIMEOUT => 15, CURLOPT_TIMEOUT => 300, CURLOPT_RETURNTRANSFER => true,
+        ];
+    }
+
     /** @return array{0: callable(string, string): void, 1: callable(): void} */
     private static function ftp(Settings $s): array
     {
+        if (self::ftpsVerified()) {
+            return self::ftpsCurl($s);
+        }
         if (!function_exists('ftp_connect')) {
             throw new \RuntimeException('The PHP extension for FTP is missing on the server.');
         }
@@ -172,6 +215,51 @@ final class RemoteBackup
         };
 
         return [$put, fn () => @ftp_close($connection)];
+    }
+
+    /**
+     * FTPS through cURL (3.19.1, N80): one handle for the whole run, so cURL keeps the control connection between files.
+     *
+     * @return array{0: callable(string, string): void, 1: callable(): void}
+     */
+    private static function ftpsCurl(Settings $s): array
+    {
+        $host = $s->get('backup_host');
+        $folder = $s->get('backup_folder');
+        $ch = curl_init();
+        $put = function (string $remote, string $local) use ($ch, $s, $host, $folder): void {
+            $f = fopen($local, 'rb');
+            if ($f === false) {
+                throw new \RuntimeException(t('The file could not be uploaded to the FTP server.'));
+            }
+            curl_setopt_array($ch, [CURLOPT_URL => self::ftpUrl($host, $folder, $remote), CURLOPT_INFILE => $f, CURLOPT_INFILESIZE => (int) filesize($local)]
+                + self::ftpsOptions($s->get('backup_user'), $s->get('backup_password')));
+            $ok = curl_exec($ch) !== false;
+            $errno = curl_errno($ch);
+            $error = curl_error($ch);
+            fclose($f);
+            if (!$ok) {
+                throw new \RuntimeException(self::ftpsError($errno, $error, (string) preg_replace('#^[a-z]+://|[:/].*$#iD', '', $host), $folder));
+            }
+        };
+
+        return [$put, fn () => null]; // PHP 8: the handle (and the connection) closes when $put is released
+    }
+
+    /** What a failed FTPS upload through cURL means for the administrator (N80: a certificate that cannot be checked is named). */
+    public static function ftpsError(int $errno, string $error, string $host, string $folder): string
+    {
+        return match ($errno) {
+            // the cURL error codes by number – PHP does not define every one of them: 60 peer failed verification, 51 its
+            // older code, 77 CA file, 83 issuer, 90 pinned key
+            60, 51, 77, 83, 90 => t('The certificate of the FTP server %s could not be checked (%s). Kaleta sends backups only to a server that proves who it is – ask the server\'s administrator for a certificate from a recognised authority (for example Let\'s Encrypt) for this name, or choose S3 storage.', $host, $error),
+            CURLE_SSL_CONNECT_ERROR => t('The encrypted connection to the FTP server %s failed (%s).', $host, $error),
+            64 /* CURLE_USE_SSL_FAILED */ => t('The FTP server %s does not support an encrypted connection (FTPS). Kaleta does not use unencrypted FTP – choose S3 storage.', $host),
+            67 /* CURLE_LOGIN_DENIED */ => t('Signing in to the FTP server %s failed.', $host),
+            CURLE_COULDNT_RESOLVE_HOST, CURLE_COULDNT_CONNECT, CURLE_OPERATION_TIMEDOUT => t('The FTP server %s could not be reached (%s).', $host, $error),
+            9 /* CURLE_REMOTE_ACCESS_DENIED */ => t('The folder %s does not exist on the FTP server and cannot be created.', trim($folder, '/')),
+            default => t('The file could not be uploaded to the FTP server.') . ($error !== '' ? ' (' . $error . ')' : ''),
+        };
     }
 
     /** @return array{0: callable(string, string): void, 1: callable(): void} */

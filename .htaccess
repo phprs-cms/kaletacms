@@ -16,8 +16,12 @@ Options -Indexes
     RewriteRule ^(tools|docs|dist)(/|$) - [F,L]
     RewriteRule ^layout/.+\.php$ - [F,L]
     # add-ons (3.3.2): only the public/ folder of an add-on is served (its images, styles, scripts – never PHP); the code,
-    # extension.json and install.sql of every add-on, switched on or off, are not for visitors
-    RewriteRule ^extensions/[^/]+/public/.+\.(php\d?|pht|phps|phtml|phar)$ - [F,L,NC]
+    # extension.json and install.sql of every add-on, switched on or off, are not for visitors. 3.19.1: also run.php/x
+    # (path info) and run.php.x, and nothing in public/ but an existing file – content negotiation (MultiViews) would
+    # otherwise pick run.php for /run
+    RewriteRule ^extensions/[^/]+/public/.+\.(php\d?|pht|phps|phtml|phar)(\.|/|$) - [F,L,NC]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^extensions/[^/]+/public/ - [F,L,NC]
     RewriteRule ^extensions/(?![^/]+/public/) - [F,L,NC]
     # The folder of the site as part of the URL (empty = the domain root, otherwise e.g. /web). The rewrite targets below are
     # written as URLs, not as relative paths: some hosts map subdomains to a folder outside the web root, where a relative

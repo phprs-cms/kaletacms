@@ -39,6 +39,12 @@ final class Backup
         $pdo = $db->pdo();
         $write("-- Kaleta " . KALETA_VERSION . " - database backup " . date('c') . "\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS = 0;\n\n");
         $tables = $db->run('SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE ? ORDER BY table_name', [addcslashes($db->prefix, '_%') . '%'])->fetchAll(\PDO::FETCH_COLUMN);
+        if ($tables === []) {
+            // 3.19.1 (N81): a backup without a table is never "ready" – it would be uploaded, counted and restored as if it were one
+            $gz ? gzclose($f) : fclose($f);
+            @unlink($path);
+            throw new \RuntimeException(t('The backup found no tables of this site in the database, so none was made. Ask your hosting to check the database server\'s settings (sql_mode).'));
+        }
         foreach ($tables as $table) {
             // temporary data is not backed up
             $structureOnly = in_array(Names::table(substr($table, strlen($db->prefix))), ['stat_navstevnici', 'kontrola_ip'], true); // also under the English names (3.15)
@@ -195,6 +201,7 @@ final class Backup
         }
         $statement = '';
         $count = 0;
+        $tables = 0;
         while (($row = $gz ? gzgets($f) : fgets($f)) !== false) {
             if ($statement === '' && (trim($row) === '' || str_starts_with($row, '--'))) {
                 continue;
@@ -205,6 +212,7 @@ final class Backup
                 if (preg_match('/^(DROP TABLE IF EXISTS|CREATE TABLE|INSERT INTO) `([^`]+)`/', $statement, $m) && !str_starts_with($m[2], $prefix)) {
                     throw new \RuntimeException(t('The backup contains a foreign table %s – the restore was stopped.', $m[2]));
                 }
+                $tables += str_starts_with($statement, 'CREATE TABLE ') ? 1 : 0;
                 if ($apply !== null) {
                     $apply($statement);
                 }
@@ -215,6 +223,10 @@ final class Backup
         $gz ? gzclose($f) : fclose($f);
         if (trim($statement) !== '' || $count === 0) {
             throw new \RuntimeException('The backup is incomplete or damaged (the end of the file is missing) – the restore was stopped.');
+        }
+        if ($tables === 0) {
+            // 3.19.1 (N81): an empty backup (made under NO_BACKSLASH_ESCAPES before 3.19.1) "restored" nothing and said so as a success
+            throw new \RuntimeException(t('The backup contains no table – it was made empty, so there is nothing to restore. The restore was stopped.'));
         }
 
         return $count;

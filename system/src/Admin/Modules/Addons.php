@@ -47,12 +47,25 @@ final class Addons extends Module
             } catch (\InvalidArgumentException | \DomainException | \PDOException $e) {
                 return $this->back($e->getMessage(), '', [], 'chyba');
             }
+            // 3.19.1 (N87): which add-on, and which way (the event addon.enabled is recorded by Registry::enable)
+            \Kaleta\Admin\ChangeLog::write($this->app, 'addons', 'enabled', self::label($slug));
 
             return $this->back('The add-on is switched on.');
         }
-        Registry::disable($this->app, $slug);
+        if (in_array($slug, Registry::enabled($this->app->settings()), true)) {
+            Registry::disable($this->app, $slug); // records addon.disabled
+            \Kaleta\Admin\ChangeLog::write($this->app, 'addons', 'disabled', self::label($slug));
+        }
 
         return $this->back('The add-on is switched off – its data stays.');
+    }
+
+    /** "Name (slug, version)" of an add-on for the change log; the slug alone when it is no longer in extensions/. */
+    private static function label(string $slug): string
+    {
+        $manifest = Registry::discover()[$slug] ?? null;
+
+        return $manifest === null ? $slug : $manifest['name'] . ' (' . $slug . ($manifest['version'] !== '' ? ', ' . $manifest['version'] : '') . ')';
     }
 
     /** A page an add-on registered: admin.php?module=addons&action=page&p=<slug>.<name> */

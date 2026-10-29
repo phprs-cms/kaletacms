@@ -93,11 +93,18 @@ final class Health
         }
         $add(t('Bezpečnost'), t('Instalátor'), !is_file(KALETA_ROOT . '/install.php') ? 'ok' : 'varovani', is_file(KALETA_ROOT . '/install.php') ? t('install.php is still on the server - delete it') : t('install.php has been removed'));
         $add(t('Bezpečnost'), 'HTTPS', $app->request->isHttps() ? 'ok' : 'varovani', $app->request->isHttps() ? t('the site runs over an encrypted connection') : t('the site does not run over HTTPS - sign-in details travel unencrypted'));
+        // 3.19.1 (N83): config.php holds the database password and the encryption key
+        $configOpen = Vault::configWorldReadable();
+        $add(t('Bezpečnost'), 'config.php', $configOpen ? 'varovani' : 'ok', $configOpen
+            ? t('config.php can be read by every user of the server (mode %s) – it holds the database password and the encryption key. Set its mode to 0600 (0640 where the web server reads it through its group) in your FTP client or the hosting\'s file manager.', sprintf('%04o', (int) @fileperms(KALETA_ROOT . '/config.php') & 0777))
+                . (Vault::canProtectConfig() ? ' ' . t('Kaleta can do it for you – the button is below the table.') : '')
+            : t('readable only by the site'));
         $add(t('Bezpečnost'), t('Debug mode'), !$app->debug(), $app->debug() ? t('debug = true is set in config.php; turn it off on a live site') : t('vypnutý'));
         $add(t('Bezpečnost'), t('Security headers'), 'ok', t('the system sends X-Content-Type-Options, Referrer-Policy and X-Frame-Options; the administration also sends a Content-Security-Policy and forbids caching'));
         if (is_file(KALETA_ROOT . '/.htaccess.kaleta-nova')) {
-            // an update keeps a customised .htaccess and puts its own next to it (Core\Updater) – since 3.3.2 it also closes extensions/
-            $add(t('Bezpečnost'), '.htaccess', 'varovani', t('An update left a newer .htaccess.kaleta-nova next to your customised .htaccess – carry its new rules over (since 3.3.2 they keep the code of add-ons in extensions/ away from visitors), then delete the file.'));
+            // an update keeps a customised .htaccess and puts its own next to it (Core\Updater) – since 3.3.2 it also closes extensions/,
+            // since 3.19.1 (N86) also a PHP file in an add-on's public/ folder asked for with a path after it
+            $add(t('Bezpečnost'), '.htaccess', 'varovani', t('An update left a newer .htaccess.kaleta-nova next to your customised .htaccess – carry its new rules over (since 3.3.2 they keep the code of add-ons in extensions/ away from visitors; since 3.19.1 they also refuse a PHP file in an add-on\'s public/ folder when a path follows its name, like run.php/x), then delete the file.'));
         }
         $mediaRules = is_file(KALETA_ROOT . '/media/.htaccess') ? (string) file_get_contents(KALETA_ROOT . '/media/.htaccess') : '';
         if (!is_file(KALETA_ROOT . '/media/.htaccess.kaleta-nova') && (!str_contains($mediaRules, self::MEDIA_RULE) || !str_contains($mediaRules, self::MEDIA_HEADER_RULE))) {
@@ -248,6 +255,10 @@ final class Health
             $add(t('Operation'), t('English system addresses'), $cronShadowed ? 'varovani' : 'ok', t('The site itself uses %s, so the system keeps writing the older address %s there – both keep working. Rename the page if you want the English address.',
                 implode(', ', array_map(fn (string $p): string => '/' . $p, array_keys($held))), implode(', ', array_map(fn (string $p): string => '/' . $p, $held)))
                 . ($cronShadowed ? ' ' . t('A cron job that calls /tasks reaches that page and runs nothing – point it at /ulohy.') : ''));
+        }
+        if (($stuck = Updater::restoreFailed()) !== null) {
+            // 3.19.1 (N88): a rollback left files of two versions behind – the maintenance page stays until a person fixes it
+            $add(t('Operation'), t('Update rollback'), 'chyba', $stuck);
         }
         $update = (new Updater($siteSettings))->state();
         // 3.11 (UX310-3): old update information makes the Updates row amber too – never a green "up to date" next to the

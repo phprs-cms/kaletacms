@@ -21,6 +21,9 @@ $group = '';
 </tbody>
 </table>
 </div>
+<?php if (Kaleta\Core\Vault::configWorldReadable() && Kaleta\Core\Vault::canProtectConfig()): // 3.19.1 (N83) ?>
+<p><button class="navigace" type="submit" formaction="<?= e($module->url('config_permissions')) ?>"><?= e(t('Make config.php readable only by the site')) ?></button></p>
+<?php endif ?>
 <?php if ($readiness !== []): ?>
 <fieldset id="ready-4">
 <legend><?= e(t('Ready for 4.0')) ?></legend>

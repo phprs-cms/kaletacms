@@ -102,6 +102,9 @@ echo "  ok     instalace"
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('update_url', 'http://127.0.0.1:1/aktualizace.json') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('update_cache', 'update_attempt')"
 grep -qE '/tasks\?token=[a-f0-9]{32}' "$WORK/response" && echo "  ok     2.8: the installer shows the cron line with its own address (3.7: the English /tasks)" || { echo "  CHYBA  instalátor neukázal řádek pro cron"; ERRORS=$((ERRORS+1)); }
 [ ! -f "$WORK/web/install.php" ] && echo "  ok     instalátor se po sobě smazal" || { echo "  CHYBA  install.php po instalaci zůstal na místě"; ERRORS=$((ERRORS+1)); }
+# 3.19.1 (N83): config.php holds the database password and the encryption key – readable only by the site (PHP owns the folder here)
+config_mode() { php -r 'clearstatcache(); printf("%o", fileperms($argv[1]) & 0777);' "$WORK/web/config.php"; }
+expect "3.19.1 (N83): the installer wrote config.php with mode 600" "$(config_mode)" "600"
 
 echo "== web"
 check "úvodní stránka" 200 / "Testovací firma"
@@ -364,7 +367,8 @@ expect "3.12: logo and icon removed again after publishing" "$("${MYSQL[@]}" "$D
 echo "== builder stránek"
 IDS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'o-nas'")
 check "builder se otevře a převede textovou stránku" 200 "/admin.php?module=pages&action=builder&id=$IDS" 'id="stavitel-data"'
-contains -q '"pri_rolovani":{"typ"' "$WORK/response" && { echo "  CHYBA  3.6 UXA-12: a page section offers the header-only options"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.6 UXA-12: a page section does not offer the header-only options"
+# (grep: contains() is defined further down; the header part's builder below shows the same string is there for a header)
+grep -q 'id="stavitel-data"' "$WORK/response" && ! grep -q '"pri_rolovani":{"typ"' "$WORK/response" && echo "  ok     3.6 UXA-12: a page section does not offer the header-only options" || { echo "  CHYBA  3.6 UXA-12: a page section offers the header-only options"; ERRORS=$((ERRORS+1)); }
 TOKEN=$(csrf)
 page_action() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=pages&action=$1&id=$IDS" -d "_csrf=$TOKEN" "${@:2}"; }
 BUILD='{"v":1,"deti":[{"id":"sek1","typ":"sekce","deti":[{"id":"nad1","typ":"nadpis","znacka":"h1","obsah":{"text":"Builder test"},"styl":{"zaklad":{"barva":"primarni"},"mobil":{"velikost_pisma":"2"}},"tridy":["karta"]},{"id":"faq1","typ":"faq","obsah":{"polozky":[{"otazka":"Kolik to stojí?","odpoved":"<p>Záleží na rozsahu.</p>"}]}},{"id":"txt1","typ":"text","obsah":{"html":"<h2>Jak to funguje</h2><p>Krok za krokem.</p><h2>Jak to funguje</h2><h3 id=\"vlastni\">Vlastní</h3>"}},{"id":"zly1","typ":"skript"}]}]}'
@@ -5425,7 +5429,9 @@ curl -s -b "$JAR_WB" -c "$JAR_WB" -o /dev/null -X POST "$B/admin.php" -d "_csrf=
 WB_LIST=$(curl -s -b "$JAR_WB" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?module=whistleblowing"); WB_SEEN=$(grep -c "$WB_NUMBER" "$WORK/response" || true); WB_LINK=$(grep -c "action=detail&amp;id=$WB_ID" "$WORK/response" || true)
 WB_DETAIL=$(curl -s -b "$JAR_WB" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?module=whistleblowing&action=detail&id=$WB_ID")
 expect "whistleblowing: another administrator sees the case number in the list without a link and cannot open the case" "$WB_LIST|$([ "$WB_SEEN" -ge 1 ] && echo 1 || echo 0)|$WB_LINK|$WB_DETAIL|$(grep -c 'docházky' "$WORK/response")" "200|1|0|403|0"
-mcp_list | contains -q 'whistleblowing' && { echo "  CHYBA  MCP: a whistleblowing tool is listed"; ERRORS=$((ERRORS+1)); } || echo "  ok     MCP: tools/list has no whistleblowing tool"
+# (the raw tools/list: mcp_list of 3.10 takes a token and prints counts)
+curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' > "$WORK/tools-list"
+contains -q '"name":"list_pages"' "$WORK/tools-list" && ! contains -q 'whistleblowing' "$WORK/tools-list" && echo "  ok     MCP: tools/list has no whistleblowing tool" || { echo "  CHYBA  MCP: a whistleblowing tool is listed, or the list is empty"; head -c 300 "$WORK/tools-list"; ERRORS=$((ERRORS+1)); }
 mcp site_info '{}' > "$WORK/response"; expect "MCP: site_info says only that the channel is on" "$(mcp_value whistleblowing)" "1"
 # the daily job: a reminder of an overdue acknowledgement, a closed case past the retention deleted
 sq "UPDATE ka_whistleblowing_cases SET created_at = '$(site_time)' - INTERVAL 8 DAY, acknowledged_at = NULL, status = 'received' WHERE id = $WB_ID;
@@ -6042,6 +6048,8 @@ check "add-ons: Add-ons lists what is in extensions/ and says why an old one can
 mkdir -p "$WORK/web/extensions/hello/public" && printf 'body{}' > "$WORK/web/extensions/hello/public/hello.css" && echo '<?php echo "ran";' > "$WORK/web/extensions/hello/public/run.php"
 expect "3.3.2 add-ons: Extension.php, extension.json and public/*.php are refused, a file in public/ is served" \
   "$(for u in extensions/hello/Extension.php extensions/hello/extension.json extensions/hello/public/run.php extensions/README.md extensions/hello/public/hello.css; do printf '%s ' "$(curl -s -o /dev/null -w '%{http_code}' "$B/$u")"; done)" "403 403 403 403 200 "
+# 3.19.1 (N86): with a path after it (path info) the PHP file is refused too, as on Apache
+expect "3.19.1 (N86): public/run.php/x is refused and never runs" "$(curl -s -o "$WORK/run-x" -w '%{http_code}' "$B/extensions/hello/public/run.php/x")|$(grep -c 'ran' "$WORK/run-x" || true)" "403|0"
 rm -rf "$WORK/web/extensions/hello/public"
 TOKEN=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=addons&action=toggle" -d "_csrf=$TOKEN" -d slug=hello -d on=1
@@ -6057,6 +6065,16 @@ curl -s -G -o "$WORK/response2" "$B/hledani" --data-urlencode 'q={{ext.hello.gre
 ! contains -q 'hello-greeting' "$WORK/response" && ! contains -q 'hello-greeting' "$WORK/response2" && contains -q 'ext.hello.greeting name=&quot;Mallory&quot;' "$WORK/response" && echo "  ok     add-ons: a token in the search query is not run" || { echo "  CHYBA  add-on token ve vyhledávání"; grep -o '<input type="search"[^>]*>' "$WORK/response" "$WORK/response2" | head -2; ERRORS=$((ERRORS+1)); }
 expect "add-ons: a broken add-on is switched off at once and its error kept" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'addons_enabled'")|$(sq "SELECT hodnota LIKE '%deliberately broken%' FROM ka_nastaveni WHERE promenna = 'addons_error.broken'")" "hello|1"
 check "add-ons: the error shows in Add-ons" 200 "/admin.php?module=addons" "deliberately broken"
+# 3.19.1 (N87): the change log says which add-on went on, and which way
+expect "3.19.1 (N87): switching an add-on on is in the change log with its name" "$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'addons' AND akce = 'enabled' AND popis LIKE '%(hello%'")" "1"
+# 3.19.1 (N85): install.sql with a second statement after a semicolon on the same line is refused before anything runs
+mkdir -p "$WORK/web/extensions/twostmt" && printf '%s' '{"name":"Two statements","class":"Twostmt\\Ext","requires":{"api":1}}' > "$WORK/web/extensions/twostmt/extension.json"
+printf '%s\n' '<?php namespace Twostmt; final class Ext implements \Kaleta\Extension\ExtensionInterface { public function register(\Kaleta\Extension\Api $api): void {} }' > "$WORK/web/extensions/twostmt/Extension.php"
+printf '%s\n' 'CREATE TABLE IF NOT EXISTS ka_ext_twostmt_a (id INT); CREATE TABLE ka_n85_probe (id INT);' > "$WORK/web/extensions/twostmt/install.sql"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=addons&action=toggle" -d "_csrf=$TOKEN" -d slug=twostmt -d on=1 -d trust=1
+expect "3.19.1 (N85): install.sql with two statements on one line is refused – neither table is made, the add-on stays off" \
+  "$(sq "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN ('ka_ext_twostmt_a', 'ka_n85_probe')")|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'addons_enabled'")" "0|hello"
+rm -rf "$WORK/web/extensions/twostmt"
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' > "$WORK/response"
 mcp ext_hello_greet '{"name":"Petr"}' > "$WORK/response2"
 contains -q '"name":"ext_hello_greet"' "$WORK/response" && contains -q 'Hello, Petr!' "$WORK/response2" && echo "  ok     add-ons: Claude lists and calls the add-on's tool" || { echo "  CHYBA  add-on MCP tool"; head -c 300 "$WORK/response2"; ERRORS=$((ERRORS+1)); }
@@ -6144,6 +6162,8 @@ expect "3.14: an edited old address is normalised again (N314-2)" "$(sq "SELECT 
 sq "DELETE FROM ka_presmerovani WHERE z_adresy LIKE 'r314-stara%' OR idp = $R314ID; UPDATE ka_nastaveni SET hodnota = 'hello' WHERE promenna = 'addons_enabled'" > /dev/null
 rm -rf "$WORK/web/extensions/legacy314"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=addons&action=toggle" -d "_csrf=$TOKEN" -d slug=hello -d on=0
+expect "3.19.1 (N87): switching it off is in the change log and the events, with its slug" \
+  "$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'addons' AND akce = 'disabled' AND popis LIKE '%(hello%'")|$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'addon.disabled' AND data LIKE '%\"addon\":\"hello\"%'")" "1|1"
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 expect "add-ons: switched off, the token is left as it was written and the tool is gone" "$(curl -s "$B/addon-page" | grep -c '{{ext.hello.greeting')|$(mcp ext_hello_greet '{}' | grep -c 'isError')" "1|1"
 rm -rf "$WORK/web/extensions"
@@ -7896,5 +7916,77 @@ sq "UPDATE ka_nastaveni SET hodnota = '$SITE_URL_BEFORE' WHERE promenna = 'site_
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('update_url', 'update_cache')"
 kill "$CHANNEL_PID" 2>/dev/null || true
 
+echo "== 3.19.1: the open findings of the daily security audits"
+# N83: the installer left config.php readable only by the site; System status warns when it is not and fixes it with one click
+# (the mode right after the installation is checked at the installer; later tests rewrite config.php with sed)
+chmod 0644 "$WORK/web/config.php"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=status"; TOKEN=$(csrf)
+grep -q 'config.php může číst každý uživatel serveru (práva 0644)' "$WORK/response" && grep -q 'action=config_permissions' "$WORK/response" \
+  && echo "  ok     3.19.1 (N83): System status warns about a world-readable config.php and offers to fix it" || { echo "  CHYBA  3.19.1 (N83): no warning about config.php"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=config_permissions" -d "_csrf=$TOKEN"
+expect "3.19.1 (N83): one click makes config.php 600, recorded in the change log" "$(config_mode)|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE akce = 'config.php permissions'")" "600|1"
+# N75: a sign-in starts a new form token – the token of the session before the sign-in is refused afterwards
+sq "DELETE FROM ka_kontrola_ip WHERE typ = 'login'; INSERT INTO ka_uzivatele (user, password, jmeno, admin, posledni_login, potvrzeno) VALUES ('n75-admin', '$(php -r 'echo password_hash("N75-heslo-dlouhe", PASSWORD_DEFAULT);')', 'Admin N75', 2, '$(site_time)', '$(site_time)')" > /dev/null
+JAR75="$WORK/cookies-n75.txt"
+curl -s -c "$JAR75" -o "$WORK/response" "$B/admin.php"; TOKEN75_BEFORE=$(csrf)
+curl -s -b "$JAR75" -c "$JAR75" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN75_BEFORE" -d user=n75-admin -d password=N75-heslo-dlouhe
+curl -s -b "$JAR75" -c "$JAR75" -o "$WORK/response" "$B/admin.php"; TOKEN75_AFTER=$(csrf)
+N75_OLD=$(curl -s -b "$JAR75" -c "$JAR75" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php?action=hide_first_steps" -d "_csrf=$TOKEN75_BEFORE")
+N75_NEW=$(curl -s -b "$JAR75" -c "$JAR75" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php?action=hide_first_steps" -d "_csrf=$TOKEN75_AFTER")
+expect "3.19.1 (N75): the form token changes at sign-in; the one from before is refused, the new one works" \
+  "$([ -n "$TOKEN75_BEFORE" ] && [ -n "$TOKEN75_AFTER" ] && [ "$TOKEN75_BEFORE" != "$TOKEN75_AFTER" ] && echo rotated)|$N75_OLD|$N75_NEW" "rotated|400|302"
+sq "DELETE FROM ka_uzivatele WHERE user = 'n75-admin'" > /dev/null
+# N81: NO_BACKSLASH_ESCAPES in the session – Kaleta's own sql_mode makes the backup whole again, an empty backup is refused
+N81=$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $db = Kaleta\Core\App::boot()->db(); $pdo = $db->pdo();
+  $nbe = fn () => $pdo->exec("SET SESSION sql_mode = CONCAT(@@SESSION.sql_mode, \",NO_BACKSLASH_ESCAPES\")");
+  $nbe(); $pdo->exec("SET sql_mode = " . Kaleta\Core\Db::SQL_MODE);
+  $mode = str_contains((string) $db->value("SELECT @@SESSION.sql_mode"), "NO_BACKSLASH_ESCAPES") ? "nbe" : "clean";
+  $file = Kaleta\Core\Backup::create($db, "n81"); $path = (string) Kaleta\Core\Backup::path($file);
+  $tables = substr_count((string) (str_ends_with($path, ".gz") ? gzdecode((string) file_get_contents($path)) : file_get_contents($path)), "\nCREATE TABLE ");
+  @unlink($path);
+  $nbe(); try { @unlink(Kaleta\Core\Backup::FOLDER . "/" . Kaleta\Core\Backup::create($db, "n81")); $empty = "made"; } catch (RuntimeException) { $empty = "refused"; }
+  $pdo->exec("SET sql_mode = " . Kaleta\Core\Db::SQL_MODE);
+  $emptyFile = "kaleta-20260101-000000-n81empty-0000abcd.sql";
+  file_put_contents(Kaleta\Core\Backup::FOLDER . "/" . $emptyFile, "-- Kaleta 3.19.0 - database backup\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS = 0;\n\nSET FOREIGN_KEY_CHECKS = 1;\n");
+  try { Kaleta\Core\Backup::restore($db, $emptyFile); $restore = "restored"; } catch (RuntimeException) { $restore = "refused"; }
+  @unlink(Kaleta\Core\Backup::FOLDER . "/" . $emptyFile);
+  echo $mode, "|", $tables > 50 ? "tables" : $tables, "|", $empty, "|", $restore;')
+expect "3.19.1 (N81): without NO_BACKSLASH_ESCAPES the backup has every table; under it the backup is refused, and an empty backup does not restore" "$N81" "clean|tables|refused|refused"
+# N82: restoring and deleting a backup are recorded – the restore's record is written after it, into the restored database
+backups_page; TOKEN=$(csrf)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=backup" -d "_csrf=$TOKEN"
+N82_FILE=$(ls -t "$WORK/web/storage/zalohy" | grep -m1 'rucni' || true)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=restore_backup" -d "_csrf=$TOKEN" -d "soubor=$N82_FILE"
+N82_SAFETY=$(ls -t "$WORK/web/storage/zalohy" | grep -m1 'predobnovou' || true)
+expect "3.19.1 (N82): the restore is in the change log and the events of the restored database, with the file and the safety backup" \
+  "$(sq "SELECT COUNT(*) FROM ka_protokol WHERE akce = 'backup restored' AND popis = '$N82_FILE (safety backup: $N82_SAFETY)'")|$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'backup.restored' AND data LIKE '%$N82_SAFETY%'")" "1|1"
+backups_page; TOKEN=$(csrf)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=delete_backup" -d "_csrf=$TOKEN" -d "soubor=$N82_SAFETY"
+expect "3.19.1 (N82): deleting a backup is in the change log and the events" \
+  "$([ ! -f "$WORK/web/storage/zalohy/$N82_SAFETY" ] && echo gone)|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE akce = 'backup deleted' AND popis = '$N82_SAFETY'")|$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'backup.deleted' AND data LIKE '%$N82_SAFETY%'")" "gone|1|1"
+# N84: a new signing key withdraws a shared preview link; the stored secrets stay readable whatever the state of the encryption key
+n84() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); $db = $app->db(); $s = $app->settings();
+  echo $argv[1] === "key" ? Kaleta\Core\Preview::key($db, $s, "web", 60) : (Kaleta\Core\Preview::verify($db, $s, "web", $argv[2]) ? "valid" : "withdrawn") . "|" . Kaleta\Core\Vault::state($s);' "$@"); }
+KEY84=$(n84 key); STATE84=$(n84 check "$KEY84"); SECRET84=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'secret_key'")
+backups_page; TOKEN=$(csrf)
+grep -q 'action=new_signing_key' "$WORK/response" && grep -q 'Vytvořit nový podpisový klíč? Okamžitě přestane fungovat: každý sdílený odkaz na náhled konceptu' "$WORK/response" \
+  && echo "  ok     3.19.1 (N84): the Backups tab offers a new signing key and says what stops working" || { echo "  CHYBA  3.19.1 (N84): no signing key action"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -L -X POST "$B/admin.php?module=settings&action=new_signing_key" -d "_csrf=$TOKEN"
+expect "3.19.1 (N84): the preview link was valid and is withdrawn by the new key, which is logged" \
+  "${STATE84%%|*}|$(n84 check "$KEY84" | cut -d'|' -f1)|$([ "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'secret_key'")" != "$SECRET84" ] && echo new)|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE akce = 'new signing key'")|$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'security.signing_key_rotated'")" \
+  "valid|withdrawn|new|1|1"
+# N88: a rollback whose copy back fails keeps the originals, records the files and keeps the maintenance page, however old the lock
+mkdir -p "$WORK/web/storage/cache/aktualizace-n88-puvodni/system"
+printf 'old' > "$WORK/web/storage/cache/aktualizace-n88-puvodni/system/n88.txt"; printf 'new' > "$WORK/web/system/n88.txt"; chmod 0444 "$WORK/web/system/n88.txt"
+N88=$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); $u = new Kaleta\Core\Updater($app->settings());
+  echo Kaleta\Core\Language::runWith("en", fn () => (new ReflectionMethod($u, "rollBack"))->invoke($u, ["system/n88.txt"], KALETA_ROOT . "/storage/cache/aktualizace-n88-puvodni", $app->db(), "9.9.9") ?? "null", "admin-");')
+touch -t 202601010000 "$WORK/web/storage/udrzba.lock"
+expect "3.19.1 (N88): the message names the file and the folder, the originals stay, the event lists them" \
+  "$([[ "$N88" == "1 file(s) could not be put back (system/n88.txt)"*"storage/cache/aktualizace-n88-puvodni"* ]] && echo said)|$(cat "$WORK/web/storage/cache/aktualizace-n88-puvodni/system/n88.txt")|$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'update.restore_failed' AND data LIKE '%system/n88.txt%' AND data LIKE '%aktualizace-n88-puvodni%'")" \
+  "said|old|1"
+expect "3.19.1 (N88): visitors keep the maintenance page (a lock older than 10 minutes too), the administration opens and System status says what to do" \
+  "$(curl -s -o /dev/null -w '%{http_code}' "$B/")|$(curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?module=status")|$(grep -c 'Vrácení aktualizace' "$WORK/response")" "503|200|1"
+rm -f "$WORK/web/storage/udrzba.lock" "$WORK/web/system/n88.txt"; rm -rf "$WORK/web/storage/cache/aktualizace-n88-puvodni"
+expect "3.19.1 (N88): without the lock the site answers again" "$(curl -s -o /dev/null -w '%{http_code}' "$B/")" "200"
 if [ -s "$WORK/web/storage/log/chyby.log" ]; then echo "== záznam chyb aplikace:"; cat "$WORK/web/storage/log/chyby.log"; ERRORS=$((ERRORS+1)); fi
 echo; [ "$ERRORS" -eq 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }

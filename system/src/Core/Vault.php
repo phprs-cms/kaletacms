@@ -312,6 +312,77 @@ final class Vault
         return false;
     }
 
+    /**
+     * The mode config.php gets (3.19.1, N83): 0600 when PHP runs as the owner of the site's folder (PHP-FPM or suEXEC per
+     * account – most shared hosting: PHP is the only reader), otherwise 0640 (PHP runs as the web server's user, and a web
+     * server or cron of the same group may need to read it). Never readable by the other users of the server: the file
+     * holds the database password and, since 3.15, the encryption key.
+     */
+    public static function configMode(string $root = KALETA_ROOT): int
+    {
+        $owner = @fileowner($root);
+
+        return function_exists('posix_geteuid') && $owner !== false && $owner === posix_geteuid() ? 0600 : 0640;
+    }
+
+    /** Can every user of the server read config.php (N83)? Then System status warns. */
+    public static function configWorldReadable(string $file = KALETA_ROOT . '/config.php'): bool
+    {
+        clearstatcache(true, $file);
+
+        return is_file($file) && (@fileperms($file) & 0004) !== 0;
+    }
+
+    /** Can Kaleta change the mode of config.php itself (PHP runs as its owner)? Then System status offers the one click. */
+    public static function canProtectConfig(string $file = KALETA_ROOT . '/config.php'): bool
+    {
+        $owner = @fileowner($file);
+
+        return is_file($file) && function_exists('posix_geteuid') && $owner !== false && $owner === posix_geteuid();
+    }
+
+    /** Sets the mode of config.php (configMode); false when the server does not allow it. */
+    public static function protectConfig(string $file = KALETA_ROOT . '/config.php'): bool
+    {
+        $done = @chmod($file, self::configMode(dirname($file)));
+        clearstatcache(true, $file);
+
+        return $done && !self::configWorldReadable($file);
+    }
+
+    /**
+     * Every stored secret and report encrypted again from one base key to another – inside the caller's transaction (move(),
+     * and since 3.19.1 SigningKey::rotate while the key is still in the database).
+     *
+     * @return array{0: int, 1: int} values encrypted again, values that were unreadable before and stay as they were
+     */
+    public static function resealAll(Db $db, string $from, string $to): array
+    {
+        $count = 0;
+        $unreadable = 0;
+        foreach (self::SEALED as $table => [$purpose, $primary, $columns]) {
+            [$fromKey, $toKey] = [self::derive($from, $purpose), self::derive($to, $purpose)];
+            // locked until the commit (N315-6): a token refresh that writes meanwhile waits and does not overwrite
+            foreach ($db->all('SELECT ' . $primary . ', ' . implode(', ', $columns) . ' FROM {' . $table . '} FOR UPDATE') as $row) {
+                $changes = [];
+                foreach ($columns as $column) {
+                    $new = self::reseal($fromKey, $toKey, $row[$column] ?? null);
+                    if ($new !== null) {
+                        $changes[$column] = $new;
+                    } elseif (($row[$column] ?? '') !== '' && $row[$column] !== null) {
+                        $unreadable++; // already unreadable (another site's key, damaged): it stays as it was
+                    }
+                }
+                if ($changes !== []) {
+                    $db->update($table, $changes, [$primary => $row[$primary]]);
+                    $count += count($changes);
+                }
+            }
+        }
+
+        return [$count, $unreadable];
+    }
+
     /** The content of a file replaced in one step (a temporary file with the same rights, renamed). */
     private static function replaceFile(string $file, string $content): bool
     {
@@ -355,30 +426,10 @@ final class Vault
         $to = (string) self::$configKey;
         try {
             [$count, $unreadable] = $app->db()->transaction(function (Db $db) use ($settings, $from, $to): array {
-                $count = 0;
-                $unreadable = 0;
-                foreach (self::SEALED as $table => [$purpose, $primary, $columns]) {
-                    [$fromKey, $toKey] = [self::derive($from, $purpose), self::derive($to, $purpose)];
-                    // locked until the commit (N315-6): a token refresh that writes meanwhile waits and does not overwrite
-                    foreach ($db->all('SELECT ' . $primary . ', ' . implode(', ', $columns) . ' FROM {' . $table . '} FOR UPDATE') as $row) {
-                        $changes = [];
-                        foreach ($columns as $column) {
-                            $new = self::reseal($fromKey, $toKey, $row[$column] ?? null);
-                            if ($new !== null) {
-                                $changes[$column] = $new;
-                            } elseif (($row[$column] ?? '') !== '' && $row[$column] !== null) {
-                                $unreadable++; // already unreadable (another site's key, damaged): it stays as it was
-                            }
-                        }
-                        if ($changes !== []) {
-                            $db->update($table, $changes, [$primary => $row[$primary]]);
-                            $count += count($changes);
-                        }
-                    }
-                }
+                $result = self::resealAll($db, $from, $to);
                 $settings->set('vault_check', self::check($to));
 
-                return [$count, $unreadable];
+                return $result;
             });
         } catch (\Throwable $e) {
             return ['status' => 'error', 'error' => $e->getMessage()];
