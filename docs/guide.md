@@ -601,7 +601,10 @@ unlocked password-protected pages – with its own key. **Make a new signing key
 withdraws all of them at once, for example when a preview link went to the wrong person. The confirmation lists what stops
 working: every shared preview link and the whole-site preview, gated download links already e-mailed, unlocked protected
 pages (visitors type the password again), forms open in visitors' browsers (one reload), Custom HTML in elements copied to
-the builder clipboard before, and today's visitor count of the statistics starts again. It is written to the change log.
+the builder clipboard before, share images get new addresses (`/og/…`, social networks fetch them again), today's limits
+per sender of the whistleblowing channel and today's visitor count of the statistics start again. Claude connections are
+not affected – their tokens do not depend on this key. Restoring a backup made before the new key brings the old key back.
+It is written to the change log.
 While the encryption key has not been moved to config.php yet, the stored connector secrets and whistleblowing reports are
 encrypted again under the new key in the same step; while that move is half done, a new signing key waits.
 

@@ -19,9 +19,16 @@ await context.addInitScript(() => { try { localStorage.setItem('ka-st-prohlidka'
 const page = await context.newPage();
 const errors = [];
 let where = '';
+// Chrome 156 reports the Content Security Policy for an on* attribute as soon as it is parsed, also in an inert document that
+// never runs it; the paste steps parse such payloads on purpose and check themselves that nothing ran
+let inertHandlers = false;
 const watch = (p) => {
   p.on('pageerror', (e) => errors.push(`${where}: ${e.message}`));
-  p.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(`${where}: ${m.text()}`); });
+  p.on('console', (m) => {
+    if (m.type() !== 'error' || /Failed to load resource/.test(m.text())) { return; }
+    if (inertHandlers && /^Executing inline event handler violates the following Content Security Policy directive/.test(m.text())) { return; }
+    errors.push(`${where}: ${m.text()}`);
+  });
 };
 watch(page);
 page.on('frameattached', () => {}); // builder canvases are iframes of the same page: their errors arrive through the page
@@ -540,6 +547,10 @@ await step('news editor: type and format', async () => {
 
 await step('3.18.2 news editor: pasted HTML is cleaned without running anything (CodeQL #32)', async () => {
   // before 3.18.2 the paste cleanup parsed the HTML in the admin page itself: an <img onerror> ran before it was removed
+  inertHandlers = true;
+  try { await pasteChecks(); } finally { await page.waitForTimeout(300); inertHandlers = false; }
+});
+async function pasteChecks() {
   const editor = page.locator('[contenteditable="true"]').first();
   await editor.click();
   const result = await editor.evaluate(async (surface) => {
@@ -585,7 +596,7 @@ await step('3.18.2 news editor: pasted HTML is cleaned without running anything 
   if (bypass.youtube !== '<iframe src="https://www.youtube-nocookie.com/embed/abc"></iframe>' || bypass.other !== '' || bypass.kept !== '<iframe src="https://frames.example/x"></iframe>') {
     throw new Error(`frames: ${JSON.stringify([bypass.youtube, bypass.other, bypass.kept])}`);
   }
-});
+}
 
 await step('3.18.2 news editor: the link dialog refuses java<TAB>script:, vbscript: and data: (N3182-6)', async () => {
   const editor = page.locator('[contenteditable="true"]').first();

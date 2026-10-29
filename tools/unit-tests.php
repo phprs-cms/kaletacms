@@ -7658,7 +7658,7 @@ check('3.19.1 (N80): the FTPS copy verifies the server (cURL), the address keeps
     [CURLUSESSL_ALL, true, 2, CURLPROTO_FTP | CURLPROTO_FTPS, true, 'ftp://nas.example.com/%2Fzalohy/web/media/2026/10/a%20b.jpg', 'ftp://nas.example.com:2121/kaleta-1.sql.gz', true, true]);
 // N81: the session's sql_mode drops NO_BACKSLASH_ESCAPES wherever it stands, nothing else
 check('3.19.1 (N81): the connection drops NO_BACKSLASH_ESCAPES from the session sql_mode', [str_contains(Kaleta\Core\Db::SQL_MODE, "',NO_BACKSLASH_ESCAPES,'"),
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Db.php'), "sql_mode = \" . self::SQL_MODE")], [true, true]);
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Db.php'), "\$this->pdo->exec('SET sql_mode = ' . self::SQL_MODE);"), str_contains(Kaleta\Core\Db::SQL_MODE, "',ANSI_QUOTES,'")], [true, true, true]);
 // N83: config.php – 0600 when PHP owns the site's folder, 0640 otherwise; world-readable is told
 $n83 = sys_get_temp_dir() . '/kaleta-n83-' . bin2hex(random_bytes(4));
 mkdir($n83);
@@ -7670,12 +7670,12 @@ check('3.19.1 (N83): config.php readable by everyone is told and fixed to 0600 (
     Kaleta\Core\Vault::configMode($n83), Kaleta\Core\Vault::configMode('/')],
     [true, true, true, '0600', false, 0600, 0640]);
 exec('rm -rf ' . escapeshellarg($n83));
-check('3.19.1 (N83): the installer protects config.php right after writing it', (bool) preg_match("/file_put_contents\\(KALETA_ROOT \\. '\\/config\\.php'.*?Vault::protectConfig\\(KALETA_ROOT \\. '\\/config\\.php'\\)/s",
+check('3.19.1 (N83, N3191-8): the installer protects config.php right after writing it – only to 0600, when PHP owns the folder', (bool) preg_match("/file_put_contents\\(KALETA_ROOT \\. '\\/config\\.php'.*?if \\(\\\\Kaleta\\\\Core\\\\Vault::configMode\\(\\) === 0600\\) \\{\s*\\\\Kaleta\\\\Core\\\\Vault::protectConfig\\(KALETA_ROOT \\. '\\/config\\.php'\\)/s",
     (string) file_get_contents(KALETA_SYSTEM . '/src/Install/Installer.php')), true);
 // N84: what a new signing key withdraws is said, in every admin language
-check('3.19.1 (N84): the confirmation lists what a new signing key stops, translated', [count(Kaleta\Core\SigningKey::CONSEQUENCES),
-    array_values(array_filter(Kaleta\Core\SigningKey::CONSEQUENCES, fn (string $c): bool => Kaleta\Core\Language::runWith('cs', fn (): string => t($c), 'admin-') === $c)),
-    isset(Kaleta\Core\Events::TYPES['security.signing_key_rotated'])], [6, [], true]);
+check('3.19.1 (N84, N3191-11): the confirmation lists what a new signing key stops and what it does not touch, translated', [count(Kaleta\Core\SigningKey::CONSEQUENCES),
+    array_values(array_filter([...Kaleta\Core\SigningKey::CONSEQUENCES, Kaleta\Core\SigningKey::NOTE], fn (string $c): bool => Kaleta\Core\Language::runWith('cs', fn (): string => t($c), 'admin-') === $c)),
+    isset(Kaleta\Core\Events::TYPES['security.signing_key_rotated'])], [8, [], true]);
 // N85: install.sql – one statement each; a second one after a semicolon on the same line is refused (the audit's example)
 check('3.19.1 (N85): the install.sql guard takes one statement – a semicolon outside quotes and comments ends it', array_map(Kaleta\Extension\Registry::isSingleStatement(...), [
     'CREATE TABLE IF NOT EXISTS ka_ext_x_a (id INT); DROP TABLE ka_nastaveni;',
@@ -7684,7 +7684,7 @@ check('3.19.1 (N85): the install.sql guard takes one statement – a semicolon o
     'CREATE TABLE IF NOT EXISTS ka_ext_x_a (id INT) /*!50000 ; DROP TABLE ka_nastaveni */', 'CREATE TABLE IF NOT EXISTS ka_ext_x_a (id INT); /* x */ DROP TABLE ka_nastaveni',
     "CREATE TABLE IF NOT EXISTS ka_ext_x_a (a VARCHAR(5) DEFAULT 'open", 'CREATE TABLE IF NOT EXISTS ka_ext_x_a (id INT)--x;DROP TABLE ka_nastaveni']),
     [false, true, true, true, true, false, false, false, false]);
-check('3.19.1 (N85): the guard of Registry::enable checks the whole statement', str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Extension/Registry.php'), '|| !self::isSingleStatement($statement)'), true);
+check('3.19.1 (N85): the guard of Registry::enable checks the whole statement', str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Extension/Registry.php'), '|| !self::isPlainCreateTable($statement)'), true);
 // N86: the add-on public/ rules of .htaccess (read from the file, as Apache matches them) refuse PHP with path info and a missing name
 preg_match_all('/^\s*(RewriteCond\s+%\{REQUEST_FILENAME\}\s+!-f\s*\n\s*)?RewriteRule\s+(\^extensions\/\S+)\s+-\s+\[F,L,NC\]/m', (string) file_get_contents(KALETA_ROOT . '/.htaccess'), $n86Rules, PREG_SET_ORDER);
 $n86Refused = function (string $path, bool $isFile) use ($n86Rules): bool {
@@ -7707,6 +7707,52 @@ check('3.19.1 (N86): the development router and the nginx example refuse the sam
 // N82, N87: the events the change log's new rows go with
 check('3.19.1 (N82, N87): backup restores and deletions and add-ons switched off are known event types', [isset(Kaleta\Core\Events::TYPES['backup.restored']),
     isset(Kaleta\Core\Events::TYPES['backup.deleted']), isset(Kaleta\Core\Events::TYPES['addon.disabled'])], [true, true, true]);
+
+// Pre-release review of 3.19.1
+// N3191-3: a file is on the rollback list before its copy is written – a copy that fails half-way leaves a truncated target
+$n3191Updater = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Updater.php');
+$n3191 = sys_get_temp_dir() . '/kaleta-n3191-' . bin2hex(random_bytes(4));
+mkdir($n3191 . '/aside/system', 0775, true);
+mkdir($n3191 . '/system', 0775, true);
+file_put_contents($n3191 . '/aside/system/B.php', str_repeat('old ', 100));
+file_put_contents($n3191 . '/system/B.php', 'ol'); // the copy stopped after two bytes (a full disk)
+check('3.19.1 (N3191-3): the rollback list takes a file before its copy, and a truncated target comes back', [
+    strpos($n3191Updater, '$written[] = $relativePath;') < strpos($n3191Updater, "if (!copy(\$workDir . '/' . \$relativePath, \$target))"),
+    (new ReflectionMethod(Kaleta\Core\Updater::class, 'restore'))->invoke(new Kaleta\Core\Updater((new ReflectionClass(Kaleta\Core\Settings::class))->newInstanceWithoutConstructor(), $n3191), ['system/B.php'], $n3191 . '/aside'),
+    file_get_contents($n3191 . '/system/B.php') === str_repeat('old ', 100), is_dir($n3191 . '/aside')], [true, [], true, false]);
+exec('rm -rf ' . escapeshellarg($n3191));
+// N3191-4, N3191-5: an earlier rollback's mark survives a failed or cleanly rolled-back update; the mark is written before the restore
+check('3.19.1 (N3191-4, N3191-5): the lock goes only after a complete update, an earlier mark comes back otherwise, the rollback marks first', [
+    str_contains($n3191Updater, 'if ($succeeded || (!$restoreFailed && $stuckBefore === null)) {'), str_contains($n3191Updater, 'self::writeMark($stuckBefore);'),
+    strpos($n3191Updater, '$marked = self::writeMark(') < strpos($n3191Updater, '$failed = $this->restore($written, $setAside);')], [true, true, true]);
+// N3191-6: a form's and a booking's return anchor is the id they render – never a reserved one
+check('3.19.1 (N3191-6): forms and bookings return to the id they render, never a reserved anchor', [
+    Kaleta\Builder\Elements\Form::anchor(['id' => 'f1', 'kotva' => 'gtag']), Kaleta\Builder\Elements\Form::anchor(['id' => 'f1', 'kotva' => 'gtag', 'styl' => ['zaklad' => ['barva' => 'primarni']]]),
+    Kaleta\Builder\Elements\Form::anchor(['id' => 'f1', 'kotva' => 'kontakt']), Kaleta\Builder\Elements\Booking::anchor(['id' => 'b1', 'kotva' => 'poptavka'])],
+    ['formular-f1', 's-f1', 'kontakt', 'rezervace-b1']);
+// N3191-7: install.sql – an executable comment of MariaDB and a SELECT anywhere in the statement are refused too
+check('3.19.1 (N3191-7): the install.sql guard refuses /*M! and a CREATE TABLE … SELECT', array_map(Kaleta\Extension\Registry::isPlainCreateTable(...), [
+    'CREATE TABLE IF NOT EXISTS ka_ext_x_a (id INT) /*M! ; DROP TABLE ka_nastaveni */', 'CREATE TABLE IF NOT EXISTS ka_ext_x_a (id INT) SELECT * FROM ka_uzivatele',
+    'CREATE TABLE IF NOT EXISTS ka_ext_x_a (id INT) AS select heslo FROM ka_uzivatele', 'CREATE TABLE IF NOT EXISTS ka_ext_x_a (SELECT * FROM ka_uzivatele)',
+    "CREATE TABLE IF NOT EXISTS ka_ext_x_a (`select` INT, note VARCHAR(20) DEFAULT 'select me') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", 'CREATE TABLE IF NOT EXISTS ka_ext_x_a (id INT) -- select'."\n"]),
+    [false, false, false, false, true, true]);
+// N3191-2: a value sealed with the previous signing key still opens while the key is in the database; a new rotation reseals it
+$n3191Db = (new ReflectionClass(Kaleta\Core\Db::class))->newInstanceWithoutConstructor();
+$n3191Settings = (new ReflectionClass(Kaleta\Core\Settings::class))->newInstanceWithoutConstructor();
+(function () use ($n3191Db): void { $this->db = $n3191Db; })->call($n3191Settings);
+[$n3191Old, $n3191New] = [str_repeat('a', 64), str_repeat('b', 64)];
+(new ReflectionProperty(Kaleta\Core\Settings::class, 'values'))->setValue($n3191Settings, ['secret_key' => $n3191New, 'secret_key_previous' => $n3191Old . '|' . time(), 'vault_check' => '']);
+$n3191Sealed = Kaleta\Core\Vault::seal(Kaleta\Core\Vault::derive($n3191Old, 'connectors'), 'token');
+$n3191Resealed = Kaleta\Core\Vault::reseal(Kaleta\Core\Vault::derive($n3191New, 'connectors'), Kaleta\Core\Vault::derive(str_repeat('c', 64), 'connectors'), $n3191Sealed, Kaleta\Core\Vault::derive($n3191Old, 'connectors'));
+check('3.19.1 (N3191-2): the previous signing key opens what a request sealed in the moment of the change, and the next reseal carries it over', [
+    Kaleta\Core\Vault::state($n3191Settings), Kaleta\Core\Vault::previousKey($n3191Settings)[0] === $n3191Old, Kaleta\Core\Vault::openFor($n3191Settings, 'connectors', $n3191Sealed),
+    Kaleta\Core\Vault::openFor($n3191Settings, 'whistleblowing', $n3191Sealed), $n3191Resealed !== null ? Kaleta\Core\Vault::open(Kaleta\Core\Vault::derive(str_repeat('c', 64), 'connectors'), $n3191Resealed) : null,
+    Kaleta\Core\Vault::previousKey($reportSettings([]))], ['database', true, 'token', null, 'token', [null, 0]]);
+check('3.19.1 (N3191-1): a new signing key reads the key in force under a lock inside the transaction and stops when values would turn unreadable', [
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/SigningKey.php'), "WHERE promenna = 'secret_key' FOR UPDATE"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/SigningKey.php'), 'if ($unreadable > $before) {')], [true, true]);
+// N3191-9: no total time limit on an FTPS upload, a stalled one ends
+check('3.19.1 (N3191-9): FTPS uploads end when they stall, not after a fixed time', [isset($n80[CURLOPT_TIMEOUT]), $n80[CURLOPT_LOW_SPEED_LIMIT] ?? null, $n80[CURLOPT_LOW_SPEED_TIME] ?? null], [false, 1024, 60]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

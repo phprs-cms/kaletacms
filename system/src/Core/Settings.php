@@ -85,6 +85,7 @@ final class Settings
         'tasks_token' => '',          // secret part of the cron URL /tasks (the older /ulohy too)
         'stats' => '1',          // no longer read since 3.2: the Statistics feature (Core\Extensions 'statistika') is the only switch; kept for MCP update_settings
         'secret_key' => '',           // created by itself; signs links and salts the statistics hashes
+        'secret_key_previous' => '',  // 3.19.1: the key before the last "new signing key" and when (Vault::previousKey) – opens a value sealed in that moment
         'vault_check' => '',          // 3.15 (N42, Core\Vault): the check value of the vault_key in config.php the encrypted data belongs to; empty = secret_key
         // SEO and GEO
         'indexing' => '1',          // 0 = the whole site noindex + Disallow in robots.txt

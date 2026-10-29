@@ -60,7 +60,7 @@ final class Connectors
     /** null when it cannot be read (another site's key, damaged). */
     public static function decrypt(Settings $settings, ?string $sealed): ?string
     {
-        return Vault::open(self::vaultKey($settings), $sealed);
+        return Vault::openFor($settings, 'connectors', $sealed); // 3.19.1: also the previous signing key (N3191-2)
     }
 
     /** @return array<string, mixed>|null */

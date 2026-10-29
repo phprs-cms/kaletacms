@@ -22,7 +22,7 @@ $group = '';
 </table>
 </div>
 <?php if (Kaleta\Core\Vault::configWorldReadable() && Kaleta\Core\Vault::canProtectConfig()): // 3.19.1 (N83) ?>
-<p><button class="navigace" type="submit" formaction="<?= e($module->url('config_permissions')) ?>"><?= e(t('Make config.php readable only by the site')) ?></button></p>
+<p><button class="navigace" type="submit" formaction="<?= e($module->url('config_permissions')) ?>"<?= Kaleta\Core\Vault::configMode() === 0640 ? ' data-potvrdit="' . e(t('PHP does not run as the owner of the site\'s folder here, so config.php gets mode 0640. Your FTP user may then no longer be able to read or download it – keep a copy of config.php first. Continue?')) . '"' : '' ?>><?= e(t('Make config.php readable only by the site')) ?></button></p>
 <?php endif ?>
 <?php if ($readiness !== []): ?>
 <fieldset id="ready-4">

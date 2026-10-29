@@ -107,12 +107,66 @@ final class Vault
         return $plain === false ? null : $plain;
     }
 
-    /** One stored value encrypted again under another key; null = it stays as it is (empty, or unreadable already). */
-    public static function reseal(string $from, string $to, ?string $sealed): ?string
+    /**
+     * One stored value encrypted again under another key; null = it stays as it is (empty, or unreadable already).
+     * $fallback (3.19.1, N3191-2): a second key that may have sealed it – the previous signing key.
+     */
+    public static function reseal(string $from, string $to, ?string $sealed, ?string $fallback = null): ?string
     {
-        $plain = $sealed === null || $sealed === '' ? null : self::open($from, $sealed);
+        $plain = $sealed === null || $sealed === '' ? null : (self::open($from, $sealed) ?? ($fallback !== null ? self::open($fallback, $sealed) : null));
 
         return $plain === null ? null : self::seal($to, $plain);
+    }
+
+    /**
+     * The signing key before the last new one (3.19.1, N3191-2: SigningKey::rotate) and when it was replaced; [null, 0]
+     * when there is none. Kept until the next rotation.
+     *
+     * @return array{0: string|null, 1: int}
+     */
+    public static function previousKey(Settings $settings): array
+    {
+        [$key, $at] = explode('|', $settings->get('secret_key_previous'), 2) + [1 => '0'];
+
+        return preg_match('/^[a-f0-9]{64}$/D', $key) === 1 ? [$key, (int) $at] : [null, 0];
+    }
+
+    /**
+     * A stored value of one purpose opened (Connectors, Whistleblowing): with the current key, and while the key is still in
+     * the database also with the previous signing key – a request that had read the settings before a new key was made
+     * may have sealed with it (3.19.1, N3191-2).
+     */
+    public static function openFor(Settings $settings, string $purpose, ?string $sealed): ?string
+    {
+        $plain = self::open(self::key($settings, $purpose), $sealed);
+        if ($plain !== null || $sealed === null || $sealed === '' || self::state($settings) !== 'database') {
+            return $plain;
+        }
+        [$previous] = self::previousKey($settings);
+
+        return $previous !== null ? self::open(self::derive($previous, $purpose), $sealed) : null;
+    }
+
+    /**
+     * How many stored values neither base key opens (3.19.1, N3191-1: SigningKey::rotate compares it with what resealAll
+     * leaves behind). Read under a lock, inside the caller's transaction.
+     */
+    public static function unreadable(Db $db, string $key, ?string $fallback = null): int
+    {
+        $count = 0;
+        foreach (self::SEALED as $table => [$purpose, $primary, $columns]) {
+            [$k, $f] = [self::derive($key, $purpose), $fallback !== null ? self::derive($fallback, $purpose) : null];
+            foreach ($db->all('SELECT ' . $primary . ', ' . implode(', ', $columns) . ' FROM {' . $table . '} FOR UPDATE') as $row) {
+                foreach ($columns as $column) {
+                    $value = $row[$column] ?? null;
+                    if ($value !== null && $value !== '' && self::open($k, $value) === null && ($f === null || self::open($f, $value) === null)) {
+                        $count++;
+                    }
+                }
+            }
+        }
+
+        return $count;
     }
 
     /** The line for config.php (inside the returned array). */
@@ -356,17 +410,17 @@ final class Vault
      *
      * @return array{0: int, 1: int} values encrypted again, values that were unreadable before and stay as they were
      */
-    public static function resealAll(Db $db, string $from, string $to): array
+    public static function resealAll(Db $db, string $from, string $to, ?string $fallback = null): array
     {
         $count = 0;
         $unreadable = 0;
         foreach (self::SEALED as $table => [$purpose, $primary, $columns]) {
-            [$fromKey, $toKey] = [self::derive($from, $purpose), self::derive($to, $purpose)];
+            [$fromKey, $toKey, $fallbackKey] = [self::derive($from, $purpose), self::derive($to, $purpose), $fallback !== null ? self::derive($fallback, $purpose) : null];
             // locked until the commit (N315-6): a token refresh that writes meanwhile waits and does not overwrite
             foreach ($db->all('SELECT ' . $primary . ', ' . implode(', ', $columns) . ' FROM {' . $table . '} FOR UPDATE') as $row) {
                 $changes = [];
                 foreach ($columns as $column) {
-                    $new = self::reseal($fromKey, $toKey, $row[$column] ?? null);
+                    $new = self::reseal($fromKey, $toKey, $row[$column] ?? null, $fallbackKey);
                     if ($new !== null) {
                         $changes[$column] = $new;
                     } elseif (($row[$column] ?? '') !== '' && $row[$column] !== null) {
@@ -426,7 +480,7 @@ final class Vault
         $to = (string) self::$configKey;
         try {
             [$count, $unreadable] = $app->db()->transaction(function (Db $db) use ($settings, $from, $to): array {
-                $result = self::resealAll($db, $from, $to);
+                $result = self::resealAll($db, $from, $to, self::previousKey($settings)[0]);
                 $settings->set('vault_check', self::check($to));
 
                 return $result;

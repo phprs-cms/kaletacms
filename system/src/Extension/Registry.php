@@ -162,7 +162,7 @@ final class Registry
                 // 3.19.1 (N85): one statement each – a second one after a semicolon on the same line (DROP TABLE…) is refused,
                 // not handed to the database together with the CREATE TABLE
                 if (preg_match('/^\s*CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+`?' . preg_quote($app->db()->prefix, '/') . 'ext_' . preg_quote($slug, '/') . '_[a-z0-9_]+`?\s*\(/i', $statement) !== 1
-                    || !self::isSingleStatement($statement)) {
+                    || !self::isPlainCreateTable($statement)) {
                     throw new \DomainException('install.sql may only CREATE TABLE IF NOT EXISTS {ext_' . $slug . '_…} tables.');
                 }
                 $app->db()->pdo()->exec($statement);
@@ -188,18 +188,18 @@ final class Registry
     }
 
     /**
-     * Is this one SQL statement (3.19.1, N85)? A semicolon counts only outside quoted strings, quoted names and comments;
-     * a trailing one (with spaces or a comment after it) is allowed. MySQL runs everything after a semicolon as the next
-     * statement, so install.sql's guard checks the whole text, not just its start. A comment that starts with /*! is refused: MySQL
-     * executes its inside.
+     * The statement as MySQL reads its code (3.19.1, N85): quoted strings, quoted names and comments blanked out, so a
+     * semicolon or a keyword is looked for only where it means something. A doubled quote stays inside, a backslash escapes
+     * the next character (not in names). Null for an unterminated quote or comment, and for an executable comment (/*! for
+     * MySQL, /*M! for MariaDB – the server runs their inside).
      */
-    public static function isSingleStatement(string $sql): bool
+    public static function codeOf(string $sql): ?string
     {
+        $code = '';
         $length = strlen($sql);
         for ($i = 0; $i < $length; $i++) {
             $char = $sql[$i];
             if ($char === "'" || $char === '"' || $char === '`') {
-                // a quoted string or name: a doubled quote stays inside, a backslash escapes the next character (not in names)
                 for ($i++; $i < $length; $i++) {
                     if ($char !== '`' && $sql[$i] === '\\') {
                         $i++;
@@ -211,25 +211,53 @@ final class Registry
                     }
                 }
                 if ($i >= $length) {
-                    return false; // an unterminated quote
+                    return null;
                 }
+                $code .= $char . $char; // an empty string or name in its place
             } elseif ($char === '#' || ($char === '-' && ($sql[$i + 1] ?? '') === '-' && in_array($sql[$i + 2] ?? "\n", [' ', "\t", "\n", "\r"], true))) {
                 $end = strpos($sql, "\n", $i);
                 $i = $end === false ? $length : $end;
+                $code .= ' ';
             } elseif ($char === '/' && ($sql[$i + 1] ?? '') === '*') {
                 $end = strpos($sql, '*/', $i + 2);
-                // MySQL runs the inside of a /*! comment as SQL – never a comment here
-                if ($end === false || ($sql[$i + 2] ?? '') === '!') {
-                    return false;
+                if ($end === false || ($sql[$i + 2] ?? '') === '!' || substr($sql, $i + 2, 2) === 'M!') {
+                    return null;
                 }
                 $i = $end + 1;
-            } elseif ($char === ';') {
-                // only spaces and comments may follow
-                return trim((string) preg_replace(['#/\*.*?\*/#s', '/(--[ \t]|#)[^\n]*/'], '', substr($sql, $i + 1))) === '';
+                $code .= ' ';
+            } else {
+                $code .= $char;
             }
         }
 
-        return true;
+        return $code;
+    }
+
+    /**
+     * Is this one SQL statement (3.19.1, N85)? A semicolon counts only outside quoted strings, quoted names and comments;
+     * a trailing one (with spaces after it) is allowed. MySQL runs everything after a semicolon as the next statement, so
+     * install.sql's guard checks the whole text, not just its start. An executable comment is refused (codeOf).
+     */
+    public static function isSingleStatement(string $sql): bool
+    {
+        $code = self::codeOf($sql);
+        if ($code === null) {
+            return false;
+        }
+        $semicolon = strpos($code, ';');
+
+        return $semicolon === false || trim(substr($code, $semicolon + 1)) === '';
+    }
+
+    /**
+     * Does install.sql's statement only create a table (3.19.1, N85, N3191-7)? One statement, and no SELECT anywhere in its
+     * code: CREATE TABLE … (…) SELECT … (or AS SELECT, or a query in the parentheses) would copy other tables into it.
+     */
+    public static function isPlainCreateTable(string $sql): bool
+    {
+        $code = self::codeOf($sql);
+
+        return $code !== null && self::isSingleStatement($sql) && preg_match('/\bSELECT\b/i', $code) !== 1;
     }
 
     /** A broken add-on is switched off at once and the error kept for the Add-ons screen. */

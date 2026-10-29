@@ -1074,6 +1074,20 @@ last hour of the 25-hour day of the clock change, so the daily limit did not hol
 
 Unchanged by owner decision or accepted: N3182-7, N318-4, N318-5, N315-9, N39-4, N37-4, S6.
 
+Pre-release review (N3191): a new signing key reads the key in force under a lock inside its transaction and stops if a
+stored value would turn unreadable (two rotations at once could lose the sealed data, N3191-1); the previous key is kept
+(`secret_key_previous`) and opens a value a request sealed in that moment while the encryption key is still in the database
+(N3191-2). The update puts a file on the rollback list before copying it, so a truncated copy comes back (N3191-3); the mark
+of a rollback that left files behind is cleared only by an update that completes, and the Backups tab says so (N3191-4);
+the mark is written before the rollback starts and a failure to write it is said (N3191-5). Forms and bookings return to
+the anchor they render, never a reserved one (N3191-6). The `install.sql` guard also refuses `/*M!` and any `SELECT`;
+the session `sql_mode` drops `ANSI_QUOTES` (and `ANSI`) too (N3191-7). The installer sets `config.php` only to 0600, where
+PHP owns the site's folder – 0640 only from System status, with a warning about the FTP user (N3191-8). FTPS uploads end when
+they stall instead of after 300 s (N3191-9). The `sql_mode` statement runs on its own and a host refusing it keeps the site
+up (N3191-10). The signing key's confirmation also names share images, the whistleblowing limits, restored backups and that
+Claude connections are not affected (N3191-11). The browser test tolerates Chrome 156's report of an inline handler parsed
+in the paste cleanup's inert document (nothing runs).
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |

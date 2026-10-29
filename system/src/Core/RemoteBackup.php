@@ -164,7 +164,9 @@ final class RemoteBackup
             CURLOPT_USE_SSL => CURLUSESSL_ALL, CURLOPT_SSL_VERIFYPEER => true, CURLOPT_SSL_VERIFYHOST => 2,
             CURLOPT_PROTOCOLS => CURLPROTO_FTP | CURLPROTO_FTPS, CURLOPT_FTP_CREATE_MISSING_DIRS => CURLFTP_CREATE_DIR_RETRY,
             CURLOPT_USERNAME => $user, CURLOPT_PASSWORD => $password, CURLOPT_UPLOAD => true,
-            CURLOPT_CONNECTTIMEOUT => 15, CURLOPT_TIMEOUT => 300, CURLOPT_RETURNTRANSFER => true,
+            // N3191-9: no total time limit (a large backup over a slow line takes long) – a transfer that stalls below 1 kB/s
+            // for a minute ends, and so does a connection not made in 30 s
+            CURLOPT_CONNECTTIMEOUT => 30, CURLOPT_LOW_SPEED_LIMIT => 1024, CURLOPT_LOW_SPEED_TIME => 60, CURLOPT_RETURNTRANSFER => true,
         ];
     }
 

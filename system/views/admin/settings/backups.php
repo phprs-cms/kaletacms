@@ -7,6 +7,9 @@ $developer = fn (string $detail): string => '<details><summary>' . e(t('Details 
 ?>
 <fieldset>
 <legend><?= e(t('System update')) ?></legend>
+<?php if (($rollbackLeft = Kaleta\Core\Updater::restoreFailed()) !== null): // 3.19.1 (N3191-4): an earlier rollback left files of two versions ?>
+<div class="hlaska hlaska-chyba"><p><?= e(t('An earlier update could not put every file back, so visitors see the maintenance page. An update that installs completely clears it; a failed one leaves it as it is.')) ?></p><p><?= e($rollbackLeft) ?></p></div>
+<?php endif ?>
 <p><?= e(t('Installed version:')) ?> <strong><?= e($update['aktualni']) ?></strong><?php if ($update['nastaveno']): ?> · <?= e(t(['latest' => 'Latest channel', 'stable' => 'Stable channel', 'custom' => 'custom update source'][$update['channel']] ?? 'Latest channel')) ?><?php endif ?></p>
 <?php if (!$update['nastaveno']): ?>
 <p class="hlaska"><?= e(t('No update source is set yet. Upload a new version via FTP (overwrite all files except config.php, media/ and storage/); the database will be adjusted automatically.')) ?></p>
@@ -171,9 +174,10 @@ $field('backup_region', 'Region (S3 only)', 'text', 'For example eu-central-1. F
 <?php // 3.19.1 (N84, Core\SigningKey): withdraws every link the site signed – the only way to call back a shared preview link early ?>
 <p><?= e(t('The site signs the links it hands out with its own key – shared previews of drafts, downloads of gated documents, unlocked password-protected pages. A new key withdraws all of them at once, for example when a preview link went to the wrong person.')) ?></p>
 <?php $signingConsequences = implode('; ', array_map(fn (string $c): string => t($c), Kaleta\Core\SigningKey::CONSEQUENCES)); ?>
+<p class="napoveda"><?= e(t(Kaleta\Core\SigningKey::NOTE)) ?></p>
 <?php if (in_array($vaultState, ['pending', 'missing'], true)): ?>
 <p class="napoveda"><?= e(t('A new signing key can be made once the encryption key above is sorted out.')) ?></p>
 <?php else: ?>
-<p><button class="navigace nebezpecne" type="submit" formaction="<?= e($module->url('new_signing_key')) ?>" data-potvrdit="<?= e(t('Make a new signing key? This stops working at once: %s.', $signingConsequences)) ?>"><?= e(t('Make a new signing key')) ?></button></p>
+<p><button class="navigace nebezpecne" type="submit" formaction="<?= e($module->url('new_signing_key')) ?>" data-potvrdit="<?= e(t('Make a new signing key? This stops working at once: %s.', $signingConsequences) . ' ' . t(Kaleta\Core\SigningKey::NOTE)) ?>"><?= e(t('Make a new signing key')) ?></button></p>
 <?php endif ?>
 </fieldset>

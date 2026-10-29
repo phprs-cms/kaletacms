@@ -153,7 +153,10 @@ final class Form extends Element
     /** Form anchor (where the page returns after sending): the same as the id the form gets when rendered. */
     public static function anchor(array $p): string
     {
-        return $p['kotva'] ?? (!empty($p['styl']) ? 's-' . $p['id'] : 'formular-' . $p['id']);
+        // 3.19.1 (N3191-6): a reserved anchor of an older build is not written (Build::render) – the return address follows
+        $anchor = is_string($p['kotva'] ?? null) && \Kaleta\Builder\Build::isFreeAnchor($p['kotva']) ? $p['kotva'] : null;
+
+        return $anchor ?? (!empty($p['styl']) ? 's-' . $p['id'] : 'formular-' . $p['id']);
     }
 
     /** The CAPTCHA widget when the site has one (2.6); in the editor only a note, the provider's script does not load there. */

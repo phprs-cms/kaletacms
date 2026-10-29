@@ -509,8 +509,10 @@ odemčené stránky chráněné heslem – vlastním klíčem. **Vytvořit nový
 všechny naráz zneplatní, třeba když odkaz na náhled dostal někdo, komu nepatřil. Potvrzení vyjmenuje, co přestane fungovat:
 každý sdílený odkaz na náhled i náhled celého webu, odkazy na stažení chráněných dokumentů, které už odešly e-mailem,
 odemčené chráněné stránky (návštěvníci zadají heslo znovu), formuláře otevřené v prohlížečích návštěvníků (jedno načtení
-znovu), Vlastní HTML v prvcích zkopírovaných dříve do schránky builderu a dnešní počet návštěvníků ve statistice začne znovu.
-Zapíše se do protokolu změn. Dokud šifrovací klíč není přesunutý do config.php, uložená tajemství konektorů a oznámení
+znovu), Vlastní HTML v prvcích zkopírovaných dříve do schránky builderu, obrázky pro sdílení dostanou nové adresy (`/og/…`,
+sociální sítě si je stáhnou znovu) a dnešní limity odesílatelů whistleblowingu i dnešní počet návštěvníků ve statistice
+začnou znovu. Napojení na Clauda se to nedotkne – jejich tokeny na tomto klíči nezávisí. Obnova zálohy z doby před novým
+klíčem vrátí starý klíč. Zapíše se do protokolu změn. Dokud šifrovací klíč není přesunutý do config.php, uložená tajemství konektorů a oznámení
 whistleblowingu se v tomtéž kroku zašifrují novým klíčem; během nedokončeného přesunu nový podpisový klíč počká.
 
 **config.php (3.19.1):** obsahuje heslo k databázi a šifrovací klíč, proto ho instalátor nastaví tak, aby ho mohl číst jen
