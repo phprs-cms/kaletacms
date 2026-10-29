@@ -591,6 +591,25 @@ ones, so no connection breaks.
 site, otherwise once a week; the last 10 are kept. **Off-site copies** upload each backup to an FTPS server or S3 storage
 (Amazon S3, Backblaze B2, Wasabi, Cloudflare R2) and copy the `media/` folder to the same place – only new and changed
 files, in the background, so even a large media library gets there bit by bit. The tab shows whether the copy is complete.
+Since 3.19.1 an FTPS copy checks the FTP server's certificate, as a browser does: a server with a self-signed certificate
+(common on a home NAS) is refused until it has a certificate from a recognised authority such as Let's Encrypt – or use S3.
+On the rare server whose PHP has no cURL with FTPS, the copy is still encrypted but the certificate cannot be checked, and
+the tab says so.
+
+**Signing key (3.19.1):** the site signs the links it hands out – shared previews of drafts, downloads of gated documents,
+unlocked password-protected pages – with its own key. **Make a new signing key** in Settings → Backups and updates
+withdraws all of them at once, for example when a preview link went to the wrong person. The confirmation lists what stops
+working: every shared preview link and the whole-site preview, gated download links already e-mailed, unlocked protected
+pages (visitors type the password again), forms open in visitors' browsers (one reload), Custom HTML in elements copied to
+the builder clipboard before, and today's visitor count of the statistics starts again. It is written to the change log.
+While the encryption key has not been moved to config.php yet, the stored connector secrets and whistleblowing reports are
+encrypted again under the new key in the same step; while that move is half done, a new signing key waits.
+
+**config.php (3.19.1):** it holds the database password and the encryption key, so the installer makes it readable only by
+the site – mode 0600 where PHP runs as the owner of the site's folder (most shared hosting), otherwise 0640 so that the web
+server's group can still read it. System status warns when everyone on the server can read it and, where PHP owns the
+file, fixes it with one click (**Make config.php readable only by the site**); otherwise set the mode in your FTP client or
+the hosting's file manager.
 
 To **restore a site after losing the hosting**: install Kaleta on the new hosting with the same table prefix, upload the
 latest database backup over FTP into `storage/zalohy/`, copy the `media/` folder back from the FTPS or S3 copy, then click

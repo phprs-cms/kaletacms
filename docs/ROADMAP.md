@@ -1037,6 +1037,43 @@ path longer than 255 characters matches a stored 255-character source; the migra
 collision group). Also fixed: the whistleblowing channel deleted a day's sent-report rows as they were written in the
 last hour of the 25-hour day of the clock change, so the daily limit did not hold then (`Whistleblowing::forgetBefore`).
 
+**3.19.1 (30 October 2026):** the open findings of the daily security audits (19–29 October).
+- **N88:** an update rollback that cannot put a file back (full disk, a file of another owner) no longer deletes the
+  originals and reports success: the set-aside folder stays, the event `update.restore_failed` names it and the files, the
+  maintenance page stays up until a person fixes it (`storage/udrzba.lock` with a mark, honoured however old), System status
+  shows it, and the admin message and the background job's e-mail say how many files, where they are and which version
+  to upload over FTP.
+- **N75:** each step of a sign-in (password, code, passkey) starts a new form token; a password change keeps it, so open
+  tabs still save.
+- **N76:** a redirect drops tabs, newlines and other control characters before the protocol-relative check, as browsers do;
+  the admin "back" address refuses them.
+- **N78:** builder anchors skip the ids the site's scripts look up (`gtag`, `grecaptcha`, `poptavka`, `l`, `datalayer`… –
+  the list texts have had since 3.15); a stored one is not written when the page is rendered.
+- **N79:** MCP `import_enquiries` keeps an enquiry's page only as `/…` or `http(s)://…`; the enquiry screens link only such a page.
+- **N80:** the FTPS off-site copy goes through cURL and checks the server's certificate and name (PHP's FTP extension
+  cannot); a self-signed certificate is refused with a clear message. Only where PHP has no cURL with FTPS does the
+  extension remain, and the Backups tab warns that the certificate is not checked there.
+- **N81:** every connection drops `NO_BACKSLASH_ESCAPES` from its session `sql_mode`; a backup without tables fails
+  instead of being "ready", and an empty backup is refused at restore.
+- **N82:** restoring and deleting a backup are written to the change log and the events (`backup.restored`,
+  `backup.deleted`) – the restore's record after the restore, into the restored database.
+- **N83:** the installer writes `config.php` with mode 0600 (0640 where PHP is not the owner of the site's folder); System
+  status warns when everyone on the server can read it and fixes it with one click where PHP owns the file.
+- **N84:** **Make a new signing key** (Settings → Backups and updates) replaces `secret_key` and so withdraws every shared
+  preview link, gated download link, unlocked protected page, open visitor form and clipboard signature; the confirmation
+  lists them, the change log and the event `security.signing_key_rotated` record it. While the encryption key is still in
+  the database, the stored secrets are encrypted again under the new key in the same transaction.
+- **N85:** the `install.sql` guard of add-ons checks the whole statement: a second statement after a semicolon on the same
+  line (or a `/*! */` comment) is refused before anything runs.
+- **N86:** `.htaccess` refuses an add-on's PHP in `public/` also with path info (`run.php/x`) and a double extension, and
+  serves nothing in `public/` but an existing file (MultiViews cannot pick `run.php`); the development router and
+  `nginx.example.conf` refuse the same. A customised `.htaccess` gets it in `.htaccess.kaleta-nova`, and System status says so.
+- **N87:** switching an add-on on or off names the add-on and the direction in the change log; switching off records
+  `addon.disabled`.
+- Tests: the builder check of 3.6 UXA-12 and the whistleblowing tools/list check in `tools/test.sh` really run now.
+
+Unchanged by owner decision or accepted: N3182-7, N318-4, N318-5, N315-9, N39-4, N37-4, S6.
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |

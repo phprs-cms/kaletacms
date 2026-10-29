@@ -500,6 +500,24 @@ přijímá, takže žádné napojení se nerozbije.
 změnilo, jinak jednou týdně; uchovává se posledních 10. **Kopie mimo server** nahrají každou zálohu na server FTPS nebo do
 úložiště S3 (Amazon S3, Backblaze B2, Wasabi, Cloudflare R2) a na stejné místo kopírují i složku `media/` – jen nové a
 změněné soubory, na pozadí, takže se tam postupně dostane i velká knihovna médií. Záložka ukazuje, jestli je kopie kompletní.
+Od 3.19.1 kopie přes FTPS ověřuje certifikát FTP serveru stejně jako prohlížeč: server s certifikátem podepsaným sám sebou
+(častý u domácího NASu) odmítne, dokud nemá certifikát od uznávané autority, třeba Let's Encrypt – nebo použijte S3. Na
+vzácném serveru, jehož PHP nemá cURL s FTPS, je kopie dál šifrovaná, ale certifikát ověřit nejde, a záložka to řekne.
+
+**Podpisový klíč (3.19.1):** web podepisuje odkazy, které vydává – sdílené náhledy konceptů, stažení chráněných dokumentů,
+odemčené stránky chráněné heslem – vlastním klíčem. **Vytvořit nový podpisový klíč** v Nastavení → Zálohy a aktualizace je
+všechny naráz zneplatní, třeba když odkaz na náhled dostal někdo, komu nepatřil. Potvrzení vyjmenuje, co přestane fungovat:
+každý sdílený odkaz na náhled i náhled celého webu, odkazy na stažení chráněných dokumentů, které už odešly e-mailem,
+odemčené chráněné stránky (návštěvníci zadají heslo znovu), formuláře otevřené v prohlížečích návštěvníků (jedno načtení
+znovu), Vlastní HTML v prvcích zkopírovaných dříve do schránky builderu a dnešní počet návštěvníků ve statistice začne znovu.
+Zapíše se do protokolu změn. Dokud šifrovací klíč není přesunutý do config.php, uložená tajemství konektorů a oznámení
+whistleblowingu se v tomtéž kroku zašifrují novým klíčem; během nedokončeného přesunu nový podpisový klíč počká.
+
+**config.php (3.19.1):** obsahuje heslo k databázi a šifrovací klíč, proto ho instalátor nastaví tak, aby ho mohl číst jen
+web – práva 0600 tam, kde PHP běží jako vlastník složky webu (většina sdíleného hostingu), jinak 0640, aby ho skupina
+webového serveru mohla číst dál. Stav systému upozorní, když ho může číst kdokoli na serveru, a kde je PHP jeho vlastníkem,
+opraví to jedním kliknutím (**Nastavit, aby config.php mohl číst jen web**); jinak nastavte práva v FTP klientovi nebo ve
+správci souborů hostingu.
 
 **Obnova webu po ztrátě hostingu:** nainstalujte Kaletu na nový hosting se stejnou předponou tabulek, nahrajte poslední
 zálohu databáze přes FTP do `storage/zalohy/`, zkopírujte zpět složku `media/` z kopie na FTPS nebo S3 a pak v Nastavení →
