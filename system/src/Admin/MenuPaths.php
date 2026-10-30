@@ -28,6 +28,9 @@ final class MenuPaths
         [['Nastavení', 'Reports'], 'settings', 'module=settings&tab=reports'], // 3.16
         [['Appearance', 'Site appearance'], 'appearance', 'module=appearance'],
         [['Appearance', 'Menu'], 'menu', 'module=menu'],
+        [['Administration', 'Integrations'], 'connectors', 'module=connectors'], // 3.19.2 (C3): one name for the screen, as a link
+        [['Integrations'], 'connectors', 'module=connectors'],
+        [['Features'], 'extensions', 'module=extensions'], // 3.19.2 (C7)
         [['Backups and updates'], 'settings', 'module=settings&tab=backups'],
         [['Novinky', 'Trash'], 'news', 'module=news&status=kos'],
         [['Site appearance'], 'appearance', 'module=appearance'],

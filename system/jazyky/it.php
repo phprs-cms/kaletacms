@@ -1836,7 +1836,7 @@ return [
     'Please describe what happened.' => 'Descrivi, per favore, cosa è successo.',
     'A file could not be accepted: up to %d files, each up to %d MB – PDF, image, document or ZIP.' => 'Un file non è stato accettato: fino a %d file, ciascuno fino a %d MB – PDF, immagine, documento o ZIP.',
     'Link in bio' => 'Link nella bio',
-    'Connect Google and choose a Business Profile location under Administration → Connections; the reviews then appear here.' => 'Collega Google e scegli una sede del Profilo dell’attività in Amministrazione → Connessioni; le recensioni appariranno qui.',
+    'Connect Google and choose a Business Profile location under Administration → Integrations; the reviews then appear here.' => 'Collega Google e scegli una sede del Profilo dell’attività in Amministrazione → Integrazioni; le recensioni appariranno qui.',
     'No reviews with this many stars yet – they are fetched from Google once a day.' => 'Ancora nessuna recensione con così tante stelle – vengono recuperate da Google una volta al giorno.',
     '%d reviews on Google' => '%d recensioni su Google',
     'Google user' => 'Utente Google',

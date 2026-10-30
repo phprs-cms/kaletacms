@@ -1854,7 +1854,7 @@ The link works for %d days.
     'Please describe what happened.' => '請描述發生了什麼事。',
     'A file could not be accepted: up to %d files, each up to %d MB – PDF, image, document or ZIP.' => '無法接受某個檔案：最多 %d 個檔案，每個最大 %d MB – PDF、圖片、文件或 ZIP。',
     'Link in bio' => '個人簡介連結',
-    'Connect Google and choose a Business Profile location under Administration → Connections; the reviews then appear here.' => '請在「後台 → 連線」中連結 Google 並選擇商家檔案的地點；評論就會顯示在這裡。',
+    'Connect Google and choose a Business Profile location under Administration → Integrations; the reviews then appear here.' => '請在「後台 → 整合」中連結 Google 並選擇商家檔案的地點；評論就會顯示在這裡。',
     'No reviews with this many stars yet – they are fetched from Google once a day.' => '目前還沒有這麼多星的評論 – 評論每天會從 Google 擷取一次。',
     '%d reviews on Google' => 'Google 上的 %d 則評論',
     'Google user' => 'Google 使用者',

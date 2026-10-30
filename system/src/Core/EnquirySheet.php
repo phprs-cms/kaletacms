@@ -71,7 +71,7 @@ final class EnquirySheet
     {
         $id = Connectors::config($app->db(), Google::KEY)['sheet_id'] ?? '';
         if ($id === '') {
-            return t('No sheet – create it in Administration → Connections.');
+            return t('No sheet – create it in Administration → Integrations.');
         }
         $answer = Connectors::request($app, Google::KEY, 'POST', self::API . '/' . rawurlencode($id) . '/values/A1:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS', self::appendBody($payload), [], 'sheets.append');
         EnquiryDelivery::report($app->db(), Google::KEY, $answer['error']);

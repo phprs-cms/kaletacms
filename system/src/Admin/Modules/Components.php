@@ -88,7 +88,8 @@ final class Components extends Module
     protected function actionFromElement(): Response
     {
         $element = $this->request->isPost() ? json_decode((string) ($_POST['prvek'] ?? ''), true) : null;
-        $name = mb_substr(trim($this->request->post('nazev')), 0, 100);
+        // 3.19.2: the builder's script has sent the name as "name" since 1.4.0 – the Czech key stays for anything else
+        $name = mb_substr(trim($this->request->post('name') !== '' ? $this->request->post('name') : $this->request->post('nazev')), 0, 100);
         if (!is_array($element) || $name === '') {
             return Response::json(['ok' => false, 'chyba' => t('Name or element is missing.')], 400);
         }

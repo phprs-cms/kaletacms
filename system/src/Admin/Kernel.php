@@ -188,9 +188,17 @@ final class Kernel
         $class = $this->modules()[$ident] ?? null;
         if ($class === null) {
             // 3.11 (UX310-30): a mistyped section is not a matter of access
-            $known = array_filter(self::MODULES, fn (string $c): bool => $c::IDENT === $ident) !== [];
+            $known = array_values(array_filter(self::MODULES, fn (string $c): bool => $c::IDENT === $ident));
+            if ($known !== [] && !Extensions::isEnabled($app->settings(), $known[0]::EXTENSION)) {
+                // 3.19.2 (C7): a module whose feature is off is "switched off", not "no access" – a guide link or an old
+                // bookmark used to send the administrator to Users; the path to Features becomes a link
+                $feature = t(Extensions::CATALOG[$known[0]::EXTENSION][0] ?? $known[0]::NAME);
+                $text = $app->auth()->isAdmin() ? t('The feature “%s” is switched off – switch it on in Features.', $feature) : t('The feature “%s” is switched off on this site.', $feature);
 
-            return $known ? $this->page('Error', $app->view->render('admin/error', ['text' => 'You do not have access to this module.']), 403)
+                return $this->page('Error', $app->view->render('admin/error', ['app' => $app, 'text' => $text, 'modules' => array_keys($this->modules())]), 403);
+            }
+
+            return $known !== [] ? $this->page('Error', $app->view->render('admin/error', ['text' => 'You do not have access to this module.']), 403)
                 : $this->page('Error', $app->view->render('admin/error', ['text' => 'This page does not exist.']), 404);
         }
 

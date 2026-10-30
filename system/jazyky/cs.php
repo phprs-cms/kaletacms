@@ -2996,7 +2996,7 @@ return [
     'Case %s: the feedback to the reporter is due by %s.' => 'Případ %s: vyrozumění oznamovatele je třeba dát do %s.',
     '%d closed whistleblowing cases past the retention period of %d months were deleted.' => 'Smazáno %d uzavřených oznámení po době uchování %d měsíců.',
     'Link in bio' => 'Odkaz v biu',
-    'Connect Google and choose a Business Profile location under Administration → Connections; the reviews then appear here.' => 'Připojte Google a vyberte pobočku firemního profilu v Administrace → Připojení; recenze se pak objeví tady.',
+    'Connect Google and choose a Business Profile location under Administration → Integrations; the reviews then appear here.' => 'Připojte Google a vyberte pobočku firemního profilu v části Správa → Integrace; recenze se pak objeví tady.',
     'No reviews with this many stars yet – they are fetched from Google once a day.' => 'Zatím žádné recenze s tolika hvězdičkami – z Google se načítají jednou denně.',
     '%d reviews on Google' => 'Recenzí na Google: %d',
     'Google user' => 'Uživatel Google',

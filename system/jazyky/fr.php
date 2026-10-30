@@ -1831,7 +1831,7 @@ return [
     'Please describe what happened.' => 'Veuillez décrire ce qui s\'est passé.',
     'A file could not be accepted: up to %d files, each up to %d MB – PDF, image, document or ZIP.' => 'Un fichier n\'a pas pu être accepté : jusqu\'à %d fichiers, chacun jusqu\'à %d Mo – PDF, image, document ou ZIP.',
     'Link in bio' => 'Lien dans la bio',
-    'Connect Google and choose a Business Profile location under Administration → Connections; the reviews then appear here.' => 'Connectez Google et choisissez un établissement de la fiche d’établissement dans Administration → Connexions ; les avis apparaîtront ici.',
+    'Connect Google and choose a Business Profile location under Administration → Integrations; the reviews then appear here.' => 'Connectez Google et choisissez un établissement de la fiche d’établissement dans Administration → Intégrations ; les avis apparaîtront ici.',
     'No reviews with this many stars yet – they are fetched from Google once a day.' => 'Pas encore d’avis avec autant d’étoiles – ils sont récupérés sur Google une fois par jour.',
     '%d reviews on Google' => '%d avis sur Google',
     'Google user' => 'Utilisateur Google',

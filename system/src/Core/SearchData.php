@@ -77,7 +77,7 @@ final class SearchData
             $site = self::ownAddress($app);
         }
         if ($site === '') {
-            throw new \RuntimeException(t('Choose the Search Console property in Administration → Connections.'));
+            throw new \RuntimeException(t('Choose the Search Console property in Administration → Integrations.'));
         }
 
         return $site;
@@ -91,7 +91,7 @@ final class SearchData
             $site = self::ownAddress($app);
         }
         if ($site === '') {
-            throw new \RuntimeException(t('Enter the site address in Administration → Connections.'));
+            throw new \RuntimeException(t('Enter the site address in Administration → Integrations.'));
         }
 
         return $site;

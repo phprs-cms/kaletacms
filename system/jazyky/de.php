@@ -1837,7 +1837,7 @@ return [
     'Case %s: the feedback to the reporter is due by %s.' => 'Fall %s: die Rückmeldung an den Hinweisgeber ist bis %s fällig.',
     '%d closed whistleblowing cases past the retention period of %d months were deleted.' => '%d abgeschlossene Meldungen nach der Aufbewahrungsfrist von %d Monaten wurden gelöscht.',
     'Link in bio' => 'Link in der Bio',
-    'Connect Google and choose a Business Profile location under Administration → Connections; the reviews then appear here.' => 'Verbinden Sie Google und wählen Sie unter Verwaltung → Verbindungen einen Standort des Unternehmensprofils; die Bewertungen erscheinen dann hier.',
+    'Connect Google and choose a Business Profile location under Administration → Integrations; the reviews then appear here.' => 'Verbinden Sie Google und wählen Sie unter Administration → Integrationen einen Standort des Unternehmensprofils; die Bewertungen erscheinen dann hier.',
     'No reviews with this many stars yet – they are fetched from Google once a day.' => 'Noch keine Bewertungen mit so vielen Sternen – sie werden einmal täglich von Google abgerufen.',
     '%d reviews on Google' => '%d Bewertungen auf Google',
     'Google user' => 'Google-Nutzer',

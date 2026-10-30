@@ -1088,6 +1088,20 @@ up (N3191-10). The signing key's confirmation also names share images, the whist
 Claude connections are not affected (N3191-11). The browser test tolerates Chrome 156's report of an inline handler parsed
 in the paste cleanup's inert document (nothing runs).
 
+**3.19.2 (31 October 2026):** the first fixes from the CPO and Head of UX audits of 30 October (`kaleta-audity/cpo-admin-2026-10-30.md`,
+`ux-builder-2026-10-30.md`); the rest of their Top 15 is planned as 3.20–3.23.
+- **U1:** "Save to my sections", "Save as component", a shared class saved, renamed or deleted from the panel and the
+  writing assistant in the builder work again. From 1.4.0 (28 September) the builder's script sent `name`, `prompt` and
+  `instruction` while the server read `nazev`, `zadani` and `pokyn`, so every such request answered "missing"
+  (`BuilderActions::postEither`, `Components::actionFromElement`). The browser test now saves a section, a component and a
+  class from the builder, so a renamed key cannot pass again.
+- **C7:** opening a module whose feature is switched off (Bookings, Fleet, Newsletter…) says "The feature “…” is switched off –
+  switch it on in Features" with the path as a link, instead of "You do not have access to this module" (`Kernel`, the
+  error view renders menu paths).
+- **C3:** the screen is called Integrations everywhere: the Statistics empty text, the Search Console and Enquiry-sheet
+  messages and the Google reviews placeholder said "Administration → Connections", a menu entry that does not exist; the
+  path is a link (`MenuPaths`: Administration → Integrations, Integrations, Features).
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |

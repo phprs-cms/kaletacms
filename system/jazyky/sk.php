@@ -1810,7 +1810,7 @@ return [
     'Please describe what happened.' => 'Opíšte, prosím, čo sa stalo.',
     'A file could not be accepted: up to %d files, each up to %d MB – PDF, image, document or ZIP.' => 'Súbor nemožno prijať: až %d súborov, každý do %d MB – PDF, obrázok, dokument alebo ZIP.',
     'Link in bio' => 'Odkaz v biu',
-    'Connect Google and choose a Business Profile location under Administration → Connections; the reviews then appear here.' => 'Pripojte Google a vyberte pobočku firemného profilu v Administrácia → Pripojenia; recenzie sa potom objavia tu.',
+    'Connect Google and choose a Business Profile location under Administration → Integrations; the reviews then appear here.' => 'Pripojte Google a vyberte pobočku firemného profilu v časti Správa → Integrácie; recenzie sa potom objavia tu.',
     'No reviews with this many stars yet – they are fetched from Google once a day.' => 'Zatiaľ žiadne recenzie s toľkými hviezdičkami – z Google sa načítavajú raz denne.',
     '%d reviews on Google' => 'Recenzií na Google: %d',
     'Google user' => 'Používateľ Google',

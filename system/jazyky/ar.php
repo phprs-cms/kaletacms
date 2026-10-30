@@ -1854,7 +1854,7 @@ The link works for %d days.
     'Please describe what happened.' => 'يُرجى وصف ما حدث.',
     'A file could not be accepted: up to %d files, each up to %d MB – PDF, image, document or ZIP.' => 'تعذّر قبول ملف: حتى %d ملفات، بحد أقصى %d ميغابايت لكل ملف – PDF أو صورة أو مستند أو ZIP.',
     'Link in bio' => 'رابط في السيرة',
-    'Connect Google and choose a Business Profile location under Administration → Connections; the reviews then appear here.' => 'اربط Google واختر موقعًا من Business Profile ضمن الإدارة ← الاتصالات؛ وستظهر التقييمات هنا بعد ذلك.',
+    'Connect Google and choose a Business Profile location under Administration → Integrations; the reviews then appear here.' => 'اربط Google واختر موقعًا من Business Profile ضمن الإدارة ← التكاملات؛ وستظهر التقييمات هنا بعد ذلك.',
     'No reviews with this many stars yet – they are fetched from Google once a day.' => 'لا توجد بعد تقييمات بهذا العدد من النجوم – يتم جلبها من Google مرة يوميًا.',
     '%d reviews on Google' => '%d تقييمًا على Google',
     'Google user' => 'مستخدم Google',

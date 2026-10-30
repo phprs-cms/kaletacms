@@ -60,7 +60,7 @@ final class GoogleReviews extends Element
         $o = $p['obsah'];
         $db = $k->app->db();
         if (!GoogleBusiness::ready($db)) {
-            return $k->editor ? '<' . $p['znacka'] . $a . '><p>' . e(t('Connect Google and choose a Business Profile location under Administration → Connections; the reviews then appear here.')) . '</p></' . $p['znacka'] . '>' : '';
+            return $k->editor ? '<' . $p['znacka'] . $a . '><p>' . e(t('Connect Google and choose a Business Profile location under Administration → Integrations; the reviews then appear here.')) . '</p></' . $p['znacka'] . '>' : '';
         }
         $reviews = GoogleBusiness::reviews($db, (int) $o['pocet'], (int) $o['min_hvezd']);
         $summary = GoogleBusiness::summary($k->app->settings());

@@ -11,10 +11,11 @@ $chart = $report['days'];
 $totals = $report['totals'];
 $max = max(1, ...array_column($chart, 'views'));
 $leads = fn (array $r): string => format_count((int) $r['enquiries']) . ' / ' . format_count((int) $r['signups']);
-$table = function (string $title, array $rows, array $columns, string $empty = 'No data yet.', string $class = ''): void {
+$table = function (string $title, array $rows, array $columns, string $empty = 'No data yet.', string $class = '') use ($app, $modules): void {
     echo '<div' . ($class !== '' ? ' class="' . $class . '"' : '') . '><h2>' . e(t($title)) . '</h2>';
     if ($rows === []) {
-        echo '<p>' . e(t($empty)) . '</p></div>';
+        // 3.19.2 (C3): a menu path in the empty text ("Administration → Integrations") is a link, as in messages
+        echo '<p>' . Kaleta\Admin\MenuPaths::links($app->url('admin.php'), t($empty), array_keys($modules)) . '</p></div>';
 
         return;
     }
@@ -135,7 +136,7 @@ foreach ($report['search'] as $engine => $data) {
     }
 }
 if ($searchDays === []) {
-    $table('Search engines', [], [], 'Connect Google Search Console or Bing Webmaster Tools in Administration → Connections; the queries and pages arrive with the daily job.');
+    $table('Search engines', [], [], 'Connect Google Search Console or Bing Webmaster Tools in Administration → Integrations; the queries and pages arrive with the daily job.');
 }
 ?>
 </div>

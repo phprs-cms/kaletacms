@@ -1854,7 +1854,7 @@ O link funciona por %d dias.
     'Please describe what happened.' => 'Descreva o que aconteceu.',
     'A file could not be accepted: up to %d files, each up to %d MB – PDF, image, document or ZIP.' => 'Não foi possível aceitar um arquivo: até %d arquivos, cada um com até %d MB – PDF, imagem, documento ou ZIP.',
     'Link in bio' => 'Link na bio',
-    'Connect Google and choose a Business Profile location under Administration → Connections; the reviews then appear here.' => 'Conecte o Google e escolha um local do Perfil da Empresa em Administração → Conexões; as avaliações aparecerão aqui.',
+    'Connect Google and choose a Business Profile location under Administration → Integrations; the reviews then appear here.' => 'Conecte o Google e escolha um local do Perfil da Empresa em Administração → Integrações; as avaliações aparecerão aqui.',
     'No reviews with this many stars yet – they are fetched from Google once a day.' => 'Ainda não há avaliações com essa quantidade de estrelas – elas são buscadas no Google uma vez por dia.',
     '%d reviews on Google' => '%d avaliações no Google',
     'Google user' => 'Usuário do Google',

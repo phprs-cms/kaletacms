@@ -331,10 +331,22 @@ trait BuilderActions
             $db->all('SELECT idx, nazev, prvek FROM {sekce} ORDER BY ' . $db->sortText('nazev') . ' LIMIT 200'))));
     }
 
+    /**
+     * A field the builder's script sends under its English key (1.4.0 renamed the script, not the server): the English key
+     * first, the Czech one for anything still posting it. 3.19.2 – from 1.4.0 to 3.19.1 "Save to my sections", "Save as
+     * component", shared classes and the writing assistant in the builder answered "missing" to every request.
+     */
+    private function postEither(string $english, string $czech): string
+    {
+        $value = $this->request->post($english);
+
+        return $value !== '' ? $value : $this->request->post($czech);
+    }
+
     /** Saves the selected element to the custom section library (it goes through the validator like every build). */
     protected function actionBuildSaveSection(): Response
     {
-        $name = mb_substr(trim($this->request->post('nazev')), 0, 100);
+        $name = mb_substr(trim($this->postEither('name', 'nazev')), 0, 100);
         $element = json_decode((string) ($_POST['prvek'] ?? ''), true);
         if (!$this->request->isPost() || $name === '' || !is_array($element)) {
             return Response::json(['ok' => false, 'chyba' => t('The section needs a name.')], 400);
@@ -365,7 +377,7 @@ trait BuilderActions
         if (!$this->request->isPost()) {
             return Response::json(['ok' => false], 405);
         }
-        $name = $this->request->post('nazev');
+        $name = $this->postEither('name', 'nazev');
         if (!preg_match(Build::CLASS_PATTERN, $name)) {
             return Response::json(['ok' => false, 'chyba' => t('Class name: lowercase letters without accents, digits and hyphens (e.g. card, card--highlighted).')], 400);
         }
@@ -559,7 +571,7 @@ trait BuilderActions
             return Response::json(['ok' => false, 'chyba' => t('The writing assistant is not enabled (Features).')], 400);
         }
         try {
-            $html = \Kaleta\Core\Language::runWith($target['jazyk'], fn (): string => $assistant->suggestSection($this->request->post('zadani'), $target['jazyk'], $target['titulek']));
+            $html = \Kaleta\Core\Language::runWith($target['jazyk'], fn (): string => $assistant->suggestSection($this->postEither('prompt', 'zadani'), $target['jazyk'], $target['titulek']));
         } catch (\RuntimeException $e) {
             return Response::json(['ok' => false, 'chyba' => t($e->getMessage())], 502);
         }
@@ -584,7 +596,7 @@ trait BuilderActions
             return Response::json(['ok' => false, 'chyba' => t('The writing assistant is not enabled (Features).')], 400);
         }
         try {
-            $text = $assistant->rewrite((string) ($_POST['text'] ?? ''), $this->request->post('pokyn'), $this->request->post('html') === '1');
+            $text = $assistant->rewrite((string) ($_POST['text'] ?? ''), $this->postEither('instruction', 'pokyn'), $this->request->post('html') === '1');
         } catch (\RuntimeException $e) {
             return Response::json(['ok' => false, 'chyba' => t($e->getMessage())], 502);
         }

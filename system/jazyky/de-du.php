@@ -323,7 +323,7 @@ Der Link gilt %d Tage.
     'Your message' => 'Deine Nachricht',
     'Please describe what happened.' => 'Bitte beschreibe, was passiert ist.',
     'Acknowledge it within %d days and give feedback within %d months.' => 'Bestätige den Eingang innerhalb von %d Tagen und gib innerhalb von %d Monaten Rückmeldung.',
-    'Connect Google and choose a Business Profile location under Administration → Connections; the reviews then appear here.' => 'Verbinde Google und wähle unter Verwaltung → Verbindungen einen Standort des Unternehmensprofils; die Bewertungen erscheinen dann hier.',
+    'Connect Google and choose a Business Profile location under Administration → Integrations; the reviews then appear here.' => 'Verbinde Google und wähle unter Administration → Integrationen einen Standort des Unternehmensprofils; die Bewertungen erscheinen dann hier.',
     'Thank you, your comment was sent to the people who edit this page.' => 'Danke, dein Kommentar ging an die Personen, die diese Seite bearbeiten.',
     'That is a lot of comments in a short time – please try again in a few minutes.' => 'Das sind viele Kommentare in kurzer Zeit – bitte versuche es in ein paar Minuten noch einmal.',
     'The comment could not be saved. Write your name and the comment and try again.' => 'Der Kommentar konnte nicht gespeichert werden. Schreibe deinen Namen und den Kommentar und versuche es erneut.',

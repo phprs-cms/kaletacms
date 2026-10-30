@@ -1854,7 +1854,7 @@ A hivatkozás %d napig érvényes.
     'Please describe what happened.' => 'Kérjük, írja le, mi történt.',
     'A file could not be accepted: up to %d files, each up to %d MB – PDF, image, document or ZIP.' => 'Egy fájlt nem tudtunk elfogadni: legfeljebb %d fájl, egyenként legfeljebb %d MB – PDF, kép, dokumentum vagy ZIP.',
     'Link in bio' => 'Link a bióban',
-    'Connect Google and choose a Business Profile location under Administration → Connections; the reviews then appear here.' => 'Kapcsolja össze a Google-fiókot, és válasszon egy Cégprofil-helyszínt az Adminisztráció → Kapcsolatok menüpontban; a vélemények ezután itt jelennek meg.',
+    'Connect Google and choose a Business Profile location under Administration → Integrations; the reviews then appear here.' => 'Kapcsolja össze a Google-fiókot, és válasszon egy Cégprofil-helyszínt az Adminisztráció → Integrációk menüpontban; a vélemények ezután itt jelennek meg.',
     'No reviews with this many stars yet – they are fetched from Google once a day.' => 'Még nincs ennyi csillagos vélemény – a véleményeket naponta egyszer töltjük le a Google-ról.',
     '%d reviews on Google' => '%d vélemény a Google-on',
     'Google user' => 'Google-felhasználó',

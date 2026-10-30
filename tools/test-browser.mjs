@@ -43,6 +43,7 @@ async function step(name, fn) {
     await page.waitForTimeout(300);
   } catch (e) {
     errors.push(`${name}: ${e.message.split('\n')[0]}`);
+    if (SHOTS) { await page.screenshot({ path: `${SHOTS}/failed-${name.replace(/[^a-z0-9]+/gi, '-').slice(0, 60)}.png` }).catch(() => {}); } // 3.19.2: what the failing step saw
   }
   steps++;
   console.log(`  ${errors.length === before ? 'ok   ' : 'CHYBA'}  ${name}`);
@@ -137,6 +138,25 @@ for (const url of ['/admin.php', '/admin.php?module=pages', '/admin.php?module=p
   '/admin.php?module=bookings', '/admin.php?module=whistleblowing']) {
   await step(`open ${url}`, () => visit(url));
 }
+
+await step('3.19.2 a module whose feature is off says "switched off" with a link to Features, not "no access"', async () => {
+  // every feature is on in this install (the fleet console too), so Redirects is switched off for the check and on again;
+  // the administrator used to be sent to Users by a 403 "no access"
+  sql("UPDATE ka_nastaveni SET hodnota = REPLACE(hodnota, 'presmerovani', '') WHERE promenna = 'extensions'");
+  try {
+    await visit('/admin.php?module=redirects');
+    const text = (await page.locator('.hlaska-chyba').first().textContent({ timeout: 5000 }).catch(() => '')) || '';
+    if (!/switched off/.test(text) || /do not have access/.test(text)) { throw new Error(`module=redirects with the feature off: "${text.trim()}"`); }
+    if (!(await page.locator('.hlaska-chyba a[href*="module=extensions"]').count())) { throw new Error('"Features" in the message is not a link'); }
+  } finally {
+    sql("UPDATE ka_nastaveni SET hodnota = CONCAT(hodnota, ',presmerovani') WHERE promenna = 'extensions'");
+  }
+  // C3: the Statistics empty text names the screen Integrations and the path is a link
+  await visit('/admin.php?module=stats');
+  const hint = page.locator('p', { hasText: 'Search Console' }).first();
+  if (!(await hint.count()) || /Connections/.test(await hint.textContent())) { throw new Error('the Search engines text still says Connections or is missing'); }
+  if (!(await hint.locator('a[href*="module=connectors"]').count())) { throw new Error('"Administration → Integrations" in Statistics is not a link'); }
+});
 
 // 3.13.1: the consent screen stands in the bare frame; its access choices are option cards (a hidden radio, a border) and
 // "recommended" / "new, not verified" are pills – both styled by editor.css, which the frame did not load
@@ -266,6 +286,47 @@ await step('builder: select the parent element', async () => {
   if (!(await parent.count())) { throw new Error('a nested element offers no "Select parent element" button'); }
   await parent.click();
   await page.waitForTimeout(300);
+});
+
+await step('3.19.2 builder: Save as component, Save to my sections and a shared class reach the server', async () => {
+  // broken from 1.4.0 to 3.19.1: the script sent the name as "name", the server read "nazev" – every save answered
+  // "Name or element is missing." (the same for the shared-class endpoint and the writing assistant's prompt)
+  const viaMore = async (label, name, expected) => {
+    await page.getByRole('button', { name: 'More actions' }).first().click();
+    await page.locator('#st-vice button', { hasText: label }).first().click();
+    const dialog = page.locator('dialog.st-dialog[open]').last(); // the name dialog opens over the Versions dialog of an earlier step
+    await dialog.waitFor();
+    await dialog.locator('input[type="text"]').fill(name);
+    await dialog.locator('button[type="submit"]').click();
+    let status = '';
+    for (let i = 0; i < 25; i++) { // the status line reports the result of the request (the autosave writes there too)
+      status = (await page.locator('.st-stav').first().textContent()) || '';
+      if (/missing|failed/i.test(status)) { throw new Error(`"${label}": ${status.trim()}`); }
+      if (expected.test(status)) { return; }
+      await page.waitForTimeout(200);
+    }
+    throw new Error(`"${label}": no confirmation in the status line, last: "${status.trim()}"`);
+  };
+  await canvas().locator('h1').first().click();
+  await page.waitForTimeout(400);
+  await viaMore('Save to my sections', 'Browser section', /My sections/);
+  await page.locator('.st-zalozky [role="tab"]').first().click(); // the Add panel lists it under My sections
+  await page.waitForTimeout(300);
+  if (!(await page.locator('.st-moje-sekce strong', { hasText: 'Browser section' }).count())) { throw new Error('the saved section is not in the Add panel'); }
+  // a visible paragraph (the first <p> of the page sits in the folded phone menu), so the h1 the later steps select stays a plain element
+  await canvas().locator('p:visible').first().click();
+  await page.waitForTimeout(400);
+  await viaMore('Save as component', 'Browser component', /Component saved/);
+  // the shared-class endpoint takes the same key; the panel's class editor posts it on every change
+  const j = await page.evaluate(async () => {
+    const D = JSON.parse(document.getElementById('stavitel-data').textContent);
+    const f = new FormData();
+    f.append('_csrf', document.querySelector('input[name="_csrf"]').value);
+    f.append('name', 'browser-card'); f.append('styl', '{}'); f.append('css', '');
+    return (await fetch(D.adresy.trida, { method: 'POST', body: f, credentials: 'same-origin' })).json();
+  });
+  if (!j.ok) { throw new Error(`saving a shared class failed: ${j.chyba || j.status}`); }
+  await page.waitForTimeout(2500); // the draft autosaves before the next step reloads the builder
 });
 
 await step('3.18.1 builder dialogs: readable buttons when the admin theme differs from the system (light on dark, dark on light)', async () => {
