@@ -408,5 +408,6 @@ Object.assign(window.KALETA_PREKLAD, {
 	"Paste the text the builder of the other site copied (Ctrl+C on an element, or More actions → Copy for another Kaleta site).": "Füge den Text ein, den der Builder der anderen Website kopiert hat (Strg+C auf einem Element oder Weitere Aktionen → Für eine andere Kaleta-Website kopieren).",
 	"No comments yet. Share a preview link with comments allowed.": "Noch keine Kommentare. Teile einen Vorschau-Link mit erlaubten Kommentaren.",
 	"Hidden until you publish – then it goes on the site": "Verborgen, bis du veröffentlichst – dann erscheint sie auf der Website",
-	"Open the published page – the draft preview is under ⋯ → Share": "Veröffentlichte Seite öffnen – die Entwurfsvorschau findest du unter ⋯ → Teilen"
+	"Open the published page – the draft preview is under ⋯ → Share": "Veröffentlichte Seite öffnen – die Entwurfsvorschau findest du unter ⋯ → Teilen",
+	"Only in the editor: on the website this element is left out on this device. Click to select it.": "Nur im Editor: Auf der Website wird dieses Element auf diesem Gerät weggelassen. Klicke, um es auszuwählen."
 });

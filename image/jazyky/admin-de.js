@@ -2969,5 +2969,22 @@ window.KALETA_PREKLAD = {
 	"Add a collection": "Sammlung hinzufügen",
 	"Edit business details": "Firmendaten bearbeiten",
 	"Edit the menu": "Menü bearbeiten",
-	"Services and people": "Leistungen und Personen"
+	"Services and people": "Leistungen und Personen",
+	"Hidden on desktop": "Auf dem Desktop ausgeblendet",
+	"Hidden on tablet": "Auf dem Tablet ausgeblendet",
+	"Hidden on phone": "Auf dem Telefon ausgeblendet",
+	"Only in the editor: on the website this element is left out on this device. Click to select it.": "Nur im Editor: Auf der Website wird dieses Element auf diesem Gerät weggelassen. Klicken Sie, um es auszuwählen.",
+	"show": "anzeigen",
+	"Hidden on: ": "Ausgeblendet auf: ",
+	"Shown on": "Angezeigt auf",
+	"Shown on ": "Angezeigt auf ",
+	"Hidden on ": "Ausgeblendet auf ",
+	"(inherited from the larger screen)": "(von der größeren Bildschirmgröße übernommen)",
+	"click to show": "zum Anzeigen klicken",
+	"click to hide": "zum Ausblenden klicken",
+	"shown": "angezeigt",
+	"A hidden element is a dashed strip on the canvas; on the website it is left out on that device.": "Ein ausgeblendetes Element ist auf der Arbeitsfläche ein gestrichelter Streifen; auf der Website wird es auf diesem Gerät weggelassen.",
+	"own style values of the selected element here: ": "eigene Stilwerte des gewählten Elements hier: ",
+	"Set on ": "Festgelegt auf ",
+	"Reset – clear the value set here": "Zurücksetzen – den hier festgelegten Wert löschen"
 };
