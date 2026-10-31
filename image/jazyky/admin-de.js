@@ -2969,5 +2969,6 @@ window.KALETA_PREKLAD = {
 	"Add a collection": "Sammlung hinzufügen",
 	"Edit business details": "Firmendaten bearbeiten",
 	"Edit the menu": "Menü bearbeiten",
-	"Services and people": "Leistungen und Personen"
+	"Services and people": "Leistungen und Personen",
+	"Until": "Bis wann"
 };

@@ -1628,6 +1628,19 @@
 				title: z === 'p' ? T('Not a heading – a highlighted line outside the outline') : null, onclick: () => { if (p.znacka !== z) { applyChange(() => { p.znacka = z; }); } } }, names[z] || z.toUpperCase()))));
 	}
 
+	/**
+	 * A date-and-time field (typ termin, 3.21 U24): the browser's picker instead of a typed "YYYY-MM-DD HH:MM". The picker works
+	 * with "YYYY-MM-DDTHH:MM"; the build keeps the stored form with a space, so pages saved before the picker are valid as they are.
+	 */
+	function dateTimeField(value, change) {
+		const stored = String(value || '').trim();
+		const local = /^\d{4}-\d{2}-\d{2}$/.test(stored) ? stored + 'T00:00' : stored.replace(' ', 'T');
+		return el('input', { type: 'datetime-local', value: /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(local) ? local : '', oninput: (e) => {
+			if (e.target.value === '' && e.target.validity.badInput) { return; } // a half-typed date: the stored value waits until the picker has a whole one
+			change(e.target.value.replace('T', ' '));
+		} });
+	}
+
 	/** A control for a content field according to the type from the schema. */
 	function field(def, value, change, options) {
 		const description = T(def.popisek || '');
@@ -1643,6 +1656,9 @@
 				break;
 			case 'cislo':
 				inputEl = el('input', { type: 'number', min: def.min ?? 0, max: def.max ?? 100, value: value, oninput: (e) => change(parseInt(e.target.value, 10) || 0) });
+				break;
+			case 'termin':
+				inputEl = dateTimeField(value, change);
 				break;
 			case 'radky': case 'kod':
 				inputEl = el('textarea', { rows: def.typ === 'kod' ? 8 : 5, dir: def.typ === 'radky' ? contentDir : null, oninput: (e) => change(e.target.value) });

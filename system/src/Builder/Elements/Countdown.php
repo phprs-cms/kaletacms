@@ -22,7 +22,8 @@ final class Countdown extends Element
     public static function properties(): array
     {
         return [
-            'cil' => ['typ' => 'text', 'popisek' => 'Until (YYYY-MM-DD HH:MM)', 'vychozi' => date('Y-m-d', strtotime('+30 days')) . ' 09:00', 'max' => 16],
+            // 3.21 (U24): a date-and-time picker in the editor; the stored string stays "YYYY-MM-DD HH:MM" (Build::dateTime), so older pages are valid as they are
+            'cil' => ['typ' => 'termin', 'popisek' => 'Until', 'vychozi' => date('Y-m-d', strtotime('+30 days')) . ' 09:00'],
             'konec' => ['typ' => 'text', 'popisek' => 'Text when finished', 'vychozi' => t('The event is on now.'), 'max' => 200],
         ];
     }
@@ -41,7 +42,7 @@ final class Countdown extends Element
         $o = $p['obsah'];
         $target = preg_match('/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2})?$/D', (string) $o['cil']) ? strtotime((string) $o['cil']) : false;
         if ($target === false) {
-            return $k->editor ? '<p' . $a . '>' . e(t('Enter the date as YYYY-MM-DD HH:MM.')) . '</p>' : '';
+            return $k->editor ? '<p' . $a . '>' . e(t('Choose the date and time in the Content panel.')) . '</p>' : '';
         }
         $remaining = $target - time();
         if ($remaining <= 0) {

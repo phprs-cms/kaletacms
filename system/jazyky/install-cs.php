@@ -2787,4 +2787,5 @@ return [
     'The collection list shows the category “%s”, which the collection does not have – it will stay empty.' => 'Výpis kolekce ukazuje kategorii „%s“, kterou kolekce nemá – zůstane prázdný.',
     '{{%s}} is not a field of the collection “%s” – it will stay empty on the site.' => '{{%s}} není pole kolekce „%s“ – na webu zůstane prázdné.',
     'Filter buttons for visitors (by the field above, without a field by category)' => 'Tlačítka filtru pro návštěvníky (podle pole výše, bez pole podle kategorií)',
+    'Choose the date and time in the Content panel.' => 'Datum a čas vyberte v panelu Obsah.',
 ];

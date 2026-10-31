@@ -2857,5 +2857,6 @@ window.KALETA_PREKLAD = {
 	"Add a collection": "Přidat kolekci",
 	"Edit business details": "Upravit údaje o firmě",
 	"Edit the menu": "Upravit menu",
-	"Services and people": "Služby a lidé"
+	"Services and people": "Služby a lidé",
+	"Until": "Do kdy"
 };

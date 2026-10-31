@@ -2055,4 +2055,5 @@ return [
     'until the preview link expires, at most 7 days' => 'jusqu’à l’expiration du lien d’aperçu, 7 jours au plus',
     'open in a new window' => 'ouvrir dans une nouvelle fenêtre',
     'If a page of this website shows a store locator that loads its map at once, your browser contacts OpenStreetMap (OpenStreetMap Foundation) as soon as the page opens – before you give your consent in the cookie bar – and sends it your IP address to load the map; otherwise the map loads only after you click it.' => 'Si une page de ce site affiche un localisateur de points de vente qui charge sa carte immédiatement, votre navigateur contacte OpenStreetMap (OpenStreetMap Foundation) dès l’ouverture de la page – avant que vous ne donniez votre consentement dans la bannière des cookies – et lui transmet votre adresse IP pour charger la carte ; sinon, la carte ne se charge qu’après un clic.',
+    'Choose the date and time in the Content panel.' => 'Choisissez la date et l’heure dans le panneau Contenu.',
 ];
