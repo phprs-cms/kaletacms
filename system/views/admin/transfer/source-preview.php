@@ -110,6 +110,6 @@ $choices = fn (string $name, array $options, string $current): string => '<selec
 <?php endforeach ?>
 </fieldset>
 <?php endif ?>
-<p class="napoveda"><?= e(t('Imported news is not announced: no webhook or IndexNow. Before a larger import, create a database backup in Settings → Backups and updates.')) ?></p>
+<p class="napoveda"><?= $module->hint(t('Imported news is not announced: no webhook or IndexNow. Before a larger import, create a database backup in Settings → Backups and updates.')) ?></p>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Start import')) ?>"> <a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back')) ?></a></p>
 </form>

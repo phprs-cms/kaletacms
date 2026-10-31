@@ -16,7 +16,7 @@ $extensionSettings = [
     'jazyky' => [[$adminUrl('module=settings&tab=general#additional_languages'), 'Choose languages']],
     'asistent' => [['#asistent', 'Provider, key and model']],
     'whistleblowing' => [[$adminUrl('module=whistleblowing'), 'Channel set-up and readers']],
-    'claude' => [['#claude', 'How to connect Claude']],
+    'claude' => [[$adminUrl('module=claude_settings#how-to-connect'), 'How to connect Claude']], // 3.20 (C6): one destination
 ];
 if (in_array('bookings', $enabledExtensions, true) && in_array(false, Kaleta\Core\Booking::setup($app->db()), true)) {
     // switched on, not set up yet (3.5): the first link leads to the set-up card of Bookings
@@ -117,5 +117,5 @@ if ($newsletterLink !== null && ($newsletterLink['provider'] !== '' || $newslett
 </div>
 </details>
 <?php if (in_array('claude', $enabledExtensions, true)): ?>
-<p class="hlaska"><?= e(t('How to connect Claude, its instructions, its guardrails and every connection are in')) ?> <a href="<?= e($app->url('admin.php?module=claude_settings')) ?>"><?= e(t('Claude settings')) ?></a>.</p>
+<p class="hlaska"><?= e(t('How to connect Claude, its instructions, its guardrails and every connection are in')) ?> <a href="<?= e($app->url('admin.php?module=claude_settings#how-to-connect')) ?>"><?= e(t('Claude settings')) ?></a>.</p>
 <?php endif ?>

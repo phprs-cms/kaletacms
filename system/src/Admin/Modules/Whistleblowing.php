@@ -72,6 +72,29 @@ final class Whistleblowing extends Module
         return $this->back($readers === [] && $this->request->postBool('enabled') ? 'Saved. Choose at least one reader – until then nobody can open the reports.' : 'Saved.');
     }
 
+    /**
+     * "Add to the footer menu" (3.20, C22): a link to the public form goes into the footer menu of the default language –
+     * as every menu change, into the draft look (Core\Look), published from Appearance → Menu. Administrators only.
+     */
+    protected function actionFooterLink(): Response
+    {
+        if (!$this->request->isPost() || !$this->app->auth()->isAdmin()) {
+            return $this->back();
+        }
+        $path = $this->app->url('_report');
+        [, $items] = \Kaleta\Core\Look::menuForEditing($this->db, $this->app->settings(), 'paticka', '');
+        $items ??= [];
+        foreach (\Kaleta\Core\Menu::flatten($items) as $item) {
+            if ($item['typ'] === 'odkaz' && rtrim((string) $item['url'], '/') === $path) {
+                return $this->back('The footer menu already links to the form.');
+            }
+        }
+        $items[] = ['typ' => 'odkaz', 'text' => \Kaleta\Core\Language::runWith(\Kaleta\Core\Language::defaults($this->app->settings()), static fn (): string => t('Report a concern')), 'url' => $path];
+        \Kaleta\Core\Look::setMenu($this->app->settings(), 'paticka', '', $items);
+
+        return $this->back('The link to the form is in the draft footer menu – check it in Appearance → Menu and publish the look.');
+    }
+
     /** @return array<string, mixed>|Response the case, or the refusal */
     private function readableCase(int $id): array|Response
     {

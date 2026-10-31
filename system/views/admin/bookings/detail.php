@@ -65,7 +65,7 @@ use Kaleta\Core\Booking;
 <?php endif ?>
 <?php if ($b['anonymised_at'] === null): ?>
 <form class="vradku" method="post" action="<?= e($module->url('anonymise')) ?>" data-potvrdit="<?= e(t('Blank the name, e-mail, phone and note of this booking? The row stays for statistics.')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $b['id'] ?>">
-	<button class="navigace" type="submit"><?= e(t('Anonymise')) ?></button> <span class="napoveda"><?= e(t('Everything about the person is erased for all bookings of one e-mail address in Enquiries → Personal data request.')) ?></span>
+	<button class="navigace" type="submit"><?= e(t('Anonymise')) ?></button> <span class="napoveda"><?= $module->hint(t('Everything about the person is erased for all bookings of one e-mail address in Enquiries → Personal data request.')) ?></span>
 </form>
 <?php endif ?>
 </div>

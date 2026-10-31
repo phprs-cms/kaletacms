@@ -117,6 +117,20 @@ class Settings extends Module
         return $field;
     }
 
+    /**
+     * The privacy policy page in the default language (3.20, C22): the one the installer made (the slug of "Privacy
+     * policy" in the site language), otherwise a page whose address says so.
+     *
+     * @return array{ids: int, titulek: string, seo_link: string}|null
+     */
+    public static function privacyPolicyPage(\Kaleta\Core\Db $db, \Kaleta\Core\Settings $settings): ?array
+    {
+        $slug = slugify(\Kaleta\Core\Language::runWith(\Kaleta\Core\Language::defaults($settings), static fn (): string => t('Privacy policy')));
+        $row = $db->one("SELECT ids, titulek, seo_link FROM {stranky} WHERE smazano IS NULL AND jazyk = '' AND (seo_link = ? OR seo_link LIKE '%privacy%' OR seo_link LIKE '%ochrana-osobnich%' OR seo_link LIKE '%datenschutz%' OR seo_link LIKE '%privacidad%') ORDER BY seo_link = ? DESC, ids LIMIT 1", [$slug, $slug]);
+
+        return $row === null ? null : ['ids' => (int) $row['ids'], 'titulek' => (string) $row['titulek'], 'seo_link' => (string) $row['seo_link']];
+    }
+
     /** @return array<string, string> address => name of every collection, for the screen mode checkboxes */
     private function screenCollections(): array
     {
@@ -160,6 +174,13 @@ class Settings extends Module
             }
         }
 
+        // 3.20 (C22): the privacy policy page the installer made (or one named like it) – the cookie bar link is prefilled
+        // with it while the setting is empty, and the hint leads to the page instead of saying "create it"
+        $privacyPage = $tab === 'cookies' ? self::privacyPolicyPage($this->db, $this->app->settings()) : null;
+        if ($privacyPage !== null && ($values['cookies_policy_url'] ?? '') === '') {
+            $values['cookies_policy_url'] = $this->request->basePath() . '/' . $privacyPage['seo_link'];
+        }
+
         $invalid = $this->app->session->get('konfigurace_chybne');
         $this->app->session->set('konfigurace_chybne', null);
         $invalid = is_array($invalid) && ($invalid['tab'] ?? '') === $tab ? $invalid : ['pole' => [], 'hodnoty' => []];
@@ -168,6 +189,7 @@ class Settings extends Module
             'tab' => $tab,
             'invalidFields' => $invalid['pole'],
             'values' => $invalid['hodnoty'] + $values,
+            'privacyPage' => $privacyPage,
             'checks' => $tab === 'health' ? Health::checks($this->app) : [],
             'readiness' => $tab === 'health' ? \Kaleta\Core\Readiness::checks($this->app) : [], // 3.14: Ready for 4.0, its own section
             'remoteStatus' => $settings->get('remote_backup_status'),

@@ -297,7 +297,8 @@ $parity = [
     // 2.14: whistleblowing reports are for the chosen readers only – deliberately no MCP tool reads, lists or answers them
     'whistleblowing' => ['list' => 'admin: whistleblowing cases never go through Claude', 'settings' => 'admin: who reads whistleblowing reports is a security decision',
         'detail' => 'admin: whistleblowing cases never go through Claude', 'reply' => 'admin: whistleblowing cases never go through Claude',
-        'status' => 'admin: whistleblowing cases never go through Claude', 'attachment' => 'admin: whistleblowing cases never go through Claude'],
+        'status' => 'admin: whistleblowing cases never go through Claude', 'attachment' => 'admin: whistleblowing cases never go through Claude',
+        'footer_link' => 'save_menu'], // 3.20 (C22): one click adds the form to the footer menu – Claude does the same with save_menu
     'fleet' => ['list' => 'fleet_inbox', 'sites' => 'list_sites', 'customers' => 'list_sites', 'detail' => 'get_site',
         'customer' => 'admin: the customers and notes are the owner\'s own bookkeeping on the console (3.17)', 'customer_bulk' => 'admin: the customers and notes are the owner\'s own bookkeeping on the console (3.17)',
         'customer_rename' => 'admin: the customers and notes are the owner\'s own bookkeeping on the console (3.17)', 'pairing_key' => 'admin: pairing a site is a security decision (2.9)', 'ring' => 'admin: the update ring decides when sites install versions',
@@ -1456,6 +1457,16 @@ check('Cesty: delší cesta má přednost a odkaz se nevnořuje', substr_count($
 check('Cesty: bez práva k modulu žádný odkaz', str_contains(Kaleta\Admin\MenuPaths::links('/admin.php', 'Nastavení → Pošta', []), '<a '), false);
 Kaleta\Core\Language::set('en', 'admin-');
 check('Cesty: v angličtině se odkazuje přeložená cesta', str_contains(Kaleta\Admin\MenuPaths::links('/admin.php', t('Je k dispozici nová verze %s – nainstalujete ji v Nastavení → Zálohy a aktualizace.', '3.0.1'), ['settings']), '>Settings → Backups and updates</a>'), true);
+// 3.20 (C4): the paths the module hints name – Enquiries → settings (the longer phrase wins over Enquiries), Pages, Users → Roles
+$pathsHtml = Kaleta\Admin\MenuPaths::links('/admin.php', 'Retention: Enquiries → settings. Pages. Users → Roles.', ['enquiries', 'pages', 'roles']);
+check('3.20 C4: Enquiries → settings is one link to the settings action', [substr_count($pathsHtml, '<a '), str_contains($pathsHtml, '<a href="/admin.php?module=enquiries&amp;action=settings">Enquiries → settings</a>')], [3, true]);
+check('3.20 C4: Pages and Users → Roles link their screens', [str_contains($pathsHtml, '<a href="/admin.php?module=pages">Pages</a>'), str_contains($pathsHtml, '<a href="/admin.php?module=roles">Users → Roles</a>')], [true, true]);
+check('3.20 C4: without the module nothing is linked', substr_count(Kaleta\Admin\MenuPaths::links('/admin.php', 'Retention: Enquiries → settings. Pages.', ['pages']), '<a '), 1);
+// 3.20 (U11, U13): the builder links to where the data lives only for the modules the person may open
+$builderLinks = Kaleta\Admin\Modules\Pages::dataLinks(['enquiries', 'collections'], fn (string $q): string => '/admin.php?' . $q);
+check('3.20 U11: builder data links only for allowed modules', [array_keys($builderLinks), $builderLinks['kolekce']], [['poptavky', 'kolekce', 'novaKolekce'], '/admin.php?module=collections&action=items&id=']);
+check('3.20 U11: an editor without any of the modules gets no link', Kaleta\Admin\Modules\Pages::dataLinks(['pages', 'news'], fn (string $q): string => $q), []);
+check('3.20 U13: the component link is there for whoever may open Components', Kaleta\Admin\Modules\Pages::dataLinks(['components'], fn (string $q): string => $q), ['upravKomponentu' => 'module=components&action=edit&id=']);
 Kaleta\Core\Language::set('cs', 'admin-');
 
 /* ---------- date in words in the administration (3.2.1: the English and German admin showed Czech months) ---------- */

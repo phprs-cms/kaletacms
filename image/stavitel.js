@@ -1409,6 +1409,9 @@
 				offer.style.left = Math.max(8, r.right - offer.offsetWidth) + 'px';
 			});
 		}
+		// 3.20 (U13): an instance of a component says where the component itself is edited – a change there shows everywhere
+		const componentLink = p.typ === 'komponenta' && D.adresy.upravKomponentu && p.obsah.komponenta
+			? el('p', { class: 'st-hlava-odkaz' }, el('a', { href: D.adresy.upravKomponentu + encodeURIComponent(p.obsah.komponenta) }, T('Edit this component (changes everywhere)'))) : null;
 		right.replaceChildren(
 			el('div', { class: 'st-hlava-prvku' }, icon(s.ikona), el('strong', {}, s.nazev), el('div', { class: 'st-akce' },
 				el('button', { type: 'button', title: T('Up'), onclick: () => offset(p.id, -1) }, icon('nahoru')),
@@ -1417,6 +1420,7 @@
 				el('button', { type: 'button', title: T('Duplicate (Ctrl+D)'), onclick: () => duplicate(p.id) }, icon('kopie')),
 				moreButton, offer,
 				el('button', { type: 'button', class: 'nebezpecne', title: T('Delete (Delete)'), onclick: () => remove(p.id) }, icon('smazat')))),
+			componentLink,
 			el('div', { class: 'st-zalozky', role: 'tablist' }, tabItem('obsah', T('Content')), tabItem('styl', T('Styl')), tabItem('pokrocile', T('Pokročilé'))),
 			panel,
 		);
@@ -1538,6 +1542,31 @@
 		return wrapper;
 	}
 
+	/**
+	 * Where the data of an element lives (3.20, U11): the Form's enquiries and spam protection, the collection behind a
+	 * list, Business details, the menu behind a navigation, the services and people behind a booking. Only the screens the
+	 * person may open arrive in D.adresy (Admin\BuilderActions::dataLinks); null when there is nothing to link.
+	 */
+	function dataLinks(p) {
+		const a = D.adresy;
+		const links = [];
+		if (p.typ === 'formular') {
+			if (a.poptavky) { links.push([a.poptavky, T('Open Enquiries')]); }
+			if (a.antispam) { links.push([a.antispam, T('Spam protection')]); }
+		} else if (p.typ === 'kolekce') {
+			const chosen = (D.kolekce || []).find((k) => k.seo_link === p.obsah.kolekce);
+			if (chosen && a.kolekce) { links.push([a.kolekce + chosen.id, T('Manage this collection')]); }
+			if (!chosen && a.novaKolekce) { links.push([a.novaKolekce, T('Add a collection')]); }
+		} else if (p.typ === 'udaje' && a.firma) {
+			links.push([a.firma, T('Edit business details')]);
+		} else if (p.typ === 'navigace' && a.menu) {
+			links.push([a.menu, T('Edit the menu')]);
+		} else if (p.typ === 'rezervace' && a.sluzby) {
+			links.push([a.sluzby, T('Services and people')]);
+		}
+		return links.length ? el('p', { class: 'st-odkazy-dat' }, links.map(([href, text]) => el('a', { href }, text))) : null;
+	}
+
 	function contentPanel(panel, p, s) {
 		if (p.typ === 'komponenta') {
 			panel.append(field(s.vlastnosti.komponenta, p.obsah.komponenta, (h) => { applyChange(() => { p.obsah.komponenta = h; p.obsah.hodnoty = {}; }); redrawRight(); }));
@@ -1550,8 +1579,9 @@
 		if (hint) { panel.append(hint); }
 		const ai = aiRewrites(p);
 		if (ai) { panel.append(ai); }
+		const where = dataLinks(p);
 		const properties = Object.entries(s.vlastnosti || {});
-		if (!properties.length) { panel.append(el('p', { class: 'st-prazdno' }, s.kontejner ? T('A container has no content of its own – put elements into it and set its look in the Style tab.') : T('This element has no editable content.'))); return; }
+		if (!properties.length) { panel.append(el('p', { class: 'st-prazdno' }, s.kontejner ? T('A container has no content of its own – put elements into it and set its look in the Style tab.') : T('This element has no editable content.')), where); return; }
 		// a Collection list (3.12, UX310-14): the field keys are a choice of the chosen collection's fields, the filter and
 		// date options fold under "More options" (open when one of them is set)
 		const listCollection = p.typ === 'kolekce' ? (D.kolekce || []).find((k) => k.seo_link === p.obsah.kolekce) || null : null;
@@ -1568,6 +1598,7 @@
 		});
 		if (more) { panel.append(more); }
 		if (p.typ === 'nadpis') { panel.append(headingLevel(p, s)); }
+		if (where) { panel.append(where); }
 	}
 
 	/** Collection list fields holding a field key, and the field types each offers (null = any). */

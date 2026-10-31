@@ -18,7 +18,7 @@ use Kaleta\Builder\DesignSystem;
 $newest = $kits[0]['version'] ?? 0;
 ?>
 <?= $app->view->render('admin/fleet/tabs', ['module' => $module, 'current' => 'kit']) ?>
-<p class="hlaska"><?= e(t('The kit carries the design of this console – its design system, shared classes, components and saved sections – to the sites that chose to receive it (Settings → Fleet console on the site). A site gets each version as drafts only: the look draft, component drafts and its section library. Its people review and publish; nothing goes live by itself. Custom code never travels in a kit.')) ?></p>
+<p class="hlaska"><?= e(t('The kit carries the design of this console – its design system, shared classes, components and saved sections – to the sites that chose to receive it (Settings → Fleet console on the site). A site gets each version as drafts only: the look draft, component drafts and its Sections library. Its people review and publish; nothing goes live by itself. Custom code never travels in a kit.')) ?></p>
 <form class="formular" method="post" action="<?= e($module->url('kit_publish')) ?>">
 <?= $csrf ?>
 <fieldset>

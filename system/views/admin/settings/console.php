@@ -32,7 +32,7 @@
 </fieldset>
 <fieldset>
 <legend><?= e(t('Shared design kit')) ?></legend>
-<p class="napoveda"><?= e(t('The console can share a design kit – its design system, shared classes, components and saved sections. Here it arrives as drafts only: into the look draft, into component drafts and into the section library. Nothing is published until you publish it. Custom code never travels in a kit.')) ?></p>
+<p class="napoveda"><?= e(t('The console can share a design kit – its design system, shared classes, components and saved sections. Here it arrives as drafts only: into the look draft, into component drafts and into the Sections library. Nothing is published until you publish it. Custom code never travels in a kit.')) ?></p>
 <div class="radek"><span class="popisek"><?= e(t('Shared kit')) ?></span><div class="volby"><label><input type="checkbox" name="fleet_kit" value="1"<?= $fleet['kit'] ? ' checked' : '' ?>> <?= e(t('Receive the shared design kit')) ?></label></div></div>
 <?php if ($fleet['kitVersion'] > 0): ?>
 <p><?= e(t('Received kit version %d on %s.', $fleet['kitVersion'], $fleet['kitApplied'] > 0 ? format_date((new DateTimeImmutable())->setTimestamp($fleet['kitApplied']), true) : '–')) ?>

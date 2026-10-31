@@ -264,6 +264,6 @@ $last = $done[0] ?? null;
 </tbody>
 </table>
 </div>
-<p class="smltxt"><?= e(t('The last three exports are kept. To restore this site, use the database backup in Settings → Backups and updates.')) ?></p>
+<p class="smltxt"><?= $module->hint(t('The last three exports are kept. To restore this site, use the database backup in Settings → Backups and updates.')) ?></p>
 <?php endif ?>
 </details>

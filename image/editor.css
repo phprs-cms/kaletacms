@@ -42,6 +42,10 @@
 .galerie-polozka figcaption, .galerie-polozka > span { display: block; padding: 7px 9px; }
 .galerie-polozka figcaption strong, .galerie-polozka > span { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .galerie-polozka figcaption span { display: block; color: var(--ed-text-slaby); }
+/* 3.20 (C22): "Used in" – the places a file is used, as links */
+.galerie-polozka figcaption .media-pouziti { color: var(--ed-text-slaby); }
+.galerie-polozka figcaption .media-pouziti summary { cursor: pointer; }
+.galerie-polozka figcaption .media-pouziti ul { margin: 2px 0 4px; padding-left: 16px; white-space: normal; }
 button.galerie-polozka { cursor: pointer; }
 button.galerie-polozka:hover, button.galerie-polozka:focus-visible { border-color: var(--ed-akcent); box-shadow: 0 0 0 2px var(--ed-akcent); }
 

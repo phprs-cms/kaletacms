@@ -2962,5 +2962,13 @@ window.KALETA_PREKLAD = {
 	"Tablet": "Tableta",
 	"Filter buttons for visitors (by the field above, without a field by category)": "Botones de filtro para los visitantes (por el campo de arriba; sin campo, por categoría)",
 	"Inserting elements…": "Insertando elementos…",
-	"Inserted": "Insertado"
+	"Inserted": "Insertado",
+	"Edit this component (changes everywhere)": "Editar este componente (cambia en todas partes)",
+	"Open Enquiries": "Abrir consultas",
+	"Spam protection": "Protección antispam",
+	"Manage this collection": "Gestionar esta colección",
+	"Add a collection": "Añadir una colección",
+	"Edit business details": "Editar los datos de la empresa",
+	"Edit the menu": "Editar el menú",
+	"Services and people": "Servicios y personas"
 };

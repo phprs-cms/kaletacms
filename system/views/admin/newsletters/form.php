@@ -28,7 +28,7 @@ $chosen = array_map('intval', array_filter(explode(',', (string) $n['news_ids'])
 </div>
 <?php else: ?>
 <?php if ($problem !== null): ?>
-<p class="hlaska hlaska-varovani"><?= e(t($problem)) ?></p>
+<p class="hlaska hlaska-varovani"><?= $module->hint(t($problem)) ?></p>
 <?php endif ?>
 <form class="formular" method="post" action="<?= e($module->url('save')) ?>">
 <?= $csrf ?>

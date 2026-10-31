@@ -13,7 +13,7 @@ $accessNames = array_map(fn (string $label): string => t($label), Kaleta\Front\O
 ?>
 <?php // 3.18: the state of the connection first – connected, idle or not, how requests reach Claude, what to do next ?>
 <?= $app->view->render('admin/claude_panel', ['app' => $app, 'claude' => Kaleta\Core\ClaudeConnection::status($app->db(), $app->settings(), true), 'routine' => Kaleta\Core\AskClaude::routine($app->db())]) ?>
-<h2><?= e(t('How to connect')) ?></h2>
+<h2 id="how-to-connect"><?= e(t('How to connect')) ?></h2><?php // 3.20 (C6): the one destination of every "How to connect Claude" link ?>
 <ol class="navod">
 	<li><?= e(t('In the Claude app open Settings → Connectors → Add custom connector.')) ?></li>
 	<li><?= e(t('Enter this address:')) ?><?= $app->view->render('admin/mcp_address', ['url' => $mcpUrl, 'id' => 'mcp-adresa-nastaveni']) ?></li>
@@ -81,4 +81,6 @@ $listedIds = array_map(fn (array $page): int => (int) $page['ids'], $protectable
 <?php endforeach ?>
 </tbody></table></div>
 <?php endif ?>
-<p class="napoveda"><?= e(t('Each person creates and revokes their own connections in')) ?> <a href="<?= e($app->url('admin.php?action=account#claude')) ?>"><?= e(t('My account')) ?></a>.</p>
+<p class="napoveda"><?= e(t('Each person creates and revokes their own connections in')) ?> <a href="<?= e($app->url('admin.php?action=account#claude')) ?>"><?= e(t('My account')) ?></a>.
+<?php // 3.20 (C6): tokens stay in My account – the Connections box says where ?>
+<a href="<?= e($app->url('admin.php?action=account#claude')) ?>"><?= e(t('Create a personal token – My account')) ?></a></p>

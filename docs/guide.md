@@ -38,7 +38,10 @@ Open the builder from **Pages → Builder** (or the “Edit here” link on the 
 page**, on the left the **Add / Structure** panel, on the right the properties of the selected element.
 
 - **Adding:** click an element or a ready-made section in the Add panel, or **drag it onto the canvas** – a blue line shows
-  where it will land (a frame means inside a container). Hover over a ready-made section to see its preview.
+  where it will land (a frame means inside a container). Hover over a ready-made section to see its preview. The
+  **Sections library** in the Add panel has two parts: **Ready-made sections** (hero, benefits, services, FAQ…) and
+  **My sections** (what you saved from any page with “Save to my sections”). Each insert is a separate copy; a block that
+  must stay the same everywhere is a **component** (Appearance → Components).
 - **Moving:** the selected element has a ⠿ handle on the canvas – drag it elsewhere. You can also drag in the Structure.
   On tablets and phones tap **Move** (four arrows) and then the place where the element belongs.
 - **Text:** double-click a heading or text to edit it right on the canvas; longer edits in the **Content** panel.

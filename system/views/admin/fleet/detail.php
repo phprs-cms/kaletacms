@@ -99,7 +99,7 @@ $yes = fn (mixed $v): string => $v ? t('yes') : t('no');
 <fieldset>
 <legend><?= e(t('Updates')) ?></legend>
 <?php if ((int) $site['manage_updates'] !== 1): ?>
-<p><?= e(t('This site decides about its updates itself (Settings → Fleet console on the site).')) ?></p>
+<p><?= $module->hint(t('This site decides about its updates itself (Settings → Fleet console on the site).')) ?></p>
 <?php else: ?>
 <div class="radek"><label for="ring"><?= e(t('Ring')) ?></label><div><select id="ring" name="ring">
 	<option value="normal"<?= $site['ring'] !== 'canary' ? ' selected' : '' ?>><?= e(t('normal – after the test sites ran the version for 48 hours without problems')) ?></option>

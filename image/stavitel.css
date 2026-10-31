@@ -79,6 +79,10 @@ body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; ove
 /* properties */
 .st-hlava-prvku { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--linka); }
 .st-hlava-prvku strong { margin-right: auto; }
+/* 3.20 (U13): "Edit this component" under the header of a component instance */
+.st-hlava-odkaz { margin: 0; padding: 6px 12px; border-bottom: 1px solid var(--linka); font-size: 12px; }
+/* 3.20 (U11): links to where the element's data lives, at the end of the Content tab */
+.st-odkazy-dat { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 4px 0 0; font-size: 12px; }
 .st-akce { display: flex; gap: 2px; }
 .st-akce button { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: none; cursor: pointer; }
 .st-akce button:hover { background: var(--podklad); }

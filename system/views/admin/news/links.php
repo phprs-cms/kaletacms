@@ -12,7 +12,7 @@
 ?>
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to the news list')) ?></a></p>
 <?php if (!$isEnabled): ?>
-<p class="hlaska"><?= e(t('Link checking is off (Settings → General → More options).')) ?></p>
+<p class="hlaska"><?= $module->hint(t('Link checking is off (Settings → General → More options).')) ?></p>
 <?php endif ?>
 <p class="smltxt"><?= e(t('In the background, the system goes through published news, pages and collection items – one every five minutes, each once a month – and checks whether their links still work. Checked: %s of %s.', $checked, $total)) ?></p>
 <?php if ($links === []): ?>
