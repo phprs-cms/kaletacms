@@ -326,6 +326,88 @@ await step('builder: select the parent element', async () => {
   await page.waitForTimeout(300);
 });
 
+// 3.21 "Builder for non-designers" (Head-of-UX audit U2, U5, U9, U19): the Style tab shows only the groups the kind of element
+// needs, the rest behind "Show all properties"; font size is a select of named steps with a custom value checked in the field;
+// the count badge is a pill with a space before it; a heading's tag is set only as its Level in Content
+await step('3.21 (U2, U5, U9, U19) builder: a heading shows Typography and Spacing but Layout only after "Show all properties"; font size is a select of steps, a custom "xl" is refused in the field; the count badge is a pill after a space ("Typography 2"); no HTML tag select on a heading', async () => {
+  const groups = async () => page.locator('.st-panel .st-styl details').evaluateAll((els) => els.map((d) => {
+    const summary = d.querySelector('summary');
+    return { name: summary.firstChild.textContent.trim(), open: d.open, text: summary.textContent.trim() };
+  }));
+  const until = async (fn, what, ms = 8000) => {
+    const end = Date.now() + ms;
+    let last;
+    while (Date.now() < end) { last = await fn(); if (last) { return last; } await page.waitForTimeout(200); }
+    throw new Error(`${what} (last: ${JSON.stringify(last)})`);
+  };
+  const h1Size = () => canvas().locator('h1').first().evaluate((e) => getComputedStyle(e).fontSize).catch(() => '');
+  // the section selected by the previous step: Layout is relevant, the toggle is offered, the active state is "Pressed"
+  await page.getByRole('tab', { name: 'Style' }).first().click();
+  await page.locator('.st-panel .st-styl').waitFor();
+  let names = (await groups()).map((g) => g.name);
+  if (!names.includes('Layout')) { throw new Error(`a section's style groups have no Layout: ${names.join(', ')}`); }
+  if (!(await page.getByLabel('Show all properties').count())) { throw new Error('no "Show all properties" toggle under the style groups'); }
+  if ((await page.getByRole('button', { name: 'Pressed', exact: true }).count()) !== 1) { throw new Error('the active state is not named "Pressed"'); }
+  // the heading: Typography and Spacing open, no Layout (grid columns) until "Show all properties"
+  await canvas().locator('h1').first().click();
+  const size = page.locator('#st-v-velikost_pisma');
+  await size.waitFor();
+  const heading = await groups();
+  names = heading.map((g) => g.name);
+  if (!names.includes('Typography') || !names.includes('Spacing') || names.includes('Layout')) { throw new Error(`a heading's style groups: ${names.join(', ')}`); }
+  if (await page.locator('#st-v-sloupce').count()) { throw new Error('Grid columns are offered on a heading'); }
+  for (const name of ['Typography', 'Spacing']) { if (!heading.find((g) => g.name === name).open) { throw new Error(`${name} is not open on a heading`); } }
+  const showAll = page.getByLabel('Show all properties');
+  await showAll.check();
+  await page.locator('#st-v-sloupce').waitFor({ state: 'attached' }); // in the Layout group, which opens only when clicked
+  if (!(await groups()).map((g) => g.name).includes('Layout')) { throw new Error('"Show all properties" does not bring Layout'); }
+  await showAll.uncheck();
+  await page.locator('#st-v-sloupce').waitFor({ state: 'detached' });
+  // font size: a select of the steps; a step renders on the canvas as the token
+  if ((await size.evaluate((e) => e.tagName)) !== 'SELECT') { throw new Error('font size is not a select'); }
+  const options = await size.locator('option').allTextContents();
+  if (!options.some((o) => /^2 · Large$/.test(o)) || !options.includes('Custom…')) { throw new Error(`font size options: ${options.join(' | ')}`); }
+  const originalSize = await h1Size();
+  const originalStep = await size.inputValue(); // the starter's h1 has a step of its own; the step puts it back at the end
+  await size.selectOption(originalStep === '1' ? '2' : '1');
+  const stepSize = await until(async () => { const h = await h1Size(); return h && h !== originalSize ? h : null; }, 'the canvas heading did not take step 1');
+  // U19: the badge reads "Typography 2" (a space, a pill), not "Typography2"
+  await canvas().locator('h1').first().click();
+  await size.waitFor();
+  const typography = (await groups()).find((g) => g.name === 'Typography');
+  if (!typography || !/^Typography \d+$/.test(typography.text)) { throw new Error(`the group header reads "${typography && typography.text}"`); }
+  const radius = await page.locator('.st-styl summary small').first().evaluate((e) => getComputedStyle(e).borderRadius);
+  if (radius === '0px') { throw new Error('the count badge is not a pill'); }
+  // Custom… + "xl": refused right at the field, nothing saved (no warning from the server, the canvas keeps step 1)
+  await size.selectOption('vlastni');
+  const custom = page.locator('.st-krok-vlastni');
+  await custom.waitFor();
+  await custom.fill('xl');
+  await custom.press('Tab');
+  const row = page.locator('.st-vlastnost:has(#st-v-velikost_pisma)');
+  await row.locator('.st-chyba-pole:visible').waitFor();
+  if (!/Not a valid size/.test((await row.locator('.st-chyba-pole').textContent()) || '')) { throw new Error('no inline message for an invalid size'); }
+  if (!/st-pole-chyba/.test((await row.getAttribute('class')) || '')) { throw new Error('the invalid size is not marked on the field'); }
+  await page.waitForTimeout(2500);
+  if (await page.locator('.st-panel .st-chyby').count()) { throw new Error('the invalid size reached the server'); }
+  if (/warning/i.test((await page.locator('.st-stav').first().textContent()) || '')) { throw new Error('the top bar warns – the invalid size was saved'); }
+  if ((await h1Size()) !== stepSize) { throw new Error('the canvas changed after an invalid size'); }
+  // a valid custom length is saved and rendered; then the field is cleared so the later steps see the heading as before
+  await custom.fill('40px');
+  await custom.press('Tab');
+  await until(async () => (await h1Size()) === '40px', 'the canvas heading did not take the custom 40px');
+  await size.selectOption(originalStep);
+  await until(async () => (await h1Size()) === originalSize, 'the canvas heading did not return to its size');
+  // U9: a heading's tag is its Level in Content – Advanced has no HTML tag select, only a note
+  await page.getByRole('tab', { name: 'Advanced' }).first().click();
+  await page.locator('.st-panel h3', { hasText: 'Display conditions' }).waitFor();
+  if (await page.locator('.st-panel label.st-pole', { hasText: 'HTML tag' }).count()) { throw new Error('the Advanced tab of a heading offers an HTML tag select next to Level'); }
+  if (!(await page.locator('.st-panel', { hasText: 'Level in the Content tab' }).count())) { throw new Error('the Advanced tab of a heading does not say where the tag is set'); }
+  await page.getByRole('tab', { name: 'Content' }).first().click();
+  if (!(await page.locator('.st-uroven button', { hasText: 'H1' }).count())) { throw new Error('Content has no Level buttons for the heading'); }
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/builder-321-heading-style.png`, fullPage: false }); }
+});
+
 await step('3.19.2 builder: Save as component, Save to my sections and a shared class reach the server', async () => {
   // broken from 1.4.0 to 3.19.1: the script sent the name as "name", the server read "nazev" – every save answered
   // "Name or element is missing." (the same for the shared-class endpoint and the writing assistant's prompt)
