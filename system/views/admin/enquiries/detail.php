@@ -9,6 +9,8 @@
  * @var array<string, mixed> $p
  * @var list<array{0:string, 1:string, 2?:string}> $data  [label, value, attachment path]
  * @var array<int, string> $users
+ * @var array{form: string, kind: string, title: string, builder: string, settings: ?string}|null $origin the form and what carries it, with admin links (3.20, C2)
+ * @var array<string, mixed>|null $referencesCollection the References collection the testimonials land in; null = none yet (3.20, C16)
  */
 use Kaleta\Admin\Modules\Enquiries;
 
@@ -19,6 +21,15 @@ $pageLink = Kaleta\Front\Forms::isSafePage((string) $p['stranka']);
 <div class="formular">
 <dl class="poptavka">
 	<dt><?= e(t('Received')) ?></dt><dd><?= e(format_date($p['datum'], true)) ?> · <?= e($p['formular']) ?><?php if ($p['stranka'] !== ''): ?> · <?= $pageLink ? '<a href="' . e($p['stranka']) . '" target="_blank" rel="noopener">' . e($p['stranka']) . '</a>' : e($p['stranka']) ?><?php endif ?></dd>
+<?php if ($origin !== null): /* 3.20 (C2): the chain enquiry → form → page continues into the administration – the builder opens with the form selected */ ?>
+	<dt><?= e(t('Form')) ?></dt><dd data-origin><?= t(match ($origin['kind']) {
+	    'collection' => 'From the form %s in the item template of the collection %s',
+	    'popup' => 'From the form %s in the pop-up %s',
+	    'part' => 'From the form %s in the site part %s',
+	    default => 'From the form %s on the page %s',
+	}, '<em>' . e($origin['form'] !== '' ? $origin['form'] : t('Enquiry')) . '</em>', '<em>' . e($origin['title']) . '</em>') ?> – <a href="<?= e($origin['builder']) ?>"><?= e(t('Open in the builder')) ?></a><?php if ($origin['settings'] !== null): ?> · <a href="<?= e($origin['settings']) ?>"><?= e(t(match ($origin['kind']) { 'collection' => 'Collection settings', 'popup' => 'Pop-up settings', default => 'Page settings' })) ?></a><?php endif ?>
+	<span class="napoveda"><?= e(t('Recipients, the autoresponder and the fields are in the form’s properties in the builder.')) ?></span></dd>
+<?php endif ?>
 <?php if (($p['tema'] ?? '') !== ''): ?>
 	<dt><?= e(t('Topic')) ?></dt><dd><?= $pageLink ? '<a href="' . e($p['stranka']) . '" target="_blank" rel="noopener">' . e($p['tema']) . '</a>' : e($p['tema']) ?></dd>
 <?php endif ?>
@@ -75,9 +86,17 @@ $pageLink = Kaleta\Front\Forms::isSafePage((string) $p['stranka']);
     ? e(t('Answered')) . ($req['item_id'] !== null ? ' – <a href="' . e($app->url('admin.php?module=collections&action=item&id=' . (int) $app->db()->value('SELECT idk FROM {kolekce_polozky} WHERE idp = ?', [(int) $req['item_id']]) . '&item=' . (int) $req['item_id'])) . '">' . e(t('the draft reference')) . '</a>' : '')
     : e(strtotime((string) $req['expires_at']) < time() ? t('Expired') : t('Waiting for the answer')) ?></p>
 <?php endforeach ?>
+<?php if ($referencesCollection === null && $app->auth()->isAdmin()): /* 3.20 (C16): the request presumes a References collection – an administrator creates it first, with one click (the references preset) */ ?>
+<form class="vradku" method="post" action="<?= e($app->url('admin.php?module=collections&action=preset')) ?>" data-references-missing><?= $csrf ?>
+	<span class="napoveda"><?= e(t('Create the References collection first – what the customer writes arrives there as a hidden draft.')) ?></span>
+	<button class="navigace" type="submit" name="preset" value="references"><?= e(t('Create the References collection')) ?></button></form>
+<?php else: ?>
 <form class="vradku" method="post" action="<?= e($module->url('testimonial')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $p['idp'] ?>">
 	<button class="navigace" type="submit" name="poslat" value="1"><?= e(t('Ask for a testimonial by e-mail')) ?></button> <button class="navigace" type="submit" name="poslat" value="0"><?= e(t('Only create the link')) ?></button>
-	<span class="napoveda"><?= e(t('The customer gets a personal link for 30 days; what they write arrives as a hidden draft in References, with the consent they gave.')) ?></span></form>
+	<span class="napoveda"><?= e($referencesCollection === null
+	    ? t('The customer gets a personal link for 30 days; what they write arrives as a hidden draft in References – an administrator creates that collection, or it is created with the first answer.')
+	    : t('The customer gets a personal link for 30 days; what they write arrives as a hidden draft in %s, with the consent they gave.', (string) $referencesCollection['nazev'])) ?></span></form>
+<?php endif ?>
 <?php endif ?>
 <div class="tlacitka">
 <?php if ($p['email'] !== ''): ?>

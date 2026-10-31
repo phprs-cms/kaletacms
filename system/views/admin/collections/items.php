@@ -20,6 +20,7 @@
  * @var int $inTrash items in the trash
  * @var bool $staffSignatures a people collection with at least one user linked to a record (3.14)
  * @var array<int, array{0: int, 1: int}>|null $downloads  document library (2.11): idp => [downloads in 30 days, total]; null = not a library
+ * @var array{id: int, title: string, path: string, url: string, visible: bool, in_menu: ?bool}|null $listingPage the page that lists the collection (3.20, C5); null = none, or no right to pages
  */
 ?>
 <p class="navigace-radek"><a class="tl" href="<?= e($module->url('item', ['id' => $k['idk']])) ?>"><?= e(t('Add item')) ?></a>
@@ -35,6 +36,16 @@
 <?php endforeach ?>
 <?php endif ?>
 <?php endif ?></p>
+<?php if ($listingPage !== null && !$trash): /* 3.20 (C5): the hidden page a preset made was unreachable from here – its state, builder, publishing and the menu in one line */ ?>
+<div class="vypis-stranka" data-listing-page><?= e(t('Listing page:')) ?> <a href="<?= e($listingPage['url']) ?>" target="_blank" rel="noopener"><?= e($listingPage['path']) ?></a> – <?= e(t($listingPage['visible'] ? 'published' : 'hidden')) ?>
+	· <a href="<?= e($app->url('admin.php?module=pages&action=builder&id=' . $listingPage['id'])) ?>"><?= e(t('Edit in the builder')) ?></a>
+<?php if (!$listingPage['visible'] && $app->auth()->canPublish()): ?>
+	· <form class="vradku" method="post" action="<?= e($module->url('publish_page')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $k['idk'] ?>"><button class="navigace" type="submit"><?= e(t('Publish')) ?></button></form>
+<?php endif ?>
+<?php if ($app->auth()->isAdmin()): ?>
+	· <?= $listingPage['in_menu'] ? '<a href="' . e($app->url('admin.php?module=menu')) . '">' . e(t('In the menu')) . '</a>' : '<a href="' . e($app->url('admin.php?module=menu')) . '">' . e(t('Add to the menu')) . '</a>' ?>
+<?php endif ?></div>
+<?php endif ?>
 <?php if ($staffSignatures ?? false): ?>
 <p class="napoveda"><?= e(t('Staff can copy their own signature in My account.')) ?></p>
 <?php endif ?>
@@ -97,7 +108,10 @@
 </form>
 <?php endif ?>
 <?php if ($items === [] && !$filtered): ?>
-<?= $app->view->render('admin/empty', ['icon' => 'kolekce', 'heading' => t('The collection is empty.'), 'text' => t('Add the first item – then put it on the site with the Collection list element in the builder.'), 'action' => [$module->url('item', ['id' => $k['idk']]), t('Add item')]]) ?>
+<?= $app->view->render('admin/empty', ['icon' => 'kolekce', 'heading' => t('The collection is empty.'),
+    // 3.20 (C5): with a listing page the advice is to fill and publish that page, not to build a second list
+    'text' => $listingPage !== null ? t('Add the first item – the page %s lists the items; publish it when they are ready.', $listingPage['path']) : t('Add the first item – then put it on the site with the Collection list element in the builder.'),
+    'action' => [$module->url('item', ['id' => $k['idk']]), t('Add item')]]) ?>
 <?php elseif ($items === []): ?>
 <p class="stred"><?= e(t('Nothing matches the filter.')) ?> <a href="<?= e($module->url('items', ['id' => $k['idk']])) ?>"><?= e(t('Clear filter')) ?></a></p>
 <?php else: ?>

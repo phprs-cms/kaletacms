@@ -45,6 +45,7 @@ final class Kernel
         Modules\Notebook::class,
         Modules\Audit::class,
         Modules\Redirects::class,
+        Modules\BrokenLinks::class, // 3.20 (C20): the site-wide link check next to Redirects; News keeps its shortcut
         Modules\ChangeLog::class,
         Modules\Status::class,
         Modules\Users::class,

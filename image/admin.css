@@ -1375,6 +1375,8 @@ label.galerie-vyfotit { display: none; }
 .menu-pridat { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; max-width: 60rem; padding: 12px; border: 1px dashed var(--linka-pole); border-radius: var(--radius); }
 .menu-pridat legend { padding: 0 4px; font-weight: 600; }
 .napoveda-inline { margin-inline-end: 2px; color: var(--text-slaby); font-size: 14px; }
+/* 3.20 (C5): the "Listing page: /team – hidden · …" line on the collection items screen (a div, as it holds the Publish form) */
+.vypis-stranka { margin: 0 0 14px; color: var(--text-slaby); font-size: 14px; }
 .odsazeni-stromu { display: inline-block; color: var(--text-slaby); }
 
 /* Media: crop focal point – a tap in the preview */

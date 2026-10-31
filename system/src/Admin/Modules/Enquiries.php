@@ -96,6 +96,10 @@ final class Enquiries extends Module
 
         return $this->view('detail', t('Enquiry') . ' #' . $p['idp'], ['p' => $p, 'data' => json_decode((string) $p['data'], true) ?: [],
             'testimonials' => \Kaleta\Core\Testimonials::ofEnquiry($this->db, (int) $p['idp']),
+            // 3.20 (C16): the testimonial request names the References collection – when the site has none, the detail offers to create it
+            'referencesCollection' => \Kaleta\Core\Testimonials::collection($this->db),
+            // 3.20 (C2): the form and the page the enquiry came from, as links into the builder and the page settings
+            'origin' => \Kaleta\Admin\EnquiryOrigin::resolve($this->app, $p),
             'users' => $this->listAssignees((int) $p['prirazeno'])]);
     }
 

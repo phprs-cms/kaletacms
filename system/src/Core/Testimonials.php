@@ -95,6 +95,17 @@ final class Testimonials
     }
 
     /**
+     * The References collection the answers land in (the first collection made from the references preset), or null when the
+     * site has none yet – the enquiry detail then offers to create it first (3.20, C16).
+     *
+     * @return array<string, mixed>|null
+     */
+    public static function collection(Db $db): ?array
+    {
+        return $db->one('SELECT * FROM {kolekce} WHERE preset = ? ORDER BY idk LIMIT 1', [self::PRESET]);
+    }
+
+    /**
      * Saves the answer: the photo (only with its consent) into Media, a hidden draft item in References, the consents with
      * the request, and marks the link used. Returns the item id.
      *
@@ -104,7 +115,7 @@ final class Testimonials
     public static function save(App $app, array $request, array $answer, ?array $photo): int
     {
         $db = $app->db();
-        $collection = $db->one("SELECT * FROM {kolekce} WHERE preset = ? ORDER BY idk LIMIT 1", [self::PRESET]);
+        $collection = self::collection($db);
         $idk = $collection !== null ? (int) $collection['idk'] : (int) Presets::create($app, self::PRESET);
         $collection = (array) Collections::byId($db, $idk);
         $image = '';
