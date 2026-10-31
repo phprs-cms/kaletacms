@@ -1941,6 +1941,8 @@
 		if (def.typ === 'vyber') {
 			inputEl = el('select', { onchange: (e) => change(e.target.value) }, el('option', { value: '' }, inheritedFrom ? '↳ ' + T(def.moznosti[inheritedFrom] || inheritedFrom) : '—'),
 				Object.entries(def.moznosti).map(([k, v]) => el('option', { value: k, selected: k === value }, T(v))));
+		} else if (def.typ === 'krok') {
+			inputEl = stepControl(value, inheritedFrom, change); // 3.21 (U5): named steps, a custom length checked right in the field
 		} else {
 			const field = el('input', { type: 'text', value: value, placeholder: inheritedFrom, list: HINTS[def.typ] ? 'st-dl-' + def.typ : null,
 				onchange: (e) => change(e.target.value.trim()), oninput: (e) => { if (sample) { sample.style.background = tokenColor(e.target.value || inheritedFrom || 'transparent'); } } });
@@ -1960,10 +1962,41 @@
 			if (def.typ === 'ramecek') { field.setAttribute('list', 'st-dl-ramecek'); }
 		}
 		const id = 'st-v-' + key;
-		(inputEl.matches('select') ? inputEl : inputEl.querySelector('input[type="text"]')).id = id;
+		(inputEl.matches('select') ? inputEl : inputEl.querySelector('select, input[type="text"]')).id = id;
 		const error = target.id && state.chyby[state.cestaVybraneho + '.styl.' + s + '.' + key];
 		return el('div', { class: 'st-vlastnost' + (value !== '' ? ' nastaveno' : '') + (error ? ' st-pole-chyba' : '') }, el('label', { for: id, title: def.css }, T(def.popisek)), inputEl,
 			error ? el('small', { class: 'st-chyba-pole', role: 'alert' }, error) : null);
+	}
+
+	/** The form a free length may take – the same rule as Style::value() on the server, so the field and the save agree (a unit test compares the two). */
+	const LENGTH = /^(auto|0|-?\d{1,5}(\.\d{1,4})?(px|rem|em|%|vw|vh|svh|dvh|ch|fr)|(min|max|clamp|calc)\([-a-z0-9 .,%+*\/()]{1,70}\)|var\(--ka-[a-z0-9-]{1,40}\)|fit-content|min-content|max-content)$/i; // mirrors Style::LENGTH_PATTERN
+	/** What the steps of the type scale (–1…5) are for; how big they are is set in Site appearance. */
+	const STEP_NAMES = { '-1': 'Small', 0: 'Normal', 1: 'Larger', 2: 'Large', 3: 'Extra large', 4: 'Heading', 5: 'Title' };
+
+	/**
+	 * 3.21 (U5): a property of type „krok“ (font size) – a select of the named steps and „Custom…“, which reveals a text field checked
+	 * as the server checks it: an invalid value („xl“, „large“) is marked at the field and is not saved. The stored value keeps its
+	 * form (a step or a length), so existing sites render as before.
+	 */
+	function stepControl(value, inheritedFrom, change) {
+		const steps = (D.schema.tokeny.kroky || HINTS.krok).map(String);
+		const stepName = (k) => k + ' · ' + T(STEP_NAMES[k] || k);
+		const custom = value !== '' && !steps.includes(value);
+		const wrapper = el('span', { class: 'st-krok' });
+		const field = el('input', { type: 'text', class: 'st-krok-vlastni', placeholder: '18px, 1.25rem', 'aria-label': T('Custom font size'), value: custom ? value : '' });
+		const message = el('small', { class: 'st-chyba-pole', role: 'alert', hidden: true }, T('Not a valid size. Use a number with a unit (18px, 1.25rem, 120%) or pick a step.'));
+		const valid = (h) => h === '' || steps.includes(h) || LENGTH.test(h);
+		const mark = (ok) => { message.hidden = ok; const row = wrapper.closest('.st-vlastnost'); if (row) { row.classList.toggle('st-pole-chyba', !ok); } };
+		field.addEventListener('input', () => mark(valid(field.value.trim())));
+		field.addEventListener('change', () => { const h = field.value.trim(); if (valid(h)) { change(h); } });
+		wrapper.append(el('select', { onchange: (e) => {
+			if (e.target.value === 'vlastni') { wrapper.append(field, message); field.focus(); return; }
+			field.remove(); message.remove(); mark(true); change(e.target.value);
+		} }, el('option', { value: '' }, inheritedFrom ? '↳ ' + (steps.includes(inheritedFrom) ? stepName(inheritedFrom) : inheritedFrom) : '—'),
+			steps.map((k) => el('option', { value: k, selected: k === value }, stepName(k))),
+			el('option', { value: 'vlastni', selected: custom }, T('Custom…'))));
+		if (custom) { wrapper.append(field, message); }
+		return wrapper;
 	}
 
 	/** Shadow builder: offset, blur, spread, color and opacity → „0 8px 24px color-mix(…)“; color tokens work. */

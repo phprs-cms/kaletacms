@@ -2081,6 +2081,15 @@ check('Styl: vlastní stín a rámeček s tokeny barev', [Kaleta\Builder\Style::
 check('Styl: stín a rámeček nepustí nic nebezpečného', [Kaleta\Builder\Style::value('stin', '0 0 1px url(x)'), Kaleta\Builder\Style::value('stin', '0 0 red; color: red'), Kaleta\Builder\Style::value('ramecek', '1px solid red}')], [null, null, null]);
 check('Styl: mřížka – řádky, oblasti a oblast prvku', [Kaleta\Builder\Style::value('radky', '3'), Kaleta\Builder\Style::value('oblasti', 'hlava hlava / bok obsah'), Kaleta\Builder\Style::value('oblasti', 'a b / c'), Kaleta\Builder\Style::value('oblast', 'bok'), Kaleta\Builder\Style::value('oblast', 'x"y')],
     ['repeat(3, auto)', '"hlava hlava" "bok obsah"', null, 'bok', null]);
+// 3.21 (U5): font size takes a step of the type scale or a length with a unit; words ("xl", "large") and a space before the unit are refused
+check('3.21 (U5) Style: font size – steps and lengths pass, words do not', array_map(fn (string $h): ?string => Kaleta\Builder\Style::value('velikost_pisma', $h), ['2', '-1', '18px', '1.25rem', '120%', 'clamp(1rem, 2vw, 2rem)', 'xl', 'large', '18 px', '18', 'var(--x)']),
+    ['var(--ka-krok-2)', 'var(--ka-krok--1)', '18px', '1.25rem', '120%', 'clamp(1rem, 2vw, 2rem)', null, null, null, null, null]);
+// the builder checks a custom size in the field with the same rule, so the field and the save agree: the regular expression in
+// image/stavitel.js is the body of Style::LENGTH_PATTERN, character for character
+$builderScript = (string) file_get_contents(dirname(__DIR__) . '/image/stavitel.js');
+preg_match('~const LENGTH = /(.+)/i; // mirrors Style::LENGTH_PATTERN~', $builderScript, $lengthInScript);
+$lengthInPhp = (string) (new ReflectionClassConstant(Kaleta\Builder\Style::class, 'LENGTH_PATTERN'))->getValue();
+check('3.21 (U5) the builder\'s length check mirrors Style::LENGTH_PATTERN', $lengthInScript[1] ?? '', substr($lengthInPhp, 1, strrpos($lengthInPhp, '/') - 1));
 // 3.21 (U2): every element type names its style groups in the builder (RELEVANT_GROUPS; null = all), and the groups exist – a new element must be placed there
 preg_match('~const RELEVANT_GROUPS = \(\(\) => \{(.+?)\n\t\}\)\(\);~s', $builderScript, $relevantBlock);
 preg_match_all('~(?:^|[\s{,])([a-z][a-z_]*):~', $relevantBlock[1] ?? '', $relevantTypes);
