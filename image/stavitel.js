@@ -2061,7 +2061,10 @@
 	/* ---------- advanced: tag, classes, anchor ---------- */
 
 	function advancedPanel(panel, p, s) {
-		if (s.znacky.length > 1) {
+		if (p.typ === 'nadpis') {
+			// 3.21 (U9): a heading's tag is its Level in Content (headingLevel) – one place, not two
+			panel.append(el('p', { class: 'napoveda', style: 'margin:0 0 8px;font-size:12px;color:var(--text-slaby)' }, T('The HTML tag of a heading is its Level in the Content tab.')));
+		} else if (s.znacky.length > 1) {
 			panel.append(field({ typ: 'vyber', popisek: 'HTML tag', moznosti: Object.fromEntries(s.znacky.map((z) => [z, '<' + z + '>'])) }, p.znacka, (h) => applyChange(() => { p.znacka = h; })));
 		}
 		panel.append(
