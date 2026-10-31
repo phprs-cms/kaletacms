@@ -284,8 +284,11 @@ final class Installer
             // pages straight from builder sections according to the chosen sample site – a new site looks like a site, not like an empty template
             $siteSettings = Library::SITES[$d['web']] ?? Library::SITES['firemni'];
             $home = 0;
+            // 3.20 (C11): the starters carry the time of the installation, so the dashboard's "Recently edited" and the Edited
+            // column are not empty on a fresh site; zmenil stays NULL – nobody edited them, First steps count a person's edit
+            $installed = date('Y-m-d H:i:s');
             foreach ($pages as $i => [$title, $url, $inMenu, $text]) {
-                $row = ['titulek' => $title, 'seo_link' => $url, 'text' => $text, 'v_menu' => $inMenu, 'poradi' => ($i + 1) * 10];
+                $row = ['titulek' => $title, 'seo_link' => $url, 'text' => $text, 'v_menu' => $inMenu, 'poradi' => ($i + 1) * 10, 'zmeneno' => $installed];
                 if (($siteSettings['stranky'][$i] ?? []) !== []) {
                     // sections with elements of disabled extensions (news list, form) are not put on the initial pages, neither are empty images
                     $build = Library::page($db, $siteSettings['stranky'][$i], $title, $siteLanguage, Build::disabledTypes($extensions), true);
@@ -300,7 +303,7 @@ final class Installer
             // administrator fills it in and publishes it (First steps remind of it); outside the main menu, linked from the footer,
             // the cookie bar and the consent in the form
             [$privacyPolicy, $privacyPolicyText] = \Kaleta\Core\Language::runWith($siteLanguage, fn (): array => [t('Privacy policy'), Library::privacyPolicyText()]);
-            $privacyPolicyId = $db->insert('stranky', ['titulek' => $privacyPolicy, 'seo_link' => slugify($privacyPolicy), 'text' => $privacyPolicyText, 'zobrazit' => 0, 'v_menu' => 0, 'poradi' => 90]);
+            $privacyPolicyId = $db->insert('stranky', ['titulek' => $privacyPolicy, 'seo_link' => slugify($privacyPolicy), 'text' => $privacyPolicyText, 'zobrazit' => 0, 'v_menu' => 0, 'poradi' => 90, 'zmeneno' => $installed]);
             \Kaleta\Core\Menu::save($db, 'paticka', '', [['typ' => 'stranka', 'ids' => $privacyPolicyId, 'text' => '']]);
 
             \Kaleta\Core\Search::complete($db);

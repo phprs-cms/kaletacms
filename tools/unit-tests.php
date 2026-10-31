@@ -7754,5 +7754,40 @@ check('3.19.1 (N3191-1): a new signing key reads the key in force under a lock i
 // N3191-9: no total time limit on an FTPS upload, a stalled one ends
 check('3.19.1 (N3191-9): FTPS uploads end when they stall, not after a fixed time', [isset($n80[CURLOPT_TIMEOUT]), $n80[CURLOPT_LOW_SPEED_LIMIT] ?? null, $n80[CURLOPT_LOW_SPEED_TIME] ?? null], [false, 1024, 60]);
 
+/* ---------- 3.20 "Connected admin" – C1 Pages list filters, C11 Edited and Language columns ---------- */
+$pages320 = Kaleta\Admin\Modules\Pages::class;
+$kernel320 = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Kernel.php');
+check('3.20 (C1) Pages::statusCondition: English tab values, kos kept, everything else is "all pages outside the trash"', [
+    $pages320::statusCondition('published'), $pages320::statusCondition('hidden'), $pages320::statusCondition('draft'), $pages320::statusCondition('kos'),
+    $pages320::statusCondition(''), $pages320::statusCondition('koncept')],
+    ['zobrazit = 1 AND smazano IS NULL', 'zobrazit = 0 AND smazano IS NULL', 'stavba_koncept IS NOT NULL AND smazano IS NULL', 'smazano IS NOT NULL', 'smazano IS NULL', 'smazano IS NULL']);
+check('3.20 (C1): the dashboard tiles count by the same conditions and lead to the matching tab, not the bare list', [
+    substr_count($kernel320, "Modules\\Pages::STATUSES['published']), 'admin.php?module=pages&status=published'"),
+    substr_count($kernel320, "Modules\\Pages::STATUSES['draft']), 'admin.php?module=pages&status=draft'"),
+    preg_match("/'Published pages'[^\n]*'admin\.php\?module=pages'\]/", $kernel320)], [1, 1, 0]);
+check('3.20 (C11) Pages::listOrder: last edited first, pages without a date after them in the order from before; the trash by deletion', [
+    $pages320::listOrder(false, 'titulek'), $pages320::listOrder(true, 'titulek')], ['zmeneno IS NULL, zmeneno DESC, jazyk, poradi, titulek', 'smazano DESC']);
+$edited320 = $pages320::edited(7);
+check('3.20 (C11) Pages::edited: the stamp of a person\'s edit – when, and who (0 = nobody → NULL)', [
+    array_keys($edited320), $edited320['zmenil'], $pages320::edited(0)['zmenil'], preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $edited320['zmeneno'])], [['zmeneno', 'zmenil'], 7, null, 1]);
+$migration107 = (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0107-page-last-editor.sql');
+check('3.20 (C11): migration 0107 adds zmenil as the schema does, fills it from the history only where empty; the installer stamps zmeneno and First steps count a person\'s edit', [
+    KALETA_DB_VERSION >= 107, str_contains($migration107, 'ADD COLUMN zmenil INT UNSIGNED NULL AFTER zmeneno'), str_contains($migration107, 'WHERE s.zmeneno IS NOT NULL AND s.zmenil IS NULL'),
+    preg_match('/zmeneno  DATETIME NULL,\n    zmenil   INT UNSIGNED NULL,/', (string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql')),
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Install/Installer.php'), "'zmeneno' => \$installed"),
+    str_contains($kernel320, 'AND zobrazit = 1 AND zmenil IS NOT NULL LIMIT 1'), str_contains($kernel320, 'AND zobrazit = 1 AND zmeneno IS NOT NULL LIMIT 1')], [true, true, true, 1, 2, true, false]);
+// every place that stamps zmeneno on a page by a person's action stamps who as well – no bare date left in these files
+check('3.20 (C11): a page edit stamps who along with when everywhere (the form, bulk, text, versions, import, copy, publish, MCP update_page, presets)', [
+    preg_match_all("/'zmeneno' => date\('Y-m-d H:i:s'\)(?!, 'zmenil')/", (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Pages.php')), // only the helper Pages::edited itself
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Builder/Publisher.php'), "update('stranky', ['stavba' => \$new, 'stavba_koncept' => null] + \\Kaleta\\Admin\\Modules\\Pages::edited("),
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Tools.php'), '$data += Pages::edited($this->app->auth()->id());'),
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Builder/Presets.php'), "+ \\Kaleta\\Admin\\Modules\\Pages::edited(")], [0, 1, 1, 1]);
+$pagesList320 = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/pages/list.php');
+check('3.20 (C1, C11) pages list: the tabs carry the count and the search keeps the tab; Edited always, Language only with language versions', [
+    str_contains($pagesList320, "['published' => 'Published', 'hidden' => 'Hidden', 'draft' => 'Unpublished changes', 'kos' => 'Trash']"),
+    str_contains($pagesList320, '<input type="hidden" name="status" value="<?= e($status) ?>">'), substr_count($pagesList320, "e(t('Edited'))"),
+    str_contains($pagesList320, "\$siteLanguages !== [] ? '<th scope=\"col\">' . e(t('Language')) . '</th>' : ''"), str_contains($pagesList320, "'heading' => t('No page matches this filter.')")],
+    [true, true, 1, true, true]);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

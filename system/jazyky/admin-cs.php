@@ -6395,4 +6395,9 @@ return [
     'PHP does not run as the owner of the site\'s folder here, so config.php gets mode 0640. Your FTP user may then no longer be able to read or download it – keep a copy of config.php first. Continue?' => 'PHP tu neběží jako vlastník složky webu, takže config.php dostane práva 0640. Váš FTP uživatel ho pak nemusí moci číst ani stáhnout – nejdřív si config.php zálohujte. Pokračovat?',
     'The feature “%s” is switched off – switch it on in Features.' => 'Funkce „%s“ je vypnutá – zapnete ji v části Funkce.',
     'The feature “%s” is switched off on this site.' => 'Funkce „%s“ je na tomto webu vypnutá.',
+    'Hidden' => 'Skryté',
+    'Unpublished changes' => 'Nepublikované změny',
+    'No page matches this filter.' => 'Tomuto filtru neodpovídá žádná stránka.',
+    'Try another tab or language.' => 'Zkuste jinou záložku nebo jazyk.',
+    'All pages' => 'Všechny stránky',
 ];

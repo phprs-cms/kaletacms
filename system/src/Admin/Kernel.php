@@ -350,8 +350,9 @@ final class Kernel
                 // drafts of news authors wait for an editor – the tile only when there are some
                 'News from authors awaiting publication' => isset($modules['news']) && ($pending = Modules\News::countAwaitingPublication($this->app)) > 0 ? [$pending, 'admin.php?module=news&status=ke_vydani'] : null,
                 'New enquiries' => isset($modules['enquiries']) ? [Modules\Enquiries::countNew($db), 'admin.php?module=enquiries'] : null, // spam left out, as in the list (N315-10)
-                'Published pages' => isset($modules['pages']) ? [(int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL'), 'admin.php?module=pages'] : null,
-                'Pages with unpublished changes' => isset($modules['pages']) ? [(int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE stavba_koncept IS NOT NULL AND smazano IS NULL'), 'admin.php?module=pages'] : null,
+                // 3.20 (C1): each tile leads to the tab of the Pages list that counts by the same condition (Modules\Pages::STATUSES)
+                'Published pages' => isset($modules['pages']) ? [(int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE ' . Modules\Pages::STATUSES['published']), 'admin.php?module=pages&status=published'] : null,
+                'Pages with unpublished changes' => isset($modules['pages']) ? [(int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE ' . Modules\Pages::STATUSES['draft']), 'admin.php?module=pages&status=draft'] : null,
                 'Published news' => isset($modules['news']) ? [(int) $db->value("SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= ?{$scope}", [\Kaleta\Core\Clock::now()]), 'admin.php?module=news&status=vydane'] : null,
                 'News drafts' => isset($modules['news']) ? [(int) $db->value("SELECT COUNT(*) FROM {novinky} WHERE visible = 0{$scope}"), 'admin.php?module=news&status=koncepty'] : null,
             ]),
@@ -379,7 +380,8 @@ final class Kernel
             ['Give your site a face', 'Logo, main colour and fonts.', 'admin.php?module=appearance', $s->get('logo') !== '' || $s->bool('appearance_saved') || $s->get('brand_accent') !== ''],
             ['Fill in business details', 'Address, phone and opening hours appear on the contact page, in the footer and to search engines.', 'admin.php?module=business', $s->get('company_street') !== '' && ($s->get('company_phone') !== '' || $s->get('company_email') !== '' || $s->get('site_email') !== '')],
             ['Prepare your pages', 'About us, Services, Contact – and pick the home page in Settings.', 'admin.php?module=pages', (int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1') >= 3 && $s->int('home_page') > 0
-                && $db->value('SELECT 1 FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1 AND zmeneno IS NOT NULL LIMIT 1') !== null],
+                // 3.20 (C11): a person's edit (zmenil) – the installer stamps zmeneno on the starters now
+                && $db->value('SELECT 1 FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1 AND zmenil IS NOT NULL LIMIT 1') !== null],
             ['Complete the privacy policy', 'The enquiry form collects personal data – visitors must know how you handle it. The page is prepared as a hidden draft: fill in the details in square brackets and publish it.', 'admin.php?module=pages',
                 // done once the page exists and no longer contains the square brackets of the skeleton from the installation ([NÁZEV FIRMY]…)
                 $db->value("SELECT 1 FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1 AND (" . implode(' OR ', array_map(fn (string $w): string => "seo_link LIKE '%" . $w . "%'", ['soukromi', 'osobni', 'osobnych', 'gdpr', 'dsgvo', 'privacy', 'datenschutz', 'privacidad', 'confidentialite', 'riservatezza', 'prywatnosc', 'prywatnosci'])) . ") AND text NOT LIKE '%[%]%' LIMIT 1") !== null],

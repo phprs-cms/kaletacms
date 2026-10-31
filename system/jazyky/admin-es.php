@@ -6799,4 +6799,9 @@ return [
     'PHP does not run as the owner of the site\'s folder here, so config.php gets mode 0640. Your FTP user may then no longer be able to read or download it – keep a copy of config.php first. Continue?' => 'Aquí PHP no se ejecuta como propietario de la carpeta del sitio, así que config.php recibe los permisos 0640. Puede que tu usuario FTP ya no pueda leerlo ni descargarlo: guarda antes una copia de config.php. ¿Continuar?',
     'The feature “%s” is switched off – switch it on in Features.' => 'La función «%s» está desactivada: actívala en Funciones.',
     'The feature “%s” is switched off on this site.' => 'La función «%s» está desactivada en este sitio.',
+    'Hidden' => 'Ocultas',
+    'Unpublished changes' => 'Cambios sin publicar',
+    'No page matches this filter.' => 'Ninguna página coincide con este filtro.',
+    'Try another tab or language.' => 'Prueba con otra pestaña u otro idioma.',
+    'All pages' => 'Todas las páginas',
 ];

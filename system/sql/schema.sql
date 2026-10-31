@@ -248,6 +248,7 @@ CREATE TABLE ka_stranky (
     v_menu   BOOL NOT NULL DEFAULT 1,                     -- link in the site footer / navigation
     poradi   SMALLINT UNSIGNED NOT NULL DEFAULT 100,
     zmeneno  DATETIME NULL,
+    zmenil   INT UNSIGNED NULL,                           -- who edited last (ka_uzivatele.idu); NULL = nobody yet – the installer, an import (3.20, migration 0107)
     links_checked DATETIME NULL,                         -- when the links of the published page were last checked (2.14, Core\Links)
     jazyk          VARCHAR(35) CHARACTER SET ascii NOT NULL DEFAULT '',            -- language version; '' = the site's default language
     preklad_z      INT UNSIGNED NULL,                      -- counterpart in the default language (hreflang, language switcher)

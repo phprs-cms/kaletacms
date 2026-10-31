@@ -197,7 +197,7 @@ final class Presets
         }
         $build = self::listPage($preset, $name, $collectionSeo, $fields);
         $pageId = $db->insert('stranky', ['titulek' => $name, 'seo_link' => $pageSeo, 'stavba' => Build::toJson($build), 'text' => Build::asText($build),
-            'zobrazit' => 0, 'v_menu' => 0, 'poradi' => 50, 'zmeneno' => date('Y-m-d H:i:s')]);
+            'zobrazit' => 0, 'v_menu' => 0, 'poradi' => 50] + \Kaleta\Admin\Modules\Pages::edited($app->auth()->id()));
         \Kaleta\Admin\ChangeLog::write($app, 'pages', 'create', $name . ' (' . $key . ')');
 
         return $pageId;

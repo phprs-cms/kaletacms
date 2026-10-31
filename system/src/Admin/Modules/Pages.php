@@ -34,6 +34,48 @@ final class Pages extends Module
     public const int TRASH_DAYS = 30;
 
     /**
+     * The status tabs of the list (3.20, C1) – query status=<key>, English like every query value; 'kos' is the trash from
+     * before and keeps working. The conditions are the ones the dashboard tiles count by (Admin\Kernel::desktop), so a
+     * tile leads to a list with the same number of rows. "Unpublished changes" = a builder draft waiting next to the
+     * published build, which is what the badge in the list and the tile mean.
+     */
+    public const array STATUSES = [
+        'published' => 'zobrazit = 1 AND smazano IS NULL',
+        'hidden' => 'zobrazit = 0 AND smazano IS NULL',
+        'draft' => 'stavba_koncept IS NOT NULL AND smazano IS NULL',
+        'kos' => 'smazano IS NOT NULL',
+    ];
+
+    /** The WHERE of a status tab; '' and an unknown value are "All" – every page that is not in the trash. */
+    public static function statusCondition(string $status): string
+    {
+        return self::STATUSES[$status] ?? 'smazano IS NULL';
+    }
+
+    /**
+     * The order of the list (3.20, C11): the trash by the time of deletion; otherwise the last edited first, and pages
+     * without a date (never edited: the installer's starters before 3.20, an import) after them in the order from before –
+     * language, position, title. Modules\Pages::sortAsTree then keeps a subpage under its parent within that order.
+     */
+    public static function listOrder(bool $trash, string $titleSort): string
+    {
+        return $trash ? 'smazano DESC' : 'zmeneno IS NULL, zmeneno DESC, jazyk, poradi, ' . $titleSort;
+    }
+
+    /**
+     * The columns a person's edit stamps on a page (3.20, C11): when, and who (ka_stranky.zmenil; 0 = no signed-in person,
+     * e.g. a scheduled job – NULL). Used wherever a page changes by someone's action: the form, the text editor, bulk
+     * actions, a publish from the builder or MCP, update_page. Builder drafts are not stamped – the sitemap reads zmeneno
+     * as lastmod and a draft changes nothing on the site; the "unpublished changes" badge and tab show the draft.
+     *
+     * @return array{zmeneno: string, zmenil: int|null}
+     */
+    public static function edited(int $who): array
+    {
+        return ['zmeneno' => date('Y-m-d H:i:s'), 'zmenil' => $who > 0 ? $who : null];
+    }
+
+    /**
      * May a page not have the slug: a word of the system (RESERVED_SLUGS, with the English system paths of 3.7), a language
      * code, or the custom news URL? The one check of every place that creates a page or changes its slug – the form, MCP,
      * the page import, a restore from the trash, the site import, the WordPress and web importers, a copy (3.7, N37-2).
@@ -58,10 +100,13 @@ final class Pages extends Module
 
     protected function actionList(): Response
     {
-        $trash = $this->request->get('status') === 'kos';
+        // status tab (3.20, C1): published | hidden | draft (unpublished changes) | kos (trash); anything else is All
+        $status = $this->request->get('status');
+        $status = isset(self::STATUSES[$status]) ? $status : '';
+        $trash = $status === 'kos';
         $search = mb_substr(trim($this->request->get('search')), 0, 100);
         [$siteLanguages, $language, $column] = $this->readLanguageFilter();
-        $where = [$trash ? 'smazano IS NOT NULL' : 'smazano IS NULL'];
+        $where = [self::statusCondition($status)];
         $params = [];
         if ($column !== null) {
             $where[] = 'jazyk = ?';
@@ -73,19 +118,28 @@ final class Pages extends Module
             array_push($params, $pattern, $pattern);
         }
 
-        $pages = $this->db->all('SELECT * FROM {stranky} WHERE ' . implode(' AND ', $where) . ' ORDER BY ' . ($trash ? 'smazano DESC' : 'jazyk, poradi, ' . $this->db->sortText('titulek')), $params);
+        $pages = $this->db->all('SELECT * FROM {stranky} WHERE ' . implode(' AND ', $where) . ' ORDER BY ' . self::listOrder($trash, $this->db->sortText('titulek')), $params);
 
         // column "V navigaci" (In navigation): with a custom menu by the menu items (the page or a link to its URL), otherwise the flag v_menu
         foreach ($pages as &$s) {
             $s['v_menu'] = \Kaleta\Core\Menu::hasPage($this->db, (int) $s['ids'], (string) $s['jazyk'], (string) $s['seo_link']) ?? (bool) $s['v_menu'];
         }
         unset($s);
+        // column "Edited" (3.20, C11): the name of the person who edited last (zmenil), looked up once for the listed pages
+        $editors = array_values(array_unique(array_filter(array_map('intval', array_column($pages, 'zmenil')))));
+        $names = $editors === [] ? [] : array_column($this->db->all('SELECT idu, IF(jmeno = \'\', user, jmeno) AS jmeno FROM {uzivatele} WHERE idu IN (' . implode(', ', array_fill(0, count($editors), '?')) . ')', $editors), 'jmeno', 'idu');
+        // the count of every tab, in one query (the whole site, not the language or search filter – the tiles on the dashboard count the same way)
+        $row = $this->db->one('SELECT SUM(smazano IS NULL) AS all_pages, ' . implode(', ', array_map(fn (string $condition, string $key): string => 'SUM(' . $condition . ') AS `' . $key . '`', self::STATUSES, array_keys(self::STATUSES))) . ' FROM {stranky}') ?? [];
+        $counts = ['' => (int) ($row['all_pages'] ?? 0)];
+        foreach (array_keys(self::STATUSES) as $key) {
+            $counts[$key] = (int) ($row[$key] ?? 0);
+        }
 
         return $this->view('list', 'Pages', [
             'pages' => $trash || $search !== '' ? $pages : self::sortAsTree($pages),
-            'trash' => $trash, 'search' => $search, 'siteLanguages' => $siteLanguages, 'language' => $language,
+            'trash' => $trash, 'status' => $status, 'counts' => $counts, 'editors' => $names, 'search' => $search, 'siteLanguages' => $siteLanguages, 'language' => $language,
             'comments' => $trash ? [] : \Kaleta\Core\DraftComments::unresolvedCounts($this->db), // unresolved comments from shared previews (2.15)
-            'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {stranky} WHERE smazano IS NOT NULL'),
+            'inTrash' => $counts['kos'] ?? 0,
         ]);
     }
 
@@ -178,9 +232,9 @@ final class Pages extends Module
                 continue;
             }
             match ($action) {
-                'zobrazit' => $this->db->update('stranky', ['zobrazit' => 1, 'show_on_publish' => 0, 'zverejnit_od' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['ids' => $id]),
-                'skryt' => $this->db->update('stranky', ['zobrazit' => 0, 'show_on_publish' => 0, 'zmeneno' => date('Y-m-d H:i:s')], ['ids' => $id]),
-                'jazyk' => $this->db->update('stranky', ['jazyk' => $language, 'preklad_z' => $language === '' ? null : $page['preklad_z'], 'zmeneno' => date('Y-m-d H:i:s')], ['ids' => $id]),
+                'zobrazit' => $this->db->update('stranky', ['zobrazit' => 1, 'show_on_publish' => 0, 'zverejnit_od' => null] + self::edited($auth->id()), ['ids' => $id]),
+                'skryt' => $this->db->update('stranky', ['zobrazit' => 0, 'show_on_publish' => 0] + self::edited($auth->id()), ['ids' => $id]),
+                'jazyk' => $this->db->update('stranky', ['jazyk' => $language, 'preklad_z' => $language === '' ? null : $page['preklad_z']] + self::edited($auth->id()), ['ids' => $id]),
                 default => $this->db->run('UPDATE {stranky} SET smazano = ?, zobrazit = 0, show_on_publish = 0 WHERE ids = ?', [\Kaleta\Core\Clock::now(), $id]),
             };
             \Kaleta\Admin\ChangeLog::write($this->app, 'pages', 'bulk ' . ['zobrazit' => 'shown', 'skryt' => 'hidden', 'jazyk' => 'language ' . ($language ?: 'default'), 'kos' => 'moved to trash'][$action], mb_substr($page['titulek'], 0, 80));
@@ -225,7 +279,7 @@ final class Pages extends Module
         if ($page['titulek'] !== $title || (string) $page['text'] !== $text) {
             $this->saveVersion((int) $page['ids'], $page['titulek'], (string) $page['text']); // an edit directly on the site goes to the history as in the admin
         }
-        $this->db->update('stranky', ['titulek' => $title, 'text' => $text, 'zmeneno' => date('Y-m-d H:i:s')], ['ids' => $page['ids']]);
+        $this->db->update('stranky', ['titulek' => $title, 'text' => $text] + self::edited($this->app->auth()->id()), ['ids' => $page['ids']]);
         \Kaleta\Admin\ChangeLog::write($this->app, 'pages', 'edited directly on the site', mb_substr($title, 0, 80));
 
         return $this->redirectToSite($r->post('zpet'));
@@ -282,7 +336,7 @@ final class Pages extends Module
             'zobrazit' => (int) $r->postBool('zobrazit'),
             'v_menu' => (int) $r->postBool('v_menu'),
             'poradi' => max(0, min(65535, $r->postInt('poradi', 100))),
-            'zmeneno' => date('Y-m-d H:i:s'),
+            ...self::edited($this->app->auth()->id()), // when and who (3.20, C11)
             'jazyk' => $language,
             // true until and review by (2.10, Core\Validity): empty or not a date = none
             'valid_until' => \Kaleta\Core\Validity::date($r->post('valid_until')),
@@ -466,7 +520,7 @@ final class Pages extends Module
         $page = $this->request->isPost() ? $this->loadPage($this->request->postInt('ids')) : null;
         if ($page !== null && $page['stavba'] !== null) {
             $this->db->insert('stavba_revize', ['ids' => $page['ids'], 'datum' => date('Y-m-d H:i:s'), 'kdo' => $this->app->auth()->id(), 'stavba' => $page['stavba']]);
-            $this->db->update('stranky', ['stavba' => null, 'stavba_koncept' => null], ['ids' => $page['ids']]);
+            $this->db->update('stranky', ['stavba' => null, 'stavba_koncept' => null] + self::edited($this->app->auth()->id()), ['ids' => $page['ids']]);
         }
 
         return $this->back('The page shows the text from the editor (the build\'s content without the layout). You will find the build in versions when you open the builder.', 'edit', ['id' => (int) ($page['ids'] ?? 0)]);
@@ -524,7 +578,7 @@ final class Pages extends Module
             return $refusal;
         }
         $this->saveVersion((int) $page['ids'], $page['titulek'], (string) $page['text']);
-        $this->db->update('stranky', ['titulek' => $version['titulek'], 'text' => $version['text'], 'zmeneno' => date('Y-m-d H:i:s')], ['ids' => $page['ids']]);
+        $this->db->update('stranky', ['titulek' => $version['titulek'], 'text' => $version['text']] + self::edited($this->app->auth()->id()), ['ids' => $page['ids']]);
 
         return $this->back(t('Version from %s restored.', format_date($version['datum'], true)), 'edit', ['id' => (int) $page['ids']]);
     }
@@ -563,7 +617,7 @@ final class Pages extends Module
             return $this->back(t('The page was not imported: %s', $e->localized()), '', [], 'chyba');
         }
         $record = ['titulek' => $title, 'seo_link' => self::freeSlug($this->db, $wanted), 'popis' => mb_substr((string) ($data['popis'] ?? ''), 0, 300),
-            'text' => $text, 'zobrazit' => 0, 'v_menu' => 0, 'zmeneno' => date('Y-m-d H:i:s')];
+            'text' => $text, 'zobrazit' => 0, 'v_menu' => 0] + self::edited($this->app->auth()->id());
         $created = ['tridy' => 0, 'komponenty' => 0];
         if (is_array($data['stavba'] ?? null)) {
             // the classes and components that came with it first: the build then points at this site's components
@@ -670,7 +724,7 @@ final class Pages extends Module
         $copy['show_on_publish'] = 0;
         $copy['v_menu'] = 0; // the copy does not get into the navigation until someone adds it there
         $copy['preklad_z'] = null;
-        $copy['zmeneno'] = date('Y-m-d H:i:s');
+        $copy = self::edited($this->app->auth()->id()) + $copy; // when and who (3.20, C11) – the stamp replaces the original's
         $id = $this->db->insert('stranky', $copy);
 
         return $this->back('The copy of the page is hidden – edit it and publish it.', 'edit', ['id' => $id]);

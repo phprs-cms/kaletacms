@@ -1012,4 +1012,5 @@ return [
     'PHP does not run as the owner of the site\'s folder here, so config.php gets mode 0640. Your FTP user may then no longer be able to read or download it – keep a copy of config.php first. Continue?' => 'PHP läuft hier nicht als Eigentümer des Website-Ordners, daher bekommt config.php die Rechte 0640. Dein FTP-Benutzer kann sie danach eventuell nicht mehr lesen oder herunterladen – sichere config.php vorher. Fortfahren?',
     'The feature “%s” is switched off – switch it on in Features.' => 'Die Funktion „%s“ ist ausgeschaltet – schalte sie unter Funktionen ein.',
     'The feature “%s” is switched off on this site.' => 'Die Funktion „%s“ ist auf dieser Website ausgeschaltet.',
+    'Try another tab or language.' => 'Versuch einen anderen Tab oder eine andere Sprache.',
 ];

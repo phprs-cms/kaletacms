@@ -23,7 +23,7 @@ final class Publisher
         $new = $page['stavba_koncept'] ?? $page['stavba'];
         self::version($app, ['ids' => $page['ids']], $page['stavba'], $new, $page['zmeneno'] ?? null);
         $text = Build::asText(Build::fromJson($new) ?? []);
-        $app->db()->update('stranky', ['stavba' => $new, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')] + ($text !== '' ? ['text' => $text] : []), ['ids' => $page['ids']]);
+        $app->db()->update('stranky', ['stavba' => $new, 'stavba_koncept' => null] + \Kaleta\Admin\Modules\Pages::edited($app->auth()->id()) + ($text !== '' ? ['text' => $text] : []), ['ids' => $page['ids']]); // when and who (3.20, C11)
         // a page that waited hidden for its first build (3.5, Modules\Pages::visibility) goes on the site with it – unless a
         // publisher set a publish date: then the schedule shows it, not this publish (N35-1)
         $now = date('Y-m-d H:i:s');

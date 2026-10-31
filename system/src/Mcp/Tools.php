@@ -725,7 +725,7 @@ final class Tools
             }
             $data['seo_link'] = $seo;
         }
-        $data['zmeneno'] = date('Y-m-d H:i:s');
+        $data += Pages::edited($this->app->auth()->id()); // when and who (3.20, C11)
         if ($previous === null) {
             if (!empty($a['kopie_stavby'])) {
                 // a translation starts with a copy of the original's build (the draft, otherwise the published one) – the
