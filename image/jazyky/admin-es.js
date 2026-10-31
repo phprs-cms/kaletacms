@@ -2970,5 +2970,22 @@ window.KALETA_PREKLAD = {
 	"Add a collection": "Añadir una colección",
 	"Edit business details": "Editar los datos de la empresa",
 	"Edit the menu": "Editar el menú",
-	"Services and people": "Servicios y personas"
+	"Services and people": "Servicios y personas",
+	"Hidden on desktop": "Oculto en escritorio",
+	"Hidden on tablet": "Oculto en tableta",
+	"Hidden on phone": "Oculto en teléfono",
+	"Only in the editor: on the website this element is left out on this device. Click to select it.": "Solo en el editor: en el sitio web este elemento se omite en este dispositivo. Haga clic para seleccionarlo.",
+	"show": "mostrar",
+	"Hidden on: ": "Oculto en: ",
+	"Shown on": "Visible en",
+	"Shown on ": "Visible en ",
+	"Hidden on ": "Oculto en ",
+	"(inherited from the larger screen)": "(heredado de la pantalla más grande)",
+	"click to show": "clic para mostrar",
+	"click to hide": "clic para ocultar",
+	"shown": "visible",
+	"A hidden element is a dashed strip on the canvas; on the website it is left out on that device.": "Un elemento oculto es una franja discontinua en el lienzo; en el sitio web se omite en ese dispositivo.",
+	"own style values of the selected element here: ": "valores de estilo propios del elemento seleccionado aquí: ",
+	"Set on ": "Definido en ",
+	"Reset – clear the value set here": "Restablecer – borrar el valor definido aquí"
 };

@@ -261,3 +261,20 @@ body.st-umistovani .st-uzel { cursor: copy; }
 .st-komentare blockquote { margin: 6px 0; padding: 4px 10px; border-left: 3px solid var(--linka-pole); color: var(--text-slaby); font-size: 13px; }
 .st-komentare p { margin: 6px 0; white-space: pre-line; }
 .st-komentar-akce { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
+
+/* 3.21 (U3): own style values of the selected element – a dot on the device buttons, device icons and „×“ next to a style field */
+.st-skupina button:has(.st-tecka) { position: relative; }
+.st-tecka { position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: var(--akcent); }
+.st-vlastnost-nazev { display: flex; align-items: center; gap: 3px; min-width: 0; }
+.st-vlastnost-nazev label { flex: 1 1 auto; min-width: 0; }
+.st-pole-znacky { display: inline-flex; flex: none; gap: 1px; }
+.st-pole-znacky button { display: grid; place-items: center; width: 18px; height: 18px; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--text-slaby); font: 14px/1 system-ui, sans-serif; cursor: pointer; }
+.st-pole-znacky button:hover { background: var(--podklad); color: var(--text); }
+.st-pole-znacky .st-ikona { width: 13px; height: 13px; }
+/* 3.21 (U4): visibility per device in Advanced, and the device icons of a hidden element in Structure */
+.st-viditelnost .st-skupina { width: fit-content; }
+.st-viditelnost .st-skupina button { display: inline-flex; align-items: center; gap: 4px; padding: 0 10px; font-size: 12px; }
+.st-viditelnost .st-skupina button[aria-pressed="false"] { color: var(--text-slaby); text-decoration: line-through; }
+.st-viditelnost .st-skupina .st-ikona { width: 14px; height: 14px; }
+.st-uzel-zarizeni { display: inline-flex; flex: none; gap: 1px; color: var(--text-slaby); }
+.st-uzel-zarizeni .st-ikona { width: 12px; height: 12px; }

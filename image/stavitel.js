@@ -354,7 +354,7 @@
 			'[data-ka-id]{cursor:default} .ka-st-hover{outline:1px dashed #ff4f2e!important;outline-offset:-1px} .ka-st-vybrany{outline:2px solid #ff4f2e!important;outline-offset:-2px}'
 			+ '[contenteditable]{outline:2px solid #f79009!important;outline-offset:2px;cursor:text} .ka-upravit-zde,.cookies-lista,.cookies-znovu{display:none!important}' }));
 		doc.addEventListener('click', (e) => {
-			if (e.target.closest('[contenteditable]') || e.target.id === 'ka-st-uchyt') { return; }
+			if (e.target.closest('[contenteditable]') || e.target.id === 'ka-st-uchyt' || e.target.closest('.ka-st-skryty-prvek button')) { return; }
 			e.preventDefault();
 			e.stopPropagation(); // page scripts do not run on the canvas (player, popups, sharing) – a click only selects
 			if (state.umistovani) {
@@ -372,6 +372,7 @@
 			selection(t ? t.getAttribute('data-ka-id') : null);
 		}, true);
 		hiddenOnCanvas(doc);
+		hiddenStrips(doc);
 		doc.addEventListener('pointermove', (e) => {
 			if (!state.umistovani) { return; }
 			state.tazeno = state.umistovani;
@@ -410,6 +411,145 @@
 		let st = doc.getElementById('ka-st-skryte');
 		if (!st) { st = Object.assign(doc.createElement('style'), { id: 'ka-st-skryte' }); doc.head.append(st); }
 		st.textContent = Object.keys(state.skryte).filter((id) => state.skryte[id]).map((id) => '[data-ka-id="' + id + '"]{display:none!important}').join('');
+	}
+
+	/* ---------- 3.21 (U4): visibility per device – stored as the Display style „none“ at the breakpoint (zaklad, tablet, mobil), as before ---------- */
+
+	const DEVICES = ['zaklad', 'tablet', 'mobil'];
+	const DEVICE_ICONS = { zaklad: 'pocitac', tablet: 'tablet', mobil: 'mobil' };
+	/** The display value an element gets on a device: its own, otherwise inherited from the larger screen (the renderer's media queries cascade the same way). */
+	function deviceDisplay(p, bp) {
+		const style = p.styl && !Array.isArray(p.styl) ? p.styl : {};
+		for (const st of [bp, ...INHERITANCE[bp]]) { if (style[st] && style[st].zobrazeni !== undefined) { return style[st].zobrazeni; } }
+		return '';
+	}
+	function hiddenOnDevice(p, bp) { return deviceDisplay(p, bp) === 'none'; }
+	/**
+	 * Shows or hides the element on one device only. The other devices keep what they showed before: where the cascade would
+	 * change them, an own value is written (hidden = „none“, shown = the display the element had, e.g. flex of a container).
+	 */
+	function toggleDeviceVisibility(p, bp) {
+		const before = Object.fromEntries(DEVICES.map((d) => [d, deviceDisplay(p, d)]));
+		const shown = DEVICES.map((d) => before[d]).find((v) => v && v !== 'none') || 'block';
+		applyChange(() => {
+			p.styl = p.styl && !Array.isArray(p.styl) ? p.styl : {};
+			const write = (d, hidden) => { p.styl[d] = Object.assign(p.styl[d] || {}, { zobrazeni: hidden ? 'none' : (before[d] && before[d] !== 'none' ? before[d] : shown) }); };
+			if (p.styl[bp]) { delete p.styl[bp].zobrazeni; } // the own value goes first; the cascade decides, an own value only where it decides wrongly
+			if (hiddenOnDevice(p, bp) === (before[bp] === 'none')) { write(bp, before[bp] !== 'none'); }
+			DEVICES.filter((d) => d !== bp).forEach((d) => { if (hiddenOnDevice(p, d) !== (before[d] === 'none')) { write(d, before[d] === 'none'); } });
+			DEVICES.forEach((d) => { if (p.styl[d] && !Object.keys(p.styl[d]).length) { delete p.styl[d]; } });
+			if (!Object.keys(p.styl).length) { delete p.styl; }
+		});
+		hiddenStrips();
+	}
+
+	/** An element hidden on the current device is a dashed 24 px strip on the canvas (editor only): a click selects it, „show“ brings it back. */
+	function hiddenStrips(doc) {
+		doc = doc || (preview && preview.contentDocument);
+		if (!doc || !doc.head) { return; }
+		doc.querySelectorAll('.ka-st-skryty-prvek').forEach((x) => x.remove());
+		if (!doc.getElementById('ka-st-pruhy')) {
+			doc.head.append(Object.assign(doc.createElement('style'), { id: 'ka-st-pruhy', textContent:
+				'.ka-st-skryty-prvek{display:flex!important;align-items:center;gap:6px;box-sizing:border-box;height:24px;margin:2px 0;padding:0 8px;border:1px dashed #ff4f2e;border-radius:4px;background:rgb(255 79 46 / .06);color:#ff4f2e;font:12px/1 system-ui,sans-serif;white-space:nowrap;overflow:hidden;cursor:pointer!important}'
+				+ '.ka-st-skryty-prvek span{overflow:hidden;text-overflow:ellipsis}.ka-st-skryty-prvek button{flex:none;padding:0 6px;border:0;border-radius:3px;background:#ff4f2e;color:#fff;font:inherit;line-height:18px;cursor:pointer}' }));
+		}
+		const label = { zaklad: T('Hidden on desktop'), tablet: T('Hidden on tablet'), mobil: T('Hidden on phone') }[state.bp];
+		(function walk(children) {
+			children.forEach((p) => {
+				if (!hiddenOnDevice(p, state.bp) || state.skryte[p.id]) { if (p.deti) { walk(p.deti); } return; }
+				doc.querySelectorAll('[data-ka-id="' + p.id + '"]:not(.ka-st-skryty-prvek)').forEach((t) => {
+					const strip = doc.createElement('div');
+					strip.className = 'ka-st-skryty-prvek';
+					strip.setAttribute('data-ka-id', p.id); // a click selects the hidden element; the handle and the outline sit on the strip
+					strip.title = T('Only in the editor: on the website this element is left out on this device. Click to select it.');
+					const name = doc.createElement('span');
+					name.textContent = label + ' (' + labelText(p) + ') –';
+					const button = doc.createElement('button');
+					button.type = 'button';
+					button.textContent = T('show');
+					button.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); toggleDeviceVisibility(p, state.bp); });
+					strip.addEventListener('dblclick', (e) => e.stopPropagation());
+					strip.append(name, button);
+					t.before(strip);
+				});
+			});
+		})(state.stavba.deti);
+	}
+
+	/** Structure (3.21, U4): the node of an element hidden on some device carries that device's icon. */
+	function deviceMarks(p) {
+		const hidden = DEVICES.filter((d) => hiddenOnDevice(p, d));
+		return hidden.length ? el('span', { class: 'st-uzel-zarizeni', title: T('Hidden on: ') + hidden.map((d) => BP[d]).join(', ') }, hidden.map((d) => icon(DEVICE_ICONS[d]))) : null;
+	}
+
+	/** 3.21 (U4): one Visibility row in Advanced – the element shown or hidden per device; it writes the same style the two former checkboxes did. */
+	function visibilityRow(p) {
+		return el('div', { class: 'st-pole st-viditelnost' }, el('span', {}, T('Shown on')),
+			el('span', { class: 'st-skupina', role: 'group', 'aria-label': T('Shown on') }, DEVICES.map((bp) => {
+				const hidden = hiddenOnDevice(p, bp);
+				const own = ((p.styl || {})[bp] || {}).zobrazeni === 'none';
+				const title = (hidden ? T('Hidden on ') : T('Shown on ')) + BP[bp] + (hidden && !own ? ' ' + T('(inherited from the larger screen)') : '') + ' – ' + (hidden ? T('click to show') : T('click to hide'));
+				return el('button', { type: 'button', 'data-bp': bp, 'aria-pressed': String(!hidden), title, 'aria-label': BP[bp] + ': ' + (hidden ? T('hidden') : T('shown')), onclick: () => toggleDeviceVisibility(p, bp) },
+					icon(DEVICE_ICONS[bp]), el('span', {}, BP[bp]));
+			})),
+			el('small', { style: 'color:var(--text-slaby)' }, T('A hidden element is a dashed strip on the canvas; on the website it is left out on that device.')));
+	}
+
+	/* ---------- 3.21 (U3): where an element has its own style values – a dot on the device buttons, device icons and „×“ next to the fields ---------- */
+
+	/** The storage key of a breakpoint in the edited state family ('' = plain, hover, aktivni): hover on the phone is hover_mobil. */
+	function stateKey(bp, family) { return family ? family + (bp === 'zaklad' ? '' : '_' + bp) : bp; }
+	/** How many own style values the selected element (or $p) has at a breakpoint, in all three state families. */
+	function ownValuesOn(bp, p) {
+		p = p || (state.vybrane && (find(state.vybrane) || {}).p);
+		const style = p && p.styl && !Array.isArray(p.styl) ? p.styl : {};
+		return ['', 'hover', 'aktivni'].reduce((n, f) => n + Object.keys(style[stateKey(bp, f)] || {}).length, 0);
+	}
+	/** The dot on a device button of the top bar: the selected element has own values on that (not current) breakpoint. */
+	function deviceDot(bp) { return state.bp !== bp && ownValuesOn(bp) ? el('span', { class: 'st-tecka' }) : null; }
+	function deviceTitle(bp) { const n = state.bp !== bp ? ownValuesOn(bp) : 0; return BP[bp] + (n ? ' – ' + T('own style values of the selected element here: ') + n : ''); }
+	/** The dots and titles of the device buttons follow the selected element in place – the bar is not rebuilt under the cursor. */
+	function updateDeviceDots() {
+		if (!tabList) { return; }
+		tabList.querySelectorAll('.st-skupina button[data-bp]').forEach((b) => {
+			const dot = b.querySelector('.st-tecka');
+			const wanted = deviceDot(b.dataset.bp);
+			b.title = deviceTitle(b.dataset.bp);
+			if (wanted && !dot) { b.append(wanted); } else if (!wanted && dot) { dot.remove(); }
+		});
+	}
+	function switchDevice(bp) { state.bp = bp; frame2.dataset.bp = bp; previewSize(preview); redrawBar(); redrawPanels(); hiddenStrips(); }
+	/** Next to a style field: device icons for the smaller breakpoints that override it (a click edits there) and „×“ clearing the value set here. */
+	function fieldMarks(target, key, def, value, change) {
+		const smaller = DEVICES.slice(DEVICES.indexOf(state.bp) + 1);
+		const shown = (v) => (def.typ === 'vyber' && def.moznosti[v] ? T(def.moznosti[v]) : v);
+		const marks = smaller.filter((bp) => (target.styl[stateKey(bp, state.stavPrvku)] || {})[key] !== undefined).map((bp) => {
+			const t = T('Set on ') + BP[bp] + ': ' + shown(target.styl[stateKey(bp, state.stavPrvku)][key]);
+			return el('button', { type: 'button', class: 'st-znacka-bp', title: t, 'aria-label': t, onclick: () => switchDevice(bp) }, icon(DEVICE_ICONS[bp]));
+		});
+		if (value !== '') { marks.push(el('button', { type: 'button', class: 'st-vynulovat', title: T('Reset – clear the value set here'), 'aria-label': T('Reset – clear the value set here') + ' (' + T(def.popisek) + ')', onclick: () => change('') }, '×')); }
+		return marks.length ? el('span', { class: 'st-pole-znacky' }, marks) : null;
+	}
+	/**
+	 * A style change with a history key does not rebuild the inspector (the focus stays in the field): the field's row updates
+	 * itself – the „set here“ look and its marks; a reset also empties the field.
+	 */
+	function withFieldMarks(target, key, def, change) {
+		const wrapped = (value) => {
+			change(value);
+			const input = right.querySelector('#st-v-' + key);
+			const row = input && input.closest('.st-vlastnost');
+			if (!row) { return; }
+			if (value === '' && input.value !== '') { input.value = ''; }
+			const own = (target.styl[currentState()] || {})[key] ?? '';
+			row.classList.toggle('nastaveno', own !== '');
+			const name = row.querySelector('.st-vlastnost-nazev');
+			const old = name && name.querySelector('.st-pole-znacky');
+			if (old) { old.remove(); }
+			const marks = name && fieldMarks(target, key, def, own, wrapped);
+			if (marks) { name.append(marks); }
+		};
+		return wrapped;
 	}
 
 	/* ---------- dragging on the canvas: a new element, a ready-made section or moving the selected element ---------- */
@@ -840,10 +980,11 @@
 	function redrawBar() {
 		// the bar is rebuilt only when what it shows changes – re-rendering under the cursor would "swallow" a click in progress
 		const look = [state.zmeny, state.bp, state.lupa, state.zpet.length > 0, state.vpred.length > 0, D.stranka.publikovana, D.stranka.zobrazena, openComments().length].join();
+		updateDeviceDots();
 		if (look === barLook && tabList.childElementCount) { return; }
 		barLook = look;
 		const bpTl = Object.entries({ zaklad: 'pocitac', tablet: 'tablet', mobil: 'mobil' }).map(([bp, ik]) =>
-			el('button', { type: 'button', title: BP[bp], 'aria-label': BP[bp], 'aria-pressed': String(state.bp === bp), onclick: () => { state.bp = bp; frame2.dataset.bp = bp; previewSize(preview); redrawBar(); redrawPanels(); } }, icon(ik)));
+			el('button', { type: 'button', 'data-bp': bp, title: deviceTitle(bp), 'aria-label': BP[bp], 'aria-pressed': String(state.bp === bp), onclick: () => switchDevice(bp) }, icon(ik), deviceDot(bp)));
 		tabList.replaceChildren(...[
 			el('a', { class: 'st-tl', href: D.zpet.adresa, title: D.zpet.text }, icon('rodic'), el('span', { class: 'st-text' }, D.zpet.text)),
 			// a short status chip (3.6): the whole sentence is its tooltip, so the bar keeps one line at 1440 px
@@ -1313,7 +1454,7 @@
 				ondragend: () => { state.tazeny = null; },
 			},
 			hasChildren ? el('button', { type: 'button', class: 'st-sbalit', 'aria-label': T('Collapse / expand'), onclick: (e) => { e.stopPropagation(); state.sbalene[p.id] = !state.sbalene[p.id]; redrawTree(); } }, state.sbalene[p.id] ? '▸' : '▾') : el('span', { style: 'width:16px;flex:none' }),
-			icon(s.ikona), el('span', {}, labelText(p)), el('small', {}, p.znacka),
+			icon(s.ikona), el('span', {}, labelText(p)), el('small', {}, p.znacka), deviceMarks(p),
 			el('span', { class: 'st-uzel-akce' },
 				el('button', { type: 'button', title: T('Hide in the editor only (stays on the site)'), 'aria-label': T('Hide in the editor only (stays on the site)'), 'aria-pressed': String(!!state.skryte[p.id]), tabindex: '-1',
 					onclick: (e) => { e.stopPropagation(); state.skryte[p.id] = !state.skryte[p.id]; hiddenOnCanvas(); redrawTree(); } }, icon(state.skryte[p.id] ? 'skryto' : 'oko')),
@@ -1347,7 +1488,7 @@
 
 	/* ---------- right panel: properties of the selected element, or class editing ---------- */
 
-	function redrawPanels() { redrawTree(); redrawRight(); }
+	function redrawPanels() { redrawTree(); redrawRight(); updateDeviceDots(); }
 	function redraw() { redrawBar(); redrawLeft(); redrawRight(); }
 
 	/**
@@ -1894,6 +2035,7 @@
 
 	function styleControl(target, key, def, change) {
 		const s = currentState();
+		change = withFieldMarks(target, key, def, change);
 		const value = (target.styl[s] || {})[key] ?? '';
 		const inheritedFrom = inherited(target.styl, key);
 		let inputEl;
@@ -1921,7 +2063,7 @@
 		const id = 'st-v-' + key;
 		(inputEl.matches('select') ? inputEl : inputEl.querySelector('input[type="text"]')).id = id;
 		const error = target.id && state.chyby[state.cestaVybraneho + '.styl.' + s + '.' + key];
-		return el('div', { class: 'st-vlastnost' + (value !== '' ? ' nastaveno' : '') + (error ? ' st-pole-chyba' : '') }, el('label', { for: id, title: def.css }, T(def.popisek)), inputEl,
+		return el('div', { class: 'st-vlastnost' + (value !== '' ? ' nastaveno' : '') + (error ? ' st-pole-chyba' : '') }, el('span', { class: 'st-vlastnost-nazev' }, el('label', { for: id, title: def.css }, T(def.popisek)), fieldMarks(target, key, def, value, change)), inputEl,
 			error ? el('small', { class: 'st-chyba-pole', role: 'alert' }, error) : null);
 	}
 
@@ -2050,15 +2192,7 @@
 			el('div', {}, state.chyby[state.cestaVybraneho + '.podminky'] ? el('small', { class: 'st-chyba-pole' }, state.chyby[state.cestaVybraneho + '.podminky']) : null, // el() skips null – append() would write "null"
 				el('small', { style: 'color:var(--text-slaby)' }, T('On the canvas the element is always visible. On the website it appears only when the conditions are met – for example a promotional banner for a week.') + ' '
 					+ T('A page with a date, sign-in or URL parameter condition is assembled for every visit (it is not cached).'))));
-		panel.append(el('h3', {}, T('Visibility')),
-			el('label', { class: 'st-zaskrt' }, el('input', { type: 'checkbox', checked: ((p.styl || {}).mobil || {}).zobrazeni === 'none', onchange: (e) => applyChange(() => {
-				p.styl = p.styl || {};
-				if (e.target.checked) { p.styl.mobil = Object.assign(p.styl.mobil || {}, { zobrazeni: 'none' }); } else if (p.styl.mobil) { delete p.styl.mobil.zobrazeni; }
-			}) }), T('Hide on mobile')),
-			el('label', { class: 'st-zaskrt' }, el('input', { type: 'checkbox', checked: ((p.styl || {}).tablet || {}).zobrazeni === 'none', onchange: (e) => applyChange(() => {
-				p.styl = p.styl || {};
-				if (e.target.checked) { p.styl.tablet = Object.assign(p.styl.tablet || {}, { zobrazeni: 'none' }); } else if (p.styl.tablet) { delete p.styl.tablet.zobrazeni; }
-			}) }), T('Hide on tablet and mobile')));
+		panel.append(el('h3', {}, T('Visibility')), visibilityRow(p));
 	}
 
 	/* ---------- editing a shared class ---------- */

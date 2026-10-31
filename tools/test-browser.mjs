@@ -316,6 +316,76 @@ await step('builder: select, style, phone, edit text', async () => {
   if (await field.count()) { await field.fill('Browser test heading'); await page.waitForTimeout(2500); } // autosave of the draft
 });
 
+// 3.21 (U3, U4): a phone override is visible from Desktop (a dot on the Phone button, a device icon with the value next to the field,
+// „×“ resets it); one Visibility row per device in Advanced – a hidden element is a dashed strip on the phone canvas (click „show“
+// to bring it back) and carries the device icon in Structure; the public page gets no strip
+await step('3.21 (U3, U4) builder: phone override seen from Desktop, reset, hide on phone – strip, tree mark, show', async () => {
+  const device = (name) => page.locator('.st-lista .st-skupina button[aria-label="' + name + '"]');
+  const pick = async (name) => { await device(name).click(); await page.waitForFunction((n) => document.querySelector('.st-lista .st-skupina button[aria-label="' + n + '"]').getAttribute('aria-pressed') === 'true', name); };
+  await canvas().locator('h1').first().click();
+  await page.getByRole('tab', { name: 'Style' }).first().click();
+  await pick('Phone');
+  await page.evaluate(() => document.querySelectorAll('.st-styl details').forEach((d) => { d.open = true; }));
+  const colour = page.locator('#st-v-barva');
+  await colour.fill('primarni');
+  await colour.press('Enter');
+  await colour.dispatchEvent('change');
+  await page.waitForFunction(() => document.querySelector('#st-v-barva').closest('.st-vlastnost').classList.contains('nastaveno'));
+  if (!(await page.locator('#st-v-barva').locator('xpath=ancestor::*[contains(@class,"st-vlastnost")]').locator('.st-vynulovat').count())) { throw new Error('a field with an own value on Phone has no × to reset it'); }
+  await pick('Desktop');
+  await device('Phone').locator('.st-tecka').waitFor({ timeout: 3000 });
+  if (await device('Desktop').locator('.st-tecka').count()) { throw new Error('the current device button (Desktop) shows a dot'); }
+  if (!/own style values of the selected element here: 1/.test(await device('Phone').getAttribute('title') || '')) { throw new Error('the Phone button does not say how many own values the element has there'); }
+  await page.evaluate(() => document.querySelectorAll('.st-styl details').forEach((d) => { d.open = true; }));
+  const mark = page.locator('#st-v-barva').locator('xpath=ancestor::*[contains(@class,"st-vlastnost")]').locator('.st-znacka-bp');
+  if ((await mark.getAttribute('title')) !== 'Set on Phone: primarni') { throw new Error('the colour field does not show the phone override: ' + await mark.getAttribute('title').catch(() => 'none')); }
+  if ((await page.locator('#st-v-barva').inputValue()) !== '') { throw new Error('the Desktop field shows the phone value as its own'); }
+  await mark.click(); // the device icon jumps to that breakpoint
+  await page.waitForFunction(() => document.querySelector('.st-lista .st-skupina button[aria-label="Phone"]').getAttribute('aria-pressed') === 'true');
+  await page.evaluate(() => document.querySelectorAll('.st-styl details').forEach((d) => { d.open = true; }));
+  if ((await page.locator('#st-v-barva').inputValue()) !== 'primarni') { throw new Error('the Phone field lost its value'); }
+  await page.locator('#st-v-barva').locator('xpath=ancestor::*[contains(@class,"st-vlastnost")]').locator('.st-vynulovat').click();
+  await page.waitForFunction(() => document.querySelector('#st-v-barva') && document.querySelector('#st-v-barva').value === '' && !document.querySelector('#st-v-barva').closest('.st-vlastnost').querySelector('.st-vynulovat'));
+  await pick('Desktop');
+  if (await device('Phone').locator('.st-tecka').count()) { throw new Error('the Phone dot stays after the reset'); }
+  // U4: hide on Phone from the Visibility row (Advanced), while editing on Desktop
+  await page.getByRole('tab', { name: 'Advanced' }).first().click();
+  const phoneToggle = page.locator('.st-viditelnost button[data-bp="mobil"]');
+  if ((await phoneToggle.getAttribute('aria-pressed')) !== 'true') { throw new Error('the Visibility row shows the heading hidden on Phone before anything was hidden'); }
+  if (await page.locator('.st-panel .st-zaskrt', { hasText: 'Hide on' }).count()) { throw new Error('the old Hide on mobile checkboxes are still there'); }
+  await phoneToggle.click();
+  await page.waitForFunction(() => document.querySelector('.st-viditelnost button[data-bp="mobil"]').getAttribute('aria-pressed') === 'false');
+  if ((await page.locator('.st-viditelnost button[data-bp="zaklad"]').getAttribute('aria-pressed')) !== 'true') { throw new Error('hiding on Phone hid the Desktop too'); }
+  if (await canvas().locator('.ka-st-skryty-prvek').count()) { throw new Error('a strip on the Desktop canvas for an element hidden on Phone only'); }
+  await pick('Phone');
+  const strip = canvas().locator('.ka-st-skryty-prvek').first();
+  await strip.waitFor({ timeout: 5000 });
+  const stripText = (await strip.textContent()) || '';
+  if (!stripText.startsWith('Hidden on phone')) { throw new Error('the strip says: ' + stripText); }
+  const stripBox = await strip.boundingBox();
+  if (!stripBox || Math.round(stripBox.height) !== 24) { throw new Error('the strip is not 24 px high: ' + JSON.stringify(stripBox)); }
+  await page.waitForFunction(() => { const f = document.querySelector('.st-platno iframe:not(.st-nacita)'); const h = f && f.contentDocument && f.contentDocument.querySelector('h1'); return h && getComputedStyle(h).display === 'none'; }, null, { timeout: 8000 }); // the refreshed canvas hides the heading itself
+  // the Structure tree marks the hidden element with the device icon
+  await page.getByRole('tab', { name: 'Structure' }).first().click();
+  const marked = page.locator('.st-strom .st-uzel-zarizeni[title="Hidden on: Phone"]');
+  await marked.first().waitFor({ timeout: 3000 });
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/builder-hidden-on-phone.png`, fullPage: false }); }
+  // the public page (no editor) is the published version: never a strip, never an editor id
+  const visitor = await browser.newContext();
+  const html = await (await visitor.request.get(`${BASE}/`)).text();
+  await visitor.close();
+  if (/ka-st-skryty-prvek|data-ka-id/.test(html)) { throw new Error('the public page carries an editor strip or editor ids'); }
+  // „show“ on the strip brings the element back on the phone and keeps the other devices as they were
+  await strip.locator('button').click();
+  await canvas().locator('.ka-st-skryty-prvek').first().waitFor({ state: 'detached', timeout: 5000 });
+  await page.waitForFunction(() => !document.querySelector('.st-strom .st-uzel-zarizeni'));
+  await canvas().locator('h1').first().click();
+  await page.getByRole('tab', { name: 'Advanced' }).first().click();
+  if ((await page.locator('.st-viditelnost button[data-bp="mobil"]').getAttribute('aria-pressed')) !== 'true') { throw new Error('after „show“ the Visibility row still says hidden on Phone'); }
+  await pick('Desktop');
+  await page.waitForTimeout(2500); // autosave of the draft before the next step
+});
+
 await step('builder: select the parent element', async () => {
   // broken from 1.4.0 to 3.2.0: find() returned the parent under another key than its callers read (3.2.1)
   await canvas().locator('h1').first().click();

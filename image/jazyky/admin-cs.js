@@ -2857,5 +2857,22 @@ window.KALETA_PREKLAD = {
 	"Add a collection": "Přidat kolekci",
 	"Edit business details": "Upravit údaje o firmě",
 	"Edit the menu": "Upravit menu",
-	"Services and people": "Služby a lidé"
+	"Services and people": "Služby a lidé",
+	"Hidden on desktop": "Skryto na počítači",
+	"Hidden on tablet": "Skryto na tabletu",
+	"Hidden on phone": "Skryto na telefonu",
+	"Only in the editor: on the website this element is left out on this device. Click to select it.": "Jen v editoru: na webu se tento prvek na tomto zařízení vynechá. Kliknutím ho vyberete.",
+	"show": "zobrazit",
+	"Hidden on: ": "Skryto na: ",
+	"Shown on": "Zobrazeno na",
+	"Shown on ": "Zobrazeno na ",
+	"Hidden on ": "Skryto na ",
+	"(inherited from the larger screen)": "(zděděno z větší obrazovky)",
+	"click to show": "kliknutím zobrazíte",
+	"click to hide": "kliknutím skryjete",
+	"shown": "zobrazeno",
+	"A hidden element is a dashed strip on the canvas; on the website it is left out on that device.": "Skrytý prvek je na plátně čárkovaný proužek; na webu se na daném zařízení vynechá.",
+	"own style values of the selected element here: ": "vlastní hodnoty stylu vybraného prvku zde: ",
+	"Set on ": "Nastaveno na ",
+	"Reset – clear the value set here": "Vynulovat – smazat zde nastavenou hodnotu"
 };
