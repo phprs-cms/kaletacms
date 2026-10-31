@@ -134,7 +134,9 @@ details.st-polozka-skupina[open] > summary { margin-bottom: 8px; }
 .st-stav-stylu button { margin-left: auto; }
 .st-styl details { border-bottom: 1px solid var(--linka); }
 .st-styl summary { padding: 9px 2px; font-weight: 600; cursor: pointer; }
-.st-styl summary small { margin-left: 6px; color: var(--akcent); font-weight: 700; }
+.st-styl summary small { display: inline-block; min-width: 18px; margin-left: 6px; padding: 0 6px; border-radius: 999px; background: var(--akcent-svetly); color: var(--akcent-tmavy); font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; vertical-align: 1px; } /* 3.21 (U19): the count as a pill */
+.st-styl-vse { margin-top: 10px; }
+.st-styl-vse small { margin-left: 6px; color: var(--text-slaby); }
 .st-styl details > div { padding: 4px 0 8px; }
 .st-vlastnost { display: grid; grid-template-columns: 1fr 132px; align-items: center; gap: 8px; margin-bottom: 6px; }
 .st-vlastnost label { font-size: 12px; color: var(--text-slaby); }

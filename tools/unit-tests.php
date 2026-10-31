@@ -2081,6 +2081,13 @@ check('Styl: vlastní stín a rámeček s tokeny barev', [Kaleta\Builder\Style::
 check('Styl: stín a rámeček nepustí nic nebezpečného', [Kaleta\Builder\Style::value('stin', '0 0 1px url(x)'), Kaleta\Builder\Style::value('stin', '0 0 red; color: red'), Kaleta\Builder\Style::value('ramecek', '1px solid red}')], [null, null, null]);
 check('Styl: mřížka – řádky, oblasti a oblast prvku', [Kaleta\Builder\Style::value('radky', '3'), Kaleta\Builder\Style::value('oblasti', 'hlava hlava / bok obsah'), Kaleta\Builder\Style::value('oblasti', 'a b / c'), Kaleta\Builder\Style::value('oblast', 'bok'), Kaleta\Builder\Style::value('oblast', 'x"y')],
     ['repeat(3, auto)', '"hlava hlava" "bok obsah"', null, 'bok', null]);
+// 3.21 (U2): every element type names its style groups in the builder (RELEVANT_GROUPS; null = all), and the groups exist – a new element must be placed there
+preg_match('~const RELEVANT_GROUPS = \(\(\) => \{(.+?)\n\t\}\)\(\);~s', $builderScript, $relevantBlock);
+preg_match_all('~(?:^|[\s{,])([a-z][a-z_]*):~', $relevantBlock[1] ?? '', $relevantTypes);
+preg_match_all("~'([a-z]+)'~", $relevantBlock[1] ?? '', $relevantGroups);
+check('3.21 (U2) every builder element type has its style groups in stavitel.js', array_values(array_diff(array_map(fn (string $c): string => $c::TYPE, Kaleta\Builder\Build::ELEMENTS), $relevantTypes[1])), []);
+check('3.21 (U2) the style groups named in stavitel.js exist', array_values(array_diff(array_unique($relevantGroups[1]), array_keys(Kaleta\Builder\Style::GROUPS))), []);
+check('3.21 (U2) the style groups map names no unknown element type', array_values(array_diff($relevantTypes[1], array_map(fn (string $c): string => $c::TYPE, Kaleta\Builder\Build::ELEMENTS))), []);
 check('DesignSystem: typografické styly jako tokeny, úprava ve Vzhledu', [str_contains(Kaleta\Builder\DesignSystem::css(Kaleta\Builder\DesignSystem::sanitize([])), '--ka-typ-perex: 400 var(--ka-krok-1)/1.55 var(--ka-pismo-text);'),
     str_contains(Kaleta\Builder\DesignSystem::css(Kaleta\Builder\DesignSystem::sanitize(['typografie' => ['perex' => ['krok' => '2', 'tloustka' => '500'], 'titulek' => ['krok' => '99']]])), '--ka-typ-perex: 500 var(--ka-krok-2)/1.55'),
     Kaleta\Builder\DesignSystem::sanitize(['typografie' => ['titulek' => ['krok' => '99']]])['typografie']], [true, true, []]);

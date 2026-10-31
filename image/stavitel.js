@@ -1848,13 +1848,40 @@
 		return '';
 	}
 
+	/**
+	 * 3.21 (U2): the style groups a non-designer needs for each kind of element. The Style tab shows these; the other groups wait
+	 * behind "Show all properties" (a group that already has a value is always shown). null = every group (a component, custom HTML);
+	 * a class record has no type and shows every group too. Nothing leaves the data model: every property stays storable.
+	 */
+	const RELEVANT_GROUPS = (() => {
+		const box = ['rozlozeni', 'rozmery', 'mezery', 'pozadi', 'pokrocile']; // sections, containers, grids
+		const words = ['typografie', 'mezery']; // headings, text, lists
+		const card = ['typografie', 'mezery', 'pozadi']; // text in a box
+		const media = ['rozmery', 'mezery', 'pozadi', 'pokrocile']; // images, video, maps
+		const widget = ['rozlozeni', 'rozmery', 'mezery', 'pozadi']; // forms, galleries, carousels
+		const listing = ['rozlozeni', 'rozmery', 'mezery']; // lists of items
+		const row = ['rozlozeni', 'typografie', 'mezery']; // links in a row
+		return {
+			sekce: box, kontejner: box, mrizka: box,
+			nadpis: words, text: words, seznam: words, udaje: words, drobecky: words, pocitadlo: words, hodnoceni: words, obsah: words,
+			citat: card, faq: card, casova_osa: card, odpocet: card, cenik: ['rozlozeni', 'typografie', 'mezery', 'pozadi'], zalozky: ['rozlozeni', 'typografie', 'mezery', 'pozadi'],
+			tlacitko: ['typografie', 'mezery', 'pozadi', 'pokrocile'], do_poptavky: ['typografie', 'mezery', 'pozadi', 'pokrocile'],
+			obrazek: media, video: media, mapa: media, pred_po: media, hotspoty: media, vlozeni: media, logo: ['rozmery', 'mezery'],
+			ikona: ['rozmery', 'typografie', 'mezery', 'pozadi'], oddelovac: ['rozmery', 'mezery', 'pozadi'], prubeh: ['rozmery', 'mezery', 'pozadi'],
+			formular: widget, galerie: widget, karusel: widget, newsletter: widget, hledani: widget, rezervace: widget,
+			kolekce: listing, novinky: listing, pobocky: listing, recenze_google: ['rozlozeni', 'mezery', 'pozadi'],
+			navigace: row, jazyky: row, socialni: row, predchozi_dalsi: row,
+			nahoru: ['rozmery', 'pozadi', 'pokrocile'], komponenta: null, html: null,
+		};
+	})();
+
 	/** Style panel: $cil is an element ({styl}) or a class record; a change goes through zmen (element) or ulozTridu (class). */
 	function stylePanel(panel, target, changeKey, shouldSave) {
 		target.styl = target.styl && !Array.isArray(target.styl) ? target.styl : {};
 		const s = currentState();
 		panel.append(el('div', { class: 'st-stav-stylu' },
-			el('span', {}, T('Editing: '), el('strong', {}, [{ hover: T('hover and focus'), aktivni: T('press') }[state.stavPrvku], state.stavPrvku && state.bp === 'zaklad' ? '' : BP[state.bp]].filter(Boolean).join(' · '))),
-			el('span', { class: 'st-skupina', role: 'group', 'aria-label': T('Element state') }, [['', T('Běžný')], ['hover', T('Najetí')], ['aktivni', T('Press')]].map(([k, n]) =>
+			el('span', {}, T('Editing: '), el('strong', {}, [{ hover: T('hover and focus'), aktivni: T('pressed') }[state.stavPrvku], state.stavPrvku && state.bp === 'zaklad' ? '' : BP[state.bp]].filter(Boolean).join(' · '))),
+			el('span', { class: 'st-skupina', role: 'group', 'aria-label': T('Element state') }, [['', T('Běžný')], ['hover', T('Najetí')], ['aktivni', T('Pressed')]].map(([k, n]) =>
 				el('button', { type: 'button', class: 'st-tl', 'aria-pressed': String(state.stavPrvku === k), title: k === 'hover' ? T('Mouse hover – also applies to keyboard focus') : null, onclick: () => { state.stavPrvku = k; redrawRight(); } }, n)))));
 		// copying only the style (without content) between elements and pages – the browser keeps it
 		const clipboard = () => { try { return JSON.parse(localStorage.getItem('ka-st-styl') || 'null'); } catch (e) { return null; } };
@@ -1873,9 +1900,17 @@
 		const groups = first ? { [first]: [] } : {};
 		Object.entries(STYLE).forEach(([key, def]) => { (groups[def.skupina] = groups[def.skupina] || []).push([key, def]); });
 		const box = el('div', { class: 'st-styl' });
+		// 3.21 (U2): groups this kind of element does not need wait behind "Show all properties" (remembered while the builder is open);
+		// a group with a value in any state stays; Spacing and the type's first group are open
+		const relevant = RELEVANT_GROUPS[target.typ] || null;
+		const showAll = !relevant || !!state.otevrene['styl:vse'];
+		let hiddenGroups = 0;
 		Object.entries(groups).forEach(([group, properties], order) => {
 			const isSet = properties.filter(([k]) => target.styl[s] && target.styl[s][k] !== undefined).length;
-			const det = el('details', { open: isSet > 0 || order === 0 }, el('summary', {}, T(D.schema.skupiny_stylu[group]), isSet ? el('small', {}, isSet) : null));
+			const anySet = properties.some(([k]) => Object.values(target.styl).some((st) => st && st[k] !== undefined));
+			if (!showAll && !anySet && !relevant.includes(group)) { hiddenGroups++; return; }
+			// U19: a space before the count badge (a pill), so the header reads "Spacing 1", not "Spacing1"
+			const det = el('details', { open: isSet > 0 || order === 0 || group === 'mezery' }, el('summary', {}, T(D.schema.skupiny_stylu[group]), isSet ? [' ', el('small', { class: 'st-pocet' }, isSet)] : null));
 			const content = el('div');
 			const set = (key, value) => {
 				const perform = () => {
@@ -1889,6 +1924,12 @@
 			det.append(content);
 			box.append(det);
 		});
+		if (relevant) {
+			box.append(el('label', { class: 'st-zaskrt st-styl-vse' }, el('input', { type: 'checkbox', checked: showAll, onchange: (e) => {
+				if (e.target.checked) { state.otevrene['styl:vse'] = true; } else { delete state.otevrene['styl:vse']; }
+				redrawRight();
+			} }), T('Show all properties'), hiddenGroups ? el('small', {}, T('%s hidden').replace('%s', hiddenGroups)) : null));
+		}
 		panel.append(box);
 	}
 
