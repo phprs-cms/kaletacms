@@ -408,5 +408,16 @@ Object.assign(window.KALETA_PREKLAD, {
 	"Paste the text the builder of the other site copied (Ctrl+C on an element, or More actions → Copy for another Kaleta site).": "Füge den Text ein, den der Builder der anderen Website kopiert hat (Strg+C auf einem Element oder Weitere Aktionen → Für eine andere Kaleta-Website kopieren).",
 	"No comments yet. Share a preview link with comments allowed.": "Noch keine Kommentare. Teile einen Vorschau-Link mit erlaubten Kommentaren.",
 	"Hidden until you publish – then it goes on the site": "Verborgen, bis du veröffentlichst – dann erscheint sie auf der Website",
-	"Open the published page – the draft preview is under ⋯ → Share": "Veröffentlichte Seite öffnen – die Entwurfsvorschau findest du unter ⋯ → Teilen"
+	"Open the published page – the draft preview is under ⋯ → Share": "Veröffentlichte Seite öffnen – die Entwurfsvorschau findest du unter ⋯ → Teilen",
+	"Until": "Bis wann",
+	"Delete": "Löschen",
+	"Paste": "Einfügen",
+	"Select parent element": "Übergeordnetes Element auswählen",
+	"Element actions": "Elementaktionen",
+	"Element path": "Elementpfad",
+	"Show the whole path": "Ganzen Pfad anzeigen",
+	"There is no container just before this element to move it into.": "Direkt vor diesem Element gibt es keinen Container, in den du es verschieben kannst.",
+	"Move the selected element up or down": "Ausgewähltes Element nach oben oder unten verschieben",
+	"Move the element out of its parent / into the container before it": "Element aus dem übergeordneten Element heraus / in den Container davor verschieben",
+	"Element menu (also right-click on the canvas or in Structure)": "Elementmenü (auch Rechtsklick auf der Arbeitsfläche oder in der Struktur)"
 });

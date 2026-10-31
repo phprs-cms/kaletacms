@@ -2858,5 +2858,15 @@ window.KALETA_PREKLAD = {
 	"Edit business details": "Upravit údaje o firmě",
 	"Edit the menu": "Upravit menu",
 	"Services and people": "Služby a lidé",
-	"Until": "Do kdy"
+	"Until": "Do kdy",
+	"Delete": "Smazat",
+	"Paste": "Vložit",
+	"Select parent element": "Vybrat nadřazený prvek",
+	"Element actions": "Akce s prvkem",
+	"Element path": "Cesta k prvku",
+	"Show the whole path": "Zobrazit celou cestu",
+	"There is no container just before this element to move it into.": "Těsně před tímto prvkem není kontejner, do kterého by se dal přesunout.",
+	"Move the selected element up or down": "Posunout vybraný prvek nahoru nebo dolů",
+	"Move the element out of its parent / into the container before it": "Přesunout prvek ven z nadřazeného / do kontejneru před ním",
+	"Element menu (also right-click on the canvas or in Structure)": "Nabídka prvku (také pravým tlačítkem na plátně nebo ve Struktuře)"
 };

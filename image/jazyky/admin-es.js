@@ -2971,5 +2971,15 @@ window.KALETA_PREKLAD = {
 	"Edit business details": "Editar los datos de la empresa",
 	"Edit the menu": "Editar el menú",
 	"Services and people": "Servicios y personas",
-	"Until": "Hasta"
+	"Until": "Hasta",
+	"Delete": "Eliminar",
+	"Paste": "Pegar",
+	"Select parent element": "Seleccionar el elemento padre",
+	"Element actions": "Acciones del elemento",
+	"Element path": "Ruta del elemento",
+	"Show the whole path": "Mostrar la ruta completa",
+	"There is no container just before this element to move it into.": "No hay ningún contenedor justo antes de este elemento al que moverlo.",
+	"Move the selected element up or down": "Mover el elemento seleccionado arriba o abajo",
+	"Move the element out of its parent / into the container before it": "Sacar el elemento de su padre / meterlo en el contenedor anterior",
+	"Element menu (also right-click on the canvas or in Structure)": "Menú del elemento (también con clic derecho en el lienzo o en Estructura)"
 };
