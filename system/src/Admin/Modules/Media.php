@@ -150,28 +150,40 @@ final class Media extends Module
      */
     public static function findUsagesElsewhere(\Kaleta\Core\Db $db): array
     {
+        return array_map(static fn (array $places): array => array_column($places, 'text'), self::findUsagesWithLinks($db));
+    }
+
+    /**
+     * The same places, each with the admin screen where the file is used (3.20, C22: "Used in" in the Media list is a list
+     * of links, not a tooltip). An empty url = a place without a screen of its own (a class, a saved section).
+     *
+     * @return array<int, list<array{text: string, url: string}>> ido => places
+     */
+    public static function findUsagesWithLinks(\Kaleta\Core\Db $db): array
+    {
+        // kind, SQL (kde = name, id = key for the screen, obsah = where paths are looked for), admin query with %d for the id
         $sources = [
-            [t('page'), 'SELECT titulek AS kde, CONCAT_WS(\' \', text, stavba, stavba_koncept, obrazek) AS obsah FROM {stranky}'],
-            [t('tag'), 'SELECT nazev AS kde, CONCAT_WS(\' \', popis, obrazek) AS obsah FROM {stitky}'],
-            [t('category'), 'SELECT nazev AS kde, popis AS obsah FROM {kategorie}'],
-            [t('my section'), 'SELECT nazev AS kde, prvek AS obsah FROM {sekce}'],
-            [t('user'), 'SELECT user AS kde, foto AS obsah FROM {uzivatele}'],
-            [t('site part'), 'SELECT CONCAT(typ, IF(nazev = \'\', \'\', CONCAT(\' – \', nazev))) AS kde, CONCAT_WS(\' \', stavba, stavba_koncept) AS obsah FROM {casti}'],
-            [t('collection'), 'SELECT nazev AS kde, CONCAT_WS(\' \', stavba, stavba_koncept) AS obsah FROM {kolekce}'],
-            [t('collection item'), "SELECT nazev AS kde, CONCAT(data, ' ', obrazek) AS obsah FROM {kolekce_polozky}"],
-            [t('component'), 'SELECT nazev AS kde, CONCAT_WS(\' \', stavba, stavba_koncept) AS obsah FROM {komponenty}'],
-            [t('class'), 'SELECT nazev AS kde, CONCAT_WS(\' \', styl, css) AS obsah FROM {tridy}'],
-            [t('settings'), 'SELECT promenna AS kde, hodnota AS obsah FROM {nastaveni} WHERE hodnota LIKE \'%media%\''],
+            [t('page'), 'SELECT ids AS id, titulek AS kde, CONCAT_WS(\' \', text, stavba, stavba_koncept, obrazek) AS obsah FROM {stranky}', 'module=pages&action=edit&id=%d'],
+            [t('tag'), 'SELECT ids AS id, nazev AS kde, CONCAT_WS(\' \', popis, obrazek) AS obsah FROM {stitky}', 'module=tags&action=edit&id=%d'],
+            [t('category'), 'SELECT idt AS id, nazev AS kde, popis AS obsah FROM {kategorie}', 'module=categories&action=edit&id=%d'],
+            [t('my section'), 'SELECT idx AS id, nazev AS kde, prvek AS obsah FROM {sekce}', ''],
+            [t('user'), 'SELECT idu AS id, user AS kde, foto AS obsah FROM {uzivatele}', 'module=users&action=edit&id=%d'],
+            [t('site part'), 'SELECT 0 AS id, CONCAT(typ, IF(nazev = \'\', \'\', CONCAT(\' – \', nazev))) AS kde, CONCAT_WS(\' \', stavba, stavba_koncept) AS obsah FROM {casti}', 'module=parts'],
+            [t('collection'), 'SELECT idk AS id, nazev AS kde, CONCAT_WS(\' \', stavba, stavba_koncept) AS obsah FROM {kolekce}', 'module=collections&action=edit&id=%d'],
+            [t('collection item'), "SELECT idk AS id, nazev AS kde, CONCAT(data, ' ', obrazek) AS obsah FROM {kolekce_polozky}", 'module=collections&action=items&id=%d'],
+            [t('component'), 'SELECT idm AS id, nazev AS kde, CONCAT_WS(\' \', stavba, stavba_koncept) AS obsah FROM {komponenty}', 'module=components&action=edit&id=%d'],
+            [t('class'), 'SELECT 0 AS id, nazev AS kde, CONCAT_WS(\' \', styl, css) AS obsah FROM {tridy}', ''],
+            [t('settings'), 'SELECT 0 AS id, promenna AS kde, hodnota AS obsah FROM {nastaveni} WHERE hodnota LIKE \'%media%\'', 'module=settings'],
             // 2.14: pop-up builds and newsletters (the rendered e-mail is kept from the start of sending) point at media too
-            [t('pop-up'), 'SELECT nazev AS kde, CONCAT_WS(\' \', stavba, stavba_koncept) AS obsah FROM {popupy}'],
-            [t('newsletter'), 'SELECT subject AS kde, CONCAT_WS(\' \', intro, button_url, html) AS obsah FROM {newsletters}'],
+            [t('pop-up'), 'SELECT idpp AS id, nazev AS kde, CONCAT_WS(\' \', stavba, stavba_koncept) AS obsah FROM {popupy}', 'module=popups&action=edit&id=%d'],
+            [t('newsletter'), 'SELECT id, subject AS kde, CONCAT_WS(\' \', intro, button_url, html) AS obsah FROM {newsletters}', 'module=newsletters&action=edit&id=%d'],
         ];
         $usages = [];
-        foreach ($sources as [$kind, $sql]) {
+        foreach ($sources as [$kind, $sql, $query]) {
             foreach ($db->all($sql) as $r) {
                 // paths also in JSON (media\/2026\/…), with and without the site URL; a variant (-1200, .webp) counts as the original
                 foreach (\Kaleta\Core\MediaHygiene::paths((string) $r['obsah']) as $path) {
-                    $usages[$path][$kind . ' ' . $r['kde']] = true;
+                    $usages[$path][$kind . ' ' . $r['kde']] = $query === '' ? '' : 'admin.php?' . sprintf($query, (int) $r['id']);
                 }
             }
         }
@@ -182,12 +194,12 @@ final class Media extends Module
         foreach ($db->all('SELECT ido, obr_poloha, nahl_poloha FROM {media}') as $o) {
             foreach ([$o['obr_poloha'], $o['nahl_poloha']] as $path) {
                 if ($path !== '' && isset($usages[$path])) {
-                    $used[(int) $o['ido']] = array_keys(($used[(int) $o['ido']] ?? []) + $usages[$path]);
+                    $used[(int) $o['ido']] = ($used[(int) $o['ido']] ?? []) + $usages[$path];
                 }
             }
         }
 
-        return $used;
+        return array_map(static fn (array $places): array => array_map(static fn (string $text, string $url): array => ['text' => $text, 'url' => $url], array_keys($places), $places), $used);
     }
 
     /** Upload of one or more files; with the parameter format=json it answers the editor with JSON. */
@@ -525,19 +537,30 @@ final class Media extends Module
     {
         $order = self::SORT_ORDERS[$this->request->get('sort')][1] ?? self::SORT_ORDERS['nove'][1];
         $order = str_replace('o.nazev ASC', $this->db->sortText('o.nazev') . ' ASC', $order);
-        $elsewhere = self::findUsagesElsewhere($this->db);
-
-        return array_map(function (array $o) use ($elsewhere): array {
-            // where: news by the usage table + places outside news
-            $o['kde'] = $elsewhere[(int) $o['ido']] ?? [];
-            $o['pouzito'] = (int) $o['pouzito'] + count($o['kde']);
-
-            return $o;
-        }, $this->db->all(
+        $elsewhere = self::findUsagesWithLinks($this->db);
+        $rows = $this->db->all(
             "SELECT o.*, (SELECT COUNT(*) FROM {media_pouziti} p WHERE p.ido = o.ido) AS pouzito
              FROM {media} o WHERE {$where} ORDER BY {$order} LIMIT ? OFFSET ?",
             [...$params, $count, ($pageNumber - 1) * $count],
-        ));
+        );
+        // 3.20 (C22): the news items that use the files on this page, as links too (the usage table knows them by number)
+        $news = [];
+        if ($rows !== []) {
+            $ids = array_map(static fn (array $o): int => (int) $o['ido'], $rows);
+            foreach ($this->db->all('SELECT p.ido, n.idc, n.titulek FROM {media_pouziti} p JOIN {novinky} n ON n.idc = p.idc WHERE p.ido IN (' . implode(',', array_fill(0, count($ids), '?')) . ') ORDER BY n.idc DESC', $ids) as $n) {
+                $news[(int) $n['ido']][] = ['text' => t('news item') . ' ' . $n['titulek'], 'url' => 'admin.php?module=news&action=edit&id=' . (int) $n['idc']];
+            }
+        }
+
+        return array_map(function (array $o) use ($elsewhere, $news): array {
+            // where: news by the usage table + places outside news
+            $places = $elsewhere[(int) $o['ido']] ?? [];
+            $o['kde'] = array_column($places, 'text');
+            $o['kde_odkazy'] = [...$news[(int) $o['ido']] ?? [], ...$places];
+            $o['pouzito'] = (int) $o['pouzito'] + count($o['kde']);
+
+            return $o;
+        }, $rows);
     }
 
     /** @param array<string, mixed> $o */

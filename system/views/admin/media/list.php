@@ -99,7 +99,14 @@ $canPublish = $app->auth()->canPublish();
 <?php endif ?>
 		<figcaption>
 			<strong title="<?= e($o['nazev']) ?>"><?= e($o['nazev'] !== '' ? $o['nazev'] : t('untitled')) ?></strong>
-			<span><?= $o['nahl_poloha'] === '' ? '' : (int) $o['obr_width'] . '&times;' . (int) $o['obr_height'] . ' &middot; ' ?><?= e(Kaleta\Core\Files::size((int) $o['obr_vel'])) ?> &middot; <span<?= $o['kde'] !== [] ? ' title="' . e(t('Used in: %s', implode(', ', $o['kde']))) . '"' : '' ?>><?= e((int) $o['pouzito'] > 0 ? t('used %s×', (int) $o['pouzito']) : t('unused')) ?></span></span>
+			<span><?= $o['nahl_poloha'] === '' ? '' : (int) $o['obr_width'] . '&times;' . (int) $o['obr_height'] . ' &middot; ' ?><?= e(Kaleta\Core\Files::size((int) $o['obr_vel'])) ?> &middot; <span><?= e((int) $o['pouzito'] > 0 ? t('used %s×', (int) $o['pouzito']) : t('unused')) ?></span></span>
+<?php if ($o['kde_odkazy'] !== []): // 3.20 (C22): the places as links, not a tooltip ?>
+			<details class="media-pouziti"><summary><?= e(t('Used in')) ?></summary><ul>
+<?php foreach ($o['kde_odkazy'] as $place): ?>
+				<li><?= $place['url'] !== '' ? '<a href="' . e($app->url($place['url'])) . '">' . e($place['text']) . '</a>' : e($place['text']) ?></li>
+<?php endforeach ?>
+			</ul></details>
+<?php endif ?>
 <?php if ($o['nahl_poloha'] !== ''): ?>
 			<input class="galerie-popis" type="text" value="<?= e((string) $o['nazev']) ?>" maxlength="150" placeholder="<?= e(t('Popis pro nevidomé (alt)')) ?>" aria-label="<?= e(t('Description of image %s', $o['nazev'])) ?>" data-popis-media="<?= (int) $o['ido'] ?>" data-adresa="<?= e($module->url('save_caption')) ?>" form="">
 <?php endif ?>

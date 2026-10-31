@@ -17,7 +17,7 @@ use Kaleta\Fleet\AlertRules;
 
 ?>
 <?= $app->view->render('admin/fleet/tabs', ['module' => $module, 'current' => 'alerts']) ?>
-<?php if (!$alertsEnabled): ?><p class="hlaska hlaska-chyba"><?= e(t('Alert e-mails are switched off in System status → Alerts, so no alert is sent – the rules below wait until they are on again.')) ?></p><?php endif ?>
+<?php if (!$alertsEnabled): ?><p class="hlaska hlaska-chyba"><?= $module->hint(t('Alert e-mails are switched off in System status → Alerts, so no alert is sent – the rules below wait until they are on again.')) ?></p><?php endif ?>
 <form class="formular" method="post" action="<?= e($module->url('alerts_save')) ?>">
 <?= $csrf ?>
 <fieldset>

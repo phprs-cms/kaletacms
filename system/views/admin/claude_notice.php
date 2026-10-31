@@ -24,7 +24,7 @@ $link = fn (string $module, string $text, string $fragment = ''): string => $aut
 <?php if ($claude['state'] === 'off'): ?>
 <p class="hlaska hlaska-varovani claude-upozorneni<?= $class ?>" role="status"><?= e(t('The Claude connection is switched off (Features) – requests are saved, but nobody reads them until it is on.')) ?><?= $link('extensions', t('Features')) ?></p>
 <?php elseif ($claude['state'] === 'none'): ?>
-<p class="hlaska hlaska-varovani claude-upozorneni<?= $class ?>" role="status"><?= e(t('Claude is not connected to this site. A request saved now waits until someone connects Claude.')) ?><?= $auth->hasModule('claude_settings') ? $link('claude_settings', t('Connect Claude')) : ' ' . e(t('Ask an administrator to connect Claude.')) ?></p>
+<p class="hlaska hlaska-varovani claude-upozorneni<?= $class ?>" role="status"><?= e(t('Claude is not connected to this site. A request saved now waits until someone connects Claude.')) ?><?= $auth->hasModule('claude_settings') ? $link('claude_settings', t('Connect Claude'), '#how-to-connect') : ' ' . e(t('Ask an administrator to connect Claude.')) ?></p>
 <?php elseif ($claude['pickup'] === 'stalled'): ?>
 <p class="hlaska hlaska-varovani claude-upozorneni<?= $class ?>" role="status"><?= e(t('The scheduled run that picks up requests is not running (last missed or failed %s). Requests wait until it runs again or someone asks Claude in the Claude app.', $claude['stalled_since'] !== null ? format_date($claude['stalled_since'], true) : '–')) ?><?= $link('schedules', t('Open Scheduled runs')) ?></p>
 <?php elseif ($claude['pickup'] === 'manual'): ?>

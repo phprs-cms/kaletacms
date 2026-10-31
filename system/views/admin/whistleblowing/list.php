@@ -51,7 +51,9 @@ $waiting = count(array_filter($cases, fn (array $c): bool => $c['status'] !== 'c
 <form class="formular" method="post" action="<?= e($module->url('settings')) ?>">
 <?= $csrf ?>
 <div class="radek"><span></span><div><label><input type="checkbox" name="enabled" value="1"<?= $on ? ' checked' : '' ?>> <?= e(t('The channel is on')) ?></label>
-	<span class="napoveda"><?= e(t('The public form: %s. Add a link to it to the footer menu or a page – the site does not add it by itself.', $publicUrl)) ?></span></div></div>
+	<span class="napoveda"><?= e(t('The public form: %s. Add a link to it to the footer menu or a page – the site does not add it by itself.', $publicUrl)) ?>
+	<?php // 3.20 (C22): one click puts the link into the (draft) footer menu; its own form, so that it does not submit the setup ?>
+	<button class="navigace" type="submit" form="wb-footer-link"><?= e(t('Add to the footer menu')) ?></button></span></div></div>
 <div class="radek"><label for="wb-intro"><?= e(t('Introduction')) ?></label><div><textarea class="textbox nizky" id="wb-intro" name="intro" rows="4" maxlength="5000"><?= e($intro) ?></textarea>
 	<span class="napoveda"><?= e(t('Shown above the form: who handles reports in your company, what belongs here, where the whistleblowing policy is.')) ?></span></div></div>
 <fieldset class="radek"><legend><?= e(t('Who may read reports')) ?></legend><div>
@@ -63,5 +65,6 @@ $waiting = count(array_filter($cases, fn (array $c): bool => $c['status'] !== 'c
 	<span class="napoveda"><?= e(t('Closed cases are deleted with their attachments and messages; open cases are kept. Check the retention period your national law requires.')) ?></span></div></div>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Uložit')) ?>"></p>
 </form>
+<form id="wb-footer-link" method="post" action="<?= e($module->url('footer_link')) ?>"><?= $csrf ?></form>
 <p class="smltxt"><?= e(t('Claude and other connected tools never see the reports: no MCP tool reads or lists them, and the site export leaves them out.')) ?></p>
 <?php endif ?>

@@ -25,6 +25,8 @@ final class Audit extends Module
         }
 
         // the questions for an agency (3.11) are not counted as things to fix on a site nobody hands over
-        return $this->view('list', 'Site audit', ['groups' => $groups, 'total' => count(array_filter($findings, fn (array $f): bool => empty($f['for_client'])))]);
+        return $this->view('list', 'Site audit', ['groups' => $groups, 'total' => count(array_filter($findings, fn (array $f): bool => empty($f['for_client']))),
+            // 3.20 (C22): before handing over, the decisions belong in the Notebook – linked from here, not only from the Claude hub
+            'notebookUrl' => isset($this->kernel->modules()['notebook']) ? $this->app->url('admin.php?module=notebook') : null]);
     }
 }

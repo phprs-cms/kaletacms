@@ -231,7 +231,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <section class="socialni-prispevky" id="social-posts" aria-labelledby="social-posts-nadpis">
 <h2 id="social-posts-nadpis"><?= e(t('Social posts')) ?></h2>
 <?php if ($socialDrafts === []): ?>
-<p class="napoveda"><?= e(t('No network is chosen. Pick the networks under Settings → General → More options and the drafts appear here.')) ?></p>
+<p class="napoveda"><?= $module->hint(t('No network is chosen. Pick the networks under Settings → General → More options and the drafts appear here.')) ?></p>
 <?php else: ?>
 <p class="napoveda"><?= e(t('Prepared when the news item was published, with a tracked link – the statistics show the visits from each network. Edit the text, copy it and post it yourself; the site never posts anywhere.')) ?></p>
 <?php if ($assistant): ?>

@@ -5,6 +5,7 @@
  * @var Kaleta\Admin\Modules\Audit $module
  * @var array<string, list<array<string, mixed>>> $groups
  * @var int $total
+ * @var string|null $notebookUrl  the Notebook (3.20, C22), null for whoever may not open it
  */
 use Kaleta\Core\Audit;
 
@@ -34,4 +35,7 @@ $table = function (array $rows): string {
 </details>
 <?php endif ?>
 <?php endforeach ?>
+<?php if ($notebookUrl !== null): // 3.20 (C22): handing over means notes too ?>
+<p class="smltxt"><strong><?= e(t('Before handing over')) ?>:</strong> <?= e(t('write down the decisions for the next person – why the site is built the way it is, what the client asked for, what to watch.')) ?> <a href="<?= e($notebookUrl) ?>"><?= e(t('Open the Notebook')) ?></a></p>
+<?php endif ?>
 <p class="smltxt"><?= e(t('External links are checked in the background, one news item every five minutes. The audit runs each time you open this page.')) ?></p>

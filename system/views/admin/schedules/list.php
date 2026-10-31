@@ -47,7 +47,7 @@ $when = fn (array $s): string => match ((string) $s['cadence']) {
 <h2 id="claude"><?= e(t('Set up in Claude')) ?></h2>
 <div class="formular">
 <ol>
-	<li><?= e(t('Connect Claude to this site with a drafts-only token or connection: My account → Claude connection, access “drafts only”. A drafts-only connection can read the site and save drafts, and the two tools the routine needs (get_due_agent_runs, report_agent_run) – it cannot publish, delete or send.')) ?> <a href="<?= e($app->url('admin.php?action=account#claude')) ?>"><?= e(t('My account')) ?></a><?php if ($draftTokens === 0): ?> <span class="stitek"><?= e(t('no drafts-only token yet')) ?></span><?php endif ?></li>
+	<li><?= $module->hint(t('Connect Claude to this site with a drafts-only token or connection: My account → Claude connection, access “drafts only”. A drafts-only connection can read the site and save drafts, and the two tools the routine needs (get_due_agent_runs, report_agent_run) – it cannot publish, delete or send.')) ?> <a href="<?= e($app->url('admin.php?action=account#claude')) ?>"><?= e(t('My account')) ?></a><?php if ($draftTokens === 0): ?> <span class="stitek"><?= e(t('no drafts-only token yet')) ?></span><?php endif ?></li>
 	<li><?= e(t('In Claude, create a scheduled task (the Claude app) or a routine (Claude Code) that runs a little after the earliest time in your schedules – for example every day at 07:15 – with this prompt:')) ?>
 		<pre class="kod" id="routine-prompt"><?= e($prompt) ?></pre>
 		<p><button class="navigace" type="button" data-kopirovat="#routine-prompt"><?= e(t('Copy')) ?></button></p></li>

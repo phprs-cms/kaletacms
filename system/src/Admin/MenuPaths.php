@@ -40,6 +40,16 @@ final class MenuPaths
         [['Claude settings', 'Guardrails for Claude'], 'claude_settings', 'module=claude_settings'],
         [['Claude settings'], 'claude_settings', 'module=claude_settings'],
         [['My account'], '', 'action=account'],
+        // 3.20 (C4): the screens the hints of the modules name - Bookings, Pages, Enquiries, the audit, the fleet
+        [['Enquiries', 'Personal data request'], 'enquiries', 'module=enquiries&action=personal'],
+        [['Enquiries', 'settings'], 'enquiries', 'module=enquiries&action=settings'],
+        [['Enquiries'], 'enquiries', 'module=enquiries'],
+        [['Pages'], 'pages', 'module=pages'],
+        [['Uživatelé', 'Roles'], 'roles', 'module=roles'],
+        [['Nastavení', 'Fleet console'], 'settings', 'module=settings&tab=console'],
+        [['Nastavení', 'Webhooks'], 'settings', 'module=settings&tab=webhooks'],
+        [['Scheduled runs'], 'schedules', 'module=schedules'],
+        [['Notebook'], 'notebook', 'module=notebook'],
     ];
 
     /**

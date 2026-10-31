@@ -64,7 +64,7 @@ $tabs = ['styl' => 'Styl', 'barvy' => 'Colours', 'tmavy' => 'Dark mode', 'pismo'
 	</button>
 <?php endforeach ?>
 </div>
-<p class="napoveda"><?= e(t('You do not have to put a look for your brand together by hand: connect Claude and write, for example, “Set the look of the site to our brand – primary colour #0E6E6E, serif headings, subtle rounding”. It saves the colours and fonts to the design system, and you see the result here.')) ?> <a href="<?= e($app->url('admin.php?module=extensions#claude')) ?>"><?= e(t('How to connect Claude')) ?></a></p>
+<p class="napoveda"><?= e(t('You do not have to put a look for your brand together by hand: connect Claude and write, for example, “Set the look of the site to our brand – primary colour #0E6E6E, serif headings, subtle rounding”. It saves the colours and fonts to the design system, and you see the result here.')) ?> <a href="<?= e($app->url('admin.php?module=claude_settings#how-to-connect')) ?>"><?= e(t('How to connect Claude')) ?></a></p>
 </fieldset>
 </div>
 

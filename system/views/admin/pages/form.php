@@ -117,7 +117,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <div class="radek">
 	<label for="kod_hlavicky"><?= e(t('Code in the head of this page')) ?></label>
 	<div><textarea class="textpole siroke kod" id="kod_hlavicky" name="kod_hlavicky" rows="4" spellcheck="false" placeholder="&lt;script&gt;…&lt;/script&gt;"><?= e((string) ($page['kod_hlavicky'] ?? '')) ?></textarea>
-	<span class="napoveda"><?= e(t('Only for this page, after the code for the whole site (Settings → Analytics) – e.g. the conversion tag of a landing page. Mind the cookie consent: code that tracks visitors belongs in the marketing code.')) ?></span></div>
+	<span class="napoveda"><?= $module->hint(t('Only for this page, after the code for the whole site (Settings → Analytics) – e.g. the conversion tag of a landing page. Mind the cookie consent: code that tracks visitors belongs in the marketing code.')) ?></span></div>
 </div>
 <?php endif ?>
 <?php if ($page['ids']): ?>
@@ -137,7 +137,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 		<span class="napoveda" data-aktivni-kdyz="zobrazit="><label for="zverejnit_od"><?= e(t('Publish the hidden page automatically at:')) ?></label> <input class="textpole" type="datetime-local" id="zverejnit_od" name="zverejnit_od" value="<?= e(($page['zverejnit_od'] ?? null) ? date('Y-m-d\TH:i', strtotime($page['zverejnit_od'])) : '') ?>"></span><br>
 		<label><input type="checkbox" name="v_menu" value="1"<?= ($inMenu ?? (bool) $page['v_menu']) ? ' checked' : '' ?>> <?= e(t('Show in the site\'s main navigation')) ?></label>
 <?php if ($customMenu): ?>
-		<span class="napoveda"><?= e(t('The site has a custom menu – the page is added to its end. Change the order and submenus in Appearance → Menu.')) ?></span>
+		<span class="napoveda"><?= $module->hint(t('The site has a custom menu – the page is added to its end. Change the order and submenus in Appearance → Menu.')) ?></span>
 <?php endif ?>
 	</div>
 </div>

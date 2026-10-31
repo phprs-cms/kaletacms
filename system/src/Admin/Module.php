@@ -97,6 +97,15 @@ abstract class Module
         return $this->kernel->page($heading, $this->hubTabs() . $this->app->view->render('admin/' . static::IDENT . '/' . $template, $data));
     }
 
+    /**
+     * A hint or an intro sentence with menu paths ("Settings → Mail") turned into links to the screens this person may
+     * open (3.20, C4: MenuPaths in every module, not only in flashes and Settings). Returns HTML; the text is escaped here.
+     */
+    public function hint(string $text): string
+    {
+        return MenuPaths::links($this->app->url('admin.php'), $text, array_keys($this->kernel->modules()));
+    }
+
     /** The tabs of the module's hub for the current screen, or '' (3.2). */
     protected function hubTabs(): string
     {

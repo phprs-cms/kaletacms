@@ -2849,5 +2849,13 @@ window.KALETA_PREKLAD = {
 	"Add a condition": "Přidat podmínku",
 	"Filter buttons for visitors (by the field above, without a field by category)": "Tlačítka filtru pro návštěvníky (podle pole výše, bez pole podle kategorií)",
 	"Inserting elements…": "Vkládám prvky…",
-	"Inserted": "Vloženo"
+	"Inserted": "Vloženo",
+	"Edit this component (changes everywhere)": "Upravit tuto komponentu (změní se všude)",
+	"Open Enquiries": "Otevřít poptávky",
+	"Spam protection": "Ochrana proti spamu",
+	"Manage this collection": "Spravovat tuto kolekci",
+	"Add a collection": "Přidat kolekci",
+	"Edit business details": "Upravit údaje o firmě",
+	"Edit the menu": "Upravit menu",
+	"Services and people": "Služby a lidé"
 };

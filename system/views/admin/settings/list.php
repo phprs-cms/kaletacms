@@ -22,12 +22,13 @@
  * @var list<array{name: string, provider: string, purpose: string, duration: string, category: string}> $cookieTable  cookies and storage the site uses (2.14, the Privacy tab)
  * @var array{time?: int, pages?: int, cookies?: list<string>, error?: string} $cookieScan  the last scan of the site's own pages (2.14)
  * @var array<string, mixed>|null $statementPage  the accessibility statement page created from the audit (2.14), null = none yet
+ * @var array{ids: int, titulek: string, seo_link: string}|null $privacyPage  the privacy policy page (3.20, the Privacy tab), null = none
  */
 use Kaleta\Admin\Modules\Settings;
 
 /** Form row: $field('key', 'Label', 'text|radky|kod|ano|cislo|url|email', 'hint', [attributes]) */
 $invalidFields ??= [];
-$field = function (string $key, string $labelText, string $kind = 'text', string $hint = '', string $attributes = '') use ($values, $app, $invalidFields): void {
+$field = function (string $key, string $labelText, string $kind = 'text', string $hint = '', string $attributes = '') use ($values, $module, $invalidFields): void {
     $h = $values[$key] ?? '';
     if (in_array($key, $invalidFields, true)) {
         $attributes .= ' aria-invalid="true"'; // an unsaved value to fix (the message at the top says what is wrong)
@@ -35,7 +36,7 @@ $field = function (string $key, string $labelText, string $kind = 'text', string
     $labelText = t($labelText);
     $hint = $hint === '' ? '' : t($hint);
     // a hint without its own HTML: menu paths ("Nastavení → Pošta") turn into links
-    $hintHtml = $hint !== '' ? '<span class="napoveda">' . (str_contains($hint, '<') ? $hint : Kaleta\Admin\MenuPaths::links($app->url('admin.php'), $hint, ['settings', 'appearance', 'menu', 'business', 'status', 'claude_settings'])) . '</span>' : '';
+    $hintHtml = $hint !== '' ? '<span class="napoveda">' . (str_contains($hint, '<') ? $hint : $module->hint($hint)) . '</span>' : '';
     echo '<div class="radek">';
     if ($kind === 'ano') {
         echo '<span class="popisek">' . e($labelText) . '</span><div class="volby"><label><input type="checkbox" name="' . e($key) . '" value="1"' . ($h === '1' ? ' checked' : '') . '> ' . e(t('Yes')) . '</label>' . $hintHtml . '</div>';

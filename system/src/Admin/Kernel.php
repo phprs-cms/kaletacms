@@ -398,7 +398,8 @@ final class Kernel
         $connected = \Kaleta\Core\AskClaude::connected($db, $s) && !\Kaleta\Core\ClaudeConnection::needsConnecting(\Kaleta\Core\ClaudeConnection::status($db, $s));
         if (\Kaleta\Core\Extensions::isEnabled($s, 'claude') && ($connected || \Kaleta\Core\Demo::active())) {
             array_unshift($steps, ['Connect Claude', 'Build and edit the site by talking to Claude. In the Claude app, add a custom connector with your site address followed by /mcp – My account shows the exact address.',
-                \Kaleta\Core\Demo::active() ? 'admin.php?action=account#claude' : 'admin.php#pripojit-claude', $connected]);
+                // 3.20 (C6): once connected the dashboard card is gone, so the step leads to the one "how to connect" place
+                \Kaleta\Core\Demo::active() ? 'admin.php?action=account#claude' : (isset($this->modules()['claude_settings']) ? 'admin.php?module=claude_settings#how-to-connect' : 'admin.php#pripojit-claude'), $connected]);
         }
         $result = array_map(fn (array $k): array => ['nazev' => $k[0], 'popis' => $k[1], 'url' => $app->url($k[2]), 'hotovo' => (bool) $k[3]], $steps);
 

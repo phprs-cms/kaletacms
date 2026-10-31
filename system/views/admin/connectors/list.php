@@ -33,11 +33,11 @@
 <summary><?= e($st['connected'] || $row !== null ? t('Settings of the connection') : t('Set up')) ?></summary>
 <form class="formular" method="post" action="<?= e($module->url('save')) ?>"><?= $csrf ?><input type="hidden" name="service" value="<?= e($key) ?>">
 <?php if ($class::AUTH === 'oauth'): ?>
-	<p class="napoveda"><?= e(t('Create an OAuth app (a web application) with %s and enter its client ID and secret. The redirect address to enter there:', $class::NAME)) ?> <code><?= e($redirectUri) ?></code><?php if ($class::HELP_URL !== ''): ?> · <a href="<?= e($class::HELP_URL) ?>" target="_blank" rel="noopener"><?= e(t('Where to get it')) ?></a><?php endif ?></p>
+	<p class="napoveda"><?= e(t('Create an OAuth app (a web application) with %s and enter its client ID and secret. The redirect address to enter there:', $class::NAME)) ?> <code><?= e($redirectUri) ?></code><?php if ($class::HELP_URL !== ''): ?> · <a href="<?= e($class::HELP_URL) ?>" target="_blank" rel="noopener" aria-label="<?= e(t('Where to get it – %s documentation', $class::NAME)) ?>"><?= e(t('Where to get it')) ?></a><?php endif ?></p>
 	<div class="radek"><label for="c-<?= e($key) ?>-id"><?= e(t('Client ID')) ?></label><div><input class="textpole siroke" id="c-<?= e($key) ?>-id" name="client_id" value="<?= e((string) ($row['client_id'] ?? '')) ?>" maxlength="255" autocomplete="off"></div></div>
 	<div class="radek"><label for="c-<?= e($key) ?>-secret"><?= e(t('Client secret')) ?></label><div><input class="textpole siroke" type="password" id="c-<?= e($key) ?>-secret" name="secret" value="" autocomplete="new-password" placeholder="<?= e(($row['secret'] ?? null) !== null ? t('stored – type to replace') : '') ?>"></div></div>
 <?php else: ?>
-	<?php if ($class::HELP_URL !== ''): ?><p class="napoveda"><a href="<?= e($class::HELP_URL) ?>" target="_blank" rel="noopener"><?= e(t('Where to get the key')) ?></a></p><?php endif ?>
+	<?php if ($class::HELP_URL !== ''): ?><p class="napoveda"><a href="<?= e($class::HELP_URL) ?>" target="_blank" rel="noopener" aria-label="<?= e(t('Where to get the key – %s documentation', $class::NAME)) ?>"><?= e(t('Where to get the key')) ?></a></p><?php endif ?>
 	<?php if ($class::AUTH === 'basic'): ?>
 	<div class="radek"><label for="c-<?= e($key) ?>-account"><?= e(t('User')) ?></label><div><input class="textpole siroke" id="c-<?= e($key) ?>-account" name="account" value="<?= e((string) ($row['account'] ?? '')) ?>" maxlength="190" autocomplete="off"></div></div>
 	<?php endif ?>

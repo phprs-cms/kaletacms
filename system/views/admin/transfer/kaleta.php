@@ -25,7 +25,7 @@ $rowsDone = array_sum(array_map(fn (array $v): int => (int) ($v['ok'] ?? 0) + (i
 <?php if ($error !== ''): ?>
 <p class="hlaska hlaska-chyba"><?= e(t('The import has stopped:')) ?> <?= e($error) ?></p>
 <?php if ($state['zaloha'] !== ''): ?>
-<p><?= e(t('The state before the import is in backup %s (Settings → Backups and updates).', $state['zaloha'])) ?></p>
+<p><?= $module->hint(t('The state before the import is in backup %s (Settings → Backups and updates).', $state['zaloha'])) ?></p>
 <?php endif ?>
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to Import and export')) ?></a></p>
 <?php elseif ($state['faze'] === 'nahled'): ?>
@@ -85,6 +85,6 @@ $rowsDone = array_sum(array_map(fn (array $v): int => (int) ($v['ok'] ?? 0) + (i
 <?php endforeach ?>
 </ul></details>
 <?php endif ?>
-<p><?= e(t('The state before the import is in backup %s (Settings → Backups and updates). Check the site, then delete the export file – it is no longer needed.', $state['zaloha'])) ?></p>
+<p><?= $module->hint(t('The state before the import is in backup %s (Settings → Backups and updates). Check the site, then delete the export file – it is no longer needed.', $state['zaloha'])) ?></p>
 <p class="navigace-radek"><a class="navigace" href="<?= e($app->url('')) ?>"><?= e(t('Zobrazit web')) ?></a> <a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to Import and export')) ?></a></p>
 <?php endif ?>

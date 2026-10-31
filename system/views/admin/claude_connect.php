@@ -17,5 +17,5 @@
 		<li><?= e(t('Paste the address above as the connector URL and add it.')) ?></li>
 		<li><?= e(t('Claude sends you here to sign in. Choose what it may do – then ask it anything about your site.')) ?></li>
 	</ol>
-	<p class="smltxt"><?= e(t('Claude Code or another tool without sign-in? Create a personal token in')) ?> <a href="<?= e($app->url('admin.php?action=account#claude')) ?>"><?= e(t('My account')) ?></a>.<?php if ($connect['admin']): ?> <a href="<?= e($app->url('admin.php?module=claude_settings')) ?>"><?= e(t('Claude settings')) ?></a><?php endif ?></p>
+	<p class="smltxt"><?= e(t('Claude Code or another tool without sign-in? Create a personal token in')) ?> <a href="<?= e($app->url('admin.php?action=account#claude')) ?>"><?= e(t('My account')) ?></a>.<?php if ($connect['admin']): ?> <a href="<?= e($app->url('admin.php?module=claude_settings#how-to-connect')) ?>"><?= e(t('Claude settings')) ?></a><?php endif ?></p>
 </section>

@@ -51,7 +51,7 @@ trait BuilderActions
         }
         $app = $this->app;
         $e = $this->describeTarget($target);
-        $collection = array_map(fn (array $k): array => ['seo_link' => $k['seo_link'], 'nazev' => $k['nazev'], 'pole' => $k['pole'], 'detail' => (bool) $k['detail']], Collections::all($this->db));
+        $collection = array_map(fn (array $k): array => ['id' => (int) $k['idk'], 'seo_link' => $k['seo_link'], 'nazev' => $k['nazev'], 'pole' => $k['pole'], 'detail' => (bool) $k['detail']], Collections::all($this->db));
         $extensions = \Kaleta\Core\Extensions::enabled($app->settings());
         $schema = Build::schema($app->auth()->isAdmin(), $target['jazyk'], $e['casti'], $extensions);
         $components = \Kaleta\Admin\Modules\Components::listForEditor($this->db);
@@ -122,10 +122,44 @@ trait BuilderActions
             ]) + ['smazSekci' => $app->auth()->isAdmin() ? $this->url('build_delete_section', $target['parametry']) : null] + ['admin' => $app->url('admin.php'), 'nastaveni' => $e['nastaveni'],
                 'komponenta' => $app->auth()->isAdmin() ? $app->url('admin.php?module=components&action=from_element') : null,
                 'nahledSekce' => $app->url('_sekce/'),
-                'navod' => \Kaleta\Admin\Guide::forScreen(static::IDENT, 'builder', '', \Kaleta\Core\Language::code())],
+                'navod' => \Kaleta\Admin\Guide::forScreen(static::IDENT, 'builder', '', \Kaleta\Core\Language::code())]
+                // 3.20 (U11, U13): where the data of an element lives – only the screens this person may open
+                + self::dataLinks(array_keys($this->kernel->modules()), fn (string $query): string => $app->url('admin.php?' . $query)),
         ];
 
         return Response::html($app->view->render('admin/pages/builder', ['app' => $app, 'data' => $data, 'title' => $target['titulek']]));
+    }
+
+    /**
+     * Admin screens the element panels link to (3.20, U11 and U13): Enquiries and the spam protection for a form, the
+     * collection behind a list, Business details, the menu behind a navigation, services and people behind a booking,
+     * the component behind an instance. Only for the modules the signed-in person may open – an editor without Enquiries
+     * sees no link. The collection and component links end with "id=" and the editor appends the number.
+     *
+     * @param list<string> $modules identifiers of the modules the person may open (Admin\Kernel::modules)
+     * @param callable(string): string $url admin.php URL from a query string
+     * @return array<string, string>
+     */
+    public static function dataLinks(array $modules, callable $url): array
+    {
+        $links = [
+            'poptavky' => ['enquiries', 'module=enquiries'],
+            'antispam' => ['settings', 'module=settings&tab=cookies'],
+            'kolekce' => ['collections', 'module=collections&action=items&id='],
+            'novaKolekce' => ['collections', 'module=collections&action=new'],
+            'firma' => ['business', 'module=business'],
+            'menu' => ['menu', 'module=menu'],
+            'sluzby' => ['bookings', 'module=bookings&action=services'],
+            'upravKomponentu' => ['components', 'module=components&action=edit&id='],
+        ];
+        $out = [];
+        foreach ($links as $key => [$module, $query]) {
+            if (in_array($module, $modules, true)) {
+                $out[$key] = $url($query);
+            }
+        }
+
+        return $out;
     }
 
     /** Autosaving the draft from the editor (JSON). Returns the sanitized build and the errors the editor shows. */
@@ -317,7 +351,7 @@ trait BuilderActions
         $target = $this->request->isPost() ? $this->loadBuildTarget() : null;
         $section = $target !== null ? Library::section($this->request->get('key'), $target['jazyk']) : null;
         if ($section === null) {
-            return Response::json(['ok' => false, 'chyba' => t('The section is not in the library.')], 404);
+            return Response::json(['ok' => false, 'chyba' => t('The section is not in the Sections library.')], 404);
         }
         Library::createClasses($this->db, $section['tridy']);
 

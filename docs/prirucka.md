@@ -36,7 +36,10 @@ Builder otevřete v **Stránky → Builder** (nebo odkazem „Upravit zde“ na 
 webu**, vlevo panel **Přidat / Struktura**, vpravo vlastnosti vybraného prvku.
 
 - **Vkládání:** klepněte na prvek nebo hotovou sekci v panelu Přidat, nebo je **přetáhněte na plátno** – modrá čára
-  ukáže, kam dopadnou (rámeček = dovnitř kontejneru). Po najetí na hotovou sekci uvidíte její náhled.
+  ukáže, kam dopadnou (rámeček = dovnitř kontejneru). Po najetí na hotovou sekci uvidíte její náhled. **Knihovna sekcí**
+  v panelu Přidat má dvě části: **Hotové sekce** (hero, výhody, služby, FAQ…) a **Moje sekce** (co jste si uložili
+  z libovolné stránky přes „Uložit do mých sekcí“). Každé vložení je samostatná kopie; blok, který má být všude stejný,
+  je **komponenta** (Vzhled → Komponenty).
 - **Přesun:** vybraný prvek má na plátně úchyt ⠿ – přetáhněte ho jinam. Přetahovat jde i ve Struktuře. Na tabletu
   a telefonu klepněte na **Přesunout** (čtyři šipky) a pak na místo, kam prvek patří.
 - **Text:** dvojklikem upravíte nadpis nebo text přímo na plátně; delší úpravy v panelu **Obsah**.
