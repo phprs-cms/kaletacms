@@ -5,8 +5,12 @@
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Stats $module
  * @var array<string, mixed> $report
+ * @var array<string, string> $editLinks public path => admin screen that edits it, for the pages the user may edit (3.20, C2)
  */
 $days = (int) $report['period_days'];
+// 3.20 (C2): the public page, and next to it a small "edit" link into the administration when the path is a page or item of the user's
+$pageCell = fn (array $r): string => '<a href="' . e($r['path']) . '" target="_blank" rel="noopener">' . e($r['path']) . '</a>'
+    . (isset($editLinks[$r['path']]) ? ' <a class="smltxt" href="' . e($editLinks[$r['path']]) . '">' . e(t('edit')) . '</a>' : '');
 $chart = $report['days'];
 $totals = $report['totals'];
 $max = max(1, ...array_column($chart, 'views'));
@@ -69,7 +73,7 @@ $vital = function (array $r, string $metric, callable $format) use ($ratingBadge
 <div class="stat-tabulky">
 <?php
 $table('Pages that bring leads', $report['pages'], [
-    'Page' => fn (array $r): string => '<a href="' . e($r['path']) . '" target="_blank" rel="noopener">' . e($r['path']) . '</a>',
+    'Page' => $pageCell,
     'Views' => fn (array $r): string => format_count((int) $r['views']),
     'Enquiries / sign-ups' => $leads,
     'Conversion' => fn (array $r): string => $percent($r['conversion']),
@@ -89,7 +93,7 @@ $table('Campaigns', $report['campaigns'], [
     'Enquiries / sign-ups' => $leads,
 ], 'No visits from links with utm parameters yet.');
 $table('First pages of visits that brought a lead', $report['landing_pages'], [
-    'Page' => fn (array $r): string => e($r['path']),
+    'Page' => $pageCell,
     'Enquiries / sign-ups' => $leads,
 ], 'Known only for visitors who allowed marketing cookies in the cookie bar.');
 $table('Where visitors come from', $report['referrers'], [

@@ -47,6 +47,7 @@ final class Guide
         'roles' => 'users-roles#custom-roles',
         'stats' => 'statistics',
         'redirects' => 'seo#redirects-and-404s',
+        'broken_links' => 'news', // 3.20 (C20): the News → Broken links screen, reached from Site care
         'audit' => 'seo#site-audit',
         'changelog' => 'backups-updates',
         'notebook' => 'claude-capabilities',

@@ -91,7 +91,8 @@ final class Collections extends Module
         $page = $pageId === null ? $this->db->one("SELECT ids, titulek FROM {stranky} WHERE seo_link = ? AND jazyk = '' AND smazano IS NULL", [ltrim($path, '/')]) : null;
 
         return $this->back(match (true) {
-            $pageId !== null => t('Created, with a hidden page %s that lists it – add the first items, then publish the page in Pages.', $path),
+            // 3.20 (C5): the items screen below carries the links – the page, its builder, Publish and the menu
+            $pageId !== null => t('Created, with a hidden page %s that lists it – add the first items, then publish the page from the “Listing page” line below.', $path),
             $page !== null => t('Created. The page “%s” already uses the address %s, so no list page was added – open that page in the builder and add the Collection list element.', (string) $page['titulek'], $path),
             default => t('Created. The address %s is taken, so no list page was added – add the Collection list element to a page in the builder.', $path),
         }, 'items', ['id' => $id]);
@@ -213,6 +214,8 @@ final class Collections extends Module
             'categories' => $categories, 'category' => $category, 'choiceFields' => $choiceFields, 'fieldFilter' => $fieldFilter,
             'filtered' => $language !== '' || $category > 0 || $fieldFilter !== [],
             'trash' => $trash, 'noticeBoard' => Notices::isNotices($k), 'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {kolekce_polozky} WHERE idk = ? AND smazano IS NOT NULL', [$k['idk']]),
+            // 3.20 (C5): the page that lists the collection (a preset makes it hidden) – its state, builder, publishing and the menu
+            'listingPage' => $this->app->auth()->hasModule('pages') ? self::listingPage($this->app, $k) : null,
             // a document library (2.11): how often each document was downloaded, and its stable address
             'downloads' => \Kaleta\Core\Documents::fileField($k) !== null ? \Kaleta\Core\Documents::counts($this->db, (int) $k['idk']) : null,
             // 3.14: staff copy their own signature in My account – said on a people collection once someone is linked to a record
@@ -220,6 +223,56 @@ final class Collections extends Module
                 && \Kaleta\Builder\TeamRecord::linked($this->db, $this->db->all('SELECT idu, email, team_item_id FROM {uzivatele} WHERE blokovat = 0')) !== [],
             'items' => $this->db->all('SELECT idp, nazev, seo_link, poradi, zobrazit, jazyk, datum, smazano, valid_until, review_by FROM {kolekce_polozky} WHERE ' . $where
                 . ' ORDER BY ' . ($trash ? 'smazano DESC' : 'jazyk, poradi, ' . $this->db->sortText('nazev')), $params)]);
+    }
+
+    /**
+     * The page that lists a collection (3.20, C5): the hidden page a preset made (it has the collection's address) or, failing
+     * that, the first page whose build (published or draft) has a Collection list of it. With whether it is published and in
+     * the saved main menu (null = the menu is automatic, the page's "in menu" flag applies).
+     *
+     * @param array<string, mixed> $k the collection
+     * @return array{id: int, title: string, path: string, url: string, visible: bool, in_menu: ?bool}|null
+     */
+    public static function listingPage(\Kaleta\Core\App $app, array $k): ?array
+    {
+        $db = $app->db();
+        $columns = 'ids, titulek, seo_link, jazyk, zobrazit, v_menu';
+        $page = $db->one('SELECT ' . $columns . " FROM {stranky} WHERE seo_link = ? AND jazyk = '' AND smazano IS NULL", [(string) $k['seo_link']])
+            ?? $db->one('SELECT ' . $columns . " FROM {stranky} WHERE smazano IS NULL AND (stavba LIKE ? OR stavba_koncept LIKE ?) ORDER BY jazyk = '' DESC, ids LIMIT 1",
+                array_fill(0, 2, '%"kolekce":' . json_encode((string) $k['seo_link'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . '%'));
+        if ($page === null) {
+            return null;
+        }
+        $path = '/' . ((string) $page['jazyk'] !== '' ? $page['jazyk'] . '/' : '') . $page['seo_link'];
+        $inMenu = \Kaleta\Core\Menu::hasPage($db, (int) $page['ids'], (string) $page['jazyk'], (string) $page['seo_link']);
+
+        return ['id' => (int) $page['ids'], 'title' => (string) $page['titulek'], 'path' => $path,
+            'url' => $app->url(ltrim($path, '/')) . ((int) $page['zobrazit'] === 1 ? '' : '?build=koncept'),
+            'visible' => (int) $page['zobrazit'] === 1, 'in_menu' => $inMenu ?? ((int) $page['v_menu'] === 1)];
+    }
+
+    /** 3.20 (C5): publishes the page that lists the collection from the items screen – the same as "Publish" in Pages. */
+    protected function actionPublishPage(): Response
+    {
+        $k = KolekceObsahu::byId($this->db, $this->request->postInt('id'));
+        if (!$this->request->isPost() || $k === null) {
+            return $this->back();
+        }
+        $auth = $this->app->auth();
+        if (!$auth->hasModule('pages') || !$auth->canPublish()) {
+            return $this->error('You do not have permission to publish pages.', 403);
+        }
+        $page = self::listingPage($this->app, $k);
+        if ($page === null) {
+            return $this->back('The collection has no page that lists it.', 'items', ['id' => $k['idk']], 'chyba');
+        }
+        if (!$page['visible']) {
+            $this->db->update('stranky', ['zobrazit' => 1, 'show_on_publish' => 0, 'zverejnit_od' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['ids' => $page['id']]);
+            \Kaleta\Admin\ChangeLog::write($this->app, 'pages', 'bulk shown', mb_substr($page['title'], 0, 80));
+            \Kaleta\Front\Cache::clear();
+        }
+
+        return $this->back(t('The page %s is published.', $page['path']), 'items', ['id' => $k['idk']]);
     }
 
     protected function actionItem(): Response

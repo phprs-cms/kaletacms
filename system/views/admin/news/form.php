@@ -100,16 +100,21 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 
 <fieldset>
 <legend><?= e(t('Classification')) ?></legend>
-<?php if (count($category) < 2): ?>
+<?php $manageCategories = $app->auth()->hasModule('categories') ? ' <a class="smltxt" href="' . e($app->url('admin.php?module=categories')) . '">' . e(t('Manage categories')) . '</a>' : ''; ?>
+<?php if (count($category) < 2): /* 3.20 (C19): one category is still said – the field used to be hidden and appeared out of nowhere with the second category */ ?>
 <input type="hidden" name="tema" value="<?= (int) ($category[0]['idt'] ?? $newsItem['tema']) ?>">
+<div class="radek">
+	<span class="popisek"><?= e(t('Category')) ?></span>
+	<div data-category><?= e((string) ($category[0]['nazev'] ?? '—')) ?><?= $manageCategories ?></div>
+</div>
 <?php else: ?>
 <div class="radek">
-	<label for="tema"><?= e(t('Categories')) ?></label>
+	<label for="tema"><?= e(t('Category')) ?></label>
 	<div><select id="tema" name="tema" required>
 <?php foreach ($category as $k): ?>
 		<option value="<?= (int) $k['idt'] ?>"<?= (int) $newsItem['tema'] === (int) $k['idt'] ? ' selected' : '' ?>><?= e($k['nazev']) ?></option>
 <?php endforeach ?>
-	</select><?= $error('tema') ?></div>
+	</select><?= $error('tema') ?><?= $manageCategories ?></div>
 </div>
 <?php endif ?>
 <?php if (count($authors) < 2): ?>

@@ -21,6 +21,8 @@ $paths = [
     'reklama' => '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 15l2.2-6 2.3 6M7.8 13h3M14 9v6h1.5a3 3 0 0 0 0-6z"/>',
     'rozsireni' => '<path d="M10 3h4v4h4a1 1 0 0 1 1 1v3h-2a2 2 0 1 0 0 4h2v3a1 1 0 0 1-1 1h-4v-2a2 2 0 1 0-4 0v2H6a1 1 0 0 1-1-1v-4H3v-4h2V8a1 1 0 0 1 1-1h4z"/>',
     'audit' => '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/><path d="m8 11 2 2 4-4"/>',
+    // 3.20 (C20): a broken chain – Broken links under Site care
+    'odkazy' => '<path d="M9 15l-1.5 1.5a3.5 3.5 0 0 1-5-5L6 8"/><path d="m15 9 1.5-1.5a3.5 3.5 0 0 1 5 5L18 16"/><path d="m9 12 1.5-1.5M13.5 13.5 15 12"/><path d="M3 3l2 2M21 21l-2-2"/>',
     'protokol' => '<path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/>',
     'ctenari' => '<circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/><path d="M17 3.5l1 2 2 .3-1.5 1.4.4 2-1.9-1-1.9 1 .4-2L14 5.800l2-.3z" stroke-width="1.2"/>',
     'stitky' => '<path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="8" cy="8" r="1.4"/>',

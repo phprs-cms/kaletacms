@@ -229,7 +229,9 @@ $parity = [
         'draft' => 'admin: autosave of the editor', 'duplicate' => 'admin: a copy of a news item – Claude creates a new one', 'links' => 'admin: link check runs on its own',
         'assistant' => 'admin: AI helper – Claude writes the text itself', 'translate' => 'admin: AI translation – Claude translates and uses create_news', 'bulk' => 'update_news',
         'social_save' => 'update_social_draft', 'social_posted' => 'admin: the person who posted it marks it', 'social_suggest' => 'admin: AI helper – Claude polishes the drafts itself with update_social_draft'],
+    'broken_links' => ['list' => 'list_broken_links'], // 3.20 (C20): the News screen under Site care
     'collections' => $builderParity + ['list' => $readOnly, 'new' => $readOnly, 'preset' => 'create_collection', 'edit' => $readOnly, 'items' => $readOnly, 'item' => $readOnly,
+        'publish_page' => 'update_page', // 3.20 (C5): publishing the listing page from the items screen
         'save' => 'update_collection', 'delete' => 'delete_collection', 'save_item' => 'save_collection_item', 'delete_item' => 'delete_collection_item',
         'restore_item' => 'restore_from_trash', 'delete_item_permanently' => 'admin: the trash empties itself after 30 days', 'duplicate_item' => 'admin: a copy of an item – Claude saves a new one',
         'restore_item_version' => 'restore_item_version', 'signature' => 'get_email_signature', 'notice_log' => 'list_notice_log', 'bulk_items' => 'save_collection_item',
@@ -7753,6 +7755,66 @@ check('3.19.1 (N3191-1): a new signing key reads the key in force under a lock i
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/SigningKey.php'), 'if ($unreadable > $before) {')], [true, true]);
 // N3191-9: no total time limit on an FTPS upload, a stalled one ends
 check('3.19.1 (N3191-9): FTPS uploads end when they stall, not after a fixed time', [isset($n80[CURLOPT_TIMEOUT]), $n80[CURLOPT_LOW_SPEED_LIMIT] ?? null, $n80[CURLOPT_LOW_SPEED_TIME] ?? null], [false, 1024, 60]);
+
+// ---- 3.20 "Connected admin", part B (CPO audit C2, C5, C16, C19, C20) ----
+// C2: the Form element an enquiry came from – by its stored id, else by the form name, else the only form; nested forms count too
+$c2Form = fn (string $id, string $name): array => ['id' => $id, 'typ' => 'formular', 'obsah' => ['nazev' => $name]];
+$c2Build = ['v' => 1, 'deti' => [
+    ['id' => 's1', 'typ' => 'sekce', 'deti' => [['id' => 'k1', 'typ' => 'kontejner', 'deti' => [$c2Form('f1', 'Enquiry')]]]],
+    ['id' => 's2', 'typ' => 'sekce', 'deti' => [$c2Form('f2', 'Newsletter question')]],
+]];
+check('3.20 (C2): EnquiryOrigin::findForm – the stored id wins, a replaced element is found by its name, a lone form stands in, otherwise nothing', [
+    Kaleta\Admin\EnquiryOrigin::findForm($c2Build, 'f2', 'Enquiry'),             // the id is still there – even though the name points elsewhere
+    Kaleta\Admin\EnquiryOrigin::findForm($c2Build, 'gone', 'Newsletter question'), // the element was replaced: by name
+    Kaleta\Admin\EnquiryOrigin::findForm($c2Build, '', 'Enquiry'),                // an older row without the id
+    Kaleta\Admin\EnquiryOrigin::findForm($c2Build, 'gone', 'Renamed'),           // two forms, neither fits
+    Kaleta\Admin\EnquiryOrigin::findForm(['v' => 1, 'deti' => [$c2Build['deti'][0]]], 'gone', 'Renamed'), // the only form of the page
+    Kaleta\Admin\EnquiryOrigin::findForm(['v' => 1, 'deti' => [['id' => 't', 'typ' => 'text', 'obsah' => ['nazev' => 'Enquiry']]]], '', 'Enquiry'), // not a form
+    Kaleta\Admin\EnquiryOrigin::findForm(null, 'f1', 'Enquiry'),
+], ['f2', 'f2', 'f1', null, 'f1', null, null]);
+$c2Detail = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/enquiries/detail.php');
+$c2Builder = (string) file_get_contents(dirname(KALETA_SYSTEM) . '/image/stavitel.js');
+check('3.20 (C2): the enquiry detail links the builder with the form selected, and the builder honours #element=<id> only for an element it has', [
+    str_contains($c2Detail, '$origin[\'builder\']') && str_contains($c2Detail, "t('Open in the builder')") && str_contains($c2Detail, "'Page settings'"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/EnquiryOrigin.php'), "'#element=' . \$id"),
+    preg_match('/element=\(\[A-Za-z0-9_-\]\+\)\/\.exec\(location\.hash/', $c2Builder) === 1 && str_contains($c2Builder, 'if (wanted && find(wanted[1]))'),
+    str_contains($c2Builder, 'markInPreview(scrollToSelected)'),
+    // Statistics: the "edit" link next to the public page, only through the same resolver (pages and collection items the user may edit)
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Stats.php'), 'EnquiryOrigin::editLink('),
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/views/admin/stats/list.php'), '\'Page\' => $pageCell,'),
+], [true, true, true, true, true, 2]);
+// C16: the testimonial request names the References collection – without one, an administrator gets the one-click preset instead of the buttons
+$c16Enquiries = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php');
+check('3.20 (C16): the enquiry detail checks the References collection (one lookup shared with the answer) and offers the references preset when it is missing', [
+    str_contains($c16Enquiries, "'referencesCollection' => \\Kaleta\\Core\\Testimonials::collection(\$this->db)"),
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Testimonials.php'), 'WHERE preset = ?'),
+    str_contains($c2Detail, '$referencesCollection === null && $app->auth()->isAdmin()') && str_contains($c2Detail, 'name="preset" value="references"'),
+    str_contains($c2Detail, 'module=collections&action=preset'),
+], [true, 1, true, true]);
+// C5: the items screen knows the listing page a preset made; C19: the news form always names the category; C20: Broken links under Site care
+$c5Collections = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Collections.php');
+$c5Items = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/collections/items.php');
+check('3.20 (C5): the collection items screen carries the listing page – its state, builder, Publish (publishers only) and the menu – and the empty state no longer sends to a second list', [
+    str_contains($c5Collections, 'public static function listingPage(') && str_contains($c5Collections, "WHERE seo_link = ? AND jazyk = '' AND smazano IS NULL")
+        && str_contains($c5Collections, '\'%"kolekce":\' . json_encode('),
+    str_contains($c5Collections, 'protected function actionPublishPage()') && str_contains($c5Collections, "\$auth->hasModule('pages') || !\$auth->canPublish()"),
+    str_contains($c5Items, "t('Listing page:')") && str_contains($c5Items, "url('publish_page')") && str_contains($c5Items, "t('Add to the menu')") && str_contains($c5Items, "t('Edit in the builder')"),
+    str_contains($c5Items, '$listingPage !== null ? t(\'Add the first item – the page %s lists the items; publish it when they are ready.\''),
+    str_contains($c5Collections, 'from the “Listing page” line below.'),
+], [true, true, true, true, true]);
+$c19Form = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/news/form.php');
+check('3.20 (C19): the news form shows the category also when there is only one (read-only, with Manage categories), the hidden field stays', [
+    preg_match('/count\(\$category\) < 2\).*?name="tema".*?<span class="popisek"><\?= e\(t\(\'Category\'\)\) \?><\/span>/s', $c19Form) === 1,
+    substr_count($c19Form, '$manageCategories'), str_contains($c19Form, "t('Manage categories')") && str_contains($c19Form, "hasModule('categories')"),
+], [true, 3, true]);
+check('3.20 (C20): Broken links is a Site care entry that opens the News screen with the same feature and permission; News keeps its shortcut', [
+    Kaleta\Admin\Modules\BrokenLinks::GROUP, Kaleta\Admin\Modules\BrokenLinks::EXTENSION, Kaleta\Admin\Modules\BrokenLinks::SHARES_PERMISSION_OF,
+    Kaleta\Admin\Modules\BrokenLinks::ADMIN_ONLY, Kaleta\Admin\Modules\BrokenLinks::NAME,
+    array_search(Kaleta\Admin\Modules\BrokenLinks::class, Kaleta\Admin\Kernel::MODULES, true) - array_search(Kaleta\Admin\Modules\Redirects::class, Kaleta\Admin\Kernel::MODULES, true),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/BrokenLinks.php'), "(new News(\$this->kernel))->handle('links')"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/news/list.php'), "url('links')"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/icons.php'), "'odkazy' => '<path"),
+], ['Site care', 'novinky', 'news', false, 'Broken links', 1, true, true, true]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

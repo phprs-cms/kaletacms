@@ -306,6 +306,8 @@
 	/* ---------- canvas: the real page in an iframe, swapped without flicker ---------- */
 
 	let frame2, preview, previewPending = false, scale;
+	// 3.20 (C2): opened with #element=<id> (from an enquiry: the form it came from) – the first drawn canvas scrolls to the selection
+	let scrollToSelected = false;
 	const WIDTHS = { zaklad: 1280, tablet: 820, mobil: 390 };
 
 	/** The iframe has the device width (desktop 1280 px) and is scaled down to fit – so the site's real breakpoints apply on the canvas. */
@@ -336,7 +338,8 @@
 			if (preview) { preview.remove(); }
 			fresh.classList.remove('st-nacita');
 			preview = fresh;
-			markInPreview(false);
+			markInPreview(scrollToSelected);
+			scrollToSelected = false;
 			const retry = previewPending === 'znovu';
 			previewPending = false;
 			if (retry) { refreshPreview(); }
@@ -2092,6 +2095,15 @@
 	root.append(left, el('main', { class: 'st-platno' }, frame2, scale), right, datalists);
 	new ResizeObserver(() => previewSize(preview)).observe(frame2);
 	root.hidden = false;
+	// 3.20 (C2): #element=<id> in the address selects that element on opening (an enquiry links to the form it came from) and the
+	// canvas scrolls to it once drawn; an unknown id is ignored. The hash is dropped so a reload after a save does not reselect it.
+	const wanted = /(?:^#|[#&])element=([A-Za-z0-9_-]+)/.exec(location.hash || '');
+	if (wanted && find(wanted[1])) {
+		state.vybrane = wanted[1];
+		state.pravo = 'obsah';
+		scrollToSelected = true;
+	}
+	if (wanted) { history.replaceState(null, '', location.pathname + location.search); }
 	redraw();
 	refreshPreview();
 	document.addEventListener('keydown', keys);

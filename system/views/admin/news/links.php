@@ -10,7 +10,9 @@
  * @var bool $isEnabled
  */
 ?>
+<?php if ($app->request->get('module') === Kaleta\Admin\Modules\News::IDENT): /* 3.20 (C20): opened from Site care → Broken links, the screen is its own – no "back to news" */ ?>
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to the news list')) ?></a></p>
+<?php endif ?>
 <?php if (!$isEnabled): ?>
 <p class="hlaska"><?= e(t('Link checking is off (Settings → General → More options).')) ?></p>
 <?php endif ?>
