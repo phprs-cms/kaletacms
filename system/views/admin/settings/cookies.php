@@ -16,9 +16,12 @@
 </div>
 <?php
 $field('cookies_text', 'Banner text', 'radky');
-// 3.20 (C22): the site's privacy policy page is prefilled and linked; without one, the hint leads to a new page
+// 3.20 (C22): the site's privacy policy page is prefilled and linked; without one, the hint leads to a new page.
+// 3.20 (N320-8): a hidden page (the installer makes it so) is prefilled too, and the hint says to publish it – its settings do that
 $field('cookies_policy_url', 'Link to the policy', 'text', ($privacyPage ?? null) !== null
-    ? e(t('The privacy policy page of this site: %s.', $privacyPage['titulek'])) . ' <a href="' . e($app->url('admin.php?module=pages&action=edit&id=' . $privacyPage['ids'])) . '">' . e(t('Edit the page')) . '</a>'
+    ? ($privacyPage['visible']
+        ? e(t('The privacy policy page of this site: %s.', $privacyPage['titulek'])) . ' <a href="' . e($app->url('admin.php?module=pages&action=edit&id=' . $privacyPage['ids'])) . '">' . e(t('Edit the page')) . '</a>'
+        : e(t('The privacy policy page of this site: %s – hidden, publish it or visitors following the link get “page not found”.', $privacyPage['titulek'])) . ' <a href="' . e($app->url('admin.php?module=pages&action=edit&id=' . $privacyPage['ids'])) . '">' . e(t('Page settings')) . '</a>')
     : e(t('E.g. /privacy-policy – the page does not exist yet.')) . ' <a href="' . e($app->url('admin.php?module=pages&action=new')) . '">' . e(t('Create the page')) . '</a>', 'maxlength="255"');
 ?>
 <?php if (($additionalLanguages = Kaleta\Core\Language::additional($app->settings())) !== []): // 3.9 (UXM-11): the bar in each language version ?>

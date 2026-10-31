@@ -1045,4 +1045,5 @@ return [
     'Manage categories' => 'Kategorien verwalten',
     'Category' => 'Kategorie',
     'Broken links' => 'Defekte Links',
+    'The privacy policy page of this site: %s – hidden, publish it or visitors following the link get “page not found”.' => 'Die Datenschutzseite dieser Website: %s – ausgeblendet, veröffentliche sie, sonst sehen Besucher über den Link „Seite nicht gefunden“.',
 ];

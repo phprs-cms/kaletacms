@@ -229,7 +229,7 @@ $parity = [
         'draft' => 'admin: autosave of the editor', 'duplicate' => 'admin: a copy of a news item – Claude creates a new one', 'links' => 'admin: link check runs on its own',
         'assistant' => 'admin: AI helper – Claude writes the text itself', 'translate' => 'admin: AI translation – Claude translates and uses create_news', 'bulk' => 'update_news',
         'social_save' => 'update_social_draft', 'social_posted' => 'admin: the person who posted it marks it', 'social_suggest' => 'admin: AI helper – Claude polishes the drafts itself with update_social_draft'],
-    'broken_links' => ['list' => 'list_broken_links'], // 3.20 (C20): the News screen under Site care
+    'broken_links' => ['list' => 'list_broken_links', 'links' => 'admin: link check runs on its own'], // 3.20 (C20): the News screen under Site care; links = "Check again" posting back to it (N320-5)
     'collections' => $builderParity + ['list' => $readOnly, 'new' => $readOnly, 'preset' => 'create_collection', 'edit' => $readOnly, 'items' => $readOnly, 'item' => $readOnly,
         'publish_page' => 'update_page', // 3.20 (C5): publishing the listing page from the items screen
         'save' => 'update_collection', 'delete' => 'delete_collection', 'save_item' => 'save_collection_item', 'delete_item' => 'delete_collection_item',
@@ -7790,11 +7790,13 @@ check('3.20 (C11): migration 0107 adds zmenil as the schema does, fills it from 
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Install/Installer.php'), "'zmeneno' => \$installed"),
     str_contains($kernel320, 'AND zobrazit = 1 AND zmenil IS NOT NULL LIMIT 1'), str_contains($kernel320, 'AND zobrazit = 1 AND zmeneno IS NOT NULL LIMIT 1')], [true, true, true, 1, 2, true, false]);
 // every place that stamps zmeneno on a page by a person's action stamps who as well – no bare date left in these files
-check('3.20 (C11): a page edit stamps who along with when everywhere (the form, bulk, text, versions, import, copy, publish, MCP update_page, presets)', [
+check('3.20 (C11): a page edit stamps who along with when everywhere (the form, bulk, text, versions, import, copy, publish, MCP update_page, presets, the collection listing page)', [
     preg_match_all("/'zmeneno' => date\('Y-m-d H:i:s'\)(?!, 'zmenil')/", (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Pages.php')), // only the helper Pages::edited itself
+    preg_match_all("/update\('stranky', (?![^\n]*Pages::edited\()/", (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Collections.php')), // N320-4: the listing page is published through Pages::edited
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Collections.php'), "'zverejnit_od' => null] + Pages::edited(\$auth->id())"),
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Builder/Publisher.php'), "update('stranky', ['stavba' => \$new, 'stavba_koncept' => null] + \\Kaleta\\Admin\\Modules\\Pages::edited("),
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Tools.php'), '$data += Pages::edited($this->app->auth()->id());'),
-    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Builder/Presets.php'), "+ \\Kaleta\\Admin\\Modules\\Pages::edited(")], [0, 1, 1, 1]);
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Builder/Presets.php'), "+ \\Kaleta\\Admin\\Modules\\Pages::edited(")], [0, 0, 1, 1, 1, 1]);
 $pagesList320 = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/pages/list.php');
 check('3.20 (C1, C11) pages list: the tabs carry the count and the search keeps the tab; Edited always, Language only with language versions', [
     str_contains($pagesList320, "['published' => 'Published', 'hidden' => 'Hidden', 'draft' => 'Unpublished changes', 'kos' => 'Trash']"),
@@ -7841,8 +7843,11 @@ check('3.20 (C16): the enquiry detail checks the References collection (one look
 $c5Collections = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Collections.php');
 $c5Items = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/collections/items.php');
 check('3.20 (C5): the collection items screen carries the listing page – its state, builder, Publish (publishers only) and the menu – and the empty state no longer sends to a second list', [
-    str_contains($c5Collections, 'public static function listingPage(') && str_contains($c5Collections, "WHERE seo_link = ? AND jazyk = '' AND smazano IS NULL")
-        && str_contains($c5Collections, '\'%"kolekce":\' . json_encode('),
+    // N320-2: only a page whose build lists the collection, the page at the collection's address first – never a page that merely has the slug
+    str_contains($c5Collections, 'public static function listingPage(') && !str_contains($c5Collections, "FROM {stranky} WHERE seo_link = ? AND jazyk = '' AND smazano IS NULL\", [(string) \$k['seo_link']])")
+        && str_contains($c5Collections, "WHERE smazano IS NULL AND (stavba LIKE ? OR stavba_koncept LIKE ?) ORDER BY seo_link = ? DESC, jazyk = '' DESC, ids LIMIT 1\"")
+        && str_contains($c5Collections, "[\$pattern, \$pattern, (string) \$k['seo_link']]);")
+        && str_contains($c5Collections, '$pattern = \'%"kolekce":\' . json_encode(') && str_contains($c5Collections, "ChangeLog::write(\$this->app, 'pages', 'shown', "),
     str_contains($c5Collections, 'protected function actionPublishPage()') && str_contains($c5Collections, "\$auth->hasModule('pages') || !\$auth->canPublish()"),
     str_contains($c5Items, "t('Listing page:')") && str_contains($c5Items, "url('publish_page')") && str_contains($c5Items, "t('Add to the menu')") && str_contains($c5Items, "t('Edit in the builder')"),
     str_contains($c5Items, '$listingPage !== null ? t(\'Add the first item – the page %s lists the items; publish it when they are ready.\''),
@@ -7861,6 +7866,45 @@ check('3.20 (C20): Broken links is a Site care entry that opens the News screen 
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/news/list.php'), "url('links')"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/icons.php'), "'odkazy' => '<path"),
 ], ['Site care', 'novinky', 'news', false, 'Broken links', 1, true, true, true]);
+
+/* ---------- 3.20 pre-release review (N320-1 … N320-12) ---------- */
+$n320Origin = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/EnquiryOrigin.php');
+$n320Links = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/news/links.php');
+check('3.20 review (N320-1, N320-5): the footer link to the report form is stored root-relative (Core\\Menu adds the base path); "Check again" posts to, and returns to, the module the screen was opened from', [
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Whistleblowing.php'), "\$path = '/_report';"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/BrokenLinks.php'), "protected function actionLinks(): Response\n    {\n        return \$this->actionList();"),
+    str_contains($n320Links, "\$checkUrl = \$app->url('admin.php?module=' . (\$app->request->get('module') === Kaleta\\Admin\\Modules\\BrokenLinks::IDENT ? Kaleta\\Admin\\Modules\\BrokenLinks::IDENT : Kaleta\\Admin\\Modules\\News::IDENT) . '&action=links');"),
+    str_contains($n320Links, 'action="<?= e($checkUrl) ?>"') && !str_contains($n320Links, "url('links')"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/News.php'), "\$module = \$this->request->get('module') === BrokenLinks::IDENT ? BrokenLinks::IDENT : static::IDENT;"),
+], [true, true, true, true, true]);
+check('3.20 review (N320-3, N320-7, N320-11): enquiry origins drop the .html suffix of url_slash = html, an item path keeps its language, an old row links a known page even without the form', [
+    substr_count($n320Origin, "preg_replace('~\\.html$~', '', trim((string) parse_url(\$path, PHP_URL_PATH), '/'))"),
+    str_contains($n320Origin, 'AND p.seo_link = ? AND p.jazyk = ? AND p.smazano IS NULL LIMIT 1') && !str_contains($n320Origin, "ORDER BY p.jazyk"),
+    !str_contains($n320Origin, "if (\$source === '' && \$id === '')"),
+], [2, true, true]);
+$n320Media = new ReflectionMethod(Kaleta\Admin\Modules\Media::class, 'allowedLink');
+check('3.20 review (N320-6): "Used in" links only to the modules the person may open (the same rule as BuilderActions::dataLinks); null = every link', [
+    $n320Media->invoke(null, 'admin.php?module=users&action=edit&id=3', ['pages', 'media']), $n320Media->invoke(null, 'admin.php?module=pages&action=edit&id=3', ['pages', 'media']),
+    $n320Media->invoke(null, 'admin.php?module=settings', ['pages']), $n320Media->invoke(null, 'admin.php?module=settings', null),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Media.php'), 'self::findUsagesWithLinks($this->db, $modules)'),
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Media.php'), 'self::allowedLink('),
+], ['', 'admin.php?module=pages&action=edit&id=3', '', 'admin.php?module=settings', true, 2]);
+$n320Stats = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/stats/list.php');
+check('3.20 review (N320-8, N320-9): the cookies tab says when the privacy page is hidden and links its settings; Statistics renders empty texts through Module::hint() like every view', [
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Settings.php'), "SELECT ids, titulek, seo_link, zobrazit FROM {stranky}") && str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Settings.php'), "'visible' => (int) \$row['zobrazit'] === 1"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/settings/cookies.php'), "\$privacyPage['visible']") && str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/settings/cookies.php'), "t('Page settings')"),
+    str_contains($n320Stats, '$module->hint(t($empty))'), str_contains($n320Stats, 'MenuPaths::links'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Stats.php'), "'modules' =>"),
+], [true, true, true, false, false]);
+$n320Dictionaries = [];
+foreach (glob(KALETA_SYSTEM . '/jazyky/admin-*.php') as $file) {
+    // a key written twice: the later line silently wins – the file has more "=>" than the array has keys
+    $arrows = count(array_filter(token_get_all((string) file_get_contents($file)), fn ($t): bool => is_array($t) && $t[0] === T_DOUBLE_ARROW));
+    if ($arrows !== count((array) require $file)) {
+        $n320Dictionaries[] = basename($file);
+    }
+}
+check('3.20 review (N320-12): no key is defined twice in an admin dictionary', [$n320Dictionaries], [[]]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

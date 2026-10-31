@@ -21,9 +21,15 @@ final class BrokenLinks extends Module
     public const string ICON = 'odkazy';
     public const string SHARES_PERMISSION_OF = 'news';
 
-    /** The screen of News → Broken links; "check again" posts to News as before. */
+    /** The screen of News → Broken links. */
     protected function actionList(): Response
     {
         return (new News($this->kernel))->handle('links');
+    }
+
+    /** 3.20 (N320-5): "Check again" posts to the module the screen was opened from, so the answer lands back on this screen. */
+    protected function actionLinks(): Response
+    {
+        return $this->actionList();
     }
 }

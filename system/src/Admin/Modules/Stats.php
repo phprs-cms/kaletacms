@@ -24,7 +24,7 @@ final class Stats extends Module
         $days = in_array($this->request->getInt('days'), \Kaleta\Core\Report::PERIODS, true) ? $this->request->getInt('days') : 30;
 
         // the module is there only while the Statistics feature is on – the one switch since 3.2, so no "turned off" notice
-        // 3.19.2: menu paths in the empty texts link only where this person may go
+        // 3.19.2: menu paths in the empty texts link only where this person may go (the view's $module->hint(), N320-9)
         $report = \Kaleta\Core\Report::build($this->db, $days);
         // 3.20 (C2): the pages that bring leads get an "edit" link into the administration next to the public one – only for
         // paths that are a page or a collection item the signed-in user may edit
@@ -33,6 +33,6 @@ final class Stats extends Module
             $editLinks[$row['path']] ??= \Kaleta\Admin\EnquiryOrigin::editLink($this->app, (string) $row['path']);
         }
 
-        return $this->view('list', 'Statistics', ['report' => $report, 'modules' => $this->kernel->modules(), 'editLinks' => array_filter($editLinks)]);
+        return $this->view('list', 'Statistics', ['report' => $report, 'editLinks' => array_filter($editLinks)]);
     }
 }

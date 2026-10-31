@@ -1102,6 +1102,38 @@ in the paste cleanup's inert document (nothing runs).
   messages and the Google reviews placeholder said "Administration → Connections", a menu entry that does not exist; the
   path is a link (`MenuPaths`: Administration → Integrations, Integrations, Features).
 
+## 3.20 – connected admin (31 October 2026)
+
+The second release from the CPO and Head of UX audits of 30 October: the admin's screens link sideways and back, so a
+person never has to know where the next screen is. Migration 0107 (`ka_stranky.zmenil`, the person who last edited a page);
+`KALETA_DB_VERSION` 107. MCP tools, parameters and Czech aliases unchanged.
+
+1. **Pages list (C1, C11):** tabs All / Published / Hidden / Unpublished changes / Trash with counts (`status=published|hidden|draft|kos`),
+   an Edited column (when and who – `zmenil`, filled from the history by 0107, stamped by every edit, publish, import, copy and
+   `update_page`; builder autosaves do not stamp it, the sitemap's `lastmod` stays honest) and a Language column where language
+   versions are on; the newest edit first, subpages under their parent. The dashboard tiles open the matching tab; the installer
+   stamps the starter pages so "Recently edited" is not empty on day one.
+2. **Enquiry → form → page (C2):** the enquiry detail says "From the form *X* on the page *Y* – Open in the builder · Page settings"
+   (`Admin\EnquiryOrigin`: the stored element id, else the form by name, else the only form; item templates, pop-ups and site parts
+   too); the builder honours `#element=<id>` and selects the element. Statistics rows that name a page get an "edit" link.
+3. **Collections (C5, C16):** the items screen carries the listing page the preset made ("Listing page: /team – hidden · Edit in the
+   builder · Publish · Add to the menu"), the creation message points there and the empty state no longer sends people to build
+   a second list. The testimonial request on an enquiry offers "Create the References collection" when the site has none.
+4. **News (C19, C20):** the category is always shown, read-only with one category, with "Manage categories"; Broken links is an
+   entry under Site care (`broken_links`, the same feature and permission as News), News keeps its shortcut.
+5. **Menu paths are links everywhere (C4):** `Module::hint()` renders every hint through `MenuPaths` with the modules the person may
+   open – Newsletters, Bookings, Pages, Enquiries settings, Transfer, Schedules, News, Fleet, Settings and System status; new paths
+   for Enquiries, Pages, Roles, Fleet console, Webhooks, Scheduled runs and Notebook.
+6. **One way to connect Claude (C6):** every "How to connect Claude" leads to Claude settings → *How to connect*; the Connections
+   box links "Create a personal token – My account". Token and OAuth code untouched.
+7. **Builder panels link to the data (U11, U13):** Form → Enquiries and spam protection, Collection list → the collection (or "Add
+   a collection"), Business details → edit them, Navigation → the menu, Booking → services and people – only where the person may
+   go (`BuilderActions::dataLinks`); a component instance offers "Edit this component (changes everywhere)"; the component
+   builder's settings link is "Component name and properties".
+8. **Small dead ends (C22, U14):** provider documentation links in Integrations have names; Media "Used in" lists the pages and items as
+   links; the cookies tab prefills the privacy-policy page and links it; Site audit links the Notebook; Whistleblowing adds the
+   form to the footer menu with one click; the dashboard's enquiry status is its own column; one name "Sections library".
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |

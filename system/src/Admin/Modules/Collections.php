@@ -237,9 +237,11 @@ final class Collections extends Module
     {
         $db = $app->db();
         $columns = 'ids, titulek, seo_link, jazyk, zobrazit, v_menu';
-        $page = $db->one('SELECT ' . $columns . " FROM {stranky} WHERE seo_link = ? AND jazyk = '' AND smazano IS NULL", [(string) $k['seo_link']])
-            ?? $db->one('SELECT ' . $columns . " FROM {stranky} WHERE smazano IS NULL AND (stavba LIKE ? OR stavba_koncept LIKE ?) ORDER BY jazyk = '' DESC, ids LIMIT 1",
-                array_fill(0, 2, '%"kolekce":' . json_encode((string) $k['seo_link'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . '%'));
+        // 3.20 (N320-2): only a page whose build lists the collection counts – the preset skips its page when the slug is taken,
+        // so a page that merely has the collection's address is somebody else's; the page at that address comes first
+        $pattern = '%"kolekce":' . json_encode((string) $k['seo_link'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . '%';
+        $page = $db->one('SELECT ' . $columns . " FROM {stranky} WHERE smazano IS NULL AND (stavba LIKE ? OR stavba_koncept LIKE ?) ORDER BY seo_link = ? DESC, jazyk = '' DESC, ids LIMIT 1",
+            [$pattern, $pattern, (string) $k['seo_link']]);
         if ($page === null) {
             return null;
         }
@@ -267,8 +269,9 @@ final class Collections extends Module
             return $this->back('The collection has no page that lists it.', 'items', ['id' => $k['idk']], 'chyba');
         }
         if (!$page['visible']) {
-            $this->db->update('stranky', ['zobrazit' => 1, 'show_on_publish' => 0, 'zverejnit_od' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['ids' => $page['id']]);
-            \Kaleta\Admin\ChangeLog::write($this->app, 'pages', 'bulk shown', mb_substr($page['title'], 0, 80));
+            // 3.20 (N320-4): stamped like every edit in Pages (when and who), logged as one page shown
+            $this->db->update('stranky', ['zobrazit' => 1, 'show_on_publish' => 0, 'zverejnit_od' => null] + Pages::edited($auth->id()), ['ids' => $page['id']]);
+            \Kaleta\Admin\ChangeLog::write($this->app, 'pages', 'shown', mb_substr($page['title'], 0, 80));
             \Kaleta\Front\Cache::clear();
         }
 

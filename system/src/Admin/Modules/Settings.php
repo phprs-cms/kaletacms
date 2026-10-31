@@ -121,14 +121,17 @@ class Settings extends Module
      * The privacy policy page in the default language (3.20, C22): the one the installer made (the slug of "Privacy
      * policy" in the site language), otherwise a page whose address says so.
      *
-     * @return array{ids: int, titulek: string, seo_link: string}|null
+     * With whether it is published (3.20, N320-8: the installer makes it hidden – the cookie bar's link would lead to a 404 until
+     * somebody publishes it, so the hint says so).
+     *
+     * @return array{ids: int, titulek: string, seo_link: string, visible: bool}|null
      */
     public static function privacyPolicyPage(\Kaleta\Core\Db $db, \Kaleta\Core\Settings $settings): ?array
     {
         $slug = slugify(\Kaleta\Core\Language::runWith(\Kaleta\Core\Language::defaults($settings), static fn (): string => t('Privacy policy')));
-        $row = $db->one("SELECT ids, titulek, seo_link FROM {stranky} WHERE smazano IS NULL AND jazyk = '' AND (seo_link = ? OR seo_link LIKE '%privacy%' OR seo_link LIKE '%ochrana-osobnich%' OR seo_link LIKE '%datenschutz%' OR seo_link LIKE '%privacidad%') ORDER BY seo_link = ? DESC, ids LIMIT 1", [$slug, $slug]);
+        $row = $db->one("SELECT ids, titulek, seo_link, zobrazit FROM {stranky} WHERE smazano IS NULL AND jazyk = '' AND (seo_link = ? OR seo_link LIKE '%privacy%' OR seo_link LIKE '%ochrana-osobnich%' OR seo_link LIKE '%datenschutz%' OR seo_link LIKE '%privacidad%') ORDER BY seo_link = ? DESC, ids LIMIT 1", [$slug, $slug]);
 
-        return $row === null ? null : ['ids' => (int) $row['ids'], 'titulek' => (string) $row['titulek'], 'seo_link' => (string) $row['seo_link']];
+        return $row === null ? null : ['ids' => (int) $row['ids'], 'titulek' => (string) $row['titulek'], 'seo_link' => (string) $row['seo_link'], 'visible' => (int) $row['zobrazit'] === 1];
     }
 
     /** @return array<string, string> address => name of every collection, for the screen mode checkboxes */

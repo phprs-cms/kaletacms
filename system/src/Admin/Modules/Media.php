@@ -155,11 +155,13 @@ final class Media extends Module
 
     /**
      * The same places, each with the admin screen where the file is used (3.20, C22: "Used in" in the Media list is a list
-     * of links, not a tooltip). An empty url = a place without a screen of its own (a class, a saved section).
+     * of links, not a tooltip). An empty url = a place without a screen of its own (a class, a saved section), or one in a
+     * module this person may not open (3.20, N320-6 – the same rule as BuilderActions::dataLinks and Module::hint).
      *
+     * @param list<string>|null $modules identifiers of the modules the person may open (Admin\Kernel::modules); null = no limit
      * @return array<int, list<array{text: string, url: string}>> ido => places
      */
-    public static function findUsagesWithLinks(\Kaleta\Core\Db $db): array
+    public static function findUsagesWithLinks(\Kaleta\Core\Db $db, ?array $modules = null): array
     {
         // kind, SQL (kde = name, id = key for the screen, obsah = where paths are looked for), admin query with %d for the id
         $sources = [
@@ -183,7 +185,7 @@ final class Media extends Module
             foreach ($db->all($sql) as $r) {
                 // paths also in JSON (media\/2026\/…), with and without the site URL; a variant (-1200, .webp) counts as the original
                 foreach (\Kaleta\Core\MediaHygiene::paths((string) $r['obsah']) as $path) {
-                    $usages[$path][$kind . ' ' . $r['kde']] = $query === '' ? '' : 'admin.php?' . sprintf($query, (int) $r['id']);
+                    $usages[$path][$kind . ' ' . $r['kde']] = $query === '' ? '' : self::allowedLink('admin.php?' . sprintf($query, (int) $r['id']), $modules);
                 }
             }
         }
@@ -200,6 +202,17 @@ final class Media extends Module
         }
 
         return array_map(static fn (array $places): array => array_map(static fn (string $text, string $url): array => ['text' => $text, 'url' => $url], array_keys($places), $places), $used);
+    }
+
+    /**
+     * The admin link of a place, or '' when its module= is not among the modules the person may open (3.20, N320-6);
+     * null = every link stays.
+     *
+     * @param list<string>|null $modules
+     */
+    private static function allowedLink(string $url, ?array $modules): string
+    {
+        return $modules === null || (preg_match('/[?&]module=([a-z_]+)/', $url, $m) && in_array($m[1], $modules, true)) ? $url : '';
     }
 
     /** Upload of one or more files; with the parameter format=json it answers the editor with JSON. */
@@ -537,7 +550,8 @@ final class Media extends Module
     {
         $order = self::SORT_ORDERS[$this->request->get('sort')][1] ?? self::SORT_ORDERS['nove'][1];
         $order = str_replace('o.nazev ASC', $this->db->sortText('o.nazev') . ' ASC', $order);
-        $elsewhere = self::findUsagesWithLinks($this->db);
+        $modules = array_keys($this->kernel->modules()); // 3.20 (N320-6): "Used in" links only where this person may go
+        $elsewhere = self::findUsagesWithLinks($this->db, $modules);
         $rows = $this->db->all(
             "SELECT o.*, (SELECT COUNT(*) FROM {media_pouziti} p WHERE p.ido = o.ido) AS pouzito
              FROM {media} o WHERE {$where} ORDER BY {$order} LIMIT ? OFFSET ?",
@@ -548,7 +562,7 @@ final class Media extends Module
         if ($rows !== []) {
             $ids = array_map(static fn (array $o): int => (int) $o['ido'], $rows);
             foreach ($this->db->all('SELECT p.ido, n.idc, n.titulek FROM {media_pouziti} p JOIN {novinky} n ON n.idc = p.idc WHERE p.ido IN (' . implode(',', array_fill(0, count($ids), '?')) . ') ORDER BY n.idc DESC', $ids) as $n) {
-                $news[(int) $n['ido']][] = ['text' => t('news item') . ' ' . $n['titulek'], 'url' => 'admin.php?module=news&action=edit&id=' . (int) $n['idc']];
+                $news[(int) $n['ido']][] = ['text' => t('news item') . ' ' . $n['titulek'], 'url' => self::allowedLink('admin.php?module=news&action=edit&id=' . (int) $n['idc'], $modules)];
             }
         }
 

@@ -10,6 +10,11 @@
  * @var bool $isEnabled
  */
 ?>
+<?php
+// 3.20 (N320-5): "Check again" posts to the module this screen was opened from – Site care → Broken links or News → Broken links – so the
+// answer lands on the same screen; the view belongs to News, so $module cannot tell
+$checkUrl = $app->url('admin.php?module=' . ($app->request->get('module') === Kaleta\Admin\Modules\BrokenLinks::IDENT ? Kaleta\Admin\Modules\BrokenLinks::IDENT : Kaleta\Admin\Modules\News::IDENT) . '&action=links');
+?>
 <?php if ($app->request->get('module') === Kaleta\Admin\Modules\News::IDENT): /* 3.20 (C20): opened from Site care → Broken links, the screen is its own – no "back to news" */ ?>
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to the news list')) ?></a></p>
 <?php endif ?>
@@ -29,7 +34,7 @@
 	<td style="word-break:break-all"><a href="<?= e($o['url']) ?>" target="_blank" rel="noopener noreferrer"><?= e(mb_strimwidth($o['url'], 0, 90, '…')) ?></a></td>
 	<td><?= e($o['status'] === 0 ? t('server does not respond') : ($o['status'] === 404 ? t('page does not exist (404)') : t('error %s', $o['status']))) ?></td>
 	<td class="cislo"><?= e(format_date($o['found'])) ?></td>
-	<td class="akce"><form class="vradku" method="post" action="<?= e($module->url('links')) ?>"><?= $csrf ?><input type="hidden" name="kind" value="<?= e($o['kind']) ?>"><input type="hidden" name="id" value="<?= $o['id'] ?>"><button class="navigace" type="submit"><?= e(t('Check again')) ?></button></form></td>
+	<td class="akce"><form class="vradku" method="post" action="<?= e($checkUrl) ?>"><?= $csrf ?><input type="hidden" name="kind" value="<?= e($o['kind']) ?>"><input type="hidden" name="id" value="<?= $o['id'] ?>"><button class="navigace" type="submit"><?= e(t('Check again')) ?></button></form></td>
 </tr>
 <?php endforeach ?>
 </tbody></table></div>

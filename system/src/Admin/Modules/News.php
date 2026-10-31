@@ -612,8 +612,11 @@ final class News extends Module
         if ($this->request->isPost()) {
             // "check again": the record is put at the front of the queue
             \Kaleta\Core\Links::recheck($this->app, $this->request->post('kind') ?: 'news', $this->request->postInt('id') ?: $this->request->postInt('idc'));
+            // 3.20 (N320-5): pressed under Site care → Broken links, the person returns there, not to News → Broken links
+            $module = $this->request->get('module') === BrokenLinks::IDENT ? BrokenLinks::IDENT : static::IDENT;
+            $this->app->session->flash('ok', 'It will be checked again within a few minutes.');
 
-            return $this->back('It will be checked again within a few minutes.', 'links');
+            return Response::redirect($this->app->url('admin.php?module=' . $module . '&action=links'));
         }
         $pages = $this->app->auth()->hasModule('pages');
 

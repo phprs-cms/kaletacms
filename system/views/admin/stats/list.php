@@ -15,11 +15,12 @@ $chart = $report['days'];
 $totals = $report['totals'];
 $max = max(1, ...array_column($chart, 'views'));
 $leads = fn (array $r): string => format_count((int) $r['enquiries']) . ' / ' . format_count((int) $r['signups']);
-$table = function (string $title, array $rows, array $columns, string $empty = 'No data yet.', string $class = '') use ($app, $modules): void {
+$table = function (string $title, array $rows, array $columns, string $empty = 'No data yet.', string $class = '') use ($module): void {
     echo '<div' . ($class !== '' ? ' class="' . $class . '"' : '') . '><h2>' . e(t($title)) . '</h2>';
     if ($rows === []) {
-        // 3.19.2 (C3): a menu path in the empty text ("Administration → Integrations") is a link, as in messages
-        echo '<p>' . Kaleta\Admin\MenuPaths::links($app->url('admin.php'), t($empty), array_keys($modules)) . '</p></div>';
+        // 3.19.2 (C3): a menu path in the empty text ("Administration → Integrations") is a link, as in messages – through
+        // Module::hint() like every other view (3.20, N320-9)
+        echo '<p>' . $module->hint(t($empty)) . '</p></div>';
 
         return;
     }

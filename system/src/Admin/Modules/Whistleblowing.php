@@ -81,7 +81,9 @@ final class Whistleblowing extends Module
         if (!$this->request->isPost() || !$this->app->auth()->isAdmin()) {
             return $this->back();
         }
-        $path = $this->app->url('_report');
+        // 3.20 (N320-1): a link item is stored root-relative – Core\Menu renders it through App::url(), so the base path of a
+        // subfolder install is added there, not here
+        $path = '/_report';
         [, $items] = \Kaleta\Core\Look::menuForEditing($this->db, $this->app->settings(), 'paticka', '');
         $items ??= [];
         foreach (\Kaleta\Core\Menu::flatten($items) as $item) {

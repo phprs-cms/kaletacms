@@ -68,7 +68,8 @@ final class EnquiryOrigin
      */
     public static function pageByPath(Db $db, Settings $settings, string $path): ?array
     {
-        $path = trim((string) parse_url($path, PHP_URL_PATH), '/');
+        // 3.20 (N320-3): a site with url_slash = 'html' stores /contact.html – the suffix is not part of the slug
+        $path = preg_replace('~\.html$~', '', trim((string) parse_url($path, PHP_URL_PATH), '/'));
         $segments = $path === '' ? [] : explode('/', $path);
         $language = '';
         if ($segments !== [] && isset(Language::AVAILABLE[$segments[0]]) && in_array($segments[0], Language::additional($settings), true)) {
@@ -92,14 +93,17 @@ final class EnquiryOrigin
      */
     public static function collectionItemByPath(Db $db, Settings $settings, string $path): ?array
     {
-        $segments = explode('/', trim((string) parse_url($path, PHP_URL_PATH), '/'));
+        // 3.20 (N320-3): the .html suffix of url_slash = 'html' is not part of the slug
+        $segments = explode('/', preg_replace('~\.html$~', '', trim((string) parse_url($path, PHP_URL_PATH), '/')));
+        $language = '';
         if (isset(Language::AVAILABLE[$segments[0]]) && in_array($segments[0], Language::additional($settings), true)) {
-            array_shift($segments);
+            $language = array_shift($segments);
         }
         if (count($segments) !== 2) {
             return null;
         }
-        $row = $db->one('SELECT p.idk, p.idp, p.nazev FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.seo_link = ? AND p.seo_link = ? AND p.smazano IS NULL ORDER BY p.jazyk = \'\' DESC LIMIT 1', [$segments[0], $segments[1]]);
+        // 3.20 (N320-7): /en/team/jane is the English item, not the default-language one with the same slug
+        $row = $db->one('SELECT p.idk, p.idp, p.nazev FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.seo_link = ? AND p.seo_link = ? AND p.jazyk = ? AND p.smazano IS NULL LIMIT 1', [$segments[0], $segments[1], $language]);
 
         return $row === null ? null : ['idk' => (int) $row['idk'], 'idp' => (int) $row['idp'], 'nazev' => (string) $row['nazev']];
     }
@@ -152,10 +156,9 @@ final class EnquiryOrigin
             if ($page === null) {
                 return null;
             }
+            // 3.20 (N320-11): an old row whose form sits inside a component instance is not found by findForm – the page is
+            // still known, so its links are shown without the #element= anchor (null only when the page itself is gone)
             $id = $element($page['stavba'], $page['stavba_koncept']);
-            if ($source === '' && $id === '') {
-                return null; // an old row and a page without that form: nothing to point at
-            }
 
             return ['form' => $form, 'kind' => 'page', 'title' => (string) $page['titulek'],
                 'builder' => $app->url($admin . 'pages&action=builder&id=' . (int) $page['ids']) . $anchor($id),
