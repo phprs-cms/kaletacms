@@ -2064,6 +2064,17 @@ check('Stavba::zTextu: nadpis h1 a text', array_map(fn (array $p): string => $p[
 $buildStyleErrors = [];
 check('Styl::vycisti: vloženo CSS, neznámá vlastnost a stav vypadnou', Kaleta\Builder\Style::sanitize(['zaklad' => ['barva' => 'red;}body{x:y', 'neznama' => '1', 'sirka' => '50%'], 'tisk' => []], 's', $buildStyleErrors), ['zaklad' => ['sirka' => '50%']]);
 check('Styl::vycisti: chyby', array_keys($buildStyleErrors), ['s.zaklad.barva', 's.zaklad.neznama', 's.tisk']);
+// 3.21 (U4): visibility per device is the Display style „none“ at the breakpoint – the Visibility row reads and writes what the two former
+// checkboxes and the Style tab wrote, so an old build renders the same; the builder writes an explicit display (flex, block) where a
+// smaller device must stay shown under a hidden larger one
+check('3.21 (U4): hidden on phone = display none in the phone media query only', Kaleta\Builder\Style::css('#s-a', ['mobil' => ['zobrazeni' => 'none']]), "@media (max-width: 767px) { #s-a { display: none; } }\n");
+check('3.21 (U4): hidden on tablet, shown again on phone with the container\'s own display', Kaleta\Builder\Style::css('#s-a', ['zaklad' => ['zobrazeni' => 'flex'], 'tablet' => ['zobrazeni' => 'none'], 'mobil' => ['zobrazeni' => 'flex']]),
+    "#s-a { display: flex; }\n@media (max-width: 1023px) { #s-a { display: none; } }\n@media (max-width: 767px) { #s-a { display: flex; } }\n");
+$visibilityErrors = [];
+$visibilityStyle = ['zaklad' => ['zobrazeni' => 'none'], 'tablet' => ['zobrazeni' => 'block'], 'mobil' => ['zobrazeni' => 'none']];
+check('3.21 (U4): sanitize keeps every visibility combination the builder writes', [Kaleta\Builder\Style::sanitize($visibilityStyle, 's', $visibilityErrors), $visibilityErrors], [$visibilityStyle, []]);
+check('3.21 (U4): an old build hidden on mobile passes the build validator unchanged',
+    Kaleta\Builder\Build::sanitize(['v' => 1, 'deti' => [['id' => 'a1', 'typ' => 'nadpis', 'znacka' => 'h2', 'obsah' => ['text' => 'Hi'], 'styl' => ['mobil' => ['zobrazeni' => 'none']]]]])[0]['deti'][0]['styl'], ['mobil' => ['zobrazeni' => 'none']]);
 check('Styl::css: tokeny, sloupce, hover a breakpoint', Kaleta\Builder\Style::css('#s-a', ['zaklad' => ['odsazeni_y' => 'xl', 'barva' => 'primarni', 'sloupce' => '3'], 'mobil' => ['sloupce' => '1'], 'hover' => ['barva' => '#ff0000']]),
     "#s-a { padding-block: var(--ka-mezera-xl); color: var(--ka-barva-primarni); grid-template-columns: repeat(3, minmax(0, 1fr)); }\n#s-a:is(:hover, :focus-visible) { color: #ff0000; }\n@media (max-width: 767px) { #s-a { grid-template-columns: repeat(1, minmax(0, 1fr)); } }\n");
 // 3.9.2: a max width replaced the template's img { max-width: 100% } – an 800px photo ran off a phone; percent and keywords stay
