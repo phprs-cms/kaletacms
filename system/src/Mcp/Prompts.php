@@ -105,7 +105,7 @@ final class Prompts
                   Regional versions (English UK, Austrian German, Brazilian Portuguese) and right-to-left Arabic are
                   supported; the prompt add_language_version covers translating the rest afterwards.
                 - **The same address in every language.** If the old site used the same slug in each language (/contact and
-                  /en/contact), an administrator switches on "The same address in every language" in Settings → General first;
+                  /en/contact), an administrator switches on "The same address in every language" in Settings → Languages first;
                   otherwise a clashing slug gets a number and the import lists it.
 
                 ## 3. Bring the content over
@@ -613,7 +613,7 @@ final class Prompts
                 there plus the new code. While the home page has no published translation, the new version stays out of the
                 language switcher, hreflang and the sitemap, so the translation can be prepared in peace. If the original slugs
                 should be kept in every language (/contact and /en/contact), an administrator switches on "The same address in
-                every language" in Settings → General.
+                every language" in Settings → Languages.
 
                 Per-language settings: `site_name` and `site_description` with the language code appended (site_name_de,
                 site_description_de), the cookie bar's cookies_text_de and cookies_policy_url_de – use the new code instead of

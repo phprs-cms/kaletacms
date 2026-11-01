@@ -198,7 +198,7 @@ a prepared state every night. Nothing in this repository creates it; the owner d
    unset, so newsletters cannot be sent at all.
 4. **Create the reviewer account.** Users → add `anthropic-review` as an **administrator** (so every tool can be
    tried), with a strong password the owner enters only in the portal's Test & launch step, and without required
-   two-factor sign-in (Settings → General → Two-factor sign-in must not require it for administrators). Optionally set guardrails under Claude
+   two-factor sign-in (Settings → Security → Two-factor sign-in must not require it for administrators). Optionally set guardrails under Claude
    settings (hourly change limit) so a test run cannot flood the site.
 5. **Snapshot.** When the content is ready, save the state the site returns to (see below).
 6. **Reset nightly.** Add the cron job below. After every Kaleta update of the review site, take the snapshot again

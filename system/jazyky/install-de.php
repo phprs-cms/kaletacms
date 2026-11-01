@@ -114,4 +114,5 @@ return [
     'Formal (Sie)' => 'Förmlich (Sie)',
     'Informal (du)' => 'Locker (du)',
     'Uploads: the server allowed only small files, so Kaleta wrote %s with upload_max_filesize = 16M and post_max_size = 20M into the site\'s folder. The host reads it within a few minutes; System status shows the limit in force.' => 'Uploads: Der Server erlaubte nur kleine Dateien, deshalb hat Kaleta %s mit upload_max_filesize = 16M und post_max_size = 20M in den Ordner der Website geschrieben. Der Hoster liest die Datei innerhalb weniger Minuten; der Systemstatus zeigt das geltende Limit.',
+    'A site in several languages: each further version (e.g. /cs/…) has its own pages, categories and news, a language switcher and hreflang tags. Pick the languages in Settings → Languages.' => 'Eine Website in mehreren Sprachen: Jede weitere Version (z. B. /en/…) hat eigene Seiten, Kategorien und News, einen Sprachumschalter und hreflang-Tags. Die Sprachen wählen Sie unter Einstellungen → Sprachen.',
 ];

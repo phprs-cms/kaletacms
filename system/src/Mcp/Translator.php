@@ -885,7 +885,7 @@ final class Translator
             . '(21) Sample content (3.11): starter sites, page templates and new elements hold placeholders in square brackets ([number], [Customer’s name]) and sample texts. The check of the build tools and site_audit (kind sample) list them – replace them with the owner\'s real content (ask for it) or delete them; never put in invented reviews, names or figures. '
             . '(22) Since 3.9–3.12: import_wordpress brings Polylang and WPML sites as linked language versions (add_languages only when the user agrees) and WooCommerce shops as a product catalogue with categories and redirects; '
             . 'save_redirects takes patterns (/blog/* → /news/*) and 410 for gone addresses; languages may be regional (en-gb, pt-br) or right-to-left (ar) – site_audit kind accessibility warns about fonts without their letters; '
-            . 'a hidden collection category shows with its first published item. The time zone and per-language slugs are set by an administrator (Settings → General). '
+            . 'a hidden collection category shows with its first published item. The time zone (Settings → General) and per-language slugs (Settings → Languages) are set by an administrator. '
             . 'The prompts are full runbooks – migrate_site, launch_site, add_language_version, newsletter_release, weekly_care, set_up_bookings, compliance_check: follow the one that fits the task. ';
     }
 }

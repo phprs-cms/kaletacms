@@ -61,7 +61,7 @@ addresses (step 8).
   Regional versions (English UK, Austrian German, Brazilian Portuguese) and right-to-left Arabic are
   supported; the prompt add_language_version covers translating the rest afterwards.
 - **The same address in every language.** If the old site used the same slug in each language (/contact and
-  /en/contact), an administrator switches on "The same address in every language" in Settings → General first;
+  /en/contact), an administrator switches on "The same address in every language" in Settings → Languages first;
   otherwise a clashing slug gets a number and the import lists it.
 
 ## 3. Bring the content over

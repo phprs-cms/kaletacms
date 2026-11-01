@@ -53,7 +53,7 @@ final class Demo
     ];
 
     /** Settings tabs the demo saves (the screens of their own save only their fixed tab). */
-    private const array SETTINGS_TABS = ['', 'general', 'company', 'seo', 'cookies', 'analytics'];
+    private const array SETTINGS_TABS = ['', 'general', 'languages', 'company', 'seo', 'cookies', 'analytics']; // languages: part of general until 3.23
 
     /** Settings keys the demo saves – everything else (code, secret keys, addresses of other servers, tokens) stays as it is. */
     private const string SETTINGS_KEYS = '/^(site_name|site_description|footer_text|social_(facebook|instagram|x|youtube|linkedin)|social_networks|home_page|news_per_page|share_buttons|article_outline|related_news_auto|'

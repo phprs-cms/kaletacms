@@ -167,12 +167,17 @@ curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?module=pages&action=new"; g
 curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?module=extensions"; grep -q 'the /news listing' "$WORK/page.html" && ! grep -q '/novinky' "$WORK/page.html" || fail "English admin: Features do not name the site's news address"
 curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?module=business"; grep -qE 'CZ12345678|\+420|Mapy\.cz|CZ, SK' "$WORK/page.html" && fail "English admin: Czech-only examples in the company details"
 curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?module=enquiries"; grep -q 'practice in CZ' "$WORK/page.html" && fail "English admin: the retention hint assumes the Czech Republic"
+# 3.23 (C12, C8): the tabs that left General and the console tab under its English name
+curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?module=settings&tab=console"; grep -q 'aria-current="page">Reporting to a console<' "$WORK/page.html" || fail "English admin: the console tab is not called Reporting to a console"
+curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?module=settings&tab=general"; grep -q '>Languages</a>' "$WORK/page.html" && grep -q '>Security</a>' "$WORK/page.html" && grep -q '>Agency</a>' "$WORK/page.html" && grep -q 'Sharing and social networks' "$WORK/page.html" \
+  || fail "English admin: Settings has no Languages, Security or Agency tab, or General no Sharing and social networks"
 NEWS=$(sql "SELECT idc FROM ka_novinky LIMIT 1")
 ADMIN_SCREENS=("" "module=pages" "module=pages&action=new" "module=pages&action=builder&id=1" "module=enquiries" "module=parts" "module=parts&action=builder&type=hlavicka&language=" \
   "module=components" "module=collections" "module=collections&action=new" "module=news" "module=news&action=new" "module=news&action=edit&id=$NEWS" "module=categories" "module=categories&action=new" \
   "module=tags" "module=media" "module=stats" "module=appearance" "module=menu" "module=users" "module=users&action=new" "module=roles" "module=roles&action=new" "module=redirects" \
   "module=changelog" "module=transfer" "module=extensions" "module=claude_settings" "module=addons" "module=subscribers" "module=newsletters" "module=newsletters&action=new" "module=parts&action=templates&type=hlavicka" "module=parts&action=templates&type=paticka" "action=account" "module=settings&tab=general" "module=business" "module=settings&tab=seo" \
   "module=settings&tab=analytics" "module=settings&tab=cookies" "module=settings&tab=mail" "module=settings&tab=backups" "module=status" \
+  "module=settings&tab=languages" "module=settings&tab=security" "module=settings&tab=firewall" "module=settings&tab=agency" "module=settings&tab=console" \
   "module=popups" "module=popups&action=new" "module=notebook" "module=notebook&action=edit" "module=requests" "module=requests&action=new" "module=schedules" "module=schedules&action=edit" \
   "module=bookings" "module=bookings&action=new" "module=bookings&action=services&new=1" "module=bookings&action=staff" "module=bookings&action=staff_edit" "module=whistleblowing")
 for u in "${ADMIN_SCREENS[@]}"; do

@@ -2908,5 +2908,6 @@ window.KALETA_PREKLAD = {
 	"https://…, /about-us, an e-mail, a phone – or a page name": "https://…, /o-nas, e-mail, telefon – nebo název stránky",
 	"Suggestions": "Návrhy",
 	"Link to: %s": "Odkaz na: %s",
-	"Nothing found – the text is used as the address.": "Nic nenalezeno – text se použije jako adresa."
+	"Nothing found – the text is used as the address.": "Nic nenalezeno – text se použije jako adresa.",
+	"A site in several languages: each further version (e.g. /cs/…) has its own pages, categories and news, a language switcher and hreflang tags. Pick the languages in Settings → Languages.": "Web ve více jazycích: každá další verze (/en/…) má své stránky, kategorie a novinky, přepínač jazyků a značky hreflang. Jazyky vyberete v Nastavení → Jazyky."
 };
