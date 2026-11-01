@@ -1193,6 +1193,34 @@ unchanged.
    file exists, never lowering a limit. Photos are scaled to 2000 px in the browser before upload, with a note "resized from
    … to …"; a batch too large for one request is split or refused with a clear message.
 
+## 3.23 – handover (1 November 2026)
+
+The fifth release from the CPO and Head of UX audits of 30 October: a site that can be handed over to a client. No migration;
+`KALETA_DB_VERSION` stays 109. No setting key, POST field, MCP tool, parameter or Czech alias renamed; `site_audit` returns a
+new `handover_checklist`, `builder_schema` field definitions carry a `source` hint.
+
+1. **Settings split (C12, D4):** General keeps the site, home page, news, time zone, maintenance, screen mode, sharing and
+   social networks and more options; new tabs Languages (site language, further versions, their names and descriptions, the
+   same address in every language), Security (two-factor policy, automatic suspension, a link to Firewall) and Agency
+   ("Built and looked after by"). Each tab saves only its own fields; a 3.22 General form left open still saves as before;
+   old `tab=general#field` links land on the field's new tab.
+2. **Reporting to a console (C8):** the former "Fleet console" tab, last, shown only when an agency is named or the site
+   already reports to a console.
+3. **Handing over to a client (C17):** one checklist with "x of y done" in Site audit instead of two groups; new checks for a
+   client account (Client role or the Appearance area), the monthly report recipient, SMTP set up and tested (the last
+   accepted message is recorded in `smtp_last_ok`), Claude settings saved once, the agency contact and the Notebook.
+4. **UI vocabulary (C18):** English source strings for the News, Users and Settings modules and the menu paths (Czech
+   unchanged); "Ask Claude" everywhere in the UI, "request" for one item; the first Site appearance tab is "Styles"; a UI
+   vocabulary section in the glossary.
+5. **Draft look for the Appearance area:** members with the Appearance area preview the draft look and the menu draft on the
+   site with a read-only look bar; publishing the look stays with the administrator.
+6. **Choices instead of typed keys and ids (U10):** Collection list, Store locator, Booking, News list and Previous/next take
+   the collection, field, category, service and person from selects filled with the site's data (new read-only builder
+   action `build_choices`, same permissions as the builder); "Custom…" for anything else; a stored value that no longer exists
+   is shown as "(not found)", never dropped.
+7. **Builder on a tablet (U15):** below 1024 px the panels become icon rails that open over the canvas (Esc closes), the Add
+   panel has two columns and the top bar wraps; the canvas keeps about 88 % of an 820 px screen.
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |
