@@ -13,7 +13,7 @@ namespace Kaleta\Core;
  *    the common ones are filled in or removed, a title with an unknown variable is dropped rather than imported broken;
  *  - a title made only of variables (the plugin's default pattern) is not imported at all – the site builds "title – site name" itself;
  *  - Rank Math stores robots as a serialized PHP array; it is never unserialized, "noindex" is looked up in the string.
- * Canonical URLs are only counted for the preview; Open Graph and Twitter fields are ignored. Redirects of these plugins live in
+ * Canonical URLs go to canonical_url since 3.22 (Core\CanonicalUrl::fromImport, counted in the preview too); Open Graph and Twitter fields are ignored. Redirects of these plugins live in
  * options or their own tables, not in the export, so they are out of scope here.
  *
  * Pure functions, covered by tools/unit-tests.php.

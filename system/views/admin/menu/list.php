@@ -51,8 +51,13 @@ $choice = ['location' => $location, 'language' => $language];
 	<button class="navigace" type="button" data-menu-pridej="skupina" title="<?= e(t('An item without a link that only opens a submenu')) ?>"><?= e(t('Group')) ?></button>
 </fieldset>
 <?php /* the draft button first: Enter in a field (implicit submission) saves to the draft, publishing is always a click */ ?>
+<?php if ($app->auth()->canPublish()): ?>
 <p class="tlacitka"><button class="navigace" type="submit"><?= e(t('Save to the draft look')) ?></button> <button class="tl" type="submit" name="publikovat" value="1"><?= e(t('Save and publish menu')) ?></button></p>
 <p class="napoveda"><?= e(t('Publishing the menu leaves other unpublished look changes (colours, fonts, classes) waiting in the draft.')) ?></p>
+<?php else: // 3.22 (C9): the Appearance area of a role that only writes drafts ?>
+<p class="tlacitka"><button class="tl" type="submit"><?= e(t('Save to the draft look')) ?></button></p>
+<p class="napoveda"><?= e(t('An editor or an administrator publishes the menu – until then visitors see the current one.')) ?></p>
+<?php endif ?>
 </form>
 <?php if (!$automatic || $location !== 'hlavni'): ?>
 <div class="navigace-radek akce-dole"><form class="vradku" method="post" action="<?= e($module->url('automatic', $choice)) ?>" data-potvrdit="<?= e(t($location === 'hlavni' ? 'Return the menu to being built automatically from pages? Your changes will be discarded.' : 'Empty the footer menu?')) ?>"><?= $csrf ?><button class="navigace nebezpecne" type="submit"><?= e(t($location === 'hlavni' ? 'Back to automatic menu' : 'Empty the menu')) ?></button></form></div>

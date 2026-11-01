@@ -126,7 +126,7 @@ final class News extends Module
         return [
             'idc' => 0, 'seo_link' => '', 'titulek' => '', 'uvod' => '', 'text' => '', 'obrazek' => '', 'obrazek_popis' => '', 'obrazek_autor' => '',
             'tema' => (int) (Categories::listAll($this->db)[0]['idt'] ?? 0), 'autor' => $this->app->auth()->id(), 'datum' => date('Y-m-d H:i:s'),
-            'visible' => 0, 't_slova' => '', 'seo_titulek' => '', 'seo_popis' => '', 'noindex' => 0, 'preklad_z' => $original === null ? null : (int) $original, 'faq' => '', 'jazyk' => '',
+            'visible' => 0, 't_slova' => '', 'seo_titulek' => '', 'seo_popis' => '', 'noindex' => 0, 'canonical_url' => '', 'preklad_z' => $original === null ? null : (int) $original, 'faq' => '', 'jazyk' => '',
             'valid_until' => null, 'review_by' => null,
         ];
     }
@@ -260,6 +260,7 @@ final class News extends Module
             'seo_titulek' => mb_substr($r->post('seo_titulek'), 0, 255),
             'seo_popis' => mb_substr($r->post('seo_popis'), 0, 320),
             'noindex' => (int) $r->postBool('noindex'),
+            'canonical_url' => \Kaleta\Core\CanonicalUrl::clean($r->post('canonical_url')) ?? '', // 3.22 (C13); an invalid one is refused below
             'faq' => $r->post('faq'),
             'zmeneno' => date('Y-m-d H:i:s'),
             // true until and review by (2.10, Core\Validity): empty or not a date = none
@@ -269,6 +270,10 @@ final class News extends Module
 
         if ($data['titulek'] === '') {
             $errors['titulek'] = 'Fill in the title.';
+        }
+        if (\Kaleta\Core\CanonicalUrl::clean($r->post('canonical_url')) === null) {
+            $errors['canonical_url'] = \Kaleta\Core\CanonicalUrl::REFUSAL;
+            $data['canonical_url'] = mb_substr($r->post('canonical_url'), 0, 500); // only shown again in the form (escaped), never saved
         }
         if ($this->db->value('SELECT idt FROM {kategorie} WHERE idt = ?', [$data['tema']]) === null) {
             $errors['tema'] = 'Vyberte kategorii.';

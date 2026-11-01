@@ -112,7 +112,7 @@ $role = [
 <?php foreach ($modules as $ident => $name): ?>
 		<label style="margin-left:22px"><input type="checkbox" name="moduly[]" value="<?= e($ident) ?>"<?= in_array($ident, $hasModules, true) ? ' checked' : '' ?>> <?= e(t($name)) ?></label><br>
 <?php endforeach ?>
-		<span class="napoveda"><?= e(t('An author usually has only News, an editor all content sections, an administrator everything. With a custom role, the role\'s sections apply.')) ?></span>
+		<span class="napoveda"><?= e(t('An author usually has only News, an editor all content sections, an administrator everything. With a custom role, the role\'s sections apply.')) ?> <?= e(t('Appearance is never given by default – tick it for someone who keeps the menu, the header and footer, the pop-ups and the components up to date.')) ?></span>
 	</div>
 </div>
 <?php if (!empty($author['totp_tajemstvi'])): ?>

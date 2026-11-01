@@ -52,13 +52,14 @@ $contentDir = Language::dirAttribute(Language::ofContent($app->settings(), (stri
 	<span class="napoveda"><?= e(t('The item is listed on the pages of the ticked categories (a top-level category page also lists the items of its subcategories).')) ?> <a href="<?= e($module->url('categories', ['id' => $k['idk']])) ?>"><?= e(t('Manage categories')) ?></a></span></div></div>
 <?php endif ?>
 <?php if ($k['detail']): ?>
-<details class="pokrocile"<?= $p['popis'] !== '' || $p['seo_titulek'] !== '' || $p['obrazek'] !== '' || $p['noindex'] ? ' open' : '' ?>>
+<details class="pokrocile"<?= $p['popis'] !== '' || $p['seo_titulek'] !== '' || $p['obrazek'] !== '' || $p['noindex'] || (string) ($p['canonical_url'] ?? '') !== '' ? ' open' : '' ?>>
 <summary><?= e(t('Search engines and sharing')) ?></summary>
 <div class="radek"><label for="seo_titulek"><?= e(t('Search engine title')) ?></label><div><input class="textpole siroke" id="seo_titulek" name="seo_titulek" value="<?= e($p['seo_titulek']) ?>" maxlength="200" placeholder="<?= e(t('empty = the item name')) ?>"></div></div>
 <div class="radek"><label for="popis"><?= e(t('Search engine description')) ?></label><div><input class="textpole siroke" id="popis" name="popis" value="<?= e($p['popis']) ?>" maxlength="300">
 	<span class="napoveda"><?= e(t('One or two sentences for search results (up to 160 characters). Empty = the beginning of the first longer text field.')) ?></span></div></div>
 <div class="radek"><label for="obrazek"><?= e(t('Sharing image')) ?></label><div><input class="textpole siroke" id="obrazek" name="obrazek" value="<?= e($p['obrazek']) ?>" maxlength="255" placeholder="<?= e(t('empty = the first image field')) ?>" data-obrazek>
 	<span class="napoveda"><?= e(t('Shown when the link is shared on Facebook, LinkedIn or Teams (ideally 1200 × 630 px).')) ?></span></div></div>
+<?= $app->view->render('admin/canonical_field', ['value' => (string) ($p['canonical_url'] ?? ''), 'error' => '', 'hint' => t('Empty = this item page. Fill it in only when the item copies a page that is the original: search engines then show the original.')]) ?>
 <div class="radek"><span class="popisek"><?= e(t('Options')) ?></span><div class="volby"><label><input type="checkbox" name="noindex" value="1"<?= $p['noindex'] ? ' checked' : '' ?>> <?= e(t('Hide from search engines (noindex)')) ?></label>
 	<span class="napoveda"><?= e(t('The item page stays reachable, but it is left out of search engines, the sitemap, llms.txt and site search.')) ?></span></div></div>
 </details>

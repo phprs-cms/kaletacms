@@ -77,7 +77,7 @@ final class Tools
         $newsItem = [
             'titulek' => $text('Titulek novinky'), 'uvod' => $text('Perex jako HTML (1-2 odstavce)'), 'text' => $text('Text jako HTML'),
             'kategorie' => $text('Název nebo adresa (seo_link) kategorie'), 'stitky' => $text('Štítky oddělené čárkou'),
-            'seo_titulek' => $text('Titulek pro vyhledávače (nepovinné)'), 'seo_popis' => $text('Popis pro vyhledávače, do 160 znaků'),
+            'seo_titulek' => $text('Titulek pro vyhledávače (nepovinné)'), 'seo_popis' => $text('Popis pro vyhledávače, do 160 znaků'), 'canonical_url' => $text('Canonical URL: https://… or /path on the site; empty = this page'),
             'obrazek' => $text('Adresa hlavního obrázku (z nástroje seznam_medii)'), 'obrazek_popis' => $text('Popisek hlavního obrázku (prázdné = z knihovny médií)'),
             'faq' => $text('Otázky a odpovědi: otázka na řádku, odpověď pod ní, mezi dvojicemi prázdný řádek'),
             'datum' => $text('Datum vydání RRRR-MM-DD HH:MM; budoucí = naplánování'),
@@ -90,7 +90,7 @@ final class Tools
             'v_menu' => ['type' => 'boolean', 'description' => 'true = odkaz v hlavní navigaci webu'], 'poradi' => $number('Pořadí v navigaci, menší = dřív'),
             'zobrazit' => ['type' => 'boolean', 'description' => 'true = stránka je na webu vidět (jen na výslovný pokyn uživatele), jinak skrytá. Stránka bez textu a bez publikované stavby počká skrytá a ukáže se s prvním publikováním stavby nebo textem'],
             'seo_titulek' => $text('Titulek pro vyhledávače (nepovinné, jinak název)'), 'obrazek' => $text('Obrázek pro sdílení na sociálních sítích (cesta z médií)'),
-            'noindex' => ['type' => 'boolean', 'description' => 'true = skrýt stránku před vyhledávači'],
+            'noindex' => ['type' => 'boolean', 'description' => 'true = skrýt stránku před vyhledávači'], 'canonical_url' => $text('Canonical URL: https://… or /path on the site; empty = this page'),
             'nadrazena' => $number('ID nadřazené stránky – adresa bude /nadrazena/stranka (0 = žádná)'),
             'jazyk' => $text('jazyková verze stránky u vícejazyčného webu (kód, např. en; prázdné = výchozí jazyk)'),
             'preklad_z' => $number('ID protějšku ve výchozím jazyce (u stránky jiné jazykové verze) – přepínač jazyků a hreflang'),
@@ -192,7 +192,7 @@ final class Tools
                     'poradi' => $number('Pořadí, menší = dřív'), 'zobrazit' => ['type' => 'boolean', 'description' => 'true = položka je na webu (jen na pokyn uživatele)'],
                     'seo_titulek' => $text('Title for search engines (optional, otherwise the name)'), 'popis' => $text('Description for search engines, up to 160 characters (optional, otherwise from the first longer text field)'),
                     'obrazek' => $text('Image for sharing on social networks (path from Media; optional, otherwise the first image field)'),
-                    'noindex' => ['type' => 'boolean', 'description' => 'true = keep the item page out of search engines, the sitemap, llms.txt and site search'],
+                    'noindex' => ['type' => 'boolean', 'description' => 'true = keep the item page out of search engines, the sitemap, llms.txt and site search'], 'canonical_url' => $text('Canonical URL: https://… or /path on the site; empty = this page'),
                     'zverejnit_od' => $text('Scheduled publishing of a hidden item YYYY-MM-DD HH:MM (only when the user explicitly asks; empty = cancel)'),
                     'valid_until' => $text('True until YYYY-MM-DD (2.10): after this day it hides itself; empty string = always (optional)'), 'review_by' => $text('Review by YYYY-MM-DD (2.10): on this day the site audit and the event content.review ask the user to check it; empty string = none (optional)'),
                     'kategorie' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Category slugs of the collection (3.7, list_collection_categories) – the whole new list; [] = none; leave it out to keep them']], ['kolekce'])],
@@ -554,6 +554,9 @@ final class Tools
                 $data[$field] = $max > 0 ? mb_substr((string) $a[$field], 0, $max) : (string) $a[$field];
             }
         }
+        if (array_key_exists('canonical_url', $a)) { // 3.22 (C13): https://… or a path on the site, '' = the news item itself
+            $data['canonical_url'] = \Kaleta\Core\CanonicalUrl::clean($a['canonical_url']) ?? throw new \InvalidArgumentException(\Kaleta\Core\CanonicalUrl::REFUSAL);
+        }
         foreach (['uvod', 'text'] as $field) {
             if (isset($data[$field])) {
                 // over a limit of Core\HtmlLimits the call is refused: nothing is saved, the error names the parameter and the limit
@@ -625,6 +628,9 @@ final class Tools
             if (array_key_exists($field, $a)) {
                 $data[$field] = $max > 0 ? mb_substr((string) $a[$field], 0, $max) : (string) $a[$field];
             }
+        }
+        if (array_key_exists('canonical_url', $a)) { // 3.22 (C13): https://… or a path on the site, '' = the page itself
+            $data['canonical_url'] = \Kaleta\Core\CanonicalUrl::clean($a['canonical_url']) ?? throw new \InvalidArgumentException(\Kaleta\Core\CanonicalUrl::REFUSAL);
         }
         if (array_key_exists('kod_hlavicky', $a)) {
             // code that runs on the site is never written through MCP (2.5.1): the parameter stays in the interface (public contract),
@@ -766,7 +772,7 @@ final class Tools
     /** @return array<string, mixed> */
     private function page(int $id): array
     {
-        $page = $this->app->db()->one('SELECT ids, titulek, seo_link, popis, seo_titulek, obrazek, noindex, text, zobrazit, zverejnit_od, v_menu, poradi, jazyk, preklad_z, nadrazena, valid_until, review_by FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$id]);
+        $page = $this->app->db()->one('SELECT ids, titulek, seo_link, popis, seo_titulek, obrazek, noindex, canonical_url, text, zobrazit, zverejnit_od, v_menu, poradi, jazyk, preklad_z, nadrazena, valid_until, review_by FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$id]);
         if ($page === null) {
             throw new \InvalidArgumentException('Stránka neexistuje. Použij nástroj seznam_stranek.');
         }
@@ -983,8 +989,9 @@ final class Tools
         $auth = $this->app->auth();
         $db = $this->app->db();
         $siteSettings = $this->app->settings();
+        // 3.22 (C9): pop-ups, components and site parts also for a user with the Appearance area (Auth::hasAppearanceArea)
         if (isset($a['popup']) && (int) $a['popup'] > 0) {
-            if (!$auth->isAdmin()) {
+            if (!$auth->hasAppearanceArea()) {
                 throw new \DomainException('Pop-up okna smí měnit jen správce webu.');
             }
             $row = \Kaleta\Builder\Popups::byId($db, (int) $a['popup']) ?? throw new \InvalidArgumentException('Pop-up okno neexistuje. Použij nástroj seznam_popupu.');
@@ -993,8 +1000,8 @@ final class Tools
                 'revize' => ['cast' => 'popup:' . $row['idpp']]];
         }
         if (isset($a['komponenta']) && (int) $a['komponenta'] > 0) {
-            if (!$auth->isAdmin()) {
-                throw new \DomainException('Components can be changed only by an administrator.');
+            if (!$auth->hasAppearanceArea()) {
+                throw new \DomainException('Components can be changed only by an administrator or a user with the Appearance area.');
             }
             $row = \Kaleta\Builder\Components::byId($db, (int) $a['komponenta']) ?? throw new \InvalidArgumentException('The component does not exist. Use list_components.');
 
@@ -1021,7 +1028,7 @@ final class Tools
                 'revize' => ['cast' => \Kaleta\Builder\Collections::templateKey($row)]];
         }
         if (isset($a['cast']) && $a['cast'] !== '') {
-            if (!$auth->isAdmin()) {
+            if (!$auth->hasAppearanceArea()) {
                 throw new \DomainException('Části webu (záhlaví, patičku, obálky) smí měnit jen správce webu.');
             }
             $type = (string) $a['cast'];

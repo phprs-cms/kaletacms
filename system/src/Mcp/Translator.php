@@ -16,13 +16,13 @@ final class Translator
     /** Shared target of the build tools: page, site part (variant) or collection item template. */
     private const array TARGET = [
         'id' => ['id', 'Page ID'],
-        'part' => ['cast', 'Instead of a page, a site part (administrators only): header | footer | news_item | news_list | not_found – the header, the footer and the wrappers of a news item, the news list and the 404 page'],
+        'part' => ['cast', 'Instead of a page, a site part (Appearance area): header | footer | news_item | news_list | not_found (the wrappers of news and the 404 page)'],
         'language' => ['jazyk', 'Language version of the site part or of the collection item template on a multilingual site (empty = default)'],
         'variant' => ['varianta', 'Header or footer variant (key from list_site_parts; empty = the default)'],
         'collection' => ['kolekce', 'Instead of a page, the item page template of a collection (collection slug from list_collections, administrators only); with "language", the template of that language version'],
         'category_template' => ['kategorie_sablona', 'With collection: the template of the collection\'s category pages instead of its item pages (3.7) – {{nazev}}, {{popis}}, {{obrazek}}, {{pocet}} fill in; a Collection list with category "*" lists the category\'s items (source items) or its subcategories (source categories)'],
-        'popup' => ['popup', 'Instead of a page, the content of a pop-up window (ID from list_popups, administrators only)'],
-        'component' => ['komponenta', 'Instead of a page, the build of a component (ID from list_components, administrators only) – a change shows everywhere it is used'],
+        'popup' => ['popup', 'Instead of a page, the content of a pop-up window (ID from list_popups, Appearance area)'],
+        'component' => ['komponenta', 'Instead of a page, the build of a component (ID from list_components, Appearance area) – a change shows everywhere it is used'],
     ];
 
     private const array PAGE = [
@@ -36,6 +36,7 @@ final class Translator
         'seo_title' => ['seo_titulek', 'Title for search engines (optional, otherwise the name)'],
         'share_image' => ['obrazek', 'Image for sharing on social networks (path from Media)'],
         'noindex' => ['noindex', 'true = hide the page from search engines'],
+        'canonical_url' => ['canonical_url', 'Canonical URL: https://… or /path on the site; empty = this page'],
         'parent' => ['nadrazena', 'ID of the parent page – the address becomes /parent/page (0 = none)'],
         'language' => ['jazyk', 'Language version of the page on a multilingual site (code such as de; empty = default language)'],
         'translation_of' => ['preklad_z', 'ID of the counterpart in the default language (for a page in another language version) – language switcher and hreflang'],
@@ -54,6 +55,7 @@ final class Translator
         'tags' => ['stitky', 'Tags separated by commas'],
         'seo_title' => ['seo_titulek', 'Title for search engines (optional)'],
         'seo_description' => ['seo_popis', 'Description for search engines, up to 160 characters'],
+        'canonical_url' => ['canonical_url', 'Canonical URL: https://… or /path on the site; empty = this news item'],
         'image' => ['obrazek', 'Address of the main image (from list_media)'],
         'image_caption' => ['obrazek_popis', 'Caption of the main image (empty = from the media library)'],
         'faq' => ['faq', 'Questions and answers: a question on one line, the answer below it, an empty line between pairs'],
@@ -77,7 +79,7 @@ final class Translator
         'update_page' => ['uprav_stranku', 'Changes the given fields of a page; the others stay.', ['id' => ['id', 'Page ID'], '*stranka']],
         'get_menu' => ['nacti_menu', 'The site menu (main or footer) for a language version: items with submenus, and whether the main menu is still built automatically from pages “in menu”.',
             ['location' => ['umisteni', 'main (default) | footer'], 'language' => ['jazyk', 'language version (empty = default)']]],
-        'save_menu' => ['uloz_menu', 'Saves the whole menu (administrators) into the draft look – visitors see it after publish_look. Items: {"type":"page","page_id":5,"text":""} (empty text = page name) | {"type":"link","text":"…","url":"https://… or /path","new_window":false} | {"type":"news"} | {"type":"group","text":"Services"} – each may have "children" (one submenu level), an "icon" (an Icon element name, e.g. "phone", or an SVG from Media: "media/…svg") and a "description" (up to 120 characters, shown under the label in a mega menu). A group inside a submenu may have its own "children": in a mega menu (Navigation element, mega_menu: true) it is a column headed by the group text. null = automatic main menu again. Hidden pages appear once visible.',
+        'save_menu' => ['uloz_menu', 'Saves the whole menu (Appearance area) into the draft look – visitors see it after publish_look. Items: {"type":"page","page_id":5,"text":""} (empty text = page name) | {"type":"link","text":"…","url":"https://… or /path","new_window":false} | {"type":"news"} | {"type":"group","text":"Services"} – each may have "children" (one submenu level), an "icon" (an Icon element name, e.g. "phone", or an SVG from Media: "media/…svg") and a "description" (up to 120 characters, shown under the label in a mega menu). A group inside a submenu may have its own "children": in a mega menu (Navigation element, mega_menu: true) it is a column headed by the group text. null = automatic main menu again. Hidden pages appear once visible.',
             ['location' => ['umisteni', 'main | footer'], 'language' => ['jazyk', 'language version (empty = default)'], 'items' => ['polozky', 'menu items']]],
         'builder_schema' => ['stavba_schema', 'How a page is put together in the builder: element types and their fields, style properties, design system tokens (colours, spacing, type), the section library and the shared classes of the site. Load it before you first use the *_build tools. Returns a short overview (one element per line); full definitions of chosen elements through the elements parameter. The build JSON uses the builder’s own (Czech) keys: typ, znacka, obsah, styl, tridy, deti, kotva.',
             ['elements' => ['prvky', 'element types to get the full definition for (field labels, default children), e.g. ["form","carousel"]'], 'full' => ['uplne', 'true = the whole schema with all labels (large)']]],
@@ -96,7 +98,7 @@ final class Translator
         'build_from_html' => ['stavba_z_html', 'RECOMMENDED for a new page or sections: write semantic HTML (section/header, h1–h3, p, ul, a, img, figure, blockquote, details) and put the look in a <style> block as rules of one class (.card { … }, .card:hover { … }) with tokens var(--ka-…); '
             . 'breakpoints from desktop down: @media (max-width: 1023px) = tablet, @media (max-width: 767px) = mobile. An element with a class from <style> gets no default style – layout (display:grid, gap) belongs in the class. It is converted to a build and classes; the result says what could not be converted. Saved as a draft.',
             ['html' => ['html', 'HTML of the content (without <html>/<head>); <style> may be inside. Build the header and footer from the logo, navigation and company details elements with save_build – HTML does not convert them.'],
-                'id' => ['id', 'Page ID; without it (and without part) a new hidden page is created with the name from title'], 'part' => ['cast', 'Instead of a page, a site part (administrators only)'],
+                'id' => ['id', 'Page ID; without it (and without part) a new hidden page is created with the name from title'], 'part' => ['cast', 'Instead of a page, a site part (Appearance area)'],
                 'language' => self::TARGET['language'], 'variant' => self::TARGET['variant'], 'collection' => self::TARGET['collection'], 'popup' => self::TARGET['popup'],
                 'title' => ['titulek', 'Name of the new page (when there is no id)'],
                 'mode' => ['rezim', 'replace (default) = the whole build from the HTML | append = sections at the end of the existing build'],
@@ -111,8 +113,8 @@ final class Translator
         'restore_build_version' => ['obnov_verzi', 'Loads an older published version (version_id from list_build_versions) into the draft – it appears on the site only after publishing.',
             ['*cil', 'version_id' => ['idr', 'version ID from list_build_versions']]],
         'discard_draft' => ['zahod_koncept', 'Discards the draft build – the published version applies again (only when the user explicitly asks; cannot be undone).', ['*cil']],
-        'list_popups' => ['seznam_popupu', 'Pop-up windows of the site (administrators): type, trigger, frequency, rules, active, published and counts of views, closes and conversions. Build the content with the *_build tools and the popup parameter.', []],
-        'save_popup' => ['uloz_popup', 'Creates a pop-up window (without id; template = ready-made content) or changes its settings (with id) – administrators. A new window is inactive; it can be activated (active: true) only after its build is published, and only when the user explicitly asks.',
+        'list_popups' => ['seznam_popupu', 'Pop-up windows of the site (Appearance area): type, trigger, frequency, rules, active, published and counts of views, closes and conversions. Build the content with the *_build tools and the popup parameter.', []],
+        'save_popup' => ['uloz_popup', 'Creates a pop-up window (without id; template = ready-made content) or changes its settings (with id) – Appearance area and publishing permission. A new window is inactive; it can be activated (active: true) only after its build is published, and only when the user explicitly asks.',
             ['id' => ['id', 'window ID – only when changing it'], 'name' => ['nazev', 'Name (screen readers announce it)'],
                 'template' => ['vzor', 'Only for a new window: newsletter | lead_magnet | announcement_bar | discount | event | blank'],
                 'slug' => ['adresa', 'Address for the link #popup-<slug>'], 'type' => ['typ', 'window | slide_in | top_bar | bottom_bar | fullscreen'],
@@ -122,8 +124,8 @@ final class Translator
                 'rules' => ['pravidla', '{"where":"all|selected","pages":[id],"collections":["slug"],"news":true,"language":"en","from":"YYYY-MM-DD","to":"YYYY-MM-DD","device":"all|desktop|phone","campaign":"text in utm_*","referrer":"part of the address the visitor came from"} – keys you leave out stay'],
                 'active' => ['aktivni', 'true = the window shows on the site (published only, only when the user explicitly asks)'], 'order' => ['poradi', 'Order, lower = first'],
                 'valid_until' => ['valid_until', 'True until YYYY-MM-DD (2.10): after this day it hides itself on its own (the change is logged and recorded as the event content.expired); an empty string = always (optional)'], 'review_by' => ['review_by', 'Review by YYYY-MM-DD (2.10): on this day the site audit (kind review) and the event content.review ask the user to check it; an empty string = none (optional)']]],
-        'list_site_parts' => ['seznam_casti', 'Site parts from the builder (header, footer, wrappers of a news item, the news list and the 404 page) and header and footer variants: key, name, pages they apply to and state (administrators).', []],
-        'save_part_variant' => ['uloz_variantu', 'Creates or changes a header or footer variant for selected pages (administrators) – for example a header without the menu for a campaign page. A new one starts as a copy of the default as a draft; '
+        'list_site_parts' => ['seznam_casti', 'Site parts from the builder (header, footer, wrappers of a news item, the news list and the 404 page) and header and footer variants: key, name, pages they apply to and state (Appearance area).', []],
+        'save_part_variant' => ['uloz_variantu', 'Creates or changes a header or footer variant for selected pages (Appearance area, publishing permission) – for example a header without the menu for a campaign page. A new one starts as a copy of the default as a draft; '
             . 'then edit it with the *_build tools and the variant parameter and publish it. Besides pages it can take a kind of content (3.6): news_items, news_list, collections, under_pages – a listed page always wins, otherwise the first variant by key whose choice fits. delete = true removes the variant (the selected pages get the default).',
             ['part' => ['cast', 'header | footer'], 'language' => ['jazyk', 'Language version (empty = default)'], 'variant' => ['varianta', 'key of an existing variant – only to change or delete it'],
                 'name' => ['nazev', 'variant name, e.g. Campaign without menu'], 'pages' => ['stranky', 'IDs of the pages the variant applies to (they always get this variant)'],
@@ -162,6 +164,7 @@ final class Translator
                 'seo_title' => ['seo_titulek', 'title for search engines (optional, otherwise the name)'], 'description' => ['popis', 'description for search engines, up to 160 characters (optional, otherwise from the first longer text field)'],
                 'share_image' => ['obrazek', 'image for sharing on social networks (path from Media; optional, otherwise the first image field)'],
                 'noindex' => ['noindex', 'true = keep the item page out of search engines, the sitemap, llms.txt and site search'],
+                'canonical_url' => ['canonical_url', 'canonical URL of the item page: https://… or /path on the site; empty = the item itself'],
                 'publish_at' => ['zverejnit_od', 'scheduled publishing of a hidden item YYYY-MM-DD HH:MM (only when the user explicitly asks; empty = cancel)'],
                 'valid_until' => ['valid_until', 'True until YYYY-MM-DD (2.10): after this day it hides itself on its own (the change is logged and recorded as the event content.expired); an empty string = always (optional)'], 'review_by' => ['review_by', 'Review by YYYY-MM-DD (2.10): on this day the site audit (kind review) and the event content.review ask the user to check it; an empty string = none (optional)'],
                 'categories' => ['kategorie', 'category slugs of the collection (3.7, list_collection_categories) – the whole new list; [] = none; leave it out to keep them']]],

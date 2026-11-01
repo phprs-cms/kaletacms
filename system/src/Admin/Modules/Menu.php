@@ -20,7 +20,8 @@ final class Menu extends Module
     public const string NAME = 'Menu';
     public const string GROUP = 'Appearance';
     public const string ICON = 'menu';
-    public const bool ADMIN_ONLY = true;
+    /** 3.22 (C9): administrators and whoever has the optional Appearance area of a role or a user (Auth::APPEARANCE_AREA). */
+    public const string SHARES_PERMISSION_OF = \Kaleta\Core\Auth::APPEARANCE_AREA;
 
     protected function actionList(): Response
     {
@@ -57,6 +58,10 @@ final class Menu extends Module
             }
             \Kaleta\Core\Look::setMenu($this->app->settings(), $location, $language, $items);
             // 3.6: "Save and publish menu" – only this menu goes live, the rest of the draft look keeps waiting
+            if ($this->request->post('publikovat') === '1' && !$this->app->auth()->canPublish()) {
+                // 3.22 (C9): a person with the Appearance area who only writes drafts – the menu waits in the draft look
+                return $this->back('The menu is saved to the draft look – an editor or an administrator publishes it.', '', ['location' => $location, 'language' => $language]);
+            }
             if ($this->request->post('publikovat') === '1' && \Kaleta\Core\Look::publishMenu($this->app, $location, $language)) {
                 return $this->back('The menu is published – visitors see it now.', '', ['location' => $location, 'language' => $language]);
             }

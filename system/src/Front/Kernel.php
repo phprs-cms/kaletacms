@@ -412,7 +412,7 @@ final class Kernel
         if (preg_match('#^/_popup/(\d+)$#D', $path, $m)) {
             return $this->previewPopup((int) $m[1]);
         }
-        if (preg_match('#^/_komponenta/(\d+)$#D', $path, $m) && $this->app->auth()->isAdmin()) {
+        if (preg_match('#^/_komponenta/(\d+)$#D', $path, $m) && $this->app->auth()->hasAppearanceArea()) { // 3.22 (C9): the Appearance area too
             return $this->previewComponent((int) $m[1]);
         }
         if (preg_match('#^/([a-z0-9-]{1,110})(?:/([a-z0-9-]{1,160}))?\.ics$#D', $path, $m) && ($calendar = $this->calendarFile($m[1], $m[2] ?? '')) !== null) {
@@ -713,7 +713,7 @@ final class Kernel
 
         return $this->page($title, $this->view->render('stranka', ['stranka' => ['titulek' => ''], 'uvod' => false, 'stavba' => $html]), [
             'popis' => $description, 'obrazek' => $image, 'stavba' => true, 'noindex' => $draft || !empty($item['noindex']),
-            'polozka' => $item !== null ? ['kolekce' => $collection, 'polozka' => $item] : null,
+            'polozka' => $item !== null ? ['kolekce' => $collection, 'polozka' => $item] : null, 'kanonicka' => (string) ($item['canonical_url'] ?? ''), // 3.22 (C13)
         ]);
     }
 
@@ -867,6 +867,7 @@ final class Kernel
             'popis' => $page['popis'] !== '' ? $page['popis'] : ($home ? $this->app->settings()->get('site_description') : ''),
             'hlavni' => $home, 'obrazek' => $page['obrazek'], 'noindex' => (bool) $page['noindex'] || $locked,
             'kod_hlavicky' => (string) ($page['kod_hlavicky'] ?? ''), // code in <head> of this page only (2.3)
+            'kanonicka' => (string) ($page['canonical_url'] ?? ''), // the page's own canonical address (3.22, C13); '' = itself
         ];
         // preview of the draft build for the editor: ?build=koncept (only whoever can edit pages), &editor=1 adds markers
         // for selecting elements
@@ -1037,6 +1038,7 @@ final class Kernel
             'klicova_slova' => $newsItem['t_slova'],
             'obrazek' => $newsItem['obrazek'],
             'noindex' => (bool) $newsItem['noindex'],
+            'kanonicka' => (string) ($newsItem['canonical_url'] ?? ''), // 3.22 (C13)
             'typ' => 'article',
             'cast' => 'novinka',
         ]);
@@ -1461,7 +1463,8 @@ final class Kernel
     }
 
     /**
-     * Can the visitor see the draft: whoever edits pages (for site parts the administrator), or a valid signed preview
+     * Can the visitor see the draft: whoever edits pages (site parts and pop-ups: the Appearance area, collection templates:
+     * the administrator), or a valid signed preview
      * link of the target (or of the whole site).
      */
     private function canSeeDraft(string $target): bool
@@ -1470,7 +1473,9 @@ final class Kernel
             return true;
         }
         $auth = $this->app->auth();
-        if (str_starts_with($target, 'cast:') || str_starts_with($target, 'kolekce:') || str_starts_with($target, 'kategorie:') || str_starts_with($target, 'popup:') ? $auth->isAdmin() : $auth->hasModule('pages')) {
+        // 3.22 (C9): site parts and pop-ups also for whoever has the Appearance area
+        if (str_starts_with($target, 'cast:') || str_starts_with($target, 'popup:') ? $auth->hasAppearanceArea()
+            : (str_starts_with($target, 'kolekce:') || str_starts_with($target, 'kategorie:') ? $auth->isAdmin() : $auth->hasModule('pages'))) {
             return true;
         }
         $key = $this->app->request->get('preview_key');
@@ -1491,7 +1496,7 @@ final class Kernel
         $k->path = $path;
         $k->languages = $languageSwitcher;
         $preview = isset(\Kaleta\Builder\SiteParts::TYPES[$r->get('part')]) && $r->get('build') === 'koncept'
-            && ($this->app->auth()->isAdmin() || $this->canSeeDraft('cast:' . $r->get('part') . ':' . Language::siteColumn() . ($r->get('variant') !== '' ? ':' . $r->get('variant') : ''))) ? $r->get('part') : '';
+            && ($this->app->auth()->hasAppearanceArea() || $this->canSeeDraft('cast:' . $r->get('part') . ':' . Language::siteColumn() . ($r->get('variant') !== '' ? ':' . $r->get('variant') : ''))) ? $r->get('part') : '';
         $editor = $r->get('editor') === '1' && ($preview !== '' || ($r->get('build') === 'koncept' && $r->get('part') === ''));
         $language = Language::siteColumn();
         // a site page can have its own header and footer variant, and since 3.6 a variant may take a kind of content (news
@@ -1610,7 +1615,7 @@ final class Kernel
         if ($p === null || $this->app->request->get('build') !== 'koncept' || !$this->canSeeDraft('popup:' . $idpp)) {
             return $this->notFound();
         }
-        if ($this->app->request->get('editor') === '1' && $this->app->auth()->isAdmin()) {
+        if ($this->app->request->get('editor') === '1' && $this->app->auth()->hasAppearanceArea()) {
             $k = $this->context();
             $k->editor = true;
             $k->source = 'popup:' . $idpp;
@@ -1670,10 +1675,18 @@ final class Kernel
         // canonical URL: the path without parameters, with the page number for pagination (page 2 is not a copy of page 1)
         $listPageNumber = $this->app->request->getInt('page', 1);
         $canonicalUrl = $this->app->request->origin() . $this->app->url(ltrim($this->app->request->path(), '/')) . ($listPageNumber > 1 ? '?page=' . $listPageNumber : '');
+        // 3.22 (C13): a page, a news item or a collection item may name another address as canonical (a copy of the original,
+        // an article first published elsewhere) – it replaces the own one, so the page still has exactly one canonical link
+        $ownCanonical = \Kaleta\Core\CanonicalUrl::absolute((string) ($meta['kanonicka'] ?? ''), $this->app->request->origin(), $this->app->request->basePath());
+        unset($meta['kanonicka']);
+        $pathForParts = (string) parse_url($canonicalUrl, PHP_URL_PATH);
+        if ($ownCanonical !== '') {
+            $canonicalUrl = $ownCanonical;
+        }
         if ($this->sitePreview) {
             $meta['noindex'] = true; // the preview of drafts is never indexed nor cached
         }
-        [$content, $parts, $meta] = $this->siteParts($content, $meta, $languageSwitcher, (string) parse_url($canonicalUrl, PHP_URL_PATH));
+        [$content, $parts, $meta] = $this->siteParts($content, $meta, $languageSwitcher, $pathForParts);
         $popups = (string) ($meta['popupy'] ?? '');
         $commentWidget = (string) ($meta['komentare'] ?? ''); // the comment widget of a shared preview (2.15)
         unset($meta['popupy'], $meta['komentare']);

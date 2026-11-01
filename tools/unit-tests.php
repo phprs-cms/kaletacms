@@ -8103,6 +8103,73 @@ check('3.22 U6: link targets – a route behind the sign-in and the two-factor g
     str_contains($c22Editor, "url: 'mailto:' + q"), str_contains($c22Editor, "url: 'tel:' +"), str_contains($c22Editor, 'role="combobox" aria-autocomplete="list"'),
     str_contains($c22Editor, "input.setAttribute('aria-activedescendant'"), str_contains($c22Editor, "ADMIN + '?action=link_targets&q='"),
 ], [true, true, true, true, true, true, true]);
+// 3.22 (C9, owner decision D1): the optional Appearance area – Menu, Site parts, Pop-ups and Components share one permission
+// a role or a user may be given; Site appearance, Settings (Backups, Claude settings), Users and Roles stay administrator-only
+$c9Area = [Kaleta\Admin\Modules\Menu::class, Kaleta\Admin\Modules\SiteParts::class, Kaleta\Admin\Modules\Popups::class, Kaleta\Admin\Modules\Components::class];
+check('3.22 (C9): the four appearance modules share the Appearance area, the rest of the look and the administration stay with the administrator', [
+    array_map(fn (string $c): string => ($c::ADMIN_ONLY ? 'admin' : 'open') . ':' . $c::SHARES_PERMISSION_OF, $c9Area),
+    array_map(fn (string $c): bool => $c::ADMIN_ONLY, [Kaleta\Admin\Modules\Appearance::class, Kaleta\Admin\Modules\Settings::class, Kaleta\Admin\Modules\ClaudeSettings::class,
+        Kaleta\Admin\Modules\Users::class, Kaleta\Admin\Modules\Roles::class, Kaleta\Admin\Modules\Transfer::class]),
+    array_slice(Kaleta\Admin\Modules\Roles::configurable(), -1, 1, true),
+], [array_fill(0, 4, 'open:appearance_area'), array_fill(0, 6, true), ['appearance_area' => 'Appearance: menu, site parts, pop-ups and components']]);
+// nobody gains it on an update or by default: not in the default sections of an author or an editor, not in a ready-made role
+check('3.22 (C9): the Appearance area is never a default', [
+    array_values(array_intersect([...Kaleta\Admin\Modules\Users::defaultModules(Kaleta\Core\Auth::EDITOR), ...Kaleta\Admin\Modules\Users::defaultModules(Kaleta\Core\Auth::AUTHOR)],
+        ['appearance_area', 'menu', 'parts', 'popups', 'components', 'appearance'])),
+    array_values(array_filter(Kaleta\Admin\Modules\Roles::PRESETS, fn (array $p): bool => in_array('appearance_area', $p[3], true))),
+    str_contains(Kaleta\Admin\Modules\Users::summary(Kaleta\Core\Auth::EDITOR, ['pages', 'appearance_area']), 'Appearance: menu, site parts, pop-ups and components'),
+], [[], [], true]);
+// what changes the site at once needs the permission to publish; every listed action exists; the server checks it before the action
+$c9Live = [];
+foreach ($c9Area as $c9Class) {
+    foreach ($c9Class::LIVE_ACTIONS as $c9Action) {
+        $c9Live[] = method_exists($c9Class, 'action' . str_replace('_', '', ucwords($c9Action, '_'))) ? $c9Action : 'missing ' . $c9Action;
+    }
+}
+$c9Module = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Module.php');
+$c9Components = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Components.php');
+check('3.22 (C9): live actions of the appearance modules need canPublish, a component from the builder keeps Custom HTML only for an administrator', [
+    $c9Live, (bool) preg_match('/in_array\(\$action, static::LIVE_ACTIONS, true\) && \$this->request->isPost\(\) && !\$this->app->auth\(\)->canPublish\(\)/', $c9Module),
+    str_contains($c9Components, "Build::sanitize(['v' => Build::VERSION, 'deti' => [\$element]], \$this->app->auth()->isAdmin())"),
+    (bool) preg_match('/function actionFromElement.+?canPublish\(\).+?Build::sanitize/s', $c9Components),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Menu.php'), "post('publikovat') === '1' && !\$this->app->auth()->canPublish()"),
+], [['template', 'save_variant', 'save', 'toggle', 'delete', 'save', 'delete'], true, true, true, true]);
+// MCP (additive): the tools of these areas check the Appearance area, never the administrator role alone
+$c9Mcp = (string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Tools.php') . file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/BuilderTools.php')
+    . file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/EnquiryAndPopupTools.php') . file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/PageTools.php');
+check('3.22 (C9): MCP – site parts, pop-ups, components and the menu follow the Appearance area', [
+    substr_count($c9Mcp, 'hasAppearanceArea()'),
+    preg_match_all('/function tool(ListSiteParts|SavePartVariant|ListPopups|SavePopup)\(string \$name, array \$a\): mixed\s*\{[^}]*?isAdmin\(\)/', $c9Mcp),
+], [14, 0]);
+
+// 3.22 (C13): the optional canonical address of a page, a news item and a collection item (Core\CanonicalUrl)
+use Kaleta\Core\CanonicalUrl as C13;
+check('3.22 (C13): a canonical address is an absolute http(s) address or a path on the site, nothing else', array_map(C13::clean(...), [
+    '', '  ', ' https://example.com/original?x=1 ', 'HTTP://example.com/', '/services/web', '//evil.example/x', 'javascript:alert(1)', 'JavaScript:alert(1)',
+    'data:text/html,x', 'mailto:a@b.c', 'relative/path', 'https://exa mple.com/', 'https://user:pass@example.com/', 'https://intranet/', '/a"onload=x', '/a<b',
+    'https://example.com/' . str_repeat('a', 500), null, 5,
+]), ['', '', 'https://example.com/original?x=1', 'http://example.com/', '/services/web', null, null, null, null, null, null, null, null, null, null, null, null, '', null]);
+check('3.22 (C13): the printed canonical is absolute; the WordPress import keeps other sites, turns the old site into paths and drops the post itself', [
+    C13::absolute('/services/web', 'https://firma.cz', '/web'), C13::absolute('https://medium.com/@a/post', 'https://firma.cz', ''), C13::absolute('', 'https://firma.cz', ''),
+    C13::absolute('javascript:alert(1)', 'https://firma.cz', ''),
+    C13::fromImport('https://www.old.cz/2019/05/post/', 'https://old.cz', 'https://old.cz/2019/05/post/'), C13::fromImport('https://old.cz/original/', 'http://www.old.cz/', 'https://old.cz/copy/'),
+    C13::fromImport('https://medium.com/@a/post?x=1&amp;y=2', 'https://old.cz', 'https://old.cz/copy/'), C13::fromImport('javascript:alert(1)', 'https://old.cz', ''), C13::fromImport('', 'https://old.cz', ''),
+], ['https://firma.cz/web/services/web', 'https://medium.com/@a/post', '', '', '', '/original', 'https://medium.com/@a/post?x=1&y=2', '', '']);
+$c13Schema = (string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql');
+$c13Migration = (string) @file_get_contents(KALETA_SYSTEM . '/sql/migrace/0109-canonical-url.sql');
+$c13Kernel = (string) file_get_contents(KALETA_SYSTEM . '/src/Front/Kernel.php');
+check('3.22 (C13): the column on pages, news and items (schema and migration 0109), one canonical link in the page frame, fed by the three detail pages', [
+    preg_match_all("/^\s+canonical_url\s+VARCHAR\(500\) NOT NULL DEFAULT '',/m", $c13Schema),
+    preg_match_all('/ALTER TABLE ka_(stranky|novinky|kolekce_polozky) ADD COLUMN canonical_url VARCHAR\(500\) NOT NULL DEFAULT \'\' AFTER noindex;/', $c13Migration),
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/views/front/base.php'), 'rel="canonical"'),
+    substr_count($c13Kernel, "'kanonicka' => (string) ("), str_contains($c13Kernel, 'CanonicalUrl::absolute('),
+], [3, 3, 1, 3, true]);
+check('3.22 (C13): MCP takes canonical_url on pages, news and collection items (the same name on both sides), get_page and get_news return it', [
+    Kaleta\Mcp\Translator::arguments('update_page', ['id' => 1, 'canonical_url' => '/original']), Kaleta\Mcp\Translator::arguments('update_news', ['id' => 1, 'canonical_url' => '']),
+    Kaleta\Mcp\Translator::arguments('save_collection_item', ['collection' => 'x', 'canonical_url' => 'https://a.cz/']),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Tools.php'), 'seo_titulek, obrazek, noindex, canonical_url, text'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/NewsTools.php'), "'seo_popis', 'canonical_url']"),
+], [['id' => 1, 'canonical_url' => '/original'], ['id' => 1, 'canonical_url' => ''], ['kolekce' => 'x', 'canonical_url' => 'https://a.cz/'], true, true]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

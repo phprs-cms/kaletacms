@@ -1274,6 +1274,7 @@ check "importovaná stránka má nadpis z WordPressu" 200 /o-zpravodaji '<h1>O z
 expect "SEO ze SmartCrawlu: titulek s názvem webu, popis, bez noindex" "$(sq "SELECT CONCAT(seo_titulek LIKE 'Lávka přes Bystřinu znovu otevřena – %', '|', seo_popis, '|', noindex) FROM ka_novinky WHERE seo_link = 'lavka-pres-bystrinu'")" "1|Po roce oprav se lávka v Horní Lhotě otevřela chodcům i cyklistům.|0"
 expect "SEO z Yoastu: výchozí vzor titulku se neimportuje, popis a noindex ano" "$(sq "SELECT CONCAT(seo_titulek, '|', seo_popis, '|', noindex) FROM ka_novinky WHERE seo_link = 'slavnosti-syra'")" "|Rekordní slavnosti sýra: tři tisíce lidí a vítězná farma z Dolní Lhoty.|1"
 expect "SEO z Rank Math: titulek s proměnnými, noindex ze serializovaného pole" "$(sq "SELECT CONCAT(seo_titulek LIKE 'Fotografie čtenářů: lávka přes Bystřinu – %', '|', noindex) FROM ka_novinky WHERE seo_link = 'lavka-pres-bystrinu-2'")" "1|1"
+expect "3.22 (C13): the Rank Math canonical of a duplicate becomes a path on the new site (the old address redirects); the posts without one keep none" "$(sq "SELECT GROUP_CONCAT(CONCAT(seo_link, '=', canonical_url) ORDER BY seo_link) FROM ka_novinky WHERE seo_link IN ('lavka-pres-bystrinu', 'lavka-pres-bystrinu-2', 'slavnosti-syra')")" "lavka-pres-bystrinu=,lavka-pres-bystrinu-2=/2026/05/lavka-pres-bystrinu,slavnosti-syra="
 expect "SEO ze SmartCrawlu na stránce: titulek a popis" "$(sq "SELECT CONCAT(seo_titulek, '|', popis, '|', noindex) FROM ka_stranky WHERE seo_link = 'o-zpravodaji'")" "O Podhorském zpravodaji – kdo jsme a kde nás najdete|Podhorský zpravodaj vychází od roku 1998 – redakce, kontakt a historie.|0"
 check "importovaná novinka s noindex z pluginu ho vypisuje" 200 /novinky/slavnosti-syra 'noindex'
 curl -s -o "$WORK/response" "$B/o-zpravodaji"; grep -q 'wp-block' "$WORK/response" && { echo "  CHYBA  třídy WordPressu ve stavbě"; ERRORS=$((ERRORS+1)); } || echo "  ok     třídy WordPressu bez stylu vynechány"
@@ -8092,5 +8093,97 @@ expect "3.19.1 (N88): visitors keep the maintenance page (a lock older than 10 m
   "$(curl -s -o /dev/null -w '%{http_code}' "$B/")|$(curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?module=status")|$(grep -c 'Vrácení aktualizace' "$WORK/response")" "503|200|1"
 rm -f "$WORK/web/storage/udrzba.lock" "$WORK/web/system/n88.txt"; rm -rf "$WORK/web/storage/cache/aktualizace-n88-puvodni"
 expect "3.19.1 (N88): without the lock the site answers again" "$(curl -s -o /dev/null -w '%{http_code}' "$B/")" "200"
+echo "== 3.22 (C9): the optional Appearance area of a role"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=roles&action=new"; TOKEN=$(csrf)
+expect "3.22 (C9): the role form offers the Appearance area unticked and says what stays with the administrator" \
+  "$(grep -c 'name="moduly\[\]" value="appearance_area">' "$WORK/response")|$(grep -c 'Vzhled: menu, části webu, pop-up okna a komponenty' "$WORK/response")|$(grep -c 'zálohy a nastavení Clauda zůstávají správci' "$WORK/response")" "1|1|1"
+check "3.22 (C9): the ready-made Client role does not tick it" 200 "/admin.php?module=roles&action=new&preset=client" 'value="appearance_area">'
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=roles&action=save" -d "_csrf=$TOKEN" -d idr=0 --data-urlencode "nazev=C9 manager" -d uroven=1 -d 'moduly[]=pages' -d 'moduly[]=appearance_area'
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=roles&action=save" -d "_csrf=$TOKEN" -d idr=0 --data-urlencode "nazev=C9 writer" -d uroven=0 -d 'moduly[]=news' -d 'moduly[]=appearance_area'
+IDR_C9M=$(sq "SELECT idr FROM ka_role WHERE nazev = 'C9 manager'"); IDR_C9W=$(sq "SELECT idr FROM ka_role WHERE nazev = 'C9 writer'")
+for c9user in "c9-manager r$IDR_C9M" "c9-writer r$IDR_C9W" "c9-editor 1"; do
+  curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d idu=0 -d "user=${c9user% *}" --data-urlencode "password=$PASSWORD" -d "admin=${c9user#* }"
+done
+expect "3.22 (C9): the role gives its members the area, a plain editor does not get it by default" \
+  "$(sq "SELECT GROUP_CONCAT(p.ident_modulu ORDER BY p.ident_modulu) FROM ka_uzivatele u JOIN ka_uzivatele_prava p ON p.fk_id_user = u.idu WHERE u.user = 'c9-manager'")|$(sq "SELECT COUNT(*) FROM ka_uzivatele u JOIN ka_uzivatele_prava p ON p.fk_id_user = u.idu WHERE u.user = 'c9-editor' AND p.ident_modulu IN ('appearance_area', 'menu', 'parts', 'popups', 'components')")" "appearance_area,pages|0"
+check "3.22 (C9): the users list says the member has the Appearance area" 200 "/admin.php?module=users" 'Vzhled: menu, části webu, pop-up okna a komponenty'
+c9_sign_in() { rm -f "$WORK/jar-$1"; sq "DELETE FROM ka_kontrola_ip WHERE typ = 'login'" > /dev/null; curl -s -c "$WORK/jar-$1" -o "$WORK/response" "$B/admin.php"
+  curl -s -b "$WORK/jar-$1" -c "$WORK/jar-$1" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$(csrf)" -d "user=$1" --data-urlencode "password=$PASSWORD"; }
+c9_code() { curl -s -b "$WORK/jar-$1" -c "$WORK/jar-$1" -o "$WORK/response" -w '%{http_code}' "$B$2"; }
+c9_sign_in c9-manager; c9_sign_in c9-writer; c9_sign_in c9-editor
+expect "3.22 (C9): with the area Menu, Site parts, Pop-ups and Components open; Site appearance, Settings, Users and Roles do not" \
+  "$(c9_code c9-manager '/admin.php?module=menu')|$(c9_code c9-manager '/admin.php?module=parts')|$(c9_code c9-manager '/admin.php?module=popups')|$(c9_code c9-manager '/admin.php?module=components')|$(c9_code c9-manager '/admin.php?module=appearance')|$(c9_code c9-manager '/admin.php?module=settings&tab=backups')|$(c9_code c9-manager '/admin.php?module=claude_settings')|$(c9_code c9-manager '/admin.php?module=users')|$(c9_code c9-manager '/admin.php?module=roles')" \
+  "200|200|200|200|403|403|403|403|403"
+c9_code c9-manager '/admin.php' > /dev/null
+c9_has() { grep -q "$1" "$WORK/response" && echo yes || echo no; }
+expect "3.22 (C9): the admin menu shows the four screens under Appearance, not Site appearance" \
+  "$(c9_has 'href="[^"]*module=parts"')|$(c9_has 'href="[^"]*module=popups"')|$(c9_has 'href="[^"]*module=menu"')|$(c9_has 'href="[^"]*module=components"')|$(c9_has 'href="[^"]*module=appearance"')" "yes|yes|yes|yes|no"
+expect "3.22 (C9): an editor without the area keeps what they had – no Menu, no Site parts" "$(c9_code c9-editor '/admin.php?module=menu')|$(c9_code c9-editor '/admin.php?module=parts')" "403|403"
+expect "3.22 (C9): the footer opens in the builder for the member, its canvas draws the draft for editing" \
+  "$(c9_code c9-manager '/admin.php?module=parts&action=builder&type=paticka&language=')|$(grep -c 'id="stavitel-data"' "$WORK/response")|$(c9_code c9-manager '/?part=paticka&build=koncept&editor=1')|$([ "$(grep -c 'data-ka-id=' "$WORK/response")" -gt 0 ] && echo canvas)" "200|1|200|canvas"
+c9_code c9-manager '/admin.php?module=parts&action=builder&type=paticka&language=' > /dev/null
+C9_BUILD=$(php -r 'preg_match("/id=\"stavitel-data\">(.*?)<\/script>/s", (string) file_get_contents($argv[1]), $m); $b = (json_decode($m[1] ?? "", true) ?: [])["stavba"] ?? ["v" => 1, "deti" => []];
+  $b["deti"][] = ["typ" => "sekce", "deti" => [["typ" => "nadpis", "obsah" => ["text" => "C9 footer line"]]]]; echo json_encode($b, JSON_UNESCAPED_UNICODE);' "$WORK/response")
+c9_code c9-manager '/admin.php?module=parts' > /dev/null; C9_TOKEN=$(csrf)
+expect "3.22 (C9): the member saves the footer draft from the builder (server-side check passes)" \
+  "$(curl -s -b "$WORK/jar-c9-manager" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=parts&action=build_save&type=paticka&language=" -d "_csrf=$C9_TOKEN" --data-urlencode "stavba=$C9_BUILD")|$(grep -c '"ok":true' "$WORK/response")|$(sq "SELECT stavba_koncept LIKE '%C9 footer line%' FROM ka_casti WHERE typ = 'paticka' AND jazyk = '' AND varianta = ''")" "200|1|1"
+c9_code c9-manager '/admin.php?module=menu&location=paticka' > /dev/null; C9_TOKEN=$(csrf)
+curl -s -b "$WORK/jar-c9-manager" -o /dev/null -X POST "$B/admin.php?module=menu&action=save&location=paticka" -d "_csrf=$C9_TOKEN" -d publikovat=1 --data-urlencode 'polozky=[{"typ":"odkaz","text":"C9 published","url":"/c9-published"}]'
+expect "3.22 (C9): an editor-level member publishes the footer menu" "$(sq "SELECT COUNT(*) FROM ka_menu WHERE umisteni = 'paticka' AND polozky LIKE '%c9-published%'")" "1"
+c9_code c9-writer '/admin.php?module=menu&location=paticka' > /dev/null; C9_TOKEN=$(csrf)
+expect "3.22 (C9): a member who only writes drafts gets no publish button" "$(grep -c 'name="publikovat"' "$WORK/response")|$(grep -c 'Menu zveřejní editor nebo správce' "$WORK/response")" "0|1"
+curl -s -b "$WORK/jar-c9-writer" -o /dev/null -X POST "$B/admin.php?module=menu&action=save&location=paticka" -d "_csrf=$C9_TOKEN" -d publikovat=1 --data-urlencode 'polozky=[{"typ":"odkaz","text":"C9 writer","url":"/c9-writer"}]'
+c9_code c9-writer '/admin.php?module=components' > /dev/null; C9_TOKEN=$(csrf)
+curl -s -b "$WORK/jar-c9-writer" -o /dev/null -X POST "$B/admin.php?module=components&action=save" -d "_csrf=$C9_TOKEN" -d idm=0 --data-urlencode "nazev=C9 writer component"
+C9_FROM=$(curl -s -b "$WORK/jar-c9-writer" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=components&action=from_element" -d "_csrf=$C9_TOKEN" --data-urlencode "name=C9 from element" --data-urlencode 'prvek={"typ":"sekce","deti":[{"typ":"nadpis","obsah":{"text":"C9"}}]}')
+expect "3.22 (C9): the drafts-only member's menu waits in the draft look, a component is not created (form or builder)" \
+  "$(sq "SELECT COUNT(*) FROM ka_menu WHERE polozky LIKE '%c9-writer%'")|$(sq "SELECT hodnota LIKE '%c9-writer%' FROM ka_nastaveni WHERE promenna = 'look_draft'")|$(sq "SELECT COUNT(*) FROM ka_komponenty WHERE nazev LIKE 'C9 %'")|$C9_FROM" "0|1|0|403"
+publish_look
+# MCP (additive): a member's token reaches the site parts and the menu; a plain editor's does not, as before
+C9_MCP="kaleta_$(printf '7%.0s' $(seq 1 48))"; C9_MCP_ED="kaleta_$(printf '8%.0s' $(seq 1 48))"
+sq "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'c9', '$(php -r 'echo hash("sha256", $argv[1]);' "$C9_MCP")', '$(site_time)' FROM ka_uzivatele WHERE user = 'c9-manager'; INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'c9', '$(php -r 'echo hash("sha256", $argv[1]);' "$C9_MCP_ED")', '$(site_time)' FROM ka_uzivatele WHERE user = 'c9-editor'" > /dev/null
+mcp_as "$C9_MCP" list_site_parts '{}' > "$WORK/c9-parts"; mcp_as "$C9_MCP_ED" list_site_parts '{}' > "$WORK/c9-parts-ed"
+mcp_as "$C9_MCP" site_info '{}' > "$WORK/c9-info"
+expect "3.22 (C9): MCP – the member lists the site parts and site_info says can_edit_appearance; a plain editor is refused" \
+  "$(grep -c '"isError":true' "$WORK/c9-parts")|$(grep -c 'paticka\|footer' "$WORK/c9-parts")|$(grep -c 'can_edit_appearance\\":true' "$WORK/c9-info")|$(grep -c '"isError":true' "$WORK/c9-parts-ed")" "0|1|1|1"
+sq "DELETE FROM ka_api_tokeny WHERE nazev = 'c9'; DELETE FROM ka_uzivatele WHERE user LIKE 'c9-%'; DELETE FROM ka_role WHERE nazev LIKE 'C9 %'" > /dev/null
+echo "== 3.22 (C13): the canonical address of a page, a news item and a collection item"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=pages&action=new"; TOKEN=$(csrf)
+expect "3.22 (C13): the page form has the field under Search engines and sharing" "$(grep -c 'name="canonical_url"' "$WORK/response")|$(grep -c 'Kanonická adresa' "$WORK/response")" "1|1"
+code=$(curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=pages&action=save" -d "_csrf=$TOKEN" -d ids=0 --data-urlencode "titulek=C13 copy" -d seo_link=c13-copy -d zobrazit=1 --data-urlencode "text=<p>A campaign copy.</p>" --data-urlencode 'canonical_url=javascript:alert(1)')
+expect "3.22 (C13): javascript: is refused with the reason, nothing is saved" "$code|$(grep -c 'Kanonická adresa musí začínat https://' "$WORK/response")|$(sq "SELECT COUNT(*) FROM ka_stranky WHERE seo_link = 'c13-copy'")" "200|1|0"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=save" -d "_csrf=$TOKEN" -d ids=0 --data-urlencode "titulek=C13 copy" -d seo_link=c13-copy -d zobrazit=1 --data-urlencode "text=<p>A campaign copy.</p>" --data-urlencode 'canonical_url= /o-nas '
+IDS_C13=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'c13-copy'")
+rm -f "$WORK"/web/storage/cache/stranky/*.html
+curl -s -o "$WORK/response" "$B/c13-copy"
+expect "3.22 (C13): a site path is stored trimmed and printed as the one absolute canonical link (og:url too)" \
+  "$(sq "SELECT canonical_url FROM ka_stranky WHERE ids = $IDS_C13")|$(grep -c 'rel="canonical"' "$WORK/response")|$(grep -c "<link rel=\"canonical\" href=\"$B/o-nas\">" "$WORK/response")|$(grep -c "og:url\" content=\"$B/o-nas\"" "$WORK/response")" "/o-nas|1|1|1"
+curl -s -o "$WORK/response" "$B/kontakty"
+expect "3.22 (C13): a page without it keeps its own canonical address" "$(grep -c "<link rel=\"canonical\" href=\"$B/kontakty\">" "$WORK/response")" "1"
+mcp update_page "{\"id\":$IDS_C13,\"canonical_url\":\"data:text/html,x\"}" > "$WORK/response"
+C13_BAD=$(grep -c '"isError":true' "$WORK/response")
+mcp update_page "{\"id\":$IDS_C13,\"canonical_url\":\"https://example.com/original\"}" > /dev/null
+mcp get_page "{\"id\":$IDS_C13}" > "$WORK/response"
+mcp_text
+expect "3.22 (C13): MCP – update_page refuses data:, takes an absolute address, get_page returns it" "$C13_BAD|$(grep -c '"canonical_url":"https://example.com/original"' "$WORK/text")" "1|1"
+C13_NEWS=$(sq "SELECT seo_link FROM ka_novinky WHERE visible = 1 AND noindex = 0 AND smazano IS NULL AND jazyk = '' AND datum <= '$(site_time)' ORDER BY idc LIMIT 1")
+C13_NEWS_ID=$(sq "SELECT idc FROM ka_novinky WHERE seo_link = '$C13_NEWS' AND jazyk = ''")
+mcp update_news "{\"id\":$C13_NEWS_ID,\"canonical_url\":\"https://example.com/first-published-here\"}" > /dev/null
+mcp get_news "{\"id\":$C13_NEWS_ID}" > "$WORK/response"; mcp_text; C13_NEWS_MCP=$(grep -c '"canonical_url":"https://example.com/first-published-here"' "$WORK/text")
+rm -f "$WORK"/web/storage/cache/stranky/*.html
+curl -s -o "$WORK/response" "$B/novinky/$C13_NEWS"
+expect "3.22 (C13): a news item with an article first published elsewhere points there (MCP update_news, get_news)" \
+  "$C13_NEWS_MCP|$(grep -c 'rel="canonical"' "$WORK/response")|$(grep -c '<link rel="canonical" href="https://example.com/first-published-here">' "$WORK/response")" "1|1|1"
+check "3.22 (C13): the news form shows the stored address" 200 "/admin.php?module=news&action=edit&id=$C13_NEWS_ID" 'name="canonical_url" value="https://example.com/first-published-here"'
+mcp update_news "{\"id\":$C13_NEWS_ID,\"canonical_url\":\"\"}" > /dev/null
+C13_ITEM=$(sq "SELECT CONCAT(k.seo_link, '|', p.seo_link, '|', p.idp) FROM ka_kolekce_polozky p JOIN ka_kolekce k ON k.idk = p.idk WHERE k.detail = 1 AND p.zobrazit = 1 AND p.noindex = 0 AND p.smazano IS NULL AND p.jazyk = '' ORDER BY p.idp LIMIT 1")
+IFS='|' read -r C13_COLLECTION C13_ITEM_SLUG C13_ITEM_ID <<< "$C13_ITEM"
+mcp save_collection_item "{\"collection\":\"$C13_COLLECTION\",\"id\":$C13_ITEM_ID,\"canonical_url\":\"/kontakty\"}" > "$WORK/response"
+rm -f "$WORK"/web/storage/cache/stranky/*.html
+curl -s -o "$WORK/response" "$B/$C13_COLLECTION/$C13_ITEM_SLUG"
+expect "3.22 (C13): a collection item page takes it too (MCP save_collection_item)" "$(sq "SELECT canonical_url FROM ka_kolekce_polozky WHERE idp = $C13_ITEM_ID")|$(grep -c "<link rel=\"canonical\" href=\"$B/kontakty\">" "$WORK/response")" "/kontakty|1"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=collections&action=item&id=$(sq "SELECT idk FROM ka_kolekce_polozky WHERE idp = $C13_ITEM_ID")&item=$C13_ITEM_ID"
+expect "3.22 (C13): the item form shows it" "$(grep -c 'name="canonical_url" value="/kontakty"' "$WORK/response")" "1"
+sq "UPDATE ka_kolekce_polozky SET canonical_url = '' WHERE idp = $C13_ITEM_ID; DELETE FROM ka_stranky WHERE ids = $IDS_C13" > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
 if [ -s "$WORK/web/storage/log/chyby.log" ]; then echo "== záznam chyb aplikace:"; cat "$WORK/web/storage/log/chyby.log"; ERRORS=$((ERRORS+1)); fi
 echo; [ "$ERRORS" -eq 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }

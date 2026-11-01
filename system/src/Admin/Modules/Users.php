@@ -127,7 +127,7 @@ final class Users extends Module
         // access to sections follows from the role; a manual choice only when the administrator explicitly wants it
         $modules = match (true) {
             $data['role'] !== null => array_filter(explode(',', (string) $custom['moduly'])),
-            $r->postBool('rucne') => array_intersect($r->postList('moduly'), array_map(fn (string $c): string => $c::IDENT, Kernel::MODULES)),
+            $r->postBool('rucne') => array_intersect($r->postList('moduly'), [...array_map(fn (string $c): string => $c::IDENT, Kernel::MODULES), Auth::APPEARANCE_AREA]),
             default => self::defaultModules((int) $data['admin']),
         };
 
@@ -240,6 +240,9 @@ final class Users extends Module
                 $names[] = t($class::NAME);
             }
         }
+        if (in_array(Auth::APPEARANCE_AREA, $modules, true)) {
+            $names[] = t(Roles::APPEARANCE_AREA_NAME); // 3.22 (C9)
+        }
         $sentence = implode(', ', $parts) . '.';
         if ($names !== []) {
             $sentence .= ' ' . t('Also has access to: %s.', implode(', ', $names));
@@ -290,12 +293,7 @@ final class Users extends Module
     private function form(array $author, array $errors = []): Response
     {
         $id = (int) $author['idu'];
-        $configurable = [];
-        foreach (Kernel::MODULES as $class) {
-            if (!$class::ADMIN_ONLY && !$class::FOR_ALL_USERS && $class::SHARES_PERMISSION_OF === '') {
-                $configurable[$class::IDENT] = $class::NAME;
-            }
-        }
+        $configurable = Roles::configurable(); // the same sections as a role, the optional Appearance area too (3.22, C9)
 
         // the summary applies to the saved state - above the form it says what the user can do NOW (for a new user there is nothing to summarize)
         $summary = $id > 0 && !$this->request->isPost() ? self::summary(

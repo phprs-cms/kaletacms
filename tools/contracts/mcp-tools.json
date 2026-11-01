@@ -160,6 +160,7 @@
     },
     "create_news": {
         "parameters": {
+            "canonical_url": "string",
             "category": "string",
             "content": "string",
             "date": "string",
@@ -188,6 +189,7 @@
     },
     "create_page": {
         "parameters": {
+            "canonical_url": "string",
             "content": "string",
             "copy_build": "boolean",
             "description": "string",
@@ -1714,6 +1716,7 @@
     },
     "save_collection_item": {
         "parameters": {
+            "canonical_url": "string",
             "categories": "array",
             "collection": "string",
             "description": "string",
@@ -2171,6 +2174,7 @@
     },
     "update_news": {
         "parameters": {
+            "canonical_url": "string",
             "category": "string",
             "content": "string",
             "date": "string",
@@ -2199,6 +2203,7 @@
     },
     "update_page": {
         "parameters": {
+            "canonical_url": "string",
             "content": "string",
             "copy_build": "boolean",
             "description": "string",
