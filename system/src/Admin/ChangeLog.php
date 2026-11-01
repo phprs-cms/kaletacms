@@ -64,10 +64,16 @@ final class ChangeLog
         }
     }
 
-    /** Whether a row of this area has been written in this request (by write()). */
-    public static function wrote(string $module): bool
+    /** Whether a row of one of these areas has been written in this request (by write()). */
+    public static function wrote(string ...$modules): bool
     {
-        return isset(self::$written[mb_substr($module, 0, 30)]);
+        foreach ($modules as $module) {
+            if (isset(self::$written[mb_substr($module, 0, 30)])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

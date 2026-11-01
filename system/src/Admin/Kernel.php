@@ -15,6 +15,13 @@ use Kaleta\Core\Extensions;
 final class Kernel
 {
     /**
+     * Modules whose actions write their own change-log row under another area (3.23.1, N3231-2): an exception to the opening
+     * hours in Business details is a 'settings' row (Core\Hours), a menu published from Menu or an import an 'appearance' row
+     * (Core\Look), the accessibility statement made in Settings a 'pages' row (Core\Privacy) – the generic row would repeat it.
+     */
+    private const array LOGS_AS = ['business' => ['settings'], 'menu' => ['appearance'], 'transfer' => ['appearance'], 'settings' => ['pages']];
+
+    /**
      * Modules in the order they appear in the menu (by the groups Obsah, Vzhled, Správa – Content, Appearance, Administration).
      *
      * @var list<class-string<Module>>
@@ -210,7 +217,7 @@ final class Kernel
         ChangeLog::forget();
         $flashes = $request->isPost() ? count($app->session->flashTypes()) : 0;
         $response = (new $class($this))->handle($action === '' ? 'list' : $action);
-        if ($request->isPost() && $response->status === 302 && $action !== 'poradi' && !ChangeLog::wrote($ident)
+        if ($request->isPost() && $response->status === 302 && $action !== 'poradi' && !ChangeLog::wrote($ident, ...self::LOGS_AS[$ident] ?? [])
             && (ChangeLog::isChangedAnyway() || !in_array('chyba', array_slice($app->session->flashTypes(), $flashes), true))) {
             // every change made in the admin goes to the change log – once: a module that wrote its own row (with what it did,
             // e.g. "reply #3") is not logged again, and an action the module refused (an error message) is no change (3.23.1,

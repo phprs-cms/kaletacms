@@ -4317,6 +4317,15 @@ grep -q 'Inventura' "$WORK/response" && grep -q 'name="exception_from"' "$WORK/r
 EXC=$(sq "SELECT id FROM ka_hours_exceptions LIMIT 1")
 grep -q "action=hours_sign&amp;exception=$EXC" "$WORK/response" && echo "  ok     hours: every exception has a Door sign link" || { echo "  CHYBA  odkaz na ceduli"; ERRORS=$((ERRORS+1)); }
 check "hours: the door sign is a printable page with the note" 200 "/admin.php?module=settings&action=hours_sign&exception=$EXC" "Inventura"
+# N3231-2 (review of 3.23.1): an exception added and deleted in Business details is one change-log row each (Core\Hours logs it under Settings)
+N32312_LOG=$(sq "SELECT COALESCE(MAX(idp), 0) FROM ka_protokol")
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=business"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=business&action=hours_add" -d "_csrf=$(csrf)" -d exception_from=2031-12-24 -d exception_to=2031-12-26 -d exception_closed=1 --data-urlencode "exception_note=N3231 hours"
+N32312_EXC=$(sq "SELECT id FROM ka_hours_exceptions WHERE note = 'N3231 hours'")
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=business&action=hours_delete" -d "_csrf=$(csrf)" -d "exception=${N32312_EXC:-0}"
+expect "3.23.1 review (N3231-2): an exception added and deleted in Business details – one change-log row each" \
+  "$(sq "SELECT GROUP_CONCAT(CONCAT(modul, ' ', akce) ORDER BY idp) FROM ka_protokol WHERE idp > $N32312_LOG")|$(sq "SELECT COUNT(*) FROM ka_hours_exceptions WHERE note = 'N3231 hours'")" \
+  "settings hours_exception,settings hours_exception_delete|0"
 grep -q '<svg class="qr"' "$WORK/response" && grep -q "127.0.0.1:$PORT" "$WORK/response" && grep -q '@page { size: A4' "$WORK/response" && grep -q 'data-tisk' "$WORK/response" && ! grep -q 'admin.css' "$WORK/response" \
   && echo "  ok     hours: the sign carries the QR code with the site address, A4 print CSS and the Print button, outside the admin layout" || { echo "  CHYBA  cedule na dveře"; ERRORS=$((ERRORS+1)); }
 check "hours: the A5 sign" 200 "/admin.php?module=settings&action=hours_sign&exception=$EXC&format=a5" "@page { size: A5"
@@ -5455,8 +5464,11 @@ F17_STATEMENT=$(sq "SELECT CONCAT(ids, '|', seo_link, '|', zobrazit, '|', text L
 expect "2.14: the statement is a hidden draft page in the site language with the standard and the status" "$(echo "$F17_STATEMENT" | cut -d'|' -f2-)" "prohlaseni-o-pristupnosti|0|1|1"
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=cookies"
 grep -q 'skrytý koncept' "$WORK/response" && grep -q 'Znovu vytvořit koncept z auditu' "$WORK/response" && echo "  ok     2.14: Settings → Privacy shows the draft and offers to regenerate it" || { echo "  CHYBA  2.14 statement in settings"; ERRORS=$((ERRORS+1)); }
+N32312_LOG=$(sq "SELECT COALESCE(MAX(idp), 0) FROM ka_protokol")
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=accessibility_statement" -d "_csrf=$(csrf)" -d tab=cookies
 expect "2.14: regenerating updates the same draft page" "$(sq "SELECT COUNT(*) FROM ka_stranky WHERE titulek = 'Prohlášení o přístupnosti' AND smazano IS NULL")" "1"
+expect "3.23.1 review (N3231-2): regenerating the statement is one change-log row (Pages, with the page number)" \
+  "$(sq "SELECT GROUP_CONCAT(CONCAT(modul, ' ', akce, ' ', SUBSTRING_INDEX(popis, ' ', 1)) ORDER BY idp) FROM ka_protokol WHERE idp > $N32312_LOG")" "pages accessibility_statement updated"
 mcp accessibility_statement '{}' > "$WORK/response"
 expect "MCP: accessibility_statement sees the hidden page" "$(mcp_value page slug)|$(mcp_value page published)" "prohlaseni-o-pristupnosti|"
 # the toolbar: only when on
