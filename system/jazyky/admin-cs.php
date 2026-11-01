@@ -6558,4 +6558,6 @@ return [
     'The client account %s cannot change the menu, the footer or the opening hours – add the Appearance area and Business details to its access.' => 'Klientský účet %s nemůže měnit menu, patičku ani otevírací dobu – přidejte mu oblast Vzhled a Údaje o firmě.',
     'The client account %s cannot change the menu or the footer – add the Appearance area to its access.' => 'Klientský účet %s nemůže měnit menu ani patičku – přidejte mu oblast Vzhled.',
     'The client account %s cannot change the opening hours – add Business details to its access.' => 'Klientský účet %s nemůže měnit otevírací dobu – přidejte mu Údaje o firmě.',
+    'Ask the customer for a testimonial' => 'Požádat zákazníka o referenci',
+    'Was the customer happy? Send them a link where they can write a few words about you for your website. Nothing is published until you publish it.' => 'Byl zákazník spokojený? Pošlete mu odkaz, kde o vás napíše pár slov pro váš web. Nic se nezveřejní, dokud to sami nezveřejníte.',
 ];

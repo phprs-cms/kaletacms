@@ -6987,4 +6987,6 @@ return [
     'The client account %s cannot change the menu, the footer or the opening hours – add the Appearance area and Business details to its access.' => 'La cuenta del cliente %s no puede cambiar el menú, el pie de página ni el horario – añade a su acceso el área Apariencia y los Datos de la empresa.',
     'The client account %s cannot change the menu or the footer – add the Appearance area to its access.' => 'La cuenta del cliente %s no puede cambiar el menú ni el pie de página – añade a su acceso el área Apariencia.',
     'The client account %s cannot change the opening hours – add Business details to its access.' => 'La cuenta del cliente %s no puede cambiar el horario – añade a su acceso los Datos de la empresa.',
+    'Ask the customer for a testimonial' => 'Pedir una referencia al cliente',
+    'Was the customer happy? Send them a link where they can write a few words about you for your website. Nothing is published until you publish it.' => '¿El cliente quedó contento? Envíale un enlace donde pueda escribir unas palabras sobre ti para tu sitio web. No se publica nada hasta que tú lo publiques.',
 ];

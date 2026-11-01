@@ -534,7 +534,7 @@ await step('3.19.2 builder: Save as component, Save to my sections and a shared 
 });
 
 // 3.20 "Connected admin", part B (CPO audit C2, C5, C16, C19, C20)
-await step('3.20 (C2, C16) enquiry → form → page: the detail names the form and the page with admin links, the builder opens with the form selected, Statistics link the page; without a References collection the testimonial offers to create it', async () => {
+await step('3.20 (C2, C16) enquiry → form → page: the detail names the form and the page with admin links, the builder opens with the form selected, Statistics link the page; a resolved enquiry offers a testimonial request, folded below the actions', async () => {
   // the starter's contact page carries a form; its hidden fields name the source and the element (Front\Forms)
   const visitor = await browser.newContext();
   const html = await (await visitor.request.get(`${BASE}/contact`)).text();
@@ -553,11 +553,19 @@ await step('3.20 (C2, C16) enquiry → form → page: the detail names the form 
   const builderHref = await origin.locator('a', { hasText: 'Open in the builder' }).getAttribute('href');
   if (!builderHref.endsWith(`module=pages&action=builder&id=${pageId}#element=${element[1]}`)) { throw new Error(`the builder link is ${builderHref}`); }
   if (!(await origin.locator('a', { hasText: 'Page settings' }).getAttribute('href')).includes(`module=pages&action=edit&id=${pageId}`)) { throw new Error('Page settings does not open the page form'); }
-  // C16, 3.23.1 (N-C10): no References collection yet – the same request buttons and one sentence for every role; the collection
-  // is created with the first answer, so nobody is asked to create it first
+  // C16, 3.23.1 (N-C10 and the owner): asking for a testimonial is a folded step after the main actions – not on a new enquiry;
+  // once it is marked resolved, the same buttons and one plain sentence for every role (the References collection comes with the first answer)
+  if (await page.locator('[data-testimonial]').count() !== 0) { throw new Error('a new enquiry already offers to ask for a testimonial'); }
+  await Promise.all([page.waitForNavigation(), page.locator('.tlacitka button', { hasText: 'Mark as resolved' }).click()]);
+  if (!page.url().includes(`id=${newId}`)) { await visit(`/admin.php?module=enquiries&action=detail&id=${newId}`); }
+  const ask = page.locator('details.reference-zadost[data-testimonial]');
+  if (await ask.count() !== 1 || await ask.evaluate((d) => d.open)) { throw new Error('a resolved enquiry has no folded testimonial block'); }
+  if (!(await ask.evaluate((d) => { const actions = document.querySelector('.tlacitka form[action*="action=status"]'); return !!actions && !!(actions.compareDocumentPosition(d) & Node.DOCUMENT_POSITION_FOLLOWING); }))) { throw new Error('the testimonial block is not below the main actions'); }
+  if ((await ask.locator('summary').textContent()).trim() !== 'Ask the customer for a testimonial') { throw new Error('the summary is not “Ask the customer for a testimonial”'); }
+  await ask.locator('summary').click();
+  if (!(await ask.locator('button', { hasText: 'Ask for a testimonial by e-mail' }).isVisible()) || !(await ask.locator('button', { hasText: 'Only create the link' }).isVisible())) { throw new Error('the two request buttons are not in the block'); }
+  if (!(await ask.textContent()).includes('Was the customer happy? Send them a link where they can write a few words about you for your website. Nothing is published until you publish it.')) { throw new Error('the plain sentence is missing'); }
   if (await page.locator('button[name="preset"][value="references"]').count() !== 0) { throw new Error('the testimonial block still asks to create the References collection first'); }
-  if (await page.locator('button', { hasText: 'Ask for a testimonial by e-mail' }).count() !== 1) { throw new Error('the request button is missing without a References collection'); }
-  if (!/the collection is created with the first answer\./.test(await page.locator('button', { hasText: 'Ask for a testimonial by e-mail' }).locator('xpath=..').textContent())) { throw new Error('the testimonial sentence does not say the collection comes with the first answer'); }
   if (SHOTS) { await page.screenshot({ path: `${SHOTS}/enquiry-origin.png`, fullPage: true }); }
   await visit(`/admin.php?module=enquiries&action=detail&id=${oldId}`);
   if ((await page.locator('dd[data-origin] a', { hasText: 'Open in the builder' }).getAttribute('href')) !== builderHref) { throw new Error('an older enquiry without the element id does not find the form by its name'); }

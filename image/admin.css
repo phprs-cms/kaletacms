@@ -1532,3 +1532,7 @@ table.preklady td[data-stav] form { margin-inline-start: 6px; }
 	.zalozky-vyber select { flex: 1 1 12em; min-width: 0; }
 	.zalozky:has(+ .zalozky-vyber) { display: none; }
 }
+/* 3.23.1: the testimonial request on an enquiry – a folded, secondary step below the main actions */
+.reference-zadost { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--linka); }
+.reference-zadost summary { cursor: pointer; font-weight: 600; }
+.reference-zadost > p, .reference-zadost > form { margin: 10px 0 0; }

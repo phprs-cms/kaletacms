@@ -182,6 +182,11 @@ curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?module=schedules&action=edi
 curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?module=claude_settings"; grep -q 'Settings and connections' "$WORK/page.html" && fail "English admin: the Claude hub tab is still Settings and connections"
 curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?action=account&tab=signature"; grep -q 'href="https://kaletacms.com/guide/email#your-e-mail-signature"' "$WORK/page.html" || fail "English admin: How to use this on My e-mail signature does not open the signature guide"
 curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?module=pages&status=draft"; grep -q 'Try another tab.' "$WORK/page.html" && ! grep -q 'or language' "$WORK/page.html" || fail "English admin: the empty Pages filter of a one-language site mentions languages"
+TM=$(sql "INSERT INTO ka_poptavky (datum, formular, email, data, stav) VALUES (NOW(), 'Contact', 'happy@example.com', '[]', 2); SELECT LAST_INSERT_ID();")
+page "a resolved enquiry with the testimonial request" "/admin.php?module=enquiries&action=detail&id=$TM" 200 "$JAR"
+grep -q '<summary>Ask the customer for a testimonial</summary>' "$WORK/page.html" && grep -q 'Was the customer happy? Send them a link where they can write a few words about you for your website. Nothing is published until you publish it.' "$WORK/page.html" \
+  || fail "English admin: a resolved enquiry does not offer Ask the customer for a testimonial with its sentence"
+sql "DELETE FROM ka_poptavky WHERE idp = $TM"
 for u in "module=newsletters" "module=appearance"; do curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?$u"; grep -q 'design system' "$WORK/page.html" && fail "English admin: $u still says design system"; done
 NEWS=$(sql "SELECT idc FROM ka_novinky LIMIT 1")
 ADMIN_SCREENS=("" "module=pages" "module=pages&action=new" "module=pages&action=builder&id=1" "module=enquiries" "module=parts" "module=parts&action=builder&type=hlavicka&language=" \
