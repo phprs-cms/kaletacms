@@ -26,7 +26,7 @@ settings and users stay with you), **Writer** (news for someone else to publish)
 guide (in the admin language, if the guide has it); in the builder the article is in Help (**?**). The admin speaks
 Czech, English, German and Spanish – each user chooses in **My account**. Claude's tools (MCP) always speak English.
 
-**Building the site for a client?** In **Settings → General → Built and looked after by** fill in your name, website,
+**Building the site for a client?** In **Settings → Agency** fill in your name, website,
 e-mail, phone and logo: the sign-in screen and the foot of the admin show the client whom to ask for help. Before
 handing over, the **Handing over to a client** checklist in **Site audit** shows its progress (x of y done) and links each
 row to where it is set – site e-mail, an SMTP server that has accepted a message (send a test e-mail), an off-site backup
@@ -342,7 +342,7 @@ site language separately from the admin language.
 
 German has two forms of address, formal (Sie) and informal (du), chosen separately for the admin and for the site. The admin
 follows each person's choice (**My account → Form of address in German**; the installer asks too). The texts for visitors
-follow **Settings → General → Form of address in German**, so you can use "du" in the admin and still address your customers
+follow **Settings → Languages → Form of address in German**, so you can use "du" in the admin and still address your customers
 with "Sie". Claude writes German texts for visitors in the form of address of the site, whatever the admin speaks to you.
 
 System addresses follow the language: Czech versions use `/novinky` and `/hledani`, all others `/news`, `/news/category/…`,
@@ -355,7 +355,7 @@ version too: the update gave every language its own tag where one tag was used b
 news items keep their tags, each in its own language), a tag page lists the news of its own version, and tags merge only
 within one version. If the update could not switch a site (two items of one language share an address, or the database
 user may not change tables), the site works as before and **System status → Addresses in every language** says why and
-what to do; once that is fixed, tick *The same address in every language* in **Settings → General**.
+what to do; once that is fixed, tick *The same address in every language* in **Settings → Languages**.
 
 **Redirects compare the old address exactly (3.19):** letter case and the slashes around still do not matter, but `/cafe` and
 `/café` are two addresses now. Redirects whose old addresses used to count as one are listed on **System status → Old

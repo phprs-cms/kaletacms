@@ -623,4 +623,13 @@
 	document.addEventListener('focusin', function (e) { var el = e.target.closest && e.target.closest('[data-tip]'); if (el) { showTip(el); } });
 	document.addEventListener('focusout', hideTip);
 	window.addEventListener('scroll', function () { if (tipTarget) { showTip(tipTarget); } }, { passive: true }); // when the page scrolls, the tooltip moves with the element
+
+	// 3.23 (C12): Settings → General was split into tabs; a link to a field that moved (tab=general#additional_languages,
+	// a bookmark or a note from before) goes on to the field's tab – data-pole-jinde is {element id: address of its tab}
+	var movedFields = document.querySelector('[data-pole-jinde]');
+	if (movedFields && location.hash.length > 1) {
+		var movedId = decodeURIComponent(location.hash.slice(1)), movedTo = null;
+		try { movedTo = JSON.parse(movedFields.getAttribute('data-pole-jinde'))[movedId]; } catch (e) { movedTo = null; }
+		if (movedTo && !document.getElementById(movedId)) { location.replace(movedTo + '#' + encodeURIComponent(movedId)); }
+	}
 })();

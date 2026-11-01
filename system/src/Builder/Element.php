@@ -10,6 +10,13 @@ namespace Kaleta\Builder;
  *
  * Content fields – types: text (a line), inline (short text with bold/italic/link), html (formatted text), radky (several lines),
  * odkaz, obrazek, vyber, cislo, prepinac, termin (date and time "YYYY-MM-DD HH:MM", 3.21), polozky (a list of objects with the fields „pole“).
+ *
+ * 3.23 (U10): a text or number field that holds a reference to the site's data names it in „volby“ – kolekce (a collection
+ * slug), pole (a field key of the element's collection; „typy_poli“ narrows the field types), kategorie (a category slug of
+ * the element's collection), kategorie_novinek (a news category slug), sluzba and osoba (a service or a person of Bookings).
+ * The editor then offers a choice from the real data (Admin\BuilderActions::builderChoices) with a free value behind
+ * "Custom…"; „kratce“ is the shorter label beside such a choice, „prazdna“ the meaning of the empty value and „pevne“ fixed
+ * extra values (value => label). The stored value stays the same text or number – the validator does not change.
  */
 abstract class Element
 {

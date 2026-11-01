@@ -24,7 +24,7 @@ zůstávají vám), **Autor textů** (novinky, které vydá někdo jiný) a **Je
 v návodu (v jazyce administrace, pokud ho návod má); v builderu je článek v Nápovědě (**?**). Administrace je česky,
 anglicky, německy a španělsky – každý uživatel si vybere v **Můj účet**. Nástroje Clauda (MCP) mluví vždy anglicky.
 
-**Stavíte web pro klienta?** V **Nastavení → Obecné → Web postavil a stará se o něj** vyplňte své jméno, web, e-mail,
+**Stavíte web pro klienta?** V **Nastavení → Agentura** vyplňte své jméno, web, e-mail,
 telefon a logo: přihlašovací obrazovka a patička administrace klientovi ukážou, koho se zeptat. Před předáním ukáže
 kontrolní seznam **Předání klientovi** v **Auditu webu**, kolik je hotovo (hotovo x z y), a každý řádek vede tam, kde se
 nastavuje – e-mail webu, SMTP server, přes který už prošla zpráva (pošlete zkušební e-mail), kopie záloh mimo server,
@@ -277,7 +277,7 @@ tvaru. Jazyk webu zvolíte už při instalaci, nezávisle na jazyku administrace
 
 Němčina má dvě oslovení, formální (Sie) a neformální (du), a volí se zvlášť pro administraci a pro web. Administrace se
 řídí volbou každého uživatele (**Můj účet → Oslovení v němčině**; ptá se i instalátor). Texty pro návštěvníky se řídí
-**Nastavení → Obecné → Oslovení v němčině**, takže v administraci můžete tykat a zákazníky na webu přesto vykat. Claude
+**Nastavení → Jazyky → Oslovení v němčině**, takže v administraci můžete tykat a zákazníky na webu přesto vykat. Claude
 píše německé texty pro návštěvníky v oslovení webu, ať vám administrace říká cokoli.
 
 Systémové adresy se řídí jazykem: česká verze má `/novinky` a `/hledani`, všechny ostatní `/news`, `/news/category/…`,
@@ -290,7 +290,7 @@ k jazykové verzi: aktualizace dala každému jazyku vlastní štítek tam, kde 
 jazycích (novinky o štítky nepřišly, každá má ten ve svém jazyce), stránka štítku vypíše novinky své verze a slučovat
 lze jen štítky jedné verze. Když aktualizace web přepnout nemohla (dvě položky jednoho jazyka mají stejnou adresu, nebo
 uživatel databáze nesmí měnit tabulky), web funguje jako dřív a **Stav systému → Adresy ve všech jazycích** řekne proč
-a co udělat; po nápravě zaškrtněte *Stejná adresa ve všech jazycích* v **Nastavení → Základní**.
+a co udělat; po nápravě zaškrtněte *Stejná adresa ve všech jazycích* v **Nastavení → Jazyky**.
 
 **Přesměrování porovnává starou adresu přesně (3.19):** velikost písmen a lomítka okolo dál nehrají roli, ale `/cafe`
 a `/café` jsou teď dvě adresy. Přesměrování, jejichž staré adresy se dřív počítaly jako jedna, vypíše **Stav systému →

@@ -15,6 +15,6 @@
 <?php endforeach ?>
 </nav>
 <?php if (($pairingKey ?? '') !== ''): ?>
-<div class="hlaska hlaska-ok"><p><?= e(t('Paste this pairing key on the site in Settings → Fleet console. It is valid for 24 hours and only once; it is not shown again.')) ?></p>
+<div class="hlaska hlaska-ok"><p><?= e(t('Paste this pairing key on the site in Settings → Reporting to a console. It is valid for 24 hours and only once; it is not shown again.')) ?></p>
 <p><code class="totp-klic"><?= e($pairingKey) ?></code></p></div>
 <?php endif ?>

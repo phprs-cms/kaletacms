@@ -23,6 +23,11 @@ final class MenuPaths
         [['Settings', 'Privacy and cookies'], 'settings', 'module=settings&tab=cookies'],
         [['Settings', 'SEO and GEO'], 'settings', 'module=settings&tab=seo'],
         [['Settings', 'General'], 'settings', 'module=settings&tab=general'],
+        // 3.23 (C12, C8): the tabs that left General, and the console tab under its new name
+        [['Settings', 'Languages'], 'settings', 'module=settings&tab=languages'],
+        [['Settings', 'Security'], 'settings', 'module=settings&tab=security'],
+        [['Settings', 'Firewall'], 'settings', 'module=settings&tab=firewall'],
+        [['Settings', 'Agency'], 'settings', 'module=settings&tab=agency'],
         [['Settings', 'Analytics'], 'settings', 'module=settings&tab=analytics'],
         [['Settings', 'Mail'], 'settings', 'module=settings&tab=mail'],
         [['Settings', 'Reports'], 'settings', 'module=settings&tab=reports'], // 3.16
@@ -46,7 +51,7 @@ final class MenuPaths
         [['Enquiries'], 'enquiries', 'module=enquiries'],
         [['Pages'], 'pages', 'module=pages'],
         [['Users', 'Roles'], 'roles', 'module=roles'],
-        [['Settings', 'Fleet console'], 'settings', 'module=settings&tab=console'],
+        [['Settings', 'Reporting to a console'], 'settings', 'module=settings&tab=console'],
         [['Settings', 'Webhooks'], 'settings', 'module=settings&tab=webhooks'],
         [['Scheduled runs'], 'schedules', 'module=schedules'],
         [['Notebook'], 'notebook', 'module=notebook'],

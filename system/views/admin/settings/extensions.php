@@ -7,13 +7,13 @@ use Kaleta\Core\Extensions;
 // where an enabled extension is configured – each lives elsewhere in the admin, so the card leads straight to that place
 $adminUrl = fn (string $query): string => $app->url('admin.php?' . $query);
 $extensionSettings = [
-    'novinky' => [[$adminUrl('module=news'), 'Novinky'], [$adminUrl('module=categories'), 'Categories'], [$adminUrl('module=tags'), 'Tags']],
+    'novinky' => [[$adminUrl('module=news'), 'News'], [$adminUrl('module=categories'), 'Categories'], [$adminUrl('module=tags'), 'Tags']],
     'poptavky' => [[$adminUrl('module=enquiries'), 'Enquiries and retention'], [$adminUrl('module=settings&tab=webhooks'), 'Webhook to CRM']],
     'newsletter' => [[$adminUrl('module=subscribers'), 'Subscribers and export'], ['#newsletter', 'Connection to a mailing service']],
     'bookings' => [[$adminUrl('module=bookings'), 'Bookings'], [$adminUrl('module=bookings&action=services'), 'Services'], [$adminUrl('module=bookings&action=staff'), 'People']],
     'statistika' => [[$adminUrl('module=stats'), 'Statistics'], [$adminUrl('module=settings&tab=analytics'), 'Analytics']],
     'presmerovani' => [[$adminUrl('module=redirects'), 'Redirects']],
-    'jazyky' => [[$adminUrl('module=settings&tab=general#additional_languages'), 'Choose languages']],
+    'jazyky' => [[$adminUrl('module=settings&tab=languages#additional_languages'), 'Choose languages']],
     'asistent' => [['#asistent', 'Provider, key and model']],
     'whistleblowing' => [[$adminUrl('module=whistleblowing'), 'Channel set-up and readers']],
     'claude' => [[$adminUrl('module=claude_settings#how-to-connect'), 'How to connect Claude']], // 3.20 (C6): one destination

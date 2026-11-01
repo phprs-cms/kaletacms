@@ -1,6 +1,6 @@
 <?php
 /**
- * The "Fleet console" tab (2.9, Fleet\Link): pairing this site with a console it reports to. For the variables see list.php.
+ * The "Reporting to a console" tab (2.9, Fleet\Link; named "Fleet console" until 3.23, C8): pairing this site with a console it reports to. For the variables see list.php.
  *
  * @var array{paired: bool, url: string, name: string, fingerprint: string, own: string, updates: bool, allowed: string, sent: int, error: string, kit: bool, kitVersion: int, kitApplied: int, kitError: string, kitWaiting: bool, titles: bool} $fleet
  */

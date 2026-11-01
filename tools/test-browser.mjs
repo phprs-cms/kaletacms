@@ -1377,6 +1377,51 @@ await step('3.9 Settings → Mail: choosing a mail service fills the server, por
   if (await page.inputValue('#smtp_host') !== 'email-smtp.eu-west-1.amazonaws.com') { throw new Error('Other server changed the server'); }
 });
 
+// 3.23 (C12, C8): Settings → General split into General, Languages, Security and Agency – saving one tab leaves the fields of the
+// others alone (the checkboxes too), an old link to a moved field goes on to its tab, and the console tab ("Reporting to a
+// console") is in the row only once an agency is named
+await step('3.23 Settings tabs: saving one keeps the others, old links move on, the console tab follows the agency', async () => {
+  const save = () => Promise.all([page.waitForNavigation(), page.locator('p.tlacitka input[type="submit"]').click()]);
+  const tabs = async () => page.locator('nav.zalozky a').evaluateAll((links) => links.map((a) => new URL(a.href).searchParams.get('tab')));
+  await visit('/admin.php?module=settings&tab=security');
+  const suspend = page.locator('input[name="auto_suspend[]"]').first();
+  const suspendBefore = await suspend.isChecked();
+  await suspend.setChecked(true);
+  await save();
+  if (!(await page.locator('a[href*="tab=firewall"]', { hasText: 'Settings → Firewall' }).count())) { throw new Error('Security does not link Settings → Firewall'); }
+  await visit('/admin.php?module=settings&tab=general');
+  if (await page.locator('[name="auto_suspend[]"], [name="agency_name"], [name="site_language"], [name="require_2fa"]').count()) { throw new Error('General still shows moved fields'); }
+  const description = await page.inputValue('#site_description');
+  await page.fill('#site_description', description + ' 323');
+  await save();
+  await visit('/admin.php?module=settings&tab=security');
+  if (!(await page.locator('input[name="auto_suspend[]"]').first().isChecked())) { throw new Error('saving General cleared the automatic suspension'); }
+  // the link of 3.22 to a field that moved (a bookmark, Features → Choose languages before the update)
+  await page.goto(BASE + '/admin.php?module=settings&tab=general#require_2fa');
+  await page.waitForURL(/tab=security#require_2fa$/, { timeout: 5000 });
+  if (!(await page.locator('#require_2fa').isVisible())) { throw new Error('the old link did not reach Two-factor sign-in'); }
+  // the console tab: not in the row without an agency, the last one with it
+  await visit('/admin.php?module=settings&tab=agency');
+  const agencyBefore = await page.inputValue('#agency_name');
+  await page.fill('#agency_name', '');
+  await save();
+  if ((await tabs()).includes('console')) { throw new Error('the console tab shows without an agency'); }
+  await page.fill('#agency_name', 'Browser Studio');
+  await save();
+  const withAgency = await tabs();
+  if (withAgency.at(-1) !== 'console' || withAgency.at(-2) !== 'agency' || !(await page.locator('nav.zalozky a', { hasText: 'Reporting to a console' }).count())) { throw new Error(`the tabs with an agency: ${withAgency.join(', ')}`); }
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/settings-agency-tab.png`, fullPage: true }); }
+  // put everything back
+  await page.fill('#agency_name', agencyBefore);
+  await save();
+  await visit('/admin.php?module=settings&tab=general');
+  await page.fill('#site_description', description);
+  await save();
+  await visit('/admin.php?module=settings&tab=security');
+  await page.locator('input[name="auto_suspend[]"]').first().setChecked(suspendBefore);
+  await save();
+});
+
 await step('site parts: every header and footer template renders', async () => {
   for (const [part, templates] of [['hlavicka', ['klasicka', 'na-stred', 's-listou', 'minimalni']], ['paticka', ['sloupce', 'kompaktni', 'tiraz', 'vyzva']]]) {
     for (const template of templates) {
@@ -1715,7 +1760,7 @@ await step('3.12 builder: search "form" finds Form only; the Collection list ins
   if (await more.count() !== 1 || (await more.getAttribute('open')) !== null) { throw new Error('the filter options are not folded under More options'); }
   await more.locator('summary').click();
   const start = page.locator('.st-vice-voleb .st-pole', { hasText: 'Start date field' }).locator('select option');
-  if (await start.count() !== 1) { throw new Error('the start date field offers fields that are not dates'); } // References has no date field: only "—"
+  if (await start.count() !== 2) { throw new Error('the start date field offers fields that are not dates'); } // References has no date field: only "—" and "Custom…" (3.23)
   if (SHOTS) { await page.screenshot({ path: `${SHOTS}/collection-list-inspector.png` }); }
   await page.locator('.st-hlava-prvku button.nebezpecne').first().click(); // leave the page as it was
   await page.waitForTimeout(1500);
@@ -1781,6 +1826,112 @@ await step('3.7 builder: Previous / next item in the item template, a nav landma
   await nav.locator('a[rel="next"]').focus();
   if (SHOTS) { await v.screenshot({ path: `${SHOTS}/previous-next-item.png`, fullPage: true }); }
   await visitor.close();
+});
+
+// 3.23 (U10): references to the site's data are choices by name – services and people of Bookings, collections, their
+// fields and categories; "Custom…" keeps a free value, a stored one the site lacks shows as "not found" (never dropped)
+await step('3.23 (U10) builder: Booking, Store locator, Collection list and Previous / next offer their data by name; Custom… and not found', async () => {
+  const until = async (fn, what, ms = 6000) => { const end = Date.now() + ms; for (;;) { const v = await fn(); if (v) { return v; } if (Date.now() > end) { throw new Error(what); } await page.waitForTimeout(150); } };
+  const draft = () => sql('SELECT stavba_koncept FROM ka_stranky WHERE ids = 1');
+  const choice = (label) => page.locator('.st-pravy label.st-volba', { has: page.locator('span', { hasText: new RegExp('^' + label + '$') }) });
+  const optionTexts = async (label) => (await choice(label).locator('select option').allTextContents()).map((n) => n.trim());
+  const insertElement = async (name) => {
+    await page.locator('.st-zalozky [role="tab"]').first().click();
+    await page.locator('.st-prvky button', { hasText: new RegExp('^' + name + '$') }).first().click();
+    await page.waitForTimeout(900);
+  };
+  await visit('/admin.php?module=pages&action=builder&id=1');
+  await page.waitForTimeout(1500);
+  await insertElement('Booking');
+  const services = await optionTexts('Service');
+  const people = await optionTexts('Person');
+  if (services[0] !== 'The visitor chooses' || !services.includes('Browser consultation') || services.at(-1) !== 'Custom…') { throw new Error(`the Service choice offers ${JSON.stringify(services)}`); }
+  if (!people.includes('Browser Staff') || people.some((n) => n.includes('@'))) { throw new Error(`the Person choice offers ${JSON.stringify(people)}`); }
+  await choice('Service').locator('select').selectOption({ label: 'Browser consultation' });
+  await until(() => /"sluzba":900[,}]/.test(draft()), 'choosing the service did not save its id');
+  await choice('Person').locator('select').selectOption({ label: 'Custom…' });
+  const free = choice('Person').locator('input[type="number"]');
+  if (!(await free.isVisible()) || !(await free.evaluate((e) => e === document.activeElement))) { throw new Error('Custom… does not open a focused free field'); }
+  await free.fill('4242');
+  await until(() => /"osoba":4242[,}]/.test(draft()), 'the custom person id was not saved');
+  if (SHOTS) { await page.locator('.st-pravy').screenshot({ path: `${SHOTS}/u10-booking-choices.png` }); }
+  // the stored id the site does not have: after a reload it is shown, marked, and still saved as it was
+  await visit('/admin.php?module=pages&action=builder&id=1');
+  await page.waitForTimeout(1500);
+  await canvas().locator('.ka-rezervace').last().click({ position: { x: 6, y: 6 } });
+  await page.getByRole('tab', { name: 'Content' }).first().click().catch(() => {});
+  await choice('Person').waitFor();
+  const shown = (await choice('Person').locator('select option:checked').textContent()).trim();
+  if (shown !== '4242 (not found)') { throw new Error(`a missing person shows as ${JSON.stringify(shown)}`); }
+  await page.locator('.st-hlava-prvku button.nebezpecne').first().click(); // leave the page as it was
+  await page.waitForTimeout(900);
+  // Store locator: without a collection it means the first Branches one; the location field lists location fields only
+  await insertElement('Store locator');
+  const collections = await optionTexts('Collection');
+  if (collections[0] !== 'The first Branches collection' || !collections.includes('Equipment')) { throw new Error(`the Store locator collection offers ${JSON.stringify(collections)}`); }
+  await choice('Collection').locator('select').selectOption({ label: 'Equipment' });
+  await page.waitForTimeout(400);
+  const location = await optionTexts('Location field');
+  if (location.join('|') !== 'The first location field|location (not found)|Custom…') { throw new Error(`Equipment (no location field) offers ${JSON.stringify(location)}`); }
+  await page.locator('.st-hlava-prvku button.nebezpecne').first().click();
+  await page.waitForTimeout(900);
+  // Collection list: the categories of the chosen collection, a subcategory under its parent, and * for the category shown
+  await insertElement('Collection list');
+  await page.locator('.st-pravy .st-pole', { hasText: /^Collections/ }).locator('select').first().selectOption({ label: 'Equipment' });
+  await page.waitForTimeout(600);
+  const categories = await optionTexts('Category');
+  if (!categories.includes('Treadmills') || !categories.includes('Treadmills › Medical') || !categories.some((n) => /^The category shown/.test(n))) { throw new Error(`the Category choice offers ${JSON.stringify(categories)}`); }
+  await choice('Category').locator('select').selectOption({ label: 'Treadmills › Medical' });
+  await until(() => /"kategorie":"medical"/.test(draft()), 'choosing the category did not save its address');
+  if (SHOTS) { await page.locator('.st-pravy').screenshot({ path: `${SHOTS}/u10-collection-list-category.png` }); }
+  await page.locator('.st-hlava-prvku button.nebezpecne').first().click();
+  await page.waitForTimeout(1500);
+  // Previous / next in the item template: the thumbnail field is a choice of the collection's image fields
+  await visit('/admin.php?module=collections&action=builder&id=' + equipment);
+  await page.waitForTimeout(1500);
+  await canvas().locator('nav.ka-predchozi-dalsi').first().click({ position: { x: 4, y: 4 } });
+  await page.getByRole('tab', { name: 'Content' }).first().click().catch(() => {});
+  const thumbnails = await optionTexts('Thumbnail field');
+  if (thumbnails[0] !== 'The first image field' || !thumbnails.includes('Image') || thumbnails.includes('Description')) { throw new Error(`the thumbnail field offers ${JSON.stringify(thumbnails)}`); }
+});
+
+// 3.23 (U15): at tablet width the panels fold into icon rails and open over the canvas; a desktop keeps its three columns
+await step('3.23 (U15) builder at 820 px: rails, canvas ≥ 70 %, the Add panel over it in two columns without clipped names, Esc and a tap close it; 1440 px unchanged', async () => {
+  await page.setViewportSize({ width: 820, height: 1000 });
+  try {
+    await visit('/admin.php?module=pages&action=builder&id=1');
+    await page.waitForTimeout(1500);
+    const layout = await page.evaluate(() => ({ canvas: document.querySelector('.st-platno').getBoundingClientRect().width / innerWidth,
+      left: !!document.querySelector('.st-levy').offsetParent, right: !!document.querySelector('.st-pravy').offsetParent,
+      publish: document.querySelector('.st-lista .st-tl-hlavni').getBoundingClientRect().right <= innerWidth, scroll: document.documentElement.scrollWidth <= innerWidth }));
+    if (layout.canvas < 0.7 || layout.left || layout.right || !layout.publish || !layout.scroll) { throw new Error(`the tablet layout: ${JSON.stringify(layout)}`); }
+    const add = page.locator('.st-pruh-levy button[aria-label="Add"]');
+    await add.click();
+    await page.locator('.st-levy .st-prvky').first().waitFor();
+    const grid = await page.evaluate(() => ({ columns: getComputedStyle(document.querySelector('.st-prvky')).gridTemplateColumns.split(' ').length,
+      clipped: [...document.querySelectorAll('.st-prvky button')].filter((b) => b.scrollWidth > b.clientWidth + 1).map((b) => b.textContent.trim()),
+      over: document.querySelector('.st-levy').getBoundingClientRect().left < document.querySelector('.st-platno').getBoundingClientRect().left + 4 }));
+    if (grid.columns !== 2 || grid.clipped.length || !grid.over || (await add.getAttribute('aria-expanded')) !== 'true') { throw new Error(`the Add panel: ${JSON.stringify(grid)}`); }
+    if (SHOTS) { await page.screenshot({ path: `${SHOTS}/u15-builder-820-add.png` }); }
+    await page.keyboard.press('Escape');
+    if (await page.locator('.st-levy').isVisible() || !(await add.evaluate((b) => b === document.activeElement))) { throw new Error('Esc does not close the panel and give the focus back to its rail button'); }
+    await page.locator('.st-pruh-levy button[aria-label="Structure"]').click();
+    if ((await page.locator('.st-levy [role="tab"][aria-selected="true"]').textContent()).trim() !== 'Structure') { throw new Error('the Structure rail button does not open the Structure tab'); }
+    await canvas().locator('body').click({ position: { x: 500, y: 200 } }); // right of the open panel (the position is in the scaled page's pixels)
+    await page.waitForTimeout(300);
+    if (await page.locator('.st-levy').isVisible()) { throw new Error('a tap on the page does not close the panel'); }
+    await page.locator('.st-pruh-pravy button').click();
+    await page.locator('.st-pravy').waitFor({ state: 'visible' });
+    if (SHOTS) { await page.screenshot({ path: `${SHOTS}/u15-builder-820-properties.png` }); }
+    await page.keyboard.press('Escape');
+    if (await page.locator('.st-pravy').isVisible()) { throw new Error('Esc does not close the Properties panel'); }
+  } finally {
+    await page.setViewportSize({ width: 1440, height: 900 });
+  }
+  await page.waitForTimeout(300);
+  const desktop = await page.evaluate(() => ({ rails: [...document.querySelectorAll('.st-pruh')].some((r) => r.offsetParent), left: !!document.querySelector('.st-levy').offsetParent,
+    right: !!document.querySelector('.st-pravy').offsetParent }));
+  if (desktop.rails || !desktop.left || !desktop.right) { throw new Error(`1440 px is not the desktop layout: ${JSON.stringify(desktop)}`); }
 });
 
 // 3.12 (UX310-28): sending a form on a phone and coming back to the page leaves no script error ("Transition was aborted

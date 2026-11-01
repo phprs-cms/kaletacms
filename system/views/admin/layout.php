@@ -46,7 +46,8 @@ if ($user !== null && empty($gated)) { // 3.19 (N3183-2): nothing to search at t
     foreach ($collections as $collection) {
         $statements[] = ['n' => $collection['name'], 'u' => $adminUrl('module=collections&action=items&id=' . $collection['id']), 's' => t('Collections')];
     }
-    foreach (isset($modules['settings']) ? Kaleta\Admin\Modules\Settings::TABS : [] as $key => $name) {
+    // 3.23 (C8): the console tab only where the Settings row shows it (a named agency or a pairing)
+    foreach (isset($modules['settings']) ? array_intersect_key(Kaleta\Admin\Modules\Settings::TABS, Kaleta\Admin\Modules\Settings::visibleTabs($app->settings()) + Kaleta\Admin\Modules\Settings::MOVED_TABS) : [] as $key => $name) {
         $statements[] = ['n' => t('Settings') . ' → ' . t($name), 'u' => $adminUrl('module=settings&tab=' . $key), 's' => t('Settings')];
     }
     // site pages can be found in the palette by name (news is searched on the server, there are more of them)

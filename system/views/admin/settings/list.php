@@ -18,7 +18,7 @@
  * @var string $remoteStatus  result of the last backup upload off the server
  * @var string $tasksToken  secret part of the /ulohy url for cron
  * @var array<string, mixed>|null $domainWatch  the last domain and mail check (Core\DomainWatch), null = none yet
- * @var array<int, string> $pages  pages for choosing the home page (the "Základní" (General) tab)
+ * @var array<int, string> $pages  pages for choosing the home page (the General tab)
  * @var list<array{name: string, provider: string, purpose: string, duration: string, category: string}> $cookieTable  cookies and storage the site uses (2.14, the Privacy tab)
  * @var array{time?: int, pages?: int, cookies?: list<string>, error?: string} $cookieScan  the last scan of the site's own pages (2.14)
  * @var array<string, mixed>|null $statementPage  the accessibility statement page created from the audit (2.14), null = none yet
@@ -50,8 +50,13 @@ $field = function (string $key, string $labelText, string $kind = 'text', string
 };
 ?>
 <?php if ($module::IDENT === 'settings'): ?>
-<nav class="zalozky" aria-label="<?= e(t('Settings sections')) ?>">
-<?php foreach (array_diff_key(Settings::TABS, Settings::MOVED_TABS) as $key => $name): ?>
+<?php // 3.23 (C8): the console tab shows only with a named agency or a pairing – opened by its address, it is in the row anyway
+$navigation = Settings::visibleTabs($app->settings()) + (isset(Settings::TABS[$tab]) && !isset(Settings::MOVED_TABS[$tab]) ? [$tab => Settings::TABS[$tab]] : []);
+$navigation = array_intersect_key(Settings::TABS, $navigation); // in the order of TABS
+// 3.23 (C12): a link to a field that left General (tab=general#additional_languages) is taken on to its tab by image/admin.js
+$movedFields = $tab === 'general' ? array_map(fn (string $to): string => $module->url('', ['tab' => $to]), Settings::movedFields($app->settings())) : []; ?>
+<nav class="zalozky" aria-label="<?= e(t('Settings sections')) ?>"<?= $movedFields !== [] ? ' data-pole-jinde="' . e((string) json_encode($movedFields, JSON_UNESCAPED_SLASHES)) . '"' : '' ?>>
+<?php foreach ($navigation as $key => $name): ?>
 	<a href="<?= e($module->url('', ['tab' => $key])) ?>"<?= $tab === $key ? ' class="aktivni" aria-current="page"' : '' ?>><?= e(t($name)) ?></a>
 <?php endforeach ?>
 </nav>
@@ -61,6 +66,7 @@ $field = function (string $key, string $labelText, string $kind = 'text', string
 <button type="submit" class="vychozi-odeslani" tabindex="-1" aria-hidden="true"><?= e(t('Save settings')) ?></button>
 <?= $csrf ?>
 <input type="hidden" name="tab" value="<?= e($tab) ?>">
+<?php if ($tab === 'general' && $module::IDENT === 'settings'): ?><input type="hidden" name="general_split" value="1"><?php /* 3.23: only the General fields – Settings::actionSave */ endif ?>
 <?php require __DIR__ . '/' . $tab . '.php'; ?>
 <?php if (!in_array($tab, ['health', 'console'], true)): ?>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save settings')) ?>"></p>

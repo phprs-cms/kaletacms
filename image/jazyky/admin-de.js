@@ -3021,5 +3021,8 @@ window.KALETA_PREKLAD = {
 	"https://…, /about-us, an e-mail, a phone – or a page name": "https://…, /ueber-uns, eine E-Mail, eine Telefonnummer – oder ein Seitenname",
 	"Suggestions": "Vorschläge",
 	"Link to: %s": "Link zu: %s",
-	"Nothing found – the text is used as the address.": "Nichts gefunden – der Text wird als Adresse verwendet."
+	"Nothing found – the text is used as the address.": "Nichts gefunden – der Text wird als Adresse verwendet.",
+	"%s (not found)": "%s (nicht gefunden)",
+	"Custom value": "Eigener Wert",
+	"A site in several languages: each further version (e.g. /cs/…) has its own pages, categories and news, a language switcher and hreflang tags. Pick the languages in Settings → Languages.": "Eine Website in mehreren Sprachen: Jede weitere Version (z. B. /cs/…) hat eigene Seiten, Kategorien und News, einen Sprachumschalter und hreflang-Tags. Die Sprachen wählen Sie unter Einstellungen → Sprachen."
 };

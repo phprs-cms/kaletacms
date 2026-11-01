@@ -66,9 +66,9 @@ final class Health
             $slugFailure !== null => Slug::failureText($slugFailure, $details, Slug::perLanguage($db)),
             Slug::perLanguage($db) => t('each language version may use the same address once (/kontakt and /en/kontakt)'),
             // the migration ran and switched the site on, and then an older version (a rollback to 3.18) switched it off
-            in_array(Slug::MIGRATION, explode(',', $siteSettings->get('data_migrations')), true) => t('addresses are unique across all languages again – an older version of Kaleta switched “The same address in every language” off. Switch it on again in Settings → General.'),
+            in_array(Slug::MIGRATION, explode(',', $siteSettings->get('data_migrations')), true) => t('addresses are unique across all languages again – an older version of Kaleta switched “The same address in every language” off. Switch it on again in Settings → Languages.'),
             default => t('addresses are still unique across all languages – the database update of Kaleta 3.19 has not run yet (it runs the next time the administration loads)'),
-        }, $slugsOk ? [] : [['text' => t('Settings → General'), 'url' => $app->url('admin.php?module=settings&tab=general')]]);
+        }, $slugsOk ? [] : [['text' => t('Settings → Languages'), 'url' => $app->url('admin.php?module=settings&tab=languages')]]);
         // 3.19 (§1.3): redirects are looked up by the exact old address; groups that counted as one before are listed here
         try {
             $groups = RedirectSources::collisionCount($db);

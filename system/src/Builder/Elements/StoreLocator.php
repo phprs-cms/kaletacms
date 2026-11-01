@@ -37,8 +37,8 @@ final class StoreLocator extends Element
     public static function properties(): array
     {
         return [
-            'kolekce' => ['typ' => 'text', 'popisek' => 'Collection (empty = the first Branches collection)', 'vychozi' => '', 'max' => 110],
-            'pole_poloha' => ['typ' => 'text', 'popisek' => 'Location field (key)', 'vychozi' => 'location', 'max' => 31],
+            'kolekce' => ['typ' => 'text', 'popisek' => 'Collection (empty = the first Branches collection)', 'vychozi' => '', 'max' => 110, 'volby' => 'kolekce', 'kratce' => 'Collection', 'prazdna' => 'The first Branches collection'],
+            'pole_poloha' => ['typ' => 'text', 'popisek' => 'Location field (key)', 'vychozi' => 'location', 'max' => 31, 'volby' => 'pole', 'typy_poli' => ['poloha'], 'kratce' => 'Location field', 'prazdna' => 'The first location field'],
             'hledani' => ['typ' => 'prepinac', 'popisek' => 'Search box', 'vychozi' => true],
             'nejblizsi' => ['typ' => 'prepinac', 'popisek' => '“Nearest to me” button', 'vychozi' => true],
             'mapa' => ['typ' => 'prepinac', 'popisek' => 'Map (loads after a click)', 'vychozi' => true],

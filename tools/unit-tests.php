@@ -195,7 +195,7 @@ $builderParity = [
     'build_class' => 'save_classes', 'build_delete_section' => 'delete_section', 'build_discard' => 'discard_draft', 'build_publish' => 'publish_build',
     'build_restore' => 'restore_build_version', 'build_save' => 'save_build', 'build_save_section' => 'save_section', 'build_section' => 'insert_section',
     'build_share' => 'preview_link', 'build_versions' => $readOnly, 'builder' => $readOnly, 'build_comment_resolve' => 'resolve_draft_comment',
-    'build_package' => $readOnly, 'build_paste' => 'admin: paste from the system clipboard of another Kaleta site – Claude inserts elements with save_build or edit_build and brings classes with save_classes',
+    'build_package' => $readOnly, 'build_choices' => $readOnly, 'build_paste' => 'admin: paste from the system clipboard of another Kaleta site – Claude inserts elements with save_build or edit_build and brings classes with save_classes',
 ];
 $settingsParity = ['list' => $readOnly, 'save' => 'update_settings', 'download_backup' => $readOnly, 'backup' => 'admin: backups', 'restore_backup' => 'admin: backups',
     'delete_backup' => 'admin: backups', 'media_backup' => 'admin: backups', 'delete_log' => 'admin: error log', 'check' => 'admin: updates', 'update' => 'admin: updates', 'forget_updates' => 'admin: updates', 'update_major' => 'admin: updates (a major version only on an explicit action, 3.15)',
@@ -643,6 +643,7 @@ foreach (glob(KALETA_SYSTEM . '/views/admin/settings/*.php') as $view) {
             'smtp_ses_region', // 3.9: the Amazon SES region – MailServices::settle() builds the server from it
             'zone', 'choice', // 3.12: the time zone confirmation (Settings::actionTimeZone) – the new zone and convert | keep
             'month', // 3.16: the month of an archived report on its Send and Rebuild buttons (Settings::actionReportSend, actionReportRebuild)
+            'general_split', // 3.23 (C12): the marker of the split General form – Settings::actionSave then saves only the General fields
             'screen_collections', 'novy_token_obrazovka'], true)) { // 2.11 screen mode: the collections list is added by fields() from the site's collections, the button makes a new address
             $unknownFields[] = basename($view) . ': ' . $name;
         }
@@ -7552,7 +7553,7 @@ check('3.19 Slug::failureText says what is wrong and what to do', Kaleta\Core\La
     str_contains(Kaleta\Core\Slug::failureText(['reason' => 'shared', 'table' => 'kategorie', 'slugs' => ['/novinky/kategorie/x', '/novinky/kategorie/y']]), '/novinky/kategorie/x, /novinky/kategorie/y'),
     str_contains(Kaleta\Core\Slug::failureText(['reason' => 'database', 'table' => 'stranky', 'error' => 'ALTER command denied']), 'The database said: ALTER command denied'),
     str_contains(Kaleta\Core\Slug::failureText(['reason' => 'database', 'table' => '']), 'The database said'),
-    str_contains(Kaleta\Core\Slug::failureText(['reason' => 'shared', 'table' => 'x']), 'Settings → General')], 'admin-'), [true, true, false, true]);
+    str_contains(Kaleta\Core\Slug::failureText(['reason' => 'shared', 'table' => 'x']), 'Settings → Languages')], 'admin-'), [true, true, false, true]); // 3.23 (C12): the switch is on the Languages tab
 // every lookup of a redirect for a visited or linked address compares source_norm – never the Czech collation of z_adresy
 $byCollation319 = [];
 foreach (['Front/Kernel.php', 'Core/Audit.php', 'Core/Links.php', 'Core/MigrationReport.php'] as $file319) {
@@ -8200,8 +8201,8 @@ check('3.23 (C17): MCP site_audit returns handover_checklist additively (no new 
     Kaleta\Mcp\Translator::arguments('site_audit', ['kind' => 'handover']), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Tools.php'), 'handover_checklist = every row with done'),
 ], [true, ['kind' => 'handover'], true]);
 // 3.23 (C18): module names are English source strings (the Czech is in the dictionary), the dashboard copy says Ask Claude
-check('3.23 (C18): News and Users have English NAME source strings translated in every admin dictionary; Ask Claude, not Requests, in the dashboard copy', [
-    Kaleta\Admin\Modules\News::NAME, Kaleta\Admin\Modules\Users::NAME,
+check('3.23 (C18): News, Users and Settings have English NAME source strings translated in every admin dictionary; Ask Claude, not Requests, in the dashboard copy', [
+    Kaleta\Admin\Modules\News::NAME, Kaleta\Admin\Modules\Users::NAME, Kaleta\Admin\Modules\Settings::NAME,
     Kaleta\Core\Language::runWith('cs', fn (): string => t('News') . '|' . t('Users') . '|' . t('Settings'), 'admin-'),
     Kaleta\Core\Language::runWith('de', fn (): string => t('News') . '|' . t('Users') . '|' . t('Settings'), 'admin-'),
     Kaleta\Core\Language::runWith('es', fn (): string => t('News') . '|' . t('Users') . '|' . t('Settings'), 'admin-'),
@@ -8209,7 +8210,7 @@ check('3.23 (C18): News and Users have English NAME source strings translated in
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/claude_panel.php'), "t('Requests')"),
     Kaleta\Core\Language::runWith('en', fn (): string => Kaleta\Admin\MenuPaths::links('admin.php', 'Settings → Mail and Users → Roles', ['settings', 'roles']), 'admin-'),
     Kaleta\Core\Language::runWith('cs', fn (): string => Kaleta\Admin\MenuPaths::links('admin.php', 'Nastavení → Pošta', ['settings']), 'admin-'),
-], ['News', 'Users', 'Novinky|Uživatelé|Nastavení', 'News|Benutzer|Einstellungen', 'Noticias|Usuarios|Ajustes', false, false,
+], ['News', 'Users', 'Settings', 'Novinky|Uživatelé|Nastavení', 'News|Benutzer|Einstellungen', 'Noticias|Usuarios|Ajustes', false, false,
     '<a href="admin.php?module=settings&amp;tab=mail">Settings → Mail</a> and <a href="admin.php?module=roles">Users → Roles</a>', '<a href="admin.php?module=settings&amp;tab=mail">Nastavení → Pošta</a>']);
 // 3.23 (owner): the draft look for whoever has the Appearance area – the preview only; publishing stays with the administrator
 $kernel323 = (string) file_get_contents(KALETA_SYSTEM . '/src/Front/Kernel.php');
@@ -8220,6 +8221,96 @@ check('3.23: Front\Kernel activates the draft look for the Appearance area (buil
     (bool) preg_match('/<\?php if \(\$readOnly\): \?>.*?<\?php else: \?>\s*<form[^>]*discard_look/s', $lookBar323),
     (bool) preg_match("/<\?php if \(\\\$readOnly\): \/\/[^\n]*\?>\n[^\n]*preview=vzhled[^\n]*\n<\?php else: \?>[^\n]*\n[^\n]*\n[^\n]*publish_look/", $lookBar323),
 ], [true, false, true, true]);
+// 3.23 (U10): every field that refers to the site's data names a known source; the builder offers a choice for each, MCP
+// describes where the value comes from; the stored value keeps its type (text or number) and the validator does not change
+$u10Sources = [];
+foreach (Kaleta\Builder\Build::ELEMENTS as $u10Class) {
+    foreach ($u10Class::properties() as $u10Key => $u10Def) {
+        if (isset($u10Def['volby'])) {
+            $u10Sources[$u10Class::TYPE . '.' . $u10Key] = $u10Def['volby'] . ':' . $u10Def['typ'];
+        }
+    }
+}
+ksort($u10Sources);
+$u10Script = (string) file_get_contents(KALETA_ROOT . '/image/stavitel.js');
+check('3.23 (U10): the fields referring to collections, their fields and categories, news categories and Bookings name their source', $u10Sources, [
+    'kolekce.filtr_pole' => 'pole:text', 'kolekce.kategorie' => 'kategorie:text', 'kolekce.kolekce' => 'kolekce:text', 'kolekce.obdobi_do' => 'pole:text', 'kolekce.obdobi_od' => 'pole:text',
+    'kolekce.razeni_pole' => 'pole:text', 'novinky.kategorie' => 'kategorie_novinek:text', 'pobocky.kolekce' => 'kolekce:text', 'pobocky.pole_poloha' => 'pole:text',
+    'predchozi_dalsi.pole_obrazku' => 'pole:text', 'rezervace.osoba' => 'osoba:cislo', 'rezervace.sluzba' => 'sluzba:cislo',
+]);
+check('3.23 (U10): each source has a choice in the builder and a hint in MCP', array_values(array_filter(array_unique(array_map(fn (string $s): string => explode(':', $s)[0], $u10Sources)),
+    fn (string $s): bool => !str_contains($u10Script, "case '" . $s . "':") || !isset(Kaleta\Mcp\Vocabulary::SOURCES[$s]))), []);
+$u10Mcp = Kaleta\Mcp\Vocabulary::schema(Kaleta\Builder\Build::schema(true, 'en'), ['booking', 'store_locator', 'collection_list'], false)['elements'];
+$u10Fields = array_column($u10Mcp, 'fields', 'type');
+check('3.23 (U10): builder_schema says where a service, a collection, a location field and a category come from (additive: type and default stay)', [
+    $u10Fields['booking']['service']['type'], $u10Fields['booking']['service']['default'], $u10Fields['booking']['service']['source'],
+    $u10Fields['store_locator']['location_field']['source'], $u10Fields['collection_list']['category']['source'], isset($u10Fields['collection_list']['count']['source']),
+], ['number', 0, 'a service id from booking_availability → services (0 = the visitor chooses)', 'a field key of the element\'s collection (list_collections → fields) (field types: location)',
+    'a category slug of the element\'s collection from list_collection_categories', false]);
+[$u10Build] = Kaleta\Builder\Build::sanitize(['deti' => [['typ' => 'sekce', 'deti' => [['typ' => 'rezervace', 'obsah' => ['sluzba' => '12', 'osoba' => 3]], ['typ' => 'pobocky', 'obsah' => ['kolekce' => 'zmizela', 'pole_poloha' => 'gps']]]]]]);
+check('3.23 (U10): a stored reference is kept as it is – also one the site no longer has (the builder shows it as not found)', [
+    $u10Build['deti'][0]['deti'][0]['obsah']['sluzba'], $u10Build['deti'][0]['deti'][0]['obsah']['osoba'], $u10Build['deti'][0]['deti'][1]['obsah']['kolekce'], $u10Build['deti'][0]['deti'][1]['obsah']['pole_poloha'],
+], [12, 3, 'zmizela', 'gps']);
+check('3.23 (U10): the builder action of the choices is a read of every builder module, the data is asked with the people\'s sections', [
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/BuilderActions.php'), "'volby' => self::builderChoices(\$this->db, array_keys(\$this->kernel->modules())"),
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/BuilderActions.php'), "self::builderChoices(\$this->db, array_keys(\$this->kernel->modules()), (string) \$target['jazyk'])"),
+], [true, 2]);
+// 3.23 (U15): a tablet (below 1024 px) folds the panels into icon rails over which they open; a desktop keeps its three columns
+$u15Css = (string) file_get_contents(KALETA_ROOT . '/image/stavitel.css');
+check('3.23 (U15): the tablet layout – rails, panels over the canvas, two columns of elements; the phone notice below 720 px stays', [
+    str_contains($u15Css, '@media (max-width: 1023px) {' . "\n\t" . '.st { grid-template: "lista lista lista" auto "pruh-levy platno pruh-pravy" 1fr / 48px minmax(0, 1fr) 48px; }'),
+    str_contains($u15Css, '.st:not([data-panel="levy"]) .st-levy, .st:not([data-panel="pravy"]) .st-pravy { display: none; }'),
+    str_contains($u15Css, '.st-prvky { grid-template-columns: repeat(2, minmax(0, 1fr)); }'), str_contains($u15Css, '@media (max-width: 719px) {'),
+    str_contains($u10Script, "window.matchMedia('(max-width: 1023px)')"), str_contains($u10Script, "if (e.key === 'Escape' && root.dataset.panel"),
+], [true, true, true, true, true, true]);
+/* ---------- 3.23 (C12, C8): Settings → General split into tabs, the console tab renamed and shown only when it matters ---------- */
+use Kaleta\Admin\Modules\Settings as S323;
+$fields323 = (new ReflectionClassConstant(S323::class, 'FIELDS'))->getValue();
+$split323 = ['general', ...S323::SPLIT_FROM_GENERAL];
+$templates323 = array_map(fn (string $tab): string => (string) file_get_contents(KALETA_SYSTEM . '/views/admin/settings/' . $tab . '.php'), array_combine($split323, $split323));
+$inTemplate323 = fn (string $key, string $tpl): bool => str_contains($tpl, "'" . $key . "'") || str_contains($tpl, 'name="' . $key) || isset(S323::SOCIAL_NETWORKS[$key]) && str_contains($tpl, 'SOCIAL_NETWORKS');
+$misplaced323 = [];
+foreach ($split323 as $tab) {
+    foreach (array_keys($fields323[$tab]) as $key) {
+        // every field is in the form of its own tab and in no other of the four (a field in two forms would be saved by both)
+        $where = array_keys(array_filter($templates323, fn (string $tpl): bool => $inTemplate323($key, $tpl)));
+        if ($where !== [$tab]) {
+            $misplaced323[$key] = $where;
+        }
+    }
+}
+check('3.23 (C12): General, Languages, Security and Agency – each field in the form of its own tab only, the keys of 3.22 all kept', [
+    $misplaced323,
+    array_values(array_diff(['site_name', 'site_url', 'site_description', 'site_email', 'footer_text', 'social_facebook', 'social_instagram', 'social_x', 'social_youtube', 'social_linkedin',
+        'home_page', 'news_per_page', 'news_slug', 'news_title', 'share_buttons', 'social_networks', 'link_check', 'article_outline', 'related_news_auto', 'page_cache', 'maintenance',
+        'maintenance_text', 'require_2fa', 'screen_mode', 'screen_seconds', 'screen_news', 'screen_hours', 'screen_clock', 'auto_suspend', 'agency_name', 'agency_url', 'agency_email',
+        'agency_phone', 'agency_logo', 'time_zone', 'site_language', 'german_register', 'additional_languages', 'slugs_per_language'], ...array_values(array_map(array_keys(...), array_intersect_key($fields323, array_flip($split323)))))),
+    array_keys($fields323['languages']), array_keys($fields323['security']), array_keys($fields323['agency']),
+    // MCP update_settings and the import validate them as before (the type is looked up in every tab)
+    [S323::verifyValue('require_2fa', 'spravci'), S323::verifyValue('agency_email', 'x'), S323::verifyValue('site_language', 'de'), S323::verifyValue('screen_mode', 'true'), S323::checkable('agency_name')],
+], [[], [], ['site_language', 'german_register', 'additional_languages', 'slugs_per_language'], ['require_2fa', 'auto_suspend'],
+    ['agency_name', 'agency_url', 'agency_email', 'agency_phone', 'agency_logo'], ['spravci', null, 'de', '1', true]]);
+check('3.23 (C12): the old single General form (no marker) still saves every field it showed; the split form sends the marker; old links move on', [
+    (bool) preg_match("/tab === 'general'.*!\\\$this->request->postBool\('general_split'\).*SPLIT_FROM_GENERAL/s", (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Settings.php')),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/settings/list.php'), 'name="general_split" value="1"'),
+    array_intersect_key(S323::movedFields($reportSettings(['additional_languages' => 'de', 'extensions' => 'jazyky'])), array_flip(['additional_languages', 'require_2fa', 'auto_suspend', 'agency_logo', 'nazev_webu_de', 'site_name', 'time_zone'])),
+    str_contains((string) file_get_contents(KALETA_ROOT . '/image/admin.js'), "querySelector('[data-pole-jinde]')"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/settings/extensions.php'), 'module=settings&tab=languages#additional_languages'),
+    Kaleta\Core\Demo::blocksAdmin('settings', 'save', 'languages', true), Kaleta\Core\Demo::blocksAdmin('settings', 'save', 'security', true),
+], [true, true, ['additional_languages' => 'languages', 'require_2fa' => 'security', 'auto_suspend' => 'security', 'agency_logo' => 'agency', 'nazev_webu_de' => 'languages'], true, true, false, true]);
+check('3.23 (C8): "Reporting to a console" is the last tab, shown with a named agency or a pairing – never hidden while paired', [
+    array_slice(array_keys(array_diff_key(S323::TABS, S323::MOVED_TABS)), -3), S323::TABS['console'],
+    isset(S323::visibleTabs($reportSettings([]))['console']), isset(S323::visibleTabs($reportSettings(['agency_name' => '  ']))['console']),
+    isset(S323::visibleTabs($reportSettings(['agency_name' => 'Studio Kaleta']))['console']),
+    isset(S323::visibleTabs($reportSettings(['fleet_console_url' => 'https://console.example', 'fleet_site_id' => '3']))['console']),
+    array_keys(array_intersect_key(S323::visibleTabs($reportSettings([])), S323::MOVED_TABS)),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/layout.php'), 'Settings::visibleTabs($app->settings())'),
+], [['firewall', 'agency', 'console'], 'Reporting to a console', false, false, true, true, [], true]);
+check('3.23: the hints link the new tabs in the admin language', Kaleta\Core\Language::runWith('cs', fn (): array => [
+    substr_count(Kaleta\Admin\MenuPaths::links('/admin.php', t('Blocking addresses, countries and probing of the public site is in Settings → Firewall.') . ' ' . t('Whether this site reports to the agency\'s console is set in Settings → Reporting to a console.')
+        . ' ' . t('Your contact is not set – the client will not see whom to ask (Settings → Agency).') . ' ' . t('Settings → Languages') . ' ' . t('Unused accounts and Claude connections are only reported – switch on the automatic suspension (Settings → Security) so that leftover access closes itself.'), ['settings']), '<a href="/admin.php?module=settings&amp;tab='),
+    t('Reporting to a console'), t('Agency'),
+], 'admin-'), [5, 'Hlášení do konzole', 'Agentura']);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

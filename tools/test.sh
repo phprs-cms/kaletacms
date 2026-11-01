@@ -260,6 +260,51 @@ php -r '$d = new DOMDocument(); @$d->loadHTML(file_get_contents($argv[1])); $x =
   echo implode("&", $q);' "$WORK/general.html" > "$WORK/general.post"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" --data-binary @"$WORK/general.post"
 expect "saving Settings → General keeps the language versions" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'additional_languages'")" "en"
+# 3.23 (C12): General is split into tabs – each tab's form saved as a browser does (every field as it is) leaves the other tabs alone
+settings_form() { # <tab> <file>: the body a browser posts for the form of Settings → <tab>, unchanged
+  curl -s -b "$JAR" -c "$JAR" -o "$WORK/settings-form.html" "$B/admin.php?module=settings&tab=$1"
+  php -r '$d = new DOMDocument(); @$d->loadHTML(file_get_contents($argv[1])); $x = new DOMXPath($d); $f = $x->query("//form[.//input[@name=\"tab\"]]")->item(0); $q = [];
+    foreach ($x->query(".//input|.//select|.//textarea", $f) as $e) { $n = $e->getAttribute("name"); $t = $e->getAttribute("type"); if ($n === "" || $t === "submit" || (in_array($t, ["checkbox", "radio"], true) && !$e->hasAttribute("checked"))) continue;
+      $v = $e->nodeName === "select" ? (($o = $x->query(".//option[@selected]", $e)->item(0) ?? $x->query(".//option", $e)->item(0)) ? $o->getAttribute("value") : "") : ($e->nodeName === "textarea" ? $e->textContent : $e->getAttribute("value")); $q[] = rawurlencode($n) . "=" . rawurlencode($v); }
+    echo implode("&", $q);' "$WORK/settings-form.html" > "$2"
+}
+SPLIT323="'additional_languages', 'auto_suspend', 'require_2fa', 'agency_name', 'share_buttons', 'page_cache', 'site_name', 'social_networks'"
+split323() { sq "SELECT GROUP_CONCAT(CONCAT(promenna, '=', hodnota) ORDER BY promenna SEPARATOR ';') FROM ka_nastaveni WHERE promenna IN ($SPLIT323)"; }
+sq "DROP TABLE IF EXISTS nastaveni323; CREATE TABLE nastaveni323 AS SELECT * FROM ka_nastaveni" > /dev/null # put back at the end of this part
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('auto_suspend', 'ucty'), ('require_2fa', ''), ('agency_name', 'Studio 323'), ('share_buttons', '1'), ('page_cache', '1'), ('social_networks', 'facebook')" > /dev/null
+BEFORE323=$(split323)
+for t in general languages security agency; do settings_form "$t" "$WORK/split323.post"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" --data-binary @"$WORK/split323.post"; done
+expect "3.23: saving General, Languages, Security and Agency one after another as a browser does changes nothing on the other tabs" "$(split323)" "$BEFORE323"
+grep -q 'name="general_split" value="1"' <(curl -s -b "$JAR" "$B/admin.php?module=settings&tab=general") && ! grep -q 'name="auto_suspend\[\]"\|name="agency_name"\|name="additional_languages\[\]"' <(curl -s -b "$JAR" "$B/admin.php?module=settings&tab=general") \
+  && echo "  ok     3.23: the General form carries the marker and none of the moved fields" || { echo "  CHYBA  3.23: the General form still has moved fields or no marker"; ERRORS=$((ERRORS+1)); }
+check "3.23: Settings → Languages has the languages" 200 "/admin.php?module=settings&tab=languages" 'id="additional_languages"'
+grep -q 'name="site_language"' "$WORK/response" && grep -q 'aria-current="page">Jazyky<' "$WORK/response" && echo "  ok     3.23: … and the site language, on the tab Jazyky" || { echo "  CHYBA  3.23: the Languages tab"; ERRORS=$((ERRORS+1)); }
+check "3.23: Settings → Security has two-factor sign-in, the suspension and the way to the firewall" 200 "/admin.php?module=settings&tab=security" 'name="require_2fa"'
+grep -q 'name="auto_suspend\[\]"' "$WORK/response" && grep -q 'href="/admin.php?module=settings&amp;tab=firewall">Nastavení → Firewall</a>' "$WORK/response" && echo "  ok     3.23: … the suspension and the link to Nastavení → Firewall" || { echo "  CHYBA  3.23: the Security tab"; ERRORS=$((ERRORS+1)); }
+check "3.23: Settings → Agency has the agency" 200 "/admin.php?module=settings&tab=agency" 'name="agency_logo"'
+# the single General form of 3.22 (no marker – a page opened before the update) still saves everything it showed, as before
+set323() { sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = '$1'"; }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" --data-urlencode "_csrf=$(grep -o 'name="_csrf" value="[a-f0-9]*"' "$WORK/settings-form.html" | head -1 | sed 's/.*value="//;s/"//')" -d tab=general \
+  --data-urlencode "site_name=$(set323 site_name)" --data-urlencode "site_url=$(set323 site_url)" --data-urlencode "time_zone=$(set323 time_zone)" --data-urlencode "home_page=$(set323 home_page)" \
+  -d site_language="$(set323 site_language)" -d 'additional_languages[]=en' -d 'additional_languages[]=de' -d require_2fa= --data-urlencode "agency_name=Studio 3.22" -d page_cache=1
+expect "3.23: a 3.22 General form without the marker still saves the languages, security and agency it showed – and its unticked boxes, as before" \
+  "$(sq "SELECT GROUP_CONCAT(CONCAT(promenna, '=', hodnota) ORDER BY promenna SEPARATOR ';') FROM ka_nastaveni WHERE promenna IN ('additional_languages', 'require_2fa', 'agency_name', 'auto_suspend', 'share_buttons', 'page_cache')")" \
+  "additional_languages=en,de;agency_name=Studio 3.22;auto_suspend=;page_cache=1;require_2fa=;share_buttons=0"
+sq "CREATE TEMPORARY TABLE changed323 AS SELECT n.* FROM nastaveni323 n JOIN ka_nastaveni k USING (promenna) WHERE NOT (k.hodnota <=> n.hodnota); REPLACE INTO ka_nastaveni SELECT * FROM changed323;
+  CREATE TEMPORARY TABLE added323 AS SELECT k.promenna FROM ka_nastaveni k LEFT JOIN nastaveni323 n USING (promenna) WHERE n.promenna IS NULL; DELETE k FROM ka_nastaveni k JOIN added323 USING (promenna); DROP TABLE nastaveni323" > /dev/null
+# 3.23 (C8): the console tab is in the row only with an agency named or a pairing; its address works anyway
+! grep -q 'tab=console"' <(curl -s -b "$JAR" "$B/admin.php?module=settings&tab=agency") && grep -q 'objeví se záložka Hlášení do konzole' <(curl -s -b "$JAR" "$B/admin.php?module=settings&tab=agency") \
+  && echo "  ok     3.23: without an agency the console tab is not in the row, and Agency says when it appears" || { echo "  CHYBA  3.23: the console tab shows without an agency"; ERRORS=$((ERRORS+1)); }
+check "3.23: … its address still opens it, under the new name" 200 "/admin.php?module=settings&tab=console" 'aria-current="page">Hlášení do konzole<'
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('agency_name', 'Studio 323')" > /dev/null
+check "3.23: with an agency named the console tab is the last one in the row" 200 "/admin.php?module=settings&tab=agency" '>Agentura</a>'
+grep -q '<a href="/admin.php?module=settings&amp;tab=console">Hlášení do konzole</a>' "$WORK/response" && [ "$(perl -0ne 'print $1 if /<nav class="zalozky"[^>]*>(.*?)<\/nav>/s' "$WORK/response" | grep -o 'tab=[a-z_]*' | tail -1)" = "tab=console" ] \
+  && echo "  ok     3.23: … linked as the last tab, after Agentura" || { echo "  CHYBA  3.23: the console tab with an agency"; ERRORS=$((ERRORS+1)); }
+sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'agency_name'" > /dev/null
+# an old link to a field that moved goes on to its tab (image/admin.js reads the map the General tab carries)
+check "3.23: General carries where the moved fields went" 200 "/admin.php?module=settings&tab=general" 'data-pole-jinde="'
+grep -q '&quot;additional_languages&quot;:&quot;/admin.php?module=settings&amp;tab=languages&quot;' "$WORK/response" && grep -q '&quot;require_2fa&quot;:&quot;/admin.php?module=settings&amp;tab=security&quot;' "$WORK/response" \
+  && echo "  ok     3.23: … additional_languages to Languages, require_2fa to Security" || { echo "  CHYBA  3.23: the map of moved fields"; grep -o 'data-pole-jinde="[^"]*"' "$WORK/response" | head -c 400; ERRORS=$((ERRORS+1)); }
 code=$(curl -s -o /dev/null -w '%{http_code}' "$B/en/novinky/vitejte-v-kalete"); expect "novinka jiné jazykové verze přesměruje" "$code" 301
 
 # a failed news item validation must return the form with a message, not error 500
@@ -2546,7 +2591,7 @@ echo "== 2.8: security hygiene – unused accounts and Claude connections, autom
 check "System status lists the unused accounts and connections with links" 200 "/admin.php?module=status" "Nepoužívané účty"
 grep -q 'Stary Spravce (poslední aktivita' "$WORK/response" && grep -q 'stary-editor (poslední aktivita' "$WORK/response" && grep -q 'stary token (stary-editor)' "$WORK/response" && grep -q 'nepouzity token (Tester)' "$WORK/response" && ! grep -q 'zivy token (Tester)' "$WORK/response" \
   && grep -q 'vypnuto – nepoužívané účty a napojení se jen hlásí' "$WORK/response" && echo "  ok     System status: two unused accounts, two unused connections, the live token is fine, suspension off" || { echo "  CHYBA  System status hygiene findings"; grep -o 'Účty a přístup.*' "$WORK/response" | head -c 1500; ERRORS=$((ERRORS+1)); }
-check "the settings form offers the automatic suspension" 200 "/admin.php?module=settings&tab=general" 'name="auto_suspend\[\]"'
+check "the settings form offers the automatic suspension (Security since 3.23)" 200 "/admin.php?module=settings&tab=security" 'name="auto_suspend\[\]"'
 mcp site_audit '{"kind":"handover"}' > "$WORK/response"; php -r 'echo json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"] ?? "";' "$WORK/response" > "$WORK/text"
 contains -qE '"handover": ?"unused_account"' "$WORK/text" && contains -qE '"handover": ?"unused_connection"' "$WORK/text" && contains -qE '"handover": ?"auto_suspend"' "$WORK/text" && echo "  ok     site audit: unused accounts and connections, suspension off, before handing over" || { echo "  CHYBA  hand-over audit hygiene"; head -c 600 "$WORK/text"; ERRORS=$((ERRORS+1)); }
 # the daily run (the 2.8 scheduler calls SecurityHygiene::run once a day): here straight from the command line against the test site
@@ -3804,11 +3849,16 @@ PAIRING_KEY=$(grep -o 'kaleta-console:[A-Za-z0-9_-]*' "$WORK/response" | head -1
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet"
 ! grep -q 'kaleta-console:' "$WORK/response" && echo "  ok     console: the pairing key is shown only once" || { echo "  CHYBA  párovací klíč se ukázal znovu"; ERRORS=$((ERRORS+1)); }
 expect "a site without the fleet extension has no console addresses" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/fleet/heartbeat" -d '{}')" "404"
-# this site pairs with the console from Settings → Fleet console
+# this site pairs with the console from Settings → Reporting to a console (Fleet console until 3.23)
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"; TOKEN=$(csrf)
-grep -q 'name="pairing_key"' "$WORK/response" && echo "  ok     Settings → Fleet console offers pairing" || { echo "  CHYBA  záložka Konzole webů"; ERRORS=$((ERRORS+1)); }
+grep -q 'name="pairing_key"' "$WORK/response" && echo "  ok     Settings → Reporting to a console offers pairing" || { echo "  CHYBA  záložka Konzole webů"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_pair" -d "_csrf=$TOKEN" --data-urlencode "pairing_key=$PAIRING_KEY" -d fleet_updates=1
 expect "pairing: the site knows its console and its number there" "$(sq "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_console_url'), '|', (SELECT hodnota > 0 FROM ka_nastaveni WHERE promenna = 'fleet_site_id'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_updates'))")" "$B3|1|1"
+# 3.23 (C8): a paired site always shows its console tab, also with no agency named
+AGENCY323=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'agency_name'")
+sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'agency_name'" > /dev/null
+check "3.23: a paired site shows the console tab in the row without an agency named" 200 "/admin.php?module=settings&tab=general" '<a href="/admin.php?module=settings&amp;tab=console">Hlášení do konzole</a>'
+sq "UPDATE ka_nastaveni SET hodnota = '$AGENCY323' WHERE promenna = 'agency_name'" > /dev/null
 expect "pairing: the console has the site with its first report" "$(sq3 "SELECT CONCAT(COUNT(*), '|', MAX(last_seen IS NOT NULL), '|', MAX(version <> ''), '|', MAX(manage_updates), '|', MAX(heartbeat LIKE '%enquiries_unanswered%')) FROM ka_fleet_sites")" "1|1|1|1|1"
 expect "pairing: the code works only once" "$(sq3 "SELECT COUNT(*) FROM ka_fleet_pairing WHERE used_at IS NOT NULL")" "1"
 sq3 "SELECT heartbeat FROM ka_fleet_sites" | contains '@' && { echo "  CHYBA  the report carries an e-mail address"; ERRORS=$((ERRORS+1)); } || echo "  ok     the report carries no e-mail addresses"
@@ -6911,14 +6961,14 @@ HOME39=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'home_page'")
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$EXT39'), ('additional_languages', 'en'), ('home_page', '0')" > /dev/null
 keys39() { sq "SELECT GROUP_CONCAT(INDEX_NAME ORDER BY INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('ka_stranky', 'ka_novinky', 'ka_kategorie') AND INDEX_NAME LIKE 'uq_%seo' AND SEQ_IN_INDEX = 1"; }
 get39() { rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/response" -w '%{http_code} %{redirect_url}' "$B$1"; }
-general39() { # Settings → General saved as a browser does (every field as it is), with the switch on (1) or off (0)
-  curl -s -b "$JAR" -c "$JAR" -o "$WORK/general39.html" "$B/admin.php?module=settings&tab=general"
+general39() { # Settings → Languages (General until 3.23) saved as a browser does (every field as it is), with the switch on (1) or off (0)
+  curl -s -b "$JAR" -c "$JAR" -o "$WORK/general39.html" "$B/admin.php?module=settings&tab=languages"
   php -r '$d = new DOMDocument(); @$d->loadHTML(file_get_contents($argv[1])); $x = new DOMXPath($d); $f = $x->query("//form[.//input[@name=\"tab\"]]")->item(0); $q = [];
     foreach ($x->query(".//input|.//select|.//textarea", $f) as $e) { $n = $e->getAttribute("name"); $t = $e->getAttribute("type"); if ($n === "" || $n === "slugs_per_language" || $t === "submit" || (in_array($t, ["checkbox", "radio"], true) && !$e->hasAttribute("checked"))) continue;
       $v = $e->nodeName === "select" ? (($o = $x->query(".//option[@selected]", $e)->item(0) ?? $x->query(".//option", $e)->item(0)) ? $o->getAttribute("value") : "") : ($e->nodeName === "textarea" ? $e->textContent : $e->getAttribute("value")); $q[] = rawurlencode($n) . "=" . rawurlencode($v); }
     echo implode("&", $q), $argv[2] === "1" ? "&slugs_per_language=1" : "";' "$WORK/general39.html" "$1" > "$WORK/general39.post"
   curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" --data-binary @"$WORK/general39.post"
-  curl -s -b "$JAR" -c "$JAR" -o "$WORK/general39.html" "$B/admin.php?module=settings&tab=general"
+  curl -s -b "$JAR" -c "$JAR" -o "$WORK/general39.html" "$B/admin.php?module=settings&tab=languages"
 }
 # 3.19: a fresh install has the same address once in each language on and no global keys (schema.sql, the installer); this
 # part plays a site the update to 3.19 could not switch: the global keys come back through Slug::switchPerLanguage(off),
@@ -6927,7 +6977,7 @@ slugoff39() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = 
 expect "3.19: a fresh install has the same address in every language on, with only the per-language keys (and the plain lookup keys)" \
   "$(keys39)|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'")|$(sq "SELECT GROUP_CONCAT(INDEX_NAME ORDER BY INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('ka_stranky', 'ka_novinky', 'ka_kategorie', 'ka_stitky') AND INDEX_NAME LIKE '%seo' AND SEQ_IN_INDEX = 1")" \
   "uq_clanky_jazyk_seo,uq_stranky_jazyk_seo,uq_topic_jazyk_seo|1|ix_clanky_seo,ix_stitky_seo,ix_stranky_seo,ix_topic_seo,uq_clanky_jazyk_seo,uq_stitky_jazyk_seo,uq_stranky_jazyk_seo,uq_topic_jazyk_seo"
-curl -s -b "$JAR" -o "$WORK/general39.html" "$B/admin.php?module=settings&tab=general"
+curl -s -b "$JAR" -o "$WORK/general39.html" "$B/admin.php?module=settings&tab=languages"
 grep -q 'name="slugs_per_language"' "$WORK/general39.html" && { echo "  CHYBA  3.19: Settings → General still offers the switch on a site that has it on"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.19: … and Settings → General offers no switch there"
 expect "3.19: the manual rollback path switches it off while nothing is shared" "$(slugoff39)" "null"
 expect "3.9: a site from before keeps its global slug keys next to the per-language ones (migration 0083), the switch is off" \
@@ -6949,7 +6999,7 @@ expect "3.14 off: a tag created from an English news item is English; the Czech 
 T314=$(get39 /novinky/stitek/fair-314); contains -q 'Fair CS 314' "$WORK/response" || T314="$T314 wrong"
 T314EN=$(get39 /en/news/tag/fair-314); contains -q 'Fair EN 314' "$WORK/response" || T314EN="$T314EN wrong"
 expect "3.14 off: the tag page answers in both versions, each with its own news" "$T314|$T314EN" "200 |200 "
-curl -s -b "$JAR" -o "$WORK/general39.html" "$B/admin.php?module=settings&tab=general"
+curl -s -b "$JAR" -o "$WORK/general39.html" "$B/admin.php?module=settings&tab=languages"
 grep -q 'name="slugs_per_language" value="1">' "$WORK/general39.html" && echo "  ok     3.19: a site that is off gets the switch (unticked) in Settings → General" || { echo "  CHYBA  3.19: no slugs_per_language switch on a site that is off"; ERRORS=$((ERRORS+1)); }
 general39 1
 grep -q 'name="slugs_per_language"' "$WORK/general39.html" && { echo "  CHYBA  3.19: the switch is still offered once on"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.19: once on, Settings → General no longer offers it (it cannot be switched off)"
@@ -7111,7 +7161,7 @@ expect "3.19 blocked: the site stays as it was – off, keys untouched, the reas
   "0|uq_clanky_jazyk_seo,uq_stranky_jazyk_seo|shared:/novinky/kategorie/dvojice-319"
 expect "3.19 blocked: the event says it could not switch" "$(sq "SELECT CONCAT(type, ':', severity) FROM ka_events WHERE id > $EVENTS319 AND type LIKE 'slugs.%'")" "slugs.per_language_failed:warning"
 check "3.19 blocked: System status warns and says what to do" 200 "/admin.php?module=status" 'Dvě položky jedné jazykové verze mají stejnou adresu (/novinky/kategorie/dvojice-319)'
-check "3.19 blocked: Settings → General shows the reason and offers the switch" 200 "/admin.php?module=settings&tab=general" 'name="slugs_per_language" value="1">'
+check "3.19 blocked: Settings → Languages shows the reason and offers the switch" 200 "/admin.php?module=settings&tab=languages" 'name="slugs_per_language" value="1">'
 grep -qF 'Dvě položky jedné jazykové verze mají stejnou adresu (/novinky/kategorie/dvojice-319)' "$WORK/response" && echo "  ok     3.19 blocked: … with the reason" || { echo "  CHYBA  3.19 blocked: no reason in Settings → General"; ERRORS=$((ERRORS+1)); }
 general39 1
 expect "3.19 blocked: switching on again is refused while the cause remains" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'")" "0"
@@ -7163,7 +7213,7 @@ sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('health_token', '$HEAL
 # N319-1: a site that is on stays on when the migration failed there – System status says what is missing and what to do
 check "3.19 (N319-7, N319-1): System status shows the administrators the database message and the old addresses, and warns on a site that is on" 200 "/admin.php?module=status" 'Databáze odpověděla: ALTER command denied to user w319x'
 grep -qF '/kolize-n319 = /kolize%2Dn319' "$WORK/response" && grep -qF 'tu dál je starší klíč' "$WORK/response" && echo "  ok     3.19 (N319-7, N319-1): … the colliding addresses listed, the on-site wording" || { echo "  CHYBA  3.19 N319-7 System status details"; ERRORS=$((ERRORS+1)); }
-check "3.19 (N319-1): Settings → General offers the ticked switch on an on site with a recorded failure" 200 "/admin.php?module=settings&tab=general" 'name="slugs_per_language" value="1" checked'
+check "3.19 (N319-1): Settings → Languages offers the ticked switch on an on site with a recorded failure" 200 "/admin.php?module=settings&tab=languages" 'name="slugs_per_language" value="1" checked'
 sq "DELETE FROM ka_presmerovani WHERE z_adresy IN ('kolize-n319', 'kolize%2Dn319')" > /dev/null
 # N319-3: Settings → General runs migration 0106 under the migration lock – two at once wait for each other, both end well
 (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); echo json_encode(Kaleta\Core\Slug::enableEverywhere($app->db(), $app->settings()));' > "$WORK/enable319a.txt") & E319A=$!
@@ -7329,7 +7379,7 @@ sq "UPDATE ka_nastaveni SET hodnota = 'en,pt-br,ja' WHERE promenna = 'additional
 check "3.11 UX310-7: Translations say Brazilian Portuguese is not in the language switcher until the home page is translated" 200 "/admin.php?module=pages&action=translations" "Português (Brasil) zatím není v přepínači jazyků."
 contains -q "action=new&amp;language=pt-br&amp;translation_of=$HOME311\">Přeložit úvodní stránku" "$WORK/response" \
   && echo "  ok     3.11 UX310-7: it links to translating the home page" || { echo "  CHYBA  3.11: the switcher hint on Translations"; ERRORS=$((ERRORS+1)); }
-check "3.11 UX310-12: Settings → General marks a language without visitor texts and names the one not in the switcher" 200 "/admin.php?module=settings&tab=general" "(/ja/ · texty pro návštěvníky anglicky)"
+check "3.11 UX310-12: Settings → Languages marks a language without visitor texts and names the one not in the switcher" 200 "/admin.php?module=settings&tab=languages" "(/ja/ · texty pro návštěvníky anglicky)"
 # 3.12 (UX310-12): Portuguese has visitor texts now; Japanese is marked in the language list and in a warning
 ! contains -q '(/pt-br/ · texty pro návštěvníky anglicky)' "$WORK/response" && contains -q 'class="hlaska hlaska-varovani">Návštěvníci verze 日本語 uvidí texty webu' "$WORK/response" \
   && contains -q '>日本語 – texty pro návštěvníky anglicky</option>' "$WORK/response" && echo "  ok     3.12: the language picker warns about a language without visitor texts" || { echo "  CHYBA  3.12: the language picker warning"; ERRORS=$((ERRORS+1)); }
@@ -8263,5 +8313,39 @@ expect "3.23 (C17): the guardrails row is done after Claude settings were saved,
 sq "DELETE FROM ka_notebook; INSERT INTO ka_notebook SELECT * FROM ka_c17_notebook; DROP TABLE ka_c17_notebook; DELETE FROM ka_nastaveni WHERE promenna IN ('report_recipients', 'report_monthly'); DELETE FROM ka_uzivatele WHERE user LIKE 'c17-%'; DELETE FROM ka_role WHERE nazev = 'C17 area'" > /dev/null
 [ "$C17_KLIENT_NEW" = 0 ] || sq "DELETE FROM ka_role WHERE nazev = 'Klient'" > /dev/null
 [ -z "$C17_ACTIVE" ] || sq "UPDATE ka_uzivatele SET blokovat = 0 WHERE idu IN ($C17_ACTIVE)" > /dev/null
+# 3.23 (U10): the builder's choices of dynamic elements – collections and their categories, news categories, the services and
+# people of Bookings – only what the person may see in the administration: an editor without Bookings gets no services or
+# people (null: the editor keeps a free field), without Collections no hidden category; never an e-mail of a person
+U10_BOOKINGS=$(sq "SELECT FIND_IN_SET('bookings', hodnota) > 0 FROM ka_nastaveni WHERE promenna = 'extensions'")
+[ "$U10_BOOKINGS" = 1 ] || sq "UPDATE ka_nastaveni SET hodnota = CONCAT(hodnota, ',bookings') WHERE promenna = 'extensions'" > /dev/null
+sq "INSERT INTO ka_booking_services (name, active) VALUES ('U10 service', 0); INSERT INTO ka_booking_staff (name, email) VALUES ('U10 person', 'u10-person@example.com')" > /dev/null
+mcp save_collection_category '{"collection":"produkty","name":"Skryta U10","slug":"skryta-u10","visible":false}' > /dev/null
+mcp save_collection_category '{"collection":"produkty","name":"Viditelna U10","slug":"viditelna-u10","visible":true}' > /dev/null
+U10_PAGE=$(sq "SELECT MIN(ids) FROM ka_stranky WHERE smazano IS NULL")
+check "3.23 (U10): the builder carries the choices of dynamic elements" 200 "/admin.php?module=pages&action=builder&id=$U10_PAGE" '"volby":{"kategorie":{'
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=pages&action=build_choices&id=$U10_PAGE"
+grep -q '"ok":true' "$WORK/response" && grep -q '"nazev":"U10 service (' "$WORK/response" && grep -q '"nazev":"U10 person"' "$WORK/response" && grep -q '"adresa":"skryta-u10"' "$WORK/response" \
+  && grep -q '"adresa":"viditelna-u10"' "$WORK/response" && grep -q '"kategorieNovinek":\[{' "$WORK/response" && ! grep -q 'u10-person@example.com' "$WORK/response" \
+  && echo "  ok     3.23 (U10): the administrator's choices – an inactive service marked, people by name only, hidden and visible categories, news categories" \
+  || { echo "  CHYBA  3.23 (U10): build_choices for the administrator: $(head -c 400 "$WORK/response")"; ERRORS=$((ERRORS+1)); }
+expect "3.23 (U10): build_choices of a page that does not exist" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=pages&action=build_choices&id=999999")" 404
+sq "INSERT INTO ka_uzivatele (user, password, jmeno, admin, posledni_login, potvrzeno) VALUES ('u10-editor', '$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")', 'Editor U10', 1, '$(site_time)', '$(site_time)');
+  INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, 'pages' FROM ka_uzivatele WHERE user = 'u10-editor'" > /dev/null
+JAR3="$WORK/jar-u10"
+TOKEN3=$(curl -s -c "$JAR3" "$B/admin.php" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//')
+curl -s -b "$JAR3" -c "$JAR3" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN3" -d user=u10-editor --data-urlencode "password=$PASSWORD"
+curl -s -b "$JAR3" -o "$WORK/response" "$B/admin.php?module=pages&action=build_choices&id=$U10_PAGE"
+grep -q '"ok":true' "$WORK/response" && grep -q '"sluzby":null' "$WORK/response" && grep -q '"osoby":null' "$WORK/response" && grep -q '"kategorieNovinek":null' "$WORK/response" \
+  && grep -q '"adresa":"viditelna-u10"' "$WORK/response" && ! grep -q 'skryta-u10\|U10 person\|U10 service' "$WORK/response" \
+  && echo "  ok     3.23 (U10): an editor with Pages only – no services, people or news categories, only the categories on the site" \
+  || { echo "  CHYBA  3.23 (U10): build_choices for an editor with Pages only: $(head -c 400 "$WORK/response")"; ERRORS=$((ERRORS+1)); }
+sq "UPDATE ka_uzivatele_prava SET ident_modulu = 'news' WHERE fk_id_user = (SELECT idu FROM ka_uzivatele WHERE user = 'u10-editor')" > /dev/null
+expect "3.23 (U10): without Pages there are no choices" "$(curl -s -b "$JAR3" -o /dev/null -w '%{http_code}' "$B/admin.php?module=pages&action=build_choices&id=$U10_PAGE")" 403
+mcp builder_schema '{"elements":["booking"]}' > "$WORK/response"
+grep -q 'a service id from booking_availability' "$WORK/response" && echo "  ok     3.23 (U10): builder_schema says where the service id comes from" || { echo "  CHYBA  3.23 (U10): builder_schema booking source"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+sq "DELETE FROM ka_uzivatele_prava WHERE fk_id_user = (SELECT idu FROM ka_uzivatele WHERE user = 'u10-editor'); DELETE FROM ka_uzivatele WHERE user = 'u10-editor';
+  DELETE FROM ka_booking_services WHERE name = 'U10 service'; DELETE FROM ka_booking_staff WHERE name = 'U10 person';
+  DELETE FROM ka_collection_categories WHERE id IN (SELECT category_id FROM ka_collection_category_texts WHERE slug IN ('skryta-u10', 'viditelna-u10'))" > /dev/null
+[ "$U10_BOOKINGS" = 1 ] || sq "UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',bookings,', ',')) WHERE promenna = 'extensions'" > /dev/null
 if [ -s "$WORK/web/storage/log/chyby.log" ]; then echo "== záznam chyb aplikace:"; cat "$WORK/web/storage/log/chyby.log"; ERRORS=$((ERRORS+1)); fi
 echo; [ "$ERRORS" -eq 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }

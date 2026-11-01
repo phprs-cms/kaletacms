@@ -413,5 +413,6 @@ Object.assign(window.KALETA_PREKLAD, {
 	"Not a valid size. Use a number with a unit (18px, 1.25rem, 120%) or pick a step.": "Keine gültige Größe. Gib eine Zahl mit Einheit ein (18px, 1.25rem, 120 %) oder wähle eine Stufe.",
 	"There is no container just before this element to move it into.": "Direkt vor diesem Element gibt es keinen Container, in den du es verschieben kannst.",
 	"The file is larger than the server allows (%s at most) even after resizing. Make it smaller, or raise the limit as System status describes.": "Die Datei ist auch nach dem Verkleinern größer, als der Server erlaubt (höchstens %s). Verkleinere sie oder erhöhe das Limit wie im Systemstatus beschrieben.",
-	"These files are larger together (%s) than the server accepts in one upload (%s). Upload them in smaller groups.": "Diese Dateien sind zusammen größer (%s), als der Server in einem Upload annimmt (%s). Lade sie in kleineren Gruppen hoch."
+	"These files are larger together (%s) than the server accepts in one upload (%s). Upload them in smaller groups.": "Diese Dateien sind zusammen größer (%s), als der Server in einem Upload annimmt (%s). Lade sie in kleineren Gruppen hoch.",
+	"A site in several languages: each further version (e.g. /cs/…) has its own pages, categories and news, a language switcher and hreflang tags. Pick the languages in Settings → Languages.": "Eine Website in mehreren Sprachen: Jede weitere Version (z. B. /cs/…) hat eigene Seiten, Kategorien und News, einen Sprachumschalter und hreflang-Tags. Die Sprachen wählst du unter Einstellungen → Sprachen."
 });

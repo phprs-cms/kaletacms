@@ -516,8 +516,8 @@ final class Audit
             ...array_map(fn (array $c): array => $finding(t('The Claude connection “%s” of %s has not been used for %d days – revoke it, or let the automatic suspension do it.', (string) $c['name'], (string) $c['user'], SecurityHygiene::daysAgo((string) $c['last'])),
                 'admin.php?module=users&action=edit&id=' . (int) $c['idu'] . '#napojeni', 'unused_connection', ['user' => (int) $c['idu'], 'connection' => (string) $c['name']]), $hygiene['unused_connections']),
         ]);
-        $row('auto_suspend', t('Leftover access closes itself (automatic suspension)'), 'admin.php?module=settings&tab=general',
-            $check(SecurityHygiene::autoSuspend($s) !== [], t('Unused accounts and Claude connections are only reported – switch on the automatic suspension (Settings → General) so that leftover access closes itself.'), 'admin.php?module=settings&tab=general', 'auto_suspend'));
+        $row('auto_suspend', t('Leftover access closes itself (automatic suspension)'), 'admin.php?module=settings&tab=security',
+            $check(SecurityHygiene::autoSuspend($s) !== [], t('Unused accounts and Claude connections are only reported – switch on the automatic suspension (Settings → Security) so that leftover access closes itself.'), 'admin.php?module=settings&tab=security', 'auto_suspend'));
 
         // 3.11 (UX310-20): an owner who built the site alone has no client – the client rows are then only a question,
         // not counted; the agency contact, another account or a role says the site is built for someone
@@ -535,8 +535,8 @@ final class Audit
         // 3.23 (C17): "reviewed" = Claude settings saved at least once – the form always writes claude_destructive, nothing else does
         $row('guardrails', t('Claude’s guardrails reviewed'), 'admin.php?module=claude_settings',
             $check($db->value("SELECT 1 FROM {nastaveni} WHERE promenna = 'claude_destructive'") !== null, t('Claude’s guardrails have never been saved – check in Claude settings what Claude may delete, which pages it must not change and how many changes it may make in an hour, then save.'), 'admin.php?module=claude_settings', 'guardrails'), $forClient);
-        $row('agency', t('Your contact for the client'), 'admin.php?module=settings&tab=general',
-            $check($s->get('agency_name') !== '' && ($s->get('agency_email') !== '' || $s->get('agency_phone') !== ''), t('Your contact is not set – the client will not see whom to ask (Settings → General → Built and looked after by).'), 'admin.php?module=settings&tab=general', 'agency'), $forClient);
+        $row('agency', t('Your contact for the client'), 'admin.php?module=settings&tab=agency',
+            $check($s->get('agency_name') !== '' && ($s->get('agency_email') !== '' || $s->get('agency_phone') !== ''), t('Your contact is not set – the client will not see whom to ask (Settings → Agency).'), 'admin.php?module=settings&tab=agency', 'agency'), $forClient);
         // 3.20 (C22): the decisions for the next person belong in the Notebook
         $row('notebook', t('Decisions written down in the Notebook'), 'admin.php?module=notebook',
             $check($db->value('SELECT 1 FROM {notebook} LIMIT 1') !== null, t('The Notebook is empty – write down the decisions for the next person: why the site is built the way it is, what the client asked for, what to watch.'), 'admin.php?module=notebook', 'notebook'), $forClient);
