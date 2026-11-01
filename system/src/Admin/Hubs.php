@@ -18,7 +18,7 @@ final class Hubs
     public const array TABS = [
         'business' => [['business', '', 'Company and opening hours'], ['facts', '', 'Facts'], ['facts', 'claims', 'Claims'], ['blueprints', '', 'Blueprints']],
         'features' => [['extensions', '', 'Features'], ['addons', '', 'Add-ons']],
-        'claude' => [['claude_settings', '', 'Settings and connections'], ['requests', '', 'Ask Claude'], ['schedules', '', 'Scheduled runs'], ['notebook', '', 'Notebook'], ['changelog', 'sessions', 'Claude sessions']],
+        'claude' => [['claude_settings', '', 'Claude settings'], ['requests', '', 'Ask Claude'], ['schedules', '', 'Scheduled runs'], ['notebook', '', 'Notebook'], ['changelog', 'sessions', 'Claude sessions']],
     ];
 
     /**

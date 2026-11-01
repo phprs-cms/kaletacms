@@ -16,7 +16,7 @@
 <p class="hlaska hlaska-varovani"><?= $module->hint(t($problem)) ?></p>
 <?php endif ?>
 <?php if ($newsletters === []): ?>
-<?= $app->view->render('admin/empty', ['icon' => 'rozesilka', 'heading' => t('No newsletters yet.'), 'text' => t('Send your latest news to subscribers in an e-mail that follows the look of your site – colours, fonts and logo come from the design system.'), 'action' => [$module->url('new'), t('Write a newsletter')]]) ?>
+<?= $app->view->render('admin/empty', ['icon' => 'rozesilka', 'heading' => t('No newsletters yet.'), 'text' => t('Send your latest news to subscribers in an e-mail that follows the look of your site – colours, fonts and logo come from Site appearance.'), 'action' => [$module->url('new'), t('Write a newsletter')]]) ?>
 <?php else: ?>
 <div class="tab-obal">
 <table class="vypis">

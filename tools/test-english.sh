@@ -171,6 +171,18 @@ curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?module=enquiries"; grep -q 
 curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?module=settings&tab=console"; grep -q 'aria-current="page">Reporting to a console<' "$WORK/page.html" || fail "English admin: the console tab is not called Reporting to a console"
 curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?module=settings&tab=general"; grep -q '>Languages</a>' "$WORK/page.html" && grep -q '>Security</a>' "$WORK/page.html" && grep -q '>Agency</a>' "$WORK/page.html" && grep -q 'Sharing and social networks' "$WORK/page.html" \
   || fail "English admin: Settings has no Languages, Security or Agency tab, or General no Sharing and social networks"
+# 3.23.1 (N-C6, N-C7, N-C11, N-C12, N-C15, C4): the swept texts in English – menu paths as links, no stale path, the guide of the signature tab
+curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?module=settings&tab=general"
+grep -q 'The result is in <a href="/admin.php?module=broken_links">Site care → Broken links</a>.' "$WORK/page.html" && grep -q 'News has its own address, set in News URL below.' "$WORK/page.html" \
+  && grep -q '<select id="zalozka-vyber" name="tab" data-odeslat-pri-zmene>' "$WORK/page.html" && ! grep -q 'News → Broken links\|News is always at' "$WORK/page.html" \
+  || fail "English admin: General still points to News → Broken links, says news is always at one address, or has no tab select for phones"
+curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?module=settings&tab=cookies"; grep -q '(<a href="/admin.php?module=stats">Statistics → Campaigns</a>)' "$WORK/page.html" || fail "English admin: the lead attribution hint does not link Statistics → Campaigns"
+curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?module=schedules"; grep -q '<a href="/admin.php?action=account#claude">My account → Claude connection</a>' "$WORK/page.html" || fail "English admin: Scheduled runs do not link My account → Claude connection"
+curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?module=schedules&action=edit"; grep -q '>Ask Claude requests<' "$WORK/page.html" && ! grep -q 'Requests from staff' "$WORK/page.html" || fail "English admin: the scheduled task is still called Requests from staff"
+curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?module=claude_settings"; grep -q 'Settings and connections' "$WORK/page.html" && fail "English admin: the Claude hub tab is still Settings and connections"
+curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?action=account&tab=signature"; grep -q 'href="https://kaletacms.com/guide/email#your-e-mail-signature"' "$WORK/page.html" || fail "English admin: How to use this on My e-mail signature does not open the signature guide"
+curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?module=pages&status=draft"; grep -q 'Try another tab.' "$WORK/page.html" && ! grep -q 'or language' "$WORK/page.html" || fail "English admin: the empty Pages filter of a one-language site mentions languages"
+for u in "module=newsletters" "module=appearance"; do curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?$u"; grep -q 'design system' "$WORK/page.html" && fail "English admin: $u still says design system"; done
 NEWS=$(sql "SELECT idc FROM ka_novinky LIMIT 1")
 ADMIN_SCREENS=("" "module=pages" "module=pages&action=new" "module=pages&action=builder&id=1" "module=enquiries" "module=parts" "module=parts&action=builder&type=hlavicka&language=" \
   "module=components" "module=collections" "module=collections&action=new" "module=news" "module=news&action=new" "module=news&action=edit&id=$NEWS" "module=categories" "module=categories&action=new" \

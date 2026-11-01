@@ -6,7 +6,7 @@ $group = '';
 ?>
 <p class="hlaska hlaska-<?= ['ok' => 'ok', 'varovani' => 'varovani', 'chyba' => 'chyba'][$summary] ?>"><?= e(t(['ok' => 'Everything is fine.', 'varovani' => 'The system is running, but some items deserve attention.', 'chyba' => 'Errors were found that prevent the site from running properly.'][$summary])) ?></p>
 <div class="tab-obal">
-<table class="vypis">
+<table class="vypis vypis-stav">
 <tbody>
 <?php foreach ($checks as $k): ?>
 <?php if ($k['skupina'] !== $group): $group = $k['skupina']; ?>
@@ -37,7 +37,7 @@ $group = '';
     ? 'Nothing on this site stands in the way of Kaleta 4.0 so far. The checks only read – they change nothing.'
     : 'Some items need attention before the update to Kaleta 4.0. The checks only read – they change nothing.')) ?></p>
 <div class="tab-obal">
-<table class="vypis">
+<table class="vypis vypis-stav">
 <tbody>
 <?php foreach ($readiness as $k): ?>
 <tr>
@@ -81,7 +81,7 @@ $group = '';
 <p class="smltxt"><?= e(t('A cron job that already calls the older address …/ulohy?token= keeps working – there is no need to change it.')) ?></p>
 <?php endif ?>
 <?php endif ?>
-<div class="tab-obal"><table class="vypis">
+<div class="tab-obal"><table class="vypis vypis-stav">
 <thead><tr><th scope="col"><?= e(t('Job')) ?></th><th scope="col"><?= e(t('Runs')) ?></th><th scope="col"><?= e(t('Last run')) ?></th><th scope="col"><?= e(t('Result')) ?></th></tr></thead>
 <tbody>
 <?php foreach (Kaleta\Core\Scheduler::overview($app->db(), $app->settings()) as $j): ?>

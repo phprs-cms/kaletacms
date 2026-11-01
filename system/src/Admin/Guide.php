@@ -77,6 +77,14 @@ final class Guide
         'health' => 'site-health',
     ];
 
+    /**
+     * My account tab => article#anchor (3.23.1, N-C7): the e-mail signature tab has its own article; the account details
+     * (and the Claude connection on them) keep MODULES['account'].
+     */
+    public const array ACCOUNT = [
+        'signature' => 'email#your-e-mail-signature',
+    ];
+
     /** The builder of a page, news item, collection template, site part, component or pop-up */
     public const array BUILDER = [
         'parts' => 'site-parts',
@@ -98,6 +106,9 @@ final class Guide
         }
         if ($module === 'settings') {
             return self::url(self::SETTINGS[$tab] ?? self::SETTINGS['general'], $language);
+        }
+        if ($module === 'account' && isset(self::ACCOUNT[$tab])) {
+            return self::url(self::ACCOUNT[$tab], $language);
         }
         $article = self::MODULES[$module] ?? null;
 

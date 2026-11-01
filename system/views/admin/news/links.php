@@ -19,7 +19,7 @@ $checkUrl = $app->url('admin.php?module=' . ($app->request->get('module') === Ka
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to the news list')) ?></a></p>
 <?php endif ?>
 <?php if (!$isEnabled): ?>
-<p class="hlaska"><?= $module->hint(t('Link checking is off (Settings → General → More options).')) ?></p>
+<p class="hlaska"><?= $module->hint(t('Link checking is off – switch on “Look for broken links” in Settings → General.')) ?></p>
 <?php endif ?>
 <p class="smltxt"><?= e(t('In the background, the system goes through published news, pages and collection items – one every five minutes, each once a month – and checks whether their links still work. Checked: %s of %s.', $checked, $total)) ?></p>
 <?php if ($links === []): ?>

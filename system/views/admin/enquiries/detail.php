@@ -11,6 +11,7 @@
  * @var array<int, string> $users
  * @var array{form: string, kind: string, title: string, builder: string, settings: ?string}|null $origin the form and what carries it, with admin links (3.20, C2)
  * @var array<string, mixed>|null $referencesCollection the References collection the testimonials land in; null = none yet (3.20, C16)
+ * @var bool $hasSignature the signed-in user has an e-mail signature a reply carries (3.23.1, N-C5)
  * @var list<array<string, mixed>> $replies replies sent from the enquiry with their delivery state (3.22, C10, Core\EnquiryReply::history)
  * @var string|null $replyBlocked why the site cannot send a reply (no SMTP, no sender); null = it can
  * @var string $replyTo the signed-in user's e-mail – the Reply-To of a reply
@@ -84,9 +85,11 @@ $statusText = ['sent' => 'E-mail sent', 'queued' => 'Waiting in the mail queue',
 	<div class="radek"><span class="popisek"><?= e(t('Recipient')) ?></span><div><strong><?= e($p['email']) ?></strong></div></div>
 	<div class="radek"><label for="odpoved-predmet"><?= e(t('Subject')) ?></label><div><input class="textpole siroke" type="text" id="odpoved-predmet" name="subject" maxlength="<?= Kaleta\Core\EnquiryReply::MAX_SUBJECT ?>" value="<?= e($replyDraft['subject'] ?? Kaleta\Core\EnquiryReply::subject($p)) ?>" required></div></div>
 	<div class="radek"><label for="odpoved-text"><?= e(t('Reply')) ?></label><div><textarea class="textbox" id="odpoved-text" name="text" rows="8" maxlength="<?= Kaleta\Core\EnquiryReply::MAX_TEXT ?>" required><?= e($replyDraft['text'] ?? ($replies === [] ? (string) ($p['navrh_odpovedi'] ?? '') : '')) ?></textarea>
-		<span class="napoveda"><?= e($replyTo !== ''
-		    ? t('Sent from the site’s address; when the customer answers, it comes to you (%s). Your e-mail signature from My account is added below the text.', $replyTo)
-		    : t('Sent from the site’s address. Your account has no e-mail, so the customer’s answer goes to the site’s reply address – add yours in My account.')) ?></span></div></div>
+		<span class="napoveda"<?= $replyTo !== '' && !$hasSignature ? ' data-reply-no-signature' : '' ?>><?= $module->hint(match (true) { // 3.23.1 (N-C5): the signature is promised only to who has one
+		    $replyTo === '' => t('Sent from the site’s address. Your account has no e-mail, so the customer’s answer goes to the site’s reply address – add yours in My account.'),
+		    $hasSignature => t('Sent from the site’s address; when the customer answers, it comes to you (%s). Your e-mail signature from My account is added below the text.', $replyTo),
+		    default => t('Sent from the site’s address; when the customer answers, it comes to you (%s). You have no e-mail signature yet, so the reply goes without one – see My account → My e-mail signature.', $replyTo),
+		}) ?></span></div></div>
 	<div class="radek"><span></span><div><label><input type="checkbox" name="keep_open" value="1"> <?= e(t('Keep the enquiry open (otherwise it is marked resolved)')) ?></label></div></div>
 	<p class="tlacitka"><button class="tl" type="submit"><?= e(t('Send reply')) ?></button> <a class="navigace" href="<?= $mailto ?>"><?= e(t('Reply from your own mail program')) ?></a></p>
 </form>
@@ -127,17 +130,12 @@ $statusText = ['sent' => 'E-mail sent', 'queued' => 'Waiting in the mail queue',
     ? e(t('Answered')) . ($req['item_id'] !== null ? ' – <a href="' . e($app->url('admin.php?module=collections&action=item&id=' . (int) $app->db()->value('SELECT idk FROM {kolekce_polozky} WHERE idp = ?', [(int) $req['item_id']]) . '&item=' . (int) $req['item_id'])) . '">' . e(t('the draft reference')) . '</a>' : '')
     : e(strtotime((string) $req['expires_at']) < time() ? t('Expired') : t('Waiting for the answer')) ?></p>
 <?php endforeach ?>
-<?php if ($referencesCollection === null && $app->auth()->isAdmin()): /* 3.20 (C16): the request presumes a References collection – an administrator creates it first, with one click (the references preset) */ ?>
-<form class="vradku" method="post" action="<?= e($app->url('admin.php?module=collections&action=preset')) ?>" data-references-missing><?= $csrf ?>
-	<span class="napoveda"><?= e(t('Create the References collection first – what the customer writes arrives there as a hidden draft.')) ?></span>
-	<button class="navigace" type="submit" name="preset" value="references"><?= e(t('Create the References collection')) ?></button></form>
-<?php else: ?>
+<?php /* 3.23.1 (N-C10): one behaviour for every role – the References collection is created with the first answer (Testimonials::save), so nobody has to create it first */ ?>
 <form class="vradku" method="post" action="<?= e($module->url('testimonial')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $p['idp'] ?>">
 	<button class="navigace" type="submit" name="poslat" value="1"><?= e(t('Ask for a testimonial by e-mail')) ?></button> <button class="navigace" type="submit" name="poslat" value="0"><?= e(t('Only create the link')) ?></button>
 	<span class="napoveda"><?= e($referencesCollection === null
-	    ? t('The customer gets a personal link for 30 days; what they write arrives as a hidden draft in References – an administrator creates that collection, or it is created with the first answer.')
+	    ? t('The customer gets a personal link for 30 days; what they write arrives as a hidden draft in References, with the consent they gave – the collection is created with the first answer.')
 	    : t('The customer gets a personal link for 30 days; what they write arrives as a hidden draft in %s, with the consent they gave.', (string) $referencesCollection['nazev'])) ?></span></form>
-<?php endif ?>
 <?php endif ?>
 <div class="tlacitka">
 	<form class="vradku" method="post" action="<?= e($module->url('status')) ?>"><?= $csrf ?><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><input type="hidden" name="stav" value="<?= (int) $p['stav'] === 2 ? 1 : 2 ?>"><button class="tl<?= (int) $p['stav'] === 2 ? ' tl-vedlejsi' : '' ?>" type="submit"><?= e(t((int) $p['stav'] === 2 ? 'Reopen' : 'Označit jako vyřízenou')) ?></button></form>

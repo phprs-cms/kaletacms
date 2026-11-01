@@ -275,6 +275,20 @@ sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('auto_suspend', 'ucty'
 BEFORE323=$(split323)
 for t in general languages security agency; do settings_form "$t" "$WORK/split323.post"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" --data-binary @"$WORK/split323.post"; done
 expect "3.23: saving General, Languages, Security and Agency one after another as a browser does changes nothing on the other tabs" "$(split323)" "$BEFORE323"
+# 3.23.1 (item 12): every tab in the row (the console tab too – an agency is named above), saved unchanged one after another,
+# leaves every setting as it was; the phone select offers the same tabs
+TABS3231=$(curl -s -b "$JAR" "$B/admin.php?module=settings&tab=general" | perl -0ne 'print join(" ", $1 =~ /tab=([a-z_]+)"/g) if /<nav class="zalozky"[^>]*>(.*?)<\/nav>/s')
+SELECT3231=$(curl -s -b "$JAR" "$B/admin.php?module=settings&tab=general" | perl -0ne 'print join(" ", $1 =~ /<option value="([a-z_]+)"/g) if /<select id="zalozka-vyber"[^>]*>(.*?)<\/select>/s')
+expect "3.23.1 (N-C12): the phone select of Settings offers the same tabs as the row, 13 of them" "$SELECT3231|$(echo "$TABS3231" | wc -w | tr -d ' ')" "$TABS3231|13"
+# pass 1 may only add the default of a key never saved before (a fresh secret too); pass 2 must change nothing at all
+diff3231() { sq "SELECT IFNULL(GROUP_CONCAT(promenna ORDER BY promenna), 'none') FROM (SELECT k.promenna FROM ka_nastaveni k $1 JOIN nastaveni3231 n USING (promenna) WHERE NOT (k.hodnota <=> n.hodnota)
+    UNION SELECT n.promenna FROM nastaveni3231 n LEFT JOIN ka_nastaveni k USING (promenna) WHERE k.promenna IS NULL) d"; }
+save3231() { for t in $TABS3231; do settings_form "$t" "$WORK/tab3231.post"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" --data-binary @"$WORK/tab3231.post"; done; }
+sq "DROP TABLE IF EXISTS nastaveni3231; CREATE TABLE nastaveni3231 AS SELECT * FROM ka_nastaveni" > /dev/null; save3231; PASS1_3231=$(diff3231 "")
+sq "DROP TABLE nastaveni3231; CREATE TABLE nastaveni3231 AS SELECT * FROM ka_nastaveni" > /dev/null; save3231
+expect "3.23.1: saving each of the $(echo "$TABS3231" | wc -w | tr -d ' ') Settings tabs unchanged, one after another, keeps every value of the other tabs – and a second round changes nothing at all" \
+  "$PASS1_3231|$(diff3231 LEFT)" "none|none"
+sq "DROP TABLE nastaveni3231" > /dev/null
 grep -q 'name="general_split" value="1"' <(curl -s -b "$JAR" "$B/admin.php?module=settings&tab=general") && ! grep -q 'name="auto_suspend\[\]"\|name="agency_name"\|name="additional_languages\[\]"' <(curl -s -b "$JAR" "$B/admin.php?module=settings&tab=general") \
   && echo "  ok     3.23: the General form carries the marker and none of the moved fields" || { echo "  CHYBA  3.23: the General form still has moved fields or no marker"; ERRORS=$((ERRORS+1)); }
 check "3.23: Settings → Languages has the languages" 200 "/admin.php?module=settings&tab=languages" 'id="additional_languages"'
@@ -4997,6 +5011,14 @@ sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), 
 check "3.22 C10: with SMTP the detail offers the reply form" 200 "/admin.php?module=enquiries&action=detail&id=$C10" "data-reply-form"
 grep -q 'name="subject" maxlength="200" value="Re: Poptávka oken"' "$WORK/response" && grep -q '>Dobrý den, pošleme nabídku.</textarea>' "$WORK/response" && grep -q 'alex@firma.example' "$WORK/response" && grep -q 'data-potvrdit="Poslat tuto odpověď hned na hana@example.cz?' "$WORK/response" \
   && echo "  ok     3.22 C10: the subject Re: <form>, the draft, the user's address and a confirmation before sending" || { echo "  CHYBA  3.22 C10: the reply form"; ERRORS=$((ERRORS+1)); }
+# 3.23.1 (N-C5): the hint promises the signature only to a user who has one; without it, it says so and links My e-mail signature
+! grep -q 'data-reply-no-signature' "$WORK/response" && grep -q 'Pod text se přidá váš e-mailový podpis' "$WORK/response" \
+  && echo "  ok     3.23.1 N-C5: with a signature the reply form says it is added" || { echo "  CHYBA  3.23.1 N-C5: the hint with a signature"; ERRORS=$((ERRORS+1)); }
+sq "UPDATE ka_uzivatele SET team_item_id = NULL, email = 'bez-podpisu@firma.example' WHERE idu = $C10_IDU" > /dev/null
+check "3.23.1 N-C5: without a signature the reply form says the reply goes without one" 200 "/admin.php?module=enquiries&action=detail&id=$C10" 'data-reply-no-signature'
+grep -q 'Zatím nemáte e-mailový podpis' "$WORK/response" && grep -q '<a href="/admin.php?action=account&amp;tab=signature">Můj účet → Můj e-mailový podpis</a>' "$WORK/response" && ! grep -q 'Pod text se přidá' "$WORK/response" \
+  && echo "  ok     3.23.1 N-C5: … and links Můj účet → Můj e-mailový podpis" || { echo "  CHYBA  3.23.1 N-C5: the hint without a signature"; ERRORS=$((ERRORS+1)); }
+sq "UPDATE ka_uzivatele SET email = 'alex@firma.example', team_item_id = ${C10_PERSON:-NULL} WHERE idu = $C10_IDU" > /dev/null
 # a line break in the subject never becomes a header; the only recipient is the enquiry's address
 c10_reply "$C10" --data-urlencode $'subject=Re: Poptávka oken\r\nBcc: zly@evil.example' --data-urlencode $'text=Dobrý den,\npošleme nabídku do pátku.'
 F=$(grep -l "^X-Rcpt-To: hana@example.cz" "$WORK"/smtp-c10/*.eml 2>/dev/null | tail -1 || true); if [ -n "$F" ]; then eml "$F" > "$WORK/eml.txt"; else : > "$WORK/eml.txt"; fi
