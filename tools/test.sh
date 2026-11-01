@@ -8162,6 +8162,9 @@ expect "3.22 (C13): a site path is stored trimmed and printed as the one absolut
 C13_CURRENT=$(grep -c 'href="/o-nas"[^>]*aria-current' "$WORK/response")
 curl -s -o "$WORK/response" "$B/o-nas"
 expect "3.22 (N322-2): a page whose canonical is /o-nas does not mark About us as the current menu item (/o-nas itself does)" "$C13_CURRENT|$(grep -q 'href="/o-nas"[^>]*aria-current' "$WORK/response" && echo 1 || echo 0)" "0|1"
+# N322-3: the sitemap lists canonical addresses only – the copy that points at /o-nas is left out, /o-nas stays
+rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/response" "$B/sitemap.xml"
+expect "3.22 (N322-3): a page whose canonical names another page is not in the sitemap, the original is" "$(grep -c "<loc>$B/c13-copy</loc>" "$WORK/response")|$(grep -c "<loc>$B/o-nas</loc>" "$WORK/response")" "0|1"
 curl -s -o "$WORK/response" "$B/kontakty"
 expect "3.22 (C13): a page without it keeps its own canonical address" "$(grep -c "<link rel=\"canonical\" href=\"$B/kontakty\">" "$WORK/response")" "1"
 mcp update_page "{\"id\":$IDS_C13,\"canonical_url\":\"data:text/html,x\"}" > "$WORK/response"

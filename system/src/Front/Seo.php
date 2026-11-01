@@ -96,12 +96,19 @@ final class Seo
         foreach (array_slice($languages, 1) as $language) {
             $xml[] = $url('', null, '0.9', $language);
         }
+        // 3.22 (N322-3): a page whose canonical address names another one (C13) is a duplicate – the sitemap lists only canonical
+        // addresses, so the entry is left out unless the canonical is the entry itself
+        $entry = function (string $line, string $canonical): ?string {
+            $own = \Kaleta\Core\CanonicalUrl::absolute($canonical, rtrim($this->root, '/'), '');
+
+            return $own === '' || str_contains($line, '<loc>' . e($own) . '</loc>') ? $line : null;
+        };
         $home = $this->app->settings()->int('home_page');
-        foreach ($db->all('SELECT seo_link, zmeneno, jazyk FROM {stranky} WHERE zobrazit = 1 AND noindex = 0 AND heslo_hash IS NULL AND smazano IS NULL AND ids <> ? AND (preklad_z IS NULL OR preklad_z <> ?)' . $inLanguages, [$home, $home, ...$languages]) as $r) {
-            $xml[] = $url($r['seo_link'], $r['zmeneno'], '0.8', $r['jazyk']);
+        foreach ($db->all('SELECT seo_link, zmeneno, jazyk, canonical_url FROM {stranky} WHERE zobrazit = 1 AND noindex = 0 AND heslo_hash IS NULL AND smazano IS NULL AND ids <> ? AND (preklad_z IS NULL OR preklad_z <> ?)' . $inLanguages, [$home, $home, ...$languages]) as $r) {
+            $xml[] = $entry($url($r['seo_link'], $r['zmeneno'], '0.8', $r['jazyk']), (string) $r['canonical_url']);
         }
-        foreach ($db->all('SELECT k.seo_link AS kolekce, p.seo_link, p.jazyk, COALESCE(p.zmeneno, p.datum) AS zmena FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.detail = 1 AND p.zobrazit = 1 AND p.noindex = 0 AND p.smazano IS NULL AND p.jazyk IN (' . implode(',', array_fill(0, count($languages), '?')) . ') LIMIT 5000', $languages) as $r) {
-            $xml[] = $url($r['kolekce'] . '/' . $r['seo_link'], $r['zmena'], '0.5', $r['jazyk']);
+        foreach ($db->all('SELECT k.seo_link AS kolekce, p.seo_link, p.jazyk, p.canonical_url, COALESCE(p.zmeneno, p.datum) AS zmena FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.detail = 1 AND p.zobrazit = 1 AND p.noindex = 0 AND p.smazano IS NULL AND p.jazyk IN (' . implode(',', array_fill(0, count($languages), '?')) . ') LIMIT 5000', $languages) as $r) {
+            $xml[] = $entry($url($r['kolekce'] . '/' . $r['seo_link'], $r['zmena'], '0.5', $r['jazyk']), (string) $r['canonical_url']);
         }
         // category pages of collections (3.7): visible ones, a subcategory under a visible parent with an address in the language
         foreach ($db->all('SELECT k.seo_link AS kolekce, t.slug, t.language, pt.slug AS parent_slug, c.updated_at FROM {collection_category_texts} t
@@ -111,6 +118,7 @@ final class Seo
                 ORDER BY k.seo_link, c.parent_id IS NOT NULL, c.sort_order LIMIT 5000', $languages) as $r) {
             $xml[] = $url($r['kolekce'] . '/' . ($r['parent_slug'] !== null ? $r['parent_slug'] . '/' : '') . $r['slug'], $r['updated_at'], '0.6', (string) $r['language']);
         }
+        $xml = array_values(array_filter($xml, fn (?string $line): bool => $line !== null));
         if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'novinky')) {
             return '<?xml version="1.0" encoding="utf-8"?>' . "\n" . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n" . implode("\n", $xml) . "\n</urlset>\n";
         }
@@ -123,8 +131,10 @@ final class Seo
         foreach ($db->all("SELECT k.seo_link, k.jazyk FROM {kategorie} k WHERE EXISTS (SELECT 1 FROM {novinky} n WHERE n.tema = k.idt AND n.{$published}) AND k.jazyk IN (" . implode(',', array_fill(0, count($languages), '?')) . ')', [$now, ...$languages]) as $r) {
             $xml[] = $url('novinky/kategorie/' . $r['seo_link'], null, '0.4', $r['jazyk']);
         }
-        foreach ($db->all("SELECT seo_link, jazyk, COALESCE(zmeneno, datum) AS zmena FROM {novinky} WHERE {$published} AND noindex = 0{$inLanguages} ORDER BY datum DESC LIMIT 45000", [$now, ...$languages]) as $r) {
-            $xml[] = $url('novinky/' . $r['seo_link'], $r['zmena'], '0.5', $r['jazyk']);
+        foreach ($db->all("SELECT seo_link, jazyk, canonical_url, COALESCE(zmeneno, datum) AS zmena FROM {novinky} WHERE {$published} AND noindex = 0{$inLanguages} ORDER BY datum DESC LIMIT 45000", [$now, ...$languages]) as $r) {
+            if (($line = $entry($url('novinky/' . $r['seo_link'], $r['zmena'], '0.5', $r['jazyk']), (string) $r['canonical_url'])) !== null) {
+                $xml[] = $line;
+            }
         }
 
         return '<?xml version="1.0" encoding="utf-8"?>' . "\n" . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n" . implode("\n", $xml) . "\n</urlset>\n";
