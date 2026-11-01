@@ -372,6 +372,9 @@
 			let t = e.target.closest('[data-ka-id]');
 			while (t && t.hasAttribute('data-ka-zamek')) { t = t.parentElement && t.parentElement.closest('[data-ka-id]'); }
 			selection(t ? t.getAttribute('data-ka-id') : null);
+			// 3.23.1 (N-U13): with the panels folded into rails, the first element selected on the canvas opens Properties – it
+			// shows where an element's settings are; later taps leave the panels as they are (a tap on the page closes them)
+			if (t && state.vybrane && narrowLayout.matches && !state.vlastnostiUkazany) { state.vlastnostiUkazany = true; setPanel('pravy', false, true); }
 		}, true);
 		hiddenOnCanvas(doc);
 		hiddenStrips(doc);
@@ -738,13 +741,28 @@
 		const changedBefore = state.zmeny; // typing shows the draft state at once (syncInspector); no real change gives it back
 		target.contentEditable = n.p.typ === 'tlacitko' ? 'plaintext-only' : 'true';
 		target.focus();
+		// 3.23.1 (N-U1): a paste on the canvas goes through the same cleanup as the panel editor (image/editor.js) – Word's list
+		// paragraphs become lists, its fonts and colours are dropped; a heading, a button and a quote take plain text only
+		const paste = (e) => {
+			const transfer = e.clipboardData;
+			if (!transfer) { return; }
+			const html = n.p.typ === 'text' && window.kaletaCistiHtml ? transfer.getData('text/html') : '';
+			const plain = transfer.getData('text/plain');
+			const doc = target.ownerDocument;
+			e.preventDefault();
+			if (html) { doc.execCommand('insertHTML', false, window.kaletaCistiHtml(html, 'paste')); return; }
+			if (plain) { doc.execCommand('insertText', false, n.p.typ === 'text' ? plain : plain.replace(/\s+/g, ' ').trim()); }
+		};
+		target.addEventListener('paste', paste);
 		const done = () => {
 			target.removeEventListener('blur', done);
+			target.removeEventListener('paste', paste);
 			target.removeAttribute('contenteditable');
 			state.upravaNaPlatne = false;
 			const field = { nadpis: 'text', text: 'html', tlacitko: 'text', citat: 'text' }[n.p.typ];
 			const value = n.p.typ === 'tlacitko' ? target.textContent.trim() : target.innerHTML.trim();
-			if (value !== n.p.obsah[field]) { applyChange(() => { n.p.obsah[field] = value; }); } else { state.zmeny = changedBefore; redrawBar(); refreshPreview(); }
+			// nothing changed (a paste of the same text too): the "Editing on the canvas…" status goes as well (3.23.1)
+			if (value !== n.p.obsah[field]) { applyChange(() => { n.p.obsah[field] = value; }); } else { state.zmeny = changedBefore; redrawBar(); refreshPreview(); setState(state.zmeny ? T('Draft in progress') : T('Publikováno')); }
 		};
 		target.addEventListener('blur', done);
 		// 3.6 (UXA-14): the inspector and the top bar follow the typing; the build itself changes once, when editing ends (done)
@@ -1097,6 +1115,26 @@
 	function nudge(id, key) {
 		const n = find(id);
 		if (!n) { return; }
+		const place = () => { const m = find(id); return m ? [m.rodic ? m.rodic.id : '', m.i] : null; };
+		const before = place();
+		nudgeOnce(n, id, key);
+		if (JSON.stringify(place()) !== JSON.stringify(before)) { announceMove(id); }
+	}
+	/** 3.23.1 (N-U15): where a keyboard move put the element, for a screen reader – "Moved after Heading: Delivery." */
+	function announceMove(id) {
+		const n = find(id);
+		if (!n) { return; }
+		const previous = n.pole[n.i - 1];
+		announce(previous ? T('Moved after %s.').replace('%s', labelText(previous))
+			: n.rodic ? T('Moved to the start of %s.').replace('%s', labelText(n.rodic)) : T('Moved to the start of the page.'));
+	}
+	let announcer = null;
+	function announce(message) {
+		if (!announcer) { announcer = el('div', { class: 'st-ohlas', 'aria-live': 'polite' }); document.body.append(announcer); }
+		announcer.textContent = '';
+		setTimeout(() => { announcer.textContent = message; }, 50); // emptied first, so the same message twice is read twice
+	}
+	function nudgeOnce(n, id, key) {
 		if (key === 'ArrowUp' || key === 'ArrowDown') { offset(id, key === 'ArrowUp' ? -1 : 1); return; }
 		const top = n.p.typ === 'sekce' || n.p.typ === 'obsah';
 		if (key === 'ArrowLeft') {
@@ -2658,16 +2696,16 @@
 	/* ---------- tablet: the panels as overlays opened from icon rails (3.23, U15) ---------- */
 
 	/**
-	 * Below 1024 px (stavitel.css) the left and right panels fold into icon rails beside the canvas and open over it, so the
+	 * Below 1180 px (stavitel.css; 1024 px until 3.23.1, N-U5) the left and right panels fold into icon rails beside the canvas and open over it, so the
 	 * page keeps most of the width. root[data-panel] says which one is open ('levy', 'pravy' or none); on a desktop the
 	 * rails are hidden and the attribute changes nothing. Esc (keys), a tap on the page or inserting an element close it.
 	 */
 	let railButtons = {};
-	function setPanel(which, returnFocus) {
+	function setPanel(which, returnFocus, keepFocus) {
 		const before = root.dataset.panel || '';
 		if (which) { root.dataset.panel = which; } else { delete root.dataset.panel; }
 		Object.entries(railButtons).forEach(([key, b]) => b.setAttribute('aria-expanded', String(!!which && key.startsWith(which) && (which === 'pravy' || state.levo === key.split(':')[1]))));
-		if (which && which !== before && narrowLayout.matches) {
+		if (which && which !== before && narrowLayout.matches && !keepFocus) {
 			const panel = which === 'levy' ? left : right;
 			const first = panel.querySelector('[role="tab"][aria-selected="true"], input, select, textarea, button, a[href]');
 			if (first) { first.focus(); }
@@ -2677,7 +2715,7 @@
 			if (back && narrowLayout.matches) { back.focus(); }
 		}
 	}
-	const narrowLayout = window.matchMedia('(max-width: 1023px)');
+	const narrowLayout = window.matchMedia('(max-width: 1179px)');
 	function railButton(key, iconName, name, controls, open) {
 		const b = el('button', { type: 'button', class: 'st-tl', title: name, 'aria-label': name, 'aria-controls': controls, 'aria-expanded': 'false', onclick: open }, icon(iconName));
 		railButtons[key] = b;

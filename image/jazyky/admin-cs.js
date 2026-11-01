@@ -2911,5 +2911,8 @@ window.KALETA_PREKLAD = {
 	"Nothing found – the text is used as the address.": "Nic nenalezeno – text se použije jako adresa.",
 	"%s (not found)": "%s (nenalezeno)",
 	"Custom value": "Vlastní hodnota",
-	"A site in several languages: each further version (e.g. /cs/…) has its own pages, categories and news, a language switcher and hreflang tags. Pick the languages in Settings → Languages.": "Web ve více jazycích: každá další verze (/en/…) má své stránky, kategorie a novinky, přepínač jazyků a značky hreflang. Jazyky vyberete v Nastavení → Jazyky."
+	"A site in several languages: each further version (e.g. /cs/…) has its own pages, categories and news, a language switcher and hreflang tags. Pick the languages in Settings → Languages.": "Web ve více jazycích: každá další verze (/en/…) má své stránky, kategorie a novinky, přepínač jazyků a značky hreflang. Jazyky vyberete v Nastavení → Jazyky.",
+	"Moved after %s.": "Přesunuto za %s.",
+	"Moved to the start of %s.": "Přesunuto na začátek prvku %s.",
+	"Moved to the start of the page.": "Přesunuto na začátek stránky."
 };

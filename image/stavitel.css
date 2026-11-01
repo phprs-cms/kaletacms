@@ -301,10 +301,11 @@ body.st-umistovani .st-uzel { cursor: copy; }
 .st-cesta .st-cesta-vice { flex: none; max-width: none; }
 .st-cesta li:last-child { flex-shrink: 0; max-width: 45%; }
 .st-cesta span { font-weight: 600; }
-/* 3.23 (U15): a tablet (below 1024 px) – the panels fold into icon rails beside the canvas and open over it (stavitel.js setPanel,
-   .st[data-panel]); the canvas keeps the width between the rails, the Add panel lists elements in two columns. A desktop is unchanged. */
+/* 3.23 (U15): a tablet (below 1180 px since 3.23.1, N-U5: iPad landscape and small laptops clipped the three columns) – the panels
+   fold into icon rails beside the canvas and open over it (stavitel.js setPanel, .st[data-panel]); the canvas keeps the width between
+   the rails, the Add panel lists elements in two columns. A desktop is unchanged. */
 .st-pruh { display: none; }
-@media (max-width: 1023px) {
+@media (max-width: 1179px) {
 	.st { grid-template: "lista lista lista" auto "pruh-levy platno pruh-pravy" 1fr / 48px minmax(0, 1fr) 48px; }
 	.st-pruh { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 0; background: var(--plocha); }
 	.st-pruh-levy { grid-area: pruh-levy; border-right: 1px solid var(--linka); }
@@ -323,3 +324,5 @@ body.st-umistovani .st-uzel { cursor: copy; }
 	.st-lista .st-nazev { flex: 1 1 9em; }
 	.st-lupa { max-width: 6.5em; }
 }
+/* 3.23.1 (N-U15): the live region that reads out where Alt+arrows moved an element */
+.st-ohlas { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

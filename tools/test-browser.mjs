@@ -1920,6 +1920,8 @@ await step('3.23 (U15) builder at 820 px: rails, canvas ≥ 70 %, the Add panel 
     await canvas().locator('body').click({ position: { x: 500, y: 200 } }); // right of the open panel (the position is in the scaled page's pixels)
     await page.waitForTimeout(300);
     if (await page.locator('.st-levy').isVisible()) { throw new Error('a tap on the page does not close the panel'); }
+    // 3.23.1 (N-U13): when the tap selected an element, that first selection opened Properties – closed here to try the rail button
+    if (await page.locator('.st-pravy').isVisible()) { await page.keyboard.press('Escape'); }
     await page.locator('.st-pruh-pravy button').click();
     await page.locator('.st-pravy').waitFor({ state: 'visible' });
     if (SHOTS) { await page.screenshot({ path: `${SHOTS}/u15-builder-820-properties.png` }); }
@@ -2416,6 +2418,120 @@ await step('3.22 C13: the canonical address of a page', async () => {
     if (links.length !== 1 || links[0] !== `${BASE}/contact`) { throw new Error(`canonical links on the site: ${JSON.stringify(links)}`); }
   } finally {
     sql(`UPDATE ka_stranky SET canonical_url = '' WHERE ids = ${pageId}`);
+  }
+});
+
+// 3.23.1 (N-U1): a Word list pasted from the real clipboard while double-click editing a Text on the canvas becomes a list
+// (the cleanup of the panel editor); a Heading and a Button take plain text
+await step('3.23.1 (N-U1) builder canvas: Word paste with Ctrl+V gives <ul> in a Text, plain text in a Heading and a Button', async () => {
+  const pageId = sql("SELECT ids FROM ka_stranky WHERE seo_link = 'services' AND jazyk = '' AND smazano IS NULL LIMIT 1").trim();
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE });
+  await visit(`/admin.php?module=pages&action=builder&id=${pageId}`);
+  await builderIdle();
+  const word = `<html xmlns:o="urn:schemas-microsoft-com:office:office"><head><style>p.MsoListParagraph{}</style></head><body lang=EN>
+<p class=MsoNormal style='font-family:"Comic Sans MS";color:red;font-size:20.0pt'><b>Our maintenance package</b><o:p></o:p></p>
+<p class=MsoListParagraphCxSpFirst style='text-indent:-18.0pt;mso-list:l0 level1 lfo1'><![if !supportLists]><span style='font-family:Symbol'><span style='mso-list:Ignore'>·<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp; </span></span></span><![endif]>Annual inspection<o:p></o:p></p>
+<p class=MsoListParagraphCxSpLast style='text-indent:-18.0pt;mso-list:l0 level1 lfo1'><![if !supportLists]><span style='font-family:Symbol'><span style='mso-list:Ignore'>·<span>&nbsp;&nbsp; </span></span></span><![endif]>24/7 call-out<o:p></o:p></p>
+</body></html>`;
+  const plain = 'Our maintenance package\n· Annual inspection\n· 24/7 call-out';
+  // the clipboard is written by the builder page itself (it needs the focus), as a copy in Word would leave it
+  const copy = async () => { await page.locator('.st-stav').click(); await page.evaluate(async ([h, t]) => {
+    await navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob([h], { type: 'text/html' }), 'text/plain': new Blob([t], { type: 'text/plain' }) })]);
+  }, [word, plain]); };
+  const pasteInto = async (target) => {
+    await copy();
+    await target.dblclick();
+    await liveCanvas().locator('[contenteditable]').first().waitFor();
+    await page.keyboard.press('ControlOrMeta+A');
+    await page.keyboard.press('ControlOrMeta+V');
+    await page.waitForTimeout(300);
+    const html = await liveCanvas().locator('[contenteditable]').first().evaluate((e) => e.innerHTML);
+    await page.keyboard.press('Escape');
+    await builderIdle();
+    return html.replace(/\s+/g, ' ');
+  };
+  const text = await pasteInto(liveCanvas().locator('.ka-text').first());
+  if (!/<ul><li>Annual inspection<\/li><li>24\/7 call-out<\/li><\/ul>/.test(text) || /·|Comic|color|style=|Mso|mso-/i.test(text)) { throw new Error(`the Text after the paste: ${text}`); }
+  const saved = await liveCanvas().locator('.ka-text').first().evaluate((e) => e.innerHTML.replace(/\s+/g, ' '));
+  if (!saved.includes('<ul><li>Annual inspection</li><li>24/7 call-out</li></ul>')) { throw new Error(`the saved Text: ${saved}`); }
+  const heading = await pasteInto(liveCanvas().locator('h2').first());
+  if (heading !== 'Our maintenance package · Annual inspection · 24/7 call-out') { throw new Error(`the Heading after the paste: ${heading}`); }
+  const button = await pasteInto(liveCanvas().locator('.ka-tlacitko').first());
+  if (/[<>]/.test(button) || !button.includes('Annual inspection')) { throw new Error(`the Button after the paste: ${button}`); }
+  for (let i = 0; i < 3; i++) { await page.keyboard.press('ControlOrMeta+Z'); await page.waitForTimeout(150); } // the page as it was
+  await builderIdle();
+});
+
+// 3.23.1 (N-U5, N-U13): iPad landscape and small laptops (1024–1179 px) get the rails – nothing in the Add panel or the top bar
+// is clipped and the canvas keeps most of the width; the first element selected on the canvas opens Properties; 1366 px is
+// the desktop layout
+await step('3.23.1 (N-U5, N-U13) builder at 1024 and 1179 px: rails, nothing clipped, the first selection opens Properties; 1366 px unchanged', async () => {
+  const clipped = () => page.evaluate(() => {
+    const cut = (sel) => [...document.querySelectorAll(sel)].filter((b) => b.offsetParent && b.scrollWidth > b.clientWidth + 1).map((b) => `${b.className}: ${b.textContent.trim().slice(0, 30)}`);
+    return { canvas: document.querySelector('.st-platno').getBoundingClientRect().width / innerWidth, rails: [...document.querySelectorAll('.st-pruh')].filter((r) => r.offsetParent).length,
+      tiles: cut('.st-prvky button'), bar: cut('.st-lista *'), off: [...document.querySelectorAll('.st-lista *')].filter((b) => b.offsetParent && b.getBoundingClientRect().right > innerWidth + 0.5).map((b) => b.className),
+      scroll: document.documentElement.scrollWidth > innerWidth };
+  });
+  try {
+    for (const [width, height] of [[1024, 768], [1179, 820]]) {
+      await page.setViewportSize({ width, height });
+      await visit('/admin.php?module=pages&action=builder&id=1');
+      await builderIdle();
+      await page.locator('.st-pruh-levy button[aria-label="Add"]').click();
+      await page.locator('.st-levy .st-prvky').first().waitFor();
+      const m = await clipped();
+      if (m.rails !== 2 || m.canvas < 0.6 || m.tiles.length || m.bar.length || m.off.length || m.scroll) { throw new Error(`${width} px: ${JSON.stringify(m)}`); }
+      if (SHOTS) { await page.screenshot({ path: `${SHOTS}/nu5-builder-${width}-add.png` }); }
+      await page.keyboard.press('Escape');
+      if (await page.locator('.st-pravy').isVisible()) { throw new Error(`${width} px: Properties open before anything is selected`); }
+      await liveCanvas().locator('h1').first().click();
+      await page.locator('.st-pravy').waitFor({ state: 'visible', timeout: 3000 });
+      if ((await page.locator('.st-pruh-pravy button').getAttribute('aria-expanded')) !== 'true') { throw new Error(`${width} px: the Properties rail button does not say it is open`); }
+      if (!(await page.locator('.st-pravy').evaluate((p) => p.scrollWidth <= p.clientWidth))) { throw new Error(`${width} px: Properties scroll sideways`); }
+      if (SHOTS) { await page.screenshot({ path: `${SHOTS}/nu13-builder-${width}-properties.png` }); }
+      await page.keyboard.press('Escape');
+    }
+    await page.setViewportSize({ width: 1366, height: 1024 });
+    await visit('/admin.php?module=pages&action=builder&id=1');
+    await builderIdle();
+    const desktop = await page.evaluate(() => ({ rails: [...document.querySelectorAll('.st-pruh')].some((r) => r.offsetParent), left: !!document.querySelector('.st-levy').offsetParent,
+      right: !!document.querySelector('.st-pravy').offsetParent, columns: getComputedStyle(document.querySelector('.st')).gridTemplateColumns.split(' ').length }));
+    if (desktop.rails || !desktop.left || !desktop.right || desktop.columns !== 3) { throw new Error(`1366 px is not the desktop layout: ${JSON.stringify(desktop)}`); }
+  } finally {
+    await page.setViewportSize({ width: 1440, height: 900 });
+  }
+});
+
+// 3.23.1 (N-U15): a move by Alt+arrows is read out by a live region – "Moved after …"
+await step('3.23.1 (N-U15) builder: Alt+ArrowDown is announced in a live region', async () => {
+  await visit('/admin.php?module=pages&action=builder&id=1');
+  await builderIdle();
+  const id = await liveCanvas().locator('body').evaluate((b) => {
+    const leaf = Array.from(b.querySelectorAll('[data-ka-id]:not([data-ka-zamek])')).find((x) => !x.querySelector('[data-ka-id]') && x.nextElementSibling && x.nextElementSibling.hasAttribute('data-ka-id') && x.getBoundingClientRect().height > 8);
+    return leaf ? leaf.getAttribute('data-ka-id') : '';
+  });
+  if (!id) { throw new Error('no element with a next sibling on the canvas'); }
+  await liveCanvas().locator(`[data-ka-id="${id}"]`).click({ position: { x: 4, y: 4 } });
+  await page.keyboard.press('Alt+ArrowDown');
+  const region = page.locator('.st-ohlas[aria-live="polite"]');
+  await page.waitForFunction(() => /^Moved after .+\.$/.test((document.querySelector('.st-ohlas') || {}).textContent || ''), null, { timeout: 5000 });
+  if (!(await region.evaluate((r) => r.getBoundingClientRect().width <= 1))) { throw new Error('the live region is visible'); }
+  const first = await region.textContent();
+  await builderIdle();
+  await liveCanvas().locator(`[data-ka-id="${id}"]`).click({ position: { x: 4, y: 4 } });
+  await page.keyboard.press('Alt+ArrowUp'); // back where it was
+  await page.waitForFunction((before) => { const t = (document.querySelector('.st-ohlas') || {}).textContent || ''; return t !== before && /^Moved (after|to the start of) .+\.$/.test(t); }, first, { timeout: 5000 });
+  await builderIdle();
+});
+
+// 3.23.1 (N-U16): "Edit here" on the public site leads to the builder without a console error – the site page skips its page
+// transition into the administration (before, Chrome aborted it with "Transition was aborted because of invalid state")
+await step('3.23.1 (N-U16) "Edit here" from the home page and from Contact: no console error', async () => {
+  for (const path of ['/', '/contact']) {
+    await visit(path);
+    await Promise.all([page.waitForURL(/action=builder/), page.locator('a.ka-upravit-zde').first().click()]);
+    await page.waitForLoadState('networkidle');
+    await builderIdle();
   }
 });
 

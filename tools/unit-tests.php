@@ -8268,13 +8268,13 @@ check('3.23 (U10): the builder action of the choices is a read of every builder 
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/BuilderActions.php'), "'volby' => self::builderChoices(\$this->db, array_keys(\$this->kernel->modules())"),
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/BuilderActions.php'), "self::builderChoices(\$this->db, array_keys(\$this->kernel->modules()), Language::column(\$this->app->settings(), (string) \$target['jazyk']))"), // N323-2: the language column, '' for the default
 ], [true, 2]);
-// 3.23 (U15): a tablet (below 1024 px) folds the panels into icon rails over which they open; a desktop keeps its three columns
+// 3.23 (U15): a tablet (below 1180 px since 3.23.1, N-U5) folds the panels into icon rails over which they open; a desktop keeps its three columns
 $u15Css = (string) file_get_contents(KALETA_ROOT . '/image/stavitel.css');
 check('3.23 (U15): the tablet layout – rails, panels over the canvas, two columns of elements; the phone notice below 720 px stays', [
-    str_contains($u15Css, '@media (max-width: 1023px) {' . "\n\t" . '.st { grid-template: "lista lista lista" auto "pruh-levy platno pruh-pravy" 1fr / 48px minmax(0, 1fr) 48px; }'),
+    str_contains($u15Css, '@media (max-width: 1179px) {' . "\n\t" . '.st { grid-template: "lista lista lista" auto "pruh-levy platno pruh-pravy" 1fr / 48px minmax(0, 1fr) 48px; }'),
     str_contains($u15Css, '.st:not([data-panel="levy"]) .st-levy, .st:not([data-panel="pravy"]) .st-pravy { display: none; }'),
     str_contains($u15Css, '.st-prvky { grid-template-columns: repeat(2, minmax(0, 1fr)); }'), str_contains($u15Css, '@media (max-width: 719px) {'),
-    str_contains($u10Script, "window.matchMedia('(max-width: 1023px)')"), str_contains($u10Script, "if (e.key === 'Escape' && root.dataset.panel"),
+    str_contains($u10Script, "window.matchMedia('(max-width: 1179px)')"), str_contains($u10Script, "if (e.key === 'Escape' && root.dataset.panel"),
 ], [true, true, true, true, true, true]);
 /* ---------- 3.23 (C12, C8): Settings → General split into tabs, the console tab renamed and shown only when it matters ---------- */
 use Kaleta\Admin\Modules\Settings as S323;
@@ -8324,6 +8324,30 @@ check('3.23: the hints link the new tabs in the admin language', Kaleta\Core\Lan
         . ' ' . t('Your contact is not set – the client will not see whom to ask (Settings → Agency).') . ' ' . t('Settings → Languages') . ' ' . t('Unused accounts and Claude connections are only reported – switch on the automatic suspension (Settings → Security) so that leftover access closes itself.'), ['settings']), '<a href="/admin.php?module=settings&amp;tab='),
     t('Reporting to a console'), t('Agency'),
 ], 'admin-'), [5, 'Hlášení do konzole', 'Agentura']);
+
+/* ---------- 3.23.1 (N-U1, N-U5, N-U13, N-U15, N-U16): builder on the canvas, at 1024–1179 px and for screen readers ---------- */
+$builder3231 = (string) file_get_contents(KALETA_ROOT . '/image/stavitel.js');
+$builderCss3231 = (string) file_get_contents(KALETA_ROOT . '/image/stavitel.css');
+check('3.23.1 (N-U1): a paste while editing on the canvas goes through the cleanup of the panel editor; a heading, a button and a quote take plain text', [
+    str_contains($builder3231, "target.addEventListener('paste', paste);"), str_contains($builder3231, "target.removeEventListener('paste', paste);"),
+    str_contains($builder3231, "doc.execCommand('insertHTML', false, window.kaletaCistiHtml(html, 'paste'))"),
+    str_contains($builder3231, "const html = n.p.typ === 'text' && window.kaletaCistiHtml ? transfer.getData('text/html') : '';"),
+    str_contains((string) file_get_contents(KALETA_ROOT . '/image/editor.js'), 'window.kaletaCistiHtml = cleanHtml;'),
+], [true, true, true, true, true]);
+check('3.23.1 (N-U5, N-U13): the rails up to 1179 px in the style and the script alike; the first selection on the canvas opens Properties without taking the focus', [
+    substr_count($builderCss3231, '@media (max-width: 1179px) {'), substr_count($builderCss3231, '@media (max-width: 1023px)'),
+    str_contains($builder3231, "window.matchMedia('(max-width: 1179px)')"), str_contains($builder3231, "window.matchMedia('(max-width: 1023px)')"),
+    str_contains($builder3231, "if (t && state.vybrane && narrowLayout.matches && !state.vlastnostiUkazany) { state.vlastnostiUkazany = true; setPanel('pravy', false, true); }"),
+], [1, 0, true, false, true]);
+check('3.23.1 (N-U15): Alt+arrow moves are announced in a visually hidden live region, translated', [
+    str_contains($builder3231, "el('div', { class: 'st-ohlas', 'aria-live': 'polite' })"),
+    str_contains($builderCss3231, '.st-ohlas { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%);'),
+    array_map(fn (string $f): bool => isset($jsDictionary(KALETA_ROOT . '/image/jazyky/admin-' . $f . '.js')['Moved after %s.'], $jsDictionary(KALETA_ROOT . '/image/jazyky/admin-' . $f . '.js')['Moved to the start of %s.'], $jsDictionary(KALETA_ROOT . '/image/jazyky/admin-' . $f . '.js')['Moved to the start of the page.']), ['cs', 'de', 'es']),
+], [true, true, [true, true, true]]);
+check('3.23.1 (N-U16): "Edit here" keeps image/web.js on the page, and the script skips the page transition into the administration', [
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Front/Kernel.php'), '|rel="alternate" hreflang=|class="ka-upravit-zde"/'),
+    str_contains((string) file_get_contents(KALETA_ROOT . '/image/web.js'), "if (transition && next && /\\/admin\\.php$/.test(new URL(next, location.href).pathname)) { transition.skipTransition(); }"),
+], [true, true]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);
