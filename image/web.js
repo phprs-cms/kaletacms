@@ -19,7 +19,13 @@
 		});
 		return e.viewTransition;
 	};
-	window.addEventListener('pageswap', settle);
+	window.addEventListener('pageswap', function (e) {
+		var transition = settle(e);
+		// 3.23.1 (N-U16): the administration ("Edit here" leads to the builder) never takes part in page transitions – Chrome
+		// would start one here and abort it on the admin page with an unhandled "ViewTransition opt-in disabled"
+		var next = e.activation && e.activation.entry && e.activation.entry.url;
+		if (transition && next && /\/admin\.php$/.test(new URL(next, location.href).pathname)) { transition.skipTransition(); }
+	});
 	window.addEventListener('pagereveal', function (e) {
 		var transition = settle(e);
 		// the answer of a form (?form=…&result=…) is the same page again after a POST – no transition, which the browser

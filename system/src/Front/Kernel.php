@@ -1727,9 +1727,10 @@ final class Kernel
         // collection lists with filters or pages – swapped without a reload, the store locator – search, nearest, map, the
         // enquiry basket and comparing products). Contact clicks (2.12, Core\Conversions): a phone number, an e-mail address
         // or a WhatsApp link anywhere on the page – a footer with the phone number is enough – keeps the script too, but only
-        // when a click would be counted (the statistics are on, a visitor, no preview: the same switch as the speed beacon)
+        // when a click would be counted (the statistics are on, a visitor, no preview: the same switch as the speed beacon).
+        // "Edit here" keeps it as well (3.23.1, N-U16): the script skips the page transition into the administration
         $countsClicks = !empty($meta['vitals']) && preg_match(\Kaleta\Core\Conversions::LINK_PATTERN, $html);
-        if (!$countsClicks && !preg_match('/data-(vlozit|sdilet|kopirovat|zalozky|karusel|pred-po|formular|rezervace|odeslano|pocitadlo|odpocet|tema-volba|kolekce|pobocky|produkt|kosik|recaptcha)|popover role="dialog"|galerie|class="(?:text|perex)[" ][\s\S]*?<img|cookies-|<li class="podmenu|data-popup=|rel="alternate" hreflang=/', $html)) {
+        if (!$countsClicks && !preg_match('/data-(vlozit|sdilet|kopirovat|zalozky|karusel|pred-po|formular|rezervace|odeslano|pocitadlo|odpocet|tema-volba|kolekce|pobocky|produkt|kosik|recaptcha)|popover role="dialog"|galerie|class="(?:text|perex)[" ][\s\S]*?<img|cookies-|<li class="podmenu|data-popup=|rel="alternate" hreflang=|class="ka-upravit-zde"/', $html)) {
             $html = (string) preg_replace('#<script src="[^"]*/image/web\.js[^"]*"[^>]*></script>\n?#', '', $html);
         }
         if (empty($meta['soukroma'])) {
