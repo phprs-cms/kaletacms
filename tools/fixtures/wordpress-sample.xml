@@ -187,7 +187,7 @@ Vybrali jsme ty nejlepší. [sic] Další přidáme příští týden.]]></conte
 		<wp:post_type><![CDATA[post]]></wp:post_type>
 		<wp:post_password><![CDATA[]]></wp:post_password>
 		<wp:is_sticky>0</wp:is_sticky>
-		<!-- Rank Math: single-percent variables, robots as a serialized PHP array (never unserialized), canonical only counted -->
+		<!-- Rank Math: single-percent variables, robots as a serialized PHP array (never unserialized), the canonical of this duplicate goes to canonical_url (3.22) -->
 		<wp:postmeta><wp:meta_key><![CDATA[rank_math_title]]></wp:meta_key><wp:meta_value><![CDATA[Fotografie čtenářů: lávka přes Bystřinu %sep% %sitename%]]></wp:meta_value></wp:postmeta>
 		<wp:postmeta><wp:meta_key><![CDATA[rank_math_description]]></wp:meta_key><wp:meta_value><![CDATA[Nejlepší snímky čtenářů z otevření lávky přes Bystřinu.]]></wp:meta_value></wp:postmeta>
 		<wp:postmeta><wp:meta_key><![CDATA[rank_math_robots]]></wp:meta_key><wp:meta_value><![CDATA[a:2:{i:0;s:7:"noindex";i:1;s:8:"nofollow";}]]></wp:meta_value></wp:postmeta>

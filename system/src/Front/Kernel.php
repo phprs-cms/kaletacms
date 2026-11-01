@@ -713,7 +713,7 @@ final class Kernel
 
         return $this->page($title, $this->view->render('stranka', ['stranka' => ['titulek' => ''], 'uvod' => false, 'stavba' => $html]), [
             'popis' => $description, 'obrazek' => $image, 'stavba' => true, 'noindex' => $draft || !empty($item['noindex']),
-            'polozka' => $item !== null ? ['kolekce' => $collection, 'polozka' => $item] : null,
+            'polozka' => $item !== null ? ['kolekce' => $collection, 'polozka' => $item] : null, 'kanonicka' => (string) ($item['canonical_url'] ?? ''), // 3.22 (C13)
         ]);
     }
 
@@ -867,6 +867,7 @@ final class Kernel
             'popis' => $page['popis'] !== '' ? $page['popis'] : ($home ? $this->app->settings()->get('site_description') : ''),
             'hlavni' => $home, 'obrazek' => $page['obrazek'], 'noindex' => (bool) $page['noindex'] || $locked,
             'kod_hlavicky' => (string) ($page['kod_hlavicky'] ?? ''), // code in <head> of this page only (2.3)
+            'kanonicka' => (string) ($page['canonical_url'] ?? ''), // the page's own canonical address (3.22, C13); '' = itself
         ];
         // preview of the draft build for the editor: ?build=koncept (only whoever can edit pages), &editor=1 adds markers
         // for selecting elements
@@ -1037,6 +1038,7 @@ final class Kernel
             'klicova_slova' => $newsItem['t_slova'],
             'obrazek' => $newsItem['obrazek'],
             'noindex' => (bool) $newsItem['noindex'],
+            'kanonicka' => (string) ($newsItem['canonical_url'] ?? ''), // 3.22 (C13)
             'typ' => 'article',
             'cast' => 'novinka',
         ]);
@@ -1673,10 +1675,18 @@ final class Kernel
         // canonical URL: the path without parameters, with the page number for pagination (page 2 is not a copy of page 1)
         $listPageNumber = $this->app->request->getInt('page', 1);
         $canonicalUrl = $this->app->request->origin() . $this->app->url(ltrim($this->app->request->path(), '/')) . ($listPageNumber > 1 ? '?page=' . $listPageNumber : '');
+        // 3.22 (C13): a page, a news item or a collection item may name another address as canonical (a copy of the original,
+        // an article first published elsewhere) – it replaces the own one, so the page still has exactly one canonical link
+        $ownCanonical = \Kaleta\Core\CanonicalUrl::absolute((string) ($meta['kanonicka'] ?? ''), $this->app->request->origin(), $this->app->request->basePath());
+        unset($meta['kanonicka']);
+        $pathForParts = (string) parse_url($canonicalUrl, PHP_URL_PATH);
+        if ($ownCanonical !== '') {
+            $canonicalUrl = $ownCanonical;
+        }
         if ($this->sitePreview) {
             $meta['noindex'] = true; // the preview of drafts is never indexed nor cached
         }
-        [$content, $parts, $meta] = $this->siteParts($content, $meta, $languageSwitcher, (string) parse_url($canonicalUrl, PHP_URL_PATH));
+        [$content, $parts, $meta] = $this->siteParts($content, $meta, $languageSwitcher, $pathForParts);
         $popups = (string) ($meta['popupy'] ?? '');
         $commentWidget = (string) ($meta['komentare'] ?? ''); // the comment widget of a shared preview (2.15)
         unset($meta['popupy'], $meta['komentare']);

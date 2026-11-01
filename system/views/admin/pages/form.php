@@ -86,7 +86,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	<label for="seo_link"><?= e(t('Adresa')) ?></label>
 	<div><span class="napoveda-inline">/<?= e($prefix) ?></span><input class="textpole" type="text" id="seo_link" name="seo_link" value="<?= e($segment) ?>" maxlength="110" placeholder="<?= e(t('generated from the title, e.g. about-us')) ?>"><?= $error('seo_link') ?></div>
 </div>
-<details class="pokrocile"<?= $page['popis'] !== '' || $page['seo_titulek'] !== '' || $page['obrazek'] !== '' || $page['noindex'] || !empty($page['heslo_hash']) || isset($errors['heslo_stranky']) || array_filter($contentCheck ?? [], fn (array $r): bool => !$r['ok']) !== [] ? ' open' : '' ?>>
+<details class="pokrocile"<?= $page['popis'] !== '' || $page['seo_titulek'] !== '' || $page['obrazek'] !== '' || $page['noindex'] || (string) ($page['canonical_url'] ?? '') !== '' || isset($errors['canonical_url']) || !empty($page['heslo_hash']) || isset($errors['heslo_stranky']) || array_filter($contentCheck ?? [], fn (array $r): bool => !$r['ok']) !== [] ? ' open' : '' ?>>
 <summary><?= e(t('Search engines and sharing')) ?></summary>
 <div class="radek">
 	<label for="seo_titulek"><?= e(t('Search engine title')) ?></label>
@@ -102,6 +102,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	<div><input class="textpole siroke" type="text" id="obrazek" name="obrazek" value="<?= e($page['obrazek']) ?>" maxlength="255" placeholder="<?= e(t('empty = default image from Settings')) ?>" data-obrazek>
 	<span class="napoveda"><?= e(t('Shown when the link is shared on Facebook, LinkedIn or Teams (ideally 1200 × 630 px).')) ?></span></div>
 </div>
+<?= $app->view->render('admin/canonical_field', ['value' => (string) ($page['canonical_url'] ?? ''), 'error' => $error('canonical_url'), 'hint' => t('Empty = this page. Fill it in only when the page is a copy of another one (a campaign copy, a print version, an article first published elsewhere): search engines then show the original.')]) ?>
 <div class="radek">
 	<span class="popisek"><?= e(t('Options')) ?></span>
 	<div class="volby"><label><input type="checkbox" name="noindex" value="1"<?= $page['noindex'] ? ' checked' : '' ?>> <?= e(t('Hide from search engines (noindex)')) ?></label></div>

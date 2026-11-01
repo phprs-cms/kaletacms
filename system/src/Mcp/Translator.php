@@ -16,7 +16,7 @@ final class Translator
     /** Shared target of the build tools: page, site part (variant) or collection item template. */
     private const array TARGET = [
         'id' => ['id', 'Page ID'],
-        'part' => ['cast', 'Instead of a page, a site part (Appearance area): header | footer | news_item | news_list | not_found (the wrappers of a news item, the news list, the 404 page)'],
+        'part' => ['cast', 'Instead of a page, a site part (Appearance area): header | footer | news_item | news_list | not_found (the wrappers of news and the 404 page)'],
         'language' => ['jazyk', 'Language version of the site part or of the collection item template on a multilingual site (empty = default)'],
         'variant' => ['varianta', 'Header or footer variant (key from list_site_parts; empty = the default)'],
         'collection' => ['kolekce', 'Instead of a page, the item page template of a collection (collection slug from list_collections, administrators only); with "language", the template of that language version'],
@@ -36,6 +36,7 @@ final class Translator
         'seo_title' => ['seo_titulek', 'Title for search engines (optional, otherwise the name)'],
         'share_image' => ['obrazek', 'Image for sharing on social networks (path from Media)'],
         'noindex' => ['noindex', 'true = hide the page from search engines'],
+        'canonical_url' => ['canonical_url', 'Canonical URL: https://… or /path on the site; empty = this page'],
         'parent' => ['nadrazena', 'ID of the parent page – the address becomes /parent/page (0 = none)'],
         'language' => ['jazyk', 'Language version of the page on a multilingual site (code such as de; empty = default language)'],
         'translation_of' => ['preklad_z', 'ID of the counterpart in the default language (for a page in another language version) – language switcher and hreflang'],
@@ -54,6 +55,7 @@ final class Translator
         'tags' => ['stitky', 'Tags separated by commas'],
         'seo_title' => ['seo_titulek', 'Title for search engines (optional)'],
         'seo_description' => ['seo_popis', 'Description for search engines, up to 160 characters'],
+        'canonical_url' => ['canonical_url', 'Canonical URL: https://… or /path on the site; empty = this news item'],
         'image' => ['obrazek', 'Address of the main image (from list_media)'],
         'image_caption' => ['obrazek_popis', 'Caption of the main image (empty = from the media library)'],
         'faq' => ['faq', 'Questions and answers: a question on one line, the answer below it, an empty line between pairs'],
@@ -162,6 +164,7 @@ final class Translator
                 'seo_title' => ['seo_titulek', 'title for search engines (optional, otherwise the name)'], 'description' => ['popis', 'description for search engines, up to 160 characters (optional, otherwise from the first longer text field)'],
                 'share_image' => ['obrazek', 'image for sharing on social networks (path from Media; optional, otherwise the first image field)'],
                 'noindex' => ['noindex', 'true = keep the item page out of search engines, the sitemap, llms.txt and site search'],
+                'canonical_url' => ['canonical_url', 'canonical URL of the item page: https://… or /path on the site; empty = the item itself'],
                 'publish_at' => ['zverejnit_od', 'scheduled publishing of a hidden item YYYY-MM-DD HH:MM (only when the user explicitly asks; empty = cancel)'],
                 'valid_until' => ['valid_until', 'True until YYYY-MM-DD (2.10): after this day it hides itself on its own (the change is logged and recorded as the event content.expired); an empty string = always (optional)'], 'review_by' => ['review_by', 'Review by YYYY-MM-DD (2.10): on this day the site audit (kind review) and the event content.review ask the user to check it; an empty string = none (optional)'],
                 'categories' => ['kategorie', 'category slugs of the collection (3.7, list_collection_categories) – the whole new list; [] = none; leave it out to keep them']]],

@@ -145,7 +145,7 @@ final class SiteExport
         self::fields($f, $format, 'kolekce_sablony', $db->all('SELECT idk, jazyk, stavba, stavba_koncept FROM {kolekce_sablony} WHERE stavba IS NOT NULL OR stavba_koncept IS NOT NULL ORDER BY idk, jazyk'));
         // popups with rules and the published build; not the counters (they are only this site's statistics)
         self::fields($f, $format, 'popupy', $db->all('SELECT idpp, nazev, adresa, typ, spoustec, hodnota, pravidla, cetnost, dni, aktivni, poradi, valid_until, review_by, stavba, stavba_koncept FROM {popupy} ORDER BY idpp'));
-        self::fields($f, $format, 'kolekce_polozky', self::streamRows($db, 'SELECT idp, idk, nazev, seo_link, data, seo_titulek, popis, obrazek, noindex, poradi, zobrazit, zverejnit_od, valid_until, review_by, jazyk, datum FROM {kolekce_polozky} WHERE idp > ? AND smazano IS NULL ORDER BY idp LIMIT 500', 'idp'));
+        self::fields($f, $format, 'kolekce_polozky', self::streamRows($db, 'SELECT idp, idk, nazev, seo_link, data, seo_titulek, popis, obrazek, noindex, canonical_url, poradi, zobrazit, zverejnit_od, valid_until, review_by, jazyk, datum FROM {kolekce_polozky} WHERE idp > ? AND smazano IS NULL ORDER BY idp LIMIT 500', 'idp'));
         // collection categories (3.7): the tree (parents first), their texts per language, the category templates and which items are in them
         self::fields($f, $format, 'collection_categories', $db->all('SELECT id, idk, parent_id, image, sort_order, visible FROM {collection_categories} ORDER BY parent_id IS NOT NULL, id'));
         self::fields($f, $format, 'collection_category_texts', $db->all('SELECT category_id, language, idk, name, slug, description, seo_title, seo_description FROM {collection_category_texts} ORDER BY category_id, language'));

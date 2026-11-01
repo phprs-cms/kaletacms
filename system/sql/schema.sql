@@ -108,6 +108,7 @@ CREATE TABLE ka_novinky (
     seo_titulek    VARCHAR(255) NOT NULL DEFAULT '',      -- custom <title>, empty = the title
     seo_popis      VARCHAR(320) NOT NULL DEFAULT '',      -- custom meta description, empty = from the intro
     noindex        BOOL NOT NULL DEFAULT 0,
+    canonical_url  VARCHAR(500) NOT NULL DEFAULT '',      -- canonical address (3.22, Core\CanonicalUrl): https://… or a path on the site, empty = the news item itself
     faq            TEXT NULL,                             -- questions and answers: question, the answer below it, an empty line
     visit          INT UNSIGNED NOT NULL DEFAULT 0,       -- view count
     zmeneno        DATETIME NULL,
@@ -237,6 +238,7 @@ CREATE TABLE ka_stranky (
     seo_titulek VARCHAR(200) NOT NULL DEFAULT '',        -- custom <title>, empty = the title
     obrazek  VARCHAR(255) NOT NULL DEFAULT '',           -- image for sharing (og:image), empty = the default from Settings
     noindex  BOOL NOT NULL DEFAULT 0,
+    canonical_url VARCHAR(500) NOT NULL DEFAULT '',     -- canonical address (3.22, Core\CanonicalUrl): https://… or a path on the site, empty = the page itself
     heslo_hash VARCHAR(255) NULL,                      -- password-protected page (2.14, Core\PageLock): password_hash(); NULL = public
     text     MEDIUMTEXT NOT NULL,
     zobrazit BOOL NOT NULL DEFAULT 1,
@@ -601,6 +603,7 @@ CREATE TABLE ka_kolekce_polozky (
     popis    VARCHAR(300) NOT NULL DEFAULT '',          -- meta description, empty = from the first text field
     obrazek  VARCHAR(255) NOT NULL DEFAULT '',          -- image for sharing (og:image), empty = the first image field
     noindex  TINYINT(1) NOT NULL DEFAULT 0,
+    canonical_url VARCHAR(500) NOT NULL DEFAULT '',     -- canonical address of the item page (3.22), empty = the item itself
     poradi   INT NOT NULL DEFAULT 100,
     zobrazit TINYINT(1) NOT NULL DEFAULT 1,
     zverejnit_od DATETIME NULL,                         -- a hidden item publishes itself at this moment

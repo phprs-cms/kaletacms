@@ -99,7 +99,7 @@ $chosenLanguage = $options['jazyk'] !== '' ? $options['jazyk'] : match ($exportL
 <?php if ($t['vynechano'] !== []): ?> <?= e(t('Left out (repeaters, galleries or relationships – Claude can move them by hand): %s.', implode(', ', array_keys($t['vynechano'])))) ?><?php endif ?></p>
 <?php endforeach ?>
 <?php foreach ($p['seo'] ?? [] as $plugin => $n): ?>
-<p><?= e(t('SEO plugin %s: %s custom titles, %s meta descriptions, %s noindex – they go into the SEO fields of the news items and pages. A title made only of the plugin’s variables is skipped; the site builds it itself.', $plugin, (int) $n['title'], (int) $n['description'], (int) $n['noindex'])) ?><?= (int) $n['canonical'] > 0 ? ' ' . e(t('Canonical URLs (%s) are not transferred.', (int) $n['canonical'])) : '' ?></p>
+<p><?= e(t('SEO plugin %s: %s custom titles, %s meta descriptions, %s noindex – they go into the SEO fields of the news items and pages. A title made only of the plugin’s variables is skipped; the site builds it itself.', $plugin, (int) $n['title'], (int) $n['description'], (int) $n['noindex'])) ?><?= (int) $n['canonical'] > 0 ? ' ' . e(t('Canonical addresses (%s) go into the “Canonical address” field; one that points at the item itself is left out.', (int) $n['canonical'])) : '' ?></p>
 <?php endforeach ?>
 
 <details class="pokrocile import-nepreveditelne"<?= $p['jine'] !== [] || $p['zkratky'] !== [] ? ' open' : '' ?>>

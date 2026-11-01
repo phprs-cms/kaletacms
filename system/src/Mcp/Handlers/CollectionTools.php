@@ -256,7 +256,7 @@ trait CollectionTools
 
         return ['celkem' => count($rows), 'strana' => $pageNumber, 'stran' => max(1, (int) ceil(count($rows) / 50)), 'polozky' => array_map(fn (array $r): array => ['id' => (int) $r['idp'], 'nazev' => $r['nazev'], 'seo_link' => $r['seo_link'], 'poradi' => (int) $r['poradi'], 'zobrazit' => (bool) $r['zobrazit'],
             'jazyk' => $r['jazyk'], 'data' => json_decode((string) $r['data'], true) ?: new \stdClass()]
-            + array_filter(['seo_titulek' => $r['seo_titulek'], 'popis' => $r['popis'], 'obrazek' => $r['obrazek'], 'noindex' => (bool) $r['noindex'], 'zverejnit_od' => $r['zverejnit_od']]) + self::validityOutput($r) + $registration($r) + $documentOutput($r)
+            + array_filter(['seo_titulek' => $r['seo_titulek'], 'popis' => $r['popis'], 'obrazek' => $r['obrazek'], 'noindex' => (bool) $r['noindex'], 'canonical_url' => (string) ($r['canonical_url'] ?? ''), 'zverejnit_od' => $r['zverejnit_od']]) + self::validityOutput($r) + $registration($r) + $documentOutput($r)
             + ($withCategories ? ['kategorie' => CollectionCategories::slugsOfItem($db, (int) $r['idp'], (string) $r['jazyk'], !$allCategories)] : []), array_slice($rows, ($pageNumber - 1) * 50, 50))];
     }
 
@@ -342,6 +342,9 @@ trait CollectionTools
                 $row['zverejnit_od'] = $fields['zverejnit_od'];
                 $row['zobrazit'] = $fields['zobrazit'];
             }
+        }
+        if (array_key_exists('canonical_url', $a)) { // 3.22 (C13): the item page's canonical address, '' = the item itself
+            $row['canonical_url'] = \Kaleta\Core\CanonicalUrl::clean($a['canonical_url']) ?? throw new \InvalidArgumentException(\Kaleta\Core\CanonicalUrl::REFUSAL);
         }
         $row += self::validityDates($a); // true until and review by (2.10)
         // a notice that is (or was) on the board cannot be hidden (2.11, Core\Notices)

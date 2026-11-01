@@ -8025,5 +8025,34 @@ check('3.22 (C9): MCP – site parts, pop-ups, components and the menu follow th
     preg_match_all('/function tool(ListSiteParts|SavePartVariant|ListPopups|SavePopup)\(string \$name, array \$a\): mixed\s*\{[^}]*?isAdmin\(\)/', $c9Mcp),
 ], [14, 0]);
 
+// 3.22 (C13): the optional canonical address of a page, a news item and a collection item (Core\CanonicalUrl)
+use Kaleta\Core\CanonicalUrl as C13;
+check('3.22 (C13): a canonical address is an absolute http(s) address or a path on the site, nothing else', array_map(C13::clean(...), [
+    '', '  ', ' https://example.com/original?x=1 ', 'HTTP://example.com/', '/services/web', '//evil.example/x', 'javascript:alert(1)', 'JavaScript:alert(1)',
+    'data:text/html,x', 'mailto:a@b.c', 'relative/path', 'https://exa mple.com/', 'https://user:pass@example.com/', 'https://intranet/', '/a"onload=x', '/a<b',
+    'https://example.com/' . str_repeat('a', 500), null, 5,
+]), ['', '', 'https://example.com/original?x=1', 'http://example.com/', '/services/web', null, null, null, null, null, null, null, null, null, null, null, null, '', null]);
+check('3.22 (C13): the printed canonical is absolute; the WordPress import keeps other sites, turns the old site into paths and drops the post itself', [
+    C13::absolute('/services/web', 'https://firma.cz', '/web'), C13::absolute('https://medium.com/@a/post', 'https://firma.cz', ''), C13::absolute('', 'https://firma.cz', ''),
+    C13::absolute('javascript:alert(1)', 'https://firma.cz', ''),
+    C13::fromImport('https://www.old.cz/2019/05/post/', 'https://old.cz', 'https://old.cz/2019/05/post/'), C13::fromImport('https://old.cz/original/', 'http://www.old.cz/', 'https://old.cz/copy/'),
+    C13::fromImport('https://medium.com/@a/post?x=1&amp;y=2', 'https://old.cz', 'https://old.cz/copy/'), C13::fromImport('javascript:alert(1)', 'https://old.cz', ''), C13::fromImport('', 'https://old.cz', ''),
+], ['https://firma.cz/web/services/web', 'https://medium.com/@a/post', '', '', '', '/original', 'https://medium.com/@a/post?x=1&y=2', '', '']);
+$c13Schema = (string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql');
+$c13Migration = (string) @file_get_contents(KALETA_SYSTEM . '/sql/migrace/0109-canonical-url.sql');
+$c13Kernel = (string) file_get_contents(KALETA_SYSTEM . '/src/Front/Kernel.php');
+check('3.22 (C13): the column on pages, news and items (schema and migration 0109), one canonical link in the page frame, fed by the three detail pages', [
+    preg_match_all("/^\s+canonical_url\s+VARCHAR\(500\) NOT NULL DEFAULT '',/m", $c13Schema),
+    preg_match_all('/ALTER TABLE ka_(stranky|novinky|kolekce_polozky) ADD COLUMN canonical_url VARCHAR\(500\) NOT NULL DEFAULT \'\' AFTER noindex;/', $c13Migration),
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/views/front/base.php'), 'rel="canonical"'),
+    substr_count($c13Kernel, "'kanonicka' => (string) ("), str_contains($c13Kernel, 'CanonicalUrl::absolute('),
+], [3, 3, 1, 3, true]);
+check('3.22 (C13): MCP takes canonical_url on pages, news and collection items (the same name on both sides), get_page and get_news return it', [
+    Kaleta\Mcp\Translator::arguments('update_page', ['id' => 1, 'canonical_url' => '/original']), Kaleta\Mcp\Translator::arguments('update_news', ['id' => 1, 'canonical_url' => '']),
+    Kaleta\Mcp\Translator::arguments('save_collection_item', ['collection' => 'x', 'canonical_url' => 'https://a.cz/']),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Tools.php'), 'seo_titulek, obrazek, noindex, canonical_url, text'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/NewsTools.php'), "'seo_popis', 'canonical_url']"),
+], [['id' => 1, 'canonical_url' => '/original'], ['id' => 1, 'canonical_url' => ''], ['kolekce' => 'x', 'canonical_url' => 'https://a.cz/'], true, true]);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

@@ -189,7 +189,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <?= $app->view->render('admin/content_check', ['results' => $contentCheck]) ?>
 <?php endif ?>
 
-<details class="pokrocile"<?= $newsItem['seo_titulek'] !== '' || $newsItem['seo_popis'] !== '' || (string) $newsItem['faq'] !== '' ? ' open' : '' ?>>
+<details class="pokrocile"<?= $newsItem['seo_titulek'] !== '' || $newsItem['seo_popis'] !== '' || (string) $newsItem['faq'] !== '' || (string) ($newsItem['canonical_url'] ?? '') !== '' || isset($errors['canonical_url']) ? ' open' : '' ?>>
 <summary><?= e(t('SEO and more settings')) ?></summary>
 <div class="radek">
 	<label for="seo_link"><?= e(t('Adresa')) ?></label>
@@ -214,6 +214,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	<div><textarea class="textbox nizky" id="faq" name="faq" rows="5"><?= e((string) $newsItem['faq']) ?></textarea>
 	<span class="napoveda"><?= e(t('Question on one line, the answer below it, an empty line between pairs. Shown below the text and in structured data (FAQ).')) ?></span></div>
 </div>
+<?= $app->view->render('admin/canonical_field', ['value' => (string) ($newsItem['canonical_url'] ?? ''), 'error' => $error('canonical_url'), 'hint' => t('Empty = this news item. Fill it in only for an article first published elsewhere, or a copy of another one: search engines then show the original.')]) ?>
 <div class="radek">
 	<span class="popisek"><?= e(t('Options')) ?></span>
 	<div class="volby"><label><input type="checkbox" name="noindex" value="1"<?= $newsItem['noindex'] ? ' checked' : '' ?>> <?= e(t('Hide from search engines (noindex)')) ?></label></div>

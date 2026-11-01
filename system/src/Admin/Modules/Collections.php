@@ -336,6 +336,14 @@ final class Collections extends Module
             'poradi' => max(-9999, min(9999, $r->postInt('poradi'))), 'jazyk' => $language, 'zmeneno' => date('Y-m-d H:i:s'),
             'valid_until' => \Kaleta\Core\Validity::date($r->post('valid_until')), 'review_by' => \Kaleta\Core\Validity::date($r->post('review_by'))] // 2.10
             + KolekceObsahu::pageFields($_POST, $r->postBool('zobrazit'));
+        if ($k['detail']) {
+            // 3.22 (C13): the canonical address of the item page (the field is in the form only for a collection with item pages)
+            $canonical = \Kaleta\Core\CanonicalUrl::clean($r->post('canonical_url'));
+            if ($canonical === null) {
+                return $this->back(\Kaleta\Core\CanonicalUrl::REFUSAL, 'item', ['id' => $k['idk'], 'item' => $idp], 'chyba');
+            }
+            $row['canonical_url'] = $canonical;
+        }
         // a notice that is (or was) on the board cannot be hidden (2.11, Core\Notices)
         if (Notices::refusesHiding($k, $data, (bool) $row['zobrazit'])) {
             return $this->back(t(Notices::REFUSAL_HIDE), 'item', ['id' => $k['idk'], 'item' => $idp], 'chyba');

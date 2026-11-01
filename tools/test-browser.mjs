@@ -2025,6 +2025,49 @@ await step('3.19 collections: the icon picker in the settings, the icons in the 
   }
 });
 
+// 3.22 (C9): the role form offers the optional Appearance area, never ticked, and says what stays with the administrator
+await step('3.22 C9: the Appearance area in the role form', async () => {
+  await visit('/admin.php?module=roles&action=new');
+  const area = page.locator('input[name="moduly[]"][value="appearance_area"]');
+  if (await area.count() !== 1 || await area.isChecked()) { throw new Error('no unticked Appearance area in the role form'); }
+  const label = (await page.locator('label', { has: area }).textContent()).trim();
+  if (label !== 'Appearance: menu, site parts, pop-ups and components') { throw new Error(`the label reads "${label}"`); }
+  if (!(await page.locator('.napoveda', { hasText: 'Claude settings stay with the administrator' }).isVisible())) { throw new Error('the hint does not say what stays with the administrator'); }
+  await visit('/admin.php?module=roles&action=new&preset=client');
+  if (await page.locator('input[value="appearance_area"]').isChecked()) { throw new Error('the Client preset ticks the Appearance area'); }
+  if (SHOTS) { await page.locator('input[value="appearance_area"]').scrollIntoViewIfNeeded(); await page.screenshot({ path: `${SHOTS}/role-appearance-area-desktop.png` }); }
+});
+
+// 3.22 (C13): the canonical address of a page – an invalid one is refused in the open section, a path is printed on the site
+await step('3.22 C13: the canonical address of a page', async () => {
+  const [pageId, slug] = sql("SELECT ids, seo_link FROM ka_stranky WHERE zobrazit = 1 AND smazano IS NULL AND jazyk = '' AND ids <> COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'home_page'), 0) ORDER BY ids LIMIT 1").trim().split('\t');
+  try {
+    await visit(`/admin.php?module=pages&action=edit&id=${pageId}`);
+    // the field lives in the section "Search engines and sharing" (opened here; it opens by itself when a value or an error is in it)
+    const summary = page.locator('details > summary', { hasText: 'Search engines and sharing' }).first();
+    await summary.evaluate((s) => { s.parentElement.open = true; });
+    const field = page.locator('#canonical_url');
+    if (!(await field.evaluate((f, s) => s.parentElement.contains(f), await summary.elementHandle()))) { throw new Error('the field is not under Search engines and sharing'); }
+    if (!(await field.isVisible())) { throw new Error('no Canonical address field under Search engines and sharing'); }
+    await field.fill('javascript:alert(1)');
+    await Promise.all([page.waitForNavigation(), page.locator('form.formular p.tlacitka button.tl').first().click()]);
+    const error = page.locator('#canonical_url ~ .chyba-pole, .chyba-pole', { hasText: 'The canonical address must start with https://' });
+    if (!(await error.first().isVisible())) { throw new Error('the refusal is not shown next to the field (is the section open?)'); }
+    if (sql(`SELECT canonical_url FROM ka_stranky WHERE ids = ${pageId}`).trim() !== '') { throw new Error('the invalid address was saved'); }
+    if (SHOTS) { await error.first().scrollIntoViewIfNeeded(); await page.screenshot({ path: `${SHOTS}/page-canonical-error-desktop.png` }); }
+    await page.locator('input[name="canonical_url"]').fill('/contact');
+    await Promise.all([page.waitForNavigation(), page.locator('form.formular p.tlacitka button.tl').first().click()]);
+    if (sql(`SELECT canonical_url FROM ka_stranky WHERE ids = ${pageId}`).trim() !== '/contact') { throw new Error('the path was not saved'); }
+    const site = await context.newPage(); watch(site);
+    await site.goto(`${BASE}/${slug}`, { waitUntil: 'networkidle' });
+    const links = await site.locator('link[rel="canonical"]').evaluateAll((l) => l.map((x) => x.getAttribute('href')));
+    await site.close();
+    if (links.length !== 1 || links[0] !== `${BASE}/contact`) { throw new Error(`canonical links on the site: ${JSON.stringify(links)}`); }
+  } finally {
+    sql(`UPDATE ka_stranky SET canonical_url = '' WHERE ids = ${pageId}`);
+  }
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

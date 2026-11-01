@@ -814,6 +814,7 @@ final class SiteImport
 
         return ['ids' => (int) $r['ids'], 'titulek' => $title, 'seo_link' => $this->freePageSlug(self::pageSlug($r['seo_link'] ?? '', $title), self::language($r['jazyk'] ?? '')), 'popis' => self::text($r['popis'] ?? '', 300),
             'seo_titulek' => self::text($r['seo_titulek'] ?? '', 200), 'obrazek' => self::file($r['obrazek'] ?? ''), 'noindex' => (int) !empty($r['noindex']),
+            'canonical_url' => CanonicalUrl::clean($r['canonical_url'] ?? '') ?? '', // 3.22 (C13); an export from before has none
             'text' => $text, 'zobrazit' => (int) !empty($r['zobrazit']), 'zverejnit_od' => self::date($r['zverejnit_od'] ?? null),
             'v_menu' => (int) !empty($r['v_menu']), 'poradi' => (int) ($r['poradi'] ?? 0), 'zmeneno' => self::date($r['zmeneno'] ?? null) ?? date('Y-m-d H:i:s'),
             'jazyk' => self::language($r['jazyk'] ?? ''), 'preklad_z' => (int) ($r['preklad_z'] ?? 0) ?: null, 'nadrazena' => (int) ($r['nadrazena'] ?? 0) ?: null,
@@ -836,6 +837,7 @@ final class SiteImport
             'obrazek_autor' => self::text($r['obrazek_autor'] ?? '', 120), 'tema' => (int) ($r['tema'] ?? 0), 'autor' => $this->admin,
             'datum' => self::date($r['datum'] ?? null) ?? date('Y-m-d H:i:s'), 'visible' => (int) !empty($r['visible']), 't_slova' => self::text($r['t_slova'] ?? '', 500),
             'seo_titulek' => self::text($r['seo_titulek'] ?? '', 255), 'seo_popis' => self::text($r['seo_popis'] ?? '', 320), 'noindex' => (int) !empty($r['noindex']),
+            'canonical_url' => CanonicalUrl::clean($r['canonical_url'] ?? '') ?? '', // 3.22 (C13)
             'visit' => (int) ($r['visit'] ?? 0), 'zmeneno' => self::date($r['zmeneno'] ?? null), 'aktualizovano' => self::date($r['aktualizovano'] ?? null),
             // already announced on the old site: the import sends no webhook and no IndexNow for the whole archive
             'oznameno' => date('Y-m-d H:i:s'), 'jazyk' => self::language($r['jazyk'] ?? ''), 'preklad_z' => (int) ($r['preklad_z'] ?? 0) ?: null, 'hledani' => null,
@@ -974,7 +976,8 @@ final class SiteImport
             'poradi' => (int) ($r['poradi'] ?? 0), 'zobrazit' => (int) !empty($r['zobrazit']), 'jazyk' => self::language($r['jazyk'] ?? ''),
             'datum' => self::date($r['datum'] ?? null) ?? date('Y-m-d H:i:s'), 'zmeneno' => date('Y-m-d H:i:s'),
             'seo_titulek' => self::text($r['seo_titulek'] ?? '', 200), 'popis' => self::text($r['popis'] ?? '', 300), 'obrazek' => self::file($r['obrazek'] ?? ''),
-            'noindex' => (int) !empty($r['noindex']), 'zverejnit_od' => self::date($r['zverejnit_od'] ?? null)] + self::validity($r);
+            'noindex' => (int) !empty($r['noindex']), 'canonical_url' => CanonicalUrl::clean($r['canonical_url'] ?? '') ?? '', // 3.22 (C13)
+            'zverejnit_od' => self::date($r['zverejnit_od'] ?? null)] + self::validity($r);
     }
 
     /**

@@ -604,7 +604,7 @@ final class WpImport
             'autor' => $this->authors[(string) $p['autor']] ?? $this->author,
             'datum' => self::date($p),
             'visible' => $articleStatus['visible'],
-            'seo_titulek' => $plugin['title'], 'seo_popis' => $plugin['description'], 'noindex' => $plugin['noindex'],
+            'seo_titulek' => $plugin['title'], 'seo_popis' => $plugin['description'], 'noindex' => $plugin['noindex'], 'canonical_url' => $plugin['canonical'],
             'zmeneno' => $now,
             'oznameno' => $now, // an old news item is not announced (webhook, IndexNow)
         ]);
@@ -660,7 +660,7 @@ final class WpImport
             'seo_link' => $seo, 'titulek' => $title, 'text' => $text,
             'stavba' => ($state['volby']['stavitel'] ?? false) ? self::pageBuild($this->db, $title, $text) : null,
             'popis' => $plugin['description'] !== '' ? $plugin['description'] : mb_substr(trim(html_entity_decode(strip_tags($p['perex']), ENT_QUOTES | ENT_HTML5, 'UTF-8')), 0, 300),
-            'seo_titulek' => $plugin['title'], 'noindex' => $plugin['noindex'],
+            'seo_titulek' => $plugin['title'], 'noindex' => $plugin['noindex'], 'canonical_url' => $plugin['canonical'],
             'zobrazit' => $articleStatus['visible'],
             'v_menu' => 0, // dozens of old pages would flood the navigation; the administrator adds them to the menu themselves
             'zmeneno' => date('Y-m-d H:i:s'), 'jazyk' => $language,
@@ -729,7 +729,7 @@ final class WpImport
         $plugin = $this->seo($p, '', 200, 300, $state);
         $row = [
             'idk' => $idk, 'nazev' => $title, 'seo_link' => $seo, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-            'seo_titulek' => $plugin['title'], 'popis' => $plugin['description'], 'noindex' => $plugin['noindex'],
+            'seo_titulek' => $plugin['title'], 'popis' => $plugin['description'], 'noindex' => $plugin['noindex'], 'canonical_url' => $plugin['canonical'],
             'zobrazit' => $articleStatus['visible'], 'jazyk' => $language, 'datum' => self::date($p), 'zmeneno' => date('Y-m-d H:i:s'),
         ];
         $idp = $this->db->insert('kolekce_polozky', $row);
@@ -941,17 +941,18 @@ final class WpImport
 
     /**
      * SEO title, description and noindex from the SEO plugin meta of the post (Core\WpSeo), with the plugin variables filled in
-     * from the new site and the post; trimmed to the columns of the target table.
+     * from the new site and the post; trimmed to the columns of the target table. Since 3.22 (C13) the canonical address the
+     * plugin set too (Core\CanonicalUrl::fromImport): one on the old site becomes a path here, the post's own address none.
      *
      * @param array<string, mixed> $p
      * @param array<string, mixed> $state
-     * @return array{title:string, description:string, noindex:int}
+     * @return array{title:string, description:string, noindex:int, canonical:string}
      */
     private function seo(array $p, string $category, int $titleLimit, int $descriptionLimit, array &$state): array
     {
         $raw = WpSeo::raw($p['meta'] ?? []);
         if ($raw['plugin'] === '') {
-            return ['title' => '', 'description' => '', 'noindex' => 0];
+            return ['title' => '', 'description' => '', 'noindex' => 0, 'canonical' => ''];
         }
         $plain = fn (string $html): string => trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags((string) preg_replace('/\[[^\]]*\]/', '', $html)), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
         $excerpt = $plain($p['perex']);
@@ -959,8 +960,9 @@ final class WpImport
             'title' => $p['titulek'], 'sitename' => $this->settings->get('site_name'), 'sitedesc' => $this->settings->get('site_description'),
             'excerpt' => mb_strimwidth($excerpt !== '' ? $excerpt : $plain($p['obsah']), 0, 160, '…'), 'category' => $category,
         ];
-        $result = ['title' => WpSeo::title($raw['title'], $context, $titleLimit), 'description' => WpSeo::description($raw['description'], $context, $descriptionLimit), 'noindex' => (int) $raw['noindex']];
-        if ($result['title'] !== '' || $result['description'] !== '' || $result['noindex'] === 1) {
+        $result = ['title' => WpSeo::title($raw['title'], $context, $titleLimit), 'description' => WpSeo::description($raw['description'], $context, $descriptionLimit), 'noindex' => (int) $raw['noindex'],
+            'canonical' => CanonicalUrl::fromImport($raw['canonical'], (string) ($state['web']['adresa'] ?? ''), (string) ($p['odkaz'] ?? ''))];
+        if ($result['title'] !== '' || $result['description'] !== '' || $result['noindex'] === 1 || $result['canonical'] !== '') {
             $state['vysledek']['seo']++;
         }
 

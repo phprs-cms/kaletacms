@@ -187,7 +187,7 @@ final class Pages extends Module
         // the published one – as MCP create_page with copy_build), a text page as a copy of its text
         $copyBuild = $original !== null && ($original['stavba_koncept'] ?? $original['stavba']) !== null;
 
-        return $this->form(['ids' => 0, 'seo_link' => '', 'titulek' => $original['titulek'] ?? '', 'popis' => $original['popis'] ?? '', 'seo_titulek' => '', 'obrazek' => '', 'noindex' => 0,
+        return $this->form(['ids' => 0, 'seo_link' => '', 'titulek' => $original['titulek'] ?? '', 'popis' => $original['popis'] ?? '', 'seo_titulek' => '', 'obrazek' => '', 'noindex' => 0, 'canonical_url' => '',
             'text' => $original !== null && !$copyBuild ? (string) $original['text'] : '', 'zobrazit' => 1, 'v_menu' => 1, 'poradi' => 100, 'stavba' => null, 'stavba_koncept' => null,
             'nadrazena' => $this->request->getInt('parent') ?: null, 'zverejnit_od' => null, 'valid_until' => null, 'review_by' => null, 'jazyk' => $language, 'preklad_z' => $original['ids'] ?? null,
             'copy_build' => $copyBuild], translationOf: $original === null ? null : (string) $original['titulek']);
@@ -332,6 +332,7 @@ final class Pages extends Module
             'seo_titulek' => mb_substr(trim($r->post('seo_titulek')), 0, 200),
             'obrazek' => mb_substr(trim($r->post('obrazek')), 0, 255),
             'noindex' => (int) $r->postBool('noindex'),
+            'canonical_url' => \Kaleta\Core\CanonicalUrl::clean($r->post('canonical_url')) ?? '', // 3.22 (C13); an invalid one is refused below
             'text' => $text,
             'zobrazit' => (int) $r->postBool('zobrazit'),
             'v_menu' => (int) $r->postBool('v_menu'),
@@ -363,6 +364,10 @@ final class Pages extends Module
         $errors = $textError !== null ? ['text' => $textError] : [];
         if ($data['titulek'] === '') {
             $errors['titulek'] = 'Enter the page title.';
+        }
+        if (\Kaleta\Core\CanonicalUrl::clean($r->post('canonical_url')) === null) {
+            $errors['canonical_url'] = \Kaleta\Core\CanonicalUrl::REFUSAL;
+            $data['canonical_url'] = mb_substr($r->post('canonical_url'), 0, 500); // only shown again in the form (escaped), never saved
         }
         $storedSlug = $id > 0 ? $this->db->value('SELECT seo_link FROM {stranky} WHERE ids = ?', [$id]) : null;
         if ($r->post('seo_link') === '') {
