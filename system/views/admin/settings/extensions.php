@@ -13,7 +13,7 @@ $extensionSettings = [
     'bookings' => [[$adminUrl('module=bookings'), 'Bookings'], [$adminUrl('module=bookings&action=services'), 'Services'], [$adminUrl('module=bookings&action=staff'), 'People']],
     'statistika' => [[$adminUrl('module=stats'), 'Statistics'], [$adminUrl('module=settings&tab=analytics'), 'Analytics']],
     'presmerovani' => [[$adminUrl('module=redirects'), 'Redirects']],
-    'jazyky' => [[$adminUrl('module=settings&tab=general#additional_languages'), 'Choose languages']],
+    'jazyky' => [[$adminUrl('module=settings&tab=languages#additional_languages'), 'Choose languages']],
     'asistent' => [['#asistent', 'Provider, key and model']],
     'whistleblowing' => [[$adminUrl('module=whistleblowing'), 'Channel set-up and readers']],
     'claude' => [[$adminUrl('module=claude_settings#how-to-connect'), 'How to connect Claude']], // 3.20 (C6): one destination

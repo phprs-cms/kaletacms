@@ -463,11 +463,11 @@ final class Audit
             $this->add('handover', $site, t('The Claude connection “%s” of %s has not been used for %d days – revoke it, or let the automatic suspension do it.', (string) $c['name'], (string) $c['user'], SecurityHygiene::daysAgo((string) $c['last'])),
                 'admin.php?module=users&action=edit&id=' . (int) $c['idu'] . '#napojeni', null, ['handover' => 'unused_connection', 'user' => (int) $c['idu'], 'connection' => (string) $c['name']]);
         }
-        $check(SecurityHygiene::autoSuspend($s) !== [], t('Unused accounts and Claude connections are only reported – switch on the automatic suspension (Settings → General) so that leftover access closes itself.'), 'admin.php?module=settings&tab=general', 'auto_suspend');
+        $check(SecurityHygiene::autoSuspend($s) !== [], t('Unused accounts and Claude connections are only reported – switch on the automatic suspension (Settings → Security) so that leftover access closes itself.'), 'admin.php?module=settings&tab=security', 'auto_suspend');
         $clientAccount = (int) $db->value('SELECT COUNT(*) FROM {uzivatele} WHERE admin < 2 AND blokovat = 0') > 0;
         $before = count($this->findings);
         $check($clientAccount, t('The client has no account of their own yet – create one with the Client role (Users → Roles).'), 'admin.php?module=users', 'client_account');
-        $check($s->get('agency_name') !== '' && ($s->get('agency_email') !== '' || $s->get('agency_phone') !== ''), t('Your contact is not set – the client will not see whom to ask (Settings → General → Built and looked after by).'), 'admin.php?module=settings&tab=general', 'agency');
+        $check($s->get('agency_name') !== '' && ($s->get('agency_email') !== '' || $s->get('agency_phone') !== ''), t('Your contact is not set – the client will not see whom to ask (Settings → Agency).'), 'admin.php?module=settings&tab=agency', 'agency');
         // 3.11 (UX310-20): an owner who built the site alone has no client – these two are then only a question
         // ("Building this for a client?"), folded away and not counted; a role, another account or the agency contact asks them
         if ($s->get('agency_name') === '' && !$clientAccount && $db->value('SELECT 1 FROM {role} LIMIT 1') === null) {

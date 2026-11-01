@@ -26,10 +26,21 @@ class Settings extends Module
     /** Tabs that became screens of their own in 3.2: the old address leads there, a form posted to the old tab still saves. */
     public const array MOVED_TABS = ['company' => 'business', 'health' => 'status'];
 
+    /**
+     * 3.23 (C12): General is split into General, Languages, Security and Agency; the console tab (C8) is the last one and
+     * shows only when an agency is named or the site is paired (visibleTabs). Every setting key and POST field stays.
+     */
     public const array TABS = [
-        'general' => 'General', 'company' => 'Company', 'seo' => 'SEO and GEO',
-        'analytics' => 'Analytics', 'cookies' => 'Privacy and cookies', 'mail' => 'Mail', 'reports' => 'Reports', 'webhooks' => 'Webhooks', 'backups' => 'Backups and updates', 'firewall' => 'Firewall', 'console' => 'Fleet console', 'health' => 'System status',
+        'general' => 'General', 'languages' => 'Languages', 'company' => 'Company', 'seo' => 'SEO and GEO',
+        'analytics' => 'Analytics', 'cookies' => 'Privacy and cookies', 'mail' => 'Mail', 'reports' => 'Reports', 'webhooks' => 'Webhooks', 'backups' => 'Backups and updates',
+        'security' => 'Security', 'firewall' => 'Firewall', 'agency' => 'Agency', 'console' => 'Reporting to a console', 'health' => 'System status',
     ];
+
+    /**
+     * The tabs that were part of General until 3.22 (C12). A form posted with tab=general but without the marker of the
+     * split form (an admin page opened before the update, a script) is the old single form: it saves all of them, as before.
+     */
+    public const array SPLIT_FROM_GENERAL = ['languages', 'security', 'agency'];
 
     /** Company types for the field company_type (vyber:…). */
     private const string COMPANY_TYPES = 'Organization|LocalBusiness|HomeAndConstructionBusiness|ProfessionalService|LegalService|AccountingService|MedicalBusiness|AutomotiveBusiness|Store|FoodEstablishment|LodgingBusiness|SportsActivityLocation|EducationalOrganization';
@@ -44,14 +55,23 @@ class Settings extends Module
         'general' => [
             'site_name' => 'text', 'site_url' => 'vzor:#^https?://[a-z0-9.-]+(:\d+)?$#i', 'site_description' => 'radky', 'site_email' => 'email', 'footer_text' => 'text',
             'social_facebook' => 'url', 'social_instagram' => 'url', 'social_x' => 'url', 'social_youtube' => 'url', 'social_linkedin' => 'url',
-            'home_page' => 'cislo:0:4294967295', 'news_per_page' => 'cislo:1:100', 'news_slug' => 'vzor:/^(?:[a-z0-9]+(?:-[a-z0-9]+)*)?$/', 'news_title' => 'text', 'share_buttons' => 'ano', 'social_networks' => 'seznam:' . \Kaleta\Core\SocialDrafts::NETWORK_KEYS, 'link_check' => 'ano', 'article_outline' => 'ano', 'related_news_auto' => 'ano', 'page_cache' => 'ano', 'maintenance' => 'ano', 'maintenance_text' => 'text', 'require_2fa' => 'vyber:|spravci|vsichni',
+            'home_page' => 'cislo:0:4294967295', 'news_per_page' => 'cislo:1:100', 'news_slug' => 'vzor:/^(?:[a-z0-9]+(?:-[a-z0-9]+)*)?$/', 'news_title' => 'text', 'share_buttons' => 'ano', 'social_networks' => 'seznam:' . \Kaleta\Core\SocialDrafts::NETWORK_KEYS, 'link_check' => 'ano', 'article_outline' => 'ano', 'related_news_auto' => 'ano', 'page_cache' => 'ano', 'maintenance' => 'ano', 'maintenance_text' => 'text',
             // screen mode (2.11, Front\Screen); screen_collections is added by fields() from the site's collections, the secret is created by actionSave
             'screen_mode' => 'ano', 'screen_seconds' => 'cislo:' . \Kaleta\Front\Screen::MIN_SECONDS . ':' . \Kaleta\Front\Screen::MAX_SECONDS, 'screen_news' => 'ano', 'screen_hours' => 'ano', 'screen_clock' => 'ano',
+            'time_zone' => 'pasmo',
+        ],
+        // 3.23 (C12): the tabs that were part of General – the keys and the field names are the same as before
+        'languages' => [
+            'site_language' => 'vyber:' . \Kaleta\Core\Language::CODES, 'german_register' => 'vyber:formal|informal', 'additional_languages' => 'seznam:' . \Kaleta\Core\Language::CODES,
+            'slugs_per_language' => 'ano', // 3.9: never written directly; 3.19: only switched on, by Core\Slug::enableEverywhere (actionSave)
+        ],
+        'security' => [
+            'require_2fa' => 'vyber:|spravci|vsichni',
             'auto_suspend' => 'seznam:' . \Kaleta\Core\SecurityHygiene::SUSPEND_ACCOUNTS . '|' . \Kaleta\Core\SecurityHygiene::SUSPEND_CONNECTIONS,
+        ],
+        'agency' => [
             'agency_name' => 'text', 'agency_url' => 'url', 'agency_email' => 'email', 'agency_phone' => 'vzor:/^[+()\d\s\/.-]{0,30}$/',
             'agency_logo' => 'vzor:#^((media|image)/[A-Za-z0-9/_.-]{1,200}\.(svg|png|webp|jpe?g|avif))?$#',
-            'time_zone' => 'pasmo', 'site_language' => 'vyber:' . \Kaleta\Core\Language::CODES, 'german_register' => 'vyber:formal|informal', 'additional_languages' => 'seznam:' . \Kaleta\Core\Language::CODES,
-            'slugs_per_language' => 'ano', // 3.9: never written directly; 3.19: only switched on, by Core\Slug::enableEverywhere (actionSave)
         ],
         // the site appearance is saved by the Appearance module; here only types for checking values from the Claude connection (it is not a Settings tab)
         'vzhled' => ['dark_mode' => 'vyber:vypnuto|auto|tmavy', 'theme_switcher' => 'ano'],
@@ -93,7 +113,7 @@ class Settings extends Module
     ];
 
     /**
-     * Fields of a tab. The general tab also has the site name and description for each additional language version
+     * Fields of a tab. The Languages tab also has the site name and description for each additional language version
      * (nazev_webu_en, popis_webu_de…) - an empty value means "the same as in the default language".
      *
      * @return array<string, string>
@@ -101,10 +121,12 @@ class Settings extends Module
     protected function fields(string $tab): array
     {
         $field = self::FIELDS[$tab];
-        if ($tab === 'general') {
+        if ($tab === 'languages') {
             foreach (\Kaleta\Core\Language::additional($this->app->settings()) as $language) {
                 $field += ['nazev_webu_' . $language => 'text', 'popis_webu_' . $language => 'radky'];
             }
+        }
+        if ($tab === 'general') {
             $field['screen_collections'] = 'seznam:' . implode('|', array_keys($this->screenCollections())); // the screen shows only collections that exist
         }
         if ($tab === 'cookies') {
@@ -115,6 +137,42 @@ class Settings extends Module
         }
 
         return $field;
+    }
+
+    /**
+     * The tabs in the Settings navigation (3.23, C8): without the screens of their own; the console tab only once an agency
+     * is named on the Agency tab or the site reports to a console – an active pairing is never hidden. The address of a tab
+     * left out still opens it.
+     *
+     * @return array<string, string>
+     */
+    public static function visibleTabs(\Kaleta\Core\Settings $settings): array
+    {
+        $tabs = array_diff_key(self::TABS, self::MOVED_TABS);
+        if (trim($settings->get('agency_name')) === '' && $settings->get('fleet_console_url') === '' && !\Kaleta\Fleet\Link::isPaired($settings)) {
+            unset($tabs['console']);
+        }
+
+        return $tabs;
+    }
+
+    /**
+     * The fields that left General in 3.23 (C12): element id => their tab. A link of 3.22 or older to
+     * tab=general#additional_languages (a bookmark, a note) is taken on to the right tab by image/admin.js.
+     *
+     * @return array<string, string>
+     */
+    public static function movedFields(\Kaleta\Core\Settings $settings): array
+    {
+        $moved = [];
+        foreach (self::SPLIT_FROM_GENERAL as $tab) {
+            $moved += array_fill_keys(array_keys(self::FIELDS[$tab]), $tab);
+        }
+        foreach (\Kaleta\Core\Language::additional($settings) as $language) {
+            $moved += ['nazev_webu_' . $language => 'languages', 'popis_webu_' . $language => 'languages'];
+        }
+
+        return $moved;
     }
 
     /**
@@ -143,7 +201,10 @@ class Settings extends Module
     /** Invalid values: a message with the field names as the user sees them, and the entered values back into the highlighted fields. */
     private function rejectInvalid(string $tab, array $errors, array $given, string $reason = ''): Response
     {
-        $template = (string) @file_get_contents(KALETA_SYSTEM . '/views/admin/settings/' . $tab . '.php');
+        $template = '';
+        foreach ($tab === 'general' ? ['general', ...self::SPLIT_FROM_GENERAL] : [$tab] as $view) { // the single General form of 3.22 (actionSave)
+            $template .= (string) @file_get_contents(KALETA_SYSTEM . '/views/admin/settings/' . $view . '.php');
+        }
         $names = array_map(fn (string $key): string => preg_match('/\$(?:pole|field)\(\s*\'' . preg_quote($key, '/') . '\',\s*\'([^\']+)\'/', $template, $m) ? '„' . t($m[1]) . '“' : $key, $errors);
         $this->app->session->set('konfigurace_chybne', ['tab' => $tab, 'pole' => $errors, 'hodnoty' => $given]);
 
@@ -256,7 +317,14 @@ class Settings extends Module
         $zoneBefore = $settings->get('time_zone');
         $instructionsBefore = $settings->get('claude_instructions'); // 3.15 (N44): a change goes to the change log and the dashboard
         $newZone = ''; // 3.12: a new time zone is confirmed on its own screen (actionTimeZone)
-        foreach ($this->fields($tab) as $key => $type) {
+        $fields = $this->fields($tab);
+        if ($tab === 'general' && static::IDENT === 'settings' && !$this->request->postBool('general_split')) {
+            // 3.23 (C12): the single General form of 3.22 and older (no marker) still saves everything it showed
+            foreach (self::SPLIT_FROM_GENERAL as $part) {
+                $fields += $this->fields($part);
+            }
+        }
+        foreach ($fields as $key => $type) {
             if (\Kaleta\Core\Demo::active() && \Kaleta\Core\Demo::blocksSetting($key, $type)) {
                 continue; // the public demo keeps code fields, secret keys and the site e-mail as they are
             }
@@ -347,7 +415,7 @@ class Settings extends Module
             \Kaleta\Front\Screen::ensureSecret($settings, $this->request->postBool('novy_token_obrazovka'));
         }
 
-        if ($tab === 'general' && $errors === [] && ($english = self::languagesInEnglish($settings)) !== []) {
+        if (isset($fields['site_language']) && $errors === [] && ($english = self::languagesInEnglish($settings)) !== []) {
             // 3.12 (UX310-12): a language Kaleta has no visitor texts for – said right after saving, not only in a help line
             $this->app->session->flash('info', t('Visitors of %s see the site texts (Search, Read more, the cookie bar…) in English – Kaleta has no translation of them yet. Your pages and news are in the language you write them in.',
                 implode(', ', $english)));

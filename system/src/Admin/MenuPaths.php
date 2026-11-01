@@ -23,6 +23,11 @@ final class MenuPaths
         [['Nastavení', 'Privacy and cookies'], 'settings', 'module=settings&tab=cookies'],
         [['Nastavení', 'SEO and GEO'], 'settings', 'module=settings&tab=seo'],
         [['Nastavení', 'General'], 'settings', 'module=settings&tab=general'],
+        // 3.23 (C12, C8): the tabs that left General, and the console tab under its new name
+        [['Nastavení', 'Languages'], 'settings', 'module=settings&tab=languages'],
+        [['Nastavení', 'Security'], 'settings', 'module=settings&tab=security'],
+        [['Nastavení', 'Firewall'], 'settings', 'module=settings&tab=firewall'],
+        [['Nastavení', 'Agency'], 'settings', 'module=settings&tab=agency'],
         [['Nastavení', 'Analytics'], 'settings', 'module=settings&tab=analytics'],
         [['Nastavení', 'Mail'], 'settings', 'module=settings&tab=mail'],
         [['Nastavení', 'Reports'], 'settings', 'module=settings&tab=reports'], // 3.16
@@ -46,7 +51,7 @@ final class MenuPaths
         [['Enquiries'], 'enquiries', 'module=enquiries'],
         [['Pages'], 'pages', 'module=pages'],
         [['Uživatelé', 'Roles'], 'roles', 'module=roles'],
-        [['Nastavení', 'Fleet console'], 'settings', 'module=settings&tab=console'],
+        [['Nastavení', 'Reporting to a console'], 'settings', 'module=settings&tab=console'],
         [['Nastavení', 'Webhooks'], 'settings', 'module=settings&tab=webhooks'],
         [['Scheduled runs'], 'schedules', 'module=schedules'],
         [['Notebook'], 'notebook', 'module=notebook'],

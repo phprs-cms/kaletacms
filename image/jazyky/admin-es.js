@@ -3024,5 +3024,6 @@ window.KALETA_PREKLAD = {
 	"Link to: %s": "Enlace a: %s",
 	"Nothing found – the text is used as the address.": "No se ha encontrado nada; el texto se usará como dirección.",
 	"%s (not found)": "%s (no encontrado)",
-	"Custom value": "Valor propio"
+	"Custom value": "Valor propio",
+	"A site in several languages: each further version (e.g. /cs/…) has its own pages, categories and news, a language switcher and hreflang tags. Pick the languages in Settings → Languages.": "Un sitio en varios idiomas: cada versión adicional (p. ej. /cs/…) tiene sus propias páginas, categorías y noticias, un selector de idioma y etiquetas hreflang. Elige los idiomas en Ajustes → Idiomas."
 };

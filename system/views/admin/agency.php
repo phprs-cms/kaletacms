@@ -1,6 +1,6 @@
 <?php
 /**
- * Who looks after the site (2.4, Settings → General → Built and looked after by): on the sign-in screen and at the foot
+ * Who looks after the site (2.4, Settings → Agency → Built and looked after by): on the sign-in screen and at the foot
  * of the admin, so the client knows whom to ask.
  *
  * @var Kaleta\Core\App $app

@@ -119,4 +119,5 @@ return [
     'E-mail' => 'Correo electrónico',
     'Newsletter' => 'Boletín',
     'Uploads: the server allowed only small files, so Kaleta wrote %s with upload_max_filesize = 16M and post_max_size = 20M into the site\'s folder. The host reads it within a few minutes; System status shows the limit in force.' => 'Subidas: el servidor solo permitía archivos pequeños, así que Kaleta ha escrito %s con upload_max_filesize = 16M y post_max_size = 20M en la carpeta del sitio. El hosting lo lee en unos minutos; Estado del sistema muestra el límite vigente.',
+    'A site in several languages: each further version (e.g. /cs/…) has its own pages, categories and news, a language switcher and hreflang tags. Pick the languages in Settings → Languages.' => 'Un sitio en varios idiomas: cada versión adicional (p. ej. /cs/…) tiene sus propias páginas, categorías y noticias, un selector de idioma y etiquetas hreflang. Elige los idiomas en Ajustes → Idiomas.',
 ];

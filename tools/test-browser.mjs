@@ -1366,6 +1366,51 @@ await step('3.9 Settings → Mail: choosing a mail service fills the server, por
   if (await page.inputValue('#smtp_host') !== 'email-smtp.eu-west-1.amazonaws.com') { throw new Error('Other server changed the server'); }
 });
 
+// 3.23 (C12, C8): Settings → General split into General, Languages, Security and Agency – saving one tab leaves the fields of the
+// others alone (the checkboxes too), an old link to a moved field goes on to its tab, and the console tab ("Reporting to a
+// console") is in the row only once an agency is named
+await step('3.23 Settings tabs: saving one keeps the others, old links move on, the console tab follows the agency', async () => {
+  const save = () => Promise.all([page.waitForNavigation(), page.locator('p.tlacitka input[type="submit"]').click()]);
+  const tabs = async () => page.locator('nav.zalozky a').evaluateAll((links) => links.map((a) => new URL(a.href).searchParams.get('tab')));
+  await visit('/admin.php?module=settings&tab=security');
+  const suspend = page.locator('input[name="auto_suspend[]"]').first();
+  const suspendBefore = await suspend.isChecked();
+  await suspend.setChecked(true);
+  await save();
+  if (!(await page.locator('a[href*="tab=firewall"]', { hasText: 'Settings → Firewall' }).count())) { throw new Error('Security does not link Settings → Firewall'); }
+  await visit('/admin.php?module=settings&tab=general');
+  if (await page.locator('[name="auto_suspend[]"], [name="agency_name"], [name="site_language"], [name="require_2fa"]').count()) { throw new Error('General still shows moved fields'); }
+  const description = await page.inputValue('#site_description');
+  await page.fill('#site_description', description + ' 323');
+  await save();
+  await visit('/admin.php?module=settings&tab=security');
+  if (!(await page.locator('input[name="auto_suspend[]"]').first().isChecked())) { throw new Error('saving General cleared the automatic suspension'); }
+  // the link of 3.22 to a field that moved (a bookmark, Features → Choose languages before the update)
+  await page.goto(BASE + '/admin.php?module=settings&tab=general#require_2fa');
+  await page.waitForURL(/tab=security#require_2fa$/, { timeout: 5000 });
+  if (!(await page.locator('#require_2fa').isVisible())) { throw new Error('the old link did not reach Two-factor sign-in'); }
+  // the console tab: not in the row without an agency, the last one with it
+  await visit('/admin.php?module=settings&tab=agency');
+  const agencyBefore = await page.inputValue('#agency_name');
+  await page.fill('#agency_name', '');
+  await save();
+  if ((await tabs()).includes('console')) { throw new Error('the console tab shows without an agency'); }
+  await page.fill('#agency_name', 'Browser Studio');
+  await save();
+  const withAgency = await tabs();
+  if (withAgency.at(-1) !== 'console' || withAgency.at(-2) !== 'agency' || !(await page.locator('nav.zalozky a', { hasText: 'Reporting to a console' }).count())) { throw new Error(`the tabs with an agency: ${withAgency.join(', ')}`); }
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/settings-agency-tab.png`, fullPage: true }); }
+  // put everything back
+  await page.fill('#agency_name', agencyBefore);
+  await save();
+  await visit('/admin.php?module=settings&tab=general');
+  await page.fill('#site_description', description);
+  await save();
+  await visit('/admin.php?module=settings&tab=security');
+  await page.locator('input[name="auto_suspend[]"]').first().setChecked(suspendBefore);
+  await save();
+});
+
 await step('site parts: every header and footer template renders', async () => {
   for (const [part, templates] of [['hlavicka', ['klasicka', 'na-stred', 's-listou', 'minimalni']], ['paticka', ['sloupce', 'kompaktni', 'tiraz', 'vyzva']]]) {
     for (const template of templates) {

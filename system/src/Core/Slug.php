@@ -24,7 +24,7 @@ namespace Kaleta\Core;
  * 3.19 (data model §3 step 2, the owner's decisions of 21 and 22 October 2026): on for every site. Migration 0106 checks
  * each site as switchPerLanguage did, drops the global keys and splits tags used in several languages; a fresh install
  * has the setting on and schema.sql has no global keys. A site that cannot switch stays as it was (setting '0'); why is in
- * failure() and on System status, and Settings → General offers only "switch on" there, which runs the same migration
+ * failure() and on System status, and Settings → Languages offers only "switch on" there, which runs the same migration
  * again (enableEverywhere). Switching off is no longer offered anywhere: the code of 3.18.x honours the setting, so a
  * rollback to 3.18.3 needs no global keys; switchPerLanguage(off) stays for the documented manual schema rollback only.
  */
@@ -118,7 +118,7 @@ final class Slug
     }
 
     /**
-     * Settings → General on a site that could not switch (3.19): runs migration 0106 again – the same checks, the global keys
+     * Settings → Languages on a site that could not switch (3.19): runs migration 0106 again – the same checks, the global keys
      * dropped, tags split. null when slugs are per language now and nothing failed, otherwise failure().
      *
      * N319-3: under the same database lock as Core\Migration::apply (a double submit or two administrators at once wait for
@@ -154,18 +154,18 @@ final class Slug
     /**
      * The owner's words for a failure() (English source text for t()): what is wrong and what to do. $withError = false
      * (N319-7): without the database's own message, which can name the database user and host – for what leaves the site
-     * (the monitoring stav.json, the fleet heartbeat, the monthly report); System status and Settings → General show it.
+     * (the monitoring stav.json, the fleet heartbeat, the monthly report); System status and Settings → Languages show it.
      * $on = the site is per language already and only a key is missing (N319-1).
      */
     public static function failureText(array $failure, bool $withError = true, bool $on = false): string
     {
         return match (true) {
-            $failure['reason'] === 'busy' => t('Another request is changing the keys of the addresses right now. Wait a minute, then look at System status – or save Settings → General once more.'),
-            $failure['reason'] === 'shared' && $on => t('Two items of one language version share an address (%s), so the database key that keeps addresses unique within a language is missing. Give one of each pair another address, then save Settings → General once more – the same address in every language stays on.', implode(', ', (array) ($failure['slugs'] ?? []))),
-            $failure['reason'] === 'shared' => t('Two items of one language version share an address (%s), so addresses cannot become unique per language yet. Give one of each pair another address, then switch on “The same address in every language” in Settings → General.', implode(', ', (array) ($failure['slugs'] ?? []))),
+            $failure['reason'] === 'busy' => t('Another request is changing the keys of the addresses right now. Wait a minute, then look at System status – or save Settings → Languages once more.'),
+            $failure['reason'] === 'shared' && $on => t('Two items of one language version share an address (%s), so the database key that keeps addresses unique within a language is missing. Give one of each pair another address, then save Settings → Languages once more – the same address in every language stays on.', implode(', ', (array) ($failure['slugs'] ?? []))),
+            $failure['reason'] === 'shared' => t('Two items of one language version share an address (%s), so addresses cannot become unique per language yet. Give one of each pair another address, then switch on “The same address in every language” in Settings → Languages.', implode(', ', (array) ($failure['slugs'] ?? []))),
             default => ($on
-                ? t('The database refused to change the keys of the addresses, so an older key that keeps addresses unique across all languages is still there. Ask the hosting whether the database user may change tables (ALTER), then save Settings → General once more.')
-                : t('The database refused to change the keys of the addresses, so addresses are still unique across all languages. Ask the hosting whether the database user may change tables (ALTER), then switch on “The same address in every language” in Settings → General.'))
+                ? t('The database refused to change the keys of the addresses, so an older key that keeps addresses unique across all languages is still there. Ask the hosting whether the database user may change tables (ALTER), then save Settings → Languages once more.')
+                : t('The database refused to change the keys of the addresses, so addresses are still unique across all languages. Ask the hosting whether the database user may change tables (ALTER), then switch on “The same address in every language” in Settings → Languages.'))
                 . ($withError && (string) ($failure['error'] ?? '') !== '' ? ' ' . t('The database said: %s', (string) $failure['error']) : ''),
         };
     }

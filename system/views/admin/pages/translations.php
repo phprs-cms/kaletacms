@@ -39,7 +39,7 @@ foreach ($rows as $row) {
 ?>
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to overview')) ?></a></p>
 <?php if ($languages === []): ?>
-<?= $app->view->render('admin/empty', ['icon' => 'stranky', 'heading' => t('The site has a single language.'), 'text' => t('Add language versions in Settings → General; this screen then shows which translations are missing.'), 'action' => [$app->url('admin.php?module=settings&tab=general'), t('Settings')]]) ?>
+<?= $app->view->render('admin/empty', ['icon' => 'stranky', 'heading' => t('The site has a single language.'), 'text' => t('Add language versions in Settings → Languages; this screen then shows which translations are missing.'), 'action' => [$app->url('admin.php?module=settings&tab=languages'), t('Settings')]]) ?>
 <?php else: ?>
 <?php // 3.11 (UX310-7): say why a language is not in the switcher (and has no hreflang) yet
 $homeRow = array_values(array_filter($rows, fn (array $r): bool => $r['type'] === 'page' && $r['id'] === ($home ?? 0)))[0] ?? null;

@@ -60,7 +60,10 @@ final class Guide
 
     /** Settings tab => article#anchor */
     public const array SETTINGS = [
-        'general' => 'languages#how-language-versions-work',
+        'general' => 'first-steps',
+        'languages' => 'languages#how-language-versions-work', // 3.23 (C12): the tabs that left General
+        'security' => 'users-roles',
+        'agency' => 'first-steps',
         'company' => 'company-details',
         'seo' => 'seo#settings-seo-and-geo',
         'analytics' => 'statistics#settings-analytics',
