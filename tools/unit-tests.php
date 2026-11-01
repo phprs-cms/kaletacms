@@ -8436,7 +8436,7 @@ check('3.23.1 review (N3231-1): a partial save marks the change, the Kernel forg
 ], [false, true, false, 4, 1]);
 
 // N3231-2 (review of 3.23.1): a module whose action logs under another area (Business details → the 'settings' rows of Core\Hours,
-// Menu and Transfer → 'appearance' of Core\Look, Settings → 'pages' of the accessibility statement) writes one row, not two
+// Menu and Transfer → 'appearance' of Core\Look, Settings and Collections → 'pages' of the statement and the listing page) writes one row, not two
 $n32312 = new ReflectionClassConstant(Kaleta\Admin\Kernel::class, 'LOGS_AS');
 Kaleta\Admin\ChangeLog::forget();
 $n32312Before = Kaleta\Admin\ChangeLog::wrote('business', 'settings');
@@ -8446,7 +8446,7 @@ check('3.23.1 review (N3231-2): the areas a module logs under; wrote() takes sev
     array_values(array_diff(array_keys($n32312->getValue()), array_map(fn (string $c): string => $c::IDENT, Kaleta\Admin\Kernel::MODULES))),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Hours.php'), "ChangeLog::write(\$app, 'settings', 'hours_exception_delete'"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Privacy.php'), "ChangeLog::write(\$app, 'pages', 'accessibility_statement'"),
-], [['business' => ['settings'], 'menu' => ['appearance'], 'transfer' => ['appearance'], 'settings' => ['pages']], false, true, false, [], true, true]);
+], [['business' => ['settings'], 'menu' => ['appearance'], 'transfer' => ['appearance'], 'settings' => ['pages'], 'collections' => ['pages']], false, true, false, [], true, true]);
 Kaleta\Admin\ChangeLog::forget();
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";

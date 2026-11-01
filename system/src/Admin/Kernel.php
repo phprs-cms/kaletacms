@@ -17,9 +17,10 @@ final class Kernel
     /**
      * Modules whose actions write their own change-log row under another area (3.23.1, N3231-2): an exception to the opening
      * hours in Business details is a 'settings' row (Core\Hours), a menu published from Menu or an import an 'appearance' row
-     * (Core\Look), the accessibility statement made in Settings a 'pages' row (Core\Privacy) – the generic row would repeat it.
+     * (Core\Look), the accessibility statement made in Settings and the listing page published from a collection a 'pages' row
+     * (Core\Privacy, Collections::actionPublishPage) – the generic row would repeat it.
      */
-    private const array LOGS_AS = ['business' => ['settings'], 'menu' => ['appearance'], 'transfer' => ['appearance'], 'settings' => ['pages']];
+    private const array LOGS_AS = ['business' => ['settings'], 'menu' => ['appearance'], 'transfer' => ['appearance'], 'settings' => ['pages'], 'collections' => ['pages']];
 
     /**
      * Modules in the order they appear in the menu (by the groups Obsah, Vzhled, Správa – Content, Appearance, Administration).
