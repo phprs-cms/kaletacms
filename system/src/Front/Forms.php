@@ -206,11 +206,10 @@ final class Forms
             \Kaleta\Core\Documents::sendGated($this->app, $email, $gatedFile); // a signed link that works for a week
         }
         if (!empty($element['obsah']['potvrzeni']) && $email !== '') {
-            // confirmation to the sender: only the thank-you text, the next steps (2.12) and the form name – not the message
-            // content, so the form cannot be abused to send out other people's texts
+            // confirmation to the sender: the form's own text, or the thank-you text with the next steps (2.12) – never the
+            // message content, so the form cannot be abused to send out other people's texts
             $siteSettings = $this->app->settings();
-            $nextSteps = NextSteps::text($this->app, $element['obsah']);
-            Mail::send($siteSettings, $email, t('Confirmation: %s', $siteSettings->get('site_name')), $element['obsah']['dekujeme'] . ($nextSteps !== '' ? "\n\n" . $nextSteps : '')
+            Mail::send($siteSettings, $email, t('Confirmation: %s', $siteSettings->get('site_name')), self::confirmationText($this->app, $element['obsah'])
                 . "\n\n—\n" . $siteSettings->get('site_name') . "\n" . rtrim($siteSettings->get('site_url') ?: $r->origin(), '/'), '');
         }
         $thankYouUrl = (string) ($element['obsah']['dekovna'] ?? '');
@@ -226,6 +225,24 @@ final class Forms
         }
 
         return $redirectUri('ok');
+    }
+
+    /**
+     * The body of the confirmation e-mail to the sender (3.22, C15): the text the form's author wrote (plain text with its
+     * line breaks, written in the builder – nothing of what the visitor sent goes into it), or by default the thank-you
+     * message with what happens next, by when and who replies. The site's name and address follow it in the e-mail.
+     *
+     * @param array<string, mixed> $content the Form element's content
+     */
+    public static function confirmationText(\Kaleta\Core\App $app, array $content): string
+    {
+        $own = trim(str_replace("\r\n", "\n", is_string($content['potvrzeni_text'] ?? null) ? $content['potvrzeni_text'] : ''));
+        if ($own !== '') {
+            return mb_substr($own, 0, Form::CONFIRMATION_MAX);
+        }
+        $nextSteps = NextSteps::text($app, $content);
+
+        return (string) ($content['dekujeme'] ?? '') . ($nextSteps !== '' ? "\n\n" . $nextSteps : '');
     }
 
     /** Form from the published build of a page or site part. @return array<string, mixed>|null */

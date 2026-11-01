@@ -16,6 +16,7 @@ final class Events
     /** Known types => what they mean (for Claude and the documentation). Other code may add types; these are the stable ones. */
     public const array TYPES = [
         'enquiry.received' => 'A form on the site was sent.',
+        'enquiry.replied' => 'A reply to an enquiry was e-mailed from the administration or by Claude (3.22; the enquiry and who sent it – never the address or the text).',
         'booking.created' => 'An appointment was booked online (3.0; the service, the person and the time – never the customer).',
         'booking.cancelled' => 'An appointment was cancelled – by the customer, the administration or Claude.',
         'booking.confirmed' => 'A requested appointment was accepted (3.3) – by the provider, or by the customer picking a proposed time.',

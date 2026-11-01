@@ -243,7 +243,7 @@ $parity = [
     // 2.15: requests to Claude – staff write them in the admin (not over MCP: a request is what a person asks Claude), Claude reads and answers them
     'requests' => ['list' => 'list_requests', 'new' => $readOnly, 'save' => 'admin: a request is written by a person for Claude – Claude reads it with list_requests', 'detail' => 'list_requests',
         'reply' => 'admin: the requester answers Claude in the request; Claude answers with update_request', 'status' => 'update_request'],
-    'enquiries' => ['list' => $readOnly, 'detail' => $readOnly, 'csv' => $readOnly, 'attachment' => $readOnly, 'note' => 'update_enquiry', 'status' => 'update_enquiry', 'triage' => 'update_enquiry', 'testimonial' => 'request_testimonial', 'personal' => 'erase_personal_data',
+    'enquiries' => ['list' => $readOnly, 'detail' => $readOnly, 'csv' => $readOnly, 'attachment' => $readOnly, 'note' => 'update_enquiry', 'status' => 'update_enquiry', 'triage' => 'update_enquiry', 'testimonial' => 'request_testimonial', 'reply' => 'reply_to_enquiry', 'personal' => 'erase_personal_data',
         'bulk' => 'update_enquiry', 'delete' => 'delete_enquiry', 'settings' => 'admin: how long enquiries are kept', 'anonymise' => 'admin: blanking a person from an enquiry is the owner’s decision about personal data (2.14)'],
     // 3.0: online booking – bookings are personal data (the Bookings section), the set-up is the administrator's
     'bookings' => ['list' => $readOnly, 'detail' => $readOnly, 'new' => $readOnly, 'status' => 'cancel_booking', 'confirm' => 'confirm_booking', 'decline' => 'decline_booking', 'propose' => 'propose_booking_times', 'anonymise' => 'admin: blanking a person from a booking is the owner’s decision about personal data',
@@ -694,7 +694,7 @@ check('3.8: openWorldHint – exactly the tools that fetch an outside address or
     array_keys(array_filter(array_combine(array_keys(Kaleta\Mcp\Catalog::TOOLS), array_map(fn (string $t): bool => Kaleta\Mcp\Tools::annotations($t)['openWorldHint'], array_keys(Kaleta\Mcp\Catalog::TOOLS))))),
     array_map(fn (string $cs): bool => Kaleta\Mcp\Tools::annotations($cs)['openWorldHint'], ['nahraj_soubor', 'importuj_web', 'uloz_polozku_kolekce', 'seznam_medii']),
     array_values(array_diff(Kaleta\Mcp\Catalog::OPEN_WORLD, array_keys(Kaleta\Mcp\Catalog::TOOLS)))],
-    [['save_collection_items', 'upload_file', 'import_website', 'migration_report', 'import_wordpress', 'request_testimonial', 'cancel_booking', 'confirm_booking', 'decline_booking', 'propose_booking_times', 'send_newsletter'],
+    [['save_collection_items', 'upload_file', 'import_website', 'migration_report', 'import_wordpress', 'request_testimonial', 'reply_to_enquiry', 'cancel_booking', 'confirm_booking', 'decline_booking', 'propose_booking_times', 'send_newsletter'],
      [true, true, false, false], []]);
 // the tools on the list really reach outside: each downloads through Core\ImageDownloader / WpImport::download, or e-mails
 $handlers38 = implode("\n", array_map(fn (string $f): string => (string) file_get_contents($f), [...glob(KALETA_ROOT . '/system/src/Mcp/Handlers/*.php') ?: [], KALETA_ROOT . '/system/src/Mcp/Tools.php']));
@@ -704,7 +704,7 @@ $method38 = function (string $tool) use ($handlers38): string {
     return $start === false ? '' : substr($handlers38, $start, (int) (strpos($handlers38, "\n    }\n", $start) ?: strlen($handlers38)) - $start);
 };
 check('3.8: every open-world tool\'s code downloads, imports or e-mails (or hands it to the class that does)', array_values(array_filter(Kaleta\Mcp\Catalog::OPEN_WORLD,
-    fn (string $t): bool => preg_match('/ImageDownloader|WpImport::download|WebImport|MigrationReport|ItemBatch|Mailing::|Testimonials::request|Booking::(confirm|decline|cancel|propose)|uploadFile|customer_notified/', $method38($t)) !== 1)), []);
+    fn (string $t): bool => preg_match('/ImageDownloader|WpImport::download|WebImport|MigrationReport|ItemBatch|Mailing::|Testimonials::request|EnquiryReply::send|Booking::(confirm|decline|cancel|propose)|uploadFile|customer_notified/', $method38($t)) !== 1)), []);
 check('3.8: idempotentHint only on write tools of the verified list, never on a read, a send, a publish or an import', [
     array_values(array_diff(Kaleta\Mcp\Catalog::IDEMPOTENT, array_keys(array_filter(Kaleta\Mcp\Catalog::TOOLS, fn (array $t): bool => $t[0] !== 'read')))),
     array_values(array_filter(array_keys(Kaleta\Mcp\Catalog::TOOLS), fn (string $t): bool => isset(Kaleta\Mcp\Tools::annotations($t)['idempotentHint']) !== in_array($t, Kaleta\Mcp\Catalog::IDEMPOTENT, true))),
@@ -7985,6 +7985,49 @@ check('3.21 review (N321-2): shown again with the element\'s own display', [
 ], ["#s-a { display: none; }\n@media (max-width: 1023px) { #s-a { display: revert-layer; } }\n", ['zaklad' => ['zobrazeni' => 'none'], 'tablet' => ['zobrazeni' => 'revert-layer']], [], true]);
 // N321-1: instant canvas text never writes into the dashed strip of a hidden element (the strip carries the same data-ka-id)
 check('3.21 review (N321-1): instant canvas text skips the strip of a hidden element', (bool) preg_match('~function fastCanvasText.+?querySelectorAll\(\'\[data-ka-id="\' \+ p\.id \+ \'"\]:not\(\.ka-st-skryty-prvek\)\'\)~s', $builderScript), true);
+
+// 3.22 (C10): a reply to an enquiry – the stored history is cleaned, an anonymised enquiry keeps who and when without the
+// address and the text, the subject is "Re: <form>", and nothing can be sent without SMTP or to a list of addresses
+$c10Json = json_encode([['at' => '2026-11-01 10:00:00', 'by' => 'Alex', 'by_id' => 3, 'to' => 'hana@example.cz', 'reply_to' => 'alex@firma.cz', 'subject' => 'Re: Kontakt', 'text' => "Dobrý den,\nděkujeme.", 'mail' => 7, 'status' => 'sent', 'error' => '', 'via' => 'admin'],
+    'junk', ['status' => 'hacked', 'via' => 'other']]);
+$c10Anon = Kaleta\Core\EnquiryReply::decode(Kaleta\Core\EnquiryReply::anonymised($c10Json));
+check('3.22 C10: EnquiryReply – history cleaned, anonymised without address and text, subject, one address only', [
+    count(Kaleta\Core\EnquiryReply::decode($c10Json)), Kaleta\Core\EnquiryReply::decode($c10Json)[1]['status'], Kaleta\Core\EnquiryReply::decode($c10Json)[1]['via'],
+    Kaleta\Core\EnquiryReply::decode('not json'), Kaleta\Core\EnquiryReply::decode(null), Kaleta\Core\EnquiryReply::anonymised(null),
+    [$c10Anon[0]['by'], $c10Anon[0]['at'], $c10Anon[0]['status'], $c10Anon[0]['to'], $c10Anon[0]['reply_to'], $c10Anon[0]['subject'], $c10Anon[0]['text']],
+    Kaleta\Core\EnquiryReply::subject(['formular' => 'Kontakt']), Kaleta\Core\EnquiryReply::subject(['formular' => ' ']) !== 'Re: ',
+    Kaleta\Core\Mail::addresses("hana@example.cz\r\nBcc: x@evil.example"), Kaleta\Core\Mail::addresses('a@example.cz, b@example.cz'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/EnquiryReply.php'), 'count($to) !== 1'),
+], [2, 'failed', 'admin', [], [], null, ['Alex', '2026-11-01 10:00:00', 'sent', '', '', '', ''], 'Re: Kontakt', true, [], ['a@example.cz', 'b@example.cz'], true]);
+// the message's own Reply-To (the visitor of a notification, the user who replies) wins over the site's reply address
+check('3.22 C10: Mail keeps the Reply-To a message names; the site address only otherwise; the log row id is known', [
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Mail.php'), "\$siteSettings->get('mail_reply_to') !== '' && !isset(\$h['Reply-To'])"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Mail.php'), "self::\$lastId = \$siteSettings->db()->insert('posta'"),
+], [true, true]);
+// MCP: a real e-mail – a destructive (full access) tool that needs confirm=true and sends only through EnquiryReply
+$c10Def = array_values(array_filter(Kaleta\Mcp\Tools::definitions(), fn (array $d): bool => $d['name'] === 'reply_to_enquiry'))[0] ?? [];
+check('3.22 C10: reply_to_enquiry – destructive, open-world, confirm and text required, described as a real e-mail', [
+    Kaleta\Mcp\Catalog::TOOLS['reply_to_enquiry'] ?? null, in_array('reply_to_enquiry', Kaleta\Mcp\Catalog::OPEN_WORLD, true),
+    $c10Def['inputSchema']['required'] ?? null, str_starts_with((string) ($c10Def['description'] ?? ''), 'SENDS A REAL E-MAIL'),
+], [['destructive', 'poptavky'], true, ['id', 'text', 'confirm'], true]);
+// 3.22 (C15): the Form's own confirmation e-mail text – empty = the thank-you with the next steps (as before), otherwise the
+// author's text as written, cut to the limit; the builder shows the field only with the confirmation on, MCP calls it confirmation_text
+$c15Form = Kaleta\Builder\Elements\Form::properties();
+$c15Long = str_repeat('a', Kaleta\Builder\Elements\Form::CONFIRMATION_MAX + 50);
+check('3.22 C15: per-form confirmation text', [
+    Kaleta\Front\Forms::confirmationText($leadApp, ['dekujeme' => 'Thanks.', 'dalsi_kroky' => "Call\nOffer", 'potvrzeni_text' => '']),
+    Kaleta\Front\Forms::confirmationText($leadApp, ['dekujeme' => 'Thanks.', 'potvrzeni_text' => "  Hello,\r\nwe reply within a day.\r\n\r\nJana  "]),
+    mb_strlen(Kaleta\Front\Forms::confirmationText($leadApp, ['dekujeme' => 'x', 'potvrzeni_text' => $c15Long])),
+    Kaleta\Front\Forms::confirmationText($leadApp, ['dekujeme' => 'Thanks.', 'potvrzeni_text' => ['not', 'text']]),
+    $c15Form['potvrzeni_text']['typ'] ?? null, $c15Form['potvrzeni_text']['kdyz'] ?? null, Kaleta\Mcp\Vocabulary::CONTENT['potvrzeni_text'] ?? null,
+    str_contains(Kaleta\Builder\Build::overview(Kaleta\Builder\Build::schema())['prvky']['formular'] ?? '', 'potvrzeni_text:radky'),
+    str_contains($builderScript, 'if (def.kdyz && !Object.entries(def.kdyz).every(([pk, pv]) => p.obsah[pk] === pv)) { return; }'),
+], [t('Thanks.') === 'Thanks.' ? "Thanks.\n\n" . t('What happens next') . ":\n1. Call\n2. Offer" : null, "Hello,\nwe reply within a day.\n\nJana", Kaleta\Builder\Elements\Form::CONFIRMATION_MAX, 'Thanks.',
+    'radky', ['potvrzeni' => true], 'confirmation_text', true, true]);
+[$c15Build] = Kaleta\Builder\Build::sanitize(['deti' => [['typ' => 'formular', 'id' => 'c15f', 'obsah' => ['potvrzeni' => true, 'potvrzeni_text' => '<b>Hi</b> there' . $c15Long]]]]);
+check('3.22 C15: the confirmation text is plain text with a length limit in every saved build', [
+    str_starts_with((string) $c15Build['deti'][0]['obsah']['potvrzeni_text'], 'Hi there'), mb_strlen((string) $c15Build['deti'][0]['obsah']['potvrzeni_text']),
+], [true, Kaleta\Builder\Elements\Form::CONFIRMATION_MAX]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

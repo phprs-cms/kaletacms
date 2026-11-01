@@ -4904,6 +4904,90 @@ REF_ITEM=$(sq "SELECT item_id FROM ka_testimonial_requests WHERE idp = $REF_ENQU
   || { echo "  CHYBA  koncept reference"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 expect "testimonials: the consent the customer saw is kept, the link works once" "$(sq "SELECT consent LIKE '%publish my words%' OR consent LIKE '%zveřejn%' FROM ka_testimonial_requests WHERE item_id = $REF_ITEM")|$(curl -s -o /dev/null -w '%{http_code}' "$B/$REF_LINK")" "1|404"
 check "testimonials: the enquiry detail shows the request and links the draft" 200 "/admin.php?module=enquiries&action=detail&id=$REF_ENQUIRY" "item=$REF_ITEM"
+echo "== 3.22 (C10): a reply sent from the enquiry – the site's mail, Reply-To the user, the signature, logged on the enquiry"
+C10_USER=$(sq "SELECT CONCAT_WS('|', idu, email, IFNULL(team_item_id, '')) FROM ka_uzivatele WHERE user = 'admin'"); C10_IDU=${C10_USER%%|*}
+C10_PERSON=$(sq "SELECT idp FROM ka_kolekce_polozky WHERE seo_link = 'petr-podpis' AND smazano IS NULL LIMIT 1")
+sq "UPDATE ka_uzivatele SET email = 'alex@firma.example', team_item_id = ${C10_PERSON:-NULL} WHERE idu = $C10_IDU; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', ''), ('mail_reply_to', 'info@firma.example')" > /dev/null
+C10=$(sq "INSERT INTO ka_poptavky (datum, formular, zdroj, stranka, email, data, stav, navrh_odpovedi) VALUES ('$(site_time)', 'Poptávka oken', 'stranka:1', '/kontakt', 'hana@example.cz', '[[\"Zpráva\",\"Kolik stojí okna?\"]]', 0, 'Dobrý den, pošleme nabídku.'); SELECT LAST_INSERT_ID();")
+c10_reply() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=enquiries&action=detail&id=$1"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=enquiries&action=reply" -d "_csrf=$(csrf)" -d "id=$1" "${@:2}"; }
+check "3.22 C10: without SMTP the detail says why and keeps the mailto: link with the draft" 200 "/admin.php?module=enquiries&action=detail&id=$C10" "data-reply-blocked"
+grep -q 'href="mailto:hana@example.cz?subject=Re%3A%20Popt%C3%A1vka%20oken&amp;body=Dobr' "$WORK/response" && ! grep -q 'data-reply-form' "$WORK/response" \
+  && echo "  ok     3.22 C10: no Send button without SMTP, the mailto: fallback stays" || { echo "  CHYBA  3.22 C10: the detail without SMTP"; ERRORS=$((ERRORS+1)); }
+c10_reply "$C10" --data-urlencode "subject=Re: Poptávka oken" --data-urlencode "text=Dobrý den"
+expect "3.22 C10: a reply posted without SMTP is refused and nothing is logged" "$(sq "SELECT CONCAT(IFNULL(replies, 'none'), '|', stav) FROM ka_poptavky WHERE idp = $C10")" "none|1"
+mkdir -p "$WORK/smtp-c10"; command php "$ROOT/tools/fake-smtp.php" "$SMTP2_PORT" "$WORK/smtp-c10" > /dev/null 2>&1 & SMTP_PID=$!
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '$SMTP2_PORT'), ('smtp_encryption', 'zadne'), ('smtp_user', ''), ('mail_from', 'web@example.cz')" > /dev/null
+check "3.22 C10: with SMTP the detail offers the reply form" 200 "/admin.php?module=enquiries&action=detail&id=$C10" "data-reply-form"
+grep -q 'name="subject" maxlength="200" value="Re: Poptávka oken"' "$WORK/response" && grep -q '>Dobrý den, pošleme nabídku.</textarea>' "$WORK/response" && grep -q 'alex@firma.example' "$WORK/response" && grep -q 'data-potvrdit="Poslat tuto odpověď hned na hana@example.cz?' "$WORK/response" \
+  && echo "  ok     3.22 C10: the subject Re: <form>, the draft, the user's address and a confirmation before sending" || { echo "  CHYBA  3.22 C10: the reply form"; ERRORS=$((ERRORS+1)); }
+# a line break in the subject never becomes a header; the only recipient is the enquiry's address
+c10_reply "$C10" --data-urlencode $'subject=Re: Poptávka oken\r\nBcc: zly@evil.example' --data-urlencode $'text=Dobrý den,\npošleme nabídku do pátku.'
+F=$(grep -l "^X-Rcpt-To: hana@example.cz" "$WORK"/smtp-c10/*.eml 2>/dev/null | tail -1 || true); if [ -n "$F" ]; then eml "$F" > "$WORK/eml.txt"; else : > "$WORK/eml.txt"; fi
+expect "3.22 C10: one recipient, From the site, Reply-To the user (not the site's reply address), no injected header" \
+  "$(grep -c '^X-Rcpt-To:' "$F" 2>/dev/null)|$(grep -c '^From: .*<web@example.cz>' "$WORK/eml.txt")|$(grep -c '^Reply-To: alex@firma.example' "$WORK/eml.txt")|$(grep -ci '^Bcc:' "$WORK/eml.txt")|$(ls "$WORK"/smtp-c10/*.eml | wc -l | tr -d ' ')" "1|1|1|0|1"
+expect "3.22 C10: the text as written, the signature from My account in the text and the HTML part" \
+  "$(grep -c '^pošleme nabídku do pátku.$' "$WORK/eml.txt")|$(grep -c '^-- $' "$WORK/eml.txt")|$([ -n "$C10_PERSON" ] && grep -c 'Petr Podpis' "$WORK/eml.txt")|$([ -n "$C10_PERSON" ] && grep -c 'max-width:600px' "$WORK/eml.txt")" "1|1|2|1"
+expect "3.22 C10: logged on the enquiry (sent, to, Reply-To, the text), resolved, handled by the sender" \
+  "$(sq "SELECT CONCAT_WS('|', stav, prirazeno, JSON_UNQUOTE(JSON_EXTRACT(replies, '\$[0].status')), JSON_UNQUOTE(JSON_EXTRACT(replies, '\$[0].to')), JSON_UNQUOTE(JSON_EXTRACT(replies, '\$[0].reply_to')), JSON_UNQUOTE(JSON_EXTRACT(replies, '\$[0].via')), JSON_UNQUOTE(JSON_EXTRACT(replies, '\$[0].text')) LIKE '%do pátku.') FROM ka_poptavky WHERE idp = $C10")" \
+  "2|$C10_IDU|sent|hana@example.cz|alex@firma.example|admin|1"
+expect "3.22 C10: the change log and the event name the enquiry, never the address or the text" \
+  "$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'enquiries' AND akce = 'reply' AND popis = '#$C10'")|$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'enquiry.replied' AND data LIKE '%\"enquiry\":$C10%' AND CONCAT(message, data) NOT LIKE '%hana@%' AND CONCAT(message, data) NOT LIKE '%pátku%'")" "1|1"
+check "3.22 C10: the history on the detail – who, when, delivered, the text" 200 "/admin.php?module=enquiries&action=detail&id=$C10" 'data-reply-status="sent"'
+grep -q 'Odpověděl(a) ' "$WORK/response" && grep -q 'pošleme nabídku do pátku.' "$WORK/response" && grep -q '<textarea class="textbox" id="odpoved-text" name="text" rows="8" maxlength="10000" required></textarea>' "$WORK/response" \
+  && echo "  ok     3.22 C10: the history shows the reply and the next reply starts empty (no double send of the draft)" || { echo "  CHYBA  3.22 C10: the history"; ERRORS=$((ERRORS+1)); }
+# the mail server refuses: the reply waits in the queue, the person is told so, the enquiry stays open when asked
+C10Q=$(sq "INSERT INTO ka_poptavky (datum, formular, email, data, stav) VALUES ('$(site_time)', 'Kontakt', 'odmitnout@example.cz', '[]', 0); SELECT LAST_INSERT_ID();")
+c10_reply "$C10Q" -d keep_open=1 --data-urlencode "subject=Re: Kontakt" --data-urlencode "text=Dobrý den, ozveme se."
+expect "3.22 C10: a refused delivery is queued for another attempt, the enquiry kept open" \
+  "$(sq "SELECT CONCAT_WS('|', p.stav, JSON_UNQUOTE(JSON_EXTRACT(p.replies, '\$[0].status')), m.telo IS NOT NULL, m.odeslano IS NULL) FROM ka_poptavky p JOIN ka_posta m ON m.idp = JSON_EXTRACT(p.replies, '\$[0].mail') WHERE p.idp = $C10Q")" "1|queued|1|1"
+check "3.22 C10: the detail says the reply waits in the queue" 200 "/admin.php?module=enquiries&action=detail&id=$C10Q" 'data-reply-status="queued"'
+# no e-mail: nothing to send to; an anonymised enquiry neither
+C10N=$(sq "INSERT INTO ka_poptavky (datum, formular, email, data, stav) VALUES ('$(site_time)', 'Kontakt', '', '[]', 1); SELECT LAST_INSERT_ID();")
+check "3.22 C10: an enquiry without an e-mail has no reply form" 200 "/admin.php?module=enquiries&action=detail&id=$C10N" "data-reply-none"
+c10_reply "$C10N" --data-urlencode "text=Dobrý den"
+expect "3.22 C10: and a posted reply to it is refused" "$(sq "SELECT IFNULL(replies, 'none') FROM ka_poptavky WHERE idp = $C10N")" "none"
+# MCP: a real e-mail only with confirm=true; the history says it came through Claude
+mcp reply_to_enquiry "{\"id\":$C10Q,\"text\":\"Hello\"}" > "$WORK/response"
+contains -q 'confirm=true' "$WORK/response" && echo "  ok     3.22 C10: reply_to_enquiry refuses without confirm=true" || { echo "  CHYBA  3.22 C10: reply_to_enquiry without confirm"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp reply_to_enquiry "{\"id\":$C10,\"text\":\"Dobrý den, posíláme ještě ceník.\",\"keep_open\":true,\"confirm\":true}" > "$WORK/response"
+expect "3.22 C10: reply_to_enquiry sends with confirm=true, the history has a second reply through Claude" \
+  "$(mcp_value status)|$(sq "SELECT CONCAT_WS('|', JSON_LENGTH(replies), JSON_UNQUOTE(JSON_EXTRACT(replies, '\$[1].via')), JSON_UNQUOTE(JSON_EXTRACT(replies, '\$[1].subject'))) FROM ka_poptavky WHERE idp = $C10")" "sent|2|mcp|Re: Poptávka oken"
+# anonymising keeps who replied and when, drops the address, the subject and the text; the personal data file carries the replies
+mcp find_personal_data '{"email":"hana@example.cz"}' > /dev/null
+C10_EXPORT=$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); $f = Kaleta\Core\PersonalData::find($app->db(), "hana@example.cz"); foreach ($f["enquiries"] as $e) { if ((int) $e["idp"] === (int) $argv[1]) { echo count($e["replies"]), "|", $e["replies"][0]["text"]; } }' "$C10")
+expect "3.22 C10: the personal data file carries the replies sent to the person" "$C10_EXPORT" "2|Dobrý den,
+pošleme nabídku do pátku."
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=enquiries&action=detail&id=$C10"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=enquiries&action=anonymise" -d "_csrf=$(csrf)" -d "idp=$C10"
+expect "3.22 C10: an anonymised enquiry keeps who replied and when, without the address, the subject and the text" \
+  "$(sq "SELECT CONCAT_WS('|', JSON_LENGTH(replies), JSON_UNQUOTE(JSON_EXTRACT(replies, '\$[0].by')) <> '', JSON_UNQUOTE(JSON_EXTRACT(replies, '\$[0].to')), JSON_UNQUOTE(JSON_EXTRACT(replies, '\$[0].text')), replies LIKE '%hana%' OR replies LIKE '%pátku%') FROM ka_poptavky WHERE idp = $C10")" "2|1|||0"
+check "3.22 C10: and has no reply form" 200 "/admin.php?module=enquiries&action=detail&id=$C10" "data-reply-none"
+echo "== 3.22 (C15): the Form's own confirmation e-mail text"
+mcp create_page '{"title":"Potvrzení 322","slug":"potvrzeni-322","visible":true}' > /dev/null
+C15_PAGE=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'potvrzeni-322'")
+mcp save_build "{\"id\":${C15_PAGE:-0},\"publish\":true,\"build\":{\"v\":1,\"children\":[{\"type\":\"section\",\"children\":[{\"id\":\"c15own\",\"type\":\"form\",\"content\":{\"name\":\"Poptávka 322\",\"confirmation\":true,\"confirmation_text\":\"Dobrý den,\\nozveme se do 24 hodin.\\nKatalog: https://example.cz/katalog\",\"thank_you\":\"Díky 322\",\"next_steps\":\"Zavoláme\",\"fields\":[{\"label\":\"E-mail\",\"type\":\"email\",\"required\":true}]}},{\"id\":\"c15def\",\"type\":\"form\",\"content\":{\"name\":\"Výchozí 322\",\"confirmation\":true,\"thank_you\":\"Díky 322\",\"next_steps\":\"Zavoláme\",\"fields\":[{\"label\":\"E-mail\",\"type\":\"email\",\"required\":true}]}}]}]}}" > "$WORK/response"
+expect "3.22 C15: confirmation_text over MCP is stored as potvrzeni_text in the published build" "$(sq "SELECT stavba LIKE '%\"potvrzeni_text\":\"Dobrý den,%ozveme se do 24 hodin.%' FROM ka_stranky WHERE ids = ${C15_PAGE:-0}")" "1"
+mcp get_build "{\"id\":${C15_PAGE:-0}}" > "$WORK/response"
+contains -q 'confirmation_text' "$WORK/response" && ! contains -q 'potvrzeni_text' "$WORK/response" && echo "  ok     3.22 C15: get_build gives it back as confirmation_text" || { echo "  CHYBA  3.22 C15: get_build vocabulary"; ERRORS=$((ERRORS+1)); }
+c15_send() { # c15_send <element id> <e-mail>
+  rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/formular.html" "$B/potvrzeni-322"
+  php -r '$h = file_get_contents($argv[1]); preg_match("~<form[^>]*>(?:(?!</form>).)*name=\"prvek\" value=\"" . $argv[2] . "\"(?:(?!</form>).)*</form>~s", $h, $m); file_put_contents($argv[1], $m[0] ?? "");' "$WORK/formular.html" "$1"
+  local source element time signature; source=$(field_value zdroj); element=$(field_value prvek); time=$(field_value as_cas); signature=$(field_value as_podpis); sleep 4
+  curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$source" -d "prvek=$element" -d zpet=/potvrzeni-322 -d "as_cas=$time" -d "as_podpis=$signature" --data-urlencode "p0=$2"; }
+sq "DELETE FROM ka_kontrola_ip WHERE typ = 'formular'" > /dev/null
+case "$(c15_send c15own vlastni322@example.cz)" in *result=ok*) echo "  ok     3.22 C15: the form with its own text was sent";; *) echo "  CHYBA  3.22 C15: sending the form"; ERRORS=$((ERRORS+1));; esac
+F=$(grep -l "^X-Rcpt-To: vlastni322@example.cz" "$WORK"/smtp-c10/*.eml 2>/dev/null | tail -1 || true); if [ -n "$F" ]; then gate_mail "$F" > "$WORK/eml.txt"; else : > "$WORK/eml.txt"; fi
+expect "3.22 C15: the confirmation carries the form's own text with its lines, not the default thank-you" \
+  "$(grep -c '^Dobrý den,$' "$WORK/eml.txt")|$(grep -c '^ozveme se do 24 hodin.$' "$WORK/eml.txt")|$(grep -c '^Katalog: https://example.cz/katalog$' "$WORK/eml.txt")|$(grep -c 'Díky 322\|Zavoláme' "$WORK/eml.txt")" "1|1|1|0"
+sq "DELETE FROM ka_kontrola_ip WHERE typ = 'formular'" > /dev/null
+c15_send c15def vychozi322@example.cz > /dev/null
+F=$(grep -l "^X-Rcpt-To: vychozi322@example.cz" "$WORK"/smtp-c10/*.eml 2>/dev/null | tail -1 || true); if [ -n "$F" ]; then gate_mail "$F" > "$WORK/eml.txt"; else : > "$WORK/eml.txt"; fi
+expect "3.22 C15: without its own text the confirmation is the thank-you with the next steps, as before" "$(grep -c '^Díky 322$' "$WORK/eml.txt")|$(grep -c '^1. Zavoláme$' "$WORK/eml.txt")" "1|1"
+mcp trash_page "{\"id\":${C15_PAGE:-0}}" > /dev/null
+sq "DELETE FROM ka_poptavky WHERE email IN ('vlastni322@example.cz', 'vychozi322@example.cz')" > /dev/null
+kill "$SMTP_PID" 2>/dev/null || true
+C10_REST=${C10_USER#*|}; C10_TEAM=${C10_REST#*|}
+sq "UPDATE ka_uzivatele SET email = '${C10_REST%%|*}', team_item_id = ${C10_TEAM:-NULL} WHERE idu = $C10_IDU; DELETE FROM ka_poptavky WHERE idp IN ($C10, $C10Q, $C10N); DELETE FROM ka_posta WHERE komu IN ('hana@example.cz', 'odmitnout@example.cz');
+  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', ''), ('mail_reply_to', '')" > /dev/null
 echo "== 2.12: calls and e-mail clicks counted as conversions (Core\\Conversions)"
 # a page with nothing but a phone number keeps image/web.js while the statistics are on – the click counter needs it and learns the endpoint from data-konverze; never for signed-in users
 mcp vytvor_stranku '{"titulek":"Volejte 212","zobrazit":true,"text":"<p>Zavolejte: <a href=\"tel:+420777000212\">+420 777 000 212</a></p>"}' > /dev/null

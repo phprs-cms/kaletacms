@@ -56,8 +56,10 @@ final class PersonalData
 
         return [
             // the sender's address, or the address typed into any field of the form (a colleague's e-mail field)
-            'enquiries' => array_map(fn (array $r): array => ['data' => json_decode((string) $r['data'], true) ?: []] + $r,
-                $db->all('SELECT idp, datum, formular, stranka, tema, email, data, kampan, vstup, odkud FROM {poptavky} WHERE LOWER(email) = ? OR LOWER(data) LIKE ? ORDER BY idp', [$email, $like])),
+            // the replies sent to the person (3.22) go with their enquiry: the subject, the text, who and when
+            'enquiries' => array_map(fn (array $r): array => ['data' => json_decode((string) $r['data'], true) ?: [],
+                'replies' => array_map(fn (array $x): array => ['at' => $x['at'], 'by' => $x['by'], 'subject' => $x['subject'], 'text' => $x['text']], EnquiryReply::decode($r['replies']))] + $r,
+                $db->all('SELECT idp, datum, formular, stranka, tema, email, data, kampan, vstup, odkud, replies FROM {poptavky} WHERE LOWER(email) = ? OR LOWER(data) LIKE ? ORDER BY idp', [$email, $like])),
             'subscriber' => $subscriber,
             'sync' => $db->all('SELECT akce, vytvoreno, pokusy FROM {odber_fronta} WHERE LOWER(email) = ?', [$email]),
             'mail' => $db->all('SELECT idp, predmet, vytvoreno, odeslano FROM {posta} WHERE LOWER(komu) = ? ORDER BY idp', [$email]),

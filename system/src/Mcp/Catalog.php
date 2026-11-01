@@ -140,6 +140,8 @@ final class Catalog
         'list_collection_presets' => ['read', ''],
         'triage_enquiries' => ['read', 'poptavky'],
         'request_testimonial' => ['write', 'poptavky'],
+        // 3.22 (C10): a real e-mail to the customer of an enquiry – it cannot be taken back, so a full-access connection, confirm=true
+        'reply_to_enquiry' => ['destructive', 'poptavky'],
         'get_blueprint' => ['read', ''],
         'list_connectors' => ['read', ''],
         'processing_record' => ['read', ''],
@@ -303,6 +305,7 @@ final class Catalog
         'list_collection_presets' => 'List collection presets',
         'triage_enquiries' => 'List enquiries to sort',
         'request_testimonial' => 'Request a testimonial',
+        'reply_to_enquiry' => 'Send a reply to an enquiry',
         'get_blueprint' => 'Get the industry blueprint',
         'list_connectors' => 'List integrations',
         'processing_record' => 'Get the record of processing',
@@ -355,7 +358,7 @@ final class Catalog
      * list_connectors (status from the database) and e-mails to the site's own users (update_request, send_test_newsletter).
      */
     public const array OPEN_WORLD = ['upload_file', 'import_website', 'migration_report', 'import_wordpress', 'save_collection_items', 'send_newsletter',
-        'request_testimonial', 'cancel_booking', 'confirm_booking', 'decline_booking', 'propose_booking_times'];
+        'request_testimonial', 'reply_to_enquiry', 'cancel_booking', 'confirm_booking', 'decline_booking', 'propose_booking_times'];
 
     /**
      * Write tools that a repeated call with the same arguments changes nothing more (3.8, MCP idempotentHint), verified in

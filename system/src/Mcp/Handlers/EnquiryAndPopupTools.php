@@ -132,6 +132,23 @@ trait EnquiryAndPopupTools
             : 'Pass the link to the customer (it works once, for 30 days). Their answer will be a hidden draft in References.'];
     }
 
+    /** reply_to_enquiry (3.22, C10): a real e-mail to the enquiry's own address, only with confirm=true */
+    private function toolReplyToEnquiry(string $name, array $a): mixed
+    {
+        if (!$this->app->auth()->hasModule('enquiries')) {
+            throw new \DomainException('Enquiries can be changed only by users with the Enquiries section.');
+        }
+        if (($a['confirm'] ?? false) !== true) {
+            throw new \InvalidArgumentException('Sending a reply needs confirm=true – it is a real e-mail to the customer: only when the user read the text and asked to send it now.');
+        }
+        $result = \Kaleta\Core\EnquiryReply::send($this->app, (int) ($a['id'] ?? 0), is_string($a['subject'] ?? null) ? $a['subject'] : '', is_string($a['text'] ?? null) ? $a['text'] : '',
+            ($a['keep_open'] ?? false) !== true, 'mcp');
+
+        return ['id' => (int) ($a['id'] ?? 0)] + $result + ['next' => $result['status'] === 'sent'
+            ? 'Tell the user the reply went out. It is in the enquiry\'s history in the administration.'
+            : 'Tell the user the mail server refused it for now (' . $result['error'] . '); the site retries from its mail queue – the enquiry\'s history shows when it goes out.'];
+    }
+
     /** find_personal_data (2.14): counts and enquiry IDs for one address, never the content */
     private function toolFindPersonalData(string $name, array $a): mixed
     {
