@@ -120,7 +120,8 @@ trait BuilderActions
                 'revize' => 'build_versions', 'obnov' => 'build_restore', 'aiSekce' => 'build_ai_section', 'aiText' => 'build_ai_text', 'ulozSekci' => 'build_save_section',
                 'sdilet' => 'build_share', 'balicek' => 'build_package', 'vlozeni' => 'build_paste', 'komentarVyrizen' => 'build_comment_resolve',
             ]) + ['smazSekci' => $app->auth()->isAdmin() ? $this->url('build_delete_section', $target['parametry']) : null] + ['admin' => $app->url('admin.php'), 'nastaveni' => $e['nastaveni'],
-                'komponenta' => $app->auth()->isAdmin() ? $app->url('admin.php?module=components&action=from_element') : null,
+                // "Save as component" (3.22, C9): whoever may open Components and publish
+                'komponenta' => isset($this->kernel->modules()['components']) && $app->auth()->canPublish() ? $app->url('admin.php?module=components&action=from_element') : null,
                 'nahledSekce' => $app->url('_sekce/'),
                 'navod' => \Kaleta\Admin\Guide::forScreen(static::IDENT, 'builder', '', \Kaleta\Core\Language::code())]
                 // 3.20 (U11, U13): where the data of an element lives – only the screens this person may open

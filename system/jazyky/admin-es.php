@@ -6842,4 +6842,10 @@ return [
     'The privacy policy page of this site: %s – hidden, publish it or visitors following the link get “page not found”.' => 'La página de política de privacidad de este sitio: %s – oculta, publíquela o los visitantes que sigan el enlace verán «página no encontrada».',
     'Choose the date and time in the Content panel.' => 'Elija la fecha y la hora en el panel Contenido.',
     'as the element is by default' => 'como el elemento por defecto',
+    'Appearance: menu, site parts, pop-ups and components' => 'Apariencia: menú, partes del sitio, pop-ups y componentes',
+    'Only an editor or an administrator can do this – it changes the site at once. Your drafts stay saved.' => 'Solo un editor o un administrador puede hacerlo: cambia el sitio al instante. Tus borradores siguen guardados.',
+    'The menu is saved to the draft look – an editor or an administrator publishes it.' => 'El menú está guardado en el borrador de la apariencia; lo publica un editor o un administrador.',
+    'An editor or an administrator publishes the menu – until then visitors see the current one.' => 'Un editor o un administrador publica el menú; hasta entonces los visitantes ven el actual.',
+    'Appearance lets the role edit the menu, the site parts (header, footer), the pop-ups and the components; with “Writes own content” only as drafts. Site appearance (colours and fonts), website settings, users, backups and the Claude settings stay with the administrator.' => 'Apariencia permite al rol editar el menú, las partes del sitio (cabecera, pie), los pop-ups y los componentes; con «Escribe contenido propio», solo como borradores. La apariencia del sitio (colores y fuentes), los ajustes del sitio web, los usuarios, las copias de seguridad y los ajustes de Claude quedan en manos del administrador.',
+    'Appearance is never given by default – tick it for someone who keeps the menu, the header and footer, the pop-ups and the components up to date.' => 'Apariencia nunca se asigna por defecto: márcala para quien mantiene al día el menú, la cabecera y el pie, los pop-ups y los componentes.',
 ];

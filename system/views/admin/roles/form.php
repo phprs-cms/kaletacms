@@ -37,7 +37,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	<label><input type="checkbox" name="moduly[]" value="<?= e($ident) ?>"<?= in_array($ident, $selected, true) ? ' checked' : '' ?>> <?= e(t($name)) ?></label><br>
 <?php endforeach ?>
 	<?= $error('moduly') ?>
-	<span class="napoveda"><?= e(t('Website settings, users and appearance stay with the administrator.')) ?></span>
+	<span class="napoveda"><?= e(t('Appearance lets the role edit the menu, the site parts (header, footer), the pop-ups and the components; with “Writes own content” only as drafts. Site appearance (colours and fonts), website settings, users, backups and the Claude settings stay with the administrator.')) ?></span>
 </div>
 </fieldset>
 <?php if ($members !== []): ?>

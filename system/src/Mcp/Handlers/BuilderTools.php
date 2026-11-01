@@ -33,7 +33,7 @@ trait BuilderTools
         $db = $this->app->db();
         $siteSettings = $this->app->settings();
 
-        $schema = Build::schema($auth->isAdmin(), Language::defaults($siteSettings), $auth->isAdmin(), \Kaleta\Core\Extensions::enabled($siteSettings));
+        $schema = Build::schema($auth->isAdmin(), Language::defaults($siteSettings), $auth->hasAppearanceArea(), \Kaleta\Core\Extensions::enabled($siteSettings)); // site part elements with the Appearance area (3.22)
         if (!empty($a['_english'])) {
             return $this->englishSchema($schema, $a);
         }
@@ -247,7 +247,8 @@ trait BuilderTools
             }
         };
 
-        $need($auth->isAdmin(), 'Components can be changed only by an administrator.');
+        // 3.22 (C9): the Appearance area too; a component changes the site at once, so only someone who may publish
+        $need($auth->hasAppearanceArea() && $auth->canPublish(), 'Components can be changed only by an administrator, or an editor with the Appearance area.');
         $current = $id > 0 ? (\Kaleta\Builder\Components::byId($db, $id) ?? throw new \InvalidArgumentException('The component does not exist. Use list_components.')) : null;
         $name = mb_substr(trim((string) ($a['name'] ?? ($current['nazev'] ?? ''))), 0, 100);
         if ($name === '') {
@@ -279,7 +280,7 @@ trait BuilderTools
             }
         };
 
-        $need($auth->isAdmin(), 'Components can be deleted only by an administrator.');
+        $need($auth->hasAppearanceArea() && $auth->canPublish(), 'Components can be deleted only by an administrator, or an editor with the Appearance area.'); // 3.22 (C9)
         $need($db->delete('komponenty', ['idm' => $id]) > 0, 'The component does not exist. Use list_components.');
         \Kaleta\Front\Cache::clear();
 
@@ -291,13 +292,9 @@ trait BuilderTools
     {
         $auth = $this->app->auth();
         $db = $this->app->db();
-        $adminOnly = function () use ($auth): void {
-            if (!$auth->isAdmin()) {
-                throw new \DomainException('Tento nástroj smí použít jen správce webu.');
-            }
-        };
-
-        $adminOnly();
+        if (!$auth->hasAppearanceArea()) { // 3.22 (C9): administrators and the Appearance area
+            throw new \DomainException('Site parts are for administrators and users with the Appearance area.');
+        }
 
         return array_map(fn (array $r): array => ['cast' => $r['typ'], 'jazyk' => $r['jazyk'], 'varianta' => $r['varianta'], 'nazev' => $r['varianta'] !== '' ? $r['nazev'] : SiteParts::TYPES[$r['typ']][0] ?? $r['typ'],
             'stranky' => $r['varianta'] !== '' ? array_map('intval', json_decode((string) $r['stranky'], true) ?: []) : null]
@@ -312,13 +309,9 @@ trait BuilderTools
         $auth = $this->app->auth();
         $db = $this->app->db();
         $siteSettings = $this->app->settings();
-        $adminOnly = function () use ($auth): void {
-            if (!$auth->isAdmin()) {
-                throw new \DomainException('Tento nástroj smí použít jen správce webu.');
-            }
-        };
-
-        $adminOnly();
+        if (!$auth->hasAppearanceArea() || !$auth->canPublish()) { // 3.22 (C9): a variant applies to its pages at once
+            throw new \DomainException('Site part variants can be changed only by an administrator, or an editor with the Appearance area.');
+        }
         $type = (string) ($a['cast'] ?? '');
         if (!in_array($type, SiteParts::WITH_VARIANTS, true)) {
             throw new \InvalidArgumentException('Varianty mají jen záhlaví a patička: ' . implode(', ', SiteParts::WITH_VARIANTS) . '.');
@@ -369,7 +362,7 @@ trait BuilderTools
             }
         };
 
-        $need($auth->isAdmin(), 'Site parts can be changed only by an administrator.');
+        $need($auth->hasAppearanceArea(), 'Site parts can be changed only by an administrator or a user with the Appearance area.'); // 3.22 (C9): a template goes to the draft
         $type = self::PART_NAMES[(string) ($a['part'] ?? '')] ?? (string) ($a['part'] ?? '');
         if (!isset(SiteParts::TYPES[$type])) {
             throw new \InvalidArgumentException('part must be header, footer, news_item, news_list or not_found.');

@@ -51,6 +51,14 @@ abstract class Module
     public const string HUB = '';
 
     /**
+     * Actions that change what visitors see at once, without a draft (3.22, C9): a person who may not publish – a role
+     * that only writes its own content – is refused them; drafts stay open to them. Empty = none.
+     *
+     * @var list<string>
+     */
+    public const array LIVE_ACTIONS = [];
+
+    /**
      * A last check of whom the module is for, after the permission (3.1.1): a module can narrow it further, so the menu
      * never offers what then answers 403 (the whistleblowing channel only for its readers and administrators).
      */
@@ -72,6 +80,9 @@ abstract class Module
     protected readonly Db $db;
     protected readonly Request $request;
 
+    /** The answer to a LIVE_ACTIONS action of a person who may not publish (3.22, C9). */
+    public const string LIVE_REFUSAL = 'Only an editor or an administrator can do this – it changes the site at once. Your drafts stay saved.';
+
     public function __construct(protected readonly Kernel $kernel)
     {
         $this->app = $kernel->app;
@@ -84,6 +95,9 @@ abstract class Module
         $method = 'action' . str_replace('_', '', ucwords($action, '_'));
         if (!preg_match('/^[a-z][a-z_]*$/D', $action) || !method_exists($this, $method)) {
             return $this->error('Unknown action.', 404);
+        }
+        if (in_array($action, static::LIVE_ACTIONS, true) && $this->request->isPost() && !$this->app->auth()->canPublish()) {
+            return $this->back(self::LIVE_REFUSAL, type: 'chyba');
         }
 
         return $this->$method();

@@ -46,6 +46,7 @@ trait PageTools
             'novinek_vydanych' => (int) $db->value('SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= ? AND smazano IS NULL', [\Kaleta\Core\Clock::now()]),
             'uzivatel' => $auth->user()['user'], 'role' => \Kaleta\Core\Auth::TYPES[(int) $auth->user()['admin']], 'smi_vydavat' => $auth->canPublish(),
             'smi_upravovat_stranky' => $auth->hasModule('pages'),
+            'can_edit_appearance' => $auth->hasAppearanceArea(), // 3.22 (C9): menu, site parts, pop-ups and components
             // what this connection may do (2.2): full, drafts (reads and drafts, never publishes) or read
             'connection' => $auth->connection() ?? ['name' => '', 'access' => 'full'],
             // what the site has switched on, so Claude does not guess (extension keys: novinky, poptavky, newsletter…)
@@ -185,8 +186,8 @@ trait PageTools
         $location = isset(\Kaleta\Core\Menu::LOCATIONS[$a['umisteni'] ?? '']) ? $a['umisteni'] : 'hlavni';
         $menuLanguage = in_array($a['jazyk'] ?? '', Language::additional($siteSettings), true) ? $a['jazyk'] : '';
         if ($name === 'uloz_menu') {
-            if (!$auth->isAdmin()) {
-                throw new \DomainException('Menu smí upravovat jen správce.');
+            if (!$auth->hasAppearanceArea()) { // 3.22 (C9): the draft look also for a user with the Appearance area
+                throw new \DomainException('The menu can be changed only by an administrator or a user with the Appearance area.');
             }
             // null restores the automatic menu – only when the caller really sent it, not when items are missing or cannot be read
             if (!array_key_exists('polozky', $a) || ($a['polozky'] !== null && !is_array($a['polozky']))) {

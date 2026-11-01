@@ -6413,4 +6413,10 @@ return [
     'The privacy policy page of this site: %s – hidden, publish it or visitors following the link get “page not found”.' => 'Stránka zásad ochrany osobních údajů tohoto webu: %s – je skrytá, zveřejněte ji, jinak návštěvníci po kliknutí na odkaz uvidí „stránka nenalezena“.',
     'Choose the date and time in the Content panel.' => 'Datum a čas vyberte v panelu Obsah.',
     'as the element is by default' => 'jako prvek běžně',
+    'Appearance: menu, site parts, pop-ups and components' => 'Vzhled: menu, části webu, pop-up okna a komponenty',
+    'Only an editor or an administrator can do this – it changes the site at once. Your drafts stay saved.' => 'Tohle smí jen editor nebo správce – změní web hned. Vaše koncepty zůstávají uložené.',
+    'The menu is saved to the draft look – an editor or an administrator publishes it.' => 'Menu je uložené v konceptu vzhledu – zveřejní ho editor nebo správce.',
+    'An editor or an administrator publishes the menu – until then visitors see the current one.' => 'Menu zveřejní editor nebo správce – do té doby návštěvníci vidí to současné.',
+    'Appearance lets the role edit the menu, the site parts (header, footer), the pop-ups and the components; with “Writes own content” only as drafts. Site appearance (colours and fonts), website settings, users, backups and the Claude settings stay with the administrator.' => 'Vzhled dovolí roli upravovat menu, části webu (záhlaví, patičku), pop-up okna a komponenty; s „Píše vlastní obsah“ jen jako koncepty. Vzhled webu (barvy a písma), nastavení webu, uživatelé, zálohy a nastavení Clauda zůstávají správci.',
+    'Appearance is never given by default – tick it for someone who keeps the menu, the header and footer, the pop-ups and the components up to date.' => 'Vzhled se nikdy nedává automaticky – zaškrtněte ho tomu, kdo udržuje menu, záhlaví a patičku, pop-up okna a komponenty.',
 ];

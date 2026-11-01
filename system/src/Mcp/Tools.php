@@ -980,8 +980,9 @@ final class Tools
         $auth = $this->app->auth();
         $db = $this->app->db();
         $siteSettings = $this->app->settings();
+        // 3.22 (C9): pop-ups, components and site parts also for a user with the Appearance area (Auth::hasAppearanceArea)
         if (isset($a['popup']) && (int) $a['popup'] > 0) {
-            if (!$auth->isAdmin()) {
+            if (!$auth->hasAppearanceArea()) {
                 throw new \DomainException('Pop-up okna smí měnit jen správce webu.');
             }
             $row = \Kaleta\Builder\Popups::byId($db, (int) $a['popup']) ?? throw new \InvalidArgumentException('Pop-up okno neexistuje. Použij nástroj seznam_popupu.');
@@ -990,8 +991,8 @@ final class Tools
                 'revize' => ['cast' => 'popup:' . $row['idpp']]];
         }
         if (isset($a['komponenta']) && (int) $a['komponenta'] > 0) {
-            if (!$auth->isAdmin()) {
-                throw new \DomainException('Components can be changed only by an administrator.');
+            if (!$auth->hasAppearanceArea()) {
+                throw new \DomainException('Components can be changed only by an administrator or a user with the Appearance area.');
             }
             $row = \Kaleta\Builder\Components::byId($db, (int) $a['komponenta']) ?? throw new \InvalidArgumentException('The component does not exist. Use list_components.');
 
@@ -1018,7 +1019,7 @@ final class Tools
                 'revize' => ['cast' => \Kaleta\Builder\Collections::templateKey($row)]];
         }
         if (isset($a['cast']) && $a['cast'] !== '') {
-            if (!$auth->isAdmin()) {
+            if (!$auth->hasAppearanceArea()) {
                 throw new \DomainException('Části webu (záhlaví, patičku, obálky) smí měnit jen správce webu.');
             }
             $type = (string) $a['cast'];

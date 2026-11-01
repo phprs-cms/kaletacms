@@ -192,13 +192,9 @@ trait EnquiryAndPopupTools
     {
         $auth = $this->app->auth();
         $db = $this->app->db();
-        $adminOnly = function () use ($auth): void {
-            if (!$auth->isAdmin()) {
-                throw new \DomainException('Tento nástroj smí použít jen správce webu.');
-            }
-        };
-
-        $adminOnly();
+        if (!$auth->hasAppearanceArea()) { // 3.22 (C9): administrators and the Appearance area
+            throw new \DomainException('Pop-ups are for administrators and users with the Appearance area.');
+        }
 
         return array_map($this->popup(...), \Kaleta\Builder\Popups::all($db));
     }
@@ -207,13 +203,9 @@ trait EnquiryAndPopupTools
     private function toolSavePopup(string $name, array $a): mixed
     {
         $auth = $this->app->auth();
-        $adminOnly = function () use ($auth): void {
-            if (!$auth->isAdmin()) {
-                throw new \DomainException('Tento nástroj smí použít jen správce webu.');
-            }
-        };
-
-        $adminOnly();
+        if (!$auth->hasAppearanceArea() || !$auth->canPublish()) { // 3.22 (C9): the settings of a pop-up apply at once
+            throw new \DomainException('Pop-ups can be changed only by an administrator, or an editor with the Appearance area.');
+        }
 
         return $this->popup($this->savePopup($a), true);
     }
@@ -230,7 +222,7 @@ trait EnquiryAndPopupTools
             }
         };
 
-        $need($auth->isAdmin(), 'Pop-ups can be deleted only by an administrator.');
+        $need($auth->hasAppearanceArea() && $auth->canPublish(), 'Pop-ups can be deleted only by an administrator, or an editor with the Appearance area.'); // 3.22 (C9)
         $need($db->delete('popupy', ['idpp' => $id]) > 0, 'The pop-up does not exist. Use list_popups.');
         \Kaleta\Front\Cache::clear();
 

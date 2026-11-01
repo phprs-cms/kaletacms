@@ -7986,5 +7986,44 @@ check('3.21 review (N321-2): shown again with the element\'s own display', [
 // N321-1: instant canvas text never writes into the dashed strip of a hidden element (the strip carries the same data-ka-id)
 check('3.21 review (N321-1): instant canvas text skips the strip of a hidden element', (bool) preg_match('~function fastCanvasText.+?querySelectorAll\(\'\[data-ka-id="\' \+ p\.id \+ \'"\]:not\(\.ka-st-skryty-prvek\)\'\)~s', $builderScript), true);
 
+// 3.22 (C9, owner decision D1): the optional Appearance area – Menu, Site parts, Pop-ups and Components share one permission
+// a role or a user may be given; Site appearance, Settings (Backups, Claude settings), Users and Roles stay administrator-only
+$c9Area = [Kaleta\Admin\Modules\Menu::class, Kaleta\Admin\Modules\SiteParts::class, Kaleta\Admin\Modules\Popups::class, Kaleta\Admin\Modules\Components::class];
+check('3.22 (C9): the four appearance modules share the Appearance area, the rest of the look and the administration stay with the administrator', [
+    array_map(fn (string $c): string => ($c::ADMIN_ONLY ? 'admin' : 'open') . ':' . $c::SHARES_PERMISSION_OF, $c9Area),
+    array_map(fn (string $c): bool => $c::ADMIN_ONLY, [Kaleta\Admin\Modules\Appearance::class, Kaleta\Admin\Modules\Settings::class, Kaleta\Admin\Modules\ClaudeSettings::class,
+        Kaleta\Admin\Modules\Users::class, Kaleta\Admin\Modules\Roles::class, Kaleta\Admin\Modules\Transfer::class]),
+    array_slice(Kaleta\Admin\Modules\Roles::configurable(), -1, 1, true),
+], [array_fill(0, 4, 'open:appearance_area'), array_fill(0, 6, true), ['appearance_area' => 'Appearance: menu, site parts, pop-ups and components']]);
+// nobody gains it on an update or by default: not in the default sections of an author or an editor, not in a ready-made role
+check('3.22 (C9): the Appearance area is never a default', [
+    array_values(array_intersect([...Kaleta\Admin\Modules\Users::defaultModules(Kaleta\Core\Auth::EDITOR), ...Kaleta\Admin\Modules\Users::defaultModules(Kaleta\Core\Auth::AUTHOR)],
+        ['appearance_area', 'menu', 'parts', 'popups', 'components', 'appearance'])),
+    array_values(array_filter(Kaleta\Admin\Modules\Roles::PRESETS, fn (array $p): bool => in_array('appearance_area', $p[3], true))),
+    str_contains(Kaleta\Admin\Modules\Users::summary(Kaleta\Core\Auth::EDITOR, ['pages', 'appearance_area']), 'Appearance: menu, site parts, pop-ups and components'),
+], [[], [], true]);
+// what changes the site at once needs the permission to publish; every listed action exists; the server checks it before the action
+$c9Live = [];
+foreach ($c9Area as $c9Class) {
+    foreach ($c9Class::LIVE_ACTIONS as $c9Action) {
+        $c9Live[] = method_exists($c9Class, 'action' . str_replace('_', '', ucwords($c9Action, '_'))) ? $c9Action : 'missing ' . $c9Action;
+    }
+}
+$c9Module = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Module.php');
+$c9Components = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Components.php');
+check('3.22 (C9): live actions of the appearance modules need canPublish, a component from the builder keeps Custom HTML only for an administrator', [
+    $c9Live, (bool) preg_match('/in_array\(\$action, static::LIVE_ACTIONS, true\) && \$this->request->isPost\(\) && !\$this->app->auth\(\)->canPublish\(\)/', $c9Module),
+    str_contains($c9Components, "Build::sanitize(['v' => Build::VERSION, 'deti' => [\$element]], \$this->app->auth()->isAdmin())"),
+    (bool) preg_match('/function actionFromElement.+?canPublish\(\).+?Build::sanitize/s', $c9Components),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Menu.php'), "post('publikovat') === '1' && !\$this->app->auth()->canPublish()"),
+], [['template', 'save_variant', 'save', 'toggle', 'delete', 'save', 'delete'], true, true, true, true]);
+// MCP (additive): the tools of these areas check the Appearance area, never the administrator role alone
+$c9Mcp = (string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Tools.php') . file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/BuilderTools.php')
+    . file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/EnquiryAndPopupTools.php') . file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/PageTools.php');
+check('3.22 (C9): MCP – site parts, pop-ups, components and the menu follow the Appearance area', [
+    substr_count($c9Mcp, 'hasAppearanceArea()'),
+    preg_match_all('/function tool(ListSiteParts|SavePartVariant|ListPopups|SavePopup)\(string \$name, array \$a\): mixed\s*\{[^}]*?isAdmin\(\)/', $c9Mcp),
+], [14, 0]);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

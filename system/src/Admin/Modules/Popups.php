@@ -24,7 +24,9 @@ final class Popups extends Module
     public const string NAME = 'Pop-ups';
     public const string GROUP = 'Appearance';
     public const string ICON = 'popupy';
-    public const bool ADMIN_ONLY = true;
+    /** 3.22 (C9): administrators and whoever has the optional Appearance area of a role or a user (Auth::APPEARANCE_AREA). */
+    public const string SHARES_PERMISSION_OF = \Kaleta\Core\Auth::APPEARANCE_AREA;
+    public const array LIVE_ACTIONS = ['save', 'toggle', 'delete'];
 
     protected function actionList(): Response
     {

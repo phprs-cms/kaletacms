@@ -6821,4 +6821,10 @@ return [
     'The privacy policy page of this site: %s – hidden, publish it or visitors following the link get “page not found”.' => 'Die Datenschutzseite dieser Website: %s – ausgeblendet, veröffentlichen Sie sie, sonst sehen Besucher über den Link „Seite nicht gefunden“.',
     'Choose the date and time in the Content panel.' => 'Wählen Sie Datum und Uhrzeit im Bereich Inhalt.',
     'as the element is by default' => 'wie das Element standardmäßig',
+    'Appearance: menu, site parts, pop-ups and components' => 'Erscheinungsbild: Menü, Seitenbereiche, Pop-ups und Komponenten',
+    'Only an editor or an administrator can do this – it changes the site at once. Your drafts stay saved.' => 'Das dürfen nur Redakteure und Administratoren – es ändert die Website sofort. Entwürfe bleiben gespeichert.',
+    'The menu is saved to the draft look – an editor or an administrator publishes it.' => 'Das Menü ist im Entwurf des Erscheinungsbilds gespeichert – veröffentlicht wird es von einem Redakteur oder Administrator.',
+    'An editor or an administrator publishes the menu – until then visitors see the current one.' => 'Ein Redakteur oder Administrator veröffentlicht das Menü – bis dahin sehen Besucher das aktuelle.',
+    'Appearance lets the role edit the menu, the site parts (header, footer), the pop-ups and the components; with “Writes own content” only as drafts. Site appearance (colours and fonts), website settings, users, backups and the Claude settings stay with the administrator.' => 'Mit Erscheinungsbild bearbeitet die Rolle das Menü, die Seitenbereiche (Kopf- und Fußbereich), die Pop-ups und die Komponenten; mit „Schreibt eigene Inhalte“ nur als Entwürfe. Erscheinungsbild der Website (Farben und Schriften), Einstellungen der Website, Benutzer, Sicherungen und die Claude-Einstellungen bleiben beim Administrator.',
+    'Appearance is never given by default – tick it for someone who keeps the menu, the header and footer, the pop-ups and the components up to date.' => 'Erscheinungsbild wird nie automatisch vergeben – nur für jemanden ankreuzen, der Menü, Kopf- und Fußbereich, Pop-ups und Komponenten aktuell hält.',
 ];

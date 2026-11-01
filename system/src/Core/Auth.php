@@ -19,6 +19,13 @@ final class Auth
 
     public const array TYPES = [self::AUTHOR => 'autor', self::EDITOR => 'editor', self::ADMIN => 'správce'];
 
+    /**
+     * The optional Appearance area of a role or a user (3.22, C9, owner decision D1): Menu, Site parts, Pop-ups and
+     * Components, one permission row in ka_uzivatele_prava. Off unless an administrator ticks it – nobody had it before
+     * 3.22. Site appearance (the design system), settings, users, backups and the Claude settings stay administrator-only.
+     */
+    public const string APPEARANCE_AREA = 'appearance_area';
+
     /** After this many wrong passwords or codes in a row the account is locked for 15 minutes (it unlocks itself again). */
     private const int MAX_ERRORS = 10;
 
@@ -463,6 +470,15 @@ final class Auth
         );
 
         return in_array($ident, $this->modules, true);
+    }
+
+    /**
+     * May work on the menu, the site parts, the pop-ups and the components (3.22, C9): an administrator always, anyone else
+     * only with the Appearance area. Publishing what changes the site at once still needs canPublish().
+     */
+    public function hasAppearanceArea(): bool
+    {
+        return $this->hasModule(self::APPEARANCE_AREA);
     }
 
     /**

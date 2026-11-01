@@ -412,7 +412,7 @@ final class Kernel
         if (preg_match('#^/_popup/(\d+)$#D', $path, $m)) {
             return $this->previewPopup((int) $m[1]);
         }
-        if (preg_match('#^/_komponenta/(\d+)$#D', $path, $m) && $this->app->auth()->isAdmin()) {
+        if (preg_match('#^/_komponenta/(\d+)$#D', $path, $m) && $this->app->auth()->hasAppearanceArea()) { // 3.22 (C9): the Appearance area too
             return $this->previewComponent((int) $m[1]);
         }
         if (preg_match('#^/([a-z0-9-]{1,110})(?:/([a-z0-9-]{1,160}))?\.ics$#D', $path, $m) && ($calendar = $this->calendarFile($m[1], $m[2] ?? '')) !== null) {
@@ -1461,7 +1461,8 @@ final class Kernel
     }
 
     /**
-     * Can the visitor see the draft: whoever edits pages (for site parts the administrator), or a valid signed preview
+     * Can the visitor see the draft: whoever edits pages (site parts and pop-ups: the Appearance area, collection templates:
+     * the administrator), or a valid signed preview
      * link of the target (or of the whole site).
      */
     private function canSeeDraft(string $target): bool
@@ -1470,7 +1471,9 @@ final class Kernel
             return true;
         }
         $auth = $this->app->auth();
-        if (str_starts_with($target, 'cast:') || str_starts_with($target, 'kolekce:') || str_starts_with($target, 'kategorie:') || str_starts_with($target, 'popup:') ? $auth->isAdmin() : $auth->hasModule('pages')) {
+        // 3.22 (C9): site parts and pop-ups also for whoever has the Appearance area
+        if (str_starts_with($target, 'cast:') || str_starts_with($target, 'popup:') ? $auth->hasAppearanceArea()
+            : (str_starts_with($target, 'kolekce:') || str_starts_with($target, 'kategorie:') ? $auth->isAdmin() : $auth->hasModule('pages'))) {
             return true;
         }
         $key = $this->app->request->get('preview_key');
@@ -1491,7 +1494,7 @@ final class Kernel
         $k->path = $path;
         $k->languages = $languageSwitcher;
         $preview = isset(\Kaleta\Builder\SiteParts::TYPES[$r->get('part')]) && $r->get('build') === 'koncept'
-            && ($this->app->auth()->isAdmin() || $this->canSeeDraft('cast:' . $r->get('part') . ':' . Language::siteColumn() . ($r->get('variant') !== '' ? ':' . $r->get('variant') : ''))) ? $r->get('part') : '';
+            && ($this->app->auth()->hasAppearanceArea() || $this->canSeeDraft('cast:' . $r->get('part') . ':' . Language::siteColumn() . ($r->get('variant') !== '' ? ':' . $r->get('variant') : ''))) ? $r->get('part') : '';
         $editor = $r->get('editor') === '1' && ($preview !== '' || ($r->get('build') === 'koncept' && $r->get('part') === ''));
         $language = Language::siteColumn();
         // a site page can have its own header and footer variant, and since 3.6 a variant may take a kind of content (news
@@ -1610,7 +1613,7 @@ final class Kernel
         if ($p === null || $this->app->request->get('build') !== 'koncept' || !$this->canSeeDraft('popup:' . $idpp)) {
             return $this->notFound();
         }
-        if ($this->app->request->get('editor') === '1' && $this->app->auth()->isAdmin()) {
+        if ($this->app->request->get('editor') === '1' && $this->app->auth()->hasAppearanceArea()) {
             $k = $this->context();
             $k->editor = true;
             $k->source = 'popup:' . $idpp;

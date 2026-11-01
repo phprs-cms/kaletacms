@@ -27,7 +27,9 @@ final class Components extends Module
     public const string NAME = 'Components';
     public const string GROUP = 'Appearance';
     public const string ICON = 'komponenta';
-    public const bool ADMIN_ONLY = true;
+    /** 3.22 (C9): administrators and whoever has the optional Appearance area of a role or a user (Auth::APPEARANCE_AREA). */
+    public const string SHARES_PERMISSION_OF = \Kaleta\Core\Auth::APPEARANCE_AREA;
+    public const array LIVE_ACTIONS = ['save', 'delete'];
 
     protected function actionList(): Response
     {
@@ -93,7 +95,12 @@ final class Components extends Module
         if (!is_array($element) || $name === '') {
             return Response::json(['ok' => false, 'chyba' => t('Name or element is missing.')], 400);
         }
-        [$build] = Build::sanitize(['v' => Build::VERSION, 'deti' => [$element]], true);
+        if (!$this->app->auth()->canPublish()) {
+            // 3.22 (C9): the component is published at once – a person who only writes drafts gets the refusal as JSON
+            return Response::json(['ok' => false, 'chyba' => t(self::LIVE_REFUSAL)], 403);
+        }
+        // code elements (Custom HTML) only from an administrator (3.22: the Appearance area opens components to others)
+        [$build] = Build::sanitize(['v' => Build::VERSION, 'deti' => [$element]], $this->app->auth()->isAdmin());
         if ($build['deti'] === []) {
             return Response::json(['ok' => false, 'chyba' => t('A component cannot be created from this element.')], 400);
         }

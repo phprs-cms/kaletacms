@@ -128,7 +128,15 @@ final class Roles extends Module
         }
     }
 
-    /** @return array<string, string> sections for which access is set: ident => name */
+    /** Label of the optional Appearance area (3.22, C9) in the role and the user form. */
+    public const string APPEARANCE_AREA_NAME = 'Appearance: menu, site parts, pop-ups and components';
+
+    /**
+     * Sections for which access is set: ident => name. Since 3.22 (C9) the last one is the optional Appearance area
+     * (Auth::APPEARANCE_AREA), one checkbox for Menu, Site parts, Pop-ups and Components; it is never a default.
+     *
+     * @return array<string, string>
+     */
     public static function configurable(): array
     {
         $section = [];
@@ -138,7 +146,7 @@ final class Roles extends Module
             }
         }
 
-        return $section;
+        return $section + [Auth::APPEARANCE_AREA => self::APPEARANCE_AREA_NAME];
     }
 
     /**
