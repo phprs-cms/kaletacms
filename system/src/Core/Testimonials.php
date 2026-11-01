@@ -47,7 +47,7 @@ final class Testimonials
         if ($send) {
             $site = $app->settings()->get('site_name');
             // in the language of the site the customer wrote to, not of the admin who clicked
-            [$subject, $text] = Language::runWith($app->settings()->get('site_language') ?: 'cs', fn (): array => [t('Would you share your experience with %s?', $site),
+            [$subject, $text] = Language::runWith(Language::defaults($app->settings()), fn (): array => [t('Would you share your experience with %s?', $site),
                 t("Hello,\n\nthank you for working with us. Would you write a few words about your experience? It takes a minute, and we publish it only with your consent:\n\n%s\n\nThe link works for %d days.\n\n%s", $link, self::DAYS, $site)]);
             $sent = Mail::send($app->settings(), (string) $enquiry['email'], $subject, $text);
         }

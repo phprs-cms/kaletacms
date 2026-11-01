@@ -2388,9 +2388,44 @@ await step('3.22 C9: the Appearance area in the role form', async () => {
   const label = (await page.locator('label', { has: area }).textContent()).trim();
   if (label !== 'Appearance: menu, site parts, pop-ups and components') { throw new Error(`the label reads "${label}"`); }
   if (!(await page.locator('.napoveda', { hasText: 'Claude settings stay with the administrator' }).isVisible())) { throw new Error('the hint does not say what stays with the administrator'); }
+  // 3.23.1 (N-C1, owner decision D1): the ready-made Client role ticks it, and Business details with it
   await visit('/admin.php?module=roles&action=new&preset=client');
-  if (await page.locator('input[value="appearance_area"]').isChecked()) { throw new Error('the Client preset ticks the Appearance area'); }
+  if (!(await page.locator('input[value="appearance_area"]').isChecked()) || !(await page.locator('input[value="business"]').isChecked())) { throw new Error('the Client preset does not tick the Appearance area and Business details'); }
   if (SHOTS) { await page.locator('input[value="appearance_area"]').scrollIntoViewIfNeeded(); await page.screenshot({ path: `${SHOTS}/role-appearance-area-desktop.png` }); }
+});
+
+// 3.23.1 (N-C1): the role saved from the Client preset, a user with it (the hand-over link "New user" picks the role), signed in:
+// Menu, Site parts and Business details open (200) – the footer and the opening hours are the client's to change
+await step('3.23.1 N-C1: a Client-role user opens Menu and Business details', async () => {
+  const client = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'en-GB' });
+  try {
+    await visit('/admin.php?module=roles&action=new&preset=client');
+    await page.fill('input[name="nazev"]', 'Client N-C1');
+    await Promise.all([page.waitForNavigation(), page.click('form.formular input[type="submit"]')]);
+    const idr = sql("SELECT idr FROM ka_role WHERE nazev = 'Client N-C1'").trim();
+    if (!idr) { throw new Error('the role from the preset was not saved'); }
+    await visit(`/admin.php?module=users&action=new&role=${idr}`);
+    if (!(await page.locator(`input[name="admin"][value="r${idr}"]`).isChecked())) { throw new Error('New user with ?role= does not pick the role'); }
+    await page.fill('input[name="user"]', 'client-nc1');
+    await page.fill('input[name="password"]', PASSWORD);
+    await Promise.all([page.waitForNavigation(), page.click('form.formular input[type="submit"]')]);
+    const [language, sections] = sql("SELECT u.jazyk, GROUP_CONCAT(p.ident_modulu ORDER BY p.ident_modulu) FROM ka_uzivatele u JOIN ka_uzivatele_prava p ON p.fk_id_user = u.idu WHERE u.user = 'client-nc1' GROUP BY u.idu").trim().split('\t');
+    if (language !== 'en' || !sections.split(',').includes('appearance_area') || !sections.split(',').includes('business')) { throw new Error(`the new user has language "${language}" and sections ${sections}`); }
+    const tab = await client.newPage();
+    await tab.goto(BASE + '/admin.php', { waitUntil: 'networkidle' });
+    await tab.fill('input[name="user"]', 'client-nc1');
+    await tab.fill('input[name="password"]', PASSWORD);
+    await Promise.all([tab.waitForNavigation(), tab.press('input[name="password"]', 'Enter')]);
+    const codes = [];
+    for (const url of ['/admin.php?module=menu', '/admin.php?module=parts', '/admin.php?module=business', '/admin.php?module=appearance']) {
+      codes.push((await tab.goto(BASE + url, { waitUntil: 'networkidle' })).status());
+    }
+    if (codes.join('|') !== '200|200|200|403') { throw new Error(`Menu, Site parts, Business details, Site appearance answer ${codes.join('|')}`); }
+    if (SHOTS) { await tab.goto(BASE + '/admin.php?module=business', { waitUntil: 'networkidle' }); await tab.screenshot({ path: `${SHOTS}/client-role-business-desktop.png` }); }
+  } finally {
+    await client.close();
+    sql("DELETE p FROM ka_uzivatele_prava p JOIN ka_uzivatele u ON u.idu = p.fk_id_user WHERE u.user = 'client-nc1'; DELETE FROM ka_uzivatele WHERE user = 'client-nc1'; DELETE FROM ka_role WHERE nazev = 'Client N-C1'");
+  }
 });
 
 // 3.22 (C13): the canonical address of a page – an invalid one is refused in the open section, a path is printed on the site

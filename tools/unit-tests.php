@@ -8116,13 +8116,15 @@ check('3.22 (C9): the four appearance modules share the Appearance area, the res
         Kaleta\Admin\Modules\Users::class, Kaleta\Admin\Modules\Roles::class, Kaleta\Admin\Modules\Transfer::class]),
     array_slice(Kaleta\Admin\Modules\Roles::configurable(), -1, 1, true),
 ], [array_fill(0, 4, 'open:appearance_area'), array_fill(0, 6, true), ['appearance_area' => 'Appearance: menu, site parts, pop-ups and components']]);
-// nobody gains it on an update or by default: not in the default sections of an author or an editor, not in a ready-made role
-check('3.22 (C9): the Appearance area is never a default', [
+// nobody gains it on an update or by default: not in the default sections of an author or an editor; of the ready-made roles
+// only the Client has it, with Business details (3.23.1, N-C1, owner decision D1) – saved roles keep their sections
+check('3.22 (C9), 3.23.1 (N-C1): the Appearance area is never a default of a level; only the ready-made Client role ticks it, with Business details', [
     array_values(array_intersect([...Kaleta\Admin\Modules\Users::defaultModules(Kaleta\Core\Auth::EDITOR), ...Kaleta\Admin\Modules\Users::defaultModules(Kaleta\Core\Auth::AUTHOR)],
         ['appearance_area', 'menu', 'parts', 'popups', 'components', 'appearance'])),
-    array_values(array_filter(Kaleta\Admin\Modules\Roles::PRESETS, fn (array $p): bool => in_array('appearance_area', $p[3], true))),
+    array_keys(array_filter(Kaleta\Admin\Modules\Roles::PRESETS, fn (array $p): bool => in_array('appearance_area', $p[3], true) && in_array('business', $p[3], true))),
     str_contains(Kaleta\Admin\Modules\Users::summary(Kaleta\Core\Auth::EDITOR, ['pages', 'appearance_area']), 'Appearance: menu, site parts, pop-ups and components'),
-], [[], [], true]);
+    array_diff(Kaleta\Admin\Modules\Roles::PRESETS['client'][3], array_keys(Kaleta\Admin\Modules\Roles::configurable())),
+], [[], ['client'], true, []]);
 // what changes the site at once needs the permission to publish; every listed action exists; the server checks it before the action
 $c9Live = [];
 foreach ($c9Area as $c9Class) {
@@ -8389,6 +8391,34 @@ check('3.23.1 (N-C4, N-C12): status cells wrap on a phone; below 600 px the Sett
     (bool) preg_match('/<form class="zalozky-vyber" method="get".*?><input type="hidden" name="module" value="settings">.*<select id="zalozka-vyber" name="tab" data-odeslat-pri-zmene>.*foreach \(\$navigation as \$key => \$name\)/s', $v3231('settings/list.php')),
     str_contains($css3231, '.zalozky:has(+ .zalozky-vyber) { display: none; }') && str_contains($css3231, "@media (max-width: 600px) {\n\t.zalozky-vyber { display: flex;"),
 ], [3, true, true, true]);
+
+// 3.23.1 (N-C1): the ready-made roles' names and descriptions fit the role form (60 and 200 characters) in every admin language
+check('3.23.1 (N-C1): ready-made role names and descriptions fit the form in every admin language', array_values(array_filter(array_map(fn (string $code): string => Kaleta\Core\Language::runWith($code,
+    fn (): string => implode(',', array_keys(array_filter(Kaleta\Admin\Modules\Roles::PRESETS, fn (array $p): bool => mb_strlen(t($p[0])) > 60 || mb_strlen(t($p[1])) > 200))), 'admin-'), array_keys(Kaleta\Core\Language::ADMIN_LANGUAGES)))), []);
+// 3.23.1 (N-C2): the e-mail about a comment on a draft goes out in the recipient's admin language, else in the site's – never
+// a fixed Czech; no other caller of Mail::send falls back to a hard-coded 'cs'
+$nc2 = fn (array $site, string $language): array => Kaleta\Core\DraftComments::mail($reportSettings($site), ['jazyk' => $language, 'register' => ''], 'Home', 'Hannah', 'Nice', 'https://example.com/b');
+check('3.23.1 (N-C2): a user with no language on an English site gets the draft-comment mail in English; a chosen language wins; a Czech site writes Czech', [
+    $nc2(['site_language' => 'en'], '')[0], str_starts_with($nc2(['site_language' => 'en'], '')[1], 'Hannah commented on the draft of the page “Home”'),
+    $nc2(['site_language' => 'en'], 'de')[0] !== $nc2(['site_language' => 'en'], '')[0], $nc2(['site_language' => 'cs'], '')[0] === $nc2(['site_language' => 'en'], 'cs')[0],
+    $nc2(['site_language' => 'cs'], '')[0] !== 'New comment on the draft of “Home”', Kaleta\Core\Language::code(),
+], ['New comment on the draft of “Home”', true, true, true, true, Kaleta\Core\Language::code()]);
+$nc2Callers = [];
+foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(KALETA_SYSTEM . '/src', FilesystemIterator::SKIP_DOTS)) as $nc2File) {
+    if (str_ends_with((string) $nc2File, '.php') && preg_match("/runWith\\([^;]*(\\?:|: )\\s*'cs'/", (string) file_get_contents((string) $nc2File))) {
+        $nc2Callers[] = basename((string) $nc2File);
+    }
+}
+check('3.23.1 (N-C2): no Language::runWith(… ?: \'cs\') left; a new user stores the admin language of whoever creates them', [$nc2Callers,
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Users.php'), "\$this->db->insert('uzivatele', \$data + ['jazyk' => \\Kaleta\\Core\\Language::code()])")], [[], true]);
+// 3.23.1 (N-C3): one change-log row per action – the generic row of the admin is left out when the module wrote its own, and
+// carries the record number of the form when it has one
+$nc3 = fn (array $post): int => Kaleta\Admin\Kernel::recordId(new Kaleta\Core\Request([], $post, []));
+check('3.23.1 (N-C3): the record of an admin form – id, idp… in that order, positive numbers only', [$nc3(['id' => '7']), $nc3(['idp' => '3', 'titulek' => 'X']), $nc3(['id' => '0', 'idr' => '5']), $nc3(['id' => 'x']), $nc3([])], [7, 3, 5, 0, 0]);
+check('3.23.1 (N-C3): ChangeLog::wrote knows the areas written in this request; the Kernel forgets them before each action and skips its row after one or after a refusal (an error message)', [
+    Kaleta\Admin\ChangeLog::wrote('nc3-area'),
+    (bool) preg_match('/ChangeLog::forget\(\);.*\$response = \(new \$class\(\$this\)\)->handle.*!ChangeLog::wrote\(\$ident\)\s*&& !in_array\(\'chyba\', array_slice\(\$app->session->flashTypes\(\), \$flashes\), true\)/s', (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Kernel.php')),
+], [false, true]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

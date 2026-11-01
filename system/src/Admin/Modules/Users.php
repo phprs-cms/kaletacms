@@ -41,7 +41,11 @@ final class Users extends Module
 
     protected function actionNew(): Response
     {
-        return $this->form(['idu' => 0, 'user' => '', 'jmeno' => '', 'email' => '', 'url' => '', 'admin' => Auth::AUTHOR, 'role' => null, 'blokovat' => 0, 'team_item_id' => null]);
+        // 3.23.1 (N-C9): ?role=<id> picks a custom role in advance – the hand-over checklist links a new user with the Client role
+        $role = $this->request->getInt('role') > 0 ? $this->db->one('SELECT idr, uroven FROM {role} WHERE idr = ?', [$this->request->getInt('role')]) : null;
+
+        return $this->form(['idu' => 0, 'user' => '', 'jmeno' => '', 'email' => '', 'url' => '', 'admin' => $role !== null ? (int) $role['uroven'] : Auth::AUTHOR,
+            'role' => $role !== null ? (int) $role['idr'] : null, 'blokovat' => 0, 'team_item_id' => null]);
     }
 
     protected function actionEdit(): Response
@@ -143,7 +147,9 @@ final class Users extends Module
                     }
                 }
             } else {
-                $id = $this->db->insert('uzivatele', $data);
+                // 3.23.1 (N-C2): a new account gets an administration language – the one of the administrator creating it – so that
+                // its e-mails (comments on drafts, requests) do not fall back to another language before the user picks one
+                $id = $this->db->insert('uzivatele', $data + ['jazyk' => \Kaleta\Core\Language::code()]);
             }
             $this->db->delete('uzivatele_prava', ['fk_id_user' => $id]);
             foreach ($modules as $ident) {

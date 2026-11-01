@@ -82,6 +82,14 @@ final class Session
         $_SESSION['_flash'][] = ['typ' => $type, 'text' => $message];
     }
 
+    /** The types of the one-time messages waiting, oldest first (3.23.1: the admin tells a refused action from a change). @return list<string> */
+    public function flashTypes(): array
+    {
+        $this->start();
+
+        return array_values(array_map(fn (array $f): string => (string) ($f['typ'] ?? ''), $_SESSION['_flash'] ?? []));
+    }
+
     /** @return list<array{typ:string, text:string}> */
     public function takeFlashes(): array
     {

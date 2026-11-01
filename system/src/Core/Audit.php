@@ -508,8 +508,11 @@ final class Audit
             $check($s->get('security_contact') !== '', t('No security contact – add who takes reports of security problems (published as security.txt).'), 'admin.php?module=settings&tab=seo', 'security_contact'));
         // accounts and access (2.8): the same findings as System status, each with the user to fix
         $hygiene = SecurityHygiene::findings($this->app);
+        // 3.23.1 (N-C9): one's own two-step sign-in is switched on in My account, another administrator's account is theirs to fix
+        $me = (int) $this->app->auth()->id();
         $row('two_step', t('Administrators use two-step sign-in'), 'admin.php?module=users', array_map(fn (array $u): array => $finding(
-            t('The administrator %s signs in without two-step sign-in or a passkey.', SecurityHygiene::displayName($u)), 'admin.php?module=users&action=edit&id=' . (int) $u['idu'], 'two_step', ['user' => (int) $u['idu']]), $hygiene['two_step']));
+            t('The administrator %s signs in without two-step sign-in or a passkey.', SecurityHygiene::displayName($u)),
+            (int) $u['idu'] === $me ? 'admin.php?action=account#two-factor' : 'admin.php?module=users&action=edit&id=' . (int) $u['idu'], 'two_step', ['user' => (int) $u['idu']]), $hygiene['two_step']));
         $row('unused_access', t('No unused accounts or Claude connections'), 'admin.php?module=users', [
             ...array_map(fn (array $u): array => $finding(t('The account %s has not been used for %d days (last activity %s) – block it, or let the automatic suspension do it.', SecurityHygiene::displayName($u), SecurityHygiene::daysAgo((string) $u['last']), format_date((string) $u['last'])),
                 'admin.php?module=users&action=edit&id=' . (int) $u['idu'], 'unused_account', ['user' => (int) $u['idu']]), $hygiene['unused_accounts']),
@@ -523,9 +526,10 @@ final class Audit
         // not counted; the agency contact, another account or a role says the site is built for someone
         $otherAccount = (int) $db->value('SELECT COUNT(*) FROM {uzivatele} WHERE admin < 2 AND blokovat = 0') > 0;
         $forClient = $s->get('agency_name') === '' && !$otherAccount && $db->value('SELECT 1 FROM {role} LIMIT 1') === null;
-        // 3.23 (C17): the client's account is one with the Appearance area (3.22, Auth::APPEARANCE_AREA) or the ready-made Client role
-        $row('client_account', t('The client has an account of their own (Client role or the Appearance area)'), 'admin.php?module=users',
-            $check($this->clientAccount(), t('The client has no account of their own yet – create one with the Client role, or a role with the Appearance area (Users → Roles).'), 'admin.php?module=users', 'client_account'), $forClient);
+        // 3.23 (C17): the client's account is one with the Appearance area (3.22, Auth::APPEARANCE_AREA) or the ready-made Client role;
+        // 3.23.1 (N-C1): done only when it can change the menu, the footer and the opening hours – otherwise it says what is missing
+        $row('client_account', t('The client has an account of their own that can change the menu, the footer and the opening hours'), 'admin.php?module=users',
+            $this->clientAccountFindings($finding), $forClient);
         $recipients = trim($s->get('report_recipients'));
         $row('monthly_report', t('The monthly report goes to the client'), 'admin.php?module=settings&tab=reports', match (true) {
             !$s->bool('report_monthly') => [$finding(t('The monthly report is off – switch it on and add the client’s e-mail as a recipient (Settings → Reports).'), 'admin.php?module=settings&tab=reports', 'monthly_report')],
@@ -556,16 +560,39 @@ final class Audit
         return $rows;
     }
 
-    /** An active account with the Appearance area (its role or its own sections) or with the ready-made Client role, in any admin language. */
-    private function clientAccount(): bool
+    /**
+     * The client's account (3.23 C17, 3.23.1 N-C1): an active account with the ready-made Client role (by its name in any admin
+     * language) or with the Appearance area. Done when one of them has both the Appearance area (menu, footer) and Business
+     * details (opening hours) – the client's own edits. Otherwise one finding per such account (at most three) that names what
+     * it lacks and links its role, or the account itself; with no such account, a link to a new user with the Client role.
+     *
+     * @param \Closure(string, string, string, array<string, int|string>): array<string, mixed> $finding
+     * @return list<array<string, mixed>>
+     */
+    private function clientAccountFindings(\Closure $finding): array
     {
         $db = $this->app->db();
-        if ($db->value('SELECT 1 FROM {uzivatele} u JOIN {uzivatele_prava} p ON p.fk_id_user = u.idu WHERE u.admin < 2 AND u.blokovat = 0 AND p.ident_modulu = ? LIMIT 1', [Auth::APPEARANCE_AREA]) !== null) {
-            return true;
-        }
         $names = array_values(array_unique(array_map(fn (string $code): string => mb_strtolower((string) Language::runWith($code, fn (): string => t(\Kaleta\Admin\Modules\Roles::PRESETS['client'][0]), 'admin-')), array_keys(Language::ADMIN_LANGUAGES))));
+        $in = implode(', ', array_fill(0, count($names), '?'));
+        $has = 'SELECT COUNT(*) FROM {uzivatele_prava} p WHERE p.fk_id_user = u.idu AND p.ident_modulu = ?';
+        $accounts = $db->all('SELECT u.idu, u.user, u.jmeno, u.role, (' . $has . ') AS appearance, (' . $has . ') AS business FROM {uzivatele} u LEFT JOIN {role} r ON r.idr = u.role
+            WHERE u.admin < ? AND u.blokovat = 0 AND (LOWER(r.nazev) IN (' . $in . ') OR EXISTS (SELECT 1 FROM {uzivatele_prava} p WHERE p.fk_id_user = u.idu AND p.ident_modulu = ?)) ORDER BY u.idu',
+            [Auth::APPEARANCE_AREA, 'business', Auth::ADMIN, ...$names, Auth::APPEARANCE_AREA]);
+        if ($accounts === []) {
+            $role = $db->value('SELECT idr FROM {role} WHERE LOWER(nazev) IN (' . $in . ') ORDER BY idr LIMIT 1', $names);
 
-        return $db->value('SELECT 1 FROM {uzivatele} u JOIN {role} r ON r.idr = u.role WHERE u.admin < 2 AND u.blokovat = 0 AND LOWER(r.nazev) IN (' . implode(', ', array_fill(0, count($names), '?')) . ') LIMIT 1', $names) !== null;
+            return [$finding(t('The client has no account of their own yet – create one with the Client role: it can change the menu, the footer and the opening hours.'),
+                $role !== null ? 'admin.php?module=users&action=new&role=' . (int) $role : 'admin.php?module=roles&action=new&preset=client', 'client_account', [])];
+        }
+        if (array_filter($accounts, fn (array $a): bool => (int) $a['appearance'] > 0 && (int) $a['business'] > 0) !== []) {
+            return [];
+        }
+
+        return array_map(fn (array $a): array => $finding(match (true) {
+            (int) $a['appearance'] === 0 && (int) $a['business'] === 0 => t('The client account %s cannot change the menu, the footer or the opening hours – add the Appearance area and Business details to its access.', SecurityHygiene::displayName($a)),
+            (int) $a['appearance'] === 0 => t('The client account %s cannot change the menu or the footer – add the Appearance area to its access.', SecurityHygiene::displayName($a)),
+            default => t('The client account %s cannot change the opening hours – add Business details to its access.', SecurityHygiene::displayName($a)),
+        }, $a['role'] !== null ? 'admin.php?module=roles&action=edit&id=' . (int) $a['role'] : 'admin.php?module=users&action=edit&id=' . (int) $a['idu'], 'client_account', ['user' => (int) $a['idu']]), array_slice($accounts, 0, 3));
     }
 
     private function notFound(): void
