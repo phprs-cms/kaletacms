@@ -158,7 +158,7 @@ final class Server
             return $tool;
         }
         $tool['inputSchema']['properties'] = (array) ($tool['inputSchema']['properties'] ?? []) + ['reason' => ['type' => 'string',
-            'description' => 'Why you make this change, in one short line – the user’s request or the site request it answers. Kept in the change log.']];
+            'description' => 'Why, in one short line (the user’s request it answers); kept in the change log.']];
 
         return $tool;
     }

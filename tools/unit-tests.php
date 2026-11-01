@@ -8200,6 +8200,13 @@ check('3.23 (C17): MCP site_audit returns handover_checklist additively (no new 
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/SettingsTools.php'), "\$out['handover_checklist'] = ["),
     Kaleta\Mcp\Translator::arguments('site_audit', ['kind' => 'handover']), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Tools.php'), 'handover_checklist = every row with done'),
 ], [true, ['kind' => 'handover'], true]);
+// 3.23 review (N323-1): the essentials list had 39 bytes left under its 50 KB budget – the repeated parameter texts (reason,
+// the build targets) and site_audit were tightened; at least 1 KB stays free, so the next tool or parameter fits without a rush
+check('3.23 review (N323-1): the essentials tool list keeps at least 1 KB of headroom under 50 KB; the safety sentences stay', [
+    $json310(['tools' => $essentials310]) <= 49000,
+    str_contains((string) json_encode($all310, JSON_UNESCAPED_UNICODE), 'SENDS A REAL E-MAIL'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Tools.php'), 'never with invented ones'),
+], [true, true, true]);
 // 3.23 (C18): module names are English source strings (the Czech is in the dictionary), the dashboard copy says Ask Claude
 check('3.23 (C18): News, Users and Settings have English NAME source strings translated in every admin dictionary; Ask Claude, not Requests, in the dashboard copy', [
     Kaleta\Admin\Modules\News::NAME, Kaleta\Admin\Modules\Users::NAME, Kaleta\Admin\Modules\Settings::NAME,

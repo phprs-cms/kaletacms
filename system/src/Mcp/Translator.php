@@ -16,13 +16,13 @@ final class Translator
     /** Shared target of the build tools: page, site part (variant) or collection item template. */
     private const array TARGET = [
         'id' => ['id', 'Page ID'],
-        'part' => ['cast', 'Instead of a page, a site part (Appearance area): header | footer | news_item | news_list | not_found (the wrappers of news and the 404 page)'],
-        'language' => ['jazyk', 'Language version of the site part or of the collection item template on a multilingual site (empty = default)'],
+        'part' => ['cast', 'Instead of a page, a site part (Appearance area): header | footer | news_item | news_list | not_found'],
+        'language' => ['jazyk', 'Language version of the part or the item template (empty = default)'],
         'variant' => ['varianta', 'Header or footer variant (key from list_site_parts; empty = the default)'],
-        'collection' => ['kolekce', 'Instead of a page, the item page template of a collection (collection slug from list_collections, administrators only); with "language", the template of that language version'],
-        'category_template' => ['kategorie_sablona', 'With collection: the template of the collection\'s category pages instead of its item pages (3.7) – {{nazev}}, {{popis}}, {{obrazek}}, {{pocet}} fill in; a Collection list with category "*" lists the category\'s items (source items) or its subcategories (source categories)'],
+        'collection' => ['kolekce', 'Instead of a page, the item page template of a collection (slug from list_collections, administrators only), per language'],
+        'category_template' => ['kategorie_sablona', 'With collection: its category page template instead of the item one ({{nazev}}, {{popis}}, {{obrazek}}, {{pocet}}; a Collection list with category "*" lists that category\'s items or subcategories)'],
         'popup' => ['popup', 'Instead of a page, the content of a pop-up window (ID from list_popups, Appearance area)'],
-        'component' => ['komponenta', 'Instead of a page, the build of a component (ID from list_components, Appearance area) – a change shows everywhere it is used'],
+        'component' => ['komponenta', 'Instead of a page, a component (ID from list_components, Appearance area) – a change shows everywhere it is used'],
     ];
 
     private const array PAGE = [
