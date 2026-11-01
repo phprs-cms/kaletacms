@@ -258,11 +258,13 @@ CREATE TABLE ka_stranky (
     stavba         MEDIUMTEXT NULL,                        -- published build (JSON tree of builder elements); NULL = text page
     stavba_koncept MEDIUMTEXT NULL,                        -- work-in-progress build from the editor; NULL = no unsaved changes
     smazano        DATETIME NULL,                          -- in the trash since (deleted permanently after 30 days); NULL = not in the trash
+    owner_id INT UNSIGNED NULL,                           -- responsible person (ka_uzivatele.idu), responsibility only; NULL = nobody (3.24, migration 0110)
     PRIMARY KEY (ids),
     UNIQUE KEY uq_stranky_jazyk_seo (jazyk, seo_link),         -- per language (3.9); the global key is gone since 3.19 (migration 0106, Core\Slug)
     KEY ix_stranky_seo (seo_link),                              -- lookups in any language version (3.19, migration 0105)
     KEY ix_stranky_smazano (smazano),
-    KEY ix_stranky_zverejnit (zverejnit_od)
+    KEY ix_stranky_zverejnit (zverejnit_od),
+    KEY ix_stranky_owner (owner_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Published build versions (the last 20 per page)
@@ -571,7 +573,8 @@ CREATE TABLE ka_poptavky (
     replies  MEDIUMTEXT NULL,                         -- replies e-mailed from the enquiry (3.22, Core\EnquiryReply): JSON list of who, when, subject, text, the mail row
     PRIMARY KEY (idp),
     KEY ix_poptavky_stav (stav, idp),
-    KEY ix_poptavky_kategorie (kategorie, idp)
+    KEY ix_poptavky_kategorie (kategorie, idp),
+    KEY ix_poptavky_prirazeno (prirazeno, stav)                 -- "assigned to me" (3.24, migration 0110)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Collections: custom content types (references, team, products, branches…). pole = JSON [{klic, popisek, typ}], typ: text | radky | html | obrazek | odkaz | cislo | datum | termin | soubor | poloha | polozka.
@@ -615,10 +618,12 @@ CREATE TABLE ka_kolekce_polozky (
     zmeneno  DATETIME NULL,
     links_checked DATETIME NULL,                        -- when the links in the item's fields were last checked (2.14, Core\Links)
     smazano  DATETIME NULL,                     -- in the trash since (deleted permanently after 30 days); NULL = not in the trash
+    owner_id INT UNSIGNED NULL,                         -- responsible person (ka_uzivatele.idu), responsibility only; NULL = nobody (3.24, migration 0110)
     PRIMARY KEY (idp),
     UNIQUE KEY ux_kolekce_polozky_seo (idk, jazyk, seo_link),
     KEY ix_kolekce_polozky (idk, zobrazit, poradi),
     KEY ix_kolekce_polozky_zverejnit (zverejnit_od),
+    KEY ix_kolekce_polozky_owner (owner_id),
     CONSTRAINT fk_kolekce_polozky FOREIGN KEY (idk) REFERENCES ka_kolekce (idk) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
