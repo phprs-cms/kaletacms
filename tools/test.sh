@@ -7449,6 +7449,11 @@ expect "recipients: valid addresses are saved one per line, the switch off when 
 echo "== 3.16: the archive of the monthly reports"
 # what happened last month: a request (its title names an address), an update, firewall blocks, failed sign-ins, changes by
 # a person and by Claude – the job stores the month once, whether or not the e-mail is on; nothing personal gets in
+# earlier checks age rows by a few days, so on the first days of a month they would land in last month: clear it first
+MONTH_END=$(php -r 'echo (new DateTimeImmutable("first day of this month"))->format("Y-m-d");')
+sq "DELETE FROM ka_protokol WHERE cas >= '$LAST_MONTH-01' AND cas < '$MONTH_END'; DELETE FROM ka_firewall_log WHERE created_at >= '$LAST_MONTH-01' AND created_at < '$MONTH_END';
+  DELETE FROM ka_events WHERE created_at >= '$LAST_MONTH-01' AND created_at < '$MONTH_END' AND type <> 'report.sent'; DELETE FROM ka_requests WHERE created_at >= '$LAST_MONTH-01' AND created_at < '$MONTH_END';
+  DELETE FROM ka_agent_runs WHERE due_at >= '$LAST_MONTH-01' AND due_at < '$MONTH_END'" > /dev/null
 sq "DELETE FROM ka_monthly_reports; UPDATE ka_jobs SET last_run = NULL WHERE name = 'report_archive'; UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'report_monthly';
   INSERT INTO ka_requests (created_at, updated_at, author_id, title, text, status, done_at) SELECT '$LAST_MONTH-03 10:00:00', '$LAST_MONTH-04 10:00:00', idu, 'Opening hours 316 – ask visitor316@example.org', 'x', 'done', '$LAST_MONTH-04 10:00:00' FROM ka_uzivatele WHERE user = 'admin';
   INSERT INTO ka_events (created_at, type, severity, message, data) VALUES ('$LAST_MONTH-10 04:00:00', 'update.applied', 'info', 'Version 3.16.0 was installed (from 3.15.4).', '{\"version\":\"3.16.0\",\"from\":\"3.15.4\"}');
