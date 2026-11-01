@@ -1253,13 +1253,16 @@ await step('3.22 (U7) news editor: lists pasted from Word become nested lists, G
     await new Promise((r) => setTimeout(r, 300));
     const clean = (h, mode) => window.kaletaCistiHtml(h, mode).replace(/>\s+</g, '><');
     return { html: surface.innerHTML, word: clean(html, 'paste'), docs: clean('<ul><li><p>Docs item</p></li></ul><ol><li>n</li></ol>', 'paste'),
-      plain: clean('<p>· one</p><p>· two</p><p>1. Introduction</p>', 'paste'), typed: clean('<p>· one</p><p>· two</p>', true) };
+      plain: clean('<p>· one</p><p>· two</p><p>1. Introduction</p>', 'paste'), typed: clean('<p>· one</p><p>· two</p>', true),
+      // N322-1: paragraphs that start with dates are no list; numbers that count on are
+      dates: clean('<p>15. May we opened.</p><p>20. June is next.</p>', 'paste'), counted: clean('<p>1. one</p><p>2. two</p>', 'paste') };
   }, word);
   const expected = '<p>Intro</p><ul><li>First item with <i>italic</i><ul><li>Nested</li></ul></li><li>Second</li></ul><p>Between</p><ol><li>One<ol><li>Sub a</li></ol></li></ol>';
   if (result.word !== expected) { throw new Error(`Word lists: ${result.word}`); }
   if (!/<ul><li>First item with <i>italic<\/i><ul><li>Nested<\/li><\/ul><\/li><li>Second<\/li><\/ul>/.test(result.html.replace(/>\s+</g, '><'))) { throw new Error(`the pasted Word list in the editor: ${result.html.slice(-400)}`); }
   if (result.docs !== '<ul><li><p>Docs item</p></li></ul><ol><li>n</li></ol>') { throw new Error(`Google Docs list: ${result.docs}`); }
   if (result.plain !== '<ul><li>one</li><li>two</li></ul><p>1. Introduction</p>' || result.typed !== '<p>· one</p><p>· two</p>') { throw new Error(`plain bullets: ${result.plain} | ${result.typed}`); }
+  if (result.dates !== '<p>15. May we opened.</p><p>20. June is next.</p>' || result.counted !== '<ol><li>one</li><li>two</li></ol>') { throw new Error(`numbered paragraphs: ${result.dates} | ${result.counted}`); }
 });
 
 // 3.22 (C14): Media scales a large photo down in the browser before the upload (2000 px) and the message says so

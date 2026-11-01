@@ -172,7 +172,12 @@
 		var m = (mso ? LIST_MARKER : PLAIN_MARKER).exec(text);
 		if (!m) { return mso ? { level: level, ordered: false, id: id, word: true, strip: function () { trimStart(p); } } : null; }
 		var symbol = m[1].replace(/[\s\u00a0]+/g, '');
-		return { level: level, ordered: ORDERED_MARKER.test(symbol), id: id, word: !!mso, strip: function () { cutLeading(p, m[0].length); } };
+		// the number or letter of an ordered marker: plain paragraphs make a list only when they count on (1., 2., 3. or a), b)) –
+		// "15. října…" and "20. listopadu…" are two dates, not a list (N322-1)
+		var count = /^\(?(\d{1,3}|[a-z])[.)]$/i.exec(symbol);
+		var kind = count ? (/\d/.test(count[1]) ? 'n' : 'l') : '';
+		var value = count ? (kind === 'n' ? parseInt(count[1], 10) : count[1].toLowerCase().charCodeAt(0) - 96) : 0;
+		return { level: level, ordered: ORDERED_MARKER.test(symbol), id: id, word: !!mso, kind: kind, value: value, strip: function () { cutLeading(p, m[0].length); } };
 	}
 
 	/** The next element sibling, skipping white space and comments (Word's conditional comments); null at anything else. */
@@ -194,8 +199,9 @@
 			// plain paragraphs only as a run of at least two of one kind – one "1. Introduction" after bullets stays a paragraph
 			run.forEach(function (it, i) {
 				if (it.word) { return; }
-				var same = function (o) { return o && !o.word && o.ordered === it.ordered; };
-				it.skip = !same(run[i - 1]) && !same(run[i + 1]);
+				// a neighbour of the same kind; numbers and letters also in sequence (the one before is one less, the one after one more)
+				var same = function (o, step) { return o && !o.word && o.ordered === it.ordered && (!it.ordered || (o.kind === it.kind && o.value === it.value + step)); };
+				it.skip = !same(run[i - 1], -1) && !same(run[i + 1], 1);
 			});
 			var stack = []; // the open lists: {level, ordered, id, list}
 			run.forEach(function (it) {
