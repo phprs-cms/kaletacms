@@ -7933,5 +7933,25 @@ foreach (glob(KALETA_SYSTEM . '/jazyky/admin-*.php') as $file) {
 }
 check('3.20 review (N320-12): no key is defined twice in an admin dictionary', [$n320Dictionaries], [[]]);
 
+// 3.21 (U24): the Countdown target is a date-and-time field (typ termin): the picker's "YYYY-MM-DDTHH:MM" and the stored
+// "YYYY-MM-DD HH:MM" both come out in the stored form, a whole day stays a day, anything else empties the field; the MCP schema
+// names the type datetime and the element keeps its properties (tools/contracts)
+[$u24Build] = Kaleta\Builder\Build::sanitize(['deti' => [['typ' => 'sekce', 'id' => 'u24s', 'deti' => [
+    ['typ' => 'odpocet', 'id' => 'u24a', 'obsah' => ['cil' => '2031-05-06T07:08', 'konec' => 'Now']],
+    ['typ' => 'odpocet', 'id' => 'u24b', 'obsah' => ['cil' => ' 2031-05-06 07:08 ', 'konec' => 'Now']],
+    ['typ' => 'odpocet', 'id' => 'u24c', 'obsah' => ['cil' => '2031-05-06', 'konec' => 'Now']],
+    ['typ' => 'odpocet', 'id' => 'u24d', 'obsah' => ['cil' => 'next friday', 'konec' => 'Now']],
+]]]]);
+$u24Schema = Kaleta\Builder\Build::schema(true, 'en');
+$u24Countdown = array_values(array_filter($u24Schema['prvky'], fn (array $p): bool => $p['typ'] === 'odpocet'))[0] ?? [];
+check('3.21 U24: the Countdown date-and-time field keeps the stored "YYYY-MM-DD HH:MM" form', [
+    array_column(array_column($u24Build['deti'][0]['deti'], 'obsah'), 'cil'),
+    Kaleta\Builder\Build::dateTime('2031-05-06T07:08'), Kaleta\Builder\Build::dateTime('2031-5-6 7:08'), Kaleta\Builder\Build::dateTime(''),
+    $u24Countdown['vlastnosti']['cil']['typ'] ?? null, Kaleta\Mcp\Vocabulary::FIELD_TYPES['termin'] ?? null,
+    str_contains(Kaleta\Builder\Build::overview($u24Schema)['prvky']['odpocet'] ?? '', 'cil:termin'),
+    (bool) preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/D', (string) ($u24Countdown['vlastnosti']['cil']['vychozi'] ?? '')),
+    str_contains(Kaleta\Builder\Elements\Countdown::render(['obsah' => ['cil' => '', 'konec' => 'Now']], ' id="u24e"', '', new Kaleta\Builder\Context($leadApp, true)), e(t('Choose the date and time in the Content panel.'))),
+], [['2031-05-06 07:08', '2031-05-06 07:08', '2031-05-06', ''], '2031-05-06 07:08', '', '', 'termin', 'datetime', true, true, true]);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

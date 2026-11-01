@@ -9,7 +9,7 @@ namespace Kaleta\Builder;
  * default style and rendering. The output is always one tag per element (the only exceptions are compound elements like FAQ or the news list).
  *
  * Content fields – types: text (a line), inline (short text with bold/italic/link), html (formatted text), radky (several lines),
- * odkaz, obrazek, vyber, cislo, prepinac, polozky (a list of objects with the fields „pole“).
+ * odkaz, obrazek, vyber, cislo, prepinac, termin (date and time "YYYY-MM-DD HH:MM", 3.21), polozky (a list of objects with the fields „pole“).
  */
 abstract class Element
 {

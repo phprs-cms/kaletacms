@@ -410,5 +410,16 @@ Object.assign(window.KALETA_PREKLAD, {
 	"Hidden until you publish – then it goes on the site": "Verborgen, bis du veröffentlichst – dann erscheint sie auf der Website",
 	"Open the published page – the draft preview is under ⋯ → Share": "Veröffentlichte Seite öffnen – die Entwurfsvorschau findest du unter ⋯ → Teilen",
 	"Only in the editor: on the website this element is left out on this device. Click to select it.": "Nur im Editor: Auf der Website wird dieses Element auf diesem Gerät weggelassen. Klicke, um es auszuwählen.",
-	"Not a valid size. Use a number with a unit (18px, 1.25rem, 120%) or pick a step.": "Keine gültige Größe. Gib eine Zahl mit Einheit ein (18px, 1.25rem, 120 %) oder wähle eine Stufe."
+	"Not a valid size. Use a number with a unit (18px, 1.25rem, 120%) or pick a step.": "Keine gültige Größe. Gib eine Zahl mit Einheit ein (18px, 1.25rem, 120 %) oder wähle eine Stufe.",
+	"Until": "Bis wann",
+	"Delete": "Löschen",
+	"Paste": "Einfügen",
+	"Select parent element": "Übergeordnetes Element auswählen",
+	"Element actions": "Elementaktionen",
+	"Element path": "Elementpfad",
+	"Show the whole path": "Ganzen Pfad anzeigen",
+	"There is no container just before this element to move it into.": "Direkt vor diesem Element gibt es keinen Container, in den du es verschieben kannst.",
+	"Move the selected element up or down": "Ausgewähltes Element nach oben oder unten verschieben",
+	"Move the element out of its parent / into the container before it": "Element aus dem übergeordneten Element heraus / in den Container davor verschieben",
+	"Element menu (also right-click on the canvas or in Structure)": "Elementmenü (auch Rechtsklick auf der Arbeitsfläche oder in der Struktur)"
 });

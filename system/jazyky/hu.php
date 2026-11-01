@@ -2087,4 +2087,5 @@ A hivatkozás %d napig érvényes.
     'until the preview link expires, at most 7 days' => 'amíg az előnézeti hivatkozás le nem jár, legfeljebb 7 napig',
     'open in a new window' => 'megnyitás új ablakban',
     'If a page of this website shows a store locator that loads its map at once, your browser contacts OpenStreetMap (OpenStreetMap Foundation) as soon as the page opens – before you give your consent in the cookie bar – and sends it your IP address to load the map; otherwise the map loads only after you click it.' => 'Ha a weboldal valamelyik oldala olyan üzletkeresőt mutat, amely azonnal betölti a térképet, az Ön böngészője az oldal megnyitásakor – még mielőtt a sütisávban hozzájárulását adná – kapcsolatba lép az OpenStreetMappel (OpenStreetMap Foundation), és elküldi neki az Ön IP-címét a térkép betöltéséhez; egyébként a térkép csak kattintás után töltődik be.',
+    'Choose the date and time in the Content panel.' => 'Válassza ki a dátumot és az időt a Tartalom panelen.',
 ];

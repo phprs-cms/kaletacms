@@ -387,6 +387,7 @@
 		doc.addEventListener('dblclick', (e) => { const t = e.target.closest('[data-ka-id]'); if (t && !t.hasAttribute('data-ka-zamek')) { editOnCanvas(t); } });
 		doc.addEventListener('keydown', keys);
 		doc.addEventListener('paste', onPaste);
+		canvasMenu(doc);
 		doc.addEventListener('dragover', (e) => {
 			if (!state.tazeno) { return; }
 			const place = canvasSpot(doc, e);
@@ -939,6 +940,209 @@
 		area.focus();
 	}
 
+	/* ---------- 3.21: element menu, nesting path, keyboard moves, instant canvas text ---------- */
+
+	// the style clipboard of the Style tab ("Copy style" / "Paste style"): the same browser key, so both places share it
+	const STYLE_CLIPBOARD = 'ka-st-styl';
+	function styleClipboard() { try { return JSON.parse(localStorage.getItem(STYLE_CLIPBOARD) || 'null'); } catch (e) { return null; } }
+	function copyStyle(p) {
+		try { localStorage.setItem(STYLE_CLIPBOARD, JSON.stringify({ styl: p.styl && !Array.isArray(p.styl) ? p.styl : {}, tridy: p.tridy || [] })); setState(T('Style copied.')); } catch (e) { /* private mode */ }
+	}
+	function pasteStyle(p) {
+		const v = styleClipboard();
+		if (!v) { return; }
+		applyChange(() => { p.styl = clone(v.styl || {}); if (v.tridy && v.tridy.length) { p.tridy = v.tridy.slice(); } else { delete p.tridy; } });
+	}
+	/** Whether this site's element clipboard (Ctrl+C, localStorage) holds an element the builder knows. */
+	function hasElementCopy() {
+		try { const p = JSON.parse(localStorage.getItem('ka-stavitel-schranka') || 'null'); return !!(p && TYPY[p.typ]); } catch (e) { return false; }
+	}
+
+	/**
+	 * U8 (3.21): the element menu – right-click on the canvas or a Structure row, Shift+F10 or the menu key on the selected
+	 * element or a focused row. ARIA menu: arrows, Home and End move, Enter runs, Esc and a click outside close it.
+	 * at = {x, y} in the builder window; fromTree = the focus returns to the Structure row afterwards.
+	 */
+	let elementMenu = null;
+	function openElementMenu(id, at, fromTree) {
+		const n = find(id);
+		if (!n) { return; }
+		if (state.vybrane !== id) { selection(id); }
+		const p = n.p;
+		const back = () => {
+			const row = fromTree && leftContent && leftContent.querySelector('[data-id="' + CSS.escape(state.vybrane || id) + '"]');
+			if (row) { row.focus(); } else if (!fromTree && preview) { preview.focus(); }
+		};
+		const items = [
+			[icon('kopie'), T('Duplicate'), 'Ctrl+D', true, () => duplicate(id)],
+			[icon('smazat'), T('Delete'), 'Delete', true, () => remove(id)],
+			[icon('schranka'), T('Copy'), 'Ctrl+C', true, () => copy()],
+			[icon('schranka'), T('Paste'), 'Ctrl+V', hasElementCopy(), () => pasteFromClipboard()],
+			[icon('kopie'), T('Copy style'), '', true, () => copyStyle(p)],
+			[icon('kopie'), T('Paste style'), '', !!styleClipboard(), () => pasteStyle(p)],
+			[icon('komponenta'), T('Save as component'), '', !!D.adresy.komponenta && p.typ !== 'komponenta', () => saveAsComponent(id)],
+			[icon('rodic'), T('Select parent element'), 'Esc', !!n.rodic, () => selection(n.rodic.id)],
+		];
+		if (!elementMenu) {
+			elementMenu = el('div', { id: 'st-kontext', class: 'st-vice st-kontext', popover: 'auto', role: 'menu', 'aria-label': T('Element actions') });
+			elementMenu.addEventListener('keydown', elementMenuKeys);
+			document.body.append(elementMenu);
+		}
+		if (elementMenu.matches(':popover-open')) { elementMenu.hidePopover(); }
+		elementMenu.dataset.prvek = id;
+		elementMenu.setAttribute('aria-label', T('Element actions') + ': ' + labelText(p));
+		elementMenu.back = back;
+		elementMenu.replaceChildren(...items.map(([ik, name, key, enabled, action]) => el('button', { type: 'button', role: 'menuitem', tabindex: '-1', 'aria-disabled': enabled ? null : 'true',
+			onclick: () => {
+				if (!enabled) { return; }
+				elementMenu.hidePopover();
+				action();
+				if (fromTree) { setTimeout(back, 0); }
+			} }, ik, el('span', {}, name), key ? el('kbd', {}, key.replace('Ctrl', /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl')) : null)));
+		elementMenu.showPopover();
+		// inside the window: to the left or above the pointer when there is no room
+		const w = elementMenu.offsetWidth, h = elementMenu.offsetHeight;
+		elementMenu.style.left = Math.max(8, Math.min(at.x, window.innerWidth - w - 8)) + 'px';
+		elementMenu.style.top = Math.max(8, at.y + h > window.innerHeight - 8 ? at.y - h : at.y) + 'px';
+		const first = elementMenu.querySelector('[role="menuitem"]:not([aria-disabled])');
+		if (first) { first.focus(); }
+	}
+	function closeElementMenu() { if (elementMenu && elementMenu.matches(':popover-open')) { elementMenu.hidePopover(); } }
+	function elementMenuKeys(e) {
+		const all = Array.from(elementMenu.querySelectorAll('[role="menuitem"]'));
+		const i = all.indexOf(document.activeElement);
+		const go = (j) => { e.preventDefault(); all[(j + all.length) % all.length].focus(); };
+		if (e.key === 'ArrowDown') { go(i + 1); } else if (e.key === 'ArrowUp') { go(i < 0 ? all.length - 1 : i - 1); } else if (e.key === 'Home') { go(0); } else if (e.key === 'End') { go(all.length - 1); }
+		else if (e.key === 'Escape' || e.key === 'Tab') { e.preventDefault(); elementMenu.hidePopover(); elementMenu.back(); }
+		e.stopPropagation(); // the builder's own keys (Esc = select the parent, Delete) do not run under the menu
+	}
+	/** A point on the canvas (iframe coordinates) in the builder window: the iframe is scaled down to fit. */
+	function canvasPoint(x, y) {
+		const r = preview.getBoundingClientRect();
+		const m = r.width / Math.max(1, preview.offsetWidth);
+		return { x: r.left + x * m, y: r.top + y * m };
+	}
+	/** Right-click on the canvas (called from preparePreview): the element under the pointer – the nearest unlocked one – gets the menu. */
+	function canvasMenu(doc) {
+		doc.addEventListener('contextmenu', (e) => {
+			if (e.target.closest('[contenteditable]') || state.umistovani) { return; } // the browser's own menu while typing on the canvas
+			if (elementMenu && elementMenu.matches(':popover-open')) { e.preventDefault(); return; } // opened by Shift+F10 a moment ago
+			let t = e.target.closest('[data-ka-id]');
+			while (t && t.hasAttribute('data-ka-zamek')) { t = t.parentElement && t.parentElement.closest('[data-ka-id]'); }
+			if (!t || !find(t.getAttribute('data-ka-id'))) { return; }
+			e.preventDefault();
+			openElementMenu(t.getAttribute('data-ka-id'), canvasPoint(e.clientX, e.clientY), false);
+		});
+		doc.addEventListener('pointerdown', (e) => { if (e.button !== 2) { closeElementMenu(); } }); // a click on the canvas is outside the menu too
+	}
+	/** The menu from the keyboard on the selected element: below its top left corner on the canvas. */
+	function selectedMenu() {
+		const doc = preview && preview.contentDocument;
+		const t = doc && doc.querySelector('[data-ka-id="' + state.vybrane + '"]');
+		const r = t ? t.getBoundingClientRect() : { left: 0, top: 0 };
+		const at = preview ? canvasPoint(Math.max(0, r.left), Math.max(0, r.top)) : { x: 100, y: 100 };
+		openElementMenu(state.vybrane, { x: at.x + 8, y: at.y + 8 }, false);
+	}
+	/** Structure rows (listeners on the left panel, capture): the menu by right-click and Shift+F10, Alt+arrows move the row's element. */
+	function treeShortcuts(e) {
+		const row = e.target.closest && e.target.closest('.st-uzel[data-id]');
+		if (!row || (e.type !== 'contextmenu' && e.target !== row)) { return; }
+		const id = row.dataset.id;
+		if (e.type === 'contextmenu') {
+			e.preventDefault();
+			if (elementMenu && elementMenu.matches(':popover-open') && elementMenu.dataset.prvek === id) { return; } // opened by Shift+F10 a moment ago
+			const r = row.getBoundingClientRect();
+			openElementMenu(id, e.clientX || e.clientY ? { x: e.clientX, y: e.clientY } : { x: r.left + 24, y: r.bottom }, true);
+			return;
+		}
+		if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
+			e.preventDefault(); e.stopPropagation();
+			const r = row.getBoundingClientRect();
+			openElementMenu(id, { x: r.left + 24, y: r.bottom }, true);
+		} else if (e.altKey && !e.ctrlKey && !e.metaKey && /^Arrow(Up|Down|Left|Right)$/.test(e.key)) {
+			e.preventDefault(); e.stopPropagation(); // not the tree's own arrow keys
+			if (state.vybrane !== id) { selection(id); }
+			nudge(id, e.key);
+			const again = leftContent && leftContent.querySelector('[data-id="' + CSS.escape(id) + '"]');
+			if (again) { again.focus(); }
+		}
+	}
+
+	/**
+	 * U18 (3.21): Alt+↑/↓ moves the element among its siblings (the Up / Down buttons), Alt+← moves it out of its parent (after it),
+	 * Alt+→ into the container just before it. An element moved out of a top-level section gets a section of its own.
+	 */
+	function nudge(id, key) {
+		const n = find(id);
+		if (!n) { return; }
+		if (key === 'ArrowUp' || key === 'ArrowDown') { offset(id, key === 'ArrowUp' ? -1 : 1); return; }
+		const top = n.p.typ === 'sekce' || n.p.typ === 'obsah';
+		if (key === 'ArrowLeft') {
+			if (!n.rodic) { return; }
+			if (find(n.rodic.id).rodic || top) { move(id, n.rodic.id, 'za'); return; }
+			const parentId = n.rodic.id;
+			applyChange(() => { n.pole.splice(n.i, 1); const c = find(parentId); c.pole.splice(c.i + 1, 0, Object.assign(newElement('sekce'), { deti: [n.p] })); });
+			return;
+		}
+		const before = n.pole[n.i - 1];
+		if (top || !before || !TYPY[before.typ] || !TYPY[before.typ].kontejner || !Array.isArray(before.deti)) { setState(T('There is no container just before this element to move it into.')); return; }
+		state.sbalene[before.id] = false;
+		move(id, before.id, 'dovnitr');
+	}
+
+	/** U8 (3.21): the nesting path under the panel header – Section › Grid › Container › Heading; every ancestor selects itself. */
+	function breadcrumb(id) {
+		const chain = [];
+		for (let n = find(id); n; n = n.rodic ? find(n.rodic.id) : null) { chain.unshift(n.p); }
+		if (chain.length < 2) { return null; }
+		const name = (p) => p.popis || (TYPY[p.typ] || { nazev: p.typ }).nazev;
+		// a long chain keeps its ends: the first ancestor, … (shows the rest), the two closest ancestors and the element
+		const folded = chain.length > 4 && state.celaCesta !== id ? chain.slice(1, -3) : []; // unfolded for this element only
+		const items = [];
+		chain.forEach((p, i) => {
+			if (folded.includes(p)) {
+				if (p === folded[0]) { items.push(el('li', {}, el('button', { type: 'button', class: 'st-cesta-vice', title: folded.map(name).join(' › '), 'aria-label': T('Show the whole path'), onclick: () => { state.celaCesta = id; redrawRight(); } }, '…'))); }
+				return;
+			}
+			items.push(el('li', {}, i === chain.length - 1
+				? el('span', { 'aria-current': 'true', title: labelText(p) }, name(p))
+				: el('button', { type: 'button', title: labelText(p), onclick: () => selection(p.id) }, name(p))));
+		});
+		return el('nav', { class: 'st-cesta', 'aria-label': T('Element path') }, el('ol', {}, items));
+	}
+
+	/**
+	 * U16 (3.21): typing in the Content panel shows on the canvas at once; the full re-render after the save comes later, as
+	 * before. Only text goes to the canvas: the value is parsed in an inert document and rebuilt from a short list of tags
+	 * without attributes (paragraphs, line breaks, bold, italic) – anything else (links, lists, collection {{tags}}) waits
+	 * for the re-render from the server.
+	 */
+	const FAST_TEXT = { nadpis: 'text', tlacitko: 'text', text: 'html' };
+	const FAST_TAGS = ['P', 'BR', 'STRONG', 'EM', 'B', 'I', 'U'];
+	function fastCanvasText(p, key, value) {
+		const doc = preview && preview.contentDocument;
+		if (FAST_TEXT[p.typ] !== key || typeof value !== 'string' || value.includes('{{') || state.upravaNaPlatne || !doc) { return; }
+		const node = doc.querySelector('[data-ka-id="' + p.id + '"]');
+		if (!node || node.querySelector('[data-ka-id]')) { return; }
+		if (p.typ === 'tlacitko') {
+			// a button: its text node only (an icon stays); a typed tag is dropped by the server, so it waits for the re-render
+			const textNode = Array.from(node.childNodes).find((x) => x.nodeType === 3);
+			if (textNode && !/[<>]/.test(value)) { textNode.data = value.trim(); }
+			return;
+		}
+		const source = inert.createElement('div');
+		source.innerHTML = value;
+		const copyNodes = (from, to) => Array.from(from.childNodes).every((x) => {
+			if (x.nodeType === 3) { to.append(doc.createTextNode(x.data)); return true; }
+			if (x.nodeType !== 1 || !FAST_TAGS.includes(x.tagName) || x.attributes.length) { return false; }
+			const copied = doc.createElement(x.tagName.toLowerCase());
+			to.append(copied);
+			return copyNodes(x, copied);
+		});
+		const result = doc.createDocumentFragment();
+		if (copyNodes(source, result)) { node.replaceChildren(result); markInPreview(false); }
+	}
+
 	/* ---------- keys ---------- */
 
 	function keys(e) {
@@ -956,6 +1160,8 @@
 		else if (mod && e.key.toLowerCase() === 'c' && state.vybrane) { copy(); }
 		else if (mod && e.key.toLowerCase() === 'v') { clearTimeout(state.vlozeni); state.vlozeni = setTimeout(pasteFromClipboard, 250); } // the paste event (onPaste) comes first when the system clipboard has text
 		else if ((e.key === 'Delete' || e.key === 'Backspace') && state.vybrane) { e.preventDefault(); remove(state.vybrane); }
+		else if ((e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) && state.vybrane) { e.preventDefault(); selectedMenu(); }
+		else if (e.altKey && !mod && /^Arrow(Up|Down|Left|Right)$/.test(e.key) && state.vybrane) { e.preventDefault(); nudge(state.vybrane, e.key); }
 		else if (e.key === '?' && !mod) { e.preventDefault(); hint(); }
 		else if (e.key === 'Escape' && state.umistovani) { const doc = preview && preview.contentDocument; if (doc) { showSpot(doc, null); } endPlacing(); }
 		else if (e.key === 'Escape' && state.vybrane) { const n = find(state.vybrane); selection(n && n.rodic ? n.rodic.id : null); }
@@ -1110,6 +1316,9 @@
 		const shortcuts = [[mod + '+S', T('Save draft')], [mod + '+Z / ' + mod + '+Shift+Z', T('Undo / redo')], [mod + '+D', T('Duplicate the selected element')],
 			[mod + '+C / ' + mod + '+V', T('Copy and paste an element (also between pages and Kaleta sites)')], ['Delete', T('Delete the selected element')], ['Esc', T('Select the parent element / cancel moving')],
 			[T('double-click'), T('Edit text right on the canvas')], ['↑ ↓ ← →', T('Move within Structure')], ['?', T('This help')]];
+		const alt = mod === '⌘' ? '⌥' : 'Alt'; // 3.21 (U8, U18): the element menu and moving by keyboard
+		shortcuts.splice(-1, 0, [alt + '+↑ / ' + alt + '+↓', T('Move the selected element up or down')], [alt + '+← / ' + alt + '+→', T('Move the element out of its parent / into the container before it')],
+			['Shift+F10', T('Element menu (also right-click on the canvas or in Structure)')]);
 		const d = el('dialog', { class: 'st-dialog' },
 			el('div', {}, el('h2', {}, T('Keyboard shortcuts')),
 				el('dl', { class: 'st-zkratky' }, shortcuts.flatMap(([k, t]) => [el('dt', {}, el('kbd', {}, k)), el('dd', {}, t)]))),
@@ -1564,7 +1773,9 @@
 				el('button', { type: 'button', title: T('Duplicate (Ctrl+D)'), onclick: () => duplicate(p.id) }, icon('kopie')),
 				moreButton, offer,
 				el('button', { type: 'button', class: 'nebezpecne', title: T('Delete (Delete)'), onclick: () => remove(p.id) }, icon('smazat')))),
-			componentLink,
+			breadcrumb(p.id) || '',
+			componentLink || '', // replaceChildren() writes a null as the text "null" (shown since 3.20 under every non-component header)
+
 			el('div', { class: 'st-zalozky', role: 'tablist' }, tabItem('obsah', T('Content')), tabItem('styl', T('Styl')), tabItem('pokrocile', T('Pokročilé'))),
 			panel,
 		);
@@ -1734,7 +1945,7 @@
 		properties.forEach(([key, def]) => {
 			const fieldDef = listCollection && key in COLLECTION_FIELD_KEYS ? collectionFieldChoice(def, listCollection, COLLECTION_FIELD_KEYS[key], p.obsah[key]) : def;
 			const control = field(fieldDef, p.obsah[key], (h) => {
-				if (JSON.stringify(p.obsah[key]) !== JSON.stringify(h)) { applyChange(() => { p.obsah[key] = h; }, 'obsah:' + p.id + ':' + key); }
+				if (JSON.stringify(p.obsah[key]) !== JSON.stringify(h)) { applyChange(() => { p.obsah[key] = h; }, 'obsah:' + p.id + ':' + key); fastCanvasText(p, key, h); }
 				if (p.typ === 'kolekce' && key === 'kolekce') { redrawRight(); } // the field choices follow the collection
 			}, { chyba: state.chyby[state.cestaVybraneho + '.obsah.' + key], prvek: p, klic: key });
 			control.dataset.pole = key; // typing on the canvas updates this field (syncInspector)
@@ -1769,6 +1980,19 @@
 				title: z === 'p' ? T('Not a heading – a highlighted line outside the outline') : null, onclick: () => { if (p.znacka !== z) { applyChange(() => { p.znacka = z; }); } } }, names[z] || z.toUpperCase()))));
 	}
 
+	/**
+	 * A date-and-time field (typ termin, 3.21 U24): the browser's picker instead of a typed "YYYY-MM-DD HH:MM". The picker works
+	 * with "YYYY-MM-DDTHH:MM"; the build keeps the stored form with a space, so pages saved before the picker are valid as they are.
+	 */
+	function dateTimeField(value, change) {
+		const stored = String(value || '').trim();
+		const local = /^\d{4}-\d{2}-\d{2}$/.test(stored) ? stored + 'T00:00' : stored.replace(' ', 'T');
+		return el('input', { type: 'datetime-local', value: /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(local) ? local : '', oninput: (e) => {
+			if (e.target.value === '' && e.target.validity.badInput) { return; } // a half-typed date: the stored value waits until the picker has a whole one
+			change(e.target.value.replace('T', ' '));
+		} });
+	}
+
 	/** A control for a content field according to the type from the schema. */
 	function field(def, value, change, options) {
 		const description = T(def.popisek || '');
@@ -1784,6 +2008,9 @@
 				break;
 			case 'cislo':
 				inputEl = el('input', { type: 'number', min: def.min ?? 0, max: def.max ?? 100, value: value, oninput: (e) => change(parseInt(e.target.value, 10) || 0) });
+				break;
+			case 'termin':
+				inputEl = dateTimeField(value, change);
 				break;
 			case 'radky': case 'kod':
 				inputEl = el('textarea', { rows: def.typ === 'kod' ? 8 : 5, dir: def.typ === 'radky' ? contentDir : null, oninput: (e) => change(e.target.value) });
@@ -2350,6 +2577,7 @@
 	refreshPreview();
 	document.addEventListener('keydown', keys);
 	document.addEventListener('paste', onPaste);
+	left.addEventListener('keydown', treeShortcuts, true); left.addEventListener('contextmenu', treeShortcuts); // 3.21 (U8, U18)
 	// no tour on a phone: there the builder shows only "needs a bigger screen" instead of itself (stavitel.css, same width);
 	// it is not marked as seen, so it starts on the first opening on a desktop or tablet
 	const narrow = window.matchMedia('(max-width: 719px)').matches;

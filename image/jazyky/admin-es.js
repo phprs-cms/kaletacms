@@ -2998,5 +2998,16 @@ window.KALETA_PREKLAD = {
 	"Custom font size": "Tamaño de letra personalizado",
 	"Not a valid size. Use a number with a unit (18px, 1.25rem, 120%) or pick a step.": "Tamaño no válido. Escriba un número con unidad (18px, 1.25rem, 120 %) o elija un paso.",
 	"The HTML tag of a heading is its Level in the Content tab.": "La etiqueta HTML de un encabezado la determina el Nivel en la pestaña Contenido.",
-	"Normal": "Normal"
+	"Normal": "Normal",
+	"Until": "Hasta",
+	"Delete": "Eliminar",
+	"Paste": "Pegar",
+	"Select parent element": "Seleccionar el elemento padre",
+	"Element actions": "Acciones del elemento",
+	"Element path": "Ruta del elemento",
+	"Show the whole path": "Mostrar la ruta completa",
+	"There is no container just before this element to move it into.": "No hay ningún contenedor justo antes de este elemento al que moverlo.",
+	"Move the selected element up or down": "Mover el elemento seleccionado arriba o abajo",
+	"Move the element out of its parent / into the container before it": "Sacar el elemento de su padre / meterlo en el contenedor anterior",
+	"Element menu (also right-click on the canvas or in Structure)": "Menú del elemento (también con clic derecho en el lienzo o en Estructura)"
 };

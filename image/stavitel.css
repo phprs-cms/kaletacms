@@ -282,3 +282,22 @@ body.st-umistovani .st-uzel { cursor: copy; }
 .st-viditelnost .st-skupina .st-ikona { width: 14px; height: 14px; }
 .st-uzel-zarizeni { display: inline-flex; flex: none; gap: 1px; color: var(--text-slaby); }
 .st-uzel-zarizeni .st-ikona { width: 12px; height: 12px; }
+/* 3.21 (U8): the element menu (right-click, Shift+F10) – the "More actions" menu look; it lives on <body>, outside .st */
+.st-kontext { min-width: 230px; }
+.st-kontext button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 10px; border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.st-kontext button:hover:not([aria-disabled]), .st-kontext button:focus-visible { background: var(--podklad); outline: none; }
+.st-kontext button:focus-visible { box-shadow: inset 0 0 0 2px var(--akcent); }
+.st-kontext button[aria-disabled] { opacity: .45; cursor: default; }
+.st-kontext button span { flex: 1; }
+.st-kontext kbd { color: var(--text-slaby); font: 11px/1 ui-monospace, monospace; }
+/* 3.21 (U8): the nesting path under the panel header – one line, long names shortened, the element itself not a link */
+.st-cesta { padding: 6px 12px; border-bottom: 1px solid var(--linka); font-size: 12px; }
+.st-cesta ol { display: flex; align-items: center; min-width: 0; margin: 0; padding: 0; list-style: none; }
+.st-cesta li { display: flex; align-items: center; flex: 0 1 auto; min-width: 0; }
+.st-cesta li + li::before { content: '›'; flex: none; padding: 0 5px; color: var(--text-slaby); }
+.st-cesta button, .st-cesta span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-cesta button { max-width: 9em; padding: 2px 3px; border: 0; border-radius: 4px; background: none; color: var(--akcent-tmavy); cursor: pointer; }
+.st-cesta button:hover { background: var(--podklad); text-decoration: underline; }
+.st-cesta .st-cesta-vice { flex: none; max-width: none; }
+.st-cesta li:last-child { flex-shrink: 0; max-width: 45%; }
+.st-cesta span { font-weight: 600; }

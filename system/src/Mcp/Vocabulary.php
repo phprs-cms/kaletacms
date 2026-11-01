@@ -140,7 +140,7 @@ final class Vocabulary
     private const array COLOR_PROPERTIES = ['barva', 'pozadi', 'prekryv', 'barva_ramecku'];
 
     public const array FIELD_TYPES = ['text' => 'text', 'inline' => 'inline_text', 'html' => 'html', 'odkaz' => 'link', 'obrazek' => 'image', 'prepinac' => 'boolean',
-        'vyber' => 'choice', 'cislo' => 'number', 'radky' => 'lines', 'polozky' => 'items', 'hodnoty' => 'values', 'kod' => 'code', 'textarea' => 'long_text'];
+        'vyber' => 'choice', 'cislo' => 'number', 'radky' => 'lines', 'polozky' => 'items', 'hodnoty' => 'values', 'kod' => 'code', 'textarea' => 'long_text', 'termin' => 'datetime'];
 
     public const array STYLE_TYPES = ['mezera' => 'space', 'delka' => 'length', 'barva' => 'color', 'krok' => 'step', 'zaobleni' => 'radius', 'stin' => 'shadow',
         'ramecek' => 'border', 'vyber' => 'choice', 'cislo' => 'number', 'obrazek' => 'image', 'sloupce' => 'columns', 'radky' => 'rows', 'oblasti' => 'areas',

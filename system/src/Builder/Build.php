@@ -293,6 +293,7 @@ final class Build
                 'vyber' => is_scalar($value) && isset($def['moznosti'][(string) $value]) ? (string) $value : (string) $def['vychozi'],
                 'cislo' => is_numeric($value) ? max((int) ($def['min'] ?? 0), min((int) ($def['max'] ?? 100), (int) $value)) : (int) $def['vychozi'],
                 'prepinac' => (bool) $value,
+                'termin' => self::dateTime(is_scalar($value) ? (string) $value : ''),
                 // component property values: only key => text; they are checked by the property type when rendering
                 'hodnoty' => array_slice(array_filter(
                     array_map(fn (mixed $v): ?string => is_scalar($v) ? mb_substr((string) $v, 0, 20000) : null, is_array($value) ? $value : []),
@@ -312,6 +313,17 @@ final class Build
         }
 
         return $clean;
+    }
+
+    /**
+     * A date-and-time field (typ termin, 3.21 U24): stored as "YYYY-MM-DD HH:MM" or a whole day "YYYY-MM-DD" – the format pages
+     * held before the picker. The picker's "YYYY-MM-DDTHH:MM" is taken too; anything else leaves the field empty.
+     */
+    public static function dateTime(string $value): string
+    {
+        $value = str_replace('T', ' ', trim($value));
+
+        return preg_match('/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2})?$/D', $value) === 1 ? $value : '';
     }
 
     /**

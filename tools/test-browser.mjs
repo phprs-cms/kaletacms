@@ -703,6 +703,147 @@ await step('builder: element tree and search', async () => {
   if (await tree.count()) { await tree.click(); await page.keyboard.press('ArrowDown'); await page.keyboard.press('ArrowUp'); }
 });
 
+// 3.21 (U8, U16, U18, U24): the builder for people who are not designers – the element menu, the nesting path, moving by
+// keyboard, instant canvas text and the Countdown date picker. The canvas is the live iframe (never the one still loading).
+const liveCanvas = () => page.frameLocator('.st-platno iframe:not(.st-nacita)').first();
+// the draft is saved and the canvas redrawn: nothing queued, nothing loading
+const builderIdle = async () => {
+  await page.waitForFunction(() => {
+    const status = ((document.querySelector('.st-stav') || {}).textContent || '').trim();
+    return !document.querySelector('.st-platno iframe.st-nacita') && (status === '' || /^(Draft saved|Saved, but with warnings|Published|Draft in progress)/.test(status));
+  }, null, { timeout: 20000 });
+  await page.waitForTimeout(200);
+};
+const menuOpen = () => page.evaluate(() => !!document.querySelector('#st-kontext:popover-open'));
+
+await step('3.21 (U8) the element menu by right-click and Shift+F10, and the nesting path under the panel header', async () => {
+  await visit('/admin.php?module=pages&action=builder&id=1');
+  await liveCanvas().locator('h1').first().waitFor();
+  await builderIdle();
+  const elements = () => liveCanvas().locator('[data-ka-id]').count();
+  await liveCanvas().locator('h1').first().click({ button: 'right' });
+  const menu = page.locator('#st-kontext[role="menu"]');
+  await menu.waitFor();
+  const items = await menu.locator('[role="menuitem"]').evaluateAll((list) => list.map((b) => b.querySelector('span').textContent + (b.getAttribute('aria-disabled') ? ' (disabled)' : '')));
+  const names = items.map((t) => t.replace(' (disabled)', ''));
+  if (JSON.stringify(names) !== JSON.stringify(['Duplicate', 'Delete', 'Copy', 'Paste', 'Copy style', 'Paste style', 'Save as component', 'Select parent element'])) { throw new Error(`the element menu offers ${JSON.stringify(items)}`); }
+  if (items[7].includes('disabled')) { throw new Error('Select parent element is disabled on a nested heading'); }
+  if ((await page.evaluate(() => document.activeElement && document.activeElement.getAttribute('role'))) !== 'menuitem') { throw new Error('the menu does not take the focus'); }
+  await page.keyboard.press('ArrowDown');
+  if ((await page.evaluate(() => document.activeElement.textContent)) !== 'DeleteDelete') { throw new Error('ArrowDown does not move to the second item'); }
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/321-element-menu.png` }); }
+  await page.keyboard.press('Escape');
+  if (await menuOpen()) { throw new Error('Escape does not close the element menu'); }
+  // Duplicate adds an element (then Ctrl+Z takes it back)
+  const before = await elements();
+  await liveCanvas().locator('h1').first().click({ button: 'right' });
+  await menu.locator('[role="menuitem"]', { hasText: 'Duplicate' }).click();
+  await page.waitForFunction((n) => { const f = document.querySelector('.st-platno iframe:not(.st-nacita)'); return f && f.contentDocument && f.contentDocument.querySelectorAll('[data-ka-id]').length > n; }, before, { timeout: 15000 });
+  if (await menuOpen()) { throw new Error('the menu stays open after Duplicate'); }
+  await builderIdle();
+  await page.locator('body').press('ControlOrMeta+z');
+  await page.waitForFunction((n) => { const f = document.querySelector('.st-platno iframe:not(.st-nacita)'); return f && f.contentDocument && f.contentDocument.querySelectorAll('[data-ka-id]').length === n; }, before, { timeout: 15000 });
+  await builderIdle();
+  // a click outside closes it
+  await liveCanvas().locator('h1').first().click({ button: 'right' });
+  await menu.waitFor();
+  await page.locator('.st-pravy').click({ position: { x: 10, y: 300 } });
+  if (await menuOpen()) { throw new Error('a click outside does not close the element menu'); }
+  // the nesting path: every ancestor a button that selects it, the element itself plain text
+  await liveCanvas().locator('h1').first().click();
+  const path = page.locator('.st-pravy nav.st-cesta');
+  await path.waitFor();
+  const crumbs = await path.locator('li > *').evaluateAll((list) => list.map((x) => x.tagName + ':' + x.textContent));
+  if (crumbs.length < 2 || !crumbs[crumbs.length - 1].startsWith('SPAN:Heading') || !crumbs.slice(0, -1).every((c) => c.startsWith('BUTTON:'))) { throw new Error(`the nesting path is ${JSON.stringify(crumbs)}`); }
+  const wide = await page.locator('.st-pravy').evaluate((p) => p.scrollWidth - p.clientWidth);
+  if (wide > 1) { throw new Error(`the nesting path widens the panel by ${wide} px`); }
+  if (SHOTS) { await page.locator('.st-pravy').screenshot({ path: `${SHOTS}/321-nesting-path.png` }); }
+  await path.locator('li > button').first().click();
+  if ((await page.locator('.st-hlava-prvku strong').textContent()).trim() !== 'Section') { throw new Error('the first crumb does not select the section'); }
+  if (await page.locator('.st-pravy nav.st-cesta').count()) { throw new Error('a top-level section shows a nesting path'); }
+  if (await page.locator('.st-pravy').evaluate((p) => Array.from(p.childNodes).some((n) => n.nodeType === 3 && n.textContent.trim() === 'null'))) { throw new Error('the panel shows the text "null"'); }
+  // Structure: Shift+F10 on a focused row opens the menu, Escape gives the focus back to the row; right-click on a row too
+  await page.locator('.st-levy .st-zalozky [role="tab"]', { hasText: 'Structure' }).click();
+  const row = page.locator('.st-strom [role="treeitem"]').nth(1);
+  await row.focus();
+  await page.keyboard.press('Shift+F10');
+  await menu.waitFor();
+  if (!(await menuOpen())) { throw new Error('Shift+F10 on a Structure row opens no menu'); }
+  await page.keyboard.press('Escape');
+  if ((await page.evaluate(() => document.activeElement && document.activeElement.getAttribute('role'))) !== 'treeitem') { throw new Error('Escape does not give the focus back to the Structure row'); }
+  await row.click({ button: 'right' });
+  if (!(await menuOpen())) { throw new Error('right-click on a Structure row opens no menu'); }
+  await page.keyboard.press('Escape');
+  await page.locator('.st-levy .st-zalozky [role="tab"]').first().click();
+});
+
+await step('3.21 (U16, U18) Alt+arrows move the element, typing in Content reaches the canvas within 150 ms', async () => {
+  await builderIdle();
+  // a leaf element with a next sibling: Alt+ArrowDown puts it after that sibling, Alt+ArrowUp back
+  const id = await liveCanvas().locator('body').evaluate((b) => {
+    const leaf = Array.from(b.querySelectorAll('[data-ka-id]:not([data-ka-zamek])')).find((x) => !x.querySelector('[data-ka-id]') && x.nextElementSibling && x.nextElementSibling.hasAttribute('data-ka-id') && x.getBoundingClientRect().height > 8);
+    return leaf ? leaf.getAttribute('data-ka-id') : '';
+  });
+  if (!id) { throw new Error('no element with a next sibling on the canvas'); }
+  const position = () => page.evaluate((i) => {
+    const f = document.querySelector('.st-platno iframe:not(.st-nacita)');
+    const x = f && f.contentDocument.querySelector(`[data-ka-id="${i}"]`);
+    return x ? Array.from(x.parentElement.children).filter((c) => c.hasAttribute('data-ka-id')).indexOf(x) : -1;
+  }, id);
+  const start = await position();
+  await liveCanvas().locator(`[data-ka-id="${id}"]`).click({ position: { x: 4, y: 4 } });
+  await page.keyboard.press('Alt+ArrowDown');
+  await page.waitForFunction(([i, p]) => { const f = document.querySelector('.st-platno iframe:not(.st-nacita)'); const x = f && f.contentDocument.querySelector(`[data-ka-id="${i}"]`); return x && Array.from(x.parentElement.children).filter((c) => c.hasAttribute('data-ka-id')).indexOf(x) === p + 1; }, [id, start], { timeout: 15000 });
+  await builderIdle();
+  await liveCanvas().locator(`[data-ka-id="${id}"]`).click({ position: { x: 4, y: 4 } }); // the canvas was redrawn: the keys go to the new one
+  await page.keyboard.press('Alt+ArrowUp');
+  await page.waitForFunction(([i, p]) => { const f = document.querySelector('.st-platno iframe:not(.st-nacita)'); const x = f && f.contentDocument.querySelector(`[data-ka-id="${i}"]`); return x && Array.from(x.parentElement.children).filter((c) => c.hasAttribute('data-ka-id')).indexOf(x) === p; }, [id, start], { timeout: 15000 });
+  await builderIdle();
+  const help = async () => { await page.locator('body').press('?'); const d = page.locator('dialog[open] .st-zkratky'); await d.waitFor(); const t = await d.textContent(); await page.keyboard.press('Escape'); return t; };
+  const shortcuts = await help();
+  if (!/Alt\+↑ \/ Alt\+↓|⌥\+↑/.test(shortcuts) || !shortcuts.includes('Shift+F10')) { throw new Error('the keyboard shortcuts do not list Alt+arrows and Shift+F10'); }
+  // U16: the audit measured 836 ms from a key to the canvas (the redraw after the save); the text is on the canvas at once now
+  await liveCanvas().locator('h1').first().click();
+  await page.getByRole('tab', { name: 'Content' }).first().click();
+  const input = page.locator('.st-panel [data-pole="text"] input').first();
+  await input.click();
+  await input.press('End');
+  const h1 = await liveCanvas().locator('h1').first().getAttribute('data-ka-id');
+  await page.evaluate(() => { window.u16Start = performance.now(); });
+  await page.keyboard.type('Q');
+  const ms = await page.waitForFunction((i) => {
+    const f = document.querySelector('.st-platno iframe:not(.st-nacita)');
+    const x = f && f.contentDocument.querySelector(`[data-ka-id="${i}"]`);
+    return x && x.textContent.endsWith('Q') ? performance.now() - window.u16Start : false;
+  }, h1, { polling: 'raf', timeout: 5000 }).then((r) => r.jsonValue());
+  console.log(`         U16: keystroke to canvas ${Math.round(ms)} ms`);
+  if (ms > 150) { throw new Error(`typing reached the canvas after ${Math.round(ms)} ms`); }
+  await page.keyboard.press('Backspace');
+  await builderIdle();
+});
+
+await step('3.21 (U24) the Countdown has a date-and-time picker and saves "YYYY-MM-DD HH:MM"', async () => {
+  await page.locator('.st-levy .st-zalozky [role="tab"]').first().click();
+  await page.locator('.st-prvky button', { hasText: /^Countdown$/ }).first().click();
+  const picker = page.locator('.st-panel input[type="datetime-local"]');
+  await picker.waitFor();
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(await picker.inputValue())) { throw new Error(`the new Countdown shows "${await picker.inputValue()}"`); }
+  if (SHOTS) { await page.locator('.st-pravy').screenshot({ path: `${SHOTS}/321-countdown-picker.png` }); }
+  await picker.fill('2031-05-06T07:08');
+  await builderIdle();
+  const draft = sql('SELECT stavba_koncept FROM ka_stranky WHERE ids = 1');
+  if (!draft.includes('"cil":"2031-05-06 07:08"')) { throw new Error('the draft does not keep the date as "YYYY-MM-DD HH:MM"'); }
+  // the picker shows the stored value after a reload, then the Countdown goes again
+  await visit('/admin.php?module=pages&action=builder&id=1');
+  await liveCanvas().locator('.ka-odpocet').first().waitFor();
+  await builderIdle();
+  await liveCanvas().locator('.ka-odpocet').first().click({ position: { x: 4, y: 4 } });
+  if ((await picker.inputValue()) !== '2031-05-06T07:08') { throw new Error(`after a reload the picker shows "${await picker.inputValue()}"`); }
+  await page.locator('body').press('Delete');
+  await liveCanvas().locator('.ka-odpocet').waitFor({ state: 'detached', timeout: 15000 });
+  await builderIdle();
+});
+
 await step('3.12 UX310-18: the Form inspector – a row per field, a contact form edited without the condition fields, a condition by keyboard', async () => {
   const selectForm = async () => {
     await visit('/admin.php?module=pages&action=builder&id=4'); // Contact of the Business starter: an enquiry form
