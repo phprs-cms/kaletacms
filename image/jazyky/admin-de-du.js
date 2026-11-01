@@ -409,5 +409,6 @@ Object.assign(window.KALETA_PREKLAD, {
 	"No comments yet. Share a preview link with comments allowed.": "Noch keine Kommentare. Teile einen Vorschau-Link mit erlaubten Kommentaren.",
 	"Hidden until you publish – then it goes on the site": "Verborgen, bis du veröffentlichst – dann erscheint sie auf der Website",
 	"Open the published page – the draft preview is under ⋯ → Share": "Veröffentlichte Seite öffnen – die Entwurfsvorschau findest du unter ⋯ → Teilen",
-	"Only in the editor: on the website this element is left out on this device. Click to select it.": "Nur im Editor: Auf der Website wird dieses Element auf diesem Gerät weggelassen. Klicke, um es auszuwählen."
+	"Only in the editor: on the website this element is left out on this device. Click to select it.": "Nur im Editor: Auf der Website wird dieses Element auf diesem Gerät weggelassen. Klicke, um es auszuwählen.",
+	"Not a valid size. Use a number with a unit (18px, 1.25rem, 120%) or pick a step.": "Keine gültige Größe. Gib eine Zahl mit Einheit ein (18px, 1.25rem, 120 %) oder wähle eine Stufe."
 });
