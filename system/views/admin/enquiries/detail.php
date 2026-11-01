@@ -11,6 +11,10 @@
  * @var array<int, string> $users
  * @var array{form: string, kind: string, title: string, builder: string, settings: ?string}|null $origin the form and what carries it, with admin links (3.20, C2)
  * @var array<string, mixed>|null $referencesCollection the References collection the testimonials land in; null = none yet (3.20, C16)
+ * @var list<array<string, mixed>> $replies replies sent from the enquiry with their delivery state (3.22, C10, Core\EnquiryReply::history)
+ * @var string|null $replyBlocked why the site cannot send a reply (no SMTP, no sender); null = it can
+ * @var string $replyTo the signed-in user's e-mail – the Reply-To of a reply
+ * @var array{subject: string, text: string}|null $replyDraft what a refused reply carried, shown again
  */
 use Kaleta\Admin\Modules\Enquiries;
 
@@ -50,6 +54,43 @@ $pageLink = Kaleta\Front\Forms::isSafePage((string) $p['stranka']);
 	<dt><?= e($labelText) ?></dt><dd><?= $value === '' ? '<span class="napoveda">—</span>' : (isset($d[2]) ? '<a href="' . e($module->url('attachment', ['id' => (int) $p['idp'], 'field' => $i])) . '">' . e($value) . '</a>' : nl2br(e($value))) ?></dd>
 <?php endforeach ?>
 </dl>
+<?php
+// 3.22 (C10): the reply goes from the site to the enquiry's own address; the history keeps who answered, when and what
+$canReply = $p['email'] !== '' && ($p['anonymizovano'] ?? null) === null;
+$mailto = 'mailto:' . e($p['email']) . '?subject=' . e(rawurlencode(Kaleta\Core\EnquiryReply::subject($p))) . (($p['navrh_odpovedi'] ?? '') !== '' ? '&amp;body=' . e(rawurlencode((string) $p['navrh_odpovedi'])) : '');
+$statusText = ['sent' => 'E-mail sent', 'queued' => 'Waiting in the mail queue', 'failed' => 'Not delivered'];
+?>
+<h2 id="reply"><?= e(t('Reply')) ?></h2>
+<?php if ($replies !== []): ?>
+<ol class="odpovedi" data-replies>
+<?php foreach ($replies as $reply): ?>
+	<li><p><strong><?= e(t('Replied by %s on %s', $reply['by'] !== '' ? $reply['by'] : '—', format_date((string) $reply['at'], true))) ?></strong><?= $reply['via'] === 'mcp' ? ' · ' . e(t('through Claude')) : '' ?>
+		· <span class="stitek stitek-<?= $reply['status'] === 'sent' ? 'vydano' : ($reply['status'] === 'queued' ? 'koncept' : 'chyba') ?>" data-reply-status="<?= e($reply['status']) ?>"><?= e(t($statusText[$reply['status']])) ?></span><?php if ($reply['error'] !== '' && $reply['status'] !== 'sent'): ?> <span class="napoveda"><?= e($reply['error']) ?></span><?php endif ?></p>
+<?php if ($reply['text'] !== ''): ?>
+		<details><summary><?= e($reply['subject']) ?><?= $reply['to'] !== '' ? ' → ' . e($reply['to']) : '' ?></summary><div class="odpoved-text"><?= nl2br(e($reply['text'])) ?></div></details>
+<?php endif ?>
+	</li>
+<?php endforeach ?>
+</ol>
+<?php endif ?>
+<?php if (!$canReply): ?>
+<p class="napoveda" data-reply-none><?= e(t('This enquiry has no e-mail address to reply to – reply by phone or another way, and note it in the internal note.')) ?></p>
+<?php elseif ($replyBlocked !== null): ?>
+<p class="hlaska hlaska-info" data-reply-blocked><?= e(t($replyBlocked)) ?><?php if ($app->auth()->isAdmin()): ?> <a href="<?= e($app->url('admin.php?module=settings&tab=mail')) ?>"><?= e(t('Set up the mail')) ?></a><?php endif ?></p>
+<p class="tlacitka"><a class="tl" href="<?= $mailto ?>"><?= e(t(($p['navrh_odpovedi'] ?? '') !== '' ? 'Reply by email with the draft' : 'Reply by email')) ?></a></p>
+<?php else: ?>
+<form method="post" action="<?= e($module->url('reply')) ?>" data-reply-form data-potvrdit="<?= e(t('Send this reply to %s now? It goes out as a real e-mail and cannot be taken back.', (string) $p['email'])) ?>">
+	<?= $csrf ?><input type="hidden" name="id" value="<?= (int) $p['idp'] ?>">
+	<div class="radek"><span class="popisek"><?= e(t('Recipient')) ?></span><div><strong><?= e($p['email']) ?></strong></div></div>
+	<div class="radek"><label for="odpoved-predmet"><?= e(t('Subject')) ?></label><div><input class="textpole siroke" type="text" id="odpoved-predmet" name="subject" maxlength="<?= Kaleta\Core\EnquiryReply::MAX_SUBJECT ?>" value="<?= e($replyDraft['subject'] ?? Kaleta\Core\EnquiryReply::subject($p)) ?>" required></div></div>
+	<div class="radek"><label for="odpoved-text"><?= e(t('Reply')) ?></label><div><textarea class="textbox" id="odpoved-text" name="text" rows="8" maxlength="<?= Kaleta\Core\EnquiryReply::MAX_TEXT ?>" required><?= e($replyDraft['text'] ?? ($replies === [] ? (string) ($p['navrh_odpovedi'] ?? '') : '')) ?></textarea>
+		<span class="napoveda"><?= e($replyTo !== ''
+		    ? t('Sent from the site’s address; when the customer answers, it comes to you (%s). Your e-mail signature from My account is added below the text.', $replyTo)
+		    : t('Sent from the site’s address. Your account has no e-mail, so the customer’s answer goes to the site’s reply address – add yours in My account.')) ?></span></div></div>
+	<div class="radek"><span></span><div><label><input type="checkbox" name="keep_open" value="1"> <?= e(t('Keep the enquiry open (otherwise it is marked resolved)')) ?></label></div></div>
+	<p class="tlacitka"><button class="tl" type="submit"><?= e(t('Send reply')) ?></button> <a class="navigace" href="<?= $mailto ?>"><?= e(t('Reply from your own mail program')) ?></a></p>
+</form>
+<?php endif ?>
 <h2><?= e(t('Triage')) ?></h2>
 <form method="post" action="<?= e($module->url('triage')) ?>">
 	<?= $csrf ?><input type="hidden" name="id" value="<?= (int) $p['idp'] ?>">
@@ -65,7 +106,7 @@ $pageLink = Kaleta\Front\Forms::isSafePage((string) $p['stranka']);
 <?php endforeach ?>
 	</select></div></div>
 	<div class="radek"><label for="navrh-odpovedi"><?= e(t('Drafted reply')) ?></label><div><textarea class="textbox nizky" id="navrh-odpovedi" name="navrh_odpovedi" rows="5"><?= e((string) ($p['navrh_odpovedi'] ?? '')) ?></textarea>
-		<span class="napoveda"><?= e(t('Never sent by itself – check it, then reply by e-mail.')) ?></span></div></div>
+		<span class="napoveda"><?= e(t('Never sent by itself – check it, then send it under Reply.')) ?></span></div></div>
 	<p class="tlacitka"><button class="navigace" type="submit"><?= e(t('Save triage')) ?></button><?php if ($p['kategorie'] !== 'spam'): ?> <button class="navigace" type="submit" name="kategorie" value="spam"><?= e(t('Mark as spam')) ?></button><?php endif ?></p>
 </form>
 <form method="post" action="<?= e($module->url('note')) ?>">
@@ -99,9 +140,6 @@ $pageLink = Kaleta\Front\Forms::isSafePage((string) $p['stranka']);
 <?php endif ?>
 <?php endif ?>
 <div class="tlacitka">
-<?php if ($p['email'] !== ''): ?>
-	<a class="tl" href="mailto:<?= e($p['email']) ?>?subject=<?= e(rawurlencode('Re: ' . $p['formular'])) ?><?= ($p['navrh_odpovedi'] ?? '') !== '' ? '&amp;body=' . e(rawurlencode((string) $p['navrh_odpovedi'])) : '' ?>"><?= e(t(($p['navrh_odpovedi'] ?? '') !== '' ? 'Reply by email with the draft' : 'Reply by email')) ?></a>
-<?php endif ?>
 	<form class="vradku" method="post" action="<?= e($module->url('status')) ?>"><?= $csrf ?><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><input type="hidden" name="stav" value="<?= (int) $p['stav'] === 2 ? 1 : 2 ?>"><button class="tl<?= (int) $p['stav'] === 2 ? ' tl-vedlejsi' : '' ?>" type="submit"><?= e(t((int) $p['stav'] === 2 ? 'Reopen' : 'Označit jako vyřízenou')) ?></button></form>
 <?php if (($p['anonymizovano'] ?? null) === null): ?>
 	<form class="vradku" method="post" action="<?= e($module->url('anonymise')) ?>" data-potvrdit="<?= e(t('Blank the name, e-mail, phone, message and attachments of this enquiry? The row stays for statistics.')) ?>"><?= $csrf ?><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><button class="navigace" type="submit"><?= e(t('Anonymise')) ?></button></form>

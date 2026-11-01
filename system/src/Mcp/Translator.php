@@ -220,6 +220,7 @@ final class Translator
         'update_enquiry' => ['update_enquiry', '', []],
         'triage_enquiries' => ['triage_enquiries', '', []],
         'request_testimonial' => ['request_testimonial', '', []],
+        'reply_to_enquiry' => ['reply_to_enquiry', '', []],
         'find_personal_data' => ['find_personal_data', '', []],
         'list_agent_sessions' => ['list_agent_sessions', '', []],
         'undo_agent_session' => ['undo_agent_session', '', []],

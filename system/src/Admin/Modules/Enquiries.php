@@ -100,7 +100,49 @@ final class Enquiries extends Module
             'referencesCollection' => \Kaleta\Core\Testimonials::collection($this->db),
             // 3.20 (C2): the form and the page the enquiry came from, as links into the builder and the page settings
             'origin' => \Kaleta\Admin\EnquiryOrigin::resolve($this->app, $p),
+            // 3.22 (C10): the replies sent from here, and whether the site can send one (SMTP)
+            'replies' => \Kaleta\Core\EnquiryReply::history($this->db, $p),
+            'replyBlocked' => \Kaleta\Core\EnquiryReply::unavailable($this->app->settings()),
+            'replyTo' => (string) ($this->app->auth()->user()['email'] ?? ''),
+            'replyDraft' => $this->takeReplyDraft((int) $p['idp']),
             'users' => $this->listAssignees((int) $p['prirazeno'])]);
+    }
+
+    /** What a refused reply carried (the form shows it again once), for this enquiry only. @return array{subject: string, text: string}|null */
+    private function takeReplyDraft(int $id): ?array
+    {
+        $draft = $this->app->session->get('enquiry_reply_draft');
+        if (!is_array($draft)) {
+            return null;
+        }
+        $this->app->session->remove('enquiry_reply_draft');
+
+        return (int) ($draft['id'] ?? 0) === $id ? ['subject' => (string) ($draft['subject'] ?? ''), 'text' => (string) ($draft['text'] ?? '')] : null;
+    }
+
+    /**
+     * Sends a reply to the enquiry's e-mail address (3.22, C10, Core\EnquiryReply) as the signed-in user: the site's sender,
+     * Reply-To = the user's e-mail, their signature appended; logged on the enquiry, resolved unless "keep open" is ticked.
+     */
+    protected function actionReply(): Response
+    {
+        $id = $this->request->postInt('id');
+        if (!$this->request->isPost()) {
+            return $this->back('', 'detail', ['id' => $id]);
+        }
+        try {
+            $result = \Kaleta\Core\EnquiryReply::send($this->app, $id, $this->request->post('subject'), $this->request->post('text'), !$this->request->postBool('keep_open'));
+        } catch (\DomainException $e) {
+            // what was written is not lost: the form shows it again
+            $this->app->session->set('enquiry_reply_draft', ['id' => $id, 'subject' => mb_substr($this->request->post('subject'), 0, \Kaleta\Core\EnquiryReply::MAX_SUBJECT), 'text' => mb_substr($this->request->post('text'), 0, \Kaleta\Core\EnquiryReply::MAX_TEXT)]);
+
+            return $this->back($e->getMessage(), 'detail', ['id' => $id], 'chyba');
+        }
+        if ($result['status'] === 'sent') {
+            return $this->back(t($result['resolved'] ? 'The reply was sent to %s and the enquiry is resolved.' : 'The reply was sent to %s.', $result['to']), 'detail', ['id' => $id]);
+        }
+
+        return $this->back(t('The reply could not be sent right now (%s). It waits in the mail queue and the site tries again in a few minutes – the history below shows when it goes out.', $result['error']), 'detail', ['id' => $id], 'chyba');
     }
 
     /**

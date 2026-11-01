@@ -2025,6 +2025,69 @@ await step('3.19 collections: the icon picker in the settings, the icons in the 
   }
 });
 
+// 3.22 (C15): the Form's own confirmation e-mail text is offered only while the confirmation e-mail is on
+await step('3.22 (C15) builder: the Form shows "Confirmation e-mail text" only with the confirmation e-mail on', async () => {
+  await visit('/admin.php?module=pages&action=builder&id=4'); // Contact of the Business starter: an enquiry form
+  await page.waitForTimeout(1500);
+  await canvas().locator('form').first().click({ position: { x: 4, y: 4 } });
+  await page.getByRole('tab', { name: 'Content' }).first().click().catch(() => {});
+  const until = async (fn, what, ms = 5000) => { const end = Date.now() + ms; for (;;) { const v = await fn(); if (v) { return v; } if (Date.now() > end) { throw new Error(what); } await page.waitForTimeout(100); } };
+  const toggle = page.locator('.st-pravy label.st-zaskrt', { hasText: 'Send the sender a confirmation e-mail' }).locator('input');
+  await toggle.waitFor();
+  const own = () => page.locator('.st-pravy label.st-pole', { hasText: 'Confirmation e-mail text' }).count();
+  const wasOn = await toggle.isChecked();
+  if ((await own()) !== (wasOn ? 1 : 0)) { throw new Error(`the text field with the confirmation ${wasOn ? 'on' : 'off'}: ${await own()}`); }
+  await toggle.click();
+  await until(async () => (await own()) === (wasOn ? 0 : 1) || null, 'the text field did not follow the confirmation switch');
+  if (!wasOn) {
+    await page.locator('.st-pravy label.st-pole', { hasText: 'Confirmation e-mail text' }).locator('textarea').fill('Hello,\nwe reply within a day.');
+    if (SHOTS) { await page.locator('.st-pravy').screenshot({ path: `${SHOTS}/form-confirmation-text.png` }); }
+    await page.locator('.st-pravy label.st-zaskrt', { hasText: 'Send the sender a confirmation e-mail' }).locator('input').click();
+  } else {
+    await page.locator('.st-pravy label.st-zaskrt', { hasText: 'Send the sender a confirmation e-mail' }).locator('input').click();
+  }
+  await until(async () => (await own()) === (wasOn ? 1 : 0) || null, 'the text field did not come back with the switch');
+  await visit('/admin.php?module=pages&action=builder&id=1');
+  await page.waitForTimeout(1500);
+});
+
+// 3.22 (C10): the reply on the enquiry detail – the draft in a textarea, Send asks first, an undelivered reply is said to
+// wait in the queue and shows in the history; at 390 px nothing scrolls sideways (the SMTP port is closed: no e-mail leaves)
+await step('3.22 (C10) enquiry detail: reply with the draft, confirm, the queued reply in the history (1440 and 390 px)', async () => {
+  const setting = (key) => `IFNULL((SELECT hodnota FROM ka_nastaveni WHERE promenna = '${key}'), '')`;
+  const saved = sql(`SELECT CONCAT_WS('|', ${['mail_mode', 'smtp_host', 'smtp_port', 'mail_from'].map(setting).join(', ')})`).trim();
+  sql("INSERT INTO ka_poptavky (datum, formular, stranka, email, data, stav, navrh_odpovedi) VALUES (NOW(), 'Enquiry 322', '/contact', 'hannah322@example.com', '[[\"Message\",\"Do you deliver on Saturdays?\"]]', 0, 'Hello Hannah, yes, on Saturday mornings.')");
+  const id = sql("SELECT MAX(idp) FROM ka_poptavky WHERE email = 'hannah322@example.com'").trim();
+  try {
+    await visit(`/admin.php?module=enquiries&action=detail&id=${id}`);
+    if (await page.locator('[data-reply-blocked]').count() !== 1 || await page.locator('[data-reply-form]').count() !== 0) { throw new Error('without SMTP the detail does not explain it'); }
+    if (!/^mailto:hannah322@example\.com\?subject=Re%3A%20Enquiry%20322&body=Hello/.test(await page.locator('a.tl[href^="mailto:"]').first().getAttribute('href') || '')) { throw new Error('the mailto: fallback'); }
+    sql("REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '1'), ('mail_from', 'web@example.com')");
+    await visit(`/admin.php?module=enquiries&action=detail&id=${id}`);
+    const form = page.locator('form[data-reply-form]');
+    if (await form.locator('textarea[name="text"]').inputValue() !== 'Hello Hannah, yes, on Saturday mornings.' || await form.locator('input[name="subject"]').inputValue() !== 'Re: Enquiry 322') { throw new Error('the draft and the subject are not offered'); }
+    if (SHOTS) { await page.locator('#reply').scrollIntoViewIfNeeded(); await page.screenshot({ path: `${SHOTS}/enquiry-reply.png`, fullPage: true }); }
+    await form.locator('textarea[name="text"]').fill('Hello Hannah,\nyes, on Saturday mornings until noon.');
+    await form.locator('button[type="submit"]', { hasText: 'Send reply' }).click();
+    const dialog = page.locator('dialog.potvrzeni[open]');
+    await dialog.waitFor();
+    if (!(await dialog.textContent() || '').includes('hannah322@example.com')) { throw new Error('the confirmation does not name the recipient'); }
+    await Promise.all([page.waitForNavigation(), dialog.locator('[data-ano]').click()]);
+    await page.locator('.hlaska-chyba', { hasText: 'waits in the mail queue' }).waitFor();
+    if (await page.locator('[data-replies] [data-reply-status="queued"]').count() !== 1) { throw new Error('the queued reply is not in the history'); }
+    if (await page.locator('[data-replies] li', { hasText: 'Replied by' }).count() !== 1) { throw new Error('the history does not say who replied'); }
+    await page.setViewportSize({ width: 390, height: 844 });
+    await visit(`/admin.php?module=enquiries&action=detail&id=${id}`);
+    const sideways = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    if (sideways > 0) { throw new Error(`${sideways} px of sideways scroll at 390 px`); }
+    if (SHOTS) { await page.locator('#reply').scrollIntoViewIfNeeded(); await page.screenshot({ path: `${SHOTS}/enquiry-reply-phone.png`, fullPage: true }); }
+  } finally {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const [mode, host, port, from] = saved.split('|');
+    sql(`REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', '${mode || 'mail'}'), ('smtp_host', '${host || ''}'), ('smtp_port', '${port || ''}'), ('mail_from', '${from || ''}'); DELETE FROM ka_posta WHERE komu = 'hannah322@example.com'; DELETE FROM ka_poptavky WHERE email = 'hannah322@example.com'`);
+  }
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

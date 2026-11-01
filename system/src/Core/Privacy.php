@@ -331,7 +331,8 @@ final class Privacy
 
     /**
      * Keeps the rows of the given enquiries for statistics (date, form, page, topic, triage kind, status) and blanks
-     * everything about the person: the form values, the e-mail, the drafted reply, the note, the campaign origin; the
+     * everything about the person: the form values, the e-mail, the drafted reply, the note, the campaign origin, the text and
+     * address of the replies sent (3.22); the
      * attachments are deleted. Returns how many were anonymised (already anonymised ones are skipped).
      *
      * @param list<int> $ids
@@ -342,11 +343,12 @@ final class Privacy
         if ($ids === []) {
             return 0;
         }
-        $rows = $db->all('SELECT idp, data FROM {poptavky} WHERE anonymizovano IS NULL AND idp IN (' . implode(',', $ids) . ')');
+        $rows = $db->all('SELECT idp, data, replies FROM {poptavky} WHERE anonymizovano IS NULL AND idp IN (' . implode(',', $ids) . ')');
         \Kaleta\Admin\Modules\Enquiries::deleteAttachments($rows);
         foreach ($rows as $r) {
             $db->update('poptavky', ['data' => (string) json_encode(self::anonymiseData(json_decode((string) $r['data'], true) ?: []), JSON_UNESCAPED_UNICODE),
-                'email' => '', 'navrh_odpovedi' => null, 'poznamka' => null, 'vstup' => '', 'odkud' => '', 'anonymizovano' => date('Y-m-d H:i:s')], ['idp' => $r['idp']]);
+                'email' => '', 'navrh_odpovedi' => null, 'poznamka' => null, 'vstup' => '', 'odkud' => '', 'anonymizovano' => date('Y-m-d H:i:s'),
+                'replies' => EnquiryReply::anonymised($r['replies'])], ['idp' => $r['idp']]); // who replied and when stay, the text goes (3.22)
         }
 
         return count($rows);

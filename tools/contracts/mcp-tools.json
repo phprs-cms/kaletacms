@@ -1419,6 +1419,26 @@
             "openWorldHint": false
         }
     },
+    "reply_to_enquiry": {
+        "parameters": {
+            "confirm": "boolean",
+            "id": "integer",
+            "keep_open": "boolean",
+            "subject": "string",
+            "text": "string"
+        },
+        "required": [
+            "id",
+            "text",
+            "confirm"
+        ],
+        "annotations": {
+            "title": "Send a reply to an enquiry",
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": true
+        }
+    },
     "report_agent_run": {
         "parameters": {
             "id": "integer",

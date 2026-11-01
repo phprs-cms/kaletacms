@@ -32,6 +32,9 @@ final class Form extends Element
     /** An option with a price for the estimate (2.12): "Label | 1200" – the visitor sees and sends only the label. */
     private const string PRICED_OPTION = '/^(.*?)\s*\|\s*(-?\d[\d \x{a0}]*(?:[.,]\d+)?)\s*$/u';
 
+    /** The longest own text of the confirmation e-mail (3.22, C15). */
+    public const int CONFIRMATION_MAX = 3000;
+
     /** Form attachments: allowed types and the maximum size of one file. */
     /** Phone in the pattern attribute (the browser reads it with the v flag – parentheses, slash and hyphen in the class must be escaped). */
     public const string PHONE_PATTERN = '[+\\(\\)\\d\\s\\/.\\-]{6,30}';
@@ -92,6 +95,9 @@ final class Form extends Element
             'skryta_kopie' => ['typ' => 'text', 'popisek' => 'Hidden copy (Bcc): e-mails separated by commas that the other recipients do not see', 'vychozi' => '', 'max' => 190],
             'dekovna' => ['typ' => 'odkaz', 'popisek' => 'After sending, go to a page (empty = thank-you message in place of the form)', 'vychozi' => ''],
             'potvrzeni' => ['typ' => 'prepinac', 'popisek' => 'Send the sender a confirmation e-mail (thank-you only, without the message content)', 'vychozi' => false],
+            // 3.22 (C15): the body of that e-mail as the client writes it (plain text); empty = the thank-you message with what
+            // happens next, by when and who replies (Front\Forms::confirmationText). The editor shows it only with the e-mail on (kdyz).
+            'potvrzeni_text' => ['typ' => 'radky', 'popisek' => 'Confirmation e-mail text (empty = the thank-you message with what happens next, by when and who replies)', 'vychozi' => '', 'max' => self::CONFIRMATION_MAX, 'kdyz' => ['potvrzeni' => true]],
             // a gated download (2.11, Core\Documents): the file goes out as a signed link that works for a week
             'poslat_soubor' => ['typ' => 'odkaz', 'popisek' => 'After sending, e-mail this file to the visitor (a file from Media; the form needs an e-mail field). A file in Media stays reachable by its own address – this stops casual sharing, not a determined person.', 'vychozi' => '', 'media' => 'soubor'],
             // 3.7: a form whose visitors send larger drawings or scans; the editor shows what this server accepts (BuilderActions)

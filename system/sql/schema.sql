@@ -566,6 +566,7 @@ CREATE TABLE ka_poptavky (
     poznamka TEXT NULL,                               -- internal note (the visitor does not see it)
     prirazeno INT UNSIGNED NULL,                      -- which user handles the enquiry
     anonymizovano DATETIME NULL,                      -- the person's data was blanked at this time (2.14, Core\Privacy); NULL = still held
+    replies  MEDIUMTEXT NULL,                         -- replies e-mailed from the enquiry (3.22, Core\EnquiryReply): JSON list of who, when, subject, text, the mail row
     PRIMARY KEY (idp),
     KEY ix_poptavky_stav (stav, idp),
     KEY ix_poptavky_kategorie (kategorie, idp)

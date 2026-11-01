@@ -1961,11 +1961,16 @@
 		const listCollection = p.typ === 'kolekce' ? (D.kolekce || []).find((k) => k.seo_link === p.obsah.kolekce) || null : null;
 		const more = p.typ === 'kolekce' ? el('details', { class: 'st-vice-voleb', open: COLLECTION_MORE.some((k) => p.obsah[k] && p.obsah[k] !== (s.vlastnosti[k] || {}).vychozi) },
 			el('summary', {}, T('More options'))) : null;
+		// 3.22 (C15): a property with „kdyz“ ({key: value}) shows only while the element's content has that value (the Form's
+		// own confirmation text only with the confirmation e-mail on); a change of such a key redraws the panel
+		const dependsOn = new Set(properties.flatMap(([, d]) => (d.kdyz ? Object.keys(d.kdyz) : [])));
 		properties.forEach(([key, def]) => {
+			if (def.kdyz && !Object.entries(def.kdyz).every(([pk, pv]) => p.obsah[pk] === pv)) { return; }
 			const fieldDef = listCollection && key in COLLECTION_FIELD_KEYS ? collectionFieldChoice(def, listCollection, COLLECTION_FIELD_KEYS[key], p.obsah[key]) : def;
 			const control = field(fieldDef, p.obsah[key], (h) => {
 				if (JSON.stringify(p.obsah[key]) !== JSON.stringify(h)) { applyChange(() => { p.obsah[key] = h; }, 'obsah:' + p.id + ':' + key); fastCanvasText(p, key, h); }
 				if (p.typ === 'kolekce' && key === 'kolekce') { redrawRight(); } // the field choices follow the collection
+				if (dependsOn.has(key)) { redrawRight(); }
 			}, { chyba: state.chyby[state.cestaVybraneho + '.obsah.' + key], prvek: p, klic: key });
 			control.dataset.pole = key; // typing on the canvas updates this field (syncInspector)
 			(more && COLLECTION_MORE.includes(key) ? more : panel).append(control);

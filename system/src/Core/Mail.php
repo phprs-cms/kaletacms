@@ -17,6 +17,9 @@ final class Mail
     /** Text of the last error (for the test e-mail and System status). */
     public static string $error = '';
 
+    /** The ka_posta row of the last send() (3.22): a reply to an enquiry follows its delivery there; null = not logged. */
+    public static ?int $lastId = null;
+
     /** @var resource|null open SMTP connection */
     private static $connection = null;
 
@@ -39,8 +42,9 @@ final class Mail
         }
         $ok = self::deliver($siteSettings, $recipient, $subject, $text, $html, $headers);
         $error = self::$error;
+        self::$lastId = null;
         try {
-            $siteSettings->db()->insert('posta', [
+            self::$lastId = $siteSettings->db()->insert('posta', [
                 'komu' => mb_substr($recipient, 0, 190), 'predmet' => mb_substr($subject, 0, 255), 'vytvoreno' => date('Y-m-d H:i:s'), 'pokusu' => 1,
                 'odeslano' => $ok ? date('Y-m-d H:i:s') : null, 'chyba' => mb_substr($error, 0, 255),
                 'telo' => $ok || !$queueOnFailure ? null : json_encode(['text' => $text, 'html' => $html, 'hlavicky' => $headers], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
@@ -172,7 +176,9 @@ final class Mail
         unset($headers['Bcc']);
         $displayName = '=?UTF-8?B?' . base64_encode($siteSettings->get('site_name')) . '?=';
         $h = ['From' => "{$displayName} <{$from}>", 'MIME-Version' => '1.0'] + $headers;
-        if ($siteSettings->get('mail_reply_to') !== '') {
+        // the site's reply address unless the message names its own (the visitor of an enquiry notification, the user who
+        // replies to an enquiry – 3.22: until then the site's address replaced theirs)
+        if ($siteSettings->get('mail_reply_to') !== '' && !isset($h['Reply-To'])) {
             $h['Reply-To'] = $siteSettings->get('mail_reply_to');
         }
         if ($html === '') {

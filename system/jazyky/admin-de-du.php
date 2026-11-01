@@ -1047,4 +1047,10 @@ return [
     'Broken links' => 'Defekte Links',
     'The privacy policy page of this site: %s – hidden, publish it or visitors following the link get “page not found”.' => 'Die Datenschutzseite dieser Website: %s – ausgeblendet, veröffentliche sie, sonst sehen Besucher über den Link „Seite nicht gefunden“.',
     'Choose the date and time in the Content panel.' => 'Wähle Datum und Uhrzeit im Bereich Inhalt.',
+    'Replies are sent only through an SMTP server – the server’s mail() function often lands in spam. Set it up in Settings → Mail, or reply from your own mail program.' => 'Antworten werden nur über einen SMTP-Server gesendet – die mail()-Funktion des Servers landet oft im Spam. Richte ihn unter Einstellungen → E-Mail ein oder antworte aus deinem eigenen E-Mail-Programm.',
+    'The site has no sender address – fill in the site e-mail (Settings → General) or the sender in Settings → Mail.' => 'Die Website hat keine Absenderadresse – trage die E-Mail der Website (Einstellungen → Allgemein) oder den Absender unter Einstellungen → E-Mail ein.',
+    'This enquiry has no e-mail address to reply to – reply by phone or another way, and note it in the internal note.' => 'Diese Anfrage hat keine E-Mail-Adresse für eine Antwort – antworte telefonisch oder auf anderem Weg und vermerke es in der internen Notiz.',
+    'Sent from the site’s address; when the customer answers, it comes to you (%s). Your e-mail signature from My account is added below the text.' => 'Wird von der Adresse der Website gesendet; antwortet der Kunde, kommt es zu dir (%s). Deine E-Mail-Signatur aus „Mein Konto“ wird unter den Text gesetzt.',
+    'Sent from the site’s address. Your account has no e-mail, so the customer’s answer goes to the site’s reply address – add yours in My account.' => 'Wird von der Adresse der Website gesendet. Dein Konto hat keine E-Mail, daher geht die Antwort des Kunden an die Antwortadresse der Website – trage deine unter „Mein Konto“ ein.',
+    'Never sent by itself – check it, then send it under Reply.' => 'Wird nie von selbst gesendet – prüfe ihn und sende ihn dann unter „Antwort“.',
 ];
