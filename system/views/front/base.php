@@ -11,6 +11,7 @@
  * @var string $oznameni  the notice bar of exceptions to the opening hours (2.10), or empty
  * @var callable(string): string $url
  * @var string $kanonicka
+ * @var string $cesta  the path of this page (the current menu item); the canonical address may be another page's (3.22)
  * @var string $hlava  tags for <head> from Settings: SEO, structured data, tracking codes (always output before </head>)
  * @var string $pata   cookie bar and codes before </body> (always output)
  * @var string $jazyk  language code of the displayed version of the site (cs, en…) for <html lang> and <html dir> (rtl for Arabic)
@@ -23,7 +24,7 @@
  * @var array{hlavicka: ?string, paticka: ?string} $casti  header and footer from the builder (Vzhled → Části webu, i.e. Appearance → Site parts); null = the layout draws them
  */
 $nazevWebu = $web->get('site_name');
-$cesta = (string) parse_url($kanonicka, PHP_URL_PATH);
+$cesta = isset($cesta) ? (string) $cesta : (string) parse_url($kanonicka, PHP_URL_PATH); // 3.22: the canonical may name another page
 $jeAktivni = fn (string $odkaz): bool => $odkaz === '' ? $cesta === $url('') : ($cesta === $url($odkaz) || str_starts_with($cesta, $url($odkaz) . '/'));
 $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => $web->get('social_facebook'), 'Instagram' => $web->get('social_instagram'), 'YouTube' => $web->get('social_youtube'), 'X' => $web->get('social_x')]);
 ?>

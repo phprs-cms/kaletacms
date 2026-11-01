@@ -1712,6 +1712,7 @@ final class Kernel
             'casti' => $parts,
             'url' => $this->app->url(...),
             'kanonicka' => $canonicalUrl,
+            'cesta' => $pathForParts, // the path of this page for the current menu item – not the canonical address of another one (N322-2)
             'oznameni' => \Kaleta\Core\Hours::noticeBar($this->app), // exceptions to the opening hours, a few days ahead (2.10)
         ]);
         $html = ImageHtml::rootMedia($html, $this->app->request->basePath());

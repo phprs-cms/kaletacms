@@ -8158,6 +8158,10 @@ rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/c13-copy"
 expect "3.22 (C13): a site path is stored trimmed and printed as the one absolute canonical link (og:url too)" \
   "$(sq "SELECT canonical_url FROM ka_stranky WHERE ids = $IDS_C13")|$(grep -c 'rel="canonical"' "$WORK/response")|$(grep -c "<link rel=\"canonical\" href=\"$B/o-nas\">" "$WORK/response")|$(grep -c "og:url\" content=\"$B/o-nas\"" "$WORK/response")" "/o-nas|1|1|1"
+# N322-2: the menu marks the page itself as current, never the page its canonical address names
+C13_CURRENT=$(grep -c 'href="/o-nas"[^>]*aria-current' "$WORK/response")
+curl -s -o "$WORK/response" "$B/o-nas"
+expect "3.22 (N322-2): a page whose canonical is /o-nas does not mark About us as the current menu item (/o-nas itself does)" "$C13_CURRENT|$(grep -q 'href="/o-nas"[^>]*aria-current' "$WORK/response" && echo 1 || echo 0)" "0|1"
 curl -s -o "$WORK/response" "$B/kontakty"
 expect "3.22 (C13): a page without it keeps its own canonical address" "$(grep -c "<link rel=\"canonical\" href=\"$B/kontakty\">" "$WORK/response")" "1"
 mcp update_page "{\"id\":$IDS_C13,\"canonical_url\":\"data:text/html,x\"}" > "$WORK/response"
