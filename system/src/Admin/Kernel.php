@@ -161,6 +161,10 @@ final class Kernel
             // after a new sign-in in another tab, the editor takes the valid form token here and continues saving
             return Response::json(['csrf' => $app->session->csrfToken()]);
         }
+        if ($action === 'link_targets' && $ident === '') {
+            // 3.22 (U6): the link dialog of the text editor – pages, news, collection items, files and language versions
+            return Response::json(['groups' => LinkTargets::search($app, $request->get('q'))]);
+        }
         if ($action === 'account') {
             return (new Account($this))->handle();
         }

@@ -3009,5 +3009,17 @@ window.KALETA_PREKLAD = {
 	"Move the selected element up or down": "Ausgewähltes Element nach oben oder unten verschieben",
 	"Move the element out of its parent / into the container before it": "Element aus dem übergeordneten Element heraus / in den Container davor verschieben",
 	"Element menu (also right-click on the canvas or in Structure)": "Elementmenü (auch Rechtsklick auf der Arbeitsfläche oder in der Struktur)",
-	"as the element is by default": "wie das Element standardmäßig"
+	"as the element is by default": "wie das Element standardmäßig",
+	"%s resized from %s to %s": "%s verkleinert von %s auf %s",
+	"The file is larger than the server allows (%s at most) even after resizing. Make it smaller, or raise the limit as System status describes.": "Die Datei ist auch nach dem Verkleinern größer, als der Server erlaubt (höchstens %s). Verkleinern Sie sie oder erhöhen Sie das Limit wie im Systemstatus beschrieben.",
+	"These files are larger together (%s) than the server accepts in one upload (%s). Upload them in smaller groups.": "Diese Dateien sind zusammen größer (%s), als der Server in einem Upload annimmt (%s). Laden Sie sie in kleineren Gruppen hoch.",
+	"E-mail": "E-Mail",
+	"Send an e-mail to %s": "E-Mail an %s senden",
+	"Call %s": "%s anrufen",
+	"On this page": "Auf dieser Seite",
+	"Address, or search the site": "Adresse oder Suche auf der Website",
+	"https://…, /about-us, an e-mail, a phone – or a page name": "https://…, /ueber-uns, eine E-Mail, eine Telefonnummer – oder ein Seitenname",
+	"Suggestions": "Vorschläge",
+	"Link to: %s": "Link zu: %s",
+	"Nothing found – the text is used as the address.": "Nichts gefunden – der Text wird als Adresse verwendet."
 };

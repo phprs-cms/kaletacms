@@ -511,6 +511,24 @@ class Settings extends Module
         return $this->back(t('config.php can now be read only by the site.'), '', ['tab' => 'health']);
     }
 
+    /** 3.22 (C14): a .user.ini with larger upload limits in the site's folder (Core\UploadLimit), from System status. */
+    protected function actionUserIni(): Response
+    {
+        if (!$this->request->isPost() || !$this->app->auth()->isAdmin()) {
+            return $this->back('', '', ['tab' => 'health']);
+        }
+        $result = \Kaleta\Core\UploadLimit::write();
+        if ($result !== 'written') {
+            return $this->back(t('Kaleta could not write %s (%s). Raise the limits as System status describes.', \Kaleta\Core\UploadLimit::fileName(), match ($result) {
+                'exists' => t('the file exists already'), 'not_writable' => t('the site\'s folder is not writable'), 'not_needed' => t('the limits are large enough'),
+                'unsupported' => t('this server does not read the file'), default => t('the server refused to write it'),
+            }), '', ['tab' => 'health'], 'chyba');
+        }
+        \Kaleta\Admin\ChangeLog::write($this->app, 'settings', \Kaleta\Core\UploadLimit::fileName(), implode(', ', array_map(fn (string $k, string $v): string => $k . ' = ' . $v, array_keys(\Kaleta\Core\UploadLimit::WANTED), \Kaleta\Core\UploadLimit::WANTED)));
+
+        return $this->back(t('%s has been written. The host reads it within a few minutes – then the new limit appears in System status.', \Kaleta\Core\UploadLimit::fileName()), '', ['tab' => 'health']);
+    }
+
     /**
      * 3.19.1 (N84): a new signing key (secret_key) – every shared preview link and everything else signed with the old
      * key stops working at once (the confirmation in the Backups tab lists what). Core\SigningKey::rotate does it and keeps

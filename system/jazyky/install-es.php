@@ -118,4 +118,5 @@ return [
     'Port' => 'Puerto',
     'E-mail' => 'Correo electrónico',
     'Newsletter' => 'Boletín',
+    'Uploads: the server allowed only small files, so Kaleta wrote %s with upload_max_filesize = 16M and post_max_size = 20M into the site\'s folder. The host reads it within a few minutes; System status shows the limit in force.' => 'Subidas: el servidor solo permitía archivos pequeños, así que Kaleta ha escrito %s con upload_max_filesize = 16M y post_max_size = 20M en la carpeta del sitio. El hosting lo lee en unos minutos; Estado del sistema muestra el límite vigente.',
 ];

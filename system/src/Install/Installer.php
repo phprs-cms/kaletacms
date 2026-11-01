@@ -42,6 +42,8 @@ final class Installer
 
     /** The public cron path (3.7): tasks, or ulohy when the site holds the English word – the same helper as System status (Routes::publicSystemPath). */
     private string $cronPath = 'tasks';
+    /** 3.22 (C14): what became of the .user.ini with larger upload limits (Core\UploadLimit::write). */
+    private string $userIni = '';
 
     /** Installation language: an explicit choice (?language=, hidden form field), otherwise the first known language from the browser header. */
     private function chooseLanguage(): string
@@ -100,7 +102,8 @@ final class Installer
             if ($errors === []) {
                 return $this->page('done', ['alreadyInstalled' => false, 'deleted' => $this->deleteSelf(), 'fromExport' => $data['web'] === 'export',
                     'mcp' => in_array('claude', $extensions, true) ? $this->request->origin() . $this->request->basePath() . '/mcp' : null,
-                    'cron' => '*/5 * * * * curl -s "' . $this->request->origin() . $this->request->basePath() . '/' . $this->cronPath . '?token=' . $this->tasksToken . '" > /dev/null']);
+                    'cron' => '*/5 * * * * curl -s "' . $this->request->origin() . $this->request->basePath() . '/' . $this->cronPath . '?token=' . $this->tasksToken . '" > /dev/null',
+                    'userIni' => $this->userIni === 'written' ? \Kaleta\Core\UploadLimit::fileName() : null]);
             }
         }
 
@@ -216,6 +219,9 @@ final class Installer
         // only now: the encrypted data belongs to the key in config.php (Core\Vault) – a config.php made by hand from the
         // sample without the key leaves the site on secret_key, as before 3.15
         $db->insert('nastaveni', ['promenna' => 'vault_check', 'hodnota' => \Kaleta\Core\Vault::check($config['vault_key'])]);
+        // 3.22 (C14): phone photos are larger than the usual 2 MB – where PHP reads a .user.ini and none is there, larger limits
+        // are written into one (an existing file is never touched, a larger limit never lowered)
+        $this->userIni = \Kaleta\Core\UploadLimit::write(KALETA_ROOT);
 
         return [];
     }

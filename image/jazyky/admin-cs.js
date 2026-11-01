@@ -2897,5 +2897,16 @@ window.KALETA_PREKLAD = {
 	"Move the selected element up or down": "Posunout vybraný prvek nahoru nebo dolů",
 	"Move the element out of its parent / into the container before it": "Přesunout prvek ven z nadřazeného / do kontejneru před ním",
 	"Element menu (also right-click on the canvas or in Structure)": "Nabídka prvku (také pravým tlačítkem na plátně nebo ve Struktuře)",
-	"as the element is by default": "jako prvek běžně"
+	"as the element is by default": "jako prvek běžně",
+	"%s resized from %s to %s": "%s zmenšen z %s na %s",
+	"The file is larger than the server allows (%s at most) even after resizing. Make it smaller, or raise the limit as System status describes.": "Soubor je i po zmenšení větší, než server dovolí (nejvýš %s). Zmenšete ho, nebo zvyšte limit podle popisu ve Stavu systému.",
+	"These files are larger together (%s) than the server accepts in one upload (%s). Upload them in smaller groups.": "Tyto soubory jsou dohromady větší (%s), než server přijme v jednom nahrání (%s). Nahrajte je po menších skupinách.",
+	"Send an e-mail to %s": "Napsat e-mail na %s",
+	"Call %s": "Zavolat na %s",
+	"On this page": "Na této stránce",
+	"Address, or search the site": "Adresa, nebo hledání na webu",
+	"https://…, /about-us, an e-mail, a phone – or a page name": "https://…, /o-nas, e-mail, telefon – nebo název stránky",
+	"Suggestions": "Návrhy",
+	"Link to: %s": "Odkaz na: %s",
+	"Nothing found – the text is used as the address.": "Nic nenalezeno – text se použije jako adresa."
 };

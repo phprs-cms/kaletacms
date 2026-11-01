@@ -2789,4 +2789,5 @@ return [
     'Filter buttons for visitors (by the field above, without a field by category)' => 'Tlačítka filtru pro návštěvníky (podle pole výše, bez pole podle kategorií)',
     'Choose the date and time in the Content panel.' => 'Datum a čas vyberte v panelu Obsah.',
     'as the element is by default' => 'jako prvek běžně',
+    'Uploads: the server allowed only small files, so Kaleta wrote %s with upload_max_filesize = 16M and post_max_size = 20M into the site\'s folder. The host reads it within a few minutes; System status shows the limit in force.' => 'Nahrávání: server dovoloval jen malé soubory, proto Kaleta zapsala do složky webu %s s upload_max_filesize = 16M a post_max_size = 20M. Hosting ho načte během několika minut; platný limit ukáže Stav systému.',
 ];

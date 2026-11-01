@@ -201,7 +201,7 @@ $settingsParity = ['list' => $readOnly, 'save' => 'update_settings', 'download_b
     'delete_backup' => 'admin: backups', 'media_backup' => 'admin: backups', 'delete_log' => 'admin: error log', 'check' => 'admin: updates', 'update' => 'admin: updates', 'forget_updates' => 'admin: updates', 'update_major' => 'admin: updates (a major version only on an explicit action, 3.15)',
     'vault_move' => 'admin: the encryption key goes into config.php – never through a connection (3.15, N42)',
     'new_signing_key' => 'admin: a new signing key withdraws every signed link of the site – a security decision of the administrator (3.19.1, N84)',
-    'config_permissions' => 'admin: the file permissions of config.php are the server\'s, never set through a connection (3.19.1, N83)', 'instructions_seen' => 'admin: an administrator has looked at the changed instructions for Claude (3.15, N44)',
+    'config_permissions' => 'admin: the file permissions of config.php are the server\'s, never set through a connection (3.19.1, N83)', 'user_ini' => 'admin: a .user.ini with larger upload limits is a file of the server, never written through a connection (3.22, C14)', 'instructions_seen' => 'admin: an administrator has looked at the changed instructions for Claude (3.15, N44)',
     'delete_backup' => 'admin: backups', 'media_backup' => 'admin: backups', 'delete_log' => 'admin: error log', 'check' => 'admin: updates', 'update' => 'admin: updates', 'forget_updates' => 'admin: updates',
     'test_mail' => 'admin: mail server settings', 'domain_check' => 'admin: the domain and mail watch runs on its own once a day', 'test_webhook' => 'admin: webhooks (addresses and the signing secret stay out of MCP)',
     'retry_webhook' => 'admin: webhooks (addresses and the signing secret stay out of MCP)', 'new_webhook_secret' => 'admin: webhooks (addresses and the signing secret stay out of MCP)',
@@ -8028,6 +8028,81 @@ check('3.22 C15: per-form confirmation text', [
 check('3.22 C15: the confirmation text is plain text with a length limit in every saved build', [
     str_starts_with((string) $c15Build['deti'][0]['obsah']['potvrzeni_text'], 'Hi there'), mb_strlen((string) $c15Build['deti'][0]['obsah']['potvrzeni_text']),
 ], [true, Kaleta\Builder\Elements\Form::CONFIRMATION_MAX]);
+
+/* ---------- 3.22 (agent C): link picker, lists from Word, upload limits ---------- */
+// C14: where the upload limit is raised on this server, and a .user.ini only where PHP reads one, never over an existing
+// file, never lowering a larger limit
+$c14 = sys_get_temp_dir() . '/kaleta-c14-' . bin2hex(random_bytes(4));
+mkdir($c14);
+$c14Small = ['upload_max_filesize' => '2M', 'post_max_size' => '8M'];
+$c14First = Kaleta\Core\UploadLimit::write($c14, 'fpm-fcgi', $c14Small);
+$c14Content = (string) file_get_contents($c14 . '/.user.ini');
+$c14Again = Kaleta\Core\UploadLimit::write($c14, 'fpm-fcgi', $c14Small);
+$c14Ours = Kaleta\Core\UploadLimit::fileState($c14);
+$c14Advice = Kaleta\Core\UploadLimit::advice($c14, 'fpm-fcgi', $c14Small);
+file_put_contents($c14 . '/.user.ini', "memory_limit = 256M\n");
+$c14Other = [Kaleta\Core\UploadLimit::write($c14, 'cgi-fcgi', $c14Small), (string) file_get_contents($c14 . '/.user.ini'), Kaleta\Core\UploadLimit::fileState($c14),
+    Kaleta\Core\UploadLimit::canWrite($c14, 'fpm-fcgi', $c14Small)];
+unlink($c14 . '/.user.ini');
+$c14Write = [Kaleta\Core\UploadLimit::canWrite($c14, 'fpm-fcgi', $c14Small), Kaleta\Core\UploadLimit::canWrite($c14, 'apache2handler', $c14Small), Kaleta\Core\UploadLimit::write($c14, 'cli-server', $c14Small),
+    Kaleta\Core\UploadLimit::write($c14, 'apache2handler', $c14Small), Kaleta\Core\UploadLimit::write($c14, 'fpm-fcgi', ['upload_max_filesize' => '64M', 'post_max_size' => '128M']), is_file($c14 . '/.user.ini')];
+chmod($c14, 0555);
+$c14Locked = Kaleta\Core\UploadLimit::write($c14, 'fpm-fcgi', $c14Small);
+chmod($c14, 0755);
+rmdir($c14);
+check('3.22 C14: .user.ini with 16M/20M where PHP-FPM reads it – written once, never overwritten, never over a file someone else wrote', [
+    $c14First, str_starts_with($c14Content, Kaleta\Core\UploadLimit::MARK), str_contains($c14Content, "\nupload_max_filesize = 16M\npost_max_size = 20M\n"), $c14Again, $c14Ours,
+    str_contains($c14Advice, 'user_ini.cache_ttl'), $c14Other, $c14Write, $c14Locked,
+], ['written', true, true, 'exists', 'ours', true, ['exists', "memory_limit = 256M\n", 'other', false], [true, false, 'unsupported', 'unsupported', 'not_needed', false], 'not_writable']);
+check('3.22 C14: a larger limit is never lowered – only the smaller directive is written', [
+    Kaleta\Core\UploadLimit::missing(['upload_max_filesize' => '64M', 'post_max_size' => '8M']), Kaleta\Core\UploadLimit::missing(['upload_max_filesize' => '2M', 'post_max_size' => '0']),
+    Kaleta\Core\UploadLimit::missing(['upload_max_filesize' => '1G', 'post_max_size' => '20M']), Kaleta\Core\UploadLimit::bytes('16M'), Kaleta\Core\UploadLimit::bytes('512K'),
+], [['post_max_size' => '20M'], ['upload_max_filesize' => '16M'], [], 16777216, 524288]);
+check('3.22 C14: the advice names the place of this server – .htaccess on mod_php and LiteSpeed, php.ini elsewhere, .user.ini on PHP-FPM and CGI', [
+    Kaleta\Core\UploadLimit::environment('apache2handler'), Kaleta\Core\UploadLimit::environment('litespeed'), Kaleta\Core\UploadLimit::environment('fpm-fcgi'),
+    Kaleta\Core\UploadLimit::environment('cgi-fcgi'), Kaleta\Core\UploadLimit::environment('cli-server'),
+    str_contains(Kaleta\Core\UploadLimit::advice(sys_get_temp_dir(), 'apache2handler', $c14Small), 'php_value upload_max_filesize 16M, php_value post_max_size 20M'),
+    str_contains(Kaleta\Core\UploadLimit::advice(sys_get_temp_dir(), 'cli-server', $c14Small), 'php.ini'),
+], ['htaccess', 'htaccess', 'user_ini', 'user_ini', 'php_ini', true, true]);
+$c14Installer = (string) file_get_contents(KALETA_SYSTEM . '/src/Install/Installer.php');
+$c14Health = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Health.php');
+check('3.22 C14: the installer writes .user.ini after config.php; System status gives the advice and the button; /.user.ini is not in git; the editor knows the request limit', [
+    (bool) preg_match("/file_put_contents\\(KALETA_ROOT \\. '\\/config\\.php'.*?UploadLimit::write\\(KALETA_ROOT\\)/s", $c14Installer),
+    str_contains($c14Health, "UploadLimit::advice()"), str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/settings/health.php'), "\$module->url('user_ini')"),
+    str_contains((string) file_get_contents(KALETA_ROOT . '/.gitignore'), "\n/.user.ini\n"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/layout.php'), 'data-max-davka="<?= Kaleta\Core\UploadLimit::requestLimit() ?>"'),
+], [true, true, true, true, true]);
+// C14: the note about photos the browser scaled down comes back after the upload of the Media form – numbers and a name only
+check('3.22 C14: Media reads the "resized from … to …" lines of the upload form and nothing else', [
+    count(Kaleta\Admin\Modules\Media::resizedNotes("IMG_2041.jpg|4032|3024|6500000|2000|1500|800000\nbad|<b>|1|1|1|1|1\n|1|1|1|1|1|1")),
+    str_contains(implode('', Kaleta\Admin\Modules\Media::resizedNotes('IMG_2041.jpg|4032|3024|6500000|2000|1500|800000')), '4032 × 3024 px'),
+    Kaleta\Admin\Modules\Media::resizedNotes(''),
+], [1, true, []]);
+$c22Editor = (string) file_get_contents(KALETA_ROOT . '/image/editor.js');
+check('3.22 C14: the browser scales photos to 2000 px at quality 0.85, keeps PNG as PNG, leaves GIF/SVG/PDF, respects the EXIF rotation, and sends large sets in batches', [
+    str_contains($c22Editor, "if (!/^image\\/(jpeg|png|webp)$/.test(file.type) || !window.createImageBitmap)"), str_contains($c22Editor, "createImageBitmap(file, { imageOrientation: 'from-image' })"),
+    str_contains($c22Editor, 'return write(0.85);'), str_contains($c22Editor, 'canvas.toBlob(done, file.type, quality)'), str_contains($c22Editor, 'function sendInBatches(files)'),
+    Kaleta\Core\Images::MAX_SIDE,
+], [true, true, true, true, true, 2000]);
+// U7: numbered list and quote in the builder's text fields, still no subheadings there; Word lists converted on paste only
+check('3.22 U7: the builder\'s text editor has numbered lists and quotes, not H2/H3; Word list paragraphs become lists on paste', [
+    str_contains($builderScript, "'data-editor': 'stavitel'"), str_contains($c22Editor, "[T('1. list'), T('Numbered list'), function () { statement('insertOrderedList'); }, 'text']"),
+    str_contains($c22Editor, "[T('“quote”'), T('Quote'), function () { statement('formatBlock', 'BLOCKQUOTE'); }, 'text']"),
+    str_contains($c22Editor, "['H2', T('Mezititulek'), function () { statement('formatBlock', 'H2'); }, 'velky']"),
+    str_contains($c22Editor, "if ((small && t[3] === 'velky') || (mode === 'maly' && t[3] === 'text')) { return; }"),
+    str_contains($c22Editor, "if (strict === 'paste') { wordLists(box); }"), str_contains($c22Editor, "cleanHtml(inserted, 'paste')"),
+], [true, true, true, true, true, true, true]);
+// U7: the server keeps numbered lists, nested lists and quotes of a builder Text element (Build::sanitize → WpContent::safeHtml)
+[$u7Build] = Kaleta\Builder\Build::sanitize(['v' => 1, 'deti' => [['id' => 'u7t', 'typ' => 'text', 'obsah' => ['html' => '<ol><li>One<ol><li>Sub</li></ol></li></ol><ul><li>a<ul><li>b</li></ul></li></ul><blockquote><p>Quote</p></blockquote><h1 onclick="x">T</h1>']]]]);
+check('3.22 U7: a builder Text keeps ol, nested lists and blockquote', str_replace("\n", '', $u7Build['deti'][0]['obsah']['html'] ?? ''),
+    '<ol><li>One<ol><li>Sub</li></ol></li></ol><ul><li>a<ul><li>b</li></ul></li></ul><blockquote><p>Quote</p></blockquote><h2>T</h2>');
+// U6: the link dialog searches one endpoint for every signed-in user, after the two-factor gate; anchors from the builder
+$c22Kernel = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Kernel.php');
+check('3.22 U6: link targets – a route behind the sign-in and the two-factor gate, the builder\'s anchors, mailto: and tel: helpers, a keyboard combobox', [
+    strpos($c22Kernel, "\$action === 'link_targets'") > strpos($c22Kernel, 'isMissingRequired2fa'), str_contains($builderScript, 'window.kaletaKotvy = pageAnchors;'),
+    str_contains($c22Editor, "url: 'mailto:' + q"), str_contains($c22Editor, "url: 'tel:' +"), str_contains($c22Editor, 'role="combobox" aria-autocomplete="list"'),
+    str_contains($c22Editor, "input.setAttribute('aria-activedescendant'"), str_contains($c22Editor, "ADMIN + '?action=link_targets&q='"),
+], [true, true, true, true, true, true, true]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

@@ -294,6 +294,18 @@ code=$(curl -s -b "$JAR2" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?mo
 [ "$code" = 200 ] && ! grep -q "action=edit&amp;id=$NEWS_ID\"" "$WORK/response" && echo "  ok     autor nevidí cizí novinky" || { echo "  CHYBA  autor – výpis: kód $code"; ERRORS=$((ERRORS+1)); }
 expect "autor cizí novinku neotevře" "$(curl -s -b "$JAR2" -o /dev/null -w '%{http_code}' "$B/admin.php?module=news&action=edit&id=$NEWS_ID")" 404
 expect "autor nemá přístup ke stránkám" "$(curl -s -b "$JAR2" -o /dev/null -w '%{http_code}' "$B/admin.php?module=pages")" 403
+# 3.22 (U6): the link dialog of the editor – pages, news and files for the administrator; an author without Pages finds the
+# published pages, never a hidden one; signed out there is nothing
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?action=link_targets&q=kont"
+grep -q '"url":"\\/kontakt"' "$WORK/response" && grep -q '"label":"Stránky"' "$WORK/response" && echo "  ok     3.22 U6: link targets – a page found by part of its title, in its group" || { echo "  CHYBA  3.22 U6: link targets for the administrator: $(head -c 300 "$WORK/response")"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?action=link_targets&q="
+grep -q '"url":"\\/"' "$WORK/response" && grep -q '"title":"Novinky"' "$WORK/response" && echo "  ok     3.22 U6: an empty search offers the pages with the home page and the news listing" || { echo "  CHYBA  3.22 U6: empty search: $(head -c 300 "$WORK/response")"; ERRORS=$((ERRORS+1)); }
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_stranky (seo_link, titulek, text, zobrazit, v_menu) VALUES ('kontaktni-skryta-322', 'Kontaktní skrytá 322', '', 0, 0)"
+U6_ADMIN=$(curl -s -b "$JAR" "$B/admin.php?action=link_targets&q=kontaktn%C3%AD" | grep -c 'kontaktni-skryta-322' || true)
+U6_AUTHOR=$(curl -s -b "$JAR2" "$B/admin.php?action=link_targets&q=kont")
+expect "3.22 U6: the administrator sees the hidden page, the author only the published ones" "$U6_ADMIN|$(grep -c 'kontaktni-skryta-322' <<< "$U6_AUTHOR" || true)|$(grep -c '"url":"\\/kontakt"' <<< "$U6_AUTHOR" || true)" "1|0|1"
+"${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_stranky WHERE seo_link = 'kontaktni-skryta-322'"
+expect "3.22 U6: signed out, the link targets are the sign-in page" "$(curl -s "$B/admin.php?action=link_targets&q=kont" | grep -c '"groups"' || true)" "0"
 TOKEN2=$(curl -s -b "$JAR2" "$B/admin.php?module=news&action=new" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//')
 curl -s -b "$JAR2" -c "$JAR2" -o /dev/null -X POST "$B/admin.php?module=news&action=save" -d "_csrf=$TOKEN2" -d idc=0 -d titulek=XSS-test -d tema=1 \
   --data-urlencode 'uvod=<p onmouseover="alert(1)">Perex</p><script>alert(2)</script>' --data-urlencode 'text=<p><img src=x onerror=alert(3)><a href="javascript:alert(4)">odkaz</a></p>'
@@ -1897,6 +1909,9 @@ expect "MCP: delete_newsletter" "$(db "SELECT COUNT(*) FROM ka_newsletters WHERE
 db "UPDATE ka_newsletters SET finished_at = '$(site_time)' - INTERVAL 2 DAY WHERE id = $NL"; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "recipients are kept only a day after sending" "$(db "SELECT COUNT(*) FROM ka_newsletter_queue WHERE newsletter_id = $NL")|$(db "SELECT sent_count FROM ka_newsletters WHERE id = $NL")" "0|2"
 check "health: cron check" 200 "/admin.php?module=status" "Cron"
+# 3.22 (C14): the small limit of the test server (2M) says how to raise it here – php -S reads no .user.ini, so no button to write one
+grep -q 'Aby šly nahrát větší soubory, nastavte upload_max_filesize = 16M, post_max_size = 20M v souboru php.ini serveru' "$WORK/response" && ! grep -q 'action=user_ini' "$WORK/response" && [ ! -e "$WORK/web/.user.ini" ] \
+  && echo "  ok     3.22 C14: health – the upload limit advice for this server, no .user.ini where PHP does not read one" || { echo "  CHYBA  3.22 C14: upload limit advice missing or a .user.ini offered: $(grep -o 'upload_max_filesize = [^<]*' "$WORK/response" | head -1)"; ERRORS=$((ERRORS+1)); }
 # 2.8: the domain and mail watch shows its group and the Check now button; a site on 127.0.0.1 makes no DNS or network request
 grep -q "Doména a pošta" "$WORK/response" && grep -q "action=domain_check" "$WORK/response" && grep -q "běží na místní adrese" "$WORK/response" && echo "  ok     health: domain and mail watch – group, Check now, nothing checked on a local address" || { echo "  CHYBA  health: domain and mail watch group missing"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=domain_check" -d "_csrf=$TOKEN"
