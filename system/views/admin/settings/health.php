@@ -24,6 +24,9 @@ $group = '';
 <?php if (Kaleta\Core\Vault::configWorldReadable() && Kaleta\Core\Vault::canProtectConfig()): // 3.19.1 (N83) ?>
 <p><button class="navigace" type="submit" formaction="<?= e($module->url('config_permissions')) ?>"<?= Kaleta\Core\Vault::configMode() === 0640 ? ' data-potvrdit="' . e(t('PHP does not run as the owner of the site\'s folder here, so config.php gets mode 0640. Your FTP user may then no longer be able to read or download it – keep a copy of config.php first. Continue?')) . '"' : '' ?>><?= e(t('Make config.php readable only by the site')) ?></button></p>
 <?php endif ?>
+<?php if (Kaleta\Core\UploadLimit::bytes((string) ini_get('upload_max_filesize')) < 8 * 1024 * 1024 && Kaleta\Core\UploadLimit::canWrite()): // 3.22 (C14) ?>
+<p><button class="navigace" type="submit" formaction="<?= e($module->url('user_ini')) ?>"><?= e(t('Write %s with larger upload limits', Kaleta\Core\UploadLimit::fileName())) ?></button></p>
+<?php endif ?>
 <?php if ($readiness !== []): ?>
 <fieldset id="ready-4">
 <legend><?= e(t('Ready for 4.0')) ?></legend>

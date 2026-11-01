@@ -2036,7 +2036,7 @@
 				inputEl.value = value || '';
 				break;
 			case 'html': {
-				const ta = el('textarea', { 'data-editor': 'maly', dir: contentDir, oninput: (e) => change(e.target.value) });
+				const ta = el('textarea', { 'data-editor': 'stavitel', dir: contentDir, oninput: (e) => change(e.target.value) });
 				ta.value = value || '';
 				wrapper.append(ta);
 				if (window.kaletaVytvorEditor) { setTimeout(() => window.kaletaVytvorEditor(ta), 0); }
@@ -2209,11 +2209,16 @@
 	};
 	const datalists = el('div', { hidden: true }, Object.entries(HINTS).map(([type, values]) => el('datalist', { id: 'st-dl-' + type }, values.map((h) => el('option', { value: h })))),
 		el('datalist', { id: 'st-dl-odkazy' }));
-	/** The link field menu: site pages, news and element anchors on this page (up to date on every opening). */
-	function refreshLinks() {
+	/** The anchors of elements on this page: [['#contact', 'Section Contact'], …] – also for the link dialog of the text editor (3.22, U6). */
+	function pageAnchors() {
 		const anchors = [];
 		(function walk(children) { children.forEach((p) => { if (p.kotva) { anchors.push(['#' + p.kotva, labelText(p)]); } if (p.deti) { walk(p.deti); } }); })(state.stavba.deti);
-		datalists.querySelector('#st-dl-odkazy').replaceChildren(...(D.odkazy || []).concat(anchors).map(([url, name]) => el('option', { value: url, label: name })));
+		return anchors;
+	}
+	window.kaletaKotvy = pageAnchors; // image/editor.js
+	/** The link field menu: site pages, news and element anchors on this page (up to date on every opening). */
+	function refreshLinks() {
+		datalists.querySelector('#st-dl-odkazy').replaceChildren(...(D.odkazy || []).concat(pageAnchors()).map(([url, name]) => el('option', { value: url, label: name })));
 	}
 
 	/** An approximate token color (for the swatch in the panel) – derived shades are mixed the same way as on the site. */

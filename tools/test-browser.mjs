@@ -1032,6 +1032,31 @@ await step('3.18.2 builder inspector: text typed on the canvas is shown cleaned 
   await page.waitForTimeout(800);
 });
 
+// 3.22 (U6, U7): the builder's Text has a numbered list and a quote (no subheadings – the Heading element has them), and its
+// link dialog is the same picker, with the anchors of the page from the builder
+await step('3.22 (U6, U7) builder Text: numbered list and quote, no H2; the link dialog suggests pages there too', async () => {
+  await visit('/admin.php?module=pages&action=builder&id=1');
+  await page.waitForTimeout(1500);
+  await canvas().locator('.ka-text').first().dblclick();
+  const tools = page.locator('.st-panel [data-pole="html"] .editor-nastroje');
+  await tools.waitFor({ timeout: 5000 });
+  const titles = await tools.locator('button').evaluateAll((all) => all.map((b) => b.textContent));
+  if (!titles.includes('1. list') || !titles.includes('“quote”') || titles.includes('H2') || titles.includes('H3')) { throw new Error(`toolbar: ${titles.join(', ')}`); }
+  if (!(await page.evaluate(() => Array.isArray(window.kaletaKotvy && window.kaletaKotvy())))) { throw new Error('the builder does not give the editor its anchors'); }
+  const field = page.locator('.st-panel [data-pole="html"] .editor-plocha');
+  await field.click();
+  await page.keyboard.press('End');
+  await page.keyboard.press('Shift+ArrowLeft');
+  await page.keyboard.press('Control+k');
+  const dialog = page.locator('dialog[open].odkaz-okno');
+  await dialog.locator('[name=adresa]').fill('Conta');
+  await dialog.locator('[role=option]', { hasText: 'Contact' }).first().waitFor({ timeout: 5000 });
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+  if (await page.locator('dialog[open].odkaz-okno').count()) { throw new Error('the link dialog stayed open'); }
+});
+
 await step('3.6 UXA-10, UXA-13: a ready section below the first gets an H2, "Fix it" in the check, the image field and the media picker', async () => {
   await visit('/admin.php?module=pages&action=builder&id=1');
   await page.waitForTimeout(1500);
@@ -1159,6 +1184,104 @@ await step('3.18.2 news editor: the link dialog refuses java<TAB>script:, vbscri
   }
   const html = await editor.innerHTML();
   if (/script:|vbscript|data:text/i.test(html)) { throw new Error(`the link dialog inserted an unsafe address: ${html}`); }
+});
+
+// 3.22 (U6): one field for an address or a search – the pages come as you type, arrows and Enter pick one, a second Enter
+// inserts the link; an e-mail and a phone number are offered as mailto: and tel:; the first Esc closes only the list
+await step('3.22 (U6) news editor: the link dialog finds a page as you type and by keyboard; mailto: and tel: for an e-mail and a phone', async () => {
+  const editor = page.locator('[contenteditable="true"]').first();
+  await editor.click();
+  await page.keyboard.press('End');
+  await page.keyboard.type(' contactus');
+  for (let i = 0; i < 9; i++) { await page.keyboard.press('Shift+ArrowLeft'); }
+  await page.keyboard.press('Control+k');
+  const dialog = page.locator('dialog[open]');
+  const field = dialog.locator('[name=adresa]');
+  await dialog.locator('[role=option]').first().waitFor({ timeout: 5000 }); // an empty field offers the pages at once
+  await field.fill('Conta');
+  // the list of the empty field has Contact too – wait for the answer to "Conta", where Contact is the first suggestion
+  await page.waitForFunction(() => { const all = [...document.querySelectorAll('dialog[open] [role=option]')]; return all.length > 0 && /Contact/.test(all[0].textContent) && all.every((o) => /conta/i.test(o.textContent)); }, null, { timeout: 5000 });
+  await page.waitForTimeout(300);
+  await page.keyboard.press('ArrowDown');
+  if (!(await field.getAttribute('aria-activedescendant')) || (await field.getAttribute('aria-expanded')) !== 'true') { throw new Error('ArrowDown did not mark a suggestion'); }
+  await page.keyboard.press('Enter');
+  const chosen = await field.inputValue();
+  if (!/\/contact\/?$/.test(chosen)) { throw new Error(`Enter picked ${chosen}`); }
+  if (!(await page.locator('dialog[open]').count())) { throw new Error('Enter on a suggestion closed the dialog'); }
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(200);
+  const html = await editor.innerHTML();
+  if (!/<a href="[^"]*\/contact\/?">contactus<\/a>/.test(html)) { throw new Error(`the link was not inserted: ${html.slice(-300)}`); }
+  await editor.click();
+  await page.keyboard.press('End');
+  await page.keyboard.type(' mail');
+  for (let i = 0; i < 4; i++) { await page.keyboard.press('Shift+ArrowLeft'); }
+  await page.keyboard.press('Control+k');
+  await field.fill('info@example.com');
+  await dialog.locator('[role=option][data-url="mailto:info@example.com"]').waitFor({ timeout: 3000 });
+  await field.fill('+420 777 123 456');
+  await dialog.locator('[role=option][data-url="tel:+420777123456"]').waitFor({ timeout: 3000 });
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Escape');
+  if (!(await page.locator('dialog[open]').count()) || !(await dialog.locator('.odkaz-vysledky').isHidden())) { throw new Error('the first Esc did not close only the list'); }
+  if ((await field.inputValue()) !== '+420 777 123 456') { throw new Error('Esc changed the field'); }
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
+  if (await page.locator('dialog[open]').count()) { throw new Error('the second Esc did not close the dialog'); }
+});
+
+// 3.22 (U7): Word's list paragraphs (MsoListParagraph, mso-list levels, the bullet in a span marked mso-list:Ignore) become
+// nested <ul>/<ol>; Google Docs lists stay; plain "·" paragraphs only as a run, and never in text that was not pasted
+await step('3.22 (U7) news editor: lists pasted from Word become nested lists, Google Docs lists stay', async () => {
+  const word = `<html xmlns:o="urn:schemas-microsoft-com:office:office"><head><style>p.MsoListParagraph{}</style></head><body lang=EN>
+<p class=MsoNormal>Intro<o:p></o:p></p>
+<p class=MsoListParagraphCxSpFirst style='text-indent:-18.0pt;mso-list:l0 level1 lfo1'><![if !supportLists]><span style='font-family:Symbol'><span style='mso-list:Ignore'>·<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp; </span></span></span><![endif]>First item with <i>italic</i><o:p></o:p></p>
+<p class=MsoListParagraphCxSpMiddle style='margin-left:72.0pt;text-indent:-18.0pt;mso-list:l0 level2 lfo1'><![if !supportLists]><span style='font-family:"Courier New"'><span style='mso-list:Ignore'>o<span>&nbsp;&nbsp; </span></span></span><![endif]>Nested<o:p></o:p></p>
+<p class=MsoListParagraphCxSpLast style='text-indent:-18.0pt;mso-list:l0 level1 lfo1'><![if !supportLists]><span style='font-family:Symbol'><span style='mso-list:Ignore'>·<span>&nbsp;&nbsp; </span></span></span><![endif]>Second<o:p></o:p></p>
+<p class=MsoNormal>Between</p>
+<p class=MsoListParagraphCxSpFirst style='text-indent:-18.0pt;mso-list:l1 level1 lfo2'><![if !supportLists]><span><span style='mso-list:Ignore'>1.<span>&nbsp;&nbsp; </span></span></span><![endif]>One<o:p></o:p></p>
+<p class=MsoListParagraphCxSpLast style='text-indent:-18.0pt;mso-list:l1 level2 lfo2'><![if !supportLists]><span><span style='mso-list:Ignore'>a)<span>&nbsp;&nbsp; </span></span></span><![endif]>Sub a<o:p></o:p></p>
+</body></html>`;
+  if (await page.locator('dialog[open]').count()) { await page.keyboard.press('Escape'); await page.keyboard.press('Escape'); }
+  const editor = page.locator('[contenteditable="true"]').first();
+  await editor.click();
+  await page.keyboard.press('Control+End');
+  const result = await editor.evaluate(async (surface, html) => {
+    const data = new DataTransfer();
+    data.setData('text/html', html);
+    surface.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+    await new Promise((r) => setTimeout(r, 300));
+    const clean = (h, mode) => window.kaletaCistiHtml(h, mode).replace(/>\s+</g, '><');
+    return { html: surface.innerHTML, word: clean(html, 'paste'), docs: clean('<ul><li><p>Docs item</p></li></ul><ol><li>n</li></ol>', 'paste'),
+      plain: clean('<p>· one</p><p>· two</p><p>1. Introduction</p>', 'paste'), typed: clean('<p>· one</p><p>· two</p>', true) };
+  }, word);
+  const expected = '<p>Intro</p><ul><li>First item with <i>italic</i><ul><li>Nested</li></ul></li><li>Second</li></ul><p>Between</p><ol><li>One<ol><li>Sub a</li></ol></li></ol>';
+  if (result.word !== expected) { throw new Error(`Word lists: ${result.word}`); }
+  if (!/<ul><li>First item with <i>italic<\/i><ul><li>Nested<\/li><\/ul><\/li><li>Second<\/li><\/ul>/.test(result.html.replace(/>\s+</g, '><'))) { throw new Error(`the pasted Word list in the editor: ${result.html.slice(-400)}`); }
+  if (result.docs !== '<ul><li><p>Docs item</p></li></ul><ol><li>n</li></ol>') { throw new Error(`Google Docs list: ${result.docs}`); }
+  if (result.plain !== '<ul><li>one</li><li>two</li></ul><p>1. Introduction</p>' || result.typed !== '<p>· one</p><p>· two</p>') { throw new Error(`plain bullets: ${result.plain} | ${result.typed}`); }
+});
+
+// 3.22 (C14): Media scales a large photo down in the browser before the upload (2000 px) and the message says so
+await step('3.22 (C14) Media: a 3000 px photo is scaled to 2000 px in the browser, and the message says "resized from … to …"', async () => {
+  await visit('/admin.php?module=media');
+  await page.evaluate(async () => {
+    const c = document.createElement('canvas');
+    c.width = 3000; c.height = 2000;
+    const g = c.getContext('2d');
+    const gradient = g.createLinearGradient(0, 0, 3000, 2000);
+    gradient.addColorStop(0, '#c33'); gradient.addColorStop(1, '#33c');
+    g.fillStyle = gradient; g.fillRect(0, 0, 3000, 2000);
+    const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.95));
+    const files = new DataTransfer();
+    files.items.add(new File([blob], 'big-photo-322.jpg', { type: 'image/jpeg' }));
+    document.querySelector('form[data-nahravani] input[type=file]').files = files.files;
+  });
+  await Promise.all([page.waitForNavigation(), page.evaluate(() => document.querySelector('form[data-nahravani]').requestSubmit())]);
+  const text = await page.locator('main, body').first().innerText();
+  if (!/big-photo-322\.jpg resized from 3000 × 2000 px \([^)]+\) to 2000 × 1333 px \([^)]+\)/.test(text)) { throw new Error(`no resize note: ${text.slice(0, 400)}`); }
+  const width = sql("SELECT obr_width FROM ka_media WHERE obr_poloha LIKE '%big-photo-322%' ORDER BY ido DESC LIMIT 1").trim();
+  if (width !== '2000') { throw new Error(`stored width ${width}`); }
 });
 
 await step('newsletter: draft and preview', async () => {

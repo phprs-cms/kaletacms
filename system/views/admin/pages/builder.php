@@ -34,7 +34,7 @@ $language = Kaleta\Core\Language::code();
 <script src="<?= e($app->url('image/jazyky/admin-' . $language . '.js')) ?>?v=<?= $version ?>"></script>
 <?php endif ?>
 <script src="<?= e($app->url('image/admin.js')) ?>?v=<?= $version ?>" defer></script>
-<script src="<?= e($app->url('image/editor.js')) ?>?v=<?= $version ?>" data-admin-url="<?= e($app->url('admin.php')) ?>" data-max-soubor="<?= Kaleta\Core\Files::limit() ?>" data-max-soubor-text="<?= e(Kaleta\Core\Files::limitText()) ?>" data-max-strana="<?= Kaleta\Core\Images::MAX_SIDE ?>" defer></script>
+<script src="<?= e($app->url('image/editor.js')) ?>?v=<?= $version ?>" data-admin-url="<?= e($app->url('admin.php')) ?>" data-max-soubor="<?= Kaleta\Core\Files::limit() ?>" data-max-soubor-text="<?= e(Kaleta\Core\Files::limitText()) ?>" data-max-strana="<?= Kaleta\Core\Images::MAX_SIDE ?>" data-max-davka="<?= Kaleta\Core\UploadLimit::requestLimit() ?>" defer></script>
 <script src="<?= e($app->url('image/stavitel.js')) ?>?v=<?= $version ?>" defer></script>
 </body>
 </html>

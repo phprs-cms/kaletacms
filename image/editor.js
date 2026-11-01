@@ -1,6 +1,7 @@
 /* Kaleta - text editor (news, pages) and working with images. No libraries, no build step.
  *
- *   <textarea data-editor>            WYSIWYG editor (data-editor="maly" = shortened toolbar)
+ *   <textarea data-editor>            WYSIWYG editor (data-editor="maly" = shortened toolbar, "stavitel" = the builder's Text:
+ *                                     shortened, with numbered lists and quotes, still without subheadings – the Heading element has them)
  *   <input data-obrazek>              image URL field + "Vybrat z galerie" (Choose from gallery) button and a preview
  *   <form data-nahravani>             uploading by dragging files
  *
@@ -16,6 +17,7 @@
 	var ADMIN = SCRIPT.getAttribute('data-admin-url');
 	var MAX_FILE = parseInt(SCRIPT.getAttribute('data-max-soubor') || '0', 10); // the server's per-file limit in bytes (0 = no limit)
 	var MAX_SIDE = parseInt(SCRIPT.getAttribute('data-max-strana') || '2000', 10);
+	var MAX_POST = parseInt(SCRIPT.getAttribute('data-max-davka') || '0', 10); // the server's limit of one request (post_max_size, 3.22)
 	var CSRF = (document.querySelector('input[name="_csrf"]') || {}).value || '';
 	var GALLERY = ADMIN + '?module=media';
 	var NEWS_ID = parseInt((document.querySelector('form[data-koncept] input[name="idc"]') || {}).value || '0', 10);
@@ -64,7 +66,8 @@
 		return EMBED.test(src) ? src : '';
 	}
 
-	// strict: HTML from outside (a paste, the builder canvas) – a frame stays only with an allowed address
+	// strict: HTML from outside (a paste, the builder canvas) – a frame stays only with an allowed address; 'paste' also turns
+	// Word's list paragraphs into lists (wordLists)
 	function sanitize(node, strict) {
 		Array.prototype.slice.call(node.childNodes).forEach(function (n) {
 			if (n.nodeType === 8) { n.remove(); return; }
@@ -113,6 +116,108 @@
 		}
 	}
 
+	/* ---------- lists pasted from Word (3.22, U7) ---------- */
+
+	// Word writes list items as paragraphs (class MsoListParagraph…, style "mso-list:l0 level2 lfo1") with the bullet or the
+	// number as text in a span marked "mso-list:Ignore"; text from elsewhere can carry the bullets ("·", "o", "§", "1.", "a)")
+	// at the start of plain paragraphs. Both become <ul>/<ol> with <li>, nested by Word's level; Google Docs and Word Online
+	// already paste real lists, which stay as they are.
+	var LIST_MARKER = /^[\s\u00a0]*(\(?(?:\d{1,3}|[a-z]|[ivxlc]{1,6})[.)]|[·•▪◦○●■□§Øü*o\-–])(?:[\s\u00a0]+|$)/i;
+	var ORDERED_MARKER = /^\(?(?:\d{1,3}|[a-z]|[ivxlc]{1,6})[.)]$/i;
+	// a plain paragraph (without Word's marks) needs a stronger hint: a bullet character, "1." / "a)", or Word's "o" / "-" padded with a non-breaking space or tab
+	var PLAIN_MARKER = /^[\s\u00a0]*(\(?(?:\d{1,3}|[a-z])[.)](?=[\s\u00a0])|[·•▪◦●■§](?=[\s\u00a0])|[o\-–*](?=[\u00a0\t]))[\s\u00a0]+/i;
+
+	/** Removes the first n characters of the paragraph's text (the marker typed at its start) and the spaces after them. */
+	function cutLeading(p, n) {
+		var walker = p.ownerDocument.createTreeWalker(p, 4); // NodeFilter.SHOW_TEXT
+		for (var t = walker.nextNode(); t && n > 0; t = walker.nextNode()) {
+			var take = Math.min(n, t.data.length);
+			t.data = t.data.slice(take);
+			n -= take;
+		}
+		trimStart(p);
+	}
+
+	function trimStart(p) {
+		var walker = p.ownerDocument.createTreeWalker(p, 4);
+		for (var t = walker.nextNode(); t; t = walker.nextNode()) {
+			t.data = t.data.replace(/^[\s\u00a0]+/, '');
+			if (t.data !== '') { return; }
+		}
+	}
+
+	/** {level, ordered, id, word, strip} of a paragraph that is a list item, otherwise null. */
+	function listItem(p) {
+		if (p.parentNode && p.parentNode.closest && p.parentNode.closest('li')) { return null; } // Google Docs: <li><p>…</p></li>
+		var style = p.getAttribute('style') || '';
+		var mso = /mso-list:\s*(l\d+)\s+level(\d+)(?:\s+(lfo\d+))?/i.exec(style);
+		var word = !!mso || /^MsoList(Paragraph|Bullet|Number)/i.test(p.getAttribute('class') || '');
+		var level = mso ? Math.max(1, Math.min(9, parseInt(mso[2], 10))) : 1;
+		var id = mso ? mso[1] + (mso[3] || '') : '';
+		if (word) {
+			var ignore = Array.prototype.filter.call(p.querySelectorAll('[style]'), function (n) { return /mso-list:\s*ignore/i.test(n.getAttribute('style')); })[0];
+			if (ignore) {
+				var marker = ignore.textContent.replace(/[\s\u00a0]+/g, '');
+				return { level: level, ordered: ORDERED_MARKER.test(marker), id: id, word: true, strip: function () {
+					var parent = ignore.parentNode;
+					ignore.remove();
+					// the wrapper spans of the marker (font Symbol, Wingdings) are empty now
+					while (parent && parent !== p && !parent.textContent.replace(/[\s\u00a0]+/g, '') && !parent.querySelector('img')) { var up = parent.parentNode; parent.remove(); parent = up; }
+					trimStart(p);
+				} };
+			}
+		}
+		var text = p.textContent;
+		// only the list style of Word ("List Paragraph" also indents plain paragraphs) needs the stronger hint, as plain text does
+		var m = (mso ? LIST_MARKER : PLAIN_MARKER).exec(text);
+		if (!m) { return mso ? { level: level, ordered: false, id: id, word: true, strip: function () { trimStart(p); } } : null; }
+		var symbol = m[1].replace(/[\s\u00a0]+/g, '');
+		return { level: level, ordered: ORDERED_MARKER.test(symbol), id: id, word: !!mso, strip: function () { cutLeading(p, m[0].length); } };
+	}
+
+	/** The next element sibling, skipping white space and comments (Word's conditional comments); null at anything else. */
+	function nextParagraph(n) {
+		for (n = n.nextSibling; n; n = n.nextSibling) {
+			if (n.nodeType === 8 || (n.nodeType === 3 && /^[\s\u00a0]*$/.test(n.data))) { continue; }
+			return n.nodeType === 1 && n.tagName === 'P' ? n : null;
+		}
+		return null;
+	}
+
+	function wordLists(box) {
+		var doc = box.ownerDocument;
+		var done = [];
+		Array.prototype.slice.call(box.querySelectorAll('p')).forEach(function (p) {
+			if (done.indexOf(p) !== -1 || !p.parentNode) { return; }
+			var run = [];
+			for (var n = p, item; n && (item = listItem(n)); n = nextParagraph(n)) { item.p = n; run.push(item); done.push(n); }
+			// plain paragraphs only as a run of at least two of one kind – one "1. Introduction" after bullets stays a paragraph
+			run.forEach(function (it, i) {
+				if (it.word) { return; }
+				var same = function (o) { return o && !o.word && o.ordered === it.ordered; };
+				it.skip = !same(run[i - 1]) && !same(run[i + 1]);
+			});
+			var stack = []; // the open lists: {level, ordered, id, list}
+			run.forEach(function (it) {
+				if (it.skip) { stack = []; return; } // the paragraph stays; what follows starts a new list after it
+				it.strip();
+				while (stack.length && stack[stack.length - 1].level > it.level) { stack.pop(); }
+				var top = stack[stack.length - 1];
+				// the same level but another kind of list (bullets after numbers) or another Word list = a new list next to it
+				if (top && top.level === it.level && (top.ordered !== it.ordered || (it.id && top.id && it.id !== top.id))) { stack.pop(); top = stack[stack.length - 1]; }
+				if (!top || top.level < it.level) {
+					var list = doc.createElement(it.ordered ? 'ol' : 'ul');
+					if (top) { (top.list.lastElementChild || top.list.appendChild(doc.createElement('li'))).appendChild(list); } else { it.p.before(list); }
+					stack.push(top = { level: it.level, ordered: it.ordered, id: it.id, list: list });
+				}
+				var li = doc.createElement('li');
+				while (it.p.firstChild) { li.appendChild(it.p.firstChild); }
+				top.list.appendChild(li);
+				it.p.remove();
+			});
+		});
+	}
+
 	// parsed in an inert document (3.18.2, CodeQL #32): in the admin page itself a pasted <img onerror> loaded and ran
 	// before sanitize() removed it – nothing loads or runs in a document without a window
 	var inert = null;
@@ -120,6 +225,7 @@
 		inert = inert || document.implementation.createHTMLDocument('');
 		var box = inert.createElement('div');
 		box.innerHTML = html;
+		if (strict === 'paste') { wordLists(box); } // only what is pasted; text typed in the builder's canvas stays as it was typed
 		sanitize(box, strict);
 		if (!keepEmpty) { tidy(box); }
 		return box.innerHTML.trim();
@@ -155,7 +261,9 @@
 	/* ---------- uploading ---------- */
 
 	// A phone photo (5–10 MB) is scaled down to MAX_STRANA px already in the browser – the server would scale it anyway – so it
-	// does not hit the hosting limit. createImageBitmap keeps the EXIF rotation; EXIF data (location too) is dropped, as in server processing.
+	// does not hit the hosting limit (3.22, C14: quality 0.85, a note on what changed). createImageBitmap keeps the EXIF rotation;
+	// EXIF data (location too) is dropped, as in server processing. A PNG stays a PNG (transparency); GIF, SVG and PDF are left alone.
+	// Resolves to the file to send; a scaled one carries .kaletaFrom = [width, height, bytes] of the original and .kaletaTo of the result.
 	function shrink(file) {
 		if (!/^image\/(jpeg|png|webp)$/.test(file.type) || !window.createImageBitmap) { return Promise.resolve(file); }
 		return createImageBitmap(file, { imageOrientation: 'from-image' }).then(function (bitmap) {
@@ -168,35 +276,76 @@
 			canvas.height = Math.round(bitmap.height * ratio);
 			canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
 			bitmap.close();
-			// quality 0.9; when the result is still over the server limit, a lower one is tried (PNG has no quality)
+			// quality 0.85; when the result is still over the server limit, a lower one is tried (PNG has no quality)
 			var write = function (quality) {
 				return new Promise(function (done) { canvas.toBlob(done, file.type, quality); }).then(function (blob) {
-					if (blob && MAX_FILE && blob.size > MAX_FILE && file.type !== 'image/png' && quality > 0.6) { return write(Math.round((quality - 0.1) * 10) / 10); }
+					if (blob && MAX_FILE && blob.size > MAX_FILE && file.type !== 'image/png' && quality > 0.6) { return write(Math.round((quality - 0.1) * 100) / 100); }
 					// a browser that cannot write the type (WebP in Safari) returns another one – then the original file is preferred
-					return blob && blob.type === file.type && (ratio < 1 || blob.size < file.size)
-						? new File([blob], file.name, { type: file.type, lastModified: file.lastModified }) : file;
+					if (!(blob && blob.type === file.type && (ratio < 1 || blob.size < file.size))) { return file; }
+					var smaller = new File([blob], file.name, { type: file.type, lastModified: file.lastModified });
+					smaller.kaletaFrom = [w, h, file.size];
+					smaller.kaletaTo = [canvas.width, canvas.height, blob.size];
+					return smaller;
 				});
 			};
-			return write(0.9);
+			return write(0.85);
 		}).catch(function () { return file; });
 	}
 
-	// Scales images down and sets aside files the server would reject anyway (a whole request over the limit would fail without explanation).
-	function prepareFiles(files) {
+	/** 6.2 MB, 840 kB – the size for the note. */
+	function sizeText(bytes) {
+		return bytes >= 1048576 ? (bytes / 1048576).toFixed(1).replace('.', LANGUAGE === 'en' ? '.' : ',') + ' MB' : Math.max(1, Math.round(bytes / 1024)) + ' kB';
+	}
+
+	/** "photo.jpg resized from 4032 × 3024 (6.2 MB) to 2000 × 1500 (840 kB)" for each photo the browser scaled down. */
+	function resizedNotes(files) {
+		return files.filter(function (s) { return s.kaletaFrom; }).map(function (s) {
+			var dims = function (d) { return d[0] + ' × ' + d[1] + ' px (' + sizeText(d[2]) + ')'; };
+			return T('%s resized from %s to %s').replace('%s', s.name).replace('%s', dims(s.kaletaFrom)).replace('%s', dims(s.kaletaTo));
+		});
+	}
+
+	// Scales images down and sets aside files the server would reject anyway (a whole request over the limit would fail without
+	// explanation): one file over the per-file limit, and – for a form sent at once – files over the limit of one request together.
+	// The resolved list carries .notes (resizedNotes).
+	function prepareFiles(files, together) {
 		return Promise.all(Array.prototype.map.call(files, shrink)).then(function (finished) {
 			var errors = [];
 			var ok = finished.filter(function (s) {
 				if (!MAX_FILE || s.size <= MAX_FILE) { return true; }
-				errors.push(s.name + ': ' + T('The file is larger than the server allows (%s at most). Make it smaller or ask your hosting provider to raise the limit.').replace('%s', SCRIPT.getAttribute('data-max-soubor-text') || ''));
+				errors.push(s.name + ': ' + T('The file is larger than the server allows (%s at most) even after resizing. Make it smaller, or raise the limit as System status describes.').replace('%s', SCRIPT.getAttribute('data-max-soubor-text') || ''));
 				return false;
 			});
+			var total = ok.reduce(function (sum, s) { return sum + s.size; }, 0);
+			if (together && MAX_POST && ok.length > 1 && total > MAX_POST) {
+				errors.push(T('These files are larger together (%s) than the server accepts in one upload (%s). Upload them in smaller groups.').replace('%s', sizeText(total)).replace('%s', sizeText(MAX_POST)));
+				ok = [];
+			}
 			if (errors.length) { announce(errors.join('\n')); }
+			ok.notes = resizedNotes(ok);
 			return ok;
 		});
 	}
 
-	function upload(selected) {
-		return prepareFiles(selected).then(function (files) { return files.length ? send(files) : []; });
+	// note: where the "resized from … to …" note goes (an element with aria-live), optional
+	function upload(selected, note) {
+		return prepareFiles(selected).then(function (files) {
+			if (note && files.notes.length) { note.textContent = files.notes.join(' · '); }
+			return files.length ? sendInBatches(files) : [];
+		});
+	}
+
+	// files that do not fit in one request together go in several (each within the server's post_max_size)
+	function sendInBatches(files) {
+		var batches = [[]], size = 0;
+		files.forEach(function (s) {
+			if (MAX_POST && size + s.size > MAX_POST && batches[batches.length - 1].length) { batches.push([]); size = 0; }
+			batches[batches.length - 1].push(s);
+			size += s.size;
+		});
+		return batches.reduce(function (chain, batch) {
+			return chain.then(function (all) { return send(batch).then(function (items) { return all.concat(items); }); });
+		}, Promise.resolve([]));
 	}
 
 	function send(files) {
@@ -259,13 +408,13 @@
 				newItems.reverse().forEach(function (o) { add(o, true); });
 			};
 			Array.prototype.forEach.call(modal.querySelectorAll('input[type=file]'), function (inputEl) { inputEl.addEventListener('change', function () {
-				upload(this.files).then(uploaded);
+				upload(this.files, modal.querySelector('.napoveda')).then(uploaded);
 				this.value = '';
 			}); });
 			modal.addEventListener('dragover', function (e) { e.preventDefault(); });
 			modal.addEventListener('drop', function (e) {
 				e.preventDefault();
-				if (e.dataTransfer.files.length) { upload(e.dataTransfer.files).then(uploaded); }
+				if (e.dataTransfer.files.length) { upload(e.dataTransfer.files, modal.querySelector('.napoveda')).then(uploaded); }
 			});
 		}
 		var grid = modal.querySelector('.galerie-mrizka');
@@ -369,8 +518,8 @@
 		['I', T('Italic (Ctrl+I)'), function () { statement('italic'); }],
 		[T('link'), T('Insert link (Ctrl+K)'), link],
 		[T('• list'), T('Bulleted list'), function () { statement('insertUnorderedList'); }],
-		[T('1. list'), T('Numbered list'), function () { statement('insertOrderedList'); }, 'velky'],
-		[T('“quote”'), T('Quote'), function () { statement('formatBlock', 'BLOCKQUOTE'); }, 'velky'],
+		[T('1. list'), T('Numbered list'), function () { statement('insertOrderedList'); }, 'text'],
+		[T('“quote”'), T('Quote'), function () { statement('formatBlock', 'BLOCKQUOTE'); }, 'text'],
 		[T('image'), T('Insert an image from Media'), null, 'velky'],
 		[T('gallery'), T('Insert a photo gallery – visitors can browse the photos full screen'), 'galerie', 'velky'],
 		[T('table'), T('Insert a 3 × 3 table with a header; add rows and columns with the buttons above the table'), function () {
@@ -383,8 +532,32 @@
 
 	function statement(name, value) { document.execCommand(name, false, value || null); }
 
-	/* Link dialog: a URL, or an own news item found by its title. Embedded browsers suppress the system prompt(). */
+	/* Link dialog (3.22, U6): one field for an address or a search – pages, news, collection items, files in Media and the
+	   language versions from the server (admin.php?action=link_targets), anchors on the page in the builder (window.kaletaKotvy),
+	   and mailto:/tel: for a typed e-mail or phone number. A combobox: arrows move in the list, Enter picks, Esc closes the list.
+	   Embedded browsers suppress the system prompt(). */
 	var linkDialog = null;
+
+	// what is an address already – nothing to search for
+	var LOOKS_LIKE_ADDRESS = /^(https?:|mailto:|tel:|\/|#|\.|www\.)/i;
+	var EMAIL = /^[^\s@<>"]+@[^\s@<>"]+\.[a-z]{2,}$/i;
+	var PHONE = /^\+?[\d\s().\/-]{6,}$/;
+
+	/** The suggestions for what is typed that need no server: an e-mail, a phone number, anchors on the page. */
+	function localTargets(q) {
+		var groups = [];
+		if (EMAIL.test(q)) { groups.push({ label: T('E-mail'), items: [{ url: 'mailto:' + q, title: T('Send an e-mail to %s').replace('%s', q), note: 'mailto:' }] }); }
+		var digits = q.replace(/\D/g, '');
+		if (PHONE.test(q) && digits.length >= 6 && digits.length <= 15) {
+			groups.push({ label: T('Phone'), items: [{ url: 'tel:' + (q.trim().charAt(0) === '+' ? '+' : '') + digits, title: T('Call %s').replace('%s', q.trim()), note: 'tel:' }] });
+		}
+		var anchors = (window.kaletaKotvy ? window.kaletaKotvy() : []).filter(function (a) {
+			var needle = q.replace(/^#/, '').toLowerCase();
+			return needle === '' || a[0].toLowerCase().indexOf(needle) !== -1 || String(a[1]).toLowerCase().indexOf(needle) !== -1;
+		});
+		if (anchors.length) { groups.push({ label: T('On this page'), items: anchors.slice(0, 12).map(function (a) { return { url: a[0], title: a[1] || a[0], note: a[0] }; }) }); }
+		return groups;
+	}
 
 	function link() {
 		var selection = window.getSelection();
@@ -397,39 +570,99 @@
 			linkDialog = document.createElement('dialog');
 			linkDialog.className = 'galerie-okno odkaz-okno';
 			linkDialog.innerHTML = '<form method="dialog"><div class="galerie-okno-hlava"><strong>' + T('Link') + '</strong></div>'
-				+ '<label>' + T('Adresa') + '<input class="textpole siroke" type="text" name="adresa" placeholder="' + T('https://… or /about-us') + '" autocomplete="off"></label>'
-				+ '<label>' + T('…or find a news item on the site') + '<input class="textpole siroke" type="search" name="hledat" placeholder="' + T('part of the headline') + '" autocomplete="off"></label>'
-				+ '<div class="odkaz-vysledky" aria-live="polite"></div>'
+				+ '<label for="odkaz-adresa">' + T('Address, or search the site') + '</label>'
+				+ '<input class="textpole siroke" id="odkaz-adresa" type="text" name="adresa" placeholder="' + T('https://…, /about-us, an e-mail, a phone – or a page name') + '" autocomplete="off"'
+				+ ' role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="odkaz-seznam">'
+				+ '<div class="odkaz-vysledky" id="odkaz-seznam" role="listbox" aria-label="' + T('Suggestions') + '" hidden></div>'
+				+ '<p class="odkaz-stav" aria-live="polite"></p>'
 				+ '<label class="odkaz-volba"><input type="checkbox" name="nove"> ' + T('open in a new window') + '</label>'
 				+ '<div class="odkaz-tlacitka"><button type="submit" class="tl" value="ok">' + T('Insert link') + '</button> <button type="button" class="navigace" data-zrusit>' + T('Remove link') + '</button> <button type="button" class="navigace" data-zavri>' + T('Close') + '</button></div></form>';
 			document.body.appendChild(linkDialog);
-			var timer = null;
-			linkDialog.querySelector('[name=hledat]').addEventListener('input', function () {
-				var q = this.value.trim(), results = linkDialog.querySelector('.odkaz-vysledky');
-				clearTimeout(timer);
-				if (q.length < 2) { results.textContent = ''; return; }
-				timer = setTimeout(function () {
-					fetch(ADMIN + '?module=news&action=search_json&q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
-						results.textContent = j.clanky.length ? '' : T('Nothing found.');
-						j.clanky.forEach(function (c) {
-							var b = document.createElement('button');
-							b.type = 'button';
-							b.textContent = c.titulek + (c.vydany ? '' : ' (' + T('nevydaný') + ')');
-							b.addEventListener('click', function () { linkDialog.querySelector('[name=adresa]').value = c.url; linkDialog.querySelector('[name=adresa]').focus(); });
-							results.appendChild(b);
-						});
+			var input = linkDialog.querySelector('[name=adresa]');
+			var list = linkDialog.querySelector('.odkaz-vysledky');
+			var status = linkDialog.querySelector('.odkaz-stav');
+			var timer = null, asked = 0, active = -1;
+			var options = function () { return list.querySelectorAll('[role=option]'); };
+			var open = function (yes) { list.hidden = !yes; input.setAttribute('aria-expanded', yes ? 'true' : 'false'); if (!yes) { mark(-1); } };
+			var mark = function (i) {
+				var all = options();
+				active = all.length ? Math.max(-1, Math.min(i, all.length - 1)) : -1;
+				Array.prototype.forEach.call(all, function (o, j) { o.classList.toggle('aktivni', j === active); o.setAttribute('aria-selected', j === active ? 'true' : 'false'); });
+				if (active >= 0) { input.setAttribute('aria-activedescendant', all[active].id); all[active].scrollIntoView({ block: 'nearest' }); } else { input.removeAttribute('aria-activedescendant'); }
+			};
+			var pick = function (o) { input.value = o.getAttribute('data-url'); open(false); status.textContent = T('Link to: %s').replace('%s', o.querySelector('span').textContent); input.focus(); };
+			var show = function (groups, q) {
+				list.textContent = '';
+				var n = 0;
+				groups.forEach(function (g) {
+					var box = document.createElement('div');
+					box.setAttribute('role', 'group');
+					box.setAttribute('aria-label', g.label);
+					var heading = document.createElement('div');
+					heading.className = 'odkaz-skupina';
+					heading.setAttribute('aria-hidden', 'true');
+					heading.textContent = g.label;
+					box.appendChild(heading);
+					g.items.forEach(function (it) {
+						var o = document.createElement('div');
+						o.setAttribute('role', 'option');
+						o.id = 'odkaz-volba-' + (n++);
+						o.setAttribute('data-url', it.url);
+						o.innerHTML = '<span></span><small></small>';
+						o.firstChild.textContent = it.title;
+						o.lastChild.textContent = it.note ? it.note + ' · ' + it.url : it.url;
+						o.addEventListener('mousedown', function (e) { e.preventDefault(); }); // the field keeps the focus
+						o.addEventListener('click', function () { pick(o); });
+						box.appendChild(o);
 					});
-				}, 250);
+					list.appendChild(box);
+				});
+				open(n > 0);
+				status.textContent = n ? '' : (q !== '' ? T('Nothing found – the text is used as the address.') : '');
+			};
+			var search = function () {
+				var q = input.value.trim(), mine = ++asked;
+				clearTimeout(timer);
+				var local = localTargets(q);
+				// an address typed in full needs no search; an e-mail or a phone number only its own suggestion
+				if (LOOKS_LIKE_ADDRESS.test(q) || EMAIL.test(q) || (local.length && PHONE.test(q))) { show(local, q.charAt(0) === '#' ? q : ''); return; }
+				if (q.length === 1) { show(local, ''); return; }
+				timer = setTimeout(function () {
+					fetch(ADMIN + '?action=link_targets&q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
+						if (mine === asked) { show(local.concat(j.groups || []), q); }
+					}).catch(function () { if (mine === asked) { show(local, ''); } });
+				}, 200);
+			};
+			linkDialog.search = search;
+			input.addEventListener('input', function () { status.textContent = ''; search(); });
+			input.addEventListener('keydown', function (e) {
+				var all = options();
+				if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+					e.preventDefault();
+					if (list.hidden) { if (all.length) { open(true); } else { search(); } return; }
+					mark(e.key === 'ArrowDown' ? (active + 1) % all.length : (active <= 0 ? all.length - 1 : active - 1));
+				} else if (e.key === 'Enter' && !list.hidden && active >= 0) {
+					e.preventDefault(); // Enter picks the suggestion; one more Enter inserts the link
+					pick(all[active]);
+				} else if (e.key === 'Escape' && !list.hidden) {
+					e.preventDefault(); // the first Esc closes the list, the second the dialog
+					e.stopPropagation();
+					open(false);
+				}
 			});
+			linkDialog.addEventListener('cancel', function (e) { if (!list.hidden) { e.preventDefault(); open(false); } });
+			input.addEventListener('blur', function () { setTimeout(function () { if (document.activeElement !== input) { open(false); } }, 150); });
 			linkDialog.querySelector('[data-zavri]').addEventListener('click', function () { linkDialog.close('zavrit'); });
 			linkDialog.querySelector('[data-zrusit]').addEventListener('click', function () { linkDialog.close('zrusit'); });
 			linkDialog.addEventListener('close', function () { linkDialog.hotovo(linkDialog.returnValue); });
 		}
 		var f = linkDialog.querySelector('form');
 		f.adresa.value = anchor ? anchor.getAttribute('href') : '';
-		f.hledat.value = '';
 		f.nove.checked = !!(anchor && anchor.target === '_blank');
 		linkDialog.querySelector('.odkaz-vysledky').textContent = '';
+		linkDialog.querySelector('.odkaz-vysledky').hidden = true;
+		linkDialog.querySelector('.odkaz-stav').textContent = '';
+		f.adresa.setAttribute('aria-expanded', 'false');
 		linkDialog.querySelector('[data-zrusit]').hidden = !anchor;
 		linkDialog.returnValue = '';
 		linkDialog.hotovo = function (result) {
@@ -446,10 +679,12 @@
 		};
 		linkDialog.showModal();
 		f.adresa.focus();
+		if (!anchor) { linkDialog.search(); } // an empty field offers the pages and the anchors at once
 	}
 
 	function createEditor(field) {
-		var small = field.getAttribute('data-editor') === 'maly';
+		var mode = field.getAttribute('data-editor');
+		var small = mode === 'maly' || mode === 'stavitel';
 		var wrapper = document.createElement('div');
 		wrapper.className = 'editor' + (small ? ' editor-maly' : '');
 		var tabList = document.createElement('div');
@@ -485,7 +720,8 @@
 		}
 
 		BUTTONS.forEach(function (t) {
-			if (small && t[3] === 'velky') { return; }
+			// 'velky' = only the large editor; 'text' = also the builder's text fields (3.22, U7), not the short intro fields
+			if ((small && t[3] === 'velky') || (mode === 'maly' && t[3] === 'text')) { return; }
 			var b = document.createElement('button');
 			b.type = 'button';
 			b.textContent = t[0];
@@ -567,11 +803,11 @@
 			var transfer = e.clipboardData;
 			if (hasImages(transfer)) {
 				e.preventDefault();
-				upload(transfer.files).then(function (newItems) { newItems.forEach(function (o) { statement('insertHTML', imageHtml(o)); }); toField(); });
+				upload(transfer.files, state.lastChild).then(function (newItems) { newItems.forEach(function (o) { statement('insertHTML', imageHtml(o)); }); toField(); });
 				return;
 			}
 			var inserted = transfer.getData('text/html');
-			if (inserted) { e.preventDefault(); statement('insertHTML', cleanHtml(inserted, true)); toField(); }
+			if (inserted) { e.preventDefault(); statement('insertHTML', cleanHtml(inserted, 'paste')); toField(); }
 		});
 		surface.addEventListener('dragover', function (e) { if (hasImages(e.dataTransfer) || (e.dataTransfer.types || []).indexOf('Files') !== -1) { e.preventDefault(); wrapper.classList.add('editor-pretazeni'); } });
 		surface.addEventListener('dragleave', function () { wrapper.classList.remove('editor-pretazeni'); });
@@ -580,7 +816,7 @@
 			// a file other than an image (PDF…): not uploaded, but the browser must not open it in place of the form - unsaved text would be gone
 			if (!hasImages(e.dataTransfer)) { if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) { e.preventDefault(); } return; }
 			e.preventDefault();
-			upload(e.dataTransfer.files).then(function (newItems) { surface.focus(); newItems.forEach(function (o) { statement('insertHTML', imageHtml(o)); }); toField(); });
+			upload(e.dataTransfer.files, state.lastChild).then(function (newItems) { surface.focus(); newItems.forEach(function (o) { statement('insertHTML', imageHtml(o)); }); toField(); });
 		});
 		if (field.form) { field.form.addEventListener('submit', function () { if (!source) { field.value = cleanHtml(surface.innerHTML); } }); }
 		count();
@@ -724,12 +960,15 @@
 			e.preventDefault();
 			var button = form.querySelector('[type=submit]');
 			if (button) { button.disabled = true; }
-			prepareFiles(inputEl.files).then(function (files) {
+			prepareFiles(inputEl.files, true).then(function (files) {
 				if (button) { button.disabled = false; }
 				if (!files.length) { inputEl.value = ''; return; }
 				var transfer = new DataTransfer();
 				files.forEach(function (s) { transfer.items.add(s); });
 				inputEl.files = transfer.files;
+				// the note "resized from … to …" comes back in the message after the upload (Admin\Modules\Media::actionUpload)
+				var resized = form.querySelector('input[name="zmenseno"]') || form.appendChild(Object.assign(document.createElement('input'), { type: 'hidden', name: 'zmenseno' }));
+				resized.value = files.filter(function (s) { return s.kaletaFrom; }).map(function (s) { return [s.name.replace(/[|\n]/g, ' ')].concat(s.kaletaFrom, s.kaletaTo).join('|'); }).join('\n');
 				form.submit();
 			});
 		});

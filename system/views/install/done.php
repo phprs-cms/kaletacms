@@ -6,6 +6,7 @@
  * @var bool $fromExport "Start from an export": the next step is the import
  * @var string|null $mcp address of the Claude connection, when it is switched on (2.5: the next step after installing)
  * @var string|null $cron the cron line for the background jobs (2.8)
+ * @var string|null $userIni the name of the .user.ini the installer wrote with larger upload limits (3.22)
  */
 ?>
 <!doctype html>
@@ -56,6 +57,9 @@
 	<blockquote><?= e(t('We are [company], we do [services] in [city]. Rewrite the pages of my Kaleta site for us, match the colours to our logo and leave everything as drafts for me to check.')) ?></blockquote>
 	<p><a href="<?= e(Kaleta\Admin\Guide::url('claude-connect', $language ?? 'en')) ?>" target="_blank" rel="noopener"><?= e(t('Guide: connect Claude')) ?></a></p>
 </section>
+<?php endif ?>
+<?php if (!empty($userIni)): // 3.22 (C14) ?>
+<p class="hlaska hlaska-ok"><?= e(t('Uploads: the server allowed only small files, so Kaleta wrote %s with upload_max_filesize = 16M and post_max_size = 20M into the site\'s folder. The host reads it within a few minutes; System status shows the limit in force.', $userIni)) ?></p>
 <?php endif ?>
 <?php if (!empty($cron)): ?>
 <section class="claude">

@@ -244,8 +244,31 @@ final class Media extends Module
         }
 
         $message = $uploaded === [] ? '' : t('Files uploaded: %d.', count($uploaded)) . ($imageCount > 0 ? ' ' . t('Add a description for blind visitors (alt text) to the images: what the image shows.') : '');
+        if ($uploaded !== [] && ($resized = self::resizedNotes($this->request->post('zmenseno'))) !== []) {
+            $this->app->session->flash('info', implode(' ', $resized));
+        }
 
         return $this->back($message, '', $section !== null ? ['section' => $section] : []);
+    }
+
+    /**
+     * 3.22 (C14): "photo.jpg resized from 4032 × 3024 px (6.2 MB) to 2000 × 1500 px (0.8 MB)" for the photos the browser scaled
+     * down before the upload (image/editor.js sends name|width|height|bytes|width|height|bytes per line). Only numbers and a
+     * file name are read; at most 50 lines.
+     *
+     * @return list<string>
+     */
+    public static function resizedNotes(string $field): array
+    {
+        $notes = [];
+        foreach (array_slice(explode("\n", mb_substr($field, 0, 20000)), 0, 50) as $line) {
+            if (preg_match('/^([^|]{1,200})\|(\d{1,5})\|(\d{1,5})\|(\d{1,10})\|(\d{1,5})\|(\d{1,5})\|(\d{1,10})$/u', trim($line), $m)) {
+                $size = static fn (string $w, string $h, string $b): string => $w . ' × ' . $h . ' px (' . \Kaleta\Core\Files::size((int) $b) . ')';
+                $notes[] = t('%s resized from %s to %s', $m[1], $size($m[2], $m[3], $m[4]), $size($m[5], $m[6], $m[7])) . '.';
+            }
+        }
+
+        return $notes;
     }
 
     /**

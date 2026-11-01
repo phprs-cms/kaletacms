@@ -40,7 +40,10 @@ final class Health
         foreach (['exif' => t('correct rotation of photos from phones'), 'intl' => t('language-aware sorting'), 'curl' => t('notifying search engines about new content')] as $ext => $purpose) {
             $add(t('Server'), t('Extension %s', $ext), extension_loaded($ext) ? 'ok' : 'varovani', extension_loaded($ext) ? $purpose : t('%s - installing it is recommended', $purpose));
         }
-        $add(t('Server'), t('Upload size limit'), self::bytes((string) ini_get('upload_max_filesize')) >= 8 * 1024 * 1024 ? 'ok' : 'varovani', 'upload_max_filesize = ' . ini_get('upload_max_filesize') . ', post_max_size = ' . ini_get('post_max_size'));
+        // 3.22 (C14): a small limit says how to raise it on this server (php.ini, .user.ini, .htaccess, the hosting panel)
+        $uploadOk = self::bytes((string) ini_get('upload_max_filesize')) >= 8 * 1024 * 1024;
+        $add(t('Server'), t('Upload size limit'), $uploadOk ? 'ok' : 'varovani', 'upload_max_filesize = ' . ini_get('upload_max_filesize') . ', post_max_size = ' . ini_get('post_max_size')
+            . ($uploadOk ? '' : ' – ' . UploadLimit::advice()));
         $freeSpace = @disk_free_space(KALETA_ROOT);
         if ($freeSpace !== false) {
             $add(t('Server'), t('Free disk space'), $freeSpace > 200 * 1024 * 1024 ? 'ok' : 'varovani', self::size((int) $freeSpace));
