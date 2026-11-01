@@ -1159,6 +1159,40 @@ content field type `termin` (`datetime`) for the Countdown target.
    of "Press"; the Countdown target is a date-and-time picker (stored as before, "YYYY-MM-DD HH:MM"). The stray "null" under the
    element header (since 3.20) is gone.
 
+## 3.22 – content manager and replies (1 November 2026)
+
+The fourth release from the CPO and Head of UX audits of 30 October: a role for the client's marketing person, replies sent
+from the admin, and text that comes in from Word. Migrations 0108 (`ka_poptavky.replies`) and 0109 (`canonical_url` on pages,
+news and collection items); `KALETA_DB_VERSION` 109. MCP: new tool `reply_to_enquiry` (sends a real e-mail, needs
+`confirm: true` and a full-access connection), new parameter `canonical_url` on the page, news and collection item tools, new
+Form property `confirmation_text`, new `site_info` key `can_edit_appearance`. Existing tools, parameters and Czech aliases
+unchanged.
+
+1. **Appearance area for roles (C9, D1):** an optional area "Appearance: menu, site parts, pop-ups and components" for roles
+   and the per-user access. Off for every existing role and user; Site appearance (colours and fonts), settings, users,
+   backups and Claude settings stay with the administrator. Every endpoint of those modules, the builder actions they share,
+   their previews and the MCP tools check the area on the server. Changes that go live at once (publishing the menu, pop-up
+   switches, saving a component or a part variant) also need permission to publish; a draft-only role saves drafts.
+2. **Send a reply from the enquiry (C10, D2):** the drafted reply in an editable field, sent through the site's SMTP with the
+   site's sender, Reply-To of the person replying and their e-mail signature, to the enquiry's own address only. The enquiry
+   records who replied, when, the text and the delivery state; it is resolved unless "Keep the enquiry open" is ticked.
+   Without SMTP the mail-program link stays. Anonymising keeps who and when only. A message's own Reply-To now wins over the
+   site's reply address in all mail, so enquiry notifications keep the visitor's address.
+3. **Canonical address (C13):** an optional field under "Search engines and sharing" on pages, news and collection items with
+   item pages; an absolute http(s) address or a path on the site, anything else refused. The page prints one canonical link
+   and `og:url` follows it. Canonical addresses from Yoast, Rank Math and SmartCrawl are kept on WordPress import.
+4. **Confirmation e-mail text per form (C15):** the Form element's own text for the thank-you e-mail, shown while the
+   confirmation is on; empty keeps today's text from "What happens next", "We reply within" and "Who replies".
+5. **Link picker in the text editor (U6):** one field for an address or a search that suggests pages, news, collection item
+   pages, files, language versions, anchors on the builder page, and `mailto:`/`tel:` for a typed e-mail or phone number;
+   arrows and Enter pick. In the large editor and the builder Text element.
+6. **Lists and quotes (U7):** numbered list and quote in the builder's text toolbar (headings stay with the Heading element);
+   Word lists pasted into the editor become real nested lists, Google Docs lists stay as they are.
+7. **Upload limits (C14):** System status says how to raise the limit on this server (`.htaccess`, `.user.ini`, `php.ini` or
+   the hosting panel); the installer and a button in System status write a `.user.ini` with 16M/20M where PHP reads one and no
+   file exists, never lowering a limit. Photos are scaled to 2000 px in the browser before upload, with a note "resized from
+   … to …"; a batch too large for one request is split or refused with a clear message.
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |
