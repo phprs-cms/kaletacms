@@ -97,7 +97,7 @@ trait BuilderActions
             'schema' => $schema,
             'kolekce' => $collection,
             // 3.23 (U10): the data the choices of dynamic elements offer – only what this person may see in the administration
-            'volby' => self::builderChoices($this->db, array_keys($this->kernel->modules()), (string) $target['jazyk']),
+            'volby' => self::builderChoices($this->db, array_keys($this->kernel->modules()), Language::column($this->app->settings(), (string) $target['jazyk'])),
             'komponenty' => $components,
             'ai' => (new \Kaleta\Core\Assistant($app->settings()))->isReady(),
             'kolekceDetailu' => $e['kolekce'] ?? null,
@@ -178,7 +178,7 @@ trait BuilderActions
         }
 
         return Response::json(['ok' => true, 'kolekce' => array_map(fn (array $k): array => ['id' => (int) $k['idk'], 'seo_link' => $k['seo_link'], 'nazev' => $k['nazev'], 'pole' => $k['pole'], 'detail' => (bool) $k['detail']], Collections::all($this->db)),
-            'volby' => self::builderChoices($this->db, array_keys($this->kernel->modules()), (string) $target['jazyk'])]);
+            'volby' => self::builderChoices($this->db, array_keys($this->kernel->modules()), Language::column($this->app->settings(), (string) $target['jazyk']))]);
     }
 
     /**
@@ -190,6 +190,7 @@ trait BuilderActions
      * Bookings – null = not offered, the editor keeps a free field. Names and ids only, never an e-mail.
      *
      * @param list<string> $modules identifiers of the modules the person may open (Admin\Kernel::modules)
+     * @param string $language the language column of the target – '' for the default language, not its code (N323-2)
      * @return array{kategorie: array<string, list<array{adresa: string, nazev: string}>>, kategorieNovinek: ?list<array{adresa: string, nazev: string}>, sluzby: ?list<array{id: int, nazev: string}>, osoby: ?list<array{id: int, nazev: string}>, pobocky: ?string}
      */
     public static function builderChoices(\Kaleta\Core\Db $db, array $modules, string $language): array

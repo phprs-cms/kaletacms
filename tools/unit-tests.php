@@ -8260,7 +8260,7 @@ check('3.23 (U10): a stored reference is kept as it is – also one the site no 
 ], [12, 3, 'zmizela', 'gps']);
 check('3.23 (U10): the builder action of the choices is a read of every builder module, the data is asked with the people\'s sections', [
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/BuilderActions.php'), "'volby' => self::builderChoices(\$this->db, array_keys(\$this->kernel->modules())"),
-    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/BuilderActions.php'), "self::builderChoices(\$this->db, array_keys(\$this->kernel->modules()), (string) \$target['jazyk'])"),
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/BuilderActions.php'), "self::builderChoices(\$this->db, array_keys(\$this->kernel->modules()), Language::column(\$this->app->settings(), (string) \$target['jazyk']))"), // N323-2: the language column, '' for the default
 ], [true, 2]);
 // 3.23 (U15): a tablet (below 1024 px) folds the panels into icon rails over which they open; a desktop keeps its three columns
 $u15Css = (string) file_get_contents(KALETA_ROOT . '/image/stavitel.css');

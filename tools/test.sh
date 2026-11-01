@@ -8328,6 +8328,11 @@ grep -q '"ok":true' "$WORK/response" && grep -q '"nazev":"U10 service (' "$WORK/
   && grep -q '"adresa":"viditelna-u10"' "$WORK/response" && grep -q '"kategorieNovinek":\[{' "$WORK/response" && ! grep -q 'u10-person@example.com' "$WORK/response" \
   && echo "  ok     3.23 (U10): the administrator's choices – an inactive service marked, people by name only, hidden and visible categories, news categories" \
   || { echo "  CHYBA  3.23 (U10): build_choices for the administrator: $(head -c 400 "$WORK/response")"; ERRORS=$((ERRORS+1)); }
+# N323-2: a page of the default language asks for the choices of the default language (the column '', not the code cs) –
+# its news categories carry no "(default language)" note
+grep -q '"kategorieNovinek":\[{' "$WORK/response" && ! grep -q '(výchozí jazyk)\|(v\\u00fdchoz\|(default language)' "$WORK/response" \
+  && echo "  ok     3.23 review (N323-2): the news categories of a default-language page are not marked as another language" \
+  || { echo "  CHYBA  3.23 review (N323-2): build_choices marks the default language: $(grep -o '"kategorieNovinek":[^]]*' "$WORK/response" | head -c 300)"; ERRORS=$((ERRORS+1)); }
 expect "3.23 (U10): build_choices of a page that does not exist" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=pages&action=build_choices&id=999999")" 404
 sq "INSERT INTO ka_uzivatele (user, password, jmeno, admin, posledni_login, potvrzeno) VALUES ('u10-editor', '$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")', 'Editor U10', 1, '$(site_time)', '$(site_time)');
   INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, 'pages' FROM ka_uzivatele WHERE user = 'u10-editor'" > /dev/null
