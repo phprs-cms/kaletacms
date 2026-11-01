@@ -7860,16 +7860,18 @@ check('3.20 (C2): the enquiry detail links the builder with the form selected, a
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Stats.php'), 'EnquiryOrigin::editLink('),
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/views/admin/stats/list.php'), '\'Page\' => $pageCell,'),
 ], [true, true, true, true, true, 2]);
-// C16: the testimonial request names the References collection; 3.23.1 (N-C10): one behaviour for every role – the request buttons
-// with one sentence, the collection created with the first answer (no administrator-only "create it first" form)
-$c16Enquiries = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php');
-check('3.20 (C16), 3.23.1 (N-C10): the enquiry detail names the References collection (one lookup shared with the answer); without one, every role gets the same buttons and sentence', [
-    str_contains($c16Enquiries, "'referencesCollection' => \\Kaleta\\Core\\Testimonials::collection(\$this->db)"),
-    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Testimonials.php'), 'WHERE preset = ?'),
-    str_contains($c2Detail, 'name="preset" value="references"') || str_contains($c2Detail, 'data-references-missing'),
-    str_contains($c2Detail, 'the collection is created with the first answer.'),
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Testimonials.php'), ': (int) Presets::create($app, self::PRESET)'),
-], [true, 1, false, true, true]);
+// C16, 3.23.1 (N-C10 and the owner): the testimonial request is one folded, secondary step after the main actions – the same for
+// every role, only for a resolved enquiry of a customer (or one with a request already), the References collection made with the first answer
+$c16Testimonials = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Testimonials.php');
+check('3.20 (C16), 3.23.1: the enquiry detail asks for a testimonial in a folded block after the actions, only when it fits; the collection comes with the first answer', [
+    substr_count($c16Testimonials, 'WHERE preset = ?'), str_contains($c16Testimonials, ': (int) Presets::create($app, self::PRESET)'),
+    Kaleta\Core\Testimonials::NOT_FOR_KINDS, array_diff(Kaleta\Core\Testimonials::NOT_FOR_KINDS, array_keys(Kaleta\Core\Triage::CATEGORIES)),
+    str_contains($c2Detail, '$testimonialFits = $p[\'email\'] !== \'\' && !in_array((string) $p[\'kategorie\'], Kaleta\\Core\\Testimonials::NOT_FOR_KINDS, true) && ((int) $p[\'stav\'] === 2 || $testimonials !== []);'),
+    str_contains($c2Detail, '<details class="reference-zadost" data-testimonial<?= $testimonials !== [] ? \' open\' : \'\' ?>>'),
+    strpos($c2Detail, "e(t('Smazat'))") < strpos($c2Detail, 'data-testimonial'),
+    str_contains($c2Detail, 'name="preset" value="references"') || str_contains($c2Detail, 'data-references-missing') || str_contains($c2Detail, '$referencesCollection'),
+    Kaleta\Core\Language::runWith('cs', fn (): string => t('Ask the customer for a testimonial'), 'admin-'),
+], [1, true, ['spam', 'job', 'supplier'], [], true, true, true, false, 'Požádat zákazníka o referenci']);
 // C5: the items screen knows the listing page a preset made; C19: the news form always names the category; C20: Broken links under Site care
 $c5Collections = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Collections.php');
 $c5Items = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/collections/items.php');
@@ -8354,7 +8356,7 @@ check('3.23.1 (N-C5, N-C10, N-C15): the reply form promises a signature only to 
     str_contains($v3231('enquiries/detail.php'), '$hasSignature =>') && str_contains($v3231('enquiries/detail.php'), 'data-reply-no-signature'),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php'), "'hasSignature' => \\Kaleta\\Core\\EnquiryReply::signature("),
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Core/EnquiryReply.php'), 'TeamRecord::forUser'),
-    str_contains($v3231('enquiries/detail.php'), 'created with the first answer') && !str_contains($v3231('enquiries/detail.php'), 'an administrator creates that collection'),
+    str_contains($v3231('enquiries/detail.php'), 'Nothing is published until you publish it.') && !str_contains($v3231('enquiries/detail.php'), 'an administrator creates that collection'),
     str_contains($v3231('pages/list.php'), "(\$siteLanguages ?? []) === [] ? 'Try another tab.' : 'Try another tab or language.'"),
     Kaleta\Core\Language::runWith('cs', fn (): string => t('Try another tab.') . '|' . t('Ask Claude requests'), 'admin-'),
 ], [true, true, 1, true, true, 'Zkuste jinou záložku.|Požadavky ze Zeptejte se Clauda']);

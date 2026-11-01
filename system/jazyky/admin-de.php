@@ -6960,4 +6960,6 @@ return [
     'Ask Claude requests' => 'Anfragen aus „Claude fragen“',
     'The customer gets a personal link for 30 days; what they write arrives as a hidden draft in References, with the consent they gave – the collection is created with the first answer.' => 'Der Kunde erhält einen persönlichen Link für 30 Tage; was er schreibt, kommt als verborgener Entwurf in die Referenzen, mit der erteilten Einwilligung – die Sammlung entsteht mit der ersten Antwort.',
     'Sent from the site’s address; when the customer answers, it comes to you (%s). You have no e-mail signature yet, so the reply goes without one – see My account → My e-mail signature.' => 'Wird von der Adresse der Website gesendet; antwortet der Kunde, kommt es zu Ihnen (%s). Sie haben noch keine E-Mail-Signatur, daher geht die Antwort ohne sie hinaus – siehe Mein Konto → Meine E-Mail-Signatur.',
+    'Ask the customer for a testimonial' => 'Den Kunden um eine Referenz bitten',
+    'Was the customer happy? Send them a link where they can write a few words about you for your website. Nothing is published until you publish it.' => 'War der Kunde zufrieden? Senden Sie ihm einen Link, über den er ein paar Worte über Sie für Ihre Website schreiben kann. Nichts wird veröffentlicht, bevor Sie es veröffentlichen.',
 ];

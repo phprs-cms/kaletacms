@@ -6981,4 +6981,6 @@ return [
     'Ask Claude requests' => 'Solicitudes de Preguntar a Claude',
     'The customer gets a personal link for 30 days; what they write arrives as a hidden draft in References, with the consent they gave – the collection is created with the first answer.' => 'El cliente recibe un enlace personal durante 30 días; lo que escriba llega como borrador oculto a Referencias, con el consentimiento que dio; la colección se crea con la primera respuesta.',
     'Sent from the site’s address; when the customer answers, it comes to you (%s). You have no e-mail signature yet, so the reply goes without one – see My account → My e-mail signature.' => 'Se envía desde la dirección del sitio; cuando el cliente responda, te llegará a ti (%s). Aún no tienes firma de correo, así que la respuesta sale sin ella: mira Mi cuenta → Mi firma de correo.',
+    'Ask the customer for a testimonial' => 'Pedir una referencia al cliente',
+    'Was the customer happy? Send them a link where they can write a few words about you for your website. Nothing is published until you publish it.' => '¿El cliente quedó contento? Envíale un enlace donde pueda escribir unas palabras sobre ti para tu sitio web. No se publica nada hasta que tú lo publiques.',
 ];

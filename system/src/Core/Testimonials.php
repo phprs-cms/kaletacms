@@ -21,6 +21,9 @@ final class Testimonials
 {
     public const string PRESET = 'references';
 
+    /** Kinds of enquiry (Core\Triage::CATEGORIES) whose sender is no customer to ask: the detail offers no request (3.23.1). */
+    public const array NOT_FOR_KINDS = ['spam', 'job', 'supplier'];
+
     public const int DAYS = 30;
 
     public const int MAX_PHOTO = 8 * 1024 * 1024;

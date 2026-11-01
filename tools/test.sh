@@ -4995,6 +4995,20 @@ REF_ITEM=$(sq "SELECT item_id FROM ka_testimonial_requests WHERE idp = $REF_ENQU
   || { echo "  CHYBA  koncept reference"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 expect "testimonials: the consent the customer saw is kept, the link works once" "$(sq "SELECT consent LIKE '%publish my words%' OR consent LIKE '%zveřejn%' FROM ka_testimonial_requests WHERE item_id = $REF_ITEM")|$(curl -s -o /dev/null -w '%{http_code}' "$B/$REF_LINK")" "1|404"
 check "testimonials: the enquiry detail shows the request and links the draft" 200 "/admin.php?module=enquiries&action=detail&id=$REF_ENQUIRY" "item=$REF_ITEM"
+# 3.23.1 (owner): the request is a folded step after the main actions – open while a request exists; not on a new enquiry, spam,
+# a job application or a supplier; offered once the enquiry is resolved
+grep -q '<details class="reference-zadost" data-testimonial open>' "$WORK/response" && grep -q 'Požádat zákazníka o referenci' "$WORK/response" \
+  && [ "$(grep -o 'Smazat</button>\|data-testimonial' "$WORK/response" | tr '\n' ' ')" = "Smazat</button> data-testimonial " ] \
+  && echo "  ok     3.23.1: with a request the testimonial block is open, after Mark as resolved / Anonymise / Delete" || { echo "  CHYBA  3.23.1: the testimonial block with a request"; ERRORS=$((ERRORS+1)); }
+TM_NEW=$(sq "INSERT INTO ka_poptavky (datum, formular, email, data, stav) VALUES ('$(site_time)', 'Kontakt', 'novy@example.cz', '[]', 0); SELECT LAST_INSERT_ID();")
+TM_SPAM=$(sq "INSERT INTO ka_poptavky (datum, formular, email, data, stav, kategorie) VALUES ('$(site_time)', 'Kontakt', 'spam@example.cz', '[]', 2, 'spam'); SELECT LAST_INSERT_ID();")
+TM_JOB=$(sq "INSERT INTO ka_poptavky (datum, formular, email, data, stav, kategorie) VALUES ('$(site_time)', 'Kontakt', 'prace@example.cz', '[]', 2, 'job'); SELECT LAST_INSERT_ID();")
+tm_block() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=enquiries&action=detail&id=$1"; grep -c 'data-testimonial' "$WORK/response" || true; }
+TM_BEFORE="$(tm_block "$TM_NEW")|$(tm_block "$TM_SPAM")|$(tm_block "$TM_JOB")"
+tm_block "$TM_NEW" > /dev/null; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=enquiries&action=status" -d "_csrf=$(csrf)" -d "idp=$TM_NEW" -d stav=2
+expect "3.23.1: no testimonial block on a new enquiry, on spam or a job application; a resolved one offers it folded" \
+  "$TM_BEFORE|$(tm_block "$TM_NEW")|$(grep -c '<details class="reference-zadost" data-testimonial>' "$WORK/response" || true)" "0|0|0|1|1"
+sq "DELETE FROM ka_poptavky WHERE idp IN ($TM_NEW, $TM_SPAM, $TM_JOB)" > /dev/null
 echo "== 3.22 (C10): a reply sent from the enquiry – the site's mail, Reply-To the user, the signature, logged on the enquiry"
 C10_USER=$(sq "SELECT CONCAT_WS('|', idu, email, IFNULL(team_item_id, '')) FROM ka_uzivatele WHERE user = 'admin'"); C10_IDU=${C10_USER%%|*}
 C10_PERSON=$(sq "SELECT idp FROM ka_kolekce_polozky WHERE seo_link = 'petr-podpis' AND smazano IS NULL LIMIT 1")

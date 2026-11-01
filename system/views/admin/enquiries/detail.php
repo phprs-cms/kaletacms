@@ -10,7 +10,6 @@
  * @var list<array{0:string, 1:string, 2?:string}> $data  [label, value, attachment path]
  * @var array<int, string> $users
  * @var array{form: string, kind: string, title: string, builder: string, settings: ?string}|null $origin the form and what carries it, with admin links (3.20, C2)
- * @var array<string, mixed>|null $referencesCollection the References collection the testimonials land in; null = none yet (3.20, C16)
  * @var bool $hasSignature the signed-in user has an e-mail signature a reply carries (3.23.1, N-C5)
  * @var list<array<string, mixed>> $replies replies sent from the enquiry with their delivery state (3.22, C10, Core\EnquiryReply::history)
  * @var string|null $replyBlocked why the site cannot send a reply (no SMTP, no sender); null = it can
@@ -123,20 +122,6 @@ $statusText = ['sent' => 'E-mail sent', 'queued' => 'Waiting in the mail queue',
 		<span class="napoveda"><?= e(t('Only administration users see it – e.g. what you offered the customer.')) ?></span></div></div>
 	<p class="tlacitka"><button class="navigace" type="submit"><?= e(t('Save note')) ?></button></p>
 </form>
-<?php if ($p['email'] !== ''): ?>
-<h2><?= e(t('Testimonial')) ?></h2>
-<?php foreach ($testimonials as $req): ?>
-<p class="smltxt"><?= e(format_date((string) $req['created_at'], true)) ?> · <?= $req['used_at'] !== null
-    ? e(t('Answered')) . ($req['item_id'] !== null ? ' – <a href="' . e($app->url('admin.php?module=collections&action=item&id=' . (int) $app->db()->value('SELECT idk FROM {kolekce_polozky} WHERE idp = ?', [(int) $req['item_id']]) . '&item=' . (int) $req['item_id'])) . '">' . e(t('the draft reference')) . '</a>' : '')
-    : e(strtotime((string) $req['expires_at']) < time() ? t('Expired') : t('Waiting for the answer')) ?></p>
-<?php endforeach ?>
-<?php /* 3.23.1 (N-C10): one behaviour for every role – the References collection is created with the first answer (Testimonials::save), so nobody has to create it first */ ?>
-<form class="vradku" method="post" action="<?= e($module->url('testimonial')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $p['idp'] ?>">
-	<button class="navigace" type="submit" name="poslat" value="1"><?= e(t('Ask for a testimonial by e-mail')) ?></button> <button class="navigace" type="submit" name="poslat" value="0"><?= e(t('Only create the link')) ?></button>
-	<span class="napoveda"><?= e($referencesCollection === null
-	    ? t('The customer gets a personal link for 30 days; what they write arrives as a hidden draft in References, with the consent they gave – the collection is created with the first answer.')
-	    : t('The customer gets a personal link for 30 days; what they write arrives as a hidden draft in %s, with the consent they gave.', (string) $referencesCollection['nazev'])) ?></span></form>
-<?php endif ?>
 <div class="tlacitka">
 	<form class="vradku" method="post" action="<?= e($module->url('status')) ?>"><?= $csrf ?><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><input type="hidden" name="stav" value="<?= (int) $p['stav'] === 2 ? 1 : 2 ?>"><button class="tl<?= (int) $p['stav'] === 2 ? ' tl-vedlejsi' : '' ?>" type="submit"><?= e(t((int) $p['stav'] === 2 ? 'Reopen' : 'Označit jako vyřízenou')) ?></button></form>
 <?php if (($p['anonymizovano'] ?? null) === null): ?>
@@ -144,4 +129,22 @@ $statusText = ['sent' => 'E-mail sent', 'queued' => 'Waiting in the mail queue',
 <?php endif ?>
 	<form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Delete this enquiry and its attachments for good? This cannot be undone.')) ?>"><?= $csrf ?><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form>
 </div>
+<?php
+// 3.23.1 (owner): asking for a testimonial is a secondary step after a job done – only for a customer with an e-mail, not for spam,
+// a job application or a supplier, and only once the enquiry is resolved or a request already exists (its status lines stay)
+$testimonialFits = $p['email'] !== '' && !in_array((string) $p['kategorie'], Kaleta\Core\Testimonials::NOT_FOR_KINDS, true) && ((int) $p['stav'] === 2 || $testimonials !== []);
+if ($testimonialFits): ?>
+<details class="reference-zadost" data-testimonial<?= $testimonials !== [] ? ' open' : '' ?>>
+<summary><?= e(t('Ask the customer for a testimonial')) ?></summary>
+<?php foreach ($testimonials as $req): ?>
+<p class="smltxt"><?= e(format_date((string) $req['created_at'], true)) ?> · <?= $req['used_at'] !== null
+    ? e(t('Answered')) . ($req['item_id'] !== null ? ' – <a href="' . e($app->url('admin.php?module=collections&action=item&id=' . (int) $app->db()->value('SELECT idk FROM {kolekce_polozky} WHERE idp = ?', [(int) $req['item_id']]) . '&item=' . (int) $req['item_id'])) . '">' . e(t('the draft reference')) . '</a>' : '')
+    : e(strtotime((string) $req['expires_at']) < time() ? t('Expired') : t('Waiting for the answer')) ?></p>
+<?php endforeach ?>
+<p><?= e(t('Was the customer happy? Send them a link where they can write a few words about you for your website. Nothing is published until you publish it.')) ?></p>
+<?php /* 3.23.1 (N-C10): one behaviour for every role – the References collection is created with the first answer (Testimonials::save) */ ?>
+<form class="vradku" method="post" action="<?= e($module->url('testimonial')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $p['idp'] ?>">
+	<button class="navigace" type="submit" name="poslat" value="1"><?= e(t('Ask for a testimonial by e-mail')) ?></button> <button class="navigace" type="submit" name="poslat" value="0"><?= e(t('Only create the link')) ?></button></form>
+</details>
+<?php endif ?>
 </div>

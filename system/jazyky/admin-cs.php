@@ -6552,4 +6552,6 @@ return [
     'Ask Claude requests' => 'Požadavky ze Zeptejte se Clauda',
     'The customer gets a personal link for 30 days; what they write arrives as a hidden draft in References, with the consent they gave – the collection is created with the first answer.' => 'Zákazník dostane osobní odkaz na 30 dní; co napíše, přijde jako skrytý koncept do Referencí i se souhlasem, který dal – kolekce vznikne s první odpovědí.',
     'Sent from the site’s address; when the customer answers, it comes to you (%s). You have no e-mail signature yet, so the reply goes without one – see My account → My e-mail signature.' => 'Odejde z adresy webu; když zákazník odpoví, přijde to vám (%s). Zatím nemáte e-mailový podpis, odpověď proto odejde bez něj – viz Můj účet → Můj e-mailový podpis.',
+    'Ask the customer for a testimonial' => 'Požádat zákazníka o referenci',
+    'Was the customer happy? Send them a link where they can write a few words about you for your website. Nothing is published until you publish it.' => 'Byl zákazník spokojený? Pošlete mu odkaz, kde o vás napíše pár slov pro váš web. Nic se nezveřejní, dokud to sami nezveřejníte.',
 ];
