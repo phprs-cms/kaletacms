@@ -430,6 +430,21 @@ final class Vocabulary
         ];
     }
 
+    /**
+     * 3.23 (U10): where the value of a field that refers to the site's data comes from (Builder\Element „volby“), as the
+     * „source“ of its full definition in builder_schema.
+     */
+    public const array SOURCES = [
+        'kolekce' => 'a collection slug from list_collections',
+        'pole' => 'a field key of the element\'s collection (list_collections → fields)',
+        'kategorie' => 'a category slug of the element\'s collection from list_collection_categories',
+        'kategorie_novinek' => 'a news category slug from list_categories',
+        'sluzba' => 'a service id from booking_availability → services (0 = the visitor chooses)',
+        'osoba' => 'a person id from booking_availability → staff (0 = the visitor chooses, or anyone)',
+    ];
+    /** English names of the collection field types a „source“ narrows to (as list_collections reports them). */
+    private const array COLLECTION_FIELD_TYPES = ['datum' => 'date', 'termin' => 'datetime', 'poloha' => 'location', 'obrazek' => 'image'];
+
     /** Full field definitions of an element in English. */
     private static function fields(string $czType, array $properties, callable $admin): array
     {
@@ -439,6 +454,9 @@ final class Vocabulary
                 + ($v['typ'] === 'termin' ? ['format' => 'YYYY-MM-DD HH:MM (or a whole day YYYY-MM-DD)'] : []); // 3.21: the label "Until" lost its format
             if (array_key_exists('vychozi', $v)) {
                 $field['default'] = self::valueToEnglish($key, $v['vychozi']);
+            }
+            if (isset($v['volby'], self::SOURCES[$v['volby']])) { // 3.23 (U10): where the value comes from – additive, the field stays text or number
+                $field['source'] = self::SOURCES[$v['volby']] . (isset($v['typy_poli']) ? ' (field types: ' . implode(', ', array_map(fn (string $t): string => self::COLLECTION_FIELD_TYPES[$t] ?? $t, (array) $v['typy_poli'])) . ')' : '');
             }
             if (isset($v['moznosti']) && is_array($v['moznosti'])) {
                 $field['options'] = array_values(array_map(fn (string|int $o): string => (string) (self::VALUES[$key][(string) $o] ?? $o), array_is_list($v['moznosti']) ? $v['moznosti'] : array_keys($v['moznosti'])));

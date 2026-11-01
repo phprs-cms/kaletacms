@@ -34,8 +34,8 @@ final class Booking extends Element
     public static function properties(): array
     {
         return [
-            'sluzba' => ['typ' => 'cislo', 'popisek' => 'Service (id from Bookings → Services; 0 = the visitor chooses)', 'vychozi' => 0, 'min' => 0, 'max' => 1000000],
-            'osoba' => ['typ' => 'cislo', 'popisek' => 'Person (id from Bookings → People; 0 = the visitor chooses, or anyone)', 'vychozi' => 0, 'min' => 0, 'max' => 1000000],
+            'sluzba' => ['typ' => 'cislo', 'popisek' => 'Service (id from Bookings → Services; 0 = the visitor chooses)', 'vychozi' => 0, 'min' => 0, 'max' => 1000000, 'volby' => 'sluzba', 'kratce' => 'Service', 'prazdna' => 'The visitor chooses'],
+            'osoba' => ['typ' => 'cislo', 'popisek' => 'Person (id from Bookings → People; 0 = the visitor chooses, or anyone)', 'vychozi' => 0, 'min' => 0, 'max' => 1000000, 'volby' => 'osoba', 'kratce' => 'Person', 'prazdna' => 'The visitor chooses, or anyone'],
             'tlacitko' => ['typ' => 'text', 'popisek' => 'Button text', 'vychozi' => t('Book the appointment'), 'max' => 80],
             'dekujeme' => ['typ' => 'text', 'popisek' => 'Thank-you message', 'vychozi' => t('Thank you, your appointment is booked. A confirmation with the details and a cancel link is on its way to your e-mail.'), 'max' => 400],
             'souhlas' => ['typ' => 'text', 'popisek' => 'Consent text (a required checkbox)', 'vychozi' => t('I agree to the processing of my personal data for the purpose of this appointment.'), 'max' => 300],

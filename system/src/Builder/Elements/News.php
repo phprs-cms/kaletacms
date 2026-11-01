@@ -23,7 +23,7 @@ final class News extends Element
     {
         return [
             'pocet' => ['typ' => 'cislo', 'popisek' => 'Number of news items', 'vychozi' => 3, 'min' => 1, 'max' => 12],
-            'kategorie' => ['typ' => 'text', 'popisek' => 'Only from category (address, optional)', 'vychozi' => '', 'max' => 120],
+            'kategorie' => ['typ' => 'text', 'popisek' => 'Only from category (address, optional)', 'vychozi' => '', 'max' => 120, 'volby' => 'kategorie_novinek', 'kratce' => 'Only from category', 'prazdna' => 'All categories'],
             'obrazky' => ['typ' => 'prepinac', 'popisek' => 'Show images', 'vychozi' => true],
         ];
     }

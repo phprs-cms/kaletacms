@@ -3021,5 +3021,7 @@ window.KALETA_PREKLAD = {
 	"https://…, /about-us, an e-mail, a phone – or a page name": "https://…, /ueber-uns, eine E-Mail, eine Telefonnummer – oder ein Seitenname",
 	"Suggestions": "Vorschläge",
 	"Link to: %s": "Link zu: %s",
-	"Nothing found – the text is used as the address.": "Nichts gefunden – der Text wird als Adresse verwendet."
+	"Nothing found – the text is used as the address.": "Nichts gefunden – der Text wird als Adresse verwendet.",
+	"%s (not found)": "%s (nicht gefunden)",
+	"Custom value": "Eigener Wert"
 };

@@ -195,7 +195,7 @@ $builderParity = [
     'build_class' => 'save_classes', 'build_delete_section' => 'delete_section', 'build_discard' => 'discard_draft', 'build_publish' => 'publish_build',
     'build_restore' => 'restore_build_version', 'build_save' => 'save_build', 'build_save_section' => 'save_section', 'build_section' => 'insert_section',
     'build_share' => 'preview_link', 'build_versions' => $readOnly, 'builder' => $readOnly, 'build_comment_resolve' => 'resolve_draft_comment',
-    'build_package' => $readOnly, 'build_paste' => 'admin: paste from the system clipboard of another Kaleta site – Claude inserts elements with save_build or edit_build and brings classes with save_classes',
+    'build_package' => $readOnly, 'build_choices' => $readOnly, 'build_paste' => 'admin: paste from the system clipboard of another Kaleta site – Claude inserts elements with save_build or edit_build and brings classes with save_classes',
 ];
 $settingsParity = ['list' => $readOnly, 'save' => 'update_settings', 'download_backup' => $readOnly, 'backup' => 'admin: backups', 'restore_backup' => 'admin: backups',
     'delete_backup' => 'admin: backups', 'media_backup' => 'admin: backups', 'delete_log' => 'admin: error log', 'check' => 'admin: updates', 'update' => 'admin: updates', 'forget_updates' => 'admin: updates', 'update_major' => 'admin: updates (a major version only on an explicit action, 3.15)',
@@ -8170,6 +8170,49 @@ check('3.22 (C13): MCP takes canonical_url on pages, news and collection items (
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Tools.php'), 'seo_titulek, obrazek, noindex, canonical_url, text'),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/NewsTools.php'), "'seo_popis', 'canonical_url']"),
 ], [['id' => 1, 'canonical_url' => '/original'], ['id' => 1, 'canonical_url' => ''], ['kolekce' => 'x', 'canonical_url' => 'https://a.cz/'], true, true]);
+
+// 3.23 (U10): every field that refers to the site's data names a known source; the builder offers a choice for each, MCP
+// describes where the value comes from; the stored value keeps its type (text or number) and the validator does not change
+$u10Sources = [];
+foreach (Kaleta\Builder\Build::ELEMENTS as $u10Class) {
+    foreach ($u10Class::properties() as $u10Key => $u10Def) {
+        if (isset($u10Def['volby'])) {
+            $u10Sources[$u10Class::TYPE . '.' . $u10Key] = $u10Def['volby'] . ':' . $u10Def['typ'];
+        }
+    }
+}
+ksort($u10Sources);
+$u10Script = (string) file_get_contents(KALETA_ROOT . '/image/stavitel.js');
+check('3.23 (U10): the fields referring to collections, their fields and categories, news categories and Bookings name their source', $u10Sources, [
+    'kolekce.filtr_pole' => 'pole:text', 'kolekce.kategorie' => 'kategorie:text', 'kolekce.kolekce' => 'kolekce:text', 'kolekce.obdobi_do' => 'pole:text', 'kolekce.obdobi_od' => 'pole:text',
+    'kolekce.razeni_pole' => 'pole:text', 'novinky.kategorie' => 'kategorie_novinek:text', 'pobocky.kolekce' => 'kolekce:text', 'pobocky.pole_poloha' => 'pole:text',
+    'predchozi_dalsi.pole_obrazku' => 'pole:text', 'rezervace.osoba' => 'osoba:cislo', 'rezervace.sluzba' => 'sluzba:cislo',
+]);
+check('3.23 (U10): each source has a choice in the builder and a hint in MCP', array_values(array_filter(array_unique(array_map(fn (string $s): string => explode(':', $s)[0], $u10Sources)),
+    fn (string $s): bool => !str_contains($u10Script, "case '" . $s . "':") || !isset(Kaleta\Mcp\Vocabulary::SOURCES[$s]))), []);
+$u10Mcp = Kaleta\Mcp\Vocabulary::schema(Kaleta\Builder\Build::schema(true, 'en'), ['booking', 'store_locator', 'collection_list'], false)['elements'];
+$u10Fields = array_column($u10Mcp, 'fields', 'type');
+check('3.23 (U10): builder_schema says where a service, a collection, a location field and a category come from (additive: type and default stay)', [
+    $u10Fields['booking']['service']['type'], $u10Fields['booking']['service']['default'], $u10Fields['booking']['service']['source'],
+    $u10Fields['store_locator']['location_field']['source'], $u10Fields['collection_list']['category']['source'], isset($u10Fields['collection_list']['count']['source']),
+], ['number', 0, 'a service id from booking_availability → services (0 = the visitor chooses)', 'a field key of the element\'s collection (list_collections → fields) (field types: location)',
+    'a category slug of the element\'s collection from list_collection_categories', false]);
+[$u10Build] = Kaleta\Builder\Build::sanitize(['deti' => [['typ' => 'sekce', 'deti' => [['typ' => 'rezervace', 'obsah' => ['sluzba' => '12', 'osoba' => 3]], ['typ' => 'pobocky', 'obsah' => ['kolekce' => 'zmizela', 'pole_poloha' => 'gps']]]]]]);
+check('3.23 (U10): a stored reference is kept as it is – also one the site no longer has (the builder shows it as not found)', [
+    $u10Build['deti'][0]['deti'][0]['obsah']['sluzba'], $u10Build['deti'][0]['deti'][0]['obsah']['osoba'], $u10Build['deti'][0]['deti'][1]['obsah']['kolekce'], $u10Build['deti'][0]['deti'][1]['obsah']['pole_poloha'],
+], [12, 3, 'zmizela', 'gps']);
+check('3.23 (U10): the builder action of the choices is a read of every builder module, the data is asked with the people\'s sections', [
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/BuilderActions.php'), "'volby' => self::builderChoices(\$this->db, array_keys(\$this->kernel->modules())"),
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/BuilderActions.php'), "self::builderChoices(\$this->db, array_keys(\$this->kernel->modules()), (string) \$target['jazyk'])"),
+], [true, 2]);
+// 3.23 (U15): a tablet (below 1024 px) folds the panels into icon rails over which they open; a desktop keeps its three columns
+$u15Css = (string) file_get_contents(KALETA_ROOT . '/image/stavitel.css');
+check('3.23 (U15): the tablet layout – rails, panels over the canvas, two columns of elements; the phone notice below 720 px stays', [
+    str_contains($u15Css, '@media (max-width: 1023px) {' . "\n\t" . '.st { grid-template: "lista lista lista" auto "pruh-levy platno pruh-pravy" 1fr / 48px minmax(0, 1fr) 48px; }'),
+    str_contains($u15Css, '.st:not([data-panel="levy"]) .st-levy, .st:not([data-panel="pravy"]) .st-pravy { display: none; }'),
+    str_contains($u15Css, '.st-prvky { grid-template-columns: repeat(2, minmax(0, 1fr)); }'), str_contains($u15Css, '@media (max-width: 719px) {'),
+    str_contains($u10Script, "window.matchMedia('(max-width: 1023px)')"), str_contains($u10Script, "if (e.key === 'Escape' && root.dataset.panel"),
+], [true, true, true, true, true, true]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

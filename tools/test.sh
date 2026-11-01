@@ -8192,5 +8192,39 @@ expect "3.22 (C13): a collection item page takes it too (MCP save_collection_ite
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=collections&action=item&id=$(sq "SELECT idk FROM ka_kolekce_polozky WHERE idp = $C13_ITEM_ID")&item=$C13_ITEM_ID"
 expect "3.22 (C13): the item form shows it" "$(grep -c 'name="canonical_url" value="/kontakty"' "$WORK/response")" "1"
 sq "UPDATE ka_kolekce_polozky SET canonical_url = '' WHERE idp = $C13_ITEM_ID; DELETE FROM ka_stranky WHERE ids = $IDS_C13" > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
+# 3.23 (U10): the builder's choices of dynamic elements – collections and their categories, news categories, the services and
+# people of Bookings – only what the person may see in the administration: an editor without Bookings gets no services or
+# people (null: the editor keeps a free field), without Collections no hidden category; never an e-mail of a person
+U10_BOOKINGS=$(sq "SELECT FIND_IN_SET('bookings', hodnota) > 0 FROM ka_nastaveni WHERE promenna = 'extensions'")
+[ "$U10_BOOKINGS" = 1 ] || sq "UPDATE ka_nastaveni SET hodnota = CONCAT(hodnota, ',bookings') WHERE promenna = 'extensions'" > /dev/null
+sq "INSERT INTO ka_booking_services (name, active) VALUES ('U10 service', 0); INSERT INTO ka_booking_staff (name, email) VALUES ('U10 person', 'u10-person@example.com')" > /dev/null
+mcp save_collection_category '{"collection":"produkty","name":"Skryta U10","slug":"skryta-u10","visible":false}' > /dev/null
+mcp save_collection_category '{"collection":"produkty","name":"Viditelna U10","slug":"viditelna-u10","visible":true}' > /dev/null
+U10_PAGE=$(sq "SELECT MIN(ids) FROM ka_stranky WHERE smazano IS NULL")
+check "3.23 (U10): the builder carries the choices of dynamic elements" 200 "/admin.php?module=pages&action=builder&id=$U10_PAGE" '"volby":{"kategorie":{'
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=pages&action=build_choices&id=$U10_PAGE"
+grep -q '"ok":true' "$WORK/response" && grep -q '"nazev":"U10 service (' "$WORK/response" && grep -q '"nazev":"U10 person"' "$WORK/response" && grep -q '"adresa":"skryta-u10"' "$WORK/response" \
+  && grep -q '"adresa":"viditelna-u10"' "$WORK/response" && grep -q '"kategorieNovinek":\[{' "$WORK/response" && ! grep -q 'u10-person@example.com' "$WORK/response" \
+  && echo "  ok     3.23 (U10): the administrator's choices – an inactive service marked, people by name only, hidden and visible categories, news categories" \
+  || { echo "  CHYBA  3.23 (U10): build_choices for the administrator: $(head -c 400 "$WORK/response")"; ERRORS=$((ERRORS+1)); }
+expect "3.23 (U10): build_choices of a page that does not exist" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=pages&action=build_choices&id=999999")" 404
+sq "INSERT INTO ka_uzivatele (user, password, jmeno, admin, posledni_login, potvrzeno) VALUES ('u10-editor', '$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")', 'Editor U10', 1, '$(site_time)', '$(site_time)');
+  INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, 'pages' FROM ka_uzivatele WHERE user = 'u10-editor'" > /dev/null
+JAR3="$WORK/jar-u10"
+TOKEN3=$(curl -s -c "$JAR3" "$B/admin.php" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//')
+curl -s -b "$JAR3" -c "$JAR3" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN3" -d user=u10-editor --data-urlencode "password=$PASSWORD"
+curl -s -b "$JAR3" -o "$WORK/response" "$B/admin.php?module=pages&action=build_choices&id=$U10_PAGE"
+grep -q '"ok":true' "$WORK/response" && grep -q '"sluzby":null' "$WORK/response" && grep -q '"osoby":null' "$WORK/response" && grep -q '"kategorieNovinek":null' "$WORK/response" \
+  && grep -q '"adresa":"viditelna-u10"' "$WORK/response" && ! grep -q 'skryta-u10\|U10 person\|U10 service' "$WORK/response" \
+  && echo "  ok     3.23 (U10): an editor with Pages only – no services, people or news categories, only the categories on the site" \
+  || { echo "  CHYBA  3.23 (U10): build_choices for an editor with Pages only: $(head -c 400 "$WORK/response")"; ERRORS=$((ERRORS+1)); }
+sq "UPDATE ka_uzivatele_prava SET ident_modulu = 'news' WHERE fk_id_user = (SELECT idu FROM ka_uzivatele WHERE user = 'u10-editor')" > /dev/null
+expect "3.23 (U10): without Pages there are no choices" "$(curl -s -b "$JAR3" -o /dev/null -w '%{http_code}' "$B/admin.php?module=pages&action=build_choices&id=$U10_PAGE")" 403
+mcp builder_schema '{"elements":["booking"]}' > "$WORK/response"
+grep -q 'a service id from booking_availability' "$WORK/response" && echo "  ok     3.23 (U10): builder_schema says where the service id comes from" || { echo "  CHYBA  3.23 (U10): builder_schema booking source"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+sq "DELETE FROM ka_uzivatele_prava WHERE fk_id_user = (SELECT idu FROM ka_uzivatele WHERE user = 'u10-editor'); DELETE FROM ka_uzivatele WHERE user = 'u10-editor';
+  DELETE FROM ka_booking_services WHERE name = 'U10 service'; DELETE FROM ka_booking_staff WHERE name = 'U10 person';
+  DELETE FROM ka_collection_categories WHERE id IN (SELECT category_id FROM ka_collection_category_texts WHERE slug IN ('skryta-u10', 'viditelna-u10'))" > /dev/null
+[ "$U10_BOOKINGS" = 1 ] || sq "UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',bookings,', ',')) WHERE promenna = 'extensions'" > /dev/null
 if [ -s "$WORK/web/storage/log/chyby.log" ]; then echo "== záznam chyb aplikace:"; cat "$WORK/web/storage/log/chyby.log"; ERRORS=$((ERRORS+1)); fi
 echo; [ "$ERRORS" -eq 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }

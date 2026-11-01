@@ -32,7 +32,7 @@ final class ItemNavigation extends Element
             'popisek_dalsi' => ['typ' => 'text', 'popisek' => 'Label of the next item', 'vychozi' => t('Next'), 'max' => 60],
             'nazvy' => ['typ' => 'prepinac', 'popisek' => 'Show the item names', 'vychozi' => true],
             'nahledy' => ['typ' => 'prepinac', 'popisek' => 'Show thumbnails', 'vychozi' => false],
-            'pole_obrazku' => ['typ' => 'text', 'popisek' => 'Thumbnail field (key of an image field; empty = the first image field)', 'vychozi' => '', 'max' => 31],
+            'pole_obrazku' => ['typ' => 'text', 'popisek' => 'Thumbnail field (key of an image field; empty = the first image field)', 'vychozi' => '', 'max' => 31, 'volby' => 'pole', 'typy_poli' => ['obrazek'], 'kratce' => 'Thumbnail field', 'prazdna' => 'The first image field'],
         ];
     }
 

@@ -26,20 +26,21 @@ final class CollectionList extends Element
     public static function properties(): array
     {
         return [
-            'kolekce' => ['typ' => 'text', 'popisek' => 'Collections', 'vychozi' => '', 'max' => 110],
+            'kolekce' => ['typ' => 'text', 'popisek' => 'Collections', 'vychozi' => '', 'max' => 110, 'volby' => 'kolekce'],
             // 3.7: the list shows the collection's items, or its categories as cards ({{nazev}}, {{url}}, {{popis}}, {{obrazek}}, {{pocet}})
             'zdroj' => ['typ' => 'vyber', 'popisek' => 'Show', 'vychozi' => 'polozky', 'moznosti' => ['polozky' => 'items', 'kategorie' => 'categories']],
-            'kategorie' => ['typ' => 'text', 'popisek' => 'Category (its address; * = the category page shown, on an item page the item’s category). Categories: the subcategories of it, empty = the top-level ones', 'vychozi' => '', 'max' => 160],
+            'kategorie' => ['typ' => 'text', 'popisek' => 'Category (its address; * = the category page shown, on an item page the item’s category). Categories: the subcategories of it, empty = the top-level ones', 'vychozi' => '', 'max' => 160,
+                'volby' => 'kategorie', 'kratce' => 'Category', 'prazdna' => 'None (all items, or the top-level categories)', 'pevne' => ['*' => 'The category shown (its page, on an item page the item’s category)']],
             'pocet' => ['typ' => 'cislo', 'popisek' => 'Maximum items', 'vychozi' => 12, 'min' => 1, 'max' => 100],
             'razeni' => ['typ' => 'vyber', 'popisek' => 'Řazení', 'vychozi' => 'poradi', 'moznosti' => ['poradi' => 'by order in the administration', 'nazev' => 'by name', 'nejnovejsi' => 'newest first',
                 'pole' => 'by field – ascending', 'pole_sestupne' => 'by field – descending']],
-            'razeni_pole' => ['typ' => 'text', 'popisek' => 'Field to sort by', 'vychozi' => '', 'max' => 31],
-            'filtr_pole' => ['typ' => 'text', 'popisek' => 'Filter by field (optional)', 'vychozi' => '', 'max' => 31],
+            'razeni_pole' => ['typ' => 'text', 'popisek' => 'Field to sort by', 'vychozi' => '', 'max' => 31, 'volby' => 'pole'],
+            'filtr_pole' => ['typ' => 'text', 'popisek' => 'Filter by field (optional)', 'vychozi' => '', 'max' => 31, 'volby' => 'pole'],
             'filtr_hodnota' => ['typ' => 'text', 'popisek' => 'Only items where the field has the value (on an item page, {{field}} takes it from the item shown)', 'vychozi' => '', 'max' => 200],
             'bez_aktualni' => ['typ' => 'prepinac', 'popisek' => 'Leave out the item being shown (related content on an item page)', 'vychozi' => false],
             'obdobi' => ['typ' => 'vyber', 'popisek' => 'By date', 'vychozi' => '', 'moznosti' => Collections::PERIODS],
-            'obdobi_od' => ['typ' => 'text', 'popisek' => 'Start date field', 'vychozi' => '', 'max' => 31],
-            'obdobi_do' => ['typ' => 'text', 'popisek' => 'End date field (optional)', 'vychozi' => '', 'max' => 31],
+            'obdobi_od' => ['typ' => 'text', 'popisek' => 'Start date field', 'vychozi' => '', 'max' => 31, 'volby' => 'pole', 'typy_poli' => ['datum', 'termin']],
+            'obdobi_do' => ['typ' => 'text', 'popisek' => 'End date field (optional)', 'vychozi' => '', 'max' => 31, 'volby' => 'pole', 'typy_poli' => ['datum', 'termin']],
             'filtry' => ['typ' => 'prepinac', 'popisek' => 'Filter buttons for visitors (by the field above, without a field by category)', 'vychozi' => false],
             'strankovani' => ['typ' => 'prepinac', 'popisek' => 'Paginate (by “Maximum items”)', 'vychozi' => false],
             'prazdne' => ['typ' => 'text', 'popisek' => 'Text when the collection has no items', 'vychozi' => '', 'max' => 300],
