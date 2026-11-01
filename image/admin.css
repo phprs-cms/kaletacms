@@ -1517,3 +1517,18 @@ table.preklady td[data-stav] form { margin-inline-start: 6px; }
 /* 3.23 (C17): the hand-over checklist of Site audit – its progress and one row per check, the fix under it */
 .predani-postup { display: block; width: min(100%, 360px); height: 8px; margin: 0 0 10px; accent-color: var(--ok, #2f855a); }
 .predani-seznam li { overflow-wrap: anywhere; }
+/* 3.23.1 (N-C4): on a phone the System status tables wrap their text (upload_max_filesize = 16M, long host names) inside
+   the card instead of running past its right edge; a desktop keeps the roomy cells */
+@media (max-width: 640px) {
+	table.vypis-stav th, table.vypis-stav td { padding: 10px 12px; white-space: normal; overflow-wrap: anywhere; }
+	table.vypis-stav td.stred { padding-inline: 8px; }
+}
+/* 3.23.1 (N-C12): below 600 px the Settings tabs are one select (all of them, the current one chosen) instead of a row of
+   pills that hides Security, Agency and the console off-screen; the row stays on wider screens */
+.zalozky-vyber { display: none; }
+@media (max-width: 600px) {
+	.zalozky-vyber { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 16px; }
+	.zalozky-vyber label { font-weight: 600; }
+	.zalozky-vyber select { flex: 1 1 12em; min-width: 0; }
+	.zalozky:has(+ .zalozky-vyber) { display: none; }
+}

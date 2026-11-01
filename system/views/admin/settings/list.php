@@ -60,6 +60,16 @@ $movedFields = $tab === 'general' ? array_map(fn (string $to): string => $module
 	<a href="<?= e($module->url('', ['tab' => $key])) ?>"<?= $tab === $key ? ' class="aktivni" aria-current="page"' : '' ?>><?= e(t($name)) ?></a>
 <?php endforeach ?>
 </nav>
+<?php // 3.23.1 (N-C12): on a phone (image/admin.css, below 600 px) the row above gives way to this select of the same tabs ?>
+<form class="zalozky-vyber" method="get" action="<?= e($app->url('admin.php')) ?>"><input type="hidden" name="module" value="settings">
+	<label for="zalozka-vyber"><?= e(t('Settings')) ?></label>
+	<select id="zalozka-vyber" name="tab" data-odeslat-pri-zmene>
+<?php foreach ($navigation as $key => $name): ?>
+		<option value="<?= e($key) ?>"<?= $tab === $key ? ' selected' : '' ?>><?= e(t($name)) ?></option>
+<?php endforeach ?>
+	</select>
+	<noscript><button class="navigace" type="submit"><?= e(t('Show')) ?></button></noscript>
+</form>
 <?php endif ?>
 <form class="formular" method="post" action="<?= e($module->url('save')) ?>">
 <?php /* the first submit button in the form determines what Enter does: save the settings (not a backup, an update check or a test e-mail) */ ?>

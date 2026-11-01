@@ -12,7 +12,7 @@
  */
 $params = ['type' => $type, 'language' => $language] + ($variant !== '' ? ['variant' => $variant] : []);
 ?>
-<p class="napoveda"><?= e(t('A template is a clean skeleton – colours, fonts and spacing come from your design system. It goes into the draft of the part: adjust it in the builder and publish it; until then visitors see the published version.')) ?></p>
+<p class="napoveda"><?= e(t('A template is a clean skeleton – colours, fonts and spacing come from Site appearance. It goes into the draft of the part: adjust it in the builder and publish it; until then visitors see the published version.')) ?></p>
 <div class="karty-volby karty-volby-text">
 <?php foreach ($templates as $template): ?>
 	<form class="karta-volba" method="post" action="<?= e($module->url('apply_template', $params)) ?>">

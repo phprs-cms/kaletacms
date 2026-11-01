@@ -43,7 +43,7 @@
 </fieldset>
 <?php endif ?>
 <fieldset>
-<legend><?= e(t('Requests on the console')) ?></legend>
+<legend><?= e(t('Ask Claude requests on the console')) ?></legend>
 <div class="radek"><span class="popisek"><?= e(t('Request titles')) ?></span><div class="volby"><label><input type="checkbox" name="fleet_request_titles" value="1"<?= $fleet['titles'] ? ' checked' : '' ?>> <?= e(t('Send the titles of Ask Claude requests to the console')) ?></label>
 <span class="napoveda"><?= e(t('Request titles help you see the work across sites; enquiries, e-mails and contents never leave the site.')) ?> <?= e(t('E-mail addresses and phone numbers in a title are masked. Without the titles the console gets only how many requests wait.')) ?></span></div></div>
 <p><button class="navigace" type="submit" formaction="<?= e($module->url('fleet_titles')) ?>"><?= e(t('Save the choice about request titles')) ?></button></p>

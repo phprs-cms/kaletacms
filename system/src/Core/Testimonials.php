@@ -96,7 +96,7 @@ final class Testimonials
 
     /**
      * The References collection the answers land in (the first collection made from the references preset), or null when the
-     * site has none yet – the enquiry detail then offers to create it first (3.20, C16).
+     * site has none yet – save() then creates it with the first answer.
      *
      * @return array<string, mixed>|null
      */

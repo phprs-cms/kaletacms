@@ -50,7 +50,7 @@ if ($tabs !== []): ?>
 <?php elseif ($pages === [] && $search !== ''): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'stranky', 'heading' => t('No page matches the search.'), 'text' => t('Try another word.'), 'action' => [$module->url(), t('Clear search')]]) ?>
 <?php elseif ($pages === [] && ($status !== '' || $language !== '')): // a tab or language without rows (3.20, C1) ?>
-<?= $app->view->render('admin/empty', ['icon' => 'stranky', 'heading' => t('No page matches this filter.'), 'text' => t('Try another tab or language.'), 'action' => [$module->url(), t('All pages')]]) ?>
+<?= $app->view->render('admin/empty', ['icon' => 'stranky', 'heading' => t('No page matches this filter.'), 'text' => t(($siteLanguages ?? []) === [] ? 'Try another tab.' : 'Try another tab or language.') /* 3.23.1 (N-C15) */, 'action' => [$module->url(), t('All pages')]]) ?>
 <?php elseif ($pages === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'stranky', 'heading' => t('No pages yet.'), 'text' => t('A business website usually consists of Home, About us, Services and Contact.'), 'action' => [$module->url('new'), t('Create the first page')]]) ?>
 <?php elseif ($trash): ?>

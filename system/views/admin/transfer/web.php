@@ -50,6 +50,6 @@ $urls = array_keys($state['adresy']);
 <?php foreach ($state['chyby'] as $row): ?><li><?= e($row) ?></li><?php endforeach ?>
 </ul></details>
 <?php endif ?>
-<p><?= e(t('Next: check the pages, put the ones you keep into the menu and publish them. Claude can match their look to the design system and tidy the texts through the connection.')) ?></p>
+<p><?= e(t('Next: check the pages, put the ones you keep into the menu and publish them. Claude can match their look to the rest of the site and tidy the texts through the connection.')) ?></p>
 <p class="navigace-radek"><a class="navigace" href="<?= e($app->url('admin.php?module=pages')) ?>"><?= e(t('Show pages')) ?></a> <a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to Import and export')) ?></a></p>
 <?php endif ?>

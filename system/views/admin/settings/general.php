@@ -46,7 +46,7 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 		<option value="<?= (int) $pageId ?>"<?= (int) $values['home_page'] === (int) $pageId ? ' selected' : '' ?>><?= e($pageTitle) ?></option>
 <?php endforeach ?>
 	</select>
-	<span class="napoveda"><?= e(t('The page shown at the site address. News is always at %s.', substr($app->url('novinky'), strlen($app->request->basePath())))) ?></span></div>
+	<span class="napoveda"><?= e(t('The page shown at the site address. News has its own address, set in News URL below.')) /* 3.23.1 (N-C6): the address is a setting since 3.17 */ ?></span></div>
 </div>
 <?php $field('news_slug', 'News URL', 'text', 'The first part of the news addresses in every language: blog gives /blog/…. Empty = the default address. Lowercase letters, digits and hyphens; not the address of a page, a collection or the system. The old addresses redirect to the new one.', 'maxlength="40" pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="' . e(\Kaleta\Core\Language::defaults($app->settings()) === 'cs' ? 'novinky' : 'news') . '"'); ?>
 <?php $field('news_title', 'News heading', 'text', 'The heading of the news list in the default language, e.g. Updates to go with the address /updates. Empty = News.', 'maxlength="80"'); ?>
@@ -120,7 +120,7 @@ $field('share_buttons', 'Share links below the news item', 'ano', 'Facebook, X, 
 $field('footer_text', 'Text v patičce', 'text', 'For example the registered company name and company ID.', 'maxlength="300"');
 $field('article_outline', 'News table of contents from subheadings', 'ano', 'News items with at least three subheadings get a clickable outline above the text.');
 $field('related_news_auto', 'Related news', 'ano', 'Similar news by tags and category is offered below a news item.');
-$field('link_check', 'Look for broken links', 'ano', 'In the background, one news item every five minutes. The result is in News → Broken links.');
+$field('link_check', 'Look for broken links', 'ano', 'In the background, one news item every five minutes. The result is in Site care → Broken links.');
 $field('page_cache', 'Page cache', 'ano', 'Finished pages are served to visitors from memory – the site is faster and copes with traffic peaks. Leave it on.');
 ?>
 </details>

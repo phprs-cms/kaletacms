@@ -644,6 +644,7 @@ foreach (glob(KALETA_SYSTEM . '/views/admin/settings/*.php') as $view) {
             'zone', 'choice', // 3.12: the time zone confirmation (Settings::actionTimeZone) – the new zone and convert | keep
             'month', // 3.16: the month of an archived report on its Send and Rebuild buttons (Settings::actionReportSend, actionReportRebuild)
             'general_split', // 3.23 (C12): the marker of the split General form – Settings::actionSave then saves only the General fields
+            'module', // 3.23.1 (N-C12): the tab select on a phone is its own GET form (module=settings&tab=…), never posted to the save
             'screen_collections', 'novy_token_obrazovka'], true)) { // 2.11 screen mode: the collections list is added by fields() from the site's collections, the button makes a new address
             $unknownFields[] = basename($view) . ': ' . $name;
         }
@@ -2567,7 +2568,7 @@ check('tools/rename.php self-test', $renameCode, 0);
 $guideArticles = ['install', 'first-steps', 'extensions', 'builder-basics', 'styling-responsive', 'elements', 'page-settings', 'site-appearance', 'classes', 'components',
     'site-parts', 'popups', 'menus', 'collections', 'collection-lists', 'site-search', 'news', 'forms', 'newsletter', 'company-details', 'seo', 'languages',
     'claude-connect', 'claude-capabilities', 'ai-assistant', 'users-roles', 'wordpress-import', 'backups-updates', 'media', 'statistics', 'privacy-cookies', 'email', 'site-health', 'fleet-console', 'industry-blueprints', 'connections', 'addons', 'bookings', 'claude-operator'];
-$guideTargets = [...Kaleta\Admin\Guide::MODULES, ...Kaleta\Admin\Guide::SETTINGS, ...Kaleta\Admin\Guide::BUILDER];
+$guideTargets = [...Kaleta\Admin\Guide::MODULES, ...Kaleta\Admin\Guide::SETTINGS, ...Kaleta\Admin\Guide::BUILDER, ...Kaleta\Admin\Guide::ACCOUNT];
 check('2.4: every admin module and settings tab links to an existing guide article', [
     array_values(array_diff(array_map(fn (string $c): string => $c::IDENT, Kaleta\Admin\Kernel::MODULES), array_keys(Kaleta\Admin\Guide::MODULES), ['settings'])),
     array_values(array_diff(array_keys(Kaleta\Admin\Modules\Settings::TABS), array_keys(Kaleta\Admin\Guide::SETTINGS))),
@@ -7859,14 +7860,16 @@ check('3.20 (C2): the enquiry detail links the builder with the form selected, a
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Stats.php'), 'EnquiryOrigin::editLink('),
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/views/admin/stats/list.php'), '\'Page\' => $pageCell,'),
 ], [true, true, true, true, true, 2]);
-// C16: the testimonial request names the References collection – without one, an administrator gets the one-click preset instead of the buttons
+// C16: the testimonial request names the References collection; 3.23.1 (N-C10): one behaviour for every role – the request buttons
+// with one sentence, the collection created with the first answer (no administrator-only "create it first" form)
 $c16Enquiries = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php');
-check('3.20 (C16): the enquiry detail checks the References collection (one lookup shared with the answer) and offers the references preset when it is missing', [
+check('3.20 (C16), 3.23.1 (N-C10): the enquiry detail names the References collection (one lookup shared with the answer); without one, every role gets the same buttons and sentence', [
     str_contains($c16Enquiries, "'referencesCollection' => \\Kaleta\\Core\\Testimonials::collection(\$this->db)"),
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Testimonials.php'), 'WHERE preset = ?'),
-    str_contains($c2Detail, '$referencesCollection === null && $app->auth()->isAdmin()') && str_contains($c2Detail, 'name="preset" value="references"'),
-    str_contains($c2Detail, 'module=collections&action=preset'),
-], [true, 1, true, true]);
+    str_contains($c2Detail, 'name="preset" value="references"') || str_contains($c2Detail, 'data-references-missing'),
+    str_contains($c2Detail, 'the collection is created with the first answer.'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Testimonials.php'), ': (int) Presets::create($app, self::PRESET)'),
+], [true, 1, false, true, true]);
 // C5: the items screen knows the listing page a preset made; C19: the news form always names the category; C20: Broken links under Site care
 $c5Collections = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Collections.php');
 $c5Items = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/collections/items.php');
@@ -8324,6 +8327,44 @@ check('3.23: the hints link the new tabs in the admin language', Kaleta\Core\Lan
         . ' ' . t('Your contact is not set – the client will not see whom to ask (Settings → Agency).') . ' ' . t('Settings → Languages') . ' ' . t('Unused accounts and Claude connections are only reported – switch on the automatic suspension (Settings → Security) so that leftover access closes itself.'), ['settings']), '<a href="/admin.php?module=settings&amp;tab='),
     t('Reporting to a console'), t('Agency'),
 ], 'admin-'), [5, 'Hlášení do konzole', 'Agentura']);
+
+/* ---------- 3.23.1: text sweep, honest signature hint, phone fixes (N-C4–N-C7, N-C10–N-C12, N-C15, C4, C18) ---------- */
+$v3231 = fn (string $view): string => (string) file_get_contents(KALETA_SYSTEM . '/views/admin/' . $view);
+$paths3231 = '(Site care → Broken links) (Statistics → Campaigns) (My account → Claude connection) (My account → My e-mail signature)';
+$all3231 = ['broken_links', 'stats'];
+check('3.23.1 (C4, N-C5, N-C6): the last plain menu paths are links – in English, Czech, German and Spanish, only with access', [
+    substr_count(Kaleta\Core\Language::runWith('en', fn (): string => Kaleta\Admin\MenuPaths::links('/admin.php', $paths3231, $all3231), 'admin-'), '<a '),
+    Kaleta\Core\Language::runWith('cs', fn (): string => Kaleta\Admin\MenuPaths::links('/admin.php', t('In the background, one news item every five minutes. The result is in Site care → Broken links.'), $all3231), 'admin-'),
+    Kaleta\Core\Language::runWith('cs', fn (): int => substr_count(Kaleta\Admin\MenuPaths::links('/admin.php', t('Connect Claude to this site with a drafts-only token or connection: My account → Claude connection, access “drafts only”. A drafts-only connection can read the site and save drafts, and the two tools the routine needs (get_due_agent_runs, report_agent_run) – it cannot publish, delete or send.'), []), 'action=account#claude'), 'admin-'),
+    Kaleta\Core\Language::runWith('de', fn (): int => substr_count(Kaleta\Admin\MenuPaths::links('/admin.php', t('Sent from the site’s address; when the customer answers, it comes to you (%s). You have no e-mail signature yet, so the reply goes without one – see My account → My e-mail signature.', 'a@b.example'), []), 'tab=signature'), 'admin-'),
+    Kaleta\Core\Language::runWith('es', fn (): int => substr_count(Kaleta\Admin\MenuPaths::links('/admin.php', t('The first page of a visit, its campaign and the site that sent the visitor go with enquiries and newsletter sign-ups (Statistics → Campaigns). Only for visitors who allow marketing in the cookie bar – turning it on adds that choice to the bar.') . ' ' . t('Link checking is off – switch on “Look for broken links” in Settings → General.'), ['stats', 'settings']), '<a '), 'admin-'),
+    Kaleta\Core\Language::runWith('en', fn (): int => substr_count(Kaleta\Admin\MenuPaths::links('/admin.php', $paths3231, []), '<a '), 'admin-'),
+], [4, 'Na pozadí, jedna novinka za pět minut. Výsledek je v <a href="/admin.php?module=broken_links">Péče o web → Nefunkční odkazy</a>.', 1, 1, 2, 2]);
+// the stale or contradictory texts are gone from the views; the signature tab opens the signature guide
+$stale3231 = ['is in News → Broken links', 'Settings → General → More options', 'Statistics → Campaigns and pages', 'News is always at', 'Requests on the console', 'Settings and connections', 'come from the design system', 'come from your design system', 'to the design system,', 'look to the design system'];
+$views3231 = implode("\n", array_map(fn (string $f): string => (string) file_get_contents($f), [...glob(KALETA_SYSTEM . '/views/admin/*.php'), ...glob(KALETA_SYSTEM . '/views/admin/*/*.php')]))
+    . (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Hubs.php') . (string) file_get_contents(KALETA_SYSTEM . '/src/Core/AgentSchedules.php');
+check('3.23.1 (N-C6, N-C7, N-C11): no stale path or "design system" in owner copy; the signature tab has its guide, the details keep theirs', [
+    array_values(array_filter($stale3231, fn (string $x): bool => str_contains($views3231, $x))),
+    str_contains($views3231, "'Requests from staff'"),
+    Kaleta\Admin\Guide::forScreen('account', '', 'signature', 'en'), Kaleta\Admin\Guide::forScreen('account', '', '', 'cs'),
+    Kaleta\Admin\Hubs::class !== '' && str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Hubs.php'), "['claude_settings', '', 'Claude settings']"),
+], [[], false, 'https://kaletacms.com/guide/email#your-e-mail-signature', 'https://kaletacms.com/cs/guide/claude-connect', true]);
+check('3.23.1 (N-C5, N-C10, N-C15): the reply form promises a signature only to who has one; one testimonial sentence; the empty Pages filter speaks of languages only with them', [
+    str_contains($v3231('enquiries/detail.php'), '$hasSignature =>') && str_contains($v3231('enquiries/detail.php'), 'data-reply-no-signature'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php'), "'hasSignature' => \\Kaleta\\Core\\EnquiryReply::signature("),
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Core/EnquiryReply.php'), 'TeamRecord::forUser'),
+    str_contains($v3231('enquiries/detail.php'), 'created with the first answer') && !str_contains($v3231('enquiries/detail.php'), 'an administrator creates that collection'),
+    str_contains($v3231('pages/list.php'), "(\$siteLanguages ?? []) === [] ? 'Try another tab.' : 'Try another tab or language.'"),
+    Kaleta\Core\Language::runWith('cs', fn (): string => t('Try another tab.') . '|' . t('Ask Claude requests'), 'admin-'),
+], [true, true, 1, true, true, 'Zkuste jinou záložku.|Požadavky ze Zeptejte se Clauda']);
+$css3231 = (string) file_get_contents(KALETA_ROOT . '/image/admin.css');
+check('3.23.1 (N-C4, N-C12): status cells wrap on a phone; below 600 px the Settings tabs are a select of the same tabs that opens the chosen one', [
+    substr_count($v3231('settings/health.php'), '<table class="vypis vypis-stav">'),
+    str_contains($css3231, 'table.vypis-stav th, table.vypis-stav td { padding: 10px 12px; white-space: normal; overflow-wrap: anywhere; }'),
+    (bool) preg_match('/<form class="zalozky-vyber" method="get".*?><input type="hidden" name="module" value="settings">.*<select id="zalozka-vyber" name="tab" data-odeslat-pri-zmene>.*foreach \(\$navigation as \$key => \$name\)/s', $v3231('settings/list.php')),
+    str_contains($css3231, '.zalozky:has(+ .zalozky-vyber) { display: none; }') && str_contains($css3231, "@media (max-width: 600px) {\n\t.zalozky-vyber { display: flex;"),
+], [3, true, true, true]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

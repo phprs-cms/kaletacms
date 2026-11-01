@@ -55,6 +55,11 @@ final class MenuPaths
         [['Settings', 'Webhooks'], 'settings', 'module=settings&tab=webhooks'],
         [['Scheduled runs'], 'schedules', 'module=schedules'],
         [['Notebook'], 'notebook', 'module=notebook'],
+        // 3.23.1 (C4, N-C5, N-C6): the last plain paths – Broken links under Site care, the campaigns, the parts of My account
+        [['Site care', 'Broken links'], 'broken_links', 'module=broken_links'],
+        [['Statistics', 'Campaigns'], 'stats', 'module=stats'],
+        [['My account', 'Claude connection'], '', 'action=account#claude'],
+        [['My account', 'My e-mail signature'], '', 'action=account&tab=signature'],
     ];
 
     /**

@@ -10,7 +10,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DB_HOST="${DB_HOST:-127.0.0.1}"; DB_PORT="${DB_PORT:-3306}"; DB_NAME="${DB_NAME:-kaleta_test_browser}"; DB_USER="${DB_USER:-root}"; DB_PASS="${DB_PASS:-}"; PORT="${PORT:-8095}"
 WORK="$(mktemp -d)"; B="http://127.0.0.1:$PORT"
 MYSQL=(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" --init-command="SET time_zone = '+00:00'"); [ -n "$DB_PASS" ] && MYSQL+=(-p"$DB_PASS")
-cleanup() { for pid in ${SERVER_PID:-} ${STARTER_PIDS:-}; do kill "$pid" 2>/dev/null || true; done; rm -rf "$WORK"; }
+cleanup() { for pid in ${SERVER_PID:-} ${STARTER_PIDS:-} ${SMTP_PID:-}; do kill "$pid" 2>/dev/null || true; done; rm -rf "$WORK"; }
 trap cleanup EXIT
 
 # axe-core (3.5) next to playwright-core: the accessibility check injects it from this local copy, never from a CDN
@@ -122,9 +122,13 @@ LAST="$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format(
   $db->insert("fleet_incidents", ["site_id" => 900, "started_at" => $at("-12 days 10:00"), "ended_at" => $at("-12 days 10:45"), "status" => 503]);
   Kaleta\Core\Events::record($db, "fleet.site_updated", "info", "https://shop.smile.example runs version 3.17.0.", ["site" => 900, "version" => "3.17.0"]);
   Kaleta\Fleet\Report::store($app, Kaleta\Core\MonthlyReport::previousMonth(new DateTimeImmutable()));') || { echo "preparing the fleet console failed"; exit 1; }
+# 3.23.1: a local SMTP sink on PORT+3 (tools/fake-smtp.php writes every message to a folder – no mail leaves the machine);
+# the enquiry reply step points the site's SMTP at it
+SMTP_PORT=$((PORT + 3)); mkdir -p "$WORK/smtp"
+php "$ROOT/tools/fake-smtp.php" "$SMTP_PORT" "$WORK/smtp" > /dev/null 2>&1 & SMTP_PID=$!
 # 3.18: the browser test changes the state of the Claude connection in the database (the mysql command as a JSON list)
 MYSQL_JSON=$(php -r 'echo json_encode(array_slice($argv, 1));' -- "${MYSQL[@]}")
-NODE_PATH="$WORK/pw/node_modules" BASE="$B" STARTERS="$STARTERS" PASSWORD="$PASSWORD" MYSQL_JSON="$MYSQL_JSON" DB_NAME="$DB_NAME" CHROME="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}" node "$ROOT/tools/test-browser.mjs"
+SMTP_DIR="$WORK/smtp" SMTP_PORT="$SMTP_PORT" WEB_DIR="$WORK/web" NODE_PATH="$WORK/pw/node_modules" BASE="$B" STARTERS="$STARTERS" PASSWORD="$PASSWORD" MYSQL_JSON="$MYSQL_JSON" DB_NAME="$DB_NAME" CHROME="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}" node "$ROOT/tools/test-browser.mjs"
 for site in web remeslo poradenstvi; do
   if [ -s "$WORK/$site/storage/log/chyby.log" ]; then echo "== application error log ($site):"; cat "$WORK/$site/storage/log/chyby.log"; exit 1; fi
 done

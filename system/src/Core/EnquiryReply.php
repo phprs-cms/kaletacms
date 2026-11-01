@@ -144,8 +144,7 @@ final class EnquiryReply
         $headers = count($replyTo) === 1 ? ['Reply-To' => $replyTo[0]] : [];
 
         // the user's own e-mail signature (My account → My e-mail signature): plain text under the "-- " line, HTML below the text
-        $record = $user !== [] ? \Kaleta\Builder\TeamRecord::forUser($db, $user) : null;
-        $signature = $record !== null ? \Kaleta\Builder\EmailSignature::forItem($app, $record['collection'], $record['item']) : null;
+        $signature = self::signature($app, $user);
         $plain = $text . ($signature !== null && $signature['text'] !== '' ? "\n\n-- \n" . $signature['text'] : '');
         $html = $signature !== null ? self::html($text, $signature['html']) : '';
 
@@ -170,6 +169,20 @@ final class EnquiryReply
             ['enquiry' => $idp, 'via' => $via]);
 
         return ['status' => $ok ? 'sent' : 'queued', 'error' => $error, 'resolved' => $resolve, 'to' => $to[0]];
+    }
+
+    /**
+     * The e-mail signature of a user (My account → My e-mail signature), or null when they have none – the reply form says
+     * which (3.23.1, N-C5) and send() appends it.
+     *
+     * @param array<string, mixed> $user
+     * @return array{text: string, html: string}|null
+     */
+    public static function signature(App $app, array $user): ?array
+    {
+        $record = $user !== [] ? \Kaleta\Builder\TeamRecord::forUser($app->db(), $user) : null;
+
+        return $record !== null ? \Kaleta\Builder\EmailSignature::forItem($app, $record['collection'], $record['item']) : null;
     }
 
     /** The HTML part when a signature goes with the reply: the text as written (line breaks kept), the signature table below. */
