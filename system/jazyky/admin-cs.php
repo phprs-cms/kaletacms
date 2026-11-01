@@ -6412,4 +6412,5 @@ return [
     'Add the first item – the page %s lists the items; publish it when they are ready.' => 'Přidejte první položku – stránka %s položky vypisuje; zveřejněte ji, až budou hotové.',
     'The privacy policy page of this site: %s – hidden, publish it or visitors following the link get “page not found”.' => 'Stránka zásad ochrany osobních údajů tohoto webu: %s – je skrytá, zveřejněte ji, jinak návštěvníci po kliknutí na odkaz uvidí „stránka nenalezena“.',
     'Choose the date and time in the Content panel.' => 'Datum a čas vyberte v panelu Obsah.',
+    'as the element is by default' => 'jako prvek běžně',
 ];

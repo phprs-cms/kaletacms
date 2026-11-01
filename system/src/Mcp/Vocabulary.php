@@ -435,7 +435,8 @@ final class Vocabulary
     {
         $out = [];
         foreach ($properties as $key => $v) {
-            $field = ['type' => self::FIELD_TYPES[$v['typ']] ?? $v['typ'], 'label' => $admin((string) ($v['popisek'] ?? ''))];
+            $field = ['type' => self::FIELD_TYPES[$v['typ']] ?? $v['typ'], 'label' => $admin((string) ($v['popisek'] ?? ''))]
+                + ($v['typ'] === 'termin' ? ['format' => 'YYYY-MM-DD HH:MM (or a whole day YYYY-MM-DD)'] : []); // 3.21: the label "Until" lost its format
             if (array_key_exists('vychozi', $v)) {
                 $field['default'] = self::valueToEnglish($key, $v['vychozi']);
             }
@@ -474,6 +475,8 @@ final class Vocabulary
                 $description .= '[' . implode('; ', $item) . ']';
             } elseif (in_array($v['typ'], ['prepinac', 'cislo'], true) && isset($v['vychozi'])) {
                 $description .= '=' . var_export($v['vychozi'], true);
+            } elseif ($v['typ'] === 'termin') {
+                $description .= '(YYYY-MM-DD HH:MM)';
             }
             $parts[] = $description;
         }

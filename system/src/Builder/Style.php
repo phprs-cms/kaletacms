@@ -39,7 +39,9 @@ final class Style
      */
     public const array PROPERTIES = [
         // layout
-        'zobrazeni' => ['display', 'vyber', 'rozlozeni', 'Display', ['block' => 'blok', 'flex' => 'flex (row / column)', 'grid' => 'mřížka', 'none' => 'skrýt']],
+        // revert-layer (3.21): shown with the element's own display from its base CSS (a button stays inline-flex) – what the builder
+        // writes where an element hidden on a larger screen must show again on a smaller one
+        'zobrazeni' => ['display', 'vyber', 'rozlozeni', 'Display', ['block' => 'blok', 'flex' => 'flex (row / column)', 'grid' => 'mřížka', 'none' => 'skrýt', 'revert-layer' => 'as the element is by default']],
         'smer' => ['flex-direction', 'vyber', 'rozlozeni', 'Direction', ['row' => 'side by side', 'column' => 'stacked', 'row-reverse' => 'side by side, reversed', 'column-reverse' => 'stacked, reversed']],
         'zalamovani' => ['flex-wrap', 'vyber', 'rozlozeni', 'Wrapping', ['wrap' => 'zalamovat', 'nowrap' => 'nezalamovat']],
         'sloupce' => ['grid-template-columns', 'sloupce', 'rozlozeni', 'Grid columns', null],

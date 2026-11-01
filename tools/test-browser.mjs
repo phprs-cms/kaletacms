@@ -375,6 +375,17 @@ await step('3.21 (U3, U4) builder: phone override seen from Desktop, reset, hide
   const html = await (await visitor.request.get(`${BASE}/`)).text();
   await visitor.close();
   if (/ka-st-skryty-prvek|data-ka-id/.test(html)) { throw new Error('the public page carries an editor strip or editor ids'); }
+  // N321-1 (review): typing the hidden heading's text in Content goes to the heading, never into its strip (same data-ka-id)
+  await strip.click();
+  await page.getByRole('tab', { name: 'Content' }).first().click();
+  const headingText = page.locator('.st-panel [data-pole="text"] input').first();
+  await headingText.click();
+  await headingText.press('End');
+  await page.keyboard.type('Z');
+  await page.waitForTimeout(300);
+  if (!((await strip.textContent()) || '').startsWith('Hidden on phone')) { throw new Error('typing the hidden heading\'s text overwrote its strip: ' + await strip.textContent()); }
+  await page.keyboard.press('Backspace');
+  await page.waitForTimeout(2500);
   // „show“ on the strip brings the element back on the phone and keeps the other devices as they were
   await strip.locator('button').click();
   await canvas().locator('.ka-st-skryty-prvek').first().waitFor({ state: 'detached', timeout: 5000 });
@@ -466,6 +477,9 @@ await step('3.21 (U2, U5, U9, U19) builder: a heading shows Typography and Spaci
   await custom.fill('40px');
   await custom.press('Tab');
   await until(async () => (await h1Size()) === '40px', 'the canvas heading did not take the custom 40px');
+  // N321-5 (review): "×" (3.21 U3) on a custom size clears the value and the custom field with it – the row is drawn anew
+  await row.locator('.st-vynulovat').click();
+  await page.waitForFunction(() => { const s = document.querySelector('#st-v-velikost_pisma'); return s && s.value === '' && !s.closest('.st-vlastnost').querySelector('.st-krok-vlastni, .st-vynulovat'); });
   await size.selectOption(originalStep);
   await until(async () => (await h1Size()) === originalSize, 'the canvas heading did not return to its size');
   // U9: a heading's tag is its Level in Content – Advanced has no HTML tag select, only a note

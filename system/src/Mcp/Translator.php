@@ -496,6 +496,7 @@ final class Translator
         '/^Nepovolená deklarace: (.*)$/su' => 'Declaration not allowed: $1',
         '/^Atribut může být jen data-…, aria-…, title, lang, role nebo rel\.$/su' => 'An attribute can only be data-…, aria-…, title, lang, role or rel.',
         '/^Datum podmínky zobrazení musí být ve tvaru RRRR-MM-DD\.$/su' => 'The date of a display condition must be YYYY-MM-DD.',
+        '/^Datum a čas musí být ve tvaru RRRR-MM-DD HH:MM – pole zůstalo prázdné\.$/su' => 'A date and time must be YYYY-MM-DD HH:MM – the field was left empty.',
         '/^Jazyk podmínky zobrazení musí být kód jazykové verze webu \(„“ = výchozí jazyk\)\.$/su' => 'The language of a display condition must be the code of a language version of the site ("" = the default language).',
         '/^Název parametru adresy: 1–40 znaků, písmena bez diakritiky, číslice, _ a -\.$/su' => 'URL parameter name: 1–40 characters, letters without accents, digits, _ and -.',
         '/^Hodnota parametru adresy: 1–80 znaků, písmena bez diakritiky, číslice, _ \. a -\.$/su' => 'URL parameter value: 1–80 characters, letters without accents, digits, _ . and -.',

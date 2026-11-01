@@ -2896,5 +2896,6 @@ window.KALETA_PREKLAD = {
 	"There is no container just before this element to move it into.": "Těsně před tímto prvkem není kontejner, do kterého by se dal přesunout.",
 	"Move the selected element up or down": "Posunout vybraný prvek nahoru nebo dolů",
 	"Move the element out of its parent / into the container before it": "Přesunout prvek ven z nadřazeného / do kontejneru před ním",
-	"Element menu (also right-click on the canvas or in Structure)": "Nabídka prvku (také pravým tlačítkem na plátně nebo ve Struktuře)"
+	"Element menu (also right-click on the canvas or in Structure)": "Nabídka prvku (také pravým tlačítkem na plátně nebo ve Struktuře)",
+	"as the element is by default": "jako prvek běžně"
 };

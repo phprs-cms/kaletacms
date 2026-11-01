@@ -6820,4 +6820,5 @@ return [
     'Add the first item – the page %s lists the items; publish it when they are ready.' => 'Fügen Sie den ersten Eintrag hinzu – die Seite %s listet die Einträge auf; veröffentlichen Sie sie, wenn sie fertig sind.',
     'The privacy policy page of this site: %s – hidden, publish it or visitors following the link get “page not found”.' => 'Die Datenschutzseite dieser Website: %s – ausgeblendet, veröffentlichen Sie sie, sonst sehen Besucher über den Link „Seite nicht gefunden“.',
     'Choose the date and time in the Content panel.' => 'Wählen Sie Datum und Uhrzeit im Bereich Inhalt.',
+    'as the element is by default' => 'wie das Element standardmäßig',
 ];

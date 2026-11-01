@@ -310,6 +310,9 @@ final class Build
             if ($def['typ'] === 'obrazek' && $value !== '' && $clean[$key] === '') {
                 $errors[$path . '.' . $key] = 'Obrázek musí být z Médií (media/…) nebo na adrese https://.';
             }
+            if ($def['typ'] === 'termin' && is_scalar($value) && trim((string) $value) !== '' && $clean[$key] === '') {
+                $errors[$path . '.' . $key] = 'Datum a čas musí být ve tvaru RRRR-MM-DD HH:MM – pole zůstalo prázdné.'; // MCP learns why, not an empty field in silence
+            }
         }
 
         return $clean;
@@ -317,13 +320,18 @@ final class Build
 
     /**
      * A date-and-time field (typ termin, 3.21 U24): stored as "YYYY-MM-DD HH:MM" or a whole day "YYYY-MM-DD" – the format pages
-     * held before the picker. The picker's "YYYY-MM-DDTHH:MM" is taken too; anything else leaves the field empty.
+     * held before the picker. The picker's "YYYY-MM-DDTHH:MM" is taken too, and seconds are dropped ("…T07:08:00" from a language
+     * model; the text field before 3.21 cut the value to 16 characters, so such a value worked); an impossible date or anything
+     * else leaves the field empty.
      */
     public static function dateTime(string $value): string
     {
-        $value = str_replace('T', ' ', trim($value));
+        if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::\d{2}(?:\.\d{1,6})?)?)?$/D', trim($value), $m)
+            || !checkdate((int) $m[2], (int) $m[3], (int) $m[1]) || (isset($m[4]) && ((int) $m[4] > 23 || (int) $m[5] > 59))) {
+            return '';
+        }
 
-        return preg_match('/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2})?$/D', $value) === 1 ? $value : '';
+        return $m[1] . '-' . $m[2] . '-' . $m[3] . (isset($m[4]) ? ' ' . $m[4] . ':' . $m[5] : '');
     }
 
     /**
@@ -878,6 +886,8 @@ final class Build
                     $description .= '[' . $field($v['pole']) . ']';
                 } elseif (in_array($v['typ'], ['prepinac', 'cislo'], true) && isset($v['vychozi'])) {
                     $description .= '=' . var_export($v['vychozi'], true);
+                } elseif ($v['typ'] === 'termin') {
+                    $description .= '(YYYY-MM-DD HH:MM)'; // the label no longer carries the format (the editor has a picker)
                 }
                 $parts[] = $description;
             }

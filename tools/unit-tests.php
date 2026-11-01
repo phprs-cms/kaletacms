@@ -7953,5 +7953,38 @@ check('3.21 U24: the Countdown date-and-time field keeps the stored "YYYY-MM-DD 
     str_contains(Kaleta\Builder\Elements\Countdown::render(['obsah' => ['cil' => '', 'konec' => 'Now']], ' id="u24e"', '', new Kaleta\Builder\Context($leadApp, true)), e(t('Choose the date and time in the Content panel.'))),
 ], [['2031-05-06 07:08', '2031-05-06 07:08', '2031-05-06', ''], '2031-05-06 07:08', '', '', 'termin', 'datetime', true, true, true]);
 
+// 3.21 pre-release review (N321): the seams of the three 3.21 branches and MCP compatibility of the Countdown target
+// N321-3: a language model sends ISO dates with seconds ("…T07:08:00"); before 3.21 the 16-character text field cut them to a valid
+// value, the date-and-time field keeps that; an impossible date is refused, and a refused value is reported (in English over MCP)
+[$n321Build, $n321Errors] = Kaleta\Builder\Build::sanitize(['deti' => [['typ' => 'sekce', 'id' => 'n321s', 'deti' => [
+    ['typ' => 'odpocet', 'id' => 'n321a', 'obsah' => ['cil' => '2031-05-06T07:08:00', 'konec' => 'Now']],
+    ['typ' => 'odpocet', 'id' => 'n321b', 'obsah' => ['cil' => '2031-05-06 07:08:59.5', 'konec' => 'Now']],
+    ['typ' => 'odpocet', 'id' => 'n321c', 'obsah' => ['cil' => '2031-02-30 07:08', 'konec' => 'Now']],
+    ['typ' => 'odpocet', 'id' => 'n321d', 'obsah' => ['cil' => '', 'konec' => 'Now']],
+    ['typ' => 'odpocet', 'id' => 'n321e', 'obsah' => ['cil' => '2025-12-31 18:00', 'konec' => 'Now']],
+]]]]);
+check('3.21 review (N321-3): Countdown target – seconds dropped, an impossible date refused and reported, old values unchanged', [
+    array_column(array_column($n321Build['deti'][0]['deti'], 'obsah'), 'cil'), array_keys($n321Errors),
+    Kaleta\Mcp\Translator::message((string) ($n321Errors['deti[0].deti[2].obsah.cil'] ?? '')),
+    Kaleta\Builder\Build::dateTime('2031-05-06 24:00'), Kaleta\Builder\Build::dateTime('2031-05-06'),
+], [['2031-05-06 07:08', '2031-05-06 07:08', '', '', '2025-12-31 18:00'], ['deti[0].deti[2].obsah.cil'],
+    'A date and time must be YYYY-MM-DD HH:MM – the field was left empty.', '', '2031-05-06']);
+// N321-4: the MCP schema says the format of a datetime field (the label "Until" no longer does)
+$n321Schema = Kaleta\Mcp\Vocabulary::schema(Kaleta\Builder\Build::schema(true, 'en'), ['countdown'], true);
+check('3.21 review (N321-4): the MCP builder schema gives the datetime format', [
+    str_contains(json_encode($n321Schema, JSON_UNESCAPED_UNICODE) ?: '', 'YYYY-MM-DD HH:MM'),
+    str_contains(json_encode(Kaleta\Mcp\Vocabulary::schema(Kaleta\Builder\Build::schema(true, 'en')), JSON_UNESCAPED_UNICODE) ?: '', 'datetime(YYYY-MM-DD HH:MM)'),
+], [true, true]);
+// N321-2: an element hidden on a larger screen is shown again on a smaller one with its own display (revert-layer to the
+// element's base CSS in the stavitel layer) – a forced "block" made a button full width and a form lose its grid
+$n321VisErrors = [];
+check('3.21 review (N321-2): shown again with the element\'s own display', [
+    Kaleta\Builder\Style::css('#s-a', ['zaklad' => ['zobrazeni' => 'none'], 'tablet' => ['zobrazeni' => 'revert-layer']]),
+    Kaleta\Builder\Style::sanitize(['zaklad' => ['zobrazeni' => 'none'], 'tablet' => ['zobrazeni' => 'revert-layer']], 's', $n321VisErrors), $n321VisErrors,
+    str_contains($builderScript, "find((v) => v && v !== 'none') || 'revert-layer'"),
+], ["#s-a { display: none; }\n@media (max-width: 1023px) { #s-a { display: revert-layer; } }\n", ['zaklad' => ['zobrazeni' => 'none'], 'tablet' => ['zobrazeni' => 'revert-layer']], [], true]);
+// N321-1: instant canvas text never writes into the dashed strip of a hidden element (the strip carries the same data-ka-id)
+check('3.21 review (N321-1): instant canvas text skips the strip of a hidden element', (bool) preg_match('~function fastCanvasText.+?querySelectorAll\(\'\[data-ka-id="\' \+ p\.id \+ \'"\]:not\(\.ka-st-skryty-prvek\)\'\)~s', $builderScript), true);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

@@ -3009,5 +3009,6 @@ window.KALETA_PREKLAD = {
 	"There is no container just before this element to move it into.": "No hay ningún contenedor justo antes de este elemento al que moverlo.",
 	"Move the selected element up or down": "Mover el elemento seleccionado arriba o abajo",
 	"Move the element out of its parent / into the container before it": "Sacar el elemento de su padre / meterlo en el contenedor anterior",
-	"Element menu (also right-click on the canvas or in Structure)": "Menú del elemento (también con clic derecho en el lienzo o en Estructura)"
+	"Element menu (also right-click on the canvas or in Structure)": "Menú del elemento (también con clic derecho en el lienzo o en Estructura)",
+	"as the element is by default": "como el elemento por defecto"
 };

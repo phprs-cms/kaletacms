@@ -427,11 +427,12 @@
 	function hiddenOnDevice(p, bp) { return deviceDisplay(p, bp) === 'none'; }
 	/**
 	 * Shows or hides the element on one device only. The other devices keep what they showed before: where the cascade would
-	 * change them, an own value is written (hidden = „none“, shown = the display the element had, e.g. flex of a container).
+	 * change them, an own value is written (hidden = „none“, shown = the display the element had, e.g. flex of a container;
+	 * without one „revert-layer“ – the element's own display from its base CSS, e.g. inline-flex of a button, not a forced block).
 	 */
 	function toggleDeviceVisibility(p, bp) {
 		const before = Object.fromEntries(DEVICES.map((d) => [d, deviceDisplay(p, d)]));
-		const shown = DEVICES.map((d) => before[d]).find((v) => v && v !== 'none') || 'block';
+		const shown = DEVICES.map((d) => before[d]).find((v) => v && v !== 'none') || 'revert-layer';
 		applyChange(() => {
 			p.styl = p.styl && !Array.isArray(p.styl) ? p.styl : {};
 			const write = (d, hidden) => { p.styl[d] = Object.assign(p.styl[d] || {}, { zobrazeni: hidden ? 'none' : (before[d] && before[d] !== 'none' ? before[d] : shown) }); };
@@ -468,7 +469,8 @@
 					const button = doc.createElement('button');
 					button.type = 'button';
 					button.textContent = T('show');
-					button.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); toggleDeviceVisibility(p, state.bp); });
+					// the element as the build holds it now: after an undo the build is a new object and this $p a stale copy
+					button.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); const n = find(p.id); if (n) { toggleDeviceVisibility(n.p, state.bp); } });
 					strip.addEventListener('dblclick', (e) => e.stopPropagation());
 					strip.append(name, button);
 					t.before(strip);
@@ -541,7 +543,16 @@
 			const input = right.querySelector('#st-v-' + key);
 			const row = input && input.closest('.st-vlastnost');
 			if (!row) { return; }
-			if (value === '' && input.value !== '') { input.value = ''; }
+			if (value === '') {
+				// a reset: the row is drawn anew – the inherited value in grey, no custom font size field, no colour swatch or inline
+				// message left from the cleared value; the focus stays in the row (the „×“ that had it is gone)
+				const focused = row.contains(document.activeElement);
+				const fresh = styleControl(target, key, def, change);
+				row.replaceWith(fresh);
+				const again = focused && fresh.querySelector('#st-v-' + key);
+				if (again) { again.focus(); }
+				return;
+			}
 			const own = (target.styl[currentState()] || {})[key] ?? '';
 			row.classList.toggle('nastaveno', own !== '');
 			const name = row.querySelector('.st-vlastnost-nazev');
@@ -945,13 +956,16 @@
 	// the style clipboard of the Style tab ("Copy style" / "Paste style"): the same browser key, so both places share it
 	const STYLE_CLIPBOARD = 'ka-st-styl';
 	function styleClipboard() { try { return JSON.parse(localStorage.getItem(STYLE_CLIPBOARD) || 'null'); } catch (e) { return null; } }
+	/** Copies the style of an element (or a class record); the Style tab is redrawn, so its „Paste style“ is enabled at once. */
 	function copyStyle(p) {
-		try { localStorage.setItem(STYLE_CLIPBOARD, JSON.stringify({ styl: p.styl && !Array.isArray(p.styl) ? p.styl : {}, tridy: p.tridy || [] })); setState(T('Style copied.')); } catch (e) { /* private mode */ }
+		try { localStorage.setItem(STYLE_CLIPBOARD, JSON.stringify({ styl: p.styl && !Array.isArray(p.styl) ? p.styl : {}, tridy: p.tridy || [] })); setState(T('Style copied.')); } catch (e) { return; /* private mode */ }
+		redrawRight();
 	}
 	function pasteStyle(p) {
 		const v = styleClipboard();
 		if (!v) { return; }
 		applyChange(() => { p.styl = clone(v.styl || {}); if (v.tridy && v.tridy.length) { p.tridy = v.tridy.slice(); } else { delete p.tridy; } });
+		redrawRight();
 	}
 	/** Whether this site's element clipboard (Ctrl+C, localStorage) holds an element the builder knows. */
 	function hasElementCopy() {
@@ -969,6 +983,7 @@
 		if (!n) { return; }
 		if (state.vybrane !== id) { selection(id); }
 		const p = n.p;
+		const now = () => (find(id) || n).p; // an action runs on the element as the build holds it then (an undo or a reload replaces the objects)
 		const back = () => {
 			const row = fromTree && leftContent && leftContent.querySelector('[data-id="' + CSS.escape(state.vybrane || id) + '"]');
 			if (row) { row.focus(); } else if (!fromTree && preview) { preview.focus(); }
@@ -978,8 +993,8 @@
 			[icon('smazat'), T('Delete'), 'Delete', true, () => remove(id)],
 			[icon('schranka'), T('Copy'), 'Ctrl+C', true, () => copy()],
 			[icon('schranka'), T('Paste'), 'Ctrl+V', hasElementCopy(), () => pasteFromClipboard()],
-			[icon('kopie'), T('Copy style'), '', true, () => copyStyle(p)],
-			[icon('kopie'), T('Paste style'), '', !!styleClipboard(), () => pasteStyle(p)],
+			[icon('kopie'), T('Copy style'), '', true, () => copyStyle(now())],
+			[icon('kopie'), T('Paste style'), '', !!styleClipboard(), () => pasteStyle(now())],
 			[icon('komponenta'), T('Save as component'), '', !!D.adresy.komponenta && p.typ !== 'komponenta', () => saveAsComponent(id)],
 			[icon('rodic'), T('Select parent element'), 'Esc', !!n.rodic, () => selection(n.rodic.id)],
 		];
@@ -1000,6 +1015,7 @@
 				if (fromTree) { setTimeout(back, 0); }
 			} }, ik, el('span', {}, name), key ? el('kbd', {}, key.replace('Ctrl', /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl')) : null)));
 		elementMenu.showPopover();
+		elementMenu.openedAt = Date.now();
 		// inside the window: to the left or above the pointer when there is no room
 		const w = elementMenu.offsetWidth, h = elementMenu.offsetHeight;
 		elementMenu.style.left = Math.max(8, Math.min(at.x, window.innerWidth - w - 8)) + 'px';
@@ -1026,7 +1042,9 @@
 	function canvasMenu(doc) {
 		doc.addEventListener('contextmenu', (e) => {
 			if (e.target.closest('[contenteditable]') || state.umistovani) { return; } // the browser's own menu while typing on the canvas
-			if (elementMenu && elementMenu.matches(':popover-open')) { e.preventDefault(); return; } // opened by Shift+F10 a moment ago
+			// opened by Shift+F10 or the menu key a moment ago (the browser follows the key with this event); a right-click while
+			// the menu is open moves it to the element under the pointer – a click in the canvas iframe does not close a popover
+			if (elementMenu && elementMenu.matches(':popover-open') && Date.now() - (elementMenu.openedAt || 0) < 400) { e.preventDefault(); return; }
 			let t = e.target.closest('[data-ka-id]');
 			while (t && t.hasAttribute('data-ka-zamek')) { t = t.parentElement && t.parentElement.closest('[data-ka-id]'); }
 			if (!t || !find(t.getAttribute('data-ka-id'))) { return; }
@@ -1122,12 +1140,14 @@
 	function fastCanvasText(p, key, value) {
 		const doc = preview && preview.contentDocument;
 		if (FAST_TEXT[p.typ] !== key || typeof value !== 'string' || value.includes('{{') || state.upravaNaPlatne || !doc) { return; }
-		const node = doc.querySelector('[data-ka-id="' + p.id + '"]');
-		if (!node || node.querySelector('[data-ka-id]')) { return; }
+		// the element itself, never the dashed strip of an element hidden on this device (it carries the same data-ka-id, 3.21 U4);
+		// every copy of it (a card template in a collection list repeats it)
+		const nodes = Array.from(doc.querySelectorAll('[data-ka-id="' + p.id + '"]:not(.ka-st-skryty-prvek)'));
+		if (!nodes.length || nodes.some((node) => node.querySelector('[data-ka-id]'))) { return; }
 		if (p.typ === 'tlacitko') {
 			// a button: its text node only (an icon stays); a typed tag is dropped by the server, so it waits for the re-render
-			const textNode = Array.from(node.childNodes).find((x) => x.nodeType === 3);
-			if (textNode && !/[<>]/.test(value)) { textNode.data = value.trim(); }
+			if (/[<>]/.test(value)) { return; }
+			nodes.forEach((node) => { const textNode = Array.from(node.childNodes).find((x) => x.nodeType === 3); if (textNode) { textNode.data = value.trim(); } });
 			return;
 		}
 		const source = inert.createElement('div');
@@ -1140,7 +1160,7 @@
 			return copyNodes(x, copied);
 		});
 		const result = doc.createDocumentFragment();
-		if (copyNodes(source, result)) { node.replaceChildren(result); markInPreview(false); }
+		if (copyNodes(source, result)) { nodes.forEach((node) => node.replaceChildren(result.cloneNode(true))); markInPreview(false); }
 	}
 
 	/* ---------- keys ---------- */
@@ -1775,7 +1795,6 @@
 				el('button', { type: 'button', class: 'nebezpecne', title: T('Delete (Delete)'), onclick: () => remove(p.id) }, icon('smazat')))),
 			breadcrumb(p.id) || '',
 			componentLink || '', // replaceChildren() writes a null as the text "null" (shown since 3.20 under every non-component header)
-
 			el('div', { class: 'st-zalozky', role: 'tablist' }, tabItem('obsah', T('Content')), tabItem('styl', T('Styl')), tabItem('pokrocile', T('Pokročilé'))),
 			panel,
 		);
@@ -2251,16 +2270,10 @@
 			el('span', {}, T('Editing: '), el('strong', {}, [{ hover: T('hover and focus'), aktivni: T('pressed') }[state.stavPrvku], state.stavPrvku && state.bp === 'zaklad' ? '' : BP[state.bp]].filter(Boolean).join(' · '))),
 			el('span', { class: 'st-skupina', role: 'group', 'aria-label': T('Element state') }, [['', T('Běžný')], ['hover', T('Najetí')], ['aktivni', T('Pressed')]].map(([k, n]) =>
 				el('button', { type: 'button', class: 'st-tl', 'aria-pressed': String(state.stavPrvku === k), title: k === 'hover' ? T('Mouse hover – also applies to keyboard focus') : null, onclick: () => { state.stavPrvku = k; redrawRight(); } }, n)))));
-		// copying only the style (without content) between elements and pages – the browser keeps it
-		const clipboard = () => { try { return JSON.parse(localStorage.getItem('ka-st-styl') || 'null'); } catch (e) { return null; } };
+		// copying only the style (without content) between elements and pages – the browser keeps it; the same clipboard as the element menu (3.21)
 		panel.append(el('div', { class: 'st-pole-radek st-styl-schranka' },
-			el('button', { type: 'button', class: 'st-tl', onclick: () => { try { localStorage.setItem('ka-st-styl', JSON.stringify({ styl: target.styl, tridy: target.tridy || [] })); setState(T('Style copied.')); redrawRight(); } catch (e) { /* private mode */ } } }, T('Copy style')),
-			el('button', { type: 'button', class: 'st-tl', disabled: !clipboard() || shouldSave, onclick: () => {
-				const v = clipboard();
-				if (!v) { return; }
-				applyChange(() => { target.styl = JSON.parse(JSON.stringify(v.styl || {})); if (v.tridy && v.tridy.length) { target.tridy = v.tridy.slice(); } else { delete target.tridy; } });
-				redrawRight();
-			} }, T('Paste style'))));
+			el('button', { type: 'button', class: 'st-tl', onclick: () => copyStyle(target) }, T('Copy style')),
+			el('button', { type: 'button', class: 'st-tl', disabled: !styleClipboard() || shouldSave, onclick: () => pasteStyle(target) }, T('Paste style'))));
 		if (s !== 'zaklad') { panel.append(el('p', { class: 'napoveda', style: 'margin:0 0 8px;font-size:12px;color:var(--text-slaby)' }, T('Empty field = same value as on the larger screen (grey).'))); }
 		// the first (open) group by element kind: Typography for text, Size for an image, otherwise Layout
 		const first = { nadpis: 'typografie', text: 'typografie', tlacitko: 'typografie', seznam: 'typografie', citat: 'typografie', drobecky: 'typografie',
