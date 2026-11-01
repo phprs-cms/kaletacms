@@ -1221,6 +1221,22 @@ new `handover_checklist`, `builder_schema` field definitions carry a `source` hi
 7. **Builder on a tablet (U15):** below 1024 px the panels become icon rails that open over the canvas (Esc closes), the Add
    panel has two columns and the top bar wraps; the canvas keeps about 88 % of an 820 px screen.
 
+**3.23.1 (2 November 2026):** fixes from the CPO and Head of UX re-audits of 3.23.0 (`kaleta-audity/cpo-admin-2026-11-01.md`,
+`ux-builder-2026-11-01.md`). No migration; no setting, MCP tool or parameter added or renamed.
+- **Client role (N-C1, N-C9):** the ready-made Client preset now includes the Appearance area and Business details (D1); the
+  handover row names what a client account lacks and links New user with the Client role already chosen; own two-step sign-in
+  and the privacy-policy first step link to the exact place.
+- **Mail language (N-C2):** draft-comment and testimonial-request e-mails fall back to the site language, never Czech; users
+  created by an administrator keep an admin language.
+- **Change log (N-C3):** one row per action with the record id ("reply #3"); a refused action writes no row.
+- **Builder (N-U1, N-U5, N-U13, N-U15, N-U16):** a Word paste while editing on the canvas is cleaned like in the panel (lists
+  stay lists); the tablet rails now apply up to 1179 px; the first selection at rail widths opens Properties; Alt+arrow moves
+  are announced to screen readers; no console error after "Edit here".
+- **Phone and wording (N-C4–N-C7, N-C10–N-C12, N-C15, C4, C18):** System status wraps on a phone and Settings tabs become a
+  select below 600 px; the last stale menu paths are links; the reply form says when no signature goes with it; the
+  testimonial request shows only on resolved customer enquiries, folded under the main actions, in one plain sentence.
+- **Tests:** a local SMTP sink in the browser suite (enquiry reply, Appearance-area member, every Settings tab saved twice).
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |
