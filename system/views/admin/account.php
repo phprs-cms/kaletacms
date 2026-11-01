@@ -78,7 +78,7 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 
 <form class="formular" method="post" action="<?= $action ?>" autocomplete="off">
 <?= $csrf ?>
-<fieldset><legend><?= e(t('Two-factor sign-in')) ?></legend>
+<fieldset id="two-factor"><legend><?= e(t('Two-factor sign-in')) ?></legend>
 <?php if ($user['totp_tajemstvi'] !== ''): ?>
 <p><span class="stitek stitek-vydano"><?= e(t('zapnuté')) ?></span> <?= e(t('When signing in you enter a code from the app in addition to your password. Backup codes left: %d.', $codesLeft)) ?></p>
 <input type="hidden" name="co" value="totp_vypni">

@@ -207,14 +207,32 @@ final class Kernel
                 : $this->page('Error', $app->view->render('admin/error', ['text' => 'This page does not exist.']), 404);
         }
 
+        ChangeLog::forget();
+        $flashes = $request->isPost() ? count($app->session->flashTypes()) : 0;
         $response = (new $class($this))->handle($action === '' ? 'list' : $action);
-        if ($request->isPost() && $response->status === 302 && $action !== 'poradi') {
-            // every change made in the admin goes to the change log
+        if ($request->isPost() && $response->status === 302 && $action !== 'poradi' && !ChangeLog::wrote($ident)
+            && !in_array('chyba', array_slice($app->session->flashTypes(), $flashes), true)) {
+            // every change made in the admin goes to the change log – once: a module that wrote its own row (with what it did,
+            // e.g. "reply #3") is not logged again, and an action the module refused (an error message) is no change (3.23.1,
+            // N-C3); the generic row carries the record number when the form has one
             $description = $request->post('titulek') ?: ($request->post('nazev') ?: ($request->post('user') ?: $request->post('tab')));
-            ChangeLog::write($app, $ident, $action, $description);
+            $record = self::recordId($request);
+            ChangeLog::write($app, $ident, $action, trim(($record > 0 ? '#' . $record . ' ' : '') . $description));
         }
 
         return $response;
+    }
+
+    /** The record a form of the admin changes: the first positive of its usual id fields (id, idp, ids…), 0 when none. */
+    public static function recordId(\Kaleta\Core\Request $request): int
+    {
+        foreach (['id', 'idp', 'ids', 'idc', 'idk', 'idr', 'idu', 'ido', 'idt'] as $field) {
+            if ($request->postInt($field) > 0) {
+                return $request->postInt($field);
+            }
+        }
+
+        return 0;
     }
 
     /**
@@ -380,6 +398,8 @@ final class Kernel
             return [];
         }
         $db = $app->db();
+        // 3.23.1 (N-C9): the step leads to the privacy policy page itself (the installer makes it hidden), not to the list of pages
+        $privacyPage = Modules\Settings::privacyPolicyPage($db, $s);
         $steps = [
             // done only after the user's own choice: appearance and pages from the starter site do not count
             ['Give your site a face', 'Logo, main colour and fonts.', 'admin.php?module=appearance', $s->get('logo') !== '' || $s->bool('appearance_saved') || $s->get('brand_accent') !== ''],
@@ -387,7 +407,7 @@ final class Kernel
             ['Prepare your pages', 'About us, Services, Contact – and pick the home page in Settings.', 'admin.php?module=pages', (int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1') >= 3 && $s->int('home_page') > 0
                 // 3.20 (C11): a person's edit (zmenil) – the installer stamps zmeneno on the starters now
                 && $db->value('SELECT 1 FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1 AND zmenil IS NOT NULL LIMIT 1') !== null],
-            ['Complete the privacy policy', 'The enquiry form collects personal data – visitors must know how you handle it. The page is prepared as a hidden draft: fill in the details in square brackets and publish it.', 'admin.php?module=pages',
+            ['Complete the privacy policy', 'The enquiry form collects personal data – visitors must know how you handle it. The page is prepared as a hidden draft: fill in the details in square brackets and publish it.', $privacyPage !== null ? 'admin.php?module=pages&action=edit&id=' . $privacyPage['ids'] : 'admin.php?module=pages',
                 // done once the page exists and no longer contains the square brackets of the skeleton from the installation ([NÁZEV FIRMY]…)
                 $db->value("SELECT 1 FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1 AND (" . implode(' OR ', array_map(fn (string $w): string => "seo_link LIKE '%" . $w . "%'", ['soukromi', 'osobni', 'osobnych', 'gdpr', 'dsgvo', 'privacy', 'datenschutz', 'privacidad', 'confidentialite', 'riservatezza', 'prywatnosc', 'prywatnosci'])) . ") AND text NOT LIKE '%[%]%' LIMIT 1") !== null],
             ['Set up e-mail', 'Where the site sends e-mail from (forms, password reset).', 'admin.php?module=settings&tab=mail', $s->get('mail_mode') === 'smtp' || $s->get('mail_from') !== ''],

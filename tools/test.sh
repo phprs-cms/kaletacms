@@ -4923,6 +4923,9 @@ check "triage: the admin list leaves spam out" 200 "/admin.php?module=enquiries"
 check "triage: the detail has the kind, the priority and the draft in the e-mail reply" 200 "/admin.php?module=enquiries&action=detail&id=$TRIAGE_ID" 'body=Dobr%C3%BD%20den'
 TRIAGE_CSRF=$(csrf)
 curl -s -b "$JAR" -o /dev/null -X POST "$B/admin.php?module=enquiries&action=triage" -d "_csrf=$TRIAGE_CSRF" -d "id=$TRIAGE_ID" -d kategorie=support -d priorita=1 --data-urlencode "navrh_odpovedi=Vlastní odpověď"
+curl -s -b "$JAR" -o /dev/null -X POST "$B/admin.php?module=enquiries&action=note" -d "_csrf=$TRIAGE_CSRF" -d "idp=$TRIAGE_ID" --data-urlencode "poznamka=N-C3 note"
+expect "3.23.1 (N-C3): the triage and the note are one change-log row each, with the enquiry number" \
+  "$(sq "SELECT GROUP_CONCAT(CONCAT(akce, ' ', popis) ORDER BY idp SEPARATOR ',') FROM ka_protokol WHERE modul = 'enquiries' AND akce IN ('triage', 'note') AND popis LIKE '#$TRIAGE_ID%'")" "triage #$TRIAGE_ID,note #$TRIAGE_ID"
 mcp update_enquiry "{\"id\":$TRIAGE_ID,\"category\":\"sales\"}" > "$WORK/response"
 contains -q 'A person sorted this enquiry already' "$WORK/response" && expect "triage: a person's sorting wins over Claude" "$(sq "SELECT CONCAT(kategorie, '|', triaged_by <> 'claude') FROM ka_poptavky WHERE idp = $TRIAGE_ID")" "support|1" \
   || { echo "  CHYBA  člověk vs. Claude"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
@@ -5008,7 +5011,7 @@ expect "3.22 C10: logged on the enquiry (sent, to, Reply-To, the text), resolved
   "$(sq "SELECT CONCAT_WS('|', stav, prirazeno, JSON_UNQUOTE(JSON_EXTRACT(replies, '\$[0].status')), JSON_UNQUOTE(JSON_EXTRACT(replies, '\$[0].to')), JSON_UNQUOTE(JSON_EXTRACT(replies, '\$[0].reply_to')), JSON_UNQUOTE(JSON_EXTRACT(replies, '\$[0].via')), JSON_UNQUOTE(JSON_EXTRACT(replies, '\$[0].text')) LIKE '%do pátku.') FROM ka_poptavky WHERE idp = $C10")" \
   "2|$C10_IDU|sent|hana@example.cz|alex@firma.example|admin|1"
 expect "3.22 C10: the change log and the event name the enquiry, never the address or the text" \
-  "$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'enquiries' AND akce = 'reply' AND popis = '#$C10'")|$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'enquiry.replied' AND data LIKE '%\"enquiry\":$C10%' AND CONCAT(message, data) NOT LIKE '%hana@%' AND CONCAT(message, data) NOT LIKE '%pátku%'")" "1|1"
+  "$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'enquiries' AND akce = 'reply' AND popis = '#$C10'")|$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'enquiry.replied' AND data LIKE '%\"enquiry\":$C10%' AND CONCAT(message, data) NOT LIKE '%hana@%' AND CONCAT(message, data) NOT LIKE '%pátku%'")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'enquiries' AND akce = 'reply'")" "1|1|1"
 check "3.22 C10: the history on the detail – who, when, delivered, the text" 200 "/admin.php?module=enquiries&action=detail&id=$C10" 'data-reply-status="sent"'
 grep -q 'Odpověděl(a) ' "$WORK/response" && grep -q 'pošleme nabídku do pátku.' "$WORK/response" && grep -q '<textarea class="textbox" id="odpoved-text" name="text" rows="8" maxlength="10000" required></textarea>' "$WORK/response" \
   && echo "  ok     3.22 C10: the history shows the reply and the next reply starts empty (no double send of the draft)" || { echo "  CHYBA  3.22 C10: the history"; ERRORS=$((ERRORS+1)); }
@@ -7391,7 +7394,9 @@ mcp create_page "{\"title\":\"Plány 311\",\"slug\":\"$PLANS311\",\"content\":\"
 curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?module=collections&action=preset" -d "_csrf=$TOKEN" -d preset=plans
 contains -q "Vytvořeno. Stránka „Plány 311“ už používá adresu /$PLANS311, takže stránka s výpisem nevznikla" "$WORK/response" && ! contains -q 'se skrytou stránkou, která ji vypisuje' "$WORK/response" \
   && echo "  ok     3.11 UX310-5: a preset whose address is a page says no list page was added, and which page has it" || { echo "  CHYBA  3.11: preset message with a taken address"; grep -o 'class="hlaska[^>]*>[^<]*' "$WORK/response" | head -3; ERRORS=$((ERRORS+1)); }
+N_C3_LOG=$(sq "SELECT COALESCE(MAX(idp), 0) FROM ka_protokol")
 curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?module=collections&action=preset" -d "_csrf=$TOKEN" -d preset=plans
+expect "3.23.1 (N-C3): a ready-made collection is one change-log row in Collections (its list page has its own in Pages)" "$(sq "SELECT GROUP_CONCAT(CONCAT(akce, ' ', popis)) FROM ka_protokol WHERE idp > $N_C3_LOG AND modul = 'collections'")" "preset plans: $PLANS311-2"
 contains -q "Vytvořeno, i se skrytou stránkou /$PLANS311-2, která ji vypisuje" "$WORK/response" && expect "3.11 UX310-5: the second one gets a free address and its hidden list page" "$(sq "SELECT zobrazit FROM ka_stranky WHERE seo_link = '$PLANS311-2'")" "0" \
   || { echo "  CHYBA  3.11: preset message with its list page"; grep -o 'class="hlaska[^>]*>[^<]*' "$WORK/response" | head -3; ERRORS=$((ERRORS+1)); }
 # UX310-30: a mistyped section is "does not exist", not "no access"
@@ -8158,7 +8163,9 @@ echo "== 3.22 (C9): the optional Appearance area of a role"
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=roles&action=new"; TOKEN=$(csrf)
 expect "3.22 (C9): the role form offers the Appearance area unticked and says what stays with the administrator" \
   "$(grep -c 'name="moduly\[\]" value="appearance_area">' "$WORK/response")|$(grep -c 'Vzhled: menu, části webu, pop-up okna a komponenty' "$WORK/response")|$(grep -c 'zálohy a nastavení Clauda zůstávají správci' "$WORK/response")" "1|1|1"
-check "3.22 (C9): the ready-made Client role does not tick it" 200 "/admin.php?module=roles&action=new&preset=client" 'value="appearance_area">'
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=roles&action=new&preset=client"
+expect "3.23.1 (N-C1): the ready-made Client role ticks the Appearance area and Business details, and says so" \
+  "$(grep -c 'value="appearance_area" checked>' "$WORK/response")|$(grep -c 'value="business" checked>' "$WORK/response")|$(grep -c 'položky kolekcí, menu, patičku a otevírací dobu' "$WORK/response")" "1|1|1"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=roles&action=save" -d "_csrf=$TOKEN" -d idr=0 --data-urlencode "nazev=C9 manager" -d uroven=1 -d 'moduly[]=pages' -d 'moduly[]=appearance_area'
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=roles&action=save" -d "_csrf=$TOKEN" -d idr=0 --data-urlencode "nazev=C9 writer" -d uroven=0 -d 'moduly[]=news' -d 'moduly[]=appearance_area'
 IDR_C9M=$(sq "SELECT idr FROM ka_role WHERE nazev = 'C9 manager'"); IDR_C9W=$(sq "SELECT idr FROM ka_role WHERE nazev = 'C9 writer'")
@@ -8287,17 +8294,50 @@ expect "3.23 (C17): Site audit shows the same progress and each row links to whe
   "1|1|1|1|1|1|0"
 c17_audit accessibility
 expect "3.23 (C17): another kind does not carry the checklist" "$(c17_progress)" "none"
-# the ready-made Client role (by its name in any admin language) counts as the client's account
+# the ready-made Client role (by its name in any admin language) or the Appearance area makes the client's account; since
+# 3.23.1 (N-C1) the row is done only when it can change the menu, the footer and the opening hours, otherwise it says what is
+# missing and links the role; with no such account the link is a new user with the Client role (N-C9)
+c17_fix() { php -r '$r = json_decode((string) file_get_contents($argv[1]), true); $t = json_decode((string) ($r["result"]["content"][0]["text"] ?? ""), true);
+  echo implode(" ; ", array_map(fn ($f) => preg_replace("#^.*admin\.php#", "admin.php", $f["edit"]) . " " . $f["message"], array_values(array_filter($t["findings"] ?? [], fn ($f) => ($f["target"]["handover"] ?? "") === $argv[2]))));' "$WORK/c17.json" "$1"; }
+c17_audit; C17_NONE=$(c17_fix client_account)
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=roles"; TOKEN=$(csrf)
 C17_KLIENT_NEW=0; [ -n "$(sq "SELECT idr FROM ka_role WHERE nazev = 'Klient'")" ] || { C17_KLIENT_NEW=1; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=roles&action=save" -d "_csrf=$TOKEN" -d idr=0 --data-urlencode "nazev=Klient" -d uroven=1 -d 'moduly[]=pages'; }
+C17_KLIENT_IDR=$(sq "SELECT idr FROM ka_role WHERE nazev = 'Klient' ORDER BY idr LIMIT 1"); C17_KLIENT_MODULES=$(sq "SELECT moduly FROM ka_role WHERE idr = $C17_KLIENT_IDR")
+sq "UPDATE ka_role SET moduly = 'pages' WHERE idr = $C17_KLIENT_IDR" > /dev/null # a Client role saved before 3.23.1
+c17_audit; C17_NONE_ROLE=$(c17_fix client_account)
+expect "3.23.1 (N-C9): no client account – the fix creates one with the Client role (the preset while there is none, then a new user with it)" \
+  "$(echo "$C17_NONE" | grep -cE '^admin\.php\?module=(roles&action=new&preset=client|users&action=new&role=[0-9]+) The client has no account of their own yet – create one with the Client role')|$(echo "$C17_NONE_ROLE" | grep -c "^admin.php?module=users&action=new&role=$C17_KLIENT_IDR The client has no account")" "1|1"
+check "3.23.1 (N-C9): New user with ?role= has the role picked" 200 "/admin.php?module=users&action=new&role=$C17_KLIENT_IDR" "name=\"admin\" value=\"r$C17_KLIENT_IDR\" checked"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=roles&action=save" -d "_csrf=$TOKEN" -d idr=0 --data-urlencode "nazev=C17 area" -d uroven=0 -d 'moduly[]=news' -d 'moduly[]=appearance_area'
-for c17user in "c17-klient r$(sq "SELECT idr FROM ka_role WHERE nazev = 'Klient'")" "c17-area r$(sq "SELECT idr FROM ka_role WHERE nazev = 'C17 area'")"; do
+for c17user in "c17-klient r$C17_KLIENT_IDR" "c17-area r$(sq "SELECT idr FROM ka_role WHERE nazev = 'C17 area'")"; do
   curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d idu=0 -d "user=${c17user% *}" --data-urlencode "password=$PASSWORD" -d "admin=${c17user#* }"
 done
-sq "UPDATE ka_uzivatele SET blokovat = 1 WHERE user = 'c17-area'" > /dev/null; c17_audit; C17_KLIENT=$(c17_row client_account)
-sq "UPDATE ka_uzivatele SET blokovat = 1 WHERE user = 'c17-klient'; UPDATE ka_uzivatele SET blokovat = 0 WHERE user = 'c17-area'" > /dev/null; c17_audit; C17_AREA=$(c17_row client_account)
+expect "3.23.1 (N-C2): a user created by an administrator stores the administrator's admin language" "$(sq "SELECT GROUP_CONCAT(jazyk) FROM ka_uzivatele WHERE user IN ('c17-klient', 'c17-area')")" "cs,cs"
+sq "UPDATE ka_uzivatele SET blokovat = 1 WHERE user = 'c17-area'" > /dev/null; c17_audit; C17_KLIENT="$(c17_row client_account) $(c17_fix client_account)"
+sq "UPDATE ka_uzivatele SET blokovat = 1 WHERE user = 'c17-klient'; UPDATE ka_uzivatele SET blokovat = 0 WHERE user = 'c17-area'" > /dev/null; c17_audit; C17_AREA="$(c17_row client_account) $(c17_fix client_account)"
 sq "UPDATE ka_uzivatele SET blokovat = 1 WHERE user = 'c17-area'" > /dev/null; c17_audit
-expect "3.23 (C17): the client account – the Client role or a role with the Appearance area; a blocked one does not count" "$C17_KLIENT|$C17_AREA|$(c17_row client_account)" "done|done|open"
+expect "3.23.1 (N-C1): a Client-role account without the Appearance area or Business details is not done – the row says what it lacks and links the role; a blocked one does not count" \
+  "$C17_KLIENT|$C17_AREA|$(c17_row client_account)" \
+  "open admin.php?module=roles&action=edit&id=$C17_KLIENT_IDR The client account c17-klient cannot change the menu, the footer or the opening hours – add the Appearance area and Business details to its access.|open admin.php?module=roles&action=edit&id=$(sq "SELECT idr FROM ka_role WHERE nazev = 'C17 area'") The client account c17-area cannot change the opening hours – add Business details to its access.|open"
+# the role as the 3.23.1 preset makes it: done; its member opens Menu and Business details
+sq "UPDATE ka_role SET moduly = 'pages,news,business,appearance_area' WHERE idr = $C17_KLIENT_IDR; UPDATE ka_uzivatele SET blokovat = 0 WHERE user = 'c17-klient'" > /dev/null
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=roles&action=edit&id=$C17_KLIENT_IDR"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=roles&action=save" -d "_csrf=$(csrf)" -d idr="$C17_KLIENT_IDR" --data-urlencode "nazev=Klient" -d uroven=1 -d 'moduly[]=pages' -d 'moduly[]=news' -d 'moduly[]=business' -d 'moduly[]=appearance_area'
+c17_audit; c9_sign_in c17-klient
+expect "3.23.1 (N-C1): a Client-role account with the Appearance area and Business details is done and opens Menu, Site parts and Business details (200), not Site appearance or Settings" \
+  "$(c17_row client_account)|$(c9_code c17-klient '/admin.php?module=menu')|$(c9_code c17-klient '/admin.php?module=parts')|$(c9_code c17-klient '/admin.php?module=business')|$(c9_code c17-klient '/admin.php?module=appearance')|$(c9_code c17-klient '/admin.php?module=settings')" "done|200|200|200|403|403"
+sq "UPDATE ka_role SET moduly = '$C17_KLIENT_MODULES' WHERE idr = $C17_KLIENT_IDR; UPDATE ka_uzivatele SET blokovat = 1 WHERE user = 'c17-klient'" > /dev/null
+# 3.23.1 (N-C9): one's own two-step sign-in leads to My account (where it is switched on), the privacy policy step to that page
+C17_ME=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'admin'") # the MCP token of the test is the admin's
+C17_2FA=$(sq "SELECT CONCAT(totp_tajemstvi, '|', (SELECT COUNT(*) FROM ka_uzivatele_klice k WHERE k.idu = u.idu)) FROM ka_uzivatele u WHERE idu = ${C17_ME:-0}")
+expect "3.23.1 (N-C9): the administrator's own two-step finding links My account, the anchor exists there" \
+  "$( [ "$C17_2FA" = '|0' ] && { c17_fix two_step | grep -q 'admin.php?action=account#two-factor The administrator' && echo own || echo "$(c17_fix two_step)"; } || echo own)|$(curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?action=account"; grep -c '<fieldset id="two-factor">' "$WORK/response")" "own|1"
+C17_STEPS=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'first_steps_hidden'"); setting first_steps_hidden 0
+C17_PRIVACY=$(sq "SELECT ids FROM ka_stranky WHERE smazano IS NULL AND jazyk = '' AND (seo_link = 'zasady-ochrany-osobnich-udaju' OR seo_link LIKE '%privacy%') ORDER BY seo_link = 'zasady-ochrany-osobnich-udaju' DESC, ids LIMIT 1")
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php"
+expect "3.23.1 (N-C9): the first step about the privacy policy opens that page's settings, not the list of pages" \
+  "$(grep -o 'href="[^"]*"><strong>Doplňte zásady ochrany osobních údajů' "$WORK/response" | grep -c "module=pages&amp;action=edit&amp;id=${C17_PRIVACY:-none}\"")" "$(grep -c '<strong>Doplňte zásady ochrany osobních údajů' "$WORK/response")"
+setting first_steps_hidden "${C17_STEPS:-0}"
 # the monthly report: on but only to the site e-mail is not done, with the client's address it is (report_last_month = last month: nothing is sent)
 setting report_last_month "$(site_time 'first day of last month' Y-m)"; setting report_monthly 1; c17_audit; C17_REPORT=$(c17_row monthly_report)
 setting report_recipients 'klient@example.cz'; c17_audit

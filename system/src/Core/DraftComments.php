@@ -168,12 +168,25 @@ final class DraftComments
         $url = rtrim($s->get('site_url') ?: $app->request->origin(), '/') . $app->url('admin.php?module=pages&action=builder&id=' . (int) $page['ids']);
         $excerpt = mb_strimwidth($text, 0, self::MAIL_EXCERPT, '…');
         foreach ($recipients as $recipient) {
-            Language::runWith((string) $recipient['jazyk'] !== '' ? (string) $recipient['jazyk'] : 'cs', function () use ($s, $recipient, $page, $name, $excerpt, $url): void {
-                Mail::send($s, (string) $recipient['email'], t('New comment on the draft of “%s”', (string) $page['titulek']),
-                    t('%s commented on the draft of the page “%s” through a preview link:', $name, (string) $page['titulek']) . "\n\n" . $excerpt . "\n\n"
-                    . t('Open the builder to read it in full and resolve it. A comment is feedback to act on in the draft; nothing publishes by itself.') . "\n" . $url . "\n");
-            }, 'admin-', Language::normalizeRegister((string) $recipient['register']));
+            [$subject, $body] = self::mail($s, $recipient, (string) $page['titulek'], $name, $excerpt, $url);
+            Mail::send($s, (string) $recipient['email'], $subject, $body);
         }
+    }
+
+    /**
+     * Subject and text of the e-mail about a new comment, in the language of the recipient's administration; a user who has
+     * not chosen one gets the site's language (3.23.1, N-C2 – it used to be Czech).
+     *
+     * @param array<string, mixed> $recipient a row of ka_uzivatele with jazyk and register
+     * @return array{0: string, 1: string}
+     */
+    public static function mail(Settings $s, array $recipient, string $title, string $name, string $excerpt, string $url): array
+    {
+        return Language::runWith((string) ($recipient['jazyk'] ?? '') ?: Language::defaults($s), fn (): array => [
+            t('New comment on the draft of “%s”', $title),
+            t('%s commented on the draft of the page “%s” through a preview link:', $name, $title) . "\n\n" . $excerpt . "\n\n"
+                . t('Open the builder to read it in full and resolve it. A comment is feedback to act on in the draft; nothing publishes by itself.') . "\n" . $url . "\n",
+        ], 'admin-', Language::normalizeRegister((string) ($recipient['register'] ?? '')));
     }
 
     /** Comments of pages that no longer exist and resolved comments older than 90 days go away. */

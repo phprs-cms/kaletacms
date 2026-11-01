@@ -1077,4 +1077,8 @@ return [
     'No network is chosen. Pick the networks under Settings → General → Sharing and social networks and the drafts appear here.' => 'Kein Netzwerk ist ausgewählt. Wähle die Netzwerke unter Einstellungen → Allgemein → Teilen und soziale Netzwerke, dann erscheinen die Entwürfe hier.',
     'Add language versions in Settings → Languages; this screen then shows which translations are missing.' => 'Sprachversionen fügst du unter Einstellungen → Sprachen hinzu; diese Seite zeigt dann, welche Übersetzungen fehlen.',
     'Whether this site reports to the agency\'s console is set in Settings → Reporting to a console.' => 'Ob diese Website an die Konsole der Agentur berichtet, legst du unter Einstellungen → Berichte an eine Konsole fest.',
+    'The client has no account of their own yet – create one with the Client role: it can change the menu, the footer and the opening hours.' => 'Der Kunde hat noch kein eigenes Konto – lege eines mit der Rolle Kunde an: Damit kann er Menü, Fußzeile und Öffnungszeiten ändern.',
+    'The client account %s cannot change the menu, the footer or the opening hours – add the Appearance area and Business details to its access.' => 'Das Kundenkonto %s kann weder Menü und Fußzeile noch die Öffnungszeiten ändern – füge seinem Zugriff den Bereich Erscheinungsbild und die Firmendaten hinzu.',
+    'The client account %s cannot change the menu or the footer – add the Appearance area to its access.' => 'Das Kundenkonto %s kann Menü und Fußzeile nicht ändern – füge seinem Zugriff den Bereich Erscheinungsbild hinzu.',
+    'The client account %s cannot change the opening hours – add Business details to its access.' => 'Das Kundenkonto %s kann die Öffnungszeiten nicht ändern – füge seinem Zugriff die Firmendaten hinzu.',
 ];

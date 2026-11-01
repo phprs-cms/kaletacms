@@ -40,10 +40,12 @@ final class Roles extends Module
     /**
      * Ready-made roles (2.4) – what an agency hands a client most often. A starting point: the form can still be changed.
      * key => [name, description, level, sections]
+     * 3.23.1 (N-C1, owner decision D1 of 30 October): the Client gets the Appearance area (menu, footer) and Business details
+     * (opening hours) – the client's most frequent edits. Roles saved before keep their sections.
      */
     public const array PRESETS = [
-        'client' => ['Client', 'Edits pages, news and collection items, answers enquiries, sees the statistics and asks Claude for changes – the look, settings and users stay with the agency.',
-            Auth::EDITOR, ['pages', 'news', 'collections', 'categories', 'tags', 'enquiries', 'stats', 'requests']],
+        'client' => ['Client', 'Edits pages, news, collection items, the menu, the footer and the opening hours, answers enquiries, sees the statistics and asks Claude for changes – design, settings and users stay with the agency.',
+            Auth::EDITOR, ['pages', 'news', 'collections', 'categories', 'tags', 'enquiries', 'stats', 'requests', 'business', Auth::APPEARANCE_AREA]],
         'writer' => ['Writer', 'Writes news for someone else to publish.', Auth::AUTHOR, ['news', 'tags']],
         'office' => ['Enquiries only', 'Handles enquiries from the site forms and the newsletter subscribers, and asks Claude for changes.', Auth::AUTHOR, ['enquiries', 'subscribers', 'requests']],
     ];
@@ -133,7 +135,7 @@ final class Roles extends Module
 
     /**
      * Sections for which access is set: ident => name. Since 3.22 (C9) the last one is the optional Appearance area
-     * (Auth::APPEARANCE_AREA), one checkbox for Menu, Site parts, Pop-ups and Components; it is never a default.
+     * (Auth::APPEARANCE_AREA), one checkbox for Menu, Site parts, Pop-ups and Components; it is never a default of a level (the ready-made Client role ticks it since 3.23.1).
      *
      * @return array<string, string>
      */

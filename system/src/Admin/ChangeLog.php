@@ -12,9 +12,13 @@ use Kaleta\Core\App;
  */
 final class ChangeLog
 {
+    /** Areas (ka_protokol.modul) written in this request – the admin's own row of an action is left out when its module wrote one (3.23.1, N-C3). @var array<string, true> */
+    private static array $written = [];
+
     /** @return int the id of the row, 0 when it could not be written */
     public static function write(App $app, string $module, string $action, string $description = '', string $reason = ''): int
     {
+        self::$written[mb_substr($module, 0, 30)] = true;
         try {
             $user = $app->auth()->user();
             $id = $app->db()->insert('protokol', [
@@ -56,6 +60,18 @@ final class ChangeLog
         if ($id > 0) {
             $app->db()->update('protokol', ['popis' => mb_substr($description, 0, 255)], ['idp' => $id]);
         }
+    }
+
+    /** Whether a row of this area has been written in this request (by write()). */
+    public static function wrote(string $module): bool
+    {
+        return isset(self::$written[mb_substr($module, 0, 30)]);
+    }
+
+    /** Forgets what was written – before the next action of the same process (Admin\Kernel). */
+    public static function forget(): void
+    {
+        self::$written = [];
     }
 
     /** Removes a row written before a change that did not happen after all (the tool refused the call). */
