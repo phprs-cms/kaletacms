@@ -1134,6 +1134,31 @@ person never has to know where the next screen is. Migration 0107 (`ka_stranky.z
    links; the cookies tab prefills the privacy-policy page and links it; Site audit links the Notebook; Whistleblowing adds the
    form to the footer menu with one click; the dashboard's enquiry status is its own column; one name "Sections library".
 
+## 3.21 – builder for non-designers (1 November 2026)
+
+The third release from the CPO and Head of UX audits of 30 October: the builder for people who are not designers. No
+migration; `KALETA_DB_VERSION` stays 107. MCP tools, parameters and Czech aliases unchanged; `builder_schema` lists the new
+content field type `termin` (`datetime`) for the Countdown target.
+
+1. **Style tab per element (U2, D3):** a map of the style groups each element type needs (`RELEVANT_GROUPS` in stavitel.js,
+   checked by unit tests against every element type and group); the rest waits behind "Show all properties". A group that has a
+   value on any breakpoint or state is always shown; Spacing opens by default. Nothing is removed from the data model.
+2. **Font size (U5):** a select of the scale steps (-1 Small … 5 Title) plus "Custom…"; a custom value is checked in the field
+   with the server's `Style::LENGTH_PATTERN` and not saved when invalid. Stored values keep their form.
+3. **Overrides across breakpoints (U3):** a dot on a device button when the element has its own values there, a device mark next
+   to a field overridden on a smaller screen ("Set on Phone: …", click to switch), and "×" to return a field to the inherited value.
+4. **One Visibility row (U4):** "Shown on" Desktop / Tablet / Phone in Advanced replaces the two checkboxes (same stored
+   `zobrazeni: none` per breakpoint); an element hidden on the current device is a dashed 24 px strip on the editor canvas with
+   "show", and Structure marks it. The public page is unchanged.
+5. **Element menu and nesting path (U8):** right-click or Shift+F10 on the canvas or a Structure row – Duplicate, Delete, Copy,
+   Paste, Copy style, Paste style, Save as component, Select parent element; a breadcrumb under the panel header selects ancestors.
+6. **Keyboard and speed (U16, U18):** Alt+↑/↓ moves an element within its parent, Alt+←/→ out of it or into the container before
+   it (listed in the shortcuts help); text typed in the Content field of a Heading, Button or Text reaches the canvas at once
+   (only text and b/i/strong/em/u/br/p are drawn early; the server redraw follows).
+7. **Small fixes (U9, U19, U24):** a heading's tag is set only as its Level; the group badge reads "Spacing 1"; "Pressed" instead
+   of "Press"; the Countdown target is a date-and-time picker (stored as before, "YYYY-MM-DD HH:MM"). The stray "null" under the
+   element header (since 3.20) is gone.
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |
