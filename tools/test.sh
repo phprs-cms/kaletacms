@@ -170,8 +170,10 @@ check "přehled" 200 /admin.php "Přehled"
 # 3.11 (UX310-1, UX310-20): right after the installation the site audit names the starter site's sample content (placeholders,
 # sample reviews and figures, sample texts); the questions for an agency are folded away on a site nobody hands over
 check "3.11 UX310-1: the site audit names the sample content of the starter pages" 200 "/admin.php?module=audit" "Na stránce je pořád ukázkový obsah z úvodního webu"
-grep -q 'ukázkové reference: ' "$WORK/response" && grep -q '<summary>Stavíte web pro klienta? (2)</summary>' "$WORK/response" \
-  && echo "  ok     3.11 UX310-1/20: the home page has sample testimonials; the client questions are folded away" || { echo "  CHYBA  3.11: the audit of a fresh starter site"; sed 's/<[^>]*>/ /g' "$WORK/response" | grep -i 'ukázk\|klient' | head -5; ERRORS=$((ERRORS+1)); }
+# 3.23 (C17): the client questions are rows of the one hand-over checklist, marked "for a client" (five of them), with its progress
+grep -q 'ukázkové reference: ' "$WORK/response" && grep -q '<h2 id="predani-nadpis">Předání klientovi <span class="stitek">hotovo [0-9]* z [0-9]*</span></h2>' "$WORK/response" \
+  && [ "$(grep -c '<span class="stitek">pro klienta</span>' "$WORK/response")" = 5 ] && grep -q 'data-predani-radek="client_account"><span aria-hidden="true">!</span>' "$WORK/response" \
+  && echo "  ok     3.11 UX310-1/20, 3.23 C17: the home page has sample testimonials; the client questions are marked rows of the hand-over checklist" || { echo "  CHYBA  3.11: the audit of a fresh starter site"; sed 's/<[^>]*>/ /g' "$WORK/response" | grep -i 'ukázk\|klient' | head -5; ERRORS=$((ERRORS+1)); }
 # 3.5 (UXA-07, UXA-20): until a Claude connection has ever called the site, the dashboard leads with "Connect Claude" (the
 # address with Copy, the HTTPS warning), then First steps, and Ask Claude below
 dash_order() { php -r '$h = (string) file_get_contents($argv[1]); $p = array_map(fn (string $n) => strpos($h, $n), [$argv[2], $argv[3], $argv[4]]); echo in_array(false, $p, true) ? "missing" : ($p[0] < $p[1] && $p[1] < $p[2] ? "ok" : "order");' "$WORK/response" "$@"; }
@@ -1965,9 +1967,18 @@ expect "3.9: MCP names the service (site_info, get_health), never the password, 
 # back to "Other server" – the fake SMTP server – through the form: the test e-mail arrives there
 mail_form -d smtp_provider=other -d smtp_host=127.0.0.1 -d "smtp_port=$SMTP_PORT" -d smtp_encryption=zadne -d smtp_user=
 rm -f "$WORK"/smtp/*.eml; SITE_MAILBOX=$(db "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_email'")
+# 3.23 (C17): c17_row <key> – done | open | missing: one row of the hand-over checklist in the last site_audit answer ($WORK/c17.json)
+c17_row() { php -r '$r = json_decode((string) file_get_contents($argv[1]), true); $t = json_decode((string) ($r["result"]["content"][0]["text"] ?? ""), true);
+  foreach ($t["handover_checklist"]["items"] ?? [] as $i) { if ($i["key"] === $argv[2]) { echo $i["done"] ? "done" : "open"; exit; } } echo "missing";' "$WORK/c17.json" "$1"; }
+db "DELETE FROM ka_nastaveni WHERE promenna = 'smtp_last_ok'"; mcp site_audit '{"kind":"handover"}' > "$WORK/c17.json"
+C17_SMTP_BEFORE="$(c17_row smtp)|$(php -r '$t = json_decode((string) (json_decode((string) file_get_contents($argv[1]), true)["result"]["content"][0]["text"] ?? ""), true); echo count(array_filter($t["findings"] ?? [], fn ($f) => ($f["target"]["handover"] ?? "") === "smtp_tested"));' "$WORK/c17.json")"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=test_mail" -d "_csrf=$(csrf)" -d tab=mail
 : > "$WORK/eml.txt"; for i in $(seq 1 25); do F=$(mail_to "$SITE_MAILBOX" || true); if [ -n "$F" ]; then eml "$F" > "$WORK/eml.txt"; break; fi; sleep 0.2; done
 expect "3.9: “Other server” saved through the form – the test e-mail reaches the fake SMTP server" "$(mail_smtp "$OLD_SMTP_PW")|$(grep -c 'can send e-mail\|umí odesílat e-maily\|E-Mails senden kann' "$WORK/eml.txt")" "127.0.0.1|$SMTP_PORT|zadne||1|1"
+mcp site_audit '{"kind":"handover"}' > "$WORK/c17.json"
+expect "3.23 (C17): SMTP is tested once the server set accepted a message (the test e-mail) – not before, and not for another server" \
+  "$C17_SMTP_BEFORE|$(db "SELECT hodnota LIKE '%|127.0.0.1' FROM ka_nastaveni WHERE promenna = 'smtp_last_ok'")|$(c17_row smtp)|$(db "UPDATE ka_nastaveni SET hodnota = 'smtp.other.example' WHERE promenna = 'smtp_host'"; mcp site_audit '{"kind":"handover"}' > "$WORK/c17.json"; c17_row smtp)" \
+  "open|1|1|done|open"
 db "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('newsletter_service', 'smtp_password', 'smtp_provider')"
 kill "$SMTP_PID" 2>/dev/null || true
 db "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', ''); DELETE FROM ka_odberatele; DELETE FROM ka_newsletters; DELETE FROM ka_newsletter_queue"
@@ -8138,6 +8149,20 @@ curl -s -b "$WORK/jar-c9-writer" -o /dev/null -X POST "$B/admin.php?module=compo
 C9_FROM=$(curl -s -b "$WORK/jar-c9-writer" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=components&action=from_element" -d "_csrf=$C9_TOKEN" --data-urlencode "name=C9 from element" --data-urlencode 'prvek={"typ":"sekce","deti":[{"typ":"nadpis","obsah":{"text":"C9"}}]}')
 expect "3.22 (C9): the drafts-only member's menu waits in the draft look, a component is not created (form or builder)" \
   "$(sq "SELECT COUNT(*) FROM ka_menu WHERE polozky LIKE '%c9-writer%'")|$(sq "SELECT hodnota LIKE '%c9-writer%' FROM ka_nastaveni WHERE promenna = 'look_draft'")|$(sq "SELECT COUNT(*) FROM ka_komponenty WHERE nazev LIKE 'C9 %'")|$C9_FROM" "0|1|0|403"
+# 3.23 (owner): whoever has the Appearance area previews the draft look (the menu draft above and a draft colour) read only;
+# visitors and a plain editor never see it (c9_draft <user or ''> <path>: yes when the page has the draft colour)
+mcp update_design_system '{"ds":{"barvy":{"primarni":"#c9c923"}}}' > /dev/null
+c9_draft() { if [ -n "$1" ]; then curl -s -b "$WORK/jar-$1" -c "$WORK/jar-$1" -o "$WORK/response" "$B$2"; else curl -s -o "$WORK/response" "$B$2"; fi; grep -q 'ka-barva-primarni: #c9c923' "$WORK/response" && echo yes || echo no; }
+rm -f "$WORK"/web/storage/cache/stranky/*.html
+expect "3.23: the draft look – the members with the area see it in the preview and the builder; a plain editor and visitors never" \
+  "$(curl -s -b "$JAR" -o "$WORK/response" "$B/?preview=vzhled"; grep -q 'ka-barva-primarni: #c9c923' "$WORK/response" && echo yes || echo no)|$(c9_draft c9-manager '/?preview=vzhled')|$(c9_draft c9-manager '/?build=koncept')|$(c9_draft c9-writer '/?preview=vzhled')|$(c9_draft c9-editor '/?preview=vzhled')|$(c9_draft c9-editor '/?build=koncept')|$(c9_draft '' '/?preview=vzhled')|$(c9_draft '' '/?build=koncept')|$(c9_draft '' '/')" \
+  "yes|yes|yes|yes|no|no|no|no|no"
+c9_code c9-manager '/admin.php?module=menu&location=paticka' > /dev/null
+expect "3.23: on the Menu screen the member gets the read-only look bar – Review opens the draft look, no Publish, no Discard" \
+  "$(grep -c 'id="vzhled-koncept"' "$WORK/response")|$(grep -c 'href="/?preview=vzhled"' "$WORK/response")|$(grep -c 'action=publish_look\|action=discard_look\|action=preview_site' "$WORK/response")|$(grep -c 'Vzhled publikuje správce' "$WORK/response")" "1|1|0|1"
+expect "3.23: no look bar on a screen outside the area, nor for a plain editor; the member still cannot publish the look" \
+  "$(c9_code c9-manager '/admin.php?module=pages' > /dev/null; grep -c 'id="vzhled-koncept"' "$WORK/response")|$(c9_code c9-editor '/admin.php?module=pages' > /dev/null; grep -c 'id="vzhled-koncept"' "$WORK/response")|$(c9_code c9-manager '/admin.php?module=menu' > /dev/null; curl -s -b "$WORK/jar-c9-manager" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php?module=appearance&action=publish_look" -d "_csrf=$(csrf)")|$(sq "SELECT hodnota LIKE '%c9-writer%' FROM ka_nastaveni WHERE promenna = 'look_draft'")" "0|0|403|1"
+sq "UPDATE ka_nastaveni SET hodnota = JSON_REMOVE(hodnota, '$.design_system') WHERE promenna = 'look_draft'" > /dev/null # the draft colour was only for this check
 publish_look
 # MCP (additive): a member's token reaches the site parts and the menu; a plain editor's does not, as before
 C9_MCP="kaleta_$(printf '7%.0s' $(seq 1 48))"; C9_MCP_ED="kaleta_$(printf '8%.0s' $(seq 1 48))"
@@ -8192,5 +8217,51 @@ expect "3.22 (C13): a collection item page takes it too (MCP save_collection_ite
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=collections&action=item&id=$(sq "SELECT idk FROM ka_kolekce_polozky WHERE idp = $C13_ITEM_ID")&item=$C13_ITEM_ID"
 expect "3.22 (C13): the item form shows it" "$(grep -c 'name="canonical_url" value="/kontakty"' "$WORK/response")" "1"
 sq "UPDATE ka_kolekce_polozky SET canonical_url = '' WHERE idp = $C13_ITEM_ID; DELETE FROM ka_stranky WHERE ids = $IDS_C13" > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
+echo "== 3.23 (C17): one hand-over checklist with its progress"
+c17_audit() { mcp site_audit "{\"kind\":\"${1:-handover}\"}" > "$WORK/c17.json"; }
+c17_progress() { php -r '$r = json_decode((string) file_get_contents($argv[1]), true); $t = json_decode((string) ($r["result"]["content"][0]["text"] ?? ""), true); $c = $t["handover_checklist"] ?? null;
+  echo $c === null ? "none" : ($c["done"] === count(array_filter($c["items"], fn ($i) => $i["done"])) && $c["total"] === count($c["items"]) ? $c["done"] . "/" . $c["total"] : "bad");' "$WORK/c17.json"; }
+# the client rows start open: no other active account (blocked for the check), the report off, the guardrails never saved, an empty Notebook
+c17_finding() { php -r '$r = json_decode((string) file_get_contents($argv[1]), true); $t = json_decode((string) ($r["result"]["content"][0]["text"] ?? ""), true);
+  echo count(array_filter($t["findings"] ?? [], fn ($f) => ($f["target"]["handover"] ?? "") === $argv[2]));' "$WORK/c17.json" "$1"; }
+C17_ACTIVE=$(sq "SELECT GROUP_CONCAT(idu) FROM ka_uzivatele WHERE admin < 2 AND blokovat = 0")
+[ -z "$C17_ACTIVE" ] || sq "UPDATE ka_uzivatele SET blokovat = 1 WHERE idu IN ($C17_ACTIVE)" > /dev/null
+sq "DELETE FROM ka_nastaveni WHERE promenna IN ('claude_destructive', 'report_monthly', 'report_recipients'); DROP TABLE IF EXISTS ka_c17_notebook; CREATE TABLE ka_c17_notebook AS SELECT * FROM ka_notebook; DELETE FROM ka_notebook" > /dev/null
+c17_audit
+expect "3.23 (C17): MCP site_audit returns the checklist – the client account, the monthly report, the guardrails and the Notebook start open; done counts the rows" \
+  "$(c17_row client_account)|$(c17_row monthly_report)|$(c17_row guardrails)|$(c17_row notebook)|$(c17_row agency)|$(c17_progress | grep -c '^[0-9]*/[0-9]*$')|$(c17_finding monthly_report)" "open|open|open|open|done|1|1"
+C17_START=$(c17_progress)
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=audit"
+expect "3.23 (C17): Site audit shows the same progress and each row links to where it is set (Claude settings, Reports, Users, the Notebook)" \
+  "$(grep -c "Předání klientovi <span class=\"stitek\">hotovo ${C17_START%/*} z ${C17_START#*/}</span>" "$WORK/response")|$(grep -c '<progress class="predani-postup"' "$WORK/response")|$(grep -A1 'data-predani-radek="guardrails"' "$WORK/response" | grep -c 'module=claude_settings')|$(grep -A1 'data-predani-radek="monthly_report"' "$WORK/response" | grep -c 'tab=reports')|$(grep -A1 'data-predani-radek="client_account"' "$WORK/response" | grep -c 'module=users')|$(grep -A1 'data-predani-radek="notebook"' "$WORK/response" | grep -c 'module=notebook')|$(grep -c 'pro klienta</span>' "$WORK/response")" \
+  "1|1|1|1|1|1|0"
+c17_audit accessibility
+expect "3.23 (C17): another kind does not carry the checklist" "$(c17_progress)" "none"
+# the ready-made Client role (by its name in any admin language) counts as the client's account
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=roles"; TOKEN=$(csrf)
+C17_KLIENT_NEW=0; [ -n "$(sq "SELECT idr FROM ka_role WHERE nazev = 'Klient'")" ] || { C17_KLIENT_NEW=1; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=roles&action=save" -d "_csrf=$TOKEN" -d idr=0 --data-urlencode "nazev=Klient" -d uroven=1 -d 'moduly[]=pages'; }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=roles&action=save" -d "_csrf=$TOKEN" -d idr=0 --data-urlencode "nazev=C17 area" -d uroven=0 -d 'moduly[]=news' -d 'moduly[]=appearance_area'
+for c17user in "c17-klient r$(sq "SELECT idr FROM ka_role WHERE nazev = 'Klient'")" "c17-area r$(sq "SELECT idr FROM ka_role WHERE nazev = 'C17 area'")"; do
+  curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d idu=0 -d "user=${c17user% *}" --data-urlencode "password=$PASSWORD" -d "admin=${c17user#* }"
+done
+sq "UPDATE ka_uzivatele SET blokovat = 1 WHERE user = 'c17-area'" > /dev/null; c17_audit; C17_KLIENT=$(c17_row client_account)
+sq "UPDATE ka_uzivatele SET blokovat = 1 WHERE user = 'c17-klient'; UPDATE ka_uzivatele SET blokovat = 0 WHERE user = 'c17-area'" > /dev/null; c17_audit; C17_AREA=$(c17_row client_account)
+sq "UPDATE ka_uzivatele SET blokovat = 1 WHERE user = 'c17-area'" > /dev/null; c17_audit
+expect "3.23 (C17): the client account – the Client role or a role with the Appearance area; a blocked one does not count" "$C17_KLIENT|$C17_AREA|$(c17_row client_account)" "done|done|open"
+# the monthly report: on but only to the site e-mail is not done, with the client's address it is (report_last_month = last month: nothing is sent)
+setting report_last_month "$(site_time 'first day of last month' Y-m)"; setting report_monthly 1; c17_audit; C17_REPORT=$(c17_row monthly_report)
+setting report_recipients 'klient@example.cz'; c17_audit
+expect "3.23 (C17): the monthly report row is done only with a recipient" "$C17_REPORT|$(c17_row monthly_report)" "open|done"
+setting report_monthly 0
+# the guardrails: saving Claude settings is reviewing them; the Notebook: one note
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=claude_settings"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=claude_settings&action=save" -d "_csrf=$(csrf)" -d tab=claude -d claude_destructive=1 --data-urlencode "claude_instructions=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'claude_instructions'")"
+sq "INSERT INTO ka_notebook (topic, title, text, author, created_at, updated_at) VALUES ('decisions', 'C17', 'Why the site is built this way.', 'Tester', '$(site_time)', '$(site_time)')" > /dev/null
+c17_audit
+expect "3.23 (C17): the guardrails row is done after Claude settings were saved, the Notebook row after the first note; the progress grows by them" \
+  "$(c17_row guardrails)|$(c17_row notebook)|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'claude_destructive'")|$(( ${C17_START%/*} + 2 ))/${C17_START#*/}" "done|done|1|$(c17_progress)"
+sq "DELETE FROM ka_notebook; INSERT INTO ka_notebook SELECT * FROM ka_c17_notebook; DROP TABLE ka_c17_notebook; DELETE FROM ka_nastaveni WHERE promenna IN ('report_recipients', 'report_monthly'); DELETE FROM ka_uzivatele WHERE user LIKE 'c17-%'; DELETE FROM ka_role WHERE nazev = 'C17 area'" > /dev/null
+[ "$C17_KLIENT_NEW" = 0 ] || sq "DELETE FROM ka_role WHERE nazev = 'Klient'" > /dev/null
+[ -z "$C17_ACTIVE" ] || sq "UPDATE ka_uzivatele SET blokovat = 0 WHERE idu IN ($C17_ACTIVE)" > /dev/null
 if [ -s "$WORK/web/storage/log/chyby.log" ]; then echo "== záznam chyb aplikace:"; cat "$WORK/web/storage/log/chyby.log"; ERRORS=$((ERRORS+1)); fi
 echo; [ "$ERRORS" -eq 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }

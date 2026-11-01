@@ -228,6 +228,7 @@ final class Settings
         'first_steps_hidden' => '0',      // the administrator hid the first steps on the dashboard
         'appearance_saved' => '',        // the administrator has already saved the site appearance (first steps do not count the appearance from the starter site)
         'claude_first_used' => '',       // when a Claude connection first called the site (3.5, Mcp\Server) – until then the dashboard leads with "Connect Claude"
+        'smtp_last_ok' => '',            // when the SMTP server last accepted a message and which one ("Y-m-d H:i:s|host", Core\Mail, 3.23) – Site audit's hand-over checklist
         'cleaned_version' => '',       // the version after whose deployment the one-time cleanup of removed files has already run
         'db_version' => '1',            // number of the last applied migration (system/sql/migrace)
     ];

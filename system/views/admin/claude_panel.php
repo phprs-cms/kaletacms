@@ -45,7 +45,7 @@ if ($claude['state'] === 'off') {
 	<dl>
 		<dt><?= e(t('Last call')) ?></dt>
 		<dd><?= e($claude['last_call'] !== null ? $when($claude['last_call']) : t('never')) ?></dd>
-		<dt><?= e(t('Requests')) ?></dt>
+		<dt><?= e(t('Ask Claude')) ?></dt>
 		<dd><?= e(match ($claude['pickup']) {
             'automatic' => $routine !== null && $routine['next_due'] !== null ? t('picked up automatically by a scheduled run – next %s', $when($routine['next_due'])) : t('picked up automatically by a scheduled run'),
             'stalled' => t('the scheduled run that picks them up is not running (last missed or failed %s)', $when($claude['stalled_since'])),

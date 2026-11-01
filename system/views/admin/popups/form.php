@@ -57,7 +57,7 @@ $selection = function (string $displayName, array $options, string $value, bool 
 <?php endforeach ?>
 </div></div>
 <?php endif ?>
-<div class="radek"><span class="popisek"><?= e(t('Novinky')) ?></span><div class="volby"><label><input type="checkbox" name="novinky" value="1"<?= $rules['novinky'] ? ' checked' : '' ?>> <?= e(t('the news list, categories and news items')) ?></label></div></div>
+<div class="radek"><span class="popisek"><?= e(t('News')) ?></span><div class="volby"><label><input type="checkbox" name="novinky" value="1"<?= $rules['novinky'] ? ' checked' : '' ?>> <?= e(t('the news list, categories and news items')) ?></label></div></div>
 </div>
 <?php if ($languages !== []): ?>
 <div class="radek"><label for="jazyk"><?= e(t('Language version')) ?></label><div><?= $selection('jazyk', ['' => t('všechny')] + $languages, $rules['jazyk'], false) ?></div></div>

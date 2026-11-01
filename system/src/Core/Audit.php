@@ -37,7 +37,7 @@ final class Audit
     /** Kinds of findings in the order they are shown. */
     public const array KINDS = [
         'sample' => 'Sample content', 'link' => 'Broken links', 'orphan' => 'Pages nobody links to', 'menu' => 'Menu', 'description' => 'Missing descriptions', 'title' => 'Duplicate titles',
-        'build' => 'Buttons, images and headings', 'review' => 'Review by', 'job' => 'Job openings', 'document' => 'Document expires soon', 'accessibility' => 'Accessibility', 'not_found' => 'Frequent 404 errors', 'speed' => 'Speed', 'fact' => 'Facts', 'blueprint' => 'Industry checks', 'handover' => 'Before handing over',
+        'build' => 'Buttons, images and headings', 'review' => 'Review by', 'job' => 'Job openings', 'document' => 'Document expires soon', 'accessibility' => 'Accessibility', 'not_found' => 'Frequent 404 errors', 'speed' => 'Speed', 'fact' => 'Facts', 'blueprint' => 'Industry checks', 'handover' => 'Handing over to a client',
     ];
 
     /** At most this many findings of one kind – beyond that the list would not help anyone. */
@@ -430,58 +430,142 @@ final class Audit
         }
     }
 
+    /**
+     * The hand-over checklist (3.23, C17): every check of handing the site over to a client in one list, done or not, with
+     * a progress count – Site audit shows it as "Handing over to a client", site_audit returns it as handover_checklist.
+     * The findings of the rows not done are the findings of the kind handover, as before. for_client = the row only
+     * matters when someone builds the site for a client, and nothing on the site says so yet (no agency contact, no other
+     * account, no role): such findings are not counted as things to fix (3.11, UX310-20).
+     *
+     * @return array{done: int, total: int, items: list<array{key: string, label: string, done: bool, edit: string, for_client: bool, findings: list<array{message: string, edit: string, target: array<string, int|string>}>}>}
+     */
+    public function handoverChecklist(): array
+    {
+        $items = [];
+        foreach ($this->handoverRows() as $row) {
+            $row['edit'] = $this->app->url($row['edit']);
+            foreach ($row['findings'] as $i => $f) {
+                $row['findings'][$i]['edit'] = $this->app->url($f['edit']);
+            }
+            $items[] = $row;
+        }
+
+        return ['done' => count(array_filter($items, fn (array $i): bool => $i['done'])), 'total' => count($items), 'items' => $items];
+    }
+
+    /** The findings of the kind handover: what the checklist rows not done say, each with where it is fixed. */
     private function handover(): void
+    {
+        $site = t('The whole site');
+        foreach ($this->handoverRows() as $row) {
+            foreach ($row['findings'] as $f) {
+                $this->add('handover', $site, $f['message'], $f['edit'], null, $f['target']);
+                if ($row['for_client']) {
+                    $this->findings[count($this->findings) - 1]['for_client'] = true;
+                }
+            }
+        }
+    }
+
+    /**
+     * The rows of the hand-over checklist with their admin links (not yet through App::url).
+     *
+     * @return list<array{key: string, label: string, done: bool, edit: string, for_client: bool, findings: list<array{message: string, edit: string, target: array<string, int|string>}>}>
+     */
+    private function handoverRows(): array
     {
         $s = $this->app->settings();
         $db = $this->app->db();
-        $site = t('The whole site');
-        $check = function (bool $ok, string $message, string $edit, string $key) use ($site): void {
-            if (!$ok) {
-                $this->add('handover', $site, $message, $edit, null, ['handover' => $key]);
-            }
+        $rows = [];
+        // one row: its findings when it is not done (each with its own link and target), the row's link when it is
+        $row = function (string $key, string $label, string $edit, array $findings, bool $forClient = false) use (&$rows): void {
+            $rows[] = ['key' => $key, 'label' => $label, 'done' => $findings === [], 'edit' => $edit, 'for_client' => $forClient, 'findings' => $findings];
         };
-        $check($s->get('site_email') !== '', t('No site e-mail: enquiries and password resets have nowhere to go.'), 'admin.php?module=settings&tab=general', 'site_email');
-        $check($s->get('mail_mode') === 'smtp', t('E-mail goes out through the host’s mail() – set an SMTP server so enquiries and newsletters do not end up in spam.'), 'admin.php?module=settings&tab=mail', 'smtp');
-        $check($s->get('remote_backup') !== '' && $s->get('remote_backup') !== 'vypnuto', t('Backups stay on the same server – add an off-site copy (FTPS or S3) in case the hosting is lost.'), 'admin.php?module=settings&tab=backups', 'remote_backup');
-        $check(trim($s->get('company_name')) !== '' && trim($s->get('company_street')) !== '', t('Business details are missing – the footer, the imprint and search engines use them.'), 'admin.php?module=business', 'company');
-        $check($s->bool('indexing'), t('Search engines are blocked – switch indexing on when the site goes live.'), 'admin.php?module=settings&tab=seo', 'indexing');
-        $check($s->get('favicon') !== '' || is_file(KALETA_ROOT . '/media/ikona-32.png'), t('No site icon (favicon) – browsers and phones show a blank one.'), 'admin.php?module=appearance', 'favicon');
+        $finding = fn (string $message, string $edit, string $key, array $more = []): array => ['message' => $message, 'edit' => $edit, 'target' => ['handover' => $key] + $more];
+        $check = fn (bool $ok, string $message, string $edit, string $key): array => $ok ? [] : [$finding($message, $edit, $key)];
+
+        $row('site_email', t('Site e-mail filled in'), 'admin.php?module=settings&tab=general',
+            $check($s->get('site_email') !== '', t('No site e-mail: enquiries and password resets have nowhere to go.'), 'admin.php?module=settings&tab=general', 'site_email'));
+        // 3.23 (C17): SMTP set up and tested – the server accepted a message (a test e-mail or any other) since it was set
+        $smtp = $s->get('mail_mode') === 'smtp' && $s->get('smtp_host') !== '';
+        $row('smtp', t('E-mail goes out through SMTP, tested'), 'admin.php?module=settings&tab=mail', match (true) {
+            !$smtp => [$finding(t('E-mail goes out through the host’s mail() – set an SMTP server so enquiries and newsletters do not end up in spam.'), 'admin.php?module=settings&tab=mail', 'smtp')],
+            !Mail::smtpTested($s) => [$finding(t('No message has gone out through the SMTP server %s yet – send a test e-mail (Settings → Mail) to be sure that mail arrives.', $s->get('smtp_host')), 'admin.php?module=settings&tab=mail', 'smtp_tested')],
+            default => [],
+        });
+        $row('remote_backup', t('Off-site backups set up'), 'admin.php?module=settings&tab=backups',
+            $check($s->get('remote_backup') !== '' && $s->get('remote_backup') !== 'vypnuto', t('Backups stay on the same server – add an off-site copy (FTPS or S3) in case the hosting is lost.'), 'admin.php?module=settings&tab=backups', 'remote_backup'));
+        $row('company', t('Business details filled in'), 'admin.php?module=business',
+            $check(trim($s->get('company_name')) !== '' && trim($s->get('company_street')) !== '', t('Business details are missing – the footer, the imprint and search engines use them.'), 'admin.php?module=business', 'company'));
+        $row('indexing', t('Search engines may index the site'), 'admin.php?module=settings&tab=seo',
+            $check($s->bool('indexing'), t('Search engines are blocked – switch indexing on when the site goes live.'), 'admin.php?module=settings&tab=seo', 'indexing'));
+        $row('favicon', t('Site icon (favicon)'), 'admin.php?module=appearance',
+            $check($s->get('favicon') !== '' || is_file(KALETA_ROOT . '/media/ikona-32.png'), t('No site icon (favicon) – browsers and phones show a blank one.'), 'admin.php?module=appearance', 'favicon'));
         $tracking = trim($s->get('ga4_id') . $s->get('matomo_url') . $s->get('marketing_code')) !== '';
-        $check(!$tracking || $s->get('cookies_mode') !== 'zadna', t('Analytics or marketing codes run without a cookie bar – visitors in the EU must consent first.'), 'admin.php?module=settings&tab=cookies', 'cookies');
-        $check($s->get('security_contact') !== '', t('No security contact – add who takes reports of security problems (published as security.txt).'), 'admin.php?module=settings&tab=seo', 'security_contact');
+        $row('cookies', t('Analytics and marketing wait for consent'), 'admin.php?module=settings&tab=cookies',
+            $check(!$tracking || $s->get('cookies_mode') !== 'zadna', t('Analytics or marketing codes run without a cookie bar – visitors in the EU must consent first.'), 'admin.php?module=settings&tab=cookies', 'cookies'));
+        $row('security_contact', t('Security contact (security.txt)'), 'admin.php?module=settings&tab=seo',
+            $check($s->get('security_contact') !== '', t('No security contact – add who takes reports of security problems (published as security.txt).'), 'admin.php?module=settings&tab=seo', 'security_contact'));
         // accounts and access (2.8): the same findings as System status, each with the user to fix
         $hygiene = SecurityHygiene::findings($this->app);
-        foreach ($hygiene['two_step'] as $u) {
-            $this->add('handover', $site, t('The administrator %s signs in without two-step sign-in or a passkey.', SecurityHygiene::displayName($u)),
-                'admin.php?module=users&action=edit&id=' . (int) $u['idu'], null, ['handover' => 'two_step', 'user' => (int) $u['idu']]);
-        }
-        foreach ($hygiene['unused_accounts'] as $u) {
-            $this->add('handover', $site, t('The account %s has not been used for %d days (last activity %s) – block it, or let the automatic suspension do it.', SecurityHygiene::displayName($u), SecurityHygiene::daysAgo((string) $u['last']), format_date((string) $u['last'])),
-                'admin.php?module=users&action=edit&id=' . (int) $u['idu'], null, ['handover' => 'unused_account', 'user' => (int) $u['idu']]);
-        }
-        foreach ($hygiene['unused_connections'] as $c) {
-            $this->add('handover', $site, t('The Claude connection “%s” of %s has not been used for %d days – revoke it, or let the automatic suspension do it.', (string) $c['name'], (string) $c['user'], SecurityHygiene::daysAgo((string) $c['last'])),
-                'admin.php?module=users&action=edit&id=' . (int) $c['idu'] . '#napojeni', null, ['handover' => 'unused_connection', 'user' => (int) $c['idu'], 'connection' => (string) $c['name']]);
-        }
-        $check(SecurityHygiene::autoSuspend($s) !== [], t('Unused accounts and Claude connections are only reported – switch on the automatic suspension (Settings → General) so that leftover access closes itself.'), 'admin.php?module=settings&tab=general', 'auto_suspend');
-        $clientAccount = (int) $db->value('SELECT COUNT(*) FROM {uzivatele} WHERE admin < 2 AND blokovat = 0') > 0;
-        $before = count($this->findings);
-        $check($clientAccount, t('The client has no account of their own yet – create one with the Client role (Users → Roles).'), 'admin.php?module=users', 'client_account');
-        $check($s->get('agency_name') !== '' && ($s->get('agency_email') !== '' || $s->get('agency_phone') !== ''), t('Your contact is not set – the client will not see whom to ask (Settings → General → Built and looked after by).'), 'admin.php?module=settings&tab=general', 'agency');
-        // 3.11 (UX310-20): an owner who built the site alone has no client – these two are then only a question
-        // ("Building this for a client?"), folded away and not counted; a role, another account or the agency contact asks them
-        if ($s->get('agency_name') === '' && !$clientAccount && $db->value('SELECT 1 FROM {role} LIMIT 1') === null) {
-            for ($i = $before; $i < count($this->findings); $i++) {
-                $this->findings[$i]['for_client'] = true;
-            }
-        }
+        $row('two_step', t('Administrators use two-step sign-in'), 'admin.php?module=users', array_map(fn (array $u): array => $finding(
+            t('The administrator %s signs in without two-step sign-in or a passkey.', SecurityHygiene::displayName($u)), 'admin.php?module=users&action=edit&id=' . (int) $u['idu'], 'two_step', ['user' => (int) $u['idu']]), $hygiene['two_step']));
+        $row('unused_access', t('No unused accounts or Claude connections'), 'admin.php?module=users', [
+            ...array_map(fn (array $u): array => $finding(t('The account %s has not been used for %d days (last activity %s) – block it, or let the automatic suspension do it.', SecurityHygiene::displayName($u), SecurityHygiene::daysAgo((string) $u['last']), format_date((string) $u['last'])),
+                'admin.php?module=users&action=edit&id=' . (int) $u['idu'], 'unused_account', ['user' => (int) $u['idu']]), $hygiene['unused_accounts']),
+            ...array_map(fn (array $c): array => $finding(t('The Claude connection “%s” of %s has not been used for %d days – revoke it, or let the automatic suspension do it.', (string) $c['name'], (string) $c['user'], SecurityHygiene::daysAgo((string) $c['last'])),
+                'admin.php?module=users&action=edit&id=' . (int) $c['idu'] . '#napojeni', 'unused_connection', ['user' => (int) $c['idu'], 'connection' => (string) $c['name']]), $hygiene['unused_connections']),
+        ]);
+        $row('auto_suspend', t('Leftover access closes itself (automatic suspension)'), 'admin.php?module=settings&tab=general',
+            $check(SecurityHygiene::autoSuspend($s) !== [], t('Unused accounts and Claude connections are only reported – switch on the automatic suspension (Settings → General) so that leftover access closes itself.'), 'admin.php?module=settings&tab=general', 'auto_suspend'));
+
+        // 3.11 (UX310-20): an owner who built the site alone has no client – the client rows are then only a question,
+        // not counted; the agency contact, another account or a role says the site is built for someone
+        $otherAccount = (int) $db->value('SELECT COUNT(*) FROM {uzivatele} WHERE admin < 2 AND blokovat = 0') > 0;
+        $forClient = $s->get('agency_name') === '' && !$otherAccount && $db->value('SELECT 1 FROM {role} LIMIT 1') === null;
+        // 3.23 (C17): the client's account is one with the Appearance area (3.22, Auth::APPEARANCE_AREA) or the ready-made Client role
+        $row('client_account', t('The client has an account of their own (Client role or the Appearance area)'), 'admin.php?module=users',
+            $check($this->clientAccount(), t('The client has no account of their own yet – create one with the Client role, or a role with the Appearance area (Users → Roles).'), 'admin.php?module=users', 'client_account'), $forClient);
+        $recipients = trim($s->get('report_recipients'));
+        $row('monthly_report', t('The monthly report goes to the client'), 'admin.php?module=settings&tab=reports', match (true) {
+            !$s->bool('report_monthly') => [$finding(t('The monthly report is off – switch it on and add the client’s e-mail as a recipient (Settings → Reports).'), 'admin.php?module=settings&tab=reports', 'monthly_report')],
+            $recipients === '' => [$finding(t('The monthly report goes only to the site e-mail – add the client’s e-mail as a recipient (Settings → Reports).'), 'admin.php?module=settings&tab=reports', 'monthly_report')],
+            default => [],
+        }, $forClient);
+        // 3.23 (C17): "reviewed" = Claude settings saved at least once – the form always writes claude_destructive, nothing else does
+        $row('guardrails', t('Claude’s guardrails reviewed'), 'admin.php?module=claude_settings',
+            $check($db->value("SELECT 1 FROM {nastaveni} WHERE promenna = 'claude_destructive'") !== null, t('Claude’s guardrails have never been saved – check in Claude settings what Claude may delete, which pages it must not change and how many changes it may make in an hour, then save.'), 'admin.php?module=claude_settings', 'guardrails'), $forClient);
+        $row('agency', t('Your contact for the client'), 'admin.php?module=settings&tab=general',
+            $check($s->get('agency_name') !== '' && ($s->get('agency_email') !== '' || $s->get('agency_phone') !== ''), t('Your contact is not set – the client will not see whom to ask (Settings → General → Built and looked after by).'), 'admin.php?module=settings&tab=general', 'agency'), $forClient);
+        // 3.20 (C22): the decisions for the next person belong in the Notebook
+        $row('notebook', t('Decisions written down in the Notebook'), 'admin.php?module=notebook',
+            $check($db->value('SELECT 1 FROM {notebook} LIMIT 1') !== null, t('The Notebook is empty – write down the decisions for the next person: why the site is built the way it is, what the client asked for, what to watch.'), 'admin.php?module=notebook', 'notebook'), $forClient);
+
         if (Extensions::isEnabled($s, 'newsletter')) {
-            $check($s->int('tasks_last_run') > 0, t('Background tasks have never run – newsletters are sent only while they do. Add the cron line from System status.'), 'admin.php?module=status', 'cron');
+            $row('cron', t('Background tasks run (cron)'), 'admin.php?module=status',
+                $check($s->int('tasks_last_run') > 0, t('Background tasks have never run – newsletters are sent only while they do. Add the cron line from System status.'), 'admin.php?module=status', 'cron'));
         }
-        // 2.8: the cached domain and mail watch – a missing SPF or DMARC record, a certificate or a domain about to expire
-        foreach (DomainWatch::handoverFindings(DomainWatch::cached($s)) as $finding) {
-            $this->add('handover', $site, $finding['message'], 'admin.php?module=status', null, ['handover' => $finding['key']]);
+        // 2.8: the cached domain and mail watch – a missing SPF or DMARC record, a certificate or a domain about to expire;
+        // a row only once the watch has looked (a site on a local address is never looked at)
+        $watch = DomainWatch::cached($s);
+        if ($watch !== null && empty($watch['local'])) {
+            $row('domain', t('Domain, certificate and mail records in order'), 'admin.php?module=status',
+                array_map(fn (array $f): array => $finding($f['message'], 'admin.php?module=status', $f['key']), DomainWatch::handoverFindings($watch)));
         }
+
+        return $rows;
+    }
+
+    /** An active account with the Appearance area (its role or its own sections) or with the ready-made Client role, in any admin language. */
+    private function clientAccount(): bool
+    {
+        $db = $this->app->db();
+        if ($db->value('SELECT 1 FROM {uzivatele} u JOIN {uzivatele_prava} p ON p.fk_id_user = u.idu WHERE u.admin < 2 AND u.blokovat = 0 AND p.ident_modulu = ? LIMIT 1', [Auth::APPEARANCE_AREA]) !== null) {
+            return true;
+        }
+        $names = array_values(array_unique(array_map(fn (string $code): string => mb_strtolower((string) Language::runWith($code, fn (): string => t(\Kaleta\Admin\Modules\Roles::PRESETS['client'][0]), 'admin-')), array_keys(Language::ADMIN_LANGUAGES))));
+
+        return $db->value('SELECT 1 FROM {uzivatele} u JOIN {role} r ON r.idr = u.role WHERE u.admin < 2 AND u.blokovat = 0 AND LOWER(r.nazev) IN (' . implode(', ', array_fill(0, count($names), '?')) . ') LIMIT 1', $names) !== null;
     }
 
     private function notFound(): void

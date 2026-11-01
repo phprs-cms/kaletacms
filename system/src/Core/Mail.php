@@ -62,6 +62,31 @@ final class Mail
     }
 
     /**
+     * Has the SMTP server set now accepted a message (3.23, C17 – the hand-over checklist of Site audit)? A test e-mail or
+     * any other message counts; a different server is not tested until it accepts one too.
+     */
+    public static function smtpTested(Settings $siteSettings): bool
+    {
+        $host = $siteSettings->get('smtp_host');
+        [, $tested] = explode('|', $siteSettings->get('smtp_last_ok'), 2) + [1 => ''];
+
+        return $host !== '' && strcasecmp($tested, $host) === 0;
+    }
+
+    /** The SMTP server accepted a message: remembered as "date|server", written at most once a day per server. */
+    private static function rememberSmtp(Settings $siteSettings): void
+    {
+        $value = date('Y-m-d') . '|' . $siteSettings->get('smtp_host');
+        try {
+            if (substr($siteSettings->get('smtp_last_ok'), 0, 10) . substr($siteSettings->get('smtp_last_ok'), 19) !== $value) {
+                $siteSettings->set('smtp_last_ok', date('Y-m-d H:i:s') . '|' . $siteSettings->get('smtp_host'));
+            }
+        } catch (\Throwable) {
+            // remembering must never break sending (a site before its migration, a read-only database)
+        }
+    }
+
+    /**
      * The HTML part of a plain message in a right-to-left language: the same text with dir="rtl", the lines kept and the
      * addresses as links. Mail clients guess the direction of plain text line by line – a line that starts with a Latin name
      * or a number would otherwise turn to the left.
@@ -202,6 +227,7 @@ final class Mail
                 // hidden recipients are only in the envelope (RCPT TO), never in the message
                 self::smtp($siteSettings, $from, [...$to, ...$bcc], array_merge(['Date: ' . date('r'), 'To: ' . implode(', ', $to), 'Subject: ' . $encodedSubject,
                     'Message-ID: <' . bin2hex(random_bytes(12)) . '@' . (substr((string) strrchr($from, '@'), 1) ?: 'localhost') . '>'], $rows), $body);
+                self::rememberSmtp($siteSettings);
 
                 return true;
             } catch (\RuntimeException $e) {

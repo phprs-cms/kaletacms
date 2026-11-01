@@ -38,7 +38,7 @@ foreach ($presets as $key => $p) {
         break;
     }
 }
-$tabs = ['styl' => 'Styl', 'barvy' => 'Colours', 'tmavy' => 'Dark mode', 'pismo' => 'Fonts and sizes', 'tvary' => 'Shapes', 'znacka' => 'Logo and icon', 'export' => 'Import and export'];
+$tabs = ['styl' => 'Styles', 'barvy' => 'Colours', 'tmavy' => 'Dark mode', 'pismo' => 'Fonts and sizes', 'tvary' => 'Shapes', 'znacka' => 'Logo and icon', 'export' => 'Import and export'];
 ?>
 <div class="vzhled" data-zalozky>
 <div class="zalozky" role="tablist" aria-label="<?= e(t('Parts of the appearance')) ?>">

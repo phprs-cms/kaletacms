@@ -38,7 +38,7 @@ $chosen = array_map('intval', array_filter(explode(',', (string) $n['news_ids'])
 <div class="radek"><label for="intro"><?= e(t('Introduction')) ?></label><div><textarea class="textpole siroke" id="intro" name="intro" rows="6" maxlength="5000"><?= e($n['intro']) ?></textarea><span class="napoveda"><?= e(t('Plain text; an empty line starts a new paragraph, web addresses become links.')) ?></span></div></div>
 <?php if ($newsEnabled): ?>
 <fieldset>
-<legend><?= e(t('Novinky')) ?></legend>
+<legend><?= e(t('News')) ?></legend>
 <div class="radek"><span class="popisek"><?= e(t('News in the e-mail')) ?></span><div class="volby volby-pod-sebou">
 	<label><input type="radio" name="news_mode" value="latest"<?= $n['news_mode'] === 'latest' ? ' checked' : '' ?>> <?= e(t('the latest')) ?> <span data-aktivni-kdyz="news_mode=latest"><input class="textpole cislo-kratke" type="number" name="news_count" min="1" max="<?= Mailing::MAX_NEWS ?>" size="3" value="<?= (int) $n['news_count'] ?>" aria-label="<?= e(t('Number of news items')) ?>"></span> <?= e(t('news items at the time of sending')) ?></label>
 	<label><input type="radio" name="news_mode" value="chosen"<?= $n['news_mode'] === 'chosen' ? ' checked' : '' ?>> <?= e(t('chosen news items')) ?></label>

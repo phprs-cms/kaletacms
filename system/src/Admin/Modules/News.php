@@ -19,7 +19,7 @@ final class News extends Module
 {
     public const string IDENT = 'news';
     public const string EXTENSION = 'novinky';
-    public const string NAME = 'Novinky';
+    public const string NAME = 'News';
     public const string GROUP = 'Content';
     public const string ICON = 'novinky';
 
@@ -94,7 +94,7 @@ final class News extends Module
             [...$params, self::PER_PAGE, ($pageNumber - 1) * self::PER_PAGE],
         );
 
-        return $this->view('list', 'Novinky', [
+        return $this->view('list', 'News', [
             'news' => $news,
             'total' => $total,
             'pageNumber' => $pageNumber,

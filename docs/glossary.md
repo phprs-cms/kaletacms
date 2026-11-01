@@ -205,3 +205,27 @@ for sites updating from 1.4–2.0, and the new version deletes it after the upda
 | počet | count | | celkem | total |
 | pořadí | order | | datum, čas | date, time |
 | od, do | from, to | | seznam | list |
+
+## UI vocabulary (3.23)
+
+The words the administration uses for people – the English admin and its source strings, with the Czech admin beside them.
+UI wording only: database tables and columns, stored values, MCP tool names and their Czech aliases keep their names
+(`update_design_system`, `list_requests`, `ka_requests`, `ka_novinky`…). A new screen, flash message or hint uses these words.
+
+| Word (English admin) | Czech admin | Means | Not |
+|---|---|---|---|
+| Appearance | Vzhled | the menu group: Site appearance, Menu, Site parts, Pop-ups, Components | a screen |
+| Site appearance | Vzhled webu | the screen with the styles, colours, fonts, shapes, logo and icon | the group |
+| look | vzhled | what visitors see: the published look, the draft look (unpublished changes of the design system, classes, menus, logo, icon), Earlier looks | a stored format |
+| design system | design systém | the stored tokens behind the look (colours, fonts, sizes, spacing) – advanced only: token export, Claude, the fleet kit | the screen, a preset |
+| style | styl | a preset: a ready set of colours, fonts, sizes and corner radius (the Styles tab of Site appearance) | an element's styling in the builder, which is its own Style panel |
+| Ask Claude | Zeptejte se Clauda | the screen and the dashboard box where people ask Claude for work | "Requests" as a name of a place |
+| request | požadavek | one item in Ask Claude – what someone asked, its status and Claude's answer | the screen |
+| Trash | Koš | the deleted items of one module (News, Pages, Collections…) – each module has its own Trash, restored or emptied there; nothing is shared | a site-wide bin |
+| News | Novinky | the module and the listing on the site | – |
+| Settings | Nastavení | the Settings screen and its tabs | – |
+| Users | Uživatelé | the accounts screen (Roles beside it) | – |
+
+Module names are English source strings like every other UI text (`Modules\News::NAME = 'News'`, `Modules\Users::NAME = 'Users'`);
+the Czech, German and Spanish names come from the admin dictionaries. Menu paths in messages ("Settings → Mail") are written
+with the same source strings (`Admin\MenuPaths`), so they become links in every admin language.

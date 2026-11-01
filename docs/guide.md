@@ -28,9 +28,12 @@ Czech, English, German and Spanish – each user chooses in **My account**. Clau
 
 **Building the site for a client?** In **Settings → General → Built and looked after by** fill in your name, website,
 e-mail, phone and logo: the sign-in screen and the foot of the admin show the client whom to ask for help. Before
-handing over, **Site audit → Before handing over** lists what is still missing – site e-mail, an SMTP server, an
-off-site backup copy, company details, indexing, the site icon, tracking without a cookie bar, the security contact,
-administrators without two-step sign-in or a passkey, the client's own account, your contact and background tasks.
+handing over, the **Handing over to a client** checklist in **Site audit** shows its progress (x of y done) and links each
+row to where it is set – site e-mail, an SMTP server that has accepted a message (send a test e-mail), an off-site backup
+copy, company details, indexing, the site icon, tracking without a cookie bar, the security contact, administrators
+without two-step sign-in or a passkey, unused access, the client's own account (the Client role or a role with the
+Appearance area), the monthly report going to the client, Claude's guardrails saved in Claude settings, your contact,
+the decisions in the Notebook and background tasks.
 
 ## 2. Page builder
 

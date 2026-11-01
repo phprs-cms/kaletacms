@@ -46,7 +46,7 @@ $choice = ['location' => $location, 'language' => $language];
 	<button class="navigace" type="button" data-menu-pridej="stranka"><?= e(t('Add page')) ?></button>
 	<button class="navigace" type="button" data-menu-pridej="odkaz"><?= e(t('Custom link')) ?></button>
 <?php if (Kaleta\Core\Extensions::isEnabled($app->settings(), 'novinky')): ?>
-	<button class="navigace" type="button" data-menu-pridej="novinky"><?= e(t('Novinky')) ?></button>
+	<button class="navigace" type="button" data-menu-pridej="novinky"><?= e(t('News')) ?></button>
 <?php endif ?>
 	<button class="navigace" type="button" data-menu-pridej="skupina" title="<?= e(t('An item without a link that only opens a submenu')) ?>"><?= e(t('Group')) ?></button>
 </fieldset>

@@ -47,8 +47,8 @@ final class LinkTargets
                 'note' => self::note($several ? $languageName((string) $s['jazyk']) : '', $s['zobrazit'] ? '' : t('hidden'))];
         }
         $newsOn = Extensions::isEnabled($settings, 'novinky');
-        if ($newsOn && ($q === '' || mb_stripos(t('Novinky'), $q) !== false || mb_stripos('news', $q) !== false)) {
-            $pages[] = ['url' => $app->url('novinky'), 'title' => t('Novinky'), 'note' => t('the list of news')];
+        if ($newsOn && ($q === '' || mb_stripos(t('News'), $q) !== false || mb_stripos('news', $q) !== false)) {
+            $pages[] = ['url' => $app->url('novinky'), 'title' => t('News'), 'note' => t('the list of news')];
         }
         if ($pages !== []) {
             $groups[] = ['label' => t('Pages'), 'items' => $pages];
@@ -59,7 +59,7 @@ final class LinkTargets
             $news = $db->all('SELECT titulek, seo_link, jazyk, visible AND datum <= ? AS vydany FROM {novinky} WHERE smazano IS NULL AND titulek LIKE ?'
                 . ' AND ((visible = 1 AND datum <= ?) OR (1 = 1' . $auth->newsListScope() . ')) ORDER BY datum DESC LIMIT ' . self::LIMIT, [Clock::now(), $like, Clock::now()]);
             if ($news !== []) {
-                $groups[] = ['label' => t('Novinky'), 'items' => array_map(fn (array $c): array => ['url' => $app->newsItemUrl((string) $c['seo_link'], (string) $c['jazyk']),
+                $groups[] = ['label' => t('News'), 'items' => array_map(fn (array $c): array => ['url' => $app->newsItemUrl((string) $c['seo_link'], (string) $c['jazyk']),
                     'title' => (string) $c['titulek'], 'note' => self::note($several ? $languageName((string) $c['jazyk']) : '', $c['vydany'] ? '' : t('not published'))], $news)];
             }
         }

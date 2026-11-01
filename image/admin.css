@@ -1514,3 +1514,6 @@ table.preklady td[data-stav] form { margin-inline-start: 6px; }
 .odpovedi p { margin: 0; }
 .odpovedi details { margin-top: 6px; }
 .odpoved-text { margin-top: 6px; overflow-wrap: anywhere; }
+/* 3.23 (C17): the hand-over checklist of Site audit – its progress and one row per check, the fix under it */
+.predani-postup { display: block; width: min(100%, 360px); height: 8px; margin: 0 0 10px; accent-color: var(--ok, #2f855a); }
+.predani-seznam li { overflow-wrap: anywhere; }

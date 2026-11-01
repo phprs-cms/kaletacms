@@ -16,7 +16,7 @@ $requestsUrl = fn (string $action = '', array $params = []): string => $app->url
 ?>
 <section class="ask-claude" aria-labelledby="ask-claude-nadpis">
 	<h2 id="ask-claude-nadpis"><?= e(t('Ask Claude')) ?></h2>
-	<p class="smltxt"><?= e(t('Write what you need done on the site, as you would to a colleague. Claude does it as drafts and answers in Requests; a person reviews and publishes.')) ?></p>
+	<p class="smltxt"><?= e(t('Write what you need done on the site, as you would to a colleague. Claude does it as drafts and answers each request in Ask Claude; a person reviews and publishes.')) ?></p>
 <?= $app->view->render('admin/claude_notice', ['app' => $app, 'claude' => $ask['status'], 'routine' => $ask['routine'], 'class' => 'ask-claude-kdy']) ?>
 	<form method="post" action="<?= e($requestsUrl('save')) ?>" enctype="multipart/form-data">
 		<?= $app->session->csrfField() ?>

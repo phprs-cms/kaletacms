@@ -704,7 +704,18 @@ await step('3.20 C4/C6/C22: hints link their menu paths, one "connect Claude" de
   if (!(await page.locator('#how-to-connect').count())) { throw new Error('Claude settings have no #how-to-connect'); }
   if (!(await hrefs('Create a personal token – My account')).some((href) => /action=account#claude$/.test(href))) { throw new Error('the Connections box does not lead to My account for a token'); }
   await visit('/admin.php?module=audit');
-  if (!(await hrefs('Open the Notebook')).some((href) => /module=notebook$/.test(href))) { throw new Error('the Site audit does not link the Notebook'); }
+  if (!(await hrefs('Decisions written down in the Notebook')).some((href) => /module=notebook$/.test(href))) { throw new Error('the Site audit does not link the Notebook'); }
+  // 3.23 (C17): one hand-over checklist – the progress says "x of y done" and matches the ticked rows; no folded client questions
+  const handover = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll('.predani-seznam > li')];
+    const progress = document.querySelector('progress.predani-postup');
+    return { rows: rows.length, done: rows.filter((li) => li.classList.contains('ok')).length, max: Number(progress?.max), value: Number(progress?.value),
+      label: document.querySelector('#predani-nadpis')?.textContent ?? '', folded: document.querySelectorAll('details.pokrocile summary').length,
+      wide: document.documentElement.scrollWidth > document.documentElement.clientWidth };
+  });
+  if (handover.rows < 12 || handover.max !== handover.rows || handover.value !== handover.done || !handover.label.includes(`${handover.done} of ${handover.rows} done`) || handover.folded || handover.wide) {
+    throw new Error(`the hand-over checklist: ${JSON.stringify(handover)}`);
+  }
   await visit('/admin.php?module=settings&tab=cookies');
   const policy = await page.locator('#cookies_policy_url ~ .napoveda a').evaluateAll((list) => list.map((a) => a.getAttribute('href')));
   if (!policy.some((href) => /module=pages/.test(href))) { throw new Error(`the cookie policy hint does not lead to Pages: ${JSON.stringify(policy)}`); }

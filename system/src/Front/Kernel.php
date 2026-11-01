@@ -1449,9 +1449,10 @@ final class Kernel
             }
         }
         // 3.5: the preview in Site appearance (?preview=vzhled) shows the saved draft look to whoever edits the appearance –
-        // visitors and everyone else get the published look
-        if ($this->sitePreview || ($r->get('build') === 'koncept' && $this->app->auth()->isAdmin())
-            || ($r->get('preview') === 'vzhled' && $this->app->auth()->hasModule('appearance'))) {
+        // visitors and everyone else get the published look. 3.23: a user with the Appearance area (Auth::hasAppearanceArea,
+        // an administrator always) sees it too – the menu draft they saved, in the builder and in the preview; read only,
+        // publishing the look stays with the administrator
+        if ($this->sitePreview || (($r->get('build') === 'koncept' || $r->get('preview') === 'vzhled') && $this->app->auth()->hasAppearanceArea())) {
             \Kaleta\Core\Look::activate($this->app->settings());
         }
     }

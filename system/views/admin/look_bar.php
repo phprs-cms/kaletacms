@@ -10,9 +10,11 @@
  * @var list<array{menu: string, before: int, after: int, removed: list<string>, added: list<string>, hidden: int}> $menus  Look::menuChanges
  * @var list<string> $areas
  * @var string $csrf
+ * @var bool $readOnly  3.23: a user with the Appearance area who is not an administrator – the preview, no Publish or Discard
  */
 $appearance = fn (string $action): string => $app->url('admin.php?module=appearance&action=' . $action);
 $menus ??= [];
+$readOnly ??= false;
 $lines = [...$summary, ...array_map(Kaleta\Core\Look::menuChangeText(...), $menus)];
 $leaving = array_values(array_filter($menus, fn (array $m): bool => $m['removed'] !== []));
 ?>
@@ -27,10 +29,18 @@ $leaving = array_values(array_filter($menus, fn (array $m): bool => $m['removed'
 <?php endforeach ?>
 		</ul>
 <?php endif ?>
+<?php if ($readOnly): ?>
+		<p><?= e(t('An administrator publishes the look – until then visitors see the published one.')) ?></p>
+<?php else: ?>
 		<form class="vradku" method="post" action="<?= e($appearance('discard_look')) ?>" data-potvrdit="<?= e(t('Discard the unpublished look changes?')) ?>"><?= $csrf ?><button class="navigace nebezpecne" type="submit"><?= e(t('Discard')) ?></button></form>
+<?php endif ?>
 	</details>
 	<div class="vzhled-koncept-akce">
+<?php if ($readOnly): // the draft look on the home page (Front\Kernel::startSitePreview, ?preview=vzhled) – only for whoever has the area ?>
+		<a class="navigace" href="<?= e($app->url('') . '?preview=vzhled') ?>" target="_blank" rel="noopener" title="<?= e(t('Preview the draft look on the home page')) ?>"><?= e(t('Review')) ?></a>
+<?php else: ?>
 		<a class="navigace" href="<?= e($appearance('preview_site')) ?>" target="_blank" rel="noopener" title="<?= e(t('Preview the whole site')) ?>"><?= e(t('Review')) ?></a>
 		<form class="vradku" method="post" action="<?= e($appearance('publish_look')) ?>"<?php if ($leaving !== []): ?> data-potvrdit="<?= e(t('Publish the changes? %s', implode(' ', array_map(Kaleta\Core\Look::menuChangeText(...), $leaving)))) ?>"<?php endif ?>><?= $csrf ?><button class="tl" type="submit"><?= e(t('Publish')) ?></button></form>
+<?php endif ?>
 	</div>
 </div>

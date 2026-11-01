@@ -31,7 +31,7 @@
 <legend><?= e(t('Also on')) ?></legend>
 <p class="napoveda"><?= e(t('Besides the pages above, the variant can take a kind of content. A page ticked above always gets its variant; otherwise the first variant (by name) whose choice fits wins.')) ?></p>
 <?php if ($news): ?>
-<div class="radek"><span class="popisek"><?= e(t('Novinky')) ?></span><div class="volby">
+<div class="radek"><span class="popisek"><?= e(t('News')) ?></span><div class="volby">
 	<label><input type="checkbox" name="novinky" value="1"<?= $rules['novinky'] ? ' checked' : '' ?>> <?= e(t('news items')) ?></label><br>
 	<label><input type="checkbox" name="vypis" value="1"<?= $rules['vypis'] ? ' checked' : '' ?>> <?= e(t('the news list, categories, tags and search')) ?></label>
 </div></div>

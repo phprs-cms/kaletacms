@@ -13,26 +13,26 @@ namespace Kaleta\Admin;
 final class MenuPaths
 {
     /**
-     * Known paths: path parts as they appear in the menu (Czech = dictionary keys) => [module required for access, URL query].
+     * Known paths: path parts as they appear in the menu (the English source texts = dictionary keys) => [module required for access, URL query].
      * Multi-word paths take precedence over shorter ones (sorted by length).
      *
      * @var list<array{0: list<string>, 1: string, 2: string}>
      */
     private const array PATHS = [
-        [['Nastavení', 'Backups and updates'], 'settings', 'module=settings&tab=backups'],
-        [['Nastavení', 'Privacy and cookies'], 'settings', 'module=settings&tab=cookies'],
-        [['Nastavení', 'SEO and GEO'], 'settings', 'module=settings&tab=seo'],
-        [['Nastavení', 'General'], 'settings', 'module=settings&tab=general'],
-        [['Nastavení', 'Analytics'], 'settings', 'module=settings&tab=analytics'],
-        [['Nastavení', 'Mail'], 'settings', 'module=settings&tab=mail'],
-        [['Nastavení', 'Reports'], 'settings', 'module=settings&tab=reports'], // 3.16
+        [['Settings', 'Backups and updates'], 'settings', 'module=settings&tab=backups'],
+        [['Settings', 'Privacy and cookies'], 'settings', 'module=settings&tab=cookies'],
+        [['Settings', 'SEO and GEO'], 'settings', 'module=settings&tab=seo'],
+        [['Settings', 'General'], 'settings', 'module=settings&tab=general'],
+        [['Settings', 'Analytics'], 'settings', 'module=settings&tab=analytics'],
+        [['Settings', 'Mail'], 'settings', 'module=settings&tab=mail'],
+        [['Settings', 'Reports'], 'settings', 'module=settings&tab=reports'], // 3.16
         [['Appearance', 'Site appearance'], 'appearance', 'module=appearance'],
         [['Appearance', 'Menu'], 'menu', 'module=menu'],
         [['Administration', 'Integrations'], 'connectors', 'module=connectors'], // 3.19.2 (C3): one name for the screen, as a link
         [['Integrations'], 'connectors', 'module=connectors'],
         [['Features'], 'extensions', 'module=extensions'], // 3.19.2 (C7)
         [['Backups and updates'], 'settings', 'module=settings&tab=backups'],
-        [['Novinky', 'Trash'], 'news', 'module=news&status=kos'],
+        [['News', 'Trash'], 'news', 'module=news&status=kos'],
         [['Site appearance'], 'appearance', 'module=appearance'],
         [['System status'], 'status', 'module=status'],
         // 3.2: the screens that left Settings
@@ -45,9 +45,9 @@ final class MenuPaths
         [['Enquiries', 'settings'], 'enquiries', 'module=enquiries&action=settings'],
         [['Enquiries'], 'enquiries', 'module=enquiries'],
         [['Pages'], 'pages', 'module=pages'],
-        [['Uživatelé', 'Roles'], 'roles', 'module=roles'],
-        [['Nastavení', 'Fleet console'], 'settings', 'module=settings&tab=console'],
-        [['Nastavení', 'Webhooks'], 'settings', 'module=settings&tab=webhooks'],
+        [['Users', 'Roles'], 'roles', 'module=roles'],
+        [['Settings', 'Fleet console'], 'settings', 'module=settings&tab=console'],
+        [['Settings', 'Webhooks'], 'settings', 'module=settings&tab=webhooks'],
         [['Scheduled runs'], 'schedules', 'module=schedules'],
         [['Notebook'], 'notebook', 'module=notebook'],
     ];

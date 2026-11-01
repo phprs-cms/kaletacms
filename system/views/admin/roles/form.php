@@ -23,7 +23,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	<input class="textpole siroke" type="text" id="popis" name="popis" value="<?= e($role['popis']) ?>" maxlength="200">
 </div>
 <fieldset>
-<legend><?= e(t('Novinky')) ?></legend>
+<legend><?= e(t('News')) ?></legend>
 <div class="karty-volby karty-volby-text">
 <?php foreach (Kaleta\Admin\Modules\Roles::LEVELS as $value => [$name, $description]): ?>
 	<label class="karta-volba"><input type="radio" name="uroven" value="<?= $value ?>"<?= (int) $role['uroven'] === $value ? ' checked' : '' ?>><strong><?= e(t($name)) ?></strong><span><?= e(t($description)) ?></span></label>

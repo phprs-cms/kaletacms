@@ -15,7 +15,7 @@ use Kaleta\Core\Response;
 final class Users extends Module
 {
     public const string IDENT = 'users';
-    public const string NAME = 'Uživatelé';
+    public const string NAME = 'Users';
     public const string GROUP = 'Administration';
     public const string ICON = 'uzivatele';
     public const bool ADMIN_ONLY = true;
@@ -35,7 +35,7 @@ final class Users extends Module
         // 3.14: who is linked to a record of the Team collection (their own e-mail signature in My account)
         $teamExists = \Kaleta\Builder\TeamRecord::collections($this->db) !== [];
 
-        return $this->view('list', 'Uživatelé', ['authors' => $authors, 'teamExists' => $teamExists,
+        return $this->view('list', 'Users', ['authors' => $authors, 'teamExists' => $teamExists,
             'linked' => $teamExists ? \Kaleta\Builder\TeamRecord::linked($this->db, $authors) : []]);
     }
 

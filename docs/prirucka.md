@@ -25,10 +25,12 @@ v návodu (v jazyce administrace, pokud ho návod má); v builderu je článek v
 anglicky, německy a španělsky – každý uživatel si vybere v **Můj účet**. Nástroje Clauda (MCP) mluví vždy anglicky.
 
 **Stavíte web pro klienta?** V **Nastavení → Obecné → Web postavil a stará se o něj** vyplňte své jméno, web, e-mail,
-telefon a logo: přihlašovací obrazovka a patička administrace klientovi ukážou, koho se zeptat. Před předáním vypíše
-**Audit webu → Před předáním**, co ještě chybí – e-mail webu, SMTP server, kopie záloh mimo server, údaje o firmě,
-indexování, ikona webu, měření bez cookie lišty, bezpečnostní kontakt, správci bez dvoufázového přihlášení nebo passkey,
-vlastní účet klienta, váš kontakt a úlohy na pozadí.
+telefon a logo: přihlašovací obrazovka a patička administrace klientovi ukážou, koho se zeptat. Před předáním ukáže
+kontrolní seznam **Předání klientovi** v **Auditu webu**, kolik je hotovo (hotovo x z y), a každý řádek vede tam, kde se
+nastavuje – e-mail webu, SMTP server, přes který už prošla zpráva (pošlete zkušební e-mail), kopie záloh mimo server,
+údaje o firmě, indexování, ikona webu, měření bez cookie lišty, bezpečnostní kontakt, správci bez dvoufázového přihlášení
+nebo passkey, nepoužívané přístupy, vlastní účet klienta (role Klient nebo role s oblastí Vzhled), měsíční zpráva pro
+klienta, uložené mantinely v Nastavení Clauda, váš kontakt, rozhodnutí v Zápisníku a úlohy na pozadí.
 
 ## 2. Builder stránek
 

@@ -286,13 +286,25 @@ trait SettingsTools
         };
 
         $need($auth->isAdmin() || $auth->hasModule('pages'), 'The site audit is for administrators and editors of pages.');
-        $findings = \Kaleta\Core\Language::runWith('en', fn (): array => (new \Kaleta\Core\Audit($this->app))->run(), 'admin-'); // the findings in English, as Site audit in an English administration
-        if (is_string($a['kind'] ?? null) && $a['kind'] !== '') {
-            $findings = array_values(array_filter($findings, fn (array $f): bool => $f['kind'] === $a['kind']));
+        // the findings in English, as Site audit in an English administration
+        [$findings, $checklist] = \Kaleta\Core\Language::runWith('en', function (): array {
+            $audit = new \Kaleta\Core\Audit($this->app);
+
+            return [$audit->run(), $audit->handoverChecklist()];
+        }, 'admin-');
+        $kind = is_string($a['kind'] ?? null) ? $a['kind'] : '';
+        if ($kind !== '') {
+            $findings = array_values(array_filter($findings, fn (array $f): bool => $f['kind'] === $kind));
         }
         $counts = array_count_values(array_column($findings, 'kind'));
+        $out = ['total' => count($findings), 'by_kind' => $counts ?: new \stdClass(), 'findings' => $findings];
+        if ($kind === '' || $kind === 'handover') {
+            // 3.23 (C17, additive): the hand-over checklist with its progress – every row, done or not, and where it is set
+            $out['handover_checklist'] = ['done' => $checklist['done'], 'total' => $checklist['total'], 'items' => array_map(fn (array $i): array => ['key' => $i['key'], 'label' => $i['label'], 'done' => $i['done'], 'edit' => $i['edit']]
+                + ($i['for_client'] ? ['for_client' => true] : []), $checklist['items'])];
+        }
 
-        return ['total' => count($findings), 'by_kind' => $counts ?: new \stdClass(), 'findings' => $findings];
+        return $out;
     }
 
     /** get_stats (2.3): the same report as the Statistics screen */

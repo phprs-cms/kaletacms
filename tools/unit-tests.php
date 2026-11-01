@@ -8171,5 +8171,55 @@ check('3.22 (C13): MCP takes canonical_url on pages, news and collection items (
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/NewsTools.php'), "'seo_popis', 'canonical_url']"),
 ], [['id' => 1, 'canonical_url' => '/original'], ['id' => 1, 'canonical_url' => ''], ['kolekce' => 'x', 'canonical_url' => 'https://a.cz/'], true, true]);
 
+// 3.23 (C17): the hand-over checklist – SMTP counts as tested only for the server that accepted a message
+$smtp323 = static function (array $values): Kaleta\Core\Settings {
+    $s = (new ReflectionClass(Kaleta\Core\Settings::class))->newInstanceWithoutConstructor();
+    (new ReflectionProperty(Kaleta\Core\Settings::class, 'values'))->setValue($s, $values);
+
+    return $s;
+};
+check('3.23 (C17): Mail::smtpTested – the server set now accepted a message; another server, no record or no server is not tested', [
+    Kaleta\Core\Mail::smtpTested($smtp323(['smtp_host' => 'smtp.example.com', 'smtp_last_ok' => '2026-11-01 10:00:00|smtp.example.com'])),
+    Kaleta\Core\Mail::smtpTested($smtp323(['smtp_host' => 'SMTP.example.com', 'smtp_last_ok' => '2026-11-01 10:00:00|smtp.example.com'])),
+    Kaleta\Core\Mail::smtpTested($smtp323(['smtp_host' => 'smtp.other.com', 'smtp_last_ok' => '2026-11-01 10:00:00|smtp.example.com'])),
+    Kaleta\Core\Mail::smtpTested($smtp323(['smtp_host' => 'smtp.example.com', 'smtp_last_ok' => ''])),
+    Kaleta\Core\Mail::smtpTested($smtp323(['smtp_host' => '', 'smtp_last_ok' => '2026-11-01 10:00:00|'])),
+    Kaleta\Core\Settings::DEFAULTS['smtp_last_ok'],
+], [true, true, false, false, false, '']);
+$audit323 = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Audit.php');
+$auditView323 = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/audit/list.php');
+preg_match_all("/\\\$row\('([a-z_]+)'/", $audit323, $rows323);
+check('3.23 (C17): one checklist – the rows in order, the new checks among them, no folded "Building this for a client?" left in the view, the Notebook as a row', [
+    $rows323[1], Kaleta\Core\Audit::KINDS['handover'], str_contains($auditView323, "t('Building this for a client?')"), str_contains($auditView323, "t('Open the Notebook')"),
+    str_contains($auditView323, "t('%d of %d done'"), str_contains($audit323, 'Auth::APPEARANCE_AREA'), str_contains($audit323, "Roles::PRESETS['client'][0]"),
+    str_contains($audit323, "promenna = 'claude_destructive'"), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Mail.php'), 'self::rememberSmtp($siteSettings);'),
+], [['site_email', 'smtp', 'remote_backup', 'company', 'indexing', 'favicon', 'cookies', 'security_contact', 'two_step', 'unused_access', 'auto_suspend',
+    'client_account', 'monthly_report', 'guardrails', 'agency', 'notebook', 'cron', 'domain'], 'Handing over to a client', false, false, true, true, true, true, true]);
+check('3.23 (C17): MCP site_audit returns handover_checklist additively (no new tool, no new parameter), its description stays in the essentials budget', [
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/SettingsTools.php'), "\$out['handover_checklist'] = ["),
+    Kaleta\Mcp\Translator::arguments('site_audit', ['kind' => 'handover']), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Tools.php'), 'handover_checklist = every row with done'),
+], [true, ['kind' => 'handover'], true]);
+// 3.23 (C18): module names are English source strings (the Czech is in the dictionary), the dashboard copy says Ask Claude
+check('3.23 (C18): News and Users have English NAME source strings translated in every admin dictionary; Ask Claude, not Requests, in the dashboard copy', [
+    Kaleta\Admin\Modules\News::NAME, Kaleta\Admin\Modules\Users::NAME,
+    Kaleta\Core\Language::runWith('cs', fn (): string => t('News') . '|' . t('Users') . '|' . t('Settings'), 'admin-'),
+    Kaleta\Core\Language::runWith('de', fn (): string => t('News') . '|' . t('Users') . '|' . t('Settings'), 'admin-'),
+    Kaleta\Core\Language::runWith('es', fn (): string => t('News') . '|' . t('Users') . '|' . t('Settings'), 'admin-'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/ask_claude.php'), 'answers in Requests'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/claude_panel.php'), "t('Requests')"),
+    Kaleta\Core\Language::runWith('en', fn (): string => Kaleta\Admin\MenuPaths::links('admin.php', 'Settings → Mail and Users → Roles', ['settings', 'roles']), 'admin-'),
+    Kaleta\Core\Language::runWith('cs', fn (): string => Kaleta\Admin\MenuPaths::links('admin.php', 'Nastavení → Pošta', ['settings']), 'admin-'),
+], ['News', 'Users', 'Novinky|Uživatelé|Nastavení', 'News|Benutzer|Einstellungen', 'Noticias|Usuarios|Ajustes', false, false,
+    '<a href="admin.php?module=settings&amp;tab=mail">Settings → Mail</a> and <a href="admin.php?module=roles">Users → Roles</a>', '<a href="admin.php?module=settings&amp;tab=mail">Nastavení → Pošta</a>']);
+// 3.23 (owner): the draft look for whoever has the Appearance area – the preview only; publishing stays with the administrator
+$kernel323 = (string) file_get_contents(KALETA_SYSTEM . '/src/Front/Kernel.php');
+$lookBar323 = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/look_bar.php');
+check('3.23: Front\Kernel activates the draft look for the Appearance area (build=koncept or preview=vzhled), never by isAdmin alone; the read-only look bar has no Publish or Discard', [
+    str_contains($kernel323, "(\$r->get('build') === 'koncept' || \$r->get('preview') === 'vzhled') && \$this->app->auth()->hasAppearanceArea()"),
+    str_contains($kernel323, "\$r->get('build') === 'koncept' && \$this->app->auth()->isAdmin()"),
+    (bool) preg_match('/<\?php if \(\$readOnly\): \?>.*?<\?php else: \?>\s*<form[^>]*discard_look/s', $lookBar323),
+    (bool) preg_match("/<\?php if \(\\\$readOnly\): \/\/[^\n]*\?>\n[^\n]*preview=vzhled[^\n]*\n<\?php else: \?>[^\n]*\n[^\n]*\n[^\n]*publish_look/", $lookBar323),
+], [true, false, true, true]);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

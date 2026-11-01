@@ -1,11 +1,11 @@
 <?php
 /**
- * Site audit: findings by kind, each with a link to fix it.
+ * Site audit: findings by kind, each with a link to fix it, and the hand-over checklist (3.23, C17) with its progress.
  *
  * @var Kaleta\Admin\Modules\Audit $module
  * @var array<string, list<array<string, mixed>>> $groups
  * @var int $total
- * @var string|null $notebookUrl  the Notebook (3.20, C22), null for whoever may not open it
+ * @var array{done: int, total: int, items: list<array{key: string, label: string, done: bool, edit: string, for_client: bool, findings: list<array{message: string, edit: string, target: array<string, int|string>}>}>} $checklist  Core\Audit::handoverChecklist
  */
 use Kaleta\Core\Audit;
 
@@ -22,20 +22,24 @@ $table = function (array $rows): string {
     return $html . '</tbody></table></div>';
 };
 ?>
-<?php foreach (Audit::KINDS as $kind => $name): if (($groups[$kind] ?? []) === []) { continue; }
-    $forClient = array_values(array_filter($groups[$kind], fn (array $f): bool => !empty($f['for_client'])));
-    $rows = array_values(array_filter($groups[$kind], fn (array $f): bool => empty($f['for_client']))); ?>
-<h2><?= e(t($name)) ?> <span class="stitek"><?= count($rows) ?></span></h2>
-<?php if ($rows !== []): ?>
-<?= $table($rows) ?>
-<?php endif ?>
-<?php if ($forClient !== []): // 3.11 (UX310-20): only a question for someone who builds the site for a client ?>
-<details class="pokrocile"><summary><?= e(t('Building this for a client?')) ?> (<?= count($forClient) ?>)</summary>
-<?= $table($forClient) ?>
-</details>
-<?php endif ?>
+<?php foreach (Audit::KINDS as $kind => $name): if ($kind === 'handover' || ($groups[$kind] ?? []) === []) { continue; } ?>
+<h2><?= e(t($name)) ?> <span class="stitek"><?= count($groups[$kind]) ?></span></h2>
+<?= $table($groups[$kind]) ?>
 <?php endforeach ?>
-<?php if ($notebookUrl !== null): // 3.20 (C22): handing over means notes too ?>
-<p class="smltxt"><strong><?= e(t('Before handing over')) ?>:</strong> <?= e(t('write down the decisions for the next person – why the site is built the way it is, what the client asked for, what to watch.')) ?> <a href="<?= e($notebookUrl) ?>"><?= e(t('Open the Notebook')) ?></a></p>
-<?php endif ?>
+<?php /* 3.23 (C17): "Before handing over" and "Building this for a client?" are one checklist – what is done stays in it, ticked */ ?>
+<section class="predani" aria-labelledby="predani-nadpis">
+<h2 id="predani-nadpis"><?= e(t(Audit::KINDS['handover'])) ?> <span class="stitek"><?= e(t('%d of %d done', $checklist['done'], $checklist['total'])) ?></span></h2>
+<progress class="predani-postup" max="<?= $checklist['total'] ?>" value="<?= $checklist['done'] ?>" aria-label="<?= e(t('%d of %d done', $checklist['done'], $checklist['total'])) ?>"></progress>
+<p class="smltxt"><?= e(t('What to check before a client takes the site over. Each row links to where it is set; rows marked “for a client” matter only when you build the site for someone else.')) ?></p>
+<ul class="kontrola-seznam predani-seznam">
+<?php foreach ($checklist['items'] as $item): ?>
+	<li class="<?= $item['done'] ? 'ok' : 'varovani' ?>" data-predani-radek="<?= e($item['key']) ?>"><span aria-hidden="true"><?= $item['done'] ? '✓' : '!' ?></span>
+		<a href="<?= e($item['edit']) ?>"><?= e($item['label']) ?></a> <span class="navod-skryte"><?= e($item['done'] ? t('(done)') : t('(not done yet)')) ?></span><?php if ($item['for_client']): ?> <span class="stitek"><?= e(t('for a client')) ?></span><?php endif ?>
+<?php foreach ($item['findings'] as $f): ?>
+		<br><span class="smltxt"><?= e($f['message']) ?> <a href="<?= e($f['edit']) ?>"><?= e(t('Fix')) ?></a></span>
+<?php endforeach ?>
+	</li>
+<?php endforeach ?>
+</ul>
+</section>
 <p class="smltxt"><?= e(t('External links are checked in the background, one news item every five minutes. The audit runs each time you open this page.')) ?></p>

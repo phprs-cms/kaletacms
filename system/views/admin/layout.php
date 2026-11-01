@@ -47,7 +47,7 @@ if ($user !== null && empty($gated)) { // 3.19 (N3183-2): nothing to search at t
         $statements[] = ['n' => $collection['name'], 'u' => $adminUrl('module=collections&action=items&id=' . $collection['id']), 's' => t('Collections')];
     }
     foreach (isset($modules['settings']) ? Kaleta\Admin\Modules\Settings::TABS : [] as $key => $name) {
-        $statements[] = ['n' => t('Nastavení') . ' → ' . t($name), 'u' => $adminUrl('module=settings&tab=' . $key), 's' => t('Nastavení')];
+        $statements[] = ['n' => t('Settings') . ' → ' . t($name), 'u' => $adminUrl('module=settings&tab=' . $key), 's' => t('Settings')];
     }
     // site pages can be found in the palette by name (news is searched on the server, there are more of them)
     foreach (isset($modules['pages']) ? $app->db()->all('SELECT ids, titulek FROM {stranky} WHERE smazano IS NULL ORDER BY poradi, ' . $app->db()->sortText('titulek') . ' LIMIT 300') : [] as $pageRow) {
@@ -141,8 +141,12 @@ if ($user !== null && (isset($modules['requests']) || isset($modules['claude_set
 <?php foreach ($flashes as $message): ?>
 <p class="hlaska hlaska-<?= e($message['typ']) ?>" role="status"><?= Kaleta\Admin\MenuPaths::links($app->url('admin.php'), t($message['text']), array_keys($modules)) ?></p>
 <?php endforeach ?>
-<?php if (empty($gated) && $app->auth()->isAdmin() && Kaleta\Core\Look::hasDraft($app->settings())): // a draft look waits on every screen until it is published or discarded – not at the two-factor gate (N3183-2) ?>
-<?= $app->view->render('admin/look_bar', ['app' => $app, 'summary' => Kaleta\Core\Look::summary($app->db(), $app->settings(), false), 'menus' => Kaleta\Core\Look::menuChanges($app), 'areas' => Kaleta\Core\Look::areas($app->settings()), 'csrf' => $app->session->csrfField()]) ?>
+<?php
+// a draft look waits on every screen until it is published or discarded – not at the two-factor gate (N3183-2); 3.23: a user
+// with the Appearance area sees it read only on the screens of that area (Menu, Site parts, Pop-ups, Components), with the preview
+$lookReadOnly = !$app->auth()->isAdmin() && $app->auth()->hasAppearanceArea() && isset($modules[$active]) && $modules[$active]::SHARES_PERMISSION_OF === Kaleta\Core\Auth::APPEARANCE_AREA;
+if (empty($gated) && ($app->auth()->isAdmin() || $lookReadOnly) && Kaleta\Core\Look::hasDraft($app->settings())): ?>
+<?= $app->view->render('admin/look_bar', ['app' => $app, 'summary' => Kaleta\Core\Look::summary($app->db(), $app->settings(), false), 'menus' => Kaleta\Core\Look::menuChanges($app), 'areas' => Kaleta\Core\Look::areas($app->settings()), 'csrf' => $app->session->csrfField(), 'readOnly' => $lookReadOnly]) ?>
 <?php endif ?>
 <?= $content ?>
 <?= $app->view->render('admin/agency', ['app' => $app, 'withLogo' => false]) ?>
