@@ -75,6 +75,8 @@
 		sdilet: '<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3.2-3.2a4.5 4.5 0 0 0-6.4-6.4L12 5.6"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3.2 3.2a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2"/>',
 		komentar: '<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/>',
 		schranka: '<rect x="6" y="5" width="12" height="16" rx="2"/><path d="M9 5a3 3 0 0 1 6 0"/><path d="M9 12h6M9 16h4"/>',
+		pridat: '<path d="M12 5v14M5 12h14"/>', strom: '<path d="M4 5h6M8 12h6M8 19h6M6 5v14h2M6 12h2"/><path d="M14 5h6M18 12h2M18 19h2"/>',
+		vlastnosti: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
 	};
 
 	const state = {
@@ -387,6 +389,7 @@
 		doc.addEventListener('dblclick', (e) => { const t = e.target.closest('[data-ka-id]'); if (t && !t.hasAttribute('data-ka-zamek')) { editOnCanvas(t); } });
 		doc.addEventListener('keydown', keys);
 		doc.addEventListener('paste', onPaste);
+		doc.addEventListener('pointerdown', () => setPanel('')); // a tap on the page closes a tablet panel (3.23, U15)
 		canvasMenu(doc);
 		doc.addEventListener('dragover', (e) => {
 			if (!state.tazeno) { return; }
@@ -791,6 +794,7 @@
 	}
 
 	function insert(element, fromLibrary) {
+		if (root.dataset.panel === 'levy') { setPanel(''); } // a tablet: the Add panel steps aside so the inserted element is seen (3.23, U15)
 		const v = state.vybrane && find(state.vybrane);
 		applyChange(() => {
 			if (!v && element.typ !== 'sekce' && element.typ !== 'obsah') {
@@ -1167,6 +1171,8 @@
 
 	function keys(e) {
 		const v = e.target;
+		// 3.23 (U15): on a tablet Esc closes the open panel first – also from a field inside it – and the focus returns to its rail button
+		if (e.key === 'Escape' && root.dataset.panel && narrowLayout.matches && !document.querySelector('dialog[open], .st-vice:popover-open, .st-kontext:popover-open')) { e.preventDefault(); setPanel('', true); return; }
 		const typing = v.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(v.tagName);
 		const mod = e.ctrlKey || e.metaKey;
 		if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); save(); return; }
@@ -1360,8 +1366,9 @@
 		];
 		document.querySelectorAll('.st-zvyraznene').forEach((x) => x.classList.remove('st-zvyraznene'));
 		try { localStorage.setItem('ka-st-prohlidka', '1'); } catch (e) { /* private mode */ }
-		if (step >= stops.length) { return; }
+		if (step >= stops.length) { setPanel(''); return; }
 		const [target, heading, text] = stops[step];
+		setPanel(!narrowLayout.matches ? '' : target === left ? 'levy' : target === right ? 'pravy' : ''); // on a tablet the panels are overlays (3.23, U15)
 		target.classList.add('st-zvyraznene');
 		const d = el('dialog', { class: 'st-dialog st-prohlidka' },
 			el('div', {}, el('small', {}, (step + 1) + ' / ' + stops.length), el('h2', {}, heading), el('p', {}, text)),
@@ -1519,6 +1526,7 @@
 		leftContent = el('div', { class: 'st-panel' });
 		left.replaceChildren(el('div', { class: 'st-zalozky', role: 'tablist' }, tabItem('pridat', T('Přidat')), tabItem('struktura', T('Structure'))), leftContent);
 		if (state.levo === 'pridat') { addPanel(); } else { redrawTree(); }
+		setPanel(root.dataset.panel || ''); // the rail buttons say which tab is open (3.23, U15)
 	}
 
 	/** AI: a new section from a description – inserted after the selected section (or at the end) as a normal change, can be undone. */
@@ -1943,7 +1951,11 @@
 
 	function contentPanel(panel, p, s) {
 		if (p.typ === 'komponenta') {
-			panel.append(field(s.vlastnosti.komponenta, p.obsah.komponenta, (h) => { applyChange(() => { p.obsah.komponenta = h; p.obsah.hodnoty = {}; }); redrawRight(); }));
+			// 3.23 (U10): a use of a deleted component keeps showing what it refers to instead of a silent "—"
+			const def = s.vlastnosti.komponenta;
+			const missing = p.obsah.komponenta && !(String(p.obsah.komponenta) in (def.moznosti || {}));
+			panel.append(field(missing ? Object.assign({}, def, { moznosti: Object.assign({}, def.moznosti, { [p.obsah.komponenta]: T('%s (not found)').replace('%s', '#' + p.obsah.komponenta) }) }) : def,
+				p.obsah.komponenta, (h) => { applyChange(() => { p.obsah.komponenta = h; p.obsah.hodnoty = {}; }); redrawRight(); }));
 			const values = valueField(p);
 			if (values) { panel.append(values); }
 			return;
@@ -1956,22 +1968,24 @@
 		const where = dataLinks(p);
 		const properties = Object.entries(s.vlastnosti || {});
 		if (!properties.length) { panel.append(el('p', { class: 'st-prazdno' }, s.kontejner ? T('A container has no content of its own – put elements into it and set its look in the Style tab.') : T('This element has no editable content.')), where); return; }
-		// a Collection list (3.12, UX310-14): the field keys are a choice of the chosen collection's fields, the filter and
-		// date options fold under "More options" (open when one of them is set)
-		const listCollection = p.typ === 'kolekce' ? (D.kolekce || []).find((k) => k.seo_link === p.obsah.kolekce) || null : null;
+		// a Collection list (3.12, UX310-14): the filter and date options fold under "More options" (open when one of them is
+		// set); its field keys, like every reference to the site's data, are a choice (3.23, U10 – dataChoices)
 		const more = p.typ === 'kolekce' ? el('details', { class: 'st-vice-voleb', open: COLLECTION_MORE.some((k) => p.obsah[k] && p.obsah[k] !== (s.vlastnosti[k] || {}).vychozi) },
 			el('summary', {}, T('More options'))) : null;
 		// 3.22 (C15): a property with „kdyz“ ({key: value}) shows only while the element's content has that value (the Form's
 		// own confirmation text only with the confirmation e-mail on); a change of such a key redraws the panel
 		const dependsOn = new Set(properties.flatMap(([, d]) => (d.kdyz ? Object.keys(d.kdyz) : [])));
+		// the field and category choices follow the element's own collection (Collection list, Store locator)
+		if (properties.some(([, d]) => d.volby === 'pole' || d.volby === 'kategorie') && s.vlastnosti.kolekce) { dependsOn.add('kolekce'); }
 		properties.forEach(([key, def]) => {
 			if (def.kdyz && !Object.entries(def.kdyz).every(([pk, pv]) => p.obsah[pk] === pv)) { return; }
-			const fieldDef = listCollection && key in COLLECTION_FIELD_KEYS ? collectionFieldChoice(def, listCollection, COLLECTION_FIELD_KEYS[key], p.obsah[key]) : def;
-			const control = field(fieldDef, p.obsah[key], (h) => {
+			const change = (h) => {
 				if (JSON.stringify(p.obsah[key]) !== JSON.stringify(h)) { applyChange(() => { p.obsah[key] = h; }, 'obsah:' + p.id + ':' + key); fastCanvasText(p, key, h); }
-				if (p.typ === 'kolekce' && key === 'kolekce') { redrawRight(); } // the field choices follow the collection
 				if (dependsOn.has(key)) { redrawRight(); }
-			}, { chyba: state.chyby[state.cestaVybraneho + '.obsah.' + key], prvek: p, klic: key });
+			};
+			const options = { chyba: state.chyby[state.cestaVybraneho + '.obsah.' + key], prvek: p, klic: key };
+			const choices = def.volby ? dataChoices(p, def) : null;
+			const control = choices ? choiceField(def, p.obsah[key], change, choices, p.id + ':' + key, options) : field(def, p.obsah[key], change, options);
 			control.dataset.pole = key; // typing on the canvas updates this field (syncInspector)
 			(more && COLLECTION_MORE.includes(key) ? more : panel).append(control);
 		});
@@ -1980,17 +1994,81 @@
 		if (where) { panel.append(where); }
 	}
 
-	/** Collection list fields holding a field key, and the field types each offers (null = any). */
-	const COLLECTION_FIELD_KEYS = { razeni_pole: null, filtr_pole: null, obdobi_od: ['datum', 'termin'], obdobi_do: ['datum', 'termin'] };
 	/** Collection list options under "More options". */
 	const COLLECTION_MORE = ['filtr_pole', 'filtr_hodnota', 'bez_aktualni', 'filtry', 'obdobi', 'obdobi_od', 'obdobi_do'];
 
-	/** A select of the collection's fields (by their labels) for a field-key property; a stored key the collection lacks stays offered. */
-	function collectionFieldChoice(def, collection, types, value) {
-		const options = { '': '—' };
-		(collection.pole || []).filter((f) => !types || types.includes(f.typ)).forEach((f) => { options[f.klic] = f.popisek || f.klic; });
-		if (value && !(value in options)) { options[value] = T('%s (not a field of this collection)').replace('%s', value); }
-		return { typ: 'vyber', popisek: def.popisek, vychozi: '', moznosti: options };
+	/**
+	 * The collection a field or category choice of an element lists (3.23, U10): its own "kolekce" (Collection list, Store
+	 * locator – empty there = the first Branches collection), otherwise the collection whose items it receives (an item
+	 * template: Previous / next item). null = unknown (no collection chosen, or a deleted one).
+	 */
+	function choiceCollection(p) {
+		const own = TYPY[p.typ] && TYPY[p.typ].vlastnosti && TYPY[p.typ].vlastnosti.kolekce;
+		if (!own) { return elementCollection(p.id); }
+		const slug = p.obsah.kolekce || (p.typ === 'pobocky' && D.volby ? D.volby.pobocky : '');
+		return (D.kolekce || []).find((k) => k.seo_link === slug) || null;
+	}
+
+	/**
+	 * What a field referring to the site's data offers (3.23, U10; „volby“ of Builder\Element): [value, label] pairs from
+	 * the collections, their fields and categories, the news categories, the Bookings services and people – or null when
+	 * the data is not known here (no collection chosen, or a section this person may not open): the field then stays free.
+	 */
+	function dataChoices(p, def) {
+		const V = D.volby || {};
+		switch (def.volby) {
+			case 'kolekce': return (D.kolekce || []).map((k) => [k.seo_link, k.nazev]);
+			case 'pole': {
+				const collection = choiceCollection(p);
+				return collection ? (collection.pole || []).filter((f) => !def.typy_poli || def.typy_poli.includes(f.typ)).map((f) => [f.klic, f.popisek || f.klic]) : null;
+			}
+			case 'kategorie': {
+				const collection = choiceCollection(p);
+				return collection && V.kategorie ? (V.kategorie[collection.seo_link] || []).map((c) => [c.adresa, c.nazev]) : null;
+			}
+			case 'kategorie_novinek': return Array.isArray(V.kategorieNovinek) ? V.kategorieNovinek.map((c) => [c.adresa, c.nazev]) : null;
+			case 'sluzba': return Array.isArray(V.sluzby) ? V.sluzby.map((x) => [String(x.id), x.nazev]) : null;
+			case 'osoba': return Array.isArray(V.osoby) ? V.osoby.map((x) => [String(x.id), x.nazev]) : null;
+			default: return null;
+		}
+	}
+
+	/** Elements and fields whose free "Custom…" value is being typed – the panel redraws without hiding it again. */
+	const customOpen = new Set();
+	const CUSTOM = '\u0001custom';
+
+	/**
+	 * A choice from the site's data instead of a typed key or id (3.23, U10): the empty value with its meaning, fixed values,
+	 * the data, a stored value that is not among them (shown, marked "not found" – never silently replaced), and "Custom…"
+	 * that opens a free field for a value not in the list. The stored value keeps its type (text, or a number for ids).
+	 */
+	function choiceField(def, value, change, choices, memo, options) {
+		const number = def.typ === 'cislo';
+		const blank = number ? '0' : '';
+		const current = value === undefined || value === null || value === '' ? (number ? '0' : '') : String(value);
+		const list = [[blank, def.prazdna || '—'], ...Object.entries(def.pevne || {}), ...choices.filter(([v]) => v !== blank)];
+		const missing = current !== blank && !list.some(([v]) => v === current);
+		const error = options && options.chyba;
+		const custom = customOpen.has(memo);
+		const label = def.kratce || T(def.popisek || '');
+		const free = el('input', { type: number ? 'number' : 'text', value: current === blank ? '' : current, hidden: !custom, 'aria-label': label + ' – ' + T('Custom value'),
+			min: number ? (def.min ?? 0) : null, max: number ? (def.max ?? null) : null, maxlength: number ? null : (def.max || null), placeholder: number ? null : T('Custom value'),
+			oninput: (e) => change(number ? (parseInt(e.target.value, 10) || 0) : e.target.value.trim()) });
+		const select = el('select', { onchange: (e) => {
+			if (e.target.value === CUSTOM) {
+				customOpen.add(memo);
+				free.hidden = false;
+				free.focus();
+				return;
+			}
+			customOpen.delete(memo);
+			free.hidden = true;
+			change(number ? (parseInt(e.target.value, 10) || 0) : e.target.value);
+		} }, list.map(([v, name]) => el('option', { value: v, selected: !custom && v === current }, name)),
+		missing ? el('option', { value: current, selected: !custom }, T('%s (not found)').replace('%s', current)) : null,
+		el('option', { value: CUSTOM, selected: custom }, T('Custom…')));
+		return el('label', { class: 'st-pole st-volba' + (error ? ' st-pole-chyba' : ''), title: def.kratce ? T(def.popisek || '') : null }, el('span', {}, label),
+			error ? el('small', { class: 'st-chyba-pole', role: 'alert' }, error) : null, select, free);
 	}
 
 	/**
@@ -2577,14 +2655,54 @@
 			}) }, T('Delete class')));
 	}
 
+	/* ---------- tablet: the panels as overlays opened from icon rails (3.23, U15) ---------- */
+
+	/**
+	 * Below 1024 px (stavitel.css) the left and right panels fold into icon rails beside the canvas and open over it, so the
+	 * page keeps most of the width. root[data-panel] says which one is open ('levy', 'pravy' or none); on a desktop the
+	 * rails are hidden and the attribute changes nothing. Esc (keys), a tap on the page or inserting an element close it.
+	 */
+	let railButtons = {};
+	function setPanel(which, returnFocus) {
+		const before = root.dataset.panel || '';
+		if (which) { root.dataset.panel = which; } else { delete root.dataset.panel; }
+		Object.entries(railButtons).forEach(([key, b]) => b.setAttribute('aria-expanded', String(!!which && key.startsWith(which) && (which === 'pravy' || state.levo === key.split(':')[1]))));
+		if (which && which !== before && narrowLayout.matches) {
+			const panel = which === 'levy' ? left : right;
+			const first = panel.querySelector('[role="tab"][aria-selected="true"], input, select, textarea, button, a[href]');
+			if (first) { first.focus(); }
+		}
+		if (!which && before && returnFocus) {
+			const back = before === 'levy' ? railButtons['levy:' + state.levo] : railButtons.pravy;
+			if (back && narrowLayout.matches) { back.focus(); }
+		}
+	}
+	const narrowLayout = window.matchMedia('(max-width: 1023px)');
+	function railButton(key, iconName, name, controls, open) {
+		const b = el('button', { type: 'button', class: 'st-tl', title: name, 'aria-label': name, 'aria-controls': controls, 'aria-expanded': 'false', onclick: open }, icon(iconName));
+		railButtons[key] = b;
+		return b;
+	}
+	function leftRailOpen(tab) {
+		return () => {
+			if (root.dataset.panel === 'levy' && state.levo === tab) { setPanel('', true); return; }
+			if (state.levo !== tab) { state.levo = tab; redrawLeft(); }
+			setPanel('levy');
+		};
+	}
+
 	/* ---------- start ---------- */
 
 	createBar();
-	left = el('aside', { class: 'st-levy', 'aria-label': T('Elements and structure') });
-	right = el('aside', { class: 'st-pravy', 'aria-label': T('Properties') });
+	left = el('aside', { class: 'st-levy', id: 'st-panel-levy', 'aria-label': T('Elements and structure') });
+	right = el('aside', { class: 'st-pravy', id: 'st-panel-pravy', 'aria-label': T('Properties') });
 	frame2 = el('div', { class: 'st-ramec', 'data-bp': 'zaklad' });
 	scale = el('span', { class: 'st-meritko', 'aria-hidden': 'true' });
-	root.append(left, el('main', { class: 'st-platno' }, frame2, scale), right, datalists);
+	const leftRail = el('nav', { class: 'st-pruh st-pruh-levy', 'aria-label': T('Elements and structure') },
+		railButton('levy:pridat', 'pridat', T('Přidat'), 'st-panel-levy', leftRailOpen('pridat')), railButton('levy:struktura', 'strom', T('Structure'), 'st-panel-levy', leftRailOpen('struktura')));
+	const rightRail = el('nav', { class: 'st-pruh st-pruh-pravy', 'aria-label': T('Properties') },
+		railButton('pravy', 'vlastnosti', T('Properties'), 'st-panel-pravy', () => setPanel(root.dataset.panel === 'pravy' ? '' : 'pravy', root.dataset.panel === 'pravy')));
+	root.append(leftRail, left, el('main', { class: 'st-platno', onpointerdown: () => setPanel('') }, frame2, scale), right, rightRail, datalists);
 	new ResizeObserver(() => previewSize(preview)).observe(frame2);
 	root.hidden = false;
 	// 3.20 (C2): #element=<id> in the address selects that element on opening (an enquiry links to the form it came from) and the
@@ -2608,6 +2726,19 @@
 	state.ulozeno = JSON.stringify(state.stavba);
 	root.addEventListener('focusout', () => setTimeout(adoptSanitized, 0));
 	window.addEventListener('focus', () => { if (state.pokusy && rejectInvalid()) { (state.prihlaseni ? refreshToken() : Promise.resolve()).then(save); } });
+	// 3.23 (U10): back in the window, the choices of dynamic elements are asked again (a category or a service added in another tab)
+	let choicesAsked = Date.now();
+	window.addEventListener('focus', () => {
+		if (!D.adresy.volby || Date.now() - choicesAsked < 15000) { return; }
+		choicesAsked = Date.now();
+		query(D.adresy.volby).then((j) => {
+			if (!j.ok || !j.volby) { return; }
+			const before = JSON.stringify([D.kolekce, D.volby]);
+			D.kolekce = j.kolekce;
+			D.volby = j.volby;
+			if (JSON.stringify([D.kolekce, D.volby]) !== before && state.vybrane && state.pravo === 'obsah' && state.trida === null) { redrawRight(); }
+		});
+	});
 	// unsaved changes: the browser asks whether to really leave the page; if so, they are sent once more in the background (keepalive)
 	window.addEventListener('beforeunload', (e) => { if (rejectInvalid() || state.uklada) { save(); e.preventDefault(); e.returnValue = ''; } });
 	window.addEventListener('pagehide', () => {

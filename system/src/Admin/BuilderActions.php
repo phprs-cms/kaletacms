@@ -67,9 +67,9 @@ trait BuilderActions
                     'moznosti' => ['' => '—'] + array_column(array_map(fn (array $k): array => ['id' => (string) $k['id'], 'nazev' => $k['nazev']], $components), 'nazev', 'id')];
             }
             if ($element['typ'] === 'kolekce') {
-                // in the editor, a choice of the site's collections (the validator takes the collection slug as text)
-                $element['vlastnosti']['kolekce'] = ['typ' => 'vyber', 'popisek' => 'Collections', 'vychozi' => $collection[0]['seo_link'] ?? '',
-                    'moznosti' => ['' => '—'] + array_column($collection, 'nazev', 'seo_link')];
+                // a new Collection list starts with the first collection; the editor offers the site's collections as a choice
+                // (3.23, U10: „volby“ – a stored slug of a deleted collection stays shown, marked as not found)
+                $element['vlastnosti']['kolekce']['vychozi'] = $collection[0]['seo_link'] ?? '';
             }
         }
         unset($element);
@@ -96,6 +96,8 @@ trait BuilderActions
             'verze' => self::computeBuildVersion($target['koncept'] ?? $target['stavba']),
             'schema' => $schema,
             'kolekce' => $collection,
+            // 3.23 (U10): the data the choices of dynamic elements offer – only what this person may see in the administration
+            'volby' => self::builderChoices($this->db, array_keys($this->kernel->modules()), (string) $target['jazyk']),
             'komponenty' => $components,
             'ai' => (new \Kaleta\Core\Assistant($app->settings()))->isReady(),
             'kolekceDetailu' => $e['kolekce'] ?? null,
@@ -119,6 +121,7 @@ trait BuilderActions
                 'uloz' => 'build_save', 'publikuj' => 'build_publish', 'zahod' => 'build_discard', 'sekce' => 'build_section', 'trida' => 'build_class',
                 'revize' => 'build_versions', 'obnov' => 'build_restore', 'aiSekce' => 'build_ai_section', 'aiText' => 'build_ai_text', 'ulozSekci' => 'build_save_section',
                 'sdilet' => 'build_share', 'balicek' => 'build_package', 'vlozeni' => 'build_paste', 'komentarVyrizen' => 'build_comment_resolve',
+                'volby' => 'build_choices',
             ]) + ['smazSekci' => $app->auth()->isAdmin() ? $this->url('build_delete_section', $target['parametry']) : null] + ['admin' => $app->url('admin.php'), 'nastaveni' => $e['nastaveni'],
                 // "Save as component" (3.22, C9): whoever may open Components and publish
                 'komponenta' => isset($this->kernel->modules()['components']) && $app->auth()->canPublish() ? $app->url('admin.php?module=components&action=from_element') : null,
@@ -161,6 +164,67 @@ trait BuilderActions
         }
 
         return $out;
+    }
+
+    /**
+     * The choices of dynamic elements again (3.23, U10; JSON): the builder asks when its window comes back into focus, so a
+     * collection, category, service or person added in another tab is offered without reloading the editor.
+     */
+    protected function actionBuildChoices(): Response
+    {
+        $target = $this->loadBuildTarget();
+        if ($target === null) {
+            return Response::json(['ok' => false, 'chyba' => t('Page does not exist.')], 404);
+        }
+
+        return Response::json(['ok' => true, 'kolekce' => array_map(fn (array $k): array => ['id' => (int) $k['idk'], 'seo_link' => $k['seo_link'], 'nazev' => $k['nazev'], 'pole' => $k['pole'], 'detail' => (bool) $k['detail']], Collections::all($this->db)),
+            'volby' => self::builderChoices($this->db, array_keys($this->kernel->modules()), (string) $target['jazyk'])]);
+    }
+
+    /**
+     * What the builder's choices of dynamic elements offer (3.23, U10; Builder\Element „volby“) beyond the collections and their
+     * fields the builder already has: the categories of each collection (by its slug), the news categories, the services
+     * and people of Bookings, and the collection a Store locator shows without a choice. Only what the person could see in
+     * the administration: hidden categories of collections only with the Collections section (without it the categories on
+     * the site, as list_collection_categories does), news categories with News or Categories, services and people with
+     * Bookings – null = not offered, the editor keeps a free field. Names and ids only, never an e-mail.
+     *
+     * @param list<string> $modules identifiers of the modules the person may open (Admin\Kernel::modules)
+     * @return array{kategorie: array<string, list<array{adresa: string, nazev: string}>>, kategorieNovinek: ?list<array{adresa: string, nazev: string}>, sluzby: ?list<array{id: int, nazev: string}>, osoby: ?list<array{id: int, nazev: string}>, pobocky: ?string}
+     */
+    public static function builderChoices(\Kaleta\Core\Db $db, array $modules, string $language): array
+    {
+        $all = in_array('collections', $modules, true);
+        $categories = [];
+        foreach (Collections::all($db) as $k) {
+            // in the page's language; a category without texts there by its default-language address (CollectionList::category falls back to it)
+            $tree = \Kaleta\Builder\CollectionCategories::tree($db, (int) $k['idk'], $language, !$all);
+            if ($language !== '') {
+                $known = array_column($tree, 'id');
+                $tree = [...$tree, ...array_filter(\Kaleta\Builder\CollectionCategories::tree($db, (int) $k['idk'], '', !$all), fn (array $c): bool => !in_array($c['id'], $known, true))];
+            }
+            $categories[(string) $k['seo_link']] = array_map(fn (array $c): array => ['adresa' => $c['slug'],
+                'nazev' => ($c['parent_name'] !== '' ? $c['parent_name'] . ' › ' : '') . $c['name'] . ($c['visible'] ? '' : ' (' . t('hidden') . ')')], $tree);
+        }
+        $news = null;
+        if (in_array('news', $modules, true) || in_array('categories', $modules, true)) {
+            $news = [];
+            foreach ($db->all('SELECT seo_link, nazev, jazyk FROM {kategorie} ORDER BY jazyk = ? DESC, hodnost DESC, ' . $db->sortText('nazev'), [$language]) as $c) {
+                // News::render looks the address up in the site's language first, so one address is one choice
+                $news[(string) $c['seo_link']] ??= ['adresa' => (string) $c['seo_link'], 'nazev' => $c['nazev'] . ($c['jazyk'] !== $language ? ' (' . ($c['jazyk'] !== '' ? $c['jazyk'] : t('default language')) . ')' : '')];
+            }
+            $news = array_values($news);
+        }
+        $bookings = in_array('bookings', $modules, true);
+        $inactive = fn (array $r): string => $r['nazev'] . ($r['active'] ? '' : ' (' . t('inactive') . ')');
+
+        return [
+            'kategorie' => $categories,
+            'kategorieNovinek' => $news,
+            'sluzby' => $bookings ? array_map(fn (array $s): array => ['id' => $s['id'], 'nazev' => $inactive(['nazev' => $s['name'], 'active' => $s['active']])], \Kaleta\Core\Booking::services($db, false)) : null,
+            'osoby' => $bookings ? array_map(fn (array $m): array => ['id' => $m['id'], 'nazev' => $inactive(['nazev' => $m['name'], 'active' => $m['active']])], \Kaleta\Core\Booking::staff($db, false)) : null,
+            'pobocky' => \Kaleta\Builder\Elements\StoreLocator::defaultCollection($db)['seo_link'] ?? null,
+        ];
     }
 
     /** Autosaving the draft from the editor (JSON). Returns the sanitized build and the errors the editor shows. */
@@ -580,6 +644,14 @@ trait BuilderActions
                 $properties[$key]['popisek'] = t((string) ($d['popisek'] ?? ''));
                 if (isset($d['moznosti'])) {
                     $properties[$key]['moznosti'] = array_map(fn (string $m): string => t($m), $d['moznosti']);
+                }
+                foreach (['kratce', 'prazdna'] as $label) { // 3.23 (U10): the labels of a choice from the site's data
+                    if (isset($d[$label])) {
+                        $properties[$key][$label] = t((string) $d[$label]);
+                    }
+                }
+                if (isset($d['pevne'])) {
+                    $properties[$key]['pevne'] = array_map(fn (string $m): string => t($m), $d['pevne']);
                 }
                 if (isset($d['pole'])) {
                     $properties[$key]['pole'] = $field($d['pole']);
