@@ -211,10 +211,11 @@ final class Kernel
         $flashes = $request->isPost() ? count($app->session->flashTypes()) : 0;
         $response = (new $class($this))->handle($action === '' ? 'list' : $action);
         if ($request->isPost() && $response->status === 302 && $action !== 'poradi' && !ChangeLog::wrote($ident)
-            && !in_array('chyba', array_slice($app->session->flashTypes(), $flashes), true)) {
+            && (ChangeLog::isChangedAnyway() || !in_array('chyba', array_slice($app->session->flashTypes(), $flashes), true))) {
             // every change made in the admin goes to the change log – once: a module that wrote its own row (with what it did,
             // e.g. "reply #3") is not logged again, and an action the module refused (an error message) is no change (3.23.1,
-            // N-C3); the generic row carries the record number when the form has one
+            // N-C3) – unless it says it changed something anyway ("saved, but …", ChangeLog::changedAnyway); the generic row
+            // carries the record number when the form has one
             $description = $request->post('titulek') ?: ($request->post('nazev') ?: ($request->post('user') ?: $request->post('tab')));
             $record = self::recordId($request);
             ChangeLog::write($app, $ident, $action, trim(($record > 0 ? '#' . $record . ' ' : '') . $description));

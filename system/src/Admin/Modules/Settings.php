@@ -224,6 +224,7 @@ class Settings extends Module
         }
         $names = array_map(fn (string $key): string => preg_match('/\$(?:pole|field)\(\s*\'' . preg_quote($key, '/') . '\',\s*\'([^\']+)\'/', $template, $m) ? '„' . t($m[1]) . '“' : $key, $errors);
         $this->app->session->set('konfigurace_chybne', ['tab' => $tab, 'pole' => $errors, 'hodnoty' => $given]);
+        \Kaleta\Admin\ChangeLog::changedAnyway(); // the other settings are saved: the save is logged (3.23.1)
 
         return $this->back(t('These fields have an invalid format and were not saved: %s. Please correct them (they are highlighted); the other settings are saved.', implode(', ', $names))
             . ($reason !== '' ? ' ' . t($reason) : ''), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'chyba');
@@ -412,6 +413,7 @@ class Settings extends Module
                 Categories::createDefault($this->db, $settings); // news enabled after installation: right away with a category, as from the installation
             }
             if (($this->request->post('ai_key') !== '' || $this->request->post('ai_provider') !== $this->request->post('ai_poskytovatel_puvodni')) && $settings->get('ai_key') !== '' && ($keyError = (new \Kaleta\Core\Assistant($settings))->verifyKey()) !== null) {
+                \Kaleta\Admin\ChangeLog::changedAnyway(); // saved, only the key does not work: the save is logged (3.23.1)
                 return $this->back(t('The settings are saved, but the assistant key does not work: %s', t($keyError)), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'chyba');
             }
         }
@@ -535,11 +537,13 @@ class Settings extends Module
         }
         $remote = \Kaleta\Core\RemoteBackup::upload($this->app->settings(), (string) Backup::path($file));
         if ($remote !== null) {
+            \Kaleta\Admin\ChangeLog::changedAnyway(); // the backup exists, only its copy failed: it is logged (3.23.1)
             return $this->back(t('Backup %s is ready, but the off-site copy could not be uploaded: %s', $file, t($remote)), '', ['tab' => 'backups'], 'chyba');
         }
         // the media go along (only new and changed files); what does not fit in this request continues in the background
         $media = \Kaleta\Core\RemoteBackup::syncMedia($this->app->settings(), 20);
         if ($media !== null) {
+            \Kaleta\Admin\ChangeLog::changedAnyway();
             return $this->back(t('Backup %s is ready, but the media could not be copied: %s', $file, t($media)), '', ['tab' => 'backups'], 'chyba');
         }
 

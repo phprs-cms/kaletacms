@@ -275,6 +275,13 @@ sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('auto_suspend', 'ucty'
 BEFORE323=$(split323)
 for t in general languages security agency; do settings_form "$t" "$WORK/split323.post"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" --data-binary @"$WORK/split323.post"; done
 expect "3.23: saving General, Languages, Security and Agency one after another as a browser does changes nothing on the other tabs" "$(split323)" "$BEFORE323"
+# N3231-1 (review of 3.23.1): a save with one invalid field keeps the other settings – so it is one change-log row, although its message is an error
+N32311_LOG=$(sq "SELECT COALESCE(MAX(idp), 0) FROM ka_protokol"); N32311_EMAIL=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_email'")
+settings_form general "$WORK/n32311.post"; printf '&site_email=not-an-address' >> "$WORK/n32311.post"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" --data-binary @"$WORK/n32311.post"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null "$B/admin.php?module=settings&tab=general" # shows (and forgets) the highlighted field
+expect "3.23.1 review (N3231-1): Settings saved with an invalid field – the field is refused, the save is one change-log row" \
+  "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_email'")|$(sq "SELECT GROUP_CONCAT(CONCAT(modul, ' ', akce, ' ', popis)) FROM ka_protokol WHERE idp > $N32311_LOG")" "$N32311_EMAIL|settings save general"
 # 3.23.1 (item 12): every tab in the row (the console tab too – an agency is named above), saved unchanged one after another,
 # leaves every setting as it was; the phone select offers the same tabs
 TABS3231=$(curl -s -b "$JAR" "$B/admin.php?module=settings&tab=general" | perl -0ne 'print join(" ", $1 =~ /tab=([a-z_]+)"/g) if /<nav class="zalozky"[^>]*>(.*?)<\/nav>/s')

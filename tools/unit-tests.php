@@ -8419,8 +8419,21 @@ $nc3 = fn (array $post): int => Kaleta\Admin\Kernel::recordId(new Kaleta\Core\Re
 check('3.23.1 (N-C3): the record of an admin form – id, idp… in that order, positive numbers only', [$nc3(['id' => '7']), $nc3(['idp' => '3', 'titulek' => 'X']), $nc3(['id' => '0', 'idr' => '5']), $nc3(['id' => 'x']), $nc3([])], [7, 3, 5, 0, 0]);
 check('3.23.1 (N-C3): ChangeLog::wrote knows the areas written in this request; the Kernel forgets them before each action and skips its row after one or after a refusal (an error message)', [
     Kaleta\Admin\ChangeLog::wrote('nc3-area'),
-    (bool) preg_match('/ChangeLog::forget\(\);.*\$response = \(new \$class\(\$this\)\)->handle.*!ChangeLog::wrote\(\$ident\)\s*&& !in_array\(\'chyba\', array_slice\(\$app->session->flashTypes\(\), \$flashes\), true\)/s', (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Kernel.php')),
+    (bool) preg_match('/ChangeLog::forget\(\);.*\$response = \(new \$class\(\$this\)\)->handle.*!ChangeLog::wrote\(\$ident\)\s*&& \(ChangeLog::isChangedAnyway\(\) \|\| !in_array\(\'chyba\', array_slice\(\$app->session->flashTypes\(\), \$flashes\), true\)\)/s', (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Kernel.php')),
 ], [false, true]);
+
+// N3231-1 (review of 3.23.1): an action that saved although it ends with an error message ("The settings are saved, but …",
+// an item saved with fields left empty, a backup whose off-site copy failed) still gets its row – the refusal rule must not hide it
+Kaleta\Admin\ChangeLog::forget();
+$n32311 = [Kaleta\Admin\ChangeLog::isChangedAnyway()];
+Kaleta\Admin\ChangeLog::changedAnyway();
+$n32311[] = Kaleta\Admin\ChangeLog::isChangedAnyway();
+Kaleta\Admin\ChangeLog::forget();
+$n32311[] = Kaleta\Admin\ChangeLog::isChangedAnyway();
+check('3.23.1 review (N3231-1): a partial save marks the change, the Kernel forgets the mark before the next action; every "saved, but" error marks it', [...$n32311,
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Settings.php'), 'ChangeLog::changedAnyway();'),
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Collections.php'), "ChangeLog::changedAnyway(); // the item is saved"),
+], [false, true, false, 4, 1]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

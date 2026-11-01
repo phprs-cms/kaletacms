@@ -364,6 +364,7 @@ final class Collections extends Module
         Notices::recordSave($this->app, $k, $previous, $row, $idp);
         \Kaleta\Front\Cache::clear();
         if ($errors !== []) {
+            \Kaleta\Admin\ChangeLog::changedAnyway(); // the item is saved: the save is logged although the message is an error (3.23.1)
             return $this->back(t('The item is saved, but these fields had an invalid value and were left empty: %s', implode(', ', $errors)), 'item', ['id' => $k['idk'], 'item' => $idp], 'chyba');
         }
 

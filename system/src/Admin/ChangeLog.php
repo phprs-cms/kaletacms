@@ -15,6 +15,8 @@ final class ChangeLog
     /** Areas (ka_protokol.modul) written in this request – the admin's own row of an action is left out when its module wrote one (3.23.1, N-C3). @var array<string, true> */
     private static array $written = [];
 
+    private static bool $changedAnyway = false;
+
     /** @return int the id of the row, 0 when it could not be written */
     public static function write(App $app, string $module, string $action, string $description = '', string $reason = ''): int
     {
@@ -68,10 +70,26 @@ final class ChangeLog
         return isset(self::$written[mb_substr($module, 0, 30)]);
     }
 
+    /**
+     * The action changed something although it ends with an error message ("The settings are saved, but …"): the Kernel
+     * still writes its row – an error message alone means a refused action (3.23.1, N3231-1).
+     */
+    public static function changedAnyway(): void
+    {
+        self::$changedAnyway = true;
+    }
+
+    /** Whether the action said it changed something despite its error message (changedAnyway()). */
+    public static function isChangedAnyway(): bool
+    {
+        return self::$changedAnyway;
+    }
+
     /** Forgets what was written – before the next action of the same process (Admin\Kernel). */
     public static function forget(): void
     {
         self::$written = [];
+        self::$changedAnyway = false;
     }
 
     /** Removes a row written before a change that did not happen after all (the tool refused the call). */
