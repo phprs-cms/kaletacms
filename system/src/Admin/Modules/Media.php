@@ -185,7 +185,9 @@ final class Media extends Module
             foreach ($db->all($sql) as $r) {
                 // paths also in JSON (media\/2026\/…), with and without the site URL; a variant (-1200, .webp) counts as the original
                 foreach (\Kaleta\Core\MediaHygiene::paths((string) $r['obsah']) as $path) {
-                    $usages[$path][$kind . ' ' . $r['kde']] = $query === '' ? '' : self::allowedLink('admin.php?' . sprintf($query, (int) $r['id']), $modules);
+                    // a setting links to the Settings tab that has it (N323-3: the agency logo left General in 3.23)
+                    $link = $query === 'module=settings' ? Settings::fieldUrl((string) $r['kde']) : sprintf($query, (int) $r['id']);
+                    $usages[$path][$kind . ' ' . $r['kde']] = $query === '' ? '' : self::allowedLink('admin.php?' . $link, $modules);
                 }
             }
         }

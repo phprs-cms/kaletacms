@@ -8207,6 +8207,12 @@ check('3.23 review (N323-1): the essentials tool list keeps at least 1 KB of hea
     str_contains((string) json_encode($all310, JSON_UNESCAPED_UNICODE), 'SENDS A REAL E-MAIL'),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Tools.php'), 'never with invented ones'),
 ], [true, true, true]);
+// 3.23 review (N323-3): Media → Used in links a setting to the tab that has it – the agency logo is on Agency since 3.23
+check('3.23 review (N323-3): a setting that uses a file links to its own Settings tab (or the screen of its own)', [
+    Kaleta\Admin\Modules\Settings::fieldUrl('agency_logo'), Kaleta\Admin\Modules\Settings::fieldUrl('share_image'), Kaleta\Admin\Modules\Settings::fieldUrl('company_name'),
+    Kaleta\Admin\Modules\Settings::fieldUrl('cookies_text_de'), Kaleta\Admin\Modules\Settings::fieldUrl('smtp_last_ok'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Media.php'), 'Settings::fieldUrl((string) $r[\'kde\'])'),
+], ['module=settings&tab=agency#agency_logo', 'module=settings&tab=seo#share_image', 'module=business#company_name', 'module=settings&tab=cookies#cookies_text_de', 'module=settings', true]);
 // 3.23 (C18): module names are English source strings (the Czech is in the dictionary), the dashboard copy says Ask Claude
 check('3.23 (C18): News, Users and Settings have English NAME source strings translated in every admin dictionary; Ask Claude, not Requests, in the dashboard copy', [
     Kaleta\Admin\Modules\News::NAME, Kaleta\Admin\Modules\Users::NAME, Kaleta\Admin\Modules\Settings::NAME,

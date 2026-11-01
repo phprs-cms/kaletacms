@@ -157,6 +157,23 @@ class Settings extends Module
     }
 
     /**
+     * The admin query of the Settings tab that has a setting, with the field as the fragment (N323-3: Media → Used in) –
+     * module=settings&tab=agency#agency_logo, module=business#company_logo for a tab that became a screen of its own; a key
+     * of no Settings tab (Site appearance, Claude settings, internal values) gives plain module=settings.
+     */
+    public static function fieldUrl(string $key): string
+    {
+        $base = ($m = \Kaleta\Core\Language::settingKey($key, \Kaleta\Core\Settings::PER_LANGUAGE)) !== null ? $m[0] : $key;
+        foreach (self::FIELDS as $tab => $fields) {
+            if (isset($fields[$base]) && isset(self::TABS[$tab])) {
+                return (isset(self::MOVED_TABS[$tab]) ? 'module=' . self::MOVED_TABS[$tab] : 'module=settings&tab=' . $tab) . '#' . rawurlencode($key);
+            }
+        }
+
+        return 'module=settings';
+    }
+
+    /**
      * The fields that left General in 3.23 (C12): element id => their tab. A link of 3.22 or older to
      * tab=general#additional_languages (a bookmark, a note) is taken on to the right tab by image/admin.js.
      *
