@@ -332,7 +332,7 @@ final class Privacy
     /**
      * Keeps the rows of the given enquiries for statistics (date, form, page, topic, triage kind, status) and blanks
      * everything about the person: the form values, the e-mail, the drafted reply, the note, the campaign origin, the text and
-     * address of the replies sent (3.22); the
+     * address of the replies sent (3.22), the text of the team's notes (3.25 – who wrote them and when stay); the
      * attachments are deleted. Returns how many were anonymised (already anonymised ones are skipped).
      *
      * @param list<int> $ids
@@ -350,6 +350,7 @@ final class Privacy
                 'email' => '', 'navrh_odpovedi' => null, 'poznamka' => null, 'vstup' => '', 'odkud' => '', 'anonymizovano' => date('Y-m-d H:i:s'),
                 'replies' => EnquiryReply::anonymised($r['replies'])], ['idp' => $r['idp']]); // who replied and when stay, the text goes (3.22)
         }
+        Comments::anonymiseEnquiries($db, array_map('intval', array_column($rows, 'idp')));
 
         return count($rows);
     }
@@ -386,6 +387,7 @@ final class Privacy
             t('Purpose: answering the enquiry and the business relationship that follows. Legal basis: performance of a contract or steps before it (Art. 6(1)(b)), legitimate interest in answering.'),
             $months > 0 ? t('Retention: %d months, then %s automatically.', $months, t($s->get('enquiries_expiry') === 'anonymise' ? 'anonymised (the row stays for statistics without the person)' : 'deleted including attachments'))
                 : t('Retention: not limited – set it in Enquiries → Settings.'),
+            t('Internal notes of the team on an enquiry (who wrote them and when) are kept with the enquiry: deleted with it, their text blanked when it is anonymised.'),
             t('Recipients: the people with access to Enquiries in the administration%s.', $s->get('webhook_enquiries') !== '' ? ', ' . t('a webhook at %s', (string) parse_url($s->get('webhook_enquiries'), PHP_URL_HOST)) : ''),
         ])];
         if (Jobs::sources($db) !== []) {

@@ -2390,11 +2390,11 @@ await step('3.22 (C10) enquiry detail: reply with the draft, confirm, the queued
   try {
     await visit(`/admin.php?module=enquiries&action=detail&id=${id}`);
     if (await page.locator('[data-reply-blocked]').count() !== 1 || await page.locator('[data-reply-form]').count() !== 0) { throw new Error('without SMTP the detail does not explain it'); }
-    if (!/^mailto:hannah322@example\.com\?subject=Re%3A%20Enquiry%20322&body=Hello/.test(await page.locator('a.tl[href^="mailto:"]').first().getAttribute('href') || '')) { throw new Error('the mailto: fallback'); }
+    if (!/^mailto:hannah322@example\.com\?subject=Re%3A%20Do%20you%20deliver%20on%20Saturdays%3F&body=Hello/.test(await page.locator('a.tl[href^="mailto:"]').first().getAttribute('href') || '')) { throw new Error('the mailto: fallback'); }
     sql("REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '1'), ('mail_from', 'web@example.com')");
     await visit(`/admin.php?module=enquiries&action=detail&id=${id}`);
     const form = page.locator('form[data-reply-form]');
-    if (await form.locator('textarea[name="text"]').inputValue() !== 'Hello Hannah, yes, on Saturday mornings.' || await form.locator('input[name="subject"]').inputValue() !== 'Re: Enquiry 322') { throw new Error('the draft and the subject are not offered'); }
+    if (await form.locator('textarea[name="text"]').inputValue() !== 'Hello Hannah, yes, on Saturday mornings.' || await form.locator('input[name="subject"]').inputValue() !== 'Re: Do you deliver on Saturdays?') { throw new Error('the draft and the subject are not offered'); }
     if (SHOTS) { await page.locator('#reply').scrollIntoViewIfNeeded(); await page.screenshot({ path: `${SHOTS}/enquiry-reply.png`, fullPage: true }); }
     await form.locator('textarea[name="text"]').fill('Hello Hannah,\nyes, on Saturday mornings until noon.');
     await form.locator('button[type="submit"]', { hasText: 'Send reply' }).click();
@@ -2414,6 +2414,44 @@ await step('3.22 (C10) enquiry detail: reply with the draft, confirm, the queued
     await page.setViewportSize({ width: 1440, height: 900 });
     const [mode, host, port, from] = saved.split('|');
     sql(`REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', '${mode || 'mail'}'), ('smtp_host', '${host || ''}'), ('smtp_port', '${port || ''}'), ('mail_from', '${from || ''}'); DELETE FROM ka_posta WHERE komu = 'hannah322@example.com'; DELETE FROM ka_poptavky WHERE email = 'hannah322@example.com'`);
+  }
+});
+
+// 3.25 (A): internal notes as a history – the composer adds a note to the conversation (author, time, marked internal), a
+// second one keeps the first; the conversation is in the order of time; tinted in light and dark mode; no sideways scroll at 390 px
+await step('3.25 enquiry notes: add two internal notes, the conversation in order, light/dark, 390 px', async () => {
+  sql("INSERT INTO ka_poptavky (datum, formular, stranka, email, data, stav, poznamka) VALUES (NOW() - INTERVAL 1 DAY, 'Enquiry 325', '/contact', 'notes325@example.com', '[[\"Message\",\"Can you fit a new door next week?\"]]', 1, 'Old summary 325')");
+  const id = sql("SELECT MAX(idp) FROM ka_poptavky WHERE email = 'notes325@example.com'").trim();
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await visit(`/admin.php?module=enquiries&action=detail&id=${id}`);
+    for (const text of ['Called her, she wants oak.', 'Quote sent by phone.']) {
+      await page.locator('form[data-note-form] textarea[name="add_note"]').fill(text);
+      await Promise.all([page.waitForNavigation(), page.locator('form[data-note-form] button[type="submit"]', { hasText: 'Add internal note' }).click()]);
+      await page.locator('.hlaska', { hasText: 'The note was added.' }).waitFor();
+    }
+    const items = await page.locator('[data-thread] > li').evaluateAll((els) => els.map((el) => el.dataset.threadItem));
+    if (items.join(',') !== 'summary,customer,note,note') { throw new Error(`the conversation is ${items.join(',')}`); }
+    const notes = page.locator('[data-thread-item="note"]');
+    if (!/Called her, she wants oak\./.test(await notes.nth(0).textContent()) || !/Quote sent by phone\./.test(await notes.nth(1).textContent())) { throw new Error('the notes are not in the order they were written'); }
+    if (!/Note by .+ on /.test(await notes.nth(0).textContent()) || !/Internal – the customer does not see this/.test(await notes.nth(0).textContent())) { throw new Error('a note does not say who wrote it, when, and that it is internal'); }
+    if (!/Can you fit a new door next week\?/.test(await page.locator('[data-thread-item="customer"]').textContent())) { throw new Error('the customer\'s message is not in the conversation'); }
+    if ((await page.locator('#poznamka').inputValue()) !== 'Old summary 325') { throw new Error('the summary is not kept'); }
+    const light = await notes.nth(0).evaluate((el) => getComputedStyle(el).backgroundColor);
+    if (SHOTS) { await page.locator('#thread').scrollIntoViewIfNeeded(); await page.screenshot({ path: `${SHOTS}/enquiry-notes.png`, fullPage: true }); }
+    await page.emulateMedia({ colorScheme: 'dark' });
+    const dark = await notes.nth(0).evaluate((el) => getComputedStyle(el).backgroundColor);
+    if (dark === light) { throw new Error(`the note keeps its light background in dark mode (${dark})`); }
+    if (SHOTS) { await page.screenshot({ path: `${SHOTS}/enquiry-notes-dark.png`, fullPage: true }); }
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await visit(`/admin.php?module=enquiries&action=detail&id=${id}`);
+    const sideways = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    if (sideways > 0) { throw new Error(`${sideways} px of sideways scroll at 390 px`); }
+  } finally {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    sql(`DELETE FROM ka_comments WHERE target = 'enquiry:${Number(id)}'; DELETE FROM ka_poptavky WHERE idp = ${Number(id)}`);
   }
 });
 

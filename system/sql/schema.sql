@@ -577,6 +577,26 @@ CREATE TABLE ka_poptavky (
     KEY ix_poptavky_prirazeno (prirazeno, stav)                 -- "assigned to me" (3.24, migration 0110)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
+-- Internal comments of the team on a record (3.25, Core\Comments): appended, never overwritten. target = what they are
+-- about ('enquiry:12'; later 'page:5', 'item:9'), kind = 'note' (an internal note the customer never sees). Enquiry notes
+-- follow the enquiry: deleted with it (Core\Comments::forgetEnquiries – no foreign key, the target is text), blanked when it
+-- is anonymised (who and when stay). author_name keeps the name as it was when written. Plain text, escaped on output.
+CREATE TABLE ka_comments (
+    id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    target      VARCHAR(40) NOT NULL,
+    kind        VARCHAR(20) NOT NULL DEFAULT 'note',
+    author_id   INT UNSIGNED NULL,                       -- the user who wrote it (no foreign key, like ka_poptavky.prirazeno)
+    author_name VARCHAR(100) NOT NULL DEFAULT '',
+    text        TEXT NOT NULL,
+    via         VARCHAR(10) NOT NULL DEFAULT '',         -- admin | mcp
+    mentions    TEXT NULL,                               -- JSON list of user ids mentioned (not used before 3.26)
+    created_at  DATETIME NOT NULL,
+    edited_at   DATETIME NULL,
+    deleted_at  DATETIME NULL,
+    PRIMARY KEY (id),
+    KEY ix_comments_target (target, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
 -- Collections: custom content types (references, team, products, branches…). pole = JSON [{klic, popisek, typ}], typ: text | radky | html | obrazek | odkaz | cislo | datum | termin | soubor | poloha | polozka.
 -- detail = items have their own page /<seo_link>/<item seo> with an item template from the builder (stavba, stavba_koncept).
 CREATE TABLE ka_kolekce (

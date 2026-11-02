@@ -75,6 +75,7 @@ return [
     'odber_fronta' => ['subscriber_queue', ['idf' => 'id']],
     'newsletters' => ['newsletters', []],
     'newsletter_queue' => ['newsletter_queue', []],
+    'comments' => ['comments', []],
     // links, imports and statistics
     'nenalezeno' => ['not_found', ['cesta' => 'path', 'pocet' => 'hits', 'naposledy' => 'last_seen_at']],
     'odkazy_vadne' => ['broken_links', ['ido' => 'id']],

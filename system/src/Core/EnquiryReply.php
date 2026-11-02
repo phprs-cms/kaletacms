@@ -37,12 +37,51 @@ final class EnquiryReply
         return null;
     }
 
-    /** The subject offered for a reply: "Re: " and the form name (an enquiry has no subject of its own). @param array<string, mixed> $enquiry */
+    /** The longest quote of the customer's message under a reply. */
+    public const int MAX_QUOTE = 3000;
+
+    /**
+     * The subject offered for a reply (an enquiry has no subject of its own; 3.25, CPO #7): "Re: " and what it was about
+     * (the topic – the collection item, page or pop-up), else the first 60 characters of the customer's message, else the
+     * form name. @param array<string, mixed> $enquiry
+     */
     public static function subject(array $enquiry): string
     {
+        $topic = trim((string) preg_replace('/\s+/u', ' ', (string) ($enquiry['tema'] ?? '')));
+        if ($topic !== '') {
+            return 'Re: ' . mb_substr($topic, 0, 100);
+        }
+        $data = json_decode((string) ($enquiry['data'] ?? ''), true);
+        $message = trim((string) preg_replace('/\s+/u', ' ', EnquiryThread::message(is_array($data) ? array_values($data) : [], (string) ($enquiry['email'] ?? ''))));
+        if ($message !== '') {
+            return 'Re: ' . (mb_strlen($message) > 60 ? rtrim(mb_substr($message, 0, 60)) . '…' : $message);
+        }
         $name = trim((string) ($enquiry['formular'] ?? ''));
 
         return 'Re: ' . ($name !== '' ? $name : t('Enquiry'));
+    }
+
+    /**
+     * The customer's message quoted under the reply (3.25, CPO #7): a line saying when and who wrote it, then every line
+     * with "> " – as mail programs quote. '' when the enquiry carries no message. Pure.
+     *
+     * @param array<string, mixed> $enquiry a row of ka_poptavky (datum, email, data)
+     */
+    public static function quote(array $enquiry): string
+    {
+        $data = json_decode((string) ($enquiry['data'] ?? ''), true);
+        $message = EnquiryThread::message(is_array($data) ? array_values($data) : [], (string) ($enquiry['email'] ?? ''));
+        if ($message === '') {
+            return '';
+        }
+        if (mb_strlen($message) > self::MAX_QUOTE) {
+            $message = rtrim(mb_substr($message, 0, self::MAX_QUOTE)) . '…';
+        }
+        $who = (string) ($enquiry['email'] ?? '') !== '' ? (string) $enquiry['email'] : t('the customer');
+        $when = (string) ($enquiry['datum'] ?? '') !== '' ? format_date((string) $enquiry['datum'], true) : '';
+        $lines = array_map(fn (string $line): string => rtrim('> ' . $line), explode("\n", str_replace("\r\n", "\n", $message)));
+
+        return ($when !== '' ? t('On %s, %s wrote:', $when, $who) : t('%s wrote:', $who)) . "\n" . implode("\n", $lines);
     }
 
     /**
@@ -117,7 +156,7 @@ final class EnquiryReply
     {
         $db = $app->db();
         $s = $app->settings();
-        $enquiry = $db->one('SELECT idp, email, formular, stav, prirazeno, replies, anonymizovano FROM {poptavky} WHERE idp = ?', [$idp]);
+        $enquiry = $db->one('SELECT idp, datum, email, formular, tema, data, stav, prirazeno, replies, anonymizovano FROM {poptavky} WHERE idp = ?', [$idp]);
         if ($enquiry === null) {
             throw new \DomainException('The enquiry does not exist.');
         }
@@ -145,8 +184,10 @@ final class EnquiryReply
 
         // the user's own e-mail signature (My account → My e-mail signature): plain text under the "-- " line, HTML below the text
         $signature = self::signature($app, $user);
-        $plain = $text . ($signature !== null && $signature['text'] !== '' ? "\n\n-- \n" . $signature['text'] : '');
-        $html = $signature !== null ? self::html($text, $signature['html']) : '';
+        // 3.25 (CPO #7): the customer's message quoted below the signature, so they see what the answer is about
+        $quote = self::quote($enquiry);
+        $plain = $text . ($signature !== null && $signature['text'] !== '' ? "\n\n-- \n" . $signature['text'] : '') . ($quote !== '' ? "\n\n" . $quote : '');
+        $html = $signature !== null ? self::html($text, $signature['html'], $quote) : '';
 
         $ok = Mail::send($s, $to[0], $subject, $plain, $html, $headers);
         $error = $ok ? '' : Mail::$error;
@@ -186,12 +227,16 @@ final class EnquiryReply
     }
 
     /** The HTML part when a signature goes with the reply: the text as written (line breaks kept), the signature table below. */
-    private static function html(string $text, string $signatureHtml): string
+    private static function html(string $text, string $signatureHtml, string $quote = ''): string
     {
         $dir = Language::isRtl(Language::code()) ? ' dir="rtl"' : '';
+        // the quote: its first line (who wrote it and when) as it is, the quoted lines without "> " in a blockquote
+        $quoteLines = $quote !== '' ? explode("\n", $quote) : [];
+        $quoteHtml = $quoteLines !== [] ? '<div style="margin-top:24px; font:14px/1.5 system-ui, -apple-system, \'Segoe UI\', Roboto, Arial, sans-serif; color:#57606a;">' . e(array_shift($quoteLines))
+            . '<blockquote style="margin:6px 0 0; padding:0 0 0 12px; border-left:3px solid #d0d7de; white-space:pre-wrap;">' . e(implode("\n", array_map(fn (string $l): string => (string) preg_replace('/^> ?/', '', $l), $quoteLines))) . '</blockquote></div>' : '';
 
         return '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body' . $dir . '>'
             . '<div style="font:15px/1.6 system-ui, -apple-system, \'Segoe UI\', Roboto, Arial, sans-serif; color:#1f2328; white-space:pre-wrap;">' . e($text) . '</div>'
-            . '<div style="margin-top:24px;">' . $signatureHtml . '</div></body></html>';
+            . '<div style="margin-top:24px;">' . $signatureHtml . '</div>' . $quoteHtml . '</body></html>';
     }
 }

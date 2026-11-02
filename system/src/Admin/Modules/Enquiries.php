@@ -16,7 +16,7 @@ final class Enquiries extends Module
     public const string IDENT = 'enquiries';
     public const string EXTENSION = 'poptavky';
     public const string NAME = 'Enquiries';
-    public const string GROUP = 'Customers';
+    public const string GROUP = 'Workspace';
     public const string ICON = 'poptavky';
 
     public const array STATUSES = [0 => 'nová', 1 => 'přečtená', 2 => 'vyřízená'];
@@ -106,6 +106,8 @@ final class Enquiries extends Module
             'origin' => \Kaleta\Admin\EnquiryOrigin::resolve($this->app, $p),
             // 3.22 (C10): the replies sent from here, and whether the site can send one (SMTP)
             'replies' => \Kaleta\Core\EnquiryReply::history($this->db, $p),
+            // 3.25: the internal notes, appended and never overwritten (Core\Comments); the detail shows them in the conversation
+            'notes' => \Kaleta\Core\Comments::of($this->db, \Kaleta\Core\Comments::enquiry((int) $p['idp'])),
             'replyBlocked' => \Kaleta\Core\EnquiryReply::unavailable($this->app->settings()),
             'replyTo' => (string) ($this->app->auth()->user()['email'] ?? ''),
             'hasSignature' => \Kaleta\Core\EnquiryReply::signature($this->app, $this->app->auth()->user() ?? []) !== null,
@@ -192,10 +194,26 @@ final class Enquiries extends Module
         return $this->back('Saved.', 'detail', ['id' => $id]);
     }
 
+    /**
+     * Two forms post here: the note composer of the conversation (add_note – appended as a new note, 3.25) and the form
+     * with who handles the enquiry and its summary (poznamka – the one editable note it had before 3.25).
+     */
     protected function actionNote(): Response
     {
         $idp = $this->request->postInt('idp');
-        if ($this->request->isPost()) {
+        if ($this->request->isPost() && $this->request->hasPost('add_note')) {
+            if ($this->db->value('SELECT 1 FROM {poptavky} WHERE idp = ?', [$idp]) === null) {
+                return $this->error('The enquiry does not exist.', 404);
+            }
+            try {
+                \Kaleta\Core\Comments::add($this->db, \Kaleta\Core\Comments::enquiry($idp), $this->request->post('add_note'), $this->app->auth()->user() ?? []);
+            } catch (\DomainException $e) {
+                return $this->back($e->getMessage(), 'detail', ['id' => $idp], 'chyba');
+            }
+
+            return $this->back('The note was added.', 'detail', ['id' => $idp]);
+        }
+        if ($this->request->isPost() && $this->request->hasPost('poznamka')) {
             $who = $this->request->postInt('prirazeno');
             $before = $this->db->value('SELECT prirazeno FROM {poptavky} WHERE idp = ?', [$idp]);
             $after = $who > 0 && isset($this->listAssignees((int) $before)[$who]) ? $who : null;
@@ -235,6 +253,7 @@ final class Enquiries extends Module
         if ($this->request->post('provest') === 'smazat') {
             self::deleteAttachments($this->db->all('SELECT data FROM {poptavky} WHERE idp IN (' . $v . ')'));
             $this->db->run('DELETE FROM {poptavky} WHERE idp IN (' . $v . ')');
+            \Kaleta\Core\Comments::forgetEnquiries($this->db, $ids);
 
             return $this->back(t('Enquiries deleted: %d.', count($ids)));
         }
@@ -270,6 +289,7 @@ final class Enquiries extends Module
         if ($this->request->isPost()) {
             self::deleteAttachments($this->db->all('SELECT data FROM {poptavky} WHERE idp = ?', [$this->request->postInt('idp')]));
             $this->db->delete('poptavky', ['idp' => $this->request->postInt('idp')]);
+            \Kaleta\Core\Comments::forgetEnquiries($this->db, [$this->request->postInt('idp')]);
         }
 
         return $this->back('The enquiry was deleted.');
@@ -349,6 +369,7 @@ final class Enquiries extends Module
      */
     public static function deleteExpired(\Kaleta\Core\Db $db, \Kaleta\Core\Settings $siteSettings): void
     {
+        \Kaleta\Core\Comments::sweep($db); // 3.25: notes of an enquiry some other path deleted
         $months = $siteSettings->int('enquiries_months');
         if ($months <= 0) {
             return;
@@ -358,8 +379,10 @@ final class Enquiries extends Module
 
             return;
         }
+        $expired = array_map('intval', array_column($db->all('SELECT idp FROM {poptavky} WHERE datum < ?', [\Kaleta\Core\Clock::monthsAgo($months)]), 'idp'));
         self::deleteAttachments($db->all('SELECT data FROM {poptavky} WHERE datum < ?', [\Kaleta\Core\Clock::monthsAgo($months)]));
         $db->run('DELETE FROM {poptavky} WHERE datum < ?', [\Kaleta\Core\Clock::monthsAgo($months)]);
+        \Kaleta\Core\Comments::forgetEnquiries($db, $expired); // 3.25: the notes go with their enquiry
     }
 
     /** Blanks everything about the person in one enquiry and keeps the row (2.14, Core\Privacy). */

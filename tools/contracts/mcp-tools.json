@@ -2165,6 +2165,7 @@
     },
     "update_enquiry": {
         "parameters": {
+            "add_note": "string",
             "assignee": "string",
             "category": "string",
             "draft_reply": "string",

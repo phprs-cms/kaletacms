@@ -1524,6 +1524,10 @@ table.preklady td[data-stav] form { margin-inline-start: 6px; }
 .odpovedi p { margin: 0; }
 .odpovedi details { margin-top: 6px; }
 .odpoved-text { margin-top: 6px; overflow-wrap: anywhere; }
+/* 3.25: the conversation of an enquiry – the customer's message, the replies and the internal notes (tinted, never sent) */
+.vlakno .vlakno-zakaznik { background: var(--plocha); }
+.vlakno .vlakno-poznamka { background: color-mix(in oklch, var(--varovani) 9%, var(--plocha)); border-color: color-mix(in oklch, var(--varovani) 35%, var(--linka)); border-style: dashed; }
+.vlakno-poznamka-form { margin: 0 0 16px; }
 /* 3.23 (C17): the hand-over checklist of Site audit – its progress and one row per check, the fix under it */
 .predani-postup { display: block; width: min(100%, 360px); height: 8px; margin: 0 0 10px; accent-color: var(--ok, #2f855a); }
 .predani-seznam li { overflow-wrap: anywhere; }

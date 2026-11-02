@@ -8622,5 +8622,39 @@ check('N324-5: My work and its menu badge leave spam out, as the Enquiries list 
     str_contains($n3245, "' AND ' . \\Kaleta\\Admin\\Modules\\Enquiries::NOT_SPAM"), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/MyWork.php'), 'return Enquiries::countAssigned($app->db(), $app->auth()->id());'),
 ], [true, true]);
 
+// 3.25 (A): internal notes as a history (Core\Comments), the conversation of an enquiry (Core\EnquiryThread), the reply
+// quoting the customer's message and the default subject (CPO #7)
+$a325Data = [['Jméno', 'Hana Nová'], ['E-mail', 'hana@example.cz'], ['Telefon', '+420 777 000 111'], ['Zpráva', "Dobrý den,\nkolik stojí okna do kuchyně?"], ['Příloha', 'plan.pdf', '2026/11/0123456789abcdef01234567.pdf']];
+$a325Enquiry = ['idp' => 5, 'datum' => '2026-11-02 09:00:00', 'email' => 'hana@example.cz', 'formular' => 'Kontakt', 'tema' => '', 'data' => json_encode($a325Data, JSON_UNESCAPED_UNICODE)];
+$a325Thread = Kaleta\Core\EnquiryThread::entries($a325Enquiry,
+    [['at' => '2026-11-02 11:00:00', 'by' => 'Alex', 'text' => 'Reply'], ['at' => '2026-11-02 09:00:00', 'by' => 'Alex', 'text' => 'Same minute']],
+    [['at' => '2026-11-02 10:00:00', 'by' => 'Jana', 'text' => 'Call her'], ['at' => '2026-11-03 08:00:00', 'by' => 'Jana', 'text' => 'Done']]);
+$a325Quote = Kaleta\Core\EnquiryReply::quote($a325Enquiry);
+check('3.25 (A): the customer\'s message is the longest sentence-like field (not an attachment, the address or one word); the thread is in the order of time with the customer first at the same time', [
+    Kaleta\Core\EnquiryThread::message($a325Data, 'hana@example.cz'), Kaleta\Core\EnquiryThread::message([['Jméno', 'Jan'], ['Telefon', '777000111'], ['E-mail', 'a.very.long.address@example.com']], 'x@example.com'),
+    Kaleta\Core\EnquiryThread::message([['Zpráva', 'Call me back please']]), Kaleta\Core\EnquiryThread::message(['x', ['a'], ['b', 7]]),
+    array_map(fn (array $e): string => $e['type'] . ':' . ($e['entry']['text'] ?? ''), $a325Thread),
+], ["Dobrý den,\nkolik stojí okna do kuchyně?", '', 'Call me back please', '',
+    ["customer:Dobrý den,\nkolik stojí okna do kuchyně?", 'reply:Same minute', 'note:Call her', 'reply:Reply', 'note:Done']]);
+check('3.25 (A, CPO #7): the default subject is Re: the topic, else the first 60 characters of the message, else the form; the quote is "> " lines under a line naming who wrote', [
+    Kaleta\Core\EnquiryReply::subject(['tema' => "Okna –\n kuchyň", 'formular' => 'Kontakt'] + $a325Enquiry),
+    Kaleta\Core\EnquiryReply::subject($a325Enquiry),
+    Kaleta\Core\EnquiryReply::subject(['data' => json_encode([['Zpráva', str_repeat('slovo ', 20)]])] + $a325Enquiry),
+    Kaleta\Core\EnquiryReply::subject(['data' => '[]', 'formular' => 'Kontakt'] + $a325Enquiry),
+    array_slice(explode("\n", $a325Quote), 1), str_contains(explode("\n", $a325Quote)[0], 'hana@example.cz'),
+    Kaleta\Core\EnquiryReply::quote(['data' => '[["Telefon","777"]]'] + $a325Enquiry),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/EnquiryReply.php'), "\$plain = \$text . (\$signature !== null && \$signature['text'] !== '' ? \"\\n\\n-- \\n\" . \$signature['text'] : '') . (\$quote !== '' ? \"\\n\\n\" . \$quote : '');"),
+], ['Re: Okna – kuchyň', 'Re: Dobrý den, kolik stojí okna do kuchyně?', 'Re: ' . rtrim(mb_substr(trim(str_repeat('slovo ', 20)), 0, 60)) . '…', 'Re: Kontakt',
+    ['> Dobrý den,', '> kolik stojí okna do kuchyně?'], true, '', true]);
+check('3.25 (A): a note is plain text kept as written (control characters out, line breaks kept, capped); enquiry notes are personal data never journaled, kept on every delete path; Enquiries sits in the Workspace group', [
+    Kaleta\Core\Comments::clean("  a\r\nb\x07\tc  "), Kaleta\Core\Comments::clean(" \n "), mb_strlen(Kaleta\Core\Comments::clean(str_repeat('é', 6000))), Kaleta\Core\Comments::enquiry(12),
+    in_array('comments', Kaleta\Core\AgentJournal::PERSONAL_TABLES, true), Kaleta\Core\AgentJournal::journaled('comments'),
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php'), 'Comments::forgetEnquiries('),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Jobs.php'), 'Comments::forgetEnquiries('), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/PersonalData.php'), 'Comments::forgetEnquiries('),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/EnquiryAndPopupTools.php'), 'Comments::forgetEnquiries($db, [$id]);'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Privacy.php'), "Comments::anonymiseEnquiries(\$db, array_map('intval', array_column(\$rows, 'idp')));"),
+    Kaleta\Admin\Modules\Enquiries::GROUP,
+], ["a\nb\tc", '', 5000, 'enquiry:12', true, false, 3, true, true, true, true, 'Workspace']);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

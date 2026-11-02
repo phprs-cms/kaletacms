@@ -5035,15 +5035,15 @@ sq "UPDATE ka_uzivatele SET email = 'alex@firma.example', team_item_id = ${C10_P
 C10=$(sq "INSERT INTO ka_poptavky (datum, formular, zdroj, stranka, email, data, stav, navrh_odpovedi) VALUES ('$(site_time)', 'Poptávka oken', 'stranka:1', '/kontakt', 'hana@example.cz', '[[\"Zpráva\",\"Kolik stojí okna?\"]]', 0, 'Dobrý den, pošleme nabídku.'); SELECT LAST_INSERT_ID();")
 c10_reply() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=enquiries&action=detail&id=$1"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=enquiries&action=reply" -d "_csrf=$(csrf)" -d "id=$1" "${@:2}"; }
 check "3.22 C10: without SMTP the detail says why and keeps the mailto: link with the draft" 200 "/admin.php?module=enquiries&action=detail&id=$C10" "data-reply-blocked"
-grep -q 'href="mailto:hana@example.cz?subject=Re%3A%20Popt%C3%A1vka%20oken&amp;body=Dobr' "$WORK/response" && ! grep -q 'data-reply-form' "$WORK/response" \
+grep -q 'href="mailto:hana@example.cz?subject=Re%3A%20Kolik%20stoj%C3%AD%20okna%3F&amp;body=Dobr' "$WORK/response" && ! grep -q 'data-reply-form' "$WORK/response" \
   && echo "  ok     3.22 C10: no Send button without SMTP, the mailto: fallback stays" || { echo "  CHYBA  3.22 C10: the detail without SMTP"; ERRORS=$((ERRORS+1)); }
-c10_reply "$C10" --data-urlencode "subject=Re: Poptávka oken" --data-urlencode "text=Dobrý den"
+c10_reply "$C10" --data-urlencode "subject=Re: Kolik stojí okna?" --data-urlencode "text=Dobrý den"
 expect "3.22 C10: a reply posted without SMTP is refused and nothing is logged" "$(sq "SELECT CONCAT(IFNULL(replies, 'none'), '|', stav) FROM ka_poptavky WHERE idp = $C10")" "none|1"
 mkdir -p "$WORK/smtp-c10"; command php "$ROOT/tools/fake-smtp.php" "$SMTP2_PORT" "$WORK/smtp-c10" > /dev/null 2>&1 & SMTP_PID=$!
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '$SMTP2_PORT'), ('smtp_encryption', 'zadne'), ('smtp_user', ''), ('mail_from', 'web@example.cz')" > /dev/null
 check "3.22 C10: with SMTP the detail offers the reply form" 200 "/admin.php?module=enquiries&action=detail&id=$C10" "data-reply-form"
-grep -q 'name="subject" maxlength="200" value="Re: Poptávka oken"' "$WORK/response" && grep -q '>Dobrý den, pošleme nabídku.</textarea>' "$WORK/response" && grep -q 'alex@firma.example' "$WORK/response" && grep -q 'data-potvrdit="Poslat tuto odpověď hned na hana@example.cz?' "$WORK/response" \
-  && echo "  ok     3.22 C10: the subject Re: <form>, the draft, the user's address and a confirmation before sending" || { echo "  CHYBA  3.22 C10: the reply form"; ERRORS=$((ERRORS+1)); }
+grep -q 'name="subject" maxlength="200" value="Re: Kolik stojí okna?"' "$WORK/response" && grep -q '>Dobrý den, pošleme nabídku.</textarea>' "$WORK/response" && grep -q 'alex@firma.example' "$WORK/response" && grep -q 'data-potvrdit="Poslat tuto odpověď hned na hana@example.cz?' "$WORK/response" \
+  && echo "  ok     3.22 C10 (3.25 CPO #7): the subject Re: <first 60 characters of the message>, the draft, the user's address and a confirmation before sending" || { echo "  CHYBA  3.22 C10: the reply form"; ERRORS=$((ERRORS+1)); }
 # 3.23.1 (N-C5): the hint promises the signature only to a user who has one; without it, it says so and links My e-mail signature
 ! grep -q 'data-reply-no-signature' "$WORK/response" && grep -q 'Pod text se přidá váš e-mailový podpis' "$WORK/response" \
   && echo "  ok     3.23.1 N-C5: with a signature the reply form says it is added" || { echo "  CHYBA  3.23.1 N-C5: the hint with a signature"; ERRORS=$((ERRORS+1)); }
@@ -5059,6 +5059,9 @@ expect "3.22 C10: one recipient, From the site, Reply-To the user (not the site'
   "$(grep -c '^X-Rcpt-To:' "$F" 2>/dev/null)|$(grep -c '^From: .*<web@example.cz>' "$WORK/eml.txt")|$(grep -c '^Reply-To: alex@firma.example' "$WORK/eml.txt")|$(grep -ci '^Bcc:' "$WORK/eml.txt")|$(ls "$WORK"/smtp-c10/*.eml | wc -l | tr -d ' ')" "1|1|1|0|1"
 expect "3.22 C10: the text as written, the signature from My account in the text and the HTML part" \
   "$(grep -c '^pošleme nabídku do pátku.$' "$WORK/eml.txt")|$(grep -c '^-- $' "$WORK/eml.txt")|$([ -n "$C10_PERSON" ] && grep -c 'Petr Podpis' "$WORK/eml.txt")|$([ -n "$C10_PERSON" ] && grep -c 'max-width:600px' "$WORK/eml.txt")" "1|1|2|1"
+# 3.25 (CPO #7): the customer's message quoted below the signature – "> " lines in the text part, a blockquote in the HTML part
+expect "3.25 CPO #7: the sent reply quotes the customer's message below the signature" \
+  "$(grep -c '^> Kolik stojí okna?$' "$WORK/eml.txt")|$(grep -c 'hana@example.cz:$' "$WORK/eml.txt")|$(awk '/^-- $/{s=NR} /^> Kolik/{q=NR} END{print (s>0 && q>s)}' "$WORK/eml.txt")|$([ -n "$C10_PERSON" ] && grep -c '<blockquote style=.*>Kolik stojí okna?</blockquote>' "$WORK/eml.txt")" "1|1|1|1"
 expect "3.22 C10: logged on the enquiry (sent, to, Reply-To, the text), resolved, handled by the sender" \
   "$(sq "SELECT CONCAT_WS('|', stav, prirazeno, JSON_UNQUOTE(JSON_EXTRACT(replies, '\$[0].status')), JSON_UNQUOTE(JSON_EXTRACT(replies, '\$[0].to')), JSON_UNQUOTE(JSON_EXTRACT(replies, '\$[0].reply_to')), JSON_UNQUOTE(JSON_EXTRACT(replies, '\$[0].via')), JSON_UNQUOTE(JSON_EXTRACT(replies, '\$[0].text')) LIKE '%do pátku.') FROM ka_poptavky WHERE idp = $C10")" \
   "2|$C10_IDU|sent|hana@example.cz|alex@firma.example|admin|1"
@@ -5083,7 +5086,7 @@ mcp reply_to_enquiry "{\"id\":$C10Q,\"text\":\"Hello\"}" > "$WORK/response"
 contains -q 'confirm=true' "$WORK/response" && echo "  ok     3.22 C10: reply_to_enquiry refuses without confirm=true" || { echo "  CHYBA  3.22 C10: reply_to_enquiry without confirm"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp reply_to_enquiry "{\"id\":$C10,\"text\":\"Dobrý den, posíláme ještě ceník.\",\"keep_open\":true,\"confirm\":true}" > "$WORK/response"
 expect "3.22 C10: reply_to_enquiry sends with confirm=true, the history has a second reply through Claude" \
-  "$(mcp_value status)|$(sq "SELECT CONCAT_WS('|', JSON_LENGTH(replies), JSON_UNQUOTE(JSON_EXTRACT(replies, '\$[1].via')), JSON_UNQUOTE(JSON_EXTRACT(replies, '\$[1].subject'))) FROM ka_poptavky WHERE idp = $C10")" "sent|2|mcp|Re: Poptávka oken"
+  "$(mcp_value status)|$(sq "SELECT CONCAT_WS('|', JSON_LENGTH(replies), JSON_UNQUOTE(JSON_EXTRACT(replies, '\$[1].via')), JSON_UNQUOTE(JSON_EXTRACT(replies, '\$[1].subject'))) FROM ka_poptavky WHERE idp = $C10")" "sent|2|mcp|Re: Kolik stojí okna?"
 # anonymising keeps who replied and when, drops the address, the subject and the text; the personal data file carries the replies
 mcp find_personal_data '{"email":"hana@example.cz"}' > /dev/null
 C10_EXPORT=$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); $f = Kaleta\Core\PersonalData::find($app->db(), "hana@example.cz"); foreach ($f["enquiries"] as $e) { if ((int) $e["idp"] === (int) $argv[1]) { echo count($e["replies"]), "|", $e["replies"][0]["text"]; } }' "$C10")
@@ -5093,6 +5096,46 @@ curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=enquiries&a
 expect "3.22 C10: an anonymised enquiry keeps who replied and when, without the address, the subject and the text" \
   "$(sq "SELECT CONCAT_WS('|', JSON_LENGTH(replies), JSON_UNQUOTE(JSON_EXTRACT(replies, '\$[0].by')) <> '', JSON_UNQUOTE(JSON_EXTRACT(replies, '\$[0].to')), JSON_UNQUOTE(JSON_EXTRACT(replies, '\$[0].text')), replies LIKE '%hana%' OR replies LIKE '%pátku%') FROM ka_poptavky WHERE idp = $C10")" "2|1|||0"
 check "3.22 C10: and has no reply form" 200 "/admin.php?module=enquiries&action=detail&id=$C10" "data-reply-none"
+echo "== 3.25 (A): internal notes as a history on every enquiry – appended with who and when, the conversation, MCP add_note, GDPR"
+N325=$(sq "INSERT INTO ka_poptavky (datum, formular, email, data, stav, poznamka) VALUES ('$(site_time)', 'Kontakt 325', 'notes325@example.cz', '[[\"Zpráva\",\"Potřebuji nabídku na dveře.\"]]', 1, 'Staré shrnutí 325'); SELECT LAST_INSERT_ID();")
+n325_post() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=enquiries&action=detail&id=$N325"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=enquiries&action=note" -d "_csrf=$(csrf)" -d "idp=$N325" "$@"; }
+n325_post --data-urlencode $'add_note=První poznámka 325\nna dva řádky'
+n325_post --data-urlencode "add_note=   "
+n325_post --data-urlencode "add_note=Druhá poznámka 325"
+expect "3.25: two notes appended in order with the author and the time, an empty one refused, the summary (poznamka) untouched" \
+  "$(sq "SELECT GROUP_CONCAT(CONCAT_WS('/', kind, author_name <> '', author_id IS NOT NULL, via, created_at IS NOT NULL, REPLACE(text, '\n', '~')) ORDER BY id SEPARATOR '|') FROM ka_comments WHERE target = 'enquiry:$N325'")|$(sq "SELECT poznamka FROM ka_poptavky WHERE idp = $N325")" \
+  "note/1/1/admin/1/První poznámka 325~na dva řádky|note/1/1/admin/1/Druhá poznámka 325|Staré shrnutí 325"
+check "3.25: the detail shows one conversation – the summary first, the customer's message, the notes marked internal" 200 "/admin.php?module=enquiries&action=detail&id=$N325" 'data-thread-item="note"'
+expect "3.25: the conversation order and the internal marking" \
+  "$(grep -o 'data-thread-item="[a-z]*"' "$WORK/response" | tr '\n' ' ')|$(grep -c 'Interní – zákazník ji nevidí' "$WORK/response")|$(grep -c 'První poznámka 325<br' "$WORK/response")|$(grep -c 'name="add_note"' "$WORK/response")" \
+  'data-thread-item="summary" data-thread-item="customer" data-thread-item="note" data-thread-item="note" |2|1|1'
+n325_post -d poznamka=Nové%20shrnutí -d prirazeno=0
+expect "3.25: the Handled by form still rewrites the summary and adds no note" "$(sq "SELECT poznamka FROM ka_poptavky WHERE idp = $N325")|$(sq "SELECT COUNT(*) FROM ka_comments WHERE target = 'enquiry:$N325'")" "Nové shrnutí|2"
+mcp update_enquiry "{\"id\":$N325,\"add_note\":\"Poznámka od Clauda 325\"}" > "$WORK/response"
+expect "3.25: MCP update_enquiry add_note appends a note as the connected user (via mcp), the earlier ones stay" \
+  "$(mcp_value changed)|$(sq "SELECT CONCAT_WS('/', COUNT(*), SUM(via = 'mcp'), MAX(IF(via = 'mcp', author_name <> '', 0))) FROM ka_comments WHERE target = 'enquiry:$N325'")" '["note_added"]|3/1/1'
+mcp update_enquiry "{\"id\":$N325,\"add_note\":\" \"}" > "$WORK/response"
+contains -q 'add_note must be the text of the note' "$WORK/response" && echo "  ok     3.25: an empty add_note is refused" || { echo "  CHYBA  3.25: empty add_note"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp list_enquiries '{"search":"notes325@example.cz"}' > "$WORK/response"
+expect "3.25: list_enquiries rows carry notes_count (old keys kept)" "$(php -r '$v = json_decode(json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"], true); $r = $v[0] ?? $v["enquiries"][0] ?? []; echo ($r["notes_count"] ?? "none"), "|", isset($r["email"], $r["status"], $r["fields"]) ? 1 : json_encode(array_keys($r));' "$WORK/response")" "3|1"
+N325_EXPORT=$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); foreach (Kaleta\Core\PersonalData::find($app->db(), "notes325@example.cz")["enquiries"] as $e) { echo count($e["notes"]), "|", $e["notes"][0]["text"]; }')
+expect "3.25: the personal data file carries the notes on the person's enquiry" "$N325_EXPORT" "3|První poznámka 325
+na dva řádky"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=enquiries&action=detail&id=$N325"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=enquiries&action=anonymise" -d "_csrf=$(csrf)" -d "idp=$N325"
+expect "3.25: anonymising keeps who wrote each note and when, blanks the text" \
+  "$(sq "SELECT CONCAT_WS('/', COUNT(*), SUM(text = ''), SUM(author_name <> ''), SUM(created_at IS NOT NULL)) FROM ka_comments WHERE target = 'enquiry:$N325'")" "3/3/3/3"
+check "3.25: the anonymised detail says the note text was removed" 200 "/admin.php?module=enquiries&action=detail&id=$N325" 'data-thread-item="note"'
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=enquiries&action=delete" -d "_csrf=$(csrf)" -d "idp=$N325"
+expect "3.25: deleting the enquiry deletes its notes" "$(sq "SELECT COUNT(*) FROM ka_comments WHERE target = 'enquiry:$N325'")" "0"
+# erasure on request and MCP delete_enquiry take the notes too; a note left by another path is swept by the retention cleanup
+N325E=$(sq "INSERT INTO ka_poptavky (datum, formular, email, data, stav) VALUES ('$(site_time)', 'Kontakt 325', 'erase325@example.cz', '[]', 1); SELECT LAST_INSERT_ID();")
+N325D=$(sq "INSERT INTO ka_poptavky (datum, formular, email, data, stav) VALUES ('$(site_time)', 'Kontakt 325', 'delete325@example.cz', '[]', 1); SELECT LAST_INSERT_ID();")
+mcp update_enquiry "{\"id\":$N325E,\"add_note\":\"Erase me\"}" > /dev/null; mcp update_enquiry "{\"id\":$N325D,\"add_note\":\"Delete me\"}" > /dev/null
+mcp erase_personal_data '{"email":"erase325@example.cz","confirm":true}' > /dev/null; mcp delete_enquiry "{\"id\":$N325D}" > /dev/null
+sq "INSERT INTO ka_comments (target, kind, text, created_at) VALUES ('enquiry:987654321', 'note', 'orphan', '$(site_time)')" > /dev/null
+curl -s -b "$JAR" -o /dev/null "$B/admin.php?module=enquiries"
+expect "3.25: erase_personal_data, delete_enquiry and the cleanup leave no note behind" "$(sq "SELECT COUNT(*) FROM ka_comments WHERE target IN ('enquiry:$N325E', 'enquiry:$N325D', 'enquiry:987654321')")" "0"
+sq "DELETE FROM ka_events WHERE type = 'personal_data.erased'" > /dev/null # the personal data part below counts its own erasure
 echo "== 3.22 (C15): the Form's own confirmation e-mail text"
 mcp create_page '{"title":"Potvrzení 322","slug":"potvrzeni-322","visible":true}' > /dev/null
 C15_PAGE=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'potvrzeni-322'")
