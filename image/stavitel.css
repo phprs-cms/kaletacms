@@ -357,3 +357,10 @@ body.st-umistovani .st-uzel { cursor: copy; }
 .st-diff p { margin: 0 0 6px; overflow-wrap: anywhere; }
 .st-diff ins { background: var(--ok-podklad); color: var(--ok); text-decoration: underline; }
 .st-diff del { background: var(--chyba-podklad); color: var(--chyba); text-decoration: line-through; }
+/* 3.26 (N-U2): spacing and colour as token choices – the colour's sample and select share the value column, the site's colours
+   as swatches span the row under them */
+.st-vlastnost .st-krok > .st-pole-radek > select { flex: 1 1 auto; }
+.st-vzorky { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; margin-top: -2px; }
+.st-vzorek-tl { width: 18px; height: 18px; padding: 0; border: 1px solid var(--linka-pole); border-radius: 4px; cursor: pointer; }
+.st-vzorek-tl[aria-pressed="true"] { outline: 2px solid var(--akcent); outline-offset: 1px; }
+.st-vzorek-tl:focus-visible { outline: 2px solid var(--akcent); outline-offset: 2px; }

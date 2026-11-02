@@ -306,6 +306,8 @@ final class Translator
         'resolve_draft_comment' => ['resolve_draft_comment', '', []],
         'my_work' => ['my_work', '', []],
         'assign' => ['assign', '', []],
+        'list_comments' => ['list_comments', '', []],
+        'add_comment' => ['add_comment', '', []],
     ];
 
     /** Parameter values in English => Czech (by the Czech parameter; for some tools only there). */

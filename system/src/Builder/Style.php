@@ -155,6 +155,8 @@ final class Style
 
     /** Safe form of a free value: numbers with units, keywords, calc/min/max/clamp, var(--ka-…). Never ; { } < > \ or url(). */
     private const string FREE_VALUE_PATTERN = '/^(?!.*(?:url|expression|javascript|@import))[-a-z0-9 .,%()#+*\/]{1,80}$/iD';
+    /** A custom colour (3.26: a constant, so image/stavitel.js can mirror it – the builder checks the field before saving). */
+    private const string COLOR_PATTERN = '/^(#[0-9a-f]{3,8}|transparent|currentColor|(rgba?|hsla?|oklch|oklab|lab|lch|hwb)\([0-9., %\/+-]{3,60}\)|var\(--ka-barva-[a-z-]{1,30}\))$/iD';
     private const string LENGTH_PATTERN = '/^(auto|0|-?\d{1,5}(\.\d{1,4})?(px|rem|em|%|vw|vh|svh|dvh|ch|fr)|(min|max|clamp|calc)\([-a-z0-9 .,%+*\/()]{1,70}\)|var\(--ka-[a-z0-9-]{1,40}\)|fit-content|min-content|max-content)$/iD';
 
     /**
@@ -317,7 +319,7 @@ final class Style
             return 'var(--ka-barva-' . $value . ')';
         }
 
-        return preg_match('/^(#[0-9a-f]{3,8}|transparent|currentColor|(rgba?|hsla?|oklch|oklab|lab|lch|hwb)\([0-9., %\/+-]{3,60}\)|var\(--ka-barva-[a-z-]{1,30}\))$/iD', $value) ? $value : null;
+        return preg_match(self::COLOR_PATTERN, $value) ? $value : null;
     }
 
     /**

@@ -418,5 +418,7 @@ Object.assign(window.KALETA_PREKLAD, {
 	"The page already starts with its title – it is selected, edit it there.": "Die Seite beginnt bereits mit ihrem Titel – er ist ausgewählt, bearbeite ihn dort.",
 	"Delete your comment? The thread keeps a note that it was deleted.": "Deinen Kommentar löschen? Im Verlauf bleibt ein Hinweis, dass er gelöscht wurde.",
 	"No team comments yet. Write the first one – type @ to mention a colleague.": "Noch keine Kommentare des Teams. Schreib den ersten – mit @ erwähnst du jemanden aus dem Team.",
-	"Comments of your colleagues on this page – only administration users see them. Also in the page settings.": "Kommentare deines Teams zu dieser Seite – nur Benutzer der Administration sehen sie. Auch in den Seiteneinstellungen."
+	"Comments of your colleagues on this page – only administration users see them. Also in the page settings.": "Kommentare deines Teams zu dieser Seite – nur Benutzer der Administration sehen sie. Auch in den Seiteneinstellungen.",
+	"Not a valid spacing. Use a number with a unit (24px, 1.5rem, 5%) or pick a step.": "Kein gültiger Abstand. Gib eine Zahl mit Einheit ein (24px, 1.5rem, 5 %) oder wähle eine Stufe.",
+	"Not a valid colour. Use #hex, rgb(…) or oklch(…), or pick a colour of the site.": "Keine gültige Farbe. Gib #hex, rgb(…) oder oklch(…) ein oder wähle eine Farbe der Website."
 });

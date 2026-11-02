@@ -7148,4 +7148,9 @@ return [
     'comment edited' => 'comentario editado',
     'comment deleted' => 'comentario eliminado',
     'note added' => 'nota añadida',
+    'Work – for a colleague’s own Claude' => 'Trabajo – para el propio Claude de un compañero',
+    'My work, enquiries and replies, comments, requests and the notebook, with pages and collection items. Claude finds the other tools when it needs them.' => 'Mi trabajo, consultas y respuestas, comentarios, encargos y el cuaderno, además de páginas y elementos de colecciones. Claude encuentra las demás herramientas cuando las necesita.',
+    'My work, enquiries and replies, comments, requests and the notebook, with pages and collection items. The application finds the other tools when it needs them.' => 'Mi trabajo, consultas y respuestas, comentarios, encargos y el cuaderno, además de páginas y elementos de colecciones. La aplicación encuentra las demás herramientas cuando las necesita.',
+    'work tools' => 'herramientas de trabajo',
+    'Done – Claude will load the work tools in the next conversation it starts and find the other tools when it needs them.' => 'Listo – Claude cargará las herramientas de trabajo en la próxima conversación que empiece y encontrará las demás cuando las necesite.',
 ];

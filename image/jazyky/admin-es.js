@@ -3063,5 +3063,22 @@ window.KALETA_PREKLAD = {
 	"Delete your comment? The thread keeps a note that it was deleted.": "¿Eliminar tu comentario? En el hilo queda constancia de que se eliminó.",
 	"Delete this comment of %s? The thread keeps a note that it was deleted.": "¿Eliminar este comentario de %s? En el hilo queda constancia de que se eliminó.",
 	"No team comments yet. Write the first one – type @ to mention a colleague.": "Aún no hay comentarios del equipo. Escribe el primero: con @ mencionas a un compañero.",
-	"Comments of your colleagues on this page – only administration users see them. Also in the page settings.": "Comentarios de tus compañeros sobre esta página: solo los ven los usuarios de la administración. También en los ajustes de la página."
+	"Comments of your colleagues on this page – only administration users see them. Also in the page settings.": "Comentarios de tus compañeros sobre esta página: solo los ven los usuarios de la administración. También en los ajustes de la página.",
+	"none": "ninguno",
+	"tiny": "diminuto",
+	"very small": "muy pequeño",
+	"small": "pequeño",
+	"medium": "medio",
+	"large": "grande",
+	"very large": "muy grande",
+	"huge": "enorme",
+	"largest": "el mayor",
+	"Transparent": "Transparente",
+	"Custom spacing": "Espaciado personalizado",
+	"Custom colour": "Color personalizado",
+	"Colours of the site": "Colores del sitio",
+	"Not a valid spacing. Use a number with a unit (24px, 1.5rem, 5%) or pick a step.": "Espaciado no válido. Escriba un número con unidad (24px, 1.5rem, 5 %) o elija un paso.",
+	"Not a valid colour. Use #hex, rgb(…) or oklch(…), or pick a colour of the site.": "Color no válido. Escriba #hex, rgb(…) u oklch(…), o elija un color del sitio.",
+	"Pozadí": "Fondo",
+	"Linka": "Línea"
 };

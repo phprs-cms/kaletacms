@@ -102,7 +102,8 @@ final class Server
             // only the tools this connection may use (a connection limited to drafts or to reading, 2.2)
             // 3.8: each tool also carries its title (top level and annotations.title, MCP 2025-06-18) – additive fields only
             // 3.10: an essentials connection lists the core tools, find_tools and the runners it needs (Mcp\Discovery)
-            'tools/list' => $ok(['tools' => $this->toolSet() === 'essentials' ? Discovery::essentials($this->available($tools), $this->access()) : $this->available($tools)]),
+            // 3.26: a "work" connection the same way with the work set (Catalog::WORK)
+            'tools/list' => $ok(['tools' => ($list = Catalog::listOf($this->toolSet())) !== null ? Discovery::essentials($this->available($tools), $this->access(), $list) : $this->available($tools)]),
             'tools/call' => $ok($this->call($tools, self::text($z['params']['name'] ?? ''), (array) ($z['params']['arguments'] ?? []))),
             default => ['jsonrpc' => '2.0', 'id' => $id, 'error' => ['code' => -32601, 'message' => 'Unknown method: ' . $method]],
         };
@@ -175,9 +176,9 @@ final class Server
         // the meta tools (3.10): callable on any connection, they only find tools and run them through this same method
         if ($name === 'find_tools') {
             $available = $this->available($tools);
-            $essentials = $this->toolSet() === 'essentials';
+            $list = Catalog::listOf($this->toolSet()); // the essentials or the work set (3.26); null = all tools
             try {
-                $found = Discovery::find($available, $essentials ? Catalog::ESSENTIALS : array_column($available, 'name'), $arguments, $essentials ? Discovery::runners($available, $this->access()) : []);
+                $found = Discovery::find($available, $list ?? array_column($available, 'name'), $arguments, $list !== null ? Discovery::runners($available, $this->access(), $list) : []);
             } catch (\InvalidArgumentException $e) {
                 return ['content' => [['type' => 'text', 'text' => $e->getMessage()]], 'isError' => true];
             }
@@ -315,7 +316,7 @@ final class Server
             [...Translator::listAll($tools->listAll()), ...\Kaleta\Extension\Registry::get()->toolDefinitions()]), fn (array $t): bool => Catalog::allows($this->access(), $t['name'])));
     }
 
-    /** The tool set of this connection: all | essentials (3.10). */
+    /** The tool set of this connection: all | essentials (3.10) | work (3.26). */
     private function toolSet(): string
     {
         return $this->app->auth()->connection()['tool_set'] ?? 'all';

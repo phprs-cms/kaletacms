@@ -356,9 +356,7 @@ await step('3.21 (U3, U4) builder: phone override seen from Desktop, reset, hide
   await pick('Phone');
   await page.evaluate(() => document.querySelectorAll('.st-styl details').forEach((d) => { d.open = true; }));
   const colour = page.locator('#st-v-barva');
-  await colour.fill('primarni');
-  await colour.press('Enter');
-  await colour.dispatchEvent('change');
+  await colour.selectOption('primarni'); // 3.26 (N-U2): a select of the site's colours
   await page.waitForFunction(() => document.querySelector('#st-v-barva').closest('.st-vlastnost').classList.contains('nastaveno'));
   if (!(await page.locator('#st-v-barva').locator('xpath=ancestor::*[contains(@class,"st-vlastnost")]').locator('.st-vynulovat').count())) { throw new Error('a field with an own value on Phone has no × to reset it'); }
   await pick('Desktop');
@@ -519,6 +517,89 @@ await step('3.21 (U2, U5, U9, U19) builder: a heading shows Typography and Spaci
   await page.getByRole('tab', { name: 'Content' }).first().click();
   if (!(await page.locator('.st-uroven button', { hasText: 'H1' }).count())) { throw new Error('Content has no Level buttons for the heading'); }
   if (SHOTS) { await page.screenshot({ path: `${SHOTS}/builder-321-heading-style.png`, fullPage: false }); }
+});
+
+// 3.26 (N-U2): spacing and colour are token choices like the font size – a select of the design system's steps or the site's
+// colours (with swatches) and "Custom…" checked in the field; "primarni" typed into Margin bottom is refused there and never
+// reaches the server; a step keeps its stored form (the token, not a length)
+await step('3.26 (N-U2) builder: Margin bottom is a select of spacing steps, "primarni" as a custom value is refused in the field and not saved; colour is a select with swatches and Custom…', async () => {
+  const until = async (fn, what, ms = 8000) => {
+    const end = Date.now() + ms;
+    let last;
+    while (Date.now() < end) { last = await fn(); if (last) { return last; } await page.waitForTimeout(200); }
+    throw new Error(`${what} (last: ${JSON.stringify(last)})`);
+  };
+  const openGroups = () => page.evaluate(() => document.querySelectorAll('.st-styl details').forEach((d) => { d.open = true; }));
+  const h1 = () => canvas().locator('h1').first();
+  const h1Margin = () => h1().evaluate((e) => getComputedStyle(e).marginBlockEnd).catch(() => '');
+  const h1Colour = () => h1().evaluate((e) => getComputedStyle(e).color).catch(() => '');
+  await h1().click();
+  await page.getByRole('tab', { name: 'Style' }).first().click();
+  await openGroups();
+  const margin = page.locator('#st-v-okraj_dole');
+  await margin.waitFor();
+  if ((await margin.evaluate((e) => e.tagName)) !== 'SELECT') { throw new Error('Margin bottom is not a select'); }
+  const options = await margin.locator('option').allTextContents();
+  for (const o of ['0 · none', 'm · medium', '3xl · largest', 'Custom…']) { if (!options.includes(o)) { throw new Error(`Margin bottom options: ${options.join(' | ')}`); } }
+  const row = page.locator('.st-vlastnost:has(#st-v-okraj_dole)');
+  const before = await h1Margin();
+  // Custom… + "primarni": refused right at the field – no request with it, no warning, the canvas unchanged
+  const saves = [];
+  const watch = (r) => { if (r.method() === 'POST' && /primarni/.test(r.postData() || '') && /okraj_dole/.test(r.postData() || '')) { saves.push(r.url()); } };
+  page.on('request', watch);
+  await margin.selectOption('vlastni');
+  const custom = row.locator('.st-krok-vlastni');
+  await custom.waitFor();
+  await custom.fill('primarni');
+  await custom.press('Tab');
+  await row.locator('.st-chyba-pole:visible').waitFor();
+  if (!/Not a valid spacing/.test((await row.locator('.st-chyba-pole').textContent()) || '')) { throw new Error('no inline message for an invalid spacing'); }
+  if (!/st-pole-chyba/.test((await row.getAttribute('class')) || '')) { throw new Error('the invalid spacing is not marked on the field'); }
+  await page.waitForTimeout(2500);
+  page.off('request', watch);
+  if (saves.length) { throw new Error('"primarni" in Margin bottom reached the server: ' + saves.join(', ')); }
+  if (await page.locator('.st-panel .st-chyby').count()) { throw new Error('the server reported an invalid value'); }
+  if (/warning/i.test((await page.locator('.st-stav').first().textContent()) || '')) { throw new Error('the top bar warns – the invalid spacing was saved'); }
+  if ((await h1Margin()) !== before) { throw new Error('the canvas changed after an invalid spacing'); }
+  // a step: saved, rendered, and stored as the token (the select shows it again after the element is selected anew)
+  await margin.selectOption('3xl');
+  await until(async () => { const m = await h1Margin(); return m && m !== before ? m : null; }, 'the canvas heading did not take the 3xl spacing');
+  await page.waitForTimeout(2500); // the autosave answers with the cleaned build; the panel is drawn from it anew
+  await page.getByRole('tab', { name: 'Content' }).first().click();
+  await page.getByRole('tab', { name: 'Style' }).first().click();
+  await openGroups();
+  if ((await page.locator('#st-v-okraj_dole').inputValue()) !== '3xl') { throw new Error('the stored spacing lost its form (not the token 3xl)'); }
+  if (await page.locator('.st-vlastnost:has(#st-v-okraj_dole) .st-krok-vlastni').count()) { throw new Error('a token spacing opened the custom field'); }
+  await page.locator('.st-vlastnost:has(#st-v-okraj_dole) .st-vynulovat').click();
+  await page.waitForFunction(() => { const s = document.querySelector('#st-v-okraj_dole'); return s && s.value === '' && !s.closest('.st-vlastnost').querySelector('.st-krok-vlastni, .st-vynulovat'); });
+  await until(async () => (await h1Margin()) === before, 'the heading did not return to its margin');
+  // colour: a select of the site's colours, swatches under it, Custom… checked like the server checks it
+  await openGroups();
+  const colour = page.locator('#st-v-barva');
+  if ((await colour.evaluate((e) => e.tagName)) !== 'SELECT') { throw new Error('Text colour is not a select'); }
+  const colourOptions = await colour.locator('option').allTextContents();
+  if (!colourOptions.includes('Primary') || !colourOptions.includes('Custom…')) { throw new Error(`Text colour options: ${colourOptions.join(' | ')}`); }
+  const colourRow = page.locator('.st-vlastnost:has(#st-v-barva)');
+  if ((await colourRow.locator('.st-vzorky button').count()) < 5) { throw new Error('no swatches of the site\'s colours'); }
+  const ink = await h1Colour();
+  await colourRow.locator('.st-vzorky button[data-token="primarni"]').click();
+  const primary = await until(async () => { const c = await h1Colour(); return c && c !== ink ? c : null; }, 'the canvas heading did not take the primary colour');
+  if ((await colour.inputValue()) !== 'primarni' || (await colourRow.locator('.st-vzorky button[data-token="primarni"]').getAttribute('aria-pressed')) !== 'true') { throw new Error('the swatch did not pick the token'); }
+  await colour.selectOption('vlastni');
+  const customColour = colourRow.locator('.st-krok-vlastni');
+  await customColour.fill('blue-ish');
+  await customColour.press('Tab');
+  await colourRow.locator('.st-chyba-pole:visible').waitFor();
+  if (!/Not a valid colour/.test((await colourRow.locator('.st-chyba-pole').textContent()) || '')) { throw new Error('no inline message for an invalid colour'); }
+  await page.waitForTimeout(2000);
+  if ((await h1Colour()) !== primary) { throw new Error('the canvas changed after an invalid colour'); }
+  await customColour.fill('#123456');
+  await customColour.press('Tab');
+  await until(async () => (await h1Colour()) === 'rgb(18, 52, 86)', 'the canvas heading did not take the custom #123456');
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/builder-326-token-fields.png`, fullPage: false }); }
+  await page.locator('.st-vlastnost:has(#st-v-barva) .st-vynulovat').click();
+  await page.waitForFunction(() => { const s = document.querySelector('#st-v-barva'); return s && s.value === '' && !s.closest('.st-vlastnost').querySelector('.st-krok-vlastni, .st-vynulovat'); });
+  await until(async () => (await h1Colour()) === ink, 'the heading did not return to its colour');
 });
 
 await step('3.19.2 builder: Save as component, Save to my sections and a shared class reach the server', async () => {

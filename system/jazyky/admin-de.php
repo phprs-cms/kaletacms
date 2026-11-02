@@ -7127,4 +7127,9 @@ return [
     'comment edited' => 'Kommentar bearbeitet',
     'comment deleted' => 'Kommentar gelöscht',
     'note added' => 'Notiz hinzugefügt',
+    'Work – for a colleague’s own Claude' => 'Arbeit – für den eigenen Claude einer Kollegin oder eines Kollegen',
+    'My work, enquiries and replies, comments, requests and the notebook, with pages and collection items. Claude finds the other tools when it needs them.' => 'Meine Arbeit, Anfragen und Antworten, Kommentare, Aufträge und das Notizbuch, dazu Seiten und Einträge von Sammlungen. Die übrigen Werkzeuge findet Claude, wenn es sie braucht.',
+    'My work, enquiries and replies, comments, requests and the notebook, with pages and collection items. The application finds the other tools when it needs them.' => 'Meine Arbeit, Anfragen und Antworten, Kommentare, Aufträge und das Notizbuch, dazu Seiten und Einträge von Sammlungen. Die übrigen Werkzeuge findet die Anwendung, wenn sie sie braucht.',
+    'work tools' => 'Arbeitswerkzeuge',
+    'Done – Claude will load the work tools in the next conversation it starts and find the other tools when it needs them.' => 'Erledigt – Claude lädt in der nächsten Unterhaltung die Arbeitswerkzeuge und findet die übrigen, wenn es sie braucht.',
 ];

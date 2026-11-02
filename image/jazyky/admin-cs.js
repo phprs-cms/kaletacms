@@ -2949,5 +2949,20 @@ window.KALETA_PREKLAD = {
 	"Delete your comment? The thread keeps a note that it was deleted.": "Smazat váš komentář? Ve vlákně zůstane záznam, že byl smazán.",
 	"Delete this comment of %s? The thread keeps a note that it was deleted.": "Smazat tento komentář (%s)? Ve vlákně zůstane záznam, že byl smazán.",
 	"No team comments yet. Write the first one – type @ to mention a colleague.": "Tým zatím nic nenapsal. Napište první komentář – kolegu zmíníte znakem @.",
-	"Comments of your colleagues on this page – only administration users see them. Also in the page settings.": "Komentáře kolegů k této stránce – vidí je jen uživatelé administrace. Najdete je i v nastavení stránky."
+	"Comments of your colleagues on this page – only administration users see them. Also in the page settings.": "Komentáře kolegů k této stránce – vidí je jen uživatelé administrace. Najdete je i v nastavení stránky.",
+	"none": "žádná",
+	"tiny": "drobná",
+	"very small": "velmi malá",
+	"small": "malá",
+	"medium": "střední",
+	"large": "velká",
+	"very large": "velmi velká",
+	"huge": "obrovská",
+	"largest": "největší",
+	"Transparent": "Průhledná",
+	"Custom spacing": "Vlastní mezera",
+	"Custom colour": "Vlastní barva",
+	"Colours of the site": "Barvy webu",
+	"Not a valid spacing. Use a number with a unit (24px, 1.5rem, 5%) or pick a step.": "Neplatná mezera. Zadejte číslo s jednotkou (24px, 1.5rem, 5 %) nebo vyberte krok.",
+	"Not a valid colour. Use #hex, rgb(…) or oklch(…), or pick a colour of the site.": "Neplatná barva. Zadejte #hex, rgb(…) nebo oklch(…), nebo vyberte barvu webu."
 };

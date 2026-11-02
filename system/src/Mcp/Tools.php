@@ -30,7 +30,7 @@ use Kaleta\Builder\HtmlConverter;
  */
 final class Tools
 {
-    use Handlers\PageTools, Handlers\BuilderTools, Handlers\LookTools, Handlers\CollectionTools, Handlers\NewsTools, Handlers\MediaTools, Handlers\EnquiryAndPopupTools, Handlers\SettingsTools, Handlers\UpkeepTools, Handlers\NewsletterTools, Handlers\MigrationTools, Handlers\HealthTools, Handlers\FleetTools, Handlers\FactTools, Handlers\BlueprintTools, Handlers\NotebookTools, Handlers\RequestTools, Handlers\AgentRunTools, Handlers\BookingTools, Handlers\PendingReviewTools, Handlers\ReportTools, Handlers\WorkTools;
+    use Handlers\PageTools, Handlers\BuilderTools, Handlers\LookTools, Handlers\CollectionTools, Handlers\NewsTools, Handlers\MediaTools, Handlers\EnquiryAndPopupTools, Handlers\SettingsTools, Handlers\UpkeepTools, Handlers\NewsletterTools, Handlers\MigrationTools, Handlers\HealthTools, Handlers\FleetTools, Handlers\FactTools, Handlers\BlueprintTools, Handlers\NotebookTools, Handlers\RequestTools, Handlers\AgentRunTools, Handlers\BookingTools, Handlers\PendingReviewTools, Handlers\ReportTools, Handlers\WorkTools, Handlers\CommentTools;
 
     /** The largest file uploaded via MCP (base64 in one tool call). */
     private const int MAX_UPLOAD = 12 * 1024 * 1024;
@@ -477,6 +477,11 @@ final class Tools
             ['assign', 'Makes a person responsible for a page or a collection item, or the one who handles an enquiry (3.24; the connected user must be able to open that section). Responsibility only – it shows in that person\'s My work and e-mails them a link when it is someone else; it never changes who may edit. The person must be able to open the section too, otherwise nothing changes. user "none" removes the responsible person.',
                 $s(['target' => $text('page | item | enquiry'), 'id' => $number('ID of the page (list_pages), the collection item (list_collection_items) or the enquiry (list_enquiries)'),
                     'user' => $text('a user id, the e-mail of an active account, "me" or "none"')], ['target', 'id', 'user'])],
+            ['list_comments', 'The team\'s internal comments on an enquiry, a page or a collection item (read-only, 3.26), oldest first: who wrote each and when, the plain text, whom it mentions. Only for a user who may open that section. Comments on an enquiry may hold personal data – read them when the user asks.',
+                $s(['target' => $text('enquiry:<id> | page:<id> | item:<id>, e.g. "page:12"'), 'limit' => $number('the newest 1–200, default 50')], ['target'])],
+            ['add_comment', 'Adds an internal comment to the thread of an enquiry, a page or a collection item as the connected user (3.26) – colleagues see it in the administration, visitors never. Plain text. '
+                . '@name (a sign-in name) or @e-mail mentions a colleague who may open the record and notifies them, also by e-mail – a full-access connection only; anyone else is refused.',
+                $s(['target' => $text('enquiry:<id> | page:<id> | item:<id>'), 'text' => $text('the comment as plain text, up to 5000 characters')], ['target', 'text'])],
             ['smaz_stranku', 'Přesune stránku do koše (jen na výslovný pokyn uživatele; editor nebo správce). Z koše jde 30 dní obnovit v administraci. Úvodní stránku smazat nejde.', $s(['id' => $number('ID stránky')], ['id'])],
         ];
 

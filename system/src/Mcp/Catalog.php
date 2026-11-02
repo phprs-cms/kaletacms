@@ -9,7 +9,8 @@ namespace Kaleta\Mcp;
  *
  * Access is what an MCP client should confirm with the user: "read" changes nothing, "draft" only saves drafts (a build,
  * a hidden page, a draft look, a news draft – publishing it needs the publishing permission – and since 3.2 a hidden
- * collection item, a proposed exception to the opening hours, an enquiry triage and a notebook note; the tool itself
+ * collection item, a proposed exception to the opening hours, an enquiry triage, a notebook note and – 3.26 – a team comment
+ * without @mentions; the tool itself
  * refuses a drafts-only connection anything more, Auth::draftsOnly), "write" changes the site,
  * and "destructive" removes or overwrites something the user may want back, or cannot be taken back (sending). A
  * connection limited to drafts (2.2) may use "read" and "draft" tools and never publishes; a read-only one only "read". The
@@ -198,6 +199,10 @@ final class Catalog
         // The team's work (3.24): what waits for the connected user, and who is responsible – never an access limit
         'my_work' => ['read', ''],
         'assign' => ['write', ''],
+        // Comment threads of the team (3.26): an internal comment on an enquiry, a page or an item – never shown on the site, so
+        // a drafts-only connection may write one too, without @mentions (they e-mail colleagues; Handlers\CommentTools)
+        'list_comments' => ['read', ''],
+        'add_comment' => ['draft', ''],
     ];
 
     /**
@@ -351,6 +356,8 @@ final class Catalog
         'delete_newsletter' => 'Delete a newsletter',
         'my_work' => 'Get my work',
         'assign' => 'Assign a responsible person',
+        'list_comments' => 'List the comments of a record',
+        'add_comment' => 'Add a comment',
     ];
 
     /**
@@ -384,13 +391,13 @@ final class Catalog
      * Write tools that never change what visitors see (3.24, T1): Mcp\Server keeps the page cache after them, every other
      * write tool clears it. Enquiries and their replies, testimonial requests, the notebook, requests to Claude and the
      * runs of its schedules, comments on drafts, the saved-sections library, the list of addresses not found, social post
-     * drafts and newsletters (an e-mail, no page on the site). Not here, so they clear: everything that saves content,
+     * drafts and newsletters (an e-mail, no page on the site), and the team's comments (3.26). Not here, so they clear: everything that saves content,
      * builds, the look, settings, media, bookings (their free times are on the page) and erase_personal_data (it deletes
      * bookings). tools/unit-tests.php classifies every write tool, so a new one has to choose; an add-on's tool clears.
      */
     public const array SITE_NEUTRAL = ['assign', 'update_enquiry', 'delete_enquiry', 'import_enquiries', 'request_testimonial', 'reply_to_enquiry', 'write_notebook',
         'delete_notebook_entry', 'update_request', 'report_agent_run', 'resolve_draft_comment', 'save_section', 'delete_section', 'ignore_not_found',
-        'update_social_draft', 'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter'];
+        'update_social_draft', 'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter', 'add_comment'];
 
     /** May the page cache stay after this write tool (by either name)? */
     public static function isSiteNeutral(string $name): bool
@@ -400,10 +407,12 @@ final class Catalog
 
     /**
      * The tool set of a connection (3.10): "all" lists every tool the connection may use (as before 3.10); "essentials"
-     * lists ESSENTIALS and the two META tools, which reach the rest on demand – a much shorter tools/list in every
-     * conversation. Existing connections keep "all"; the choice is on the connection row like its access.
+     * lists ESSENTIALS and the META tools, which reach the rest on demand – a much shorter tools/list in every
+     * conversation; "work" (3.26, owner decision D-W10) lists WORK and the META tools – for an employee's own Claude: their
+     * work, enquiries, comments and requests, with the builder a find_tools away. Existing connections keep what they have;
+     * the choice is on the connection row like its access.
      */
-    public const array TOOL_SETS = ['all', 'essentials'];
+    public const array TOOL_SETS = ['all', 'essentials', 'work'];
 
     /**
      * The core tools an essentials connection lists (3.10): pages, the builder, the menu and the look, collections, media,
@@ -415,6 +424,30 @@ final class Catalog
         'edit_build', 'build_from_html', 'save_build', 'insert_section', 'publish_build', 'preview_link', 'list_collections', 'list_collection_items',
         'save_collection_item', 'list_media', 'upload_file', 'update_media', 'list_requests', 'update_request', 'list_enquiries', 'list_facts', 'save_fact',
         'update_design_system', 'publish_look', 'site_audit', 'list_changes', 'undo_agent_session', 'read_notebook'];
+
+    /**
+     * The tools a "work" connection lists (3.26, T12 of the workspace architecture): what an employee does with their own
+     * Claude – what waits for them, enquiries and their replies, the team's comments, who is responsible, their e-mail
+     * signature, requests to Claude, the notebook, reading pages and a draft preview, collection items. Like the essentials,
+     * every other tool is one find_tools away; the list plus META stays under 49,000 bytes (tools/unit-tests.php).
+     */
+    public const array WORK = ['site_info', 'my_work', 'list_enquiries', 'update_enquiry', 'triage_enquiries', 'reply_to_enquiry', 'list_comments', 'add_comment',
+        'assign', 'get_email_signature', 'list_requests', 'update_request', 'read_notebook', 'write_notebook', 'list_pages', 'get_page', 'preview_link',
+        'list_collections', 'list_collection_items', 'save_collection_item'];
+
+    /**
+     * The tools a tool set lists before the META tools: null = every tool (all).
+     *
+     * @return list<string>|null
+     */
+    public static function listOf(string $set): ?array
+    {
+        return match (self::toolSet($set)) {
+            'essentials' => self::ESSENTIALS,
+            'work' => self::WORK,
+            default => null,
+        };
+    }
 
     /**
      * The meta tools (3.10): English name => [access, title, open world]. They are listed only for an essentials connection
