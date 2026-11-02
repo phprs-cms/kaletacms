@@ -7311,4 +7311,13 @@ return [
     'Follow up:' => 'Hacer seguimiento:',
     'The reply is on its way. Follow up if they do not answer:' => 'La respuesta está en camino. Haz seguimiento si no contestan:',
     'New task' => 'Nueva tarea',
+    'Not assigned' => 'Sin asignar',
+    'Was for' => 'Antes para',
+    'Reassign to…' => 'Reasignar a…',
+    'Open tasks nobody active has – handed to nobody, or left on a removed or blocked account. Give each to a colleague; they are notified.' => 'Tareas abiertas que no tiene nadie activo: entregadas a nadie o que quedaron en una cuenta eliminada o bloqueada. Dale cada una a un compañero; recibirá un aviso.',
+    'Nobody can be given this task now – what it is about is gone, in the trash or switched off.' => 'Ahora no se puede dar esta tarea a nadie: aquello de lo que trata ya no existe, está en la papelera o está desactivado.',
+    'This task is no longer waiting for someone.' => 'Esta tarea ya no está esperando a nadie.',
+    'Choose who takes the task.' => 'Elige quién se encarga de la tarea.',
+    'The task was given to %s – they are notified.' => 'La tarea se le dio a %s; recibirá un aviso.',
+    'The task is yours now.' => 'Ahora la tarea es tuya.',
 ];

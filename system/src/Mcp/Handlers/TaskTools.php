@@ -32,6 +32,13 @@ trait TaskTools
         $limit = max(1, min(200, (int) ($a['limit'] ?? 50)));
         if ($filter === 'mine' || $filter === 'overdue') {
             $rows = Tasks::forUser($db, $self, $filter === 'overdue' ? 'overdue' : $status, $limit);
+        } elseif (str_starts_with($filter, 'assignee:') && in_array(strtolower(trim(substr($filter, 9))), ['none', 'nobody'], true)) {
+            // the tasks nobody active has (handed to nobody, a removed or blocked account) – the administrator gives each to
+            // someone with save_task; for anyone else the refusal of every other assignee filter (N327-1)
+            if (!$this->app->auth()->isAdmin()) {
+                throw new \DomainException('Only an administrator may list the tasks of someone else – use filter mine.');
+            }
+            $rows = Tasks::unassigned($db, $status, $limit);
         } elseif (str_starts_with($filter, 'assignee:')) {
             // N327-1: for anyone but an administrator one answer for an unknown and an existing colleague – the filter never
             // tells whether an e-mail or a sign-in name belongs to an account
@@ -50,7 +57,7 @@ trait TaskTools
             $rows = array_values(array_filter(Tasks::forTarget($db, $target), fn (array $t): bool => ($t['done_at'] !== null) === ($status === 'done')));
             $rows = array_slice($rows, 0, $limit);
         } else {
-            throw new \InvalidArgumentException('filter must be mine, overdue, assignee:<user> or target:<enquiry|page|item>:<id>.');
+            throw new \InvalidArgumentException('filter must be mine, overdue, assignee:<user>, assignee:none or target:<enquiry|page|item>:<id>.');
         }
         $labels = Tasks::labels($db, array_column($rows, 'target'));
 

@@ -14,7 +14,8 @@ use Kaleta\Core\Tasks;
  * has it; it is the first menu item for everyone but administrators, who keep the Dashboard first (and get a tile there).
  * Every row links to the place where the work is done; a task is completed or snoozed right here (complete, snooze), and
  * "New task" adds one about nothing in particular – for me or a colleague (task; the form is views/admin/task_form.php).
- * Administrators also get the Team tab: open tasks per person (Tasks::team).
+ * Administrators also get the Team tab: open tasks per person (Tasks::team) and the tasks nobody active has – handed to
+ * nobody or left on a removed or blocked account (Tasks::unassigned) – each given to a colleague right there (reassign).
  */
 final class MyWork extends Module
 {
@@ -79,14 +80,61 @@ final class MyWork extends Module
         return $this->back($for === $this->app->auth()->id() ? 'The task was added.' : t('The task was added for %s – they are notified.', \Kaleta\Core\Assignment::label($this->db, $for)));
     }
 
-    /** The Team tab (3.27, administrators): open tasks per person – overdue, today, upcoming, later. */
+    /**
+     * The Team tab (3.27, administrators): open tasks per person – overdue, today, upcoming, later – and "Not assigned":
+     * every open task nobody active has (Tasks::unassigned), with what it is about and who may take it (TaskPanel::people
+     * for its record – the same people the task's own form offers).
+     */
     protected function actionTeam(): Response
     {
         if (!$this->app->auth()->isAdmin()) {
             return $this->error('Only an administrator sees the tasks of the whole team.', 403);
         }
+        $me = $this->app->auth()->id();
+        $tasks = Tasks::unassigned($this->db);
+        $labels = Tasks::labels($this->db, array_column($tasks, 'target'));
+        $people = [];
+        foreach ($tasks as $i => $t) {
+            $key = (string) $t['target'];
+            $people[$key] ??= \Kaleta\Admin\TaskPanel::people($this->app, $t['target'], $me);
+            $tasks[$i] += ['about' => $t['target'] !== null ? ($labels[$t['target']] ?? null) : null, 'people' => $people[$key],
+                'was' => $t['assignee_id'] !== null ? \Kaleta\Core\Assignment::label($this->db, $t['assignee_id']) : t('nobody')];
+        }
 
-        return $this->view('team', 'My work', ['people' => Tasks::team($this->db)]);
+        return $this->view('team', 'My work', ['people' => Tasks::team($this->db), 'unassigned' => $tasks]);
+    }
+
+    /**
+     * "Reassign to…" of the Team tab (3.27, administrators; POST id, assignee_id): a task nobody active has goes to a
+     * colleague through Tasks::update – the same checks as the task's own form (Tasks::mayAssign), and the person is
+     * notified like for any assignment. A task someone has meanwhile is left alone.
+     */
+    protected function actionReassign(): Response
+    {
+        if (!$this->app->auth()->isAdmin()) {
+            return $this->error('Only an administrator sees the tasks of the whole team.', 403);
+        }
+        if (!$this->request->isPost()) {
+            return $this->back('', 'team');
+        }
+        $id = $this->request->postInt('id');
+        $to = $this->request->postInt('assignee_id');
+        $task = Tasks::find($this->db, $id);
+        if ($task === null || $task['done_at'] !== null || Tasks::hasActiveAssignee($this->db, $task['assignee_id'])) {
+            return $this->back('This task is no longer waiting for someone.', 'team', type: 'chyba');
+        }
+        if ($to <= 0) {
+            return $this->back('Choose who takes the task.', 'team', type: 'chyba');
+        }
+        try {
+            Tasks::update($this->app, $id, ['assignee_id' => $to], $this->app->auth()->id());
+        } catch (\DomainException $e) {
+            return $this->back($e->getMessage(), 'team', type: 'chyba');
+        }
+        \Kaleta\Admin\ChangeLog::write($this->app, self::IDENT, 'task_reassigned', self::logged($id, $task));
+
+        return $this->back($to === $this->app->auth()->id() ? 'The task is yours now.'
+            : t('The task was given to %s – they are notified.', \Kaleta\Core\Assignment::label($this->db, $to)), 'team');
     }
 
     /** Marks one of my tasks done (POST id; done=0 opens it again). */

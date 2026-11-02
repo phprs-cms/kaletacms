@@ -6882,4 +6882,13 @@ return [
     'Follow up:' => 'Ozvat se:',
     'The reply is on its way. Follow up if they do not answer:' => 'Odpověď je na cestě. Připomeňte si ozvat se, když neodpoví:',
     'New task' => 'Nový úkol',
+    'Not assigned' => 'Bez přiřazení',
+    'Was for' => 'Původně pro',
+    'Reassign to…' => 'Předat komu…',
+    'Open tasks nobody active has – handed to nobody, or left on a removed or blocked account. Give each to a colleague; they are notified.' => 'Otevřené úkoly, které nemá nikdo aktivní – předané nikomu, nebo zbylé na odstraněném či zablokovaném účtu. Každý předejte kolegovi; dostane upozornění.',
+    'Nobody can be given this task now – what it is about is gone, in the trash or switched off.' => 'Tento úkol teď nelze nikomu dát – to, čeho se týká, už neexistuje, je v koši nebo je vypnuté.',
+    'This task is no longer waiting for someone.' => 'Tento úkol už na nikoho nečeká.',
+    'Choose who takes the task.' => 'Vyberte, kdo úkol převezme.',
+    'The task was given to %s – they are notified.' => 'Úkol převzal(a) %s – dostane upozornění.',
+    'The task is yours now.' => 'Úkol je teď váš.',
 ];

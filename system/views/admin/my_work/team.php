@@ -1,12 +1,24 @@
 <?php
 /**
  * The Team tab of My work (3.27, administrators, Core\Tasks::team): open tasks per person – overdue, today, upcoming
- * (7 days), later or without a date. Tasks of a removed account or handed to nobody are listed too, so nothing is lost.
+ * (7 days), later or without a date. Tasks of a removed or blocked account or handed to nobody are counted too, and their
+ * rows link to "Not assigned" below (Core\Tasks::unassigned): every such task with what it is about, its due day and
+ * "Reassign to…" (the people its own form would offer, Admin\TaskPanel::people) – one small form per task posting
+ * MyWork::actionReassign, so nothing is lost.
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\MyWork $module
- * @var array<int, array{name: string, overdue: int, today: int, upcoming: int, later: int, open: int}> $people
+ * @var string $csrf
+ * @var array<int, array{name: string, overdue: int, today: int, upcoming: int, later: int, open: int, unassigned: bool}> $people
+ * @var list<array<string, mixed>> $unassigned  rows of Tasks::unassigned + about (Tasks::labels), people (id => name), was (who had it)
  */
+$me = $app->auth()->id();
+$due = fn (?string $at): string => $at === null ? '' : format_date($at, substr($at, 11, 5) !== Kaleta\Core\Tasks::DEFAULT_TIME);
+$aboutText = fn (array $about): string => match ($about['kind']) {
+    'enquiry' => t('Enquiry #%s · %s', (string) $about['id'], $about['title']),
+    'page' => t('Page “%s”', $about['title']),
+    default => t('“%s” in %s', $about['title'], (string) ($about['collection'] ?? '')),
+};
 ?>
 <?= $app->view->render('admin/my_work/tabs', ['module' => $module, 'current' => 'team']) ?>
 <?php if ($people === []): ?>
@@ -22,13 +34,44 @@
 	<th scope="col" class="cislo"><?= e(t('Upcoming')) ?></th><th scope="col" class="cislo"><?= e(t('Later')) ?></th><th scope="col" class="cislo"><?= e(t('All open')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($people as $p): ?>
-<tr>
-	<th scope="row"><?= e($p['name']) ?></th>
+<tr<?= $p['unassigned'] ? ' data-unassigned' : '' ?>>
+	<th scope="row"><?= $p['unassigned'] && $unassigned !== [] ? '<a href="#unassigned">' . e($p['name']) . '</a>' : e($p['name']) ?></th>
 	<td class="cislo"><?= $p['overdue'] > 0 ? '<span class="stitek stitek-koncept">' . format_count($p['overdue']) . '</span>' : '0' ?></td>
 	<td class="cislo"><?= format_count($p['today']) ?></td>
 	<td class="cislo"><?= format_count($p['upcoming']) ?></td>
 	<td class="cislo"><?= format_count($p['later']) ?></td>
 	<td class="cislo"><?= format_count($p['open']) ?></td>
+</tr>
+<?php endforeach ?>
+</tbody>
+</table>
+</div>
+</section>
+<?php endif ?>
+<?php if ($unassigned !== []): ?>
+<section class="moje-prace" id="unassigned" data-list="unassigned" aria-labelledby="moje-unassigned">
+<h2 id="moje-unassigned"><?= e(t('Not assigned')) ?> <small><?= format_count(count($unassigned)) ?></small></h2>
+<p class="napoveda"><?= e(t('Open tasks nobody active has – handed to nobody, or left on a removed or blocked account. Give each to a colleague; they are notified.')) ?></p>
+<div class="tab-obal">
+<table class="vypis vypis-karty">
+<thead><tr><th scope="col"><?= e(t('Task')) ?></th><th scope="col"><?= e(t('Due')) ?></th><th scope="col"><?= e(t('Was for')) ?></th><th scope="col"><?= e(t('Reassign to…')) ?></th></tr></thead>
+<tbody>
+<?php foreach ($unassigned as $r): ?>
+<tr id="task-<?= (int) $r['id'] ?>" data-task="<?= (int) $r['id'] ?>">
+	<td><?= e($r['title'] !== '' ? $r['title'] : t('(no title)')) ?><?php if ($r['about'] !== null): ?><br><a class="smltxt" href="<?= e($app->url($r['about']['url'])) ?>"><?= e($aboutText($r['about'])) ?></a><?php endif ?></td>
+	<td class="cislo"><?= $r['due_at'] === null ? '<span class="smltxt">' . e(t('no date')) . '</span>' : ($r['group'] === 'overdue' ? '<span class="stitek stitek-koncept">' . e($due($r['due_at'])) . '</span>' : e($due($r['due_at']))) ?></td>
+	<td><?= e((string) $r['was']) ?></td>
+	<td class="akce"><?php if ($r['people'] === []): ?><span class="smltxt"><?= e(t('Nobody can be given this task now – what it is about is gone, in the trash or switched off.')) ?></span><?php else: ?>
+		<form class="vradku moje-predat" method="post" action="<?= e($module->url('reassign')) ?>" data-task-reassign>
+		<?= $csrf ?><input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
+		<select id="reassign-<?= (int) $r['id'] ?>" name="assignee_id" required aria-label="<?= e(t('Reassign to…')) ?>">
+			<option value=""><?= e(t('Choose…')) ?></option>
+<?php foreach ($r['people'] as $id => $name): ?>
+			<option value="<?= (int) $id ?>"><?= e((int) $id === $me ? t('Me (%s)', $name) : $name) ?></option>
+<?php endforeach ?>
+		</select>
+		<button class="navigace" type="submit"><?= e(t('Save')) ?></button>
+		</form><?php endif ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>

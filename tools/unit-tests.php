@@ -277,7 +277,7 @@ $parity = [
     'users' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'save' => 'admin: accounts and permissions', 'delete' => 'admin: accounts and permissions', 'password_link' => 'admin: accounts and permissions',
         'reactivate' => 'admin: accounts and permissions', 'revoke_connection' => 'admin: accounts and permissions',
         'handover' => 'admin: handing all of a leaver\'s work over goes with blocking or deleting the account (3.24) – Claude moves one record with assign'],
-    'my_work' => ['list' => 'my_work', 'team' => 'list_tasks', 'complete' => 'complete_task', 'snooze' => 'save_task', 'task' => 'save_task'], // 3.24; 3.27 tasks (task = New task)
+    'my_work' => ['list' => 'my_work', 'team' => 'list_tasks', 'complete' => 'complete_task', 'snooze' => 'save_task', 'task' => 'save_task', 'reassign' => 'save_task'], // 3.24; 3.27 tasks (task = New task; reassign = a task nobody has, list_tasks assignee:none)
     'roles' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'save' => 'admin: accounts and permissions', 'delete' => 'admin: accounts and permissions'],
     'stats' => ['list' => 'get_stats'], 'changelog' => ['list' => 'list_changes', 'sessions' => 'list_agent_sessions', 'undo' => 'undo_agent_session'], 'audit' => ['list' => 'site_audit'],
     'addons' => ['list' => $readOnly, 'toggle' => 'admin: running code from another developer is the administrator’s decision (3.0)', 'page' => 'admin: pages add-ons add to the administration'],
@@ -9300,6 +9300,22 @@ check('N327-4: Tasks::parseMoment drops seconds (relative hours and minutes, ISO
     Kaleta\Core\Tasks::parseMoment('+2 hours', $n3274Now), Kaleta\Core\Tasks::parseMoment('+30 minutes', $n3274Now), Kaleta\Core\Tasks::parseMoment('2026-12-01T15:45:59', $n3274Now),
     Kaleta\Core\Tasks::parseMoment('2026-12-01 15:45', $n3274Now)],
     ['2026-11-02 16:30:00', '2026-11-02 15:00:00', '2026-12-01 15:45:00', '2026-12-01 15:45:00']);
+
+// 3.27: tasks nobody has (handed to nobody, a removed or blocked account) are never lost – My work → Team lists them with
+// "Reassign to…" (MyWork::actionReassign, site-neutral, save_task in the parity map) and list_tasks takes assignee:none
+$n327rView = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/my_work/team.php');
+$n327rTools = (string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/TaskTools.php');
+$n327rStrings = ['Not assigned', 'Was for', 'Reassign to…', 'Open tasks nobody active has – handed to nobody, or left on a removed or blocked account. Give each to a colleague; they are notified.',
+    'Nobody can be given this task now – what it is about is gone, in the trash or switched off.', 'This task is no longer waiting for someone.', 'Choose who takes the task.',
+    'The task was given to %s – they are notified.', 'The task is yours now.'];
+check('3.27: tasks nobody has – the Team tab lists them with Reassign to… (site-neutral, CSRF form, its own people), list_tasks assignee:none for administrators only, translated', [
+    Kaleta\Admin\Kernel::clearsPageCache(new Kaleta\Core\Request(['module' => 'my_work', 'action' => 'reassign'], ['id' => '1', 'assignee_id' => '2'], ['REQUEST_METHOD' => 'POST'])),
+    method_exists(Kaleta\Admin\Modules\MyWork::class, 'actionReassign'), Kaleta\Core\Tasks::hasActiveAssignee(new Kaleta\Core\Db('mysql:host=127.0.0.1;dbname=none', '', ''), null),
+    str_contains($n327rView, 'id="unassigned"') && str_contains($n327rView, '<a href="#unassigned">') && str_contains($n327rView, '<?= $csrf ?><input type="hidden" name="id"'),
+    str_contains($n327rTools, 'Tasks::unassigned($db, $status, $limit)') && substr_count($n327rTools, "'Only an administrator may list the tasks of someone else – use filter mine.'") === 2,
+    str_contains(array_column(Kaleta\Mcp\Tools::definitions(), null, 'name')['list_tasks']['inputSchema']['properties']['filter']['description'] ?? '', 'assignee:none'),
+    array_map(fn (string $code): array => array_values(array_diff($n327rStrings, array_keys(require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php'))), ['cs', 'de', 'es'])],
+    [false, true, false, true, true, true, [[], [], []]]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

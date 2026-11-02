@@ -9411,6 +9411,55 @@ expect "3.27 my_work: the open tasks first, as list_tasks shows them" "$(t327_js
 check "3.27 hand-over: Eva's open task is counted" 200 "/admin.php?module=users&action=handover&id=$T327_EVA" 'otevřené úkoly: 1'
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=handover" -d "_csrf=$(csrf)" -d "idu=$T327_EVA" -d user=t327-eva -d "hand_over_to=$T327_JANA" -d then=
 expect "3.27 hand-over: … and moves to Jana, to be notified again" "$(sq "SELECT CONCAT(assignee_id = $T327_JANA, notified_at IS NULL) FROM ka_tasks WHERE id = ${T327_T3:-0}")" "11"
+# 3.27: tasks nobody has are never lost – a leaver's work handed to nobody (and a task left on a removed account) is listed
+# under "Not assigned" in My work → Team, whose nobody row links there; Reassign to… gives each to a colleague who may take it
+# (notified, logged without the title of a task about an enquiry – N327-3); others are refused; MCP list_tasks assignee:none
+sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat, notify_email) VALUES ('t327-leo', '$T327_HASH', 'Leo T327', 'leo-t327@example.com', '', 1, '$(site_time)', '$(site_time)', 0, 'off');
+  INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, m.ident FROM ka_uzivatele JOIN (SELECT 'pages' AS ident UNION SELECT 'enquiries') m WHERE user = 't327-leo'" > /dev/null
+T327_LEO=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 't327-leo'")
+T327_R1=$(t327_php "echo Kaleta\Core\Tasks::create(\$app, ['title' => 'Call Mrs R327 back', 'target' => 'enquiry:$T327_ENQ', 'assignee_id' => $T327_LEO, 'due_at' => '+2 days'], $T327_ADMIN);")
+T327_R2=$(t327_php "echo Kaleta\Core\Tasks::create(\$app, ['title' => 'Order paper R327', 'assignee_id' => $T327_LEO, 'due_at' => '$(site_date '-1 day')'], $T327_ADMIN);")
+T327_R3=$(sq "INSERT INTO ka_tasks (title, target, assignee_id, created_by, created_at, updated_at) VALUES ('Former R327', NULL, 987654321, $T327_ADMIN, '$(site_time)', '$(site_time)'); SELECT LAST_INSERT_ID();")
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=users&action=handover&id=$T327_LEO"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=handover" -d "_csrf=$(csrf)" -d "idu=$T327_LEO" -d user=t327-leo -d hand_over_to=0 -d then=block
+expect "3.27 Not assigned: Leo's work handed to nobody, his account blocked" \
+  "$(sq "SELECT COUNT(*) FROM ka_tasks WHERE id IN (${T327_R1:-0}, ${T327_R2:-0}) AND assignee_id IS NULL")|$(sq "SELECT blokovat <> 0 FROM ka_uzivatele WHERE idu = $T327_LEO")" "2|1"
+check "3.27 Not assigned: My work → Team lists the tasks nobody active has" 200 "/admin.php?module=my_work&action=team" 'id="unassigned"'
+sed -n "/data-task=\"${T327_R1:-0}\"/,/<\/tr>/p" "$WORK/response" > "$WORK/t327r1"; sed -n "/data-task=\"${T327_R2:-0}\"/,/<\/tr>/p" "$WORK/response" > "$WORK/t327r2"
+expect "3.27 Not assigned: … the three tasks; the rows nobody and (former user) of the summary link there; the enquiry task links its enquiry, was for nobody" \
+  "$(grep -c "data-task=\"${T327_R1:-0}\"\|data-task=\"${T327_R2:-0}\"\|data-task=\"${T327_R3:-0}\"" "$WORK/response")|$(grep -c '<a href="#unassigned">nikdo</a>\|<a href="#unassigned">(bývalý uživatel)</a>' "$WORK/response")|$(grep -c "module=enquiries&amp;action=detail&amp;id=$T327_ENQ" "$WORK/t327r1")|$(grep -c '<td>nikdo</td>' "$WORK/t327r1")" "3|2|1|1"
+expect "3.27 Not assigned: … Reassign to… offers those who may take it – Jana and Petr (Enquiries) for the enquiry task, Eva (Pages only) and the blocked Leo not; anyone active for a task about nothing" \
+  "$(grep -c "<option value=\"$T327_JANA\">\|<option value=\"$T327_PETR\">" "$WORK/t327r1")|$(grep -c "<option value=\"$T327_EVA\">\|<option value=\"$T327_LEO\">" "$WORK/t327r1")|$(grep -c "<option value=\"$T327_EVA\">" "$WORK/t327r2")|$(grep -c 'data-task-reassign' "$WORK/t327r2")" "2|0|1|1"
+# Jana (an editor) neither sees the list nor reassigns
+T327_JJAR="$WORK/jar-t327-jana"; rm -f "$T327_JJAR"; curl -s -c "$T327_JJAR" -o "$WORK/response" "$B/admin.php"
+curl -s -b "$T327_JJAR" -c "$T327_JJAR" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$(csrf)" -d user=t327-jana --data-urlencode "password=$PASSWORD"
+curl -s -b "$T327_JJAR" -c "$T327_JJAR" -o "$WORK/response" "$B/admin.php?module=my_work"
+expect "3.27 Not assigned: a non-administrator gets 403 for the list and for Reassign; nothing changes" \
+  "$(curl -s -b "$T327_JJAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=my_work&action=team")|$(curl -s -b "$T327_JJAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php?module=my_work&action=reassign" -d "_csrf=$(csrf)" -d "id=${T327_R1:-0}" -d "assignee_id=$T327_JANA")|$(sq "SELECT IFNULL(assignee_id, 'null') FROM ka_tasks WHERE id = ${T327_R1:-0}")" "403|403|null"
+t327_reassign() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=my_work&action=team"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?module=my_work&action=reassign" -d "_csrf=$(csrf)" -d "id=$1" -d "assignee_id=$2"; }
+expect "3.27 Not assigned: without the form token nothing happens" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php?module=my_work&action=reassign" -d "id=${T327_R1:-0}" -d "assignee_id=$T327_PETR")|$(sq "SELECT IFNULL(assignee_id, 'null') FROM ka_tasks WHERE id = ${T327_R1:-0}")" "400|null"
+T327_RR=$(t327_reassign "${T327_R1:-0}" "$T327_PETR")
+expect "3.27 Not assigned: Reassign gives the enquiry task to Petr – notified (assigned, task:<id>), back to the Team tab; the change log names the task and the enquiry, never the title" \
+  "$(sq "SELECT assignee_id = $T327_PETR FROM ka_tasks WHERE id = ${T327_R1:-0}")|$(sq "SELECT COUNT(*) FROM ka_notifications WHERE user_id = $T327_PETR AND kind = 'assigned' AND target = 'task:${T327_R1:-0}'")|$(echo "$T327_RR" | grep -c 'module=my_work&action=team$')|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'my_work' AND akce = 'task_reassigned' AND popis = '#${T327_R1:-0} (enquiry:$T327_ENQ)'")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE popis LIKE '%Mrs R327%'")" \
+  "1|1|1|1|0"
+t327_reassign "${T327_R1:-0}" "$T327_JANA" > /dev/null; t327_reassign "${T327_R3:-0}" 0 > /dev/null; t327_reassign "${T327_R3:-0}" "$T327_LEO" > /dev/null
+expect "3.27 Not assigned: a task someone has meanwhile stays theirs; no person chosen or a blocked account changes nothing" \
+  "$(sq "SELECT assignee_id = $T327_PETR FROM ka_tasks WHERE id = ${T327_R1:-0}")|$(sq "SELECT assignee_id FROM ka_tasks WHERE id = ${T327_R3:-0}")" "1|987654321"
+t327_reassign "${T327_R2:-0}" "$T327_EVA" > /dev/null
+expect "3.27 Not assigned: a task about nothing may go to any active colleague (Eva), logged with its title" \
+  "$(sq "SELECT assignee_id = $T327_EVA FROM ka_tasks WHERE id = ${T327_R2:-0}")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'my_work' AND akce = 'task_reassigned' AND popis = '#${T327_R2:-0} Order paper R327'")" "1|1"
+# MCP: list_tasks assignee:none for administrators (the refusal of every other assignee filter for anyone else), save_task gives it away
+mcp_as "$T327_TA" list_tasks '{"filter":"assignee:none"}' > "$WORK/response"; mcp_text
+expect "3.27 list_tasks assignee:none: the administrator gets the task left on a removed account, who had it, not the reassigned ones" \
+  "$(grep -c '"title":"Former R327","assignee":{"id":987654321,"name":"(former user)"}' "$WORK/text")|$(grep -c 'Order paper R327\|Mrs R327' "$WORK/text")|$(t327_json filter)" "1|0|assignee:none"
+mcp_as "$T327_TJ" list_tasks '{"filter":"assignee:none"}' > "$WORK/response"; mcp_text
+expect "3.27 list_tasks assignee:none: a non-administrator gets the refusal of the other assignee filters" "$(grep -c 'Only an administrator may list the tasks of someone else' "$WORK/text")|$(grep -c 'Former R327' "$WORK/text")" "1|0"
+mcp_as "$T327_TA" save_task "{\"id\":${T327_R3:-0},\"assignee\":\"t327-jana\"}" > "$WORK/response"; mcp_text
+mcp_as "$T327_TA" list_tasks '{"filter":"assignee:none"}' > "$WORK/response"
+expect "3.27 save_task: the administrator gives a task nobody has to Jana – notified; assignee:none no longer lists it" \
+  "$(sq "SELECT assignee_id = $T327_JANA FROM ka_tasks WHERE id = ${T327_R3:-0}")|$(sq "SELECT COUNT(*) FROM ka_notifications WHERE user_id = $T327_JANA AND kind = 'assigned' AND target = 'task:${T327_R3:-0}'")|$(grep -c 'Former R327' "$WORK/response")" "1|1|0"
+sq "DELETE FROM ka_notifications WHERE target IN ('task:${T327_R1:-0}', 'task:${T327_R2:-0}', 'task:${T327_R3:-0}'); DELETE FROM ka_tasks WHERE id IN (${T327_R1:-0}, ${T327_R2:-0}, ${T327_R3:-0});
+  DELETE FROM ka_uzivatele_prava WHERE fk_id_user = $T327_LEO; DELETE FROM ka_uzivatele WHERE idu = $T327_LEO" > /dev/null
 # GDPR: the processing record names the tasks; the personal data file of the customer carries them; anonymising blanks the titles
 # (and the quotes of their notifications); deleting the enquiry or the page for good takes the tasks along
 expect "3.27 GDPR: the processing record and the customer's data file name the tasks about an enquiry" \

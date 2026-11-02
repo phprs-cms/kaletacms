@@ -1157,4 +1157,7 @@ return [
     'Choose when to follow up.' => 'Wähle, wann nachgefasst werden soll.',
     '“%s”, for you on that day – Edit changes the person or the time.' => '„%s“, für dich an diesem Tag – über Bearbeiten änderst du Person oder Uhrzeit.',
     'Adds a task for you in My work about this enquiry.' => 'Legt dir zu dieser Anfrage eine Aufgabe in „Meine Arbeit“ an.',
+    'Open tasks nobody active has – handed to nobody, or left on a removed or blocked account. Give each to a colleague; they are notified.' => 'Offene Aufgaben, die keine aktive Person hat – an niemanden übergeben oder bei einem entfernten oder gesperrten Konto verblieben. Gib jede jemandem aus dem Team; die Person wird benachrichtigt.',
+    'Choose who takes the task.' => 'Wähle, wer die Aufgabe übernimmt.',
+    'The task is yours now.' => 'Die Aufgabe gehört jetzt dir.',
 ];

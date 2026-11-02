@@ -3383,8 +3383,10 @@ await step('3.26 notifications: the bell, the Notifications screen, open and mar
   }
 });
 // 3.27 (agent A): tasks in My work – the person's tasks come first, grouped overdue / today / upcoming / later, each row with
-// Done, Tomorrow and In 3 days; Done and Tomorrow work; the administrator has the Team tab. 1440 and 390 px, light and dark.
-await step('3.27 My work: the tasks first by group, Done and snooze, the Team tab (1440 and 390 px, light and dark)', async () => {
+// Done, Tomorrow and In 3 days; Done and Tomorrow work; the administrator has the Team tab, whose "Not assigned" lists a task
+// handed to nobody (the nobody row links there) with Reassign to… and Save on screen; reassigning it works. 1440 and 390 px,
+// light and dark.
+await step('3.27 My work: the tasks first by group, Done and snooze, the Team tab with Not assigned and Reassign (1440 and 390 px, light and dark)', async () => {
   if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
   await page.setViewportSize({ width: 1440, height: 900 });
   const admin = Number(sql("SELECT idu FROM ka_uzivatele WHERE user = 'admin'").trim());
@@ -3395,7 +3397,8 @@ await step('3.27 My work: the tasks first by group, Done and snooze, the Team ta
     ('Call the supplier back about the delayed delivery of the oak boards', NULL, ${admin}, ${admin}, ${day(-2)}, NOW(), NOW()),
     ('Review the price list before the newsletter goes out', 'page:${pageId}', ${admin}, ${admin}, CONCAT(CURDATE(), ' 23:30:00'), NOW(), NOW()),
     ('Send the offer', NULL, ${admin}, ${admin}, ${day(3)}, NOW(), NOW()),
-    ('Plan the spring campaign', NULL, ${admin}, ${admin}, NULL, NOW(), NOW())`);
+    ('Plan the spring campaign', NULL, ${admin}, ${admin}, NULL, NOW(), NOW()),
+    ('Order the trade fair banner left by a colleague who has gone', NULL, NULL, ${admin}, ${day(1)}, NOW(), NOW())`);
   try {
     await visit('/admin.php?module=my_work');
     const first = page.locator('main section.moje-prace').first();
@@ -3418,6 +3421,14 @@ await step('3.27 My work: the tasks first by group, Done and snooze, the Team ta
             const wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
             if (wide > 0) { throw new Error(`${wide} px of sideways scroll (${url}, ${label}, ${scheme})`); }
           }
+          // the Team tab (the last URL above): the task handed to nobody under Not assigned, its person list and Save on screen
+          const orphan = p2.locator('[data-list="unassigned"] tr[data-task]', { hasText: 'Order the trade fair banner' });
+          if (!(await orphan.isVisible()) || await p2.locator('[data-list="team"] a[href="#unassigned"]').count() < 1) { throw new Error(`Not assigned or its link is missing (${label}, ${scheme})`); }
+          for (const control of [orphan.locator('select[name="assignee_id"]'), orphan.getByRole('button', { name: 'Save', exact: true })]) {
+            const box = await control.boundingBox();
+            if (!box || box.x < 0 || box.x + box.width > width) { throw new Error(`Reassign to… is off the screen (${label}, ${scheme}): ${JSON.stringify(box)}`); }
+          }
+          if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/my-work-team-unassigned-${label}-${scheme}.png`, fullPage: true }); }
           await p2.goto(`${BASE}/admin.php?module=my_work`, { waitUntil: 'networkidle' });
           for (const name of ['Done', 'Tomorrow', 'In 3 days']) {
             const box = await p2.locator('[data-list="tasks"] tr[data-task]').first().getByRole('button', { name, exact: true }).boundingBox();
@@ -3442,8 +3453,17 @@ await step('3.27 My work: the tasks first by group, Done and snooze, the Team ta
     await Promise.all([page.waitForNavigation(), page.locator('.zalozky a', { hasText: 'Team' }).click()]);
     if (await page.locator('[data-list="team"] tbody tr').count() < 1 || (await page.locator('.zalozky a.aktivni').textContent()).trim() !== 'Team') { throw new Error('the Team tab lists nobody'); }
     if (SHOTS) { await page.screenshot({ path: `${SHOTS}/my-work-team.png`, fullPage: true }); }
+    // the nobody row jumps to Not assigned; Reassign to… me takes the task
+    await page.locator('[data-list="team"] a[href="#unassigned"]', { hasText: 'nobody' }).click();
+    if (!(await page.evaluate(() => location.hash === '#unassigned'))) { throw new Error('the nobody row does not link to Not assigned'); }
+    const orphan = page.locator('[data-list="unassigned"] tr[data-task]', { hasText: 'Order the trade fair banner' });
+    await orphan.locator('select[name="assignee_id"]').selectOption(String(admin));
+    await Promise.all([page.waitForNavigation(), orphan.getByRole('button', { name: 'Save', exact: true }).click()]);
+    if (!(await page.locator('.hlaska-ok', { hasText: 'The task is yours now.' }).isVisible())) { throw new Error('no message after Reassign'); }
+    if (sql("SELECT IFNULL(assignee_id, 'null') FROM ka_tasks WHERE title LIKE 'Order the trade fair banner%'").trim() !== String(admin)) { throw new Error('Reassign did not give the task'); }
+    if (await page.locator('[data-list="unassigned"] tr[data-task]', { hasText: 'Order the trade fair banner' }).count() !== 0) { throw new Error('the reassigned task is still under Not assigned'); }
   } finally {
-    sql(`DELETE FROM ka_tasks WHERE assignee_id = ${admin}; DELETE FROM ka_stranky WHERE ids = ${pageId}`);
+    sql(`DELETE FROM ka_tasks WHERE assignee_id = ${admin} OR title LIKE 'Order the trade fair banner%'; DELETE FROM ka_stranky WHERE ids = ${pageId}`);
   }
 });
 // 3.27 (agent B): the tasks of a record – the follow-up buttons of an enquiry, Mark done and Reopen, Snooze, Edit in place,

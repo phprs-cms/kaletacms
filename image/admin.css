@@ -1687,3 +1687,6 @@ table.preklady td[data-stav] form { margin-inline-start: 6px; }
 .ukol-rychle button.navigace { padding: 6px 12px; font-weight: 500; }
 /* 3.27: "New task" on My work – the folded shared form above the lists */
 .moje-novy-ukol { margin: 0 0 20px; }
+/* 3.27: "Reassign to…" of a task nobody has (My work → Team) – the person and Save on one line, wrapping on a phone */
+form.moje-predat { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; max-width: 100%; }
+form.moje-predat select { max-width: 100%; }

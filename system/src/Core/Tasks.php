@@ -235,10 +235,12 @@ final class Tasks
     }
 
     /**
-     * Open tasks per person (the Team tab of My work, administrators): assignee id (0 = nobody) => name and the counts of
-     * overdue, today, upcoming, later and all open ones. People with the most overdue first.
+     * Open tasks per person (the Team tab of My work, administrators): assignee id (0 = nobody) => name, the counts of
+     * overdue, today, upcoming, later and all open ones, and whether nobody active has them (unassigned – nobody, a removed
+     * or a blocked account: they are in unassigned(), where an administrator gives them to someone). People with the most
+     * overdue first.
      *
-     * @return array<int, array{name: string, overdue: int, today: int, upcoming: int, later: int, open: int}>
+     * @return array<int, array{name: string, overdue: int, today: int, upcoming: int, later: int, open: int, unassigned: bool}>
      */
     public static function team(Db $db): array
     {
@@ -256,11 +258,40 @@ final class Tasks
         foreach ($rows as $r) {
             $who = (int) $r['who'];
             $out[$who] = ['name' => $who > 0 ? Assignment::label($db, $who) : t('nobody'), 'overdue' => (int) $r['overdue'], 'today' => (int) $r['today'],
-                'upcoming' => (int) $r['upcoming'], 'later' => (int) $r['later'], 'open' => (int) $r['open']];
+                'upcoming' => (int) $r['upcoming'], 'later' => (int) $r['later'], 'open' => (int) $r['open'], 'unassigned' => !self::hasActiveAssignee($db, $who)];
         }
         uasort($out, fn (array $a, array $b): int => [$b['overdue'], $b['today'], $b['open'], $a['name']] <=> [$a['overdue'], $a['today'], $a['open'], $b['name']]);
 
         return $out;
+    }
+
+    /**
+     * The tasks nobody active has (3.27, so a leaver's work is never lost): handed to nobody (assignee_id NULL) or left on a
+     * removed or a blocked account. Open ones by due date (no date last), or the latest done ones ($status 'done'). Each row
+     * as find() returns it. The Team tab of My work lists the open ones for an administrator to give each to someone, MCP
+     * list_tasks with filter assignee:none.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function unassigned(Db $db, string $status = 'open', int $limit = 200): array
+    {
+        $limit = max(1, min(500, $limit));
+        $done = $status === 'done';
+        $columns = implode(', ', array_map(fn (string $c): string => 't.' . trim($c), explode(',', self::COLUMNS)));
+        try {
+            $rows = $db->all('SELECT ' . $columns . ' FROM {tasks} t LEFT JOIN {uzivatele} u ON u.idu = t.assignee_id AND u.blokovat = 0 WHERE u.idu IS NULL AND t.done_at IS '
+                . ($done ? 'NOT NULL ORDER BY t.done_at DESC, t.id DESC' : 'NULL ORDER BY t.due_at IS NULL, t.due_at, t.id') . ' LIMIT ' . $limit);
+        } catch (\PDOException) {
+            return [];
+        }
+
+        return array_map(self::row(...), $rows);
+    }
+
+    /** Has an active account (not removed, not blocked) the tasks of this assignee id? Nobody (null, 0) has not. */
+    public static function hasActiveAssignee(Db $db, ?int $assigneeId): bool
+    {
+        return $assigneeId !== null && $assigneeId > 0 && $db->value('SELECT 1 FROM {uzivatele} WHERE idu = ? AND blokovat = 0', [$assigneeId]) !== null;
     }
 
     /**

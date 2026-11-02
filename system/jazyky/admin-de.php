@@ -7290,4 +7290,13 @@ return [
     'Follow up:' => 'Nachfassen:',
     'The reply is on its way. Follow up if they do not answer:' => 'Die Antwort ist unterwegs. Nachfassen, falls keine Antwort kommt:',
     'New task' => 'Neue Aufgabe',
+    'Not assigned' => 'Nicht zugewiesen',
+    'Was for' => 'Bisher für',
+    'Reassign to…' => 'Neu zuweisen an…',
+    'Open tasks nobody active has – handed to nobody, or left on a removed or blocked account. Give each to a colleague; they are notified.' => 'Offene Aufgaben, die keine aktive Person hat – an niemanden übergeben oder bei einem entfernten oder gesperrten Konto verblieben. Geben Sie jede jemandem aus dem Team; die Person wird benachrichtigt.',
+    'Nobody can be given this task now – what it is about is gone, in the trash or switched off.' => 'Diese Aufgabe kann jetzt niemandem gegeben werden – worum es geht, gibt es nicht mehr, liegt im Papierkorb oder ist ausgeschaltet.',
+    'This task is no longer waiting for someone.' => 'Diese Aufgabe wartet nicht mehr auf jemanden.',
+    'Choose who takes the task.' => 'Wählen Sie, wer die Aufgabe übernimmt.',
+    'The task was given to %s – they are notified.' => 'Die Aufgabe wurde %s übergeben – die Person wird benachrichtigt.',
+    'The task is yours now.' => 'Die Aufgabe gehört jetzt Ihnen.',
 ];
