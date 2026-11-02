@@ -60,6 +60,9 @@ trait EnquiryAndPopupTools
         $limit = max(1, min(50, (int) ($a['limit'] ?? 20)));
         $statusNames = array_flip($statuses);
 
+        $rows = $db->all('SELECT idp, datum, formular, stranka, tema, vstup, odkud, kampan, email, stav, kategorie, priorita, navrh_odpovedi, triaged_by, data, prirazeno FROM {poptavky} WHERE ' . implode(' AND ', $whereParts) . ' ORDER BY idp DESC LIMIT ' . $limit, $params);
+        $notes = \Kaleta\Core\Comments::countEnquiries($db, array_map('intval', array_column($rows, 'idp'))); // 3.25
+
         // about (2.12): what the form was about – the collection item, page or pop-up it was on (Front\EnquiryTopic)
         return array_map(fn (array $p): array => ['id' => (int) $p['idp'], 'datum' => substr((string) $p['datum'], 0, 16), 'formular' => $p['formular'], 'stranka' => $p['stranka'], 'about' => $p['tema'] !== '' ? $p['tema'] : null,
             'kampan' => \Kaleta\Front\Forms::campaignText((string) $p['kampan']), 'first_page' => $p['vstup'] !== '' ? $p['vstup'] : null, 'came_from' => $p['odkud'] !== '' ? $p['odkud'] : null, 'email' => $p['email'], 'stav' => $statusNames[(int) $p['stav']] ?? '',
@@ -67,8 +70,10 @@ trait EnquiryAndPopupTools
             + ($p['kategorie'] !== '' ? ['category' => $p['kategorie'], 'priority' => \Kaleta\Core\Triage::PRIORITIES[(int) $p['priorita']] ?? null,
                 'draft_reply' => $p['navrh_odpovedi'] ?: null, 'triaged_by' => in_array($p['triaged_by'], ['claude', 'assistant', 'rule'], true) ? $p['triaged_by'] : 'person'] : [])
             // 3.24: who handles it ({id, name}; a removed account is "(former user)"), only when someone does
-            + ($p['prirazeno'] !== null ? ['assignee' => \Kaleta\Core\Handover::person($db, $p['prirazeno'])] : []),
-            $db->all('SELECT idp, datum, formular, stranka, tema, vstup, odkud, kampan, email, stav, kategorie, priorita, navrh_odpovedi, triaged_by, data, prirazeno FROM {poptavky} WHERE ' . implode(' AND ', $whereParts) . ' ORDER BY idp DESC LIMIT ' . $limit, $params));
+            + ($p['prirazeno'] !== null ? ['assignee' => \Kaleta\Core\Handover::person($db, $p['prirazeno'])] : [])
+            // 3.25: how many internal notes the team wrote on it (Core\Comments), only when there are some
+            + (($notes[(int) $p['idp']] ?? 0) > 0 ? ['notes_count' => $notes[(int) $p['idp']]] : []),
+            $rows);
     }
 
     /** update_enquiry and delete_enquiry */
@@ -88,11 +93,12 @@ trait EnquiryAndPopupTools
         if ($name === 'delete_enquiry') {
             \Kaleta\Admin\Modules\Enquiries::deleteAttachments([$enquiry]);
             $db->delete('poptavky', ['idp' => $id]);
+            \Kaleta\Core\Comments::forgetEnquiries($db, [$id]); // 3.25: its internal notes too
 
             return ['deleted' => $id];
         }
         // a drafts-only connection (3.2) only suggests the triage – the status and the internal note are a person's
-        if ($auth->draftsOnly() && (isset($a['status']) || isset($a['note']) || array_key_exists('assignee', $a))) {
+        if ($auth->draftsOnly() && (isset($a['status']) || isset($a['note']) || isset($a['add_note']) || array_key_exists('assignee', $a))) {
             throw new \DomainException('This connection can only save drafts: for an enquiry that is its triage – category, priority and draft_reply – as a suggestion a person checks. '
                 . 'The status, the internal note and who handles it are set by a person (or a connection with full access); put what you would change into the note of the request or the summary of the run.');
         }
@@ -109,8 +115,18 @@ trait EnquiryAndPopupTools
         if (is_int($assignee) && !\Kaleta\Core\Handover::mayOpen($db, $this->app->settings(), $assignee, 'enquiries')) {
             throw new \DomainException('This user cannot open Enquiries (or the account is blocked) – nothing was changed. Give the enquiry to someone with the Enquiries section.');
         }
+        // 3.25: add_note appends a note as the connected user (Core\Comments) – the earlier ones stay as they were
+        if (isset($a['add_note'])) {
+            if (!is_string($a['add_note']) || \Kaleta\Core\Comments::clean($a['add_note']) === '') {
+                throw new \InvalidArgumentException('add_note must be the text of the note.');
+            }
+        }
         if ($changes !== []) {
             $db->update('poptavky', $changes, ['idp' => $id]);
+        }
+        if (isset($a['add_note'])) {
+            \Kaleta\Core\Comments::add($db, \Kaleta\Core\Comments::enquiry($id), (string) $a['add_note'], $auth->user() ?? [], 'mcp');
+            $changes['note_added'] = true;
         }
         if ($assignee !== false && \Kaleta\Core\Handover::assign($this->app, 'enquiry', $id, $assignee)['changed']) {
             $changes['assignee'] = true;

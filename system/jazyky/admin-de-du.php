@@ -1113,4 +1113,8 @@ return [
     'You cannot block your own account.' => 'Du kannst dein eigenes Konto nicht sperren.',
     'Choose who takes the work over.' => 'Wähle, wer die Arbeit übernimmt.',
     'Choose who takes it over – only people who may open those sections are offered. Resolved enquiries keep who handled them.' => 'Wähle, wer sie übernimmt – angeboten werden nur Personen, die diese Bereiche öffnen dürfen. Erledigte Anfragen behalten, wer sie bearbeitet hat.',
+    'Internal – the customer does not see this. Edit it under Handled by below.' => 'Intern – der Kunde sieht das nicht. Bearbeite sie unten bei „Bearbeitet von“.',
+    'Only administration users see it – it is added to the conversation with your name and the time, and stays as written.' => 'Nur Benutzer der Administration sehen sie – sie wird mit deinem Namen und der Uhrzeit zur Unterhaltung hinzugefügt und bleibt, wie sie geschrieben wurde.',
+    'One short internal summary shown first in the conversation – it can be rewritten. Add notes above; they are kept as written.' => 'Eine kurze interne Zusammenfassung, die in der Unterhaltung zuerst steht – sie kann überschrieben werden. Notizen fügst du oben hinzu; sie bleiben, wie sie geschrieben wurden.',
+    'Write the note first.' => 'Schreib zuerst die Notiz.',
 ];

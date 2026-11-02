@@ -102,6 +102,12 @@ final class Request
         return is_string($value) && preg_match('/^-?\d{1,18}$/', $value) ? (int) $value : $default;
     }
 
+    /** Whether the POST body has the field at all (also empty) – two forms posting to one action tell themselves apart (3.25). */
+    public function hasPost(string $key): bool
+    {
+        return array_key_exists($key, $this->post);
+    }
+
     public function post(string $key, string $default = ''): string
     {
         $value = $this->post[$key] ?? null;

@@ -15,6 +15,7 @@
  * @var string|null $replyBlocked why the site cannot send a reply (no SMTP, no sender); null = it can
  * @var string $replyTo the signed-in user's e-mail – the Reply-To of a reply
  * @var array{subject: string, text: string}|null $replyDraft what a refused reply carried, shown again
+ * @var list<array{id: int, at: string, by: string, by_id: int, text: string, via: string, kind: string}> $notes internal notes, oldest first (3.25, Core\Comments)
  */
 use Kaleta\Admin\Modules\Enquiries;
 
@@ -60,19 +61,37 @@ $canReply = $p['email'] !== '' && ($p['anonymizovano'] ?? null) === null;
 $mailto = 'mailto:' . e($p['email']) . '?subject=' . e(rawurlencode(Kaleta\Core\EnquiryReply::subject($p))) . (($p['navrh_odpovedi'] ?? '') !== '' ? '&amp;body=' . e(rawurlencode((string) $p['navrh_odpovedi'])) : '');
 $statusText = ['sent' => 'E-mail sent', 'queued' => 'Waiting in the mail queue', 'failed' => 'Not delivered'];
 ?>
-<h2 id="reply"><?= e(t('Reply')) ?></h2>
-<?php if ($replies !== []): ?>
-<ol class="odpovedi" data-replies>
-<?php foreach ($replies as $reply): ?>
-	<li><p><strong><?= e(t('Replied by %s on %s', $reply['by'] !== '' ? $reply['by'] : '—', format_date((string) $reply['at'], true))) ?></strong><?= $reply['via'] === 'mcp' ? ' · ' . e(t('through Claude')) : '' ?>
+<?php /* 3.25: one conversation – the customer's message, the replies and the internal notes in the order of time (Core\EnquiryThread) */ ?>
+<h2 id="thread"><?= e(t('Conversation')) ?></h2>
+<ol class="odpovedi vlakno" data-thread data-replies>
+<?php if (trim((string) ($p['poznamka'] ?? '')) !== ''): /* the summary – the one note an enquiry had before 3.25 – stays first */ ?>
+	<li class="vlakno-poznamka" data-thread-item="summary"><p><strong><?= e(t('Summary')) ?></strong> · <span class="napoveda"><?= e(t('Internal – the customer does not see this. Edit it under Handled by below.')) ?></span></p>
+		<div class="odpoved-text"><?= nl2br(e((string) $p['poznamka'])) ?></div></li>
+<?php endif ?>
+<?php foreach (Kaleta\Core\EnquiryThread::entries($p, $replies, $notes) as $item): $entry = $item['entry']; ?>
+<?php if ($item['type'] === 'customer'): ?>
+	<li class="vlakno-zakaznik" data-thread-item="customer"><p><strong><?= e(t('%s wrote on %s', $entry['from'] !== '' ? $entry['from'] : t('The customer'), format_date($item['at'], true))) ?></strong></p>
+		<div class="odpoved-text"><?= $entry['text'] !== '' ? nl2br(e($entry['text'])) : '<span class="napoveda">' . e(t('The form has no message text – the fields are above.')) . '</span>' ?></div></li>
+<?php elseif ($item['type'] === 'note'): ?>
+	<li class="vlakno-poznamka" data-thread-item="note"><p><strong><?= e(t('Note by %s on %s', $entry['by'] !== '' ? $entry['by'] : '—', format_date($item['at'], true))) ?></strong><?= $entry['via'] === 'mcp' ? ' · ' . e(t('through Claude')) : '' ?> · <span class="napoveda"><?= e(t('Internal – the customer does not see this')) ?></span></p>
+		<div class="odpoved-text"><?= $entry['text'] !== '' ? nl2br(e($entry['text'])) : '<span class="napoveda">' . e(t('The text was removed when the enquiry was anonymised.')) . '</span>' ?></div></li>
+<?php else: $reply = $entry; ?>
+	<li class="vlakno-odpoved" data-thread-item="reply"><p><strong><?= e(t('Replied by %s on %s', $reply['by'] !== '' ? $reply['by'] : '—', format_date((string) $reply['at'], true))) ?></strong><?= $reply['via'] === 'mcp' ? ' · ' . e(t('through Claude')) : '' ?>
 		· <span class="stitek stitek-<?= $reply['status'] === 'sent' ? 'vydano' : ($reply['status'] === 'queued' ? 'koncept' : 'chyba') ?>" data-reply-status="<?= e($reply['status']) ?>"><?= e(t($statusText[$reply['status']])) ?></span><?php if ($reply['error'] !== '' && $reply['status'] !== 'sent'): ?> <span class="napoveda"><?= e($reply['error']) ?></span><?php endif ?></p>
 <?php if ($reply['text'] !== ''): ?>
 		<details><summary><?= e($reply['subject']) ?><?= $reply['to'] !== '' ? ' → ' . e($reply['to']) : '' ?></summary><div class="odpoved-text"><?= nl2br(e($reply['text'])) ?></div></details>
 <?php endif ?>
 	</li>
+<?php endif ?>
 <?php endforeach ?>
 </ol>
-<?php endif ?>
+<form method="post" action="<?= e($module->url('note')) ?>" class="vlakno-poznamka-form" data-note-form>
+	<?= $csrf ?><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>">
+	<div class="radek"><label for="nova-poznamka"><?= e(t('Internal note')) ?></label><div><textarea class="textbox nizky" id="nova-poznamka" name="add_note" rows="3" maxlength="<?= Kaleta\Core\Comments::MAX_TEXT ?>" required></textarea>
+		<span class="napoveda"><?= e(t('Only administration users see it – it is added to the conversation with your name and the time, and stays as written.')) ?></span></div></div>
+	<p class="tlacitka"><button class="navigace" type="submit"><?= e(t('Add internal note')) ?></button></p>
+</form>
+<h2 id="reply"><?= e(t('Reply')) ?></h2>
 <?php if (!$canReply): ?>
 <p class="napoveda" data-reply-none><?= e(t('This enquiry has no e-mail address to reply to – reply by phone or another way, and note it in the internal note.')) ?></p>
 <?php elseif ($replyBlocked !== null): ?>
@@ -118,9 +137,9 @@ $statusText = ['sent' => 'E-mail sent', 'queued' => 'Waiting in the mail queue',
 		<option value="<?= (int) $userId ?>"<?= (int) ($p['prirazeno'] ?? 0) === (int) $userId ? ' selected' : '' ?>><?= e($displayName) ?></option>
 <?php endforeach ?>
 	</select></div>
-	<div class="radek"><label for="poznamka"><?= e(t('Internal note')) ?></label><div><textarea class="textbox nizky" id="poznamka" name="poznamka" rows="3"><?= e((string) ($p['poznamka'] ?? '')) ?></textarea>
-		<span class="napoveda"><?= e(t('Only administration users see it – e.g. what you offered the customer.')) ?></span></div></div>
-	<p class="tlacitka"><button class="navigace" type="submit"><?= e(t('Save note')) ?></button></p>
+	<div class="radek"><label for="poznamka"><?= e(t('Summary')) ?></label><div><textarea class="textbox nizky" id="poznamka" name="poznamka" rows="3"><?= e((string) ($p['poznamka'] ?? '')) ?></textarea>
+		<span class="napoveda"><?= e(t('One short internal summary shown first in the conversation – it can be rewritten. Add notes above; they are kept as written.')) ?></span></div></div>
+	<p class="tlacitka"><button class="navigace" type="submit"><?= e(t('Save')) ?></button></p>
 </form>
 <div class="tlacitka">
 	<form class="vradku" method="post" action="<?= e($module->url('status')) ?>"><?= $csrf ?><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><input type="hidden" name="stav" value="<?= (int) $p['stav'] === 2 ? 1 : 2 ?>"><button class="tl<?= (int) $p['stav'] === 2 ? ' tl-vedlejsi' : '' ?>" type="submit"><?= e(t((int) $p['stav'] === 2 ? 'Reopen' : 'Označit jako vyřízenou')) ?></button></form>
