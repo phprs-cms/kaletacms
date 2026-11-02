@@ -16,6 +16,7 @@
  * @var string $replyTo the signed-in user's e-mail – the Reply-To of a reply
  * @var array{subject: string, text: string}|null $replyDraft what a refused reply carried, shown again
  * @var list<array{id: int, at: string, by: string, by_id: int, text: string, via: string, kind: string, mentions: list<int>, edited: ?string, deleted: bool}> $notes internal notes, oldest first (3.25, Core\Comments; 3.26 with the deleted ones)
+ * @var array<string, mixed> $tasks the enquiry's tasks and the follow-up buttons (3.27, Admin\TaskActions::taskPanel)
  * @var array<string, mixed> $thread the notes as a thread – names of the people mentioned, who may be mentioned, a refused text (3.26, Admin\CommentActions::commentThread)
  */
 use Kaleta\Admin\Modules\Enquiries;
@@ -24,6 +25,10 @@ use Kaleta\Admin\Modules\Enquiries;
 $pageLink = Kaleta\Front\Forms::isSafePage((string) $p['stranka']);
 ?>
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>">← <?= e(t('All enquiries')) ?></a></p>
+<?php if ($tasks['replied']): /* 3.27: right after a reply – "Follow up if they do not answer" first */
+    $taskHidden = implode('', array_map(fn (string $name, int|string $value): string => '<input type="hidden" name="' . e($name) . '" value="' . e($value) . '">', array_keys($tasks['fields']), $tasks['fields'])); ?>
+<?= $app->view->render('admin/task_follow_up', ['csrf' => $csrf, 'action' => $tasks['action'], 'hidden' => $taskHidden, 'replied' => true]) ?>
+<?php endif ?>
 <div class="formular">
 <dl class="poptavka">
 	<dt><?= e(t('Received')) ?></dt><dd><?= e(format_date($p['datum'], true)) ?> · <?= e($p['formular']) ?><?php if ($p['stranka'] !== ''): ?> · <?= $pageLink ? '<a href="' . e($p['stranka']) . '" target="_blank" rel="noopener">' . e($p['stranka']) . '</a>' : e($p['stranka']) ?><?php endif ?></dd>
@@ -121,6 +126,7 @@ $mentionsJson = (string) json_encode(array_values(array_filter($thread['mentiona
 	<p class="tlacitka"><button class="tl" type="submit"><?= e(t('Send reply')) ?></button> <a class="navigace" href="<?= $mailto ?>"><?= e(t('Reply from your own mail program')) ?></a></p>
 </form>
 <?php endif ?>
+<?= $app->view->render('admin/tasks_panel', $tasks + ['app' => $app, 'csrf' => $csrf]) /* 3.27 */ ?>
 <h2><?= e(t('Triage')) ?></h2>
 <form method="post" action="<?= e($module->url('triage')) ?>">
 	<?= $csrf ?><input type="hidden" name="id" value="<?= (int) $p['idp'] ?>">

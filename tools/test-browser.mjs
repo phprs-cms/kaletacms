@@ -3382,6 +3382,94 @@ await step('3.26 notifications: the bell, the Notifications screen, open and mar
     sql(`DELETE FROM ka_notifications WHERE user_id = ${admin}; DELETE FROM ka_stranky WHERE ids = ${pageId}; UPDATE ka_uzivatele SET notify_email = 'instant' WHERE idu = ${admin}`);
   }
 });
+// 3.27 (agent B): the tasks of a record – the follow-up buttons of an enquiry, Mark done and Reopen, Snooze, Edit in place,
+// Hand to Claude through the confirmation (a link to the request), the page's task for its review date, "Add a task" for a
+// colleague with a quick day, Delete through the confirmation; 1440 and 390 px, light and dark, no sideways scroll
+await step('3.27 tasks: enquiry follow-up, done, snooze, edit, hand to Claude; the page review task, add for a colleague, delete (1440 and 390 px, light/dark)', async () => {
+  if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
+  const enquiry = Number(sql(`INSERT INTO ka_poptavky (datum, formular, email, data, stav) VALUES (NOW(), 'Contact B327', 'b327@visitor.example', '[["Message","Secret message B327"]]', 1); SELECT LAST_INSERT_ID();`).trim());
+  const pageId = Number(sql("INSERT INTO ka_stranky (seo_link, titulek, text, zobrazit, v_menu, review_by) VALUES ('tasks-327', 'Price list 327', '<p>x</p>', 0, 0, CURDATE() + INTERVAL 12 DAY); SELECT LAST_INSERT_ID();").trim());
+  sql(`DELETE FROM ka_uzivatele WHERE user = 'jana-327'; INSERT INTO ka_uzivatele (user, password, jmeno, email, admin, posledni_login, potvrzeno) VALUES ('jana-327', '', 'Jana Tasks', '', 1, NOW(), NOW());
+    INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, 'pages' FROM ka_uzivatele WHERE user = 'jana-327'`);
+  const jana = Number(sql("SELECT idu FROM ka_uzivatele WHERE user = 'jana-327'").trim());
+  const submit = async (locator) => { await Promise.all([page.waitForNavigation(), locator.click()]); };
+  const confirmed = async (locator) => { await locator.click(); await page.locator('dialog.potvrzeni[open]').waitFor(); await submit(page.locator('dialog.potvrzeni [data-ano]')); };
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await visit(`/admin.php?module=enquiries&action=detail&id=${enquiry}`);
+    const panel = page.locator('#tasks');
+    await submit(panel.locator('form[data-task-follow-up] button', { hasText: 'In 3 days' }));
+    await page.locator('.hlaska-ok', { hasText: 'is in My work.' }).waitFor();
+    const row = panel.locator('[data-tasks-open] .ukol').first();
+    if ((await row.locator('.ukol-nazev').innerText()) !== 'Follow up: Contact B327') { throw new Error(`the follow-up is titled “${await row.locator('.ukol-nazev').innerText()}”`); }
+    if (!(await row.locator('.ukol-meta').innerText()).startsWith('For me · due ')) { throw new Error(`the follow-up says “${await row.locator('.ukol-meta').innerText()}”`); }
+    if (SHOTS) { await panel.scrollIntoViewIfNeeded(); await page.screenshot({ path: `${SHOTS}/327-enquiry-tasks.png` }); }
+    // done, then open again from the folded Done list
+    await submit(row.locator('button.ukol-hotovo'));
+    await page.locator('.hlaska-ok', { hasText: 'The task is done.' }).waitFor();
+    await panel.locator('.ukoly-hotove summary').click();
+    if (!(await panel.locator('[data-tasks-done] .ukol').count())) { throw new Error('the done task is not under Done'); }
+    await submit(panel.locator('[data-tasks-done] button', { hasText: 'Reopen' }));
+    // snooze to tomorrow, then edit in place
+    await submit(panel.locator('[data-tasks-open] form[data-task-snooze] button', { hasText: 'Tomorrow' }));
+    await page.locator('.hlaska-ok', { hasText: 'The task comes back on' }).waitFor();
+    await panel.locator('.ukol-upravit summary').first().click();
+    await panel.locator('form[data-task-edit] input[name="title"]').fill('Call Mrs Novak back');
+    await panel.locator('form[data-task-edit] input[name="due_time"]').fill('15:45');
+    await submit(panel.locator('form[data-task-edit] button[type="submit"]'));
+    const edited = await panel.locator('[data-tasks-open] .ukol').first().innerText();
+    if (!edited.includes('Call Mrs Novak back') || !edited.includes('15:45')) { throw new Error(`the edit is not shown: ${edited}`); }
+    // hand to Claude: the confirmation, then the task is done with a link to its request
+    await confirmed(panel.locator('form[data-task-claude] button'));
+    await page.locator('.hlaska-ok', { hasText: 'was handed to Claude as request #' }).waitFor();
+    await panel.locator('.ukoly-hotove summary').click();
+    const link = panel.locator('[data-task-request] a');
+    if (!(await link.getAttribute('href')).includes('module=requests&action=detail&id=')) { throw new Error('the handed task has no link to its request'); }
+    const requestText = sql(`SELECT text FROM ka_requests WHERE title = 'Call Mrs Novak back'`);
+    if (!requestText.includes(`module=enquiries&action=detail&id=${enquiry}`) || requestText.includes('Secret message')) { throw new Error(`the request text is wrong: ${requestText}`); }
+    // the page: one click for the review date, then a task for Jana tomorrow from the Add a task form
+    await visit(`/admin.php?module=pages&action=edit&id=${pageId}`);
+    await submit(panel.locator('form[data-task-review] button'));
+    if (!(await panel.locator('[data-tasks-open] .ukol-nazev', { hasText: 'Review: Price list 327' }).count()) || await panel.locator('form[data-task-review]').count()) { throw new Error('the review task is not added or still offered'); }
+    await panel.locator('.ukol-pridat > summary').click();
+    const form = panel.locator('form[data-task-add]');
+    await form.locator('input[name="title"]').fill('Update the prices');
+    await form.locator('select[name="assignee_id"]').selectOption(String(jana));
+    await submit(form.locator('.ukol-rychle button', { hasText: 'Tomorrow' }));
+    await page.locator('.hlaska-ok', { hasText: 'The task was added for Jana Tasks' }).waitFor();
+    const janaRow = panel.locator('[data-tasks-open] .ukol', { hasText: 'Update the prices' });
+    if (!(await janaRow.locator('.ukol-meta').innerText()).startsWith('For Jana Tasks · due ')) { throw new Error(`Jana's task says ${await janaRow.locator('.ukol-meta').innerText()}`); }
+    if (sql(`SELECT DATEDIFF(due_at, CURDATE()) FROM ka_tasks WHERE title = 'Update the prices'`).trim() !== '1') { throw new Error('the quick day is not tomorrow'); }
+    // light and dark, desktop and phone: the panel fits, its text is readable
+    const state = await context.storageState();
+    for (const scheme of ['light', 'dark']) {
+      for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]]) {
+        const other = await browser.newContext({ viewport: { width, height }, locale: 'en-GB', colorScheme: scheme, storageState: state, ...(width < 500 ? { isMobile: true, hasTouch: true } : {}) });
+        const p2 = await other.newPage(); watch(p2);
+        try {
+          await p2.goto(`${BASE}/admin.php?module=pages&action=edit&id=${pageId}`, { waitUntil: 'networkidle' });
+          await p2.locator('#tasks .ukol-pridat').evaluate((d) => { d.open = true; });
+          const wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+          if (wide > 0) { throw new Error(`${wide} px of sideways scroll (${label}, ${scheme})`); }
+          const colours = await p2.locator('#tasks .ukol').first().evaluate((el) => [getComputedStyle(el).backgroundColor, getComputedStyle(el.querySelector('.ukol-nazev')).color]);
+          if (colours[0] === colours[1]) { throw new Error(`the task text has the colour of its card (${label}, ${scheme})`); }
+          if (SHOTS) { await p2.locator('#tasks').scrollIntoViewIfNeeded(); await p2.screenshot({ path: `${SHOTS}/327-page-tasks-${label}-${scheme}.png`, fullPage: true }); }
+        } finally {
+          await other.close();
+        }
+      }
+    }
+    // delete through the confirmation
+    await confirmed(janaRow.locator('form[data-task-delete] button'));
+    await page.locator('.hlaska-ok', { hasText: 'The task was deleted.' }).waitFor();
+    if (await panel.locator('.ukol', { hasText: 'Update the prices' }).count()) { throw new Error('the deleted task is still listed'); }
+  } finally {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    sql(`DELETE FROM ka_notifications WHERE target LIKE 'task:%'; DELETE FROM ka_tasks WHERE target IN ('enquiry:${enquiry}', 'page:${pageId}');
+      DELETE FROM ka_request_messages WHERE request_id IN (SELECT id FROM ka_requests WHERE title = 'Call Mrs Novak back'); DELETE FROM ka_requests WHERE title = 'Call Mrs Novak back';
+      DELETE FROM ka_poptavky WHERE idp = ${enquiry}; DELETE FROM ka_stranky WHERE ids = ${pageId}; DELETE FROM ka_uzivatele_prava WHERE fk_id_user = ${jana}; DELETE FROM ka_uzivatele WHERE idu = ${jana}`);
+  }
+});
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

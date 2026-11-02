@@ -225,7 +225,8 @@ $parity = [
         'build_text' => 'admin: back from the builder to a text page', 'restore_version' => 'admin: text revisions of a text page',
         'translations' => 'translation_status', 'bulk' => 'update_page',
         'owner' => 'assign', // 3.24: the responsible person of a published page for someone who may not save its settings
-        'comment' => 'admin: the team’s thread on a page (3.26) – a person writes it; Claude gets the comments over MCP with the work tools'],
+        'comment' => 'admin: the team’s thread on a page (3.26) – a person writes it; Claude gets the comments over MCP with the work tools',
+        'task' => 'admin: the tasks of a page in its settings (3.27) – Claude lists, saves and completes tasks with the work tools'],
     'news' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'compare' => $readOnly, 'versions' => $readOnly, 'search_json' => $readOnly,
         'save' => 'update_news', 'save_text' => 'update_news', 'delete' => 'trash_news', 'restore' => 'restore_from_trash', 'delete_permanently' => 'admin: the trash empties itself after 30 days',
         'draft' => 'admin: autosave of the editor', 'duplicate' => 'admin: a copy of a news item – Claude creates a new one', 'links' => 'admin: link check runs on its own',
@@ -242,13 +243,15 @@ $parity = [
         'import_progress' => 'save_collection_items', 'import_delete' => 'admin: removing the record of an import',
         // 3.7: collection categories
         'categories' => 'list_collection_categories', 'category' => $readOnly, 'save_category' => 'save_collection_category', 'delete_category' => 'delete_collection_category',
-        'comment' => 'admin: the team’s thread on an item (3.26) – a person writes it; Claude gets the comments over MCP with the work tools'],
+        'comment' => 'admin: the team’s thread on an item (3.26) – a person writes it; Claude gets the comments over MCP with the work tools',
+        'task' => 'admin: the tasks of an item in its form (3.27) – Claude lists, saves and completes tasks with the work tools'],
     // 2.15: requests to Claude – staff write them in the admin (not over MCP: a request is what a person asks Claude), Claude reads and answers them
     'requests' => ['list' => 'list_requests', 'new' => $readOnly, 'save' => 'admin: a request is written by a person for Claude – Claude reads it with list_requests', 'detail' => 'list_requests',
         'reply' => 'admin: the requester answers Claude in the request; Claude answers with update_request', 'status' => 'update_request'],
     'enquiries' => ['list' => $readOnly, 'detail' => $readOnly, 'csv' => $readOnly, 'attachment' => $readOnly, 'note' => 'update_enquiry', 'status' => 'update_enquiry', 'triage' => 'update_enquiry', 'testimonial' => 'request_testimonial', 'reply' => 'reply_to_enquiry', 'personal' => 'erase_personal_data',
         'bulk' => 'update_enquiry', 'delete' => 'delete_enquiry', 'settings' => 'admin: how long enquiries are kept', 'anonymise' => 'admin: blanking a person from an enquiry is the owner’s decision about personal data (2.14)',
-        'comment' => 'admin: editing or deleting one’s own note (3.26) – notes are added with update_enquiry add_note'],
+        'comment' => 'admin: editing or deleting one’s own note (3.26) – notes are added with update_enquiry add_note',
+        'task' => 'admin: the tasks and follow-ups of an enquiry (3.27) – Claude lists, saves and completes tasks with the work tools'],
     // 3.0: online booking – bookings are personal data (the Bookings section), the set-up is the administrator's
     'bookings' => ['list' => $readOnly, 'detail' => $readOnly, 'new' => $readOnly, 'status' => 'cancel_booking', 'confirm' => 'confirm_booking', 'decline' => 'decline_booking', 'propose' => 'propose_booking_times', 'anonymise' => 'admin: blanking a person from a booking is the owner’s decision about personal data',
         'create' => 'admin: a booking taken by phone is entered by the person who took the call – customers’ personal data never come from Claude', 'services' => $readOnly, 'service_save' => 'save_booking_service',
@@ -9177,6 +9180,52 @@ check('3.26.1 (N3261-5): many rows everywhere – the HTML stays under the budge
     strlen($fullMail3261['html']) <= MonthlyReport::EMAIL_BUDGET, str_contains($fullMail3261['html'], 'Open the full report'), str_contains($fullMail3261['html'], 'Sent once a month by the website'),
     substr_count($fullMail3261['text'], '/services/web-design-for-small-business-'), str_contains($fullMail3261['html'], 'web-design-for-small-business-1<'), str_contains($fullMail3261['html'], 'web-design-for-small-business-5<')],
     [true, true, true, 25, true, false]);
+
+// 3.27 (agent B): the tasks of a record in the admin – the form's dates (quick days, a time, the reminder), the default titles
+// (a follow-up is named after the enquiry's form, never after what the customer wrote), the cache and the modules
+use Kaleta\Admin\TaskPanel;
+
+$due327 = fn (string $date, string $time, string $quick = ''): string => TaskPanel::due($date, $time, $quick, '2026-11-30');
+$timeRefused327 = (function (): string {
+    try {
+        TaskPanel::due('2026-12-01', '25:00', '', '2026-11-30');
+    } catch (\DomainException $e) {
+        return 'refused';
+    }
+
+    return 'accepted';
+})();
+check('3.27 TaskPanel::due – a quick day wins over the date and counts from the site\'s day (over a month end), the time applies to either, a time alone is today\'s, nothing is none, a bad time is refused', [
+    $due327('', '', 'today'), $due327('2027-01-05', '', 'tomorrow'), $due327('', '14:30', 'week'), $due327('2026-12-24', '08:15'), $due327('2026-12-24', ''), $due327('', '07:00'), $due327('', ''), $due327('', '', 'never'),
+    $timeRefused327, Kaleta\Core\Tasks::parseMoment($due327('', '', '3days')), Kaleta\Core\Tasks::parseMoment($due327('2026-12-24', '08:15'))],
+    ['2026-11-30', '2026-12-01', '2026-12-07 14:30', '2026-12-24 08:15', '2026-12-24', '2026-11-30 07:00', '', '', 'refused', '2026-12-03 ' . Kaleta\Core\Tasks::DEFAULT_TIME . ':00', '2026-12-24 08:15:00']);
+check('3.27 TaskPanel::remindAt / remindChoice – an hour or a day before the due moment, nothing without one; a stored reminder maps back, one set elsewhere is "keep"', [
+    TaskPanel::remindAt('2026-12-01 09:00:00', '1h'), TaskPanel::remindAt('2026-12-01 09:00:00', '1d'), TaskPanel::remindAt('2026-12-01 09:00:00', ''), TaskPanel::remindAt(null, '1d'), TaskPanel::remindAt('2026-12-01 09:00:00', 'x'),
+    TaskPanel::remindChoice('2026-12-01 09:00:00', '2026-12-01 08:00:00'), TaskPanel::remindChoice('2026-12-01 09:00:00', '2026-11-30 09:00:00'), TaskPanel::remindChoice('2026-12-01 09:00:00', null),
+    TaskPanel::remindChoice('2026-12-01 09:00:00', '2026-11-28 10:00:00'), TaskPanel::remindChoice(null, '2026-11-28 10:00:00')],
+    ['2026-12-01 08:00:00', '2026-11-30 09:00:00', null, null, null, '1h', '1d', '', 'keep', 'keep']);
+$form327 = Kaleta\Core\Language::runWith('en', fn (): array => TaskPanel::fromForm(new Kaleta\Core\Request([], ['title' => ' Call back ', 'assignee_id' => '7', 'due_date' => '2026-12-02', 'due_time' => '10:30', 'remind' => '1d'], ['REQUEST_METHOD' => 'POST']), '2026-11-30'), 'admin-');
+$quickForm327 = TaskPanel::fromForm(new Kaleta\Core\Request([], ['title' => 'x', 'assignee_id' => '-3', 'due_date' => '2026-12-24', 'due_quick' => 'tomorrow'], ['REQUEST_METHOD' => 'POST']), '2026-11-30');
+check('3.27 TaskPanel::fromForm – the fields of Tasks::create (title, person, due and reminder as DATETIME); a quick day wins over the date; no person = 0 (me)', [$form327, [$quickForm327['assignee_id'], $quickForm327['due_at'], $quickForm327['remind_at']]],
+    [['title' => 'Call back', 'assignee_id' => 7, 'due_at' => '2026-12-02 10:30:00', 'remind_at' => '2026-12-01 10:30:00'], [0, '2026-12-01 ' . Kaleta\Core\Tasks::DEFAULT_TIME . ':00', null]]);
+check('3.27 default titles – a follow-up names the form (an empty one: Enquiry), a review the record; never longer than a task title', Kaleta\Core\Language::runWith('en', fn (): array => [
+    TaskPanel::followUpTitle('Contact form'), TaskPanel::followUpTitle('  '), TaskPanel::reviewTitle('Price list'), mb_strlen(TaskPanel::followUpTitle(str_repeat('x', 400))) <= Kaleta\Core\Tasks::TITLE], 'admin-'),
+    ['Follow up: Contact form', 'Follow up: Enquiry', 'Review: Price list', true]);
+// no enquiry content in a task title: the follow-up takes the record's title, and the record of an enquiry is read with its form name only
+$enquiriesSource327 = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php');
+preg_match('/function commentTarget\(\): \?array\s*\{(.*?)\n    \}/s', $enquiriesSource327, $enquiryTarget327);
+preg_match('/function followUp\(.*?\n    \}/s', (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/TaskActions.php'), $followUp327);
+check('3.27 no enquiry content in a follow-up: the enquiry is read as idp and form name only, its task target reuses it, the title is followUpTitle(record title)', [
+    preg_match("/SELECT idp, formular FROM \{poptavky\}/", $enquiryTarget327[1] ?? '') === 1, preg_match('/\b(data|email|poznamka|navrh_odpovedi)\b/', $enquiryTarget327[1] ?? 'data') === 1,
+    str_contains($enquiriesSource327, '$record = $this->commentTarget();'), str_contains($followUp327[0] ?? '', "TaskPanel::followUpTitle(\$record['title'])"),
+    str_contains($followUp327[0] ?? '', "'assignee_id' => \$me")],
+    [true, false, true, true, true]);
+$t327Post = fn (string $module): bool => Kaleta\Admin\Kernel::clearsPageCache(new Kaleta\Core\Request(['module' => $module, 'action' => 'task'], ['op' => 'add'], ['REQUEST_METHOD' => 'POST']));
+check('3.27 tasks never clear the page cache – enquiries, pages and collections; the three modules share Admin\TaskActions; every quick day, follow-up and snooze has a label', [
+    $t327Post('enquiries'), $t327Post('pages'), $t327Post('collections'),
+    array_map(fn (string $class): bool => in_array(Kaleta\Admin\TaskActions::class, class_uses($class), true), [Kaleta\Admin\Modules\Enquiries::class, Kaleta\Admin\Modules\Pages::class, Kaleta\Admin\Modules\Collections::class]),
+    array_diff(array_keys(TaskPanel::QUICK + TaskPanel::FOLLOW_UP + Kaleta\Core\Tasks::SNOOZE), array_keys(TaskPanel::DAY_LABELS)), array_keys(TaskPanel::REMIND) === array_keys(TaskPanel::REMIND_LABELS)],
+    [false, false, false, [true, true, true], [], true]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

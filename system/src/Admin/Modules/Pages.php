@@ -19,6 +19,7 @@ final class Pages extends Module
         actionBuilder as protected openBuilder;
     }
     use \Kaleta\Admin\CommentActions; // 3.26: the team's thread in the page settings and the Team tab of the builder
+    use \Kaleta\Admin\TaskActions; // 3.27: the page's tasks in its settings
 
     public const string IDENT = 'pages';
     public const string NAME = 'Pages';
@@ -811,6 +812,15 @@ final class Pages extends Module
         return $page === null ? null : ['target' => \Kaleta\Core\Comments::page((int) $page['ids']), 'back' => ['edit', ['id' => (int) $page['ids']]], 'title' => (string) $page['titulek']];
     }
 
+    /** 3.27: the page a task form is about – one that exists and is not in the trash – with its review date. */
+    protected function taskTarget(): ?array
+    {
+        $page = $this->db->one('SELECT ids, titulek, review_by FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$this->request->postInt('ids')]);
+
+        return $page === null ? null : ['target' => \Kaleta\Core\Comments::page((int) $page['ids']), 'back' => ['edit', ['id' => (int) $page['ids']]], 'title' => (string) $page['titulek'],
+            'review' => $page['review_by'] !== null ? (string) $page['review_by'] : null];
+    }
+
     /** Copy of the page including the build and the work-in-progress draft – hidden, with a free slug. */
     protected function actionDuplicate(): Response
     {
@@ -860,6 +870,9 @@ final class Pages extends Module
             'owners' => \Kaleta\Core\Assignment::candidates($this->db, 'page', (int) ($page['owner_id'] ?? 0)),
             // 3.26: the team's thread (a saved page only)
             'thread' => $page['ids'] ? $this->commentThread(\Kaleta\Core\Comments::page((int) $page['ids']), ['ids' => (int) $page['ids']]) : null,
+            // 3.27: the page's tasks (a saved page only), with one click for its review date
+            'tasks' => $page['ids'] ? $this->taskPanel(\Kaleta\Core\Comments::page((int) $page['ids']), ['ids' => (int) $page['ids']],
+                ['review' => ($page['review_by'] ?? null) ? (string) $page['review_by'] : null, 'title' => (string) $page['titulek']]) : null,
         ]);
     }
 }

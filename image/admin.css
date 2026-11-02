@@ -1646,3 +1646,42 @@ table.preklady td[data-stav] form { margin-inline-start: 6px; }
 	.loginprouzek:has(.zvonek):has(.claude-stav) :is(.paleta-spustit, .tema-prepinac, .avatar, .zvonek, .claude-stav) { width: 32px; height: 32px; }
 	.hlavicka:has(~ .loginprouzek .zvonek):has(~ .loginprouzek .claude-stav) .kaleta-logo { height: 18px; }
 }
+/* 3.27: the tasks of a record (views/admin/tasks_panel.php) – one card per task, overdue with a red edge and today with an
+   orange one; the actions are small buttons that wrap; Edit opens in place; the follow-up and review offers are one tinted
+   row; "Add a task" is a folded form whose fields sit in a grid that becomes one column on a phone */
+.ukoly { margin-top: 24px; }
+.ukoly-seznam { display: grid; gap: 8px; margin: 0 0 12px; padding: 0; list-style: none; }
+.ukol { padding: 10px 14px; border: 1px solid var(--linka); border-radius: 8px; background: var(--plocha); }
+.ukol-overdue { box-shadow: inset 3px 0 0 var(--chyba); }
+.ukol-today { box-shadow: inset 3px 0 0 var(--varovani); }
+.ukol-done .ukol-nazev strong { color: var(--text-slaby); font-weight: 500; text-decoration: line-through; }
+.ukol p { margin: 0; }
+.ukol-nazev { overflow-wrap: anywhere; }
+.ukol .ukol-meta { margin-top: 2px; color: var(--text-slaby); font-size: 13px; overflow-wrap: anywhere; }
+.ukol-akce { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 8px; font-size: 13px; }
+.ukol-akce form { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0; }
+.ukol-akce button.navigace { padding: 2px 10px; font-size: 13px; font-weight: 500; }
+.ukol-upravit[open] { flex: 1 1 100%; order: 1; }
+.ukol-upravit form { display: block; }
+.ukol-pole { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 14px; align-items: start; }
+.ukol-pole > div { display: grid; gap: 4px; min-width: 0; }
+.ukol-pole label { font-weight: 600; font-size: 13px; }
+.ukol-pole .ukol-pole-nazev { grid-column: 1 / -1; }
+.ukol-pole :is(input, select) { width: 100%; min-width: 0; box-sizing: border-box; }
+.ukol-navazat { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0 0 12px; padding: 10px 14px; border-radius: 8px;
+	background: color-mix(in oklch, var(--akcent) 6%, var(--plocha)); border: 1px solid var(--linka); }
+.ukol-navazat .ukol-navazat-text { font-weight: 600; }
+.ukol-navazat button.navigace { padding: 4px 12px; font-size: 14px; }
+.ukol-navazat .napoveda { flex: 1 1 100%; margin: 0; font-size: 12px; }
+.ukol-navazat-po-odpovedi { border-color: color-mix(in oklch, var(--ok) 40%, var(--linka)); background: color-mix(in oklch, var(--ok) 8%, var(--plocha)); }
+.ukoly-hotove { margin: 0 0 12px; }
+.ukoly-hotove summary, .ukol-pridat > summary { cursor: pointer; font-weight: 600; }
+.ukoly-hotove[open] summary { margin-bottom: 8px; }
+.ukol-pridat > summary { display: inline-block; padding: 6px 14px; border: 1px solid var(--linka-pole); border-radius: 6px; background: var(--plocha); color: var(--text); list-style: none; }
+.ukol-pridat > summary::-webkit-details-marker { display: none; }
+.ukol-pridat > summary:hover { border-color: var(--text-slaby); }
+.ukol-novy { margin-top: 12px; padding: 14px; border: 1px solid var(--linka); border-radius: 8px; background: var(--plocha); }
+.ukol-novy > .napoveda { display: block; margin: 8px 0 0; font-size: 12px; color: var(--text-slaby); }
+.ukol-tlacitka { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.ukol-rychle { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ukol-rychle button.navigace { padding: 6px 12px; font-weight: 500; }

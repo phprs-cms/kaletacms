@@ -1146,4 +1146,9 @@ return [
     'It did not need a single decision from you.' => 'Dabei war keine einzige Entscheidung von dir nötig.',
     'It needed your attention once.' => 'Einmal war deine Aufmerksamkeit nötig.',
     'It needed your attention %s times.' => '%s-mal war deine Aufmerksamkeit nötig.',
+    'The time “%s” is not understood – use HH:MM.' => 'Die Uhrzeit „%s“ wird nicht verstanden – verwende HH:MM.',
+    'Choose when the task should come back.' => 'Wähle, wann die Aufgabe wiederkommen soll.',
+    'Choose when to follow up.' => 'Wähle, wann nachgefasst werden soll.',
+    '“%s”, for you on that day – Edit changes the person or the time.' => '„%s“, für dich an diesem Tag – über Bearbeiten änderst du Person oder Uhrzeit.',
+    'Adds a task for you in My work about this enquiry.' => 'Legt dir zu dieser Anfrage eine Aufgabe in „Meine Arbeit“ an.',
 ];

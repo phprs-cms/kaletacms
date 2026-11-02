@@ -12,6 +12,7 @@
  * @var list<array{id: int, parent_id: ?int, name: string, visible: bool}> $categories  the collection's categories to tick (3.7)
  * @var list<int> $assigned  the categories the item is in
  * @var array<int, string> $owners  who can be the responsible person (3.24, Core\Assignment::candidates)
+ * @var array<string, mixed>|null $tasks   the tasks of a saved item (3.27, Admin\TaskActions::taskPanel)
  * @var array<string, mixed>|null $thread  the team's comments on a saved item (3.26, Admin\CommentActions::commentThread)
  */
 use Kaleta\Core\Language;
@@ -101,6 +102,9 @@ $contentDir = Language::dirAttribute(Language::ofContent($app->settings(), (stri
 </form>
 <?php if (($thread ?? null) !== null): ?>
 <?= $app->view->render('admin/comments', $thread + ['app' => $app, 'csrf' => $csrf]) /* 3.26 */ ?>
+<?php endif ?>
+<?php if (($tasks ?? null) !== null): ?>
+<?= $app->view->render('admin/tasks_panel', $tasks + ['app' => $app, 'csrf' => $csrf]) /* 3.27 */ ?>
 <?php endif ?>
 <?php if (($versions ?? []) !== []): ?>
 <details class="pokrocile">

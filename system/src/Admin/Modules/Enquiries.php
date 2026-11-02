@@ -14,6 +14,7 @@ use Kaleta\Core\Response;
 final class Enquiries extends Module
 {
     use \Kaleta\Admin\CommentActions; // 3.26: edit and delete a note, @mentions
+    use \Kaleta\Admin\TaskActions; // 3.27: the enquiry's tasks and the follow-up buttons
 
     public const string IDENT = 'enquiries';
     public const string EXTENSION = 'poptavky';
@@ -116,7 +117,20 @@ final class Enquiries extends Module
             'replyTo' => (string) ($this->app->auth()->user()['email'] ?? ''),
             'hasSignature' => \Kaleta\Core\EnquiryReply::signature($this->app, $this->app->auth()->user() ?? []) !== null,
             'replyDraft' => $this->takeReplyDraft((int) $p['idp']),
-            'users' => $this->listAssignees((int) $p['prirazeno'])]);
+            'users' => $this->listAssignees((int) $p['prirazeno']),
+            // 3.27: the tasks about the enquiry, the follow-up buttons first at the top right after a reply
+            'tasks' => $this->taskPanel(\Kaleta\Core\Comments::enquiry((int) $p['idp']), ['idp' => (int) $p['idp']], ['follow_up' => true, 'replied' => $this->takeFollowUp((int) $p['idp'])])]);
+    }
+
+    /** 3.27: was a reply to this enquiry just sent (actionReply)? Once – the detail offers the follow-up at its top. */
+    private function takeFollowUp(int $id): bool
+    {
+        $replied = (int) $this->app->session->get('task_follow_up') === $id;
+        if ($replied) {
+            $this->app->session->remove('task_follow_up');
+        }
+
+        return $replied;
     }
 
     /** What a refused reply carried (the form shows it again once), for this enquiry only. @return array{subject: string, text: string}|null */
@@ -149,6 +163,7 @@ final class Enquiries extends Module
 
             return $this->back($e->getMessage(), 'detail', ['id' => $id], 'chyba');
         }
+        $this->app->session->set('task_follow_up', $id); // 3.27: the detail offers "Follow up if they do not answer" first
         if ($result['status'] === 'sent') {
             return $this->back(t($result['resolved'] ? 'The reply was sent to %s and the enquiry is resolved.' : 'The reply was sent to %s.', $result['to']), 'detail', ['id' => $id]);
         }
@@ -241,6 +256,14 @@ final class Enquiries extends Module
         $enquiry = $this->db->one('SELECT idp, formular FROM {poptavky} WHERE idp = ?', [$this->request->postInt('idp')]);
 
         return $enquiry === null ? null : ['target' => \Kaleta\Core\Comments::enquiry((int) $enquiry['idp']), 'back' => ['detail', ['id' => (int) $enquiry['idp']]], 'title' => (string) $enquiry['formular']];
+    }
+
+    /** 3.27: the enquiry a task form is about. */
+    protected function taskTarget(): ?array
+    {
+        $record = $this->commentTarget();
+
+        return $record === null ? null : $record + ['review' => null];
     }
 
     /** Form attachment for download (only for a signed-in user with access to enquiries). */

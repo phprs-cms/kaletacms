@@ -12,6 +12,7 @@
  * @var ?string $translationOf  the title of the original when this is a new translation (3.11)
  * @var string $languageName  the name of the page's language version
  * @var array<int, string> $owners  who can be the responsible person (3.24, Core\Assignment::candidates)
+ * @var array<string, mixed>|null $tasks   the tasks of a saved page (3.27, Admin\TaskActions::taskPanel)
  * @var array<string, mixed>|null $thread  the team's comments on a saved page (3.26, Admin\CommentActions::commentThread)
  */
 $copyBuild = !$page['ids'] && !empty($page['copy_build']);
@@ -200,6 +201,9 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <?php endif ?>
 <?php if (($thread ?? null) !== null): ?>
 <?= $app->view->render('admin/comments', $thread + ['app' => $app, 'csrf' => $csrf]) /* 3.26 */ ?>
+<?php endif ?>
+<?php if (($tasks ?? null) !== null): ?>
+<?= $app->view->render('admin/tasks_panel', $tasks + ['app' => $app, 'csrf' => $csrf]) /* 3.27 */ ?>
 <?php endif ?>
 <?php if (!$page['ids'] && ($translationOf ?? null) !== null && $app->auth()->hasModule('requests') && Kaleta\Core\Extensions::isEnabled($app->settings(), 'claude')): // 3.11 (UX310-4): translating is what Claude does well
     $claude = Kaleta\Core\ClaudeConnection::status($app->db(), $app->settings()); // 3.18: without a connection the request waits – said before it is saved ?>

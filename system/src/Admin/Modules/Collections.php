@@ -25,6 +25,7 @@ final class Collections extends Module
         actionBuilder as protected openBuilder;
     }
     use \Kaleta\Admin\CommentActions; // 3.26: the team's thread in the item form
+    use \Kaleta\Admin\TaskActions; // 3.27: the item's tasks in its form
 
     public const string IDENT = 'collections';
     public const string NAME = 'Collections';
@@ -312,6 +313,9 @@ final class Collections extends Module
             'versions' => $p['idp'] > 0 ? \Kaleta\Builder\Publisher::listAll($this->db, ['cast' => 'polozka:' . (int) $p['idp']]) : [],
             'owners' => \Kaleta\Core\Assignment::candidates($this->db, 'item', (int) ($p['owner_id'] ?? 0)), // 3.24: the responsible person
             'thread' => $p['idp'] > 0 ? $this->commentThread(\Kaleta\Core\Comments::item((int) $p['idp']), ['idk' => (int) $k['idk'], 'idp' => (int) $p['idp']]) : null, // 3.26
+            // 3.27: the item's tasks, with one click for its review date
+            'tasks' => $p['idp'] > 0 ? $this->taskPanel(\Kaleta\Core\Comments::item((int) $p['idp']), ['idk' => (int) $k['idk'], 'idp' => (int) $p['idp']],
+                ['review' => ($p['review_by'] ?? null) ? (string) $p['review_by'] : null, 'title' => (string) $p['nazev']]) : null,
             // the audit trail of a notice (2.11, Core\Notices), newest first
             'noticeLog' => $p['idp'] > 0 && Notices::isNotices($k) ? array_reverse(Notices::entries($this->db, (int) $k['idk'], (int) $p['idp'])) : []]);
     }
@@ -805,6 +809,15 @@ final class Collections extends Module
         $item = $this->db->one('SELECT idp, idk, nazev FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NULL', [$this->request->postInt('idp'), $this->request->postInt('idk')]);
 
         return $item === null ? null : ['target' => \Kaleta\Core\Comments::item((int) $item['idp']), 'back' => ['item', ['id' => (int) $item['idk'], 'item' => (int) $item['idp']]], 'title' => (string) $item['nazev']];
+    }
+
+    /** 3.27: the item a task form is about – one of this collection that is not in the trash – with its review date. */
+    protected function taskTarget(): ?array
+    {
+        $item = $this->db->one('SELECT idp, idk, nazev, review_by FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NULL', [$this->request->postInt('idp'), $this->request->postInt('idk')]);
+
+        return $item === null ? null : ['target' => \Kaleta\Core\Comments::item((int) $item['idp']), 'back' => ['item', ['id' => (int) $item['idk'], 'item' => (int) $item['idp']]],
+            'title' => (string) $item['nazev'], 'review' => $item['review_by'] !== null ? (string) $item['review_by'] : null];
     }
 
     /* ---------- item template in the builder (administrator) ---------- */
