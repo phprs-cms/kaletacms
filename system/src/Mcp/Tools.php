@@ -30,7 +30,7 @@ use Kaleta\Builder\HtmlConverter;
  */
 final class Tools
 {
-    use Handlers\PageTools, Handlers\BuilderTools, Handlers\LookTools, Handlers\CollectionTools, Handlers\NewsTools, Handlers\MediaTools, Handlers\EnquiryAndPopupTools, Handlers\SettingsTools, Handlers\UpkeepTools, Handlers\NewsletterTools, Handlers\MigrationTools, Handlers\HealthTools, Handlers\FleetTools, Handlers\FactTools, Handlers\BlueprintTools, Handlers\NotebookTools, Handlers\RequestTools, Handlers\AgentRunTools, Handlers\BookingTools, Handlers\PendingReviewTools, Handlers\ReportTools;
+    use Handlers\PageTools, Handlers\BuilderTools, Handlers\LookTools, Handlers\CollectionTools, Handlers\NewsTools, Handlers\MediaTools, Handlers\EnquiryAndPopupTools, Handlers\SettingsTools, Handlers\UpkeepTools, Handlers\NewsletterTools, Handlers\MigrationTools, Handlers\HealthTools, Handlers\FleetTools, Handlers\FactTools, Handlers\BlueprintTools, Handlers\NotebookTools, Handlers\RequestTools, Handlers\AgentRunTools, Handlers\BookingTools, Handlers\PendingReviewTools, Handlers\ReportTools, Handlers\WorkTools;
 
     /** The largest file uploaded via MCP (base64 in one tool call). */
     private const int MAX_UPLOAD = 12 * 1024 * 1024;
@@ -250,6 +250,7 @@ final class Tools
             ['delete_media', 'Deletes a file from Media for good (only when the user explicitly asks; the owner or an administrator). A file still used on the site is not deleted – the error says where it is used.', $s(['id' => $number('file ID from list_media')], ['id'])],
             ['update_enquiry', 'Marks an enquiry new, read or resolved, writes an internal note and saves its triage (users with the Enquiries section): the kind, the priority and a drafted reply that a person checks and sends (2.12). A triage a person made is kept. A drafts-only connection saves only the triage (category, priority, draft_reply) – a suggestion; the status and the note are a person\'s (3.2).',
                 $s(['id' => $number('enquiry ID from list_enquiries'), 'status' => $text('new | read | resolved'), 'note' => $text('internal note (replaces the previous one)'),
+                    'assignee' => $text('who handles it: a user id, an e-mail, "me" or "none" (a user with the Enquiries section; e-mails them a link)'),
                     'category' => $text('sales | support | job | supplier | spam | other'), 'priority' => $text('high | normal | low'), 'draft_reply' => $text('a short reply in the language of the enquiry – never promise prices, dates or facts the site does not state')], ['id'])],
             ['request_testimonial', 'Asks the customer of an enquiry for a testimonial (users with the Enquiries section, 2.12): a personal link for 30 days; what they write – words, name, role, a photo – arrives as a hidden draft in the References collection with the consent they gave. send=true e-mails the link (only when the user asks), otherwise the link is returned to pass on.',
                 $s(['id' => $number('enquiry ID'), 'send' => ['type' => 'boolean', 'description' => 'true = e-mail the request to the customer now']], ['id'])],
@@ -470,6 +471,11 @@ final class Tools
             ['report_agent_run', 'Finishes a scheduled run handed out by get_due_agent_runs (administrators, 2.17): the status – ok when everything in the instructions was done as drafts, partial when some of it waits for a person, failed when it could not be done – a short summary the administrator reads (what was done, what to review, what needs a decision) and links to the drafts. It records the run and schedules the next one; it changes nothing on the site and publishes nothing.',
                 $s(['id' => $number('run id from get_due_agent_runs'), 'status' => $text('ok | partial | failed'), 'summary' => $text('what was done as drafts, what to review, what needs a person – plain text'),
                     'links' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => 'the drafts you made: [{"label": "Services – draft build", "url": "https://…/preview…"}] or plain strings (a URL, or "page 12")']], ['id', 'status', 'summary'])],
+            ['my_work', 'What waits for the connected user (read-only, 3.24) – the same lists as My work in the administration, each only for a section the user may open: enquiries assigned to them that are still open and new ones nobody handles yet (form, about, status – no personal data), the pages and collection items they are responsible for whose review is due within 14 days or overdue, that have unpublished changes or unresolved comments on the draft, and their requests to Claude where Claude wrote last. Every row has admin_url.',
+                $s([])],
+            ['assign', 'Makes a person responsible for a page or a collection item, or the one who handles an enquiry (3.24; the connected user must be able to open that section). Responsibility only – it shows in that person\'s My work and e-mails them a link when it is someone else; it never changes who may edit. The person must be able to open the section too, otherwise nothing changes. user "none" removes the responsible person.',
+                $s(['target' => $text('page | item | enquiry'), 'id' => $number('ID of the page (list_pages), the collection item (list_collection_items) or the enquiry (list_enquiries)'),
+                    'user' => $text('a user id, the e-mail of an active account, "me" or "none"')], ['target', 'id', 'user'])],
             ['smaz_stranku', 'Přesune stránku do koše (jen na výslovný pokyn uživatele; editor nebo správce). Z koše jde 30 dní obnovit v administraci. Úvodní stránku smazat nejde.', $s(['id' => $number('ID stránky')], ['id'])],
         ];
 

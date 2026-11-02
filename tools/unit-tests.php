@@ -268,7 +268,9 @@ $parity = [
     'popups' => $builderParity + ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'create' => 'save_popup', 'save' => 'save_popup', 'toggle' => 'save_popup',
         'delete' => 'delete_popup', 'reset' => 'admin: resetting the counters'],
     'users' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'save' => 'admin: accounts and permissions', 'delete' => 'admin: accounts and permissions', 'password_link' => 'admin: accounts and permissions',
-        'reactivate' => 'admin: accounts and permissions', 'revoke_connection' => 'admin: accounts and permissions'],
+        'reactivate' => 'admin: accounts and permissions', 'revoke_connection' => 'admin: accounts and permissions',
+        'handover' => 'admin: handing all of a leaver\'s work over goes with blocking or deleting the account (3.24) – Claude moves one record with assign'],
+    'my_work' => ['list' => 'my_work'], // 3.24
     'roles' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'save' => 'admin: accounts and permissions', 'delete' => 'admin: accounts and permissions'],
     'stats' => ['list' => 'get_stats'], 'changelog' => ['list' => 'list_changes', 'sessions' => 'list_agent_sessions', 'undo' => 'undo_agent_session'], 'audit' => ['list' => 'site_audit'],
     'addons' => ['list' => $readOnly, 'toggle' => 'admin: running code from another developer is the administrator’s decision (3.0)', 'page' => 'admin: pages add-ons add to the administration'],
@@ -8448,6 +8450,35 @@ check('3.23.1 review (N3231-2): the areas a module logs under; wrote() takes sev
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Privacy.php'), "ChangeLog::write(\$app, 'pages', 'accessibility_statement'"),
 ], [['business' => ['settings'], 'menu' => ['appearance'], 'transfer' => ['appearance'], 'settings' => ['pages'], 'collections' => ['pages']], false, true, false, [], true, true]);
 Kaleta\Admin\ChangeLog::forget();
+
+
+// 3.24: My work, handing work over and assign – core, for every signed-in user, never an access limit
+$w324Idents = array_map(fn (string $c): string => $c::IDENT, Kaleta\Admin\Kernel::MODULES);
+$w324Db = new Kaleta\Core\Db('mysql:host=127.0.0.1;dbname=none', '', ''); // never connects: "me" and "none" ask nothing
+check('3.24: My work is a core module for every signed-in user – no role section, no default right, a guide link; its lists and the hand-over kinds name real sections', [
+    Kaleta\Admin\Modules\MyWork::FOR_ALL_USERS, Kaleta\Admin\Modules\MyWork::EXTENSION, isset(Kaleta\Admin\Modules\Roles::configurable()['my_work']),
+    in_array('my_work', Kaleta\Admin\Modules\Users::defaultModules(Kaleta\Core\Auth::EDITOR), true), isset(Kaleta\Admin\Guide::MODULES['my_work']),
+    array_values(array_diff(array_values(Kaleta\Core\MyWork::LISTS), $w324Idents)), array_values(array_diff(array_column(Kaleta\Core\Handover::KINDS, 0), $w324Idents)),
+    Kaleta\Core\Handover::KINDS['enquiry'][1] === Kaleta\Admin\Modules\Enquiries::EXTENSION, Kaleta\Admin\Kernel::MODULES[0],
+], [true, '', false, false, true, [], [], true, Kaleta\Admin\Modules\MyWork::class]);
+check('3.24: my_work (read) and assign (write, idempotent, inside the site) – English on both sides of the Translator, never in the essentials', [
+    Kaleta\Mcp\Catalog::TOOLS['my_work'] ?? null, Kaleta\Mcp\Catalog::TOOLS['assign'] ?? null, Kaleta\Mcp\Translator::czech('my_work'), Kaleta\Mcp\Translator::czech('assign'),
+    array_values(array_intersect(['my_work', 'assign'], Kaleta\Mcp\Catalog::ESSENTIALS)), Kaleta\Mcp\Catalog::isIdempotent('assign'), Kaleta\Mcp\Catalog::isOpenWorld('assign'),
+    Kaleta\Mcp\Tools::annotations('my_work')['readOnlyHint'], Kaleta\Mcp\Catalog::allows('drafts', 'assign'),
+    array_keys(array_column(Kaleta\Mcp\Translator::listAll(Kaleta\Mcp\Tools::definitions()), 'inputSchema', 'name')['update_enquiry']['properties'] ?? []) === array_keys(array_column(Kaleta\Mcp\Tools::definitions(), 'inputSchema', 'name')['update_enquiry']['properties']),
+    isset(array_column(Kaleta\Mcp\Tools::definitions(), 'inputSchema', 'name')['update_enquiry']['properties']['assignee']),
+], [['read', ''], ['write', ''], 'my_work', 'assign', [], true, false, true, false, true, true]);
+check('3.24: Handover – counted labels (no plural forms), the sections a recipient needs, "me" and "none" without a lookup', [
+    Kaleta\Core\Language::runWith('en', fn (): string => Kaleta\Core\Handover::describe(['page' => 2, 'item' => 0, 'enquiry' => 1]), 'admin-'),
+    Kaleta\Core\Language::runWith('cs', fn (): string => Kaleta\Core\Handover::describe(['page' => 1, 'item' => 3, 'enquiry' => 0]), 'admin-'),
+    Kaleta\Core\Handover::describe(['page' => 0, 'item' => 0, 'enquiry' => 0]), Kaleta\Core\Handover::sectionsOf(['page' => 2, 'item' => 0, 'enquiry' => 1]),
+    Kaleta\Core\Handover::resolve($w324Db, 'none', 7), Kaleta\Core\Handover::resolve($w324Db, '', 7), Kaleta\Core\Handover::resolve($w324Db, 'Me', 7),
+    (function () use ($w324Db): string { try { Kaleta\Core\Handover::resolve($w324Db, ['x'], 7); return 'none'; } catch (\Throwable $e) { return 'refused'; } })(),
+], ['pages: 2, open enquiries: 1', 'stránky: 1, položky kolekcí: 3', '', ['pages', 'enquiries'], null, null, 7, 'none']);
+check('3.24: the assignment e-mail has one call site (Handover::notify, wired at merge) and the menu puts My work first only for non-administrators', [
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Handover.php'), 'call_user_func($notify'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/layout.php'), '$myWorkFirst = !$app->auth()->isAdmin();'),
+], [1, true]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

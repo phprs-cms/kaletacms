@@ -14,6 +14,8 @@
  * @var list<array<string, mixed>> $connections  the user's Claude connections (Core\SecurityHygiene::connections)
  * @var list<array{collection: string, items: list<array{id: int, name: string, language: string, email: string, visible: bool}>}> $teamChoices  records of people collections (3.14)
  * @var array{collection: array<string, mixed>, item: array<string, mixed>, chosen: bool}|null $teamRecord  the record the account is linked to now
+ * @var array{page: int, item: int, enquiry: int} $owned  3.24: what the user is responsible for (Core\Handover::owned)
+ * @var array<int, string> $recipients  3.24: who may take that work over
  */
 $error = fn (string $field): string => isset($errors[$field]) ? '<span class="chyba-pole" role="alert">' . e(t($errors[$field])) . '</span>' : '';
 $role = [
@@ -127,6 +129,17 @@ $role = [
 	<div class="volby"><label><input type="checkbox" name="blokovat" value="1"<?= $author['blokovat'] ? ' checked' : '' ?>> <?= e(t('user cannot sign in')) ?></label>
 <?php if ($author['blokovat'] && !empty($author['blokovano_automaticky'])): ?>
 	<span class="napoveda"><?= e(t('Blocked automatically on %s – nobody had used the account for %d days. Untick the box and save to reactivate the account.', format_date($author['blokovano_automaticky']), Kaleta\Core\SecurityHygiene::ACCOUNT_DAYS)) ?></span>
+<?php endif ?>
+<?php if (array_sum($owned ?? []) > 0): // 3.24: before the account is blocked, its work goes to someone else in the same save ?>
+	<span class="napoveda"><label for="hand_over_to"><?= e(t('Responsible for %s – hand over to', Kaleta\Core\Handover::describe($owned))) ?></label>
+	<select id="hand_over_to" name="hand_over_to">
+		<option value=""><?= e(t('keep it with them')) ?></option>
+		<option value="0"><?= e(t('nobody (unassigned)')) ?></option>
+<?php foreach ($recipients as $idu => $name): ?>
+		<option value="<?= (int) $idu ?>"<?= $app->request->post('hand_over_to') === (string) $idu ? ' selected' : '' ?>><?= e($name) ?></option>
+<?php endforeach ?>
+	</select><?= $error('hand_over_to') ?>
+	<?= e(t('The list has the people who may open those sections.')) ?> <a href="<?= e($module->url('handover', ['id' => (int) $author['idu']])) ?>"><?= e(t('Hand over work')) ?></a></span>
 <?php endif ?>
 	</div>
 </div>

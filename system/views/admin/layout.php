@@ -90,9 +90,21 @@ if ($user !== null && (isset($modules['requests']) || isset($modules['claude_set
 	<button class="menu-prepinac" type="button" aria-expanded="false" aria-controls="menu"><?= e(t('Menu')) ?></button>
 	<nav class="menu-obal" aria-label="<?= e(t('Main menu')) ?>">
 	<ul class="menu" id="menu">
+<?php
+// 3.24: My work is the first item for everyone but administrators, who keep the Dashboard first and have My work right after it
+$myWorkItem = '';
+if (isset($modules['my_work'])) {
+    try { $myWorkBadge = $modules['my_work']::badge($app); } catch (\Throwable) { $myWorkBadge = 0; }
+    $myWorkItem = '<li class="menu-moje' . ($active === 'my_work' ? ' aktivni' : '') . '"><a href="' . e($app->url('admin.php?module=my_work')) . '"' . ($active === 'my_work' ? ' aria-current="page"' : '') . '>' . $icon($modules['my_work']::ICON) . e(t($modules['my_work']::NAME))
+        . ($myWorkBadge > 0 ? ' <span class="menu-pocet" aria-hidden="true">' . ($myWorkBadge > 99 ? '99+' : $myWorkBadge) . '</span><span class="navod-skryte"> – ' . e(t('%d assigned to you', $myWorkBadge)) . '</span>' : '') . '</a></li>' . "\n";
+}
+$myWorkFirst = !$app->auth()->isAdmin();
+?>
+<?= $myWorkFirst ? $myWorkItem : '' ?>
 		<li class="menu-prehled<?= $onDashboard ? ' aktivni' : '' ?>"><a href="<?= e($app->url('admin.php')) ?>"<?= $onDashboard ? ' aria-current="page"' : '' ?>><?= $icon('prehled') ?><?= e(t('Dashboard')) ?></a></li>
+<?= $myWorkFirst ? '' : $myWorkItem ?>
 <?php $group = ''; $waiting = 0; $inMenu = isset($modules[$active]) && $modules[$active]::PARENT !== '' ? $modules[$active]::PARENT : $active; ?>
-<?php foreach ($modules as $ident => $class): if ($class::PARENT !== '' && isset($modules[$class::PARENT])) { continue; } ?>
+<?php foreach ($modules as $ident => $class): if (($class::PARENT !== '' && isset($modules[$class::PARENT])) || $ident === 'my_work') { continue; } ?>
 <?php if ($class::GROUP !== $group): $group = $class::GROUP; ?>
 		<li class="menu-skupina" aria-hidden="true"><?= e(t($group)) ?></li>
 <?php endif ?>

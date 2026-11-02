@@ -28,6 +28,7 @@ final class Kernel
      * @var list<class-string<Module>>
      */
     public const array MODULES = [
+        Modules\MyWork::class, // 3.24: the layout puts it first for everyone but administrators (after the Dashboard for them)
         Modules\Pages::class,
         Modules\News::class,
         Modules\Collections::class,
@@ -379,6 +380,8 @@ final class Kernel
             'traffic' => Extensions::isEnabled($this->app->settings(), 'statistika') && isset($modules['stats'])
                 ? $db->all('SELECT den, navstevy, zobrazeni FROM {stat_dny} WHERE den > ? ORDER BY den', [\Kaleta\Core\Clock::day('-14 days')]) : [],
             'counts' => array_filter([
+                // 3.24: what waits for me (Core\MyWork) – administrators keep the Dashboard first, the tile leads them to My work
+                'My work' => isset($modules['my_work']) && ($mine = \Kaleta\Core\MyWork::count($this->app, $modules, $this->app->auth()->id())) > 0 ? [$mine, 'admin.php?module=my_work'] : null,
                 // drafts of news authors wait for an editor – the tile only when there are some
                 'News from authors awaiting publication' => isset($modules['news']) && ($pending = Modules\News::countAwaitingPublication($this->app)) > 0 ? [$pending, 'admin.php?module=news&status=ke_vydani'] : null,
                 'New enquiries' => isset($modules['enquiries']) ? [Modules\Enquiries::countNew($db), 'admin.php?module=enquiries'] : null, // spam left out, as in the list (N315-10)
