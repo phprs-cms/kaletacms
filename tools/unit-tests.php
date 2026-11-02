@@ -8762,5 +8762,10 @@ check('N325-2: picked addresses in a site installed in a folder – the menu edi
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Front/Forms.php'), "(\$base === '' || !str_starts_with(\$thankYouUrl, \$base . '/')) ? \$base . \$thankYouUrl : \$thankYouUrl;"),
 ], [true, true]);
 
+check('N325-3: the floating link picker of a field the builder redrew away takes its list and scroll listener with it', [
+    str_contains($c325Editor = (string) file_get_contents(KALETA_ROOT . '/image/editor.js'), "if (f.input.isConnected) { return true; }"), str_contains($c325Editor, "window.removeEventListener('scroll', f.onScroll, true);"),
+    str_contains($c325Editor, 'floating.push({ input: input, list: list, onScroll: onScroll });'),
+], [true, true, true]);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

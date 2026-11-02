@@ -673,8 +673,16 @@
 	 * arrows offer the pages at once. Attached on the first focus, so fields drawn later (builder panels) get it too.
 	 */
 	var floatingLists = 0;
+	var floating = []; // [{ input, list, onScroll }] – the builder redraws its panel, so a field may be gone (N325-3)
 	function attachLinkPicker(input) {
 		if (input.kaletaOdkaz) { return input.kaletaOdkaz; }
+		// the lists and scroll listeners of fields no longer in the page go with them
+		floating = floating.filter(function (f) {
+			if (f.input.isConnected) { return true; }
+			f.list.remove();
+			window.removeEventListener('scroll', f.onScroll, true);
+			return false;
+		});
 		var list = document.createElement('div');
 		list.className = 'odkaz-vysledky odkaz-plovouci';
 		list.id = 'odkaz-plovouci-' + (++floatingLists);
@@ -695,7 +703,9 @@
 		if (!canFloat) { input.insertAdjacentElement('afterend', list); }
 		var picker = linkPicker(input, list);
 		input.addEventListener('click', function () { if (!picker.isOpen() && input.value.trim() === '') { picker.search(); } });
-		window.addEventListener('scroll', function (e) { if (e.target !== list && picker.isOpen()) { picker.close(); } }, true);
+		var onScroll = function (e) { if (e.target !== list && picker.isOpen()) { picker.close(); } };
+		window.addEventListener('scroll', onScroll, true);
+		floating.push({ input: input, list: list, onScroll: onScroll });
 		input.kaletaOdkaz = picker;
 		return picker;
 	}
