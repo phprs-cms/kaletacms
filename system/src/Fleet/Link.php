@@ -102,14 +102,17 @@ final class Link
         }
         // the kit counter goes too, so another console's first kit is applied; the drafts that arrived stay for the person to decide
         foreach (['fleet_console_url', 'fleet_console_key', 'fleet_console_name', 'fleet_site_id', 'fleet_updates', 'fleet_update_allowed', 'fleet_last_sent', 'fleet_last_error',
-            'fleet_kit_version', 'fleet_kit_applied_at', 'fleet_kit_error'] as $name) {
+            'fleet_kit_version', 'fleet_kit_applied_at', 'fleet_kit_error', Uptime::SETTING] as $name) {
             $s->set($name, '');
         }
         ChangeLog::write($app, 'settings', 'fleet_unpair');
     }
 
-    /** Sends the heartbeat; returns a short result for the background jobs. */
-    public static function send(App $app): string
+    /**
+     * Sends the heartbeat; returns a short result for the background jobs. 3.26.1: after a confirmed one the site asks for
+     * its uptime days once a day (Fleet\Uptime), or right away when $refreshUptime (the administrator's "Send now").
+     */
+    public static function send(App $app, bool $refreshUptime = false): string
     {
         $s = $app->settings();
         if (!self::isPaired($s)) {
@@ -131,6 +134,7 @@ final class Link
         $s->set('fleet_update_allowed', preg_match('/^\d+\.\d+\.\d+([.-][0-9A-Za-z.-]+)?$/D', $allowed) === 1 ? $allowed : '');
 
         // 2.16: a newer shared design kit announced in the reply is fetched and applied as drafts (only when the site opted in)
-        return 'sent' . ($allowed !== '' ? ', update ' . $allowed . ' allowed' : '') . Kit::afterHeartbeat($app, $answer['json']['kit'] ?? null);
+        return 'sent' . ($allowed !== '' ? ', update ' . $allowed . ' allowed' : '') . Kit::afterHeartbeat($app, $answer['json']['kit'] ?? null)
+            . Uptime::afterHeartbeat($app, $refreshUptime);
     }
 }

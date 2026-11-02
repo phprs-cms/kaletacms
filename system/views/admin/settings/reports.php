@@ -9,6 +9,12 @@ $months = $reports['months'] ?? [];
 $monthName = static fn (string $month): string => Kaleta\Core\ReportPage::monthName($month);
 ?>
 <p class="napoveda"><?= e(t('Once a month ends, the site makes a report of what happened to it: requests handled, changes by people and by Claude, updates, backups, security, the site audit, traffic, enquiries, bookings and the newsletter. It is a summary for your client – counts, titles and page addresses only, never personal data, hours or prices. Print it or save it as PDF, download it, or send it by e-mail.')) ?></p>
+<?php if ((Kaleta\Fleet\Uptime::stored($app->settings())['days'] ?? []) === []): // 3.26.1: only here, never in the e-mail ?>
+<p class="napoveda"><?= e(Kaleta\Fleet\Link::isPaired($app->settings())
+    ? t('The reports show uptime once the fleet console has sent this site\'s days (consoles from Kaleta 3.26.1 on send them once a day).')
+    : t('Connect a fleet console to see uptime in the reports – only a console checks whether the site is up.')) ?>
+<a href="<?= e($module->url('', ['tab' => 'console'])) ?>"><?= e(t('Fleet console')) ?></a></p>
+<?php endif ?>
 <h2><?= e(t('Archived reports')) ?></h2>
 <?php if ($months === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'statistika', 'heading' => t('No report is stored yet'),

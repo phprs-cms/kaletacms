@@ -1139,4 +1139,5 @@ return [
     'Delete your comment? The thread keeps a note that it was deleted.' => 'Deinen Kommentar löschen? Im Verlauf bleibt ein Hinweis, dass er gelöscht wurde.',
     'Only administration users see it. Type @ to mention a colleague – they are notified.' => 'Nur Benutzer der Administration sehen ihn. Tippe @, um jemanden aus dem Team zu erwähnen – die Person wird benachrichtigt.',
     'Only administration users see it – it is added to the conversation with your name and the time. Type @ to mention a colleague – they are notified.' => 'Nur Benutzer der Administration sehen sie – sie wird mit deinem Namen und der Uhrzeit zur Unterhaltung hinzugefügt. Tippe @, um jemanden aus dem Team zu erwähnen – die Person wird benachrichtigt.',
+    'Connect a fleet console to see uptime in the reports – only a console checks whether the site is up.' => 'Verbinde eine Website-Konsole, um die Verfügbarkeit in den Berichten zu sehen – nur eine Konsole prüft, ob die Website erreichbar ist.',
 ];

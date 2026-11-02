@@ -177,6 +177,8 @@ final class MonthlyReport
                 'campaigns' => array_map(static fn (array $r): array => ['subject' => (string) $r['subject'], 'date' => self::iso($r['finished_at']), 'sent' => (int) $r['sent_count']],
                     $db->all("SELECT subject, finished_at, sent_count FROM {newsletters} WHERE status = 'sent' AND finished_at >= ? AND finished_at < ? ORDER BY finished_at LIMIT 20", [$from, $to]))]) : null,
             'open' => $section(fn (): array => self::open($app, $enquiries)),
+            // 3.26.1: the month's uptime from the fleet console (Fleet\Uptime, drawn by Core\UptimeStrip) – null without a console
+            'uptime' => $section(fn (): ?array => \Kaleta\Fleet\Uptime::month($s, $monthStart->format('Y-m'))),
         ]);
     }
 
@@ -654,7 +656,8 @@ final class MonthlyReport
             $stored = null; // the archive table is not there yet (an update before its migration ran)
         }
 
-        return $stored['data'] ?? self::build($app, $monthStart);
+        // 3.26.1: a month archived before it gains the uptime key from the days the site keeps (Fleet\Uptime::fill)
+        return $stored !== null ? \Kaleta\Fleet\Uptime::fill($app->settings(), $stored['data']) : self::build($app, $monthStart);
     }
 
     /**

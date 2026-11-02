@@ -179,6 +179,7 @@ final class Settings
         'fleet_kit_version' => '0',    // the kit version applied here
         'fleet_kit_applied_at' => '',
         'fleet_kit_error' => '',       // why the last kit was refused (English, translated where shown)
+        'fleet_uptime_days' => '',     // 3.26.1: this site's uptime days from its console (JSON, Fleet\Uptime) – internal, not editable, not exported
         'fleet_request_titles' => '1', // 3.16: the heartbeat carries the titles of Ask Claude requests (Fleet\Heartbeat) – on by default
         // 3.17, the console's side (Fleet\AlertRules, Fleet\Digest; Fleet → Alerts and digest)
         'fleet_alert_rules' => '',     // JSON kind => {on, threshold}; '' = the defaults (site down and site silent on, as before 3.17)

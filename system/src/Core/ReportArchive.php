@@ -113,7 +113,12 @@ final class ReportArchive
         $now = new \DateTimeImmutable();
         $month = MonthlyReport::previousMonth($now);
         $pruned = self::prune($db, $now);
-        $result = self::get($db, $month->format('Y-m')) !== null ? 'stored already' : (self::store($app, $month) !== [] ? 'stored ' . $month->format('Y-m') : 'nothing');
+        $stored = self::get($db, $month->format('Y-m')) !== null;
+        if (!$stored) {
+            // 3.26.1: a paired site asks its console for the month's last uptime days first (Fleet\Uptime – once, never fails)
+            \Kaleta\Fleet\Uptime::afterHeartbeat($app);
+        }
+        $result = $stored ? 'stored already' : (self::store($app, $month) !== [] ? 'stored ' . $month->format('Y-m') : 'nothing');
 
         return $result . ($pruned > 0 ? ', removed ' . $pruned : '');
     }

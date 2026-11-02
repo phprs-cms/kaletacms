@@ -732,7 +732,7 @@ class Settings extends Module
             return $this->back('', '', ['tab' => 'console']);
         }
         try {
-            \Kaleta\Fleet\Link::send($this->app);
+            \Kaleta\Fleet\Link::send($this->app, true); // 3.26.1: and the uptime days asked again
         } catch (\RuntimeException $e) {
             return $this->back($e->getMessage(), '', ['tab' => 'console'], 'chyba');
         }
