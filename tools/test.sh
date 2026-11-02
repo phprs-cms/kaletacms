@@ -9509,6 +9509,15 @@ expect "3.27: Done, then Reopen" "$B327_DONE|$(b327_row "$B327_T2")" "Zkontrolov
 b327_task "$JAR" pages "$B327_PAGE_SCREEN" -d "ids=$B327_PAGE" -d op=edit -d "task=$B327_T3" --data-urlencode "title=Ceník – nové ceny" -d "assignee_id=$B327_JANA" -d "due_date=$(site_date '+2 days')" -d due_time= -d remind=keep > /dev/null
 expect "3.27: Edit in place – the title and the day change, the time is the default, the reminder set before is kept" \
   "$(b327_row "$B327_T3")" "Ceník – nové ceny/$B327_JANA/$B327_ADMIN/$(site_date '+2 days') 09:00:00/$(site_date '+1 day') 13:30:00/open/-"
+# N327-2: a task handed to nobody (a leaver's) – its edit form offers "nobody", chosen, and saving keeps it unassigned
+B327_NOBODY=$(sq "INSERT INTO ka_tasks (title, target, assignee_id, created_by, due_at, created_at, updated_at) VALUES ('N3272 orphan', 'page:$B327_PAGE', NULL, $B327_ADMIN, '$(site_date '+4 days') 09:00:00', '$(site_time)', '$(site_time)'); SELECT LAST_INSERT_ID();")
+check "N327-2: the edit form of a task for nobody" 200 "/admin.php?$B327_PAGE_SCREEN" "data-task=\"$B327_NOBODY\""
+sed -n "/data-task=\"$B327_NOBODY\"/,/<\/li>/p" "$WORK/response" > "$WORK/n3272"
+b327_task "$JAR" pages "$B327_PAGE_SCREEN" -d "ids=$B327_PAGE" -d op=edit -d "task=$B327_NOBODY" --data-urlencode "title=N3272 orphan renamed" -d assignee_id=0 -d "due_date=$(site_date '+4 days')" -d due_time=09:00 -d remind= > /dev/null
+expect "N327-2: … offers nobody, chosen; saving the edit keeps it unassigned and notifies nobody" \
+  "$(grep -c '<option value="0" selected>nikdo</option>' "$WORK/n3272")|$(sq "SELECT CONCAT(title, '/', IFNULL(assignee_id, 'null')) FROM ka_tasks WHERE id = $B327_NOBODY")|$(sq "SELECT COUNT(*) FROM ka_notifications WHERE target = 'task:$B327_NOBODY'")" \
+  "1|N3272 orphan renamed/null|0"
+sq "DELETE FROM ka_tasks WHERE id = $B327_NOBODY" > /dev/null
 B327_BEFORE=$(b327_row "$B327_T3")
 b327_task "$JAR" enquiries "$B327_ENQ_SCREEN" -d "idp=$B327_ENQ" -d op=done -d "task=$B327_T3" > /dev/null
 check "3.27: a task id of another record is not found through this one" 200 "/admin.php?$B327_ENQ_SCREEN" 'Úkol neexistuje.'

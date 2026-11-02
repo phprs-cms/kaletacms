@@ -72,7 +72,8 @@ $row = function (array $t) use ($app, $csrf, $hidden, $action, $claude, $request
         }
         $html .= $form('snooze', '<span class="napoveda-inline">' . e(t('Snooze:')) . '</span>' . $snooze, ' data-task-snooze');
         // edit in place, no script needed
-        $people = '';
+        // N327-2: a task handed to nobody keeps nobody unless a person is chosen (the browser would pick the first one)
+        $people = $t['assignee_id'] === null ? '<option value="0" selected>' . e(t('nobody')) . '</option>' : '';
         foreach ($t['people'] as $id => $name) {
             $people .= '<option value="' . (int) $id . '"' . ((int) $id === (int) $t['assignee_id'] ? ' selected' : '') . '>' . e((int) $id === $me ? t('Me (%s)', $name) : $name) . '</option>';
         }
