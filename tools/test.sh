@@ -8740,17 +8740,24 @@ expect "3.24 Users: hand over and block in one step – the page, the item and t
   "$W324_ADMIN|$W324_ADMIN|$W324_ADMIN,$W324_ADMIN,$W324_ED|1|1|block"
 # the edit form: blocking the salesperson hands their enquiry to nobody in the same save
 sq "UPDATE ka_poptavky SET prirazeno = $W324_SALES WHERE idp = $W324_EA" > /dev/null
+# N324-4: a page of theirs in the trash moves too, so the recipient must be able to open Pages – a colleague with Enquiries only is not offered
+sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, admin, posledni_login, potvrzeno) VALUES ('w324-helper', '$W324_HASH', 'Helper W324', '', 0, '$(site_time)', '$(site_time)');
+  INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, 'enquiries' FROM ka_uzivatele WHERE user = 'w324-helper';
+  INSERT INTO ka_stranky (seo_link, titulek, text, zobrazit, v_menu, owner_id, smazano, zmeneno) VALUES ('w324-trashed', 'W324 trashed page', '', 0, 0, $W324_SALES, '$(site_time)', '$(site_time)')" > /dev/null
+W324_HELPER=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'w324-helper'")
 check "3.24 Users: the edit form offers the hand-over next to Block account" 200 "/admin.php?module=users&action=edit&id=$W324_SALES" 'name="hand_over_to"'
+expect "N324-4 Users: with a page in the trash the recipient must open Pages too – the administrator is offered, the colleague with Enquiries only not" \
+  "$(grep -c "<option value=\"$W324_ADMIN\">" "$WORK/response")|$(grep -c "<option value=\"$W324_HELPER\">" "$WORK/response")" "1|0"
 TOKEN=$(csrf); W324_LOG=$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'users'")
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d "idu=$W324_SALES" -d user=w324-sales -d jmeno='Sales W324' -d email=w324-sales@example.com -d admin=0 -d blokovat=1 -d hand_over_to=0
 expect "3.24 Users: block with the hand-over in the edit form – the enquiry has nobody, the account is blocked, one change-log row" \
-  "$(sq "SELECT CONCAT(IFNULL((SELECT prirazeno FROM ka_poptavky WHERE idp = $W324_EA), 'none'), '|', (SELECT blokovat FROM ka_uzivatele WHERE idu = $W324_SALES), '|', (SELECT COUNT(*) FROM ka_protokol WHERE modul = 'users') - $W324_LOG)")" "none|1|1"
+  "$(sq "SELECT CONCAT(IFNULL((SELECT prirazeno FROM ka_poptavky WHERE idp = $W324_EA), 'none'), '|', (SELECT blokovat FROM ka_uzivatele WHERE idu = $W324_SALES), '|', (SELECT COUNT(*) FROM ka_protokol WHERE modul = 'users') - $W324_LOG, '|', IFNULL((SELECT owner_id FROM ka_stranky WHERE seo_link = 'w324-trashed'), 'none'))")" "none|1|1|none"
 # a removed account: its id stays and the lists say "(former user)"
 sq "UPDATE ka_stranky SET owner_id = 999999 WHERE ids = $W324_QUIET" > /dev/null
 mcp list_pages '{}' > "$WORK/response"; mcp_text
 contains -q '"owner":{"id":999999,"name":"(former user)"}' "$WORK/text" && echo "  ok     3.24 list_pages: a removed account is \"(former user)\"" || { echo "  CHYBA  3.24 former user"; ERRORS=$((ERRORS+1)); }
-sq "DELETE FROM ka_api_tokeny WHERE nazev = 'w324'; DELETE FROM ka_draft_comments WHERE target = 'stranka:$W324_PAGE'; DELETE FROM ka_stranky WHERE seo_link IN ('w324-page', 'w324-quiet');
+sq "DELETE FROM ka_api_tokeny WHERE nazev = 'w324'; DELETE FROM ka_draft_comments WHERE target = 'stranka:$W324_PAGE'; DELETE FROM ka_stranky WHERE seo_link IN ('w324-page', 'w324-quiet', 'w324-trashed');
   DELETE FROM ka_kolekce_polozky WHERE seo_link = 'w324-item'; DELETE FROM ka_kolekce WHERE seo_link = 'w324-collection'; DELETE FROM ka_poptavky WHERE formular LIKE 'W324 form %'; DELETE FROM ka_requests WHERE title = 'W324 request';
-  DELETE FROM ka_uzivatele_prava WHERE fk_id_user IN ($W324_ED, $W324_SALES, $W324_WRITER); DELETE FROM ka_uzivatele WHERE user LIKE 'w324-%'" > /dev/null
+  DELETE FROM ka_uzivatele_prava WHERE fk_id_user IN ($W324_ED, $W324_SALES, $W324_WRITER, $W324_HELPER); DELETE FROM ka_uzivatele WHERE user LIKE 'w324-%'" > /dev/null
 if [ -s "$WORK/web/storage/log/chyby.log" ]; then echo "== záznam chyb aplikace:"; cat "$WORK/web/storage/log/chyby.log"; ERRORS=$((ERRORS+1)); fi
 echo; [ "$ERRORS" -eq 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }

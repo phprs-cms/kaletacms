@@ -196,6 +196,21 @@ final class Handover
     }
 
     /**
+     * The sections a recipient of all of a user's work must be able to open – what handOver() moves, so the pages and
+     * items in the trash count too (N324-4: a restored one must not come back to someone who cannot open it).
+     *
+     * @return list<string> Module::IDENT values
+     */
+    public static function sectionsToTake(Db $db, int $userId): array
+    {
+        return self::sectionsOf([
+            'page' => (int) ($db->value('SELECT 1 FROM {stranky} WHERE owner_id = ? LIMIT 1', [$userId]) !== null),
+            'item' => (int) ($db->value('SELECT 1 FROM {kolekce_polozky} WHERE owner_id = ? LIMIT 1', [$userId]) !== null),
+            'enquiry' => (int) ($db->value('SELECT 1 FROM {poptavky} WHERE prirazeno = ? AND stav < 2 LIMIT 1', [$userId]) !== null),
+        ]);
+    }
+
+    /**
      * Hands all of a user's work to another person (null = nobody): every page and item they are responsible for (in the
      * trash too, so a restored one has a living owner) and their open enquiries; a resolved enquiry keeps who handled it.
      * No e-mail – the recipient finds it in My work. Returns how many of each moved.

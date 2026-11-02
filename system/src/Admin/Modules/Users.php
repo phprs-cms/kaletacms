@@ -331,7 +331,7 @@ final class Users extends Module
         $owned = Handover::owned($this->db, $id);
         if (!$this->request->isPost()) {
             return $this->view('handover', 'Hand over work', ['author' => $user, 'owned' => $owned, 'isSelf' => $isSelf, 'then' => $isSelf ? '' : $then,
-                'recipients' => Handover::eligible($this->db, $this->app->settings(), Handover::sectionsOf($owned), $id)]);
+                'recipients' => Handover::eligible($this->db, $this->app->settings(), Handover::sectionsToTake($this->db, $id), $id)]);
         }
         if ($then !== '' && $isSelf) {
             return $this->back($then === 'delete' ? 'You cannot delete yourself.' : 'You cannot block your own account.', type: 'chyba');
@@ -373,7 +373,7 @@ final class Users extends Module
         if ($value === '0') {
             return [null, t('nobody')];
         }
-        $recipients = Handover::eligible($this->db, $this->app->settings(), Handover::sectionsOf(Handover::owned($this->db, $from)), $from);
+        $recipients = Handover::eligible($this->db, $this->app->settings(), Handover::sectionsToTake($this->db, $from), $from);
 
         return ctype_digit($value) && isset($recipients[(int) $value]) ? [(int) $value, $recipients[(int) $value]] : null;
     }
@@ -401,7 +401,7 @@ final class Users extends Module
             'author' => $author,
             // 3.24: what the user is responsible for, and who could take it over when the account is blocked
             'owned' => $owned,
-            'recipients' => array_sum($owned) > 0 ? Handover::eligible($this->db, $this->app->settings(), Handover::sectionsOf($owned), $id) : [],
+            'recipients' => array_sum($owned) > 0 ? Handover::eligible($this->db, $this->app->settings(), Handover::sectionsToTake($this->db, $id), $id) : [],
             'customRoles' => $this->db->all('SELECT idr, nazev, popis FROM {role} ORDER BY ' . $this->db->sortText('nazev')),
             'summary' => $summary,
             'errors' => $errors,
