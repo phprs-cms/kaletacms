@@ -5541,8 +5541,8 @@ check "2.14: the detail of an anonymised enquiry says so and no longer offers th
 grep -q 'action=anonymise' "$WORK/response" && { echo "  CHYBA  2.14 Anonymise offered twice"; ERRORS=$((ERRORS+1)); } || echo "  ok     2.14: an anonymised enquiry is not anonymised again"
 # the record of processing from the configuration
 mcp processing_record '{}' > "$WORK/response"
-contains -q 'Servis 2.14' "$WORK/response" && contains -q 'Jméno a příjmení (text), E-mail (e-mail), Rozsah opravy' "$WORK/response" && contains -q '24 m' "$WORK/response" && contains -q "anonymi" "$WORK/response" && contains -q "VISITOR_INFO1_LIVE" "$WORK/response" && contains -q 'not legal advice' "$WORK/response" \
-  && echo "  ok     MCP: processing_record names the form with its fields, the retention with anonymise, the cookies and the template notice" || { echo "  CHYBA  processing_record"; head -c 600 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+contains -q 'Servis 2.14' "$WORK/response" && contains -q 'Jméno a příjmení (text), E-mail (e-mail), Rozsah opravy' "$WORK/response" && contains -q '24 m' "$WORK/response" && contains -q "anonymi" "$WORK/response" && contains -q "VISITOR_INFO1_LIVE" "$WORK/response" && contains -q 'not legal advice' "$WORK/response" && contains -q 'notifications (who did what' "$WORK/response" \
+  && echo "  ok     MCP: processing_record names the form with its fields, the retention with anonymise, the cookies, the team's notifications (3.26) and the template notice" || { echo "  CHYBA  processing_record"; head -c 600 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 check "2.14: Settings → Privacy → Record of processing is a page with the sections" 200 "/admin.php?module=settings&action=processing_record" 'Servis 2.14'
 grep -q 'není právní radou' "$WORK/response" && echo "  ok     2.14: the record says it is a template, not legal advice" || { echo "  CHYBA  2.14 record without the template notice"; ERRORS=$((ERRORS+1)); }
 # the accessibility statement from the audit

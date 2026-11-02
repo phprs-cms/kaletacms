@@ -444,6 +444,8 @@ final class Privacy
             t('Access to personal data: %d administration account(s); two-step sign-in %s.', (int) $db->value('SELECT COUNT(*) FROM {uzivatele} WHERE blokovat = 0'), (int) $db->value("SELECT COUNT(*) FROM {uzivatele} WHERE blokovat = 0 AND totp_tajemstvi = ''") === 0 ? t('on for everyone') : t('not on for every account')),
             $s->bool('firewall_enabled') ? t('Firewall: on (rate limits, probes, country and address blocks).') : '',
             t('Transport: %s.', $app->request->isHttps() ? 'HTTPS' : t('HTTP – switch the site to HTTPS')),
+            // 3.26 (N326-1): the team's threads and the notifications behind the bell hold the colleagues' names and excerpts
+            t('The team’s comments and notifications: colleagues’ names, their comments and @mentions on pages, items and enquiries; notifications (who did what, at most 200 characters of a comment, never the content of an enquiry) are kept for 90 days and e-mailed as each person chose in My account.'),
         ]))];
 
         return $sections;

@@ -6724,4 +6724,5 @@ return [
     'My work, enquiries and replies, comments, requests and the notebook, with pages and collection items. The application finds the other tools when it needs them.' => 'Moje práce, poptávky a odpovědi, komentáře, požadavky a zápisník, k tomu stránky a položky kolekcí. Ostatní nástroje si aplikace najde, až je bude potřebovat.',
     'work tools' => 'pracovní nástroje',
     'Done – Claude will load the work tools in the next conversation it starts and find the other tools when it needs them.' => 'Hotovo – Claude v příští konverzaci načte pracovní nástroje a ostatní si najde, až je bude potřebovat.',
+    'The team’s comments and notifications: colleagues’ names, their comments and @mentions on pages, items and enquiries; notifications (who did what, at most 200 characters of a comment, never the content of an enquiry) are kept for 90 days and e-mailed as each person chose in My account.' => 'Komentáře a upozornění týmu: jména kolegů, jejich komentáře a @zmínky u stránek, položek a poptávek; upozornění (kdo co udělal, nejvýš 200 znaků komentáře, nikdy obsah poptávky) se uchovávají 90 dní a e-mailem chodí podle volby každého v Můj účet.',
 ];
