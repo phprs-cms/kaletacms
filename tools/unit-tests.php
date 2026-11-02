@@ -9162,5 +9162,21 @@ check('3.26.1 (N3261-4): Uptime keeps the three months whole (not just the 70 da
     count(Uptime::clean($many3261)), Uptime::merge([], [['date' => '2026-11-03', 'checks' => 1, 'failed' => 0]], '2026-09-01', '2026-11-03')[0]['date']],
     [92, '2026-08-01', '2026-10-31', 92, Uptime::MAX_DAYS, '2026-11-03']);
 
+// N3261-5: a month with many rows everywhere stays under the size Gmail clips at – the HTML lists get shorter, the text keeps every row
+$rows3261 = fn (string $key): array => array_map(fn (int $i): array => [$key => '/services/web-design-for-small-business-' . $i, 'n' => 100 - $i], range(1, 5));
+$full3261 = array_replace_recursive($care3261, ['stats' => ['pages' => $rows3261('path'), 'sources' => $rows3261('site'), 'campaigns' => $rows3261('campaign'), 'days' => range(100, 130),
+    'contact_clicks' => ['calls' => 5, 'emails' => 6, 'whatsapp' => 7]], 'enquiries' => ['forms' => $rows3261('form'), 'pages' => $rows3261('path'), 'unanswered' => 4],
+    'search' => array_map(fn (int $i): array => ['query' => 'web design brno ' . $i, 'engine' => $i % 2 ? 'bing' : 'google', 'clicks' => $i], range(1, 6)),
+    'problems' => array_map(fn (int $i): array => ['name' => 'Problem ' . $i, 'info' => 'The certificate expires in 12 days – renew it', 'state' => 'chyba'], range(1, 10)),
+    'work' => ['pages_published' => array_fill(0, 20, ['title' => 'Spring offer for new clients', 'date' => '2026-09-05T10:00:00+02:00']), 'pages_published_count' => 40,
+        'news_published' => array_fill(0, 20, ['title' => 'We have moved to a new office', 'date' => '2026-09-05T10:00:00+02:00']), 'news_published_count' => 40],
+    'uptime' => ['percent' => 99.5, 'checks' => 8900, 'failed' => 40, 'days' => array_map(fn (int $i): array => UptimeStrip::day(sprintf('2026-09-%02d', $i), 288, $i % 3), range(1, 30))],
+    'care' => ['attention' => array_fill_keys(array_keys(ReportSummary::ATTENTION_EVENTS), 2)], 'open' => ['requests' => 3, 'staged_files' => 2]]);
+$fullMail3261 = MonthlyReport::render($full3261, $reportSettings(['agency_name' => 'Studio', 'agency_url' => 'https://studio.example']), 'https://example.com', $full3261);
+check('3.26.1 (N3261-5): many rows everywhere – the HTML stays under the budget (Gmail clips at ~102 KB) with the button to the full report and the footer; the text part keeps every row', [
+    strlen($fullMail3261['html']) <= MonthlyReport::EMAIL_BUDGET, str_contains($fullMail3261['html'], 'Open the full report'), str_contains($fullMail3261['html'], 'Sent once a month by the website'),
+    substr_count($fullMail3261['text'], '/services/web-design-for-small-business-'), str_contains($fullMail3261['html'], 'web-design-for-small-business-1<'), str_contains($fullMail3261['html'], 'web-design-for-small-business-5<')],
+    [true, true, true, 25, true, false]);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

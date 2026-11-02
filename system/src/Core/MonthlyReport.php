@@ -495,13 +495,40 @@ final class MonthlyReport
      * site's default language with the admin dictionary – the owner reads it, not a visitor. $previous is the previous
      * month's archived data (the changes on the tiles), null when it is not stored.
      *
+     * N3261-5: a month with many rows everywhere made the HTML larger than Gmail shows (it clips at about 102 KB – the
+     * button to the full report and the footer were cut off): over EMAIL_BUDGET the HTML is drawn again with fewer rows in
+     * each list (3, then 1); the text part keeps every row.
+     *
      * @param array<string, mixed> $data from build()
      * @param array<string, mixed>|null $previous
      * @return array{subject: string, html: string, text: string}
      */
     public static function render(array $data, Settings $s, string $siteUrl, ?array $previous = null): array
     {
-        return Language::runWith(Language::defaults($s), function () use ($data, $s, $siteUrl, $previous): array {
+        $mail = self::draw($data, $s, $siteUrl, $previous, self::TOP);
+        foreach ([3, 1] as $top) {
+            if (strlen($mail['html']) <= self::EMAIL_BUDGET) {
+                break;
+            }
+            $mail['html'] = self::draw($data, $s, $siteUrl, $previous, $top)['html'];
+        }
+
+        return $mail;
+    }
+
+    /** The largest HTML of the report e-mail before its lists get shorter (render): under the ~102 KB Gmail clips at. */
+    public const int EMAIL_BUDGET = 92_000;
+
+    /**
+     * The e-mail with at most $top rows in each list of the HTML (the text part has them all).
+     *
+     * @param array<string, mixed> $data
+     * @param array<string, mixed>|null $previous
+     * @return array{subject: string, html: string, text: string}
+     */
+    private static function draw(array $data, Settings $s, string $siteUrl, ?array $previous, int $top): array
+    {
+        return Language::runWith(Language::defaults($s), function () use ($data, $s, $siteUrl, $previous, $top): array {
             $data = self::scrub($data); // no e-mail address or phone number gets through from the data – a form name or a title could carry one
             $previous = $previous !== null ? self::scrub($previous) : null;
             $siteUrl = rtrim($siteUrl, '/');
@@ -580,7 +607,7 @@ final class MonthlyReport
                 foreach (['pages' => ['Most read pages', 'path'], 'sources' => ['Visitors came from', 'site'], 'campaigns' => ['Campaigns', 'campaign']] as $key => [$title, $field]) {
                     $items = array_values(array_filter((array) ($stats[$key] ?? []), 'is_array'));
                     if ($items !== []) {
-                        $html .= ReportVisual::subtitle(t($title), $p) . ReportVisual::bars(array_map(static fn (array $i): array => [(string) ($i[$field] ?? ''), (int) ($i['n'] ?? 0)], $items), $p);
+                        $html .= ReportVisual::subtitle(t($title), $p) . ReportVisual::bars(array_map(static fn (array $i): array => [(string) ($i[$field] ?? ''), (int) ($i['n'] ?? 0)], array_slice($items, 0, $top)), $p);
                         $plain[] = [t($title), ''];
                         foreach ($items as $i) {
                             $plain[] = ['  ' . (string) ($i[$field] ?? ''), $n($i['n'] ?? 0)];
@@ -597,7 +624,7 @@ final class MonthlyReport
             $search = array_values(array_filter((array) ($data['search'] ?? []), 'is_array'));
             if ($search !== []) {
                 $bars = array_map(static fn (array $q): array => [t('%s on %s', (string) ($q['query'] ?? ''), ($q['engine'] ?? '') === 'bing' ? 'Bing' : 'Google'), (int) ($q['clicks'] ?? 0), t('%s clicks', $n($q['clicks'] ?? 0))], $search);
-                $section(ReportVisual::title(t('Searches that brought visitors'), $p) . ReportVisual::bars($bars, $p),
+                $section(ReportVisual::title(t('Searches that brought visitors'), $p) . ReportVisual::bars(array_slice($bars, 0, $top), $p),
                     mb_strtoupper(t('Searches that brought visitors')) . "\n" . $plainPairs(array_map(static fn (array $b): array => [$b[0], $b[2]], $bars)));
             }
 
@@ -617,7 +644,7 @@ final class MonthlyReport
                 foreach (['forms' => ['By form', 'form'], 'pages' => ['By page', 'path']] as $key => [$title, $field]) {
                     $items = array_values(array_filter((array) ($enquiries[$key] ?? []), 'is_array'));
                     if ($items !== []) {
-                        $html .= ReportVisual::subtitle(t($title), $p) . ReportVisual::bars(array_map(static fn (array $i): array => [(string) ($i[$field] ?? '') !== '' ? (string) $i[$field] : t('Form'), (int) ($i['n'] ?? 0)], $items), $p);
+                        $html .= ReportVisual::subtitle(t($title), $p) . ReportVisual::bars(array_map(static fn (array $i): array => [(string) ($i[$field] ?? '') !== '' ? (string) $i[$field] : t('Form'), (int) ($i['n'] ?? 0)], array_slice($items, 0, $top)), $p);
                         foreach ($items as $i) {
                             $plain[] = ['  ' . ($field === 'path' ? t('from page %s', (string) ($i[$field] ?? '')) : ((string) ($i[$field] ?? '') !== '' ? (string) $i[$field] : t('Form'))), $n($i['n'] ?? 0)];
                         }
@@ -641,7 +668,8 @@ final class MonthlyReport
                         continue;
                     }
                     $list = array_map(static fn (array $i): array => [(string) ($i['title'] ?? ''), format_date(self::moment($i['date'] ?? null))], $items);
-                    $html .= ReportVisual::subtitle(t($title) . ' · ' . $n($total), $p) . ReportVisual::pairs($list, $p) . ($total > count($items) ? ReportVisual::note(t('… and %d more.', $total - count($items)), $p) : '');
+                    $shown = array_slice($list, 0, $top);
+                    $html .= ReportVisual::subtitle(t($title) . ' · ' . $n($total), $p) . ReportVisual::pairs($shown, $p) . ($total > count($shown) ? ReportVisual::note(t('… and %d more.', $total - count($shown)), $p) : '');
                     $plain[] = [t($title), $n($total)];
                     foreach ($list as $l) {
                         $plain[] = ['  ' . $l[0], $l[1]];
