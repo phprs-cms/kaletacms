@@ -382,6 +382,8 @@ final class Kernel
                 // drafts of news authors wait for an editor – the tile only when there are some
                 'News from authors awaiting publication' => isset($modules['news']) && ($pending = Modules\News::countAwaitingPublication($this->app)) > 0 ? [$pending, 'admin.php?module=news&status=ke_vydani'] : null,
                 'New enquiries' => isset($modules['enquiries']) ? [Modules\Enquiries::countNew($db), 'admin.php?module=enquiries'] : null, // spam left out, as in the list (N315-10)
+                // 3.24: the open enquiries someone handed to me (or I took) – the Mine tab of Enquiries lists them
+                'Assigned to me' => isset($modules['enquiries']) ? [Modules\Enquiries::countAssigned($db, $this->app->auth()->id()), 'admin.php?module=enquiries&status=moje'] : null,
                 // 3.20 (C1): each tile leads to the tab of the Pages list that counts by the same condition (Modules\Pages::STATUSES)
                 'Published pages' => isset($modules['pages']) ? [(int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE ' . Modules\Pages::STATUSES['published']), 'admin.php?module=pages&status=published'] : null,
                 'Pages with unpublished changes' => isset($modules['pages']) ? [(int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE ' . Modules\Pages::STATUSES['draft']), 'admin.php?module=pages&status=draft'] : null,

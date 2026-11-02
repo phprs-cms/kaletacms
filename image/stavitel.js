@@ -252,6 +252,8 @@
 			state.vycistena = JSON.stringify(j.stavba) !== sent ? { sent, stavba: j.stavba } : null;
 			adoptSanitized();
 			state.zmeny = j.zmeny;
+			if (j.koncept && draftBy) { draftBy.textContent = j.koncept; draftBy.title = j.koncept; } // in place: rebuilding the bar under the cursor would swallow a click
+			if ('koncept' in j) { D.stranka.koncept = j.koncept || null; }
 			const count = Object.keys(state.chyby).length;
 			if (!rejectInvalid()) { setState(count ? T('Saved, but with warnings: ') + count : T('Draft saved'), count > 0); }
 			redrawBar();
@@ -1247,9 +1249,10 @@
 		redrawBar();
 	}
 	let barLook = '';
+	let draftBy = null;
 	function redrawBar() {
 		// the bar is rebuilt only when what it shows changes – re-rendering under the cursor would "swallow" a click in progress
-		const look = [state.zmeny, state.bp, state.lupa, state.zpet.length > 0, state.vpred.length > 0, D.stranka.publikovana, D.stranka.zobrazena, openComments().length].join();
+		const look = [state.zmeny, state.bp, state.lupa, state.zpet.length > 0, state.vpred.length > 0, D.stranka.publikovana, D.stranka.zobrazena, openComments().length, !!D.stranka.koncept].join();
 		updateDeviceDots();
 		if (look === barLook && tabList.childElementCount) { return; }
 		barLook = look;
@@ -1258,10 +1261,12 @@
 		tabList.replaceChildren(...[
 			el('a', { class: 'st-tl', href: D.zpet.adresa, title: D.zpet.text }, icon('rodic'), el('span', { class: 'st-text' }, D.zpet.text)),
 			// a short status chip (3.6): the whole sentence is its tooltip, so the bar keeps one line at 1440 px
-			el('div', { class: 'st-nazev' }, el('h1', {}, D.stranka.titulek), D.stranka.poPublikovani && !D.stranka.zobrazena
+			// 3.24 (N-U6): next to the chip, who made the draft and when – the server's sentence ("Draft by Jana, 21:05"); a save updates it in place
+			(draftBy = state.zmeny && D.stranka.koncept ? el('small', { class: 'st-koncept-kdo', 'data-draft-by': '', title: D.stranka.koncept }, D.stranka.koncept) : null,
+			el('div', { class: 'st-nazev' }, el('h1', {}, D.stranka.titulek), el('div', { class: 'st-cip-radek' }, D.stranka.poPublikovani && !D.stranka.zobrazena
 				? el('small', { class: 'st-cip st-skryta', title: T('Hidden until you publish – then it goes on the site') }, T('Hidden until published'))
-				: el('small', { class: 'st-cip' + (state.zmeny ? ' st-cip-koncept' : ''), title: state.zmeny ? T('draft in progress – visitors see the published version') : T('no changes against the live site') },
-					state.zmeny ? T('Unpublished draft') : T('Live'))),
+				: el('small', { class: 'st-cip' + (state.zmeny ? ' st-cip-koncept' : ''), title: state.zmeny ? T('draft in progress – visitors see the published version') + (D.stranka.koncept ? ' · ' + D.stranka.koncept : '') : T('no changes against the live site') },
+					state.zmeny ? T('Unpublished draft') : T('Live')), draftBy))),
 			el('div', { class: 'st-skupina', role: 'group', 'aria-label': T('Zařízení') }, bpTl),
 			el('select', { class: 'st-lupa', 'aria-label': T('Preview size'), title: T('Preview size'), onchange: (e) => { state.lupa = e.target.value; previewSize(preview); } },
 				[['', T('Fit')], ['1920', T('Wide monitor (1920 px)')], ['100', '100 %'], ['75', '75 %'], ['50', '50 %']].map(([k, n]) => el('option', { value: k, selected: state.lupa === k }, n))),

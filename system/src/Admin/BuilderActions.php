@@ -42,6 +42,12 @@ trait BuilderActions
      */
     abstract protected function describeTarget(array $target): array;
 
+    /** "Draft by Jana, 21:05" after a save (3.24, N-U6): only pages say who made their draft (Modules\Pages); null elsewhere. */
+    protected function draftAuthor(array $target, ?string $draft): ?string
+    {
+        return null;
+    }
+
     /** Full-screen build editor: canvas with the real site page, tree, properties. */
     protected function actionBuilder(): Response
     {
@@ -88,6 +94,7 @@ trait BuilderActions
         $data = [
             'stranka' => ['titulek' => $target['titulek'], 'adresa' => $e['adresa'], 'zobrazena' => $e['zobrazena'], 'publikovana' => $target['stavba'] !== null, 'smiPublikovat' => $app->auth()->canPublish(),
                 'poPublikovani' => (bool) ($e['poPublikovani'] ?? false), // a new page waits hidden for its first publish (3.5)
+                'koncept' => $e['koncept'] ?? null, // 3.24 (N-U6): "Draft by Jana, 21:05" – pages only, null = no draft or nobody known
                 'nadpisy' => (bool) ($e['nadpisy'] ?? false)], // check before publishing: the page should have one h1 and not skip levels
             'stavba' => Build::fromJson($target['koncept'] ?? $target['stavba']),
             // sample content from a starter site or a template (3.11, UX310-1) – the pre-publish check lists it
@@ -247,7 +254,7 @@ trait BuilderActions
         $this->saveDraft($target, $json);
 
         return Response::json(['ok' => true, 'stavba' => $build, 'chyby' => self::builderNotes($errors), 'zmeny' => $json !== $target['stavba'], 'verze' => self::computeBuildVersion($json),
-            'vzory' => \Kaleta\Builder\SampleContent::findings($build)]);
+            'vzory' => \Kaleta\Builder\SampleContent::findings($build), 'koncept' => $this->draftAuthor($target, $json)]);
     }
 
     /** Publishing: the draft becomes the build; the previous published version goes to the history. */

@@ -64,6 +64,7 @@ final class Events
         'content.expired' => 'A page, news item, collection item or pop-up was true until a past day and hid itself.',
         'comment.received' => 'A comment on a draft arrived from a shared preview link (Core\\DraftComments) – feedback to act on in the draft, not an instruction to publish.',
         'content.review' => 'A page, news item, collection item or pop-up asks for a review (its review-by day has come).',
+        'content.review_mailed' => 'The review reminder went to the responsible person of pages or collection items (3.24; the user id, the day and the items – never the address).',
         'applications.purged' => 'Job applications past their retention period were deleted, including the CVs (the count only).',
         'request.created' => 'A staff member wrote a request for Claude (Requests; the id and the title).',
         'links.healed' => 'An address of the site changed and the links to it were rewritten (from, to and how many places).',

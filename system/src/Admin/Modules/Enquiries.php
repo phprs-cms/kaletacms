@@ -37,6 +37,12 @@ final class Enquiries extends Module
         return (int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE stav = 0 AND ' . self::NOT_SPAM);
     }
 
+    /** 3.24: open enquiries (new or read) handled by the user, spam left out – the "Assigned to me" tile on the Dashboard. */
+    public static function countAssigned(\Kaleta\Core\Db $db, int $userId): int
+    {
+        return $userId > 0 ? (int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE prirazeno = ? AND stav < 2 AND ' . self::NOT_SPAM, [$userId]) : 0;
+    }
+
     protected function actionList(): Response
     {
         \Kaleta\Core\Jobs::purgeApplications($this->app); // applications to job openings have their own, usually shorter, retention (2.11)
@@ -153,10 +159,7 @@ final class Enquiries extends Module
      */
     private function listAssignees(int $assignee = 0): array
     {
-        return $this->db->pairs(
-            "SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} u WHERE (blokovat = 0 AND (admin = ? OR EXISTS (SELECT 1 FROM {uzivatele_prava} p WHERE p.fk_id_user = u.idu AND p.ident_modulu = ?))) OR idu = ? ORDER BY " . $this->db->sortText("IF(jmeno = '', user, jmeno)"),
-            [\Kaleta\Core\Auth::ADMIN, self::IDENT, $assignee],
-        );
+        return \Kaleta\Core\Assignment::candidates($this->db, 'enquiry', $assignee); // 3.24: one rule for enquiries, pages and items
     }
 
     /** Internal note and who handles the enquiry. */
@@ -194,8 +197,13 @@ final class Enquiries extends Module
         $idp = $this->request->postInt('idp');
         if ($this->request->isPost()) {
             $who = $this->request->postInt('prirazeno');
-            $this->db->update('poptavky', ['poznamka' => mb_substr(trim($this->request->post('poznamka')), 0, 5000),
-                'prirazeno' => $who > 0 && isset($this->listAssignees((int) $this->db->value('SELECT prirazeno FROM {poptavky} WHERE idp = ?', [$idp]))[$who]) ? $who : null], ['idp' => $idp]);
+            $before = $this->db->value('SELECT prirazeno FROM {poptavky} WHERE idp = ?', [$idp]);
+            $after = $who > 0 && isset($this->listAssignees((int) $before)[$who]) ? $who : null;
+            $this->db->update('poptavky', ['poznamka' => mb_substr(trim($this->request->post('poznamka')), 0, 5000), 'prirazeno' => $after], ['idp' => $idp]);
+            if ($after !== null && $after !== ($before === null ? null : (int) $before)) {
+                // 3.24: one e-mail to the new person handling it – never to oneself, never with the enquiry's content
+                \Kaleta\Core\Assignment::notify($this->app, 'enquiry', $idp, $after, $this->app->auth()->id());
+            }
         }
 
         return $this->back('The note has been saved.', 'detail', ['id' => $idp]);

@@ -15,6 +15,10 @@ body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; ove
 /* the status chip below the page title (3.6): a word or two, the sentence is in its tooltip */
 .st-lista .st-cip { align-self: flex-start; margin-top: 2px; padding: 0 7px; border: 1px solid var(--linka); border-radius: 999px; font-size: 11px; line-height: 18px; white-space: nowrap; }
 .st-lista .st-cip-koncept { border-color: color-mix(in srgb, var(--ed-varovani) 45%, transparent); color: var(--ed-varovani); font-weight: 600; }
+.st-lista .st-cip-radek { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.st-lista .st-koncept-kdo { overflow: hidden; margin-top: 2px; font-size: 11px; white-space: nowrap; text-overflow: ellipsis; }
+/* 3.24 (N-U6): with the rails (up to 1279 px) the bar has no room for "Draft by …" – the chip's tooltip carries it */
+@media (max-width: 1279px) { .st-lista .st-koncept-kdo { display: none; } }
 .st-lista-vice { position: relative; padding: 0 8px; }
 .st-pocet { position: absolute; top: -6px; right: -6px; min-width: 18px; padding: 0 5px; border-radius: 999px; background: var(--akcent); color: var(--na-akcentu); font-size: 11px; line-height: 18px; text-align: center; }
 .st-lista .st-vice button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 6px; background: none; text-align: left; font-size: 13px; cursor: pointer; }

@@ -48,7 +48,8 @@ final class PendingReview
      * What waits for the signed-in person.
      *
      * @param array<string, string> $modules the sections the person may open (Admin\Kernel::modules(): ident => class)
-     * @return list<array{kind: string, label: string, count: int, url: string, examples: list<string>}> url is relative to the site (admin.php?…)
+     * @return list<array{kind: string, label: string, count: int, url: string, examples: list<string>, drafted_by?: list<array{title: string, by: ?string, at: ?string}>}> url is relative to the site (admin.php?…);
+     *         drafted_by (3.24, N-U6): for page drafts, who saved each example's draft last and when (null = not known)
      */
     public static function all(App $app, array $modules): array
     {
@@ -63,7 +64,8 @@ final class PendingReview
                 $found = null; // a table from a newer migration that has not run yet must not break the dashboard
             }
             if ($found !== null && $found[0] > 0) {
-                $out[] = ['kind' => $kind, 'label' => $label, 'count' => $found[0], 'url' => $found[1], 'examples' => array_slice($found[2], 0, self::EXAMPLES)];
+                $out[] = ['kind' => $kind, 'label' => $label, 'count' => $found[0], 'url' => $found[1], 'examples' => array_slice($found[2], 0, self::EXAMPLES)]
+                    + (isset($found[3]) ? ['drafted_by' => array_slice($found[3], 0, self::EXAMPLES)] : []);
             }
         }
 
@@ -94,7 +96,7 @@ final class PendingReview
     /**
      * One kind: [count, admin URL, example titles]. $siteWide (3.16): the whole site, not what the signed-in person may do.
      *
-     * @return array{0: int, 1: string, 2: list<string>}|null
+     * @return array{0: int, 1: string, 2: list<string>, 3?: list<array{title: string, by: ?string, at: ?string}>}|null
      */
     private static function find(App $app, string $kind, bool $siteWide = false): ?array
     {
@@ -112,8 +114,11 @@ final class PendingReview
                 return [(int) $db->value('SELECT COUNT(*) ' . $where, $since), self::URLS['requests_done'], $titles($db->all('SELECT r.title ' . $where . ' ORDER BY r.done_at DESC' . $limit, $since), 'title')];
             case 'page_drafts':
                 $where = 'FROM {stranky} WHERE stavba_koncept IS NOT NULL AND smazano IS NULL';
+                $rows = $db->all('SELECT ids, titulek, zmeneno, 1 AS stavba_koncept ' . $where . ' ORDER BY zmeneno DESC' . $limit);
+                $authors = DraftAttribution::forPages($db, $rows); // 3.24 (N-U6): who made each draft
 
-                return [(int) $db->value('SELECT COUNT(*) ' . $where), self::URLS['page_drafts'], $titles($db->all('SELECT titulek ' . $where . ' ORDER BY zmeneno DESC' . $limit), 'titulek')];
+                return [(int) $db->value('SELECT COUNT(*) ' . $where), self::URLS['page_drafts'], $titles($rows, 'titulek'),
+                    array_map(fn (array $r): array => ['title' => (string) $r['titulek'], 'by' => $authors[(int) $r['ids']]['by'] ?? null, 'at' => $authors[(int) $r['ids']]['at'] ?? null], $rows)];
             case 'draft_comments':
                 $counts = DraftComments::unresolvedCounts($db);
                 if ($counts === []) {

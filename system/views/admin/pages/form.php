@@ -11,8 +11,10 @@
  * @var list<array{idr:int, datum:string, titulek:string, kdo:?string}> $versions  older versions of the text
  * @var ?string $translationOf  the title of the original when this is a new translation (3.11)
  * @var string $languageName  the name of the page's language version
+ * @var array<int, string> $owners  who can be the responsible person (3.24, Core\Assignment::candidates)
  */
 $copyBuild = !$page['ids'] && !empty($page['copy_build']);
+$ownerApart = $page['ids'] && $page['zobrazit'] && !$app->auth()->canPublish(); // 3.24: such a person cannot save these settings, only the responsible person
 $segment = basename((string) $page['seo_link']);
 $prefix = '';
 foreach ($parents as $r) {
@@ -152,6 +154,9 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	<div><input class="textpole" type="date" id="review_by" name="review_by" value="<?= e((string) ($page['review_by'] ?? '')) ?>">
 	<span class="napoveda"><?= e(t('On this day the site audit and the alert e-mail remind you to check it.')) ?></span></div>
 </div>
+<?php if (!$ownerApart): ?>
+<?= $app->view->render('admin/owner_field', ['owners' => $owners, 'owner' => $page['owner_id'] ?? null]) ?>
+<?php endif ?>
 <div class="radek">
 	<label for="poradi"><?= e(t('Order in navigation')) ?></label>
 	<div><input class="textpole" type="number" id="poradi" name="poradi" value="<?= (int) $page['poradi'] ?>" min="0" max="65535">
@@ -163,6 +168,12 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <p class="tlacitka"><button class="tl" type="submit"><?= e(t('Uložit')) ?></button><?php if (($page['stavba'] ?? null) === null): ?> <button class="navigace" type="submit" name="po_ulozeni" value="stavitel"><?= e(t('Save and open in the builder')) ?></button><?php endif ?></p>
 <?php endif ?>
 </form>
+<?php if ($ownerApart): // 3.24: the settings of a published page are an editor's, its responsible person anyone's with Pages ?>
+<form class="formular" method="post" action="<?= e($module->url('owner')) ?>"><?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $page['ids'] ?>">
+<?= $app->view->render('admin/owner_field', ['owners' => $owners, 'owner' => $page['owner_id'] ?? null]) ?>
+<p class="tlacitka"><button class="navigace" type="submit"><?= e(t('Save the responsible person')) ?></button></p>
+</form>
+<?php endif ?>
 <?php if (!$page['ids'] && ($translationOf ?? null) !== null && $app->auth()->hasModule('requests') && Kaleta\Core\Extensions::isEnabled($app->settings(), 'claude')): // 3.11 (UX310-4): translating is what Claude does well
     $claude = Kaleta\Core\ClaudeConnection::status($app->db(), $app->settings()); // 3.18: without a connection the request waits – said before it is saved ?>
 <form class="formular" method="post" action="<?= e($app->url('admin.php?module=requests&action=save')) ?>">

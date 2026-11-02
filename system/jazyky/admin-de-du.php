@@ -1090,4 +1090,13 @@ return [
     'The client account %s cannot change the menu or the footer – add the Appearance area to its access.' => 'Das Kundenkonto %s kann Menü und Fußzeile nicht ändern – füge seinem Zugriff den Bereich Erscheinungsbild hinzu.',
     'The client account %s cannot change the opening hours – add Business details to its access.' => 'Das Kundenkonto %s kann die Öffnungszeiten nicht ändern – füge seinem Zugriff die Firmendaten hinzu.',
     'Was the customer happy? Send them a link where they can write a few words about you for your website. Nothing is published until you publish it.' => 'War der Kunde zufrieden? Schick ihm einen Link, über den er ein paar Worte über dich für deine Website schreiben kann. Nichts wird veröffentlicht, bevor du es veröffentlichst.',
+    'Being responsible means its review reminders come to you and it is listed under Mine. It does not change who may edit it.' => 'Verantwortlich zu sein heißt: Die Erinnerungen zur Prüfung kommen zu dir, und es steht unter „Meine“. Wer es bearbeiten darf, ändert sich dadurch nicht.',
+    'An enquiry from the form “%s” is assigned to you' => 'Dir wurde eine Anfrage aus dem Formular „%s“ zugewiesen',
+    '%s assigned you the enquiry #%s from the form “%s”.' => '%s hat dir die Anfrage #%s aus dem Formular „%s“ zugewiesen.',
+    'You are responsible for the page “%s”' => 'Du bist für die Seite „%s“ verantwortlich',
+    '%s made you the responsible person for the page “%s”.' => '%s hat dich als verantwortliche Person für die Seite „%s“ eingetragen.',
+    'You are responsible for “%s” in %s' => 'Du bist für „%s“ in %s verantwortlich',
+    '%s made you the responsible person for “%s” in the collection %s.' => '%s hat dich als verantwortliche Person für „%s“ in der Sammlung %s eingetragen.',
+    'Review by today: %d things you are responsible for' => 'Heute zu prüfen: %d Inhalte, für die du verantwortlich bist',
+    'You are the responsible person for this content, and its review-by day has come. Check it is still true and change the date (or remove it) once it is done:' => 'Du bist für diese Inhalte verantwortlich, und ihr Prüftermin ist da. Prüfe, ob sie noch stimmen, und ändere (oder entferne) danach das Datum:',
 ];

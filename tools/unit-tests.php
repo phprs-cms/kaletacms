@@ -223,7 +223,8 @@ $parity = [
         'delete' => 'trash_page', 'restore' => 'restore_from_trash', 'delete_permanently' => 'admin: the trash empties itself after 30 days',
         'duplicate' => 'admin: a copy of a page – Claude creates the page and saves the build', 'import' => 'admin: upload of a page export file',
         'build_text' => 'admin: back from the builder to a text page', 'restore_version' => 'admin: text revisions of a text page',
-        'translations' => 'translation_status', 'bulk' => 'update_page'],
+        'translations' => 'translation_status', 'bulk' => 'update_page',
+        'owner' => 'admin: the responsible person of a published page for someone who may not save its settings (3.24) – Claude uses assign'],
     'news' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'compare' => $readOnly, 'versions' => $readOnly, 'search_json' => $readOnly,
         'save' => 'update_news', 'save_text' => 'update_news', 'delete' => 'trash_news', 'restore' => 'restore_from_trash', 'delete_permanently' => 'admin: the trash empties itself after 30 days',
         'draft' => 'admin: autosave of the editor', 'duplicate' => 'admin: a copy of a news item – Claude creates a new one', 'links' => 'admin: link check runs on its own',
@@ -8448,6 +8449,65 @@ check('3.23.1 review (N3231-2): the areas a module logs under; wrote() takes sev
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Privacy.php'), "ChangeLog::write(\$app, 'pages', 'accessibility_statement'"),
 ], [['business' => ['settings'], 'menu' => ['appearance'], 'transfer' => ['appearance'], 'settings' => ['pages'], 'collections' => ['pages']], false, true, false, [], true, true]);
 Kaleta\Admin\ChangeLog::forget();
+
+// ---- 3.24 "Team-ready website", agent B: responsible people, Mine, the assignment e-mail, review reminders, draft attribution ----
+// the assignment e-mail: the recipient's admin language (the site's when none), the form name and a link – never the enquiry's fields
+$a324 = fn (string $kind, array $target, string $language, array $site = ['site_language' => 'en']): array => Kaleta\Core\Assignment::mail($reportSettings($site), ['jazyk' => $language, 'register' => ''], $kind, $target, 'Jana', 'https://example.com/admin.php?x');
+$a324Enquiry = $a324('enquiry', ['id' => 42, 'title' => 'Contact', 'path' => ''], '');
+$a324Page = $a324('page', ['id' => 7, 'title' => 'Services', 'path' => ''], 'cs');
+$a324Item = $a324('item', ['id' => 9, 'title' => 'Oak table', 'collection' => 'Products', 'path' => ''], 'de', ['site_language' => 'cs']);
+check('3.24 (B): the assignment e-mail – English by the site, Czech and German by the user; the form name, the title, the link; no enquiry content', [
+    $a324Enquiry[0], str_starts_with($a324Enquiry[1], 'Jana assigned you the enquiry #42 from the form “Contact”.'), str_ends_with($a324Enquiry[1], "https://example.com/admin.php?x\n"),
+    $a324Page[0], str_contains($a324Page[1], 'Mine') || str_contains($a324Page[1], 'Moje'), $a324Item[0], Kaleta\Core\Language::code() === Kaleta\Core\Language::code()],
+    ['An enquiry from the form “Contact” is assigned to you', true, true, 'Odpovídáte za stránku „Services“', true, 'Sie sind für „Oak table“ in Products verantwortlich', true]);
+$a324App = (new ReflectionClass(Kaleta\Core\App::class))->newInstanceWithoutConstructor(); // never reaches the database: refused before it
+check('3.24 (B): no assignment e-mail to oneself, to nobody, or for an unknown kind', [
+    Kaleta\Core\Assignment::notify($a324App, 'enquiry', 1, 5, 5), Kaleta\Core\Assignment::notify($a324App, 'page', 1, 0, 5), Kaleta\Core\Assignment::notify($a324App, 'news', 1, 6, 5),
+    array_keys(Kaleta\Core\Assignment::KINDS), array_values(Kaleta\Core\Assignment::KINDS)], [false, false, false, ['enquiry', 'page', 'item'], ['enquiries', 'pages', 'collections']]);
+// the review reminder: one e-mail per person and day at most, an item once per review date; people without an owner never
+$r324 = [['kind' => 'page', 'id' => 1, 'review_by' => '2026-11-01', 'owner_id' => 3], ['kind' => 'collection_item', 'id' => 1, 'review_by' => '2026-11-02', 'owner_id' => 3],
+    ['kind' => 'page', 'id' => 2, 'review_by' => '2026-11-02', 'owner_id' => 4], ['kind' => 'page', 'id' => 5, 'review_by' => '2026-11-02', 'owner_id' => null]];
+$r324Keys = fn (array $byOwner): array => array_map(fn (array $rows): array => array_map(fn (array $r): string => $r['kind'] . '|' . $r['id'], $rows), $byOwner);
+check('3.24 (B): review reminders – grouped by the responsible person, without what was mailed for that date, without who got one today', [
+    $r324Keys(Kaleta\Core\Validity::remindersToSend($r324, [], [])),
+    $r324Keys(Kaleta\Core\Validity::remindersToSend($r324, ['page|1|2026-11-01' => true], [])),
+    $r324Keys(Kaleta\Core\Validity::remindersToSend($r324, ['page|1|2026-10-01' => true], [4 => true])),
+    Kaleta\Core\Validity::OWNED], [[3 => ['page|1', 'collection_item|1'], 4 => ['page|2']], [3 => ['collection_item|1'], 4 => ['page|2']], [3 => ['page|1', 'collection_item|1']], ['page' => 'page', 'collection_item' => 'item']]);
+$validity324 = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Validity.php');
+check('3.24 (B): the hourly validity job e-mails the responsible people (the admin language) and records content.review_mailed without the address', [
+    str_contains($validity324, '$mailed = $owned !== [] ? self::remindOwners($app, $owned, $today) : 0;'), str_contains($validity324, "Mail::send(\$s, (string) \$user['email'], \$subject, \$body);"),
+    str_contains($validity324, "'admin-', Language::normalizeRegister((string) \$user['register'])"), isset(Kaleta\Core\Events::TYPES['content.review_mailed']),
+    str_contains($validity324, "['user' => \$owner, 'day' => \$today, 'items' =>")], [true, true, true, true, true]);
+// draft attribution (N-U6): "Draft by Jana, 21:05" – the time alone today, the date before; recorded by the builder and by MCP
+$d324Today = Kaleta\Core\Language::runWith('en', fn (): string => Kaleta\Core\DraftAttribution::label(['by' => 'Jana', 'at' => date('Y-m-d') . ' 21:05:09']), 'admin-');
+$d324Before = Kaleta\Core\Language::runWith('en', fn (): string => Kaleta\Core\DraftAttribution::label(['by' => 'Jana', 'at' => '2026-01-05 08:00:00']), 'admin-');
+check('3.24 (B, N-U6): the draft label, and who records a draft: the page builder\'s saveDraft and MCP saveBuild – never another builder target', [
+    $d324Today, str_starts_with($d324Before, 'Draft by Jana, ') && str_ends_with($d324Before, ' 08:00') && $d324Before !== 'Draft by Jana, 08:00',
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Pages.php'), 'DraftAttribution::record('),
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Tools.php'), 'DraftAttribution::record('),
+    substr_count(implode('', array_map(fn (string $m): string => (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/' . $m . '.php'), ['Collections', 'SiteParts', 'Popups', 'Components'])), 'DraftAttribution'),
+    Kaleta\Core\DraftAttribution::ACTION, Kaleta\Core\Language::runWith('cs', fn (): string => t('draft edited'), 'admin-')],
+    ['Draft by Jana, 21:05', true, 1, 1, 0, 'draft edited', 'úprava konceptu']);
+$enquiries324 = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php');
+$kernel324 = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Kernel.php');
+check('3.24 (B): Handled by e-mails the new person only when it changed; one rule for who can be chosen; the dashboard tile of open enquiries assigned to me', [
+    str_contains($enquiries324, "if (\$after !== null && \$after !== (\$before === null ? null : (int) \$before)) {"),
+    str_contains($enquiries324, "Assignment::notify(\$this->app, 'enquiry', \$idp, \$after, \$this->app->auth()->id());"),
+    str_contains($enquiries324, "return \\Kaleta\\Core\\Assignment::candidates(\$this->db, 'enquiry', \$assignee);"),
+    str_contains($enquiries324, "WHERE prirazeno = ? AND stav < 2 AND ' . self::NOT_SPAM"),
+    str_contains($kernel324, "'Assigned to me' => isset(\$modules['enquiries']) ? [Modules\\Enquiries::countAssigned(\$db, \$this->app->auth()->id()), 'admin.php?module=enquiries&status=moje'] : null,"),
+], [true, true, true, true, true]);
+$pages324 = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Pages.php');
+$collections324 = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Collections.php');
+check('3.24 (B): the responsible person is written only from a form that has the field, through Assignment::fromForm; a copy is the copier\'s only when the original had one; the page export never carries it', [
+    substr_count($pages324, "if (array_key_exists('owner_id', \$_POST)) {"), substr_count($collections324, "if (array_key_exists('owner_id', \$_POST)) {"),
+    substr_count($pages324 . $collections324, 'Assignment::fromForm('), str_contains($pages324, "\$copy['owner_id'] = \$page['owner_id'] !== null && \$this->app->auth()->id() > 0 ? \$this->app->auth()->id() : null;"),
+    str_contains($collections324, "'owner_id' => \$p['owner_id'] !== null && \$this->app->auth()->id() > 0 ? \$this->app->auth()->id() : null];"),
+    preg_match('/kaleta-stranka[^\n]*owner/', $pages324), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/SiteImport.php'), 'owner_id'),
+    Kaleta\Admin\Modules\Pages::MINE, isset(Kaleta\Admin\Modules\Pages::STATUSES[Kaleta\Admin\Modules\Pages::MINE])], [1, 1, 3, true, true, 0, false, 'mine', false]);
+check('3.24 (B): the new admin texts are translated in every admin language', array_values(array_filter(array_map(fn (string $code): string => Kaleta\Core\Language::runWith($code, fn (): string =>
+    implode(',', array_filter(['Responsible person', '(former user)', 'Assigned to me', 'Draft by %s, %s', 'draft edited', 'Save the responsible person', 'Review by today: “%s”'], fn (string $k): bool => t($k) === $k)), 'admin-'),
+    array_diff(array_keys(Kaleta\Core\Language::ADMIN_LANGUAGES), ['en'])))), []);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

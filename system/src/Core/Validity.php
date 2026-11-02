@@ -14,12 +14,17 @@ use Kaleta\Admin\ChangeLog;
  *    visible = 0, a pop-up aktivni = 0. Every change goes to the change log (ChangeLog::write) and is recorded as the
  *    event content.expired; the page cache is cleared when something changed. The date stays, so the admin sees why.
  *  - review_by: on that day (and until the date is changed or removed) the site audit lists the content under
- *    "Review by" (Core\Audit) and the event content.review is recorded once per content and date.
+ *    "Review by" (Core\Audit) and the event content.review is recorded once per content and date. A page or a collection
+ *    item with a responsible person (owner_id, 3.24) also e-mails that person: one e-mail a day at most, listing what of
+ *    theirs is due and was not in an earlier reminder (remindOwners).
  *
  * run() is the hourly background job (Core\Scheduler, 'validity'). The selection helpers are pure and unit-tested.
  */
 final class Validity
 {
+    /** The kinds that have a responsible person (owner_id, migration 0110) => the kind of Core\Assignment. */
+    public const array OWNED = ['page' => 'page', 'collection_item' => 'item'];
+
     /** kind => [table, id column, title column, visibility column, change log module]. */
     public const array KINDS = [
         'page' => ['stranky', 'ids', 'titulek', 'zobrazit', 'pages'],
@@ -36,9 +41,18 @@ final class Validity
         $hidden = 0;
         $reviews = 0;
         $asked = self::askedReviews($db);
+        $owned = [];
         foreach (self::KINDS as $kind => [$table, $idColumn, $titleColumn, $visibleColumn, $module]) {
-            $rows = $db->all('SELECT ' . $idColumn . ' AS id, ' . $titleColumn . ' AS title, ' . $visibleColumn . ' AS visible, valid_until, review_by FROM {' . $table . '}'
+            $rows = $db->all('SELECT ' . $idColumn . ' AS id, ' . $titleColumn . ' AS title, ' . $visibleColumn . ' AS visible, valid_until, review_by'
+                . (isset(self::OWNED[$kind]) ? ', owner_id' . ($kind === 'collection_item' ? ', idk' : '') : '') . ' FROM {' . $table . '}'
                 . ' WHERE (valid_until IS NOT NULL OR review_by IS NOT NULL)' . ($kind === 'popup' ? '' : ' AND smazano IS NULL'));
+            if (isset(self::OWNED[$kind])) {
+                foreach (self::dueForReview($rows, $today, []) as $row) {
+                    if (($row['owner_id'] ?? null) !== null) {
+                        $owned[] = ['kind' => $kind] + $row;
+                    }
+                }
+            }
             foreach (self::expired($rows, $today) as $row) {
                 $db->update($table, [$visibleColumn => 0], [$idColumn => (int) $row['id']]);
                 ChangeLog::write($app, $module, 'expired', sprintf('%s – true until %s', (string) $row['title'], (string) $row['valid_until']));
@@ -54,8 +68,92 @@ final class Validity
         if ($hidden > 0) {
             \Kaleta\Front\Cache::clear();
         }
+        $mailed = $owned !== [] ? self::remindOwners($app, $owned, $today) : 0;
 
-        return 'hidden ' . $hidden . ', reviews ' . $reviews;
+        return 'hidden ' . $hidden . ', reviews ' . $reviews . ($mailed > 0 ? ', reminders ' . $mailed : '');
+    }
+
+    /**
+     * The review reminder to the responsible people (3.24): what of theirs is due (review_by today or earlier) and was not
+     * in a reminder yet, one e-mail per person and day at most – what becomes due after today's e-mail waits for tomorrow's.
+     * Only to an active account with an e-mail address that can still open the section; the others are left to the site
+     * audit, as before. Recorded as the event content.review_mailed (the user id and the items – no address). Returns
+     * how many e-mails went out.
+     *
+     * @param list<array<string, mixed>> $due rows with kind, id, title, review_by, owner_id (and idk for an item)
+     */
+    public static function remindOwners(App $app, array $due, string $today): int
+    {
+        $db = $app->db();
+        [$mailedItems, $mailedToday] = self::sentReminders($db, $today);
+        $byOwner = self::remindersToSend($due, $mailedItems, $mailedToday);
+        $sent = 0;
+        $s = $app->settings();
+        $base = rtrim($s->get('site_url') ?: $app->request->origin(), '/');
+        foreach ($byOwner as $owner => $rows) {
+            $user = $db->one('SELECT idu, email, jazyk, register FROM {uzivatele} WHERE idu = ? AND blokovat = 0', [$owner]);
+            $rows = array_values(array_filter($rows, fn (array $r): bool => Assignment::allowed($db, self::OWNED[$r['kind']], $owner)));
+            if ($user === null || $rows === [] || count(Mail::addresses((string) $user['email'])) !== 1) {
+                continue;
+            }
+            [$subject, $body] = Language::runWith((string) $user['jazyk'] ?: Language::defaults($s), function () use ($rows, $base, $app): array {
+                $lines = array_map(fn (array $r): string => '- ' . $r['title'] . ' (' . t('review by %s', format_date((string) $r['review_by'])) . ")\n  " . $base . $app->url($r['kind'] === 'page'
+                    ? 'admin.php?module=pages&action=edit&id=' . (int) $r['id'] : 'admin.php?module=collections&action=item&id=' . (int) ($r['idk'] ?? 0) . '&item=' . (int) $r['id']), $rows);
+
+                return [count($rows) === 1 ? t('Review by today: “%s”', (string) $rows[0]['title']) : t('Review by today: %d things you are responsible for', count($rows)),
+                    t('You are the responsible person for this content, and its review-by day has come. Check it is still true and change the date (or remove it) once it is done:') . "\n\n"
+                    . implode("\n", $lines) . "\n"];
+            }, 'admin-', Language::normalizeRegister((string) $user['register']));
+            Mail::send($s, (string) $user['email'], $subject, $body); // a background job: nobody waits for it, a failure is queued for a retry
+            Events::record($db, 'content.review_mailed', 'info', mb_substr(t('A review reminder went to the responsible person of %d items.', count($rows)), 0, 255),
+                ['user' => $owner, 'day' => $today, 'items' => array_map(fn (array $r): string => $r['kind'] . '|' . (int) $r['id'] . '|' . $r['review_by'], $rows)]);
+            $sent++;
+        }
+
+        return $sent;
+    }
+
+    /**
+     * Which reminders to send (pure, unit-tested): the due rows by their responsible person, without the rows already in a
+     * reminder for the same date and without the people who got one today.
+     *
+     * @param list<array<string, mixed>> $due rows with kind, id, review_by, owner_id
+     * @param array<string, true> $mailedItems keys "<kind>|<id>|<review_by>" already in a reminder
+     * @param array<int, true> $mailedToday users who got a reminder today
+     * @return array<int, list<array<string, mixed>>> owner id => rows
+     */
+    public static function remindersToSend(array $due, array $mailedItems, array $mailedToday): array
+    {
+        $out = [];
+        foreach ($due as $r) {
+            $owner = (int) ($r['owner_id'] ?? 0);
+            if ($owner > 0 && !isset($mailedToday[$owner]) && !isset($mailedItems[$r['kind'] . '|' . (int) $r['id'] . '|' . $r['review_by']])) {
+                $out[$owner][] = $r;
+            }
+        }
+
+        return $out;
+    }
+
+    /** @return array{0: array<string, true>, 1: array<int, true>} the items already in a reminder, the users mailed today */
+    private static function sentReminders(Db $db, string $today): array
+    {
+        $items = [];
+        $users = [];
+        foreach ($db->all("SELECT data FROM {events} WHERE type = 'content.review_mailed'") as $r) {
+            $data = json_decode((string) $r['data'], true);
+            if (!is_array($data)) {
+                continue;
+            }
+            foreach (is_array($data['items'] ?? null) ? $data['items'] : [] as $key) {
+                $items[(string) $key] = true;
+            }
+            if (($data['day'] ?? '') === $today) {
+                $users[(int) ($data['user'] ?? 0)] = true;
+            }
+        }
+
+        return [$items, $users];
     }
 
     /* ---------- selection (pure, unit-tested) ---------- */

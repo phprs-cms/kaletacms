@@ -46,6 +46,9 @@ final class Pages extends Module
         'kos' => 'smazano IS NOT NULL',
     ];
 
+    /** 3.24: the tab of the pages the signed-in person is responsible for (owner_id) – query status=mine, beside STATUSES. */
+    public const string MINE = 'mine';
+
     /** The WHERE of a status tab; '' and an unknown value are "All" – every page that is not in the trash. */
     public static function statusCondition(string $status): string
     {
@@ -102,11 +105,13 @@ final class Pages extends Module
     {
         // status tab (3.20, C1): published | hidden | draft (unpublished changes) | kos (trash); anything else is All
         $status = $this->request->get('status');
-        $status = isset(self::STATUSES[$status]) ? $status : '';
+        $status = isset(self::STATUSES[$status]) || $status === self::MINE ? $status : '';
         $trash = $status === 'kos';
         $search = mb_substr(trim($this->request->get('search')), 0, 100);
         [$siteLanguages, $language, $column] = $this->readLanguageFilter();
-        $where = [self::statusCondition($status)];
+        $me = $this->app->auth()->id();
+        // 3.24: Mine = the pages I am the responsible person for (owner_id), outside the trash
+        $where = [$status === self::MINE ? 'owner_id = ' . $me . ' AND smazano IS NULL' : self::statusCondition($status)];
         $params = [];
         if ($column !== null) {
             $where[] = 'jazyk = ?';
@@ -129,8 +134,8 @@ final class Pages extends Module
         $editors = array_values(array_unique(array_filter(array_map('intval', array_column($pages, 'zmenil')))));
         $names = $editors === [] ? [] : array_column($this->db->all('SELECT idu, IF(jmeno = \'\', user, jmeno) AS jmeno FROM {uzivatele} WHERE idu IN (' . implode(', ', array_fill(0, count($editors), '?')) . ')', $editors), 'jmeno', 'idu');
         // the count of every tab, in one query (the whole site, not the language or search filter – the tiles on the dashboard count the same way)
-        $row = $this->db->one('SELECT SUM(smazano IS NULL) AS all_pages, ' . implode(', ', array_map(fn (string $condition, string $key): string => 'SUM(' . $condition . ') AS `' . $key . '`', self::STATUSES, array_keys(self::STATUSES))) . ' FROM {stranky}') ?? [];
-        $counts = ['' => (int) ($row['all_pages'] ?? 0)];
+        $row = $this->db->one('SELECT SUM(smazano IS NULL) AS all_pages, SUM(owner_id = ' . $me . ' AND smazano IS NULL) AS mine, ' . implode(', ', array_map(fn (string $condition, string $key): string => 'SUM(' . $condition . ') AS `' . $key . '`', self::STATUSES, array_keys(self::STATUSES))) . ' FROM {stranky}') ?? [];
+        $counts = ['' => (int) ($row['all_pages'] ?? 0), self::MINE => (int) ($row['mine'] ?? 0)];
         foreach (array_keys(self::STATUSES) as $key) {
             $counts[$key] = (int) ($row[$key] ?? 0);
         }
@@ -138,6 +143,7 @@ final class Pages extends Module
         return $this->view('list', 'Pages', [
             'pages' => $trash || $search !== '' ? $pages : self::sortAsTree($pages),
             'trash' => $trash, 'status' => $status, 'counts' => $counts, 'editors' => $names, 'search' => $search, 'siteLanguages' => $siteLanguages, 'language' => $language,
+            'drafts' => $trash ? [] : \Kaleta\Core\DraftAttribution::forPages($this->db, $pages), // 3.24 (N-U6): who made each draft and when
             'comments' => $trash ? [] : \Kaleta\Core\DraftComments::unresolvedCounts($this->db), // unresolved comments from shared previews (2.15)
             'inTrash' => $counts['kos'] ?? 0,
         ]);
@@ -343,6 +349,12 @@ final class Pages extends Module
             'valid_until' => \Kaleta\Core\Validity::date($r->post('valid_until')),
             'review_by' => \Kaleta\Core\Validity::date($r->post('review_by')),
         ];
+        // 3.24: the responsible person – only when the form has the field (a stored one stays otherwise); a new page starts with nobody
+        $storedOwner = $id > 0 ? $this->db->value('SELECT owner_id FROM {stranky} WHERE ids = ?', [$id]) : null;
+        $storedOwner = $storedOwner === null ? null : (int) $storedOwner;
+        if (array_key_exists('owner_id', $_POST)) {
+            $data['owner_id'] = \Kaleta\Core\Assignment::fromForm($this->db, 'page', $r->postInt('owner_id'), $storedOwner);
+        }
         if ($this->app->auth()->isAdmin() && !\Kaleta\Core\Demo::active()) {
             // code in <head> of this page only (2.3); never in the public demo – administrators, like the code for the whole site
             $data['kod_hlavicky'] = trim((string) ($_POST['kod_hlavicky'] ?? '')) !== '' ? mb_substr((string) $_POST['kod_hlavicky'], 0, 20000) : null;
@@ -395,6 +407,8 @@ final class Pages extends Module
 
             return $this->form(['ids' => $id] + $data + ['copy_build' => $r->postBool('copy_build')] + ($previous ?? ['stavba' => null, 'stavba_koncept' => null]), $errors);
         }
+        $notifyOwner = fn (int $page) => isset($data['owner_id']) && $data['owner_id'] !== $storedOwner
+            ? \Kaleta\Core\Assignment::notify($this->app, 'page', $page, (int) $data['owner_id'], $this->app->auth()->id()) : false;
         if ($id > 0) {
             $previous = $this->db->one('SELECT seo_link, zobrazit, titulek, text, jazyk FROM {stranky} WHERE ids = ?', [$id]);
             if ($previous !== null && ($previous['text'] !== $data['text'] || $previous['titulek'] !== $data['titulek'])) {
@@ -404,9 +418,11 @@ final class Pages extends Module
             if ($previous !== null && $previous['seo_link'] !== $data['seo_link']) {
                 self::move($this->db, $previous['seo_link'], $data['seo_link'], (bool) $previous['zobrazit'], $language);
             }
+            $notifyOwner($id);
         } else {
             $id = $this->db->insert('stranky', $data);
             \Kaleta\Core\Slug::fromId($this->db, 'stranky', $id); // a title with nothing to transliterate: page-<id>, not n-a
+            $notifyOwner($id);
             $original = $data['preklad_z'] !== null && $r->postBool('copy_build') ? $this->db->one('SELECT stavba, stavba_koncept FROM {stranky} WHERE ids = ?', [$data['preklad_z']]) : null;
             if ($original !== null && ($original['stavba_koncept'] ?? $original['stavba']) !== null) {
                 // 3.11 (UX310-4): the translation of a builder page – the draft is a copy of the original's build and opens
@@ -441,6 +457,31 @@ final class Pages extends Module
         }
 
         return $this->back($data['show_on_publish'] ? 'Page saved. It stays hidden until it has content – add text or publish it in the builder, and it goes on the site.' : 'Page saved.');
+    }
+
+    /**
+     * Only the responsible person of a page (3.24): responsibility is not an edit of the page, so whoever may open Pages may
+     * change it – also on a published page whose settings they may not save (an author-level role). Nothing on the site
+     * changes and the page is not stamped as edited; the new person gets one e-mail unless they chose themselves.
+     */
+    protected function actionOwner(): Response
+    {
+        $id = $this->request->postInt('ids');
+        $stored = $this->request->isPost() ? $this->db->one('SELECT ids, titulek, owner_id FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$id]) : null;
+        if ($stored === null) {
+            return $this->back();
+        }
+        $before = $stored['owner_id'] === null ? null : (int) $stored['owner_id'];
+        $after = \Kaleta\Core\Assignment::fromForm($this->db, 'page', $this->request->postInt('owner_id'), $before);
+        if ($after !== $before) {
+            $this->db->update('stranky', ['owner_id' => $after], ['ids' => $id]);
+            \Kaleta\Admin\ChangeLog::write($this->app, 'pages', 'responsible person', '#' . $id . ' ' . mb_substr((string) $stored['titulek'], 0, 60) . ' → ' . ($after === null ? '—' : (\Kaleta\Core\Assignment::labels($this->db, [$after])[$after] ?? '')));
+            if ($after !== null) {
+                \Kaleta\Core\Assignment::notify($this->app, 'page', $id, $after, $this->app->auth()->id());
+            }
+        }
+
+        return $this->back('The responsible person is saved.', 'edit', ['id' => $id]);
     }
 
     /**
@@ -492,11 +533,19 @@ final class Pages extends Module
     protected function saveDraft(array $target, ?string $draft): void
     {
         $this->db->update('stranky', ['stavba_koncept' => $draft], ['ids' => $target['radek']['ids']]);
+        if ($draft !== null) {
+            \Kaleta\Core\DraftAttribution::record($this->app, (int) $target['radek']['ids'], (string) $target['radek']['titulek']); // 3.24 (N-U6)
+        }
     }
 
     protected function publishTarget(array $target): void
     {
         Publisher::page($this->app, $target['radek']);
+    }
+
+    protected function draftAuthor(array $target, ?string $draft): ?string
+    {
+        return $draft === null ? null : self::draftLabel($this->db, ['stavba_koncept' => $draft] + $target['radek']);
     }
 
     protected function describeTarget(array $target): array
@@ -510,7 +559,20 @@ final class Pages extends Module
             'poPublikovani' => (bool) ($page['show_on_publish'] ?? false), // hidden until the build is published, then shown (3.5)
             'zpet' => ['adresa' => $this->url(), 'text' => t('Pages')], 'nastaveni' => $this->url('edit', ['id' => (int) $page['ids']]),
             'podpis' => 'stranka:' . (int) $page['ids'],
+            'koncept' => self::draftLabel($this->db, $page), // 3.24 (N-U6): "Draft by Jana, 21:05" in the top bar
         ];
+    }
+
+    /**
+     * "Draft by Jana, 21:05" for a page with a draft (3.24, N-U6, Core\DraftAttribution); null = no draft or nobody known.
+     *
+     * @param array<string, mixed> $page ids, zmeneno, stavba_koncept
+     */
+    public static function draftLabel(\Kaleta\Core\Db $db, array $page): ?string
+    {
+        $author = \Kaleta\Core\DraftAttribution::forPages($db, [$page])[(int) $page['ids']] ?? null;
+
+        return $author === null ? null : \Kaleta\Core\DraftAttribution::label($author);
     }
 
     /** Publishes the page draft (from MCP too). */
@@ -729,6 +791,9 @@ final class Pages extends Module
         $copy['show_on_publish'] = 0;
         $copy['v_menu'] = 0; // the copy does not get into the navigation until someone adds it there
         $copy['preklad_z'] = null;
+        // 3.24: a copy of a page somebody is responsible for belongs to the person who made it (no e-mail – it is their own);
+        // a copy of a page without a responsible person has none either
+        $copy['owner_id'] = $page['owner_id'] !== null && $this->app->auth()->id() > 0 ? $this->app->auth()->id() : null;
         $copy = self::edited($this->app->auth()->id()) + $copy; // when and who (3.20, C11) – the stamp replaces the original's
         $id = $this->db->insert('stranky', $copy);
 
@@ -757,6 +822,8 @@ final class Pages extends Module
             'customMenu' => \Kaleta\Core\Menu::load($this->db, 'hlavni', (string) ($page['jazyk'] ?? '')) !== null,
             // content check of the saved version (2.14, Core\ContentCheck); a page not saved yet has nothing to check
             'contentCheck' => $page['ids'] > 0 && !$this->request->isPost() ? \Kaleta\Core\ContentCheck::forPage($page) : [],
+            // 3.24: who can be the responsible person – people who can open Pages (the stored one stays, "(former user)" when gone)
+            'owners' => \Kaleta\Core\Assignment::candidates($this->db, 'page', (int) ($page['owner_id'] ?? 0)),
         ]);
     }
 }

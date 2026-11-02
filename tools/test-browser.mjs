@@ -2734,6 +2734,63 @@ await step('3.23.1 (N-U16) "Edit here" from the home page and from Contact: no c
   }
 });
 
+// 3.24 (agent B): the responsible person in the page settings and the item form, the Mine tabs, the assignment e-mail queued,
+// the dashboard tile and "Draft by …" (N-U6) in the Pages list and the builder's top bar – at 1440 px and on a phone
+await step('3.24 (B): responsible person, Mine, Assigned to me, Draft by – Pages, an item, the dashboard, the builder', async () => {
+  if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
+  sql(`DELETE FROM ka_uzivatele WHERE user = 'b324-colleague'; INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno) VALUES ('b324-colleague', '', 'Browser Colleague', 'colleague-b324@example.com', 'cs', 1, NOW(), NOW());
+    INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, m.ident FROM ka_uzivatele JOIN (SELECT 'pages' AS ident UNION SELECT 'collections' UNION SELECT 'enquiries') m WHERE user = 'b324-colleague'`);
+  const colleague = sql("SELECT idu FROM ka_uzivatele WHERE user = 'b324-colleague'").trim();
+  const admin = sql("SELECT idu FROM ka_uzivatele WHERE user = 'admin'").trim();
+  const pageId = sql("SELECT ids FROM ka_stranky WHERE smazano IS NULL AND ids <> 1 ORDER BY ids LIMIT 1").trim();
+  await visit(`/admin.php?module=pages&action=edit&id=${pageId}`);
+  const select = page.locator('[data-owner-field] select[name="owner_id"]');
+  if (!(await select.isVisible())) { throw new Error('no Responsible person in the page settings'); }
+  if ((await page.locator('[data-owner-field] label').textContent()).trim() !== 'Responsible person') { throw new Error('the label is not English'); }
+  await select.selectOption(colleague);
+  await Promise.all([page.waitForNavigation(), page.locator('form.formular button.tl[type="submit"]').first().click()]);
+  if (sql(`SELECT owner_id FROM ka_stranky WHERE ids = ${pageId}`).trim() !== colleague) { throw new Error('the responsible person was not saved'); }
+  // the colleague's admin language is Czech: the queued e-mail is Czech, names the page and never goes to the administrator
+  const mail = sql(`SELECT COUNT(*) FROM ka_posta WHERE komu = 'colleague-b324@example.com' AND predmet LIKE 'Odpov%'`).trim();
+  if (mail !== '1') { throw new Error(`the assignment e-mail: ${mail} rows`); }
+  sql(`UPDATE ka_stranky SET owner_id = ${admin} WHERE ids = ${pageId}`);
+  await visit('/admin.php?module=pages');
+  const mine = page.locator('nav.zalozky a[href*="status=mine"]');
+  if (!/^Mine \(\d+\)$/.test((await mine.textContent()).trim())) { throw new Error(`the Mine tab says “${await mine.textContent()}”`); }
+  await Promise.all([page.waitForNavigation(), mine.click()]);
+  if ((await page.locator('table.vypis tbody tr').count()) !== Number(sql(`SELECT COUNT(*) FROM ka_stranky WHERE owner_id = ${admin} AND smazano IS NULL`).trim())) { throw new Error('Mine lists other pages'); }
+  // an item: the same select in the item form
+  const item = sql('SELECT CONCAT(idk, ",", idp) FROM ka_kolekce_polozky WHERE smazano IS NULL ORDER BY idp LIMIT 1').trim().split(',');
+  await visit(`/admin.php?module=collections&action=item&id=${item[0]}&item=${item[1]}`);
+  if ((await page.locator(`[data-owner-field] select option[value="${colleague}"]`).textContent()).trim() !== 'Browser Colleague') { throw new Error('the item form does not offer the colleague'); }
+  // the dashboard tile for a user with Enquiries
+  sql(`INSERT INTO ka_poptavky (datum, formular, email, data, stav, prirazeno) VALUES (NOW(), 'B324 form', 'x-b324@example.com', '[]', 1, ${admin})`);
+  await visit('/admin.php');
+  const tile = page.locator('a.dlazdice-polozka[href*="status=moje"]');
+  if ((await tile.locator('span').textContent()).trim() !== 'Assigned to me' || !/^\d+$/.test((await tile.locator('strong').textContent()).trim())) { throw new Error(`the tile says “${await tile.textContent()}”`); }
+  // Draft by: a draft whose last autosave was the colleague's – the list and the builder name her, the top bar stays one line
+  sql(`UPDATE ka_stranky SET stavba_koncept = COALESCE(stavba, '{"v":1,"deti":[]}'), zmeneno = NOW() - INTERVAL 2 HOUR WHERE ids = ${pageId};
+    INSERT INTO ka_protokol (cas, kdo, jmeno, modul, akce, popis) VALUES (NOW() - INTERVAL 5 MINUTE, ${colleague}, 'Browser Colleague', 'pages', 'draft edited', '#${pageId} B324')`);
+  await visit('/admin.php?module=pages');
+  const label = (await page.locator(`tr:has(a[href$="action=edit&id=${pageId}"]) [data-draft-by]`).first().textContent()).trim();
+  if (!/^Draft by Browser Colleague, \d\d:\d\d$/.test(label)) { throw new Error(`the Pages list says “${label}”`); }
+  await visit(`/admin.php?module=pages&action=builder&id=${pageId}`);
+  await builderIdle();
+  const bar = page.locator('.st-lista [data-draft-by]');
+  if (!/^Draft by Browser Colleague, \d\d:\d\d$/.test((await bar.textContent()).trim())) { throw new Error(`the builder top bar says “${await bar.textContent()}”`); }
+  const top = (await page.locator('.st-lista').boundingBox()).height;
+  if (top > 60) { throw new Error(`the builder top bar with Draft by is ${top} px tall at 1440 px`); }
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/324-builder-draft-by.png` }); }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await visit(`/admin.php?module=pages&action=edit&id=${pageId}`);
+  const wide = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  if (wide > 0) { throw new Error(`the page settings scroll ${wide} px sideways at 390 px`); }
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/324-owner-phone.png`, fullPage: true }); }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  sql(`UPDATE ka_stranky SET stavba_koncept = NULL, owner_id = NULL WHERE ids = ${pageId}; DELETE FROM ka_poptavky WHERE formular = 'B324 form';
+    DELETE FROM ka_uzivatele_prava WHERE fk_id_user = ${colleague}; DELETE FROM ka_uzivatele WHERE idu = ${colleague}`);
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

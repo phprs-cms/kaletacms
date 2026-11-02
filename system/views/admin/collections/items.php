@@ -18,6 +18,8 @@
  * @var bool $trash the trash is shown
  * @var bool $noticeBoard an official notice board (2.11): its notices are never deleted
  * @var int $inTrash items in the trash
+ * @var bool $mine the Mine tab is open (3.24): the items the signed-in person is responsible for
+ * @var int $mineCount items the signed-in person is responsible for, outside the trash
  * @var bool $staffSignatures a people collection with at least one user linked to a record (3.14)
  * @var array<int, array{0: int, 1: int}>|null $downloads  document library (2.11): idp => [downloads in 30 days, total]; null = not a library
  * @var array{id: int, title: string, path: string, url: string, visible: bool, in_menu: ?bool}|null $listingPage the page that lists the collection (3.20, C5); null = none, or no right to pages
@@ -49,10 +51,15 @@
 <?php if ($staffSignatures ?? false): ?>
 <p class="napoveda"><?= e(t('Staff can copy their own signature in My account.')) ?></p>
 <?php endif ?>
-<?php if ($inTrash > 0 || $trash): ?>
+<?php if ($inTrash > 0 || $trash || $mineCount > 0 || $mine): /* 3.24: Mine – the items I am the responsible person for */ ?>
 <nav class="zalozky" aria-label="<?= e(t('Items')) ?>">
-	<a href="<?= e($module->url('items', ['id' => $k['idk']])) ?>"<?= $trash ? '' : ' class="aktivni" aria-current="true"' ?>><?= e(t('Všechny')) ?></a>
+	<a href="<?= e($module->url('items', ['id' => $k['idk']])) ?>"<?= $trash || $mine ? '' : ' class="aktivni" aria-current="true"' ?>><?= e(t('Všechny')) ?></a>
+<?php if ($mineCount > 0 || $mine): ?>
+	<a href="<?= e($module->url('items', ['id' => $k['idk'], 'status' => 'mine'])) ?>"<?= $mine ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('Mine')) ?> (<?= $mineCount ?>)</a>
+<?php endif ?>
+<?php if ($inTrash > 0 || $trash): ?>
 	<a href="<?= e($module->url('items', ['id' => $k['idk'], 'status' => 'kos'])) ?>"<?= $trash ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('Trash')) ?> (<?= $inTrash ?>)</a>
+<?php endif ?>
 </nav>
 <?php endif ?>
 <?php if ($trash): ?>
@@ -80,7 +87,7 @@
 <?php endif ?>
 <?php else: ?>
 <?php if ($siteLanguages !== [] || $categories !== [] || $choiceFields !== []): ?>
-<form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt"><input type="hidden" name="module" value="collections"><input type="hidden" name="action" value="items"><input type="hidden" name="id" value="<?= (int) $k['idk'] ?>">
+<form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt"><input type="hidden" name="module" value="collections"><input type="hidden" name="action" value="items"><input type="hidden" name="id" value="<?= (int) $k['idk'] ?>"><?= $mine ? '<input type="hidden" name="status" value="mine">' : '' ?>
 <?= $app->view->render('admin/language_filter', ['siteLanguages' => $siteLanguages, 'language' => $language, 'submitOnChange' => true]) ?>
 <?php if ($categories !== []): ?>
 	<label><?= e(t('Category:')) ?>

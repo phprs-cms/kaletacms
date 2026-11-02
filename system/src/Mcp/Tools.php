@@ -1142,6 +1142,7 @@ final class Tools
         $r = $target['radek'];
         if ($target['druh'] === 'stranka') {
             $db->update('stranky', ['stavba_koncept' => Build::toJson($build)], ['ids' => $r['ids']]);
+            \Kaleta\Core\DraftAttribution::record($this->app, (int) $r['ids'], (string) $r['titulek']); // 3.24 (N-U6): "Draft by Jana via Claude"
         } elseif ($target['druh'] === 'kolekce') {
             \Kaleta\Builder\Collections::writeTemplate($db, $r, ['stavba_koncept' => Build::toJson($build)]);
             $target['koncept'] = Build::toJson($build);

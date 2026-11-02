@@ -180,6 +180,8 @@ final class Collections extends Module
 
         [$siteLanguages, $language, $column] = $this->readLanguageFilter();
         $trash = $this->request->get('status') === 'kos';
+        $mine = !$trash && $this->request->get('status') === 'mine'; // 3.24: the items I am the responsible person for
+        $me = $this->app->auth()->id();
         // 3.18.3: besides the language, the list filters by the category and by each choice field (a job by its kind and workplace, a
         // posting by its state…): ?category=<id>&field_<key>=<option>; an unknown category or option is no filter
         $categories = CategoryTree::has($this->db, (int) $k['idk']) ? CategoryTree::choices($this->db, (int) $k['idk'], $column ?? '') : [];
@@ -194,7 +196,7 @@ final class Collections extends Module
                 $fieldFilter[$f['klic']] = $value;
             }
         }
-        $where = 'idk = ? AND smazano IS ' . ($trash ? 'NOT NULL' : 'NULL');
+        $where = 'idk = ? AND smazano IS ' . ($trash ? 'NOT NULL' : 'NULL') . ($mine ? ' AND owner_id = ' . $me : '');
         $params = [$k['idk']];
         if ($column !== null) {
             $where .= ' AND jazyk = ?';
@@ -212,8 +214,9 @@ final class Collections extends Module
 
         return $this->view('items', $k['nazev'], ['k' => $k, 'languages' => Language::additional($this->app->settings()), 'siteLanguages' => $siteLanguages, 'language' => $language,
             'categories' => $categories, 'category' => $category, 'choiceFields' => $choiceFields, 'fieldFilter' => $fieldFilter,
-            'filtered' => $language !== '' || $category > 0 || $fieldFilter !== [],
+            'filtered' => $language !== '' || $category > 0 || $fieldFilter !== [] || $mine,
             'trash' => $trash, 'noticeBoard' => Notices::isNotices($k), 'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {kolekce_polozky} WHERE idk = ? AND smazano IS NOT NULL', [$k['idk']]),
+            'mine' => $mine, 'mineCount' => (int) $this->db->value('SELECT COUNT(*) FROM {kolekce_polozky} WHERE idk = ? AND smazano IS NULL AND owner_id = ?', [$k['idk'], $me]),
             // 3.20 (C5): the page that lists the collection (a preset makes it hidden) – its state, builder, publishing and the menu
             'listingPage' => $this->app->auth()->hasModule('pages') ? self::listingPage($this->app, $k) : null,
             // a document library (2.11): how often each document was downloaded, and its stable address
@@ -305,6 +308,7 @@ final class Collections extends Module
             // 3.7: the categories to tick, with the names of the item's language
             'categories' => CategoryTree::choices($this->db, (int) $k['idk'], (string) $p['jazyk']), 'assigned' => $assigned,
             'versions' => $p['idp'] > 0 ? \Kaleta\Builder\Publisher::listAll($this->db, ['cast' => 'polozka:' . (int) $p['idp']]) : [],
+            'owners' => \Kaleta\Core\Assignment::candidates($this->db, 'item', (int) ($p['owner_id'] ?? 0)), // 3.24: the responsible person
             // the audit trail of a notice (2.11, Core\Notices), newest first
             'noticeLog' => $p['idp'] > 0 && Notices::isNotices($k) ? array_reverse(Notices::entries($this->db, (int) $k['idk'], (int) $p['idp'])) : []]);
     }
@@ -349,6 +353,11 @@ final class Collections extends Module
             return $this->back(t(Notices::REFUSAL_HIDE), 'item', ['id' => $k['idk'], 'item' => $idp], 'chyba');
         }
         $previous = $idp > 0 ? $this->db->one('SELECT * FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NULL', [$idp, $k['idk']]) : null;
+        // 3.24: the responsible person – only when the form has the field; a new item starts with nobody unless chosen
+        $storedOwner = ($previous['owner_id'] ?? null) === null ? null : (int) $previous['owner_id'];
+        if (array_key_exists('owner_id', $_POST)) {
+            $row['owner_id'] = \Kaleta\Core\Assignment::fromForm($this->db, 'item', $r->postInt('owner_id'), $storedOwner);
+        }
         if ($previous !== null) {
             KolekceObsahu::saveVersion($this->app, $previous, $row);
             $this->db->update('kolekce_polozky', $row, ['idp' => $idp]);
@@ -358,6 +367,9 @@ final class Collections extends Module
         }
         if ($r->post('kategorie_formular') === '1') {
             CategoryTree::assign($this->db, $idp, (int) $k['idk'], array_map(intval(...), $r->postList('kategorie'))); // 3.7: the ticked categories
+        }
+        if (isset($row['owner_id']) && $row['owner_id'] !== $storedOwner) {
+            \Kaleta\Core\Assignment::notify($this->app, 'item', $idp, (int) $row['owner_id'], $this->app->auth()->id()); // one e-mail, never to oneself
         }
         // 3.12: the first published item shows its hidden categories – the person is told which (N312-3)
         $shown = (bool) $row['zobrazit'] && (int) ($previous['zobrazit'] ?? 0) === 0 ? CategoryTree::showForItems($this->db, [$idp], $this->app) : ['shown' => [], 'waiting' => []];
@@ -663,7 +675,9 @@ final class Collections extends Module
         $seo = CategoryTree::freeItemSlug($this->db, $idk, (string) $p['jazyk'], $p['seo_link'] . '-kopie');
         $copy = ['idk' => $idk, 'nazev' => mb_substr(t('%s (copy)', $p['nazev']), 0, 200), 'seo_link' => $seo, 'data' => $p['data'],
             'seo_titulek' => $p['seo_titulek'], 'popis' => $p['popis'], 'obrazek' => $p['obrazek'], 'noindex' => $p['noindex'],
-            'poradi' => $p['poradi'], 'zobrazit' => 0, 'jazyk' => $p['jazyk'], 'datum' => date('Y-m-d H:i:s')];
+            'poradi' => $p['poradi'], 'zobrazit' => 0, 'jazyk' => $p['jazyk'], 'datum' => date('Y-m-d H:i:s'),
+            // 3.24: as with pages – the copy of an item somebody is responsible for is the copier's, otherwise nobody's
+            'owner_id' => $p['owner_id'] !== null && $this->app->auth()->id() > 0 ? $this->app->auth()->id() : null];
         $id = $this->db->insert('kolekce_polozky', $copy);
         CategoryTree::assign($this->db, $id, $idk, CategoryTree::ofItem($this->db, (int) $p['idp'])); // the copy is in the same categories (3.7)
         Notices::recordSave($this->app, (array) KolekceObsahu::byId($this->db, $idk), null, $copy, $id);
