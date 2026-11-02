@@ -8449,5 +8449,66 @@ check('3.23.1 review (N3231-2): the areas a module logs under; wrote() takes sev
 ], [['business' => ['settings'], 'menu' => ['appearance'], 'transfer' => ['appearance'], 'settings' => ['pages'], 'collections' => ['pages']], false, true, false, [], true, true]);
 Kaleta\Admin\ChangeLog::forget();
 
+// 3.24 (T1): the page cache stays while the team works – every admin section and every MCP write tool is classified as
+// changing the site (its POST or call clears the cache) or site-neutral (it keeps it); a new one without a class fails here
+$t324Idents = array_map(fn (string $class): string => $class::IDENT, Kaleta\Admin\Kernel::MODULES);
+$t324Changing = Kaleta\Admin\Kernel::SITE_CHANGING_MODULES;
+$t324Neutral = Kaleta\Admin\Kernel::SITE_NEUTRAL_MODULES;
+$t324Classes = array_combine($t324Idents, Kaleta\Admin\Kernel::MODULES);
+$t324MissingActions = [];
+foreach (Kaleta\Admin\Kernel::SITE_NEUTRAL_ACTIONS as $t324Module => $t324Actions) {
+    foreach ($t324Actions as $t324Action) {
+        if ($t324Module !== '' && !method_exists($t324Classes[$t324Module] ?? Kaleta\Admin\Module::class, 'action' . str_replace('_', '', ucwords($t324Action, '_')))) {
+            $t324MissingActions[] = $t324Module . ':' . $t324Action;
+        }
+    }
+}
+check('3.24 T1: every admin section is classified once – changing the site or site-neutral; no unknown section in either list; the site-neutral actions are real actions of a site-changing section', [
+    array_values(array_diff($t324Idents, $t324Changing, $t324Neutral)), array_values(array_intersect($t324Changing, $t324Neutral)),
+    array_values(array_diff([...$t324Changing, ...$t324Neutral], $t324Idents)), count($t324Changing) + count($t324Neutral) === count($t324Idents),
+    array_values(array_diff(array_keys(Kaleta\Admin\Kernel::SITE_NEUTRAL_ACTIONS), ['', ...$t324Changing])), $t324MissingActions,
+    // a section that may put waiting files on the site changes it – except Newsletters, whose images go out in an e-mail
+    array_values(array_diff(Kaleta\Admin\Kernel::PUBLISHING_MODULES, $t324Changing)),
+    array_values(array_diff(Kaleta\Admin\Kernel::SITE_NEUTRAL_TABS, array_keys(Kaleta\Admin\Modules\Settings::TABS))),
+], [[], [], [], true, [], [], ['newsletters'], []]);
+check('3.24 T1: the site-neutral admin sections – the team\'s work that never reaches the site',
+    $t324Neutral, ['enquiries', 'subscribers', 'stats', 'requests', 'schedules', 'notebook', 'audit', 'broken_links', 'roles', 'newsletters', 'fleet']);
+$t324Post = fn (string $module, string $action, array $post = []): bool => Kaleta\Admin\Kernel::clearsPageCache(new Kaleta\Core\Request(['module' => $module, 'action' => $action], $post, ['REQUEST_METHOD' => 'POST']));
+check('3.24 T1: Kernel::clearsPageCache – enquiries, notes, requests, the notebook, roles and drafts keep the cache; content, the look, Settings tabs visitors see, a new signing key, updates, the author box and anything unknown clear it', [
+    $t324Post('enquiries', 'note'), $t324Post('enquiries', 'reply'), $t324Post('enquiries', 'triage'), $t324Post('enquiries', 'bulk'), $t324Post('requests', 'save'),
+    $t324Post('notebook', 'save'), $t324Post('roles', 'save'), $t324Post('subscribers', 'delete'), $t324Post('pages', 'build_save'), $t324Post('pages', 'draft'),
+    $t324Post('pages', 'build_comment_resolve'), $t324Post('users', 'reactivate'), $t324Post('bookings', 'anonymise'), $t324Post('settings', 'save', ['tab' => 'mail']),
+    $t324Post('status', 'save'), $t324Post('claude_settings', 'save'), $t324Post('', 'account', ['co' => 'heslo']), $t324Post('', 'logout'),
+    $t324Post('pages', 'save'), $t324Post('pages', 'build_publish'), $t324Post('news', 'save'), $t324Post('collections', 'save_item'), $t324Post('menu', 'save'),
+    $t324Post('appearance', 'publish_look'), $t324Post('parts', 'build_publish'), $t324Post('popups', 'save'), $t324Post('components', 'save'), $t324Post('media', 'save'),
+    $t324Post('settings', 'save', ['tab' => 'general']), $t324Post('settings', 'save', ['tab' => 'cookies']), $t324Post('settings', 'save'), $t324Post('settings', 'new_signing_key'),
+    $t324Post('settings', 'time_zone'), $t324Post('status', 'update'), $t324Post('claude_settings', 'restore_backup'), $t324Post('users', 'save'), $t324Post('users', 'delete'),
+    $t324Post('bookings', 'confirm'), $t324Post('whistleblowing', 'footer_link'), $t324Post('redirects', 'save'), $t324Post('', 'account', ['co' => 'profil']),
+    $t324Post('addons', 'page'), $t324Post('my_unknown_section', 'save'), $t324Post('', 'unknown'),
+], [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false,
+    true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true]);
+// MCP: the write tools that change the site, listed here so a new write tool must be added to this list or to Catalog::SITE_NEUTRAL
+$t324Writes = array_keys(array_filter(Kaleta\Mcp\Catalog::TOOLS, fn (array $t): bool => $t[0] !== 'read'));
+$t324ChangingTools = ['create_page', 'update_page', 'trash_page', 'save_menu', 'restore_from_trash', 'edit_build', 'build_from_html', 'save_build', 'insert_section',
+    'publish_build', 'restore_build_version', 'discard_draft', 'save_component', 'delete_component', 'save_part_variant', 'apply_part_template', 'save_classes',
+    'update_design_system', 'publish_look', 'discard_look', 'restore_look_version', 'create_collection', 'update_collection', 'delete_collection', 'save_collection_item',
+    'save_collection_items', 'delete_collection_item', 'restore_item_version', 'save_collection_category', 'delete_collection_category', 'create_news', 'update_news',
+    'trash_news', 'create_category', 'update_category', 'delete_category', 'upload_file', 'import_website', 'update_media', 'delete_media', 'erase_personal_data',
+    'save_popup', 'delete_popup', 'update_settings', 'save_redirect', 'save_redirects', 'undo_agent_session', 'import_wordpress', 'save_fact', 'delete_fact',
+    'apply_blueprint', 'remove_blueprint', 'save_hours_exception', 'delete_hours_exception', 'save_booking_service', 'save_booking_staff', 'cancel_booking',
+    'confirm_booking', 'decline_booking', 'propose_booking_times'];
+check('3.24 T1: every MCP write tool is classified once – it changes the site (clears the page cache) or is in Catalog::SITE_NEUTRAL; SITE_NEUTRAL holds only write tools', [
+    array_values(array_diff($t324Writes, $t324ChangingTools, Kaleta\Mcp\Catalog::SITE_NEUTRAL)), array_values(array_intersect($t324ChangingTools, Kaleta\Mcp\Catalog::SITE_NEUTRAL)),
+    array_values(array_diff(Kaleta\Mcp\Catalog::SITE_NEUTRAL, $t324Writes)), array_values(array_diff($t324ChangingTools, $t324Writes)),
+], [[], [], [], []]);
+check('3.24 T1: Catalog::isSiteNeutral – by the English or the Czech name; content tools, an unknown tool and the meta runners are not', [
+    Kaleta\Mcp\Catalog::isSiteNeutral('update_enquiry'), Kaleta\Mcp\Catalog::isSiteNeutral('write_notebook'), Kaleta\Mcp\Catalog::isSiteNeutral('update_request'),
+    Kaleta\Mcp\Catalog::isSiteNeutral((string) Kaleta\Mcp\Translator::czech('resolve_draft_comment')), Kaleta\Mcp\Catalog::isSiteNeutral('save_build'),
+    Kaleta\Mcp\Catalog::isSiteNeutral((string) Kaleta\Mcp\Translator::czech('save_build')), Kaleta\Mcp\Catalog::isSiteNeutral('confirm_booking'),
+    Kaleta\Mcp\Catalog::isSiteNeutral('ext_shop_save'), Kaleta\Mcp\Catalog::isSiteNeutral('run_tool'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Server.php'), "if (!Catalog::isSiteNeutral(\$tool)) {\n                    \\Kaleta\\Front\\Cache::clear();"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Kernel.php'), '$app->auth()->user() !== null && self::clearsPageCache($request)'),
+], [true, true, true, true, false, false, false, false, false, true, true]);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

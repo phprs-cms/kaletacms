@@ -376,6 +376,24 @@ final class Catalog
         'delete_hours_exception', 'cancel_booking', 'confirm_booking', 'decline_booking', 'delete_newsletter'];
 
     /**
+     * Write tools that never change what visitors see (3.24, T1): Mcp\Server keeps the page cache after them, every other
+     * write tool clears it. Enquiries and their replies, testimonial requests, the notebook, requests to Claude and the
+     * runs of its schedules, comments on drafts, the saved-sections library, the list of addresses not found, social post
+     * drafts and newsletters (an e-mail, no page on the site). Not here, so they clear: everything that saves content,
+     * builds, the look, settings, media, bookings (their free times are on the page) and erase_personal_data (it deletes
+     * bookings). tools/unit-tests.php classifies every write tool, so a new one has to choose; an add-on's tool clears.
+     */
+    public const array SITE_NEUTRAL = ['update_enquiry', 'delete_enquiry', 'import_enquiries', 'request_testimonial', 'reply_to_enquiry', 'write_notebook',
+        'delete_notebook_entry', 'update_request', 'report_agent_run', 'resolve_draft_comment', 'save_section', 'delete_section', 'ignore_not_found',
+        'update_social_draft', 'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter'];
+
+    /** May the page cache stay after this write tool (by either name)? */
+    public static function isSiteNeutral(string $name): bool
+    {
+        return in_array(self::english($name) ?? '', self::SITE_NEUTRAL, true);
+    }
+
+    /**
      * The tool set of a connection (3.10): "all" lists every tool the connection may use (as before 3.10); "essentials"
      * lists ESSENTIALS and the two META tools, which reach the rest on demand – a much shorter tools/list in every
      * conversation. Existing connections keep "all"; the choice is on the connection row like its access.
