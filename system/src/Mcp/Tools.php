@@ -480,7 +480,7 @@ final class Tools
             ['list_comments', 'The team\'s internal comments on an enquiry, a page or a collection item (read-only, 3.26), oldest first: who wrote each and when, the plain text, whom it mentions. Only for a user who may open that section. Comments on an enquiry may hold personal data – read them when the user asks.',
                 $s(['target' => $text('enquiry:<id> | page:<id> | item:<id>, e.g. "page:12"'), 'limit' => $number('the newest 1–200, default 50')], ['target'])],
             ['add_comment', 'Adds an internal comment to the thread of an enquiry, a page or a collection item as the connected user (3.26) – colleagues see it in the administration, visitors never. Plain text. '
-                . '@name (a sign-in name) or @e-mail mentions a colleague who may open the record and notifies them, also by e-mail – a full-access connection only; anyone else is refused.',
+                . '"@" and a colleague\'s sign-in name (e.g. @jana; list_comments and this tool\'s result give each mentioned person\'s sign-in name as user) mentions a colleague who may open the record and notifies them – in the administration and by e-mail as they chose; a full-access connection only, anyone else is refused. An e-mail address is no mention.',
                 $s(['target' => $text('enquiry:<id> | page:<id> | item:<id>'), 'text' => $text('the comment as plain text, up to 5000 characters')], ['target', 'text'])],
             ['smaz_stranku', 'Přesune stránku do koše (jen na výslovný pokyn uživatele; editor nebo správce). Z koše jde 30 dní obnovit v administraci. Úvodní stránku smazat nejde.', $s(['id' => $number('ID stránky')], ['id'])],
         ];

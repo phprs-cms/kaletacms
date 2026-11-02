@@ -9140,8 +9140,8 @@ expect "3.26 add_comment: a drafts-only connection writes a plain comment on an 
   "$(sq "SELECT CONCAT_WS('/', author_id, IFNULL(mentions, '-')) FROM ka_comments WHERE target = 'item:$C326_ITEM'")|$(grep -c "module=collections&action=item&id=$C326_IDK&item=$C326_ITEM\"" "$WORK/text")" "$C326_ED/-|1"
 # who may open the record: the salesperson reads the enquiry's thread, not the page's; a missing record, a bad target, an empty text
 mcp_as "$C326_SALES_T" list_comments "{\"target\":\"enquiry:$C326_ENQ\"}" > "$WORK/response"; mcp_text
-expect "3.26 list_comments: the thread of an enquiry for someone with Enquiries – who, the text, the mention by id and name" \
-  "$(php -r '$v = json_decode((string) file_get_contents($argv[1]), true); $c = $v["comments"][0] ?? []; echo ($v["total"] ?? 0), "|", $c["by"]["name"] ?? "", "|", $c["mentions"][0]["name"] ?? "", "|", $c["via"] ?? "";' "$WORK/text")" "1|Editor C326|Sales C326|claude"
+expect "3.26 list_comments: the thread of an enquiry for someone with Enquiries – who, the text, the mention by id, name and sign-in name (N326-2)" \
+  "$(php -r '$v = json_decode((string) file_get_contents($argv[1]), true); $c = $v["comments"][0] ?? []; echo ($v["total"] ?? 0), "|", $c["by"]["name"] ?? "", "|", $c["mentions"][0]["name"] ?? "", "|", $c["mentions"][0]["user"] ?? "", "|", $c["via"] ?? "";' "$WORK/text")" "1|Editor C326|Sales C326|c326-sales|claude"
 mcp_as "$C326_SALES_T" list_comments "{\"target\":\"page:$C326_PAGE\"}" > "$WORK/response"; mcp_text
 contains -q 'Only a user who may open Pages' "$WORK/text" && echo "  ok     3.26 list_comments: a user without Pages cannot read a page's thread" || { echo "  CHYBA  3.26 list_comments without the section: $(head -c 300 "$WORK/text")"; ERRORS=$((ERRORS+1)); }
 expect "3.26 list_comments / add_comment: a missing page, a malformed target and an empty text are refused" \

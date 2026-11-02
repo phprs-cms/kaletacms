@@ -31,7 +31,7 @@ trait CommentTools
         return ['target' => $target, 'total' => count($all),
             'comments' => array_map(fn (array $c): array => ['id' => $c['id'], 'at' => substr($c['at'], 0, 16), 'by' => ($c['by_id'] > 0 ? ['id' => $c['by_id']] : []) + ['name' => $c['by']], 'text' => $c['text']]
                 + ($c['via'] === 'mcp' ? ['via' => 'claude'] : [])
-                + ($c['mentions'] !== [] ? ['mentions' => array_map(fn (int $uid): ?array => Handover::person($db, $uid), $c['mentions'])] : [])
+                + ($c['mentions'] !== [] ? ['mentions' => $this->mentionedPeople($c['mentions'])] : [])
                 + ($c['edited'] !== null ? ['edited' => substr($c['edited'], 0, 16)] : []), $shown)]
             + (count($all) > $limit ? ['note' => 'The newest ' . $limit . ' of ' . count($all) . ' comments, oldest first; raise limit (up to 200) for more.'] : [])
             + ['admin_url' => $this->threadUrl($type, $id)];
@@ -67,7 +67,7 @@ trait CommentTools
         $plain = array_values(array_filter(Comments::mentionTokens($text), fn (string $t): bool => !in_array(strtolower($t), $people, true) && !in_array(strtolower(rtrim($t, '._-')), $people, true)));
 
         return ['id' => $commentId, 'target' => $target, 'added' => true]
-            + ($mentions !== [] ? ['mentioned' => array_map(fn (int $uid): ?array => Handover::person($db, $uid), $mentions)] : [])
+            + ($mentions !== [] ? ['mentioned' => $this->mentionedPeople($mentions)] : [])
             + ($plain !== [] ? ['not_mentioned' => array_map(fn (string $t): string => '@' . $t, $plain),
                 'note' => 'Nobody signs in under these names, so they stay plain text. Mention a colleague by their sign-in name, e.g. @jana.'] : [])
             + ['admin_url' => $this->threadUrl($type, $id)];
@@ -96,6 +96,21 @@ trait CommentTools
         }
 
         return [$type, $id, $type . ':' . $id];
+    }
+
+    /**
+     * The people a comment mentions: id and name (Handover::person) and – additive, N326-2 – the sign-in name a mention is
+     * written with, so Claude can mention them again (a removed account keeps its id and "(former user)", without one).
+     *
+     * @param list<int> $ids
+     * @return list<array<string, mixed>|null>
+     */
+    private function mentionedPeople(array $ids): array
+    {
+        $db = $this->app->db();
+        $people = Comments::people($db, $ids);
+
+        return array_map(fn (int $uid): ?array => ($person = Handover::person($db, $uid)) === null ? null : $person + (isset($people[$uid]) ? ['user' => $people[$uid]['user']] : []), $ids);
     }
 
     /** The address of the administration screen that shows a thread. */
