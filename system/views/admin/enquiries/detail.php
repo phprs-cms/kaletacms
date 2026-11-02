@@ -15,7 +15,8 @@
  * @var string|null $replyBlocked why the site cannot send a reply (no SMTP, no sender); null = it can
  * @var string $replyTo the signed-in user's e-mail – the Reply-To of a reply
  * @var array{subject: string, text: string}|null $replyDraft what a refused reply carried, shown again
- * @var list<array{id: int, at: string, by: string, by_id: int, text: string, via: string, kind: string}> $notes internal notes, oldest first (3.25, Core\Comments)
+ * @var list<array{id: int, at: string, by: string, by_id: int, text: string, via: string, kind: string, mentions: list<int>, edited: ?string, deleted: bool}> $notes internal notes, oldest first (3.25, Core\Comments; 3.26 with the deleted ones)
+ * @var array<string, mixed> $thread the notes as a thread – names of the people mentioned, who may be mentioned, a refused text (3.26, Admin\CommentActions::commentThread)
  */
 use Kaleta\Admin\Modules\Enquiries;
 
@@ -61,7 +62,9 @@ $canReply = $p['email'] !== '' && ($p['anonymizovano'] ?? null) === null;
 $mailto = 'mailto:' . e($p['email']) . '?subject=' . e(rawurlencode(Kaleta\Core\EnquiryReply::subject($p))) . (($p['navrh_odpovedi'] ?? '') !== '' ? '&amp;body=' . e(rawurlencode((string) $p['navrh_odpovedi'])) : '');
 $statusText = ['sent' => 'E-mail sent', 'queued' => 'Waiting in the mail queue', 'failed' => 'Not delivered'];
 ?>
-<?php /* 3.25: one conversation – the customer's message, the replies and the internal notes in the order of time (Core\EnquiryThread) */ ?>
+<?php /* 3.25: one conversation – the customer's message, the replies and the internal notes in the order of time (Core\EnquiryThread) */
+// 3.26: "@" in a note offers the colleagues who may open Enquiries (not oneself)
+$mentionsJson = (string) json_encode(array_values(array_filter($thread['mentionable'], fn (array $person): bool => $person['id'] !== $thread['me'])), JSON_UNESCAPED_UNICODE); ?>
 <h2 id="thread"><?= e(t('Conversation')) ?></h2>
 <ol class="odpovedi vlakno" data-thread data-replies>
 <?php if (trim((string) ($p['poznamka'] ?? '')) !== ''): /* the summary – the one note an enquiry had before 3.25 – stays first */ ?>
@@ -72,9 +75,15 @@ $statusText = ['sent' => 'E-mail sent', 'queued' => 'Waiting in the mail queue',
 <?php if ($item['type'] === 'customer'): ?>
 	<li class="vlakno-zakaznik" data-thread-item="customer"><p><strong><?= e(t('%s wrote on %s', $entry['from'] !== '' ? $entry['from'] : t('The customer'), format_date($item['at'], true))) ?></strong></p>
 		<div class="odpoved-text"><?= $entry['text'] !== '' ? nl2br(e($entry['text'])) : '<span class="napoveda">' . e(t('The form has no message text – the fields are above.')) . '</span>' ?></div></li>
+<?php elseif ($item['type'] === 'note' && !empty($entry['deleted'])): /* 3.26: a deleted note stays as a quiet line */ ?>
+	<li class="vlakno-poznamka vlakno-smazany" data-thread-item="note" data-comment="<?= (int) $entry['id'] ?>" data-comment-deleted><p class="napoveda"><?= e(t('Note deleted · %s, %s', $entry['by'] !== '' ? $entry['by'] : '—', format_date($item['at'], true))) ?></p></li>
 <?php elseif ($item['type'] === 'note'): ?>
-	<li class="vlakno-poznamka" data-thread-item="note"><p><strong><?= e(t('Note by %s on %s', $entry['by'] !== '' ? $entry['by'] : '—', format_date($item['at'], true))) ?></strong><?= $entry['via'] === 'mcp' ? ' · ' . e(t('through Claude')) : '' ?> · <span class="napoveda"><?= e(t('Internal – the customer does not see this')) ?></span></p>
-		<div class="odpoved-text"><?= $entry['text'] !== '' ? nl2br(e($entry['text'])) : '<span class="napoveda">' . e(t('The text was removed when the enquiry was anonymised.')) . '</span>' ?></div></li>
+	<li class="vlakno-poznamka" data-thread-item="note" data-comment="<?= (int) $entry['id'] ?>"><p><strong><?= e(t('Note by %s on %s', $entry['by'] !== '' ? $entry['by'] : '—', format_date($item['at'], true))) ?></strong><?= $entry['via'] === 'mcp' ? ' · ' . e(t('through Claude')) : '' ?><?= ($entry['edited'] ?? null) !== null ? ' · <span class="napoveda">' . e(t('edited')) . '</span>' : '' ?> · <span class="napoveda"><?= e(t('Internal – the customer does not see this')) ?></span></p>
+		<div class="odpoved-text"><?= $entry['text'] !== '' ? Kaleta\Core\Comments::html($entry['text'], $thread['people']) : '<span class="napoveda">' . e(t('The text was removed when the enquiry was anonymised.')) . '</span>' ?></div>
+<?php if (($p['anonymizovano'] ?? null) === null): /* 3.26: the author edits or deletes their note, an administrator deletes any */ ?>
+		<?= $app->view->render('admin/comment_actions', ['c' => $entry, 'action' => $module->url('comment'), 'fields' => $thread['fields'], 'csrf' => $csrf, 'me' => $thread['me'], 'admin' => $thread['admin'], 'draft' => $thread['draft'], 'mentionsJson' => $mentionsJson]) ?>
+<?php endif ?>
+	</li>
 <?php else: $reply = $entry; ?>
 	<li class="vlakno-odpoved" data-thread-item="reply"><p><strong><?= e(t('Replied by %s on %s', $reply['by'] !== '' ? $reply['by'] : '—', format_date((string) $reply['at'], true))) ?></strong><?= $reply['via'] === 'mcp' ? ' · ' . e(t('through Claude')) : '' ?>
 		· <span class="stitek stitek-<?= $reply['status'] === 'sent' ? 'vydano' : ($reply['status'] === 'queued' ? 'koncept' : 'chyba') ?>" data-reply-status="<?= e($reply['status']) ?>"><?= e(t($statusText[$reply['status']])) ?></span><?php if ($reply['error'] !== '' && $reply['status'] !== 'sent'): ?> <span class="napoveda"><?= e($reply['error']) ?></span><?php endif ?></p>
@@ -87,8 +96,8 @@ $statusText = ['sent' => 'E-mail sent', 'queued' => 'Waiting in the mail queue',
 </ol>
 <form method="post" action="<?= e($module->url('note')) ?>" class="vlakno-poznamka-form" data-note-form>
 	<?= $csrf ?><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>">
-	<div class="radek"><label for="nova-poznamka"><?= e(t('Internal note')) ?></label><div><textarea class="textbox nizky" id="nova-poznamka" name="add_note" rows="3" maxlength="<?= Kaleta\Core\Comments::MAX_TEXT ?>" required></textarea>
-		<span class="napoveda"><?= e(t('Only administration users see it – it is added to the conversation with your name and the time, and stays as written.')) ?></span></div></div>
+	<div class="radek"><label for="nova-poznamka"><?= e(t('Internal note')) ?></label><div><textarea class="textbox nizky" id="nova-poznamka" name="add_note" rows="3" maxlength="<?= Kaleta\Core\Comments::MAX_TEXT ?>" required data-mentions="<?= e($mentionsJson) ?>"><?= e($thread['draft'] !== null && $thread['draft']['comment'] === 0 ? $thread['draft']['text'] : '') ?></textarea>
+		<span class="napoveda"><?= e(t('Only administration users see it – it is added to the conversation with your name and the time. Type @ to mention a colleague – they are notified.')) ?></span></div></div>
 	<p class="tlacitka"><button class="navigace" type="submit"><?= e(t('Add internal note')) ?></button></p>
 </form>
 <h2 id="reply"><?= e(t('Reply')) ?></h2>

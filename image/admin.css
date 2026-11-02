@@ -1571,6 +1571,26 @@ table.preklady td[data-stav] form { margin-inline-start: 6px; }
 .vlakno .vlakno-zakaznik { background: var(--plocha); }
 .vlakno .vlakno-poznamka { background: color-mix(in oklch, var(--varovani) 9%, var(--plocha)); border-color: color-mix(in oklch, var(--varovani) 35%, var(--linka)); border-style: dashed; }
 .vlakno-poznamka-form { margin: 0 0 16px; }
+/* 3.26: the team's thread on a page or an item (and the notes of an enquiry) – a mention is the person's name, a deleted
+   comment a quiet line; Edit opens in place, Delete is a small red action; "@" lists the people under the field */
+.komentare-tymu { margin-top: 24px; }
+.vlakno .vlakno-komentar { background: var(--plocha); }
+.vlakno .vlakno-smazany { border-style: dashed; background: none; }
+.zminka { padding: 0 3px; border-radius: 4px; background: color-mix(in oklch, var(--akcent) 14%, var(--plocha)); font-weight: 600; white-space: nowrap; }
+.komentar-akce { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 12px; margin-top: 8px; font-size: 13px; }
+.komentar-akce button.navigace { padding: 2px 10px; font-size: 13px; font-weight: 500; }
+.komentar-upravit[open] { flex: 1 1 100%; order: 1; }
+.komentar-upravit summary { display: inline-block; padding: 2px 10px; border: 1px solid var(--linka-pole); border-radius: 6px; background: var(--plocha); color: var(--text); font-weight: 500; line-height: 1.25; list-style: none; cursor: pointer; }
+.komentar-upravit summary::-webkit-details-marker { display: none; }
+.komentar-upravit summary:hover { border-color: var(--text-slaby); }
+.komentar-upravit[open] summary { margin-bottom: 6px; }
+.komentar-upravit .tlacitka { margin: 6px 0 0; }
+.zminky-navrhy { display: grid; gap: 2px; max-width: 360px; max-height: 240px; margin-top: 4px; padding: 4px; overflow-y: auto; border: 1px solid var(--linka-pole); border-radius: 6px; background: var(--plocha); font-size: 13px; }
+.zminky-navrhy[hidden] { display: none; }
+.zminky-navrhy [role=option] { display: flex; flex-wrap: wrap; gap: 0 8px; padding: 6px 8px; border-radius: 4px; color: var(--text); cursor: pointer; }
+.zminky-navrhy [role=option] small { color: var(--text-slaby); }
+.zminky-navrhy [role=option]:hover, .zminky-navrhy [role=option].aktivni { background: var(--podklad); }
+.zminky-navrhy [role=option].aktivni { outline: 2px solid var(--akcent); outline-offset: -2px; }
 /* 3.23 (C17): the hand-over checklist of Site audit – its progress and one row per check, the fix under it */
 .predani-postup { display: block; width: min(100%, 360px); height: 8px; margin: 0 0 10px; accent-color: var(--ok, #2f855a); }
 .predani-seznam li { overflow-wrap: anywhere; }

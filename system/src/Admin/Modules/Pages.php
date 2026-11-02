@@ -18,6 +18,7 @@ final class Pages extends Module
     use \Kaleta\Admin\BuilderActions {
         actionBuilder as protected openBuilder;
     }
+    use \Kaleta\Admin\CommentActions; // 3.26: the team's thread in the page settings and the Team tab of the builder
 
     public const string IDENT = 'pages';
     public const string NAME = 'Pages';
@@ -103,6 +104,7 @@ final class Pages extends Module
 
     protected function actionList(): Response
     {
+        \Kaleta\Core\Comments::sweepContent($this->db); // 3.26: the threads of pages and items some other path deleted for good
         // status tab (3.20, C1): published | hidden | draft (unpublished changes) | kos (trash); anything else is All
         $status = $this->request->get('status');
         $status = isset(self::STATUSES[$status]) || $status === self::MINE ? $status : '';
@@ -777,17 +779,36 @@ final class Pages extends Module
         if (($refusal = $this->requirePublishPermission()) !== null) {
             return $refusal;
         }
-        if ($this->request->isPost()) {
-            $this->db->run('DELETE FROM {stranky} WHERE ids = ? AND smazano IS NOT NULL', [$this->request->postInt('ids')]);
+        if ($this->request->isPost() && $this->db->run('DELETE FROM {stranky} WHERE ids = ? AND smazano IS NOT NULL', [$this->request->postInt('ids')])->rowCount() > 0) {
+            \Kaleta\Core\Comments::forget($this->db, [\Kaleta\Core\Comments::page($this->request->postInt('ids'))]); // 3.26: its thread goes with it
         }
 
         return $this->back('The page has been permanently deleted.', '', ['status' => 'kos']);
     }
 
-    /** Pages in the trash longer than TRASH_DAYS are deleted permanently (called by Admin\Kernel). */
+    /**
+     * Pages in the trash longer than TRASH_DAYS are deleted permanently (called by Admin\Kernel on every admin request, so
+     * it only looks first); their team threads go with them (3.26).
+     */
     public static function emptyTrash(\Kaleta\Core\Db $db): int
     {
-        return $db->run('DELETE FROM {stranky} WHERE smazano < ?', [\Kaleta\Core\Clock::at('-' . self::TRASH_DAYS . ' days')])->rowCount();
+        $before = \Kaleta\Core\Clock::at('-' . self::TRASH_DAYS . ' days');
+        $ids = array_map(fn (array $r): int => (int) $r['ids'], $db->all('SELECT ids FROM {stranky} WHERE smazano < ?', [$before]));
+        if ($ids === []) {
+            return 0;
+        }
+        $deleted = $db->run('DELETE FROM {stranky} WHERE smazano < ?', [$before])->rowCount();
+        \Kaleta\Core\Comments::forget($db, array_map(\Kaleta\Core\Comments::page(...), $ids));
+
+        return $deleted;
+    }
+
+    /** 3.26: the page whose thread a comment form posts to – one that exists and is not in the trash. */
+    protected function commentTarget(): ?array
+    {
+        $page = $this->db->one('SELECT ids, titulek FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$this->request->postInt('ids')]);
+
+        return $page === null ? null : ['target' => \Kaleta\Core\Comments::page((int) $page['ids']), 'back' => ['edit', ['id' => (int) $page['ids']]], 'title' => (string) $page['titulek']];
     }
 
     /** Copy of the page including the build and the work-in-progress draft – hidden, with a free slug. */
@@ -837,6 +858,8 @@ final class Pages extends Module
             'contentCheck' => $page['ids'] > 0 && !$this->request->isPost() ? \Kaleta\Core\ContentCheck::forPage($page) : [],
             // 3.24: who can be the responsible person – people who can open Pages (the stored one stays, "(former user)" when gone)
             'owners' => \Kaleta\Core\Assignment::candidates($this->db, 'page', (int) ($page['owner_id'] ?? 0)),
+            // 3.26: the team's thread (a saved page only)
+            'thread' => $page['ids'] ? $this->commentThread(\Kaleta\Core\Comments::page((int) $page['ids']), ['ids' => (int) $page['ids']]) : null,
         ]);
     }
 }

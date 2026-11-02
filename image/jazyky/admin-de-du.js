@@ -415,5 +415,8 @@ Object.assign(window.KALETA_PREKLAD, {
 	"The file is larger than the server allows (%s at most) even after resizing. Make it smaller, or raise the limit as System status describes.": "Die Datei ist auch nach dem Verkleinern größer, als der Server erlaubt (höchstens %s). Verkleinere sie oder erhöhe das Limit wie im Systemstatus beschrieben.",
 	"These files are larger together (%s) than the server accepts in one upload (%s). Upload them in smaller groups.": "Diese Dateien sind zusammen größer (%s), als der Server in einem Upload annimmt (%s). Lade sie in kleineren Gruppen hoch.",
 	"A site in several languages: each further version (e.g. /cs/…) has its own pages, categories and news, a language switcher and hreflang tags. Pick the languages in Settings → Languages.": "Eine Website in mehreren Sprachen: Jede weitere Version (z. B. /cs/…) hat eigene Seiten, Kategorien und News, einen Sprachumschalter und hreflang-Tags. Die Sprachen wählst du unter Einstellungen → Sprachen.",
-	"The page already starts with its title – it is selected, edit it there.": "Die Seite beginnt bereits mit ihrem Titel – er ist ausgewählt, bearbeite ihn dort."
+	"The page already starts with its title – it is selected, edit it there.": "Die Seite beginnt bereits mit ihrem Titel – er ist ausgewählt, bearbeite ihn dort.",
+	"Delete your comment? The thread keeps a note that it was deleted.": "Deinen Kommentar löschen? Im Verlauf bleibt ein Hinweis, dass er gelöscht wurde.",
+	"No team comments yet. Write the first one – type @ to mention a colleague.": "Noch keine Kommentare des Teams. Schreib den ersten – mit @ erwähnst du jemanden aus dem Team.",
+	"Comments of your colleagues on this page – only administration users see them. Also in the page settings.": "Kommentare deines Teams zu dieser Seite – nur Benutzer der Administration sehen sie. Auch in den Seiteneinstellungen."
 });

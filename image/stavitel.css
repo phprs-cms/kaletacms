@@ -270,6 +270,19 @@ body.st-umistovani .st-uzel { cursor: copy; }
 .st-komentare blockquote { margin: 6px 0; padding: 4px 10px; border-left: 3px solid var(--linka-pole); color: var(--text-slaby); font-size: 13px; }
 .st-komentare p { margin: 6px 0; white-space: pre-line; }
 .st-komentar-akce { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
+/* 3.26: the Team tab – the colleagues' thread (mentions as names, edit in place, a deleted comment as a quiet line) */
+.st-komentare-dialog .st-komentare-zalozky { margin: 0 -18px 12px; padding: 0 18px; }
+.st-komentare-tym { max-height: 40vh; }
+.st-komentare-tym li { display: block; }
+.st-komentare-tym li.st-komentar-smazany { opacity: .7; }
+.st-komentar-text { margin: 6px 0; overflow-wrap: anywhere; }
+.st-komentar-uprava textarea, .st-tym-novy textarea { min-height: 72px; }
+.st-tym-novy { display: grid; gap: 4px; margin-top: 12px; font-weight: 600; font-size: 13px; }
+.st-tym-novy textarea { font-weight: 400; }
+.st-tym-hlaska { min-height: 1em; margin: 6px 0 0; font-size: 13px; }
+.st-tym-hlaska:empty { display: none; }
+.st-tym-hlaska.chyba { color: var(--chyba); }
+.st-odkaz-nebezpecne { color: var(--chyba); }
 
 /* 3.21 (U3): own style values of the selected element – a dot on the device buttons, device icons and „×“ next to a style field */
 .st-skupina button:has(.st-tecka) { position: relative; }

@@ -632,4 +632,86 @@
 		try { movedTo = JSON.parse(movedFields.getAttribute('data-pole-jinde'))[movedId]; } catch (e) { movedTo = null; }
 		if (movedTo && !document.getElementById(movedId)) { location.replace(movedTo + '#' + encodeURIComponent(movedId)); }
 	}
+	// 3.26: "@" in a comment offers the colleagues who may open the record – textarea[data-mentions] carries them as JSON
+	// [{id, user, name}] (only those the server would accept; it checks again). Typing "@ja" lists the matches under the
+	// field (by name or sign-in name, without diacritics); arrows move, Enter or Tab inserts "@signin-name ", Esc closes the
+	// list only. Delegated, so the builder's Team tab (fields drawn by image/stavitel.js) gets it too.
+	var mentionList = null, mentionField = null, mentionActive = -1, mentionCount = 0;
+	var fold = function (s) { return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); };
+	function mentionQuery(field) {
+		var before = field.value.slice(0, field.selectionStart);
+		var m = /(^|[^\p{L}\p{N}._@-])@([a-zA-Z0-9._-]{0,40})$/u.exec(before);
+		return m && field.selectionStart === field.selectionEnd ? { q: m[2], from: before.length - m[2].length - 1 } : null;
+	}
+	function mentionClose() {
+		if (mentionList) { mentionList.hidden = true; mentionList.textContent = ''; }
+		if (mentionField) { mentionField.removeAttribute('aria-activedescendant'); }
+		mentionActive = -1;
+	}
+	function mentionMark(i) {
+		var all = mentionList ? mentionList.querySelectorAll('[role=option]') : [];
+		mentionActive = all.length ? (i + all.length) % all.length : -1;
+		Array.prototype.forEach.call(all, function (o, j) { o.classList.toggle('aktivni', j === mentionActive); o.setAttribute('aria-selected', j === mentionActive ? 'true' : 'false'); });
+		if (mentionActive >= 0) { mentionField.setAttribute('aria-activedescendant', all[mentionActive].id); }
+	}
+	function mentionPick(o) {
+		var field = mentionField, found = mentionQuery(field);
+		if (!found) { mentionClose(); return; }
+		var insert = '@' + o.getAttribute('data-user') + ' ';
+		field.value = field.value.slice(0, found.from) + insert + field.value.slice(field.selectionStart);
+		field.selectionStart = field.selectionEnd = found.from + insert.length;
+		mentionClose();
+		field.focus();
+	}
+	function mentionShow(field) {
+		var found = mentionQuery(field), people = [];
+		try { people = JSON.parse(field.getAttribute('data-mentions') || '[]'); } catch (e) { people = []; }
+		if (!found || !people.length) { mentionClose(); return; }
+		if (mentionField !== field || !mentionList || mentionList.previousElementSibling !== field) {
+			if (mentionList) { mentionList.remove(); }
+			mentionField = field;
+			mentionList = document.createElement('div');
+			mentionList.className = 'zminky-navrhy';
+			mentionList.id = 'zminky-navrhy-' + (++mentionCount);
+			mentionList.setAttribute('role', 'listbox');
+			mentionList.setAttribute('aria-label', T('People to mention'));
+			field.setAttribute('aria-autocomplete', 'list');
+			field.setAttribute('aria-controls', mentionList.id);
+			field.insertAdjacentElement('afterend', mentionList);
+		}
+		var q = fold(found.q);
+		var hits = people.filter(function (p) { return q === '' || fold(p.user).indexOf(q) === 0 || fold(p.name).split(/\s+/).some(function (w) { return w.indexOf(q) === 0; }); }).slice(0, 8);
+		mentionList.textContent = '';
+		hits.forEach(function (p, i) {
+			var o = document.createElement('div');
+			o.setAttribute('role', 'option');
+			o.id = mentionList.id + '-' + i;
+			o.setAttribute('data-user', p.user);
+			o.appendChild(document.createElement('span')).textContent = p.name;
+			o.appendChild(document.createElement('small')).textContent = '@' + p.user;
+			o.addEventListener('mousedown', function (e) { e.preventDefault(); }); // the field keeps the focus
+			o.addEventListener('click', function () { mentionPick(o); });
+			mentionList.appendChild(o);
+		});
+		mentionList.hidden = !hits.length;
+		mentionMark(hits.length ? 0 : -1);
+	}
+	document.addEventListener('input', function (e) {
+		if (e.target.matches && e.target.matches('textarea[data-mentions]')) { mentionShow(e.target); }
+	});
+	document.addEventListener('keydown', function (e) {
+		if (!mentionList || mentionList.hidden || e.target !== mentionField) { return; }
+		if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+			e.preventDefault();
+			mentionMark(mentionActive + (e.key === 'ArrowDown' ? 1 : -1));
+		} else if ((e.key === 'Enter' || e.key === 'Tab') && mentionActive >= 0) {
+			e.preventDefault();
+			mentionPick(mentionList.querySelectorAll('[role=option]')[mentionActive]);
+		} else if (e.key === 'Escape') {
+			e.preventDefault(); // the first Esc closes the list, a second one the dialog
+			e.stopPropagation();
+			mentionClose();
+		}
+	}, true);
+	document.addEventListener('focusout', function (e) { if (e.target === mentionField) { mentionClose(); } });
 })();

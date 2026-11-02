@@ -12,6 +12,7 @@
  * @var ?string $translationOf  the title of the original when this is a new translation (3.11)
  * @var string $languageName  the name of the page's language version
  * @var array<int, string> $owners  who can be the responsible person (3.24, Core\Assignment::candidates)
+ * @var array<string, mixed>|null $thread  the team's comments on a saved page (3.26, Admin\CommentActions::commentThread)
  */
 $copyBuild = !$page['ids'] && !empty($page['copy_build']);
 $ownerApart = $page['ids'] && $page['zobrazit'] && !$app->auth()->canPublish(); // 3.24: such a person cannot save these settings, only the responsible person
@@ -196,6 +197,9 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <?= $app->view->render('admin/owner_field', ['owners' => $owners, 'owner' => $page['owner_id'] ?? null]) ?>
 <p class="tlacitka"><button class="navigace" type="submit"><?= e(t('Save the responsible person')) ?></button></p>
 </form>
+<?php endif ?>
+<?php if (($thread ?? null) !== null): ?>
+<?= $app->view->render('admin/comments', $thread + ['app' => $app, 'csrf' => $csrf]) /* 3.26 */ ?>
 <?php endif ?>
 <?php if (!$page['ids'] && ($translationOf ?? null) !== null && $app->auth()->hasModule('requests') && Kaleta\Core\Extensions::isEnabled($app->settings(), 'claude')): // 3.11 (UX310-4): translating is what Claude does well
     $claude = Kaleta\Core\ClaudeConnection::status($app->db(), $app->settings()); // 3.18: without a connection the request waits – said before it is saved ?>

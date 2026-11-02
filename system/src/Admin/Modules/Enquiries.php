@@ -13,6 +13,8 @@ use Kaleta\Core\Response;
  */
 final class Enquiries extends Module
 {
+    use \Kaleta\Admin\CommentActions; // 3.26: edit and delete a note, @mentions
+
     public const string IDENT = 'enquiries';
     public const string EXTENSION = 'poptavky';
     public const string NAME = 'Enquiries';
@@ -106,8 +108,10 @@ final class Enquiries extends Module
             'origin' => \Kaleta\Admin\EnquiryOrigin::resolve($this->app, $p),
             // 3.22 (C10): the replies sent from here, and whether the site can send one (SMTP)
             'replies' => \Kaleta\Core\EnquiryReply::history($this->db, $p),
-            // 3.25: the internal notes, appended and never overwritten (Core\Comments); the detail shows them in the conversation
-            'notes' => \Kaleta\Core\Comments::of($this->db, \Kaleta\Core\Comments::enquiry((int) $p['idp'])),
+            // 3.25: the internal notes (Core\Comments); the detail shows them in the conversation – 3.26: with the deleted ones as
+            // placeholders, the mentions as names, Edit and Delete, and "@" for the people who may open Enquiries
+            'thread' => $thread = $this->commentThread(\Kaleta\Core\Comments::enquiry((int) $p['idp']), ['idp' => (int) $p['idp']]),
+            'notes' => $thread['comments'],
             'replyBlocked' => \Kaleta\Core\EnquiryReply::unavailable($this->app->settings()),
             'replyTo' => (string) ($this->app->auth()->user()['email'] ?? ''),
             'hasSignature' => \Kaleta\Core\EnquiryReply::signature($this->app, $this->app->auth()->user() ?? []) !== null,
@@ -206,10 +210,14 @@ final class Enquiries extends Module
                 return $this->error('The enquiry does not exist.', 404);
             }
             try {
-                \Kaleta\Core\Comments::add($this->db, \Kaleta\Core\Comments::enquiry($idp), $this->request->post('add_note'), $this->app->auth()->user() ?? []);
+                // 3.26: the mentions checked and the people mentioned notified (Core\Comments::post)
+                $note = \Kaleta\Core\Comments::post($this->app, \Kaleta\Core\Comments::enquiry($idp), $this->request->post('add_note'), $this->app->auth()->user() ?? []);
             } catch (\DomainException $e) {
+                $this->app->session->set('comment_draft', ['target' => \Kaleta\Core\Comments::enquiry($idp), 'comment' => 0, 'text' => mb_substr($this->request->post('add_note'), 0, \Kaleta\Core\Comments::MAX_TEXT)]);
+
                 return $this->back($e->getMessage(), 'detail', ['id' => $idp], 'chyba');
             }
+            \Kaleta\Admin\ChangeLog::write($this->app, self::IDENT, 'note added', '#' . $idp . ' (comment #' . $note['id'] . ')');
 
             return $this->back('The note was added.', 'detail', ['id' => $idp]);
         }
@@ -225,6 +233,14 @@ final class Enquiries extends Module
         }
 
         return $this->back('The note has been saved.', 'detail', ['id' => $idp]);
+    }
+
+    /** 3.26: the enquiry whose notes a form edits or deletes (the composer posts to actionNote). */
+    protected function commentTarget(): ?array
+    {
+        $enquiry = $this->db->one('SELECT idp, formular FROM {poptavky} WHERE idp = ?', [$this->request->postInt('idp')]);
+
+        return $enquiry === null ? null : ['target' => \Kaleta\Core\Comments::enquiry((int) $enquiry['idp']), 'back' => ['detail', ['id' => (int) $enquiry['idp']]], 'title' => (string) $enquiry['formular']];
     }
 
     /** Form attachment for download (only for a signed-in user with access to enquiries). */

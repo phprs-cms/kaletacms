@@ -12,6 +12,7 @@
  * @var list<array{id: int, parent_id: ?int, name: string, visible: bool}> $categories  the collection's categories to tick (3.7)
  * @var list<int> $assigned  the categories the item is in
  * @var array<int, string> $owners  who can be the responsible person (3.24, Core\Assignment::candidates)
+ * @var array<string, mixed>|null $thread  the team's comments on a saved item (3.26, Admin\CommentActions::commentThread)
  */
 use Kaleta\Core\Language;
 
@@ -98,6 +99,9 @@ $contentDir = Language::dirAttribute(Language::ofContent($app->settings(), (stri
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save item')) ?>"> <a class="navigace" href="<?= e($module->url('items', ['id' => $k['idk']])) ?>"><?= e(t('Back')) ?></a><?php if ($p['idp'] > 0 && Kaleta\Builder\EmailSignature::isPeople($k)): ?>
 	<a class="navigace" href="<?= e($module->url('signature', ['id' => (int) $k['idk'], 'item' => (int) $p['idp']])) ?>"><?= e(t('E-mail signature')) ?></a><?php endif ?></p>
 </form>
+<?php if (($thread ?? null) !== null): ?>
+<?= $app->view->render('admin/comments', $thread + ['app' => $app, 'csrf' => $csrf]) /* 3.26 */ ?>
+<?php endif ?>
 <?php if (($versions ?? []) !== []): ?>
 <details class="pokrocile">
 <summary><?= e(t('Item history (%s)', count($versions))) ?></summary>
