@@ -224,7 +224,8 @@ $parity = [
         'duplicate' => 'admin: a copy of a page – Claude creates the page and saves the build', 'import' => 'admin: upload of a page export file',
         'build_text' => 'admin: back from the builder to a text page', 'restore_version' => 'admin: text revisions of a text page',
         'translations' => 'translation_status', 'bulk' => 'update_page',
-        'owner' => 'assign'], // 3.24: the responsible person of a published page for someone who may not save its settings
+        'owner' => 'assign', // 3.24: the responsible person of a published page for someone who may not save its settings
+        'comment' => 'admin: the team’s thread on a page (3.26) – a person writes it; Claude gets the comments over MCP with the work tools'],
     'news' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'compare' => $readOnly, 'versions' => $readOnly, 'search_json' => $readOnly,
         'save' => 'update_news', 'save_text' => 'update_news', 'delete' => 'trash_news', 'restore' => 'restore_from_trash', 'delete_permanently' => 'admin: the trash empties itself after 30 days',
         'draft' => 'admin: autosave of the editor', 'duplicate' => 'admin: a copy of a news item – Claude creates a new one', 'links' => 'admin: link check runs on its own',
@@ -240,12 +241,14 @@ $parity = [
         'import' => $readOnly, 'import_preview' => $readOnly, 'import_upload' => 'save_collection_items', 'import_map' => 'save_collection_items',
         'import_progress' => 'save_collection_items', 'import_delete' => 'admin: removing the record of an import',
         // 3.7: collection categories
-        'categories' => 'list_collection_categories', 'category' => $readOnly, 'save_category' => 'save_collection_category', 'delete_category' => 'delete_collection_category'],
+        'categories' => 'list_collection_categories', 'category' => $readOnly, 'save_category' => 'save_collection_category', 'delete_category' => 'delete_collection_category',
+        'comment' => 'admin: the team’s thread on an item (3.26) – a person writes it; Claude gets the comments over MCP with the work tools'],
     // 2.15: requests to Claude – staff write them in the admin (not over MCP: a request is what a person asks Claude), Claude reads and answers them
     'requests' => ['list' => 'list_requests', 'new' => $readOnly, 'save' => 'admin: a request is written by a person for Claude – Claude reads it with list_requests', 'detail' => 'list_requests',
         'reply' => 'admin: the requester answers Claude in the request; Claude answers with update_request', 'status' => 'update_request'],
     'enquiries' => ['list' => $readOnly, 'detail' => $readOnly, 'csv' => $readOnly, 'attachment' => $readOnly, 'note' => 'update_enquiry', 'status' => 'update_enquiry', 'triage' => 'update_enquiry', 'testimonial' => 'request_testimonial', 'reply' => 'reply_to_enquiry', 'personal' => 'erase_personal_data',
-        'bulk' => 'update_enquiry', 'delete' => 'delete_enquiry', 'settings' => 'admin: how long enquiries are kept', 'anonymise' => 'admin: blanking a person from an enquiry is the owner’s decision about personal data (2.14)'],
+        'bulk' => 'update_enquiry', 'delete' => 'delete_enquiry', 'settings' => 'admin: how long enquiries are kept', 'anonymise' => 'admin: blanking a person from an enquiry is the owner’s decision about personal data (2.14)',
+        'comment' => 'admin: editing or deleting one’s own note (3.26) – notes are added with update_enquiry add_note'],
     // 3.0: online booking – bookings are personal data (the Bookings section), the set-up is the administrator's
     'bookings' => ['list' => $readOnly, 'detail' => $readOnly, 'new' => $readOnly, 'status' => 'cancel_booking', 'confirm' => 'confirm_booking', 'decline' => 'decline_booking', 'propose' => 'propose_booking_times', 'anonymise' => 'admin: blanking a person from a booking is the owner’s decision about personal data',
         'create' => 'admin: a booking taken by phone is entered by the person who took the call – customers’ personal data never come from Claude', 'services' => $readOnly, 'service_save' => 'save_booking_service',
@@ -8764,6 +8767,48 @@ check('N325-3: the floating link picker of a field the builder redrew away takes
     str_contains($c325Editor = (string) file_get_contents(KALETA_ROOT . '/image/editor.js'), "if (f.input.isConnected) { return true; }"), str_contains($c325Editor, "window.removeEventListener('scroll', f.onScroll, true);"),
     str_contains($c325Editor, 'floating.push({ input: input, list: list, onScroll: onScroll });'),
 ], [true, true, true]);
+
+// 3.26 (A): the team's threads on pages and items, @mentions in every thread (Core\Comments)
+$a326 = Kaleta\Core\Comments::class;
+$a326People = [5 => ['user' => 'jana', 'name' => 'Jana <Nová>'], 7 => ['user' => 'petr.novak', 'name' => 'Petr']];
+check('3.26 (A): targets of a thread – an enquiry, a page or an item with a positive id; the kind of comment follows the target', [
+    $a326::page(12), $a326::item(3), $a326::parseTarget('page:12'), $a326::parseTarget('item:7'), $a326::parseTarget('enquiry:4'), $a326::parseTarget('page:0'), $a326::parseTarget('item:3x'),
+    $a326::parseTarget('stranka:3'), $a326::parseTarget('page:12345678901'), $a326::KINDS,
+], ['page:12', 'item:3', ['type' => 'page', 'id' => 12], ['type' => 'item', 'id' => 7], ['type' => 'enquiry', 'id' => 4], null, null, null, null,
+    ['enquiry' => 'note', 'page' => 'comment', 'item' => 'comment']]);
+check('3.26 (A): "@" and a sign-in name is a mention – once each, not inside a word or an e-mail address, not a single letter', [
+    $a326::mentionTokens('Hi @jana and @Petr.Novak, mail x@y.cz or @jana again, @a, a@b, (@petr)'), $a326::mentionTokens('no mention'), $a326::mentionTokens("line\n@eva-k: ok"),
+], [['jana', 'Petr.Novak', 'petr'], [], ['eva-k']]);
+check('3.26 (A): a comment as HTML – escaped, line breaks kept, a known mention as the name (escaped too), a full stop after it stays, an unknown "@word" stays text', [
+    $a326::html("Hi @Jana. <b>x</b>\n@petr.novak, @nobody & co", $a326People),
+    $a326::html('<script>alert(1)</script>', []),
+], ['Hi <span class="zminka" data-mention="5">@Jana &lt;Nová&gt;</span>. &lt;b&gt;x&lt;/b&gt;<br />' . "\n" . '<span class="zminka" data-mention="7">@Petr</span>, @nobody &amp; co',
+    '&lt;script&gt;alert(1)&lt;/script&gt;']);
+check('3.26 (A): the excerpt of a notification – plain text, names for mentions, whitespace folded, at most 200 characters', [
+    $a326::excerpt("Please  check\n@jana the prices", $a326People), mb_strlen($a326::excerpt(str_repeat('word ', 80), [])), str_ends_with($a326::excerpt(str_repeat('word ', 80), []), '…'),
+    $a326::excerpt('<b>plain</b>', []),
+], ['Please check @Jana <Nová> the prices', 200, true, '<b>plain</b>']);
+check('3.26 (A): who is notified – each newly mentioned person once, the responsible person of a new comment unless mentioned anyway, never the author', [
+    $a326::recipients([5, 7, 5, 3], 7, 3), $a326::recipients([], 9, 3), $a326::recipients([], 3, 3), $a326::recipients([3], null, 3), $a326::recipients([5], 9, 0),
+], [[[5, 'mention'], [7, 'mention']], [[9, 'comment']], [], [], [[5, 'mention'], [9, 'comment']]]);
+$a326Src = fn (string $file): string => (string) file_get_contents(KALETA_SYSTEM . '/' . $file);
+check('3.26 (A): a thread follows its target – the permanent delete and the emptied trash of pages and items, a deleted collection; the trash keeps it; Inbox only when it is there', [
+    str_contains($a326Src('src/Admin/Modules/Pages.php'), "Comments::forget(\$this->db, [\\Kaleta\\Core\\Comments::page(\$this->request->postInt('ids'))]);"),
+    str_contains($a326Src('src/Admin/Modules/Pages.php'), 'Comments::forget($db, array_map(\Kaleta\Core\Comments::page(...), $ids));'),
+    str_contains($a326Src('src/Admin/Modules/Collections.php'), "Comments::forget(\$this->db, [\\Kaleta\\Core\\Comments::item(\$this->request->postInt('idp'))]);"),
+    str_contains($a326Src('src/Admin/Modules/Collections.php'), 'Comments::forget($db, array_map(\Kaleta\Core\Comments::item(...), $ids));'),
+    str_contains($a326Src('src/Builder/Collections.php'), 'Comments::forget($db, array_map('),
+    str_contains($a326Src('src/Admin/Modules/Pages.php'), 'Comments::sweepContent($this->db);'),
+    str_contains($a326Src('src/Core/Comments.php'), "\$inbox = [__NAMESPACE__ . '\\\\Inbox', 'notify'];") && str_contains($a326Src('src/Core/Comments.php'), '!is_callable($inbox)'),
+    in_array('comment', Kaleta\Admin\Kernel::SITE_NEUTRAL_ACTIONS['pages'], true) && in_array('comment', Kaleta\Admin\Kernel::SITE_NEUTRAL_ACTIONS['collections'], true),
+], [true, true, true, true, true, true, true, true]);
+$a326Admin = (string) file_get_contents(KALETA_ROOT . '/image/admin.js');
+check('3.26 (A): the "@" autocomplete is delegated from image/admin.js (CSP: no inline script) for textarea[data-mentions] – the comment panel, the enquiry composer and the builder Team tab carry it', [
+    str_contains($a326Admin, "e.target.matches('textarea[data-mentions]')"), str_contains($a326Admin, "'@' + o.getAttribute('data-user') + ' '"),
+    str_contains($a326Src('views/admin/comments.php'), 'data-mentions="<?= e($mentionsJson) ?>"'), str_contains($a326Src('views/admin/enquiries/detail.php'), 'data-mentions="<?= e($mentionsJson) ?>"'),
+    str_contains((string) file_get_contents(KALETA_ROOT . '/image/stavitel.js'), "'data-mentions': people"),
+    str_contains($a326Src('views/admin/pages/form.php'), "render('admin/comments'"), str_contains($a326Src('views/admin/collections/item.php'), "render('admin/comments'"),
+], [true, true, true, true, true, true, true]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

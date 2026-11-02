@@ -122,6 +122,7 @@ trait BuilderActions
             'nahled' => $e['nahled'],
             'smer' => Language::dir(Language::ofContent($app->settings(), (string) $target['jazyk'])), // rtl: the content fields follow the text (the canvas has its own <html dir>)
             'komentare' => $this->commentsForEditor((string) ($e['podpis'] ?? '')), // comments from shared previews (2.15); null = this target has none (components have no signed preview)
+            'tym' => $this->teamForEditor((string) ($e['podpis'] ?? '')), // 3.26: the team's thread on a page (the Team tab next to the comments above); null elsewhere
             'textNastaveni' => $e['textNastaveni'] ?? null, // label of the link to the target's settings (otherwise "Nastavení stránky" – Page settings)
             'zpet' => $e['zpet'],
             'adresy' => array_map(fn (string $action): string => $this->url($action, $target['parametry']), [
@@ -322,6 +323,26 @@ trait BuilderActions
         }
 
         return Response::json(['ok' => true, 'komentare' => $this->commentsForEditor($signature)]);
+    }
+
+    /**
+     * The Team tab of the builder's comments (3.26): the signed-in colleagues' thread on the page (Core\Comments, target
+     * page:<id>), who may be mentioned (not oneself) and where Modules\Pages takes a comment (format=json). Pages only –
+     * site parts, collection templates, pop-ups and components have no thread; null there.
+     *
+     * @return array{komentare: list<array<string, mixed>>, lide: list<array{id: int, user: string, name: string}>, adresa: string, ids: int}|null
+     */
+    private function teamForEditor(string $signature): ?array
+    {
+        $page = \Kaleta\Core\DraftComments::parseTarget($signature); // a page draft only ("stranka:<id>")
+        if ($page === null) {
+            return null;
+        }
+        $target = \Kaleta\Core\Comments::page($page['id']);
+        $me = $this->app->auth()->id();
+
+        return ['komentare' => \Kaleta\Core\Comments::forBuilder($this->app, $target), 'ids' => $page['id'], 'adresa' => $this->app->url('admin.php?module=pages&action=comment'),
+            'lide' => array_values(array_filter(\Kaleta\Core\Comments::mentionable($this->db, $target), fn (array $p): bool => $p['id'] !== $me))];
     }
 
     /**
