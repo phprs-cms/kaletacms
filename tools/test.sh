@@ -4017,6 +4017,55 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&a
 SUMMARY317=$(sq3 "SELECT CONCAT(JSON_UNQUOTE(JSON_EXTRACT(heartbeat, '\$.report_summary.month')), '|', JSON_EXTRACT(heartbeat, '\$.report_summary.visits'), '|', JSON_EXTRACT(heartbeat, '\$.report_summary.changes_claude'), '|', heartbeat LIKE '%Secret title 317%', '|', heartbeat LIKE '%Kontakt%') FROM ka_fleet_sites WHERE id = $FLEET_ID")
 expect "report_summary: the heartbeat carries the counts of the site's last archived month – no titles, no forms" "$SUMMARY317" "$PREV317|4321|9|0|0"
 [ "$SUMMARY317" = "$PREV317|4321|9|0|0" ] || echo "         (the site's last error: $(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_last_error'"); its archive: $(sq "SELECT CONCAT(month, ' ', LEFT(data, 60)) FROM ka_monthly_reports ORDER BY month DESC LIMIT 1"))"
+# 3.26.1: the site's own uptime – it asks its console (POST /fleet/uptime, signed both ways; Fleet\Uptime), keeps the days and its monthly
+# report (and MCP get_monthly_report, also for a month archived before) gains "uptime"; an older console without the address changes nothing
+sq3 "INSERT INTO ka_fleet_history (site_id, day, checks_ok, checks_failed, response_ms_total, response_count) VALUES ($FLEET_ID, '$PREV317-05', 286, 2, 0, 286)" > /dev/null
+sq "DELETE FROM ka_nastaveni WHERE promenna = 'fleet_uptime_days'" > /dev/null
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=reports"
+expect "3.26.1: without uptime days the Reports tab (admin only) says where they come from" "$(grep -cE "the fleet console has sent this site|konzole webů pošle dny tohoto webu" "$WORK/response")" "1"
+sleep 1; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_send" -d "_csrf=$(csrf)"
+TODAY3261=$(sq3 "SELECT checks_ok + checks_failed FROM ka_fleet_history WHERE site_id = $FLEET_ID AND day = '$(site_time now Y-m-d)'")
+expect "3.26.1: the site received its days from the console – the day of last month and today's checks – and keeps them with the time" \
+  "$(sq "SELECT CONCAT(JSON_EXTRACT(hodnota, '\$.received') > 0, '|', JSON_UNQUOTE(JSON_EXTRACT(hodnota, '\$.days[0].date')), '|', JSON_EXTRACT(hodnota, '\$.days[0].checks'), '|', JSON_EXTRACT(hodnota, '\$.days[0].failed'), '|', JSON_EXTRACT(hodnota, '\$.days[last].checks')) FROM ka_nastaveni WHERE promenna = 'fleet_uptime_days'")" \
+  "1|$PREV317-05|288|2|$TODAY3261"
+mcp get_monthly_report "{\"month\":\"$PREV317\"}" > "$WORK/response"
+php -r '$r = json_decode(file_get_contents($argv[1]), true); $d = json_decode($r["result"]["content"][0]["text"] ?? "", true)["report"]["uptime"] ?? null;
+  echo is_array($d) ? implode("|", [$d["percent"], $d["checks"], $d["failed"], count($d["days"]), $d["days"][4]["state"], $d["days"][4]["percent"], $d["days"][0]["state"]]) : "none";' "$WORK/response" > "$WORK/uptime.txt"
+expect "3.26.1: MCP get_monthly_report has uptime for a month archived before 3.26.1 – percent, checks, failed and every day with its state" \
+  "$(cat "$WORK/uptime.txt")" "99.3|288|2|$(php -r 'echo (new DateTimeImmutable($argv[1] . "-01"))->format("t");' "$PREV317")|partial|99.3|none"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=reports"
+expect "3.26.1: with uptime days the Reports tab no longer shows the hint" "$(grep -cE "the fleet console has sent this site|Connect a fleet console to see uptime|konzole webů pošle dny|Připojte konzoli webů" "$WORK/response")" "0"
+expect "3.26.1: the console answers the uptime question only to a request signed by the site's key" \
+  "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B3/fleet/uptime" -H 'X-Kaleta-Signature: AAAA' -d "{\"action\":\"uptime\",\"site_id\":$FLEET_ID,\"ts\":$(date +%s)}")|$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B3/fleet/uptime" -d '{"action":"uptime","site_id":99999}')" "403|404"
+# an older console: the heartbeat goes through, /fleet/uptime is not there (404) – the site keeps its days and asks again the next day
+OLDCON_PORT=$((PORT + 5))
+cat > "$WORK/old-console.php" <<'PHP'
+<?php
+// a console before 3.26.1: it forwards the heartbeat to the real console and knows no /fleet/uptime
+if (parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) !== '/fleet/heartbeat') { http_response_code(404); echo 'Not found'; return; }
+$ch = curl_init(getenv('CONSOLE') . '/fleet/heartbeat');
+curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => file_get_contents('php://input'), CURLOPT_RETURNTRANSFER => true, CURLOPT_HEADER => true,
+  CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'X-Kaleta-Signature: ' . ($_SERVER['HTTP_X_KALETA_SIGNATURE'] ?? '')]]);
+$raw = (string) curl_exec($ch); $size = curl_getinfo($ch, CURLINFO_HEADER_SIZE); http_response_code(curl_getinfo($ch, CURLINFO_RESPONSE_CODE));
+foreach (explode("\r\n", substr($raw, 0, $size)) as $h) { if (stripos($h, 'X-Kaleta-Signature:') === 0 || stripos($h, 'Content-Type:') === 0) { header($h); } }
+echo substr($raw, $size);
+PHP
+(CONSOLE="$B3" exec php -S "127.0.0.1:$OLDCON_PORT" "$WORK/old-console.php" > /dev/null 2>&1) & OLDCON_PID=$!
+for i in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$OLDCON_PORT/" && break; sleep 0.2; done
+sq "UPDATE ka_nastaveni SET hodnota = 'http://127.0.0.1:$OLDCON_PORT' WHERE promenna = 'fleet_console_url'" > /dev/null
+DAYS3261=$(sq "SELECT JSON_EXTRACT(hodnota, '\$.days') FROM ka_nastaveni WHERE promenna = 'fleet_uptime_days'"); LAST_TS3261=$(sq3 "SELECT last_ts FROM ka_fleet_sites WHERE id = $FLEET_ID")
+sleep 1; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_send" -d "_csrf=$(csrf)"
+expect "3.26.1: an older console – the heartbeat is confirmed, the site keeps its days and only notes when it asked" \
+  "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_last_error'")|$([ "$(sq3 "SELECT last_ts FROM ka_fleet_sites WHERE id = $FLEET_ID")" -gt "$LAST_TS3261" ] && echo sent)|$([ "$(sq "SELECT JSON_EXTRACT(hodnota, '\$.days') FROM ka_nastaveni WHERE promenna = 'fleet_uptime_days'")" = "$DAYS3261" ] && echo kept)" "|sent|kept"
+sq "DELETE FROM ka_nastaveni WHERE promenna = 'fleet_uptime_days'" > /dev/null
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=reports"
+expect "3.26.1: paired, no days – the Reports tab hint" "$(grep -cE "the fleet console has sent this site|konzole webů pošle dny tohoto webu" "$WORK/response")" "1"
+sleep 1; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_send" -d "_csrf=$(csrf)"
+expect "3.26.1: an older console and no days yet – no uptime in the report (null), the heartbeat still confirmed" \
+  "$(sq "SELECT CONCAT(JSON_TYPE(JSON_EXTRACT(hodnota, '\$.received')), '|', JSON_LENGTH(hodnota, '\$.days')) FROM ka_nastaveni WHERE promenna = 'fleet_uptime_days'")|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_last_error'")|$(mcp get_monthly_report "{\"month\":\"$PREV317\"}" | grep -o '\\"uptime\\":null' | head -1)" 'NULL|0||\"uptime\":null'
+kill "$OLDCON_PID" 2>/dev/null
+sq "UPDATE ka_nastaveni SET hodnota = '$B3' WHERE promenna = 'fleet_console_url'" > /dev/null
+sq3 "DELETE FROM ka_fleet_history WHERE site_id = $FLEET_ID AND day = '$PREV317-05'" > /dev/null
 # N317-5: a site's administrator changes its address – the console follows it and says so on the site's page
 SITE_URL317=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_url'")
 sq "UPDATE ka_nastaveni SET hodnota = 'http://localhost:$PORT' WHERE promenna = 'site_url'" > /dev/null
@@ -4090,9 +4139,11 @@ curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=f
 expect "a wrong recipient address saves nothing" "$(sq3 "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_alert_recipients'")" "owner317@agency.example"
 # the trends on the site's page: uptime this and last month, 90 days of bars with a summary and a table, the outage
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=detail&id=$FLEET_ID"
-grep -q '<figure class="trend">' "$WORK/response" && grep -q '<svg viewBox="0 0 360 40" preserveAspectRatio="none" role="img" aria-label="' "$WORK/response" && grep -q 'class="trend-tabulka"' "$WORK/response" \
-  && [ "$(grep -o '<rect class=' "$WORK/response" | wc -l | tr -d ' ')" = "90" ] && grep -q 'Výpadky za posledních 90 dní\|Outages in the last 90 days' "$WORK/response" \
-  && echo "  ok     trends: 90 bars with a summary for screen readers and the days as a table" || { echo "  CHYBA  trends on the site's page"; ERRORS=$((ERRORS+1)); }
+# 3.26.1: the bars are Core\UptimeStrip – the e-mail-safe table the site's monthly report uses too
+grep -q '<figure class="trend">' "$WORK/response" && grep -q '<table role="img" aria-label="' "$WORK/response" && grep -q 'class="trend-tabulka"' "$WORK/response" \
+  && [ "$(sed -n '/<figure class="trend">/,/<\/figure>/p' "$WORK/response" | grep -o '<td title="' | wc -l | tr -d ' ')" = "90" ] && grep -q 'Výpadky za posledních 90 dní\|Outages in the last 90 days' "$WORK/response" \
+  && ! grep -q '<svg viewBox="0 0 360 40"' "$WORK/response" \
+  && echo "  ok     trends: 90 bars (the shared uptime strip) with a summary for screen readers and the days as a table" || { echo "  CHYBA  trends on the site's page"; ERRORS=$((ERRORS+1)); }
 # the monthly fleet report per customer: from the console's own history of the previous month
 sq3 "INSERT INTO ka_fleet_history (site_id, day, checks_ok, checks_failed, response_ms_total, response_count, status, version, attention, reasons) VALUES ($FLEET_ID, '$PREV317-10', 286, 2, 57200, 286, 'ok', '3.16.0', 40, 'jobs_failing'), ($FLEET_ID, '$PREV317-11', 288, 0, 57600, 288, 'ok', '3.17.0', 0, '');
   INSERT INTO ka_fleet_incidents (site_id, started_at, ended_at, status) VALUES ($FLEET_ID, '$PREV317-10 10:00:00', '$PREV317-10 10:25:00', 503);

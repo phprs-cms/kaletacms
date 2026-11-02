@@ -8957,5 +8957,84 @@ check('3.26 (N-U2) Style: a margin takes a spacing step or a length, never a col
 ], [['var(--ka-mezera-m)', '0', '24px', '-1.5rem', 'auto', null, null, null, null],
     ['var(--ka-barva-primarni)', 'transparent', '#1e40af', 'oklch(60% 0.1 250)', null, null, null]]);
 
+// 3.26.1 (B): the uptime of a paired site in its own monthly report – Core\UptimeStrip and Fleet\Uptime
+use Kaleta\Core\UptimeStrip;
+use Kaleta\Fleet\Uptime;
+
+check('3.26.1 UptimeStrip: a day from its checks – up, partial, down, none; the percent rounded down (never 100 % with a failure); from a percent alone; the colour of each', [
+    UptimeStrip::day('2026-10-01', 288, 0), UptimeStrip::day('2026-10-02', 288, 1), UptimeStrip::day('2026-10-03', 10, 10), UptimeStrip::day('2026-10-04', 0, 0), UptimeStrip::day('2026-10-05', 10, 99),
+    UptimeStrip::percent(100000, 1), UptimeStrip::fromPercent('2026-10-06', 99.5), UptimeStrip::fromPercent('2026-10-07', null), UptimeStrip::fromPercent('2026-10-08', 100.0), UptimeStrip::fromPercent('2026-10-09', 0.0),
+    array_map(UptimeStrip::tone(...), [UptimeStrip::day('a', 288, 0), UptimeStrip::day('a', 288, 2), UptimeStrip::day('a', 100, 2), UptimeStrip::day('a', 5, 5), UptimeStrip::day('a', 0, 0), ['state' => 'evil', 'percent' => 50]]),
+], [['date' => '2026-10-01', 'state' => 'up', 'percent' => 100.0], ['date' => '2026-10-02', 'state' => 'partial', 'percent' => 99.65], ['date' => '2026-10-03', 'state' => 'down', 'percent' => 0.0],
+    ['date' => '2026-10-04', 'state' => 'none', 'percent' => null], ['date' => '2026-10-05', 'state' => 'down', 'percent' => 0.0], 99.99,
+    ['date' => '2026-10-06', 'state' => 'partial', 'percent' => 99.5], ['date' => '2026-10-07', 'state' => 'none', 'percent' => null], ['date' => '2026-10-08', 'state' => 'up', 'percent' => 100.0], ['date' => '2026-10-09', 'state' => 'down', 'percent' => 0.0],
+    ['up', 'weak', 'down', 'down', 'none', 'none']]);
+$strip3261 = Kaleta\Core\Language::runWith('en', fn (): string => UptimeStrip::html([UptimeStrip::day('2026-10-01', 288, 0), UptimeStrip::day('2026-10-02', 288, 1), UptimeStrip::day('2026-10-03', 0, 0),
+    ['date' => '<script>x</script>', 'state' => 'up', 'percent' => 100.0], 'junk'], ['label' => 'Up "time" <b>', 'height' => 500]), 'admin-');
+$wide3261 = UptimeStrip::html(array_map(fn (int $i): array => UptimeStrip::day(date('Y-m-d', strtotime('2026-08-01 +' . $i . ' days')), 288, 0), range(0, 89)), ['legend' => false, 'dates' => false]);
+check('3.26.1 UptimeStrip::html – e-mail safe (tables, inline styles and bgcolor, no SVG, class or script), one titled cell a day, the label and every text escaped, the legend only of the colours shown, the dates at both ends', [
+    substr_count($strip3261, '<td title="'), str_contains($strip3261, 'role="img" aria-label="Up &quot;time&quot; &lt;b&gt;"'), str_contains($strip3261, '<script'), str_contains($strip3261, '&lt;script&gt;x&lt;/script&gt;: 100.00 %'),
+    preg_match('/<svg|class=|<style|javascript:/i', $strip3261), str_contains($strip3261, 'title="1 Oct 2026: 100.00 %" bgcolor="#12A150" height="80"'), str_contains($strip3261, 'title="2 Oct 2026: 99.65 %" bgcolor="#C97F00"'),
+    str_contains($strip3261, 'title="3 Oct 2026: not measured" height="80" valign="bottom"'), [str_contains($strip3261, '>No outage<'), str_contains($strip3261, '>Brief outage (99 % or more)<'), str_contains($strip3261, '>Outage<'), str_contains($strip3261, '>Not measured<')],
+    str_contains($strip3261, '>1 Oct 2026</td>'), substr_count($wide3261, '<td title="'), str_contains($wide3261, 'cellspacing="1"'), str_contains($wide3261, 'No outage'), UptimeStrip::html([]),
+    Kaleta\Core\Language::runWith('en', fn (): string => UptimeStrip::summary([UptimeStrip::day('2026-10-01', 288, 0), UptimeStrip::day('2026-10-02', 288, 1)]), 'admin-'),
+], [4, true, false, true, 0, true, true, true, [true, true, false, true], true, 90, true, false, '', 'Uptime: 2 days measured, 1 of them without an outage; the lowest 99.65 % on 2 Oct 2026.']);
+$uptime3261 = Uptime::forMonth([['date' => '2026-10-02', 'checks' => 288, 'failed' => 1], ['date' => '2026-10-03', 'checks' => 288, 'failed' => 288], ['date' => '2026-09-30', 'checks' => 288, 'failed' => 288],
+    ['date' => '2026-10-04', 'checks' => 288, 'failed' => 0], ['date' => '2026-10-09', 'checks' => 288, 'failed' => 0]], '2026-10', '2026-10-05');
+check('3.26.1 Uptime::forMonth – the report contract: percent, checks, failed and every day of the month up to today with its state and percent; null for a month without a measured day', [
+    array_keys($uptime3261), [$uptime3261['percent'], $uptime3261['checks'], $uptime3261['failed']], count($uptime3261['days']), $uptime3261['days'][0], $uptime3261['days'][1], array_keys($uptime3261['days'][4]),
+    array_column($uptime3261['days'], 'state'), count(Uptime::forMonth([['date' => '2026-02-10', 'checks' => 1, 'failed' => 0]], '2026-02', '2026-12-31')['days']),
+    Uptime::forMonth([['date' => '2026-09-30', 'checks' => 288, 'failed' => 0]], '2026-10', '2026-10-31'), Uptime::forMonth([['date' => '2026-10-01', 'checks' => 0, 'failed' => 0]], '2026-10', '2026-10-31'), Uptime::forMonth([], '2026-13', '2026-12-31'),
+    Kaleta\Core\Language::runWith('en', fn (): string => UptimeStrip::text($uptime3261), 'admin-'), UptimeStrip::text(null),
+    Kaleta\Core\Language::runWith('en', fn (): string => UptimeStrip::text(Uptime::forMonth([['date' => '2026-10-01', 'checks' => 288, 'failed' => 0]], '2026-10', '2026-10-01')), 'admin-'),
+], [['percent', 'checks', 'failed', 'days'], [66.55, 864, 289], 5, ['date' => '2026-10-01', 'state' => 'none', 'percent' => null], ['date' => '2026-10-02', 'state' => 'partial', 'percent' => 99.65], ['date', 'state', 'percent'],
+    ['none', 'partial', 'down', 'up', 'none'], 28, null, null, null,
+    "Uptime: 66.55 % (864 checks, 289 failed)\nDays with an outage: 2 Oct 2026 (99.65 %), 3 Oct 2026 (0.00 %)\nDays not measured: 2", '', "Uptime: 100.00 % (288 checks, 0 failed)\nNo outage on any measured day."]);
+check('3.26.1 Uptime::clean, merge and due – only real dates and whole counts in bounds (failed never above the checks), one entry a date; new days over the old, older months dropped; asked again after 20 hours or once the month turned', [
+    Uptime::clean([['date' => '2026-10-01', 'checks' => 288, 'failed' => 999], ['date' => '2026-02-30', 'checks' => 1, 'failed' => 0], ['date' => '2026-10-02', 'checks' => '5', 'failed' => 0],
+        ['date' => '2026-10-03 ', 'checks' => 1, 'failed' => 0], ['date' => '2026-10-04', 'checks' => 9_999_999, 'failed' => -3], 'x', ['date' => '2026-10-01', 'checks' => 10, 'failed' => 1]]),
+    Uptime::clean('nope'), count(Uptime::clean(array_map(fn (int $i): array => ['date' => date('Y-m-d', strtotime('2026-01-01 +' . $i . ' days')), 'checks' => 1, 'failed' => 0], range(0, 199)))),
+    Uptime::merge([['date' => '2026-07-31', 'checks' => 1, 'failed' => 0], ['date' => '2026-08-01', 'checks' => 1, 'failed' => 1], ['date' => '2026-10-01', 'checks' => 1, 'failed' => 1]],
+        [['date' => '2026-10-01', 'checks' => 2, 'failed' => 0], ['date' => '2026-09-15', 'checks' => 3, 'failed' => 0]], '2026-08-01'),
+    Uptime::due(null, (int) strtotime('2026-10-15 12:00')), Uptime::due(['checked' => (int) strtotime('2026-10-15 01:00'), 'received' => null, 'days' => []], (int) strtotime('2026-10-15 12:00')),
+    Uptime::due(['checked' => (int) strtotime('2026-10-14 15:00'), 'received' => null, 'days' => []], (int) strtotime('2026-10-15 12:00')),
+    Uptime::due(['checked' => (int) strtotime('2026-10-31 23:30'), 'received' => null, 'days' => []], (int) strtotime('2026-11-01 00:10')),
+    Uptime::fromHistory(['2026-10-01' => ['checks_ok' => 286, 'checks_failed' => 2, 'status' => 'ok'], '2026-10-02' => ['checks_ok' => null, 'checks_failed' => null]]),
+], [[['date' => '2026-10-01', 'checks' => 10, 'failed' => 1], ['date' => '2026-10-04', 'checks' => 100000, 'failed' => 0]], [], 70,
+    [['date' => '2026-08-01', 'checks' => 1, 'failed' => 1], ['date' => '2026-09-15', 'checks' => 3, 'failed' => 0], ['date' => '2026-10-01', 'checks' => 2, 'failed' => 0]],
+    true, false, true, true, [['date' => '2026-10-01', 'checks' => 288, 'failed' => 2], ['date' => '2026-10-02', 'checks' => 0, 'failed' => 0]]]);
+// the console's answer: only signed by the console's own key; an older console (404) or another key brings nothing
+$keys3261 = sodium_crypto_sign_keypair();
+$console3261 = $reportSettings(['site_key_secret' => base64_encode(sodium_crypto_sign_secretkey($keys3261))]);
+$body3261 = (string) json_encode(['ok' => true, 'days' => [['date' => '2026-10-01', 'checks' => 288, 'failed' => 3]]]);
+$answer3261 = ['status' => 200, 'body' => $body3261, 'json' => json_decode($body3261, true), 'signature' => Kaleta\Fleet\Keys::sign($console3261, $body3261), 'error' => ''];
+$public3261 = base64_encode(sodium_crypto_sign_publickey($keys3261));
+check('3.26.1 Uptime::received – the days of an answer signed by the console\'s key; an older console without the address, a changed body or another key bring nothing', [
+    Uptime::received($answer3261, $public3261), Uptime::received(['status' => 404, 'body' => '<html>', 'json' => null, 'signature' => '', 'error' => ''] + $answer3261, $public3261),
+    Uptime::received(['body' => str_replace('288', '289', $body3261)] + $answer3261, $public3261), Uptime::received($answer3261, base64_encode(sodium_crypto_sign_publickey(sodium_crypto_sign_keypair()))),
+    Uptime::received(['json' => ['ok' => true]] + $answer3261, $public3261)],
+    [[['date' => '2026-10-01', 'checks' => 288, 'failed' => 3]], null, null, null, null]);
+$stored3261 = $reportSettings([Uptime::SETTING => (string) json_encode(['checked' => time(), 'received' => time(), 'days' => [['date' => date('Y-m-d'), 'checks' => 288, 'failed' => 0]]])]);
+check('3.26.1 Uptime::stored, month and fill – the report of a month archived before 3.26.1 gains the uptime key; one that has it keeps it; a site without a console has null', [
+    Uptime::stored($reportSettings([])), Uptime::month($reportSettings([]), date('Y-m')), Uptime::month($stored3261, date('Y-m'))['checks'], Uptime::fill($stored3261, ['month' => date('Y-m')])['uptime']['percent'],
+    Uptime::fill($stored3261, ['month' => date('Y-m'), 'uptime' => null])['uptime'], array_key_exists('uptime', Uptime::fill($reportSettings([]), ['month' => '2020-01'])), Uptime::fill($reportSettings([]), ['x' => 1])['uptime'],
+    Uptime::stored($reportSettings([Uptime::SETTING => '{"checked":"x"}']))],
+    [null, null, 288, 100.0, null, true, null, null]);
+$sources3261 = array_map(fn (string $f): string => (string) file_get_contents(KALETA_SYSTEM . '/' . $f), ['src/Core/MonthlyReport.php', 'src/Front/Kernel.php', 'src/Fleet/Link.php', 'src/Mcp/Handlers/ReportTools.php', 'src/Core/ReportArchive.php', 'views/admin/fleet/trend.php']);
+check('3.26.1 wiring: the report data has uptime (and older months gain it), the console answers /fleet/uptime, the heartbeat asks after a confirmed send and unpairing forgets the days, MCP adds it, the archive asks first; the trend draws the shared strip; the setting is internal', [
+    str_contains($sources3261[0], "'uptime' => \$section(fn (): ?array => \\Kaleta\\Fleet\\Uptime::month(\$s, \$monthStart->format('Y-m'))),"), str_contains($sources3261[0], 'Uptime::fill($app->settings(), $stored[\'data\'])'),
+    str_contains($sources3261[1], "'/fleet/uptime' => \\Kaleta\\Fleet\\Uptime::answer("), str_contains($sources3261[2], 'Uptime::afterHeartbeat($app, $refreshUptime)'), str_contains($sources3261[2], "'fleet_kit_error', Uptime::SETTING] as \$name"),
+    str_contains($sources3261[3], 'Uptime::fill($this->app->settings(), $stored[\'data\'])'), str_contains($sources3261[4], 'Uptime::afterHeartbeat($app);'), str_contains($sources3261[5], 'UptimeStrip::html('), str_contains($sources3261[5], '<svg'),
+    Kaleta\Core\Settings::DEFAULTS[Uptime::SETTING], in_array(Uptime::SETTING, Kaleta\Core\SiteExport::SETTINGS, true), (bool) preg_match((new ReflectionClassConstant(Kaleta\Mcp\Tools::class, 'MCP_SETTINGS'))->getValue(), Uptime::SETTING),
+], [true, true, true, true, true, true, true, true, false, '', false, false]);
+$fleetDays3261 = Report::siteData(['id' => 7, 'name' => 'Bakery', 'url' => 'https://bakery.example', 'version' => '3.17.1'], ['2026-09-01' => $day317(287, 1, 287 * 200, 287), '2026-09-03' => $day317(0, 10)], [], [], null, '2026-09');
+$fleetBlocks3261 = Kaleta\Core\Language::runWith('en', fn (): array => array_column(Report::sections(['month' => '2026-09', 'sites' => [$fleetDays3261], 'totals' => Report::totals([$fleetDays3261])]), null, 'key')['site-7']['blocks'], 'admin-');
+$fleetPage3261 = Report::render($view316, ['month' => '2026-09', 'customer' => '', 'created_at' => '2026-10-01 06:05:00', 'rebuilt_at' => null, 'data' => ['month' => '2026-09', 'sites' => [$fleetDays3261], 'totals' => Report::totals([$fleetDays3261])]],
+    $reportSettings(['site_name' => 'Agency console']), 'https://console.example');
+check('3.26.1 Fleet\\Report: each site carries its month\'s days, printed as the uptime strip after its facts; a report stored before has none and no block', [
+    count($fleetDays3261['days']), array_column(array_slice($fleetDays3261['days'], 0, 3), 'state'), array_column($fleetBlocks3261, 'type'), substr_count($fleetPage3261, '<td title="'), str_contains($fleetPage3261, '<div class="uptime"><table role="img"'),
+    array_key_exists('days', Report::siteData(['id' => 8, 'name' => '', 'url' => 'https://shop.example', 'version' => '3.16.2'], [], [], [], null))],
+    [30, ['partial', 'none', 'down'], ['pairs', 'uptime', 'note'], 30, true, false]);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

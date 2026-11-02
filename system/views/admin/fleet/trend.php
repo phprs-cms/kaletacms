@@ -1,10 +1,12 @@
 <?php
 /**
  * The trends of a fleet site (3.17, Fleet\History::trend): uptime and response this month and last month, the last 90 days
- * as bars (inline SVG with a summary for screen readers and the same days as a table), the outages and the versions.
+ * as bars (Core\UptimeStrip since 3.26.1 – the same strip as in the site's monthly report – with a summary for screen
+ * readers and the same days as a table), the outages and the versions.
  *
  * @var array<string, mixed> $trend
  */
+use Kaleta\Core\UptimeStrip;
 use Kaleta\Fleet\History;
 
 $percent = fn (?float $p): string => $p === null ? t('not measured') : format_number($p, 2) . ' %';
@@ -16,7 +18,6 @@ $lowest = $measured === [] ? null : array_reduce($measured, fn (?array $low, arr
 $full = count(array_filter($measured, fn (array $b): bool => $b['percent'] >= 100.0));
 $summary = $measured === [] ? t('Uptime in the last %d days: not measured yet.', History::TREND_DAYS)
     : t('Uptime in the last %d days: %d days measured, %d of them without an outage; the lowest %s on %s.', History::TREND_DAYS, count($measured), $full, $percent($lowest['percent']), format_date($lowest['day']));
-$width = 4;
 $duration = fn (int $minutes): string => $minutes >= 120 ? t('%s hours', format_number($minutes / 60, 1)) : t('%d minutes', $minutes);
 ?>
 <h2><?= e(t('Trends')) ?></h2>
@@ -28,11 +29,7 @@ $duration = fn (int $minutes): string => $minutes >= 120 ? t('%s hours', format_
 	<tr><th scope="row"><?= e(t('Uptime last month')) ?></th><td><?= e($uptimeLine($trend['last_month'])) ?></td></tr>
 </tbody></table></div>
 <figure class="trend">
-<svg viewBox="0 0 <?= count($bars) * $width ?> 40" preserveAspectRatio="none" role="img" aria-label="<?= e($summary) ?>">
-<?php foreach ($bars as $i => $b): $class = $b['percent'] === null ? 'nic' : ($b['percent'] >= 100.0 ? 'ok' : ($b['percent'] >= 99.0 ? 'slabe' : 'chyba')); ?>
-<rect class="<?= $class ?>" x="<?= $i * $width ?>" y="<?= $b['percent'] === null ? 36 : 0 ?>" width="<?= $width - 1 ?>" height="<?= $b['percent'] === null ? 4 : 40 ?>"><title><?= e(format_date($b['day']) . ': ' . $percent($b['percent'])) ?></title></rect>
-<?php endforeach ?>
-</svg>
+<?= UptimeStrip::html(array_map(fn (array $b): array => UptimeStrip::fromPercent($b['day'], $b['percent']), $bars), ['label' => $summary, 'height' => 40, 'color' => 'inherit']) ?>
 <figcaption><?= e($summary) ?></figcaption>
 </figure>
 <?php if ($measured !== []): ?>

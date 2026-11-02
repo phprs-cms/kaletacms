@@ -275,9 +275,9 @@ final class Kernel
 
             return new Response('', 204);
         }
-        if (in_array($path, ['/fleet/pair', '/fleet/heartbeat', '/fleet/unpair', '/fleet/kit'], true) && $request->isPost() && Extensions::isEnabled($this->app->settings(), 'fleet')) {
+        if (in_array($path, ['/fleet/pair', '/fleet/heartbeat', '/fleet/unpair', '/fleet/kit', '/fleet/uptime'], true) && $request->isPost() && Extensions::isEnabled($this->app->settings(), 'fleet')) {
             // the fleet console (2.9): sites pair with it and report to it, every request signed by the site's own key;
-            // 2.16: a paired site asks for the shared design kit the same way
+            // 2.16: a paired site asks for the shared design kit the same way; 3.26.1: and for its own uptime days
             $body = (string) file_get_contents('php://input', false, null, 0, 1_000_000);
             $signature = (string) ($request->serverValues()['HTTP_X_KALETA_SIGNATURE'] ?? '');
 
@@ -285,6 +285,7 @@ final class Kernel
                 '/fleet/pair' => \Kaleta\Fleet\Console::pair($this->app, $body, $signature),
                 '/fleet/heartbeat' => \Kaleta\Fleet\Console::heartbeat($this->app, $body, $signature),
                 '/fleet/kit' => \Kaleta\Fleet\Kit::answer($this->app, $body, $signature),
+                '/fleet/uptime' => \Kaleta\Fleet\Uptime::answer($this->app, $body, $signature),
                 default => \Kaleta\Fleet\Console::unpair($this->app, $body, $signature),
             };
         }

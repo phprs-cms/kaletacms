@@ -15,7 +15,8 @@
  * @var list<string> $agencyContacts the agency's web, e-mail and phone
  * @var string $generated when the report was made
  * @var string $rebuilt when an administrator rebuilt it, or empty
- * @var list<array{key: string, title: string, blocks: list<array<string, mixed>>}> $sections
+ * @var list<array{key: string, title: string, blocks: list<array<string, mixed>>}> $sections blocks: facts, pairs, table, list, note and
+ *      (3.26.1) uptime – ['type' => 'uptime', 'days' => Core\UptimeStrip days], drawn by Core\UptimeStrip::html
  * @var array{script?: string, download?: string, back?: string} $links the screen toolbar; empty in the downloaded file
  * The fleet console's report per customer (3.17, Fleet\Report) prints with the same page and sets three more:
  * @var string|null $kind the line above the month ("Fleet report"); the site's report: "Website report"
@@ -79,6 +80,7 @@ table.data td.cislo { font-variant-numeric: tabular-nums; }
 .cisla dt { color: #555; font-size: 8pt; }
 .cisla dd { margin: .5mm 0 0; font-size: 15pt; font-weight: 700; font-variant-numeric: tabular-nums; }
 .poznamka { margin: 2mm 0 0; color: #555; font-size: 8.5pt; }
+.uptime { margin: 3mm 0 1mm; break-inside: avoid; } /* 3.26.1: Core\UptimeStrip (block "uptime") – inline styles of its own */
 ul.seznam { margin: 0; padding-left: 5mm; }
 ul.seznam li { margin: 0 0 1mm; break-inside: avoid; }
 .pata { margin-top: 9mm; padding-top: 3mm; border-top: .3mm solid #ccc; color: #555; font-size: 8pt; break-inside: avoid; }
@@ -133,6 +135,8 @@ ul.seznam li { margin: 0 0 1mm; break-inside: avoid; }
 <table class="data"><thead><tr><?php foreach ($block['head'] as $i => $heading): ?><th scope="col"<?= $cellClass($i) ?>><?= e($heading) ?></th><?php endforeach ?></tr></thead><tbody>
 <?php foreach ($block['rows'] as $row): ?><tr><?php foreach ($row as $i => $cell): ?><td<?= $cellClass($i) ?>><?= e((string) $cell) ?></td><?php endforeach ?></tr>
 <?php endforeach ?></tbody></table>
+<?php elseif ($block['type'] === 'uptime'): ?>
+<div class="uptime"><?= Kaleta\Core\UptimeStrip::html($block['days'], ['height' => 24, 'color' => '#555555']) ?></div>
 <?php elseif ($block['type'] === 'list'): ?>
 <ul class="seznam"><?php foreach ($block['items'] as $item): ?><li><?= e($item) ?></li><?php endforeach ?></ul>
 <?php else: ?>

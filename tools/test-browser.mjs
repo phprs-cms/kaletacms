@@ -2239,11 +2239,14 @@ for (const [language, path] of [['ar', '/ar/rtl-test'], ['en', '/ltr-test']]) {
 // no WCAG violation in the block, nothing wider than a phone – and the fleet report in print at the width of an A4 page
 await step('3.17 fleet console: the trends of a site and the monthly fleet report in print', async () => {
   await visit('/admin.php?module=fleet&action=detail&id=900');
-  const svg = page.locator('figure.trend svg[role="img"]');
-  await svg.waitFor();
-  if ((await svg.locator('rect').count()) !== 90) { throw new Error('the trend has not 90 bars'); }
-  if (!/90/.test(await svg.getAttribute('aria-label') || '')) { throw new Error('the trend has no summary for screen readers'); }
-  if ((await svg.locator('rect.chyba').count()) < 1 || (await svg.locator('rect.slabe').count()) < 1) { throw new Error('the bad days are not marked'); }
+  // 3.26.1: the bars are Core\UptimeStrip – the e-mail-safe table the site's monthly report draws too
+  const strip = page.locator('figure.trend table[role="img"]');
+  await strip.waitFor();
+  if ((await strip.locator('td[title]').count()) !== 90) { throw new Error('the trend has not 90 bars'); }
+  if (!/90/.test(await strip.getAttribute('aria-label') || '')) { throw new Error('the trend has no summary for screen readers'); }
+  if ((await strip.locator('td[bgcolor="#D92D20"]').count()) < 1 || (await strip.locator('td[bgcolor="#C97F00"]').count()) < 1) { throw new Error('the bad days are not marked'); }
+  const stripBox = await strip.boundingBox();
+  if (!stripBox || stripBox.height < 36 || stripBox.width < 300) { throw new Error('the strip is not drawn at its size'); }
   await page.locator('details.trend-tabulka summary').click();
   if ((await page.locator('details.trend-tabulka tbody tr').count()) < 85) { throw new Error('the table of the days is short'); }
   // axe in a context that lets the test inject it – the administration allows no inline script (CSP), rightly
@@ -2284,6 +2287,9 @@ await step('3.17 fleet console: the trends of a site and the monthly fleet repor
     await report.locator('[data-tisk]').waitFor();
     if ((await report.locator('section.sekce').count()) < 3) { throw new Error('the fleet report has fewer than 3 sections'); }
     if ((await report.locator('p.druh').textContent()) !== 'Fleet report') { throw new Error('the page does not say Fleet report'); }
+    // 3.26.1: the site's month as the same uptime strip as on its page (Core\UptimeStrip), one bar a day
+    const monthStrip = report.locator('.uptime table[role="img"]').first();
+    if ((await monthStrip.locator('td[title]').count()) < 28) { throw new Error('the fleet report has no uptime strip for the month'); }
     if (SHOTS) { await report.screenshot({ path: `${SHOTS}/fleet-report-screen.png`, fullPage: true }); }
     await report.emulateMedia({ media: 'print' });
     await report.setViewportSize({ width: 680, height: 1000 });

@@ -52,7 +52,7 @@ final class Report
         foreach ($sites as $site) {
             $id = (int) $site['id'];
             $days = History::days($db, $id, $monthStart->format('Y-m-d'), $next->modify('-1 day')->format('Y-m-d'));
-            $out[] = self::siteData($site, $days, History::incidents($db, $id, $from, $to, $now), History::versions($db, $id, $from, $to), self::summaryFor($db, $site, $month));
+            $out[] = self::siteData($site, $days, History::incidents($db, $id, $from, $to, $now), History::versions($db, $id, $from, $to), self::summaryFor($db, $site, $month), $month);
         }
 
         return MonthlyReport::scrub(['schema' => self::SCHEMA, 'month' => $month, 'customer_id' => $customerId, 'customer' => $customer, 'generated_at' => date(DATE_ATOM, $now),
@@ -67,9 +67,10 @@ final class Report
      * @param list<array{started_at: string, ended_at: ?string, status: int, minutes: int}> $incidents
      * @param list<array{date: string, version: string}> $versions
      * @param array<string, mixed>|null $summary the site's report_summary of that month
+     * @param string|null $month YYYY-MM: 3.26.1 adds the month's days for the uptime strip (Core\UptimeStrip), one per calendar day
      * @return array<string, mixed>
      */
-    public static function siteData(array $site, array $days, array $incidents, array $versions, ?array $summary): array
+    public static function siteData(array $site, array $days, array $incidents, array $versions, ?array $summary, ?string $month = null): array
     {
         $iso = static fn (?string $moment): ?string => $moment === null ? null : (($m = Clock::fromDb($moment)) !== null ? $m->format(DATE_ATOM) : null);
         $recorded = array_values(array_filter(array_map(static fn (array $d): string => (string) $d['version'], $days), static fn (string $v): bool => $v !== ''));
@@ -85,7 +86,7 @@ final class Report
             'updates' => array_map(static fn (array $v): array => ['date' => $iso($v['date']), 'version' => $v['version']], $versions),
             'attention' => History::attention($days),
             'summary' => $summary !== null && ($summary = History::summary($summary)) !== null ? array_diff_key($summary, ['month' => true]) : null,
-        ];
+        ] + ($month !== null ? ['days' => Uptime::forMonth(Uptime::fromHistory($days), $month, '9999-12-31')['days'] ?? []] : []);
     }
 
     /**
@@ -358,6 +359,8 @@ final class Report
                     [t('Version'), (string) $s['version_start'] !== (string) $s['version_end'] ? $s['version_start'] . ' → ' . $s['version_end'] : (string) $s['version_end']],
                     [t('Days needing attention'), t('%d of %d days recorded', (int) ($attention['days'] ?? 0), (int) ($attention['recorded'] ?? 0))],
                 ]))],
+                // 3.26.1: the month's days as the uptime strip (Core\UptimeStrip) – the same look as the site's page on the console
+                is_array($s['days'] ?? null) && $s['days'] !== [] ? ['type' => 'uptime', 'days' => array_values($s['days'])] : null,
                 $incidents === [] ? null : ['type' => 'table', 'caption' => t('Outages'), 'head' => [t('Start'), t('End'), t('Duration')],
                     'rows' => array_map(static fn (array $i): array => [$date($i['start']), $i['end'] !== null ? $date($i['end']) : t('still down at the end of the month'), $duration((int) $i['minutes'])], $incidents),
                     'numeric' => [2], 'short' => [0, 1]],
