@@ -21,6 +21,8 @@ final class Notifications
         $s->set('notification_check', (string) time());
         if (function_exists('fastcgi_finish_request')) {
             fastcgi_finish_request();
+        } elseif (function_exists('litespeed_finish_request')) {
+            litespeed_finish_request(); // 3.24: LiteSpeed hosting sends the answer first too
         }
         ignore_user_abort(true);
         try {
@@ -28,6 +30,30 @@ final class Notifications
         } catch (\Throwable) {
             // background work must not break the site; the next attempt happens on the next visit
         }
+    }
+
+    /**
+     * 3.24 (T11): admin.php runs the same light jobs after its answer, so reminders, scheduled publishing and mail retries
+     * keep their time on a site without cron where only the staff are active. The same once-a-minute pace and scheduler
+     * lock as a visit (runInBackground); only where the answer is out before the jobs start (FastCGI, LiteSpeed, the
+     * development server) – on a host that cannot finish the answer early a person would wait, so the visits and cron do
+     * it there as before. The jobs write in the site's language, as on a visit, not in this person's admin language.
+     */
+    public static function afterAdminResponse(App $app): void
+    {
+        if (!self::answersFirst() || time() - $app->settings()->int('notification_check') < 60) {
+            return;
+        }
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close(); // the person's next click must not wait for the session these jobs would hold
+        }
+        Language::runWith(Language::defaults($app->settings()), fn () => self::runInBackground($app));
+    }
+
+    /** Can this server send the answer before the background jobs run (no extra wait for the person)? */
+    public static function answersFirst(): bool
+    {
+        return function_exists('fastcgi_finish_request') || function_exists('litespeed_finish_request') || PHP_SAPI === 'cli-server';
     }
 
     /**

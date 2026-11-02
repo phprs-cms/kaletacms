@@ -29,3 +29,4 @@ unset($headers['X-Kaleta-Form-Action']);
 ] + ($app->request->isHttps() ? ['Strict-Transport-Security' => 'max-age=15552000'] : [])))->send();
 Kaleta\Core\Webhook::afterResponse($app); // e.g. a just-published news item
 Kaleta\Core\Mail::afterResponse($app); // e.g. the password reset link – queued, so the answer's timing reveals no account (3.3.3)
+Kaleta\Core\Notifications::afterAdminResponse($app); // 3.24: the light background jobs, as a visit runs them – reminders on a site without cron
