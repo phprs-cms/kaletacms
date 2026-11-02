@@ -212,13 +212,13 @@ final class MonthlyReport
         $types = [...self::CARE_EVENTS, ...array_keys(ReportSummary::ATTENTION_EVENTS)];
         $events = array_map('intval', $db->pairs('SELECT type, COUNT(*) FROM {events} WHERE type IN (' . implode(',', array_fill(0, count($types), '?')) . ') AND created_at >= ? AND created_at < ? GROUP BY type', [...$types, $from, $to]));
         $runs = array_map('intval', $db->pairs('SELECT name, runs FROM {jobs} WHERE name IN (' . implode(',', array_fill(0, count(ReportSummary::CHECK_JOBS), '?')) . ')', ReportSummary::CHECK_JOBS));
-        $before = ReportArchive::get($db, $monthStart->modify('first day of last month')->format('Y-m'))['data']['care']['job_runs'] ?? null;
-        $checks = null;
-        if (is_array($before)) {
-            $checks = [];
-            foreach ($runs as $job => $count) {
-                $checks[$job] = max(0, $count - (int) ($before[$job] ?? 0));
-            }
+        $own = ReportArchive::get($db, $monthStart->format('Y-m'))['data']['care'] ?? null;
+        if (is_array($own) && is_array($own['job_runs'] ?? null)) {
+            // N3261-3: a month rebuilt later – today's counters say nothing about it; it keeps the runs counted when it was archived
+            $runs = array_map('intval', array_filter($own['job_runs'], 'is_numeric'));
+            $checks = is_array($own['checks'] ?? null) ? array_map('intval', array_filter($own['checks'], 'is_numeric')) : null;
+        } else {
+            $checks = self::checkRuns($runs, ReportArchive::get($db, $monthStart->modify('first day of last month')->format('Y-m'))['data']['care']['job_runs'] ?? null);
         }
         // N3261-2: what people changed in the administration – the change log of signed-in people (kdo), without sign-ins and
         // failed sign-ins (a bot's attempts are no work), Kaleta's own changes (no user) and the comments counted below
@@ -241,6 +241,28 @@ final class MonthlyReport
         }
 
         return $care;
+    }
+
+    /**
+     * The runs of the daily checks in a month: each job's counter now less the one stored with the previous month's report;
+     * null without that report (the first month – unknown, never a guess). A counter lower than before was reset (a
+     * restored database, a job table emptied): the runs since then are the month's. Pure.
+     *
+     * @param array<string, int> $now
+     * @return array<string, int>|null
+     */
+    public static function checkRuns(array $now, mixed $before): ?array
+    {
+        if (!is_array($before)) {
+            return null;
+        }
+        $checks = [];
+        foreach ($now as $job => $count) {
+            $earlier = is_numeric($before[$job] ?? null) ? (int) $before[$job] : 0;
+            $checks[$job] = $count >= $earlier ? $count - $earlier : max(0, $count); // N3261-3: a reset counter
+        }
+
+        return $checks;
     }
 
     /** Security events the report counts (3.16) – the types only, never an address or an account. */

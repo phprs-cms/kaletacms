@@ -7847,8 +7847,15 @@ curl -s -b "$JAR" -D "$WORK/headers" -o "$WORK/response" "$B/admin.php?module=se
 grep -qi "content-disposition: attachment; filename=\"website-report-[a-z0-9.-]*-$LAST_MONTH.html\"" "$WORK/headers" && grep -q '<h1>' "$WORK/response" && ! grep -q '<script' "$WORK/response" \
   && echo "  ok     download: the same page as an HTML file, without the script" || { echo "  CHYBA  3.16 report_download"; grep -i disposition "$WORK/headers"; ERRORS=$((ERRORS+1)); }
 check "a month that is not archived: 404" 404 "/admin.php?module=settings&action=report_view&month=1999-01"
+# N3261-3: the counters of the daily checks move on after the month – a rebuild keeps the runs counted when it was archived
+RUNS3261=$(sq "SELECT JSON_EXTRACT(data, '\$.care.job_runs') FROM ka_monthly_reports WHERE month = '$LAST_MONTH'")
+JOB3261=$(sq "SELECT COUNT(*) FROM ka_jobs WHERE name = 'domain_watch'")
+sq "INSERT INTO ka_jobs (name, runs) VALUES ('domain_watch', 100) ON DUPLICATE KEY UPDATE runs = runs + 100" > /dev/null
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=report_rebuild" -d "_csrf=$TOKEN" -d "month=$LAST_MONTH"
 expect "rebuild from the data still available: the row is replaced and marked" "$(sq "SELECT rebuilt_at IS NOT NULL FROM ka_monthly_reports WHERE month = '$LAST_MONTH'")" "1"
+expect "3.26.1 (N3261-3): the rebuilt month keeps the runs of the daily checks counted when it was archived, not today's counters" \
+  "$(sq "SELECT JSON_EXTRACT(data, '\$.care.job_runs') FROM ka_monthly_reports WHERE month = '$LAST_MONTH'")" "$RUNS3261"
+if [ "$JOB3261" = 0 ]; then sq "DELETE FROM ka_jobs WHERE name = 'domain_watch'" > /dev/null; else sq "UPDATE ka_jobs SET runs = runs - 100 WHERE name = 'domain_watch'" > /dev/null; fi
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&action=report_view&month=$LAST_MONTH"
 grep -q 'when the report was rebuilt – not at the end of the month\|kdy byla zpráva znovu sestavena – ne ke konci měsíce' "$WORK/response" && ! grep -q 'Co čekalo na konci měsíce\|Waiting at the end of the month' "$WORK/response" \
   && echo "  ok     3.16 N316-7: a rebuilt report says that what waits, the problems and the audit are from the day of the rebuild" || { echo "  CHYBA  N316-7 rebuilt report labels"; ERRORS=$((ERRORS+1)); }

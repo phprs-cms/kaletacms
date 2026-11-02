@@ -9147,5 +9147,11 @@ check('3.26.1 (N3261-2): the changes people made – the care count when the rep
     str_contains($peopleSql3261, "via = '' AND kdo IS NOT NULL\n            AND modul NOT IN ('prihlaseni', 'whistleblowing') AND akce NOT IN ('comment added', 'note added')")],
     [['changes' => 3, 'comments' => 2], ['changes' => 5], ['changes' => 40], true]);
 
+// N3261-3: the runs of the daily checks – the difference to the previous month's counters; the first month unknown; a reset counter counts from 0
+check('3.26.1 (N3261-3): MonthlyReport::checkRuns – the month\'s runs from the counters, none without the month before, a counter reset (a restored database) counts the runs since',
+    [MonthlyReport::checkRuns(['domain_watch' => 90, 'security' => 61], ['domain_watch' => 60, 'security' => 30]), MonthlyReport::checkRuns(['domain_watch' => 90], null),
+        MonthlyReport::checkRuns(['domain_watch' => 12, 'cookie_scan' => 5], ['domain_watch' => 300, 'cookie_scan' => 'x']), MonthlyReport::checkRuns([], [])],
+    [['domain_watch' => 30, 'security' => 31], null, ['domain_watch' => 12, 'cookie_scan' => 5], []]);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);
