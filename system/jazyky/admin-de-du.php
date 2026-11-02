@@ -1139,4 +1139,10 @@ return [
     'Delete your comment? The thread keeps a note that it was deleted.' => 'Deinen Kommentar löschen? Im Verlauf bleibt ein Hinweis, dass er gelöscht wurde.',
     'Only administration users see it. Type @ to mention a colleague – they are notified.' => 'Nur Benutzer der Administration sehen ihn. Tippe @, um jemanden aus dem Team zu erwähnen – die Person wird benachrichtigt.',
     'Only administration users see it – it is added to the conversation with your name and the time. Type @ to mention a colleague – they are notified.' => 'Nur Benutzer der Administration sehen sie – sie wird mit deinem Namen und der Uhrzeit zur Unterhaltung hinzugefügt. Tippe @, um jemanden aus dem Team zu erwähnen – die Person wird benachrichtigt.',
+    'The site needed no decision from you this month.' => 'Die Website brauchte diesen Monat keine Entscheidung von dir.',
+    'The site needed your attention once this month.' => 'Die Website brauchte diesen Monat einmal deine Aufmerksamkeit.',
+    'The site needed your attention %s times this month.' => 'Die Website brauchte diesen Monat %s-mal deine Aufmerksamkeit.',
+    'It did not need a single decision from you.' => 'Dabei war keine einzige Entscheidung von dir nötig.',
+    'It needed your attention once.' => 'Einmal war deine Aufmerksamkeit nötig.',
+    'It needed your attention %s times.' => '%s-mal war deine Aufmerksamkeit nötig.',
 ];

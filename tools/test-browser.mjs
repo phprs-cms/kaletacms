@@ -1481,6 +1481,43 @@ await step('monthly report: the archive and the A4 print layout', async () => {
   }
 });
 
+// 3.26.1: the report page and the e-mail share one look (Core\ReportVisual) – at 1440 and 390 px, light and dark: the tiles and
+// the groups of "What it took to run the site" side by side on a computer and wrapped on a phone, no sideways scroll, the dark
+// screen turns the paper dark (printing stays light – the step above); the e-mail preview reads at 390 px in both modes too
+await step('3.26.1 monthly report: the report page and the e-mail at 1440 and 390 px, light and dark', async () => {
+  await visit('/admin.php?module=settings&tab=reports');
+  const href = new URL(await page.locator('a[href*="action=report_view"]').first().getAttribute('href'), BASE).href;
+  const preview = new URL('/admin.php?module=settings&action=report_preview', BASE).href;
+  for (const scheme of ['light', 'dark']) {
+    for (const width of [1440, 390]) {
+      const tab = await context.newPage();
+      watch(tab);
+      try {
+        await tab.emulateMedia({ colorScheme: scheme });
+        await tab.setViewportSize({ width, height: 900 });
+        for (const [name, url] of [['report', href], ['email', preview]]) {
+          await tab.goto(url, { waitUntil: 'networkidle' });
+          const look = await tab.evaluate(() => {
+            const tiles = [...document.querySelectorAll('.kr-tile')].map((t) => t.getBoundingClientRect());
+            const card = document.querySelector('.kr-card, .listina');
+            return { tiles: tiles.length, rows: new Set(tiles.map((r) => Math.round(r.top))).size, groups: document.querySelectorAll('.kr-box').length,
+              wide: document.documentElement.scrollWidth > window.innerWidth + 1, background: card ? getComputedStyle(card).backgroundColor : '' };
+          });
+          if (look.tiles < 3 || look.groups < 2) { throw new Error(`${name} ${width} ${scheme}: ${look.tiles} tiles, ${look.groups} groups`); }
+          if (look.wide) { throw new Error(`${name} ${width} ${scheme}: scrolls sideways`); }
+          if (width === 1440 && look.rows !== 1) { throw new Error(`${name} 1440: the tiles are not in one row (${look.rows})`); }
+          if (width === 390 && look.rows < 2) { throw new Error(`${name} 390: the tiles do not wrap`); }
+          const dark = look.background === 'rgb(28, 28, 27)';
+          if (dark !== (scheme === 'dark')) { throw new Error(`${name} ${width} ${scheme}: the card is ${look.background}`); }
+          if (SHOTS) { await tab.screenshot({ path: `${SHOTS}/report3261-${name}-${width}-${scheme}.png`, fullPage: true }); }
+        }
+      } finally {
+        await tab.close();
+      }
+    }
+  }
+});
+
 await step('3.9 Settings → Mail: choosing a mail service fills the server, port and encryption, shows its hint, and leaves the user name alone', async () => {
   await visit('/admin.php?module=settings&tab=mail');
   await page.locator('label.karta-volba', { has: page.locator('input[name="mail_mode"][value="smtp"]') }).click();

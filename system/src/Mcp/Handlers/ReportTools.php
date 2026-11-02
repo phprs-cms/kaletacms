@@ -42,6 +42,8 @@ trait ReportTools
             'month' => $stored['month'], 'created_at' => $stored['created_at'], 'rebuilt_at' => $stored['rebuilt_at'], 'schema_version' => $stored['schema_version'],
             'print_url' => $this->app->request->origin() . $this->app->url('admin.php?module=settings&action=report_view&month=' . $stored['month']),
             'report' => $stored['data'],
+            // 3.26.1: what it took to run the site, as the report's "What it took to run the site" counts it (Core\ReportSummary::care)
+            'care' => \Kaleta\Core\ReportSummary::care($stored['data']),
         ], fn ($v): bool => $v !== null);
     }
 

@@ -488,9 +488,9 @@ check('3.16: MonthlyReport::area – a person by the admin section, Claude by th
     MonthlyReport::area('claude', Kaleta\Mcp\Translator::czech('create_page') ?? 'create_page'), MonthlyReport::area('whatever', 'x')], ['pages', 'look', 'collections', 'look', 'media', 'newsletter', 'pages', 'other']);
 $sections316 = Kaleta\Core\Language::runWith('en', fn (): array => Kaleta\Core\ReportPage::sections($report316), 'admin-');
 $sectionKeys316 = array_column($sections316, 'key');
-check('3.16: ReportPage::sections – every section with data, in order; bookings off = no section; nothing personal printed', [$sectionKeys316,
-    str_contains((string) json_encode($sections316, JSON_UNESCAPED_UNICODE), '@'), $sections316[0]['blocks'][0]['type'], $sections316[0]['blocks'][0]['items'][0]],
-    [['summary', 'open', 'requests', 'work', 'claude', 'traffic', 'enquiries', 'newsletter', 'updates', 'backups', 'security', 'audit', 'problems'], false, 'facts', ['Visits', '120']]);
+check('3.16: ReportPage::sections – every section with data, in order; bookings off = no section; nothing personal printed (3.26.1: "At a glance" is the visual summary above them)', [$sectionKeys316,
+    str_contains((string) json_encode($sections316, JSON_UNESCAPED_UNICODE), '@'), $sections316[0]['blocks'][0]['type'], $sections316[0]['blocks'][0]['rows'][0]],
+    [['open', 'requests', 'work', 'claude', 'traffic', 'enquiries', 'newsletter', 'updates', 'backups', 'security', 'audit', 'problems'], false, 'pairs', ['Requests to Claude still open', '2']]);
 $view316 = new Kaleta\Core\View([KALETA_SYSTEM . '/views']);
 $stored316 = ['month' => '2026-09', 'created_at' => '2026-10-01 03:00:00', 'rebuilt_at' => null, 'data' => $scrubbed316];
 $page316 = Kaleta\Core\ReportPage::render($view316, $stored316, $reportSettings(['agency_name' => 'Studio Kaleta', 'agency_logo' => 'media/logo.svg']), 'https://example.com/');
@@ -501,7 +501,7 @@ check('3.16: the printable report – A4 with page numbers, the agency header, t
         str_contains($screen316, 'data-tisk'), str_contains($screen316, 'září 2026'), str_contains($screen316, 'Zpráva o webu'), str_contains($screen316, 'znovu sestaveno')],
     [true, true, true, true, true, false, false, true, true, true, true, true]);
 $mail316 = MonthlyReport::render($report316, $reportSettings([]), 'https://example.com');
-check('3.16: the e-mail adds the work on the site and the security counts, and points to Settings → Reports', [str_contains($mail316['html'], 'Work on the site'), str_contains($mail316['text'], 'Requests handled: 1'),
+check('3.16: the e-mail adds the work on the site and the security counts, and points to Settings → Reports', [str_contains($mail316['html'], 'What it took to run the site'), str_contains($mail316['text'], 'Requests answered: 1'),
     str_contains($mail316['text'], '42 blocked requests, 3 failed sign-ins'), str_contains($mail316['text'], 'Settings → Reports'), str_contains($mail316['html'] . $mail316['text'], 'client.example')], [true, true, true, true, false]);
 // 3.16 audit fixes (N316-1, -2, -4, -7, -9): one masker, no run summaries, CSS strings escaped, rebuilt reports labelled, ISO moments
 use Kaleta\Core\Redact;
@@ -538,7 +538,7 @@ $notes316 = static fn (array $section): array => array_values(array_map(static f
 check('3.16 N316-7: a rebuilt report says that what waits, the audit, the problems and the version are from the day of the rebuild', [$byKey316['open']['title'],
     in_array('As on 19 Oct 2026 10:00, when the report was rebuilt – not at the end of the month.', $notes316($byKey316['audit']), true),
     in_array('As on 19 Oct 2026 10:00, when the report was rebuilt – not at the end of the month.', $notes316($byKey316['problems']), true), $byKey316['updates']['blocks'][0]['rows'][0][0],
-    $sections316[1]['title']], ['Waiting when the report was rebuilt', true, true, 'Kaleta version when the report was rebuilt', 'Waiting at the end of the month']);
+    $sections316[0]['title']], ['Waiting when the report was rebuilt', true, true, 'Kaleta version when the report was rebuilt', 'Waiting at the end of the month']);
 $zone316 = date_default_timezone_get();
 date_default_timezone_set('Europe/Prague');
 $iso316 = $report316;
@@ -553,6 +553,96 @@ check('3.16 N316-9: moments stored as ISO 8601 with the offset print in the site
     ['6 Sep 2026', '5 Sep 2026', '10:00', null, null]);
 check('3.16 N316-7: the firewall keeps 30 days – a report says from when its firewall counts are complete', in_array(Kaleta\Core\Language::runWith('en', fn (): string => t('The firewall keeps its log for 30 days, so requests blocked before %s are not counted.', format_date('2026-09-02 00:30:00', true)), 'admin-'),
     $notes316($isoSections316['security']), true), true);
+// 3.26.1: reports you want to read – the e-mail, the report page and get_monthly_report share Core\ReportVisual blocks and
+// Core\ReportSummary: headline tiles, what it took to run the site (counted, never hours or money), uptime only with a console
+use Kaleta\Core\ReportSummary;
+use Kaleta\Core\ReportVisual;
+$care3261 = $report316 + ['care' => ['job_runs' => ['domain_watch' => 90, 'security' => 90], 'checks' => ['domain_watch' => 30, 'security' => 31], 'offsite_copies' => 20,
+    'links_healed' => 1, 'redirects_auto' => 2, 'comments' => 4, 'spam' => 6, 'enquiries_handled' => 2, 'replies' => 3, 'attention' => ['content.review' => 2, 'backup.failed' => 1, 'whatever.else' => 9]]];
+$care3261['stats']['days'] = array_merge(array_fill(0, 29, 4), [8]);
+$care3261['stats']['pages'][] = ['path' => '/kontakt', 'n' => 40];
+$careOf = ReportSummary::care($care3261);
+check('3.26.1: ReportSummary::care – what the site did by itself, Claude and people, the details outside the totals, the decisions by line (unknown events ignored, System status errors counted)',
+    [$careOf['automatic'], $careOf['claude'], $careOf['people'], $careOf['notes'], $careOf['attention'], $careOf['totals']],
+    [['updates' => 1, 'backups' => 20, 'offsite_copies' => 20, 'checks' => 61, 'links_fixed' => 3, 'spam' => 6, 'accounts_closed' => 1], ['requests' => 1, 'sessions' => 5, 'runs' => 4],
+        ['changes' => 12, 'comments' => 4], ['blocked' => 42, 'claude_changes' => 7, 'enquiries_handled' => 2, 'replies' => 3], ['backups' => 1, 'reviews' => 2],
+        ['automatic' => 112, 'claude' => 10, 'people' => 16, 'all' => 138, 'attention' => 3]]);
+$legacy3261 = ReportSummary::care(['month' => '2026-09', 'updates' => [['type' => 'update.applied'], ['type' => 'update.rolled_back']], 'backups' => ['created' => 30, 'failed' => 2], 'changes' => ['people' => 4, 'claude' => 9], 'decisions' => ['errors' => 1]]);
+check('3.26.1: a report stored before 3.26.1 – only what its parts say (no checks, copies, spam or comments – never a guess), the decisions from its failed updates and backups, no Claude group when Claude was off',
+    [$legacy3261['automatic'], $legacy3261['claude'], $legacy3261['people'], $legacy3261['notes'], $legacy3261['attention'], $legacy3261['totals']['attention']],
+    [['updates' => 1, 'backups' => 30], null, ['changes' => 4], [], ['updates' => 1, 'backups' => 2, 'errors' => 1], 4]);
+$tiles3261 = Kaleta\Core\Language::runWith('en', fn (): array => ReportSummary::tiles($care3261 + ['uptime' => ['percent' => 99.954, 'checks' => 8000, 'failed' => 4, 'days' => []]],
+    ['enquiries' => ['total' => 6], 'work' => ['pages_published_count' => 2, 'news_published_count' => 1, 'look_published' => 0], 'uptime' => ['percent' => 100]], $careOf), 'admin-');
+check('3.26.1: the headline tiles – visits, enquiries, uptime and changes published (four at most), the change against the month before from the data or the archived month',
+    array_map(static fn (array $t): string => $t['label'] . '=' . $t['value'] . '|' . ($t['change'] ?? $t['note'] ?? '') . '|' . ($t['tone'] ?? ''), $tiles3261),
+    ['Visits=120|▲ 20 %|up', 'Enquiries=3|▼ 50 %|down', 'Uptime=99.95 %|100 % last month|same', 'Changes published=3|= same as last month|same']);
+check('3.26.1: tiles of a quiet month without statistics or enquiries – at least three (backups, upkeep tasks); the change from 0',
+    Kaleta\Core\Language::runWith('en', fn (): array => [array_column(ReportSummary::tiles(['backups' => ['created' => 4], 'work' => ['pages_published_count' => 1]], ['work' => []], ReportSummary::care(['backups' => ['created' => 4]])), 'label'),
+        ReportSummary::change(5, 0), ReportSummary::change(0, 0), ReportSummary::change(5, null)], 'admin-'),
+    [['Changes published', 'Backups made', 'Upkeep tasks'], ['change' => '▲ up from 0', 'tone' => 'up'], ['change' => '= same as last month', 'tone' => 'same'], []]);
+check('3.26.1: ReportVisual palette – the site accent kept when bars and links read on white, a pale accent darkened to 3 : 1 (bars) and 4.5 : 1 (links), anything else Ink',
+    [ReportVisual::paletteFor('#2B5BE3')['accent'], ReportVisual::paletteFor('#2b5be3')['onAccent'], Kaleta\Builder\DesignSystem::contrast(ReportVisual::paletteFor('#ffd400')['accent'], '#ffffff') >= 3.0,
+        Kaleta\Builder\DesignSystem::contrast(ReportVisual::paletteFor('#ffd400')['link'], '#ffffff') >= 4.5, ReportVisual::paletteFor('red')['accent'], ReportVisual::paletteFor('#fff')['accent']],
+    ['#2b5be3', '#ffffff', true, true, '#121212', '#121212']);
+$mail3261 = MonthlyReport::render($care3261, $reportSettings(['design_system' => json_encode(['barvy' => ['primarni' => '#0f766e']])]), 'https://example.com', ['enquiries' => ['total' => 6]]);
+$html3261 = $mail3261['html'];
+check('3.26.1: the e-mail – the band in the site accent, the opening sentences, tiles, the split of the work and its groups, the decisions; the daily chart and bars from the data',
+    [str_contains($html3261, 'background:#0f766e;border-radius:13px 13px 0 0'), str_contains($html3261, 'Keeping Testovací firma running took <strong>138</strong> tasks: <strong>112</strong> done automatically, <strong>10</strong> by Claude and <strong>16</strong> by people.'),
+        substr_count($html3261, 'class="kr-tile"'), str_contains($html3261, 'What it took to run the site'), str_contains($html3261, 'Done automatically'), str_contains($html3261, 'Daily checks of the domain, certificate and security'),
+        str_contains($html3261, 'The site needed your attention 3 times this month.'), substr_count($html3261, 'valign="bottom" style="height:64px'), str_contains($html3261, 'Most in a day: 8'),
+        str_contains($html3261, 'width="50%" style="width:50%;background:#0f766e;height:6px'), str_contains($html3261, 'Open the full report')],
+    [true, true, 3, true, true, true, true, 30, true, true, true]);
+check('3.26.1: the e-mail is e-mail safe – tables and inline styles, no SVG, script or web font, at most 600 px, light and dark declared with dark rules, explicit backgrounds, under the 102 KB Gmail clips at',
+    [str_contains($html3261, '<svg'), str_contains($html3261, '<script'), str_contains($html3261, '@font-face') || str_contains($html3261, 'fonts.googleapis'), str_contains($html3261, 'max-width:600px'),
+        str_contains($html3261, '<meta name="color-scheme" content="light dark">'), str_contains($html3261, '@media (prefers-color-scheme:dark){.kr-page{background:#121212!important}'),
+        str_contains($html3261, '<body class="kr-page" style="margin:0;padding:0;background:#f6f4ee;">'), preg_match('/<(div|p|span)\b(?![^>]*style=)[^>]*>[^<\s]/', $html3261), strlen($html3261) < 100000,
+        str_contains($html3261, '<!--[if mso]>')],
+    [false, false, false, true, true, true, true, 0, true, true]);
+$text3261 = $mail3261['text'];
+check('3.26.1: the text part says everything the HTML says – the opening, the tiles with their change, the work by group and its lines, the decisions, traffic, the link to the full report',
+    [str_contains($text3261, "Keeping Testovací firma running took 138 tasks: 112 done automatically, 10 by Claude and 16 by people. It needed your attention 3 times."),
+        str_contains($text3261, "AT A GLANCE\n  Visits: 120 (▲ 20 %)\n  Enquiries: 3 (▼ 50 %)"), str_contains($text3261, "  Done automatically: 112\n    Kaleta updates installed: 1\n    Backups made: 20"),
+        str_contains($text3261, '    Suspicious requests stopped by the firewall: 42'), str_contains($text3261, "    – Backups that failed: 1"), str_contains($text3261, "TRAFFIC\n  Visits: 120 (+20 %)"),
+        str_contains($text3261, 'Open the full report: https://example.com/admin.php?module=settings&tab=reports'), str_contains($text3261, '<')],
+    [true, true, true, true, true, true, true, false]);
+$words3261 = '/\b(hours?|minutes?|hodin\w*|minut\w*|Stunden?|horas?|price\w*|cost\w*|invoice\w*|money|cena|ceny|Kosten|Preis\w*|precio\w*|EUR|USD|CZK|Kč)\b|[€$]/iu';
+$cleanData3261 = array_replace($care3261, ['requests' => ['created' => 1, 'done' => [], 'done_count' => 1, 'open' => [], 'open_count' => 0]]);
+$noHours3261 = [];
+foreach (['en', 'cs', 'de', 'es'] as $language) {
+    $m = MonthlyReport::render($cleanData3261 + ['uptime' => ['percent' => 99.9, 'checks' => 10, 'failed' => 1, 'days' => []]], $reportSettings(['site_language' => $language]), 'https://example.com');
+    $page = Kaleta\Core\ReportPage::render($view316, ['month' => '2026-09', 'created_at' => '2026-10-01 03:00:00', 'rebuilt_at' => null, 'data' => $cleanData3261], $reportSettings(['site_language' => $language]), 'https://example.com');
+    preg_match_all($words3261, strip_tags(preg_replace('/<style>.*?<\/style>/s', '', $m['html'] . $page)) . $m['text'], $found);
+    $noHours3261[$language] = array_values(array_unique($found[0]));
+}
+check('3.26.1: a summary of what happened – no hours, minutes, prices or money anywhere in the e-mail, its text or the report page, in any language', $noHours3261, ['en' => [], 'cs' => [], 'de' => [], 'es' => []]);
+$evilData3261 = array_replace_recursive($care3261, ['stats' => ['pages' => [['path' => '/"><img src=x onerror=alert(1)>', 'n' => 5]]], 'work' => ['news_published' => [['title' => '<script>alert(1)</script> & co', 'date' => '2026-09-10 08:00:00']]],
+    'enquiries' => ['forms' => [['form' => "Kontakt' style='x", 'n' => 3]]], 'problems' => [['name' => '<b>Cron</b>', 'info' => 'x', 'state' => 'chyba']]]);
+$evil3261 = MonthlyReport::render($evilData3261, $reportSettings(['site_name' => 'Acme <i>&</i> "Co"', 'agency_name' => 'Studio <script>']), 'https://example.com');
+$evilPage3261 = Kaleta\Core\ReportPage::render($view316, ['month' => '2026-09', 'created_at' => '2026-10-01 03:00:00', 'rebuilt_at' => null, 'data' => $evilData3261], $reportSettings(['site_name' => 'Acme <i>&</i> "Co"']), 'https://example.com');
+check('3.26.1: every text from the data and the settings is escaped in the e-mail and on the page – paths, titles, form names, problems, the site and agency names',
+    [str_contains($evil3261['html'] . $evilPage3261, '<img src=x'), str_contains($evil3261['html'] . $evilPage3261, '<script>alert'), str_contains($evil3261['html'], "Kontakt' style"), str_contains($evil3261['html'] . $evilPage3261, '<b>Cron'),
+        str_contains($evil3261['html'] . $evilPage3261, '<i>&</i>'), str_contains($evil3261['html'], 'Studio <script>'), str_contains($evil3261['html'], '&lt;script&gt;alert(1)&lt;/script&gt; &amp; co'), str_contains($evil3261['html'], 'Acme &lt;i&gt;&amp;&lt;/i&gt; &quot;Co&quot;')],
+    [false, false, false, false, false, false, true, true]);
+$uptimeMail3261 = MonthlyReport::render($care3261 + ['uptime' => ['percent' => 99.5, 'checks' => 8640, 'failed' => 43, 'days' => [['date' => '2026-09-01', 'state' => 'up', 'percent' => 100.0]]]], $reportSettings([]), 'https://example.com');
+check('3.26.1: uptime only with a console – the tile and the section with the checks when the data has it; without "uptime" (no console) the e-mail has no uptime at all',
+    [str_contains($uptimeMail3261['html'], '>Uptime</div>'), str_contains($uptimeMail3261['html'], '99.50 % of the time up – 8,640 checks by the console, 43 of them failed.'), preg_match('/UPTIME\n  [^\n]*99\.50 %/u', $uptimeMail3261['text']) === 1, // the line of Core\UptimeStrip::text once it is there (agent B), until then the report's own
+        str_contains($html3261, 'Uptime'), str_contains($text3261, 'UPTIME'), str_contains(MonthlyReport::render($care3261 + ['uptime' => null], $reportSettings([]), 'https://example.com')['html'], 'Uptime')],
+    [true, true, true, false, false, false]);
+$old3261 = MonthlyReport::render(['month' => '2026-09', 'stats' => ['visits' => 4321], 'enquiries' => ['total' => 17, 'forms' => [['form' => 'Kontakt', 'n' => 17]]], 'requests' => ['done_count' => 3, 'done' => [['title' => 'Secret title 317']]],
+    'work' => ['areas' => ['pages' => ['people' => 4, 'claude' => 9]]], 'updates' => [['type' => 'update.applied']], 'backups' => ['created' => 30]], $reportSettings(['site_language' => 'cs']), 'https://example.com');
+check('3.26.1: an archived report of 3.16–3.26 with missing parts still renders – in Czech, tiles of what is there, no checks line, no title of a request',
+    [str_contains($old3261['html'], 'Co dal provoz webu za práci'), substr_count($old3261['html'], 'class="kr-tile"'), str_contains($old3261['html'], 'Denní kontroly'), str_contains($old3261['html'] . $old3261['text'], 'Secret title'),
+        str_contains($old3261['text'], 'Provoz webu Testovací firma si vyžádal 34 úkonů: 31 proběhlo automaticky, 3 udělal Claude a 0 lidé.')],
+    [true, 3, false, false, true]);
+$visualPage3261 = Kaleta\Core\ReportPage::render($view316, ['month' => '2026-09', 'created_at' => '2026-10-01 03:00:00', 'rebuilt_at' => null, 'data' => $care3261], $reportSettings(['design_system' => json_encode(['barvy' => ['primarni' => '#9a3412']])]), 'https://example.com/', [], ['enquiries' => ['total' => 6]]);
+check('3.26.1: the report page shares the e-mail\'s blocks – the band and bars in the accent, the tiles, what it took to run the site; dark on a dark screen only, never in print; the fleet report has no visual summary',
+    [str_contains($visualPage3261, '--akcent: #9a3412;'), substr_count($visualPage3261, 'class="kr-tile"'), str_contains($visualPage3261, 'What it took to run the site'), str_contains($visualPage3261, '<section class="prehled" id="summary"'),
+        str_contains($visualPage3261, '@media screen and (prefers-color-scheme: dark)'), str_contains($visualPage3261, '.kr-card{background:#1c1c1b!important'), str_contains($visualPage3261, 'max-width:225px'),
+        str_contains(Kaleta\Fleet\Report::render($view316, ['month' => '2026-09', 'customer' => 'X', 'created_at' => '2026-10-01 03:00:00', 'rebuilt_at' => null, 'data' => ['sites' => []]], $reportSettings([]), 'https://console.example'), 'class="kr-tile"')],
+    [true, 3, true, true, true, true, true, false]);
+check('3.26.1: the off-site copy of a backup is a known event, the decisions the report counts are known events too', [isset(Kaleta\Core\Events::TYPES['backup.copied']),
+    array_values(array_diff(array_keys(ReportSummary::ATTENTION_EVENTS), array_keys(Kaleta\Core\Events::TYPES))), array_values(array_diff(array_unique(array_values(ReportSummary::ATTENTION_EVENTS)), array_keys(ReportSummary::ATTENTION)))],
+    [true, [], []]);
 $ok = [200, 'KALETA-PROBE 9.9.9'];
 check('2.8: Updater::probeVerdict', [
     Kaleta\Core\Updater::probeVerdict(['probe' => $ok, 'home' => [200, 'x'], 'admin' => [200, 'x']], '9.9.9'),

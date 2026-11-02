@@ -28,6 +28,7 @@ final class Events
         'look.published' => 'The draft look (design system, classes, menus) was published.',
         'backup.created' => 'An automatic database backup was made.',
         'backup.failed' => 'A database backup or its off-site copy failed.',
+        'backup.copied' => 'An automatic backup was copied off the server (FTPS or S3; the file) – the monthly report counts the copies (3.26.1).',
         'backup.restored' => 'The database was restored from a backup in Settings → Backups and updates (3.19.1; the file, the safety backup made before it and the user) – written after the restore, so the restored database keeps it.',
         'backup.deleted' => 'A database backup was deleted in Settings → Backups and updates (3.19.1; the file and the user).',
         'backup.tables_both_names' => 'After a restore, some tables exist under both their old and their English name (3.15, the tables named) – nothing was deleted, a person decides which copy stays.',

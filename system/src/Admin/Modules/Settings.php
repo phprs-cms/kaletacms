@@ -1045,8 +1045,10 @@ class Settings extends Module
         if ($stored === null) {
             return $this->error('This month is not in the archive.', 404);
         }
+        $stored['data'] = \Kaleta\Core\MonthlyReport::monthData($this->app, new \DateTimeImmutable($stored['month'] . '-01')); // 3.26.1: as the e-mail reads it (an older month gains its uptime)
         $html = \Kaleta\Core\ReportPage::render($this->app->view, $stored, $this->app->settings(), $this->siteAddress(), [
-            'script' => $this->app->url('image/tisk.js') . '?v=' . KALETA_VERSION, 'download' => $this->url('report_download', ['month' => $stored['month']]), 'back' => $this->url('', ['tab' => 'reports'])]);
+            'script' => $this->app->url('image/tisk.js') . '?v=' . KALETA_VERSION, 'download' => $this->url('report_download', ['month' => $stored['month']]), 'back' => $this->url('', ['tab' => 'reports'])],
+            \Kaleta\Core\MonthlyReport::previousData($this->app, new \DateTimeImmutable($stored['month'] . '-01')));
 
         // its own inline styles and the Print button script, nothing else may run – like the door sign
         return new Response($html, 200, ['Content-Type' => 'text/html; charset=utf-8', 'Cache-Control' => 'no-store, private',
@@ -1062,7 +1064,10 @@ class Settings extends Module
         }
         $host = (string) preg_replace('/[^a-z0-9.-]+/', '-', strtolower((string) (parse_url($this->siteAddress(), PHP_URL_HOST) ?: 'site')));
 
-        return new Response(\Kaleta\Core\ReportPage::render($this->app->view, $stored, $this->app->settings(), $this->siteAddress()), 200, ['Content-Type' => 'text/html; charset=utf-8',
+        $stored['data'] = \Kaleta\Core\MonthlyReport::monthData($this->app, new \DateTimeImmutable($stored['month'] . '-01')); // 3.26.1: as the e-mail reads it (an older month gains its uptime)
+        $previous = \Kaleta\Core\MonthlyReport::previousData($this->app, new \DateTimeImmutable($stored['month'] . '-01'));
+
+        return new Response(\Kaleta\Core\ReportPage::render($this->app->view, $stored, $this->app->settings(), $this->siteAddress(), [], $previous), 200, ['Content-Type' => 'text/html; charset=utf-8',
             'Content-Disposition' => 'attachment; filename="website-report-' . $host . '-' . $stored['month'] . '.html"', 'Cache-Control' => 'no-store, private', 'X-Content-Type-Options' => 'nosniff',
             'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data: https: http:; frame-ancestors 'none'; base-uri 'none'"]);
     }
