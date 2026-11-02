@@ -177,7 +177,12 @@ the tool set.
   - The runners take the same path as a direct tools/call (access level, guardrails and reason, undo journal, change
     log) and refuse every meta tool as the inner tool.
   - A tool outside the list can still be called directly by name.
-- The meta tools are callable on any connection, but listed only for essentials connections; all four are in the
+- **Work (3.26)** – for an employee's own Claude (owner decision D-W10): the 20 tools of `Mcp\Catalog::WORK` (`site_info`,
+  `my_work`, the enquiry tools including `reply_to_enquiry`, `list_comments` and `add_comment`, `assign`,
+  `get_email_signature`, requests, the notebook, `list_pages`/`get_page`/`preview_link`, collections and their items)
+  plus `find_tools` and the runners, the same way as the essentials – about 26 KB on a full connection (a unit test keeps
+  it under 49,000 bytes). Offered under Advanced next to the essentials; existing connections keep their tool set.
+- The meta tools are callable on any connection, but listed only for essentials and work connections; all four are in the
   contract (`tools/contracts/mcp-tools.json`).
 - Before migration 0085 has run (the `tool_set` column missing), MCP and OAuth keep working with all tools (N310-9).
 
