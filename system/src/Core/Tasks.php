@@ -109,8 +109,10 @@ final class Tasks
         foreach (['due_at', 'remind_at'] as $key) {
             if (array_key_exists($key, $fields)) {
                 $data[$key] = self::parseMoment((string) ($fields[$key] ?? ''));
-                if ($data[$key] !== $task[$key]) {
-                    $data['notified_at'] = null; // a new moment notifies again
+                // a new moment notifies again – to the minute, as every form shows it (N327-4: the same moment saved again
+                // from the admin's edit form never notifies a second time)
+                if (($data[$key] === null) !== ($task[$key] === null) || substr((string) $data[$key], 0, 16) !== substr((string) $task[$key], 0, 16)) {
+                    $data['notified_at'] = null;
                 }
             }
         }
@@ -384,7 +386,8 @@ final class Tasks
      * A due moment or a reminder as a DATETIME on the site's clock; null for nothing ('' or 'none'). It takes
      * "YYYY-MM-DD" (at DEFAULT_TIME), "YYYY-MM-DD HH:MM", ISO 8601 with T and an optional offset (converted to the site's
      * zone), "today", "tomorrow" (at DEFAULT_TIME), "+3 days", "+1 week" (that day at DEFAULT_TIME) and "+2 hours",
-     * "+30 minutes" (from now). Anything else is a \DomainException. $now only for tests.
+     * "+30 minutes" (from now). Anything else is a \DomainException. To the minute – seconds are dropped (N327-4). $now only
+     * for tests.
      */
     public static function parseMoment(string $value, ?\DateTimeImmutable $now = null): ?string
     {
@@ -404,8 +407,8 @@ final class Tasks
             return match ($m[2]) {
                 'day', 'days' => $atDefault($now->modify('+' . $n . ' days')),
                 'week', 'weeks' => $atDefault($now->modify('+' . ($n * 7) . ' days')),
-                'hour', 'hours' => $now->modify('+' . $n . ' hours')->format(Clock::FORMAT),
-                default => $now->modify('+' . $n . ' minutes')->format(Clock::FORMAT),
+                'hour', 'hours' => $now->modify('+' . $n . ' hours')->format('Y-m-d H:i:00'),
+                default => $now->modify('+' . $n . ' minutes')->format('Y-m-d H:i:00'),
             };
         }
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/D', $value) === 1) {
@@ -418,7 +421,7 @@ final class Tasks
             $offset = $m[5];
             $moment = \DateTimeImmutable::createFromFormat('!Y-m-d H:i:s', $m[1] . ' ' . $m[2] . ($m[3] !== '' ? $m[3] : ':00'), $offset !== '' ? new \DateTimeZone($offset === 'z' ? 'UTC' : $offset) : $zone);
             if ($moment !== false && $moment->format('Y-m-d') === $m[1]) {
-                return Clock::toDb($moment);
+                return substr(Clock::toDb($moment), 0, 16) . ':00';
             }
         }
         throw new \DomainException(t('The date “%s” is not understood – use YYYY-MM-DD, YYYY-MM-DD HH:MM, “tomorrow” or “+3 days”.', $value));

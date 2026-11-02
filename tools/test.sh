@@ -9525,6 +9525,13 @@ expect "N327-2: … offers nobody, chosen; saving the edit keeps it unassigned a
   "$(grep -c '<option value="0" selected>nikdo</option>' "$WORK/n3272")|$(sq "SELECT CONCAT(title, '/', IFNULL(assignee_id, 'null')) FROM ka_tasks WHERE id = $B327_NOBODY")|$(sq "SELECT COUNT(*) FROM ka_notifications WHERE target = 'task:$B327_NOBODY'")" \
   "1|N3272 orphan renamed/null|0"
 sq "DELETE FROM ka_tasks WHERE id = $B327_NOBODY" > /dev/null
+# N327-4: a task already notified, its due moment stored with seconds (as "+2 hours" saved before) – saving the edit form with the
+# same day and time (HH:MM) is no new moment: it does not notify again
+B327_SEC=$(sq "INSERT INTO ka_tasks (title, target, assignee_id, created_by, due_at, notified_at, created_at, updated_at) VALUES ('N3274 seconds', 'page:$B327_PAGE', $B327_ADMIN, $B327_ADMIN, '$(site_date '+4 days') 11:15:42', '$(site_time)', '$(site_time)', '$(site_time)'); SELECT LAST_INSERT_ID();")
+b327_task "$JAR" pages "$B327_PAGE_SCREEN" -d "ids=$B327_PAGE" -d op=edit -d "task=$B327_SEC" --data-urlencode "title=N3274 seconds renamed" -d "assignee_id=$B327_ADMIN" -d "due_date=$(site_date '+4 days')" -d due_time=11:15 -d remind= > /dev/null
+expect "N327-4: the same due moment saved again from the edit form (to the minute) keeps the task notified" \
+  "$(sq "SELECT CONCAT(title, '/', notified_at IS NOT NULL) FROM ka_tasks WHERE id = $B327_SEC")" "N3274 seconds renamed/1"
+sq "DELETE FROM ka_tasks WHERE id = $B327_SEC" > /dev/null
 B327_BEFORE=$(b327_row "$B327_T3")
 b327_task "$JAR" enquiries "$B327_ENQ_SCREEN" -d "idp=$B327_ENQ" -d op=done -d "task=$B327_T3" > /dev/null
 check "3.27: a task id of another record is not found through this one" 200 "/admin.php?$B327_ENQ_SCREEN" 'Úkol neexistuje.'

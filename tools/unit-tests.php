@@ -9293,5 +9293,13 @@ check('3.27 tasks never clear the page cache – enquiries, pages and collection
     array_diff(array_keys(TaskPanel::QUICK + TaskPanel::FOLLOW_UP + Kaleta\Core\Tasks::SNOOZE), array_keys(TaskPanel::DAY_LABELS)), array_keys(TaskPanel::REMIND) === array_keys(TaskPanel::REMIND_LABELS)],
     [false, false, false, [true, true, true], [], true]);
 
+// N327-4: moments to the minute – "+2 hours" from a time with seconds and an ISO time with seconds drop the seconds, so the same
+// moment saved again from the admin's edit form (HH:MM) is no new moment and never notifies a second time
+$n3274Now = new DateTimeImmutable('2026-11-02 14:30:27', Kaleta\Core\Clock::zone());
+check('N327-4: Tasks::parseMoment drops seconds (relative hours and minutes, ISO with seconds)', [
+    Kaleta\Core\Tasks::parseMoment('+2 hours', $n3274Now), Kaleta\Core\Tasks::parseMoment('+30 minutes', $n3274Now), Kaleta\Core\Tasks::parseMoment('2026-12-01T15:45:59', $n3274Now),
+    Kaleta\Core\Tasks::parseMoment('2026-12-01 15:45', $n3274Now)],
+    ['2026-11-02 16:30:00', '2026-11-02 15:00:00', '2026-12-01 15:45:00', '2026-12-01 15:45:00']);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);
