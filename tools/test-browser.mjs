@@ -2992,7 +2992,6 @@ await step('3.25 menu: groups in order, folding by keyboard, remembered per brow
   await page.evaluate(() => { try { localStorage.removeItem('kaleta-menu'); } catch (e) { /* nothing */ } });
   await page.setViewportSize({ width: 1440, height: 900 });
   await visit('/admin.php?module=bookings');
-  // agent A's Enquiries::GROUP = 'Workspace' lands in the same release; until then Enquiries has a Customers group of its own
   const names = (await page.locator('#menu summary.menu-skupina > span:first-child').allTextContents()).map((n) => n.trim());
   if (JSON.stringify(names) !== JSON.stringify(['Content', 'Workspace', 'Appearance', 'Claude', 'Site care', 'Administration'])) { throw new Error(`the groups are ${names.join(' | ')}`); }
   const first = await page.locator('#menu > li').evaluateAll((list) => list.slice(0, 2).map((li) => li.textContent.trim()));

@@ -8686,11 +8686,9 @@ $c325All = [];
 foreach (Kaleta\Admin\Kernel::MODULES as $c325Class) {
     $c325All[$c325Class::IDENT] = $c325Class;
 }
-// agent A's one line (Enquiries::GROUP = 'Workspace') lands in the same release; until it is merged, read Customers as Workspace
-$c325Rename = []; // Enquiries is in Workspace since the 3.25 merge (agent A); no allowance for the old Customers group
 $c325Runs = [];
 foreach (Kaleta\Admin\MenuGroups::groups($c325All) as $c325Run) {
-    $c325Name = $c325Rename[$c325Run['group']] ?? $c325Run['group'];
+    $c325Name = $c325Run['group'];
     $c325Last = array_key_last($c325Runs);
     if ($c325Last !== null && $c325Runs[$c325Last][0] === $c325Name) {
         $c325Runs[$c325Last][1] = [...$c325Runs[$c325Last][1], ...$c325Run['items']];
@@ -8701,7 +8699,7 @@ foreach (Kaleta\Admin\MenuGroups::groups($c325All) as $c325Run) {
 $c325Names = array_column($c325Runs, 0);
 check('3.25 (C): the menu groups of an administrator with every feature on – contiguous, in the order Content, Workspace, Appearance, Claude, Site care, Administration', [
     $c325Names, count($c325Names) === count(array_unique($c325Names)), max(array_map(fn (array $r): int => count($r[1]), $c325Runs)) <= Kaleta\Admin\MenuGroups::MAX_ITEMS,
-    array_values(array_diff(array_unique(array_map(fn (string $c): string => $c325Rename[$c::GROUP] ?? $c::GROUP, array_slice(Kaleta\Admin\Kernel::MODULES, 1))), Kaleta\Admin\MenuGroups::ORDER)),
+    array_values(array_diff(array_unique(array_map(fn (string $c): string => $c::GROUP, array_slice(Kaleta\Admin\Kernel::MODULES, 1))), Kaleta\Admin\MenuGroups::ORDER)),
 ], [Kaleta\Admin\MenuGroups::ORDER, true, true, []]);
 check('3.25 (C): the items of each group (Bookings in Workspace, Statistics in Site care, Business details and the Newsletter hub in Content; no Company or Customers group)', array_combine($c325Names, array_column($c325Runs, 1)), [
     'Content' => ['pages', 'news', 'collections', 'media', 'newsletters', 'business'],
@@ -8734,7 +8732,7 @@ foreach ($c325Paths as [$parts, $module]) {
     if (in_array($parts[0], ['Customers', 'Company'], true)) {
         $c325Wrong[] = implode(' → ', $parts);
     } elseif (in_array($parts[0], Kaleta\Admin\MenuGroups::ORDER, true) && count($parts) > 1 && !in_array($parts[0], ['Content', 'Settings'], true)
-        && (!isset($c325All[$module]) || ($c325Rename[$c325All[$module]::GROUP] ?? $c325All[$module]::GROUP) !== $parts[0] || $c325All[$module]::NAME !== $parts[1])) {
+        && (!isset($c325All[$module]) || $c325All[$module]::GROUP !== $parts[0] || $c325All[$module]::NAME !== $parts[1])) {
         $c325Wrong[] = implode(' → ', $parts);
     }
 }
