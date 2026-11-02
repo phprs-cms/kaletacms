@@ -9153,5 +9153,14 @@ check('3.26.1 (N3261-3): MonthlyReport::checkRuns – the month\'s runs from the
         MonthlyReport::checkRuns(['domain_watch' => 12, 'cookie_scan' => 5], ['domain_watch' => 300, 'cookie_scan' => 'x']), MonthlyReport::checkRuns([], [])],
     [['domain_watch' => 30, 'security' => 31], null, ['domain_watch' => 12, 'cookie_scan' => 5], []]);
 
+// N3261-4: the days the site keeps – only those it asked for (a console's day in the future never pushes real days out), all of KEEP_MONTHS
+$many3261 = array_map(fn (int $i): array => ['date' => date('Y-m-d', strtotime('2026-08-01 +' . $i . ' days')), 'checks' => 288, 'failed' => 0], range(0, 91));
+$future3261 = array_map(fn (int $i): array => ['date' => date('Y-m-d', strtotime('2030-01-01 +' . $i . ' days')), 'checks' => 288, 'failed' => 0], range(0, 69));
+$kept3261 = Uptime::merge(array_slice($many3261, 0, 60), [...array_slice($many3261, 60), ...$future3261], '2026-08-01', '2026-11-02');
+check('3.26.1 (N3261-4): Uptime keeps the three months whole (not just the 70 days of one answer) and no day after the one asked for – a console\'s future dates are dropped', [
+    count($kept3261), $kept3261[0]['date'], end($kept3261)['date'], count(Uptime::stored($reportSettings([Uptime::SETTING => (string) json_encode(['checked' => time(), 'days' => $many3261])]))['days']),
+    count(Uptime::clean($many3261)), Uptime::merge([], [['date' => '2026-11-03', 'checks' => 1, 'failed' => 0]], '2026-09-01', '2026-11-03')[0]['date']],
+    [92, '2026-08-01', '2026-10-31', 92, Uptime::MAX_DAYS, '2026-11-03']);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

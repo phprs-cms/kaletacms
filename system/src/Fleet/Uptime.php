@@ -35,6 +35,9 @@ final class Uptime
     /** The months kept on the site: the current one and the two before (the report of the last month may be rebuilt later). */
     public const int KEEP_MONTHS = 3;
 
+    /** The days the site keeps at most: KEEP_MONTHS whole months (N3261-4). */
+    public const int STORED_DAYS = self::KEEP_MONTHS * 31;
+
     /** Checks of one day at most: every 5 minutes is 288, a check by hand adds one. */
     private const int MAX_CHECKS = 100_000;
 
@@ -130,7 +133,8 @@ final class Uptime
         $s->set(self::SETTING, (string) json_encode([
             'checked' => $now,
             'received' => $days !== null ? $now : ($stored['received'] ?? null),
-            'days' => self::merge($stored['days'] ?? [], $days ?? [], $keep),
+            // N3261-4: only the days the site asked for – a console's clock or data from the future never pushes real days out
+            'days' => self::merge($stored['days'] ?? [], $days ?? [], $keep, date('Y-m-d', $now + 86400)),
         ], JSON_UNESCAPED_SLASHES));
 
         return $days !== null ? ', uptime ' . count($days) . ' days' : ', uptime not offered (' . ($answer['status'] > 0 ? 'HTTP ' . $answer['status'] : 'no answer') . ')';
@@ -154,17 +158,17 @@ final class Uptime
 
     /**
      * Only well-formed days: a real date, whole counts in bounds, failed not more than the checks; one entry per date (the
-     * last wins), sorted, at most MAX_DAYS. Pure.
+     * last wins), sorted, at most $max (an answer MAX_DAYS, what the site keeps STORED_DAYS). Pure.
      *
      * @return list<array{date: string, checks: int, failed: int}>
      */
-    public static function clean(mixed $days): array
+    public static function clean(mixed $days, int $max = self::MAX_DAYS): array
     {
         if (!is_array($days)) {
             return [];
         }
         $out = [];
-        foreach (array_slice($days, -self::MAX_DAYS * 2) as $day) {
+        foreach (array_slice($days, -$max * 2) as $day) {
             $date = is_array($day) ? ($day['date'] ?? null) : null;
             if (!is_string($date) || preg_match('/^(\d{4})-(\d{2})-(\d{2})$/D', $date, $m) !== 1 || !checkdate((int) $m[2], (int) $m[3], (int) $m[1])
                 || !is_int($day['checks'] ?? null) || !is_int($day['failed'] ?? null)) {
@@ -175,21 +179,21 @@ final class Uptime
         }
         ksort($out);
 
-        return array_slice(array_values($out), -self::MAX_DAYS);
+        return array_slice(array_values($out), -$max);
     }
 
     /**
-     * The stored days with the new ones over them (by the date), without the days before $keepFrom. Pure.
+     * The stored days with the new ones over them (by the date), without the days before $keepFrom or after $until. Pure.
      *
      * @param list<array{date: string, checks: int, failed: int}> $old
      * @param list<array{date: string, checks: int, failed: int}> $new
      * @return list<array{date: string, checks: int, failed: int}>
      */
-    public static function merge(array $old, array $new, string $keepFrom): array
+    public static function merge(array $old, array $new, string $keepFrom, string $until = '9999-12-31'): array
     {
         $out = [];
         foreach ([...$old, ...$new] as $day) {
-            if ($day['date'] >= $keepFrom) {
+            if ($day['date'] >= $keepFrom && $day['date'] <= $until) {
                 $out[$day['date']] = $day;
             }
         }
@@ -210,7 +214,8 @@ final class Uptime
             return null;
         }
 
-        return ['checked' => $data['checked'], 'received' => is_int($data['received'] ?? null) ? $data['received'] : null, 'days' => self::clean($data['days'] ?? [])];
+        // N3261-4: every day of the KEEP_MONTHS months, not just the MAX_DAYS of one answer (a month before last kept whole)
+        return ['checked' => $data['checked'], 'received' => is_int($data['received'] ?? null) ? $data['received'] : null, 'days' => self::clean($data['days'] ?? [], self::STORED_DAYS)];
     }
 
     /**
