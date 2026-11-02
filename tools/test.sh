@@ -8747,7 +8747,7 @@ sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, admin, posledni_logi
 W324_HELPER=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'w324-helper'")
 check "3.24 Users: the edit form offers the hand-over next to Block account" 200 "/admin.php?module=users&action=edit&id=$W324_SALES" 'name="hand_over_to"'
 expect "N324-4 Users: with a page in the trash the recipient must open Pages too – the administrator is offered, the colleague with Enquiries only not" \
-  "$(grep -c "<option value=\"$W324_ADMIN\">" "$WORK/response")|$(grep -c "<option value=\"$W324_HELPER\">" "$WORK/response")" "1|0"
+  "$(php -r 'preg_match("#<select id=\"hand_over_to\".*?</select>#s", (string) file_get_contents($argv[1]), $m); $s = $m[0] ?? ""; echo substr_count($s, "<option value=\"" . $argv[2] . "\""), "|", substr_count($s, "<option value=\"" . $argv[3] . "\"");' "$WORK/response" "$W324_ADMIN" "$W324_HELPER")" "1|0"
 TOKEN=$(csrf); W324_LOG=$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'users'")
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d "idu=$W324_SALES" -d user=w324-sales -d jmeno='Sales W324' -d email=w324-sales@example.com -d admin=0 -d blokovat=1 -d hand_over_to=0
 expect "3.24 Users: block with the hand-over in the edit form – the enquiry has nobody, the account is blocked, one change-log row" \
