@@ -1295,6 +1295,17 @@ connections (existing connections keep `all` or `essentials`).
    tools an employee needs (My work, enquiries, comments, assign, signature, requests, notebook, pages, collection items).
 5. **Builder:** spacing and colours are chosen from the design system (with "Custom…" checked in the field).
 
+**3.26.1 (3 November 2026):** a monthly report you want to read (owner request of 2 November). No migration; no setting, MCP
+tool or parameter renamed; `get_monthly_report` gains `uptime` and `care`.
+- **One look everywhere** (`Core\ReportVisual`): the e-mail, the report page and its print share the same components – a
+  band with the month, a one-sentence summary, up to four headline tiles with the change against the month before, bar and
+  column charts; tables and inline styles only, readable in Gmail, Outlook and Apple Mail and in their dark modes.
+- **What it took to run the site** (`Core\ReportSummary::care`): the month's work as counts – done automatically, by Claude
+  and by people – and how often the site needed a person's decision. Never hours, a work log or money.
+- **Uptime:** a site paired with a fleet console fetches its own uptime days once a day (`/fleet/uptime`, signed both ways;
+  older consoles answer 404 and nothing breaks) and the report shows them in the same strip as the Fleet site detail
+  (`Core\UptimeStrip`, also used by the Fleet detail and the customer reports). Without a console the e-mail has no uptime part.
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |
