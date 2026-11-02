@@ -18,8 +18,9 @@ final class Newsletters extends Module
 {
     public const string IDENT = 'newsletters';
     public const string EXTENSION = 'newsletter';
-    public const string NAME = 'Newsletters';
+    public const string NAME = 'Newsletter'; // 3.25: the hub item (Newsletters · Subscribers)
     public const string GROUP = 'Content';
+    public const string HUB = 'newsletter';
     public const string ICON = 'rozesilka';
 
     protected function actionList(): Response

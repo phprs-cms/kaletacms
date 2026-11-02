@@ -6646,4 +6646,6 @@ return [
     'the customer' => 'zákazník',
     'Internal notes of the team on an enquiry (who wrote them and when) are kept with the enquiry: deleted with it, their text blanked when it is anonymised.' => 'Interní poznámky týmu k poptávce (kdo je napsal a kdy) se uchovávají s poptávkou: smažou se s ní a při anonymizaci se jejich text vymaže.',
     'Section %s' => 'Sekce %s',
+    'Workspace' => 'Pracoviště',
+    'More…' => 'Další…',
 ];

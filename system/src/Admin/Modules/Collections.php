@@ -33,8 +33,9 @@ final class Collections extends Module
     /**
      * 3.18.3 (owner's request): at most this many collections get their own item in the left menu – a direct link to
      * their items (products, job openings). More would push the rest of the menu down; the others stay under Collections.
+     * 3.25 (menu design §6.3): 5, then "More…" to the list of collections.
      */
-    public const int MENU_LIMIT = 8;
+    public const int MENU_LIMIT = 5;
 
     /**
      * The collections for the left menu and the command palette (3.18.3), in the order of their names: id, name and

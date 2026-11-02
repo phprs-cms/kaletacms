@@ -1895,7 +1895,7 @@ A hivatkozás %d napig érvényes.
     'Please tick the consent.' => 'Kérjük, jelölje be a hozzájárulást.',
     'Too many bookings have come from your address in a short time. Please try again later.' => 'Az Ön címéről rövid idő alatt túl sok foglalás érkezett. Kérjük, próbálja újra később.',
     'Booking' => 'Foglalás',
-    'Add a service and a person who offers it in Administration → Bookings; the form appears here.' => 'Az Adminisztráció → Foglalások menüpontban adjon hozzá egy szolgáltatást és egy személyt, aki nyújtja; az űrlap ezután itt jelenik meg.',
+    'Add a service and a person who offers it in Workspace → Bookings; the form appears here.' => 'A Munkaterület → Foglalások menüpontban adjon hozzá egy szolgáltatást és egy személyt, aki nyújtja; az űrlap ezután itt jelenik meg.',
     '%d min' => '%d perc',
     'Anyone available' => 'Bárki, aki szabad',
     'Day and time' => 'Nap és időpont',

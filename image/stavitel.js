@@ -2278,7 +2278,7 @@
 					return wrapper;
 				}
 				inputEl = el('input', { type: 'text', value: value ?? '', dir: def.typ === 'text' ? contentDir : null, placeholder: def.typ === 'odkaz' ? T('site page, https://…, #anchor, mailto:, tel:') : null,
-					list: def.typ === 'odkaz' ? 'st-dl-odkazy' : null, onfocus: def.typ === 'odkaz' ? refreshLinks : null, oninput: (e) => change(e.target.value) });
+					'data-odkaz-vyber': def.typ === 'odkaz', oninput: (e) => change(e.target.value) }); // 3.25 (N-U9): the link picker of image/editor.js
 		}
 		wrapper.append(inputEl);
 		return wrapper;
@@ -2401,8 +2401,7 @@
 		radky: ['1', '2', '3', 'auto 1fr auto'], ramecek: Object.keys((D.schema.styl.ramecek || {}).moznosti || {}).concat(['1px solid linka', '2px dashed primarni']),
 		oblast: [],
 	};
-	const datalists = el('div', { hidden: true }, Object.entries(HINTS).map(([type, values]) => el('datalist', { id: 'st-dl-' + type }, values.map((h) => el('option', { value: h })))),
-		el('datalist', { id: 'st-dl-odkazy' }));
+	const datalists = el('div', { hidden: true }, Object.entries(HINTS).map(([type, values]) => el('datalist', { id: 'st-dl-' + type }, values.map((h) => el('option', { value: h })))));
 	/** The anchors of elements on this page: [['#contact', 'Section Contact'], …] – also for the link dialog of the text editor (3.22, U6). */
 	function pageAnchors() {
 		const anchors = [];
@@ -2410,10 +2409,6 @@
 		return anchors;
 	}
 	window.kaletaKotvy = pageAnchors; // image/editor.js
-	/** The link field menu: site pages, news and element anchors on this page (up to date on every opening). */
-	function refreshLinks() {
-		datalists.querySelector('#st-dl-odkazy').replaceChildren(...(D.odkazy || []).concat(pageAnchors()).map(([url, name]) => el('option', { value: url, label: name })));
-	}
 
 	/** An approximate token color (for the swatch in the panel) – derived shades are mixed the same way as on the site. */
 	function tokenColor(h) {

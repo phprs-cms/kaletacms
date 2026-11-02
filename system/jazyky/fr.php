@@ -1872,7 +1872,7 @@ return [
     'Please tick the consent.' => 'Veuillez cocher le consentement.',
     'Too many bookings have come from your address in a short time. Please try again later.' => 'Trop de réservations sont arrivées de votre adresse en peu de temps. Veuillez réessayer plus tard.',
     'Booking' => 'Réservation',
-    'Add a service and a person who offers it in Administration → Bookings; the form appears here.' => 'Ajoutez dans Administration → Réservations une prestation et une personne qui la propose ; le formulaire apparaîtra ici.',
+    'Add a service and a person who offers it in Workspace → Bookings; the form appears here.' => 'Ajoutez dans Espace de travail → Réservations une prestation et une personne qui la propose ; le formulaire apparaîtra ici.',
     '%d min' => '%d min',
     'Anyone available' => 'N\'importe qui de disponible',
     'Day and time' => 'Jour et heure',

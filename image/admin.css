@@ -254,6 +254,47 @@ body:not(.login) {
 .menu .menu-kolekce span {
 	min-width: 0;
 }
+/* 3.25: the menu groups fold (details/summary in views/admin/layout.php); the group with the current screen is open and
+   image/admin-menu.js remembers the others per browser. The summary keeps the look of the former group header, with a
+   chevron and – while the group is closed – the sum of its counts. Eight items or fewer: a flat list without groups. */
+.menu-cast {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+.menu-skupiny > summary.menu-skupina {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-top: 10px;
+	padding: 6px 10px;
+	border-radius: 8px;
+	list-style: none;
+	cursor: pointer;
+}
+.menu-skupiny > summary.menu-skupina::-webkit-details-marker { display: none; }
+.menu-skupiny > summary.menu-skupina > span:first-child { flex: 1; }
+.menu-skupiny > summary.menu-skupina::after {
+	content: "";
+	flex: none;
+	width: 6px;
+	height: 6px;
+	margin: 0 4px 3px;
+	border: solid currentColor;
+	border-width: 0 1.5px 1.5px 0;
+	transform: rotate(45deg);
+}
+.menu-skupiny:not([open]) > summary.menu-skupina::after { margin-bottom: 0; transform: rotate(-45deg); }
+.menu-skupiny > summary.menu-skupina:hover { color: var(--text); background: color-mix(in srgb, var(--text) 6%, transparent); }
+.menu-skupiny > summary.menu-skupina:focus-visible { outline: 2px solid var(--akcent); outline-offset: 1px; }
+.menu-skupiny[open] .menu-skupina-pocet { display: none; }
+.menu-skupina-pocet .menu-pocet { display: inline-block; letter-spacing: 0; }
+@media (prefers-reduced-motion: no-preference) {
+	.menu-skupiny > summary.menu-skupina::after { transition: transform .15s; }
+}
 
 .loginprouzek {
 	grid-column: 2;
@@ -1497,14 +1538,16 @@ table.preklady td[data-stav] form { margin-inline-start: 6px; }
 	body.menu-otevrene { overflow: hidden; }
 	.menu-otevrene .menu-obal { position: fixed; top: 64px; left: 0; right: 0; bottom: 0; z-index: 12; overflow-y: auto; overscroll-behavior: contain; padding: 4px 12px 32px; background: var(--podklad); border-top: 1px solid var(--linka); }
 	.menu-otevrene .menu { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 8px; padding: 0; }
-	.menu-otevrene .menu > .menu-skupina, .menu-otevrene .menu > .menu-prehled { grid-column: 1 / -1; }
-	.menu-otevrene .menu > .menu-skupina { margin-top: 14px; }
+	.menu-otevrene .menu > .menu-sekce, .menu-otevrene .menu > .menu-prehled { grid-column: 1 / -1; }
+	/* 3.25: within an open group the items are two columns of tiles, the group's summary a full-width row to tap */
+	.menu-otevrene .menu-cast { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 8px; }
+	.menu-otevrene .menu-skupiny > summary.menu-skupina { min-height: 44px; margin-top: 6px; }
 	.menu-otevrene .menu a, .menu-otevrene .menu button { min-height: 44px; padding: 8px; gap: 8px; overflow-wrap: anywhere; text-decoration: none; }
 	/* 3.18.3: Collections takes a row of its own and its collections follow it as a block of indented tiles – the next
 	   module starts a new row, so a collection never sits next to an unrelated module */
-	.menu-otevrene .menu > li:not(.menu-kolekce):has(+ .menu-kolekce) { grid-column: 1 / -1; }
-	.menu-otevrene .menu > .menu-kolekce + li:not(.menu-kolekce) { grid-column-start: 1; }
-	.menu-otevrene .menu > .menu-kolekce a { padding-inline-start: 20px; }
+	.menu-otevrene :is(.menu, .menu-cast) > li:not(.menu-kolekce):has(+ .menu-kolekce) { grid-column: 1 / -1; }
+	.menu-otevrene :is(.menu, .menu-cast) > .menu-kolekce + li:not(.menu-kolekce) { grid-column-start: 1; }
+	.menu-otevrene :is(.menu, .menu-cast) > .menu-kolekce a { padding-inline-start: 20px; }
 	.menu-otevrene .menu > .menu-moje { grid-column: 1 / -1; } /* 3.24: My work takes a row like the Dashboard next to it */
 }
 

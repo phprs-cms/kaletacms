@@ -3037,7 +3037,7 @@ return [
     'Please tick the consent.' => 'Zaškrtněte prosím souhlas.',
     'Too many bookings have come from your address in a short time. Please try again later.' => 'Z vaší adresy přišlo za krátkou dobu příliš mnoho rezervací. Zkuste to prosím později.',
     'Booking' => 'Rezervace',
-    'Add a service and a person who offers it in Administration → Bookings; the form appears here.' => 'Přidejte v Administrace → Rezervace službu a člověka, který ji nabízí; formulář se tu objeví.',
+    'Add a service and a person who offers it in Workspace → Bookings; the form appears here.' => 'Přidejte v sekci Pracoviště → Rezervace službu a člověka, který ji nabízí; formulář se tu objeví.',
     '%d min' => '%d min',
     'Anyone available' => 'Kdokoli volný',
     'Day and time' => 'Den a čas',

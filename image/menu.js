@@ -94,7 +94,8 @@ document.addEventListener('DOMContentLoaded', function () {
 			p.typ === 'stranka' && pages[p.ids] && pages[p.ids].skryta ? el('span', { class: 'stitek stitek-koncept', title: T('A hidden page does not appear in the menu on the site.') }, T('hidden')) : null,
 			icon,
 			text,
-			p.typ === 'odkaz' ? el('input', { class: 'textpole', type: 'text', maxlength: 500, value: p.url || '', placeholder: 'https://… ' + T('or') + ' /cesta', 'aria-label': T('Link address'), oninput: (e) => { p.url = e.target.value.trim(); } }) : null,
+			p.typ === 'odkaz' ? el('input', { class: 'textpole', type: 'text', maxlength: 500, value: p.url || '', placeholder: T('site page, https://…, #anchor, mailto:, tel:'), 'aria-label': T('Link address'),
+				'data-odkaz-vyber': '', oninput: (e) => { p.url = e.target.value.trim(); } }) : null, // 3.25 (N-U9): the link picker of image/editor.js
 			p.typ === 'odkaz' ? el('label', { class: 'menu-okno' }, el('input', { type: 'checkbox', checked: !!p.nove_okno, onchange: (e) => { p.nove_okno = e.target.checked; } }), ' ' + T('new window')) : null,
 			description,
 			el('span', { class: 'menu-akce' },

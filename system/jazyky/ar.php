@@ -1895,7 +1895,7 @@ The link works for %d days.
     'Please tick the consent.' => 'يُرجى تحديد خانة الموافقة.',
     'Too many bookings have come from your address in a short time. Please try again later.' => 'وصلت حجوزات كثيرة جدًا من عنوانك في وقت قصير. يُرجى المحاولة مرة أخرى لاحقًا.',
     'Booking' => 'الحجز',
-    'Add a service and a person who offers it in Administration → Bookings; the form appears here.' => 'أضف خدمة وشخصًا يقدمها في الإدارة ← الحجوزات؛ وسيظهر النموذج هنا.',
+    'Add a service and a person who offers it in Workspace → Bookings; the form appears here.' => 'أضف خدمة وشخصًا يقدمها في مساحة العمل ← الحجوزات؛ وسيظهر النموذج هنا.',
     '%d min' => '%d دقيقة',
     'Anyone available' => 'أي شخص متاح',
     'Day and time' => 'اليوم والوقت',

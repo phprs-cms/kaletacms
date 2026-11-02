@@ -709,7 +709,7 @@ final class Prompts
                 ## 4. The test
 
                 `send_test_newsletter` with the `id` sends it to the user's own address only – subscribers get nothing. It needs
-                full access; on a drafts-only connection tell the user to send the test from Content → Newsletters. Ask the user
+                full access; on a drafts-only connection tell the user to send the test from Content → Newsletter. Ask the user
                 to check the e-mail on their phone and computer.
 
                 ## 5. Sending

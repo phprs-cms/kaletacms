@@ -657,7 +657,8 @@ await step('3.20 (C19, C20) the news form always names the category, with Manage
   if (!(await page.locator('fieldset a', { hasText: 'Manage categories' }).first().getAttribute('href')).includes('module=categories')) { throw new Error('Manage categories does not open Categories'); }
   await visit('/admin.php?module=broken_links');
   if ((await page.locator('h1').textContent()) !== 'Broken links') { throw new Error('module=broken_links does not open the Broken links screen'); }
-  const items = await page.locator('.menu > li').evaluateAll((list) => list.map((li) => li.textContent.replace(/\s+/g, ' ').trim()));
+  // 3.25: a group is a <details> – its summary names it, its items follow in .menu-cast
+  const items = await page.locator('.menu summary, .menu li:not(.menu-sekce)').evaluateAll((list) => list.map((li) => li.textContent.replace(/\s+/g, ' ').trim()));
   const at = items.indexOf('Broken links');
   // right after Redirects (which may carry a badge), inside the Site care group
   if (at < 1 || !items[at - 1].startsWith('Redirects') || items.lastIndexOf('Site care', at) < 0 || items.slice(items.lastIndexOf('Site care', at), at).some((x) => x === 'Content')) { throw new Error(`the menu order is ${items.join(' | ')}`); }
@@ -2344,6 +2345,8 @@ await step('3.19 collections: the icon picker in the settings, the icons in the 
     sql(`UPDATE ka_kolekce SET icon = 'dum' WHERE idk = ${products}`);
     await visit('/admin.php');
     await page.click('.menu-prepinac');
+    // 3.25: on a phone only the group of the current screen is open – on the Dashboard none, so open Content
+    if (!(await page.locator('details[data-menu-skupina="content"]').evaluate((d) => d.open))) { await page.locator('details[data-menu-skupina="content"] > summary').click(); }
     await page.locator('.menu .menu-kolekce a').first().scrollIntoViewIfNeeded();
     await wide('open menu');
     if (SHOTS) { await page.screenshot({ path: `${SHOTS}/collections-menu-icons-phone.png` }); }
@@ -2980,6 +2983,121 @@ await step('3.25 builder Versions: draft history, per-section compare, load an a
   sql(`DELETE FROM ka_stranky WHERE ids = ${id}`);
 });
 
+
+
+// 3.25 (C): the left menu – Dashboard, My work, then the groups Content, Workspace, Appearance, Claude, Site care,
+// Administration; a group folds (details/summary, by keyboard too), the group of the current screen is always open, the
+// browser remembers the others; on a phone only the current group is open at first; nothing scrolls sideways
+await step('3.25 menu: groups in order, folding by keyboard, remembered per browser, the current one open (1440 and 390 px, dark mode)', async () => {
+  await page.evaluate(() => { try { localStorage.removeItem('kaleta-menu'); } catch (e) { /* nothing */ } });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await visit('/admin.php?module=bookings');
+  // agent A's Enquiries::GROUP = 'Workspace' lands in the same release; until then Enquiries has a Customers group of its own
+  const names = (await page.locator('#menu summary.menu-skupina > span:first-child').allTextContents()).map((n) => n.trim());
+  if (JSON.stringify(names) !== JSON.stringify(['Content', 'Workspace', 'Appearance', 'Claude', 'Site care', 'Administration'])) { throw new Error(`the groups are ${names.join(' | ')}`); }
+  const first = await page.locator('#menu > li').evaluateAll((list) => list.slice(0, 2).map((li) => li.textContent.trim()));
+  if (first[0] !== 'Dashboard' || !first[1].startsWith('My work')) { throw new Error(`the menu starts with ${first.join(' | ')}`); }
+  const workspace = page.locator('details[data-menu-skupina="workspace"]');
+  if (!(await workspace.evaluate((d) => d.open && d.hasAttribute('data-aktualni'))) || (await workspace.locator('[aria-current="page"]').textContent()).trim() !== 'Bookings') { throw new Error('Bookings is not the current item of an open Workspace'); }
+  const statsGroup = await page.locator('.menu-cast a[href$="module=stats"]').evaluate((a) => a.closest('details').getAttribute('data-menu-skupina'));
+  if (statsGroup !== 'site-care') { throw new Error(`Statistics is in ${statsGroup}`); }
+  if (await page.locator('.menu-cast a[href$="module=subscribers"]').count() !== 0) { throw new Error('Subscribers still has its own menu item next to the Newsletter hub'); }
+  // the keyboard folds Appearance; the next screen keeps it folded, its own screen opens it, and it stays remembered
+  const appearance = page.locator('details[data-menu-skupina="appearance"]');
+  await appearance.locator('summary').focus();
+  await page.keyboard.press('Enter');
+  if (await appearance.evaluate((d) => d.open)) { throw new Error('Enter on the summary did not fold Appearance'); }
+  if (!(await page.locator('details[data-menu-skupina="appearance"] a').first().isHidden())) { throw new Error('a folded group still shows its items'); }
+  await visit('/admin.php?module=pages');
+  if (await appearance.evaluate((d) => d.open) || !(await page.locator('details[data-menu-skupina="content"]').evaluate((d) => d.open))) { throw new Error('the folded group did not stay folded, or the current group is not open'); }
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/menu-groups-desktop.png` }); }
+  await visit('/admin.php?module=menu');
+  if (!(await appearance.evaluate((d) => d.open))) { throw new Error('the group of the current screen is not open'); }
+  await visit('/admin.php?module=subscribers');
+  const tabs = (await page.locator('.zalozky-hub a').allTextContents()).map((t) => t.trim());
+  if (JSON.stringify(tabs) !== JSON.stringify(['Newsletters', 'Subscribers']) || (await page.locator('#menu [aria-current="page"]').textContent()).trim() !== 'Newsletter') { throw new Error(`Subscribers: tabs ${tabs.join(' | ')}, current menu item not Newsletter`); }
+  if (await appearance.evaluate((d) => d.open)) { throw new Error('Appearance was not remembered as folded'); }
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await visit('/admin.php?module=bookings');
+  const colours = await page.locator('details[data-menu-skupina="workspace"] > summary').evaluate((s) => [getComputedStyle(s).color, getComputedStyle(document.body).backgroundColor]);
+  if (colours[0] === colours[1]) { throw new Error(`a group name is unreadable in dark mode: ${colours}`); }
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/menu-groups-desktop-dark.png` }); }
+  await page.emulateMedia({ colorScheme: 'light' });
+  // a phone with nothing remembered: only the current group is open, the summaries are big enough to tap, no sideways scroll
+  const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'en-GB', isMobile: true, hasTouch: true, storageState: await page.context().storageState() });
+  const p3 = await phone.newPage(); watch(p3);
+  try {
+    await p3.goto(`${BASE}/admin.php?module=pages`, { waitUntil: 'networkidle' });
+    await p3.evaluate(() => { try { localStorage.removeItem('kaleta-menu'); } catch (e) { /* nothing */ } });
+    await p3.goto(`${BASE}/admin.php?module=pages`, { waitUntil: 'networkidle' });
+    await p3.click('.menu-prepinac');
+    const open = await p3.locator('details[data-menu-skupina]').evaluateAll((all) => all.filter((d) => d.open).map((d) => d.getAttribute('data-menu-skupina')));
+    if (JSON.stringify(open) !== JSON.stringify(['content'])) { throw new Error(`open on a phone: ${open.join(', ')}`); }
+    for (const box of await Promise.all((await p3.locator('#menu summary').all()).map((x) => x.boundingBox()))) {
+      if (!box || box.height < 44 || box.x < 0 || box.x + box.width > 390) { throw new Error(`a group summary does not fit or is too small to tap: ${JSON.stringify(box)}`); }
+    }
+    const wide = await p3.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    if (wide > 0) { throw new Error(`${wide} px of sideways scroll at 390 px`); }
+    await p3.locator('details[data-menu-skupina="workspace"] > summary').tap();
+    if (!(await p3.locator('details[data-menu-skupina="workspace"] a[href$="module=bookings"]').isVisible())) { throw new Error('a tap on Workspace did not open it'); }
+    if (SHOTS) { await p3.screenshot({ path: `${SHOTS}/menu-groups-phone.png` }); }
+  } finally {
+    await phone.close();
+  }
+  await page.evaluate(() => { try { localStorage.removeItem('kaleta-menu'); } catch (e) { /* nothing */ } });
+});
+
+// 3.25 (N-U9): one link picker everywhere – the builder's Button link and the menu editor's custom link use the same search
+// as the Text link dialog: pages as you type (hidden ones marked), mailto: for an e-mail, tel: for a phone, arrows + Enter
+await step('3.25 (N-U9) one link picker: the builder\'s Button link and the menu editor\'s custom link – pages, hidden marker, mailto:, tel:, keyboard', async () => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const before = sql('SELECT IFNULL(HEX(stavba_koncept), \'NULL\') FROM ka_stranky WHERE ids = 1').trim(); // the draft as it was, restored at the end
+  try {
+    await visit('/admin.php?module=pages&action=builder&id=1');
+    await page.waitForTimeout(1500);
+    await canvas().locator('.ka-tlacitko').first().click();
+    const field = page.locator('.st-panel input[data-odkaz-vyber]').first();
+    await field.waitFor({ timeout: 5000 });
+    if (await page.locator('#st-dl-odkazy').count() !== 0 || await field.getAttribute('list') !== null) { throw new Error('the Button link still uses the old datalist'); }
+    await field.click();
+    await field.fill('');
+    await field.pressSequentially('Servi');
+    const list = page.locator('.odkaz-plovouci:popover-open');
+    await list.locator('[role=option]', { hasText: 'Services' }).first().waitFor({ timeout: 5000 });
+    const box = await list.boundingBox();
+    if (!box || box.x < 0 || box.x + box.width > 1440 || box.y < (await field.boundingBox()).y) { throw new Error(`the suggestions are not under the field: ${JSON.stringify(box)}`); }
+    if (SHOTS) { await page.screenshot({ path: `${SHOTS}/link-picker-button.png` }); }
+    await page.keyboard.press('ArrowDown');
+    if (!(await field.getAttribute('aria-activedescendant')) || (await field.getAttribute('aria-expanded')) !== 'true') { throw new Error('ArrowDown did not mark a suggestion'); }
+    await page.keyboard.press('Enter');
+    if (!/\/services\/?$/.test(await field.inputValue()) || (await field.getAttribute('aria-expanded')) !== 'false') { throw new Error(`Enter picked ${await field.inputValue()}`); }
+    await page.waitForFunction(() => !/Unsaved/.test(document.body.textContent || ''), null, { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(1500);
+    if (!sql('SELECT stavba_koncept FROM ka_stranky WHERE ids = 1').includes('/services')) { throw new Error('the picked link was not saved to the draft'); }
+    await field.fill('Priva');
+    await list.locator('[role=option]', { hasText: 'Privacy policy' }).first().waitFor({ timeout: 5000 });
+    if (!/hidden/.test(await list.locator('[role=option]', { hasText: 'Privacy policy' }).first().textContent())) { throw new Error('the hidden page is not marked'); }
+    await field.fill('info@example.com');
+    await page.locator('.odkaz-plovouci [role=option][data-url="mailto:info@example.com"]').waitFor({ timeout: 3000 });
+    await field.fill('+420 777 123 456');
+    await page.locator('.odkaz-plovouci [role=option][data-url="tel:+420777123456"]').waitFor({ timeout: 3000 });
+    await page.keyboard.press('Escape');
+    if ((await field.getAttribute('aria-expanded')) !== 'false' || await page.locator('.st-panel input[data-odkaz-vyber]').count() < 1) { throw new Error('the first Esc did more than close the list'); }
+    // the menu editor: a custom link finds a page the same way (not saved)
+    await visit('/admin.php?module=menu');
+    await page.locator('[data-menu-pridej="odkaz"]').click();
+    const menuField = page.locator('form[data-menu] input[data-odkaz-vyber]').last();
+    await menuField.click();
+    await menuField.pressSequentially('Conta');
+    await page.locator('.odkaz-plovouci:popover-open [role=option]', { hasText: 'Contact' }).first().waitFor({ timeout: 5000 });
+    if (SHOTS) { await page.screenshot({ path: `${SHOTS}/link-picker-menu.png` }); }
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    if (!/\/contact\/?$/.test(await menuField.inputValue())) { throw new Error(`the menu editor picked ${await menuField.inputValue()}`); }
+  } finally {
+    sql(`UPDATE ka_stranky SET stavba_koncept = ${before === 'NULL' || !/^[0-9A-F]*$/.test(before) ? 'NULL' : `CONVERT(UNHEX('${before}') USING utf8mb4)`} WHERE ids = 1`);
+  }
+});
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

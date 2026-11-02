@@ -18,7 +18,10 @@ $onDashboard = $active === '' && (string) $app->request->get('action') === ''; /
 // for whoever may open Collections (no per-collection permissions exist). At most Collections::MENU_LIMIT of them, by name;
 // the item is current on every screen of that collection (its items, an item, its settings…) instead of Collections.
 $collections = $user !== null && isset($modules['collections']) ? Kaleta\Admin\Modules\Collections::menuCollections($app) : [];
-$menuCollections = array_slice(array_values(array_filter($collections, static fn (array $c): bool => $c['menu'])), 0, Kaleta\Admin\Modules\Collections::MENU_LIMIT);
+// 3.25: at most MENU_LIMIT (5) of them, then "More…" to the list of collections
+$wantMenu = array_values(array_filter($collections, static fn (array $c): bool => $c['menu']));
+$menuCollections = array_slice($wantMenu, 0, Kaleta\Admin\Modules\Collections::MENU_LIMIT);
+$moreCollections = count($wantMenu) > count($menuCollections);
 $currentCollection = $active === 'collections' && !in_array((string) $app->request->get('action'), ['', 'list', 'new', 'preset'], true)
     && in_array($app->request->getInt('id'), array_column($menuCollections, 'id'), true) ? $app->request->getInt('id') : 0;
 
@@ -103,21 +106,52 @@ $myWorkFirst = !$app->auth()->isAdmin();
 <?= $myWorkFirst ? $myWorkItem : '' ?>
 		<li class="menu-prehled<?= $onDashboard ? ' aktivni' : '' ?>"><a href="<?= e($app->url('admin.php')) ?>"<?= $onDashboard ? ' aria-current="page"' : '' ?>><?= $icon('prehled') ?><?= e(t('Dashboard')) ?></a></li>
 <?= $myWorkFirst ? '' : $myWorkItem ?>
-<?php $group = ''; $waiting = 0; $inMenu = isset($modules[$active]) && $modules[$active]::PARENT !== '' ? $modules[$active]::PARENT : $active; ?>
-<?php foreach ($modules as $ident => $class): if (($class::PARENT !== '' && isset($modules[$class::PARENT])) || $ident === 'my_work') { continue; } ?>
-<?php if ($class::GROUP !== $group): $group = $class::GROUP; ?>
-		<li class="menu-skupina" aria-hidden="true"><?= e(t($group)) ?></li>
+<?php
+// 3.25: the items by group (Admin\MenuGroups) – each group a collapsible <details>, the one with the current screen open;
+// eight items or fewer in all make a flat list without group headers. A parent stands for its hidden screens only when
+// the person sees it (Subscribers without Newsletters is its own item).
+$inMenu = isset($modules[$active]) && $modules[$active]::PARENT !== '' && isset($modules[$modules[$active]::PARENT]) ? $modules[$active]::PARENT : $active;
+$menuFlat = Kaleta\Admin\MenuGroups::flat($modules);
+$menuItem = function (string $ident, int &$badge) use ($modules, $app, $icon, $inMenu, $currentCollection, $menuCollections, $moreCollections): string {
+    $class = $modules[$ident];
+    try { $badge = $class::badge($app); } catch (\Throwable) { $badge = 0; } // 3.15: a count never breaks the menu
+    $here = $ident === $inMenu && !($ident === 'collections' && $currentCollection > 0);
+    $html = '<li' . ($here ? ' class="aktivni"' : '') . '><a href="' . e($app->url('admin.php?module=' . $ident)) . '"' . ($here ? ' aria-current="page"' : '') . '>' . $icon($class::ICON) . e(t($class::NAME))
+        . ($badge > 0 ? ' <span class="menu-pocet" aria-hidden="true">' . ($badge > 99 ? '99+' : $badge) . '</span><span class="navod-skryte"> – ' . e(t('%d new', $badge)) . '</span>' : '') . '</a></li>' . "\n";
+    foreach ($ident === 'collections' ? $menuCollections : [] as $collection) {
+        $here = $collection['id'] === $currentCollection;
+        $html .= '<li class="menu-kolekce' . ($here ? ' aktivni' : '') . '"><a href="' . e($app->url('admin.php?module=collections&action=items&id=' . $collection['id'])) . '"' . ($here ? ' aria-current="page"' : '') . '>'
+            . ($collection['icon'] !== null ? Kaleta\Builder\Icons::svg($collection['icon'], 'ikona') : $icon('polozky')) . '<span>' . e($collection['name']) . '</span></a></li>' . "\n";
+    }
+    if ($ident === 'collections' && $moreCollections) {
+        $html .= '<li class="menu-kolekce menu-kolekce-dalsi"><a href="' . e($app->url('admin.php?module=collections')) . '">' . $icon('polozky') . '<span>' . e(t('More…')) . '</span></a></li>' . "\n";
+    }
+
+    return $html;
+};
+foreach (Kaleta\Admin\MenuGroups::groups($modules) as $menuGroup):
+    $groupHtml = '';
+    $groupBadge = 0;
+    foreach ($menuGroup['items'] as $ident) {
+        $badge = 0;
+        $groupHtml .= $menuItem($ident, $badge);
+        $groupBadge += $badge;
+    }
+    if ($menuFlat): ?>
+<?= $groupHtml ?>
+<?php else: $groupHere = in_array($inMenu, $menuGroup['items'], true); ?>
+		<li class="menu-sekce"><details class="menu-skupiny" data-menu-skupina="<?= e(Kaleta\Admin\MenuGroups::key($menuGroup['group'])) ?>"<?= $groupHere ? ' data-aktualni' : '' ?> open><summary class="menu-skupina"><span><?= e(t($menuGroup['group'])) ?></span><?php if ($groupBadge > 0): ?><span class="menu-skupina-pocet"><span class="menu-pocet" aria-hidden="true"><?= $groupBadge > 99 ? '99+' : $groupBadge ?></span><span class="navod-skryte"> – <?= e(t('%d new', $groupBadge)) ?></span></span><?php endif ?></summary>
+		<ul class="menu-cast">
+<?= $groupHtml ?>
+		</ul></details></li>
 <?php endif ?>
-<?php try { $badge = $class::badge($app); } catch (\Throwable) { $badge = 0; } $waiting += $badge; // 3.15: a count never breaks the menu ?>
-<?php $here = $ident === $inMenu && !($ident === 'collections' && $currentCollection > 0); ?>
-		<li<?= $here ? ' class="aktivni"' : '' ?>><a href="<?= e($app->url('admin.php?module=' . $ident)) ?>"<?= $here ? ' aria-current="page"' : '' ?>><?= $icon($class::ICON) ?><?= e(t($class::NAME)) ?><?php if ($badge > 0): ?> <span class="menu-pocet" aria-hidden="true"><?= $badge > 99 ? '99+' : $badge ?></span><span class="navod-skryte"> – <?= e(t('%d new', $badge)) ?></span><?php endif ?></a></li>
-<?php foreach ($ident === 'collections' ? $menuCollections : [] as $collection): $here = $collection['id'] === $currentCollection; ?>
-		<li class="menu-kolekce<?= $here ? ' aktivni' : '' ?>"><a href="<?= e($app->url('admin.php?module=collections&action=items&id=' . $collection['id'])) ?>"<?= $here ? ' aria-current="page"' : '' ?>><?= $collection['icon'] !== null ? Kaleta\Builder\Icons::svg($collection['icon'], 'ikona') : $icon('polozky') ?><span><?= e($collection['name']) ?></span></a></li>
-<?php endforeach ?>
 <?php endforeach ?>
 		<li class="menu-web"><a href="<?= e($app->url('')) ?>" target="_blank" rel="noopener"><?= $icon('web') ?><?= e(t('Zobrazit web')) ?></a></li>
 		<li class="menu-logout"><form method="post" action="<?= e($app->url('admin.php?action=logout')) ?>"><?= $app->session->csrfField() ?><button type="submit"><?= $icon('odhlasit') ?><?= e(t('Sign out')) ?></button></form></li>
 	</ul>
+<?php if (!$menuFlat): // 3.25: before the first paint – the groups this browser closed stay closed (no jump after the page loads) ?>
+	<script src="<?= e($app->url('image/admin-menu.js')) ?>?v=<?= e(KALETA_VERSION) ?>"></script>
+<?php endif ?>
 	</nav>
 </header>
 <section class="loginprouzek" aria-label="<?= e(t('Account and tools')) ?>">

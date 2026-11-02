@@ -126,7 +126,7 @@ final class Booking extends Element
         }
         $services = array_values(array_filter($services, fn (array $s): bool => Bookings::staffFor($db, $s['id']) !== []));
         if ($services === []) {
-            return $k->editor ? '<div' . Text::withClass($a, 'ka-rezervace-prazdne') . '><p>' . e(t('Add a service and a person who offers it in Administration → Bookings; the form appears here.')) . '</p></div>' : '';
+            return $k->editor ? '<div' . Text::withClass($a, 'ka-rezervace-prazdne') . '><p>' . e(t('Add a service and a person who offers it in Workspace → Bookings; the form appears here.')) . '</p></div>' : '';
         }
         // the plain form (no script) shows the next free times of one service: the only one, the fixed one, or the one asked for
         $chosen = $r->get('booking') === $p['id'] && $r->getInt('service') > 0 ? $r->getInt('service') : (count($services) === 1 ? $services[0]['id'] : 0);

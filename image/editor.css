@@ -207,6 +207,9 @@ button.galerie-polozka.vybrana { border-color: var(--ed-akcent); box-shadow: 0 0
 .odkaz-stav { min-height: 1em; margin: 6px 0 0; font-size: 12px; color: var(--ed-text-slaby); }
 .odkaz-stav:empty { display: none; }
 .odkaz-tlacitka { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+/* 3.25 (N-U9): the same suggestions under every other link field (builder, menu editor) – a popover in the top layer, placed
+   under its field by image/editor.js, so a scrolled panel never clips it */
+.odkaz-plovouci { position: fixed; inset: auto; z-index: 60; margin: 0; max-height: min(280px, 50vh); background: var(--ed-plocha); color: var(--ed-text); box-shadow: 0 8px 24px rgb(0 0 0 / .18); }
 
 /* comparing article versions */
 .porovnani { max-width: 760px; font-size: 15px; line-height: 1.6; }
