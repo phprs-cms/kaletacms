@@ -2935,5 +2935,19 @@ window.KALETA_PREKLAD = {
 	"%s words added, %s removed": "Přidaná slova: %s, odebraná: %s",
 	"Unchanged sections: %s": "Sekce beze změny: %s",
 	"The text is the same as in the current draft.": "Text je stejný jako v současném konceptu.",
-	"Back to versions": "Zpět na verze"
+	"Back to versions": "Zpět na verze",
+	"People to mention": "Koho zmínit",
+	"Comments of the team and of people with a preview link": "Komentáře týmu a lidí s odkazem na náhled",
+	"The comment could not be saved.": "Komentář se nepodařilo uložit.",
+	"New comment": "Nový komentář",
+	"Add comment": "Přidat komentář",
+	"Comment deleted": "Komentář smazán",
+	"through Claude": "přes Clauda",
+	"edited": "upraveno",
+	"Edit the comment": "Upravit komentář",
+	"Save the comment": "Uložit komentář",
+	"Delete your comment? The thread keeps a note that it was deleted.": "Smazat váš komentář? Ve vlákně zůstane záznam, že byl smazán.",
+	"Delete this comment of %s? The thread keeps a note that it was deleted.": "Smazat tento komentář (%s)? Ve vlákně zůstane záznam, že byl smazán.",
+	"No team comments yet. Write the first one – type @ to mention a colleague.": "Tým zatím nic nenapsal. Napište první komentář – kolegu zmíníte znakem @.",
+	"Comments of your colleagues on this page – only administration users see them. Also in the page settings.": "Komentáře kolegů k této stránce – vidí je jen uživatelé administrace. Najdete je i v nastavení stránky."
 };

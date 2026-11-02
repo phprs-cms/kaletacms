@@ -102,11 +102,13 @@ final class Inbox
         return in_array($value, self::EMAIL, true) ? $value : self::EMAIL[0];
     }
 
-    /** An excerpt as stored: plain text on one line, at most EXCERPT characters (an ellipsis when cut). Pure. */
+    /**
+     * An excerpt as stored: the caller's plain text on one line (a "<" is text, escaped wherever it is shown), without
+     * control characters, at most EXCERPT characters (an ellipsis when cut). Pure.
+     */
     public static function excerpt(string $text): string
     {
-        $text = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
-        $text = (string) preg_replace('/[\x00-\x1F\x7F]/u', '', $text);
+        $text = trim((string) preg_replace('/[\x00-\x1F\x7F]/u', '', (string) preg_replace('/\s+/u', ' ', $text)));
 
         return mb_strlen($text) > self::EXCERPT ? rtrim(mb_substr($text, 0, self::EXCERPT - 1)) . '…' : $text;
     }
@@ -222,6 +224,23 @@ final class Inbox
         }
 
         return $changed;
+    }
+
+    /**
+     * A comment was edited or deleted (Core\Comments): the notifications of its thread that quote its old text quote the new
+     * one ('' for a deleted comment). The quote is compared as stored (excerpt()). Returns how many changed.
+     */
+    public static function requote(Db $db, string $target, string $old, string $new): int
+    {
+        $old = self::excerpt($old);
+        if ($old === '') {
+            return 0;
+        }
+        try {
+            return $db->run("UPDATE {notifications} SET excerpt = ? WHERE target = ? AND excerpt = ? AND kind IN ('mention', 'comment')", [self::excerpt($new), mb_substr($target, 0, 40), $old])->rowCount();
+        } catch (\PDOException) {
+            return 0;
+        }
     }
 
     /**

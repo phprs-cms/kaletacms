@@ -1291,7 +1291,7 @@
 		const items = [
 			[icon('verze'), T('Versions'), T('Draft history and published versions'), versionsDialog],
 			D.adresy.sdilet ? [icon('sdilet'), T('Share'), T('Share a link to the draft preview'), shareDialog] : null,
-			D.komentare ? [icon('komentar'), T('Comments') + (open ? ' (' + open + ')' : ''), T('Comments from people with a preview link'), commentsDialog] : null,
+			D.komentare || D.tym ? [icon('komentar'), T('Comments') + (open ? ' (' + open + ')' : ''), D.tym ? T('Comments of the team and of people with a preview link') : T('Comments from people with a preview link'), commentsDialog] : null,
 		].filter(Boolean);
 		const menu = el('div', { id: 'st-lista-vice', class: 'st-vice', popover: 'auto' },
 			items.map(([ik, name, description, action]) => el('button', { type: 'button', title: description, onclick: () => { menu.hidePopover(); action(); } }, ik, el('span', {}, name))));
@@ -1545,12 +1545,28 @@
 		});
 	}
 
-	/** Comments from shared previews (2.15): the unresolved ones first; a click on the element scrolls the canvas to it, one click resolves. */
+	/**
+	 * Comments from shared previews (2.15): the unresolved ones first; a click on the element scrolls the canvas to it, one
+	 * click resolves. 3.26: a second tab, Team – the signed-in colleagues' thread on the page (Core\Comments, the same as in
+	 * the page settings): write, mention with "@" (image/admin.js offers the people), edit or delete one's own.
+	 */
 	function openComments() { return (D.komentare || []).filter((c) => !c.vyrizeno); }
 	function commentsDialog() {
 		const list = el('ul', { class: 'st-komentare' });
-		const d = el('dialog', { class: 'st-dialog' }, el('div', {}, el('h2', {}, T('Comments on the draft')),
-			el('p', { class: 'st-sdilet-pozn' }, T('Written by people who opened a preview link that allows comments. Feedback to act on in the draft – nothing publishes by itself.')), list),
+		const guests = el('div', { role: 'tabpanel', id: 'st-komentare-host' },
+			el('p', { class: 'st-sdilet-pozn' }, T('Written by people who opened a preview link that allows comments. Feedback to act on in the draft – nothing publishes by itself.')), list);
+		const team = D.tym ? teamPanel() : null;
+		let tab = team && (!D.komentare || !openComments().length) ? 'tym' : 'host';
+		const tabs = team ? el('div', { class: 'st-zalozky st-komentare-zalozky', role: 'tablist' }) : null;
+		const showTab = () => {
+			if (!tabs) { return; }
+			tabs.replaceChildren(...[['host', T('Preview link')], ['tym', T('Team')]].map(([key, name]) => el('button', { type: 'button', role: 'tab', id: 'st-zalozka-' + key,
+				'aria-selected': tab === key ? 'true' : 'false', 'aria-controls': key === 'tym' ? 'st-komentare-tym' : 'st-komentare-host', onclick: () => { tab = key; showTab(); } }, name)));
+			guests.hidden = tab !== 'host';
+			team.panel.hidden = tab !== 'tym';
+		};
+		const d = el('dialog', { class: 'st-dialog st-komentare-dialog' }, el('div', {}, el('h2', {}, T('Comments on the draft')), tabs,
+			D.komentare ? guests : null, team ? team.panel : null),
 			el('footer', {}, el('button', { type: 'button', class: 'st-tl', onclick: () => d.close() }, T('Close'))));
 		const render = () => {
 			list.replaceChildren(...(D.komentare || []).map((c) => el('li', { class: c.vyrizeno ? 'st-komentar-vyrizeny' : null },
@@ -1566,9 +1582,62 @@
 			if (!(D.komentare || []).length) { list.replaceChildren(el('li', { class: 'st-prazdno' }, T('No comments yet. Share a preview link with comments allowed.'))); }
 		};
 		render();
+		showTab();
 		d.addEventListener('close', () => d.remove());
 		document.body.append(d);
 		d.showModal();
+	}
+
+	/** The Team tab (3.26): the thread, the composer, Edit and Delete; every change answers with the fresh thread. */
+	function teamPanel() {
+		const list = el('ul', { class: 'st-komentare st-komentare-tym' });
+		const people = JSON.stringify(D.tym.lide || []);
+		const message = el('p', { class: 'st-tym-hlaska', role: 'status' });
+		const send = (data, button) => {
+			if (button) { button.disabled = true; }
+			message.textContent = '';
+			return query(D.tym.adresa, Object.assign({ format: 'json', ids: D.tym.ids }, data)).then((j) => {
+				if (button) { button.disabled = false; }
+				if (!j.ok) { message.textContent = j.chyba || T('The comment could not be saved.'); message.classList.add('chyba'); return false; }
+				message.classList.remove('chyba');
+				D.tym.komentare = j.komentare || []; render();
+				return true;
+			});
+		};
+		const field = (value, label) => el('textarea', { rows: '3', maxlength: '5000', 'aria-label': label, 'data-mentions': people }, value || '');
+		const composer = field('', T('New comment'));
+		const add = el('button', { type: 'button', class: 'st-tl st-tl-hlavni', onclick: () => {
+			if (!composer.value.trim()) { composer.focus(); return; }
+			send({ op: 'add', text: composer.value }, add).then((ok) => { if (ok) { composer.value = ''; } });
+		} }, T('Add comment'));
+		const render = () => {
+			list.replaceChildren(...(D.tym.komentare || []).map((c) => {
+				if (c.smazano) { return el('li', { class: 'st-komentar-smazany', 'data-tym-komentar': c.id }, el('div', { class: 'st-komentar-hlava' }, T('Comment deleted'), ' · ', c.kdo, ', ', c.kdy)); }
+				const text = el('div', { class: 'st-komentar-text', html: c.html });
+				const li = el('li', { 'data-tym-komentar': c.id },
+					el('div', { class: 'st-komentar-hlava' }, el('strong', {}, c.kdo), ' · ', c.kdy, c.pres ? ' · ' + T('through Claude') : '', c.upraveno ? ' · ' + T('edited') : ''), text);
+				const actions = el('div', { class: 'st-komentar-akce' },
+					c.muj ? el('button', { type: 'button', class: 'st-odkaz', onclick: () => {
+						const edit = field(c.text, T('Edit the comment'));
+						const save = el('button', { type: 'button', class: 'st-tl st-tl-hlavni', onclick: () => send({ op: 'edit', comment: c.id, text: edit.value }, save) }, T('Save the comment'));
+						text.replaceWith(el('div', { class: 'st-komentar-uprava' }, edit, el('div', { class: 'st-komentar-akce' }, save, el('button', { type: 'button', class: 'st-tl', onclick: render }, T('Cancel')))));
+						actions.remove();
+						edit.focus();
+					} }, T('Edit')) : null,
+					c.smaze ? el('button', { type: 'button', class: 'st-odkaz st-odkaz-nebezpecne', onclick: (e) => {
+						confirmAction(c.muj ? T('Delete your comment? The thread keeps a note that it was deleted.') : T('Delete this comment of %s? The thread keeps a note that it was deleted.').replace('%s', c.kdo), T('Delete'))
+							.then((yes) => yes ? send({ op: 'delete', comment: c.id }, e.target) : null);
+					} }, T('Delete')) : null);
+				if (c.muj || c.smaze) { li.append(actions); }
+				return li;
+			}));
+			if (!(D.tym.komentare || []).length) { list.replaceChildren(el('li', { class: 'st-prazdno' }, T('No team comments yet. Write the first one – type @ to mention a colleague.'))); }
+		};
+		render();
+		const panel = el('div', { role: 'tabpanel', id: 'st-komentare-tym', class: 'st-tym' },
+			el('p', { class: 'st-sdilet-pozn' }, T('Comments of your colleagues on this page – only administration users see them. Also in the page settings.')), list,
+			el('label', { class: 'st-tym-novy' }, el('span', {}, T('New comment')), composer), message, el('div', { class: 'st-komentar-akce' }, add));
+		return { panel };
 	}
 
 	/** A draft preview link for a colleague or client: anyone can open it without signing in, valid for 1–7 days. */

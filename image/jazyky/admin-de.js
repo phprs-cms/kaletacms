@@ -3048,5 +3048,19 @@ window.KALETA_PREKLAD = {
 	"%s words added, %s removed": "%s Wörter hinzugefügt, %s entfernt",
 	"Unchanged sections: %s": "Unveränderte Abschnitte: %s",
 	"The text is the same as in the current draft.": "Der Text ist derselbe wie im aktuellen Entwurf.",
-	"Back to versions": "Zurück zu den Versionen"
+	"Back to versions": "Zurück zu den Versionen",
+	"People to mention": "Personen zum Erwähnen",
+	"Comments of the team and of people with a preview link": "Kommentare des Teams und von Personen mit Vorschau-Link",
+	"The comment could not be saved.": "Der Kommentar konnte nicht gespeichert werden.",
+	"New comment": "Neuer Kommentar",
+	"Add comment": "Kommentar hinzufügen",
+	"Comment deleted": "Kommentar gelöscht",
+	"through Claude": "über Claude",
+	"edited": "bearbeitet",
+	"Edit the comment": "Kommentar bearbeiten",
+	"Save the comment": "Kommentar speichern",
+	"Delete your comment? The thread keeps a note that it was deleted.": "Ihren Kommentar löschen? Im Verlauf bleibt ein Hinweis, dass er gelöscht wurde.",
+	"Delete this comment of %s? The thread keeps a note that it was deleted.": "Diesen Kommentar von %s löschen? Im Verlauf bleibt ein Hinweis, dass er gelöscht wurde.",
+	"No team comments yet. Write the first one – type @ to mention a colleague.": "Noch keine Kommentare des Teams. Schreiben Sie den ersten – mit @ erwähnen Sie jemanden aus dem Team.",
+	"Comments of your colleagues on this page – only administration users see them. Also in the page settings.": "Kommentare Ihres Teams zu dieser Seite – nur Benutzer der Administration sehen sie. Auch in den Seiteneinstellungen."
 };

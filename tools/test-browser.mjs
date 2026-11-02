@@ -3097,6 +3097,87 @@ await step('3.25 (N-U9) one link picker: the builder\'s Button link and the menu
     sql(`UPDATE ka_stranky SET stavba_koncept = ${before === 'NULL' || !/^[0-9A-F]*$/.test(before) ? 'NULL' : `CONVERT(UNHEX('${before}') USING utf8mb4)`} WHERE ids = 1`);
   }
 });
+// 3.26 (A): the team's thread in the page settings – "@" lists the colleagues who may open Pages (arrows and Enter insert the
+// sign-in name), the comment shows the name, Edit in place, Delete through the confirmation and a placeholder line; the mention
+// tinted in light and dark mode, no sideways scroll at 390 px; the builder's Team tab next to the preview-link comments
+await step('3.26 comments: page thread with an @mention, edit, delete; the builder Team tab (1440 and 390 px, light/dark)', async () => {
+  if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
+  sql(`DELETE FROM ka_stranky WHERE seo_link = 'comments-326'; INSERT INTO ka_stranky (seo_link, titulek, text, v_menu, zobrazit) VALUES ('comments-326', 'Comments 326', '<p>Text</p>', 0, 0);
+    DELETE FROM ka_uzivatele WHERE user = 'jana-326'; INSERT INTO ka_uzivatele (user, password, jmeno, email, admin, posledni_login, potvrzeno) VALUES ('jana-326', '', 'Jana Nowak', '', 2, NOW(), NOW())`);
+  const id = sql("SELECT ids FROM ka_stranky WHERE seo_link = 'comments-326'").trim();
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await visit(`/admin.php?module=pages&action=edit&id=${id}`);
+    const field = page.locator('#novy-komentar');
+    await field.click();
+    await field.pressSequentially('Please check this, @now');
+    const option = page.locator('.zminky-navrhy [role=option]', { hasText: 'Jana Nowak' });
+    await option.waitFor({ timeout: 3000 });
+    if ((await field.getAttribute('aria-activedescendant')) !== await option.getAttribute('id')) { throw new Error('the first match is not the active option'); }
+    if (SHOTS) { await page.screenshot({ path: `${SHOTS}/326-mention-list.png` }); }
+    await page.keyboard.press('Enter');
+    if ((await field.inputValue()) !== 'Please check this, @jana-326 ') { throw new Error(`Enter inserted “${await field.inputValue()}”`); }
+    if (await page.locator('.zminky-navrhy [role=option]').count()) { throw new Error('the list stays open after the pick'); }
+    await field.pressSequentially('thanks.');
+    await Promise.all([page.waitForNavigation(), page.locator('form[data-comment-form] button[type="submit"]').click()]);
+    await page.locator('.hlaska', { hasText: 'The comment was added.' }).waitFor();
+    const mention = page.locator('#comments .zminka').first();
+    if ((await mention.textContent()) !== '@Jana Nowak') { throw new Error(`the mention reads “${await mention.textContent()}”`); }
+    const light = await mention.evaluate((n) => getComputedStyle(n).backgroundColor);
+    await page.emulateMedia({ colorScheme: 'dark' });
+    const dark = await mention.evaluate((n) => [getComputedStyle(n).backgroundColor, getComputedStyle(n).color]);
+    if (dark[0] === light || dark[0] === dark[1]) { throw new Error(`the mention is not tinted for dark mode (${dark.join(' on ')})`); }
+    if (SHOTS) { await page.locator('#comments').scrollIntoViewIfNeeded(); await page.screenshot({ path: `${SHOTS}/326-page-thread-dark.png` }); }
+    await page.emulateMedia({ colorScheme: 'light' });
+    // edit in place
+    await page.locator('#comments .komentar-upravit summary').first().click();
+    await page.locator('#comments form[data-comment-edit] textarea').first().fill('Prices checked, @jana-326.');
+    await Promise.all([page.waitForNavigation(), page.locator('#comments form[data-comment-edit] button[type="submit"]').first().click()]);
+    await page.locator('.hlaska', { hasText: 'The comment was saved.' }).waitFor();
+    if (!/Prices checked, @Jana Nowak\./.test(await page.locator('#comments .vlakno-komentar').first().textContent()) || !(await page.locator('#comments .vlakno-komentar', { hasText: 'edited' }).count())) { throw new Error('the edit is not shown with its mark'); }
+    // a phone: the thread and the composer fit
+    await page.setViewportSize({ width: 390, height: 844 });
+    await visit(`/admin.php?module=pages&action=edit&id=${id}`);
+    const sideways = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    if (sideways > 0) { throw new Error(`${sideways} px of sideways scroll at 390 px`); }
+    if (SHOTS) { await page.locator('#comments').scrollIntoViewIfNeeded(); await page.screenshot({ path: `${SHOTS}/326-page-thread-phone.png` }); }
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await visit(`/admin.php?module=pages&action=edit&id=${id}`);
+    // delete: the confirmation, then a quiet line
+    await page.locator('#comments form[data-comment-delete] button').first().click();
+    await page.locator('dialog.potvrzeni[open]').waitFor();
+    await Promise.all([page.waitForNavigation(), page.locator('dialog.potvrzeni [data-ano]').click()]);
+    if ((await page.locator('#comments [data-comment-deleted]').count()) !== 1 || (await page.locator('#comments .zminka').count()) !== 0) { throw new Error('the deleted comment is not a placeholder'); }
+    // the builder: Comments in the ⋯ menu, the Team tab with the thread and a composer with the same "@" list
+    await visit(`/admin.php?module=pages&action=builder&id=${id}`);
+    await builderIdle();
+    await page.locator('.st-lista .st-lista-vice').click();
+    await page.locator('#st-lista-vice button', { hasText: 'Comments' }).click();
+    const dialog = page.locator('dialog.st-komentare-dialog[open]');
+    await dialog.waitFor();
+    if ((await dialog.locator('[role=tab][aria-selected="true"]').textContent()) !== 'Team') { throw new Error('the Team tab is not the open one without preview-link comments'); }
+    if ((await dialog.locator('.st-komentare-tym [data-tym-komentar]').count()) !== 1) { throw new Error('the Team tab does not list the deleted comment'); }
+    const composer = dialog.locator('.st-tym-novy textarea');
+    await composer.click();
+    await composer.pressSequentially('From the builder @jan');
+    await dialog.locator('.zminky-navrhy [role=option]', { hasText: 'Jana Nowak' }).waitFor({ timeout: 3000 });
+    await page.keyboard.press('Enter');
+    await dialog.locator('.st-tym .st-tl-hlavni', { hasText: 'Add comment' }).click();
+    await dialog.locator('.st-komentare-tym .zminka', { hasText: '@Jana Nowak' }).waitFor({ timeout: 5000 });
+    if ((await composer.inputValue()) !== '') { throw new Error('the composer keeps the sent text'); }
+    if (SHOTS) { await page.screenshot({ path: `${SHOTS}/326-builder-team.png` }); }
+    await page.emulateMedia({ colorScheme: 'dark' });
+    if (SHOTS) { await page.screenshot({ path: `${SHOTS}/326-builder-team-dark.png` }); }
+    await page.emulateMedia({ colorScheme: 'light' });
+    await dialog.locator('[role=tab]', { hasText: 'Preview link' }).click();
+    if (!(await dialog.locator('#st-komentare-host').isVisible()) || await dialog.locator('#st-komentare-tym').isVisible()) { throw new Error('the tabs do not switch'); }
+    await dialog.locator('footer button', { hasText: 'Close' }).click();
+  } finally {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    sql(`DELETE FROM ka_comments WHERE target = 'page:${Number(id)}'; DELETE FROM ka_stranky WHERE ids = ${Number(id)}; DELETE FROM ka_uzivatele WHERE user = 'jana-326'`);
+  }
+});
 // 3.26 (agent B): notifications – the bell with the unread count in the header bar (never in the left menu), the
 // Notifications screen (who, what, where, when; the unread marked), opening one marks it read and leads to its place,
 // Mark all as read empties the bell; My account offers the e-mail choice. 1440 and 390 px, light and dark.

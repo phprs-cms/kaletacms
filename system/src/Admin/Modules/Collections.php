@@ -24,6 +24,7 @@ final class Collections extends Module
     use BuilderActions {
         actionBuilder as protected openBuilder;
     }
+    use \Kaleta\Admin\CommentActions; // 3.26: the team's thread in the item form
 
     public const string IDENT = 'collections';
     public const string NAME = 'Collections';
@@ -310,6 +311,7 @@ final class Collections extends Module
             'categories' => CategoryTree::choices($this->db, (int) $k['idk'], (string) $p['jazyk']), 'assigned' => $assigned,
             'versions' => $p['idp'] > 0 ? \Kaleta\Builder\Publisher::listAll($this->db, ['cast' => 'polozka:' . (int) $p['idp']]) : [],
             'owners' => \Kaleta\Core\Assignment::candidates($this->db, 'item', (int) ($p['owner_id'] ?? 0)), // 3.24: the responsible person
+            'thread' => $p['idp'] > 0 ? $this->commentThread(\Kaleta\Core\Comments::item((int) $p['idp']), ['idk' => (int) $k['idk'], 'idp' => (int) $p['idp']]) : null, // 3.26
             // the audit trail of a notice (2.11, Core\Notices), newest first
             'noticeLog' => $p['idp'] > 0 && Notices::isNotices($k) ? array_reverse(Notices::entries($this->db, (int) $k['idk'], (int) $p['idp'])) : []]);
     }
@@ -764,7 +766,9 @@ final class Collections extends Module
             if ($this->isNoticeBoard($idk)) {
                 return $this->back(t(Notices::REFUSAL_DELETE), 'items', ['id' => $idk, 'status' => 'kos'], 'chyba');
             }
-            $this->db->run('DELETE FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NOT NULL', [$this->request->postInt('idp'), $idk]);
+            if ($this->db->run('DELETE FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NOT NULL', [$this->request->postInt('idp'), $idk])->rowCount() > 0) {
+                \Kaleta\Core\Comments::forget($this->db, [\Kaleta\Core\Comments::item($this->request->postInt('idp'))]); // 3.26: its thread goes with it
+            }
         }
 
         return $this->back('The item was deleted permanently.', 'items', ['id' => $idk, 'status' => 'kos']);
@@ -784,10 +788,23 @@ final class Collections extends Module
         return $db->run('UPDATE {kolekce_polozky} SET smazano = NULL WHERE idp = ? AND idk = ? AND smazano IS NOT NULL', [$idp, $idk])->rowCount() > 0;
     }
 
-    /** Items longer than 30 days in the trash are deleted permanently (with pages and news, on an admin visit). */
+    /** Items longer than 30 days in the trash are deleted permanently (with pages and news, on an admin visit), their team threads with them (3.26). */
     public static function emptyTrash(\Kaleta\Core\Db $db): void
     {
-        $db->run('DELETE FROM {kolekce_polozky} WHERE smazano < ?', [\Kaleta\Core\Clock::at('-30 days')]);
+        $before = \Kaleta\Core\Clock::at('-30 days');
+        $ids = array_map(fn (array $r): int => (int) $r['idp'], $db->all('SELECT idp FROM {kolekce_polozky} WHERE smazano < ?', [$before]));
+        if ($ids !== []) {
+            $db->run('DELETE FROM {kolekce_polozky} WHERE smazano < ?', [$before]);
+            \Kaleta\Core\Comments::forget($db, array_map(\Kaleta\Core\Comments::item(...), $ids));
+        }
+    }
+
+    /** 3.26: the item whose thread a comment form posts to – one of this collection that is not in the trash. */
+    protected function commentTarget(): ?array
+    {
+        $item = $this->db->one('SELECT idp, idk, nazev FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NULL', [$this->request->postInt('idp'), $this->request->postInt('idk')]);
+
+        return $item === null ? null : ['target' => \Kaleta\Core\Comments::item((int) $item['idp']), 'back' => ['item', ['id' => (int) $item['idk'], 'item' => (int) $item['idp']]], 'title' => (string) $item['nazev']];
     }
 
     /* ---------- item template in the builder (administrator) ---------- */

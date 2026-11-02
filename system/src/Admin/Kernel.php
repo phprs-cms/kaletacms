@@ -124,9 +124,9 @@ final class Kernel
      */
     public const array SITE_NEUTRAL_ACTIONS = [
         '' => ['logout', 'oauth', 'hide_first_steps', 'token', 'inbox'],
-        'pages' => [...self::BUILDER_NEUTRAL, 'export', 'owner'], // 3.24: the responsible person is never on the site
+        'pages' => [...self::BUILDER_NEUTRAL, 'export', 'owner', 'comment'], // 3.24: the responsible person is never on the site; 3.26: nor the team's comments
         'news' => ['social_save', 'social_posted', 'social_suggest', 'links'], // the social post drafts are never on the site
-        'collections' => [...self::BUILDER_NEUTRAL, 'signature'],
+        'collections' => [...self::BUILDER_NEUTRAL, 'signature', 'comment'], // 3.26: the team's comments on an item
         'components' => self::BUILDER_NEUTRAL,
         'popups' => self::BUILDER_NEUTRAL,
         'parts' => self::BUILDER_NEUTRAL,
