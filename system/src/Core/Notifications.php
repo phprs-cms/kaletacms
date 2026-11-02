@@ -74,6 +74,7 @@ final class Notifications
         Jobs::purgeApplications($app); // applications to job openings first: they usually have a shorter retention (2.11)
         \Kaleta\Admin\Modules\Enquiries::deleteExpired($app->db(), $s);
         Booking::purge($app); // bookings follow the same retention (3.0)
+        Contacts::purge($app); // 3.28: customers with no activity for contacts_months are anonymised
         if ($s->int('cookies_log_months') > 0) {
             // records of cookie consents should not be kept forever
             $app->db()->run('DELETE FROM {souhlasy} WHERE cas < ?', [Clock::monthsAgo($s->int('cookies_log_months'))]);

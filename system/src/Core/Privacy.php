@@ -391,6 +391,21 @@ final class Privacy
             t('Tasks of the team about an enquiry (a follow-up, a call back) are kept with the enquiry: deleted with it, their title blanked when it is anonymised.'),
             t('Recipients: the people with access to Enquiries in the administration%s.', $s->get('webhook_enquiries') !== '' ? ', ' . t('a webhook at %s', (string) parse_url($s->get('webhook_enquiries'), PHP_URL_HOST)) : ''),
         ])];
+        // 3.28: the customer records (Core\Contacts) – built from the enquiries, bookings and subscriptions above
+        $contactMonths = Contacts::months($s);
+        try {
+            $contactCount = (int) $db->value('SELECT COUNT(*) FROM {contacts} WHERE anonymised_at IS NULL');
+        } catch (\PDOException) {
+            $contactCount = 0; // before migration 0114
+        }
+        $sections[] = ['heading' => t('Customer relations'), 'lines' => [
+            t('Customer records: %d. One record per e-mail address across its enquiries, bookings and newsletter subscription; the team adds a name, phone, company, a summary, a responsible person, a log of calls, meetings and e-mails, comments and tasks.', $contactCount),
+            t('Purpose: looking after the business relationship with customers and prospects. Legal basis: legitimate interest (Art. 6(1)(f)) and steps before or under a contract (Art. 6(1)(b)).'),
+            $contactMonths > 0 ? t('Retention: anonymised automatically after %d months without any activity (a new enquiry, booking, reply or logged contact).', $contactMonths)
+                : t('Retention: not limited – set it in Enquiries → Settings.'),
+            t('Two different e-mail addresses are never merged automatically; a company is suggested from the e-mail domain, never for free-mail addresses.'),
+            t('Recipients: the people with access to Customers in the administration. The customer records are not part of the site export and never shown on the site.'),
+        ]];
         if (Jobs::sources($db) !== []) {
             $jobMonths = $s->int('job_applications_months');
             $sections[] = ['heading' => t('Job applications'), 'lines' => [

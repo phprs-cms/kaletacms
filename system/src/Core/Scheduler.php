@@ -47,6 +47,7 @@ final class Scheduler
         'validity' => [3600, 'any', 'Content that expires or asks for review'],
         'events' => [3600, 'any', 'Repeating events move to their next date'],
         'triage' => [300, 'any', 'Sorting new enquiries with the writing assistant'],
+        'contacts' => [300, 'any', 'Customers: enquiries, bookings and subscriptions linked to their contact'], // 3.28 (Core\Contacts::backfill)
         'connectors' => [0, 'any', 'Deliveries to connected services'],
         'agent_journal' => [86400, 'any', 'Undo journal of Claude sessions: older than 30 days removed'],
         'search_data' => [86400, 'any', 'Search Console and Bing data'],
@@ -146,6 +147,12 @@ final class Scheduler
             'validity' => fn (App $app): string => Validity::run($app),
             'events' => fn (App $app): string => Calendar::run($app),
             'triage' => fn (App $app): string => Triage::run($app),
+            'contacts' => function (App $app, string $source): string {
+                // 3.28: the rows from before 3.28 a few hundred per run, then anything an after-response link missed
+                $done = Contacts::backfill($app, $source === 'cron' ? Contacts::BACKFILL_BATCH : 100);
+
+                return 'linked ' . $done['linked'] . ' of ' . $done['scanned'] . ($done['done'] ? '' : ', more left');
+            },
             'connectors' => fn (App $app): string => Connectors::processQueue($app),
             'agent_journal' => fn (App $app): string => AgentJournal::purge($app->db()),
             'search_data' => fn (App $app): string => SearchData::run($app),

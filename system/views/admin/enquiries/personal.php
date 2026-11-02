@@ -27,6 +27,7 @@
 <?php if ($counts['mail'] > 0): ?><li><?= e(t('E-mails in the outgoing queue: %d', $counts['mail'])) ?></li><?php endif ?>
 <?php if ($counts['testimonials'] > 0): ?><li><?= e(t('Testimonial requests: %d', $counts['testimonials'])) ?></li><?php endif ?>
 <?php if ($counts['bookings'] > 0): ?><li><?= e(t('Bookings of appointments: %d', $counts['bookings'])) ?> (<?= implode(', ', array_map(fn (array $r): string => '<a href="' . e($app->url('admin.php?module=bookings&action=detail&id=' . (int) $r['id'])) . '">#' . (int) $r['id'] . '</a>', $found['bookings'])) ?>)</li><?php endif ?>
+<?php if (($counts['contacts'] ?? 0) > 0): // 3.28: the customer records (Core\Contacts) ?><li><?= e(t('Customer records: %d', $counts['contacts'])) ?> (<?= implode(', ', array_map(fn (array $c): string => '<a href="' . e($app->url(Kaleta\Core\Contacts::adminPath((int) $c['id']))) . '">#' . (int) $c['id'] . '</a>', $found['contacts'])) ?>)</li><?php endif ?>
 <?php if ($found['account'] !== null): ?><li><?= e(t('An account of the administration (%s) – change or remove it in Users; it is not erased here.', (string) $found['account']['jmeno'])) ?></li><?php endif ?>
 </ul>
 <form class="formular" method="post" action="<?= e($module->url('personal')) ?>">

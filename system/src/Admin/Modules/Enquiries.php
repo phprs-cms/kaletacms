@@ -88,6 +88,7 @@ final class Enquiries extends Module
             'months' => $this->app->settings()->int('enquiries_months'),
             'expiry' => $this->app->settings()->get('enquiries_expiry') === 'anonymise' ? 'anonymise' : 'delete',
             'applicationMonths' => $this->app->settings()->int('job_applications_months'),
+            'contactMonths' => \Kaleta\Core\Contacts::months($this->app->settings()), // 3.28
             'suggestion' => \Kaleta\Core\Jobs::suggestedRetention($this->app->settings()->get('company_country'), $this->app->settings()->get('site_language')),
         ]);
     }
@@ -374,6 +375,10 @@ final class Enquiries extends Module
         if ($this->request->isPost() && $this->app->auth()->isAdmin()) {
             $this->app->settings()->set('enquiries_months', (string) max(0, min(120, $this->request->postInt('mesice'))));
             $this->app->settings()->set('job_applications_months', (string) max(0, min(120, $this->request->postInt('mesice_uchazeci'))));
+            if ($this->request->hasPost('contacts_months')) {
+                // 3.28: the customers' retention, next to the enquiries' (a form from before 3.28 leaves it as it is)
+                $this->app->settings()->set('contacts_months', (string) max(0, min(120, $this->request->postInt('contacts_months'))));
+            }
             $this->app->settings()->set('triage_assistant', $this->request->postBool('triage_assistant') ? '1' : '0');
             $this->app->settings()->set('enquiries_expiry', $this->request->post('po_uplynuti') === 'anonymise' ? 'anonymise' : 'delete');
         }
@@ -413,14 +418,21 @@ final class Enquiries extends Module
         if ($months <= 0) {
             return;
         }
-        if ($siteSettings->get('enquiries_expiry') === 'anonymise') {
-            \Kaleta\Core\Privacy::anonymise($db, array_map('intval', array_column($db->all('SELECT idp FROM {poptavky} WHERE anonymizovano IS NULL AND datum < ?', [\Kaleta\Core\Clock::monthsAgo($months)]), 'idp')));
+        // 3.28: an enquiry of a customer with an open deal stays until the deal closes (Contacts::heldByDeals – deals come in 3.29)
+        $before = \Kaleta\Core\Clock::monthsAgo($months);
+        $anonymise = $siteSettings->get('enquiries_expiry') === 'anonymise';
+        $expired = array_map('intval', array_column($db->all('SELECT idp FROM {poptavky} WHERE datum < ?' . ($anonymise ? ' AND anonymizovano IS NULL' : ''), [$before]), 'idp'));
+        $held = \Kaleta\Core\Contacts::heldByDeals($db, $expired);
+        $keep = $held !== [] ? ' AND idp NOT IN (' . implode(',', $held) . ')' : '';
+        $expired = array_values(array_diff($expired, $held));
+        \Kaleta\Core\Contacts::enquiriesExpiring($db, $siteSettings, $expired); // 3.28: the customer keeps "first contact on … through …"
+        if ($anonymise) {
+            \Kaleta\Core\Privacy::anonymise($db, $expired);
 
             return;
         }
-        $expired = array_map('intval', array_column($db->all('SELECT idp FROM {poptavky} WHERE datum < ?', [\Kaleta\Core\Clock::monthsAgo($months)]), 'idp'));
-        self::deleteAttachments($db->all('SELECT data FROM {poptavky} WHERE datum < ?', [\Kaleta\Core\Clock::monthsAgo($months)]));
-        $db->run('DELETE FROM {poptavky} WHERE datum < ?', [\Kaleta\Core\Clock::monthsAgo($months)]);
+        self::deleteAttachments($db->all('SELECT data FROM {poptavky} WHERE datum < ?' . $keep, [$before]));
+        $db->run('DELETE FROM {poptavky} WHERE datum < ?' . $keep, [$before]);
         \Kaleta\Core\Comments::forgetEnquiries($db, $expired); // 3.25: the notes go with their enquiry
     }
 

@@ -7,7 +7,8 @@ namespace Kaleta\Core;
 /**
  * Tasks and follow-ups (3.27, table ka_tasks, migration 0113): "call back on Monday", "review the price page by 1 Dec".
  * One person each, optionally about an enquiry, a page or a collection item (target 'enquiry:<idp>' | 'page:<ids>' |
- * 'item:<idp>'), with a due moment and an optional reminder. Deliberately small: no subtasks, dependencies, time tracking
+ * 'item:<idp>'; 3.28 also a customer 'contact:<id>' or a company 'company:<id>', Core\Contacts), with a due moment and an
+ * optional reminder. Deliberately small: no subtasks, dependencies, time tracking
  * or recurrence.
  *
  *  - Who: anyone creates a task for themselves; a task for someone else about a record needs the record's section for both
@@ -458,12 +459,12 @@ final class Tasks
         throw new \DomainException(t('The date “%s” is not understood – use YYYY-MM-DD, YYYY-MM-DD HH:MM, “tomorrow” or “+3 days”.', $value));
     }
 
-    /** A target as stored: 'enquiry:<id>', 'page:<id>' or 'item:<id>'; null for anything else (an empty one too). Pure. */
+    /** A target as stored: 'enquiry:<id>', 'page:<id>', 'item:<id>', 'contact:<id>' or 'company:<id>' (3.28); null for anything else (an empty one too). Pure. */
     public static function cleanTarget(mixed $target): ?string
     {
         $target = is_string($target) ? trim($target) : '';
 
-        return preg_match('/^(enquiry|page|item):[1-9]\d{0,9}$/D', $target) === 1 ? $target : null;
+        return preg_match('/^(enquiry|page|item|contact|company):[1-9]\d{0,9}$/D', $target) === 1 ? $target : null;
     }
 
     /** What a person is responsible for in tasks: their open ones (Core\Handover). */
@@ -592,9 +593,13 @@ final class Tasks
             $byKind[$kind][] = (int) $id;
         }
         $gone = [];
-        foreach (['enquiry' => ['poptavky', 'idp'], 'page' => ['stranky', 'ids'], 'item' => ['kolekce_polozky', 'idp']] as $kind => [$table, $key]) {
+        foreach (['enquiry' => ['poptavky', 'idp'], 'page' => ['stranky', 'ids'], 'item' => ['kolekce_polozky', 'idp'], 'contact' => ['contacts', 'id'], 'company' => ['companies', 'id']] as $kind => [$table, $key]) {
             foreach (array_chunk(array_values(array_unique(array_filter($byKind[$kind] ?? []))), 500) as $chunk) {
-                $existing = array_flip(array_map('intval', array_column($db->all('SELECT ' . $key . ' FROM {' . $table . '} WHERE ' . $key . ' IN (' . implode(',', $chunk) . ')'), $key)));
+                try {
+                    $existing = array_flip(array_map('intval', array_column($db->all('SELECT ' . $key . ' FROM {' . $table . '} WHERE ' . $key . ' IN (' . implode(',', $chunk) . ')'), $key)));
+                } catch (\PDOException) {
+                    continue; // the contacts tables before migration 0114
+                }
                 foreach ($chunk as $id) {
                     if (!isset($existing[$id])) {
                         $gone[] = $kind . ':' . $id;
@@ -693,14 +698,14 @@ final class Tasks
 
     /**
      * Writes a change of a task ($data null = delete) and journals it for a Claude session when the task is not about an
-     * enquiry (ka_tasks is not journaled by itself – AgentJournal::PERSONAL_TABLES).
+     * enquiry or a contact (ka_tasks is not journaled by itself – AgentJournal::PERSONAL_TABLES).
      *
      * @param array<string, mixed> $task
      * @param array<string, mixed>|null $data
      */
     private static function write(Db $db, array $task, ?array $data): void
     {
-        $journal = $db->journal !== null && !str_starts_with((string) $task['target'], 'enquiry:');
+        $journal = $db->journal !== null && !self::personal($task['target']);
         $before = $journal ? $db->one('SELECT * FROM {tasks} WHERE id = ?', [$task['id']]) : null;
         if ($data === null) {
             $db->delete('tasks', ['id' => $task['id']]);
@@ -714,9 +719,15 @@ final class Tasks
 
     private static function journalInserted(Db $db, int $id, ?string $target): void
     {
-        if ($db->journal !== null && !str_starts_with((string) $target, 'enquiry:')) {
+        if ($db->journal !== null && !self::personal($target)) {
             $db->journal->inserted('tasks', [], $id);
         }
+    }
+
+    /** Is a task about a person (an enquiry, or a contact since 3.28)? Its changes never enter the undo journal. Pure. */
+    public static function personal(?string $target): bool
+    {
+        return str_starts_with((string) $target, 'enquiry:') || str_starts_with((string) $target, 'contact:');
     }
 
     /**

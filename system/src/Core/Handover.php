@@ -149,10 +149,10 @@ final class Handover
     }
 
     /**
-     * What a user is responsible for now: pages and collection items (not in the trash), open enquiries (new or read) and
-     * (3.27) open tasks.
+     * What a user is responsible for now: pages and collection items (not in the trash), open enquiries (new or read),
+     * (3.27) open tasks and (3.28) customers and companies (Core\Contacts).
      *
-     * @return array{page: int, item: int, enquiry: int, task: int}
+     * @return array{page: int, item: int, enquiry: int, task: int, contact: int, company: int}
      */
     public static function owned(Db $db, int $userId): array
     {
@@ -161,19 +161,23 @@ final class Handover
             'item' => (int) $db->value('SELECT COUNT(*) FROM {kolekce_polozky} WHERE owner_id = ? AND smazano IS NULL', [$userId]),
             'enquiry' => (int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE prirazeno = ? AND stav < 2', [$userId]),
             'task' => Tasks::openCount($db, $userId),
-        ];
+        ] + Contacts::owned($db, $userId);
     }
 
     /**
      * The same for every account at once (the Users list): idu => counts, only accounts that own something.
      *
-     * @return array<int, array{page: int, item: int, enquiry: int, task: int}>
+     * @return array<int, array{page: int, item: int, enquiry: int, task: int, contact: int, company: int}>
      */
     public static function ownedByAll(Db $db): array
     {
+        $none = ['page' => 0, 'item' => 0, 'enquiry' => 0, 'task' => 0, 'contact' => 0, 'company' => 0];
         $out = [];
         foreach (Tasks::openByAll($db) as $idu => $n) {
-            $out[$idu] = ['page' => 0, 'item' => 0, 'enquiry' => 0, 'task' => $n]; // 3.27: open tasks
+            $out[$idu] = ['task' => $n] + $none; // 3.27: open tasks
+        }
+        foreach (Contacts::ownedByAll($db) as $idu => $counts) {
+            $out[$idu] = $counts + ($out[$idu] ?? $none); // 3.28: customers and companies
         }
         foreach ([
             'page' => 'SELECT owner_id AS idu, COUNT(*) AS n FROM {stranky} WHERE owner_id IS NOT NULL AND smazano IS NULL GROUP BY owner_id',
@@ -181,7 +185,7 @@ final class Handover
             'enquiry' => 'SELECT prirazeno AS idu, COUNT(*) AS n FROM {poptavky} WHERE prirazeno IS NOT NULL AND stav < 2 GROUP BY prirazeno',
         ] as $kind => $sql) {
             foreach ($db->all($sql) as $row) {
-                $out[(int) $row['idu']] ??= ['page' => 0, 'item' => 0, 'enquiry' => 0, 'task' => 0];
+                $out[(int) $row['idu']] ??= $none;
                 $out[(int) $row['idu']][$kind] = (int) $row['n'];
             }
         }
@@ -191,14 +195,15 @@ final class Handover
 
     /**
      * The sections a recipient of this work must be able to open (Module::IDENT), by what there is. Tasks need no section of
-     * their own (sectionsToTake adds those of their records).
+     * their own (sectionsToTake adds those of their records); customers and companies need Customers (3.28).
      *
-     * @param array{page: int, item: int, enquiry: int, task?: int} $owned
+     * @param array{page: int, item: int, enquiry: int, task?: int, contact?: int, company?: int} $owned
      * @return list<string>
      */
     public static function sectionsOf(array $owned): array
     {
-        return array_map(fn (string $kind): string => self::KINDS[$kind][0], array_keys(array_filter(array_intersect_key($owned, self::KINDS))));
+        return [...array_map(fn (string $kind): string => self::KINDS[$kind][0], array_keys(array_filter(array_intersect_key($owned, self::KINDS)))),
+            ...(($owned['contact'] ?? 0) + ($owned['company'] ?? 0) > 0 ? [Contacts::SECTION] : [])];
     }
 
     /**
@@ -213,16 +218,17 @@ final class Handover
             'page' => (int) ($db->value('SELECT 1 FROM {stranky} WHERE owner_id = ? LIMIT 1', [$userId]) !== null),
             'item' => (int) ($db->value('SELECT 1 FROM {kolekce_polozky} WHERE owner_id = ? LIMIT 1', [$userId]) !== null),
             'enquiry' => (int) ($db->value('SELECT 1 FROM {poptavky} WHERE prirazeno = ? AND stav < 2 LIMIT 1', [$userId]) !== null),
-        ]), ...Tasks::sectionsOf($db, $userId)])); // 3.27: the records of their open tasks too
+        ] + Contacts::owned($db, $userId)), ...Tasks::sectionsOf($db, $userId)])); // 3.27: the records of their open tasks too; 3.28 customers
     }
 
     /**
      * Hands all of a user's work to another person (null = nobody): every page and item they are responsible for (in the
      * trash too, so a restored one has a living owner) and their open enquiries; a resolved enquiry keeps who handled it.
      * No e-mail – the recipient finds it in My work. 3.27: their open tasks go too (to nobody = unassigned, listed under
-     * "nobody" in the Team tab of My work); done tasks keep who did them. Returns how many of each moved.
+     * "nobody" in the Team tab of My work); done tasks keep who did them. 3.28: their customers and companies go too (an
+     * anonymised contact too, so no leaver's id is left behind). Returns how many of each moved.
      *
-     * @return array{page: int, item: int, enquiry: int, task: int}
+     * @return array{page: int, item: int, enquiry: int, task: int, contact: int, company: int}
      */
     public static function handOver(Db $db, int $from, ?int $to): array
     {
@@ -231,19 +237,19 @@ final class Handover
             'item' => $db->run('UPDATE {kolekce_polozky} SET owner_id = ? WHERE owner_id = ?', [$to, $from])->rowCount(),
             'enquiry' => $db->run('UPDATE {poptavky} SET prirazeno = ? WHERE prirazeno = ? AND stav < 2', [$to, $from])->rowCount(),
             'task' => Tasks::handOver($db, $from, $to),
-        ];
+        ] + Contacts::handOver($db, $from, $to);
     }
 
     /**
      * "pages: 2, collection items: 1, open enquiries: 3, open tasks: 4" – the parts that are not zero, translated (counted
      * labels, so no language needs plural forms).
      *
-     * @param array{page: int, item: int, enquiry: int, task?: int} $counts
+     * @param array{page: int, item: int, enquiry: int, task?: int, contact?: int, company?: int} $counts
      */
     public static function describe(array $counts): string
     {
         $parts = [];
-        foreach (['page' => 'pages: %d', 'item' => 'collection items: %d', 'enquiry' => 'open enquiries: %d', 'task' => 'open tasks: %d'] as $kind => $label) {
+        foreach (['page' => 'pages: %d', 'item' => 'collection items: %d', 'enquiry' => 'open enquiries: %d', 'task' => 'open tasks: %d', 'contact' => 'customers: %d', 'company' => 'companies: %d'] as $kind => $label) {
             if (($counts[$kind] ?? 0) > 0) {
                 $parts[] = t($label, $counts[$kind]);
             }

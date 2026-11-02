@@ -36,6 +36,7 @@ final class Settings
         'enquiries_months' => '24',    // form enquiries older than this many months are deleted (personal data should not be kept forever); 0 = do not delete
         'triage_assistant' => '0',      // new enquiries are sorted by the AI assistant (2.12, Core\Triage) – off: the text goes to the AI provider
         'job_applications_months' => '0', // applications to job openings (enquiries from a Job openings item page, Core\Jobs) are deleted after this many months; 0 = like other enquiries
+        'contacts_months' => '24',      // 3.28 (Core\Contacts): a contact with no activity for this many months is anonymised by the clean-up; 0 = keep. Migration 0114 starts it at enquiries_months
         'whistleblowing_enabled' => '0',  // the whistleblowing channel at /_report (2.14, Core\Whistleblowing)
         'whistleblowing_readers' => '',   // ids of the users who may open reports (comma-separated); nobody else sees their content
         'whistleblowing_intro' => '',     // the introduction above the report form (plain text)
@@ -222,6 +223,7 @@ final class Settings
         'tasks_last_run' => '0',       // when cron last called /tasks (/ulohy) (newsletters are sent only while cron runs)
         'newsletter_hourly_limit' => '300', // newsletters: at most this many e-mails per hour (the SMTP relay's limit)
         'data_cleanup' => '0',         // when the daily cleanup of personal data last ran (Core\Notifications)
+        'contacts_backfill' => '',     // 3.28 (Core\Contacts::backfill): how far the linking of older enquiries, bookings and subscribers got (JSON of the last ids)
         'categories_pending_review' => '', // collection categories a drafts-only connection wrote, waiting for a person (3.12, N312-3)
         'ai_provider' => 'anthropic', // anthropic | openai | google | mistral (Core\Assistant::PROVIDERS)
         'ai_key' => '',              // API key of the AI assistant (never written back into the form)

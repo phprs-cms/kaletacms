@@ -12,6 +12,9 @@ namespace Kaleta\Core;
  *  - 'page:<ids>' and 'item:<idp>', kind 'comment' (3.26): the team's thread on a page (page settings, the Team tab of the
  *    builder) and on a collection item (its form). Commenting needs the section of the target (Pages, Collections,
  *    Enquiries – the admin action lives in that module); the guest comments of a shared preview stay in Core\DraftComments.
+ *  - 'contact:<id>' and 'company:<id>', kind 'comment' (3.28, Core\Contacts): the team's thread on a customer and on a
+ *    company – the section Customers (Contacts::SECTION). They follow their record like an enquiry's notes: deleted with
+ *    it (Contacts::delete → forget()), blanked when the contact is anonymised (anonymiseTargets()), never journaled.
  *
  * Mentions (3.26): "@" and a sign-in name (the "@" autocomplete of image/admin.js inserts it). The server resolves them
  * (mentions()) and refuses anyone who is blocked or cannot open the target's section (Assignment::allowed – the rule of
@@ -36,10 +39,10 @@ final class Comments
     public const int MAX_TEXT = 5000;
 
     /** Each kind of target => the kind of its comments (3.26); the kind of target is also the Assignment kind of its section. */
-    public const array KINDS = ['enquiry' => 'note', 'page' => 'comment', 'item' => 'comment'];
+    public const array KINDS = ['enquiry' => 'note', 'page' => 'comment', 'item' => 'comment', 'contact' => 'comment', 'company' => 'comment'];
 
     /** The name of the section each kind of target needs (for the refusal of a mention). */
-    private const array SECTION_NAMES = ['enquiry' => 'Enquiries', 'page' => 'Pages', 'item' => 'Collections'];
+    private const array SECTION_NAMES = ['enquiry' => 'Enquiries', 'page' => 'Pages', 'item' => 'Collections', 'contact' => 'Customers', 'company' => 'Customers'];
 
     /** A mention (3.26): "@" and a sign-in name (Users allows letters without diacritics, digits and ._-), not inside a word or an e-mail address. */
     public const string MENTION = '/(?<![\p{L}\p{N}._@-])@([a-zA-Z0-9._-]{2,40})/u';
@@ -75,14 +78,27 @@ final class Comments
         return 'item:' . $idp;
     }
 
+    /** The target of a customer's thread (3.28, Core\Contacts). */
+    public static function contact(int $id): string
+    {
+        return 'contact:' . $id;
+    }
+
+    /** The target of a company's thread (3.28, Core\Contacts). */
+    public static function company(int $id): string
+    {
+        return 'company:' . $id;
+    }
+
     /**
-     * What a target names: an enquiry, a page or a collection item and its positive id; null for anything else. Pure.
+     * What a target names: an enquiry, a page, a collection item, a contact or a company (3.28) and its positive id; null
+     * for anything else. Pure.
      *
-     * @return array{type: 'enquiry'|'page'|'item', id: int}|null
+     * @return array{type: 'enquiry'|'page'|'item'|'contact'|'company', id: int}|null
      */
     public static function parseTarget(string $target): ?array
     {
-        return preg_match('/^(enquiry|page|item):([1-9]\d{0,9})$/D', $target, $m) === 1 ? ['type' => $m[1], 'id' => (int) $m[2]] : null;
+        return preg_match('/^(enquiry|page|item|contact|company):([1-9]\d{0,9})$/D', $target, $m) === 1 ? ['type' => $m[1], 'id' => (int) $m[2]] : null;
     }
 
     /**
@@ -371,7 +387,7 @@ final class Comments
         return array_values($out);
     }
 
-    /** The responsible person of a page or an item a thread belongs to (3.24, owner_id); null for an enquiry or nobody. */
+    /** The responsible person of a page, an item, a contact or a company a thread belongs to (owner_id); null for an enquiry or nobody. */
     public static function owner(Db $db, string $target): ?int
     {
         $parsed = self::parseTarget($target);
@@ -381,6 +397,8 @@ final class Comments
         $owner = match ($parsed['type']) {
             'page' => $db->value('SELECT owner_id FROM {stranky} WHERE ids = ?', [$parsed['id']]),
             'item' => $db->value('SELECT owner_id FROM {kolekce_polozky} WHERE idp = ?', [$parsed['id']]),
+            'contact' => $db->value('SELECT owner_id FROM {contacts} WHERE id = ? AND anonymised_at IS NULL', [$parsed['id']]), // 3.28
+            'company' => $db->value('SELECT owner_id FROM {companies} WHERE id = ?', [$parsed['id']]),
             default => null,
         };
 
@@ -573,6 +591,33 @@ final class Comments
     }
 
     /**
+     * Anonymised records other than enquiries (3.28: a contact, Core\Contacts::anonymise): who wrote each comment and when
+     * stay, the text and the mentions go, and so do the quotes in the notifications and the titles of the tasks about them.
+     * Returns how many comments changed.
+     *
+     * @param list<string> $targets
+     */
+    public static function anonymiseTargets(Db $db, array $targets): int
+    {
+        $targets = array_values(array_unique(array_filter($targets, fn (string $t): bool => self::parseTarget($t) !== null)));
+        if ($targets === []) {
+            return 0;
+        }
+        Inbox::forgetTargets($db, $targets, true);
+        Tasks::anonymiseTargets($db, $targets);
+        $changed = 0;
+        try {
+            foreach (array_chunk($targets, 500) as $chunk) {
+                $changed += $db->run("UPDATE {comments} SET text = '', mentions = NULL WHERE target IN (" . implode(',', array_fill(0, count($chunk), '?')) . ')', $chunk)->rowCount();
+            }
+        } catch (\PDOException) {
+            // before the 3.25 migration
+        }
+
+        return $changed;
+    }
+
+    /**
      * Notes whose enquiry no longer exists (deleted by a path that did not call forgetEnquiries) – the retention cleanup
      * removes them. It runs on every visit of the Enquiries list, so the enquiries are looked up by their primary key (a
      * join on CONCAT('enquiry:', idp) read every enquiry each time, N325-1) and nothing is cast in SQL (a strict sql_mode
@@ -626,12 +671,13 @@ final class Comments
     /**
      * The threads of pages and items that no longer exist (deleted by a path that did not call forget(), e.g. a whole
      * collection or an import into an empty site) – removed like sweep() does for enquiries: the rows are looked up by
-     * their primary key, nothing is cast in SQL. A page or an item in the trash still exists: its thread stays.
+     * their primary key, nothing is cast in SQL. A page or an item in the trash still exists: its thread stays. 3.28: the
+     * threads of contacts and companies that are gone too.
      */
     public static function sweepContent(Db $db): int
     {
         $deleted = 0;
-        foreach (['page' => ['stranky', 'ids'], 'item' => ['kolekce_polozky', 'idp']] as $type => [$table, $key]) {
+        foreach (['page' => ['stranky', 'ids'], 'item' => ['kolekce_polozky', 'idp'], 'contact' => ['contacts', 'id'], 'company' => ['companies', 'id']] as $type => [$table, $key]) {
             try {
                 $targets = array_map(fn (array $r): string => (string) $r['target'], $db->all('SELECT DISTINCT target FROM {comments} WHERE target LIKE ?', [$type . ':%']));
                 $gone = [];

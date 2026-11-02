@@ -572,10 +572,12 @@ CREATE TABLE ka_poptavky (
     prirazeno INT UNSIGNED NULL,                      -- which user handles the enquiry
     anonymizovano DATETIME NULL,                      -- the person's data was blanked at this time (2.14, Core\Privacy); NULL = still held
     replies  MEDIUMTEXT NULL,                         -- replies e-mailed from the enquiry (3.22, Core\EnquiryReply): JSON list of who, when, subject, text, the mail row
+    contact_id INT UNSIGNED NULL DEFAULT NULL,        -- the customer it came from (3.28, Core\Contacts; linked after the response, no foreign key)
     PRIMARY KEY (idp),
     KEY ix_poptavky_stav (stav, idp),
     KEY ix_poptavky_kategorie (kategorie, idp),
-    KEY ix_poptavky_prirazeno (prirazeno, stav)                 -- "assigned to me" (3.24, migration 0110)
+    KEY ix_poptavky_prirazeno (prirazeno, stav),                -- "assigned to me" (3.24, migration 0110)
+    KEY ix_poptavky_contact (contact_id)                        -- the enquiries of a customer (3.28, migration 0114)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Internal comments of the team on a record (3.25, Core\Comments): appended, never overwritten. target = what they are
@@ -637,6 +639,65 @@ CREATE TABLE ka_tasks (
     KEY ix_tasks_assignee (assignee_id, done_at, due_at),   -- my open tasks by due date
     KEY ix_tasks_target (target),                           -- the tasks of a record
     KEY ix_tasks_due (done_at, notified_at)                 -- the reminder job
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- 3.28: contacts and companies (Core\Contacts) – one record per customer across enquiries, bookings and the newsletter
+-- subscription, keyed by the normalised e-mail address (email_norm; NULL when anonymised or without an address). Two
+-- different addresses are never merged automatically (Contacts::merge is a person's decision). source = enquiry | booking |
+-- subscriber | manual | import. last_activity_at drives the retention (contacts_months; the clean-up anonymises). No
+-- foreign keys: the links (contact_id on ka_poptavky, ka_bookings, ka_odberatele) and the threads follow in code.
+CREATE TABLE ka_contacts (
+    id               INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    email            VARCHAR(190) NOT NULL DEFAULT '',
+    email_norm       VARCHAR(190) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL,   -- PersonalData::normalise(email)
+    name             VARCHAR(150) NOT NULL DEFAULT '',
+    phone            VARCHAR(40) NOT NULL DEFAULT '',
+    company_id       INT UNSIGNED NULL,                  -- ka_companies.id
+    owner_id         INT UNSIGNED NULL,                  -- the responsible person (no foreign key, like ka_stranky.owner_id)
+    language         VARCHAR(35) CHARACTER SET ascii NOT NULL DEFAULT '',   -- the site language version the customer used ('' = default)
+    source           VARCHAR(12) NOT NULL DEFAULT 'manual',
+    summary          TEXT NULL,
+    first_seen_at    DATETIME NULL,
+    last_activity_at DATETIME NULL,
+    created_at       DATETIME NOT NULL,
+    updated_at       DATETIME NOT NULL,
+    anonymised_at    DATETIME NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY ux_contacts_email (email_norm),
+    KEY ix_contacts_owner (owner_id),
+    KEY ix_contacts_company (company_id),
+    KEY ix_contacts_activity (last_activity_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- 3.28: the companies contacts work for (Core\Contacts). domain = the e-mail domain a new contact is attached by (never a
+-- free-mail one).
+CREATE TABLE ka_companies (
+    id              INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    name            VARCHAR(150) NOT NULL,
+    domain          VARCHAR(190) NOT NULL DEFAULT '',
+    registration_no VARCHAR(40) NOT NULL DEFAULT '',
+    vat_id          VARCHAR(40) NOT NULL DEFAULT '',
+    owner_id        INT UNSIGNED NULL,
+    note            TEXT NULL,
+    created_at      DATETIME NOT NULL,
+    updated_at      DATETIME NOT NULL,
+    PRIMARY KEY (id),
+    KEY ix_companies_domain (domain),
+    KEY ix_companies_owner (owner_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- 3.28: the team's own log on a contact – a call, a meeting, an e-mail or a note (kind), when it happened and who wrote it.
+CREATE TABLE ka_contact_activities (
+    id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    contact_id  INT UNSIGNED NOT NULL,
+    kind        VARCHAR(10) NOT NULL DEFAULT 'note',     -- call | meeting | email | note
+    text        TEXT NOT NULL,
+    author_id   INT UNSIGNED NULL,
+    author_name VARCHAR(100) NOT NULL DEFAULT '',
+    happened_at DATETIME NOT NULL,
+    created_at  DATETIME NOT NULL,
+    PRIMARY KEY (id),
+    KEY ix_contact_activities_contact (contact_id, happened_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Collections: custom content types (references, team, products, branches…). pole = JSON [{klic, popisek, typ}], typ: text | radky | html | obrazek | odkaz | cislo | datum | termin | soubor | poloha | polozka.
@@ -861,9 +922,11 @@ CREATE TABLE ka_odberatele (
     potvrzeno DATETIME     NULL,
     sync       VARCHAR(10)  NOT NULL DEFAULT '',          -- mailing service: '' nothing, ceka, ok, chyba
     sync_chyba VARCHAR(255) NOT NULL DEFAULT '',
+    contact_id INT UNSIGNED NULL DEFAULT NULL,           -- the customer (3.28, Core\Contacts; linked once the subscription is confirmed)
     PRIMARY KEY (ido),
     UNIQUE KEY uq_odberatel_email (email),
-    UNIQUE KEY uq_odberatel_token (token)
+    UNIQUE KEY uq_odberatel_token (token),
+    KEY ix_odberatele_contact (contact_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Queue of adding and removing subscribers in the mailing service (Core\Newsletter), sent by the background cleanup.
@@ -1574,11 +1637,13 @@ CREATE TABLE ka_bookings (
     source        VARCHAR(255) NOT NULL DEFAULT '',             -- the page the booking was made on; 'admin' when entered by hand
     language      VARCHAR(35) CHARACTER SET ascii NOT NULL DEFAULT '',               -- the site language version the customer used ('' = default)
     anonymised_at DATETIME NULL,
+    contact_id    INT UNSIGNED NULL DEFAULT NULL,               -- the customer (3.28, Core\Contacts; linked after the response, no foreign key)
     PRIMARY KEY (id),
     UNIQUE KEY ux_bookings_token (token_hash),
     KEY ix_bookings_staff_start (staff_id, starts_at),
     KEY ix_bookings_start (starts_at),
-    KEY ix_bookings_email (email)
+    KEY ix_bookings_email (email),
+    KEY ix_bookings_contact (contact_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Other times the provider proposed for a pending booking (3.3); the customer picks one with the link in the e-mail.

@@ -78,6 +78,9 @@ return [
     'comments' => ['comments', []],
     'notifications' => ['notifications', []],
     'tasks' => ['tasks', []],
+    'contacts' => ['contacts', []], // 3.28
+    'companies' => ['companies', []],
+    'contact_activities' => ['contact_activities', []],
     // links, imports and statistics
     'nenalezeno' => ['not_found', ['cesta' => 'path', 'pocet' => 'hits', 'naposledy' => 'last_seen_at']],
     'odkazy_vadne' => ['broken_links', ['ido' => 'id']],

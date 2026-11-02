@@ -198,6 +198,7 @@ final class Forms
         \Kaleta\Core\Events::record($db, 'enquiry.received', 'info', t('Form “%s” sent from %s', mb_substr((string) $element['obsah']['nazev'], 0, 80), mb_substr($back, 0, 120)),
             ['enquiry' => $idp, 'form' => (string) $element['id'], 'source' => $source]); // the form and the page, never the sender
         \Kaleta\Core\Triage::afterSubmit($this->app, $idp); // what is certain is sorted at once (a job application, 2.12)
+        \Kaleta\Core\Contacts::later('enquiry', $idp); // 3.28: linked to its customer after the response (index.php)
         $this->notify($idp, $element, $data, $email, $campaign, $about);
         \Kaleta\Core\Webhook::enquiryReceived($this->app, $idp, (string) $element['obsah']['nazev'], $data, $email, $back, $campaign, $landing, $referrer, (string) $element['id'], $about);
         // a sheet and the CRM (2.13): through the connector queue, never while the visitor waits

@@ -42,8 +42,8 @@ final class Inbox
     /** Notifications per screen. */
     public const int PAGE = 50;
 
-    /** Prefixes of a target string ("enquiry:12", "page:5", "item:9") => the kind of Core\Assignment that opens it. */
-    public const array TARGETS = ['enquiry' => 'enquiry', 'page' => 'page', 'item' => 'item'];
+    /** Prefixes of a target string ("enquiry:12", "page:5", "item:9", 3.28 "contact:3", "company:2") => the kind of Core\Assignment that opens it. */
+    public const array TARGETS = ['enquiry' => 'enquiry', 'page' => 'page', 'item' => 'item', 'contact' => 'contact', 'company' => 'company'];
 
     /**
      * Notifies a user: records the notification and, when they chose "instant", sends one e-mail now (queued, sent after
@@ -281,6 +281,9 @@ final class Inbox
                     'path' => 'admin.php?module=collections&action=item&id=' . (int) $r['idk'] . '&item=' . (int) $r['idp']];
             }
         }
+        if (isset($ids['contact']) || isset($ids['company'])) {
+            $out += Contacts::places($db, $ids['contact'] ?? [], $ids['company'] ?? []); // 3.28: a customer, a company
+        }
         if (isset($ids['task'])) {
             // 3.27: a task about nothing (Core\Tasks) – it is done in My work; a deleted task is gone
             try {
@@ -296,13 +299,14 @@ final class Inbox
     }
 
     /**
-     * A target string as [kind, id] – "enquiry:12", "page:5", "item:9", "task:3" (3.27); null for anything else. Pure.
+     * A target string as [kind, id] – "enquiry:12", "page:5", "item:9", "task:3" (3.27), "contact:4", "company:2" (3.28);
+     * null for anything else. Pure.
      *
      * @return array{0: string, 1: int}|null
      */
     public static function parse(string $target): ?array
     {
-        return preg_match('/^(enquiry|page|item|task):([1-9]\d{0,9})$/D', $target, $m) === 1 ? [$m[1], (int) $m[2]] : null;
+        return preg_match('/^(enquiry|page|item|task|contact|company):([1-9]\d{0,9})$/D', $target, $m) === 1 ? [$m[1], (int) $m[2]] : null;
     }
 
     /**
@@ -335,6 +339,8 @@ final class Inbox
             'page' => t('Page “%s”', (string) $place['title']),
             'item' => t('“%s” in %s', (string) $place['title'], (string) ($place['collection'] ?? '')),
             'task' => t('Task “%s”', (string) $place['title']),
+            'contact' => t('Customer #%s', (string) $place['id']), // 3.28: a number only – an e-mail of the bell never carries a customer's name
+            'company' => t('Company “%s”', (string) $place['title']),
             default => t('(no longer available)'),
         };
     }

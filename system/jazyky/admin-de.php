@@ -7299,4 +7299,5 @@ return [
     'Choose who takes the task.' => 'Wählen Sie, wer die Aufgabe übernimmt.',
     'The task was given to %s – they are notified.' => 'Die Aufgabe wurde %s übergeben – die Person wird benachrichtigt.',
     'The task is yours now.' => 'Die Aufgabe gehört jetzt Ihnen.',
+    'Customers: enquiries, bookings and subscriptions linked to their contact' => 'Kunden: Anfragen, Buchungen und Abonnements mit ihrem Kontakt verknüpft',
 ];

@@ -204,6 +204,7 @@ final class EnquiryReply
             $changes['prirazeno'] = (int) $user['idu']; // who answered handles it, unless someone already does
         }
         $db->update('poptavky', $changes, ['idp' => $idp]);
+        Contacts::touchLinked($db, 'enquiry', $idp, $entry['at']); // 3.28: a reply is the customer's latest activity
         \Kaleta\Admin\ChangeLog::write($app, 'enquiries', 'reply', '#' . $idp . ($ok ? '' : ' (queued)'));
         // the enquiry and who sent it – never the address or the text (Core\Events)
         Events::record($db, 'enquiry.replied', $ok ? 'info' : 'warning', mb_substr(t($ok ? '%s replied to enquiry #%d.' : '%s replied to enquiry #%d – the e-mail waits in the queue for another attempt.', $name, $idp), 0, 255),

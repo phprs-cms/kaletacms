@@ -6544,12 +6544,13 @@ foreach ($schemaTables39 as [, $table, $body]) {
 preg_match_all('/ALTER TABLE (\w+) MODIFY (\w+) VARCHAR\(35\) CHARACTER SET ascii/', (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0083-language-tags-and-slugs.sql'), $widened39, PREG_SET_ORDER);
 $widened39 = array_map(fn (array $m): string => $m[1] . '.' . $m[2], $widened39);
 $widened39[] = 'ka_stitky.jazyk'; // 3.14: migration 0095 adds the tags' language column in the same type
+$widened39[] = 'ka_contacts.language'; // 3.28: migration 0114 creates the contacts' language column in the same type
 sort($widened39);
 $schemaLanguageColumns39 = array_keys($languageColumns39);
 sort($schemaLanguageColumns39);
-check('3.9: every language column is VARCHAR(35) CHARACTER SET ascii in schema.sql (15 of them with the tags\' of 3.14) and migrations 0083 and 0095 make the same ones', [
+check('3.9: every language column is VARCHAR(35) CHARACTER SET ascii in schema.sql (16 of them with the tags\' of 3.14 and the contacts\' of 3.28) and migrations 0083, 0095 and 0114 make the same ones', [
     array_unique(array_values($languageColumns39)), count($languageColumns39), $widened39 === $schemaLanguageColumns39, str_contains($schema39, 'CHAR(2)')],
-    [['VARCHAR(35) CHARACTER SET ascii'], 15, true, false]);
+    [['VARCHAR(35) CHARACTER SET ascii'], 16, true, false]);
 $slugMigrations39 = (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0083-language-tags-and-slugs.sql') . (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0095-tag-language.sql');
 // 3.19: schema.sql has no global key any more (migration 0106 drops it on every site that can switch), only the per-language
 // one and a plain key on seo_link for the lookups in any version (migration 0105)
@@ -8562,7 +8563,7 @@ check('3.24 (B): the assignment e-mail – English by the site, Czech and German
 $a324App = (new ReflectionClass(Kaleta\Core\App::class))->newInstanceWithoutConstructor(); // never reaches the database: refused before it
 check('3.24 (B): no assignment e-mail to oneself, to nobody, or for an unknown kind', [
     Kaleta\Core\Assignment::notify($a324App, 'enquiry', 1, 5, 5), Kaleta\Core\Assignment::notify($a324App, 'page', 1, 0, 5), Kaleta\Core\Assignment::notify($a324App, 'news', 1, 6, 5),
-    array_keys(Kaleta\Core\Assignment::KINDS), array_values(Kaleta\Core\Assignment::KINDS)], [false, false, false, ['enquiry', 'page', 'item'], ['enquiries', 'pages', 'collections']]);
+    array_keys(Kaleta\Core\Assignment::KINDS), array_values(Kaleta\Core\Assignment::KINDS)], [false, false, false, ['enquiry', 'page', 'item', 'contact', 'company'], ['enquiries', 'pages', 'collections', 'contacts', 'contacts']]); // 3.28: customers and companies
 // the review reminder: one e-mail per person and day at most, an item once per review date; people without an owner never
 $r324 = [['kind' => 'page', 'id' => 1, 'review_by' => '2026-11-01', 'owner_id' => 3], ['kind' => 'collection_item', 'id' => 1, 'review_by' => '2026-11-02', 'owner_id' => 3],
     ['kind' => 'page', 'id' => 2, 'review_by' => '2026-11-02', 'owner_id' => 4], ['kind' => 'page', 'id' => 5, 'review_by' => '2026-11-02', 'owner_id' => null]];
@@ -8877,7 +8878,7 @@ check('3.26 Inbox: the e-mail choice, the excerpt (plain text, one line, at most
     Kaleta\Core\Inbox::emailMode('daily'), Kaleta\Core\Inbox::emailMode(''), Kaleta\Core\Inbox::emailMode('weekly'),
     Kaleta\Core\Inbox::excerpt("  Jana,\n please check\tthe <b>prices</b> & more  "), mb_strlen(Kaleta\Core\Inbox::excerpt(str_repeat('a', 500))), str_ends_with(Kaleta\Core\Inbox::excerpt(str_repeat('a ', 300)), '…'),
     Kaleta\Core\Inbox::excerpt("a\x07b"), Kaleta\Core\Inbox::parse('enquiry:12'), Kaleta\Core\Inbox::parse('page:5'), Kaleta\Core\Inbox::parse('item:9'), Kaleta\Core\Inbox::parse('stranka:5'),
-    Kaleta\Core\Inbox::parse('page:0'), Kaleta\Core\Inbox::parse('page:5 '), Kaleta\Core\Inbox::places($i326Db, ['contact:3', 'x']),
+    Kaleta\Core\Inbox::parse('page:0'), Kaleta\Core\Inbox::parse('page:5 '), Kaleta\Core\Inbox::places($i326Db, ['deal:3', 'x']),
     Kaleta\Core\Inbox::due('', new DateTimeImmutable('2026-11-02 07:59')), Kaleta\Core\Inbox::due('', new DateTimeImmutable('2026-11-02 08:00')),
     Kaleta\Core\Inbox::due('2026-11-02', new DateTimeImmutable('2026-11-02 15:00')), Kaleta\Core\Inbox::due('2026-11-01', new DateTimeImmutable('2026-11-02 23:10'))],
     ['daily', 'instant', 'instant', 'Jana, please check the <b>prices</b> & more', 200, true, 'ab', ['enquiry', 12], ['page', 5], ['item', 9], null, null, null, [], false, true, false, true]);
@@ -8956,7 +8957,7 @@ check('3.26 (A): targets of a thread – an enquiry, a page or an item with a po
     $a326::page(12), $a326::item(3), $a326::parseTarget('page:12'), $a326::parseTarget('item:7'), $a326::parseTarget('enquiry:4'), $a326::parseTarget('page:0'), $a326::parseTarget('item:3x'),
     $a326::parseTarget('stranka:3'), $a326::parseTarget('page:12345678901'), $a326::KINDS,
 ], ['page:12', 'item:3', ['type' => 'page', 'id' => 12], ['type' => 'item', 'id' => 7], ['type' => 'enquiry', 'id' => 4], null, null, null, null,
-    ['enquiry' => 'note', 'page' => 'comment', 'item' => 'comment']]);
+    ['enquiry' => 'note', 'page' => 'comment', 'item' => 'comment', 'contact' => 'comment', 'company' => 'comment']]); // 3.28: customers and companies
 check('3.26 (A): "@" and a sign-in name is a mention – once each, not inside a word or an e-mail address, not a single letter', [
     $a326::mentionTokens('Hi @jana and @Petr.Novak, mail x@y.cz or @jana again, @a, a@b, (@petr)'), $a326::mentionTokens('no mention'), $a326::mentionTokens("line\n@eva-k: ok"),
 ], [['jana', 'Petr.Novak', 'petr'], [], ['eva-k']]);
@@ -9238,7 +9239,7 @@ check('3.27: the job "tasks" every 5 minutes on visits too, before the mail; ka_
     Kaleta\Core\Scheduler::JOBS['tasks'] ?? null, isset(Kaleta\Core\Scheduler::jobs()['tasks']),
     array_search('tasks', array_keys(Kaleta\Core\Scheduler::JOBS), true) < array_search('mail', array_keys(Kaleta\Core\Scheduler::JOBS), true),
     Kaleta\Core\AgentJournal::journaled('tasks'), in_array('tasks', Kaleta\Core\AgentJournal::PERSONAL_TABLES, true),
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Tasks.php'), "\$journal = \$db->journal !== null && !str_starts_with((string) \$task['target'], 'enquiry:');")],
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Tasks.php'), "\$journal = \$db->journal !== null && !self::personal(\$task['target']);")], // 3.28: nor about a contact
     [[300, 'any', 'Task reminders'], true, true, false, true, true]);
 check('3.27: the hand-over counts open tasks (no section of their own), the processing record names them, the cleanup paths of enquiries, pages and items take them along', [
     Kaleta\Core\Handover::describe(['page' => 0, 'item' => 1, 'enquiry' => 0, 'task' => 4]), Kaleta\Core\Handover::describe(['page' => 2, 'item' => 0, 'enquiry' => 0]),
@@ -9246,7 +9247,7 @@ check('3.27: the hand-over counts open tasks (no section of their own), the proc
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Comments.php'), 'Tasks::'),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Privacy.php'), "t('Tasks of the team about an enquiry"),
     array_map(fn (string $code): bool => isset((require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php')['Task reminders']), ['cs', 'de', 'es'])],
-    ['collection items: 1, open tasks: 4', 'pages: 2', ['pages', 'enquiries'], 3, true, [true, true, true]]);
+    ['collection items: 1, open tasks: 4', 'pages: 2', ['pages', 'enquiries'], 4, true, [true, true, true]]); // 3.28: anonymiseTargets of contacts too
 // 3.27 (agent B): the tasks of a record in the admin – the form's dates (quick days, a time, the reminder), the default titles
 // (a follow-up is named after the enquiry's form, never after what the customer wrote), the cache and the modules
 use Kaleta\Admin\TaskPanel;

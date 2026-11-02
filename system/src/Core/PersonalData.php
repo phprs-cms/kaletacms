@@ -13,6 +13,9 @@ namespace Kaleta\Core;
  *  - Found: enquiries with the address as the sender or anywhere in their fields, the subscription and its pending
  *    sync to the mailing service, e-mails still in the outgoing queue, testimonial requests, bookings of appointments
  *    (3.0, Core\Booking), and an account of the administration (shown only – accounts are removed in Users, never here).
+ *  - 3.28: the customer records (Core\Contacts) of the address and of the enquiries, bookings and subscription found – with
+ *    the company they work for (its name only: a company is not a person's data and is never erased here), the team's log
+ *    of calls, meetings, e-mails and notes, and the team's comments and tasks about the contact. Erasing deletes them all.
  *  - Erasing deletes the enquiries with their attachments, internal notes (3.25) and tasks (3.27), the subscriber with the newsletter queue rows, the pending
  *    e-mails and the testimonial requests; when a mailing service is connected, the address is also removed there
  *    through the usual queue. A published testimonial stays – it is content the person agreed to publish; the result
@@ -42,7 +45,7 @@ final class PersonalData
     /**
      * Everything the site keeps about the address.
      *
-     * @return array{enquiries: list<array<string, mixed>>, subscriber: ?array<string, mixed>, sync: list<array<string, mixed>>, mail: list<array<string, mixed>>, testimonials: list<array<string, mixed>>, bookings: list<array<string, mixed>>, account: ?array<string, mixed>}
+     * @return array{enquiries: list<array<string, mixed>>, subscriber: ?array<string, mixed>, sync: list<array<string, mixed>>, mail: list<array<string, mixed>>, testimonials: list<array<string, mixed>>, bookings: list<array<string, mixed>>, account: ?array<string, mixed>, contacts: list<array<string, mixed>>}
      */
     public static function find(Db $db, string $email): array
     {
@@ -54,6 +57,12 @@ final class PersonalData
             $bookings = []; // before the 3.0 migration
         }
 
+        $enquiries = $db->all('SELECT idp, datum, formular, stranka, tema, email, data, kampan, vstup, odkud, replies FROM {poptavky} WHERE LOWER(email) = ? OR LOWER(data) LIKE ? ORDER BY idp', [$email, $like]);
+        // 3.28: the customer records of the address and of what was found (Core\Contacts) – an enquiry that only mentions the
+        // address in a field is not the person's own, so only those sent from it count
+        $contactIds = Contacts::ofPerson($db, $email, array_map('intval', array_column(array_filter($enquiries, fn (array $r): bool => mb_strtolower((string) $r['email']) === $email), 'idp')),
+            array_map('intval', array_column($bookings, 'id')), $subscriber !== null ? (int) $subscriber['ido'] : null);
+
         return [
             // the sender's address, or the address typed into any field of the form (a colleague's e-mail field)
             // the replies sent to the person (3.22) go with their enquiry: the subject, the text, who and when; so do the
@@ -64,14 +73,40 @@ final class PersonalData
                 // 3.27: the team's tasks about it (a follow-up may name the person) – deleted with it like the notes
                 'tasks' => array_map(fn (array $t): array => ['title' => $t['title'], 'due_at' => $t['due_at'], 'done_at' => $t['done_at'], 'created_at' => $t['created_at']],
                     Tasks::forTarget($db, Comments::enquiry((int) $r['idp'])))] + $r,
-                $db->all('SELECT idp, datum, formular, stranka, tema, email, data, kampan, vstup, odkud, replies FROM {poptavky} WHERE LOWER(email) = ? OR LOWER(data) LIKE ? ORDER BY idp', [$email, $like])),
+                $enquiries),
             'subscriber' => $subscriber,
             'sync' => $db->all('SELECT akce, vytvoreno, pokusy FROM {odber_fronta} WHERE LOWER(email) = ?', [$email]),
             'mail' => $db->all('SELECT idp, predmet, vytvoreno, odeslano FROM {posta} WHERE LOWER(komu) = ? ORDER BY idp', [$email]),
             'testimonials' => $db->all('SELECT id, idp, created_at, used_at, item_id, consent FROM {testimonial_requests} WHERE LOWER(email) = ? ORDER BY id', [$email]),
             'bookings' => $bookings,
             'account' => $db->one('SELECT idu, jmeno, email FROM {uzivatele} WHERE LOWER(email) = ?', [$email]),
+            'contacts' => self::contacts($db, $contactIds),
         ];
+    }
+
+    /**
+     * The customer records for the file (3.28): what the contact holds, its company's name, the team's log, comments and tasks.
+     *
+     * @param list<int> $ids
+     * @return list<array<string, mixed>>
+     */
+    private static function contacts(Db $db, array $ids): array
+    {
+        $out = [];
+        foreach ($ids as $id) {
+            $c = Contacts::find($db, $id);
+            if ($c === null) {
+                continue;
+            }
+            $target = Comments::contact($id);
+            $out[] = ['id' => $c['id'], 'email' => $c['email'], 'name' => $c['name'], 'phone' => $c['phone'], 'company' => $c['company_name'], 'language' => $c['language'],
+                'source' => $c['source'], 'summary' => $c['summary'], 'first_seen_at' => $c['first_seen_at'], 'last_activity_at' => $c['last_activity_at'], 'created_at' => $c['created_at'],
+                'activities' => array_map(fn (array $a): array => ['at' => $a['at'], 'kind' => $a['kind'], 'by' => $a['by'], 'text' => $a['text']], Contacts::activities($db, $id, 1000)),
+                'notes' => array_map(fn (array $n): array => ['at' => $n['at'], 'by' => $n['by'], 'text' => $n['text']], Comments::of($db, $target)),
+                'tasks' => array_map(fn (array $t): array => ['title' => $t['title'], 'due_at' => $t['due_at'], 'done_at' => $t['done_at'], 'created_at' => $t['created_at']], Tasks::forTarget($db, $target))];
+        }
+
+        return $out;
     }
 
     /** How many records of each kind – for the screen, for Claude and for the log (no content). @return array<string, int> */
@@ -85,6 +120,7 @@ final class PersonalData
             'testimonials' => count($found['testimonials']),
             'bookings' => count($found['bookings']),
             'account' => $found['account'] !== null ? 1 : 0,
+            'contacts' => count($found['contacts'] ?? []), // 3.28
         ];
     }
 
@@ -109,6 +145,9 @@ final class PersonalData
     {
         $db = $app->db();
         $found = self::find($db, $email);
+        foreach ($found['contacts'] as $contact) {
+            Contacts::delete($app, (int) $contact['id']); // 3.28: with its log, comments and tasks – before the records it links go
+        }
         \Kaleta\Admin\Modules\Enquiries::deleteAttachments($found['enquiries'] === [] ? [] : $db->all('SELECT data FROM {poptavky} WHERE idp IN (' . implode(',', array_map('intval', array_column($found['enquiries'], 'idp'))) . ')'));
         foreach (array_column($found['enquiries'], 'idp') as $idp) {
             $db->delete('poptavky', ['idp' => (int) $idp]);

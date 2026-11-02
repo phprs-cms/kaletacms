@@ -768,6 +768,7 @@ final class Booking
         }
         $booking = self::find($db, (int) $result[0]['id']) ?? $result[0];
         $booking['token'] = $token;
+        Contacts::later('booking', (int) $booking['id']); // 3.28: linked to its customer after the response
         Events::record($db, 'booking.created', 'info', t('An appointment was booked: %s, %s', $service['name'], self::when($booking['starts_at'], $booking['ends_at'])),
             ['booking' => (int) $booking['id'], 'service' => $service['id'], 'staff' => (int) $booking['staff_id'], 'by' => $by]); // never the customer
         if ($by !== 'customer') {

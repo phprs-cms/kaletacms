@@ -6891,4 +6891,5 @@ return [
     'Choose who takes the task.' => 'Vyberte, kdo úkol převezme.',
     'The task was given to %s – they are notified.' => 'Úkol převzal(a) %s – dostane upozornění.',
     'The task is yours now.' => 'Úkol je teď váš.',
+    'Customers: enquiries, bookings and subscriptions linked to their contact' => 'Zákazníci: poptávky, rezervace a odběry propojené s kontaktem',
 ];

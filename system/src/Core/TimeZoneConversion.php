@@ -79,6 +79,9 @@ final class TimeZoneConversion
         'comments' => ['created_at', 'edited_at', 'deleted_at'],
         'notifications' => ['created_at', 'read_at', 'emailed_at'],
         'tasks' => ['due_at', 'remind_at', 'notified_at', 'done_at', 'created_at', 'updated_at'], // 3.27
+        'contacts' => ['first_seen_at', 'last_activity_at', 'created_at', 'updated_at', 'anonymised_at'], // 3.28
+        'companies' => ['created_at', 'updated_at'],
+        'contact_activities' => ['happened_at', 'created_at'],
         'kolekce' => ['zmeneno'],
         'kolekce_polozky' => ['zverejnit_od', 'datum', 'zmeneno', 'links_checked', 'smazano'],
         'kolekce_sablony' => ['zmeneno'],

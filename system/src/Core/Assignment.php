@@ -17,8 +17,8 @@ namespace Kaleta\Core;
  */
 final class Assignment
 {
-    /** kind => the admin section (Module::IDENT) a person needs to be chosen for it */
-    public const array KINDS = ['enquiry' => 'enquiries', 'page' => 'pages', 'item' => 'collections'];
+    /** kind => the admin section (Module::IDENT) a person needs to be chosen for it; 3.28: a customer and a company need Customers (Core\Contacts::SECTION) */
+    public const array KINDS = ['enquiry' => 'enquiries', 'page' => 'pages', 'item' => 'collections', 'contact' => 'contacts', 'company' => 'contacts'];
 
     /** How a removed account is shown where its id is left (untranslated at the MCP boundary, t() in the admin). */
     public const string FORMER_USER = '(former user)';
@@ -168,6 +168,11 @@ final class Assignment
                     t('%s assigned you the enquiry #%s from the form “%s”.', $by, (string) $target['id'], $target['title'])],
                 'page' => [t('You are responsible for the page “%s”', $target['title']),
                     t('%s made you the responsible person for the page “%s”.', $by, $target['title']) . ' ' . $responsible],
+                // 3.28: a customer is named by its number only – the e-mail never carries a customer's personal data
+                'contact' => [t('You are responsible for the customer #%s', (string) $target['id']),
+                    t('%s made you the responsible person for the customer #%s.', $by, (string) $target['id']) . ' ' . t('It is listed under Mine in Customers. It does not change who may open it.')],
+                'company' => [t('You are responsible for the company “%s”', $target['title']),
+                    t('%s made you the responsible person for the company “%s”.', $by, $target['title']) . ' ' . t('It is listed under Mine in Customers. It does not change who may open it.')],
                 default => [t('You are responsible for “%s” in %s', $target['title'], (string) ($target['collection'] ?? '')),
                     t('%s made you the responsible person for “%s” in the collection %s.', $by, $target['title'], (string) ($target['collection'] ?? '')) . ' ' . $responsible],
             };
@@ -178,12 +183,23 @@ final class Assignment
 
     /**
      * What the e-mail names and where it leads: the form name of an enquiry (never its fields), the title of a page, the
-     * name and the collection of an item. Null when it does not exist (or is in the trash).
+     * name and the collection of an item, the number of a customer (3.28 – never their name), the name of a company. Null
+     * when it does not exist (or is in the trash, or anonymised).
      *
      * @return array{id: int, title: string, collection?: string, path: string}|null
      */
     private static function target(Db $db, string $kind, int $id): ?array
     {
+        if ($kind === 'contact') {
+            $exists = $db->value('SELECT 1 FROM {contacts} WHERE id = ? AND anonymised_at IS NULL', [$id]);
+
+            return $exists === null ? null : ['id' => $id, 'title' => '#' . $id, 'path' => Contacts::adminPath($id)];
+        }
+        if ($kind === 'company') {
+            $name = $db->value('SELECT name FROM {companies} WHERE id = ?', [$id]);
+
+            return $name === null ? null : ['id' => $id, 'title' => (string) $name, 'path' => Contacts::companyAdminPath($id)];
+        }
         if ($kind === 'enquiry') {
             $form = $db->value('SELECT formular FROM {poptavky} WHERE idp = ?', [$id]);
 

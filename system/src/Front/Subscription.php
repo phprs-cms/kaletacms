@@ -103,6 +103,7 @@ final class Subscription
         }
         if ((int) $o['stav'] === 0) {
             $db->update('odberatele', ['stav' => 1, 'potvrzeno' => date('Y-m-d H:i:s')], ['ido' => (int) $o['ido']]);
+            \Kaleta\Core\Contacts::later('subscriber', (int) $o['ido']); // 3.28: a confirmed subscription joins its customer after the response
             \Kaleta\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'pridat'); // to the mailing service, sent by the background cleanup
         }
 
