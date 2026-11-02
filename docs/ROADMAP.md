@@ -1237,6 +1237,29 @@ new `handover_checklist`, `builder_schema` field definitions carry a `source` hi
   testimonial request shows only on resolved customer enquiries, folded under the main actions, in one plain sentence.
 - **Tests:** a local SMTP sink in the browser suite (enquiry reply, Appearance-area member, every Settings tab saved twice).
 
+## 3.24 – team-ready website (2 November 2026)
+
+The first step towards a website a small company's team works in every day (owner decisions of 2 November 2026: a
+responsible person means responsibility only – no approval step and no access limit; notifications by e-mail; all of it in
+the core). Migration 0110 adds `ka_stranky.owner_id`, `ka_kolekce_polozky.owner_id` and an index on assigned enquiries;
+`KALETA_DB_VERSION` 110. No setting key, POST field, MCP tool, parameter or Czech alias renamed; new non-essential MCP tools
+`my_work` and `assign`, `update_enquiry` gains `assignee`, `list_pages` / `list_collection_items` / `list_enquiries` gain
+`owner` / `assignee`, `list_pending_review` gains `drafted_by`.
+
+1. **Faster site while the team works (T1):** the public page cache is cleared only by actions that can change what the site
+   shows; enquiries, notes, requests, users' own work, mail and report settings and the neutral MCP tools keep it. Every admin
+   section, action and MCP write tool is classified, and an unclassified one clears. The administration also runs the light
+   background jobs after its answer, so reminders and mail retries run on sites without cron.
+2. **Responsible person:** pages and collection items have one; a Mine tab in Pages and in collection items; an e-mail to the
+   person a page, an item or an enquiry is given to (never to oneself, never the enquiry content); a dashboard tile "Assigned
+   to me"; review-by reminders go to the responsible person, at most one e-mail a day.
+3. **My work:** one screen with my open enquiries, unassigned new ones, my pages and items that need a look and my requests
+   Claude answered; first in the menu for everyone but administrators.
+4. **When someone leaves:** Users shows what a person is responsible for and hands it over in one step, also when blocking or
+   deleting the account.
+5. **Builder:** a new page starts in the builder (empty builder page, a ready-made layout or a simple text page); the page
+   title is not offered twice; "Draft by …" in Pages, the builder and Waiting for you.
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |
