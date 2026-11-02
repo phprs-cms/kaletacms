@@ -276,11 +276,40 @@ await step('3.5 dashboard: Connect Claude leads until Claude is connected, its C
   if (SHOTS) { await page.screenshot({ path: `${SHOTS}/dashboard-connect-claude.png`, fullPage: false }); }
 });
 
+await step('3.24 N-U3/N-U4: New page starts in the builder – three choices, the text editor only for a text page, and the page title band is not offered twice', async () => {
+  await visit('/admin.php?module=pages&action=new');
+  const editor = page.locator('.radek.nova-jen-text');
+  const create = page.locator('.tlacitka .nova-jen-stavitel button');
+  const save = page.locator('.tlacitka .nova-jen-text button');
+  const shown = async () => [await editor.isVisible(), await create.isVisible(), await save.isVisible(), await page.locator('#sablona').isVisible()].join('/');
+  if (!(await page.locator('#start-builder').isChecked()) || await shown() !== 'false/true/false/false') { throw new Error(`the empty builder page is not the default start: ${await shown()}`); }
+  await page.locator('label.karta-volba:has(#start-text)').click();
+  if (await shown() !== 'true/false/true/false') { throw new Error(`a text page does not show the text editor and Save: ${await shown()}`); }
+  await page.locator('label.karta-volba:has(#start-layout)').click();
+  if (await shown() !== 'false/true/false/true') { throw new Error(`a ready-made layout does not show its list: ${await shown()}`); }
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/new-page-start.png`, fullPage: false }); }
+  await page.locator('label.karta-volba:has(#start-builder)').click();
+  await page.fill('#titulek', 'Browser builder page');
+  await Promise.all([page.waitForNavigation(), create.click()]);
+  await page.locator('.st-lista .st-skryta').waitFor();
+  await page.waitForTimeout(1500);
+  if (await canvas().locator('h1').count() !== 1 || !/Browser builder page/.test((await canvas().locator('h1').first().textContent()) || '')) { throw new Error('the empty builder page does not start with its title band'); }
+  await page.locator('.st-zalozky [role="tab"]').first().click();
+  const titleBand = page.locator('.st-knihovna button', { hasText: 'Page title' }).first();
+  if (!/Already on this page/.test((await titleBand.textContent()) || '')) { throw new Error('"Page title" is offered on a page that has its title band'); }
+  const sections = await canvas().locator('section').count();
+  await titleBand.click();
+  await page.waitForTimeout(800);
+  if (await canvas().locator('section').count() !== sections || await canvas().locator('h1').count() !== 1 || await canvas().locator('h2', { hasText: 'Page title' }).count()) { throw new Error('"Page title" added a second title band'); }
+  if (!/already starts with its title/.test((await page.locator('.st-stav').first().textContent()) || '')) { throw new Error('choosing "Page title" does not say the page has its title'); }
+});
+
 await step('3.5 a new page from a template stays hidden until its build is published, then goes live', async () => {
   await visit('/admin.php?module=pages&action=new');
   await page.fill('#titulek', 'Browser template page');
+  await page.locator('label.karta-volba:has(#start-layout)').click(); // 3.24 (N-U3): the layout list belongs to its choice
   await page.selectOption('#sablona', 'landing');
-  await Promise.all([page.waitForNavigation(), page.locator('form.formular button[type="submit"]').first().click()]);
+  await Promise.all([page.waitForNavigation(), page.locator('form.formular button[type="submit"]:visible').first().click()]);
   await page.locator('.st-lista .st-skryta').waitFor();
   const visitor = await browser.newContext();
   if ((await visitor.request.get(`${BASE}/browser-template-page`)).status() !== 404) { throw new Error('the empty template page is live before its build is published'); }

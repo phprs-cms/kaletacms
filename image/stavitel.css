@@ -52,6 +52,7 @@ body.stavitel-telo { display: block; margin: 0; padding: 0; max-width: none; ove
 .st-knihovna button { display: block; width: 100%; padding: 9px 10px; border: 1px solid var(--linka); border-radius: 8px; background: var(--podklad); text-align: left; cursor: pointer; }
 .st-knihovna button:hover { border-color: var(--akcent); }
 .st-knihovna small { display: block; color: var(--text-slaby); }
+.st-knihovna small.st-uz-je { margin-top: 2px; color: var(--akcent); font-weight: 600; } /* 3.24 (N-U4): "Page title" on a page that has its title */
 .st-hledat { width: 100%; margin-bottom: 10px; padding: 7px 10px; border: 1px solid var(--linka-pole); border-radius: 8px; background: var(--plocha); }
 
 /* Structure */

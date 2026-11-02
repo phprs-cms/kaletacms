@@ -6988,4 +6988,12 @@ return [
     'The client account %s cannot change the opening hours – add Business details to its access.' => 'La cuenta del cliente %s no puede cambiar el horario – añade a su acceso los Datos de la empresa.',
     'Ask the customer for a testimonial' => 'Pedir una referencia al cliente',
     'Was the customer happy? Send them a link where they can write a few words about you for your website. Nothing is published until you publish it.' => '¿El cliente quedó contento? Envíale un enlace donde pueda escribir unas palabras sobre ti para tu sitio web. No se publica nada hasta que tú lo publiques.',
+    'How do you want to start?' => '¿Cómo quieres empezar?',
+    'Empty builder page' => 'Página vacía en el builder',
+    'Starts with the page title; add ready-made sections and elements in the builder.' => 'Empieza con el título de la página; las secciones y los elementos listos se añaden en el builder.',
+    'Ready-made layout' => 'Diseño listo',
+    'Sections with sample texts to replace, opened in the builder.' => 'Secciones con textos de ejemplo para sustituir, abiertas en el builder.',
+    'Simple text page' => 'Página de texto simple',
+    'Just text and pictures in the text editor, e.g. a privacy policy.' => 'Solo texto e imágenes en el editor de texto, p. ej. una política de privacidad.',
+    'Create the page and open the builder' => 'Crear la página y abrir el builder',
 ];

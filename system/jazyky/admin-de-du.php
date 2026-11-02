@@ -1090,4 +1090,6 @@ return [
     'The client account %s cannot change the menu or the footer – add the Appearance area to its access.' => 'Das Kundenkonto %s kann Menü und Fußzeile nicht ändern – füge seinem Zugriff den Bereich Erscheinungsbild hinzu.',
     'The client account %s cannot change the opening hours – add Business details to its access.' => 'Das Kundenkonto %s kann die Öffnungszeiten nicht ändern – füge seinem Zugriff die Firmendaten hinzu.',
     'Was the customer happy? Send them a link where they can write a few words about you for your website. Nothing is published until you publish it.' => 'War der Kunde zufrieden? Schick ihm einen Link, über den er ein paar Worte über dich für deine Website schreiben kann. Nichts wird veröffentlicht, bevor du es veröffentlichst.',
+    'How do you want to start?' => 'Wie möchtest du beginnen?',
+    'Starts with the page title; add ready-made sections and elements in the builder.' => 'Beginnt mit dem Seitentitel; fertige Abschnitte und Elemente fügst du im Builder hinzu.',
 ];

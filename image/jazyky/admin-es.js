@@ -3028,5 +3028,7 @@ window.KALETA_PREKLAD = {
 	"A site in several languages: each further version (e.g. /cs/…) has its own pages, categories and news, a language switcher and hreflang tags. Pick the languages in Settings → Languages.": "Un sitio en varios idiomas: cada versión adicional (p. ej. /cs/…) tiene sus propias páginas, categorías y noticias, un selector de idioma y etiquetas hreflang. Elige los idiomas en Ajustes → Idiomas.",
 	"Moved after %s.": "Movido después de %s.",
 	"Moved to the start of %s.": "Movido al principio de %s.",
-	"Moved to the start of the page.": "Movido al principio de la página."
+	"Moved to the start of the page.": "Movido al principio de la página.",
+	"The page already starts with its title – it is selected, edit it there.": "La página ya empieza con su título: está seleccionado, edítalo ahí.",
+	"Already on this page": "Ya está en esta página"
 };

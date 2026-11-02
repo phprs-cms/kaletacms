@@ -317,9 +317,13 @@ final class Pages extends Module
         }
         $prefix = $parent !== null ? $parent['seo_link'] . '/' : '';
         $slug = slugify($r->post('seo_link') !== '' ? basename(str_replace('\\', '/', $r->post('seo_link'))) : $r->post('titulek'), max(20, 118 - strlen($prefix)));
+        // 3.24 (N-U3): how a new page starts – builder (an empty builder page), layout (a ready-made layout) or text (a text
+        // page); '' is a form or a script from before 3.24, which keeps the template select and "Save and open in the builder"
+        $start = $id === 0 && in_array($r->post('start'), ['builder', 'layout', 'text'], true) ? $r->post('start') : '';
         $textError = null;
         try {
-            $text = \Kaleta\Core\Html::forUserOrFail($r->post('text'), $this->app->auth(), 'text');
+            // the text editor is shown for a text page only: whatever it held stays out of a builder page
+            $text = in_array($start, ['builder', 'layout'], true) ? '' : \Kaleta\Core\Html::forUserOrFail($r->post('text'), $this->app->auth(), 'text');
         } catch (\Kaleta\Core\HtmlTooLarge $e) {
             $text = $r->post('text'); // only shown again in the form (escaped), never saved
             $textError = $e->localized();
@@ -393,7 +397,7 @@ final class Pages extends Module
         if ($errors !== []) {
             $previous = $id > 0 ? $this->db->one('SELECT stavba, stavba_koncept, heslo_hash FROM {stranky} WHERE ids = ?', [$id]) : null;
 
-            return $this->form(['ids' => $id] + $data + ['copy_build' => $r->postBool('copy_build')] + ($previous ?? ['stavba' => null, 'stavba_koncept' => null]), $errors);
+            return $this->form(['ids' => $id] + $data + ['copy_build' => $r->postBool('copy_build'), 'start' => $start, 'sablona' => $r->post('sablona')] + ($previous ?? ['stavba' => null, 'stavba_koncept' => null]), $errors);
         }
         if ($id > 0) {
             $previous = $this->db->one('SELECT seo_link, zobrazit, titulek, text, jazyk FROM {stranky} WHERE ids = ?', [$id]);
@@ -417,7 +421,16 @@ final class Pages extends Module
 
                 return \Kaleta\Core\Response::redirect($this->url('builder', ['id' => $id]));
             }
-            $template = \Kaleta\Builder\Library::PAGE_TEMPLATES[$r->post('sablona')] ?? null;
+            $template = in_array($start, ['', 'layout'], true) ? \Kaleta\Builder\Library::PAGE_TEMPLATES[$r->post('sablona')] ?? null : null;
+            if ($start === 'builder' || ($start === 'layout' && $template === null)) {
+                // 3.24 (N-U3, N-U4): an empty builder page starts with the page title band of the library – the same band as
+                // the templates, so the builder knows the page has its title and does not offer "Page title" a second time
+                $build = \Kaleta\Builder\Library::page($this->db, ['nadpis-stranky'], $data['titulek'], $this->contentLanguage($language));
+                $this->db->update('stranky', ['stavba_koncept' => Build::toJson($build)], ['ids' => $id]);
+                \Kaleta\Core\Menu::setPage($this->db, $id, $language, (bool) $data['v_menu']);
+
+                return \Kaleta\Core\Response::redirect($this->url('builder', ['id' => $id]));
+            }
             if ($template !== null && $template[1] !== []) {
                 // new page from a template: sections from the library as a draft and straight into the builder
                 $build = \Kaleta\Builder\Library::page($this->db, $template[1], $data['titulek'], $this->contentLanguage($language));

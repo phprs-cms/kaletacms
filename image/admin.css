@@ -1410,6 +1410,15 @@ label.galerie-vyfotit { display: none; }
 /* 3.13.1: the grid gap spaces the consent screen, not paragraph margins too; the access choices are one list, no empty slot */
 .login-karta .oauth-souhlas > p { margin: 0; }
 .login-karta .oauth-souhlas .karty-volby { grid-template-columns: 1fr; }
+/* 3.24 (N-U3): a new page starts with a choice – the layout list only for a ready-made layout, the text editor and Save
+   only for a text page; without a choice (a form from before) everything shows */
+.formular fieldset.nova-stranka-start { margin: 0 0 16px; padding: 0; border: 0; }
+.nova-stranka-start .karty-volby { margin-bottom: 8px; }
+.nova-jen-rozlozeni { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.nova-jen-rozlozeni label { font-weight: 600; }
+.formular:has(input[name="start"][value="layout"]:not(:checked)) .nova-jen-rozlozeni,
+.formular:has(input[name="start"][value="text"]:not(:checked)) .nova-jen-text,
+.formular:has(input[name="start"][value="text"]:checked) .nova-jen-stavitel { display: none; }
 
 .volby-jazyky { columns: 3 13rem; column-gap: 24px; }
 /* a long list of checkboxes (pages for a popup) */
