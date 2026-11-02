@@ -12,7 +12,9 @@ namespace Kaleta\Core;
  *  - pages and collection items they are responsible for (owner_id) whose "review by" date is within REVIEW_DAYS or
  *    past, that have unpublished changes (a page's draft build, a hidden item changed lately) or unresolved comments on
  *    the draft (pages);
- *  - their requests to Claude where Claude wrote last (an answer or a question waits for them).
+ *  - their requests to Claude where Claude wrote last (an answer or a question waits for them);
+ *  - their open tasks (3.27, Core\Tasks), first on the screen, grouped overdue / today / upcoming / later – for everyone,
+ *    no section needed. The tile and the badge count the overdue ones and today's (counts()).
  *
  * Every query starts from an indexed column (prirazeno + stav, owner_id, requests of one author) and is capped by LIMIT.
  */
@@ -42,7 +44,7 @@ final class MyWork
      */
     public static function lists(App $app, array $modules, int $userId): array
     {
-        $out = [];
+        $out = ['tasks' => self::tasks($app->db(), $userId)];
         foreach (self::LISTS as $list => $section) {
             if (!isset($modules[$section])) {
                 continue;
@@ -66,7 +68,28 @@ final class MyWork
      */
     public static function count(App $app, array $modules, int $userId, array $skip = []): int
     {
-        return array_sum(array_map(count(...), array_diff_key(self::lists($app, $modules, $userId), array_flip($skip))));
+        $tasks = Tasks::counts($app->db(), $userId); // 3.27: of the tasks only what is due – overdue and today's
+
+        return array_sum(array_map(count(...), array_diff_key(self::lists($app, $modules, $userId), array_flip([...$skip, 'tasks']))))
+            + (in_array('tasks', $skip, true) ? 0 : $tasks['overdue'] + $tasks['today']);
+    }
+
+    /**
+     * The person's open tasks (3.27) as rows of the lists: overdue first, then today's, upcoming and later ones, each with
+     * its group, due moment and what it is about (Tasks::label – the form name of an enquiry, never its fields).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function tasks(Db $db, int $userId): array
+    {
+        $rows = Tasks::forUser($db, $userId, 'open', self::LIMIT);
+        $order = ['overdue' => 0, 'today' => 1, 'upcoming' => 2, 'later' => 3];
+        usort($rows, fn (array $a, array $b): int => $order[$a['group']] <=> $order[$b['group']]); // stable: by due date within a group
+        $labels = Tasks::labels($db, array_column($rows, 'target'));
+
+        return array_map(fn (array $t): array => ['kind' => 'task', 'id' => $t['id'], 'title' => $t['title'], 'group' => $t['group'], 'due_at' => $t['due_at'],
+            'remind_at' => $t['remind_at'], 'about' => $labels[(string) $t['target']] ?? null, 'created_by' => $t['created_by'],
+            'url' => 'admin.php?module=my_work#task-' . $t['id']], $rows);
     }
 
     /**

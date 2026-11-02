@@ -1,8 +1,13 @@
 <?php
 /**
  * My work (3.24, Core\MyWork): one table per list the person may open, only lists with something in them; every row links
- * to where the work is done. Nothing at all = the empty state.
+ * to where the work is done. Nothing at all = the empty state. 3.27: the person's tasks first, grouped overdue / today /
+ * upcoming / later, each with Done and the snooze buttons (one form, the buttons post with formaction); administrators get
+ * the tabs Mine and Team; "New task" (folded) is the shared form views/admin/task_form.php.
  *
+ * @var array{action: string, people: array<int, string>, draft: string} $newTask
+ * @var string $csrf
+ * @var bool $team  show the tabs (administrators)
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\MyWork $module
  * @var array<string, list<array<string, mixed>>> $lists  list => rows (Core\MyWork::lists)
@@ -24,12 +29,55 @@ $reason = fn (string $code, array $row): string => match ($code) {
     default => '',
 };
 $filled = array_filter($lists);
+$tasks = $filled['tasks'] ?? [];
+unset($filled['tasks']);
+$groups = ['overdue' => 'Overdue', 'today' => 'Today', 'upcoming' => 'Upcoming (7 days)', 'later' => 'Later or without a date'];
+$due = fn (?string $at): string => $at === null ? '' : format_date($at, substr($at, 11, 5) !== Kaleta\Core\Tasks::DEFAULT_TIME);
+$aboutText = fn (array $about): string => match ($about['kind']) {
+    'enquiry' => t('Enquiry #%s · %s', (string) $about['id'], $about['title']),
+    'page' => t('Page “%s”', $about['title']),
+    default => t('“%s” in %s', $about['title'], (string) ($about['collection'] ?? '')),
+};
 ?>
-<?php if ($filled === []): ?>
+<?php if ($team): ?>
+<?= $app->view->render('admin/my_work/tabs', ['module' => $module, 'current' => '']) ?>
+<?php endif ?>
+<details class="ukol-pridat moje-novy-ukol" data-new-task<?= $newTask['draft'] !== '' ? ' open' : '' ?>><summary><?= e(t('New task')) ?></summary>
+<?= $app->view->render('admin/task_form', ['csrf' => $csrf, 'action' => $newTask['action'], 'fields' => [], 'people' => $newTask['people'], 'me' => $app->auth()->id(), 'draft' => $newTask['draft'], 'prefix' => 'novy-ukol']) ?>
+</details>
+<?php if ($tasks !== []): ?>
+<section class="moje-prace" data-list="tasks" aria-labelledby="moje-tasks">
+<h2 id="moje-tasks"><?= e(t('Your tasks')) ?> <small><?= format_count(count($tasks)) ?></small></h2>
+<form method="post" action="<?= e($module->url('complete')) ?>">
+<?= $csrf ?>
+<?php foreach ($groups as $group => $heading): ?>
+<?php $rows = array_values(array_filter($tasks, fn (array $t): bool => $t['group'] === $group)); if ($rows === []) { continue; } ?>
+<h3 class="moje-skupina" data-group="<?= e($group) ?>"><?= e(t($heading)) ?> <small><?= format_count(count($rows)) ?></small></h3>
+<div class="tab-obal">
+<table class="vypis vypis-karty">
+<thead><tr><th scope="col"><?= e(t('Task')) ?></th><th scope="col"><?= e(t('Due')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
+<tbody>
+<?php foreach ($rows as $r): ?>
+<tr id="task-<?= (int) $r['id'] ?>" data-task="<?= (int) $r['id'] ?>">
+	<td><?= e($r['title'] !== '' ? $r['title'] : t('(no title)')) ?><?php if ($r['about'] !== null): ?><br><a class="smltxt" href="<?= e($app->url($r['about']['url'])) ?>"><?= e($aboutText($r['about'])) ?></a><?php endif ?></td>
+	<td class="cislo"><?= $r['due_at'] === null ? '<span class="smltxt">' . e(t('no date')) . '</span>' : ($group === 'overdue' ? '<span class="stitek stitek-koncept">' . e($due($r['due_at'])) . '</span>' : e($due($r['due_at']))) ?></td>
+	<td class="akce"><button class="navigace" type="submit" name="id" value="<?= (int) $r['id'] ?>"><?= e(t('Done')) ?></button>
+		<button class="navigace" type="submit" formaction="<?= e($module->url('snooze', ['by' => 'tomorrow'])) ?>" name="id" value="<?= (int) $r['id'] ?>"><?= e(t('Tomorrow')) ?></button>
+		<button class="navigace" type="submit" formaction="<?= e($module->url('snooze', ['by' => '3days'])) ?>" name="id" value="<?= (int) $r['id'] ?>"><?= e(t('In 3 days')) ?></button></td>
+</tr>
+<?php endforeach ?>
+</tbody>
+</table>
+</div>
+<?php endforeach ?>
+</form>
+</section>
+<?php endif ?>
+<?php if ($filled === [] && $tasks === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'moje', 'heading' => t('Nothing waits for you right now.'),
-    'text' => t('Enquiries assigned to you, the pages and collection items you are responsible for when a review is due or changes wait unpublished, and your requests Claude answered appear here.'),
+    'text' => t('Your tasks, enquiries assigned to you, the pages and collection items you are responsible for when a review is due or changes wait unpublished, and your requests Claude answered appear here.'),
     'action' => [$app->url('admin.php'), t('Go to the dashboard')]]) ?>
-<?php else: ?>
+<?php elseif ($filled !== []): ?>
 <p class="napoveda"><?= e(t('Every row opens the place where the work is done. You are responsible for a page or an item when its settings name you as the responsible person.')) ?></p>
 <?php endif ?>
 <?php foreach ($filled as $list => $rows): ?>

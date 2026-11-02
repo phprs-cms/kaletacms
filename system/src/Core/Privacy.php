@@ -388,6 +388,7 @@ final class Privacy
             $months > 0 ? t('Retention: %d months, then %s automatically.', $months, t($s->get('enquiries_expiry') === 'anonymise' ? 'anonymised (the row stays for statistics without the person)' : 'deleted including attachments'))
                 : t('Retention: not limited – set it in Enquiries → Settings.'),
             t('Internal notes of the team on an enquiry (who wrote them and when) are kept with the enquiry: deleted with it, their text blanked when it is anonymised.'),
+            t('Tasks of the team about an enquiry (a follow-up, a call back) are kept with the enquiry: deleted with it, their title blanked when it is anonymised.'),
             t('Recipients: the people with access to Enquiries in the administration%s.', $s->get('webhook_enquiries') !== '' ? ', ' . t('a webhook at %s', (string) parse_url($s->get('webhook_enquiries'), PHP_URL_HOST)) : ''),
         ])];
         if (Jobs::sources($db) !== []) {

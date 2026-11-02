@@ -14,7 +14,7 @@
  * @var list<array<string, mixed>> $connections  the user's Claude connections (Core\SecurityHygiene::connections)
  * @var list<array{collection: string, items: list<array{id: int, name: string, language: string, email: string, visible: bool}>}> $teamChoices  records of people collections (3.14)
  * @var array{collection: array<string, mixed>, item: array<string, mixed>, chosen: bool}|null $teamRecord  the record the account is linked to now
- * @var array{page: int, item: int, enquiry: int} $owned  3.24: what the user is responsible for (Core\Handover::owned)
+ * @var array{page: int, item: int, enquiry: int, task: int} $owned  3.24: what the user is responsible for (Core\Handover::owned)
  * @var array<int, string> $recipients  3.24: who may take that work over
  */
 $error = fn (string $field): string => isset($errors[$field]) ? '<span class="chyba-pole" role="alert">' . e(t($errors[$field])) . '</span>' : '';

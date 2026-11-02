@@ -1685,3 +1685,5 @@ table.preklady td[data-stav] form { margin-inline-start: 6px; }
 .ukol-tlacitka { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
 .ukol-rychle { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .ukol-rychle button.navigace { padding: 6px 12px; font-weight: 500; }
+/* 3.27: "New task" on My work – the folded shared form above the lists */
+.moje-novy-ukol { margin: 0 0 20px; }

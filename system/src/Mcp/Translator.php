@@ -308,6 +308,9 @@ final class Translator
         'assign' => ['assign', '', []],
         'list_comments' => ['list_comments', '', []],
         'add_comment' => ['add_comment', '', []],
+        'list_tasks' => ['list_tasks', '', []],
+        'save_task' => ['save_task', '', []],
+        'complete_task' => ['complete_task', '', []],
     ];
 
     /** Parameter values in English => Czech (by the Czech parameter; for some tools only there). */

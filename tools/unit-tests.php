@@ -226,7 +226,7 @@ $parity = [
         'translations' => 'translation_status', 'bulk' => 'update_page',
         'owner' => 'assign', // 3.24: the responsible person of a published page for someone who may not save its settings
         'comment' => 'admin: the team’s thread on a page (3.26) – a person writes it; Claude gets the comments over MCP with the work tools',
-        'task' => 'admin: the tasks of a page in its settings (3.27) – Claude lists, saves and completes tasks with the work tools'],
+        'task' => 'save_task'], // 3.27: the tasks of a page in its settings – Claude saves and completes them with save_task / complete_task
     'news' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'compare' => $readOnly, 'versions' => $readOnly, 'search_json' => $readOnly,
         'save' => 'update_news', 'save_text' => 'update_news', 'delete' => 'trash_news', 'restore' => 'restore_from_trash', 'delete_permanently' => 'admin: the trash empties itself after 30 days',
         'draft' => 'admin: autosave of the editor', 'duplicate' => 'admin: a copy of a news item – Claude creates a new one', 'links' => 'admin: link check runs on its own',
@@ -244,14 +244,14 @@ $parity = [
         // 3.7: collection categories
         'categories' => 'list_collection_categories', 'category' => $readOnly, 'save_category' => 'save_collection_category', 'delete_category' => 'delete_collection_category',
         'comment' => 'admin: the team’s thread on an item (3.26) – a person writes it; Claude gets the comments over MCP with the work tools',
-        'task' => 'admin: the tasks of an item in its form (3.27) – Claude lists, saves and completes tasks with the work tools'],
+        'task' => 'save_task'], // 3.27: the tasks of an item in its form
     // 2.15: requests to Claude – staff write them in the admin (not over MCP: a request is what a person asks Claude), Claude reads and answers them
     'requests' => ['list' => 'list_requests', 'new' => $readOnly, 'save' => 'admin: a request is written by a person for Claude – Claude reads it with list_requests', 'detail' => 'list_requests',
         'reply' => 'admin: the requester answers Claude in the request; Claude answers with update_request', 'status' => 'update_request'],
     'enquiries' => ['list' => $readOnly, 'detail' => $readOnly, 'csv' => $readOnly, 'attachment' => $readOnly, 'note' => 'update_enquiry', 'status' => 'update_enquiry', 'triage' => 'update_enquiry', 'testimonial' => 'request_testimonial', 'reply' => 'reply_to_enquiry', 'personal' => 'erase_personal_data',
         'bulk' => 'update_enquiry', 'delete' => 'delete_enquiry', 'settings' => 'admin: how long enquiries are kept', 'anonymise' => 'admin: blanking a person from an enquiry is the owner’s decision about personal data (2.14)',
         'comment' => 'admin: editing or deleting one’s own note (3.26) – notes are added with update_enquiry add_note',
-        'task' => 'admin: the tasks and follow-ups of an enquiry (3.27) – Claude lists, saves and completes tasks with the work tools'],
+        'task' => 'save_task'], // 3.27: the tasks and follow-ups of an enquiry
     // 3.0: online booking – bookings are personal data (the Bookings section), the set-up is the administrator's
     'bookings' => ['list' => $readOnly, 'detail' => $readOnly, 'new' => $readOnly, 'status' => 'cancel_booking', 'confirm' => 'confirm_booking', 'decline' => 'decline_booking', 'propose' => 'propose_booking_times', 'anonymise' => 'admin: blanking a person from a booking is the owner’s decision about personal data',
         'create' => 'admin: a booking taken by phone is entered by the person who took the call – customers’ personal data never come from Claude', 'services' => $readOnly, 'service_save' => 'save_booking_service',
@@ -277,7 +277,7 @@ $parity = [
     'users' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'save' => 'admin: accounts and permissions', 'delete' => 'admin: accounts and permissions', 'password_link' => 'admin: accounts and permissions',
         'reactivate' => 'admin: accounts and permissions', 'revoke_connection' => 'admin: accounts and permissions',
         'handover' => 'admin: handing all of a leaver\'s work over goes with blocking or deleting the account (3.24) – Claude moves one record with assign'],
-    'my_work' => ['list' => 'my_work'], // 3.24
+    'my_work' => ['list' => 'my_work', 'team' => 'list_tasks', 'complete' => 'complete_task', 'snooze' => 'save_task', 'task' => 'save_task'], // 3.24; 3.27 tasks (task = New task)
     'roles' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'save' => 'admin: accounts and permissions', 'delete' => 'admin: accounts and permissions'],
     'stats' => ['list' => 'get_stats'], 'changelog' => ['list' => 'list_changes', 'sessions' => 'list_agent_sessions', 'undo' => 'undo_agent_session'], 'audit' => ['list' => 'site_audit'],
     'addons' => ['list' => $readOnly, 'toggle' => 'admin: running code from another developer is the administrator’s decision (3.0)', 'page' => 'admin: pages add-ons add to the administration'],
@@ -8716,7 +8716,7 @@ check('N324-2: Auth::forgetForBackground – nobody is signed in for the rest of
 // N324-5: the menu badge, the "Assigned to me" tile and My work count the same enquiries – open, spam left out
 $n3245 = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/MyWork.php');
 check('N324-5: My work and its menu badge leave spam out, as the Enquiries list and the dashboard tile do', [
-    str_contains($n3245, "' AND ' . \\Kaleta\\Admin\\Modules\\Enquiries::NOT_SPAM"), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/MyWork.php'), 'return Enquiries::countAssigned($app->db(), $app->auth()->id());'),
+    str_contains($n3245, "' AND ' . \\Kaleta\\Admin\\Modules\\Enquiries::NOT_SPAM"), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/MyWork.php'), 'return $count + Enquiries::countAssigned($app->db(), $app->auth()->id());'),
 ], [true, true]);
 
 // 3.25 (A): internal notes as a history (Core\Comments), the conversation of an enquiry (Core\EnquiryThread), the reply
@@ -8871,7 +8871,7 @@ check('3.26 Inbox: the contract – notify(App, int, string, string, ?int, strin
     Kaleta\Core\Inbox::record($i326Db, 5, 'mention', 'page:1', 5), Kaleta\Core\Inbox::record($i326Db, 0, 'mention', 'page:1', 5), Kaleta\Core\Inbox::record($i326Db, 6, 'like', 'page:1', 5),
     Kaleta\Core\Inbox::KINDS, Kaleta\Core\Inbox::EMAIL, Kaleta\Core\Inbox::KEEP_DAYS, Kaleta\Core\Inbox::EXCERPT],
     ['Kaleta\Core\App $app, int $userId, string $kind, string $target, ?int $actorId, string $excerpt = \'\'', 'void', true, null, null, null,
-    ['mention', 'assigned', 'comment', 'review_due'], ['instant', 'daily', 'off'], 90, 200]);
+    ['mention', 'assigned', 'comment', 'review_due', 'task_due'], ['instant', 'daily', 'off'], 90, 200]); // 3.27: task_due
 Kaleta\Core\Inbox::notify($i326App, 5, 'mention', 'page:1', 5, 'x'); // must not throw – the actor themself, nothing happens
 check('3.26 Inbox: the e-mail choice, the excerpt (plain text, one line, at most 200 characters), the targets and the daily hour', [
     Kaleta\Core\Inbox::emailMode('daily'), Kaleta\Core\Inbox::emailMode(''), Kaleta\Core\Inbox::emailMode('weekly'),
@@ -9181,6 +9181,72 @@ check('3.26.1 (N3261-5): many rows everywhere – the HTML stays under the budge
     substr_count($fullMail3261['text'], '/services/web-design-for-small-business-'), str_contains($fullMail3261['html'], 'web-design-for-small-business-1<'), str_contains($fullMail3261['html'], 'web-design-for-small-business-5<')],
     [true, true, true, 25, true, false]);
 
+// 3.27 (A): tasks and follow-ups (Core\Tasks, migration 0113) – the pure parts; the database flows are in tools/test.sh
+$t327Now = new DateTimeImmutable('2026-11-02 14:30:00', Kaleta\Core\Clock::zone());
+$t327Bad = function (string $value) use ($t327Now): string {
+    try {
+        Kaleta\Core\Tasks::parseMoment($value, $t327Now);
+
+        return 'accepted';
+    } catch (DomainException) {
+        return 'refused';
+    }
+};
+check('3.27: Tasks::parseMoment – dates at 9:00, times, ISO with an offset to the site clock, today/tomorrow, +days/weeks at 9:00, +hours/minutes from now, none; nonsense refused', [
+    Kaleta\Core\Tasks::parseMoment('2026-12-01', $t327Now), Kaleta\Core\Tasks::parseMoment('2026-12-01 15:45', $t327Now), Kaleta\Core\Tasks::parseMoment('2026-12-01T15:45:00', $t327Now),
+    Kaleta\Core\Tasks::parseMoment(' Tomorrow ', $t327Now), Kaleta\Core\Tasks::parseMoment('today', $t327Now), Kaleta\Core\Tasks::parseMoment('+3 days', $t327Now),
+    Kaleta\Core\Tasks::parseMoment('1 week', $t327Now), Kaleta\Core\Tasks::parseMoment('+2 hours', $t327Now), Kaleta\Core\Tasks::parseMoment('+30 minutes', $t327Now),
+    Kaleta\Core\Tasks::parseMoment('', $t327Now), Kaleta\Core\Tasks::parseMoment('none', $t327Now),
+    Kaleta\Core\Tasks::parseMoment('2026-12-01T14:45:00Z', $t327Now) === Kaleta\Core\Clock::toDb(new DateTimeImmutable('2026-12-01 14:45:00', new DateTimeZone('UTC'))),
+    $t327Bad('2026-02-30'), $t327Bad('next friday'), $t327Bad('2026-12-01 25:99'), $t327Bad('-3 days'), $t327Bad('+3 days; DROP TABLE')],
+    ['2026-12-01 09:00:00', '2026-12-01 15:45:00', '2026-12-01 15:45:00', '2026-11-03 09:00:00', '2026-11-02 09:00:00', '2026-11-05 09:00:00', '2026-11-09 09:00:00',
+        '2026-11-02 16:30:00', '2026-11-02 15:00:00', null, null, true, 'refused', 'refused', 'refused', 'refused', 'refused']);
+check('3.27: Tasks::group by the day of the due moment – overdue, today, upcoming (7 days), later (further or none); cleanTarget takes only enquiry|page|item:<id>', [
+    Kaleta\Core\Tasks::group('2026-11-01 23:59:00', '2026-11-02'), Kaleta\Core\Tasks::group('2026-11-02 00:00:00', '2026-11-02'), Kaleta\Core\Tasks::group('2026-11-02 23:00:00', '2026-11-02'),
+    Kaleta\Core\Tasks::group('2026-11-03 09:00:00', '2026-11-02'), Kaleta\Core\Tasks::group('2026-11-09 18:00:00', '2026-11-02'), Kaleta\Core\Tasks::group('2026-11-10 08:00:00', '2026-11-02'),
+    Kaleta\Core\Tasks::group(null, '2026-11-02'),
+    array_map(Kaleta\Core\Tasks::cleanTarget(...), ['enquiry:12', ' page:5 ', 'item:9', 'page:0', 'task:3', 'news:4', 'page:5x', '', null, 12])],
+    ['overdue', 'today', 'today', 'upcoming', 'upcoming', 'later', 'later', ['enquiry:12', 'page:5', 'item:9', null, null, null, null, null, null, null]]);
+$t327Schema = (string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql');
+$t327Migration = (string) @file_get_contents(KALETA_SYSTEM . '/sql/migrace/0113-tasks.sql');
+preg_match('/CREATE TABLE ka_tasks \((.+?)\) ENGINE/s', $t327Schema, $t327Table);
+preg_match('/CREATE TABLE ka_tasks \((.+?)\) ENGINE/s', $t327Migration, $t327MigTable);
+$t327Columns = fn (string $sql): array => array_values(array_filter(array_map(fn (string $l): string => preg_match('/^\s*([a-z_]+)\s+(INT|VARCHAR|DATETIME)/', $l, $m) ? $m[1] : '', explode("\n", $sql))));
+check('3.27: ka_tasks in schema.sql and migration 0113 alike (columns, the three keys), in the names map, its moments in TimeZoneConversion::INSTANTS, DB version 113', [
+    $t327Columns($t327Table[1] ?? ''), $t327Columns($t327Table[1] ?? '') === $t327Columns($t327MigTable[1] ?? ''),
+    preg_match_all('/KEY ix_tasks_(assignee \(assignee_id, done_at, due_at\)|target \(target\)|due \(done_at, notified_at\))/', $t327Table[1] ?? ''), Kaleta\Core\Names::english('tasks'),
+    Kaleta\Core\TimeZoneConversion::INSTANTS['tasks'] ?? null, KALETA_DB_VERSION >= 113],
+    [['id', 'title', 'target', 'assignee_id', 'created_by', 'due_at', 'remind_at', 'notified_at', 'done_at', 'done_by', 'request_id', 'created_at', 'updated_at'], true, 3, 'tasks',
+        ['due_at', 'remind_at', 'notified_at', 'done_at', 'created_at', 'updated_at'], true]);
+$t327Due = Kaleta\Core\Inbox::mail($reportSettings([]), ['jazyk' => 'en', 'register' => ''], ['kind' => 'task_due', 'actor_name' => 'Jana', 'excerpt' => 'Call back about the windows'],
+    ['kind' => 'enquiry', 'id' => 12, 'title' => 'Contact', 'path' => ''], 'https://x/1', 'https://x/2');
+$t327Self = Kaleta\Core\Inbox::mail($reportSettings([]), ['jazyk' => 'cs', 'register' => ''], ['kind' => 'task_due', 'actor_name' => '', 'excerpt' => ''],
+    ['kind' => 'task', 'id' => 3, 'title' => 'Review prices', 'path' => ''], 'https://x/1', 'https://x/2');
+check('3.27: Inbox – kind task_due, "task:<id>" targets (a task about nothing opens My work), the what, the where and the e-mail subject with the task title', [
+    in_array('task_due', Kaleta\Core\Inbox::KINDS, true), Kaleta\Core\Inbox::parse('task:3'), Kaleta\Core\Inbox::parse('task:0'), Kaleta\Core\Inbox::what('task_due', 'Jana'),
+    Kaleta\Core\Inbox::where(['kind' => 'task', 'id' => 3, 'title' => 'Review prices']), $t327Due[0], str_contains($t327Due[1], '“Call back about the windows”'), $t327Self[0],
+    Kaleta\Core\Inbox::record(new Kaleta\Core\Db('mysql:host=127.0.0.1;dbname=none', '', ''), 0, 'task_due', 'task:1', null)],
+    [true, ['task', 3], null, 'A task is due', 'Task “Review prices”', 'Task due: Call back about the windows', true, 'Úkol na řadě: Úkol „Review prices“', null]);
+check('3.27: the tools – list_tasks (read), save_task and complete_task (write, inside the site, never clearing the page cache), English on both sides, in the work set, never in the essentials', [
+    Kaleta\Mcp\Catalog::TOOLS['list_tasks'] ?? null, Kaleta\Mcp\Catalog::TOOLS['save_task'] ?? null, Kaleta\Mcp\Catalog::TOOLS['complete_task'] ?? null,
+    array_map(Kaleta\Mcp\Translator::czech(...), ['list_tasks', 'save_task', 'complete_task']), array_values(array_intersect(['list_tasks', 'save_task', 'complete_task'], Kaleta\Mcp\Catalog::ESSENTIALS)),
+    array_values(array_intersect(['list_tasks', 'save_task', 'complete_task'], Kaleta\Mcp\Catalog::WORK)), Kaleta\Mcp\Catalog::isSiteNeutral('save_task'), Kaleta\Mcp\Catalog::isSiteNeutral('complete_task'),
+    Kaleta\Mcp\Catalog::isIdempotent('complete_task'), Kaleta\Mcp\Catalog::isIdempotent('save_task'), Kaleta\Mcp\Catalog::isOpenWorld('save_task'), Kaleta\Mcp\Tools::annotations('list_tasks')['readOnlyHint'],
+    Kaleta\Mcp\Catalog::allows('drafts', 'save_task'), Kaleta\Mcp\Catalog::allows('read', 'list_tasks')],
+    [['read', ''], ['write', ''], ['write', ''], ['list_tasks', 'save_task', 'complete_task'], [], ['list_tasks', 'save_task', 'complete_task'], true, true, true, false, false, true, false, true]);
+check('3.27: the job "tasks" every 5 minutes on visits too, before the mail; ka_tasks never journaled by itself (a personal-data table) – Core\Tasks journals what is not about an enquiry', [
+    Kaleta\Core\Scheduler::JOBS['tasks'] ?? null, isset(Kaleta\Core\Scheduler::jobs()['tasks']),
+    array_search('tasks', array_keys(Kaleta\Core\Scheduler::JOBS), true) < array_search('mail', array_keys(Kaleta\Core\Scheduler::JOBS), true),
+    Kaleta\Core\AgentJournal::journaled('tasks'), in_array('tasks', Kaleta\Core\AgentJournal::PERSONAL_TABLES, true),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Tasks.php'), "\$journal = \$db->journal !== null && !str_starts_with((string) \$task['target'], 'enquiry:');")],
+    [[300, 'any', 'Task reminders'], true, true, false, true, true]);
+check('3.27: the hand-over counts open tasks (no section of their own), the processing record names them, the cleanup paths of enquiries, pages and items take them along', [
+    Kaleta\Core\Handover::describe(['page' => 0, 'item' => 1, 'enquiry' => 0, 'task' => 4]), Kaleta\Core\Handover::describe(['page' => 2, 'item' => 0, 'enquiry' => 0]),
+    Kaleta\Core\Handover::sectionsOf(['page' => 1, 'item' => 0, 'enquiry' => 2, 'task' => 3]),
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Comments.php'), 'Tasks::'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Privacy.php'), "t('Tasks of the team about an enquiry"),
+    array_map(fn (string $code): bool => isset((require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php')['Task reminders']), ['cs', 'de', 'es'])],
+    ['collection items: 1, open tasks: 4', 'pages: 2', ['pages', 'enquiries'], 3, true, [true, true, true]]);
 // 3.27 (agent B): the tasks of a record in the admin – the form's dates (quick days, a time, the reminder), the default titles
 // (a follow-up is named after the enquiry's form, never after what the customer wrote), the cache and the modules
 use Kaleta\Admin\TaskPanel;

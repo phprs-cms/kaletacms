@@ -26,6 +26,8 @@ final class Scheduler
         // fails, they run anyway and System status warns (3.12.1)
         'time_zone' => [0, 'any', 'Saved dates converted to a new time zone'],
         'notifications' => [0, 'any', 'Scheduled publishing and announcements'],
+        // 3.27 (Core\Tasks): before the mail, so a reminder e-mail queued now goes out in the same run
+        'tasks' => [300, 'any', 'Task reminders'],
         'mail' => [0, 'any', 'Sending e-mail'],
         'webhooks' => [0, 'any', 'Webhook deliveries'],
         'newsletter_sync' => [0, 'any', 'Subscribers to the mailing service'],
@@ -95,6 +97,7 @@ final class Scheduler
 
                 return 'ok';
             },
+            'tasks' => fn (App $app): string => Tasks::run($app), // 3.27: due tasks notify their assignee once
             'mail' => fn (App $app, string $source): string => 'sent ' . Mail::processQueue($app->settings(), $source === 'cron' ? 30 : 10),
             'webhooks' => fn (App $app, string $source): string => 'delivered ' . Webhook::processQueue($app->settings(), $source === 'cron' ? 30 : 10),
             'newsletter_sync' => fn (App $app): string => 'synced ' . Newsletter::processQueue($app),

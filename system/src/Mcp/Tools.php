@@ -30,7 +30,7 @@ use Kaleta\Builder\HtmlConverter;
  */
 final class Tools
 {
-    use Handlers\PageTools, Handlers\BuilderTools, Handlers\LookTools, Handlers\CollectionTools, Handlers\NewsTools, Handlers\MediaTools, Handlers\EnquiryAndPopupTools, Handlers\SettingsTools, Handlers\UpkeepTools, Handlers\NewsletterTools, Handlers\MigrationTools, Handlers\HealthTools, Handlers\FleetTools, Handlers\FactTools, Handlers\BlueprintTools, Handlers\NotebookTools, Handlers\RequestTools, Handlers\AgentRunTools, Handlers\BookingTools, Handlers\PendingReviewTools, Handlers\ReportTools, Handlers\WorkTools, Handlers\CommentTools;
+    use Handlers\PageTools, Handlers\BuilderTools, Handlers\LookTools, Handlers\CollectionTools, Handlers\NewsTools, Handlers\MediaTools, Handlers\EnquiryAndPopupTools, Handlers\SettingsTools, Handlers\UpkeepTools, Handlers\NewsletterTools, Handlers\MigrationTools, Handlers\HealthTools, Handlers\FleetTools, Handlers\FactTools, Handlers\BlueprintTools, Handlers\NotebookTools, Handlers\RequestTools, Handlers\AgentRunTools, Handlers\BookingTools, Handlers\PendingReviewTools, Handlers\ReportTools, Handlers\WorkTools, Handlers\CommentTools, Handlers\TaskTools;
 
     /** The largest file uploaded via MCP (base64 in one tool call). */
     private const int MAX_UPLOAD = 12 * 1024 * 1024;
@@ -472,7 +472,7 @@ final class Tools
             ['report_agent_run', 'Finishes a scheduled run handed out by get_due_agent_runs (administrators, 2.17): the status – ok when everything in the instructions was done as drafts, partial when some of it waits for a person, failed when it could not be done – a short summary the administrator reads (what was done, what to review, what needs a decision) and links to the drafts. It records the run and schedules the next one; it changes nothing on the site and publishes nothing.',
                 $s(['id' => $number('run id from get_due_agent_runs'), 'status' => $text('ok | partial | failed'), 'summary' => $text('what was done as drafts, what to review, what needs a person – plain text'),
                     'links' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => 'the drafts you made: [{"label": "Services – draft build", "url": "https://…/preview…"}] or plain strings (a URL, or "page 12")']], ['id', 'status', 'summary'])],
-            ['my_work', 'What waits for the connected user (read-only, 3.24) – the same lists as My work in the administration, each only for a section the user may open: enquiries assigned to them that are still open and new ones nobody handles yet (form, about, status – no personal data), the pages and collection items they are responsible for whose review is due within 14 days or overdue, that have unpublished changes or unresolved comments on the draft, and their requests to Claude where Claude wrote last. Every row has admin_url.',
+            ['my_work', 'What waits for the connected user (read-only, 3.24) – the same lists as My work in the administration, each only for a section the user may open: enquiries assigned to them that are still open and new ones nobody handles yet (form, about, status – no personal data), the pages and collection items they are responsible for whose review is due within 14 days or overdue, that have unpublished changes or unresolved comments on the draft, and their requests to Claude where Claude wrote last; 3.27: first their open tasks (tasks, by group overdue | today | upcoming | later). Every row has admin_url.',
                 $s([])],
             ['assign', 'Makes a person responsible for a page or a collection item, or the one who handles an enquiry (3.24; the connected user must be able to open that section). Responsibility only – it shows in that person\'s My work and e-mails them a link when it is someone else; it never changes who may edit. The person must be able to open the section too, otherwise nothing changes. user "none" removes the responsible person.',
                 $s(['target' => $text('page | item | enquiry'), 'id' => $number('ID of the page (list_pages), the collection item (list_collection_items) or the enquiry (list_enquiries)'),
@@ -482,6 +482,19 @@ final class Tools
             ['add_comment', 'Adds an internal comment to the thread of an enquiry, a page or a collection item as the connected user (3.26) – colleagues see it in the administration, visitors never. Plain text. '
                 . '"@" and a colleague\'s sign-in name (e.g. @jana; list_comments and this tool\'s result give each mentioned person\'s sign-in name as user) mentions a colleague who may open the record and notifies them – in the administration and by e-mail as they chose; a full-access connection only, anyone else is refused. An e-mail address is no mention.',
                 $s(['target' => $text('enquiry:<id> | page:<id> | item:<id>'), 'text' => $text('the comment as plain text, up to 5000 characters')], ['target', 'text'])],
+            ['list_tasks', 'The team\'s tasks and follow-ups (read-only, 3.27): title, who it is for, the due moment and its group (overdue | today | upcoming = within 7 days | later = further or no date), what it is about (an enquiry, a page or a collection item with admin_url). '
+                . 'filter mine (default: the connected user\'s open tasks), overdue (theirs that are overdue), assignee:<user> (an administrator may list anyone\'s; others only their own) or target:<enquiry|page|item>:<id> (every task about that record – the user must be able to open it).',
+                $s(['filter' => $text('mine | overdue | assignee:<user id, e-mail or sign-in name> | target:<enquiry:12 | page:5 | item:9>'), 'status' => $text('open (default) | done'),
+                    'limit' => $number('1–200, default 50')])],
+            ['save_task', 'Creates a task, or changes one with id (3.27): "remind me in 3 days if they do not answer", "review the price page by 1 Dec". The team\'s to-do – never shown on the site; at the due moment (or the reminder) the person gets a notification in the administration and by e-mail as they chose. '
+                . 'For someone else only when both may open the record it is about (an enquiry, a page or a collection item); they are notified. No subtasks, recurrence or time tracking.',
+                $s(['id' => $number('ID of a task to change (list_tasks); without it a new task'), 'title' => $text('what to do, up to 200 characters (required for a new task)'),
+                    'target' => $text('what it is about: enquiry:<id> | page:<id> | item:<id>; "none" = nothing'),
+                    'assignee' => $text('who does it: a user id, the e-mail or sign-in name of an active account, or "me" (default for a new task)'),
+                    'due' => $text('when it is due: YYYY-MM-DD (9:00), YYYY-MM-DD HH:MM, ISO 8601, "today", "tomorrow", "+3 days", "+1 week", "+2 hours"; "none" = no date'),
+                    'remind' => $text('an earlier reminder, the same forms as due; "none" = remind at the due moment')])],
+            ['complete_task', 'Marks a task done, or open again with done false (3.27). The person it is for, the one who created it, or an administrator.',
+                $s(['id' => $number('ID of the task (list_tasks)'), 'done' => ['type' => 'boolean', 'description' => 'true (default) = done, false = open again']], ['id'])],
             ['smaz_stranku', 'Přesune stránku do koše (jen na výslovný pokyn uživatele; editor nebo správce). Z koše jde 30 dní obnovit v administraci. Úvodní stránku smazat nejde.', $s(['id' => $number('ID stránky')], ['id'])],
         ];
 

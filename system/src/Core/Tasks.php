@@ -337,16 +337,25 @@ final class Tasks
     public static function label(Db $db, ?string $target): ?array
     {
         $target = self::cleanTarget($target);
-        $place = $target !== null ? (Inbox::places($db, [$target])[$target] ?? null) : null;
-        if ($place === null) {
-            return null;
-        }
-        $out = ['kind' => $place['kind'], 'id' => $place['id'], 'title' => $place['title']];
-        if (isset($place['collection'])) {
-            $out['collection'] = $place['collection'];
+
+        return $target !== null ? (self::labels($db, [$target])[$target] ?? null) : null;
+    }
+
+    /**
+     * label() of many targets at once (one query per kind – Inbox::places): target => label; missing ones are left out.
+     *
+     * @param list<?string> $targets
+     * @return array<string, array{kind: string, id: int, title: string, collection?: string, url: string}>
+     */
+    public static function labels(Db $db, array $targets): array
+    {
+        $out = [];
+        foreach (Inbox::places($db, array_values(array_filter(array_map(self::cleanTarget(...), $targets)))) as $target => $place) {
+            $out[$target] = ['kind' => $place['kind'], 'id' => $place['id'], 'title' => $place['title']]
+                + (isset($place['collection']) ? ['collection' => $place['collection']] : []) + ['url' => $place['path']];
         }
 
-        return $out + ['url' => $place['path']];
+        return $out;
     }
 
     /**

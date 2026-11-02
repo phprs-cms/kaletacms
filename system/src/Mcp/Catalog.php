@@ -203,6 +203,10 @@ final class Catalog
         // a drafts-only connection may write one too, without @mentions (they e-mail colleagues; Handlers\CommentTools)
         'list_comments' => ['read', ''],
         'add_comment' => ['draft', ''],
+        // Tasks and follow-ups (3.27, Core\Tasks): the team's to-dos – never shown on the site
+        'list_tasks' => ['read', ''],
+        'save_task' => ['write', ''],
+        'complete_task' => ['write', ''],
     ];
 
     /**
@@ -358,6 +362,9 @@ final class Catalog
         'assign' => 'Assign a responsible person',
         'list_comments' => 'List the comments of a record',
         'add_comment' => 'Add a comment',
+        'list_tasks' => 'List tasks',
+        'save_task' => 'Create or change a task',
+        'complete_task' => 'Complete a task',
     ];
 
     /**
@@ -385,7 +392,7 @@ final class Catalog
         'delete_collection', 'delete_collection_item', 'restore_item_version', 'save_collection_category', 'delete_collection_category', 'trash_news',
         'update_category', 'delete_category', 'update_media', 'delete_media', 'update_enquiry', 'delete_enquiry', 'erase_personal_data', 'delete_popup',
         'save_redirect', 'ignore_not_found', 'save_redirects', 'save_fact', 'delete_fact', 'delete_notebook_entry', 'update_social_draft', 'remove_blueprint',
-        'delete_hours_exception', 'cancel_booking', 'confirm_booking', 'decline_booking', 'delete_newsletter', 'assign'];
+        'delete_hours_exception', 'cancel_booking', 'confirm_booking', 'decline_booking', 'delete_newsletter', 'assign', 'complete_task'];
 
     /**
      * Write tools that never change what visitors see (3.24, T1): Mcp\Server keeps the page cache after them, every other
@@ -397,7 +404,7 @@ final class Catalog
      */
     public const array SITE_NEUTRAL = ['assign', 'update_enquiry', 'delete_enquiry', 'import_enquiries', 'request_testimonial', 'reply_to_enquiry', 'write_notebook',
         'delete_notebook_entry', 'update_request', 'report_agent_run', 'resolve_draft_comment', 'save_section', 'delete_section', 'ignore_not_found',
-        'update_social_draft', 'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter', 'add_comment'];
+        'update_social_draft', 'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter', 'add_comment', 'save_task', 'complete_task'];
 
     /** May the page cache stay after this write tool (by either name)? */
     public static function isSiteNeutral(string $name): bool
@@ -433,7 +440,7 @@ final class Catalog
      */
     public const array WORK = ['site_info', 'my_work', 'list_enquiries', 'update_enquiry', 'triage_enquiries', 'reply_to_enquiry', 'list_comments', 'add_comment',
         'assign', 'get_email_signature', 'list_requests', 'update_request', 'read_notebook', 'write_notebook', 'list_pages', 'get_page', 'preview_link',
-        'list_collections', 'list_collection_items', 'save_collection_item'];
+        'list_collections', 'list_collection_items', 'save_collection_item', 'list_tasks', 'save_task', 'complete_task'];
 
     /**
      * The tools a tool set lists before the META tools: null = every tool (all).

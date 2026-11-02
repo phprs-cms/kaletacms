@@ -7,7 +7,7 @@
  * @var Kaleta\Admin\Modules\Users $module
  * @var string $csrf
  * @var array<string, mixed> $author  idu, user, jmeno, blokovat
- * @var array{page: int, item: int, enquiry: int} $owned
+ * @var array{page: int, item: int, enquiry: int, task: int} $owned
  * @var array<int, string> $recipients  who may open the sections of that work
  * @var string $then  '' | block | delete – what the link that opened the screen asked for (that button gets the focus)
  * @var bool $isSelf
@@ -17,7 +17,7 @@ $what = Kaleta\Core\Handover::describe($owned);
 ?>
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to overview')) ?></a></p>
 <?php if ($what === ''): ?>
-<p class="hlaska"><?= e(t('%s is not responsible for any page, collection item or open enquiry.', $name)) ?></p>
+<p class="hlaska"><?= e(t('%s is not responsible for any page, collection item, open enquiry or open task.', $name)) ?></p>
 <?php else: ?>
 <p class="hlaska"><strong><?= e(t('%s is responsible for %s.', $name, $what)) ?></strong> <?= e(t('Choose who takes it over – only people who may open those sections are offered. Resolved enquiries keep who handled them.')) ?></p>
 <?php endif ?>
