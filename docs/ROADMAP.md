@@ -1260,6 +1260,23 @@ the core). Migration 0110 adds `ka_stranky.owner_id`, `ka_kolekce_polozky.owner_
 5. **Builder:** a new page starts in the builder (empty builder page, a ready-made layout or a simple text page); the page
    title is not offered twice; "Draft by …" in Pages, the builder and Waiting for you.
 
+## 3.25 – notes, a builder safety net and the Workspace menu (4 November 2026)
+
+Owner decisions of 2 November 2026: no support or ticketing system; Content stays above Workspace in the menu. Migration 0111
+adds `ka_comments` (enquiry notes now, comments on pages and items later); `KALETA_DB_VERSION` 111. No setting key, POST field,
+MCP tool, parameter or Czech alias renamed; `update_enquiry` gains `add_note`, `list_enquiries` gains `notes_count`,
+`list_build_versions` gains `kind` (draft history entries), `restore_build_version` accepts them.
+
+1. **Enquiry thread:** internal notes are a history (author and time, never overwritten; the old note stays as the summary);
+   the detail shows the customer's message, the replies and the notes in time order; a reply quotes the customer's message and
+   gets the subject "Re: …". Notes follow the enquiry's retention, anonymisation and erasure.
+2. **Builder safety net:** the Versions dialog lists the last 10 autosaves of the draft ("Draft – today 14:02 (by …)") next to
+   the published versions; Compare shows a per-section text diff against the current draft; loading an autosave is undoable.
+3. **Menu:** Dashboard, My work, Content, Workspace (Enquiries, Bookings), Appearance, Claude, Site care, Administration;
+   Statistics moves to Site care, Business details to Content, Subscribers become a tab of Newsletter; groups fold and remember
+   their state; anyone with 8 items or fewer gets a flat list; collection shortcuts show 5 and "More…".
+4. **One link picker** for every link field in the builder and the menu editor: pages, e-mail and phone, by keyboard too.
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |

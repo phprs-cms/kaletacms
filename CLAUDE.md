@@ -63,8 +63,10 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   Doplňuj nástrojem `tools/add-translations.py`. Hodnoty formulářů se nepřekládají.
 - **Jazykové verze:** sloupec `jazyk` ('' = výchozí) mají stránky, kategorie a novinky (novinka ho přebírá z kategorie). Každý dotaz webu
   vypisující obsah filtruje `Language::siteColumn()`. `App::url()` přidává `/en/` jen adresám bez přípony (soubory, `api/`, `mcp` jsou společné).
-- **Cache stránek** (`Front\Cache`): jen pro nepřihlášené; každý POST v administraci volá `Cache::clear()`. `Auth::user()` nesmí na webu
-  založit session anonymnímu návštěvníkovi.
+- **Cache stránek** (`Front\Cache`): jen pro nepřihlášené; POST v administraci volá `Cache::clear()`, jen když může změnit web (3.24: `Admin\Kernel::clearsPageCache` –
+  sekce `SITE_CHANGING_MODULES` / `SITE_NEUTRAL_MODULES`, akce `SITE_NEUTRAL_ACTIONS`, záložky `SITE_NEUTRAL_TABS`; MCP `Catalog::SITE_NEUTRAL`). Nová sekce nebo zapisovací
+  nástroj MCP = zařazení do jednoho z nich (hlídá `tools/unit-tests.php`), v pochybnostech maže. `Auth::user()` nesmí na webu
+  založit session anonymnímu návštěvníkovi. Lehké úlohy na pozadí spouští po odpovědi i `admin.php` (`Notifications::afterAdminResponse`).
 - **Adresa webu je nastavení `site_url`,** ne hlavička Host – absolutní adresy ber z `$app->request->origin()`.
 - **Obrázky:** varianty a WebP vznikají v `Core\Images::save()`, `srcset` doplňuje `Front\NewsRepository::prepare()`, rozměry `Front\ImageHtml::complete()`.
 - **Výpisy novinek nenačítají dlouhé texty** (`Front\NewsRepository::LIST_COLUMNS`) – nový sloupec pro výpis doplň i tam.
