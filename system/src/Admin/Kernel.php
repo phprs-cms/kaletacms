@@ -107,12 +107,13 @@ final class Kernel
      * The actions of Settings (and of the screens that share its class, System status and Claude settings) that change
      * nothing a visitor sees: backups, the vault, checks, the console pairing, test e-mails and webhooks, reports, logs. Not
      * here: the time zone (dates on pages), a new signing key (the signed forms of cached pages), restoring a backup,
-     * updates, the opening hours and the accessibility statement.
+     * updates, the opening hours, the accessibility statement and the cookie scan (the cookies it finds are rows of the
+     * {{cookie_table}} on the cookie policy page, Core\Privacy::cookieTable).
      */
     private const array SETTINGS_NEUTRAL = ['backup', 'download_backup', 'vault_move', 'config_permissions', 'user_ini', 'delete_backup', 'fleet_pair', 'fleet_send',
         'fleet_updates', 'fleet_unpair', 'fleet_kit', 'fleet_titles', 'firewall_unblock', 'delete_log', 'check', 'forget_updates', 'media_backup', 'test_mail',
         'report_preview', 'report_send', 'report_view', 'report_download', 'report_rebuild', 'domain_check', 'test_webhook', 'retry_webhook',
-        'new_webhook_secret', 'cookie_scan', 'processing_record'];
+        'new_webhook_secret', 'processing_record'];
 
     /**
      * In a section of SITE_CHANGING_MODULES, the actions that never reach the site ('' = the screens outside a section:

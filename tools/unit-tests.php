@@ -8546,8 +8546,9 @@ check('3.24 T1: Kernel::clearsPageCache – enquiries, notes, requests, the note
     $t324Post('settings', 'time_zone'), $t324Post('status', 'update'), $t324Post('claude_settings', 'restore_backup'), $t324Post('users', 'save'), $t324Post('users', 'delete'),
     $t324Post('bookings', 'confirm'), $t324Post('whistleblowing', 'footer_link'), $t324Post('redirects', 'save'), $t324Post('', 'account', ['co' => 'profil']),
     $t324Post('addons', 'page'), $t324Post('my_unknown_section', 'save'), $t324Post('', 'unknown'),
+    $t324Post('settings', 'cookie_scan'), // N324-1: the scanned cookies are rows of {{cookie_table}} on the cookie policy page
 ], [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false,
-    true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true]);
+    true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true]);
 // MCP: the write tools that change the site, listed here so a new write tool must be added to this list or to Catalog::SITE_NEUTRAL
 $t324Writes = array_keys(array_filter(Kaleta\Mcp\Catalog::TOOLS, fn (array $t): bool => $t[0] !== 'read'));
 $t324ChangingTools = ['create_page', 'update_page', 'trash_page', 'save_menu', 'restore_from_trash', 'edit_build', 'build_from_html', 'save_build', 'insert_section',
