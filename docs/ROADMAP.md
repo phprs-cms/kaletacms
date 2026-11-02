@@ -1305,6 +1305,8 @@ tool or parameter renamed; `get_monthly_report` gains `uptime` and `care`.
 - **Uptime:** a site paired with a fleet console fetches its own uptime days once a day (`/fleet/uptime`, signed both ways;
   older consoles answer 404 and nothing breaks) and the report shows them in the same strip as the Fleet site detail
   (`Core\UptimeStrip`, also used by the Fleet detail and the customer reports). Without a console the e-mail has no uptime part.
+- **Fix (N3261-1):** after an update, background jobs no longer run in the same request with the previous version's code
+  (`Updater::installedNow()`), so the update check cannot overwrite the new version line.
 
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
