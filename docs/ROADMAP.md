@@ -1308,6 +1308,24 @@ tool or parameter renamed; `get_monthly_report` gains `uptime` and `care`.
 - **Fix (N3261-1):** after an update, background jobs no longer run in the same request with the previous version's code
   (`Updater::installedNow()`), so the update check cannot overwrite the new version line.
 
+## 3.27 – tasks and follow-ups (4 November 2026)
+
+Stage 3 of the team work (owner, 2 November: "Start with Step 3"). Migration 0113 adds `ka_tasks`; `KALETA_DB_VERSION` 113.
+No setting key, POST field, MCP tool, parameter or Czech alias renamed; new non-essential MCP tools `list_tasks`, `save_task`
+and `complete_task` (also in the `work` tool set), `my_work` gains `tasks`. No subtasks, dependencies, time tracking or
+recurrence.
+
+1. **Tasks** (`Core\Tasks`) on enquiries, pages and collection items or on their own: title, person, due date, optional reminder;
+   anyone for themselves, someone else only when both may open the record; the person, the creator or an administrator changes
+   it.
+2. **Follow-ups:** after a reply, one click adds "Follow up: <form>" for tomorrow, in 3 days or in a week; pages and items with a
+   review date offer a task for that day.
+3. **My work:** tasks first – overdue, today, the next 7 days, later – with Done and snooze; a Team tab for administrators.
+4. **Reminders:** the scheduler job `tasks` notifies once when a reminder or due time passes (`task_due` in the bell and by
+   e-mail as each person chose).
+5. **Hand to Claude:** a task becomes an Ask Claude request with a link back.
+6. **Leavers and privacy:** open tasks are part of the hand-over; tasks follow an enquiry's deletion and anonymisation.
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |
