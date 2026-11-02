@@ -8755,5 +8755,12 @@ check('3.25 (N-U9): one link picker – the Text dialog and every [data-odkaz-vy
     str_contains((string) file_get_contents(KALETA_ROOT . '/image/editor.css'), '.odkaz-plovouci {'),
 ], [3, true, true, true, false, true, true]);
 
+// N325-2: the link picker offers the site's addresses with the installation folder (App::url) – the menu editor stores a
+// custom link without it (Core\Menu::items adds it) and a form's thank-you page does not get it twice
+check('N325-2: picked addresses in a site installed in a folder – the menu editor strips the folder, the thank-you redirect adds it only once', [
+    str_contains((string) file_get_contents(KALETA_ROOT . '/image/menu.js'), 'p.url = withoutBase(e.target.value.trim());'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Front/Forms.php'), "(\$base === '' || !str_starts_with(\$thankYouUrl, \$base . '/')) ? \$base . \$thankYouUrl : \$thankYouUrl;"),
+], [true, true]);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

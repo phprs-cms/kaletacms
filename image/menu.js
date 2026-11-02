@@ -20,6 +20,11 @@ document.addEventListener('DOMContentLoaded', function () {
 	const items = data.polozky.map(normalize);
 	const NAMES = { stranka: T('Page'), odkaz: T('Link'), novinky: T('Novinky'), skupina: T('Group') };
 	const MAX_DEPTH = 2; // top level, submenu, items of a group inside the submenu
+	// the installation folder (/web of example.com/web/admin.php): a custom link is stored without it – the site adds it when
+	// it draws the menu (Core\Menu::items) – but the link picker offers the site's addresses with it (3.25, N325-2)
+	const adminUrl = (document.querySelector('script[data-admin-url]') || { getAttribute: () => '' }).getAttribute('data-admin-url') || '';
+	const BASE = adminUrl.replace(/\/admin\.php(?:[?#].*)?$/, '');
+	const withoutBase = (url) => (BASE !== '' && url.startsWith(BASE + '/') ? url.slice(BASE.length) : url);
 	let dragged = null;
 
 	function el(tag, attributes, ...children) {
@@ -95,7 +100,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			icon,
 			text,
 			p.typ === 'odkaz' ? el('input', { class: 'textpole', type: 'text', maxlength: 500, value: p.url || '', placeholder: T('site page, https://…, #anchor, mailto:, tel:'), 'aria-label': T('Link address'),
-				'data-odkaz-vyber': '', oninput: (e) => { p.url = e.target.value.trim(); } }) : null, // 3.25 (N-U9): the link picker of image/editor.js
+				'data-odkaz-vyber': '', oninput: (e) => { p.url = withoutBase(e.target.value.trim()); } }) : null, // 3.25 (N-U9): the link picker of image/editor.js
 			p.typ === 'odkaz' ? el('label', { class: 'menu-okno' }, el('input', { type: 'checkbox', checked: !!p.nove_okno, onchange: (e) => { p.nove_okno = e.target.checked; } }), ' ' + T('new window')) : null,
 			description,
 			el('span', { class: 'menu-akce' },

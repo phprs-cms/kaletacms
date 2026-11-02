@@ -215,10 +215,12 @@ final class Forms
         $thankYouUrl = (string) ($element['obsah']['dekovna'] ?? '');
         // the browser reads „/\cizi.cz“ as //cizi.cz – a backslash in the thank-you page URL is rejected
         if ($thankYouUrl !== '' && !str_contains($thankYouUrl, '\\') && (str_starts_with($thankYouUrl, '/') && !str_starts_with($thankYouUrl, '//') || preg_match('#^https://#', $thankYouUrl))) {
-            // a URL on the site is the full path (including the language, /en/…), only the installation folder is added
+            // a URL on the site is the full path (including the language, /en/…), only the installation folder is added –
+            // unless it is there already: the link picker (3.25, N-U9) offers the site's own addresses with it (N325-2)
             // ?sent=<name> on the thank-you page reports the conversion to analytics (image/web.js), just like the
             // in-place thank-you
-            $thankYouUrl = (str_starts_with($thankYouUrl, '/') ? $r->basePath() . $thankYouUrl : $thankYouUrl);
+            $base = $r->basePath();
+            $thankYouUrl = str_starts_with($thankYouUrl, '/') && ($base === '' || !str_starts_with($thankYouUrl, $base . '/')) ? $base . $thankYouUrl : $thankYouUrl;
             $thankYouUrl .= (str_contains($thankYouUrl, '?') ? '&' : '?') . 'sent=' . rawurlencode((string) $element['obsah']['nazev']);
 
             return Response::redirect($thankYouUrl, 303);
