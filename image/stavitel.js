@@ -2519,6 +2519,10 @@
 				Object.entries(def.moznosti).map(([k, v]) => el('option', { value: k, selected: k === value }, T(v))));
 		} else if (def.typ === 'krok') {
 			inputEl = stepControl(value, inheritedFrom, change); // 3.21 (U5): named steps, a custom length checked right in the field
+		} else if (def.typ === 'mezera') {
+			inputEl = spaceControl(value, inheritedFrom, change); // 3.26 (N-U2): the spacing steps, a custom length checked in the field
+		} else if (def.typ === 'barva') {
+			inputEl = colourControl(value, inheritedFrom, change); // 3.26 (N-U2): the site's colours as swatches, a custom colour checked in the field
 		} else {
 			const field = el('input', { type: 'text', value: value, placeholder: inheritedFrom, list: HINTS[def.typ] ? 'st-dl-' + def.typ : null,
 				onchange: (e) => change(e.target.value.trim()), oninput: (e) => { if (sample) { sample.style.background = tokenColor(e.target.value || inheritedFrom || 'transparent'); } } });
@@ -2549,30 +2553,80 @@
 	/** What the steps of the type scale (–1…5) are for; how big they are is set in Site appearance. */
 	const STEP_NAMES = { '-1': 'Small', 0: 'Normal', 1: 'Larger', 2: 'Large', 3: 'Extra large', 4: 'Heading', 5: 'Title' };
 
+	/** The form a free colour may take – the same rule as Style::color() on the server (a unit test compares the two). */
+	const COLOUR = /^(#[0-9a-f]{3,8}|transparent|currentColor|(rgba?|hsla?|oklch|oklab|lab|lch|hwb)\([0-9., %\/+-]{3,60}\)|var\(--ka-barva-[a-z-]{1,30}\))$/i; // mirrors Style::COLOR_PATTERN
+	/** 3.26 (N-U2): what the spacing steps are (lowercase keys: the words agree with „spacing“ in every language); the sizes are set in Site appearance. */
+	const SPACE_NAMES = { 0: 'none', '2xs': 'tiny', xs: 'very small', s: 'small', m: 'medium', l: 'large', xl: 'very large', '2xl': 'huge', '3xl': 'largest' };
+
 	/**
-	 * 3.21 (U5): a property of type „krok“ (font size) – a select of the named steps and „Custom…“, which reveals a text field checked
-	 * as the server checks it: an invalid value („xl“, „large“) is marked at the field and is not saved. The stored value keeps its
-	 * form (a step or a length), so existing sites render as before.
+	 * 3.21 (U5), 3.26 (N-U2): a token choice – a select of the design system's tokens and „Custom…“, which reveals a text field
+	 * checked as the server checks it: an invalid value („xl“ as a font size, „primarni“ as a margin) is marked at the field and
+	 * is not saved. A stored value keeps its form (a token or a custom value), so existing sites render as before; a stored value
+	 * the server would refuse shows in the custom field with the message. o: tokens, label(token), pattern, placeholder,
+	 * fieldLabel, invalid; colour adds swatch (the sample with the colour picker) and swatches (one button per token).
 	 */
-	function stepControl(value, inheritedFrom, change) {
-		const steps = (D.schema.tokeny.kroky || HINTS.krok).map(String);
-		const stepName = (k) => k + ' · ' + T(STEP_NAMES[k] || k);
-		const custom = value !== '' && !steps.includes(value);
+	function tokenControl(value, inheritedFrom, change, o) {
+		const custom = value !== '' && !o.tokens.includes(value);
+		const valid = (h) => h === '' || o.tokens.includes(h) || o.pattern.test(h);
 		const wrapper = el('span', { class: 'st-krok' });
-		const field = el('input', { type: 'text', class: 'st-krok-vlastni', placeholder: '18px, 1.25rem', 'aria-label': T('Custom font size'), value: custom ? value : '' });
-		const message = el('small', { class: 'st-chyba-pole', role: 'alert', hidden: true }, T('Not a valid size. Use a number with a unit (18px, 1.25rem, 120%) or pick a step.'));
-		const valid = (h) => h === '' || steps.includes(h) || LENGTH.test(h);
+		const field = el('input', { type: 'text', class: 'st-krok-vlastni', placeholder: o.placeholder, 'aria-label': T(o.fieldLabel), value: custom ? value : '' });
+		const message = el('small', { class: 'st-chyba-pole', role: 'alert', hidden: !custom || valid(value) }, T(o.invalid));
 		const mark = (ok) => { message.hidden = ok; const row = wrapper.closest('.st-vlastnost'); if (row) { row.classList.toggle('st-pole-chyba', !ok); } };
-		field.addEventListener('input', () => mark(valid(field.value.trim())));
-		field.addEventListener('change', () => { const h = field.value.trim(); if (valid(h)) { change(h); } });
-		wrapper.append(el('select', { onchange: (e) => {
+		const shown = (h) => { if (o.shown) { o.shown(h || inheritedFrom); } };
+		const pick = (h) => { shown(h); change(h); };
+		const select = el('select', { onchange: (e) => {
 			if (e.target.value === 'vlastni') { wrapper.append(field, message); field.focus(); return; }
-			field.remove(); message.remove(); mark(true); change(e.target.value);
-		} }, el('option', { value: '' }, inheritedFrom ? '↳ ' + (steps.includes(inheritedFrom) ? stepName(inheritedFrom) : inheritedFrom) : '—'),
-			steps.map((k) => el('option', { value: k, selected: k === value }, stepName(k))),
-			el('option', { value: 'vlastni', selected: custom }, T('Custom…'))));
+			field.remove(); message.remove(); mark(true); pick(e.target.value);
+		} }, el('option', { value: '' }, inheritedFrom ? '↳ ' + (o.tokens.includes(inheritedFrom) ? o.label(inheritedFrom) : inheritedFrom) : '—'),
+			o.tokens.map((k) => el('option', { value: k, selected: k === value }, o.label(k))),
+			el('option', { value: 'vlastni', selected: custom }, T('Custom…')));
+		/** A value from outside the select (a swatch, the colour picker): the select and the custom field follow it. */
+		const take = (h) => {
+			if (o.tokens.includes(h)) { select.value = h; field.remove(); message.remove(); } else { select.value = 'vlastni'; field.value = h; wrapper.append(field, message); }
+			mark(true); pick(h);
+		};
+		field.addEventListener('input', () => { const h = field.value.trim(); mark(valid(h)); if (h !== '' && valid(h)) { shown(h); } });
+		field.addEventListener('change', () => { const h = field.value.trim(); if (valid(h)) { pick(h); } });
+		wrapper.append(o.swatch ? el('span', { class: 'st-pole-radek' }, o.swatch(take), select) : select);
+		if (o.swatches) { wrapper.append(o.swatches(take)); }
 		if (custom) { wrapper.append(field, message); }
 		return wrapper;
+	}
+
+	/** 3.21 (U5): font size – the steps of the type scale (–1…5) and a custom length. */
+	function stepControl(value, inheritedFrom, change) {
+		return tokenControl(value, inheritedFrom, change, { tokens: (D.schema.tokeny.kroky || HINTS.krok).map(String), label: (k) => k + ' · ' + T(STEP_NAMES[k] || k), pattern: LENGTH,
+			placeholder: '18px, 1.25rem', fieldLabel: 'Custom font size', invalid: 'Not a valid size. Use a number with a unit (18px, 1.25rem, 120%) or pick a step.' });
+	}
+
+	/** 3.26 (N-U2): a spacing (padding, margin, gap, offsets) – the spacing steps of the design system and a custom length. */
+	function spaceControl(value, inheritedFrom, change) {
+		return tokenControl(value, inheritedFrom, change, { tokens: ['0', ...(D.schema.tokeny.mezery || HINTS.mezera).filter((k) => k !== '0')], label: (k) => k + ' · ' + T(SPACE_NAMES[k] || k),
+			pattern: LENGTH, placeholder: '24px, 1.5rem', fieldLabel: 'Custom spacing', invalid: 'Not a valid spacing. Use a number with a unit (24px, 1.5rem, 5%) or pick a step.' });
+	}
+
+	/** 3.26 (N-U2): a colour – the site's colours as a select and as swatches, the sample doubles as the picker of a custom colour. */
+	function colourControl(value, inheritedFrom, change) {
+		const names = Object.assign({}, D.schema.tokeny.barvy || {}, { transparent: 'Transparent' });
+		const tokens = Object.keys(names);
+		let sample = null;
+		const buttons = [];
+		return tokenControl(value, inheritedFrom, change, { tokens, label: (k) => T(names[k] || k), pattern: COLOUR, placeholder: '#1e40af, oklch(…)', fieldLabel: 'Custom colour',
+			invalid: 'Not a valid colour. Use #hex, rgb(…) or oklch(…), or pick a colour of the site.',
+			shown: (h) => {
+				if (sample) { sample.style.background = tokenColor(h || 'transparent'); }
+				buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.token === h)));
+			},
+			swatch: (take) => (sample = el('label', { class: 'st-vzorek', title: T('Pick a custom colour'), style: 'background:' + tokenColor(value || inheritedFrom || 'transparent') },
+				el('input', { type: 'color', 'aria-label': T('Pick a custom colour'), value: /^#[0-9a-f]{6}$/i.test(value) ? value : '#000000',
+					oninput: (e) => { sample.style.background = e.target.value; }, onchange: (e) => take(e.target.value) }))),
+			swatches: (take) => el('span', { class: 'st-vzorky', role: 'group', 'aria-label': T('Colours of the site') }, tokens.filter((k) => k !== 'transparent').map((k) => {
+				const b = el('button', { type: 'button', class: 'st-vzorek-tl', 'data-token': k, title: T(names[k]), 'aria-label': T(names[k]), 'aria-pressed': String(k === value),
+					style: 'background:' + tokenColor(k), onclick: () => take(k) });
+				buttons.push(b);
+				return b;
+			})),
+		});
 	}
 
 	/** Shadow builder: offset, blur, spread, color and opacity → „0 8px 24px color-mix(…)“; color tokens work. */

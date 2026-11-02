@@ -3048,5 +3048,22 @@ window.KALETA_PREKLAD = {
 	"%s words added, %s removed": "%s Wörter hinzugefügt, %s entfernt",
 	"Unchanged sections: %s": "Unveränderte Abschnitte: %s",
 	"The text is the same as in the current draft.": "Der Text ist derselbe wie im aktuellen Entwurf.",
-	"Back to versions": "Zurück zu den Versionen"
+	"Back to versions": "Zurück zu den Versionen",
+	"none": "keiner",
+	"tiny": "winzig",
+	"very small": "sehr klein",
+	"small": "klein",
+	"medium": "mittel",
+	"large": "groß",
+	"very large": "sehr groß",
+	"huge": "riesig",
+	"largest": "am größten",
+	"Transparent": "Transparent",
+	"Custom spacing": "Eigener Abstand",
+	"Custom colour": "Eigene Farbe",
+	"Colours of the site": "Farben der Website",
+	"Not a valid spacing. Use a number with a unit (24px, 1.5rem, 5%) or pick a step.": "Kein gültiger Abstand. Geben Sie eine Zahl mit Einheit ein (24px, 1.5rem, 5 %) oder wählen Sie eine Stufe.",
+	"Not a valid colour. Use #hex, rgb(…) or oklch(…), or pick a colour of the site.": "Keine gültige Farbe. Geben Sie #hex, rgb(…) oder oklch(…) ein oder wählen Sie eine Farbe der Website.",
+	"Pozadí": "Hintergrund",
+	"Linka": "Linie"
 };

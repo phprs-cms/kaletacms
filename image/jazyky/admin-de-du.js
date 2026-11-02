@@ -415,5 +415,7 @@ Object.assign(window.KALETA_PREKLAD, {
 	"The file is larger than the server allows (%s at most) even after resizing. Make it smaller, or raise the limit as System status describes.": "Die Datei ist auch nach dem Verkleinern größer, als der Server erlaubt (höchstens %s). Verkleinere sie oder erhöhe das Limit wie im Systemstatus beschrieben.",
 	"These files are larger together (%s) than the server accepts in one upload (%s). Upload them in smaller groups.": "Diese Dateien sind zusammen größer (%s), als der Server in einem Upload annimmt (%s). Lade sie in kleineren Gruppen hoch.",
 	"A site in several languages: each further version (e.g. /cs/…) has its own pages, categories and news, a language switcher and hreflang tags. Pick the languages in Settings → Languages.": "Eine Website in mehreren Sprachen: Jede weitere Version (z. B. /cs/…) hat eigene Seiten, Kategorien und News, einen Sprachumschalter und hreflang-Tags. Die Sprachen wählst du unter Einstellungen → Sprachen.",
-	"The page already starts with its title – it is selected, edit it there.": "Die Seite beginnt bereits mit ihrem Titel – er ist ausgewählt, bearbeite ihn dort."
+	"The page already starts with its title – it is selected, edit it there.": "Die Seite beginnt bereits mit ihrem Titel – er ist ausgewählt, bearbeite ihn dort.",
+	"Not a valid spacing. Use a number with a unit (24px, 1.5rem, 5%) or pick a step.": "Kein gültiger Abstand. Gib eine Zahl mit Einheit ein (24px, 1.5rem, 5 %) oder wähle eine Stufe.",
+	"Not a valid colour. Use #hex, rgb(…) or oklch(…), or pick a colour of the site.": "Keine gültige Farbe. Gib #hex, rgb(…) oder oklch(…) ein oder wähle eine Farbe der Website."
 });

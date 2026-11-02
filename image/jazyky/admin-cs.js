@@ -2935,5 +2935,20 @@ window.KALETA_PREKLAD = {
 	"%s words added, %s removed": "Přidaná slova: %s, odebraná: %s",
 	"Unchanged sections: %s": "Sekce beze změny: %s",
 	"The text is the same as in the current draft.": "Text je stejný jako v současném konceptu.",
-	"Back to versions": "Zpět na verze"
+	"Back to versions": "Zpět na verze",
+	"none": "žádná",
+	"tiny": "drobná",
+	"very small": "velmi malá",
+	"small": "malá",
+	"medium": "střední",
+	"large": "velká",
+	"very large": "velmi velká",
+	"huge": "obrovská",
+	"largest": "největší",
+	"Transparent": "Průhledná",
+	"Custom spacing": "Vlastní mezera",
+	"Custom colour": "Vlastní barva",
+	"Colours of the site": "Barvy webu",
+	"Not a valid spacing. Use a number with a unit (24px, 1.5rem, 5%) or pick a step.": "Neplatná mezera. Zadejte číslo s jednotkou (24px, 1.5rem, 5 %) nebo vyberte krok.",
+	"Not a valid colour. Use #hex, rgb(…) or oklch(…), or pick a colour of the site.": "Neplatná barva. Zadejte #hex, rgb(…) nebo oklch(…), nebo vyberte barvu webu."
 };

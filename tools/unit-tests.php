@@ -8809,5 +8809,19 @@ check('3.26 (C): the work tool set is offered under Advanced on the consent scre
     array_map(fn (string $code): bool => isset((require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php')['work tools']), ['cs', 'de', 'es']),
 ], [2, true, true, true, [true, true, true]]);
 
+// 3.26 (C, N-U2): spacing and colour in the builder are token choices – the field checks a custom value as the server does
+$n326Script = (string) file_get_contents(KALETA_ROOT . '/image/stavitel.js');
+preg_match('~const COLOUR = /(.+)/i; // mirrors Style::COLOR_PATTERN~', $n326Script, $n326Colour);
+$n326Php = (string) (new ReflectionClassConstant(Kaleta\Builder\Style::class, 'COLOR_PATTERN'))->getValue();
+check('3.26 (N-U2): the builder\'s colour check mirrors Style::COLOR_PATTERN; spacing and colour fields are token choices with Custom…', [
+    $n326Colour[1] ?? '', str_contains($n326Script, "} else if (def.typ === 'mezera') {\n\t\t\tinputEl = spaceControl("), str_contains($n326Script, "} else if (def.typ === 'barva') {\n\t\t\tinputEl = colourControl("),
+    str_contains($n326Script, 'pattern: LENGTH, placeholder: \'24px, 1.5rem\''), str_contains($n326Script, 'pattern: COLOUR,'),
+], [substr($n326Php, 1, strrpos($n326Php, '/') - 1), true, true, true, true]);
+check('3.26 (N-U2) Style: a margin takes a spacing step or a length, never a colour word; a colour takes a token or a safe custom colour', [
+    array_map(fn (string $h): ?string => Kaleta\Builder\Style::value('okraj_dole', $h), ['m', '0', '24px', '-1.5rem', 'auto', 'primarni', 'xl ', '24 px', 'var(--x)']),
+    array_map(fn (string $h): ?string => Kaleta\Builder\Style::value('pozadi', $h), ['primarni', 'transparent', '#1e40af', 'oklch(60% 0.1 250)', 'm', 'red', 'url(x)']),
+], [['var(--ka-mezera-m)', '0', '24px', '-1.5rem', 'auto', null, null, null, null],
+    ['var(--ka-barva-primarni)', 'transparent', '#1e40af', 'oklch(60% 0.1 250)', null, null, null]]);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);
