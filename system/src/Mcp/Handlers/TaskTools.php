@@ -33,7 +33,13 @@ trait TaskTools
         if ($filter === 'mine' || $filter === 'overdue') {
             $rows = Tasks::forUser($db, $self, $filter === 'overdue' ? 'overdue' : $status, $limit);
         } elseif (str_starts_with($filter, 'assignee:')) {
-            $user = $this->taskPerson(substr($filter, 9), $self);
+            // N327-1: for anyone but an administrator one answer for an unknown and an existing colleague – the filter never
+            // tells whether an e-mail or a sign-in name belongs to an account
+            try {
+                $user = $this->taskPerson(substr($filter, 9), $self);
+            } catch (\InvalidArgumentException $e) {
+                $user = $this->app->auth()->isAdmin() ? throw $e : 0;
+            }
             if ($user !== $self && !$this->app->auth()->isAdmin()) {
                 throw new \DomainException('Only an administrator may list the tasks of someone else – use filter mine.');
             }

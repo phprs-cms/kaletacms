@@ -9330,6 +9330,10 @@ expect "3.27 list_tasks: mine – Petr's task with its group, due day, the form 
   "1|Send the offer|later|Formulář T327|Jana T327|1"
 mcp_as "$T327_TP" list_tasks "{\"filter\":\"assignee:$T327_JANA\"}" > "$WORK/response"; mcp_text
 expect "3.27 list_tasks: only an administrator lists someone else's" "$(grep -c 'Only an administrator may list the tasks of someone else' "$WORK/text")" "1"
+# N327-1: an unknown e-mail or sign-in name gets the same answer – the filter is no way to find out who has an account
+T327_P1=$(mcp_as "$T327_TP" list_tasks '{"filter":"assignee:nobody-n3271@example.com"}' | grep -c 'Only an administrator may list the tasks of someone else')
+T327_P2=$(mcp_as "$T327_TP" list_tasks '{"filter":"assignee:nobody-n3271"}' | grep -c 'Only an administrator may list the tasks of someone else')
+expect "N327-1 list_tasks: someone else's unknown e-mail or sign-in name – the same refusal as an existing colleague" "$T327_P1|$T327_P2" "1|1"
 mcp_as "$T327_TA" list_tasks '{"filter":"assignee:t327-jana"}' > "$WORK/response"; mcp_text; T327_A=$(t327_json total)
 mcp_as "$T327_TA" list_tasks "{\"filter\":\"target:enquiry:$T327_ENQ\"}" > "$WORK/response"; mcp_text
 expect "3.27 list_tasks: the administrator lists Jana's, and every task about the enquiry" "$T327_A|$(t327_json total)" "1|2"
