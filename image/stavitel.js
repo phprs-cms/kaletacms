@@ -1289,7 +1289,7 @@
 	function barMenu() {
 		const open = openComments().length;
 		const items = [
-			[icon('verze'), T('Versions'), T('Published versions'), versionsDialog],
+			[icon('verze'), T('Versions'), T('Draft history and published versions'), versionsDialog],
 			D.adresy.sdilet ? [icon('sdilet'), T('Share'), T('Share a link to the draft preview'), shareDialog] : null,
 			D.komentare ? [icon('komentar'), T('Comments') + (open ? ' (' + open + ')' : ''), T('Comments from people with a preview link'), commentsDialog] : null,
 		].filter(Boolean);
@@ -1483,22 +1483,65 @@
 		state.casovac = null;
 		return queue;
 	}
+	/**
+	 * Versions (3.25): the draft history (the last autosaves, U17) and the published versions; each can be compared with the
+	 * current draft per section (C21, text only) and loaded into the draft – Undo takes the load back, and the replaced draft
+	 * stays in the draft history on the server.
+	 */
 	function versionsDialog() {
 		query(D.adresy.revize).then((j) => {
 			if (j.ok === false) { setState(j.chyba, true); return; }
-			const list = el('ul');
-			(j.revize || []).forEach((r) => list.append(el('li', {}, el('span', {}, r.kdy, r.kdo ? ' · ' + r.kdo : ''),
-				el('button', { type: 'button', class: 'st-tl', onclick: () => { d.close(); stopSaving().then(() => query(D.adresy.obnov, { idr: r.idr })).then((o) => {
-					if (!o.ok) { setState(o.chyba, true); return; }
-					state.zpet.push(JSON.stringify(state.stavba)); state.stavba = o.stavba; state.ulozeno = JSON.stringify(o.stavba); state.verze = o.verze; state.konflikt = false;
-					state.zmeny = true; state.vybrane = null;
-					setState(T('The older version is in the draft – publish it when ready')); redraw(); refreshPreview();
-				}); } }, T('Load into draft')))));
-			const d = el('dialog', { class: 'st-dialog' }, el('div', {}, el('h2', {}, T('Published versions')), j.revize && j.revize.length ? list : el('p', { class: 'st-prazdno' }, T('No older versions yet.'))),
-				el('footer', {}, el('button', { type: 'button', class: 'st-tl', onclick: () => d.close() }, T('Close'))));
+			const body = el('div', {});
+			const d = el('dialog', { class: 'st-dialog st-verze' }, body, el('footer', {}, el('button', { type: 'button', class: 'st-tl', onclick: () => d.close() }, T('Close'))));
+			const row = (label, r, draft) => el('li', {}, el('span', {}, label),
+				el('span', { class: 'st-verze-akce' },
+					el('button', { type: 'button', class: 'st-tl st-verze-porovnej', onclick: () => compareVersion(d, body, label, r.idr, draft) }, T('Compare')),
+					el('button', { type: 'button', class: 'st-tl st-verze-obnov', onclick: () => { d.close(); restoreVersion(r.idr, draft); } }, T('Load into draft'))));
+			const drafts = (j.koncepty || []).map((r) => row(T('Draft – %s').replace('%s', r.kdy) + (r.kdo ? ' (' + T('by %s').replace('%s', r.kdo) + ')' : ''), r, true));
+			const published = (j.revize || []).map((r) => row(r.kdy + (r.kdo ? ' · ' + r.kdo : ''), r, false));
+			const show = () => body.replaceChildren(el('h2', {}, T('Versions')),
+				el('h3', {}, T('Draft history')), el('p', { class: 'st-sdilet-pozn' }, T('The last autosaves of the draft. Loading one makes it the draft – Undo takes it back.')),
+				drafts.length ? el('ul', { class: 'st-verze-koncepty' }, drafts) : el('p', { class: 'st-prazdno' }, T('No autosaves yet.')),
+				el('h3', {}, T('Published versions')),
+				published.length ? el('ul', { class: 'st-verze-publikovane' }, published) : el('p', { class: 'st-prazdno' }, T('No older versions yet.')));
+			d.zpetNaVerze = show;
+			show();
 			d.addEventListener('close', () => d.remove());
 			document.body.append(d);
 			d.showModal();
+		});
+	}
+	/** Loads a published version or a draft history entry into the draft; the current state goes to Undo. */
+	function restoreVersion(idr, draft) {
+		stopSaving().then(() => query(D.adresy.obnov, { idr })).then((o) => {
+			if (!o.ok) { setState(o.chyba, true); return; }
+			state.zpet.push(JSON.stringify(state.stavba)); state.vpred = []; state.stavba = o.stavba; state.ulozeno = JSON.stringify(o.stavba); state.verze = o.verze; state.konflikt = false;
+			state.zmeny = true; state.vybrane = null;
+			setState(draft ? T('The earlier draft is back – Undo takes it back') : T('The older version is in the draft – publish it when ready')); redraw(); refreshPreview();
+		});
+	}
+	/** The text compare of a version with the current draft (3.25, C21): one block per section, unchanged sections only counted. */
+	function compareVersion(d, body, label, idr, draft) {
+		query(D.adresy.porovnej + (D.adresy.porovnej.includes('?') ? '&' : '?') + 'version=' + encodeURIComponent(idr)).then((j) => {
+			if (!j.ok) { setState(j.chyba, true); return; }
+			const STATES = { changed: T('Changed'), added: T('Only in the current draft'), removed: T('Not in the current draft'), layout: T('Only the layout or style changed'), same: T('Unchanged') };
+			const blocks = [];
+			let same = 0;
+			(j.sekce || []).forEach((s) => {
+				if (s.stav === 'same') { same++; return; }
+				blocks.push(el('section', { class: 'st-porovnani-sekce st-porovnani-' + s.stav },
+					el('h4', {}, s.nazev, ' ', el('small', {}, STATES[s.stav] || s.stav)),
+					s.html ? el('div', { class: 'st-diff', html: s.html }) : null));
+			});
+			const changed = blocks.length > 0;
+			body.replaceChildren(el('h2', {}, T('Compare: %s').replace('%s', label)),
+				el('p', { class: 'st-sdilet-pozn' }, T('Against the current draft: struck-through text is only in this version, underlined text only in the current draft. Text only – images and styles are not compared.')),
+				changed ? el('p', { class: 'st-porovnani-souhrn' }, T('%s words added, %s removed').replace('%s', j.pridano).replace('%s', j.smazano)
+					+ (same ? ' · ' + T('Unchanged sections: %s').replace('%s', same) : '')) : el('p', { class: 'st-prazdno' }, T('The text is the same as in the current draft.')),
+				el('div', { class: 'st-porovnani' }, blocks),
+				el('p', { class: 'st-verze-akce' },
+					el('button', { type: 'button', class: 'st-tl', onclick: () => d.zpetNaVerze() }, T('Back to versions')),
+					el('button', { type: 'button', class: 'st-tl st-tl-hlavni st-verze-obnov', onclick: () => { d.close(); restoreVersion(idr, draft); } }, T('Load into draft'))));
 		});
 	}
 

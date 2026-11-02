@@ -7074,4 +7074,5 @@ return [
     '%s wrote:' => '%s escribió:',
     'the customer' => 'el cliente',
     'Internal notes of the team on an enquiry (who wrote them and when) are kept with the enquiry: deleted with it, their text blanked when it is anonymised.' => 'Las notas internas del equipo sobre una consulta (quién las escribió y cuándo) se guardan con la consulta: se eliminan con ella y su texto se vacía al anonimizarla.',
+    'Section %s' => 'Sección %s',
 ];

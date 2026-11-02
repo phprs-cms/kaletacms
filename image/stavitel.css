@@ -331,3 +331,16 @@ body.st-umistovani .st-uzel { cursor: copy; }
 }
 /* 3.23.1 (N-U15): the live region that reads out where Alt+arrows moved an element */
 .st-ohlas { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+/* 3.25 (C21, U17): Versions – the draft history, published versions and the per-section text compare */
+.st-dialog.st-verze { width: min(720px, calc(100vw - 32px)); }
+.st-verze h3 { margin: 16px 0 4px; font-size: 14px; }
+.st-verze h3:first-of-type { margin-top: 0; }
+.st-verze-akce { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.st-porovnani { max-height: 55vh; overflow: auto; }
+.st-porovnani-sekce { padding: 10px 0; border-bottom: 1px solid var(--linka); }
+.st-porovnani-sekce h4 { margin: 0 0 6px; font-size: 14px; }
+.st-porovnani-sekce h4 small { margin-left: 6px; color: var(--text-slaby); font-weight: normal; }
+.st-porovnani-souhrn { margin: 8px 0; font-size: 13px; }
+.st-diff p { margin: 0 0 6px; overflow-wrap: anywhere; }
+.st-diff ins { background: var(--ok-podklad); color: var(--ok); text-decoration: underline; }
+.st-diff del { background: var(--chyba-podklad); color: var(--chyba); text-decoration: line-through; }

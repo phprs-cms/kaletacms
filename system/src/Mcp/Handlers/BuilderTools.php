@@ -156,8 +156,11 @@ trait BuilderTools
 
         $target = $this->loadBuildTarget($a);
 
-        return $this->describeTarget($target) + ['verze' => array_map(fn (array $r): array => ['idr' => (int) $r['idr'], 'kdy' => substr((string) $r['datum'], 0, 16), 'kdo' => $r['kdo']],
-            Publisher::listAll($db, $target['revize']))];
+        // 3.25 (U17): the draft history (the last autosaves, kind "draft") after the published versions (kind "published"),
+        // so the first entry is still the latest published version
+        return $this->describeTarget($target) + ['verze' => [...array_map(fn (array $r): array => ['idr' => (int) $r['idr'], 'kdy' => substr((string) $r['datum'], 0, 16), 'kdo' => $r['kdo'], 'kind' => 'published'],
+            Publisher::listAll($db, $target['revize'])), ...array_map(fn (array $r): array => ['idr' => $r['idr'], 'kdy' => substr($r['datum'], 0, 16), 'kdo' => $r['kdo'], 'kind' => 'draft'],
+            \Kaleta\Builder\DraftHistory::listAll($db, $target['revize']))]];
     }
 
     /** restore_build_version (obnov_verzi) */
@@ -166,9 +169,11 @@ trait BuilderTools
         $db = $this->app->db();
 
         $target = $this->loadBuildTarget($a);
-        $json = Publisher::load($db, $target['revize'], (int) ($a['idr'] ?? 0)) ?? throw new \InvalidArgumentException('Verze neexistuje. Použij nástroj stavba_verze.');
+        $idr = (int) ($a['idr'] ?? 0);
+        $json = Publisher::load($db, $target['revize'], $idr) ?? \Kaleta\Builder\DraftHistory::load($db, $target['revize'], $idr)
+            ?? throw new \InvalidArgumentException('Verze neexistuje. Použij nástroj stavba_verze.');
 
-        return $this->saveBuild($target, Build::fromJson($json), false);
+        return $this->saveBuild($target, Build::fromJson($json), false, true);
     }
 
     /** discard_draft (zahod_koncept) */

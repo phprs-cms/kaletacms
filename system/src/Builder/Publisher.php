@@ -114,6 +114,7 @@ final class Publisher
     /** @return array{0: string, 1: int|string} */
     private static function whereClause(array $target): array
     {
-        return isset($target['ids']) ? ['ids = ?', (int) $target['ids']] : ['cast = ?', (string) $target['cast']];
+        // a page's draft history (3.25, DraftHistory) shares the table under cast "draft…" – published versions have none
+        return isset($target['ids']) ? ['ids = ? AND cast IS NULL', (int) $target['ids']] : ['cast = ?', (string) $target['cast']];
     }
 }

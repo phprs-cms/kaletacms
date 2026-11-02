@@ -128,7 +128,7 @@ trait BuilderActions
                 'uloz' => 'build_save', 'publikuj' => 'build_publish', 'zahod' => 'build_discard', 'sekce' => 'build_section', 'trida' => 'build_class',
                 'revize' => 'build_versions', 'obnov' => 'build_restore', 'aiSekce' => 'build_ai_section', 'aiText' => 'build_ai_text', 'ulozSekci' => 'build_save_section',
                 'sdilet' => 'build_share', 'balicek' => 'build_package', 'vlozeni' => 'build_paste', 'komentarVyrizen' => 'build_comment_resolve',
-                'volby' => 'build_choices',
+                'volby' => 'build_choices', 'porovnej' => 'build_compare',
             ]) + ['smazSekci' => $app->auth()->isAdmin() ? $this->url('build_delete_section', $target['parametry']) : null] + ['admin' => $app->url('admin.php'), 'nastaveni' => $e['nastaveni'],
                 // "Save as component" (3.22, C9): whoever may open Components and publish
                 'komponenta' => isset($this->kernel->modules()['components']) && $app->auth()->canPublish() ? $app->url('admin.php?module=components&action=from_element') : null,
@@ -252,6 +252,7 @@ trait BuilderActions
         [$build, $errors] = Build::sanitize($input, $this->app->auth()->isAdmin(), Build::fromJson($target['koncept'] ?? $target['stavba']));
         $json = Build::toJson($build);
         $this->saveDraft($target, $json);
+        \Kaleta\Builder\DraftHistory::record($this->app, $target['revize'], $json); // 3.25 (U17): draft history
 
         return Response::json(['ok' => true, 'stavba' => $build, 'chyby' => self::builderNotes($errors), 'zmeny' => $json !== $target['stavba'], 'verze' => self::computeBuildVersion($json),
             'vzory' => \Kaleta\Builder\SampleContent::findings($build), 'koncept' => $this->draftAuthor($target, $json)]);
@@ -584,24 +585,50 @@ trait BuilderActions
         return array_values(array_unique($whereParts));
     }
 
-    /** Published versions (JSON for the Versions dialog). */
+    /** Published versions and the draft history (3.25, U17; JSON for the Versions dialog). */
     protected function actionBuildVersions(): Response
     {
         $target = $this->loadBuildTarget();
 
         // date in the admin format (format_date()), not the browser's – in English it otherwise came out as the American 9/25/2026, 9:43:45 AM
-        return Response::json(['revize' => $target === null ? [] : array_map(fn (array $r): array => $r + ['kdy' => format_date($r['datum'], true)], Publisher::listAll($this->db, $target['revize']))]);
+        return Response::json(['revize' => $target === null ? [] : array_map(fn (array $r): array => $r + ['kdy' => format_date($r['datum'], true)], Publisher::listAll($this->db, $target['revize'])),
+            'koncepty' => $target === null ? [] : array_map(fn (array $r): array => $r + ['kdy' => \Kaleta\Builder\DraftHistory::when($r['datum'])], \Kaleta\Builder\DraftHistory::listAll($this->db, $target['revize']))]);
     }
 
-    /** An older version is loaded into the draft; it is published only with the Publish button. */
+    /**
+     * 3.25 (C21): a published version or a draft history entry compared with the current draft (the published build when there
+     * is no draft) – per top-level section, text only (Core\Diff), read-only (GET ?version=<idr>).
+     */
+    protected function actionBuildCompare(): Response
+    {
+        $target = $this->loadBuildTarget();
+        $build = $target !== null ? self::loadVersion($this->db, $target['revize'], $this->request->getInt('version')) : null;
+        if ($build === null) {
+            return Response::json(['ok' => false, 'chyba' => t('The version does not exist.')], 404);
+        }
+
+        return Response::json(['ok' => true] + \Kaleta\Builder\DraftHistory::compare($build, $target['koncept'] ?? $target['stavba']));
+    }
+
+    /** A published version, otherwise a draft history entry of the target (ids are unique across both). @param array{ids?: int|string, cast?: string} $target */
+    private static function loadVersion(\Kaleta\Core\Db $db, array $target, int $idr): ?string
+    {
+        return Publisher::load($db, $target, $idr) ?? \Kaleta\Builder\DraftHistory::load($db, $target, $idr);
+    }
+
+    /**
+     * An older version (or a draft history entry, 3.25) is loaded into the draft; it is published only with the Publish button.
+     * The draft it replaces stays in the draft history, so the restore can be taken back after a reload too.
+     */
     protected function actionBuildRestore(): Response
     {
         $target = $this->request->isPost() ? $this->loadBuildTarget() : null;
-        $build = $target !== null ? Publisher::load($this->db, $target['revize'], $this->request->postInt('idr')) : null;
+        $build = $target !== null ? self::loadVersion($this->db, $target['revize'], $this->request->postInt('idr')) : null;
         if ($build === null) {
             return Response::json(['ok' => false, 'chyba' => t('The version does not exist.')], 404);
         }
         $this->saveDraft($target, $build);
+        \Kaleta\Builder\DraftHistory::record($this->app, $target['revize'], $build, $target['koncept'] ?? $target['stavba'], true);
 
         return Response::json(['ok' => true, 'stavba' => Build::fromJson($build), 'verze' => self::computeBuildVersion($build)]);
     }
