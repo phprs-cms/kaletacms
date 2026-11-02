@@ -6648,4 +6648,9 @@ return [
     'Section %s' => 'Sekce %s',
     'Workspace' => 'Pracoviště',
     'More…' => 'Další…',
+    'Work – for a colleague’s own Claude' => 'Práce – pro vlastního Clauda kolegy',
+    'My work, enquiries and replies, comments, requests and the notebook, with pages and collection items. Claude finds the other tools when it needs them.' => 'Moje práce, poptávky a odpovědi, komentáře, požadavky a zápisník, k tomu stránky a položky kolekcí. Ostatní nástroje si Claude najde, až je bude potřebovat.',
+    'My work, enquiries and replies, comments, requests and the notebook, with pages and collection items. The application finds the other tools when it needs them.' => 'Moje práce, poptávky a odpovědi, komentáře, požadavky a zápisník, k tomu stránky a položky kolekcí. Ostatní nástroje si aplikace najde, až je bude potřebovat.',
+    'work tools' => 'pracovní nástroje',
+    'Done – Claude will load the work tools in the next conversation it starts and find the other tools when it needs them.' => 'Hotovo – Claude v příští konverzaci načte pracovní nástroje a ostatní si najde, až je bude potřebovat.',
 ];

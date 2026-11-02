@@ -9,6 +9,22 @@
             "openWorldHint": false
         }
     },
+    "add_comment": {
+        "parameters": {
+            "target": "string",
+            "text": "string"
+        },
+        "required": [
+            "target",
+            "text"
+        ],
+        "annotations": {
+            "title": "Add a comment",
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "apply_blueprint": {
         "parameters": {
             "key": "string",
@@ -1036,6 +1052,21 @@
         "required": [],
         "annotations": {
             "title": "List collections",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_comments": {
+        "parameters": {
+            "limit": "integer",
+            "target": "string"
+        },
+        "required": [
+            "target"
+        ],
+        "annotations": {
+            "title": "List the comments of a record",
             "readOnlyHint": true,
             "destructiveHint": false,
             "openWorldHint": false

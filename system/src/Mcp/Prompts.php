@@ -906,9 +906,13 @@ final class Prompts
                     . 'tell the user what is ready to review (list_pending_review lists everything that waits for a person).',
                 default => '',
             };
-        if (($app->auth()->connection()['tool_set'] ?? 'all') === 'essentials') {
+        $toolSet = $app->auth()->connection()['tool_set'] ?? 'all';
+        if ($toolSet === 'essentials' || $toolSet === 'work') {
             // 3.10: the list holds the core tools; the rest – everything these instructions name – is a find_tools away
-            $text .= ' YOUR TOOL LIST HOLDS THE ESSENTIALS: pages, builds, the menu and the look, collections, media, requests, enquiries, facts, the audit, the change log and undo. '
+            // 3.26: a "work" connection (an employee's own Claude) holds the tools of their daily work instead
+            $text .= ($toolSet === 'work' ? ' YOUR TOOL LIST HOLDS THE WORK TOOLS: what waits for the user (my_work), enquiries and replies, the team\'s comments and @mentions, who is responsible, '
+                . 'requests, the notebook, reading pages with a draft preview, and collection items. '
+                : ' YOUR TOOL LIST HOLDS THE ESSENTIALS: pages, builds, the menu and the look, collections, media, requests, enquiries, facts, the audit, the change log and undo. ')
                 . 'Every other tool named here or that a task needs (news, redirects, settings, health, pop-ups, trash, versions, bookings, newsletters, imports…) exists too: '
                 . 'call find_tools (with names or a query) for its parameters and its runner, then that runner with name and arguments: run_read_tool for reads, run_tool for drafts and changes, '
                 . 'run_destructive_tool for deleting, sending or reaching outside the site – confirm that exact action with the user first. The same rules as a direct call.';

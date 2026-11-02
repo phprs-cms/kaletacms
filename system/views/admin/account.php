@@ -156,9 +156,10 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 <?php $accessLabel = array_map(fn (string $label): string => t($label), Kaleta\Front\OAuth::ACCESS_LABELS); ?>
 <?php
 // 3.10: the tool set of a connection and the button that switches it ("<set>:token:<id>" or "<set>:app:<client_id>")
-$toolSetLabel = fn (string $set): string => '<span class="stitek">' . e($set === 'essentials' ? t('essentials') : t('all tools')) . '</span>';
-$toolSetSwitch = fn (string $set, string $target): string => '<button class="navigace" type="submit" form="claude-connections" name="tool_set_switch" value="' . e(($set === 'essentials' ? 'all' : 'essentials') . ':' . $target) . '">'
-    . e($set === 'essentials' ? t('Switch to all tools') : t('Switch to essentials')) . '</button>';
+// 3.26: a "work" connection (D-W10) switches to all tools like the essentials do
+$toolSetLabel = fn (string $set): string => '<span class="stitek">' . e(match ($set) { 'essentials' => t('essentials'), 'work' => t('work tools'), default => t('all tools') }) . '</span>';
+$toolSetSwitch = fn (string $set, string $target): string => '<button class="navigace" type="submit" form="claude-connections" name="tool_set_switch" value="' . e(($set === 'all' ? 'essentials' : 'all') . ':' . $target) . '">'
+    . e($set === 'all' ? t('Switch to essentials') : t('Switch to all tools')) . '</button>';
 ?>
 <?php if ($apps !== []): ?>
 <h2><?= e(t('Connected applications')) ?></h2>

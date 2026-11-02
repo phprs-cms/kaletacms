@@ -92,7 +92,7 @@ final class Account
                     $days = in_array($r->postInt('platnost', 365), self::TOKEN_LIFETIMES, true) ? $r->postInt('platnost', 365) : 365;
                     $db->insert('api_tokeny', ['idu' => $user['idu'], 'nazev' => mb_substr($r->post('nazev') ?: 'Claude', 0, 100), 'access' => $access, 'tool_set' => $toolSet, 'otisk' => hash('sha256', $token), 'vytvoren' => date('Y-m-d H:i:s'),
                         'expirace' => $days > 0 ? date('Y-m-d H:i:s', time() + $days * 86400) : null]);
-                    ChangeLog::write($app, 'ucet', 'claude_token', $access . ($toolSet === 'essentials' ? ', essentials' : '') . ($days > 0 ? ', ' . $days . ' days' : ', no expiry'));
+                    ChangeLog::write($app, 'ucet', 'claude_token', $access . ($toolSet !== 'all' ? ', ' . $toolSet : '') . ($days > 0 ? ', ' . $days . ' days' : ', no expiry'));
                     // the token is shown only now - hence no redirect
                     return $this->page(['newToken' => $token] + $data);
                 case 'token_smaz':
@@ -114,8 +114,11 @@ final class Account
                     if ($changed > 0) {
                         ChangeLog::write($app, 'ucet', 'claude_tool_set', $toolSet);
                     }
-                    $message = ['ok', $toolSet === 'essentials' ? 'Done – Claude will load the essentials in the next conversation it starts and find the other tools when it needs them.'
-                        : 'Done – Claude will see all tools in the next conversation it starts.'];
+                    $message = ['ok', match ($toolSet) {
+                        'essentials' => 'Done – Claude will load the essentials in the next conversation it starts and find the other tools when it needs them.',
+                        'work' => 'Done – Claude will load the work tools in the next conversation it starts and find the other tools when it needs them.',
+                        default => 'Done – Claude will see all tools in the next conversation it starts.',
+                    }];
                     break;
                 case 'aplikace_odpojit':
                     if (preg_match('/^[a-f0-9]{32}$/D', $r->post('odpojit_klient')) === 1) { // an OAuth client id is 32 hex characters (3.12)

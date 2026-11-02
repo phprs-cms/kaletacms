@@ -40,7 +40,7 @@ final class Discovery
         ], 'required' => ['name']];
 
         return [
-            ['name' => 'find_tools', 'description' => 'Finds the other tools of this site (3.10). This connection lists the essentials only; every other tool it may use (news, redirects, settings, '
+            ['name' => 'find_tools', 'description' => 'Finds the other tools of this site (3.10). This connection lists a short set only; every other tool it may use (news, redirects, settings, '
                 . 'health, bookings, newsletters…) is found here. Without arguments: a short index (name, access, runner, one line each). '
                 . 'With query (a few words, e.g. "redirect 404") or names (exact tool names): the full definitions, up to 8, each with the runner to call it with.',
                 'inputSchema' => ['type' => 'object', 'properties' => [
@@ -78,27 +78,30 @@ final class Discovery
      * can never make (the open-world reads there are still callable directly by name).
      *
      * @param list<array<string, mixed>> $available every tool the connection may use (Server::listed items)
+     * @param list<string> $inList the tools its tools/list holds (3.26: the essentials or the work set, Catalog::listOf)
      * @return list<string>
      */
-    public static function runners(array $available, string $access): array
+    public static function runners(array $available, string $access, array $inList = Catalog::ESSENTIALS): array
     {
         $needed = array_unique(array_map(fn (array $t): string => self::runner((string) $t['name']),
-            array_filter($available, fn (array $t): bool => !in_array($t['name'], Catalog::ESSENTIALS, true))));
+            array_filter($available, fn (array $t): bool => !in_array($t['name'], $inList, true))));
 
         return array_values(array_filter(array_keys(self::RUNNERS), fn (string $r): bool => in_array($r, $needed, true) && !($access === 'read' && $r === 'run_destructive_tool')));
     }
 
     /**
-     * The tools/list of an essentials connection: the core tools it may use, then find_tools and the runners it needs.
+     * The tools/list of an essentials connection: the core tools it may use, then find_tools and the runners it needs. 3.26:
+     * the same for a "work" connection with Catalog::WORK as $inList.
      *
      * @param list<array<string, mixed>> $available the connection's whole tools/list (Server::listed items it may use)
+     * @param list<string> $inList the tools of the tool set (Catalog::ESSENTIALS or Catalog::WORK)
      * @return list<array<string, mixed>>
      */
-    public static function essentials(array $available, string $access): array
+    public static function essentials(array $available, string $access, array $inList = Catalog::ESSENTIALS): array
     {
-        $meta = ['find_tools', ...self::runners($available, $access)];
+        $meta = ['find_tools', ...self::runners($available, $access, $inList)];
 
-        return [...array_values(array_filter($available, fn (array $t): bool => in_array($t['name'], Catalog::ESSENTIALS, true))),
+        return [...array_values(array_filter($available, fn (array $t): bool => in_array($t['name'], $inList, true))),
             ...array_map(Server::listed(...), array_values(array_filter(self::definitions(), fn (array $d): bool => in_array($d['name'], $meta, true))))];
     }
 

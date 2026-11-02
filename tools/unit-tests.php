@@ -8765,5 +8765,49 @@ check('N325-3: the floating link picker of a field the builder redrew away takes
     str_contains($c325Editor, 'floating.push({ input: input, list: list, onScroll: onScroll });'),
 ], [true, true, true]);
 
+// 3.26 (C): MCP list_comments / add_comment on Core\Comments, and the "work" tool set for an employee's own Claude (D-W10, T12)
+check('3.26 (C): MCP comments stand on Core\Comments – the targets, the check of mentions and post() of the administration; the refusal in English', [
+    Kaleta\Core\Comments::parseTarget('page:12'), Kaleta\Core\Comments::parseTarget('item:40'), Kaleta\Core\Comments::parseTarget('enquiry:7'),
+    Kaleta\Core\Comments::parseTarget('page:0'), Kaleta\Core\Comments::parseTarget('news:3'), Kaleta\Core\Comments::parseTarget('page:12;drop'), Kaleta\Core\Comments::parseTarget('stranka:5'),
+    str_contains($c326Tools = (string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/CommentTools.php'), "Language::runWith('en', fn (): array => Comments::mentions(\$db, \$target, \$text), 'admin-')"),
+    str_contains($c326Tools, "Comments::post(\$this->app, \$target, \$text, \$auth->user() ?? [], 'mcp')"), str_contains($c326Tools, "Comments::add(\$db, \$target, \$text, \$auth->user() ?? [], 'mcp')"),
+], [['type' => 'page', 'id' => 12], ['type' => 'item', 'id' => 40], ['type' => 'enquiry', 'id' => 7], null, null, null, null, true, true, true]);
+check('3.26 (C): list_comments (read) and add_comment (draft – no @mention from a drafts-only connection), English on both sides, outside the essentials, site-neutral, inside the site', [
+    Kaleta\Mcp\Catalog::TOOLS['list_comments'] ?? null, Kaleta\Mcp\Catalog::TOOLS['add_comment'] ?? null, Kaleta\Mcp\Translator::czech('list_comments'), Kaleta\Mcp\Translator::czech('add_comment'),
+    array_values(array_intersect(['list_comments', 'add_comment'], Kaleta\Mcp\Catalog::ESSENTIALS)), Kaleta\Mcp\Catalog::isSiteNeutral('add_comment'), Kaleta\Mcp\Catalog::isOpenWorld('add_comment'),
+    Kaleta\Mcp\Catalog::isIdempotent('add_comment'), Kaleta\Mcp\Catalog::allows('drafts', 'add_comment'), Kaleta\Mcp\Catalog::allows('read', 'add_comment'), Kaleta\Mcp\Catalog::allows('read', 'list_comments'),
+    Kaleta\Mcp\Tools::annotations('list_comments')['readOnlyHint'], Kaleta\Mcp\Discovery::runner('add_comment'),
+    array_column(Kaleta\Mcp\Tools::definitions(), 'inputSchema', 'name')['add_comment']['required'] ?? null,
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/CommentTools.php'), "\$mentions !== [] && \$auth->draftsOnly()"),
+], [['read', ''], ['draft', ''], 'list_comments', 'add_comment', [], true, false, false, true, false, true, true, 'run_tool', ['target', 'text'], true]);
+// a comment Claude writes on a page or an item is journaled by its row (undo takes it back); the table stays out of the
+// journaled tables, so an enquiry note never waits in the journal
+check('3.26 (C): comments on pages and items join the Claude session for undo, enquiry notes never; the table itself stays a personal-data table', [
+    str_contains($c326Tools, "if (\$db->journal !== null && \$type !== 'enquiry') {"),
+    Kaleta\Core\AgentJournal::journaled('comments'), in_array('comments', Kaleta\Core\AgentJournal::PERSONAL_TABLES, true),
+], [true, false, true]);
+$w326All = array_map(Kaleta\Mcp\Server::listed(...), Kaleta\Mcp\Translator::listAll(Kaleta\Mcp\Tools::definitions()));
+$w326Json = fn (mixed $v): int => strlen((string) json_encode($v, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+$w326Work = Kaleta\Mcp\Discovery::essentials($w326All, 'full', Kaleta\Mcp\Catalog::WORK);
+$w326Drafts = Kaleta\Mcp\Discovery::essentials(array_values(array_filter($w326All, fn (array $t): bool => Kaleta\Mcp\Catalog::allows('drafts', $t['name']))), 'drafts', Kaleta\Mcp\Catalog::WORK);
+check('3.26 (C, T12): the work tool set – catalog tools once each in catalog order, then find_tools and the runners; under 49,000 bytes; the essentials unchanged and in budget', [
+    Kaleta\Mcp\Catalog::TOOL_SETS, Kaleta\Mcp\Catalog::toolSet('work'), Kaleta\Mcp\Catalog::toolSet('Work'), Kaleta\Mcp\Catalog::listOf('work') === Kaleta\Mcp\Catalog::WORK,
+    Kaleta\Mcp\Catalog::listOf('essentials') === Kaleta\Mcp\Catalog::ESSENTIALS, Kaleta\Mcp\Catalog::listOf('all'), Kaleta\Mcp\Catalog::listOf('anything'),
+    array_values(array_diff(Kaleta\Mcp\Catalog::WORK, array_keys(Kaleta\Mcp\Catalog::TOOLS))), array_keys(array_filter(array_count_values(Kaleta\Mcp\Catalog::WORK), fn (int $n): bool => $n > 1)),
+    array_column($w326Work, 'name') === [...array_values(array_intersect(array_column($w326All, 'name'), Kaleta\Mcp\Catalog::WORK)), 'find_tools', 'run_read_tool', 'run_tool', 'run_destructive_tool'],
+    $w326Json(['tools' => $w326Work]) <= 49000, $w326Json(['tools' => Kaleta\Mcp\Discovery::essentials($w326All, 'full')]) <= 49000,
+    array_values(array_diff(['site_info', 'my_work', 'list_enquiries', 'update_enquiry', 'reply_to_enquiry', 'list_comments', 'add_comment', 'assign', 'get_email_signature', 'list_requests', 'update_request',
+        'read_notebook', 'write_notebook', 'list_pages', 'get_page', 'preview_link', 'list_collection_items', 'save_collection_item'], Kaleta\Mcp\Catalog::WORK)),
+    array_values(array_intersect(['list_comments', 'add_comment', 'my_work', 'assign'], Kaleta\Mcp\Catalog::ESSENTIALS)),
+    in_array('assign', array_column($w326Drafts, 'name'), true), in_array('add_comment', array_column($w326Drafts, 'name'), true),
+], [['all', 'essentials', 'work'], 'work', 'all', true, true, null, null, [], [], true, true, true, [], [], false, true]);
+check('3.26 (C): the work tool set is offered under Advanced on the consent screen and for a new token, labelled on My account; the server instructions name it', [
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/views/admin/connection-access.php'), "'work' => ['Work – for a colleague’s own Claude'"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/account.php'), "'work' => t('work tools')"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Prompts.php'), 'YOUR TOOL LIST HOLDS THE WORK TOOLS'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Server.php'), 'Discovery::essentials($this->available($tools), $this->access(), $list)'),
+    array_map(fn (string $code): bool => isset((require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php')['work tools']), ['cs', 'de', 'es']),
+], [2, true, true, true, [true, true, true]]);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);
