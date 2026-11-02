@@ -1324,7 +1324,9 @@ recurrence.
 4. **Reminders:** the scheduler job `tasks` notifies once when a reminder or due time passes (`task_due` in the bell and by
    e-mail as each person chose).
 5. **Hand to Claude:** a task becomes an Ask Claude request with a link back.
-6. **Leavers and privacy:** open tasks are part of the hand-over; tasks follow an enquiry's deletion and anonymisation.
+6. **Leavers and privacy:** open tasks are part of the hand-over; tasks handed to nobody (or left on a removed or blocked
+   account) are listed under "Not assigned" in the Team tab with "Reassign to…" (MCP `list_tasks` `assignee:none` for
+   administrators); tasks follow an enquiry's deletion and anonymisation.
 
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
