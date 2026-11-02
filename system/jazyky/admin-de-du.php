@@ -1140,4 +1140,10 @@ return [
     'Only administration users see it. Type @ to mention a colleague – they are notified.' => 'Nur Benutzer der Administration sehen ihn. Tippe @, um jemanden aus dem Team zu erwähnen – die Person wird benachrichtigt.',
     'Only administration users see it – it is added to the conversation with your name and the time. Type @ to mention a colleague – they are notified.' => 'Nur Benutzer der Administration sehen sie – sie wird mit deinem Namen und der Uhrzeit zur Unterhaltung hinzugefügt. Tippe @, um jemanden aus dem Team zu erwähnen – die Person wird benachrichtigt.',
     'Connect a fleet console to see uptime in the reports – only a console checks whether the site is up.' => 'Verbinde eine Website-Konsole, um die Verfügbarkeit in den Berichten zu sehen – nur eine Konsole prüft, ob die Website erreichbar ist.',
+    'The site needed no decision from you this month.' => 'Die Website brauchte diesen Monat keine Entscheidung von dir.',
+    'The site needed your attention once this month.' => 'Die Website brauchte diesen Monat einmal deine Aufmerksamkeit.',
+    'The site needed your attention %s times this month.' => 'Die Website brauchte diesen Monat %s-mal deine Aufmerksamkeit.',
+    'It did not need a single decision from you.' => 'Dabei war keine einzige Entscheidung von dir nötig.',
+    'It needed your attention once.' => 'Einmal war deine Aufmerksamkeit nötig.',
+    'It needed your attention %s times.' => '%s-mal war deine Aufmerksamkeit nötig.',
 ];

@@ -33,9 +33,36 @@ final class ReportPage
      * @param array{month: string, created_at: string, rebuilt_at: ?string, data: array<string, mixed>} $stored from ReportArchive::get
      * @param array{script?: string, download?: string, back?: string} $links the screen toolbar; none in the downloaded file
      */
-    public static function render(View $view, array $stored, Settings $s, string $siteUrl, array $links = []): string
+    public static function render(View $view, array $stored, Settings $s, string $siteUrl, array $links = [], ?array $previous = null): string
     {
-        return Language::runWith(Language::defaults($s), fn (): string => $view->render('admin/settings/report_print', self::viewData($stored, $s, $siteUrl) + ['links' => $links]), 'admin-');
+        return Language::runWith(Language::defaults($s), fn (): string => $view->render('admin/settings/report_print', self::viewData($stored, $s, $siteUrl, $previous) + ['links' => $links]), 'admin-');
+    }
+
+    /** The width of the visual summary on the page: A4 less the margins (180 mm at 96 dpi). */
+    public const int WIDTH = 676;
+
+    /**
+     * The top of the page (3.26.1) with the e-mail's components (Core\ReportVisual): the opening sentences, the headline
+     * tiles, the uptime with a console, and what it took to run the site.
+     *
+     * @param array<string, mixed> $data
+     * @param array<string, mixed>|null $previous the previous month's archived data
+     * @param array<string, string> $palette ReportVisual::palette()
+     */
+    public static function visual(array $data, ?array $previous, array $palette, string $siteName): string
+    {
+        $data = MonthlyReport::scrub($data);
+        $care = ReportSummary::care($data);
+        $tiles = ReportSummary::tiles($data, $previous !== null ? MonthlyReport::scrub($previous) : null, $care);
+        $compared = array_filter($tiles, static fn (array $tile): bool => in_array($tile['tone'] ?? '', ['up', 'down'], true)) !== [];
+        $uptime = ReportSummary::uptimeBlock($data, $palette, self::WIDTH);
+        $space = '<div style="height:28px;line-height:28px;font-size:0;">&nbsp;</div>';
+
+        return ReportVisual::lead(ReportSummary::lead($care, $siteName)['html'], $palette)
+            . '<div style="height:16px;line-height:16px;font-size:0;">&nbsp;</div>'
+            . ReportVisual::tiles($tiles, $palette, self::WIDTH) . ($compared ? ReportVisual::note(t('The arrows compare with the month before.'), $palette) : '')
+            . ($uptime !== null ? $space . $uptime['html'] : '')
+            . $space . ReportSummary::careBlock($care, $palette, self::WIDTH)['html'];
     }
 
     /**
@@ -44,12 +71,13 @@ final class ReportPage
      * @param array{month: string, created_at: string, rebuilt_at: ?string, data: array<string, mixed>} $stored
      * @return array<string, mixed>
      */
-    public static function viewData(array $stored, Settings $s, string $siteUrl): array
+    public static function viewData(array $stored, Settings $s, string $siteUrl, ?array $previous = null): array
     {
         $siteUrl = rtrim($siteUrl, '/');
         $agency = $s->get('agency_name');
         $logo = $s->get('agency_logo');
         $month = self::monthName($stored['month']);
+        $palette = ReportVisual::palette($s);
 
         return [
             'language' => Language::code(),
@@ -63,6 +91,9 @@ final class ReportPage
             'generated' => format_date($stored['created_at'], true),
             'rebuilt' => $stored['rebuilt_at'] !== null ? format_date($stored['rebuilt_at'], true) : '',
             'sections' => self::sections($stored['data'], $stored['rebuilt_at'] !== null ? format_date($stored['rebuilt_at'], true) : ''),
+            // 3.26.1: the colours of the page (the site's accent) and the visual summary – none for a report without data (the fleet console's)
+            'palette' => $palette,
+            'visual' => $stored['data'] !== [] ? self::visual($stored['data'], $previous, $palette, $s->get('site_name')) : '',
         ];
     }
 
@@ -116,30 +147,8 @@ final class ReportPage
         $updates = (array) ($data['updates'] ?? []);
         $backups = (array) ($data['backups'] ?? []);
         $problems = (array) ($data['problems'] ?? []);
-        $changes = 0;
-        foreach ((array) ($work['areas'] ?? []) as $area) {
-            $changes += (int) ($area['people'] ?? 0) + (int) ($area['claude'] ?? 0);
-        }
 
-        // at a glance: the few numbers a client reads first
-        $facts = [];
-        if ($stats !== null) {
-            $facts[] = [t('Visits'), $n($stats['visits'] ?? 0)];
-        }
-        if ($enquiries !== null) {
-            $facts[] = [t('Enquiries received'), $n($enquiries['total'] ?? 0)];
-        }
-        if ($requests !== null) {
-            $facts[] = [t('Requests handled'), $n($requests['done_count'] ?? 0)];
-        }
-        if ($work !== null) {
-            $facts[] = [t('Changes to the site'), $n($changes)];
-            $facts[] = [t('Pages published'), $n($work['pages_published_count'] ?? 0)];
-        }
-        $facts[] = [t('Updates installed'), $n(count(array_filter($updates, static fn (mixed $u): bool => is_array($u) && ($u['type'] ?? '') === 'update.applied')))];
-        $facts[] = [t('Backups made'), $n($backups['created'] ?? 0)];
-        $facts[] = [t('Problems right now'), $n(count($problems))];
-        $add('summary', t('At a glance'), [['type' => 'facts', 'items' => $facts]]);
+        // at a glance: the visual summary at the top of the page (3.26.1, visual()) – the tiles and what it took to run the site
 
         // what waits at the end of the month
         $open = (array) ($data['open'] ?? []);

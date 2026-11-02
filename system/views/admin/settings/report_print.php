@@ -23,7 +23,15 @@
  * @var string|null $footer the sentence at the end
  * @var string|null $rebuiltNote the note of a rebuilt report
  * @var string|null $brand the name at the top without an agency (the console's name)
+ * 3.26.1: the page shares the e-mail's components (Core\ReportVisual) – the site's accent colour on the band, and above the
+ * sections the visual summary (the opening sentences, the tiles, the uptime, what it took to run the site). On screen it
+ * follows the device's dark mode; printed it is always light.
+ * @var array<string, string>|null $palette ReportVisual::palette()
+ * @var string|null $visual the visual summary (HTML), empty for the fleet report
  */
+$palette ??= Kaleta\Core\ReportVisual::paletteFor('');
+$hex = static fn (string $key): string => preg_match('/^#[0-9a-f]{6}$/iD', $palette[$key] ?? '') === 1 ? $palette[$key] : '#121212';
+$visual ??= '';
 ?>
 <!DOCTYPE html>
 <html lang="<?= e(Kaleta\Core\Language::tag($language)) ?>">
@@ -31,7 +39,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<meta name="color-scheme" content="light">
+<meta name="color-scheme" content="light dark">
 <title><?= e($title) ?></title>
 <style>
 @page {
@@ -49,17 +57,24 @@ body {
 	-webkit-print-color-adjust: exact;
 	print-color-adjust: exact;
 }
-.listina { width: 210mm; max-width: 100%; margin: 10mm auto; padding: 16mm 15mm 14mm; background: #fff; box-shadow: 0 2px 24px rgba(0, 0, 0, .18); }
-.hlava { display: flex; justify-content: space-between; align-items: flex-end; gap: 8mm; padding-bottom: 5mm; border-bottom: .6mm solid #121212; }
-.znacka img { display: block; max-height: 14mm; max-width: 60mm; width: auto; height: auto; margin-bottom: 2.5mm; }
-.znacka .agentura { font-size: 12pt; font-weight: 600; }
+:root { --akcent: <?= $hex('accent') ?>; --na-akcentu: <?= $hex('onAccent') ?>; --na-akcentu-slabe: <?= $hex('onAccentSoft') ?>; }
+.listina { width: 210mm; max-width: 100%; margin: 10mm auto; padding: 16mm 15mm 14mm; background: #fff; box-shadow: 0 2px 24px rgba(0, 0, 0, .18); border-radius: 2mm; }
+.hlava { display: flex; flex-direction: column; gap: 4mm; }
+.znacka { display: flex; flex-wrap: wrap; align-items: center; gap: 1mm 4mm; }
+.znacka img { display: block; max-height: 12mm; max-width: 60mm; width: auto; height: auto; }
+.znacka .agentura { font-size: 11pt; font-weight: 600; }
 .znacka .kontakty { color: #555; font-size: 8.5pt; }
-.titul { text-align: right; }
-.titul .druh { margin: 0; color: #555; font-size: 8.5pt; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
-.titul h1 { margin: 1mm 0 0; font-size: 20pt; line-height: 1.1; letter-spacing: -.01em; }
-.titul .web { margin: 1.5mm 0 0; font-size: 10.5pt; }
-.titul .web span { color: #555; }
+.titul { padding: 7mm 7mm 6.5mm; border-radius: 3mm; background: var(--akcent); color: var(--na-akcentu); }
+.titul .druh { margin: 0; color: var(--na-akcentu-slabe); font-size: 8.5pt; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.titul h1 { margin: 1.5mm 0 0; font-size: 24pt; line-height: 1.1; letter-spacing: -.01em; }
+.titul .web { margin: 1.5mm 0 0; font-size: 10.5pt; color: var(--na-akcentu-slabe); }
+.titul .web span { color: inherit; }
 .vznik { margin: 3mm 0 0; color: #555; font-size: 8.5pt; }
+.prehled { margin-top: 7mm; break-inside: auto; }
+.prehled table { width: auto; }
+.prehled table[width="100%"] { width: 100%; }
+.prehled td { border-bottom: 0; padding: 0; overflow-wrap: normal; }
+.prehled .kr-tile, .prehled .kr-box { break-inside: avoid; }
 .sekce { margin-top: 7mm; break-inside: avoid-page; }
 .sekce.dlouha { break-inside: auto; }
 h2 { margin: 0 0 2.5mm; padding-top: 2mm; border-top: .3mm solid #ccc; font-size: 12.5pt; break-after: avoid-page; }
@@ -88,7 +103,17 @@ ul.seznam li { margin: 0 0 1mm; break-inside: avoid; }
 .lista button { padding: .5rem 1.25rem; border: 0; border-radius: .4rem; background: #121212; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
 .lista a { color: #121212; }
 @media (prefers-color-scheme: dark) { body { background: #2a2a2a; } .lista { background: #1b1b1b; color: #eee; border-color: #444; } .lista button { background: #f6f4ee; color: #121212; } .lista a { color: #eee; } }
-@media screen and (max-width: 220mm) { .listina { margin: 0; padding: 8mm 5mm; box-shadow: none; } .hlava { flex-direction: column; align-items: flex-start; } .titul { text-align: left; } .cisla { grid-template-columns: repeat(2, 1fr); } }
+/* 3.26.1: the page on a dark screen – the paper turns dark too; printed it stays black on white */
+@media screen and (prefers-color-scheme: dark) {
+	body { background: #0d0d0d; color: #f6f4ee; }
+	.listina { background: #1c1c1b; box-shadow: none; }
+	th, td { border-bottom-color: #33322f; }
+	th, .poznamka, .vznik, .znacka .kontakty, .pata, table.pary td.vnoreny { color: #b8b5ad; }
+	h2, .pata { border-top-color: #33322f; }
+	.cisla div { border-color: #33322f; }
+	<?= Kaleta\Core\ReportVisual::darkRules() ?>
+}
+@media screen and (max-width: 220mm) { .listina { margin: 0; padding: 8mm 5mm; box-shadow: none; border-radius: 0; } .titul { padding: 6mm 5mm; } .cisla { grid-template-columns: repeat(2, 1fr); } .kr-wide { max-width: 100% !important; } .kr-half { max-width: 50% !important; } }
 @media print {
 	body { background: #fff; }
 	.lista { display: none; }
@@ -106,11 +131,13 @@ ul.seznam li { margin: 0 0 1mm; break-inside: avoid; }
 <?php endif ?>
 <main class="listina">
 <header class="hlava">
+<?php if ($agency !== '' || isset($brand)): ?>
 <div class="znacka">
 <?php if ($agencyLogo !== ''): ?><img src="<?= e($agencyLogo) ?>" alt="<?= e($agency) ?>"><?php endif ?>
 <?php if ($agency !== ''): ?><div class="agentura"><?= e($agency) ?></div><?php if ($agencyContacts !== []): ?><div class="kontakty"><?= e(implode(' · ', $agencyContacts)) ?></div><?php endif ?>
-<?php else: ?><div class="agentura"><?= e($brand ?? $siteName) ?></div><?php endif ?>
+<?php else: ?><div class="agentura"><?= e((string) $brand) ?></div><?php endif ?>
 </div>
+<?php endif ?>
 <div class="titul">
 <p class="druh"><?= e($kind ?? t('Website report')) ?></p>
 <h1><?= e($monthName) ?></h1>
@@ -118,6 +145,7 @@ ul.seznam li { margin: 0 0 1mm; break-inside: avoid; }
 </div>
 </header>
 <p class="vznik"><?= e(t('Made %s', $generated)) ?><?php if ($rebuilt !== ''): ?> · <?= e($rebuiltNote ?? t('rebuilt %s from the data still available', $rebuilt)) ?><?php endif ?></p>
+<?php if ($visual !== ''): ?><section class="prehled" id="summary" aria-label="<?= e(t('At a glance')) ?>"><?= $visual /* Core\ReportVisual blocks, every text escaped there */ ?></section><?php endif ?>
 <?php foreach ($sections as $section):
     $long = count(array_filter($section['blocks'], static fn (array $b): bool => $b['type'] === 'table' && count($b['rows']) > 8)) > 0; ?>
 <section class="sekce<?= $long ? ' dlouha' : '' ?>" id="<?= e($section['key']) ?>">

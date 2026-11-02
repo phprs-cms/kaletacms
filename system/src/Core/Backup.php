@@ -274,7 +274,10 @@ final class Backup
                 return;
             }
             try {
-                RemoteBackup::upload($settings, (string) self::path($file)); // the result is shown by the system health page and the Backups tab
+                // the result is shown by the system health page and the Backups tab; a copy that arrived is counted by the monthly report (3.26.1)
+                if (RemoteBackup::isOn($settings) && RemoteBackup::upload($settings, (string) self::path($file)) === null) {
+                    Events::record($db, 'backup.copied', 'info', t('The backup %s was copied off the server.', $file), ['file' => $file]);
+                }
             } catch (\Throwable $e) {
                 Events::record($db, 'backup.failed', 'error', mb_substr(t('The off-site copy of the backup failed: %s', $e->getMessage()), 0, 255), ['file' => $file]);
             }

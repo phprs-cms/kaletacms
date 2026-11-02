@@ -23,6 +23,11 @@ namespace Kaleta\Core;
  * as ISO 8601 with the offset (N316-9), so a later change of the time zone does not need to touch the JSON; moment()
  * reads them, and the wall times of reports from before, in the site's zone. The e-mail of a month is written from the
  * archived data when the month is stored (monthData). A summary of what happened – never hours, a work log or money.
+ *
+ * 3.26.1: one look for the e-mail and the report page (Core\ReportVisual blocks, Core\ReportSummary): headline tiles with
+ * the change against the month before, the visits of each day, and "What it took to run the site" – what the site did by
+ * itself, what Claude did and what people did, and how often it needed a person to decide (build() stores the extra counts
+ * under "care"). With a fleet console the data carry "uptime" and the e-mail shows it; without one there is no uptime part.
  */
 final class MonthlyReport
 {
@@ -74,6 +79,9 @@ final class MonthlyReport
                 // contact clicks (2.12, Core\Conversions): calls, e-mails and WhatsApp – leads next to the enquiries, counts only
                 'contact_clicks' => array_diff_key(Conversions::summary($db, $fromDay, $toDay), ['by_page' => true]),
             ];
+            // 3.26.1: the visits of every day of the month (the chart of the report), day 1 first
+            $daily = array_map('intval', $db->pairs('SELECT DAY(den), SUM(navstevy) FROM {stat_dny} WHERE den >= ? AND den < ? GROUP BY den', [$fromDay, $toDay]));
+            $stats['days'] = array_map(static fn (int $day): int => $daily[$day] ?? 0, range(1, (int) $monthStart->format('t')));
         }
 
         $enquiries = null;
@@ -89,6 +97,8 @@ final class MonthlyReport
                 'forms' => $top('SELECT formular AS k, COUNT(*) AS n FROM {poptavky} WHERE datum >= ? AND datum < ? GROUP BY formular ORDER BY n DESC LIMIT ' . self::TOP, [$from, $to], 'form'),
                 'pages' => array_map(fn (string $p, int $n): array => ['path' => $p, 'n' => $n], array_keys(array_slice($byPage, 0, self::TOP, true)), array_slice($byPage, 0, self::TOP, true)),
                 'unanswered' => $count('SELECT COUNT(*) FROM {poptavky} WHERE stav = 0', []), // still "new" right now – whatever month they came in
+                // 3.26.1: the month before, for the change on the headline tile
+                'previous_total' => $count('SELECT COUNT(*) FROM {poptavky} WHERE datum >= ? AND datum < ?', [$monthStart->modify('first day of last month')->format('Y-m-d H:i:s'), $from]),
             ];
         }
         $signups = Extensions::isEnabled($s, 'newsletter') ? $count('SELECT COUNT(*) FROM {odberatele} WHERE stav = 1 AND datum >= ? AND datum < ?', [$from, $to]) : null;
@@ -179,7 +189,54 @@ final class MonthlyReport
             'open' => $section(fn (): array => self::open($app, $enquiries)),
             // 3.26.1: the month's uptime from the fleet console (Fleet\Uptime, drawn by Core\UptimeStrip) – null without a console
             'uptime' => $section(fn (): ?array => \Kaleta\Fleet\Uptime::month($s, $monthStart->format('Y-m'))),
+            // 3.26.1: how much work keeping the site running took – counts only (Core\ReportSummary::care reads them)
+            'care' => $section(fn (): array => self::care($app, $from, $to, $monthStart, is_array($enquiries))),
         ]);
+    }
+
+    /** Events the care part counts: the off-site copies, the links and redirects fixed by themselves, the replies to enquiries. */
+    private const array CARE_EVENTS = ['backup.copied', 'links.healed', 'redirect.auto', 'enquiry.replied'];
+
+    /**
+     * What it took to run the site this month (3.26.1), from what the site records anyway: events (off-site copies, links
+     * healed, redirects made by themselves, replies sent and everything that asked a person to decide), the runs of the
+     * daily checks (Core\Scheduler counts the runs of a job; the month's runs are the difference to the count stored with
+     * the previous month's report – unknown without it), spam and handled enquiries, and the team's comments. Counts only:
+     * no hours, no names, no texts.
+     *
+     * @return array<string, mixed>
+     */
+    private static function care(App $app, string $from, string $to, \DateTimeImmutable $monthStart, bool $enquiriesOn): array
+    {
+        $db = $app->db();
+        $types = [...self::CARE_EVENTS, ...array_keys(ReportSummary::ATTENTION_EVENTS)];
+        $events = array_map('intval', $db->pairs('SELECT type, COUNT(*) FROM {events} WHERE type IN (' . implode(',', array_fill(0, count($types), '?')) . ') AND created_at >= ? AND created_at < ? GROUP BY type', [...$types, $from, $to]));
+        $runs = array_map('intval', $db->pairs('SELECT name, runs FROM {jobs} WHERE name IN (' . implode(',', array_fill(0, count(ReportSummary::CHECK_JOBS), '?')) . ')', ReportSummary::CHECK_JOBS));
+        $before = ReportArchive::get($db, $monthStart->modify('first day of last month')->format('Y-m'))['data']['care']['job_runs'] ?? null;
+        $checks = null;
+        if (is_array($before)) {
+            $checks = [];
+            foreach ($runs as $job => $count) {
+                $checks[$job] = max(0, $count - (int) ($before[$job] ?? 0));
+            }
+        }
+        $comments = null;
+        try { // the team's notes on enquiries and comments on pages and items (3.26) – by people, not through Claude
+            $comments = (int) $db->value("SELECT COUNT(*) FROM {comments} WHERE created_at >= ? AND created_at < ? AND deleted_at IS NULL AND via <> 'mcp'", [$from, $to]);
+        } catch (\Throwable) {
+        }
+        $care = ['job_runs' => $runs, 'checks' => $checks, 'offsite_copies' => $events['backup.copied'] ?? 0, 'links_healed' => $events['links.healed'] ?? 0,
+            'redirects_auto' => $events['redirect.auto'] ?? 0, 'attention' => array_filter(array_intersect_key($events, ReportSummary::ATTENTION_EVENTS))];
+        if ($comments !== null) {
+            $care['comments'] = $comments;
+        }
+        if ($enquiriesOn) {
+            $care['spam'] = (int) $db->value("SELECT COUNT(*) FROM {poptavky} WHERE datum >= ? AND datum < ? AND kategorie = 'spam'", [$from, $to]);
+            $care['enquiries_handled'] = (int) $db->value("SELECT COUNT(*) FROM {poptavky} WHERE datum >= ? AND datum < ? AND stav = 2 AND kategorie <> 'spam'", [$from, $to]);
+            $care['replies'] = $events['enquiry.replied'] ?? 0;
+        }
+
+        return $care;
     }
 
     /** Security events the report counts (3.16) – the types only, never an address or an account. */
@@ -405,35 +462,42 @@ final class MonthlyReport
     }
 
     /**
-     * The e-mail: inline-styled tables (Outlook and Gmail ignore most CSS) at most 600 px wide, plus a plain-text twin. Written in
-     * the site's default language with the admin dictionary – the owner reads it, not a visitor.
+     * The e-mail (3.26.1 redesign): a band with the month, the opening sentences, the headline tiles, what waits for a person,
+     * the uptime (with a console), what it took to run the site, then traffic, enquiries, what was published, the care
+     * details and the problems – Core\ReportVisual blocks, e-mail safe (tables, inline styles, no SVG or script, 600 px,
+     * dark-mode classes), in the site's accent colour. The plain-text twin says everything the HTML says. Written in the
+     * site's default language with the admin dictionary – the owner reads it, not a visitor. $previous is the previous
+     * month's archived data (the changes on the tiles), null when it is not stored.
      *
      * @param array<string, mixed> $data from build()
+     * @param array<string, mixed>|null $previous
      * @return array{subject: string, html: string, text: string}
      */
-    public static function render(array $data, Settings $s, string $siteUrl): array
+    public static function render(array $data, Settings $s, string $siteUrl, ?array $previous = null): array
     {
-        return Language::runWith(Language::defaults($s), function () use ($data, $s, $siteUrl): array {
+        return Language::runWith(Language::defaults($s), function () use ($data, $s, $siteUrl, $previous): array {
+            $data = self::scrub($data); // no e-mail address or phone number gets through from the data – a form name or a title could carry one
+            $previous = $previous !== null ? self::scrub($previous) : null;
             $siteUrl = rtrim($siteUrl, '/');
             $siteName = $s->get('site_name');
             $agency = $s->get('agency_name');
-            $monthName = t(self::MONTHS[(int) substr((string) $data['month'], 5, 2)] ?? 'January') . ' ' . substr((string) $data['month'], 0, 4);
+            $month = (string) ($data['month'] ?? '');
+            $monthName = t(self::MONTHS[(int) substr($month, 5, 2)] ?? 'January') . ' ' . substr($month, 0, 4);
             $subject = t('Website report – %s – %s', $monthName, $siteName);
-            // no e-mail address or phone number gets through from the data – a form name or a message could carry one (Core\Redact)
-            $mask = static fn (string $text): string => Redact::text($text, '…', '…');
-            $safe = static fn (string $text): string => e($mask($text));
-            $n = static fn (int $value): string => format_number($value, 0);
+            $n = static fn (mixed $value): string => format_count((int) $value);
             $admin = $siteUrl . '/admin.php';
+            $host = (string) preg_replace('#^https?://#', '', $siteUrl);
+            $p = ReportVisual::palette($s);
+            $width = ReportVisual::EMAIL_INNER;
+            $care = ReportSummary::care($data);
 
-            $html = [];
+            $rows = [];
             $text = [];
-            $section = function (string $title, string $body, string $plain) use (&$html, &$text): void {
-                $html[] = '<tr><td style="padding:20px 28px 4px;font:600 15px/1.3 Arial,Helvetica,sans-serif;color:#121212;">' . e($title) . '</td></tr><tr><td style="padding:0 28px 12px;font:14px/1.5 Arial,Helvetica,sans-serif;color:#333;">' . $body . '</td></tr>';
-                $text[] = mb_strtoupper($title) . "\n" . $plain;
+            $plainPairs = static fn (array $pairs): string => implode("\n", array_map(static fn (array $pair): string => '  ' . $pair[0] . ($pair[1] !== '' ? ': ' . $pair[1] : ''), $pairs));
+            $section = function (string $html, string $plain) use (&$rows, &$text): void {
+                $rows[] = ReportVisual::rule() . ReportVisual::row($html);
+                $text[] = $plain;
             };
-            $row = static fn (string $label, string $value): string => '<tr><td style="padding:4px 0;border-bottom:1px solid #eee;">' . $label . '</td><td style="padding:4px 0 4px 12px;border-bottom:1px solid #eee;text-align:right;white-space:nowrap;">' . $value . '</td></tr>';
-            $table = static fn (array $rows): string => $rows === [] ? '' : '<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="font:14px/1.5 Arial,Helvetica,sans-serif;color:#333;">' . implode('', $rows) . '</table>';
-            $plainRows = static fn (array $pairs): string => implode("\n", array_map(static fn (array $p): string => '  ' . $mask($p[0]) . ': ' . $mask($p[1]), $pairs));
             $change = static function (int $now, int $before) use ($n): string {
                 if ($before === 0) {
                     return $n($now);
@@ -443,186 +507,180 @@ final class MonthlyReport
                 return $n($now) . ' (' . ($percent >= 0 ? '+' : '−') . abs($percent) . ' %)';
             };
 
-            // needs your decision – first, so the owner sees it before the numbers
-            $decisions = (array) ($data['decisions'] ?? []);
-            $pending = [];
-            if (($decisions['enquiries'] ?? 0) > 0) {
-                $pending[] = [t('%d enquiry(ies) nobody has opened yet', (int) $decisions['enquiries']), $admin . '?module=enquiries'];
-            }
-            if (($decisions['errors'] ?? 0) > 0) {
-                $pending[] = [t('%d problem(s) in System status need fixing', (int) $decisions['errors']), $admin . '?module=status'];
-            }
-            if ($pending !== []) {
-                $items = array_map(static fn (array $p): string => '<li style="margin:0 0 4px;"><a href="' . e($p[1]) . '" style="color:#121212;">' . e($p[0]) . '</a></li>', $pending);
-                $section(t('Needs your decision'), '<ul style="margin:0;padding:0 0 0 18px;">' . implode('', $items) . '</ul>', implode("\n", array_map(static fn (array $p): string => '  – ' . $p[0] . ' – ' . $p[1], $pending)));
+            // the band, the opening sentences and the headline numbers
+            $rows[] = '<tr><td>' . ReportVisual::header($p, t('Website report'), $monthName, $siteName . ' · ' . $host) . '</td></tr>';
+            $lead = ReportSummary::lead($care, $siteName);
+            $tiles = ReportSummary::tiles($data, $previous, $care);
+            $compared = array_filter($tiles, static fn (array $tile): bool => ($tile['tone'] ?? '') === 'up' || ($tile['tone'] ?? '') === 'down') !== [];
+            $rows[] = ReportVisual::row(ReportVisual::lead($lead['html'], $p), 24, 18);
+            $rows[] = ReportVisual::row(ReportVisual::tiles($tiles, $p, $width) . ($compared ? ReportVisual::note(t('The arrows compare with the month before.'), $p) : ''), 0, 24);
+            $text[] = $lead['text'];
+            $text[] = mb_strtoupper(t('At a glance')) . "\n" . $plainPairs(array_map(static fn (array $tile): array => [$tile['label'], $tile['value'] . (isset($tile['change']) ? ' (' . $tile['change'] . ')' : (($tile['note'] ?? '') !== '' ? ' (' . $tile['note'] . ')' : ''))], $tiles));
+
+            // what waits for a person – before the numbers, so the owner sees it first
+            $waiting = ReportSummary::waiting($data, $admin);
+            if ($waiting !== []) {
+                $rows[] = ReportVisual::row(ReportVisual::callout(t('Waiting for you'), $waiting, $p), 0, 24);
+                $text[] = mb_strtoupper(t('Waiting for you')) . "\n" . implode("\n", array_map(static fn (array $w): string => '  – ' . $w[0] . ' – ' . $w[1], $waiting));
             }
 
-            // traffic
-            $stats = $data['stats'] ?? null;
-            if (is_array($stats)) {
-                $rows = [$row(e(t('Visits')), e($change((int) $stats['visits'], (int) $stats['previous_visits']))), $row(e(t('Page views')), e($change((int) $stats['views'], (int) $stats['previous_views'])))];
-                $pairs = [[t('Visits'), $change((int) $stats['visits'], (int) $stats['previous_visits'])], [t('Page views'), $change((int) $stats['views'], (int) $stats['previous_views'])]];
-                $list = function (string $title, array $items, string $key) use (&$rows, &$pairs, $row, $safe, $n): void {
-                    if ($items === []) {
-                        return;
+            // uptime – only with a console (data from Fleet, agent B); without one the e-mail has no uptime section
+            $uptime = ReportSummary::uptimeBlock($data, $p, $width);
+            if ($uptime !== null) {
+                $section($uptime['html'], $uptime['text']);
+            }
+
+            // what it took to run the site
+            $block = ReportSummary::careBlock($care, $p, $width);
+            $section($block['html'], $block['text']);
+
+            // traffic: the visits of each day, the pages, where visitors came from
+            $stats = is_array($data['stats'] ?? null) ? $data['stats'] : null;
+            if ($stats !== null) {
+                $pairs = [[t('Visits'), $change((int) ($stats['visits'] ?? 0), (int) ($stats['previous_visits'] ?? 0))], [t('Page views'), $change((int) ($stats['views'] ?? 0), (int) ($stats['previous_views'] ?? 0))]];
+                foreach (['calls' => 'Calls – clicks on a phone number', 'emails' => 'E-mails – clicks on an e-mail address', 'whatsapp' => 'WhatsApp – clicks on a WhatsApp link'] as $key => $label) {
+                    if ((int) ($stats['contact_clicks'][$key] ?? 0) > 0) {
+                        $pairs[] = [t($label), $n($stats['contact_clicks'][$key])];
                     }
-                    $rows[] = '<tr><td colspan="2" style="padding:12px 0 2px;font-weight:600;">' . e($title) . '</td></tr>';
-                    $pairs[] = [$title, ''];
-                    foreach ($items as $item) {
-                        $rows[] = $row($safe((string) $item[$key]), $n((int) $item['n']));
-                        $pairs[] = ['  ' . (string) $item[$key], $n((int) $item['n'])];
+                }
+                $html = ReportVisual::title(t('Traffic'), $p, t('Compared with the month before.'));
+                $days = array_values(array_map('intval', array_filter((array) ($stats['days'] ?? []), 'is_numeric')));
+                if ($days !== [] && max($days) > 0) {
+                    $start = new \DateTimeImmutable($month . '-01');
+                    $html .= ReportVisual::chart($days, format_date($start), format_date($start->modify('+' . (count($days) - 1) . ' days')), t('Most in a day: %s', $n(max($days))), $p) . '<div style="height:14px;line-height:14px;font-size:0;">&nbsp;</div>';
+                }
+                $html .= ReportVisual::pairs($pairs, $p);
+                $plain = [];
+                foreach (['pages' => ['Most read pages', 'path'], 'sources' => ['Visitors came from', 'site'], 'campaigns' => ['Campaigns', 'campaign']] as $key => [$title, $field]) {
+                    $items = array_values(array_filter((array) ($stats[$key] ?? []), 'is_array'));
+                    if ($items !== []) {
+                        $html .= ReportVisual::subtitle(t($title), $p) . ReportVisual::bars(array_map(static fn (array $i): array => [(string) ($i[$field] ?? ''), (int) ($i['n'] ?? 0)], $items), $p);
+                        $plain[] = [t($title), ''];
+                        foreach ($items as $i) {
+                            $plain[] = ['  ' . (string) ($i[$field] ?? ''), $n($i['n'] ?? 0)];
+                        }
                     }
-                };
-                $list(t('Most read pages'), (array) $stats['pages'], 'path');
-                $list(t('Visitors came from'), (array) $stats['sources'], 'site');
-                $list(t('Campaigns'), (array) $stats['campaigns'], 'campaign');
-                $section(t('Traffic'), $table($rows) . '<p style="margin:8px 0 0;font-size:12px;color:#777;">' . e(t('Compared with the month before.')) . '</p>', $plainRows($pairs));
+                }
+                $section($html, mb_strtoupper(t('Traffic')) . "\n" . $plainPairs([...$pairs, ...$plain]));
             } else {
-                $section(t('Traffic'), '<p style="margin:0;">' . e(t('The built-in statistics are off (Settings → Analytics), so there are no traffic figures.')) . '</p>', '  ' . t('The built-in statistics are off (Settings → Analytics), so there are no traffic figures.'));
+                $off = t('The built-in statistics are off (Settings → Analytics), so there are no traffic figures.');
+                $section(ReportVisual::title(t('Traffic'), $p) . ReportVisual::lead(e($off), $p, 14), mb_strtoupper(t('Traffic')) . "\n  " . $off);
             }
 
             // searches that brought visitors – only when an engine is connected and had data this month
-            $search = (array) ($data['search'] ?? []);
+            $search = array_values(array_filter((array) ($data['search'] ?? []), 'is_array'));
             if ($search !== []) {
-                $rows = [];
-                $pairs = [];
-                foreach ($search as $q) {
-                    $label = t('%s on %s', (string) $q['query'], $q['engine'] === 'bing' ? 'Bing' : 'Google');
-                    $rows[] = $row($safe($label), e(t('%s clicks', $n((int) $q['clicks']))));
-                    $pairs[] = [$label, t('%s clicks', $n((int) $q['clicks']))];
-                }
-                $section(t('Searches that brought visitors'), $table($rows), $plainRows($pairs));
+                $bars = array_map(static fn (array $q): array => [t('%s on %s', (string) ($q['query'] ?? ''), ($q['engine'] ?? '') === 'bing' ? 'Bing' : 'Google'), (int) ($q['clicks'] ?? 0), t('%s clicks', $n($q['clicks'] ?? 0))], $search);
+                $section(ReportVisual::title(t('Searches that brought visitors'), $p) . ReportVisual::bars($bars, $p),
+                    mb_strtoupper(t('Searches that brought visitors')) . "\n" . $plainPairs(array_map(static fn (array $b): array => [$b[0], $b[2]], $bars)));
             }
 
-            // leads – the contact clicks (calls, e-mails, WhatsApp) join them when there were any
-            $enquiries = $data['enquiries'] ?? null;
+            // leads: enquiries by form and page, sign-ups
+            $enquiries = is_array($data['enquiries'] ?? null) ? $data['enquiries'] : null;
             $signups = $data['signups'] ?? null;
-            $clicks = (array) ($stats['contact_clicks'] ?? []);
-            if (is_array($enquiries) || $signups !== null || Conversions::total($clicks) > 0) {
-                $rows = [];
+            if ($enquiries !== null || $signups !== null) {
                 $pairs = [];
-                if (is_array($enquiries)) {
-                    $rows[] = $row(e(t('Enquiries received')), $n((int) $enquiries['total']));
-                    $pairs[] = [t('Enquiries received'), $n((int) $enquiries['total'])];
-                    foreach ((array) $enquiries['forms'] as $f) {
-                        $rows[] = $row('&nbsp;&nbsp;' . $safe((string) $f['form']), $n((int) $f['n']));
-                        $pairs[] = ['  ' . (string) $f['form'], $n((int) $f['n'])];
-                    }
-                    foreach ((array) $enquiries['pages'] as $p) {
-                        $rows[] = $row('&nbsp;&nbsp;' . t('from page %s', $safe((string) $p['path'])), $n((int) $p['n']));
-                        $pairs[] = ['  ' . t('from page %s', (string) $p['path']), $n((int) $p['n'])];
+                if ($enquiries !== null) {
+                    $pairs[] = [t('Enquiries received'), $n($enquiries['total'] ?? 0)];
+                }
+                if ($signups !== null) {
+                    $pairs[] = [t('Newsletter sign-ups'), $n($signups)];
+                }
+                $html = ReportVisual::title(t('Enquiries and sign-ups'), $p) . ReportVisual::pairs($pairs, $p);
+                $plain = array_slice($pairs, 0, $enquiries !== null ? 1 : 0);
+                foreach (['forms' => ['By form', 'form'], 'pages' => ['By page', 'path']] as $key => [$title, $field]) {
+                    $items = array_values(array_filter((array) ($enquiries[$key] ?? []), 'is_array'));
+                    if ($items !== []) {
+                        $html .= ReportVisual::subtitle(t($title), $p) . ReportVisual::bars(array_map(static fn (array $i): array => [(string) ($i[$field] ?? '') !== '' ? (string) $i[$field] : t('Form'), (int) ($i['n'] ?? 0)], $items), $p);
+                        foreach ($items as $i) {
+                            $plain[] = ['  ' . ($field === 'path' ? t('from page %s', (string) ($i[$field] ?? '')) : ((string) ($i[$field] ?? '') !== '' ? (string) $i[$field] : t('Form'))), $n($i['n'] ?? 0)];
+                        }
                     }
                 }
                 if ($signups !== null) {
-                    $rows[] = $row(e(t('Newsletter sign-ups')), $n((int) $signups));
-                    $pairs[] = [t('Newsletter sign-ups'), $n((int) $signups)];
+                    $plain[] = [t('Newsletter sign-ups'), $n($signups)];
                 }
-                foreach (['calls' => 'Calls – clicks on a phone number', 'emails' => 'E-mails – clicks on an e-mail address', 'whatsapp' => 'WhatsApp – clicks on a WhatsApp link'] as $key => $label) {
-                    if ((int) ($clicks[$key] ?? 0) > 0) {
-                        $rows[] = $row(e(t($label)), $n((int) $clicks[$key]));
-                        $pairs[] = [t($label), $n((int) $clicks[$key])];
+                $section($html, mb_strtoupper(t('Enquiries and sign-ups')) . "\n" . $plainPairs($plain));
+            }
+
+            // what is new on the site: pages and news published this month
+            $work = is_array($data['work'] ?? null) ? $data['work'] : null;
+            if ($work !== null && ((int) ($work['pages_published_count'] ?? 0) > 0 || (int) ($work['news_published_count'] ?? 0) > 0)) {
+                $html = ReportVisual::title(t('New on the site'), $p);
+                $plain = [];
+                foreach (['pages_published' => 'Pages published', 'news_published' => 'News published'] as $key => $title) {
+                    $items = array_slice(array_values(array_filter((array) ($work[$key] ?? []), 'is_array')), 0, 5);
+                    $total = (int) ($work[$key . '_count'] ?? count($items));
+                    if ($items === []) {
+                        continue;
+                    }
+                    $list = array_map(static fn (array $i): array => [(string) ($i['title'] ?? ''), format_date(self::moment($i['date'] ?? null))], $items);
+                    $html .= ReportVisual::subtitle(t($title) . ' · ' . $n($total), $p) . ReportVisual::pairs($list, $p) . ($total > count($items) ? ReportVisual::note(t('… and %d more.', $total - count($items)), $p) : '');
+                    $plain[] = [t($title), $n($total)];
+                    foreach ($list as $l) {
+                        $plain[] = ['  ' . $l[0], $l[1]];
                     }
                 }
-                $section(t('Enquiries and sign-ups'), $table($rows), $plainRows($pairs));
+                $section($html, mb_strtoupper(t('New on the site')) . "\n" . $plainPairs($plain));
             }
 
-            // 3.16: the work on the site – requests handled, what was published, Claude's sessions and scheduled runs; the
-            // whole story is the printable report in Settings → Reports
-            $work = (array) ($data['work'] ?? []);
-            $requests = $data['requests'] ?? null;
-            $claude = $data['claude'] ?? null;
-            $rows = [];
+            // the care details: version, updates, backups, security
             $pairs = [];
-            $add = function (string $label, int $value) use (&$rows, &$pairs, $row, $n): void {
-                $rows[] = $row(e($label), $n($value));
-                $pairs[] = [$label, $n($value)];
-            };
-            if (is_array($requests)) {
-                $add(t('Requests handled'), (int) $requests['done_count']);
-                $add(t('Requests still open'), (int) $requests['open_count']);
-            }
-            if ($work !== []) {
-                $add(t('Pages published'), (int) ($work['pages_published_count'] ?? 0));
-                $add(t('News published'), (int) ($work['news_published_count'] ?? 0));
-            }
-            if (is_array($claude)) {
-                $add(t('Claude sessions'), (int) $claude['sessions']);
-                $add(t('Scheduled Claude runs'), (int) $claude['runs']);
-            }
-            if ($rows !== []) {
-                $section(t('Work on the site'), $table($rows), $plainRows($pairs));
-            }
-
-            // care of the site: updates, backups, changes
-            $rows = [];
-            $pairs = [];
-            $updates = (array) ($data['updates'] ?? []);
-            if ($updates === []) {
-                $rows[] = $row(e(t('Updates')), e(t('none this month')));
-                $pairs[] = [t('Updates'), t('none this month')];
-            }
-            foreach ($updates as $u) {
-                $rows[] = $row(e(format_date(self::moment($u['date'] ?? null))) . ' · ' . $safe((string) $u['message']), '');
-                $pairs[] = [format_date(self::moment($u['date'] ?? null)), (string) $u['message']];
-            }
             if (isset($data['version'])) {
                 $channel = t(['stable' => 'Stable channel', 'custom' => 'custom update source'][(string) ($data['update_channel'] ?? '')] ?? 'Latest channel');
-                $rows[] = $row(e(t('Kaleta version')), e((string) $data['version'] . ' · ' . $channel));
                 $pairs[] = [t('Kaleta version'), (string) $data['version'] . ' · ' . $channel];
             }
-            $backups = (array) ($data['backups'] ?? []);
-            $backupText = t('%d made, %d failed', (int) ($backups['created'] ?? 0), (int) ($backups['failed'] ?? 0))
-                . (self::moment($backups['last'] ?? null) !== null ? ', ' . t('the last one %s', format_date(self::moment($backups['last']))) : '');
-            $rows[] = $row(e(t('Backups')), e($backupText));
-            $pairs[] = [t('Backups'), $backupText];
-            $changes = (array) ($data['changes'] ?? []);
-            $changesText = t('%d by people, %d by Claude', (int) ($changes['people'] ?? 0), (int) ($changes['claude'] ?? 0));
-            $rows[] = $row(e(t('Changes in the administration')), e($changesText));
-            $pairs[] = [t('Changes in the administration'), $changesText];
-            $security = $data['security'] ?? null;
-            if (is_array($security)) {
-                $securityText = t('%d blocked requests, %d failed sign-ins', array_sum(array_map('intval', (array) ($security['firewall'] ?? []))), (int) ($security['failed_sign_ins'] ?? 0));
-                $rows[] = $row(e(t('Security')), e($securityText));
-                $pairs[] = [t('Security'), $securityText];
+            $updates = array_values(array_filter((array) ($data['updates'] ?? []), 'is_array'));
+            $pairs[] = [t('Updates'), $updates === [] ? t('none this month') : ''];
+            foreach ($updates as $u) {
+                $pairs[] = ['  ' . format_date(self::moment($u['date'] ?? null)), (string) ($u['message'] ?? '')];
             }
-            $section(t('Care of the site'), $table($rows), $plainRows($pairs));
+            $backups = (array) ($data['backups'] ?? []);
+            $pairs[] = [t('Backups'), t('%d made, %d failed', (int) ($backups['created'] ?? 0), (int) ($backups['failed'] ?? 0))
+                . (self::moment($backups['last'] ?? null) !== null ? ', ' . t('the last one %s', format_date(self::moment($backups['last']))) : '')];
+            $offsite = (string) ($backups['offsite'] ?? '');
+            if ($offsite !== '') {
+                $pairs[] = [t('Off-site copy'), strtoupper($offsite) . (!empty($backups['offsite_failing']) ? ' · ' . t('the last upload failed') : '')];
+            }
+            $changes = (array) ($data['changes'] ?? []);
+            $pairs[] = [t('Changes in the administration'), t('%d by people, %d by Claude', (int) ($changes['people'] ?? 0), (int) ($changes['claude'] ?? 0))];
+            $security = is_array($data['security'] ?? null) ? $data['security'] : null;
+            if ($security !== null) {
+                $pairs[] = [t('Security'), t('%d blocked requests, %d failed sign-ins', array_sum(array_map('intval', (array) ($security['firewall'] ?? []))), (int) ($security['failed_sign_ins'] ?? 0))];
+            }
+            $section(ReportVisual::title(t('Care of the site'), $p) . ReportVisual::pairs(array_map(static fn (array $pair): array => [trim($pair[0]), $pair[1]], $pairs), $p),
+                mb_strtoupper(t('Care of the site')) . "\n" . $plainPairs($pairs));
 
             // problems right now
-            $problems = (array) ($data['problems'] ?? []);
+            $problems = array_values(array_filter((array) ($data['problems'] ?? []), 'is_array'));
             if ($problems === []) {
-                $section(t('Problems right now'), '<p style="margin:0;">' . e(t('None – every check in System status is fine.')) . '</p>', '  ' . t('None – every check in System status is fine.'));
+                $fine = t('None – every check in System status is fine.');
+                $section(ReportVisual::title(t('Problems right now'), $p) . ReportVisual::callout($fine, [], $p, true), mb_strtoupper(t('Problems right now')) . "\n  " . $fine);
             } else {
-                $items = array_map(static fn (array $p): string => '<li style="margin:0 0 4px;">' . ($p['state'] === 'chyba' ? '<strong>' . $safe((string) $p['name']) . '</strong>' : $safe((string) $p['name'])) . ' – ' . $safe((string) $p['info']) . '</li>', $problems);
-                $section(t('Problems right now'), '<ul style="margin:0;padding:0 0 0 18px;">' . implode('', $items) . '</ul><p style="margin:8px 0 0;font-size:12px;"><a href="' . e($admin . '?module=status') . '" style="color:#121212;">' . e(t('Details are in System status')) . '</a></p>',
-                    implode("\n", array_map(static fn (array $p): string => '  – ' . $mask((string) $p['name']) . ' – ' . $mask((string) $p['info']), $problems)) . "\n  " . $admin . '?module=status');
+                $items = array_map(static fn (array $pr): array => [(string) ($pr['name'] ?? '') . ' – ' . (string) ($pr['info'] ?? '')], $problems);
+                $section(ReportVisual::title(t('Problems right now'), $p) . ReportVisual::callout(t('Details are in System status'), [...$items, [t('Open System status'), $admin . '?module=status']], $p),
+                    mb_strtoupper(t('Problems right now')) . "\n" . implode("\n", array_map(static fn (array $i): string => '  – ' . $i[0], $items)) . "\n  " . $admin . '?module=status');
             }
 
-            // header and footer: the agency when it is set, otherwise the site
-            $logo = $s->get('agency_logo');
-            $title = $agency !== '' ? $agency : $siteName;
-            $header = '<tr><td style="padding:24px 28px 8px;">'
-                . ($agency !== '' && $logo !== '' ? '<img src="' . e($siteUrl . '/' . ltrim($logo, '/')) . '" alt="" height="32" style="display:block;height:32px;margin:0 0 12px;">' : '')
-                . '<div style="font:600 18px/1.3 Arial,Helvetica,sans-serif;color:#121212;">' . e($title) . '</div>'
-                . '<div style="font:14px/1.5 Arial,Helvetica,sans-serif;color:#555;margin-top:4px;">' . e(t('Website report – %s', $monthName)) . ' · <a href="' . e($siteUrl) . '" style="color:#555;">' . e($siteName) . '</a></div></td></tr>';
-            $contacts = array_filter([
-                $s->get('agency_url') !== '' ? '<a href="' . e($s->get('agency_url')) . '" style="color:#555;">' . e(preg_replace('#^https?://#', '', $s->get('agency_url')) ?? '') . '</a>' : '',
-                $s->get('agency_email') !== '' ? '<a href="mailto:' . e($s->get('agency_email')) . '" style="color:#555;">' . e($s->get('agency_email')) . '</a>' : '',
-                $s->get('agency_phone') !== '' ? e($s->get('agency_phone')) : '',
-            ]);
-            $plainContacts = array_filter([$s->get('agency_url'), $s->get('agency_email'), $s->get('agency_phone')]);
+            // the whole report, then the agency and the footer
+            $full = $admin . '?module=settings&tab=reports';
+            $rows[] = ReportVisual::rule() . ReportVisual::row(ReportVisual::button(t('Open the full report'), $full, $p), 0, 24);
+            $contacts = array_values(array_filter([(string) preg_replace('#^https?://#', '', $s->get('agency_url')), $s->get('agency_email'), $s->get('agency_phone')]));
             $footerNote = t('Sent once a month by the website %s. The full report to print or download, the recipients and the switch are in Settings → Reports.', $siteName);
-            $footer = '<tr><td style="padding:20px 28px 24px;border-top:1px solid #eee;font:12px/1.6 Arial,Helvetica,sans-serif;color:#777;">'
-                . ($agency !== '' && $contacts !== [] ? '<div style="margin:0 0 6px;color:#555;">' . e($agency) . ' · ' . implode(' · ', $contacts) . '</div>' : '')
-                . e($footerNote) . '</td></tr>';
+            $rows[] = '<tr><td class="kr-pad kr-line" style="padding:18px 24px 24px;border-top:1px solid ' . $p['line'] . ';">'
+                . ($agency !== '' && $contacts !== [] ? '<div class="kr-muted" style="' . ReportVisual::font(13, 400, '1.6') . 'color:' . $p['muted'] . ';margin:0 0 6px;"><strong>' . e($agency) . '</strong> · ' . e(implode(' · ', $contacts)) . '</div>' : '')
+                . '<div class="kr-muted" style="' . ReportVisual::font(12, 400, '1.6') . 'color:' . $p['muted'] . ';">' . e($footerNote) . '</div></td></tr>';
 
-            $document = '<!DOCTYPE html><html lang="' . e(Language::tag(Language::code())) . '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light"><title>' . e($subject) . '</title></head>'
-                . '<body style="margin:0;padding:0;background:#f6f4ee;">'
-                . '<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f6f4ee;"><tr><td align="center" style="padding:24px 12px;">'
-                . '<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="width:100%;max-width:600px;background:#ffffff;border-radius:8px;">'
-                . $header . implode('', $html) . $footer
-                . '</table></td></tr></table></body></html>';
+            // above the card: the agency's logo and name when it is set
+            $logo = $s->get('agency_logo');
+            $above = $agency === '' ? '' : ($logo !== '' ? '<img src="' . e($siteUrl . '/' . ltrim($logo, '/')) . '" alt="' . e($agency) . '" height="32" style="display:block;height:32px;width:auto;margin:0 0 6px;">' : '')
+                . '<div class="kr-muted" style="' . ReportVisual::font(14, 600, '1.4') . 'color:' . $p['muted'] . ';">' . e($agency) . '</div>';
+
+            $document = ReportVisual::document(Language::code(), $subject, $lead['text'], $above, implode('', $rows), $p);
+            $title = $agency !== '' ? $agency : $siteName;
             $plain = $title . "\n" . t('Website report – %s', $monthName) . ' · ' . $siteName . ' (' . $siteUrl . ")\n\n" . implode("\n\n", $text) . "\n\n"
-                . ($agency !== '' && $plainContacts !== [] ? $agency . ' · ' . implode(' · ', $plainContacts) . "\n" : '') . $footerNote . "\n";
+                . t('Open the full report') . ': ' . $full . "\n\n"
+                . ($agency !== '' && $contacts !== [] ? $agency . ' · ' . implode(' · ', $contacts) . "\n" : '') . $footerNote . "\n";
 
             return ['subject' => $subject, 'html' => $document, 'text' => $plain];
         }, 'admin-');
@@ -637,7 +695,23 @@ final class MonthlyReport
     {
         $s = $app->settings();
 
-        return Language::runWith(Language::defaults($s), fn (): array => self::render(self::monthData($app, $monthStart), $s, self::siteUrl($app)), 'admin-');
+        return Language::runWith(Language::defaults($s), fn (): array => self::render(self::monthData($app, $monthStart), $s, self::siteUrl($app), self::previousData($app, $monthStart)), 'admin-');
+    }
+
+    /**
+     * The archived data of the month before (3.26.1: the changes on the headline tiles), null when it is not stored.
+     *
+     * @return array<string, mixed>|null
+     */
+    public static function previousData(App $app, \DateTimeImmutable $monthStart): ?array
+    {
+        $before = $monthStart->modify('first day of last month');
+        try {
+            // through monthData: an archived month gets what later releases add on reading (3.26.1: its uptime)
+            return ReportArchive::get($app->db(), $before->format('Y-m')) !== null ? self::monthData($app, $before) : null;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**
