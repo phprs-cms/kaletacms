@@ -6559,4 +6559,12 @@ return [
     'The client account %s cannot change the opening hours – add Business details to its access.' => 'Klientský účet %s nemůže měnit otevírací dobu – přidejte mu Údaje o firmě.',
     'Ask the customer for a testimonial' => 'Požádat zákazníka o referenci',
     'Was the customer happy? Send them a link where they can write a few words about you for your website. Nothing is published until you publish it.' => 'Byl zákazník spokojený? Pošlete mu odkaz, kde o vás napíše pár slov pro váš web. Nic se nezveřejní, dokud to sami nezveřejníte.',
+    'How do you want to start?' => 'Jak chcete začít?',
+    'Empty builder page' => 'Prázdná stránka v builderu',
+    'Starts with the page title; add ready-made sections and elements in the builder.' => 'Začne nadpisem stránky; hotové sekce a prvky přidáte v builderu.',
+    'Ready-made layout' => 'Hotové rozložení',
+    'Sections with sample texts to replace, opened in the builder.' => 'Sekce s ukázkovými texty k nahrazení, otevřou se v builderu.',
+    'Simple text page' => 'Jednoduchá textová stránka',
+    'Just text and pictures in the text editor, e.g. a privacy policy.' => 'Jen text a obrázky v textovém editoru, třeba zásady ochrany osobních údajů.',
+    'Create the page and open the builder' => 'Vytvořit stránku a otevřít builder',
 ];

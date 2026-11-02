@@ -8447,5 +8447,59 @@ sq "DELETE FROM ka_uzivatele_prava WHERE fk_id_user = (SELECT idu FROM ka_uzivat
   DELETE FROM ka_booking_services WHERE name = 'U10 service'; DELETE FROM ka_booking_staff WHERE name = 'U10 person';
   DELETE FROM ka_collection_categories WHERE id IN (SELECT category_id FROM ka_collection_category_texts WHERE slug IN ('skryta-u10', 'viditelna-u10'))" > /dev/null
 [ "$U10_BOOKINGS" = 1 ] || sq "UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',bookings,', ',')) WHERE promenna = 'extensions'" > /dev/null
+echo "== 3.24 (T1): the page cache stays while the team works on enquiries, notes and requests"
+T324_CACHE=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'page_cache'"); setting page_cache 1
+t324_cached() { find "$WORK/web/storage/cache/stranky" -name '*.html' 2>/dev/null | wc -l | tr -d ' '; }
+sq "INSERT INTO ka_poptavky (datum, formular, email, data) VALUES ('$(site_time)', 'T324', 't324@example.com', '[]')" > /dev/null
+T324_ENQ=$(sq "SELECT MAX(idp) FROM ka_poptavky WHERE formular = 'T324'")
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=enquiries&action=detail&id=$T324_ENQ"; T324_TOKEN=$(csrf)
+rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o /dev/null "$B/"; T324_BEFORE=$(t324_cached)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=enquiries&action=note" -d "_csrf=$T324_TOKEN" -d "idp=$T324_ENQ" --data-urlencode "poznamka=Call back on Monday"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$T324_TOKEN" -d tab=mail -d "mail_from=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'mail_from'")"
+mcp write_notebook '{"topic":"decisions","title":"T324","text":"The page cache stays while the team works."}' > /dev/null
+mcp update_enquiry "{\"id\":$T324_ENQ,\"status\":\"resolved\"}" > "$WORK/response"
+expect "3.24 (T1): an enquiry note, a save of the Mail tab, a notebook entry and an enquiry update over MCP keep the cached page" \
+  "$T324_BEFORE|$(t324_cached)|$(sq "SELECT poznamka FROM ka_poptavky WHERE idp = $T324_ENQ")|$(grep -c 'isError' "$WORK/response")" "1|1|Call back on Monday|0"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=t324_unknown" -d "_csrf=$T324_TOKEN"
+T324_ADMIN=$(t324_cached); curl -s -o /dev/null "$B/"
+mcp save_redirect '{"from":"/t324-old","to":"/"}' > /dev/null
+expect "3.24 (T1): a POST to a section that changes the site clears the cache (even an action it does not know), a site-changing MCP tool too" "$T324_ADMIN|$(t324_cached)" "0|0"
+sq "DELETE FROM ka_poptavky WHERE idp = $T324_ENQ; DELETE FROM ka_notebook WHERE title = 'T324'; DELETE FROM ka_presmerovani WHERE z_adresy LIKE '%t324-old%'" > /dev/null
+setting page_cache "$T324_CACHE"
+
+echo "== 3.24 (T11): the admin runs the light background jobs after its answer"
+# a scheduled page whose time has come is published by the admin alone – no visit to the site in between
+sq "INSERT INTO ka_stranky (titulek, seo_link, text, zobrazit, v_menu, poradi, zverejnit_od) VALUES ('T324 scheduled', 't324-scheduled', '<p>Due</p>', 0, 0, 100, '$(site_time '-5 minutes')')" > /dev/null
+for i in $(seq 1 16); do setting notification_check 0; curl -s -b "$JAR" -o /dev/null "$B/admin.php"; [ "$(sq "SELECT zobrazit FROM ka_stranky WHERE seo_link = 't324-scheduled'")" = 1 ] && break; sleep 0.5; done
+expect "3.24 (T11): the scheduled page went out after an admin request, and the once-a-minute mark is set" \
+  "$(sq "SELECT CONCAT(zobrazit, '/', zverejnit_od IS NULL) FROM ka_stranky WHERE seo_link = 't324-scheduled'")|$(( $(date +%s) - $(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'notification_check'") < 120 ))" "1/1|1"
+# the pace holds: within the minute a second admin request runs nothing
+sq "INSERT INTO ka_stranky (titulek, seo_link, text, zobrazit, v_menu, poradi, zverejnit_od) VALUES ('T324 later', 't324-later', '<p>Due</p>', 0, 0, 100, '$(site_time '-5 minutes')')" > /dev/null
+setting notification_check "$(date +%s)"; curl -s -b "$JAR" -o /dev/null "$B/admin.php"; sleep 1
+expect "3.24 (T11): within the minute the admin leaves the jobs alone" "$(sq "SELECT zobrazit FROM ka_stranky WHERE seo_link = 't324-later'")" "0"
+sq "DELETE FROM ka_stranky WHERE seo_link IN ('t324-scheduled', 't324-later')" > /dev/null
+
+echo "== 3.24 (N-U3): a new page starts in the builder"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=pages&action=new"; TOKEN=$(csrf)
+t324_where() { case "$1" in *"action=builder&id=$2") echo builder;; *action=builder*) echo "another builder: $1";; *) echo list;; esac; } # where a save went
+expect "3.24 (N-U3): New page offers three starts – an empty builder page first and chosen, a ready-made layout, a text page; the text editor and Save belong to the text page" \
+  "$(grep -c 'name="start" value="builder" id="start-builder" checked' "$WORK/response")|$(grep -c 'name="start" value="layout"' "$WORK/response")|$(grep -c 'name="start" value="text"' "$WORK/response")|$(grep -c 'class="radek pres-celou nova-jen-text"' "$WORK/response")|$(grep -c 'Vytvořit stránku a otevřít builder' "$WORK/response")|$(grep -c 'name="po_ulozeni"' "$WORK/response")" \
+  "1|1|1|1|1|0"
+location=$(save_page -d ids=0 --data-urlencode "titulek=Údržba zahrad" -d start=builder -d sablona=o-nas -d zobrazit=1 -d v_menu=0 --data-urlencode "text=<p>Typed, then the builder chosen</p>")
+IDU3=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'udrzba-zahrad'")
+expect "3.24 (N-U3): an empty builder page opens the builder with the page title band, no text, hidden until its first publish" \
+  "$(t324_where "$location" "$IDU3")|$(sq "SELECT CONCAT(text = '', '/', zobrazit, '/', show_on_publish, '/', stavba_koncept LIKE '%\"znacka\":\"h1\"%', '/', stavba_koncept LIKE '%Údržba zahrad%', '/', stavba_koncept NOT LIKE '%pribeh%') FROM ka_stranky WHERE ids = ${IDU3:-0}")" \
+  "builder|1/0/1/1/1/1"
+location=$(save_page -d ids=0 --data-urlencode "titulek=Naše služby 324" -d start=layout -d sablona=sluzby -d zobrazit=1 -d v_menu=0 -d text=)
+expect "3.24 (N-U3): a ready-made layout builds its sections and opens the builder" \
+  "$(t324_where "$location" "$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'nase-sluzby-324'")")|$(sq "SELECT (LENGTH(stavba_koncept) - LENGTH(REPLACE(stavba_koncept, '\"typ\":\"sekce\"', ''))) DIV LENGTH('\"typ\":\"sekce\"') >= 4 FROM ka_stranky WHERE seo_link = 'nase-sluzby-324'")" "builder|1"
+location=$(save_page -d ids=0 --data-urlencode "titulek=Textová 324" -d start=text -d sablona=o-nas -d zobrazit=1 -d v_menu=0 --data-urlencode "text=<p>Just text</p>")
+expect "3.24 (N-U3): a simple text page saves its text, goes live and stays out of the builder (the hidden layout list is ignored)" \
+  "$(t324_where "$location" 0)|$(sq "SELECT CONCAT(text, '/', zobrazit, '/', stavba_koncept IS NULL) FROM ka_stranky WHERE seo_link = 'textova-324'")" "list|<p>Just text</p>/1/1"
+code=$(curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=pages&action=save" -d "_csrf=$TOKEN" -d ids=0 -d titulek= -d start=layout -d sablona=kontakt)
+expect "3.24 (N-U3): a refused new page keeps the chosen start and layout" "$code|$(grep -c 'value="layout" id="start-layout" checked' "$WORK/response")|$(grep -c 'value="kontakt" selected' "$WORK/response")" "200|1|1"
+mcp create_page '{"title":"MCP 324","slug":"mcp-324","content":"<p>From Claude</p>"}' > "$WORK/response"
+expect "3.24 (N-U3): MCP create_page is unchanged – a hidden text page without a build" "$(sq "SELECT CONCAT(text, '/', zobrazit, '/', stavba_koncept IS NULL) FROM ka_stranky WHERE seo_link = 'mcp-324'")" "<p>From Claude</p>/0/1"
+sq "DELETE FROM ka_stranky WHERE seo_link IN ('udrzba-zahrad', 'nase-sluzby-324', 'textova-324', 'mcp-324')" > /dev/null
 if [ -s "$WORK/web/storage/log/chyby.log" ]; then echo "== záznam chyb aplikace:"; cat "$WORK/web/storage/log/chyby.log"; ERRORS=$((ERRORS+1)); fi
 echo; [ "$ERRORS" -eq 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }
