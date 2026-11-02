@@ -203,8 +203,8 @@ final class Scheduler
                 $state[(string) $r['name']] = $r;
             }
             foreach (self::jobs() as $name => [$interval, $where, , $job]) {
-                if (microtime(true) > $end) {
-                    break; // the rest stays due for the next run
+                if (microtime(true) > $end || Updater::installedNow()) {
+                    break; // the rest stays due for the next run; N3261-1: after an update (the job "updates") with the new code
                 }
                 if (($where === 'cron' && $source !== 'cron') || !self::applies($name, $app->settings())) {
                     continue;

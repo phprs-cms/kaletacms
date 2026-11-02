@@ -8301,6 +8301,10 @@ contains -F 'action=update_major' "$WORK/response" && contains -F 'name="precten
 curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?module=settings&action=update_major" -d "_csrf=$TOKEN" -d verze=4.0.0
 [ ! -f "$WORK/web/image/test-aktualizace4.txt" ] && contains -F 'Potvrďte, že jste si přečetli' "$WORK/response" && echo "  ok     3.15: without the confirmation nothing installs" || { echo "  CHYBA  3.15: the major update ran without the confirmation"; ERRORS=$((ERRORS+1)); }
 sleep 1; touch "$WORK/before-major"
+# N3261-1: the light background jobs are due after this answer (Notifications::afterAdminResponse, once a minute) – they used
+# to run in the process that installed 4.0.0, with the old version's code, and overwrite the new line's update information
+# with the 3.x manifest (flaky in CI: only when no other request had run them in the minute before)
+sq "UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'notification_check'" > /dev/null
 curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?module=settings&action=update_major" -d "_csrf=$TOKEN" -d verze=4.0.0 -d precteno=1
 MAJOR_BACKUP=$(find "$WORK/web/storage/zalohy" -name '*predaktualizaci*' -newer "$WORK/before-major" | head -1)
 expect "3.15: the administrator installs 4.0.0 – after a new backup, recorded, and the site knows its new line" \

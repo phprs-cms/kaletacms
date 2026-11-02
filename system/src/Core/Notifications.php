@@ -15,8 +15,8 @@ final class Notifications
     public static function runInBackground(App $app): void
     {
         $s = $app->settings();
-        if (time() - $s->int('notification_check') < 60) {
-            return;
+        if (time() - $s->int('notification_check') < 60 || Updater::installedNow()) {
+            return; // N3261-1: never right after an update in the same process – the next request runs them with the new code
         }
         $s->set('notification_check', (string) time());
         if (function_exists('fastcgi_finish_request')) {

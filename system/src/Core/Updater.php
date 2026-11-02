@@ -90,6 +90,20 @@ final class Updater
     /** The signed release date of the manifest just read when it lies in the future (admit()), for state(). */
     private string $futureDate = '';
 
+    /**
+     * 3.26.1 (N3261-1): the files of a new version were installed in this PHP process. The process still runs the old code
+     * (KALETA_VERSION, the classes already loaded) and would load new classes next to them, so no background job may run
+     * after it – the update check in particular would read the old line's manifest and overwrite what the update
+     * remembered (after a major update the site forgot its new line). The next request runs them with the new code.
+     */
+    private static bool $installedNow = false;
+
+    /** Whether this PHP process installed a new version (N3261-1): the background jobs wait for the next request. */
+    public static function installedNow(): bool
+    {
+        return self::$installedNow;
+    }
+
     private const array PROTECTED_PATHS = ['config.php', 'install.php', 'media/', 'storage/', 'extensions/', 'image/ukazka/', 'tools/', '.git/']; // extensions/: add-ons (3.0)
     private const int MAX_BYTES = 60 * 1024 * 1024;
 
@@ -617,6 +631,7 @@ final class Updater
             self::deleteFolder($setAside);
             self::cleanUpObsolete($this->root, $previous, $files);
             $succeeded = true;
+            self::$installedNow = true;
         } finally {
             if ($succeeded || (!$restoreFailed && $stuckBefore === null)) {
                 @unlink(KALETA_ROOT . '/storage/udrzba.lock');

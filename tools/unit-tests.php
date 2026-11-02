@@ -9126,5 +9126,17 @@ check('3.26.1 Fleet\\Report: each site carries its month\'s days, printed as the
     array_key_exists('days', Report::siteData(['id' => 8, 'name' => '', 'url' => 'https://shop.example', 'version' => '3.16.2'], [], [], [], null))],
     [30, ['partial', 'none', 'down'], ['pairs', 'uptime', 'note'], 30, true, false]);
 
+// N3261-1: after an update, the process that installed it runs no background job – it still has the old version's code in
+// memory (the update check overwrote the new line's update information with the old line's manifest)
+$installed3261 = new ReflectionProperty(Kaleta\Core\Updater::class, 'installedNow');
+$installedBefore3261 = Kaleta\Core\Updater::installedNow();
+$installed3261->setValue(null, true);
+$runs3261 = [Kaleta\Core\Updater::installedNow()];
+$installed3261->setValue(null, false);
+$jobSources3261 = array_map(fn (string $f): string => (string) file_get_contents(KALETA_SYSTEM . '/src/Core/' . $f), ['Notifications.php', 'Scheduler.php', 'Updater.php']);
+check('3.26.1 (N3261-1): the process that installed an update runs no background job – neither after the admin answer nor the rest of a scheduler run', [
+    $installedBefore3261, $runs3261[0], str_contains($jobSources3261[0], "< 60 || Updater::installedNow()) {\n            return;"), str_contains($jobSources3261[1], 'if (microtime(true) > $end || Updater::installedNow()) {'),
+    substr_count($jobSources3261[2], 'self::$installedNow = true;')], [false, true, true, true, 1]);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);
