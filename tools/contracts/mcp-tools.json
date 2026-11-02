@@ -40,6 +40,25 @@
             "openWorldHint": false
         }
     },
+    "assign": {
+        "parameters": {
+            "id": "integer",
+            "target": "string",
+            "user": "string"
+        },
+        "required": [
+            "target",
+            "id",
+            "user"
+        ],
+        "annotations": {
+            "title": "Assign a responsible person",
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+        }
+    },
     "booking_availability": {
         "parameters": {
             "day": "string",
@@ -1313,6 +1332,16 @@
             "openWorldHint": true
         }
     },
+    "my_work": {
+        "parameters": [],
+        "required": [],
+        "annotations": {
+            "title": "Get my work",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "preview_link": {
         "parameters": {
             "category_template": "boolean",
@@ -2136,6 +2165,7 @@
     },
     "update_enquiry": {
         "parameters": {
+            "assignee": "string",
             "category": "string",
             "draft_reply": "string",
             "id": "integer",

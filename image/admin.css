@@ -1505,6 +1505,7 @@ table.preklady td[data-stav] form { margin-inline-start: 6px; }
 	.menu-otevrene .menu > li:not(.menu-kolekce):has(+ .menu-kolekce) { grid-column: 1 / -1; }
 	.menu-otevrene .menu > .menu-kolekce + li:not(.menu-kolekce) { grid-column-start: 1; }
 	.menu-otevrene .menu > .menu-kolekce a { padding-inline-start: 20px; }
+	.menu-otevrene .menu > .menu-moje { grid-column: 1 / -1; } /* 3.24: My work takes a row like the Dashboard next to it */
 }
 
 /* 3.17: the uptime trend of a fleet site (views/admin/fleet/trend.php) – one bar a day; the summary and the table say the same in words */

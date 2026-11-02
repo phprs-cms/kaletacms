@@ -195,6 +195,9 @@ final class Catalog
         'send_test_newsletter' => ['write', 'newsletter'],
         'send_newsletter' => ['destructive', 'newsletter'],
         'delete_newsletter' => ['destructive', 'newsletter'],
+        // The team's work (3.24): what waits for the connected user, and who is responsible – never an access limit
+        'my_work' => ['read', ''],
+        'assign' => ['write', ''],
     ];
 
     /**
@@ -346,6 +349,8 @@ final class Catalog
         'send_test_newsletter' => 'Send a test newsletter to yourself',
         'send_newsletter' => 'Send a newsletter',
         'delete_newsletter' => 'Delete a newsletter',
+        'my_work' => 'Get my work',
+        'assign' => 'Assign a responsible person',
     ];
 
     /**
@@ -373,7 +378,7 @@ final class Catalog
         'delete_collection', 'delete_collection_item', 'restore_item_version', 'save_collection_category', 'delete_collection_category', 'trash_news',
         'update_category', 'delete_category', 'update_media', 'delete_media', 'update_enquiry', 'delete_enquiry', 'erase_personal_data', 'delete_popup',
         'save_redirect', 'ignore_not_found', 'save_redirects', 'save_fact', 'delete_fact', 'delete_notebook_entry', 'update_social_draft', 'remove_blueprint',
-        'delete_hours_exception', 'cancel_booking', 'confirm_booking', 'decline_booking', 'delete_newsletter'];
+        'delete_hours_exception', 'cancel_booking', 'confirm_booking', 'decline_booking', 'delete_newsletter', 'assign'];
 
     /**
      * Write tools that never change what visitors see (3.24, T1): Mcp\Server keeps the page cache after them, every other
@@ -383,7 +388,7 @@ final class Catalog
      * builds, the look, settings, media, bookings (their free times are on the page) and erase_personal_data (it deletes
      * bookings). tools/unit-tests.php classifies every write tool, so a new one has to choose; an add-on's tool clears.
      */
-    public const array SITE_NEUTRAL = ['update_enquiry', 'delete_enquiry', 'import_enquiries', 'request_testimonial', 'reply_to_enquiry', 'write_notebook',
+    public const array SITE_NEUTRAL = ['assign', 'update_enquiry', 'delete_enquiry', 'import_enquiries', 'request_testimonial', 'reply_to_enquiry', 'write_notebook',
         'delete_notebook_entry', 'update_request', 'report_agent_run', 'resolve_draft_comment', 'save_section', 'delete_section', 'ignore_not_found',
         'update_social_draft', 'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter'];
 

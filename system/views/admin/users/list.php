@@ -6,6 +6,7 @@
  * @var list<array<string, mixed>> $authors
  * @var bool $teamExists the site has a people collection (3.14)
  * @var array<int, array{name: string, chosen: bool}> $linked idu => the Team record the account is linked to (Builder\TeamRecord::linked)
+ * @var array<int, array{page: int, item: int, enquiry: int}> $owned 3.24: idu => what the account is responsible for (Core\Handover::ownedByAll)
  */
 ?>
 <p class="navigace-radek"><a class="tl" href="<?= e($module->url('new')) ?>"><?= e(t('New user')) ?></a> <a class="navigace" href="<?= e($app->url('admin.php?module=roles')) ?>"><?= e(t('Roles')) ?></a></p>
@@ -19,6 +20,9 @@
 	<td><?= bdi($a['jmeno']) ?><br><span class="smltxt"><?= e($a['shrnuti']) ?></span>
 <?php if ($teamExists): ?>
 		<br><span class="smltxt"><?= isset($linked[(int) $a['idu']]) ? e(t($linked[(int) $a['idu']]['chosen'] ? 'Team record: %s (chosen)' : 'Team record: %s (by e-mail)', $linked[(int) $a['idu']]['name'])) : e(t('Team record: not linked')) ?></span>
+<?php endif ?>
+<?php if (isset($owned[(int) $a['idu']])): ?>
+		<br><span class="smltxt"><?= e(t('Responsible for %s', Kaleta\Core\Handover::describe($owned[(int) $a['idu']]))) ?></span>
 <?php endif ?></td>
 	<td><?= bdi($a['email']) ?></td>
 	<td><?= e($a['nazev_role'] ?? t(Kaleta\Core\Auth::TYPES[(int) $a['admin']] ?? '?')) ?></td>
@@ -29,7 +33,12 @@
 <?php if ($a['blokovat']): ?>
 		/ <form class="vradku" method="post" action="<?= e($module->url('reactivate')) ?>"><?= $csrf ?><input type="hidden" name="idu" value="<?= (int) $a['idu'] ?>"><input type="hidden" name="user" value="<?= e($a['user']) ?>"><button class="navigace" type="submit"><?= e(t('Reactivate')) ?></button></form>
 <?php endif ?>
-<?php if ((int) $a['idu'] !== $app->auth()->id()): ?>
+<?php if (isset($owned[(int) $a['idu']])): // 3.24: the work goes to someone else first – the hand-over screen also blocks or deletes in the same step ?>
+		/ <a href="<?= e($module->url('handover', ['id' => (int) $a['idu']])) ?>"><?= e(t('Hand over work')) ?></a>
+<?php endif ?>
+<?php if ((int) $a['idu'] !== $app->auth()->id() && isset($owned[(int) $a['idu']])): ?>
+		/ <a class="nebezpecne" href="<?= e($module->url('handover', ['id' => (int) $a['idu'], 'then' => 'delete'])) ?>"><?= e(t('Smazat')) ?></a>
+<?php elseif ((int) $a['idu'] !== $app->auth()->id()): ?>
 		/ <form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Really delete the user? Their news items will remain, without an author.')) ?>"><?= $csrf ?><input type="hidden" name="idu" value="<?= (int) $a['idu'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form>
 <?php endif ?>
 	</td>

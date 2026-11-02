@@ -56,6 +56,7 @@ final class Guide
         'extensions' => 'extensions',
         'addons' => 'addons',
         'fleet' => 'fleet-console',
+        'my_work' => 'users-roles', // 3.24: My work – until the guide has its own article on working as a team
     ];
 
     /** Settings tab => article#anchor */
