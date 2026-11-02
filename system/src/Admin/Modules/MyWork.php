@@ -21,14 +21,14 @@ final class MyWork extends Module
     public const string ICON = 'moje';
     public const bool FOR_ALL_USERS = true;
 
-    /** The enquiries assigned to me that are still open – one COUNT over the key (prirazeno, stav) of migration 0110. */
+    /** The enquiries assigned to me that are still open, spam left out like the "Assigned to me" tile (N324-5) – one COUNT over the key (prirazeno, stav) of migration 0110. */
     public static function badge(\Kaleta\Core\App $app): int
     {
         if (!\Kaleta\Core\Extensions::isEnabled($app->settings(), Enquiries::EXTENSION) || !$app->auth()->hasModule(Enquiries::IDENT)) {
             return 0;
         }
 
-        return (int) $app->db()->value('SELECT COUNT(*) FROM {poptavky} WHERE prirazeno = ? AND stav < 2', [$app->auth()->id()]);
+        return Enquiries::countAssigned($app->db(), $app->auth()->id());
     }
 
     protected function actionList(): Response

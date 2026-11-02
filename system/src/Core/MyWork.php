@@ -82,7 +82,8 @@ final class MyWork
             case 'assigned':
             case 'unassigned':
                 // the key ix_poptavky_prirazeno (prirazeno, stav) of migration 0110 serves both
-                $where = $list === 'assigned' ? 'prirazeno = ? AND stav < 2' : "prirazeno IS NULL AND stav = 0 AND kategorie <> 'spam'";
+                // spam left out of both, as in the Enquiries list and the dashboard tiles (N324-5)
+                $where = ($list === 'assigned' ? 'prirazeno = ? AND stav < 2' : 'prirazeno IS NULL AND stav = 0') . ' AND ' . \Kaleta\Admin\Modules\Enquiries::NOT_SPAM;
                 $rows = $db->all('SELECT idp, datum, formular, tema, stav, priorita FROM {poptavky} WHERE ' . $where . ' ORDER BY idp DESC' . $limit, $list === 'assigned' ? [$userId] : []);
 
                 return array_map(fn (array $p): array => ['kind' => 'enquiry', 'id' => (int) $p['idp'], 'title' => (string) $p['formular'], 'about' => (string) $p['tema'],

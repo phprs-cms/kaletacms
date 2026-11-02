@@ -8616,5 +8616,11 @@ check('N324-2: Auth::forgetForBackground – nobody is signed in for the rest of
     strpos($n3242Notifications, '$app->auth()->forgetForBackground();') !== false && strpos($n3242Notifications, '$app->auth()->forgetForBackground();') < strpos($n3242Notifications, 'fn () => self::runInBackground($app)'),
 ], [[7, true], null, 0, false, null, true]);
 
+// N324-5: the menu badge, the "Assigned to me" tile and My work count the same enquiries – open, spam left out
+$n3245 = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/MyWork.php');
+check('N324-5: My work and its menu badge leave spam out, as the Enquiries list and the dashboard tile do', [
+    str_contains($n3245, "' AND ' . \\Kaleta\\Admin\\Modules\\Enquiries::NOT_SPAM"), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/MyWork.php'), 'return Enquiries::countAssigned($app->db(), $app->auth()->id());'),
+], [true, true]);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);
