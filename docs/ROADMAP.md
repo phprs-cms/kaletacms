@@ -1277,6 +1277,24 @@ MCP tool, parameter or Czech alias renamed; `update_enquiry` gains `add_note`, `
    their state; anyone with 8 items or fewer gets a flat list; collection shortcuts show 5 and "More…".
 4. **One link picker** for every link field in the builder and the menu editor: pages, e-mail and phone, by keyboard too.
 
+## 3.26 – comments, mentions and notifications (6 November 2026)
+
+Stage 2 of the team work: the site is where its team talks. Migration 0112 adds `ka_notifications` and
+`ka_uzivatele.notify_email`; `KALETA_DB_VERSION` 112. No setting key, POST field, MCP tool, parameter or Czech alias renamed;
+new non-essential MCP tools `list_comments` and `add_comment`, and a third tool set `work` for employees' own Claude
+connections (existing connections keep `all` or `essentials`).
+
+1. **Comments:** threads on pages (page settings and a Team tab in the builder next to the client's draft comments) and on
+   collection items, next to the enquiry notes of 3.25; authors edit and delete their own, administrators any; plain text;
+   comments go with their page or item when it is deleted for good.
+2. **@mentions** in every thread with suggestions of the colleagues who may open that place; the server refuses anyone else.
+3. **Notifications:** a bell with the unread count in the header and a Notifications screen; mentions, comments on my pages
+   and items, assignments and review reminders; e-mail right away, once a day (about 08:00) or never, chosen in My account;
+   kept 90 days; never the text of an enquiry.
+4. **For Claude:** `list_comments` and `add_comment` (mentions only on full-access connections); the `work` tool set with the
+   tools an employee needs (My work, enquiries, comments, assign, signature, requests, notebook, pages, collection items).
+5. **Builder:** spacing and colours are chosen from the design system (with "Custom…" checked in the field).
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |
