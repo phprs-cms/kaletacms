@@ -78,9 +78,11 @@ trait PageTools
         // the URL of a language version has a prefix (/de/…); the translation of the home page is the root of its version (/de/)
         return array_map(fn (array $r): array => ['id' => (int) $r['ids'], 'titulek' => $r['titulek'], 'adresa' => $this->app->request->origin()
             . $this->app->url(($r['jazyk'] !== '' ? $r['jazyk'] . '/' : '') . ((int) $r['ids'] === $home || ($home > 0 && (int) $r['preklad_z'] === $home) ? '' : $r['seo_link'])),
-            'uvodni' => (int) $r['ids'] === $home, 'zobrazena' => (bool) $r['zobrazit'], 'v_menu' => (bool) $r['v_menu'], 'jazyk' => $r['jazyk']],
+            'uvodni' => (int) $r['ids'] === $home, 'zobrazena' => (bool) $r['zobrazit'], 'v_menu' => (bool) $r['v_menu'], 'jazyk' => $r['jazyk']]
+            // 3.24: the responsible person ({id, name}; a removed account is "(former user)"), only when one is set
+            + ($r['owner_id'] !== null ? ['owner' => \Kaleta\Core\Handover::person($db, $r['owner_id'])] : []),
             // without the Pages section (news author) only published pages – it can link to those, it does not see drafts
-            $db->all('SELECT ids, titulek, seo_link, zobrazit, v_menu, jazyk, preklad_z FROM {stranky} WHERE smazano IS NULL' . $auth->pageListScope() . ' ORDER BY jazyk, poradi, ' . $db->sortText('titulek')));
+            $db->all('SELECT ids, titulek, seo_link, zobrazit, v_menu, jazyk, preklad_z, owner_id FROM {stranky} WHERE smazano IS NULL' . $auth->pageListScope() . ' ORDER BY jazyk, poradi, ' . $db->sortText('titulek')));
     }
 
     /** get_page (nacti_stranku) */

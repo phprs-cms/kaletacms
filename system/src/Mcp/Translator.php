@@ -304,6 +304,8 @@ final class Translator
         'report_agent_run' => ['report_agent_run', '', []],
         'list_draft_comments' => ['list_draft_comments', '', []],
         'resolve_draft_comment' => ['resolve_draft_comment', '', []],
+        'my_work' => ['my_work', '', []],
+        'assign' => ['assign', '', []],
     ];
 
     /** Parameter values in English => Czech (by the Czech parameter; for some tools only there). */

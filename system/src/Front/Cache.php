@@ -9,7 +9,9 @@ use Kaleta\Core\Response;
 
 /**
  * Full-page cache for visitors who are not signed in (files in storage/cache/stranky, valid for 5 minutes).
- * A page from the cache costs one database query instead of dozens. Any change in the administration clears the cache.
+ * A page from the cache costs one database query instead of dozens. A change in the administration or over MCP that can reach
+ * the site clears the cache; the team's work that never does (enquiries, notes, requests…) keeps it (3.24, Admin\Kernel::clearsPageCache,
+ * Mcp\Catalog::SITE_NEUTRAL).
  * Nothing personal is cached: signed-in administration users, previews.
  */
 final class Cache

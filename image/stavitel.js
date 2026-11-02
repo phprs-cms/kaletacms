@@ -677,6 +677,7 @@
 		};
 		if (what.novy) { embedUrl(newElement(what.novy)); return; }
 		if (what.vlastni) { embedUrl(withNewIds(what.vlastni)); return; }
+		if (what.sekce === TITLE_SECTION && titleBand()) { showTitleBand(); return; }
 		query(D.adresy.sekce + '&key=' + encodeURIComponent(what.sekce), { ok: 1 }).then((j) => {
 			if (!j.ok) { setState(j.chyba, true); return; }
 			D.tridy = j.tridy;
@@ -1689,13 +1690,37 @@
 		if (previewSection) { previewSection.hidden = true; }
 	}
 
+	/**
+	 * 3.24 (N-U4): the ready-made "Page title" is not offered twice. A page whose first section holds its main heading (h1) –
+	 * the title band of a new page or a template, or a hero – already has its title: the button says so, and choosing it
+	 * selects that band instead of adding a second one whose heading would be demoted to h2.
+	 */
+	const TITLE_SECTION = 'nadpis-stranky';
+	function titleBand() {
+		if (!D.stranka.nadpisy) { return null; }
+		const first = state.stavba.deti[0];
+		const hasH1 = (p) => (p.typ === 'nadpis' && p.znacka === 'h1') || (p.deti || []).some(hasH1);
+		return first && first.typ === 'sekce' && hasH1(first) ? first : null;
+	}
+	function showTitleBand() {
+		const band = titleBand();
+		if (!band) { return; }
+		if (root.dataset.panel === 'levy') { setPanel(''); } // a tablet: the Add panel steps aside so the band is seen
+		selection(band.id);
+		setState(T('The page already starts with its title – it is selected, edit it there.'));
+	}
+
 	function sectionButton(s) {
+		const already = s.klic === TITLE_SECTION && titleBand() !== null;
 		return (
-			el('button', { onmouseenter: (e) => showSectionPreview(e.currentTarget, s.klic), onmouseleave: hideSectionPreview, onfocus: (e) => showSectionPreview(e.currentTarget, s.klic), onblur: hideSectionPreview, type: 'button', draggable: 'true', ondragstart: (e) => startDrag(e, { sekce: s.klic }), ondragend: endDrag, onclick: () => query(D.adresy.sekce + '&key=' + encodeURIComponent(s.klic), { ok: 1 }).then((j) => {
-				if (!j.ok) { setState(j.chyba, true); return; }
-				D.tridy = j.tridy;
-				insert(j.prvek, true);
-			}) }, el('strong', {}, s.nazev), el('small', {}, s.popis)));
+			el('button', { onmouseenter: (e) => showSectionPreview(e.currentTarget, s.klic), onmouseleave: hideSectionPreview, onfocus: (e) => showSectionPreview(e.currentTarget, s.klic), onblur: hideSectionPreview, type: 'button', draggable: 'true', ondragstart: (e) => startDrag(e, { sekce: s.klic }), ondragend: endDrag, onclick: () => {
+				if (s.klic === TITLE_SECTION && titleBand()) { showTitleBand(); return; }
+				query(D.adresy.sekce + '&key=' + encodeURIComponent(s.klic), { ok: 1 }).then((j) => {
+					if (!j.ok) { setState(j.chyba, true); return; }
+					D.tridy = j.tridy;
+					insert(j.prvek, true);
+				});
+			} }, el('strong', {}, s.nazev), el('small', {}, s.popis), already ? el('small', { class: 'st-uz-je' }, T('Already on this page')) : null));
 	}
 
 	function redrawTree() {

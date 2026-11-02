@@ -2914,5 +2914,7 @@ window.KALETA_PREKLAD = {
 	"A site in several languages: each further version (e.g. /cs/…) has its own pages, categories and news, a language switcher and hreflang tags. Pick the languages in Settings → Languages.": "Web ve více jazycích: každá další verze (/en/…) má své stránky, kategorie a novinky, přepínač jazyků a značky hreflang. Jazyky vyberete v Nastavení → Jazyky.",
 	"Moved after %s.": "Přesunuto za %s.",
 	"Moved to the start of %s.": "Přesunuto na začátek prvku %s.",
-	"Moved to the start of the page.": "Přesunuto na začátek stránky."
+	"Moved to the start of the page.": "Přesunuto na začátek stránky.",
+	"The page already starts with its title – it is selected, edit it there.": "Stránka už svým nadpisem začíná – je vybraný, upravte ho tam.",
+	"Already on this page": "Už na stránce je"
 };

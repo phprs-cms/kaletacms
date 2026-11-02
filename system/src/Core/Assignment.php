@@ -19,6 +19,12 @@ final class Assignment
     /** kind => the admin section (Module::IDENT) a person needs to be chosen for it */
     public const array KINDS = ['enquiry' => 'enquiries', 'page' => 'pages', 'item' => 'collections'];
 
+    /** How a removed account is shown where its id is left (untranslated at the MCP boundary, t() in the admin). */
+    public const string FORMER_USER = '(former user)';
+
+    /** @var array<int, array{0: string, 1: bool}>|null idu => [the name the admin shows, blocked] of every account, for one request */
+    private static ?array $accounts = null;
+
     /**
      * Who can be chosen for a kind: active administrators and users with the section. $keep (the current one) stays in
      * the list even when they lost the section or were blocked meanwhile – saving a form does not silently drop them; a
@@ -39,7 +45,7 @@ final class Assignment
             $out[(int) $r['idu']] = (int) $r['blokovat'] !== 0 ? self::formerName((string) $r['name']) : (string) $r['name'];
         }
         if ($keep > 0 && !isset($out[$keep])) {
-            $out[$keep] = t('(former user)'); // the account was deleted: the id stays until someone chooses another person
+            $out[$keep] = t(self::FORMER_USER); // the account was deleted: the id stays until someone chooses another person
         }
 
         return $out;
@@ -68,20 +74,35 @@ final class Assignment
     }
 
     /**
-     * Names of users for a list, by id: a removed or blocked account is "(former user)" (with the name when it is known).
+     * The name of a user wherever the admin or MCP shows who is responsible: the name (the sign-in name when there is
+     * none); a blocked account "Jana (former user)", a removed one "(former user)". $translate = false keeps the English
+     * words for the MCP boundary. The one implementation of the label – Core\Handover::person uses it too.
+     */
+    public static function label(Db $db, int $id, bool $translate = true): string
+    {
+        $account = (self::$accounts ??= array_map(fn (array $r): array => [(string) $r['name'], (int) $r['blokovat'] !== 0],
+            array_column($db->all("SELECT idu, IF(jmeno = '', user, jmeno) AS name, blokovat FROM {uzivatele}"), null, 'idu')))[$id] ?? null;
+
+        return $account === null ? ($translate ? t(self::FORMER_USER) : self::FORMER_USER) : ($account[1] ? self::formerName($account[0], $translate) : $account[0]);
+    }
+
+    /** Forgets the accounts read in this request (after one was renamed, blocked or deleted, and in tests). */
+    public static function forget(): void
+    {
+        self::$accounts = null;
+    }
+
+    /**
+     * Names of users for a list, by id (label()).
      *
      * @param list<int> $ids
      * @return array<int, string>
      */
     public static function labels(Db $db, array $ids): array
     {
-        $ids = array_values(array_unique(array_filter(array_map(intval(...), $ids), fn (int $id): bool => $id > 0)));
-        if ($ids === []) {
-            return [];
-        }
-        $out = array_fill_keys($ids, t('(former user)'));
-        foreach ($db->all("SELECT idu, IF(jmeno = '', user, jmeno) AS name, blokovat FROM {uzivatele} WHERE idu IN (" . implode(',', $ids) . ')') as $r) {
-            $out[(int) $r['idu']] = (int) $r['blokovat'] !== 0 ? self::formerName((string) $r['name']) : (string) $r['name'];
+        $out = [];
+        foreach (array_unique(array_filter(array_map(intval(...), $ids), fn (int $id): bool => $id > 0)) as $id) {
+            $out[$id] = self::label($db, $id);
         }
 
         return $out;
@@ -169,8 +190,10 @@ final class Assignment
             'path' => 'admin.php?module=collections&action=item&id=' . (int) $item['idk'] . '&item=' . $id];
     }
 
-    private static function formerName(string $name): string
+    private static function formerName(string $name, bool $translate = true): string
     {
-        return $name !== '' ? $name . ' ' . t('(former user)') : t('(former user)');
+        $former = $translate ? t(self::FORMER_USER) : self::FORMER_USER;
+
+        return $name !== '' ? $name . ' ' . $former : $former;
     }
 }

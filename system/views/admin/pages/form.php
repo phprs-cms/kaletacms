@@ -15,6 +15,10 @@
  */
 $copyBuild = !$page['ids'] && !empty($page['copy_build']);
 $ownerApart = $page['ids'] && $page['zobrazit'] && !$app->auth()->canPublish(); // 3.24: such a person cannot save these settings, only the responsible person
+// 3.24 (N-U3): a new page (not a translation) starts with the choice – an empty builder page (the default), a ready-made
+// layout or a simple text page; only the text page has the text editor and Save
+$choosing = !$page['ids'] && ($translationOf ?? null) === null;
+$start = in_array($page['start'] ?? '', ['builder', 'layout', 'text'], true) ? (string) $page['start'] : 'builder';
 $segment = basename((string) $page['seo_link']);
 $prefix = '';
 foreach ($parents as $r) {
@@ -48,16 +52,33 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	<label for="titulek"><?= e(t('Název stránky')) ?></label>
 	<input class="textpole siroke titulek-pole" type="text" id="titulek" name="titulek" value="<?= e($page['titulek']) ?>" maxlength="200" required placeholder="<?= e(t('e.g. Garden design')) ?>"<?= $page['ids'] ? '' : ' autofocus' ?><?= $contentDir ?>><?= $error('titulek') ?>
 </div>
-<?php if (!$page['ids'] && ($translationOf ?? null) === null): ?>
-<div class="radek">
-	<label for="sablona"><?= e(t('Start from a template')) ?></label>
-	<div><select id="sablona" name="sablona">
-		<option value=""><?= e(t('blank page (text)')) ?></option>
+<?php if ($choosing): ?>
+<fieldset class="radek pres-celou nova-stranka-start">
+	<legend><?= e(t('How do you want to start?')) ?></legend>
+	<div class="karty-volby karty-volby-text">
+		<label class="karta-volba">
+			<input type="radio" name="start" value="builder" id="start-builder"<?= $start === 'builder' ? ' checked' : '' ?>>
+			<strong><?= e(t('Empty builder page')) ?></strong>
+			<span><?= e(t('Starts with the page title; add ready-made sections and elements in the builder.')) ?></span>
+		</label>
+		<label class="karta-volba">
+			<input type="radio" name="start" value="layout" id="start-layout"<?= $start === 'layout' ? ' checked' : '' ?>>
+			<strong><?= e(t('Ready-made layout')) ?></strong>
+			<span><?= e(t('Sections with sample texts to replace, opened in the builder.')) ?></span>
+		</label>
+		<label class="karta-volba">
+			<input type="radio" name="start" value="text" id="start-text"<?= $start === 'text' ? ' checked' : '' ?>>
+			<strong><?= e(t('Simple text page')) ?></strong>
+			<span><?= e(t('Just text and pictures in the text editor, e.g. a privacy policy.')) ?></span>
+		</label>
+	</div>
+	<div class="nova-jen-rozlozeni"><label for="sablona"><?= e(t('Layout')) ?></label>
+	<select id="sablona" name="sablona">
 <?php foreach (Kaleta\Builder\Library::PAGE_TEMPLATES as $key => [$name]): ?>
-		<option value="<?= e($key) ?>"><?= e(t($name)) ?></option>
+		<option value="<?= e($key) ?>"<?= ($page['sablona'] ?? '') === $key ? ' selected' : '' ?>><?= e(t($name)) ?></option>
 <?php endforeach ?>
-	</select><span class="napoveda"><?= e(t('A template builds the page from ready-made sections with sample texts and opens it in the builder.')) ?></span></div>
-</div>
+	</select></div>
+</fieldset>
 <?php endif ?>
 <?php if ($copyBuild): ?>
 <input type="hidden" name="text" value="">
@@ -67,7 +88,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	<input type="hidden" name="text" value="<?= e($page['text']) ?>"><?= $error('text') ?>
 </div>
 <?php else: ?>
-<div class="radek pres-celou">
+<div class="radek pres-celou<?= $choosing ? ' nova-jen-text' : '' ?>">
 	<label for="text"><?= e(t('Content')) ?></label>
 	<textarea class="textbox vysoky" id="text" name="text" rows="18" data-editor<?= $contentDir ?>><?= e($page['text']) ?></textarea><?= $error('text') ?>
 <?php if ($page['ids']): ?>
@@ -164,6 +185,8 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 </div>
 <?php if ($copyBuild): ?>
 <p class="tlacitka"><button class="tl" type="submit"><?= e(t('Create the translation and open the builder')) ?></button></p>
+<?php elseif ($choosing): ?>
+<p class="tlacitka"><span class="nova-jen-stavitel"><button class="tl" type="submit"><?= e(t('Create the page and open the builder')) ?></button></span><span class="nova-jen-text"><button class="tl" type="submit"><?= e(t('Uložit')) ?></button></span></p>
 <?php else: ?>
 <p class="tlacitka"><button class="tl" type="submit"><?= e(t('Uložit')) ?></button><?php if (($page['stavba'] ?? null) === null): ?> <button class="navigace" type="submit" name="po_ulozeni" value="stavitel"><?= e(t('Save and open in the builder')) ?></button><?php endif ?></p>
 <?php endif ?>

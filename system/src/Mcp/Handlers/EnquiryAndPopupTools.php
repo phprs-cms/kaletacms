@@ -65,8 +65,10 @@ trait EnquiryAndPopupTools
             'kampan' => \Kaleta\Front\Forms::campaignText((string) $p['kampan']), 'first_page' => $p['vstup'] !== '' ? $p['vstup'] : null, 'came_from' => $p['odkud'] !== '' ? $p['odkud'] : null, 'email' => $p['email'], 'stav' => $statusNames[(int) $p['stav']] ?? '',
             'pole' => array_map(fn (array $d): array => ['popisek' => $d[0], 'hodnota' => $d[1]], json_decode((string) $p['data'], true) ?: [])]
             + ($p['kategorie'] !== '' ? ['category' => $p['kategorie'], 'priority' => \Kaleta\Core\Triage::PRIORITIES[(int) $p['priorita']] ?? null,
-                'draft_reply' => $p['navrh_odpovedi'] ?: null, 'triaged_by' => in_array($p['triaged_by'], ['claude', 'assistant', 'rule'], true) ? $p['triaged_by'] : 'person'] : []),
-            $db->all('SELECT idp, datum, formular, stranka, tema, vstup, odkud, kampan, email, stav, kategorie, priorita, navrh_odpovedi, triaged_by, data FROM {poptavky} WHERE ' . implode(' AND ', $whereParts) . ' ORDER BY idp DESC LIMIT ' . $limit, $params));
+                'draft_reply' => $p['navrh_odpovedi'] ?: null, 'triaged_by' => in_array($p['triaged_by'], ['claude', 'assistant', 'rule'], true) ? $p['triaged_by'] : 'person'] : [])
+            // 3.24: who handles it ({id, name}; a removed account is "(former user)"), only when someone does
+            + ($p['prirazeno'] !== null ? ['assignee' => \Kaleta\Core\Handover::person($db, $p['prirazeno'])] : []),
+            $db->all('SELECT idp, datum, formular, stranka, tema, vstup, odkud, kampan, email, stav, kategorie, priorita, navrh_odpovedi, triaged_by, data, prirazeno FROM {poptavky} WHERE ' . implode(' AND ', $whereParts) . ' ORDER BY idp DESC LIMIT ' . $limit, $params));
     }
 
     /** update_enquiry and delete_enquiry */
@@ -90,9 +92,9 @@ trait EnquiryAndPopupTools
             return ['deleted' => $id];
         }
         // a drafts-only connection (3.2) only suggests the triage – the status and the internal note are a person's
-        if ($auth->draftsOnly() && (isset($a['status']) || isset($a['note']))) {
+        if ($auth->draftsOnly() && (isset($a['status']) || isset($a['note']) || array_key_exists('assignee', $a))) {
             throw new \DomainException('This connection can only save drafts: for an enquiry that is its triage – category, priority and draft_reply – as a suggestion a person checks. '
-                . 'The status and the internal note are set by a person (or a connection with full access); put what you would change into the note of the request or the summary of the run.');
+                . 'The status, the internal note and who handles it are set by a person (or a connection with full access); put what you would change into the note of the request or the summary of the run.');
         }
         $changes = [];
         if (isset($a['status'])) {
@@ -102,8 +104,16 @@ trait EnquiryAndPopupTools
         if (isset($a['note'])) {
             $changes['poznamka'] = mb_substr(trim((string) $a['note']), 0, 5000);
         }
+        // 3.24: who handles it (Core\Handover – a user with the Enquiries section; the assignment e-mail goes from there)
+        $assignee = array_key_exists('assignee', $a) ? \Kaleta\Core\Handover::resolve($db, $a['assignee'], $auth->id()) : false;
+        if (is_int($assignee) && !\Kaleta\Core\Handover::mayOpen($db, $this->app->settings(), $assignee, 'enquiries')) {
+            throw new \DomainException('This user cannot open Enquiries (or the account is blocked) – nothing was changed. Give the enquiry to someone with the Enquiries section.');
+        }
         if ($changes !== []) {
             $db->update('poptavky', $changes, ['idp' => $id]);
+        }
+        if ($assignee !== false && \Kaleta\Core\Handover::assign($this->app, 'enquiry', $id, $assignee)['changed']) {
+            $changes['assignee'] = true;
         }
         if (isset($a['category']) || isset($a['priority']) || isset($a['draft_reply'])) {
             $triage = \Kaleta\Core\Triage::clean($a['category'] ?? null, isset($a['priority']) ? ['high' => 3, 'normal' => 2, 'low' => 1][(string) $a['priority']] ?? 0 : null, $a['draft_reply'] ?? null);

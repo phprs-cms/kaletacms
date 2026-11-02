@@ -276,11 +276,40 @@ await step('3.5 dashboard: Connect Claude leads until Claude is connected, its C
   if (SHOTS) { await page.screenshot({ path: `${SHOTS}/dashboard-connect-claude.png`, fullPage: false }); }
 });
 
+await step('3.24 N-U3/N-U4: New page starts in the builder – three choices, the text editor only for a text page, and the page title band is not offered twice', async () => {
+  await visit('/admin.php?module=pages&action=new');
+  const editor = page.locator('.radek.nova-jen-text');
+  const create = page.locator('.tlacitka .nova-jen-stavitel button');
+  const save = page.locator('.tlacitka .nova-jen-text button');
+  const shown = async () => [await editor.isVisible(), await create.isVisible(), await save.isVisible(), await page.locator('#sablona').isVisible()].join('/');
+  if (!(await page.locator('#start-builder').isChecked()) || await shown() !== 'false/true/false/false') { throw new Error(`the empty builder page is not the default start: ${await shown()}`); }
+  await page.locator('label.karta-volba:has(#start-text)').click();
+  if (await shown() !== 'true/false/true/false') { throw new Error(`a text page does not show the text editor and Save: ${await shown()}`); }
+  await page.locator('label.karta-volba:has(#start-layout)').click();
+  if (await shown() !== 'false/true/false/true') { throw new Error(`a ready-made layout does not show its list: ${await shown()}`); }
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/new-page-start.png`, fullPage: false }); }
+  await page.locator('label.karta-volba:has(#start-builder)').click();
+  await page.fill('#titulek', 'Browser builder page');
+  await Promise.all([page.waitForNavigation(), create.click()]);
+  await page.locator('.st-lista .st-skryta').waitFor();
+  await page.waitForTimeout(1500);
+  if (await canvas().locator('h1').count() !== 1 || !/Browser builder page/.test((await canvas().locator('h1').first().textContent()) || '')) { throw new Error('the empty builder page does not start with its title band'); }
+  await page.locator('.st-zalozky [role="tab"]').first().click();
+  const titleBand = page.locator('.st-knihovna button', { hasText: 'Page title' }).first();
+  if (!/Already on this page/.test((await titleBand.textContent()) || '')) { throw new Error('"Page title" is offered on a page that has its title band'); }
+  const sections = await canvas().locator('section').count();
+  await titleBand.click();
+  await page.waitForTimeout(800);
+  if (await canvas().locator('section').count() !== sections || await canvas().locator('h1').count() !== 1 || await canvas().locator('h2', { hasText: 'Page title' }).count()) { throw new Error('"Page title" added a second title band'); }
+  if (!/already starts with its title/.test((await page.locator('.st-stav').first().textContent()) || '')) { throw new Error('choosing "Page title" does not say the page has its title'); }
+});
+
 await step('3.5 a new page from a template stays hidden until its build is published, then goes live', async () => {
   await visit('/admin.php?module=pages&action=new');
   await page.fill('#titulek', 'Browser template page');
+  await page.locator('label.karta-volba:has(#start-layout)').click(); // 3.24 (N-U3): the layout list belongs to its choice
   await page.selectOption('#sablona', 'landing');
-  await Promise.all([page.waitForNavigation(), page.locator('form.formular button[type="submit"]').first().click()]);
+  await Promise.all([page.waitForNavigation(), page.locator('form.formular button[type="submit"]:visible').first().click()]);
   await page.locator('.st-lista .st-skryta').waitFor();
   const visitor = await browser.newContext();
   if ((await visitor.request.get(`${BASE}/browser-template-page`)).status() !== 404) { throw new Error('the empty template page is live before its build is published'); }
@@ -2656,7 +2685,10 @@ await step('3.23.1 item 12: each Settings tab saved with its Save button keeps t
   const tabs = await page.locator('nav.zalozky a').evaluateAll((links) => links.map((a) => new URL(a.href).searchParams.get('tab')));
   if (tabs.length !== 13) { throw new Error(`the row has ${tabs.length} tabs: ${tabs.join(', ')}`); }
   // mysql -N escapes line breaks and tabs inside a value, so one line is one setting
-  const snapshot = () => Object.fromEntries(sql('SELECT promenna, hodnota FROM ka_nastaveni').split('\n').filter(Boolean).map((l) => [l.slice(0, l.indexOf('\t')), l.slice(l.indexOf('\t') + 1)]));
+  // 3.24 (T11): the admin runs the light background jobs after its answer, so their bookkeeping (notification_check and the
+  // other *_check/_time/_at stamps – Core\AgentJournal::BOOKKEEPING) moves on its own while the tabs are saved; it is no setting
+  const bookkeeping = /^(db_version|data_migrations|notification_check)$|_(check|time|checked|seen|ts|at)$/;
+  const snapshot = () => Object.fromEntries(sql('SELECT promenna, hodnota FROM ka_nastaveni').split('\n').filter(Boolean).map((l) => [l.slice(0, l.indexOf('\t')), l.slice(l.indexOf('\t') + 1)]).filter(([k]) => !bookkeeping.test(k)));
   const saved = [];
   const saveAll = async () => {
     for (const tab of tabs) {
@@ -2789,6 +2821,66 @@ await step('3.24 (B): responsible person, Mine, Assigned to me, Draft by – Pag
   await page.setViewportSize({ width: 1440, height: 900 });
   sql(`UPDATE ka_stranky SET stavba_koncept = NULL, owner_id = NULL WHERE ids = ${pageId}; DELETE FROM ka_poptavky WHERE formular = 'B324 form';
     DELETE FROM ka_uzivatele_prava WHERE fk_id_user = ${colleague}; DELETE FROM ka_uzivatele WHERE idu = ${colleague}`);
+});
+
+// 3.24: My work – the first menu item of a non-administrator, the rows that wait for them, a phone without sideways scroll and
+// dark mode; then the administrator hands that person's work over and blocks the account in one step from Users
+await step('3.24 My work: first in an editor\'s menu, the waiting rows (1440 and 390 px, dark mode); Users hands the work over and blocks', async () => {
+  const secret = `Work-${createHash('sha256').update(String(Date.now())).digest('hex').slice(0, 12)}`;
+  await visit('/admin.php?module=users&action=new');
+  await page.fill('#user', 'work324');
+  await page.fill('#jmeno', 'Wendy Work');
+  await page.fill('#email', 'work324@browser.example');
+  await page.fill('#password', secret);
+  await page.locator('input[name="admin"][value="1"]').check(); // an editor: every content section by default
+  await Promise.all([page.waitForNavigation(), page.locator('form p.tlacitka input.tl').first().click()]);
+  const idu = sql("SELECT idu FROM ka_uzivatele WHERE user = 'work324'").trim();
+  if (!idu) { throw new Error('the user was not saved'); }
+  const today = new Date(); const soon = new Date(today.getTime() + 3 * 86400000).toISOString().slice(0, 10);
+  sql(`INSERT INTO ka_stranky (seo_link, titulek, text, zobrazit, v_menu, review_by, stavba_koncept, owner_id) VALUES ('work-324', 'Price list 324', '', 0, 0, '${soon}', '{"v":1,"deti":[]}', ${Number(idu)});
+    INSERT INTO ka_poptavky (datum, formular, email, data, stav, prirazeno) VALUES (NOW(), 'Quote 324', 'q324@visitor.example', '[]', 0, ${Number(idu)})`);
+  const member = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'en-GB' });
+  const p2 = await member.newPage(); watch(p2);
+  try {
+    sql("DELETE FROM ka_kontrola_ip WHERE typ = 'login'");
+    await p2.goto(`${BASE}/admin.php`, { waitUntil: 'networkidle' });
+    await p2.fill('input[name="user"]', 'work324');
+    await p2.fill('input[name="password"]', secret);
+    await Promise.all([p2.waitForNavigation(), p2.press('input[name="password"]', 'Enter')]);
+    const first = await p2.locator('#menu > li').first().evaluate((li) => ({ cls: li.className, text: li.textContent.trim() }));
+    if (!first.cls.includes('menu-moje') || !first.text.startsWith('My work')) { throw new Error(`the first menu item is ${JSON.stringify(first)}`); }
+    await Promise.all([p2.waitForNavigation(), p2.locator('#menu > li.menu-moje a').click()]);
+    for (const [list, text] of [['assigned', 'Quote 324'], ['pages', 'Price list 324']]) {
+      if (!(await p2.locator(`[data-list="${list}"] a`, { hasText: text }).isVisible())) { throw new Error(`My work does not show ${text} in ${list}`); }
+    }
+    if (!(await p2.locator('[data-list="pages"] .stitek', { hasText: 'Unpublished changes' }).isVisible())) { throw new Error('the page row does not say why it waits'); }
+    if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/my-work-desktop.png`, fullPage: true }); }
+    await Promise.all([p2.waitForNavigation(), p2.locator('[data-list="pages"] a', { hasText: 'Price list 324' }).click()]);
+    if (!p2.url().includes('module=pages&action=edit')) { throw new Error(`the page row leads to ${p2.url()}`); }
+    for (const scheme of ['light', 'dark']) {
+      const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'en-GB', isMobile: true, hasTouch: true, colorScheme: scheme, storageState: await member.storageState() });
+      const p3 = await phone.newPage(); watch(p3);
+      await p3.goto(`${BASE}/admin.php?module=my_work`, { waitUntil: 'networkidle' });
+      const wide = await p3.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+      if (wide > 0) { throw new Error(`${wide} px of sideways scroll at 390 px (${scheme})`); }
+      if (SHOTS) { await p3.screenshot({ path: `${SHOTS}/my-work-phone-${scheme}.png`, fullPage: true }); }
+      await phone.close();
+    }
+  } finally {
+    await member.close();
+  }
+  // the administrator: Users says what the person is responsible for and hands it over with the block in one step
+  await visit('/admin.php?module=users');
+  await Promise.all([page.waitForNavigation(), page.locator(`a[href*="action=handover&id=${Number(idu)}"]`).first().click()]);
+  const options = await page.locator('#hand_over_to option').allTextContents();
+  if (!options.includes('Tester')) { throw new Error(`the recipients are ${JSON.stringify(options)}`); }
+  await page.selectOption('#hand_over_to', { label: 'Tester' });
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/users-handover-desktop.png` }); }
+  await Promise.all([page.waitForNavigation(), page.locator('button[name="then"][value="block"]').click()]);
+  const after = sql(`SELECT CONCAT_WS('|', (SELECT owner_id FROM ka_stranky WHERE seo_link = 'work-324'), (SELECT prirazeno FROM ka_poptavky WHERE formular = 'Quote 324'), (SELECT blokovat FROM ka_uzivatele WHERE idu = ${Number(idu)}), (SELECT idu FROM ka_uzivatele WHERE user = 'admin'))`).trim().split('|');
+  if (after[0] !== after[3] || after[1] !== after[3] || after[2] !== '1') { throw new Error(`after the hand-over: ${after.join('|')}`); }
+  if (!(await page.locator('.hlaska-ok', { hasText: 'Now responsible: Tester' }).isVisible())) { throw new Error('no message about the hand-over'); }
+  sql(`DELETE FROM ka_stranky WHERE seo_link = 'work-324'; DELETE FROM ka_poptavky WHERE formular = 'Quote 324'; DELETE FROM ka_uzivatele_prava WHERE fk_id_user = ${Number(idu)}; DELETE FROM ka_uzivatele WHERE idu = ${Number(idu)}`);
 });
 
 await browser.close();

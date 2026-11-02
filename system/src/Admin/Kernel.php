@@ -28,6 +28,7 @@ final class Kernel
      * @var list<class-string<Module>>
      */
     public const array MODULES = [
+        Modules\MyWork::class, // 3.24: the layout puts it first for everyone but administrators (after the Dashboard for them)
         Modules\Pages::class,
         Modules\News::class,
         Modules\Collections::class,
@@ -81,6 +82,83 @@ final class Kernel
     public const array PUBLISHING_MODULES = ['pages', 'news', 'collections', 'categories', 'tags', 'parts', 'popups', 'components', 'menu',
         'appearance', 'business', 'settings', 'facts', 'bookings', 'newsletters', 'media', 'blueprints', 'transfer', 'extensions', 'changelog', 'users'];
 
+    /**
+     * 3.24 (T1): the page cache while a team works. Every POST of the admin used to empty the whole page cache, so with a few
+     * people answering enquiries the site ran uncached all day. A POST now clears it only when it can change what visitors
+     * see. Every section is in exactly one of the two lists below – tools/unit-tests.php checks it, so a new section has to
+     * choose – and anything not classified (an unknown section, an add-on page) clears, as before.
+     *
+     * The sections whose changes never reach the site: enquiries, subscribers, statistics, requests to Claude and their
+     * schedules, the notebook, the audit and the link check, roles, newsletters (an e-mail, no page on the site) and the
+     * fleet console (it publishes to other sites).
+     */
+    public const array SITE_NEUTRAL_MODULES = ['my_work', 'enquiries', 'subscribers', 'stats', 'requests', 'schedules', 'notebook', 'audit', 'broken_links', 'roles',
+        'newsletters', 'fleet'];
+
+    /** The sections whose changes can alter the site: their POSTs clear the page cache, except the SITE_NEUTRAL_ACTIONS. */
+    public const array SITE_CHANGING_MODULES = ['pages', 'news', 'collections', 'media', 'categories', 'tags', 'business', 'facts', 'blueprints', 'bookings',
+        'appearance', 'parts', 'menu', 'components', 'popups', 'claude_settings', 'redirects', 'changelog', 'status', 'users', 'settings', 'connectors',
+        'extensions', 'addons', 'transfer', 'whistleblowing'];
+
+    /** The builder's requests that change no published content: a share link, a resolved comment, the saved-sections library. */
+    private const array BUILDER_NEUTRAL = ['build_share', 'build_comment_resolve', 'build_save_section', 'build_delete_section'];
+
+    /**
+     * The actions of Settings (and of the screens that share its class, System status and Claude settings) that change
+     * nothing a visitor sees: backups, the vault, checks, the console pairing, test e-mails and webhooks, reports, logs. Not
+     * here: the time zone (dates on pages), a new signing key (the signed forms of cached pages), restoring a backup,
+     * updates, the opening hours and the accessibility statement.
+     */
+    private const array SETTINGS_NEUTRAL = ['backup', 'download_backup', 'vault_move', 'config_permissions', 'user_ini', 'delete_backup', 'fleet_pair', 'fleet_send',
+        'fleet_updates', 'fleet_unpair', 'fleet_kit', 'fleet_titles', 'firewall_unblock', 'delete_log', 'check', 'forget_updates', 'media_backup', 'test_mail',
+        'report_preview', 'report_send', 'report_view', 'report_download', 'report_rebuild', 'domain_check', 'test_webhook', 'retry_webhook',
+        'new_webhook_secret', 'cookie_scan', 'processing_record'];
+
+    /**
+     * In a section of SITE_CHANGING_MODULES, the actions that never reach the site ('' = the screens outside a section:
+     * signing out, consent to an app, hiding First steps; My account is decided by its form, see clearsPageCache). Each is a
+     * real action of its section (tools/unit-tests.php).
+     */
+    public const array SITE_NEUTRAL_ACTIONS = [
+        '' => ['logout', 'oauth', 'hide_first_steps', 'token'],
+        'pages' => [...self::BUILDER_NEUTRAL, 'export', 'owner'], // 3.24: the responsible person is never on the site
+        'news' => ['social_save', 'social_posted', 'social_suggest', 'links'], // the social post drafts are never on the site
+        'collections' => [...self::BUILDER_NEUTRAL, 'signature'],
+        'components' => self::BUILDER_NEUTRAL,
+        'popups' => self::BUILDER_NEUTRAL,
+        'parts' => self::BUILDER_NEUTRAL,
+        'bookings' => ['anonymise'], // the person is removed, the booking keeps its time – the free times on the site stay
+        'redirects' => ['ignore', 'ignore_all', 'clear'], // the list of addresses not found
+        'users' => ['password_link', 'reactivate', 'revoke_connection'], // a saved or deleted account changes author names
+        'whistleblowing' => ['detail', 'reply', 'status', 'attachment'], // the reports; the channel's setup and footer link are public
+        'transfer' => ['report_start', 'report', 'report_delete', 'export', 'download', 'delete_export'], // reading the old site, exports
+        'settings' => self::SETTINGS_NEUTRAL,
+        'status' => [...self::SETTINGS_NEUTRAL, 'save'], // its form saves the System status tab only
+        'claude_settings' => [...self::SETTINGS_NEUTRAL, 'save', 'instructions_seen'], // the instructions and guardrails of Claude
+    ];
+
+    /** The Settings tabs no visitor sees; a save of any other tab (or of the old single General form) clears the page cache. */
+    public const array SITE_NEUTRAL_TABS = ['mail', 'reports', 'webhooks', 'backups', 'security', 'console', 'health'];
+
+    /** Does this admin POST clear the page cache? Yes unless it is known to change nothing visitors see (3.24, T1). */
+    public static function clearsPageCache(\Kaleta\Core\Request $request): bool
+    {
+        $module = $request->get('module');
+        $action = $request->get('action');
+        if (in_array($action, self::DRAFT_ACTIONS, true) || in_array($module, self::SITE_NEUTRAL_MODULES, true)
+            || in_array($action, self::SITE_NEUTRAL_ACTIONS[$module] ?? [], true)) {
+            return false;
+        }
+        if ($module === '' && $action === 'account') {
+            return $request->post('co') === 'profil'; // the name, photo and bio are the author box on the site; passwords, 2FA and tokens are not
+        }
+        if ($module === 'settings' && $action === 'save') {
+            return !in_array($request->post('tab'), self::SITE_NEUTRAL_TABS, true);
+        }
+
+        return true;
+    }
+
     public function __construct(public readonly App $app)
     {
     }
@@ -103,9 +181,10 @@ final class Kernel
             ]), 400);
         }
 
-        // every change in the admin invalidates the site page cache; the editors' ongoing requests (unsaved state, assistant,
-        // build draft) do not change the site - if they cleared the cache, it would be cold all the time during work
-        if ($request->isPost() && !in_array($request->get('action'), self::DRAFT_ACTIONS, true)) {
+        // a change in the admin that can reach the site invalidates the page cache; the editors' ongoing requests (unsaved state,
+        // assistant, build draft) and the team's work that never reaches the site (enquiries, notes, requests…, 3.24) do not –
+        // otherwise the cache would be cold all the time during work. Signing in changes nothing either.
+        if ($request->isPost() && $app->auth()->user() !== null && self::clearsPageCache($request)) {
             \Kaleta\Front\Cache::clear();
         }
         $action = $request->get('action');
@@ -379,6 +458,9 @@ final class Kernel
             'traffic' => Extensions::isEnabled($this->app->settings(), 'statistika') && isset($modules['stats'])
                 ? $db->all('SELECT den, navstevy, zobrazeni FROM {stat_dny} WHERE den > ? ORDER BY den', [\Kaleta\Core\Clock::day('-14 days')]) : [],
             'counts' => array_filter([
+                // 3.24: what waits for me (Core\MyWork) – administrators keep the Dashboard first, the tile leads them to My work
+                // – without the enquiries assigned to me, which the tile "Assigned to me" counts already (no two tiles for the same rows)
+                'My work' => isset($modules['my_work']) && ($mine = \Kaleta\Core\MyWork::count($this->app, $modules, $this->app->auth()->id(), ['assigned'])) > 0 ? [$mine, 'admin.php?module=my_work'] : null,
                 // drafts of news authors wait for an editor – the tile only when there are some
                 'News from authors awaiting publication' => isset($modules['news']) && ($pending = Modules\News::countAwaitingPublication($this->app)) > 0 ? [$pending, 'admin.php?module=news&status=ke_vydani'] : null,
                 'New enquiries' => isset($modules['enquiries']) ? [Modules\Enquiries::countNew($db), 'admin.php?module=enquiries'] : null, // spam left out, as in the list (N315-10)
