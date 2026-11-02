@@ -565,6 +565,145 @@
 		return groups;
 	}
 
+	/**
+	 * The one link picker (3.22 U6; 3.25 N-U9 everywhere): suggestions for a text field as you type – the server's pages, news,
+	 * collection items, files and language versions (hidden pages marked), the anchors of the builder's page, mailto: for an
+	 * e-mail and tel: for a phone number. A combobox: arrows move in the list, Enter picks, Esc closes the list only.
+	 * input – the text field; list – the element for the suggestions (it gets role listbox); onPick(option) after a pick,
+	 * onStatus(text) for the short status line (may be omitted). Returns { search, close, isOpen }.
+	 */
+	function linkPicker(input, list, onPick, onStatus) {
+		var timer = null, asked = 0, active = -1;
+		var say = onStatus || function () {};
+		input.setAttribute('role', 'combobox');
+		input.setAttribute('aria-autocomplete', 'list');
+		input.setAttribute('aria-expanded', 'false');
+		input.setAttribute('aria-controls', list.id);
+		input.setAttribute('autocomplete', 'off');
+		list.setAttribute('role', 'listbox');
+		if (!list.hasAttribute('aria-label')) { list.setAttribute('aria-label', T('Suggestions')); }
+		var options = function () { return list.querySelectorAll('[role=option]'); };
+		var open = function (yes) {
+			list.hidden = !yes;
+			input.setAttribute('aria-expanded', yes ? 'true' : 'false');
+			if (list.umisti) { list.umisti(yes); } // a floating list (a field outside a dialog) follows its field
+			if (!yes) { mark(-1); }
+		};
+		var mark = function (i) {
+			var all = options();
+			active = all.length ? Math.max(-1, Math.min(i, all.length - 1)) : -1;
+			Array.prototype.forEach.call(all, function (o, j) { o.classList.toggle('aktivni', j === active); o.setAttribute('aria-selected', j === active ? 'true' : 'false'); });
+			if (active >= 0) { input.setAttribute('aria-activedescendant', all[active].id); all[active].scrollIntoView({ block: 'nearest' }); } else { input.removeAttribute('aria-activedescendant'); }
+		};
+		var pick = function (o) {
+			input.value = o.getAttribute('data-url');
+			open(false);
+			input.dispatchEvent(new Event('input', { bubbles: true })); // the field's own handler stores the value (builder, menu editor)
+			say(T('Link to: %s').replace('%s', o.querySelector('span').textContent));
+			if (onPick) { onPick(o); }
+			input.focus();
+		};
+		var show = function (groups, q) {
+			list.textContent = '';
+			var n = 0;
+			groups.forEach(function (g) {
+				var box = document.createElement('div');
+				box.setAttribute('role', 'group');
+				box.setAttribute('aria-label', g.label);
+				var heading = document.createElement('div');
+				heading.className = 'odkaz-skupina';
+				heading.setAttribute('aria-hidden', 'true');
+				heading.textContent = g.label;
+				box.appendChild(heading);
+				g.items.forEach(function (it) {
+					var o = document.createElement('div');
+					o.setAttribute('role', 'option');
+					o.id = list.id + '-' + (n++);
+					o.setAttribute('data-url', it.url);
+					o.innerHTML = '<span></span><small></small>';
+					o.firstChild.textContent = it.title;
+					o.lastChild.textContent = it.note ? it.note + ' · ' + it.url : it.url;
+					o.addEventListener('mousedown', function (e) { e.preventDefault(); }); // the field keeps the focus
+					o.addEventListener('click', function () { pick(o); });
+					box.appendChild(o);
+				});
+				list.appendChild(box);
+			});
+			open(n > 0);
+			say(n ? '' : (q !== '' ? T('Nothing found – the text is used as the address.') : ''));
+		};
+		var search = function () {
+			var q = input.value.trim(), mine = ++asked;
+			clearTimeout(timer);
+			var local = localTargets(q);
+			// an address typed in full needs no search; an e-mail or a phone number only its own suggestion
+			if (LOOKS_LIKE_ADDRESS.test(q) || EMAIL.test(q) || (local.length && PHONE.test(q))) { show(local, q.charAt(0) === '#' ? q : ''); return; }
+			if (q.length === 1) { show(local, ''); return; }
+			timer = setTimeout(function () {
+				fetch(ADMIN + '?action=link_targets&q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
+					if (mine === asked) { show(local.concat(j.groups || []), q); }
+				}).catch(function () { if (mine === asked) { show(local, ''); } });
+			}, 200);
+		};
+		input.addEventListener('input', function (e) { if (e.isTrusted) { say(''); search(); } });
+		input.addEventListener('keydown', function (e) {
+			var all = options();
+			if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+				e.preventDefault();
+				if (list.hidden) { if (all.length) { open(true); } else { search(); } return; }
+				mark(e.key === 'ArrowDown' ? (active + 1) % all.length : (active <= 0 ? all.length - 1 : active - 1));
+			} else if (e.key === 'Enter' && !list.hidden && active >= 0) {
+				e.preventDefault(); // Enter picks the suggestion; one more Enter submits (the link dialog inserts the link)
+				pick(all[active]);
+			} else if (e.key === 'Escape' && !list.hidden) {
+				e.preventDefault(); // the first Esc closes the list, the second the dialog or the panel
+				e.stopPropagation();
+				open(false);
+			}
+		});
+		input.addEventListener('blur', function () { setTimeout(function () { if (document.activeElement !== input) { open(false); } }, 150); });
+
+		return { search: search, close: function () { open(false); }, isOpen: function () { return !list.hidden; } };
+	}
+
+	/**
+	 * The link picker on a link field outside the text editor (3.25, N-U9): Button, Container, Image and the other link
+	 * fields of the builder, the custom links of the menu editor – any <input data-odkaz-vyber>. The suggestions float under
+	 * the field in the top layer (a popover), so a scrolled panel never clips them; a click into an empty field or the
+	 * arrows offer the pages at once. Attached on the first focus, so fields drawn later (builder panels) get it too.
+	 */
+	var floatingLists = 0;
+	function attachLinkPicker(input) {
+		if (input.kaletaOdkaz) { return input.kaletaOdkaz; }
+		var list = document.createElement('div');
+		list.className = 'odkaz-vysledky odkaz-plovouci';
+		list.id = 'odkaz-plovouci-' + (++floatingLists);
+		list.hidden = true;
+		var canFloat = typeof list.showPopover === 'function';
+		if (canFloat) { list.setAttribute('popover', 'manual'); }
+		list.umisti = function (yes) {
+			if (!canFloat) { return; }
+			if (!yes) { if (list.matches(':popover-open')) { list.hidePopover(); } return; }
+			var r = input.getBoundingClientRect();
+			list.style.top = Math.round(r.bottom + 2) + 'px';
+			list.style.left = Math.round(Math.max(4, Math.min(r.left, window.innerWidth - Math.max(r.width, 280) - 4))) + 'px';
+			list.style.width = Math.round(Math.min(Math.max(r.width, 280), window.innerWidth - 8)) + 'px';
+			if (!list.matches(':popover-open')) { list.showPopover(); }
+		};
+		// inside a modal dialog the list must be in the dialog, or the dialog makes it inert
+		(input.closest('dialog') || document.body).appendChild(list);
+		if (!canFloat) { input.insertAdjacentElement('afterend', list); }
+		var picker = linkPicker(input, list);
+		input.addEventListener('click', function () { if (!picker.isOpen() && input.value.trim() === '') { picker.search(); } });
+		window.addEventListener('scroll', function (e) { if (e.target !== list && picker.isOpen()) { picker.close(); } }, true);
+		input.kaletaOdkaz = picker;
+		return picker;
+	}
+	document.addEventListener('focusin', function (e) {
+		if (e.target instanceof HTMLInputElement && e.target.hasAttribute('data-odkaz-vyber')) { attachLinkPicker(e.target); }
+	});
+	window.kaletaOdkazVyber = attachLinkPicker;
+
 	function link() {
 		var selection = window.getSelection();
 		var scope = selection.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
@@ -584,80 +723,10 @@
 				+ '<label class="odkaz-volba"><input type="checkbox" name="nove"> ' + T('open in a new window') + '</label>'
 				+ '<div class="odkaz-tlacitka"><button type="submit" class="tl" value="ok">' + T('Insert link') + '</button> <button type="button" class="navigace" data-zrusit>' + T('Remove link') + '</button> <button type="button" class="navigace" data-zavri>' + T('Close') + '</button></div></form>';
 			document.body.appendChild(linkDialog);
-			var input = linkDialog.querySelector('[name=adresa]');
-			var list = linkDialog.querySelector('.odkaz-vysledky');
 			var status = linkDialog.querySelector('.odkaz-stav');
-			var timer = null, asked = 0, active = -1;
-			var options = function () { return list.querySelectorAll('[role=option]'); };
-			var open = function (yes) { list.hidden = !yes; input.setAttribute('aria-expanded', yes ? 'true' : 'false'); if (!yes) { mark(-1); } };
-			var mark = function (i) {
-				var all = options();
-				active = all.length ? Math.max(-1, Math.min(i, all.length - 1)) : -1;
-				Array.prototype.forEach.call(all, function (o, j) { o.classList.toggle('aktivni', j === active); o.setAttribute('aria-selected', j === active ? 'true' : 'false'); });
-				if (active >= 0) { input.setAttribute('aria-activedescendant', all[active].id); all[active].scrollIntoView({ block: 'nearest' }); } else { input.removeAttribute('aria-activedescendant'); }
-			};
-			var pick = function (o) { input.value = o.getAttribute('data-url'); open(false); status.textContent = T('Link to: %s').replace('%s', o.querySelector('span').textContent); input.focus(); };
-			var show = function (groups, q) {
-				list.textContent = '';
-				var n = 0;
-				groups.forEach(function (g) {
-					var box = document.createElement('div');
-					box.setAttribute('role', 'group');
-					box.setAttribute('aria-label', g.label);
-					var heading = document.createElement('div');
-					heading.className = 'odkaz-skupina';
-					heading.setAttribute('aria-hidden', 'true');
-					heading.textContent = g.label;
-					box.appendChild(heading);
-					g.items.forEach(function (it) {
-						var o = document.createElement('div');
-						o.setAttribute('role', 'option');
-						o.id = 'odkaz-volba-' + (n++);
-						o.setAttribute('data-url', it.url);
-						o.innerHTML = '<span></span><small></small>';
-						o.firstChild.textContent = it.title;
-						o.lastChild.textContent = it.note ? it.note + ' · ' + it.url : it.url;
-						o.addEventListener('mousedown', function (e) { e.preventDefault(); }); // the field keeps the focus
-						o.addEventListener('click', function () { pick(o); });
-						box.appendChild(o);
-					});
-					list.appendChild(box);
-				});
-				open(n > 0);
-				status.textContent = n ? '' : (q !== '' ? T('Nothing found – the text is used as the address.') : '');
-			};
-			var search = function () {
-				var q = input.value.trim(), mine = ++asked;
-				clearTimeout(timer);
-				var local = localTargets(q);
-				// an address typed in full needs no search; an e-mail or a phone number only its own suggestion
-				if (LOOKS_LIKE_ADDRESS.test(q) || EMAIL.test(q) || (local.length && PHONE.test(q))) { show(local, q.charAt(0) === '#' ? q : ''); return; }
-				if (q.length === 1) { show(local, ''); return; }
-				timer = setTimeout(function () {
-					fetch(ADMIN + '?action=link_targets&q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
-						if (mine === asked) { show(local.concat(j.groups || []), q); }
-					}).catch(function () { if (mine === asked) { show(local, ''); } });
-				}, 200);
-			};
-			linkDialog.search = search;
-			input.addEventListener('input', function () { status.textContent = ''; search(); });
-			input.addEventListener('keydown', function (e) {
-				var all = options();
-				if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-					e.preventDefault();
-					if (list.hidden) { if (all.length) { open(true); } else { search(); } return; }
-					mark(e.key === 'ArrowDown' ? (active + 1) % all.length : (active <= 0 ? all.length - 1 : active - 1));
-				} else if (e.key === 'Enter' && !list.hidden && active >= 0) {
-					e.preventDefault(); // Enter picks the suggestion; one more Enter inserts the link
-					pick(all[active]);
-				} else if (e.key === 'Escape' && !list.hidden) {
-					e.preventDefault(); // the first Esc closes the list, the second the dialog
-					e.stopPropagation();
-					open(false);
-				}
-			});
-			linkDialog.addEventListener('cancel', function (e) { if (!list.hidden) { e.preventDefault(); open(false); } });
-			input.addEventListener('blur', function () { setTimeout(function () { if (document.activeElement !== input) { open(false); } }, 150); });
+			var picker = linkPicker(linkDialog.querySelector('[name=adresa]'), linkDialog.querySelector('.odkaz-vysledky'), null, function (text) { status.textContent = text; });
+			linkDialog.search = picker.search;
+			linkDialog.addEventListener('cancel', function (e) { if (picker.isOpen()) { e.preventDefault(); picker.close(); } });
 			linkDialog.querySelector('[data-zavri]').addEventListener('click', function () { linkDialog.close('zavrit'); });
 			linkDialog.querySelector('[data-zrusit]').addEventListener('click', function () { linkDialog.close('zrusit'); });
 			linkDialog.addEventListener('close', function () { linkDialog.hotovo(linkDialog.returnValue); });

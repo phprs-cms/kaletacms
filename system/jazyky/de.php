@@ -1878,7 +1878,7 @@ return [
     'Please tick the consent.' => 'Bitte setzen Sie das Häkchen bei der Einwilligung.',
     'Too many bookings have come from your address in a short time. Please try again later.' => 'Von Ihrer Adresse kamen in kurzer Zeit zu viele Buchungen. Bitte versuchen Sie es später noch einmal.',
     'Booking' => 'Buchung',
-    'Add a service and a person who offers it in Administration → Bookings; the form appears here.' => 'Legen Sie unter Verwaltung → Buchungen eine Leistung und eine Person an, die sie anbietet; das Formular erscheint hier.',
+    'Add a service and a person who offers it in Workspace → Bookings; the form appears here.' => 'Legen Sie unter Arbeitsbereich → Buchungen eine Leistung und eine Person an, die sie anbietet; das Formular erscheint hier.',
     '%d min' => '%d Min.',
     'Anyone available' => 'Wer gerade frei ist',
     'Day and time' => 'Tag und Uhrzeit',

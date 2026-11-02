@@ -10,7 +10,7 @@ use Kaleta\Front\Company;
 /**
  * Online booking of appointments (3.0): a hairdresser, a physiotherapist, a garage, a consultant. The visitor picks a
  * service, a person (or anyone), a day and a free time, leaves a name, e-mail and phone and gets a confirmation with a
- * cancel link; the business sees the bookings in Administration → Bookings and the site reminds the customer.
+ * cancel link; the business sees the bookings in Workspace → Bookings and the site reminds the customer.
  *
  *  - Services (ka_booking_services) have a duration and a buffer kept free after them; people (ka_booking_staff) offer
  *    some of them, have their weekly hours (ka_booking_hours; hours of a service replace the general ones for that service,

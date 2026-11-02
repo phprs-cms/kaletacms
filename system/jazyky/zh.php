@@ -1895,7 +1895,7 @@ The link works for %d days.
     'Please tick the consent.' => '请勾选同意。',
     'Too many bookings have come from your address in a short time. Please try again later.' => '您的地址在短时间内提交了过多预约，请稍后再试。',
     'Booking' => '预约',
-    'Add a service and a person who offers it in Administration → Bookings; the form appears here.' => '请在“后台 → 预约”中添加服务及提供该服务的人员；表单将显示在这里。',
+    'Add a service and a person who offers it in Workspace → Bookings; the form appears here.' => '请在“工作区 → 预约”中添加服务及提供该服务的人员；表单将显示在这里。',
     '%d min' => '%d 分钟',
     'Anyone available' => '任意可用人员',
     'Day and time' => '日期和时间',

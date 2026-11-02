@@ -19,7 +19,7 @@ final class Blueprints extends Module
     public const string HUB = 'business';
     public const string PARENT = 'business';
     public const string NAME = 'Blueprints';
-    public const string GROUP = 'Company';
+    public const string GROUP = 'Content'; // 3.25: Business details moved from the Company group (gone) to Content
     public const string ICON = 'sablony';
     public const bool ADMIN_ONLY = true;
 

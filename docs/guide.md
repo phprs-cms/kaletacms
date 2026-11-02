@@ -176,8 +176,8 @@ a `{{heading}}` tag. For each use, fill in the values in the Content panel; an e
 
 **Straight from the menu (3.18.3):** every collection also has its own item in the left menu, right under
 **Collections** – a direct link to its items (products, job openings…), current on every screen of that collection.
-Untick *Show in the admin menu* in the collection's settings to leave one out. The menu shows at most 8 collections
-(by name); the others stay under Collections, and the quick search (Ctrl K) finds every collection by its name. Only
+Untick *Show in the admin menu* in the collection's settings to leave one out. The menu shows at most 5 collections
+(by name), then *More…*; the others stay under Collections, and the quick search (Ctrl K) finds every collection by its name. Only
 people who may open Collections see these items. Claude switches it with `admin_menu` of `create_collection` and
 `update_collection`; `list_collections` says it for every collection.
 
@@ -278,7 +278,7 @@ receiver check that the call came from your site. The **delivery log** shows eve
 5 and 30 minutes and 2 and 12 hours, and a given-up call can be sent again with one click. **Send a test call** checks the
 connection. Webhook addresses and the secret are never available over the Claude connection.
 
-Submitted messages are in **Content → Enquiries**: status (new, read, resolved), reply by email, CSV export. When the form is on the
+Submitted messages are in **Workspace → Enquiries**: status (new, read, resolved), reply by email, CSV export. When the form is on the
 page an ad or a newsletter links to, the enquiry also shows the **campaign** from the address (`utm_source`, `utm_medium`, `utm_campaign`…) –
 in the admin, the notification email, the CSV and the webhook, without cookies. Enquiries
 contain personal data, so they are deleted automatically after a set number of months (24 by default).
@@ -298,7 +298,7 @@ it. An administrator can also add **code to the head of one page** (Page setting
 conversion tag of a landing page.
 
 The **Newsletter** extension adds a **Newsletter sign-up** element: visitors enter an e-mail and confirm it by a link
-(double opt-in). Confirmed addresses are in **Content → Subscribers**; export them to CSV, including the unsubscribe
+(double opt-in). Confirmed addresses are in **Content → Newsletter → Subscribers**; export them to CSV, including the unsubscribe
 link, for your mailing tool.
 
 Or connect the mailing service you already use in **Features → Newsletter**: Brevo, MailerLite, Mailchimp, Ecomail,
@@ -306,7 +306,7 @@ SmartEmailing, or any other service through a webhook (Make, Zapier, n8n). Enter
 subscriber is then added to the list, and an unsubscribed one removed from it. The transfer runs in the background and
 failed attempts are repeated; **Subscribers** shows the state of each address and can send all existing ones at once.
 
-**Content → Newsletters** sends your latest news to confirmed subscribers straight from the site. There is no e-mail
+**Content → Newsletter** sends your latest news to confirmed subscribers straight from the site. There is no e-mail
 builder: one template follows your design system – colours, fonts, corner radius and logo – and holds a subject, a
 preview text, an introduction, the latest (or chosen) news items, an optional button and your company details with an
 unsubscribe link. Save the draft, check the preview, send a test to yourself, then send now or at a set time (sending

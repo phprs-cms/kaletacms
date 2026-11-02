@@ -6629,4 +6629,6 @@ return [
     'Nobody is told by e-mail – the person finds the work in My work.' => 'Nikomu nepřijde e-mail – převzatou práci člověk najde v Moje práce.',
     'Hand over and block the account' => 'Předat a zablokovat účet',
     'Hand over and delete the user' => 'Předat a smazat uživatele',
+    'Workspace' => 'Pracoviště',
+    'More…' => 'Další…',
 ];

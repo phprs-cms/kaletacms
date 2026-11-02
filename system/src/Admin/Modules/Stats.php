@@ -15,7 +15,7 @@ final class Stats extends Module
 {
     public const string IDENT = 'stats';
     public const string NAME = 'Statistics';
-    public const string GROUP = 'Customers';
+    public const string GROUP = 'Site care'; // 3.25: website traffic, moved from the Customers group
     public const string ICON = 'statistika';
     public const string EXTENSION = 'statistika';
 

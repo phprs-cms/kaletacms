@@ -1149,6 +1149,7 @@ $whereCreated = [
     'image/web.js' => ['system/views/front', 'system/src/Front', 'system/src/Builder/Elements'],
     'image/vitals.js' => ['system/src/Front'],
     'image/tisk.js' => ['system/views/admin/settings'],
+    'image/admin-menu.js' => ['system/views/admin'],
 ];
 foreach ($whereCreated as $script => $folders) {
     $source = (string) file_get_contents(KALETA_ROOT . '/' . $script);
@@ -7499,12 +7500,12 @@ $icons3183 = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/icons.php'
 check('3.18.3: migration 0103 adds ka_kolekce.admin_menu on by default, schema.sql has it, KALETA_DB_VERSION is at least 103', [
     str_contains($migration3183, 'ALTER TABLE ka_kolekce ADD COLUMN admin_menu TINYINT(1) NOT NULL DEFAULT 1'), (bool) preg_match('/^\s+admin_menu\s+TINYINT\(1\) NOT NULL DEFAULT 1,/m', (string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql')),
     KALETA_DB_VERSION >= 103, Migration::latest() === KALETA_DB_VERSION], [true, true, true, true]);
-check('3.18.3: at most 8 collections in the menu, with the list icon; create_collection and update_collection take an optional boolean admin_menu', [
+check('3.18.3, 3.25: at most 5 collections in the menu (then More…), with the list icon; create_collection and update_collection take an optional boolean admin_menu', [
     Kaleta\Admin\Modules\Collections::MENU_LIMIT, str_contains($icons3183, "'polozky' =>"),
     $mcp3183['create_collection']['inputSchema']['properties']['admin_menu']['type'] ?? null, in_array('admin_menu', $mcp3183['create_collection']['inputSchema']['required'], true),
     $mcp3183['update_collection']['inputSchema']['properties']['admin_menu']['type'] ?? null, in_array('admin_menu', $mcp3183['update_collection']['inputSchema']['required'], true),
     Kaleta\Mcp\Translator::arguments('update_collection', ['admin_menu' => false])],
-    [8, true, 'boolean', false, 'boolean', false, ['admin_menu' => false]]);
+    [5, true, 'boolean', false, 'boolean', false, ['admin_menu' => false]]);
 check('3.18.3: the site export carries admin_menu and the import keeps it (on when an older export has none)', [
     (bool) preg_match('/detail, admin_menu, (icon, )?hidden_redirect/', (string) file_get_contents(KALETA_SYSTEM . '/src/Core/SiteExport.php')),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/SiteImport.php'), "'admin_menu' => (int) !empty(\$r['admin_menu'] ?? 1)")], [true, true]);
@@ -8621,6 +8622,81 @@ $n3245 = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/MyWork.php');
 check('N324-5: My work and its menu badge leave spam out, as the Enquiries list and the dashboard tile do', [
     str_contains($n3245, "' AND ' . \\Kaleta\\Admin\\Modules\\Enquiries::NOT_SPAM"), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/MyWork.php'), 'return Enquiries::countAssigned($app->db(), $app->auth()->id());'),
 ], [true, true]);
+
+// 3.25 (C): the left menu – Dashboard, My work, then the groups Content, Workspace, Appearance, Claude, Site care,
+// Administration; each group contiguous and at most 7 items for an administrator with every feature on
+$c325All = [];
+foreach (Kaleta\Admin\Kernel::MODULES as $c325Class) {
+    $c325All[$c325Class::IDENT] = $c325Class;
+}
+// agent A's one line (Enquiries::GROUP = 'Workspace') lands in the same release; until it is merged, read Customers as Workspace
+$c325Rename = Kaleta\Admin\Modules\Enquiries::GROUP === 'Customers' ? ['Customers' => 'Workspace'] : [];
+$c325Runs = [];
+foreach (Kaleta\Admin\MenuGroups::groups($c325All) as $c325Run) {
+    $c325Name = $c325Rename[$c325Run['group']] ?? $c325Run['group'];
+    $c325Last = array_key_last($c325Runs);
+    if ($c325Last !== null && $c325Runs[$c325Last][0] === $c325Name) {
+        $c325Runs[$c325Last][1] = [...$c325Runs[$c325Last][1], ...$c325Run['items']];
+    } else {
+        $c325Runs[] = [$c325Name, $c325Run['items']];
+    }
+}
+$c325Names = array_column($c325Runs, 0);
+check('3.25 (C): the menu groups of an administrator with every feature on – contiguous, in the order Content, Workspace, Appearance, Claude, Site care, Administration', [
+    $c325Names, count($c325Names) === count(array_unique($c325Names)), max(array_map(fn (array $r): int => count($r[1]), $c325Runs)) <= Kaleta\Admin\MenuGroups::MAX_ITEMS,
+    array_values(array_diff(array_unique(array_map(fn (string $c): string => $c325Rename[$c::GROUP] ?? $c::GROUP, array_slice(Kaleta\Admin\Kernel::MODULES, 1))), Kaleta\Admin\MenuGroups::ORDER)),
+], [Kaleta\Admin\MenuGroups::ORDER, true, true, []]);
+check('3.25 (C): the items of each group (Bookings in Workspace, Statistics in Site care, Business details and the Newsletter hub in Content; no Company or Customers group)', array_combine($c325Names, array_column($c325Runs, 1)), [
+    'Content' => ['pages', 'news', 'collections', 'media', 'newsletters', 'business'],
+    'Workspace' => ['enquiries', 'bookings'],
+    'Appearance' => ['appearance', 'parts', 'menu', 'components', 'popups'],
+    'Claude' => ['requests', 'claude_settings'],
+    'Site care' => ['audit', 'stats', 'redirects', 'broken_links', 'changelog', 'status'],
+    'Administration' => ['users', 'settings', 'connectors', 'extensions', 'transfer', 'whistleblowing', 'fleet'],
+]);
+check('3.25 (C): the Newsletter hub (Newsletters · Subscribers, URLs unchanged), Subscribers its own item only without Newsletters; flat list for 8 items or fewer', [
+    Kaleta\Admin\Hubs::TABS['newsletter'] ?? null, Kaleta\Admin\Modules\Subscribers::PARENT, Kaleta\Admin\Modules\Subscribers::HUB, Kaleta\Admin\Modules\Newsletters::HUB, Kaleta\Admin\Modules\Newsletters::NAME,
+    array_column(Kaleta\Admin\MenuGroups::groups(['subscribers' => Kaleta\Admin\Modules\Subscribers::class, 'stats' => Kaleta\Admin\Modules\Stats::class]), 'items'),
+    Kaleta\Admin\MenuGroups::count($c325All), Kaleta\Admin\MenuGroups::flat($c325All),
+    Kaleta\Admin\MenuGroups::flat(array_intersect_key($c325All, array_flip(['my_work', 'pages', 'news', 'categories', 'tags', 'media', 'requests', 'status']))),
+    Kaleta\Admin\MenuGroups::flat(array_intersect_key($c325All, array_flip(['my_work', 'pages', 'news', 'collections', 'media', 'business', 'enquiries', 'parts']))),
+    Kaleta\Admin\MenuGroups::key('Site care'),
+], [[['newsletters', '', 'Newsletters'], ['subscribers', '', 'Subscribers']], 'newsletters', 'newsletter', 'newsletter', 'Newsletter', [['subscribers'], ['stats']],
+    30, false, true, false, 'site-care']);
+$c325Layout = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/layout.php');
+$c325Script = (string) file_get_contents(KALETA_ROOT . '/image/admin-menu.js');
+check('3.25 (C): collapsible groups – details/summary with the current group marked, the script before the first paint, storage only inside try/catch, "More…" after 5 collections', [
+    str_contains($c325Layout, '<details class="menu-skupiny" data-menu-skupina="'), str_contains($c325Layout, "' data-aktualni' : ''"), str_contains($c325Layout, '<summary class="menu-skupina">'),
+    (bool) preg_match('#<script src="<\?= e\(\$app->url\(\'image/admin-menu\.js\'\)\) \?>\?v=<\?= e\(KALETA_VERSION\) \?>"></script>#', $c325Layout), str_contains($c325Layout, "e(t('More…'))"),
+    substr_count($c325Script, 'localStorage.'), substr_count($c325Script, 'try {'), str_contains($c325Script, "hasAttribute('data-aktualni')"),
+    str_contains((string) file_get_contents(KALETA_ROOT . '/image/admin.css'), '.menu-skupiny[open] .menu-skupina-pocet { display: none; }'),
+], [true, true, true, true, true, 3, 2, true, true]);
+$c325Paths = (new ReflectionClassConstant(Kaleta\Admin\MenuPaths::class, 'PATHS'))->getValue();
+$c325Wrong = [];
+foreach ($c325Paths as [$parts, $module]) {
+    if (in_array($parts[0], ['Customers', 'Company'], true)) {
+        $c325Wrong[] = implode(' → ', $parts);
+    } elseif (in_array($parts[0], Kaleta\Admin\MenuGroups::ORDER, true) && count($parts) > 1 && !in_array($parts[0], ['Content', 'Settings'], true)
+        && (!isset($c325All[$module]) || ($c325Rename[$c325All[$module]::GROUP] ?? $c325All[$module]::GROUP) !== $parts[0] || $c325All[$module]::NAME !== $parts[1])) {
+        $c325Wrong[] = implode(' → ', $parts);
+    }
+}
+check('3.25 (C): menu paths that name a group name the group the item is in now; nothing points to Customers or Company; the Booking hint and the newsletter prompt follow the moves', [
+    $c325Wrong, str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Builder/Elements/Booking.php'), "in Workspace → Bookings; the form appears here.')"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Prompts.php'), 'Content → Newsletter.'),
+], [[], true, true]);
+check('3.25 (C): the group label Workspace in the dictionaries (cs Pracoviště), More… too', array_map(fn (string $code): array => array_intersect_key(require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php', ['Workspace' => 1, 'More…' => 1]), ['cs', 'de', 'es']), [
+    ['Workspace' => 'Pracoviště', 'More…' => 'Další…'], ['Workspace' => 'Arbeitsbereich', 'More…' => 'Mehr…'], ['Workspace' => 'Espacio de trabajo', 'More…' => 'Más…'],
+]);
+
+$c325Editor = (string) file_get_contents(KALETA_ROOT . '/image/editor.js');
+$c325Builder = (string) file_get_contents(KALETA_ROOT . '/image/stavitel.js');
+check('3.25 (N-U9): one link picker – the Text dialog and every [data-odkaz-vyber] field (builder link fields, menu editor) share linkPicker; the old datalist is gone', [
+    substr_count($c325Editor, 'linkPicker('), str_contains($c325Editor, "e.target.hasAttribute('data-odkaz-vyber')"), str_contains($c325Editor, "list.setAttribute('popover', 'manual')"),
+    str_contains($c325Builder, "'data-odkaz-vyber': def.typ === 'odkaz'"), str_contains($c325Builder, 'st-dl-odkazy'),
+    str_contains((string) file_get_contents(KALETA_ROOT . '/image/menu.js'), "'data-odkaz-vyber': ''"),
+    str_contains((string) file_get_contents(KALETA_ROOT . '/image/editor.css'), '.odkaz-plovouci {'),
+], [3, true, true, true, false, true, true]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

@@ -1895,7 +1895,7 @@ O link funciona por %d dias.
     'Please tick the consent.' => 'Marque o consentimento.',
     'Too many bookings have come from your address in a short time. Please try again later.' => 'Chegaram agendamentos demais do seu endereço em pouco tempo. Tente novamente mais tarde.',
     'Booking' => 'Agendamento',
-    'Add a service and a person who offers it in Administration → Bookings; the form appears here.' => 'Adicione um serviço e uma pessoa que o oferece em Administração → Agendamentos; o formulário aparecerá aqui.',
+    'Add a service and a person who offers it in Workspace → Bookings; the form appears here.' => 'Adicione um serviço e uma pessoa que o oferece em Espaço de trabalho → Agendamentos; o formulário aparecerá aqui.',
     '%d min' => '%d min',
     'Anyone available' => 'Qualquer pessoa disponível',
     'Day and time' => 'Dia e horário',

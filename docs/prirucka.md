@@ -161,8 +161,8 @@ Co se má u každého použití lišit, nastavte jako **vlastnosti** (např. Nad
 
 **Rovnou z menu (3.18.3):** každá kolekce má navíc vlastní položku v levém menu, hned pod **Kolekcemi** – přímý odkaz
 na její položky (produkty, volná místa…), zvýrazněný na každé obrazovce té kolekce. Kolekci, která tam být nemá,
-vynecháte odškrtnutím *Zobrazit v menu administrace* v jejím nastavení. Menu ukáže nejvýš 8 kolekcí (podle názvu);
-ostatní zůstanou pod Kolekcemi a rychlé hledání (Ctrl K) najde každou kolekci podle názvu. Položky vidí jen ti, kdo
+vynecháte odškrtnutím *Zobrazit v menu administrace* v jejím nastavení. Menu ukáže nejvýš 5 kolekcí (podle názvu)
+a pak *Další…*; ostatní zůstanou pod Kolekcemi a rychlé hledání (Ctrl K) najde každou kolekci podle názvu. Položky vidí jen ti, kdo
 smějí do Kolekcí. Claude to přepíná parametrem `admin_menu` u `create_collection` a `update_collection`;
 `list_collections` ho u každé kolekce vrací.
 
@@ -214,7 +214,7 @@ volání přišlo z vašeho webu. **Protokol doručení** ukazuje každé volán
 a po 2 a 12 hodinách a vzdané jde jedním kliknutím poslat znovu. **Poslat zkušební volání** ověří spojení. Adresy webhooků
 ani tajný klíč nejsou přes napojení na Clauda dostupné.
 
-Odeslané zprávy jsou v **Obsah → Poptávky**: stav (nová, přečtená, vyřízená), odpověď e-mailem, export do CSV. Je-li formulář na
+Odeslané zprávy jsou v **Pracoviště → Poptávky**: stav (nová, přečtená, vyřízená), odpověď e-mailem, export do CSV. Je-li formulář na
 stránce, na kterou vede reklama nebo newsletter, poptávka ukáže i **kampaň** z adresy (`utm_source`, `utm_medium`, `utm_campaign`…) –
 v administraci, v e-mailu s upozorněním, v CSV i ve webhooku, bez cookies.
 Poptávky obsahují osobní údaje, proto se po nastaveném počtu měsíců (výchozí 24) samy mažou.
@@ -233,7 +233,7 @@ přidat **kód do hlavičky jedné stránky** (Nastavení stránky → Vyhledáv
 stránky.
 
 Rozšíření **Newsletter** přidá prvek **Odběr novinek**: návštěvník zadá e-mail a potvrdí ho odkazem (double opt-in).
-Potvrzené adresy najdete v **Obsah → Odběratelé** a vyexportujete je do CSV i s odkazem na odhlášení pro váš
+Potvrzené adresy najdete v **Obsah → Newsletter → Odběratelé** a vyexportujete je do CSV i s odkazem na odhlášení pro váš
 rozesílací nástroj.
 
 Nebo v **Rozšíření → Newsletter** napojte mailingovou službu, kterou už používáte: Brevo, MailerLite, Mailchimp, Ecomail,
@@ -241,7 +241,7 @@ SmartEmailing nebo jakoukoli jinou přes webhook (Make, Zapier, n8n). Zadejte kl
 se pak přidá do seznamu a odhlášený se z něj odebere. Přenos běží na pozadí a nepovedené pokusy se opakují; v
 **Odběratelích** vidíte stav každé adresy a stávající odběratele pošlete do služby jedním tlačítkem.
 
-**Obsah → Newslettery** pošlou potvrzeným odběratelům novinky přímo z webu. E-mailový builder tu není: jedna šablona
+**Obsah → Newsletter** pošle potvrzeným odběratelům novinky přímo z webu. E-mailový builder tu není: jedna šablona
 se řídí vaším design systémem – barvami, písmy, zaoblením a logem – a obsahuje předmět, text náhledu, úvod, nejnovější
 (nebo vybrané) novinky, nepovinné tlačítko a údaje o firmě s odkazem na odhlášení. Uložte koncept, prohlédněte si náhled,
 pošlete si zkoušku a pak newsletter odešlete hned nebo v nastavený čas (odeslání vyžaduje právo vydávat). Nejdřív je

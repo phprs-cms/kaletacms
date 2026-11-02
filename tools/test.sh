@@ -802,10 +802,17 @@ check "3.18.3: a collection created through MCP without admin_menu shows it tick
 TOKEN=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=collections&action=save" -d "_csrf=$TOKEN" -d "idk=$IDK_VMENU" --data-urlencode "nazev=V menu" -d seo_link=v-menu
 expect "3.18.3: the settings form saves an unticked box as out of the menu" "$(sq "SELECT admin_menu FROM ka_kolekce WHERE seo_link = 'v-menu'")" 0
-# at most 8 collections in the menu (by name), the rest stay under Collections
+# at most 5 collections in the menu (by name), then "More…" (3.25); the rest stay under Collections
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_kolekce (nazev, seo_link, pole) VALUES ('Cap 1', 'cap-1', '[]'), ('Cap 2', 'cap-2', '[]'), ('Cap 3', 'cap-3', '[]'), ('Cap 4', 'cap-4', '[]'), ('Cap 5', 'cap-5', '[]'), ('Cap 6', 'cap-6', '[]'), ('Cap 7', 'cap-7', '[]'), ('Cap 8', 'cap-8', '[]'), ('Cap 9', 'cap-9', '[]')"
-check "3.18.3: with more than 8 collections the menu shows 8" 200 "/admin.php" 'class="menu-kolekce"'
-expect "3.18.3: … exactly 8, by name" "$(grep -c 'class="menu-kolekce' "$WORK/response")|$(grep -c '<span>Cap 9</span>' "$WORK/response")" "8|0"
+check "3.18.3, 3.25: with more than 5 collections the menu shows 5" 200 "/admin.php" 'class="menu-kolekce"'
+expect "3.18.3, 3.25: … exactly 5, by name, then More… to the list of collections" "$(grep -c 'class="menu-kolekce"' "$WORK/response")|$(grep -c '<span>Cap 9</span>' "$WORK/response")|$(grep -c '<li class="menu-kolekce menu-kolekce-dalsi"><a href="/admin.php?module=collections">.*<span>Další…</span>' "$WORK/response")" "5|0|1"
+# 3.25 (C): the menu groups – collapsible, Czech labels, Statistics under Site care, no Company group; an author with a few
+# items gets a flat list without groups (and without the group script)
+check "3.25: the administrator's menu has collapsible groups" 200 "/admin.php" '<details class="menu-skupiny" data-menu-skupina="content" open><summary class="menu-skupina"><span>Obsah</span>'
+expect "3.25: … the group script, Statistics in Site care, no Company group, the Business details in Content" "$(grep -c 'src="/image/admin-menu.js?v=' "$WORK/response")|$(perl -0ne 'print m{data-menu-skupina="site-care".*?module=stats.*?</details>}s ? 1 : 0' "$WORK/response")|$(grep -c '<span>Firma</span>' "$WORK/response")|$(perl -0ne 'print m{data-menu-skupina="content"[^>]*>.*?module=business".*?</details>}s ? 1 : 0' "$WORK/response")" "1|1|0|1"
+check "3.25: the current screen's group is marked" 200 "/admin.php?module=stats" 'data-menu-skupina="site-care" data-aktualni open>'
+code=$(curl -s -b "$JAR2" -o "$WORK/response" -w '%{http_code}' "$B/admin.php")
+expect "3.25: an author's short menu is a flat list – no group, no group script" "$code|$(grep -c 'menu-skupiny' "$WORK/response")|$(grep -c 'admin-menu.js' "$WORK/response")|$(grep -c '<li><a href="/admin.php?module=news">' "$WORK/response")" "200|0|0|1"
 "${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_kolekce WHERE seo_link LIKE 'cap-_' OR seo_link IN ('mimo-menu', 'v-menu')"
 # 3.19 (owner, 22 October 2026): an icon per collection – chosen in its settings from the built-in set, shown by its menu item
 # and in the list of collections; MCP icon by the English name, validated, "" = the list icon again
@@ -4424,8 +4431,9 @@ sq "INSERT INTO ka_poptavky (datum, formular, stranka, email, data, stav, katego
 NEW315=$(sq "SELECT COUNT(*) FROM ka_poptavky WHERE stav = 0 AND kategorie <> 'spam'")
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=pages"
 menu_badge315() { perl -0ne 'if (m{module=enquiries"[^>]*>(.*?)</a>}s) { my $a = $1; print $1 if $a =~ m{class="menu-pocet" aria-hidden="true">([0-9+]+)<}; }' "$WORK/response"; }
+# 3.25: the text for screen readers is there twice – on the item and on its group's summary (shown while the group is folded)
 expect "3.15: Enquiries in the menu carries the number of new enquiries (spam left out, N315-10), with a text for screen readers" \
-  "$(menu_badge315)|$(grep -c 'class="navod-skryte"> – nové: ' "$WORK/response")|$(sq "SELECT COUNT(*) FROM ka_poptavky WHERE stav = 0") " "$NEW315|1|$((NEW315 + 1)) "
+  "$(menu_badge315)|$(grep -c 'class="navod-skryte"> – nové: ' "$WORK/response")|$(grep -c "<span class=\"menu-skupina-pocet\"><span class=\"menu-pocet\" aria-hidden=\"true\">$NEW315<" "$WORK/response")|$(sq "SELECT COUNT(*) FROM ka_poptavky WHERE stav = 0") " "$NEW315|2|1|$((NEW315 + 1)) "
 sq "UPDATE ka_poptavky SET stav = 1 WHERE stav = 0" > /dev/null
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=pages"
 expect "3.15: … and none once they have been opened" "$(menu_badge315)" ""

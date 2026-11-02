@@ -1876,7 +1876,7 @@ return [
     'Please tick the consent.' => 'Zaznacz zgodę.',
     'Too many bookings have come from your address in a short time. Please try again later.' => 'Z Twojego adresu przyszło zbyt wiele rezerwacji w krótkim czasie. Spróbuj ponownie później.',
     'Booking' => 'Rezerwacja',
-    'Add a service and a person who offers it in Administration → Bookings; the form appears here.' => 'Dodaj w Administracja → Rezerwacje usługę i osobę, która ją oferuje; formularz pojawi się tutaj.',
+    'Add a service and a person who offers it in Workspace → Bookings; the form appears here.' => 'Dodaj w Obszar roboczy → Rezerwacje usługę i osobę, która ją oferuje; formularz pojawi się tutaj.',
     '%d min' => '%d min',
     'Anyone available' => 'Ktokolwiek wolny',
     'Day and time' => 'Dzień i godzina',

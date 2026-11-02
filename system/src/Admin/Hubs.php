@@ -11,6 +11,7 @@ namespace Kaleta\Admin;
  *  - Business details: the company and its opening hours, the facts, the claims, the blueprints
  *  - Features: the built-in features and the add-ons
  *  - Claude: the settings (instructions, guardrails, connections), Ask Claude, scheduled runs, the notebook, the sessions
+ *  - Newsletter (3.25): the newsletters and their subscribers
  */
 final class Hubs
 {
@@ -19,6 +20,7 @@ final class Hubs
         'business' => [['business', '', 'Company and opening hours'], ['facts', '', 'Facts'], ['facts', 'claims', 'Claims'], ['blueprints', '', 'Blueprints']],
         'features' => [['extensions', '', 'Features'], ['addons', '', 'Add-ons']],
         'claude' => [['claude_settings', '', 'Claude settings'], ['requests', '', 'Ask Claude'], ['schedules', '', 'Scheduled runs'], ['notebook', '', 'Notebook'], ['changelog', 'sessions', 'Claude sessions']],
+        'newsletter' => [['newsletters', '', 'Newsletters'], ['subscribers', '', 'Subscribers']], // 3.25
     ];
 
     /**

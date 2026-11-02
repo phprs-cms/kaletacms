@@ -7037,4 +7037,6 @@ return [
     'Nobody is told by e-mail – the person finds the work in My work.' => 'Es wird keine E-Mail verschickt – die Person findet die Arbeit unter Meine Arbeit.',
     'Hand over and block the account' => 'Übergeben und Konto sperren',
     'Hand over and delete the user' => 'Übergeben und Benutzer löschen',
+    'Workspace' => 'Arbeitsbereich',
+    'More…' => 'Mehr…',
 ];

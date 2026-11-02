@@ -23,7 +23,9 @@ final class Kernel
     private const array LOGS_AS = ['business' => ['settings'], 'menu' => ['appearance'], 'transfer' => ['appearance'], 'settings' => ['pages'], 'collections' => ['pages']];
 
     /**
-     * Modules in the order they appear in the menu (by the groups Obsah, Vzhled, Správa – Content, Appearance, Administration).
+     * Modules in the order they appear in the menu, by group (3.25): Content, Workspace, Appearance, Claude, Site care,
+     * Administration – the modules of one group stay together (Admin\MenuGroups, a unit test checks it). Dashboard and
+     * My work come first in the layout.
      *
      * @var list<class-string<Module>>
      */
@@ -33,16 +35,15 @@ final class Kernel
         Modules\News::class,
         Modules\Collections::class,
         Modules\Media::class,
-        Modules\Newsletters::class,
+        Modules\Newsletters::class, // 3.25: the Newsletter hub – Newsletters · Subscribers
+        Modules\Subscribers::class,
         Modules\Categories::class,
         Modules\Tags::class,
-        Modules\Business::class,
+        Modules\Business::class, // 3.25: moved from the Company group
         Modules\Facts::class,
         Modules\Blueprints::class,
+        Modules\Enquiries::class, // 3.25: the Workspace group (formerly Customers) – the daily inboxes
         Modules\Bookings::class,
-        Modules\Enquiries::class,
-        Modules\Subscribers::class,
-        Modules\Stats::class,
         Modules\Appearance::class,
         Modules\SiteParts::class,
         Modules\Menu::class,
@@ -53,6 +54,7 @@ final class Kernel
         Modules\Schedules::class,
         Modules\Notebook::class,
         Modules\Audit::class,
+        Modules\Stats::class, // 3.25: website traffic, moved from Customers to Site care
         Modules\Redirects::class,
         Modules\BrokenLinks::class, // 3.20 (C20): the site-wide link check next to Redirects; News keeps its shortcut
         Modules\ChangeLog::class,

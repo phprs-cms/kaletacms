@@ -20,7 +20,7 @@ final class Bookings extends Module
 {
     public const string IDENT = 'bookings';
     public const string NAME = 'Bookings';
-    public const string GROUP = 'Company';
+    public const string GROUP = 'Workspace'; // 3.25: a daily inbox, moved from the Company group
     public const string ICON = 'rezervace';
     public const string EXTENSION = 'bookings'; // a feature (3.2): off on new installs, switched on by 0073 where a site uses it
 

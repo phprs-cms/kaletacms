@@ -17,7 +17,10 @@ final class Subscribers extends Module
     public const string IDENT = 'subscribers';
     public const string EXTENSION = 'newsletter';
     public const string NAME = 'Subscribers';
-    public const string GROUP = 'Customers';
+    public const string GROUP = 'Content';
+    /** 3.25: a tab of the Newsletter hub (URLs unchanged); shown as its own item only to a person without Newsletters */
+    public const string PARENT = 'newsletters';
+    public const string HUB = 'newsletter';
     public const string ICON = 'newsletter';
 
     protected function actionList(): Response

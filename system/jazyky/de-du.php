@@ -341,7 +341,7 @@ Der Link gilt %d Tage.
     'Please choose a service.' => 'Bitte wähle eine Leistung.',
     'Please tick the consent.' => 'Bitte setze das Häkchen bei der Einwilligung.',
     'Too many bookings have come from your address in a short time. Please try again later.' => 'Von deiner Adresse kamen in kurzer Zeit zu viele Buchungen. Bitte versuche es später noch einmal.',
-    'Add a service and a person who offers it in Administration → Bookings; the form appears here.' => 'Lege unter Verwaltung → Buchungen eine Leistung und eine Person an, die sie anbietet; das Formular erscheint hier.',
+    'Add a service and a person who offers it in Workspace → Bookings; the form appears here.' => 'Lege unter Arbeitsbereich → Buchungen eine Leistung und eine Person an, die sie anbietet; das Formular erscheint hier.',
     'There are no free times at the moment. Please contact us.' => 'Derzeit gibt es keine freien Termine. Bitte kontaktiere uns.',
     'Your details' => 'Deine Angaben',
     'Your appointment' => 'Dein Termin',

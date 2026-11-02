@@ -1879,7 +1879,7 @@ return [
     'Please tick the consent.' => 'Marque la casilla de consentimiento.',
     'Too many bookings have come from your address in a short time. Please try again later.' => 'Han llegado demasiadas reservas desde su dirección en poco tiempo. Inténtelo de nuevo más tarde.',
     'Booking' => 'Reserva',
-    'Add a service and a person who offers it in Administration → Bookings; the form appears here.' => 'Añada en Administración → Reservas un servicio y una persona que lo ofrezca; el formulario aparecerá aquí.',
+    'Add a service and a person who offers it in Workspace → Bookings; the form appears here.' => 'Añada en Espacio de trabajo → Reservas un servicio y una persona que lo ofrezca; el formulario aparecerá aquí.',
     '%d min' => '%d min',
     'Anyone available' => 'Cualquiera disponible',
     'Day and time' => 'Día y hora',

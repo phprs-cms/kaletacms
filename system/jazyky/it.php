@@ -1877,7 +1877,7 @@ return [
     'Please tick the consent.' => 'Spunti il consenso.',
     'Too many bookings have come from your address in a short time. Please try again later.' => 'Dal suo indirizzo sono arrivate troppe prenotazioni in poco tempo. Riprovi più tardi.',
     'Booking' => 'Prenotazione',
-    'Add a service and a person who offers it in Administration → Bookings; the form appears here.' => 'Aggiunga in Amministrazione → Prenotazioni un servizio e una persona che lo offre; il modulo apparirà qui.',
+    'Add a service and a person who offers it in Workspace → Bookings; the form appears here.' => 'Aggiunga in Area di lavoro → Prenotazioni un servizio e una persona che lo offre; il modulo apparirà qui.',
     '%d min' => '%d min',
     'Anyone available' => 'Chiunque sia disponibile',
     'Day and time' => 'Giorno e orario',
