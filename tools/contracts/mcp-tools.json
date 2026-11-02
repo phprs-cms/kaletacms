@@ -142,6 +142,22 @@
             "openWorldHint": true
         }
     },
+    "complete_task": {
+        "parameters": {
+            "done": "boolean",
+            "id": "integer"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "title": "Complete a task",
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+        }
+    },
     "confirm_booking": {
         "parameters": {
             "confirm": "boolean",
@@ -1339,6 +1355,20 @@
             "openWorldHint": false
         }
     },
+    "list_tasks": {
+        "parameters": {
+            "filter": "string",
+            "limit": "integer",
+            "status": "string"
+        },
+        "required": [],
+        "annotations": {
+            "title": "List tasks",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "list_trash": {
         "parameters": [],
         "required": [],
@@ -1998,6 +2028,23 @@
         ],
         "annotations": {
             "title": "Save a reusable section",
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "save_task": {
+        "parameters": {
+            "assignee": "string",
+            "due": "string",
+            "id": "integer",
+            "remind": "string",
+            "target": "string",
+            "title": "string"
+        },
+        "required": [],
+        "annotations": {
+            "title": "Create or change a task",
             "readOnlyHint": false,
             "destructiveHint": false,
             "openWorldHint": false

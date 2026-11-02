@@ -1146,4 +1146,10 @@ return [
     'It did not need a single decision from you.' => 'Dabei war keine einzige Entscheidung von dir nötig.',
     'It needed your attention once.' => 'Einmal war deine Aufmerksamkeit nötig.',
     'It needed your attention %s times.' => '%s-mal war deine Aufmerksamkeit nötig.',
+    'Give the task a title.' => 'Gib der Aufgabe einen Titel.',
+    'The date “%s” is not understood – use YYYY-MM-DD, YYYY-MM-DD HH:MM, “tomorrow” or “+3 days”.' => 'Das Datum „%s“ ist nicht verständlich – verwende JJJJ-MM-TT, JJJJ-MM-TT HH:MM, „tomorrow“ oder „+3 days“.',
+    'You cannot open what the task is about.' => 'Du kannst nicht öffnen, worum es in der Aufgabe geht.',
+    'This person cannot open what the task is about – give it to someone who can.' => 'Diese Person kann nicht öffnen, worum es in der Aufgabe geht – gib sie jemandem, der es kann.',
+    'Your tasks' => 'Deine Aufgaben',
+    'Your tasks, enquiries assigned to you, the pages and collection items you are responsible for when a review is due or changes wait unpublished, and your requests Claude answered appear here.' => 'Hier erscheinen deine Aufgaben, Anfragen, die dir zugewiesen sind, Seiten und Sammlungseinträge, für die du verantwortlich bist, sobald eine Prüfung ansteht oder Änderungen unveröffentlicht warten, und deine Aufträge, auf die Claude geantwortet hat.',
 ];

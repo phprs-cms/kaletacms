@@ -3382,6 +3382,70 @@ await step('3.26 notifications: the bell, the Notifications screen, open and mar
     sql(`DELETE FROM ka_notifications WHERE user_id = ${admin}; DELETE FROM ka_stranky WHERE ids = ${pageId}; UPDATE ka_uzivatele SET notify_email = 'instant' WHERE idu = ${admin}`);
   }
 });
+// 3.27 (agent A): tasks in My work – the person's tasks come first, grouped overdue / today / upcoming / later, each row with
+// Done, Tomorrow and In 3 days; Done and Tomorrow work; the administrator has the Team tab. 1440 and 390 px, light and dark.
+await step('3.27 My work: the tasks first by group, Done and snooze, the Team tab (1440 and 390 px, light and dark)', async () => {
+  if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const admin = Number(sql("SELECT idu FROM ka_uzivatele WHERE user = 'admin'").trim());
+  const pageId = Number(sql("INSERT INTO ka_stranky (seo_link, titulek, text, zobrazit, v_menu) VALUES ('tasks-327', 'Price list 327', '', 0, 0); SELECT LAST_INSERT_ID();").trim());
+  const day = (offset) => `CONCAT(CURDATE() + INTERVAL ${offset} DAY, ' 09:00:00')`;
+  sql(`DELETE FROM ka_tasks WHERE assignee_id = ${admin};
+    INSERT INTO ka_tasks (title, target, assignee_id, created_by, due_at, created_at, updated_at) VALUES
+    ('Call the supplier back about the delayed delivery of the oak boards', NULL, ${admin}, ${admin}, ${day(-2)}, NOW(), NOW()),
+    ('Review the price list before the newsletter goes out', 'page:${pageId}', ${admin}, ${admin}, CONCAT(CURDATE(), ' 23:30:00'), NOW(), NOW()),
+    ('Send the offer', NULL, ${admin}, ${admin}, ${day(3)}, NOW(), NOW()),
+    ('Plan the spring campaign', NULL, ${admin}, ${admin}, NULL, NOW(), NOW())`);
+  try {
+    await visit('/admin.php?module=my_work');
+    const first = page.locator('main section.moje-prace').first();
+    if ((await first.getAttribute('data-list')) !== 'tasks') { throw new Error('the tasks are not the first list of My work'); }
+    const groups = await page.locator('[data-list="tasks"] h3[data-group]').evaluateAll((els) => els.map((el) => el.dataset.group));
+    if (groups.join(',') !== 'overdue,today,upcoming,later') { throw new Error(`the groups are ${groups.join(',')}`); }
+    const today = page.locator('[data-list="tasks"] tr[data-task]', { hasText: 'Review the price list' });
+    if (!(await today.locator('a', { hasText: 'Page “Price list 327”' }).isVisible())) { throw new Error('the task does not link to its page'); }
+    if (await page.locator('[data-list="tasks"] tr[data-task] button').count() !== 12) { throw new Error('not every task has Done, Tomorrow and In 3 days'); }
+    if (await page.locator('.zalozky a', { hasText: 'Team' }).count() !== 1) { throw new Error('no Team tab for the administrator'); }
+    if (SHOTS) { await page.screenshot({ path: `${SHOTS}/my-work-tasks-desktop.png`, fullPage: true }); }
+    const state = await context.storageState();
+    for (const scheme of ['light', 'dark']) {
+      for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]]) {
+        const other = await browser.newContext({ viewport: { width, height }, locale: 'en-GB', colorScheme: scheme, storageState: state, ...(width < 500 ? { isMobile: true, hasTouch: true } : {}) });
+        const p2 = await other.newPage(); watch(p2);
+        try {
+          for (const url of ['/admin.php?module=my_work', '/admin.php?module=my_work&action=team']) {
+            await p2.goto(`${BASE}${url}`, { waitUntil: 'networkidle' });
+            const wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+            if (wide > 0) { throw new Error(`${wide} px of sideways scroll (${url}, ${label}, ${scheme})`); }
+          }
+          await p2.goto(`${BASE}/admin.php?module=my_work`, { waitUntil: 'networkidle' });
+          for (const name of ['Done', 'Tomorrow', 'In 3 days']) {
+            const box = await p2.locator('[data-list="tasks"] tr[data-task]').first().getByRole('button', { name, exact: true }).boundingBox();
+            if (!box || box.x < 0 || box.x + box.width > width) { throw new Error(`the ${name} button is off the screen (${label}, ${scheme}): ${JSON.stringify(box)}`); }
+          }
+          const colours = await p2.locator('[data-list="tasks"] h3').first().evaluate((el) => [getComputedStyle(document.body).backgroundColor, getComputedStyle(el).color]);
+          if (colours[0] === colours[1]) { throw new Error(`the group heading has the colour of the page (${label}, ${scheme})`); }
+          if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/my-work-tasks-${label}-${scheme}.png`, fullPage: true }); }
+        } finally {
+          await other.close();
+        }
+      }
+    }
+    // Done on the overdue one, Tomorrow on today's
+    const overdue = page.locator('[data-list="tasks"] tr[data-task]', { hasText: 'Call the supplier back' });
+    await Promise.all([page.waitForNavigation(), overdue.getByRole('button', { name: 'Done', exact: true }).click()]);
+    if (!(await page.locator('.hlaska-ok', { hasText: 'Task done: Call the supplier back' }).isVisible())) { throw new Error('no message after Done'); }
+    if (await page.locator('[data-list="tasks"] h3[data-group="overdue"]').count() !== 0) { throw new Error('the done task is still listed'); }
+    await Promise.all([page.waitForNavigation(), page.locator('[data-list="tasks"] tr[data-task]', { hasText: 'Review the price list' }).getByRole('button', { name: 'Tomorrow', exact: true }).click()]);
+    if (!(await page.locator('.hlaska-ok', { hasText: 'Task moved to' }).isVisible())) { throw new Error('no message after Tomorrow'); }
+    if (sql(`SELECT DATE(due_at) = CURDATE() + INTERVAL 1 DAY AND TIME(due_at) = '23:30:00' FROM ka_tasks WHERE title LIKE 'Review the price list%'`).trim() !== '1') { throw new Error('Tomorrow did not move the due day'); }
+    await Promise.all([page.waitForNavigation(), page.locator('.zalozky a', { hasText: 'Team' }).click()]);
+    if (await page.locator('[data-list="team"] tbody tr').count() < 1 || (await page.locator('.zalozky a.aktivni').textContent()).trim() !== 'Team') { throw new Error('the Team tab lists nobody'); }
+    if (SHOTS) { await page.screenshot({ path: `${SHOTS}/my-work-team.png`, fullPage: true }); }
+  } finally {
+    sql(`DELETE FROM ka_tasks WHERE assignee_id = ${admin}; DELETE FROM ka_stranky WHERE ids = ${pageId}`);
+  }
+});
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

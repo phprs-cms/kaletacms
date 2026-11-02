@@ -342,7 +342,7 @@ final class Users extends Module
 
             return Response::redirect($this->url('handover', ['id' => $id] + ($then !== '' ? ['then' => $then] : [])));
         }
-        $moved = ['page' => 0, 'item' => 0, 'enquiry' => 0];
+        $moved = ['page' => 0, 'item' => 0, 'enquiry' => 0, 'task' => 0];
         $this->db->transaction(function () use ($id, $recipient, $then, &$moved): void {
             $moved = Handover::handOver($this->db, $id, $recipient[0]);
             if ($then === 'block') {
@@ -395,7 +395,7 @@ final class Users extends Module
             $author['blokovano_automaticky'] ?? null,
         ) : '';
 
-        $owned = $id > 0 ? Handover::owned($this->db, $id) : ['page' => 0, 'item' => 0, 'enquiry' => 0];
+        $owned = $id > 0 ? Handover::owned($this->db, $id) : ['page' => 0, 'item' => 0, 'enquiry' => 0, 'task' => 0];
 
         return $this->view('form', $id ? 'Edit user' : 'New user', [
             'author' => $author,

@@ -6,7 +6,7 @@
  * @var list<array<string, mixed>> $authors
  * @var bool $teamExists the site has a people collection (3.14)
  * @var array<int, array{name: string, chosen: bool}> $linked idu => the Team record the account is linked to (Builder\TeamRecord::linked)
- * @var array<int, array{page: int, item: int, enquiry: int}> $owned 3.24: idu => what the account is responsible for (Core\Handover::ownedByAll)
+ * @var array<int, array{page: int, item: int, enquiry: int, task: int}> $owned 3.24: idu => what the account is responsible for (Core\Handover::ownedByAll)
  */
 ?>
 <p class="navigace-radek"><a class="tl" href="<?= e($module->url('new')) ?>"><?= e(t('New user')) ?></a> <a class="navigace" href="<?= e($app->url('admin.php?module=roles')) ?>"><?= e(t('Roles')) ?></a></p>

@@ -34,15 +34,23 @@ trait WorkTools
 
             return $out + ['admin_url' => $origin . $this->app->url($r['url'])];
         };
+        // 3.27: the open tasks as list_tasks shows them (only additive keys: tasks)
+        $tasks = $lists['tasks'] ?? [];
+        unset($lists['tasks']);
         $keys = ['assigned' => 'enquiries_assigned', 'unassigned' => 'enquiries_unassigned', 'pages' => 'pages', 'items' => 'items', 'requests' => 'requests'];
         $out = ['user' => Handover::person($this->app->db(), $userId)];
+        if ($tasks !== []) {
+            $out['tasks'] = array_map(fn (array $t): array => ['id' => $t['id'], 'title' => $t['title'], 'group' => $t['group']]
+                + ($t['due_at'] !== null ? ['due' => substr((string) $t['due_at'], 0, 16)] : [])
+                + ($t['about'] !== null ? ['about' => ['title' => $t['about']['title'], 'admin_url' => $origin . $this->app->url($t['about']['url'])]] : []), $tasks);
+        }
         foreach ($lists as $list => $rows) {
             $out[$keys[$list]] = array_map($row, $rows);
         }
-        $total = array_sum(array_map(count(...), $lists));
+        $total = array_sum(array_map(count(...), $lists)) + count($tasks);
 
         return $out + ['total' => $total,
-            'reasons' => 'overdue = the review date has passed, review = review due within ' . \Kaleta\Core\MyWork::REVIEW_DAYS . ' days, draft = unpublished changes, comments = unresolved comments on the draft, hidden = a hidden item changed lately',
+            'reasons' => 'tasks: group overdue | today | upcoming (7 days) | later (complete_task, save_task to snooze); overdue = the review date has passed, review = review due within ' . \Kaleta\Core\MyWork::REVIEW_DAYS . ' days, draft = unpublished changes, comments = unresolved comments on the draft, hidden = a hidden item changed lately',
             'next' => $total === 0 ? 'Nothing waits for this user.' : 'Tell the user what waits and where (admin_url). Enquiries contain personal data – open one with list_enquiries only when the user asks.'];
     }
 

@@ -13,7 +13,7 @@ namespace Kaleta\Core;
  *  - Found: enquiries with the address as the sender or anywhere in their fields, the subscription and its pending
  *    sync to the mailing service, e-mails still in the outgoing queue, testimonial requests, bookings of appointments
  *    (3.0, Core\Booking), and an account of the administration (shown only – accounts are removed in Users, never here).
- *  - Erasing deletes the enquiries with their attachments and internal notes (3.25), the subscriber with the newsletter queue rows, the pending
+ *  - Erasing deletes the enquiries with their attachments, internal notes (3.25) and tasks (3.27), the subscriber with the newsletter queue rows, the pending
  *    e-mails and the testimonial requests; when a mailing service is connected, the address is also removed there
  *    through the usual queue. A published testimonial stays – it is content the person agreed to publish; the result
  *    names it so the administrator can remove it too.
@@ -60,7 +60,10 @@ final class PersonalData
             // team's internal notes on it (3.25, Core\Comments) – data about the person, part of the right of access
             'enquiries' => array_map(fn (array $r): array => ['data' => json_decode((string) $r['data'], true) ?: [],
                 'replies' => array_map(fn (array $x): array => ['at' => $x['at'], 'by' => $x['by'], 'subject' => $x['subject'], 'text' => $x['text']], EnquiryReply::decode($r['replies'])),
-                'notes' => array_map(fn (array $n): array => ['at' => $n['at'], 'by' => $n['by'], 'text' => $n['text']], Comments::of($db, Comments::enquiry((int) $r['idp'])))] + $r,
+                'notes' => array_map(fn (array $n): array => ['at' => $n['at'], 'by' => $n['by'], 'text' => $n['text']], Comments::of($db, Comments::enquiry((int) $r['idp']))),
+                // 3.27: the team's tasks about it (a follow-up may name the person) – deleted with it like the notes
+                'tasks' => array_map(fn (array $t): array => ['title' => $t['title'], 'due_at' => $t['due_at'], 'done_at' => $t['done_at'], 'created_at' => $t['created_at']],
+                    Tasks::forTarget($db, Comments::enquiry((int) $r['idp'])))] + $r,
                 $db->all('SELECT idp, datum, formular, stranka, tema, email, data, kampan, vstup, odkud, replies FROM {poptavky} WHERE LOWER(email) = ? OR LOWER(data) LIKE ? ORDER BY idp', [$email, $like])),
             'subscriber' => $subscriber,
             'sync' => $db->all('SELECT akce, vytvoreno, pokusy FROM {odber_fronta} WHERE LOWER(email) = ?', [$email]),
