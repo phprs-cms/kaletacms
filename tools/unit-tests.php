@@ -8765,5 +8765,88 @@ check('N325-3: the floating link picker of a field the builder redrew away takes
     str_contains($c325Editor, 'floating.push({ input: input, list: list, onScroll: onScroll });'),
 ], [true, true, true]);
 
+// ---- 3.26 (agent B): notifications – Core\Inbox, the bell, the Notifications screen, the e-mail choice ----
+$i326 = Kaleta\Core\Inbox::class;
+$i326App = (new ReflectionClass(Kaleta\Core\App::class))->newInstanceWithoutConstructor(); // never reaches the database: refused before it
+$i326Db = (new ReflectionClass(Kaleta\Core\Db::class))->newInstanceWithoutConstructor();
+check('3.26 Inbox: the contract – notify(App, int, string, string, ?int, string = \'\'): void; nothing for the actor themself, nobody or an unknown kind (before the database)', [
+    implode(', ', array_map(fn (ReflectionParameter $p): string => ($p->getType()?->__toString() ?? '') . ' $' . $p->getName() . ($p->isOptional() ? ' = ' . var_export($p->getDefaultValue(), true) : ''), (new ReflectionMethod($i326, 'notify'))->getParameters())),
+    (string) (new ReflectionMethod($i326, 'notify'))->getReturnType(), (new ReflectionMethod($i326, 'notify'))->isStatic(),
+    Kaleta\Core\Inbox::record($i326Db, 5, 'mention', 'page:1', 5), Kaleta\Core\Inbox::record($i326Db, 0, 'mention', 'page:1', 5), Kaleta\Core\Inbox::record($i326Db, 6, 'like', 'page:1', 5),
+    Kaleta\Core\Inbox::KINDS, Kaleta\Core\Inbox::EMAIL, Kaleta\Core\Inbox::KEEP_DAYS, Kaleta\Core\Inbox::EXCERPT],
+    ['Kaleta\Core\App $app, int $userId, string $kind, string $target, ?int $actorId, string $excerpt = \'\'', 'void', true, null, null, null,
+    ['mention', 'assigned', 'comment', 'review_due'], ['instant', 'daily', 'off'], 90, 200]);
+Kaleta\Core\Inbox::notify($i326App, 5, 'mention', 'page:1', 5, 'x'); // must not throw – the actor themself, nothing happens
+check('3.26 Inbox: the e-mail choice, the excerpt (plain text, one line, at most 200 characters), the targets and the daily hour', [
+    Kaleta\Core\Inbox::emailMode('daily'), Kaleta\Core\Inbox::emailMode(''), Kaleta\Core\Inbox::emailMode('weekly'),
+    Kaleta\Core\Inbox::excerpt("  <b>Jana</b>,\n please &amp; check\tthe prices  "), mb_strlen(Kaleta\Core\Inbox::excerpt(str_repeat('a', 500))), str_ends_with(Kaleta\Core\Inbox::excerpt(str_repeat('a ', 300)), '…'),
+    Kaleta\Core\Inbox::excerpt("a\x07b"), Kaleta\Core\Inbox::parse('enquiry:12'), Kaleta\Core\Inbox::parse('page:5'), Kaleta\Core\Inbox::parse('item:9'), Kaleta\Core\Inbox::parse('stranka:5'),
+    Kaleta\Core\Inbox::parse('page:0'), Kaleta\Core\Inbox::parse('page:5 '), Kaleta\Core\Inbox::places($i326Db, ['contact:3', 'x']),
+    Kaleta\Core\Inbox::due('', new DateTimeImmutable('2026-11-02 07:59')), Kaleta\Core\Inbox::due('', new DateTimeImmutable('2026-11-02 08:00')),
+    Kaleta\Core\Inbox::due('2026-11-02', new DateTimeImmutable('2026-11-02 15:00')), Kaleta\Core\Inbox::due('2026-11-01', new DateTimeImmutable('2026-11-02 23:10'))],
+    ['daily', 'instant', 'instant', 'Jana, please & check the prices', 200, true, 'ab', ['enquiry', 12], ['page', 5], ['item', 9], null, null, null, [], false, true, false, true]);
+$i326Recipient = fn (string $language, string $register = ''): array => ['jazyk' => $language, 'register' => $register];
+$i326Enquiry = ['kind' => 'enquiry', 'id' => 12, 'title' => 'Contact', 'path' => ''];
+$i326Mention = Kaleta\Core\Inbox::mail($reportSettings([]), $i326Recipient(''), ['kind' => 'mention', 'actor_name' => 'Jana', 'excerpt' => 'Please check the prices'], $i326Enquiry, 'https://example.com/admin.php?action=inbox&open=7', 'https://example.com/admin.php?action=account#notifications');
+$i326Assigned = Kaleta\Core\Inbox::mail($reportSettings([]), $i326Recipient('cs'), ['kind' => 'assigned', 'actor_name' => '', 'excerpt' => 'never shown'], ['kind' => 'page', 'id' => 5, 'title' => 'Services', 'path' => ''], 'https://x/1', 'https://x/2');
+$i326Review = Kaleta\Core\Inbox::mail($reportSettings([]), $i326Recipient('de', 'informal'), ['kind' => 'review_due', 'actor_name' => '', 'excerpt' => ''], ['kind' => 'item', 'id' => 9, 'title' => 'Oak', 'collection' => 'Products', 'path' => ''], 'https://x/1', 'https://x/2');
+$i326Long = Kaleta\Core\Inbox::mail($reportSettings([]), $i326Recipient(''), ['kind' => 'comment', 'actor_name' => 'Petr', 'excerpt' => str_repeat('b', 201)], null, 'https://x/1', 'https://x/2');
+check('3.26 Inbox: the instant e-mail – who, what, where in the recipient\'s admin language; the quote only when it is there and short, never for an assignment; the link and where to change the choice', [
+    $i326Mention[0], str_contains($i326Mention[1], "Jana mentioned you: Enquiry #12 · Contact\n\n“Please check the prices”\n"), str_contains($i326Mention[1], 'https://example.com/admin.php?action=inbox&open=7'),
+    str_contains($i326Mention[1], 'https://example.com/admin.php?action=account#notifications'),
+    $i326Assigned[0], str_contains($i326Assigned[1], 'never shown'), $i326Review[0], str_contains($i326Review[1], 'Der Prüftermin ist da: „Oak“ in Products'),
+    $i326Long[0], str_contains($i326Long[1], 'bbb')],
+    ['Jana mentioned you: Enquiry #12 · Contact', true, true, true, 'Kaleta vám přidělil(a): Stránka „Services“', false, 'Heute zu prüfen: „Oak“', true, 'Petr commented on (no longer available)', false]);
+$i326Digest = Kaleta\Core\Inbox::digest($reportSettings(['site_name' => 'Firma']), $i326Recipient('es'), [
+    ['kind' => 'mention', 'actor_name' => 'Jana', 'excerpt' => 'Mira esto', 'url' => 'https://x/a', 'place' => $i326Enquiry],
+    ['kind' => 'assigned', 'actor_name' => 'Petr', 'excerpt' => 'hidden', 'url' => '', 'place' => null]], 'https://x/inbox', 'https://x/account');
+check('3.26 Inbox: the daily summary – the count and the site in the subject, each notification with its quote and link, the screen and the choice', [
+    $i326Digest[0], str_contains($i326Digest[1], "- Jana te ha mencionado – Consulta n.º 12 · Contact\n  “Mira esto”\n  https://x/a"), str_contains($i326Digest[1], 'Petr te lo ha asignado – (ya no está disponible)'),
+    str_contains($i326Digest[1], 'hidden'), str_contains($i326Digest[1], "https://x/inbox"), str_contains($i326Digest[1], "https://x/account"),
+    Kaleta\Core\Inbox::digest($reportSettings(['site_name' => 'Firma']), $i326Recipient('en'), [['kind' => 'comment', 'actor_name' => 'A', 'excerpt' => '', 'url' => '', 'place' => null]], 'i', 'a')[0]],
+    ['2 notificaciones nuevas – Firma', true, true, false, true, true, '1 new notification – Firma']);
+$i326Texts = ['%s mentioned you', '%s commented', '%s assigned it to you', 'The review date has come', 'Enquiry #%s · %s', '“%s” in %s', '(no longer available)', '%s mentioned you: %s', '%s commented on %s',
+    '%s assigned you %s', 'This e-mail came right away because of your choice in My account. You can have one summary a day instead, or none:', '1 new notification – %s', '%d new notifications – %s',
+    'What happened since the last summary:', 'All notifications:', 'You chose one summary a day in My account. You can have each notification right away instead, or none:',
+    'All notifications are marked as read.', 'This notification no longer exists – notifications are kept for 90 days.', 'What this notification was about is no longer available.', 'Notifications',
+    'You get one e-mail summary a day, in the morning.', 'You get no e-mail about them – they are only here.', 'You get an e-mail about each one right away.',
+    'Mentions, comments on what you are responsible for, things assigned to you and review dates. Kept for 90 days.', 'Change it in My account', 'Mark all as read', 'No older notifications.',
+    'No notifications yet.', 'When a colleague mentions you, comments on what you are responsible for or assigns you something, and when a review date comes, you will see it here.', 'Back to the newest',
+    'Unread:', 'Newer', 'Older', 'Notifications – %d unread', 'Notifications by e-mail', 'Right away', 'One e-mail for each notification, as it happens.', 'Once a day',
+    'One summary in the morning (around 8:00) of what you have not read yet.', 'Never', 'No e-mail – only the bell in the administration.',
+    'Your account has no e-mail address – add it above, otherwise notifications are only under the bell.', 'Save the choice', 'Your choice is saved.',
+    'Notifications tell you when a colleague mentions you, comments on what you are responsible for or assigns you something, and when a review date comes. They are always under the bell at the top of the administration; here you choose whether they also come by e-mail.'];
+$i326Missing = [];
+foreach (['cs', 'de', 'es'] as $i326Code) {
+    $i326Dictionary = require KALETA_SYSTEM . '/jazyky/admin-' . $i326Code . '.php';
+    $i326Missing = [...$i326Missing, ...array_map(fn (string $k): string => $i326Code . ': ' . $k, array_values(array_diff($i326Texts, array_keys($i326Dictionary))))];
+}
+check('3.26: the texts of notifications are translated in every admin language', $i326Missing, []);
+$i326Kernel = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Kernel.php');
+$i326Layout = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/layout.php');
+$i326Post = fn (string $action, array $post = []): bool => Kaleta\Admin\Kernel::clearsPageCache(new Kaleta\Core\Request(['module' => '', 'action' => $action], $post, ['REQUEST_METHOD' => 'POST']));
+check('3.26: the Notifications screen is a header action (no section, no left-menu item, no menu group), reading and marking keep the page cache, the e-mail choice too; the bell sits in the header bar with one COUNT', [
+    in_array('inbox', Kaleta\Admin\Kernel::SITE_NEUTRAL_ACTIONS[''], true), str_contains($i326Kernel, "if (\$action === 'inbox' && \$ident === '') {"),
+    array_values(array_filter(Kaleta\Admin\Kernel::MODULES, fn (string $c): bool => in_array($c::IDENT, ['inbox', 'notifications'], true))),
+    $i326Post('inbox', ['read_all' => '1']), $i326Post('account', ['co' => 'notifications']), $i326Post('account', ['co' => 'profil']),
+    (bool) preg_match('#<section class="loginprouzek".*class="zvonek.*</section>#s', $i326Layout), (bool) preg_match('#<nav class="menu-obal".*zvonek.*</nav>#s', $i326Layout),
+    str_contains($i326Layout, "\$bell = \$user !== null && empty(\$gated) ? Kaleta\\Core\\Inbox::unreadCount(\$app->db(), (int) \$user['idu']) : null;"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Inbox.php'), "'SELECT COUNT(*) FROM {notifications} WHERE user_id = ? AND read_at IS NULL'"),
+    Kaleta\Core\Scheduler::JOBS['inbox'][0] ?? null, Kaleta\Core\Scheduler::JOBS['inbox'][1] ?? null, isset(Kaleta\Core\Scheduler::jobs()['inbox']), Kaleta\Core\Settings::DEFAULTS['inbox_digest_day'] ?? null],
+    [true, true, [], false, false, true, true, false, true, true, 3600, 'any', true, '']);
+$i326Assignment = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Assignment.php');
+$i326Validity = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Validity.php');
+$i326Comments = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Comments.php');
+check('3.26: the assignment e-mail and the review reminder go through the notifications – one record each, their own e-mail only for "instant" and then marked e-mailed (no second e-mail from the summary); an enquiry\'s deleted or anonymised notes take the notifications quoting them along', [
+    str_contains($i326Assignment, "Inbox::record(\$db, \$toUserId, 'assigned', \$kind . ':' . \$id, \$byUserId > 0 ? \$byUserId : null);"),
+    str_contains($i326Assignment, "if ((\$note['email'] ?? 'instant') !== 'instant' || count(Mail::addresses((string) \$to['email'])) !== 1) {"),
+    str_contains($i326Assignment, "Inbox::markEmailed(\$db, \$note !== null ? [\$note['id']] : []);"),
+    str_contains($i326Validity, "Inbox::record(\$db, \$owner, 'review_due',"), str_contains($i326Validity, "\$mail = \$choice === 'instant' && count(Mail::addresses((string) \$user['email'])) === 1;"),
+    str_contains($i326Validity, 'Inbox::markEmailed($db, array_map(fn (array $n): int => $n[\'id\'], $notes));'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Inbox.php'), "WHERE user_id = ? AND read_at IS NULL AND emailed_at IS NULL ORDER BY id LIMIT 100"),
+    str_contains($i326Comments, 'Inbox::forgetTargets($db, $targets);'), str_contains($i326Comments, 'Inbox::forgetTargets($db, $targets, true);'),
+    str_contains((string) file_get_contents(KALETA_ROOT . '/index.php'), 'Kaleta\Core\Mail::afterResponse($app);')],
+    [true, true, true, true, true, true, true, true, true, true]);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

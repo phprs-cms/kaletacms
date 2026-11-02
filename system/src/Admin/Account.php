@@ -57,6 +57,11 @@ final class Account
                     }
                     $message = ['ok', 'Details saved.'];
                     break;
+                case 'notifications':
+                    // 3.26: how notifications reach me by e-mail (Core\Inbox) – the bell shows them whatever I choose
+                    $db->update('uzivatele', ['notify_email' => \Kaleta\Core\Inbox::emailMode($r->post('notify_email'))], ['idu' => $user['idu']]);
+                    $message = ['ok', 'Your choice is saved.'];
+                    break;
                 case 'heslo':
                     $newItems = (string) ($_POST['nove'] ?? '');
                     $message = match (true) {

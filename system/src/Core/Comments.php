@@ -106,6 +106,7 @@ final class Comments
         if ($targets === []) {
             return 0;
         }
+        Inbox::forgetTargets($db, $targets); // 3.26: the notifications about them (they may quote a note) go too
         try {
             return $db->run('DELETE FROM {comments} WHERE target IN (' . implode(',', array_fill(0, count($targets), '?')) . ')', $targets)->rowCount();
         } catch (\PDOException) {
@@ -124,6 +125,7 @@ final class Comments
         if ($targets === []) {
             return 0;
         }
+        Inbox::forgetTargets($db, $targets, true); // 3.26: a notification quoting a note loses the quote too
         try {
             return $db->run("UPDATE {comments} SET text = '', mentions = NULL WHERE target IN (" . implode(',', array_fill(0, count($targets), '?')) . ')', $targets)->rowCount();
         } catch (\PDOException) {

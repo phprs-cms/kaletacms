@@ -189,10 +189,13 @@ grep -q '<summary>Ask the customer for a testimonial</summary>' "$WORK/page.html
 sql "DELETE FROM ka_poptavky WHERE idp = $TM"
 for u in "module=newsletters" "module=appearance"; do curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?$u"; grep -q 'design system' "$WORK/page.html" && fail "English admin: $u still says design system"; done
 NEWS=$(sql "SELECT idc FROM ka_novinky LIMIT 1")
+# 3.26: the Notifications screen with something on it – a mention with a quote, an assignment, a review date, a place that is gone
+sql "INSERT INTO ka_notifications (user_id, kind, target, actor_name, excerpt, created_at) SELECT idu, k.kind, k.target, 'Wendy', k.excerpt, '$(date '+%Y-%m-%d %H:%M:%S')' FROM ka_uzivatele
+  JOIN (SELECT 'mention' AS kind, 'page:1' AS target, 'Please check the prices' AS excerpt UNION SELECT 'assigned', 'page:1', '' UNION SELECT 'review_due', 'page:1', '' UNION SELECT 'comment', 'enquiry:999999', 'Gone') k WHERE user = 'admin'"
 ADMIN_SCREENS=("" "module=pages" "module=pages&action=new" "module=pages&action=builder&id=1" "module=enquiries" "module=parts" "module=parts&action=builder&type=hlavicka&language=" \
   "module=components" "module=collections" "module=collections&action=new" "module=news" "module=news&action=new" "module=news&action=edit&id=$NEWS" "module=categories" "module=categories&action=new" \
   "module=tags" "module=media" "module=stats" "module=appearance" "module=menu" "module=users" "module=users&action=new" "module=roles" "module=roles&action=new" "module=redirects" \
-  "module=changelog" "module=transfer" "module=extensions" "module=claude_settings" "module=addons" "module=subscribers" "module=newsletters" "module=newsletters&action=new" "module=parts&action=templates&type=hlavicka" "module=parts&action=templates&type=paticka" "action=account" "module=settings&tab=general" "module=business" "module=settings&tab=seo" \
+  "module=changelog" "module=transfer" "module=extensions" "module=claude_settings" "module=addons" "module=subscribers" "module=newsletters" "module=newsletters&action=new" "module=parts&action=templates&type=hlavicka" "module=parts&action=templates&type=paticka" "action=account" "action=inbox" "module=settings&tab=general" "module=business" "module=settings&tab=seo" \
   "module=settings&tab=analytics" "module=settings&tab=cookies" "module=settings&tab=mail" "module=settings&tab=backups" "module=status" \
   "module=settings&tab=languages" "module=settings&tab=security" "module=settings&tab=firewall" "module=settings&tab=agency" "module=settings&tab=console" \
   "module=popups" "module=popups&action=new" "module=notebook" "module=notebook&action=edit" "module=requests" "module=requests&action=new" "module=schedules" "module=schedules&action=edit" \

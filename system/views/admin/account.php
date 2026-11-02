@@ -59,6 +59,29 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save details')) ?>"></p>
 </form>
 
+<form class="formular" method="post" action="<?= $action ?>" id="notifications">
+<?= $csrf ?><input type="hidden" name="co" value="notifications">
+<fieldset><legend><?= e(t('Notifications by e-mail')) ?></legend>
+<p class="napoveda"><?= e(t('Notifications tell you when a colleague mentions you, comments on what you are responsible for or assigns you something, and when a review date comes. They are always under the bell at the top of the administration; here you choose whether they also come by e-mail.')) ?></p>
+<?php $notifyEmail = Kaleta\Core\Inbox::emailMode((string) ($user['notify_email'] ?? '')); ?>
+<div class="radek"><span class="popisek" id="notify_email_popisek"><?= e(t('E-mail')) ?></span><div role="radiogroup" aria-labelledby="notify_email_popisek">
+<div class="karty-volby karty-volby-text">
+<?php foreach ([
+    'instant' => ['Right away', 'One e-mail for each notification, as it happens.'],
+    'daily' => ['Once a day', 'One summary in the morning (around 8:00) of what you have not read yet.'],
+    'off' => ['Never', 'No e-mail – only the bell in the administration.'],
+] as $key => [$name, $description]): ?>
+	<label class="karta-volba"><input type="radio" name="notify_email" value="<?= e($key) ?>"<?= $notifyEmail === $key ? ' checked' : '' ?>><strong><?= e(t($name)) ?></strong><span><?= e(t($description)) ?></span></label>
+<?php endforeach ?>
+</div>
+<?php if (Kaleta\Core\Mail::addresses((string) $user['email']) === []): ?>
+<span class="napoveda"><?= e(t('Your account has no e-mail address – add it above, otherwise notifications are only under the bell.')) ?></span>
+<?php endif ?>
+</div></div>
+</fieldset>
+<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save the choice')) ?>"></p>
+</form>
+
 <form class="formular" method="post" action="<?= $action ?>" autocomplete="off">
 <?= $csrf ?><input type="hidden" name="co" value="heslo">
 <fieldset><legend><?= e(t('Změna hesla')) ?></legend>

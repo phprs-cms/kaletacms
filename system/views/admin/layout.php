@@ -58,8 +58,12 @@ if ($user !== null && empty($gated)) { // 3.19 (N3183-2): nothing to search at t
         $statements[] = ['n' => $pageRow['titulek'], 'u' => $adminUrl('module=pages&action=edit&id=' . (int) $pageRow['ids']), 's' => t('Page')];
     }
     $statements[] = ['n' => t('My account'), 'u' => $adminUrl('action=account'), 's' => ''];
+    $statements[] = ['n' => t('Notifications'), 'u' => $adminUrl('action=inbox'), 's' => '']; // 3.26
     $statements[] = ['n' => t('Zobrazit web'), 'u' => $app->url(''), 's' => ''];
 }
+// 3.26: the bell – unread notifications of the signed-in person (Core\Inbox, one COUNT over its key); not at the two-factor gate
+$bell = $user !== null && empty($gated) ? Kaleta\Core\Inbox::unreadCount($app->db(), (int) $user['idu']) : null;
+$onInbox = $active === '' && (string) $app->request->get('action') === 'inbox';
 // 3.18: whether Claude is connected (Core\ClaudeConnection) – for whoever may use Ask Claude or the Claude settings, with the
 // Claude connection on and not in the public demo (as Ask Claude on the dashboard); it never breaks the frame
 $claudeChip = null;
@@ -162,6 +166,9 @@ foreach (Kaleta\Admin\MenuGroups::groups($modules) as $menuGroup):
 <?php if ($claudeChip !== null): ?>
 	<?= $app->view->render('admin/claude_chip', ['app' => $app] + $claudeChip) ?>
 <?php endif ?>
+<?php if ($bell !== null): $bellLabel = $bell > 0 ? t('Notifications – %d unread', $bell) : t('Notifications'); ?>
+	<a class="zvonek<?= $bell > 0 ? ' zvonek-nove' : '' ?>" href="<?= e($app->url('admin.php?action=inbox')) ?>" title="<?= e($bellLabel) ?>" aria-label="<?= e($bellLabel) ?>"<?= $onInbox ? ' aria-current="page"' : '' ?> data-bell="<?= $bell ?>"><?= $icon('zvonek') ?><?php if ($bell > 0): ?><span class="zvonek-pocet" aria-hidden="true"><?= $bell > 99 ? '99+' : $bell ?></span><?php endif ?></a>
+<?php endif ?>
 	<a class="prihlasen" href="<?= e($app->url('admin.php?action=account')) ?>" title="<?= e(t('My account')) ?>" aria-label="<?= e(t('My account') . ' – ' . ($user['jmeno'] ?: $user['user'])) ?>"><span class="avatar" title="<?= e(($user['jmeno'] ?: $user['user']) . ' – ' . t(Kaleta\Core\Auth::TYPES[(int) $user['admin']] ?? '')) ?>" aria-hidden="true"><?= e(mb_strtoupper(mb_substr($user['jmeno'] ?: $user['user'], 0, 1))) ?></span></a>
 </section>
 <?php endif ?>
@@ -177,7 +184,7 @@ foreach (Kaleta\Admin\MenuGroups::groups($modules) as $menuGroup):
 <?php if (Kaleta\Core\Demo::active()): ?>
 <p class="hlaska hlaska-varovani" role="status"><?= e(t('Public demo: everything you change here is reset in %s minutes. E-mail, imports, updates, users and the Claude connection are switched off.', (string) max(1, (int) ceil(Kaleta\Core\Demo::secondsToReset() / 60)))) ?></p>
 <?php endif ?>
-<?php if ($heading !== ''): $guide = $user !== null ? Kaleta\Admin\Guide::forScreen($active === '' && $app->request->get('action') === 'account' ? 'account' : $active, '', (string) $app->request->get('tab'), Kaleta\Core\Language::code()) : null; ?>
+<?php if ($heading !== ''): $guide = $user !== null && !$onInbox ? Kaleta\Admin\Guide::forScreen($active === '' && $app->request->get('action') === 'account' ? 'account' : $active, '', (string) $app->request->get('tab'), Kaleta\Core\Language::code()) : null; ?>
 <div class="zahlavi-stranky">
 <h1><?= e($heading) ?></h1>
 <?php if ($guide !== null): ?>

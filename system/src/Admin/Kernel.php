@@ -119,11 +119,11 @@ final class Kernel
 
     /**
      * In a section of SITE_CHANGING_MODULES, the actions that never reach the site ('' = the screens outside a section:
-     * signing out, consent to an app, hiding First steps; My account is decided by its form, see clearsPageCache). Each is a
-     * real action of its section (tools/unit-tests.php).
+     * signing out, consent to an app, hiding First steps, the notifications behind the bell (3.26); My account is decided by
+     * its form, see clearsPageCache). Each is a real action of its section (tools/unit-tests.php).
      */
     public const array SITE_NEUTRAL_ACTIONS = [
-        '' => ['logout', 'oauth', 'hide_first_steps', 'token'],
+        '' => ['logout', 'oauth', 'hide_first_steps', 'token', 'inbox'],
         'pages' => [...self::BUILDER_NEUTRAL, 'export', 'owner'], // 3.24: the responsible person is never on the site
         'news' => ['social_save', 'social_posted', 'social_suggest', 'links'], // the social post drafts are never on the site
         'collections' => [...self::BUILDER_NEUTRAL, 'signature'],
@@ -257,6 +257,9 @@ final class Kernel
         }
         if ($action === 'account') {
             return (new Account($this))->handle();
+        }
+        if ($action === 'inbox' && $ident === '') {
+            return (new InboxPage($this))->handle(); // 3.26: the notifications behind the bell – every signed-in user, no menu item
         }
         if ($action === 'oauth') {
             return $this->handleOAuthConsent();

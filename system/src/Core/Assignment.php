@@ -10,8 +10,9 @@ namespace Kaleta\Core;
  * assignment; it never limits who may open or change the thing, and there is no approval step.
  *
  *  - candidates(): who may be chosen – active administrators and people with the section (the rule Enquiries used since 2.x).
- *  - notify(): the one e-mail to the person something was assigned to – the admin, MCP update_enquiry and assign call it.
- *    Never to oneself, never with the content of an enquiry: the form name or the title and a link to the administration.
+ *  - notify(): the notification (3.26, Core\Inbox, kind "assigned") and the one e-mail to the person something was assigned
+ *    to – the admin, MCP update_enquiry and assign call it. Never to oneself, never with the content of an enquiry: the form
+ *    name or the title and a link to the administration. The e-mail follows the person's choice (notify_email).
  *  - label(): a name for the lists, "(former user)" for an account that was removed or blocked.
  */
 final class Assignment
@@ -109,11 +110,13 @@ final class Assignment
     }
 
     /**
-     * The e-mail to the person an enquiry, a page or an item was just assigned to (3.24). Sends nothing – and returns
-     * false – when the recipient is the one who assigns (self-assignment), nobody, not an active account with an e-mail
-     * address, or cannot open the section. The caller sends it only when the assignee changed. In the recipient's admin
-     * language; the form name or the title and a link – never what the enquiry says. Queued and sent after the response
-     * (Mail::later), so the save does not wait for the mail server.
+     * Tells the person an enquiry, a page or an item was just assigned to (3.24; 3.26: a notification in their bell too).
+     * Nothing – and false – when the recipient is the one who assigns (self-assignment), nobody, not an active account, or
+     * cannot open the section. The caller calls it only when the assignee changed. The notification (kind "assigned",
+     * target "<kind>:<id>", no excerpt) is recorded for every such person; the e-mail goes as before 3.26 only when they
+     * chose "instant" (the default) and have an e-mail address – "daily" leaves it to the morning summary, "off" to the
+     * bell. In the recipient's admin language; the form name or the title and a link – never what the enquiry says. Queued
+     * and sent after the response (Mail::later), so the save does not wait for the mail server. Returns whether it e-mailed.
      *
      * @param string $kind enquiry | page | item (Assignment::KINDS)
      * @param int $byUserId who assigned it (0 = Kaleta itself)
@@ -126,17 +129,24 @@ final class Assignment
         $db = $app->db();
         $s = $app->settings();
         $to = $db->one('SELECT idu, email, jazyk, register FROM {uzivatele} WHERE idu = ? AND blokovat = 0', [$toUserId]);
-        if ($to === null || count(Mail::addresses((string) $to['email'])) !== 1 || !self::allowed($db, $kind, $toUserId)) {
+        if ($to === null || !self::allowed($db, $kind, $toUserId)) {
             return false;
         }
         $target = self::target($db, $kind, $id);
         if ($target === null) {
             return false;
         }
+        // 3.26: the bell first; its e-mail is this one – sent only for "instant" (before migration 0112 there is no row and
+        // no choice: the e-mail goes, as in 3.24)
+        $note = Inbox::record($db, $toUserId, 'assigned', $kind . ':' . $id, $byUserId > 0 ? $byUserId : null);
+        if (($note['email'] ?? 'instant') !== 'instant' || count(Mail::addresses((string) $to['email'])) !== 1) {
+            return false;
+        }
         $by = $byUserId > 0 ? (string) $db->value("SELECT IF(jmeno = '', user, jmeno) FROM {uzivatele} WHERE idu = ?", [$byUserId]) : '';
         $url = rtrim($s->get('site_url') ?: $app->request->origin(), '/') . $app->url($target['path']);
         [$subject, $body] = self::mail($s, $to, $kind, $target, $by !== '' ? $by : 'Kaleta', $url);
         Mail::later($s, (string) $to['email'], $subject, $body);
+        Inbox::markEmailed($db, $note !== null ? [$note['id']] : []);
 
         return true;
     }

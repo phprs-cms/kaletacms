@@ -15,8 +15,9 @@ use Kaleta\Admin\ChangeLog;
  *    event content.expired; the page cache is cleared when something changed. The date stays, so the admin sees why.
  *  - review_by: on that day (and until the date is changed or removed) the site audit lists the content under
  *    "Review by" (Core\Audit) and the event content.review is recorded once per content and date. A page or a collection
- *    item with a responsible person (owner_id, 3.24) also e-mails that person: one e-mail a day at most, listing what of
- *    theirs is due and was not in an earlier reminder (remindOwners).
+ *    item with a responsible person (owner_id, 3.24) also reminds that person: a notification per item in their bell
+ *    (3.26, Core\Inbox, kind review_due) and one e-mail a day at most, listing what of theirs is due and was not in an
+ *    earlier reminder (remindOwners) – the e-mail as they chose in My account (instant, the daily summary, or none).
  *
  * run() is the hourly background job (Core\Scheduler, 'validity'). The selection helpers are pure and unit-tested.
  */
@@ -75,10 +76,12 @@ final class Validity
 
     /**
      * The review reminder to the responsible people (3.24): what of theirs is due (review_by today or earlier) and was not
-     * in a reminder yet, one e-mail per person and day at most – what becomes due after today's e-mail waits for tomorrow's.
-     * Only to an active account with an e-mail address that can still open the section; the others are left to the site
-     * audit, as before. Recorded as the event content.review_mailed (the user id and the items – no address). Returns
-     * how many e-mails went out.
+     * in a reminder yet, once per person and day at most – what becomes due after today's reminder waits for tomorrow's.
+     * Only to an active account that can still open the section; the others are left to the site audit, as before. 3.26:
+     * every item becomes a notification (review_due) in the person's bell; the e-mail goes as in 3.24 only when they chose
+     * "instant" (the default) and have an address – "daily" leaves it to the morning summary (Inbox::run), "off" to the
+     * bell. Recorded as the event content.review_mailed (the user id, the items and the choice – no address). Returns how
+     * many people were reminded.
      *
      * @param list<array<string, mixed>> $due rows with kind, id, title, review_by, owner_id (and idk for an item)
      */
@@ -93,7 +96,22 @@ final class Validity
         foreach ($byOwner as $owner => $rows) {
             $user = $db->one('SELECT idu, email, jazyk, register FROM {uzivatele} WHERE idu = ? AND blokovat = 0', [$owner]);
             $rows = array_values(array_filter($rows, fn (array $r): bool => Assignment::allowed($db, self::OWNED[$r['kind']], $owner)));
-            if ($user === null || $rows === [] || count(Mail::addresses((string) $user['email'])) !== 1) {
+            if ($user === null || $rows === []) {
+                continue;
+            }
+            // 3.26: a notification per item; the e-mail below is theirs – only for "instant" (before migration 0112 there are
+            // no rows and no choice: the e-mail goes, as in 3.24)
+            $notes = array_values(array_filter(array_map(fn (array $r): ?array => Inbox::record($db, $owner, 'review_due',
+                ($r['kind'] === 'page' ? 'page:' : 'item:') . (int) $r['id'], null), $rows)));
+            $choice = $notes[0]['email'] ?? 'instant';
+            $mail = $choice === 'instant' && count(Mail::addresses((string) $user['email'])) === 1;
+            if (!$mail && $notes === []) {
+                continue; // neither the bell nor an e-mail – left to the site audit
+            }
+            Events::record($db, 'content.review_mailed', 'info', mb_substr(t('A review reminder went to the responsible person of %d items.', count($rows)), 0, 255),
+                ['user' => $owner, 'day' => $today, 'items' => array_map(fn (array $r): string => $r['kind'] . '|' . (int) $r['id'] . '|' . $r['review_by'], $rows), 'email' => $mail ? 'instant' : $choice]);
+            $sent++;
+            if (!$mail) {
                 continue;
             }
             [$subject, $body] = Language::runWith((string) $user['jazyk'] ?: Language::defaults($s), function () use ($rows, $base, $app): array {
@@ -105,9 +123,7 @@ final class Validity
                     . implode("\n", $lines) . "\n"];
             }, 'admin-', Language::normalizeRegister((string) $user['register']));
             Mail::send($s, (string) $user['email'], $subject, $body); // a background job: nobody waits for it, a failure is queued for a retry
-            Events::record($db, 'content.review_mailed', 'info', mb_substr(t('A review reminder went to the responsible person of %d items.', count($rows)), 0, 255),
-                ['user' => $owner, 'day' => $today, 'items' => array_map(fn (array $r): string => $r['kind'] . '|' . (int) $r['id'] . '|' . $r['review_by'], $rows)]);
-            $sent++;
+            Inbox::markEmailed($db, array_map(fn (array $n): int => $n['id'], $notes));
         }
 
         return $sent;

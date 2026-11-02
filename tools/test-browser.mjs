@@ -3097,6 +3097,86 @@ await step('3.25 (N-U9) one link picker: the builder\'s Button link and the menu
     sql(`UPDATE ka_stranky SET stavba_koncept = ${before === 'NULL' || !/^[0-9A-F]*$/.test(before) ? 'NULL' : `CONVERT(UNHEX('${before}') USING utf8mb4)`} WHERE ids = 1`);
   }
 });
+// 3.26 (agent B): notifications – the bell with the unread count in the header bar (never in the left menu), the
+// Notifications screen (who, what, where, when; the unread marked), opening one marks it read and leads to its place,
+// Mark all as read empties the bell; My account offers the e-mail choice. 1440 and 390 px, light and dark.
+await step('3.26 notifications: the bell, the Notifications screen, open and mark all read, the e-mail choice (1440 and 390 px, light and dark)', async () => {
+  if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const admin = Number(sql("SELECT idu FROM ka_uzivatele WHERE user = 'admin'").trim());
+  const pageId = Number(sql("INSERT INTO ka_stranky (seo_link, titulek, text, zobrazit, v_menu) VALUES ('bell-326', 'Price list 326', '', 0, 0); SELECT LAST_INSERT_ID();").trim());
+  sql(`DELETE FROM ka_notifications WHERE user_id = ${admin};
+    INSERT INTO ka_notifications (user_id, kind, target, actor_id, actor_name, excerpt, created_at) VALUES
+    (${admin}, 'comment', 'enquiry:999999', NULL, 'Wendy Work', 'This one is gone', NOW() - INTERVAL 3 DAY),
+    (${admin}, 'review_due', 'page:${pageId}', NULL, '', '', NOW() - INTERVAL 1 DAY),
+    (${admin}, 'assigned', 'page:${pageId}', NULL, 'Wendy Work', '', NOW() - INTERVAL 2 HOUR),
+    (${admin}, 'mention', 'page:${pageId}', NULL, 'Wendy Work', 'Please check the prices before Friday, the new supplier list is in the shared folder.', NOW() - INTERVAL 5 MINUTE)`); // newest last: the screen lists by id, newest first
+  try {
+    await visit('/admin.php');
+    const bell = page.locator('.loginprouzek a.zvonek');
+    if (!(await bell.isVisible())) { throw new Error('no bell in the header bar'); }
+    if ((await bell.locator('.zvonek-pocet').textContent()).trim() !== '4') { throw new Error(`the bell counts ${await bell.locator('.zvonek-pocet').textContent()}`); }
+    if ((await bell.getAttribute('aria-label')) !== 'Notifications – 4 unread') { throw new Error(`the bell is named ${await bell.getAttribute('aria-label')}`); }
+    if (await page.locator('#menu .zvonek, #menu a[href*="action=inbox"]').count() !== 0) { throw new Error('the notifications are in the left menu'); }
+    await Promise.all([page.waitForNavigation(), bell.click()]);
+    if ((await page.locator('main h1').textContent()).trim() !== 'Notifications') { throw new Error('the bell does not open the Notifications screen'); }
+    if ((await bell.getAttribute('aria-current')) !== 'page') { throw new Error('the bell is not marked as the current screen'); }
+    const rows = page.locator('[data-inbox] > li');
+    if (await rows.count() !== 4 || await page.locator('[data-inbox] .upozorneni-neprectene').count() !== 4) { throw new Error(`the screen lists ${await rows.count()} notifications`); }
+    const first = await rows.first().innerText();
+    if (!first.includes('Wendy Work mentioned you') || !first.includes('Page “Price list 326”') || !first.includes('Please check the prices')) { throw new Error(`the first row says ${first}`); }
+    if (!(await rows.nth(1).innerText()).includes('Wendy Work assigned it to you') || !(await rows.nth(2).innerText()).includes('The review date has come')) { throw new Error('the assignment or the review row is wrong'); }
+    if (!(await rows.nth(3).innerText()).includes('(no longer available)') || await rows.nth(3).locator('a').count() !== 0) { throw new Error('a place that is gone still has a link'); }
+    if (SHOTS) { await page.screenshot({ path: `${SHOTS}/notifications-desktop.png`, fullPage: true }); }
+    // light and dark, desktop and phone: no sideways scroll; on the phone the bell sits in the header row without covering the logo
+    const state = await context.storageState();
+    for (const scheme of ['light', 'dark']) {
+      for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]]) {
+        const other = await browser.newContext({ viewport: { width, height }, locale: 'en-GB', colorScheme: scheme, storageState: state, ...(width < 500 ? { isMobile: true, hasTouch: true } : {}) });
+        const p2 = await other.newPage(); watch(p2);
+        try {
+          await p2.goto(`${BASE}/admin.php?action=inbox`, { waitUntil: 'networkidle' });
+          const wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+          if (wide > 0) { throw new Error(`${wide} px of sideways scroll (${label}, ${scheme})`); }
+          const box = await p2.locator('.loginprouzek a.zvonek').boundingBox();
+          if (!box || box.x < 0 || box.x + box.width > width || box.y > 64) { throw new Error(`the bell is not in the header row (${label}, ${scheme}): ${JSON.stringify(box)}`); }
+          if (width < 500) {
+            const logo = await p2.locator('.hlavicka .kaleta-logo').boundingBox();
+            const firstButton = await p2.locator('.loginprouzek > :first-child').boundingBox();
+            if (!logo || !firstButton || logo.x + logo.width > firstButton.x) { throw new Error(`the header buttons cover the logo (${scheme}): ${JSON.stringify([logo, firstButton])}`); }
+          }
+          const colours = await p2.locator('.upozorneni-neprectene').first().evaluate((el) => [getComputedStyle(el).backgroundColor, getComputedStyle(el.querySelector('.upozorneni-co')).color]);
+          if (colours[0] === colours[1]) { throw new Error(`the text has the colour of its card (${label}, ${scheme})`); }
+          if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/notifications-${label}-${scheme}.png`, fullPage: true }); }
+        } finally {
+          await other.close();
+        }
+      }
+    }
+    // opening one marks it read and leads to its place
+    const mention = sql(`SELECT id FROM ka_notifications WHERE user_id = ${admin} AND kind = 'mention'`).trim();
+    await Promise.all([page.waitForNavigation(), rows.first().locator('a').click()]);
+    if (!page.url().includes(`module=pages&action=edit&id=${pageId}`)) { throw new Error(`the notification leads to ${page.url()}`); }
+    if (sql(`SELECT read_at IS NOT NULL FROM ka_notifications WHERE id = ${Number(mention)}`).trim() !== '1') { throw new Error('opening did not mark it read'); }
+    if ((await page.locator('.loginprouzek .zvonek-pocet').textContent()).trim() !== '3') { throw new Error('the bell did not count one less'); }
+    await visit('/admin.php?action=inbox');
+    await Promise.all([page.waitForNavigation(), page.locator('button[name="read_all"]').click()]);
+    if (await page.locator('.loginprouzek .zvonek-pocet').count() !== 0 || await page.locator('[data-inbox] .upozorneni-neprectene').count() !== 0) { throw new Error('Mark all as read left something unread'); }
+    if (await page.locator('button[name="read_all"]').count() !== 0) { throw new Error('Mark all as read is offered with nothing unread'); }
+    if (!(await page.locator('.hlaska-ok', { hasText: 'All notifications are marked as read.' }).isVisible())) { throw new Error('no message after Mark all as read'); }
+    // My account: the e-mail choice
+    await visit('/admin.php?action=account#notifications');
+    const choice = page.locator('#notifications');
+    if (await choice.locator('input[name="notify_email"]').count() !== 3 || !(await choice.locator('input[value="instant"]').isChecked())) { throw new Error('My account does not offer the three choices with Right away chosen'); }
+    await choice.locator('label.karta-volba', { hasText: 'Once a day' }).click();
+    if (SHOTS) { await choice.screenshot({ path: `${SHOTS}/notifications-account.png` }); }
+    await Promise.all([page.waitForNavigation(), choice.locator('input[type="submit"]').click()]);
+    if (sql(`SELECT notify_email FROM ka_uzivatele WHERE idu = ${admin}`).trim() !== 'daily') { throw new Error('the choice was not saved'); }
+    if (!(await page.locator('#notifications input[value="daily"]').isChecked())) { throw new Error('the saved choice is not shown'); }
+  } finally {
+    sql(`DELETE FROM ka_notifications WHERE user_id = ${admin}; DELETE FROM ka_stranky WHERE ids = ${pageId}; UPDATE ka_uzivatele SET notify_email = 'instant' WHERE idu = ${admin}`);
+  }
+});
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));
