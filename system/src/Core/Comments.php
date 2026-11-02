@@ -131,11 +131,28 @@ final class Comments
         }
     }
 
-    /** Notes whose enquiry no longer exists (deleted by a path that did not call forgetEnquiries) – the retention cleanup removes them. */
+    /**
+     * Notes whose enquiry no longer exists (deleted by a path that did not call forgetEnquiries) – the retention cleanup
+     * removes them. It runs on every visit of the Enquiries list, so the enquiries are looked up by their primary key (a
+     * join on CONCAT('enquiry:', idp) read every enquiry each time, N325-1) and nothing is cast in SQL (a strict sql_mode
+     * turns a cast of a malformed target into an error).
+     */
     public static function sweep(Db $db): int
     {
         try {
-            return $db->run("DELETE c FROM {comments} c LEFT JOIN {poptavky} p ON c.target = CONCAT('enquiry:', p.idp) WHERE c.target LIKE 'enquiry:%' AND p.idp IS NULL")->rowCount();
+            $targets = array_map(fn (array $r): string => (string) $r['target'], $db->all("SELECT DISTINCT target FROM {comments} WHERE target LIKE 'enquiry:%'"));
+            $gone = [];
+            foreach (array_chunk($targets, 500) as $chunk) {
+                $ids = array_values(array_unique(array_filter(array_map(fn (string $t): int => preg_match('/^enquiry:(\d{1,10})$/D', $t, $m) ? (int) $m[1] : 0, $chunk))));
+                $existing = $ids === [] ? [] : array_flip(array_map(fn (array $r): string => self::enquiry((int) $r['idp']), $db->all('SELECT idp FROM {poptavky} WHERE idp IN (' . implode(',', $ids) . ')')));
+                $gone = [...$gone, ...array_filter($chunk, fn (string $t): bool => !isset($existing[$t]))];
+            }
+            $deleted = 0;
+            foreach (array_chunk($gone, 500) as $chunk) {
+                $deleted += $db->run('DELETE FROM {comments} WHERE target IN (' . implode(',', array_fill(0, count($chunk), '?')) . ')', $chunk)->rowCount();
+            }
+
+            return $deleted;
         } catch (\PDOException) {
             return 0;
         }

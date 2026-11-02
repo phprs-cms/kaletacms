@@ -5175,9 +5175,13 @@ N325E=$(sq "INSERT INTO ka_poptavky (datum, formular, email, data, stav) VALUES 
 N325D=$(sq "INSERT INTO ka_poptavky (datum, formular, email, data, stav) VALUES ('$(site_time)', 'Kontakt 325', 'delete325@example.cz', '[]', 1); SELECT LAST_INSERT_ID();")
 mcp update_enquiry "{\"id\":$N325E,\"add_note\":\"Erase me\"}" > /dev/null; mcp update_enquiry "{\"id\":$N325D,\"add_note\":\"Delete me\"}" > /dev/null
 mcp erase_personal_data '{"email":"erase325@example.cz","confirm":true}' > /dev/null; mcp delete_enquiry "{\"id\":$N325D}" > /dev/null
-sq "INSERT INTO ka_comments (target, kind, text, created_at) VALUES ('enquiry:987654321', 'note', 'orphan', '$(site_time)')" > /dev/null
+# N325-1: the sweep looks enquiries up by id and survives a malformed target (no cast in SQL under a strict sql_mode); a note of a live enquiry stays
+N325K=$(sq "INSERT INTO ka_poptavky (datum, formular, email, data, stav) VALUES ('$(site_time)', 'Kontakt 325', 'keep325@example.cz', '[]', 1); SELECT LAST_INSERT_ID();")
+sq "INSERT INTO ka_comments (target, kind, text, created_at) VALUES ('enquiry:987654321', 'note', 'orphan', '$(site_time)'), ('enquiry:x325', 'note', 'malformed', '$(site_time)'), ('enquiry:$N325K', 'note', 'keep', '$(site_time)')" > /dev/null
 curl -s -b "$JAR" -o /dev/null "$B/admin.php?module=enquiries"
-expect "3.25: erase_personal_data, delete_enquiry and the cleanup leave no note behind" "$(sq "SELECT COUNT(*) FROM ka_comments WHERE target IN ('enquiry:$N325E', 'enquiry:$N325D', 'enquiry:987654321')")" "0"
+expect "3.25: erase_personal_data, delete_enquiry and the cleanup leave no note behind (a malformed one too), the note of a live enquiry stays" \
+  "$(sq "SELECT COUNT(*) FROM ka_comments WHERE target IN ('enquiry:$N325E', 'enquiry:$N325D', 'enquiry:987654321', 'enquiry:x325')")|$(sq "SELECT COUNT(*) FROM ka_comments WHERE target = 'enquiry:$N325K'")" "0|1"
+sq "DELETE FROM ka_comments WHERE target = 'enquiry:$N325K'; DELETE FROM ka_poptavky WHERE idp = $N325K" > /dev/null
 sq "DELETE FROM ka_events WHERE type = 'personal_data.erased'" > /dev/null # the personal data part below counts its own erasure
 echo "== 3.22 (C15): the Form's own confirmation e-mail text"
 mcp create_page '{"title":"Potvrzení 322","slug":"potvrzeni-322","visible":true}' > /dev/null
