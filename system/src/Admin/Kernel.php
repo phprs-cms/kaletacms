@@ -460,8 +460,9 @@ final class Kernel
                 ? $db->all('SELECT den, navstevy, zobrazeni FROM {stat_dny} WHERE den > ? ORDER BY den', [\Kaleta\Core\Clock::day('-14 days')]) : [],
             'counts' => array_filter([
                 // 3.24: what waits for me (Core\MyWork) – administrators keep the Dashboard first, the tile leads them to My work
-                // – without the enquiries assigned to me, which the tile "Assigned to me" counts already (no two tiles for the same rows)
-                'My work' => isset($modules['my_work']) && ($mine = \Kaleta\Core\MyWork::count($this->app, $modules, $this->app->auth()->id(), ['assigned'])) > 0 ? [$mine, 'admin.php?module=my_work'] : null,
+                // – without the enquiries assigned to me, which the tile "Assigned to me" counts already, and the new ones nobody
+                // handles, which "New enquiries" counts (no two tiles for the same rows, N324-3)
+                'My work' => isset($modules['my_work']) && ($mine = \Kaleta\Core\MyWork::count($this->app, $modules, $this->app->auth()->id(), ['assigned', 'unassigned'])) > 0 ? [$mine, 'admin.php?module=my_work'] : null,
                 // drafts of news authors wait for an editor – the tile only when there are some
                 'News from authors awaiting publication' => isset($modules['news']) && ($pending = Modules\News::countAwaitingPublication($this->app)) > 0 ? [$pending, 'admin.php?module=news&status=ke_vydani'] : null,
                 'New enquiries' => isset($modules['enquiries']) ? [Modules\Enquiries::countNew($db), 'admin.php?module=enquiries'] : null, // spam left out, as in the list (N315-10)

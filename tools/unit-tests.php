@@ -8498,7 +8498,9 @@ check('3.24 (B): Handled by e-mails the new person only when it changed; one rul
     str_contains($enquiries324, "return \\Kaleta\\Core\\Assignment::candidates(\$this->db, 'enquiry', \$assignee);"),
     str_contains($enquiries324, "WHERE prirazeno = ? AND stav < 2 AND ' . self::NOT_SPAM"),
     str_contains($kernel324, "'Assigned to me' => isset(\$modules['enquiries']) ? [Modules\\Enquiries::countAssigned(\$db, \$this->app->auth()->id()), 'admin.php?module=enquiries&status=moje'] : null,"),
-], [true, true, true, true, true]);
+    // N324-3: the My work tile leaves out the enquiries the tiles "Assigned to me" and "New enquiries" count
+    str_contains($kernel324, "MyWork::count(\$this->app, \$modules, \$this->app->auth()->id(), ['assigned', 'unassigned'])"),
+], [true, true, true, true, true, true]);
 $pages324 = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Pages.php');
 $collections324 = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Collections.php');
 check('3.24 (B): the responsible person is written only from a form that has the field, through Assignment::fromForm; a copy is the copier\'s only when the original had one; the page export never carries it', [
