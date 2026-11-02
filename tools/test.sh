@@ -9381,6 +9381,13 @@ expect "3.27 My work: Done marks it done, Tomorrow moves the due day keeping its
   "1|$(site_date '+1 day') 23:30:00|1|2|kept"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=my_work&action=complete" -d "_csrf=$(csrf)" -d "id=987654321"
 expect "3.27 My work: a task that does not exist changes nothing" "$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'my_work' AND akce = 'task_done'")" "1"
+# N327-3: a task about an enquiry done in My work – the change log names the task and the enquiry, never the title (it may name
+# the customer, and the change log outlives the enquiry)
+T327_N3=$(t327_php "echo Kaleta\Core\Tasks::create(\$app, ['title' => 'Call Mrs N3273 back', 'target' => 'enquiry:$T327_ENQ'], $T327_ADMIN);")
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=my_work&action=complete" -d "_csrf=$(csrf)" -d "id=${T327_N3:-0}"
+expect "N327-3 My work: the change log of a task about an enquiry names the enquiry, not the title" \
+  "$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'my_work' AND akce = 'task_done' AND popis = '#${T327_N3:-0} (enquiry:$T327_ENQ)'")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE popis LIKE '%N3273%'")" "1|0"
+sq "DELETE FROM ka_tasks WHERE id = ${T327_N3:-0}; DELETE FROM ka_protokol WHERE modul = 'my_work' AND popis = '#${T327_N3:-0} (enquiry:$T327_ENQ)'" > /dev/null
 check "3.27 My work: the Team tab – open tasks per person" 200 "/admin.php?module=my_work&action=team" 'data-list="team"'
 expect "3.27 My work: … Jana, Petr and Eva with their counts" "$(grep -c '>Jana T327<\|>Petr T327<\|>Eva T327<' "$WORK/response")" "3"
 # hand a task to Claude: Jana has no Ask Claude; the administrator's becomes a request and the task is done with its id

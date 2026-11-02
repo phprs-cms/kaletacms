@@ -102,8 +102,9 @@ final class MyWork extends Module
         } catch (\DomainException $e) {
             return $this->back($e->getMessage(), type: 'chyba');
         }
-        $title = (string) (Tasks::find($this->db, $id)['title'] ?? '');
-        \Kaleta\Admin\ChangeLog::write($this->app, self::IDENT, $done ? 'task_done' : 'task_reopened', '#' . $id . ' ' . $title);
+        $task = Tasks::find($this->db, $id);
+        $title = (string) ($task['title'] ?? '');
+        \Kaleta\Admin\ChangeLog::write($this->app, self::IDENT, $done ? 'task_done' : 'task_reopened', self::logged($id, $task));
 
         return $this->back($done ? t('Task done: %s', $title) : t('Task open again: %s', $title));
     }
@@ -122,8 +123,22 @@ final class MyWork extends Module
             return $this->back($e->getMessage(), type: 'chyba');
         }
         $task = Tasks::find($this->db, $id);
-        \Kaleta\Admin\ChangeLog::write($this->app, self::IDENT, 'task_snoozed', '#' . $id . ' ' . ($task['title'] ?? ''));
+        \Kaleta\Admin\ChangeLog::write($this->app, self::IDENT, 'task_snoozed', self::logged($id, $task));
 
         return $this->back(t('Task moved to %s.', format_date((string) ($task['due_at'] ?? ''))));
+    }
+
+    /**
+     * What the change log says about a task (N327-3): its id and title – for a task about an enquiry its id and the
+     * enquiry instead, since the title may name the customer and the change log outlives the enquiry's deletion and
+     * anonymisation (Core\Tasks::forgetTargets, anonymiseTargets), as Admin\TaskActions logs it.
+     *
+     * @param array<string, mixed>|null $task
+     */
+    private static function logged(int $id, ?array $task): string
+    {
+        $target = (string) ($task['target'] ?? '');
+
+        return mb_substr('#' . $id . ' ' . (str_starts_with($target, 'enquiry:') ? '(' . $target . ')' : (string) ($task['title'] ?? '')), 0, 255);
     }
 }
