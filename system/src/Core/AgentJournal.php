@@ -39,7 +39,7 @@ final class AgentJournal
         'social_drafts', 'notebook', 'requests', 'request_messages', 'draft_comments'];
 
     /** Tables with visitors' personal data: never journaled; rows an older release journaled are redacted by forget(). */
-    public const array PERSONAL_TABLES = ['poptavky', 'testimonial_requests', 'bookings', 'odberatele', 'posta', 'odber_fronta', 'newsletter_queue', 'comments'];
+    public const array PERSONAL_TABLES = ['poptavky', 'testimonial_requests', 'bookings', 'odberatele', 'posta', 'odber_fronta', 'newsletter_queue', 'comments', 'tasks'];
 
     /** Settings keys that are the site's own bookkeeping (timestamps of background work, versions) – never undone. */
     private const string BOOKKEEPING = '/^(db_version|data_migrations|notification_check)$|_(check|time|checked|seen|ts|at)$/';

@@ -10,7 +10,8 @@ namespace Kaleta\Core;
  * (ka_uzivatele.notify_email): instant (one e-mail right away, the default – as before 3.26), daily (one summary in the
  * morning) or off (the bell only).
  *
- * A notification says who did what where: a mention, an assignment, a comment on something of mine, a review date. It
+ * A notification says who did what where: a mention, an assignment, a comment on something of mine, a review date, a task
+ * that is due (3.27, Core\Tasks – target 'task:<id>' for a task about nothing, which opens My work). It
  * keeps the actor's name (it still reads after the account is removed) and at most EXCERPT characters of plain text –
  * never the content of an enquiry (an assignment carries no excerpt at all). Kept KEEP_DAYS days.
  *
@@ -24,7 +25,7 @@ namespace Kaleta\Core;
 final class Inbox
 {
     /** What a notification can be about. */
-    public const array KINDS = ['mention', 'assigned', 'comment', 'review_due'];
+    public const array KINDS = ['mention', 'assigned', 'comment', 'review_due', 'task_due'];
 
     /** The e-mail choices of ka_uzivatele.notify_email; the first is the default. */
     public const array EMAIL = ['instant', 'daily', 'off'];
@@ -49,8 +50,8 @@ final class Inbox
      * the response). Nothing for the actor themself, an unknown kind, or an account that is blocked or gone. Never throws –
      * a notification never undoes the work that caused it.
      *
-     * @param string $kind mention | assigned | comment | review_due
-     * @param string $target "enquiry:12", "page:5", "item:9"
+     * @param string $kind mention | assigned | comment | review_due | task_due
+     * @param string $target "enquiry:12", "page:5", "item:9", "task:3"
      * @param int|null $actorId who did it (null = Kaleta itself)
      * @param string $excerpt plain text, at most EXCERPT characters are kept (none for an assignment)
      */
@@ -75,7 +76,8 @@ final class Inbox
     public static function record(Db $db, int $userId, string $kind, string $target, ?int $actorId, string $excerpt = ''): ?array
     {
         $actorId = $actorId !== null && $actorId > 0 ? $actorId : null;
-        if ($userId <= 0 || $actorId === $userId || !in_array($kind, self::KINDS, true)) {
+        // a reminder of my own task is still mine to get (3.27): only task_due reaches the actor themself
+        if ($userId <= 0 || ($actorId === $userId && $kind !== 'task_due') || !in_array($kind, self::KINDS, true)) {
             return null;
         }
         try {
@@ -279,18 +281,28 @@ final class Inbox
                     'path' => 'admin.php?module=collections&action=item&id=' . (int) $r['idk'] . '&item=' . (int) $r['idp']];
             }
         }
+        if (isset($ids['task'])) {
+            // 3.27: a task about nothing (Core\Tasks) – it is done in My work; a deleted task is gone
+            try {
+                foreach ($db->all('SELECT id, title FROM {tasks} WHERE id IN (' . implode(',', array_unique($ids['task'])) . ')') as $r) {
+                    $out['task:' . (int) $r['id']] = ['kind' => 'task', 'id' => (int) $r['id'], 'title' => (string) $r['title'], 'path' => 'admin.php?module=my_work#task-' . (int) $r['id']];
+                }
+            } catch (\PDOException) {
+                // before migration 0113
+            }
+        }
 
         return $out;
     }
 
     /**
-     * A target string as [kind, id] – "enquiry:12", "page:5", "item:9"; null for anything else. Pure.
+     * A target string as [kind, id] – "enquiry:12", "page:5", "item:9", "task:3" (3.27); null for anything else. Pure.
      *
      * @return array{0: string, 1: int}|null
      */
     public static function parse(string $target): ?array
     {
-        return preg_match('/^(enquiry|page|item):([1-9]\d{0,9})$/D', $target, $m) === 1 ? [$m[1], (int) $m[2]] : null;
+        return preg_match('/^(enquiry|page|item|task):([1-9]\d{0,9})$/D', $target, $m) === 1 ? [$m[1], (int) $m[2]] : null;
     }
 
     /**
@@ -305,6 +317,7 @@ final class Inbox
             'comment' => t('%s commented', $actor),
             'assigned' => t('%s assigned it to you', $actor),
             'review_due' => t('The review date has come'),
+            'task_due' => t('A task is due'),
             default => $kind,
         };
     }
@@ -321,6 +334,7 @@ final class Inbox
             'enquiry' => t('Enquiry #%s · %s', (string) $place['id'], (string) $place['title']),
             'page' => t('Page “%s”', (string) $place['title']),
             'item' => t('“%s” in %s', (string) $place['title'], (string) ($place['collection'] ?? '')),
+            'task' => t('Task “%s”', (string) $place['title']),
             default => t('(no longer available)'),
         };
     }
@@ -344,6 +358,7 @@ final class Inbox
                 'mention' => t('%s mentioned you: %s', $actor, $where),
                 'comment' => t('%s commented on %s', $actor, $where),
                 'assigned' => t('%s assigned you %s', $actor, $where),
+                'task_due' => t('Task due: %s', $note['excerpt'] !== '' ? $note['excerpt'] : $where),
                 default => t('Review by today: “%s”', (string) ($place['title'] ?? $where)),
             };
             $text = self::what($note['kind'], $note['actor_name']) . ': ' . $where . "\n";

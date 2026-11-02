@@ -532,7 +532,8 @@ final class Comments
 
     /**
      * Deletes the notes of the given enquiries – call it wherever enquiries are deleted (the detail, the list, retention,
-     * job applications, erasure on request, MCP). Returns how many rows went.
+     * job applications, erasure on request, MCP) – and, since 3.27, the tasks about them (Core\Tasks). Returns how many
+     * notes went.
      *
      * @param list<int> $idps
      */
@@ -543,6 +544,7 @@ final class Comments
             return 0;
         }
         Inbox::forgetTargets($db, $targets); // 3.26: the notifications about them (they may quote a note) go too
+        Tasks::forgetTargets($db, $targets); // 3.27: the tasks about them too (their titles may name the customer)
         try {
             return $db->run('DELETE FROM {comments} WHERE target IN (' . implode(',', array_fill(0, count($targets), '?')) . ')', $targets)->rowCount();
         } catch (\PDOException) {
@@ -562,6 +564,7 @@ final class Comments
             return 0;
         }
         Inbox::forgetTargets($db, $targets, true); // 3.26: a notification quoting a note loses the quote too
+        Tasks::anonymiseTargets($db, $targets); // 3.27: the tasks about them keep who and when, the title goes
         try {
             return $db->run("UPDATE {comments} SET text = '', mentions = NULL WHERE target IN (" . implode(',', array_fill(0, count($targets), '?')) . ')', $targets)->rowCount();
         } catch (\PDOException) {
@@ -607,6 +610,7 @@ final class Comments
     {
         $targets = array_values(array_unique(array_filter($targets, fn (string $t): bool => self::parseTarget($t) !== null)));
         Inbox::forgetTargets($db, $targets); // the notifications about them go too (they may quote a comment)
+        Tasks::forgetTargets($db, $targets); // 3.27: and the tasks about them
         $deleted = 0;
         try {
             foreach (array_chunk($targets, 500) as $chunk) {

@@ -615,6 +615,30 @@ CREATE TABLE ka_notifications (
     KEY ix_notifications_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
+-- 3.27: tasks and follow-ups (Core\Tasks). One person each (assignee_id; NULL only after a leaver's work went to nobody),
+-- optionally about a record (target 'enquiry:<idp>' | 'page:<ids>' | 'item:<idp>' – text, no foreign key: the task follows
+-- its record, deleted with it, the title blanked when an enquiry is anonymised). The job "tasks" notifies once per task when
+-- remind_at (or due_at) has passed (notified_at). request_id = handed to Claude as a request (the task is then done).
+CREATE TABLE ka_tasks (
+    id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    title       VARCHAR(200) NOT NULL,
+    target      VARCHAR(40) NULL,
+    assignee_id INT UNSIGNED NULL,                       -- no foreign key, like ka_poptavky.prirazeno
+    created_by  INT UNSIGNED NULL,
+    due_at      DATETIME NULL,
+    remind_at   DATETIME NULL,
+    notified_at DATETIME NULL,
+    done_at     DATETIME NULL,
+    done_by     INT UNSIGNED NULL,
+    request_id  INT UNSIGNED NULL,                       -- ka_requests.id when handed to Claude
+    created_at  DATETIME NOT NULL,
+    updated_at  DATETIME NOT NULL,
+    PRIMARY KEY (id),
+    KEY ix_tasks_assignee (assignee_id, done_at, due_at),   -- my open tasks by due date
+    KEY ix_tasks_target (target),                           -- the tasks of a record
+    KEY ix_tasks_due (done_at, notified_at)                 -- the reminder job
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
 -- Collections: custom content types (references, team, products, branches…). pole = JSON [{klic, popisek, typ}], typ: text | radky | html | obrazek | odkaz | cislo | datum | termin | soubor | poloha | polozka.
 -- detail = items have their own page /<seo_link>/<item seo> with an item template from the builder (stavba, stavba_koncept).
 CREATE TABLE ka_kolekce (

@@ -78,6 +78,7 @@ final class TimeZoneConversion
         'poptavky' => ['datum', 'triaged_at', 'anonymizovano'],
         'comments' => ['created_at', 'edited_at', 'deleted_at'],
         'notifications' => ['created_at', 'read_at', 'emailed_at'],
+        'tasks' => ['due_at', 'remind_at', 'notified_at', 'done_at', 'created_at', 'updated_at'], // 3.27
         'kolekce' => ['zmeneno'],
         'kolekce_polozky' => ['zverejnit_od', 'datum', 'zmeneno', 'links_checked', 'smazano'],
         'kolekce_sablony' => ['zmeneno'],

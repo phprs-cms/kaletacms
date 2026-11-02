@@ -77,6 +77,7 @@ return [
     'newsletter_queue' => ['newsletter_queue', []],
     'comments' => ['comments', []],
     'notifications' => ['notifications', []],
+    'tasks' => ['tasks', []],
     // links, imports and statistics
     'nenalezeno' => ['not_found', ['cesta' => 'path', 'pocet' => 'hits', 'naposledy' => 'last_seen_at']],
     'odkazy_vadne' => ['broken_links', ['ido' => 'id']],
