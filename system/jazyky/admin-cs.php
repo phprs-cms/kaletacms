@@ -6792,4 +6792,5 @@ return [
     'It did not need a single decision from you.' => 'Nepotřeboval od vás jediné rozhodnutí.',
     'It needed your attention once.' => 'Vaši pozornost potřeboval jednou.',
     'It needed your attention %s times.' => 'Vaši pozornost potřeboval %s×.',
+    'This browser is signed in as %s. Setting the password signs it out; then sign in as %s.' => 'Tento prohlížeč je přihlášený jako %s. Nastavení hesla ho odhlásí; pak se přihlaste jako %s.',
 ];

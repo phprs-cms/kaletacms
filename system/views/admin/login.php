@@ -41,7 +41,7 @@
 <p><?= e(t('Enter the six-digit code from your authenticator app. No phone? Use one of your backup codes.')) ?></p>
 <div class="login-pole"><label for="kod"><?= e(t('Verification code:')) ?></label> <input class="textpole" type="text" id="kod" name="kod" size="20" maxlength="12" inputmode="numeric" autocomplete="one-time-code" required autofocus></div>
 <?php else: ?>
-<div class="login-pole"><label for="user"><?= e(t('Přihlašovací jméno')) ?></label> <input class="textpole" type="text" id="user" name="user" value="<?= e($demo !== null && $login === '' ? $demo['user'] : $login) ?>" size="20" maxlength="40" autocomplete="username" required autofocus></div>
+<div class="login-pole"><label for="user"><?= e(t('User name or e-mail')) ?></label> <input class="textpole" type="text" id="user" name="user" value="<?= e($demo !== null && $login === '' ? $demo['user'] : $login) ?>" size="20" maxlength="190" autocomplete="username" required autofocus></div>
 <div class="login-pole"><label for="password"><?= e(t('Password')) ?></label> <input class="textpole" type="password" id="password" name="password" size="20" autocomplete="current-password" required<?= $demo !== null ? ' value="' . e($demo['password']) . '"' : '' ?>></div>
 <?php endif ?>
 <p><input class="tl" type="submit" value="<?= e(t($code ? 'Verify code' : 'Přihlásit se')) ?>"></p>

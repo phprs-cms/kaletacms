@@ -201,6 +201,11 @@ final class Kernel
         if ($app->auth()->user() === null) {
             return $action === 'password' ? (new PasswordReset($app))->handle() : $this->login();
         }
+        if ($action === 'password' && ($request->get('token') !== '' || $request->post('token') !== '')) {
+            // a link from an invitation or a password e-mail opened where someone is signed in (an administrator trying the
+            // invitation, a shared computer): it still sets the password, and that signs this browser out (PasswordReset)
+            return (new PasswordReset($app))->handle();
+        }
         if ($action === 'logout' && $request->isPost()) {
             $app->auth()->logout();
 

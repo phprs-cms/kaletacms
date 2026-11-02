@@ -2615,6 +2615,22 @@ JAR3="$WORK/jar3"
 TOKEN3=$(curl -s -c "$JAR3" "$B/admin.php?action=password&token=$FAKE_REFRESH" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//' || true)
 curl -s -b "$JAR3" -c "$JAR3" -o /dev/null -X POST "$B/admin.php?action=password" -d "_csrf=$TOKEN3" -d "token=$FAKE_REFRESH" --data-urlencode "password=Nove-heslo-123" --data-urlencode "password2=Nove-heslo-123"
 expect "obnova hesla zruší tokeny napojení" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_api_tokeny t JOIN ka_uzivatele u ON u.idu = t.idu WHERE u.user = 'obchodnik'")" "0"
+# the invitation link opened where another account is signed in still sets the password and signs that browser out;
+# the invited user then signs in with the new password by user name and by the e-mail the invitation came to
+csrf_of() { grep -o 'name="_csrf" value="[a-f0-9]*"' "$1" | head -1 | sed 's/.*value="//;s/"//' || true; }
+INVITE_TOKEN="$(printf 'd%.0s' $(seq 1 64))"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET obnova_otisk = '$(php -r 'echo hash("sha256", $argv[1]);' "$INVITE_TOKEN")', obnova_cas = '$(site_time)' + INTERVAL 3 DAY WHERE user = 'pozvany'"
+JAR5="$WORK/jar5"; curl -s -c "$JAR5" -o "$WORK/response" "$B/admin.php"
+SIGNED_IN=$(curl -s -b "$JAR5" -c "$JAR5" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$(csrf_of "$WORK/response")" -d user=obchodnik --data-urlencode "password=Nove-heslo-123")
+curl -s -b "$JAR5" -c "$JAR5" -o "$WORK/response" "$B/admin.php?action=password&token=$INVITE_TOKEN"
+INVITE_FORM="$(grep -c 'name="user" value="pozvany" autocomplete="username"' "$WORK/response" || true)|$(grep -c 'přihlášený jako obchodnik' "$WORK/response" || true)"
+# the token as the form carries it, not as the test knows it: from 1.4.0 the form sent it empty and never set the password
+FORM_TOKEN=$(grep -o 'name="token" value="[a-f0-9]*"' "$WORK/response" | sed 's/.*value="//;s/"//' || true)
+INVITE_SET=$(curl -s -b "$JAR5" -c "$JAR5" -o /dev/null -w '%{http_code} %{redirect_url}' -X POST "$B/admin.php?action=password" -d "_csrf=$(csrf_of "$WORK/response")" -d "token=$FORM_TOKEN" --data-urlencode "password=Pozvany-heslo-123" --data-urlencode "password2=Pozvany-heslo-123")
+curl -s -b "$JAR5" -c "$JAR5" -o "$WORK/response" "$B/admin.php"
+expect "pozvánka otevřená u jiného přihlášení nastaví heslo a odhlásí" "$SIGNED_IN|$INVITE_FORM|${INVITE_SET%% *}|$(grep -q 'password_changed=1$' <<< "$INVITE_SET" && echo ok)|$(grep -c 'autocomplete="current-password"' "$WORK/response" || true)" "302|1|1|302|ok|1"
+invite_login() { local jar="$WORK/jar-$2"; curl -s -c "$jar" -o "$WORK/response" "$B/admin.php"; curl -s -b "$jar" -c "$jar" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$(csrf_of "$WORK/response")" --data-urlencode "user=$1" --data-urlencode "password=Pozvany-heslo-123"; }
+expect "pozvaný se přihlásí jménem i e-mailem" "$(invite_login pozvany name)|$(invite_login pozvany@example.cz email)" "302|302"
 JAR4="$WORK/jar4"
 TOKEN4=$(curl -s -c "$JAR4" "$B/admin.php" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//' || true)
 for i in $(seq 1 10); do curl -s -b "$JAR4" -c "$JAR4" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN4" -d user=obchodnik -d password=spatne-heslo-xyz; done

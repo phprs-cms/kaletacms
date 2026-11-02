@@ -76,6 +76,12 @@ final class Auth
         }
 
         $user = $this->db->one('SELECT * FROM {uzivatele} WHERE user = ?', [$login]);
+        if ($user === null && str_contains($login, '@')) {
+            // the e-mail an invitation or a password link came to signs in too (a user name never has "@"), but only an
+            // e-mail of exactly one account – two accounts may share it, and then neither is guessed
+            $byEmail = $this->db->all("SELECT * FROM {uzivatele} WHERE email = ? AND email <> '' LIMIT 2", [$login]);
+            $user = count($byEmail) === 1 ? $byEmail[0] : null;
+        }
         // A locked or blocked account is never checked against its own password (3.3.3, N51): a different answer to the
         // right password would confirm it, and the lock would shut out only the real owner. The dummy hash is verified
         // instead – for a nonexistent user too – so the response time is the same in every case.

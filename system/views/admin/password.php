@@ -8,6 +8,7 @@
  * @var ?string $error
  * @var string $token
  * @var string $account
+ * @var string $signedIn the user name signed in in this browser when it is another account ('' = nobody)
  */
 ?>
 <!doctype html>
@@ -34,6 +35,11 @@
 <form method="post" action="<?= e($app->url('admin.php?action=password')) ?>">
 <?= $app->session->csrfField() ?>
 <input type="hidden" name="token" value="<?= e($token) ?>">
+<?php // the account's name for password managers: without it a browser saves the new password to another name it knows ?>
+<input type="text" name="user" value="<?= e($account) ?>" autocomplete="username" readonly hidden>
+<?php if ($signedIn !== ''): ?>
+<p class="hlaska hlaska-varovani" role="status"><?= e(t('This browser is signed in as %s. Setting the password signs it out; then sign in as %s.', $signedIn, $account)) ?></p>
+<?php endif ?>
 <p><?= e(t('Account: %s', $account)) ?></p>
 <div class="login-pole"><label for="password"><?= e(t('New password')) ?></label> <input class="textpole" type="password" id="password" name="password" size="20" minlength="10" autocomplete="new-password" required autofocus></div>
 <div class="login-pole"><label for="password2"><?= e(t('Heslo znovu')) ?></label> <input class="textpole" type="password" id="password2" name="password2" size="20" minlength="10" autocomplete="new-password" required></div>

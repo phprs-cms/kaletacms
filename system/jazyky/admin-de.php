@@ -7200,4 +7200,5 @@ return [
     'It did not need a single decision from you.' => 'Dabei war keine einzige Entscheidung von Ihnen nötig.',
     'It needed your attention once.' => 'Einmal war Ihre Aufmerksamkeit nötig.',
     'It needed your attention %s times.' => '%s-mal war Ihre Aufmerksamkeit nötig.',
+    'This browser is signed in as %s. Setting the password signs it out; then sign in as %s.' => 'Dieser Browser ist als %s angemeldet. Das Festlegen des Passworts meldet ihn ab; melden Sie sich danach als %s an.',
 ];
