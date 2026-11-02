@@ -77,6 +77,7 @@ final class TimeZoneConversion
         'draft_comments' => ['created_at', 'resolved_at'],
         'poptavky' => ['datum', 'triaged_at', 'anonymizovano'],
         'comments' => ['created_at', 'edited_at', 'deleted_at'],
+        'notifications' => ['created_at', 'read_at', 'emailed_at'],
         'kolekce' => ['zmeneno'],
         'kolekce_polozky' => ['zverejnit_od', 'datum', 'zmeneno', 'links_checked', 'smazano'],
         'kolekce_sablony' => ['zmeneno'],

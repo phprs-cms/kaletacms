@@ -37,6 +37,7 @@ CREATE TABLE ka_uzivatele (
     foto           VARCHAR(255) NOT NULL DEFAULT '',
     bio            TEXT NULL,                             -- a few sentences about the author
     team_item_id   INT UNSIGNED NULL,                     -- the person's record in the Team collection (3.14, Builder\TeamRecord); NULL = by the e-mail
+    notify_email   VARCHAR(10) CHARACTER SET ascii NOT NULL DEFAULT 'instant', -- e-mail for notifications: instant | daily | off (3.26, migration 0112)
     PRIMARY KEY (idu),
     UNIQUE KEY uq_user (user)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
@@ -595,6 +596,23 @@ CREATE TABLE ka_comments (
     deleted_at  DATETIME NULL,
     PRIMARY KEY (id),
     KEY ix_comments_target (target, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- 3.26: notifications in the administration (bell, inbox); kept 90 days, never the text of an enquiry.
+CREATE TABLE ka_notifications (
+    id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    user_id     INT UNSIGNED NOT NULL,
+    kind        VARCHAR(20) NOT NULL,                    -- mention | assigned | comment | review_due (3.26, Core notifications)
+    target      VARCHAR(40) NOT NULL DEFAULT '',
+    actor_id    INT UNSIGNED NULL,
+    actor_name  VARCHAR(100) NOT NULL DEFAULT '',
+    excerpt     VARCHAR(255) NOT NULL DEFAULT '',
+    created_at  DATETIME NOT NULL,
+    read_at     DATETIME NULL,
+    emailed_at  DATETIME NULL,
+    PRIMARY KEY (id),
+    KEY ix_notifications_user (user_id, read_at, id),
+    KEY ix_notifications_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Collections: custom content types (references, team, products, branches…). pole = JSON [{klic, popisek, typ}], typ: text | radky | html | obrazek | odkaz | cislo | datum | termin | soubor | poloha | polozka.
