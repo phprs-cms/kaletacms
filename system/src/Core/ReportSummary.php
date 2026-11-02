@@ -90,7 +90,14 @@ final class ReportSummary
                 'sessions' => is_array($data['claude'] ?? null) ? $int($data['claude']['sessions'] ?? 0) : null,
                 'runs' => is_array($data['claude'] ?? null) ? $int($data['claude']['runs'] ?? 0) : null], static fn (?int $v): bool => $v !== null);
         }
-        $people = ['changes' => $int($changes['people'] ?? 0)];
+        // N3261-2: the changes people made – counted for the care part (no sign-ins, no comments, which have their own line);
+        // a report before it: the change log by area (no sign-ins either), only the oldest ones the bare count
+        $areas = is_array($data['work']['areas'] ?? null) ? array_filter($data['work']['areas'], 'is_array') : null;
+        $people = ['changes' => match (true) {
+            array_key_exists('people_changes', $care) => $int($care['people_changes']),
+            $areas !== null => array_sum(array_map(static fn (array $a): int => $int($a['people'] ?? 0), $areas)),
+            default => $int($changes['people'] ?? 0),
+        }];
         if (array_key_exists('comments', $care)) {
             $people['comments'] = $int($care['comments']);
         }

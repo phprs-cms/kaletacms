@@ -220,12 +220,16 @@ final class MonthlyReport
                 $checks[$job] = max(0, $count - (int) ($before[$job] ?? 0));
             }
         }
+        // N3261-2: what people changed in the administration – the change log of signed-in people (kdo), without sign-ins and
+        // failed sign-ins (a bot's attempts are no work), Kaleta's own changes (no user) and the comments counted below
+        $peopleChanges = (int) $db->value("SELECT COUNT(*) FROM {protokol} WHERE cas >= ? AND cas < ? AND via = '' AND kdo IS NOT NULL
+            AND modul NOT IN ('prihlaseni', 'whistleblowing') AND akce NOT IN ('comment added', 'note added')", [$from, $to]);
         $comments = null;
         try { // the team's notes on enquiries and comments on pages and items (3.26) – by people, not through Claude
             $comments = (int) $db->value("SELECT COUNT(*) FROM {comments} WHERE created_at >= ? AND created_at < ? AND deleted_at IS NULL AND via <> 'mcp'", [$from, $to]);
         } catch (\Throwable) {
         }
-        $care = ['job_runs' => $runs, 'checks' => $checks, 'offsite_copies' => $events['backup.copied'] ?? 0, 'links_healed' => $events['links.healed'] ?? 0,
+        $care = ['job_runs' => $runs, 'checks' => $checks, 'people_changes' => $peopleChanges, 'offsite_copies' => $events['backup.copied'] ?? 0, 'links_healed' => $events['links.healed'] ?? 0,
             'redirects_auto' => $events['redirect.auto'] ?? 0, 'attention' => array_filter(array_intersect_key($events, ReportSummary::ATTENTION_EVENTS))];
         if ($comments !== null) {
             $care['comments'] = $comments;

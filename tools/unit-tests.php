@@ -557,7 +557,7 @@ check('3.16 N316-7: the firewall keeps 30 days – a report says from when its f
 // Core\ReportSummary: headline tiles, what it took to run the site (counted, never hours or money), uptime only with a console
 use Kaleta\Core\ReportSummary;
 use Kaleta\Core\ReportVisual;
-$care3261 = $report316 + ['care' => ['job_runs' => ['domain_watch' => 90, 'security' => 90], 'checks' => ['domain_watch' => 30, 'security' => 31], 'offsite_copies' => 20,
+$care3261 = $report316 + ['care' => ['job_runs' => ['domain_watch' => 90, 'security' => 90], 'checks' => ['domain_watch' => 30, 'security' => 31], 'people_changes' => 12, 'offsite_copies' => 20,
     'links_healed' => 1, 'redirects_auto' => 2, 'comments' => 4, 'spam' => 6, 'enquiries_handled' => 2, 'replies' => 3, 'attention' => ['content.review' => 2, 'backup.failed' => 1, 'whatever.else' => 9]]];
 $care3261['stats']['days'] = array_merge(array_fill(0, 29, 4), [8]);
 $care3261['stats']['pages'][] = ['path' => '/kontakt', 'n' => 40];
@@ -630,9 +630,9 @@ check('3.26.1: uptime only with a console – the tile and the section with the 
     [true, true, true, false, false, false]);
 $old3261 = MonthlyReport::render(['month' => '2026-09', 'stats' => ['visits' => 4321], 'enquiries' => ['total' => 17, 'forms' => [['form' => 'Kontakt', 'n' => 17]]], 'requests' => ['done_count' => 3, 'done' => [['title' => 'Secret title 317']]],
     'work' => ['areas' => ['pages' => ['people' => 4, 'claude' => 9]]], 'updates' => [['type' => 'update.applied']], 'backups' => ['created' => 30]], $reportSettings(['site_language' => 'cs']), 'https://example.com');
-check('3.26.1: an archived report of 3.16–3.26 with missing parts still renders – in Czech, tiles of what is there, no checks line, no title of a request',
+check('3.26.1: an archived report of 3.16–3.26 with missing parts still renders – in Czech, tiles of what is there, no checks line, no title of a request, the changes of people from its change log by area (N3261-2)',
     [str_contains($old3261['html'], 'Co dal provoz webu za práci'), substr_count($old3261['html'], 'class="kr-tile"'), str_contains($old3261['html'], 'Denní kontroly'), str_contains($old3261['html'] . $old3261['text'], 'Secret title'),
-        str_contains($old3261['text'], 'Provoz webu Testovací firma si vyžádal 34 úkonů: 31 proběhlo automaticky, 3 udělal Claude a 0 lidé.')],
+        str_contains($old3261['text'], 'Provoz webu Testovací firma si vyžádal 38 úkonů: 31 proběhlo automaticky, 3 udělal Claude a 4 lidé.')],
     [true, 3, false, false, true]);
 $visualPage3261 = Kaleta\Core\ReportPage::render($view316, ['month' => '2026-09', 'created_at' => '2026-10-01 03:00:00', 'rebuilt_at' => null, 'data' => $care3261], $reportSettings(['design_system' => json_encode(['barvy' => ['primarni' => '#9a3412']])]), 'https://example.com/', [], ['enquiries' => ['total' => 6]]);
 check('3.26.1: the report page shares the e-mail\'s blocks – the band and bars in the accent, the tiles, what it took to run the site; dark on a dark screen only, never in print; the fleet report has no visual summary',
@@ -9137,6 +9137,15 @@ $jobSources3261 = array_map(fn (string $f): string => (string) file_get_contents
 check('3.26.1 (N3261-1): the process that installed an update runs no background job – neither after the admin answer nor the rest of a scheduler run', [
     $installedBefore3261, $runs3261[0], str_contains($jobSources3261[0], "< 60 || Updater::installedNow()) {\n            return;"), str_contains($jobSources3261[1], 'if (microtime(true) > $end || Updater::installedNow()) {'),
     substr_count($jobSources3261[2], 'self::$installedNow = true;')], [false, true, true, true, 1]);
+
+// N3261-2: "Done by people" counts the changes of signed-in people once – no sign-ins (a bot's failed attempts), no comment twice
+$peopleSql3261 = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/MonthlyReport.php');
+check('3.26.1 (N3261-2): the changes people made – the care count when the report has it, otherwise the change log by area (without sign-ins), only the oldest reports the bare count; the query leaves out sign-ins, Kaleta and comments', [
+    ReportSummary::care(['care' => ['people_changes' => 3, 'comments' => 2], 'changes' => ['people' => 40], 'work' => ['areas' => ['pages' => ['people' => 9]]]])['people'],
+    ReportSummary::care(['changes' => ['people' => 40], 'work' => ['areas' => ['pages' => ['people' => 4, 'claude' => 6], 'look' => ['people' => 1], 'x' => 'junk']]])['people'],
+    ReportSummary::care(['changes' => ['people' => 40]])['people'],
+    str_contains($peopleSql3261, "via = '' AND kdo IS NOT NULL\n            AND modul NOT IN ('prihlaseni', 'whistleblowing') AND akce NOT IN ('comment added', 'note added')")],
+    [['changes' => 3, 'comments' => 2], ['changes' => 5], ['changes' => 40], true]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);
