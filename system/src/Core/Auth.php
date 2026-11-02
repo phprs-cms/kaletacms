@@ -382,6 +382,18 @@ final class Auth
         return $this->user;
     }
 
+    /**
+     * After the answer went out (3.24, Notifications::afterAdminResponse): the background jobs that follow are Kaleta's own
+     * work, not this person's – the change log, the notice board's audit trail and the automatic blocks must not name them.
+     * Only this request forgets the person; the session (already closed) stays signed in.
+     */
+    public function forgetForBackground(): void
+    {
+        $this->user = null;
+        $this->modules = null;
+        $this->connection = null;
+    }
+
     /** Sign-in without a session - for requests authenticated by a token (MCP). */
     public function signInAs(array $user): void
     {

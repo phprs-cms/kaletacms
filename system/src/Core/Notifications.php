@@ -47,6 +47,9 @@ final class Notifications
         if (session_status() === PHP_SESSION_ACTIVE) {
             session_write_close(); // the person's next click must not wait for the session these jobs would hold
         }
+        // N324-2: the jobs are Kaleta's own changes, as on a visit – never logged as this person's (the change log, the
+        // notice board's audit trail, automatic blocks and redirects)
+        $app->auth()->forgetForBackground();
         Language::runWith(Language::defaults($app->settings()), fn () => self::runInBackground($app));
     }
 

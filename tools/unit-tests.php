@@ -8602,5 +8602,17 @@ check('3.24: MCP assign and update_enquiry send the assignment e-mail through Ha
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/layout.php'), '$myWorkFirst = !$app->auth()->isAdmin();'),
 ], [1, true]);
 
+// N324-2: the background jobs after an admin answer are Kaleta's own work – the request forgets the signed-in person first
+$n3242Auth = (new ReflectionClass(Kaleta\Core\Auth::class))->newInstanceWithoutConstructor();
+(fn () => $this->user = ['idu' => 7, 'admin' => Kaleta\Core\Auth::ADMIN, 'jmeno' => 'Jana'])->call($n3242Auth);
+$n3242Auth->useConnection('Claude', 'full');
+$n3242Before = [$n3242Auth->id(), $n3242Auth->isAdmin()];
+$n3242Auth->forgetForBackground();
+$n3242Notifications = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Notifications.php');
+check('N324-2: Auth::forgetForBackground – nobody is signed in for the rest of the request (no connection either); afterAdminResponse calls it before the jobs', [
+    $n3242Before, $n3242Auth->user(), $n3242Auth->id(), $n3242Auth->isAdmin(), $n3242Auth->connection(),
+    strpos($n3242Notifications, '$app->auth()->forgetForBackground();') !== false && strpos($n3242Notifications, '$app->auth()->forgetForBackground();') < strpos($n3242Notifications, 'fn () => self::runInBackground($app)'),
+], [[7, true], null, 0, false, null, true]);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);
