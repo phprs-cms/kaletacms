@@ -677,7 +677,7 @@ await step('3.18.1 builder dialogs: readable buttons when the admin theme differ
   for (const [system, admin] of [['dark', 'svetly'], ['light', 'tmavy']]) {
     await page.emulateMedia({ colorScheme: system });
     await page.evaluate((t) => document.documentElement.setAttribute('data-tema', t), admin);
-    await page.evaluate(() => document.querySelector('#st-lista-vice button[title="Published versions"]').click()); // an item of the ⋯ menu
+    await page.evaluate(() => document.querySelector('#st-lista-vice button[title="Draft history and published versions"]').click()); // an item of the ⋯ menu
     const dialog = page.locator('dialog.st-dialog[open]');
     await dialog.waitFor();
     const bad = await dialog.locator('button').evaluateAll((list) => list.map((b) => {
@@ -2881,6 +2881,65 @@ await step('3.24 My work: first in an editor\'s menu, the waiting rows (1440 and
   if (after[0] !== after[3] || after[1] !== after[3] || after[2] !== '1') { throw new Error(`after the hand-over: ${after.join('|')}`); }
   if (!(await page.locator('.hlaska-ok', { hasText: 'Now responsible: Tester' }).isVisible())) { throw new Error('no message about the hand-over'); }
   sql(`DELETE FROM ka_stranky WHERE seo_link = 'work-324'; DELETE FROM ka_poptavky WHERE formular = 'Quote 324'; DELETE FROM ka_uzivatele_prava WHERE fk_id_user = ${Number(idu)}; DELETE FROM ka_uzivatele WHERE idu = ${Number(idu)}`);
+});
+
+// 3.25 (C21, U17): the Versions dialog lists the draft history and the published versions; Compare shows a per-section text
+// diff against the current draft; loading an autosave makes it the draft and Undo takes it back
+await step('3.25 builder Versions: draft history, per-section compare, load an autosave and undo it (1440 and 390 px, dark mode)', async () => {
+  if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
+  const section = (id, heading, text) => ({ id, typ: 'sekce', znacka: 'section', obsah: {}, deti: [{ id: id + 'h', typ: 'nadpis', znacka: 'h2', obsah: { text: heading } }, { id: id + 't', typ: 'text', znacka: 'div', obsah: { html: `<p>${text}</p>` } }] });
+  const now = JSON.stringify({ v: 1, deti: [section('b325a', 'Prices', 'From 120 EUR a month.'), section('b325c', 'Reviews', 'Clients love it.')] }).replace(/'/g, "''");
+  const old = JSON.stringify({ v: 1, deti: [section('b325a', 'Prices', 'From 100 EUR a month.'), section('b325b', 'Old offer', 'Gone soon.')] }).replace(/'/g, "''");
+  sql(`DELETE FROM ka_stranky WHERE seo_link = 'versions-325'; INSERT INTO ka_stranky (seo_link, titulek, text, v_menu, stavba) VALUES ('versions-325', 'Versions 325', '', 0, '${now}')`);
+  const id = sql("SELECT ids FROM ka_stranky WHERE seo_link = 'versions-325'").trim();
+  sql(`INSERT INTO ka_stavba_revize (ids, cast, datum, kdo, stavba) SELECT ${id}, 'draft', NOW() - INTERVAL 20 MINUTE, idu, '${old}' FROM ka_uzivatele WHERE user = 'admin';
+    INSERT INTO ka_stavba_revize (ids, cast, datum, kdo, stavba) VALUES (${id}, NULL, NOW() - INTERVAL 1 DAY, NULL, '${old}')`);
+  await visit(`/admin.php?module=pages&action=builder&id=${id}`);
+  await builderIdle();
+  await page.evaluate(() => document.querySelector('#st-lista-vice button[title="Draft history and published versions"]').click());
+  const dialog = page.locator('dialog.st-verze[open]');
+  await dialog.waitFor();
+  const draftRow = dialog.locator('.st-verze-koncepty li').first();
+  if (!/^Draft – today \d\d:\d\d \(by Tester\)$/.test((await draftRow.locator('span').first().textContent()).trim())) { throw new Error(`the draft entry says “${await draftRow.textContent()}”`); }
+  if ((await dialog.locator('.st-verze-publikovane li').count()) !== 1) { throw new Error('the published version is not listed'); }
+  await draftRow.locator('.st-verze-porovnej').click();
+  await dialog.locator('.st-porovnani-sekce').first().waitFor();
+  const blocks = await dialog.locator('.st-porovnani-sekce h4').allTextContents();
+  const expected = ['Prices Changed', 'Reviews Only in the current draft', 'Old offer Not in the current draft'];
+  if (JSON.stringify(blocks.map((b) => b.trim())) !== JSON.stringify(expected)) { throw new Error(`the compare shows ${JSON.stringify(blocks)}`); }
+  if ((await dialog.locator('.st-porovnani-sekce').first().locator('del').first().textContent()).trim() !== '100' || (await dialog.locator('.st-porovnani-sekce').first().locator('ins').first().textContent()).trim() !== '120') {
+    throw new Error('the changed section does not strike 100 and underline 120');
+  }
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/325-versions-compare.png` }); }
+  for (const scheme of ['dark']) {
+    await page.emulateMedia({ colorScheme: scheme });
+    const colours = await dialog.locator('.st-diff ins').first().evaluate((n) => { const s = getComputedStyle(n); return [s.color, s.backgroundColor]; });
+    if (colours[0] === colours[1]) { throw new Error(`the inserted text is unreadable in ${scheme} mode`); }
+    if (SHOTS) { await page.screenshot({ path: `${SHOTS}/325-versions-compare-${scheme}.png` }); }
+  }
+  await page.emulateMedia({ colorScheme: 'light' });
+  await dialog.locator('footer button', { hasText: 'Close' }).click();
+  // load the autosave into the draft: the canvas shows the old text, Undo brings the current one back
+  await page.evaluate(() => document.querySelector('#st-lista-vice button[title="Draft history and published versions"]').click());
+  await page.locator('dialog.st-verze[open] .st-verze-koncepty li .st-verze-obnov').first().click();
+  await canvas().locator('text=Old offer').waitFor({ timeout: 15000 });
+  if (!(sql(`SELECT stavba_koncept LIKE '%Old offer%' FROM ka_stranky WHERE ids = ${id}`).trim() === '1')) { throw new Error('the autosave is not the draft on the server'); }
+  if (sql(`SELECT COUNT(*) FROM ka_stavba_revize WHERE ids = ${id} AND cast = 'draft' AND stavba LIKE '%Reviews%'`).trim() !== '1') { throw new Error('the replaced draft is not kept in the draft history'); }
+  await page.locator('.st-lista button[title="Undo (Ctrl+Z)"]').click();
+  await canvas().locator('text=Clients love it.').waitFor({ timeout: 15000 });
+  await builderIdle();
+  // a phone: the dialog fits without sideways scroll
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(() => document.querySelector('#st-lista-vice button[title="Draft history and published versions"]').click());
+  // the newest autosave is the current draft again after Undo ("the text is the same") – the oldest one differs
+  await page.locator('dialog.st-verze[open] .st-verze-koncepty li .st-verze-porovnej').last().click();
+  await page.locator('dialog.st-verze[open] .st-porovnani-sekce').first().waitFor();
+  const overflow = await page.locator('dialog.st-verze[open]').evaluate((d) => d.scrollWidth - d.clientWidth);
+  if (overflow > 1) { throw new Error(`the Versions dialog scrolls ${overflow} px sideways at 390 px`); }
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/325-versions-phone.png` }); }
+  await page.keyboard.press('Escape');
+  await page.setViewportSize({ width: 1440, height: 900 });
+  sql(`DELETE FROM ka_stranky WHERE ids = ${id}`);
 });
 
 await browser.close();

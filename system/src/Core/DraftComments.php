@@ -163,7 +163,7 @@ final class DraftComments
     {
         $db = $app->db();
         $s = $app->settings();
-        $editor = $db->one('SELECT u.idu, u.email, u.jazyk, u.register FROM {stavba_revize} r JOIN {uzivatele} u ON u.idu = r.kdo WHERE r.ids = ? AND u.blokovat = 0 AND u.email <> ? ORDER BY r.idr DESC LIMIT 1', [(int) $page['ids'], '']);
+        $editor = $db->one('SELECT u.idu, u.email, u.jazyk, u.register FROM {stavba_revize} r JOIN {uzivatele} u ON u.idu = r.kdo WHERE r.ids = ? AND r.cast IS NULL AND u.blokovat = 0 AND u.email <> ? ORDER BY r.idr DESC LIMIT 1', [(int) $page['ids'], '']);
         $recipients = $editor !== null ? [$editor] : $db->all('SELECT idu, email, jazyk, register FROM {uzivatele} WHERE admin = 2 AND blokovat = 0 AND email <> ? ORDER BY idu LIMIT 10', ['']);
         $url = rtrim($s->get('site_url') ?: $app->request->origin(), '/') . $app->url('admin.php?module=pages&action=builder&id=' . (int) $page['ids']);
         $excerpt = mb_strimwidth($text, 0, self::MAIL_EXCERPT, '…');

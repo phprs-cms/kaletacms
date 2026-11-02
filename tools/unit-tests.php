@@ -195,7 +195,7 @@ $builderParity = [
     'build_class' => 'save_classes', 'build_delete_section' => 'delete_section', 'build_discard' => 'discard_draft', 'build_publish' => 'publish_build',
     'build_restore' => 'restore_build_version', 'build_save' => 'save_build', 'build_save_section' => 'save_section', 'build_section' => 'insert_section',
     'build_share' => 'preview_link', 'build_versions' => $readOnly, 'builder' => $readOnly, 'build_comment_resolve' => 'resolve_draft_comment',
-    'build_package' => $readOnly, 'build_choices' => $readOnly, 'build_paste' => 'admin: paste from the system clipboard of another Kaleta site – Claude inserts elements with save_build or edit_build and brings classes with save_classes',
+    'build_package' => $readOnly, 'build_choices' => $readOnly, 'build_compare' => $readOnly, 'build_paste' => 'admin: paste from the system clipboard of another Kaleta site – Claude inserts elements with save_build or edit_build and brings classes with save_classes',
 ];
 $settingsParity = ['list' => $readOnly, 'save' => 'update_settings', 'download_backup' => $readOnly, 'backup' => 'admin: backups', 'restore_backup' => 'admin: backups',
     'delete_backup' => 'admin: backups', 'media_backup' => 'admin: backups', 'delete_log' => 'admin: error log', 'check' => 'admin: updates', 'update' => 'admin: updates', 'forget_updates' => 'admin: updates', 'update_major' => 'admin: updates (a major version only on an explicit action, 3.15)',
@@ -8621,6 +8621,29 @@ $n3245 = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/MyWork.php');
 check('N324-5: My work and its menu badge leave spam out, as the Enquiries list and the dashboard tile do', [
     str_contains($n3245, "' AND ' . \\Kaleta\\Admin\\Modules\\Enquiries::NOT_SPAM"), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/MyWork.php'), 'return Enquiries::countAssigned($app->db(), $app->auth()->id());'),
 ], [true, true]);
+
+// 3.25 (C21, U17): the builder's draft history next to the published versions, and the per-section text compare
+$c325Section = fn (string $id, string $heading, string $text, array $style = []): array => ['id' => $id, 'typ' => 'sekce', 'znacka' => 'section', 'obsah' => [], 'styl' => $style, 'deti' => [
+    ['id' => $id . 'h', 'typ' => 'nadpis', 'znacka' => 'h2', 'obsah' => ['text' => $heading]], ['id' => $id . 't', 'typ' => 'text', 'znacka' => 'div', 'obsah' => ['html' => '<p>' . $text . '</p>']]]];
+$c325Old = json_encode(['v' => 1, 'deti' => [$c325Section('a1', 'Prices', 'From 100 EUR a month.'), $c325Section('b2', 'Team', 'Five people.'), $c325Section('c3', 'Old offer', 'Gone soon.'), $c325Section('d4', 'Contact', 'Call us.')]]);
+$c325New = json_encode(['v' => 1, 'deti' => [$c325Section('a1', 'Prices', 'From 120 EUR a month.'), $c325Section('b2', 'Team', 'Five people.'), $c325Section('e5', 'Reviews', 'Clients love it.'),
+    $c325Section('d4', 'Contact', 'Call us.', ['zaklad' => ['pozadi' => 'primarni']])]]);
+$c325 = Kaleta\Builder\DraftHistory::compare($c325Old, $c325New);
+check('3.25 (C21): compare per section – matched by element id, changed text through Core\Diff, added, removed, unchanged and layout-only sections', [
+    array_map(fn (array $s): string => $s['nazev'] . ':' . $s['stav'], $c325['sekce']),
+    str_contains($c325['sekce'][0]['html'], '<del>100 </del>') && str_contains($c325['sekce'][0]['html'], '<ins>120 </ins>'),
+    str_contains($c325['sekce'][2]['html'], '<ins>'), str_contains($c325['sekce'][4]['html'], '<del>'), $c325['sekce'][1]['html'], $c325['pridano'] > 0 && $c325['smazano'] > 0,
+    Kaleta\Builder\DraftHistory::compare($c325Old, $c325Old)['pridano'], Kaleta\Builder\DraftHistory::compare(null, null)['sekce'],
+    str_contains(Kaleta\Builder\DraftHistory::compare(json_encode(['v' => 1, 'deti' => [$c325Section('x', '<b>X</b>', 'a <script>b</script>')]]), null)['sekce'][0]['html'], '<script>'),
+], [['Prices:changed', 'Team:same', 'Reviews:added', 'Contact:layout', 'Old offer:removed'], true, true, true, '', true, 0, [], false]);
+$c325Builder = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/BuilderActions.php');
+$c325Tools = (string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Tools.php');
+check('3.25 (U17): every builder and MCP draft save records the draft history; restores keep the replaced draft; published versions leave the draft rows out', [
+    substr_count($c325Builder, 'DraftHistory::record('), str_contains($c325Builder, "DraftHistory::record(\$this->app, \$target['revize'], \$build, \$target['koncept'] ?? \$target['stavba'], true);"),
+    substr_count($c325Tools, 'DraftHistory::record('), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Builder/Publisher.php'), "['ids = ? AND cast IS NULL'"),
+    Kaleta\Builder\DraftHistory::KEPT, Kaleta\Builder\DraftHistory::when(Kaleta\Core\Clock::now()) === t('today') . ' ' . substr(Kaleta\Core\Clock::now(), 11, 5),
+    Kaleta\Builder\DraftHistory::listAll($w324Db, ['cast' => str_repeat('x', 80)]), Kaleta\Builder\DraftHistory::load($w324Db, ['ids' => 0], 5),
+], [2, true, 1, true, 10, true, [], null]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

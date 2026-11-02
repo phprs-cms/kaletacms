@@ -988,7 +988,7 @@ final class Tools
      * (cast = type, language), which only the administrator can change. A part that does not exist yet is created with a
      * draft from the layout.
      *
-     * @return array{druh: string, radek: array<string, mixed>, stavba: ?string, koncept: ?string, jazyk: string}
+     * @return array{druh: string, radek: array<string, mixed>, stavba: ?string, koncept: ?string, jazyk: string, revize: array{ids?: int, cast?: string}}
      */
     private function loadBuildTarget(array $a, bool $create = false): array
     {
@@ -1140,11 +1140,12 @@ final class Tools
     }
 
     /** Sanitizes and saves the draft (and publishes it if asked); returns what the model needs for further work. */
-    private function saveBuild(array $target, array $input, bool $publish): array
+    private function saveBuild(array $target, array $input, bool $publish, bool $restore = false): array
     {
         $this->mayPublish(['publikovat' => $publish]);
         $db = $this->app->db();
-        [$build, $errors] = Build::sanitize($input, $this->app->auth()->canWriteCode(), Build::fromJson($target['koncept'] ?? $target['stavba']));
+        $before = $target['koncept'] ?? $target['stavba'];
+        [$build, $errors] = Build::sanitize($input, $this->app->auth()->canWriteCode(), Build::fromJson($before));
         $r = $target['radek'];
         if ($target['druh'] === 'stranka') {
             $db->update('stranky', ['stavba_koncept' => Build::toJson($build)], ['ids' => $r['ids']]);
@@ -1160,6 +1161,8 @@ final class Tools
             $this->createSitePart($r);
             $db->update('casti', ['stavba_koncept' => Build::toJson($build)], ['typ' => $r['typ'], 'jazyk' => $r['jazyk'], 'varianta' => $r['varianta']]);
         }
+        // 3.25 (U17): draft history, marked as Claude's – a restore keeps the draft it replaces first
+        \Kaleta\Builder\DraftHistory::record($this->app, $target['revize'], Build::toJson($build), $before, $restore);
         if ($publish) {
             $this->publishTarget($target);
         }

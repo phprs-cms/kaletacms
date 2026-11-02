@@ -144,11 +144,6 @@ parameters:
 			count: 1
 			path: system/src/Install/Installer.php
 
-		-
-			message: '#^Offset ''revize'' does not exist on array\{druh\: string, radek\: array\<string, mixed\>, stavba\: string\|null, koncept\: string\|null, jazyk\: string\}\.$#'
-			identifier: offsetAccess.notFound
-			count: 2
-			path: system/src/Mcp/Tools.php
 
 		-
 			message: '#^Parameter \#1 \$array \(list\<array\{draft\?\: true, nazev\: string, styl\: non\-empty\-array\<string, mixed\>\|stdClass, css\: string\}\>\) of array_values is already a list, call has no effect\.$#'

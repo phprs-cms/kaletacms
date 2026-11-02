@@ -7058,4 +7058,5 @@ return [
     'Nobody is told by e-mail – the person finds the work in My work.' => 'No se envía ningún correo: la persona encuentra el trabajo en Mi trabajo.',
     'Hand over and block the account' => 'Entregar y bloquear la cuenta',
     'Hand over and delete the user' => 'Entregar y eliminar el usuario',
+    'Section %s' => 'Sección %s',
 ];
