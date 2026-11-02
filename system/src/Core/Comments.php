@@ -47,6 +47,13 @@ final class Comments
     /** At most this many people mentioned in one comment. */
     public const int MAX_MENTIONS = 20;
 
+    /**
+     * At most this many people in the "@" list of a thread (N326-3): the list is embedded in every composer and edit form of
+     * the screen, so a site with very many accounts does not bloat each page; a person beyond it can still be typed – the
+     * server checks every mention (mentions()).
+     */
+    public const int MENTIONABLE_MAX = 200;
+
     /** The longest excerpt a notification carries (Core\Inbox). */
     public const int EXCERPT = 200;
 
@@ -269,7 +276,7 @@ final class Comments
 
     /**
      * Who may be mentioned in a thread (3.26, the "@" autocomplete): active accounts that may open the target's section,
-     * by name – the same rule mentions() checks.
+     * by name – the same rule mentions() checks; at most MENTIONABLE_MAX.
      *
      * @return list<array{id: int, user: string, name: string}>
      */
@@ -282,7 +289,7 @@ final class Comments
         $name = "IF(jmeno = '', user, jmeno)";
 
         return array_map(fn (array $r): array => ['id' => (int) $r['idu'], 'user' => (string) $r['user'], 'name' => (string) $r['name']], $db->all(
-            'SELECT idu, user, ' . $name . ' AS name FROM {uzivatele} u WHERE blokovat = 0 AND (admin = ? OR EXISTS (SELECT 1 FROM {uzivatele_prava} p WHERE p.fk_id_user = u.idu AND p.ident_modulu = ?)) ORDER BY ' . $db->sortText($name),
+            'SELECT idu, user, ' . $name . ' AS name FROM {uzivatele} u WHERE blokovat = 0 AND (admin = ? OR EXISTS (SELECT 1 FROM {uzivatele_prava} p WHERE p.fk_id_user = u.idu AND p.ident_modulu = ?)) ORDER BY ' . $db->sortText($name) . ' LIMIT ' . self::MENTIONABLE_MAX,
             [Auth::ADMIN, Assignment::KINDS[$type]],
         ));
     }
