@@ -10110,6 +10110,15 @@ foreach (Kaleta\Admin\Kernel::MODULES as $x330Class) {
 }
 check('3.30 review N330-4 – Assignment::ADMIN_SECTIONS are exactly the sections of Assignment::KINDS that only administrators open', [array_values(array_unique($x330AdminSections))],
     [Kaleta\Core\Assignment::ADMIN_SECTIONS]);
+check('3.30 review N330-5 – a security release the console installed on itself before any site asked is still a security release', [
+    Kaleta\Fleet\Console::isSecurityRelease('3.30.1', ['verze' => '3.30.1', 'bezpecnostni' => true], null),
+    Kaleta\Fleet\Console::isSecurityRelease('3.30.1', ['verze' => '3.30.1'], ['manifest' => ['verze' => '3.30.1', 'bezpecnostni' => true]]),
+    Kaleta\Fleet\Console::isSecurityRelease('3.30.1', null, ['manifest' => ['verze' => '3.30.1', 'bezpecnostni' => true]]),
+    Kaleta\Fleet\Console::isSecurityRelease('3.30.1', null, ['manifest' => ['verze' => '3.30.0', 'bezpecnostni' => true]]),
+    Kaleta\Fleet\Console::isSecurityRelease('3.30.1', null, ['manifest' => ['verze' => '3.30.1']]),
+    Kaleta\Fleet\Console::isSecurityRelease('3.30.1', null, ['manifest' => null]),
+    Kaleta\Fleet\Console::isSecurityRelease('3.30.1', null, 'nonsense')],
+    [true, false, true, false, false, false, false]);
 $x330Sites = [
     ['id' => 1, 'name' => 'Pilot site', 'url' => 'https://pilot.example', 'ring' => 'canary', 'version' => '3.30.0', 'manage_updates' => 1, 'update_allowed' => '', 'status' => 'ok', 'up' => 1,
         'version_since' => date('Y-m-d H:i:s', $x330Now - 50 * 3600), 'heartbeat' => '{}', 'customer_id' => null, 'update_window' => null],

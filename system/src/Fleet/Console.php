@@ -264,14 +264,33 @@ final class Console
         $state = (new Updater($s))->state();
         $new = $state['nova'] ?? $state['vyzaduje_php'];
         $version = $new !== null ? (string) $new['verze'] : KALETA_VERSION;
+        $security = self::isSecurityRelease($version, $new, json_decode($s->get('update_cache'), true));
         $seen = json_decode($s->get('fleet_versions'), true);
         $seen = is_array($seen) ? $seen : [];
-        if (!isset($seen[$version])) {
-            $seen[$version] = [time(), $new !== null && !empty($new['bezpecnostni'])];
+        if (!isset($seen[$version]) || ($security && empty($seen[$version][1]))) {
+            // N330-5: a release first recorded as ordinary and later known as a security release becomes one (never back)
+            $seen[$version] = [isset($seen[$version][0]) ? (int) $seen[$version][0] : time(), $security];
             $s->set('fleet_versions', (string) json_encode(array_slice($seen, -20, null, true)));
         }
 
         return [$version, (bool) $seen[$version][1], (int) $seen[$version][0]];
+    }
+
+    /**
+     * Whether the newest version is a security release (N330-5): from the offer of the console's update source, or – when
+     * the console already runs it (it installed the security release itself before any site asked) – from the manifest
+     * it last read, when that manifest is this version. Pure.
+     *
+     * @param array<string, mixed>|null $new the offered release (Updater::state nova or vyzaduje_php)
+     */
+    public static function isSecurityRelease(string $version, ?array $new, mixed $cache): bool
+    {
+        if ($new !== null) {
+            return !empty($new['bezpecnostni']);
+        }
+        $manifest = is_array($cache) && is_array($cache['manifest'] ?? null) ? $cache['manifest'] : [];
+
+        return is_scalar($manifest['verze'] ?? null) && (string) $manifest['verze'] === $version && !empty($manifest['bezpecnostni']);
     }
 
     /**

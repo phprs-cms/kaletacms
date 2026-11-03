@@ -4770,6 +4770,15 @@ sq3 "UPDATE ka_fleet_sites SET ring = 'normal', update_window = NULL WHERE id = 
 expect "3.30 update gate: normal after the pilot ran it 48 h | its own window closed | its customer's window closed | its own 'any time' over the customer's | careful (7 days) | a security release at once, window or not | a pilot outside its window | inside it | the pilot fails → held back" \
   "$G1|$G2|$G3|$G4|$G5|$G6|$G7|$G8|$G9" "3.99.9|-|-|3.99.9|-|3.99.9|-|3.99.9|-"
 sq3 "UPDATE ka_fleet_sites SET status = 'ok' WHERE id = $PILOT330" > /dev/null
+# N330-5: the console installed a security release on itself before any site asked – it still goes to every site at once
+V330=$(sed -nE "s/^const KALETA_VERSION = '([^']+)';/\\1/p" "$WORK/web3/system/bootstrap.php")
+CACHE330=$(sq3 "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'update_cache'"); FV330=$(sq3 "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_versions'")
+sq3 "UPDATE ka_nastaveni SET hodnota = '{\"url\":\"http://127.0.0.1:1/aktualizace.json\",\"overeno\":$(date +%s),\"manifest\":{\"verze\":\"$V330\",\"bezpecnostni\":true,\"min_php\":\"8.3\",\"zmeny\":[]},\"chyba\":null}' WHERE promenna = 'update_cache';
+  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('fleet_versions', '{\"$V330\":[$(date +%s),false]}');
+  UPDATE ka_fleet_sites SET ring = 'careful', update_window = '$CLOSED330|00:00-00:00' WHERE id = $FLEET_ID" > /dev/null
+G10=$(hb330)
+expect "3.30 review N330-5: a security release the console already runs goes to a careful site outside its window at once" "$G10|$(sq3 "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_versions'" | grep -c "\"$V330\":\[[0-9]*,true\]")" "$V330|1"
+sq3 "UPDATE ka_nastaveni SET hodnota = '$CACHE330' WHERE promenna = 'update_cache'; UPDATE ka_nastaveni SET hodnota = '$FV330' WHERE promenna = 'fleet_versions'; UPDATE ka_fleet_sites SET ring = 'normal', update_window = NULL WHERE id = $FLEET_ID" > /dev/null
 # the rollout screen, the ring and window forms, the delays
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" -w '%{http_code}' "$B3/admin.php?module=fleet&action=rollout" > "$WORK/code330.txt"
 expect "3.30 Rollout: the rings with their counts, the pilot updated, the old site deciding itself, a window form per customer" \
