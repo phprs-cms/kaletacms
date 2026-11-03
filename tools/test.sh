@@ -844,7 +844,7 @@ check "3.18.3, 3.25: with more than 5 collections the menu shows 5" 200 "/admin.
 expect "3.18.3, 3.25: … exactly 5, by name, then More… to the list of collections" "$(grep -c 'class="menu-kolekce"' "$WORK/response")|$(grep -c '<span>Cap 9</span>' "$WORK/response")|$(grep -c '<li class="menu-kolekce menu-kolekce-dalsi"><a href="/admin.php?module=collections">.*<span>Další…</span>' "$WORK/response")" "5|0|1"
 # 3.25 (C): the menu groups – collapsible, Czech labels, Statistics under Site care, no Company group; an author with a few
 # items gets a flat list without groups (and without the group script)
-check "3.25: the administrator's menu has collapsible groups" 200 "/admin.php" '<details class="menu-skupiny" data-menu-skupina="content" open><summary class="menu-skupina"><span>Obsah</span>'
+check "3.25: the administrator's menu has collapsible groups" 200 "/admin.php" '<details class="menu-skupiny" data-menu-skupina="content" data-menu-vychozi open><summary class="menu-skupina"><span>Obsah</span>'
 expect "3.25: … the group script, Statistics in Site care, no Company group, the Business details in Content" "$(grep -c 'src="/image/admin-menu.js?v=' "$WORK/response")|$(perl -0ne 'print m{data-menu-skupina="site-care".*?module=stats.*?</details>}s ? 1 : 0' "$WORK/response")|$(grep -c '<span>Firma</span>' "$WORK/response")|$(perl -0ne 'print m{data-menu-skupina="content"[^>]*>.*?module=business".*?</details>}s ? 1 : 0' "$WORK/response")" "1|1|0|1"
 check "3.25: the current screen's group is marked" 200 "/admin.php?module=stats" 'data-menu-skupina="site-care" data-aktualni open>'
 code=$(curl -s -b "$JAR2" -o "$WORK/response" -w '%{http_code}' "$B/admin.php")
@@ -2675,6 +2675,34 @@ JAR3="$WORK/jar3"
 TOKEN3=$(curl -s -c "$JAR3" "$B/admin.php?action=password&token=$FAKE_REFRESH" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//' || true)
 curl -s -b "$JAR3" -c "$JAR3" -o /dev/null -X POST "$B/admin.php?action=password" -d "_csrf=$TOKEN3" -d "token=$FAKE_REFRESH" --data-urlencode "password=Nove-heslo-123" --data-urlencode "password2=Nove-heslo-123"
 expect "obnova hesla zruší tokeny napojení" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_api_tokeny t JOIN ka_uzivatele u ON u.idu = t.idu WHERE u.user = 'obchodnik'")" "0"
+# the invitation link opened where another account is signed in still sets the password and signs that browser out;
+# the invited user then signs in with the new password by user name and by the e-mail the invitation came to
+csrf_of() { grep -o 'name="_csrf" value="[a-f0-9]*"' "$1" | head -1 | sed 's/.*value="//;s/"//' || true; }
+INVITE_TOKEN="$(printf 'd%.0s' $(seq 1 64))"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET obnova_otisk = '$(php -r 'echo hash("sha256", $argv[1]);' "$INVITE_TOKEN")', obnova_cas = '$(site_time)' + INTERVAL 3 DAY WHERE user = 'pozvany'"
+JAR5="$WORK/jar5"; curl -s -c "$JAR5" -o "$WORK/response" "$B/admin.php"
+SIGNED_IN=$(curl -s -b "$JAR5" -c "$JAR5" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$(csrf_of "$WORK/response")" -d user=obchodnik --data-urlencode "password=Nove-heslo-123")
+curl -s -b "$JAR5" -c "$JAR5" -o "$WORK/response" "$B/admin.php?action=password&token=$INVITE_TOKEN"
+INVITE_FORM="$(grep -c 'name="user" value="pozvany" autocomplete="username"' "$WORK/response" || true)|$(grep -c 'přihlášený jako obchodnik' "$WORK/response" || true)"
+# the token as the form carries it, not as the test knows it: from 1.4.0 the form sent it empty and never set the password
+FORM_TOKEN=$(grep -o 'name="token" value="[a-f0-9]*"' "$WORK/response" | sed 's/.*value="//;s/"//' || true)
+INVITE_SET=$(curl -s -b "$JAR5" -c "$JAR5" -o /dev/null -w '%{http_code} %{redirect_url}' -X POST "$B/admin.php?action=password" -d "_csrf=$(csrf_of "$WORK/response")" -d "token=$FORM_TOKEN" --data-urlencode "password=Pozvany-heslo-123" --data-urlencode "password2=Pozvany-heslo-123")
+curl -s -b "$JAR5" -c "$JAR5" -o "$WORK/response" "$B/admin.php"
+expect "pozvánka otevřená u jiného přihlášení nastaví heslo a odhlásí" "$SIGNED_IN|$INVITE_FORM|${INVITE_SET%% *}|$(grep -q 'password_changed=1$' <<< "$INVITE_SET" && echo ok)|$(grep -c 'autocomplete="current-password"' "$WORK/response" || true)" "302|1|1|302|ok|1"
+invite_login() { local jar="$WORK/jar-$2"; curl -s -c "$jar" -o "$WORK/response" "$B/admin.php"; curl -s -b "$jar" -c "$jar" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$(csrf_of "$WORK/response")" --data-urlencode "user=$1" --data-urlencode "password=Pozvany-heslo-123"; }
+expect "pozvaný se přihlásí jménem i e-mailem" "$(invite_login pozvany name)|$(invite_login pozvany@example.cz email)" "302|302"
+# 3.29.1 review: an e-mail two accounts share (in another case too) signs neither in; wrong passwords typed with the e-mail
+# count to that account's lock as with its user name, and the lock then holds for the right password
+OWN_EMAIL3291=$(sq "SELECT email FROM ka_uzivatele WHERE user = 'obchodnik'")
+sq "UPDATE ka_uzivatele SET email = 'POZVANY@example.cz' WHERE user = 'obchodnik'" > /dev/null
+SHARED3291=$(invite_login pozvany@example.cz shared)
+sq "UPDATE ka_uzivatele SET email = '$OWN_EMAIL3291' WHERE user = 'obchodnik'; DELETE FROM ka_kontrola_ip WHERE typ = 'login'" > /dev/null
+JAR6="$WORK/jar6"; curl -s -c "$JAR6" -o "$WORK/response" "$B/admin.php"; TOKEN6=$(csrf_of "$WORK/response")
+for i in $(seq 1 10); do curl -s -b "$JAR6" -c "$JAR6" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN6" --data-urlencode user=pozvany@example.cz -d password=wrong-by-email-3291; done
+sq "DELETE FROM ka_kontrola_ip WHERE typ = 'login'" > /dev/null
+LOCKED3291="$(sq "SELECT zamceno_do > '$(site_time)' FROM ka_uzivatele WHERE user = 'pozvany'")|$(invite_login pozvany locked)"
+sq "UPDATE ka_uzivatele SET zamceno_do = NULL, pocet_chyb = 0 WHERE user = 'pozvany'; DELETE FROM ka_kontrola_ip WHERE typ = 'login'" > /dev/null
+expect "3.29.1 review: a shared e-mail signs nobody in; wrong passwords by e-mail lock the account as by name" "$SHARED3291|$LOCKED3291" "401|1|401"
 JAR4="$WORK/jar4"
 TOKEN4=$(curl -s -c "$JAR4" "$B/admin.php" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//' || true)
 for i in $(seq 1 10); do curl -s -b "$JAR4" -c "$JAR4" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN4" -d user=obchodnik -d password=spatne-heslo-xyz; done
@@ -3548,6 +3576,22 @@ check "3.29: Statistics say from when only visits confirmed by a browser count a
 grep -q 'class="graf-sloupec graf-zacatek"' "$WORK/response" && echo "  ok     3.29: the first day of browser-confirmed counting is marked on the chart" || { echo "  CHYBA  3.29: the marked day on the chart"; ERRORS=$((ERRORS+1)); }
 mcp get_stats '{"days":7}' > "$WORK/response"; mcp_text
 contains -q '"counting":"browser_confirmed"' "$WORK/text" && contains -q "\"confirmed_since\":\"$(site_date today)\"" "$WORK/text" && echo "  ok     3.29: get_stats says the numbers are browser-confirmed and since when (additive keys)" || { echo "  CHYBA  3.29: get_stats counting"; head -c 300 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+# 3.29.1: say why the visits dropped – the dashboard chart marks the day and says it; get_stats and get_monthly_report say a drop
+# across the switch is fewer bots, not fewer people (additive keys); the monthly report shows no down arrow for it
+contains -q '"counting_note":"Counting changed on' "$WORK/text" && echo "  ok     3.29.1: get_stats says a drop across the switch is fewer bots, not fewer people (counting_note)" || { echo "  CHYBA  3.29.1: get_stats counting_note"; head -c 300 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+check "3.29.1: the dashboard chart says from when only visits confirmed by a browser count" 200 "/admin.php" 'data-stats-confirmed>'
+expect "3.29.1: … and marks that day on the chart, with the day's label saying it" \
+  "$(grep -o "class=\"prehled-zacatek\"[^>]*data-stats-confirmed-day=\"$(site_date today)\"" "$WORK/response" | wc -l | tr -d ' ')|$(grep -cE 'only visits confirmed by a browser count from this day|od tohoto dne se počítají jen návštěvy potvrzené prohlížečem' "$WORK/response")" "1|1"
+# 3.29.1 (owner): after a sign-in only Content is open in the menu – the layout marks Content and names the sign-in on the menu script
+expect "3.29.1: the menu marks Content as the group open after a sign-in and tells the script which sign-in this page belongs to" \
+  "$(grep -o 'data-menu-skupina="[a-z-]*"[^>]*data-menu-vychozi' "$WORK/response" | sed 's/data-menu-skupina="\([a-z-]*\)".*/\1/' | tr '\n' ' ')|$(grep -cE 'admin-menu\.js\?v=[^"]*" data-menu-prihlaseni="[1-9][0-9]{9}"' "$WORK/response")" "content |1"
+M3291=$(site_time '-2 months' Y-m)
+sq "REPLACE INTO ka_monthly_reports (month, created_at, schema_version, data) VALUES ('$M3291', '$(site_time)', 1, '{\"month\":\"$M3291\",\"stats\":{\"visits\":600,\"views\":900,\"previous_visits\":1000,\"previous_views\":1500,\"confirmed_since\":\"$M3291-10\"}}')" > /dev/null
+mcp get_monthly_report "{\"month\":\"$M3291\"}" > "$WORK/response"; mcp_text
+contains -q "\"counting_changed\":{\"on\":\"$M3291-10\"" "$WORK/text" && echo "  ok     3.29.1: get_monthly_report says the month reaches across the switch (counting_changed, additive)" || { echo "  CHYBA  3.29.1: get_monthly_report counting_changed"; head -c 300 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+check "3.29.1: the printed monthly report shows the drop across the switch without a down arrow" 200 "/admin.php?module=settings&action=report_view&month=$M3291"
+expect "3.29.1: … the visits tile and rows name the switch, no ▼ and no minus" "$(grep -cE 'counting changed on|počítání se změnilo' "$WORK/response" | tr -d ' ' | sed 's/^[1-9][0-9]*$/yes/')|$(grep -c '▼' "$WORK/response")|$(grep -cE '\(−40 %\)' "$WORK/response")" "yes|0|0"
+sq "DELETE FROM ka_monthly_reports WHERE month = '$M3291'" > /dev/null
 case "$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d zpet=/leads-23 -d "as_cas=$FORM_TIME" -d "as_podpis=$FORM_SIGNATURE" --data-urlencode p2=tick@example.cz)" in *result=pole\&field=0*) echo "  ok     a required group needs at least one ticked option";; *) echo "  CHYBA  required checkbox group"; ERRORS=$((ERRORS+1));; esac
 curl -s -o /dev/null -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d zpet=/leads-23 -d "as_cas=$FORM_TIME" -d "as_podpis=$FORM_SIGNATURE" -d 'p0[]=Kuchyne' -d 'p0[]=Podvrh' -d p1=Hacked --data-urlencode p2=tick@example.cz
 expect "ticked options (only offered ones) and the form's own hidden value are saved" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT data FROM ka_poptavky WHERE email = 'tick@example.cz'")" '[["Sluzby","Kuchyne"],["Produkt","Dubovy stul"],["Email","tick@example.cz"]]'
@@ -4172,6 +4216,35 @@ curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -w '%{http_code}' "$B3/admin.ph
 expect "3.29: the console's pages still open after the hostile heartbeat" "$(cat "$WORK/code329.txt")" "200"
 # back to the real report
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('require_2fa', '$REQ2FA329'); DELETE FROM ka_tasks WHERE title IN ('Call Jan329 at jan329@client.example', 'Open329')" > /dev/null
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"; sleep 1
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_send" -d "_csrf=$(csrf)"
+# 3.29.1: the site sends the day browser-confirmed counting started (stats_confirmed_since); the console bounds it, marks the site's
+# visits for the 14 days from it and asks no attention and sends no alert for the drop (every alert rule on)
+SINCE3291=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'stats_confirmed_since'")
+D3291=$(site_date '-3 days')
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('stats_confirmed_since', '$D3291'); INSERT IGNORE INTO ka_stat_dny (den, navstevy, zobrazeni) VALUES ('$(site_date '-10 days')', 0, 0)" > /dev/null
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"; sleep 1
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_send" -d "_csrf=$(csrf)"
+expect "3.29.1: the heartbeat carries the day browser-confirmed counting started, next to the visits of 7 days" \
+  "$(sq3 "SELECT CONCAT(JSON_UNQUOTE(JSON_EXTRACT(heartbeat, '\$.stats_confirmed_since')), '|', JSON_TYPE(JSON_EXTRACT(heartbeat, '\$.visits_7_days'))) FROM ka_fleet_sites WHERE id = $FLEET_ID")" "$D3291|INTEGER"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=detail&id=$FLEET_ID"
+expect "3.29.1: the console's site page marks the visits – counting changed on that day, fewer bots, not fewer people" \
+  "$(grep -c 'data-counting-changed' "$WORK/response")|$(grep -cE 'Counting of visits changed on|Počítání návštěv se změnilo' "$WORK/response")" "1|1"
+php -r 'chdir($argv[1]); require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $app->applyTimezone();
+  $site = $app->db()->one("SELECT * FROM {fleet_sites} WHERE id = ?", [(int) $argv[2]]);
+  $all = array_map(fn (array $k): array => ["on" => true, "threshold" => $k[1]], Kaleta\Fleet\AlertRules::KINDS);
+  $words = implode(",", [...Kaleta\Fleet\Console::attention($site, time())["reasons"], ...array_column(Kaleta\Fleet\AlertRules::matches($site, $all, time()), "kind")]);
+  echo preg_match("/visit|traffic|drop/", $words) === 1 ? "alarm: " . $words : "none", "|", Kaleta\Fleet\Console::countingChanged(Kaleta\Fleet\Console::storedBeat($site), time()) ?? "-";' "$WORK/web3" "$FLEET_ID" > "$WORK/alerts3291.txt" 2>&1
+expect "3.29.1: the drop across the switch raises no attention and no alert on the console (every rule on); the mark holds" "$(cat "$WORK/alerts3291.txt")" "none|$D3291"
+# a hostile day signed by the site is dropped on its own, the rest of the heartbeat kept
+sleep 1
+php -r 'chdir($argv[1]); require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $s = $app->settings();
+  $body = json_encode(["action" => "heartbeat", "site_id" => $s->int("fleet_site_id"), "ts" => time(), "version" => "3.29.1", "name" => "Hostile3291", "visits_7_days" => 12, "stats_confirmed_since" => "9999-12-31<script>"]);
+  file_put_contents($argv[2], $body); echo Kaleta\Fleet\Keys::sign($s, $body);' "$WORK/web" "$WORK/hostile3291.json" > "$WORK/hostile3291.sig"
+expect "3.29.1: a hostile stats_confirmed_since is dropped, the visits kept, the site page still opens without the mark" \
+  "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B3/fleet/heartbeat" -H 'Content-Type: application/json' -H "X-Kaleta-Signature: $(cat "$WORK/hostile3291.sig")" --data-binary @"$WORK/hostile3291.json")|$(sq3 "SELECT CONCAT(JSON_TYPE(JSON_EXTRACT(heartbeat, '\$.stats_confirmed_since')), '|', JSON_EXTRACT(heartbeat, '\$.visits_7_days')) FROM ka_fleet_sites WHERE id = $FLEET_ID")|$(curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" -w '%{http_code}' "$B3/admin.php?module=fleet&action=detail&id=$FLEET_ID")|$(grep -c 'data-counting-changed' "$WORK/response")" \
+  "200|NULL|12|200|0"
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('stats_confirmed_since', '$SINCE3291')" > /dev/null
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"; sleep 1
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_send" -d "_csrf=$(csrf)"
 # 3.26.1: the site's own uptime – it asks its console (POST /fleet/uptime, signed both ways; Fleet\Uptime), keeps the days and its monthly

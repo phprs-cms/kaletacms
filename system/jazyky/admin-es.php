@@ -7756,4 +7756,7 @@ return [
     'The domain registration of %s ends on %s (in %d days).' => 'El registro del dominio de %s vence el %s (dentro de %d días).',
     'Normal' => 'Normal',
     'TLS' => 'TLS',
+    'Counting of visits changed on %s – fewer bots, not fewer people.' => 'El recuento de visitas cambió el %s: menos bots, no menos personas.',
+    'counting changed on %s' => 'recuento cambiado el %s',
+    'This browser is signed in as %s. Setting the password signs it out; then sign in as %s.' => 'Este navegador tiene la sesión iniciada como %s. Al establecer la contraseña se cerrará; después inicie sesión como %s.',
 ];

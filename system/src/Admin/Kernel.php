@@ -202,6 +202,11 @@ final class Kernel
         if ($app->auth()->user() === null) {
             return $action === 'password' ? (new PasswordReset($app))->handle() : $this->login();
         }
+        if ($action === 'password' && ($request->get('token') !== '' || $request->post('token') !== '')) {
+            // a link from an invitation or a password e-mail opened where someone is signed in (an administrator trying the
+            // invitation, a shared computer): it still sets the password, and that signs this browser out (PasswordReset)
+            return (new PasswordReset($app))->handle();
+        }
         if ($action === 'logout' && $request->isPost()) {
             $app->auth()->logout();
 
@@ -464,6 +469,8 @@ final class Kernel
             // traffic for 14 days (own measurement without cookies)
             'traffic' => Extensions::isEnabled($this->app->settings(), 'statistika') && isset($modules['stats'])
                 ? $db->all('SELECT den, navstevy, zobrazeni FROM {stat_dny} WHERE den > ? ORDER BY den', [\Kaleta\Core\Clock::day('-14 days')]) : [],
+            // 3.29.1: the first day of browser-confirmed counting when older numbers exist – the chart marks it (views/admin/dashboard.php)
+            'confirmedSince' => Extensions::isEnabled($this->app->settings(), 'statistika') && isset($modules['stats']) ? \Kaleta\Front\Stats::confirmedSince($this->app->settings(), $db) : null,
             'counts' => array_filter([
                 // 3.24: what waits for me (Core\MyWork) – administrators keep the Dashboard first, the tile leads them to My work
                 // – without the enquiries assigned to me, which the tile "Assigned to me" counts already, and the new ones nobody

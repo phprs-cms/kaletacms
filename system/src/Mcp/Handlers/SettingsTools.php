@@ -318,9 +318,14 @@ trait SettingsTools
         // 3.29 (additive): visits and page views are those a visitor's browser confirmed (Front\Stats::hit); confirmed_since is
         // the day that started when older numbers exist – those include some bots and the team's own visits
         $since = \Kaleta\Front\Stats::confirmedSince($this->app->settings(), $this->app->db());
+        $report = \Kaleta\Core\Report::build($this->app->db(), (int) ($a['days'] ?? 30));
+        // 3.29.1 (additive): the period reaches across the switch (Front\Stats::spansSwitch) – say so, so a drop is not reported as one
+        $first = (string) ($report['days'][0]['day'] ?? '');
+        $last = (string) ($report['days'][count($report['days']) - 1]['day'] ?? '');
 
-        return \Kaleta\Core\Report::build($this->app->db(), (int) ($a['days'] ?? 30)) + ['statistics_on' => \Kaleta\Front\Stats::enabled($this->app->settings()), 'counting' => 'browser_confirmed']
-            + ($since !== null ? ['confirmed_since' => $since] : []);
+        return $report + ['statistics_on' => \Kaleta\Front\Stats::enabled($this->app->settings()), 'counting' => 'browser_confirmed']
+            + ($since !== null ? ['confirmed_since' => $since] : [])
+            + (\Kaleta\Front\Stats::spansSwitch($since, $first, $last) ? ['counting_note' => 'Counting changed on ' . $since . ': from that day only visits confirmed by a visitor\'s browser count, the days before include some bots, link previews and the team\'s own visits. Fewer visits after it are fewer bots, not fewer people – do not report it as a decline.'] : []);
     }
 
     /** list_changes (2.2): the change log, people and Claude told apart */

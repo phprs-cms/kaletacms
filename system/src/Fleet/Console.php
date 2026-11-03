@@ -45,7 +45,9 @@ final class Console
         // 3.29: the health matrix, the Today view and the workload roll-up (Fleet\Checks::PARTS, bounded by Checks::clean)
         'offsite', 'mail_setup', 'twofa', 'cookie_scan', 'privacy_page', 'accessibility_statement', 'handover', 'workload',
         // 3.30: the inventory and the expiry calendar (Fleet\Inventory::PARTS, bounded by Inventory::clean)
-        'db_server', 'web_server', 'features', 'addons', 'languages', 'recovery_key_since'];
+        'db_server', 'web_server', 'features', 'addons', 'languages', 'recovery_key_since',
+        // 3.29.1: the day the site started to count only browser-confirmed visits (a calendar day, day())
+        'stats_confirmed_since'];
 
     /**
      * The address of a site as the console keeps and links it (3.17, N317-5): http(s), a host without user information
@@ -672,7 +674,8 @@ final class Console
      *  - problems: at most 20 {group, check, status, detail}, each text one line; jobs_failing: at most 40 job names;
      *  - cron_last_run, last_backup: a Unix time (unixTime); offsite_backup, auto_updates, claude: true or false;
      *  - db_version, enquiries_unanswered, enquiries_7_days, visits_7_days, kit_version: a count (count());
-     *  - audit (kind => findings) and problems_7_days (event type => count): at most 40 names by pattern, each a count.
+     *  - audit (kind => findings) and problems_7_days (event type => count): at most 40 names by pattern, each a count;
+     *  - stats_confirmed_since (3.29.1): a calendar day between 1970 and 2100 (day()), null for anything else.
      */
     private static function cleanLegacy(string $key, mixed $v): mixed
     {
@@ -689,6 +692,7 @@ final class Console
             'offsite_backup', 'auto_updates', 'claude' => is_bool($v) ? $v : (is_int($v) ? $v !== 0 : null),
             'cron_last_run', 'last_backup' => self::unixTime($v),
             'db_version', 'enquiries_unanswered', 'enquiries_7_days', 'visits_7_days', 'kit_version' => self::count($v),
+            'stats_confirmed_since' => self::day($v),
             'audit' => is_array($v) ? self::counts($v, null, '/^[a-z_]{1,40}$/D', 40) : null,
             'problems_7_days' => is_array($v) ? self::counts($v, null, '/^[A-Za-z0-9_.-]{1,60}$/D', 40) : null,
             'jobs_failing' => is_array($v) ? array_values(array_slice(array_filter($v, static fn (mixed $job): bool => is_string($job) && preg_match('/^[a-z0-9_]{1,60}$/D', $job) === 1), 0, 40)) : null,
@@ -729,6 +733,28 @@ final class Console
         $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $value);
 
         return $date !== false && $date->format('Y-m-d') === $value ? $date : null;
+    }
+
+    /** A calendar day 'Y-m-d' that exists (date()), between 1970 and 2100; null for anything else (3.29 Checks, 3.29.1). */
+    public static function day(mixed $value): ?string
+    {
+        $date = self::date($value);
+
+        return $date !== null && (int) $date->format('Y') >= 1970 && (int) $date->format('Y') <= 2100 ? $date->format('Y-m-d') : null;
+    }
+
+    /**
+     * The mark of a site whose visits changed meaning (3.29.1): the day it started to count only browser-confirmed visits,
+     * while the visits of the last 7 days it sends still reach across that day (Front\Stats::recentSwitch – the 14 days from
+     * it); null otherwise. The console shows "counting changed on …" next to the visits and never treats the drop as one.
+     *
+     * @param array<string, mixed> $beat a stored heartbeat (bounded again here)
+     */
+    public static function countingChanged(array $beat, int $now): ?string
+    {
+        $since = self::day($beat['stats_confirmed_since'] ?? null);
+
+        return \Kaleta\Front\Stats::recentSwitch($since, date('Y-m-d', $now)) ? $since : null;
     }
 
     /** The latest Unix time a heartbeat may carry as a moment (1 January 2100). */
