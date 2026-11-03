@@ -506,12 +506,10 @@ final class Checks
         };
     }
 
-    /** A calendar day 'Y-m-d' that exists, between 1970 and 2100; null for anything else. */
+    /** A calendar day 'Y-m-d' that exists, between 1970 and 2100; null for anything else (Console::day). */
     private static function day(mixed $value): ?string
     {
-        $date = Console::date($value);
-
-        return $date !== null && (int) $date->format('Y') >= 1970 && (int) $date->format('Y') <= 2100 ? $date->format('Y-m-d') : null;
+        return Console::day($value);
     }
 
     /** A Unix time from a DATETIME column, null for anything else. */

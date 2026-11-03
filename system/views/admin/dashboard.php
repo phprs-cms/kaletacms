@@ -12,6 +12,7 @@
  * @var array<string, mixed>|null $ask "Ask Claude" (3.1), null without the Requests section or the Claude connection
  * @var array{url: string, admin: bool}|null $connect "Connect Claude" (3.5) until a Claude connection has ever called the site
  * @var list<array{kind: string, label: string, count: int, url: string, examples: list<string>}> $pending "Waiting for you" (3.2, Core\PendingReview)
+ * @var string|null $confirmedSince the first day of browser-confirmed counting when older numbers exist (3.29.1, Front\Stats::confirmedSince)
  */
 ?>
 <div class="prehled-hlavicka">
@@ -68,14 +69,24 @@
     for ($i = 13; $i >= 0; $i--) { $days[date('Y-m-d', strtotime("-{$i} day"))] = 0; }
     foreach ($traffic as $n) { $days[$n['den']] = (int) $n['navstevy']; }
     $max = max(1, ...array_values($days));
+    // 3.29.1: the day browser-confirmed counting started is marked, with the note of the Statistics screen, while the 14 days
+    // shown reach across it (Front\Stats::spansSwitch) – the visits before it include some bots and the team's own visits
+    $confirmedSince = Kaleta\Front\Stats::spansSwitch($confirmedSince ?? null, (string) array_key_first($days), (string) array_key_last($days)) ? $confirmedSince : null;
 ?>
 <section class="prehled-graf" aria-label="<?= e(t('Visits in the last 14 days')) ?>">
 	<h2><?= e(t('Visits in the last 14 days')) ?> <small><?= e(t('%s visits', format_count(array_sum($days)))) ?></small></h2>
 	<svg viewBox="0 0 280 70" preserveAspectRatio="none" role="img" aria-label="<?= e(t('Visits in the last 14 days')) ?>">
-<?php $x = 0; foreach ($days as $day => $count): $v = max(1, (int) round($count / $max * 62)); ?>
-		<rect x="<?= $x * 20 + 2 ?>" y="<?= 66 - $v ?>" width="16" height="<?= $v ?>" rx="2" data-tip="<?= e(t('%s: %s visits', format_date($day), $count)) ?>" aria-label="<?= e(t('%s: %s visits', format_date($day), $count)) ?>" tabindex="0"></rect>
+<?php $x = 0; foreach ($days as $day => $count): $v = max(1, (int) round($count / $max * 62));
+    $dayLabel = t('%s: %s visits', format_date($day), $count) . ($day === $confirmedSince ? ' – ' . t('only visits confirmed by a browser count from this day') : ''); ?>
+<?php if ($day === $confirmedSince): ?>
+		<line class="prehled-zacatek" x1="<?= $x * 20 + 1 ?>" y1="0" x2="<?= $x * 20 + 1 ?>" y2="70" vector-effect="non-scaling-stroke" data-stats-confirmed-day="<?= e($day) ?>"></line>
+<?php endif ?>
+		<rect x="<?= $x * 20 + 2 ?>" y="<?= 66 - $v ?>" width="16" height="<?= $v ?>" rx="2" data-tip="<?= e($dayLabel) ?>" aria-label="<?= e($dayLabel) ?>" tabindex="0"></rect>
 <?php $x++; endforeach ?>
 	</svg>
+<?php if ($confirmedSince !== null): ?>
+	<p class="smltxt" data-stats-confirmed><?= e(t('From %s, only visits confirmed by a visitor’s browser are counted – bots, link previews and your own visits are left out. Earlier numbers include some of them.', format_date($confirmedSince))) ?></p>
+<?php endif ?>
 	<p class="smltxt"><a href="<?= e($app->url('admin.php?module=stats')) ?>"><?= e(t('Full statistics')) ?></a></p>
 </section>
 <?php endif ?>

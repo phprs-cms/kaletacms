@@ -19,7 +19,8 @@ use Kaleta\Core\Updater;
  *    last one and answers – signed by its own key – which version the site may install.
  *  - Staged updates: canary sites get a new version at once; the rest when every canary has run it for UPDATE_WAIT without
  *    errors, without being down and without a failed update (without canaries: UPDATE_WAIT after the console first saw
- *    the version). Security releases go to everyone at once. An administrator can allow a version by hand.
+ *    the version). Security releases go to everyone at once. An administrator can allow a version by hand. Since 3.30
+ *    rings pilot | normal | careful with their own delays and a maintenance window per customer or site (Fleet\Rollout).
  *  - Uptime: the console asks each site's home page every 5 minutes; down twice in a row = the event fleet.site_down.
  *  - History (3.17, Fleet\History): each check and the day's state of each site are kept 400 days – trends, alert rules
  *    (Fleet\AlertRules), the weekly digest (Fleet\Digest) and the monthly report per customer (Fleet\Report) read it.
@@ -42,7 +43,11 @@ final class Console
         // 3.18: whether Claude is connected to the site (Core\ClaudeConnection::summary)
         'claude_connection',
         // 3.29: the health matrix, the Today view and the workload roll-up (Fleet\Checks::PARTS, bounded by Checks::clean)
-        'offsite', 'mail_setup', 'twofa', 'cookie_scan', 'privacy_page', 'accessibility_statement', 'handover', 'workload'];
+        'offsite', 'mail_setup', 'twofa', 'cookie_scan', 'privacy_page', 'accessibility_statement', 'handover', 'workload',
+        // 3.30: the inventory and the expiry calendar (Fleet\Inventory::PARTS, bounded by Inventory::clean)
+        'db_server', 'web_server', 'features', 'addons', 'languages', 'recovery_key_since',
+        // 3.29.1: the day the site started to count only browser-confirmed visits (a calendar day, day())
+        'stats_confirmed_since'];
 
     /**
      * The address of a site as the console keeps and links it (3.17, N317-5): http(s), a host without user information
@@ -174,7 +179,10 @@ final class Console
         $db->update('fleet_sites', $update, ['id' => (int) $site['id']]);
         $site = array_merge($site, $update);
         [$latest, $security, $firstSeen] = self::latest($app);
-        $allowed = self::allowedVersion(self::row($site), array_map(self::row(...), self::sites($db)), $latest, $security, $firstSeen, time());
+        // 3.30: the ring's delay and the maintenance window of the site or its customer (Fleet\Rollout); security releases at once
+        $window = Rollout::parseWindow(Rollout::windowOf($site, Rollout::customerWindows($db)));
+        $allowed = Rollout::decide(self::row($site), array_map(self::row(...), self::sites($db)), $latest, $security, $firstSeen, time(), Rollout::delays($app->settings()), $window,
+            new \DateTimeZone(date_default_timezone_get()))['version'];
 
         // 2.16: the newest shared design kit is only announced here – a site that wants it asks /fleet/kit itself (Fleet\Kit)
         // 3.17: a kit meant for one customer is announced to that customer's sites only
@@ -203,6 +211,7 @@ final class Console
         $url = (string) $db->value('SELECT url FROM {fleet_sites} WHERE id = ?', [$id]);
         if ($db->delete('fleet_sites', ['id' => $id]) > 0) {
             History::forget($db, $id); // 3.17: its days and down periods; the fleet reports already made keep it
+            \Kaleta\Core\Tasks::forgetTargets($db, [ConsoleTasks::site($id)]); // 3.30: its console tasks follow it
             Events::record($db, 'fleet.site_removed', 'info', t('%s is no longer in the console.', $url), ['site' => $id]);
         }
     }
@@ -255,10 +264,12 @@ final class Console
         $state = (new Updater($s))->state();
         $new = $state['nova'] ?? $state['vyzaduje_php'];
         $version = $new !== null ? (string) $new['verze'] : KALETA_VERSION;
+        $security = self::isSecurityRelease($version, $new, json_decode($s->get('update_cache'), true));
         $seen = json_decode($s->get('fleet_versions'), true);
         $seen = is_array($seen) ? $seen : [];
-        if (!isset($seen[$version])) {
-            $seen[$version] = [time(), $new !== null && !empty($new['bezpecnostni'])];
+        if (!isset($seen[$version]) || ($security && empty($seen[$version][1]))) {
+            // N330-5: a release first recorded as ordinary and later known as a security release becomes one (never back)
+            $seen[$version] = [isset($seen[$version][0]) ? (int) $seen[$version][0] : time(), $security];
             $s->set('fleet_versions', (string) json_encode(array_slice($seen, -20, null, true)));
         }
 
@@ -266,30 +277,33 @@ final class Console
     }
 
     /**
-     * Which version a site may install now ('' = none). Pure – see the class description.
+     * Whether the newest version is a security release (N330-5): from the offer of the console's update source, or – when
+     * the console already runs it (it installed the security release itself before any site asked) – from the manifest
+     * it last read, when that manifest is this version. Pure.
      *
-     * @param array{id: int, version: string, ring: string, manage_updates: bool, update_allowed: string, status: string, up: ?bool, version_since: ?int, update_problem: bool} $site
-     * @param list<array{id: int, version: string, ring: string, manage_updates: bool, update_allowed: string, status: string, up: ?bool, version_since: ?int, update_problem: bool}> $sites
+     * @param array<string, mixed>|null $new the offered release (Updater::state nova or vyzaduje_php)
+     */
+    public static function isSecurityRelease(string $version, ?array $new, mixed $cache): bool
+    {
+        if ($new !== null) {
+            return !empty($new['bezpecnostni']);
+        }
+        $manifest = is_array($cache) && is_array($cache['manifest'] ?? null) ? $cache['manifest'] : [];
+
+        return is_scalar($manifest['verze'] ?? null) && (string) $manifest['verze'] === $version && !empty($manifest['bezpecnostni']);
+    }
+
+    /**
+     * Which version a site may install now ('' = none) with the rings' default delays and no maintenance window – 2.9's
+     * answer; the heartbeat asks Fleet\Rollout::decide with the console's delays and the site's window (3.30). Pure.
+     *
+     * @param array{id: int, version: string, ring: string, manage_updates: bool, update_allowed: string, status: string, up: ?bool, version_since: ?int, update_problem: bool, last_seen?: ?int} $site
+     * @param list<array{id: int, version: string, ring: string, manage_updates: bool, update_allowed: string, status: string, up: ?bool, version_since: ?int, update_problem: bool, last_seen?: ?int}> $sites
      */
     public static function allowedVersion(array $site, array $sites, string $latest, bool $security, int $firstSeen, int $now): string
     {
-        if (!$site['manage_updates'] || $latest === '' || ($site['version'] !== '' && !version_compare($latest, $site['version'], '>'))) {
-            return '';
-        }
-        if ($site['update_allowed'] === $latest || $security || $site['ring'] === 'canary') {
-            return $latest;
-        }
-        $canaries = array_filter($sites, fn (array $c): bool => $c['ring'] === 'canary' && $c['manage_updates'] && $c['id'] !== $site['id']);
-        if ($canaries === []) {
-            return $firstSeen > 0 && $now - $firstSeen >= self::UPDATE_WAIT ? $latest : '';
-        }
-        foreach ($canaries as $c) {
-            if ($c['version'] !== $latest || $c['version_since'] === null || $now - $c['version_since'] < self::UPDATE_WAIT || $c['status'] === 'error' || $c['up'] === false || $c['update_problem']) {
-                return '';
-            }
-        }
-
-        return $latest;
+        return Rollout::decide($site, $sites, $latest, $security, $firstSeen, $now, ['pilot' => 0, 'normal' => intdiv(self::UPDATE_WAIT, 3600), 'careful' => Rollout::DEFAULT_HOURS['careful']],
+            null, new \DateTimeZone('UTC'))['version'];
     }
 
     /**
@@ -538,15 +552,19 @@ final class Console
      * A row in the shape allowedVersion() reads.
      *
      * @param array<string, mixed> $site
-     * @return array{id: int, version: string, ring: string, manage_updates: bool, update_allowed: string, status: string, up: ?bool, version_since: ?int, update_problem: bool}
+     * @return array{id: int, version: string, ring: string, manage_updates: bool, update_allowed: string, status: string, up: ?bool, version_since: ?int, update_problem: bool, last_seen: ?int}
      */
     public static function row(array $site): array
     {
         $beat = json_decode((string) ($site['heartbeat'] ?? ''), true);
+        // 3.30 (N330-2): the last heartbeat, or the pairing when there was none yet – Rollout::silentPilot
+        $seen = $site['last_seen'] ?? $site['paired_at'] ?? null;
+        $seen = is_string($seen) && ($t = strtotime($seen)) !== false ? $t : null;
 
         return ['id' => (int) $site['id'], 'version' => (string) $site['version'], 'ring' => (string) $site['ring'], 'manage_updates' => (int) $site['manage_updates'] === 1,
             'update_allowed' => (string) $site['update_allowed'], 'status' => (string) $site['status'], 'up' => $site['up'] === null ? null : (int) $site['up'] === 1,
-            'version_since' => $site['version_since'] !== null ? (int) strtotime((string) $site['version_since']) : null, 'update_problem' => is_array($beat) && !empty($beat['update_problem'])];
+            'version_since' => $site['version_since'] !== null ? (int) strtotime((string) $site['version_since']) : null, 'update_problem' => is_array($beat) && !empty($beat['update_problem']),
+            'last_seen' => $seen];
     }
 
     /**
@@ -563,6 +581,7 @@ final class Console
             $value = $d[$key] ?? null;
             $out[$key] = match (true) {
                 in_array($key, Checks::PARTS, true) => Checks::clean($key, $value), // 3.29
+                in_array($key, Inventory::PARTS, true) => Inventory::clean($key, $value), // 3.30
                 in_array($key, self::PARTS, true) => self::cleanPart($key, $value),
                 default => self::cleanLegacy($key, $value),
             };
@@ -580,6 +599,11 @@ final class Console
 
                 return $p['detail'] === '' ? null : $p;
             }, $out['problems']), fn (mixed $p): bool => $p !== null));
+        }
+        foreach (['features', 'addons'] as $list) { // 3.30: not even whether the channel is switched on
+            if (is_array($out[$list])) {
+                $out[$list] = array_values(array_filter($out[$list], fn (string $name): bool => !Heartbeat::isWhistleblowing($name)));
+            }
         }
         if (is_array($out['jobs_failing'])) {
             $out['jobs_failing'] = array_values(array_filter($out['jobs_failing'], fn (mixed $job): bool => !is_string($job) || !Heartbeat::isWhistleblowing($job)));
@@ -673,7 +697,8 @@ final class Console
      *  - problems: at most 20 {group, check, status, detail}, each text one line; jobs_failing: at most 40 job names;
      *  - cron_last_run, last_backup: a Unix time (unixTime); offsite_backup, auto_updates, claude: true or false;
      *  - db_version, enquiries_unanswered, enquiries_7_days, visits_7_days, kit_version: a count (count());
-     *  - audit (kind => findings) and problems_7_days (event type => count): at most 40 names by pattern, each a count.
+     *  - audit (kind => findings) and problems_7_days (event type => count): at most 40 names by pattern, each a count;
+     *  - stats_confirmed_since (3.29.1): a calendar day between 1970 and 2100 (day()), null for anything else.
      */
     private static function cleanLegacy(string $key, mixed $v): mixed
     {
@@ -690,6 +715,7 @@ final class Console
             'offsite_backup', 'auto_updates', 'claude' => is_bool($v) ? $v : (is_int($v) ? $v !== 0 : null),
             'cron_last_run', 'last_backup' => self::unixTime($v),
             'db_version', 'enquiries_unanswered', 'enquiries_7_days', 'visits_7_days', 'kit_version' => self::count($v),
+            'stats_confirmed_since' => self::day($v),
             'audit' => is_array($v) ? self::counts($v, null, '/^[a-z_]{1,40}$/D', 40) : null,
             'problems_7_days' => is_array($v) ? self::counts($v, null, '/^[A-Za-z0-9_.-]{1,60}$/D', 40) : null,
             'jobs_failing' => is_array($v) ? array_values(array_slice(array_filter($v, static fn (mixed $job): bool => is_string($job) && preg_match('/^[a-z0-9_]{1,60}$/D', $job) === 1), 0, 40)) : null,
@@ -730,6 +756,28 @@ final class Console
         $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $value);
 
         return $date !== false && $date->format('Y-m-d') === $value ? $date : null;
+    }
+
+    /** A calendar day 'Y-m-d' that exists (date()), between 1970 and 2100; null for anything else (3.29 Checks, 3.29.1). */
+    public static function day(mixed $value): ?string
+    {
+        $date = self::date($value);
+
+        return $date !== null && (int) $date->format('Y') >= 1970 && (int) $date->format('Y') <= 2100 ? $date->format('Y-m-d') : null;
+    }
+
+    /**
+     * The mark of a site whose visits changed meaning (3.29.1): the day it started to count only browser-confirmed visits,
+     * while the visits of the last 7 days it sends still reach across that day (Front\Stats::recentSwitch – the 14 days from
+     * it); null otherwise. The console shows "counting changed on …" next to the visits and never treats the drop as one.
+     *
+     * @param array<string, mixed> $beat a stored heartbeat (bounded again here)
+     */
+    public static function countingChanged(array $beat, int $now): ?string
+    {
+        $since = self::day($beat['stats_confirmed_since'] ?? null);
+
+        return \Kaleta\Front\Stats::recentSwitch($since, date('Y-m-d', $now)) ? $since : null;
     }
 
     /** The latest Unix time a heartbeat may carry as a moment (1 January 2100). */

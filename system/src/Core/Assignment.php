@@ -17,8 +17,19 @@ namespace Kaleta\Core;
  */
 final class Assignment
 {
-    /** kind => the admin section (Module::IDENT) a person needs to be chosen for it; 3.28: a customer and a company need Customers (Core\Contacts::SECTION); 3.31: a deal the pipeline (Core\Deals::SECTION) */
-    public const array KINDS = ['enquiry' => 'enquiries', 'page' => 'pages', 'item' => 'collections', 'contact' => 'contacts', 'company' => 'contacts', 'deal' => 'pipeline'];
+    /**
+     * kind => the admin section (Module::IDENT) a person needs to be chosen for it; 3.28: a customer and a company need Customers
+     * (Core\Contacts::SECTION); 3.30: a site and a customer of a fleet console need the console (only tasks are about them –
+     * Fleet\ConsoleTasks; nothing on the console has a responsible person); 3.31: a deal the pipeline (Core\Deals::SECTION)
+     */
+    public const array KINDS = ['enquiry' => 'enquiries', 'page' => 'pages', 'item' => 'collections', 'contact' => 'contacts', 'company' => 'contacts',
+        'fleet_site' => 'fleet', 'fleet_customer' => 'fleet', 'deal' => 'pipeline'];
+
+    /**
+     * Sections only administrators open (Module::ADMIN_ONLY – the fleet console, N330-4): a stale or forged section right
+     * of another account never makes it a candidate there.
+     */
+    public const array ADMIN_SECTIONS = ['fleet'];
 
     /** How a removed account is shown where its id is left (untranslated at the MCP boundary, t() in the admin). */
     public const string FORMER_USER = '(former user)';
@@ -39,7 +50,7 @@ final class Assignment
         $name = "IF(jmeno = '', user, jmeno)";
         $rows = $db->all(
             'SELECT idu, ' . $name . ' AS name, blokovat FROM {uzivatele} u WHERE (blokovat = 0 AND (admin = ? OR EXISTS (SELECT 1 FROM {uzivatele_prava} p WHERE p.fk_id_user = u.idu AND p.ident_modulu = ?))) OR idu = ? ORDER BY ' . $db->sortText($name),
-            [Auth::ADMIN, $section, $keep],
+            [Auth::ADMIN, in_array($section, self::ADMIN_SECTIONS, true) ? '' : $section, $keep],
         );
         $out = [];
         foreach ($rows as $r) {
@@ -58,7 +69,7 @@ final class Assignment
         $section = self::KINDS[$kind] ?? null;
 
         return $section !== null && $userId > 0 && $db->value('SELECT 1 FROM {uzivatele} u WHERE idu = ? AND blokovat = 0 AND (admin = ? OR EXISTS (SELECT 1 FROM {uzivatele_prava} p WHERE p.fk_id_user = u.idu AND p.ident_modulu = ?))',
-            [$userId, Auth::ADMIN, $section]) !== null;
+            [$userId, Auth::ADMIN, in_array($section, self::ADMIN_SECTIONS, true) ? '' : $section]) !== null;
     }
 
     /**

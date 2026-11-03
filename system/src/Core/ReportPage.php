@@ -124,9 +124,12 @@ final class ReportPage
             : ['type' => 'table', 'caption' => $caption, 'head' => $head, 'rows' => $rows, 'numeric' => $numeric, 'short' => $short];
         $note = static fn (string $text): array => ['type' => 'note', 'text' => $text];
         $more = static fn (int $total, int $shown): ?array => $total > $shown ? ['type' => 'note', 'text' => t('… and %d more.', $total - $shown)] : null;
-        $change = static function (int $now, int $before) use ($n): string {
+        $change = static function (int $now, int $before, ?string $countingChanged = null) use ($n): string {
             if ($before === 0) {
                 return $n($now);
+            }
+            if ($countingChanged !== null && $now < $before) {
+                return $n($now) . ' (' . t('counting changed on %s', format_date($countingChanged)) . ')'; // 3.29.1: no drop across the switch
             }
             $percent = (int) round(100 * ($now - $before) / $before);
 
@@ -221,7 +224,8 @@ final class ReportPage
 
         // traffic and conversions
         if ($stats !== null) {
-            $rows = [[t('Visits'), $change((int) ($stats['visits'] ?? 0), (int) ($stats['previous_visits'] ?? 0))], [t('Page views'), $change((int) ($stats['views'] ?? 0), (int) ($stats['previous_views'] ?? 0))]];
+            $rows = [[t('Visits'), $change((int) ($stats['visits'] ?? 0), (int) ($stats['previous_visits'] ?? 0), ReportSummary::countingChanged($stats))],
+                [t('Page views'), $change((int) ($stats['views'] ?? 0), (int) ($stats['previous_views'] ?? 0), ReportSummary::countingChanged($stats))]];
             foreach (['calls' => 'Calls – clicks on a phone number', 'emails' => 'E-mails – clicks on an e-mail address', 'whatsapp' => 'WhatsApp – clicks on a WhatsApp link'] as $key => $label) {
                 if ((int) ($stats['contact_clicks'][$key] ?? 0) > 0) {
                     $rows[] = [t($label), $n($stats['contact_clicks'][$key])];

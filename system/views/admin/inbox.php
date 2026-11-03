@@ -12,7 +12,7 @@
  * @var string $csrf
  */
 $icon = require __DIR__ . '/icons.php';
-$kindIcon = ['mention' => 'komentare', 'comment' => 'komentare', 'assigned' => 'moje', 'review_due' => 'audit', 'task_due' => 'moje'];
+$kindIcon = ['mention' => 'komentare', 'comment' => 'komentare', 'assigned' => 'moje', 'review_due' => 'audit', 'task_due' => 'moje', 'fleet_expiry' => 'web'];
 $emailNote = match ($email) {
     'daily' => t('You get one e-mail summary a day, in the morning.'),
     'off' => t('You get no e-mail about them – they are only here.'),

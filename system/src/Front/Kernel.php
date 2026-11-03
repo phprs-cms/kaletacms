@@ -289,6 +289,10 @@ final class Kernel
                 default => \Kaleta\Fleet\Console::unpair($this->app, $body, $signature),
             };
         }
+        if ($path === '/fleet/calendar.ics' && Extensions::isEnabled($this->app->settings(), 'fleet')) {
+            // 3.30: an administrator's calendar feed of the fleet's expiry dates (Fleet\Calendar) – a secret link, revocable
+            return \Kaleta\Fleet\Calendar::feed($this->app, $request->get('token'));
+        }
         if ($path === '/hit' && $request->isPost()) {
             // a page view confirmed by the visitor's browser (3.29): image/vitals.js reports it once the page is really shown;
             // rendering a page (or serving it from the page cache) no longer counts anything

@@ -189,6 +189,13 @@ final class Settings
         'fleet_digest' => '0',         // the weekly digest e-mail on Monday morning – off by default
         'fleet_digest_titles' => '0',  // the digest names the requests by their titles – off by default (the e-mail leaves the console)
         'fleet_digest_sent' => '',     // the ISO week of the last digest (internal)
+        // 3.30, the console's side (Fleet\Rollout, Fleet\Calendar; Fleet → Rollout and Calendar)
+        'fleet_ring_pilot_hours' => '0',     // a pilot site may install a new version this many hours after the console first saw it
+        'fleet_ring_normal_hours' => '48',   // a normal site: after this many hours (and after the pilots ran it without problems)
+        'fleet_ring_careful_hours' => '168', // a careful site: after a week
+        'fleet_expiry_reminders' => '30,7',  // reminders of expiring certificates and domains, days before (at most 5 numbers, 0–365)
+        'fleet_calendar_feeds' => '',  // JSON user id => sha256 of the secret of their calendar link (.ics) – never the secret itself
+        'fleet_server_hint' => '',     // the site's side (3.30): the family of its web server last seen on a web request – the heartbeat of a command-line cron reports it (Fleet\Inventory)
         'domain_watch' => '',          // the last domain and mail check (JSON with the time of the check, Core\DomainWatch, 2.8) – internal, not editable
         'remote_backup' => 'vypnuto', // copy of the backup off the server: vypnuto (off) | ftp | s3
         'backup_host' => '',          // FTP server, or the S3 storage URL (s3.eu-central-1.amazonaws.com)

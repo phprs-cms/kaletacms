@@ -253,4 +253,38 @@ final class Stats
 
         return (int) $db->value('SELECT COUNT(*) FROM {stat_dny} WHERE den < ?', [$since]) > 0 ? $since : null;
     }
+
+    /*
+     * 3.29.1 – the rule wherever visits are compared or charted (the dashboard, the monthly report, MCP, the fleet console):
+     * the switch to browser-confirmed counting lowers the numbers without fewer people coming. A span of days "reaches across
+     * the switch" when some of its days were counted the old way and some the new way – the day counting started is after
+     * its first day and not after its last (spansSwitch). While a comparison reaches across it, a drop of visits shows no
+     * down arrow and raises nothing; the switch is marked instead ("counting changed on …"). A rise is shown as it is.
+     * A rolling period that ends today – the visits of the last 7 days a site sends its fleet console, read against the weeks
+     * before – reaches across it for SWITCH_DAYS days from the switch, the day itself included (recentSwitch): two weeks, so
+     * that "this week against last week" never compares a new-counting week with an old-counting one unmarked.
+     */
+
+    /** 3.29.1: for how many days from the switch a rolling comparison of visits still reaches across it. */
+    public const int SWITCH_DAYS = 14;
+
+    /**
+     * Whether the days from $from to $to ('Y-m-d', both included) reach across the switch day $since (3.29.1, see above):
+     * $from < $since <= $to. Pure; false without a valid day.
+     */
+    public static function spansSwitch(?string $since, string $from, string $to): bool
+    {
+        return $since !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/D', $since) === 1 && $since > $from && $since <= $to;
+    }
+
+    /**
+     * Whether a rolling comparison of visits that ends on $day ('Y-m-d') still reaches across the switch day $since – the
+     * SWITCH_DAYS days from the switch, the switch day included (3.29.1). Pure.
+     */
+    public static function recentSwitch(?string $since, string $day): bool
+    {
+        $end = \DateTimeImmutable::createFromFormat('!Y-m-d', $day);
+
+        return $end !== false && self::spansSwitch($since, $end->modify('-' . self::SWITCH_DAYS . ' days')->format('Y-m-d'), $day);
+    }
 }

@@ -1380,6 +1380,49 @@ alias renamed; new non-essential MCP tools `fleet_today` and `fleet_health`; `ge
    and the chart mark the day the new counting started (`stats_confirmed_since`).
 6. **Admin footer:** the heart link reads "Support the development of Kaleta CMS" (Czech "Podpořte vývoj Kaleta CMS").
 
+**3.29.1 (3 November 2026):** say why the visits dropped, a quieter menu, and password links that work again (owner,
+3 November). No migration; no setting, MCP tool, parameter or Czech alias renamed.
+1. **Visits drop explained:** `Front\Stats::spansSwitch`/`recentSwitch` is the one rule wherever visits are compared or
+   charted – the dashboard chart, the monthly report (tile, rows, e-mail, page), MCP (`get_stats.counting_note`,
+   `get_monthly_report.counting_changed`, `get_site.visits_counting_changed`) and the Fleet console (site page, fleet
+   reports): across the switch to browser-confirmed counting a drop is marked "counting changed on …", never a down arrow
+   or an alert. The heartbeat carries `stats_confirmed_since`, bounded by `Fleet\Console::day`.
+2. **Menu after sign-in:** only Content is open (`Admin\MenuGroups::OPEN_AT_SIGN_IN`), plus the group of the current screen;
+   the person's own opening and folding lasts until they sign out.
+3. **Invitation and password links set the password again** (PR #35): `Admin\PasswordReset::page()` let its empty defaults
+   win over the token since 1.4.0, so the form posted an empty token and no password was ever saved. Also: sign-in with an
+   e-mail address when exactly one account has it (same limits, lock and two-step checks, no enumeration), and a password
+   link opened in a signed-in browser signs that browser out after the new password is saved.
+
+## 3.30 – the Fleet console, second release: inventory, expiry calendar, rollout and console tasks (3 November 2026)
+
+The second of two Fleet console releases for an owner running about twenty sites (owner, 3 November). The console still
+never reaches into sites: sites report and ask, the console answers and links. Migration 0116 adds
+`ka_fleet_sites.update_window`, `ka_fleet_customers.update_window` and `ka_fleet_expiry_reminders` and turns `canary` rings
+into `pilot`; `KALETA_DB_VERSION` 116. No setting key, POST field, MCP tool, parameter or Czech alias renamed (`list_sites`
+reports the ring `pilot` where it said `canary`); new non-essential MCP tools `fleet_inventory`, `fleet_calendar` and
+`fleet_plan`, and the prompt `fleet_fix`.
+
+1. **Inventory** (`Fleet\Inventory`): version, channel, PHP, database, web server family, features, add-ons, languages and
+   last report per site, a filter per column, search and CSV export (formulas blocked). New heartbeat keys `db_server`,
+   `web_server`, `features`, `addons`, `languages`, `recovery_key_since` – system names and a day only, bounded by
+   `Inventory::clean`.
+2. **Expiry calendar** (`Fleet\Calendar`): certificate and domain dates on a month view and a list with the thresholds of
+   `Fleet\Checks`, recovery keys, reminders by the hourly job `fleet_expiry` (30 and 7 days by default) once per date and
+   threshold (`ka_fleet_expiry_reminders`), e-mail to the alert recipients and the bell for administrators; an iCal feed per
+   administrator (`/fleet/calendar.ics`, only its hash stored, revocable).
+3. **Rollout** (`Fleet\Rollout`): rings pilot / normal / careful with delays (0 h, 48 h, 168 h by default); normal and careful
+   sites also wait until every pilot runs the release without problems (a pilot on a newer version counts; one that
+   stopped reporting while healthy is left out); maintenance windows per customer with a per-site
+   override (at least two hours; a window crossing midnight belongs to the day it starts). Security releases and versions allowed by hand still
+   go everywhere at once. A Rollout tab shows per ring what is updated, may update, waits, is held by pilots or failed.
+4. **Console tasks** (`Fleet\ConsoleTasks`): 3.27 tasks about `fleet_site:<id>` or `fleet_customer:<id>` – a panel on the site
+   page and a new customer page, counts in Sites and Customers, overdue tasks on Today (amber), My work, the bell and
+   reminders as usual; a task follows its site, a customer with an open task stays, merging moves tasks.
+5. **Fleet plan for Claude** (`Fleet\Plan`, MCP `fleet_plan`, prompt `fleet_fix`): per site the open Today items, console
+   tasks and the site's own connector address (`<url>/mcp`, never a token); Claude works one site at a time through that
+   site's connection; the console runs nothing. The site page shows the connector address with a copy button.
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |

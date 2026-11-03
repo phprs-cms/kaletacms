@@ -844,7 +844,7 @@ check "3.18.3, 3.25: with more than 5 collections the menu shows 5" 200 "/admin.
 expect "3.18.3, 3.25: … exactly 5, by name, then More… to the list of collections" "$(grep -c 'class="menu-kolekce"' "$WORK/response")|$(grep -c '<span>Cap 9</span>' "$WORK/response")|$(grep -c '<li class="menu-kolekce menu-kolekce-dalsi"><a href="/admin.php?module=collections">.*<span>Další…</span>' "$WORK/response")" "5|0|1"
 # 3.25 (C): the menu groups – collapsible, Czech labels, Statistics under Site care, no Company group; an author with a few
 # items gets a flat list without groups (and without the group script)
-check "3.25: the administrator's menu has collapsible groups" 200 "/admin.php" '<details class="menu-skupiny" data-menu-skupina="content" open><summary class="menu-skupina"><span>Obsah</span>'
+check "3.25: the administrator's menu has collapsible groups" 200 "/admin.php" '<details class="menu-skupiny" data-menu-skupina="content" data-menu-vychozi open><summary class="menu-skupina"><span>Obsah</span>'
 expect "3.25: … the group script, Statistics in Site care, no Company group, the Business details in Content" "$(grep -c 'src="/image/admin-menu.js?v=' "$WORK/response")|$(perl -0ne 'print m{data-menu-skupina="site-care".*?module=stats.*?</details>}s ? 1 : 0' "$WORK/response")|$(grep -c '<span>Firma</span>' "$WORK/response")|$(perl -0ne 'print m{data-menu-skupina="content"[^>]*>.*?module=business".*?</details>}s ? 1 : 0' "$WORK/response")" "1|1|0|1"
 check "3.25: the current screen's group is marked" 200 "/admin.php?module=stats" 'data-menu-skupina="site-care" data-aktualni open>'
 code=$(curl -s -b "$JAR2" -o "$WORK/response" -w '%{http_code}' "$B/admin.php")
@@ -2675,6 +2675,34 @@ JAR3="$WORK/jar3"
 TOKEN3=$(curl -s -c "$JAR3" "$B/admin.php?action=password&token=$FAKE_REFRESH" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//' || true)
 curl -s -b "$JAR3" -c "$JAR3" -o /dev/null -X POST "$B/admin.php?action=password" -d "_csrf=$TOKEN3" -d "token=$FAKE_REFRESH" --data-urlencode "password=Nove-heslo-123" --data-urlencode "password2=Nove-heslo-123"
 expect "obnova hesla zruší tokeny napojení" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_api_tokeny t JOIN ka_uzivatele u ON u.idu = t.idu WHERE u.user = 'obchodnik'")" "0"
+# the invitation link opened where another account is signed in still sets the password and signs that browser out;
+# the invited user then signs in with the new password by user name and by the e-mail the invitation came to
+csrf_of() { grep -o 'name="_csrf" value="[a-f0-9]*"' "$1" | head -1 | sed 's/.*value="//;s/"//' || true; }
+INVITE_TOKEN="$(printf 'd%.0s' $(seq 1 64))"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET obnova_otisk = '$(php -r 'echo hash("sha256", $argv[1]);' "$INVITE_TOKEN")', obnova_cas = '$(site_time)' + INTERVAL 3 DAY WHERE user = 'pozvany'"
+JAR5="$WORK/jar5"; curl -s -c "$JAR5" -o "$WORK/response" "$B/admin.php"
+SIGNED_IN=$(curl -s -b "$JAR5" -c "$JAR5" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$(csrf_of "$WORK/response")" -d user=obchodnik --data-urlencode "password=Nove-heslo-123")
+curl -s -b "$JAR5" -c "$JAR5" -o "$WORK/response" "$B/admin.php?action=password&token=$INVITE_TOKEN"
+INVITE_FORM="$(grep -c 'name="user" value="pozvany" autocomplete="username"' "$WORK/response" || true)|$(grep -c 'přihlášený jako obchodnik' "$WORK/response" || true)"
+# the token as the form carries it, not as the test knows it: from 1.4.0 the form sent it empty and never set the password
+FORM_TOKEN=$(grep -o 'name="token" value="[a-f0-9]*"' "$WORK/response" | sed 's/.*value="//;s/"//' || true)
+INVITE_SET=$(curl -s -b "$JAR5" -c "$JAR5" -o /dev/null -w '%{http_code} %{redirect_url}' -X POST "$B/admin.php?action=password" -d "_csrf=$(csrf_of "$WORK/response")" -d "token=$FORM_TOKEN" --data-urlencode "password=Pozvany-heslo-123" --data-urlencode "password2=Pozvany-heslo-123")
+curl -s -b "$JAR5" -c "$JAR5" -o "$WORK/response" "$B/admin.php"
+expect "pozvánka otevřená u jiného přihlášení nastaví heslo a odhlásí" "$SIGNED_IN|$INVITE_FORM|${INVITE_SET%% *}|$(grep -q 'password_changed=1$' <<< "$INVITE_SET" && echo ok)|$(grep -c 'autocomplete="current-password"' "$WORK/response" || true)" "302|1|1|302|ok|1"
+invite_login() { local jar="$WORK/jar-$2"; curl -s -c "$jar" -o "$WORK/response" "$B/admin.php"; curl -s -b "$jar" -c "$jar" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$(csrf_of "$WORK/response")" --data-urlencode "user=$1" --data-urlencode "password=Pozvany-heslo-123"; }
+expect "pozvaný se přihlásí jménem i e-mailem" "$(invite_login pozvany name)|$(invite_login pozvany@example.cz email)" "302|302"
+# 3.29.1 review: an e-mail two accounts share (in another case too) signs neither in; wrong passwords typed with the e-mail
+# count to that account's lock as with its user name, and the lock then holds for the right password
+OWN_EMAIL3291=$(sq "SELECT email FROM ka_uzivatele WHERE user = 'obchodnik'")
+sq "UPDATE ka_uzivatele SET email = 'POZVANY@example.cz' WHERE user = 'obchodnik'" > /dev/null
+SHARED3291=$(invite_login pozvany@example.cz shared)
+sq "UPDATE ka_uzivatele SET email = '$OWN_EMAIL3291' WHERE user = 'obchodnik'; DELETE FROM ka_kontrola_ip WHERE typ = 'login'" > /dev/null
+JAR6="$WORK/jar6"; curl -s -c "$JAR6" -o "$WORK/response" "$B/admin.php"; TOKEN6=$(csrf_of "$WORK/response")
+for i in $(seq 1 10); do curl -s -b "$JAR6" -c "$JAR6" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN6" --data-urlencode user=pozvany@example.cz -d password=wrong-by-email-3291; done
+sq "DELETE FROM ka_kontrola_ip WHERE typ = 'login'" > /dev/null
+LOCKED3291="$(sq "SELECT zamceno_do > '$(site_time)' FROM ka_uzivatele WHERE user = 'pozvany'")|$(invite_login pozvany locked)"
+sq "UPDATE ka_uzivatele SET zamceno_do = NULL, pocet_chyb = 0 WHERE user = 'pozvany'; DELETE FROM ka_kontrola_ip WHERE typ = 'login'" > /dev/null
+expect "3.29.1 review: a shared e-mail signs nobody in; wrong passwords by e-mail lock the account as by name" "$SHARED3291|$LOCKED3291" "401|1|401"
 JAR4="$WORK/jar4"
 TOKEN4=$(curl -s -c "$JAR4" "$B/admin.php" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//' || true)
 for i in $(seq 1 10); do curl -s -b "$JAR4" -c "$JAR4" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN4" -d user=obchodnik -d password=spatne-heslo-xyz; done
@@ -3548,6 +3576,22 @@ check "3.29: Statistics say from when only visits confirmed by a browser count a
 grep -q 'class="graf-sloupec graf-zacatek"' "$WORK/response" && echo "  ok     3.29: the first day of browser-confirmed counting is marked on the chart" || { echo "  CHYBA  3.29: the marked day on the chart"; ERRORS=$((ERRORS+1)); }
 mcp get_stats '{"days":7}' > "$WORK/response"; mcp_text
 contains -q '"counting":"browser_confirmed"' "$WORK/text" && contains -q "\"confirmed_since\":\"$(site_date today)\"" "$WORK/text" && echo "  ok     3.29: get_stats says the numbers are browser-confirmed and since when (additive keys)" || { echo "  CHYBA  3.29: get_stats counting"; head -c 300 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+# 3.29.1: say why the visits dropped – the dashboard chart marks the day and says it; get_stats and get_monthly_report say a drop
+# across the switch is fewer bots, not fewer people (additive keys); the monthly report shows no down arrow for it
+contains -q '"counting_note":"Counting changed on' "$WORK/text" && echo "  ok     3.29.1: get_stats says a drop across the switch is fewer bots, not fewer people (counting_note)" || { echo "  CHYBA  3.29.1: get_stats counting_note"; head -c 300 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+check "3.29.1: the dashboard chart says from when only visits confirmed by a browser count" 200 "/admin.php" 'data-stats-confirmed>'
+expect "3.29.1: … and marks that day on the chart, with the day's label saying it" \
+  "$(grep -o "class=\"prehled-zacatek\"[^>]*data-stats-confirmed-day=\"$(site_date today)\"" "$WORK/response" | wc -l | tr -d ' ')|$(grep -cE 'only visits confirmed by a browser count from this day|od tohoto dne se počítají jen návštěvy potvrzené prohlížečem' "$WORK/response")" "1|1"
+# 3.29.1 (owner): after a sign-in only Content is open in the menu – the layout marks Content and names the sign-in on the menu script
+expect "3.29.1: the menu marks Content as the group open after a sign-in and tells the script which sign-in this page belongs to" \
+  "$(grep -o 'data-menu-skupina="[a-z-]*"[^>]*data-menu-vychozi' "$WORK/response" | sed 's/data-menu-skupina="\([a-z-]*\)".*/\1/' | tr '\n' ' ')|$(grep -cE 'admin-menu\.js\?v=[^"]*" data-menu-prihlaseni="[1-9][0-9]{9}"' "$WORK/response")" "content |1"
+M3291=$(site_time '-2 months' Y-m)
+sq "REPLACE INTO ka_monthly_reports (month, created_at, schema_version, data) VALUES ('$M3291', '$(site_time)', 1, '{\"month\":\"$M3291\",\"stats\":{\"visits\":600,\"views\":900,\"previous_visits\":1000,\"previous_views\":1500,\"confirmed_since\":\"$M3291-10\"}}')" > /dev/null
+mcp get_monthly_report "{\"month\":\"$M3291\"}" > "$WORK/response"; mcp_text
+contains -q "\"counting_changed\":{\"on\":\"$M3291-10\"" "$WORK/text" && echo "  ok     3.29.1: get_monthly_report says the month reaches across the switch (counting_changed, additive)" || { echo "  CHYBA  3.29.1: get_monthly_report counting_changed"; head -c 300 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+check "3.29.1: the printed monthly report shows the drop across the switch without a down arrow" 200 "/admin.php?module=settings&action=report_view&month=$M3291"
+expect "3.29.1: … the visits tile and rows name the switch, no ▼ and no minus" "$(grep -cE 'counting changed on|počítání se změnilo' "$WORK/response" | tr -d ' ' | sed 's/^[1-9][0-9]*$/yes/')|$(grep -c '▼' "$WORK/response")|$(grep -cE '\(−40 %\)' "$WORK/response")" "yes|0|0"
+sq "DELETE FROM ka_monthly_reports WHERE month = '$M3291'" > /dev/null
 case "$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d zpet=/leads-23 -d "as_cas=$FORM_TIME" -d "as_podpis=$FORM_SIGNATURE" --data-urlencode p2=tick@example.cz)" in *result=pole\&field=0*) echo "  ok     a required group needs at least one ticked option";; *) echo "  CHYBA  required checkbox group"; ERRORS=$((ERRORS+1));; esac
 curl -s -o /dev/null -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d zpet=/leads-23 -d "as_cas=$FORM_TIME" -d "as_podpis=$FORM_SIGNATURE" -d 'p0[]=Kuchyne' -d 'p0[]=Podvrh' -d p1=Hacked --data-urlencode p2=tick@example.cz
 expect "ticked options (only offered ones) and the form's own hidden value are saved" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT data FROM ka_poptavky WHERE email = 'tick@example.cz'")" '[["Sluzby","Kuchyne"],["Produkt","Dubovy stul"],["Email","tick@example.cz"]]'
@@ -4174,6 +4218,35 @@ expect "3.29: the console's pages still open after the hostile heartbeat" "$(cat
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('require_2fa', '$REQ2FA329'); DELETE FROM ka_tasks WHERE title IN ('Call Jan329 at jan329@client.example', 'Open329')" > /dev/null
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"; sleep 1
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_send" -d "_csrf=$(csrf)"
+# 3.29.1: the site sends the day browser-confirmed counting started (stats_confirmed_since); the console bounds it, marks the site's
+# visits for the 14 days from it and asks no attention and sends no alert for the drop (every alert rule on)
+SINCE3291=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'stats_confirmed_since'")
+D3291=$(site_date '-3 days')
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('stats_confirmed_since', '$D3291'); INSERT IGNORE INTO ka_stat_dny (den, navstevy, zobrazeni) VALUES ('$(site_date '-10 days')', 0, 0)" > /dev/null
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"; sleep 1
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_send" -d "_csrf=$(csrf)"
+expect "3.29.1: the heartbeat carries the day browser-confirmed counting started, next to the visits of 7 days" \
+  "$(sq3 "SELECT CONCAT(JSON_UNQUOTE(JSON_EXTRACT(heartbeat, '\$.stats_confirmed_since')), '|', JSON_TYPE(JSON_EXTRACT(heartbeat, '\$.visits_7_days'))) FROM ka_fleet_sites WHERE id = $FLEET_ID")" "$D3291|INTEGER"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=detail&id=$FLEET_ID"
+expect "3.29.1: the console's site page marks the visits – counting changed on that day, fewer bots, not fewer people" \
+  "$(grep -c 'data-counting-changed' "$WORK/response")|$(grep -cE 'Counting of visits changed on|Počítání návštěv se změnilo' "$WORK/response")" "1|1"
+php -r 'chdir($argv[1]); require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $app->applyTimezone();
+  $site = $app->db()->one("SELECT * FROM {fleet_sites} WHERE id = ?", [(int) $argv[2]]);
+  $all = array_map(fn (array $k): array => ["on" => true, "threshold" => $k[1]], Kaleta\Fleet\AlertRules::KINDS);
+  $words = implode(",", [...Kaleta\Fleet\Console::attention($site, time())["reasons"], ...array_column(Kaleta\Fleet\AlertRules::matches($site, $all, time()), "kind")]);
+  echo preg_match("/visit|traffic|drop/", $words) === 1 ? "alarm: " . $words : "none", "|", Kaleta\Fleet\Console::countingChanged(Kaleta\Fleet\Console::storedBeat($site), time()) ?? "-";' "$WORK/web3" "$FLEET_ID" > "$WORK/alerts3291.txt" 2>&1
+expect "3.29.1: the drop across the switch raises no attention and no alert on the console (every rule on); the mark holds" "$(cat "$WORK/alerts3291.txt")" "none|$D3291"
+# a hostile day signed by the site is dropped on its own, the rest of the heartbeat kept
+sleep 1
+php -r 'chdir($argv[1]); require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $s = $app->settings();
+  $body = json_encode(["action" => "heartbeat", "site_id" => $s->int("fleet_site_id"), "ts" => time(), "version" => "3.29.1", "name" => "Hostile3291", "visits_7_days" => 12, "stats_confirmed_since" => "9999-12-31<script>"]);
+  file_put_contents($argv[2], $body); echo Kaleta\Fleet\Keys::sign($s, $body);' "$WORK/web" "$WORK/hostile3291.json" > "$WORK/hostile3291.sig"
+expect "3.29.1: a hostile stats_confirmed_since is dropped, the visits kept, the site page still opens without the mark" \
+  "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B3/fleet/heartbeat" -H 'Content-Type: application/json' -H "X-Kaleta-Signature: $(cat "$WORK/hostile3291.sig")" --data-binary @"$WORK/hostile3291.json")|$(sq3 "SELECT CONCAT(JSON_TYPE(JSON_EXTRACT(heartbeat, '\$.stats_confirmed_since')), '|', JSON_EXTRACT(heartbeat, '\$.visits_7_days')) FROM ka_fleet_sites WHERE id = $FLEET_ID")|$(curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" -w '%{http_code}' "$B3/admin.php?module=fleet&action=detail&id=$FLEET_ID")|$(grep -c 'data-counting-changed' "$WORK/response")" \
+  "200|NULL|12|200|0"
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('stats_confirmed_since', '$SINCE3291')" > /dev/null
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"; sleep 1
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_send" -d "_csrf=$(csrf)"
 # 3.26.1: the site's own uptime – it asks its console (POST /fleet/uptime, signed both ways; Fleet\Uptime), keeps the days and its monthly
 # report (and MCP get_monthly_report, also for a month archived before) gains "uptime"; an older console without the address changes nothing
 sq3 "INSERT INTO ka_fleet_history (site_id, day, checks_ok, checks_failed, response_ms_total, response_count) VALUES ($FLEET_ID, '$PREV317-05', 286, 2, 0, 286)" > /dev/null
@@ -4514,7 +4587,242 @@ php -r '$r = json_decode(file_get_contents($argv[1]), true); $d = json_decode($r
     str_contains(file_get_contents($argv[1]), "evil329b") || str_contains(file_get_contents($argv[1]), "Jan329b") ? "leak" : "clean"]);' "$WORK/response" "$HOST329" "$OLD329" > "$WORK/mcp329b.txt"
 expect "3.29 MCP fleet_health: every check per site as states, the worst first, the workload counts bounded, the old site marked" "$(cat "$WORK/mcp329b.txt")" "18|worst-first|bad|bad|1000000|null|old|unknown|total|clean"
 mcp fleet_today '{}' > "$WORK/response"; contains -q 'sites_to_update' "$WORK/response" && { echo "  CHYBA  fleet_today works on a site that is not a console"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.29: fleet_today and fleet_health exist only on a console"
+echo "== 3.30 (Y): console tasks per site or customer (Fleet\ConsoleTasks over Core\Tasks), the connector hint, MCP fleet_plan and the prompt fleet_fix"
+y330_mcp() { curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $1" -H 'Content-Type: application/json' --data-binary "$2"; }
+y330_call() { y330_mcp "$CON_TOKEN" "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"$1\",\"arguments\":$2}}"; }
+Y330_ADMIN=$(sq3 "SELECT idu FROM ka_uzivatele WHERE user = 'admin'"); Y330_ACME=$(sq3 "SELECT name FROM ka_fleet_customers WHERE id = $ACME317")
+# the site's screen: the connector of the site (its /mcp from the known address, no token) with Copy, and its task panel
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" -w '%{http_code}' "$B3/admin.php?module=fleet&action=detail&id=$HOST329" > "$WORK/code330.txt"
+expect "3.30: the site's screen shows its own Claude connector (plain address, Copy button) and the panel of its console tasks" \
+  "$(cat "$WORK/code330.txt")|$(grep -c '<code id="fleet-connector">http://hostile329b.test/mcp</code> <button class="navigace" type="button" data-kopirovat="#fleet-connector">' "$WORK/response")|$(grep -c "data-tasks=\"fleet_site:$HOST329\"" "$WORK/response")|$(grep -c 'hostile329bkey\|evil329b' "$WORK/response")" "200|1|1|0"
+# a task overdue for me about the site, and one about the customer due tomorrow (a quick button)
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=task" -d "_csrf=$(csrf)" -d "site=$HOST329" -d op=add --data-urlencode "title=Renew Lindner's domain 330" -d "due_date=$(site_date '-2 days')" -d due_time=10:00 -d assignee_id=0
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=customer_detail&id=$ACME317"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=task" -d "_csrf=$(csrf)" -d "customer=$ACME317" -d op=add --data-urlencode "title=Check prices at Acme before January 330" -d due_quick=tomorrow
+Y330_T1=$(sq3 "SELECT id FROM ka_tasks WHERE title = 'Renew Lindner''s domain 330'"); Y330_T2=$(sq3 "SELECT id FROM ka_tasks WHERE title = 'Check prices at Acme before January 330'")
+expect "3.30: a console task about a site and one about a customer – ordinary tasks for me, due when asked" \
+  "$(sq3 "SELECT CONCAT(target, '|', assignee_id, '|', due_at) FROM ka_tasks WHERE id = ${Y330_T1:-0}")#$(sq3 "SELECT CONCAT(target, '|', assignee_id, '|', DATE(due_at)) FROM ka_tasks WHERE id = ${Y330_T2:-0}")" \
+  "fleet_site:$HOST329|$Y330_ADMIN|$(site_date '-2 days') 10:00:00#fleet_customer:$ACME317|$Y330_ADMIN|$(site_date '+1 day')"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" -w '%{http_code}' "$B3/admin.php?module=fleet&action=customer_detail&id=$ACME317" > "$WORK/code330.txt"
+expect "3.30: the customer's screen – its sites and the panel of its tasks" \
+  "$(cat "$WORK/code330.txt")|$(grep -c "data-tasks=\"fleet_customer:$ACME317\"" "$WORK/response")|$(grep -c 'Check prices at Acme before January 330' "$WORK/response")|$(grep -c 'data-customer-sites' "$WORK/response")|$(grep -c "action=detail&amp;id=$BETA317\"" "$WORK/response")" "200|1|1|1|1"
+expect "3.30: an unknown customer's screen goes back to the customers" "$(curl -s -b "$JAR_CON" -o /dev/null -w '%{http_code}' "$B3/admin.php?module=fleet&action=customer_detail&id=999999")" "302"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=sites&show=all"
+grep -qF "<td data-popisek=\"Úkoly\" class=\"stred\" data-fleet-tasks><a href=\"/admin.php?module=fleet&amp;action=detail&amp;id=$HOST329#tasks\">1</a></td>" "$WORK/response" \
+  && echo "  ok     3.30: Sites count the open console tasks of each site" || { echo "  CHYBA  3.30: the Tasks column of Sites"; grep -o '<td[^>]*data-fleet-tasks>[^/]*' "$WORK/response" | head -3; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=customers"
+grep -qF "action=customer_detail&amp;id=$ACME317#tasks\">1</a>" "$WORK/response" && grep -qF "action=customer_detail&amp;id=$ACME317\"><strong>" "$WORK/response" \
+  && echo "  ok     3.30: Customers count the open tasks of each customer and open the customer's screen" || { echo "  CHYBA  3.30: the Tasks column of Customers"; ERRORS=$((ERRORS+1)); }
+# Today: the overdue task is an amber item of kind task, ranked with the checks, opening the task on the console; filters still work
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet"
+expect "3.30 Today: the overdue console task is there (amber, its site, the link to the task on the console), the customer's task due tomorrow is not, the summary counts it" \
+  "$(grep -A6 "data-fleet-task=\"${Y330_T1:-0}\"" "$WORK/response" | grep -c "class=\"flotila-warn\"\|href=\"/admin.php?module=fleet&amp;action=detail&amp;id=$HOST329#tasks\"")|$(grep -c "data-fleet-task=\"${Y330_T2:-0}\"" "$WORK/response")|$(grep -A1 'data-fleet-overdue-tasks' "$WORK/response" | grep -c '<strong>1</strong>')" "2|0|1"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&severity=bad"
+expect "3.30 Today: the severity filter red leaves the amber task out; the customer filter too (the site has no customer)" \
+  "$(grep -c 'data-fleet-task=' "$WORK/response")|$(curl -s -b "$JAR_CON" "$B3/admin.php?module=fleet&customer=$ACME317" | grep -c 'data-fleet-task=')|$(curl -s -b "$JAR_CON" "$B3/admin.php?module=fleet&severity=warn" | grep -c 'data-fleet-task=')" "0|0|1"
+# My work lists it with what it is about; the reminder job notifies me once in the bell (task_due, the site as the target)
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=my_work"
+expect "3.30 My work: the console tasks with the site and the customer they are about, linking to their panels" \
+  "$(grep -c "Renew Lindner&#039;s domain 330<br><a class=\"smltxt\" href=\"/admin.php?module=fleet&amp;action=detail&amp;id=$HOST329#tasks\">Web „B329 &lt;script&gt;" "$WORK/response")|$(grep -c "href=\"/admin.php?module=fleet&amp;action=customer_detail&amp;id=$ACME317#tasks\">Zákazník konzole „$Y330_ACME“" "$WORK/response")" "1|1"
+Y330_RUN=$(cd "$WORK/web3" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); $app->applyTimezone(); echo Kaleta\Core\Tasks::run($app);')
+expect "3.30 reminder: the job tasks notifies me of the overdue console task once (task_due, the site), not of tomorrow's" \
+  "$(echo "$Y330_RUN" | grep -c 'notified 1')|$(sq3 "SELECT COUNT(*) FROM ka_notifications WHERE kind = 'task_due' AND user_id = $Y330_ADMIN AND target = 'fleet_site:$HOST329' AND excerpt = 'Renew Lindner''s domain 330'")|$(sq3 "SELECT COUNT(*) FROM ka_notifications WHERE target = 'fleet_customer:$ACME317'")" "1|1|0"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?action=inbox"
+grep -qF 'Web „B329 &lt;script&gt;alert(329)&lt;/script&gt; Hostile“' "$WORK/response" && echo "  ok     3.30: the bell names the site of the console task (escaped)" || { echo "  CHYBA  3.30: the bell"; ERRORS=$((ERRORS+1)); }
+# the fleet plan for Claude: per site the items, the tasks, the site's own connector and the order; read-only, admins only, only on a console
+y330_call fleet_plan '{}' > "$WORK/response"
+php -r '$r = json_decode(file_get_contents($argv[1]), true); $d = json_decode($r["result"]["content"][0]["text"] ?? "", true); $by = array_column($d["sites"] ?? [], null, "id"); $h = $by[(int) $argv[2]] ?? [];
+  $t = array_column($h["tasks"] ?? [], null, "id")[(int) $argv[3]] ?? []; $c = $d["customer_tasks"][0] ?? [];
+  echo implode("|", [$h["connector"] ?? "-", $h["url"] ?? "-", count($h["items"] ?? []) > 0 ? "items" : "-", ($t["overdue"] ?? false) ? "overdue" : "-", str_ends_with($t["admin_url"] ?? "", "action=detail&id=" . $argv[2] . "#tasks") ? "link" : "-",
+    count(array_filter($h["order"] ?? [], fn ($o) => str_starts_with($o, "Task #" . $argv[3]))), ($c["id"] ?? 0) === (int) $argv[4] ? "customer" : "-", isset($d["how"], $d["note"], $d["written_on_the_site"]) ? "how" : "-",
+    preg_match("/key|token|secret|heartbeat|password/i", implode(",", array_keys($h))) ? "leak" : "clean", str_contains(file_get_contents($argv[1]), "hostile329bkey") || str_contains(file_get_contents($argv[1]), "evil329b") ? "leak" : "clean"]);' \
+  "$WORK/response" "$HOST329" "${Y330_T1:-0}" "${Y330_T2:-0}" > "$WORK/plan330.txt"
+expect "3.30 MCP fleet_plan: the hostile site with its items, its overdue task in the order with the console link, its connector from the known address; the customer's task apart; no key" \
+  "$(cat "$WORK/plan330.txt")" "http://hostile329b.test/mcp|http://hostile329b.test|items|overdue|link|1|customer|how|clean|clean"
+y330_call fleet_plan "{\"customer\":\"$Y330_ACME\",\"severity\":\"amber\",\"tasks\":false}" > "$WORK/response"
+php -r '$r = json_decode(file_get_contents($argv[1]), true); $d = json_decode($r["result"]["content"][0]["text"] ?? "", true);
+  echo implode("|", [str_contains(file_get_contents($argv[1]), "hostile329b") ? "other" : "only", count(array_filter($d["sites"] ?? [], fn ($s) => array_filter($s["items"], fn ($i) => $i["state"] !== "warn") !== [])), count($d["customer_tasks"] ?? [1]), count(array_merge(...array_map(fn ($s) => $s["tasks"], $d["sites"] ?? [])))]);' "$WORK/response" > "$WORK/plan330.txt"
+expect "3.30 MCP fleet_plan: the customer filter, amber = warn only, without tasks" "$(cat "$WORK/plan330.txt")" "only|0|0|0"
+y330_call fleet_plan "{\"site\":$HOST329,\"checks\":[\"uptime\"]}" > "$WORK/response"
+php -r '$r = json_decode(file_get_contents($argv[1]), true); $d = json_decode($r["result"]["content"][0]["text"] ?? "", true);
+  echo implode("|", [count($d["sites"] ?? []), implode(",", array_unique(array_column($d["sites"][0]["items"] ?? [], "check"))), count($d["customer_tasks"] ?? [1])]);' "$WORK/response" > "$WORK/plan330.txt"
+expect "3.30 MCP fleet_plan: one site, one check, no customer tasks" "$(cat "$WORK/plan330.txt")" "1|uptime|0"
+expect "3.30 MCP fleet_plan: an unknown severity, check or site is refused" \
+  "$(y330_call fleet_plan '{"severity":"purple"}' | grep -c 'severity must be one of')|$(y330_call fleet_plan '{"checks":["nope"]}' | grep -c 'Unknown check: nope')|$(y330_call fleet_plan '{"site":999999}' | grep -c 'not in the console')" "1|1|1"
+# only administrators of the console; only on a console; a console task only where the console is on
+sq3 "INSERT INTO ka_uzivatele (user, password, jmeno, admin, posledni_login, potvrzeno) VALUES ('editor330', '!', 'Editor 330', 1, '$(site_time)', '$(site_time)')" > /dev/null
+Y330_ETOKEN="kaleta_$(printf 'e%.0s' $(seq 1 48))"
+sq3 "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'test', '$(php -r 'echo hash("sha256", $argv[1]);' "$Y330_ETOKEN")', '$(site_time)' FROM ka_uzivatele WHERE user = 'editor330'" > /dev/null
+y330_mcp "$Y330_ETOKEN" '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fleet_plan","arguments":{}}}' > "$WORK/response"
+contains -q '"isError":true' "$WORK/response" && ! contains -q 'connector' "$WORK/response" && echo "  ok     3.30 MCP fleet_plan: refused to someone who is not an administrator" || { echo "  CHYBA  3.30 fleet_plan for an editor"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp fleet_plan '{}' > "$WORK/response"; contains -q '"connector"' "$WORK/response" && { echo "  CHYBA  fleet_plan works on a site that is not a console"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.30: fleet_plan exists only on a console"
+mcp save_task '{"title":"Console task off the console","target":"fleet_site:1"}' > "$WORK/response"
+expect "3.30: no console task where the console is off" "$(grep -c 'does not exist' "$WORK/response")|$(sq "SELECT COUNT(*) FROM ka_tasks WHERE title = 'Console task off the console'")" "1|0"
+# N330-4: the console is for administrators only – a forged or stale section right never makes an editor a candidate for a console task
+sq3 "INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, 'fleet' FROM ka_uzivatele WHERE user = 'editor330'" > /dev/null
+y330_call save_task "{\"title\":\"Forged right 330\",\"target\":\"fleet_site:$HOST329\",\"assignee\":\"editor330\"}" > "$WORK/response"
+expect "3.30 review N330-4: an editor with a forged fleet right gets no console task and cannot list the console tasks" \
+  "$(sq3 "SELECT COUNT(*) FROM ka_tasks WHERE title = 'Forged right 330'")|$(y330_mcp "$Y330_ETOKEN" "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"list_tasks\",\"arguments\":{\"filter\":\"target:fleet_site:$HOST329\"}}}" | grep -c 'the fleet console can see the tasks')" "0|1"
+sq3 "DELETE p FROM ka_uzivatele_prava p JOIN ka_uzivatele u ON u.idu = p.fk_id_user WHERE u.user = 'editor330' AND p.ident_modulu = 'fleet'" > /dev/null
+expect "3.30: the prompt fleet_fix is listed on the console (and runs fleet_plan), not on a site that is not a console" \
+  "$(y330_mcp "$CON_TOKEN" '{"jsonrpc":"2.0","id":1,"method":"prompts/list"}' | grep -c '"name":"fleet_fix"')|$(y330_mcp "$CON_TOKEN" '{"jsonrpc":"2.0","id":1,"method":"prompts/get","params":{"name":"fleet_fix","arguments":{"severity":"amber"}}}' | grep -c 'only the amber items. You are connected to a Kaleta fleet console')|$(curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"prompts/list"}' | grep -c 'fleet_fix')" "1|1|0"
+# Claude reports back on the console: complete_task with the id from the plan; a task id of another record never reaches it through a panel
+y330_call complete_task "{\"id\":${Y330_T1:-0}}" > /dev/null
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=detail&id=$HOST329"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=task" -d "_csrf=$(csrf)" -d "site=$HOST329" -d op=done -d "task=${Y330_T2:-0}"
+expect "3.30: complete_task finishes the console task; the site's panel cannot finish the customer's task" \
+  "$(sq3 "SELECT done_at IS NOT NULL FROM ka_tasks WHERE id = ${Y330_T1:-0}")|$(sq3 "SELECT done_at IS NULL FROM ka_tasks WHERE id = ${Y330_T2:-0}")|$(curl -s -b "$JAR_CON" "$B3/admin.php?module=fleet" | grep -c 'data-fleet-task=')" "1|1|0"
+# a task follows its record: a customer with an open task is kept without sites, its done tasks go with it; a removed site takes its tasks
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=detail&id=$HOST329"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=customer" -d "_csrf=$(csrf)" -d "id=$HOST329" -d "customer=Keep 330" -d note=
+Y330_KEEP=$(sq3 "SELECT id FROM ka_fleet_customers WHERE name = 'Keep 330'")
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=task" -d "_csrf=$(csrf)" -d "customer=$Y330_KEEP" -d op=add --data-urlencode "title=Keep 330 task" -d due_quick=week
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=customer" -d "_csrf=$(csrf)" -d "id=$HOST329" -d customer= -d note=
+Y330_KEPT=$(sq3 "SELECT COUNT(*) FROM ka_fleet_customers WHERE id = ${Y330_KEEP:-0}")
+sq3 "UPDATE ka_tasks SET done_at = '$(site_time)' WHERE target = 'fleet_customer:${Y330_KEEP:-0}'" > /dev/null
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=customer" -d "_csrf=$(csrf)" -d "id=$HOST329" -d customer= -d note=
+expect "3.30: a customer without sites stays while it has an open task; once done, it is forgotten with its tasks" \
+  "$Y330_KEPT|$(sq3 "SELECT COUNT(*) FROM ka_fleet_customers WHERE id = ${Y330_KEEP:-0}")|$(sq3 "SELECT COUNT(*) FROM ka_tasks WHERE target = 'fleet_customer:${Y330_KEEP:-0}'")" "1|0|0"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=task" -d "_csrf=$(csrf)" -d "site=$OLD329" -d op=add --data-urlencode "title=Old 330 task" -d due_quick=today
+Y330_OLD_TASK=$(sq3 "SELECT COUNT(*) FROM ka_tasks WHERE target = 'fleet_site:$OLD329'")
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=remove" -d "_csrf=$(csrf)" -d "id=$OLD329"
+expect "3.30: removing a site from the console removes its console tasks" "$Y330_OLD_TASK|$(sq3 "SELECT COUNT(*) FROM ka_tasks WHERE target = 'fleet_site:$OLD329'")|$(sq3 "SELECT COUNT(*) FROM ka_fleet_sites WHERE id = $OLD329")" "1|0|0"
+sq3 "DELETE FROM ka_tasks WHERE target LIKE 'fleet%'; DELETE FROM ka_notifications WHERE target LIKE 'fleet%'; DELETE FROM ka_api_tokeny WHERE idu = (SELECT idu FROM ka_uzivatele WHERE user = 'editor330'); DELETE FROM ka_uzivatele WHERE user = 'editor330'" > /dev/null
 sq3 "DELETE FROM ka_fleet_sites WHERE public_key IN ('old329bkey', 'hostile329bkey', 'new329bkey')" > /dev/null
+echo "== 3.30: the console's inventory, expiry calendar and update rings (Fleet\Inventory, Fleet\Calendar, Fleet\Rollout), MCP fleet_inventory and fleet_calendar"
+# the real site's heartbeat carries the inventory parts – system names, a version and a family, never a host
+expect "3.30: the heartbeat carries the database, the web server family, the features, the add-ons and the languages" \
+  "$(sq3 "SELECT CONCAT_WS('|', JSON_UNQUOTE(JSON_EXTRACT(heartbeat, '\$.db_server.family')) IN ('mysql', 'mariadb'), JSON_UNQUOTE(JSON_EXTRACT(heartbeat, '\$.db_server.version')) REGEXP '^[0-9]+\\\\.[0-9]+',
+    JSON_UNQUOTE(JSON_EXTRACT(heartbeat, '\$.web_server')) IN ('apache', 'nginx', 'litespeed', 'iis', 'caddy', 'php', 'other', 'unknown'), JSON_CONTAINS(JSON_EXTRACT(heartbeat, '\$.features'), '\"novinky\"'),
+    JSON_TYPE(JSON_EXTRACT(heartbeat, '\$.addons')), JSON_CONTAINS(JSON_EXTRACT(heartbeat, '\$.languages'), '\"cs\"'), JSON_EXTRACT(heartbeat, '\$.db_server', '\$.web_server', '\$.features', '\$.addons', '\$.languages') REGEXP '127\\.0\\.0\\.1|localhost') FROM ka_fleet_sites WHERE id = $FLEET_ID")" \
+  "1|1|1|1|ARRAY|1|0"
+# three more sites stored in the console: one before 3.30, a pilot with a certificate ending in 5 days and a domain in 20, a careful one
+ALLOWED330=$(sq3 "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_versions'"); CUST330=$(sq3 "SELECT COALESCE(customer_id, 'NULL') FROM ka_fleet_sites WHERE id = $FLEET_ID")
+CERT330=$(site_time '+5 days' Y-m-d); DOMAIN330=$(site_time '+20 days' Y-m-d)
+sq3 "INSERT INTO ka_fleet_sites (name, url, public_key, paired_at, last_seen, version, version_since, manage_updates, ring, status, up, heartbeat) VALUES
+  ('=SUM(1) X330 Old', 'http://old330.test', 'old330key', '$(site_time)', '$(site_time)', '3.28.0', '$(site_time)', 0, 'normal', 'ok', 1, '{\"version\":\"3.28.0\",\"php\":\"8.3.11\",\"update_channel\":\"stable\"}'),
+  ('X330 Pilot', 'http://pilot330.test', 'pilot330key', '$(site_time)', '$(site_time)', '3.99.9', '$(site_time '-50 hours')', 1, 'canary', 'ok', 1,
+   '{\"version\":\"3.99.9\",\"php\":\"8.4.5\",\"update_channel\":\"latest\",\"db_server\":{\"family\":\"mariadb\",\"version\":\"10.6.5\",\"host\":\"db.evil330.test\"},\"web_server\":\"nginx\",\"features\":[\"novinky\",\"bookings\",\"whistleblowing\"],\"addons\":[\"seo-pack\"],\"languages\":[\"cs\",\"en\"],\"domain_watch\":{\"checked\":$(date +%s),\"local\":false,\"certificate\":{\"expires\":\"$CERT330\",\"days\":5,\"error\":false},\"domain\":{\"expires\":\"$DOMAIN330\",\"days\":20,\"error\":false}},\"offsite\":{\"status\":\"ok\",\"at\":\"$(site_time now Y-m-d)\",\"recovery_key\":\"confirmed\"},\"recovery_key_since\":\"2026-03-01\"}'),
+  ('X330 Careful', 'http://careful330.test', 'careful330key', '$(site_time)', '$(site_time)', '3.29.0', '$(site_time)', 1, 'careful', 'ok', 1,
+   '{\"version\":\"3.29.0\",\"php\":\"8.4.5\",\"offsite\":{\"status\":\"paused\",\"recovery_key\":\"unconfirmed\"}}')" > /dev/null
+PILOT330=$(sq3 "SELECT id FROM ka_fleet_sites WHERE public_key = 'pilot330key'"); OLDX330=$(sq3 "SELECT id FROM ka_fleet_sites WHERE public_key = 'old330key'")
+expect "3.30: migration 0116 – the test sites of before are the pilot ring, the new columns and the reminders table" \
+  "$(sq3 "SELECT CONCAT((SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND ((table_name = 'ka_fleet_sites' AND column_name = 'update_window') OR (table_name = 'ka_fleet_customers' AND column_name = 'update_window'))), '|', (SELECT COUNT(*) FROM ka_fleet_expiry_reminders))")" "2|0"
+# the inventory: filters, the old site, CSV
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" -w '%{http_code}' "$B3/admin.php?module=fleet&action=inventory&php=8.3" > "$WORK/code330.txt"
+expect "3.30 Inventory: the PHP 8.3 filter shows the old site only, marked \"update the site to see\"; the tab is current" \
+  "$(cat "$WORK/code330.txt")|$(grep -c 'X330 Old' "$WORK/response")|$(grep -c 'X330 Pilot' "$WORK/response")|$(grep -A3 'X330 Old' "$WORK/response" | grep -cE 'Update the site to see|Uvidíte po aktualizaci webu')|$(grep -c 'action=inventory" class="aktivni"' "$WORK/response")" "200|1|0|1|1"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=inventory&feature=bookings&server=nginx"
+expect "3.30 Inventory: the feature and server filters; the database family and version; no host and never the whistleblowing channel" \
+  "$(grep -c 'X330 Pilot' "$WORK/response")|$(grep -c 'X330 Old' "$WORK/response")|$(grep -c 'MariaDB 10.6.5' "$WORK/response")|$(grep -ciE 'evil330|whistleblow' "$WORK/response")" "1|0|1|0"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -D "$WORK/head330.txt" -o "$WORK/inventory330.csv" "$B3/admin.php?module=fleet&action=inventory_csv&q=x330"
+expect "3.30 Inventory CSV: a download of what is filtered (the three X330 sites and the header), a site name starting with = cannot run as a formula" \
+  "$(grep -ci '^content-type: text/csv' "$WORK/head330.txt")|$(grep -ci 'attachment; filename="fleet-inventory-' "$WORK/head330.txt")|$(grep -c 'X330' "$WORK/inventory330.csv")|$(grep -c "^\"'=SUM(1) X330 Old\";" "$WORK/inventory330.csv")|$(wc -l < "$WORK/inventory330.csv" | tr -d ' ')" "1|1|3|1|4"
+# the calendar and its reminders: sent once per date and "days before", e-mail and the bell
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" -w '%{http_code}' "$B3/admin.php?module=fleet&action=calendar" > "$WORK/code330.txt"
+expect "3.30 Calendar: the month view and the list carry the pilot's certificate (red) and domain (amber), the careful site's recovery key waits" \
+  "$(cat "$WORK/code330.txt")|$(grep -c 'class="flotila-stav flotila-stav-bad" href="/admin.php?module=fleet&amp;action=detail&amp;id='"$PILOT330"'"' "$WORK/response" | awk '{print ($1 >= 1)}')|$(grep -c 'class="vypis vypis-karty flotila-terminy"' "$WORK/response")|$(grep -A3 'X330 Careful' "$WORK/response" | grep -c 'flotila-stav-bad')" "200|1|1|1"
+SMTP_PORT=$((PORT + 3)); mkdir -p "$WORK/smtp330"
+# an earlier sink on the same port may still be closing: wait until the port is free, then until the new sink listens
+for _ in $(seq 1 50); do command php -r 'exit(@fsockopen("127.0.0.1", (int) $argv[1]) ? 1 : 0);' "$SMTP_PORT" && break; sleep 0.1; done
+command php "$ROOT/tools/fake-smtp.php" "$SMTP_PORT" "$WORK/smtp330" > /dev/null 2>&1 & SMTP_PID=$!
+for _ in $(seq 1 50); do command php -r 'exit(@fsockopen("127.0.0.1", (int) $argv[1]) ? 0 : 1);' "$SMTP_PORT" && break; sleep 0.1; done
+sq3 "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '$SMTP_PORT'), ('smtp_encryption', 'zadne'), ('smtp_user', ''), ('mail_from', 'console@example.cz'), ('alerts_enabled', '1');
+  DELETE FROM ka_jobs WHERE name = 'fleet_expiry'" > /dev/null
+curl -s -o /dev/null "$B3/tasks?token=contoken317"
+for _ in $(seq 1 50); do ls "$WORK"/smtp330/*.eml > /dev/null 2>&1 && break; sleep 0.2; done; sleep 0.5 # the job may finish after the reply
+F=$(grep -l "^X-Rcpt-To: owner317@agency.example" "$WORK"/smtp330/*.eml 2>/dev/null | tail -1 || true); : > "$WORK/eml330.txt"; [ -n "$F" ] && eml "$F" > "$WORK/eml330.txt"
+expect "3.30 reminders: the certificate (5 days: 30 and 7 days before recorded, one reminder) and the domain (20 days: 30) – one e-mail to the alert recipients with plain links, a bell notification for the administrator" \
+  "$(sq3 "SELECT GROUP_CONCAT(CONCAT(kind, ':', days_before) ORDER BY kind, days_before) FROM ka_fleet_expiry_reminders WHERE site_id = $PILOT330")|$(ls "$WORK"/smtp330/*.eml 2>/dev/null | wc -l | tr -d ' ')|$(grep -c '^X-Rcpt-To: owner317@agency.example' "$WORK/eml330.txt")|$(grep -c "admin.php?module=fleet&action=detail&id=$PILOT330" "$WORK/eml330.txt")|$(sq3 "SELECT COUNT(*) FROM ka_notifications WHERE kind = 'fleet_expiry' AND target = 'fleet_site:$PILOT330' AND emailed_at IS NOT NULL")" \
+  "certificate:7,certificate:30,domain:30|1|1|2|2"
+sq3 "DELETE FROM ka_jobs WHERE name = 'fleet_expiry'" > /dev/null; curl -s -o /dev/null "$B3/tasks?token=contoken317"; sleep 1
+expect "3.30 reminders: the next run sends nothing again" "$(sq3 "SELECT COUNT(*) FROM ka_fleet_expiry_reminders")|$(ls "$WORK"/smtp330/*.eml 2>/dev/null | wc -l | tr -d ' ')|$(sq3 "SELECT COUNT(*) FROM ka_notifications WHERE kind = 'fleet_expiry'")" "3|1|2"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?action=inbox"
+expect "3.30: the bell lists the reminder with the site in the console" "$(grep -cE 'X330 Pilot' "$WORK/response" | awk '{print ($1 >= 1)}')" "1"
+kill "$SMTP_PID" 2>/dev/null || true; sq3 "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', '')" > /dev/null
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=calendar"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=calendar_save" -d "_csrf=$(csrf)" --data-urlencode "fleet_expiry_reminders=10, 45"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=calendar_save" -d "_csrf=$(csrf)" --data-urlencode "fleet_expiry_reminders=400"
+expect "3.30 Calendar: the reminder days saved, the largest first; a wrong list keeps them" "$(sq3 "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_expiry_reminders'")" "45,10"
+# the calendar link: shown once, the feed with the dates, revoked → gone
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=calendar_feed" -d "_csrf=$(csrf)" -d feed=new
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=calendar"
+FEED330=$(grep -o 'value="[^"]*/fleet/calendar\.ics?token=[0-9]*-[0-9a-f]*"' "$WORK/response" | head -1 | sed 's/^value="//;s/"$//;s/&amp;/\&/g' || true); TOKEN330="${FEED330##*token=}"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response2" "$B3/admin.php?module=fleet&action=calendar"
+curl -s -D "$WORK/head330.txt" -o "$WORK/feed330.ics" "$B3/fleet/calendar.ics?token=$TOKEN330"
+expect "3.30 calendar link: shown once, only its hash stored; the feed is an iCalendar with the pilot's certificate, not cached" \
+  "$([ -n "$TOKEN330" ] && echo link)|$(grep -c 'calendar.ics?token=' "$WORK/response2")|$(sq3 "SELECT hodnota LIKE '%${TOKEN330#*-}%' FROM ka_nastaveni WHERE promenna = 'fleet_calendar_feeds'")|$(grep -ci '^content-type: text/calendar' "$WORK/head330.txt")|$(grep -ci '^cache-control: no-store' "$WORK/head330.txt")|$(grep -c "DTSTART;VALUE=DATE:${CERT330//-/}" "$WORK/feed330.ics")|$(grep -c 'X330 Pilot' "$WORK/feed330.ics" | awk '{print ($1 >= 1)}')" \
+  "link|0|0|1|1|1|1"
+expect "3.30 calendar link: a wrong or made-up token gets 404" "$(curl -s -o /dev/null -w '%{http_code}' "$B3/fleet/calendar.ics?token=${TOKEN330%%-*}-$(printf '0%.0s' $(seq 1 32))")|$(curl -s -o /dev/null -w '%{http_code}' "$B3/fleet/calendar.ics?token=x")|$(curl -s -o /dev/null -w '%{http_code}' "$B/fleet/calendar.ics?token=$TOKEN330")" "404|404|404"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=calendar_feed" -d "_csrf=$(csrf)" -d feed=revoke
+expect "3.30 calendar link: revoked – the feed is gone" "$(curl -s -o /dev/null -w '%{http_code}' "$B3/fleet/calendar.ics?token=$TOKEN330")|$(sq3 "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_calendar_feeds'")" "404|"
+# the update gate: what the console answers a site's own signed heartbeat, by ring, window and release
+hb330() { sleep 1; php -r 'chdir($argv[1]); require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $s = $app->settings();
+  $body = json_encode(["action" => "heartbeat", "site_id" => $s->int("fleet_site_id"), "ts" => time(), "version" => "3.29.0", "manage_updates" => true]);
+  file_put_contents($argv[2], $body); echo Kaleta\Fleet\Keys::sign($s, $body);' "$WORK/web" "$WORK/hb330.json" > "$WORK/hb330.sig"
+  curl -s -X POST "$B3/fleet/heartbeat" -H 'Content-Type: application/json' -H "X-Kaleta-Signature: $(cat "$WORK/hb330.sig")" --data-binary @"$WORK/hb330.json" | php -r '$d = json_decode(stream_get_contents(STDIN), true); echo is_array($d) && array_key_exists("update_allowed", $d) ? ($d["update_allowed"] === "" ? "-" : $d["update_allowed"]) : "error";'; }
+CLOSED330=$(php -r 'echo date("N", strtotime("+3 days"));')
+sq3 "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('fleet_versions', '{\"3.99.9\":[$(($(date +%s) - 3600)),false]}');
+  UPDATE ka_fleet_sites SET ring = 'normal', update_window = NULL, customer_id = $ACME317 WHERE id = $FLEET_ID; UPDATE ka_fleet_customers SET update_window = '' WHERE id = $ACME317" > /dev/null
+G1=$(hb330); sq3 "UPDATE ka_fleet_sites SET update_window = '$CLOSED330|00:00-00:00' WHERE id = $FLEET_ID" > /dev/null; G2=$(hb330)
+sq3 "UPDATE ka_fleet_sites SET update_window = NULL WHERE id = $FLEET_ID; UPDATE ka_fleet_customers SET update_window = '$CLOSED330|00:00-00:00' WHERE id = $ACME317" > /dev/null; G3=$(hb330)
+sq3 "UPDATE ka_fleet_sites SET update_window = '' WHERE id = $FLEET_ID" > /dev/null; G4=$(hb330)
+sq3 "UPDATE ka_fleet_sites SET ring = 'careful' WHERE id = $FLEET_ID" > /dev/null; G5=$(hb330)
+sq3 "UPDATE ka_fleet_sites SET update_window = '$CLOSED330|00:00-00:00' WHERE id = $FLEET_ID; UPDATE ka_nastaveni SET hodnota = '{\"3.99.9\":[$(($(date +%s) - 3600)),true]}' WHERE promenna = 'fleet_versions'" > /dev/null; G6=$(hb330)
+sq3 "UPDATE ka_fleet_sites SET ring = 'pilot' WHERE id = $FLEET_ID; UPDATE ka_nastaveni SET hodnota = '{\"3.99.9\":[$(($(date +%s) - 3600)),false]}' WHERE promenna = 'fleet_versions'" > /dev/null; G7=$(hb330)
+sq3 "UPDATE ka_fleet_sites SET update_window = '1234567|00:00-00:00' WHERE id = $FLEET_ID" > /dev/null; G8=$(hb330)
+sq3 "UPDATE ka_fleet_sites SET ring = 'normal', update_window = NULL WHERE id = $FLEET_ID; UPDATE ka_fleet_customers SET update_window = '' WHERE id = $ACME317; UPDATE ka_fleet_sites SET status = 'error' WHERE id = $PILOT330" > /dev/null; G9=$(hb330)
+expect "3.30 update gate: normal after the pilot ran it 48 h | its own window closed | its customer's window closed | its own 'any time' over the customer's | careful (7 days) | a security release at once, window or not | a pilot outside its window | inside it | the pilot fails → held back" \
+  "$G1|$G2|$G3|$G4|$G5|$G6|$G7|$G8|$G9" "3.99.9|-|-|3.99.9|-|3.99.9|-|3.99.9|-"
+sq3 "UPDATE ka_fleet_sites SET status = 'ok' WHERE id = $PILOT330" > /dev/null
+# N330-5: the console installed a security release on itself before any site asked – it still goes to every site at once
+V330=$(sed -nE "s/^const KALETA_VERSION = '([^']+)';/\\1/p" "$WORK/web3/system/bootstrap.php")
+CACHE330=$(sq3 "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'update_cache'"); FV330=$(sq3 "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_versions'")
+sq3 "UPDATE ka_nastaveni SET hodnota = '{\"url\":\"http://127.0.0.1:1/aktualizace.json\",\"overeno\":$(date +%s),\"manifest\":{\"verze\":\"$V330\",\"bezpecnostni\":true,\"min_php\":\"8.3\",\"zmeny\":[]},\"chyba\":null}' WHERE promenna = 'update_cache';
+  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('fleet_versions', '{\"$V330\":[$(date +%s),false]}');
+  UPDATE ka_fleet_sites SET ring = 'careful', update_window = '$CLOSED330|00:00-00:00' WHERE id = $FLEET_ID" > /dev/null
+G10=$(hb330)
+expect "3.30 review N330-5: a security release the console already runs goes to a careful site outside its window at once" "$G10|$(sq3 "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_versions'" | grep -c "\"$V330\":\[[0-9]*,true\]")" "$V330|1"
+sq3 "UPDATE ka_nastaveni SET hodnota = '$CACHE330' WHERE promenna = 'update_cache'; UPDATE ka_nastaveni SET hodnota = '$FV330' WHERE promenna = 'fleet_versions'; UPDATE ka_fleet_sites SET ring = 'normal', update_window = NULL WHERE id = $FLEET_ID" > /dev/null
+# the rollout screen, the ring and window forms, the delays
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" -w '%{http_code}' "$B3/admin.php?module=fleet&action=rollout" > "$WORK/code330.txt"
+expect "3.30 Rollout: the rings with their counts, the pilot updated, the old site deciding itself, a window form per customer" \
+  "$(cat "$WORK/code330.txt")|$(grep -c 'class="vypis vypis-karty flotila-okruhy"' "$WORK/response")|$(grep -A4 'X330 Pilot' "$WORK/response" | grep -cE '>(Pilot|Pilotní)<')|$(grep -A6 'X330 Old' "$WORK/response" | grep -cE 'Decides itself|Rozhoduje sám')|$(grep -c 'name="window_days\[\]"' "$WORK/response" | awk '{print ($1 >= 7)}')" "200|1|1|1|1"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=window" -d "_csrf=$(csrf)" -d "customer=$ACME317" -d 'window_days[]=5' -d 'window_days[]=1' -d 'window_days[]=9' -d window_from=22:00 -d window_to=5:00
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=rollout_save" -d "_csrf=$(csrf)" -d fleet_ring_pilot_hours=2 -d fleet_ring_normal_hours=24 -d fleet_ring_careful_hours=336
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=rollout_save" -d "_csrf=$(csrf)" -d fleet_ring_pilot_hours=1 -d fleet_ring_normal_hours=x -d fleet_ring_careful_hours=99999
+expect "3.30 Rollout: a customer's window saved (days sorted, an unknown day left out), the delays saved, a wrong delay saves nothing" \
+  "$(sq3 "SELECT update_window FROM ka_fleet_customers WHERE id = $ACME317")|$(sq3 "SELECT GROUP_CONCAT(hodnota ORDER BY promenna) FROM ka_nastaveni WHERE promenna LIKE 'fleet\\_ring\\_%\\_hours'")" "15|22:00-05:00|336,24,2"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=detail&id=$FLEET_ID"
+grep -q 'name="ring"' "$WORK/response" && grep -q 'name="window_mode" value="customer" checked' "$WORK/response" && grep -qE 'Mon, Fri 22:00–05:00|Po, Pá 22:00–05:00' "$WORK/response" \
+  && echo "  ok     3.30: a site's page offers its ring and the customer's window in words" || { echo "  CHYBA  3.30: the ring and window form on the site's page"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=ring" -d "_csrf=$(csrf)" -d "id=$FLEET_ID" -d ring=careful -d window_mode=own -d 'window_days[]=6' -d 'window_days[]=7' -d window_from=10:00 -d window_to=10:00
+R1=$(sq3 "SELECT CONCAT(ring, '|', update_window) FROM ka_fleet_sites WHERE id = $FLEET_ID")
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=ring" -d "_csrf=$(csrf)" -d "id=$FLEET_ID" -d ring=canary -d window_mode=customer
+expect "3.30: the ring and the site's own window saved; the old value canary means pilot; back to the customer's window" "$R1|$(sq3 "SELECT CONCAT(ring, '|', COALESCE(update_window, 'NULL')) FROM ka_fleet_sites WHERE id = $FLEET_ID")" "careful|67|00:00-00:00|pilot|NULL"
+# N330-3: a window shorter than two hours could fall between two hourly heartbeats every day – refused, nothing saved
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=window" -d "_csrf=$(csrf)" -d "customer=$ACME317" -d 'window_days[]=3' -d window_from=03:00 -d window_to=03:30
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=ring" -d "_csrf=$(csrf)" -d "id=$FLEET_ID" -d ring=careful -d window_mode=own -d 'window_days[]=6' -d window_from=23:30 -d window_to=00:30
+expect "3.30 review N330-3: a maintenance window under two hours is refused for a customer and a site (nothing saved)" \
+  "$(sq3 "SELECT update_window FROM ka_fleet_customers WHERE id = $ACME317")|$(sq3 "SELECT CONCAT(ring, '|', COALESCE(update_window, 'NULL')) FROM ka_fleet_sites WHERE id = $FLEET_ID")" "15|22:00-05:00|pilot|NULL"
+# MCP on the console
+curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fleet_inventory","arguments":{"php":"8.3"}}}' > "$WORK/response"
+php -r '$r = json_decode(file_get_contents($argv[1]), true); $d = json_decode($r["result"]["content"][0]["text"] ?? "", true);
+  echo implode("|", [count($d["sites"] ?? []), $d["sites"][0]["name"] ?? "-", json_encode($d["sites"][0]["update_needed"] ?? null), $d["sites"][0]["update"]["state"] ?? "-", $d["rollout"]["version"] ?? "-", $d["rollout"]["delays_hours"]["normal"] ?? "-", isset($d["filters"]["php"]["8.3"]) ? "options" : "-"]);' "$WORK/response" > "$WORK/mcp330.txt"
+expect "3.30 MCP fleet_inventory: filtered like the screen, the old site marked, its update state, the rollout and the filter values" "$(cat "$WORK/mcp330.txt")" "1|=SUM(1) X330 Old|true|self|3.99.9|24|options"
+curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fleet_calendar","arguments":{"days":30}}}' > "$WORK/response"
+php -r '$r = json_decode(file_get_contents($argv[1]), true); $d = json_decode($r["result"]["content"][0]["text"] ?? "", true); $by = [];
+  foreach ($d["dates"] ?? [] as $e) { $by[$e["site"] . ":" . $e["kind"]] = $e["state"] . ":" . $e["days_left"]; }
+  $keys = array_column($d["recovery_keys"] ?? [], "state", "site");
+  echo implode("|", [$by["X330 Pilot:certificate"] ?? "-", $by["X330 Pilot:domain"] ?? "-", $keys["X330 Careful"] ?? "-", $keys["X330 Pilot"] ?? "-", implode(",", $d["reminder_days_before"] ?? []), str_contains(file_get_contents($argv[1]), "evil330") ? "leak" : "clean"]);' "$WORK/response" > "$WORK/mcp330.txt"
+expect "3.30 MCP fleet_calendar: the dates with their state and days left, the recovery keys, the reminder days" "$(cat "$WORK/mcp330.txt")" "bad:4|warn:19|bad|ok|45,10|clean"
+curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fleet_calendar","arguments":{"days":9999}}}' > "$WORK/response"
+contains -q 'days must be between' "$WORK/response" && echo "  ok     3.30 MCP fleet_calendar: days out of range refused" || { echo "  CHYBA  3.30 MCP fleet_calendar days"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp fleet_inventory '{}' > "$WORK/response"; contains -q 'delays_hours' "$WORK/response" && { echo "  CHYBA  fleet_inventory works on a site that is not a console"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.30: fleet_inventory and fleet_calendar exist only on a console"
+sq3 "UPDATE ka_fleet_sites SET ring = 'normal', update_window = NULL, customer_id = $CUST330 WHERE id = $FLEET_ID; UPDATE ka_fleet_customers SET update_window = '' WHERE id = $ACME317;
+  DELETE FROM ka_fleet_sites WHERE public_key IN ('old330key', 'pilot330key', 'careful330key'); DELETE FROM ka_fleet_expiry_reminders; DELETE FROM ka_notifications WHERE kind = 'fleet_expiry';
+  DELETE FROM ka_nastaveni WHERE promenna IN ('fleet_ring_pilot_hours', 'fleet_ring_normal_hours', 'fleet_ring_careful_hours', 'fleet_expiry_reminders')" > /dev/null
+sq3 "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('fleet_versions', '$ALLOWED330')" > /dev/null
 # N317-9: the archived reports of a forgotten customer (id 900 here) never pass to a new customer
 sq3 "INSERT INTO ka_fleet_reports (month, customer_id, customer, created_at, data) VALUES ('2020-01', 900, 'Forgotten 317', '$(site_time)', '{}')" > /dev/null
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=detail&id=$GAMMA317"

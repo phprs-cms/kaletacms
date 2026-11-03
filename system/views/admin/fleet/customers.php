@@ -11,6 +11,7 @@
  * @var int $without sites without a customer
  * @var string $latest the newest version the console knows
  * @var array<int, string> $reports customer id => the newest month of its fleet report (Fleet\Report)
+ * @var array<int, int> $taskCounts customer id => open console tasks about the customer (3.30, Fleet\ConsoleTasks)
  */
 ?>
 <?= $app->view->render('admin/fleet/tabs', ['module' => $module, 'current' => 'customers']) ?>
@@ -19,13 +20,14 @@
 <?= $app->view->render('admin/empty', ['icon' => 'web', 'heading' => t('No customers yet.'), 'text' => t('Tick sites on the list of sites and give them a customer.'), 'action' => [$module->url('sites', ['show' => 'all']), t('All sites')]]) ?>
 <?php else: ?>
 <div class="tab-obal"><table class="vypis vypis-karty">
-<thead><tr><th scope="col"><?= e(t('Customer')) ?></th><th scope="col"><?= e(t('Sites')) ?></th><th scope="col"><?= e(t('Waiting')) ?></th><th scope="col"><?= e(t('Fleet report')) ?></th><th scope="col"><?= e(t('Rename')) ?></th><th scope="col"><?= e(t('Updates')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Customer')) ?></th><th scope="col"><?= e(t('Sites')) ?></th><th scope="col"><?= e(t('Waiting')) ?></th><th scope="col"><?= e(t('Tasks')) ?></th><th scope="col"><?= e(t('Fleet report')) ?></th><th scope="col"><?= e(t('Rename')) ?></th><th scope="col"><?= e(t('Updates')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($customers as $c): ?>
 <tr>
-	<td><a href="<?= e($module->url('sites', ['customer' => $c['id']])) ?>"><strong><?= e($c['name']) ?></strong></a></td>
-	<td data-popisek="<?= e(t('Sites')) ?>" class="stred"><?= $c['sites'] ?></td>
+	<td><a href="<?= e($module->url('customer_detail', ['id' => $c['id']])) ?>"><strong><?= e($c['name']) ?></strong></a></td>
+	<td data-popisek="<?= e(t('Sites')) ?>" class="stred"><?= $c['sites'] > 0 ? '<a href="' . e($module->url('sites', ['customer' => $c['id']])) . '">' . $c['sites'] . '</a>' : '0' ?></td>
 	<td data-popisek="<?= e(t('Waiting')) ?>" class="stred"><?= ($n = $waiting[$c['id']] ?? 0) > 0 ? '<a href="' . e($module->url('inbox', ['customer' => $c['id']])) . '">' . $n . '</a>' : '0' ?></td>
+	<td data-popisek="<?= e(t('Tasks')) ?>" class="stred" data-fleet-tasks><?= ($n = $taskCounts[$c['id']] ?? 0) > 0 ? '<a href="' . e($module->url('customer_detail', ['id' => $c['id']]) . '#tasks') . '">' . $n . '</a>' : '0' ?></td>
 	<td data-popisek="<?= e(t('Fleet report')) ?>"><?php if (isset($reports[$c['id']])): ?><a href="<?= e($module->url('report_view', ['month' => $reports[$c['id']], 'customer' => $c['id']])) ?>" target="_blank" rel="noopener"><?= e(Kaleta\Core\ReportPage::monthName($reports[$c['id']])) ?></a><?php else: ?>–<?php endif ?></td>
 	<td data-popisek="<?= e(t('Rename')) ?>"><form class="hromadne" method="post" action="<?= e($module->url('customer_rename')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= $c['id'] ?>">
 		<input class="textpole" type="text" name="name" value="<?= e($c['name']) ?>" maxlength="150" size="20" required aria-label="<?= e(t('New name of %s', $c['name'])) ?>"> <button class="navigace" type="submit"><?= e(t('Rename')) ?></button></form></td>

@@ -11,6 +11,10 @@
     "draft_blueprint": {
         "business": false
     },
+    "fleet_fix": {
+        "customer": false,
+        "severity": false
+    },
     "launch_site": {
         "business": false
     },

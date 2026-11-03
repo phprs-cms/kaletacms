@@ -2257,6 +2257,167 @@ await step('3.29 fleet console: Today, Health and Workload at 1440 and 390 px, l
   }
 });
 
+// 3.30 (agent Y): console tasks – the task panel on a site's screen (with the site's own Claude connector and Copy) and on a
+// customer's screen, the Tasks counts of Sites and Customers, the overdue task on Today (amber, opening the task on the console)
+// and in My work – at 1440 and 390 px, light and dark, no sideways scroll, axe clean in the panel, the connector and the sites
+await step('3.30 console tasks: the panels on the site and customer screens, the connector, Sites, Customers, Today and My work (1440 and 390 px, light/dark, axe)', async () => {
+  if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
+  const submit = async (locator) => { await Promise.all([page.waitForNavigation(), locator.click()]); };
+  const customer = Number(sql('SELECT customer_id FROM ka_fleet_sites WHERE id = 900').trim());
+  const past = new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10);
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    // the site: its connector (the known address + /mcp, no token) and a task overdue for me
+    await visit('/admin.php?module=fleet&action=detail&id=900');
+    if ((await page.locator('[data-fleet-connector] code').innerText()) !== 'https://shop.smile.example/mcp') { throw new Error('the connector of the site is not its /mcp address'); }
+    if (!(await page.locator('[data-fleet-connector] button[data-kopirovat="#fleet-connector"]').count())) { throw new Error('the connector has no Copy button'); }
+    const panel = page.locator('#tasks[data-tasks="fleet_site:900"]');
+    await panel.locator('.ukol-pridat > summary').click();
+    const form = panel.locator('form[data-task-add]');
+    await form.locator('input[name="title"]').fill('Renew the domain of the Smile shop');
+    await form.locator('input[name="due_date"]').fill(past);
+    await submit(form.locator('button[type="submit"].tl'));
+    await page.locator('.hlaska-ok', { hasText: 'The task was added.' }).waitFor();
+    const row = panel.locator('[data-tasks-open] .ukol', { hasText: 'Renew the domain of the Smile shop' });
+    if (!(await row.locator('.stitek-chyba', { hasText: 'overdue' }).count())) { throw new Error('the overdue site task is not marked overdue'); }
+    // the customer: its screen from Customers, a task for tomorrow by the quick button
+    await visit('/admin.php?module=fleet&action=customers');
+    const counted = await page.locator(`a[href*="action=customer_detail&id=${customer}"]`).count();
+    if (counted < 1) { throw new Error('Customers do not link to the customer\'s screen'); }
+    await submit(page.locator(`a[href$="action=customer_detail&id=${customer}"]`).first());
+    if (!(await page.locator('[data-customer-sites] a[href*="action=detail&id=900"]').count())) { throw new Error('the customer\'s screen does not list its sites'); }
+    const cpanel = page.locator(`#tasks[data-tasks="fleet_customer:${customer}"]`);
+    await cpanel.locator('.ukol-pridat > summary').click();
+    await cpanel.locator('form[data-task-add] input[name="title"]').fill('Check the prices before January');
+    await submit(cpanel.locator('form[data-task-add] .ukol-rychle button', { hasText: 'Tomorrow' }));
+    if (!(await cpanel.locator('[data-tasks-open] .ukol-nazev', { hasText: 'Check the prices before January' }).count())) { throw new Error('the customer task is not listed'); }
+    // Today: the overdue task among the checks – amber, the first item still red, its Open stays on the console
+    await visit('/admin.php?module=fleet');
+    const item = page.locator('table.flotila-dnes tr[data-fleet-task]');
+    if (await item.count() !== 1 || !/flotila-warn/.test(await item.getAttribute('class'))) { throw new Error('Today does not show the overdue console task as one amber item'); }
+    if (!/flotila-bad/.test(await page.locator('table.flotila-dnes tbody tr').first().getAttribute('class'))) { throw new Error('the first item of Today is not red'); }
+    const open = item.locator('a.navigace');
+    if (!(await open.getAttribute('href')).endsWith('action=detail&id=900#tasks') || await open.getAttribute('target')) { throw new Error('the task on Today does not open on the console'); }
+    if (!(await page.locator('[data-fleet-overdue-tasks]').count())) { throw new Error('the summary does not count the overdue tasks'); }
+    // My work: both, with what they are about
+    await visit('/admin.php?module=my_work');
+    for (const [title, about] of [['Renew the domain of the Smile shop', 'Site “Smile Dental – shop”'], ['Check the prices before January', 'Console customer “Dental Clinic Smile and Partners International Ltd”']]) {
+      if (!(await page.locator('[data-list="tasks"] tr[data-task]', { hasText: title }).locator('a', { hasText: about }).count())) { throw new Error(`My work does not show “${title}” about ${about}`); }
+    }
+    // light and dark, desktop and phone: the screens fit; the task text is readable on its card
+    const state = await context.storageState();
+    for (const scheme of ['light', 'dark']) {
+      for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]]) {
+        const other = await browser.newContext({ viewport: { width, height }, locale: 'en-GB', colorScheme: scheme, storageState: state, ...(width < 500 ? { isMobile: true, hasTouch: true } : {}) });
+        const p2 = await other.newPage(); watch(p2);
+        try {
+          for (const [url, shot] of [['/admin.php?module=fleet&action=detail&id=900', 'site'], [`/admin.php?module=fleet&action=customer_detail&id=${customer}`, 'customer'],
+            ['/admin.php?module=fleet&action=sites&show=all', 'sites'], ['/admin.php?module=fleet&action=customers', 'customers'], ['/admin.php?module=fleet', 'today']]) {
+            await p2.goto(BASE + url, { waitUntil: 'networkidle' });
+            if (await p2.locator('#tasks .ukol-pridat').count()) { await p2.locator('#tasks .ukol-pridat').evaluate((d) => { d.open = true; }); }
+            const wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+            if (wide > 0) { throw new Error(`${url}: ${wide} px of sideways scroll (${label}, ${scheme})`); }
+            if (await p2.locator('#tasks .ukol').count()) {
+              const colours = await p2.locator('#tasks .ukol').first().evaluate((el) => [getComputedStyle(el).backgroundColor, getComputedStyle(el.querySelector('.ukol-nazev')).color]);
+              if (colours[0] === colours[1]) { throw new Error(`${url}: the task text has the colour of its card (${label}, ${scheme})`); }
+            }
+            if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/fleet-330-${shot}-${label}-${scheme}.png`, fullPage: true }); }
+          }
+        } finally {
+          await other.close();
+        }
+      }
+    }
+    const axeContext = await browser.newContext({ storageState: state, bypassCSP: true, viewport: { width: 1440, height: 900 } });
+    try {
+      const axePage = await axeContext.newPage();
+      for (const [url, include] of [['/admin.php?module=fleet&action=detail&id=900', ['#tasks', '[data-fleet-connector]']], [`/admin.php?module=fleet&action=customer_detail&id=${customer}`, ['#tasks', '[data-customer-sites]']],
+        ['/admin.php?module=fleet', ['table.flotila-dnes']]]) {
+        for (const scheme of ['light', 'dark']) {
+          await axePage.emulateMedia({ colorScheme: scheme });
+          await axePage.goto(BASE + url, { waitUntil: 'networkidle' });
+          await axePage.addScriptTag({ path: AXE });
+          const found = await axePage.evaluate(([inc, tags]) => window.axe.run({ include: inc.map((s) => [s]) }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [include, WCAG]);
+          if (found.violations.length) { throw new Error(`axe ${url} (${scheme}): ` + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+        }
+      }
+    } finally {
+      await axeContext.close();
+    }
+    // done from the site's panel: Today has no task item any more
+    await visit('/admin.php?module=fleet&action=detail&id=900');
+    await submit(page.locator('#tasks [data-tasks-open] .ukol', { hasText: 'Renew the domain of the Smile shop' }).locator('button.ukol-hotovo'));
+    await visit('/admin.php?module=fleet');
+    if (await page.locator('tr[data-fleet-task]').count()) { throw new Error('a done console task is still on Today'); }
+  } finally {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    sql("DELETE FROM ka_notifications WHERE target LIKE 'fleet%'; DELETE FROM ka_tasks WHERE target LIKE 'fleet%'");
+  }
+});
+
+// 3.30: the inventory (a row per site, a filter per column, the CSV export), the expiry calendar (a month of dates – on a phone only the
+// days with a date – the list, the recovery keys) and the rollout (the rings, the sites, a window per customer) – at 1440 and 390 px,
+// light and dark, none scrolls the page sideways; axe finds nothing in the three screens
+await step('3.30 fleet console: Inventory, Calendar and Rollout at 1440 and 390 px, light and dark, no sideways scroll, axe clean', async () => {
+  const soon = new Date(Date.now() + 5 * 86400000);
+  const month = `${soon.getFullYear()}-${String(soon.getMonth() + 1).padStart(2, '0')}`;
+  const screens = [['/admin.php?module=fleet&action=inventory', 'inventory'], [`/admin.php?module=fleet&action=calendar&month=${month}`, 'calendar'], ['/admin.php?module=fleet&action=rollout', 'rollout']];
+  try {
+    for (const scheme of ['light', 'dark']) {
+      await page.emulateMedia({ colorScheme: scheme });
+      for (const [width, height, name] of [[1440, 900, 'desktop'], [390, 844, 'phone']]) {
+        await page.setViewportSize({ width, height });
+        for (const [url, shot] of screens) {
+          await visit(url);
+          const wider = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+          if (wider > 1) { throw new Error(`${url} scrolls sideways by ${wider} px at ${width} px (${scheme})`); }
+          if (SHOTS) { await page.screenshot({ path: `${SHOTS}/fleet-330-${shot}-${name}-${scheme}.png`, fullPage: true }); }
+        }
+        await visit(screens[0][0]);
+        if (!(await page.locator('nav.zalozky a.aktivni', { hasText: 'Inventory' }).count())) { throw new Error('the Inventory tab is not current'); }
+        const rows = page.locator('table.flotila-inventar tbody tr');
+        if (await rows.count() < 5) { throw new Error(`the inventory lists ${await rows.count()} sites`); }
+        if (!(await page.locator('table.flotila-inventar tbody td', { hasText: 'MariaDB 10.11.6' }).count())) { throw new Error('the inventory does not show the database'); }
+        if (!(await page.locator('form.flotila-filtry select[name="php"] option[value="8.3"]').count())) { throw new Error('no PHP 8.3 in the PHP filter'); }
+        if (!/action=inventory_csv/.test(await page.locator('form.flotila-filtry a[download]').getAttribute('href'))) { throw new Error('no CSV export link'); }
+        if (width === 390 && await rows.first().evaluate((tr) => getComputedStyle(tr).display) !== 'block') { throw new Error('the inventory is not cards on a phone'); }
+        await visit(screens[1][0]);
+        const bad = page.locator('table.flotila-kalendar a.flotila-stav-bad', { hasText: 'Northwind' });
+        if (!(await bad.count())) { throw new Error('the month has no red chip for the certificate of Northwind'); }
+        if (!(await bad.first().locator('.navod-skryte').textContent()).includes('Certificate')) { throw new Error('a calendar chip has no text for screen readers'); }
+        if (width === 390) {
+          const shown = await page.locator('table.flotila-kalendar td').evaluateAll((tds) => tds.filter((td) => getComputedStyle(td).display !== 'none').map((td) => td.classList.contains('flotila-ma')));
+          if (!shown.length || shown.some((has) => !has)) { throw new Error('on a phone the month shows days without a date'); }
+        }
+        if (!(await page.locator('table.flotila-terminy tbody tr').count()) || !(await page.locator('table.flotila-klice').count())) { throw new Error('no list of dates or recovery keys'); }
+        await visit(screens[2][0]);
+        if (await page.locator('table.flotila-okruhy tbody tr').count() !== 3) { throw new Error('the rollout has not three rings'); }
+        if (!(await page.locator('table.flotila-rollout tbody tr', { hasText: 'Smile Dental – shop' }).locator('td', { hasText: 'Pilot' }).count())) { throw new Error('the pilot site is not shown in its ring'); }
+        if (!(await page.locator('form.flotila-okno input[name="window_days[]"][value="1"]:checked').count())) { throw new Error('the customer\'s window is not ticked'); }
+      }
+    }
+  } finally {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.setViewportSize({ width: 1440, height: 900 });
+  }
+  const axeContext = await browser.newContext({ storageState: await context.storageState(), bypassCSP: true, viewport: { width: 1440, height: 900 } });
+  try {
+    const axePage = await axeContext.newPage();
+    for (const [url, include] of [[screens[0][0], ['form.flotila-filtry', 'table.flotila-inventar']], [screens[1][0], ['.flotila-mesice', 'table.flotila-kalendar', 'table.flotila-terminy', 'table.flotila-klice']],
+      [screens[2][0], ['table.flotila-okruhy', 'table.flotila-rollout', 'form.flotila-okno']]]) {
+      for (const scheme of ['light', 'dark']) {
+        await axePage.emulateMedia({ colorScheme: scheme });
+        await axePage.goto(BASE + url, { waitUntil: 'networkidle' });
+        await axePage.addScriptTag({ path: AXE });
+        const found = await axePage.evaluate(([inc, tags]) => window.axe.run({ include: inc.map((s) => [s]) }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [include, WCAG]);
+        if (found.violations.length) { throw new Error(`axe ${url} (${scheme}): ` + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+      }
+    }
+  } finally {
+    await axeContext.close();
+  }
+});
+
 await step('3.13 Spanish admin: switched in My account, Spanish screens without sideways scroll at 390 px', async () => {
   const adminLanguage = async (code) => {
     await visit('/admin.php?action=account');
@@ -3185,7 +3346,7 @@ await step('3.25 builder Versions: draft history, per-section compare, load an a
 
 // 3.25 (C): the left menu – Dashboard, My work, then the groups Content, Workspace, Appearance, Claude, Site care,
 // Administration; a group folds (details/summary, by keyboard too), the group of the current screen is always open, the
-// browser remembers the others; on a phone only the current group is open at first; nothing scrolls sideways
+// browser remembers the others; at first only Content and the current group are open (3.29.1), on a phone too; nothing scrolls sideways
 await step('3.25 menu: groups in order, folding by keyboard, remembered per browser, the current one open (1440 and 390 px, dark mode)', async () => {
   await page.evaluate(() => { try { localStorage.removeItem('kaleta-menu'); } catch (e) { /* nothing */ } });
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -3199,9 +3360,13 @@ await step('3.25 menu: groups in order, folding by keyboard, remembered per brow
   const statsGroup = await page.locator('.menu-cast a[href$="module=stats"]').evaluate((a) => a.closest('details').getAttribute('data-menu-skupina'));
   if (statsGroup !== 'site-care') { throw new Error(`Statistics is in ${statsGroup}`); }
   if (await page.locator('.menu-cast a[href$="module=subscribers"]').count() !== 0) { throw new Error('Subscribers still has its own menu item next to the Newsletter hub'); }
-  // the keyboard folds Appearance; the next screen keeps it folded, its own screen opens it, and it stays remembered
+  // the keyboard opens and folds Appearance (3.29.1: folded at first – only Content and the current group are open);
+  // the next screen keeps it folded, its own screen opens it, and it stays remembered
   const appearance = page.locator('details[data-menu-skupina="appearance"]');
+  if (await appearance.evaluate((d) => d.open)) { throw new Error('Appearance is open before anyone opened it'); }
   await appearance.locator('summary').focus();
+  await page.keyboard.press('Enter');
+  if (!(await appearance.evaluate((d) => d.open))) { throw new Error('Enter on the summary did not open Appearance'); }
   await page.keyboard.press('Enter');
   if (await appearance.evaluate((d) => d.open)) { throw new Error('Enter on the summary did not fold Appearance'); }
   if (!(await page.locator('details[data-menu-skupina="appearance"] a').first().isHidden())) { throw new Error('a folded group still shows its items'); }
@@ -3220,7 +3385,7 @@ await step('3.25 menu: groups in order, folding by keyboard, remembered per brow
   if (colours[0] === colours[1]) { throw new Error(`a group name is unreadable in dark mode: ${colours}`); }
   if (SHOTS) { await page.screenshot({ path: `${SHOTS}/menu-groups-desktop-dark.png` }); }
   await page.emulateMedia({ colorScheme: 'light' });
-  // a phone with nothing remembered: only the current group is open, the summaries are big enough to tap, no sideways scroll
+  // a phone with nothing remembered: only Content (here also the current group) is open, the summaries are big enough to tap, no sideways scroll
   const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'en-GB', isMobile: true, hasTouch: true, storageState: await page.context().storageState() });
   const p3 = await phone.newPage(); watch(p3);
   try {
@@ -3242,6 +3407,49 @@ await step('3.25 menu: groups in order, folding by keyboard, remembered per brow
     await phone.close();
   }
   await page.evaluate(() => { try { localStorage.removeItem('kaleta-menu'); } catch (e) { /* nothing */ } });
+});
+
+// 3.29.1 (owner, 3 Nov): after signing in only Content is open in the left menu – whatever this browser remembered from
+// before; within the sign-in the person's own folding is kept; signing out and in starts again; a phone follows the same rule
+await step('3.29.1 menu: after a sign-in only Content is open; opening Appearance lasts while signed in; a new sign-in starts again (1440 and 390 px)', async () => {
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'en-GB' });
+  const openGroups = (p) => p.locator('details[data-menu-skupina]').evaluateAll((all) => all.filter((d) => d.open).map((d) => d.getAttribute('data-menu-skupina')));
+  const signIn = async (p) => {
+    await p.goto(BASE + '/admin.php', { waitUntil: 'networkidle' });
+    await p.fill('input[name="user"]', 'admin');
+    await p.fill('input[name="password"]', PASSWORD);
+    await Promise.all([p.waitForNavigation(), p.press('input[name="password"]', 'Enter')]);
+  };
+  try {
+    const p = await ctx.newPage(); watch(p);
+    await p.goto(BASE + '/admin.php', { waitUntil: 'networkidle' });
+    // an earlier sign-in of this browser left every group open
+    await p.evaluate(() => { localStorage.setItem('kaleta-menu', JSON.stringify({ _signin: '1', content: 1, workspace: 1, appearance: 1, claude: 1, 'site-care': 1, administration: 1 })); });
+    await signIn(p);
+    let open = await openGroups(p);
+    if (JSON.stringify(open) !== JSON.stringify(['content'])) { throw new Error(`open after signing in: ${open.join(', ')}`); }
+    if (SHOTS) { await p.screenshot({ path: `${SHOTS}/3291-menu-after-sign-in.png` }); }
+    await p.locator('details[data-menu-skupina="appearance"] > summary').click();
+    await p.goto(BASE + '/admin.php?module=pages', { waitUntil: 'networkidle' });
+    open = await openGroups(p);
+    if (JSON.stringify(open) !== JSON.stringify(['content', 'appearance'])) { throw new Error(`open on the next screen: ${open.join(', ')}`); }
+    await p.goto(BASE + '/admin.php?module=stats', { waitUntil: 'networkidle' });
+    open = await openGroups(p);
+    if (JSON.stringify(open) !== JSON.stringify(['content', 'appearance', 'site-care'])) { throw new Error(`the current group is not open as well: ${open.join(', ')}`); }
+    await p.waitForTimeout(1100); // the next sign-in starts in another second
+    await Promise.all([p.waitForNavigation(), p.click('.menu-logout button')]);
+    await signIn(p);
+    open = await openGroups(p);
+    if (JSON.stringify(open) !== JSON.stringify(['content'])) { throw new Error(`open after signing in again: ${open.join(', ')}`); }
+    // a phone: the same rule in the menu sheet
+    await p.setViewportSize({ width: 390, height: 844 });
+    await p.goto(BASE + '/admin.php?module=bookings', { waitUntil: 'networkidle' });
+    await p.click('.menu-prepinac');
+    open = await openGroups(p);
+    if (JSON.stringify(open) !== JSON.stringify(['content', 'workspace'])) { throw new Error(`open on a phone: ${open.join(', ')}`); }
+  } finally {
+    await ctx.close();
+  }
 });
 
 // 3.25 (N-U9): one link picker everywhere – the builder's Button link and the menu editor's custom link use the same search
@@ -3813,6 +4021,22 @@ await step('3.29 visits confirmed by a browser: none under automation, exactly o
   if (!/only visits confirmed by a visitor’s browser are counted/.test(await note.innerText())) { throw new Error(`the note says: ${await note.innerText()}`); }
   if (await page.locator('.graf-sloupec.graf-zacatek').count() !== 1) { throw new Error('the first day of browser-confirmed counting is not marked on the chart'); }
   if (SHOTS) { await page.screenshot({ path: `${SHOTS}/329-stats-confirmed.png`, fullPage: true }); }
+});
+// 3.29.1: the dashboard's chart of 14 days says it too – the day marked with a line, its bar's label and the note of Statistics
+await step('3.29.1 the dashboard chart marks the day browser-confirmed counting started and says why the visits dropped', async () => {
+  await visit('/admin.php');
+  const chart = page.locator('.prehled-graf');
+  await chart.waitFor();
+  const note = chart.locator('[data-stats-confirmed]');
+  if (!/only visits confirmed by a visitor’s browser are counted/.test(await note.innerText())) { throw new Error(`the dashboard note says: ${await note.innerText()}`); }
+  const line = chart.locator('line.prehled-zacatek');
+  if (await line.count() !== 1) { throw new Error(`${await line.count()} marked days on the dashboard chart`); }
+  const day = await line.getAttribute('data-stats-confirmed-day');
+  if (day !== sql("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'stats_confirmed_since'").trim()) { throw new Error(`the chart marks ${day}`); }
+  if (await chart.locator('rect[aria-label*="only visits confirmed by a browser count from this day"]').count() !== 1) { throw new Error('the marked day\'s bar does not say it'); }
+  const stroke = await line.evaluate((el) => getComputedStyle(el).stroke);
+  if (!stroke || stroke === 'none') { throw new Error('the marker line is not drawn'); }
+  if (SHOTS) { await chart.screenshot({ path: `${SHOTS}/3291-dashboard-confirmed.png` }); }
 });
 // 3.31 (agent B): the Pipeline board – a column per stage; a card moves with the keyboard (Space, an arrow, Space – the live
 // region announces it) and by dragging; a lost column asks for the reason in the card's own form; no sideways scroll at 1440

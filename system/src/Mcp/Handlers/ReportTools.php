@@ -44,6 +44,9 @@ trait ReportTools
             'report' => \Kaleta\Fleet\Uptime::fill($this->app->settings(), $stored['data']), // 3.26.1: uptime added, also to older months
             // 3.26.1: what it took to run the site, as the report's "What it took to run the site" counts it (Core\ReportSummary::care)
             'care' => \Kaleta\Core\ReportSummary::care($stored['data']),
+            // 3.29.1 (additive): the month or the one it is compared with reaches across the switch to browser-confirmed counting
+            'counting_changed' => ($since = \Kaleta\Core\ReportSummary::countingChanged(is_array($stored['data']['stats'] ?? null) ? $stored['data']['stats'] : null)) !== null
+                ? ['on' => $since, 'note' => 'From ' . $since . ' only visits confirmed by a visitor\'s browser are counted; earlier days include some bots, link previews and the team\'s own visits. A drop of visits or page views against the month before is fewer bots, not fewer people – do not report it as a decline.'] : null,
         ], fn ($v): bool => $v !== null);
     }
 

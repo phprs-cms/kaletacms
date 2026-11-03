@@ -67,13 +67,21 @@ final class Report
      * @param list<array{started_at: string, ended_at: ?string, status: int, minutes: int}> $incidents
      * @param list<array{date: string, version: string}> $versions
      * @param array<string, mixed>|null $summary the site's report_summary of that month
-     * @param string|null $month YYYY-MM: 3.26.1 adds the month's days for the uptime strip (Core\UptimeStrip), one per calendar day
+     * @param string|null $month YYYY-MM: 3.26.1 adds the month's days for the uptime strip (Core\UptimeStrip), one per calendar day;
+     *   3.29.1 adds counting_changed – the day in that month the site started to count only browser-confirmed visits
      * @return array<string, mixed>
      */
     public static function siteData(array $site, array $days, array $incidents, array $versions, ?array $summary, ?string $month = null): array
     {
         $iso = static fn (?string $moment): ?string => $moment === null ? null : (($m = Clock::fromDb($moment)) !== null ? $m->format(DATE_ATOM) : null);
         $recorded = array_values(array_filter(array_map(static fn (array $d): string => (string) $d['version'], $days), static fn (string $v): bool => $v !== ''));
+        // 3.29.1: the site's visits of the month reach across its switch to browser-confirmed counting (Front\Stats::spansSwitch)
+        $countingChanged = null;
+        if ($month !== null && ($start = Console::date($month . '-01')) !== null) {
+            $beat = json_decode((string) ($site['heartbeat'] ?? ''), true);
+            $since = Console::day(is_array($beat) ? $beat['stats_confirmed_since'] ?? null : null);
+            $countingChanged = \Kaleta\Front\Stats::spansSwitch($since, $start->modify('-1 day')->format('Y-m-d'), $start->format('Y-m-t')) ? $since : null;
+        }
 
         return [
             'id' => (int) $site['id'], 'name' => (string) $site['name'], 'url' => (string) $site['url'],
@@ -86,7 +94,8 @@ final class Report
             'updates' => array_map(static fn (array $v): array => ['date' => $iso($v['date']), 'version' => $v['version']], $versions),
             'attention' => History::attention($days),
             'summary' => $summary !== null && ($summary = History::summary($summary)) !== null ? array_diff_key($summary, ['month' => true]) : null,
-        ] + ($month !== null ? ['days' => Uptime::forMonth(Uptime::fromHistory($days), $month, '9999-12-31')['days'] ?? []] : []);
+        ] + ($month !== null ? ['days' => Uptime::forMonth(Uptime::fromHistory($days), $month, '9999-12-31')['days'] ?? []] : [])
+            + ($countingChanged !== null ? ['counting_changed' => $countingChanged] : []);
     }
 
     /**
@@ -370,6 +379,8 @@ final class Report
                     'rows' => array_map(static fn (string $r, int $days): array => [$reasonLabels[$r] ?? $r, $n($days)], array_keys($reasons), $reasons), 'numeric' => [1], 'short' => []],
                 $own !== [] ? ['type' => 'table', 'caption' => t('The site\'s own monthly report'), 'head' => [t('What'), t('Count')], 'rows' => $own, 'numeric' => [1], 'short' => []]
                     : ['type' => 'note', 'text' => t('The site\'s own monthly report for this month has not reached the console (the site sends it from Kaleta 3.17 on).')],
+                // 3.29.1: the visits of this month reach across the site's switch to browser-confirmed counting
+                ($changed = Console::day($s['counting_changed'] ?? null)) !== null ? ['type' => 'note', 'text' => t('Counting of visits changed on %s – fewer bots, not fewer people.', format_date($changed))] : null,
                 (int) ($s['days_recorded'] ?? 0) === 0 ? ['type' => 'note', 'text' => t('The console has no history of this site for this month.')] : null,
             ]);
         }

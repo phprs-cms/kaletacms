@@ -52,7 +52,7 @@ trait TaskTools
             }
             $rows = Tasks::forUser($db, $user, $status, $limit);
         } elseif (str_starts_with($filter, 'target:')) {
-            $target = Tasks::cleanTarget(substr($filter, 7)) ?? throw new \InvalidArgumentException('target must be enquiry:<id>, page:<id>, item:<id>, contact:<id> or company:<id>, e.g. "target:page:12".');
+            $target = Tasks::cleanTarget(substr($filter, 7)) ?? throw new \InvalidArgumentException('target must be enquiry:<id>, page:<id>, item:<id>, contact:<id>, company:<id>, fleet_site:<id> or fleet_customer:<id>, e.g. "target:page:12".');
             $this->taskTargetOpen($target);
             $rows = array_values(array_filter(Tasks::forTarget($db, $target), fn (array $t): bool => ($t['done_at'] !== null) === ($status === 'done')));
             $rows = array_slice($rows, 0, $limit);
@@ -79,7 +79,7 @@ trait TaskTools
         if (array_key_exists('target', $a)) {
             $raw = is_scalar($a['target']) ? trim((string) $a['target']) : '';
             $fields['target'] = in_array(strtolower($raw), ['', 'none', 'null'], true) ? null
-                : (Tasks::cleanTarget($raw) ?? throw new \InvalidArgumentException('target must be enquiry:<id>, page:<id>, item:<id>, contact:<id>, company:<id> or "none".'));
+                : (Tasks::cleanTarget($raw) ?? throw new \InvalidArgumentException('target must be enquiry:<id>, page:<id>, item:<id>, contact:<id>, company:<id>, fleet_site:<id>, fleet_customer:<id> or "none".'));
         }
         if (array_key_exists('assignee', $a)) {
             $fields['assignee_id'] = $this->taskPerson($a['assignee'], $self);
@@ -170,7 +170,7 @@ trait TaskTools
     {
         $section = \Kaleta\Core\Assignment::KINDS[explode(':', $target)[0]];
         if (!Handover::mayOpen($this->app->db(), $this->app->settings(), $this->app->auth()->id(), $section)) {
-            throw new \DomainException('Only a user who may open ' . ['pages' => 'Pages', 'collections' => 'Collections', 'enquiries' => 'Enquiries', 'contacts' => 'Customers', 'pipeline' => 'Pipeline'][$section] . ' can see the tasks about it.');
+            throw new \DomainException('Only a user who may open ' . ['pages' => 'Pages', 'collections' => 'Collections', 'enquiries' => 'Enquiries', 'contacts' => 'Customers', 'fleet' => 'the fleet console', 'pipeline' => 'Pipeline'][$section] . ' can see the tasks about it.');
         }
     }
 }

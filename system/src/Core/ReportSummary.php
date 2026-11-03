@@ -146,7 +146,7 @@ final class ReportSummary
         $stats = is_array($data['stats'] ?? null) ? $data['stats'] : null;
         if ($stats !== null) {
             $tiles[] = ['label' => t('Visits'), 'value' => format_count((int) ($stats['visits'] ?? 0))]
-                + self::change((int) ($stats['visits'] ?? 0), isset($stats['previous_visits']) ? (int) $stats['previous_visits'] : null);
+                + self::visitsChange((int) ($stats['visits'] ?? 0), isset($stats['previous_visits']) ? (int) $stats['previous_visits'] : null, self::countingChanged($stats));
         }
         $enquiries = is_array($data['enquiries'] ?? null) ? $data['enquiries'] : null;
         if ($enquiries !== null) {
@@ -199,6 +199,31 @@ final class ReportSummary
             $percent < 0 => ['change' => '▼ ' . format_count(-$percent) . ' %', 'tone' => 'down'],
             default => ['change' => t('= same as last month'), 'tone' => 'same'],
         };
+    }
+
+    /**
+     * The day browser-confirmed counting started (3.29.1), when the month of the report or the month it is compared with
+     * reaches across it – MonthlyReport::build stores stats.confirmed_since only then; null otherwise. Pure.
+     *
+     * @param array<string, mixed>|null $stats the report's stats
+     */
+    public static function countingChanged(?array $stats): ?string
+    {
+        $since = $stats['confirmed_since'] ?? null;
+
+        return is_string($since) && preg_match('/^\d{4}-\d{2}-\d{2}$/D', $since) === 1 ? $since : null;
+    }
+
+    /**
+     * The change of visits or page views against the month before (3.29.1): as change(), but a drop across the switch to
+     * browser-confirmed counting (countingChanged) is no drop – no down arrow, the switch is named instead (Front\Stats).
+     *
+     * @return array{change?: string, tone?: string}
+     */
+    public static function visitsChange(int $now, ?int $before, ?string $countingChanged): array
+    {
+        return $countingChanged !== null && $before !== null && $now < $before
+            ? ['change' => t('counting changed on %s', format_date($countingChanged)), 'tone' => 'same'] : self::change($now, $before);
     }
 
     /** The month's uptime in per cent from the console (agent B's uptime data), null when there is none. */

@@ -8,6 +8,10 @@
  * @var string $latest
  * @var array<int, string> $customers id => name (3.17)
  * @var array<string, mixed> $trend Fleet\History::trend (3.17)
+ * @var ?string $connector the address of the site's own Claude connector (3.30, Fleet\Plan::connector – plain text, no token)
+ * @var array<string, mixed> $tasks the console tasks about the site (3.30, Admin\TaskActions::taskPanel)
+ * @var array{pilot: int, normal: int, careful: int} $delays the rings' delays in hours (3.30, Fleet\Rollout)
+ * @var string $customerWindow the maintenance window of the site's customer ('' = any time)
  */
 
 use Kaleta\Core\AgentSchedules;
@@ -15,6 +19,7 @@ use Kaleta\Core\Audit;
 use Kaleta\Core\ReportPage;
 use Kaleta\Core\Scheduler;
 use Kaleta\Fleet\Console;
+use Kaleta\Fleet\Rollout;
 
 $reasonLabels = require __DIR__ . '/reasons.php';
 $beat = $site['beat'];
@@ -45,11 +50,15 @@ $yes = fn (mixed $v): string => $v ? t('yes') : t('no');
 	<tr><th scope="row"><?= e(t('Health')) ?></th><td><?= e(t(['ok' => 'Everything is fine.', 'warning' => 'warnings', 'error' => 'errors', '' => '–'][(string) $site['status']] ?? '–')) ?></td></tr>
 	<tr><th scope="row"><?= e(t('Last backup')) ?></th><td><?= e($date($beat['last_backup'] ?? null)) ?> · <?= e(t('off-site copy: %s', $yes($beat['offsite_backup'] ?? false))) ?></td></tr>
 	<tr><th scope="row"><?= e(t('Cron last called')) ?></th><td><?= e($date($beat['cron_last_run'] ?? null)) ?></td></tr>
-	<?php if (Console::count($beat['visits_7_days'] ?? null) !== null): ?><tr><th scope="row"><?= e(t('Visits in 7 days')) ?></th><td><?= (int) Console::count($beat['visits_7_days']) ?></td></tr><?php endif ?>
+	<?php if (Console::count($beat['visits_7_days'] ?? null) !== null): $countingChanged = Console::countingChanged($beat, time()); // 3.29.1 ?><tr><th scope="row"><?= e(t('Visits in 7 days')) ?></th><td><?= (int) Console::count($beat['visits_7_days']) ?><?php if ($countingChanged !== null): ?>
+		<span class="smltxt" data-counting-changed> · <?= e(t('Counting of visits changed on %s – fewer bots, not fewer people.', format_date($countingChanged))) ?></span><?php endif ?></td></tr><?php endif ?>
 	<?php if (Console::count($beat['enquiries_7_days'] ?? null) !== null): ?><tr><th scope="row"><?= e(t('Enquiries')) ?></th><td><?= e(t('%d in 7 days, %d waiting for an answer', (int) Console::count($beat['enquiries_7_days']), (int) Console::enquiriesWaiting($beat))) ?></td></tr><?php endif ?>
 	<?php if (is_array($beat['audit'] ?? null)): ?><tr><th scope="row"><?= e(t('Site audit')) ?></th><td><?= Console::total($beat['audit']) === 0 ? e(t('no findings')) : e($counts($beat['audit'], Audit::KINDS)) ?></td></tr><?php endif ?>
+	<?php if ($connector !== null): /* 3.30: Claude works on the site through the site's own connection – the console holds no access */ ?><tr data-fleet-connector><th scope="row"><?= e(t('Claude connector')) ?></th><td><p class="mcp-adresa"><code id="fleet-connector"><?= e($connector) ?></code> <button class="navigace" type="button" data-kopirovat="#fleet-connector"><?= e(t('Copy address')) ?></button></p>
+	<span class="smltxt"><?= e(t('To let Claude work on this site, add this address as a connector in Claude and sign in to the site there. The console keeps no access to the site – Claude\'s fleet plan only lists this address.')) ?></span></td></tr><?php endif ?>
 </tbody></table></div>
 <?= $app->view->render('admin/fleet/trend', ['trend' => $trend]) ?>
+<?= $app->view->render('admin/tasks_panel', $tasks + ['app' => $app, 'csrf' => $csrf]) /* 3.30: console tasks about the site */ ?>
 <?php if ($requests !== null || $pending !== [] || ($beat['bookings_pending'] ?? null) !== null || $security !== null || $watch !== null || $runs !== null || $claudeConnection !== null): ?>
 <h2><?= e(t('Waiting')) ?></h2>
 <div class="tab-obal"><table class="vypis"><tbody>
@@ -101,10 +110,20 @@ $yes = fn (mixed $v): string => $v ? t('yes') : t('no');
 <?php if ((int) $site['manage_updates'] !== 1): ?>
 <p><?= $module->hint(t('This site decides about its updates itself (Settings → Reporting to a console on the site).')) ?></p>
 <?php else: ?>
+<?php $ring = Rollout::ring($site['ring']); $own = Rollout::parseWindow(is_string($site['update_window'] ?? null) ? $site['update_window'] : null);
+$windowMode = !is_string($site['update_window'] ?? null) ? 'customer' : ($own === null ? 'any' : 'own'); ?>
 <div class="radek"><label for="ring"><?= e(t('Ring')) ?></label><div><select id="ring" name="ring">
-	<option value="normal"<?= $site['ring'] !== 'canary' ? ' selected' : '' ?>><?= e(t('normal – after the test sites ran the version for 48 hours without problems')) ?></option>
-	<option value="canary"<?= $site['ring'] === 'canary' ? ' selected' : '' ?>><?= e(t('test site – gets a new version first')) ?></option>
-</select><span class="napoveda"><?= e(t('Security releases go to every site at once.')) ?></span></div></div>
+	<option value="pilot"<?= $ring === 'pilot' ? ' selected' : '' ?>><?= e(t('pilot – gets a new version first (after %d hours)', $delays['pilot'])) ?></option>
+	<option value="normal"<?= $ring === 'normal' ? ' selected' : '' ?>><?= e(t('normal – %d hours after a new version, once the pilot sites run it without problems', $delays['normal'])) ?></option>
+	<option value="careful"<?= $ring === 'careful' ? ' selected' : '' ?>><?= e(t('careful – %d hours after a new version, once the pilot sites run it without problems', $delays['careful'])) ?></option>
+</select><span class="napoveda"><?= $module->hint(t('Security releases go to every site at once, whatever its ring and window. Change the delays in Fleet → Rollout.')) ?></span></div></div>
+<fieldset class="flotila-okno">
+<legend><?= e(t('Maintenance window')) ?></legend>
+<p><label><input type="radio" name="window_mode" value="customer"<?= $windowMode === 'customer' ? ' checked' : '' ?>> <?= e(t('The customer\'s window: %s', Rollout::describe($customerWindow))) ?></label><br>
+<label><input type="radio" name="window_mode" value="any"<?= $windowMode === 'any' ? ' checked' : '' ?>> <?= e(t('Any time')) ?></label><br>
+<label><input type="radio" name="window_mode" value="own"<?= $windowMode === 'own' ? ' checked' : '' ?>> <?= e(t('Its own window')) ?></label></p>
+<?= $app->view->render('admin/fleet/window', ['window' => $own, 'prefix' => 'site-' . (int) $site['id']]) ?>
+</fieldset>
 <p><button class="tl" type="submit"><?= e(t('Save')) ?></button>
 <?php if (version_compare($latest, (string) $site['version'], '>')): ?>
 <button class="navigace" type="submit" formaction="<?= e($module->url('allow')) ?>"><?= e(t('Allow version %s now', $latest)) ?></button>

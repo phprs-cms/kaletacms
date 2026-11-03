@@ -40,6 +40,8 @@ $aboutText = fn (array $about): string => match ($about['kind']) {
     'page' => t('Page “%s”', $about['title']),
     'contact' => t('Customer “%s”', $about['title']), // 3.28
     'company' => t('Company “%s”', $about['title']),
+    'fleet_site' => t('Site “%s”', $about['title']), // 3.30: a site of a fleet console
+    'fleet_customer' => t('Console customer “%s”', $about['title']),
     'deal' => t('Deal #%s', (string) $about['id']), // 3.31: by its number, as the bell names it
     default => t('“%s” in %s', $about['title'], (string) ($about['collection'] ?? '')),
 };
