@@ -9934,7 +9934,8 @@ check('3.31: a move is created, moved, won, lost or reopened (from a closing sta
 check('3.31: a deal\'s title names the person when it has every word of their name or their address – such a title loses it when the person is erased', [
     $d331::names('Olga Nováková – yearly contract', 'Olga Nováková', 'olga@x.cz'), $d331::names('Yearly contract for NOVÁKOVÁ Olga', 'Olga Nováková', ''), $d331::names('Website for Acme', 'Olga Nováková', 'olga@acme.cz'),
     $d331::names('Offer sent to olga@acme.cz', 'Olga', 'olga@acme.cz'), $d331::names('Olga\'s website', 'Olga Nováková', ''), $d331::names('Anything', '', ''), $d331::names('Jo Li deal', 'Jo Li', ''),
-], [true, true, false, true, false, false, false]);
+    $d331::names('Anything', '', 'not-an-address'), $d331::names('Information pack', '', 'info@acme.cz'),
+], [true, true, false, true, false, false, false, false, false]);
 $d331Src = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Deals.php');
 check('3.31: won and lost close a deal, lost needs a reason, reopening clears it; one open deal per enquiry; every move is in the history; delete is for administrators', [
     str_contains($d331Src, "\$closedAt = \$to['kind'] === 'open' ? null :"), str_contains($d331Src, "if (!isset(self::LOST_REASONS[\$reason])) {"),

@@ -850,7 +850,7 @@ final class Deals
     {
         $text = mb_strtolower($text);
         $email = mb_strtolower(trim($email));
-        if ($email !== '' && (str_contains($text, $email) || str_contains($text, (string) strstr($email, '@', true)))) {
+        if ($email !== '' && str_contains($text, $email)) {
             return true;
         }
         $words = array_values(array_filter(preg_split('/[\s,.;]+/u', mb_strtolower(trim($name))) ?: [], fn (string $w): bool => mb_strlen($w) >= 3));
