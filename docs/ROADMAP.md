@@ -1351,6 +1351,35 @@ and `merge_contacts` (also in the `work` tool set).
    without sodium) with a recovery key kept outside the database; until an administrator saves the key, off-site database
    copies wait and the site says so; restoring on a new hosting needs the key.
 
+## 3.29 – one fleet screen for twenty sites, and visits without bots (3 November 2026)
+
+The first of two Fleet console releases for an owner running about twenty sites (owner, 3 November: "Do just first and
+second release"), plus honest visit numbers (owner, 3 November: visits "crazy high … compared to the Google Analytics").
+The console still never reaches into sites: sites report, the console only links. Migration 0115 adds `views` and
+`window_start` to `ka_stat_navstevnici`; `KALETA_DB_VERSION` 115. No setting key, POST field, MCP tool, parameter or Czech
+alias renamed; new non-essential MCP tools `fleet_today` and `fleet_health`; `get_stats` gains `counting` and
+`confirmed_since`.
+
+1. **Today** (the console's new start tab): everything that needs attention across all sites in one ranked list – urgent
+   first, then by weight and age – with the site, the customer, how long it has lasted and an Open link the console builds
+   from the site's address and a fixed admin path (`Fleet\Checks::link`). Filters by customer and severity; the Inbox is
+   its own tab, old inbox links keep working.
+2. **Health matrix:** one row per site, one column per check (`Fleet\Checks::CHECKS`, 18 checks: uptime, reporting,
+   updates, off-site and local backup, certificate, domain, mail records, SMTP, two-step sign-in, automatic updates, cookie
+   scan, privacy policy, accessibility statement, handover, Claude connection, jobs, cron), worst first or by customer;
+   sites before 3.29 show "Update the site to see".
+3. **Workload:** enquiries this and last week, unanswered after 24 h, median hours to first reply, open and overdue tasks,
+   new customers – per site and in total, counts only.
+4. **Heartbeat:** sites now also send states, days and counts for off-site backup, mail setup, two-step sign-in, the
+   cookie scan, the privacy and accessibility pages, the handover checklist and the workload – never hosts, names,
+   addresses or texts; the console bounds every new key (`Fleet\Checks::clean`).
+5. **Visits confirmed by the browser:** a page view counts only when `image/vitals.js` reports a page actually shown to a
+   person (`POST /hit`, signed path, no cookies); `Front\Stats::hit` re-checks bots (a longer list), prefetch, origin,
+   signed-in users and a flood cap (300 views a day, 10 in 10 seconds). Rendering and the page cache count nothing; signed-in
+   users are never counted; visitors without JavaScript are no longer counted. Old rows stay; Statistics, the monthly report
+   and the chart mark the day the new counting started (`stats_confirmed_since`).
+6. **Admin footer:** the heart link reads "Support the development of Kaleta CMS" (Czech "Podpořte vývoj Kaleta CMS").
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |
