@@ -315,7 +315,12 @@ trait SettingsTools
             throw new \DomainException('Statistics are for administrators and users with access to Statistics.');
         }
 
-        return \Kaleta\Core\Report::build($this->app->db(), (int) ($a['days'] ?? 30)) + ['statistics_on' => \Kaleta\Front\Stats::enabled($this->app->settings())];
+        // 3.29 (additive): visits and page views are those a visitor's browser confirmed (Front\Stats::hit); confirmed_since is
+        // the day that started when older numbers exist – those include some bots and the team's own visits
+        $since = \Kaleta\Front\Stats::confirmedSince($this->app->settings(), $this->app->db());
+
+        return \Kaleta\Core\Report::build($this->app->db(), (int) ($a['days'] ?? 30)) + ['statistics_on' => \Kaleta\Front\Stats::enabled($this->app->settings()), 'counting' => 'browser_confirmed']
+            + ($since !== null ? ['confirmed_since' => $since] : []);
     }
 
     /** list_changes (2.2): the change log, people and Claude told apart */

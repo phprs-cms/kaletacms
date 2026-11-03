@@ -7631,4 +7631,7 @@ return [
     'Hand-over' => 'Übergabe',
     'Jobs' => 'Aufgaben',
     'Unknown' => 'Unbekannt',
+    'From %s, only visits confirmed by a visitor’s browser are counted – bots, link previews and your own visits are left out. Earlier numbers include some of them.' => 'Seit %s werden nur Besuche gezählt, die der Browser eines Besuchers bestätigt – Bots, Linkvorschauen und Ihre eigenen Besuche bleiben außen vor. Frühere Zahlen enthalten einen Teil davon.',
+    'the light part of each bar is page views, the dark part visits. A page view counts when the visitor’s browser shows the page – without cookies and without storing IP addresses; bots, link previews and signed-in users are not counted.' => 'der helle Teil jedes Balkens sind die Seitenaufrufe, der dunkle Teil die Besuche. Ein Seitenaufruf zählt, wenn der Browser des Besuchers die Seite anzeigt – ohne Cookies und ohne Speicherung von IP-Adressen; Bots, Linkvorschauen und angemeldete Benutzer werden nicht gezählt.',
+    'only visits confirmed by a browser count from this day' => 'ab diesem Tag zählen nur vom Browser bestätigte Besuche',
 ];

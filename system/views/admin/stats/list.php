@@ -6,12 +6,15 @@
  * @var Kaleta\Admin\Modules\Stats $module
  * @var array<string, mixed> $report
  * @var array<string, string> $editLinks public path => admin screen that edits it, for the pages the user may edit (3.20, C2)
+ * @var string|null $confirmedSince the first day of browser-confirmed counting when older numbers exist (3.29, Front\Stats::confirmedSince)
  */
 $days = (int) $report['period_days'];
 // 3.20 (C2): the public page, and next to it a small "edit" link into the administration when the path is a page or item of the user's
 $pageCell = fn (array $r): string => '<a href="' . e($r['path']) . '" target="_blank" rel="noopener">' . e($r['path']) . '</a>'
     . (isset($editLinks[$r['path']]) ? ' <a class="smltxt" href="' . e($editLinks[$r['path']]) . '">' . e(t('edit')) . '</a>' : '');
 $chart = $report['days'];
+// 3.29: the note and the marked day only while the period reaches back before browser-confirmed counting started
+$confirmedSince = isset($confirmedSince) && $confirmedSince > $chart[0]['day'] ? $confirmedSince : null;
 $totals = $report['totals'];
 $max = max(1, ...array_column($chart, 'views'));
 $leads = fn (array $r): string => format_count((int) $r['enquiries']) . ' / ' . format_count((int) $r['signups']);
@@ -65,11 +68,15 @@ $vital = function (array $r, string $metric, callable $format) use ($ratingBadge
 <h2><?= e(t('Page views and visits by day')) ?></h2>
 <div class="graf" role="img" aria-label="<?= e(t('Bar chart of page views by day')) ?>">
 <?php foreach ($chart as $h): ?>
-<?php $dayLabel = t('%s: %s page views, %s visits', format_date($h['day']), $h['views'], $h['visits']) . ($h['enquiries'] + $h['signups'] > 0 ? ', ' . t('%s leads', $h['enquiries'] + $h['signups']) : ''); ?>
-	<div class="graf-sloupec" data-tip="<?= e($dayLabel) ?>" aria-label="<?= e($dayLabel) ?>" tabindex="0"><i data-tip-kotva style="height:<?= round($h['views'] / $max * 100, 1) ?>%"><b style="height:<?= $h['views'] > 0 ? round($h['visits'] / $h['views'] * 100, 1) : 0 ?>%"></b></i></div>
+<?php $dayLabel = t('%s: %s page views, %s visits', format_date($h['day']), $h['views'], $h['visits']) . ($h['enquiries'] + $h['signups'] > 0 ? ', ' . t('%s leads', $h['enquiries'] + $h['signups']) : '')
+    . ($h['day'] === $confirmedSince ? ' – ' . t('only visits confirmed by a browser count from this day') : ''); ?>
+	<div class="graf-sloupec<?= $h['day'] === $confirmedSince ? ' graf-zacatek' : '' ?>" data-tip="<?= e($dayLabel) ?>" aria-label="<?= e($dayLabel) ?>" tabindex="0"><i data-tip-kotva style="height:<?= round($h['views'] / $max * 100, 1) ?>%"><b style="height:<?= $h['views'] > 0 ? round($h['visits'] / $h['views'] * 100, 1) : 0 ?>%"></b></i></div>
 <?php endforeach ?>
 </div>
-<p class="smltxt"><?= e(format_date($chart[0]['day'])) ?> – <?= e(format_date($chart[count($chart) - 1]['day'])) ?> · <?= e(t('the light part of each bar is page views, the dark part visits. Measurement uses no cookies and stores no IP addresses; bots are not counted.')) ?></p>
+<p class="smltxt"><?= e(format_date($chart[0]['day'])) ?> – <?= e(format_date($chart[count($chart) - 1]['day'])) ?> · <?= e(t('the light part of each bar is page views, the dark part visits. A page view counts when the visitor’s browser shows the page – without cookies and without storing IP addresses; bots, link previews and signed-in users are not counted.')) ?></p>
+<?php if ($confirmedSince !== null): ?>
+<p class="hlaska hlaska-info" data-stats-confirmed><?= e(t('From %s, only visits confirmed by a visitor’s browser are counted – bots, link previews and your own visits are left out. Earlier numbers include some of them.', format_date($confirmedSince))) ?></p>
+<?php endif ?>
 
 <div class="stat-tabulky">
 <?php

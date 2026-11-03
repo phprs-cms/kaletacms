@@ -289,6 +289,11 @@ final class Kernel
                 default => \Kaleta\Fleet\Console::unpair($this->app, $body, $signature),
             };
         }
+        if ($path === '/hit' && $request->isPost()) {
+            // a page view confirmed by the visitor's browser (3.29): image/vitals.js reports it once the page is really shown;
+            // rendering a page (or serving it from the page cache) no longer counts anything
+            return Stats::hit($this->app);
+        }
         if ($path === '/vitals' && $request->isPost()) {
             // real-user speed (2.8): one beacon per page view from image/vitals.js, aggregated per page and day without cookies
             return \Kaleta\Core\WebVitals::record($this->app);
@@ -1017,9 +1022,7 @@ final class Kernel
         if ($raw !== null && ($form = $this->editInPlace('novinka', $raw, 'novinky/' . $newsItem['seo_link'])) !== null) {
             return $this->page($newsItem['titulek'], $form, ['noindex' => true]);
         }
-        if (!$preview) {
-            $this->app->db()->run('UPDATE {novinky} SET visit = visit + 1 WHERE idc = ?', [$newsItem['idc']]);
-        }
+        // the news item's reads are counted with the page view its visitor's browser confirms (3.29, Front\Stats::hit)
 
         $this->breadcrumbs([$this->app->settings()->newsTitle(), $this->app->url('novinky')], [$newsItem['tema_jm'], $this->app->url('novinky/kategorie/' . $newsItem['tema_seo'])], [$newsItem['titulek'], '']);
         $newsItem['faq_html'] = (new View([KALETA_SYSTEM . '/views/front']))->render('faq', ['faq' => Seo::faq($newsItem['faq'])]);
@@ -1653,10 +1656,10 @@ final class Kernel
         $newsItem = $meta['clanek'] ?? null;
         unset($meta['clanek']);
         if ($status === 200 && empty($meta['noindex'])) {
-            Stats::record($this->app, $newsItem === null ? null : (int) $newsItem['idc']);
-            // real-user speed (2.8) is measured on the same page views the statistics count – never in previews or the
-            // builder (noindex), and not for signed-in users, whose pages carry the editing bar
-            $meta['vitals'] = Stats::isOn($this->app) && $this->app->request->get('preview') === '' && $this->app->auth()->user() === null;
+            // 3.29: the page carries the beacon that counts the view once the visitor's browser shows it (Front\Stats::hit) –
+            // never in previews (a single draft, the whole-site preview of drafts) or the builder (noindex), and not for
+            // signed-in users (their own visits, the editing bar). Real-user speed (2.8) is measured on the same page views.
+            $meta['vitals'] = Stats::isOn($this->app) && $this->app->request->get('preview') === '' && !$this->sitePreview && $this->app->auth()->user() === null;
         }
 
         if (($meta['obrazek'] ?? '') !== '' && !preg_match('#^https?://#', $meta['obrazek'])) {

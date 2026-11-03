@@ -1,14 +1,50 @@
-/* Kaleta - real-user speed (Core Web Vitals) for the site's own statistics. No libraries, no cookies, no identifiers:
- * LCP, CLS and INP of this page view go once to POST /vitals (navigator.sendBeacon) when the visitor leaves or hides the page.
- * Front\Seo::head() loads the script only when the built-in statistics are on; the endpoint is in data-vitals. Core\WebVitals
- * aggregates the values per page and day. Browsers without PerformanceObserver (or without a metric) simply send less. */
+/* Kaleta - the site's own statistics from the visitor's browser. No libraries, no cookies, no storage, no identifiers.
+ * 1. The page view (3.29): once the page is really shown to a person – visible, not prerendered, not under browser automation –
+ *    one beacon goes to POST /hit (data-hit) with the path the server rendered and its signature (data-hit-page, data-hit-key),
+ *    the news item on the page (data-hit-news), the referring page and the page's query string (campaigns). Front\Stats::hit
+ *    checks everything again; a page that is never shown (a link preview, a prefetch, a background tab nobody opens) or a
+ *    browser without JavaScript is not counted.
+ * 2. Real-user speed (2.8): LCP, CLS and INP of this page view go once to POST /vitals (data-vitals) when the visitor leaves or
+ *    hides the page. Core\WebVitals aggregates the values per page and day. Browsers without PerformanceObserver (or without a
+ *    metric) simply send less.
+ * Front\Seo::head() loads the script only when the built-in statistics are on, never in previews and never for signed-in users. */
 (function () {
 	'use strict';
 
 	var script = document.currentScript;
-	var endpoint = script && script.getAttribute('data-vitals');
-	if (!endpoint || typeof PerformanceObserver !== 'function' || !navigator.sendBeacon || navigator.webdriver
-		|| /bot|crawl|spider|slurp|preview|monitor|lighthouse|headless/i.test(navigator.userAgent)) { return; }
+	if (!script || navigator.webdriver || /bot|crawl|spider|slurp|preview|monitor|lighthouse|headless/i.test(navigator.userAgent)) { return; }
+
+	function beacon(url, body) {
+		if (navigator.sendBeacon && navigator.sendBeacon(url, body)) { return; }
+		if (typeof fetch === 'function') { fetch(url, { method: 'POST', body: body, keepalive: true, credentials: 'same-origin' }).catch(function () {}); }
+	}
+
+	// 1. the page view, once per page view and only when a person can see it
+	var hit = script.getAttribute('data-hit');
+	if (hit) {
+		var counted = false;
+		var count = function () {
+			if (counted || document.visibilityState !== 'visible' || document.prerendering) { return; }
+			counted = true;
+			var body = new URLSearchParams();
+			body.set('path', script.getAttribute('data-hit-page') || '');
+			body.set('key', script.getAttribute('data-hit-key') || '');
+			var news = script.getAttribute('data-hit-news');
+			if (news) { body.set('news', news); }
+			if (document.referrer) { body.set('referrer', document.referrer.slice(0, 2000)); }
+			if (location.search) { body.set('query', location.search.slice(0, 2000)); }
+			beacon(hit, body);
+		};
+		count();
+		if (!counted) {
+			document.addEventListener('visibilitychange', count);
+			document.addEventListener('prerenderingchange', count);
+		}
+	}
+
+	// 2. real-user speed
+	var endpoint = script.getAttribute('data-vitals');
+	if (!endpoint || typeof PerformanceObserver !== 'function' || !navigator.sendBeacon) { return; }
 
 	var lcp = null, cls = 0, sent = false;
 	var sessionValue = 0, sessionStart = 0, sessionLast = 0;

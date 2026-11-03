@@ -231,6 +231,9 @@ final class ReportPage
             $add('traffic', t('Traffic and conversions'), [
                 $pairs($rows),
                 $note(t('Compared with the month before.')),
+                // 3.29: browser-confirmed counting started in this month or the one it is compared with
+                is_string($stats['confirmed_since'] ?? null) && preg_match('/^\d{4}-\d{2}-\d{2}$/D', $stats['confirmed_since'])
+                    ? $note(t('From %s, only visits confirmed by a visitor’s browser are counted – bots, link previews and your own visits are left out. Earlier numbers include some of them.', format_date($stats['confirmed_since']))) : null,
                 $table(t('Most read pages'), [t('Page'), t('Views')], array_map(static fn (array $p): array => [(string) $p['path'], $n($p['n'])], (array) ($stats['pages'] ?? [])), [1]),
                 $table(t('Visitors came from'), [t('Site'), t('Visits')], array_map(static fn (array $p): array => [(string) $p['site'], $n($p['n'])], (array) ($stats['sources'] ?? [])), [1]),
                 $table(t('Campaigns'), [t('Campaign'), t('Visits')], array_map(static fn (array $p): array => [(string) $p['campaign'], $n($p['n'])], (array) ($stats['campaigns'] ?? [])), [1]),

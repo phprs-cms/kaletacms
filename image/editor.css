@@ -109,6 +109,7 @@ button.galerie-polozka:hover, button.galerie-polozka:focus-visible { border-colo
 .graf-sloupec i { display: flex; align-items: flex-end; width: 100%; min-height: 1px; background: color-mix(in srgb, var(--ed-akcent) 35%, transparent); border-radius: 2px 2px 0 0; }
 .graf-sloupec b { display: block; width: 100%; background: var(--ed-akcent); border-radius: 2px 2px 0 0; }
 .graf-sloupec:hover i { background: color-mix(in srgb, var(--ed-akcent) 55%, transparent); }
+.graf-sloupec.graf-zacatek { box-shadow: inset 2px 0 0 var(--ed-text); } /* 3.29: the first day of browser-confirmed counting */
 .stat-tabulky { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0 24px; }
 .stat-tabulky > .stat-siroka { grid-column: 1 / -1; } /* five columns (real-user speed) take the whole row */
 

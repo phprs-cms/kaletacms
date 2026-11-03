@@ -27,7 +27,7 @@ final class Pages extends Module
     public const string ICON = 'stranky';
 
     /** Slugs that belong to the system and a page cannot have. */
-    public const array RESERVED_SLUGS = ['novinky', 'hledani', 'news', 'search', 'mcp', 'api', 'admin', 'install', 'media', 'image', 'layout', 'system', 'storage', 'tools', 'docs', 'dist', 'rss', 'sitemap', 'robots', 'llms', 'feed', 'stav', 'ulohy', 'souhlas', 'formular', 'popup', 'vitals', 'konverze', 'download', 'screen', 'og', '_report',
+    public const array RESERVED_SLUGS = ['novinky', 'hledani', 'news', 'search', 'mcp', 'api', 'admin', 'install', 'media', 'image', 'layout', 'system', 'storage', 'tools', 'docs', 'dist', 'rss', 'sitemap', 'robots', 'llms', 'feed', 'stav', 'ulohy', 'souhlas', 'formular', 'popup', 'vitals', 'hit', 'konverze', 'download', 'screen', 'og', '_report',
         // 3.7: the subscription endpoint and the English system paths (Core\Routes::SYSTEM_PATHS); a page that has one of them
         // from before keeps it (the slug check below lets an unchanged slug through)
         'odber', 'tasks', 'subscription', 'form', 'consent', 'conversion'];

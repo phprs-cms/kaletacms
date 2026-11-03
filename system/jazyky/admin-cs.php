@@ -7221,4 +7221,7 @@ return [
     'Hand-over' => 'Předání',
     'Jobs' => 'Úlohy',
     'Unknown' => 'Neznámé',
+    'From %s, only visits confirmed by a visitor’s browser are counted – bots, link previews and your own visits are left out. Earlier numbers include some of them.' => 'Od %s se počítají jen návštěvy potvrzené prohlížečem návštěvníka – roboty, náhledy odkazů a vaše vlastní návštěvy se nezapočítávají. Starší čísla některé z nich obsahují.',
+    'the light part of each bar is page views, the dark part visits. A page view counts when the visitor’s browser shows the page – without cookies and without storing IP addresses; bots, link previews and signed-in users are not counted.' => 'světlá část sloupce jsou zobrazení stránek, tmavá návštěvy. Zobrazení se započítá, když stránku ukáže prohlížeč návštěvníka – bez cookies a bez ukládání IP adres; roboty, náhledy odkazů ani přihlášené uživatele nepočítá.',
+    'only visits confirmed by a browser count from this day' => 'od tohoto dne se počítají jen návštěvy potvrzené prohlížečem',
 ];
