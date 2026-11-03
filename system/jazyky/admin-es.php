@@ -7656,4 +7656,5 @@ return [
     'only visits confirmed by a browser count from this day' => 'desde este día solo cuentan las visitas confirmadas por un navegador',
     'Counting of visits changed on %s – fewer bots, not fewer people.' => 'El recuento de visitas cambió el %s: menos bots, no menos personas.',
     'counting changed on %s' => 'recuento cambiado el %s',
+    'This browser is signed in as %s. Setting the password signs it out; then sign in as %s.' => 'Este navegador tiene la sesión iniciada como %s. Al establecer la contraseña se cerrará; después inicie sesión como %s.',
 ];

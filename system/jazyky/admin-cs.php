@@ -7226,4 +7226,5 @@ return [
     'only visits confirmed by a browser count from this day' => 'od tohoto dne se počítají jen návštěvy potvrzené prohlížečem',
     'Counting of visits changed on %s – fewer bots, not fewer people.' => 'Počítání návštěv se změnilo %s – méně robotů, ne méně lidí.',
     'counting changed on %s' => 'počítání se změnilo %s',
+    'This browser is signed in as %s. Setting the password signs it out; then sign in as %s.' => 'Tento prohlížeč je přihlášený jako %s. Nastavení hesla ho odhlásí; pak se přihlaste jako %s.',
 ];

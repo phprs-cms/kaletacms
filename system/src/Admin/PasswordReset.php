@@ -122,16 +122,25 @@ final class PasswordReset
                 $app->db()->delete('api_tokeny', ['idu' => $user['idu']]);
                 \Kaleta\Front\OAuth::forgetRotations($app->db(), (int) $user['idu']); // N318-3
                 ChangeLog::write($app, 'prihlaseni', 'obnova-hesla', t('password changed, connection tokens revoked, account: %s', (string) $user['user']));
+                if ($app->auth()->user() !== null) {
+                    // the link was opened where someone is signed in (Admin\Kernel): sign this browser out, so that the
+                    // sign-in page that follows is the new password's, not someone else's administration
+                    $app->auth()->logout();
+                }
                 return Response::redirect($app->url('admin.php?password_changed=1'));
             }
         }
+        $signedIn = $app->auth()->user();
 
-        return $this->page(['step' => 'heslo', 'sent' => false, 'error' => $error, 'token' => $token, 'account' => (string) $user['user']], $error === null ? 200 : 422);
+        return $this->page(['step' => 'heslo', 'sent' => false, 'error' => $error, 'token' => $token, 'account' => (string) $user['user'],
+            'signedIn' => $signedIn !== null && (int) $signedIn['idu'] !== (int) $user['idu'] ? (string) $signedIn['user'] : ''], $error === null ? 200 : 422);
     }
 
     /** @param array<string, mixed> $data */
     private function page(array $data, int $status): Response
     {
-        return Response::html($this->app->view->render('admin/password', ['app' => $this->app, 'token' => '', 'account' => ''] + $data), $status);
+        // $data first: with + the left array wins, and defaults on the left blanked the form's token since 1.4.0 – the
+        // form then asked for a new link instead of setting the password, so the password was never saved
+        return Response::html($this->app->view->render('admin/password', $data + ['app' => $this->app, 'token' => '', 'account' => '', 'signedIn' => '']), $status);
     }
 }
