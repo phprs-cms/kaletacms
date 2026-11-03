@@ -104,7 +104,7 @@ final class Contacts extends Module
             'companies' => Customers::companies($this->db, [], 1, 200)['rows'], 'people' => Assignment::candidates($this->db, 'contact', $owner > 0 && $owner !== $me ? $owner : 0),
             'owners' => Assignment::labels($this->db, array_values(array_filter(array_column($result['rows'], 'owner_id')))),
             'query' => array_filter(['search' => $search, 'owner' => $ownerKey, 'activity' => $activity, 'sort' => $sort !== 'activity' ? $sort : '', 'company' => $company ?: ''],
-                fn (mixed $v): bool => $v !== '' && $v !== 0)]);
+                fn (mixed $v): bool => $v !== '')]);
     }
 
     /**

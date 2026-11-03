@@ -421,7 +421,7 @@ final class Contacts
      * Links a record after the response: a new enquiry, booking or confirmed subscription is queued here and afterResponse()
      * links it once the visitor has the page.
      *
-     * @param 'enquiry'|'booking'|'subscriber' $kind
+     * @param string $kind 'enquiry', 'booking' or 'subscriber' – anything else is ignored
      */
     public static function later(string $kind, int $id): void
     {
