@@ -33,6 +33,10 @@ final class Stats extends Module
             $editLinks[$row['path']] ??= \Kaleta\Admin\EnquiryOrigin::editLink($this->app, (string) $row['path']);
         }
 
-        return $this->view('list', 'Statistics', ['report' => $report, 'editLinks' => array_filter($editLinks)]);
+        // 3.29: the day only page views confirmed by a visitor's browser started to count – the view notes it while the period
+        // still shows older days, which include some bots and the team's own visits
+        $confirmedSince = \Kaleta\Front\Stats::confirmedSince($this->app->settings(), $this->db);
+
+        return $this->view('list', 'Statistics', ['report' => $report, 'editLinks' => array_filter($editLinks), 'confirmedSince' => $confirmedSince]);
     }
 }

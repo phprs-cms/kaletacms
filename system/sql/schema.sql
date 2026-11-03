@@ -345,8 +345,10 @@ CREATE TABLE ka_stat_dny (
 -- Visitor hash = hash(IP + browser + daily salt). The next day it can no longer be linked to the previous one; older rows are deleted.
 -- Contact clicks (2.12, Core\Conversions) leave a mark here too – the same hash with the page and the link type mixed in – so a click counts once a day.
 CREATE TABLE ka_stat_navstevnici (
-    den   DATE NOT NULL,
-    otisk CHAR(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+    den          DATE NOT NULL,
+    otisk        CHAR(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+    views        SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    window_start INT UNSIGNED NOT NULL DEFAULT 0,
     PRIMARY KEY (den, otisk)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 CREATE TABLE ka_stat_novinky (

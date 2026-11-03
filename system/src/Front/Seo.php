@@ -327,8 +327,12 @@ final class Seo
         $h[] = '<script src="' . e($this->app->url('image/web.js')) . '?v=' . $version . '" defer blocking="render"' . self::scriptTextsAttribute() . $clicks . '></script>';
         if (!empty($meta['vitals'])) {
             // real-user speed (2.8, Core\WebVitals): a small deferred script of its own, so pages without image/web.js stay
-            // without it; the beacon goes to POST /vitals without cookies or identifiers
-            $h[] = '<script src="' . e($this->app->url('image/vitals.js')) . '?v=' . $version . '" defer data-vitals="' . e($this->app->url('vitals')) . '"></script>';
+            // without it; the beacon goes to POST /vitals without cookies or identifiers. 3.29: the same script confirms the page
+            // view (Front\Stats::hit) – the path the server rendered and the news item on it, signed, so only real pages count
+            $hitPath = Stats::pagePath($this->app);
+            $hitNews = $newsItem !== null ? (int) $newsItem['idc'] : 0;
+            $h[] = '<script src="' . e($this->app->url('image/vitals.js')) . '?v=' . $version . '" defer data-vitals="' . e($this->app->url('vitals')) . '" data-hit="' . e($this->app->url('hit'))
+                . '" data-hit-page="' . e($hitPath) . '" data-hit-key="' . e(Stats::pageKey($this->app, $hitPath, $hitNews)) . '"' . ($hitNews > 0 ? ' data-hit-news="' . $hitNews . '"' : '') . '></script>';
         }
         if (!$private) {
             $h[] = $this->analyticsCode();

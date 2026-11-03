@@ -7551,4 +7551,7 @@ return [
     'Download the recovery key (.txt)' => 'Descargar la clave de recuperación (.txt)',
     'I have saved the recovery key somewhere away from this server' => 'He guardado la clave de recuperación fuera de este servidor',
     'Confirm and start the off-site copies' => 'Confirmar e iniciar las copias externas',
+    'From %s, only visits confirmed by a visitor’s browser are counted – bots, link previews and your own visits are left out. Earlier numbers include some of them.' => 'Desde el %s solo se cuentan las visitas que confirma el navegador del visitante: los bots, las vistas previas de enlaces y tus propias visitas quedan fuera. Las cifras anteriores incluyen parte de ellos.',
+    'the light part of each bar is page views, the dark part visits. A page view counts when the visitor’s browser shows the page – without cookies and without storing IP addresses; bots, link previews and signed-in users are not counted.' => 'la parte clara de cada barra son las páginas vistas, la parte oscura las visitas. Una página vista cuenta cuando el navegador del visitante muestra la página, sin cookies y sin guardar direcciones IP; los bots, las vistas previas de enlaces y los usuarios con sesión iniciada no se cuentan.',
+    'only visits confirmed by a browser count from this day' => 'desde este día solo cuentan las visitas confirmadas por un navegador',
 ];

@@ -51,10 +51,7 @@ final class Cache
         if (!is_array($meta) || $html === '') {
             return null;
         }
-        Stats::record($app, $meta['idc'] ?? null);
-        if (!empty($meta['idc'])) {
-            $app->db()->run('UPDATE {novinky} SET visit = visit + 1 WHERE idc = ?', [(int) $meta['idc']]);
-        }
+        // 3.29: a page from the cache counts nothing by itself – the beacon in it does, once the visitor's browser shows the page (Stats::hit)
         // the browser may keep the page and only ask whether it has changed (304 without a body)
         $etag = '"' . substr(md5($file . filemtime($file)), 0, 16) . '"';
         $headers = ['Content-Type' => 'text/html; charset=utf-8', 'X-Cache' => 'kaleta', 'ETag' => $etag, 'Cache-Control' => 'no-cache'];

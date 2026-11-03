@@ -3688,6 +3688,58 @@ await step('3.28 Backups: the recovery key of the encrypted off-site copies – 
     try { (await import('node:fs')).unlinkSync(keyFile); } catch (e) { /* none was made */ }
   }
 });
+// 3.29: visits confirmed by a browser (Front\Stats::hit). Playwright's Chrome reports navigator.webdriver, so on a page as it is
+// the beacon must not go out at all; a context set up like a visitor's browser (a normal user agent, webdriver hidden – on the
+// test side only, the site has no switch for it) sends exactly one per page view, which counts exactly one view
+await step('3.29 visits confirmed by a browser: none under automation, exactly one per page view in a visitor’s browser, the note in Statistics', async () => {
+  const total = () => sql("SELECT CONCAT(COALESCE(SUM(navstevy), 0), '/', COALESCE(SUM(zobrazeni), 0)) FROM ka_stat_dny").trim();
+  const settle = async (before, expected) => {
+    for (let i = 0; i < 20 && total() === before; i++) { await page.waitForTimeout(150); }
+    await page.waitForTimeout(300); // a second beacon would arrive by now
+    const [v0, p0] = before.split('/').map(Number);
+    const [v1, p1] = total().split('/').map(Number);
+    if (`${v1 - v0}/${p1 - p0}` !== expected) { throw new Error(`visits/views changed by ${v1 - v0}/${p1 - p0}, expected ${expected}`); }
+  };
+  const beacons = (p) => { const sent = []; p.on('request', (r) => { if (new URL(r.url()).pathname === '/hit') { sent.push(r.method()); } }); return sent; };
+  const robot = await browser.newContext({ locale: 'en-GB' });
+  try {
+    const p = await robot.newPage();
+    watch(p);
+    const sent = beacons(p);
+    const before = total();
+    await p.goto(BASE + '/', { waitUntil: 'networkidle' });
+    if (!(await p.evaluate(() => navigator.webdriver))) { throw new Error('the automated browser does not report navigator.webdriver'); }
+    if (!(await p.locator('script[src*="/image/vitals.js"][data-hit="/hit"][data-hit-page="/"][data-hit-key]').count())) { throw new Error('the page carries no page-view beacon'); }
+    await settle(before, '0/0');
+    if (sent.length) { throw new Error(`${sent.length} page-view beacon(s) sent under browser automation`); }
+  } finally {
+    await robot.close();
+  }
+  const person = await browser.newContext({ locale: 'en-GB', userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' });
+  await person.addInitScript(() => { Object.defineProperty(Navigator.prototype, 'webdriver', { get: () => false, configurable: true }); });
+  try {
+    const p = await person.newPage();
+    watch(p);
+    const sent = beacons(p);
+    let before = total();
+    await p.goto(BASE + '/', { waitUntil: 'networkidle' });
+    await settle(before, '1/1');
+    before = total();
+    await p.reload({ waitUntil: 'networkidle' });
+    await settle(before, '0/1'); // the same visitor again: one more page view, not another visit
+    if (sent.length > 2) { throw new Error(`${sent.length} beacons for two page views`); }
+  } finally {
+    await person.close();
+  }
+  // the honest history: an older day with numbers counted the old way, and the Statistics screen says from when they are browser-confirmed
+  sql("INSERT IGNORE INTO ka_stat_dny (den, navstevy, zobrazeni) VALUES (CURDATE() - INTERVAL 5 DAY, 0, 0)");
+  await visit('/admin.php?module=stats&days=7');
+  const note = page.locator('[data-stats-confirmed]');
+  await note.waitFor();
+  if (!/only visits confirmed by a visitor’s browser are counted/.test(await note.innerText())) { throw new Error(`the note says: ${await note.innerText()}`); }
+  if (await page.locator('.graf-sloupec.graf-zacatek').count() !== 1) { throw new Error('the first day of browser-confirmed counting is not marked on the chart'); }
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/329-stats-confirmed.png`, fullPage: true }); }
+});
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

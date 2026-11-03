@@ -139,7 +139,7 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   verze v `ka_stavba_revize` pod `cast = 'polozka:<idp>'` (`Collections::saveVersion/loadVersion`); noindex a koš mimo sitemap, llms.txt a hledání.
   Strukturovaná data kolekce `ka_kolekce.schema_org` (`Builder\CollectionSchema`, uzel v `Seo::structuredData` přes `$meta['polozka']`).
 - **Audit webu** (1.9, `Core\Audit`, modul `audit`, MCP `site_audit`): interní odkazy přes `Audit::resolves`, popisy, titulky, menu, `Check::builds`, 404.
-- **Statistika bez cookies** (`Front\Stats` při každém započítaném zobrazení, i z cache; `Core\Report` je jeden přehled pro admin Statistiky i MCP `get_stats`): žádné
+- **Statistika bez cookies** (`Front\Stats`; od 3.29 počítá jen zobrazení potvrzená prohlížečem: `image/vitals.js` pošle po zviditelnění stránky `POST /hit` s cestou podepsanou serverem, `Stats::hit` znovu ověří roboty, prefetch, původ, přihlášení a limit `DAILY_VIEWS`/`BURST_VIEWS` – vykreslení ani cache nic nepočítají; `Core\Report` je jeden přehled pro admin Statistiky i MCP `get_stats`): žádné
   identifikátory, jen součty po dnech, zapnutí = rozšíření `statistika` + nastavení `stats` (`Stats::isOn`). **Rychlost u návštěvníků** (2.8, `Core\WebVitals`,
   `image/vitals.js`): LCP, CLS a INP přes `PerformanceObserver`, jeden beacon na zobrazení (`navigator.sendBeacon` na `POST /vitals`) jen se zapnutou statistikou,
   nikdy v náhledech (noindex) ani pro přihlášené; skript je samostatný a `defer` (ne `web.js`, který se na stránkách bez prvků s JS vynechává). Ukládá se histogram

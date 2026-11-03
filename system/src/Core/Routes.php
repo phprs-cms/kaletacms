@@ -33,7 +33,7 @@ final class Routes
      */
     public const array NEWS_RESERVED = [
         // Front\Kernel::handle() before the pages
-        'index', 'hledani', 'search', 'rss', 'feed', 'manifest', 'favicon', 'og', 'robots', 'sitemap', 'llms', 'souhlas', 'popup', 'fleet', 'vitals',
+        'index', 'hledani', 'search', 'rss', 'feed', 'manifest', 'favicon', 'og', 'robots', 'sitemap', 'llms', 'souhlas', 'popup', 'fleet', 'vitals', 'hit',
         'konverze', 'mcp', 'download', 'odber', 'formular', 'ulohy', 'screen', 'stav',
         // the English system paths (3.7, SYSTEM_PATHS) – read in the Kernel constructor right after the news slug
         'tasks', 'subscription', 'form', 'consent', 'conversion', 'status',
@@ -327,7 +327,7 @@ final class Routes
     {
         $path = (string) preg_replace('#\.html$#D', '', $path);
         if ($path === '' || $path === '/' || str_contains(basename($path), '.')
-            || preg_match('#^/(api|mcp|oauth|\.well-known|popup|formular|vitals|ulohy|odber|download|screen|fleet|souhlas|konverze|_[^/]*)(/|$)#D', $path)) {
+            || preg_match('#^/(api|mcp|oauth|\.well-known|popup|formular|vitals|hit|ulohy|odber|download|screen|fleet|souhlas|konverze|_[^/]*)(/|$)#D', $path)) {
             return false;
         }
         $english = array_filter(self::englishWords(), fn (string $w): bool => $w !== 'status'); // status.json has a dot, never a page

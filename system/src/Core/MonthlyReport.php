@@ -82,6 +82,12 @@ final class MonthlyReport
             // 3.26.1: the visits of every day of the month (the chart of the report), day 1 first
             $daily = array_map('intval', $db->pairs('SELECT DAY(den), SUM(navstevy) FROM {stat_dny} WHERE den >= ? AND den < ? GROUP BY den', [$fromDay, $toDay]));
             $stats['days'] = array_map(static fn (int $day): int => $daily[$day] ?? 0, range(1, (int) $monthStart->format('t')));
+            // 3.29: browser-confirmed counting started in this month or the one it is compared with – the report says so,
+            // because the earlier days include some bots and the team's own visits (an additive key of the stored data)
+            $since = \Kaleta\Front\Stats::confirmedSince($s, $db);
+            if ($since !== null && $since > $previousStart->format('Y-m-d') && $since < $toDay) {
+                $stats['confirmed_since'] = $since;
+            }
         }
 
         $enquiries = null;
@@ -603,6 +609,11 @@ final class MonthlyReport
                     $html .= ReportVisual::chart($days, format_date($start), format_date($start->modify('+' . (count($days) - 1) . ' days')), t('Most in a day: %s', $n(max($days))), $p) . '<div style="height:14px;line-height:14px;font-size:0;">&nbsp;</div>';
                 }
                 $html .= ReportVisual::pairs($pairs, $p);
+                $confirmed = is_string($stats['confirmed_since'] ?? null) && preg_match('/^\d{4}-\d{2}-\d{2}$/D', $stats['confirmed_since'])
+                    ? t('From %s, only visits confirmed by a visitor’s browser are counted – bots, link previews and your own visits are left out. Earlier numbers include some of them.', format_date($stats['confirmed_since'])) : '';
+                if ($confirmed !== '') {
+                    $html .= ReportVisual::note($confirmed, $p); // 3.29
+                }
                 $plain = [];
                 foreach (['pages' => ['Most read pages', 'path'], 'sources' => ['Visitors came from', 'site'], 'campaigns' => ['Campaigns', 'campaign']] as $key => [$title, $field]) {
                     $items = array_values(array_filter((array) ($stats[$key] ?? []), 'is_array'));
@@ -614,7 +625,7 @@ final class MonthlyReport
                         }
                     }
                 }
-                $section($html, mb_strtoupper(t('Traffic')) . "\n" . $plainPairs([...$pairs, ...$plain]));
+                $section($html, mb_strtoupper(t('Traffic')) . "\n" . $plainPairs([...$pairs, ...$plain]) . ($confirmed !== '' ? "\n  " . $confirmed : ''));
             } else {
                 $off = t('The built-in statistics are off (Settings → Analytics), so there are no traffic figures.');
                 $section(ReportVisual::title(t('Traffic'), $p) . ReportVisual::lead(e($off), $p, 14), mb_strtoupper(t('Traffic')) . "\n  " . $off);

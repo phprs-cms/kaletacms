@@ -66,6 +66,15 @@ slugs_everywhere() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; 
 # publish_look: the administrator publishes the draft look (design system, classes, menus – Core\Look) from Site appearance
 publish_look() { curl -s -b "$JAR" -o "$WORK/look.html" "$B/admin.php?module=appearance"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=appearance&action=publish_look" -d "_csrf=$(grep -o -m1 'name="_csrf" value="[a-f0-9]*"' "$WORK/look.html" | head -1 | sed 's/.*value="//;s/"//')"; rm -f "$WORK"/web/storage/cache/stranky/*.html; }
 expect() { [ "$2" = "$3" ] && echo "  ok     $1" || { echo "  CHYBA  $1: dostal jsem „$2“, čekal jsem „$3“"; ERRORS=$((ERRORS+1)); }; }
+# 3.29: a page view counts only when the visitor's browser confirms it – image/vitals.js sends POST /hit with the path the server
+# rendered and its signature from the page's script tag. hit_from <saved page> [user agent] [more curl options…] sends that
+# beacon like a browser and prints the status.
+hit_attr() { { grep -o "data-hit-$2=\"[^\"]*\"" "$1" || true; } | head -1 | sed 's/^[^"]*"//;s/"$//'; }
+hit_from() {
+  local page="$1" ua="${2:-Mozilla/5.0 test}"; shift; if [ $# -gt 0 ]; then shift; fi
+  local news; news=$(hit_attr "$page" news)
+  curl -s -o /dev/null -w '%{http_code}' -X POST "$B/hit" -A "$ua" --data-urlencode "path=$(hit_attr "$page" page)" -d "key=$(hit_attr "$page" key)" ${news:+-d "news=$news"} "$@"
+}
 
 # leftovers <dictionary> <file>: visible texts of a page (and placeholders, titles, labels, button values) that are a source text
 # with a different translation in system/jazyky/<dictionary>.php – shown untranslated (3.13, the Spanish admin and installer)
@@ -1675,6 +1684,7 @@ grep -q '<svg class="qr"' "$WORK/response" && grep -q 'class="totp-klic"' "$WORK
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/kontakty"
 grep -q '@font-face { font-family: "Znacka Sans"; src: url("/media/2026/01/znacka.woff2")' "$WORK/response" && grep -q -- '--ka-pismo-titulky: "Znacka Sans"' "$WORK/response" && echo "  ok     vlastní písmo z Médií" || { echo "  CHYBA  vlastní písmo"; ERRORS=$((ERRORS+1)); }
+curl -s -o "$WORK/home.html" "$B/"; hit_from "$WORK/home.html" > /dev/null # 3.29: the visitor's browser confirms the page view (/kontakty is noindex now)
 expect "statistika po stránkách" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) > 0 FROM ka_stat_stranky")" "1"
 # since 2.12 a phone number or an e-mail address anywhere on the page (the footer) keeps web.js for the click counter while the statistics are on – off, the page does without the script
 stats_feature 0
@@ -3435,7 +3445,8 @@ slugs_everywhere # 3.19: back to the same address once in each language (migrati
 
 echo "== 2.3: leads, statistics, forms, embeds, page head code, accessibility audit"
 "${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_kontrola_ip WHERE typ = 'formular'"
-curl -s -o /dev/null -A 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148' "$B/?utm_source=facebook&utm_medium=paid&utm_campaign=autumn"
+curl -s -o "$WORK/response" -A 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148' "$B/?utm_source=facebook&utm_medium=paid&utm_campaign=autumn"
+hit_from "$WORK/response" 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148' --data-urlencode 'query=?utm_source=facebook&utm_medium=paid&utm_campaign=autumn' > /dev/null
 expect "a visit from a campaign on a phone counts in the statistics" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(COALESCE((SELECT SUM(navstevy) FROM ka_stat_kampane WHERE kampan = 'facebook / paid / autumn'), 0), '|', COALESCE((SELECT SUM(navstevy) FROM ka_stat_zarizeni WHERE zarizeni = 'phone'), 0) > 0)")" "1|1"
 # a form with ticked options and a hidden value, an embed and code in the head of one page
 mcp vytvor_stranku '{"titulek":"Leads 23","zobrazit":true}' > "$WORK/response"; mcp_text; PAGE23=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | sed 's/"id"://')
@@ -3459,7 +3470,8 @@ contains -q '"campaign":"google / cpc / kuchyne"' "$WORK/text" && contains -q '"
 check "Statistics: pages, campaigns and first pages that bring leads" 200 "/admin.php?module=stats&days=7" "google / cpc / kuchyne"
 # 2.8: real-user speed – the beacon script only with the statistics on and only for visitors, one beacon per page view, the table in Statistics, get_stats and the audit
 rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/response" "$B/sluzby"
-grep -q '<script src="/image/vitals.js?v=[^"]*" defer data-vitals="/vitals"></script>' "$WORK/response" && ! grep -q 'blocking="render" data-vitals' "$WORK/response" && echo "  ok     2.8: the speed beacon script loads deferred with the statistics on" || { echo "  CHYBA  vitals.js on the page"; ERRORS=$((ERRORS+1)); }
+grep -q '<script src="/image/vitals.js?v=[^"]*" defer data-vitals="/vitals" data-hit="/hit" data-hit-page="/sluzby" data-hit-key="[0-9a-f]\{32\}"></script>' "$WORK/response" && ! grep -q 'blocking="render" data-vitals' "$WORK/response" && echo "  ok     2.8: the speed beacon script loads deferred with the statistics on (3.29: with the signed page for the page view)" || { echo "  CHYBA  vitals.js on the page"; grep -o '<script src="/image/vitals[^>]*>' "$WORK/response"; ERRORS=$((ERRORS+1)); }
+hit_from "$WORK/response" > /dev/null # the browser confirms the page view first – the speed beacon is taken only for a page the statistics have seen
 curl -s -b "$JAR" -o "$WORK/response" "$B/sluzby"; ! grep -q 'vitals.js' "$WORK/response" && echo "  ok     2.8: no speed beacon for signed-in users" || { echo "  CHYBA  vitals.js for a signed-in user"; ERRORS=$((ERRORS+1)); }
 expect "2.8: a beacon answers 204" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/vitals" -A 'Mozilla/5.0 test' -d path=/sluzby -d lcp=1800 -d cls=0.05 -d inp=120)" 204
 curl -s -o /dev/null -X POST "$B/vitals" -A 'Mozilla/5.0 test' -d path=/neexistuje-vitals -d lcp=1800   # a page the statistics never saw
@@ -3484,6 +3496,55 @@ contains -q '"stats":"1"' "$WORK/text" && expect "3.2: update_settings stats=tru
 mcp site_audit '{"kind":"speed"}' > "$WORK/response"; mcp_text
 contains -q '"path":"/audit-pomalu"' "$WORK/text" && contains -qE '3[.,]0 s' "$WORK/text" && ! contains -q '/sluzby' "$WORK/text" && echo "  ok     2.8: the site audit flags a page whose p75 LCP got worse by more than 25 %" || { echo "  CHYBA  speed audit"; head -c 600 "$WORK/text"; ERRORS=$((ERRORS+1)); }
 "${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_web_vitals WHERE path = '/audit-pomalu'"
+# 3.29: visits confirmed by a browser – a page GET (rendered or from the page cache) counts nothing; the beacon POST /hit does,
+# for a person only: never a bot, a prefetch, another site, a forged page or a signed-in user; a flood stops adding views
+traffic() { sq "SELECT CONCAT(COALESCE(SUM(navstevy), 0), ' ', COALESCE(SUM(zobrazeni), 0)) FROM ka_stat_dny WHERE den = '$(site_date today)'"; }
+delta() { local a b; read -r a b <<<"$1"; local c d; read -r c d <<<"$(traffic)"; echo "$((c - a))/$((d - b))"; }
+rm -f "$WORK"/web/storage/cache/stranky/*.html
+T0=$(traffic); curl -s -o "$WORK/hit329.html" -A 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' "$B/sluzby"
+expect "3.29: a page GET alone no longer counts a visit or a page view" "$(delta "$T0")" "0/0"
+UA329='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 k329-a'
+T0=$(traffic); C1=$(hit_from "$WORK/hit329.html" "$UA329" -H "Origin: $B" -H 'Sec-Fetch-Site: same-origin'); C2=$(hit_from "$WORK/hit329.html" "$UA329")
+expect "3.29: the browser's beacon answers 204 and counts; the same visitor twice is 1 visit and 2 page views" "$C1|$C2|$(delta "$T0")" "204|204|1/2"
+expect "3.29: the first counted beacon records the day browser-confirmed counting started" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'stats_confirmed_since'")" "$(site_date today)"
+T0=$(traffic)
+hit_from "$WORK/hit329.html" 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)' > /dev/null
+hit_from "$WORK/hit329.html" 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)' > /dev/null
+hit_from "$WORK/hit329.html" 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/124.0.0.0 Safari/537.36' > /dev/null
+hit_from "$WORK/hit329.html" "$UA329 b" -H 'Sec-Purpose: prefetch;prerender' > /dev/null
+hit_from "$WORK/hit329.html" "$UA329 c" -H 'Purpose: prefetch' > /dev/null
+hit_from "$WORK/hit329.html" "$UA329 d" -H 'Origin: https://evil.example' > /dev/null
+hit_from "$WORK/hit329.html" "$UA329 e" -H 'Sec-Fetch-Site: cross-site' > /dev/null
+hit_from "$WORK/hit329.html" "$UA329 f" -b "$JAR" > /dev/null                                                                          # signed in – the team's own visit
+curl -s -o /dev/null -X POST "$B/hit" -A "$UA329 g" --data-urlencode 'path=/neexistuje-329' -d "key=$(hit_attr "$WORK/hit329.html" key)"   # a made-up page with another page's key
+curl -s -o /dev/null -X POST "$B/hit" -A "$UA329 h" --data-urlencode "path=$(hit_attr "$WORK/hit329.html" page)" -d key=0123456789abcdef0123456789abcdef
+curl -s -o /dev/null -X POST "$B/hit" -A "$UA329 i" --data-urlencode "path=$(hit_attr "$WORK/hit329.html" page)" -d "key=$(hit_attr "$WORK/hit329.html" key)" -d news=1 # a news id the page did not sign
+expect "3.29: bots and link previews, a prefetch, another site, a cross-site fetch, a signed-in user, a made-up page, a wrong key or a news id the page did not carry count nothing" "$(delta "$T0")" "0/0"
+expect "3.29: a forged page leaves no row behind" "$(sq "SELECT COUNT(*) FROM ka_stat_stranky WHERE cesta = '/neexistuje-329'")" 0
+# the full-page cache: the cached copy counts nothing by itself and carries the same beacon, which counts once
+T0=$(traffic); curl -s -D "$WORK/hit329.head" -o "$WORK/hit329-cached.html" -A "$UA329 j" "$B/sluzby"
+expect "3.29: a page from the full-page cache counts nothing by itself, its beacon counts once" "$(grep -ci '^x-cache: kaleta' "$WORK/hit329.head")|$(delta "$T0")|$(hit_from "$WORK/hit329-cached.html" "$UA329 j")|$(delta "$T0")" "1|0/0|204|1/1"
+# a news item: its reads go with the confirmed page view, never with the render
+# (a published, indexable news item of the default language that is there – the starter's welcome may have moved by now)
+NEWS329=$(sq "SELECT idc FROM ka_novinky WHERE visible = 1 AND noindex = 0 AND smazano IS NULL AND jazyk = '' AND datum <= '$(site_time)' ORDER BY idc LIMIT 1")
+NEWS329_SLUG=$(sq "SELECT seo_link FROM ka_novinky WHERE idc = ${NEWS329:-0}")
+rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -L -o "$WORK/hit329-news.html" -A "$UA329 k" "$B/novinky/$NEWS329_SLUG"
+NEWS329_RENDER=$(sq "SELECT visit FROM ka_novinky WHERE idc = ${NEWS329:-0}"); hit_from "$WORK/hit329-news.html" "$UA329 k" > /dev/null
+expect "3.29: a news item's page signs its id; its reads count with the beacon, not with the render" \
+  "$(hit_attr "$WORK/hit329-news.html" news)|$NEWS329_RENDER|$(sq "SELECT visit FROM ka_novinky WHERE idc = ${NEWS329:-0}")|$(sq "SELECT COALESCE(SUM(pocet), 0) FROM ka_stat_novinky WHERE idc = ${NEWS329:-0}")" "$NEWS329|0|1|1"
+# the visit's referring site, device and campaign come from the beacon (the page's own address as the browser shows it)
+hit_from "$WORK/hit329.html" 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1 k329' \
+  --data-urlencode 'referrer=https://www.seznam.cz/hledani?q=kaleta' --data-urlencode 'query=?utm_source=newsletter&utm_medium=email&utm_campaign=k329' > /dev/null
+expect "3.29: the beacon carries the referring site and the campaign of the visit" "$(sq "SELECT CONCAT(COALESCE((SELECT SUM(pocet) FROM ka_stat_zdroje WHERE zdroj = 'seznam.cz' AND den = '$(site_date today)'), 0), '|', COALESCE((SELECT SUM(navstevy) FROM ka_stat_kampane WHERE kampan = 'newsletter / email / k329'), 0))")" "1|1"
+# the flood guard: ten views within ten seconds are a machine – the tenth and everything after it that day add nothing
+T0=$(traffic); for _ in 1 2 3 4 5 6 7 8 9 10 11 12; do hit_from "$WORK/hit329.html" "$UA329 flood" > /dev/null; done
+expect "3.29: a visitor firing views within seconds stops adding them (1 visit, 9 views) and is held at the daily cap" "$(delta "$T0")|$(sq "SELECT COUNT(*) FROM ka_stat_navstevnici WHERE den = '$(site_date today)' AND views = 300")" "1/9|1"
+# the honest history: with older numbers the Statistics screen says from when only browser-confirmed visits count, and get_stats too
+sq "INSERT IGNORE INTO ka_stat_dny (den, navstevy, zobrazeni) VALUES ('$(site_date '-3 days')', 0, 0)" > /dev/null
+check "3.29: Statistics say from when only visits confirmed by a browser count and mark the day" 200 "/admin.php?module=stats&days=7" 'data-stats-confirmed'
+grep -q 'class="graf-sloupec graf-zacatek"' "$WORK/response" && echo "  ok     3.29: the first day of browser-confirmed counting is marked on the chart" || { echo "  CHYBA  3.29: the marked day on the chart"; ERRORS=$((ERRORS+1)); }
+mcp get_stats '{"days":7}' > "$WORK/response"; mcp_text
+contains -q '"counting":"browser_confirmed"' "$WORK/text" && contains -q "\"confirmed_since\":\"$(site_date today)\"" "$WORK/text" && echo "  ok     3.29: get_stats says the numbers are browser-confirmed and since when (additive keys)" || { echo "  CHYBA  3.29: get_stats counting"; head -c 300 "$WORK/text"; ERRORS=$((ERRORS+1)); }
 case "$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d zpet=/leads-23 -d "as_cas=$FORM_TIME" -d "as_podpis=$FORM_SIGNATURE" --data-urlencode p2=tick@example.cz)" in *result=pole\&field=0*) echo "  ok     a required group needs at least one ticked option";; *) echo "  CHYBA  required checkbox group"; ERRORS=$((ERRORS+1));; esac
 curl -s -o /dev/null -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d zpet=/leads-23 -d "as_cas=$FORM_TIME" -d "as_podpis=$FORM_SIGNATURE" -d 'p0[]=Kuchyne' -d 'p0[]=Podvrh' -d p1=Hacked --data-urlencode p2=tick@example.cz
 expect "ticked options (only offered ones) and the form's own hidden value are saved" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT data FROM ka_poptavky WHERE email = 'tick@example.cz'")" '[["Sluzby","Kuchyne"],["Produkt","Dubovy stul"],["Email","tick@example.cz"]]'
@@ -5316,6 +5377,7 @@ echo "== 2.12: calls and e-mail clicks counted as conversions (Core\\Conversions
 mcp vytvor_stranku '{"titulek":"Volejte 212","zobrazit":true,"text":"<p>Zavolejte: <a href=\"tel:+420777000212\">+420 777 000 212</a></p>"}' > /dev/null
 rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/response" -A 'Mozilla/5.0 test' "$B/volejte-212"
 grep -q 'image/web.js?v=[^"]*" defer blocking="render"[^>]* data-konverze="/conversion"></script>' "$WORK/response" && echo "  ok     2.12: a page with only a tel: link keeps web.js with the click endpoint (3.7: /conversion) when the statistics are on" || { echo "  CHYBA  web.js on a page with a tel: link"; ERRORS=$((ERRORS+1)); }
+hit_from "$WORK/response" > /dev/null # 3.29: the browser confirms the page view – clicks count only on pages the statistics have seen
 curl -s -b "$JAR" -o "$WORK/response" "$B/volejte-212"; ! grep -q 'data-konverze' "$WORK/response" && echo "  ok     2.12: no click counter for signed-in users" || { echo "  CHYBA  data-konverze for a signed-in user"; ERRORS=$((ERRORS+1)); }
 # the beacon: once per visitor, type and page a day – the visitor is the statistics' daily fingerprint (IP and browser), nothing of it is stored with the count
 beacon() { curl -s -o /dev/null -w '%{http_code}' -X POST "$B/konverze" -A "${3:-Mozilla/5.0 test}" -d "type=$1" -d "path=$2"; }
@@ -5983,7 +6045,8 @@ expect "social drafts: the tracked link (the statistics count utm campaigns) and
 mcp_value drafts 0 text > "$WORK/draft.txt"
 grep -q '^Nová hala pro výrobu$' "$WORK/draft.txt" && grep -q '^Otevřeli jsme novou výrobní halu & sklad\.$' "$WORK/draft.txt" && grep -q '^#NovaHalaF14 #VyrobaF14 #CncStrojeF14$' "$WORK/draft.txt" && tail -1 "$WORK/draft.txt" | grep -q 'utm_source=facebook' \
   && echo "  ok     social drafts: the text is the title, the lead as plain text, three hashtags from the tags and the link" || { echo "  CHYBA  Facebook draft text"; cat "$WORK/draft.txt"; ERRORS=$((ERRORS+1)); }
-curl -s -o /dev/null -A 'Mozilla/5.0 (Windows NT 10.0) Chrome/120 Social' "$(mcp_value drafts 0 link)" # a user agent not seen today = a new visitor
+SOC_LINK=$(mcp_value drafts 0 link); curl -s -o "$WORK/social.html" -A 'Mozilla/5.0 (Windows NT 10.0) Chrome/120 Social' "$SOC_LINK" # a user agent not seen today = a new visitor
+hit_from "$WORK/social.html" 'Mozilla/5.0 (Windows NT 10.0) Chrome/120 Social' --data-urlencode "query=?${SOC_LINK#*\?}" > /dev/null # 3.29: confirmed by the browser, with the page's query
 expect "social drafts: a visit through the tracked link counts in the campaign statistics" "$(sq "SELECT COALESCE(SUM(navstevy), 0) > 0 FROM ka_stat_kampane WHERE kampan LIKE 'facebook / social / nova-hala-pro-vyrobu%'")" "1"
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=news&action=edit&id=$SOC_NEWS"
 grep -q 'id="social-posts"' "$WORK/response" && [ "$(grep -o 'data-kopirovat="#social-text-[0-9]*"' "$WORK/response" | wc -l | tr -d ' ')" = 2 ] && grep -q 'action=social_posted' "$WORK/response" && ! grep -q 'action=social_suggest' "$WORK/response" \
