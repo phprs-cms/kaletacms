@@ -1758,3 +1758,68 @@ form.moje-predat select { max-width: 100%; }
 
 /* 3.28 (D-W12): the recovery key of the off-site backups – one line where it fits, broken at its dashes on a phone */
 .recovery-key { font-size: 15px; letter-spacing: .02em; overflow-wrap: anywhere; }
+/* 3.29: the fleet console's Today, health matrix and workload (views/admin/fleet/today|health|workload.php) – a state is
+   always a symbol and a text as well as a colour; the matrix scrolls inside its frame with the site column fixed and is a
+   card of chips per site on a phone */
+.flotila-souhrn { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; padding: 0; list-style: none; }
+.flotila-souhrn li { padding: 6px 12px; border: 1px solid var(--linka); border-radius: 999px; background: var(--plocha); font-size: 14px; }
+.flotila-souhrn a { color: inherit; text-decoration: none; }
+.flotila-souhrn a:hover { text-decoration: underline; }
+.flotila-souhrn strong { font-variant-numeric: tabular-nums; }
+.flotila-souhrn li.flotila-souhrn-bad { border-color: color-mix(in srgb, var(--chyba) 45%, var(--linka)); }
+.flotila-souhrn li.flotila-souhrn-bad strong { color: var(--chyba); }
+.flotila-souhrn li.flotila-souhrn-warn { border-color: color-mix(in srgb, var(--varovani-text) 45%, var(--linka)); }
+.flotila-souhrn li.flotila-souhrn-warn strong { color: var(--varovani-text); }
+table.flotila-dnes tr.flotila-bad td:first-child { box-shadow: inset 3px 0 0 var(--chyba); }
+table.flotila-dnes tr.flotila-warn td:first-child { box-shadow: inset 3px 0 0 var(--varovani); }
+.flotila-stav { display: inline-flex; align-items: center; justify-content: center; gap: 4px; box-sizing: border-box; min-width: 26px; height: 26px; padding: 0 6px; border: 1px solid; border-radius: 999px; font-size: 13px; font-weight: 700; line-height: 1; text-decoration: none; white-space: nowrap; }
+table.vypis td a.flotila-stav { font-weight: 700; }
+a.flotila-stav:hover { outline: 2px solid currentColor; outline-offset: 1px; }
+.flotila-stav-ok { border-color: color-mix(in srgb, var(--ok) 40%, transparent); background: var(--ok-podklad); color: var(--ok); }
+.flotila-stav-warn { border-color: color-mix(in srgb, var(--varovani-text) 45%, transparent); background: color-mix(in srgb, var(--varovani-text) 10%, var(--plocha)); color: var(--varovani-text); }
+.flotila-stav-bad { border-color: color-mix(in srgb, var(--chyba) 40%, transparent); background: var(--chyba-podklad); color: var(--chyba); }
+.flotila-stav-unknown { border-color: var(--linka-pole); border-style: dashed; background: var(--plocha); color: var(--text-slaby); }
+.flotila-zkratka, .flotila-pocty { display: none; }
+.flotila-legenda { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 0 0 12px; }
+.flotila-legenda .flotila-stav { min-width: 22px; height: 22px; }
+/* the hidden texts of the chips (position: absolute) are held inside the scrolling frame, never past the page's edge */
+.flotila-matice-obal { position: relative; }
+table.flotila-matice { width: auto; min-width: 100%; }
+table.flotila-matice th, table.flotila-matice td { padding: 8px 5px; text-align: center; vertical-align: middle; }
+table.flotila-matice thead th { font-size: 12px; }
+table.flotila-matice abbr { text-decoration: none; cursor: help; }
+table.flotila-matice tr > :first-child { position: sticky; left: 0; z-index: 1; min-width: 150px; max-width: 220px; padding-inline: 14px 10px; text-align: left; white-space: normal; overflow-wrap: anywhere; box-shadow: inset -1px 0 0 var(--linka); }
+table.flotila-matice tbody th { background: var(--plocha); color: var(--text); font-size: 14px; font-weight: 500; }
+table.flotila-matice tbody tr:hover th { background: var(--akcent-svetly); }
+table.flotila-matice tr.flotila-skupina th { position: static; max-width: none; background: color-mix(in srgb, var(--text) 4%, var(--plocha)); color: var(--text-slaby); font-size: 12.5px; font-weight: 600; }
+table.flotila-prace th a { color: inherit; text-decoration: none; }
+table.flotila-prace th a[aria-current] { color: var(--text); }
+table.flotila-prace thead th { min-width: 5.5em; white-space: normal; vertical-align: bottom; }
+table.flotila-prace tbody th, table.flotila-prace tfoot th { background: none; color: var(--text); font-size: 14px; font-weight: 500; white-space: normal; text-align: left; }
+table.flotila-prace tfoot th, table.flotila-prace tfoot td { border-top: 2px solid var(--linka); border-bottom: 0; color: var(--text); font-weight: 700; }
+@media (max-width: 640px) {
+	table.flotila-dnes tr.flotila-bad td:first-child, table.flotila-dnes tr.flotila-warn td:first-child { box-shadow: none; }
+	table.flotila-dnes tr.flotila-bad { box-shadow: inset 3px 0 0 var(--chyba); }
+	table.flotila-dnes tr.flotila-warn { box-shadow: inset 3px 0 0 var(--varovani); }
+	.flotila-matice-obal { overflow: visible; border: 0; border-radius: 0; background: none; }
+	table.flotila-matice, table.flotila-matice tbody, table.flotila-matice tr, table.flotila-matice th, table.flotila-matice td { display: block; }
+	table.flotila-matice { width: 100%; min-width: 0; }
+	table.flotila-matice thead { display: block; position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); } /* a block, so the clip applies (a header group ignores it) */
+	table.flotila-matice tbody tr { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; padding: 12px 14px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); }
+	table.flotila-matice tbody tr:hover { background: var(--plocha); }
+	table.flotila-matice tbody tr > :first-child, table.flotila-matice tbody tr:hover > :first-child { position: static; flex: 1 1 100%; min-width: 0; max-width: none; padding: 0 0 4px; border: 0; box-shadow: none; background: none; }
+	table.flotila-matice td { min-height: 0; padding: 0; border: 0; }
+	table.flotila-matice td::before { display: none; } /* the chip says its check itself – no column label from admin.js (data-popisek) */
+	table.flotila-matice .flotila-stav { height: 28px; padding: 0 8px; }
+	table.flotila-matice .flotila-zkratka { display: inline; font-size: 12px; font-weight: 600; }
+	.flotila-pocty { display: block; margin-top: 2px; }
+	table.flotila-matice tbody tr.flotila-skupina { margin: 16px 0 6px; padding: 0; border: 0; background: none; }
+	table.flotila-matice tr.flotila-skupina th { padding: 0; background: none; }
+	table.flotila-prace tfoot, table.flotila-prace tfoot th { display: block; }
+	/* a count per line, its label beside it (a long label wraps instead of running into the next line) */
+	table.flotila-prace td.cislo { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 5px 14px; text-align: right; }
+	table.flotila-prace td::before { position: static; flex: 1 1 auto; width: auto; text-align: left; }
+	table.flotila-prace tfoot th { padding: 5px 14px; font-size: 15px; font-weight: 700; }
+	table.flotila-prace tfoot th, table.flotila-prace tfoot td { border-top: 0; }
+	table.flotila-prace tfoot tr { border-width: 2px; }
+}

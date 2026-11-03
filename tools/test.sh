@@ -186,6 +186,7 @@ check "3.5: Claude settings have the address with Copy and the connection state"
 grep -q 'Claude není připojený' "$WORK/response" && grep -q 'class="hlaska claude-panel hlaska-chyba"' "$WORK/response" && echo "  ok     3.5, 3.18: Claude settings say Claude is not connected (the status panel)" || { echo "  CHYBA  3.5: Claude settings state"; ERRORS=$((ERRORS+1)); }
 check "3.5: My account has the address with Copy" 200 "/admin.php?action=account" 'data-kopirovat="#mcp-adresa-ucet"'
 check "3.9.1: the admin footer links to the support page (Buy Me a Coffee)" 200 "/admin.php?action=account" 'href="https://buymeacoffee.com/Kaletacms"'
+check "3.29: the support link in the admin footer asks to support the development of Kaleta CMS" 200 "/admin.php?action=account" 'Podpořte vývoj Kaleta CMS</a></footer>'
 # 3.9.2 N67: an update never touches media/, so migration 0084 does – it replaces a media/.htaccess Kaleta shipped (here the
 # one of 3.9.1, rebuilt from today's file) and keeps a customised one, with the new version next to it and a warning
 # (3.15 N72: migration 0098 then brings the header rules that match an upper-case extension – both run again here)
@@ -4329,7 +4330,7 @@ sq "INSERT INTO ka_requests (created_at, updated_at, author_id, title, text, abo
 REQ317=$(sq "SELECT id FROM ka_requests WHERE title LIKE 'Fleet317 price%'")
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"; sleep 1
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_send" -d "_csrf=$(csrf)"
-curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=inbox"
 grep -qF "$B/admin.php?module=requests&amp;action=detail&amp;id=$REQ317\" target=\"_blank\" rel=\"noopener\"" "$WORK/response" && grep -qF 'Fleet317 price list – call [phone] or [e-mail]' "$WORK/response" \
   && echo "  ok     inbox: the request title, masked, with a plain link to the request in the site's administration" || { echo "  CHYBA  inbox: the request with its plain link"; ERRORS=$((ERRORS+1)); }
 grep -qF 'Fleet317 Beta' "$WORK/response" && grep -q 'possibly out of date\|možná neaktuální' "$WORK/response" && grep -qF 'href="http://beta317.test/admin.php?module=enquiries"' "$WORK/response" && grep -qF 'href="http://gamma317.test/admin.php?module=bookings&amp;view=vse&amp;status=pending"' "$WORK/response" \
@@ -4345,7 +4346,7 @@ curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fl
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=customer" -d "_csrf=$(csrf)" -d "id=$GAMMA317" -d "customer=Other 317" -d "note=Calls on Mondays"
 ACME317=$(sq3 "SELECT id FROM ka_fleet_customers WHERE name = 'Acme 317'")
 expect "customers: two sites of Acme from the list, Gamma of another customer with the owner's note" "$(sq3 "SELECT CONCAT((SELECT COUNT(*) FROM ka_fleet_sites WHERE customer_id = $ACME317), '|', (SELECT c.name FROM ka_fleet_sites s JOIN ka_fleet_customers c ON c.id = s.customer_id WHERE s.id = $GAMMA317), '|', (SELECT note FROM ka_fleet_sites WHERE id = $GAMMA317))")" "2|Other 317|Calls on Mondays"
-curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&customer=$ACME317"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=inbox&customer=$ACME317"
 grep -qF 'Fleet317 price list' "$WORK/response" && grep -qF 'href="http://beta317.test/' "$WORK/response" && ! grep -qF 'href="http://gamma317.test/' "$WORK/response" && echo "  ok     inbox: the customer filter" || { echo "  CHYBA  inbox: the customer filter"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=sites&customer=$ACME317"
 grep -qF 'Fleet317 Beta' "$WORK/response" && ! grep -qF 'Fleet317 Gamma' "$WORK/response" && grep -qF ">Acme 317</a>" "$WORK/response" && echo "  ok     the list of sites: the customer column and filter" || { echo "  CHYBA  the list of sites: customer"; ERRORS=$((ERRORS+1)); }
@@ -4363,7 +4364,7 @@ expect "customers: renamed once for both sites" "$(sq3 "SELECT CONCAT(COUNT(*), 
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=customers"
 grep -qF "action=report_view&amp;month=$PREV317&amp;customer=$ACME317" "$WORK/response" && echo "  ok     Customers: a link to the customer's latest fleet report" || { echo "  CHYBA  Customers: the fleet report link"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=reports"
-grep -qF "module=fleet&amp;customer=$ACME317\">Acme 317 Ltd</a>" "$WORK/response" && grep -q 'dříve Acme 317\|then Acme 317' "$WORK/response" \
+grep -qF "module=fleet&amp;action=inbox&amp;customer=$ACME317\">Acme 317 Ltd</a>" "$WORK/response" && grep -q 'dříve Acme 317\|then Acme 317' "$WORK/response" \
   && echo "  ok     Fleet reports: a renamed customer under its name now (the inbox filter), the name it had then" || { echo "  CHYBA  Fleet reports: the renamed customer"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=report_view&month=$PREV317&customer=$ACME317"
 expect "fleet report of the renamed customer: printed with the name it was made with" "$(sq3 "SELECT customer FROM ka_fleet_reports WHERE month = '$PREV317' AND customer_id = $ACME317")|$(grep -c 'Acme 317 <span>' "$WORK/response")" "Acme 317|1"
@@ -4371,7 +4372,7 @@ curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type
 contains -qF 'customer_then' "$WORK/response" && contains -qF 'Acme 317 Ltd' "$WORK/response" && ! contains -qF 'Other 317' "$WORK/response" \
   && echo "  ok     MCP fleet_report: a renamed customer by its name now, with the name the report was made with" || { echo "  CHYBA  MCP fleet_report by customer"; head -c 600 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=digest_preview"
-grep -qF "== Acme 317 Ltd ==" "$WORK/response" && grep -qF "module=fleet&amp;customer=$ACME317" "$WORK/response" && echo "  ok     digest: by customer, each with a link to the inbox filtered by it" || { echo "  CHYBA  digest: customers"; ERRORS=$((ERRORS+1)); }
+grep -qF "== Acme 317 Ltd ==" "$WORK/response" && grep -qF "module=fleet&amp;action=inbox&amp;customer=$ACME317" "$WORK/response" && echo "  ok     digest: by customer, each with a link to the inbox filtered by it" || { echo "  CHYBA  digest: customers"; ERRORS=$((ERRORS+1)); }
 # the new version for one customer's sites only (this site decides itself since the test above; Beta lets the console decide)
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=customers"
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=allow" -d "_csrf=$(csrf)" -d "customer=$ACME317"
@@ -4397,6 +4398,60 @@ curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=f
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"; sleep 1
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_send" -d "_csrf=$(csrf)"
 expect "a kit for this site's customer reaches it" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_kit_version'")" "$(sq3 "SELECT MAX(version) FROM ka_fleet_kits")"
+echo "== 3.29: the console's Today, health matrix and workload (Fleet\Health over Fleet\Checks), MCP fleet_today and fleet_health"
+# three more sites stored straight in the console: one before 3.29 (no new parts), one hostile (down, silent, odd stored values), one that never reported
+sq3 "INSERT INTO ka_fleet_sites (name, url, public_key, paired_at, last_seen, version, version_since, manage_updates, up, up_status, up_changed, heartbeat) VALUES
+  ('B329 Old', 'http://old329b.test', 'old329bkey', '$(site_time)', '$(site_time)', '3.17.0', '$(site_time)', 1, 1, 200, '$(site_time '-5 days')', '{\"version\":\"3.17.0\",\"last_backup\":$(date +%s),\"cron_last_run\":$(date +%s),\"enquiries_unanswered\":2}'),
+  ('B329 <script>alert(329)</script> Hostile', 'http://hostile329b.test', 'hostile329bkey', '$(site_time)', '$(site_time '-30 hours')', '3.29.0', '$(site_time)', 1, 0, 503, '$(site_time '-3 hours')',
+   '{\"version\":\"3.29.0\",\"last_backup\":-5,\"cron_last_run\":1e300,\"privacy_page\":\"none\",\"accessibility_statement\":\"javascript:alert(1)\",\"links\":{\"privacy_policy\":\"https://evil329b.test/\"},\"path\":\"//evil329b.test\",\"handover\":{\"done\":1,\"total\":16,\"failing\":[\"https://evil329b.test\"]},\"workload\":{\"enquiries_this_week\":1e300,\"tasks_open\":9223372036854775807,\"unanswered_over_24h\":\"7\",\"median_first_reply_hours\":-4,\"customers_this_month\":3,\"names\":[\"Jan329b\"]},\"twofa\":{\"required\":\"none\",\"admins_without\":2}}'),
+  ('B329 New', 'http://new329b.test', 'new329bkey', '$(site_time)', NULL, '', '$(site_time)', 1, NULL, 0, NULL, NULL)" > /dev/null
+HOST329=$(sq3 "SELECT id FROM ka_fleet_sites WHERE public_key = 'hostile329bkey'"); OLD329=$(sq3 "SELECT id FROM ka_fleet_sites WHERE public_key = 'old329bkey'")
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" -w '%{http_code}' "$B3/admin.php?module=fleet" > "$WORK/code329b.txt"
+FIRST329=$(grep -m1 -A6 '<tr class="flotila-' "$WORK/response" | tr -d '\n')
+expect "3.29 Today: the console opens on Today (its tab first and current, the inbox a tab of its own); the hostile site's outage is ranked first, red, with the plain link to the site" \
+  "$(cat "$WORK/code329b.txt")|$(grep -c '<a href="/admin.php?module=fleet" class="aktivni" aria-current="page">' "$WORK/response")|$(grep -c 'href="/admin.php?module=fleet&amp;action=inbox"' "$WORK/response")|$(grep -c 'class="flotila-bad"' <<< "$FIRST329")|$(grep -c 'href="http://hostile329b.test/" target="_blank" rel="noopener"' <<< "$FIRST329")|$(grep -c "action=detail&amp;id=$HOST329\"" <<< "$FIRST329")" "200|1|1|1|1|1"
+expect "3.29 Today: every Open link of the hostile site is built from its known address and a fixed admin path; nothing from the stored heartbeat, the name escaped" \
+  "$(grep -o 'href="[^"]*hostile329b[^"]*"' "$WORK/response" | grep -vcE '^href="http://hostile329b\.test/(admin\.php\?module=[a-z_]+(&amp;tab=[a-z]+)?)?"$')|$(grep -c 'evil329b' "$WORK/response")|$(grep -c '<script>alert(329)' "$WORK/response")" "0|0|0"
+grep -q 'href="http://hostile329b.test/admin.php?module=settings&amp;tab=cookies" target="_blank" rel="noopener"' "$WORK/response" && grep -q 'href="http://hostile329b.test/admin.php?module=settings&amp;tab=console"' "$WORK/response" \
+  && echo "  ok     3.29 Today: the hostile site's missing privacy page and its silence open the screens that fix them" || { echo "  CHYBA  3.29 Today: the fix links"; ERRORS=$((ERRORS+1)); }
+expect "3.29 Today: the summary – red items, sites not reporting (the silent ones and the new one), sites to update (the ones before 3.29)" \
+  "$(grep -o '<li class="flotila-souhrn-bad"><strong>[0-9]*' "$WORK/response" | grep -o '[0-9]*$' | awk '{print ($1 >= 3)}')|$(grep -o '<strong>[0-9]*</strong> [^<]*</a>' "$WORK/response" | grep -oE '^<strong>[0-9]+' | grep -oE '[0-9]+' | tr '\n' ',')" "1|3,3,"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&severity=warn"
+expect "3.29 Today: the severity filter shows only the amber items" "$(grep -c 'class="flotila-bad"' "$WORK/response")|$(grep -c 'class="flotila-warn"' "$WORK/response" | awk '{print ($1 > 0)}')" "0|1"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&customer=$ACME317"
+expect "3.29 Today: the customer filter leaves the other sites out" "$(grep -c 'hostile329b' "$WORK/response")|$(grep -c 'name="customer"' "$WORK/response")" "0|1"
+# the health matrix: the worst site first, the old site unknown "update the site to see", every cell a chip with its text and a console-built link
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" -w '%{http_code}' "$B3/admin.php?module=fleet&action=health" > "$WORK/code329b.txt"
+expect "3.29 Health: a column per check with its full label, the worst site first, the old site marked, a chip with text in every cell" \
+  "$(cat "$WORK/code329b.txt")|$(grep -c '<th scope="col" title="' "$WORK/response")|$(grep -m1 -A1 '<th scope="row">' "$WORK/response" | grep -c "id=$HOST329\"")|$(grep -A3 "id=$OLD329\"" "$WORK/response" | grep -cE 'Update the site to see|Uvidíte po aktualizaci webu')|$(grep -cE '^\s*<td><(a|span) class="flotila-stav flotila-stav-' "$WORK/response" | awk -v n="$(sq3 "SELECT COUNT(*) * 18 FROM ka_fleet_sites")" '{print ($1 == n)}')|$(grep -c 'class="navod-skryte">[^<]*: ' "$WORK/response" | awk '{print ($1 > 18)}')" \
+  "200|18|1|1|1|1"
+expect "3.29 Health: the cells link only to the site's known address and fixed admin paths" "$(grep -o 'href="http://[a-z0-9]*329b\.test[^"]*"' "$WORK/response" | grep -vcE '^href="http://[a-z0-9]+329b\.test/(admin\.php\?module=[a-z_]+(&amp;tab=[a-z]+)?)?"$')|$(grep -c 'evil329b\|<script>alert(329)' "$WORK/response")" "0|0"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=health&sort=customer"
+grep -q '<tr class="flotila-skupina"><th scope="rowgroup"' "$WORK/response" && grep -qF 'Acme 317 Ltd' "$WORK/response" && echo "  ok     3.29 Health: grouped by customer" || { echo "  CHYBA  3.29 Health: grouped by customer"; ERRORS=$((ERRORS+1)); }
+# the workload: per site and in total, counts only; the hostile counts clamped, the old site "–"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" -w '%{http_code}' "$B3/admin.php?module=fleet&action=workload&sort=tasks_open&dir=desc" > "$WORK/code329b.txt"
+expect "3.29 Workload: sorted by open tasks (the hostile site's clamped million first), the old site without counts, a totals row, no names" \
+  "$(cat "$WORK/code329b.txt")|$(grep -m1 -A3 '<tbody>' "$WORK/response" | grep -c "id=$HOST329\"")|$(grep -m1 -A12 '<tbody>' "$WORK/response" | grep -cE '>1.{1,2}000.{1,2}000<')|$(grep -A12 "id=$OLD329\"" "$WORK/response" | grep -c '>–<' | awk '{print ($1 >= 7)}')|$(grep -c '<tfoot>' "$WORK/response")|$(grep -c 'Jan329b' "$WORK/response")" "200|1|1|1|1|0"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=inbox"
+expect "3.29: the inbox is its own tab (the current one)" "$(grep -c '<a href="/admin.php?module=fleet&amp;action=inbox" class="aktivni" aria-current="page">' "$WORK/response")" "1"
+# MCP on the console: fleet_today and fleet_health, read-only, the same picture
+curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fleet_today","arguments":{}}}' > "$WORK/response"
+php -r '$r = json_decode(file_get_contents($argv[1]), true); $d = json_decode($r["result"]["content"][0]["text"] ?? "", true); $i = $d["items"][0] ?? [];
+  echo implode("|", [$i["site_id"] ?? "-", $i["check"] ?? "-", $i["state"] ?? "-", $i["link"] ?? "-", $i["label"] ?? "-", $d["summary"]["sites_to_update"] ?? "-", count(array_filter($d["items"] ?? [], fn ($x) => isset($x["link"]) && !preg_match("~^http://([a-z0-9]+329b\.test|[a-z]+317\.test|127\.0\.0\.1:[0-9]+|localhost:[0-9]+)/(admin\.php\?module=[a-z_]+(&tab=[a-z]+)?)?$~", $x["link"]))), isset($d["written_on_the_site"]) ? 1 : 0]);' "$WORK/response" > "$WORK/mcp329b.txt"
+expect "3.29 MCP fleet_today: ranked like the screen, English labels, links from the known address, the summary" "$(cat "$WORK/mcp329b.txt")" "$HOST329|uptime|bad|http://hostile329b.test/|Site answers|3|0|1"
+curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fleet_today","arguments":{"customer":"Acme 317 Ltd","severity":"bad"}}}' > "$WORK/response"
+! contains -q 'hostile329b' "$WORK/response" && ! contains -q '"isError":true' "$WORK/response" && echo "  ok     3.29 MCP fleet_today: the customer and severity filters" || { echo "  CHYBA  3.29 MCP fleet_today filters"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fleet_today","arguments":{"severity":"purple"}}}' > "$WORK/response"
+contains -q 'severity must be one of' "$WORK/response" && echo "  ok     3.29 MCP fleet_today: an unknown severity is refused" || { echo "  CHYBA  3.29 MCP fleet_today severity"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fleet_health","arguments":{}}}' > "$WORK/response"
+php -r '$r = json_decode(file_get_contents($argv[1]), true); $d = json_decode($r["result"]["content"][0]["text"] ?? "", true); $by = array_column($d["sites"] ?? [], null, "id");
+  $h = $by[(int) $argv[2]] ?? []; $o = $by[(int) $argv[3]] ?? [];
+  echo implode("|", [count($d["checks"] ?? []), ($d["sites"][0]["id"] ?? 0) === (int) $argv[2] ? "worst-first" : "-", $h["states"]["uptime"] ?? "-", $h["states"]["privacy_policy"] ?? "-", $h["workload"]["tasks_open"] ?? "-",
+    array_key_exists("enquiries_this_week", $h["workload"] ?? []) ? json_encode($h["workload"]["enquiries_this_week"]) : "missing", !empty($o["update_needed"]) ? "old" : "-", $o["states"]["two_step"] ?? "-", $d["workload_totals"]["tasks_open"] >= 1000000 ? "total" : "-",
+    str_contains(file_get_contents($argv[1]), "evil329b") || str_contains(file_get_contents($argv[1]), "Jan329b") ? "leak" : "clean"]);' "$WORK/response" "$HOST329" "$OLD329" > "$WORK/mcp329b.txt"
+expect "3.29 MCP fleet_health: every check per site as states, the worst first, the workload counts bounded, the old site marked" "$(cat "$WORK/mcp329b.txt")" "18|worst-first|bad|bad|1000000|null|old|unknown|total|clean"
+mcp fleet_today '{}' > "$WORK/response"; contains -q 'sites_to_update' "$WORK/response" && { echo "  CHYBA  fleet_today works on a site that is not a console"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.29: fleet_today and fleet_health exist only on a console"
+sq3 "DELETE FROM ka_fleet_sites WHERE public_key IN ('old329bkey', 'hostile329bkey', 'new329bkey')" > /dev/null
 # N317-9: the archived reports of a forgotten customer (id 900 here) never pass to a new customer
 sq3 "INSERT INTO ka_fleet_reports (month, customer_id, customer, created_at, data) VALUES ('2020-01', 900, 'Forgotten 317', '$(site_time)', '{}')" > /dev/null
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=detail&id=$GAMMA317"

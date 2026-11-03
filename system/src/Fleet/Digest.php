@@ -107,7 +107,7 @@ final class Digest
                 if (count($data['customers']) > 1 || $customerId > 0) {
                     $lines[] = '== ' . ($customerId > 0 ? Console::oneLine($customer, Customers::NAME_LENGTH) : t('Sites without a customer')) . ' ==';
                     if ($customerId > 0) {
-                        $lines[] = t('What waits on these sites:') . ' ' . $consoleUrl . '/admin.php?module=fleet&customer=' . $customerId;
+                        $lines[] = t('What waits on these sites:') . ' ' . $consoleUrl . '/admin.php?module=fleet&action=inbox&customer=' . $customerId;
                     }
                     $lines[] = '';
                 }

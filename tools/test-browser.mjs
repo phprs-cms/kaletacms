@@ -2159,13 +2159,13 @@ await step('3.17 fleet inbox: rows with plain links, the filters, no sideways sc
   try {
     for (const [width, height, name] of [[1440, 900, 'desktop'], [390, 844, 'phone']]) {
       await page.setViewportSize({ width, height });
-      for (const url of ['/admin.php?module=fleet', '/admin.php?module=fleet&action=sites&show=all', '/admin.php?module=fleet&action=customers']) {
+      for (const url of ['/admin.php?module=fleet&action=inbox', '/admin.php?module=fleet&action=sites&show=all', '/admin.php?module=fleet&action=customers']) {
         await visit(url);
         const wider = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
         if (wider > 1) { throw new Error(`${url} scrolls sideways by ${wider} px at ${width} px`); }
         if (SHOTS) { await page.screenshot({ path: `${SHOTS}/fleet-${url.replace(/.*module=fleet&?/, '').replace(/\W+/g, '-') || 'inbox'}-${name}.png`, fullPage: true }); }
       }
-      await visit('/admin.php?module=fleet');
+      await visit('/admin.php?module=fleet&action=inbox');
       const rows = page.locator('table.vypis-karty tbody tr');
       if (await rows.count() < 10) { throw new Error(`the inbox lists ${await rows.count()} rows`); }
       const out = await page.locator('table.vypis-karty a[target="_blank"]').evaluateAll((links) => links.map((a) => [a.href, a.rel]));
@@ -2176,10 +2176,84 @@ await step('3.17 fleet inbox: rows with plain links, the filters, no sideways sc
       if (width === 390 && await rows.first().evaluate((tr) => getComputedStyle(tr).display) !== 'block') { throw new Error('the rows are not cards on a phone'); }
     }
     await page.setViewportSize({ width: 1440, height: 900 });
-    await visit('/admin.php?module=fleet&urgent=1');
+    await visit('/admin.php?module=fleet&action=inbox&urgent=1');
     if (await page.locator('table.vypis-karty .stitek-chyba').count() !== await page.locator('table.vypis-karty tbody tr').count()) { throw new Error('"only urgent" lists other rows'); }
   } finally {
     await page.setViewportSize({ width: 1440, height: 900 });
+  }
+});
+
+// 3.29: the console opens on Today (ranked items with plain links out), the health matrix (a chip per check, the site column
+// fixed while the table scrolls inside its frame, a card per site on a phone) and the workload (sortable, a totals row) – at
+// 1440 and 390 px, light and dark, none scrolls the page sideways; axe finds nothing in the three screens
+await step('3.29 fleet console: Today, Health and Workload at 1440 and 390 px, light and dark, no sideways scroll, axe clean', async () => {
+  const known = ['https://smile-dental-clinic-with-a-long-domain.example/', 'https://booking.smile.example/', 'https://bakery.example/', 'https://shop.smile.example/', 'https://northwind-architects.example/'];
+  try {
+    for (const scheme of ['light', 'dark']) {
+      await page.emulateMedia({ colorScheme: scheme });
+      for (const [width, height, name] of [[1440, 900, 'desktop'], [390, 844, 'phone']]) {
+        await page.setViewportSize({ width, height });
+        for (const [url, shot] of [['/admin.php?module=fleet', 'today'], ['/admin.php?module=fleet&action=health', 'health'], ['/admin.php?module=fleet&action=workload', 'workload']]) {
+          await visit(url);
+          const wider = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+          if (wider > 1) { throw new Error(`${url} scrolls sideways by ${wider} px at ${width} px (${scheme})`); }
+          if (SHOTS) { await page.screenshot({ path: `${SHOTS}/fleet-329-${shot}-${name}-${scheme}.png`, fullPage: true }); }
+        }
+        await visit('/admin.php?module=fleet');
+        if (!(await page.locator('nav.zalozky a.aktivni', { hasText: 'Today' }).count())) { throw new Error('the console does not open on Today'); }
+        const rows = page.locator('table.flotila-dnes tbody tr');
+        if (await rows.count() < 5) { throw new Error(`Today lists ${await rows.count()} items`); }
+        if (!/flotila-bad/.test(await rows.first().getAttribute('class'))) { throw new Error('the first item of Today is not red'); }
+        const out = await page.locator('table.flotila-dnes a[target="_blank"]').evaluateAll((links) => links.map((a) => [a.href, a.rel]));
+        if (out.some(([href, rel]) => rel !== 'noopener' || !known.some((k) => href.startsWith(k)) || /token|password|login|session/i.test(href))) { throw new Error('an Open link is not a plain link to a known site'); }
+        if (!out.some(([href]) => href === 'https://northwind-architects.example/admin.php?module=settings&tab=security')) { throw new Error('no link to fix the two-step sign-in'); }
+        if (width === 390 && await rows.first().evaluate((tr) => getComputedStyle(tr).display) !== 'block') { throw new Error('Today is not cards on a phone'); }
+        await visit('/admin.php?module=fleet&action=health');
+        const site = page.locator('table.flotila-matice tbody tr:not(.flotila-skupina)');
+        if (await site.count() !== 5) { throw new Error(`the matrix has ${await site.count()} sites`); }
+        if (await page.locator('table.flotila-matice thead th[title]').count() !== 18) { throw new Error('the matrix has not 18 check columns'); }
+        const chips = await site.first().locator('.flotila-stav').evaluateAll((c) => c.map((x) => [x.textContent.trim().length > 0, x.querySelector('.navod-skryte')?.textContent || '']));
+        if (chips.length !== 18 || chips.some(([text, sr]) => !text || !/: /.test(sr))) { throw new Error('a matrix cell has no symbol or no text for screen readers'); }
+        if (!(await page.locator('table.flotila-matice th[scope="row"] .stitek', { hasText: 'Update the site to see' }).count())) { throw new Error('the sites before 3.29 are not marked'); }
+        if (width === 1440 && await site.first().locator('th').evaluate((th) => getComputedStyle(th).position) !== 'sticky') { throw new Error('the site column is not fixed'); }
+        if (width === 390 && await site.first().evaluate((tr) => getComputedStyle(tr).display) !== 'flex') { throw new Error('the matrix is not a card per site on a phone'); }
+        await visit('/admin.php?module=fleet&action=workload&sort=tasks_open&dir=desc');
+        const first = await page.locator('table.flotila-prace tbody tr').first().locator('th').textContent();
+        if (!/Northwind/.test(first)) { throw new Error(`the workload sorted by open tasks starts with ${first}`); }
+        if (!(await page.locator('table.flotila-prace tfoot').count()) || !(await page.locator('table.flotila-prace tbody td', { hasText: '–' }).count())) { throw new Error('the workload has no totals or no "–" for the older sites'); }
+      }
+    }
+    // between a phone and a computer the matrix scrolls inside its frame, never the page, and the site column stays put
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.setViewportSize({ width: 820, height: 900 });
+    await visit('/admin.php?module=fleet&action=health');
+    const frame = await page.locator('.flotila-matice-obal').evaluate((f) => [f.scrollWidth - f.clientWidth, getComputedStyle(f).overflowX]);
+    const page820 = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    if (frame[0] < 1 || frame[1] !== 'auto' || page820 > 1) { throw new Error(`at 820 px the matrix frame scrolls ${frame[0]} px (${frame[1]}), the page ${page820} px`); }
+    const before = await page.locator('table.flotila-matice tbody th[scope="row"]').first().boundingBox();
+    await page.locator('.flotila-matice-obal').evaluate((f) => { f.scrollLeft = 300; });
+    const after = await page.locator('table.flotila-matice tbody th[scope="row"]').first().boundingBox();
+    if (!before || !after || Math.abs(before.x - after.x) > 1) { throw new Error('the site column moves with the scrolled matrix'); }
+    if (SHOTS) { await page.screenshot({ path: `${SHOTS}/fleet-329-health-820.png`, fullPage: true }); }
+  } finally {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.setViewportSize({ width: 1440, height: 900 });
+  }
+  const axeContext = await browser.newContext({ storageState: await context.storageState(), bypassCSP: true, viewport: { width: 1440, height: 900 } });
+  try {
+    const axePage = await axeContext.newPage();
+    for (const [url, include] of [['/admin.php?module=fleet', ['.flotila-souhrn', 'table.flotila-dnes']], ['/admin.php?module=fleet&action=health', ['.flotila-legenda', 'table.flotila-matice']],
+      ['/admin.php?module=fleet&action=workload', ['table.flotila-prace']]]) {
+      for (const scheme of ['light', 'dark']) {
+        await axePage.emulateMedia({ colorScheme: scheme });
+        await axePage.goto(BASE + url, { waitUntil: 'networkidle' });
+        await axePage.addScriptTag({ path: AXE });
+        const found = await axePage.evaluate(([inc, tags]) => window.axe.run({ include: inc.map((s) => [s]) }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [include, WCAG]);
+        if (found.violations.length) { throw new Error(`axe ${url} (${scheme}): ` + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+      }
+    }
+  } finally {
+    await axeContext.close();
   }
 });
 

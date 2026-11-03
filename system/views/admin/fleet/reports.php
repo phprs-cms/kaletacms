@@ -32,7 +32,7 @@ foreach ($reports as $r) {
 <?php foreach ($rows as $i => $r): $params = ['month' => $r['month'], 'customer' => $r['customer_id']]; $now = $customers[$r['customer_id']] ?? null; ?>
 <tr>
 	<td><?php if ($i === 0): ?><strong><?= e(ReportPage::monthName($month)) ?></strong><?php endif ?></td>
-	<td><?php if ($now !== null): ?><a href="<?= e($module->url('', ['customer' => $r['customer_id']])) ?>"><?= e($now) ?></a><?php if ($now !== $r['customer']): ?><br><small><?= e(t('then %s', $r['customer'])) ?></small><?php endif ?>
+	<td><?php if ($now !== null): ?><a href="<?= e($module->url('inbox', ['customer' => $r['customer_id']])) ?>"><?= e($now) ?></a><?php if ($now !== $r['customer']): ?><br><small><?= e(t('then %s', $r['customer'])) ?></small><?php endif ?>
 	<?php else: ?><?= e(Report::customerName($r['customer_id'] > 0 ? $r['customer'] : '')) ?><?php endif ?></td>
 	<td class="cislo"><?= (int) $r['sites'] ?></td>
 	<td class="cislo"><?= e(format_date($r['created_at'], true)) ?><?php if ($r['rebuilt_at'] !== null): ?><br><small><?= e(t('rebuilt %s', format_date($r['rebuilt_at'], true))) ?></small><?php endif ?></td>

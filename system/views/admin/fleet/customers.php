@@ -25,7 +25,7 @@
 <tr>
 	<td><a href="<?= e($module->url('sites', ['customer' => $c['id']])) ?>"><strong><?= e($c['name']) ?></strong></a></td>
 	<td data-popisek="<?= e(t('Sites')) ?>" class="stred"><?= $c['sites'] ?></td>
-	<td data-popisek="<?= e(t('Waiting')) ?>" class="stred"><?= ($n = $waiting[$c['id']] ?? 0) > 0 ? '<a href="' . e($module->url('', ['customer' => $c['id']])) . '">' . $n . '</a>' : '0' ?></td>
+	<td data-popisek="<?= e(t('Waiting')) ?>" class="stred"><?= ($n = $waiting[$c['id']] ?? 0) > 0 ? '<a href="' . e($module->url('inbox', ['customer' => $c['id']])) . '">' . $n . '</a>' : '0' ?></td>
 	<td data-popisek="<?= e(t('Fleet report')) ?>"><?php if (isset($reports[$c['id']])): ?><a href="<?= e($module->url('report_view', ['month' => $reports[$c['id']], 'customer' => $c['id']])) ?>" target="_blank" rel="noopener"><?= e(Kaleta\Core\ReportPage::monthName($reports[$c['id']])) ?></a><?php else: ?>–<?php endif ?></td>
 	<td data-popisek="<?= e(t('Rename')) ?>"><form class="hromadne" method="post" action="<?= e($module->url('customer_rename')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= $c['id'] ?>">
 		<input class="textpole" type="text" name="name" value="<?= e($c['name']) ?>" maxlength="150" size="20" required aria-label="<?= e(t('New name of %s', $c['name'])) ?>"> <button class="navigace" type="submit"><?= e(t('Rename')) ?></button></form></td>
