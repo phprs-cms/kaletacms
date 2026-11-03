@@ -48,6 +48,13 @@ final class Auth
     // nosemgrep: generic.secrets.security.detected-bcrypt-hash.detected-bcrypt-hash
     private const string DUMMY_HASH = '$2y$12$6C4TPEcYRJ/rRw6iWsrlxu0aH1i91pzK/8KiwqEW3Pa6sTj89Q3Zu';
 
+    /**
+     * The same of cost 10 (3.29.1, N3291-1): PHP 8.3 hashes new passwords with cost 10, PHP 8.4 with 12, and a check of cost
+     * 12 takes four times as long – with one dummy of cost 12 a fast answer told an existing user name or e-mail on PHP 8.3.
+     */
+    // nosemgrep: generic.secrets.security.detected-bcrypt-hash.detected-bcrypt-hash
+    private const string DUMMY_HASH_10 = '$2y$10$kndST14Z.BcAFAt2r9I.K.pYAExbK8ejvYpuGLFP9rjQ5XnD3lCAK';
+
     /** @var array<string, mixed>|null|false false = not loaded yet */
     private array|null|false $user = false;
 
@@ -86,7 +93,14 @@ final class Auth
         // right password would confirm it, and the lock would shut out only the real owner. The dummy hash is verified
         // instead – for a nonexistent user too – so the response time is the same in every case.
         $closed = $user !== null && (!empty($user['blokovat']) || self::isLocked($user));
-        $typed = self::matchingPassword($password, $user !== null && !$closed ? (string) $user['password'] : self::DUMMY_HASH);
+        $typed = self::matchingPassword($password, $user !== null && !$closed ? (string) $user['password'] : self::dummyHash());
+        if ($typed === null && $user !== null && !$closed) {
+            // a password saved with a lower cost than this PHP's (before a move to PHP 8.4) is checked faster than the dummy
+            // hash: the difference is made up with checks of the same cost, so the time does not tell the account exists
+            for ($i = self::paddingChecks((string) $user['password']); $i > 0; $i--) {
+                self::matchingPassword($password, self::DUMMY_HASH_10);
+            }
+        }
 
         if ($typed === null || $user === null || $closed) {
             $this->db->insert('kontrola_ip', ['ip_adresa' => Antispam::hash($address), 'typ' => 'login', 'cas' => date('Y-m-d H:i:s')]);
@@ -130,6 +144,28 @@ final class Auth
         }
 
         return trim($password) !== $password && password_verify(trim($password), $hash) ? trim($password) : null;
+    }
+
+    /**
+     * The dummy hash of the cost this PHP gives a new password (3.29.1, N3291-1: 10 on PHP 8.3, 12 on 8.4), so that a name
+     * with no account takes as long as one whose password was saved on this PHP.
+     */
+    private static function dummyHash(): string
+    {
+        return password_needs_rehash(self::DUMMY_HASH_10, PASSWORD_DEFAULT) ? self::DUMMY_HASH : self::DUMMY_HASH_10;
+    }
+
+    /**
+     * How many more checks of cost 10 a wrong password for an account saved with cost 10 needs to take as long as the dummy
+     * hash (3.29.1, N3291-1): a check's time doubles with each step of cost, so 3 more against a dummy of cost 12; 0 when
+     * the costs are the same or the hash is not one of those. Pure, apart from the PHP version.
+     */
+    public static function paddingChecks(string $hash): int
+    {
+        $info = password_get_info($hash);
+        $cost = $info['algo'] === PASSWORD_BCRYPT ? (int) ($info['options']['cost'] ?? 0) : 0;
+
+        return $cost === 10 && self::dummyHash() === self::DUMMY_HASH ? 3 : 0;
     }
 
     /** @param array<string, mixed> $user */

@@ -5278,7 +5278,7 @@ preg_match('/public function login\(.*?\n    }\n/s', $authSource, $loginSource);
 check('3.3.3 (N51): sign-in checks the lock and the block before the password, verifies the dummy hash for them, and answers every failure with one text', [
     // the account's own hash is used only when the account is neither locked nor blocked
     str_contains($loginSource[0] ?? '', '$closed = $user !== null && (!empty($user[\'blokovat\']) || self::isLocked($user));')
-        && str_contains($loginSource[0] ?? '', '$user !== null && !$closed ? (string) $user[\'password\'] : self::DUMMY_HASH'),
+        && str_contains($loginSource[0] ?? '', '$user !== null && !$closed ? (string) $user[\'password\'] : self::dummyHash()'),
     substr_count($loginSource[0] ?? '', 'return t('), str_contains($loginSource[0] ?? '', "t('The account is"),
     isset($adminCs[Kaleta\Core\Auth::SIGN_IN_FAILED], $adminDe[Kaleta\Core\Auth::SIGN_IN_FAILED]), str_contains(Kaleta\Core\Auth::SIGN_IN_FAILED, 'reset your password')],
     [true, 2, false, true, true]);
@@ -9963,6 +9963,19 @@ check('3.29.1 menu: Content is the group open after a sign-in (a real group, the
     str_contains($menu3291Script, "stored._signin !== signIn"), str_contains($menu3291Script, ": group.hasAttribute('data-menu-vychozi');"), str_contains($menu3291Script, '!phone'),
     str_contains($menu3291Script, "if (!group.hasAttribute('data-aktualni'))")],
     ['Content', 'Content', 'content', true, true, true, true, false, true]);
+
+/* ---------- 3.29.1 review N3291-1: no timing oracle for user names and e-mails – the dummy hash has this PHP's cost ---------- */
+$dummy3291 = (new ReflectionMethod(Kaleta\Core\Auth::class, 'dummyHash'))->invoke(null);
+$costOf3291 = static fn (string $hash): int => (int) (password_get_info($hash)['options']['cost'] ?? 0);
+$defaultCost3291 = $costOf3291(password_hash('cost-probe-3291', PASSWORD_DEFAULT));
+check('3.29.1 review N3291-1: a name with no account is checked against a dummy hash of the cost this PHP gives new passwords; a wrong password for an older, cheaper hash is padded to the same work', [
+    $costOf3291($dummy3291) === $defaultCost3291, password_verify('anything', $dummy3291),
+    Kaleta\Core\Auth::paddingChecks(password_hash('x-3291', PASSWORD_BCRYPT, ['cost' => 10])), Kaleta\Core\Auth::paddingChecks(password_hash('x-3291', PASSWORD_DEFAULT)),
+    Kaleta\Core\Auth::paddingChecks('not a hash'),
+    // work in units of a cost-10 check: the dummy's against an older cost-10 password's plus its padding
+    2 ** ($costOf3291($dummy3291) - 10) === 1 + Kaleta\Core\Auth::paddingChecks(password_hash('x-3291', PASSWORD_BCRYPT, ['cost' => 10])),
+    str_contains($authSource, 'for ($i = self::paddingChecks((string) $user[\'password\']); $i > 0; $i--) {')],
+    [true, false, $defaultCost3291 === 12 ? 3 : 0, 0, 0, true, true]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);
