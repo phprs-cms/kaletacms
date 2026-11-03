@@ -175,6 +175,8 @@ final class Catalog
         'fleet_report' => ['read', 'fleet'], // 3.17: the monthly report per customer (Fleet\Report)
         'fleet_today' => ['read', 'fleet'], // 3.29: what needs attention today (Fleet\Checks::today)
         'fleet_health' => ['read', 'fleet'], // 3.29: the health matrix and the workload counts
+        'fleet_inventory' => ['read', 'fleet'], // 3.30: versions, PHP, database, server, features of every site (Fleet\Inventory) and the rollout
+        'fleet_calendar' => ['read', 'fleet'], // 3.30: certificate and domain dates, recovery keys (Fleet\Calendar)
         // Requests to Claude (2.15): update_request changes nothing on the site – a note and a status on a request, whose
         // work is done as drafts – so a drafts-only connection may answer the requests it works on
         'list_requests' => ['read', ''],
@@ -356,6 +358,8 @@ final class Catalog
         'fleet_report' => 'Get a monthly fleet report',
         'fleet_today' => 'List what needs attention today',
         'fleet_health' => 'Get the health matrix of the fleet',
+        'fleet_inventory' => 'List the inventory of the fleet',
+        'fleet_calendar' => 'List the expiry dates of the fleet',
         'list_requests' => 'List requests to Claude',
         'list_pending_review' => 'List what waits for review',
         'list_monthly_reports' => 'List archived monthly reports',

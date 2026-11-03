@@ -25,7 +25,8 @@ namespace Kaleta\Core;
 final class Inbox
 {
     /** What a notification can be about. */
-    public const array KINDS = ['mention', 'assigned', 'comment', 'review_due', 'task_due'];
+    public const array KINDS = ['mention', 'assigned', 'comment', 'review_due', 'task_due',
+        'fleet_expiry']; // 3.30: a certificate or domain of a site in the fleet console ends soon (Fleet\Calendar, target 'fleet_site:<id>')
 
     /** The e-mail choices of ka_uzivatele.notify_email; the first is the default. */
     public const array EMAIL = ['instant', 'daily', 'off'];
@@ -284,6 +285,13 @@ final class Inbox
         if (isset($ids['contact']) || isset($ids['company'])) {
             $out += Contacts::places($db, $ids['contact'] ?? [], $ids['company'] ?? []); // 3.28: a customer, a company
         }
+        if (isset($ids['fleet_site'])) {
+            // 3.30: a site of the fleet console (Fleet\Calendar reminders) – its page in the console
+            foreach ($db->all('SELECT id, name, url FROM {fleet_sites} WHERE id IN (' . implode(',', array_unique($ids['fleet_site'])) . ')') as $r) {
+                $out['fleet_site:' . (int) $r['id']] = ['kind' => 'fleet_site', 'id' => (int) $r['id'], 'title' => (string) $r['name'] !== '' ? (string) $r['name'] : (string) $r['url'],
+                    'path' => 'admin.php?module=fleet&action=detail&id=' . (int) $r['id']];
+            }
+        }
         if (isset($ids['task'])) {
             // 3.27: a task about nothing (Core\Tasks) – it is done in My work; a deleted task is gone
             try {
@@ -299,14 +307,14 @@ final class Inbox
     }
 
     /**
-     * A target string as [kind, id] – "enquiry:12", "page:5", "item:9", "task:3" (3.27), "contact:4", "company:2" (3.28);
+     * A target string as [kind, id] – "enquiry:12", "page:5", "item:9", "task:3" (3.27), "contact:4", "company:2" (3.28), "fleet_site:7" (3.30);
      * null for anything else. Pure.
      *
      * @return array{0: string, 1: int}|null
      */
     public static function parse(string $target): ?array
     {
-        return preg_match('/^(enquiry|page|item|task|contact|company):([1-9]\d{0,9})$/D', $target, $m) === 1 ? [$m[1], (int) $m[2]] : null;
+        return preg_match('/^(enquiry|page|item|task|contact|company|fleet_site):([1-9]\d{0,9})$/D', $target, $m) === 1 ? [$m[1], (int) $m[2]] : null;
     }
 
     /**
@@ -322,6 +330,7 @@ final class Inbox
             'assigned' => t('%s assigned it to you', $actor),
             'review_due' => t('The review date has come'),
             'task_due' => t('A task is due'),
+            'fleet_expiry' => t('A date of a site comes up'),
             default => $kind,
         };
     }
@@ -341,6 +350,7 @@ final class Inbox
             'task' => t('Task “%s”', (string) $place['title']),
             'contact' => t('Customer #%s', (string) $place['id']), // 3.28: a number only – an e-mail of the bell never carries a customer's name
             'company' => t('Company “%s”', (string) $place['title']),
+            'fleet_site' => t('Site “%s” in the fleet console', (string) $place['title']),
             default => t('(no longer available)'),
         };
     }

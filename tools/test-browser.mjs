@@ -2257,6 +2257,69 @@ await step('3.29 fleet console: Today, Health and Workload at 1440 and 390 px, l
   }
 });
 
+// 3.30: the inventory (a row per site, a filter per column, the CSV export), the expiry calendar (a month of dates – on a phone only the
+// days with a date – the list, the recovery keys) and the rollout (the rings, the sites, a window per customer) – at 1440 and 390 px,
+// light and dark, none scrolls the page sideways; axe finds nothing in the three screens
+await step('3.30 fleet console: Inventory, Calendar and Rollout at 1440 and 390 px, light and dark, no sideways scroll, axe clean', async () => {
+  const soon = new Date(Date.now() + 5 * 86400000);
+  const month = `${soon.getFullYear()}-${String(soon.getMonth() + 1).padStart(2, '0')}`;
+  const screens = [['/admin.php?module=fleet&action=inventory', 'inventory'], [`/admin.php?module=fleet&action=calendar&month=${month}`, 'calendar'], ['/admin.php?module=fleet&action=rollout', 'rollout']];
+  try {
+    for (const scheme of ['light', 'dark']) {
+      await page.emulateMedia({ colorScheme: scheme });
+      for (const [width, height, name] of [[1440, 900, 'desktop'], [390, 844, 'phone']]) {
+        await page.setViewportSize({ width, height });
+        for (const [url, shot] of screens) {
+          await visit(url);
+          const wider = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+          if (wider > 1) { throw new Error(`${url} scrolls sideways by ${wider} px at ${width} px (${scheme})`); }
+          if (SHOTS) { await page.screenshot({ path: `${SHOTS}/fleet-330-${shot}-${name}-${scheme}.png`, fullPage: true }); }
+        }
+        await visit(screens[0][0]);
+        if (!(await page.locator('nav.zalozky a.aktivni', { hasText: 'Inventory' }).count())) { throw new Error('the Inventory tab is not current'); }
+        const rows = page.locator('table.flotila-inventar tbody tr');
+        if (await rows.count() < 5) { throw new Error(`the inventory lists ${await rows.count()} sites`); }
+        if (!(await page.locator('table.flotila-inventar tbody td', { hasText: 'MariaDB 10.11.6' }).count())) { throw new Error('the inventory does not show the database'); }
+        if (!(await page.locator('form.flotila-filtry select[name="php"] option[value="8.3"]').count())) { throw new Error('no PHP 8.3 in the PHP filter'); }
+        if (!/action=inventory_csv/.test(await page.locator('form.flotila-filtry a[download]').getAttribute('href'))) { throw new Error('no CSV export link'); }
+        if (width === 390 && await rows.first().evaluate((tr) => getComputedStyle(tr).display) !== 'block') { throw new Error('the inventory is not cards on a phone'); }
+        await visit(screens[1][0]);
+        const bad = page.locator('table.flotila-kalendar a.flotila-stav-bad', { hasText: 'Northwind' });
+        if (!(await bad.count())) { throw new Error('the month has no red chip for the certificate of Northwind'); }
+        if (!(await bad.first().locator('.navod-skryte').textContent()).includes('Certificate')) { throw new Error('a calendar chip has no text for screen readers'); }
+        if (width === 390) {
+          const shown = await page.locator('table.flotila-kalendar td').evaluateAll((tds) => tds.filter((td) => getComputedStyle(td).display !== 'none').map((td) => td.classList.contains('flotila-ma')));
+          if (!shown.length || shown.some((has) => !has)) { throw new Error('on a phone the month shows days without a date'); }
+        }
+        if (!(await page.locator('table.flotila-terminy tbody tr').count()) || !(await page.locator('table.flotila-klice').count())) { throw new Error('no list of dates or recovery keys'); }
+        await visit(screens[2][0]);
+        if (await page.locator('table.flotila-okruhy tbody tr').count() !== 3) { throw new Error('the rollout has not three rings'); }
+        if (!(await page.locator('table.flotila-rollout tbody tr', { hasText: 'Smile Dental – shop' }).locator('td', { hasText: 'Pilot' }).count())) { throw new Error('the pilot site is not shown in its ring'); }
+        if (!(await page.locator('form.flotila-okno input[name="window_days[]"][value="1"]:checked').count())) { throw new Error('the customer\'s window is not ticked'); }
+      }
+    }
+  } finally {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.setViewportSize({ width: 1440, height: 900 });
+  }
+  const axeContext = await browser.newContext({ storageState: await context.storageState(), bypassCSP: true, viewport: { width: 1440, height: 900 } });
+  try {
+    const axePage = await axeContext.newPage();
+    for (const [url, include] of [[screens[0][0], ['form.flotila-filtry', 'table.flotila-inventar']], [screens[1][0], ['.flotila-mesice', 'table.flotila-kalendar', 'table.flotila-terminy', 'table.flotila-klice']],
+      [screens[2][0], ['table.flotila-okruhy', 'table.flotila-rollout', 'form.flotila-okno']]]) {
+      for (const scheme of ['light', 'dark']) {
+        await axePage.emulateMedia({ colorScheme: scheme });
+        await axePage.goto(BASE + url, { waitUntil: 'networkidle' });
+        await axePage.addScriptTag({ path: AXE });
+        const found = await axePage.evaluate(([inc, tags]) => window.axe.run({ include: inc.map((s) => [s]) }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [include, WCAG]);
+        if (found.violations.length) { throw new Error(`axe ${url} (${scheme}): ` + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+      }
+    }
+  } finally {
+    await axeContext.close();
+  }
+});
+
 await step('3.13 Spanish admin: switched in My account, Spanish screens without sideways scroll at 390 px', async () => {
   const adminLanguage = async (code) => {
     await visit('/admin.php?action=account');

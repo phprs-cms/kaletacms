@@ -130,6 +130,19 @@ LAST="$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format(
   $db->insert("fleet_incidents", ["site_id" => 900, "started_at" => $at("-12 days 10:00"), "ended_at" => $at("-12 days 10:45"), "status" => 503]);
   Kaleta\Core\Events::record($db, "fleet.site_updated", "info", "https://shop.smile.example runs version 3.17.0.", ["site" => 900, "version" => "3.17.0"]);
   Kaleta\Fleet\Report::store($app, Kaleta\Core\MonthlyReport::previousMonth(new DateTimeImmutable()));') || { echo "preparing the fleet console failed"; exit 1; }
+# 3.30: the inventory, the expiry calendar and the rollout – what the sites of the console report about themselves (a certificate of
+# Northwind ending in 5 days, a domain in 20), a pilot site, and a maintenance window for the dental customer
+(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $db = Kaleta\Core\App::boot()->db();
+  $merge = function (int $id, array $parts) use ($db): void { $beat = json_decode((string) $db->value("SELECT heartbeat FROM {fleet_sites} WHERE id = ?", [$id]), true) ?: [];
+    $db->update("fleet_sites", ["heartbeat" => json_encode($parts + $beat)], ["id" => $id]); };
+  $merge(901, ["php" => "8.4.6", "update_channel" => "latest", "db_server" => ["family" => "mariadb", "version" => "10.11.6"], "web_server" => "nginx", "features" => ["novinky", "poptavky", "bookings", "statistika"],
+    "addons" => ["seo-pack"], "languages" => ["en", "de"], "recovery_key_since" => date("Y-m-d", time() - 200 * 86400),
+    "domain_watch" => ["checked" => time(), "local" => false, "certificate" => ["expires" => date("Y-m-d", time() + 5 * 86400), "days" => 5, "error" => false],
+      "domain" => ["expires" => date("Y-m-d", time() + 20 * 86400), "days" => 20, "error" => false]]]);
+  $merge(900, ["php" => "8.3.12", "update_channel" => "stable", "db_server" => ["family" => "mysql", "version" => "8.0.36"], "web_server" => "apache", "features" => ["novinky", "poptavky"], "languages" => ["cs"],
+    "domain_watch" => ["checked" => time(), "local" => false, "certificate" => ["expires" => date("Y-m-d", time() + 40 * 86400), "days" => 40, "error" => false], "domain" => null]]);
+  $db->run("UPDATE {fleet_sites} SET ring = ?, manage_updates = 1 WHERE id = 900", ["pilot"]); $db->run("UPDATE {fleet_sites} SET manage_updates = 1 WHERE id = 901");
+  $db->run("UPDATE {fleet_customers} SET update_window = ?", ["12345|22:00-05:00"]);') || { echo "preparing the 3.30 console screens failed"; exit 1; }
 # 3.23.1: a local SMTP sink on PORT+3 (tools/fake-smtp.php writes every message to a folder – no mail leaves the machine);
 # the enquiry reply step points the site's SMTP at it
 SMTP_PORT=$((PORT + 3)); mkdir -p "$WORK/smtp"

@@ -8,6 +8,8 @@
  * @var string $latest
  * @var array<int, string> $customers id => name (3.17)
  * @var array<string, mixed> $trend Fleet\History::trend (3.17)
+ * @var array{pilot: int, normal: int, careful: int} $delays the rings' delays in hours (3.30, Fleet\Rollout)
+ * @var string $customerWindow the maintenance window of the site's customer ('' = any time)
  */
 
 use Kaleta\Core\AgentSchedules;
@@ -15,6 +17,7 @@ use Kaleta\Core\Audit;
 use Kaleta\Core\ReportPage;
 use Kaleta\Core\Scheduler;
 use Kaleta\Fleet\Console;
+use Kaleta\Fleet\Rollout;
 
 $reasonLabels = require __DIR__ . '/reasons.php';
 $beat = $site['beat'];
@@ -101,10 +104,20 @@ $yes = fn (mixed $v): string => $v ? t('yes') : t('no');
 <?php if ((int) $site['manage_updates'] !== 1): ?>
 <p><?= $module->hint(t('This site decides about its updates itself (Settings → Reporting to a console on the site).')) ?></p>
 <?php else: ?>
+<?php $ring = Rollout::ring($site['ring']); $own = Rollout::parseWindow(is_string($site['update_window'] ?? null) ? $site['update_window'] : null);
+$windowMode = !is_string($site['update_window'] ?? null) ? 'customer' : ($own === null ? 'any' : 'own'); ?>
 <div class="radek"><label for="ring"><?= e(t('Ring')) ?></label><div><select id="ring" name="ring">
-	<option value="normal"<?= $site['ring'] !== 'canary' ? ' selected' : '' ?>><?= e(t('normal – after the test sites ran the version for 48 hours without problems')) ?></option>
-	<option value="canary"<?= $site['ring'] === 'canary' ? ' selected' : '' ?>><?= e(t('test site – gets a new version first')) ?></option>
-</select><span class="napoveda"><?= e(t('Security releases go to every site at once.')) ?></span></div></div>
+	<option value="pilot"<?= $ring === 'pilot' ? ' selected' : '' ?>><?= e(t('pilot – gets a new version first (after %d hours)', $delays['pilot'])) ?></option>
+	<option value="normal"<?= $ring === 'normal' ? ' selected' : '' ?>><?= e(t('normal – %d hours after a new version, once the pilot sites run it without problems', $delays['normal'])) ?></option>
+	<option value="careful"<?= $ring === 'careful' ? ' selected' : '' ?>><?= e(t('careful – %d hours after a new version, once the pilot sites run it without problems', $delays['careful'])) ?></option>
+</select><span class="napoveda"><?= $module->hint(t('Security releases go to every site at once, whatever its ring and window. Change the delays in Fleet → Rollout.')) ?></span></div></div>
+<fieldset class="flotila-okno">
+<legend><?= e(t('Maintenance window')) ?></legend>
+<p><label><input type="radio" name="window_mode" value="customer"<?= $windowMode === 'customer' ? ' checked' : '' ?>> <?= e(t('The customer\'s window: %s', Rollout::describe($customerWindow))) ?></label><br>
+<label><input type="radio" name="window_mode" value="any"<?= $windowMode === 'any' ? ' checked' : '' ?>> <?= e(t('Any time')) ?></label><br>
+<label><input type="radio" name="window_mode" value="own"<?= $windowMode === 'own' ? ' checked' : '' ?>> <?= e(t('Its own window')) ?></label></p>
+<?= $app->view->render('admin/fleet/window', ['window' => $own, 'prefix' => 'site-' . (int) $site['id']]) ?>
+</fieldset>
 <p><button class="tl" type="submit"><?= e(t('Save')) ?></button>
 <?php if (version_compare($latest, (string) $site['version'], '>')): ?>
 <button class="navigace" type="submit" formaction="<?= e($module->url('allow')) ?>"><?= e(t('Allow version %s now', $latest)) ?></button>
