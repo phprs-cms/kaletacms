@@ -225,6 +225,7 @@ final class Settings
         'newsletter_hourly_limit' => '300', // newsletters: at most this many e-mails per hour (the SMTP relay's limit)
         'data_cleanup' => '0',         // when the daily cleanup of personal data last ran (Core\Notifications)
         'contacts_backfill' => '',     // 3.28 (Core\Contacts::backfill): how far the linking of older enquiries, bookings and subscribers got (JSON of the last ids)
+        'contacts_merged_at' => '',    // 3.28 (N328-3, Core\Contacts::mergedInto): when two contacts were first merged or a linked contact's address changed; '' = never, so linking a new address scans no table
         'categories_pending_review' => '', // collection categories a drafts-only connection wrote, waiting for a person (3.12, N312-3)
         'ai_provider' => 'anthropic', // anthropic | openai | google | mistral (Core\Assistant::PROVIDERS)
         'ai_key' => '',              // API key of the AI assistant (never written back into the form)

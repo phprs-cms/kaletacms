@@ -9356,11 +9356,16 @@ check('3.28: the name and phone of a contact come from the form\'s fields – a 
 ], [['name' => 'Jana Nová', 'phone' => '+420 777 123 456'], ['name' => '', 'phone' => ''], ['name' => 'Petr Dvořák', 'phone' => '777123456'], ['name' => '', 'phone' => ''], ['name' => '', 'phone' => '']]);
 $k328Src = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Contacts.php');
 check('3.28: two different addresses are never merged by Kaleta – link() finds the contact by the normalised address or a record of the same address a person merged; only merge() moves another contact\'s records', [
-    str_contains($k328Src, '$contact = self::findByEmail($db, $norm) ?? self::mergedInto($db, $norm, $kind, $id);'),
-    str_contains($k328Src, "'SELECT contact_id FROM {' . \$table . '} WHERE LOWER(' . \$column . ') = ? AND contact_id IS NOT NULL'"),
+    str_contains($k328Src, '$contact = self::findByEmail($db, $norm) ?? self::mergedInto($db, $app->settings(), $norm, $kind, $id);'),
+    str_contains($k328Src, "' AS email, contact_id FROM {' . \$table . '} WHERE ' . \$column . ' = ? AND contact_id IS NOT NULL'")
+        && str_contains($k328Src, "self::normalise((string) \$r['email']) === \$norm ? self::find("),
     substr_count($k328Src, 'SET contact_id = ? WHERE contact_id = ?'), substr_count($k328Src, 'SET contact_id = ? WHERE ' . "' . \$key . ' = ? AND contact_id IS NULL"),
     str_contains($k328Src, "\$kind === 'subscriber' && !\$record['confirmed']"), $k328::hasOpenDeal(new Kaleta\Core\Db('mysql:host=127.0.0.1;dbname=none', '', ''), 1),
 ], [true, true, 2, 1, true, false]);
+check('3.28 (N328-3): linking a new address scans no table until the first merge or change of a linked address (contacts_merged_at); merge() and an address change set it, and it is bookkeeping that undo never resets', [
+    str_contains($k328Src, "if (\$s->get('contacts_merged_at') === '') {\n            return null;"), substr_count($k328Src, 'self::markMerged($app->settings());'),
+    array_key_exists('contacts_merged_at', Kaleta\Core\Settings::DEFAULTS), preg_match('/_(check|time|checked|seen|ts|at)$/', 'contacts_merged_at'),
+], [true, 2, true, 1]);
 check('3.28: the timeline is bounded – the default and the most, every source limited, newest first; get_contact shows at most 50 entries, each text at most 200 characters', [
     $k328::TIMELINE, $k328::TIMELINE_MAX, str_contains($k328Src, '$limit = max(1, min(self::TIMELINE_MAX, $limit));'), substr_count($k328Src, "LIMIT ' . \$limit, [\$id]"),
     str_contains($k328Src, "return array_slice(array_map("), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/ContactTools.php'), "\$limit = max(0, min(50, (int) (\$a['timeline'] ?? 20)));"),

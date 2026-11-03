@@ -264,6 +264,9 @@ final class Contacts
         } catch (\PDOException $e) {
             throw self::duplicate($db, $e, (string) ($data['email_norm'] ?? ''));
         }
+        if (array_key_exists('email_norm', $data) && $contact['email_norm'] !== null) {
+            self::markMerged($app->settings()); // its records of the old address now belong to a contact of another one
+        }
         if (array_key_exists('owner_id', $data) && $data['owner_id'] !== null && $data['owner_id'] !== $contact['owner_id']) {
             self::notifyOwner($app, 'contact', $id, (int) $data['owner_id'], $byUserId);
         }
@@ -481,7 +484,7 @@ final class Contacts
         if ($norm === null || ($kind === 'subscriber' && !$record['confirmed'])) {
             return null;
         }
-        $contact = self::findByEmail($db, $norm) ?? self::mergedInto($db, $norm, $kind, $id);
+        $contact = self::findByEmail($db, $norm) ?? self::mergedInto($db, $app->settings(), $norm, $kind, $id);
         if ($contact === null) {
             $now = Clock::now();
             $company = self::companyByDomain($db, self::companyDomain($norm));
@@ -654,6 +657,7 @@ final class Contacts
 
             return $moved;
         });
+        self::markMerged($app->settings());
         \Kaleta\Admin\ChangeLog::write($app, self::SECTION, 'merge', '#' . $from . ' → #' . $into);
 
         return ['into' => $into, 'from' => $from, 'moved' => $moved];
@@ -1240,27 +1244,45 @@ final class Contacts
 
     /**
      * The contact a person merged this address into: a record with the same address that is linked to another contact
-     * (merge() moved it there) – so a new enquiry from a merged address joins the merged contact, never a new one. Only
-     * records of this address: never two different addresses by itself.
+     * (merge() moved it there, or update() changed the contact's address) – so a new enquiry from a merged address joins the
+     * merged contact, never a new one. Only records of this address: never two different addresses by itself.
+     *
+     * N328-3: until the first merge or change of a linked address (the setting contacts_merged_at) no record can be linked
+     * under another address, so nothing is read – a new address costs no scan of the enquiries (no index on their address)
+     * while the linking job or a visitor's submission runs. The address is matched with the columns' own collation (the
+     * indexes of bookings and subscribers are used) and checked exactly here.
      *
      * @return array<string, mixed>|null
      */
-    private static function mergedInto(Db $db, string $norm, string $kind, int $id): ?array
+    private static function mergedInto(Db $db, Settings $s, string $norm, string $kind, int $id): ?array
     {
+        if ($s->get('contacts_merged_at') === '') {
+            return null;
+        }
         foreach (self::LINKED as $other => [$table, $key, $column]) {
             try {
-                $contactId = $db->value('SELECT contact_id FROM {' . $table . '} WHERE LOWER(' . $column . ') = ? AND contact_id IS NOT NULL' . ($other === $kind ? ' AND ' . $key . ' <> ' . $id : '')
-                    . ' ORDER BY ' . $key . ' DESC LIMIT 1', [$norm]);
+                $rows = $db->all('SELECT ' . $column . ' AS email, contact_id FROM {' . $table . '} WHERE ' . $column . ' = ? AND contact_id IS NOT NULL' . ($other === $kind ? ' AND ' . $key . ' <> ' . $id : '')
+                    . ' ORDER BY ' . $key . ' DESC LIMIT 20', [$norm]);
             } catch (\PDOException) {
                 continue;
             }
-            $contact = $contactId !== null ? self::find($db, (int) $contactId) : null;
-            if ($contact !== null && $contact['anonymised_at'] === null) {
-                return $contact;
+            foreach ($rows as $r) {
+                $contact = self::normalise((string) $r['email']) === $norm ? self::find($db, (int) $r['contact_id']) : null;
+                if ($contact !== null && $contact['anonymised_at'] === null) {
+                    return $contact;
+                }
             }
         }
 
         return null;
+    }
+
+    /** A merge or a changed address happened: from now on linking looks for records of an address linked elsewhere (mergedInto). */
+    private static function markMerged(Settings $s): void
+    {
+        if ($s->get('contacts_merged_at') === '') {
+            $s->set('contacts_merged_at', Clock::now());
+        }
     }
 
     /** Unlinks the enquiries, bookings and subscriptions of contacts (deleted, anonymised). */
