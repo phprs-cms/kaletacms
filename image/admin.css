@@ -1690,3 +1690,67 @@ table.preklady td[data-stav] form { margin-inline-start: 6px; }
 /* 3.27: "Reassign to…" of a task nobody has (My work → Team) – the person and Save on one line, wrapping on a phone */
 form.moje-predat { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; max-width: 100%; }
 form.moje-predat select { max-width: 100%; }
+/* 3.28: Customers (views/admin/contacts/) – the tabs with their buttons on one row; the filter as a row of labelled fields
+   that wraps (one column on a phone); the customer's card (details, the responsible person, the suggested company, Edit
+   in place); the log form (the kind as chips, the text, the date and time); the timeline reuses the notifications list;
+   the merge screen puts the two contacts side by side (stacked on a phone); the box on an enquiry and a booking */
+.zakaznici-hlava { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin: 0 0 16px; }
+.zakaznici-hlava .zalozky { margin: 0; }
+.zakaznici-akce { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
+.zakaznici-filtr { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 14px; margin: 0 0 18px; }
+.zakaznici-filtr label { display: grid; gap: 4px; min-width: 0; font-size: 13px; }
+.zakaznici-filtr label > span { font-weight: 600; color: var(--text-slaby); }
+.zakaznici-filtr select { max-width: 16em; }
+.zakaznici-filtr .zakaznici-hledat { flex: 1 1 16em; }
+.zakaznici-filtr .zakaznici-hledat input { width: 100%; box-sizing: border-box; }
+.zakaznici-filtr-tlacitka { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
+.zakaznik-karta { margin: 0 0 24px; padding: 18px 20px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); }
+.zakaznik-karta .poptavka { margin-bottom: 14px; }
+.zakaznik-shrnuti { white-space: normal; }
+.zakaznik-odpovedny, .zakaznik-navrh { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0 0 12px; }
+.zakaznik-odpovedny label { font-weight: 600; }
+.zakaznik-odpovedny select { max-width: 100%; }
+.zakaznik-navrh { padding: 10px 14px; border: 1px solid var(--linka); border-radius: 8px; background: color-mix(in oklch, var(--akcent) 5%, var(--plocha)); }
+.zakaznik-tlacitka { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; margin: 0; }
+.zakaznik-upravit > summary { display: inline-block; padding: 6px 14px; border: 1px solid var(--linka-pole); border-radius: 6px; background: var(--plocha); color: var(--text); font-weight: 600; list-style: none; cursor: pointer; }
+.zakaznik-upravit > summary:hover { border-color: var(--text-slaby); }
+.zakaznik-upravit > summary::-webkit-details-marker { display: none; }
+.zakaznik-upravit[open] { flex: 1 1 100%; order: 1; }
+.zakaznik-upravit[open] > .formular { margin-top: 12px; max-width: none; }
+.zakaznik-nova-firma { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 8px; font-weight: 400; }
+.zakaznik-nova-firma span { color: var(--text-slaby); font-size: 13px; }
+.zakaznik-osa { margin: 0 0 24px; }
+.zakaznik-zapis { display: grid; gap: 10px; margin: 0 0 16px; padding: 14px 16px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); }
+.zakaznik-zapis textarea { width: 100%; box-sizing: border-box; }
+.zakaznik-zapis > .napoveda { margin: 0; font-size: 12px; color: var(--text-slaby); }
+.zakaznik-druh { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; border: 0; }
+.zakaznik-druh legend { margin: 0 0 6px; padding: 0; font-weight: 600; }
+.zakaznik-druh label { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border: 1px solid var(--linka-pole); border-radius: 999px; cursor: pointer; font-size: 14px; }
+.zakaznik-druh label:has(input:checked) { border-color: var(--akcent); background: var(--akcent-svetly); font-weight: 600; }
+.zakaznik-druh input { margin: 0; }
+.zakaznik-druh .ikona { width: 16px; height: 16px; }
+.zakaznik-zapis-kdy { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 14px; }
+.zakaznik-zapis-kdy label { display: grid; gap: 4px; font-size: 13px; }
+.zakaznik-zapis-kdy label > span { font-weight: 600; color: var(--text-slaby); }
+.zakaznik-udalosti .stitek { margin-left: 6px; }
+.zakaznik-smazat-zapis button.navigace { margin-top: 6px; padding: 2px 10px; font-size: 13px; }
+.slouceni { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); gap: 16px; margin: 0 0 16px; }
+.slouceni-karta { min-width: 0; padding: 16px 18px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); }
+.slouceni-zustava { border-color: color-mix(in oklch, var(--ok) 45%, var(--linka)); box-shadow: inset 3px 0 0 var(--ok); }
+.slouceni-karta h2 { margin: 6px 0 12px; overflow-wrap: anywhere; }
+.slouceni-role { margin: 0; }
+.slouceni-nalezene { display: grid; gap: 6px; margin: 0 0 16px; padding: 0; list-style: none; }
+.slouceni-nalezene li { padding: 8px 12px; border: 1px solid var(--linka); border-radius: 8px; background: var(--plocha); overflow-wrap: anywhere; }
+.slouceni-nalezene .napoveda { display: block; font-size: 13px; color: var(--text-slaby); }
+.slouceni-potvrdit { margin-top: 12px; }
+.import-souhrn { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 0 0 16px; padding: 0; list-style: none; }
+.import-souhrn strong { font-size: 22px; }
+.zakaznik-box { margin: 0 0 20px; padding: 12px 16px; border: 1px solid var(--linka); border-radius: var(--radius); background: color-mix(in oklch, var(--akcent) 4%, var(--plocha)); }
+.zakaznik-box h2 { margin: 0 0 6px; font-size: 15px; }
+.zakaznik-box p { margin: 0 0 6px; }
+.zakaznik-box p:last-child { margin-bottom: 0; }
+.zakaznik-box-jmeno { overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+	.zakaznici-filtr label, .zakaznici-filtr select { flex: 1 1 100%; max-width: none; }
+	.zakaznik-karta { padding: 14px; }
+}

@@ -83,7 +83,10 @@ final class Bookings extends Module
         }
 
         return $this->view('detail', t('Booking') . ' #' . $b['id'], ['b' => $b, 'deadline' => Booking::cancelDeadline($this->app->settings(), $b),
-            'proposals' => Booking::proposals($this->db, (int) $b['id']), 'free' => array_slice($free, 0, 60)]);
+            'proposals' => Booking::proposals($this->db, (int) $b['id']), 'free' => array_slice($free, 0, 60),
+            // 3.28: the customer of the booking (Customers), or "Link to a contact" for one from before 3.28
+            'contactBox' => Contacts::box($this->app, $this->kernel->modules(), 'booking', (int) $b['id'], isset($b['contact_id']) ? (int) $b['contact_id'] : null,
+                $b['anonymised_at'] === null && \Kaleta\Core\Contacts::normalise((string) $b['email']) !== null)]);
     }
 
     /** Accept a pending booking: it becomes confirmed and the customer gets the confirmation. */

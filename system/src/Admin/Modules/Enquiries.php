@@ -120,7 +120,10 @@ final class Enquiries extends Module
             'replyDraft' => $this->takeReplyDraft((int) $p['idp']),
             'users' => $this->listAssignees((int) $p['prirazeno']),
             // 3.27: the tasks about the enquiry, the follow-up buttons first at the top right after a reply
-            'tasks' => $this->taskPanel(\Kaleta\Core\Comments::enquiry((int) $p['idp']), ['idp' => (int) $p['idp']], ['follow_up' => true, 'replied' => $this->takeFollowUp((int) $p['idp'])])]);
+            'tasks' => $this->taskPanel(\Kaleta\Core\Comments::enquiry((int) $p['idp']), ['idp' => (int) $p['idp']], ['follow_up' => true, 'replied' => $this->takeFollowUp((int) $p['idp'])]),
+            // 3.28: the customer of the enquiry (Customers), or "Link to a contact" for one from before 3.28
+            'contactBox' => Contacts::box($this->app, $this->kernel->modules(), 'enquiry', (int) $p['idp'], isset($p['contact_id']) ? (int) $p['contact_id'] : null,
+                ($p['anonymizovano'] ?? null) === null && \Kaleta\Core\Contacts::normalise((string) $p['email']) !== null)]);
     }
 
     /** 3.27: was a reply to this enquiry just sent (actionReply)? Once – the detail offers the follow-up at its top. */

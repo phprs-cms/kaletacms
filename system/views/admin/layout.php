@@ -35,6 +35,7 @@ if ($user !== null && empty($gated)) { // 3.19 (N3183-2): nothing to search at t
     }
     $quick = [
         'pages' => [['New page', 'module=pages&action=new']],
+        'contacts' => [['New contact', 'module=contacts&action=new'], ['Companies', 'module=contacts&action=companies']], // 3.28
         'news' => [['New news item', 'module=news&action=new'], ['Broken links', 'module=news&action=links']],
         'categories' => [['New category', 'module=categories&action=new']],
         'users' => [['New user', 'module=users&action=new']],
@@ -173,7 +174,7 @@ foreach (Kaleta\Admin\MenuGroups::groups($modules) as $menuGroup):
 </section>
 <?php endif ?>
 <?php if ($statements !== []): ?>
-<dialog class="paleta" id="paleta" aria-label="<?= e(t('Quick search and commands')) ?>"<?= isset($modules['news']) ? ' data-clanky="' . e($app->url('admin.php?module=news&action=search_json&edit=1')) . '"' : '' ?>>
+<dialog class="paleta" id="paleta" aria-label="<?= e(t('Quick search and commands')) ?>"<?= isset($modules['news']) ? ' data-clanky="' . e($app->url('admin.php?module=news&action=search_json&edit=1')) . '"' : '' ?><?= isset($modules['contacts']) ? ' data-contacts="' . e($app->url('admin.php?module=contacts&action=search_json')) . '"' : '' /* 3.28: customers by name, e-mail or company */ ?>>
 	<input class="paleta-pole" type="search" autocomplete="off" spellcheck="false" placeholder="<?= e(t('Where do you want to go? Type the name of a section, action, page or news item…')) ?>" aria-label="<?= e(t('Quick search and commands')) ?>" aria-controls="paleta-seznam">
 	<ul class="paleta-seznam" id="paleta-seznam" role="listbox"></ul>
 	<p class="paleta-napoveda"><kbd>↑</kbd> <kbd>↓</kbd> <?= e(t('výběr')) ?> · <kbd>Enter</kbd> <?= e(t('open')) ?> · <kbd>Esc</kbd> <?= e(t('close')) ?></p>

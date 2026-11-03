@@ -218,6 +218,9 @@ $settingsParity = ['list' => $readOnly, 'save' => 'update_settings', 'download_b
     'cookie_scan' => 'admin: the cookie scan runs daily on its own (2.14); Claude reads the table in processing_record', 'processing_record' => 'processing_record',
     'accessibility_statement' => 'admin: the draft page is the administrator’s step (2.14); Claude reads the text with accessibility_statement',
     'time_zone' => 'admin: the time zone and converting the saved dates are the administrator’s decision (3.12) – update_settings does not change the zone'];
+// 3.28: the MCP tools of Customers come with agent A's branch; until both are merged the admin actions name them as admin-only
+// (after the merge this falls back to the plain tool names – the lead may inline them)
+$contactTool = fn (string $tool): string => in_array($tool, Kaleta\Mcp\Translator::names(), true) ? $tool : 'admin: ' . $tool . ' (the MCP tool of 3.28)';
 $parity = [
     'pages' => $builderParity + ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'export' => $readOnly, 'save' => 'update_page', 'save_text' => 'update_page',
         'delete' => 'trash_page', 'restore' => 'restore_from_trash', 'delete_permanently' => 'admin: the trash empties itself after 30 days',
@@ -257,6 +260,17 @@ $parity = [
         'create' => 'admin: a booking taken by phone is entered by the person who took the call – customers’ personal data never come from Claude', 'services' => $readOnly, 'service_save' => 'save_booking_service',
         'service_delete' => 'admin: removing a service is the administrator’s decision; save_booking_service switches it off', 'staff' => $readOnly, 'staff_edit' => $readOnly, 'staff_save' => 'save_booking_staff', 'book_page' => 'create_page',
         'staff_delete' => 'admin: removing a person is the administrator’s decision; save_booking_staff switches them off', 'off_save' => 'save_booking_staff', 'off_delete' => 'save_booking_staff', 'settings' => 'update_settings'],
+    // 3.28: Customers – Claude reads and changes the same records with list_contacts, get_contact, save_contact (a company too),
+    // log_activity and merge_contacts; deleting a record, the CSV import and linking an old record by hand stay with a person
+    'contacts' => ['list' => $contactTool('list_contacts'), 'companies' => $contactTool('list_contacts'), 'detail' => $contactTool('get_contact'), 'company' => $readOnly,
+        'new' => $readOnly, 'company_new' => $readOnly, 'search_json' => $readOnly, 'export' => $readOnly, 'import' => $readOnly,
+        'save' => $contactTool('save_contact'), 'company_save' => $contactTool('save_contact'), 'activity' => $contactTool('log_activity'), 'merge' => $contactTool('merge_contacts'),
+        'delete' => 'admin: deleting a customer for good is an administrator\'s decision – erase_personal_data removes a person on request',
+        'company_delete' => 'admin: deleting a company is an administrator\'s decision; its contacts stay',
+        'link' => 'admin: an old enquiry or booking linked by hand – the job "contacts" links them by itself',
+        'import_upload' => 'admin: a CSV of customers comes through the admin, never over MCP (personal data in bulk)', 'import_run' => 'admin: a CSV of customers comes through the admin, never over MCP (personal data in bulk)',
+        'comment' => 'admin: the team’s thread on a customer or a company – a person writes it; Claude gets the comments over MCP with the work tools',
+        'task' => 'save_task'],
     'subscribers' => ['list' => $readOnly, 'csv' => $readOnly, 'delete' => 'admin: subscribers’ addresses stay out of MCP', 'sync' => 'admin: mailing service keys', 'retry' => 'admin: mailing service keys'],
     'newsletters' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'preview' => $readOnly, 'save' => 'draft_newsletter', 'test' => 'send_test_newsletter',
         'send' => 'send_newsletter', 'unschedule' => 'send_newsletter', 'delete' => 'delete_newsletter'],
@@ -8633,7 +8647,7 @@ check('3.24 T1: every admin section is classified once – changing the site or 
     array_values(array_diff(Kaleta\Admin\Kernel::SITE_NEUTRAL_TABS, array_keys(Kaleta\Admin\Modules\Settings::TABS))),
 ], [[], [], [], true, [], [], ['newsletters'], []]);
 check('3.24 T1: the site-neutral admin sections – the team\'s work that never reaches the site',
-    $t324Neutral, ['my_work', 'enquiries', 'subscribers', 'stats', 'requests', 'schedules', 'notebook', 'audit', 'broken_links', 'roles', 'newsletters', 'fleet']);
+    $t324Neutral, ['my_work', 'enquiries', 'subscribers', 'stats', 'requests', 'schedules', 'notebook', 'audit', 'broken_links', 'roles', 'newsletters', 'fleet', 'contacts']); // 3.28: Customers
 $t324Post = fn (string $module, string $action, array $post = []): bool => Kaleta\Admin\Kernel::clearsPageCache(new Kaleta\Core\Request(['module' => $module, 'action' => $action], $post, ['REQUEST_METHOD' => 'POST']));
 check('3.24 T1: Kernel::clearsPageCache – enquiries, notes, requests, the notebook, roles and drafts keep the cache; content, the look, Settings tabs visitors see, a new signing key, updates, the author box and anything unknown clear it', [
     $t324Post('enquiries', 'note'), $t324Post('enquiries', 'reply'), $t324Post('enquiries', 'triage'), $t324Post('enquiries', 'bulk'), $t324Post('requests', 'save'),
@@ -8800,7 +8814,7 @@ check('3.25 (C): the menu groups of an administrator with every feature on – c
 ], [Kaleta\Admin\MenuGroups::ORDER, true, true, []]);
 check('3.25 (C): the items of each group (Bookings in Workspace, Statistics in Site care, Business details and the Newsletter hub in Content; no Company or Customers group)', array_combine($c325Names, array_column($c325Runs, 1)), [
     'Content' => ['pages', 'news', 'collections', 'media', 'newsletters', 'business'],
-    'Workspace' => ['enquiries', 'bookings'],
+    'Workspace' => ['enquiries', 'contacts', 'bookings'], // 3.28: Customers right after Enquiries
     'Appearance' => ['appearance', 'parts', 'menu', 'components', 'popups'],
     'Claude' => ['requests', 'claude_settings'],
     'Site care' => ['audit', 'stats', 'redirects', 'broken_links', 'changelog', 'status'],
@@ -8814,7 +8828,7 @@ check('3.25 (C): the Newsletter hub (Newsletters · Subscribers, URLs unchanged)
     Kaleta\Admin\MenuGroups::flat(array_intersect_key($c325All, array_flip(['my_work', 'pages', 'news', 'collections', 'media', 'business', 'enquiries', 'parts']))),
     Kaleta\Admin\MenuGroups::key('Site care'),
 ], [[['newsletters', '', 'Newsletters'], ['subscribers', '', 'Subscribers']], 'newsletters', 'newsletter', 'newsletter', 'Newsletter', [['subscribers'], ['stats']],
-    30, false, true, false, 'site-care']);
+    31, false, true, false, 'site-care']); // 3.28: Customers
 $c325Layout = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/layout.php');
 $c325Script = (string) file_get_contents(KALETA_ROOT . '/image/admin-menu.js');
 check('3.25 (C): collapsible groups – details/summary with the current group marked, the script before the first paint, storage only inside try/catch, "More…" after 5 collections', [
@@ -9317,6 +9331,47 @@ check('3.27: tasks nobody has – the Team tab lists them with Reassign to… (s
     str_contains(array_column(Kaleta\Mcp\Tools::definitions(), null, 'name')['list_tasks']['inputSchema']['properties']['filter']['description'] ?? '', 'assignee:none'),
     array_map(fn (string $code): array => array_values(array_diff($n327rStrings, array_keys(require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php'))), ['cs', 'de', 'es'])],
     [false, true, false, true, true, true, [[], [], []]]);
+
+// 3.28 (agent B): Customers – the module (Workspace, right after Enquiries, core: no extension, site-neutral), the import's
+// columns and rows, a CSV cell never runs as a formula, the last-activity filter, an icon and a label for every kind of the
+// timeline, the comments and tasks of a contact or a company, the palette search, the box on an enquiry and a booking
+$b328 = Kaleta\Admin\Modules\Contacts::class;
+$b328Icons = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/icons.php');
+$b328Modules = array_map(fn (string $c): string => $c::IDENT, Kaleta\Admin\Kernel::MODULES);
+check('3.28 (B): Customers – IDENT contacts (= Core\Contacts::SECTION), NAME Customers in Workspace right after Enquiries, core (no extension, not admin-only), site-neutral, comments and tasks', [
+    $b328::IDENT, Kaleta\Core\Contacts::SECTION, $b328::NAME, $b328::GROUP, $b328::EXTENSION, $b328::ADMIN_ONLY, array_search('contacts', $b328Modules, true) - array_search('enquiries', $b328Modules, true),
+    Kaleta\Admin\Kernel::clearsPageCache(new Kaleta\Core\Request(['module' => 'contacts', 'action' => 'save'], ['id' => '1'], ['REQUEST_METHOD' => 'POST'])),
+    Kaleta\Admin\Kernel::clearsPageCache(new Kaleta\Core\Request(['module' => 'contacts', 'action' => 'merge'], [], ['REQUEST_METHOD' => 'POST'])),
+    [in_array(Kaleta\Admin\CommentActions::class, class_uses($b328), true), in_array(Kaleta\Admin\TaskActions::class, class_uses($b328), true)],
+    str_contains($b328Icons, "'" . $b328::ICON . "' =>"), in_array('contacts', Kaleta\Admin\Modules\Roles::PRESETS['client'][3], true), in_array('contacts', Kaleta\Admin\Modules\Roles::PRESETS['office'][3], true),
+    array_map(fn (string $code): string => (require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php')['Customers'] ?? '', ['cs', 'de', 'es'])],
+    ['contacts', 'contacts', 'Customers', 'Workspace', '', false, 1, false, false, [true, true], true, true, true, ['Zákazníci', 'Kunden', 'Clientes']]);
+check('3.28 (B): an import reads the columns e-mail, name, phone and company by their usual names (Czech, German, Spanish, with diacritics); a row is one line each', [
+    $b328::importColumns(['E-mail', 'Jméno', 'Telefon', 'Firma']), $b328::importColumns(['Name', 'Company', 'Email Address', 'Phone number', 'Notes']),
+    $b328::importColumns(['Correo electrónico', 'Nombre', 'Teléfono', 'Empresa']), $b328::importColumns(['Vorname', 'Unternehmen']),
+    $b328::importRow(["  jana@firma.cz ", "Jana\n Nováková", '+420 777 123 456', ''], ['email' => 0, 'name' => 1, 'phone' => 2]),
+    $b328::importRow(['x'], ['email' => 0, 'company' => 3])],
+    [['email' => 0, 'name' => 1, 'phone' => 2, 'company' => 3], ['name' => 0, 'company' => 1, 'email' => 2, 'phone' => 3], ['email' => 0, 'name' => 1, 'phone' => 2, 'company' => 3], ['company' => 1],
+    ['email' => 'jana@firma.cz', 'name' => 'Jana Nováková', 'phone' => '+420 777 123 456', 'company' => ''], ['email' => 'x', 'name' => '', 'phone' => '', 'company' => '']]);
+check('3.28 (B): a CSV cell starting with = + - @ gets an apostrophe; the last-activity filter (active since / quiet before); unknown keys are no filter', [
+    $b328::csvSafe(['=HYPERLINK("x")', '+420 777', '-1', '@sum', 'Jana', '']), $b328::activityFilter('active30', '2026-11-03 10:00:00'), $b328::activityFilter('quiet365', '2026-11-03 10:00:00'),
+    $b328::activityFilter('nonsense'), array_keys($b328::SORT_LABELS) === array_keys(Kaleta\Core\Contacts::SORTS)],
+    [["'=HYPERLINK(\"x\")", "'+420 777", "'-1", "'@sum", 'Jana', ''], ['active_since' => '2026-10-04 10:00:00'], ['inactive_before' => '2025-11-03 10:00:00'], [], true]);
+$b328Kinds = ['enquiry', 'reply', 'booking', 'subscription', 'comment', 'task', ...array_keys(Kaleta\Core\Contacts::ACTIVITY_KINDS)];
+check('3.28 (B): every kind of the timeline has an icon in views/admin/icons.php and a translated label', [
+    array_values(array_diff($b328Kinds, array_keys($b328::KINDS))),
+    array_values(array_filter($b328::KINDS, fn (array $k): bool => !str_contains($b328Icons, "'" . $k[0] . "' =>"))),
+    array_map(fn (string $code): array => array_values(array_diff(array_column(array_diff_key($b328::KINDS, ['call' => 1, 'meeting' => 1]), 1), array_keys(require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php'), ['E-mail'])), ['cs', 'de', 'es'])], // E-mail is the same word in Czech
+    [[], [], [[], [], []]]);
+$b328Layout = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/layout.php');
+$b328Script = (string) file_get_contents(KALETA_ROOT . '/image/admin.js');
+$b328Box = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/contact_box.php');
+check('3.28 (B): the palette searches customers on the server only for whoever has Customers; the box on an enquiry and a booking; Link to a contact posts with the form token', [
+    str_contains($b328Layout, "isset(\$modules['contacts']) ? ' data-contacts=\"'"), str_contains($b328Script, "palette.getAttribute('data-contacts')"), str_contains($b328Script, "T('customer')"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/enquiries/detail.php'), "render('admin/contact_box'"), str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/bookings/detail.php'), "render('admin/contact_box'"),
+    str_contains($b328Box, '<?= $csrf ?><input type="hidden" name="kind"'),
+    array_map(fn (string $code): string => (string) json_decode((string) (preg_match('/^\t"customer": ("[^"]*")/m', (string) file_get_contents(KALETA_ROOT . '/image/jazyky/admin-' . $code . '.js'), $m) ? $m[1] : '""')), ['cs', 'de', 'es'])],
+    [true, true, true, true, true, true, ['zákazník', 'Kunde', 'cliente']]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

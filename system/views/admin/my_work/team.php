@@ -17,6 +17,8 @@ $due = fn (?string $at): string => $at === null ? '' : format_date($at, substr($
 $aboutText = fn (array $about): string => match ($about['kind']) {
     'enquiry' => t('Enquiry #%s · %s', (string) $about['id'], $about['title']),
     'page' => t('Page “%s”', $about['title']),
+    'contact' => t('Customer “%s”', $about['title']), // 3.28
+    'company' => t('Company “%s”', $about['title']),
     default => t('“%s” in %s', $about['title'], (string) ($about['collection'] ?? '')),
 };
 ?>
