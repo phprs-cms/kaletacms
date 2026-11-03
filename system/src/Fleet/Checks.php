@@ -212,6 +212,7 @@ final class Checks
     public static function workload(array $sites): array
     {
         $rows = [];
+        /** @var array<string, ?int> $totals */
         $totals = array_fill_keys(self::WORKLOAD, null);
         $medians = [];
         $reporting = 0;

@@ -4070,8 +4070,8 @@ expect "report_summary: the heartbeat carries the counts of the site's last arch
 REQ2FA329=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'require_2fa'")
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('require_2fa', 'spravci');
   INSERT INTO ka_tasks (title, due_at, created_at, updated_at) VALUES ('Call Jan329 at jan329@client.example', '$(site_time '-2 days')', '$(site_time '-3 days')', '$(site_time '-3 days')'), ('Open329', NULL, '$(site_time)', '$(site_time)')" > /dev/null
-curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"; sleep 1
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_send" -d "_csrf=$(csrf)"
+# sent by the site's own job code (the administration would first ask this admin to set up two-step sign-in)
+sleep 1; KALETA_FLEET_LOCAL=1 php -r 'chdir($argv[1]); require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $app->applyTimezone(); echo Kaleta\Fleet\Link::send($app);' "$WORK/web" > "$WORK/send329.txt" 2>&1
 expect "3.29: the heartbeat carries the new parts – off-site, mail, two-step, cookie scan, privacy, statement, hand-over, workload" \
   "$(sq3 "SELECT CONCAT_WS('|', JSON_UNQUOTE(JSON_EXTRACT(heartbeat, '\$.offsite.status')) IN ('off', 'never', 'ok', 'paused', 'failing'), JSON_UNQUOTE(JSON_EXTRACT(heartbeat, '\$.mail_setup.mode')), JSON_UNQUOTE(JSON_EXTRACT(heartbeat, '\$.twofa.required')),
     JSON_TYPE(JSON_EXTRACT(heartbeat, '\$.cookie_scan')), JSON_UNQUOTE(JSON_EXTRACT(heartbeat, '\$.privacy_page')) IN ('published', 'hidden', 'none'), JSON_UNQUOTE(JSON_EXTRACT(heartbeat, '\$.accessibility_statement')) IN ('published', 'draft', 'none'),
