@@ -9436,8 +9436,11 @@ check('3.28 (B): an import reads the columns e-mail, name, phone and company by 
     ['email' => 'jana@firma.cz', 'name' => 'Jana Nováková', 'phone' => '+420 777 123 456', 'company' => ''], ['email' => 'x', 'name' => '', 'phone' => '', 'company' => '']]);
 check('3.28 (B): a CSV cell starting with = + - @ gets an apostrophe; the last-activity filter (active since / quiet before); unknown keys are no filter', [
     $b328::csvSafe(['=HYPERLINK("x")', '+420 777', '-1', '@sum', 'Jana', '']), $b328::activityFilter('active30', '2026-11-03 10:00:00'), $b328::activityFilter('quiet365', '2026-11-03 10:00:00'),
-    $b328::activityFilter('nonsense'), array_keys($b328::SORT_LABELS) === array_keys(Kaleta\Core\Contacts::SORTS)],
-    [["'=HYPERLINK(\"x\")", "'+420 777", "'-1", "'@sum", 'Jana', ''], ['active_since' => '2026-10-04 10:00:00'], ['inactive_before' => '2025-11-03 10:00:00'], [], true]);
+    $b328::activityFilter('nonsense'), array_keys($b328::SORT_LABELS) === array_keys(Kaleta\Core\Contacts::SORTS),
+    // N328-4: an exported row imports as it was – the apostrophe of csvSafe comes off again (a phone "+420 …" is a phone)
+    $b328::importRow($b328::csvSafe(['jana@firma.cz', '-Jana-', '+420 777 123 456', "'Quoted"]), ['email' => 0, 'name' => 1, 'phone' => 2, 'company' => 3])],
+    [["'=HYPERLINK(\"x\")", "'+420 777", "'-1", "'@sum", 'Jana', ''], ['active_since' => '2026-10-04 10:00:00'], ['inactive_before' => '2025-11-03 10:00:00'], [], true,
+        ['email' => 'jana@firma.cz', 'name' => '-Jana-', 'phone' => '+420 777 123 456', 'company' => "'Quoted"]]);
 $b328Kinds = ['enquiry', 'reply', 'booking', 'subscription', 'comment', 'task', ...array_keys(Kaleta\Core\Contacts::ACTIVITY_KINDS)];
 check('3.28 (B): every kind of the timeline has an icon in views/admin/icons.php and a translated label', [
     array_values(array_diff($b328Kinds, array_keys($b328::KINDS))),

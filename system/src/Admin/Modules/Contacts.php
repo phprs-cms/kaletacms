@@ -605,7 +605,8 @@ final class Contacts extends Module
     }
 
     /**
-     * One row of the file as the import's fields (trimmed, single line). Pure.
+     * One row of the file as the import's fields (trimmed, single line). The apostrophe our export puts before a cell starting
+     * with = + - @ (csvSafe) is taken off again, so an exported file imports as it was – "'+420 …" is a phone (N328-4). Pure.
      *
      * @param list<string> $cells
      * @param array<string, int> $columns
@@ -613,7 +614,8 @@ final class Contacts extends Module
      */
     public static function importRow(array $cells, array $columns): array
     {
-        $cell = fn (string $field, int $max): string => isset($columns[$field]) ? mb_substr(trim((string) preg_replace('/\s+/u', ' ', (string) ($cells[$columns[$field]] ?? ''))), 0, $max) : '';
+        $cell = fn (string $field, int $max): string => isset($columns[$field])
+            ? mb_substr((string) preg_replace("/^'(?=[=+\-@])/", '', trim((string) preg_replace('/\s+/u', ' ', (string) ($cells[$columns[$field]] ?? '')))), 0, $max) : '';
 
         return ['email' => $cell('email', 190), 'name' => $cell('name', 150), 'phone' => $cell('phone', 40), 'company' => $cell('company', 150)];
     }
