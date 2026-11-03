@@ -7759,4 +7759,5 @@ return [
     'Counting of visits changed on %s – fewer bots, not fewer people.' => 'El recuento de visitas cambió el %s: menos bots, no menos personas.',
     'counting changed on %s' => 'recuento cambiado el %s',
     'This browser is signed in as %s. Setting the password signs it out; then sign in as %s.' => 'Este navegador tiene la sesión iniciada como %s. Al establecer la contraseña se cerrará; después inicie sesión como %s.',
+    'A maintenance window must be at least %d hours long – the sites ask the console once an hour. Nothing was saved.' => 'Una ventana de mantenimiento debe durar al menos %d horas: los sitios consultan la consola una vez por hora. No se ha guardado nada.',
 ];

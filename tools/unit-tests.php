@@ -10098,6 +10098,10 @@ check('3.30 review N330-1/2 – a newer pilot passes the gate; a silent healthy 
     Kaleta\Fleet\Console::row(['id' => 1, 'version' => '', 'ring' => 'pilot', 'manage_updates' => 1, 'update_allowed' => '', 'status' => '', 'up' => null, 'version_since' => null,
         'heartbeat' => null, 'last_seen' => null, 'paired_at' => date('Y-m-d H:i:s', $x330Now - 40 * 3600)])['last_seen'] === $x330Now - 40 * 3600,
 ], ['allowed:3.30.0:', 'allowed:3.30.0:', 'waiting::Sun 07:00+47h', 'blocked::', 'blocked::', 'blocked::', 'blocked::', 'allowed:3.30.0:', 'blocked::', true]);
+check('3.30 review N330-3 – how long a window is open; under two hours is too short for the hourly heartbeat', [
+    array_map(fn (string $w): int => Kaleta\Fleet\Rollout::windowMinutes((array) Kaleta\Fleet\Rollout::parseWindow($w)), ['1|22:00-05:00', '1|03:00-03:30', '67|00:00-00:00', '1|23:30-00:30', '1|01:00-03:00']),
+    array_map(Kaleta\Fleet\Rollout::longEnough(...), ['', '1|22:00-05:00', '1|03:00-03:30', '67|00:00-00:00', '1|23:30-00:30', '1|01:00-03:00', 'nonsense'])],
+    [[420, 30, 1440, 60, 120], [true, true, false, true, false, true, true]]);
 $x330Sites = [
     ['id' => 1, 'name' => 'Pilot site', 'url' => 'https://pilot.example', 'ring' => 'canary', 'version' => '3.30.0', 'manage_updates' => 1, 'update_allowed' => '', 'status' => 'ok', 'up' => 1,
         'version_since' => date('Y-m-d H:i:s', $x330Now - 50 * 3600), 'heartbeat' => '{}', 'customer_id' => null, 'update_window' => null],

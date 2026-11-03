@@ -275,6 +275,10 @@ final class Fleet extends Module
                     'any' => '',
                     default => $own,
                 };
+                if (!Rollout::longEnough($own) && $mode === 'own') {
+                    return $this->back(t('A maintenance window must be at least %d hours long – the sites ask the console once an hour. Nothing was saved.', intdiv(Rollout::MIN_WINDOW_MINUTES, 60)),
+                        'detail', ['id' => (int) $site['id']], 'chyba');
+                }
             }
             $this->db->update('fleet_sites', $update, ['id' => (int) $site['id']]);
             ChangeLog::write($this->app, 'fleet', 'ring', $site['url'] . ': ' . $ring . (array_key_exists('update_window', $update) ? ', ' . Rollout::describe($update['update_window'] ?? '') : ''));
@@ -642,6 +646,9 @@ final class Fleet extends Module
             return $this->back('', 'rollout');
         }
         $window = Rollout::windowFromInput(is_array($_POST['window_days'] ?? null) ? $_POST['window_days'] : [], $this->request->post('window_from'), $this->request->post('window_to'));
+        if (!Rollout::longEnough($window)) {
+            return $this->back(t('A maintenance window must be at least %d hours long – the sites ask the console once an hour. Nothing was saved.', intdiv(Rollout::MIN_WINDOW_MINUTES, 60)), 'rollout', [], 'chyba');
+        }
         $this->db->update('fleet_customers', ['update_window' => $window], ['id' => $id]);
         ChangeLog::write($this->app, 'fleet', 'window', $name . ': ' . Rollout::describe($window));
 

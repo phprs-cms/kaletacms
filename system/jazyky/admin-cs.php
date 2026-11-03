@@ -7331,4 +7331,5 @@ return [
     'Counting of visits changed on %s – fewer bots, not fewer people.' => 'Počítání návštěv se změnilo %s – méně robotů, ne méně lidí.',
     'counting changed on %s' => 'počítání se změnilo %s',
     'This browser is signed in as %s. Setting the password signs it out; then sign in as %s.' => 'Tento prohlížeč je přihlášený jako %s. Nastavení hesla ho odhlásí; pak se přihlaste jako %s.',
+    'A maintenance window must be at least %d hours long – the sites ask the console once an hour. Nothing was saved.' => 'Okno pro údržbu musí trvat aspoň %d hodiny – weby se konzole ptají jednou za hodinu. Nic se neuložilo.',
 ];

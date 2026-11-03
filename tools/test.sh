@@ -4780,6 +4780,11 @@ curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=f
 R1=$(sq3 "SELECT CONCAT(ring, '|', update_window) FROM ka_fleet_sites WHERE id = $FLEET_ID")
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=ring" -d "_csrf=$(csrf)" -d "id=$FLEET_ID" -d ring=canary -d window_mode=customer
 expect "3.30: the ring and the site's own window saved; the old value canary means pilot; back to the customer's window" "$R1|$(sq3 "SELECT CONCAT(ring, '|', COALESCE(update_window, 'NULL')) FROM ka_fleet_sites WHERE id = $FLEET_ID")" "careful|67|00:00-00:00|pilot|NULL"
+# N330-3: a window shorter than two hours could fall between two hourly heartbeats every day – refused, nothing saved
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=window" -d "_csrf=$(csrf)" -d "customer=$ACME317" -d 'window_days[]=3' -d window_from=03:00 -d window_to=03:30
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=ring" -d "_csrf=$(csrf)" -d "id=$FLEET_ID" -d ring=careful -d window_mode=own -d 'window_days[]=6' -d window_from=23:30 -d window_to=00:30
+expect "3.30 review N330-3: a maintenance window under two hours is refused for a customer and a site (nothing saved)" \
+  "$(sq3 "SELECT update_window FROM ka_fleet_customers WHERE id = $ACME317")|$(sq3 "SELECT CONCAT(ring, '|', COALESCE(update_window, 'NULL')) FROM ka_fleet_sites WHERE id = $FLEET_ID")" "15|22:00-05:00|pilot|NULL"
 # MCP on the console
 curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fleet_inventory","arguments":{"php":"8.3"}}}' > "$WORK/response"
 php -r '$r = json_decode(file_get_contents($argv[1]), true); $d = json_decode($r["result"]["content"][0]["text"] ?? "", true);

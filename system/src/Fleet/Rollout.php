@@ -40,6 +40,12 @@ final class Rollout
     /** The longest delay a ring may have (60 days). */
     public const int MAX_HOURS = 1440;
 
+    /**
+     * The shortest maintenance window, in minutes (N330-3): a site asks once an hour, so a shorter window could fall between
+     * two of its heartbeats every day and the site would never be told it may update.
+     */
+    public const int MIN_WINDOW_MINUTES = 120;
+
     /** The setting of each ring's delay. */
     public const array SETTINGS = ['pilot' => 'fleet_ring_pilot_hours', 'normal' => 'fleet_ring_normal_hours', 'careful' => 'fleet_ring_careful_hours'];
 
@@ -119,6 +125,20 @@ final class Rollout
         }
 
         return implode('', $days) . '|' . $from . '-' . $to;
+    }
+
+    /** How long a window is open on each of its days, in minutes (the same start and end = the whole day). Pure. @param array{days: list<int>, from: int, to: int} $w */
+    public static function windowMinutes(array $w): int
+    {
+        return $w['to'] > $w['from'] ? $w['to'] - $w['from'] : 1440 - $w['from'] + $w['to'];
+    }
+
+    /** Whether a stored window is long enough to be met by the hourly heartbeat ('' = any time is). Pure. */
+    public static function longEnough(string $stored): bool
+    {
+        $w = self::parseWindow($stored);
+
+        return $w === null || self::windowMinutes($w) >= self::MIN_WINDOW_MINUTES;
     }
 
     /** The window in words for the screens ("Mon–Fri 22:00–05:00", "Any time"). Pure apart from the dictionaries. */
