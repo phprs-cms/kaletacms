@@ -1412,8 +1412,9 @@ reports the ring `pilot` where it said `canary`); new non-essential MCP tools `f
    threshold (`ka_fleet_expiry_reminders`), e-mail to the alert recipients and the bell for administrators; an iCal feed per
    administrator (`/fleet/calendar.ics`, only its hash stored, revocable).
 3. **Rollout** (`Fleet\Rollout`): rings pilot / normal / careful with delays (0 h, 48 h, 168 h by default); normal and careful
-   sites also wait until every pilot runs the release without problems; maintenance windows per customer with a per-site
-   override (a window crossing midnight belongs to the day it starts). Security releases and versions allowed by hand still
+   sites also wait until every pilot runs the release without problems (a pilot on a newer version counts; one that
+   stopped reporting while healthy is left out); maintenance windows per customer with a per-site
+   override (at least two hours; a window crossing midnight belongs to the day it starts). Security releases and versions allowed by hand still
    go everywhere at once. A Rollout tab shows per ring what is updated, may update, waits, is held by pilots or failed.
 4. **Console tasks** (`Fleet\ConsoleTasks`): 3.27 tasks about `fleet_site:<id>` or `fleet_customer:<id>` – a panel on the site
    page and a new customer page, counts in Sites and Customers, overdue tasks on Today (amber), My work, the bell and
