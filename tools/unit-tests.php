@@ -3504,6 +3504,8 @@ $bots329 = [
     'Mozilla/5.0 (Windows NT 6.1; WOW64) SkypeUriPreview Preview/0.5 skype-url-preview@microsoft.com',
     'LinkedInBot/1.0 (compatible; Mozilla/5.0; Apache-HttpClient +http://www.linkedin.com)',
     'Twitterbot/1.0',
+    'Pinterest/0.2 (+https://www.pinterest.com/bot.html)',
+    'Mozilla/5.0 (compatible; Pinterestbot/1.0; +http://www.pinterest.com/bot.html)',
     'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; GPTBot/1.2; +https://openai.com/gptbot)',
     'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; ChatGPT-User/1.0; +https://openai.com/bot)',
     'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; ClaudeBot/1.0; +claudebot@anthropic.com)',
@@ -3522,10 +3524,13 @@ $people329 = [
     'Mozilla/5.0 (iPad; CPU OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/124.0.6367.71 Mobile/15E148 Safari/604.1',
     'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [FBAN/FBIOS;FBAV/460.0.0.36.103;FBBV/584155476]',
     'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 OPR/81.0.4254.76802',
+    // N329-2: a person reading in the Pinterest app's own browser
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [Pinterest/iOS]',
+    'Mozilla/5.0 (Linux; Android 14; SM-S921B Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/124.0.6367.82 Mobile Safari/537.36 [Pinterest/Android]',
 ];
 check('3.29: the bot list matches crawlers, AI fetchers, HTTP libraries, headless browsers, link previews and speed and uptime tools by their real user agents',
     array_values(array_filter($bots329, fn (string $ua): bool => !Stats329::isBot($ua))), []);
-check('3.29: … and never Chrome, Safari, Firefox, Edge, Samsung Internet, an Android WebView, Chrome on iOS, the Facebook in-app browser or Opera',
+check('3.29: … and never Chrome, Safari, Firefox, Edge, Samsung Internet, an Android WebView, Chrome on iOS, the Facebook in-app browser, Opera or the Pinterest app\'s browser',
     array_values(array_filter($people329, Stats329::isBot(...))), []);
 $person329 = ['HTTP_USER_AGENT' => $people329[0], 'HTTP_HOST' => 'www.firma.cz'];
 check('3.29: Stats::refusal – a person\'s beacon from this site passes; a bot, no browser, a prefetch or prerender, another site and a cross-site fetch are refused', [

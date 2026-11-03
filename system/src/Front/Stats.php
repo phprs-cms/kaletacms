@@ -41,7 +41,8 @@ final class Stats
         . '|facebookexternalhit|meta-externalagent|bytespider|google-inspectiontool|google-extended|googleother'
         . '|mediapartners-google|google-read-aloud|applebot|dataprovider|chatgpt-user|perplexity-user|claude-user'
         . '|claude-web|anthropic-ai|cohere-ai|mistralai-user|ccbot|amazonbot'                                // search engines, ads and AI fetchers
-        . '|whatsapp|telegrambot|slackbot|discordbot|skypeuripreview|linkedinbot|twitterbot|pinterest|embedly|iframely|vkshare|viber' // link previews
+        // link previews; not "pinterest": the app's own browser says [Pinterest/iOS] for a person, its crawler says bot (N329-2)
+        . '|whatsapp|telegrambot|slackbot|discordbot|skypeuripreview|linkedinbot|twitterbot|embedly|iframely|vkshare|viber'
         . '|chrome-lighthouse|ptst|gtmetrix|pingdom|uptimerobot|statuscake|site24x7|newrelic|datadog'        // speed and uptime tools
         . '/i';
 
