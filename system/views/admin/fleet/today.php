@@ -2,7 +2,8 @@
 /**
  * Today (3.29, the console opens on it): what needs attention across the sites, ranked by Fleet\Checks::today – red
  * before amber, the check's weight, the oldest first. Each row opens the screen that fixes it on the site: a plain link
- * built by the console from the site's known address (no token, no sign-in on the owner's behalf).
+ * built by the console from the site's known address (no token, no sign-in on the owner's behalf). 3.30: the overdue console
+ * tasks (Fleet\ConsoleTasks, kind "task") are ranked among them, amber; their row opens the task on the console.
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Fleet $module
@@ -15,6 +16,9 @@
  * @var array<int, string> $customers id => name
  * @var int $now
  * @var string $pairingKey
+ * @var int $overdueTasks overdue console tasks (3.30)
+ * @var array<int, string> $names user id => name of the people the overdue tasks are for
+ * @var int $me the signed-in user
  */
 use Kaleta\Fleet\Health;
 
@@ -34,6 +38,9 @@ $severityClass = ['bad' => ' stitek-chyba', 'warn' => ' stitek-koncept'];
 	<li><strong><?= $summary['ok_sites'] ?></strong> <?= e(t('of %d sites OK', $summary['sites'])) ?></li>
 	<li><a href="<?= e($module->url('health')) ?>"><strong><?= $summary['not_reporting'] ?></strong> <?= e(t('not reporting')) ?></a></li>
 	<li><a href="<?= e($module->url('health')) ?>"><strong><?= $summary['to_update'] ?></strong> <?= e(t('to update to see every check')) ?></a></li>
+<?php if ($overdueTasks > 0): ?>
+	<li class="flotila-souhrn-warn" data-fleet-overdue-tasks><strong><?= $overdueTasks ?></strong> <?= e(t('overdue tasks')) ?></li>
+<?php endif ?>
 </ul>
 <?php if ($total === 0): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'web', 'heading' => t('Everything is green on the %d sites.', $summary['sites']),
@@ -64,6 +71,16 @@ $severityClass = ['bad' => ' stitek-chyba', 'warn' => ' stitek-koncept'];
 <thead><tr><th scope="col"><?= e(t('What needs attention')) ?></th><th scope="col"><?= e(t('Site')) ?></th><th scope="col"><?= e(t('Severity')) ?></th><th scope="col"><?= e(t('Since')) ?></th><th scope="col"><span class="navod-skryte"><?= e(t('Open')) ?></span></th></tr></thead>
 <tbody>
 <?php foreach ($items as $i): ?>
+<?php if (($i['kind'] ?? '') === 'task'): /* 3.30: an overdue console task – it opens on the console */ ?>
+<tr class="flotila-<?= e($i['state']) ?>" data-fleet-task="<?= (int) $i['task_id'] ?>">
+	<td><strong><?= e($i['label'] !== '' ? $i['label'] : t('(no title)')) ?></strong><br><span class="smltxt"><?= e(t('Task')) ?> · <?= e(t('due %s', format_date((string) $i['due_at'], true))) ?><?= $i['assignee_id'] !== null ? ' · ' . e((int) $i['assignee_id'] === $me ? t('For me') : t('For %s', $names[(int) $i['assignee_id']] ?? '')) : '' ?></span></td>
+	<td data-popisek="<?= e(t('Site')) ?>"><?php if ($i['site_id'] > 0): ?><a href="<?= e($module->url('detail', ['id' => $i['site_id']])) ?>"><?= e($i['site']) ?></a><?php if ($i['customer_id'] !== null && isset($customers[$i['customer_id']])): ?><br><span class="smltxt"><?= e($customers[$i['customer_id']]) ?></span><?php endif ?>
+		<?php else: ?><a href="<?= e($module->url('customer_detail', ['id' => (int) $i['customer_id']])) ?>"><?= e($i['site']) ?></a><br><span class="smltxt"><?= e(t('Customer')) ?></span><?php endif ?></td>
+	<td data-popisek="<?= e(t('Severity')) ?>"><span class="stitek<?= $severityClass[$i['state']] ?>"><span aria-hidden="true"><?= Health::SYMBOLS[$i['state']] ?></span> <?= e(t('overdue')) ?></span></td>
+	<td data-popisek="<?= e(t('Since')) ?>"><?= $i['since'] !== null ? '<span title="' . e(format_date((string) $i['due_at'], true)) . '">' . e(Health::age($i['since'], $now)) . '</span>' : '–' ?></td>
+	<td data-popisek="<?= e(t('Open')) ?>" class="akce"><a class="navigace" href="<?= e($app->url($i['link'])) ?>"><?= e(t('Open')) ?><span class="navod-skryte"> – <?= e($i['label']) ?>, <?= e($i['site']) ?></span></a></td>
+</tr>
+<?php continue; endif ?>
 <tr class="flotila-<?= e($i['state']) ?>">
 	<td><strong><?= e($i['label']) ?></strong><br><span class="smltxt"><?= e($i['detail']) ?></span></td>
 	<td data-popisek="<?= e(t('Site')) ?>"><a href="<?= e($module->url('detail', ['id' => $i['site_id']])) ?>"><?= e($i['site']) ?></a><?php if ($i['customer_id'] !== null && isset($customers[$i['customer_id']])): ?><br><span class="smltxt"><?= e($customers[$i['customer_id']]) ?></span><?php endif ?></td>

@@ -95,7 +95,7 @@ final class Server
             // the site owner's instructions and an overview; ready-made tasks (2.2)
             'resources/list' => $ok(['resources' => Prompts::resources()]),
             'resources/read' => $this->guarded($id, fn (): array => Prompts::read($this->app, self::text($z['params']['uri'] ?? ''))),
-            'prompts/list' => $ok(['prompts' => Prompts::listAll()]),
+            'prompts/list' => $ok(['prompts' => Prompts::listAll($this->app)]),
             'prompts/get' => $this->guarded($id, fn (): array => Prompts::get(self::text($z['params']['name'] ?? ''), (array) ($z['params']['arguments'] ?? []))),
             'ping' => $ok([]),
             // Czech names remain as hidden aliases

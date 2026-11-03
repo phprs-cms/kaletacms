@@ -7224,4 +7224,12 @@ return [
     'From %s, only visits confirmed by a visitor’s browser are counted – bots, link previews and your own visits are left out. Earlier numbers include some of them.' => 'Od %s se počítají jen návštěvy potvrzené prohlížečem návštěvníka – roboty, náhledy odkazů a vaše vlastní návštěvy se nezapočítávají. Starší čísla některé z nich obsahují.',
     'the light part of each bar is page views, the dark part visits. A page view counts when the visitor’s browser shows the page – without cookies and without storing IP addresses; bots, link previews and signed-in users are not counted.' => 'světlá část sloupce jsou zobrazení stránek, tmavá návštěvy. Zobrazení se započítá, když stránku ukáže prohlížeč návštěvníka – bez cookies a bez ukládání IP adres; roboty, náhledy odkazů ani přihlášené uživatele nepočítá.',
     'only visits confirmed by a browser count from this day' => 'od tohoto dne se počítají jen návštěvy potvrzené prohlížečem',
+    'Site “%s”' => 'Web „%s“',
+    'Console customer “%s”' => 'Zákazník konzole „%s“',
+    'overdue tasks' => 'úkolů po lhůtě',
+    'The customer has no site now – it stays in the console while it has an open task.' => 'Zákazník teď nemá žádný web – v konzoli zůstane, dokud má otevřený úkol.',
+    'Tasks about one site are on that site\'s page. Everyone with the console sees them; they stay on the console.' => 'Úkoly k jednomu webu jsou na stránce toho webu. Vidí je každý, kdo má konzoli; zůstávají v konzoli.',
+    'The customer is not in the console.' => 'Zákazník v konzoli není.',
+    'Claude connector' => 'Konektor pro Clauda',
+    'To let Claude work on this site, add this address as a connector in Claude and sign in to the site there. The console keeps no access to the site – Claude\'s fleet plan only lists this address.' => 'Aby Claude mohl na tomto webu pracovat, přidejte v Claudovi tuto adresu jako konektor a přihlaste se tam k webu. Konzole si k webu žádný přístup nedrží – Claudův plán pro weby tuto adresu jen uvádí.',
 ];

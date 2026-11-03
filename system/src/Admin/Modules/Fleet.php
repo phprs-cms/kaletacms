@@ -10,12 +10,14 @@ use Kaleta\Core\Response;
 use Kaleta\Fleet\AlertRules;
 use Kaleta\Fleet\Checks;
 use Kaleta\Fleet\Console;
+use Kaleta\Fleet\ConsoleTasks;
 use Kaleta\Fleet\Customers;
 use Kaleta\Fleet\Inbox;
 use Kaleta\Fleet\Digest;
 use Kaleta\Fleet\Health;
 use Kaleta\Fleet\History;
 use Kaleta\Fleet\Kit;
+use Kaleta\Fleet\Plan;
 use Kaleta\Fleet\Report;
 
 /**
@@ -25,10 +27,14 @@ use Kaleta\Fleet\Report;
  * on every site (Fleet\Inbox) – sites belong to customers (Fleet\Customers), the console keeps history (Fleet\History: trends
  * on a site's page), sends alerts by rules and a weekly digest (Fleet\AlertRules, Fleet\Digest; Alerts and digest) and makes a
  * monthly report per customer (Fleet\Report; Reports). Since 3.29 it opens on Today (what needs attention, Fleet\Checks), with
- * the health matrix and the workload of the sites next to the inbox.
+ * the health matrix and the workload of the sites next to the inbox. Since 3.30 the console keeps tasks per site or customer
+ * (Fleet\ConsoleTasks over Core\Tasks: a task panel on the site and customer screens, Admin\TaskActions) and shows the
+ * address of each site's own Claude connector.
  */
 final class Fleet extends Module
 {
+    use \Kaleta\Admin\TaskActions;
+
     public const string IDENT = 'fleet';
     public const string NAME = 'Fleet';
     public const string GROUP = 'Administration';
@@ -54,9 +60,13 @@ final class Fleet extends Module
         $customer = $this->request->getInt('customer');
         $customer = $customer === -1 || isset($customers[$customer]) ? $customer : 0;
         $severity = in_array($this->request->get('severity'), Health::SEVERITIES, true) ? $this->request->get('severity') : '';
+        // 3.30: the overdue console tasks ranked among the checks (kind "task"); the summary counts the checks only
+        $tasks = ConsoleTasks::todayItems(ConsoleTasks::open($this->db), $sites, $customers);
+        $all = ConsoleTasks::rank([...$items, ...$tasks]);
 
-        return $this->view('today', 'Fleet', ['items' => Health::filter($items, $customer, $severity), 'total' => count($items), 'summary' => Health::summary($sites, $items, $now, $context),
-            'customer' => $customer, 'severity' => $severity, 'customers' => $customers, 'now' => $now, 'pairingKey' => $this->pairingKey()]);
+        return $this->view('today', 'Fleet', ['items' => Health::filter($all, $customer, $severity), 'total' => count($all), 'summary' => Health::summary($sites, $items, $now, $context),
+            'customer' => $customer, 'severity' => $severity, 'customers' => $customers, 'now' => $now, 'pairingKey' => $this->pairingKey(), 'overdueTasks' => count($tasks),
+            'names' => \Kaleta\Core\Assignment::labels($this->db, array_column($tasks, 'assignee_id')), 'me' => $this->app->auth()->id()]);
     }
 
     /** The health matrix (3.29): a row per site, a column per check (Fleet\Checks::CHECKS), each cell linking to its fix. */
@@ -121,7 +131,7 @@ final class Fleet extends Module
 
         return $this->view('list', 'Fleet', ['sites' => $listed, 'total' => count($sites), 'needing' => $needing, 'show' => $show, 'query' => $query,
             'customers' => $customers, 'customer' => $customer, 'waiting' => Inbox::waitingBySite(Inbox::load($this->db, $this->app->settings(), time())),
-            'latest' => Console::latest($this->app)[0], 'pairingKey' => $this->pairingKey()]);
+            'latest' => Console::latest($this->app)[0], 'pairingKey' => $this->pairingKey(), 'taskCounts' => ConsoleTasks::openCounts($this->db)['sites']]);
     }
 
     /** The customers (3.17): how many sites each has and how much waits, renaming, the new version for one customer's sites. */
@@ -136,7 +146,27 @@ final class Fleet extends Module
         }
 
         return $this->view('customers', 'Customers', ['customers' => Customers::all($this->db), 'waiting' => $perCustomer,
-            'without' => count(array_filter($bySite, fn (mixed $c): bool => $c === null)), 'latest' => Console::latest($this->app)[0], 'reports' => Report::latestByCustomer($this->db)]);
+            'without' => count(array_filter($bySite, fn (mixed $c): bool => $c === null)), 'latest' => Console::latest($this->app)[0], 'reports' => Report::latestByCustomer($this->db),
+            'taskCounts' => ConsoleTasks::openCounts($this->db)['customers']]);
+    }
+
+    /**
+     * One customer (3.30): its sites with what needs attention and how much waits, and the console tasks about the customer
+     * (Admin\TaskActions – "check prices at Fysiomed before January"). The tasks of each site are on the site's screen.
+     */
+    protected function actionCustomerDetail(): Response
+    {
+        $id = $this->request->getInt('id');
+        $name = Customers::nameOf($this->db, $id);
+        if ($name === '') {
+            return $this->back('The customer is not in the console.', 'customers', [], 'chyba');
+        }
+        $now = time();
+        $sites = array_values(array_filter(Console::overview($this->db, $now), fn (array $s): bool => Console::customerIdOf($s) === $id));
+
+        return $this->view('customer_detail', $name, ['customer' => ['id' => $id, 'name' => $name], 'sites' => $sites,
+            'waiting' => Inbox::waitingBySite(Inbox::load($this->db, $this->app->settings(), $now)), 'taskCounts' => ConsoleTasks::openCounts($this->db)['sites'],
+            'tasks' => $this->taskPanel(ConsoleTasks::customer($id), ['customer' => $id])]);
     }
 
     /** Sets the customer and the note of one site (the site detail). */
@@ -196,7 +226,9 @@ final class Fleet extends Module
         $events = $this->db->all("SELECT created_at, type, severity, message FROM {events} WHERE type LIKE 'fleet.%' AND JSON_EXTRACT(data, '$.site') = ? ORDER BY id DESC LIMIT 20", [(int) $site['id']]);
 
         return $this->view('detail', (string) $site['name'], ['site' => $site, 'events' => $events, 'latest' => Console::latest($this->app)[0], 'customers' => Customers::names($this->db),
-            'trend' => History::trend($this->db, (int) $site['id'], time())]);
+            'trend' => History::trend($this->db, (int) $site['id'], time()),
+            // 3.30: the site's own Claude connector and the console tasks about the site
+            'connector' => Plan::connector($site['url']), 'tasks' => $this->taskPanel(ConsoleTasks::site((int) $site['id']), ['site' => (int) $site['id']])]);
     }
 
     /** The pairing key made just now, shown once (the inbox or the list of sites, wherever the owner lands). */
@@ -411,6 +443,24 @@ final class Fleet extends Module
     private function consoleAddress(): string
     {
         return rtrim($this->app->settings()->get('site_url') ?: $this->app->request->origin(), '/') . rtrim($this->app->url(''), '/');
+    }
+
+    /**
+     * The site ("site") or the customer ("customer") a posted task form is about (3.30, Admin\TaskActions); the change log
+     * names it by the site's address or the customer's name.
+     */
+    protected function taskTarget(): ?array
+    {
+        $customer = $this->request->postInt('customer');
+        if ($customer > 0) {
+            $name = Customers::nameOf($this->db, $customer);
+
+            return $name === '' ? null : ['target' => ConsoleTasks::customer($customer), 'back' => ['customer_detail', ['id' => $customer]], 'title' => $name, 'review' => null];
+        }
+        $id = $this->request->postInt('site');
+        $url = $id > 0 ? $this->db->value('SELECT url FROM {fleet_sites} WHERE id = ?', [$id]) : null;
+
+        return $url === null ? null : ['target' => ConsoleTasks::site($id), 'back' => ['detail', ['id' => $id]], 'title' => (string) $url, 'review' => null];
     }
 
     /** @return array<string, mixed>|null the site from ?id= or the posted id, with its attention and decoded report */

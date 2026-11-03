@@ -661,6 +661,22 @@
             "openWorldHint": false
         }
     },
+    "fleet_plan": {
+        "parameters": {
+            "checks": "array",
+            "customer": "string",
+            "severity": "string",
+            "site": "integer",
+            "tasks": "boolean"
+        },
+        "required": [],
+        "annotations": {
+            "title": "Plan fixes across the fleet",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "fleet_report": {
         "parameters": {
             "customer": "string",

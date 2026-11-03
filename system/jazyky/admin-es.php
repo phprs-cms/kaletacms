@@ -7654,4 +7654,12 @@ return [
     'From %s, only visits confirmed by a visitor’s browser are counted – bots, link previews and your own visits are left out. Earlier numbers include some of them.' => 'Desde el %s solo se cuentan las visitas que confirma el navegador del visitante: los bots, las vistas previas de enlaces y tus propias visitas quedan fuera. Las cifras anteriores incluyen parte de ellos.',
     'the light part of each bar is page views, the dark part visits. A page view counts when the visitor’s browser shows the page – without cookies and without storing IP addresses; bots, link previews and signed-in users are not counted.' => 'la parte clara de cada barra son las páginas vistas, la parte oscura las visitas. Una página vista cuenta cuando el navegador del visitante muestra la página, sin cookies y sin guardar direcciones IP; los bots, las vistas previas de enlaces y los usuarios con sesión iniciada no se cuentan.',
     'only visits confirmed by a browser count from this day' => 'desde este día solo cuentan las visitas confirmadas por un navegador',
+    'Site “%s”' => 'Sitio «%s»',
+    'Console customer “%s”' => 'Cliente de la consola «%s»',
+    'overdue tasks' => 'tareas vencidas',
+    'The customer has no site now – it stays in the console while it has an open task.' => 'El cliente no tiene ahora ningún sitio – sigue en la consola mientras tenga una tarea abierta.',
+    'Tasks about one site are on that site\'s page. Everyone with the console sees them; they stay on the console.' => 'Las tareas de un solo sitio están en la página de ese sitio. Las ve cualquiera con acceso a la consola; se quedan en la consola.',
+    'The customer is not in the console.' => 'El cliente no está en la consola.',
+    'Claude connector' => 'Conector de Claude',
+    'To let Claude work on this site, add this address as a connector in Claude and sign in to the site there. The console keeps no access to the site – Claude\'s fleet plan only lists this address.' => 'Para que Claude pueda trabajar en este sitio, añade esta dirección como conector en Claude e inicia sesión allí en el sitio. La consola no guarda ningún acceso al sitio – el plan de Claude para los sitios solo indica esta dirección.',
 ];

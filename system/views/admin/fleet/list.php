@@ -16,6 +16,7 @@
  * @var array<int, int> $waiting site id => things waiting
  * @var string $latest the newest version the console knows
  * @var string $pairingKey a pairing key made just now (shown once)
+ * @var array<int, int> $taskCounts site id => open console tasks (3.30, Fleet\ConsoleTasks)
  */
 use Kaleta\Fleet\Console;
 
@@ -56,7 +57,7 @@ $severity = fn (string $r): string => Console::REASONS[$r] >= Console::REASONS['
 <p><?= e(t('Nothing needs attention.')) ?></p>
 <?php else: ?>
 <div class="tab-obal"><table class="vypis vypis-karty">
-<thead><tr><th scope="col"><?= e(t('Site')) ?></th><th scope="col"><?= e(t('Customer')) ?></th><th scope="col"><?= e(t('What needs attention')) ?></th><th scope="col"><?= e(t('Waiting')) ?></th><th scope="col"><?= e(t('Version')) ?></th><th scope="col"><?= e(t('Last report')) ?></th><th scope="col"><?= e(t('Enquiries waiting')) ?></th><th scope="col" class="stred"><?= e(t('Select')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Site')) ?></th><th scope="col"><?= e(t('Customer')) ?></th><th scope="col"><?= e(t('What needs attention')) ?></th><th scope="col"><?= e(t('Waiting')) ?></th><th scope="col"><?= e(t('Tasks')) ?></th><th scope="col"><?= e(t('Version')) ?></th><th scope="col"><?= e(t('Last report')) ?></th><th scope="col"><?= e(t('Enquiries waiting')) ?></th><th scope="col" class="stred"><?= e(t('Select')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($sites as $s): ?>
 <tr>
@@ -64,6 +65,7 @@ $severity = fn (string $r): string => Console::REASONS[$r] >= Console::REASONS['
 	<td data-popisek="<?= e(t('Customer')) ?>"><?php if (isset($customers[(int) $s['customer_id']])): ?><a href="<?= e($module->url('sites', ['customer' => (int) $s['customer_id']])) ?>"><?= e($customers[(int) $s['customer_id']]) ?></a><?php endif ?></td>
 	<td data-popisek="<?= e(t('What needs attention')) ?>"><?php if ($s['reasons'] === []): ?><span class="stitek stitek-vydano"><?= e(t('ok')) ?></span><?php endif ?><?php foreach ($s['reasons'] as $r): ?><span class="stitek<?= $severity($r) !== '' ? ' stitek-' . $severity($r) : '' ?>"><?= e($reasonLabels[$r]) ?></span> <?php endforeach ?></td>
 	<td data-popisek="<?= e(t('Waiting')) ?>" class="stred"><?= ($n = $waiting[(int) $s['id']] ?? 0) > 0 ? '<a href="' . e($module->url('inbox', ['site' => (int) $s['id']])) . '">' . $n . '</a>' : '0' ?></td>
+	<td data-popisek="<?= e(t('Tasks')) ?>" class="stred" data-fleet-tasks><?= ($n = $taskCounts[(int) $s['id']] ?? 0) > 0 ? '<a href="' . e($module->url('detail', ['id' => (int) $s['id']]) . '#tasks') . '">' . $n . '</a>' : '0' ?></td>
 	<td data-popisek="<?= e(t('Version')) ?>"><?= e((string) $s['version'] !== '' ? (string) $s['version'] : '–') ?><?php if ((string) $s['update_allowed'] !== ''): ?><br><span class="smltxt"><?= e(t('allowed %s', (string) $s['update_allowed'])) ?></span><?php endif ?></td>
 	<td data-popisek="<?= e(t('Last report')) ?>"><?= $s['last_seen'] !== null ? e(format_date(new DateTimeImmutable((string) $s['last_seen']), true)) : '–' ?></td>
 	<td data-popisek="<?= e(t('Enquiries waiting')) ?>" class="stred"><?= ($waitingEnquiries = Console::enquiriesWaiting($s['beat'])) !== null ? $waitingEnquiries : '–' ?></td>

@@ -7634,4 +7634,12 @@ return [
     'From %s, only visits confirmed by a visitor’s browser are counted – bots, link previews and your own visits are left out. Earlier numbers include some of them.' => 'Seit %s werden nur Besuche gezählt, die der Browser eines Besuchers bestätigt – Bots, Linkvorschauen und Ihre eigenen Besuche bleiben außen vor. Frühere Zahlen enthalten einen Teil davon.',
     'the light part of each bar is page views, the dark part visits. A page view counts when the visitor’s browser shows the page – without cookies and without storing IP addresses; bots, link previews and signed-in users are not counted.' => 'der helle Teil jedes Balkens sind die Seitenaufrufe, der dunkle Teil die Besuche. Ein Seitenaufruf zählt, wenn der Browser des Besuchers die Seite anzeigt – ohne Cookies und ohne Speicherung von IP-Adressen; Bots, Linkvorschauen und angemeldete Benutzer werden nicht gezählt.',
     'only visits confirmed by a browser count from this day' => 'ab diesem Tag zählen nur vom Browser bestätigte Besuche',
+    'Site “%s”' => 'Website „%s“',
+    'Console customer “%s”' => 'Kunde der Konsole „%s“',
+    'overdue tasks' => 'überfällige Aufgaben',
+    'The customer has no site now – it stays in the console while it has an open task.' => 'Der Kunde hat derzeit keine Website – er bleibt in der Konsole, solange er eine offene Aufgabe hat.',
+    'Tasks about one site are on that site\'s page. Everyone with the console sees them; they stay on the console.' => 'Aufgaben zu einer Website stehen auf der Seite dieser Website. Alle mit Zugang zur Konsole sehen sie; sie bleiben in der Konsole.',
+    'The customer is not in the console.' => 'Der Kunde ist nicht in der Konsole.',
+    'Claude connector' => 'Claude-Connector',
+    'To let Claude work on this site, add this address as a connector in Claude and sign in to the site there. The console keeps no access to the site – Claude\'s fleet plan only lists this address.' => 'Damit Claude an dieser Website arbeiten kann, fügen Sie diese Adresse in Claude als Connector hinzu und melden Sie sich dort bei der Website an. Die Konsole behält keinen Zugriff auf die Website – Claudes Plan für die Websites nennt nur diese Adresse.',
 ];

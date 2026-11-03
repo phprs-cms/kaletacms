@@ -203,6 +203,7 @@ final class Console
         $url = (string) $db->value('SELECT url FROM {fleet_sites} WHERE id = ?', [$id]);
         if ($db->delete('fleet_sites', ['id' => $id]) > 0) {
             History::forget($db, $id); // 3.17: its days and down periods; the fleet reports already made keep it
+            \Kaleta\Core\Tasks::forgetTargets($db, [ConsoleTasks::site($id)]); // 3.30: its console tasks follow it
             Events::record($db, 'fleet.site_removed', 'info', t('%s is no longer in the console.', $url), ['site' => $id]);
         }
     }

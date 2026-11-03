@@ -719,7 +719,33 @@ final class Prompts
                 zone) to schedule it; `unschedule` true turns a scheduled one back into a draft. Then `list_newsletters` shows
                 the progress (sent and failed). Record the date and the topic with `write_notebook`.
                 MD],
+        // 3.30: on a fleet console (listed only there – FLEET_ONLY): fleet_plan, then one site at a time through its own connection
+        'fleet_fix' => ['title' => 'Fix things across the fleet', 'description' => 'On a fleet console: plan what to fix on which site, fix it one site at a time through each site\'s own connection, and report back on the console.',
+            'arguments' => ['customer' => ['Only the sites of this customer (optional)', false, ' of the customer %s', ''],
+                'severity' => ['Only the red (bad) or only the amber (warn) items (optional)', false, ' – only the %s items', '']],
+            'text' => <<<'MD'
+                Fix what needs attention on the sites{customer}{severity}. You are connected to a Kaleta fleet console. It only
+                reads: it never changes a site, runs nothing on a site and keeps no access to the sites.
+
+                1. Call `fleet_plan` (with `customer` and `severity` when I named them). Per site it lists the open items, the
+                   console tasks, the site's address, the address of the site's own Claude connector and a suggested order.
+                   Show me the plan in short and ask which sites to start with.
+                2. Work one site at a time, through that site's own connection – the connector address from the plan. If this
+                   conversation has no connector for it, ask me to add that address as a connector in Claude and sign in to that
+                   site, then go on. Never use the console's connection to change a site, and never ask for passwords or tokens.
+                3. On the site, start with its `site_info` and keep to the site's own rules and instructions. Fix what its tools
+                   allow, as drafts, and tell me what needs a person – a setting only an administrator changes, a payment, a
+                   decision. Each item's link opens the screen of the site's administration that fixes it: give it to me where
+                   a person has to act.
+                4. Back on the console, report every finished console task with `complete_task` (its id from the plan); for one
+                   that is not finished, note what you did or what blocks it with `save_task` (a new title or due date).
+                5. At the end, give me a short list per site: what you fixed, what waits for whom, what is left. Call
+                   `fleet_plan` again to show what remains.
+                MD],
     ];
+
+    /** Prompts listed only on a fleet console (the extension fleet on); prompts/get still answers them anywhere. */
+    public const array FLEET_ONLY = ['fleet_fix'];
 
     /**
      * Earlier prompts clients may still call (prompts/get), not listed. weekly_review stays the read-only report it was
@@ -758,12 +784,18 @@ final class Prompts
         return (self::PROMPTS[$name] ?? self::HIDDEN[$name] ?? [])['terms'] ?? [];
     }
 
-    /** @return list<array<string, mixed>> for prompts/list */
-    public static function listAll(): array
+    /**
+     * For prompts/list – every prompt, or with $app the ones for this site (3.30: FLEET_ONLY only on a fleet console).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function listAll(?App $app = null): array
     {
+        $prompts = $app === null || \Kaleta\Core\Extensions::isEnabled($app->settings(), 'fleet') ? self::PROMPTS : array_diff_key(self::PROMPTS, array_flip(self::FLEET_ONLY));
+
         return array_map(fn (string $name, array $p): array => ['name' => $name, 'title' => $p['title'], 'description' => $p['description'],
             'arguments' => array_map(fn (string $arg, array $d): array => ['name' => $arg, 'description' => $d[0], 'required' => $d[1]], array_keys($p['arguments']), $p['arguments'])],
-            array_keys(self::PROMPTS), self::PROMPTS);
+            array_keys($prompts), $prompts);
     }
 
     /**

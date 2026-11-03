@@ -2257,6 +2257,104 @@ await step('3.29 fleet console: Today, Health and Workload at 1440 and 390 px, l
   }
 });
 
+// 3.30 (agent Y): console tasks – the task panel on a site's screen (with the site's own Claude connector and Copy) and on a
+// customer's screen, the Tasks counts of Sites and Customers, the overdue task on Today (amber, opening the task on the console)
+// and in My work – at 1440 and 390 px, light and dark, no sideways scroll, axe clean in the panel, the connector and the sites
+await step('3.30 console tasks: the panels on the site and customer screens, the connector, Sites, Customers, Today and My work (1440 and 390 px, light/dark, axe)', async () => {
+  if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
+  const submit = async (locator) => { await Promise.all([page.waitForNavigation(), locator.click()]); };
+  const customer = Number(sql('SELECT customer_id FROM ka_fleet_sites WHERE id = 900').trim());
+  const past = new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10);
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    // the site: its connector (the known address + /mcp, no token) and a task overdue for me
+    await visit('/admin.php?module=fleet&action=detail&id=900');
+    if ((await page.locator('[data-fleet-connector] code').innerText()) !== 'https://shop.smile.example/mcp') { throw new Error('the connector of the site is not its /mcp address'); }
+    if (!(await page.locator('[data-fleet-connector] button[data-kopirovat="#fleet-connector"]').count())) { throw new Error('the connector has no Copy button'); }
+    const panel = page.locator('#tasks[data-tasks="fleet_site:900"]');
+    await panel.locator('.ukol-pridat > summary').click();
+    const form = panel.locator('form[data-task-add]');
+    await form.locator('input[name="title"]').fill('Renew the domain of the Smile shop');
+    await form.locator('input[name="due_date"]').fill(past);
+    await submit(form.locator('button[type="submit"].tl'));
+    await page.locator('.hlaska-ok', { hasText: 'The task was added.' }).waitFor();
+    const row = panel.locator('[data-tasks-open] .ukol', { hasText: 'Renew the domain of the Smile shop' });
+    if (!(await row.locator('.stitek-chyba', { hasText: 'overdue' }).count())) { throw new Error('the overdue site task is not marked overdue'); }
+    // the customer: its screen from Customers, a task for tomorrow by the quick button
+    await visit('/admin.php?module=fleet&action=customers');
+    const counted = await page.locator(`a[href*="action=customer_detail&id=${customer}"]`).count();
+    if (counted < 1) { throw new Error('Customers do not link to the customer\'s screen'); }
+    await submit(page.locator(`a[href$="action=customer_detail&id=${customer}"]`).first());
+    if (!(await page.locator('[data-customer-sites] a[href*="action=detail&id=900"]').count())) { throw new Error('the customer\'s screen does not list its sites'); }
+    const cpanel = page.locator(`#tasks[data-tasks="fleet_customer:${customer}"]`);
+    await cpanel.locator('.ukol-pridat > summary').click();
+    await cpanel.locator('form[data-task-add] input[name="title"]').fill('Check the prices before January');
+    await submit(cpanel.locator('form[data-task-add] .ukol-rychle button', { hasText: 'Tomorrow' }));
+    if (!(await cpanel.locator('[data-tasks-open] .ukol-nazev', { hasText: 'Check the prices before January' }).count())) { throw new Error('the customer task is not listed'); }
+    // Today: the overdue task among the checks – amber, the first item still red, its Open stays on the console
+    await visit('/admin.php?module=fleet');
+    const item = page.locator('table.flotila-dnes tr[data-fleet-task]');
+    if (await item.count() !== 1 || !/flotila-warn/.test(await item.getAttribute('class'))) { throw new Error('Today does not show the overdue console task as one amber item'); }
+    if (!/flotila-bad/.test(await page.locator('table.flotila-dnes tbody tr').first().getAttribute('class'))) { throw new Error('the first item of Today is not red'); }
+    const open = item.locator('a.navigace');
+    if (!(await open.getAttribute('href')).endsWith('action=detail&id=900#tasks') || await open.getAttribute('target')) { throw new Error('the task on Today does not open on the console'); }
+    if (!(await page.locator('[data-fleet-overdue-tasks]').count())) { throw new Error('the summary does not count the overdue tasks'); }
+    // My work: both, with what they are about
+    await visit('/admin.php?module=my_work');
+    for (const [title, about] of [['Renew the domain of the Smile shop', 'Site “Smile Dental – shop”'], ['Check the prices before January', 'Console customer “Dental Clinic Smile and Partners International Ltd”']]) {
+      if (!(await page.locator('[data-list="tasks"] tr[data-task]', { hasText: title }).locator('a', { hasText: about }).count())) { throw new Error(`My work does not show “${title}” about ${about}`); }
+    }
+    // light and dark, desktop and phone: the screens fit; the task text is readable on its card
+    const state = await context.storageState();
+    for (const scheme of ['light', 'dark']) {
+      for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]]) {
+        const other = await browser.newContext({ viewport: { width, height }, locale: 'en-GB', colorScheme: scheme, storageState: state, ...(width < 500 ? { isMobile: true, hasTouch: true } : {}) });
+        const p2 = await other.newPage(); watch(p2);
+        try {
+          for (const [url, shot] of [['/admin.php?module=fleet&action=detail&id=900', 'site'], [`/admin.php?module=fleet&action=customer_detail&id=${customer}`, 'customer'],
+            ['/admin.php?module=fleet&action=sites&show=all', 'sites'], ['/admin.php?module=fleet&action=customers', 'customers'], ['/admin.php?module=fleet', 'today']]) {
+            await p2.goto(BASE + url, { waitUntil: 'networkidle' });
+            if (await p2.locator('#tasks .ukol-pridat').count()) { await p2.locator('#tasks .ukol-pridat').evaluate((d) => { d.open = true; }); }
+            const wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+            if (wide > 0) { throw new Error(`${url}: ${wide} px of sideways scroll (${label}, ${scheme})`); }
+            if (await p2.locator('#tasks .ukol').count()) {
+              const colours = await p2.locator('#tasks .ukol').first().evaluate((el) => [getComputedStyle(el).backgroundColor, getComputedStyle(el.querySelector('.ukol-nazev')).color]);
+              if (colours[0] === colours[1]) { throw new Error(`${url}: the task text has the colour of its card (${label}, ${scheme})`); }
+            }
+            if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/fleet-330-${shot}-${label}-${scheme}.png`, fullPage: true }); }
+          }
+        } finally {
+          await other.close();
+        }
+      }
+    }
+    const axeContext = await browser.newContext({ storageState: state, bypassCSP: true, viewport: { width: 1440, height: 900 } });
+    try {
+      const axePage = await axeContext.newPage();
+      for (const [url, include] of [['/admin.php?module=fleet&action=detail&id=900', ['#tasks', '[data-fleet-connector]']], [`/admin.php?module=fleet&action=customer_detail&id=${customer}`, ['#tasks', '[data-customer-sites]']],
+        ['/admin.php?module=fleet', ['table.flotila-dnes']]]) {
+        for (const scheme of ['light', 'dark']) {
+          await axePage.emulateMedia({ colorScheme: scheme });
+          await axePage.goto(BASE + url, { waitUntil: 'networkidle' });
+          await axePage.addScriptTag({ path: AXE });
+          const found = await axePage.evaluate(([inc, tags]) => window.axe.run({ include: inc.map((s) => [s]) }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [include, WCAG]);
+          if (found.violations.length) { throw new Error(`axe ${url} (${scheme}): ` + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+        }
+      }
+    } finally {
+      await axeContext.close();
+    }
+    // done from the site's panel: Today has no task item any more
+    await visit('/admin.php?module=fleet&action=detail&id=900');
+    await submit(page.locator('#tasks [data-tasks-open] .ukol', { hasText: 'Renew the domain of the Smile shop' }).locator('button.ukol-hotovo'));
+    await visit('/admin.php?module=fleet');
+    if (await page.locator('tr[data-fleet-task]').count()) { throw new Error('a done console task is still on Today'); }
+  } finally {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    sql("DELETE FROM ka_notifications WHERE target LIKE 'fleet%'; DELETE FROM ka_tasks WHERE target LIKE 'fleet%'");
+  }
+});
+
 await step('3.13 Spanish admin: switched in My account, Spanish screens without sideways scroll at 390 px', async () => {
   const adminLanguage = async (code) => {
     await visit('/admin.php?action=account');

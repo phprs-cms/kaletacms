@@ -7,7 +7,8 @@ namespace Kaleta\Core;
 /**
  * Tasks and follow-ups (3.27, table ka_tasks, migration 0113): "call back on Monday", "review the price page by 1 Dec".
  * One person each, optionally about an enquiry, a page or a collection item (target 'enquiry:<idp>' | 'page:<ids>' |
- * 'item:<idp>'; 3.28 also a customer 'contact:<id>' or a company 'company:<id>', Core\Contacts), with a due moment and an
+ * 'item:<idp>'; 3.28 also a customer 'contact:<id>' or a company 'company:<id>', Core\Contacts; 3.30 on a fleet console a
+ * site 'fleet_site:<id>' or a console customer 'fleet_customer:<id>', Fleet\ConsoleTasks), with a due moment and an
  * optional reminder. Deliberately small: no subtasks, dependencies, time tracking
  * or recurrence.
  *
@@ -459,12 +460,15 @@ final class Tasks
         throw new \DomainException(t('The date “%s” is not understood – use YYYY-MM-DD, YYYY-MM-DD HH:MM, “tomorrow” or “+3 days”.', $value));
     }
 
-    /** A target as stored: 'enquiry:<id>', 'page:<id>', 'item:<id>', 'contact:<id>' or 'company:<id>' (3.28); null for anything else (an empty one too). Pure. */
+    /**
+     * A target as stored: 'enquiry:<id>', 'page:<id>', 'item:<id>', 'contact:<id>' or 'company:<id>' (3.28), 'fleet_site:<id>'
+     * or 'fleet_customer:<id>' (3.30, a console); null for anything else (an empty one too). Pure.
+     */
     public static function cleanTarget(mixed $target): ?string
     {
         $target = is_string($target) ? trim($target) : '';
 
-        return preg_match('/^(enquiry|page|item|contact|company):[1-9]\d{0,9}$/D', $target) === 1 ? $target : null;
+        return preg_match('/^(enquiry|page|item|contact|company|fleet_site|fleet_customer):[1-9]\d{0,9}$/D', $target) === 1 ? $target : null;
     }
 
     /** What a person is responsible for in tasks: their open ones (Core\Handover). */
@@ -593,7 +597,8 @@ final class Tasks
             $byKind[$kind][] = (int) $id;
         }
         $gone = [];
-        foreach (['enquiry' => ['poptavky', 'idp'], 'page' => ['stranky', 'ids'], 'item' => ['kolekce_polozky', 'idp'], 'contact' => ['contacts', 'id'], 'company' => ['companies', 'id']] as $kind => [$table, $key]) {
+        foreach (['enquiry' => ['poptavky', 'idp'], 'page' => ['stranky', 'ids'], 'item' => ['kolekce_polozky', 'idp'], 'contact' => ['contacts', 'id'], 'company' => ['companies', 'id'],
+            'fleet_site' => ['fleet_sites', 'id'], 'fleet_customer' => ['fleet_customers', 'id']] as $kind => [$table, $key]) {
             foreach (array_chunk(array_values(array_unique(array_filter($byKind[$kind] ?? []))), 500) as $chunk) {
                 try {
                     $existing = array_flip(array_map('intval', array_column($db->all('SELECT ' . $key . ' FROM {' . $table . '} WHERE ' . $key . ' IN (' . implode(',', $chunk) . ')'), $key)));
@@ -641,6 +646,30 @@ final class Tasks
     }
 
     /**
+     * The open tasks about records of the given kinds (3.30: the console's sites and customers – Fleet\ConsoleTasks), by due
+     * date (no date last). Each row as find() returns it.
+     *
+     * @param list<string> $kinds target kinds, e.g. ['fleet_site', 'fleet_customer']
+     * @return list<array<string, mixed>>
+     */
+    public static function openAbout(Db $db, array $kinds, int $limit = 500): array
+    {
+        $kinds = array_values(array_filter($kinds, fn (string $k): bool => preg_match('/^[a-z_]+$/D', $k) === 1));
+        if ($kinds === []) {
+            return [];
+        }
+        $like = implode(' OR ', array_fill(0, count($kinds), 'target LIKE ?'));
+        try {
+            $rows = $db->all('SELECT ' . self::COLUMNS . ' FROM {tasks} WHERE done_at IS NULL AND (' . $like . ') ORDER BY due_at IS NULL, due_at, id LIMIT ' . max(1, min(2000, $limit)),
+                array_map(fn (string $k): string => $k . ':%', $kinds)); // a target is kind:<digits> – no kind is another's prefix
+        } catch (\PDOException) {
+            return [];
+        }
+
+        return array_map(self::row(...), $rows);
+    }
+
+    /**
      * A task the user may change, or a \DomainException.
      *
      * @return array<string, mixed>
@@ -674,7 +703,8 @@ final class Tasks
         if ($target === null) {
             return null;
         }
-        if (self::label($db, $target) === null) {
+        // 3.30: a console task only while the console is on (the fleet extension)
+        if (self::label($db, $target) === null || (str_starts_with($target, 'fleet_') && !Extensions::isEnabled($app->settings(), 'fleet'))) {
             return t('What the task is about does not exist (or is in the trash).');
         }
         $section = Assignment::KINDS[explode(':', $target)[0]];

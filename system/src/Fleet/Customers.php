@@ -131,6 +131,7 @@ final class Customers
             $db->run('UPDATE {fleet_kits} SET customer_id = ? WHERE customer_id = ?', [(int) $other, $id]);
             // the archived fleet reports follow; a month both already have keeps both reports (each under its own id)
             $db->run('UPDATE IGNORE {fleet_reports} SET customer_id = ? WHERE customer_id = ?', [(int) $other, $id]);
+            ConsoleTasks::moveCustomer($db, $id, (int) $other); // 3.30: and its console tasks
             $db->delete('fleet_customers', ['id' => $id]);
 
             return true;
@@ -148,12 +149,20 @@ final class Customers
 
     /**
      * Customers without a site and without a kit meant for them are forgotten. Their archived fleet reports stay, under the
-     * old id with the name they had (Fleet\Report).
+     * old id with the name they had (Fleet\Report). 3.30: a customer with an open console task is kept (its work is never
+     * lost); the done tasks of a forgotten one go with it (Fleet\ConsoleTasks).
      */
     private static function forgetUnused(Db $db): void
     {
         self::$cache = [];
-        $db->run('DELETE FROM {fleet_customers} WHERE id NOT IN (SELECT customer_id FROM {fleet_sites} WHERE customer_id IS NOT NULL)'
-            . ' AND id NOT IN (SELECT customer_id FROM {fleet_kits} WHERE customer_id IS NOT NULL)');
+        $keep = ConsoleTasks::customersWithOpenTasks($db);
+        $where = 'id NOT IN (SELECT customer_id FROM {fleet_sites} WHERE customer_id IS NOT NULL)'
+            . ' AND id NOT IN (SELECT customer_id FROM {fleet_kits} WHERE customer_id IS NOT NULL)' . ($keep !== [] ? ' AND id NOT IN (' . implode(',', $keep) . ')' : '');
+        $gone = array_map('intval', array_column($db->all('SELECT id FROM {fleet_customers} WHERE ' . $where), 'id'));
+        if ($gone === []) {
+            return;
+        }
+        $db->run('DELETE FROM {fleet_customers} WHERE id IN (' . implode(',', $gone) . ')');
+        \Kaleta\Core\Tasks::forgetTargets($db, array_map(ConsoleTasks::customer(...), $gone));
     }
 }

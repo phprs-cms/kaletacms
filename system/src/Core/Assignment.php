@@ -17,8 +17,13 @@ namespace Kaleta\Core;
  */
 final class Assignment
 {
-    /** kind => the admin section (Module::IDENT) a person needs to be chosen for it; 3.28: a customer and a company need Customers (Core\Contacts::SECTION) */
-    public const array KINDS = ['enquiry' => 'enquiries', 'page' => 'pages', 'item' => 'collections', 'contact' => 'contacts', 'company' => 'contacts'];
+    /**
+     * kind => the admin section (Module::IDENT) a person needs to be chosen for it; 3.28: a customer and a company need Customers
+     * (Core\Contacts::SECTION); 3.30: a site and a customer of a fleet console need the console (only tasks are about them –
+     * Fleet\ConsoleTasks; nothing on the console has a responsible person)
+     */
+    public const array KINDS = ['enquiry' => 'enquiries', 'page' => 'pages', 'item' => 'collections', 'contact' => 'contacts', 'company' => 'contacts',
+        'fleet_site' => 'fleet', 'fleet_customer' => 'fleet'];
 
     /** How a removed account is shown where its id is left (untranslated at the MCP boundary, t() in the admin). */
     public const string FORMER_USER = '(former user)';
