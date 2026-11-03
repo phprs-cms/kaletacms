@@ -1380,6 +1380,20 @@ alias renamed; new non-essential MCP tools `fleet_today` and `fleet_health`; `ge
    and the chart mark the day the new counting started (`stats_confirmed_since`).
 6. **Admin footer:** the heart link reads "Support the development of Kaleta CMS" (Czech "Podpořte vývoj Kaleta CMS").
 
+**3.29.1 (3 November 2026):** say why the visits dropped, a quieter menu, and password links that work again (owner,
+3 November). No migration; no setting, MCP tool, parameter or Czech alias renamed.
+1. **Visits drop explained:** `Front\Stats::spansSwitch`/`recentSwitch` is the one rule wherever visits are compared or
+   charted – the dashboard chart, the monthly report (tile, rows, e-mail, page), MCP (`get_stats.counting_note`,
+   `get_monthly_report.counting_changed`, `get_site.visits_counting_changed`) and the Fleet console (site page, fleet
+   reports): across the switch to browser-confirmed counting a drop is marked "counting changed on …", never a down arrow
+   or an alert. The heartbeat carries `stats_confirmed_since`, bounded by `Fleet\Console::day`.
+2. **Menu after sign-in:** only Content is open (`Admin\MenuGroups::OPEN_AT_SIGN_IN`), plus the group of the current screen;
+   the person's own opening and folding lasts until they sign out.
+3. **Invitation and password links set the password again** (PR #35): `Admin\PasswordReset::page()` let its empty defaults
+   win over the token since 1.4.0, so the form posted an empty token and no password was ever saved. Also: sign-in with an
+   e-mail address when exactly one account has it (same limits, lock and two-step checks, no enumeration), and a password
+   link opened in a signed-in browser signs that browser out after the new password is saved.
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |
